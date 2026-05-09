@@ -17,7 +17,7 @@
   body { font-family: var(--sans); -webkit-font-smoothing: antialiased; overflow: hidden; }
   * { box-sizing: border-box; }
 
-  /* Windows 11-ish desktop background — soft bloom wallpaper */
+  /* Windows 11-ish desktop background */
   .desktop {
     position: fixed; inset: 0;
     background:
@@ -34,7 +34,7 @@
     backdrop-filter: blur(40px) saturate(180%);
     -webkit-backdrop-filter: blur(40px) saturate(180%);
     border-top: 1px solid rgba(255,255,255,.06);
-    display: flex; align-items: center; padding: 0 12px; gap: 8;
+    display: flex; align-items: center; padding: 0 12px; gap: 8px;
     z-index: 5;
   }
   .taskbar-icons { display: flex; gap: 4px; flex: 1; justify-content: center; }
@@ -74,11 +74,9 @@
     overflow: hidden;
     display: flex; flex-direction: column;
     transform-origin: center center;
+    transition: background .25s;
   }
 
-  /* The native ::-webkit-app-region: drag would live on the titlebar inside V1Frame */
-
-  /* Auto-scale the desktop to fit any viewport. */
   .stage {
     position: fixed; inset: 0;
     transform-origin: center center;
@@ -97,10 +95,25 @@
     display: flex; align-items: center; gap: 8px;
   }
   .mockup-tag .dot { width: 7px; height: 7px; border-radius: 50%; background: #5a8a4f; box-shadow: 0 0 0 3px rgba(90,138,79,.25); }
-  .mockup-tag a { color: rgba(255,255,255,.6); text-decoration: none; margin-left: 6px; padding-left: 10px; border-left: 1px solid rgba(255,255,255,.15); }
+  .mockup-tag a { color: rgba(255,255,255,.6); text-decoration: none; margin-left: 2px; padding-left: 10px; border-left: 1px solid rgba(255,255,255,.15); }
   .mockup-tag a:hover { color: #fff; }
+  .mockup-tag .tweaks-btn {
+    appearance: none; border: 0;
+    background: rgba(255,255,255,.12);
+    color: rgba(255,255,255,.8);
+    padding: 2px 9px 2px 7px;
+    border-radius: 999px;
+    font-family: var(--mono); font-size: 10.5px;
+    cursor: default;
+    display: inline-flex; align-items: center; gap: 5px;
+    margin-left: 2px;
+    border-left: 1px solid rgba(255,255,255,.15);
+    padding-left: 10px;
+    transition: background .12s;
+  }
+  .mockup-tag .tweaks-btn:hover { background: rgba(255,255,255,.2); color: #fff; }
 
-  /* Floating screen switcher — lets you flip the renderer through its screens */
+  /* Floating screen switcher */
   .screen-tabs {
     position: fixed; right: 16px; top: 16px; z-index: 10;
     display: flex; gap: 4px;
@@ -122,16 +135,7 @@
   .screen-tabs button:hover { color: #fff; background: rgba(255,255,255,.06); }
   .screen-tabs button.active { background: #fff; color: #29261b; font-weight: 600; }
 
-  /* Window-frame badges */
-  .win-badge {
-    position: absolute; top: 12px; padding: 3px 8px;
-    background: rgba(0,0,0,.45); color: #fff;
-    border-radius: 4px;
-    font-family: var(--mono); font-size: 10px; letter-spacing: .3px;
-    pointer-events: none;
-  }
-
-  /* The V1 frame defines its own height/width; constrain it to fill the window. */
+  /* The V1 frame fills the window. */
   .app-window .app-frame {
     width: 100%; height: 100%;
     border-radius: 0 !important;
@@ -146,6 +150,12 @@
     <span class="dot"></span>
     Orca · Electron BrowserWindow on Windows 11
     <a href="architecture.html">아키텍처 문서 →</a>
+    <button class="tweaks-btn" id="tweaks-open-btn">
+      <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5zm5.4 2.5l1.3-.8-1-1.7-1.4.6a4.4 4.4 0 0 0-1-.6L11 4h-2l-.3 1.5a4.4 4.4 0 0 0-1 .6l-1.4-.6-1 1.7L6.6 8a4.4 4.4 0 0 0 0 1l-1.3.8 1 1.7 1.4-.6c.3.2.6.4 1 .6L9 13h2l.3-1.5c.4-.2.7-.4 1-.6l1.4.6 1-1.7-1.3-.8a4.4 4.4 0 0 0 0-1z"/>
+      </svg>
+      Tweaks
+    </button>
   </div>
 
   <div class="stage" id="stage">
@@ -171,26 +181,25 @@
       <div class="badge">O</div>
       <span style="opacity:.7">🔊</span>
       <span style="opacity:.7">📶</span>
-      <div class="tb-clock"><div>14:42</div><div class="date">2026-05-10</div></div>
+      <div class="tb-clock"><div>14:42</div><div class="date">2026-05-09</div></div>
     </div>
   </div>
 </div>
 
 <div id="root"></div>
 
-<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGLr4NjnLuoqNYEfwPGvQIF5ETnL9GdGD3mfePnFNqNw0gMkVJbIO" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
 <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 
 <script>const { useState, useEffect, useRef, useCallback, useMemo } = React;</script>
 <script type="text/babel" data-presets="react" src="../shared/atoms.jsx"></script>
+<script type="text/babel" data-presets="react" src="../tweaks-panel.jsx"></script>
 <script type="text/babel" data-presets="react" src="../variations/v1-shell.jsx"></script>
 <script type="text/babel" data-presets="react" src="../variations/v1-screens.jsx"></script>
 
 <script type="text/babel" data-presets="react">
-  // Mount the V1 main screen inside the Electron BrowserWindow.
-  // Screens reflect the Variation A renderer set: chat (dual-pane main),
-  // projects dashboard, engine & model settings, skills/MCP, capture history.
+  // ── Screen registry ────────────────────────────────────────────────────────
   const SCREENS = [
     { id: 'chat',      label: '01 채팅' },
     { id: 'projects',  label: '02 프로젝트' },
@@ -207,8 +216,63 @@
     captures: '캡처 히스토리',
   };
 
+  // ── Theme palettes — each reshapes the entire colour system ───────────────
+  // Values mirror the hardcoded V1 object; applied by mutating window.V1 so
+  // all child components pick up the new colours on the next render cycle.
+  const THEME_PALETTES = {
+    classic: {                          // warm Claude Desktop cream
+      bg: '#fbf9f4', sidebar: '#f3eee3', panel: '#ffffff',
+      border: '#ebe3d0', borderStrong: '#ddd2b6',
+      ink: '#29261b', ink2: '#6b6452', ink3: '#a8a092',
+      rust: '#c96442', rustSoft: '#f4dcc9',
+    },
+    dark: {                             // dark engineering slate
+      bg: '#1c1a16', sidebar: '#231f1a', panel: '#2a2620',
+      border: '#3a342a', borderStrong: '#4a4234',
+      ink: '#f0eadd', ink2: '#a8a092', ink3: '#6b6452',
+      rust: '#e07855', rustSoft: '#4a2214',
+    },
+    cool: {                             // cool minimal blue-slate
+      bg: '#f8fafc', sidebar: '#f1f5f9', panel: '#ffffff',
+      border: '#e2e8f0', borderStrong: '#cbd5e1',
+      ink: '#0f172a', ink2: '#475569', ink3: '#94a3b8',
+      rust: '#2563eb', rustSoft: '#dbeafe',
+    },
+  };
+
+  // ── Density scale — "compact → comfortable" reshapes spacing feel ─────────
+  const DENSITY_FONT = { compact: 11.5, normal: 13, comfortable: 14.5 };
+
+  // ── Tweak defaults ─────────────────────────────────────────────────────────
+  const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+    "theme":            "classic",
+    "density":          "normal",
+    "sidebarCollapsed": false
+  }/*EDITMODE-END*/;
+
+  // ── Main app ───────────────────────────────────────────────────────────────
   function ElectronApp() {
     const [screen, setScreen] = React.useState('chat');
+    const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+    // Incrementing this key forces all V1 children to remount and repaint
+    // after we've mutated window.V1 with new colours.
+    const [themeKey, setThemeKey] = React.useState(0);
+
+    // 1 · Theme — rewrites V1 colour tokens + updates window bg
+    React.useEffect(() => {
+      const palette = THEME_PALETTES[t.theme] || THEME_PALETTES.classic;
+      Object.assign(window.V1, palette);
+      const appWin = document.getElementById('appWin');
+      if (appWin) appWin.style.background = palette.bg;
+      setThemeKey(k => k + 1);
+    }, [t.theme]);
+
+    // 2 · Density — scales the base font size inside the app frame,
+    // which cascades to all em/rem spacing in child components.
+    React.useEffect(() => {
+      const appWin = document.getElementById('appWin');
+      if (appWin) appWin.style.fontSize = DENSITY_FONT[t.density] + 'px';
+    }, [t.density]);
 
     let body;
     if (screen === 'chat') {
@@ -219,36 +283,85 @@
         </>
       );
     } else if (screen === 'projects')  body = <V1Projects/>;
-    else if (screen === 'engine')    body = <V1EngineSettings/>;
-    else if (screen === 'skills')    body = <V1SkillsMcp/>;
-    else if (screen === 'captures')  body = <V1Captures/>;
+    else if (screen === 'engine')      body = <V1EngineSettings/>;
+    else if (screen === 'skills')      body = <V1SkillsMcp/>;
+    else if (screen === 'captures')    body = <V1Captures/>;
 
     return (
       <>
+        {/* Floating screen-switcher — fixed positions relative to .app-window
+            because the window element has a CSS transform. */}
         <div className="screen-tabs">
           {SCREENS.map((s) => (
-            <button key={s.id} className={s.id === screen ? 'active' : ''} onClick={() => setScreen(s.id)}>{s.label}</button>
+            <button key={s.id} className={s.id === screen ? 'active' : ''}
+                    onClick={() => setScreen(s.id)}>{s.label}</button>
           ))}
         </div>
-        <div id="appWinInner" style={{ width: '100%', height: '100%' }}>
+
+        {/* App content — keyed on themeKey so React rebuilds the tree after
+            V1 colours mutate, preventing stale inline-style captures. */}
+        <div key={themeKey} style={{ width: '100%', height: '100%' }}>
           <V1Frame label={`Orca · ${SCREENS.find((s) => s.id === screen).label}`}>
             <V1Titlebar breadcrumb={TITLEBAR_BREADCRUMB[screen]}/>
             <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
-              <V1Sidebar active={screen}/>
+              <V1Sidebar active={screen} collapsed={t.sidebarCollapsed}/>
               {body}
             </div>
           </V1Frame>
         </div>
+
+        {/* Tweaks panel — three controls that each reshape the whole feel:
+              · 테마     : entire colour palette (warm / dark / cool)
+              · 밀도     : base font size → cascades to all spacing
+              · 사이드바  : collapsed vs expanded layout */}
+        <TweaksPanel title="Tweaks">
+          <TweakSection label="테마"/>
+          <TweakRadio
+            label="컬러 팔레트"
+            value={t.theme}
+            options={[
+              { value: 'classic', label: '클래식' },
+              { value: 'dark',    label: '다크'   },
+              { value: 'cool',    label: '쿨'     },
+            ]}
+            onChange={(v) => setTweak('theme', v)}
+          />
+          <TweakSection label="레이아웃"/>
+          <TweakRadio
+            label="밀도"
+            value={t.density}
+            options={[
+              { value: 'compact',     label: '조밀' },
+              { value: 'normal',      label: '보통' },
+              { value: 'comfortable', label: '넓게' },
+            ]}
+            onChange={(v) => setTweak('density', v)}
+          />
+          <TweakToggle
+            label="사이드바 접기"
+            value={t.sidebarCollapsed}
+            onChange={(v) => setTweak('sidebarCollapsed', v)}
+          />
+        </TweaksPanel>
       </>
     );
   }
+
   ReactDOM.createRoot(document.getElementById('appWin')).render(<ElectronApp/>);
 
-  // Auto-scale the whole desktop (stage + taskbar already use fixed positioning;
-  // we just scale the .app-window to keep it inside the viewport.)
+  // ── Tweaks toggle — button lives in static HTML so it doesn't depend on
+  // React being mounted; sends the standard edit-mode message the panel
+  // listens for, without needing to reach inside the React tree.
+  document.getElementById('tweaks-open-btn').addEventListener('click', () => {
+    window.dispatchEvent(new MessageEvent('message', {
+      data: { type: '__activate_edit_mode' },
+    }));
+  });
+
+  // ── Auto-scale — shrinks the 1280×820 window to fit any viewport.
   function fit() {
     const win = document.getElementById('appWin');
-    const W = window.innerWidth, H = window.innerHeight - 48; // taskbar
+    const W = window.innerWidth, H = window.innerHeight - 48;
     const sx = (W - 80) / 1280, sy = (H - 80) / 820;
     const s = Math.min(1, sx, sy);
     win.style.transform = `translate(-50%, calc(-50% - 24px)) scale(${s})`;
