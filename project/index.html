@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<title>Orca — Windows Desktop App Design</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles/tokens.css"/>
+<style>
+  html, body { margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="shared/atoms.jsx"></script>
+<script type="text/babel" src="variations/v1-shell.jsx"></script>
+<script type="text/babel" src="variations/v1-screens.jsx"></script>
+<script type="text/babel">
+const W = 1280, H = 820;
+
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "dark": false,
+  "fontScale": 0.85,
+  "sidebarCollapsed": false,
+  "accent": "#b85a6e"
+}/*EDITMODE-END*/;
+
+function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  React.useEffect(() => {
+    const r = document.documentElement;
+    r.style.setProperty('--rust', t.accent);
+    r.style.fontSize = (t.fontScale * 16) + 'px';
+    if (t.dark) {
+      r.style.setProperty('--cream-0', '#1c1a16');
+      r.style.setProperty('--cream-50', '#231f1a');
+      r.style.setProperty('--cream-100', '#2a2620');
+      r.style.setProperty('--paper', '#231f1a');
+      r.style.setProperty('--ink-900', '#f0eadd');
+      r.style.setProperty('--ink-700', '#d6c9aa');
+      r.style.setProperty('--ink-500', '#a8a092');
+      r.style.setProperty('--ink-400', '#857c64');
+      r.style.setProperty('--ink-300', '#6b6452');
+      r.style.setProperty('--line', '#3a342a');
+      r.style.setProperty('--line-strong', '#4a4234');
+    } else {
+      r.style.removeProperty('--cream-0');
+      r.style.removeProperty('--cream-50');
+      r.style.removeProperty('--cream-100');
+      r.style.removeProperty('--paper');
+      r.style.removeProperty('--ink-900');
+      r.style.removeProperty('--ink-700');
+      r.style.removeProperty('--ink-500');
+      r.style.removeProperty('--ink-400');
+      r.style.removeProperty('--ink-300');
+      r.style.removeProperty('--line');
+      r.style.removeProperty('--line-strong');
+    }
+  }, [t.dark, t.fontScale, t.accent]);
+
+  return (
+    <>
+    <DesignCanvas>
+      <DCSection id="v1" title="Orca — 검증 엔지니어 데스크톱 앱" subtitle="A · Claude Desktop classic — 따뜻한 베이지, 세리프 헤더">
+        <DCArtboard id="v1-main" label="메인 — 채팅 + 하드웨어 (이중창)" width={W} height={H}>
+          <V1Frame label="01 V1 메인">
+            <V1Titlebar/>
+            <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
+              <V1Sidebar active="chat" collapsed={t.sidebarCollapsed}/>
+              <V1ChatPane/>
+              <V1CameraPane/>
+            </div>
+          </V1Frame>
+        </DCArtboard>
+
+        <DCArtboard id="v1-projects" label="프로젝트 대시보드" width={W} height={H}>
+          <V1Frame label="02 V1 프로젝트">
+            <V1Titlebar breadcrumb="프로젝트"/>
+            <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
+              <V1Sidebar active="projects" collapsed={t.sidebarCollapsed}/>
+              <V1Projects/>
+            </div>
+          </V1Frame>
+        </DCArtboard>
+
+        <DCArtboard id="v1-engine" label="엔진 & 모델 설정" width={W} height={H}>
+          <V1Frame label="03 V1 엔진">
+            <V1Titlebar breadcrumb="설정 › 엔진 & 모델"/>
+            <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
+              <V1Sidebar active="engine" collapsed={t.sidebarCollapsed}/>
+              <V1EngineSettings/>
+            </div>
+          </V1Frame>
+        </DCArtboard>
+
+        <DCArtboard id="v1-skills" label="Skills & MCP" width={W} height={H}>
+          <V1Frame label="04 V1 Skills/MCP">
+            <V1Titlebar breadcrumb="Skills & MCP"/>
+            <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
+              <V1Sidebar active="skills" collapsed={t.sidebarCollapsed}/>
+              <V1SkillsMcp/>
+            </div>
+          </V1Frame>
+        </DCArtboard>
+
+        <DCArtboard id="v1-captures" label="캡처 히스토리 & AI 분석" width={W} height={H}>
+          <V1Frame label="05 V1 캡처">
+            <V1Titlebar breadcrumb="캡처 & 분석"/>
+            <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
+              <V1Sidebar active="capture" collapsed/>
+              <V1Captures/>
+            </div>
+          </V1Frame>
+        </DCArtboard>
+      </DCSection>
+
+    </DesignCanvas>
+    <TweaksPanel>
+      <TweakSection label="테마"/>
+      <TweakToggle label="다크 모드" value={t.dark} onChange={(v) => setTweak('dark', v)}/>
+      <TweakColor label="액센트" value={t.accent}
+        options={['#c96442','#3a7872','#7a5ad9','#1c1a14','#b85a6e']}
+        onChange={(v) => setTweak('accent', v)}/>
+      <TweakSection label="레이아웃"/>
+      <TweakSlider label="글자 크기" value={t.fontScale} min={0.85} max={1.2} step={0.05} unit="×"
+        onChange={(v) => setTweak('fontScale', v)}/>
+      <TweakToggle label="사이드바 접기" value={t.sidebarCollapsed}
+        onChange={(v) => setTweak('sidebarCollapsed', v)}/>
+    </TweaksPanel>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
