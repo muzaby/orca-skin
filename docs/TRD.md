@@ -84,6 +84,7 @@ PRD §7.1 의 Stack 표를 구현 단위로 확정한다. 미정은 PRD §11 OQ 
 | 언어 | TypeScript | strict, `target: ES2022` | 타입 안정성 |
 | UI | React | OQ1 (확정 후 18 또는 19) | PRD §7.1 권장 |
 | 상태 관리 | React Context + reducer | 외부 상태 라이브러리 도입 금지 | MVP 범위 |
+| **스타일링** | **Tailwind CSS** | **^3.4.0** | **Utility-first CSS. 디자인 토큰(색상/타이포)은 tailwind.config.js 커스터마이징. 마크다운 + UI 컴포넌트 모두 적용.** |
 | 마크다운 | react-markdown + shiki | OQ2 | PRD §7.1 권장 |
 | HTTP (opencode) | `@opencode-ai/sdk` | latest stable | 전략 §5.1 |
 | IPC | Electron 기본 ipc | — | 별도 RPC 라이브러리 안 씀 |
@@ -392,7 +393,33 @@ type ChatState = {
 - 코드 블록 언어 자동 감지 실패 시 plain text 폴백.
 - 외부 링크는 `target="_blank" rel="noopener"`. 단 v1 은 외부 클릭 시 OS 기본 브라우저로만 열기.
 
-### 9.5 Tweaks 적용 메커니즘 (PRD §10.3)
+### 9.5 CSS 및 디자인 토큰 (Tailwind 기반)
+
+#### 9.5.1 Tailwind CSS 설정
+
+- 빌드: `tailwind.config.js` 에서 V1Frame 디자인 시스템(크림/잉크/러스트 팔레트, Inter/Source Serif 4/JetBrains Mono 타이포) 을 `theme.extend.colors`, `theme.extend.fontFamily` 로 정의.
+- 모든 UI 컴포넌트 (ChatShell, MessageList, Composer, Sidebar) 는 `@apply` 지시어 또는 className 으로 Tailwind 유틸리티 클래스 조합. 인라인 스타일 하드코딩 금지.
+- PostCSS: webpack 설정에 `postcss-loader` 추가해 Tailwind 지시어 처리.
+
+#### 9.5.2 글로벌 CSS 토큰
+
+- `src/renderer/index.css` 에서 `:root` 의 CSS 커스텀 프로퍼티로 색상, 폰트, 간격 정의:
+  ```css
+  :root {
+    --cream-0: theme('colors.cream.0');  /* tailwind.config.js 값 참조 */
+    --ink-900: theme('colors.ink.900');
+    --rust-400: theme('colors.rust.400');
+    --mono: theme('fontFamily.mono');
+  }
+  ```
+- 토큰은 마크다운 렌더러, 스크롤바 스타일, Tweaks 패널 커스텀 색상에서 사용.
+
+#### 9.5.3 마크다운 + Tailwind
+
+- `<MarkdownRenderer>` 의 `react-markdown` 컴포넌트 오버라이드에서 각 요소(`<code>`, `<pre>`, `<table>`, `<a>` 등)에 Tailwind 클래스명 지정.
+- 예: `<code className="font-mono text-xs bg-cream-50 px-1.5 py-0.5 rounded" />`
+
+### 9.6 Tweaks 적용 메커니즘 (PRD §10.3)
 
 | 컨트롤 | DOM 영향 |
 |---|---|
@@ -402,7 +429,7 @@ type ChatState = {
 
 > 인라인 스타일에 색/크기 하드코딩 금지. 모든 시각 변환은 변수 경유.
 
-### 9.6 키보드
+### 9.7 키보드
 
 | 키 | 동작 |
 |---|---|
