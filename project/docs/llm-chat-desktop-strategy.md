@@ -1,0 +1,420 @@
+# LLM 채팅 데스크톱앱 구현 전략
+
+> Claude Code / opencode CLI를 백엔드로 활용하는 Electron 기반 채팅 데스크톱앱의 설계 문서
+
+---
+
+## 1. 프로젝트 개요
+
+### 1.1 목표
+
+호스트에 설치된 **Claude Code** 또는 **opencode** CLI를 백엔드로 활용하여, 데스크톱 GUI에서 LLM과 대화할 수 있는 앱을 만든다. 두 CLI를 모두 지원하며, 각 CLI가 제공하는 공식 메커니즘을 최대한 활용해 직접 구현 영역을 최소화한다.
+
+### 1.2 운영 가정
+
+| 항목 | 내용 |
+|---|---|
+| 백엔드 CLI 위치 | 호스트(사용자 PC)에 설치되어 있다고 가정 |
+| CLI 부재 시 | 앱이 설치를 안내·시도, 실패 시 수동 명령 안내 |
+| 지원 CLI | Claude Code, opencode (둘 다) |
+| 직접 구현 범위 | 어댑터 + UI만, LLM/컨텍스트 로직은 CLI에 완전 위임 |
+
+---
+
+## 2. 기술 스택
+
+### 2.1 결정된 스택
+
+| 계층 | 채택 기술 | 비고 |
+|---|---|---|
+| 데스크톱 셸 | **Electron** | Claude Desktop도 동일 채택 |
+| 빌드/스캐폴딩 | **`create-electron-app` (webpack + TypeScript 템플릿)** | Electron Forge 기반 |
+| 언어 | **TypeScript** | CLI JSON 메시지의 타입 안정성 |
+| UI 프레임워크 | (추후 결정) React 권장 | 메시지 스트리밍·마크다운 렌더링에 적합 |
+| 마크다운 렌더링 | (추후 결정) react-markdown + shiki 권장 | LLM 응답 렌더링 |
+
+### 2.2 Claude Desktop의 기술적 참고
+
+Anthropic의 공식 Claude Desktop도 **Electron**으로 만들어져 있다. 그 이유는 다음과 같이 알려져 있다.
+
+- 일부 엔지니어가 과거 Electron 경험이 있어 비네이티브 개발을 선호
+- 웹 버전과 데스크톱 버전이 동일한 룩앤필을 갖도록 코드 공유
+- LLM(Claude)이 Electron 코드를 잘 다룸
+
+같은 사례: Slack, Discord, VS Code, Notion, Microsoft Teams.
+
+---
+
+## 3. CLI 연결 패턴 결정
+
+### 3.1 검토한 3가지 패턴
+
+| 패턴 | 방식 | 채택 여부 |
+|---|---|---|
+| **패턴 1**: 터미널 에뮬레이션 | `node-pty` + `xterm.js`로 가상 터미널에 CLI 실행 화면을 그대로 띄움 | ✗ (메시지 단위 가공 어려움) |
+| **패턴 2**: 구조화 I/O | CLI의 프로그래밍 모드(`stream-json` / HTTP API)로 JSON 송수신 | ✓ **채택** |
+| **패턴 3**: 세션 파일 동기화 | CLI가 디스크에 저장하는 세션 파일을 읽어 표시 | △ (보조 용도) |
+
+### 3.2 채택 사유
+
+- 패턴 2는 **GUI를 자유롭게 디자인** 가능하면서 두 CLI 모두 공식 지원
+- 패턴 3은 단방향이라 부적합하지만 "과거 세션 목록 표시" 용도로 보조 활용 가능
+- 패턴 1은 GUI라기보다 "터미널을 박아놓은 창"에 가까워 부적합
+
+---
+
+## 4. 핵심 개념: 세션과 컨텍스트 유지
+
+### 4.1 용어 정리
+
+| 용어 | 의미 |
+|---|---|
+| **대화 컨텍스트 유지** | 한 활성 대화 안에서 LLM이 이전 메시지들을 기억하는 것. 매 턴이 새 대화로 인식되지 않는 상태 |
+| **세션 영속화** | 앱 재시작 후에도 과거 대화가 사이드바에 남아있는 것 |
+| **TODO/멀티 세션** | 사이드바에서 여러 대화를 클릭으로 전환하는 확장 기능 |
+
+본 단계의 핵심 요구는 **대화 컨텍스트 유지**이며, 위 세 단계는 모두 동일한 `session_id`로 식별되므로 컨텍스트 유지를 제대로 구현하면 이후 확장은 자연스럽게 따라온다.
+
+### 4.2 /context가 유지된다는 것의 의미
+
+Claude Code의 `/context`가 보여주는 것은 **현재 LLM에 주입되는 컨텍스트 윈도우의 상태**(시스템 프롬프트, 도구 정의, 누적 대화 메시지, 토큰 사용량)이다.
+
+> "대화가 유지되는 동안 `/context`의 메모리가 유지된다"
+>
+> = 같은 활성 대화 안에서 메시지를 주고받을 때, 이전 턴의 사용자 메시지·AI 응답·도구 호출 결과가 모두 컨텍스트 윈도우에 누적되어 LLM이 그것들을 보면서 응답하는 상태
+
+---
+
+## 5. 두 CLI의 컨텍스트 유지 메커니즘
+
+### 5.1 핵심 차이 요약
+
+| 항목 | Claude Code | opencode |
+|---|---|---|
+| **프로세스 모델** | One-shot: 매 턴 새 프로세스 | Long-running server: 한 번 띄우고 유지 |
+| **컨텍스트 보관 위치** | 디스크 파일 (`~/.claude/projects/<cwd>/<session-id>.jsonl`) | 서버 프로세스 메모리 + SQLite (`~/.local/share/opencode/`) |
+| **세션 ID 발급 시점** | 첫 `claude -p` 응답의 `system/init` 이벤트 | `POST /session` 응답 |
+| **이어가기 명령** | `claude -p "..." --resume <id>` | 같은 `session_id`로 HTTP 재요청 |
+| **GUI가 호출하는 방식** | `child_process.spawn` 매 턴 반복 | HTTP 클라이언트 (SDK 권장) |
+| **공식 SDK** | Agent SDK (TS/Python) | `@opencode-ai/sdk` (TS) |
+| **스트리밍 방식** | stdout으로 NDJSON | HTTP SSE/스트림 |
+| **GUI가 보관할 상태** | `sessionId` 문자열 한 개 | `sessionId` + 서버 핸들 |
+
+### 5.2 한 줄 요약
+
+```
+Claude Code: "디스크 파일이 곧 세션의 정체.
+              매 턴 그 파일을 읽고 쓰는 임시 프로세스를 띄운다"
+
+opencode:    "살아있는 서버 프로세스가 곧 세션의 정체.
+              클라이언트는 HTTP로 말을 건다"
+```
+
+---
+
+## 6. Claude Code: One-shot + --resume 메커니즘
+
+### 6.1 동작 다이어그램
+
+```
+                        ┌─────────────────────────────────┐
+                        │   GUI (Electron Main Process)   │
+                        │                                 │
+                        │   sessionId: string | null      │
+                        └──────────────┬──────────────────┘
+                                       │
+            ┌──────────────────────────┼──────────────────────────┐
+            │ 1턴                      │ 2턴                      │ 3턴
+            ▼                          ▼                          ▼
+     spawn child_process       spawn child_process        spawn child_process
+     ┌───────────────┐         ┌────────────────────┐    ┌────────────────────┐
+     │ claude -p     │         │ claude -p          │    │ claude -p          │
+     │  "안녕"       │         │  "방금 뭐랬어?"    │    │  "더 알려줘"       │
+     │  --output-    │         │  --resume abc-123  │    │  --resume abc-123  │
+     │  format       │         │  --output-format   │    │  --output-format   │
+     │  stream-json  │         │  stream-json       │    │  stream-json       │
+     │  --verbose    │         │  --verbose         │    │  --verbose         │
+     └──────┬────────┘         └──────┬─────────────┘    └──────┬─────────────┘
+            │                         │                          │
+            ▼                         ▼                          ▼
+     [process exits]           [process exits]            [process exits]
+            │                         │                          │
+            ▼                         ▼                          ▼
+    ~/.claude/projects/<cwd>/abc-123.jsonl  (CLI가 매 턴 append)
+    ┌────────────────────────────────────────────────────────────────┐
+    │ {"role":"user","content":"안녕"}                                │
+    │ {"role":"assistant","content":"안녕하세요!"}                    │
+    │ {"role":"user","content":"방금 뭐랬어?"}            ← 2턴 후   │
+    │ {"role":"assistant","content":"안녕하세요라고..."}              │
+    │ {"role":"user","content":"더 알려줘"}              ← 3턴 후   │
+    │ ...                                                             │
+    └────────────────────────────────────────────────────────────────┘
+```
+
+### 6.2 매 턴 흐름
+
+| 단계 | 동작 |
+|---|---|
+| ① | GUI가 `spawn` (1턴은 `--resume` 없이, 2턴부터 `--resume <id>`) |
+| ② | CLI가 디스크 jsonl을 컨텍스트로 로드 (1턴은 빈 상태) |
+| ③ | LLM 호출 → 응답을 stdout으로 stream-json 출력 |
+| ④ | CLI가 새 메시지+응답을 jsonl에 append |
+| ⑤ | CLI 프로세스 종료 |
+| ⑥ | GUI는 첫 `system/init` 이벤트에서 받은 `session_id`를 변수에 보관 |
+
+### 6.3 활용하는 CLI 기능
+
+| 옵션 | 역할 |
+|---|---|
+| `-p "<prompt>"` | 프로그래밍(헤드리스) 모드 진입 |
+| `--resume <session_id>` | 디스크 파일을 컨텍스트로 복원 |
+| `--output-format stream-json` | NDJSON 스트리밍 출력 |
+| `--verbose` | 메타데이터 포함 (`session_id` 등) |
+| `--include-partial-messages` | 토큰 단위 델타 (선택) |
+
+### 6.4 GUI가 직접 안 하는 것
+
+- 컨텍스트 윈도우 관리 (CLI가 jsonl 읽고 LLM에 주입)
+- 토큰 한계 시 압축 (CLI 내장 `/compact` 로직)
+- 세션 파일 쓰기 (CLI가 자동 기록)
+
+### 6.5 알려진 제약
+
+- OAuth 토큰이 약 10~15분 후 만료될 수 있음 → 401 감지 시 사용자에게 `claude /login` 안내 필요
+
+---
+
+## 7. opencode: Long-running server + 세션 ID 재사용
+
+### 7.1 동작 다이어그램
+
+```
+                    ┌────────────────────────────────────┐
+                    │    GUI (Electron Main Process)     │
+                    │                                    │
+                    │    sessionId: string | null        │
+                    │    serverProc: ChildProcess        │
+                    │    httpClient: OpencodeClient      │
+                    └────────────────┬───────────────────┘
+                                     │
+                                     │ 앱 시작 시 1회
+                                     ▼
+                    spawn child_process (계속 살아있음)
+                    ┌────────────────────────────────────┐
+                    │  opencode serve                    │
+                    │   --port 4096 --hostname 127.0.0.1 │
+                    │  (env: OPENCODE_SERVER_PASSWORD)   │
+                    └────────────────┬───────────────────┘
+                                     │
+                                     │ HTTP (OpenAPI 3.1)
+                                     │
+            ┌────────────────────────┼────────────────────────┐
+            │ 1턴                    │ 2턴                    │ 3턴
+            ▼                        ▼                        ▼
+    POST /session              POST /session/             POST /session/
+    (신규 생성)                  abc-123/message            abc-123/message
+            │                        │                        │
+            ▼                        ▼                        ▼
+    sessionId 발급            "방금 뭐랬어?"             "더 알려줘"
+    POST /session/                  │                        │
+      abc-123/message               │                        │
+    "안녕"                          │                        │
+            │                        │                        │
+            ▼                        ▼                        ▼
+    [SSE 스트림 응답]          [SSE 스트림 응답]         [SSE 스트림 응답]
+
+  서버 프로세스 내부 상태:
+  ┌───────────────────────────────────────────────────────────────┐
+  │  세션 abc-123                                                 │
+  │  ├─ 메시지 누적 리스트 (메모리)                              │
+  │  ├─ ~/.local/share/opencode/ 의 SQLite로 영속화              │
+  │  └─ LLM 호출 시 누적 메시지 전체를 컨텍스트로 사용           │
+  └───────────────────────────────────────────────────────────────┘
+```
+
+### 7.2 각 턴 흐름
+
+| 단계 | 동작 |
+|---|---|
+| ① | GUI가 SDK로 chat 호출 (`sessionId` 포함) |
+| ② | 서버가 자기 메모리/DB에서 해당 세션 히스토리 로드 |
+| ③ | 새 메시지 추가 후 LLM 호출 |
+| ④ | 응답을 SSE/스트림으로 GUI에 전송 |
+| ⑤ | 서버가 응답을 세션 히스토리에 추가 (메모리 + DB) |
+| ⑥ | 서버는 계속 살아있음 |
+
+### 7.3 활용하는 CLI/SDK 기능
+
+| 항목 | 역할 |
+|---|---|
+| `opencode serve --port <P> --hostname 127.0.0.1` | 헤드리스 HTTP 서버 기동 |
+| `OPENCODE_SERVER_PASSWORD` 환경변수 | HTTP basic auth로 보안 |
+| `@opencode-ai/sdk`의 `createOpencodeClient({ baseUrl, auth })` | 타입세이프 클라이언트 |
+| `client.session.create()` | 신규 세션 생성 |
+| `client.session.chat({ sessionId, parts })` | 메시지 전송 + 스트림 수신 |
+
+### 7.4 GUI가 직접 안 하는 것
+
+- HTTP 요청/응답 직접 작성 (SDK가 처리)
+- 세션 메모리 관리 (서버가 처리)
+- 디스크 영속화 (서버가 SQLite에 자동 저장)
+- 컨텍스트 압축 (서버가 처리)
+
+---
+
+## 8. GUI 측 어댑터 아키텍처
+
+### 8.1 전체 구조
+
+```
+              ┌──────────────────────────────────────┐
+              │  Renderer (UI)                       │
+              │  - "메시지 보내기" 버튼만 누름       │
+              │  - 메시지 버블 렌더링                │
+              └────────────────┬─────────────────────┘
+                               │ Electron IPC
+              ┌────────────────▼─────────────────────┐
+              │  공통 인터페이스 (얇음)              │
+              │  ─ sendMessage(text) → stream         │
+              │  ─ resetConversation()                │
+              │  ─ listSessions() (확장 단계)         │
+              └─────┬───────────────────────┬────────┘
+                    │                       │
+        ┌───────────▼─────────┐  ┌──────────▼──────────┐
+        │ ClaudeCodeAdapter   │  │ OpencodeAdapter     │
+        │                     │  │                     │
+        │ 책임:               │  │ 책임:               │
+        │ • spawn 호출만      │  │ • serve 1회 spawn  │
+        │ • --resume 플래그   │  │ • SDK 위임          │
+        │   에 sessionId 끼움 │  │ • sessionId 재사용 │
+        │ • stdout NDJSON     │  │                     │
+        │   파싱하여 yield    │  │                     │
+        │                     │  │                     │
+        │ 직접 안 함:         │  │ 직접 안 함:         │
+        │ • 컨텍스트 누적     │  │ • HTTP 직접 작성   │
+        │ • 세션 파일 쓰기    │  │ • 세션 저장         │
+        │ • LLM 호출          │  │ • LLM 호출          │
+        └─────────────────────┘  └─────────────────────┘
+                    │                       │
+                    ▼                       ▼
+              [claude CLI]            [opencode serve]
+                    │                       │
+                    └─── 컨텍스트 유지 책임 (둘 다 CLI/서버 측) ───┘
+```
+
+### 8.2 공통 인터페이스 정의 (TypeScript)
+
+```typescript
+export type Backend = 'claude-code' | 'opencode';
+
+export interface ChatEvent {
+  type: 'init' | 'assistant_delta' | 'assistant_message'
+      | 'tool_use' | 'tool_result' | 'result' | 'error';
+  sessionId: string;
+  data: unknown;
+}
+
+export interface SessionAdapter {
+  isInstalled(): Promise<boolean>;
+  install(): Promise<void>;
+  sendMessage(
+    sessionId: string | null,   // null이면 새 세션
+    text: string,
+    cwd: string,
+  ): AsyncIterable<ChatEvent>;
+  // 확장 단계용
+  listSessions?(): Promise<SessionInfo[]>;
+  loadSession?(id: string): Promise<ChatEvent[]>;
+}
+```
+
+### 8.3 GUI가 보관·관리할 것 vs CLI/서버에 위임할 것
+
+| 책임 | Claude Code | opencode |
+|---|---|---|
+| 세션 ID 발급 | CLI (첫 응답에서 받음) | 서버 (`POST /session` 응답) |
+| 컨텍스트 윈도우 누적 | CLI가 jsonl 파일 기반으로 처리 | 서버가 메모리+SQLite로 처리 |
+| 턴 간 컨텍스트 복원 | `--resume <id>` 한 줄 | 같은 `sessionId`로 HTTP 재호출 |
+| GUI가 들고 있는 상태 | 활성 `sessionId` 문자열 | 활성 `sessionId` + 서버 핸들 |
+| GUI가 매 턴 하는 일 | spawn에 ID 끼워주기 | SDK 호출에 ID 끼워주기 |
+| **컨텍스트 관리 로직** | **GUI 측 0줄** (CLI 위임) | **GUI 측 0줄** (서버 위임) |
+
+---
+
+## 9. 컨텍스트 유지 동작 시나리오
+
+### 9.1 한 번의 활성 대화 안에서
+
+| 시점 | sessionId 상태 | 동작 |
+|---|---|---|
+| 사용자가 "새 대화" 버튼 | `null` | 초기화 |
+| 1번째 메시지 전송 | `null` → 발급됨 | resume 옵션 없이 호출, 응답의 첫 이벤트에서 ID 받아 저장 |
+| 2번째 메시지 전송 | 보존 | 같은 ID로 재호출 → CLI/서버가 컨텍스트 복원 |
+| 3번째, 4번째 ... | 보존 | 동일 |
+| 사용자가 "새 대화" 버튼 다시 누름 | `null`로 리셋 | 다음 메시지부터 새 세션 |
+
+### 9.2 핵심 포인트
+
+> GUI는 활성 대화의 `sessionId`를 변수에 보관하고, 매 메시지 전송 시 그 ID를 CLI에 전달한다. 첫 메시지에서는 ID가 null이고, CLI 응답의 첫 이벤트에서 발급된 ID를 받아 이후 턴들에 재사용한다. 이것이 전부.
+
+---
+
+## 10. CLI 설치 자동화 전략
+
+### 10.1 흐름
+
+```
+앱 시작
+  │
+  ▼
+Claude Code 설치 확인  ──┐
+                          │
+opencode 설치 확인     ──┤
+                          │
+  ┌───────────────────────┘
+  │
+  ▼
+둘 다 없음?
+  │
+  ├─ Yes ─→ 사용자에게 다이얼로그
+  │          ├─ Claude Code 설치 (npm install -g @anthropic-ai/claude-code)
+  │          ├─ opencode 설치 (curl -fsSL https://opencode.ai/install | bash)
+  │          └─ 취소 → 수동 설치 안내 표시
+  │
+  └─ No ──→ 설치된 CLI를 활성 백엔드로 사용
+```
+
+### 10.2 설치 시 주의사항
+
+| 이슈 | 대응 |
+|---|---|
+| Node.js 미설치 | `npm install -g`는 Node 필요 → OS별 안내 (macOS Homebrew, Windows winget 등) |
+| 글로벌 npm 권한 부족 | sudo 권한 필요할 수 있음 → 실패 시 터미널 명령 안내 fallback |
+| 자동 설치 실패 | 사용자에게 명령줄 표시 후 수동 설치 유도 |
+
+---
+
+## 11. 단계별 확장 로드맵
+
+| 단계 | 기능 | 구현 위치 |
+|---|---|---|
+| **Phase 1** | 단일 활성 대화의 컨텍스트 유지 | `sessionId` 메모리 변수 1개 |
+| **Phase 2** | 앱 재시작 후 마지막 대화 재개 | `electron-store`로 `sessionId` 영속화 |
+| **Phase 3** | 사이드바에 과거 대화 목록 | `listSessions()` 구현 (jsonl 스캔 / `client.session.list()`) |
+| **Phase 4** | TODO 같은 멀티 세션 관리 모드 | 활성 세션 전환 UI |
+
+각 단계는 **이전 단계의 `sessionId` 추적 로직을 그대로 재사용**하므로 누적 비용이 낮다.
+
+---
+
+## 12. 결론 요약
+
+| 항목 | 결론 |
+|---|---|
+| 데스크톱 셸 | Electron + create-electron-app (webpack-typescript) |
+| CLI 연결 패턴 | 패턴 2 (구조화 I/O) 메인, 패턴 3 (세션 파일) 보조 |
+| Claude Code 메커니즘 | `--resume <id>` 플래그를 매 턴 spawn에 끼워줌 |
+| opencode 메커니즘 | `serve`로 1회 띄운 서버에 같은 `sessionId`로 HTTP 재호출 |
+| GUI의 컨텍스트 관리 코드 | **0줄** — 두 CLI/서버에 완전 위임 |
+| GUI의 책임 | `sessionId` 변수 1개 보관 + 어댑터 인터페이스 통일 |
+| 직접 구현 최소화 원칙 | 모든 컨텍스트/세션/LLM 로직은 CLI에 위임, 어댑터는 ID 전달과 이벤트 정규화만 담당 |
