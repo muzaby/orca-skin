@@ -1,23 +1,24 @@
 # docs/ — 코딩 에이전트용 가이드
 
-이 디렉토리는 **제품 정의(PRD) + 저장소 전반의 아키텍처/전략 문서**를 담는다. `project/` 하위의 디자인 프로토타입(Electron HTML/CSS/JS)이 *무엇을 보여주는지* 라면, 이 문서들은 *무엇을 만들 것인지* (PRD), *왜 그렇게 만들 것인지*, *백엔드/엔진을 어떻게 구성할 것인지* 를 다룬다.
+이 디렉토리는 **제품 정의(PRD) + 구현 사양(TRD) + 저장소 전반의 아키텍처/전략 문서**를 담는다. `project/` 하위의 디자인 프로토타입(Electron HTML/CSS/JS)이 *무엇을 보여주는지* 라면, 이 문서들은 *무엇을 만들 것인지* (PRD), *어떻게 구현할 것인지* (TRD), *왜 그렇게 결정했는지* (전략 문서) 를 다룬다.
 
 ## 문서 인벤토리
 
 | 파일 | 주제 | 다룰 때 읽어야 하는 경우 |
 |---|---|---|
 | `PRD.md` | **Orca v1 제품 정의** — 채팅+세션 재개 MVP, 그 외 도메인 화면(Captures/Skills/MCP/하드웨어)은 Future Scope | **무엇을** 만들지 합의를 확인할 때. 화면/기능/Phase 의 진실 원천. 작업 시작 전 가장 먼저 읽는다. |
-| `llm-chat-desktop-strategy.md` | Claude Code / opencode CLI 를 백엔드로 쓰는 Electron 채팅 데스크톱앱 설계 — Orca 의 *엔진* | Orca 백엔드를 **어떻게** 구현할지: CLI 어댑터·세션·컨텍스트 유지·설치 자동화 로직을 작성할 때 |
+| `TRD.md` | **Orca v1 구현 사양** — 모듈 레이아웃, 어댑터 인터페이스, IPC 채널, 세션/컨텍스트 상태 머신, 테스트 전략, Phase 2~4 architecture anchor | **어떻게** 구현할지 결정할 때. 코드 작성 직전 가장 가까이 두는 문서. §15 의 Open Questions 는 PRD §11 과 동기화된 미정 항목이며 단독으로 결정하지 않는다. |
+| `llm-chat-desktop-strategy.md` | Claude Code / opencode CLI 를 백엔드로 쓰는 Electron 채팅 데스크톱앱 설계 — Orca 엔진의 *전략적 근거 / 결정 출처* (TRD 가 이 문서를 소화한 결과) | TRD 의 결정 배경을 거슬러 확인하거나, TRD 가 다루지 않는 회색 지대 (예: 추가 백엔드, 대안 라이브러리) 를 검토할 때 |
 | `lightweight-llm-strategy.md` | 로컬 4B LLM 기반 이미지 센서 QA 시스템 설계 (Case 1: 로컬 전용 / Case 2: 외부 LLM 가능) | Skill 라우팅, JSON 단계 통신, self-consistency 등 4B 운영 패턴을 구현할 때 |
 
 문서 간 관계:
 
-- `PRD.md` ↔ `llm-chat-desktop-strategy.md` 는 **같은 제품(Orca)의 한 쌍** — PRD 가 *WHAT*, strategy 가 *HOW* 이며 서로 의존한다. PRD 의 §9 Future Scope 는 `project/` 프로토타입을 흡수한 결과다.
-- `lightweight-llm-strategy.md` 는 **별도 제품 방향** 으로 위 둘과 독립.
+- **Orca 트리오**: `PRD.md` (*WHAT*) → `TRD.md` (*HOW, 구현 사양*) → `llm-chat-desktop-strategy.md` (*HOW 의 1차 근거 / 전략 결정 출처*). 셋은 같은 제품을 다루며 서로 의존한다. TRD 는 strategy 를 소화해 만든 구현 사양이고, PRD §9 Future Scope 는 `project/` 프로토타입을 흡수한 결과다.
+- `lightweight-llm-strategy.md` 는 **별도 제품 방향** 으로 위 트리오와 독립.
 
 ## 코딩 에이전트가 따라야 할 원칙
 
-1. **읽는 순서.** Orca 작업이면 `PRD.md` → `llm-chat-desktop-strategy.md` → `project/` 순. PRD 의 §11 **Open Questions 는 미정 항목**이므로 에이전트가 단독으로 결정하지 말고 사용자에게 묻는다.
+1. **읽는 순서.** Orca 작업이면 `PRD.md` → `TRD.md` → (필요 시) `llm-chat-desktop-strategy.md` → `project/` 순. **PRD §11 / TRD §15 의 Open Questions** 는 두 문서가 동기화한 동일 미정 항목이므로 에이전트가 단독으로 결정하지 말고 사용자에게 묻는다.
 2. **구현 전에 해당 문서를 끝까지 읽어라.** 표 안의 의사결정 행(`결정`, `채택`, `합의된 원칙`)이 핵심이다. 요약본만 보고 구현하지 말 것.
 3. **문서에 명시된 결정을 임의로 바꾸지 마라.** 예: "분해는 사전에", "측정은 결정론적", "통합 시스템 만들지 않음" 같은 원칙은 협의 결과다. 변경이 필요하면 사용자에게 먼저 확인.
 4. **문서와 코드가 충돌하면 사용자에게 물어라.** 둘 다 바꿔야 하는지(설계 변경) 코드만 바꿔야 하는지(구현 버그) 결정해야 한다.
@@ -25,6 +26,6 @@
 
 ## 위치 규약
 
-- **제품 정의(PRD), 저장소 전반의 전략·아키텍처 문서** → `docs/` (여기)
+- **제품 정의(PRD), 구현 사양(TRD), 저장소 전반의 전략·아키텍처 문서** → `docs/` (여기)
 - **`project/` 프로토타입 자체에 종속된 메모** (예: 특정 디자인 변형 설명) → `project/` 안에 둔다
 - 한 문서가 어디에 속할지 모호하면 `docs/` 를 기본값으로
