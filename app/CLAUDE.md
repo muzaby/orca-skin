@@ -1,58 +1,62 @@
 # app/ — 코딩 에이전트용 가이드
 
-이 디렉토리는 **Orca v1 의 실제 구현체**가 사는 곳이다. 현재는 `@quick-start/electron` 의 `react-ts` 템플릿 (electron-vite 기반) 으로 깔린 *스캐폴드 상태* 이며, 본 구현은 `docs/TRD.md` 의 사양을 따른다.
+이 디렉토리는 **Orca v1 의 실제 구현체**가 사는 곳이다. 현재는 **F1 (기본 채팅 셸) + F2 (마크다운 렌더링) 구현 완료** 단계이며, 어댑터/인스톨러/세션 영역은 미완. 본 구현은 `docs/TRD.md` 의 사양을 따른다.
 
-## 현재 상태 (스캐폴드)
+## 현재 상태 (F1/F2 완료)
 
 | 영역 | 상태 |
 |---|---|
-| 템플릿 | `@quick-start/electron` `react-ts` (electron-vite 기반) |
-| 번들러 | Vite (main/preload/renderer 3-config 통합) |
-| Electron | 39.2.6 |
-| React | 19.2.1 |
-| TypeScript | 5.x (TRD `strict + target: ES2022` 충족) |
-| 메인 (`src/main/index.ts`) | 템플릿 기본 `createWindow`. `contextIsolation: true` / `nodeIntegration: false` / `sandbox: true` 명시. |
-| 렌더러 (`src/renderer/src/`) | `App.tsx` + 샘플 `Versions.tsx`. Orca UI 미구현 |
-| 프리로드 (`src/preload/index.ts`) | `contextBridge.exposeInMainWorld('electron', electronAPI)` 샘플 — Orca 화이트리스트로 교체 필요 |
-| 패키저 | electron-builder (`electron-builder.yml`) |
-| 도메인 코드 | **없음** — TRD §1.2 모듈 미구현 |
-| `package.json` | 템플릿 기본값 (`name: "electron-app"`, `author: "example.com"` 등) — 첫 도메인 PR 에서 갱신 |
+| Forge 템플릿 | `webpack-typescript` 적용 완료 (`forge.config.ts`, `webpack.*.config.ts`) |
+| Electron | 42.0.1 |
+| TypeScript | **5.x** — `strict + target: ES2022 + jsx: react` 적용 완료 |
+| 메인 (`src/main/index.ts`) | BrowserWindow 생성, **TRD §1.3 보안 베이스라인 (`contextIsolation`/`nodeIntegration:false`/`sandbox:true`) 적용 완료**, IpcRouter 부착 |
+| 렌더러 (`src/renderer/index.tsx` + `app/*.tsx`) | React 18 + Tailwind CSS 기반 ChatShell, MessageList, Composer, Sidebar, MarkdownRenderer 완료 |
+| 프리로드 (`src/renderer/preload.ts`) | `contextBridge.exposeInMainWorld('orca', ...)` 화이트리스트 IPC API 노출 |
+| 도메인 코드 | **F1+F2 완료** — IPC 라우터 (mock 응답), React 채팅 셸, react-markdown 기반 마크다운 렌더링. **미완**: 실제 어댑터 (Claude Code/opencode), 인스톨러, 세션 영속화 |
+| 스타일링 | **Tailwind CSS** (`tailwind.config.js` 의 V1Frame 디자인 토큰 — 크림/잉크/러스트 팔레트, Inter/Source Serif 4/JetBrains Mono) + `src/renderer/index.css` 글로벌 |
+| `package.json` | `name: "orca"`, `productName: "Orca"` 적용 완료 |
 
-## 타깃 모듈 레이아웃 (TRD §1.2 기준)
-
-경로는 electron-vite (`@quick-start/electron` react-ts 템플릿) 의 sub-config 분할을 반영한다. 빌드는 `electron.vite.config.ts` 의 main/preload/renderer 3개 sub-config 가 각각 처리한다.
+## 타깃 모듈 레이아웃 (TRD §1.2)
 
 | 경로 | 책임 | 현 상태 |
 |---|---|---|
-| `src/main/index.ts` | Electron `app` 부트, BrowserWindow, IpcRouter 부착 | 템플릿 기본 |
-| `src/main/ipc/router.ts` | IPC 채널 라우팅 + 입력 검증 (zod) | 미작성 |
-| `src/main/adapters/types.ts` | `SessionAdapter`, `ChatEvent`, `Backend` 공통 타입 | 미작성 |
-| `src/main/adapters/claude-code.ts` | Claude Code spawn / NDJSON / `--resume` | 미작성 |
-| `src/main/adapters/opencode.ts` | opencode `serve` / SDK / SSE | 미작성 |
-| `src/main/adapters/registry.ts` | 설치 상태 + 활성 백엔드 선택 | 미작성 |
-| `src/main/installer/index.ts` | CLI 설치 자동화 | 미작성 |
-| `src/main/settings/store.ts` | Phase 2+ `electron-store`. Phase 1 은 in-memory | 미작성 |
-| `src/renderer/src/main.tsx` | React 엔트리 + DOM mount | 템플릿 기본 |
-| `src/renderer/src/App.tsx` | 루트 컴포넌트 (Versions.tsx 샘플) | 템플릿 기본 |
-| `src/renderer/src/app/*` | `ChatShell`, `Composer`, `MessageList`, `Markdown`, `TweaksPanel` | 미작성 |
-| `src/preload/index.ts` | `contextBridge.exposeInMainWorld` 화이트리스트 — electron-vite preload sub-config 진입점 | 템플릿 기본 |
-| `src/shared/protocol.ts` | Renderer ↔ Main 메시지 스키마 | 미작성 |
-| `src/shared/i18n/ko.ts` | 한국어 라벨 | 미작성 |
+| `src/main/index.ts` | Electron `app` 부트, BrowserWindow, IpcRouter 부착 | **완료** (보안 베이스라인 포함) |
+| `src/main/ipc/router.ts` | IPC 채널 라우팅 + 입력 검증 (zod) | **완료** (Phase 1: mock 응답 — `orca:chat:send` 가 `init/assistant_delta/assistant_message/result` 시뮬레이션) |
+| `src/main/adapters/types.ts` | `SessionAdapter`, `ChatEvent`, `Backend` 공통 타입 | 미작성 (현재 `src/shared/protocol.ts` 에 통합 — 필요 시 `main/adapters/types.ts` 로 분리 검토) |
+| `src/main/adapters/claude-code.ts` | Claude Code spawn / NDJSON / `--resume` | **미작성** — Phase 1 다음 작업 |
+| `src/main/adapters/opencode.ts` | opencode `serve` / SDK / SSE | **미작성** |
+| `src/main/adapters/registry.ts` | 설치 상태 + 활성 백엔드 선택 | **미작성** |
+| `src/main/installer/index.ts` | CLI 설치 자동화 | **미작성** |
+| `src/main/settings/store.ts` | Phase 2+ `electron-store`. Phase 1 은 in-memory | 미작성 (Phase 2 anchor) |
+| `src/renderer/index.tsx` | React 엔트리 (StrictMode + ChatShell) | **완료** |
+| `src/renderer/index.css` | Tailwind 지시어 + CSS 토큰 (`:root` `--cream-0/--ink-900/--rust-400/...`) + 마크다운 스타일 | **완료** |
+| `src/renderer/app/ChatShell.tsx` | 사이드바 + 헤더 + 메시지 + 컴포저 레이아웃 | **완료** (Tailwind 기반) |
+| `src/renderer/app/Sidebar.tsx` | "새 대화" 버튼 + 활성 백엔드 표시 | **완료** |
+| `src/renderer/app/MessageList.tsx` | 메시지 버블 + pending delta + 자동 스크롤 | **완료** |
+| `src/renderer/app/Composer.tsx` | textarea + 전송 버튼 (`Enter` 전송 / `Shift+Enter` 줄바꿈) | **완료** |
+| `src/renderer/app/Markdown.tsx` | `react-markdown` + `remark-gfm` + 컴포넌트 오버라이드로 Tailwind 클래스 적용 | **완료** (코드 하이라이트는 Prism.js 미통합 — 후속 작업) |
+| `src/renderer/app/state.ts` | Context + reducer (`SET_SESSION`/`SEND_USER_MESSAGE`/`RECV_DELTA`/`RECV_MESSAGE`/`NEW_CHAT`/...) | **완료** |
+| `src/renderer/app/TweaksPanel.tsx` | 테마/밀도/사이드바 토글 | **미작성** (PRD §10.3 — 후속) |
+| `src/renderer/preload.ts` | `contextBridge.exposeInMainWorld('orca', ...)` 화이트리스트 | **완료** (`chat.send/onEvent/cancel`, `backend.list/select`) |
+| `src/global.d.ts` | `Window.orca` 타입 선언 | **완료** |
+| `src/shared/protocol.ts` | Renderer ↔ Main 메시지 스키마 (zod) + `Backend`/`ChatEvent`/`SessionAdapter`/`SessionInfo` 공통 타입 | **완료** |
+| `src/shared/i18n/ko.ts` | 한국어 라벨 | **미작성** (UI 라벨 다국어화 시 작성) |
+| `tailwind.config.js` | V1Frame 디자인 토큰 (색상/폰트/크기) | **완료** |
+| `postcss.config.js` | tailwindcss + autoprefixer | **완료** |
 
-> 이 레이아웃에서 벗어나려면 사용자에게 먼저 확인. TRD §1.2 와 코드를 동시에 갱신해야 한다.
+> 이 레이아웃에서 벗어나려면 사용자에게 먼저 확인. TRD 와 코드를 동시에 갱신해야 한다.
 
-## 보안 베이스라인 (TRD §1.3) — 첫 PR 에서 반드시 적용
+## 보안 베이스라인 (TRD §1.3) — 적용 완료, 변경 시 사용자 확인
 
-`BrowserWindow` 생성 시 다음을 *명시*. 스캐폴드 기본값을 신뢰하지 말 것. 현재 템플릿은 이미 올바르게 설정되어 있으나, 변경 시 반드시 유지할 것.
+`src/main/index.ts` 의 `BrowserWindow` 생성 시 아래가 *명시되어 있다*. 후속 변경에서 무력화 금지.
 
 ```ts
-import { join } from 'path';
 new BrowserWindow({
   webPreferences: {
     contextIsolation: true,   // 필수
     nodeIntegration: false,   // 필수
-    sandbox: true,            // 필수
-    preload: join(__dirname, '../preload/index.js'),
+    sandbox: true,            // 필수 (Forge 템플릿 기본값 false)
+    preload: MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY,
   },
 });
 ```
@@ -62,47 +66,51 @@ new BrowserWindow({
 | DevTools 자동 오픈 | dev 빌드(`process.env.NODE_ENV !== 'production'`) 한정 |
 | 외부 URL 로드 | 금지. `webContents.setWindowOpenHandler` 로 차단 + OS 기본 브라우저 위임 |
 | 비밀 저장 | 앱은 저장하지 않음 — OAuth/API 키는 호스트 CLI 가 관리 (PRD N6) |
-| `@electron-toolkit/utils` 사용 시 | `contextIsolation`, `nodeIntegration`, `sandbox` 는 여전히 *명시*. 공통 유틸은 이 3옵션 조합을 가정한다. |
 
 ## 의존성 정책
 
 - TRD §2 의 Stack 표 밖의 패키지 추가는 **사용자 승인 필수**. PR 설명에 *왜* 가 들어가야 한다.
-- 이미 채택된 것 (도입 시점만 자유): React, react-markdown, shiki, electron-store, zod, vitest, playwright.
-- 템플릿 동봉 (사전 승인): `@electron-toolkit/utils`, `@electron-toolkit/preload`.
-- 미정 항목 (PRD §11 / TRD §15 — 단독 결정 금지):
-  - OQ1: React 버전 (18 / 19) — 현재 19 로 템플릿 기본, TRD 확인 필요
-  - OQ2: 마크다운/하이라이트 라이브러리 최종 결정
-  - OQ3: 패키징·서명·자동업데이트
+- **이미 도입된 것** (`package.json` 참조):
+  - 런타임: `react@18`, `react-dom@18`, `react-markdown@9`, `remark-gfm@4`, `prismjs@1.30`, `zod@3.22`, `electron-squirrel-startup`
+  - 개발: `tailwindcss@3.4`, `postcss@8.4`, `autoprefixer@10.4`, `postcss-loader@8.1`, `@types/react@18`, `@types/react-dom@18`, `typescript@5.4`
+- **사용자 결정으로 확정된 항목** (TRD §15 OQ 와 동기화 필요):
+  - OQ1: **React 18** 채택
+  - OQ2: **react-markdown + Prism.js** (TRD 표기는 shiki — 동기화 시 사용자 확인 후 갱신)
+  - OQ3: **Windows (Squirrel/NSIS) 패키징, 자동 업데이트는 Phase 2**
+- **여전히 미정** (단독 결정 금지):
   - OQ4: 텔레메트리·크래시 리포트
   - OQ5: 라이센스
   - OQ6: 성능 SLA 수치
   - OQ7: 둘 다 설치된 경우 기본 백엔드
   - OQ8: 새 대화 시 직전 세션 노출 방식
 
+## 스타일링 정책 (Tailwind CSS)
+
+- **모든 UI 컴포넌트는 Tailwind 유틸리티 클래스로 작성.** 인라인 `style={{...}}` 에 색/크기 하드코딩 금지 (`minHeight` 같은 동적 값은 예외).
+- **디자인 토큰은 `tailwind.config.js` 의 `theme.extend`** — 신규 색상/폰트가 필요하면 여기에 추가하고 클래스로 사용. 컴포넌트 안에 hex 값 직접 입력 금지.
+- **CSS 변수** (`src/renderer/index.css` 의 `:root` `--cream-0/--ink-900/--rust-400/...`) 는 마크다운 렌더, 스크롤바 같은 *비-React 영역* 에서만 사용. React 컴포넌트는 Tailwind 우선.
+- **마크다운 스타일** 은 `Markdown.tsx` 의 `components` 오버라이드에서 Tailwind 클래스 지정 + `index.css` 의 `.markdown` 보조 규칙 병행.
+
 ## 빌드 / 실행
 
 | 스크립트 | 동작 |
 |---|---|
-| `npm run dev` | electron-vite dev (HMR for renderer, main/preload watch+restart) |
-| `npm run build` | `tsc --noEmit && electron-vite build` (3-config 번들 → `out/`) |
-| `npm start` | `electron-vite preview` (프로덕션 번들 실행) |
-| `npm run build:win` | `electron-vite build && electron-builder --win` Windows 배포 산출 |
-| `npm run build:mac` | macOS 배포 산출 |
-| `npm run build:linux` | Linux 배포 산출 |
-| `npm run typecheck` | `tsc --noEmit` (node + web 두 tsconfig 분리 검증) |
+| `npm start` | Forge dev 모드 (electron + webpack watch) |
+| `npm run package` | 패키징 (서명/notarize 미설정 — OQ3) |
+| `npm run make` | `maker-*` 디스트리뷰션 빌드 |
 | `npm run lint` | ESLint |
-| `npm run format` | Prettier |
 | `npm test` | **미설정** — Vitest 추가 시 채워라 (TRD §10.1) |
 
 ## 에이전트 원칙
 
 1. **`docs/TRD.md` 먼저 읽고 코드 짜라.** 본 디렉토리 작업의 1차 사양은 TRD. PRD §11 / TRD §15 Open Questions 는 단독 결정 금지.
-2. **위 모듈 레이아웃을 따르라.** 스캐폴드의 평면 구조에 코드 누적 금지. `src/main/`, `src/preload/`, `src/renderer/src/`, `src/shared/` 로 분리한 뒤 진행.
+2. **위 모듈 레이아웃을 유지하라.** `src/main/`, `src/renderer/`, `src/shared/` 분리 구조. 평면 구조(`src/index.ts`, `src/renderer.ts`)로 회귀 금지.
 3. **새 의존성 추가 시 사용자 확인.** TRD §2 표 밖이면 PR 설명에 사유 명시.
-4. **Electron 보안 옵션은 항상 명시.** 기본값 의존 금지. 위 code block 참고.
-5. **테스트 동반.** 어댑터 정규화, reducer, IPC 스키마는 단위 테스트와 함께 작성 (TRD §10).
-6. **`package.json` 메타데이터는 템플릿 기본값이다.** 첫 도메인 PR 에서 `name`, `productName`, `description`, `author` 갱신. `electron-builder.yml` 도 검토.
-7. **TRD 와 코드가 충돌하면 사용자에게 물어라.** TRD 갱신과 코드 변경은 같은 PR 또는 짝 PR 로.
+4. **Electron 보안 옵션은 명시 상태 유지.** `contextIsolation/nodeIntegration:false/sandbox:true` 무력화 금지.
+5. **Tailwind 우선.** 새 컴포넌트는 Tailwind 클래스 + `tailwind.config.js` 토큰으로 작성. 인라인 색/크기 하드코딩 금지.
+6. **테스트 동반.** 어댑터 정규화, reducer, IPC 스키마는 단위 테스트와 함께 작성 (TRD §10). 현재는 테스트 인프라 미구축 — Vitest 도입 시 이 원칙 활성화.
+7. **TRD 와 코드가 충돌하면 사용자에게 물어라.** TRD 갱신과 코드 변경은 같은 PR 또는 짝 PR 로. (예: OQ2 의 TRD 표기 `shiki` vs 실제 도입 `Prism.js` — TRD 동기화 필요.)
+8. **mock 응답 영역은 명확히 표시.** `src/main/ipc/router.ts` 의 mock 부분은 실제 어댑터 도입 시 *제거 + 교체*. mock 위에 기능 누적 금지.
 
 ## 위치 규약
 

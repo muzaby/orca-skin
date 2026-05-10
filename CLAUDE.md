@@ -9,7 +9,7 @@
 | `chats/` | 사용자 의도 트랜스크립트 (Claude Design 핸드오프) — *왜* 가 산다 | `chats/CLAUDE.md` |
 | `docs/` | PRD, TRD, 전략 문서 — *무엇을* / *어떻게* 가 산다 | `docs/CLAUDE.md` |
 | `project/` | HTML/CSS/JS 디자인 프로토타입 (variation A 채택) — *어떻게 보여야 하는가* | `project/CLAUDE.md` |
-| `app/` | Orca v1 실제 구현체 (electron-vite + React/TypeScript). 현재 스캐폴드 상태. | `app/CLAUDE.md` |
+| `app/` | Orca v1 실제 구현체 (Electron Forge + TypeScript + React 18 + Tailwind CSS). **F1 (기본 채팅) + F2 (마크다운 렌더링) 완료**, 어댑터/세션 영역은 미완. | `app/CLAUDE.md` |
 
 ## 새 세션 진입 시 읽는 순서
 
@@ -26,14 +26,15 @@
 |---|---|
 | 디자인 핸드오프 (variation A 확정) | 완료 — `chats/chat1.md`, `project/electron/` |
 | 제품 정의 (PRD v1) | 완료 — `docs/PRD.md` |
-| 구현 사양 (TRD v1) | 완료 — `docs/TRD.md` |
-| 스캐폴드 (electron-vite react-ts) | 완료 — `app/` |
-| **Phase 1 MVP 구현** | **진행 전** — 다음 작업 단위 |
+| 구현 사양 (TRD v1) | 완료 — `docs/TRD.md` (Tailwind CSS 결정 반영 §2, §9.5) |
+| 스캐폴드 (Electron Forge webpack-typescript) | 완료 — `app/` |
+| **Phase 1 — F1 (기본 채팅 셸) + F2 (마크다운 렌더)** | **완료** — `app/src/main/`, `app/src/renderer/`, Tailwind CSS 통합 |
+| **Phase 1 — 나머지 (F3~F10, 어댑터, 인스톨러, 세션)** | **진행 중** — 다음 작업 단위. 현 IPC 라우터는 mock 응답이며 실제 `ClaudeCodeAdapter`/`OpencodeAdapter` 도입 필요. |
 
 ## 핵심 원칙 (모든 에이전트 공통)
 
 1. **트랜스크립트 + PRD/TRD 가 진실이다.** `project/` HTML 은 *결과물* 이지 의도가 아니다. 의도는 `chats/` 와 `docs/` 에 있다.
-2. **PRD §11 / TRD §15 의 Open Questions 는 미정 항목.** 에이전트가 단독으로 결정하지 마라. 사용자에게 묻는다.
+2. **PRD §11 / TRD §15 의 Open Questions.** **결정됨**: OQ1 (React 18), OQ2 (react-markdown + Prism.js — TRD 표기 `shiki` 와 불일치, 동기화 필요), OQ3 (Windows Squirrel/NSIS 패키징, 자동 업데이트는 Phase 2). **여전히 미정** (단독 결정 금지): OQ4~OQ8.
 3. **문서와 코드가 모순되면 사용자에게 물어라.** 둘 다 바꿔야 하는지(설계 변경) 코드만(구현 버그) 인지 결정해야 한다.
 4. **각 디렉토리의 `CLAUDE.md` 가 그 디렉토리에서 더 구체적인 규칙을 갖는다.** 본 문서와 충돌 시 디렉토리별 가이드 우선.
 5. **새 디렉토리 추가 시 그 디렉토리에도 `CLAUDE.md` 를 둔다** — 본 표를 갱신.

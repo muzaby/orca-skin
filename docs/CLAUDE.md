@@ -7,8 +7,7 @@
 | 파일 | 주제 | 다룰 때 읽어야 하는 경우 |
 |---|---|---|
 | `PRD.md` | **Orca v1 제품 정의** — 채팅+세션 재개 MVP, 그 외 도메인 화면(Captures/Skills/MCP/하드웨어)은 Future Scope | **무엇을** 만들지 합의를 확인할 때. 화면/기능/Phase 의 진실 원천. 작업 시작 전 가장 먼저 읽는다. |
-| `TRD.md` | **Orca v1 기능·스택·API 사양** — 기능 명세(F1~F10), 기술 스택, IPC API 카탈로그, 데이터 모델, 외부 CLI/SDK 계약, 테스트 전략 | **무엇을 만들고, 어떤 기술로 만드는가** 결정할 때. 코드 작성 직전 가장 가까이 두는 문서. 시스템 구성·프로세스·모듈 레이아웃은 `architecture.md` 참조. |
-| `architecture.md` | **Orca 시스템 구조·프로세스·데이터 흐름** — electron-vite 3-process 모델, Preload bridge, 모듈 레이아웃(디렉토리 트리), 컴포넌트 구조, 시퀀스 다이어그램, 빌드 파이프라인 | **어떻게 구성되어 있고, 입력이 어디로 흘러가는가** 이해할 때. Main/Renderer/Preload 의 책임·통신·라이프사이클 을 종합적으로 다룬다. |
+| `TRD.md` | **Orca v1 구현 사양** — 모듈 레이아웃, 어댑터 인터페이스, IPC 채널, 세션/컨텍스트 상태 머신, **스타일링 결정 (§2 Tailwind CSS, §9.5 CSS/디자인 토큰 전략)**, 테스트 전략, Phase 2~4 architecture anchor | **어떻게** 구현할지 결정할 때. 코드 작성 직전 가장 가까이 두는 문서. §15 의 Open Questions 는 PRD §11 과 동기화된 미정 항목이며 단독으로 결정하지 않는다. |
 | `llm-chat-desktop-strategy.md` | Claude Code / opencode CLI 를 백엔드로 쓰는 Electron 채팅 데스크톱앱 설계 — Orca 엔진의 *전략적 근거 / 결정 출처* (TRD 가 이 문서를 소화한 결과) | TRD 의 결정 배경을 거슬러 확인하거나, TRD 가 다루지 않는 회색 지대 (예: 추가 백엔드, 대안 라이브러리) 를 검토할 때 |
 | `lightweight-llm-strategy.md` | 로컬 4B LLM 기반 이미지 센서 QA 시스템 설계 (Case 1: 로컬 전용 / Case 2: 외부 LLM 가능) | Skill 라우팅, JSON 단계 통신, self-consistency 등 4B 운영 패턴을 구현할 때 |
 
@@ -19,7 +18,7 @@
 
 ## 코딩 에이전트가 따라야 할 원칙
 
-1. **읽는 순서.** Orca 작업이면 `PRD.md` → `TRD.md` → (필요 시) `architecture.md` → (필요 시) `llm-chat-desktop-strategy.md` → `project/` 순. **PRD §11 / TRD 의 Open Questions** 는 두 문서가 동기화한 동일 미정 항목이므로 에이전트가 단독으로 결정하지 말고 사용자에게 묻는다. `architecture.md` 는 구조·프로세스 이해가 필요할 때만 (TRD 읽고도 어떻게 구성되어 있는지 궁금할 때).
+1. **읽는 순서.** Orca 작업이면 `PRD.md` → `TRD.md` → (필요 시) `llm-chat-desktop-strategy.md` → `project/` 순. **PRD §11 / TRD §15 의 Open Questions** 는 두 문서가 동기화한 동일 미정 항목이므로 에이전트가 단독으로 결정하지 말고 사용자에게 묻는다.
 2. **구현 전에 해당 문서를 끝까지 읽어라.** 표 안의 의사결정 행(`결정`, `채택`, `합의된 원칙`)이 핵심이다. 요약본만 보고 구현하지 말 것.
 3. **문서에 명시된 결정을 임의로 바꾸지 마라.** 예: "분해는 사전에", "측정은 결정론적", "통합 시스템 만들지 않음" 같은 원칙은 협의 결과다. 변경이 필요하면 사용자에게 먼저 확인.
 4. **문서와 코드가 충돌하면 사용자에게 물어라.** 둘 다 바꿔야 하는지(설계 변경) 코드만 바꿔야 하는지(구현 버그) 결정해야 한다.
