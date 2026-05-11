@@ -22,6 +22,7 @@
 | **Section 3.2 — Tool Cards (F3)** | **완료** — state.ts (toolCalls Map + RECV_TOOL_USE/RESULT), ToolCallCard.tsx 컴포넌트, MessageList 렌더링, Composer 이벤트 핸들링 |
 | **Section 3.3 — sessionId UI (F4)** | **완료** (검증) — 헤더에 "Session {8자}" 표시 기존 구현, null→init→reuse→NEW_CHAT→null 흐름 정상 |
 | **Section 3.4 — Code Highlighting (Prism.js)** | **완료** — Markdown.tsx code 컴포넌트에서 Prism.highlight() 호출, 언어 감지, index.css에 prism-tomorrow 테마 import |
+| **Section 5.1-5.3 — Logging (Part 1)** | **진행 중** — `src/main/utils/logger.ts` 작성 (electron-log 래퍼), `app.getPath('logs')/orca.log` 파일 로깅, AdapterRegistry 로깅 추가. **남은 작업**: router/Composer/preload/claude-code 로깅 호출 |
 
 ## 타깃 모듈 레이아웃 (TRD §1.2)
 
@@ -35,6 +36,7 @@
 | `src/main/adapters/registry.ts` | 설치 상태 + 활성 백엔드 선택 | **완료** (parallel detection, active backend management) |
 | `src/main/installer/index.ts` | CLI 설치 자동화 | **미작성** |
 | `src/main/settings/store.ts` | Phase 2+ `electron-store`. Phase 1 은 in-memory | 미작성 (Phase 2 anchor) |
+| `src/main/utils/logger.ts` | electron-log 래퍼 (debug/info/warn/error), 파일 로그 to `app.getPath('logs')/orca.log` | **완료** (TRD §11 정합 — 메시지 본문 미로깅 정책) |
 | `src/renderer/index.tsx` | React 엔트리 (StrictMode + ChatShell) | **완료** |
 | `src/renderer/index.css` | Tailwind 지시어 + CSS 토큰 (`:root` `--cream-0/--ink-900/--rust-400/...`) + 마크다운 스타일 | **완료** |
 | `src/renderer/app/ChatShell.tsx` | 사이드바 + 헤더 + 메시지 + 컴포저 레이아웃 | **완료** (Tailwind 기반) |
@@ -81,7 +83,7 @@ new BrowserWindow({
 
 - TRD §2 의 Stack 표 밖의 패키지 추가는 **사용자 승인 필수**. PR 설명에 *왜* 가 들어가야 한다.
 - **이미 도입된 것** (`package.json` 참조):
-  - 런타임: `react@18`, `react-dom@18`, `react-markdown@9`, `remark-gfm@4`, `prismjs@1.30`, `zod@3.22`, `electron-squirrel-startup`
+  - 런타임: `react@18`, `react-dom@18`, `react-markdown@9`, `remark-gfm@4`, `prismjs@1.30`, `zod@3.22`, `electron-squirrel-startup`, `electron-log@5.1`
   - 폰트 (self-hosted, TRD §1.3 정합): `@fontsource/inter@5`, `@fontsource/source-serif-4@5`, `@fontsource/jetbrains-mono@5` (latin subset 만 import — 한글은 시스템 fallback)
   - 빌드/스타일: `typescript@5.x`, `ts-loader@9.5`, `css-loader@7`, `style-loader@4`, `node-loader@2`, `@vercel/webpack-asset-relocator-loader@1.10`, `fork-ts-checker-webpack-plugin@7.3` (v8/v9 는 `electron-forge plugin-webpack` 과 IPC EPIPE 충돌 — electron/forge #3861. v7.3 은 deprecation 없음), `tailwindcss@3.4`, `postcss@8.4`, `postcss-loader@8.1`, `autoprefixer@10.4`
   - Lint: `eslint@9`, `@eslint/js@9`, `@typescript-eslint/eslint-plugin@8`, `@typescript-eslint/parser@8`, `eslint-plugin-import@2.32`, `globals@15`
