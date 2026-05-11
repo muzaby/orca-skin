@@ -1,6 +1,7 @@
 import React from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import Prism from 'prismjs';
 
 interface MarkdownProps {
   content: string;
@@ -11,7 +12,7 @@ export function MarkdownRenderer({ content }: MarkdownProps) {
     <Markdown
       remarkPlugins={[remarkGfm]}
       components={{
-        code({ inline, children, ...props }: any) {
+        code({ inline, className, children, ...props }: any) {
           if (inline) {
             return (
               <code className="font-mono text-xs bg-cream-50 px-1.5 py-0.5 rounded" {...props}>
@@ -19,10 +20,27 @@ export function MarkdownRenderer({ content }: MarkdownProps) {
               </code>
             );
           }
+
+          const language = className?.replace(/language-/, '') || 'text';
+          const code = String(children).replace(/\n$/, '');
+
+          let highlighted = code;
+          try {
+            if (Prism.languages[language]) {
+              highlighted = Prism.highlight(code, Prism.languages[language], language);
+            } else {
+              highlighted = Prism.highlight(code, Prism.languages.text, 'text');
+            }
+          } catch {
+            highlighted = code;
+          }
+
           return (
-            <code className="font-mono text-xs" {...props}>
-              {children}
-            </code>
+            <code
+              className={`font-mono text-xs ${className || ''}`}
+              dangerouslySetInnerHTML={{ __html: highlighted }}
+              {...props}
+            />
           );
         },
         pre({ children, ...props }: any) {
