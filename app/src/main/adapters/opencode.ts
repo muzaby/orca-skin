@@ -16,12 +16,18 @@ export class OpencodeAdapter implements SessionAdapter {
     throw new Error('Opencode auto-install not implemented in Phase 1');
   }
 
-  sendMessage(): AsyncIterable<ChatEvent> {
-    return (async function* () {
-      // Phase 1: Not implemented
+  sendMessage(
+    sessionId: string | null,
+    text: string,
+    cwd: string,
+  ): AsyncIterable<ChatEvent> {
+    void sessionId;
+    void text;
+    void cwd;
+    return (async function* (): AsyncIterable<ChatEvent> {
       throw new Error('Opencode adapter not implemented in Phase 1');
       // eslint-disable-next-line no-unreachable
-      yield;
+      yield {} as ChatEvent;
     })();
   }
 }
