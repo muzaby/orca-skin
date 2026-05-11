@@ -73,6 +73,7 @@ new BrowserWindow({
 - TRD §2 의 Stack 표 밖의 패키지 추가는 **사용자 승인 필수**. PR 설명에 *왜* 가 들어가야 한다.
 - **이미 도입된 것** (`package.json` 참조):
   - 런타임: `react@18`, `react-dom@18`, `react-markdown@9`, `remark-gfm@4`, `prismjs@1.30`, `zod@3.22`, `electron-squirrel-startup`
+  - 폰트 (self-hosted, TRD §1.3 정합): `@fontsource/inter@5`, `@fontsource/source-serif-4@5`, `@fontsource/jetbrains-mono@5` (latin subset 만 import — 한글은 시스템 fallback)
   - 빌드/스타일: `typescript@5.x`, `ts-loader@9.5`, `css-loader@7`, `style-loader@4`, `node-loader@2`, `@vercel/webpack-asset-relocator-loader@1.10`, `fork-ts-checker-webpack-plugin@7.3` (v8/v9 는 `electron-forge plugin-webpack` 과 IPC EPIPE 충돌 — electron/forge #3861. v7.3 은 deprecation 없음), `tailwindcss@3.4`, `postcss@8.4`, `postcss-loader@8.1`, `autoprefixer@10.4`
   - Lint: `eslint@9`, `@eslint/js@9`, `@typescript-eslint/eslint-plugin@8`, `@typescript-eslint/parser@8`, `eslint-plugin-import@2.32`, `globals@15`
   - 타입: `@types/react@18`, `@types/react-dom@18`
@@ -94,6 +95,7 @@ new BrowserWindow({
 - **디자인 토큰은 `tailwind.config.js` 의 `theme.extend`** — 신규 색상/폰트가 필요하면 여기에 추가하고 클래스로 사용. 컴포넌트 안에 hex 값 직접 입력 금지.
 - **CSS 변수** (`src/renderer/index.css` 의 `:root` `--cream-0/--ink-900/--rust-400/...`) 는 마크다운 렌더, 스크롤바 같은 *비-React 영역* 에서만 사용. React 컴포넌트는 Tailwind 우선.
 - **마크다운 스타일** 은 `Markdown.tsx` 의 `components` 오버라이드에서 Tailwind 클래스 지정 + `index.css` 의 `.markdown` 보조 규칙 병행.
+- **폰트는 self-hosted** (`@fontsource/*` latin subset). `src/renderer/index.css` 의 `@import '@fontsource/...'` 만으로 번들 (webpack `asset/resource` 룰이 woff2 추출). 새 외부 CDN 링크 추가 금지 — TRD §1.3 "외부 콘텐츠 로드 금지 (오프라인 가정)" 위반. 새 weight/style 이 필요하면 `@fontsource` import 추가.
 
 ## 빌드 / 실행
 
