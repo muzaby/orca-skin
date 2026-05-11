@@ -55,7 +55,7 @@
 | `src/renderer/app/Markdown.tsx` | react-markdown + shiki 래퍼 |
 | `src/renderer/app/TweaksPanel.tsx` | 테마/밀도/사이드바 토글 |
 | `src/renderer/app/state.ts` | sessionId / messages / settings 상태 (Context + reducer) |
-| `src/renderer/preload.ts` | contextBridge 로 IPC API 노출 |
+| `src/renderer/preload.js` | contextBridge 로 IPC API 노출. **Plain JavaScript** (TS 컴파일 우회) — sandbox+CommonJS 런타임 제약 회피, 보안 경계 디버깅 단순화, 번들 의존성 제거. JSDoc 으로 타입 힌트. |
 | `src/shared/protocol.ts` | Renderer ↔ Main 메시지 스키마 |
 | `src/shared/i18n/ko.ts` | 한국어 라벨 |
 

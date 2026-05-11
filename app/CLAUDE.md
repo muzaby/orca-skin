@@ -52,13 +52,13 @@
 | `src/renderer/app/state.ts` | Context + reducer (`SET_SESSION`/`SEND_USER_MESSAGE`/`RECV_DELTA`/`RECV_MESSAGE`/`NEW_CHAT`/...) | **완료** |
 | `src/renderer/app/ErrorToast.tsx` | 에러 토스트 (자동 dismiss 4초) | **완료** (error state 디스플레이, 기본 메시지만) |
 | `src/renderer/app/TweaksPanel.tsx` | 테마/밀도/사이드바 토글 | **완료** (플로팅 패널, 3개 제어 버튼 — Phase 2에서 CSS 변수 + 실제 기능 구현) |
-| `src/renderer/preload.ts` | `contextBridge.exposeInMainWorld('orca', ...)` 화이트리스트 | **완료** (`chat.send/onEvent/cancel`, `backend.list/select`, `logger.*`, `settings.get/set`) |
+| `src/renderer/preload.js` | `contextBridge.exposeInMainWorld('orca', ...)` 화이트리스트 (CommonJS + JSDoc) | **완료** (`chat.send/onEvent/cancel`, `backend.list/select`, `logger.*`, `settings.get/set`) |
 | `src/global.d.ts` | `Window.orca` 타입 선언 | **완료** |
 | `src/shared/protocol.ts` | Renderer ↔ Main 메시지 스키마 (zod) + `Backend`/`ChatEvent`/`SessionAdapter`/`SessionInfo` 공통 타입 | **완료** |
 | `src/shared/i18n/ko.ts` | 한국어 라벨 | **완료** (sidebar, chat, composer, messageList 라벨 통합) |
 | `tailwind.config.js` | V1Frame 디자인 토큰 (색상/폰트/크기) | **완료** |
 | `postcss.config.js` | tailwindcss + autoprefixer | **완료** |
-| `eslint.config.js` | ESLint 9 **flat config** — `@typescript-eslint`, `eslint-plugin-import` 사용. `src/**/*.{ts,tsx}` 만 lint. `.eslintrc.*` 으로 회귀 금지 | **완료** |
+| `eslint.config.js` | ESLint 9 **flat config** — `@typescript-eslint`, `eslint-plugin-import` 사용. `src/**/*.{ts,tsx,js}` lint (preload.js 포함). `.eslintrc.*` 으로 회귀 금지 | **완료** |
 
 > 이 레이아웃에서 벗어나려면 사용자에게 먼저 확인. TRD 와 코드를 동시에 갱신해야 한다.
 
