@@ -22,6 +22,7 @@
 | **Section 3.2 — Tool Cards (F3)** | **완료** — state.ts (toolCalls Map + RECV_TOOL_USE/RESULT), ToolCallCard.tsx 컴포넌트, MessageList 렌더링, Composer 이벤트 핸들링 |
 | **Section 3.3 — sessionId UI (F4)** | **완료** (검증) — 헤더에 "Session {8자}" 표시 기존 구현, null→init→reuse→NEW_CHAT→null 흐름 정상 |
 | **Section 3.4 — Code Highlighting (Prism.js)** | **완료** — Markdown.tsx code 컴포넌트에서 Prism.highlight() 호출, 언어 감지, index.css에 prism-tomorrow 테마 import |
+| **2.1 F3 — ClaudeCodeAdapter 실제 구현** | **완료** — claude-code.ts `sendMessage()` 전체 구현: child_process.spawn, NDJSON 파싱, --resume 플래그, ChatEvent 정규화, 에러 처리 |
 | **Section 5.1-5.3 — Logging (Part 1)** | **완료** — `src/main/utils/logger.ts` 작성 (electron-log 래퍼), `app.getPath('logs')/orca.log` 파일 로깅, AdapterRegistry 로깅 추가 |
 | **Section 5.1-5.3 — Logging (Part 2)** | **완료** — router.ts (orca:chat:send 로깅), claude-code.ts (로깅 + Phase 2 주석), preload.ts/global.d.ts (window.orca.logger/settings 타입), Composer.tsx (메시지/이벤트 로깅), orca:log:send IPC 핸들러 |
 | **Section 6.1 — Settings Store** | **완료** — `src/main/settings/store.ts` in-memory Store (Settings interface, get/set 메서드), router.ts IPC handlers (orca:settings:get/set) |
@@ -35,7 +36,7 @@
 | `src/main/index.ts` | Electron `app` 부트, BrowserWindow, IpcRouter 부착, AdapterRegistry 초기화 | **완료** (보안 베이스라인 포함) |
 | `src/main/ipc/router.ts` | IPC 채널 라우팅 + 입력 검증 (zod) | **완료** (`orca:backend:list/select`, `orca:chat:send` 로깅, `orca:log:send`, `orca:settings:get/set` 추가됨) |
 | `src/main/adapters/types.ts` | `SessionAdapter`, `ChatEvent`, `Backend` 공통 타입 | 미작성 (현재 `src/shared/protocol.ts` 에 통합 — 필요 시 `main/adapters/types.ts` 로 분리 검토) |
-| `src/main/adapters/claude-code.ts` | Claude Code spawn / NDJSON / `--resume` | **Stub 작성** (`isInstalled()` + 로깅, sendMessage/listSessions/loadSession 미구현 + Phase 2/3 주석) |
+| `src/main/adapters/claude-code.ts` | Claude Code spawn / NDJSON / `--resume` | **완료** (`isInstalled()` + 로깅, `sendMessage()` 완성 + NDJSON 파싱, listSessions/loadSession Phase 2/3 스텁) |
 | `src/main/adapters/opencode.ts` | opencode `serve` / SDK / SSE | **Stub 작성** (`isInstalled()` 완료, sendMessage/listSessions/loadSession 미구현 + Phase 2/3 주석) |
 | `src/main/adapters/registry.ts` | 설치 상태 + 활성 백엔드 선택 | **완료** (parallel detection, active backend management) |
 | `src/main/installer/index.ts` | CLI 설치 자동화 | **미작성** |
