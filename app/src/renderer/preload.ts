@@ -14,4 +14,14 @@ contextBridge.exposeInMainWorld('orca', {
     select: (backend: string) =>
       ipcRenderer.invoke('orca:backend:select', { backend }),
   },
+  logger: {
+    info: (msg: string) => ipcRenderer.invoke('orca:log:send', { level: 'info', msg }),
+    debug: (msg: string) => ipcRenderer.invoke('orca:log:send', { level: 'debug', msg }),
+    warn: (msg: string) => ipcRenderer.invoke('orca:log:send', { level: 'warn', msg }),
+    error: (msg: string) => ipcRenderer.invoke('orca:log:send', { level: 'error', msg }),
+  },
+  settings: {
+    get: (key: string) => ipcRenderer.invoke('orca:settings:get', { key }),
+    set: (key: string, value: any) => ipcRenderer.invoke('orca:settings:set', { key, value }),
+  },
 });

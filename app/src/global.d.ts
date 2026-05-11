@@ -8,6 +8,16 @@ export interface OrcaAPI {
     list: () => Promise<any>;
     select: (backend: string) => Promise<any>;
   };
+  logger: {
+    info: (msg: string) => Promise<{ ok?: boolean }>;
+    debug: (msg: string) => Promise<{ ok?: boolean }>;
+    warn: (msg: string) => Promise<{ ok?: boolean }>;
+    error: (msg: string) => Promise<{ ok?: boolean }>;
+  };
+  settings: {
+    get: (key: string) => Promise<any>;
+    set: (key: string, value: any) => Promise<{ ok?: boolean }>;
+  };
 }
 
 declare global {

@@ -18,6 +18,7 @@ export function Composer() {
     if (window.orca) {
       try {
         const cwd = '/home/user';
+        await window.orca.logger.debug(`Sending message (length=${trimmed.length})`);
         await window.orca.chat.send({
           sessionId: state.sessionId,
           text: trimmed,
@@ -25,6 +26,7 @@ export function Composer() {
         });
 
         window.orca.chat.onEvent((event: any) => {
+          void window.orca.logger.debug(`Received event: ${event.type}`);
           if (event.type === 'init') {
             dispatch({
               type: 'SET_SESSION',
