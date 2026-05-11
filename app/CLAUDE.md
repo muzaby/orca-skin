@@ -73,7 +73,7 @@ new BrowserWindow({
 - TRD §2 의 Stack 표 밖의 패키지 추가는 **사용자 승인 필수**. PR 설명에 *왜* 가 들어가야 한다.
 - **이미 도입된 것** (`package.json` 참조):
   - 런타임: `react@18`, `react-dom@18`, `react-markdown@9`, `remark-gfm@4`, `prismjs@1.30`, `zod@3.22`, `electron-squirrel-startup`
-  - 빌드/스타일: `typescript@5.x`, `ts-loader@9.5`, `css-loader@7`, `style-loader@4`, `node-loader@2`, `@vercel/webpack-asset-relocator-loader@1.10`, `fork-ts-checker-webpack-plugin@9`, `tailwindcss@3.4`, `postcss@8.4`, `postcss-loader@8.1`, `autoprefixer@10.4`
+  - 빌드/스타일: `typescript@5.x`, `ts-loader@9.5`, `css-loader@7`, `style-loader@4`, `node-loader@2`, `@vercel/webpack-asset-relocator-loader@1.10`, `fork-ts-checker-webpack-plugin@7.3` (v8/v9 는 `electron-forge plugin-webpack` 과 IPC EPIPE 충돌 — electron/forge #3861. v7.3 은 deprecation 없음), `tailwindcss@3.4`, `postcss@8.4`, `postcss-loader@8.1`, `autoprefixer@10.4`
   - Lint: `eslint@9`, `@eslint/js@9`, `@typescript-eslint/eslint-plugin@8`, `@typescript-eslint/parser@8`, `eslint-plugin-import@2.32`, `globals@15`
   - 타입: `@types/react@18`, `@types/react-dom@18`
 - **사용자 결정으로 확정된 항목** (TRD §15 OQ 와 동기화 필요):
