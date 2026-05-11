@@ -2,6 +2,7 @@ import { ipcMain, BrowserWindow } from 'electron';
 import * as Protocol from '../../shared/protocol';
 import type { AdapterRegistry } from '../adapters/registry';
 import { logger } from '../utils/logger';
+import { store } from '../settings/store';
 
 export class IpcRouter {
   constructor(private mainWindow: BrowserWindow, private registry: AdapterRegistry) {}
@@ -97,6 +98,26 @@ export class IpcRouter {
         logger[level as keyof typeof logger](msg);
       }
       return { ok: true };
+    });
+
+    // Settings get
+    ipcMain.handle('orca:settings:get', async (event, payload) => {
+      const { key } = payload;
+      if (typeof key === 'string') {
+        const value = store.get(key as any);
+        return { value };
+      }
+      return { error: 'invalid key' };
+    });
+
+    // Settings set
+    ipcMain.handle('orca:settings:set', async (event, payload) => {
+      const { key, value } = payload;
+      if (typeof key === 'string') {
+        store.set(key as any, value);
+        return { ok: true };
+      }
+      return { error: 'invalid key' };
     });
   }
 }
