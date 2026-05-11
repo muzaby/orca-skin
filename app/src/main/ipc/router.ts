@@ -13,35 +13,42 @@ export class IpcRouter {
         return { error: 'validation failed', details: parsed.error.errors };
       }
 
-      // Phase 1: Mock response
-      const sessionId = `session-${Date.now()}`;
-      this.mainWindow.webContents.send('orca:chat:event', {
-        type: 'init',
-        sessionId,
-        data: { model: 'claude-code', cwd: parsed.data.cwd },
-      });
-
-      // Simulate streaming response
-      const responseText = '[Mock assistant response]';
-      for (let i = 0; i < responseText.length; i++) {
+      const activeBackend = this.registry.getActive();
+      if (!activeBackend) {
         this.mainWindow.webContents.send('orca:chat:event', {
-          type: 'assistant_delta',
-          sessionId,
-          data: { text: responseText[i] },
+          type: 'error',
+          sessionId: 'unknown',
+          data: { code: 'cli.not-installed', message: 'No backend available', recoverable: true },
         });
+        return { ok: true };
       }
 
-      this.mainWindow.webContents.send('orca:chat:event', {
-        type: 'assistant_message',
-        sessionId,
-        data: { text: responseText },
-      });
+      const adapter = this.registry.getAdapter(activeBackend);
+      if (!adapter) {
+        this.mainWindow.webContents.send('orca:chat:event', {
+          type: 'error',
+          sessionId: 'unknown',
+          data: { code: 'internal', message: 'Adapter not found', recoverable: false },
+        });
+        return { ok: true };
+      }
 
-      this.mainWindow.webContents.send('orca:chat:event', {
-        type: 'result',
-        sessionId,
-        data: { usage: { inputTokens: 100, outputTokens: 50 } },
-      });
+      try {
+        for await (const event of adapter.sendMessage(
+          parsed.data.sessionId,
+          parsed.data.text,
+          parsed.data.cwd,
+        )) {
+          this.mainWindow.webContents.send('orca:chat:event', event);
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Unknown error';
+        this.mainWindow.webContents.send('orca:chat:event', {
+          type: 'error',
+          sessionId: parsed.data.sessionId || 'unknown',
+          data: { code: 'internal', message, recoverable: false },
+        });
+      }
 
       return { ok: true };
     });
