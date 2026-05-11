@@ -1,4 +1,4 @@
-import React, { useEffect, ReactElement } from 'react';
+import React, { useEffect } from 'react';
 import { ChatProvider, useChat } from './state';
 import { MessageList } from './MessageList';
 import { Composer } from './Composer';

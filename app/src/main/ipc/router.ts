@@ -60,7 +60,7 @@ export class IpcRouter {
     });
 
     // Chat cancel
-    ipcMain.handle('orca:chat:cancel', async (event, payload) => {
+    ipcMain.handle('orca:chat:cancel', async () => {
       // Phase 1: No-op
       return { ok: true };
     });
