@@ -67,6 +67,7 @@ new BrowserWindow({
 | DevTools 자동 오픈 | dev 빌드(`process.env.NODE_ENV !== 'production'`) 한정 |
 | 외부 URL 로드 | 금지. `webContents.setWindowOpenHandler` 로 차단 + OS 기본 브라우저 위임 |
 | 비밀 저장 | 앱은 저장하지 않음 — OAuth/API 키는 호스트 CLI 가 관리 (PRD N6) |
+| Renderer 환경 shim | `src/index.html` 의 `window.__dirname=''/window.__filename=''` inline `<script>` 는 sandbox+nodeIntegration:false 환경에서 `@vercel/webpack-asset-relocator-loader` 가 inject 한 `__dirname` 참조의 `ReferenceError` 를 막기 위함. 제거 금지 (renderer 가 native module 안 쓰므로 base path 는 dead-branch metadata). |
 
 ## 의존성 정책
 
