@@ -16,17 +16,18 @@
 | 스타일링 | **Tailwind CSS** (`tailwind.config.js` 의 V1Frame 디자인 토큰 — 크림/잉크/러스트 팔레트, Inter/Source Serif 4/JetBrains Mono) + `src/renderer/index.css` 글로벌 |
 | `package.json` | `name: "orca"`, `productName: "Orca"` 적용 완료 |
 | **Phase 1 — 정리** | **완료** — TRD OQ2 동기화 (shiki → Prism.js), 죽은 파일 제거 (`src/renderer.ts`), i18n foundation (`src/shared/i18n/ko.ts`) 작성 + 4개 컴포넌트 통합 |
+| **Phase 2.2 — AdapterRegistry** | **완료** — Parallel 설치 감지 (claude-code, opencode), registry 생명주기 (`app.ready`), IPC 연동 (`orca:backend:list/select`) |
 
 ## 타깃 모듈 레이아웃 (TRD §1.2)
 
 | 경로 | 책임 | 현 상태 |
 |---|---|---|
-| `src/main/index.ts` | Electron `app` 부트, BrowserWindow, IpcRouter 부착 | **완료** (보안 베이스라인 포함) |
-| `src/main/ipc/router.ts` | IPC 채널 라우팅 + 입력 검증 (zod) | **완료** (Phase 1: mock 응답 — `orca:chat:send` 가 `init/assistant_delta/assistant_message/result` 시뮬레이션) |
+| `src/main/index.ts` | Electron `app` 부트, BrowserWindow, IpcRouter 부착, AdapterRegistry 초기화 | **완료** (보안 베이스라인 포함) |
+| `src/main/ipc/router.ts` | IPC 채널 라우팅 + 입력 검증 (zod) | **완료** (`orca:backend:list/select` 에 registry 연동, `orca:chat:send` 는 mock 응답) |
 | `src/main/adapters/types.ts` | `SessionAdapter`, `ChatEvent`, `Backend` 공통 타입 | 미작성 (현재 `src/shared/protocol.ts` 에 통합 — 필요 시 `main/adapters/types.ts` 로 분리 검토) |
-| `src/main/adapters/claude-code.ts` | Claude Code spawn / NDJSON / `--resume` | **미작성** — Phase 1 다음 작업 |
-| `src/main/adapters/opencode.ts` | opencode `serve` / SDK / SSE | **미작성** |
-| `src/main/adapters/registry.ts` | 설치 상태 + 활성 백엔드 선택 | **미작성** |
+| `src/main/adapters/claude-code.ts` | Claude Code spawn / NDJSON / `--resume` | **Stub 작성** (`isInstalled()` 완료, sendMessage 미구현 — Phase 2+) |
+| `src/main/adapters/opencode.ts` | opencode `serve` / SDK / SSE | **Stub 작성** (`isInstalled()` 완료, sendMessage 미구현 — Phase 2+) |
+| `src/main/adapters/registry.ts` | 설치 상태 + 활성 백엔드 선택 | **완료** (parallel detection, active backend management) |
 | `src/main/installer/index.ts` | CLI 설치 자동화 | **미작성** |
 | `src/main/settings/store.ts` | Phase 2+ `electron-store`. Phase 1 은 in-memory | 미작성 (Phase 2 anchor) |
 | `src/renderer/index.tsx` | React 엔트리 (StrictMode + ChatShell) | **완료** |

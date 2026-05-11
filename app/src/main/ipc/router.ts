@@ -1,8 +1,9 @@
 import { ipcMain, BrowserWindow } from 'electron';
 import * as Protocol from '../../shared/protocol';
+import type { AdapterRegistry } from '../adapters/registry';
 
 export class IpcRouter {
-  constructor(private mainWindow: BrowserWindow) {}
+  constructor(private mainWindow: BrowserWindow, private registry: AdapterRegistry) {}
 
   init(): void {
     // Chat send
@@ -47,7 +48,11 @@ export class IpcRouter {
 
     // Backend list
     ipcMain.handle('orca:backend:list', async () => {
-      return { installed: [], active: null };
+      const installed = await this.registry.detectInstalledBackends();
+      return {
+        installed,
+        active: this.registry.getActive(),
+      };
     });
 
     // Backend select
@@ -56,6 +61,7 @@ export class IpcRouter {
       if (!parsed.success) {
         return { error: 'validation failed' };
       }
+      this.registry.setActive(parsed.data.backend);
       return { ok: true };
     });
 

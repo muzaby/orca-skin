@@ -1,5 +1,6 @@
 import { app, BrowserWindow } from 'electron';
 import { IpcRouter } from './ipc/router';
+import { adapterRegistry } from './adapters/registry';
 
 declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
@@ -38,12 +39,15 @@ function createWindow(): void {
 
   // Initialize IPC router
   if (mainWindow) {
-    const router = new IpcRouter(mainWindow);
+    const router = new IpcRouter(mainWindow, adapterRegistry);
     router.init();
   }
 }
 
-app.on('ready', createWindow);
+app.on('ready', async () => {
+  await adapterRegistry.initialize();
+  createWindow();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
