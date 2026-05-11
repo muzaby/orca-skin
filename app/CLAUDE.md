@@ -25,6 +25,7 @@
 | **Section 5.1-5.3 — Logging (Part 1)** | **완료** — `src/main/utils/logger.ts` 작성 (electron-log 래퍼), `app.getPath('logs')/orca.log` 파일 로깅, AdapterRegistry 로깅 추가 |
 | **Section 5.1-5.3 — Logging (Part 2)** | **완료** — router.ts (orca:chat:send 로깅), claude-code.ts (로깅 + Phase 2 주석), preload.ts/global.d.ts (window.orca.logger/settings 타입), Composer.tsx (메시지/이벤트 로깅), orca:log:send IPC 핸들러 |
 | **Section 6.1 — Settings Store** | **완료** — `src/main/settings/store.ts` in-memory Store (Settings interface, get/set 메서드), router.ts IPC handlers (orca:settings:get/set) |
+| **Section 6.2 — TweaksPanel (F10)** | **완료** — TweaksPanel.tsx 플로팅 UI (theme/density/sidebar 제어), ChatShell.tsx 통합 |
 
 ## 타깃 모듈 레이아웃 (TRD §1.2)
 
@@ -41,14 +42,14 @@
 | `src/main/utils/logger.ts` | electron-log 래퍼 (debug/info/warn/error), 파일 로그 to `app.getPath('logs')/orca.log` | **완료** (TRD §11 정합 — 메시지 본문 미로깅 정책) |
 | `src/renderer/index.tsx` | React 엔트리 (StrictMode + ChatShell) | **완료** |
 | `src/renderer/index.css` | Tailwind 지시어 + CSS 토큰 (`:root` `--cream-0/--ink-900/--rust-400/...`) + 마크다운 스타일 | **완료** |
-| `src/renderer/app/ChatShell.tsx` | 사이드바 + 헤더 + 메시지 + 컴포저 레이아웃 | **완료** (Tailwind 기반) |
+| `src/renderer/app/ChatShell.tsx` | 사이드바 + 헤더 + 메시지 + 컴포저 레이아웃 | **완료** (Tailwind 기반, TweaksPanel 통합) |
 | `src/renderer/app/Sidebar.tsx` | "새 대화" 버튼 + 활성 백엔드 표시 | **완료** |
 | `src/renderer/app/MessageList.tsx` | 메시지 버블 + pending delta + 자동 스크롤 | **완료** |
 | `src/renderer/app/Composer.tsx` | textarea + 전송 버튼 (`Enter` 전송 / `Shift+Enter` 줄바꿈) | **완료** (Section 5 로깅 추가) |
 | `src/renderer/app/Markdown.tsx` | `react-markdown` + `remark-gfm` + 컴포넌트 오버라이드로 Tailwind 클래스 적용 | **완료** (Prism.js 의존성 있음 — 코드 하이라이트 Hook 통합은 후속) |
 | `src/renderer/app/state.ts` | Context + reducer (`SET_SESSION`/`SEND_USER_MESSAGE`/`RECV_DELTA`/`RECV_MESSAGE`/`NEW_CHAT`/...) | **완료** |
 | `src/renderer/app/ErrorToast.tsx` | 에러 토스트 (자동 dismiss 4초) | **완료** (error state 디스플레이, 기본 메시지만) |
-| `src/renderer/app/TweaksPanel.tsx` | 테마/밀도/사이드바 토글 | **미작성** (PRD §10.3 — 후속) |
+| `src/renderer/app/TweaksPanel.tsx` | 테마/밀도/사이드바 토글 | **완료** (플로팅 패널, 3개 제어 버튼 — Phase 2에서 CSS 변수 + 실제 기능 구현) |
 | `src/renderer/preload.ts` | `contextBridge.exposeInMainWorld('orca', ...)` 화이트리스트 | **완료** (`chat.send/onEvent/cancel`, `backend.list/select`, `logger.*`, `settings.get/set`) |
 | `src/global.d.ts` | `Window.orca` 타입 선언 | **완료** |
 | `src/shared/protocol.ts` | Renderer ↔ Main 메시지 스키마 (zod) + `Backend`/`ChatEvent`/`SessionAdapter`/`SessionInfo` 공통 타입 | **완료** |

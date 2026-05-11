@@ -4,6 +4,7 @@ import { MessageList } from './MessageList';
 import { Composer } from './Composer';
 import { Sidebar } from './Sidebar';
 import { ErrorToast } from './ErrorToast';
+import { TweaksPanel } from './TweaksPanel';
 import { i18n } from '../../shared/i18n/ko';
 
 function ChatShellInner() {
@@ -42,6 +43,8 @@ function ChatShellInner() {
         message={state.error}
         onDismiss={() => dispatch({ type: 'SET_ERROR', error: null })}
       />
+
+      <TweaksPanel />
     </div>
   );
 }
