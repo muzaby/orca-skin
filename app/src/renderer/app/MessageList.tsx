@@ -1,6 +1,7 @@
 import React from 'react';
 import { useChat } from './state';
 import { MarkdownRenderer } from './Markdown';
+import { ToolCallCard } from './ToolCallCard';
 import { i18n } from '../../shared/i18n/ko';
 
 export function MessageList() {
@@ -22,7 +23,16 @@ export function MessageList() {
       )}
 
       {state.messages.map((msg) => (
-        <MessageBubble key={msg.id} message={msg} />
+        <React.Fragment key={msg.id}>
+          <MessageBubble message={msg} />
+          {msg.role === 'assistant' && state.toolCalls.size > 0 && (
+            <div className="pl-10">
+              {Array.from(state.toolCalls.values()).map((toolCall) => (
+                <ToolCallCard key={toolCall.toolUseId} toolCall={toolCall} />
+              ))}
+            </div>
+          )}
+        </React.Fragment>
       ))}
 
       {state.pendingDelta && (

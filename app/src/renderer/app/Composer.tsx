@@ -43,6 +43,21 @@ export function Composer() {
                 createdAt: Date.now(),
               },
             });
+          } else if (event.type === 'tool_use') {
+            dispatch({
+              type: 'RECV_TOOL_USE',
+              toolUseId: event.data.toolUseId,
+              name: event.data.name,
+              input: event.data.input,
+            });
+          } else if (event.type === 'tool_result') {
+            dispatch({
+              type: 'RECV_TOOL_RESULT',
+              toolUseId: event.data.toolUseId,
+              output: event.data.output,
+              isError: event.data.isError || false,
+              durationMs: event.data.durationMs,
+            });
           } else if (event.type === 'error') {
             dispatch({ type: 'SET_ERROR', error: event.data.message });
           }
