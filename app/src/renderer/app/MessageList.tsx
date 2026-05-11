@@ -13,7 +13,7 @@ export function MessageList() {
   }, [state.messages, state.pendingDelta]);
 
   return (
-    <div className="flex-1 overflow-auto p-5 flex flex-col gap-5">
+    <div className="flex-1 overflow-auto py-5 px-6 flex flex-col gap-[22px]">
       {state.messages.length === 0 && (
         <div className="text-center text-ink-400 pt-10">
           <p>No messages yet. Start a new conversation.</p>

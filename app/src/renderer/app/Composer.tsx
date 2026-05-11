@@ -61,7 +61,7 @@ export function Composer() {
 
   return (
     <div className="border-t border-ink-300 px-6 py-3">
-      <div className="bg-white border border-ink-300 rounded-2xl p-3 shadow-sm">
+      <div className="bg-white border border-ink-300 rounded-[14px] p-3 shadow-sm">
         <textarea
           ref={textareaRef}
           value={text}

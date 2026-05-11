@@ -7,7 +7,7 @@ module.exports = {
         cream: {
           0: '#fbf9f4',
           50: '#f7f3eb',
-          100: '#ede4d0',
+          100: '#f3eee3',
         },
         ink: {
           900: '#29261b',
