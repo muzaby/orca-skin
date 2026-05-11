@@ -43,6 +43,7 @@
 | `src/shared/i18n/ko.ts` | 한국어 라벨 | **미작성** (UI 라벨 다국어화 시 작성) |
 | `tailwind.config.js` | V1Frame 디자인 토큰 (색상/폰트/크기) | **완료** |
 | `postcss.config.js` | tailwindcss + autoprefixer | **완료** |
+| `eslint.config.js` | ESLint 9 **flat config** — `@typescript-eslint`, `eslint-plugin-import` 사용. `src/**/*.{ts,tsx}` 만 lint. `.eslintrc.*` 으로 회귀 금지 | **완료** |
 
 > 이 레이아웃에서 벗어나려면 사용자에게 먼저 확인. TRD 와 코드를 동시에 갱신해야 한다.
 
@@ -72,7 +73,9 @@ new BrowserWindow({
 - TRD §2 의 Stack 표 밖의 패키지 추가는 **사용자 승인 필수**. PR 설명에 *왜* 가 들어가야 한다.
 - **이미 도입된 것** (`package.json` 참조):
   - 런타임: `react@18`, `react-dom@18`, `react-markdown@9`, `remark-gfm@4`, `prismjs@1.30`, `zod@3.22`, `electron-squirrel-startup`
-  - 개발: `tailwindcss@3.4`, `postcss@8.4`, `autoprefixer@10.4`, `postcss-loader@8.1`, `@types/react@18`, `@types/react-dom@18`, `typescript@5.4`
+  - 빌드/스타일: `typescript@5.x`, `ts-loader@9.5`, `css-loader@7`, `style-loader@4`, `node-loader@2`, `@vercel/webpack-asset-relocator-loader@1.10`, `fork-ts-checker-webpack-plugin@9`, `tailwindcss@3.4`, `postcss@8.4`, `postcss-loader@8.1`, `autoprefixer@10.4`
+  - Lint: `eslint@9`, `@eslint/js@9`, `@typescript-eslint/eslint-plugin@8`, `@typescript-eslint/parser@8`, `eslint-plugin-import@2.32`, `globals@15`
+  - 타입: `@types/react@18`, `@types/react-dom@18`
 - **사용자 결정으로 확정된 항목** (TRD §15 OQ 와 동기화 필요):
   - OQ1: **React 18** 채택
   - OQ2: **react-markdown + Prism.js** (TRD 표기는 shiki — 동기화 시 사용자 확인 후 갱신)
@@ -83,6 +86,7 @@ new BrowserWindow({
   - OQ6: 성능 SLA 수치
   - OQ7: 둘 다 설치된 경우 기본 백엔드
   - OQ8: 새 대화 시 직전 세션 노출 방식
+- **전이적 deprecation 은 silence 금지.** `npm install` 시 남는 deprecation 경고 (`xterm@4`, `glob@7/8`, `rimraf@2/3`, `tar@6`, `uuid@8`, `inflight`, `sourcemap-codec`, `boolean`, `gar`, `lodash.get`, `@npmcli/move-file`, `xterm-addon-*`) 는 모두 `electron-forge@7.x` 의 nested deps. `npm overrides` 로 강제 다운/업그레이드 금지 — 부모 패키지가 특정 구 API 에 의존할 수 있음. electron-forge 8.x stable 출시 시 자연 해소.
 
 ## 스타일링 정책 (Tailwind CSS)
 
@@ -98,7 +102,7 @@ new BrowserWindow({
 | `npm start` | Forge dev 모드 (electron + webpack watch) |
 | `npm run package` | 패키징 (서명/notarize 미설정 — OQ3) |
 | `npm run make` | `maker-*` 디스트리뷰션 빌드 |
-| `npm run lint` | ESLint |
+| `npm run lint` | ESLint 9 (flat config) — `eslint src` |
 | `npm test` | **미설정** — Vitest 추가 시 채워라 (TRD §10.1) |
 
 ## 에이전트 원칙
@@ -111,6 +115,7 @@ new BrowserWindow({
 6. **테스트 동반.** 어댑터 정규화, reducer, IPC 스키마는 단위 테스트와 함께 작성 (TRD §10). 현재는 테스트 인프라 미구축 — Vitest 도입 시 이 원칙 활성화.
 7. **TRD 와 코드가 충돌하면 사용자에게 물어라.** TRD 갱신과 코드 변경은 같은 PR 또는 짝 PR 로. (예: OQ2 의 TRD 표기 `shiki` vs 실제 도입 `Prism.js` — TRD 동기화 필요.)
 8. **mock 응답 영역은 명확히 표시.** `src/main/ipc/router.ts` 의 mock 부분은 실제 어댑터 도입 시 *제거 + 교체*. mock 위에 기능 누적 금지.
+9. **ESLint 9 flat config 유지.** 설정은 `eslint.config.js`. 새 lint 룰은 여기에 추가. `.eslintrc.json` 형식으로 회귀 금지 (ESLint 9 미지원).
 
 ## 위치 규약
 
