@@ -20,6 +20,7 @@
 | **Phase 2.3 — Mock 제거** | **완료** — `orca:chat:send` 가 mock 응답 대신 real adapter.sendMessage() 호출 (Phase 2+ 구현으로 "not implemented" 에러 발생) |
 | **Phase 2.4 — Error UI** | **완료** — ErrorToast 컴포넌트 (auto-dismiss 4초), Composer 에서 error event 처리 |
 | **Section 3.2 — Tool Cards (F3)** | **완료** — state.ts (toolCalls Map + RECV_TOOL_USE/RESULT), ToolCallCard.tsx 컴포넌트, MessageList 렌더링, Composer 이벤트 핸들링 |
+| **Section 3.3 — sessionId UI (F4)** | **완료** (검증) — 헤더에 "Session {8자}" 표시 기존 구현, null→init→reuse→NEW_CHAT→null 흐름 정상 |
 
 ## 타깃 모듈 레이아웃 (TRD §1.2)
 
