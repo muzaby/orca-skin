@@ -3,6 +3,7 @@ import { ChatProvider, useChat } from './state';
 import { MessageList } from './MessageList';
 import { Composer } from './Composer';
 import { Sidebar } from './Sidebar';
+import { ErrorToast } from './ErrorToast';
 import { i18n } from '../../shared/i18n/ko';
 
 function ChatShellInner() {
@@ -36,6 +37,11 @@ function ChatShellInner() {
 
         <Composer />
       </main>
+
+      <ErrorToast
+        message={state.error}
+        onDismiss={() => dispatch({ type: 'SET_ERROR', error: null })}
+      />
     </div>
   );
 }

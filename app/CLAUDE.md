@@ -18,6 +18,7 @@
 | **Phase 1 — 정리** | **완료** — TRD OQ2 동기화 (shiki → Prism.js), 죽은 파일 제거 (`src/renderer.ts`), i18n foundation (`src/shared/i18n/ko.ts`) 작성 + 4개 컴포넌트 통합 |
 | **Phase 2.2 — AdapterRegistry** | **완료** — Parallel 설치 감지 (claude-code, opencode), registry 생명주기 (`app.ready`), IPC 연동 (`orca:backend:list/select`) |
 | **Phase 2.3 — Mock 제거** | **완료** — `orca:chat:send` 가 mock 응답 대신 real adapter.sendMessage() 호출 (Phase 2+ 구현으로 "not implemented" 에러 발생) |
+| **Phase 2.4 — Error UI** | **완료** — ErrorToast 컴포넌트 (auto-dismiss 4초), Composer 에서 error event 처리 |
 
 ## 타깃 모듈 레이아웃 (TRD §1.2)
 
@@ -39,6 +40,7 @@
 | `src/renderer/app/Composer.tsx` | textarea + 전송 버튼 (`Enter` 전송 / `Shift+Enter` 줄바꿈) | **완료** |
 | `src/renderer/app/Markdown.tsx` | `react-markdown` + `remark-gfm` + 컴포넌트 오버라이드로 Tailwind 클래스 적용 | **완료** (Prism.js 의존성 있음 — 코드 하이라이트 Hook 통합은 후속) |
 | `src/renderer/app/state.ts` | Context + reducer (`SET_SESSION`/`SEND_USER_MESSAGE`/`RECV_DELTA`/`RECV_MESSAGE`/`NEW_CHAT`/...) | **완료** |
+| `src/renderer/app/ErrorToast.tsx` | 에러 토스트 (자동 dismiss 4초) | **완료** (error state 디스플레이, 기본 메시지만) |
 | `src/renderer/app/TweaksPanel.tsx` | 테마/밀도/사이드바 토글 | **미작성** (PRD §10.3 — 후속) |
 | `src/renderer/preload.ts` | `contextBridge.exposeInMainWorld('orca', ...)` 화이트리스트 | **완료** (`chat.send/onEvent/cancel`, `backend.list/select`) |
 | `src/global.d.ts` | `Window.orca` 타입 선언 | **완료** |
