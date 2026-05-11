@@ -38,4 +38,21 @@ export class ClaudeCodeAdapter implements SessionAdapter {
       yield {} as ChatEvent;
     })();
   }
+
+  async listSessions(): Promise<any[]> {
+    // TODO Phase 2/3: Implement session listing.
+    // - spawn: child_process.spawn('claude', ['--list', 'sessions'])
+    // - parse: JSON output listing available sessions
+    // - return: SessionInfo[] with id, createdAt, title, cwd, backend
+    throw new Error('Claude Code session listing not implemented');
+  }
+
+  async loadSession(id: string): Promise<ChatEvent[]> {
+    void id;
+    // TODO Phase 2/3: Implement session loading.
+    // - load: transcript from ~/.claude-code/sessions/{id}/transcript.ndjson
+    // - parse: NDJSON lines as ChatEvent objects
+    // - return: ChatEvent[] array for the session
+    throw new Error('Claude Code session loading not implemented');
+  }
 }

@@ -26,6 +26,7 @@
 | **Section 5.1-5.3 — Logging (Part 2)** | **완료** — router.ts (orca:chat:send 로깅), claude-code.ts (로깅 + Phase 2 주석), preload.ts/global.d.ts (window.orca.logger/settings 타입), Composer.tsx (메시지/이벤트 로깅), orca:log:send IPC 핸들러 |
 | **Section 6.1 — Settings Store** | **완료** — `src/main/settings/store.ts` in-memory Store (Settings interface, get/set 메서드), router.ts IPC handlers (orca:settings:get/set) |
 | **Section 6.2 — TweaksPanel (F10)** | **완료** — TweaksPanel.tsx 플로팅 UI (theme/density/sidebar 제어), ChatShell.tsx 통합 |
+| **Section 6.3 — SessionAdapter Phase 2/3 Guidance** | **완료** — claude-code.ts, opencode.ts 에 listSessions/loadSession 메서드 + 주석 추가 |
 
 ## 타깃 모듈 레이아웃 (TRD §1.2)
 
@@ -34,8 +35,8 @@
 | `src/main/index.ts` | Electron `app` 부트, BrowserWindow, IpcRouter 부착, AdapterRegistry 초기화 | **완료** (보안 베이스라인 포함) |
 | `src/main/ipc/router.ts` | IPC 채널 라우팅 + 입력 검증 (zod) | **완료** (`orca:backend:list/select`, `orca:chat:send` 로깅, `orca:log:send`, `orca:settings:get/set` 추가됨) |
 | `src/main/adapters/types.ts` | `SessionAdapter`, `ChatEvent`, `Backend` 공통 타입 | 미작성 (현재 `src/shared/protocol.ts` 에 통합 — 필요 시 `main/adapters/types.ts` 로 분리 검토) |
-| `src/main/adapters/claude-code.ts` | Claude Code spawn / NDJSON / `--resume` | **Stub 작성** (`isInstalled()` 완료 + 로깅, sendMessage 미구현 + Phase 2 주석 — Phase 2+) |
-| `src/main/adapters/opencode.ts` | opencode `serve` / SDK / SSE | **Stub 작성** (`isInstalled()` 완료, sendMessage 미구현 — Phase 2+) |
+| `src/main/adapters/claude-code.ts` | Claude Code spawn / NDJSON / `--resume` | **Stub 작성** (`isInstalled()` + 로깅, sendMessage/listSessions/loadSession 미구현 + Phase 2/3 주석) |
+| `src/main/adapters/opencode.ts` | opencode `serve` / SDK / SSE | **Stub 작성** (`isInstalled()` 완료, sendMessage/listSessions/loadSession 미구현 + Phase 2/3 주석) |
 | `src/main/adapters/registry.ts` | 설치 상태 + 활성 백엔드 선택 | **완료** (parallel detection, active backend management) |
 | `src/main/installer/index.ts` | CLI 설치 자동화 | **미작성** |
 | `src/main/settings/store.ts` | Phase 2+ `electron-store`. Phase 1 은 in-memory | **완료** (in-memory Store, get/set 메서드) |
