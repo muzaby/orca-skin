@@ -28,6 +28,7 @@
 | **Section 6.1 — Settings Store** | **완료** — `src/main/settings/store.ts` in-memory Store (Settings interface, get/set 메서드), router.ts IPC handlers (orca:settings:get/set) |
 | **Section 6.2 — TweaksPanel (F10)** | **완료** — TweaksPanel.tsx 플로팅 UI (theme/density/sidebar 제어), ChatShell.tsx 통합 |
 | **Section 6.3 — SessionAdapter Phase 2/3 Guidance** | **완료** — claude-code.ts, opencode.ts 에 listSessions/loadSession 메서드 + 주석 추가 |
+| **Sandbox preload eval 차단 대응** | **완료** — `webpack.preload.config.ts` 신규 (`devtool: 'inline-source-map'`), `forge.config.ts` 의 preload entry 에 `config: preloadConfig` 주입. dev mode 기본 `eval-source-map` 이 sandbox 와 충돌 → "Unable to load preload script" 에러 해결 |
 
 ## 타깃 모듈 레이아웃 (TRD §1.2)
 
