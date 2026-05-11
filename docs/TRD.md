@@ -86,7 +86,7 @@ PRD §7.1 의 Stack 표를 구현 단위로 확정한다. 미정은 PRD §11 OQ 
 | 상태 관리 | React Context + reducer | 외부 상태 라이브러리 도입 금지 | MVP 범위 |
 | **스타일링** | **Tailwind CSS** | **^3.4.0** | **Utility-first CSS. 디자인 토큰(색상/타이포)은 tailwind.config.js 커스터마이징. 마크다운 + UI 컴포넌트 모두 적용.** |
 | **폰트** | **`@fontsource/*` (self-hosted)** | **inter / source-serif-4 / jetbrains-mono (^5.x)** | **§1.3 보안 베이스라인의 "외부 콘텐츠 로드 금지 (오프라인 가정)" 정합. latin subset 만 import. 한글은 시스템 fallback. webpack `asset/resource` 룰로 woff2 추출.** |
-| 마크다운 | react-markdown + shiki | OQ2 | PRD §7.1 권장 |
+| 마크다운 | react-markdown + Prism.js | OQ2 | PRD §7.1 권장 |
 | HTTP (opencode) | `@opencode-ai/sdk` | latest stable | 전략 §5.1 |
 | IPC | Electron 기본 ipc | — | 별도 RPC 라이브러리 안 씀 |
 | 영속화 (Phase 2+) | `electron-store` | — | 전략 §11 |

@@ -15,6 +15,7 @@
 | 도메인 코드 | **F1+F2 완료** — IPC 라우터 (mock 응답), React 채팅 셸, react-markdown 기반 마크다운 렌더링. **미완**: 실제 어댑터 (Claude Code/opencode), 인스톨러, 세션 영속화 |
 | 스타일링 | **Tailwind CSS** (`tailwind.config.js` 의 V1Frame 디자인 토큰 — 크림/잉크/러스트 팔레트, Inter/Source Serif 4/JetBrains Mono) + `src/renderer/index.css` 글로벌 |
 | `package.json` | `name: "orca"`, `productName: "Orca"` 적용 완료 |
+| **Phase 1 — 정리** | **완료** — TRD OQ2 동기화 (shiki → Prism.js), 죽은 파일 제거 (`src/renderer.ts`), i18n foundation (`src/shared/i18n/ko.ts`) 작성 + 4개 컴포넌트 통합 |
 
 ## 타깃 모듈 레이아웃 (TRD §1.2)
 
@@ -34,13 +35,13 @@
 | `src/renderer/app/Sidebar.tsx` | "새 대화" 버튼 + 활성 백엔드 표시 | **완료** |
 | `src/renderer/app/MessageList.tsx` | 메시지 버블 + pending delta + 자동 스크롤 | **완료** |
 | `src/renderer/app/Composer.tsx` | textarea + 전송 버튼 (`Enter` 전송 / `Shift+Enter` 줄바꿈) | **완료** |
-| `src/renderer/app/Markdown.tsx` | `react-markdown` + `remark-gfm` + 컴포넌트 오버라이드로 Tailwind 클래스 적용 | **완료** (코드 하이라이트는 Prism.js 미통합 — 후속 작업) |
+| `src/renderer/app/Markdown.tsx` | `react-markdown` + `remark-gfm` + 컴포넌트 오버라이드로 Tailwind 클래스 적용 | **완료** (Prism.js 의존성 있음 — 코드 하이라이트 Hook 통합은 후속) |
 | `src/renderer/app/state.ts` | Context + reducer (`SET_SESSION`/`SEND_USER_MESSAGE`/`RECV_DELTA`/`RECV_MESSAGE`/`NEW_CHAT`/...) | **완료** |
 | `src/renderer/app/TweaksPanel.tsx` | 테마/밀도/사이드바 토글 | **미작성** (PRD §10.3 — 후속) |
 | `src/renderer/preload.ts` | `contextBridge.exposeInMainWorld('orca', ...)` 화이트리스트 | **완료** (`chat.send/onEvent/cancel`, `backend.list/select`) |
 | `src/global.d.ts` | `Window.orca` 타입 선언 | **완료** |
 | `src/shared/protocol.ts` | Renderer ↔ Main 메시지 스키마 (zod) + `Backend`/`ChatEvent`/`SessionAdapter`/`SessionInfo` 공통 타입 | **완료** |
-| `src/shared/i18n/ko.ts` | 한국어 라벨 | **미작성** (UI 라벨 다국어화 시 작성) |
+| `src/shared/i18n/ko.ts` | 한국어 라벨 | **완료** (sidebar, chat, composer, messageList 라벨 통합) |
 | `tailwind.config.js` | V1Frame 디자인 토큰 (색상/폰트/크기) | **완료** |
 | `postcss.config.js` | tailwindcss + autoprefixer | **완료** |
 | `eslint.config.js` | ESLint 9 **flat config** — `@typescript-eslint`, `eslint-plugin-import` 사용. `src/**/*.{ts,tsx}` 만 lint. `.eslintrc.*` 으로 회귀 금지 | **완료** |

@@ -1,6 +1,7 @@
 import React from 'react';
 import { useChat } from './state';
 import { MarkdownRenderer } from './Markdown';
+import { i18n } from '../../shared/i18n/ko';
 
 export function MessageList() {
   const { state } = useChat();
@@ -13,10 +14,10 @@ export function MessageList() {
   }, [state.messages, state.pendingDelta]);
 
   return (
-    <div className="flex-1 overflow-auto py-5 px-6 flex flex-col gap-[22px]">
+    <div className="flex-1 overflow-auto py-5 px-6 flex flex-col gap-[22px]" ref={messagesRef}>
       {state.messages.length === 0 && (
         <div className="text-center text-ink-400 pt-10">
-          <p>No messages yet. Start a new conversation.</p>
+          <p>{i18n.messageList.noMessages}</p>
         </div>
       )}
 
@@ -37,7 +38,7 @@ export function MessageList() {
       )}
 
       {state.inflight && !state.pendingDelta && (
-        <div className="text-xs text-ink-400">Waiting for response...</div>
+        <div className="text-xs text-ink-400">{i18n.messageList.waiting}</div>
       )}
     </div>
   );
@@ -66,10 +67,10 @@ function MessageBubble({
 
       <div className="flex-1 pt-0.5">
         <div className="font-semibold text-sm text-ink-900 mb-1">
-          {isUser ? 'You' : 'Claude'}
+          {isUser ? i18n.messageList.you : i18n.messageList.claude}
           {isPending && (
             <span className="text-xs text-ink-400 font-normal ml-1.5">
-              responding...
+              {i18n.messageList.responding}
             </span>
           )}
         </div>

@@ -3,6 +3,7 @@ import { ChatProvider, useChat } from './state';
 import { MessageList } from './MessageList';
 import { Composer } from './Composer';
 import { Sidebar } from './Sidebar';
+import { i18n } from '../../shared/i18n/ko';
 
 function ChatShellInner() {
   const { state, dispatch } = useChat();
@@ -24,10 +25,10 @@ function ChatShellInner() {
       <main className="flex flex-1 flex-col min-w-0">
         <div className="border-b border-ink-300 px-6 py-3">
           <h1 className="font-serif text-xl font-semibold text-ink-900 m-0">
-            {state.sessionId ? `Session ${state.sessionId.slice(0, 8)}` : 'New Chat'}
+            {state.sessionId ? `${i18n.chat.session} ${state.sessionId.slice(0, 8)}` : i18n.chat.newChat}
           </h1>
           <p className="text-xs text-ink-400 mt-0.5">
-            {state.backend ? `${state.backend} · ${state.messages.length} messages` : 'No backend'}
+            {state.backend ? `${state.backend} · ${state.messages.length} ${i18n.chat.messages}` : i18n.chat.noBackend}
           </p>
         </div>
 

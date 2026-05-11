@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useChat } from './state';
+import { i18n } from '../../shared/i18n/ko';
 
 export function Composer() {
   const { state, dispatch } = useChat();
@@ -67,7 +68,7 @@ export function Composer() {
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Send a message to Orca..."
+          placeholder={i18n.composer.placeholder}
           className="w-full border-0 outline-none font-sans text-base bg-transparent resize-none p-1"
           style={{ minHeight: '36px' }}
         />
