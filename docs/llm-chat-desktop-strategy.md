@@ -28,10 +28,11 @@
 | 계층 | 채택 기술 | 비고 |
 |---|---|---|
 | 데스크톱 셸 | **Electron** | Claude Desktop도 동일 채택 |
-| 빌드/스캐폴딩 | **`create-electron-app` (webpack + TypeScript 템플릿)** | Electron Forge 기반 |
+| 빌드/스캐폴딩 | **electron-vite (`@quick-start/electron` react-ts 템플릿)** | Vite 기반 (TRD §4 확정, 구 create-electron-app/Forge 대체) |
 | 언어 | **TypeScript** | CLI JSON 메시지의 타입 안정성 |
-| UI 프레임워크 | (추후 결정) React 권장 | 메시지 스트리밍·마크다운 렌더링에 적합 |
-| 마크다운 렌더링 | (추후 결정) react-markdown + shiki 권장 | LLM 응답 렌더링 |
+| UI 프레임워크 | **React** 확정 (PRD §11 OQ1 채택, TRD §4) | 메시지 스트리밍·마크다운 렌더링에 적합 |
+| 마크다운 렌더링 | **react-markdown + Highlight.js** 확정 (PRD §11 OQ2 채택, TRD §4; 추후 shiki 전환 가능) | LLM 응답 렌더링 |
+| 스타일링 | **Tailwind CSS** | TRD §4 채택. 디자인 토큰은 CSS 커스텀 프로퍼티 그대로 (PRD §10) |
 
 ### 2.2 Claude Desktop의 기술적 참고
 
@@ -411,7 +412,7 @@ opencode 설치 확인     ──┤
 
 | 항목 | 결론 |
 |---|---|
-| 데스크톱 셸 | Electron + create-electron-app (webpack-typescript) |
+| 데스크톱 셸 | Electron + electron-vite (react-ts) |
 | CLI 연결 패턴 | 패턴 2 (구조화 I/O) 메인, 패턴 3 (세션 파일) 보조 |
 | Claude Code 메커니즘 | `--resume <id>` 플래그를 매 턴 spawn에 끼워줌 |
 | opencode 메커니즘 | `serve`로 1회 띄운 서버에 같은 `sessionId`로 HTTP 재호출 |

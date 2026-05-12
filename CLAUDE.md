@@ -27,7 +27,7 @@
 | 디자인 핸드오프 (variation A 확정) | 완료 — `chats/chat1.md`, `project/electron/` |
 | 제품 정의 (PRD v1) | 완료 — `docs/PRD.md` |
 | 구현 사양 (TRD v1) | 완료 — `docs/TRD.md` (Tailwind CSS 결정 반영 §2, §9.5) |
-| 스캐폴드 (Electron Forge webpack-typescript) | 완료 — `app/` |
+| 스캐폴드 (electron-vite react-ts + Tailwind CSS) | 완료 — `app/` |
 | **Phase 1 — F1 (기본 채팅 셸) + F2 (마크다운 렌더)** | **완료** — `app/src/main/`, `app/src/renderer/`, Tailwind CSS 통합 |
 | **Phase 1 — 보강** (V1 프로토타입 정합 fix, 폰트 self-host) | **완료** — 사이드바/메시지 spacing/composer radius 정정 (커밋 `2d9c2fc`), `@fontsource/*` 내재화로 외부 CDN 제거 (커밋 `f504f74`, TRD §1.3 정합) |
 | **Phase 1 — 나머지 (F3~F10, 어댑터, 인스톨러, 세션)** | **진행 중** — 다음 작업 단위. 현 IPC 라우터는 mock 응답이며 실제 `ClaudeCodeAdapter`/`OpencodeAdapter` 도입 필요. |
