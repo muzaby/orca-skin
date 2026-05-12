@@ -107,7 +107,7 @@ v1 의 기능 표면은 P2 만으로도 충분히 커버 가능하다. P1 의 �
 | 계층 | 채택 기술 | 비고 |
 |---|---|---|
 | 데스크톱 셸 | **Electron** | Anthropic Claude Desktop 도 동일 채택 |
-| 빌드/스캐폴딩 | **`create-electron-app` (webpack + TypeScript 템플릿)** | Electron Forge 기반 |
+| 빌드/스캐폴딩 | **`@quick-start/electron` (react-ts 템플릿)** | electron-vite (Vite 기반) |
 | 언어 | **TypeScript** | CLI JSON 메시지 타입 안정성 |
 | UI 프레임워크 | **React 권장** (확정 §11 OQ) | 메시지 스트리밍·마크다운 렌더링에 적합 |
 | 마크다운 렌더링 | **react-markdown + shiki 권장** (확정 §11 OQ) | LLM 응답 렌더링 |
@@ -252,7 +252,7 @@ Renderer (UI) → Electron IPC → Common Interface → `ClaudeCodeAdapter` 또�
 |---|---|---|
 | OQ1 | UI 프레임워크는 React 로 확정하는가? 버전(18/19)? | 전략은 "권장" 수준. |
 | OQ2 | 마크다운/하이라이트 라이브러리는 react-markdown + shiki 로 확정? | 동일. |
-| OQ3 | 패키징/배포 (Electron Forge target, macOS notarization, Windows code signing, 자동 업데이트 채널)? | 전략 비커버. |
+| OQ3 | 패키징/배포 (electron-builder target, macOS notarization, Windows code signing, 자동 업데이트 채널)? | 전략 비커버. |
 | OQ4 | 텔레메트리/에러 리포팅 정책? 옵트인? | 전략 비커버. |
 | OQ5 | 라이센스 (오픈/상용)? | 전략 비커버. |
 | OQ6 | 시작 시간 / 첫 토큰 지연 SLA 수치? | N5 와 연결. |

@@ -9,7 +9,7 @@
 | `chats/` | 사용자 의도 트랜스크립트 (Claude Design 핸드오프) — *왜* 가 산다 | `chats/CLAUDE.md` |
 | `docs/` | PRD, TRD, 전략 문서 — *무엇을* / *어떻게* 가 산다 | `docs/CLAUDE.md` |
 | `project/` | HTML/CSS/JS 디자인 프로토타입 (variation A 채택) — *어떻게 보여야 하는가* | `project/CLAUDE.md` |
-| `app/` | Orca v1 실제 구현체 (Electron Forge + TypeScript). 현재 스캐폴드 상태. | `app/CLAUDE.md` |
+| `app/` | Orca v1 실제 구현체 (electron-vite + React/TypeScript). 현재 스캐폴드 상태. | `app/CLAUDE.md` |
 
 ## 새 세션 진입 시 읽는 순서
 
@@ -27,7 +27,7 @@
 | 디자인 핸드오프 (variation A 확정) | 완료 — `chats/chat1.md`, `project/electron/` |
 | 제품 정의 (PRD v1) | 완료 — `docs/PRD.md` |
 | 구현 사양 (TRD v1) | 완료 — `docs/TRD.md` |
-| 스캐폴드 (Electron Forge webpack-typescript) | 완료 — `app/` |
+| 스캐폴드 (electron-vite react-ts) | 완료 — `app/` |
 | **Phase 1 MVP 구현** | **진행 전** — 다음 작업 단위 |
 
 ## 핵심 원칙 (모든 에이전트 공통)

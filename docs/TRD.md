@@ -38,6 +38,8 @@
 
 ### 1.2 모듈 레이아웃 (TypeScript 소스)
 
+경로는 electron-vite (`@quick-start/electron` react-ts 템플릿) 의 sub-config 분할을 반영한다. 빌드는 `electron.vite.config.ts` 의 main/preload/renderer 3개 sub-config 가 각각 처리한다.
+
 | 경로 | 책임 |
 |---|---|
 | `src/main/index.ts` | Electron `app` 부트, BrowserWindow 생성, IpcRouter 부착 |
@@ -48,14 +50,15 @@
 | `src/main/adapters/registry.ts` | 설치 상태 스캔 + 활성 백엔드 선택 |
 | `src/main/installer/index.ts` | CLI 설치 자동화 + 폴백 |
 | `src/main/settings/store.ts` | electron-store (Phase 2+) — Phase 1 은 in-memory |
-| `src/renderer/index.tsx` | React 엔트리 |
-| `src/renderer/app/ChatShell.tsx` | 채팅 셸 (사이드바, 메시지 영역, 컴포저) |
-| `src/renderer/app/Composer.tsx` | 메시지 입력 |
-| `src/renderer/app/MessageList.tsx` | 메시지·도구호출 카드 렌더링 |
-| `src/renderer/app/Markdown.tsx` | react-markdown + shiki 래퍼 |
-| `src/renderer/app/TweaksPanel.tsx` | 테마/밀도/사이드바 토글 |
-| `src/renderer/app/state.ts` | sessionId / messages / settings 상태 (Context + reducer) |
-| `src/renderer/preload.ts` | contextBridge 로 IPC API 노출 |
+| `src/renderer/src/main.tsx` | React 엔트리 |
+| `src/renderer/src/App.tsx` | 루트 컴포넌트 |
+| `src/renderer/src/app/ChatShell.tsx` | 채팅 셸 (사이드바, 메시지 영역, 컴포저) |
+| `src/renderer/src/app/Composer.tsx` | 메시지 입력 |
+| `src/renderer/src/app/MessageList.tsx` | 메시지·도구호출 카드 렌더링 |
+| `src/renderer/src/app/Markdown.tsx` | react-markdown + shiki 래퍼 |
+| `src/renderer/src/app/TweaksPanel.tsx` | 테마/밀도/사이드바 토글 |
+| `src/renderer/src/app/state.ts` | sessionId / messages / settings 상태 (Context + reducer) |
+| `src/preload/index.ts` | contextBridge 로 IPC API 노출 — electron-vite preload sub-config 진입점 |
 | `src/shared/protocol.ts` | Renderer ↔ Main 메시지 스키마 |
 | `src/shared/i18n/ko.ts` | 한국어 라벨 |
 
@@ -80,16 +83,17 @@ PRD §7.1 의 Stack 표를 구현 단위로 확정한다. 미정은 PRD §11 OQ 
 | 계층 | 기술 | 버전 / 옵션 | 비고 |
 |---|---|---|---|
 | 데스크톱 셸 | Electron | (확정 후 결정값으로 대체) | OQ3 패키징 |
-| 빌드/스캐폴딩 | `create-electron-app` | webpack-typescript 템플릿 | 전략 §2.1 |
+| 빌드/스캐폴딩 | `@quick-start/electron` | react-ts 템플릿 (electron-vite 기반) | 전략 §2.1 갱신 |
+| 번들러/Dev 서버 | Vite | latest stable | electron-vite 가 main/preload/renderer 3 sub-config 통합 |
 | 언어 | TypeScript | strict, `target: ES2022` | 타입 안정성 |
-| UI | React | OQ1 (확정 후 18 또는 19) | PRD §7.1 권장 |
+| UI | React | OQ1 (확정 후 18 또는 19) | 템플릿 기본 19.2.1 |
 | 상태 관리 | React Context + reducer | 외부 상태 라이브러리 도입 금지 | MVP 범위 |
 | **스타일링** | **Tailwind CSS** | **^3.4.0** | **Utility-first CSS. 디자인 토큰(색상/타이포)은 tailwind.config.js 커스터마이징. 마크다운 + UI 컴포넌트 모두 적용.** |
 | 마크다운 | react-markdown + shiki | OQ2 | PRD §7.1 권장 |
 | HTTP (opencode) | `@opencode-ai/sdk` | latest stable | 전략 §5.1 |
 | IPC | Electron 기본 ipc | — | 별도 RPC 라이브러리 안 씀 |
 | 영속화 (Phase 2+) | `electron-store` | — | 전략 §11 |
-| 패키징 | Electron Forge | OQ3 | webpack-typescript 템플릿 기본 |
+| 패키징 | electron-builder | OQ3 | electron-vite 템플릿 기본 (`electron-builder.yml`) |
 | 테스트 | Vitest (단위) + Playwright (E2E) | latest stable | §10 참고 |
 
 > **새 의존성 추가 금지** (사용자 승인 없이). 위 표에 없는 패키지를 도입하려면 사용자에게 확인.
@@ -399,7 +403,7 @@ type ChatState = {
 
 - 빌드: `tailwind.config.js` 에서 V1Frame 디자인 시스템(크림/잉크/러스트 팔레트, Inter/Source Serif 4/JetBrains Mono 타이포) 을 `theme.extend.colors`, `theme.extend.fontFamily` 로 정의.
 - 모든 UI 컴포넌트 (ChatShell, MessageList, Composer, Sidebar) 는 `@apply` 지시어 또는 className 으로 Tailwind 유틸리티 클래스 조합. 인라인 스타일 하드코딩 금지.
-- PostCSS: webpack 설정에 `postcss-loader` 추가해 Tailwind 지시어 처리.
+- PostCSS: `postcss.config.js` 를 `app/` 루트에 두고 `tailwindcss` + `autoprefixer` 플러그인 등록. Vite 가 자동 적용 (electron-vite renderer sub-config 에서 별도 설정 불필요).
 
 #### 9.5.2 글로벌 CSS 토큰
 
@@ -517,7 +521,7 @@ PRD §11 OQ6 가 결정되면 수치를 채운다.
 
 | 항목 | 결정 |
 |---|---|
-| 패키저 | Electron Forge (`create-electron-app` 기본) |
+| 패키저 | **electron-builder** (electron-vite 템플릿 기본, `electron-builder.yml`) |
 | 타겟 OS | macOS (arm64+x64), Windows (x64), Linux (x64 deb/rpm) |
 | macOS notarization | OQ3 |
 | Windows code signing | OQ3 |
