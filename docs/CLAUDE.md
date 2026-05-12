@@ -14,7 +14,7 @@
 
 문서 간 관계:
 
-- **Orca 트리오**: `PRD.md` (*WHAT*) → `TRD.md` (*HOW, 구현 사양*) → `llm-chat-desktop-strategy.md` (*HOW 의 1차 근거 / 전략 결정 출처*). 셋은 같은 제품을 다루며 서로 의존한다. TRD 는 strategy 를 소화해 만든 구현 사양이고, PRD §9 Future Scope 는 `project/` 프로토타입을 흡수한 결과다.
+- **Orca 트리오**: `PRD.md` (*WHAT*) → `TRD.md` (*HOW, 구현 사양*) → `llm-chat-desktop-strategy.md` (*HOW 의 1차 근거 / 전략 결정 출처*). 셋은 같은 제품을 다루며 서로 의존한다. `architecture.md` 는 TRD 의 구조 파트가 분리된 자매 문서로 TRD 와 함께 본다. TRD 는 strategy 를 소화해 만든 구현 사양이고, PRD §9 Future Scope 는 `project/` 프로토타입을 흡수한 결과다.
 - `lightweight-llm-strategy.md` 는 **별도 제품 방향** 으로 위 트리오와 독립.
 
 ## 코딩 에이전트가 따라야 할 원칙

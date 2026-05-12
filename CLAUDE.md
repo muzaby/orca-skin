@@ -26,8 +26,8 @@
 |---|---|
 | 디자인 핸드오프 (variation A 확정) | 완료 — `chats/chat1.md`, `project/electron/` |
 | 제품 정의 (PRD v1) | 완료 — `docs/PRD.md` |
-| 구현 사양 (TRD v1) | 완료 — `docs/TRD.md` |
-| 스캐폴드 (electron-vite react-ts) | 완료 — `app/` |
+| 구현 사양 (TRD v1) | 완료 — `docs/TRD.md` (Tailwind CSS 결정 반영 §2, §9.5) |
+| 스캐폴드 (electron-vite react-ts + Tailwind CSS) | 완료 — `app/` |
 | **Phase 1 MVP 구현** | **진행 전** — 다음 작업 단위 |
 
 ## 핵심 원칙 (모든 에이전트 공통)

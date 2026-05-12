@@ -110,7 +110,8 @@ v1 의 기능 표면은 P2 만으로도 충분히 커버 가능하다. P1 의 �
 | 빌드/스캐폴딩 | **`@quick-start/electron` (react-ts 템플릿)** | electron-vite (Vite 기반) |
 | 언어 | **TypeScript** | CLI JSON 메시지 타입 안정성 |
 | UI 프레임워크 | **React 권장** (확정 §11 OQ) | 메시지 스트리밍·마크다운 렌더링에 적합 |
-| 마크다운 렌더링 | **react-markdown + shiki 권장** (확정 §11 OQ) | LLM 응답 렌더링 |
+| 마크다운 렌더링 | **react-markdown + Highlight.js** 확정 (§11 OQ2; 추후 shiki 전환 가능) | LLM 응답 렌더링 |
+| 스타일링 | **Tailwind CSS** | TRD §4 채택. 디자인 토큰은 §10 CSS 커스텀 프로퍼티 그대로, 컴포넌트 클래스만 Tailwind 유틸리티 |
 
 ### 7.2 CLI 연결 패턴 (전략 §3)
 
