@@ -368,6 +368,8 @@ interface SessionAdapter {
 
 ### 5.4 ClaudeCodeAdapter 내부 구현
 
+> 본 절은 어댑터의 *내부 구조*(파서·버퍼·환경변수 전달)만 다룬다. CLI 외부 인터페이스(플래그·NDJSON 이벤트 스키마·세션 재개) 는 [`claude-code-spec.md`](./claude-code-spec.md) 가 단일 출처. 정규화된 `ChatEvent` 매핑 표는 spec §4 끝의 채택 박스 참조.
+
 **stdout NDJSON 파싱**:
 - spawn의 stdout을 라인 단위 분할
 - 부분 라인은 버퍼에 보관, 다음 chunk와 합쳐서 파싱
@@ -1010,5 +1012,6 @@ tsconfig.json
 ## 13. References
 
 - `docs/TRD.md` — 기능 정의, API 스펙, 데이터 모델 (단일 출처)
+- `docs/claude-code-spec.md` — Claude Code CLI 외부 계약 (§5.4 가 인용)
 - `app/CLAUDE.md` — 모듈 레이아웃·보안 베이스라인 운영 규칙
 - `project/electron/architecture.html`, `electron-mockup.jsx` — 시각 기준 프로토타입 (production 아님)

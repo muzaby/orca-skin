@@ -161,6 +161,8 @@ Renderer (UI) → Electron IPC → Common Interface → `ClaudeCodeAdapter` 또�
 | GUI 보유 상태 | `sessionId` 문자열 1개 | `sessionId` + 서버 핸들 |
 | **GUI 의 컨텍스트 관리 코드** | **0 줄** | **0 줄** |
 
+> Claude Code CLI 의 플래그·NDJSON 이벤트 스키마·세션 관리 상세는 [`claude-code-spec.md`](./claude-code-spec.md) 참조 (단일 출처).
+
 ### 7.5 활성 대화 시나리오 (전략 §9.1)
 
 | 시점 | `sessionId` 상태 | 동작 |
@@ -259,6 +261,7 @@ Renderer (UI) → Electron IPC → Common Interface → `ClaudeCodeAdapter` 또�
 | OQ6 | 시작 시간 / 첫 토큰 지연 SLA 수치? | N5 와 연결. |
 | OQ7 | 두 CLI 가 모두 설치된 경우 기본 백엔드 선택 정책 (사용자 명시 / 마지막 사용 / Claude Code 우선)? | F6 보강. |
 | OQ8 | "새 대화" 시 직전 세션을 Phase 3 목록에 어떻게 노출할지? | Phase 2/3 진입 시 결정. |
+| OQ9 | Claude Code 도구 권한 정책 — `--allowedTools` / `--permission-mode` / `--bare` 의 MVP 기본값? | [`claude-code-spec.md`](./claude-code-spec.md) §5 참조. 후보: 미지정 / Read+Edit+Bash 사전승인 / `acceptEdits`. |
 
 ---
 
@@ -267,6 +270,7 @@ Renderer (UI) → Electron IPC → Common Interface → `ClaudeCodeAdapter` 또�
 | 출처 | 용도 |
 |---|---|
 | `docs/llm-chat-desktop-strategy.md` | 백엔드 / 어댑터 / 세션 / 설치 (§§2–11 핵심 입력) |
+| `docs/claude-code-spec.md` | Claude Code CLI 공식 스펙 미러 (§7.2~7.4, OQ9 의 참조점) |
 | `chats/chat1.md` | 디자인 의도 트랜스크립트 (§4 페르소나, §10 디자인 톤) |
 | `project/electron/index.html` | 핸드오프 본 시안 — §9 Future Scope 시각 기준 |
 | `project/variations/v1-shell.jsx` | Variation A 셸 구조, V1CameraPane (§9 하드웨어) |
