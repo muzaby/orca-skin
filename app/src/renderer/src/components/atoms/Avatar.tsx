@@ -9,19 +9,8 @@ export function Avatar({ kind = 'user', size = 28 }: AvatarProps): React.JSX.Ele
   if (kind === 'claude') {
     return (
       <div
-        style={{
-          width: size,
-          height: size,
-          borderRadius: '50%',
-          background: '#c96442',
-          display: 'grid',
-          placeItems: 'center',
-          color: '#fff',
-          fontFamily: 'var(--serif)',
-          fontWeight: 600,
-          fontSize: size * 0.42,
-          flex: '0 0 auto'
-        }}
+        className="grid flex-none place-items-center rounded-full bg-rust font-serif font-semibold text-white"
+        style={{ width: size, height: size, fontSize: size * 0.42 }}
       >
         ★
       </div>
@@ -30,20 +19,8 @@ export function Avatar({ kind = 'user', size = 28 }: AvatarProps): React.JSX.Ele
   if (kind === 'opencode') {
     return (
       <div
-        style={{
-          width: size,
-          height: size,
-          borderRadius: 6,
-          background: 'var(--ink-900)',
-          display: 'grid',
-          placeItems: 'center',
-          color: '#fff',
-          fontFamily: 'var(--mono)',
-          fontWeight: 600,
-          fontSize: size * 0.36,
-          flex: '0 0 auto',
-          letterSpacing: -0.5
-        }}
+        className="grid flex-none place-items-center rounded-md bg-ink-900 font-mono font-semibold tracking-tighter text-white"
+        style={{ width: size, height: size, fontSize: size * 0.36 }}
       >
         oc
       </div>
@@ -51,18 +28,8 @@ export function Avatar({ kind = 'user', size = 28 }: AvatarProps): React.JSX.Ele
   }
   return (
     <div
-      style={{
-        width: size,
-        height: size,
-        borderRadius: '50%',
-        background: 'var(--cream-200)',
-        display: 'grid',
-        placeItems: 'center',
-        color: 'var(--ink-700)',
-        fontWeight: 600,
-        fontSize: size * 0.4,
-        flex: '0 0 auto'
-      }}
+      className="grid flex-none place-items-center rounded-full bg-cream-200 font-semibold text-ink-700"
+      style={{ width: size, height: size, fontSize: size * 0.4 }}
     >
       JK
     </div>

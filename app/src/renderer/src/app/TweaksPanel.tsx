@@ -1,47 +1,5 @@
 import { useRef, useState, type ReactNode } from 'react'
 
-const TWEAKS_STYLE = `
-  .twk-panel{position:fixed;right:16px;bottom:16px;z-index:2147483646;width:280px;
-    max-height:calc(100vh - 32px);display:flex;flex-direction:column;
-    background:rgba(250,249,247,.78);color:#29261b;
-    -webkit-backdrop-filter:blur(24px) saturate(160%);backdrop-filter:blur(24px) saturate(160%);
-    border:.5px solid rgba(255,255,255,.6);border-radius:14px;
-    box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 12px 40px rgba(0,0,0,.18);
-    font:11.5px/1.4 var(--sans);overflow:hidden}
-  .twk-hd{display:flex;align-items:center;justify-content:space-between;
-    padding:10px 8px 10px 14px;cursor:move;user-select:none}
-  .twk-hd b{font-size:12px;font-weight:600;letter-spacing:.01em}
-  .twk-x{appearance:none;border:0;background:transparent;color:rgba(41,38,27,.55);
-    width:22px;height:22px;border-radius:6px;cursor:default;font-size:13px;line-height:1}
-  .twk-x:hover{background:rgba(0,0,0,.06);color:#29261b}
-  .twk-body{padding:2px 14px 14px;display:flex;flex-direction:column;gap:10px;
-    overflow-y:auto;overflow-x:hidden;min-height:0;
-    scrollbar-width:thin;scrollbar-color:rgba(0,0,0,.15) transparent}
-  .twk-row{display:flex;flex-direction:column;gap:5px}
-  .twk-row-h{flex-direction:row;align-items:center;justify-content:space-between;gap:10px}
-  .twk-lbl{display:flex;justify-content:space-between;align-items:baseline;
-    color:rgba(41,38,27,.72)}
-  .twk-lbl>span:first-child{font-weight:500}
-  .twk-sect{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
-    color:rgba(41,38,27,.45);padding:10px 0 0}
-  .twk-sect:first-child{padding-top:0}
-  .twk-seg{position:relative;display:flex;padding:2px;border-radius:8px;
-    background:rgba(0,0,0,.06);user-select:none}
-  .twk-seg-thumb{position:absolute;top:2px;bottom:2px;border-radius:6px;
-    background:rgba(255,255,255,.9);box-shadow:0 1px 2px rgba(0,0,0,.12);
-    transition:left .15s cubic-bezier(.3,.7,.4,1),width .15s}
-  .twk-seg button{appearance:none;position:relative;z-index:1;flex:1;border:0;
-    background:transparent;color:inherit;font:inherit;font-weight:500;min-height:22px;
-    border-radius:6px;cursor:default;padding:4px 6px;line-height:1.2;
-    overflow-wrap:anywhere}
-  .twk-toggle{position:relative;width:32px;height:18px;border:0;border-radius:999px;
-    background:rgba(0,0,0,.15);transition:background .15s;cursor:default;padding:0}
-  .twk-toggle[data-on="1"]{background:#34c759}
-  .twk-toggle i{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;
-    background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
-  .twk-toggle[data-on="1"] i{transform:translateX(14px)}
-`
-
 interface RadioOption<V> {
   value: V
   label: string
@@ -51,6 +9,13 @@ export interface TweaksPanelProps {
   title?: string
   children: ReactNode
 }
+
+const PANEL_CLASS =
+  'fixed z-[2147483646] flex max-h-[calc(100vh-32px)] w-[280px] flex-col overflow-hidden ' +
+  'rounded-[14px] border-[0.5px] border-white/60 bg-[rgba(250,249,247,0.78)] ' +
+  'text-[#29261b] shadow-[0_1px_0_rgba(255,255,255,.5)_inset,0_12px_40px_rgba(0,0,0,.18)] ' +
+  '[backdrop-filter:blur(24px)_saturate(160%)] [-webkit-backdrop-filter:blur(24px)_saturate(160%)] ' +
+  'font-sans text-[11.5px] leading-[1.4]'
 
 export function TweaksPanel({ title = 'Tweaks', children }: TweaksPanelProps): React.JSX.Element {
   const [open, setOpen] = useState(true)
@@ -87,22 +52,7 @@ export function TweaksPanel({ title = 'Tweaks', children }: TweaksPanelProps): R
     return (
       <button
         onClick={() => setOpen(true)}
-        style={{
-          position: 'fixed',
-          right: 16,
-          bottom: 16,
-          zIndex: 2147483646,
-          padding: '6px 12px',
-          borderRadius: 999,
-          border: '.5px solid rgba(255,255,255,.6)',
-          background: 'rgba(250,249,247,.78)',
-          backdropFilter: 'blur(24px) saturate(160%)',
-          color: '#29261b',
-          fontSize: 11,
-          fontFamily: 'var(--mono)',
-          cursor: 'pointer',
-          boxShadow: '0 8px 24px rgba(0,0,0,.18)'
-        }}
+        className="fixed bottom-4 right-4 z-[2147483646] cursor-pointer rounded-full border-[0.5px] border-white/60 bg-[rgba(250,249,247,0.78)] px-3 py-1.5 font-mono text-[11px] text-[#29261b] shadow-[0_8px_24px_rgba(0,0,0,.18)] [backdrop-filter:blur(24px)_saturate(160%)]"
       >
         Tweaks
       </button>
@@ -110,28 +60,34 @@ export function TweaksPanel({ title = 'Tweaks', children }: TweaksPanelProps): R
   }
 
   return (
-    <>
-      <style>{TWEAKS_STYLE}</style>
-      <div ref={dragRef} className="twk-panel" style={{ right: 16, bottom: 16 }}>
-        <div className="twk-hd" onMouseDown={onDragStart}>
-          <b>{title}</b>
-          <button
-            className="twk-x"
-            aria-label="Close tweaks"
-            onMouseDown={(e) => e.stopPropagation()}
-            onClick={() => setOpen(false)}
-          >
-            ✕
-          </button>
-        </div>
-        <div className="twk-body">{children}</div>
+    <div ref={dragRef} className={PANEL_CLASS} style={{ right: 16, bottom: 16 }}>
+      <div
+        className="flex cursor-move select-none items-center justify-between pb-2.5 pl-3.5 pr-2 pt-2.5"
+        onMouseDown={onDragStart}
+      >
+        <b className="text-[12px] font-semibold tracking-[0.01em]">{title}</b>
+        <button
+          className="h-[22px] w-[22px] cursor-default appearance-none rounded-md border-0 bg-transparent text-[13px] leading-none text-[rgba(41,38,27,0.55)] hover:bg-black/[0.06] hover:text-[#29261b]"
+          aria-label="Close tweaks"
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={() => setOpen(false)}
+        >
+          ✕
+        </button>
       </div>
-    </>
+      <div className="flex min-h-0 flex-col gap-2.5 overflow-y-auto overflow-x-hidden px-3.5 pb-3.5 pt-0.5 [scrollbar-color:rgba(0,0,0,.15)_transparent] [scrollbar-width:thin]">
+        {children}
+      </div>
+    </div>
   )
 }
 
 export function TweakSection({ label }: { label: string }): React.JSX.Element {
-  return <div className="twk-sect">{label}</div>
+  return (
+    <div className="pt-2.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-[rgba(41,38,27,0.45)] first:pt-0">
+      {label}
+    </div>
+  )
 }
 
 export function TweakToggle({
@@ -144,19 +100,24 @@ export function TweakToggle({
   onChange: (v: boolean) => void
 }): React.JSX.Element {
   return (
-    <div className="twk-row twk-row-h">
-      <div className="twk-lbl">
-        <span>{label}</span>
+    <div className="flex flex-row items-center justify-between gap-2.5">
+      <div className="flex items-baseline justify-between text-[rgba(41,38,27,0.72)]">
+        <span className="font-medium">{label}</span>
       </div>
       <button
         type="button"
-        className="twk-toggle"
-        data-on={value ? '1' : '0'}
         role="switch"
         aria-checked={value}
         onClick={() => onChange(!value)}
+        className={`relative h-[18px] w-8 cursor-default rounded-full border-0 p-0 transition-colors duration-150 ${
+          value ? 'bg-[#34c759]' : 'bg-black/15'
+        }`}
       >
-        <i />
+        <i
+          className={`absolute left-0.5 top-0.5 h-[14px] w-[14px] rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,.25)] transition-transform duration-150 ${
+            value ? 'translate-x-[14px]' : 'translate-x-0'
+          }`}
+        />
       </button>
     </div>
   )
@@ -179,13 +140,13 @@ export function TweakRadio<V extends string>({
   )
   const n = options.length
   return (
-    <div className="twk-row">
-      <div className="twk-lbl">
-        <span>{label}</span>
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-baseline justify-between text-[rgba(41,38,27,0.72)]">
+        <span className="font-medium">{label}</span>
       </div>
-      <div role="radiogroup" className="twk-seg">
+      <div className="relative flex select-none rounded-lg bg-black/[0.06] p-0.5" role="radiogroup">
         <div
-          className="twk-seg-thumb"
+          className="absolute bottom-0.5 top-0.5 rounded-md bg-white/90 shadow-[0_1px_2px_rgba(0,0,0,.12)] transition-[left,width] duration-150 ease-[cubic-bezier(.3,.7,.4,1)]"
           style={{
             left: `calc(2px + ${idx} * (100% - 4px) / ${n})`,
             width: `calc((100% - 4px) / ${n})`
@@ -198,6 +159,7 @@ export function TweakRadio<V extends string>({
             role="radio"
             aria-checked={o.value === value}
             onClick={() => onChange(o.value)}
+            className="relative z-[1] min-h-[22px] flex-1 cursor-default appearance-none rounded-md border-0 bg-transparent px-1.5 py-1 font-medium leading-[1.2] text-inherit [overflow-wrap:anywhere]"
           >
             {o.label}
           </button>

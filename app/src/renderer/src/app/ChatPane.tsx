@@ -1,32 +1,13 @@
-import type { CSSProperties, ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { Icon } from '../components/atoms/Icon'
 import { Avatar } from '../components/atoms/Avatar'
-import { V1 } from './theme'
+import { Dot } from '../components/atoms/Status'
 
-const iconBtn1: CSSProperties = {
-  width: 28,
-  height: 28,
-  border: 0,
-  background: 'transparent',
-  borderRadius: 6,
-  color: V1.ink2,
-  cursor: 'pointer',
-  display: 'grid',
-  placeItems: 'center'
-}
+const ICON_BTN =
+  'grid h-7 w-7 cursor-pointer place-items-center rounded-md border-0 bg-transparent text-ink2'
 
-const chip1: CSSProperties = {
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: 5,
-  padding: '4px 9px',
-  border: `1px solid ${V1.border}`,
-  background: V1.panel,
-  borderRadius: 999,
-  color: V1.ink2,
-  fontSize: 11.5,
-  cursor: 'pointer'
-}
+const CHIP =
+  'inline-flex cursor-pointer items-center gap-1.5 rounded-full border border-border bg-panel px-[9px] py-1 text-[11.5px] text-ink2'
 
 interface MsgProps {
   kind: 'user' | 'claude'
@@ -37,58 +18,28 @@ interface MsgProps {
 function Msg({ kind, children, inProgress }: MsgProps): React.JSX.Element {
   if (kind === 'user') {
     return (
-      <div style={{ display: 'flex', gap: 12 }}>
+      <div className="flex gap-3">
         <Avatar kind="user" size={28} />
-        <div style={{ flex: 1, paddingTop: 3 }}>
-          <div style={{ fontWeight: 600, fontSize: 12.5, color: V1.ink, marginBottom: 4 }}>
-            김재훈
-          </div>
-          <div style={{ fontSize: 13.5, color: V1.ink, lineHeight: 1.6 }}>{children}</div>
+        <div className="flex-1 pt-[3px]">
+          <div className="mb-1 text-[12.5px] font-semibold text-ink">김재훈</div>
+          <div className="text-[13.5px] leading-[1.6] text-ink">{children}</div>
         </div>
       </div>
     )
   }
   return (
-    <div style={{ display: 'flex', gap: 12 }}>
+    <div className="flex gap-3">
       <Avatar kind="claude" size={28} />
-      <div style={{ flex: 1, paddingTop: 3 }}>
-        <div
-          style={{
-            fontWeight: 600,
-            fontSize: 12.5,
-            color: V1.ink,
-            marginBottom: 4,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 6
-          }}
-        >
+      <div className="flex-1 pt-[3px]">
+        <div className="mb-1 flex items-center gap-1.5 text-[12.5px] font-semibold text-ink">
           Claude
           {inProgress && (
-            <span
-              style={{
-                fontSize: 11,
-                color: V1.ink3,
-                fontWeight: 400,
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5
-              }}
-            >
-              <span className="dot amber" /> 응답 중
+            <span className="inline-flex items-center gap-1.5 text-[11px] font-normal text-ink3">
+              <Dot tone="amber" /> 응답 중
             </span>
           )}
         </div>
-        <div
-          style={{
-            fontSize: 13.5,
-            color: V1.ink,
-            lineHeight: 1.65,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 10
-          }}
-        >
+        <div className="flex flex-col gap-2.5 text-[13.5px] leading-[1.65] text-ink">
           {children}
         </div>
       </div>
@@ -104,43 +55,18 @@ interface ToolProps {
 }
 
 function Tool({ name, args, status, duration }: ToolProps): React.JSX.Element {
-  const colors =
-    status === 'done'
-      ? { dot: 'green', label: '완료' }
-      : status === 'running'
-        ? { dot: 'amber', label: '실행 중…' }
-        : { dot: 'slate', label: status }
+  const tone: 'green' | 'amber' | 'slate' =
+    status === 'done' ? 'green' : status === 'running' ? 'amber' : 'slate'
+  const label = status === 'done' ? '완료' : status === 'running' ? '실행 중…' : status
   return (
-    <div
-      style={{
-        border: `1px solid ${V1.border}`,
-        borderRadius: 10,
-        background: V1.panel,
-        padding: '8px 12px',
-        fontSize: 12.5,
-        fontFamily: 'var(--mono)',
-        color: V1.ink,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10
-      }}
-    >
-      <span className={`dot ${colors.dot}`} />
-      <span style={{ fontWeight: 600, color: V1.rust }}>{name}</span>
-      <span
-        style={{
-          color: V1.ink3,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap',
-          flex: 1,
-          minWidth: 0
-        }}
-      >
+    <div className="flex items-center gap-2.5 rounded-[10px] border border-border bg-panel px-3 py-2 font-mono text-[12.5px] text-ink">
+      <Dot tone={tone} />
+      <span className="font-semibold text-rust">{name}</span>
+      <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-ink3">
         ({args})
       </span>
-      <span style={{ fontSize: 11, color: V1.ink3, fontFamily: 'var(--sans)' }}>
-        {colors.label}
+      <span className="font-sans text-[11px] text-ink3">
+        {label}
         {duration ? ` · ${duration}` : ''}
       </span>
     </div>
@@ -154,27 +80,11 @@ function Table(): React.JSX.Element {
     ['G2', '141.9', '4.79', '32.7', '−1.42 dB vs G1'],
     ['B', '95.6', '4.18', '31.9', '']
   ]
+  const cols = 'grid-cols-[60px_1fr_1fr_1fr_1.6fr]'
   return (
-    <div
-      style={{
-        border: `1px solid ${V1.border}`,
-        borderRadius: 10,
-        overflow: 'hidden',
-        fontSize: 12,
-        fontFamily: 'var(--mono)',
-        background: V1.panel
-      }}
-    >
+    <div className="overflow-hidden rounded-[10px] border border-border bg-panel font-mono text-[12px]">
       <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: '60px 1fr 1fr 1fr 1.6fr',
-          padding: '8px 12px',
-          background: 'var(--cream-50)',
-          color: V1.ink2,
-          fontSize: 11,
-          borderBottom: `1px solid ${V1.border}`
-        }}
+        className={`grid ${cols} border-b border-border bg-cream-50 px-3 py-2 text-[11px] text-ink2`}
       >
         <span>채널</span>
         <span>μ (DN)</span>
@@ -185,27 +95,15 @@ function Table(): React.JSX.Element {
       {rows.map((r, i) => (
         <div
           key={i}
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '60px 1fr 1fr 1fr 1.6fr',
-            padding: '7px 12px',
-            color: V1.ink,
-            borderBottom: i < rows.length - 1 ? `1px solid ${V1.border}` : 'none',
-            alignItems: 'center'
-          }}
+          className={`grid ${cols} items-center px-3 py-[7px] text-ink ${
+            i < rows.length - 1 ? 'border-b border-border' : ''
+          }`}
         >
-          <span style={{ fontWeight: 600 }}>{r[0]}</span>
+          <span className="font-semibold">{r[0]}</span>
           <span>{r[1]}</span>
           <span>{r[2]}</span>
-          <span
-            style={{
-              color: r[0] === 'G2' ? V1.rust : V1.ink,
-              fontWeight: r[0] === 'G2' ? 600 : 400
-            }}
-          >
-            {r[3]}
-          </span>
-          <span style={{ fontSize: 11, color: V1.rust, fontFamily: 'var(--sans)' }}>{r[4]}</span>
+          <span className={r[0] === 'G2' ? 'font-semibold text-rust' : ''}>{r[3]}</span>
+          <span className="font-sans text-[11px] text-rust">{r[4]}</span>
         </div>
       ))}
     </div>
@@ -214,78 +112,36 @@ function Table(): React.JSX.Element {
 
 export function ChatPane(): React.JSX.Element {
   return (
-    <section
-      style={{
-        flex: '1 1 0',
-        minWidth: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        background: V1.bg
-      }}
-    >
-      <div
-        style={{
-          padding: '14px 24px 10px',
-          borderBottom: `1px solid ${V1.border}`,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12
-        }}
-      >
+    <section className="flex min-w-0 flex-1 flex-col bg-bg">
+      <div className="flex items-center gap-3 border-b border-border px-6 pb-2.5 pt-3.5">
         <div>
-          <div
-            style={{
-              fontFamily: 'var(--serif)',
-              fontSize: 17,
-              color: V1.ink,
-              fontWeight: 600,
-              letterSpacing: -0.3
-            }}
-          >
+          <div className="font-serif text-[17px] font-semibold tracking-tight text-ink">
             Low-light SNR at G2 channel
           </div>
-          <div
-            style={{
-              fontSize: 11.5,
-              color: V1.ink3,
-              marginTop: 2,
-              display: 'flex',
-              gap: 8,
-              alignItems: 'center'
-            }}
-          >
+          <div className="mt-0.5 flex items-center gap-2 text-[11.5px] text-ink3">
             <span>cam-validation-v3</span>
             <span>·</span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              <span className="dot green" /> Claude Code · sonnet-4.5
+            <span className="inline-flex items-center gap-1">
+              <Dot tone="green" /> Claude Code · sonnet-4.5
             </span>
             <span>·</span>
             <span>3 skills · 2 MCP</span>
           </div>
         </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
-          <button style={iconBtn1}>
+        <div className="ml-auto flex gap-1">
+          <button className={ICON_BTN}>
             <Icon name="search" size={14} />
           </button>
-          <button style={iconBtn1}>
+          <button className={ICON_BTN}>
             <Icon name="copy" size={14} />
           </button>
-          <button style={iconBtn1}>
+          <button className={ICON_BTN}>
             <Icon name="settings" size={14} />
           </button>
         </div>
       </div>
 
-      <div
-        className="scroll"
-        style={{
-          flex: 1,
-          padding: '20px 24px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 22
-        }}
-      >
+      <div className="flex flex-1 flex-col gap-[22px] overflow-auto px-6 py-5">
         <Msg kind="user">
           저조도 환경에서 G2 채널의 SNR이 G1보다 약 1.4dB 낮게 측정됩니다. 보드를 바꿔도 같은
           패턴이라 디바이스 이슈는 아닌 것 같은데, 우선 캡처를 10장 받아서 채널별 통계를 봐줘.
@@ -322,44 +178,22 @@ export function ChatPane(): React.JSX.Element {
         </Msg>
       </div>
 
-      <div style={{ padding: '12px 24px 18px' }}>
-        <div
-          style={{
-            background: V1.panel,
-            border: `1px solid ${V1.border}`,
-            borderRadius: 14,
-            padding: '10px 12px',
-            boxShadow: '0 1px 2px rgba(0,0,0,.03)'
-          }}
-        >
-          <div style={{ minHeight: 36, color: V1.ink3, fontSize: 13, padding: '6px 4px' }}>
-            Orca에게 메시지 보내기…
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, paddingTop: 4 }}>
-            <button style={chip1}>
+      <div className="px-6 pb-[18px] pt-3">
+        <div className="rounded-[14px] border border-border bg-panel px-3 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,.03)]">
+          <div className="min-h-9 px-1 py-1.5 text-[13px] text-ink3">Orca에게 메시지 보내기…</div>
+          <div className="flex items-center gap-1.5 pt-1">
+            <button className={CHIP}>
               <Icon name="plus" size={12} /> 첨부
             </button>
-            <button style={chip1}>
+            <button className={CHIP}>
               <Icon name="cam" size={12} /> 현재 프레임
             </button>
-            <button style={chip1}>
+            <button className={CHIP}>
               <Icon name="bolt" size={12} /> Skill
             </button>
-            <span style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span style={{ fontSize: 11, color: V1.ink3 }}>claude-sonnet-4.5</span>
-              <button
-                style={{
-                  width: 30,
-                  height: 30,
-                  borderRadius: 8,
-                  border: 0,
-                  background: V1.rust,
-                  color: '#fff',
-                  cursor: 'pointer',
-                  display: 'grid',
-                  placeItems: 'center'
-                }}
-              >
+            <span className="ml-auto flex items-center gap-2">
+              <span className="text-[11px] text-ink3">claude-sonnet-4.5</span>
+              <button className="grid h-[30px] w-[30px] cursor-pointer place-items-center rounded-lg border-0 bg-rust text-white">
                 <Icon name="send" size={14} color="#fff" />
               </button>
             </span>

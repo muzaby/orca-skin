@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react'
-import { V1 } from './theme'
 
 export interface FrameProps {
   children: ReactNode
@@ -9,8 +8,7 @@ export interface FrameProps {
 export function Frame({ children, label }: FrameProps): React.JSX.Element {
   return (
     <div
-      className="app-frame"
-      style={{ background: V1.bg, fontFamily: 'var(--sans)' }}
+      className="flex h-full w-full flex-col overflow-hidden bg-bg font-sans text-[13px] leading-[1.45] text-ink"
       data-screen-label={label}
     >
       {children}

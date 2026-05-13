@@ -1,28 +1,44 @@
-/* Global renderer baseline. The renderer runs inside an Electron
-   BrowserWindow, so there is no desktop chrome of our own — `.app-frame`
-   (defined in tokens.css) fills the viewport. */
+@import 'tailwindcss';
+@import './tokens.css';
 
-html,
-body {
-  margin: 0;
-  padding: 0;
-  height: 100%;
-}
-body {
-  font-family: var(--sans);
-  -webkit-font-smoothing: antialiased;
-  overflow: hidden;
-  background: var(--cream-0);
-}
-* {
-  box-sizing: border-box;
-}
-svg {
-  display: block;
+/* Global baseline. The renderer runs inside an Electron BrowserWindow,
+   so there is no desktop chrome of our own — the app shell fills the
+   viewport via #root + the Frame component. */
+@layer base {
+  html,
+  body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+  }
+  body {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+    background: var(--color-bg);
+    color: var(--color-ink);
+  }
+  * {
+    box-sizing: border-box;
+  }
+  svg {
+    display: block;
+  }
+  #root {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+  }
 }
 
-#root {
-  width: 100vw;
-  height: 100vh;
-  display: flex;
+/* Keyboard hint pill — small enough to leave as a reusable component class. */
+@utility kbd {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 1px 5px;
+  border: 1px solid var(--color-border-strong);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--color-panel);
+  color: var(--color-ink2);
 }

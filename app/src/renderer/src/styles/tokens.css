@@ -1,143 +1,86 @@
-/* Shared tokens for the Orca Skin desktop app variations.
-   Each variation overrides via .v1 / .v2 / .v3 scopes. */
+/* Orca design tokens — Tailwind v4 theme + data-theme scope overrides.
+   Color/font tokens declared here become Tailwind utility classes
+   (e.g. `--color-ink` → `bg-ink`, `text-ink`, `border-ink`). */
 
-:root {
-  /* Warm Claude Desktop base palette */
-  --cream-0: #fbf9f4;
-  --cream-50: #f7f3eb;
-  --cream-100: #f0eadd;
-  --cream-200: #e6dcc6;
-  --cream-300: #d6c9aa;
-  --ink-900: #29261b;
-  --ink-700: #4a4434;
-  --ink-500: #6b6452;
-  --ink-400: #8a8270;
-  --ink-300: #a8a092;
-  --ink-200: #c9c1ae;
-  --line: #ebe3d0;
-  --line-strong: #ddd2b6;
-  --rust: #c96442; /* Claude accent */
-  --rust-soft: #e8a489;
-  --rust-bg: #f4dcc9;
-  --moss: #6c7a3f;
-  --indigo: #4a5b8c;
-  --rose: #b85a6e;
-  --amber: #c79431;
-  --paper: #ffffff;
+@theme {
+  /* Semantic tokens — default (classic) palette */
+  --color-bg: #fbf9f4;
+  --color-sidebar: #f3eee3;
+  --color-panel: #ffffff;
+  --color-border: #ebe3d0;
+  --color-border-strong: #ddd2b6;
+  --color-ink: #29261b;
+  --color-ink2: #6b6452;
+  --color-ink3: #a8a092;
+  --color-rust: #c96442;
+  --color-rust-soft: #f4dcc9;
 
-  /* Engineering palette (V2 / V3 panels) */
-  --slate-950: #0e1116;
-  --slate-900: #161b22;
-  --slate-800: #1f262e;
-  --slate-700: #2a323d;
-  --slate-600: #3a4452;
-  --slate-300: #98a2b3;
-  --slate-200: #c4cdd8;
-  --slate-100: #e3e8ee;
-  --teal: #2f8f88;
-  --good: #5a8a4f;
-  --warn: #c79431;
-  --bad: #b54a3a;
+  /* Static accent palette — not themed */
+  --color-cream-0: #fbf9f4;
+  --color-cream-50: #f7f3eb;
+  --color-cream-100: #f0eadd;
+  --color-cream-200: #e6dcc6;
+  --color-cream-300: #d6c9aa;
+  --color-ink-900: #29261b;
+  --color-ink-700: #4a4434;
+  --color-ink-500: #6b6452;
+  --color-ink-400: #8a8270;
+  --color-ink-300: #a8a092;
+  --color-ink-200: #c9c1ae;
+  --color-line: #ebe3d0;
+  --color-line-strong: #ddd2b6;
+  --color-moss: #6c7a3f;
+  --color-indigo: #4a5b8c;
+  --color-rose: #b85a6e;
+  --color-amber: #c79431;
+  --color-paper: #ffffff;
 
-  --mono: ui-monospace, 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
-  --serif: 'Source Serif 4', 'Source Serif Pro', 'Tiempos Headline', Georgia, serif;
-  --sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-}
+  /* Status tones */
+  --color-good: #5a8a4f;
+  --color-warn: #c79431;
+  --color-bad: #b54a3a;
+  --color-slate-dot: #98a2b3;
 
-/* Reset for artboard contents */
-.app-frame,
-.app-frame * {
-  box-sizing: border-box;
-}
-.app-frame {
-  width: 100%;
-  height: 100%;
-  font-family: var(--sans);
-  color: var(--ink-900);
-  background: var(--cream-0);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  font-size: 13px;
-  line-height: 1.45;
-}
-.app-frame button {
-  font: inherit;
-  color: inherit;
+  /* Camera viewport / engineering chrome */
+  --color-stage-950: #0a0d10;
+  --color-stage-900: #0c0f12;
+  --color-stage-800: #11151a;
+  --color-stage-700: #1a1d22;
+  --color-stage-600: #2a323d;
+  --color-stage-500: #4a5666;
+
+  /* Typography */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+  --font-serif: 'Source Serif 4', 'Source Serif Pro', 'Tiempos Headline', Georgia, serif;
+  --font-mono: ui-monospace, 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
 }
 
-/* Window chrome (custom titlebar) shared base */
-.titlebar {
-  height: 36px;
-  display: flex;
-  align-items: center;
-  padding: 0 10px 0 14px;
-  font-size: 12px;
-  color: var(--ink-500);
-  user-select: none;
-  -webkit-app-region: drag;
-  flex: 0 0 auto;
-}
-.tb-controls {
-  display: flex;
-  gap: 6px;
-  margin-left: auto;
-  -webkit-app-region: no-drag;
-}
-.tb-btn {
-  width: 28px;
-  height: 22px;
-  border: 0;
-  background: transparent;
-  display: grid;
-  place-items: center;
-  border-radius: 4px;
-  color: var(--ink-500);
-  cursor: pointer;
-}
-.tb-btn:hover {
-  background: rgba(0, 0, 0, 0.06);
-}
-.tb-btn.close:hover {
-  background: #e44a3a;
-  color: #fff;
+/* Theme variants — override the semantic tokens. Tailwind utilities like
+   `bg-bg` resolve to `var(--color-bg)`, so cascading these overrides
+   re-themes the whole tree without remounting. */
+
+[data-theme='dark'] {
+  --color-bg: #1c1a16;
+  --color-sidebar: #231f1a;
+  --color-panel: #2a2620;
+  --color-border: #3a342a;
+  --color-border-strong: #4a4234;
+  --color-ink: #f0eadd;
+  --color-ink2: #a8a092;
+  --color-ink3: #6b6452;
+  --color-rust: #e07855;
+  --color-rust-soft: #4a2214;
 }
 
-/* Reusable status dot */
-.dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  display: inline-block;
-}
-.dot.green {
-  background: #6aaa57;
-  box-shadow: 0 0 0 2px rgba(106, 170, 87, 0.18);
-}
-.dot.amber {
-  background: #c79431;
-  box-shadow: 0 0 0 2px rgba(199, 148, 49, 0.18);
-}
-.dot.red {
-  background: #b54a3a;
-  box-shadow: 0 0 0 2px rgba(181, 74, 58, 0.18);
-}
-.dot.slate {
-  background: #98a2b3;
-}
-
-.kbd {
-  font-family: var(--mono);
-  font-size: 11px;
-  padding: 1px 5px;
-  border: 1px solid var(--line-strong);
-  border-bottom-width: 2px;
-  border-radius: 4px;
-  background: var(--paper);
-  color: var(--ink-500);
-}
-
-/* Scrollbar styling inside artboards (cards hide native scrollbars) */
-.scroll {
-  overflow: auto;
+[data-theme='cool'] {
+  --color-bg: #f8fafc;
+  --color-sidebar: #f1f5f9;
+  --color-panel: #ffffff;
+  --color-border: #e2e8f0;
+  --color-border-strong: #cbd5e1;
+  --color-ink: #0f172a;
+  --color-ink2: #475569;
+  --color-ink3: #94a3b8;
+  --color-rust: #2563eb;
+  --color-rust-soft: #dbeafe;
 }
