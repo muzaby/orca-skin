@@ -267,6 +267,8 @@ Phase 1은 메모리만, Phase 2+에서 `electron-store` 로 영속화. 인터�
 
 ### 7.1 ClaudeCodeAdapter
 
+> CLI 플래그 의미·NDJSON 이벤트 스키마(`system/init`, `stream_event`, `system/api_retry`, `system/plugin_install`)·세션 재개 메커니즘 상세는 [`claude-code-spec.md`](./claude-code-spec.md) §3·§4·§7 참조 (단일 출처). 본 절은 *어댑터가 외부와 어떻게 계약하는지* 만 다룬다. 권한 정책 미정(OQ9) 도 spec §5 참조.
+
 **설치 탐지**:
 
 | 항목 | 명령 | 성공 기준 |
@@ -487,5 +489,6 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 - `docs/PRD.md` — 제품 정의 (WHAT)
 - `docs/llm-chat-desktop-strategy.md` — 기술 결정 근거
 - `docs/architecture.md` — 시스템 구성·프로세스·데이터 흐름
+- `docs/claude-code-spec.md` — Claude Code CLI 공식 스펙 미러 (§7.1 외부 계약의 단일 출처)
 - `app/CLAUDE.md` — 코드 작업 가이드
 - `project/electron/` — 시각 기준 프로토타입
