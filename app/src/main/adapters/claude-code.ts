@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { promisify } from 'node:util'
 import { exec as execCb } from 'node:child_process'
-import type { ChatEvent } from '../../shared/protocol'
+import type { ChatEvent } from '../../shared/ipc'
 import type { SessionAdapter } from './types'
 
 const exec = promisify(execCb)

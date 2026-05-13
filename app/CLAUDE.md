@@ -32,8 +32,9 @@
 | `src/main/adapters/opencode.ts`                | opencode `serve` / SDK / SSE                                           | **미구현 (future work)**             |
 | `src/main/adapters/registry.ts`                | 설치 상태 + 활성 백엔드 선택                                           | 구현됨 (claude-code 단일)            |
 | `src/main/installer/index.ts`                  | CLI 설치 자동화 (`npm install -g @anthropic-ai/claude-code`)           | 구현됨                               |
-| `src/main/settings/store.ts`                   | Phase 1 in-memory `Map`. Phase 2+ `electron-store`                     | 구현됨 (in-memory)                   |
-| `src/shared/protocol.ts`                       | zod 스키마 + IPC payload 타입 + CHANNELS 상수                          | 구현됨                               |
+| `src/main/settings/store.ts`                   | Phase 2+ `electron-store`. Phase 1 미사용                              | **미작성** (사용처 생기는 PR 에 재추가) |
+| `src/shared/ipc.ts`                            | `CHANNELS` 상수 + 순수 TS 타입. **zod 0 의존** (preload 안전)          | 구현됨                               |
+| `src/shared/protocol.ts`                       | zod 스키마 (main 전용). 타입은 `ipc.ts` 에서 re-export                 | 구현됨                               |
 | `src/renderer/src/state/chatReducer.ts`        | ChatState reducer (SEND/RECV/NEW/CANCEL/CLEAR_ERROR)                   | 구현됨                               |
 | `src/renderer/src/state/useChat.ts`            | useReducer + `window.orca.chat.onEvent` 구독                           | 구현됨                               |
 | `src/renderer/src/state/useBackend.ts`         | 부트 시 `orca.backend.list()` 호출 → 설치 상태 보관                    | 구현됨                               |

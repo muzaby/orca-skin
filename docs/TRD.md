@@ -13,6 +13,9 @@
 > **Phase 1 단일 백엔드 결정 (2026-05-13)**
 > Phase 1 MVP 는 **`claude-code` 단일 백엔드** 로 구현한다. `opencode` 어댑터는 `SessionAdapter` 인터페이스로만 자리를 남겨두고 **§10 future anchor** 로 이동했다. 따라서 §4 의 `@opencode-ai/sdk` 와 §7.2 (OpencodeAdapter) 는 *예약 사양* 으로 본다 — 코드에는 구현되어 있지 않다. AdapterRegistry 는 claude-code 만 등록한 상태에서 동작한다 (OQ7 는 자동으로 무관). 자세한 채택 표는 `docs/claude-code-spec.md §11` 도 함께 본다.
 
+> **Preload 노출 표면 축소 결정 (2026-05-13)**
+> preload `window.orca` 는 **renderer 가 실제 호출하는 채널만** 노출한다 (principle of least privilege). Phase 2 활성 6채널: `chat:send`/`chat:event`/`chat:cancel`/`backend:list`/`install:start`/`install:status`. 이전 Q1 ("`backend:select` 유지") 결정은 본 정책 도입으로 **취소** — 단일 백엔드에서 사용처가 없으므로 main 핸들러까지 함께 제거했다. `settings:get`/`settings:set` 도 동일 사유로 Phase 2 범위 밖. 향후 사용처가 생기면 (멀티 백엔드 / 영속화) 한 PR 에서 preload+main+CHANNELS 를 함께 다시 등록한다. zod 스키마 (`shared/protocol.ts`) 는 main 전용이며, preload 는 zod 비종속의 `shared/ipc.ts` 만 import 한다 (`sandbox: true` 호환).
+
 ---
 
 ## 1. 문서의 목적과 범위
@@ -96,24 +99,30 @@ electron-vite 환경 기준. 표 밖 의존성 추가 시 **사용자 승인 필
 - `domain`: 기능 영역 (chat, backend, install, settings)
 - `action`: 동작 (send, event, cancel, list, select, start, status, get, set)
 
-### 5.2 채널 카탈로그 (확정 8개)
+### 5.2 채널 카탈로그
+
+Phase 2 활성 6채널 — preload + main 양쪽에 등록.
 
 | 채널 | 방향 | 요청 페이로드 (TS) | 응답·스트림 | zod 스키마 |
 |---|---|---|---|---|
 | `orca:chat:send` | R→M (invoke) | `{ sessionId: string \| null; text: string; }` | ChatEvent stream (M→R send) | SendChatMessage |
 | `orca:chat:event` | M→R (send) | — | `ChatEvent` (반복) | ChatEvent union |
 | `orca:chat:cancel` | R→M (invoke) | `{ sessionId: string; }` | `{ ok: true }` | CancelChat |
-| `orca:backend:list` | R→M (invoke) | — | `{ backends: Backend[]; active?: Backend; }` | BackendList |
-| `orca:backend:select` | R→M (invoke) | `{ backend: Backend; }` | `{ ok: true }` | SelectBackend |
+| `orca:backend:list` | R→M (invoke) | — | `{ backends: Backend[]; active?: Backend; }` | (검증 생략) |
 | `orca:install:start` | R→M (invoke) | `{ backend: Backend; }` | InstallStatus stream (M→R send) | StartInstall |
 | `orca:install:status` | M→R (send) | — | `{ step: string; progress?: number; error?: string; }` | InstallStatus |
-| `orca:settings:get` | R→M (invoke) | `{ key: string; }` | `{ value: unknown; }` | GetSettings |
-| `orca:settings:set` | R→M (invoke) | `{ key: string; value: unknown; }` | `{ ok: true }` | SetSettings |
+
+Phase 2 범위 밖 (코드 등록 없음 — 사용처 도입 시 재추가):
+
+| 채널 | 사유 |
+|---|---|
+| `orca:backend:select` | 단일 백엔드 운영, 선택 호출자 없음 |
+| `orca:settings:get` / `orca:settings:set` | Phase 2+ `electron-store` 영속화 도입 시 재등록 |
 
 ### 5.3 `window.orca` API (Preload 화이트리스트)
 
 ```typescript
-// src/preload/index.ts 에서 노출
+// src/preload/index.ts 에서 노출 (Phase 2 활성 표면)
 interface OrcaApi {
   chat: {
     send(req: { sessionId: string | null; text: string }): Promise<void>;
@@ -122,15 +131,10 @@ interface OrcaApi {
   };
   backend: {
     list(): Promise<{ backends: Backend[]; active?: Backend }>;
-    select(backend: Backend): Promise<void>;
   };
   install: {
     start(backend: Backend): Promise<void>;
     onStatus(handler: (st: InstallStatus) => void): () => void;
-  };
-  settings: {
-    get(key: string): Promise<unknown>;
-    set(key: string, value: unknown): Promise<void>;
   };
 }
 
@@ -141,7 +145,9 @@ declare global {
 }
 ```
 
-Renderer 코드는 `window.orca.*` 만으로 통신 (ipcRenderer 직접 접근 금지).
+Renderer 코드는 `window.orca.*` 만으로 통신 (ipcRenderer 직접 접근 금지). `backend.select` / `settings.*` 는 사용처가 생기는 PR 에서 다시 노출한다.
+
+**Preload 안전 import 정책**: preload 는 `sandbox: true` 로 실행되므로 Node `require` 가 화이트리스트 (`electron`, `events`, `timers`, `url`) 로 제한된다. 따라서 preload 는 zod 가 끼어있는 `src/shared/protocol.ts` 를 **import 하지 않는다**. CHANNELS 상수와 순수 TS 타입은 별도 파일 `src/shared/ipc.ts` (zod 0 의존) 에 두고, preload + renderer 가 이 파일을 import 한다. zod 스키마는 main 측 IPC 라우터에서만 사용.
 
 ### 5.4 스트림 종료 신호
 

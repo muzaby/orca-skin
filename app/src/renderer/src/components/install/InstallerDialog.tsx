@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import type { InstallStatus } from '../../../../shared/protocol'
+import type { InstallStatus } from '../../../../shared/ipc'
 
 interface InstallerDialogProps {
   open: boolean

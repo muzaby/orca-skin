@@ -6,8 +6,10 @@ import {
   type ChatEvent,
   type InstallStatus,
   type SendChatMessage
-} from '../shared/protocol'
+} from '../shared/ipc'
 
+// Phase 2 노출 표면 — renderer 가 실제 사용하는 6개 채널만.
+// 추가 채널 (backend.select, settings.*) 은 사용처 도입 시점에 다시 등록.
 const orca = {
   chat: {
     send: (req: SendChatMessage): Promise<void> => ipcRenderer.invoke(CHANNELS.chatSend, req),
@@ -20,9 +22,7 @@ const orca = {
       ipcRenderer.invoke(CHANNELS.chatCancel, { sessionId })
   },
   backend: {
-    list: (): Promise<BackendListResult> => ipcRenderer.invoke(CHANNELS.backendList),
-    select: (backend: Backend): Promise<void> =>
-      ipcRenderer.invoke(CHANNELS.backendSelect, { backend })
+    list: (): Promise<BackendListResult> => ipcRenderer.invoke(CHANNELS.backendList)
   },
   install: {
     start: (backend: Backend): Promise<void> =>
@@ -32,11 +32,6 @@ const orca = {
       ipcRenderer.on(CHANNELS.installStatus, listener)
       return () => ipcRenderer.off(CHANNELS.installStatus, listener)
     }
-  },
-  settings: {
-    get: (key: string): Promise<unknown> => ipcRenderer.invoke(CHANNELS.settingsGet, { key }),
-    set: (key: string, value: unknown): Promise<void> =>
-      ipcRenderer.invoke(CHANNELS.settingsSet, { key, value })
   }
 }
 

@@ -1,4 +1,4 @@
-import type { Backend, ChatEvent } from '../../shared/protocol'
+import type { Backend, ChatEvent } from '../../shared/ipc'
 
 export type { Backend, ChatEvent }
 

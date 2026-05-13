@@ -1,4 +1,4 @@
-import type { Backend, InstallStatus } from '../../shared/protocol'
+import type { Backend, InstallStatus } from '../../shared/ipc'
 import type { AdapterRegistry } from '../adapters/registry'
 
 export class Installer {

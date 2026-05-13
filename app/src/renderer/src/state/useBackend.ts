@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { Backend, BackendListResult } from '../../../shared/protocol'
+import type { Backend, BackendListResult } from '../../../shared/ipc'
 
 export interface UseBackend {
   list: BackendListResult['backends']

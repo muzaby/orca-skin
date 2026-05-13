@@ -3,17 +3,13 @@ import {
   CHANNELS,
   SendChatMessageSchema,
   CancelChatSchema,
-  SelectBackendSchema,
   StartInstallSchema,
-  GetSettingsSchema,
-  SetSettingsSchema,
   type BackendListResult,
   type ChatEvent,
   type InstallStatus
 } from '../../shared/protocol'
 import { AdapterRegistry } from '../adapters/registry'
 import { Installer } from '../installer'
-import { SettingsStore } from '../settings/store'
 
 interface InflightTurn {
   controller: AbortController
@@ -22,7 +18,6 @@ interface InflightTurn {
 export class IpcRouter {
   private readonly registry = new AdapterRegistry()
   private readonly installer = new Installer(this.registry)
-  private readonly settings = new SettingsStore()
   private readonly inflight = new Map<WebContents, InflightTurn>()
 
   async start(): Promise<void> {
@@ -34,10 +29,7 @@ export class IpcRouter {
     ipcMain.handle(CHANNELS.chatSend, this.handleChatSend)
     ipcMain.handle(CHANNELS.chatCancel, this.handleChatCancel)
     ipcMain.handle(CHANNELS.backendList, this.handleBackendList)
-    ipcMain.handle(CHANNELS.backendSelect, this.handleBackendSelect)
     ipcMain.handle(CHANNELS.installStart, this.handleInstallStart)
-    ipcMain.handle(CHANNELS.settingsGet, this.handleSettingsGet)
-    ipcMain.handle(CHANNELS.settingsSet, this.handleSettingsSet)
   }
 
   private sendChatEvent(wc: WebContents, ev: ChatEvent): void {
@@ -100,9 +92,6 @@ export class IpcRouter {
         controller.signal
       )) {
         this.sendChatEvent(event.sender, ev)
-        if (ev.type === 'result' || ev.type === 'error') {
-          // result/error 도착 시에도 스트림은 자연 종료. break 하지 않음.
-        }
       }
     } catch (err) {
       this.sendChatEvent(event.sender, {
@@ -130,25 +119,10 @@ export class IpcRouter {
     return { backends, ...(active ? { active } : {}) }
   }
 
-  private handleBackendSelect = async (_event: IpcMainInvokeEvent, raw: unknown): Promise<void> => {
-    const parsed = SelectBackendSchema.parse(raw)
-    this.registry.select(parsed.backend)
-  }
-
   private handleInstallStart = async (event: IpcMainInvokeEvent, raw: unknown): Promise<void> => {
     const parsed = StartInstallSchema.parse(raw)
     for await (const st of this.installer.start(parsed.backend)) {
       this.sendInstallStatus(event.sender, st)
     }
-  }
-
-  private handleSettingsGet = async (_e: IpcMainInvokeEvent, raw: unknown): Promise<unknown> => {
-    const parsed = GetSettingsSchema.parse(raw)
-    return this.settings.get(parsed.key)
-  }
-
-  private handleSettingsSet = async (_e: IpcMainInvokeEvent, raw: unknown): Promise<void> => {
-    const parsed = SetSettingsSchema.parse(raw)
-    this.settings.set(parsed.key, parsed.value)
   }
 }

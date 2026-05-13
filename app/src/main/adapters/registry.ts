@@ -1,4 +1,4 @@
-import type { Backend } from '../../shared/protocol'
+import type { Backend } from '../../shared/ipc'
 import type { SessionAdapter } from './types'
 import { ClaudeCodeAdapter } from './claude-code'
 

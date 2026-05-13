@@ -1,4 +1,4 @@
-import type { ChatEvent, ErrorCode } from '../../../shared/protocol'
+import type { ChatEvent, ErrorCode } from '../../../shared/ipc'
 
 export interface ToolCall {
   toolUseId: string
