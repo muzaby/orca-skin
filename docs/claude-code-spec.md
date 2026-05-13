@@ -200,13 +200,12 @@ claude -p "Apply the lint fixes" --permission-mode acceptEdits
 
 > 공식: `/commit` 같은 사용자 호출 [skills](https://code.claude.com/docs/ko/skills) 및 [기본 제공 명령](https://code.claude.com/docs/ko/commands)은 대화형 모드에서만 사용 가능하다. `-p` 모드에서는 *수행하려는 작업을 자연어로 설명* 한다.
 
-⏳ **Open Question (PRD §11 OQ9)** — Phase 1 MVP 의 도구 권한 정책 미정. 후보:
-1. **무지정** (현재) — 모든 도구 호출에 사용자 권한 프롬프트. UX 마찰 큼.
-2. `--allowedTools "Read,Edit,Bash"` 등 *읽기·기본 편집* 만 사전 승인.
-3. `--permission-mode acceptEdits` 로 편집 자동 승인, 네트워크/임의 Bash 는 프롬프트.
-4. `--permission-mode dontAsk` (CI 모드) — 데스크톱 챗에는 부적합.
+**Phase 1 결정 (2026-05-13)**: **무지정** 으로 진행 — `--allowedTools` / `--permission-mode` 플래그 없이 CLI 기본 권한 프롬프트에 위임한다. 사전승인·`acceptEdits` 등의 후보는 future work 로 남긴다 (TRD §10 anchor). 결정 시 본 절을 갱신하고 TRD §7.1 명령 라인에 플래그를 추가한다.
 
-결정 시 본 절을 갱신하고 TRD §7.1 명령 라인에 플래그를 추가한다.
+후보 (future work):
+1. `--allowedTools "Read,Edit,Bash"` 등 *읽기·기본 편집* 만 사전 승인.
+2. `--permission-mode acceptEdits` 로 편집 자동 승인, 네트워크/임의 Bash 는 프롬프트.
+3. `--permission-mode dontAsk` (CI 모드) — 데스크톱 챗에는 부적합.
 
 ---
 
@@ -318,16 +317,17 @@ CLI (`claude -p`) 외에 [Python](https://code.claude.com/docs/ko/agent-sdk/pyth
 |---|---|
 | 진입 경로 | CLI (`claude -p`) — `child_process.spawn` |
 | 출력 포맷 | `--output-format stream-json` (필수) |
-| 토큰 스트리밍 | `--verbose --include-partial-messages` (검토 중) |
+| 토큰 스트리밍 | `--verbose --include-partial-messages` (Phase 1 적용) |
 | 세션 재개 | `--resume <sessionId>` — 2턴 이상에서 |
 | 세션 ID 발급 | 첫 `system/init` 이벤트의 `session_id` |
 | 베어 모드 | 미사용 (`~/.claude` 환경 활용) |
-| 도구 권한 | **OQ9 미정** — 후보: 미지정 / Read+Edit+Bash 사전승인 / `acceptEdits` |
+| 도구 권한 | **미지정** (Phase 1) — `--allowedTools` / `--permission-mode` 미사용. CLI 기본 권한 프롬프트에 위임. 사전승인/`acceptEdits` 는 future work (TRD §10 anchor) |
 | 시스템 프롬프트 | 미사용 (Skills 단계 재검토) |
 | 구조화 출력 | 미사용 |
 | Agent SDK | 미사용 (Phase 3+ anchor) |
 | 인증 만료 감지 | stdout/stderr 의 `401` / `OAuth` / `expired` 패턴 매칭 |
 | 환경변수 | PATH (npm 글로벌 bin), HOME, `CLAUDE_*` (필요 시) |
+| `cwd` | `app.getPath('home')` — 사용자 홈 디렉토리. 프로젝트별 cwd 선택 UI 는 future work |
 
 ---
 

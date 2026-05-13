@@ -12,11 +12,11 @@
 | React                             | 19.x                                                                                                                                     |
 | TypeScript                        | 5.x (strict, target ES2022)                                                                                                              |
 | 스타일링                          | **Tailwind CSS v4** (`@tailwindcss/vite` 플러그인, CSS-first `@theme` 설정)                                                              |
-| 메인 (`src/main/index.ts`)        | 템플릿 기본 `createWindow`. `contextIsolation: true` / `nodeIntegration: false` / `sandbox: true` 명시                                   |
-| 렌더러 (`src/renderer/src/`)      | **Phase 1 mockup 재현 + Tailwind 마이그레이션 완료** — Frame/Titlebar/Sidebar/ChatPane/CameraPane/Projects/EngineSettings/SkillsMcp + Tweaks. 캡처는 placeholder |
-| 프리로드 (`src/preload/index.ts`) | `contextBridge.exposeInMainWorld('electron', electronAPI)` 샘플 — Orca 화이트리스트로 교체 필요 (Phase 2)                                |
+| 메인 (`src/main/index.ts`)        | IpcRouter 부트 + `createWindow`. `contextIsolation: true` / `nodeIntegration: false` / `sandbox: true` 명시                              |
+| 렌더러 (`src/renderer/src/`)      | **Phase 1 시각 재현 + Phase 2 채팅 IPC 통합** — Frame/Titlebar/Sidebar/ChatPane(실데이터)/CameraPane/Projects/EngineSettings/SkillsMcp + Tweaks + Installer/Auth modal. 캡처는 placeholder |
+| 프리로드 (`src/preload/index.ts`) | `contextBridge.exposeInMainWorld('orca', OrcaApi)` — chat/backend/install/settings 화이트리스트                                           |
 | 패키저                            | electron-builder (`electron-builder.yml`)                                                                                                |
-| 도메인 코드 (IPC/어댑터)          | **없음** — 모든 UI 데이터는 mockup 하드코딩. Phase 2 에서 IPC 도입                                                                       |
+| 도메인 코드 (IPC/어댑터)          | **claude-code 단일 어댑터** — ClaudeCodeAdapter(NDJSON), AdapterRegistry, IpcRouter, Installer, SettingsStore. opencode 는 future work    |
 | `package.json`                    | 템플릿 기본값 (`name: "app"`, `author: "example.com"` 등) — 차후 도메인 PR 에서 갱신                                                     |
 
 ## 타깃 모듈 레이아웃 (TRD §1.2 기준)
@@ -25,14 +25,20 @@
 
 | 경로                                           | 책임                                                                   | 현 상태                              |
 | ---------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------ |
-| `src/main/index.ts`                            | Electron `app` 부트, BrowserWindow, IpcRouter 부착                     | 템플릿 기본                          |
-| `src/main/ipc/router.ts`                       | IPC 채널 라우팅 + 입력 검증 (zod)                                      | 미작성 (Phase 2)                     |
-| `src/main/adapters/types.ts`                   | `SessionAdapter`, `ChatEvent`, `Backend` 공통 타입                     | 미작성 (Phase 2)                     |
-| `src/main/adapters/claude-code.ts`             | Claude Code spawn / NDJSON / `--resume`                                | 미작성 (Phase 2)                     |
-| `src/main/adapters/opencode.ts`                | opencode `serve` / SDK / SSE                                           | 미작성 (Phase 2)                     |
-| `src/main/adapters/registry.ts`                | 설치 상태 + 활성 백엔드 선택                                           | 미작성 (Phase 2)                     |
-| `src/main/installer/index.ts`                  | CLI 설치 자동화                                                        | 미작성 (Phase 2)                     |
-| `src/main/settings/store.ts`                   | Phase 2+ `electron-store`. Phase 1 은 in-memory                        | 미작성                               |
+| `src/main/index.ts`                            | Electron `app` 부트, BrowserWindow, IpcRouter 부착                     | 구현됨                               |
+| `src/main/ipc/router.ts`                       | IPC 채널 라우팅 + 입력 검증 (zod)                                      | 구현됨                               |
+| `src/main/adapters/types.ts`                   | `SessionAdapter`, `ChatEvent`, `Backend` 공통 타입                     | 구현됨                               |
+| `src/main/adapters/claude-code.ts`             | Claude Code spawn / NDJSON / `--resume`                                | 구현됨                               |
+| `src/main/adapters/opencode.ts`                | opencode `serve` / SDK / SSE                                           | **미구현 (future work)**             |
+| `src/main/adapters/registry.ts`                | 설치 상태 + 활성 백엔드 선택                                           | 구현됨 (claude-code 단일)            |
+| `src/main/installer/index.ts`                  | CLI 설치 자동화 (`npm install -g @anthropic-ai/claude-code`)           | 구현됨                               |
+| `src/main/settings/store.ts`                   | Phase 1 in-memory `Map`. Phase 2+ `electron-store`                     | 구현됨 (in-memory)                   |
+| `src/shared/protocol.ts`                       | zod 스키마 + IPC payload 타입 + CHANNELS 상수                          | 구현됨                               |
+| `src/renderer/src/state/chatReducer.ts`        | ChatState reducer (SEND/RECV/NEW/CANCEL/CLEAR_ERROR)                   | 구현됨                               |
+| `src/renderer/src/state/useChat.ts`            | useReducer + `window.orca.chat.onEvent` 구독                           | 구현됨                               |
+| `src/renderer/src/state/useBackend.ts`         | 부트 시 `orca.backend.list()` 호출 → 설치 상태 보관                    | 구현됨                               |
+| `src/renderer/src/components/install/InstallerDialog.tsx` | 설치 진행 로그 + 수동 명령 복사                             | 구현됨                               |
+| `src/renderer/src/components/auth/AuthExpiredModal.tsx` | `claude /login` 안내 + 새 대화                                 | 구현됨                               |
 | `src/renderer/src/main.tsx`                    | React 엔트리 + DOM mount + 글로벌 CSS import                           | 구현됨                               |
 | `src/renderer/src/App.tsx`                     | 루트 셸 — Tweaks state, theme/density effect, 화면 라우팅              | 구현됨 (Phase 1)                     |
 | `src/renderer/src/app/Frame.tsx`               | `V1Frame` — app-frame 컨테이너                                         | 구현됨                               |
@@ -151,8 +157,8 @@ new BrowserWindow({
 | Phase   | 범위                                                                                                                                  | 상태         |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------- | ------------ |
 | Phase 1 | mockup 시각 재현 + Tailwind CSS v4 마이그레이션. chat / projects / engine / skills 4개 화면 + Tweaks. 캡처는 placeholder              | **완료**     |
-| Phase 2 | IPC 채널 + zod 검증. Claude Code / opencode 어댑터. 세션 재개. UI 데이터를 mockup 하드코딩 → IPC props 로 교체                        | 진행 전      |
-| 후속    | `V1Captures` 실 구현 (캡처 RAW 보관 + AI 분석). `electron-store` 영속화. 다국어 (`src/shared/i18n/ko.ts`). Vitest / Playwright 테스트 | Future Scope |
+| Phase 2 | IPC 채널 + zod 검증. **Claude Code 단일** 어댑터. 세션 재개. UI 데이터를 mockup 하드코딩 → IPC props 로 교체                          | **완료 (claude-code 단독)** |
+| 후속    | opencode 어댑터, `V1Captures` 실 구현 (캡처 RAW 보관 + AI 분석). `electron-store` 영속화. 다국어 (`src/shared/i18n/ko.ts`). Vitest / Playwright 테스트 | Future Scope |
 
 ## 위치 규약
 
