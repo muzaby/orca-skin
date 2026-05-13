@@ -252,8 +252,7 @@ app/
     │           │
     │           ├── CapturesPlaceholder.tsx├─ 캡처 화면 placeholder (Future Scope)
     │           │
-    │           ├── TweaksPanel.tsx   ├─ Tweaks UI 셸 + TweakSection/Radio/Toggle
-    │           └── ScreenTabs.tsx    └─ Floating screen-tabs (우상단)
+    │           └── TweaksPanel.tsx   └─ Tweaks UI 셸 + TweakSection/Radio/Toggle
     │
     │       (Phase 2 추가 예정: Composer/MessageList/ToolCallCard/Markdown/state.ts —
     │        IPC 채널 + 어댑터와 함께 도입)

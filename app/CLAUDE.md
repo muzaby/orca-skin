@@ -45,12 +45,11 @@
 | `src/renderer/src/app/CapturesPlaceholder.tsx`      | 캡처 화면 — "준비 중" placeholder (Future Scope)                  | placeholder                            |
 | `src/renderer/src/app/TweaksPanel.tsx`              | Tweaks UI 셸 + `TweakSection/Radio/Toggle`                        | 구현됨                                 |
 | `src/renderer/src/app/useTweaks.ts`                 | Tweaks state hook                                                 | 구현됨                                 |
-| `src/renderer/src/app/ScreenTabs.tsx`               | Floating screen-tabs (mockup 우상단 전환기)                       | 구현됨                                 |
 | `src/renderer/src/app/screens.ts`                   | 화면 ID + 라벨 + breadcrumb 카탈로그                              | 구현됨                                 |
 | `src/renderer/src/app/theme.ts`                     | `THEME_PALETTES`, `DENSITY_FONT`, `V1` 가변 팔레트 객체           | 구현됨                                 |
 | `src/renderer/src/components/atoms/*`               | `Icon`, `WinControls`, `Avatar`, `Status`, `BayerPattern`, `Histogram` | 구현됨 (mockup atoms 1:1)         |
 | `src/renderer/src/styles/tokens.css`                | CSS 변수 디자인 토큰 (cream/ink/rust 팔레트, 폰트)                | 구현됨 (mockup 복제)                   |
-| `src/renderer/src/styles/app.css`                   | 글로벌 셸 (.desktop / .taskbar / .app-window / .screen-tabs)      | 구현됨                                 |
+| `src/renderer/src/styles/app.css`                   | 글로벌 baseline (html/body/#root 리셋, 폰트, 배경)                 | 구현됨                                 |
 | `src/preload/index.ts`                              | `contextBridge.exposeInMainWorld` 화이트리스트                    | 템플릿 기본 (Phase 2 에서 교체)        |
 | `src/shared/protocol.ts`                            | Renderer ↔ Main 메시지 스키마                                     | 미작성 (Phase 2)                       |
 | `src/shared/i18n/ko.ts`                             | 한국어 라벨                                                       | 미작성 (현재는 mockup 인라인 한국어)   |
@@ -69,6 +68,12 @@ Phase 1 의 1차 목표는 **mockup 픽셀 재현**이다. 단계적 마이그�
 | Tweaks 연동         | mockup 패턴 그대로 — 팔레트 객체 mutation + `key` bump 로 자식 remount                              | 동일 (또는 React Context 로 정규화)                                     |
 
 mockup 의 인라인 스타일을 그대로 가져왔으므로 **새 컴포넌트도 같은 패턴** (인라인 `style` + `V1.*` 색상) 으로 작성한다. Tailwind 클래스 도입은 Phase 2 마이그레이션 PR 에서 일괄 진행.
+
+### 데스크톱 컨텍스트는 production 에서 제외
+
+mockup (`project/electron/index.html`) 은 디자인 시연을 위해 *Windows 11 데스크톱* 컨텍스트 — 배경 그라데이션, taskbar, 좌상단 "Orca · Electron BrowserWindow" 배너, 우상단 floating screen-tabs, 1280×820 frameless 윈도우 박스 (둥근 모서리 / 그림자 / center transform / auto-scale) — 를 입혀 보여준다. **이 wrapper 는 production 렌더러에 포함하지 않는다** — 실제 앱은 OS 의 BrowserWindow 안에서 실행되므로 데스크톱 시뮬레이션은 중복·불필요. 렌더러는 mockup `.app-window` *내부* 의 콘텐츠 (Frame / Titlebar / Sidebar / 본문 / TweaksPanel) 만 viewport 풀-블리드 로 렌더한다.
+
+화면 전환은 사이드바 메뉴 (`Sidebar` 의 `onSelect`) 만으로 진행. mockup 의 우상단 floating screen-tabs 는 디자인 캔버스용 개발 보조 UI 였으므로 제외.
 
 ## 보안 베이스라인 (TRD §1.3) — 첫 PR 에서 반드시 적용
 
