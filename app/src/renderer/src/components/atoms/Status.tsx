@@ -5,18 +5,25 @@ export interface StatusProps {
   label?: string
 }
 
-export function Status({ tone = 'green', label }: StatusProps): React.JSX.Element {
+const DOT_TONE: Record<StatusTone, string> = {
+  green: 'bg-good ring-good/20',
+  amber: 'bg-warn ring-warn/20',
+  red: 'bg-bad ring-bad/20',
+  slate: 'bg-slate-dot ring-transparent'
+}
+
+export function Dot({ tone }: { tone: StatusTone }): React.JSX.Element {
   return (
     <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 6,
-        fontSize: 12,
-        color: 'var(--ink-500)'
-      }}
-    >
-      <span className={`dot ${tone}`} />
+      className={`inline-block h-[7px] w-[7px] flex-none rounded-full ring-2 ${DOT_TONE[tone]}`}
+    />
+  )
+}
+
+export function Status({ tone = 'green', label }: StatusProps): React.JSX.Element {
+  return (
+    <span className="inline-flex items-center gap-1.5 text-[12px] text-ink2">
+      <Dot tone={tone} />
       {label}
     </span>
   )

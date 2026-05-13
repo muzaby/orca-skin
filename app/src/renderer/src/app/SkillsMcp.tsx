@@ -1,5 +1,6 @@
 import { Icon } from '../components/atoms/Icon'
-import { V1 } from './theme'
+import { Dot } from '../components/atoms/Status'
+import type { StatusTone } from '../components/atoms/Status'
 
 interface Skill {
   name: string
@@ -11,7 +12,7 @@ interface Mcp {
   name: string
   cmd: string
   tools: number
-  status: 'green' | 'amber' | 'red'
+  status: StatusTone
   enabled: boolean
 }
 
@@ -51,23 +52,11 @@ function SectionHead({
   action?: string
 }): React.JSX.Element {
   return (
-    <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginBottom: 10 }}>
-      <span style={{ fontFamily: 'var(--serif)', fontSize: 16, fontWeight: 600, color: V1.ink }}>
-        {title}
-      </span>
-      {count && <span style={{ fontSize: 12, color: V1.ink3 }}>{count}</span>}
+    <div className="mb-2.5 flex items-baseline gap-2.5">
+      <span className="font-serif text-[16px] font-semibold text-ink">{title}</span>
+      {count && <span className="text-[12px] text-ink3">{count}</span>}
       {action && (
-        <button
-          style={{
-            marginLeft: 'auto',
-            fontSize: 12,
-            color: V1.rust,
-            border: 0,
-            background: 'transparent',
-            cursor: 'pointer',
-            fontWeight: 500
-          }}
-        >
+        <button className="ml-auto cursor-pointer border-0 bg-transparent text-[12px] font-medium text-rust">
           + {action}
         </button>
       )}
@@ -78,28 +67,13 @@ function SectionHead({
 function Toggle({ on }: { on: boolean }): React.JSX.Element {
   return (
     <div
-      style={{
-        width: 30,
-        height: 17,
-        background: on ? V1.rust : V1.borderStrong,
-        borderRadius: 9,
-        position: 'relative',
-        flex: '0 0 auto',
-        cursor: 'pointer'
-      }}
+      className={`relative h-[17px] w-[30px] flex-none cursor-pointer rounded-[9px] ${
+        on ? 'bg-rust' : 'bg-border-strong'
+      }`}
     >
       <div
-        style={{
-          position: 'absolute',
-          top: 1.5,
-          left: on ? 14.5 : 1.5,
-          width: 14,
-          height: 14,
-          background: '#fff',
-          borderRadius: '50%',
-          boxShadow: '0 1px 2px rgba(0,0,0,.2)',
-          transition: 'left .15s'
-        }}
+        className="absolute top-[1.5px] h-[14px] w-[14px] rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,.2)] transition-[left] duration-150"
+        style={{ left: on ? 14.5 : 1.5 }}
       />
     </div>
   )
@@ -107,95 +81,53 @@ function Toggle({ on }: { on: boolean }): React.JSX.Element {
 
 function PermRow({ label, desc }: { label: string; desc: string }): React.JSX.Element {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 0' }}>
+    <div className="flex items-center gap-2.5 py-1.5">
       <Icon name="check" size={13} color="#5a8a4f" />
-      <div style={{ flex: 1 }}>
-        <div style={{ color: V1.ink, fontWeight: 500 }}>{label}</div>
-        <div style={{ color: V1.ink3, fontSize: 11.5 }}>{desc}</div>
+      <div className="flex-1">
+        <div className="font-medium text-ink">{label}</div>
+        <div className="text-[11.5px] text-ink3">{desc}</div>
       </div>
-      <button
-        style={{
-          fontSize: 11,
-          color: V1.ink3,
-          border: 0,
-          background: 'transparent',
-          cursor: 'pointer'
-        }}
-      >
-        편집
-      </button>
+      <button className="cursor-pointer border-0 bg-transparent text-[11px] text-ink3">편집</button>
     </div>
   )
 }
 
 export function SkillsMcp(): React.JSX.Element {
   return (
-    <section style={{ flex: 1, overflow: 'auto', padding: '24px 32px 40px' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 14 }}>
-        <h1
-          style={{
-            fontFamily: 'var(--serif)',
-            fontSize: 28,
-            fontWeight: 600,
-            color: V1.ink,
-            margin: 0,
-            letterSpacing: -0.6
-          }}
-        >
+    <section className="flex-1 overflow-auto px-8 pb-10 pt-6">
+      <div className="flex items-baseline gap-3.5">
+        <h1 className="m-0 font-serif text-[28px] font-semibold tracking-[-0.02em] text-ink">
           Skills & MCP
         </h1>
-        <span style={{ color: V1.ink3, fontSize: 13 }}>Claude가 사용할 수 있는 도구</span>
+        <span className="text-[13px] text-ink3">Claude가 사용할 수 있는 도구</span>
       </div>
-      <p style={{ color: V1.ink2, fontSize: 13.5, marginTop: 6, marginBottom: 22 }}>
+      <p className="mb-[22px] mt-1.5 text-[13.5px] text-ink2">
         <b>cam-validation-v3</b> 프로젝트에 설치된 항목입니다.
       </p>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: 22 }}>
+      <div className="grid grid-cols-[1.2fr_1fr] gap-[22px]">
         <div>
           <SectionHead title="Skills" count="3 / 5 활성" action="설치" />
-          <div
-            style={{
-              background: V1.panel,
-              border: `1px solid ${V1.border}`,
-              borderRadius: 12,
-              overflow: 'hidden'
-            }}
-          >
+          <div className="overflow-hidden rounded-xl border border-border bg-panel">
             {SKILLS.map((s, i) => (
               <div
                 key={s.name}
-                style={{
-                  padding: '12px 14px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  borderBottom: i < SKILLS.length - 1 ? `1px solid ${V1.border}` : 'none'
-                }}
+                className={`flex items-center gap-3 px-3.5 py-3 ${
+                  i < SKILLS.length - 1 ? 'border-b border-border' : ''
+                }`}
               >
-                <div
-                  style={{
-                    width: 30,
-                    height: 30,
-                    borderRadius: 6,
-                    background: 'var(--cream-50)',
-                    display: 'grid',
-                    placeItems: 'center'
-                  }}
-                >
-                  <Icon name="bolt" size={14} color={s.enabled ? V1.rust : V1.ink3} />
+                <div className="grid h-[30px] w-[30px] place-items-center rounded-md bg-cream-50">
+                  <Icon name="bolt" size={14} color={s.enabled ? '#c96442' : '#a8a092'} />
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="min-w-0 flex-1">
                   <div
-                    style={{
-                      fontFamily: 'var(--mono)',
-                      fontSize: 12.5,
-                      fontWeight: 600,
-                      color: s.enabled ? V1.ink : V1.ink3
-                    }}
+                    className={`font-mono text-[12.5px] font-semibold ${
+                      s.enabled ? 'text-ink' : 'text-ink3'
+                    }`}
                   >
                     {s.name}
                   </div>
-                  <div style={{ fontSize: 11.5, color: V1.ink2, marginTop: 1 }}>{s.desc}</div>
+                  <div className="mt-px text-[11.5px] text-ink2">{s.desc}</div>
                 </div>
                 <Toggle on={s.enabled} />
               </div>
@@ -205,65 +137,26 @@ export function SkillsMcp(): React.JSX.Element {
 
         <div>
           <SectionHead title="MCP 서버" count="2 / 3 연결됨" action="추가" />
-          <div
-            style={{
-              background: V1.panel,
-              border: `1px solid ${V1.border}`,
-              borderRadius: 12,
-              overflow: 'hidden'
-            }}
-          >
+          <div className="overflow-hidden rounded-xl border border-border bg-panel">
             {MCPS.map((m, i) => (
               <div
                 key={m.name}
-                style={{
-                  padding: '12px 14px',
-                  borderBottom: i < MCPS.length - 1 ? `1px solid ${V1.border}` : 'none'
-                }}
+                className={`px-3.5 py-3 ${i < MCPS.length - 1 ? 'border-b border-border' : ''}`}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <span className={`dot ${m.status}`} />
-                  <span
-                    style={{
-                      fontFamily: 'var(--mono)',
-                      fontSize: 12.5,
-                      fontWeight: 600,
-                      color: V1.ink
-                    }}
-                  >
-                    {m.name}
-                  </span>
-                  <span style={{ marginLeft: 'auto', fontSize: 11, color: V1.ink3 }}>
-                    {m.tools} 툴
-                  </span>
+                <div className="flex items-center gap-2.5">
+                  <Dot tone={m.status} />
+                  <span className="font-mono text-[12.5px] font-semibold text-ink">{m.name}</span>
+                  <span className="ml-auto text-[11px] text-ink3">{m.tools} 툴</span>
                   <Toggle on={m.enabled} />
                 </div>
-                <div
-                  style={{
-                    fontFamily: 'var(--mono)',
-                    fontSize: 11,
-                    color: V1.ink2,
-                    marginTop: 4,
-                    paddingLeft: 17
-                  }}
-                >
-                  {m.cmd}
-                </div>
+                <div className="mt-1 pl-[17px] font-mono text-[11px] text-ink2">{m.cmd}</div>
               </div>
             ))}
           </div>
 
-          <div style={{ marginTop: 22 }}>
+          <div className="mt-[22px]">
             <SectionHead title="권한" />
-            <div
-              style={{
-                background: V1.panel,
-                border: `1px solid ${V1.border}`,
-                borderRadius: 12,
-                padding: 14,
-                fontSize: 12.5
-              }}
-            >
+            <div className="rounded-xl border border-border bg-panel p-3.5 text-[12.5px]">
               <PermRow label="하드웨어 보드 제어" desc="capture, set_exposure, set_gain" />
               <PermRow label="파일 시스템 (워크스페이스)" desc="cam-validation-v3/ 안에서만" />
               <PermRow label="네트워크" desc="회사 GitLab + 로컬 MCP만 허용" />

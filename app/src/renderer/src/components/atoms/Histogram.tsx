@@ -38,7 +38,7 @@ export function Histogram({ width = 240, height = 64 }: HistogramProps): React.J
   }
   const max = Math.max(...data.r, ...data.g, ...data.b)
   return (
-    <svg width={width} height={height} style={{ display: 'block', background: '#11151a' }}>
+    <svg width={width} height={height} className="block bg-stage-800">
       <path d={path(data.r, max)} fill="rgba(220,80,70,.7)" />
       <path d={path(data.g, max)} fill="rgba(110,180,90,.7)" />
       <path d={path(data.b, max)} fill="rgba(90,140,220,.7)" />

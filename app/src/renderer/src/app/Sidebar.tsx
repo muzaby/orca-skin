@@ -1,6 +1,6 @@
 import { Icon, type IconName } from '../components/atoms/Icon'
 import { Avatar } from '../components/atoms/Avatar'
-import { V1 } from './theme'
+import { Dot } from '../components/atoms/Status'
 import type { ScreenId } from './screens'
 
 export interface SidebarProps {
@@ -44,8 +44,11 @@ const RECENT: { id: string; t: string; time: string; active?: boolean }[] = [
   { id: 's5', t: '센서 EVS 캘리브레이션', time: '4d' }
 ]
 
-const engineDot = (e: 'claude' | 'opencode' | 'local'): string =>
+const engineDot = (e: 'claude' | 'opencode' | 'local'): 'green' | 'amber' | 'slate' =>
   e === 'claude' ? 'green' : e === 'opencode' ? 'amber' : 'slate'
+
+const SECTION_HEAD =
+  'px-3 pb-1 pt-3.5 font-serif text-[11px] font-semibold uppercase tracking-[0.04em] text-ink3'
 
 export function Sidebar({
   active = 'chat',
@@ -55,31 +58,13 @@ export function Sidebar({
   if (collapsed) {
     const icons: IconName[] = ['plus', 'chat', 'folder', 'flask', 'cpu', 'settings']
     return (
-      <aside
-        style={{
-          width: 56,
-          background: V1.sidebar,
-          borderRight: `1px solid ${V1.border}`,
-          display: 'flex',
-          flexDirection: 'column',
-          padding: '12px 0',
-          gap: 4,
-          alignItems: 'center',
-          flex: '0 0 auto'
-        }}
-      >
+      <aside className="flex w-14 flex-none flex-col items-center gap-1 border-r border-border bg-sidebar py-3">
         {icons.map((n, i) => (
           <button
             key={n}
-            style={{
-              width: 36,
-              height: 36,
-              border: 0,
-              background: i === 1 ? V1.rustSoft : 'transparent',
-              color: i === 1 ? V1.rust : V1.ink2,
-              borderRadius: 8,
-              cursor: 'pointer'
-            }}
+            className={`h-9 w-9 cursor-pointer rounded-lg border-0 ${
+              i === 1 ? 'bg-rust-soft text-rust' : 'bg-transparent text-ink2'
+            }`}
           >
             <Icon name={n} size={17} />
           </button>
@@ -89,196 +74,83 @@ export function Sidebar({
   }
 
   return (
-    <aside
-      style={{
-        width: 248,
-        background: V1.sidebar,
-        borderRight: `1px solid ${V1.border}`,
-        display: 'flex',
-        flexDirection: 'column',
-        flex: '0 0 auto'
-      }}
-    >
-      <div style={{ padding: '10px 12px 6px' }}>
-        <button
-          style={{
-            width: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 8,
-            padding: '8px 10px',
-            border: `1px solid ${V1.border}`,
-            background: V1.panel,
-            borderRadius: 8,
-            cursor: 'pointer',
-            color: V1.ink,
-            fontWeight: 500
-          }}
-        >
+    <aside className="flex w-[248px] flex-none flex-col border-r border-border bg-sidebar">
+      <div className="px-3 pb-1.5 pt-2.5">
+        <button className="flex w-full cursor-pointer items-center gap-2 rounded-lg border border-border bg-panel px-2.5 py-2 font-medium text-ink">
           <Icon name="plus" size={14} /> 새 대화
-          <span style={{ marginLeft: 'auto', display: 'flex', gap: 3 }}>
-            <span className="kbd" style={{ fontSize: 10 }}>
-              ⌘
-            </span>
-            <span className="kbd" style={{ fontSize: 10 }}>
-              N
-            </span>
+          <span className="ml-auto flex gap-[3px]">
+            <span className="kbd text-[10px]">⌘</span>
+            <span className="kbd text-[10px]">N</span>
           </span>
         </button>
       </div>
 
-      <nav style={{ padding: '4px 6px' }}>
+      <nav className="px-1.5 py-1">
         {NAV.map((it) => {
           const isActive = it.screen === active
           return (
             <div
               key={it.i}
               onClick={() => onSelect?.(it.screen)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 9,
-                padding: '6px 10px',
-                borderRadius: 6,
-                color: isActive ? V1.ink : V1.ink2,
-                background: isActive ? 'rgba(0,0,0,.04)' : 'transparent',
-                fontSize: 13,
-                fontWeight: isActive ? 500 : 400,
-                cursor: 'pointer'
-              }}
+              className={`flex cursor-pointer items-center gap-[9px] rounded-md px-2.5 py-1.5 text-[13px] ${
+                isActive ? 'bg-black/[0.04] font-medium text-ink' : 'text-ink2'
+              }`}
             >
               <Icon name={it.i} size={14} />
               <span>{it.l}</span>
               {it.count != null && (
-                <span
-                  style={{
-                    marginLeft: 'auto',
-                    fontSize: 11,
-                    color: V1.ink3,
-                    fontVariantNumeric: 'tabular-nums'
-                  }}
-                >
-                  {it.count}
-                </span>
+                <span className="ml-auto text-[11px] tabular-nums text-ink3">{it.count}</span>
               )}
             </div>
           )
         })}
       </nav>
 
-      <div
-        style={{
-          padding: '14px 12px 4px',
-          fontFamily: 'var(--serif)',
-          fontSize: 11,
-          fontWeight: 600,
-          letterSpacing: 0.4,
-          color: V1.ink3,
-          textTransform: 'uppercase'
-        }}
-      >
-        프로젝트
-      </div>
-      <div style={{ padding: '0 6px' }}>
+      <div className={SECTION_HEAD}>프로젝트</div>
+      <div className="px-1.5">
         {PROJECTS.map((p) => (
           <div
             key={p.id}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '5px 10px',
-              borderRadius: 6,
-              background: p.active ? V1.rustSoft : 'transparent',
-              color: p.active ? V1.ink : V1.ink2,
-              fontSize: 12.5,
-              cursor: 'pointer'
-            }}
+            className={`flex cursor-pointer items-center gap-2 rounded-md px-2.5 py-[5px] text-[12.5px] ${
+              p.active ? 'bg-rust-soft text-ink' : 'text-ink2'
+            }`}
           >
-            <span className={`dot ${engineDot(p.engine)}`} />
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {p.name}
-            </span>
+            <Dot tone={engineDot(p.engine)} />
+            <span className="overflow-hidden text-ellipsis whitespace-nowrap">{p.name}</span>
           </div>
         ))}
       </div>
 
-      <div
-        style={{
-          padding: '14px 12px 4px',
-          fontFamily: 'var(--serif)',
-          fontSize: 11,
-          fontWeight: 600,
-          letterSpacing: 0.4,
-          color: V1.ink3,
-          textTransform: 'uppercase'
-        }}
-      >
-        최근 대화
-      </div>
-      <div style={{ padding: '0 6px', flex: 1, overflow: 'hidden' }}>
+      <div className={SECTION_HEAD}>최근 대화</div>
+      <div className="flex-1 overflow-hidden px-1.5">
         {RECENT.map((s) => (
           <div
             key={s.id}
-            style={{
-              padding: '6px 10px',
-              borderRadius: 6,
-              background: s.active ? 'rgba(0,0,0,.04)' : 'transparent',
-              cursor: 'pointer'
-            }}
+            className={`cursor-pointer rounded-md px-2.5 py-1.5 ${
+              s.active ? 'bg-black/[0.04]' : ''
+            }`}
           >
             <div
-              style={{
-                fontSize: 12.5,
-                color: s.active ? V1.ink : V1.ink2,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-                whiteSpace: 'nowrap',
-                fontWeight: s.active ? 500 : 400
-              }}
+              className={`overflow-hidden text-ellipsis whitespace-nowrap text-[12.5px] ${
+                s.active ? 'font-medium text-ink' : 'text-ink2'
+              }`}
             >
               {s.t}
             </div>
-            <div style={{ fontSize: 10.5, color: V1.ink3, marginTop: 1 }}>{s.time}</div>
+            <div className="mt-px text-[10.5px] text-ink3">{s.time}</div>
           </div>
         ))}
       </div>
 
-      <div
-        style={{
-          padding: 10,
-          borderTop: `1px solid ${V1.border}`,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8
-        }}
-      >
+      <div className="flex items-center gap-2 border-t border-border p-2.5">
         <Avatar kind="claude" size={24} />
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 12, color: V1.ink, fontWeight: 500 }}>Claude Code</div>
-          <div
-            style={{
-              fontSize: 10.5,
-              color: V1.ink3,
-              display: 'flex',
-              gap: 6,
-              alignItems: 'center'
-            }}
-          >
-            <span className="dot green" /> claude-sonnet-4.5
+        <div className="min-w-0 flex-1">
+          <div className="text-[12px] font-medium text-ink">Claude Code</div>
+          <div className="flex items-center gap-1.5 text-[10.5px] text-ink3">
+            <Dot tone="green" /> claude-sonnet-4.5
           </div>
         </div>
-        <button
-          style={{
-            width: 26,
-            height: 26,
-            border: 0,
-            background: 'transparent',
-            borderRadius: 6,
-            color: V1.ink3,
-            cursor: 'pointer'
-          }}
-        >
+        <button className="h-[26px] w-[26px] cursor-pointer rounded-md border-0 bg-transparent text-ink3">
           <Icon name="settings" size={14} />
         </button>
       </div>

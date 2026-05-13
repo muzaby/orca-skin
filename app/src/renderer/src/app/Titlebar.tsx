@@ -1,5 +1,4 @@
 import { WinControls } from '../components/atoms/WinControls'
-import { V1 } from './theme'
 
 export interface TitlebarProps {
   project?: string
@@ -11,44 +10,18 @@ export function Titlebar({
   breadcrumb
 }: TitlebarProps): React.JSX.Element {
   return (
-    <div
-      className="titlebar"
-      style={{ background: V1.sidebar, borderBottom: `1px solid ${V1.border}` }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <div
-          style={{
-            width: 18,
-            height: 18,
-            borderRadius: 5,
-            background: V1.rust,
-            display: 'grid',
-            placeItems: 'center',
-            color: '#fff',
-            fontFamily: 'var(--serif)',
-            fontWeight: 700,
-            fontSize: 12
-          }}
-        >
+    <div className="flex h-9 flex-none select-none items-center border-b border-border bg-sidebar pl-[14px] pr-[10px] text-[12px] text-ink2 [-webkit-app-region:drag]">
+      <div className="flex items-center gap-2">
+        <div className="grid h-[18px] w-[18px] place-items-center rounded-[5px] bg-rust font-serif text-[12px] font-bold text-white">
           O
         </div>
-        <span
-          style={{
-            fontFamily: 'var(--serif)',
-            fontWeight: 600,
-            fontSize: 13,
-            color: V1.ink,
-            letterSpacing: -0.2
-          }}
-        >
-          Orca
-        </span>
-        <span style={{ color: V1.ink3, fontSize: 11 }}>—</span>
-        <span style={{ color: V1.ink2, fontSize: 12 }}>{project}</span>
+        <span className="font-serif text-[13px] font-semibold tracking-tight text-ink">Orca</span>
+        <span className="text-[11px] text-ink3">—</span>
+        <span className="text-[12px] text-ink2">{project}</span>
         {breadcrumb && (
           <>
-            <span style={{ color: V1.ink3, fontSize: 11, margin: '0 4px' }}>›</span>
-            <span style={{ color: V1.ink2, fontSize: 12 }}>{breadcrumb}</span>
+            <span className="mx-1 text-[11px] text-ink3">›</span>
+            <span className="text-[12px] text-ink2">{breadcrumb}</span>
           </>
         )}
       </div>

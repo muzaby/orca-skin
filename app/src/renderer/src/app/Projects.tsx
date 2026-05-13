@@ -1,5 +1,6 @@
 import { Icon } from '../components/atoms/Icon'
-import { V1 } from './theme'
+import { Dot } from '../components/atoms/Status'
+import type { StatusTone } from '../components/atoms/Status'
 
 interface Project {
   id: string
@@ -11,7 +12,7 @@ interface Project {
   captures: number
   last: string
   active?: boolean
-  tone: 'green' | 'amber' | 'slate'
+  tone: StatusTone
 }
 
 const PROJECTS: Project[] = [
@@ -64,134 +65,68 @@ const PROJECTS: Project[] = [
 
 export function Projects(): React.JSX.Element {
   return (
-    <section style={{ flex: 1, overflow: 'auto', padding: '24px 32px 40px' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginBottom: 4 }}>
-        <h1
-          style={{
-            fontFamily: 'var(--serif)',
-            fontSize: 28,
-            fontWeight: 600,
-            color: V1.ink,
-            margin: 0,
-            letterSpacing: -0.6
-          }}
-        >
+    <section className="flex-1 overflow-auto px-8 pb-10 pt-6">
+      <div className="mb-1 flex items-baseline gap-3.5">
+        <h1 className="m-0 font-serif text-[28px] font-semibold tracking-[-0.02em] text-ink">
           프로젝트
         </h1>
-        <span style={{ color: V1.ink3, fontSize: 13 }}>4개의 활성 워크스페이스</span>
-        <button
-          style={{
-            marginLeft: 'auto',
-            padding: '7px 14px',
-            border: 0,
-            borderRadius: 8,
-            background: V1.rust,
-            color: '#fff',
-            fontWeight: 500,
-            fontSize: 12.5,
-            cursor: 'pointer',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6
-          }}
-        >
+        <span className="text-[13px] text-ink3">4개의 활성 워크스페이스</span>
+        <button className="ml-auto inline-flex cursor-pointer items-center gap-1.5 rounded-lg border-0 bg-rust px-3.5 py-[7px] text-[12.5px] font-medium text-white">
           <Icon name="plus" size={13} color="#fff" /> 새 프로젝트
         </button>
       </div>
-      <p style={{ color: V1.ink2, fontSize: 13.5, marginTop: 6, marginBottom: 22 }}>
+      <p className="mb-[22px] mt-1.5 text-[13.5px] text-ink2">
         각 프로젝트는 자체 엔진, 모델, Skill/MCP, 캡처 히스토리를 가집니다.
       </p>
 
-      <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+      <div className="mb-4 flex gap-1.5">
         {['모두 (4)', 'Claude Code (2)', 'OpenCode (1)', '로컬 (1)', '보관'].map((c, i) => (
           <button
             key={c}
-            style={{
-              padding: '5px 12px',
-              borderRadius: 999,
-              border: i === 0 ? `1px solid ${V1.borderStrong}` : `1px solid ${V1.border}`,
-              background: i === 0 ? V1.panel : 'transparent',
-              color: V1.ink2,
-              fontSize: 12,
-              cursor: 'pointer'
-            }}
+            className={`cursor-pointer rounded-full px-3 py-[5px] text-[12px] text-ink2 ${
+              i === 0
+                ? 'border border-border-strong bg-panel'
+                : 'border border-border bg-transparent'
+            }`}
           >
             {c}
           </button>
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 14 }}>
+      <div className="grid grid-cols-2 gap-3.5">
         {PROJECTS.map((p) => (
           <div
             key={p.id}
-            style={{
-              background: V1.panel,
-              border: `1px solid ${p.active ? V1.borderStrong : V1.border}`,
-              borderRadius: 12,
-              padding: 16,
-              position: 'relative'
-            }}
+            className={`relative rounded-xl bg-panel p-4 ${
+              p.active ? 'border border-border-strong' : 'border border-border'
+            }`}
           >
             {p.active && (
-              <div
-                style={{
-                  position: 'absolute',
-                  top: 12,
-                  right: 14,
-                  fontSize: 10.5,
-                  color: V1.rust,
-                  fontWeight: 600,
-                  letterSpacing: 0.5,
-                  textTransform: 'uppercase'
-                }}
-              >
+              <div className="absolute right-3.5 top-3 text-[10.5px] font-semibold uppercase tracking-[0.04em] text-rust">
                 활성
               </div>
             )}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 4 }}>
-              <span className={`dot ${p.tone}`} />
-              <span
-                style={{
-                  fontFamily: 'var(--mono)',
-                  fontSize: 14,
-                  fontWeight: 600,
-                  color: V1.ink
-                }}
-              >
-                {p.name}
-              </span>
+            <div className="mb-1 flex items-center gap-2.5">
+              <Dot tone={p.tone} />
+              <span className="font-mono text-[14px] font-semibold text-ink">{p.name}</span>
             </div>
-            <div style={{ fontSize: 12.5, color: V1.ink2, lineHeight: 1.5, marginBottom: 12 }}>
-              {p.desc}
-            </div>
-            <div
-              style={{ display: 'flex', gap: 14, fontSize: 11.5, color: V1.ink3, marginBottom: 10 }}
-            >
+            <div className="mb-3 text-[12.5px] leading-[1.5] text-ink2">{p.desc}</div>
+            <div className="mb-2.5 flex gap-3.5 text-[11.5px] text-ink3">
               <span>
                 <Icon name="cpu" size={11} style={{ verticalAlign: -1, marginRight: 3 }} />{' '}
                 {p.engine}
               </span>
-              <span style={{ fontFamily: 'var(--mono)' }}>{p.model}</span>
+              <span className="font-mono">{p.model}</span>
             </div>
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 16,
-                fontSize: 11.5,
-                color: V1.ink2,
-                paddingTop: 10,
-                borderTop: `1px solid ${V1.border}`
-              }}
-            >
+            <div className="flex items-center gap-4 border-t border-border pt-2.5 text-[11.5px] text-ink2">
               <span>
-                <b style={{ color: V1.ink }}>{p.sessions}</b> 대화
+                <b className="text-ink">{p.sessions}</b> 대화
               </span>
               <span>
-                <b style={{ color: V1.ink }}>{p.captures}</b> 캡처
+                <b className="text-ink">{p.captures}</b> 캡처
               </span>
-              <span style={{ marginLeft: 'auto', color: V1.ink3 }}>{p.last}</span>
+              <span className="ml-auto text-ink3">{p.last}</span>
             </div>
           </div>
         ))}

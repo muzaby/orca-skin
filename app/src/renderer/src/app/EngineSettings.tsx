@@ -1,7 +1,5 @@
-import type { CSSProperties } from 'react'
 import { Icon } from '../components/atoms/Icon'
 import { Status } from '../components/atoms/Status'
-import { V1 } from './theme'
 
 interface Engine {
   id: string
@@ -61,119 +59,63 @@ const ENGINES: Engine[] = [
   }
 ]
 
-const iconBtn1: CSSProperties = {
-  width: 28,
-  height: 28,
-  border: 0,
-  background: 'transparent',
-  borderRadius: 6,
-  color: V1.ink2,
-  cursor: 'pointer',
-  display: 'grid',
-  placeItems: 'center'
+const ICON_BTN =
+  'grid h-7 w-7 cursor-pointer place-items-center rounded-md border-0 bg-transparent text-ink2'
+
+const TONE_BG: Record<Engine['tone'], string> = {
+  green: 'bg-[#e8f1e3]',
+  red: 'bg-[#f7dad4]',
+  amber: 'bg-cream-100',
+  slate: 'bg-cream-100'
+}
+
+const TONE_ICON: Record<Engine['tone'], string> = {
+  green: '#5a8a4f',
+  red: '#b54a3a',
+  amber: '#6b6452',
+  slate: '#6b6452'
 }
 
 export function EngineSettings(): React.JSX.Element {
   return (
-    <section style={{ flex: 1, overflow: 'auto', padding: '24px 32px 40px' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 14, marginBottom: 4 }}>
-        <h1
-          style={{
-            fontFamily: 'var(--serif)',
-            fontSize: 28,
-            fontWeight: 600,
-            color: V1.ink,
-            margin: 0,
-            letterSpacing: -0.6
-          }}
-        >
+    <section className="flex-1 overflow-auto px-8 pb-10 pt-6">
+      <div className="mb-1 flex items-baseline gap-3.5">
+        <h1 className="m-0 font-serif text-[28px] font-semibold tracking-[-0.02em] text-ink">
           엔진 & 모델
         </h1>
-        <span style={{ color: V1.ink3, fontSize: 13 }}>백엔드 CLI 및 API 엔드포인트</span>
-        <button
-          style={{
-            marginLeft: 'auto',
-            padding: '7px 14px',
-            border: `1px solid ${V1.borderStrong}`,
-            borderRadius: 8,
-            background: V1.panel,
-            color: V1.ink,
-            fontWeight: 500,
-            fontSize: 12.5,
-            cursor: 'pointer',
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 6
-          }}
-        >
+        <span className="text-[13px] text-ink3">백엔드 CLI 및 API 엔드포인트</span>
+        <button className="ml-auto inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-border-strong bg-panel px-3.5 py-[7px] text-[12.5px] font-medium text-ink">
           <Icon name="plus" size={13} /> 엔진 추가
         </button>
       </div>
-      <p style={{ color: V1.ink2, fontSize: 13.5, marginTop: 6, marginBottom: 22 }}>
+      <p className="mb-[22px] mt-1.5 text-[13.5px] text-ink2">
         프로젝트마다 엔진을 따로 지정할 수 있습니다. 세션 안에서 <span className="kbd">⌘</span>{' '}
         <span className="kbd">⇧</span> <span className="kbd">M</span>으로 전환됩니다.
       </p>
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      <div className="flex flex-col gap-2.5">
         {ENGINES.map((e) => (
           <div
             key={e.id}
-            style={{
-              background: V1.panel,
-              border: `1px solid ${e.active ? V1.borderStrong : V1.border}`,
-              borderRadius: 12,
-              padding: '14px 18px'
-            }}
+            className={`rounded-xl bg-panel px-4 py-3.5 ${
+              e.active ? 'border border-border-strong' : 'border border-border'
+            }`}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div
-                style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 8,
-                  background:
-                    e.tone === 'green' ? '#e8f1e3' : e.tone === 'red' ? '#f7dad4' : '#eee9dc',
-                  display: 'grid',
-                  placeItems: 'center'
-                }}
-              >
-                <Icon
-                  name="cpu"
-                  size={16}
-                  color={e.tone === 'red' ? '#b54a3a' : e.tone === 'green' ? '#5a8a4f' : V1.ink2}
-                />
+            <div className="flex items-center gap-3">
+              <div className={`grid h-9 w-9 place-items-center rounded-lg ${TONE_BG[e.tone]}`}>
+                <Icon name="cpu" size={16} color={TONE_ICON[e.tone]} />
               </div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <span style={{ fontWeight: 600, fontSize: 14, color: V1.ink }}>{e.name}</span>
-                  <span style={{ fontSize: 11, color: V1.ink3 }}>{e.kind}</span>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[14px] font-semibold text-ink">{e.name}</span>
+                  <span className="text-[11px] text-ink3">{e.kind}</span>
                   {e.active && (
-                    <span
-                      style={{
-                        fontSize: 10,
-                        color: V1.rust,
-                        fontWeight: 600,
-                        padding: '1px 6px',
-                        background: V1.rustSoft,
-                        borderRadius: 3,
-                        letterSpacing: 0.4
-                      }}
-                    >
+                    <span className="rounded-sm bg-rust-soft px-1.5 py-px text-[10px] font-semibold tracking-[0.04em] text-rust">
                       현재 프로젝트
                     </span>
                   )}
                 </div>
-                <div
-                  style={{
-                    fontFamily: 'var(--mono)',
-                    fontSize: 11.5,
-                    color: V1.ink2,
-                    marginTop: 3,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap'
-                  }}
-                >
+                <div className="mt-[3px] overflow-hidden text-ellipsis whitespace-nowrap font-mono text-[11.5px] text-ink2">
                   {e.cmd}
                 </div>
               </div>
@@ -181,60 +123,32 @@ export function EngineSettings(): React.JSX.Element {
                 tone={e.tone === 'red' ? 'red' : e.tone === 'green' ? 'green' : 'slate'}
                 label={e.status === 'connected' ? '연결됨' : e.status === 'idle' ? '대기' : '오류'}
               />
-              <span style={{ fontSize: 11, color: V1.ink3, fontFamily: 'var(--mono)' }}>
-                {e.version}
-              </span>
-              <button style={iconBtn1}>
+              <span className="font-mono text-[11px] text-ink3">{e.version}</span>
+              <button className={ICON_BTN}>
                 <Icon name="settings" size={13} />
               </button>
             </div>
             {e.error && (
-              <div
-                style={{
-                  marginTop: 10,
-                  padding: '7px 12px',
-                  background: '#fbe9e2',
-                  border: '1px solid #f0c9b8',
-                  borderRadius: 6,
-                  fontSize: 11.5,
-                  color: '#a0432e',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6
-                }}
-              >
+              <div className="mt-2.5 flex items-center gap-1.5 rounded-md border border-[#f0c9b8] bg-[#fbe9e2] px-3 py-[7px] text-[11.5px] text-[#a0432e]">
                 <Icon name="alert" size={11} color="#a0432e" /> {e.error}
               </div>
             )}
-            <div style={{ marginTop: 10, display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-              {e.models.map((m, i) => (
-                <span
-                  key={m}
-                  style={{
-                    fontFamily: 'var(--mono)',
-                    fontSize: 11,
-                    padding: '3px 8px',
-                    background: i === 0 && e.active ? V1.rustSoft : 'var(--cream-50)',
-                    color: i === 0 && e.active ? V1.rust : V1.ink2,
-                    borderRadius: 4,
-                    fontWeight: i === 0 && e.active ? 600 : 400
-                  }}
-                >
-                  {i === 0 && e.active ? '✓ ' : ''}
-                  {m}
-                </span>
-              ))}
-              <button
-                style={{
-                  fontSize: 11,
-                  padding: '3px 8px',
-                  background: 'transparent',
-                  border: `1px dashed ${V1.borderStrong}`,
-                  color: V1.ink3,
-                  borderRadius: 4,
-                  cursor: 'pointer'
-                }}
-              >
+            <div className="mt-2.5 flex flex-wrap gap-1.5">
+              {e.models.map((m, i) => {
+                const primary = i === 0 && e.active
+                return (
+                  <span
+                    key={m}
+                    className={`rounded-sm px-2 py-[3px] font-mono text-[11px] ${
+                      primary ? 'bg-rust-soft font-semibold text-rust' : 'bg-cream-50 text-ink2'
+                    }`}
+                  >
+                    {primary ? '✓ ' : ''}
+                    {m}
+                  </span>
+                )
+              })}
+              <button className="cursor-pointer rounded-sm border border-dashed border-border-strong bg-transparent px-2 py-[3px] text-[11px] text-ink3">
                 + 모델
               </button>
             </div>

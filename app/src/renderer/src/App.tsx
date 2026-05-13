@@ -11,7 +11,7 @@ import { CapturesPlaceholder } from './app/CapturesPlaceholder'
 import { TweaksPanel, TweakSection, TweakRadio, TweakToggle } from './app/TweaksPanel'
 import { useTweaks } from './app/useTweaks'
 import { SCREENS, type ScreenId } from './app/screens'
-import { THEME_PALETTES, DENSITY_FONT, V1, type ThemeId, type DensityId } from './app/theme'
+import { DENSITY_FONT, type ThemeId, type DensityId } from './app/theme'
 
 interface Tweaks {
   theme: ThemeId
@@ -29,17 +29,13 @@ function App(): React.JSX.Element {
   const [screen, setScreen] = useState<ScreenId>('chat')
   const [t, setTweak] = useTweaks<Tweaks>(TWEAK_DEFAULTS)
 
-  // Theme — rewrite V1 colour tokens in place before children read them.
-  // The `key={t.theme}` on the frame wrapper below remounts the tree so
-  // cached inline-style colours pick up the new palette.
-  Object.assign(V1, THEME_PALETTES[t.theme])
-
+  // Theme — set `data-theme` on <html>; tokens.css overrides --color-*
+  // variables under each scope, so all Tailwind utilities re-resolve.
   useEffect(() => {
-    document.body.style.background = V1.bg
+    document.documentElement.dataset.theme = t.theme
   }, [t.theme])
 
-  // Density — scales the root font size; cascades to em/rem spacing in
-  // child components.
+  // Density — root font-size cascades to rem-based Tailwind spacing.
   useEffect(() => {
     document.documentElement.style.fontSize = DENSITY_FONT[t.density] + 'px'
   }, [t.density])
@@ -61,10 +57,10 @@ function App(): React.JSX.Element {
 
   return (
     <>
-      <div key={t.theme} style={{ width: '100%', height: '100%' }}>
+      <div className="h-full w-full">
         <Frame label={`Orca · ${current.label}`}>
           <Titlebar breadcrumb={current.breadcrumb} />
-          <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
+          <div className="flex min-h-0 flex-1">
             <Sidebar active={screen} collapsed={t.sidebarCollapsed} onSelect={setScreen} />
             {body}
           </div>

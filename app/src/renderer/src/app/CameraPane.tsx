@@ -1,7 +1,7 @@
 import { Icon } from '../components/atoms/Icon'
+import { Dot } from '../components/atoms/Status'
 import { BayerPattern } from '../components/atoms/BayerPattern'
 import { Histogram } from '../components/atoms/Histogram'
-import { V1 } from './theme'
 
 interface SliderProps {
   label: string
@@ -15,65 +15,23 @@ interface SliderProps {
 function Slider({ label, unit, value, min, max, pct }: SliderProps): React.JSX.Element {
   return (
     <div>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'baseline',
-          fontSize: 12,
-          marginBottom: 5
-        }}
-      >
-        <span style={{ color: V1.ink2 }}>{label}</span>
-        <span style={{ fontFamily: 'var(--mono)', color: V1.ink, fontWeight: 600 }}>
+      <div className="mb-[5px] flex items-baseline justify-between text-[12px]">
+        <span className="text-ink2">{label}</span>
+        <span className="font-mono font-semibold text-ink">
           {value} {unit}
         </span>
       </div>
-      <div
-        style={{
-          position: 'relative',
-          height: 6,
-          background: V1.panel,
-          borderRadius: 3,
-          border: `1px solid ${V1.border}`
-        }}
-      >
+      <div className="relative h-1.5 rounded-[3px] border border-border bg-panel">
         <div
-          style={{
-            position: 'absolute',
-            left: 0,
-            top: -1,
-            bottom: -1,
-            width: `${pct}%`,
-            background: V1.rust,
-            borderRadius: 3
-          }}
+          className="absolute -top-px -bottom-px left-0 rounded-[3px] bg-rust"
+          style={{ width: `${pct}%` }}
         />
         <div
-          style={{
-            position: 'absolute',
-            left: `${pct}%`,
-            top: '50%',
-            transform: 'translate(-50%,-50%)',
-            width: 14,
-            height: 14,
-            borderRadius: '50%',
-            background: '#fff',
-            border: `2px solid ${V1.rust}`,
-            boxShadow: '0 1px 3px rgba(0,0,0,.15)'
-          }}
+          className="absolute top-1/2 h-[14px] w-[14px] -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-rust bg-white shadow-[0_1px_3px_rgba(0,0,0,.15)]"
+          style={{ left: `${pct}%` }}
         />
       </div>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          fontSize: 10,
-          color: V1.ink3,
-          fontFamily: 'var(--mono)',
-          marginTop: 3
-        }}
-      >
+      <div className="mt-[3px] flex justify-between font-mono text-[10px] text-ink3">
         <span>{min}</span>
         <span>{max}</span>
       </div>
@@ -88,161 +46,66 @@ interface MetricProps {
   tone?: 'ok' | 'warn' | 'bad'
 }
 
+const METRIC_TONE: Record<'ok' | 'warn' | 'bad', string> = {
+  ok: 'text-ink',
+  warn: 'text-amber',
+  bad: 'text-rust'
+}
+
 export function Metric({ label, value, unit, tone = 'ok' }: MetricProps): React.JSX.Element {
-  const colors: Record<'ok' | 'warn' | 'bad', string> = {
-    ok: V1.ink,
-    warn: '#c79431',
-    bad: V1.rust
-  }
   return (
-    <div
-      style={{
-        background: V1.panel,
-        border: `1px solid ${V1.border}`,
-        borderRadius: 8,
-        padding: '7px 10px'
-      }}
-    >
-      <div
-        style={{
-          fontSize: 10,
-          color: V1.ink3,
-          textTransform: 'uppercase',
-          letterSpacing: 0.4
-        }}
-      >
-        {label}
-      </div>
-      <div
-        style={{
-          fontFamily: 'var(--mono)',
-          fontSize: 15,
-          fontWeight: 600,
-          color: colors[tone],
-          marginTop: 2
-        }}
-      >
+    <div className="rounded-lg border border-border bg-panel px-2.5 py-[7px]">
+      <div className="text-[10px] uppercase tracking-[0.04em] text-ink3">{label}</div>
+      <div className={`mt-0.5 font-mono text-[15px] font-semibold ${METRIC_TONE[tone]}`}>
         {value}
-        <span style={{ fontSize: 10, fontWeight: 400, color: V1.ink3, marginLeft: 3 }}>{unit}</span>
+        <span className="ml-[3px] text-[10px] font-normal text-ink3">{unit}</span>
       </div>
     </div>
   )
 }
 
 export function CameraPane(): React.JSX.Element {
+  const tabs: [string, boolean][] = [
+    ['RGB', true],
+    ['Bayer', false],
+    ['R', false],
+    ['G1', false],
+    ['G2', false],
+    ['B', false]
+  ]
   return (
-    <section
-      style={{
-        width: 480,
-        flex: '0 0 auto',
-        background: V1.sidebar,
-        borderLeft: `1px solid ${V1.border}`,
-        display: 'flex',
-        flexDirection: 'column'
-      }}
-    >
-      <div
-        style={{
-          padding: '12px 16px 8px',
-          borderBottom: `1px solid ${V1.border}`,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8
-        }}
-      >
+    <section className="flex w-[480px] flex-none flex-col border-l border-border bg-sidebar">
+      <div className="flex items-center gap-2 border-b border-border px-4 pb-2 pt-3">
         <Icon name="cam" size={15} />
-        <span style={{ fontFamily: 'var(--serif)', fontWeight: 600, fontSize: 14, color: V1.ink }}>
-          하드웨어 제어
-        </span>
-        <span
-          style={{
-            marginLeft: 'auto',
-            fontSize: 11,
-            color: V1.ink2,
-            display: 'inline-flex',
-            alignItems: 'center',
-            gap: 5
-          }}
-        >
-          <span className="dot green" /> COM7 · OV-9282
+        <span className="font-serif text-[14px] font-semibold text-ink">하드웨어 제어</span>
+        <span className="ml-auto inline-flex items-center gap-1.5 text-[11px] text-ink2">
+          <Dot tone="green" /> COM7 · OV-9282
         </span>
       </div>
 
-      <div style={{ padding: 12, background: '#0c0f12' }}>
-        <div style={{ position: 'relative', borderRadius: 6, overflow: 'hidden' }}>
+      <div className="bg-stage-900 p-3">
+        <div className="relative overflow-hidden rounded-md">
           <BayerPattern width={456} height={258} />
-          <div
-            style={{
-              position: 'absolute',
-              top: 8,
-              left: 10,
-              right: 10,
-              display: 'flex',
-              justifyContent: 'space-between',
-              fontFamily: 'var(--mono)',
-              fontSize: 10.5,
-              color: 'rgba(255,255,255,.85)',
-              textShadow: '0 1px 2px rgba(0,0,0,.5)'
-            }}
-          >
+          <div className="absolute left-2.5 right-2.5 top-2 flex justify-between font-mono text-[10.5px] text-white/85 [text-shadow:0_1px_2px_rgba(0,0,0,.5)]">
             <span>1280×720 · RGGB · 10-bit</span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-              <span style={{ width: 7, height: 7, borderRadius: '50%', background: '#e44a3a' }} />{' '}
-              REC · 00:14
+            <span className="inline-flex items-center gap-1.5">
+              <span className="h-[7px] w-[7px] rounded-full bg-[#e44a3a]" /> REC · 00:14
             </span>
           </div>
-          <div
-            style={{
-              position: 'absolute',
-              bottom: 8,
-              left: 10,
-              right: 10,
-              display: 'flex',
-              justifyContent: 'space-between',
-              fontFamily: 'var(--mono)',
-              fontSize: 10.5,
-              color: 'rgba(255,255,255,.7)'
-            }}
-          >
+          <div className="absolute bottom-2 left-2.5 right-2.5 flex justify-between font-mono text-[10.5px] text-white/70">
             <span>EXP 50.0ms</span>
             <span>GAIN 4.0×</span>
             <span>FPS 19.8</span>
             <span>T 38.4°C</span>
           </div>
         </div>
-        <div
-          style={{
-            display: 'flex',
-            gap: 4,
-            marginTop: 8,
-            padding: 3,
-            background: '#1a1d22',
-            borderRadius: 6
-          }}
-        >
-          {(
-            [
-              ['RGB', true],
-              ['Bayer', false],
-              ['R', false],
-              ['G1', false],
-              ['G2', false],
-              ['B', false]
-            ] as [string, boolean][]
-          ).map(([t, a]) => (
+        <div className="mt-2 flex gap-1 rounded-md bg-stage-700 p-[3px]">
+          {tabs.map(([t, a]) => (
             <button
               key={t}
-              style={{
-                flex: 1,
-                padding: '5px 0',
-                border: 0,
-                borderRadius: 4,
-                fontSize: 10.5,
-                fontFamily: 'var(--mono)',
-                background: a ? '#2a323d' : 'transparent',
-                color: a ? '#fff' : 'rgba(255,255,255,.55)',
-                cursor: 'pointer'
-              }}
+              className={`flex-1 cursor-pointer rounded border-0 py-[5px] font-mono text-[10.5px] ${
+                a ? 'bg-stage-600 text-white' : 'bg-transparent text-white/55'
+              }`}
             >
               {t}
             </button>
@@ -250,53 +113,27 @@ export function CameraPane(): React.JSX.Element {
         </div>
       </div>
 
-      <div style={{ padding: '10px 16px 4px' }}>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: 6
-          }}
-        >
-          <span
-            style={{
-              fontSize: 11.5,
-              color: V1.ink2,
-              textTransform: 'uppercase',
-              letterSpacing: 0.5,
-              fontWeight: 600
-            }}
-          >
+      <div className="px-4 pb-1 pt-2.5">
+        <div className="mb-1.5 flex items-center justify-between">
+          <span className="text-[11.5px] font-semibold uppercase tracking-[0.05em] text-ink2">
             Histogram
           </span>
-          <span style={{ fontSize: 10.5, color: V1.ink3, fontFamily: 'var(--mono)' }}>
-            0 – 1023 DN
-          </span>
+          <span className="font-mono text-[10.5px] text-ink3">0 – 1023 DN</span>
         </div>
         <Histogram width={448} height={56} />
       </div>
 
-      <div style={{ padding: '14px 16px 10px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div className="flex flex-col gap-3 px-4 pb-2.5 pt-3.5">
         <Slider label="노출 (Exposure)" unit="ms" value={50.0} min={1} max={120} pct={42} />
         <Slider label="아날로그 게인" unit="×" value={4.0} min={1} max={16} pct={26} />
         <Slider label="디지털 게인" unit="dB" value={0.0} min={0} max={24} pct={0} />
       </div>
 
-      <div style={{ padding: '4px 16px 8px' }}>
-        <div
-          style={{
-            fontSize: 11.5,
-            color: V1.ink2,
-            textTransform: 'uppercase',
-            letterSpacing: 0.5,
-            fontWeight: 600,
-            marginBottom: 6
-          }}
-        >
+      <div className="px-4 pb-2 pt-1">
+        <div className="mb-1.5 text-[11.5px] font-semibold uppercase tracking-[0.05em] text-ink2">
           품질 메트릭
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6 }}>
+        <div className="grid grid-cols-2 gap-1.5">
           <Metric label="SNR" value="32.7" unit="dB" tone="warn" />
           <Metric label="Sharpness" value="0.84" tone="ok" />
           <Metric label="DR" value="58.2" unit="dB" tone="ok" />
@@ -304,64 +141,14 @@ export function CameraPane(): React.JSX.Element {
         </div>
       </div>
 
-      <div
-        style={{
-          marginTop: 'auto',
-          padding: 14,
-          borderTop: `1px solid ${V1.border}`,
-          display: 'flex',
-          gap: 8
-        }}
-      >
-        <button
-          style={{
-            flex: 1,
-            padding: '9px 0',
-            border: 0,
-            borderRadius: 8,
-            background: V1.rust,
-            color: '#fff',
-            fontWeight: 600,
-            cursor: 'pointer',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 6
-          }}
-        >
+      <div className="mt-auto flex gap-2 border-t border-border p-3.5">
+        <button className="inline-flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border-0 bg-rust py-[9px] font-semibold text-white">
           <Icon name="capture" size={14} color="#fff" /> 캡처
         </button>
-        <button
-          style={{
-            flex: 1,
-            padding: '9px 0',
-            border: `1px solid ${V1.border}`,
-            borderRadius: 8,
-            background: V1.panel,
-            color: V1.ink,
-            fontWeight: 500,
-            cursor: 'pointer',
-            display: 'inline-flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 6
-          }}
-        >
+        <button className="inline-flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-border bg-panel py-[9px] font-medium text-ink">
           <Icon name="layers" size={14} /> 시퀀스
         </button>
-        <button
-          style={{
-            width: 36,
-            padding: '9px 0',
-            border: `1px solid ${V1.border}`,
-            borderRadius: 8,
-            background: V1.panel,
-            color: V1.ink2,
-            cursor: 'pointer',
-            display: 'grid',
-            placeItems: 'center'
-          }}
-        >
+        <button className="grid w-9 cursor-pointer place-items-center rounded-lg border border-border bg-panel py-[9px] text-ink2">
           <Icon name="history" size={14} />
         </button>
       </div>
