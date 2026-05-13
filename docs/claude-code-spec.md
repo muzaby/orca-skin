@@ -3,7 +3,7 @@
 > **본 문서의 위치**
 > 이 문서는 Claude Code 공식 *"프로그래밍 방식으로 실행하기"* 문서를 **저장소 로컬 미러**로 옮긴 것이다. PRD/TRD/architecture 가 Claude Code CLI 의 동작·플래그·이벤트를 인용할 때 단일 출처(SSOT) 역할을 한다.
 >
-> - **원문 출처**: `https://code.claude.com/docs/ko/programmatic` (한국어판) — Anthropic 공식 문서
+> - **원문 출처**: `https://code.claude.com/docs/ko/headless` (한국어판) — Anthropic 공식 문서
 > - **동기화 책임**: 원문이 갱신되면 본 미러를 사람이 수동 갱신해야 한다. 자동 동기화는 없다.
 > - **편집 규칙**: 외부 사실(플래그·이벤트 스키마)은 원문을 따른다. 본 문서가 *추가* 하는 것은 **Orca v1 채택 박스** 뿐이다.
 > - **각주 표기 범례**: 각 섹션 말미에 다음 중 하나가 있다.
