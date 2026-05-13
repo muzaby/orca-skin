@@ -1,0 +1,28 @@
+/* Global renderer baseline. The renderer runs inside an Electron
+   BrowserWindow, so there is no desktop chrome of our own — `.app-frame`
+   (defined in tokens.css) fills the viewport. */
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+body {
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  background: var(--cream-0);
+}
+* {
+  box-sizing: border-box;
+}
+svg {
+  display: block;
+}
+
+#root {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+}
