@@ -37,7 +37,7 @@ PRD §6.1 의 F1~F10 을 *수용 기준* 으로 구체화한다.
 | F7 | **CLI 설치 자동화** | Installer (IPC `orca:install:*`) | 둘 다 미설치 → 다이얼로그 (npm / curl 선택) → child_process 실행 → 라인 단위 status 스트림 → 완료/실패 표시 | §6.1 |
 | F8 | **설치 실패 폴백** | Installer | 자동 실패 → 수동 명령 전체 텍스트 UI에 표시 + 복사 버튼. Node.js 미설치 (Windows: choco, macOS: brew 안내), npm 글로벌 권한 부족 (sudo / npm config 안내) | §6.1 |
 | F9 | **인증 만료 처리** | ClaudeCodeAdapter, Auth modal | Claude Code OAuth 401 감지 (stdout/stderr `"401"` / `"expired"` 패턴) → `error / auth.expired` 이벤트 → UI 모달 "`claude /login` 을 터미널에서 실행 후 새 대화" | §6.1 |
-| F10 | **Tweaks 패널** | TweaksPanel, ThemeProvider | 테마 선택 (Classic/Dark/Cool) + 밀도 슬라이더 (11.5/13/14.5px) + 사이드바 접기 토글 → CSS 커스텀 프로퍼티 동적 주입 → 전 화면 반영. 선택값은 Phase 1에서 메모리만 (Phase 2+ `electron-store` 로 영속화) | §6.1 |
+| F10 | **Tweaks 패널** | TweaksPanel, ThemeProvider | 테마 선택 (Classic/Dark/Cool) + 밀도 슬라이더 (11.5/13/14.5px) + 사이드바 접기 토글 → CSS 커스텀 프로퍼티 동적 주입 → 전 화면 반영. 선택값은 Phase 1에서 메모리만 (Phase 2+ `electron-store` 로 영속화). **Phase 1** 은 mockup 패턴 그대로 — `app/theme.ts` 의 `V1` 가변 팔레트 객체를 mutate + `key={t.theme}` 로 트리 remount. Phase 2+ 에서 ThemeProvider 로 정규화 검토 | §6.1 |
 
 **비고**: 모듈 경로·정확한 IPC 채널·컴포넌트 트리는 `architecture.md` 참조. 위 표는 *기능 정의* 에만 집중.
 
@@ -70,7 +70,7 @@ electron-vite 환경 기준. 표 밖 의존성 추가 시 **사용자 승인 필
 | 언어 | TypeScript | strict, `target: ES2022` | 확정 | 타입 안정성 |
 | UI 프레임워크 | React | ^19 (템플릿 기본, OQ1은 18 가능성) | OQ1 | React Hooks + Context/reducer |
 | 상태 관리 | React Context + reducer | — | 확정 | 외부 상태 라이브러리 (Redux 등) 금지 MVP 범위 |
-| 스타일링 | Tailwind CSS | ^3.4.0 | 확정 | utility-first. CSS 변수로 디자인 토큰 (색상/타이포) 커스터마이징. Tweaks 패널과 연동 |
+| 스타일링 | Tailwind CSS | ^3.4.0 | 확정 (단계 도입) | utility-first. CSS 변수로 디자인 토큰 (색상/타이포) 커스터마이징. Tweaks 패널과 연동. **Phase 1** 은 mockup 인라인 스타일 + `src/renderer/src/styles/tokens.css` 로 시각 재현 (단계적 마이그레이션 — 시각 + Tailwind 동시 진행 시 mockup 의도가 깨지는 것이 확인됨). **Phase 2+** 에 Tailwind 도입 마이그레이션. 자세한 정책은 `app/CLAUDE.md` "스타일링 정책" 참조 |
 | 마크다운 렌더링 | react-markdown + shiki | OQ2에서 확정 | OQ2 | 코드 블록 syntax highlighting |
 | HTTP (opencode) | `@opencode-ai/sdk` | latest | 확정 | 공식 SDK 사용 |
 | IPC | Electron 기본 ipcRenderer/ipcMain | — | 확정 | 별도 RPC 라이브러리 금지 |

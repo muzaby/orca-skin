@@ -1,0 +1,237 @@
+/* Global app shell — Windows 11 desktop chrome background + frameless
+   BrowserWindow look. Adapted from project/electron/index.html. */
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+body {
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  background: #1a1822;
+}
+* {
+  box-sizing: border-box;
+}
+svg {
+  display: block;
+}
+
+#root {
+  width: 100vw;
+  height: 100vh;
+}
+
+/* Windows 11-ish desktop background */
+.desktop {
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(255, 200, 160, 0.45), transparent 55%),
+    radial-gradient(circle at 75% 80%, rgba(160, 140, 210, 0.35), transparent 60%),
+    linear-gradient(135deg, #4a3a52 0%, #2d2438 50%, #1a1822 100%);
+  overflow: hidden;
+}
+
+/* Windows taskbar */
+.taskbar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 48px;
+  background: rgba(28, 26, 32, 0.65);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 8px;
+  z-index: 5;
+}
+.taskbar-icons {
+  display: flex;
+  gap: 4px;
+  flex: 1;
+  justify-content: center;
+}
+.tb-tab {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  font-size: 16px;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: default;
+  position: relative;
+}
+.tb-tab:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+.tb-tab.active {
+  background: rgba(255, 255, 255, 0.06);
+}
+.tb-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 25%;
+  right: 25%;
+  height: 2px;
+  background: var(--rust);
+  border-radius: 1px;
+}
+.tb-tray {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 11.5px;
+}
+.tb-tray .badge {
+  width: 16px;
+  height: 16px;
+  background: var(--rust);
+  border-radius: 4px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-family: var(--serif);
+  font-weight: 700;
+  font-size: 10px;
+}
+.tb-clock {
+  line-height: 1.15;
+  text-align: right;
+  font-size: 11px;
+}
+.tb-clock .date {
+  font-size: 10px;
+  opacity: 0.75;
+}
+
+/* App window — frameless Electron BrowserWindow */
+.app-window {
+  position: absolute;
+  width: 1280px;
+  height: 820px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, calc(-50% - 24px));
+  background: #fbf9f4;
+  border-radius: 8px;
+  box-shadow:
+    0 0 0 0.5px rgba(0, 0, 0, 0.4),
+    0 32px 80px rgba(0, 0, 0, 0.45),
+    0 8px 24px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transform-origin: center center;
+  transition: background 0.25s;
+}
+
+.stage {
+  position: fixed;
+  inset: 0;
+  transform-origin: center center;
+}
+
+/* Mini banner */
+.mockup-tag {
+  position: fixed;
+  left: 16px;
+  top: 16px;
+  z-index: 10;
+  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.92);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.3px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mockup-tag .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #5a8a4f;
+  box-shadow: 0 0 0 3px rgba(90, 138, 79, 0.25);
+}
+.mockup-tag .tweaks-btn {
+  appearance: none;
+  border: 0;
+  background: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.8);
+  padding: 2px 9px 2px 7px;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  cursor: default;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: 2px;
+  border-left: 1px solid rgba(255, 255, 255, 0.15);
+  padding-left: 10px;
+  transition: background 0.12s;
+}
+.mockup-tag .tweaks-btn:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+}
+
+/* Floating screen switcher */
+.screen-tabs {
+  position: fixed;
+  right: 16px;
+  top: 16px;
+  z-index: 10;
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+}
+.screen-tabs button {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.3px;
+  cursor: default;
+}
+.screen-tabs button:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.06);
+}
+.screen-tabs button.active {
+  background: #fff;
+  color: #29261b;
+  font-weight: 600;
+}
+
+/* The V1 frame fills the window. */
+.app-window .app-frame {
+  width: 100%;
+  height: 100%;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}

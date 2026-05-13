@@ -212,49 +212,51 @@ app/
     │   └── index.d.ts                └─ 타입 선언 (renderer가 import 가능)
     │
     ├── renderer/
-    │   ├── index.html                ← React 앱 마운트 포인트
+    │   ├── index.html                ← React 앱 마운트 포인트 (CSP + Google Fonts link)
     │   │
     │   └── src/
-    │       ├── main.tsx              ├─ React entrypoint (createRoot)
+    │       ├── main.tsx              ├─ React entrypoint (createRoot) + 글로벌 CSS import
     │       │
-    │       ├── App.tsx               ├─ 루트 컴포넌트
-    │       │                         └─ ThemeProvider + ChatShell
+    │       ├── App.tsx               ├─ 루트 셸
+    │       │                         ├─ Tweaks state (theme/density/sidebarCollapsed)
+    │       │                         ├─ V1 팔레트 mutation + key bump 로 트리 remount
+    │       │                         └─ 화면 라우팅 (chat/projects/engine/skills/captures)
     │       │
-    │       └── app/
-    │           ├── ChatShell.tsx      ├─ 메인 UI 셸
-    │           │                     ├─ 사이드바 (프로젝트/백엔드 표시)
-    │           │                     ├─ 메시지 영역
-    │           │                     └─ 컴포저
+    │       ├── styles/
+    │       │   ├── tokens.css        ├─ CSS 변수 토큰 (cream/ink/rust 팔레트, 폰트)
+    │       │   └── app.css           └─ 글로벌 셸 (.desktop / .taskbar / .app-window)
+    │       │
+    │       ├── components/atoms/    ← mockup 공용 atoms (Phase 1)
+    │       │   ├── Icon.tsx              ├─ SVG path 아이콘 (32종)
+    │       │   ├── WinControls.tsx       ├─ 최소화/최대화/닫기
+    │       │   ├── Avatar.tsx            ├─ 사용자/Claude/opencode 아바타
+    │       │   ├── Status.tsx            ├─ 색점 + 라벨
+    │       │   ├── BayerPattern.tsx      ├─ 카메라 뷰포트 (Bayer 패턴 시뮬레이션)
+    │       │   └── Histogram.tsx         └─ RGB 히스토그램 SVG
+    │       │
+    │       └── app/                  ← Phase 1 화면 컴포넌트 (mockup 1:1 재현)
+    │           ├── theme.ts          ├─ THEME_PALETTES / DENSITY_FONT / V1 가변 팔레트
+    │           ├── screens.ts        ├─ 화면 ID·라벨·breadcrumb 카탈로그
+    │           ├── useTweaks.ts      ├─ Tweaks state hook (in-memory)
     │           │
-    │           ├── Composer.tsx       ├─ 메시지 입력
-    │           │                     ├─ 멀티라인 textarea
-    │           │                     └─ 전송 버튼
+    │           ├── Frame.tsx         ├─ V1Frame — app-frame 컨테이너
+    │           ├── Titlebar.tsx      ├─ Orca 브랜드 + breadcrumb + WinControls
+    │           ├── Sidebar.tsx       ├─ 새 대화·메뉴·프로젝트·최근 대화·엔진 footer
+    │           │                     │   (collapsed/expanded 두 분기)
     │           │
-    │           ├── MessageList.tsx    ├─ 메시지 렌더링
-    │           │                     ├─ Message 반복
-    │           │                     ├─ 역순 스크롤 (최신 아래)
-    │           │                     └─ ToolCallCard 삽입
+    │           ├── ChatPane.tsx      ├─ 메시지·툴콜·테이블·Composer
+    │           ├── CameraPane.tsx    ├─ Bayer 뷰포트·히스토그램·슬라이더·메트릭·캡처 버튼
+    │           ├── Projects.tsx      ├─ 프로젝트 카드 그리드
+    │           ├── EngineSettings.tsx├─ 엔진/모델 카드 리스트
+    │           ├── SkillsMcp.tsx     ├─ Skills/MCP/권한 패널
     │           │
-    │           ├── ToolCallCard.tsx   ├─ 도구 호출 카드
-    │           │                     ├─ 이름·입력 표시
-    │           │                     ├─ 상태 (pending/running/done)
-    │           │                     └─ 결과·소요시간
+    │           ├── CapturesPlaceholder.tsx├─ 캡처 화면 placeholder (Future Scope)
     │           │
-    │           ├── Markdown.tsx       ├─ react-markdown + shiki 래퍼
-    │           │                     ├─ 코드 블록 syntax highlighting
-    │           │                     └─ 기본 remark/rehype 플러그인
-    │           │
-    │           ├── TweaksPanel.tsx    ├─ 우하단 플로팅 패널
-    │           │                     ├─ 테마 선택 (Classic/Dark/Cool)
-    │           │                     ├─ 밀도 슬라이더 (11.5/13/14.5px)
-    │           │                     ├─ 사이드바 접기 토글
-    │           │                     └─ CSS 커스텀 프로퍼티 주입
-    │           │
-    │           └── state.ts           ├─ ChatState 타입
-    │                                 ├─ React Context (ChatContext)
-    │                                 ├─ useReducer (chatReducer)
-    │                                 ├─ 액션: SEND_USER_MESSAGE, RECV_EVENT, NEW_CHAT, CANCEL_CHAT
-    │                                 └─ 초기 상태 초기화
+    │           ├── TweaksPanel.tsx   ├─ Tweaks UI 셸 + TweakSection/Radio/Toggle
+    │           └── ScreenTabs.tsx    └─ Floating screen-tabs (우상단)
+    │
+    │       (Phase 2 추가 예정: Composer/MessageList/ToolCallCard/Markdown/state.ts —
+    │        IPC 채널 + 어댑터와 함께 도입)
     │
     └── shared/                       ← 메인 ↔ 렌더러 공유
         ├── protocol.ts               ├─ zod 스키마 정의
