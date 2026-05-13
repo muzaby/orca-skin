@@ -529,73 +529,55 @@ Renderer는 `onEvent` 핸들러를 **1번만** 등록. Main이 모든 `orca:chat
 
 ### 6.4 Tweaks 적용 흐름
 
-**TweaksPanel.tsx**:
+**App.tsx** (useTweaks hook + useEffect):
 ```typescript
-const [theme, setTheme] = useState('Classic');
-const [density, setDensity] = useState(13);
-const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+const [t, setTweak] = useTweaks<Tweaks>(TWEAK_DEFAULTS);
 
-const handleThemeChange = (newTheme) => {
-  setTheme(newTheme);
-  // CSS 변수 주입 (아래 참조)
-  applyThemeCssVariables(newTheme);
-};
+// 테마 → <html data-theme="classic|dark|cool"> 갱신
+useEffect(() => {
+  document.documentElement.dataset.theme = t.theme;
+}, [t.theme]);
+
+// 밀도 → root font-size (rem 기반 Tailwind spacing 이 함께 cascade)
+useEffect(() => {
+  document.documentElement.style.fontSize = DENSITY_FONT[t.density] + 'px';
+}, [t.density]);
 ```
 
-**CSS 변수 주입** (ThemeProvider 역할):
-```typescript
-const applyThemeCssVariables = (theme: string) => {
-  const root = document.documentElement;
-  switch (theme) {
-    case 'Classic':
-      root.style.setProperty('--cream-0', '#fbf9f4');
-      root.style.setProperty('--ink-900', '#29261b');
-      // ... 전체 팔레트 설정
-      break;
-    case 'Dark':
-      root.style.setProperty('--cream-0', '#1c1a16');
-      root.style.setProperty('--ink-900', '#f0eadd');
-      // ... dark 팔레트
-      break;
-  }
-};
-```
+**Cascade**: `data-theme` 속성 변경 → `tokens.css` 의 `[data-theme="dark"] { --color-bg: ...; ... }` 스코프가 활성화 → Tailwind utility 가 재해석된 CSS 변수값을 즉시 반영. 트리 remount 불요.
 
-**Cascade**: 모든 컴포넌트의 `className` 이 CSS 변수 참조 (예: `bg-[var(--cream-0)]`) → 한 번에 전 화면 변환.
+### 6.5 Tailwind v4 + 디자인 토큰 통합
 
-### 6.5 Tailwind + 디자인 토큰 통합
+Tailwind CSS v4 는 `tailwind.config.js` 없이 **CSS-first** 로 동작한다. 토큰은 `styles/tokens.css` 의 `@theme` 블록에서 선언하고, 테마 스코프는 `[data-theme]` 선택자로 override 한다.
 
-**tailwind.config.js**:
-```javascript
-export default {
-  theme: {
-    extend: {
-      colors: {
-        cream: {
-          0: 'var(--cream-0)',    // CSS 변수 참조
-          50: 'var(--cream-50)',
-          // ...
-        },
-        ink: {
-          900: 'var(--ink-900)',
-          // ...
-        },
-      },
-      fontSize: {
-        sm: ['11.5px', { lineHeight: '1.4' }],
-        base: ['13px', { lineHeight: '1.5' }],
-        lg: ['14.5px', { lineHeight: '1.6' }],
-      },
-    },
-  },
-};
+**styles/tokens.css** (발췌):
+```css
+@theme {
+  /* 기본값 (classic) — Tailwind utility 생성의 원천 */
+  --color-bg: #fbf9f4;
+  --color-sidebar: #f3eee3;
+  --color-ink: #29261b;
+  --color-ink2: #6b6452;
+  --color-rust: #c96442;
+  /* ... */
+}
+
+[data-theme="dark"] {
+  --color-bg: #1c1a16;
+  --color-sidebar: #161410;
+  --color-ink: #f0eadd;
+  /* ... */
+}
+
+[data-theme="cool"] {
+  /* ... */
+}
 ```
 
 **컴포넌트**:
 ```tsx
-// MessageBubble.tsx
-<div className="bg-cream-0 text-ink-900 text-base px-4 py-2 rounded">
-  {/* bg-cream-0 은 CSS 변수 --cream-0 참조 → Tweaks로 동적 변경 */}
+<div className="bg-bg text-ink px-4 py-2 rounded">
+  {/* bg-bg → --color-bg → data-theme 스코프에 따라 동적 변환 */}
 </div>
 ```
 
