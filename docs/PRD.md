@@ -239,7 +239,7 @@ Renderer (UI) → Electron IPC → Common Interface → `ClaudeCodeAdapter` 또�
 
 | 컨트롤 | 영향 |
 |---|---|
-| 테마 팔레트 (Classic/Dark/Cool) | `window.V1` 컬러 객체를 갱신 + CSS 커스텀 프로퍼티 재설정. |
+| 테마 팔레트 (Classic/Dark/Cool) | `<html data-theme="classic\|dark\|cool">` 속성 갱신 → `tokens.css` 의 `[data-theme]` 스코프가 Tailwind `@theme` 토큰 변수를 override. 트리 remount 불요. |
 | 밀도 (조밀/보통/넓게) | 베이스 `font-size` 11.5 / 13 / 14.5px. em/rem 의존 spacing 이 함께 변한다. |
 | 사이드바 접기 | 사이드바 너비 248 ↔ 56 px 토글. |
 
