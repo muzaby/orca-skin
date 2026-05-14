@@ -1,12 +1,14 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { promisify } from 'node:util'
 import { exec as execCb } from 'node:child_process'
+import { promises as fs } from 'node:fs'
+import path from 'node:path'
 import type { ChatEvent } from '../../shared/ipc'
 import type { SessionAdapter } from './types'
 
 const exec = promisify(execCb)
 
-const WHICH_CMD = process.platform === 'win32' ? 'where' : 'which'
+const IS_WIN = process.platform === 'win32'
 const BIN = 'claude'
 
 const AUTH_EXPIRED_PATTERNS = [/\b401\b/i, /\bunauthori[sz]ed\b/i, /\bOAuth\b/i, /\bexpired\b/i]
@@ -140,39 +142,62 @@ export function normalizeLine(line: string): ChatEvent[] {
   return []
 }
 
-// 절대 경로 + Windows 의 .cmd shim 호환을 위해 spawn 옵션은 플랫폼별로 분기한다.
-// - macOS/Linux: spawn(절대경로, args, { shell: false })
-// - Windows:     spawn(절대경로, args, { shell: true }) — Node CVE-2024-27980 대응. user text 는 cmd 메타문자 escape.
-const IS_WIN = process.platform === 'win32'
-
-function escapeForWinShell(s: string): string {
-  // cmd 의 special chars 가 있으면 "…" quote + 내부 " 는 "" 로 이스케이프
-  if (!/[\s"^&|<>()]/.test(s)) return s
-  return `"${s.replace(/"/g, '""')}"`
+// Windows 에서는 npm 글로벌의 `claude.cmd` shim 을 거치면 cmd 의 인자 파싱이
+// 멀티라인 텍스트의 `\n` 이후를 truncate 시킨다. 항상 native `claude.exe` 절대경로로
+// spawn 하면 execve 가 argv 를 그대로 전달해 인용/이스케이프 문제가 사라진다.
+// POSIX 는 `which claude` 결과를 그대로 사용 (셸 스크립트라도 shebang 으로 직행).
+async function findFileRecursive(root: string, name: string): Promise<string | undefined> {
+  let entries: import('node:fs').Dirent[]
+  try {
+    entries = await fs.readdir(root, { withFileTypes: true })
+  } catch {
+    return undefined
+  }
+  for (const e of entries) {
+    const full = path.join(root, e.name)
+    if (e.isFile() && e.name === name) return full
+    if (e.isDirectory()) {
+      const found = await findFileRecursive(full, name)
+      if (found) return found
+    }
+  }
+  return undefined
 }
 
-function spawnOpts(cwd?: string): {
-  cwd?: string
-  shell: boolean
-  env: NodeJS.ProcessEnv
-  stdio: ['ignore', 'pipe', 'pipe']
-  windowsVerbatimArguments?: boolean
-} {
-  return {
-    ...(cwd ? { cwd } : {}),
-    shell: IS_WIN,
-    env: process.env,
-    // stdin 을 명시적으로 끊는다. 기본값(`pipe`)은 child 에 빈 stdin 파이프를
-    // 남겨두어 Claude CLI 가 non-TTY 환경에서 stdin EOF 를 기다리는 경로로
-    // 분기될 여지를 만든다. 멀티라인 `-p` 입력 시 응답이 도착하지 않던
-    // 증상의 유력 원인.
-    stdio: ['ignore', 'pipe', 'pipe'],
-    ...(IS_WIN ? { windowsVerbatimArguments: false } : {})
+async function resolveBinPath(): Promise<string | undefined> {
+  if (IS_WIN) {
+    try {
+      const { stdout } = await exec('npm prefix -g')
+      const prefix = stdout.trim()
+      if (!prefix) return undefined
+      const pkgDir = path.join(prefix, 'node_modules', '@anthropic-ai', 'claude-code')
+      return await findFileRecursive(pkgDir, 'claude.exe')
+    } catch {
+      return undefined
+    }
+  }
+  try {
+    const { stdout } = await exec('which claude')
+    return stdout.trim().split('\n')[0] || undefined
+  } catch {
+    return undefined
   }
 }
 
-function prepareArgs(args: string[]): string[] {
-  return IS_WIN ? args.map(escapeForWinShell) : args
+// sendMessage 의 spawn 옵션. binPath 는 항상 실파일이므로 shell:false 안전.
+// stdin 을 명시적으로 끊는다 (Claude CLI 가 non-TTY 환경에서 stdin 을 기다리지 않도록).
+function spawnOpts(cwd?: string): {
+  cwd?: string
+  shell: false
+  env: NodeJS.ProcessEnv
+  stdio: ['ignore', 'pipe', 'pipe']
+} {
+  return {
+    ...(cwd ? { cwd } : {}),
+    shell: false,
+    env: process.env,
+    stdio: ['ignore', 'pipe', 'pipe']
+  }
 }
 
 export class ClaudeCodeAdapter implements SessionAdapter {
@@ -180,30 +205,28 @@ export class ClaudeCodeAdapter implements SessionAdapter {
   private binPath: string | undefined
 
   async isInstalled(): Promise<{ installed: boolean; version?: string; binPath?: string }> {
+    const resolved = await resolveBinPath()
+    if (!resolved) return { installed: false }
+    this.binPath = resolved
     try {
-      const { stdout: whichOut } = await exec(`${WHICH_CMD} ${BIN}`)
-      const resolved = whichOut.trim().split('\n')[0]
-      if (resolved) this.binPath = resolved
-    } catch {
-      return { installed: false }
-    }
-    try {
-      const { stdout } = await exec(`${BIN} --version`)
+      const { stdout } = await exec(`"${resolved}" --version`)
       const version = stdout.trim().split('\n')[0]
-      return { installed: true, version, binPath: this.binPath }
+      return { installed: true, version, binPath: resolved }
     } catch {
-      return { installed: true, binPath: this.binPath }
+      return { installed: true, binPath: resolved }
     }
   }
 
   async *install(): AsyncIterable<{ step: string; log?: string; error?: string; done?: boolean }> {
     yield { step: 'starting', log: 'npm install -g @anthropic-ai/claude-code' }
 
-    const child = spawn(
-      'npm',
-      prepareArgs(['install', '-g', '@anthropic-ai/claude-code']),
-      spawnOpts()
-    )
+    // npm 은 Windows 에서 .cmd shim 이므로 spawn 에 shell:true 가 필요하다.
+    // sendMessage 와 달리 args 가 정적이고 special chars 가 없어 안전.
+    const child = spawn('npm', ['install', '-g', '@anthropic-ai/claude-code'], {
+      shell: IS_WIN,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: process.env
+    })
 
     const queue: { step: string; log?: string; error?: string }[] = []
     let resolveNext: (() => void) | null = null
@@ -268,21 +291,9 @@ export class ClaudeCodeAdapter implements SessionAdapter {
     ]
     if (sessionId) args.push('--resume', sessionId)
 
-    // TODO(diagnostics): 멀티라인 응답 누락 repro 확인 후 본 로그 블록 3개 모두 제거.
-    console.debug(
-      '[claude] spawn',
-      this.binPath ?? BIN,
-      'textLen',
-      text.length,
-      'hasNewline',
-      text.includes('\n'),
-      'sessionId',
-      sessionId
-    )
-
     let child: ChildProcess
     try {
-      child = spawn(this.binPath ?? BIN, prepareArgs(args), spawnOpts(cwd))
+      child = spawn(this.binPath ?? BIN, args, spawnOpts(cwd))
     } catch (err) {
       yield {
         type: 'error',
@@ -319,13 +330,7 @@ export class ClaudeCodeAdapter implements SessionAdapter {
     child.stdout?.setEncoding('utf8')
     child.stderr?.setEncoding('utf8')
 
-    let sawFirstStdout = false
     child.stdout?.on('data', (chunk: string) => {
-      if (!sawFirstStdout) {
-        sawFirstStdout = true
-        // TODO(diagnostics): repro 확인 후 제거.
-        console.debug('[claude] first stdout chunk', chunk.slice(0, 200))
-      }
       for (const line of drainLines(stdoutBuf, chunk)) {
         for (const ev of normalizeLine(line)) enqueue(ev)
       }
@@ -361,8 +366,6 @@ export class ClaudeCodeAdapter implements SessionAdapter {
       wake()
     })
     child.on('close', (code) => {
-      // TODO(diagnostics): repro 확인 후 제거.
-      console.debug('[claude] close', code, 'sawFirstStdout', sawFirstStdout)
       // flush any trailing line
       for (const line of drainLines(stdoutBuf, '', true)) {
         for (const ev of normalizeLine(line)) enqueue(ev)
