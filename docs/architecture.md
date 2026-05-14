@@ -9,6 +9,9 @@
 | 출력 대상 | 코드 작성 에이전트 / 코드 리뷰어 |
 | 범위 | Phase 1 정적 구조 + 동적 흐름. Phase 2~4 확장점은 §11 anchor |
 
+> **현 구현 상태 (2026-05-14)**
+> Phase 1 시각 재현 + Phase 2 채팅 IPC 까지 완료. 본문은 *목표 아키텍처* 를 다루므로 `OpencodeAdapter` (§5.5) 와 Settings store (§5.7) 는 **예약 사양** 으로 읽을 것. preload 가 실제 노출하는 채널은 TRD §5.2 의 "Phase 2 활성 6채널" 만 — `backend:select` / `settings:get` / `settings:set` 은 미노출 (`docs/TRD.md` §17 참조).
+
 ---
 
 ## 1. 문서의 목적과 범위
@@ -89,21 +92,22 @@
 
 ### Namespace 매핑
 
-```
-window.orca 가 노출하는 메서드 ↔ IPC 채널 1:1 매핑
+**Phase 2 활성 (preload 화이트리스트 — 6채널):**
 
+```
 window.orca.chat.send(...)              ──► ipcRenderer.invoke('orca:chat:send', ...)
 window.orca.chat.onEvent(cb)            ◄── ipcRenderer.on('orca:chat:event', cb)
 window.orca.chat.cancel(...)            ──► ipcRenderer.invoke('orca:chat:cancel', ...)
-
 window.orca.backend.list()              ──► ipcRenderer.invoke('orca:backend:list')
-window.orca.backend.select(...)         ──► ipcRenderer.invoke('orca:backend:select', ...)
-
 window.orca.install.start(...)          ──► ipcRenderer.invoke('orca:install:start', ...)
 window.orca.install.onStatus(cb)        ◄── ipcRenderer.on('orca:install:status', cb)
+```
 
-window.orca.settings.get(...)           ──► ipcRenderer.invoke('orca:settings:get', ...)
-window.orca.settings.set(...)           ──► ipcRenderer.invoke('orca:settings:set', ...)
+**예약 (사용처 도입 PR 에서 재노출 — TRD §17):**
+
+```
+window.orca.backend.select(...)         — 단일 백엔드라 호출자 없음
+window.orca.settings.get/set(...)       — Phase 2+ electron-store 영속화 도입 시
 ```
 
 ### Preload 구현 원칙
@@ -115,9 +119,8 @@ window.orca.settings.set(...)           ──► ipcRenderer.invoke('orca:setti
 
 ### 타입 정의
 
-**renderer 측**:
+**renderer 측** (Phase 2 활성 — preload `OrcaApi` 정의는 `src/preload/index.ts`):
 ```typescript
-// src/renderer/src/types/orca.d.ts (또는 preload에서 import)
 declare global {
   interface Window {
     orca: {
@@ -128,16 +131,13 @@ declare global {
       };
       backend: {
         list(): Promise<{ backends: Backend[]; active?: Backend }>;
-        select(backend: Backend): Promise<void>;
+        // select(backend): Promise<void>           — 예약. 단일 백엔드라 미노출
       };
       install: {
         start(backend: Backend): Promise<void>;
         onStatus(handler: (st: InstallStatus) => void): () => void;
       };
-      settings: {
-        get(key: string): Promise<unknown>;
-        set(key: string, value: unknown): Promise<void>;
-      };
+      // settings: { get, set }                    — 예약. Phase 2+ electron-store 도입 시 재노출
     };
   }
 }
@@ -370,6 +370,25 @@ interface SessionAdapter {
 
 > 본 절은 어댑터의 *내부 구조*(파서·버퍼·환경변수 전달)만 다룬다. CLI 외부 인터페이스(플래그·NDJSON 이벤트 스키마·세션 재개) 는 [`claude-code-spec.md`](./claude-code-spec.md) 가 단일 출처. 정규화된 `ChatEvent` 매핑 표는 spec §4 끝의 채택 박스 참조.
 
+**spawn args** (`app/src/main/adapters/claude-code.ts:284-292`):
+```
+[binPath, '-p', text,
+ '--output-format', 'stream-json',
+ '--verbose',
+ '--include-partial-messages',
+ ...(sessionId ? ['--resume', sessionId] : [])]
+```
+
+**Windows 분기 — `.cmd` shim 회피** (`claude-code.ts:145-185`):
+- POSIX: `which claude` → 절대경로 그대로 spawn (`shell: false`).
+- Windows: `npm prefix -g` 결과 하위에서 `claude.exe` 를 재귀 검색 → 절대경로 spawn (`shell: false`). `.cmd` shim 을 우회하는 이유는 cmd 인자 파서가 `\n` 을 만난 뒤 *나머지 argv 까지 truncate* 하기 때문 (멀티라인 프롬프트 + `--output-format` 동시 누락 회귀, 커밋 `15d3ee0`).
+
+**stdio 정책** (`claude-code.ts:189-201`):
+- `stdio: ['ignore', 'pipe', 'pipe']`. child stdin 을 *명시적으로 닫는다* — Claude CLI 가 non-TTY 환경에서 stdin EOF 를 기다리는 분기로 갈 여지 차단 (커밋 `20bc418`).
+
+**`install()` 의 npm spawn 만 예외**:
+- Windows 에서 `npm.cmd` shim 만 존재해 `shell: IS_WIN` 유지. 인자가 정적이고 special chars 없으므로 truncation 위험 없음 (`claude-code.ts:220-229`).
+
 **stdout NDJSON 파싱**:
 - spawn의 stdout을 라인 단위 분할
 - 부분 라인은 버퍼에 보관, 다음 chunk와 합쳐서 파싱
@@ -388,7 +407,7 @@ interface SessionAdapter {
 - spawn의 `env` 옵션에 사용자 PATH·HOME 포함
 - CLI가 `~/.claude/projects/<cwd>/` 에 jsonl 저장 → 재개 시 복원
 
-### 5.5 OpencodeAdapter 내부 구현
+### 5.5 OpencodeAdapter 내부 구현 *(예약 사양 — Phase 1/2 미구현)*
 
 **서버 라이프사이클**:
 ```
@@ -468,7 +487,7 @@ interface Settings {
 
 ### 6.1 상태 컨테이너
 
-**위치**: `src/renderer/src/app/state.ts`
+**위치**: 리듀서 `src/renderer/src/state/chatReducer.ts` + 구독 훅 `src/renderer/src/state/useChat.ts`
 
 **구조**:
 ```typescript
@@ -969,7 +988,7 @@ tsconfig.json
 
 **구현 위치**:
 - `src/main/settings/store.ts` (phase 2에 electron-store 도입)
-- `src/renderer/src/app/state.ts` (초기 상태 초기화)
+- `src/renderer/src/state/chatReducer.ts` + `state/useChat.ts` (초기 상태 초기화)
 
 ### 11.2 Phase 3: 과거 대화 목록
 
@@ -991,7 +1010,7 @@ tsconfig.json
 - Sidebar: 세션 탭 표시 + 활성 세션 전환
 
 **구현 위치**:
-- `src/renderer/src/app/state.ts` (ChatState 타입 + reducer 리팩터)
+- `src/renderer/src/state/chatReducer.ts` (ChatState 타입 + reducer 리팩터)
 - `src/renderer/src/app/Sidebar.tsx` (세션 탭 UI)
 
 ---

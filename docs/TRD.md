@@ -280,10 +280,11 @@ Phase 1은 메모리만, Phase 2+에서 `electron-store` 로 영속화. 인터�
 
 **설치 탐지**:
 
-| 항목 | 명령 | 성공 기준 |
+| 항목 | 명령 / 절차 | 성공 기준 |
 |---|---|---|
-| 설치 여부 | `which claude` (POSIX) / `where claude` (Windows) | exit code 0 |
-| 버전 확인 | `claude --version` | 출력에 버전 번호 |
+| 설치 여부 (POSIX) | `which claude` | exit code 0, 출력은 절대경로 |
+| 설치 여부 (Windows) | `npm prefix -g` 결과 하위 `node_modules/@anthropic-ai/claude-code/` 에서 `claude.exe` 재귀 검색 | 파일 발견. `.cmd` shim 은 의도적으로 우회 (멀티라인 인자 truncation 회피 — `app/src/main/adapters/claude-code.ts:145-148` 주석, 커밋 `15d3ee0` / `20bc418`) |
+| 버전 확인 | `"<binPath>" --version` (절대경로 인용) | 출력에 버전 번호 |
 
 **자동 설치**:
 ```
@@ -292,12 +293,15 @@ npm install -g @anthropic-ai/claude-code
 
 **메시지 전송** (매 턴):
 ```
-claude -p "<text>" --output-format stream-json [--resume <sessionId>]
+"<binPath>" -p "<text>" --output-format stream-json --verbose --include-partial-messages [--resume <sessionId>]
 ```
-- `-p <text>`: 사용자 입력
+- `-p <text>`: 사용자 입력 (멀티라인 그대로 — `shell: false` + POSIX `execve` 가 argv 바이트를 손실 없이 전달)
 - `--output-format stream-json`: NDJSON 형식 (필수)
+- `--verbose --include-partial-messages`: `text_delta` 토큰 스트리밍 (Phase 2 채택, `claude-code-spec.md §4`)
 - `--resume <sessionId>`: 2턴 이상에서 조건부 추가 (sessionId != null)
 - `cwd`: spawn 의 `{ cwd }` 옵션에 전달
+- `stdio: ['ignore', 'pipe', 'pipe']`: child stdin 명시적 close — CLI 가 non-TTY 환경에서 stdin EOF 를 기다리는 분기 차단
+- `shell: false`: 절대경로 직접 spawn — shell 메타문자 인젝션 표면 제거 + Windows `.cmd` shim 우회
 
 **첫 응답에서 sessionId 추출**:
 - Claude Code stdout의 첫 이벤트 (`system` 또는 `init` 타입)에서 `session_id` 필드 추출

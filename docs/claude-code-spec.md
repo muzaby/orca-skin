@@ -52,7 +52,7 @@ claude -p "What does the auth module do?"
 
 `-p` 와 함께 쓰는 모든 플래그의 정식 분류는 `docs/spec/claude/cli-reference.md` 가 SSOT. 본 문서는 *Orca 관점에서 의미가 있는 플래그* 만 다룬다 (§14 카탈로그 참조).
 
-✅ **Orca v1 채택** — ClaudeCodeAdapter 가 매 턴 `claude -p "<text>" --output-format stream-json [--resume <id>]` 형식으로 `child_process.spawn` 한다 (`TRD.md §7.1`, `architecture.md §5.4`). 입력은 `-p` 인자로 전달하고, `cwd` 는 spawn 옵션에 둔다.
+✅ **Orca v1 채택** — ClaudeCodeAdapter 가 매 턴 `claude -p "<text>" --output-format stream-json --verbose --include-partial-messages [--resume <id>]` 형식으로 `child_process.spawn` 한다 (`TRD.md §7.1`, `architecture.md §5.4`). 입력은 `-p` 인자로 전달하고, `cwd` 는 spawn 옵션에 둔다.
 
 ---
 
