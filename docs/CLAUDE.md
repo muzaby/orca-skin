@@ -11,12 +11,16 @@
 | `architecture.md` | **Orca 시스템 구조·프로세스·데이터 흐름** — electron-vite 3-process 모델, Preload bridge, 모듈 레이아웃(디렉토리 트리), 컴포넌트 구조, 시퀀스 다이어그램, 빌드 파이프라인 | **어떻게 구성되어 있고, 입력이 어디로 흘러가는가** 이해할 때. Main/Renderer/Preload 의 책임·통신·라이프사이클 을 종합적으로 다룬다. |
 | `llm-chat-desktop-strategy.md` | Claude Code / opencode CLI 를 백엔드로 쓰는 Electron 채팅 데스크톱앱 설계 — Orca 엔진의 *전략적 근거 / 결정 출처* (TRD 가 이 문서를 소화한 결과) | TRD 의 결정 배경을 거슬러 확인하거나, TRD 가 다루지 않는 회색 지대 (예: 추가 백엔드, 대안 라이브러리) 를 검토할 때 |
 | `lightweight-llm-strategy.md` | 로컬 4B LLM 기반 이미지 센서 QA 시스템 설계 (Case 1: 로컬 전용 / Case 2: 외부 LLM 가능) | Skill 라우팅, JSON 단계 통신, self-consistency 등 4B 운영 패턴을 구현할 때 |
-| `claude-code-spec.md` | **Claude Code CLI 공식 스펙 미러** — 플래그·NDJSON 이벤트 스키마·세션 관리. 각 절에 *Orca v1 채택* 표기 포함 | ClaudeCodeAdapter 를 구현/수정하거나, PRD/TRD 에서 Claude Code CLI 동작을 인용할 때. 외부 공식 문서의 단일 출처(SSOT) |
+| `claude-code-spec.md` | **Claude Code CLI 해설 미러** — 플래그·NDJSON 이벤트 스키마·세션 관리·Orca v1 채택 표기. 절 번호 (§3·§4·§5·§7·§13) 가 PRD/TRD/architecture 의 인용 anchor | ClaudeCodeAdapter 를 구현/수정하거나, PRD/TRD 에서 Claude Code CLI 동작을 인용할 때. 본 저장소의 Claude Code SSOT |
+| `spec/claude/` | **외부 공식 문서의 원문 한국어 미러** — `headless.md`, `cli-reference.md`. *편집 금지*, 통째로 덮어쓰기로만 갱신. `claude-code-spec.md` 가 인용·해설하는 *원본* | 원문이 무엇을 말하는지 *원형 그대로* 확인할 때. 디렉토리 정책은 `spec/CLAUDE.md` 참조 |
 
 문서 간 관계:
 
 - **Orca 트리오**: `PRD.md` (*WHAT*) → `TRD.md` (*HOW, 구현 사양*) → `llm-chat-desktop-strategy.md` (*HOW 의 1차 근거 / 전략 결정 출처*). 셋은 같은 제품을 다루며 서로 의존한다. `architecture.md` 는 TRD 의 구조 파트가 분리된 자매 문서로 TRD 와 함께 본다. TRD 는 strategy 를 소화해 만든 구현 사양이고, PRD §9 Future Scope 는 `project/` 프로토타입을 흡수한 결과다.
-- **외부 미러**: `claude-code-spec.md` 는 Claude Code 공식 문서의 *프로젝트 로컬 미러* 다. PRD/TRD/architecture 가 CLI 동작을 인용할 때 단일 출처. 원문 갱신 시 수동 동기화 필요.
+- **외부 미러 (2단)**: 외부 공식 문서는 두 층으로 보관한다.
+  - **원문 미러** (`docs/spec/<vendor>/*.md`): 원문 그대로, 편집 금지. 디렉토리 정책은 `docs/spec/CLAUDE.md`.
+  - **해설 미러** (`docs/<vendor>-*-spec.md`): Orca 채택 표기, 정리표, *절 번호 안정성* 보장 — PRD/TRD/architecture 의 인용 anchor.
+  - 현재: `docs/spec/claude/headless.md` + `docs/spec/claude/cli-reference.md` (원문) ↔ `docs/claude-code-spec.md` (해설). 원문 갱신 시 사람이 수동으로 (1) 원문 미러를 덮어쓰고 (2) 해설 미러를 정합화한다.
 - `lightweight-llm-strategy.md` 는 **별도 제품 방향** 으로 위 트리오와 독립.
 
 ## 코딩 에이전트가 따라야 할 원칙
@@ -26,7 +30,7 @@
 3. **문서에 명시된 결정을 임의로 바꾸지 마라.** 예: "분해는 사전에", "측정은 결정론적", "통합 시스템 만들지 않음" 같은 원칙은 협의 결과다. 변경이 필요하면 사용자에게 먼저 확인.
 4. **문서와 코드가 충돌하면 사용자에게 물어라.** 둘 다 바꿔야 하는지(설계 변경) 코드만 바꿔야 하는지(구현 버그) 결정해야 한다.
 5. **문서를 새로 추가/수정할 때**: 한국어, 표 위주, 결정 사항 중심으로 작성해 기존 톤을 유지한다. 변경 시 영향 받는 다른 문서의 참조도 함께 갱신.
-6. **외부 공식 문서 미러를 둘 때**: 본 디렉토리에 두되, 문서 상단에 *원문 URL* 과 *수동 동기화 책임* 을 명시한다. 본 미러가 추가하는 것은 Orca 채택 표기(✅/❌/⏳) 뿐이며, 외부 사실(플래그·이벤트)은 원문을 그대로 따른다. 예: `claude-code-spec.md`.
+6. **외부 공식 문서 미러를 둘 때**: 2단 구조를 사용한다. (a) *원문 미러* 는 `docs/spec/<vendor>/` 에 두고 *편집 금지*, 통째로 덮어쓰기로만 갱신. (b) *해설 미러* 는 `docs/<vendor>-*-spec.md` 에 두고 Orca 채택 표기(✅/❌/⏳)·정리표·*안정된 절 번호* 를 추가한다. 외부 사실(플래그·이벤트 스키마)은 원문 미러를 따른다. 예: 원문 `docs/spec/claude/{headless,cli-reference}.md` ↔ 해설 `docs/claude-code-spec.md`. 디렉토리 정책 상세는 `docs/spec/CLAUDE.md` 참조.
 
 ## 위치 규약
 
