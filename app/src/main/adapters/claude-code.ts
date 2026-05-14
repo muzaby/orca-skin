@@ -155,12 +155,18 @@ function spawnOpts(cwd?: string): {
   cwd?: string
   shell: boolean
   env: NodeJS.ProcessEnv
+  stdio: ['ignore', 'pipe', 'pipe']
   windowsVerbatimArguments?: boolean
 } {
   return {
     ...(cwd ? { cwd } : {}),
     shell: IS_WIN,
     env: process.env,
+    // stdin 을 명시적으로 끊는다. 기본값(`pipe`)은 child 에 빈 stdin 파이프를
+    // 남겨두어 Claude CLI 가 non-TTY 환경에서 stdin EOF 를 기다리는 경로로
+    // 분기될 여지를 만든다. 멀티라인 `-p` 입력 시 응답이 도착하지 않던
+    // 증상의 유력 원인.
+    stdio: ['ignore', 'pipe', 'pipe'],
     ...(IS_WIN ? { windowsVerbatimArguments: false } : {})
   }
 }
@@ -262,6 +268,18 @@ export class ClaudeCodeAdapter implements SessionAdapter {
     ]
     if (sessionId) args.push('--resume', sessionId)
 
+    // TODO(diagnostics): 멀티라인 응답 누락 repro 확인 후 본 로그 블록 3개 모두 제거.
+    console.debug(
+      '[claude] spawn',
+      this.binPath ?? BIN,
+      'textLen',
+      text.length,
+      'hasNewline',
+      text.includes('\n'),
+      'sessionId',
+      sessionId
+    )
+
     let child: ChildProcess
     try {
       child = spawn(this.binPath ?? BIN, prepareArgs(args), spawnOpts(cwd))
@@ -301,7 +319,13 @@ export class ClaudeCodeAdapter implements SessionAdapter {
     child.stdout?.setEncoding('utf8')
     child.stderr?.setEncoding('utf8')
 
+    let sawFirstStdout = false
     child.stdout?.on('data', (chunk: string) => {
+      if (!sawFirstStdout) {
+        sawFirstStdout = true
+        // TODO(diagnostics): repro 확인 후 제거.
+        console.debug('[claude] first stdout chunk', chunk.slice(0, 200))
+      }
       for (const line of drainLines(stdoutBuf, chunk)) {
         for (const ev of normalizeLine(line)) enqueue(ev)
       }
@@ -337,6 +361,8 @@ export class ClaudeCodeAdapter implements SessionAdapter {
       wake()
     })
     child.on('close', (code) => {
+      // TODO(diagnostics): repro 확인 후 제거.
+      console.debug('[claude] close', code, 'sawFirstStdout', sawFirstStdout)
       // flush any trailing line
       for (const line of drainLines(stdoutBuf, '', true)) {
         for (const ev of normalizeLine(line)) enqueue(ev)
