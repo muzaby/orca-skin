@@ -2,8 +2,10 @@ import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 
 import { Icon } from '../components/atoms/Icon'
 import { Avatar } from '../components/atoms/Avatar'
 import { Dot } from '../components/atoms/Status'
+import { StatusLine } from '../components/atoms/StatusLine'
+import { Markdown } from '../components/markdown/Markdown'
 import type { UseChat } from '../state/useChat'
-import type { ToolCall } from '../state/chatReducer'
+import type { Message, ToolCall } from '../state/chatReducer'
 
 const ICON_BTN =
   'grid h-7 w-7 cursor-pointer place-items-center rounded-md border-0 bg-transparent text-ink2'
@@ -14,57 +16,216 @@ interface ChatPaneProps {
   authorName?: string
 }
 
+function stringify(value: unknown): string {
+  if (typeof value === 'string') return value
+  try {
+    return JSON.stringify(value, null, 2)
+  } catch {
+    return String(value)
+  }
+}
+
+function formatTimestamp(ms: number): string {
+  const d = new Date(ms)
+  const now = new Date()
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  const hm = new Intl.DateTimeFormat('ko-KR', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).format(d)
+  if (sameDay) return hm
+  const md = new Intl.DateTimeFormat('ko-KR', { month: '2-digit', day: '2-digit' }).format(d)
+  return `${md} ${hm}`
+}
+
 function ToolCard({ call }: { call: ToolCall }): React.JSX.Element {
+  const [open, setOpen] = useState(false)
   const done = call.result != null
   const isError = call.result?.isError === true
   const tone: 'green' | 'amber' | 'slate' = isError ? 'slate' : done ? 'green' : 'amber'
   const label = isError ? '실패' : done ? '완료' : '실행 중…'
-  const args = (() => {
-    try {
-      return typeof call.input === 'string' ? call.input : JSON.stringify(call.input)
-    } catch {
-      return String(call.input)
-    }
-  })()
+  const args = stringify(call.input).replace(/\n/g, ' ')
   const duration =
     call.result?.durationMs != null ? ` · ${(call.result.durationMs / 1000).toFixed(1)}s` : ''
   return (
-    <div className="flex items-center gap-2.5 rounded-[10px] border border-border bg-panel px-3 py-2 font-mono text-[12.5px] text-ink">
-      <Dot tone={tone} />
-      <span className="font-semibold text-rust">{call.name}</span>
-      <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-ink3">
-        ({args})
-      </span>
-      <span className="font-sans text-[11px] text-ink3">
-        {label}
-        {duration}
-      </span>
+    <div
+      className={`rounded-[10px] border ${
+        isError ? 'border-rust bg-rust-soft' : 'border-border bg-panel'
+      } overflow-hidden font-mono text-[12.5px] text-ink`}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full cursor-pointer items-center gap-2.5 border-0 bg-transparent px-3 py-2 text-left"
+        aria-expanded={open}
+      >
+        <span aria-hidden className="w-3 text-[10px] text-ink3">
+          {open ? '▼' : '▶'}
+        </span>
+        <Dot tone={tone} />
+        <span className="font-semibold text-rust">{call.name}</span>
+        <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-ink3">
+          ({args})
+        </span>
+        <span className="font-sans text-[11px] text-ink3">
+          {label}
+          {duration}
+        </span>
+      </button>
+      {open && (
+        <div className="border-t border-border bg-bg/50 px-3 py-2 text-[12px]">
+          <div className="mb-1 font-sans text-[10.5px] uppercase tracking-wide text-ink3">
+            input
+          </div>
+          <pre className="m-0 mb-2 overflow-auto whitespace-pre-wrap break-words text-ink">
+            {stringify(call.input)}
+          </pre>
+          {call.result && (
+            <>
+              <div className="mb-1 font-sans text-[10.5px] uppercase tracking-wide text-ink3">
+                output
+              </div>
+              {typeof call.result.output === 'string' ? (
+                <Markdown source={call.result.output} />
+              ) : (
+                <pre className="m-0 overflow-auto whitespace-pre-wrap break-words text-ink">
+                  {stringify(call.result.output)}
+                </pre>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </div>
   )
 }
 
-interface MsgProps {
-  kind: 'user' | 'claude'
-  author: string
-  inProgress?: boolean
-  children: ReactNode
+interface CopyButtonProps {
+  text: string
 }
 
-function Msg({ kind, author, inProgress, children }: MsgProps): React.JSX.Element {
+function CopyButton({ text }: CopyButtonProps): React.JSX.Element {
+  const [copied, setCopied] = useState(false)
+  const onClick = async (): Promise<void> => {
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    } catch {
+      // clipboard unavailable — silent no-op
+    }
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex cursor-pointer items-center gap-1 rounded border-0 bg-transparent px-1.5 py-0.5 text-[11px] text-ink3 hover:text-ink2"
+      title="메시지 복사"
+    >
+      <Icon name={copied ? 'check' : 'copy'} size={12} />
+      <span>{copied ? '복사됨' : '복사'}</span>
+    </button>
+  )
+}
+
+interface MsgHeaderProps {
+  author: string
+  status?: ReactNode
+}
+
+function MsgHeader({ author, status }: MsgHeaderProps): React.JSX.Element {
+  return (
+    <div className="mb-1 flex items-center gap-2 text-[12.5px] font-semibold text-ink">
+      <span>{author}</span>
+      {status}
+    </div>
+  )
+}
+
+interface AssistantMessageProps {
+  message: Message
+}
+
+function AssistantMessage({ message }: AssistantMessageProps): React.JSX.Element {
   return (
     <div className="flex gap-3">
-      <Avatar kind={kind} size={28} />
+      <Avatar kind="claude" size={28} />
       <div className="flex-1 pt-[3px]">
-        <div className="mb-1 flex items-center gap-1.5 text-[12.5px] font-semibold text-ink">
-          {author}
-          {inProgress && (
-            <span className="inline-flex items-center gap-1.5 text-[11px] font-normal text-ink3">
-              <Dot tone="amber" /> 응답 중
-            </span>
-          )}
+        <MsgHeader author="Claude" />
+        <div className="flex flex-col gap-2.5 text-[13.5px] leading-[1.65] text-ink">
+          {message.toolCalls?.map((tc) => (
+            <ToolCard key={tc.toolUseId} call={tc} />
+          ))}
+          {message.content && <Markdown source={message.content} />}
         </div>
+        <div className="mt-2 flex items-center gap-2 text-[11px] text-ink3">
+          {message.content && <CopyButton text={message.content} />}
+          <span className="ml-auto font-mono text-[10.5px]">
+            {formatTimestamp(message.createdAt)}
+          </span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+interface UserMessageProps {
+  message: Message
+  authorName: string
+}
+
+function UserMessage({ message, authorName }: UserMessageProps): React.JSX.Element {
+  return (
+    <div className="flex gap-3">
+      <Avatar kind="user" size={28} />
+      <div className="flex-1 pt-[3px]">
+        <MsgHeader author={authorName} />
         <div className="flex flex-col gap-2.5 whitespace-pre-wrap text-[13.5px] leading-[1.65] text-ink">
-          {children}
+          {message.content && <p>{message.content}</p>}
+        </div>
+        <div className="mt-1 flex items-center text-[11px] text-ink3">
+          <span className="ml-auto font-mono text-[10.5px]">
+            {formatTimestamp(message.createdAt)}
+          </span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+interface PendingAssistantProps {
+  turnStartedAt: number | null
+  approxFromText: string
+  inputTokensFinal?: number
+  pendingDelta: string
+}
+
+function PendingAssistant({
+  turnStartedAt,
+  approxFromText,
+  inputTokensFinal,
+  pendingDelta
+}: PendingAssistantProps): React.JSX.Element {
+  return (
+    <div className="flex gap-3">
+      <Avatar kind="claude" size={28} />
+      <div className="flex-1 pt-[3px]">
+        <MsgHeader
+          author="Claude"
+          status={
+            <StatusLine
+              turnStartedAt={turnStartedAt}
+              approxFromText={approxFromText}
+              inputTokensFinal={inputTokensFinal}
+            />
+          }
+        />
+        <div className="flex flex-col gap-2.5 text-[13.5px] leading-[1.65] text-ink">
+          {pendingDelta ? <Markdown source={pendingDelta} /> : <p className="text-ink3">…</p>}
         </div>
       </div>
     </div>
@@ -98,8 +259,8 @@ export function ChatPane({
   const isEmpty = state.messages.length === 0 && state.pendingDelta === ''
   const title = state.messages.find((m) => m.role === 'user')?.content.slice(0, 60) ?? '새 대화'
 
-  // 마지막 어시스턴트 메시지가 비어있는 placeholder 인지 (inflight 중 첫 델타 도착 전)
   const showPendingAssistant = state.inflight
+  const lastUserText = [...state.messages].reverse().find((m) => m.role === 'user')?.content ?? ''
 
   return (
     <section className="flex min-w-0 flex-1 flex-col bg-bg">
@@ -139,22 +300,20 @@ export function ChatPane({
             Claude Code 에 첫 메시지를 보내보세요.
           </div>
         )}
-        {state.messages.map((m, i) => (
-          <Msg
-            key={i}
-            kind={m.role === 'user' ? 'user' : 'claude'}
-            author={m.role === 'user' ? authorName : 'Claude'}
-          >
-            {m.toolCalls?.map((tc) => (
-              <ToolCard key={tc.toolUseId} call={tc} />
-            ))}
-            {m.content && <p>{m.content}</p>}
-          </Msg>
-        ))}
+        {state.messages.map((m, i) =>
+          m.role === 'user' ? (
+            <UserMessage key={i} message={m} authorName={authorName} />
+          ) : (
+            <AssistantMessage key={i} message={m} />
+          )
+        )}
         {showPendingAssistant && (
-          <Msg kind="claude" author="Claude" inProgress>
-            {state.pendingDelta ? <p>{state.pendingDelta}</p> : <p className="text-ink3">…</p>}
-          </Msg>
+          <PendingAssistant
+            turnStartedAt={state.turnStartedAt}
+            approxFromText={lastUserText}
+            inputTokensFinal={state.pendingInputTokens}
+            pendingDelta={state.pendingDelta}
+          />
         )}
         {state.error && (
           <div className="rounded-[10px] border border-rust bg-rust-soft px-3 py-2 text-[12.5px] text-ink">
@@ -183,7 +342,7 @@ export function ChatPane({
                   className="grid h-[30px] w-[30px] cursor-pointer place-items-center rounded-lg border-0 bg-ink2 text-white"
                   title="중단"
                 >
-                  <Icon name="settings" size={14} color="#fff" />
+                  <Icon name="pause" size={14} color="#fff" />
                 </button>
               ) : (
                 <button

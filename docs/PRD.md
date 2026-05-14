@@ -110,7 +110,7 @@ v1 의 기능 표면은 P2 만으로도 충분히 커버 가능하다. P1 의 �
 | 빌드/스캐폴딩 | **`@quick-start/electron` (react-ts 템플릿)** | electron-vite (Vite 기반) |
 | 언어 | **TypeScript** | CLI JSON 메시지 타입 안정성 |
 | UI 프레임워크 | **React 권장** (확정 §11 OQ) | 메시지 스트리밍·마크다운 렌더링에 적합 |
-| 마크다운 렌더링 | **react-markdown + Highlight.js** 확정 (§11 OQ2; 추후 shiki 전환 가능) | LLM 응답 렌더링 |
+| 마크다운 렌더링 | **react-markdown + remark-gfm + shiki** 확정 (§11 OQ2, Phase A) | LLM 응답 렌더링. GFM + 코드 블록 syntax highlighting (11개 언어) |
 | 스타일링 | **Tailwind CSS** | TRD §4 채택. 디자인 토큰은 §10 CSS 커스텀 프로퍼티 그대로, 컴포넌트 클래스만 Tailwind 유틸리티 |
 
 ### 7.2 CLI 연결 패턴 (전략 §3)
@@ -254,7 +254,7 @@ Renderer (UI) → Electron IPC → Common Interface → `ClaudeCodeAdapter` 또�
 | # | 질문 | 비고 |
 |---|---|---|
 | OQ1 | UI 프레임워크는 React 로 확정하는가? 버전(18/19)? | 전략은 "권장" 수준. |
-| OQ2 | 마크다운/하이라이트 라이브러리는 react-markdown + shiki 로 확정? | 동일. |
+| ~~OQ2~~ | ~~마크다운/하이라이트 라이브러리는 react-markdown + shiki 로 확정?~~ | **확정** (2026-05-14, Phase A `feat-pretty-ui`): react-markdown@^9 + remark-gfm@^4 + shiki@^1. TRD §2 갱신. |
 | OQ3 | 패키징/배포 (electron-builder target, macOS notarization, Windows code signing, 자동 업데이트 채널)? | 전략 비커버. |
 | OQ4 | 텔레메트리/에러 리포팅 정책? 옵트인? | 전략 비커버. |
 | OQ5 | 라이센스 (오픈/상용)? | 전략 비커버. |
