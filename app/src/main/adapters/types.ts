@@ -4,7 +4,7 @@ export type { Backend, ChatEvent }
 
 export interface SessionAdapter {
   readonly id: Backend
-  isInstalled(): Promise<{ installed: boolean; version?: string }>
+  isInstalled(): Promise<{ installed: boolean; version?: string; binPath?: string }>
   install(): AsyncIterable<{ step: string; log?: string; error?: string; done?: boolean }>
   sendMessage(
     sessionId: string | null,

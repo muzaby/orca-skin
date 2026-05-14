@@ -67,18 +67,9 @@ export class IpcRouter {
       return
     }
 
-    const info = await adapter.isInstalled()
-    if (!info.installed) {
-      this.sendChatEvent(event.sender, {
-        type: 'error',
-        data: {
-          code: 'cli.not-installed',
-          message: 'Claude Code CLI 가 설치되어 있지 않습니다.',
-          recoverable: true
-        }
-      })
-      return
-    }
+    // TODO(settings): app settings 도입 시 settings 기반 install 재확인.
+    // 부팅 시 AdapterRegistry.refreshInstallState() 가 1회 캐시하며, renderer
+    // 는 backend.list() 결과로 InstallerDialog 를 띄워 미설치 경로를 가드한다.
 
     const controller = new AbortController()
     this.inflight.set(event.sender, { controller })

@@ -140,31 +140,64 @@ export function normalizeLine(line: string): ChatEvent[] {
   return []
 }
 
+// 절대 경로 + Windows 의 .cmd shim 호환을 위해 spawn 옵션은 플랫폼별로 분기한다.
+// - macOS/Linux: spawn(절대경로, args, { shell: false })
+// - Windows:     spawn(절대경로, args, { shell: true }) — Node CVE-2024-27980 대응. user text 는 cmd 메타문자 escape.
+const IS_WIN = process.platform === 'win32'
+
+function escapeForWinShell(s: string): string {
+  // cmd 의 special chars 가 있으면 "…" quote + 내부 " 는 "" 로 이스케이프
+  if (!/[\s"^&|<>()]/.test(s)) return s
+  return `"${s.replace(/"/g, '""')}"`
+}
+
+function spawnOpts(cwd?: string): {
+  cwd?: string
+  shell: boolean
+  env: NodeJS.ProcessEnv
+  windowsVerbatimArguments?: boolean
+} {
+  return {
+    ...(cwd ? { cwd } : {}),
+    shell: IS_WIN,
+    env: process.env,
+    ...(IS_WIN ? { windowsVerbatimArguments: false } : {})
+  }
+}
+
+function prepareArgs(args: string[]): string[] {
+  return IS_WIN ? args.map(escapeForWinShell) : args
+}
+
 export class ClaudeCodeAdapter implements SessionAdapter {
   readonly id = 'claude-code' as const
+  private binPath: string | undefined
 
-  async isInstalled(): Promise<{ installed: boolean; version?: string }> {
+  async isInstalled(): Promise<{ installed: boolean; version?: string; binPath?: string }> {
     try {
-      await exec(`${WHICH_CMD} ${BIN}`)
+      const { stdout: whichOut } = await exec(`${WHICH_CMD} ${BIN}`)
+      const resolved = whichOut.trim().split('\n')[0]
+      if (resolved) this.binPath = resolved
     } catch {
       return { installed: false }
     }
     try {
       const { stdout } = await exec(`${BIN} --version`)
       const version = stdout.trim().split('\n')[0]
-      return { installed: true, version }
+      return { installed: true, version, binPath: this.binPath }
     } catch {
-      return { installed: true }
+      return { installed: true, binPath: this.binPath }
     }
   }
 
   async *install(): AsyncIterable<{ step: string; log?: string; error?: string; done?: boolean }> {
     yield { step: 'starting', log: 'npm install -g @anthropic-ai/claude-code' }
 
-    const child = spawn('npm', ['install', '-g', '@anthropic-ai/claude-code'], {
-      shell: false,
-      env: process.env
-    })
+    const child = spawn(
+      'npm',
+      prepareArgs(['install', '-g', '@anthropic-ai/claude-code']),
+      spawnOpts()
+    )
 
     const queue: { step: string; log?: string; error?: string }[] = []
     let resolveNext: (() => void) | null = null
@@ -231,7 +264,7 @@ export class ClaudeCodeAdapter implements SessionAdapter {
 
     let child: ChildProcess
     try {
-      child = spawn(BIN, args, { cwd, shell: false, env: process.env })
+      child = spawn(this.binPath ?? BIN, prepareArgs(args), spawnOpts(cwd))
     } catch (err) {
       yield {
         type: 'error',
