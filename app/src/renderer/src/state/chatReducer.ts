@@ -10,6 +10,7 @@ export interface ToolCall {
 export interface Message {
   role: 'user' | 'assistant'
   content: string
+  createdAt: number
   toolCalls?: ToolCall[]
 }
 
@@ -18,6 +19,8 @@ export interface ChatState {
   messages: Message[]
   pendingDelta: string
   inflight: boolean
+  turnStartedAt: number | null
+  pendingInputTokens?: number
   error?: { code: ErrorCode; message: string; recoverable: boolean }
 }
 
@@ -25,7 +28,8 @@ export const initialChatState: ChatState = {
   sessionId: null,
   messages: [],
   pendingDelta: '',
-  inflight: false
+  inflight: false,
+  turnStartedAt: null
 }
 
 export type ChatAction =
@@ -44,7 +48,7 @@ function upsertToolCall(messages: Message[], tc: ToolCall): Message[] {
     return -1
   })()
   if (idx === -1) {
-    return [...messages, { role: 'assistant', content: '', toolCalls: [tc] }]
+    return [...messages, { role: 'assistant', content: '', createdAt: Date.now(), toolCalls: [tc] }]
   }
   const next = messages.slice()
   const m = next[idx]
@@ -86,9 +90,14 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'SEND_USER_MESSAGE':
       return {
         ...state,
-        messages: [...state.messages, { role: 'user', content: action.text }],
+        messages: [
+          ...state.messages,
+          { role: 'user', content: action.text, createdAt: Date.now() }
+        ],
         pendingDelta: '',
         inflight: true,
+        turnStartedAt: Date.now(),
+        pendingInputTokens: undefined,
         error: undefined
       }
 
@@ -106,12 +115,15 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           const last = state.messages[state.messages.length - 1]
           if (state.pendingDelta && last?.role === 'assistant' && last.content === '') {
             const next = state.messages.slice()
-            next[next.length - 1] = { ...last, content: ev.data.text }
+            next[next.length - 1] = { ...last, content: ev.data.text, createdAt: Date.now() }
             return { ...state, messages: next, pendingDelta: '' }
           }
           return {
             ...state,
-            messages: [...state.messages, { role: 'assistant', content: ev.data.text }],
+            messages: [
+              ...state.messages,
+              { role: 'assistant', content: ev.data.text, createdAt: Date.now() }
+            ],
             pendingDelta: ''
           }
         }
@@ -137,20 +149,29 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           }
 
         case 'result': {
+          const inputTokens = ev.data.usage?.inputTokens
+          const base = {
+            ...state,
+            inflight: false,
+            turnStartedAt: null,
+            ...(inputTokens != null ? { pendingInputTokens: inputTokens } : {})
+          }
           // pendingDelta 가 아직 남아있으면 최종 메시지로 굳힌다
           if (state.pendingDelta) {
             return {
-              ...state,
-              messages: [...state.messages, { role: 'assistant', content: state.pendingDelta }],
-              pendingDelta: '',
-              inflight: false
+              ...base,
+              messages: [
+                ...state.messages,
+                { role: 'assistant', content: state.pendingDelta, createdAt: Date.now() }
+              ],
+              pendingDelta: ''
             }
           }
-          return { ...state, inflight: false }
+          return base
         }
 
         case 'error':
-          return { ...state, error: ev.data, inflight: false }
+          return { ...state, error: ev.data, inflight: false, turnStartedAt: null }
       }
       return state
     }
@@ -159,7 +180,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return { ...initialChatState }
 
     case 'CANCEL_CHAT':
-      return { ...state, inflight: false }
+      return { ...state, inflight: false, turnStartedAt: null }
 
     case 'CLEAR_ERROR':
       return { ...state, error: undefined }

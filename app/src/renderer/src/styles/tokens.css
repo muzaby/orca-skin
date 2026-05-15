@@ -14,6 +14,7 @@
   --color-ink3: #a8a092;
   --color-rust: #c96442;
   --color-rust-soft: #f4dcc9;
+  --color-bubble-user: #f0eee6;
 
   /* Static accent palette — not themed */
   --color-cream-0: #fbf9f4;
@@ -70,6 +71,7 @@
   --color-ink3: #6b6452;
   --color-rust: #e07855;
   --color-rust-soft: #4a2214;
+  --color-bubble-user: #121212;
 }
 
 [data-theme='cool'] {
@@ -83,4 +85,5 @@
   --color-ink3: #94a3b8;
   --color-rust: #2563eb;
   --color-rust-soft: #dbeafe;
+  --color-bubble-user: #f0eee6;
 }

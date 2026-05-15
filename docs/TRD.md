@@ -77,7 +77,7 @@ electron-vite 환경 기준. 표 밖 의존성 추가 시 **사용자 승인 필
 | UI 프레임워크 | React | ^19 (템플릿 기본, OQ1은 18 가능성) | OQ1 | React Hooks + Context/reducer |
 | 상태 관리 | React Context + reducer | — | 확정 | 외부 상태 라이브러리 (Redux 등) 금지 MVP 범위 |
 | 스타일링 | Tailwind CSS | **^4** (`@tailwindcss/vite` 플러그인, CSS-first `@theme`) | 확정 (Phase 1 완료) | utility-first. `styles/tokens.css` 의 `@theme` 블록으로 시맨틱 디자인 토큰 정의 (`--color-{bg,sidebar,ink,...}`). `[data-theme]` 스코프로 Classic/Dark/Cool 전환. Tweaks 패널과 연동. 자세한 정책은 `app/CLAUDE.md` "스타일링 정책" 참조 |
-| 마크다운 렌더링 | react-markdown + shiki | OQ2에서 확정 | OQ2 | 코드 블록 syntax highlighting |
+| 마크다운 렌더링 | react-markdown + remark-gfm + shiki | `^9` / `^4` / `^1` | 확정 (Phase A `feat-pretty-ui` 도입) | GFM (표·체크박스) + 코드 블록 syntax highlighting. shiki 번들은 11개 언어 (ts/js/tsx/jsx/python/bash/json/yaml/html/css/markdown) 로 제한 |
 | HTTP (opencode) | `@opencode-ai/sdk` | latest | 확정 | 공식 SDK 사용 |
 | IPC | Electron 기본 ipcRenderer/ipcMain | — | 확정 | 별도 RPC 라이브러리 금지 |
 | IPC 보안 | `@electron-toolkit/preload` + contextBridge | ^3 | 확정 | preload 화이트리스트 |
