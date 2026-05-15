@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Icon } from '../components/atoms/Icon'
-import { Avatar } from '../components/atoms/Avatar'
 import { Dot } from '../components/atoms/Status'
 import { StatusLine } from '../components/atoms/StatusLine'
 import { Markdown } from '../components/markdown/Markdown'
@@ -13,7 +12,37 @@ const ICON_BTN =
 interface ChatPaneProps {
   chat: UseChat
   backendLabel: string
-  authorName?: string
+}
+
+// 표시용 짧은 형식: 오늘이면 '오전 11:44', 다른 날이면 '5월 13일'
+function formatTimeShort(ms: number): string {
+  const d = new Date(ms)
+  const now = new Date()
+  const sameDay =
+    d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate()
+  if (sameDay) {
+    return new Intl.DateTimeFormat('ko-KR', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    }).format(d)
+  }
+  return new Intl.DateTimeFormat('ko-KR', { month: 'long', day: 'numeric' }).format(d)
+}
+
+// 툴팁용 전체 형식: '2026. 5. 12. 오전 11:03:09'
+function formatTimeFull(ms: number): string {
+  return new Intl.DateTimeFormat('ko-KR', {
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: true
+  }).format(new Date(ms))
 }
 
 function stringify(value: unknown): string {
@@ -23,23 +52,6 @@ function stringify(value: unknown): string {
   } catch {
     return String(value)
   }
-}
-
-function formatTimestamp(ms: number): string {
-  const d = new Date(ms)
-  const now = new Date()
-  const sameDay =
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate()
-  const hm = new Intl.DateTimeFormat('ko-KR', {
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false
-  }).format(d)
-  if (sameDay) return hm
-  const md = new Intl.DateTimeFormat('ko-KR', { month: '2-digit', day: '2-digit' }).format(d)
-  return `${md} ${hm}`
 }
 
 function ToolCard({ call }: { call: ToolCall }): React.JSX.Element {
@@ -104,11 +116,11 @@ function ToolCard({ call }: { call: ToolCall }): React.JSX.Element {
   )
 }
 
-interface CopyButtonProps {
+interface CopyIconButtonProps {
   text: string
 }
 
-function CopyButton({ text }: CopyButtonProps): React.JSX.Element {
+function CopyIconButton({ text }: CopyIconButtonProps): React.JSX.Element {
   const [copied, setCopied] = useState(false)
   const onClick = async (): Promise<void> => {
     try {
@@ -123,25 +135,32 @@ function CopyButton({ text }: CopyButtonProps): React.JSX.Element {
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex cursor-pointer items-center gap-1 rounded border-0 bg-transparent px-1.5 py-0.5 text-[11px] text-ink3 hover:text-ink2"
-      title="메시지 복사"
+      className="grid h-6 w-6 cursor-pointer place-items-center rounded border-0 bg-transparent text-ink3 hover:bg-cream-100 hover:text-ink2"
+      title={copied ? '복사됨' : '메시지 복사'}
+      aria-label="메시지 복사"
     >
       <Icon name={copied ? 'check' : 'copy'} size={12} />
-      <span>{copied ? '복사됨' : '복사'}</span>
     </button>
   )
 }
 
-interface MsgHeaderProps {
-  author: string
-  status?: ReactNode
+interface MessageMetaProps {
+  text: string
+  createdAt: number
+  align: 'left' | 'right'
 }
 
-function MsgHeader({ author, status }: MsgHeaderProps): React.JSX.Element {
+function MessageMeta({ text, createdAt, align }: MessageMetaProps): React.JSX.Element {
   return (
-    <div className="mb-1 flex items-center gap-2 text-[12.5px] font-semibold text-ink">
-      <span>{author}</span>
-      {status}
+    <div
+      className={`mt-1 flex items-center gap-1 text-ink3 opacity-0 transition-opacity duration-200 group-hover:opacity-100 focus-within:opacity-100 ${
+        align === 'right' ? 'justify-end' : 'justify-start'
+      }`}
+    >
+      {text && <CopyIconButton text={text} />}
+      <span className="font-mono text-[10.5px]" title={formatTimeFull(createdAt)}>
+        {formatTimeShort(createdAt)}
+      </span>
     </div>
   )
 }
@@ -152,47 +171,29 @@ interface AssistantMessageProps {
 
 function AssistantMessage({ message }: AssistantMessageProps): React.JSX.Element {
   return (
-    <div className="flex gap-3">
-      <Avatar kind="claude" size={28} />
-      <div className="flex-1 pt-[3px]">
-        <MsgHeader author="Claude" />
-        <div className="flex flex-col gap-2.5 text-[13.5px] leading-[1.65] text-ink">
-          {message.toolCalls?.map((tc) => (
-            <ToolCard key={tc.toolUseId} call={tc} />
-          ))}
-          {message.content && <Markdown source={message.content} />}
-        </div>
-        <div className="mt-2 flex items-center gap-2 text-[11px] text-ink3">
-          {message.content && <CopyButton text={message.content} />}
-          <span className="ml-auto font-mono text-[10.5px]">
-            {formatTimestamp(message.createdAt)}
-          </span>
-        </div>
+    <div className="group flex flex-col">
+      <div className="flex flex-col gap-2.5 text-[14px] leading-[1.7] text-ink">
+        {message.toolCalls?.map((tc) => (
+          <ToolCard key={tc.toolUseId} call={tc} />
+        ))}
+        {message.content && <Markdown source={message.content} />}
       </div>
+      <MessageMeta text={message.content} createdAt={message.createdAt} align="left" />
     </div>
   )
 }
 
 interface UserMessageProps {
   message: Message
-  authorName: string
 }
 
-function UserMessage({ message, authorName }: UserMessageProps): React.JSX.Element {
+function UserMessage({ message }: UserMessageProps): React.JSX.Element {
   return (
-    <div className="flex gap-3">
-      <Avatar kind="user" size={28} />
-      <div className="flex-1 pt-[3px]">
-        <MsgHeader author={authorName} />
-        <div className="flex flex-col gap-2.5 whitespace-pre-wrap text-[13.5px] leading-[1.65] text-ink">
-          {message.content && <p>{message.content}</p>}
-        </div>
-        <div className="mt-1 flex items-center text-[11px] text-ink3">
-          <span className="ml-auto font-mono text-[10.5px]">
-            {formatTimestamp(message.createdAt)}
-          </span>
-        </div>
+    <div className="group flex flex-col items-end">
+      <div className="max-w-[75%] whitespace-pre-wrap rounded-2xl bg-[#F0EEE6] px-4 py-2.5 text-[14px] leading-[1.7] text-ink">
+        {message.content}
       </div>
+      <MessageMeta text={message.content} createdAt={message.createdAt} align="right" />
     </div>
   )
 }
@@ -211,32 +212,19 @@ function PendingAssistant({
   pendingDelta
 }: PendingAssistantProps): React.JSX.Element {
   return (
-    <div className="flex gap-3">
-      <Avatar kind="claude" size={28} />
-      <div className="flex-1 pt-[3px]">
-        <MsgHeader
-          author="Claude"
-          status={
-            <StatusLine
-              turnStartedAt={turnStartedAt}
-              approxFromText={approxFromText}
-              inputTokensFinal={inputTokensFinal}
-            />
-          }
-        />
-        <div className="flex flex-col gap-2.5 text-[13.5px] leading-[1.65] text-ink">
-          {pendingDelta ? <Markdown source={pendingDelta} /> : <p className="text-ink3">…</p>}
-        </div>
-      </div>
+    <div className="flex flex-col gap-2.5 text-[14px] leading-[1.7] text-ink">
+      {pendingDelta && <Markdown source={pendingDelta} />}
+      <StatusLine
+        turnStartedAt={turnStartedAt}
+        approxFromText={approxFromText}
+        inputTokensFinal={inputTokensFinal}
+        outputApproxFromText={pendingDelta}
+      />
     </div>
   )
 }
 
-export function ChatPane({
-  chat,
-  backendLabel,
-  authorName = '나'
-}: ChatPaneProps): React.JSX.Element {
+export function ChatPane({ chat, backendLabel }: ChatPaneProps): React.JSX.Element {
   const { state, send, cancel } = chat
   const [draft, setDraft] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -302,7 +290,7 @@ export function ChatPane({
         )}
         {state.messages.map((m, i) =>
           m.role === 'user' ? (
-            <UserMessage key={i} message={m} authorName={authorName} />
+            <UserMessage key={i} message={m} />
           ) : (
             <AssistantMessage key={i} message={m} />
           )

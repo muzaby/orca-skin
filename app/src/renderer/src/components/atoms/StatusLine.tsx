@@ -34,6 +34,8 @@ export interface StatusLineProps {
   approxFromText?: string
   /** result.usage.inputTokens — 도착 시 approxFromText 대신 표시. */
   inputTokensFinal?: number
+  /** 스트리밍 중인 어시스턴트 응답 텍스트 — 출력 토큰 동적 추정용. */
+  outputApproxFromText?: string
   /** Phase B 에서 사용. 현재는 항상 undefined. */
   thinkingActive?: boolean
   thoughtDurationMs?: number
@@ -43,6 +45,7 @@ export function StatusLine({
   turnStartedAt,
   approxFromText,
   inputTokensFinal,
+  outputApproxFromText,
   thinkingActive,
   thoughtDurationMs
 }: StatusLineProps): React.JSX.Element | null {
@@ -85,6 +88,11 @@ export function StatusLine({
     return null
   }, [inputTokensFinal, approxFromText])
 
+  const outputTokensLabel = useMemo(() => {
+    if (!outputApproxFromText || outputApproxFromText.length === 0) return null
+    return `~${formatTokens(approximateTokens(outputApproxFromText))}`
+  }, [outputApproxFromText])
+
   if (turnStartedAt == null) return null
 
   const elapsedSec = Math.max(0, Math.floor((Math.max(now, turnStartedAt) - turnStartedAt) / 1000))
@@ -104,6 +112,7 @@ export function StatusLine({
       <span>{verb}…</span>
       <span className="font-mono text-[11px] text-ink3">
         ({elapsedSec}s{tokensLabel ? ` · ↑ ${tokensLabel}` : ''}
+        {outputTokensLabel ? ` · ↓ ${outputTokensLabel}` : ''}
         {thoughtLabel ? ` · ${thoughtLabel}` : ''})
       </span>
     </span>
