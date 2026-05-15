@@ -10,6 +10,12 @@
 | 범위 | Phase 1 MVP 본문. Phase 2~4 / Future Scope = §10 anchor only |
 | 미정 항목 처리 | PRD §11 Open Questions 는 **여기서 결정하지 않는다.** "결정 후 결정값으로 대체" 표시만 둔다. |
 
+> **Phase 1 단일 백엔드 결정 (2026-05-13)**
+> Phase 1 MVP 는 **`claude-code` 단일 백엔드** 로 구현한다. `opencode` 어댑터는 `SessionAdapter` 인터페이스로만 자리를 남겨두고 **§10 future anchor** 로 이동했다. 따라서 §4 의 `@opencode-ai/sdk` 와 §7.2 (OpencodeAdapter) 는 *예약 사양* 으로 본다 — 코드에는 구현되어 있지 않다. AdapterRegistry 는 claude-code 만 등록한 상태에서 동작한다 (OQ7 는 자동으로 무관). 자세한 채택 표는 `docs/claude-code-spec.md §11` 도 함께 본다.
+
+> **Preload 노출 표면 축소 결정 (2026-05-13)**
+> preload `window.orca` 는 **renderer 가 실제 호출하는 채널만** 노출한다 (principle of least privilege). Phase 2 활성 6채널: `chat:send`/`chat:event`/`chat:cancel`/`backend:list`/`install:start`/`install:status`. 이전 Q1 ("`backend:select` 유지") 결정은 본 정책 도입으로 **취소** — 단일 백엔드에서 사용처가 없으므로 main 핸들러까지 함께 제거했다. `settings:get`/`settings:set` 도 동일 사유로 Phase 2 범위 밖. 향후 사용처가 생기면 (멀티 백엔드 / 영속화) 한 PR 에서 preload+main+CHANNELS 를 함께 다시 등록한다. zod 스키마 (`shared/protocol.ts`) 는 main 전용이며, preload 는 zod 비종속의 `shared/ipc.ts` 만 import 한다 (`sandbox: true` 호환).
+
 ---
 
 ## 1. 문서의 목적과 범위
@@ -51,7 +57,7 @@ PRD §6.2 의 N1~N6 을 구현 가능한 형태로 변환한다.
 |---|---|---|
 | N1 | **플랫폼** | Windows x64 1차 지원. macOS (arm64 + x64), Linux (x64) 는 후순위. Electron 다중 빌드 (`electron-builder.yml`) |
 | N2 | **i18n** | 한국어 라벨 (`src/shared/i18n/ko.ts`). 기술 용어/터미널 출력은 영어 그대로. |
-| N3 | **접근성** | 키보드 단축키: 새 대화 (Ctrl+N), 전송 (Ctrl+Enter), Tweaks 패널 (Shift+T 등, architecture.md 참조). 다크모드는 Tweaks 경유 (CSS 변수 override). ARIA label은 주요 UI 요소에. |
+| N3 | **접근성** | 키보드 단축키: 새 대화 (Ctrl+N), **전송 (Enter), 줄바꿈 (Shift+Enter)**, Tweaks 패널 (Shift+T 등, architecture.md 참조). 다크모드는 Tweaks 경유 (CSS 변수 override). ARIA label은 주요 UI 요소에. (전송 키 결정: 2026-05-13 — chat 류 앱 관례를 따라 Ctrl+Enter 대신 Enter 단일 키로 변경) |
 | N4 | **데이터 위치** | 세션 본체: CLI 저장소 (Claude Code: `~/.claude/projects/<cwd>/<id>.jsonl`, opencode: `~/.local/share/opencode/` 등). 앱: 메모리에 `sessionId` 변수 1개만 보유. Phase 2+ `electron-store` (선택값·마지막 세션 ID 등) |
 | N5 | **응답 지연 가이드** | 첫 토큰까지 지연, 시작 시간 SLA = OQ6. 목표치가 정해지면 본 섹션 갱신. |
 | N6 | **보안** | OAuth/API 키 미저장 (CLI 관리). 마크다운 렌더링 시 XSS sanitize (react-markdown 기본). Electron contextIsolation=true, sandbox=true 적용 (상세는 architecture.md §2). |
@@ -93,24 +99,30 @@ electron-vite 환경 기준. 표 밖 의존성 추가 시 **사용자 승인 필
 - `domain`: 기능 영역 (chat, backend, install, settings)
 - `action`: 동작 (send, event, cancel, list, select, start, status, get, set)
 
-### 5.2 채널 카탈로그 (확정 8개)
+### 5.2 채널 카탈로그
+
+Phase 2 활성 6채널 — preload + main 양쪽에 등록.
 
 | 채널 | 방향 | 요청 페이로드 (TS) | 응답·스트림 | zod 스키마 |
 |---|---|---|---|---|
 | `orca:chat:send` | R→M (invoke) | `{ sessionId: string \| null; text: string; }` | ChatEvent stream (M→R send) | SendChatMessage |
 | `orca:chat:event` | M→R (send) | — | `ChatEvent` (반복) | ChatEvent union |
 | `orca:chat:cancel` | R→M (invoke) | `{ sessionId: string; }` | `{ ok: true }` | CancelChat |
-| `orca:backend:list` | R→M (invoke) | — | `{ backends: Backend[]; active?: Backend; }` | BackendList |
-| `orca:backend:select` | R→M (invoke) | `{ backend: Backend; }` | `{ ok: true }` | SelectBackend |
+| `orca:backend:list` | R→M (invoke) | — | `{ backends: Backend[]; active?: Backend; }` | (검증 생략) |
 | `orca:install:start` | R→M (invoke) | `{ backend: Backend; }` | InstallStatus stream (M→R send) | StartInstall |
 | `orca:install:status` | M→R (send) | — | `{ step: string; progress?: number; error?: string; }` | InstallStatus |
-| `orca:settings:get` | R→M (invoke) | `{ key: string; }` | `{ value: unknown; }` | GetSettings |
-| `orca:settings:set` | R→M (invoke) | `{ key: string; value: unknown; }` | `{ ok: true }` | SetSettings |
+
+Phase 2 범위 밖 (코드 등록 없음 — 사용처 도입 시 재추가):
+
+| 채널 | 사유 |
+|---|---|
+| `orca:backend:select` | 단일 백엔드 운영, 선택 호출자 없음 |
+| `orca:settings:get` / `orca:settings:set` | Phase 2+ `electron-store` 영속화 도입 시 재등록 |
 
 ### 5.3 `window.orca` API (Preload 화이트리스트)
 
 ```typescript
-// src/preload/index.ts 에서 노출
+// src/preload/index.ts 에서 노출 (Phase 2 활성 표면)
 interface OrcaApi {
   chat: {
     send(req: { sessionId: string | null; text: string }): Promise<void>;
@@ -119,15 +131,10 @@ interface OrcaApi {
   };
   backend: {
     list(): Promise<{ backends: Backend[]; active?: Backend }>;
-    select(backend: Backend): Promise<void>;
   };
   install: {
     start(backend: Backend): Promise<void>;
     onStatus(handler: (st: InstallStatus) => void): () => void;
-  };
-  settings: {
-    get(key: string): Promise<unknown>;
-    set(key: string, value: unknown): Promise<void>;
   };
 }
 
@@ -138,7 +145,9 @@ declare global {
 }
 ```
 
-Renderer 코드는 `window.orca.*` 만으로 통신 (ipcRenderer 직접 접근 금지).
+Renderer 코드는 `window.orca.*` 만으로 통신 (ipcRenderer 직접 접근 금지). `backend.select` / `settings.*` 는 사용처가 생기는 PR 에서 다시 노출한다.
+
+**Preload 안전 import 정책**: preload 는 `sandbox: true` 로 실행되므로 Node `require` 가 화이트리스트 (`electron`, `events`, `timers`, `url`) 로 제한된다. 따라서 preload 는 zod 가 끼어있는 `src/shared/protocol.ts` 를 **import 하지 않는다**. CHANNELS 상수와 순수 TS 타입은 별도 파일 `src/shared/ipc.ts` (zod 0 의존) 에 두고, preload + renderer 가 이 파일을 import 한다. zod 스키마는 main 측 IPC 라우터에서만 사용.
 
 ### 5.4 스트림 종료 신호
 
@@ -271,10 +280,11 @@ Phase 1은 메모리만, Phase 2+에서 `electron-store` 로 영속화. 인터�
 
 **설치 탐지**:
 
-| 항목 | 명령 | 성공 기준 |
+| 항목 | 명령 / 절차 | 성공 기준 |
 |---|---|---|
-| 설치 여부 | `which claude` (POSIX) / `where claude` (Windows) | exit code 0 |
-| 버전 확인 | `claude --version` | 출력에 버전 번호 |
+| 설치 여부 (POSIX) | `which claude` | exit code 0, 출력은 절대경로 |
+| 설치 여부 (Windows) | `npm prefix -g` 결과 하위 `node_modules/@anthropic-ai/claude-code/` 에서 `claude.exe` 재귀 검색 | 파일 발견. `.cmd` shim 은 의도적으로 우회 (멀티라인 인자 truncation 회피 — `app/src/main/adapters/claude-code.ts:145-148` 주석, 커밋 `15d3ee0` / `20bc418`) |
+| 버전 확인 | `"<binPath>" --version` (절대경로 인용) | 출력에 버전 번호 |
 
 **자동 설치**:
 ```
@@ -283,12 +293,15 @@ npm install -g @anthropic-ai/claude-code
 
 **메시지 전송** (매 턴):
 ```
-claude -p "<text>" --output-format stream-json [--resume <sessionId>]
+"<binPath>" -p "<text>" --output-format stream-json --verbose --include-partial-messages [--resume <sessionId>]
 ```
-- `-p <text>`: 사용자 입력
+- `-p <text>`: 사용자 입력 (멀티라인 그대로 — `shell: false` + POSIX `execve` 가 argv 바이트를 손실 없이 전달)
 - `--output-format stream-json`: NDJSON 형식 (필수)
+- `--verbose --include-partial-messages`: `text_delta` 토큰 스트리밍 (Phase 2 채택, `claude-code-spec.md §4`)
 - `--resume <sessionId>`: 2턴 이상에서 조건부 추가 (sessionId != null)
 - `cwd`: spawn 의 `{ cwd }` 옵션에 전달
+- `stdio: ['ignore', 'pipe', 'pipe']`: child stdin 명시적 close — CLI 가 non-TTY 환경에서 stdin EOF 를 기다리는 분기 차단
+- `shell: false`: 절대경로 직접 spawn — shell 메타문자 인젝션 표면 제거 + Windows `.cmd` shim 우회
 
 **첫 응답에서 sessionId 추출**:
 - Claude Code stdout의 첫 이벤트 (`system` 또는 `init` 타입)에서 `session_id` 필드 추출
@@ -445,6 +458,7 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 - **(anchor) electron-updater + GitHub Releases** — OQ3 패키징·배포 전략에서 함께 결정.
 - **(anchor) Auto-update 채널** — OQ3.
 - **(anchor) 하드웨어 어댑터 (BoardAdapter)** — USB/카메라 제어. `src/main/adapters/board.ts` 예약, 네이티브 모듈 (`orca-board.node`, libusb) Phase 2~3.
+- **(anchor) opencode 어댑터** — Phase 1 에서는 미구현. §7.2 의 사양 (서버 라이프사이클, SDK 호출, SSE 매핑) 그대로 살아있으나 코드는 인터페이스 후크만 남아있다. claude-code 단독 운영이 안정화되면 도입.
 - **(anchor) OpenAI Compatible 백엔드** — `SessionAdapter` 인터페이스 재활용 가능. 3번째 어댑터 구현체 추가.
 - **(anchor) Skills / MCP / Captures / Projects** — PRD §9 Future Scope. 별도 IPC 도메인 + 모듈 추가.
 - **(anchor) 멀티 세션 / 과거 대화 목록** — Phase 3+. 인터페이스 `SessionAdapter.listSessions?()` / `loadSession?()` 이미 예약. Sidebar 세션 리스트 UI는 Phase 4.

@@ -52,7 +52,7 @@ claude -p "What does the auth module do?"
 
 `-p` 와 함께 쓰는 모든 플래그의 정식 분류는 `docs/spec/claude/cli-reference.md` 가 SSOT. 본 문서는 *Orca 관점에서 의미가 있는 플래그* 만 다룬다 (§14 카탈로그 참조).
 
-✅ **Orca v1 채택** — ClaudeCodeAdapter 가 매 턴 `claude -p "<text>" --output-format stream-json [--resume <id>]` 형식으로 `child_process.spawn` 한다 (`TRD.md §7.1`, `architecture.md §5.4`). 입력은 `-p` 인자로 전달하고, `cwd` 는 spawn 옵션에 둔다.
+✅ **Orca v1 채택** — ClaudeCodeAdapter 가 매 턴 `claude -p "<text>" --output-format stream-json --verbose --include-partial-messages [--resume <id>]` 형식으로 `child_process.spawn` 한다 (`TRD.md §7.1`, `architecture.md §5.4`). 입력은 `-p` 인자로 전달하고, `cwd` 는 spawn 옵션에 둔다.
 
 ---
 
@@ -242,7 +242,10 @@ claude -p "Apply the lint fixes" --permission-mode acceptEdits
 3. `--permission-mode acceptEdits` 로 편집 자동 승인, 네트워크/임의 Bash 는 프롬프트.
 4. `--permission-mode dontAsk` (CI 모드) — 데스크톱 챗에는 부적합.
 
-결정 시 본 절을 갱신하고 TRD §7.1 명령 라인에 플래그를 추가한다.
+후보 (future work):
+1. `--allowedTools "Read,Edit,Bash"` 등 *읽기·기본 편집* 만 사전 승인.
+2. `--permission-mode acceptEdits` 로 편집 자동 승인, 네트워크/임의 Bash 는 프롬프트.
+3. `--permission-mode dontAsk` (CI 모드) — 데스크톱 챗에는 부적합.
 
 ---
 
@@ -391,7 +394,7 @@ CLI (`claude -p`) 외에 [Python](https://code.claude.com/docs/ko/agent-sdk/pyth
 |---|---|
 | 진입 경로 | CLI (`claude -p`) — `child_process.spawn` |
 | 출력 포맷 | `--output-format stream-json` (필수) |
-| 토큰 스트리밍 | `--verbose --include-partial-messages` (검토 중) |
+| 토큰 스트리밍 | `--verbose --include-partial-messages` (Phase 1 적용) |
 | 세션 재개 | `--resume <sessionId>` — 2턴 이상에서 |
 | 세션 ID 발급 | 첫 `system/init` 이벤트의 `session_id` (수신). 사전 발급 (`--session-id`) 은 OQ — §7.4 |
 | 세션 분기 | `--fork-session` 미사용 — Phase 3 *대화 분기* UI anchor |
@@ -410,6 +413,7 @@ CLI (`claude -p`) 외에 [Python](https://code.claude.com/docs/ko/agent-sdk/pyth
 | Agent SDK | 미사용 (Phase 3+ anchor) |
 | 인증 만료 감지 | stdout/stderr 의 `401` / `OAuth` / `expired` 패턴 매칭 |
 | 환경변수 | PATH (npm 글로벌 bin), HOME, `CLAUDE_*` (필요 시) |
+| `cwd` | `app.getPath('home')` — 사용자 홈 디렉토리. 프로젝트별 cwd 선택 UI 는 future work |
 
 ---
 

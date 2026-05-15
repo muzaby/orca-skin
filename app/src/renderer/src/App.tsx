@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Frame } from './app/Frame'
 import { Titlebar } from './app/Titlebar'
 import { Sidebar } from './app/Sidebar'
@@ -12,6 +12,10 @@ import { TweaksPanel, TweakSection, TweakRadio, TweakToggle } from './app/Tweaks
 import { useTweaks } from './app/useTweaks'
 import { SCREENS, type ScreenId } from './app/screens'
 import { DENSITY_FONT, type ThemeId, type DensityId } from './app/theme'
+import { useChat } from './state/useChat'
+import { useBackend } from './state/useBackend'
+import { InstallerDialog } from './components/install/InstallerDialog'
+import { AuthExpiredModal } from './components/auth/AuthExpiredModal'
 
 interface Tweaks {
   theme: ThemeId
@@ -28,23 +32,37 @@ const TWEAK_DEFAULTS: Tweaks = {
 function App(): React.JSX.Element {
   const [screen, setScreen] = useState<ScreenId>('chat')
   const [t, setTweak] = useTweaks<Tweaks>(TWEAK_DEFAULTS)
+  const chat = useChat()
+  const backend = useBackend()
+  const [installerOpen, setInstallerOpen] = useState(false)
+  const autoOpenedRef = useRef(false)
 
-  // Theme — set `data-theme` on <html>; tokens.css overrides --color-*
-  // variables under each scope, so all Tailwind utilities re-resolve.
   useEffect(() => {
     document.documentElement.dataset.theme = t.theme
   }, [t.theme])
 
-  // Density — root font-size cascades to rem-based Tailwind spacing.
   useEffect(() => {
     document.documentElement.style.fontSize = DENSITY_FONT[t.density] + 'px'
   }, [t.density])
+
+  // 백엔드 탐지 후 미설치면 인스톨러 노출 (최초 1회만 자동 오픈)
+  useEffect(() => {
+    if (backend.loading || autoOpenedRef.current) return
+    const cc = backend.list.find((b) => b.id === 'claude-code')
+    if (cc && !cc.installed) {
+      autoOpenedRef.current = true
+      queueMicrotask(() => setInstallerOpen(true))
+    }
+  }, [backend.loading, backend.list])
+
+  const claudeCode = backend.list.find((b) => b.id === 'claude-code')
+  const backendLabel = claudeCode?.version ? `Claude Code · ${claudeCode.version}` : 'Claude Code'
 
   let body: React.ReactNode
   if (screen === 'chat') {
     body = (
       <>
-        <ChatPane />
+        <ChatPane chat={chat} backendLabel={backendLabel} />
         <CameraPane />
       </>
     )
@@ -54,6 +72,7 @@ function App(): React.JSX.Element {
   else body = <CapturesPlaceholder />
 
   const current = SCREENS.find((s) => s.id === screen)!
+  const authExpired = chat.state.error?.code === 'auth.expired'
 
   return (
     <>
@@ -61,7 +80,14 @@ function App(): React.JSX.Element {
         <Frame label={`Orca · ${current.label}`}>
           <Titlebar breadcrumb={current.breadcrumb} />
           <div className="flex min-h-0 flex-1">
-            <Sidebar active={screen} collapsed={t.sidebarCollapsed} onSelect={setScreen} />
+            <Sidebar
+              active={screen}
+              collapsed={t.sidebarCollapsed}
+              onSelect={setScreen}
+              onNewChat={chat.newChat}
+              backendLabel={backendLabel}
+              backendInstalled={claudeCode?.installed === true}
+            />
             {body}
           </div>
         </Frame>
@@ -96,6 +122,23 @@ function App(): React.JSX.Element {
           onChange={(v) => setTweak('sidebarCollapsed', v)}
         />
       </TweaksPanel>
+
+      <InstallerDialog
+        open={installerOpen}
+        onClose={() => setInstallerOpen(false)}
+        onComplete={() => {
+          setInstallerOpen(false)
+          void backend.refresh()
+        }}
+      />
+
+      <AuthExpiredModal
+        open={authExpired}
+        onNewChat={() => {
+          chat.newChat()
+        }}
+        onDismiss={chat.clearError}
+      />
     </>
   )
 }

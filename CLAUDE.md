@@ -28,7 +28,9 @@
 | 제품 정의 (PRD v1) | 완료 — `docs/PRD.md` |
 | 구현 사양 (TRD v1) | 완료 — `docs/TRD.md` (Tailwind CSS 결정 반영 §2, §9.5) |
 | 스캐폴드 (electron-vite react-ts + Tailwind CSS) | 완료 — `app/` |
-| **Phase 1 MVP 구현** | **진행 전** — 다음 작업 단위 |
+| Phase 1 (mockup 시각 재현 + Tailwind v4) | 완료 — `app/src/renderer/` |
+| **Phase 2 (claude-code 단일 어댑터 + 채팅 IPC)** | **완료** — `app/src/main/`, `app/src/preload/` |
+| 후속 (opencode 어댑터·캡처 실 구현·영속화·테스트) | Future Scope |
 
 ## 핵심 원칙 (모든 에이전트 공통)
 
