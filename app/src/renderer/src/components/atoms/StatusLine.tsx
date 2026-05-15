@@ -104,17 +104,21 @@ export function StatusLine({
         ? `thought for ${Math.round(thoughtDurationMs / 1000)}s`
         : null
 
+  const showCounter = elapsedSec >= 5
+
   return (
     <span className="inline-flex items-center gap-1.5 text-[12px] font-normal text-ink2">
       <span className="w-3 text-center text-rust" aria-hidden>
         {SYMBOLS[symbolIdx]}
       </span>
       <span>{verb}…</span>
-      <span className="font-mono text-[11px] text-ink3">
-        ({formatElapsed(elapsedSec)}
-        {outputTokensLabel ? ` · ↓ ${outputTokensLabel}` : ''}
-        {thoughtLabel ? ` · ${thoughtLabel}` : ''})
-      </span>
+      {showCounter && (
+        <span className="font-mono text-[11px] text-ink3">
+          ({formatElapsed(elapsedSec)}
+          {outputTokensLabel ? ` · ↓ ${outputTokensLabel}` : ''}
+          {thoughtLabel ? ` · ${thoughtLabel}` : ''})
+        </span>
+      )}
     </span>
   )
 }

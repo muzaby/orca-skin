@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Icon } from '../components/atoms/Icon'
 import { Dot } from '../components/atoms/Status'
+import { CopyIconButton } from '../components/atoms/CopyIconButton'
 import { StatusLine } from '../components/atoms/StatusLine'
 import { Markdown } from '../components/markdown/Markdown'
 import type { UseChat } from '../state/useChat'
@@ -113,34 +114,6 @@ function ToolCard({ call }: { call: ToolCall }): React.JSX.Element {
         </div>
       )}
     </div>
-  )
-}
-
-interface CopyIconButtonProps {
-  text: string
-}
-
-function CopyIconButton({ text }: CopyIconButtonProps): React.JSX.Element {
-  const [copied, setCopied] = useState(false)
-  const onClick = async (): Promise<void> => {
-    try {
-      await navigator.clipboard.writeText(text)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
-    } catch {
-      // clipboard unavailable — silent no-op
-    }
-  }
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="grid h-6 w-6 cursor-pointer place-items-center rounded border-0 bg-transparent text-ink3 hover:bg-cream-100 hover:text-ink2"
-      title={copied ? '복사됨' : '메시지 복사'}
-      aria-label="메시지 복사"
-    >
-      <Icon name={copied ? 'check' : 'copy'} size={12} />
-    </button>
   )
 }
 

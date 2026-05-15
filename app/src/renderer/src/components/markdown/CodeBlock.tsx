@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createHighlighter, type Highlighter } from 'shiki'
+import { CopyIconButton } from '../atoms/CopyIconButton'
 
 const LANGUAGES = [
   'typescript',
@@ -79,18 +80,33 @@ export function CodeBlock({ code, lang }: CodeBlockProps): React.JSX.Element {
   const isStale = hl != null && (hl.code !== code || hl.lang !== safeLang || hl.theme !== theme)
   const html = !isStale && hl ? hl.html : null
 
+  // 헤더에 표시할 언어 라벨 — 지원 언어면 safeLang, 미지원이면 원본 lang 그대로, 없으면 빈 문자열
+  const langLabel = safeLang !== 'text' ? safeLang : (lang ?? '')
+
+  const header = (
+    <div className="flex items-center justify-between border-b border-border bg-panel px-3 py-1 text-[11px] text-ink3">
+      <span className="font-mono lowercase">{langLabel}</span>
+      <div className="opacity-0 transition-opacity duration-200 group-hover:opacity-100 focus-within:opacity-100">
+        <CopyIconButton text={code} title="코드 복사" />
+      </div>
+    </div>
+  )
+
   if (html) {
     return (
-      <div
-        className="my-2 overflow-hidden rounded-lg border border-border [&_pre]:m-0 [&_pre]:overflow-auto [&_pre]:p-3 [&_pre]:text-[12.5px] [&_pre]:leading-[1.55]"
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
+      <div className="group my-2 overflow-hidden rounded-lg border border-border [&_pre]:m-0 [&_pre]:overflow-auto [&_pre]:p-3 [&_pre]:text-[12.5px] [&_pre]:leading-[1.55]">
+        {header}
+        <div dangerouslySetInnerHTML={{ __html: html }} />
+      </div>
     )
   }
   return (
-    <pre className="my-2 overflow-auto rounded-lg border border-border bg-panel p-3 text-[12.5px] leading-[1.55] text-ink">
-      <code>{code}</code>
-    </pre>
+    <div className="group my-2 overflow-hidden rounded-lg border border-border bg-panel">
+      {header}
+      <pre className="m-0 overflow-auto p-3 text-[12.5px] leading-[1.55] text-ink">
+        <code>{code}</code>
+      </pre>
+    </div>
   )
 }
 
