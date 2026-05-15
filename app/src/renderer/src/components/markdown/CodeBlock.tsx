@@ -86,7 +86,7 @@ export function CodeBlock({ code, lang }: CodeBlockProps): React.JSX.Element {
   const header = (
     <div className="flex items-center justify-between border-b border-border bg-panel px-3 py-1 text-[11px] text-ink3">
       <span className="font-mono lowercase">{langLabel}</span>
-      <div className="opacity-0 transition-opacity duration-200 group-hover:opacity-100 focus-within:opacity-100">
+      <div className="opacity-0 transition-opacity duration-200 group-hover/codeblock:opacity-100 focus-within:opacity-100">
         <CopyIconButton text={code} title="코드 복사" />
       </div>
     </div>
@@ -94,14 +94,14 @@ export function CodeBlock({ code, lang }: CodeBlockProps): React.JSX.Element {
 
   if (html) {
     return (
-      <div className="group my-2 overflow-hidden rounded-lg border border-border [&_pre]:m-0 [&_pre]:overflow-auto [&_pre]:p-3 [&_pre]:text-[12.5px] [&_pre]:leading-[1.55]">
+      <div className="group/codeblock my-2 overflow-hidden rounded-lg border border-border [&_pre]:m-0 [&_pre]:overflow-auto [&_pre]:p-3 [&_pre]:text-[12.5px] [&_pre]:leading-[1.55]">
         {header}
         <div dangerouslySetInnerHTML={{ __html: html }} />
       </div>
     )
   }
   return (
-    <div className="group my-2 overflow-hidden rounded-lg border border-border bg-panel">
+    <div className="group/codeblock my-2 overflow-hidden rounded-lg border border-border bg-panel">
       {header}
       <pre className="m-0 overflow-auto p-3 text-[12.5px] leading-[1.55] text-ink">
         <code>{code}</code>
