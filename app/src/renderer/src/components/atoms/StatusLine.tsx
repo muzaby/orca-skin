@@ -16,7 +16,6 @@ const VERBS = [
 ]
 
 const SYMBOL_INTERVAL_MS = 200
-const VERB_INTERVAL_MS = 3000
 const ELAPSED_INTERVAL_MS = 1000
 
 function approximateTokens(text: string): number {
@@ -28,13 +27,27 @@ function formatTokens(n: number): string {
   return `${(n / 1000).toFixed(n < 10000 ? 1 : 0)}k tokens`
 }
 
+// 60s 이상: `Nm Ns`, 60m (3600s) 이상: `Nh Nm Ns`
+function formatElapsed(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`
+  if (seconds < 3600) {
+    const m = Math.floor(seconds / 60)
+    const s = seconds % 60
+    return `${m}m ${s}s`
+  }
+  const h = Math.floor(seconds / 3600)
+  const m = Math.floor((seconds % 3600) / 60)
+  const s = seconds % 60
+  return `${h}h ${m}m ${s}s`
+}
+
+function pickVerb(): string {
+  return VERBS[Math.floor(Math.random() * VERBS.length)]
+}
+
 export interface StatusLineProps {
   turnStartedAt: number | null
-  /** 사용자 입력 텍스트 (대략 토큰 추정용). result.usage 도착 전 표시. */
-  approxFromText?: string
-  /** result.usage.inputTokens — 도착 시 approxFromText 대신 표시. */
-  inputTokensFinal?: number
-  /** 스트리밍 중인 어시스턴트 응답 텍스트 — 출력 토큰 동적 추정용. */
+  /** 스트리밍 중인 어시스턴트 응답 텍스트 — 출력 토큰 동적 추정용. 빈 문자열이면 토큰 절 미표시. */
   outputApproxFromText?: string
   /** Phase B 에서 사용. 현재는 항상 undefined. */
   thinkingActive?: boolean
@@ -43,14 +56,17 @@ export interface StatusLineProps {
 
 export function StatusLine({
   turnStartedAt,
-  approxFromText,
-  inputTokensFinal,
   outputApproxFromText,
   thinkingActive,
   thoughtDurationMs
 }: StatusLineProps): React.JSX.Element | null {
   const [symbolIdx, setSymbolIdx] = useState(0)
-  const [verb, setVerb] = useState(() => VERBS[Math.floor(Math.random() * VERBS.length)])
+  // verb 는 한 응답 내에서 고정, 새 응답 (turnStartedAt 변경) 마다 재선택.
+  // useMemo 가 turnStartedAt 변경 시 재실행되도록 의도적으로 의존성에 포함.
+  const verb = useMemo(() => {
+    void turnStartedAt
+    return pickVerb()
+  }, [turnStartedAt])
   // now 는 1s 마다 setInterval 콜백에서 갱신 — effect body 안의 setState 가 아니라
   // 콜백이므로 react-hooks/set-state-in-effect 통과. turnStartedAt 변경 시 lazy
   // initializer 가 재실행되지 않으므로 effect 안에서도 한 번 동기화한다.
@@ -71,22 +87,6 @@ export function StatusLine({
     }, SYMBOL_INTERVAL_MS)
     return () => clearInterval(t)
   }, [turnStartedAt])
-
-  useEffect(() => {
-    if (turnStartedAt == null) return
-    const t = setInterval(() => {
-      setVerb(VERBS[Math.floor(Math.random() * VERBS.length)])
-    }, VERB_INTERVAL_MS)
-    return () => clearInterval(t)
-  }, [turnStartedAt])
-
-  const tokensLabel = useMemo(() => {
-    if (inputTokensFinal != null) return formatTokens(inputTokensFinal)
-    if (approxFromText && approxFromText.length > 0) {
-      return `~${formatTokens(approximateTokens(approxFromText))}`
-    }
-    return null
-  }, [inputTokensFinal, approxFromText])
 
   const outputTokensLabel = useMemo(() => {
     if (!outputApproxFromText || outputApproxFromText.length === 0) return null
@@ -111,7 +111,7 @@ export function StatusLine({
       </span>
       <span>{verb}…</span>
       <span className="font-mono text-[11px] text-ink3">
-        ({elapsedSec}s{tokensLabel ? ` · ↑ ${tokensLabel}` : ''}
+        ({formatElapsed(elapsedSec)}
         {outputTokensLabel ? ` · ↓ ${outputTokensLabel}` : ''}
         {thoughtLabel ? ` · ${thoughtLabel}` : ''})
       </span>

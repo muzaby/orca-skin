@@ -190,7 +190,7 @@ interface UserMessageProps {
 function UserMessage({ message }: UserMessageProps): React.JSX.Element {
   return (
     <div className="group flex flex-col items-end">
-      <div className="max-w-[75%] whitespace-pre-wrap rounded-2xl bg-[#F0EEE6] px-4 py-2.5 text-[14px] leading-[1.7] text-ink">
+      <div className="max-w-[75%] whitespace-pre-wrap rounded-2xl bg-bubble-user px-4 py-2.5 text-[14px] leading-[1.7] text-ink">
         {message.content}
       </div>
       <MessageMeta text={message.content} createdAt={message.createdAt} align="right" />
@@ -200,26 +200,17 @@ function UserMessage({ message }: UserMessageProps): React.JSX.Element {
 
 interface PendingAssistantProps {
   turnStartedAt: number | null
-  approxFromText: string
-  inputTokensFinal?: number
   pendingDelta: string
 }
 
 function PendingAssistant({
   turnStartedAt,
-  approxFromText,
-  inputTokensFinal,
   pendingDelta
 }: PendingAssistantProps): React.JSX.Element {
   return (
     <div className="flex flex-col gap-2.5 text-[14px] leading-[1.7] text-ink">
       {pendingDelta && <Markdown source={pendingDelta} />}
-      <StatusLine
-        turnStartedAt={turnStartedAt}
-        approxFromText={approxFromText}
-        inputTokensFinal={inputTokensFinal}
-        outputApproxFromText={pendingDelta}
-      />
+      <StatusLine turnStartedAt={turnStartedAt} outputApproxFromText={pendingDelta} />
     </div>
   )
 }
@@ -248,7 +239,6 @@ export function ChatPane({ chat, backendLabel }: ChatPaneProps): React.JSX.Eleme
   const title = state.messages.find((m) => m.role === 'user')?.content.slice(0, 60) ?? '새 대화'
 
   const showPendingAssistant = state.inflight
-  const lastUserText = [...state.messages].reverse().find((m) => m.role === 'user')?.content ?? ''
 
   return (
     <section className="flex min-w-0 flex-1 flex-col bg-bg">
@@ -296,12 +286,7 @@ export function ChatPane({ chat, backendLabel }: ChatPaneProps): React.JSX.Eleme
           )
         )}
         {showPendingAssistant && (
-          <PendingAssistant
-            turnStartedAt={state.turnStartedAt}
-            approxFromText={lastUserText}
-            inputTokensFinal={state.pendingInputTokens}
-            pendingDelta={state.pendingDelta}
-          />
+          <PendingAssistant turnStartedAt={state.turnStartedAt} pendingDelta={state.pendingDelta} />
         )}
         {state.error && (
           <div className="rounded-[10px] border border-rust bg-rust-soft px-3 py-2 text-[12.5px] text-ink">
