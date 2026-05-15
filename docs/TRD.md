@@ -37,7 +37,7 @@ PRD §6.1 의 F1~F10 을 *수용 기준* 으로 구체화한다.
 | F1 | **Chat 입력/스트리밍** | Composer, MessageList, useEngineStream | 전송 즉시 첫 `assistant_delta` 가 N ms 내 도착 (SLA는 OQ6), 토큰 단위 누적 표시, 마지막 `assistant_message` 로 완성본 교체 | §6.1 |
 | F2 | **마크다운 렌더링** | Markdown, react-markdown + shiki | 본문 + 코드 블록 syntax highlighting, 타겟 언어: Python·JavaScript·TypeScript·Bash 등 (shiki 제공 범위), 안전성: markdown 구현체의 sanitize 기본 적용 | §6.1 |
 | F3 | **도구 호출 표시** | ToolCallCard, MessageList | `tool_use` 이벤트 도착 시 카드 생성 (이름·입력 JSON 표시), 같은 `toolUseId` 의 `tool_result` 도착 시 카드에 결과·소요시간 추가, 상태 전이: pending → running → completed/failed | §6.1 |
-| F4 | **단일 활성 대화 컨텍스트** | ChatState (reducer), Adapter | 같은 `sessionId` 를 매 턴 CLI에 전달 (`--resume <id>` / same session HTTP call), Renderer는 `sessionId` 변수 1개만 메모리 보관, CLI가 이전 턴들을 복원 | §6.1 |
+| F4 | **단일 활성 대화 컨텍스트** | ChatState (reducer), Adapter | 같은 `sessionId` 를 매 턴 어댑터에 전달. Renderer는 `sessionId` 변수 1개만 메모리 보관. 어댑터(Phase 2.5: 영구 stdin child + lazy 재spawn fallback / opencode: 같은 session HTTP call) 가 컨텍스트 복원 책임을 진다 | §6.1 |
 | F5 | **새 대화** | ChatShell ("새 대화" 버튼) | `sessionId = null` 리셋 → reducer 메시지 배열·pendingDelta 초기화, 다음 전송 시 `sendMessage(null, ...)` 호출 → 어댑터가 ID 발급 (`init` 이벤트에서 추출) | §6.1 |
 | F6 | **백엔드 선택** | AdapterRegistry, BackendSelector UI | 시작 시 병렬 `isInstalled()` → (둘 다/한쪽/없음) 결과. 둘 다 설치: 사용자 선택 또는 OQ7 정책. 한쪽: 자동 선택. 없음: 인스톨러 트리거. v1에서 세션 중 전환 불가 | §6.1 |
 | F7 | **CLI 설치 자동화** | Installer (IPC `orca:install:*`) | 둘 다 미설치 → 다이얼로그 (npm / curl 선택) → child_process 실행 → 라인 단위 status 스트림 → 완료/실패 표시 | §6.1 |
@@ -58,8 +58,8 @@ PRD §6.2 의 N1~N6 을 구현 가능한 형태로 변환한다.
 | N1 | **플랫폼** | Windows x64 1차 지원. macOS (arm64 + x64), Linux (x64) 는 후순위. Electron 다중 빌드 (`electron-builder.yml`) |
 | N2 | **i18n** | 한국어 라벨 (`src/shared/i18n/ko.ts`). 기술 용어/터미널 출력은 영어 그대로. |
 | N3 | **접근성** | 키보드 단축키: 새 대화 (Ctrl+N), **전송 (Enter), 줄바꿈 (Shift+Enter)**, Tweaks 패널 (Shift+T 등, architecture.md 참조). 다크모드는 Tweaks 경유 (CSS 변수 override). ARIA label은 주요 UI 요소에. (전송 키 결정: 2026-05-13 — chat 류 앱 관례를 따라 Ctrl+Enter 대신 Enter 단일 키로 변경) |
-| N4 | **데이터 위치** | 세션 본체: CLI 저장소 (Claude Code: `~/.claude/projects/<cwd>/<id>.jsonl`, opencode: `~/.local/share/opencode/` 등). 앱: 메모리에 `sessionId` 변수 1개만 보유. Phase 2+ `electron-store` (선택값·마지막 세션 ID 등) |
-| N5 | **응답 지연 가이드** | 첫 토큰까지 지연, 시작 시간 SLA = OQ6. 목표치가 정해지면 본 섹션 갱신. |
+| N4 | **데이터 위치** | 세션 본체: CLI 저장소 (Claude Code: `~/.claude/projects/<cwd>/<id>.jsonl`, opencode: `~/.local/share/opencode/` 등). 앱: 메모리에 `sessionId` 변수 1개 + (Phase 2.5) 어댑터에 `child` / `idleTimer` / `lastSessionId` 보유. Phase 2+ `electron-store` (선택값·마지막 세션 ID 등) |
+| N5 | **응답 지연 가이드 (1턴/2턴 분리)** | (a) **1턴 / lazy 재spawn 후 first-token SLA** — 새 spawn 비용 (CLI 부팅 + `--resume` 시 jsonl 재진입) 을 포함. (b) **2턴 이상 first-token SLA** — 살아있는 child 의 stdin write → 첫 `assistant_delta` 까지. (a) 보다 빨라야 영구 세션의 의의가 있다. 구체 수치는 OQ6 — Phase 2.5 측정 후 결정. idle-recovery 의 첫 토큰은 (a) 와 동급으로 평가. |
 | N6 | **보안** | OAuth/API 키 미저장 (CLI 관리). 마크다운 렌더링 시 XSS sanitize (react-markdown 기본). Electron contextIsolation=true, sandbox=true 적용 (상세는 architecture.md §2). |
 
 ---
@@ -291,26 +291,53 @@ Phase 1은 메모리만, Phase 2+에서 `electron-store` 로 영속화. 인터�
 npm install -g @anthropic-ai/claude-code
 ```
 
-**메시지 전송** (매 턴):
+**메시지 전송 — Phase 2.5 영구 stdin 세션 모델**:
+
+ChatSession 1개당 child 1개 (lazy spawn). 정상 흐름은 살아있는 child 의 stdin 재사용, fallback 만 새 spawn + `--resume`.
+
 ```
-"<binPath>" -p "<text>" --output-format stream-json --verbose --include-partial-messages [--resume <sessionId>]
+# spawn (세션당 1회, lazy — 첫 user 메시지 시):
+"<binPath>" -p --input-format stream-json --output-format stream-json --verbose --include-partial-messages [--resume <sessionId>]
+
+# stdin write (매 턴):
+{"type":"user","message":{"role":"user","content":[{"type":"text","text":"<사용자 입력>"}]}}\n
 ```
-- `-p <text>`: 사용자 입력 (멀티라인 그대로 — `shell: false` + POSIX `execve` 가 argv 바이트를 손실 없이 전달)
-- `--output-format stream-json`: NDJSON 형식 (필수)
-- `--verbose --include-partial-messages`: `text_delta` 토큰 스트리밍 (Phase 2 채택, `claude-code-spec.md §4`)
-- `--resume <sessionId>`: 2턴 이상에서 조건부 추가 (sessionId != null)
+
+- `-p`: 비대화형 모드 진입 (argv 에는 user 텍스트를 더이상 싣지 않음)
+- `--input-format stream-json`: stdin 을 NDJSON 라인으로 받음 — 영구 세션의 핵심
+- `--output-format stream-json`: NDJSON 출력 (필수)
+- `--verbose --include-partial-messages`: `text_delta` 토큰 스트리밍 (`claude-code-spec.md §4`)
+- `--resume <sessionId>`: **fallback 시에만** 추가 — (1) idle 회수 후 재개, (2) crash recovery (exit ≠ 0), (3) 재로그인. 정상 흐름·신규 세션은 미사용
 - `cwd`: spawn 의 `{ cwd }` 옵션에 전달
-- `stdio: ['ignore', 'pipe', 'pipe']`: child stdin 명시적 close — CLI 가 non-TTY 환경에서 stdin EOF 를 기다리는 분기 차단
-- `shell: false`: 절대경로 직접 spawn — shell 메타문자 인젝션 표면 제거 + Windows `.cmd` shim 우회
+- `stdio: ['pipe', 'pipe', 'pipe']`: stdin 도 pipe 유지 (영구 세션이므로 spawn 직후 close 하지 않음). EOF 는 idle 회수 / 세션 종료 시점에만 보냄
+- `shell: false`: 절대경로 직접 spawn — shell 메타문자 인젝션 표면 제거 + Windows `.cmd` shim 우회 (Phase 2 와 동일)
+
+**어댑터 보유 상태**:
+
+| 필드 | 타입 | 의미 |
+|---|---|---|
+| `child` | `ChildProcessWithoutNullStreams \| null` | 현재 세션의 살아있는 child. null 이면 lazy spawn 대상 |
+| `idleTimer` | `NodeJS.Timeout \| null` | `result` 이벤트 후 시작되는 5분 카운트다운. `null` = OFF |
+| `lastSessionId` | `string \| null` | child 가 죽어도 보존되는 세션 ID. fallback spawn 의 `--resume` 인자 |
+
+**Idle timeout 정책**:
+
+- `IDLE_TIMEOUT_MS = 5 * 60 * 1000` (5분 고정)
+- 타이머 가동 시점: `result` 이벤트 (정상 답변 완료) 수신 직후
+- 타이머 정지 시점: 다음 stdin write (턴 시작) 직전
+- **`in-turn` 상태 (`result` 이전 어시스턴트 스트리밍·도구 호출 중) 동안 타이머는 OFF** — 5분 넘는 어시스턴트 응답·도구 호출은 자원 회수 대상이 *아니다*.
+- 만료 (ready 상태에서만 발생): `child.stdin.end()` → 2초 grace → 미종료 시 `SIGTERM` → child 폐기. `lastSessionId` 보존.
+- 다음 `sendMessage()` 호출 시: child 가 null 이면 lazy 재spawn 시 `--resume <lastSessionId>` 자동 추가.
 
 **첫 응답에서 sessionId 추출**:
 - Claude Code stdout의 첫 이벤트 (`system` 또는 `init` 타입)에서 `session_id` 필드 추출
 - 이를 `ChatEvent { type: 'init', data: { sessionId: ... } }` 로 정규화
-- Renderer가 받아서 `sessionId` 변수에 저장
+- Renderer 가 받아서 `sessionId` 변수에 저장. 어댑터도 `lastSessionId` 갱신.
 
 **인증 만료 감지**:
 - stdout/stderr에서 `401` / `"OAuth"` / `"expired"` 패턴 → `error / auth.expired`
-- UI: `claude /login` 명령 카피 버튼 + 새 대화 권유
+- 검출 시 child 종료 (좀비 잔존 방지) → `lastSessionId` 보존 → UI 모달
+- UI: `claude /login` 명령 카피 버튼 + "재로그인 후 다시 메시지를 보내면 같은 대화가 이어집니다" 안내. 다음 user 메시지에 `--resume <lastSessionId>` lazy 재spawn.
 
 **환경변수**:
 
@@ -319,6 +346,8 @@ npm install -g @anthropic-ai/claude-code
 | `PATH` | 사용자 셸 PATH 상속 | npm 글로벌 bin 경로 포함 필수 |
 | `HOME` | 사용자 홈 디렉토리 | Claude Code가 `~/.claude/projects/<cwd>/` 에 jsonl 저장 |
 | `CLAUDE_*` | (OQ에서 확정) | 필요 시만 |
+
+> **Legacy (Phase 2 까지)**: `"<binPath>" -p "<text>" --output-format stream-json --verbose --include-partial-messages [--resume <sessionId>]` 로 매 턴 새 프로세스를 spawn 했고, `stdio: ['ignore', 'pipe', 'pipe']` 로 stdin 을 즉시 close 했다. Phase 2.5 부터는 위 영구 stdin 모델이 정상 흐름. Legacy 경로는 코드에서 완전 제거하지 않고 *crash recovery / 단발성 도구 호출* fallback 으로 보존한다.
 
 ### 7.2 OpencodeAdapter
 

@@ -152,13 +152,13 @@ Renderer (UI) → Electron IPC → Common Interface → `ClaudeCodeAdapter` 또�
 
 | 항목 | Claude Code | opencode |
 |---|---|---|
-| 프로세스 모델 | One-shot: 매 턴 새 프로세스 | Long-running server: 한 번 띄워 유지 |
-| 컨텍스트 보관 위치 | `~/.claude/projects/<cwd>/<session-id>.jsonl` | 서버 메모리 + SQLite (`~/.local/share/opencode/`) |
-| 세션 ID 발급 시점 | 첫 `claude -p` 응답의 `system/init` 이벤트 | `POST /session` 응답 |
-| 이어가기 | `claude -p "..." --resume <id>` | 같은 `session_id` 로 HTTP 재호출 |
-| GUI 호출 방식 | `child_process.spawn` 매 턴 | HTTP 클라이언트 (SDK) |
+| 프로세스 모델 | 세션당 영구 stdin child (Phase 2.5: lazy spawn, 5분 idle 후 회수). Legacy: 매 턴 spawn (Phase 2) | Long-running server: 한 번 띄워 유지 |
+| 컨텍스트 보관 위치 | 살아있는 child 메모리 + `~/.claude/projects/<cwd>/<session-id>.jsonl` | 서버 메모리 + SQLite (`~/.local/share/opencode/`) |
+| 세션 ID 발급 시점 | 첫 `claude -p` 응답의 `system/init` 이벤트 (이후 stdin 재사용 동안 유지) | `POST /session` 응답 |
+| 이어가기 | 살아있는 child 의 stdin 에 user NDJSON 한 줄 write. child 폐기 시 새 spawn + `--resume <id>` (fallback) | 같은 `session_id` 로 HTTP 재호출 |
+| GUI 호출 방식 | `child_process.spawn` (세션당 1회) + 이후 stdin write | HTTP 클라이언트 (SDK) |
 | 스트리밍 | stdout NDJSON | HTTP SSE/스트림 |
-| GUI 보유 상태 | `sessionId` 문자열 1개 | `sessionId` + 서버 핸들 |
+| GUI 보유 상태 | `sessionId` 문자열 1개 (child 핸들·idle 타이머는 어댑터 내부) | `sessionId` + 서버 핸들 |
 | **GUI 의 컨텍스트 관리 코드** | **0 줄** | **0 줄** |
 
 > Claude Code CLI 의 플래그·NDJSON 이벤트 스키마·세션 관리 상세는 [`claude-code-spec.md`](./claude-code-spec.md) 참조 (단일 출처).
@@ -258,7 +258,7 @@ Renderer (UI) → Electron IPC → Common Interface → `ClaudeCodeAdapter` 또�
 | OQ3 | 패키징/배포 (electron-builder target, macOS notarization, Windows code signing, 자동 업데이트 채널)? | 전략 비커버. |
 | OQ4 | 텔레메트리/에러 리포팅 정책? 옵트인? | 전략 비커버. |
 | OQ5 | 라이센스 (오픈/상용)? | 전략 비커버. |
-| OQ6 | 시작 시간 / 첫 토큰 지연 SLA 수치? | N5 와 연결. |
+| OQ6 | 시작 시간 / 첫 토큰 지연 SLA 수치? — Phase 2.5 영구 stdin 세션 도입으로 (a) **1턴 / lazy 재spawn 후 first-token** 과 (b) **2턴 이상 first-token** 두 SLA 로 분리. (b) 가 (a) 보다 빨라야 영구 세션 의의. 구체 수치는 Phase 2.5 측정 후 결정 (보류). | N5 / TRD §3 N5 와 연결. |
 | OQ7 | 두 CLI 가 모두 설치된 경우 기본 백엔드 선택 정책 (사용자 명시 / 마지막 사용 / Claude Code 우선)? | F6 보강. |
 | OQ8 | "새 대화" 시 직전 세션을 Phase 3 목록에 어떻게 노출할지? | Phase 2/3 진입 시 결정. |
 | OQ9 | Claude Code 도구 권한 정책 — `--allowedTools` / `--permission-mode` / `--bare` 의 MVP 기본값? | [`claude-code-spec.md`](./claude-code-spec.md) §5 참조. 후보: 미지정 / Read+Edit+Bash 사전승인 / `acceptEdits`. |

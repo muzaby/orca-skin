@@ -9,8 +9,8 @@
 | 출력 대상 | 코드 작성 에이전트 / 코드 리뷰어 |
 | 범위 | Phase 1 정적 구조 + 동적 흐름. Phase 2~4 확장점은 §11 anchor |
 
-> **현 구현 상태 (2026-05-14)**
-> Phase 1 시각 재현 + Phase 2 채팅 IPC 까지 완료. 본문은 *목표 아키텍처* 를 다루므로 `OpencodeAdapter` (§5.5) 와 Settings store (§5.7) 는 **예약 사양** 으로 읽을 것. preload 가 실제 노출하는 채널은 TRD §5.2 의 "Phase 2 활성 6채널" 만 — `backend:select` / `settings:get` / `settings:set` 은 미노출 (`docs/TRD.md` §17 참조).
+> **현 구현 상태 (2026-05-15)**
+> Phase 1 시각 재현 + Phase 2 채팅 IPC 까지 완료. **§5.4 (ClaudeCodeAdapter 영구 stdin 세션) 와 §7 시퀀스 #1~#4 는 Phase 2.5 *목표 사양*** — 현재 코드는 Phase 2 의 매 턴 spawn / `--resume` 모델 (Legacy 박스) 로 동작한다. `OpencodeAdapter` (§5.5) 와 Settings store (§5.7) 는 **예약 사양** 으로 읽을 것. preload 가 실제 노출하는 채널은 TRD §5.2 의 "Phase 2 활성 6채널" 만 — `backend:select` / `settings:get` / `settings:set` 은 미노출 (`docs/TRD.md` §17 참조).
 
 ---
 
@@ -366,46 +366,102 @@ interface SessionAdapter {
 
 어댑터는 이 인터페이스 구현 → 내부 구현 방식은 자유 (spawn vs HTTP vs 다른 방식).
 
-### 5.4 ClaudeCodeAdapter 내부 구현
+### 5.4 ClaudeCodeAdapter 내부 구현 (Phase 2.5 — 영구 stdin 세션)
 
-> 본 절은 어댑터의 *내부 구조*(파서·버퍼·환경변수 전달)만 다룬다. CLI 외부 인터페이스(플래그·NDJSON 이벤트 스키마·세션 재개) 는 [`claude-code-spec.md`](./claude-code-spec.md) 가 단일 출처. 정규화된 `ChatEvent` 매핑 표는 spec §4 끝의 채택 박스 참조.
+> 본 절은 어댑터의 *내부 구조*(상태 머신·파서·버퍼·환경변수 전달)만 다룬다. CLI 외부 인터페이스(플래그·NDJSON 이벤트 스키마·세션 재개) 는 [`claude-code-spec.md`](./claude-code-spec.md) 가 단일 출처. 정규화된 `ChatEvent` 매핑 표는 spec §4 끝의 채택 박스 참조.
 
-**spawn args** (`app/src/main/adapters/claude-code.ts:284-292`):
+**상태 머신**:
+
 ```
-[binPath, '-p', text,
+                     sendMessage(sid=null, text)   ← lazy: 첫 user 메시지가 트리거
+                                │
+                                ▼
+   [ no child ]  ─── spawn (lazy) ───►  [ spawning ]
+        ▲                                       │
+        │                                       │ first system/init 이벤트
+        │                                       │ (session_id → lastSessionId)
+        │                                       ▼
+        │                            [ ready (idle 타이머 ON, 5min) ]
+        │                                   │   ▲
+        │                       stdin write │   │ result 이벤트 (정상 답변 완료)
+        │                       (idle 타이머 │   │ → idle 타이머 RESET 후 ON
+        │                        OFF / 정지) │   │
+        │                                   ▼   │
+        │                       [ in-turn (idle 타이머 OFF) ]
+        │                                   │     ※ 여기 5분이 지나도 회수 안 함
+        │                                   │       (긴 응답·도구 호출은 idle 이 아님)
+        │ idle timeout (5min, ready 상태에서만)
+        │ → child.stdin.end() → grace 2s → SIGTERM
+        ├──────── child crash / stderr 401 ──────┤
+        ▼                                        │
+   [ no child + lastSessionId 보존 ] ◄── kill ───┘
+        │
+        │ sendMessage(sid=<saved>, text)   ← lazy 재개: 다음 user 메시지가 트리거
+        ▼
+   spawn (with `--resume <sid>`) → [ spawning ] (위 흐름 반복)
+```
+
+핵심:
+- **child 는 일시적, sessionId 는 영속적**. ChatSession 자체는 sessionId 1개로 정의되고 child 는 spawning/ready/in-turn 사이를 오가며 idle/crash 시 폐기·재생성된다.
+- **idle 타이머는 `[ready]` 상태에서만 동작**. `[in-turn]` 동안에는 OFF — 어시스턴트가 5분 넘게 스트리밍·도구 호출을 해도 자원 회수 대상이 아니다. 회수는 *정상 답변 완료(`result` 이벤트) 이후* 사용자 응답이 5분간 없을 때만.
+- **lazy 의 의미**: 세션이 만들어졌거나 앱이 막 켜졌다는 사실만으로는 spawn 하지 않는다. 사용자가 *그 세션에서 첫 user 메시지를 실제로 보내는 순간* 에 spawn — 첫 spawn 과 idle 후 재spawn 이 같은 코드 경로(lazy)를 공유.
+
+**spawn args** (Phase 2.5 — 세션당 1회, lazy):
+```
+[binPath, '-p',
+ '--input-format', 'stream-json',
  '--output-format', 'stream-json',
  '--verbose',
  '--include-partial-messages',
- ...(sessionId ? ['--resume', sessionId] : [])]
+ ...(lastSessionId ? ['--resume', lastSessionId] : [])]
+```
+- 사용자 텍스트는 argv 에 *없다*. 매 턴 stdin 에 NDJSON 한 줄 write.
+- `--resume` 은 fallback (idle 회수 후 재개 / crash recovery / 재로그인) 일 때만 추가.
+
+**stdin write (매 턴)**:
+```typescript
+child.stdin.write(JSON.stringify({
+  type: 'user',
+  message: { role: 'user', content: [{ type: 'text', text }] }
+}) + '\n')
 ```
 
-**Windows 분기 — `.cmd` shim 회피** (`claude-code.ts:145-185`):
-- POSIX: `which claude` → 절대경로 그대로 spawn (`shell: false`).
-- Windows: `npm prefix -g` 결과 하위에서 `claude.exe` 를 재귀 검색 → 절대경로 spawn (`shell: false`). `.cmd` shim 을 우회하는 이유는 cmd 인자 파서가 `\n` 을 만난 뒤 *나머지 argv 까지 truncate* 하기 때문 (멀티라인 프롬프트 + `--output-format` 동시 누락 회귀, 커밋 `15d3ee0`).
+**stdio 정책**:
+- `stdio: ['pipe', 'pipe', 'pipe']`. stdin 도 pipe — child 가 살아있는 동안 stdin 을 닫지 않는다 (Phase 2 의 `'ignore'` 에서 변경). EOF 는 idle 회수 / 세션 종료 시점에만 보낸다.
 
-**stdio 정책** (`claude-code.ts:189-201`):
-- `stdio: ['ignore', 'pipe', 'pipe']`. child stdin 을 *명시적으로 닫는다* — Claude CLI 가 non-TTY 환경에서 stdin EOF 를 기다리는 분기로 갈 여지 차단 (커밋 `20bc418`).
+**Idle 타이머**:
+- `IDLE_TIMEOUT_MS = 5 * 60 * 1000`.
+- `result` 이벤트 수신 직후 `setTimeout(reclaim, IDLE_TIMEOUT_MS)`.
+- stdin write 직전 `clearTimeout` 으로 타이머 정지 — `in-turn` 동안 OFF.
+- 만료 시: `child.stdin.end()` → 2초 grace timer → 미종료면 `child.kill('SIGTERM')` → child 폐기 + `lastSessionId` 보존.
+
+**Windows 분기 — `.cmd` shim 회피** (Phase 2 와 동일, 변경 없음):
+- POSIX: `which claude` → 절대경로 그대로 spawn (`shell: false`).
+- Windows: `npm prefix -g` 결과 하위에서 `claude.exe` 를 재귀 검색 → 절대경로 spawn (`shell: false`). `.cmd` shim 을 우회하는 이유는 cmd 인자 파서가 `\n` 을 만난 뒤 *나머지 argv 까지 truncate* 하기 때문 — Phase 2.5 에서는 user 텍스트가 argv 에 없으므로 멀티라인 truncation 위험은 사라졌지만, 절대경로 / `shell: false` 정책은 **보안 이유로 유지** (셸 메타문자 인젝션 표면 제거).
 
 **`install()` 의 npm spawn 만 예외**:
-- Windows 에서 `npm.cmd` shim 만 존재해 `shell: IS_WIN` 유지. 인자가 정적이고 special chars 없으므로 truncation 위험 없음 (`claude-code.ts:220-229`).
+- Windows 에서 `npm.cmd` shim 만 존재해 `shell: IS_WIN` 유지. 인자가 정적이고 special chars 없으므로 truncation 위험 없음.
 
 **stdout NDJSON 파싱**:
-- spawn의 stdout을 라인 단위 분할
-- 부분 라인은 버퍼에 보관, 다음 chunk와 합쳐서 파싱
-- 파싱 실패 라인 → `error / protocol.parse` 이벤트
+- 영구 child 의 stdout 을 라인 단위 분할 (Phase 2 와 동일한 `drainLines` / `normalizeLine` 재사용).
+- 부분 라인은 버퍼에 보관, 다음 chunk와 합쳐서 파싱.
+- 한 child 의 stdout 위에서 여러 턴이 순차로 흐르므로 `result` 이벤트마다 *현재 턴 listener 만* 해제하고 child 는 살려둔다.
+- 파싱 실패 라인 → `error / protocol.parse` 이벤트.
 
 **sessionId 추출**:
-- 첫 stdout 이벤트 (`system` 또는 `init` 타입)에서 `session_id` 필드 추출
-- `ChatEvent { type: 'init', sessionId: <extracted> }` 로 정규화
-- Renderer가 수신 후 변수에 저장
+- 첫 spawn 의 첫 stdout 이벤트 (`system` / `init` 타입)에서 `session_id` 필드 추출.
+- `ChatEvent { type: 'init', sessionId: <extracted> }` 로 정규화.
+- Renderer 는 변수에 저장. 어댑터도 `lastSessionId` 갱신 — child 가 죽어도 보존.
 
 **인증 만료 감지**:
-- stdout/stderr 전체 스트림에서 `401` / `OAuth` / `expired` 패턴 매칭
-- 감지 시 `error / auth.expired` 이벤트 발행
+- stdout/stderr 전체 스트림에서 `401` / `OAuth` / `expired` 패턴 매칭.
+- 감지 시 `error / auth.expired` 이벤트 발행 + child 종료 (좀비 잔존 방지). `lastSessionId` 는 보존 → 재로그인 후 다음 메시지에 lazy 재spawn + `--resume`.
 
 **환경변수 전달**:
-- spawn의 `env` 옵션에 사용자 PATH·HOME 포함
-- CLI가 `~/.claude/projects/<cwd>/` 에 jsonl 저장 → 재개 시 복원
+- spawn의 `env` 옵션에 사용자 PATH·HOME 포함.
+- CLI가 `~/.claude/projects/<cwd>/` 에 jsonl 저장 → fallback 재spawn 시 `--resume <lastSessionId>` 로 복원.
+
+> **Legacy (Phase 2)**: 매 턴 새 spawn + `-p <text>` argv + `stdio: ['ignore', 'pipe', 'pipe']` 모델은 §5.4 의 Legacy 박스로 보존되며 *crash recovery / 단발성 도구 호출* 용으로만 사용한다. 완전 제거는 Phase 2.5 안정화 이후 별도 결정.
 
 ### 5.5 OpencodeAdapter 내부 구현 *(예약 사양 — Phase 1/2 미구현)*
 
@@ -606,7 +662,7 @@ Tailwind CSS v4 는 `tailwind.config.js` 없이 **CSS-first** 로 동작한다. 
 
 ## 7. Data Flow (Sequence Diagrams)
 
-### 시퀀스 #1: 메시지 전송 1턴 (sessionId 미발급)
+### 시퀀스 #1: 메시지 전송 1턴 (sessionId 미발급, lazy spawn)
 
 ```
 사용자 입력 (Composer)
@@ -624,48 +680,48 @@ Composer [전송] 버튼 클릭
   │
   ├─ window.orca.chat.send({ sessionId: null, text: "hello" })
   │
-  ▼
-ipcRenderer.invoke('orca:chat:send', { ... })
-  │
   ▼ (IPC 경계)
   │
   ▼
 ipcMain.handle('orca:chat:send', async (event, req) => {
-  const validated = SendChatMessageSchema.parse(req);  // zod 검증
+  const validated = SendChatMessageSchema.parse(req);
   const adapter = registry.getActive();
-  
+
   for await (const ev of adapter.sendMessage(null, "hello", cwd)) {
     event.sender.send('orca:chat:event', ev);
   }
 })
   │
   ├─ ClaudeCodeAdapter.sendMessage(null, "hello", cwd)
-  │   ├─ spawn('claude', ['-p', 'hello', '--output-format', 'stream-json'])
+  │   ├─ child 가 null → lazy spawn:
+  │   │   spawn('claude', [
+  │   │     '-p',
+  │   │     '--input-format',  'stream-json',
+  │   │     '--output-format', 'stream-json',
+  │   │     '--verbose',
+  │   │     '--include-partial-messages'
+  │   │   ])  ※ user 텍스트는 argv 에 없음. lastSessionId 도 null 이라 --resume 없음
+  │   │
+  │   ├─ stdin write:
+  │   │   {"type":"user","message":{"role":"user","content":[{"type":"text","text":"hello"}]}}\n
   │   │
   │   ├─ stdout 라인 1: { "type": "system", "session_id": "sess_123" }
   │   │   ├─ parse → normalize
+  │   │   ├─ lastSessionId = 'sess_123' (어댑터 보유)
   │   │   └─ yield ChatEvent { type: 'init', sessionId: 'sess_123' }
   │   │
   │   ├─ stdout 라인 2: { "type": "assistant_delta", "text": "I " }
-  │   │   ├─ parse → normalize
   │   │   └─ yield ChatEvent { type: 'assistant_delta', text: 'I ' }
-  │   │
-  │   ├─ stdout 라인 3: { "type": "assistant_delta", "text": "can " }
-  │   │   └─ yield ChatEvent { type: 'assistant_delta', text: ' can ' }
   │   │
   │   ├─ ... (이어서 delta 스트림)
   │   │
-  │   └─ stdout 라인 N: { "type": "finish", ... }
-  │       └─ yield ChatEvent { type: 'result' }
+  │   └─ stdout 라인 N: { "type": "result", ... }
+  │       ├─ yield ChatEvent { type: 'result' }
+  │       ├─ idle 타이머 START (5min, ready 상태)
+  │       └─ child 는 살아있는 채로 다음 user write 대기
   │
-  ├─ event.sender.send('orca:chat:event', { type: 'init', sessionId: 'sess_123' })
-  │
-  ├─ event.sender.send('orca:chat:event', { type: 'assistant_delta', text: 'I ' })
-  │
-  ├─ event.sender.send('orca:chat:event', { type: 'assistant_delta', text: ' can ' })
-  │
-  └─ event.sender.send('orca:chat:event', { type: 'result' })
-  
+  └─ event.sender.send('orca:chat:event', ...)  (각 ev 마다)
+
   ▼ (IPC 경계)
   │
   ▼
@@ -675,15 +731,8 @@ Renderer: window.orca.chat.onEvent(cb)
   │   ├─ dispatch(RECV_EVENT(ev1))
   │   └─ state.sessionId = 'sess_123'
   │
-  ├─ ev2: { type: 'assistant_delta', text: 'I ' }
-  │   ├─ dispatch(RECV_EVENT(ev2))
-  │   ├─ pendingDelta += 'I '
-  │   └─ 16ms debounce 리렌더 (MessageList 업데이트)
-  │
-  ├─ ev3: { type: 'assistant_delta', text: ' can ' }
-  │   ├─ dispatch(RECV_EVENT(ev3))
-  │   ├─ pendingDelta += ' can '
-  │   └─ 리렌더: "I can " 표시
+  ├─ ev2..N-1: assistant_delta
+  │   └─ pendingDelta 누적 + 16ms debounce 리렌더
   │
   └─ evN: { type: 'result' }
       ├─ dispatch(RECV_EVENT(evN))
@@ -691,10 +740,10 @@ Renderer: window.orca.chat.onEvent(cb)
       └─ [전송] 버튼 다시 활성화
 ```
 
-### 시퀀스 #2: 메시지 전송 2턴 (sessionId 재사용)
+### 시퀀스 #2: 메시지 전송 2턴 (살아있는 child 의 stdin 재사용 — spawn 없음)
 
 ```
-(이전 세션에서 sessionId = 'sess_123' 저장됨)
+(시퀀스 #1 직후. sessionId = 'sess_123', 어댑터 child 살아있음, idle 타이머 ON)
 
 사용자 입력: "what's next?"
   │
@@ -705,18 +754,21 @@ Renderer: window.orca.chat.onEvent(cb)
   ▼
 ClaudeCodeAdapter.sendMessage('sess_123', "what's next?", cwd)
   │
-  ├─ spawn('claude', ['-p', "what's next?", '--output-format', 'stream-json', '--resume', 'sess_123'])
-  │   ├─ CLI가 ~/.claude/projects/<cwd>/sess_123.jsonl 읽기
-  │   ├─ 이전 메시지들 로드 (컨텍스트 복원)
-  │   └─ 새 메시지와 함께 LLM 호출
+  ├─ child 살아있음 → spawn 없음. --resume 도 없음.
   │
-  ├─ stdout: { type: 'init', session_id: 'sess_123' }
-  │   └─ 같은 ID 반환 (또는 생략)
+  ├─ idle 타이머 STOP (clearTimeout — in-turn 진입)
+  │
+  ├─ stdin write:
+  │   {"type":"user","message":{"role":"user","content":[{"type":"text","text":"what's next?"}]}}\n
   │
   ├─ stdout: { type: 'assistant_delta', text: "Building on " }
   │   └─ yield
   │
-  └─ ... (이어서 response)
+  ├─ ... (이어서 response)
+  │
+  └─ stdout 라인 N: { type: 'result' }
+      ├─ yield ChatEvent { type: 'result' }
+      └─ idle 타이머 RESTART (5min)
 
 Renderer:
   │
@@ -725,7 +777,77 @@ Renderer:
   └─ pendingDelta 누적 + 리렌더
 ```
 
-### 시퀀스 #3: 인스톨러 흐름
+### 시퀀스 #3: idle timeout 회수 (5분 ready)
+
+```
+(시퀀스 #2 result 직후. child 는 ready, idle 타이머 5min 카운트 시작)
+
+  T+0:00   result 이벤트 도착, idle 타이머 START (5min)
+            child 는 살아있음 (ready 상태)
+
+  T+...    사용자가 다른 작업 중. user write 없음.
+            ※ in-turn 진입 시 (다음 메시지 전송 시) 타이머는 즉시 STOP — 회수 안 함.
+
+  T+5:00   idle 타이머 만료
+  │
+  ├─ child.stdin.end()         ← EOF 전달, CLI 가 jsonl flush 후 자연 종료 유도
+  │
+  ├─ setTimeout(2000, () => { ... })  grace 2s 대기
+  │
+  └─ (2s 후 child 가 아직 살아있으면)
+      child.kill('SIGTERM')
+      │
+      ├─ child = null
+      ├─ idleTimer = null
+      └─ lastSessionId = 'sess_123' 보존  ← 어댑터 메모리에 남음
+
+  ※ Renderer 상태에는 변화 없음. UX 상 idle 회수는 *사용자에게 보이지 않음*.
+    다음 user 메시지가 오면 시퀀스 #4 로 lazy 재spawn.
+```
+
+### 시퀀스 #4: idle 후 재개 / crash recovery / 재로그인 (lazy 재spawn + --resume)
+
+```
+(시퀀스 #3 직후 또는 child crash / 401 후. child 는 null, lastSessionId = 'sess_123')
+
+사용자 입력: "give me more details"
+  │
+  ├─ window.orca.chat.send({ sessionId: 'sess_123', text: "give me more details" })
+  │
+  ▼ (IPC)
+  │
+  ▼
+ClaudeCodeAdapter.sendMessage('sess_123', "give me more details", cwd)
+  │
+  ├─ child 가 null → lazy 재spawn:
+  │   spawn('claude', [
+  │     '-p',
+  │     '--input-format',  'stream-json',
+  │     '--output-format', 'stream-json',
+  │     '--verbose',
+  │     '--include-partial-messages',
+  │     '--resume', 'sess_123'        ← lastSessionId 가 있으므로 추가
+  │   ])
+  │   │
+  │   └─ CLI 가 ~/.claude/projects/<cwd>/sess_123.jsonl 읽기 → 이전 컨텍스트 복원
+  │
+  ├─ stdin write:
+  │   {"type":"user","message":{"role":"user","content":[{"type":"text","text":"give me more details"}]}}\n
+  │
+  ├─ stdout: { "type": "system", "session_id": "sess_123" }   ← 같은 ID
+  │   ├─ lastSessionId 갱신 (동일 값)
+  │   └─ yield ChatEvent { type: 'init', sessionId: 'sess_123' }
+  │
+  ├─ stdout: assistant_delta 스트림
+  │
+  └─ stdout: result → idle 타이머 START (5min) → child ready
+
+Renderer:
+  │
+  └─ idle/crash 여부 *무관* 하게 동일 UX. 단, 첫 토큰 지연은 시퀀스 #1 과 같은 SLA (lazy spawn 비용 포함).
+```
+
+### 시퀀스 #5: 인스톨러 흐름
 
 ```
 앱 부트 → AdapterRegistry.isInstalled() 병렬 호출
@@ -790,7 +912,7 @@ Renderer: window.orca.install.onStatus(cb)
      └─ 일반 채팅 모드로 복귀
 ```
 
-### 시퀀스 #4: 백엔드 자동 선택 (부트)
+### 시퀀스 #6: 백엔드 자동 선택 (부트)
 
 ```
 앱 부트 (main/index.ts)
@@ -868,7 +990,10 @@ app.on('window-all-closed')
   │   ├─ 5초 대기
   │   └─ (응답 없으면) child.kill('SIGKILL')
   │
-  ├─ (ClaudeCode) 자식 프로세스 없음 (매 턴마다 종료)
+  ├─ (ClaudeCode, Phase 2.5) 살아있는 모든 세션 child 에 대해
+  │   ├─ idleTimer clearTimeout
+  │   ├─ child.stdin.end()  → grace 2s
+  │   └─ (응답 없으면) child.kill('SIGTERM')
   │
   └─ app.quit()
      └─ main 프로세스 종료

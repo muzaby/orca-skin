@@ -23,7 +23,8 @@ Claude Code 는 [Agent SDK](https://code.claude.com/docs/ko/agent-sdk/overview)�
 
 | 진입 경로 | 호출 방식 | Orca 사용 여부 |
 |---|---|---|
-| **CLI** (`claude -p`) | `child_process.spawn` 으로 매 턴 새 프로세스 | ✅ Phase 1 채택 (TRD §7.1) |
+| **CLI** (`claude -p`, 영구 stdin 세션) | `child_process.spawn` 으로 **세션당 1회** spawn — 이후 stdin NDJSON 으로 멀티턴 (`--input-format stream-json`). 5분 idle 후 child 회수, 다음 메시지에 `--resume` 으로 lazy 재spawn | ✅ **Phase 2.5 채택** (TRD §7.1) |
+| **CLI** (`claude -p`, one-shot — Legacy) | `child_process.spawn` 으로 매 턴 새 프로세스 + `-p <text>` argv | ⏳ Phase 2 까지의 모델. crash recovery / 단발성 도구 호출 fallback 으로 코드 보존 |
 | **Python SDK** (`claude-agent-sdk`) | Python 프로세스 임베드 | ❌ 미사용 (§10) |
 | **TypeScript SDK** (`@anthropic-ai/claude-agent-sdk`) | Node 프로세스 임베드 | ❌ 미사용 — 향후 검토 anchor (§10) |
 
@@ -52,7 +53,7 @@ claude -p "What does the auth module do?"
 
 `-p` 와 함께 쓰는 모든 플래그의 정식 분류는 `docs/spec/claude/cli-reference.md` 가 SSOT. 본 문서는 *Orca 관점에서 의미가 있는 플래그* 만 다룬다 (§14 카탈로그 참조).
 
-✅ **Orca v1 채택** — ClaudeCodeAdapter 가 매 턴 `claude -p "<text>" --output-format stream-json --verbose --include-partial-messages [--resume <id>]` 형식으로 `child_process.spawn` 한다 (`TRD.md §7.1`, `architecture.md §5.4`). 입력은 `-p` 인자로 전달하고, `cwd` 는 spawn 옵션에 둔다.
+✅ **Orca v1 채택 (Phase 2.5)** — ClaudeCodeAdapter 가 ChatSession 1개당 1회 `claude -p --input-format stream-json --output-format stream-json --verbose --include-partial-messages [--resume <id>]` 형식으로 `child_process.spawn` 한다 (`TRD.md §7.1`, `architecture.md §5.4`). 사용자 입력은 `-p` 의 argv 가 아닌 **stdin 의 user NDJSON 라인** 으로 매 턴 전달되며, child 는 `result` 이벤트 후 5분 idle 까지 살아남는다. `cwd` 는 spawn 옵션에 둔다. 과거 매 턴 spawn (`-p "<text>"` argv 단발) 모델은 §7.2 Legacy 박스 참조.
 
 ---
 
@@ -294,16 +295,26 @@ claude -p "Continue that review" --resume "$session_id"
 
 세션 컨텍스트는 Claude Code 가 `~/.claude/projects/<cwd>/<session-id>.jsonl` 에 보관한다.
 
-✅ **Orca v1 채택** — `--resume <sessionId>` 를 사용한다. 동작:
+✅ **Orca v1 채택 (Phase 2.5)** — `--resume <sessionId>` 는 **fallback** 으로만 사용한다. 정상 흐름은 살아있는 child 의 stdin 재사용. 동작:
 
-1. 첫 턴: `claude -p "<text>" --output-format stream-json` (resume 없음)
+정상 흐름 (영구 stdin child 가 살아있을 때):
+1. 첫 메시지 시 lazy spawn: `claude -p --input-format stream-json --output-format stream-json --verbose --include-partial-messages` (resume 없음)
 2. ClaudeCodeAdapter 가 첫 `system/init` 이벤트에서 `session_id` 추출 → `ChatEvent { type: 'init', sessionId }` 로 Renderer 에 전달
-3. Renderer 는 `sessionId` 변수 1개만 메모리에 보유
-4. 2턴부터: `claude -p "<text>" --output-format stream-json --resume <sessionId>`
+3. Renderer 는 `sessionId` 변수 1개만 메모리에 보유. 어댑터는 child 핸들·idle 타이머·lastSessionId 보유.
+4. 2턴 이후: 같은 child 의 stdin 에 user NDJSON 한 줄 write — spawn 도 `--resume` 도 없음.
 
-근거: `docs/llm-chat-desktop-strategy.md §6.2~6.3`, `docs/TRD.md §7.1` (줄 282~294), `docs/architecture.md §5.4`.
+Fallback 흐름 (`--resume <sessionId>` 사용 — 셋 중 하나):
+- **Idle 회수 후 재개**: 마지막 `result` 후 5분 동안 user write 없음 → child.stdin.end() → 2초 grace → SIGTERM → child 폐기. 다음 user 메시지가 도착하면 lazy 재spawn 시 `--resume <lastSessionId>` 추가.
+- **Crash recovery**: child 가 비정상 종료 (exit ≠ 0) 시 다음 메시지에 `--resume <lastSessionId>` 로 새 spawn.
+- **재로그인**: stderr 401 / OAuth / expired 패턴 감지 → child 종료 → 사용자 모달 → 사용자가 `claude /login` 후 다음 메시지에 `--resume <lastSessionId>` 로 새 spawn.
+
+> **Idle 타이머 작동 조건**: `result` 이벤트 (정상 답변 완료) 수신 후부터 카운트. `in-turn` (어시스턴트 스트리밍·도구 호출 중) 동안에는 타이머 OFF — 응답이 5분을 넘겨도 자원 회수 대상이 *아님*. stdin write 시 타이머 정지.
+
+근거: `docs/llm-chat-desktop-strategy.md §6` (전체), `docs/TRD.md §7.1`, `docs/architecture.md §5.4`.
 
 ❌ `--continue` 미사용 — Orca 는 단일 세션 이외에 *이전 세션 자동 이어가기* 시나리오가 없다 (Phase 3 에서 명시적 세션 선택 UI 도입 예정).
+
+> **Legacy (Phase 2)**: Phase 2 까지의 어댑터는 매 턴 `claude -p "<text>" --output-format stream-json [--resume <sid>]` 로 새 프로세스를 spawn 했다. Phase 2.5 부터는 위 영구 stdin 모델이 정상 흐름이고, Legacy one-shot 경로는 fallback 용으로 코드에 보존.
 
 ### 7.3 `--fork-session` (재개 시 새 세션 ID)
 
@@ -361,7 +372,7 @@ cat build-error.txt | claude -p 'concisely explain the root cause' > output.txt
 
 > 공식: Claude Code v2.1.128 부터 파이프된 stdin 은 10MB 로 제한된다. 초과 시 0 이 아닌 상태로 종료. 더 큰 입력은 파일에 쓰고 프롬프트에서 경로를 참조한다.
 
-❌ **Orca v1 미사용** — 챗 UI 가 입력 채널이므로 stdin 파이프는 쓰지 않는다. ClaudeCodeAdapter 는 `-p <text>` 로만 사용자 입력을 전달한다.
+✅ **Orca v1 채택 (Phase 2.5) — 단, *raw 텍스트 파이프* 가 아니라 NDJSON 라인 입력** — `--input-format stream-json` 모드에서 ClaudeCodeAdapter 는 매 턴 user 메시지를 `{"type":"user","message":{"role":"user","content":[{"type":"text","text":"..."}]}}` 형식의 NDJSON 한 줄로 child 의 stdin 에 write 한다. raw 텍스트 파이프 (위 `cat ... | claude -p` 패턴) 와는 다른 채널이므로 10MB 제한과 별개. Phase 2 까지의 `-p <text>` argv 입력은 §7.2 Legacy 박스에서만 사용.
 
 ---
 
@@ -393,10 +404,13 @@ CLI (`claude -p`) 외에 [Python](https://code.claude.com/docs/ko/agent-sdk/pyth
 | 영역 | Orca v1 결정 |
 |---|---|
 | 진입 경로 | CLI (`claude -p`) — `child_process.spawn` |
+| 프로세스 모델 | **세션당 1회 spawn (영구 stdin child)** — Phase 2.5. lazy spawn (첫 user 메시지 시), 5분 idle (마지막 `result` 후) 에 회수, 다음 메시지에 `--resume` 으로 lazy 재spawn |
+| 입력 채널 | **stdin NDJSON 라인** (`--input-format stream-json`) — 매 턴 `{"type":"user","message":{...}}` 한 줄 write. Legacy 의 `-p <text>` argv 는 fallback 만 |
+| stdio | `['pipe', 'pipe', 'pipe']` — stdin EOF 는 idle/세션 종료 시점에만 |
 | 출력 포맷 | `--output-format stream-json` (필수) |
-| 토큰 스트리밍 | `--verbose --include-partial-messages` (Phase 1 적용) |
-| 세션 재개 | `--resume <sessionId>` — 2턴 이상에서 |
-| 세션 ID 발급 | 첫 `system/init` 이벤트의 `session_id` (수신). 사전 발급 (`--session-id`) 은 OQ — §7.4 |
+| 토큰 스트리밍 | `--verbose --include-partial-messages` (Phase 2.5 적용) |
+| 세션 재개 (`--resume <sid>`) | **fallback 전용** — (1) idle 회수 후 재개 (2) crash recovery (3) 재로그인. 정상 흐름에서는 미사용 |
+| 세션 ID 발급 | 첫 `system/init` 이벤트의 `session_id` (수신). 어댑터가 lastSessionId 로 보유. 사전 발급 (`--session-id`) 은 OQ — §7.4 |
 | 세션 분기 | `--fork-session` 미사용 — Phase 3 *대화 분기* UI anchor |
 | 세션 이름 | `--name` / `-n` 미사용 — Phase 3 (세션 목록) anchor |
 | 세션 저장 비활성화 | `--no-session-persistence` 미사용 — *시크릿 모드* anchor |
@@ -440,7 +454,7 @@ CLI (`claude -p`) 외에 [Python](https://code.claude.com/docs/ko/agent-sdk/pyth
 | `docs/spec/CLAUDE.md` | 원문 미러 디렉토리의 정책 (편집 금지·수동 동기화) |
 | `docs/TRD.md` §7.1 | ClaudeCodeAdapter 외부 계약 (spec 의 적용 결과) |
 | `docs/architecture.md` §5.4 | ClaudeCodeAdapter 내부 구현 (파서·버퍼·환경변수) |
-| `docs/llm-chat-desktop-strategy.md` §6 | one-shot + `--resume` 채택의 전략적 근거 |
+| `docs/llm-chat-desktop-strategy.md` §6 | 영구 stdin 세션 + 5분 idle 회수 + `--resume` fallback 채택의 전략적 근거 (Phase 2.5). §6.7 에 Legacy one-shot 모델 보존 |
 | `docs/PRD.md` §7, §11 | 백엔드 선택 결정 및 OQ |
 
 ---
@@ -449,15 +463,16 @@ CLI (`claude -p`) 외에 [Python](https://code.claude.com/docs/ko/agent-sdk/pyth
 
 `cli-reference.md` 의 모든 플래그 중 *Orca 관련성이 있는 것* 만 4단계로 분류한다. 자세한 의미는 `docs/spec/claude/cli-reference.md` 가 SSOT — 본 표는 *어디를 봐야 하는지* 의 지도일 뿐이다.
 
-### 14.1 ✅ Orca v1 사용 (Phase 1 MVP)
+### 14.1 ✅ Orca v1 사용 (Phase 2.5)
 
 | 플래그 | 본 문서 절 |
 |---|---|
 | `-p` / `--print` | §1 |
+| `--input-format stream-json` | §1, §8 (Phase 2.5 영구 stdin 세션 핵심) |
 | `--output-format stream-json` | §3 |
 | `--verbose` (스트리밍 토큰 시) | §4 |
 | `--include-partial-messages` | §4 |
-| `--resume <id>` / `-r` | §7.2 |
+| `--resume <id>` / `-r` (fallback) | §7.2 |
 
 ### 14.2 ⏳ Orca 후보 (OQ / Phase 2~3 anchor)
 

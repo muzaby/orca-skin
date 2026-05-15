@@ -29,7 +29,8 @@
 | 구현 사양 (TRD v1) | 완료 — `docs/TRD.md` (Tailwind CSS 결정 반영 §2, §9.5) |
 | 스캐폴드 (electron-vite react-ts + Tailwind CSS) | 완료 — `app/` |
 | Phase 1 (mockup 시각 재현 + Tailwind v4) | 완료 — `app/src/renderer/` |
-| **Phase 2 (claude-code 단일 어댑터 + 채팅 IPC)** | **완료** — `app/src/main/`, `app/src/preload/` |
+| **Phase 2 (claude-code 단일 어댑터 + 채팅 IPC)** | **완료** — `app/src/main/`, `app/src/preload/` (one-shot, 매 턴 spawn + `--resume`) |
+| **Phase 2.5 (claude-code 영구 stdin 세션화)** | **계획** — `docs/` 사양 반영 완료, `app/` 구현은 별도 작업. 세션당 영구 child + stdin NDJSON 멀티턴, 5분 idle 회수 + `--resume` fallback |
 | 후속 (opencode 어댑터·캡처 실 구현·영속화·테스트) | Future Scope |
 
 ## 핵심 원칙 (모든 에이전트 공통)

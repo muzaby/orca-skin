@@ -92,20 +92,21 @@ Claude Code의 `/context`가 보여주는 것은 **현재 LLM에 주입되는 �
 
 | 항목 | Claude Code | opencode |
 |---|---|---|
-| **프로세스 모델** | One-shot: 매 턴 새 프로세스 | Long-running server: 한 번 띄우고 유지 |
-| **컨텍스트 보관 위치** | 디스크 파일 (`~/.claude/projects/<cwd>/<session-id>.jsonl`) | 서버 프로세스 메모리 + SQLite (`~/.local/share/opencode/`) |
-| **세션 ID 발급 시점** | 첫 `claude -p` 응답의 `system/init` 이벤트 | `POST /session` 응답 |
-| **이어가기 명령** | `claude -p "..." --resume <id>` | 같은 `session_id`로 HTTP 재요청 |
-| **GUI가 호출하는 방식** | `child_process.spawn` 매 턴 반복 | HTTP 클라이언트 (SDK 권장) |
+| **프로세스 모델** | 세션당 영구 stdin child (5분 idle 회수, 다음 메시지에 `--resume` 으로 재spawn). 과거 모델은 매 턴 spawn — §6.7 Legacy. | Long-running server: 한 번 띄우고 유지 |
+| **컨텍스트 보관 위치** | 살아있는 child 메모리 + 디스크 jsonl (`~/.claude/projects/<cwd>/<session-id>.jsonl`) | 서버 프로세스 메모리 + SQLite (`~/.local/share/opencode/`) |
+| **세션 ID 발급 시점** | 첫 spawn 의 `system/init` 이벤트 (이후 stdin 재사용 동안 유지) | `POST /session` 응답 |
+| **이어가기 명령** | 같은 child stdin 에 user NDJSON 한 줄 write. child 가 죽었을 때만 `--resume <id>` 로 새 spawn. | 같은 `session_id`로 HTTP 재요청 |
+| **GUI가 호출하는 방식** | `child_process.spawn` 1회 (세션당) + 이후 stdin write | HTTP 클라이언트 (SDK 권장) |
 | **공식 SDK** | Agent SDK (TS/Python) | `@opencode-ai/sdk` (TS) |
 | **스트리밍 방식** | stdout으로 NDJSON | HTTP SSE/스트림 |
-| **GUI가 보관할 상태** | `sessionId` 문자열 한 개 | `sessionId` + 서버 핸들 |
+| **GUI가 보관할 상태** | `sessionId` 문자열 한 개 (child 핸들은 어댑터 내부) | `sessionId` + 서버 핸들 |
 
 ### 5.2 한 줄 요약
 
 ```
-Claude Code: "디스크 파일이 곧 세션의 정체.
-              매 턴 그 파일을 읽고 쓰는 임시 프로세스를 띄운다"
+Claude Code: "세션마다 살아있는 child 가 곧 세션의 정체.
+              매 턴 그 child 의 stdin 에 한 줄 던진다.
+              비활성 5분이 지나면 child 만 회수하고, 다음 진입에 --resume 으로 복원한다"
 
 opencode:    "살아있는 서버 프로세스가 곧 세션의 정체.
               클라이언트는 HTTP로 말을 건다"
@@ -113,75 +114,130 @@ opencode:    "살아있는 서버 프로세스가 곧 세션의 정체.
 
 ---
 
-## 6. Claude Code: One-shot + --resume 메커니즘
+## 6. Claude Code: 영구 stdin 세션 + idle 회수 + --resume fallback
+
+> 본 섹션은 Phase 2.5 모델 (영구 stdin 세션) 을 기준으로 한다. Phase 2 (one-shot, 매 턴 spawn) 는 §6.7 Legacy 로 보존.
 
 ### 6.1 동작 다이어그램
 
 ```
                         ┌─────────────────────────────────┐
                         │   GUI (Electron Main Process)   │
-                        │                                 │
                         │   sessionId: string | null      │
+                        │                                 │
+                        │   ┌─ ClaudeCodeAdapter ──────┐  │
+                        │   │ child:    proc | null    │  │
+                        │   │ idleTimer: T | null      │  │
+                        │   │ lastSid:  string | null  │  │
+                        │   └──────────────────────────┘  │
                         └──────────────┬──────────────────┘
                                        │
-            ┌──────────────────────────┼──────────────────────────┐
-            │ 1턴                      │ 2턴                      │ 3턴
-            ▼                          ▼                          ▼
-     spawn child_process       spawn child_process        spawn child_process
-     ┌───────────────┐         ┌────────────────────┐    ┌────────────────────┐
-     │ claude -p     │         │ claude -p          │    │ claude -p          │
-     │  "안녕"       │         │  "방금 뭐랬어?"    │    │  "더 알려줘"       │
-     │  --output-    │         │  --resume abc-123  │    │  --resume abc-123  │
-     │  format       │         │  --output-format   │    │  --output-format   │
-     │  stream-json  │         │  stream-json       │    │  stream-json       │
-     │  --verbose    │         │  --verbose         │    │  --verbose         │
-     └──────┬────────┘         └──────┬─────────────┘    └──────┬─────────────┘
-            │                         │                          │
-            ▼                         ▼                          ▼
-     [process exits]           [process exits]            [process exits]
-            │                         │                          │
-            ▼                         ▼                          ▼
-    ~/.claude/projects/<cwd>/abc-123.jsonl  (CLI가 매 턴 append)
+                                       │ 첫 user 메시지 (lazy spawn)
+                                       ▼
+                    spawn child_process (세션당 1회)
+                    ┌──────────────────────────────────────┐
+                    │ claude -p                            │
+                    │   --input-format  stream-json        │
+                    │   --output-format stream-json        │
+                    │   --verbose --include-partial-messages│
+                    │   [--resume <sid>]   ← idle/crash 후 │
+                    └──────────────┬───────────────────────┘
+                                   │ child 살아있음
+            ┌──────────────────────┼──────────────────────┐
+            │ 1턴                  │ 2턴                  │ 3턴 ...
+            ▼                      ▼                      ▼
+     stdin write             stdin write             stdin write
+     {"type":"user",         {"type":"user",         {"type":"user",
+      "message":...}          "message":...}          "message":...}
+            │                      │                      │
+            ▼                      ▼                      ▼
+     stdout: system/init    stdout: assistant_*     stdout: assistant_*
+        (sessionId)          stream + result          stream + result
+            │                      │                      │
+            ├── idle 타이머        ├── 타이머 RESET      ├── 타이머 RESET
+            │   start (5min,      │   (result 시점)     │   ...
+            │   ready 상태)       │                      │
+            │                      │                      │
+            ▼                      ▼                      ▼
+     [child idle, ready]    [child idle, ready]    [child idle, ready]
+
+     ※ in-turn (어시스턴트 스트리밍·도구 호출 중) 동안 idle 타이머는 OFF.
+       응답이 5분을 넘겨도 자원 회수 대상 아님.
+
+     ※ 5분간 다음 user write 없음 → child.stdin.end() → 2초 grace → SIGTERM.
+       sessionId (어댑터 메모리) 는 보존. 다음 user 메시지에 lazy 재spawn:
+       claude -p ... --resume <sid>  → 같은 jsonl 재진입 → 정상 흐름 복귀.
+
+    ~/.claude/projects/<cwd>/abc-123.jsonl  (CLI 가 자동 append)
     ┌────────────────────────────────────────────────────────────────┐
     │ {"role":"user","content":"안녕"}                                │
     │ {"role":"assistant","content":"안녕하세요!"}                    │
     │ {"role":"user","content":"방금 뭐랬어?"}            ← 2턴 후   │
-    │ {"role":"assistant","content":"안녕하세요라고..."}              │
-    │ {"role":"user","content":"더 알려줘"}              ← 3턴 후   │
     │ ...                                                             │
     └────────────────────────────────────────────────────────────────┘
 ```
 
 ### 6.2 매 턴 흐름
 
+정상 흐름 (살아있는 child 에 보내는 경우):
+
 | 단계 | 동작 |
 |---|---|
-| ① | GUI가 `spawn` (1턴은 `--resume` 없이, 2턴부터 `--resume <id>`) |
-| ② | CLI가 디스크 jsonl을 컨텍스트로 로드 (1턴은 빈 상태) |
-| ③ | LLM 호출 → 응답을 stdout으로 stream-json 출력 |
-| ④ | CLI가 새 메시지+응답을 jsonl에 append |
-| ⑤ | CLI 프로세스 종료 |
-| ⑥ | GUI는 첫 `system/init` 이벤트에서 받은 `session_id`를 변수에 보관 |
+| ① | GUI 가 어댑터에 `sendMessage(sid, text)` 호출 |
+| ② | 어댑터가 살아있는 child 의 stdin 에 user NDJSON 한 줄 write — 별도 spawn 없음 |
+| ③ | child 가 LLM 호출, stdout 으로 `assistant_delta` → `result` 까지 NDJSON 출력 |
+| ④ | child 가 새 메시지/응답을 jsonl 에 자동 append (CLI 책임) |
+| ⑤ | `result` 이벤트 도착 — 어댑터가 idle 타이머 RESET 후 5분 카운트 시작 |
+| ⑥ | child 는 살아있는 채로 다음 user write 또는 idle 만료 대기 |
+
+lazy spawn 흐름 (child 가 없을 때 — 첫 메시지 / idle 회수 후 / crash 후):
+
+| 단계 | 동작 |
+|---|---|
+| ① | GUI 가 `sendMessage(sid, text)` 호출. 어댑터의 child 가 null 임을 확인 |
+| ② | spawn `claude -p --input-format stream-json --output-format stream-json --verbose --include-partial-messages [--resume <sid>]` (sid 있으면 추가) |
+| ③ | 첫 `system/init` 이벤트에서 `session_id` 캡처 (새 세션이면 신규, `--resume` 이면 동일 ID) |
+| ④ | 이후 §6.2 정상 흐름과 동일 |
 
 ### 6.3 활용하는 CLI 기능
 
 | 옵션 | 역할 |
 |---|---|
-| `-p "<prompt>"` | 프로그래밍(헤드리스) 모드 진입 |
-| `--resume <session_id>` | 디스크 파일을 컨텍스트로 복원 |
-| `--output-format stream-json` | NDJSON 스트리밍 출력 |
-| `--verbose` | 메타데이터 포함 (`session_id` 등) |
-| `--include-partial-messages` | 토큰 단위 델타 (선택) |
+| `-p` | 프로그래밍(헤드리스) 모드 진입. argv 로 user 텍스트를 전달하지 않고 stdin 으로 흘림 |
+| `--input-format stream-json` | stdin 을 NDJSON 라인으로 받음 — 영구 세션의 핵심 |
+| `--output-format stream-json` | stdout NDJSON 스트리밍 |
+| `--verbose` | 메타데이터 포함 (`session_id` 등) — 영구 세션의 첫 이벤트 캡처에 필수 |
+| `--include-partial-messages` | 토큰 단위 델타 (Phase 2.5 적용) |
+| `--resume <session_id>` | child 가 죽거나 idle 회수 후 새 spawn 시 같은 jsonl 로 컨텍스트 복원 — fallback 용. 정상 흐름에서는 사용 안 함 |
 
-### 6.4 GUI가 직접 안 하는 것
+### 6.4 GUI 가 직접 안 하는 것
 
-- 컨텍스트 윈도우 관리 (CLI가 jsonl 읽고 LLM에 주입)
+- 컨텍스트 윈도우 관리 (살아있는 child + jsonl 이 자동 처리)
 - 토큰 한계 시 압축 (CLI 내장 `/compact` 로직)
 - 세션 파일 쓰기 (CLI가 자동 기록)
 
-### 6.5 알려진 제약
+### 6.5 알려진 제약과 idle 정책
 
-- OAuth 토큰이 약 10~15분 후 만료될 수 있음 → 401 감지 시 사용자에게 `claude /login` 안내 필요
+- **OAuth 만료**: Claude Code OAuth 토큰이 약 10~15분 후 만료될 수 있음 → 401 감지 시 child 종료 → 사용자에게 `claude /login` 안내 → 재로그인 후 다음 메시지에 `--resume <sid>` 로 새 spawn.
+- **Idle 회수 (5분 고정)**: child 가 살아있는 동안에도 유휴 메모리·OAuth 토큰을 점유하므로, **마지막 `result` 이벤트 (정상 답변 완료) 수신 후** 5분간 다음 user write 가 없으면 child 만 회수한다 (sessionId 는 어댑터 메모리에 보존). 다음 user 메시지에 lazy 재spawn + `--resume <sid>` 로 컨텍스트 무결하게 복원.
+- **in-turn 은 idle 이 아님**: 어시스턴트가 5분 넘게 스트리밍·도구 호출을 해도 idle 타이머는 동작하지 않으므로 자원 회수 대상이 아니다 (`result` 이벤트 도착 전까지는 활발한 작업으로 간주).
+- **N 세션 ≠ N child**: lazy spawn 정책으로 ChatSession N 개가 동시에 N 개의 child 를 띄우지 않는다 — 사용자가 *그 세션에서 첫 user 메시지를 실제로 보내는 순간* 에만 spawn 한다.
+
+### 6.6 claude-code(web) 와의 정책 동형성
+
+claude-code 의 웹/클라우드 버전은 비활성 컨테이너를 기간 후 회수하고, 다음 진입 시 컨텍스트를 복원한다. 데스크톱의 본 모델은 동일 패턴의 매핑이다.
+
+| 차원 | claude-code(web) | Orca 데스크톱 |
+|---|---|---|
+| 살아있는 단위 | 클라우드 컨테이너 | 로컬 child 프로세스 |
+| 회수 트리거 | 일정 비활성 시간 | 5분 idle (마지막 `result` 후) |
+| 컨텍스트 저장소 | 원격 세션 스토어 | `~/.claude/projects/<cwd>/<sid>.jsonl` |
+| 복원 트리거 | 사용자 재진입 | 다음 user 메시지 (`sendMessage`) |
+| 복원 메커니즘 | 컨테이너 재가동 + 세션 로드 | 새 spawn + `--resume <sid>` |
+
+### 6.7 Legacy: Phase 2 one-shot 모델 (보존, 미권장)
+
+Phase 2 까지의 ClaudeCodeAdapter 는 매 턴 새 프로세스를 spawn 하고 `--resume <sessionId>` 로 컨텍스트를 복원하는 one-shot 모델이었다. 매 턴 spawn → CLI 부팅 → jsonl 읽기 → LLM 호출 사이클이 첫 토큰 지연을 늘리므로 Phase 2.5 부터는 영구 stdin 모델이 정상 흐름. Legacy 경로 (`claude -p "<text>" --resume <sid>` argv 단발) 는 코드에서 완전 제거하지 않고 *crash recovery / 단발성 도구 호출* 용으로 보존한다.
 
 ---
 
@@ -414,8 +470,8 @@ opencode 설치 확인     ──┤
 |---|---|
 | 데스크톱 셸 | Electron + electron-vite (react-ts) |
 | CLI 연결 패턴 | 패턴 2 (구조화 I/O) 메인, 패턴 3 (세션 파일) 보조 |
-| Claude Code 메커니즘 | `--resume <id>` 플래그를 매 턴 spawn에 끼워줌 |
+| Claude Code 메커니즘 | 세션당 영구 stdin child (lazy spawn, `--input-format stream-json`). 매 턴 stdin NDJSON write. 5분 idle 회수 후 다음 메시지에 `--resume <sid>` 로 재spawn |
 | opencode 메커니즘 | `serve`로 1회 띄운 서버에 같은 `sessionId`로 HTTP 재호출 |
 | GUI의 컨텍스트 관리 코드 | **0줄** — 두 CLI/서버에 완전 위임 |
 | GUI의 책임 | `sessionId` 변수 1개 보관 + 어댑터 인터페이스 통일 |
-| 직접 구현 최소화 원칙 | 모든 컨텍스트/세션/LLM 로직은 CLI에 위임, 어댑터는 ID 전달과 이벤트 정규화만 담당 |
+| 직접 구현 최소화 원칙 | 모든 컨텍스트/세션/LLM 로직은 CLI에 위임, 어댑터는 ID 전달·이벤트 정규화·child 라이프사이클(idle/재개) 만 담당 |
