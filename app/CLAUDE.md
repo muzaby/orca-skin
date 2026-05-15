@@ -16,7 +16,7 @@
 | 렌더러 (`src/renderer/src/`)      | **Phase 1 시각 재현 + Phase 2 채팅 IPC 통합** — Frame/Titlebar/Sidebar/ChatPane(실데이터)/CameraPane/Projects/EngineSettings/SkillsMcp + Tweaks + Installer/Auth modal. 캡처는 placeholder |
 | 프리로드 (`src/preload/index.ts`) | `contextBridge.exposeInMainWorld('orca', OrcaApi)` — chat/backend/install/settings 화이트리스트                                                                                            |
 | 패키저                            | electron-builder (`electron-builder.yml`)                                                                                                                                                  |
-| 도메인 코드 (IPC/어댑터)          | **claude-code 단일 어댑터** — ClaudeCodeAdapter(NDJSON), AdapterRegistry, IpcRouter, Installer, SettingsStore. opencode 는 future work                                                     |
+| 도메인 코드 (IPC/어댑터)          | **claude-code 단일 어댑터** — ClaudeCodeAdapter(NDJSON, Phase 2 one-shot · 매 턴 spawn + `--resume`), AdapterRegistry, IpcRouter, Installer, SettingsStore. **Phase 2.5 (영구 stdin 세션) 사양은 `docs/TRD.md §7.1` · `docs/architecture.md §5.4` 에 정의됨 — 코드 작업은 별도.** opencode 는 future work                                                     |
 | `package.json`                    | 템플릿 기본값 (`name: "app"`, `author: "example.com"` 등) — 차후 도메인 PR 에서 갱신                                                                                                       |
 
 ## 타깃 모듈 레이아웃 (TRD §1.2 기준)
@@ -28,7 +28,7 @@
 | `src/main/index.ts`                                       | Electron `app` 부트, BrowserWindow, IpcRouter 부착                              | 구현됨                                  |
 | `src/main/ipc/router.ts`                                  | IPC 채널 라우팅 + 입력 검증 (zod)                                               | 구현됨                                  |
 | `src/main/adapters/types.ts`                              | `SessionAdapter`, `ChatEvent`, `Backend` 공통 타입                              | 구현됨                                  |
-| `src/main/adapters/claude-code.ts`                        | Claude Code spawn / NDJSON / `--resume`                                         | 구현됨                                  |
+| `src/main/adapters/claude-code.ts`                        | Claude Code spawn / NDJSON 파싱. 현재: Phase 2 one-shot (매 턴 spawn + `-p <text>` argv + `--resume`). 목표(Phase 2.5): 세션당 영구 stdin child + `--input-format stream-json` + 매 턴 stdin NDJSON write + 5 분 idle 회수 + lazy 재spawn `--resume` fallback. 단일 출처 `docs/TRD.md §7.1` · `docs/architecture.md §5.4` | 구현됨 (Phase 2 one-shot) — Phase 2.5 영구 stdin 세션화 예정                                  |
 | `src/main/adapters/opencode.ts`                           | opencode `serve` / SDK / SSE                                                    | **미구현 (future work)**                |
 | `src/main/adapters/registry.ts`                           | 설치 상태 + 활성 백엔드 선택                                                    | 구현됨 (claude-code 단일)               |
 | `src/main/installer/index.ts`                             | CLI 설치 자동화 (`npm install -g @anthropic-ai/claude-code`)                    | 구현됨                                  |
@@ -160,7 +160,8 @@ new BrowserWindow({
 | Phase   | 범위                                                                                                                                                   | 상태                        |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------- |
 | Phase 1 | mockup 시각 재현 + Tailwind CSS v4 마이그레이션. chat / projects / engine / skills 4개 화면 + Tweaks. 캡처는 placeholder                               | **완료**                    |
-| Phase 2 | IPC 채널 + zod 검증. **Claude Code 단일** 어댑터. 세션 재개. UI 데이터를 mockup 하드코딩 → IPC props 로 교체                                           | **완료 (claude-code 단독)** |
+| Phase 2 | IPC 채널 + zod 검증. **Claude Code 단일** 어댑터. 세션 재개. UI 데이터를 mockup 하드코딩 → IPC props 로 교체                                           | **완료 (claude-code 단독, one-shot · 매 턴 spawn + `--resume`)** |
+| Phase 2.5 | claude-code 어댑터 영구 stdin 세션화 — ChatSession 당 영구 child + `--input-format stream-json` + 매 턴 stdin NDJSON 멀티턴, `result` 후 5 분 idle 회수, idle/crash/재로그인 후 lazy 재spawn + `--resume` fallback. 단일 출처 `docs/TRD.md §7.1` · `docs/architecture.md §5.4` · `docs/llm-chat-desktop-strategy.md §6` | **계획** — docs 사양 반영 완료, `app/` 구현은 별도 작업 |
 | 후속    | opencode 어댑터, `V1Captures` 실 구현 (캡처 RAW 보관 + AI 분석). `electron-store` 영속화. 다국어 (`src/shared/i18n/ko.ts`). Vitest / Playwright 테스트 | Future Scope                |
 
 ## 위치 규약
