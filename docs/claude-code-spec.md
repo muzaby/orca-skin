@@ -384,7 +384,9 @@ claude -p "Extract function names" \
 
 CLI (`claude -p`) 외에 [Python](https://code.claude.com/docs/ko/agent-sdk/python) 및 [TypeScript](https://code.claude.com/docs/ko/agent-sdk/typescript) 패키지가 있다. 콜백 기반 도구 승인, 메시지 객체 직접 조작, 실시간 응답 스트리밍에 대한 프로그래밍 제어가 필요할 때 사용한다.
 
-❌ **Orca v1 미사용** — Phase 1 은 CLI spawn + stdout NDJSON 파싱이 가장 단순하고, *어댑터 인터페이스 (TRD §7.3)* 가 opencode 백엔드와 동등하게 추상화되어 있어 SDK 도입 이득이 작다. Phase 3+ 에서 *세션 메모리 직접 조작* 또는 *툴 승인 콜백 UX* 가 필요해지면 SDK 전환 검토 anchor (TRD §10).
+✅ **Orca v1 채택** (Phase 3 마이그레이션, 2026-05-18) — TypeScript SDK `@anthropic-ai/claude-agent-sdk` 의 `query()` 함수를 진입점으로 사용. CLI spawn (§1, §3) 의 기능은 SDK `Options` 와 1:1 대응 (예: `--resume <id>` ↔ `options.resume`, `--include-partial-messages` ↔ `options.includePartialMessages`, `--output-format stream-json` 은 SDK 의 SDKMessage union 으로 대체됨). SDK API 시그니처·`Options` 필드 명세는 [`docs/spec/claude/agent-sdk/typescript.md`](./spec/claude/agent-sdk/typescript.md) 원문 미러가 단일 출처. SDKMessage → ChatEvent 매핑·내부 구현 패턴·MVP 채택 범위는 [`architecture.md §5.4`](./architecture.md) 참조.
+
+Phase 3 가 사용하는 기능은 *최소* — `query()` + `options.includePartialMessages` + `options.resume` + `options.cwd`. 고급 기능 (`permissionMode` / `canUseTool` / `hooks` / `createSdkMcpServer` / custom tools / external `mcpServers` / `forkSession` / `startup()` / `AsyncIterable<SDKUserMessage>` 스트리밍 입력) 은 ⏳ Phase 4+ anchor.
 
 ---
 
@@ -392,11 +394,11 @@ CLI (`claude -p`) 외에 [Python](https://code.claude.com/docs/ko/agent-sdk/pyth
 
 | 영역 | Orca v1 결정 |
 |---|---|
-| 진입 경로 | CLI (`claude -p`) — `child_process.spawn` |
-| 출력 포맷 | `--output-format stream-json` (필수) |
-| 토큰 스트리밍 | `--verbose --include-partial-messages` (Phase 1 적용) |
-| 세션 재개 | `--resume <sessionId>` — 2턴 이상에서 |
-| 세션 ID 발급 | 첫 `system/init` 이벤트의 `session_id` (수신). 사전 발급 (`--session-id`) 은 OQ — §7.4 |
+| 진입 경로 | **SDK `query()`** — `@anthropic-ai/claude-agent-sdk` (Phase 3 채택, 2026-05-18). CLI `claude -p` + `child_process.spawn` 은 폐기 예정 |
+| 출력 포맷 | SDKMessage union (`SDKSystemMessage` / `SDKAssistantMessage` / `SDKPartialAssistantMessage` / `SDKResultMessage`) — CLI 의 `--output-format stream-json` 대체 |
+| 토큰 스트리밍 | `options.includePartialMessages: true` — CLI 의 `--verbose --include-partial-messages` 대체 |
+| 세션 재개 | `options.resume: sessionId` — CLI 의 `--resume <sessionId>` 와 1:1 대응. 2턴 이상에서 |
+| 세션 ID 발급 | 첫 `SDKSystemMessage(subtype: 'init')` 의 `session_id` (수신). 사전 발급 (`options.sessionId` 또는 CLI `--session-id`) 은 OQ — §7.4 |
 | 세션 분기 | `--fork-session` 미사용 — Phase 3 *대화 분기* UI anchor |
 | 세션 이름 | `--name` / `-n` 미사용 — Phase 3 (세션 목록) anchor |
 | 세션 저장 비활성화 | `--no-session-persistence` 미사용 — *시크릿 모드* anchor |
@@ -409,11 +411,11 @@ CLI (`claude -p`) 외에 [Python](https://code.claude.com/docs/ko/agent-sdk/pyth
 | 디버그 출력 | `--debug` / `--debug-file` — Phase 1 미사용, 개발자 빌드에서 옵션화 anchor |
 | 턴/비용 제한 | `--max-turns` / `--max-budget-usd` — Phase 1 미사용, Phase 3 *Skills 안전장치* 후보 |
 | 작업 디렉토리 | `--add-dir` 미사용 — spawn 의 `cwd` 만 사용 |
-| Hook 가시성 | `--include-hook-events`, `--init`, `--init-only` 미사용 (Phase 3+ anchor) |
-| Agent SDK | 미사용 (Phase 3+ anchor) |
-| 인증 만료 감지 | stdout/stderr 의 `401` / `OAuth` / `expired` 패턴 매칭 |
-| 환경변수 | PATH (npm 글로벌 bin), HOME, `CLAUDE_*` (필요 시) |
-| `cwd` | `app.getPath('home')` — 사용자 홈 디렉토리. 프로젝트별 cwd 선택 UI 는 future work |
+| Hook 가시성 | SDK `options.hooks` (PreToolUse/PostToolUse/Stop/...) — Phase 4 anchor (도구 권한 정책 OQ9 결정 후) |
+| Agent SDK | ✅ **채택 (Phase 3)** — TypeScript SDK `query()` + 최소 옵션 (`resume`, `includePartialMessages`, `cwd`). `architecture.md §5.4` SSOT |
+| 인증 만료 감지 | SDK 가 throw 하는 에러 메시지/코드에서 `401` / `OAuth` / `expired` 패턴 매칭 (CLI 의 stdout/stderr 패턴 매칭 대체) |
+| 환경변수 | HOME (`~/.claude` 자격증명), `CLAUDE_*` (필요 시). PATH 의존성 (npm 글로벌 bin) 폐기 — SDK 가 `optionalDependencies` 로 platform binary 자동 처리 |
+| `cwd` | `options.cwd` 로 전달 — `app.getPath('home')` 기본. 프로젝트별 cwd 선택 UI 는 future work |
 
 ---
 
@@ -423,10 +425,11 @@ CLI (`claude -p`) 외에 [Python](https://code.claude.com/docs/ko/agent-sdk/pyth
 
 | ID | 항목 | 본 문서 위치 |
 |---|---|---|
-| **OQ9** | 도구 권한 정책 — `--allowedTools` / `--permission-mode` / `--bare` 의 MVP 기본값 | §5.6 |
-| (신규) | 세션 ID *발급 vs 수신* — `--session-id` 활용 여부 | §7.4 |
+| **OQ9** | 도구 권한 정책 — SDK `permissionMode` / `canUseTool` / `disallowedTools` 의 MVP 기본값. (CLI 표현: `--allowedTools` / `--permission-mode` / `--bare`) | §5.6 |
+| **OQ10** | 어댑터 `tool_use.name` / `tool_use.input` 정규화 — claude vs opencode 도구명 차이 해소. 후보: (a) raw 전달 + Renderer 매핑 (b) 어댑터 공통 vocabulary 정규화 (c) raw + 패턴 매칭. PRD §11 OQ10 진실 원천 — opencode 어댑터 활성화 PR 에서 결정 | (본 spec 범위 밖) |
+| (신규) | 세션 ID *발급 vs 수신* — SDK `options.sessionId` / CLI `--session-id` 활용 여부 | §7.4 |
 | (Skills 단계) | 시스템 프롬프트 페르소나 | §6 |
-| (Phase 3+) | Agent SDK 전환 트리거 | §10 |
+| (Phase 4+) | Agent SDK 고급 기능 — hooks / canUseTool / MCP / custom tools | §10 |
 
 ---
 
@@ -434,13 +437,15 @@ CLI (`claude -p`) 외에 [Python](https://code.claude.com/docs/ko/agent-sdk/pyth
 
 | 출처 | 용도 |
 |---|---|
-| `docs/spec/claude/headless.md` | 1차 원문 미러 — 프로그래밍 방식 실행. 본 문서 §0~§10 의 사실 |
+| `docs/spec/claude/headless.md` | 1차 원문 미러 — 프로그래밍 방식 실행. 본 문서 §0~§9 의 사실 (CLI 측면) |
 | `docs/spec/claude/cli-reference.md` | 1차 원문 미러 — 전체 CLI 명령·플래그. 본 문서 §5·§7·§14 의 사실 |
-| 원격: `code.claude.com/docs/ko/headless`, `.../ko/cli-reference` | 위 두 미러의 외부 원본 (참고용) |
+| `docs/spec/claude/agent-sdk/CLAUDE.md` | Agent SDK 원문 미러 인덱스 (Phase 3 채택 이후 진입점) |
+| `docs/spec/claude/agent-sdk/typescript.md` | `query()` / `Options` / SDKMessage 명세 단일 출처 (§10 의 사실) |
+| 원격: `code.claude.com/docs/ko/headless`, `.../ko/cli-reference`, `.../ko/agent-sdk/typescript` | 위 미러들의 외부 원본 (참고용) |
 | `docs/spec/CLAUDE.md` | 원문 미러 디렉토리의 정책 (편집 금지·수동 동기화) |
 | `docs/TRD.md` §7.1 | ClaudeCodeAdapter 외부 계약 (spec 의 적용 결과) |
-| `docs/architecture.md` §5.4 | ClaudeCodeAdapter 내부 구현 (파서·버퍼·환경변수) |
-| `docs/llm-chat-desktop-strategy.md` §6 | one-shot + `--resume` 채택의 전략적 근거 |
+| `docs/architecture.md` §5.4 | ClaudeCodeAdapter 내부 구현 + SDK 채택 범위 표 + SDKMessage→ChatEvent 매핑 |
+| `docs/llm-chat-desktop-strategy.md` §6 | one-shot + `--resume` 채택의 전략적 근거 (Phase 3 의 `options.resume` 도 동일 메커니즘) |
 | `docs/PRD.md` §7, §11 | 백엔드 선택 결정 및 OQ |
 
 ---
@@ -448,6 +453,8 @@ CLI (`claude -p`) 외에 [Python](https://code.claude.com/docs/ko/agent-sdk/pyth
 ## 14. Orca 관련 CLI 플래그 카탈로그 (Orca 관점 인덱스)
 
 `cli-reference.md` 의 모든 플래그 중 *Orca 관련성이 있는 것* 만 4단계로 분류한다. 자세한 의미는 `docs/spec/claude/cli-reference.md` 가 SSOT — 본 표는 *어디를 봐야 하는지* 의 지도일 뿐이다.
+
+> **(2026-05-18)** 본 카탈로그는 *CLI 플래그* 단위 분류이지만 Orca 는 Phase 3 부터 SDK `query()` 를 사용한다. 각 CLI 플래그는 SDK `Options` 필드와 1:1 대응 — 본 카탈로그는 *어떤 기능을 채택했는지* 의 지도로 계속 유효하다 (예: `--include-partial-messages` ↔ `options.includePartialMessages`, `--resume` ↔ `options.resume`, `--allowedTools` ↔ `options.allowedTools`). SDK 측 필드명·시그니처는 `docs/spec/claude/agent-sdk/typescript.md` 가 단일 출처.
 
 ### 14.1 ✅ Orca v1 사용 (Phase 1 MVP)
 

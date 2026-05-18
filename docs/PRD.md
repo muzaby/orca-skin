@@ -112,13 +112,14 @@ v1 의 기능 표면은 P2 만으로도 충분히 커버 가능하다. P1 의 �
 | UI 프레임워크 | **React 권장** (확정 §11 OQ) | 메시지 스트리밍·마크다운 렌더링에 적합 |
 | 마크다운 렌더링 | **react-markdown + remark-gfm + shiki** 확정 (§11 OQ2, Phase A) | LLM 응답 렌더링. GFM + 코드 블록 syntax highlighting (11개 언어) |
 | 스타일링 | **Tailwind CSS** | TRD §4 채택. 디자인 토큰은 §10 CSS 커스텀 프로퍼티 그대로, 컴포넌트 클래스만 Tailwind 유틸리티 |
+| LLM 백엔드 SDK (Claude) | **`@anthropic-ai/claude-agent-sdk`** (Phase 3 채택, 2026-05-18) | 진입점 `query()`, 세션 재개 `options.resume`, 토큰 스트리밍 `options.includePartialMessages`. TRD §4·§7.1, [`claude-code-spec.md §10`](./claude-code-spec.md) |
 
 ### 7.2 CLI 연결 패턴 (전략 §3)
 
 | 패턴 | 방식 | v1 채택 |
 |---|---|---|
 | 1. 터미널 에뮬레이션 (`node-pty` + `xterm.js`) | CLI 화면을 그대로 띄움 | ✗ 메시지 단위 가공 어려움 |
-| **2. 구조화 I/O (`stream-json` / HTTP API)** | **JSON 송수신** | ✓ **메인** |
+| **2. 구조화 I/O** | **Claude: SDK `query()` SDKMessage union (Phase 3 채택). opencode: HTTP/SSE.** | ✓ **메인** |
 | 3. 세션 파일 동기화 | CLI 세션 파일 읽기 | △ Phase 3 보조 (과거 목록) |
 
 ### 7.3 Adapter Interface (전략 §8.2)
@@ -152,16 +153,16 @@ Renderer (UI) → Electron IPC → Common Interface → `ClaudeCodeAdapter` 또�
 
 | 항목 | Claude Code | opencode |
 |---|---|---|
-| 프로세스 모델 | One-shot: 매 턴 새 프로세스 | Long-running server: 한 번 띄워 유지 |
+| 프로세스 모델 | One-shot: 매 턴 새 `query()` 호출 (SDK 가 내부 binary 라이프사이클 관리) | Long-running server: 한 번 띄워 유지 |
 | 컨텍스트 보관 위치 | `~/.claude/projects/<cwd>/<session-id>.jsonl` | 서버 메모리 + SQLite (`~/.local/share/opencode/`) |
-| 세션 ID 발급 시점 | 첫 `claude -p` 응답의 `system/init` 이벤트 | `POST /session` 응답 |
-| 이어가기 | `claude -p "..." --resume <id>` | 같은 `session_id` 로 HTTP 재호출 |
-| GUI 호출 방식 | `child_process.spawn` 매 턴 | HTTP 클라이언트 (SDK) |
-| 스트리밍 | stdout NDJSON | HTTP SSE/스트림 |
+| 세션 ID 발급 시점 | 첫 응답의 `SDKSystemMessage(subtype: 'init')` 의 `session_id` | `POST /session` 응답 |
+| 이어가기 | `query({ prompt, options: { resume: id } })` | 같은 `session_id` 로 HTTP 재호출 |
+| GUI 호출 방식 | `@anthropic-ai/claude-agent-sdk` 의 `query()` 매 턴 | HTTP 클라이언트 (SDK) |
+| 스트리밍 | SDKPartialAssistantMessage / SDKAssistantMessage 메시지 union | HTTP SSE/스트림 |
 | GUI 보유 상태 | `sessionId` 문자열 1개 | `sessionId` + 서버 핸들 |
 | **GUI 의 컨텍스트 관리 코드** | **0 줄** | **0 줄** |
 
-> Claude Code CLI 의 플래그·NDJSON 이벤트 스키마·세션 관리 상세는 [`claude-code-spec.md`](./claude-code-spec.md) 참조 (단일 출처).
+> Claude 백엔드 통합 상세 — SDK `query()` / `Options` / SDKMessage 명세는 [`docs/spec/claude/agent-sdk/typescript.md`](./spec/claude/agent-sdk/typescript.md), 채택 범위 표·SDKMessage→ChatEvent 매핑은 [`architecture.md §5.4`](./architecture.md), CLI 시기 외부 계약 (절 번호 anchor 보존) 은 [`claude-code-spec.md`](./claude-code-spec.md) §10·§11·§14 참조.
 
 ### 7.5 활성 대화 시나리오 (전략 §9.1)
 
@@ -261,7 +262,8 @@ Renderer (UI) → Electron IPC → Common Interface → `ClaudeCodeAdapter` 또�
 | OQ6 | 시작 시간 / 첫 토큰 지연 SLA 수치? | N5 와 연결. |
 | OQ7 | 두 CLI 가 모두 설치된 경우 기본 백엔드 선택 정책 (사용자 명시 / 마지막 사용 / Claude Code 우선)? | F6 보강. |
 | OQ8 | "새 대화" 시 직전 세션을 Phase 3 목록에 어떻게 노출할지? | Phase 2/3 진입 시 결정. |
-| OQ9 | Claude Code 도구 권한 정책 — `--allowedTools` / `--permission-mode` / `--bare` 의 MVP 기본값? | [`claude-code-spec.md`](./claude-code-spec.md) §5 참조. 후보: 미지정 / Read+Edit+Bash 사전승인 / `acceptEdits`. |
+| OQ9 | Claude 도구 권한 정책 — SDK `options.permissionMode` / `options.canUseTool` 콜백 / `options.disallowedTools` 의 MVP 기본값? | [`claude-code-spec.md`](./claude-code-spec.md) §5 참조 (CLI 표현 `--allowedTools` / `--permission-mode` / `--bare` 와 1:1 대응). 후보: 미지정 / Read+Edit+Bash 사전승인 / `acceptEdits` / 모델 분류 `auto`. |
+| OQ10 | 어댑터 `tool_use.name` / `tool_use.input` 정규화 정책 — claude vs opencode 도구명 차이 해소? | 후보: (a) raw 그대로 전달 + Renderer 가 도구명 매핑 (b) 어댑터에서 공통 vocabulary (`read`/`write`/`shell`/`edit`/`grep`) 정규화 + raw 는 메타 (c) raw + Renderer 아이콘 패턴 매칭. Phase 3 단일 백엔드 운영에서는 의미 없음 — opencode 어댑터 활성화 PR 에서 결정. TRD §10 anchor. |
 
 ---
 
