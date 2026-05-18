@@ -27,22 +27,21 @@
 - 절차: (1) 원문 URL 에서 마크다운을 받아 본 디렉토리의 해당 파일을 *통째로* 덮어쓴다. (2) 변경이 *해설 미러* 의 절·플래그·이벤트 스키마에 영향이 있으면 같은 PR 에서 해설 미러도 정합화한다. (3) 커밋 메시지에 `원문 URL` 과 `가져온 일시` 를 남긴다.
 - 본 디렉토리의 파일을 사람이 *부분 수정* 하면 향후 동기화가 어려워진다. 수정 욕구가 들면 해설 미러로 옮긴다.
 
-## 현재 인벤토리
+## 현재 벤더
 
-| 미러 파일 | 원격 원문 URL | 해설 미러 |
+벤더별 인벤토리는 각 벤더 디렉토리의 `CLAUDE.md` 가 관리한다. 본 표는 벤더 *목록* 만 둔다.
+
+| 벤더 | 위치 | 가이드 |
 |---|---|---|
-| `claude/headless.md` | `https://code.claude.com/docs/ko/headless` | `docs/claude-code-spec.md` |
-| `claude/cli-reference.md` | `https://code.claude.com/docs/ko/cli-reference` | `docs/claude-code-spec.md` |
-
-(마지막 동기화: 2026-05-14)
+| Claude (Anthropic) | `docs/spec/claude/` | `docs/spec/claude/CLAUDE.md` |
 
 ## 새 벤더를 추가할 때
 
 1. `docs/spec/<vendor>/` 디렉토리를 만든다 (소문자, 하이픈 없는 한 단어 권장).
 2. 원문 페이지(들) 를 그대로 가져와 마크다운으로 저장.
-3. *해설 미러* `docs/<vendor>-*-spec.md` 를 만들고 본 디렉토리의 파일을 1차 출처로 인용한다.
-4. 본 파일의 "현재 인벤토리" 표를 갱신한다.
-5. `docs/CLAUDE.md` 의 "문서 인벤토리" 표도 갱신한다.
+3. 해당 벤더 디렉토리에 `CLAUDE.md` 를 두어 인벤토리·진입점·마지막 동기화 일자를 정리한다 (예: `docs/spec/claude/CLAUDE.md` 참조).
+4. *해설 미러* `docs/<vendor>-*-spec.md` 를 만들고 본 디렉토리의 파일을 1차 출처로 인용한다 (필요한 경우만).
+5. 본 파일의 "현재 벤더" 표와 `docs/CLAUDE.md` 의 "문서 인벤토리" 표도 갱신한다.
 
 ## 충돌 시
 
