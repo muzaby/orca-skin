@@ -9,8 +9,8 @@
 | 출력 대상 | 코드 작성 에이전트 / 코드 리뷰어 |
 | 범위 | Phase 1 정적 구조 + 동적 흐름. Phase 2~4 확장점은 §11 anchor |
 
-> **현 구현 상태 (2026-05-14)**
-> Phase 1 시각 재현 + Phase 2 채팅 IPC 까지 완료. 본문은 *목표 아키텍처* 를 다루므로 `OpencodeAdapter` (§5.5) 와 Settings store (§5.7) 는 **예약 사양** 으로 읽을 것. preload 가 실제 노출하는 채널은 TRD §5.2 의 "Phase 2 활성 6채널" 만 — `backend:select` / `settings:get` / `settings:set` 은 미노출 (`docs/TRD.md` §17 참조).
+> **현 구현 상태 (2026-05-18 갱신)**
+> Phase 1 시각 재현 + Phase 2 채팅 IPC 완료. **Phase 3 SDK 마이그레이션 진행 중** — Claude Code 통합이 CLI `child_process.spawn` → `@anthropic-ai/claude-agent-sdk` 의 `query()` 함수로 전환된다. 본문 §5.4 / §6.3 / §7 시퀀스는 *SDK 기반 목표 아키텍처* 를 다루며, `app/src/main/adapters/claude-code.ts` 의 spawn 구현은 코드 마이그레이션 PR 에서 갱신 예정. `OpencodeAdapter` (§5.5) 와 Settings store (§5.7) 는 여전히 **예약 사양**. preload 가 실제 노출하는 채널은 TRD §5.2 의 "Phase 2 활성 6채널" 만.
 
 ---
 
@@ -54,16 +54,16 @@
 │  │  entry: src/main/index.ts                                 │  │
 │  │  ├─ IpcRouter (채널 라우팅 + zod 검증)                    │  │
 │  │  ├─ AdapterRegistry (두 어댑터 관리)                      │  │
-│  │  │   ├─ ClaudeCodeAdapter (spawn + NDJSON)              │  │
+│  │  │   ├─ ClaudeCodeAdapter (SDK query() + Streaming)      │  │
 │  │  │   └─ OpencodeAdapter (serve + SDK)                   │  │
-│  │  ├─ Installer (CLI 설치 자동화)                          │  │
+│  │  ├─ Installer (opencode 설치 자동화)                     │  │
 │  │  └─ Settings (Phase 1: in-memory, Phase 2+: store)      │  │
 │  └───────────────────────────────────────────────────────────┘  │
-│                      ↕ child_process / HTTP                     │
+│                      ↕ SDK call / HTTP                          │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
                             ↕
-           HOST CLI: `claude` / `opencode` (사용자 PC)
+   HOST: @anthropic-ai/claude-agent-sdk bundled binary / opencode
 ```
 
 ### 프로세스 책임표
@@ -72,7 +72,7 @@
 |---|---|---|---|---|
 | **Renderer** | Chromium sandbox | `src/renderer/src/main.tsx` | `renderer` | React UI, 사용자 입력 수집, IPC 호출, 응답 표시 |
 | **Preload** | Node + browser bridge | `src/preload/index.ts` | `preload` | `window.orca.*` 화이트리스트 노출, contextBridge 중개 |
-| **Main** | Node.js (Electron `app`) | `src/main/index.ts` | `main` | 모든 특권 작업 (IPC 라우팅, 어댑터 관리, 파일 I/O, CLI spawn, 설치 자동화) |
+| **Main** | Node.js (Electron `app`) | `src/main/index.ts` | `main` | 모든 특권 작업 (IPC 라우팅, 어댑터 관리, 파일 I/O, SDK `query()` 호출, opencode 설치 자동화) |
 
 ### 보안 베이스라인 (BrowserWindow 옵션)
 
@@ -84,7 +84,7 @@
 | `webSecurity` | `true` | 기본값 유지 (CORS, 외부 리소스 제한) |
 | **Preload whitelist** | `contextBridge.exposeInMainWorld('orca', {...})` | 명시된 IPC API만 노출 (NodeJS require 등 제외) |
 | **외부 콘텐츠 로드** | 금지 | 마크다운은 react-markdown의 XSS sanitize 의존 |
-| **API 키 저장** | 앱은 미저장 | OAuth/API 키는 CLI가 관리 (디스크 암호화는 OS에 위임) |
+| **API 키 저장** | 앱은 미저장 | OAuth/API 키는 SDK 가 호스트의 `~/.claude` 자격증명을 자동 사용 — 앱이 비밀을 디스크에 쓰지 않는 원칙은 유지 (디스크 암호화는 OS에 위임) |
 
 ---
 
@@ -185,9 +185,9 @@ app/
     │   │   │                         └─ active 백엔드 결정
     │   │   │
     │   │   ├── claude-code.ts        ├─ ClaudeCodeAdapter 구현
-    │   │   │                         ├─ spawn('claude', ...) 관리
-    │   │   │                         ├─ stdout NDJSON 파싱
-    │   │   │                         └─ sessionId 추출
+    │   │   │                         ├─ query({ prompt, options }) 호출
+    │   │   │                         ├─ SDKMessage union 정규화
+    │   │   │                         └─ SDKSystemMessage 에서 sessionId 추출
     │   │   │
     │   │   └── opencode.ts           ├─ OpencodeAdapter 구현
     │   │                             ├─ spawn('opencode serve') 관리
@@ -368,44 +368,92 @@ interface SessionAdapter {
 
 ### 5.4 ClaudeCodeAdapter 내부 구현
 
-> 본 절은 어댑터의 *내부 구조*(파서·버퍼·환경변수 전달)만 다룬다. CLI 외부 인터페이스(플래그·NDJSON 이벤트 스키마·세션 재개) 는 [`claude-code-spec.md`](./claude-code-spec.md) 가 단일 출처. 정규화된 `ChatEvent` 매핑 표는 spec §4 끝의 채택 박스 참조.
+> 본 절은 어댑터의 *내부 구조* 와 **SDK 채택 범위** 를 다룬다. SDK API 시그니처·`Options` 필드·SDKMessage 타입의 외부 계약은 [`docs/spec/claude/agent-sdk/typescript.md`](./spec/claude/agent-sdk/typescript.md) 가 단일 출처. CLI 시기의 외부 계약은 [`claude-code-spec.md`](./claude-code-spec.md) §10·§11·§14 에 보존 (CLI 플래그 ↔ SDK Options 1:1 대응 표 포함).
 
-**spawn args** (`app/src/main/adapters/claude-code.ts:284-292`):
+#### SDK 채택 범위 (Phase 3 MVP 기준)
+
+| SDK 기능 | Orca MVP | Phase | 근거 |
+|---|---|---|---|
+| `query({ prompt, options })` — 단일 진입점 | ✅ | Phase 3 | CLI `claude -p` 의 대체 |
+| `prompt: string` (single-shot mode) | ✅ | Phase 3 | 현재 1턴 1호출 모델 그대로 |
+| `options.resume: sessionId` | ✅ | Phase 3 | `--resume <id>` 직접 대응 |
+| `options.includePartialMessages: true` | ✅ | Phase 3 | `--include-partial-messages` 직접 대응 |
+| 메시지 union 수신 (`SDKSystemMessage` / `SDKAssistantMessage` / `SDKPartialAssistantMessage` / `SDKResultMessage`) | ✅ | Phase 3 | NDJSON 라인 파싱 대체 |
+| `options.cwd` | ✅ | Phase 3 | spawn `{ cwd }` 대체 |
+| `result.total_cost_usd` / `usage` | ✅(부분) | Phase 3 | 기존 `ChatEvent.result.usage` 와 매핑 |
+| `options.permissionMode` / `canUseTool` | ⏳ | Phase 4 (OQ9) | 도구 권한 정책 미정 |
+| `options.hooks` (PreToolUse, PostToolUse, ...) | ⏳ | Phase 4 | 도구 호출 감사 단계 |
+| `createSdkMcpServer` + `tool()` (in-process custom tools) | ⏳ | Phase 4+ | Skills/MCP 단계 |
+| `options.mcpServers` (외부 MCP) | ⏳ | Phase 4+ | 동상 |
+| `prompt: AsyncIterable<SDKUserMessage>` (streaming input) | ⏳ | Phase 4 | 다중 이미지/실시간 중단 시 |
+| `forkSession`, `listSessions`, `loadSession` | ⏳ | Phase 3+/4 | 과거 대화 / 멀티 세션 anchor |
+| `startup()` (사전 워밍) | ⏳ | Phase 4 | 초기 응답 지연 최적화 필요 시 |
+| `mcp_servers` 상태 (`SDKSystemMessage`) | △ | Phase 4 | MCP 미사용 시 무시 |
+
+#### 호출 패턴
+
+```typescript
+import { query } from '@anthropic-ai/claude-agent-sdk';
+
+async function* sendMessage(
+  sessionId: string | null,
+  text: string,
+  cwd: string,
+): AsyncIterable<ChatEvent> {
+  try {
+    for await (const msg of query({
+      prompt: text,
+      options: {
+        resume: sessionId ?? undefined,
+        includePartialMessages: true,
+        cwd,
+        // permissionMode / canUseTool / hooks: Phase 4 anchor
+      }
+    })) {
+      yield normalize(msg);  // SDKMessage → ChatEvent
+    }
+  } catch (err) {
+    yield { type: 'error', ...detectError(err) };
+  }
+}
 ```
-[binPath, '-p', text,
- '--output-format', 'stream-json',
- '--verbose',
- '--include-partial-messages',
- ...(sessionId ? ['--resume', sessionId] : [])]
-```
 
-**Windows 분기 — `.cmd` shim 회피** (`claude-code.ts:145-185`):
-- POSIX: `which claude` → 절대경로 그대로 spawn (`shell: false`).
-- Windows: `npm prefix -g` 결과 하위에서 `claude.exe` 를 재귀 검색 → 절대경로 spawn (`shell: false`). `.cmd` shim 을 우회하는 이유는 cmd 인자 파서가 `\n` 을 만난 뒤 *나머지 argv 까지 truncate* 하기 때문 (멀티라인 프롬프트 + `--output-format` 동시 누락 회귀, 커밋 `15d3ee0`).
+#### SDKMessage → ChatEvent 매핑
 
-**stdio 정책** (`claude-code.ts:189-201`):
-- `stdio: ['ignore', 'pipe', 'pipe']`. child stdin 을 *명시적으로 닫는다* — Claude CLI 가 non-TTY 환경에서 stdin EOF 를 기다리는 분기로 갈 여지 차단 (커밋 `20bc418`).
+현행 `ChatEvent` discriminated union (TRD §6.2) 은 *그대로 유지*. 어댑터 내부에서 SDK 메시지를 기존 타입으로 정규화 — Renderer 코드 변경 없음.
 
-**`install()` 의 npm spawn 만 예외**:
-- Windows 에서 `npm.cmd` shim 만 존재해 `shell: IS_WIN` 유지. 인자가 정적이고 special chars 없으므로 truncation 위험 없음 (`claude-code.ts:220-229`).
+| SDKMessage | → ChatEvent |
+|---|---|
+| `SDKSystemMessage { subtype: 'init', session_id, model? }` | `{ type: 'init', sessionId, model, cwd }` |
+| `SDKPartialAssistantMessage` 의 `event.delta.type === 'text_delta'` | `{ type: 'assistant_delta', text }` |
+| `SDKAssistantMessage` 의 `content` 내 text block (완성본) | `{ type: 'assistant_message', text }` |
+| `SDKAssistantMessage` 의 `content` 내 `tool_use` block | `{ type: 'tool_use', toolUseId, name, input }` |
+| `SDKUserMessage` 의 `content` 내 `tool_result` block | `{ type: 'tool_result', toolUseId, output, isError, durationMs? }` |
+| `SDKResultMessage { subtype: 'success' \| 'error_*', usage, total_cost_usd }` | `{ type: 'result', usage }` (Phase 3 에서 `costUsd` 필드 추가는 별도 결정) |
+| `SDKPermissionDeniedMessage` (※ ⏳ Phase 4) | (현재는 무시. 권한 정책 도입 시 `error / permission.denied` 로 매핑) |
+| 어댑터 내부 `catch` → `Error` | `{ type: 'error', code: 'sdk.crashed' \| 'auth.expired' \| ..., message, recoverable }` |
 
-**stdout NDJSON 파싱**:
-- spawn의 stdout을 라인 단위 분할
-- 부분 라인은 버퍼에 보관, 다음 chunk와 합쳐서 파싱
-- 파싱 실패 라인 → `error / protocol.parse` 이벤트
+> **(OQ10)** `tool_use.name` (예: SDK `Read` vs opencode `read_file`) 의 정규화 정책은 미정. Phase 3 단일 백엔드에서는 raw 그대로 전달 (분기 의미 없음). opencode 어댑터 활성화 PR 에서 결정. PRD §11 OQ10 진실 원천.
 
-**sessionId 추출**:
-- 첫 stdout 이벤트 (`system` 또는 `init` 타입)에서 `session_id` 필드 추출
-- `ChatEvent { type: 'init', sessionId: <extracted> }` 로 정규화
-- Renderer가 수신 후 변수에 저장
+#### 설치 / Binary 해소
 
-**인증 만료 감지**:
-- stdout/stderr 전체 스트림에서 `401` / `OAuth` / `expired` 패턴 매칭
-- 감지 시 `error / auth.expired` 이벤트 발행
+- SDK 의 `optionalDependencies` 가 platform binary (`@anthropic-ai/claude-agent-sdk-{darwin-arm64,darwin-x64,linux-x64,win32-x64}`) 를 자동 가져옴 — 별도 `which claude` 절차·Windows `.cmd` shim 회피·`npm install -g` 자동화 불요.
+- 해소 실패 시 `options.pathToClaudeCodeExecutable` 로 사용자 지정 경로 fallback (UI 안내는 Phase 3+ anchor).
+- 인스톨러 모듈 (§5.6) 은 **opencode 전용** 으로 축소 — TRD §8 박스 참조.
 
-**환경변수 전달**:
-- spawn의 `env` 옵션에 사용자 PATH·HOME 포함
-- CLI가 `~/.claude/projects/<cwd>/` 에 jsonl 저장 → 재개 시 복원
+#### 인증 만료 감지
+
+- SDK 가 throw 하는 에러 메시지/코드에서 `401` / `OAuth` / `expired` 패턴 매칭 (CLI 시기 stdout/stderr 매칭의 대체)
+- 감지 시 `error / auth.expired` 이벤트 발행 — UI: `claude /login` 카피 버튼 + 새 대화 권유
+
+#### 환경변수
+
+| 변수 | 값 | 용도 |
+|---|---|---|
+| `HOME` | 사용자 홈 디렉토리 | SDK 가 `~/.claude` 자격증명 + 세션 jsonl 자동 사용 |
+| `CLAUDE_*` | 필요 시만 | OQ 결정 사항 |
+
+PATH (npm 글로벌 bin) 의존성은 폐기.
 
 ### 5.5 OpencodeAdapter 내부 구현 *(예약 사양 — Phase 1/2 미구현)*
 
@@ -450,13 +498,15 @@ for await (const ev of client.session.send({ id, text, stream: true })) {
 
 **IPC 도메인**: `orca:install:*`
 
+> **(Phase 3 갱신)** Installer 는 **opencode 전용** 으로 축소 — Claude Code 는 SDK `optionalDependencies` 가 binary 를 자동 처리하므로 인스톨러 대상 아님. 본 절은 opencode 어댑터 활성화 시점의 사양.
+
 **프로세스**:
 ```
 사용자 IPC orca:install:start
   ↓
-Installer.start(backend)
-  ├─ 의존성 점검 (Node.js/npm/curl 등)
-  ├─ 설치 명령 선택 (npm vs curl)
+Installer.start(backend)  // backend = 'opencode'
+  ├─ 의존성 점검 (curl 등)
+  ├─ 설치 명령 선택 (curl / PowerShell)
   ├─ child_process.spawn 실행
   ├─ 라인 단위 stdout 읽기
   ├─ webContents.send('orca:install:status', { ... })
@@ -523,28 +573,30 @@ Renderer는 `onEvent` 핸들러를 **1번만** 등록. Main이 모든 `orca:chat
 ```
 1. 사용자 입력 → Composer → dispatch(SEND_USER_MESSAGE)
 2. window.orca.chat.send(...) invoke (비동기)
-3. Main: spawn('claude', ...) / opencode SDK 호출
-4. 첫 stdout/SSE line:
+3. Main: query({ prompt, options }) / opencode SDK 호출
+4. 첫 SDKSystemMessage init / 첫 SSE 라인:
    ├─ 'init' 이벤트 → RECV_EVENT 액션
    ├─ sessionId 저장
    └─ Renderer 업데이트
 
-5. 이어서 'assistant_delta' 스트림:
-   ├─ 각 라인 → RECV_EVENT
+5. 이어서 SDKPartialAssistantMessage (text_delta) / SSE delta:
+   ├─ 각 메시지 → RECV_EVENT
    ├─ pendingDelta += data.text
    ├─ debounce 16ms (60Hz 리렌더)
    └─ 화면에 토큰 누적 표시
 
-6. 마지막 'assistant_message':
+6. 마지막 SDKAssistantMessage (완성본):
    ├─ RECV_EVENT
    ├─ pendingDelta → 최종 message로 교체
    └─ 완성 상태로 전환
 
-7. 'result' 또는 'error':
-   ├─ RECV_EVENT
+7. SDKResultMessage 또는 어댑터 catch:
+   ├─ RECV_EVENT (result / error)
    ├─ inflight = false
    └─ 입력 다시 활성화
 ```
+
+> **(IPC 보장)** main→renderer 의 `orca:chat:event` 채널은 Electron `webContents.send` 가 V8 microtask queue 위에서 ordered + lossless 를 보장 — 메시지 순서 유지, 손실 없음. Renderer 가 일시적으로 늦어도 microtask queue 에 안전히 쌓임. 별도 메시지큐 미도입 (멀티 세션 도입 시 ChatEvent 에 `sessionId` 필드 추가로 해결 — §11.3).
 
 **debounce 16ms**: 빈번한 리렌더를 피하기 위해 delta 누적은 진행하지만 UI 업데이트는 16ms 마다만 실행.
 
@@ -640,23 +692,23 @@ ipcMain.handle('orca:chat:send', async (event, req) => {
 })
   │
   ├─ ClaudeCodeAdapter.sendMessage(null, "hello", cwd)
-  │   ├─ spawn('claude', ['-p', 'hello', '--output-format', 'stream-json'])
+  │   ├─ query({ prompt: 'hello', options: { includePartialMessages: true, cwd } })
   │   │
-  │   ├─ stdout 라인 1: { "type": "system", "session_id": "sess_123" }
-  │   │   ├─ parse → normalize
-  │   │   └─ yield ChatEvent { type: 'init', sessionId: 'sess_123' }
+  │   ├─ SDKMessage 1: SDKSystemMessage { subtype: 'init', session_id: 'sess_123', model? }
+  │   │   ├─ normalize
+  │   │   └─ yield ChatEvent { type: 'init', sessionId: 'sess_123', model, cwd }
   │   │
-  │   ├─ stdout 라인 2: { "type": "assistant_delta", "text": "I " }
-  │   │   ├─ parse → normalize
+  │   ├─ SDKMessage 2: SDKPartialAssistantMessage { event.delta: { type: 'text_delta', text: 'I ' } }
+  │   │   ├─ normalize
   │   │   └─ yield ChatEvent { type: 'assistant_delta', text: 'I ' }
   │   │
-  │   ├─ stdout 라인 3: { "type": "assistant_delta", "text": "can " }
-  │   │   └─ yield ChatEvent { type: 'assistant_delta', text: ' can ' }
+  │   ├─ SDKMessage 3: SDKPartialAssistantMessage { event.delta: { type: 'text_delta', text: 'can ' } }
+  │   │   └─ yield ChatEvent { type: 'assistant_delta', text: 'can ' }
   │   │
   │   ├─ ... (이어서 delta 스트림)
   │   │
-  │   └─ stdout 라인 N: { "type": "finish", ... }
-  │       └─ yield ChatEvent { type: 'result' }
+  │   └─ SDKMessage N: SDKResultMessage { subtype: 'success', usage, total_cost_usd }
+  │       └─ yield ChatEvent { type: 'result', usage }
   │
   ├─ event.sender.send('orca:chat:event', { type: 'init', sessionId: 'sess_123' })
   │
@@ -705,15 +757,15 @@ Renderer: window.orca.chat.onEvent(cb)
   ▼
 ClaudeCodeAdapter.sendMessage('sess_123', "what's next?", cwd)
   │
-  ├─ spawn('claude', ['-p', "what's next?", '--output-format', 'stream-json', '--resume', 'sess_123'])
-  │   ├─ CLI가 ~/.claude/projects/<cwd>/sess_123.jsonl 읽기
+  ├─ query({ prompt: "what's next?", options: { resume: 'sess_123', includePartialMessages: true, cwd } })
+  │   ├─ SDK 가 ~/.claude/projects/<cwd>/sess_123.jsonl 읽기
   │   ├─ 이전 메시지들 로드 (컨텍스트 복원)
   │   └─ 새 메시지와 함께 LLM 호출
   │
-  ├─ stdout: { type: 'init', session_id: 'sess_123' }
-  │   └─ 같은 ID 반환 (또는 생략)
+  ├─ SDKSystemMessage { subtype: 'init', session_id: 'sess_123' }
+  │   └─ 같은 ID 반환
   │
-  ├─ stdout: { type: 'assistant_delta', text: "Building on " }
+  ├─ SDKPartialAssistantMessage { event.delta: { type: 'text_delta', text: 'Building on ' } }
   │   └─ yield
   │
   └─ ... (이어서 response)
@@ -726,6 +778,8 @@ Renderer:
 ```
 
 ### 시퀀스 #3: 인스톨러 흐름
+
+> **(Phase 3 갱신)** Claude Code 는 SDK `optionalDependencies` 가 platform binary 를 자동 처리 → Installer 트리거 대상 아님. 본 시퀀스는 **opencode 미설치** 또는 SDK binary fallback 실패 시 매뉴얼 안내 경로. Phase 3 단일 백엔드 (claude-code) 운영에서는 다이얼로그가 뜨지 않는다.
 
 ```
 앱 부트 → AdapterRegistry.isInstalled() 병렬 호출
@@ -742,30 +796,30 @@ Renderer: AdapterRegistry.list() 호출
   │   └─ { backends: [], active: null }
   │
   ├─ Renderer UI: 인스톨러 다이얼로그 표시
-  │   ├─ "claudecode 와 opencode 모두 미설치됨"
-  │   ├─ [npm으로 설치] / [curl로 설치] 라디오
+  │   ├─ "opencode 미설치 — Claude Code 는 SDK 가 자동 처리"
+  │   ├─ [curl 로 설치] 라디오
   │   └─ [시작]
   │
   ▼
-사용자 선택: npm 선택 후 [시작]
+사용자 선택: [시작]
   │
-  ├─ window.orca.install.start('claude-code')
+  ├─ window.orca.install.start('opencode')
   │
   ▼ (IPC)
   │
   ▼
-Installer.start('claude-code')
+Installer.start('opencode')
   │
   ├─ 의존성 점검
-  │   ├─ which node / npm -v
+  │   ├─ which curl
   │   └─ (성공)
   │
-  ├─ spawn('npm', ['install', '-g', '@anthropic-ai/claude-code'])
+  ├─ spawn('sh', ['-c', 'curl -fsSL https://opencode.ai/install | bash'])  // POSIX 예시
   │
   ├─ stdout 라인별:
-  │   ├─ "added X packages"
-  │   ├─ ...
-  │   └─ "" (공백)
+  │   ├─ "Downloading..."
+  │   ├─ "Installing to /usr/local/bin/opencode"
+  │   └─ ...
   │
   ├─ 각 라인마다:
   │   └─ event.sender.send('orca:install:status', { step: '...', progress: 50 })
@@ -775,7 +829,7 @@ Installer.start('claude-code')
 
 Renderer: window.orca.install.onStatus(cb)
   │
-  ├─ st1: { step: 'added X packages', progress: 50 }
+  ├─ st1: { step: 'Installing to /usr/local/bin/opencode', progress: 50 }
   │   └─ 프로그레스바 업데이트 + 로그 표시
   │
   ├─ st2: { step: 'complete' }
@@ -785,7 +839,7 @@ Renderer: window.orca.install.onStatus(cb)
   │
   └─ (사용자 [새 대화] 클릭)
      ├─ AdapterRegistry.isInstalled() 재확인
-     ├─ ClaudeCodeAdapter.isInstalled(): true (이제 설치됨)
+     ├─ OpencodeAdapter.isInstalled(): true (이제 설치됨)
      ├─ 자동 선택
      └─ 일반 채팅 모드로 복귀
 ```
@@ -796,7 +850,7 @@ Renderer: window.orca.install.onStatus(cb)
 앱 부트 (main/index.ts)
   │
   ├─ new AdapterRegistry()
-  │   ├─ ClaudeCodeAdapter().isInstalled() ────┐
+  │   ├─ ClaudeCodeAdapter().isInstalled() ────┐   (SDK 패키지 + binary 해소 여부)
   │   └─ OpencodeAdapter().isInstalled() ───┐  │
   │                                          │  │
   │        병렬 실행 (Promise.all)         │  │
@@ -868,7 +922,9 @@ app.on('window-all-closed')
   │   ├─ 5초 대기
   │   └─ (응답 없으면) child.kill('SIGKILL')
   │
-  ├─ (ClaudeCode) 자식 프로세스 없음 (매 턴마다 종료)
+  ├─ (ClaudeCode) SDK 내부 binary 라이프사이클은 SDK 가 관리
+  │   ├─ query() 의 AbortSignal 로 inflight 호출 중단 가능
+  │   └─ 앱 종료 시 IPC 채널 disposal 만으로 충분
   │
   └─ app.quit()
      └─ main 프로세스 종료
@@ -904,6 +960,8 @@ Preload → shared (타입)
 | `react` | renderer | JSX, hooks |
 | `react-markdown` | renderer/Markdown | 마크다운 렌더 |
 | `shiki` | renderer/Markdown | 코드 블록 syntax highlighting |
+| `@anthropic-ai/claude-agent-sdk` | main/adapters/claude-code | `query()` 호출 진입점 (Phase 3 채택) |
+| `@anthropic-ai/claude-agent-sdk-{darwin-arm64,darwin-x64,linux-x64,win32-x64}` | (SDK 의 optionalDependencies 자동 처리) | 플랫폼별 native binary |
 | `@opencode-ai/sdk` | main/adapters/opencode | opencode HTTP 클라이언트 |
 | `zod` | main/ipc | IPC 메시지 검증 + adapters (에러 검증) |
 | `electron-store` | main/settings (Phase 2+) | 설정 영속화 |
@@ -984,7 +1042,7 @@ tsconfig.json
 - Settings.store 에 `lastSessionId` 키 추가
 - 앱 부트 시 `Settings.get('lastSessionId')` 읽기
 - Renderer 초기 상태에 주입: `{ sessionId: lastSessionId, ... }`
-- 다음 전송 시 `--resume <lastSessionId>` / same session HTTP 호출
+- 다음 전송 시 `options.resume: lastSessionId` (Claude) / same session HTTP 호출 (opencode)
 
 **구현 위치**:
 - `src/main/settings/store.ts` (phase 2에 electron-store 도입)
@@ -1009,9 +1067,33 @@ tsconfig.json
 - 내부 reducer 로직은 "세션 1개 단위" 로 캡슐화되므로 그대로 재사용 가능
 - Sidebar: 세션 탭 표시 + 활성 세션 전환
 
+**ChatEvent sessionId 필드 확장 (critical)**:
+- 현재 `ChatEvent` 변형 중 `init` 만 sessionId 필드 보유 (TRD §6.2). 단일 inflight 모델에서는 식별 불요.
+- Phase 4 진입 시 *모든 변형* (`assistant_delta` / `assistant_message` / `tool_use` / `tool_result` / `result` / `error`) 에 `sessionId: string` 필드 추가 — 동시 흐름의 출처 식별.
+- Renderer reducer 는 sessionId 별 dispatch (`sessions[sessionId]` 분기). 외피 변경만으로 흡수.
+- **main↔renderer IPC 는 기존 1채널 (`orca:chat:event`) 그대로 유지** — Electron `webContents.send` 가 V8 microtask queue 위에서 ordered + lossless 보장. 별도 메시지큐 도입은 *중복 레이어* 이므로 미채택.
+
 **구현 위치**:
+- `src/shared/ipc.ts` (ChatEvent 변형 타입 확장)
+- `src/main/adapters/*.ts` (정규화 시 sessionId 주입)
 - `src/renderer/src/state/chatReducer.ts` (ChatState 타입 + reducer 리팩터)
 - `src/renderer/src/app/Sidebar.tsx` (세션 탭 UI)
+
+### 11.4 Phase 4: SDK 고급 기능
+
+§5.4 SDK 채택 범위 표의 ⏳ 행 모음 — 권한·훅·MCP·custom tools 가 Phase 4 진입 anchor.
+
+**확장점**:
+- `options.permissionMode` 기본값 + `canUseTool` 콜백 IPC 노출 (OQ9 결정 후)
+- `options.hooks` (PreToolUse / PostToolUse / Stop) — 도구 호출 감사·위험 명령 차단
+- `createSdkMcpServer` + `tool()` 헬퍼 — Orca 고유 도구(캡처 트리거 등) in-process 주입
+- `options.mcpServers` — 외부 MCP 서버 등록 UI 와 연결
+- `prompt: AsyncIterable<SDKUserMessage>` — 다중 이미지 / 실시간 중단 / 자연스러운 다중 턴
+
+**구현 위치**:
+- `src/main/adapters/claude-code.ts` (Options 확장)
+- `src/main/ipc/router.ts` (permission 콜백 IPC 채널 신설)
+- `src/renderer/src/app/SkillsMcp.tsx` (Skills/MCP 패널 활성화)
 
 ---
 
@@ -1031,6 +1113,8 @@ tsconfig.json
 ## 13. References
 
 - `docs/TRD.md` — 기능 정의, API 스펙, 데이터 모델 (단일 출처)
-- `docs/claude-code-spec.md` — Claude Code CLI 외부 계약 (§5.4 가 인용)
+- `docs/claude-code-spec.md` — Claude Code CLI 시기 외부 계약 + §10 Agent SDK 채택 표 (§5.4 가 인용)
+- `docs/spec/claude/agent-sdk/CLAUDE.md` — Agent SDK 원문 미러 인덱스 (Phase 3 채택 이후 SDK 사실의 진입점)
+- `docs/spec/claude/agent-sdk/typescript.md` — `query()` / `Options` / SDKMessage 명세 단일 출처 (§5.4 가 인용)
 - `app/CLAUDE.md` — 모듈 레이아웃·보안 베이스라인 운영 규칙
 - `project/electron/architecture.html`, `electron-mockup.jsx` — 시각 기준 프로토타입 (production 아님)

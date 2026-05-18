@@ -37,7 +37,7 @@ PRD §6.1 의 F1~F10 을 *수용 기준* 으로 구체화한다.
 | F1 | **Chat 입력/스트리밍** | Composer, MessageList, useEngineStream | 전송 즉시 첫 `assistant_delta` 가 N ms 내 도착 (SLA는 OQ6), 토큰 단위 누적 표시, 마지막 `assistant_message` 로 완성본 교체 | §6.1 |
 | F2 | **마크다운 렌더링** | Markdown, react-markdown + shiki | 본문 + 코드 블록 syntax highlighting, 타겟 언어: Python·JavaScript·TypeScript·Bash 등 (shiki 제공 범위), 안전성: markdown 구현체의 sanitize 기본 적용 | §6.1 |
 | F3 | **도구 호출 표시** | ToolCallCard, MessageList | `tool_use` 이벤트 도착 시 카드 생성 (이름·입력 JSON 표시), 같은 `toolUseId` 의 `tool_result` 도착 시 카드에 결과·소요시간 추가, 상태 전이: pending → running → completed/failed | §6.1 |
-| F4 | **단일 활성 대화 컨텍스트** | ChatState (reducer), Adapter | 같은 `sessionId` 를 매 턴 CLI에 전달 (`--resume <id>` / same session HTTP call), Renderer는 `sessionId` 변수 1개만 메모리 보관, CLI가 이전 턴들을 복원 | §6.1 |
+| F4 | **단일 활성 대화 컨텍스트** | ChatState (reducer), Adapter | 같은 `sessionId` 를 매 턴 어댑터에 전달 (Claude: `options.resume` / opencode: same session HTTP call), Renderer는 `sessionId` 변수 1개만 메모리 보관, 백엔드가 이전 턴들을 복원 | §6.1 |
 | F5 | **새 대화** | ChatShell ("새 대화" 버튼) | `sessionId = null` 리셋 → reducer 메시지 배열·pendingDelta 초기화, 다음 전송 시 `sendMessage(null, ...)` 호출 → 어댑터가 ID 발급 (`init` 이벤트에서 추출) | §6.1 |
 | F6 | **백엔드 선택** | AdapterRegistry, BackendSelector UI | 시작 시 병렬 `isInstalled()` → (둘 다/한쪽/없음) 결과. 둘 다 설치: 사용자 선택 또는 OQ7 정책. 한쪽: 자동 선택. 없음: 인스톨러 트리거. v1에서 세션 중 전환 불가 | §6.1 |
 | F7 | **CLI 설치 자동화** | Installer (IPC `orca:install:*`) | 둘 다 미설치 → 다이얼로그 (npm / curl 선택) → child_process 실행 → 라인 단위 status 스트림 → 완료/실패 표시 | §6.1 |
@@ -78,10 +78,11 @@ electron-vite 환경 기준. 표 밖 의존성 추가 시 **사용자 승인 필
 | 상태 관리 | React Context + reducer | — | 확정 | 외부 상태 라이브러리 (Redux 등) 금지 MVP 범위 |
 | 스타일링 | Tailwind CSS | **^4** (`@tailwindcss/vite` 플러그인, CSS-first `@theme`) | 확정 (Phase 1 완료) | utility-first. `styles/tokens.css` 의 `@theme` 블록으로 시맨틱 디자인 토큰 정의 (`--color-{bg,sidebar,ink,...}`). `[data-theme]` 스코프로 Classic/Dark/Cool 전환. Tweaks 패널과 연동. 자세한 정책은 `app/CLAUDE.md` "스타일링 정책" 참조 |
 | 마크다운 렌더링 | react-markdown + remark-gfm + shiki | `^9` / `^4` / `^1` | 확정 (Phase A `feat-pretty-ui` 도입) | GFM (표·체크박스) + 코드 블록 syntax highlighting. shiki 번들은 11개 언어 (ts/js/tsx/jsx/python/bash/json/yaml/html/css/markdown) 로 제한 |
+| LLM 백엔드 SDK (Claude) | `@anthropic-ai/claude-agent-sdk` | latest | 확정 (Phase 3 채택, 2026-05-18) | TypeScript SDK. 진입점 `query({ prompt, options })`. 플랫폼별 native binary 는 `optionalDependencies` 자동 처리. 최소 요구 Node.js 18+. API 명세 SSOT 는 `docs/spec/claude/agent-sdk/typescript.md` |
 | HTTP (opencode) | `@opencode-ai/sdk` | latest | 확정 | 공식 SDK 사용 |
-| IPC | Electron 기본 ipcRenderer/ipcMain | — | 확정 | 별도 RPC 라이브러리 금지 |
+| IPC | Electron 기본 ipcRenderer/ipcMain | — | 확정 | 별도 RPC 라이브러리 금지. main→renderer 는 Electron 가 ordered + lossless 보장 — 별도 메시지큐 미도입 (멀티 세션 도입 시 §11.3 anchor) |
 | IPC 보안 | `@electron-toolkit/preload` + contextBridge | ^3 | 확정 | preload 화이트리스트 |
-| 입력 검증 | zod | latest | 확정 | IPC 메시지 + CLI 응답 파싱 |
+| 입력 검증 | zod | latest | 확정 | IPC 메시지 + SDK / SSE 응답 파싱 |
 | 영속화 (Phase 2+) | `electron-store` | — | 보류 | Phase 1은 in-memory. Phase 2에 도입 |
 | 패키징 | electron-builder | ^26 | 미정 OQ3 | signing/notarization/auto-update |
 | 테스트 (단위) | Vitest | latest | 확정 | 어댑터·reducer·IPC zod·installer |
@@ -180,6 +181,10 @@ Discriminated union. 어댑터가 CLI/SDK의 다양한 형식을 이 하나의 �
 | `result` | `{ usage?: { inputTokens: number; outputTokens: number; }; }` | 어댑터 | 턴 완료, `inflight = false` |
 | `error` | `{ code: string; message: string; recoverable: boolean; }` | 어댑터 (언제든) | 에러 토스트 + 선택적 복구 UI |
 
+> **(Phase 4 anchor)** 멀티 세션 (§10) 도입 시 모든 변형에 `sessionId: string` 필드 추가 예정. 현재는 `init` 만 보유 — 단일 inflight 모델에서는 sessionId 식별 불요. main↔renderer IPC 는 Electron 의 ordered+lossless 보장을 그대로 활용 (별도 메시지큐 미도입). 상세는 `architecture.md §11.3`.
+
+> **(OQ10)** `tool_use.name` / `tool_use.input` 표준화 정책 미정 — PRD §11 OQ10 진실 원천. Phase 3 단일 백엔드 운영에서는 raw 전달 (분기 의미 없음). opencode 어댑터 활성화 PR 에서 결정.
+
 ### 6.3 SessionAdapter (공통 인터페이스)
 
 ```typescript
@@ -276,49 +281,57 @@ Phase 1은 메모리만, Phase 2+에서 `electron-store` 로 영속화. 인터�
 
 ### 7.1 ClaudeCodeAdapter
 
-> CLI 플래그 의미·NDJSON 이벤트 스키마(`system/init`, `stream_event`, `system/api_retry`, `system/plugin_install`)·세션 재개 메커니즘 상세는 [`claude-code-spec.md`](./claude-code-spec.md) §3·§4·§7 참조 (단일 출처). 본 절은 *어댑터가 외부와 어떻게 계약하는지* 만 다룬다. 권한 정책 미정(OQ9) 도 spec §5 참조.
+> SDK `query()` API 시그니처·`Options` 필드·SDKMessage 타입·세션 재개 메커니즘 상세는 [`docs/spec/claude/agent-sdk/typescript.md`](./spec/claude/agent-sdk/typescript.md) 가 단일 출처. CLI 플래그 ↔ SDK Options 대응 표·SDKMessage→ChatEvent 매핑·MVP 채택 범위·내부 구현 패턴은 [`architecture.md §5.4`](./architecture.md) 참조. 본 절은 *어댑터가 외부와 어떻게 계약하는지* 만 다룬다. 권한 정책 미정(OQ9) 은 `claude-code-spec.md §5` 참조.
 
 **설치 탐지**:
 
-| 항목 | 명령 / 절차 | 성공 기준 |
+| 항목 | 절차 | 성공 기준 |
 |---|---|---|
-| 설치 여부 (POSIX) | `which claude` | exit code 0, 출력은 절대경로 |
-| 설치 여부 (Windows) | `npm prefix -g` 결과 하위 `node_modules/@anthropic-ai/claude-code/` 에서 `claude.exe` 재귀 검색 | 파일 발견. `.cmd` shim 은 의도적으로 우회 (멀티라인 인자 truncation 회피 — `app/src/main/adapters/claude-code.ts:145-148` 주석, 커밋 `15d3ee0` / `20bc418`) |
-| 버전 확인 | `"<binPath>" --version` (절대경로 인용) | 출력에 버전 번호 |
+| 패키지 해소 | `require.resolve('@anthropic-ai/claude-agent-sdk')` | 모듈 발견 |
+| Native binary | SDK 의 `optionalDependencies` (`@anthropic-ai/claude-agent-sdk-{darwin-arm64,darwin-x64,linux-x64,win32-x64}`) 가 자동 설치 | `query()` 호출이 `MODULE_NOT_FOUND` 없이 시작 |
+| 수동 경로 (실패 시) | `options.pathToClaudeCodeExecutable` 로 사용자 지정 binary 경로 허용 | UI 안내는 Phase 3+ anchor |
 
-**자동 설치**:
-```
-npm install -g @anthropic-ai/claude-code
-```
+**자동 설치**: 별도 절차 없음 — Claude Code 는 SDK 패키지의 `npm install` 시점에 platform binary 가 자동 설치된다. (CLI 글로벌 설치 `npm install -g @anthropic-ai/claude-code` 는 폐기.) 인스톨러 모듈은 **opencode 전용** 으로 축소 — §8 참조.
 
 **메시지 전송** (매 턴):
+```typescript
+import { query } from '@anthropic-ai/claude-agent-sdk';
+
+for await (const msg of query({
+  prompt: text,
+  options: {
+    resume: sessionId ?? undefined,
+    includePartialMessages: true,
+    cwd,
+    // permissionMode / canUseTool / hooks: Phase 4 anchor (§10)
+  }
+})) {
+  yield normalize(msg);  // SDKMessage → ChatEvent
+}
 ```
-"<binPath>" -p "<text>" --output-format stream-json --verbose --include-partial-messages [--resume <sessionId>]
-```
-- `-p <text>`: 사용자 입력 (멀티라인 그대로 — `shell: false` + POSIX `execve` 가 argv 바이트를 손실 없이 전달)
-- `--output-format stream-json`: NDJSON 형식 (필수)
-- `--verbose --include-partial-messages`: `text_delta` 토큰 스트리밍 (Phase 2 채택, `claude-code-spec.md §4`)
-- `--resume <sessionId>`: 2턴 이상에서 조건부 추가 (sessionId != null)
-- `cwd`: spawn 의 `{ cwd }` 옵션에 전달
-- `stdio: ['ignore', 'pipe', 'pipe']`: child stdin 명시적 close — CLI 가 non-TTY 환경에서 stdin EOF 를 기다리는 분기 차단
-- `shell: false`: 절대경로 직접 spawn — shell 메타문자 인젝션 표면 제거 + Windows `.cmd` shim 우회
+
+- `prompt: string`: single-shot 입력 (사용자 메시지). `AsyncIterable<SDKUserMessage>` 형태는 Phase 4 anchor (다중 이미지·실시간 중단 필요 시).
+- `options.includePartialMessages: true`: `SDKPartialAssistantMessage` (text_delta) 스트리밍 — CLI 의 `--verbose --include-partial-messages` 대체.
+- `options.resume`: 2턴 이상에서 조건부 — `sessionId != null` 시 첫 턴의 ID 전달. CLI `--resume <id>` 와 1:1 대응.
+- `options.cwd`: 작업 디렉토리 — CLI spawn 의 `{ cwd }` 대체.
 
 **첫 응답에서 sessionId 추출**:
-- Claude Code stdout의 첫 이벤트 (`system` 또는 `init` 타입)에서 `session_id` 필드 추출
-- 이를 `ChatEvent { type: 'init', data: { sessionId: ... } }` 로 정규화
-- Renderer가 받아서 `sessionId` 변수에 저장
+- 첫 SDKMessage 가 `SDKSystemMessage(subtype: 'init')` — 그 `session_id` 필드 추출
+- `ChatEvent { type: 'init', sessionId, model?, cwd }` 로 정규화 (TRD §6.2)
+- Renderer 가 받아서 `state.sessionId` 에 저장
 
 **인증 만료 감지**:
-- stdout/stderr에서 `401` / `"OAuth"` / `"expired"` 패턴 → `error / auth.expired`
-- UI: `claude /login` 명령 카피 버튼 + 새 대화 권유
+- SDK 가 throw 하는 에러 객체의 메시지/코드에서 `401` / `OAuth` / `expired` 패턴 매칭 → `error / auth.expired`
+- UI: `claude /login` 명령 카피 버튼 + 새 대화 권유 (정책은 CLI 시기와 동일)
 
 **환경변수**:
 
 | 변수 | 값 | 용도 |
 |---|---|---|
-| `PATH` | 사용자 셸 PATH 상속 | npm 글로벌 bin 경로 포함 필수 |
-| `HOME` | 사용자 홈 디렉토리 | Claude Code가 `~/.claude/projects/<cwd>/` 에 jsonl 저장 |
+| `HOME` | 사용자 홈 디렉토리 | SDK 가 `~/.claude` 의 OAuth/API 자격증명 자동 사용 + 세션 jsonl 저장 (`~/.claude/projects/<cwd>/`) |
 | `CLAUDE_*` | (OQ에서 확정) | 필요 시만 |
+
+PATH 의존성 (npm 글로벌 bin) 은 폐기 — SDK 의 `optionalDependencies` 가 platform binary 를 패키지 내부에서 해소한다.
 
 ### 7.2 OpencodeAdapter
 
@@ -392,12 +405,14 @@ for await (const ev of client.session.send({ id, text, stream: true })) {
 
 사용자에게 보이는 인스톨러 다이얼로그와 프로세스.
 
+> **(2026-05-18 갱신)** 본 인스톨러는 **opencode 전용** 으로 축소됨. Claude Code 는 SDK `@anthropic-ai/claude-agent-sdk` 의 `optionalDependencies` 가 platform binary 를 자동 처리하므로 인스톨러 대상 아님. Phase 3 단일 백엔드 (claude-code) 운영에서는 인스톨러 다이얼로그 자체가 트리거되지 않는다. opencode 어댑터 활성화 시점 (§10 anchor) 에 본 절이 다시 의미를 가진다.
+
 ### 8.1 다이얼로그 단계
 
 | 단계 | 내용 | UI 요소 |
 |---|---|---|
-| 1. 진단 | "claudecode / opencode 확인 중..." | 스피너 + 로그 |
-| 2. 선택 | "어떤 CLI를 설치할까요?" | npm / curl 라디오 버튼 + [시작] |
+| 1. 진단 | "opencode 확인 중..." | 스피너 + 로그 |
+| 2. 선택 | "opencode 를 설치할까요?" | curl / 수동 라디오 버튼 + [시작] |
 | 3. 진행 | 설치 진행률 + 라인 단위 로그 | 프로그레스바 + 터미널 텍스트 |
 | 4. 성공 | "설치 완료! [새 대화]" | 확인 버튼 |
 | 4. 실패 | "설치 실패. [수동 명령 복사] [진단 다시]" | 수동 명령 텍스트박스 + 버튼 |
@@ -406,9 +421,8 @@ for await (const ev of client.session.send({ id, text, stream: true })) {
 
 | 조건 | 검사 | 메시지 |
 |---|---|---|
-| npm 선택 시 | Node.js / npm 존재 | `node -v`, `npm -v` |
-| npm 권한 | 글로벌 설치 가능 | npm prefix 테스트 |
 | curl 선택 시 | curl 존재 | `which curl` |
+| Windows | PowerShell 사용 가능 여부 | (opencode 설치 스크립트 URL 확정 필요) |
 
 ### 8.3 설치 후 검증
 
@@ -460,6 +474,9 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 - **(anchor) 하드웨어 어댑터 (BoardAdapter)** — USB/카메라 제어. `src/main/adapters/board.ts` 예약, 네이티브 모듈 (`orca-board.node`, libusb) Phase 2~3.
 - **(anchor) opencode 어댑터** — Phase 1 에서는 미구현. §7.2 의 사양 (서버 라이프사이클, SDK 호출, SSE 매핑) 그대로 살아있으나 코드는 인터페이스 후크만 남아있다. claude-code 단독 운영이 안정화되면 도입.
 - **(anchor) OpenAI Compatible 백엔드** — `SessionAdapter` 인터페이스 재활용 가능. 3번째 어댑터 구현체 추가.
+- **(anchor) Agent SDK 고급 기능** — `permissionMode` / `canUseTool` / `hooks` / `createSdkMcpServer` (in-process custom tools) / 외부 `mcpServers` / `forkSession` / `startup()` (사전 워밍) / `AsyncIterable<SDKUserMessage>` 스트리밍 입력. 채택 표는 `architecture.md §5.4` 의 ⏳ 행 참조. Phase 4+ — 도구 권한 정책(OQ9) 결정 후 진행.
+- **(anchor) 어댑터 도구명 정규화 (OQ10)** — claude vs opencode 의 `tool_use.name` / `tool_use.input` 차이 해소 정책. PRD §11 OQ10 결정 후 어댑터별 매핑 표 확정.
+- **(anchor) ChatEvent sessionId 확장** — Phase 4 멀티 세션 진입 시 모든 변형(`assistant_delta` / `assistant_message` / `tool_use` / `tool_result` / `result` / `error`)에 `sessionId` 필드 추가. main↔renderer IPC 는 Electron 의 ordered+lossless 보장을 그대로 활용 (별도 메시지큐 미도입). 상세 anchor 는 `architecture.md §11.3`.
 - **(anchor) Skills / MCP / Captures / Projects** — PRD §9 Future Scope. 별도 IPC 도메인 + 모듈 추가.
 - **(anchor) 멀티 세션 / 과거 대화 목록** — Phase 3+. 인터페이스 `SessionAdapter.listSessions?()` / `loadSession?()` 이미 예약. Sidebar 세션 리스트 UI는 Phase 4.
 - **(anchor) 재시작 재개** — Phase 2. Settings.store 의 `lastSessionId` 키 추가, 앱 부트 시 복원.
@@ -471,14 +488,14 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 
 ### 단위 테스트 (Vitest)
 
-- **어댑터**: ChatEvent 정규화 (NDJSON→ChatEvent, SSE→ChatEvent), 에러 감지 (auth.expired 패턴, spawn 실패 코드)
+- **어댑터**: ChatEvent 정규화 (SDKMessage→ChatEvent, SSE→ChatEvent), 에러 감지 (auth.expired 패턴, SDK throw 처리)
 - **Reducer**: 모든 액션 (SEND_USER_MESSAGE, RECV_EVENT, NEW_CHAT, CANCEL_CHAT) → 상태 전이 정확성
 - **IPC 검증**: zod 스키마 (SendChatMessage, ChatEvent, InstallStatus 등)
-- **Installer**: 의존성 점검 (Node.js/npm/curl), 명령 조합
+- **Installer**: 의존성 점검 (curl), opencode 설치 명령 조합
 
 ### 통합 테스트
 
-- Mock CLI (stdout NDJSON 시뮬레이션)
+- Mock SDK (`query()` AsyncIterable 시뮬레이션 — SDKSystemMessage / SDKPartialAssistantMessage / SDKResultMessage 순서 재현)
 - Mock opencode 서버 (SSE 스트림 시뮬레이션)
 - IpcRouter ↔ Adapter 흐름 (메시지 → 어댑터 → 정규화 → IPC 송신 검증)
 
