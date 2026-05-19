@@ -15,7 +15,11 @@ export const CHANNELS = {
 export type Backend = 'claude-code'
 
 // Error 코드 (TRD §6.6)
+// Phase 3 (SDK 마이그레이션): sdk.* 가 신규 표준. cli.* 는 CLI spawn 시기 호환을 위해 보존
+// (deprecated — 후속 PR 에서 정리).
 export type ErrorCode =
+  | 'sdk.crashed'
+  | 'sdk.spawn-failed'
   | 'cli.not-installed'
   | 'cli.spawn-failed'
   | 'cli.crashed'

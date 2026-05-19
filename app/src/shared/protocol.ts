@@ -8,6 +8,8 @@ import type { Backend, ChatEvent, ErrorCode } from './ipc'
 const BackendSchema: z.ZodType<Backend> = z.enum(['claude-code'])
 
 const ErrorCodeSchema: z.ZodType<ErrorCode> = z.enum([
+  'sdk.crashed',
+  'sdk.spawn-failed',
   'cli.not-installed',
   'cli.spawn-failed',
   'cli.crashed',
