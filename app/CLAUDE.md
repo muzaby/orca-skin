@@ -45,7 +45,7 @@
 | `src/renderer/src/app/Frame.tsx`                          | `V1Frame` — app-frame 컨테이너                                                  | 구현됨                                  |
 | `src/renderer/src/app/Titlebar.tsx`                       | `V1Titlebar` — Orca 브랜드 + breadcrumb + WinControls                           | 구현됨                                  |
 | `src/renderer/src/app/Sidebar.tsx`                        | `V1Sidebar` — 새 대화, 메뉴, 프로젝트, 최근 대화, 엔진 footer                   | 구현됨 (collapsed/expanded)             |
-| `src/renderer/src/app/ChatPane.tsx`                       | 메시지 / 툴 콜 / 테이블 / Composer                                              | 구현됨 (mockup 하드코딩)                |
+| `src/renderer/src/app/ChatPane.tsx`                       | 메시지 / 툴 콜 / 테이블 / Composer (3-chip 행 + 스킬 picker + 자동완성 통합)    | 구현됨 (실 IPC + 스킬 UX)               |
 | `src/renderer/src/app/CameraPane.tsx`                     | Bayer 뷰포트 / Histogram / Slider / Metric / 캡처 버튼                          | 구현됨                                  |
 | `src/renderer/src/app/Projects.tsx`                       | 프로젝트 카드 그리드                                                            | 구현됨                                  |
 | `src/renderer/src/app/EngineSettings.tsx`                 | 엔진/모델 카드 리스트                                                           | 구현됨                                  |
@@ -55,7 +55,12 @@
 | `src/renderer/src/app/useTweaks.ts`                       | Tweaks state hook                                                               | 구현됨                                  |
 | `src/renderer/src/app/screens.ts`                         | 화면 ID + 라벨 + breadcrumb 카탈로그                                            | 구현됨                                  |
 | `src/renderer/src/app/theme.ts`                           | `ThemeId` / `DensityId` 타입 + `DENSITY_FONT` (색상은 CSS 변수가 진실)          | 구현됨                                  |
-| `src/renderer/src/components/atoms/*`                     | `Icon`, `WinControls`, `Avatar`, `Status`+`Dot`, `BayerPattern`, `Histogram`    | 구현됨 (Tailwind 클래스)                |
+| `src/renderer/src/components/atoms/*`                     | `Icon`, `WinControls`, `Avatar`, `Status`+`Dot`, `BayerPattern`, `Histogram`, `Popover` (anchor-ref floating menu) | 구현됨 (Tailwind 클래스)                |
+| `src/renderer/src/components/composer/HighlightedTextarea.tsx` | textarea + mirror overlay. `/skillname` 토큰을 파란 chip 으로 강조. `onCaretChange` 노출 (caret 추적용) | 구현됨                                  |
+| `src/renderer/src/components/composer/SkillAutocomplete.tsx`   | caret 근처 floating dropdown. ↑/↓ navigate · Tab/Enter pick · Esc dismiss        | 구현됨                                  |
+| `src/main/skills/scan.ts`                                 | `~/.claude/skills/` · `<cwd>/.claude/skills/` 의 `SKILL.md` frontmatter 부팅 1회 스캔 | 구현됨                                  |
+| `src/renderer/src/state/useSkills.ts`                     | `orca:skills:list` IPC 로 `SkillInfo[]` 캐시                                    | 구현됨                                  |
+| `src/renderer/src/state/useSkillAutocomplete.ts`          | `text + caret + skills` → `{open, query, suggestions, activeIndex, tokenStart, close}`. render-time 비교 (effect 없음) | 구현됨                                  |
 | `src/renderer/src/styles/tokens.css`                      | Tailwind `@theme` (시맨틱 토큰) + `[data-theme]` 스코프 (classic/dark/cool)     | 구현됨                                  |
 | `src/renderer/src/styles/app.css`                         | Tailwind 엔트리 (`@import 'tailwindcss'`) + `@layer base` 리셋 + `@utility kbd` | 구현됨                                  |
 | `src/preload/index.ts`                                    | `contextBridge.exposeInMainWorld` 화이트리스트                                  | 템플릿 기본 (Phase 2 에서 교체)         |
@@ -162,6 +167,7 @@ new BrowserWindow({
 | Phase 1 | mockup 시각 재현 + Tailwind CSS v4 마이그레이션. chat / projects / engine / skills 4개 화면 + Tweaks. 캡처는 placeholder                               | **완료**                    |
 | Phase 2 | IPC 채널 + zod 검증. **Claude Code 단일** 어댑터. 세션 재개. UI 데이터를 mockup 하드코딩 → IPC props 로 교체                                           | **완료 (claude-code 단독)** |
 | Phase 2+ | `electron-store` 영속화 — Tweaks (theme/density/sidebarCollapsed), `lastSessionId`, `lastBackend`, window bounds                                       | **완료**                    |
+| Phase 2++ | Composer 스킬 UX — `SKILL.md` 스캔 · `orca:skills:list` IPC · 3-chip 행 (첨부·현재 프레임·Skill) · Skill picker popover · `/skillname` chip 강조 · 인라인 자동완성 dropdown | **완료**                    |
 | 후속    | opencode 어댑터, `V1Captures` 실 구현 (캡처 RAW 보관 + AI 분석). 다국어 (`src/shared/i18n/ko.ts`). Vitest / Playwright 테스트                          | Future Scope                |
 
 ## 위치 규약
