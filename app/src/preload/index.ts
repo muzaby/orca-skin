@@ -4,8 +4,12 @@ import {
   type Backend,
   type BackendListResult,
   type ChatEvent,
+  type FileEntry,
   type InstallStatus,
-  type SendChatMessage
+  type SendChatMessage,
+  type Settings,
+  type SettingsPatch,
+  type SkillInfo
 } from '../shared/ipc'
 
 // Phase 2 노출 표면 — renderer 가 실제 사용하는 6개 채널만.
@@ -32,6 +36,21 @@ const orca = {
       ipcRenderer.on(CHANNELS.installStatus, listener)
       return () => ipcRenderer.off(CHANNELS.installStatus, listener)
     }
+  },
+  settings: {
+    get: (): Promise<Settings> => ipcRenderer.invoke(CHANNELS.settingsGet),
+    set: (patch: SettingsPatch): Promise<Settings> =>
+      ipcRenderer.invoke(CHANNELS.settingsSet, patch)
+  },
+  skills: {
+    list: (): Promise<SkillInfo[]> => ipcRenderer.invoke(CHANNELS.skillsList)
+  },
+  files: {
+    list: (cwd: string, relDir: string): Promise<FileEntry[]> =>
+      ipcRenderer.invoke(CHANNELS.filesList, { cwd, relDir })
+  },
+  session: {
+    cwd: (): Promise<string> => ipcRenderer.invoke(CHANNELS.sessionCwd)
   }
 }
 

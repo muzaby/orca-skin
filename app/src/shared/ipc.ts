@@ -8,7 +8,12 @@ export const CHANNELS = {
   chatCancel: 'orca:chat:cancel',
   backendList: 'orca:backend:list',
   installStart: 'orca:install:start',
-  installStatus: 'orca:install:status'
+  installStatus: 'orca:install:status',
+  settingsGet: 'orca:settings:get',
+  settingsSet: 'orca:settings:set',
+  skillsList: 'orca:skills:list',
+  filesList: 'orca:files:list',
+  sessionCwd: 'orca:session:cwd'
 } as const
 
 // Backend (Phase 2: claude-code 단일. opencode 는 future work)
@@ -66,4 +71,45 @@ export interface InstallStatus {
   log?: string
   error?: string
   done?: boolean
+}
+
+// Settings (TRD §6.7 / §10 anchor "재시작 재개"). Phase 2+ 영속화 도입.
+export type ThemePref = 'classic' | 'dark' | 'cool'
+export type DensityPref = 'compact' | 'normal' | 'comfortable'
+
+export interface WindowBounds {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export interface Settings {
+  theme: ThemePref
+  density: DensityPref
+  sidebarCollapsed: boolean
+  lastBackend: Backend | null
+  lastSessionId: string | null
+  windowBounds: WindowBounds | null
+}
+
+export type SettingsPatch = Partial<Settings>
+
+// 스킬 카탈로그 — main 이 ~/.claude/skills/ 와 <cwd>/.claude/skills/ 의 SKILL.md
+// frontmatter 를 부팅 시 스캔한 결과. 슬래시 명령 자동완성 UI 용.
+export interface SkillInfo {
+  name: string
+  description: string
+  argumentHint?: string
+}
+
+// `@` 파일 경로 자동완성 — `cwd` 기준 `relDir` 의 직속 항목 한 단계만 리스팅.
+export interface ListFilesRequest {
+  cwd: string
+  relDir: string
+}
+
+export interface FileEntry {
+  name: string
+  isDirectory: boolean
 }

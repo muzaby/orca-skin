@@ -16,6 +16,9 @@ export interface Message {
 
 export interface ChatState {
   sessionId: string | null
+  // 어댑터가 발급한 세션의 working directory (`init` 이벤트). Composer 의 `@`
+  // 파일 자동완성이 이 경로 기준으로 디렉토리를 리스팅한다.
+  cwd: string | null
   messages: Message[]
   pendingDelta: string
   inflight: boolean
@@ -26,6 +29,7 @@ export interface ChatState {
 
 export const initialChatState: ChatState = {
   sessionId: null,
+  cwd: null,
   messages: [],
   pendingDelta: '',
   inflight: false,
@@ -38,6 +42,8 @@ export type ChatAction =
   | { type: 'NEW_CHAT' }
   | { type: 'CANCEL_CHAT' }
   | { type: 'CLEAR_ERROR' }
+  | { type: 'RESTORE_SESSION'; sessionId: string }
+  | { type: 'SET_CWD'; cwd: string }
 
 function upsertToolCall(messages: Message[], tc: ToolCall): Message[] {
   // 마지막 assistant 메시지에 부착. 없으면 새로 만든다.
@@ -105,7 +111,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       const ev = action.event
       switch (ev.type) {
         case 'init':
-          return { ...state, sessionId: ev.data.sessionId }
+          return { ...state, sessionId: ev.data.sessionId, cwd: ev.data.cwd }
 
         case 'assistant_delta':
           return { ...state, pendingDelta: state.pendingDelta + ev.data.text }
@@ -177,12 +183,23 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     }
 
     case 'NEW_CHAT':
-      return { ...initialChatState }
+      // cwd 는 새 세션에서도 동일 (main 의 단일 default). 새 대화 즉시 `@` picker
+      // 가 동작하도록 보존 — init 이벤트가 와도 같은 값으로 덮어쓰기만 함.
+      return { ...initialChatState, cwd: state.cwd }
+
+    case 'SET_CWD':
+      return { ...state, cwd: action.cwd }
 
     case 'CANCEL_CHAT':
       return { ...state, inflight: false, turnStartedAt: null }
 
     case 'CLEAR_ERROR':
       return { ...state, error: undefined }
+
+    // 앱 부트 시 영속화된 lastSessionId 를 주입. 메시지 히스토리는 비어 있는 채로
+    // 다음 사용자 턴이 SDK 에 sessionId 를 전달하면 어댑터가 resume 한다.
+    case 'RESTORE_SESSION':
+      if (state.sessionId || state.messages.length > 0) return state
+      return { ...state, sessionId: action.sessionId }
   }
 }
