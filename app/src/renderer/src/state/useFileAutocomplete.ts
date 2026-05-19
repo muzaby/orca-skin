@@ -1,20 +1,29 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FileEntry } from '../../../shared/ipc'
 
-// caret 직전의 `@<partial>` 매칭. partial 은 공백을 제외한 모든 문자 허용 (`/` 포함).
-// 줄 시작 또는 공백 다음의 `@` 만 매치하여 이메일 등 중간 `@` 와 충돌하지 않게.
-const FILE_PARTIAL_RE = /(?:^|\s)@([^\s]*)$/
+// caret 직전의 `@<partial>` 매칭. 두 형태 모두 지원:
+// - quoted (미닫힘 포함): `@"foo bar/` — 공백 포함 경로 진행 중
+// - plain: `@foo` — 공백/따옴표 없는 일반 경로
+// quoted 우선 매치하여 미닫힘 quote 안에서도 디렉토리 진입 가능하게 한다.
+const FILE_PARTIAL_QUOTED_RE = /(?:^|\s)@"([^"\n]*)$/
+const FILE_PARTIAL_PLAIN_RE = /(?:^|\s)@([^\s"]*)$/
 
 export interface UseFileAutocomplete {
   open: boolean
+  // 첫 IPC 응답 전이거나 dirPath 가 바뀌어 재조회 중이면 true. picker 가 즉시
+  // 뜨도록 open 은 별도로 분리하고, 본문은 loading/empty 상태로 분기 렌더한다.
+  loading: boolean
   // 현재 보여줄 디렉토리 (cwd 기준 상대, '' = cwd 직속). picker 헤더에 표시.
   dirPath: string
   // 디렉토리 내에서 prefix 필터링된 후보 (최대 8개).
   suggestions: FileEntry[]
   activeIndex: number
   setActiveIndex: (i: number) => void
-  // caret 좌측 `@` 의 시작 인덱스. 선택 적용 시 이 위치부터 caret 까지 잘라낸다.
+  // caret 좌측 토큰의 시작 인덱스. plain 은 `@`, quoted 는 `@"` 위치.
   tokenStart: number
+  // 매칭이 quoted partial 이면 true — applyFileAutocomplete 가 닫는 quote 를
+  // 자동 보강해야 하는 케이스인지 식별용.
+  quoted: boolean
   // picker 가 listing 한 경로의 cwd-상대 fullpath 누적. HighlightedTextarea 의
   // `validFilePaths` 로 전달되어 chip 강조 대상 결정에 쓰인다.
   validPaths: ReadonlySet<string>
@@ -38,12 +47,22 @@ export function useFileAutocomplete(
 
   const match = useMemo(() => {
     const before = text.slice(0, caret)
-    const m = before.match(FILE_PARTIAL_RE)
-    if (!m) return null
-    const partial = m[1]
+    // quoted 우선 — `@"abc def` 까지 입력된 경우 plain 매치가 `@` 빈 부분만 잡지
+    // 못하게 막는다 (plain RE 가 `"` 를 제외하므로 자연스럽게 quoted 만 매치).
+    const q = before.match(FILE_PARTIAL_QUOTED_RE)
+    if (q) {
+      const partial = q[1]
+      // `@"` 가 두 문자 — partial 길이 + 2 만큼 앞이 token 시작점.
+      const tokenStart = caret - partial.length - 2
+      const { dirPath, prefix } = splitDirAndPrefix(partial)
+      return { partial, tokenStart, dirPath, prefix, quoted: true }
+    }
+    const p = before.match(FILE_PARTIAL_PLAIN_RE)
+    if (!p) return null
+    const partial = p[1]
     const tokenStart = caret - partial.length - 1
     const { dirPath, prefix } = splitDirAndPrefix(partial)
-    return { partial, tokenStart, dirPath, prefix }
+    return { partial, tokenStart, dirPath, prefix, quoted: false }
   }, [text, caret])
 
   // dirPath 별 캐시 — 같은 디렉토리는 1회만 listing.
@@ -101,15 +120,21 @@ export function useFileAutocomplete(
   const partial = match?.partial ?? null
   const dismissed = dismissedAt !== null && dismissedAt === partial
   const activeIndex = rawActiveIndex >= suggestions.length ? 0 : rawActiveIndex
-  const open = cwd !== null && match !== null && suggestions.length > 0 && !dismissed
+  // suggestions 가 비어도 picker 가 보이도록 — 로딩/빈 결과 안내를 노출하기 위함.
+  const open = cwd !== null && match !== null && !dismissed
+  // 첫 응답 전(또는 dirPath 변경 후 재조회 중) 이면 loading. 빈 응답이 도착하면
+  // Map 에 빈 배열이 set 되어 has() = true → loading=false 로 자연 전환.
+  const loading = match !== null && cwd !== null && !entriesByDir.has(match.dirPath)
 
   return {
     open,
+    loading,
     dirPath: match?.dirPath ?? '',
     suggestions,
     activeIndex,
     setActiveIndex: setRawActiveIndex,
     tokenStart: match?.tokenStart ?? -1,
+    quoted: match?.quoted ?? false,
     validPaths,
     close: (): void => setDismissedAt(partial)
   }

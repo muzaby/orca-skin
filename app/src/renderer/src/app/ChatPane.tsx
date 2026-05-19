@@ -251,15 +251,22 @@ export function ChatPane({ chat, backendLabel }: ChatPaneProps): React.JSX.Eleme
     })
   }
 
-  // 파일 picker 선택: caret 직전 `@partial` 을 새 토큰으로 치환.
+  // 파일 picker 선택: caret 직전 토큰을 새 토큰으로 치환.
   // - 디렉토리: `@<dir>/<name>/` 로 치환, picker 유지 (다음 단계 진입).
   // - 파일: `@<dir>/<name> ` 로 치환, picker 닫음.
+  // path 에 공백이 있으면 `@"<path>"` 로 자동 quoting. quoted partial 도중 진입
+  // 한 경우 tokenStart 가 `@"` 직전을 가리키므로 닫는 quote 까지 새로 작성한다.
   const applyFileAutocomplete = (entry: FileEntry): void => {
     const start = fileAutocomplete.tokenStart
     if (start < 0) return
     const dir = fileAutocomplete.dirPath
     const full = dir === '' ? entry.name : `${dir}/${entry.name}`
-    const replacement = entry.isDirectory ? `@${full}/` : `@${full} `
+    const body = entry.isDirectory ? `${full}/` : full
+    const needsQuote = /\s/.test(body)
+    const wrapped = needsQuote ? `"${body}"` : body
+    const replacement = entry.isDirectory ? `@${wrapped}` : `@${wrapped} `
+    // quoted partial 진행 중이라면 caret 이 quote 안에 있고 그 뒤에 닫는 quote 가
+    // 없다 — caret 까지만 잘라내면 자연스럽게 새 토큰으로 대체.
     const next = draft.slice(0, start) + replacement + draft.slice(caret)
     const nextCaret = start + replacement.length
     setDraft(next)
@@ -309,23 +316,25 @@ export function ChatPane({ chat, backendLabel }: ChatPaneProps): React.JSX.Eleme
     }
 
     if (fileAutocomplete.open) {
+      // suggestions 가 비어 있으면 (로딩 중 또는 결과 없음) Arrow/Enter/Tab 은
+      // preventDefault 만 — Enter 가 메시지 전송으로 흘러 picker 가 닫히지 않게.
+      const len = fileAutocomplete.suggestions.length
       if (e.key === 'ArrowDown') {
         e.preventDefault()
-        fileAutocomplete.setActiveIndex(
-          (fileAutocomplete.activeIndex + 1) % fileAutocomplete.suggestions.length
-        )
+        if (len > 0) fileAutocomplete.setActiveIndex((fileAutocomplete.activeIndex + 1) % len)
         return
       }
       if (e.key === 'ArrowUp') {
         e.preventDefault()
-        const len = fileAutocomplete.suggestions.length
-        fileAutocomplete.setActiveIndex((fileAutocomplete.activeIndex - 1 + len) % len)
+        if (len > 0) fileAutocomplete.setActiveIndex((fileAutocomplete.activeIndex - 1 + len) % len)
         return
       }
       if ((e.key === 'Enter' || e.key === 'Tab') && !e.nativeEvent.isComposing) {
         e.preventDefault()
-        const pick = fileAutocomplete.suggestions[fileAutocomplete.activeIndex]
-        if (pick) applyFileAutocomplete(pick)
+        if (len > 0) {
+          const pick = fileAutocomplete.suggestions[fileAutocomplete.activeIndex]
+          if (pick) applyFileAutocomplete(pick)
+        }
         return
       }
       if (e.key === 'Escape') {
@@ -474,6 +483,7 @@ export function ChatPane({ chat, backendLabel }: ChatPaneProps): React.JSX.Eleme
         />
         <FileAutocomplete
           open={fileAutocomplete.open}
+          loading={fileAutocomplete.loading}
           anchorRef={textareaWrapRef}
           dirPath={fileAutocomplete.dirPath}
           suggestions={fileAutocomplete.suggestions}
