@@ -7,11 +7,13 @@ import {
   type BackendListResult,
   type ChatEvent,
   type InstallStatus,
-  type Settings
+  type Settings,
+  type SkillInfo
 } from '../../shared/protocol'
 import { AdapterRegistry } from '../adapters/registry'
 import { Installer } from '../installer'
 import { SettingsStore } from '../settings/store'
+import { scanSkills } from '../skills/scan'
 
 interface InflightTurn {
   controller: AbortController
@@ -22,9 +24,13 @@ export class IpcRouter {
   private readonly installer = new Installer(this.registry)
   private readonly inflight = new Map<WebContents, InflightTurn>()
   readonly settings = new SettingsStore()
+  // 부팅 시 1회 스캔하여 메모리에 캐시. fs.watch hot-reload 는 본 PR 범위 밖 (재시작).
+  private skillsCache: SkillInfo[] = []
 
   async start(): Promise<void> {
     await this.registry.refreshInstallState()
+    // ClaudeCodeAdapter 가 사용하는 cwd 와 동일한 값(app.getPath('home')) 으로 스캔.
+    this.skillsCache = await scanSkills(app.getPath('home')).catch(() => [])
     this.register()
   }
 
@@ -35,6 +41,7 @@ export class IpcRouter {
     ipcMain.handle(CHANNELS.installStart, this.handleInstallStart)
     ipcMain.handle(CHANNELS.settingsGet, this.handleSettingsGet)
     ipcMain.handle(CHANNELS.settingsSet, this.handleSettingsSet)
+    ipcMain.handle(CHANNELS.skillsList, this.handleSkillsList)
   }
 
   private sendChatEvent(wc: WebContents, ev: ChatEvent): void {
@@ -131,5 +138,9 @@ export class IpcRouter {
     raw: unknown
   ): Promise<Settings> => {
     return this.settings.patch(raw)
+  }
+
+  private handleSkillsList = async (): Promise<SkillInfo[]> => {
+    return this.skillsCache
   }
 }

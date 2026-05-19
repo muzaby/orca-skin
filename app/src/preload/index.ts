@@ -7,7 +7,8 @@ import {
   type InstallStatus,
   type SendChatMessage,
   type Settings,
-  type SettingsPatch
+  type SettingsPatch,
+  type SkillInfo
 } from '../shared/ipc'
 
 // Phase 2 노출 표면 — renderer 가 실제 사용하는 6개 채널만.
@@ -39,6 +40,9 @@ const orca = {
     get: (): Promise<Settings> => ipcRenderer.invoke(CHANNELS.settingsGet),
     set: (patch: SettingsPatch): Promise<Settings> =>
       ipcRenderer.invoke(CHANNELS.settingsSet, patch)
+  },
+  skills: {
+    list: (): Promise<SkillInfo[]> => ipcRenderer.invoke(CHANNELS.skillsList)
   }
 }
 

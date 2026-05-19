@@ -125,6 +125,7 @@ export type {
   InstallStatus,
   Settings,
   SettingsPatch,
+  SkillInfo,
   ThemePref,
   DensityPref,
   WindowBounds

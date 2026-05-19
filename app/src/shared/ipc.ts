@@ -10,7 +10,8 @@ export const CHANNELS = {
   installStart: 'orca:install:start',
   installStatus: 'orca:install:status',
   settingsGet: 'orca:settings:get',
-  settingsSet: 'orca:settings:set'
+  settingsSet: 'orca:settings:set',
+  skillsList: 'orca:skills:list'
 } as const
 
 // Backend (Phase 2: claude-code 단일. opencode 는 future work)
@@ -91,3 +92,11 @@ export interface Settings {
 }
 
 export type SettingsPatch = Partial<Settings>
+
+// 스킬 카탈로그 — main 이 ~/.claude/skills/ 와 <cwd>/.claude/skills/ 의 SKILL.md
+// frontmatter 를 부팅 시 스캔한 결과. 슬래시 명령 자동완성 UI 용.
+export interface SkillInfo {
+  name: string
+  description: string
+  argumentHint?: string
+}

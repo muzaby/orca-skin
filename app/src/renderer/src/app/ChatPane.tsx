@@ -3,9 +3,16 @@ import { Icon } from '../components/atoms/Icon'
 import { Dot } from '../components/atoms/Status'
 import { CopyIconButton } from '../components/atoms/CopyIconButton'
 import { StatusLine } from '../components/atoms/StatusLine'
+import { Popover } from '../components/atoms/Popover'
+import {
+  HighlightedTextarea,
+  type HighlightedTextareaHandle
+} from '../components/composer/HighlightedTextarea'
 import { Markdown } from '../components/markdown/Markdown'
 import type { UseChat } from '../state/useChat'
 import type { Message, ToolCall } from '../state/chatReducer'
+import { useSkills } from '../state/useSkills'
+import type { SkillInfo } from '../../../shared/ipc'
 
 const ICON_BTN =
   'grid h-7 w-7 cursor-pointer place-items-center rounded-md border-0 bg-transparent text-ink2'
@@ -192,6 +199,32 @@ export function ChatPane({ chat, backendLabel }: ChatPaneProps): React.JSX.Eleme
   const { state, send, cancel } = chat
   const [draft, setDraft] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
+  const skills = useSkills()
+  const plusButtonRef = useRef<HTMLButtonElement>(null)
+  const textareaRef = useRef<HighlightedTextareaHandle>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [menuMode, setMenuMode] = useState<'root' | 'skills'>('root')
+
+  const closeMenu = (): void => {
+    setMenuOpen(false)
+    setMenuMode('root')
+  }
+
+  const insertSkill = (name: string): void => {
+    const token = `/${name} `
+    setDraft((d) => {
+      if (d === '' || d.endsWith(' ') || d.endsWith('\n')) return d + token
+      return d + ' ' + token
+    })
+    closeMenu()
+    queueMicrotask(() => {
+      const el = textareaRef.current?.element
+      if (!el) return
+      el.focus()
+      const len = el.value.length
+      el.setSelectionRange(len, len)
+    })
+  }
 
   useEffect(() => {
     const el = scrollRef.current
@@ -271,15 +304,27 @@ export function ChatPane({ chat, backendLabel }: ChatPaneProps): React.JSX.Eleme
 
       <div className="px-6 pb-[18px] pt-3">
         <div className="rounded-[14px] border border-border bg-panel px-3 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,.03)]">
-          <textarea
+          <HighlightedTextarea
+            ref={textareaRef}
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            onChange={setDraft}
             onKeyDown={onKeyDown}
             placeholder="Orca에게 메시지 보내기… (Enter 전송 / Shift+Enter 줄바꿈)"
-            rows={1}
-            className="block max-h-40 min-h-9 w-full resize-none border-0 bg-transparent px-1 py-1.5 text-[13px] text-ink outline-none placeholder:text-ink3"
+            ariaLabel="메시지 입력"
           />
           <div className="flex items-center gap-1.5 pt-1">
+            <button
+              ref={plusButtonRef}
+              type="button"
+              onClick={() => setMenuOpen((v) => !v)}
+              className="grid h-7 w-7 cursor-pointer place-items-center rounded-md border border-border bg-bg text-ink2 hover:bg-sidebar"
+              title="추가"
+              aria-label="추가 메뉴 열기"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+            >
+              <Icon name="plus" size={12} />
+            </button>
             <span className="ml-auto flex items-center gap-2">
               <span className="text-[11px] text-ink3">{backendLabel}</span>
               {state.inflight ? (
@@ -308,7 +353,85 @@ export function ChatPane({ chat, backendLabel }: ChatPaneProps): React.JSX.Eleme
             </span>
           </div>
         </div>
+        <Popover open={menuOpen} anchorRef={plusButtonRef} onClose={closeMenu}>
+          {menuMode === 'root' ? (
+            <RootMenu onPickSkills={() => setMenuMode('skills')} />
+          ) : (
+            <SkillsMenu skills={skills} onBack={() => setMenuMode('root')} onPick={insertSkill} />
+          )}
+        </Popover>
       </div>
     </section>
+  )
+}
+
+const MENU_ITEM =
+  'flex w-full cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-left text-[13px] text-ink hover:bg-sidebar disabled:cursor-not-allowed disabled:text-ink3'
+
+function RootMenu({ onPickSkills }: { onPickSkills: () => void }): React.JSX.Element {
+  return (
+    <div role="none" className="flex flex-col">
+      <button type="button" role="menuitem" disabled className={MENU_ITEM} title="준비 중">
+        <span aria-hidden>📎</span>
+        <span className="flex-1">파일 추가</span>
+        <span className="text-[10.5px] text-ink3">준비 중</span>
+      </button>
+      <button type="button" role="menuitem" onClick={onPickSkills} className={MENU_ITEM}>
+        <span aria-hidden>⚙️</span>
+        <span className="flex-1">스킬</span>
+        <span aria-hidden className="text-ink3">
+          ▸
+        </span>
+      </button>
+    </div>
+  )
+}
+
+interface SkillsMenuProps {
+  skills: SkillInfo[]
+  onBack: () => void
+  onPick: (name: string) => void
+}
+
+function SkillsMenu({ skills, onBack, onPick }: SkillsMenuProps): React.JSX.Element {
+  return (
+    <div role="none" className="flex flex-col">
+      <button type="button" role="menuitem" onClick={onBack} className={`${MENU_ITEM} text-ink2`}>
+        <span aria-hidden>←</span>
+        <span>뒤로</span>
+      </button>
+      <div className="my-1 h-px bg-border" aria-hidden />
+      <div className="max-h-[280px] overflow-y-auto">
+        {skills.length === 0 ? (
+          <div className="px-2 py-2 text-[11.5px] leading-relaxed text-ink3">
+            스킬이 없습니다. <span className="font-mono">~/.claude/skills/</span> 또는 프로젝트의{' '}
+            <span className="font-mono">.claude/skills/</span> 에 SKILL.md 를 두세요.
+          </div>
+        ) : (
+          skills.map((s) => (
+            <button
+              key={s.name}
+              type="button"
+              role="menuitem"
+              onClick={() => onPick(s.name)}
+              className={`group/skillrow relative ${MENU_ITEM}`}
+            >
+              <span className="flex-1 font-mono text-[12.5px]">/{s.name}</span>
+              {s.argumentHint && (
+                <span className="font-mono text-[10.5px] text-ink3">{s.argumentHint}</span>
+              )}
+              {s.description && (
+                <span
+                  role="tooltip"
+                  className="pointer-events-none absolute left-full top-0 z-10 ml-2 hidden w-[240px] rounded-md border border-border bg-panel p-2 text-[11.5px] leading-relaxed text-ink2 shadow-lg group-hover/skillrow:block"
+                >
+                  {s.description}
+                </span>
+              )}
+            </button>
+          ))
+        )}
+      </div>
+    </div>
   )
 }
