@@ -6,10 +6,12 @@ import {
   StartInstallSchema,
   type BackendListResult,
   type ChatEvent,
-  type InstallStatus
+  type InstallStatus,
+  type Settings
 } from '../../shared/protocol'
 import { AdapterRegistry } from '../adapters/registry'
 import { Installer } from '../installer'
+import { SettingsStore } from '../settings/store'
 
 interface InflightTurn {
   controller: AbortController
@@ -19,6 +21,7 @@ export class IpcRouter {
   private readonly registry = new AdapterRegistry()
   private readonly installer = new Installer(this.registry)
   private readonly inflight = new Map<WebContents, InflightTurn>()
+  readonly settings = new SettingsStore()
 
   async start(): Promise<void> {
     await this.registry.refreshInstallState()
@@ -30,6 +33,8 @@ export class IpcRouter {
     ipcMain.handle(CHANNELS.chatCancel, this.handleChatCancel)
     ipcMain.handle(CHANNELS.backendList, this.handleBackendList)
     ipcMain.handle(CHANNELS.installStart, this.handleInstallStart)
+    ipcMain.handle(CHANNELS.settingsGet, this.handleSettingsGet)
+    ipcMain.handle(CHANNELS.settingsSet, this.handleSettingsSet)
   }
 
   private sendChatEvent(wc: WebContents, ev: ChatEvent): void {
@@ -115,5 +120,16 @@ export class IpcRouter {
     for await (const st of this.installer.start(parsed.backend)) {
       this.sendInstallStatus(event.sender, st)
     }
+  }
+
+  private handleSettingsGet = async (): Promise<Settings> => {
+    return this.settings.getAll()
+  }
+
+  private handleSettingsSet = async (
+    _event: IpcMainInvokeEvent,
+    raw: unknown
+  ): Promise<Settings> => {
+    return this.settings.patch(raw)
   }
 }

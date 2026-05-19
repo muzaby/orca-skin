@@ -38,6 +38,7 @@ export type ChatAction =
   | { type: 'NEW_CHAT' }
   | { type: 'CANCEL_CHAT' }
   | { type: 'CLEAR_ERROR' }
+  | { type: 'RESTORE_SESSION'; sessionId: string }
 
 function upsertToolCall(messages: Message[], tc: ToolCall): Message[] {
   // 마지막 assistant 메시지에 부착. 없으면 새로 만든다.
@@ -184,5 +185,11 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
 
     case 'CLEAR_ERROR':
       return { ...state, error: undefined }
+
+    // 앱 부트 시 영속화된 lastSessionId 를 주입. 메시지 히스토리는 비어 있는 채로
+    // 다음 사용자 턴이 SDK 에 sessionId 를 전달하면 어댑터가 resume 한다.
+    case 'RESTORE_SESSION':
+      if (state.sessionId || state.messages.length > 0) return state
+      return { ...state, sessionId: action.sessionId }
   }
 }

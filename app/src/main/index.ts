@@ -3,12 +3,16 @@ import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { IpcRouter } from './ipc/router'
+import type { SettingsStore } from './settings/store'
 
-function createWindow(): void {
+const DEFAULT_BOUNDS = { width: 900, height: 670 }
+
+function createWindow(settings: SettingsStore): void {
+  const saved = settings.getAll().windowBounds
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    width: 900,
-    height: 670,
+    ...DEFAULT_BOUNDS,
+    ...(saved ?? {}),
     show: false,
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
@@ -22,6 +26,12 @@ function createWindow(): void {
 
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
+  })
+
+  // 종료 직전 윈도우 위치/크기를 영속화. minimize/maximize 상태는 보존 대상 아님.
+  mainWindow.on('close', () => {
+    if (mainWindow.isMinimized() || mainWindow.isMaximized()) return
+    settings.patch({ windowBounds: mainWindow.getBounds() })
   })
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -51,10 +61,10 @@ app.whenReady().then(async () => {
   const router = new IpcRouter()
   await router.start()
 
-  createWindow()
+  createWindow(router.settings)
 
   app.on('activate', function () {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (BrowserWindow.getAllWindows().length === 0) createWindow(router.settings)
   })
 })
 

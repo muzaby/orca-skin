@@ -83,6 +83,35 @@ export const CancelChatSchema = z.object({ sessionId: z.string() })
 
 export const StartInstallSchema = z.object({ backend: BackendSchema })
 
+// Settings (TRD §6.7) — Phase 2+ 영속화. 깨진 디스크 데이터도 default 로 복원되도록
+// 모든 키에 default 를 지정한다.
+const WindowBoundsSchema = z.object({
+  x: z.number(),
+  y: z.number(),
+  width: z.number(),
+  height: z.number()
+})
+
+export const SettingsSchema = z.object({
+  theme: z.enum(['classic', 'dark', 'cool']).default('classic'),
+  density: z.enum(['compact', 'normal', 'comfortable']).default('normal'),
+  sidebarCollapsed: z.boolean().default(false),
+  lastBackend: BackendSchema.nullable().default(null),
+  lastSessionId: z.string().nullable().default(null),
+  windowBounds: WindowBoundsSchema.nullable().default(null)
+})
+
+export const SettingsPatchSchema = z
+  .object({
+    theme: z.enum(['classic', 'dark', 'cool']),
+    density: z.enum(['compact', 'normal', 'comfortable']),
+    sidebarCollapsed: z.boolean(),
+    lastBackend: BackendSchema.nullable(),
+    lastSessionId: z.string().nullable(),
+    windowBounds: WindowBoundsSchema.nullable()
+  })
+  .partial()
+
 // 타입 + CHANNELS 단일 출처 (preload / renderer 호환)
 export { CHANNELS } from './ipc'
 export type {
@@ -93,5 +122,10 @@ export type {
   CancelChat,
   BackendListResult,
   StartInstall,
-  InstallStatus
+  InstallStatus,
+  Settings,
+  SettingsPatch,
+  ThemePref,
+  DensityPref,
+  WindowBounds
 } from './ipc'

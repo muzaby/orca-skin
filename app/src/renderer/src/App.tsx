@@ -11,27 +11,15 @@ import { CapturesPlaceholder } from './app/CapturesPlaceholder'
 import { TweaksPanel, TweakSection, TweakRadio, TweakToggle } from './app/TweaksPanel'
 import { useTweaks } from './app/useTweaks'
 import { SCREENS, type ScreenId } from './app/screens'
-import { DENSITY_FONT, type ThemeId, type DensityId } from './app/theme'
+import { DENSITY_FONT } from './app/theme'
 import { useChat } from './state/useChat'
 import { useBackend } from './state/useBackend'
 import { InstallerDialog } from './components/install/InstallerDialog'
 import { AuthExpiredModal } from './components/auth/AuthExpiredModal'
 
-interface Tweaks {
-  theme: ThemeId
-  density: DensityId
-  sidebarCollapsed: boolean
-}
-
-const TWEAK_DEFAULTS: Tweaks = {
-  theme: 'classic',
-  density: 'normal',
-  sidebarCollapsed: false
-}
-
 function App(): React.JSX.Element {
   const [screen, setScreen] = useState<ScreenId>('chat')
-  const [t, setTweak] = useTweaks<Tweaks>(TWEAK_DEFAULTS)
+  const [t, setTweak] = useTweaks()
   const chat = useChat()
   const backend = useBackend()
   const [installerOpen, setInstallerOpen] = useState(false)

@@ -32,7 +32,7 @@
 | `src/main/adapters/opencode.ts`                           | opencode `serve` / SDK / SSE                                                    | **미구현 (future work)**                |
 | `src/main/adapters/registry.ts`                           | 설치 상태 + 활성 백엔드 선택                                                    | 구현됨 (claude-code 단일)               |
 | `src/main/installer/index.ts`                             | CLI 설치 자동화 (`npm install -g @anthropic-ai/claude-code`)                    | 구현됨                                  |
-| `src/main/settings/store.ts`                              | Phase 2+ `electron-store`. Phase 1 미사용                                       | **미작성** (사용처 생기는 PR 에 재추가) |
+| `src/main/settings/store.ts`                              | `electron-store` 단일 객체 스토어. `getAll()` / `patch()` 모두 zod 검증         | 구현됨 (Phase 2+)                       |
 | `src/shared/ipc.ts`                                       | `CHANNELS` 상수 + 순수 TS 타입. **zod 0 의존** (preload 안전)                   | 구현됨                                  |
 | `src/shared/protocol.ts`                                  | zod 스키마 (main 전용). 타입은 `ipc.ts` 에서 re-export                          | 구현됨                                  |
 | `src/renderer/src/state/chatReducer.ts`                   | ChatState reducer (SEND/RECV/NEW/CANCEL/CLEAR_ERROR)                            | 구현됨                                  |
@@ -161,7 +161,8 @@ new BrowserWindow({
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------- |
 | Phase 1 | mockup 시각 재현 + Tailwind CSS v4 마이그레이션. chat / projects / engine / skills 4개 화면 + Tweaks. 캡처는 placeholder                               | **완료**                    |
 | Phase 2 | IPC 채널 + zod 검증. **Claude Code 단일** 어댑터. 세션 재개. UI 데이터를 mockup 하드코딩 → IPC props 로 교체                                           | **완료 (claude-code 단독)** |
-| 후속    | opencode 어댑터, `V1Captures` 실 구현 (캡처 RAW 보관 + AI 분석). `electron-store` 영속화. 다국어 (`src/shared/i18n/ko.ts`). Vitest / Playwright 테스트 | Future Scope                |
+| Phase 2+ | `electron-store` 영속화 — Tweaks (theme/density/sidebarCollapsed), `lastSessionId`, `lastBackend`, window bounds                                       | **완료**                    |
+| 후속    | opencode 어댑터, `V1Captures` 실 구현 (캡처 RAW 보관 + AI 분석). 다국어 (`src/shared/i18n/ko.ts`). Vitest / Playwright 테스트                          | Future Scope                |
 
 ## 위치 규약
 
