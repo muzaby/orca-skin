@@ -117,7 +117,7 @@ export const HighlightedTextarea = forwardRef<HighlightedTextareaHandle, Highlig
             <>
               {segments.map((s, i) =>
                 s.kind === 'chip' ? (
-                  <span key={i} className="rounded bg-blue-500/15 px-1 font-mono text-blue-500">
+                  <span key={i} className="rounded bg-blue-500/15 text-blue-500">
                     {s.text}
                   </span>
                 ) : (
