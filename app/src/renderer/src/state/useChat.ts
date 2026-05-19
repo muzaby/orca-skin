@@ -20,6 +20,11 @@ export function useChat(): UseChat {
         dispatch({ type: 'RESTORE_SESSION', sessionId: s.lastSessionId })
       }
     })
+    // 세션 init 이벤트 전에도 cwd 를 알 수 있도록 부팅 시 1회 조회. main 의
+    // defaultCwd 와 동일 — init 이 오면 같은 값으로 덮어쓰기.
+    void window.orca.session.cwd().then((cwd) => {
+      dispatch({ type: 'SET_CWD', cwd })
+    })
   }, [])
 
   useEffect(() => {

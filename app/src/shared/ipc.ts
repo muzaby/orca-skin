@@ -12,7 +12,8 @@ export const CHANNELS = {
   settingsGet: 'orca:settings:get',
   settingsSet: 'orca:settings:set',
   skillsList: 'orca:skills:list',
-  filesList: 'orca:files:list'
+  filesList: 'orca:files:list',
+  sessionCwd: 'orca:session:cwd'
 } as const
 
 // Backend (Phase 2: claude-code 단일. opencode 는 future work)

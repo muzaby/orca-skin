@@ -48,6 +48,9 @@ const orca = {
   files: {
     list: (cwd: string, relDir: string): Promise<FileEntry[]> =>
       ipcRenderer.invoke(CHANNELS.filesList, { cwd, relDir })
+  },
+  session: {
+    cwd: (): Promise<string> => ipcRenderer.invoke(CHANNELS.sessionCwd)
   }
 }
 

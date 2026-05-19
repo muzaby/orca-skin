@@ -252,23 +252,37 @@ export function ChatPane({ chat, backendLabel }: ChatPaneProps): React.JSX.Eleme
   }
 
   // 파일 picker 선택: caret 직전 토큰을 새 토큰으로 치환.
-  // - 디렉토리: `@<dir>/<name>/` 로 치환, picker 유지 (다음 단계 진입).
-  // - 파일: `@<dir>/<name> ` 로 치환, picker 닫음.
-  // path 에 공백이 있으면 `@"<path>"` 로 자동 quoting. quoted partial 도중 진입
-  // 한 경우 tokenStart 가 `@"` 직전을 가리키므로 닫는 quote 까지 새로 작성한다.
+  // - 디렉토리: picker 유지 (다음 단계 진입).
+  // - 파일: picker 닫고 caret 을 토큰 뒤로.
+  // quoting 케이스 분기:
+  //   (a) quote 쌍 안 (`hasClosingQuote`): 기존 닫는 `"` 를 재사용. 열린 quote
+  //       와 body 만 작성, draft.slice(caret) 의 `"` 가 그대로 닫음.
+  //   (b) 미닫힘 quote 안 또는 새 토큰: 공백 포함이면 `@"<body>"` 로 wrap.
   const applyFileAutocomplete = (entry: FileEntry): void => {
     const start = fileAutocomplete.tokenStart
     if (start < 0) return
     const dir = fileAutocomplete.dirPath
     const full = dir === '' ? entry.name : `${dir}/${entry.name}`
     const body = entry.isDirectory ? `${full}/` : full
-    const needsQuote = /\s/.test(body)
-    const wrapped = needsQuote ? `"${body}"` : body
-    const replacement = entry.isDirectory ? `@${wrapped}` : `@${wrapped} `
-    // quoted partial 진행 중이라면 caret 이 quote 안에 있고 그 뒤에 닫는 quote 가
-    // 없다 — caret 까지만 잘라내면 자연스럽게 새 토큰으로 대체.
-    const next = draft.slice(0, start) + replacement + draft.slice(caret)
-    const nextCaret = start + replacement.length
+
+    let next: string
+    let nextCaret: number
+    if (fileAutocomplete.quoted && fileAutocomplete.hasClosingQuote) {
+      // (a) 닫는 `"` 재사용. caret 직후의 `"` 는 그대로 — replacement 가 그 직전
+      // 까지 닿는다. 디렉토리는 닫는 quote 직전에 caret 두어 partial 매칭 유지,
+      // 파일은 닫는 quote 뒤로 caret 이동 후 picker close.
+      const replacement = `@"${body}`
+      next = draft.slice(0, start) + replacement + draft.slice(caret)
+      nextCaret = entry.isDirectory ? start + replacement.length : start + replacement.length + 1
+    } else {
+      // (b) 일반 — 공백 시 자동 wrapping, 미닫힘 quote 도 닫는 quote 새로 작성.
+      const needsQuote = /\s/.test(body)
+      const wrapped = needsQuote ? `"${body}"` : body
+      const replacement = entry.isDirectory ? `@${wrapped}` : `@${wrapped} `
+      next = draft.slice(0, start) + replacement + draft.slice(caret)
+      nextCaret = start + replacement.length
+    }
+
     setDraft(next)
     if (!entry.isDirectory) fileAutocomplete.close()
     queueMicrotask(() => {
