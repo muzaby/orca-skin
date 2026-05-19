@@ -9,12 +9,14 @@ import {
   type HighlightedTextareaHandle
 } from '../components/composer/HighlightedTextarea'
 import { SkillAutocomplete } from '../components/composer/SkillAutocomplete'
+import { FileAutocomplete } from '../components/composer/FileAutocomplete'
 import { Markdown } from '../components/markdown/Markdown'
 import type { UseChat } from '../state/useChat'
 import type { Message, ToolCall } from '../state/chatReducer'
 import { useSkills } from '../state/useSkills'
 import { useSkillAutocomplete } from '../state/useSkillAutocomplete'
-import type { SkillInfo } from '../../../shared/ipc'
+import { useFileAutocomplete } from '../state/useFileAutocomplete'
+import type { FileEntry, SkillInfo } from '../../../shared/ipc'
 
 const ICON_BTN =
   'grid h-7 w-7 cursor-pointer place-items-center rounded-md border-0 bg-transparent text-ink2'
@@ -212,6 +214,7 @@ export function ChatPane({ chat, backendLabel }: ChatPaneProps): React.JSX.Eleme
   const closeMenu = (): void => setMenuOpen(false)
 
   const autocomplete = useSkillAutocomplete(draft, caret, skills)
+  const fileAutocomplete = useFileAutocomplete(draft, caret, state.cwd)
 
   // Skill chip / popover 선택: 항상 draft 끝에 `/name ` 삽입 (기존 동작 유지).
   const insertSkillFromMenu = (name: string): void => {
@@ -248,6 +251,28 @@ export function ChatPane({ chat, backendLabel }: ChatPaneProps): React.JSX.Eleme
     })
   }
 
+  // 파일 picker 선택: caret 직전 `@partial` 을 새 토큰으로 치환.
+  // - 디렉토리: `@<dir>/<name>/` 로 치환, picker 유지 (다음 단계 진입).
+  // - 파일: `@<dir>/<name> ` 로 치환, picker 닫음.
+  const applyFileAutocomplete = (entry: FileEntry): void => {
+    const start = fileAutocomplete.tokenStart
+    if (start < 0) return
+    const dir = fileAutocomplete.dirPath
+    const full = dir === '' ? entry.name : `${dir}/${entry.name}`
+    const replacement = entry.isDirectory ? `@${full}/` : `@${full} `
+    const next = draft.slice(0, start) + replacement + draft.slice(caret)
+    const nextCaret = start + replacement.length
+    setDraft(next)
+    if (!entry.isDirectory) fileAutocomplete.close()
+    queueMicrotask(() => {
+      const el = textareaRef.current?.element
+      if (!el) return
+      el.focus()
+      el.setSelectionRange(nextCaret, nextCaret)
+      setCaret(nextCaret)
+    })
+  }
+
   useEffect(() => {
     const el = scrollRef.current
     if (el) el.scrollTop = el.scrollHeight
@@ -255,6 +280,7 @@ export function ChatPane({ chat, backendLabel }: ChatPaneProps): React.JSX.Eleme
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>): void => {
     // 자동완성 open 시 키 우선 처리 — Enter/Tab/Arrow/Escape 는 picker 가 소비.
+    // 스킬과 파일은 trigger 가 배타적이라 동시에 open 될 수 없다.
     if (autocomplete.open) {
       if (e.key === 'ArrowDown') {
         e.preventDefault()
@@ -278,6 +304,33 @@ export function ChatPane({ chat, backendLabel }: ChatPaneProps): React.JSX.Eleme
       if (e.key === 'Escape') {
         e.preventDefault()
         autocomplete.close()
+        return
+      }
+    }
+
+    if (fileAutocomplete.open) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        fileAutocomplete.setActiveIndex(
+          (fileAutocomplete.activeIndex + 1) % fileAutocomplete.suggestions.length
+        )
+        return
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        const len = fileAutocomplete.suggestions.length
+        fileAutocomplete.setActiveIndex((fileAutocomplete.activeIndex - 1 + len) % len)
+        return
+      }
+      if ((e.key === 'Enter' || e.key === 'Tab') && !e.nativeEvent.isComposing) {
+        e.preventDefault()
+        const pick = fileAutocomplete.suggestions[fileAutocomplete.activeIndex]
+        if (pick) applyFileAutocomplete(pick)
+        return
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        fileAutocomplete.close()
         return
       }
     }
@@ -363,6 +416,7 @@ export function ChatPane({ chat, backendLabel }: ChatPaneProps): React.JSX.Eleme
               onCaretChange={setCaret}
               onKeyDown={onKeyDown}
               knownSkillNames={knownSkillNames}
+              validFilePaths={fileAutocomplete.validPaths}
               placeholder="Orca에게 메시지 보내기… (Enter 전송 / Shift+Enter 줄바꿈)"
               ariaLabel="메시지 입력"
             />
@@ -417,6 +471,15 @@ export function ChatPane({ chat, backendLabel }: ChatPaneProps): React.JSX.Eleme
           activeIndex={autocomplete.activeIndex}
           onHover={autocomplete.setActiveIndex}
           onPick={applyAutocomplete}
+        />
+        <FileAutocomplete
+          open={fileAutocomplete.open}
+          anchorRef={textareaWrapRef}
+          dirPath={fileAutocomplete.dirPath}
+          suggestions={fileAutocomplete.suggestions}
+          activeIndex={fileAutocomplete.activeIndex}
+          onHover={fileAutocomplete.setActiveIndex}
+          onPick={applyFileAutocomplete}
         />
       </div>
     </section>

@@ -4,8 +4,10 @@ import {
   SendChatMessageSchema,
   CancelChatSchema,
   StartInstallSchema,
+  ListFilesRequestSchema,
   type BackendListResult,
   type ChatEvent,
+  type FileEntry,
   type InstallStatus,
   type Settings,
   type SkillInfo
@@ -14,6 +16,7 @@ import { AdapterRegistry } from '../adapters/registry'
 import { Installer } from '../installer'
 import { SettingsStore } from '../settings/store'
 import { scanSkills } from '../skills/scan'
+import { listDir } from '../files/scan'
 
 interface InflightTurn {
   controller: AbortController
@@ -42,6 +45,7 @@ export class IpcRouter {
     ipcMain.handle(CHANNELS.settingsGet, this.handleSettingsGet)
     ipcMain.handle(CHANNELS.settingsSet, this.handleSettingsSet)
     ipcMain.handle(CHANNELS.skillsList, this.handleSkillsList)
+    ipcMain.handle(CHANNELS.filesList, this.handleFilesList)
   }
 
   private sendChatEvent(wc: WebContents, ev: ChatEvent): void {
@@ -142,5 +146,14 @@ export class IpcRouter {
 
   private handleSkillsList = async (): Promise<SkillInfo[]> => {
     return this.skillsCache
+  }
+
+  private handleFilesList = async (
+    _event: IpcMainInvokeEvent,
+    raw: unknown
+  ): Promise<FileEntry[]> => {
+    const parsed = ListFilesRequestSchema.safeParse(raw)
+    if (!parsed.success) return []
+    return listDir(parsed.data.cwd, parsed.data.relDir)
   }
 }

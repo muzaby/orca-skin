@@ -83,6 +83,11 @@ export const CancelChatSchema = z.object({ sessionId: z.string() })
 
 export const StartInstallSchema = z.object({ backend: BackendSchema })
 
+export const ListFilesRequestSchema = z.object({
+  cwd: z.string().min(1),
+  relDir: z.string()
+})
+
 // Settings (TRD §6.7) — Phase 2+ 영속화. 깨진 디스크 데이터도 default 로 복원되도록
 // 모든 키에 default 를 지정한다.
 const WindowBoundsSchema = z.object({
@@ -128,5 +133,7 @@ export type {
   SkillInfo,
   ThemePref,
   DensityPref,
-  WindowBounds
+  WindowBounds,
+  ListFilesRequest,
+  FileEntry
 } from './ipc'

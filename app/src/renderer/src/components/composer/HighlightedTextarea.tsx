@@ -11,20 +11,50 @@ import {
 // `(?<=^|\s)` 로 단어 시작에서만 매치 (URL `https://` 등의 중간 `/` 는 제외).
 const SKILL_TOKEN_RE = /(?<=^|\s)\/[a-z][a-z0-9:-]*\b/g
 
-const EMPTY_NAME_SET: ReadonlySet<string> = new Set()
+// `@path/to/file` 패턴: 단어 시작의 `@` + 공백을 제외한 문자열. 디렉토리는 `/` 로
+// 끝나며, 검증 set 과 비교 시 trailing `/` 유무로 파일/디렉토리를 구분한다.
+const FILE_TOKEN_RE = /(?<=^|\s)@[^\s]+/g
 
-type TextSegment = { kind: 'text'; text: string } | { kind: 'chip'; text: string }
+const EMPTY_SET: ReadonlySet<string> = new Set()
 
-function tokenize(value: string, knownNames: ReadonlySet<string>): TextSegment[] {
+type ChipKind = 'skill' | 'file'
+type TextSegment = { kind: 'text'; text: string } | { kind: 'chip'; chip: ChipKind; text: string }
+
+function tokenize(
+  value: string,
+  knownSkillNames: ReadonlySet<string>,
+  validFilePaths: ReadonlySet<string>
+): TextSegment[] {
   if (value === '') return []
+  // 두 정규식 매칭을 합쳐 시작 위치 순으로 정렬 — overlap 은 정규식 디자인상 발생 X.
+  interface Hit {
+    start: number
+    end: number
+    text: string
+    chip: ChipKind
+  }
+  const hits: Hit[] = []
+  for (const m of value.matchAll(SKILL_TOKEN_RE)) {
+    if (!knownSkillNames.has(m[0].slice(1))) continue
+    const start = m.index ?? 0
+    hits.push({ start, end: start + m[0].length, text: m[0], chip: 'skill' })
+  }
+  for (const m of value.matchAll(FILE_TOKEN_RE)) {
+    // `@` 제외 후 검증. 파일 토큰은 trailing `/` 가 그대로 들어있어도 매칭되도록
+    // 디렉토리는 set 에 `path/` 형태로, 파일은 `path` 형태로 저장돼 있다.
+    if (!validFilePaths.has(m[0].slice(1))) continue
+    const start = m.index ?? 0
+    hits.push({ start, end: start + m[0].length, text: m[0], chip: 'file' })
+  }
+  hits.sort((a, b) => a.start - b.start)
+
   const segs: TextSegment[] = []
   let last = 0
-  for (const m of value.matchAll(SKILL_TOKEN_RE)) {
-    const start = m.index ?? 0
-    if (!knownNames.has(m[0].slice(1))) continue
-    if (start > last) segs.push({ kind: 'text', text: value.slice(last, start) })
-    segs.push({ kind: 'chip', text: m[0] })
-    last = start + m[0].length
+  for (const h of hits) {
+    if (h.start < last) continue // 겹침 방어 (이론상 없음)
+    if (h.start > last) segs.push({ kind: 'text', text: value.slice(last, h.start) })
+    segs.push({ kind: 'chip', chip: h.chip, text: h.text })
+    last = h.end
   }
   if (last < value.length) segs.push({ kind: 'text', text: value.slice(last) })
   return segs
@@ -41,6 +71,9 @@ interface HighlightedTextareaProps {
   // chip 으로 강조할 활성 스킬 이름 집합 (`/<name>` 의 `<name>` 부분). 매치되지
   // 않은 토큰은 일반 텍스트로 렌더 — 존재하지 않는 스킬을 chip 으로 오인하지 않게.
   knownSkillNames?: ReadonlySet<string>
+  // chip 으로 강조할 유효 파일 경로 집합 (`@<path>` 의 `<path>` 부분). 파일은 그대로,
+  // 디렉토리는 `path/` 형태로 저장. 검증되지 않은 토큰은 평문.
+  validFilePaths?: ReadonlySet<string>
   placeholder?: string
   rows?: number
   className?: string
@@ -65,6 +98,7 @@ export const HighlightedTextarea = forwardRef<HighlightedTextareaHandle, Highlig
       onKeyDown,
       onCaretChange,
       knownSkillNames,
+      validFilePaths,
       placeholder,
       rows = 1,
       className = '',
@@ -102,7 +136,7 @@ export const HighlightedTextarea = forwardRef<HighlightedTextareaHandle, Highlig
       onCaretChange?.(e.currentTarget.selectionStart)
     }
 
-    const segments = tokenize(value, knownSkillNames ?? EMPTY_NAME_SET)
+    const segments = tokenize(value, knownSkillNames ?? EMPTY_SET, validFilePaths ?? EMPTY_SET)
     // textarea 의 trailing newline 은 추가 빈 줄을 만들기 위해 mirror 끝에 ZWSP 추가.
     const trailingPad = value.endsWith('\n') ? '​' : ''
 
@@ -124,7 +158,14 @@ export const HighlightedTextarea = forwardRef<HighlightedTextareaHandle, Highlig
             <>
               {segments.map((s, i) =>
                 s.kind === 'chip' ? (
-                  <span key={i} className="rounded bg-blue-500/15 text-blue-500">
+                  <span
+                    key={i}
+                    className={
+                      s.chip === 'skill'
+                        ? 'rounded bg-blue-500/15 text-blue-500'
+                        : 'rounded bg-emerald-500/15 text-emerald-600'
+                    }
+                  >
                     {s.text}
                   </span>
                 ) : (

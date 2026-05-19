@@ -4,6 +4,7 @@ import {
   type Backend,
   type BackendListResult,
   type ChatEvent,
+  type FileEntry,
   type InstallStatus,
   type SendChatMessage,
   type Settings,
@@ -43,6 +44,10 @@ const orca = {
   },
   skills: {
     list: (): Promise<SkillInfo[]> => ipcRenderer.invoke(CHANNELS.skillsList)
+  },
+  files: {
+    list: (cwd: string, relDir: string): Promise<FileEntry[]> =>
+      ipcRenderer.invoke(CHANNELS.filesList, { cwd, relDir })
   }
 }
 
