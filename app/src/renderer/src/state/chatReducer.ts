@@ -16,6 +16,9 @@ export interface Message {
 
 export interface ChatState {
   sessionId: string | null
+  // 어댑터가 발급한 세션의 working directory (`init` 이벤트). Composer 의 `@`
+  // 파일 자동완성이 이 경로 기준으로 디렉토리를 리스팅한다.
+  cwd: string | null
   messages: Message[]
   pendingDelta: string
   inflight: boolean
@@ -26,6 +29,7 @@ export interface ChatState {
 
 export const initialChatState: ChatState = {
   sessionId: null,
+  cwd: null,
   messages: [],
   pendingDelta: '',
   inflight: false,
@@ -106,7 +110,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       const ev = action.event
       switch (ev.type) {
         case 'init':
-          return { ...state, sessionId: ev.data.sessionId }
+          return { ...state, sessionId: ev.data.sessionId, cwd: ev.data.cwd }
 
         case 'assistant_delta':
           return { ...state, pendingDelta: state.pendingDelta + ev.data.text }

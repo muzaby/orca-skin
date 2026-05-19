@@ -11,7 +11,8 @@ export const CHANNELS = {
   installStatus: 'orca:install:status',
   settingsGet: 'orca:settings:get',
   settingsSet: 'orca:settings:set',
-  skillsList: 'orca:skills:list'
+  skillsList: 'orca:skills:list',
+  filesList: 'orca:files:list'
 } as const
 
 // Backend (Phase 2: claude-code 단일. opencode 는 future work)
@@ -99,4 +100,15 @@ export interface SkillInfo {
   name: string
   description: string
   argumentHint?: string
+}
+
+// `@` 파일 경로 자동완성 — `cwd` 기준 `relDir` 의 직속 항목 한 단계만 리스팅.
+export interface ListFilesRequest {
+  cwd: string
+  relDir: string
+}
+
+export interface FileEntry {
+  name: string
+  isDirectory: boolean
 }
