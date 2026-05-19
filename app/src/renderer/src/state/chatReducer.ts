@@ -43,6 +43,7 @@ export type ChatAction =
   | { type: 'CANCEL_CHAT' }
   | { type: 'CLEAR_ERROR' }
   | { type: 'RESTORE_SESSION'; sessionId: string }
+  | { type: 'SET_CWD'; cwd: string }
 
 function upsertToolCall(messages: Message[], tc: ToolCall): Message[] {
   // 마지막 assistant 메시지에 부착. 없으면 새로 만든다.
@@ -182,7 +183,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     }
 
     case 'NEW_CHAT':
-      return { ...initialChatState }
+      // cwd 는 새 세션에서도 동일 (main 의 단일 default). 새 대화 즉시 `@` picker
+      // 가 동작하도록 보존 — init 이벤트가 와도 같은 값으로 덮어쓰기만 함.
+      return { ...initialChatState, cwd: state.cwd }
+
+    case 'SET_CWD':
+      return { ...state, cwd: action.cwd }
 
     case 'CANCEL_CHAT':
       return { ...state, inflight: false, turnStartedAt: null }

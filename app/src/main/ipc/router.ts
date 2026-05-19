@@ -29,11 +29,15 @@ export class IpcRouter {
   readonly settings = new SettingsStore()
   // 부팅 시 1회 스캔하여 메모리에 캐시. fs.watch hot-reload 는 본 PR 범위 밖 (재시작).
   private skillsCache: SkillInfo[] = []
+  // chat send 와 files list, session cwd 노출에서 모두 동일하게 사용하는 단일
+  // cwd. 현재는 home 으로 고정 — 향후 사용자 선택 디렉토리로 확장 가능.
+  private defaultCwd: string = ''
 
   async start(): Promise<void> {
     await this.registry.refreshInstallState()
-    // ClaudeCodeAdapter 가 사용하는 cwd 와 동일한 값(app.getPath('home')) 으로 스캔.
-    this.skillsCache = await scanSkills(app.getPath('home')).catch(() => [])
+    this.defaultCwd = app.getPath('home')
+    // ClaudeCodeAdapter 가 사용하는 cwd 와 동일한 값으로 스킬 스캔.
+    this.skillsCache = await scanSkills(this.defaultCwd).catch(() => [])
     this.register()
   }
 
@@ -46,6 +50,7 @@ export class IpcRouter {
     ipcMain.handle(CHANNELS.settingsSet, this.handleSettingsSet)
     ipcMain.handle(CHANNELS.skillsList, this.handleSkillsList)
     ipcMain.handle(CHANNELS.filesList, this.handleFilesList)
+    ipcMain.handle(CHANNELS.sessionCwd, this.handleSessionCwd)
   }
 
   private sendChatEvent(wc: WebContents, ev: ChatEvent): void {
@@ -90,7 +95,7 @@ export class IpcRouter {
     const controller = new AbortController()
     this.inflight.set(event.sender, { controller })
 
-    const cwd = app.getPath('home')
+    const cwd = this.defaultCwd
     try {
       for await (const ev of adapter.sendMessage(
         parsed.data.sessionId,
@@ -155,5 +160,11 @@ export class IpcRouter {
     const parsed = ListFilesRequestSchema.safeParse(raw)
     if (!parsed.success) return []
     return listDir(parsed.data.cwd, parsed.data.relDir)
+  }
+
+  // Renderer 가 세션 init 이벤트 전에도 cwd 를 알 수 있도록 노출. chat send 와
+  // 동일한 cwd 단일 소스 — 현재는 home 고정.
+  private handleSessionCwd = async (): Promise<string> => {
+    return this.defaultCwd
   }
 }

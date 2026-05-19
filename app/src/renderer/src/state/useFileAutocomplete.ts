@@ -24,6 +24,10 @@ export interface UseFileAutocomplete {
   // 매칭이 quoted partial 이면 true — applyFileAutocomplete 가 닫는 quote 를
   // 자동 보강해야 하는 케이스인지 식별용.
   quoted: boolean
+  // quoted partial 이면서 caret 직후 첫 문자가 `"` 인 경우 true — 사용자가 quote
+  // 쌍 안으로 caret 을 이동해 picker 가 재오픈된 상태. applyFileAutocomplete 가
+  // 새 닫는 quote 를 만들지 않고 기존 것을 재사용하도록 분기.
+  hasClosingQuote: boolean
   // picker 가 listing 한 경로의 cwd-상대 fullpath 누적. HighlightedTextarea 의
   // `validFilePaths` 로 전달되어 chip 강조 대상 결정에 쓰인다.
   validPaths: ReadonlySet<string>
@@ -125,6 +129,8 @@ export function useFileAutocomplete(
   // 첫 응답 전(또는 dirPath 변경 후 재조회 중) 이면 loading. 빈 응답이 도착하면
   // Map 에 빈 배열이 set 되어 has() = true → loading=false 로 자연 전환.
   const loading = match !== null && cwd !== null && !entriesByDir.has(match.dirPath)
+  // caret 이 닫는 quote 직전인지 — 기존 quote 쌍 안에서 재오픈된 상태.
+  const hasClosingQuote = match?.quoted === true && text[caret] === '"'
 
   return {
     open,
@@ -135,6 +141,7 @@ export function useFileAutocomplete(
     setActiveIndex: setRawActiveIndex,
     tokenStart: match?.tokenStart ?? -1,
     quoted: match?.quoted ?? false,
+    hasClosingQuote,
     validPaths,
     close: (): void => setDismissedAt(partial)
   }
