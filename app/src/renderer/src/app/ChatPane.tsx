@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { forwardRef, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { Icon, type IconName } from '../components/atoms/Icon'
 import { Dot } from '../components/atoms/Status'
 import { CopyIconButton } from '../components/atoms/CopyIconButton'
@@ -203,6 +203,7 @@ export function ChatPane({ chat, backendLabel }: ChatPaneProps): React.JSX.Eleme
   const [caret, setCaret] = useState(0)
   const scrollRef = useRef<HTMLDivElement>(null)
   const skills = useSkills()
+  const knownSkillNames = useMemo(() => new Set(skills.map((s) => s.name)), [skills])
   const skillButtonRef = useRef<HTMLButtonElement>(null)
   const textareaRef = useRef<HighlightedTextareaHandle>(null)
   const textareaWrapRef = useRef<HTMLDivElement>(null)
@@ -361,6 +362,7 @@ export function ChatPane({ chat, backendLabel }: ChatPaneProps): React.JSX.Eleme
               onChange={setDraft}
               onCaretChange={setCaret}
               onKeyDown={onKeyDown}
+              knownSkillNames={knownSkillNames}
               placeholder="Orca에게 메시지 보내기… (Enter 전송 / Shift+Enter 줄바꿈)"
               ariaLabel="메시지 입력"
             />

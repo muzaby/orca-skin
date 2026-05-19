@@ -11,14 +11,17 @@ import {
 // `(?<=^|\s)` 로 단어 시작에서만 매치 (URL `https://` 등의 중간 `/` 는 제외).
 const SKILL_TOKEN_RE = /(?<=^|\s)\/[a-z][a-z0-9:-]*\b/g
 
+const EMPTY_NAME_SET: ReadonlySet<string> = new Set()
+
 type TextSegment = { kind: 'text'; text: string } | { kind: 'chip'; text: string }
 
-function tokenize(value: string): TextSegment[] {
+function tokenize(value: string, knownNames: ReadonlySet<string>): TextSegment[] {
   if (value === '') return []
   const segs: TextSegment[] = []
   let last = 0
   for (const m of value.matchAll(SKILL_TOKEN_RE)) {
     const start = m.index ?? 0
+    if (!knownNames.has(m[0].slice(1))) continue
     if (start > last) segs.push({ kind: 'text', text: value.slice(last, start) })
     segs.push({ kind: 'chip', text: m[0] })
     last = start + m[0].length
@@ -35,6 +38,9 @@ interface HighlightedTextareaProps {
   // 추적하기 위해 사용. textarea 의 `onSelect` + `onInput` + `onKeyUp` + `onMouseUp`
   // 합성 — selectionchange 는 document scope 라 비효율.
   onCaretChange?: (caret: number) => void
+  // chip 으로 강조할 활성 스킬 이름 집합 (`/<name>` 의 `<name>` 부분). 매치되지
+  // 않은 토큰은 일반 텍스트로 렌더 — 존재하지 않는 스킬을 chip 으로 오인하지 않게.
+  knownSkillNames?: ReadonlySet<string>
   placeholder?: string
   rows?: number
   className?: string
@@ -58,6 +64,7 @@ export const HighlightedTextarea = forwardRef<HighlightedTextareaHandle, Highlig
       onChange,
       onKeyDown,
       onCaretChange,
+      knownSkillNames,
       placeholder,
       rows = 1,
       className = '',
@@ -95,7 +102,7 @@ export const HighlightedTextarea = forwardRef<HighlightedTextareaHandle, Highlig
       onCaretChange?.(e.currentTarget.selectionStart)
     }
 
-    const segments = tokenize(value)
+    const segments = tokenize(value, knownSkillNames ?? EMPTY_NAME_SET)
     // textarea 의 trailing newline 은 추가 빈 줄을 만들기 위해 mirror 끝에 ZWSP 추가.
     const trailingPad = value.endsWith('\n') ? '​' : ''
 
