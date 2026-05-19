@@ -31,6 +31,10 @@ interface HighlightedTextareaProps {
   value: string
   onChange: (value: string) => void
   onKeyDown?: (e: KeyboardEvent<HTMLTextAreaElement>) => void
+  // caret 위치 변경 (selectionStart) 을 통보. 자동완성 picker 가 caret 직전 토큰을
+  // 추적하기 위해 사용. textarea 의 `onSelect` + `onInput` + `onKeyUp` + `onMouseUp`
+  // 합성 — selectionchange 는 document scope 라 비효율.
+  onCaretChange?: (caret: number) => void
   placeholder?: string
   rows?: number
   className?: string
@@ -53,6 +57,7 @@ export const HighlightedTextarea = forwardRef<HighlightedTextareaHandle, Highlig
       value,
       onChange,
       onKeyDown,
+      onCaretChange,
       placeholder,
       rows = 1,
       className = '',
@@ -81,7 +86,14 @@ export const HighlightedTextarea = forwardRef<HighlightedTextareaHandle, Highlig
       if (m) m.scrollTop = e.currentTarget.scrollTop
     }
 
-    const handleChange = (e: ChangeEvent<HTMLTextAreaElement>): void => onChange(e.target.value)
+    const handleChange = (e: ChangeEvent<HTMLTextAreaElement>): void => {
+      onChange(e.target.value)
+      onCaretChange?.(e.target.selectionStart)
+    }
+
+    const handleCaret = (e: { currentTarget: HTMLTextAreaElement }): void => {
+      onCaretChange?.(e.currentTarget.selectionStart)
+    }
 
     const segments = tokenize(value)
     // textarea 의 trailing newline 은 추가 빈 줄을 만들기 위해 mirror 끝에 ZWSP 추가.
@@ -121,6 +133,9 @@ export const HighlightedTextarea = forwardRef<HighlightedTextareaHandle, Highlig
           value={value}
           onChange={handleChange}
           onKeyDown={onKeyDown}
+          onKeyUp={handleCaret}
+          onMouseUp={handleCaret}
+          onSelect={handleCaret}
           onScroll={handleScroll}
           placeholder={placeholder}
           rows={rows}

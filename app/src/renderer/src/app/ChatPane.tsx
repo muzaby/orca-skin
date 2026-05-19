@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
-import { Icon } from '../components/atoms/Icon'
+import { forwardRef, useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { Icon, type IconName } from '../components/atoms/Icon'
 import { Dot } from '../components/atoms/Status'
 import { CopyIconButton } from '../components/atoms/CopyIconButton'
 import { StatusLine } from '../components/atoms/StatusLine'
@@ -8,10 +8,12 @@ import {
   HighlightedTextarea,
   type HighlightedTextareaHandle
 } from '../components/composer/HighlightedTextarea'
+import { SkillAutocomplete } from '../components/composer/SkillAutocomplete'
 import { Markdown } from '../components/markdown/Markdown'
 import type { UseChat } from '../state/useChat'
 import type { Message, ToolCall } from '../state/chatReducer'
 import { useSkills } from '../state/useSkills'
+import { useSkillAutocomplete } from '../state/useSkillAutocomplete'
 import type { SkillInfo } from '../../../shared/ipc'
 
 const ICON_BTN =
@@ -198,31 +200,50 @@ function PendingAssistant({
 export function ChatPane({ chat, backendLabel }: ChatPaneProps): React.JSX.Element {
   const { state, send, cancel } = chat
   const [draft, setDraft] = useState('')
+  const [caret, setCaret] = useState(0)
   const scrollRef = useRef<HTMLDivElement>(null)
   const skills = useSkills()
-  const plusButtonRef = useRef<HTMLButtonElement>(null)
+  const skillButtonRef = useRef<HTMLButtonElement>(null)
   const textareaRef = useRef<HighlightedTextareaHandle>(null)
+  const textareaWrapRef = useRef<HTMLDivElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
-  const [menuMode, setMenuMode] = useState<'root' | 'skills'>('root')
 
-  const closeMenu = (): void => {
-    setMenuOpen(false)
-    setMenuMode('root')
-  }
+  const closeMenu = (): void => setMenuOpen(false)
 
-  const insertSkill = (name: string): void => {
+  const autocomplete = useSkillAutocomplete(draft, caret, skills)
+
+  // Skill chip / popover 선택: 항상 draft 끝에 `/name ` 삽입 (기존 동작 유지).
+  const insertSkillFromMenu = (name: string): void => {
     const token = `/${name} `
     setDraft((d) => {
-      if (d === '' || d.endsWith(' ') || d.endsWith('\n')) return d + token
-      return d + ' ' + token
+      const next = d === '' || d.endsWith(' ') || d.endsWith('\n') ? d + token : d + ' ' + token
+      queueMicrotask(() => {
+        const el = textareaRef.current?.element
+        if (!el) return
+        el.focus()
+        el.setSelectionRange(next.length, next.length)
+        setCaret(next.length)
+      })
+      return next
     })
     closeMenu()
+  }
+
+  // 자동완성 선택: caret 직전 `/partial` 을 `/name ` 으로 치환.
+  const applyAutocomplete = (skill: SkillInfo): void => {
+    const start = autocomplete.tokenStart
+    if (start < 0) return
+    const replacement = `/${skill.name} `
+    const next = draft.slice(0, start) + replacement + draft.slice(caret)
+    const nextCaret = start + replacement.length
+    setDraft(next)
+    autocomplete.close()
     queueMicrotask(() => {
       const el = textareaRef.current?.element
       if (!el) return
       el.focus()
-      const len = el.value.length
-      el.setSelectionRange(len, len)
+      el.setSelectionRange(nextCaret, nextCaret)
+      setCaret(nextCaret)
     })
   }
 
@@ -232,11 +253,40 @@ export function ChatPane({ chat, backendLabel }: ChatPaneProps): React.JSX.Eleme
   }, [state.messages, state.pendingDelta])
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>): void => {
+    // 자동완성 open 시 키 우선 처리 — Enter/Tab/Arrow/Escape 는 picker 가 소비.
+    if (autocomplete.open) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        autocomplete.setActiveIndex(
+          (autocomplete.activeIndex + 1) % autocomplete.suggestions.length
+        )
+        return
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        const len = autocomplete.suggestions.length
+        autocomplete.setActiveIndex((autocomplete.activeIndex - 1 + len) % len)
+        return
+      }
+      if ((e.key === 'Enter' || e.key === 'Tab') && !e.nativeEvent.isComposing) {
+        e.preventDefault()
+        const pick = autocomplete.suggestions[autocomplete.activeIndex]
+        if (pick) applyAutocomplete(pick)
+        return
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        autocomplete.close()
+        return
+      }
+    }
+
     if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
       e.preventDefault()
       if (draft.trim() !== '') {
         send(draft)
         setDraft('')
+        setCaret(0)
       }
     }
   }
@@ -304,27 +354,28 @@ export function ChatPane({ chat, backendLabel }: ChatPaneProps): React.JSX.Eleme
 
       <div className="px-6 pb-[18px] pt-3">
         <div className="rounded-[14px] border border-border bg-panel px-3 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,.03)]">
-          <HighlightedTextarea
-            ref={textareaRef}
-            value={draft}
-            onChange={setDraft}
-            onKeyDown={onKeyDown}
-            placeholder="Orca에게 메시지 보내기… (Enter 전송 / Shift+Enter 줄바꿈)"
-            ariaLabel="메시지 입력"
-          />
+          <div ref={textareaWrapRef}>
+            <HighlightedTextarea
+              ref={textareaRef}
+              value={draft}
+              onChange={setDraft}
+              onCaretChange={setCaret}
+              onKeyDown={onKeyDown}
+              placeholder="Orca에게 메시지 보내기… (Enter 전송 / Shift+Enter 줄바꿈)"
+              ariaLabel="메시지 입력"
+            />
+          </div>
           <div className="flex items-center gap-1.5 pt-1">
-            <button
-              ref={plusButtonRef}
-              type="button"
+            <ComposerChip icon="plus" label="첨부" disabled title="준비 중" />
+            <ComposerChip icon="cam" label="현재 프레임" disabled title="준비 중" />
+            <ComposerChip
+              ref={skillButtonRef}
+              icon="bolt"
+              label="Skill"
               onClick={() => setMenuOpen((v) => !v)}
-              className="grid h-7 w-7 cursor-pointer place-items-center rounded-md border border-border bg-bg text-ink2 hover:bg-sidebar"
-              title="추가"
-              aria-label="추가 메뉴 열기"
-              aria-haspopup="menu"
-              aria-expanded={menuOpen}
-            >
-              <Icon name="plus" size={12} />
-            </button>
+              ariaHasPopup
+              ariaExpanded={menuOpen}
+            />
             <span className="ml-auto flex items-center gap-2">
               <span className="text-[11px] text-ink3">{backendLabel}</span>
               {state.inflight ? (
@@ -341,6 +392,7 @@ export function ChatPane({ chat, backendLabel }: ChatPaneProps): React.JSX.Eleme
                     if (draft.trim() !== '') {
                       send(draft)
                       setDraft('')
+                      setCaret(0)
                     }
                   }}
                   disabled={draft.trim() === ''}
@@ -353,13 +405,17 @@ export function ChatPane({ chat, backendLabel }: ChatPaneProps): React.JSX.Eleme
             </span>
           </div>
         </div>
-        <Popover open={menuOpen} anchorRef={plusButtonRef} onClose={closeMenu}>
-          {menuMode === 'root' ? (
-            <RootMenu onPickSkills={() => setMenuMode('skills')} />
-          ) : (
-            <SkillsMenu skills={skills} onBack={() => setMenuMode('root')} onPick={insertSkill} />
-          )}
+        <Popover open={menuOpen} anchorRef={skillButtonRef} onClose={closeMenu}>
+          <SkillsMenu skills={skills} onPick={insertSkillFromMenu} />
         </Popover>
+        <SkillAutocomplete
+          open={autocomplete.open}
+          anchorRef={textareaWrapRef}
+          suggestions={autocomplete.suggestions}
+          activeIndex={autocomplete.activeIndex}
+          onHover={autocomplete.setActiveIndex}
+          onPick={applyAutocomplete}
+        />
       </div>
     </section>
   )
@@ -368,39 +424,47 @@ export function ChatPane({ chat, backendLabel }: ChatPaneProps): React.JSX.Eleme
 const MENU_ITEM =
   'flex w-full cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-left text-[13px] text-ink hover:bg-sidebar disabled:cursor-not-allowed disabled:text-ink3'
 
-function RootMenu({ onPickSkills }: { onPickSkills: () => void }): React.JSX.Element {
-  return (
-    <div role="none" className="flex flex-col">
-      <button type="button" role="menuitem" disabled className={MENU_ITEM} title="준비 중">
-        <span aria-hidden>📎</span>
-        <span className="flex-1">파일 추가</span>
-        <span className="text-[10.5px] text-ink3">준비 중</span>
-      </button>
-      <button type="button" role="menuitem" onClick={onPickSkills} className={MENU_ITEM}>
-        <span aria-hidden>⚙️</span>
-        <span className="flex-1">스킬</span>
-        <span aria-hidden className="text-ink3">
-          ▸
-        </span>
-      </button>
-    </div>
-  )
+// mockup `project/variations/v1-shell.jsx:186-188` 의 chip1 — composer 좌측 하단의
+// 행위 chip. 시맨틱 토큰으로 재현.
+interface ComposerChipProps {
+  icon: IconName
+  label: string
+  disabled?: boolean
+  title?: string
+  onClick?: () => void
+  ariaHasPopup?: boolean
+  ariaExpanded?: boolean
 }
+
+const ComposerChip = forwardRef<HTMLButtonElement, ComposerChipProps>(function ComposerChip(
+  { icon, label, disabled, title, onClick, ariaHasPopup, ariaExpanded },
+  ref
+): React.JSX.Element {
+  return (
+    <button
+      ref={ref}
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      aria-haspopup={ariaHasPopup ? 'menu' : undefined}
+      aria-expanded={ariaHasPopup ? ariaExpanded : undefined}
+      className="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-md border border-border bg-bg px-2 text-[12px] text-ink2 hover:bg-sidebar disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      <Icon name={icon} size={12} />
+      <span>{label}</span>
+    </button>
+  )
+})
 
 interface SkillsMenuProps {
   skills: SkillInfo[]
-  onBack: () => void
   onPick: (name: string) => void
 }
 
-function SkillsMenu({ skills, onBack, onPick }: SkillsMenuProps): React.JSX.Element {
+function SkillsMenu({ skills, onPick }: SkillsMenuProps): React.JSX.Element {
   return (
     <div role="none" className="flex flex-col">
-      <button type="button" role="menuitem" onClick={onBack} className={`${MENU_ITEM} text-ink2`}>
-        <span aria-hidden>←</span>
-        <span>뒤로</span>
-      </button>
-      <div className="my-1 h-px bg-border" aria-hidden />
       <div className="max-h-[280px] overflow-y-auto">
         {skills.length === 0 ? (
           <div className="px-2 py-2 text-[11.5px] leading-relaxed text-ink3">
