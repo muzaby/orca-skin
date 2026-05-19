@@ -11,9 +11,10 @@ import {
 // `(?<=^|\s)` 로 단어 시작에서만 매치 (URL `https://` 등의 중간 `/` 는 제외).
 const SKILL_TOKEN_RE = /(?<=^|\s)\/[a-z][a-z0-9:-]*\b/g
 
-// `@path/to/file` 패턴: 단어 시작의 `@` + 공백을 제외한 문자열. 디렉토리는 `/` 로
-// 끝나며, 검증 set 과 비교 시 trailing `/` 유무로 파일/디렉토리를 구분한다.
-const FILE_TOKEN_RE = /(?<=^|\s)@[^\s]+/g
+// `@<path>` 또는 `@"<path with space>"` 두 형태. quoted 는 닫는 따옴표까지 매치
+// (미닫힘은 chip 화하지 않음). 캡처 그룹 1 = quoted content, 2 = plain content.
+// `[^\s"]+` 로 plain 에서 `"` 를 제외해 quoted 와 충돌하지 않게 한다.
+const FILE_TOKEN_RE = /(?<=^|\s)@(?:"([^"\n]*)"|([^\s"]+))/g
 
 const EMPTY_SET: ReadonlySet<string> = new Set()
 
@@ -40,9 +41,10 @@ function tokenize(
     hits.push({ start, end: start + m[0].length, text: m[0], chip: 'skill' })
   }
   for (const m of value.matchAll(FILE_TOKEN_RE)) {
-    // `@` 제외 후 검증. 파일 토큰은 trailing `/` 가 그대로 들어있어도 매칭되도록
+    // quoted (그룹1) 우선, 없으면 plain (그룹2). validPaths 는 raw path 저장.
     // 디렉토리는 set 에 `path/` 형태로, 파일은 `path` 형태로 저장돼 있다.
-    if (!validFilePaths.has(m[0].slice(1))) continue
+    const raw = m[1] ?? m[2]
+    if (!validFilePaths.has(raw)) continue
     const start = m.index ?? 0
     hits.push({ start, end: start + m[0].length, text: m[0], chip: 'file' })
   }
