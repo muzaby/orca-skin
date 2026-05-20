@@ -162,7 +162,7 @@ Renderer (UI) → Electron IPC → Common Interface → `ClaudeCodeAdapter` 또�
 | GUI 보유 상태 | `sessionId` 문자열 1개 | `sessionId` + 서버 핸들 |
 | **GUI 의 컨텍스트 관리 코드** | **0 줄** | **0 줄** |
 
-> Claude 백엔드 통합 상세 — SDK `query()` / `Options` / SDKMessage 명세는 [`docs/spec/claude/agent-sdk/typescript.md`](./spec/claude/agent-sdk/typescript.md), 채택 범위 표·SDKMessage→ChatEvent 매핑은 [`architecture.md §5.4`](./architecture.md), CLI 시기 외부 계약 (절 번호 anchor 보존) 은 [`claude-code-spec.md`](./claude-code-spec.md) §10·§11·§14 참조.
+> Claude 백엔드 통합 상세 — SDK `query()` / `Options` / SDKMessage 명세는 [`docs/spec/claude/agent-sdk/typescript.md`](./spec/claude/agent-sdk/typescript.md), 채택 범위 표·SDKMessage→ChatEvent 매핑은 [`BACKEND_ARCHITECTURE.md` §4](./BACKEND_ARCHITECTURE.md), CLI 시기 외부 계약 (절 번호 anchor 보존) 은 [`claude-code-spec.md`](./claude-code-spec.md) §10·§11·§14 참조.
 
 ### 7.5 활성 대화 시나리오 (전략 §9.1)
 
