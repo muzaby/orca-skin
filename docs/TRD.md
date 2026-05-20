@@ -1,6 +1,6 @@
 # Orca — Technical Requirements Document (v1)
 
-> `docs/PRD.md` 의 *WHAT* 을 *HOW* 로 옮기는 기술 사양. 기능·스택·API·데이터 모델을 다룬다. 시스템 구성·프로세스 모델·모듈 레이아웃·데이터 흐름 등 아키텍처 구조는 `docs/architecture.md` 참조.
+> `docs/PRD.md` 의 *WHAT* 을 *HOW* 로 옮기는 기술 사양. 기능·스택·API·데이터 모델을 다룬다. 시스템 구성·프로세스 모델·모듈 레이아웃·데이터 흐름 등 아키텍처 구조는 `docs/FRONTEND_ARCHITECTURE.md` (Renderer) + `docs/BACKEND_ARCHITECTURE.md` (Main) + `docs/IPC_CONTRACT.md` (채널 SSOT) 참조.
 
 | 항목 | 값 |
 |---|---|
@@ -24,7 +24,7 @@
 
 본문은 Phase 1 만 다루며, Phase 2~4 확장 구조는 §10 의 anchor 로만 언급한다. 하드웨어·Skills·MCP·Captures·Projects 등 도메인 기능은 `docs/PRD.md` §9 Future Scope 를 참조.
 
-시스템이 **어떻게 구성되어 있고 입력이 어디로 흘러가는가** 는 `docs/architecture.md` 에서 다룬다.
+시스템이 **어떻게 구성되어 있고 입력이 어디로 흘러가는가** 는 `docs/FRONTEND_ARCHITECTURE.md` / `docs/BACKEND_ARCHITECTURE.md` / `docs/IPC_CONTRACT.md` 4문서에서 다룬다 (2026-05-20 이전 `architecture.md` 단일 파일에서 분할).
 
 ---
 
@@ -45,7 +45,7 @@ PRD §6.1 의 F1~F10 을 *수용 기준* 으로 구체화한다.
 | F9 | **인증 만료 처리** | ClaudeCodeAdapter, Auth modal | Claude Code OAuth 401 감지 (stdout/stderr `"401"` / `"expired"` 패턴) → `error / auth.expired` 이벤트 → UI 모달 "`claude /login` 을 터미널에서 실행 후 새 대화" | §6.1 |
 | F10 | **Tweaks 패널** | TweaksPanel, useTweaks | 테마 선택 (Classic/Dark/Cool) + 밀도 슬라이더 (11.5/13/14.5px) + 사이드바 접기 토글 → `data-theme` 속성 + root `font-size` 동적 갱신 → Tailwind `@theme` 토큰 스코프 cascade → 전 화면 반영. 선택값은 Phase 1에서 메모리만 (Phase 2+ `electron-store` 로 영속화). 트리 remount 불요 (CSS 변수 재설정으로 충분). Phase 2+ 에서 ThemeProvider 로 영속화 연동 검토 | §6.1 |
 
-**비고**: 모듈 경로·정확한 IPC 채널·컴포넌트 트리는 `architecture.md` 참조. 위 표는 *기능 정의* 에만 집중.
+**비고**: 모듈 경로·정확한 IPC 채널·컴포넌트 트리는 `FRONTEND_ARCHITECTURE.md` / `BACKEND_ARCHITECTURE.md` / `IPC_CONTRACT.md` 참조. 위 표는 *기능 정의* 에만 집중.
 
 ---
 
@@ -57,10 +57,10 @@ PRD §6.2 의 N1~N6 을 구현 가능한 형태로 변환한다.
 |---|---|---|
 | N1 | **플랫폼** | Windows x64 1차 지원. macOS (arm64 + x64), Linux (x64) 는 후순위. Electron 다중 빌드 (`electron-builder.yml`) |
 | N2 | **i18n** | 한국어 라벨 (`src/shared/i18n/ko.ts`). 기술 용어/터미널 출력은 영어 그대로. |
-| N3 | **접근성** | 키보드 단축키: 새 대화 (Ctrl+N), **전송 (Enter), 줄바꿈 (Shift+Enter)**, Tweaks 패널 (Shift+T 등, architecture.md 참조). 다크모드는 Tweaks 경유 (CSS 변수 override). ARIA label은 주요 UI 요소에. (전송 키 결정: 2026-05-13 — chat 류 앱 관례를 따라 Ctrl+Enter 대신 Enter 단일 키로 변경) |
+| N3 | **접근성** | 키보드 단축키: 새 대화 (Ctrl+N), **전송 (Enter), 줄바꿈 (Shift+Enter)**, Tweaks 패널 (Shift+T 등, `FRONTEND_ARCHITECTURE.md` §7.1 참조). 다크모드는 Tweaks 경유 (CSS 변수 override). ARIA label은 주요 UI 요소에. (전송 키 결정: 2026-05-13 — chat 류 앱 관례를 따라 Ctrl+Enter 대신 Enter 단일 키로 변경) |
 | N4 | **데이터 위치** | 세션 본체: CLI 저장소 (Claude Code: `~/.claude/projects/<cwd>/<id>.jsonl`, opencode: `~/.local/share/opencode/` 등). 앱: 메모리에 `sessionId` 변수 1개만 보유. Phase 2+ `electron-store` (선택값·마지막 세션 ID 등) |
 | N5 | **응답 지연 가이드** | 첫 토큰까지 지연, 시작 시간 SLA = OQ6. 목표치가 정해지면 본 섹션 갱신. |
-| N6 | **보안** | OAuth/API 키 미저장 (CLI 관리). 마크다운 렌더링 시 XSS sanitize (react-markdown 기본). Electron contextIsolation=true, sandbox=true 적용 (상세는 architecture.md §2). |
+| N6 | **보안** | 현재 (Phase 2): OAuth/API 키 미저장 (SDK 가 `~/.claude` 자동 사용). **Phase 3+ 채택 결정**: 어댑터별 base URL + API key 를 safeStorage 로 저장 (`BACKEND_ARCHITECTURE.md` §8.4). 마크다운 렌더링 시 XSS sanitize (react-markdown 기본). Electron contextIsolation=true, sandbox=true 적용 (상세는 `BACKEND_ARCHITECTURE.md` §8). |
 
 ---
 
@@ -181,7 +181,7 @@ Discriminated union. 어댑터가 CLI/SDK의 다양한 형식을 이 하나의 �
 | `result` | `{ usage?: { inputTokens: number; outputTokens: number; }; }` | 어댑터 | 턴 완료, `inflight = false` |
 | `error` | `{ code: string; message: string; recoverable: boolean; }` | 어댑터 (언제든) | 에러 토스트 + 선택적 복구 UI |
 
-> **(Phase 4 anchor)** 멀티 세션 (§10) 도입 시 모든 변형에 `sessionId: string` 필드 추가 예정. 현재는 `init` 만 보유 — 단일 inflight 모델에서는 sessionId 식별 불요. main↔renderer IPC 는 Electron 의 ordered+lossless 보장을 그대로 활용 (별도 메시지큐 미도입). 상세는 `architecture.md §11.3`.
+> **(Phase 4 anchor)** 멀티 세션 (§10) 도입 시 모든 변형에 `sessionId: string` 필드 추가 예정. 현재는 `init` 만 보유 — 단일 inflight 모델에서는 sessionId 식별 불요. main↔renderer IPC 는 Electron 의 ordered+lossless 보장을 그대로 활용 (별도 메시지큐 미도입). 상세는 `FRONTEND_ARCHITECTURE.md` §5.
 
 > **(OQ10)** `tool_use.name` / `tool_use.input` 표준화 정책 미정 — PRD §11 OQ10 진실 원천. Phase 3 단일 백엔드 운영에서는 raw 전달 (분기 의미 없음). opencode 어댑터 활성화 PR 에서 결정.
 
@@ -277,11 +277,11 @@ Phase 1은 메모리만, Phase 2+에서 `electron-store` 로 영속화. 인터�
 
 ## 7. Backend Adapters (외부 인터페이스 계약)
 
-어댑터가 외부 CLI/SDK와 주고받는 명령·플래그·SDK 호출의 계약. *내부 구현* (NDJSON 파서, 서버 라이프사이클 대기열 등) 은 `architecture.md` §5 참조.
+어댑터가 외부 CLI/SDK와 주고받는 명령·플래그·SDK 호출의 계약. *내부 구현* (SDKMessage 정규화, 서버 라이프사이클 등) 은 `BACKEND_ARCHITECTURE.md` §4 참조.
 
 ### 7.1 ClaudeCodeAdapter
 
-> SDK `query()` API 시그니처·`Options` 필드·SDKMessage 타입·세션 재개 메커니즘 상세는 [`docs/spec/claude/agent-sdk/typescript.md`](./spec/claude/agent-sdk/typescript.md) 가 단일 출처. CLI 플래그 ↔ SDK Options 대응 표·SDKMessage→ChatEvent 매핑·MVP 채택 범위·내부 구현 패턴은 [`architecture.md §5.4`](./architecture.md) 참조. 본 절은 *어댑터가 외부와 어떻게 계약하는지* 만 다룬다. 권한 정책 미정(OQ9) 은 `claude-code-spec.md §5` 참조.
+> SDK `query()` API 시그니처·`Options` 필드·SDKMessage 타입·세션 재개 메커니즘 상세는 [`docs/spec/claude/agent-sdk/typescript.md`](./spec/claude/agent-sdk/typescript.md) 가 단일 출처. CLI 플래그 ↔ SDK Options 대응 표·SDKMessage→ChatEvent 매핑·MVP 채택 범위·내부 구현 패턴은 [`BACKEND_ARCHITECTURE.md` §4](./BACKEND_ARCHITECTURE.md) 참조. 본 절은 *어댑터가 외부와 어떻게 계약하는지* 만 다룬다. 권한 정책 미정(OQ9) 은 `claude-code-spec.md §5` 참조.
 
 **설치 탐지**:
 
@@ -474,9 +474,9 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 - **(anchor) 하드웨어 어댑터 (BoardAdapter)** — USB/카메라 제어. `src/main/adapters/board.ts` 예약, 네이티브 모듈 (`orca-board.node`, libusb) Phase 2~3.
 - **(anchor) opencode 어댑터** — Phase 1 에서는 미구현. §7.2 의 사양 (서버 라이프사이클, SDK 호출, SSE 매핑) 그대로 살아있으나 코드는 인터페이스 후크만 남아있다. claude-code 단독 운영이 안정화되면 도입.
 - **(anchor) OpenAI Compatible 백엔드** — `SessionAdapter` 인터페이스 재활용 가능. 3번째 어댑터 구현체 추가.
-- **(anchor) Agent SDK 고급 기능** — `permissionMode` / `canUseTool` / `hooks` / `createSdkMcpServer` (in-process custom tools) / 외부 `mcpServers` / `forkSession` / `startup()` (사전 워밍) / `AsyncIterable<SDKUserMessage>` 스트리밍 입력. 채택 표는 `architecture.md §5.4` 의 ⏳ 행 참조. Phase 4+ — 도구 권한 정책(OQ9) 결정 후 진행.
+- **(anchor) Agent SDK 고급 기능** — `permissionMode` / `canUseTool` / `hooks` / `createSdkMcpServer` (in-process custom tools) / 외부 `mcpServers` / `forkSession` / `startup()` (사전 워밍) / `AsyncIterable<SDKUserMessage>` 스트리밍 입력. 채택 표는 `BACKEND_ARCHITECTURE.md` §4.6 의 ⏳ 행 참조. Phase 4+ — 도구 권한 정책(OQ9) 결정 후 진행.
 - **(anchor) 어댑터 도구명 정규화 (OQ10)** — claude vs opencode 의 `tool_use.name` / `tool_use.input` 차이 해소 정책. PRD §11 OQ10 결정 후 어댑터별 매핑 표 확정.
-- **(anchor) ChatEvent sessionId 확장** — Phase 4 멀티 세션 진입 시 모든 변형(`assistant_delta` / `assistant_message` / `tool_use` / `tool_result` / `result` / `error`)에 `sessionId` 필드 추가. main↔renderer IPC 는 Electron 의 ordered+lossless 보장을 그대로 활용 (별도 메시지큐 미도입). 상세 anchor 는 `architecture.md §11.3`.
+- **(anchor) ChatEvent sessionId 확장** — Phase 4 멀티 세션 진입 시 모든 변형(`assistant_delta` / `assistant_message` / `tool_use` / `tool_result` / `result` / `error`)에 `sessionId` 필드 추가. main↔renderer IPC 는 Electron 의 ordered+lossless 보장을 그대로 활용 (별도 메시지큐 미도입). 상세 anchor 는 `FRONTEND_ARCHITECTURE.md` §5.
 - **(anchor) Skills / MCP / Captures / Projects** — PRD §9 Future Scope. 별도 IPC 도메인 + 모듈 추가.
 - **(anchor) 멀티 세션 / 과거 대화 목록** — Phase 3+. 인터페이스 `SessionAdapter.listSessions?()` / `loadSession?()` 이미 예약. Sidebar 세션 리스트 UI는 Phase 4.
 - **(anchor) 재시작 재개** — Phase 2. Settings.store 의 `lastSessionId` 키 추가, 앱 부트 시 복원.
@@ -519,7 +519,10 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 
 - `docs/PRD.md` — 제품 정의 (WHAT)
 - `docs/llm-chat-desktop-strategy.md` — 기술 결정 근거
-- `docs/architecture.md` — 시스템 구성·프로세스·데이터 흐름
+- `docs/FRONTEND_ARCHITECTURE.md` — Renderer 구조·상태 관리·도메인 화면 카탈로그
+- `docs/BACKEND_ARCHITECTURE.md` — Main 구조·Adapter·영속성·자격증명·보안
+- `docs/IPC_CONTRACT.md` — Main ↔ Renderer 채널 SSOT
+- `docs/GLOSSARY.md` — 용어 단일 출처
 - `docs/claude-code-spec.md` — Claude Code CLI 공식 스펙 미러 (§7.1 외부 계약의 단일 출처)
 - `app/CLAUDE.md` — 코드 작업 가이드
 - `project/electron/` — 시각 기준 프로토타입
