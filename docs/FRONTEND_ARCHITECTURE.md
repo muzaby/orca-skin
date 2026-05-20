@@ -31,7 +31,7 @@
 | UI 프레임워크 | React | ^19.2.1 | PRD OQ1 확정 (2026-05) |
 | 언어 | TypeScript | ~5.x (strict, target ES2022) | tsconfig.web.json 분리 |
 | 빌드 도구 | electron-vite | ^5.0.0 | 3-config (main/preload/renderer) |
-| 상태 관리 | **React Context + useReducer** (외부 store 라이브러리 미사용) | — | Zustand / Redux **미채택** |
+| 상태 관리 | **현재: React Context + useReducer.** Zustand 전환 예정 (Future) | — | 단일 inflight + props drilling 모델로 시작. 멀티세션 (Phase 4) / 영속성 통합 시점에 Zustand 로 전환 — §4.4 참조 |
 | 라우팅 | 없음 (App.tsx 의 `screenId` state 로 화면 전환) | — | `app/screens.ts` 의 5 ScreenId enum |
 | 스타일링 | Tailwind CSS v4 (`@tailwindcss/vite`) + CSS-first `@theme` 토큰 | ^4.1.16 | `tailwind.config.js` 없음 |
 | 마크다운 렌더링 | react-markdown + remark-gfm | ^9.1.0 / ^4.0.1 | GFM 테이블·체크박스 지원 |
@@ -124,6 +124,9 @@ src/renderer/
 
 ## 4. 상태 관리
 
+> **현재 (Phase 1·2)**: React Context + useReducer (외부 store 라이브러리 미사용).
+> **채택된 결정 (Future 전환 예정)**: **Zustand 로 전환**. 도입 시점은 §4.5 참조.
+
 ### 4.1 상태 분류
 
 | 상태 종류 | 위치 | 영속화 | 예시 |
@@ -158,12 +161,31 @@ interface ChatState {
 ### 4.3 Anti-pattern (하지 말 것)
 
 - ❌ **입력창 텍스트를 전역 store 에 두기** — 매 키 입력마다 전역 리렌더 발생. Composer 의 draft 는 컴포넌트 로컬 `useState` 로.
-- ❌ **컴포넌트에서 `window.orca` 직접 호출** — `state/use*.ts` hook 으로 캡슐화한다. (현재 `useTweaks` / `useChat` / `useBackend` / `useSkills` / `useFileAutocomplete` 가 이 책임을 가짐.)
+- ❌ **컴포넌트에서 `window.orca` 직접 호출** — `state/use*.ts` hook 으로 캡슐화한다. (현재 `useTweaks` / `useChat` / `useBackend` / `useSkills` / `useFileAutocomplete` 가 이 책임을 가짐.) Zustand 전환 후에도 IPC 호출은 store action 안에 머무르며 컴포넌트는 selector / action 만 사용한다.
 - ❌ **`useEffect` 안에서 store→다른 store 갱신** — 무한 루프 위험. reducer 의 단일 액션으로 묶을 것.
 - ❌ **`messages` 배열을 mutate** — reducer 는 `.slice()` 후 새 배열 반환 (`chatReducer.ts` 패턴).
 - ❌ **Tailwind 클래스에 raw hex 색상** — 시맨틱 토큰 (`bg-bg`, `text-ink`, `border-border`) 우선. 새 색이 필요하면 `tokens.css` 의 `@theme` 에 추가하고 세 테마 스코프 모두 채움.
 
-### 4.4 Tweaks 적용 흐름
+### 4.4 Zustand 전환 anchor (Future 채택 결정)
+
+> **사용자 결정**: 현재의 React Context + useReducer 모델은 단일 세션 / 단일 inflight 에는 충분하지만, 다음 시점에 **Zustand** 로 전환한다.
+
+| 트리거 | 이유 |
+|---|---|
+| **Phase 4 멀티세션 진입** | `sessionStores: Map<sessionId, store>` 패턴 — 세션별 독립 store 인스턴스. Context provider 다중화보다 Zustand 의 외부 store 모델이 자연스러움. |
+| **Phase 3+ 로컬 DB 영속성 통합** | 메시지 / 세션 메타 / 자격증명 store 가 늘어남. selector 기반 구독으로 리렌더 최소화 필요. |
+
+전환 시 영향 범위:
+
+- `state/chatReducer.ts` → Zustand store factory 로 재작성. 기존 액션 (`SEND_USER_MESSAGE` / `RECV_EVENT` 등) 은 store 메서드로 직접 변환.
+- `state/useChat.ts` 의 useReducer 패턴 → `useChatStore((s) => s.field)` selector 로 교체.
+- `useTweaks` / `useBackend` / `useSkills` 도 단계적으로 Zustand store 로 흡수 (현재는 hook 별 useState 분산).
+- `App.tsx` 의 props drilling 제거.
+- 컴포넌트는 store 직접 import 가능 — 단, `components/atoms/` 의 presentational 규칙 (§3.1) 은 유지.
+
+**도입 PR 에서 결정할 사항 (신규 OQ)**: store 분할 단위 (도메인별 1 store vs 단일 root store), persist middleware 사용 여부 (electron-store 어댑터 연동), devtools 통합.
+
+### 4.5 Tweaks 적용 흐름
 
 ```
 useTweaks() ──► [Tweaks, setTweak]
@@ -362,6 +384,7 @@ Main 이 `AbortSignal` 을 SDK `query()` 에 전파 → 현재 inflight 만 중�
 | InstallerDialog | Phase 2 | ✅ 완료 | claude-code 는 SDK 자동 처리로 즉시 done |
 | Tweaks (theme/density/sidebar) + electron-store 영속화 | Phase 2+ | ✅ 완료 | `useTweaks` |
 | 세션 재개 (lastSessionId 부팅 복원) | Phase 2+ | ✅ 완료 | `RESTORE_SESSION` 액션 |
+| Zustand 전환 (상태 관리 통합) | Future | ❌ 미구현 | §4.4 — 멀티세션 / 영속성 통합 시점 |
 | Projects 화면 | Phase 1 | 🚧 mockup 만 | Future Scope |
 | EngineSettings 화면 | Phase 1 | 🚧 mockup 만 | Phase 3+ 자격증명 UI 와 통합 예정 |
 | SkillsMcp 화면 (권한·MCP 토글) | Phase 1 | 🚧 mockup 만 | Phase 4+ |
