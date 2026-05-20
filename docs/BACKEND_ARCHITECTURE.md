@@ -497,6 +497,7 @@ ipcMain.handle('orca:chat:send', async (event, req) => {
 | `options.hooks` (도구 감사) | Phase 4 | ❌ 미구현 | — |
 | `mcpServers` / `createSdkMcpServer` | Phase 4+ | ❌ 미구현 | — |
 | 멀티세션 (`requestRegistry: Map`) | Phase 4 | ❌ 미구현 | FRONTEND §5 와 함께 |
+| Zustand persist 전략 (renderer store ↔ 로컬 DB / electron-store) | Phase 4 | ❌ 미정 OQ | FRONTEND §4.4.6 — middleware vs custom subscribe, storage 어댑터 선택 |
 | i18n (`src/shared/i18n/ko.ts`) | Future | ❌ 미구현 | 현재 인라인 한국어 |
 
 > 이 표는 코드 변경 시 함께 갱신한다.

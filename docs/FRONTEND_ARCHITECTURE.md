@@ -125,7 +125,7 @@ src/renderer/
 ## 4. 상태 관리
 
 > **현재 (Phase 1·2)**: React Context + useReducer (외부 store 라이브러리 미사용).
-> **채택된 결정 (Future 전환 예정)**: **Zustand 로 전환**. 도입 시점은 §4.5 참조.
+> **채택된 결정**: **Zustand 로 전환**. 패턴은 **단일 root store + `sessions: Record<sessionId, SessionState>` 슬라이스** (Map factory 폐기). 도입 시점은 **Phase 4 진입 PR 과 묶음** (Phase 3 사전 마이그레이션 금지). 상세는 §4.4.
 
 ### 4.1 상태 분류
 
@@ -166,24 +166,60 @@ interface ChatState {
 - ❌ **`messages` 배열을 mutate** — reducer 는 `.slice()` 후 새 배열 반환 (`chatReducer.ts` 패턴).
 - ❌ **Tailwind 클래스에 raw hex 색상** — 시맨틱 토큰 (`bg-bg`, `text-ink`, `border-border`) 우선. 새 색이 필요하면 `tokens.css` 의 `@theme` 에 추가하고 세 테마 스코프 모두 채움.
 
-### 4.4 Zustand 전환 anchor (Future 채택 결정)
+### 4.4 Zustand 전환 (채택 결정)
 
-> **사용자 결정**: 현재의 React Context + useReducer 모델은 단일 세션 / 단일 inflight 에는 충분하지만, 다음 시점에 **Zustand** 로 전환한다.
+> **확정 사항 (사용자 결정)**:
+> 1. **단일 root store + `sessions: Record<sessionId, SessionState>` 슬라이스** 패턴 채택. `Map<sessionId, store>` factory 패턴은 폐기.
+> 2. **도입 시점은 Phase 4 멀티세션 진입과 동시** (ChatEvent sessionId 확장 + store 외피 변경 + Zustand 도입을 한 PR 로 묶음). **Phase 3 사전 마이그레이션 금지** — Phase 3 까지는 단일 세션이라 Zustand 이득 없음.
 
-| 트리거 | 이유 |
-|---|---|
-| **Phase 4 멀티세션 진입** | `sessionStores: Map<sessionId, store>` 패턴 — 세션별 독립 store 인스턴스. Context provider 다중화보다 Zustand 의 외부 store 모델이 자연스러움. |
-| **Phase 3+ 로컬 DB 영속성 통합** | 메시지 / 세션 메타 / 자격증명 store 가 늘어남. selector 기반 구독으로 리렌더 최소화 필요. |
+#### 4.4.1 도입의 핵심 명분 — selector 기반 구독
 
-전환 시 영향 범위:
+Context + useReducer 도 외피 (`sessions: Record<sessionId, ChatState>`) 변경만으로 *동작* 은 한다. 도입 명분은 **선택적 리렌더**:
 
-- `state/chatReducer.ts` → Zustand store factory 로 재작성. 기존 액션 (`SEND_USER_MESSAGE` / `RECV_EVENT` 등) 은 store 메서드로 직접 변환.
-- `state/useChat.ts` 의 useReducer 패턴 → `useChatStore((s) => s.field)` selector 로 교체.
-- `useTweaks` / `useBackend` / `useSkills` 도 단계적으로 Zustand store 로 흡수 (현재는 hook 별 useState 분산).
+- Phase 4 동시 스트리밍 시, 비활성 세션의 `pendingDelta` 가 16ms 간격으로 갱신된다. 단일 Context 모델은 모든 consumer 를 리렌더 → 활성 세션 UI 의 입력 응답성 저하.
+- Zustand 의 `useChatStore((s) => s.sessions[activeId].messages)` selector 만으로 해결. Context split / `useContextSelector` 서드파티 패치 의존을 피한다.
+
+#### 4.4.2 store 외부 접근 활용
+
+`useChatStore.getState().recv(ev)` 로 IPC `chat:event` 핸들러가 **React 트리 밖에서 직접 dispatch** 가능. `webContents.send('orca:chat:event', ev)` 는 ordered+lossless 1채널이므로, renderer 의 1개 핸들러가 `ev.data.sessionId` 로 라우팅해 해당 세션 슬라이스만 갱신한다.
+
+#### 4.4.3 store 슬라이스 분리
+
+| 슬라이스 | 위치 | 필드 |
+|---|---|---|
+| **세션별** | `sessions[sessionId]: SessionState` | `messages` / `pendingDelta` / `pendingInputTokens` / `error` |
+| **전역** | root state | `activeSessionId` / `inflight` (Phase 4 에서는 세션별로 분리 검토) / `turnStartedAt` / `Tweaks` / `Backend` / `Skills` |
+
+세션 삭제: `delete state.sessions[id]` + 해당 세션의 진행 중 `AbortController.abort()` 호출.
+
+#### 4.4.4 대안 비교
+
+| 옵션 | 선택적 리렌더 | 외부 dispatch | 미채택 이유 |
+|---|---|---|---|
+| Context + useReducer (현행) | ❌ | ❌ | 동시 스트리밍 시 활성 UI 리렌더 |
+| Context split + `useContextSelector` | ✅ | ❌ | 서드파티 패치 의존 |
+| **Zustand (단일 root + sessions 슬라이스)** | ✅ | ✅ | **채택** |
+| Zustand store factory (`Map<sessionId, store>`) | ✅ | ✅ | 전역 공유 필드용 root store 가 또 필요 → 분산. 영속성 hydration 도 2회 |
+| Jotai (`atomFamily(sessionId)`) | ✅ | △ atom 외부 접근 우회 필요 | atom 폭증 + 학습 비용 |
+| TanStack Store | ✅ | ✅ | Zustand 와 동급 — 채택 이유 약함 |
+| Valtio (proxy mutable) | ✅ | ✅ | mutable 패턴이 reducer 일관성과 충돌 |
+| 손수 `useSyncExternalStore` | ✅ | ✅ | Zustand 가 본질적으로 이것의 얇은 wrapper — 직접 구현 이득 적음 |
+
+#### 4.4.5 전환 시 영향 범위
+
+- `state/chatReducer.ts` → `state/chatStore.ts` (Zustand store) 로 재작성. 기존 액션 (`SEND_USER_MESSAGE` / `RECV_EVENT` 등) 은 store 메서드로 변환 + `sessionId` 인자 추가.
+- `state/useChat.ts` 의 useReducer 패턴 → `useChatStore((s) => s.sessions[activeId].field)` selector 로 교체.
+- IPC onEvent 핸들러 → `useChatStore.getState().recv(ev)` 로 외부 dispatch.
+- `useTweaks` / `useBackend` / `useSkills` 도 단계적으로 Zustand root store 의 전역 슬라이스로 흡수 (Chat 마이그레이션 후순).
 - `App.tsx` 의 props drilling 제거.
 - 컴포넌트는 store 직접 import 가능 — 단, `components/atoms/` 의 presentational 규칙 (§3.1) 은 유지.
 
-**도입 PR 에서 결정할 사항 (신규 OQ)**: store 분할 단위 (도메인별 1 store vs 단일 root store), persist middleware 사용 여부 (electron-store 어댑터 연동), devtools 통합.
+#### 4.4.6 도입 PR 에서 결정할 사항 (Open Questions)
+
+| OQ | 내용 |
+|---|---|
+| persist middleware vs custom subscribe | Zustand `persist` middleware 의 기본 storage 는 localStorage/AsyncStorage. Electron 에선 custom storage 어댑터 (electron-store 또는 로컬 DB IPC bridge) 필요. zod 검증 흐름과의 정합성 검토. BACKEND §11 참조. |
+| devtools middleware | Redux DevTools 호환 Zustand devtools 사용 여부 — 개발 모드에서만 활성화 권장. |
 
 ### 4.5 Tweaks 적용 흐름
 
@@ -384,7 +420,7 @@ Main 이 `AbortSignal` 을 SDK `query()` 에 전파 → 현재 inflight 만 중�
 | InstallerDialog | Phase 2 | ✅ 완료 | claude-code 는 SDK 자동 처리로 즉시 done |
 | Tweaks (theme/density/sidebar) + electron-store 영속화 | Phase 2+ | ✅ 완료 | `useTweaks` |
 | 세션 재개 (lastSessionId 부팅 복원) | Phase 2+ | ✅ 완료 | `RESTORE_SESSION` 액션 |
-| Zustand 전환 (상태 관리 통합) | Future | ❌ 미구현 | §4.4 — 멀티세션 / 영속성 통합 시점 |
+| Zustand 전환 (Phase 4 진입 PR 과 묶음) | Phase 4 | ⏳ 채택 결정 | §4.4 — 단일 root + sessions 슬라이스. Phase 3 사전 마이그레이션 금지 |
 | Projects 화면 | Phase 1 | 🚧 mockup 만 | Future Scope |
 | EngineSettings 화면 | Phase 1 | 🚧 mockup 만 | Phase 3+ 자격증명 UI 와 통합 예정 |
 | SkillsMcp 화면 (권한·MCP 토글) | Phase 1 | 🚧 mockup 만 | Phase 4+ |
