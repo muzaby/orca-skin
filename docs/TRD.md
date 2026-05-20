@@ -1,6 +1,6 @@
 # Orca — Technical Requirements Document (v1)
 
-> `docs/PRD.md` 의 *WHAT* 을 *HOW* 로 옮기는 기술 사양. 기능·스택·API·데이터 모델을 다룬다. 시스템 구성·프로세스 모델·모듈 레이아웃·데이터 흐름 등 아키텍처 구조는 `docs/FRONTEND_ARCHITECTURE.md` (Renderer) + `docs/BACKEND_ARCHITECTURE.md` (Main) + `docs/IPC_CONTRACT.md` (채널 SSOT) 참조.
+> `docs/PRD.md` 의 *WHAT* 을 *HOW* 로 옮기는 기술 사양. 기능·스택·API·데이터 모델을 다룬다. 시스템 구성·프로세스 모델·모듈 레이아웃·데이터 흐름 등 아키텍처 구조는 `docs/FRONTEND_ARCHITECTURE.md` (Renderer) + `docs/BACKEND_ARCHITECTURE.md` (Main) + `docs/IPC_CONTRACT.md` (채널 SSOT) + `docs/GLOSSARY.md` (용어 SSOT) 4 문서 참조.
 
 | 항목 | 값 |
 |---|---|
@@ -75,7 +75,7 @@ electron-vite 환경 기준. 표 밖 의존성 추가 시 **사용자 승인 필
 | 번들러 | Vite | ^7 | 확정 | electron-vite가 sub-config 통합 |
 | 언어 | TypeScript | strict, `target: ES2022` | 확정 | 타입 안정성 |
 | UI 프레임워크 | React | ^19 (템플릿 기본, OQ1은 18 가능성) | OQ1 | React Hooks + Context/reducer |
-| 상태 관리 | React Context + reducer | — | 확정 | 외부 상태 라이브러리 (Redux 등) 금지 MVP 범위 |
+| 상태 관리 (Renderer) | **Phase 1·2**: React Context + useReducer. **Phase 4**: Zustand | — | 확정 (Phase 4 전환 채택) | 단일 root + `sessions: Record<sessionId, SessionState>` 슬라이스. 외부 dispatch (`getState().recv(ev)`) 로 React 트리 외부에서 호출. **Phase 3 사전 마이그레이션 금지** — Phase 4 진입 PR 묶음에서 한 번에 전환. 상세 `FRONTEND_ARCHITECTURE.md` §4.4 |
 | 스타일링 | Tailwind CSS | **^4** (`@tailwindcss/vite` 플러그인, CSS-first `@theme`) | 확정 (Phase 1 완료) | utility-first. `styles/tokens.css` 의 `@theme` 블록으로 시맨틱 디자인 토큰 정의 (`--color-{bg,sidebar,ink,...}`). `[data-theme]` 스코프로 Classic/Dark/Cool 전환. Tweaks 패널과 연동. 자세한 정책은 `app/CLAUDE.md` "스타일링 정책" 참조 |
 | 마크다운 렌더링 | react-markdown + remark-gfm + shiki | `^9` / `^4` / `^1` | 확정 (Phase A `feat-pretty-ui` 도입) | GFM (표·체크박스) + 코드 블록 syntax highlighting. shiki 번들은 11개 언어 (ts/js/tsx/jsx/python/bash/json/yaml/html/css/markdown) 로 제한 |
 | LLM 백엔드 SDK (Claude) | `@anthropic-ai/claude-agent-sdk` | latest | 확정 (Phase 3 채택, 2026-05-18) | TypeScript SDK. 진입점 `query({ prompt, options })`. 플랫폼별 native binary 는 `optionalDependencies` 자동 처리. 최소 요구 Node.js 18+. API 명세 SSOT 는 `docs/spec/claude/agent-sdk/typescript.md` |
@@ -83,12 +83,14 @@ electron-vite 환경 기준. 표 밖 의존성 추가 시 **사용자 승인 필
 | IPC | Electron 기본 ipcRenderer/ipcMain | — | 확정 | 별도 RPC 라이브러리 금지. main→renderer 는 Electron 가 ordered + lossless 보장 — 별도 메시지큐 미도입 (멀티 세션 도입 시 §11.3 anchor) |
 | IPC 보안 | `@electron-toolkit/preload` + contextBridge | ^3 | 확정 | preload 화이트리스트 |
 | 입력 검증 | zod | latest | 확정 | IPC 메시지 + SDK / SSE 응답 파싱 |
-| 영속화 (Phase 2+) | `electron-store` | — | 보류 | Phase 1은 in-memory. Phase 2에 도입 |
+| 영속화 (Phase 2+) | `electron-store` | — | **확정 (Phase 2+ 완료)** | 6 키 — `theme` / `density` / `sidebarCollapsed` / `lastBackend` / `lastSessionId` / `windowBounds`. §6.7 참조 |
+| 로컬 DB (Phase 3+) | better-sqlite3 + Drizzle 후보 (미정) | — | **채택 (Phase 3+)** | 메시지·세션 메타 SSOT. 어댑터 외부 저장 (jsonl 등) 은 단방향 동기화 소스로 격하. 마이그레이션 `src/main/db/migrations/NNN_<name>.sql`. 상세 `BACKEND_ARCHITECTURE.md` §6 |
+| 자격증명 (Phase 3+) | Electron `safeStorage` (OS keychain) | — | **채택 (Phase 3+)** | 어댑터별 base URL + API key 암호화 저장. `BACKEND_ARCHITECTURE.md` §8.4 |
 | 패키징 | electron-builder | ^26 | 미정 OQ3 | signing/notarization/auto-update |
 | 테스트 (단위) | Vitest | latest | 확정 | 어댑터·reducer·IPC zod·installer |
 | 테스트 (E2E) | Playwright | latest | 확정 | Electron 지원 |
 
-**정책**: 위 표 외의 패키지 (예: date-fns, lodash, zustand, redux 등) 도입 시 먼저 사용자 확인.
+**정책**: 위 표 외의 패키지 (예: date-fns, lodash, redux 등) 도입 시 먼저 사용자 확인. (`zustand` 는 Phase 4 전환으로 채택됨.)
 
 ---
 
@@ -102,28 +104,38 @@ electron-vite 환경 기준. 표 밖 의존성 추가 시 **사용자 승인 필
 
 ### 5.2 채널 카탈로그
 
-Phase 2 활성 6채널 — preload + main 양쪽에 등록.
+> **SSOT 는 [`IPC_CONTRACT.md`](./IPC_CONTRACT.md) §2** — 본 표는 TRD 의 가독성용 미러. 충돌 시 IPC_CONTRACT 우선. 채널 변경 절차는 IPC_CONTRACT §6 참조.
+
+Phase 2 활성 **11 채널** — 7 도메인 (chat / backend / install / settings / skills / files / session). preload + main 양쪽에 등록.
 
 | 채널 | 방향 | 요청 페이로드 (TS) | 응답·스트림 | zod 스키마 |
 |---|---|---|---|---|
-| `orca:chat:send` | R→M (invoke) | `{ sessionId: string \| null; text: string; }` | ChatEvent stream (M→R send) | SendChatMessage |
+| `orca:chat:send` | R→M (invoke) | `SendChatMessage` = `{ sessionId: string \| null; text: string }` | `Promise<void>` (ack). 응답은 `orca:chat:event` 스트림 | SendChatMessage |
 | `orca:chat:event` | M→R (send) | — | `ChatEvent` (반복) | ChatEvent union |
-| `orca:chat:cancel` | R→M (invoke) | `{ sessionId: string; }` | `{ ok: true }` | CancelChat |
-| `orca:backend:list` | R→M (invoke) | — | `{ backends: Backend[]; active?: Backend; }` | (검증 생략) |
-| `orca:install:start` | R→M (invoke) | `{ backend: Backend; }` | InstallStatus stream (M→R send) | StartInstall |
-| `orca:install:status` | M→R (send) | — | `{ step: string; progress?: number; error?: string; }` | InstallStatus |
+| `orca:chat:cancel` | R→M (invoke) | `CancelChat` = `{ sessionId: string }` | `Promise<void>` — `AbortSignal` 전파 | CancelChat |
+| `orca:backend:list` | R→M (invoke) | — | `BackendListResult` = `{ backends: { id: Backend; installed: boolean; version?: string }[]; active?: Backend }` | (검증 생략) |
+| `orca:install:start` | R→M (invoke) | `StartInstall` = `{ backend: Backend }` | `Promise<void>` (ack). 진행은 `orca:install:status` 스트림. 현재 claude-code 는 SDK `optionalDependencies` 자동 해소 → 즉시 `done: true` | StartInstall |
+| `orca:install:status` | M→R (send) | — | `InstallStatus` = `{ step: string; progress?: number; log?: string; error?: string; done?: boolean }` | InstallStatus |
+| `orca:settings:get` | R→M (invoke) | — | `Settings` (electron-store 전체 객체) | (검증 생략) |
+| `orca:settings:set` | R→M (invoke) | `SettingsPatch` = `Partial<Settings>` | `Settings` (병합·검증된 전체 객체) | SettingsPatch |
+| `orca:skills:list` | R→M (invoke) | — | `SkillInfo[]` = `{ name: string; description: string; argumentHint?: string }[]` — 부팅 1회 스캔, 핫리로드 없음 | (검증 생략) |
+| `orca:files:list` | R→M (invoke) | `ListFilesRequest` = `{ cwd: string; relDir: string }` | `FileEntry[]` = `{ name: string; isDirectory: boolean }[]` — `@` 자동완성용 | ListFilesRequest |
+| `orca:session:cwd` | R→M (invoke) | — | `Promise<string>` — 현재 작업 디렉토리 | (검증 생략) |
 
-Phase 2 범위 밖 (코드 등록 없음 — 사용처 도입 시 재추가):
+Phase 2 범위 밖 (예약 — 도입 시점에 재등록):
 
-| 채널 | 사유 |
-|---|---|
-| `orca:backend:select` | 단일 백엔드 운영, 선택 호출자 없음 |
-| `orca:settings:get` / `orca:settings:set` | Phase 2+ `electron-store` 영속화 도입 시 재등록 |
+| 채널 | 도입 시점 | 사유 |
+|---|---|---|
+| `orca:backend:select` | opencode 어댑터 활성화 시 | 단일 백엔드 운영, 선택 호출자 없음 |
+| `orca:message:*` (list / append / delete) | **Phase 3+** | 로컬 DB SSOT 도입과 함께 (`BACKEND_ARCHITECTURE.md` §6) |
+| `orca:session:list` / `:load` / `:delete` | **Phase 3+** | `SessionAdapter.listSessions?()` / `loadSession?()` 옵셔널 메서드 노출 |
+| `orca:credentials:set` / `:hasKey` | **Phase 3+** | safeStorage 자격증명 (`BACKEND_ARCHITECTURE.md` §8.4) |
+| `orca:skills:reload` | **Future** | 핫리로드 도입 시 |
 
 ### 5.3 `window.orca` API (Preload 화이트리스트)
 
 ```typescript
-// src/preload/index.ts 에서 노출 (Phase 2 활성 표면)
+// src/preload/index.ts 에서 노출 (Phase 2 활성 11 채널 표면)
 interface OrcaApi {
   chat: {
     send(req: { sessionId: string | null; text: string }): Promise<void>;
@@ -131,11 +143,24 @@ interface OrcaApi {
     cancel(sessionId: string): Promise<void>;
   };
   backend: {
-    list(): Promise<{ backends: Backend[]; active?: Backend }>;
+    list(): Promise<BackendListResult>;  // { backends: { id; installed; version? }[]; active? }
   };
   install: {
     start(backend: Backend): Promise<void>;
     onStatus(handler: (st: InstallStatus) => void): () => void;
+  };
+  settings: {
+    get(): Promise<Settings>;
+    set(patch: Partial<Settings>): Promise<Settings>;
+  };
+  skills: {
+    list(): Promise<SkillInfo[]>;
+  };
+  files: {
+    list(req: { cwd: string; relDir: string }): Promise<FileEntry[]>;
+  };
+  session: {
+    cwd(): Promise<string>;
   };
 }
 
@@ -146,7 +171,7 @@ declare global {
 }
 ```
 
-Renderer 코드는 `window.orca.*` 만으로 통신 (ipcRenderer 직접 접근 금지). `backend.select` / `settings.*` 는 사용처가 생기는 PR 에서 다시 노출한다.
+Renderer 코드는 `window.orca.*` 만으로 통신 (ipcRenderer 직접 접근 금지). `backend.select` / `credentials.*` / `message.*` / `session.list|load|delete` 는 §5.2 의 예약 표대로 도입 시점에 노출한다.
 
 **Preload 안전 import 정책**: preload 는 `sandbox: true` 로 실행되므로 Node `require` 가 화이트리스트 (`electron`, `events`, `timers`, `url`) 로 제한된다. 따라서 preload 는 zod 가 끼어있는 `src/shared/protocol.ts` 를 **import 하지 않는다**. CHANNELS 상수와 순수 TS 타입은 별도 파일 `src/shared/ipc.ts` (zod 0 의존) 에 두고, preload + renderer 가 이 파일을 import 한다. zod 스키마는 main 측 IPC 라우터에서만 사용.
 
@@ -159,7 +184,7 @@ Renderer 코드는 `window.orca.*` 만으로 통신 (ipcRenderer 직접 접근 �
 
 ## 6. Data Models
 
-모든 타입 정의의 단일 출처. 구현은 `src/shared/protocol.ts` + `src/main/adapters/types.ts`.
+TS 타입 정의의 단일 출처. 구현은 `app/src/shared/ipc.ts` (zod-free) + `app/src/shared/protocol.ts` (zod 스키마) + `app/src/main/adapters/types.ts`. 용어 정의는 [`GLOSSARY.md`](./GLOSSARY.md), IPC 채널 카탈로그는 [`IPC_CONTRACT.md`](./IPC_CONTRACT.md) §2 가 SSOT.
 
 ### 6.1 Backend (백엔드 선택)
 
@@ -189,12 +214,14 @@ Discriminated union. 어댑터가 CLI/SDK의 다양한 형식을 이 하나의 �
 
 ```typescript
 interface SessionAdapter {
-  isInstalled(): Promise<boolean>;
-  install(): Promise<void>;  // 성공/실패는 예외로 표시
+  readonly id: Backend;
+  isInstalled(): Promise<{ installed: boolean; version?: string; binPath?: string }>;
+  install(): AsyncIterable<{ step: string; log?: string; error?: string; done?: boolean }>;
   sendMessage(
     sessionId: string | null,
     text: string,
     cwd: string,
+    signal?: AbortSignal,
   ): AsyncIterable<ChatEvent>;
 
   // Phase 3+ (옵셔널, v1에서는 구현 안 함)
@@ -202,6 +229,8 @@ interface SessionAdapter {
   loadSession?(id: string): Promise<ChatEvent[]>;
 }
 ```
+
+내부 구현 패턴 (SDKMessage→ChatEvent 정규화, AbortSignal 전파, 인증 만료 감지, 인스톨러 스트리밍) 의 SSOT 는 [`BACKEND_ARCHITECTURE.md`](./BACKEND_ARCHITECTURE.md) §4.
 
 ### 6.4 SessionInfo
 
@@ -251,27 +280,34 @@ interface ChatState {
 
 ### 6.6 Error 코드 표
 
+`IPC_CONTRACT.md` §4 와 1:1. 충돌 시 IPC_CONTRACT 우선.
+
 | 코드 | 의미 | 복구 가능 | 사용자 표시 |
 |---|---|---|---|
-| `cli.not-installed` | 백엔드 CLI 미발견 (which/where 실패) | yes | 인스톨러 다이얼로그 트리거 |
-| `cli.spawn-failed` | spawn 실패 / EACCES / 경로 문제 | yes | 수동 명령 안내 + 복사 버튼 |
-| `cli.crashed` | 프로세스 비정상 종료 (exit code ≠ 0) | yes | 재시도 버튼 |
-| `cli.timeout` | CLI 무응답 (타임아웃 값은 OQ6) | yes | 재시도 |
-| `auth.expired` | Claude Code OAuth 401 | yes | "`claude /login` 실행 후 새 대화" 모달 |
-| `protocol.parse` | NDJSON/SSE 파싱 실패 | no | 디버그 로그 + "일반 오류" 표시 |
+| `sdk.crashed` | SDK `query()` 내부 예외 (claude-code 어댑터) | yes | 새 대화 안내 |
+| `sdk.spawn-failed` | SDK 가 platform binary 해소 실패 (부팅 시점) | yes | 인스톨러 다이얼로그 트리거 |
+| `cli.not-installed` *(deprecated)* | 백엔드 CLI 미발견 (CLI spawn 시기) | yes | (Phase 3 SDK 마이그레이션 이후 사실상 미발생) |
+| `cli.spawn-failed` *(deprecated)* | spawn 실패 / EACCES / 경로 문제 | yes | (legacy) |
+| `cli.crashed` *(deprecated)* | 프로세스 비정상 종료 (exit code ≠ 0) | yes | (legacy) |
+| `cli.timeout` *(deprecated)* | CLI 무응답 (타임아웃 값은 OQ6) | yes | (legacy) |
+| `auth.expired` | SDK 가 401 / OAuth / expired 패턴 throw | yes | "`claude /login` 실행 후 새 대화" 모달 (AuthExpiredModal) |
+| `protocol.parse` | 어댑터 정규화 실패 (예상치 못한 SDKMessage 형태) | no | 디버그 로그 + "일반 오류" 표시 |
 | `internal` | 어댑터/Main 내부 버그 | no | 디버그 로그 + "문제가 발생했습니다" |
+
+> `cli.*` 코드 그룹은 Phase 3 SDK 마이그레이션 이후 deprecated. 후속 PR 에서 정리 예정.
 
 ### 6.7 Settings 키 카탈로그
 
-Phase 1은 메모리만, Phase 2+에서 `electron-store` 로 영속화. 인터페이스 동일 유지.
+Phase 2+ 에서 `electron-store` 로 영속화 완료. `IPC_CONTRACT.md` §2.4 의 `Settings` 타입과 1:1.
 
 | 키 | 타입 | 설명 |
 |---|---|---|
-| `theme` | `'Classic' \| 'Dark' \| 'Cool'` | 테마 선택 |
-| `density` | `11.5 \| 13 \| 14.5` | 폰트 밀도 (px) |
+| `theme` | `'classic' \| 'dark' \| 'cool'` | 테마 선택 (lowercase 표준) |
+| `density` | `'compact' \| 'normal' \| 'comfortable'` | 밀도 — 내부 매핑 11.5 / 13 / 14.5 px |
 | `sidebarCollapsed` | `boolean` | 사이드바 접음 상태 |
 | `lastBackend` | `Backend \| null` | 마지막 사용 백엔드 (OQ7) |
-| `lastSessionId` | `string \| null` | Phase 2+ 재개용 마지막 세션 ID |
+| `lastSessionId` | `string \| null` | 재개용 마지막 세션 ID |
+| `windowBounds` | `{ x: number; y: number; width: number; height: number } \| null` | 마지막 윈도우 위치/크기 — 재시작 시 복원 |
 
 ---
 
@@ -480,6 +516,11 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 - **(anchor) Skills / MCP / Captures / Projects** — PRD §9 Future Scope. 별도 IPC 도메인 + 모듈 추가.
 - **(anchor) 멀티 세션 / 과거 대화 목록** — Phase 3+. 인터페이스 `SessionAdapter.listSessions?()` / `loadSession?()` 이미 예약. Sidebar 세션 리스트 UI는 Phase 4.
 - **(anchor) 재시작 재개** — Phase 2. Settings.store 의 `lastSessionId` 키 추가, 앱 부트 시 복원.
+- **(anchor) Zustand 전환 (Phase 4 진입 PR 묶음)** — 단일 root + `sessions: Record<sessionId, SessionState>` 슬라이스. 외부 dispatch (`getState().recv(ev)`) — React 트리 외부에서 호출 가능. **Phase 3 사전 마이그레이션 금지**. 상세 `FRONTEND_ARCHITECTURE.md` §4.4.
+- **(anchor) 로컬 DB (Phase 3+)** — 메시지·세션 메타데이터 SSOT. 마이그레이션 `src/main/db/migrations/NNN_<name>.sql` (병합 후 절대 수정 금지). 라이브러리 미정 (better-sqlite3 / Drizzle 후보). 상세 `BACKEND_ARCHITECTURE.md` §6.
+- **(anchor) Artifact FS 저장 (Phase 3+)** — `<userData>/artifacts/<sessionId>/<uuid>.<ext>`. DB 에는 경로·해시·크기만. 클라우드 동기화 없음 (export/import 만). `GLOSSARY.md` "Artifact" / `BACKEND_ARCHITECTURE.md` §6.
+- **(anchor) safeStorage 자격증명 (Phase 3+)** — 어댑터별 base URL + API key 를 Electron `safeStorage` (OS keychain) 로 암호화 저장. `BACKEND_ARCHITECTURE.md` §8.4.
+- **(anchor) 추가 IPC 도메인 (Phase 3+/Future)** — `message:*` / `session:list/load/delete` / `credentials:set/hasKey` / `skills:reload`. `IPC_CONTRACT.md` §2.8 예약 표 참조.
 - **PRD §11 OQ1~OQ8** — 미정 항목. 여기서 결정하지 않음. 결정값 도착 시 본 문서 갱신.
 
 ---
@@ -510,7 +551,7 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 - Claude Code / opencode 각각 테스트 (둘 다 설치된 환경)
 - 백엔드 선택 → 메시지 전송 → 응답 스트리밍 → 종료
 - Tweaks 테마 변경 → 전 화면 반영 검증
-- 키보드 단축키 (Ctrl+N, Ctrl+Enter)
+- 키보드 단축키 (Ctrl+N, Enter (전송) / Shift+Enter (줄바꿈) — N3 2026-05-13 결정)
 - 에러 복구 (재시도, "claude /login" 안내 등)
 
 ---
