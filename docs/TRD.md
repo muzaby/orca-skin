@@ -74,7 +74,7 @@ electron-vite 환경 기준. 표 밖 의존성 추가 시 **사용자 승인 필
 | 빌드 아키텍처 | electron-vite | ^5 | 확정 | main/preload/renderer 3 sub-config |
 | 번들러 | Vite | ^7 | 확정 | electron-vite가 sub-config 통합 |
 | 언어 | TypeScript | strict, `target: ES2022` | 확정 | 타입 안정성 |
-| UI 프레임워크 | React | ^19 (템플릿 기본, OQ1은 18 가능성) | OQ1 | React Hooks + Context/reducer |
+| UI 프레임워크 | React | ^19 | 확정 (~~OQ1~~ 해소, 2026-05-20) | React Hooks + Context/reducer |
 | 상태 관리 (Renderer) | **Phase 1·2**: React Context + useReducer. **Phase 4**: Zustand | — | 확정 (Phase 4 전환 채택) | 단일 root + `sessions: Record<sessionId, SessionState>` 슬라이스. 외부 dispatch (`getState().recv(ev)`) 로 React 트리 외부에서 호출. **Phase 3 사전 마이그레이션 금지** — Phase 4 진입 PR 묶음에서 한 번에 전환. 상세 `FRONTEND_ARCHITECTURE.md` §4.4 |
 | 스타일링 | Tailwind CSS | **^4** (`@tailwindcss/vite` 플러그인, CSS-first `@theme`) | 확정 (Phase 1 완료) | utility-first. `styles/tokens.css` 의 `@theme` 블록으로 시맨틱 디자인 토큰 정의 (`--color-{bg,sidebar,ink,...}`). `[data-theme]` 스코프로 Classic/Dark/Cool 전환. Tweaks 패널과 연동. 자세한 정책은 `app/CLAUDE.md` "스타일링 정책" 참조 |
 | 마크다운 렌더링 | react-markdown + remark-gfm + shiki | `^9` / `^4` / `^1` | 확정 (Phase A `feat-pretty-ui` 도입) | GFM (표·체크박스) + 코드 블록 syntax highlighting. shiki 번들은 11개 언어 (ts/js/tsx/jsx/python/bash/json/yaml/html/css/markdown) 로 제한 |
@@ -84,7 +84,7 @@ electron-vite 환경 기준. 표 밖 의존성 추가 시 **사용자 승인 필
 | IPC 보안 | `@electron-toolkit/preload` + contextBridge | ^3 | 확정 | preload 화이트리스트 |
 | 입력 검증 | zod | latest | 확정 | IPC 메시지 + SDK / SSE 응답 파싱 |
 | 영속화 (Phase 2+) | `electron-store` | — | **확정 (Phase 2+ 완료)** | 6 키 — `theme` / `density` / `sidebarCollapsed` / `lastBackend` / `lastSessionId` / `windowBounds`. §6.7 참조 |
-| 로컬 DB (Phase 3+) | better-sqlite3 + Drizzle 후보 (미정) | — | **채택 (Phase 3+)** | 메시지·세션 메타 SSOT. 어댑터 외부 저장 (jsonl 등) 은 단방향 동기화 소스로 격하. 마이그레이션 `src/main/db/migrations/NNN_<name>.sql`. 상세 `BACKEND_ARCHITECTURE.md` §6 |
+| 로컬 DB (Phase 3+) | better-sqlite3 (Phase 3 MVP raw) / Drizzle 후보 (Phase 4 재검토) | — | **채택 (Phase 3+)** | 메시지·세션 메타 SSOT. 어댑터 외부 저장 (jsonl 등) 은 단방향 동기화 소스로 격하. 마이그레이션 `src/main/db/migrations/NNN_<name>.sql`. **Phase 3 MVP: raw better-sqlite3 + prepared statements (쿼리 6 개 내외, ORM 가치 작음). Drizzle 은 Phase 4 멀티 세션·artifact·권한·통계 도입 시 재검토 (2026-05-20).** 상세 `BACKEND_ARCHITECTURE.md` §6 |
 | 자격증명 (Phase 3+) | Electron `safeStorage` (OS keychain) | — | **채택 (Phase 3+)** | 어댑터별 base URL + API key 암호화 저장. `BACKEND_ARCHITECTURE.md` §8.4 |
 | 패키징 | electron-builder | ^26 | 미정 OQ3 | signing/notarization/auto-update |
 | 테스트 (단위) | Vitest | latest | 확정 | 어댑터·reducer·IPC zod·installer |

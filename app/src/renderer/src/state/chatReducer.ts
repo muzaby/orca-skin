@@ -1,4 +1,4 @@
-import type { ChatEvent, ErrorCode } from '../../../shared/ipc'
+import type { ChatEvent, ErrorCode, LoadedSession } from '../../../shared/ipc'
 
 export interface ToolCall {
   toolUseId: string
@@ -44,6 +44,7 @@ export type ChatAction =
   | { type: 'CLEAR_ERROR' }
   | { type: 'RESTORE_SESSION'; sessionId: string }
   | { type: 'SET_CWD'; cwd: string }
+  | { type: 'LOAD_SESSION'; session: LoadedSession }
 
 function upsertToolCall(messages: Message[], tc: ToolCall): Message[] {
   // 마지막 assistant 메시지에 부착. 없으면 새로 만든다.
@@ -201,5 +202,31 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'RESTORE_SESSION':
       if (state.sessionId || state.messages.length > 0) return state
       return { ...state, sessionId: action.sessionId }
+
+    // 사이드바에서 과거 대화를 선택했을 때 IPC 응답 (LoadedSession) 으로 state 를 통째로 교체.
+    // cwd 는 main 의 단일 default 가 진실이므로 보존한다.
+    case 'LOAD_SESSION': {
+      const messages: Message[] = action.session.messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+        createdAt: m.createdAt,
+        ...(m.toolCalls && m.toolCalls.length > 0
+          ? {
+              toolCalls: m.toolCalls.map((tc) => ({
+                toolUseId: tc.toolUseId,
+                name: tc.name,
+                input: tc.input,
+                ...(tc.result ? { result: tc.result } : {})
+              }))
+            }
+          : {})
+      }))
+      return {
+        ...initialChatState,
+        cwd: state.cwd,
+        sessionId: action.session.id,
+        messages
+      }
+    }
   }
 }

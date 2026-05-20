@@ -6,7 +6,9 @@ import {
   type ChatEvent,
   type FileEntry,
   type InstallStatus,
+  type LoadedSession,
   type SendChatMessage,
+  type SessionListItem,
   type Settings,
   type SettingsPatch,
   type SkillInfo
@@ -50,7 +52,12 @@ const orca = {
       ipcRenderer.invoke(CHANNELS.filesList, { cwd, relDir })
   },
   session: {
-    cwd: (): Promise<string> => ipcRenderer.invoke(CHANNELS.sessionCwd)
+    cwd: (): Promise<string> => ipcRenderer.invoke(CHANNELS.sessionCwd),
+    list: (): Promise<SessionListItem[]> => ipcRenderer.invoke(CHANNELS.sessionList),
+    load: (sessionId: string): Promise<LoadedSession | null> =>
+      ipcRenderer.invoke(CHANNELS.sessionLoad, { sessionId }),
+    delete: (sessionId: string): Promise<void> =>
+      ipcRenderer.invoke(CHANNELS.sessionDelete, { sessionId })
   }
 }
 

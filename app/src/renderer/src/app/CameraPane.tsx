@@ -142,13 +142,28 @@ export function CameraPane(): React.JSX.Element {
       </div>
 
       <div className="mt-auto flex gap-2 border-t border-border p-3.5">
-        <button className="inline-flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border-0 bg-rust py-[9px] font-semibold text-white">
+        <button
+          type="button"
+          disabled
+          title="v1 비대상 — Future Scope (PRD §9)"
+          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border-0 bg-rust py-[9px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
+        >
           <Icon name="capture" size={14} color="#fff" /> 캡처
         </button>
-        <button className="inline-flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-lg border border-border bg-panel py-[9px] font-medium text-ink">
+        <button
+          type="button"
+          disabled
+          title="v1 비대상 — Future Scope (PRD §9)"
+          className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-panel py-[9px] font-medium text-ink disabled:cursor-not-allowed disabled:opacity-50"
+        >
           <Icon name="layers" size={14} /> 시퀀스
         </button>
-        <button className="grid w-9 cursor-pointer place-items-center rounded-lg border border-border bg-panel py-[9px] text-ink2">
+        <button
+          type="button"
+          disabled
+          title="v1 비대상 — Future Scope (PRD §9)"
+          className="grid w-9 place-items-center rounded-lg border border-border bg-panel py-[9px] text-ink2 disabled:cursor-not-allowed disabled:opacity-50"
+        >
           <Icon name="history" size={14} />
         </button>
       </div>

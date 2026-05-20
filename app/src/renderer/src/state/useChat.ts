@@ -7,6 +7,7 @@ export interface UseChat {
   cancel: () => void
   newChat: () => void
   clearError: () => void
+  loadSession: (sessionId: string) => Promise<void>
 }
 
 export function useChat(): UseChat {
@@ -63,5 +64,12 @@ export function useChat(): UseChat {
   }, [])
   const clearError = useCallback(() => dispatch({ type: 'CLEAR_ERROR' }), [])
 
-  return { state, send, cancel, newChat, clearError }
+  const loadSession = useCallback(async (sessionId: string) => {
+    const session = await window.orca.session.load(sessionId)
+    if (!session) return
+    dispatch({ type: 'LOAD_SESSION', session })
+    void window.orca.settings.set({ lastSessionId: session.id })
+  }, [])
+
+  return { state, send, cancel, newChat, clearError, loadSession }
 }

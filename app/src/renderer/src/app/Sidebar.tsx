@@ -2,6 +2,7 @@ import { Icon, type IconName } from '../components/atoms/Icon'
 import { Avatar } from '../components/atoms/Avatar'
 import { Dot } from '../components/atoms/Status'
 import type { ScreenId } from './screens'
+import type { SessionListItem } from '../../../shared/ipc'
 
 export interface SidebarProps {
   active?: ScreenId
@@ -10,6 +11,10 @@ export interface SidebarProps {
   onNewChat?: () => void
   backendLabel?: string
   backendInstalled?: boolean
+  sessions?: SessionListItem[]
+  activeSessionId?: string | null
+  onSelectSession?: (sessionId: string) => void
+  onDeleteSession?: (sessionId: string) => void
 }
 
 interface NavItem {
@@ -35,7 +40,11 @@ export function Sidebar({
   onSelect,
   onNewChat,
   backendLabel = 'Claude Code',
-  backendInstalled = true
+  backendInstalled = true,
+  sessions = [],
+  activeSessionId = null,
+  onSelectSession,
+  onDeleteSession
 }: SidebarProps): React.JSX.Element {
   if (collapsed) {
     const icons: IconName[] = ['plus', 'chat', 'folder', 'flask', 'cpu', 'settings']
@@ -90,8 +99,43 @@ export function Sidebar({
       </nav>
 
       <div className={SECTION_HEAD}>최근 대화</div>
-      <div className="flex-1 overflow-hidden px-3 pt-1 text-[11.5px] text-ink3">
-        아직 저장된 대화가 없습니다.
+      <div className="flex-1 overflow-y-auto px-1.5 pt-1">
+        {sessions.length === 0 ? (
+          <div className="px-1.5 text-[11.5px] text-ink3">아직 저장된 대화가 없습니다.</div>
+        ) : (
+          sessions.map((s) => {
+            const isActive = s.id === activeSessionId
+            const label = (s.title?.trim() || s.preview?.trim() || '새 대화').slice(0, 60)
+            return (
+              <div
+                key={s.id}
+                onClick={() => onSelectSession?.(s.id)}
+                className={`group/session flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-[12px] ${
+                  isActive ? 'bg-black/[0.04] text-ink' : 'text-ink2'
+                }`}
+                title={label}
+              >
+                <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
+                  {label}
+                </span>
+                {onDeleteSession && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onDeleteSession(s.id)
+                    }}
+                    className="h-5 w-5 cursor-pointer place-items-center rounded border-0 bg-transparent text-ink3 opacity-0 hover:text-rust group-hover/session:grid"
+                    title="대화 삭제"
+                    aria-label="대화 삭제"
+                  >
+                    <Icon name="trash" size={12} />
+                  </button>
+                )}
+              </div>
+            )
+          })
+        )}
       </div>
 
       <div className="flex items-center gap-2 border-t border-border p-2.5">
