@@ -38,7 +38,7 @@ Orca 는 호스트에 이미 설치된 **Claude Code** 또는 **opencode** CLI �
 
 | # | 비-목표 | 이유 |
 |---|---|---|
-| NG1 | LLM/컨텍스트/세션 영속화를 GUI 가 직접 관리. | CLI 에 완전 위임 (전략 §8.3). |
+| NG1 | LLM/컨텍스트/세션 영속화를 GUI 가 직접 관리. | CLI 에 완전 위임 (전략 §8.3). **Phase 1·2 한정** — Phase 3+ 부터는 Orca 로컬 DB 가 메시지/메타데이터 SSOT 가 되고 어댑터 외부 저장 (jsonl 등) 은 단방향 동기화 소스로 격하됨 ([`BACKEND_ARCHITECTURE.md`](./BACKEND_ARCHITECTURE.md) §6, [`GLOSSARY.md`](./GLOSSARY.md) Session 항목). |
 | NG2 | 멀티 세션 동시 실행 (여러 대화를 한 번에 진행). | v1 비대상, Phase 4 검토 (전략 §11). |
 | NG3 | CLI 자체를 앱에 번들. | 호스트 설치 가정, 부재 시 가이드 (전략 §1.2). |
 | NG4 | 자체 모델 호스팅 / 프롬프트 로직. | CLI 가 담당 (전략 §1.1). |
@@ -113,6 +113,9 @@ v1 의 기능 표면은 P2 만으로도 충분히 커버 가능하다. P1 의 �
 | 마크다운 렌더링 | **react-markdown + remark-gfm + shiki** 확정 (§11 OQ2, Phase A) | LLM 응답 렌더링. GFM + 코드 블록 syntax highlighting (11개 언어) |
 | 스타일링 | **Tailwind CSS** | TRD §4 채택. 디자인 토큰은 §10 CSS 커스텀 프로퍼티 그대로, 컴포넌트 클래스만 Tailwind 유틸리티 |
 | LLM 백엔드 SDK (Claude) | **`@anthropic-ai/claude-agent-sdk`** (Phase 3 채택, 2026-05-18) | 진입점 `query()`, 세션 재개 `options.resume`, 토큰 스트리밍 `options.includePartialMessages`. TRD §4·§7.1, [`claude-code-spec.md §10`](./claude-code-spec.md) |
+| 상태 관리 (Renderer) | **Phase 1·2**: React Context + useReducer. **Phase 4 채택**: Zustand (단일 root + `sessions` 슬라이스) | Phase 3 사전 마이그레이션 금지 — Phase 4 진입 PR 묶음에서 한 번에 전환. 외부 dispatch (`getState().recv(ev)`) 사용. 상세 [`FRONTEND_ARCHITECTURE.md`](./FRONTEND_ARCHITECTURE.md) §4.4 |
+| 영속화 | **Phase 2+ 완료**: `electron-store` (6 키 — Tweaks · `lastBackend` · `lastSessionId` · `windowBounds`). **Phase 3+ 채택**: 로컬 DB (better-sqlite3 / Drizzle 미정) + `<userData>/artifacts/` FS | 메시지·세션 메타 SSOT 이전. 상세 [`BACKEND_ARCHITECTURE.md`](./BACKEND_ARCHITECTURE.md) §6 |
+| 자격증명 | **현재**: SDK 가 `~/.claude` 자동 사용. **Phase 3+ 채택**: Electron safeStorage (OS keychain) 로 어댑터별 base URL + API key 암호화 | [`BACKEND_ARCHITECTURE.md`](./BACKEND_ARCHITECTURE.md) §8.4 |
 
 ### 7.2 CLI 연결 패턴 (전략 §3)
 
@@ -122,36 +125,42 @@ v1 의 기능 표면은 P2 만으로도 충분히 커버 가능하다. P1 의 �
 | **2. 구조화 I/O** | **Claude: SDK `query()` SDKMessage union (Phase 3 채택). opencode: HTTP/SSE.** | ✓ **메인** |
 | 3. 세션 파일 동기화 | CLI 세션 파일 읽기 | △ Phase 3 보조 (과거 목록) |
 
-### 7.3 Adapter Interface (전략 §8.2)
+### 7.3 SessionAdapter (전략 §8.2)
 
 ```typescript
 export type Backend = 'claude-code' | 'opencode';
 
-export interface ChatEvent {
-  type: 'init' | 'assistant_delta' | 'assistant_message'
-      | 'tool_use' | 'tool_result' | 'result' | 'error';
-  sessionId: string;
-  data: unknown;
-}
+export type ChatEvent =
+  | { type: 'init'; data: { sessionId: string; model?: string; cwd: string } }
+  | { type: 'assistant_delta'; data: { text: string } }
+  | { type: 'assistant_message'; data: { text: string } }
+  | { type: 'tool_use'; data: { toolUseId: string; name: string; input: unknown } }
+  | { type: 'tool_result'; data: { toolUseId: string; output: unknown; isError: boolean; durationMs?: number } }
+  | { type: 'result'; data: { usage?: { inputTokens: number; outputTokens: number } } }
+  | { type: 'error'; data: { code: string; message: string; recoverable: boolean } };
 
 export interface SessionAdapter {
-  isInstalled(): Promise<boolean>;
-  install(): Promise<void>;
+  readonly id: Backend;
+  isInstalled(): Promise<{ installed: boolean; version?: string; binPath?: string }>;
+  install(): AsyncIterable<{ step: string; log?: string; error?: string; done?: boolean }>;
   sendMessage(
     sessionId: string | null,   // null = new session
     text: string,
     cwd: string,
+    signal?: AbortSignal,
   ): AsyncIterable<ChatEvent>;
   listSessions?(): Promise<SessionInfo[]>;  // Phase 3+
   loadSession?(id: string): Promise<ChatEvent[]>;
 }
 ```
 
-Renderer (UI) → Electron IPC → Common Interface → `ClaudeCodeAdapter` 또는 `OpencodeAdapter` → CLI/서버.
+Renderer (UI) → Electron IPC → `SessionAdapter` → `ClaudeCodeAdapter` 또는 `OpencodeAdapter` → SDK/서버.
+
+내부 구현 (SDKMessage→ChatEvent 매핑, AbortSignal 전파, 인증 만료 감지 등) 의 SSOT 는 [`BACKEND_ARCHITECTURE.md`](./BACKEND_ARCHITECTURE.md) §4. 용어 정의는 [`GLOSSARY.md`](./GLOSSARY.md) §1 "SessionAdapter" 항목.
 
 ### 7.4 Claude Code vs opencode 책임 분리 (전략 §5.1, §8.3)
 
-| 항목 | Claude Code | opencode |
+| 항목 | Claude Code | opencode *(예약 사양 — Phase 1·2 미구현)* |
 |---|---|---|
 | 프로세스 모델 | One-shot: 매 턴 새 `query()` 호출 (SDK 가 내부 binary 라이프사이클 관리) | Long-running server: 한 번 띄워 유지 |
 | 컨텍스트 보관 위치 | `~/.claude/projects/<cwd>/<session-id>.jsonl` | 서버 메모리 + SQLite (`~/.local/share/opencode/`) |
@@ -184,8 +193,8 @@ Renderer (UI) → Electron IPC → Common Interface → `ClaudeCodeAdapter` 또�
 |---|---|---|
 | **Phase 1 (MVP)** | 단일 활성 대화 컨텍스트 유지 | `sessionId` 메모리 변수 1개 |
 | Phase 2 | 앱 재시작 후 마지막 대화 재개 | `electron-store` 로 `sessionId` 영속화 |
-| Phase 3 | 사이드바에 과거 대화 목록 | `listSessions()` (Claude Code: jsonl 스캔 / opencode: `client.session.list()`) |
-| Phase 4 | 멀티 세션 전환 모드 | 활성 세션 전환 UI |
+| Phase 3 | 사이드바에 과거 대화 목록 + 로컬 영속성 도입 | 로컬 DB (`<userData>/orca.db`) 가 메시지·세션 메타 SSOT. 어댑터 외부 저장 (jsonl 등) 은 단방향 동기화 소스 (`SessionAdapter.listSessions?()` / `loadSession?()`). Artifact 는 FS (`<userData>/artifacts/`). 자격증명 safeStorage. 상세 [`BACKEND_ARCHITECTURE.md`](./BACKEND_ARCHITECTURE.md) §6·§8.4 |
+| Phase 4 | 멀티 세션 전환 모드 + **Zustand 상태 관리 전환** | 활성 세션 전환 UI + 단일 root + `sessions: Record<sessionId, SessionState>` 슬라이스 (Phase 3 사전 마이그레이션 금지, Phase 4 진입 PR 묶음에서 한 번에). 상세 [`FRONTEND_ARCHITECTURE.md`](./FRONTEND_ARCHITECTURE.md) §4.4 |
 
 ---
 
@@ -260,9 +269,9 @@ Renderer (UI) → Electron IPC → Common Interface → `ClaudeCodeAdapter` 또�
 | OQ4 | 텔레메트리/에러 리포팅 정책? 옵트인? | 전략 비커버. |
 | OQ5 | 라이센스 (오픈/상용)? | 전략 비커버. |
 | OQ6 | 시작 시간 / 첫 토큰 지연 SLA 수치? | N5 와 연결. |
-| OQ7 | 두 CLI 가 모두 설치된 경우 기본 백엔드 선택 정책 (사용자 명시 / 마지막 사용 / Claude Code 우선)? | F6 보강. |
+| OQ7 | 두 CLI 가 모두 설치된 경우 기본 백엔드 선택 정책 (사용자 명시 / 마지막 사용 / Claude Code 우선)? | F6 보강. **Phase 1·2 는 claude-code 단일 백엔드 결정 (TRD 머리말 2026-05-13) 으로 자동 해소** — opencode 어댑터 활성화 시점에 재검토. 현재 `lastBackend` 는 `electron-store` 에 영속 (TRD §6.7). |
 | OQ8 | "새 대화" 시 직전 세션을 Phase 3 목록에 어떻게 노출할지? | Phase 2/3 진입 시 결정. |
-| OQ9 | Claude 도구 권한 정책 — SDK `options.permissionMode` / `options.canUseTool` 콜백 / `options.disallowedTools` 의 MVP 기본값? | [`claude-code-spec.md`](./claude-code-spec.md) §5 참조 (CLI 표현 `--allowedTools` / `--permission-mode` / `--bare` 와 1:1 대응). 후보: 미지정 / Read+Edit+Bash 사전승인 / `acceptEdits` / 모델 분류 `auto`. |
+| OQ9 | Claude 도구 권한 정책 — SDK `options.permissionMode` / `options.canUseTool` 콜백 / `options.disallowedTools` 의 MVP 기본값? | [`claude-code-spec.md`](./claude-code-spec.md) §5 참조 (CLI 표현 `--allowedTools` / `--permission-mode` / `--bare` 와 1:1 대응). 후보: 미지정 / Read+Edit+Bash 사전승인 / `acceptEdits` / 모델 분류 `auto`. **Phase 4 채택 보류** ([`BACKEND_ARCHITECTURE.md`](./BACKEND_ARCHITECTURE.md) §4.6). |
 | OQ10 | 어댑터 `tool_use.name` / `tool_use.input` 정규화 정책 — claude vs opencode 도구명 차이 해소? | 후보: (a) raw 그대로 전달 + Renderer 가 도구명 매핑 (b) 어댑터에서 공통 vocabulary (`read`/`write`/`shell`/`edit`/`grep`) 정규화 + raw 는 메타 (c) raw + Renderer 아이콘 패턴 매칭. Phase 3 단일 백엔드 운영에서는 의미 없음 — opencode 어댑터 활성화 PR 에서 결정. TRD §10 anchor. |
 
 ---
@@ -272,6 +281,10 @@ Renderer (UI) → Electron IPC → Common Interface → `ClaudeCodeAdapter` 또�
 | 출처 | 용도 |
 |---|---|
 | `docs/llm-chat-desktop-strategy.md` | 백엔드 / 어댑터 / 세션 / 설치 (§§2–11 핵심 입력) |
+| `docs/FRONTEND_ARCHITECTURE.md` | Renderer 구조·상태 관리 (Zustand 채택 §4.4)·도메인 화면 카탈로그 |
+| `docs/BACKEND_ARCHITECTURE.md` | Main 구조·SessionAdapter §4·영속성 §6 (로컬 DB + FS)·자격증명 §8.4 |
+| `docs/IPC_CONTRACT.md` | Main ↔ Renderer 채널 SSOT (11 채널, ChatEvent variant, ErrorCode) |
+| `docs/GLOSSARY.md` | 용어 단일 출처 (Session / Backend / SessionAdapter / Artifact / Credential 등, 사용 금지 어휘) |
 | `docs/claude-code-spec.md` | Claude Code CLI 공식 스펙 미러 (§7.2~7.4, OQ9 의 참조점) |
 | `chats/chat1.md` | 디자인 의도 트랜스크립트 (§4 페르소나, §10 디자인 톤) |
 | `project/electron/index.html` | 핸드오프 본 시안 — §9 Future Scope 시각 기준 |
