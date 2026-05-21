@@ -24,7 +24,7 @@
     "@anthropic-ai/claude-agent-sdk": "latest",
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
-    "better-sqlite3": "^11.10.0",
+    "better-sqlite3": "^12.10.0",
     "electron-store": "^8.2.0",
     "react-markdown": "^9.1.0",
     "remark-gfm": "^4.0.1",

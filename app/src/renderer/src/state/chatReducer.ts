@@ -22,6 +22,9 @@ export interface ChatState {
   messages: Message[]
   pendingDelta: string
   inflight: boolean
+  // 사이드바 세션 클릭 또는 부팅 시 lastSessionId 자동 복원으로 메시지를 비동기 로드하는
+  // 동안 true. ChatPane 이 인디케이터를 표시한다.
+  loadingSession: boolean
   turnStartedAt: number | null
   pendingInputTokens?: number
   error?: { code: ErrorCode; message: string; recoverable: boolean }
@@ -33,6 +36,7 @@ export const initialChatState: ChatState = {
   messages: [],
   pendingDelta: '',
   inflight: false,
+  loadingSession: false,
   turnStartedAt: null
 }
 
@@ -42,9 +46,10 @@ export type ChatAction =
   | { type: 'NEW_CHAT' }
   | { type: 'CANCEL_CHAT' }
   | { type: 'CLEAR_ERROR' }
-  | { type: 'RESTORE_SESSION'; sessionId: string }
   | { type: 'SET_CWD'; cwd: string }
+  | { type: 'START_LOAD_SESSION'; sessionId: string }
   | { type: 'LOAD_SESSION'; session: LoadedSession }
+  | { type: 'LOAD_SESSION_ERROR' }
 
 function upsertToolCall(messages: Message[], tc: ToolCall): Message[] {
   // 마지막 assistant 메시지에 부착. 없으면 새로 만든다.
@@ -197,11 +202,15 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'CLEAR_ERROR':
       return { ...state, error: undefined }
 
-    // 앱 부트 시 영속화된 lastSessionId 를 주입. 메시지 히스토리는 비어 있는 채로
-    // 다음 사용자 턴이 SDK 에 sessionId 를 전달하면 어댑터가 resume 한다.
-    case 'RESTORE_SESSION':
-      if (state.sessionId || state.messages.length > 0) return state
-      return { ...state, sessionId: action.sessionId }
+    // 사이드바 클릭 또는 부팅 시 자동 복원으로 비동기 load 가 시작된 시점.
+    // sessionId 를 낙관적으로 세팅해 사이드바 selected 강조와 동기화한다.
+    case 'START_LOAD_SESSION':
+      return {
+        ...initialChatState,
+        cwd: state.cwd,
+        sessionId: action.sessionId,
+        loadingSession: true
+      }
 
     // 사이드바에서 과거 대화를 선택했을 때 IPC 응답 (LoadedSession) 으로 state 를 통째로 교체.
     // cwd 는 main 의 단일 default 가 진실이므로 보존한다.
@@ -228,5 +237,10 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         messages
       }
     }
+
+    // DB 에 row 가 없거나 IPC 실패. 빈 ChatPane 으로 fallback — lastSessionId 같은
+    // 영속값은 호출 측에서 정리한다.
+    case 'LOAD_SESSION_ERROR':
+      return { ...initialChatState, cwd: state.cwd }
   }
 }

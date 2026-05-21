@@ -13,13 +13,29 @@ export interface UseChat {
 export function useChat(): UseChat {
   const [state, dispatch] = useReducer(chatReducer, initialChatState)
 
-  // 앱 부트 시 마지막 세션 ID 복원 (TRD §10 "재시작 재개"). 다음 사용자 턴에서
-  // chat.send 가 이 sessionId 를 전달하면 어댑터가 resume 모드로 SDK 를 호출한다.
+  // 앱 부트 시 마지막 세션의 메시지를 비동기 로드 (TRD §10 "재시작 재개"). 부팅 흐름:
+  // (1) settings.lastSessionId 조회 → (2) START_LOAD_SESSION 으로 인디케이터 켜기 →
+  // (3) session.load IPC → (4) LOAD_SESSION 으로 메시지 교체. DB 에 row 가 없으면
+  // (예: 사용자 데이터 폴더 삭제 후 lastSessionId 만 남은 경우) LOAD_SESSION_ERROR 로
+  // 빈 ChatPane 으로 fallback + lastSessionId 정리.
   useEffect(() => {
     void window.orca.settings.get().then((s) => {
-      if (s.lastSessionId) {
-        dispatch({ type: 'RESTORE_SESSION', sessionId: s.lastSessionId })
-      }
+      if (!s.lastSessionId) return
+      const sid = s.lastSessionId
+      dispatch({ type: 'START_LOAD_SESSION', sessionId: sid })
+      void window.orca.session
+        .load(sid)
+        .then((session) => {
+          if (session) {
+            dispatch({ type: 'LOAD_SESSION', session })
+          } else {
+            dispatch({ type: 'LOAD_SESSION_ERROR' })
+            void window.orca.settings.set({ lastSessionId: null })
+          }
+        })
+        .catch(() => {
+          dispatch({ type: 'LOAD_SESSION_ERROR' })
+        })
     })
     // 세션 init 이벤트 전에도 cwd 를 알 수 있도록 부팅 시 1회 조회. main 의
     // defaultCwd 와 동일 — init 이 오면 같은 값으로 덮어쓰기.
@@ -64,11 +80,21 @@ export function useChat(): UseChat {
   }, [])
   const clearError = useCallback(() => dispatch({ type: 'CLEAR_ERROR' }), [])
 
+  // 사이드바 항목 클릭 시 호출. 낙관적으로 인디케이터를 먼저 켜고 IPC 응답을 기다린다.
+  // 실패 (DB row 없음 / IPC 에러) 시 빈 ChatPane 으로 fallback.
   const loadSession = useCallback(async (sessionId: string) => {
-    const session = await window.orca.session.load(sessionId)
-    if (!session) return
-    dispatch({ type: 'LOAD_SESSION', session })
-    void window.orca.settings.set({ lastSessionId: session.id })
+    dispatch({ type: 'START_LOAD_SESSION', sessionId })
+    try {
+      const session = await window.orca.session.load(sessionId)
+      if (!session) {
+        dispatch({ type: 'LOAD_SESSION_ERROR' })
+        return
+      }
+      dispatch({ type: 'LOAD_SESSION', session })
+      void window.orca.settings.set({ lastSessionId: session.id })
+    } catch {
+      dispatch({ type: 'LOAD_SESSION_ERROR' })
+    }
   }, [])
 
   return { state, send, cancel, newChat, clearError, loadSession }

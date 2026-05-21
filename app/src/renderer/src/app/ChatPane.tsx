@@ -368,7 +368,7 @@ export function ChatPane({ chat, backendLabel }: ChatPaneProps): React.JSX.Eleme
     }
   }
 
-  const isEmpty = state.messages.length === 0 && state.pendingDelta === ''
+  const isEmpty = state.messages.length === 0 && state.pendingDelta === '' && !state.loadingSession
   const title = state.messages.find((m) => m.role === 'user')?.content.slice(0, 60) ?? '새 대화'
 
   const showPendingAssistant = state.inflight
@@ -406,6 +406,9 @@ export function ChatPane({ chat, backendLabel }: ChatPaneProps): React.JSX.Eleme
       </div>
 
       <div ref={scrollRef} className="flex flex-1 flex-col gap-[22px] overflow-auto px-6 py-5">
+        {state.loadingSession && (
+          <div className="m-auto text-center text-[13px] text-ink3">대화 불러오는 중…</div>
+        )}
         {isEmpty && (
           <div className="m-auto text-center text-[13px] text-ink3">
             Claude Code 에 첫 메시지를 보내보세요.
