@@ -19,6 +19,10 @@ export interface ChatState {
   // 사이드바 메타 (또는 LoadedSession.title) 에서 즉시 채워지는 세션 제목. 사용자가
   // 세션을 클릭한 순간부터 헤더에 표시되며, 메시지 도착 시점에 한 번 더 reconcile.
   title: string | null
+  // 새 채팅 첫 메시지의 소속 프로젝트. ProjectDetail 진입 시 NEW_CHAT 액션에서 세팅되고,
+  // 첫 메시지 send → init 이벤트 시점에 sessionId 가 발급되면 사실상 역할 종료. send 시
+  // 함께 IPC 페이로드에 실어 main 으로 보낸다.
+  pendingProjectId: string | null
   // 어댑터가 발급한 세션의 working directory (`init` 이벤트). Composer 의 `@`
   // 파일 자동완성이 이 경로 기준으로 디렉토리를 리스팅한다.
   cwd: string | null
@@ -36,6 +40,7 @@ export interface ChatState {
 export const initialChatState: ChatState = {
   sessionId: null,
   title: null,
+  pendingProjectId: null,
   cwd: null,
   messages: [],
   pendingDelta: '',
@@ -53,7 +58,7 @@ export interface CachedSession {
 export type ChatAction =
   | { type: 'SEND_USER_MESSAGE'; text: string }
   | { type: 'RECV_EVENT'; event: ChatEvent }
-  | { type: 'NEW_CHAT' }
+  | { type: 'NEW_CHAT'; projectId?: string | null }
   | { type: 'CANCEL_CHAT' }
   | { type: 'CLEAR_ERROR' }
   | { type: 'SET_CWD'; cwd: string }
@@ -129,7 +134,13 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       const ev = action.event
       switch (ev.type) {
         case 'init':
-          return { ...state, sessionId: ev.data.sessionId, cwd: ev.data.cwd }
+          // init 도착 시점에 sessionId 가 발급되므로 pendingProjectId 는 역할 종료 (binding 완료).
+          return {
+            ...state,
+            sessionId: ev.data.sessionId,
+            cwd: ev.data.cwd,
+            pendingProjectId: null
+          }
 
         case 'assistant_delta':
           return { ...state, pendingDelta: state.pendingDelta + ev.data.text }
@@ -203,7 +214,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'NEW_CHAT':
       // cwd 는 새 세션에서도 동일 (main 의 단일 default). 새 대화 즉시 `@` picker
       // 가 동작하도록 보존 — init 이벤트가 와도 같은 값으로 덮어쓰기만 함.
-      return { ...initialChatState, cwd: state.cwd }
+      // projectId 가 명시되면 새 세션이 해당 프로젝트에 binding 될 준비.
+      return { ...initialChatState, cwd: state.cwd, pendingProjectId: action.projectId ?? null }
 
     case 'SET_CWD':
       return { ...state, cwd: action.cwd }

@@ -17,7 +17,12 @@ export const CHANNELS = {
   sessionList: 'orca:session:list',
   sessionLoad: 'orca:session:load',
   sessionDelete: 'orca:session:delete',
-  sessionRename: 'orca:session:rename'
+  sessionRename: 'orca:session:rename',
+  projectList: 'orca:project:list',
+  projectCreate: 'orca:project:create',
+  projectUpdate: 'orca:project:update',
+  projectDelete: 'orca:project:delete',
+  projectListSessions: 'orca:project:listSessions'
 } as const
 
 // Backend (Phase 2: claude-code 단일. opencode 는 future work)
@@ -53,6 +58,9 @@ export type ChatEvent =
 // IPC payloads (TRD §5.2 의 활성 부분)
 export interface SendChatMessage {
   sessionId: string | null
+  // 새 채팅 첫 메시지의 소속 프로젝트. resume(sessionId != null) 의 경우는 무시되고,
+  // main 이 sessionId → project_id → instructions 를 DB 에서 직접 조회한다.
+  projectId: string | null
   text: string
 }
 
@@ -125,6 +133,7 @@ export interface SessionListItem {
   title: string | null
   updatedAt: number
   preview: string | null
+  projectId: string | null
 }
 
 export interface LoadSessionRequest {
@@ -160,4 +169,32 @@ export interface LoadedSession {
   backend: Backend
   title: string | null
   messages: LoadedMessage[]
+}
+
+// 프로젝트 (Phase 3+) — 대화 묶음 + 전용 시스템 프롬프트 (instructions).
+export interface Project {
+  id: string
+  name: string
+  instructions: string
+  createdAt: number
+  updatedAt: number
+}
+
+export interface CreateProjectRequest {
+  name: string
+  instructions: string
+}
+
+export interface UpdateProjectRequest {
+  id: string
+  name?: string
+  instructions?: string
+}
+
+export interface DeleteProjectRequest {
+  id: string
+}
+
+export interface ListProjectSessionsRequest {
+  projectId: string
 }

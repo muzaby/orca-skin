@@ -14,6 +14,7 @@ export interface SessionRow {
   created_at: number
   updated_at: number
   last_message_preview: string | null
+  project_id: string | null
 }
 
 export interface SessionListRow {
@@ -22,6 +23,22 @@ export interface SessionListRow {
   title: string | null
   updated_at: number
   last_message_preview: string | null
+  project_id: string | null
+}
+
+export interface ProjectRow {
+  id: string
+  name: string
+  instructions: string
+  created_at: number
+  updated_at: number
+}
+
+export interface ProjectInsert {
+  id: string
+  name: string
+  instructions: string
+  createdAt: number
 }
 
 export interface MessageRow {
@@ -47,6 +64,7 @@ export interface SessionInsert {
   id: string
   backend: Backend
   title: string | null
+  projectId: string | null
   createdAt: number
 }
 

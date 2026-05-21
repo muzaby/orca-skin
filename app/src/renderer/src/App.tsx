@@ -5,6 +5,7 @@ import { Sidebar } from './app/Sidebar'
 import { ChatPane } from './app/ChatPane'
 import { CameraPane } from './app/CameraPane'
 import { Projects } from './app/Projects'
+import { ProjectDetail } from './app/ProjectDetail'
 import { EngineSettings } from './app/EngineSettings'
 import { SkillsMcp } from './app/SkillsMcp'
 import { CapturesPlaceholder } from './app/CapturesPlaceholder'
@@ -20,6 +21,7 @@ import { AuthExpiredModal } from './components/auth/AuthExpiredModal'
 
 function App(): React.JSX.Element {
   const [screen, setScreen] = useState<ScreenId>('chat')
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
   const [t, setTweak] = useTweaks()
   const chat = useChat()
   const backend = useBackend()
@@ -66,8 +68,25 @@ function App(): React.JSX.Element {
         <CameraPane />
       </>
     )
-  } else if (screen === 'projects') body = <Projects />
-  else if (screen === 'engine') body = <EngineSettings />
+  } else if (screen === 'projects') {
+    body = (
+      <Projects
+        onOpenProject={(id) => {
+          setSelectedProjectId(id)
+          setScreen('project-detail')
+        }}
+      />
+    )
+  } else if (screen === 'project-detail' && selectedProjectId) {
+    body = (
+      <ProjectDetail
+        projectId={selectedProjectId}
+        chat={chat}
+        backendLabel={backendLabel}
+        onBack={() => setScreen('projects')}
+      />
+    )
+  } else if (screen === 'engine') body = <EngineSettings />
   else if (screen === 'skills') body = <SkillsMcp />
   else body = <CapturesPlaceholder />
 
@@ -81,7 +100,7 @@ function App(): React.JSX.Element {
           <Titlebar breadcrumb={current.breadcrumb} />
           <div className="flex min-h-0 flex-1">
             <Sidebar
-              active={screen}
+              active={screen === 'project-detail' ? 'projects' : screen}
               collapsed={t.sidebarCollapsed}
               onSelect={setScreen}
               onNewChat={chat.newChat}

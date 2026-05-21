@@ -146,12 +146,27 @@ export class ClaudeCodeAdapter implements SessionAdapter {
     sessionId: string | null,
     text: string,
     cwd: string,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    systemPromptAppend?: string
   ): AsyncIterable<ChatEvent> {
     const abortController = new AbortController()
     const onAbort = (): void => abortController.abort()
     if (signal?.aborted) abortController.abort()
     else signal?.addEventListener('abort', onAbort)
+
+    // claude_code preset + append 형태. preset 으로 claude-code 의 기본 시스템 프롬프트
+    // (작업 디렉토리, 도구 카탈로그 등 동적 섹션) 는 유지하고, 프로젝트별 지침만 덧붙인다.
+    // append 가 빈 문자열이면 옵션 자체를 빼서 SDK 기본 동작 그대로.
+    const systemPromptOption =
+      systemPromptAppend && systemPromptAppend.trim() !== ''
+        ? {
+            systemPrompt: {
+              type: 'preset' as const,
+              preset: 'claude_code' as const,
+              append: systemPromptAppend
+            }
+          }
+        : {}
 
     try {
       for await (const msg of query({
@@ -160,7 +175,8 @@ export class ClaudeCodeAdapter implements SessionAdapter {
           resume: sessionId ?? undefined,
           includePartialMessages: true,
           cwd,
-          abortController
+          abortController,
+          ...systemPromptOption
           // permissionMode / canUseTool / hooks: Phase 4 anchor (OQ9)
         }
       })) {
