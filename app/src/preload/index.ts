@@ -4,14 +4,17 @@ import {
   type Backend,
   type BackendListResult,
   type ChatEvent,
+  type CreateProjectRequest,
   type FileEntry,
   type InstallStatus,
   type LoadedSession,
+  type Project,
   type SendChatMessage,
   type SessionListItem,
   type Settings,
   type SettingsPatch,
-  type SkillInfo
+  type SkillInfo,
+  type UpdateProjectRequest
 } from '../shared/ipc'
 
 // Phase 2 노출 표면 — renderer 가 실제 사용하는 6개 채널만.
@@ -60,6 +63,16 @@ const orca = {
       ipcRenderer.invoke(CHANNELS.sessionDelete, { sessionId }),
     rename: (sessionId: string, title: string): Promise<void> =>
       ipcRenderer.invoke(CHANNELS.sessionRename, { sessionId, title })
+  },
+  project: {
+    list: (): Promise<Project[]> => ipcRenderer.invoke(CHANNELS.projectList),
+    create: (req: CreateProjectRequest): Promise<Project> =>
+      ipcRenderer.invoke(CHANNELS.projectCreate, req),
+    update: (req: UpdateProjectRequest): Promise<void> =>
+      ipcRenderer.invoke(CHANNELS.projectUpdate, req),
+    delete: (id: string): Promise<void> => ipcRenderer.invoke(CHANNELS.projectDelete, { id }),
+    listSessions: (projectId: string): Promise<SessionListItem[]> =>
+      ipcRenderer.invoke(CHANNELS.projectListSessions, { projectId })
   }
 }
 

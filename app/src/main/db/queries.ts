@@ -2,6 +2,8 @@ import type Database from 'better-sqlite3'
 import type {
   MessageInsert,
   MessageRow,
+  ProjectInsert,
+  ProjectRow,
   SessionInsert,
   SessionListRow,
   ToolCallInsert,
@@ -24,15 +26,23 @@ export class DbQueries {
   // updateSessionTitleStmt 는 첫 init 시점 채우기 용도 (WHERE title IS NULL).
   private readonly renameSessionStmt: Database.Statement
   private readonly deleteSessionStmt: Database.Statement
+  private readonly listProjectsStmt: Database.Statement
+  private readonly getProjectStmt: Database.Statement
+  private readonly insertProjectStmt: Database.Statement
+  private readonly updateProjectStmt: Database.Statement
+  private readonly deleteProjectStmt: Database.Statement
+  private readonly listSessionsByProjectStmt: Database.Statement
+  // 매 chat:send 마다 1회 호출 — sessionId 에서 소속 프로젝트의 instructions 한 방에 조회.
+  private readonly getProjectInstructionsForSessionStmt: Database.Statement
 
   constructor(db: Database.Database) {
     this.insertSessionStmt = db.prepare(`
-      INSERT INTO sessions (id, backend, title, created_at, updated_at, last_message_preview)
-      VALUES (@id, @backend, @title, @createdAt, @createdAt, NULL)
+      INSERT INTO sessions (id, backend, title, project_id, created_at, updated_at, last_message_preview)
+      VALUES (@id, @backend, @title, @projectId, @createdAt, @createdAt, NULL)
       ON CONFLICT(id) DO NOTHING
     `)
     this.listSessionsStmt = db.prepare(`
-      SELECT id, backend, title, updated_at, last_message_preview
+      SELECT id, backend, title, updated_at, last_message_preview, project_id
       FROM sessions
       ORDER BY updated_at DESC
       LIMIT @limit
@@ -84,6 +94,41 @@ export class DbQueries {
       UPDATE sessions SET title = @title, updated_at = @updatedAt WHERE id = @id
     `)
     this.deleteSessionStmt = db.prepare(`DELETE FROM sessions WHERE id = @id`)
+    this.listProjectsStmt = db.prepare(`
+      SELECT id, name, instructions, created_at, updated_at
+      FROM projects
+      ORDER BY updated_at DESC
+    `)
+    this.getProjectStmt = db.prepare(`
+      SELECT id, name, instructions, created_at, updated_at
+      FROM projects
+      WHERE id = @id
+    `)
+    this.insertProjectStmt = db.prepare(`
+      INSERT INTO projects (id, name, instructions, created_at, updated_at)
+      VALUES (@id, @name, @instructions, @createdAt, @createdAt)
+    `)
+    // 부분 업데이트 — name / instructions 둘 다 nullable 인자. NULL 이면 기존 값 유지.
+    this.updateProjectStmt = db.prepare(`
+      UPDATE projects
+      SET name = COALESCE(@name, name),
+          instructions = COALESCE(@instructions, instructions),
+          updated_at = @updatedAt
+      WHERE id = @id
+    `)
+    this.deleteProjectStmt = db.prepare(`DELETE FROM projects WHERE id = @id`)
+    this.listSessionsByProjectStmt = db.prepare(`
+      SELECT id, backend, title, updated_at, last_message_preview, project_id
+      FROM sessions
+      WHERE project_id = @projectId
+      ORDER BY updated_at DESC
+    `)
+    this.getProjectInstructionsForSessionStmt = db.prepare(`
+      SELECT p.instructions AS instructions
+      FROM projects p
+      JOIN sessions s ON s.project_id = p.id
+      WHERE s.id = @sessionId
+    `)
   }
 
   insertSession(row: SessionInsert): void {
@@ -134,5 +179,49 @@ export class DbQueries {
 
   deleteSession(id: string): void {
     this.deleteSessionStmt.run({ id })
+  }
+
+  listProjects(): ProjectRow[] {
+    return this.listProjectsStmt.all() as ProjectRow[]
+  }
+
+  getProject(id: string): ProjectRow | null {
+    const row = this.getProjectStmt.get({ id }) as ProjectRow | undefined
+    return row ?? null
+  }
+
+  insertProject(row: ProjectInsert): void {
+    this.insertProjectStmt.run(row)
+  }
+
+  // name / instructions 둘 다 undefined 면 updated_at 만 갱신되지만, 호출 측에서
+  // 최소 하나는 채워 보내는 게 일반적이다. SQLite 의 named bind 는 missing key 를
+  // 거부하므로 호출자가 빠진 키도 명시적으로 null 로 전달해야 한다.
+  updateProject(
+    id: string,
+    patch: { name?: string; instructions?: string },
+    updatedAt: number
+  ): void {
+    this.updateProjectStmt.run({
+      id,
+      name: patch.name ?? null,
+      instructions: patch.instructions ?? null,
+      updatedAt
+    })
+  }
+
+  deleteProject(id: string): void {
+    this.deleteProjectStmt.run({ id })
+  }
+
+  listSessionsByProject(projectId: string): SessionListRow[] {
+    return this.listSessionsByProjectStmt.all({ projectId }) as SessionListRow[]
+  }
+
+  getProjectInstructionsForSession(sessionId: string): string | null {
+    const row = this.getProjectInstructionsForSessionStmt.get({ sessionId }) as
+      | { instructions: string }
+      | undefined
+    return row?.instructions ?? null
   }
 }

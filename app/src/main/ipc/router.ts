@@ -1,4 +1,5 @@
 import { ipcMain, app, type WebContents, type IpcMainInvokeEvent } from 'electron'
+import { randomUUID } from 'node:crypto'
 import {
   CHANNELS,
   SendChatMessageSchema,
@@ -8,6 +9,10 @@ import {
   LoadSessionRequestSchema,
   DeleteSessionRequestSchema,
   RenameSessionRequestSchema,
+  CreateProjectSchema,
+  UpdateProjectSchema,
+  DeleteProjectSchema,
+  ListProjectSessionsSchema,
   type BackendListResult,
   type ChatEvent,
   type FileEntry,
@@ -15,6 +20,7 @@ import {
   type LoadedMessage,
   type LoadedSession,
   type LoadedToolCall,
+  type Project,
   type SessionListItem,
   type Settings,
   type SkillInfo
@@ -33,6 +39,9 @@ interface InflightTurn {
   pendingUserText: string | null
   // init 이벤트로 확정된 DB sessionId. resume 의 경우 sendMessage 인자와 같다.
   dbSessionId: string | null
+  // 새 채팅 첫 메시지일 때 renderer 가 전달한 projectId. init 이벤트의 insertSession
+  // 시점에 함께 row 에 박혀 별도 UPDATE 없이 binding 이 끝난다. resume 경로면 항상 null.
+  pendingProjectId: string | null
   // 현재 assistant turn 의 message row id. tool_use 가 먼저 yield 되어도 같은
   // row 에 묶이도록, assistant_message 또는 tool_use 중 먼저 도착한 쪽에서 생성.
   // assistant_message 처리 후 / tool_result 도착 시 reset 한다.
@@ -74,6 +83,11 @@ export class IpcRouter {
     ipcMain.handle(CHANNELS.sessionLoad, this.handleSessionLoad)
     ipcMain.handle(CHANNELS.sessionDelete, this.handleSessionDelete)
     ipcMain.handle(CHANNELS.sessionRename, this.handleSessionRename)
+    ipcMain.handle(CHANNELS.projectList, this.handleProjectList)
+    ipcMain.handle(CHANNELS.projectCreate, this.handleProjectCreate)
+    ipcMain.handle(CHANNELS.projectUpdate, this.handleProjectUpdate)
+    ipcMain.handle(CHANNELS.projectDelete, this.handleProjectDelete)
+    ipcMain.handle(CHANNELS.projectListSessions, this.handleProjectListSessions)
   }
 
   private sendChatEvent(wc: WebContents, ev: ChatEvent): void {
@@ -112,13 +126,27 @@ export class IpcRouter {
     }
 
     const controller = new AbortController()
+    // resume 경로면 sessions row 에 이미 binding 된 projectId 가 있으므로 그쪽에서 조회.
+    // 새 채팅 경로(sessionId=null)면 renderer 가 보낸 projectId 를 init 시점에 binding.
     const turn: InflightTurn = {
       controller,
       pendingUserText: parsed.data.text,
       dbSessionId: parsed.data.sessionId,
+      pendingProjectId: parsed.data.sessionId ? null : parsed.data.projectId,
       currentAssistantMessageId: null
     }
     this.inflight.set(event.sender, turn)
+
+    // 프로젝트 지침 조회. 매 send 마다 1회 prepared statement — DB SSOT, 캐시 없음.
+    // 따라서 지침 편집이 같은 세션의 다음 메시지부터 즉시 반영된다.
+    let systemPromptAppend: string | undefined
+    if (parsed.data.sessionId) {
+      const ins = this.db.getProjectInstructionsForSession(parsed.data.sessionId)
+      if (ins && ins.trim() !== '') systemPromptAppend = ins
+    } else if (parsed.data.projectId) {
+      const p = this.db.getProject(parsed.data.projectId)
+      if (p && p.instructions.trim() !== '') systemPromptAppend = p.instructions
+    }
 
     // resume 경로: sessionId 가 들어왔다는 건 이전 init 으로 sessions row 가 이미
     // 존재한다는 의미. 다음 init 이벤트를 기다리지 않고 user 메시지를 즉시 기록.
@@ -140,7 +168,8 @@ export class IpcRouter {
         parsed.data.sessionId,
         parsed.data.text,
         cwd,
-        controller.signal
+        controller.signal,
+        systemPromptAppend
       )) {
         this.persist(turn, ev)
         this.sendChatEvent(event.sender, ev)
@@ -175,6 +204,7 @@ export class IpcRouter {
           id: sessionId,
           backend: 'claude-code',
           title,
+          projectId: turn.pendingProjectId,
           createdAt: now
         })
         if (turn.pendingUserText) {
@@ -287,13 +317,7 @@ export class IpcRouter {
   }
 
   private handleSessionList = async (): Promise<SessionListItem[]> => {
-    return this.db.listSessions().map((r) => ({
-      id: r.id,
-      backend: r.backend,
-      title: r.title,
-      updatedAt: r.updated_at,
-      preview: r.last_message_preview
-    }))
+    return this.db.listSessions().map(toSessionListItem)
   }
 
   private handleSessionLoad = async (
@@ -364,11 +388,94 @@ export class IpcRouter {
     if (!parsed.success) return
     this.db.renameSession(parsed.data.sessionId, parsed.data.title, Date.now())
   }
+
+  private handleProjectList = async (): Promise<Project[]> => {
+    return this.db.listProjects().map(toProject)
+  }
+
+  private handleProjectCreate = async (
+    _event: IpcMainInvokeEvent,
+    raw: unknown
+  ): Promise<Project> => {
+    const parsed = CreateProjectSchema.parse(raw)
+    const id = randomUUID()
+    const now = Date.now()
+    this.db.insertProject({
+      id,
+      name: parsed.name,
+      instructions: parsed.instructions,
+      createdAt: now
+    })
+    return {
+      id,
+      name: parsed.name,
+      instructions: parsed.instructions,
+      createdAt: now,
+      updatedAt: now
+    }
+  }
+
+  private handleProjectUpdate = async (_event: IpcMainInvokeEvent, raw: unknown): Promise<void> => {
+    const parsed = UpdateProjectSchema.parse(raw)
+    this.db.updateProject(
+      parsed.id,
+      { name: parsed.name, instructions: parsed.instructions },
+      Date.now()
+    )
+  }
+
+  private handleProjectDelete = async (_event: IpcMainInvokeEvent, raw: unknown): Promise<void> => {
+    const parsed = DeleteProjectSchema.parse(raw)
+    // ON DELETE SET NULL 이 sessions.project_id 를 정리. 세션 자체는 보존.
+    this.db.deleteProject(parsed.id)
+  }
+
+  private handleProjectListSessions = async (
+    _event: IpcMainInvokeEvent,
+    raw: unknown
+  ): Promise<SessionListItem[]> => {
+    const parsed = ListProjectSessionsSchema.parse(raw)
+    return this.db.listSessionsByProject(parsed.projectId).map(toSessionListItem)
+  }
 }
 
 function previewOf(text: string, max = 80): string {
   const collapsed = text.replace(/\s+/g, ' ').trim()
   return collapsed.length > max ? collapsed.slice(0, max) : collapsed
+}
+
+function toSessionListItem(r: {
+  id: string
+  backend: 'claude-code'
+  title: string | null
+  updated_at: number
+  last_message_preview: string | null
+  project_id: string | null
+}): SessionListItem {
+  return {
+    id: r.id,
+    backend: r.backend,
+    title: r.title,
+    updatedAt: r.updated_at,
+    preview: r.last_message_preview,
+    projectId: r.project_id
+  }
+}
+
+function toProject(r: {
+  id: string
+  name: string
+  instructions: string
+  created_at: number
+  updated_at: number
+}): Project {
+  return {
+    id: r.id,
+    name: r.name,
+    instructions: r.instructions,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at
+  }
 }
 
 function safeJsonParse(s: string): unknown {

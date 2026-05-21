@@ -5,7 +5,8 @@ export interface UseChat {
   state: ChatState
   send: (text: string) => void
   cancel: () => void
-  newChat: () => void
+  // projectId 를 전달하면 새 세션이 해당 프로젝트에 binding 된다. ProjectDetail 진입 시 사용.
+  newChat: (projectId?: string | null) => void
   clearError: () => void
   // title 은 사이드바 메타에서 가져오는 낙관적 값. 부팅 자동 복원처럼 메타가 아직
   // 없는 경로에서는 생략 — 도착한 LoadedSession.title 로 채워진다.
@@ -108,9 +109,15 @@ export function useChat(): UseChat {
       const trimmed = text.trim()
       if (trimmed === '' || state.inflight) return
       dispatch({ type: 'SEND_USER_MESSAGE', text: trimmed })
-      void window.orca.chat.send({ sessionId: state.sessionId, text: trimmed })
+      // 새 채팅 (sessionId=null) 첫 메시지일 때만 projectId 전달. resume 경로면 main 이
+      // sessionId 로부터 직접 project_id 를 조회하므로 여기서는 null.
+      void window.orca.chat.send({
+        sessionId: state.sessionId,
+        projectId: state.sessionId ? null : state.pendingProjectId,
+        text: trimmed
+      })
     },
-    [state.sessionId, state.inflight]
+    [state.sessionId, state.inflight, state.pendingProjectId]
   )
 
   const cancel = useCallback(() => {
@@ -118,11 +125,14 @@ export function useChat(): UseChat {
     dispatch({ type: 'CANCEL_CHAT' })
   }, [state.sessionId])
 
-  const newChat = useCallback(() => {
-    snapshotActiveToCache()
-    dispatch({ type: 'NEW_CHAT' })
-    void window.orca.settings.set({ lastSessionId: null })
-  }, [snapshotActiveToCache])
+  const newChat = useCallback(
+    (projectId: string | null = null) => {
+      snapshotActiveToCache()
+      dispatch({ type: 'NEW_CHAT', projectId })
+      void window.orca.settings.set({ lastSessionId: null })
+    },
+    [snapshotActiveToCache]
+  )
 
   const clearError = useCallback(() => dispatch({ type: 'CLEAR_ERROR' }), [])
 

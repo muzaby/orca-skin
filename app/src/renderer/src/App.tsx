@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Frame } from './app/Frame'
 import { Titlebar } from './app/Titlebar'
 import { Sidebar } from './app/Sidebar'
 import { ChatPane } from './app/ChatPane'
-import { CameraPane } from './app/CameraPane'
+// CameraPane 은 일반 'chat' 화면에서 자동 노출하지 않음 — 추후 별도 노출 방법 논의.
+// 컴포넌트는 보존 (`./app/CameraPane`).
 import { Projects } from './app/Projects'
+import { ProjectDetail } from './app/ProjectDetail'
 import { EngineSettings } from './app/EngineSettings'
 import { SkillsMcp } from './app/SkillsMcp'
 import { CapturesPlaceholder } from './app/CapturesPlaceholder'
@@ -15,17 +17,25 @@ import { DENSITY_FONT } from './app/theme'
 import { useChat } from './state/useChat'
 import { useBackend } from './state/useBackend'
 import { useSessions } from './state/useSessions'
+import { useProjects } from './state/useProjects'
 import { InstallerDialog } from './components/install/InstallerDialog'
 import { AuthExpiredModal } from './components/auth/AuthExpiredModal'
 
 function App(): React.JSX.Element {
   const [screen, setScreen] = useState<ScreenId>('chat')
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
   const [t, setTweak] = useTweaks()
   const chat = useChat()
   const backend = useBackend()
   const sessions = useSessions()
+  // App.tsx 단일 인스턴스 — Sidebar (라벨 prefix lookup), Projects (그리드),
+  // ProjectDetail (헤더/지침 표시 + update) 가 모두 같은 state 를 공유.
+  const projects = useProjects()
   const [installerOpen, setInstallerOpen] = useState(false)
   const autoOpenedRef = useRef(false)
+
+  // ProjectDetail 이 매 render 마다 effect 재실행되지 않도록 stable callback.
+  const goChat = useCallback(() => setScreen('chat'), [])
 
   // 채팅 턴이 끝나면 (inflight false 로 전환) 사이드바 목록을 새로고침. 새 init 이
   // 발급되어 sessions row 가 추가됐을 수 있고, 기존 세션의 preview/updated_at 도 갱신됐다.
@@ -60,14 +70,36 @@ function App(): React.JSX.Element {
 
   let body: React.ReactNode
   if (screen === 'chat') {
+    body = <ChatPane chat={chat} backendLabel={backendLabel} />
+  } else if (screen === 'projects') {
     body = (
-      <>
-        <ChatPane chat={chat} backendLabel={backendLabel} />
-        <CameraPane />
-      </>
+      <Projects
+        projects={projects.list}
+        loading={projects.loading}
+        onOpenProject={(id) => {
+          setSelectedProjectId(id)
+          setScreen('project-detail')
+        }}
+        onCreate={async (name, instructions) => {
+          await projects.create(name, instructions)
+        }}
+      />
     )
-  } else if (screen === 'projects') body = <Projects />
-  else if (screen === 'engine') body = <EngineSettings />
+  } else if (screen === 'project-detail' && selectedProjectId) {
+    body = (
+      <ProjectDetail
+        projectId={selectedProjectId}
+        projects={projects.list}
+        chat={chat}
+        backendLabel={backendLabel}
+        onBack={() => setScreen('projects')}
+        onLeaveToChat={goChat}
+        onUpdateInstructions={async (instructions) => {
+          await projects.update(selectedProjectId, { instructions })
+        }}
+      />
+    )
+  } else if (screen === 'engine') body = <EngineSettings />
   else if (screen === 'skills') body = <SkillsMcp />
   else body = <CapturesPlaceholder />
 
@@ -81,13 +113,14 @@ function App(): React.JSX.Element {
           <Titlebar breadcrumb={current.breadcrumb} />
           <div className="flex min-h-0 flex-1">
             <Sidebar
-              active={screen}
+              active={screen === 'project-detail' ? 'projects' : screen}
               collapsed={t.sidebarCollapsed}
               onSelect={setScreen}
               onNewChat={chat.newChat}
               backendLabel={backendLabel}
               backendInstalled={claudeCode?.installed === true}
               sessions={sessions.list}
+              projects={projects.list}
               activeSessionId={chat.state.sessionId}
               onSelectSession={(id) => {
                 setScreen('chat')

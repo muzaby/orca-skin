@@ -76,6 +76,7 @@ export const ChatEventSchema: z.ZodType<ChatEvent> = z.discriminatedUnion('type'
 
 export const SendChatMessageSchema = z.object({
   sessionId: z.string().nullable(),
+  projectId: z.string().nullable(),
   text: z.string().min(1)
 })
 
@@ -95,6 +96,23 @@ export const RenameSessionRequestSchema = z.object({
   sessionId: z.string().min(1),
   title: z.string().trim().min(1).max(120)
 })
+
+// Project (Phase 3+) — 시스템 프롬프트 길이 8000 은 Claude Agent SDK 가
+// systemPrompt.append 에 허용하는 토큰 한도 대비 여유.
+export const CreateProjectSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  instructions: z.string().max(8000).default('')
+})
+
+export const UpdateProjectSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().trim().min(1).max(120).optional(),
+  instructions: z.string().max(8000).optional()
+})
+
+export const DeleteProjectSchema = z.object({ id: z.string().min(1) })
+
+export const ListProjectSessionsSchema = z.object({ projectId: z.string().min(1) })
 
 // Settings (TRD §6.7) — Phase 2+ 영속화. 깨진 디스크 데이터도 default 로 복원되도록
 // 모든 키에 default 를 지정한다.
@@ -150,5 +168,10 @@ export type {
   RenameSessionRequest,
   LoadedSession,
   LoadedMessage,
-  LoadedToolCall
+  LoadedToolCall,
+  Project,
+  CreateProjectRequest,
+  UpdateProjectRequest,
+  DeleteProjectRequest,
+  ListProjectSessionsRequest
 } from './ipc'

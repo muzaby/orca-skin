@@ -1,12 +1,16 @@
 import type Database from 'better-sqlite3'
 import migration0001 from './migrations/0001_initial.sql?raw'
+import migration0002 from './migrations/0002_projects.sql?raw'
 
 interface Migration {
   name: string
   sql: string
 }
 
-const MIGRATIONS: Migration[] = [{ name: '0001_initial', sql: migration0001 }]
+const MIGRATIONS: Migration[] = [
+  { name: '0001_initial', sql: migration0001 },
+  { name: '0002_projects', sql: migration0002 }
+]
 
 const META_TABLE = `
   CREATE TABLE IF NOT EXISTS _migrations (
