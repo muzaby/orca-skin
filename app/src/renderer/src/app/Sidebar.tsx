@@ -1,9 +1,10 @@
+import { useMemo } from 'react'
 import { Icon, type IconName } from '../components/atoms/Icon'
 import { Avatar } from '../components/atoms/Avatar'
 import { Dot } from '../components/atoms/Status'
 import { SessionRow } from './SessionRow'
 import type { ScreenId } from './screens'
-import type { SessionListItem } from '../../../shared/ipc'
+import type { Project, SessionListItem } from '../../../shared/ipc'
 
 export interface SidebarProps {
   active?: ScreenId
@@ -13,6 +14,8 @@ export interface SidebarProps {
   backendLabel?: string
   backendInstalled?: boolean
   sessions?: SessionListItem[]
+  // 세션 라벨의 `<프로젝트>/<타이틀>` prefix 합성에 사용. projectId → name lookup.
+  projects?: Project[]
   activeSessionId?: string | null
   onSelectSession?: (sessionId: string) => void
   onDeleteSession?: (sessionId: string) => void
@@ -44,11 +47,17 @@ export function Sidebar({
   backendLabel = 'Claude Code',
   backendInstalled = true,
   sessions = [],
+  projects = [],
   activeSessionId = null,
   onSelectSession,
   onDeleteSession,
   onRenameSession
 }: SidebarProps): React.JSX.Element {
+  const projectNameById = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const p of projects) map.set(p.id, p.name)
+    return map
+  }, [projects])
   if (collapsed) {
     const icons: IconName[] = ['plus', 'chat', 'folder', 'flask', 'cpu', 'settings']
     return (
@@ -111,6 +120,7 @@ export function Sidebar({
               key={s.id}
               session={s}
               isActive={s.id === activeSessionId}
+              projectName={s.projectId ? (projectNameById.get(s.projectId) ?? null) : null}
               onSelect={onSelectSession}
               onDelete={onDeleteSession}
               onRename={onRenameSession}

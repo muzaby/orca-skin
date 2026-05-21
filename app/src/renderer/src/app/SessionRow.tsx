@@ -9,6 +9,10 @@ import type { SessionListItem } from '../../../shared/ipc'
 export interface SessionRowProps {
   session: SessionListItem
   isActive: boolean
+  // 프로젝트 소속 세션일 때만 truthy. label 에 `<projectName> / ` prefix 가 붙는다.
+  // ProjectDetail 의 내부 대화 리스트처럼 이미 프로젝트 컨텍스트가 명확한 곳에서는
+  // 의도적으로 비워둔다.
+  projectName?: string | null
   onSelect?: (sessionId: string) => void
   onDelete?: (sessionId: string) => void
   onRename?: (sessionId: string, title: string) => void
@@ -17,6 +21,7 @@ export interface SessionRowProps {
 export function SessionRow({
   session,
   isActive,
+  projectName,
   onSelect,
   onDelete,
   onRename
@@ -25,7 +30,8 @@ export function SessionRow({
   const [renaming, setRenaming] = useState(false)
   const kebabRef = useRef<HTMLButtonElement>(null)
 
-  const label = (session.title?.trim() || session.preview?.trim() || '새 대화').slice(0, 60)
+  const baseLabel = (session.title?.trim() || session.preview?.trim() || '새 대화').slice(0, 60)
+  const label = projectName ? `${projectName} / ${baseLabel}` : baseLabel
 
   const startRename = (): void => {
     setMenuOpen(false)
@@ -35,7 +41,8 @@ export function SessionRow({
   const commitRename = (next: string): void => {
     const trimmed = next.trim()
     setRenaming(false)
-    if (trimmed === '' || trimmed === label) return
+    // prefix(projectName) 는 lookup 으로 합성된 값이므로 비교는 baseLabel 기준.
+    if (trimmed === '' || trimmed === baseLabel) return
     onRename?.(session.id, trimmed)
   }
 
@@ -50,7 +57,7 @@ export function SessionRow({
           isActive ? 'bg-black/[0.04] text-ink' : 'text-ink2'
         }`}
       >
-        <RenameInput initial={label} onCommit={commitRename} onCancel={cancelRename} />
+        <RenameInput initial={baseLabel} onCommit={commitRename} onCancel={cancelRename} />
       </div>
     )
   }

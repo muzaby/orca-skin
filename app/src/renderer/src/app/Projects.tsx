@@ -1,11 +1,13 @@
 import { useState } from 'react'
 import { Icon } from '../components/atoms/Icon'
 import { CreateProjectModal } from '../components/projects/CreateProjectModal'
-import { useProjects } from '../state/useProjects'
 import type { Project } from '../../../shared/ipc'
 
 interface ProjectsProps {
+  projects: Project[]
+  loading: boolean
   onOpenProject: (id: string) => void
+  onCreate: (name: string, instructions: string) => Promise<void>
 }
 
 // "방금", "12분 전", "3시간 전", "어제", "4일 전", "5월 13일" 형식.
@@ -24,8 +26,12 @@ function formatRelative(updatedAt: number): string {
   )
 }
 
-export function Projects({ onOpenProject }: ProjectsProps): React.JSX.Element {
-  const projects = useProjects()
+export function Projects({
+  projects,
+  loading,
+  onOpenProject,
+  onCreate
+}: ProjectsProps): React.JSX.Element {
   const [createOpen, setCreateOpen] = useState(false)
 
   return (
@@ -35,7 +41,7 @@ export function Projects({ onOpenProject }: ProjectsProps): React.JSX.Element {
           프로젝트
         </h1>
         <span className="text-[13px] text-ink3">
-          {projects.loading ? '불러오는 중…' : `${projects.list.length}개`}
+          {loading ? '불러오는 중…' : `${projects.length}개`}
         </span>
         <button
           onClick={() => setCreateOpen(true)}
@@ -49,11 +55,11 @@ export function Projects({ onOpenProject }: ProjectsProps): React.JSX.Element {
         주입합니다.
       </p>
 
-      {!projects.loading && projects.list.length === 0 ? (
+      {!loading && projects.length === 0 ? (
         <EmptyState onCreate={() => setCreateOpen(true)} />
       ) : (
         <div className="grid grid-cols-2 gap-3.5">
-          {projects.list.map((p) => (
+          {projects.map((p) => (
             <ProjectCard key={p.id} project={p} onOpen={() => onOpenProject(p.id)} />
           ))}
         </div>
@@ -62,9 +68,7 @@ export function Projects({ onOpenProject }: ProjectsProps): React.JSX.Element {
       <CreateProjectModal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        onCreate={async (name, instructions) => {
-          await projects.create(name, instructions)
-        }}
+        onCreate={onCreate}
       />
     </section>
   )
