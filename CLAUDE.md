@@ -9,7 +9,7 @@
 | `chats/` | 사용자 의도 트랜스크립트 (Claude Design 핸드오프) — *왜* 가 산다 | `chats/CLAUDE.md` |
 | `docs/` | PRD, TRD, 전략 문서 — *무엇을* / *어떻게* 가 산다 | `docs/CLAUDE.md` |
 | `project/` | HTML/CSS/JS 디자인 프로토타입 (variation A 채택) — *어떻게 보여야 하는가* | `project/CLAUDE.md` |
-| `app/` | Orca v1 실제 구현체 (electron-vite + React/TypeScript). 현재 스캐폴드 상태. | `app/CLAUDE.md` |
+| `app/` | Orca v1 실제 구현체 (electron-vite + React/TypeScript). Phase 3 — 로컬 SQLite SSOT + 세션 히스토리. | `app/CLAUDE.md` |
 
 ## 새 세션 진입 시 읽는 순서
 
@@ -32,7 +32,8 @@
 | **Phase 2 (claude-code 단일 어댑터 + 채팅 IPC)** | **완료** — `app/src/main/`, `app/src/preload/` |
 | **Phase 2+ (`electron-store` 영속화: Tweaks · lastSessionId · lastBackend · window bounds)** | **완료** — `app/src/main/settings/store.ts` |
 | **Phase 2++ (Composer 스킬 UX: SKILL.md 스캔 · 3-chip 행 · picker · 인라인 자동완성)** | **완료** — `app/src/renderer/src/components/composer/`, `app/src/main/skills/` |
-| 후속 (opencode 어댑터·캡처 실 구현·테스트·i18n) | Future Scope |
+| **Phase 3 (로컬 SQLite SSOT · 세션 히스토리 · 사이드바 비동기 lazy load + 캐시 + kebab 메뉴)** | **완료 (PR #20)** — `app/src/main/db/`, `app/src/renderer/src/state/useSessions.ts`, `useChat.ts` (캐시), `Sidebar.tsx` (kebab rename/delete) |
+| 후속 (opencode 어댑터·캡처 실 구현·테스트·i18n·세션 휴지통 30일 보존) | Future Scope |
 
 ## 핵심 원칙 (모든 에이전트 공통)
 
