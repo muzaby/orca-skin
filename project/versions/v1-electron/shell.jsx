@@ -133,12 +133,12 @@ function V1Sidebar({ active = 'chat', collapsed = false }) {
 }
 
 // Chat pane (left of dual-pane)
-function V1ChatPane({ width = 'auto' }) {
+function V1ChatPane({ activeTool, onToolToggle }) {
   return (
     <section style={{ flex: '1 1 0', minWidth: 0, display: 'flex', flexDirection: 'column', background: V1.bg }}>
       {/* session header */}
       <div style={{ padding: '14px 24px 10px', borderBottom: `1px solid ${V1.border}`, display: 'flex', alignItems: 'center', gap: 12 }}>
-        <div>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontFamily: 'var(--serif)', fontSize: 17, color: V1.ink, fontWeight: 600, letterSpacing: -0.3 }}>Low-light SNR at G2 channel</div>
           <div style={{ fontSize: 11.5, color: V1.ink3, marginTop: 2, display: 'flex', gap: 8, alignItems: 'center' }}>
             <span>cam-validation-v3</span>
@@ -150,10 +150,15 @@ function V1ChatPane({ width = 'auto' }) {
             <span>3 skills · 2 MCP</span>
           </div>
         </div>
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
-          <button style={iconBtn1}><Icon name="search" size={14}/></button>
-          <button style={iconBtn1}><Icon name="copy" size={14}/></button>
-          <button style={iconBtn1}><Icon name="settings" size={14}/></button>
+
+        {/* toolbar — Claude-style: same chip family for hardware + artifacts.
+            The button surface stays consistent regardless of which panel
+            is currently mounted on the right; aria-pressed flips the state. */}
+        <div style={{ display: 'flex', gap: 4 }}>
+          <V1HeaderToolBtn icon="search" label="검색"/>
+          <V1HeaderToolBtn icon="cam"     label="하드웨어"   active={activeTool === 'hardware'}  onClick={() => onToolToggle && onToolToggle('hardware')}/>
+          <V1HeaderToolBtn icon="layers"  label="아티팩트"   active={activeTool === 'artifact'}  onClick={() => onToolToggle && onToolToggle('artifact')}/>
+          <V1HeaderToolBtn icon="settings" label=""/>
         </div>
       </div>
 
@@ -168,7 +173,7 @@ function V1ChatPane({ width = 'auto' }) {
           <V1Tool name="analysis.bayer_split" args="pattern=RGGB, dark_subtract=true" status="done" duration="0.8s"/>
           <p>통계가 나왔어요. 채널별 평균 / 표준편차입니다:</p>
           <V1Table/>
-          <p>G1과 G2 차이가 <b>1.42 dB</b>로 일관되게 나타납니다. row-noise 패턴이 의심스러운데, 아래 라이브 뷰에서 G2-only 디버그 모드 켜고 같이 보시죠.</p>
+          <p>G1과 G2 차이가 <b>1.42 dB</b>로 일관되게 나타납니다. row-noise 패턴이 의심스러운데, 우측 <button onClick={() => onToolToggle && onToolToggle('hardware')} style={{ border: 0, background: 'transparent', color: V1.rust, fontWeight: 600, cursor: 'pointer', padding: 0, font: 'inherit', textDecoration: 'underline', textUnderlineOffset: 2 }}>하드웨어 패널</button>에서 G2-only 디버그 모드 켜고 같이 보시죠.</p>
         </V1Msg>
         <V1Msg kind="user">
           그래, 디버그 토글 켜줘. 그리고 노출을 50ms로 올리면 어떻게 되는지도 같이 보고싶어.
@@ -196,6 +201,30 @@ function V1ChatPane({ width = 'auto' }) {
         </div>
       </div>
     </section>
+  );
+}
+
+// Header toolbar button — consistent surface; pressable state communicates
+// "this panel is open on the right". Label collapses to icon-only at <= 800px.
+function V1HeaderToolBtn({ icon, label, active, onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      aria-pressed={!!active}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 5,
+        height: 28, padding: label ? '0 10px 0 8px' : '0 6px',
+        border: `1px solid ${active ? V1.borderStrong : 'transparent'}`,
+        background: active ? V1.panel : 'transparent',
+        color: active ? V1.ink : V1.ink2,
+        borderRadius: 7, cursor: 'pointer',
+        fontSize: 11.5, fontWeight: active ? 600 : 500,
+        boxShadow: active ? '0 1px 2px rgba(0,0,0,.04)' : 'none',
+      }}
+    >
+      <Icon name={icon} size={13} color={active ? V1.rust : 'currentColor'}/>
+      {label && <span>{label}</span>}
+    </button>
   );
 }
 
@@ -382,4 +411,4 @@ function V1Metric({ label, value, unit, tone = 'ok' }) {
   );
 }
 
-Object.assign(window, { V1, V1Frame, V1Titlebar, V1Sidebar, V1ChatPane, V1CameraPane });
+Object.assign(window, { V1, V1Frame, V1Titlebar, V1Sidebar, V1ChatPane, V1CameraPane, V1HeaderToolBtn, V1Slider, V1Metric });

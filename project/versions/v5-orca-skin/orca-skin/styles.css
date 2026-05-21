@@ -1,0 +1,237 @@
+/* Orca Skin — Cowork-style desktop app
+   Faithful skin atop the renderer; matches the visual language of the
+   uploaded reference screenshots (Claude Cowork). */
+
+:root {
+  /* Type stacks */
+  --font-serif: "Source Serif 4", "Source Serif Pro", ui-serif, Georgia, serif;
+  --font-sans:  "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI Variable",
+                "Segoe UI", system-ui, sans-serif;
+  --font-mono:  "JetBrains Mono", ui-monospace, "SF Mono", Consolas, Menlo, monospace;
+
+  /* Light tokens */
+  --bg:           #f9f6f0;     /* page / main canvas */
+  --bg-2:         #f3eee4;     /* sidebar */
+  --paper:        #ffffff;
+  --paper-2:      #fbf8f1;
+  --line:         #ebe5d6;
+  --line-strong:  #ddd5be;
+  --line-soft:    #f2ecdd;
+  --hover:        rgba(60, 50, 30, 0.04);
+  --press:        rgba(60, 50, 30, 0.07);
+
+  --ink:          #2d2a22;
+  --ink-2:        #4a4536;
+  --ink-3:        #6b6452;
+  --ink-4:        #9b9485;
+  --ink-5:        #c4bda9;
+
+  /* Brand sparkle / accent (Claude-ish terracotta) */
+  --rust:         #d97757;
+  --rust-soft:    #f4dcc9;
+  --rust-ink:     #b85a39;
+
+  /* Status */
+  --good:         #5a8a4f;
+  --warn:         #c79431;
+  --bad:          #b54a3a;
+  --info:         #3a6db5;
+
+  /* Shadows */
+  --shadow-sm:    0 1px 2px rgba(28, 24, 16, 0.04);
+  --shadow-md:    0 8px 24px rgba(28, 24, 16, 0.08), 0 1px 2px rgba(28, 24, 16, 0.04);
+  --shadow-lg:    0 24px 80px rgba(28, 24, 16, 0.18), 0 8px 24px rgba(28, 24, 16, 0.10);
+
+  /* Layout */
+  --titlebar-h:   44px;
+  --sidebar-w:    248px;
+  --right-pane-w: 320px;
+  --artifact-w:   620px;
+
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-xl: 18px;
+  --r-pill: 999px;
+
+  color-scheme: light;
+}
+
+[data-theme="dark"] {
+  --bg:           #1f1c17;
+  --bg-2:         #1a1813;
+  --paper:        #28241d;
+  --paper-2:      #211e18;
+  --line:         #383225;
+  --line-strong:  #4a4234;
+  --line-soft:    #2c2820;
+  --hover:        rgba(255, 245, 220, 0.04);
+  --press:        rgba(255, 245, 220, 0.07);
+
+  --ink:          #ece6d6;
+  --ink-2:        #d4cdbb;
+  --ink-3:        #a8a190;
+  --ink-4:        #7c7565;
+  --ink-5:        #524d42;
+
+  --rust:         #e08566;
+  --rust-soft:    #4a2d22;
+  --rust-ink:     #f0a385;
+
+  --shadow-sm:    0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md:    0 8px 24px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-lg:    0 24px 80px rgba(0, 0, 0, 0.55), 0 8px 24px rgba(0, 0, 0, 0.35);
+
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+button {
+  font-family: inherit;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+button:focus-visible {
+  outline: 2px solid var(--rust);
+  outline-offset: 2px;
+}
+
+input, textarea {
+  font-family: inherit;
+  color: inherit;
+}
+
+::placeholder { color: var(--ink-4); }
+
+a { color: var(--ink-2); text-decoration: underline; text-decoration-color: var(--ink-5); text-underline-offset: 3px; }
+a:hover { text-decoration-color: var(--ink-3); }
+
+/* Dot-grid background on the main canvas */
+.dot-grid {
+  background-image: radial-gradient(rgba(60,50,30,.18) 1px, transparent 1.2px);
+  background-size: 18px 18px;
+  background-position: 0 0;
+}
+[data-theme="dark"] .dot-grid {
+  background-image: radial-gradient(rgba(255,240,210,.10) 1px, transparent 1.2px);
+}
+
+/* Scrollbars — thin */
+.scroll { overflow: auto; scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+.scroll::-webkit-scrollbar { width: 10px; height: 10px; }
+.scroll::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  background-clip: content-box;
+  border: 3px solid transparent;
+  border-radius: 999px;
+}
+.scroll::-webkit-scrollbar-thumb:hover { background: var(--ink-4); background-clip: content-box; border: 3px solid transparent; }
+
+/* Spinner */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin 1s linear infinite; }
+@keyframes pulseDot { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+.pulse { animation: pulseDot 1.4s ease-in-out infinite; }
+
+/* Kbd */
+.kbd {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  padding: 1px 6px;
+  background: rgba(0,0,0,.06);
+  border-radius: 4px;
+  color: inherit;
+  line-height: 1.4;
+}
+[data-theme="dark"] .kbd { background: rgba(255,255,255,.08); }
+
+/* ---- Modal + utility CSS (moved here so keyframes load before first paint) ---- */
+@keyframes mFade { from { opacity: 0 } to { opacity: 1 } }
+@keyframes mPop  { from { opacity: 0; transform: translateY(6px) scale(.98) } to { opacity: 1; transform: none } }
+
+.row-btn {
+  display: flex; align-items: center; gap: 14px;
+  width: 100%; padding: 14px 16px;
+  background: var(--paper); border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  text-align: left;
+  color: var(--ink);
+  transition: background .12s, border-color .12s;
+}
+.row-btn:hover { background: var(--hover); border-color: var(--line-strong); }
+
+.ghost-btn {
+  padding: 7px 16px; border-radius: 8px;
+  background: var(--paper); border: 1px solid var(--line);
+  color: var(--ink-2); font-weight: 500; font-size: 13px;
+  white-space: nowrap;
+  word-break: keep-all;
+}
+.ghost-btn:hover { background: var(--hover); }
+
+.primary-btn {
+  padding: 7px 18px; border-radius: 8px;
+  background: var(--ink); color: var(--paper);
+  font-weight: 600; font-size: 13px;
+  white-space: nowrap;
+  word-break: keep-all;
+}
+.primary-btn:hover { background: var(--ink-2); }
+.primary-btn:disabled, .primary-btn[aria-disabled="true"] {
+  background: var(--ink-5); cursor: not-allowed;
+}
+
+.field-input {
+  width: 100%; padding: 9px 12px;
+  background: var(--paper); border: 1.5px solid var(--line);
+  border-radius: var(--r-md);
+  font-size: 13.5px; color: var(--ink);
+}
+.field-input:focus { outline: none; border-color: var(--ink-4); }
+.field-input.focused { border-color: var(--rust); }
+.field-textarea { min-height: 86px; resize: vertical; }
+.field-label { font-size: 13px; font-weight: 600; color: var(--ink); margin-bottom: 6px; display: flex; align-items: center; gap: 4px; }
+.field-label .req { color: var(--rust); }
+
+.suggest-row { background: transparent; transition: background .12s; }
+.suggest-row:hover { background: var(--hover); }
+
+.tb-icon-btn:hover { background: var(--hover); }
+.winctrl {
+  width: 46px; height: var(--titlebar-h);
+  display: grid; place-items: center;
+  color: var(--ink-2);
+  transition: background .12s;
+}
+.winctrl:hover { background: var(--hover); }
+.winctrl.close:hover { background: #e44a3a; color: #fff; }
+.winctrl:focus-visible { outline: none; background: var(--hover); }
+
+.sb-nav-btn:hover { background: var(--hover); }
+
+.cm-btn {
+  width: 30px; height: 30px; border-radius: 6px;
+  display: grid; place-items: center;
+  color: var(--ink-3);
+}
+.cm-btn:hover { background: var(--hover); color: var(--ink); }
+
+.pill-btn:hover { background: rgba(0,0,0,.06); color: var(--ink); }
+[data-theme="dark"] .pill-btn:hover { background: rgba(255,255,255,.08); }
+

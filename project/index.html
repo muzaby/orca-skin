@@ -2,145 +2,256 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8"/>
-<title>Orca — Windows Desktop App Design</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,500;8..60,600;8..60,700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles/tokens.css"/>
+<title>Orca · Version Index</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,500;0,8..60,600;0,8..60,700;1,8..60,400;1,8..60,500;1,8..60,600&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
 <style>
-  html, body { margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+  :root {
+    --serif: 'Source Serif 4', Georgia, serif;
+    --sans: 'Inter', -apple-system, system-ui, sans-serif;
+    --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+    --bg: #faf7f0;
+    --paper: #ffffff;
+    --ink: #1c1a14;
+    --ink-2: #4b463b;
+    --ink-3: #857c64;
+    --ink-4: #b8af98;
+    --line: #ebe4d2;
+    --rust: #c96442;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; min-height: 100%; }
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+    padding: 80px 32px 100px;
+  }
+  a { color: inherit; text-decoration: none; }
+
+  .container { max-width: 1080px; margin: 0 auto; }
+
+  .header { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; margin-bottom: 56px; }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .brand .mark {
+    width: 38px; height: 38px; border-radius: 8px;
+    background: var(--rust); color: #fff;
+    display: grid; place-items: center;
+    font-family: var(--serif); font-weight: 700; font-size: 20px;
+  }
+  .brand h1 {
+    margin: 0; font-family: var(--serif); font-weight: 600;
+    font-size: 30px; letter-spacing: -0.4px;
+    font-style: italic;
+  }
+  .brand .sub { margin-top: 2px; font-size: 13px; color: var(--ink-3); }
+  .meta { font-family: var(--mono); font-size: 11px; color: var(--ink-3); letter-spacing: 0.3px; }
+
+  .lede {
+    max-width: 640px;
+    font-family: var(--serif); font-size: 18px; line-height: 1.55; color: var(--ink-2);
+    margin: 0 0 48px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 20px;
+  }
+
+  .card {
+    display: flex; flex-direction: column;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 22px 22px 18px;
+    transition: border-color .15s, transform .15s, box-shadow .15s;
+    position: relative;
+    overflow: hidden;
+    min-height: 280px;
+  }
+  .card:hover {
+    border-color: var(--ink-4);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,.06);
+  }
+  .card .tag {
+    font-family: var(--mono); font-size: 10.5px; color: var(--ink-3);
+    letter-spacing: .8px; text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+  .card .latest {
+    position: absolute; top: 16px; right: 16px;
+    font-family: var(--mono); font-size: 10px;
+    padding: 3px 8px; border-radius: 999px;
+    background: var(--rust); color: #fff;
+    letter-spacing: .5px;
+  }
+  .card h2 {
+    margin: 0 0 8px;
+    font-family: var(--serif); font-style: italic; font-weight: 600;
+    font-size: 22px; letter-spacing: -0.3px;
+    color: var(--ink);
+  }
+  .card .desc {
+    font-size: 13.5px; line-height: 1.6;
+    color: var(--ink-2);
+    margin: 0 0 14px;
+  }
+  .card .features {
+    margin: 0 0 18px; padding: 0;
+    list-style: none;
+    display: flex; flex-direction: column; gap: 5px;
+  }
+  .card .features li {
+    font-size: 12.5px; color: var(--ink-3);
+    padding-left: 14px; position: relative;
+  }
+  .card .features li::before {
+    content: ''; position: absolute; left: 0; top: 8px;
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--ink-4);
+  }
+  .card .open {
+    margin-top: auto;
+    display: inline-flex; align-items: center; gap: 7px;
+    font-family: var(--mono); font-size: 12px;
+    color: var(--ink-2); font-weight: 500;
+    border-top: 1px solid var(--line);
+    padding-top: 12px;
+  }
+  .card .open .arrow { transition: transform .15s; }
+  .card:hover .open .arrow { transform: translateX(3px); color: var(--rust); }
+
+  .swatches {
+    position: absolute;
+    top: 18px; right: 18px;
+    display: flex; gap: 4px;
+  }
+  .swatches.has-latest { right: auto; left: 18px; top: 18px; }
+  .swatches span {
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 1px solid rgba(0,0,0,.06);
+  }
+
+  .footer {
+    margin-top: 64px;
+    padding-top: 22px;
+    border-top: 1px solid var(--line);
+    display: flex; justify-content: space-between;
+    font-family: var(--mono); font-size: 11px;
+    color: var(--ink-3); letter-spacing: .3px;
+  }
 </style>
 </head>
 <body>
-<div id="root"></div>
 
-<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<div class="container">
+  <div class="header">
+    <div>
+      <div class="brand">
+        <div class="mark">O</div>
+        <div>
+          <h1>Orca · 데스크톱 디자인 아카이브</h1>
+          <div class="sub">데스크톱 클라이언트의 디자인 진화를 다섯 단계로 정리한 작업 모음.</div>
+        </div>
+      </div>
+    </div>
+    <div class="meta">5 versions · 2026-05-17</div>
+  </div>
 
-<script type="text/babel" src="design-canvas.jsx"></script>
-<script type="text/babel" src="tweaks-panel.jsx"></script>
-<script type="text/babel" src="shared/atoms.jsx"></script>
-<script type="text/babel" src="variations/v1-shell.jsx"></script>
-<script type="text/babel" src="variations/v1-screens.jsx"></script>
-<script type="text/babel">
-const W = 1280, H = 820;
+  <p class="lede">
+    초기 Electron 윈도우 목업부터 Cowork 패턴, 그리고 현재의 Orca Skin까지.
+    각 버전은 독립적으로 호스팅 가능한 폴더이며, 카드를 눌러 곧바로 열어볼 수 있습니다.
+  </p>
 
-const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
-  "dark": false,
-  "fontScale": 0.85,
-  "sidebarCollapsed": false,
-  "accent": "#b85a6e"
-}/*EDITMODE-END*/;
+  <div class="grid">
 
-function App() {
-  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
-  React.useEffect(() => {
-    const r = document.documentElement;
-    r.style.setProperty('--rust', t.accent);
-    r.style.fontSize = (t.fontScale * 16) + 'px';
-    if (t.dark) {
-      r.style.setProperty('--cream-0', '#1c1a16');
-      r.style.setProperty('--cream-50', '#231f1a');
-      r.style.setProperty('--cream-100', '#2a2620');
-      r.style.setProperty('--paper', '#231f1a');
-      r.style.setProperty('--ink-900', '#f0eadd');
-      r.style.setProperty('--ink-700', '#d6c9aa');
-      r.style.setProperty('--ink-500', '#a8a092');
-      r.style.setProperty('--ink-400', '#857c64');
-      r.style.setProperty('--ink-300', '#6b6452');
-      r.style.setProperty('--line', '#3a342a');
-      r.style.setProperty('--line-strong', '#4a4234');
-    } else {
-      r.style.removeProperty('--cream-0');
-      r.style.removeProperty('--cream-50');
-      r.style.removeProperty('--cream-100');
-      r.style.removeProperty('--paper');
-      r.style.removeProperty('--ink-900');
-      r.style.removeProperty('--ink-700');
-      r.style.removeProperty('--ink-500');
-      r.style.removeProperty('--ink-400');
-      r.style.removeProperty('--ink-300');
-      r.style.removeProperty('--line');
-      r.style.removeProperty('--line-strong');
-    }
-  }, [t.dark, t.fontScale, t.accent]);
+    <a class="card" href="versions/v1-electron/index.html">
+      <div class="tag">v1 · electron mockup</div>
+      <h2>Classic desktop</h2>
+      <p class="desc">
+        Windows 11 데스크톱과 작업 표시줄이 그대로 보이는 BrowserWindow 목업.
+        프로젝트 · 엔진 · Skills/MCP · 캡처 히스토리 등 다섯 화면을 탭으로 전환합니다.
+      </p>
+      <ul class="features">
+        <li>Electron BrowserWindow 위에 얹은 풀 데스크톱 환경</li>
+        <li>1280×820 고정 캔버스, 뷰포트에 따라 자동 스케일</li>
+        <li>듀얼 페인 채팅 + 카메라 패널</li>
+      </ul>
+      <span class="open">바로 열기 <span class="arrow">→</span></span>
+    </a>
 
-  return (
-    <>
-    <DesignCanvas>
-      <DCSection id="v1" title="Orca — 검증 엔지니어 데스크톱 앱" subtitle="A · Claude Desktop classic — 따뜻한 베이지, 세리프 헤더">
-        <DCArtboard id="v1-main" label="메인 — 채팅 + 하드웨어 (이중창)" width={W} height={H}>
-          <V1Frame label="01 V1 메인">
-            <V1Titlebar/>
-            <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
-              <V1Sidebar active="chat" collapsed={t.sidebarCollapsed}/>
-              <V1ChatPane/>
-              <V1CameraPane/>
-            </div>
-          </V1Frame>
-        </DCArtboard>
+    <a class="card" href="versions/v2-engineering/index.html">
+      <div class="tag">v2 · engineering dense</div>
+      <h2>Dense data shell</h2>
+      <p class="desc">
+        모노스페이스 도구 블록과 격자형 표를 강조한 엔지니어링 친화적 셸.
+        같은 화면에 더 많은 컨텍스트가 들어오도록 정보 밀도를 끌어올렸습니다.
+      </p>
+      <ul class="features">
+        <li>3-컬럼: 사이드바 / 채팅 / 카메라</li>
+        <li>모노스페이스 라벨, 톤다운된 격자 라인</li>
+        <li>SNR/DR 분석 테이블, 도구 호출 추적</li>
+      </ul>
+      <span class="open">바로 열기 <span class="arrow">→</span></span>
+    </a>
 
-        <DCArtboard id="v1-projects" label="프로젝트 대시보드" width={W} height={H}>
-          <V1Frame label="02 V1 프로젝트">
-            <V1Titlebar breadcrumb="프로젝트"/>
-            <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
-              <V1Sidebar active="projects" collapsed={t.sidebarCollapsed}/>
-              <V1Projects/>
-            </div>
-          </V1Frame>
-        </DCArtboard>
+    <a class="card" href="versions/v3-modern/index.html">
+      <div class="tag">v3 · modern hybrid</div>
+      <h2>Quiet hybrid</h2>
+      <p class="desc">
+        Linear · Vercel 류의 절제된 시각 언어와 따뜻한 팔레트를 결합.
+        얇은 아이콘 레일 + 컨텍스트 패널 + 채팅 + 카메라의 네 영역 구조.
+      </p>
+      <ul class="features">
+        <li>다크 아이콘 레일 · 라이트 컨텍스트 패널</li>
+        <li>여백 위주의 카드 · pill 칩 시스템</li>
+        <li>커맨드 바, 도구 듀레이션 추적</li>
+      </ul>
+      <span class="open">바로 열기 <span class="arrow">→</span></span>
+    </a>
 
-        <DCArtboard id="v1-engine" label="엔진 & 모델 설정" width={W} height={H}>
-          <V1Frame label="03 V1 엔진">
-            <V1Titlebar breadcrumb="설정 › 엔진 & 모델"/>
-            <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
-              <V1Sidebar active="engine" collapsed={t.sidebarCollapsed}/>
-              <V1EngineSettings/>
-            </div>
-          </V1Frame>
-        </DCArtboard>
+    <a class="card" href="versions/v4-cowork/index.html">
+      <div class="tag">v4 · cowork pattern</div>
+      <h2>Cowork early scaffold</h2>
+      <p class="desc">
+        Claude Cowork 레퍼런스를 모사한 첫 빌드. 도트 그리드 캔버스 위에
+        제안 카드 · 프로젝트 드롭다운 · 4단계 새 프로젝트 모달을 갖춥니다.
+      </p>
+      <ul class="features">
+        <li>홈(SCR-01) + 드롭다운 + 모달 4종</li>
+        <li>프레임리스 타이틀바, 둥근 모서리 사이드바</li>
+        <li>일본어 · 한국어 카피 시스템</li>
+      </ul>
+      <span class="open">바로 열기 <span class="arrow">→</span></span>
+    </a>
 
-        <DCArtboard id="v1-skills" label="Skills & MCP" width={W} height={H}>
-          <V1Frame label="04 V1 Skills/MCP">
-            <V1Titlebar breadcrumb="Skills & MCP"/>
-            <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
-              <V1Sidebar active="skills" collapsed={t.sidebarCollapsed}/>
-              <V1SkillsMcp/>
-            </div>
-          </V1Frame>
-        </DCArtboard>
+    <a class="card" href="versions/v5-orca-skin/index.html">
+      <span class="latest">LATEST</span>
+      <div class="tag">v5 · orca skin</div>
+      <h2>Orca Skin — 19 screens</h2>
+      <p class="desc">
+        현재 작업 중인 버전. Cowork 레퍼런스를 충실히 재현하고
+        스케쥴 · 설정 메뉴까지 펼친 가장 완성된 빌드입니다.
+      </p>
+      <ul class="features">
+        <li>홈/모달/태스크/스케쥴/설정 19개 화면</li>
+        <li>다크 모드 · 폴더 드롭다운 · 아티팩트 패널</li>
+        <li>계정 메뉴 · 언어 서브메뉴 · 풀 설정 페이지</li>
+      </ul>
+      <span class="open">바로 열기 <span class="arrow">→</span></span>
+    </a>
 
-        <DCArtboard id="v1-captures" label="캡처 히스토리 & AI 분석" width={W} height={H}>
-          <V1Frame label="05 V1 캡처">
-            <V1Titlebar breadcrumb="캡처 & 분석"/>
-            <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
-              <V1Sidebar active="capture" collapsed/>
-              <V1Captures/>
-            </div>
-          </V1Frame>
-        </DCArtboard>
-      </DCSection>
+  </div>
 
-    </DesignCanvas>
-    <TweaksPanel>
-      <TweakSection label="테마"/>
-      <TweakToggle label="다크 모드" value={t.dark} onChange={(v) => setTweak('dark', v)}/>
-      <TweakColor label="액센트" value={t.accent}
-        options={['#c96442','#3a7872','#7a5ad9','#1c1a14','#b85a6e']}
-        onChange={(v) => setTweak('accent', v)}/>
-      <TweakSection label="레이아웃"/>
-      <TweakSlider label="글자 크기" value={t.fontScale} min={0.85} max={1.2} step={0.05} unit="×"
-        onChange={(v) => setTweak('fontScale', v)}/>
-      <TweakToggle label="사이드바 접기" value={t.sidebarCollapsed}
-        onChange={(v) => setTweak('sidebarCollapsed', v)}/>
-    </TweaksPanel>
-    </>
-  );
-}
+  <div class="footer">
+    <span>orca-skin · 데스크톱 디자인 아카이브</span>
+    <span>각 폴더 = 호스트 단위</span>
+  </div>
+</div>
 
-ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
-</script>
 </body>
 </html>
