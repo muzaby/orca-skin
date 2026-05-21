@@ -20,6 +20,9 @@ export class DbQueries {
   private readonly updateToolCallResultStmt: Database.Statement
   private readonly updateSessionPreviewStmt: Database.Statement
   private readonly updateSessionTitleStmt: Database.Statement
+  // 사용자가 명시적으로 rename — 기존 title 이 있어도 덮어쓴다.
+  // updateSessionTitleStmt 는 첫 init 시점 채우기 용도 (WHERE title IS NULL).
+  private readonly renameSessionStmt: Database.Statement
   private readonly deleteSessionStmt: Database.Statement
 
   constructor(db: Database.Database) {
@@ -77,6 +80,9 @@ export class DbQueries {
     this.updateSessionTitleStmt = db.prepare(`
       UPDATE sessions SET title = @title WHERE id = @id AND title IS NULL
     `)
+    this.renameSessionStmt = db.prepare(`
+      UPDATE sessions SET title = @title, updated_at = @updatedAt WHERE id = @id
+    `)
     this.deleteSessionStmt = db.prepare(`DELETE FROM sessions WHERE id = @id`)
   }
 
@@ -120,6 +126,10 @@ export class DbQueries {
 
   updateSessionTitle(id: string, title: string): void {
     this.updateSessionTitleStmt.run({ id, title })
+  }
+
+  renameSession(id: string, title: string, updatedAt: number): void {
+    this.renameSessionStmt.run({ id, title, updatedAt })
   }
 
   deleteSession(id: string): void {

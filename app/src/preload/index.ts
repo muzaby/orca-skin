@@ -57,7 +57,9 @@ const orca = {
     load: (sessionId: string): Promise<LoadedSession | null> =>
       ipcRenderer.invoke(CHANNELS.sessionLoad, { sessionId }),
     delete: (sessionId: string): Promise<void> =>
-      ipcRenderer.invoke(CHANNELS.sessionDelete, { sessionId })
+      ipcRenderer.invoke(CHANNELS.sessionDelete, { sessionId }),
+    rename: (sessionId: string, title: string): Promise<void> =>
+      ipcRenderer.invoke(CHANNELS.sessionRename, { sessionId, title })
   }
 }
 

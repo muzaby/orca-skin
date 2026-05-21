@@ -369,7 +369,12 @@ export function ChatPane({ chat, backendLabel }: ChatPaneProps): React.JSX.Eleme
   }
 
   const isEmpty = state.messages.length === 0 && state.pendingDelta === '' && !state.loadingSession
-  const title = state.messages.find((m) => m.role === 'user')?.content.slice(0, 60) ?? '새 대화'
+  // 사이드바 메타 (state.title) 가 즉시 채워지므로 사용자가 세션을 선택한 순간부터
+  // 헤더에 정확한 제목 표시. 메타가 없는 부팅 자동 복원 1회만 첫 user 메시지에서 fallback.
+  const title =
+    state.title?.trim() ||
+    state.messages.find((m) => m.role === 'user')?.content.slice(0, 60) ||
+    '새 대화'
 
   const showPendingAssistant = state.inflight
 

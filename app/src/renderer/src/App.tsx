@@ -91,12 +91,23 @@ function App(): React.JSX.Element {
               activeSessionId={chat.state.sessionId}
               onSelectSession={(id) => {
                 setScreen('chat')
-                void chat.loadSession(id)
+                // 사이드바 메타에서 즉시 표시할 제목을 함께 전달 — 메시지 도착 전에도
+                // 헤더 / 사이드바 라벨이 일치하도록.
+                const meta = sessions.list.find((s) => s.id === id)
+                const metaTitle = meta?.title?.trim() || meta?.preview?.trim() || null
+                void chat.loadSession(id, metaTitle)
               }}
               onDeleteSession={(id) => {
+                chat.invalidateSessionCache(id)
                 void sessions.remove(id).then(() => {
                   if (chat.state.sessionId === id) chat.newChat()
                 })
+              }}
+              onRenameSession={(id, title) => {
+                // reducer state.title 즉시 갱신 + DB flush + 사이드바 refresh 를
+                // useChat / useSessions 가 각자 처리.
+                void chat.renameSession(id, title)
+                void sessions.rename(id, title)
               }}
             />
             {body}

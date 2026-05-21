@@ -6,6 +6,7 @@ export interface UseSessions {
   loading: boolean
   refresh: () => Promise<void>
   remove: (sessionId: string) => Promise<void>
+  rename: (sessionId: string, title: string) => Promise<void>
 }
 
 // 사이드바 "최근 대화" 목록을 위한 hook. 부팅 시 1회 조회하고, 새 메시지 / 새 대화
@@ -46,5 +47,13 @@ export function useSessions(): UseSessions {
     [refresh]
   )
 
-  return { list, loading, refresh, remove }
+  const rename = useCallback(
+    async (sessionId: string, title: string) => {
+      await window.orca.session.rename(sessionId, title)
+      await refresh()
+    },
+    [refresh]
+  )
+
+  return { list, loading, refresh, remove, rename }
 }

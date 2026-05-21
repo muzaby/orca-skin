@@ -34,6 +34,8 @@ export type IconName =
   | 'doc'
   | 'trash'
   | 'layers'
+  | 'kebab'
+  | 'edit'
 
 const ICONS: Record<IconName, string> = {
   chat: 'M3 4h10a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-3 2.5V12H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z',
@@ -69,7 +71,11 @@ const ICONS: Record<IconName, string> = {
   mic: 'M8 2a2 2 0 0 0-2 2v4a2 2 0 0 0 4 0V4a2 2 0 0 0-2-2zM4 8a4 4 0 0 0 8 0M8 12v2',
   doc: 'M4 2h6l3 3v9H4V2zM10 2v3h3',
   trash: 'M3 4h10M5 4V2.5h6V4M6 7v5M10 7v5M4 4l1 10h6l1-10',
-  layers: 'M8 2L1 6l7 4 7-4-7-4zM2 9l6 3.5L14 9M2 12l6 3.5L14 12'
+  layers: 'M8 2L1 6l7 4 7-4-7-4zM2 9l6 3.5L14 9M2 12l6 3.5L14 12',
+  // kebab — 세로 3 dots. circle 대신 stroke 가 그리는 짧은 수직 선분으로 표현
+  // (현 Icon 은 stroke 기반이라 dot fill 이 까다로움). 시각적으로 dot 처럼 보이도록 strokeLinecap=round 활용.
+  kebab: 'M8 4v.01M8 8v.01M8 12v.01',
+  edit: 'M11 2l3 3-7.5 7.5-3.5.5.5-3.5L11 2z'
 }
 
 export interface IconProps {

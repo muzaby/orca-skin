@@ -7,6 +7,7 @@ import {
   ListFilesRequestSchema,
   LoadSessionRequestSchema,
   DeleteSessionRequestSchema,
+  RenameSessionRequestSchema,
   type BackendListResult,
   type ChatEvent,
   type FileEntry,
@@ -72,6 +73,7 @@ export class IpcRouter {
     ipcMain.handle(CHANNELS.sessionList, this.handleSessionList)
     ipcMain.handle(CHANNELS.sessionLoad, this.handleSessionLoad)
     ipcMain.handle(CHANNELS.sessionDelete, this.handleSessionDelete)
+    ipcMain.handle(CHANNELS.sessionRename, this.handleSessionRename)
   }
 
   private sendChatEvent(wc: WebContents, ev: ChatEvent): void {
@@ -355,6 +357,12 @@ export class IpcRouter {
     if (current.lastSessionId === parsed.data.sessionId) {
       this.settings.patch({ lastSessionId: null })
     }
+  }
+
+  private handleSessionRename = async (_event: IpcMainInvokeEvent, raw: unknown): Promise<void> => {
+    const parsed = RenameSessionRequestSchema.safeParse(raw)
+    if (!parsed.success) return
+    this.db.renameSession(parsed.data.sessionId, parsed.data.title, Date.now())
   }
 }
 
