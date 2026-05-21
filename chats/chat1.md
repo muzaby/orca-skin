@@ -301,3 +301,117 @@ _[tool: snip]_
 
 Add tweakable controls to electron/index.html: study this design and add a tweaks panel with two or three expressive controls that reshape the feel, not single-property pixel-pushing
 
+## User
+
+요구사항을 더 추가하겠다.
+1. 채팅화면을 클로드 코워크 스타일로 디벨롭하라. (하드웨어 제어와 코워크의 기능들을 어떻게 배치할지 제안하라)
+2. Setting 창도 목업을 추가해달라. (Llm모델 url, llm  api 키입렫 페이지도 목업 포함)
+3. Voc 입력을 받는 버튼 혹은 적절한 uiux를 제안하라
+
+## Assistant
+
+_[tool: snip]_
+
+_[tool: update_todos]_
+
+_[tool: read_file]_
+
+_[tool: write_file]_
+
+_[tool: write_file]_
+
+_[tool: write_file]_
+
+_[tool: str_replace_edit]_
+
+_[tool: str_replace_edit]_
+
+_[tool: grep]_
+
+_[tool: read_file]_
+
+_[tool: done]_
+
+_[tool: fork_verifier_agent]_
+
+`electron/index.html` 작업 끝났습니다. 추가된 것:
+
+**1. 채팅 → 코워크 스타일**
+- 좌측 채팅, 우측 작업공간(아티팩트 탭: 라이브 뷰 · 캡처 #0248 · `low-light-snr.md` · `snr-by-channel.svg` · `bayer-split.py`)
+- 메시지 안에 `[캡처 #0248]` 같은 인라인 아티팩트 칩 — 클릭하면 우측 작업공간이 그 아티팩트로 포커스
+- 우측 하단 **하드웨어 도크**(persistent): 연결 상태 · EXP / GAIN / FPS / 온도 항상 노출, 캡처/시퀀스 버튼이 붙어있음
+- 세부 슬라이더는 "라이브 뷰" 탭 안에 (튜닝할 때만 펼침)
+
+**2. 설정 화면 추가** (06 탭)
+- 사이드바 네비: 일반 · 외관 · 단축키 · **엔진 & 모델** · Skills/MCP · 시스템 프롬프트 · 카메라 보드 · 캡처 · 개인정보 · 업데이트 · 정보
+- 엔진 & 모델 → "+ 엔진 추가" 다이얼로그가 LLM **Base URL + API 키** 입력 페이지 — DPAPI 마스킹, 보기/숨기기 토글, 연결 테스트 버튼 포함
+- Claude Code / OpenCode / OpenAI-호환 / 로컬 4가지 유형별로 폼이 달라집니다
+
+**3. VOC 입력**
+- 타이틀바 우측에 작은 "🎤 피드백" 버튼 (단축키 Ctrl+/)
+- 누르면 우측에서 슬라이드-인 패널 — 만족도 · 카테고리(UI/AI응답/하드웨어/Skill/캡처/그외) · 본문 · 첨부(현재 화면, 마지막 대화, 캡처 메타, 진단정보) · 익명 토글 · 사내 JIRA로 전송
+- 대안 진입점: 정보 페이지 "피드백 보내기", 도구 호출 실패 시 "이 결과 신고", 시스템 트레이 메뉴
+
+**4. Tweaks (3개의 표현력 있는 컨트롤)**
+- **작업공간**: 나란히 / 서랍 / 위·아래 — 코워크 레이아웃 자체를 바꿈
+- **Vibe**: 스튜디오 / 랩 / 터미널 — 종이 톤·라인 강도까지 바뀌는 분위기 전환
+- **하드웨어 도크**: 바 / 플로팅 / 접힘 — 도크의 형태와 위치를 바꿈
+
+## User
+
+모두 마음에 들지 않는다. 작업 전 상태로 돌아가라
+1. 우측 하드웨어 제어 판넬을 다음과 같이 수정할것 - 상단 버튼을 노출시키고(uiux가 일관성이 있어야 함) 클릭시 우측 side panel이 열리는 ui 로 구현항 것(react component), 클로드의 구현과 흡사하게 할 것
+2. 평소의 우측 side panel은 claude cowork의 레이아웃 및 두현을 따를 것
+
+## Assistant
+
+_[tool: delete_file]_
+
+_[tool: snip]_
+
+_[tool: update_todos]_
+
+_[tool: str_replace_edit]_
+
+_[tool: read_file]_
+
+_[tool: read_file]_
+
+_[tool: read_file]_
+
+_[tool: str_replace_edit]_
+
+_[tool: str_replace_edit]_
+
+_[tool: write_file]_
+
+_[tool: write_file]_
+
+_[tool: update_todos]_
+
+_[tool: done]_
+
+_[tool: fork_verifier_agent]_
+
+작업 전 상태로 되돌리고, 새 구조로 다시 세웠습니다.
+
+**채팅 헤더 (Claude 스타일 일관 UI)**
+- 우측에 같은 family의 chip 버튼 4개: 🔍 검색 · 📷 **하드웨어** · ◐ **아티팩트** · ⚙
+- 활성 상태일 때 패널이 떠 있다는 걸 누른 상태(border + 살짝 어두운 배경 + 액센트 아이콘)로 표시 — Claude의 artifact 토글 동작과 동일
+
+**우측 사이드 패널 (`V1SidePanel`)**
+- 폭·chrome은 두 모드에서 동일, 내용만 바뀝니다
+- 기본 모드 = **아티팩트 (Claude cowork)**: 탭 스트립(캡처 #0248 · low-light-snr.md · snr-by-channel.svg · bayer-split.py) + 작성 중 표시 + 액션 버튼
+- **하드웨어**: 라이브 뷰 + 채널 토글 + 노출/게인 슬라이더 + 메트릭 + 캡처/시퀀스 버튼 (sticky bottom)
+- 패널 헤더에 인라인 모드 토글 + ⨯ 닫기, 단축키 `⌘\` 토글 / `Esc` 닫기
+
+`variations/v1-sidepanel.jsx` 하나로 분리돼있고 `V1ChatPane`이 toolbar prop만 받도록 깔끔히 정리했어요.
+
+## User
+
+orca 디자인을 다음 첨부를 기반하여 구현해라
+
+## User
+
+Continue
+
