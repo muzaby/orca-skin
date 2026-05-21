@@ -1,4 +1,4 @@
-import type { ChatEvent, ErrorCode } from '../../../shared/ipc'
+import type { ChatEvent, ErrorCode, LoadedSession } from '../../../shared/ipc'
 
 export interface ToolCall {
   toolUseId: string
@@ -16,12 +16,18 @@ export interface Message {
 
 export interface ChatState {
   sessionId: string | null
+  // 사이드바 메타 (또는 LoadedSession.title) 에서 즉시 채워지는 세션 제목. 사용자가
+  // 세션을 클릭한 순간부터 헤더에 표시되며, 메시지 도착 시점에 한 번 더 reconcile.
+  title: string | null
   // 어댑터가 발급한 세션의 working directory (`init` 이벤트). Composer 의 `@`
   // 파일 자동완성이 이 경로 기준으로 디렉토리를 리스팅한다.
   cwd: string | null
   messages: Message[]
   pendingDelta: string
   inflight: boolean
+  // 사이드바 세션 클릭 또는 부팅 시 lastSessionId 자동 복원으로 메시지를 비동기 로드하는
+  // 동안 true. ChatPane 이 인디케이터를 표시한다.
+  loadingSession: boolean
   turnStartedAt: number | null
   pendingInputTokens?: number
   error?: { code: ErrorCode; message: string; recoverable: boolean }
@@ -29,11 +35,19 @@ export interface ChatState {
 
 export const initialChatState: ChatState = {
   sessionId: null,
+  title: null,
   cwd: null,
   messages: [],
   pendingDelta: '',
   inflight: false,
+  loadingSession: false,
   turnStartedAt: null
+}
+
+// 메모리 캐시에 저장하는 한 세션의 snapshot. useChat 의 cacheRef 가 다룬다.
+export interface CachedSession {
+  title: string | null
+  messages: Message[]
 }
 
 export type ChatAction =
@@ -42,8 +56,12 @@ export type ChatAction =
   | { type: 'NEW_CHAT' }
   | { type: 'CANCEL_CHAT' }
   | { type: 'CLEAR_ERROR' }
-  | { type: 'RESTORE_SESSION'; sessionId: string }
   | { type: 'SET_CWD'; cwd: string }
+  | { type: 'START_LOAD_SESSION'; sessionId: string; title: string | null }
+  | { type: 'LOAD_SESSION'; session: LoadedSession }
+  | { type: 'LOAD_SESSION_FROM_CACHE'; sessionId: string; cached: CachedSession }
+  | { type: 'LOAD_SESSION_ERROR' }
+  | { type: 'RENAME_SESSION'; sessionId: string; title: string }
 
 function upsertToolCall(messages: Message[], tc: ToolCall): Message[] {
   // 마지막 assistant 메시지에 부착. 없으면 새로 만든다.
@@ -196,10 +214,65 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'CLEAR_ERROR':
       return { ...state, error: undefined }
 
-    // 앱 부트 시 영속화된 lastSessionId 를 주입. 메시지 히스토리는 비어 있는 채로
-    // 다음 사용자 턴이 SDK 에 sessionId 를 전달하면 어댑터가 resume 한다.
-    case 'RESTORE_SESSION':
-      if (state.sessionId || state.messages.length > 0) return state
-      return { ...state, sessionId: action.sessionId }
+    // 사이드바 클릭 또는 부팅 시 자동 복원으로 비동기 load 가 시작된 시점. sessionId
+    // 와 title 을 낙관적으로 세팅해 사이드바 selected 강조 + 헤더 제목을 메시지 도착
+    // 전에도 즉시 표시한다. title 이 null 인 경우는 부팅 자동 복원 (사이드바 메타가
+    // 아직 도착 안 한 시점) 뿐 — IPC 응답의 LoadedSession.title 로 reconcile.
+    case 'START_LOAD_SESSION':
+      return {
+        ...initialChatState,
+        cwd: state.cwd,
+        sessionId: action.sessionId,
+        title: action.title,
+        loadingSession: true
+      }
+
+    // 사이드바에서 과거 대화를 선택했을 때 IPC 응답 (LoadedSession) 으로 state 를 통째로 교체.
+    // cwd 는 main 의 단일 default 가 진실이므로 보존한다.
+    case 'LOAD_SESSION': {
+      const messages: Message[] = action.session.messages.map((m) => ({
+        role: m.role,
+        content: m.content,
+        createdAt: m.createdAt,
+        ...(m.toolCalls && m.toolCalls.length > 0
+          ? {
+              toolCalls: m.toolCalls.map((tc) => ({
+                toolUseId: tc.toolUseId,
+                name: tc.name,
+                input: tc.input,
+                ...(tc.result ? { result: tc.result } : {})
+              }))
+            }
+          : {})
+      }))
+      return {
+        ...initialChatState,
+        cwd: state.cwd,
+        sessionId: action.session.id,
+        title: action.session.title,
+        messages
+      }
+    }
+
+    // 메모리 캐시 hit — IPC 없이 즉시 교체. loadingSession 도 즉시 false.
+    case 'LOAD_SESSION_FROM_CACHE':
+      return {
+        ...initialChatState,
+        cwd: state.cwd,
+        sessionId: action.sessionId,
+        title: action.cached.title,
+        messages: action.cached.messages
+      }
+
+    // DB 에 row 가 없거나 IPC 실패. 빈 ChatPane 으로 fallback — lastSessionId 같은
+    // 영속값은 호출 측에서 정리한다.
+    case 'LOAD_SESSION_ERROR':
+      return { ...initialChatState, cwd: state.cwd }
+
+    // 활성 세션의 제목이 변경된 경우에만 reducer state 갱신. 다른 세션의 rename
+    // 은 useChat 의 cacheRef 가 처리하므로 reducer 무관 (no-op).
+    case 'RENAME_SESSION':
+      if (state.sessionId !== action.sessionId) return state
+      return { ...state, title: action.title }
   }
 }

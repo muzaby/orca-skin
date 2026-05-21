@@ -1,8 +1,8 @@
 # app/ — 코딩 에이전트용 가이드
 
-이 디렉토리는 **Orca v1 의 실제 구현체**가 사는 곳이다. 현재는 **Phase 1 (시각 재현 + Tailwind 마이그레이션 완료)** 상태로, `project/electron/index.html` mockup 의 5개 화면 중 4개를 렌더러에 인테그레이션했고 (캡처 화면은 placeholder), 스타일은 Tailwind CSS v4 로 일괄 마이그레이션되었다. 본 구현은 `docs/TRD.md` 의 사양을 따른다.
+이 디렉토리는 **Orca v1 의 실제 구현체**가 사는 곳이다. 현재는 **Phase 3 (로컬 SQLite SSOT + 사이드바 세션 히스토리)** 상태로, claude-code 어댑터 + 채팅 IPC + Composer 스킬 UX 위에 `better-sqlite3` 기반 로컬 DB 영속화와 사이드바 세션 관리 (kebab 메뉴 · 이름 변경 · 삭제 · 메모리 캐시) 가 추가되었다. 본 구현은 `docs/TRD.md` 의 사양을 따른다.
 
-## 현재 상태 (Phase 1 — 시각 재현 + Tailwind)
+## 현재 상태 (Phase 3 — 로컬 DB + 세션 히스토리)
 
 | 영역                              | 상태                                                                                                                                                                                       |
 | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -13,10 +13,11 @@
 | TypeScript                        | 5.x (strict, target ES2022)                                                                                                                                                                |
 | 스타일링                          | **Tailwind CSS v4** (`@tailwindcss/vite` 플러그인, CSS-first `@theme` 설정)                                                                                                                |
 | 메인 (`src/main/index.ts`)        | IpcRouter 부트 + `createWindow`. `contextIsolation: true` / `nodeIntegration: false` / `sandbox: true` 명시                                                                                |
-| 렌더러 (`src/renderer/src/`)      | **Phase 1 시각 재현 + Phase 2 채팅 IPC 통합** — Frame/Titlebar/Sidebar/ChatPane(실데이터)/CameraPane/Projects/EngineSettings/SkillsMcp + Tweaks + Installer/Auth modal. 캡처는 placeholder |
-| 프리로드 (`src/preload/index.ts`) | `contextBridge.exposeInMainWorld('orca', OrcaApi)` — chat/backend/install/settings 화이트리스트                                                                                            |
+| 렌더러 (`src/renderer/src/`)      | **Phase 1 시각 재현 + Phase 2 채팅 IPC + Phase 3 세션 히스토리** — Frame/Titlebar/Sidebar(실세션 + kebab rename/delete)/ChatPane(실데이터 + 비동기 lazy load 인디케이터)/CameraPane/Projects/EngineSettings/SkillsMcp + Tweaks + Installer/Auth modal. 캡처는 placeholder |
+| 프리로드 (`src/preload/index.ts`) | `contextBridge.exposeInMainWorld('orca', OrcaApi)` — chat/backend/install/settings/skills/files/session(list/load/delete/rename/cwd) 화이트리스트                                          |
 | 패키저                            | electron-builder (`electron-builder.yml`)                                                                                                                                                  |
-| 도메인 코드 (IPC/어댑터)          | **claude-code 단일 어댑터** — ClaudeCodeAdapter(NDJSON), AdapterRegistry, IpcRouter, Installer, SettingsStore. opencode 는 future work                                                     |
+| 도메인 코드 (IPC/어댑터)          | **claude-code 단일 어댑터 (SDK query)** + **로컬 SQLite SSOT** — ClaudeCodeAdapter(SDK NDJSON 정규화), AdapterRegistry, IpcRouter, Installer, SettingsStore, DbQueries (prepared statements), 마이그레이션 러너. opencode 는 future work                                  |
+| 영속화 (`src/main/db/`)           | `better-sqlite3@^12` + `<userData>/orca.db` (WAL · foreign_keys ON). 스키마: `sessions / messages / tool_calls` + `_migrations` 메타. SQL 은 vite `?raw` 로 main 번들에 인라인              |
 | `package.json`                    | 템플릿 기본값 (`name: "app"`, `author: "example.com"` 등) — 차후 도메인 PR 에서 갱신                                                                                                       |
 
 ## 타깃 모듈 레이아웃 (TRD §1.2 기준)
@@ -26,17 +27,24 @@
 | 경로                                                      | 책임                                                                            | 현 상태                                 |
 | --------------------------------------------------------- | ------------------------------------------------------------------------------- | --------------------------------------- |
 | `src/main/index.ts`                                       | Electron `app` 부트, BrowserWindow, IpcRouter 부착                              | 구현됨                                  |
-| `src/main/ipc/router.ts`                                  | IPC 채널 라우팅 + 입력 검증 (zod)                                               | 구현됨                                  |
+| `src/main/ipc/router.ts`                                  | IPC 채널 라우팅 + 입력 검증 (zod) + ChatEvent → DB persist (turn-local 상태 머신)| 구현됨 (Phase 3)                       |
 | `src/main/adapters/types.ts`                              | `SessionAdapter`, `ChatEvent`, `Backend` 공통 타입                              | 구현됨                                  |
-| `src/main/adapters/claude-code.ts`                        | Claude Code spawn / NDJSON / `--resume`                                         | 구현됨                                  |
+| `src/main/adapters/claude-code.ts`                        | `@anthropic-ai/claude-agent-sdk` query() · SDKMessage → ChatEvent 정규화        | 구현됨 (Phase 3 SDK 마이그레이션)       |
 | `src/main/adapters/opencode.ts`                           | opencode `serve` / SDK / SSE                                                    | **미구현 (future work)**                |
 | `src/main/adapters/registry.ts`                           | 설치 상태 + 활성 백엔드 선택                                                    | 구현됨 (claude-code 단일)               |
 | `src/main/installer/index.ts`                             | CLI 설치 자동화 (`npm install -g @anthropic-ai/claude-code`)                    | 구현됨                                  |
 | `src/main/settings/store.ts`                              | `electron-store` 단일 객체 스토어. `getAll()` / `patch()` 모두 zod 검증         | 구현됨 (Phase 2+)                       |
-| `src/shared/ipc.ts`                                       | `CHANNELS` 상수 + 순수 TS 타입. **zod 0 의존** (preload 안전)                   | 구현됨                                  |
+| `src/main/db/index.ts`                                    | `better-sqlite3` connection singleton, `<userData>/orca.db`, WAL · foreign_keys, 부팅 시 마이그레이션 1회 실행 | 구현됨 (Phase 3)        |
+| `src/main/db/migrate.ts`                                  | `_migrations` 메타 테이블 기반 적용 추적. SQL 은 vite `?raw` 로 main 번들에 인라인 | 구현됨 (Phase 3)                       |
+| `src/main/db/migrations/0001_initial.sql`                 | sessions / messages / tool_calls + 인덱스. **병합 후 절대 수정 금지**           | 구현됨 (Phase 3)                       |
+| `src/main/db/queries.ts`                                  | 11개 prepared statements: list/load/append/update/rename/delete 세션·메시지·툴콜 | 구현됨 (Phase 3)                       |
+| `src/main/db/types.ts`                                    | row · insert 인터페이스 (`SessionRow` / `MessageInsert` / `ToolCallInsert` 등)   | 구현됨 (Phase 3)                       |
+| `src/main/files/scan.ts`                                  | `@` 파일 자동완성용 — `cwd + relDir` 한 단계 listing                            | 구현됨                                  |
+| `src/shared/ipc.ts`                                       | `CHANNELS` 상수 + 순수 TS 타입. **zod 0 의존** (preload 안전). 14 채널 (chat/backend/install/settings/skills/files + session list/load/delete/rename/cwd) | 구현됨                                  |
 | `src/shared/protocol.ts`                                  | zod 스키마 (main 전용). 타입은 `ipc.ts` 에서 re-export                          | 구현됨                                  |
-| `src/renderer/src/state/chatReducer.ts`                   | ChatState reducer (SEND/RECV/NEW/CANCEL/CLEAR_ERROR)                            | 구현됨                                  |
-| `src/renderer/src/state/useChat.ts`                       | useReducer + `window.orca.chat.onEvent` 구독                                    | 구현됨                                  |
+| `src/renderer/src/state/chatReducer.ts`                   | ChatState reducer — SEND/RECV/NEW/CANCEL/CLEAR_ERROR + SET_CWD + LOAD/RENAME 세션 액션. `title` 필드로 즉시 제목 표시 | 구현됨 (Phase 3)                       |
+| `src/renderer/src/state/useChat.ts`                       | useReducer + `chat.onEvent` 구독 + **세션 메모리 캐시** (`useRef<Map<id, CachedSession>>`) — 같은 세션 재진입 시 IPC 생략. `loadSession(id, title?)` · `renameSession` · `invalidateSessionCache` 노출 | 구현됨 (Phase 3)                       |
+| `src/renderer/src/state/useSessions.ts`                   | `session.list` 메타 캐시 (부팅 1회 + 턴 종료 자동 refresh). `remove(id)` / `rename(id, title)` — IPC + refresh | 구현됨 (Phase 3)                       |
 | `src/renderer/src/state/useBackend.ts`                    | 부트 시 `orca.backend.list()` 호출 → 설치 상태 보관                             | 구현됨                                  |
 | `src/renderer/src/components/install/InstallerDialog.tsx` | 설치 진행 로그 + 수동 명령 복사                                                 | 구현됨                                  |
 | `src/renderer/src/components/auth/AuthExpiredModal.tsx`   | `claude /login` 안내 + 새 대화                                                  | 구현됨                                  |
@@ -44,8 +52,8 @@
 | `src/renderer/src/App.tsx`                                | 루트 셸 — Tweaks state, theme/density effect, 화면 라우팅                       | 구현됨 (Phase 1)                        |
 | `src/renderer/src/app/Frame.tsx`                          | `V1Frame` — app-frame 컨테이너                                                  | 구현됨                                  |
 | `src/renderer/src/app/Titlebar.tsx`                       | `V1Titlebar` — Orca 브랜드 + breadcrumb + WinControls                           | 구현됨                                  |
-| `src/renderer/src/app/Sidebar.tsx`                        | `V1Sidebar` — 새 대화, 메뉴, 프로젝트, 최근 대화, 엔진 footer                   | 구현됨 (collapsed/expanded)             |
-| `src/renderer/src/app/ChatPane.tsx`                       | 메시지 / 툴 콜 / 테이블 / Composer (3-chip 행 + 스킬 picker + 자동완성 통합)    | 구현됨 (실 IPC + 스킬 UX)               |
+| `src/renderer/src/app/Sidebar.tsx`                        | `V1Sidebar` — 새 대화, 메뉴, 프로젝트, **최근 대화 (실세션 메타 + 행 hover 시 kebab → "이름 변경" / "삭제(rust)" Popover 메뉴 + inline rename input)**, 엔진 footer. `SessionRow` 컴포넌트 분리 (idle / menu / rename 모드) | 구현됨 (Phase 3)                       |
+| `src/renderer/src/app/ChatPane.tsx`                       | 메시지 / 툴 콜 / 테이블 / Composer (3-chip 행 + 스킬 picker + 자동완성 통합) + **헤더 제목은 state.title (사이드바 메타) → 첫 user 메시지 → "새 대화" fallback** + **세션 비동기 로딩 중 "대화 불러오는 중…" 인디케이터** | 구현됨 (Phase 3)                       |
 | `src/renderer/src/app/CameraPane.tsx`                     | Bayer 뷰포트 / Histogram / Slider / Metric / 캡처 버튼                          | 구현됨                                  |
 | `src/renderer/src/app/Projects.tsx`                       | 프로젝트 카드 그리드                                                            | 구현됨                                  |
 | `src/renderer/src/app/EngineSettings.tsx`                 | 엔진/모델 카드 리스트                                                           | 구현됨                                  |
@@ -55,7 +63,7 @@
 | `src/renderer/src/app/useTweaks.ts`                       | Tweaks state hook                                                               | 구현됨                                  |
 | `src/renderer/src/app/screens.ts`                         | 화면 ID + 라벨 + breadcrumb 카탈로그                                            | 구현됨                                  |
 | `src/renderer/src/app/theme.ts`                           | `ThemeId` / `DensityId` 타입 + `DENSITY_FONT` (색상은 CSS 변수가 진실)          | 구현됨                                  |
-| `src/renderer/src/components/atoms/*`                     | `Icon`, `WinControls`, `Avatar`, `Status`+`Dot`, `BayerPattern`, `Histogram`, `Popover` (anchor-ref floating menu) | 구현됨 (Tailwind 클래스)                |
+| `src/renderer/src/components/atoms/*`                     | `Icon` (kebab/edit/trash 등), `WinControls`, `Avatar`, `Status`+`Dot`, `BayerPattern`, `Histogram`, `Popover` (anchor-ref floating menu — Composer SkillsMenu + Sidebar 세션 메뉴 공통 사용) | 구현됨 (Tailwind 클래스)                |
 | `src/renderer/src/components/composer/HighlightedTextarea.tsx` | textarea + mirror overlay. `/skillname` 토큰을 **활성 스킬일 때만** 파란 chip 으로 강조 (`knownSkillNames: ReadonlySet<string>`). `onCaretChange` 노출 (caret 추적용) | 구현됨                                  |
 | `src/renderer/src/components/composer/SkillAutocomplete.tsx`   | caret 근처 floating dropdown. ↑/↓ navigate · Tab/Enter pick · Esc dismiss        | 구현됨                                  |
 | `src/main/skills/scan.ts`                                 | `~/.claude/skills/` · `<cwd>/.claude/skills/` 의 `SKILL.md` frontmatter 부팅 1회 스캔 | 구현됨                                  |
@@ -86,7 +94,7 @@ Phase 1 의 1차 목표는 **mockup 픽셀 재현**이었으며, 마이그레이
 
 **새 컴포넌트는 Tailwind 클래스 + 시맨틱 토큰 사용**. 색상은 raw hex 대신 토큰(`bg-rust`, `text-ink2`) 으로. 새 토큰이 필요하면 `tokens.css` 의 `@theme` 에 먼저 추가하고 세 테마 스코프(`classic`/`dark`/`cool`) 에 대응값을 모두 채워라.
 
-**그룹 스코프 (`group` / `group-hover:`) 는 named group 으로 격리.** 자체 hover 인터랙션을 가진 컴포넌트 (코드블럭, 카드, 행 등) 는 익명 `group` 대신 `group/<컴포넌트명>` + `group-hover/<컴포넌트명>:` 패턴을 쓴다. 이유: `AssistantMessage` 같은 상위 컴포넌트가 이미 `.group` 으로 마킹돼 있을 때 익명 `group-hover:` 는 상위 group 까지 매칭되어 형제 인스턴스도 같이 hover 상태가 된다 (메시지 본문 hover → 그 메시지 내 모든 코드블럭의 카피 버튼이 동시에 노출되는 버그 사례). 예: `CodeBlock` 은 `group/codeblock` + `group-hover/codeblock:opacity-100` 으로 hover 범위를 자기 자신으로 한정한다 (`components/markdown/CodeBlock.tsx`).
+**그룹 스코프 (`group` / `group-hover:`) 는 named group 으로 격리.** 자체 hover 인터랙션을 가진 컴포넌트 (코드블럭, 카드, 행 등) 는 익명 `group` 대신 `group/<컴포넌트명>` + `group-hover/<컴포넌트명>:` 패턴을 쓴다. 이유: `AssistantMessage` 같은 상위 컴포넌트가 이미 `.group` 으로 마킹돼 있을 때 익명 `group-hover:` 는 상위 group 까지 매칭되어 형제 인스턴스도 같이 hover 상태가 된다 (메시지 본문 hover → 그 메시지 내 모든 코드블럭의 카피 버튼이 동시에 노출되는 버그 사례). 예: `CodeBlock` 은 `group/codeblock` + `group-hover/codeblock:opacity-100` 으로 hover 범위를 자기 자신으로 한정한다 (`components/markdown/CodeBlock.tsx`). Sidebar 의 `SessionRow` 도 `group/session` + `group-hover/session:grid` 로 자기 kebab 버튼만 노출 (`app/Sidebar.tsx`).
 
 ### 데스크톱 컨텍스트는 production 에서 제외
 
@@ -118,21 +126,38 @@ new BrowserWindow({
 | 비밀 저장                         | 앱은 저장하지 않음 — OAuth/API 키는 호스트 CLI 가 관리 (PRD N6)                                                                       |
 | `@electron-toolkit/utils` 사용 시 | `contextIsolation`, `nodeIntegration`, `sandbox` 는 여전히 _명시_. 공통 유틸은 이 3옵션 조합을 가정한다                               |
 
+## DB 영속화 정책 (Phase 3)
+
+- **DB**: `better-sqlite3@^12` raw + prepared statements (`src/main/db/queries.ts`). Phase 3 MVP 쿼리 수 11개 내외, 스키마 변경 빈도 낮아 ORM/쿼리 빌더 가치 작음 — **Drizzle 재검토는 Phase 4 멀티 세션 · artifact · 권한 · 통계 도입 시점**.
+- **버전**: 12.x 메이저 — Electron 39 의 V8 API 변경과 11.x 비호환 (Windows postinstall 실패 → MSVC 의존). 12.x 는 V8 sandboxing 플래그 수정 + npm tarball 에 Windows prebuild 포함.
+- **DB 위치**: `<userData>/orca.db`. `app.getPath('userData')` 단일 출처 — settings/store 와 같은 경로 패턴.
+- **마이그레이션**: `NNNN_<name>.sql` (4자리 zero-pad). `migrations/0001_initial.sql` 같은 **머지된 파일은 절대 수정 금지** — 변경은 새 마이그레이션으로. 상태는 `_migrations(name PK, applied_at)` 메타 테이블로 추적. SQL 은 vite `?raw` 로 main 번들에 인라인 (`electron.vite.config.ts` 의 main rollup 입력에 포함).
+- **PRAGMA**: 부팅 시 `journal_mode = WAL` + `foreign_keys = ON`.
+- **SSOT**: 메시지 / 툴콜 / 세션 메타의 진실은 DB. claude-code SDK 의 `resume` 은 컨텍스트 유지용일 뿐 메시지 출처는 DB.
+- **삭제**: hard delete 만 (CASCADE 로 messages/tool_calls 함께 제거). 휴지통 30일 보존은 Future Scope.
+
+## 비동기 lazy load + 캐시 (Phase 3)
+
+- **부하 모델**: 사이드바 메타 (`session.list`) 는 부팅 1회 + 턴 종료 시 자동 refresh. 메시지 (`session.load`) 는 사이드바 클릭 또는 부팅 자동 복원 시점에만 1회 IPC.
+- **메모리 캐시**: `useChat` 내부 `useRef<Map<sessionId, CachedSession>>`. 활성 세션을 떠날 때 snapshot 저장 → 같은 세션 재진입 시 IPC 없이 `LOAD_SESSION_FROM_CACHE`. 무효화: 세션 삭제 시 `invalidateSessionCache(id)` 호출, 이름 변경 시 cache entry 의 title 동기화. 크기 제한 없음 (Phase 4 LRU cap 검토).
+- **즉시 제목**: `ChatState.title` 이 사이드바 메타 (`title || preview`) 에서 클릭 즉시 채워짐 → 헤더가 "새 대화" 깜빡임 없이 정확한 제목 표시. 부팅 자동 복원만 메타 없이 호출되고 IPC 응답의 `LoadedSession.title` 로 reconcile.
+- **로딩 인디케이터**: `loadingSession` flag — ChatPane 이 "대화 불러오는 중…" 한 줄.
+
 ## 의존성 정책
 
 - TRD §2 의 Stack 표 밖의 패키지 추가는 **사용자 승인 필수**. PR 설명에 _왜_ 가 들어가야 한다.
 - 이미 채택된 것 (도입 시점만 자유): React, react-markdown, shiki, electron-store, zod, vitest, playwright.
-- 설치 완료: **Tailwind CSS v4** (`tailwindcss@^4`, `@tailwindcss/vite@^4`).
+- 설치 완료: **Tailwind CSS v4** (`tailwindcss@^4`, `@tailwindcss/vite@^4`), **`better-sqlite3@^12`** (Phase 3 — Electron 39 V8 ABI 호환을 위해 12.x 메이저 사용. Windows prebuild 포함).
 - 템플릿 동봉 (사전 승인): `@electron-toolkit/utils`, `@electron-toolkit/preload`.
 - 미정 항목 (PRD §11 / TRD §15 — 단독 결정 금지):
-  - OQ1: React 버전 (18 / 19) — 현재 19 로 템플릿 기본, TRD 확인 필요
+  - ~~OQ1~~ React 19 확정 (2026-05-20)
   - OQ2: 마크다운/하이라이트 라이브러리 최종 결정
   - OQ3: 패키징·서명·자동업데이트
   - OQ4: 텔레메트리·크래시 리포트
   - OQ5: 라이센스
   - OQ6: 성능 SLA 수치
   - OQ7: 둘 다 설치된 경우 기본 백엔드
-  - OQ8: 새 대화 시 직전 세션 노출 방식
+  - ~~OQ8~~ "새 대화" 클릭 시 빈 상태 진입 + 직전 세션은 사이드바 "최근 대화" 최상단 보존 (Phase 3, 2026-05-20). Phase 4 멀티 세션 도입 시 재검토.
 
 ## 빌드 / 실행
 
@@ -168,7 +193,8 @@ new BrowserWindow({
 | Phase 2 | IPC 채널 + zod 검증. **Claude Code 단일** 어댑터. 세션 재개. UI 데이터를 mockup 하드코딩 → IPC props 로 교체                                           | **완료 (claude-code 단독)** |
 | Phase 2+ | `electron-store` 영속화 — Tweaks (theme/density/sidebarCollapsed), `lastSessionId`, `lastBackend`, window bounds                                       | **완료**                    |
 | Phase 2++ | Composer 스킬 UX — `SKILL.md` 스캔 · `orca:skills:list` IPC · 3-chip 행 (첨부·현재 프레임·Skill) · Skill picker popover · 활성 스킬 `/skillname` chip 강조 · 인라인 자동완성 dropdown | **완료**                    |
-| 후속    | opencode 어댑터, `V1Captures` 실 구현 (캡처 RAW 보관 + AI 분석). 다국어 (`src/shared/i18n/ko.ts`). Vitest / Playwright 테스트                          | Future Scope                |
+| **Phase 3** | **로컬 SQLite SSOT** — `better-sqlite3@^12` + `<userData>/orca.db` (sessions / messages / tool_calls). 마이그레이션 러너 + WAL · foreign_keys. ChatEvent → DB persist (router turn-local 상태). 사이드바 "최근 대화" 실세션 연동 · **비동기 lazy load** (메타 부팅 1회 + messages 진입 시점 1회) · **메모리 캐시** (재진입 IPC 생략) · **즉시 제목 표시** (state.title). 사이드바 행 **kebab 메뉴** (이름 변경 / 삭제) + inline rename. 부팅 시 lastSessionId 자동 복원 (메시지까지 비동기 fetch). | **완료 (PR #20)**           |
+| 후속    | opencode 어댑터, `V1Captures` 실 구현 (캡처 RAW 보관 + AI 분석). 다국어 (`src/shared/i18n/ko.ts`). Vitest / Playwright 테스트. 세션 휴지통 30일 보존 (soft delete). 세션 메타 LRU 캐시 cap. 자동 제목 생성 (요약). | Future Scope                |
 
 ## 위치 규약
 

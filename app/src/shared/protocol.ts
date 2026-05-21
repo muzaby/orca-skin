@@ -88,6 +88,14 @@ export const ListFilesRequestSchema = z.object({
   relDir: z.string()
 })
 
+export const LoadSessionRequestSchema = z.object({ sessionId: z.string().min(1) })
+export const DeleteSessionRequestSchema = z.object({ sessionId: z.string().min(1) })
+// 길이 상한 120 — UI 의 표시 한도 60 자보다 여유 있게. 빈 문자열은 무효.
+export const RenameSessionRequestSchema = z.object({
+  sessionId: z.string().min(1),
+  title: z.string().trim().min(1).max(120)
+})
+
 // Settings (TRD §6.7) — Phase 2+ 영속화. 깨진 디스크 데이터도 default 로 복원되도록
 // 모든 키에 default 를 지정한다.
 const WindowBoundsSchema = z.object({
@@ -135,5 +143,12 @@ export type {
   DensityPref,
   WindowBounds,
   ListFilesRequest,
-  FileEntry
+  FileEntry,
+  SessionListItem,
+  LoadSessionRequest,
+  DeleteSessionRequest,
+  RenameSessionRequest,
+  LoadedSession,
+  LoadedMessage,
+  LoadedToolCall
 } from './ipc'

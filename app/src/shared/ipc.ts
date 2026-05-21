@@ -13,7 +13,11 @@ export const CHANNELS = {
   settingsSet: 'orca:settings:set',
   skillsList: 'orca:skills:list',
   filesList: 'orca:files:list',
-  sessionCwd: 'orca:session:cwd'
+  sessionCwd: 'orca:session:cwd',
+  sessionList: 'orca:session:list',
+  sessionLoad: 'orca:session:load',
+  sessionDelete: 'orca:session:delete',
+  sessionRename: 'orca:session:rename'
 } as const
 
 // Backend (Phase 2: claude-code 단일. opencode 는 future work)
@@ -112,4 +116,48 @@ export interface ListFilesRequest {
 export interface FileEntry {
   name: string
   isDirectory: boolean
+}
+
+// 세션 카탈로그 (사이드바 "최근 대화") — Phase 3 로컬 DB SSOT.
+export interface SessionListItem {
+  id: string
+  backend: Backend
+  title: string | null
+  updatedAt: number
+  preview: string | null
+}
+
+export interface LoadSessionRequest {
+  sessionId: string
+}
+
+export interface DeleteSessionRequest {
+  sessionId: string
+}
+
+export interface RenameSessionRequest {
+  sessionId: string
+  title: string
+}
+
+// 로드된 세션 — Renderer 의 chatReducer state 와 1:1 대응.
+export interface LoadedToolCall {
+  toolUseId: string
+  name: string
+  input: unknown
+  result?: { output: unknown; isError: boolean }
+}
+
+export interface LoadedMessage {
+  role: 'user' | 'assistant'
+  content: string
+  createdAt: number
+  toolCalls?: LoadedToolCall[]
+}
+
+export interface LoadedSession {
+  id: string
+  backend: Backend
+  title: string | null
+  messages: LoadedMessage[]
 }
