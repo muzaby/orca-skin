@@ -21,6 +21,7 @@ import { useProjects } from './state/useProjects'
 import { InstallerDialog } from './components/install/InstallerDialog'
 import { AuthExpiredModal } from './components/auth/AuthExpiredModal'
 import { Home as V5Home } from './screens/v5/Home'
+import { Projects as V5Projects } from './screens/v5/Projects'
 import { Task as V5Task, type TaskVariant } from './screens/v5/Task'
 import { NewProjectModals, type ModalVariant } from './screens/v5/modals'
 import { Settings as V5Settings } from './screens/v5/Settings'
@@ -42,6 +43,17 @@ function App(): React.JSX.Element {
   const [taskVariant, setTaskVariant] = useState<TaskVariant>('running')
   const [taskPanelOpen, setTaskPanelOpen] = useState(true)
   const [modalVariant, setModalVariant] = useState<ModalVariant>('root')
+  // v5 모달 진입 직전 origin 화면 — 모달 닫기 시 v5-home/v5-projects 등으로 복귀.
+  const [modalOrigin, setModalOrigin] = useState<ScreenId | null>(null)
+  const openV5Modal = useCallback((origin: ScreenId) => {
+    setModalOrigin(origin)
+    setScreen('v5-modals')
+  }, [])
+  const closeV5Modal = useCallback(() => {
+    setScreen(modalOrigin ?? 'v5-home')
+    setModalOrigin(null)
+    setModalVariant('root')
+  }, [modalOrigin])
   const [t, setTweak] = useTweaks()
   const chat = useChat()
   const backend = useBackend()
@@ -129,6 +141,7 @@ function App(): React.JSX.Element {
   // 기본 경로가 된다.
   if (
     screen === 'v5-home' ||
+    screen === 'v5-projects' ||
     screen === 'v5-task' ||
     screen === 'v5-modals' ||
     screen === 'v5-settings' ||
@@ -141,6 +154,14 @@ function App(): React.JSX.Element {
     screen === 'v5-sched-chat' ||
     screen === 'v5-sched-done'
   ) {
+    // 모달이 떠 있을 때 어느 화면 위에 떠 있는지 — origin (v5-home / v5-projects 등).
+    const baseScreen: ScreenId = screen === 'v5-modals' ? (modalOrigin ?? 'v5-home') : screen
+    const sidebarActive =
+      baseScreen === 'v5-projects'
+        ? 'projects'
+        : baseScreen.startsWith('v5-sched')
+          ? 'scheduled'
+          : 'newTask'
     return (
       <>
         <div className="h-full w-full">
@@ -148,14 +169,17 @@ function App(): React.JSX.Element {
             <Titlebar breadcrumb={current.breadcrumb} />
             <div className="flex min-h-0 flex-1">
               <V5Sidebar
-                active="newTask"
+                active={sidebarActive}
                 onLeaveV5={() => setScreen('chat')}
                 onNav={(id) => {
                   if (id === 'newTask') setScreen('v5-home')
+                  else if (id === 'projects') setScreen('v5-projects')
                 }}
               />
-              {screen === 'v5-home' || screen === 'v5-modals' ? (
-                <V5Home onNewProject={() => setScreen('v5-modals')} />
+              {baseScreen === 'v5-home' ? (
+                <V5Home onNewProject={() => openV5Modal('v5-home')} />
+              ) : baseScreen === 'v5-projects' ? (
+                <V5Projects onNewProject={() => openV5Modal('v5-projects')} />
               ) : screen === 'v5-settings' ? (
                 <V5Settings onClose={() => setScreen('v5-home')} />
               ) : screen === 'v5-menu-account' ? (
@@ -190,14 +214,8 @@ function App(): React.JSX.Element {
               <NewProjectModals
                 variant={modalVariant}
                 onPick={setModalVariant}
-                onClose={() => {
-                  setModalVariant('root')
-                  setScreen('v5-home')
-                }}
-                onCreate={() => {
-                  setModalVariant('root')
-                  setScreen('v5-home')
-                }}
+                onClose={closeV5Modal}
+                onCreate={closeV5Modal}
               />
             )}
             {/* Temporary in-browser variant selector for the task screen demo.
