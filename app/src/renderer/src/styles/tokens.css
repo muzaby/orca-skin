@@ -1,18 +1,28 @@
 /* Orca design tokens — Tailwind v4 theme + data-theme scope overrides.
    Color/font tokens declared here become Tailwind utility classes
-   (e.g. `--color-ink` → `bg-ink`, `text-ink`, `border-ink`). */
+   (e.g. `--color-ink` → `bg-ink`, `text-ink`, `border-ink`).
+
+   This file is mid-migration toward `project/versions/v5-orca-skin/DESIGN.md`.
+   Two token sets coexist:
+     - LEGACY  (--color-bg, --color-sidebar, --color-panel, --color-ink2/3, etc.) —
+                used by current components. Removed when last legacy component is deleted.
+     - V5      (--color-paper, --color-paper-2, --color-line-soft, --color-ink-2…ink-5,
+                radius/shadow/text scales, layout vars) — used by new unified components
+                and v5 screens. Final canonical set.
+
+   Where names overlap (e.g. --color-line), value is updated to v5 (sub-perceptible). */
 
 @theme {
-  /* Semantic tokens — default (classic) palette */
-  --color-bg: #fbf9f4;
-  --color-sidebar: #f3eee3;
+  /* ─── LEGACY semantic color tokens (kept until last legacy component removed) ─── */
+  --color-bg: #f9f6f0;            /* was #fbf9f4 — aligned to v5 --bg */
+  --color-sidebar: #f3eee4;       /* was #f3eee3 — aligned to v5 --bg-2 */
   --color-panel: #ffffff;
-  --color-border: #ebe3d0;
-  --color-border-strong: #ddd2b6;
-  --color-ink: #29261b;
+  --color-border: #ebe5d6;        /* was #ebe3d0 — aligned to v5 --line */
+  --color-border-strong: #ddd5be; /* was #ddd2b6 — aligned to v5 --line-strong */
+  --color-ink: #2d2a22;           /* was #29261b — aligned to v5 --ink */
   --color-ink2: #6b6452;
   --color-ink3: #a8a092;
-  --color-rust: #c96442;
+  --color-rust: #d97757;          /* was #c96442 — aligned to v5 --rust */
   --color-rust-soft: #f4dcc9;
   --color-bubble-user: #f0eee6;
 
@@ -28,8 +38,8 @@
   --color-ink-400: #8a8270;
   --color-ink-300: #a8a092;
   --color-ink-200: #c9c1ae;
-  --color-line: #ebe3d0;
-  --color-line-strong: #ddd2b6;
+  --color-line: #ebe5d6;          /* was #ebe3d0 — aligned to v5 */
+  --color-line-strong: #ddd5be;   /* was #ddd2b6 — aligned to v5 */
   --color-moss: #6c7a3f;
   --color-indigo: #4a5b8c;
   --color-rose: #b85a6e;
@@ -50,10 +60,99 @@
   --color-stage-600: #2a323d;
   --color-stage-500: #4a5666;
 
-  /* Typography */
+  /* Typography stacks */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --font-serif: 'Source Serif 4', 'Source Serif Pro', 'Tiempos Headline', Georgia, serif;
   --font-mono: ui-monospace, 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
+
+  /* ─── V5 semantic color tokens (DESIGN.md §1) ─── */
+  /* Surfaces beyond legacy --color-bg/sidebar/panel/border */
+  --color-bg-2: #f3eee4;          /* sidebar / second surface */
+  --color-paper-2: #fbf8f1;       /* code block, emphasis box */
+  --color-line-soft: #f2ecdd;     /* dividers */
+  --color-hover: rgba(60, 50, 30, 0.04);
+  --color-press: rgba(60, 50, 30, 0.07);
+
+  /* Ink 5-step (DESIGN.md §1) — coexists with legacy --color-ink/ink2/ink3 */
+  --color-ink-2: #4a4536;         /* body text */
+  --color-ink-3: #6b6452;         /* secondary label */
+  --color-ink-4: #9b9485;         /* icon, disabled */
+  --color-ink-5: #c4bda9;         /* placeholder */
+
+  /* Accents */
+  --color-rust-ink: #b85a39;      /* rust hover/active */
+  --color-info: #3a6db5;          /* progress step blue */
+
+  /* ─── V5 radius scale (Tailwind picks up --radius-* → rounded-{name}) ─── */
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 18px;
+  --radius-pill: 999px;
+
+  /* ─── V5 shadow scale (Tailwind: shadow-{name}) ─── */
+  --shadow-sm: 0 1px 2px rgba(28, 24, 16, 0.04);
+  --shadow-md: 0 8px 24px rgba(28, 24, 16, 0.08), 0 1px 2px rgba(28, 24, 16, 0.04);
+  --shadow-lg: 0 24px 80px rgba(28, 24, 16, 0.18), 0 8px 24px rgba(28, 24, 16, 0.10);
+
+  /* ─── V5 text scale (Tailwind: text-{name}, leading paired via --text-{name}--line-height) ─── */
+  --text-meta: 11px;
+  --text-meta--line-height: 1.4;
+  --text-ui: 13.5px;
+  --text-ui--line-height: 1.45;
+  --text-strong: 13px;
+  --text-strong--line-height: 1.4;
+  --text-body-serif: 14px;
+  --text-body-serif--line-height: 1.65;
+  --text-headline-serif: 32px;
+  --text-headline-serif--line-height: 1.2;
+}
+
+/* ─── V5 raw token aliases (for inline style / CSS rule consumption) ─────────
+   v5 components written with `style={{ background: 'var(--bg)' }}` or CSS rules
+   like `background: var(--paper)` reference these *unprefixed* names. They
+   point to the same values as the --color-* tokens above, so the two access
+   patterns stay in sync. */
+:root {
+  --bg: var(--color-bg);
+  --bg-2: var(--color-bg-2);
+  --paper: var(--color-paper);
+  --paper-2: var(--color-paper-2);
+  --line: var(--color-line);
+  --line-strong: var(--color-line-strong);
+  --line-soft: var(--color-line-soft);
+  --hover: var(--color-hover);
+  --press: var(--color-press);
+
+  --ink: var(--color-ink);
+  --ink-2: var(--color-ink-2);
+  --ink-3: var(--color-ink-3);
+  --ink-4: var(--color-ink-4);
+  --ink-5: var(--color-ink-5);
+
+  --rust: var(--color-rust);
+  --rust-soft: var(--color-rust-soft);
+  --rust-ink: var(--color-rust-ink);
+
+  --good: var(--color-good);
+  --warn: var(--color-warn);
+  --bad: var(--color-bad);
+  --info: var(--color-info);
+
+  /* Layout (kept as raw — no Tailwind utility needed; used in inline width/height) */
+  --titlebar-h: 44px;
+  --sidebar-w: 248px;
+  --right-pane-w: 320px;
+  --artifact-w: 620px;
+
+  /* Radius (raw mirror for CSS rule consumption) */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-xl: 18px;
+  --r-pill: 999px;
+
+  color-scheme: light;
 }
 
 /* Theme variants — override the semantic tokens. Tailwind utilities like
@@ -61,17 +160,51 @@
    re-themes the whole tree without remounting. */
 
 [data-theme='dark'] {
-  --color-bg: #1c1a16;
-  --color-sidebar: #231f1a;
-  --color-panel: #2a2620;
-  --color-border: #3a342a;
+  /* Legacy */
+  --color-bg: #1f1c17;            /* aligned to v5 dark --bg */
+  --color-sidebar: #1a1813;       /* aligned to v5 dark --bg-2 */
+  --color-panel: #28241d;         /* aligned to v5 dark --paper */
+  --color-border: #383225;        /* aligned to v5 dark --line */
   --color-border-strong: #4a4234;
-  --color-ink: #f0eadd;
-  --color-ink2: #a8a092;
-  --color-ink3: #6b6452;
-  --color-rust: #e07855;
-  --color-rust-soft: #4a2214;
+  --color-ink: #ece6d6;           /* aligned to v5 dark --ink */
+  --color-ink2: #a8a190;
+  --color-ink3: #7c7565;
+  --color-rust: #e08566;          /* aligned to v5 dark --rust */
+  --color-rust-soft: #4a2d22;
   --color-bubble-user: #121212;
+
+  --color-line: #383225;
+  --color-line-strong: #4a4234;
+  --color-paper: #28241d;
+
+  /* V5 dark surfaces */
+  --color-bg-2: #1a1813;
+  --color-paper-2: #211e18;
+  --color-line-soft: #2c2820;
+  --color-hover: rgba(255, 245, 220, 0.04);
+  --color-press: rgba(255, 245, 220, 0.07);
+
+  /* V5 dark ink */
+  --color-ink-2: #d4cdbb;
+  --color-ink-3: #a8a190;
+  --color-ink-4: #7c7565;
+  --color-ink-5: #524d42;
+
+  /* V5 dark accents */
+  --color-rust-ink: #f0a385;
+  --color-info: #6a9adf;
+
+  /* V5 status — dark overrides (legacy file was missing these) */
+  --color-good: #7aac6f;
+  --color-warn: #d9aa4d;
+  --color-bad: #d27060;
+
+  /* V5 dark shadows (deeper) */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 24px 80px rgba(0, 0, 0, 0.55), 0 8px 24px rgba(0, 0, 0, 0.35);
+
+  color-scheme: dark;
 }
 
 [data-theme='cool'] {

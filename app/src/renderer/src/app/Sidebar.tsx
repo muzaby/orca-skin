@@ -33,7 +33,20 @@ const NAV: NavItem[] = [
   { i: 'folder', l: '프로젝트', screen: 'projects' },
   { i: 'flask', l: '캡처 & 분석', screen: 'captures' },
   { i: 'cpu', l: '엔진 & 모델', screen: 'engine' },
-  { i: 'bolt', l: 'Skills & MCP', screen: 'skills' }
+  { i: 'bolt', l: 'Skills & MCP', screen: 'skills' },
+  // v5 이주 진입점 — v5 화면이 모두 옮겨지면 본 sidebar 자체가 V5Sidebar 로 대체된다.
+  { i: 'sparkle', l: 'v5 홈', screen: 'v5-home' },
+  { i: 'sparkle', l: 'v5 태스크', screen: 'v5-task' },
+  { i: 'sparkle', l: 'v5 모달', screen: 'v5-modals' },
+  { i: 'sparkle', l: 'v5 설정', screen: 'v5-settings' },
+  { i: 'sparkle', l: 'v5 아티팩트', screen: 'v5-artifact' },
+  { i: 'sparkle', l: 'v5 계정 메뉴', screen: 'v5-menu-account' },
+  { i: 'sparkle', l: 'v5 언어 메뉴', screen: 'v5-menu-lang' },
+  { i: 'sparkle', l: 'v5 예약 (빈)', screen: 'v5-sched-empty' },
+  { i: 'sparkle', l: 'v5 예약 목록', screen: 'v5-sched-list' },
+  { i: 'sparkle', l: 'v5 예약 상세', screen: 'v5-sched-detail' },
+  { i: 'sparkle', l: 'v5 예약 대화', screen: 'v5-sched-chat' },
+  { i: 'sparkle', l: 'v5 예약 완료', screen: 'v5-sched-done' }
 ]
 
 const SECTION_HEAD =
