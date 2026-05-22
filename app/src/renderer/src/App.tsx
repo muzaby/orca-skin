@@ -205,8 +205,9 @@ function App(): React.JSX.Element {
               ) : baseScreen === 'v5-project-detail' && v5SelectedProject ? (
                 <V5ProjectDetail
                   project={v5SelectedProject}
+                  chat={chat}
                   onBack={() => setScreen('v5-projects')}
-                  onStartChat={() => setScreen('v5-task')}
+                  onLeaveToChat={goChat}
                 />
               ) : screen === 'v5-settings' ? (
                 <V5Settings onClose={() => setScreen('v5-home')} />

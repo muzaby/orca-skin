@@ -1,22 +1,71 @@
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Icon } from '../../components/primitives/Icon'
 import { Pill } from '../../components/primitives/Pill'
 import { SidePanel } from '../../components/shell/SidePanel'
 import { CollapsibleSection } from '../../components/primitives/CollapsibleSection'
 import { MemoryChip } from '../../components/shell/Modal'
 import type { Project } from '../../../../shared/ipc'
+import type { UseChat } from '../../state/useChat'
 
 /** v5 Project landing (DESIGN.md §5 — 추가 화면, jsx 원본 없음).
  *  Visual basis: project/uploads/main 시리즈 2번 스크린샷.
- *  헤더 (타이틀 + 종 + 케밥) + composer placeholder + pill row +
- *  중앙 hint 블록 + 우측 320 패널 (지침 / 예정됨 / 컨텍스트). */
+ *  헤더 (타이틀 + 종 + 케밥) + 실 composer (textarea + send) + pill row +
+ *  중앙 hint 블록 + 우측 320 패널 (지침 / 예정됨 / 컨텍스트).
+ *  v1 ProjectDetail 의 landing → leave 패턴을 그대로 차용:
+ *  mount 시 chat.newChat(projectId), messages > 0 또는 sessionId != null 이면 onLeaveToChat. */
 export interface ProjectDetailProps {
   project: Project
+  chat: UseChat
   onBack?: () => void
-  /** composer 영역 클릭 시 호출 — v5-task 로 transition. */
-  onStartChat?: () => void
+  /** 첫 메시지 send 후 또는 기존 세션이 활성화될 때 호출 — App 이 v1 'chat' 으로 전환. */
+  onLeaveToChat?: () => void
 }
 
-export function ProjectDetail({ project, onStartChat }: ProjectDetailProps): React.JSX.Element {
+export function ProjectDetail({ project, chat, onLeaveToChat }: ProjectDetailProps): React.JSX.Element {
+  const [text, setText] = useState('')
+  const canSend = text.trim().length > 0 && !chat.state.inflight
+
+  // 진입 시 이 프로젝트의 새 채팅 모드로 reset. messages > 0 또는 sessionId 가
+  // 생기면 landing 모드 종료 → onLeaveToChat 으로 화면 전환 (v1 ProjectDetail 패턴).
+  const initializedForRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (initializedForRef.current === project.id) {
+      const isLanding =
+        chat.state.messages.length === 0 &&
+        chat.state.sessionId == null &&
+        !chat.state.loadingSession
+      if (!isLanding) onLeaveToChat?.()
+      return
+    }
+    initializedForRef.current = project.id
+    const alreadyLanding =
+      chat.state.pendingProjectId === project.id &&
+      chat.state.sessionId == null &&
+      chat.state.messages.length === 0 &&
+      !chat.state.loadingSession
+    if (!alreadyLanding) chat.newChat(project.id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    project.id,
+    chat.state.messages.length,
+    chat.state.sessionId,
+    chat.state.loadingSession,
+    onLeaveToChat
+  ])
+
+  const submit = (): void => {
+    if (!canSend) return
+    chat.send(text.trim())
+    setText('')
+    // messages 도착 시 effect 가 onLeaveToChat 호출
+  }
+  const onKey = (e: KeyboardEvent<HTMLTextAreaElement>): void => {
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+      e.preventDefault()
+      submit()
+    }
+  }
+
   return (
     <>
       <main
@@ -60,43 +109,59 @@ export function ProjectDetail({ project, onStartChat }: ProjectDetailProps): Rea
               </div>
             </div>
 
-            {/* Composer card — entire area clickable */}
-            <button
-              type="button"
-              onClick={onStartChat}
+            {/* Composer card — controlled textarea + Enter/send button */}
+            <div
               style={{
-                display: 'block',
-                width: '100%',
-                textAlign: 'left',
                 background: 'var(--paper)',
                 borderRadius: 'var(--r-xl)',
                 boxShadow: '0 1px 0 rgba(0,0,0,.02), 0 1px 2px rgba(0,0,0,.04)',
-                border: '1px solid var(--line)',
-                cursor: 'pointer',
-                padding: 0
+                border: '1px solid var(--line)'
               }}
             >
-              <div
+              <textarea
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                onKeyDown={onKey}
+                placeholder="이 프로젝트에서 무엇을 작업하시겠습니까?"
+                rows={2}
+                autoFocus
                 style={{
-                  padding: '18px 22px 0',
-                  color: 'var(--ink-4)',
+                  width: '100%',
+                  resize: 'none',
+                  border: 0,
+                  outline: 'none',
+                  background: 'transparent',
+                  padding: '18px 22px 8px',
+                  color: 'var(--ink)',
                   fontSize: 15,
-                  minHeight: 2 * 26 + 16,
-                  lineHeight: 1.5
+                  lineHeight: 1.5,
+                  fontFamily: 'inherit',
+                  minHeight: 2 * 26 + 16
                 }}
-              >
-                이 프로젝트에서 무엇을 작업하시겠습니까?
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 14px 14px' }}>
-                <span className="cm-btn" aria-label="첨부">
+              />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '6px 14px 14px' }}>
+                <button type="button" className="cm-btn" aria-label="첨부" disabled title="준비 중">
                   <Icon name="plus" size={18} color="var(--ink-3)" />
-                </span>
+                </button>
                 <span style={{ marginLeft: 'auto' }} />
-                <span className="cm-btn" aria-label="음성">
-                  <Icon name="mic" size={17} color="var(--ink-3)" />
-                </span>
+                <button
+                  type="button"
+                  className="cm-btn"
+                  aria-label="보내기"
+                  onClick={submit}
+                  disabled={!canSend}
+                  title={canSend ? '보내기 (Enter)' : '메시지를 입력하세요'}
+                  style={{
+                    background: canSend ? 'var(--ink)' : 'var(--line)',
+                    opacity: canSend ? 1 : 0.6,
+                    cursor: canSend ? 'pointer' : 'default',
+                    transition: 'background .12s, opacity .12s'
+                  }}
+                >
+                  <Icon name="arrowUp" size={16} color={canSend ? 'var(--bg)' : 'var(--ink-4)'} />
+                </button>
               </div>
-            </button>
+            </div>
 
             {/* Pill row */}
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
