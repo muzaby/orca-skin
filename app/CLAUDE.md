@@ -13,14 +13,14 @@
 | TypeScript                        | 5.x (strict, target ES2022)                                                                                                                                                                |
 | 스타일링                          | **Tailwind CSS v4** (`@tailwindcss/vite` 플러그인, CSS-first `@theme` 설정)                                                                                                                |
 | 메인 (`src/main/index.ts`)        | IpcRouter 부트 + `createWindow`. `contextIsolation: true` / `nodeIntegration: false` / `sandbox: true` 명시                                                                                |
-| 렌더러 (`src/renderer/src/`)      | **Phase 1 시각 재현 + Phase 2 채팅 IPC + Phase 3 세션 히스토리** — Frame/Titlebar/Sidebar(실세션 + kebab rename/delete)/ChatPane(실데이터 + 비동기 lazy load 인디케이터)/CameraPane/Projects/EngineSettings/SkillsMcp + Tweaks + Installer/Auth modal. 캡처는 placeholder |
+| 렌더러 (`src/renderer/src/`)      | **Phase 1 시각 재현 + Phase 2 채팅 IPC + Phase 3 세션 히스토리 + Phase 3+ v5 dev 트리** — Frame/Titlebar/Sidebar(실세션 + kebab rename/delete)/ChatPane(실데이터 + 비동기 lazy load 인디케이터)/CameraPane/Projects/EngineSettings/SkillsMcp + Tweaks + Installer/Auth modal. 캡처는 placeholder. v5 19 화면 dev 트리 (`screens/v5/` + `components/{primitives,chat,artifact,account,shell}/`) — **17/19 완료** (PR #23), v1 라우트와 격리 |
 | 프리로드 (`src/preload/index.ts`) | `contextBridge.exposeInMainWorld('orca', OrcaApi)` — chat/backend/install/settings/skills/files/session(list/load/delete/rename/cwd) 화이트리스트                                          |
 | 패키저                            | electron-builder (`electron-builder.yml`)                                                                                                                                                  |
 | 도메인 코드 (IPC/어댑터)          | **claude-code 단일 어댑터 (SDK query)** + **로컬 SQLite SSOT** — ClaudeCodeAdapter(SDK NDJSON 정규화), AdapterRegistry, IpcRouter, Installer, SettingsStore, DbQueries (prepared statements), 마이그레이션 러너. opencode 는 future work                                  |
 | 영속화 (`src/main/db/`)           | `better-sqlite3@^12` + `<userData>/orca.db` (WAL · foreign_keys ON). 스키마: `sessions / messages / tool_calls` + `_migrations` 메타. SQL 은 vite `?raw` 로 main 번들에 인라인              |
 | `package.json`                    | 템플릿 기본값 (`name: "app"`, `author: "example.com"` 등) — 차후 도메인 PR 에서 갱신                                                                                                       |
 
-## 타깃 모듈 레이아웃 (TRD §1.2 기준)
+## 타깃 모듈 레이아웃 (FRONTEND_ARCHITECTURE §3 / BACKEND_ARCHITECTURE 기준)
 
 경로는 electron-vite (`@quick-start/electron` react-ts 템플릿) 의 sub-config 분할을 반영한다. 빌드는 `electron.vite.config.ts` 의 main/preload/renderer 3개 sub-config 가 각각 처리한다.
 
@@ -70,12 +70,15 @@
 | `src/renderer/src/state/useSkills.ts`                     | `orca:skills:list` IPC 로 `SkillInfo[]` 캐시                                    | 구현됨                                  |
 | `src/renderer/src/state/useSkillAutocomplete.ts`          | `text + caret + skills` → `{open, query, suggestions, activeIndex, tokenStart, close}`. render-time 비교 (effect 없음) | 구현됨                                  |
 | `src/renderer/src/styles/tokens.css`                      | Tailwind `@theme` (시맨틱 토큰) + `[data-theme]` 스코프 (classic/dark/cool)     | 구현됨                                  |
-| `src/renderer/src/styles/app.css`                         | Tailwind 엔트리 (`@import 'tailwindcss'`) + `@layer base` 리셋 + `@utility kbd` | 구현됨                                  |
+| `src/renderer/src/styles/app.css`                         | Tailwind 엔트리 (`@import 'tailwindcss'`) + `@layer base` 리셋 + `@utility kbd` + v5 글로벌 유틸 (`.suggest-row`, `.tb-icon-btn`, `.sb-nav-btn`, `.schedule-card`, `.dot-grid`, `.spin` keyframe, `.field-input`) | 구현됨 (Phase 3+ v5 포팅 시 보강)       |
+| `src/renderer/src/components/primitives/`                 | **v5 dev 트리 공통** — `Icon` (92 path + `Sparkle`), `Pill`, `Card`, `NavItem`, `CollapsibleSection`, `ToolStatusIcon` + `StepCircle`, `ToggleSwitch` | 구현됨 (Phase 3+, PR #23)               |
+| `src/renderer/src/components/{chat,artifact,account,shell}/` | **v5 dev 트리** — `chat/`: `MessageBubble`, `ToolBlock`(+`Bash`/`CompletedTag`/`MsgFooter`), `ApprovalGate` · `artifact/`: `ArtifactPanel` (620px) · `account/`: `AccountMenu` + `LanguageSubmenu` · `shell/`: `ModalShell`/`ModalBack`/`MemoryChip`, `SidePanel` | 구현됨 (Phase 3+, PR #23)               |
+| `src/renderer/src/screens/v5/`                            | **v5 19 화면 dev 트리** — `Home`, `Task` (4 variant: running/approval/result/artifact), `Settings`, `Schedule` (5 export), `AccountMenuScreen` (`withLang`), `modals` (4 variant), `V5Sidebar`. v1 production 라우트 (`chat`/`projects`/`engine`/`skills`/`captures`) 와 격리, `V5Sidebar` dev 메뉴 14항목으로만 진입 | 구현됨 (Phase 3+, PR #23) — **17/19 완료**. 잔여: `FolderMenu` (DESIGN.md §5 #03 home-folder), `<Composer>` 공용 primitive, v5 전용 `<Titlebar>` |
 | `src/preload/index.ts`                                    | `contextBridge.exposeInMainWorld` 화이트리스트                                  | 템플릿 기본 (Phase 2 에서 교체)         |
 | `src/shared/protocol.ts`                                  | Renderer ↔ Main 메시지 스키마                                                   | 미작성 (Phase 2)                        |
 | `src/shared/i18n/ko.ts`                                   | 한국어 라벨                                                                     | 미작성 (현재는 mockup 인라인 한국어)    |
 
-> 이 레이아웃에서 벗어나려면 사용자에게 먼저 확인. TRD §1.2 와 코드를 동시에 갱신해야 한다.
+> 이 레이아웃에서 벗어나려면 사용자에게 먼저 확인. `docs/FRONTEND_ARCHITECTURE.md` §3 (디렉토리 트리) 와 코드를 동시에 갱신해야 한다.
 
 ## 스타일링 정책 (Tailwind v4)
 
@@ -194,7 +197,8 @@ new BrowserWindow({
 | Phase 2+ | `electron-store` 영속화 — Tweaks (theme/density/sidebarCollapsed), `lastSessionId`, `lastBackend`, window bounds                                       | **완료**                    |
 | Phase 2++ | Composer 스킬 UX — `SKILL.md` 스캔 · `orca:skills:list` IPC · 3-chip 행 (첨부·현재 프레임·Skill) · Skill picker popover · 활성 스킬 `/skillname` chip 강조 · 인라인 자동완성 dropdown | **완료**                    |
 | **Phase 3** | **로컬 SQLite SSOT** — `better-sqlite3@^12` + `<userData>/orca.db` (sessions / messages / tool_calls). 마이그레이션 러너 + WAL · foreign_keys. ChatEvent → DB persist (router turn-local 상태). 사이드바 "최근 대화" 실세션 연동 · **비동기 lazy load** (메타 부팅 1회 + messages 진입 시점 1회) · **메모리 캐시** (재진입 IPC 생략) · **즉시 제목 표시** (state.title). 사이드바 행 **kebab 메뉴** (이름 변경 / 삭제) + inline rename. 부팅 시 lastSessionId 자동 복원 (메시지까지 비동기 fetch). | **완료 (PR #20)**           |
-| 후속    | opencode 어댑터, `V1Captures` 실 구현 (캡처 RAW 보관 + AI 분석). 다국어 (`src/shared/i18n/ko.ts`). Vitest / Playwright 테스트. 세션 휴지통 30일 보존 (soft delete). 세션 메타 LRU 캐시 cap. 자동 제목 생성 (요약). | Future Scope                |
+| **Phase 3+** | **v5 19 화면 dev 트리 포팅** — `project/versions/v5-orca-skin/DESIGN.md` 의 19 화면을 `screens/v5/` 로 옮긴다. v1 production 라우트(`chat`/`projects`/`engine`/`skills`/`captures`) 와 격리, `V5Sidebar` dev 메뉴 14항목으로만 진입. 다크 테마는 `data-theme="dark"` 전역 토글. 토큰 100% 매칭, 인터랙션 패턴 5/5 매칭. | **부분 완료 (PR #23)** — 17/19 화면. 잔여: `FolderMenu`(#03 home-folder), `<Composer>` 공용 primitive, v5 전용 `<Titlebar>` (좌측 5 아이콘 + 중앙 타이틀) |
+| 후속    | opencode 어댑터, `V1Captures` 실 구현 (캡처 RAW 보관 + AI 분석). 다국어 (`src/shared/i18n/ko.ts`). Vitest / Playwright 테스트. 세션 휴지통 30일 보존 (soft delete). 세션 메타 LRU 캐시 cap. 자동 제목 생성 (요약). v5 잔여 (FolderMenu / Composer / v5 Titlebar). | Future Scope                |
 
 ## 위치 규약
 

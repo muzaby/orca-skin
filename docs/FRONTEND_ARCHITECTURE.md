@@ -88,8 +88,24 @@ src/renderer/
     │   │   └── CodeBlock.tsx        # shiki async + 테마 추적
     │   ├── auth/
     │   │   └── AuthExpiredModal.tsx # `claude /login` 안내 모달
-    │   └── install/
-    │       └── InstallerDialog.tsx  # 설치 진행 로그 + 수동 명령 복사
+    │   ├── install/
+    │   │   └── InstallerDialog.tsx  # 설치 진행 로그 + 수동 명령 복사
+    │   │
+    │   │   # ─── v5 dev 트리 (Phase 3+, PR #23 — §8.2 참조). v1 production 컴퍼넌트와 격리 ───
+    │   ├── primitives/              # v5 공통 — Icon(92 path+Sparkle), Pill, Card, NavItem, CollapsibleSection, ToolStatusIcon(+StepCircle), ToggleSwitch
+    │   ├── chat/                    # v5 채팅 — MessageBubble, ToolBlock(+Bash/CompletedTag/MsgFooter), ApprovalGate
+    │   ├── artifact/                # v5 아티팩트 — ArtifactPanel (620px MD 패널)
+    │   ├── account/                 # v5 계정 메뉴 — AccountMenu + LanguageSubmenu
+    │   └── shell/                   # v5 셸 — ModalShell(+ModalBack/MemoryChip), SidePanel
+    │
+    ├── screens/v5/                  # v5 19 화면 dev 트리 (Phase 3+, PR #23). V5Sidebar dev 메뉴로만 진입
+    │   ├── Home.tsx                 # #01 home (#02 home-dark 는 data-theme 토글)
+    │   ├── Task.tsx                 # #08-11 task-init/approval/result/artifact (4 variant)
+    │   ├── Settings.tsx             # #19 settings
+    │   ├── Schedule.tsx             # #12-16 sched-empty/list/chat/done/detail (5 export)
+    │   ├── AccountMenuScreen.tsx    # #17-18 menu-account / menu-lang (withLang flag)
+    │   ├── modals.tsx               # #04-07 modal-create/start/import/folder (4 variant)
+    │   └── V5Sidebar.tsx            # dev 메뉴 (14 항목 entry)
     │
     ├── state/                       # 훅 + 리듀서
     │   ├── chatReducer.ts           # ChatState reducer (7 액션)
@@ -362,6 +378,37 @@ useEffect(density): ──► document.documentElement.style.fontSize = DENSITY_
 - **EngineSettings**: Phase 3+ 어댑터별 자격증명 저장 (BACKEND §8) 과 함께. base URL + API key 입력 UI.
 - **SkillsMcp 권한·MCP**: Phase 4+ SDK 고급 기능 (`options.permissionMode` / `mcpServers`) 도입 시. PRD OQ9 미정.
 
+### 8.2 v5 디자인 핸드오프 포팅 (dev 트리)
+
+PR #23 (2026-05-22, `f98ee655`) 에서 `project/versions/v5-orca-skin/DESIGN.md` §5 의 19 화면을 `app/src/renderer/src/screens/v5/` 로 옮긴다. v1 production 라우트 (`chat`/`projects`/`engine`/`skills`/`captures`) 와 격리 — `V5Sidebar` dev 메뉴 14항목으로만 진입. 다크 테마는 `data-theme="dark"` 전역 토글.
+
+| DESIGN.md # | 화면 | ScreenId | 상태 |
+|---|---|---|---|
+| 01 | home | `v5-home` | ✅ |
+| 02 | home-dark | (전역 토글) | ⚠️ ScreenId 미발급 (dev 메뉴 진입점 없음) |
+| 03 | home-folder (폴더 드롭다운) | — | ❌ 미구현 (`FolderMenu` 미포팅) |
+| 04-07 | modal-create / start / import / folder | `v5-modals` (4 variant) | ✅ |
+| 08-10 | task-init / approval / result | `v5-task` (3 variant) | ✅ |
+| 11 | task-artifact | `v5-artifact` (variant=`artifact`) | ✅ |
+| 12-16 | sched-empty / list / chat / done / detail | `v5-sched-{empty,list,chat,done,detail}` | ✅ |
+| 17-18 | menu-account / menu-lang | `v5-menu-{account,lang}` | ✅ |
+| 19 | settings | `v5-settings` | ✅ |
+
+**판정**: 17/19 완전 + 1 부분(02) + 1 누락(03). PR #23 본문의 "19/19" 자칭은 실제 상태와 어긋남.
+
+**컴퍼넌트 spec 미달 (DESIGN.md §4):**
+- `<Composer>` 공용 primitive 부재 — `Home::ComposerPlaceholder` + `Task::TaskComposer` 인라인 구현. spec 의 `large/rows/leftChips/rightChips` API 미달.
+- v5 전용 `<Titlebar>` 부재 — v1 `app/Titlebar.tsx` 재사용. spec 의 좌측 5 아이콘(햄버거/사이드바/검색/뒤로/앞으로) + 중앙 타이틀 미구현.
+- `<FolderMenu>` 부재 — #03 화면과 짝.
+
+토큰은 100% 매칭, 인터랙션 패턴(§6) 5/5 매칭. ScreenSwitcher(DESIGN.md §5 의 검은 드롭다운)는 `V5Sidebar` 로 의도 대체 (PR #23 본문 명시).
+
+**잔여 작업 (별도 PR):**
+- S1: `FolderMenu` + `v5-home-folder` ScreenId (#03)
+- S2: `<Composer>` 공용 primitive 추출
+- S3: v5 전용 `<Titlebar>` (좌측 5 아이콘 + 중앙 타이틀)
+- S4: `home-dark` ScreenId 발급 (시각 회귀 편의)
+
 ---
 
 ## 9. IPC 호출 (Renderer → Main)
@@ -421,6 +468,7 @@ Main 이 `AbortSignal` 을 SDK `query()` 에 전파 → 현재 inflight 만 중�
 | Tweaks (theme/density/sidebar) + electron-store 영속화 | Phase 2+ | ✅ 완료 | `useTweaks` |
 | 세션 재개 (lastSessionId 부팅 복원) | Phase 2+ | ✅ 완료 | `RESTORE_SESSION` 액션 |
 | Zustand 전환 (Phase 4 진입 PR 과 묶음) | Phase 4 | ⏳ 채택 결정 | §4.4 — 단일 root + sessions 슬라이스. Phase 3 사전 마이그레이션 금지 |
+| v5 디자인 핸드오프 포팅 (19 화면 / dev 트리) | Phase 3+ | 🚧 17/19 완료 | PR #23 머지. 잔여: FolderMenu(#03), `<Composer>` / v5 `<Titlebar>` primitive 추출. §8.2 참조 |
 | Projects 화면 | Phase 1 | 🚧 mockup 만 | Future Scope |
 | EngineSettings 화면 | Phase 1 | 🚧 mockup 만 | Phase 3+ 자격증명 UI 와 통합 예정 |
 | SkillsMcp 화면 (권한·MCP 토글) | Phase 1 | 🚧 mockup 만 | Phase 4+ |

@@ -33,7 +33,8 @@
 | **Phase 2+ (`electron-store` 영속화: Tweaks · lastSessionId · lastBackend · window bounds)** | **완료** — `app/src/main/settings/store.ts` |
 | **Phase 2++ (Composer 스킬 UX: SKILL.md 스캔 · 3-chip 행 · picker · 인라인 자동완성)** | **완료** — `app/src/renderer/src/components/composer/`, `app/src/main/skills/` |
 | **Phase 3 (로컬 SQLite SSOT · 세션 히스토리 · 사이드바 비동기 lazy load + 캐시 + kebab 메뉴)** | **완료 (PR #20)** — `app/src/main/db/`, `app/src/renderer/src/state/useSessions.ts`, `useChat.ts` (캐시), `Sidebar.tsx` (kebab rename/delete) |
-| 후속 (opencode 어댑터·캡처 실 구현·테스트·i18n·세션 휴지통 30일 보존) | Future Scope |
+| **Phase 3+ (v5 19 화면 dev 트리 포팅 · `screens/v5/` · `components/{primitives,chat,artifact,account,shell}/` · v1 라우트와 격리)** | **부분 완료 (PR #23)** — 17/19 화면. 잔여: `FolderMenu`(#03 home-folder), `<Composer>` 공용 primitive, v5 전용 `<Titlebar>`. 상세 `docs/FRONTEND_ARCHITECTURE.md` §8.2 |
+| 후속 (opencode 어댑터·캡처 실 구현·테스트·i18n·세션 휴지통 30일 보존 · v5 잔여 (FolderMenu / Composer / v5 Titlebar)) | Future Scope |
 
 ## 핵심 원칙 (모든 에이전트 공통)
 
