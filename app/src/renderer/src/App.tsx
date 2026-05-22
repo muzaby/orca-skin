@@ -155,7 +155,7 @@ function App(): React.JSX.Element {
                 }}
               />
               {screen === 'v5-home' || screen === 'v5-modals' ? (
-                <V5Home />
+                <V5Home onNewProject={() => setScreen('v5-modals')} />
               ) : screen === 'v5-settings' ? (
                 <V5Settings onClose={() => setScreen('v5-home')} />
               ) : screen === 'v5-menu-account' ? (

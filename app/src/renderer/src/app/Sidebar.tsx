@@ -37,7 +37,6 @@ const NAV: NavItem[] = [
   // v5 이주 진입점 — v5 화면이 모두 옮겨지면 본 sidebar 자체가 V5Sidebar 로 대체된다.
   { i: 'sparkle', l: 'v5 홈', screen: 'v5-home' },
   { i: 'sparkle', l: 'v5 태스크', screen: 'v5-task' },
-  { i: 'sparkle', l: 'v5 모달', screen: 'v5-modals' },
   { i: 'sparkle', l: 'v5 설정', screen: 'v5-settings' },
   { i: 'sparkle', l: 'v5 아티팩트', screen: 'v5-artifact' },
   { i: 'sparkle', l: 'v5 계정 메뉴', screen: 'v5-menu-account' },

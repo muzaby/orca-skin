@@ -1,14 +1,17 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Icon, Sparkle, type IconName } from '../../components/primitives/Icon'
 import { Pill } from '../../components/primitives/Pill'
 
-/** v5 Home screen (DESIGN.md §5 #01).
+/** v5 Home screen (DESIGN.md §5 #01 + #03).
  *  Dot-grid canvas + serif italic headline + Composer placeholder + pill row + suggestions.
  *  The Composer here is a *static visual* — the real input flow will be wired
- *  in when the chat screen is migrated. Suggestions are placeholder rows. */
+ *  in when the chat screen is migrated. Suggestions are placeholder rows.
+ *  Pill `프로젝트에서 작업` toggles `FolderMenu` (DESIGN.md §5 #03 home-folder).
+ *  Selecting `새 프로젝트 생성` triggers `onNewProject` which opens the modal. */
 export interface HomeProps {
   onSuggestionPick?: (id: string) => void
   onComposerSubmit?: (text: string) => void
+  onNewProject?: () => void
 }
 
 interface Suggestion {
@@ -23,7 +26,8 @@ const SUGGESTIONS: Suggestion[] = [
   { id: 'find-insights', icon: 'insight', label: '파일에서 인사이트 찾기' }
 ]
 
-export function Home({ onSuggestionPick }: HomeProps): React.JSX.Element {
+export function Home({ onSuggestionPick, onNewProject }: HomeProps): React.JSX.Element {
+  const [folderOpen, setFolderOpen] = useState(false)
   return (
     <main
       className="dot-grid"
@@ -68,7 +72,23 @@ export function Home({ onSuggestionPick }: HomeProps): React.JSX.Element {
           {/* Composer (static visual placeholder for now) */}
           <ComposerPlaceholder />
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 14, flexWrap: 'wrap' }}>
-            <Pill icon="package" label="프로젝트에서 작업" dropdown />
+            <div style={{ position: 'relative' }}>
+              <Pill
+                icon="package"
+                label="프로젝트에서 작업"
+                dropdown
+                selected={folderOpen}
+                onClick={() => setFolderOpen((v) => !v)}
+              />
+              {folderOpen && (
+                <FolderMenu
+                  onCreate={() => {
+                    setFolderOpen(false)
+                    onNewProject?.()
+                  }}
+                />
+              )}
+            </div>
             <Pill icon="hand" label="질문" dropdown />
             <span style={{ marginLeft: 'auto' }} />
             <Pill label="Sonnet 4.6" dropdown surface="ghost" />
@@ -138,6 +158,97 @@ function ComposerPlaceholder(): React.JSX.Element {
           <Icon name="mic" size={17} color="var(--ink-3)" />
         </button>
       </div>
+    </div>
+  )
+}
+
+function FolderMenu({ onCreate }: { onCreate?: () => void }): React.JSX.Element {
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        left: 0,
+        top: 'calc(100% + 6px)',
+        background: 'var(--paper)',
+        border: '1px solid var(--line)',
+        borderRadius: 'var(--r-lg)',
+        boxShadow: 'var(--shadow-md)',
+        width: 320,
+        padding: 6,
+        zIndex: 20
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 10,
+          padding: '8px 10px',
+          background: 'var(--press)',
+          borderRadius: 8
+        }}
+      >
+        <Icon name="folder" size={16} color="var(--ink-2)" />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>C:\Users\rlaeo\Downloads</div>
+          <div
+            style={{
+              fontSize: 11,
+              color: 'var(--ink-3)',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis'
+            }}
+          >
+            C:\Users\rlaeo\Downloads
+          </div>
+        </div>
+        <Icon name="star" size={15} color="var(--ink-4)" />
+      </div>
+      <div style={{ height: 1, background: 'var(--line-soft)', margin: '4px 0' }} />
+      <button
+        onClick={onCreate}
+        className="suggest-row"
+        type="button"
+        style={{
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 9,
+          padding: '8px 10px',
+          borderRadius: 8,
+          color: 'var(--ink-2)',
+          fontSize: 13,
+          background: 'transparent',
+          border: 0,
+          textAlign: 'left',
+          cursor: 'pointer'
+        }}
+      >
+        <Icon name="plus" size={15} color="var(--ink-3)" />
+        <span>새 프로젝트 생성</span>
+      </button>
+      <button
+        className="suggest-row"
+        type="button"
+        style={{
+          width: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 9,
+          padding: '8px 10px',
+          borderRadius: 8,
+          color: 'var(--ink-2)',
+          fontSize: 13,
+          background: 'transparent',
+          border: 0,
+          textAlign: 'left',
+          cursor: 'pointer'
+        }}
+      >
+        <Icon name="folderPlus" size={15} color="var(--ink-3)" />
+        <span>다른 폴더 선택</span>
+      </button>
     </div>
   )
 }
