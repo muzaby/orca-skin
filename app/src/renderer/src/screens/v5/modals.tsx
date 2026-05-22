@@ -1,13 +1,20 @@
+import { useState } from 'react'
 import { Icon, type IconName } from '../../components/primitives/Icon'
 import { ModalShell, ModalBack, MemoryChip } from '../../components/shell/Modal'
 
 export type ModalVariant = 'root' | 'start' | 'import' | 'folder'
 
+export interface NewProjectPayload {
+  name: string
+  instructions: string
+}
+
 export interface NewProjectModalsProps {
   variant: ModalVariant
   onPick?: (v: ModalVariant) => void
   onClose?: () => void
-  onCreate?: () => void
+  /** root/import/folder 닫기는 payload 없이, start 만들기 는 payload 와 함께 호출. */
+  onCreate?: (payload?: NewProjectPayload) => void
 }
 
 /** v5 new-project modal stack (DESIGN.md §5 #04-07).
@@ -82,8 +89,11 @@ function ModalNewProjectStart({
 }: {
   onBack?: () => void
   onClose?: () => void
-  onCreate?: () => void
+  onCreate?: (payload?: NewProjectPayload) => void
 }): React.JSX.Element {
+  const [name, setName] = useState('')
+  const [instructions, setInstructions] = useState('')
+  const canCreate = name.trim().length > 0
   return (
     <ModalShell width={500} onClose={onClose}>
       <div style={{ padding: '18px 24px 22px' }}>
@@ -94,13 +104,21 @@ function ModalNewProjectStart({
             <div className="field-label">
               이름 <span className="req">*</span>
             </div>
-            <input className="field-input focused" placeholder="프로젝트 이름" />
+            <input
+              className="field-input focused"
+              placeholder="프로젝트 이름"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              autoFocus
+            />
           </div>
           <div>
             <div className="field-label">지침</div>
             <textarea
               className="field-input field-textarea"
               placeholder="이 프로젝트에서 작업하는 방법을 Claude에게 알려주세요(선택 사항)"
+              value={instructions}
+              onChange={(e) => setInstructions(e.target.value)}
             />
           </div>
           <div>
@@ -144,7 +162,13 @@ function ModalNewProjectStart({
             <button type="button" className="ghost-btn" onClick={onClose}>
               취소
             </button>
-            <button type="button" className="primary-btn" aria-disabled="true" onClick={onCreate}>
+            <button
+              type="button"
+              className="primary-btn"
+              aria-disabled={!canCreate}
+              disabled={!canCreate}
+              onClick={() => onCreate?.({ name: name.trim(), instructions })}
+            >
               만들기
             </button>
           </span>

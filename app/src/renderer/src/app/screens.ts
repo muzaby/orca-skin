@@ -7,6 +7,7 @@ export type ScreenId =
   | 'captures'
   | 'v5-home'
   | 'v5-projects'
+  | 'v5-project-detail'
   | 'v5-task'
   | 'v5-modals'
   | 'v5-settings'
@@ -34,6 +35,7 @@ export const SCREENS: ScreenInfo[] = [
   { id: 'captures', label: '05 캡처 히스토리', breadcrumb: '캡처 히스토리' },
   { id: 'v5-home', label: 'v5 홈', breadcrumb: 'v5 · 홈' },
   { id: 'v5-projects', label: 'v5 프로젝트', breadcrumb: 'v5 · 프로젝트' },
+  { id: 'v5-project-detail', label: 'v5 프로젝트 상세', breadcrumb: 'v5 · 프로젝트 상세' },
   { id: 'v5-task', label: 'v5 태스크', breadcrumb: 'v5 · 태스크' },
   { id: 'v5-modals', label: 'v5 모달', breadcrumb: 'v5 · 모달' },
   { id: 'v5-settings', label: 'v5 설정', breadcrumb: 'v5 · 설정' },

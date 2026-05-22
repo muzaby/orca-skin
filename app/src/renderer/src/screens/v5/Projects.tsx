@@ -1,14 +1,19 @@
 import { Icon } from '../../components/primitives/Icon'
+import type { Project } from '../../../../shared/ipc'
 
-/** v5 Projects empty-state screen (DESIGN.md §5 — 추가 화면, jsx 원본 없음).
- *  Visual basis: `project/uploads/main` (사용자 메시지 첨부 스크린샷).
- *  헤더 (Projects 제목 + sort/search/New project) + 중앙 빈 상태
- *  (4-square glyph + "Looking to start a project?" + outlined New project). */
+/** v5 Projects screen (DESIGN.md §5 — 추가 화면, jsx 원본 없음).
+ *  Visual basis: `project/uploads/main*.jpg` (사용자 메시지 첨부 스크린샷들).
+ *  헤더 (Projects 제목 + sort/search/New project) + 본문:
+ *  - 비었으면 중앙 empty state (4-square glyph + "Looking to start a project?" + outlined New project)
+ *  - 있으면 ProjectCard 목록 (제목 + 상대 시각, 클릭 시 onOpenProject) */
 export interface ProjectsProps {
+  projects?: Project[]
   onNewProject?: () => void
+  onOpenProject?: (id: string) => void
 }
 
-export function Projects({ onNewProject }: ProjectsProps): React.JSX.Element {
+export function Projects({ projects = [], onNewProject, onOpenProject }: ProjectsProps): React.JSX.Element {
+  const isEmpty = projects.length === 0
   return (
     <main
       className="dot-grid"
@@ -71,67 +76,113 @@ export function Projects({ onNewProject }: ProjectsProps): React.JSX.Element {
             </div>
           </div>
 
-          {/* Centered empty state */}
-          <div
-            style={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 16,
-              textAlign: 'center'
-            }}
-          >
-            <ProjectsGlyph />
-            <h2
+          {isEmpty ? (
+            /* Centered empty state */
+            <div
               style={{
-                margin: 0,
-                fontFamily: 'var(--font-serif)',
-                fontStyle: 'italic',
-                fontWeight: 500,
-                fontSize: 21,
-                color: 'var(--ink)'
-              }}
-            >
-              Looking to start a project?
-            </h2>
-            <p
-              style={{
-                margin: 0,
-                maxWidth: 360,
-                fontSize: 13.5,
-                lineHeight: 1.55,
-                color: 'var(--ink-3)'
-              }}
-            >
-              Point Claude at a folder on your machine and work on it together.
-            </p>
-            <button
-              type="button"
-              onClick={onNewProject}
-              style={{
-                display: 'inline-flex',
+                flex: 1,
+                display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
-                gap: 6,
-                padding: '8px 18px',
-                marginTop: 6,
-                borderRadius: 999,
-                border: '1px solid var(--line)',
-                background: 'var(--paper)',
-                color: 'var(--ink)',
-                fontSize: 13,
-                fontWeight: 500,
-                cursor: 'pointer'
+                justifyContent: 'center',
+                gap: 16,
+                textAlign: 'center'
               }}
             >
-              New project
-            </button>
-          </div>
+              <ProjectsGlyph />
+              <h2
+                style={{
+                  margin: 0,
+                  fontFamily: 'var(--font-serif)',
+                  fontStyle: 'italic',
+                  fontWeight: 500,
+                  fontSize: 21,
+                  color: 'var(--ink)'
+                }}
+              >
+                Looking to start a project?
+              </h2>
+              <p
+                style={{
+                  margin: 0,
+                  maxWidth: 360,
+                  fontSize: 13.5,
+                  lineHeight: 1.55,
+                  color: 'var(--ink-3)'
+                }}
+              >
+                Point Claude at a folder on your machine and work on it together.
+              </p>
+              <button
+                type="button"
+                onClick={onNewProject}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 6,
+                  padding: '8px 18px',
+                  marginTop: 6,
+                  borderRadius: 999,
+                  border: '1px solid var(--line)',
+                  background: 'var(--paper)',
+                  color: 'var(--ink)',
+                  fontSize: 13,
+                  fontWeight: 500,
+                  cursor: 'pointer'
+                }}
+              >
+                New project
+              </button>
+            </div>
+          ) : (
+            /* Card list — DB-backed via useProjects */
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 14 }}>
+              {projects.map((p) => (
+                <ProjectCard key={p.id} project={p} onOpen={() => onOpenProject?.(p.id)} />
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </main>
   )
+}
+
+function ProjectCard({ project, onOpen }: { project: Project; onOpen?: () => void }): React.JSX.Element {
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      className="suggest-row"
+      style={{
+        display: 'block',
+        textAlign: 'left',
+        background: 'var(--paper)',
+        border: '1px solid var(--line)',
+        borderRadius: 'var(--r-lg)',
+        padding: '18px 22px',
+        minHeight: 132,
+        cursor: 'pointer'
+      }}
+    >
+      <h3 style={{ margin: 0, fontSize: 15, fontWeight: 600, color: 'var(--ink)' }}>{project.name}</h3>
+      <div style={{ marginTop: 'auto', paddingTop: 38, fontSize: 12.5, color: 'var(--ink-3)' }}>
+        {formatRelative(project.updatedAt || project.createdAt)}
+      </div>
+    </button>
+  )
+}
+
+function formatRelative(ts: number): string {
+  const diffMs = Date.now() - ts
+  const sec = Math.max(0, Math.floor(diffMs / 1000))
+  if (sec < 60) return '방금 전'
+  const min = Math.floor(sec / 60)
+  if (min < 60) return `${min}분 전`
+  const hour = Math.floor(min / 60)
+  if (hour < 24) return `${hour}시간 전`
+  const day = Math.floor(hour / 24)
+  return `${day}일 전`
 }
 
 function ProjectsGlyph(): React.JSX.Element {

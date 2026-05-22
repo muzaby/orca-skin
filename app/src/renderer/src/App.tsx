@@ -22,8 +22,9 @@ import { InstallerDialog } from './components/install/InstallerDialog'
 import { AuthExpiredModal } from './components/auth/AuthExpiredModal'
 import { Home as V5Home } from './screens/v5/Home'
 import { Projects as V5Projects } from './screens/v5/Projects'
+import { ProjectDetail as V5ProjectDetail } from './screens/v5/ProjectDetail'
 import { Task as V5Task, type TaskVariant } from './screens/v5/Task'
-import { NewProjectModals, type ModalVariant } from './screens/v5/modals'
+import { NewProjectModals, type ModalVariant, type NewProjectPayload } from './screens/v5/modals'
 import { Settings as V5Settings } from './screens/v5/Settings'
 import { AccountMenuScreen as V5AccountMenu } from './screens/v5/AccountMenuScreen'
 import {
@@ -61,6 +62,16 @@ function App(): React.JSX.Element {
   // App.tsx 단일 인스턴스 — Sidebar (라벨 prefix lookup), Projects (그리드),
   // ProjectDetail (헤더/지침 표시 + update) 가 모두 같은 state 를 공유.
   const projects = useProjects()
+  // start variant '만들기' 클릭 → 실 project 저장 + origin 으로 복귀.
+  const handleV5ModalCreate = useCallback(
+    async (payload?: NewProjectPayload) => {
+      if (payload && payload.name) {
+        await projects.create(payload.name, payload.instructions)
+      }
+      closeV5Modal()
+    },
+    [projects, closeV5Modal]
+  )
   const [installerOpen, setInstallerOpen] = useState(false)
   const autoOpenedRef = useRef(false)
 
@@ -142,6 +153,7 @@ function App(): React.JSX.Element {
   if (
     screen === 'v5-home' ||
     screen === 'v5-projects' ||
+    screen === 'v5-project-detail' ||
     screen === 'v5-task' ||
     screen === 'v5-modals' ||
     screen === 'v5-settings' ||
@@ -157,11 +169,14 @@ function App(): React.JSX.Element {
     // 모달이 떠 있을 때 어느 화면 위에 떠 있는지 — origin (v5-home / v5-projects 등).
     const baseScreen: ScreenId = screen === 'v5-modals' ? (modalOrigin ?? 'v5-home') : screen
     const sidebarActive =
-      baseScreen === 'v5-projects'
+      baseScreen === 'v5-projects' || baseScreen === 'v5-project-detail'
         ? 'projects'
         : baseScreen.startsWith('v5-sched')
           ? 'scheduled'
           : 'newTask'
+    const v5SelectedProject = selectedProjectId
+      ? projects.list.find((p) => p.id === selectedProjectId)
+      : undefined
     return (
       <>
         <div className="h-full w-full">
@@ -179,7 +194,20 @@ function App(): React.JSX.Element {
               {baseScreen === 'v5-home' ? (
                 <V5Home onNewProject={() => openV5Modal('v5-home')} />
               ) : baseScreen === 'v5-projects' ? (
-                <V5Projects onNewProject={() => openV5Modal('v5-projects')} />
+                <V5Projects
+                  projects={projects.list}
+                  onNewProject={() => openV5Modal('v5-projects')}
+                  onOpenProject={(id) => {
+                    setSelectedProjectId(id)
+                    setScreen('v5-project-detail')
+                  }}
+                />
+              ) : baseScreen === 'v5-project-detail' && v5SelectedProject ? (
+                <V5ProjectDetail
+                  project={v5SelectedProject}
+                  onBack={() => setScreen('v5-projects')}
+                  onStartChat={() => setScreen('v5-task')}
+                />
               ) : screen === 'v5-settings' ? (
                 <V5Settings onClose={() => setScreen('v5-home')} />
               ) : screen === 'v5-menu-account' ? (
@@ -205,6 +233,7 @@ function App(): React.JSX.Element {
               ) : (
                 <V5Task
                   variant={taskVariant}
+                  title={v5SelectedProject ? `${v5SelectedProject.name} / New conversation` : undefined}
                   panelOpen={taskPanelOpen}
                   onTogglePanel={() => setTaskPanelOpen((v) => !v)}
                 />
@@ -215,7 +244,7 @@ function App(): React.JSX.Element {
                 variant={modalVariant}
                 onPick={setModalVariant}
                 onClose={closeV5Modal}
-                onCreate={closeV5Modal}
+                onCreate={(payload) => void handleV5ModalCreate(payload)}
               />
             )}
             {/* Temporary in-browser variant selector for the task screen demo.
