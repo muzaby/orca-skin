@@ -20,10 +20,28 @@ import { useSessions } from './state/useSessions'
 import { useProjects } from './state/useProjects'
 import { InstallerDialog } from './components/install/InstallerDialog'
 import { AuthExpiredModal } from './components/auth/AuthExpiredModal'
+import { Home as V5Home } from './screens/v5/Home'
+import { Task as V5Task, type TaskVariant } from './screens/v5/Task'
+import { NewProjectModals, type ModalVariant } from './screens/v5/modals'
+import { Settings as V5Settings } from './screens/v5/Settings'
+import { AccountMenuScreen as V5AccountMenu } from './screens/v5/AccountMenuScreen'
+import {
+  ScheduleEmpty as V5SchedEmpty,
+  ScheduleList as V5SchedList,
+  ScheduleDetail as V5SchedDetail,
+  ScheduleChat as V5SchedChat,
+  ScheduleDone as V5SchedDone
+} from './screens/v5/Schedule'
+import { V5Sidebar } from './screens/v5/V5Sidebar'
 
 function App(): React.JSX.Element {
   const [screen, setScreen] = useState<ScreenId>('chat')
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
+  // v5 task variant + right-panel toggle. Local to App so the toggle in
+  // ChatHeader can flip it without remounting the screen.
+  const [taskVariant, setTaskVariant] = useState<TaskVariant>('running')
+  const [taskPanelOpen, setTaskPanelOpen] = useState(true)
+  const [modalVariant, setModalVariant] = useState<ModalVariant>('root')
   const [t, setTweak] = useTweaks()
   const chat = useChat()
   const backend = useBackend()
@@ -105,6 +123,126 @@ function App(): React.JSX.Element {
 
   const current = SCREENS.find((s) => s.id === screen)!
   const authExpired = chat.state.error?.code === 'auth.expired'
+
+  // v5 화면은 별도 셸 (V5Sidebar) 로 렌더. 레거시 Sidebar 의 세션 상태와 분리되어
+  // v5 디자인을 격리 검증할 수 있다. v5 화면들이 모두 옮겨지면 본 분기 자체가
+  // 기본 경로가 된다.
+  if (
+    screen === 'v5-home' ||
+    screen === 'v5-task' ||
+    screen === 'v5-modals' ||
+    screen === 'v5-settings' ||
+    screen === 'v5-artifact' ||
+    screen === 'v5-menu-account' ||
+    screen === 'v5-menu-lang' ||
+    screen === 'v5-sched-empty' ||
+    screen === 'v5-sched-list' ||
+    screen === 'v5-sched-detail' ||
+    screen === 'v5-sched-chat' ||
+    screen === 'v5-sched-done'
+  ) {
+    return (
+      <>
+        <div className="h-full w-full">
+          <Frame label={`Orca · ${current.label}`}>
+            <Titlebar breadcrumb={current.breadcrumb} />
+            <div className="flex min-h-0 flex-1">
+              <V5Sidebar
+                active="newTask"
+                onLeaveV5={() => setScreen('chat')}
+                onNav={(id) => {
+                  if (id === 'newTask') setScreen('v5-home')
+                }}
+              />
+              {screen === 'v5-home' || screen === 'v5-modals' ? (
+                <V5Home />
+              ) : screen === 'v5-settings' ? (
+                <V5Settings onClose={() => setScreen('v5-home')} />
+              ) : screen === 'v5-menu-account' ? (
+                <V5AccountMenu />
+              ) : screen === 'v5-menu-lang' ? (
+                <V5AccountMenu withLang />
+              ) : screen === 'v5-sched-empty' ? (
+                <V5SchedEmpty />
+              ) : screen === 'v5-sched-list' ? (
+                <V5SchedList onOpenTask={() => setScreen('v5-sched-detail')} />
+              ) : screen === 'v5-sched-detail' ? (
+                <V5SchedDetail onBack={() => setScreen('v5-sched-list')} />
+              ) : screen === 'v5-sched-chat' ? (
+                <V5SchedChat />
+              ) : screen === 'v5-sched-done' ? (
+                <V5SchedDone />
+              ) : screen === 'v5-artifact' ? (
+                <V5Task
+                  variant="artifact"
+                  panelOpen
+                  onCloseArtifact={() => setScreen('v5-task')}
+                />
+              ) : (
+                <V5Task
+                  variant={taskVariant}
+                  panelOpen={taskPanelOpen}
+                  onTogglePanel={() => setTaskPanelOpen((v) => !v)}
+                />
+              )}
+            </div>
+            {screen === 'v5-modals' && (
+              <NewProjectModals
+                variant={modalVariant}
+                onPick={setModalVariant}
+                onClose={() => {
+                  setModalVariant('root')
+                  setScreen('v5-home')
+                }}
+                onCreate={() => {
+                  setModalVariant('root')
+                  setScreen('v5-home')
+                }}
+              />
+            )}
+            {/* Temporary in-browser variant selector for the task screen demo.
+                Removed once routing covers the 3 variants individually. */}
+            {screen === 'v5-task' && (
+              <div
+                style={{
+                  position: 'fixed',
+                  right: 12,
+                  bottom: 12,
+                  display: 'flex',
+                  gap: 4,
+                  background: 'var(--paper)',
+                  border: '1px solid var(--line)',
+                  borderRadius: 8,
+                  padding: 4,
+                  boxShadow: 'var(--shadow-md)',
+                  zIndex: 50
+                }}
+              >
+                {(['running', 'approval', 'result'] as const).map((v) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setTaskVariant(v)}
+                    style={{
+                      padding: '4px 10px',
+                      borderRadius: 6,
+                      fontSize: 12,
+                      background: taskVariant === v ? 'var(--press)' : 'transparent',
+                      color: taskVariant === v ? 'var(--ink)' : 'var(--ink-3)',
+                      border: 0,
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {v}
+                  </button>
+                ))}
+              </div>
+            )}
+          </Frame>
+        </div>
+      </>
+    )
+  }
 
   return (
     <>
