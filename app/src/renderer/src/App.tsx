@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Frame, FrameGrid, FrameBody, ModalSlot, OverlaySlot } from './app/Frame'
+import { Frame, FrameGrid, FrameBody, ModalSlot, OverlaySlot, DebugSlot } from './app/Frame'
 import { Titlebar } from './app/Titlebar'
 import { Sidebar } from './app/Sidebar'
 import { ChatPane } from './app/ChatPane'
@@ -156,7 +156,29 @@ function App(): React.JSX.Element {
           {body}
         </FrameBody>
 
-        <OverlaySlot visible={true}>
+        {/* backdrop — modal 활성 시에만 blur+dim 으로 떠오른다. children 없음. */}
+        <OverlaySlot modalActive={anyModalOpen} />
+
+        <ModalSlot modalActive={anyModalOpen}>
+          <InstallerDialog
+            open={installerOpen}
+            onClose={() => setInstallerOpen(false)}
+            onComplete={() => {
+              setInstallerOpen(false)
+              void backend.refresh()
+            }}
+          />
+          <AuthExpiredModal
+            open={authExpired}
+            onNewChat={() => {
+              chat.newChat()
+            }}
+            onDismiss={chat.clearError}
+          />
+        </ModalSlot>
+
+        {/* 개발 보조 floating UI — modal 위에도 떠 있어 modal 중에도 조작 가능. */}
+        <DebugSlot>
           <TweaksPanel>
             <TweakSection label="테마" />
             <TweakRadio
@@ -186,25 +208,7 @@ function App(): React.JSX.Element {
               onChange={(v) => setTweak('sidebarCollapsed', v)}
             />
           </TweaksPanel>
-        </OverlaySlot>
-
-        <ModalSlot visible={anyModalOpen}>
-          <InstallerDialog
-            open={installerOpen}
-            onClose={() => setInstallerOpen(false)}
-            onComplete={() => {
-              setInstallerOpen(false)
-              void backend.refresh()
-            }}
-          />
-          <AuthExpiredModal
-            open={authExpired}
-            onNewChat={() => {
-              chat.newChat()
-            }}
-            onDismiss={chat.clearError}
-          />
-        </ModalSlot>
+        </DebugSlot>
       </FrameGrid>
     </Frame>
   )

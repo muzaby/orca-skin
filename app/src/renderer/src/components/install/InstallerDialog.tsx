@@ -53,8 +53,10 @@ export function InstallerDialog({
 
   const manualCmd = 'npm install -g @anthropic-ai/claude-code'
 
+  // backdrop (blur + dim) 은 #app-frame-overlay 가 담당. 이 컴포넌트는 panel 자체만
+  // grid cell 중앙에 놓는다. fixed inset-0 도 grid 부모를 가지면 grid cell 기준으로 작동.
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40">
+    <div className="grid h-full w-full place-items-center">
       <div className="w-[520px] max-w-[90vw] rounded-xl border border-border bg-panel p-5 shadow-xl">
         <div className="mb-2 font-serif text-[16px] font-semibold text-ink">Claude Code 설치</div>
         <div className="mb-3 text-[12.5px] text-ink2">
