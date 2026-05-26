@@ -1,15 +1,16 @@
-import { forwardRef, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import { Icon, type IconName } from '../components/atoms/Icon'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { Icon } from '../components/atoms/Icon'
 import { Dot } from '../components/atoms/Status'
-import { CopyIconButton } from '../components/atoms/CopyIconButton'
-import { StatusLine } from '../components/atoms/StatusLine'
 import { Popover } from '../components/atoms/Popover'
 import { HighlightedTextarea, type HighlightedTextareaHandle } from './composer/HighlightedTextarea'
 import { SkillAutocomplete } from './composer/SkillAutocomplete'
 import { FileAutocomplete } from './composer/FileAutocomplete'
-import { Markdown } from '../screens/chat/markdown/Markdown'
+import { ComposerChip } from './composer/ComposerChip'
+import { SkillsMenu } from './composer/SkillsMenu'
+import { AssistantMessage } from '../screens/chat/AssistantMessage'
+import { UserMessage } from '../screens/chat/UserMessage'
+import { PendingAssistant } from '../screens/chat/PendingAssistant'
 import type { UseChat } from '../state/useChat'
-import type { Message, ToolCall } from '../state/chatReducer'
 import { useSkills } from '../state/useSkills'
 import { useSkillAutocomplete } from '../state/useSkillAutocomplete'
 import { useFileAutocomplete } from '../state/useFileAutocomplete'
@@ -21,179 +22,6 @@ const ICON_BTN =
 interface ChatTileProps {
   chat: UseChat
   backendLabel: string
-}
-
-// 표시용 짧은 형식: 오늘이면 '오전 11:44', 다른 날이면 '5월 13일'
-function formatTimeShort(ms: number): string {
-  const d = new Date(ms)
-  const now = new Date()
-  const sameDay =
-    d.getFullYear() === now.getFullYear() &&
-    d.getMonth() === now.getMonth() &&
-    d.getDate() === now.getDate()
-  if (sameDay) {
-    return new Intl.DateTimeFormat('ko-KR', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    }).format(d)
-  }
-  return new Intl.DateTimeFormat('ko-KR', { month: 'long', day: 'numeric' }).format(d)
-}
-
-// 툴팁용 전체 형식: '2026. 5. 12. 오전 11:03:09'
-function formatTimeFull(ms: number): string {
-  return new Intl.DateTimeFormat('ko-KR', {
-    year: 'numeric',
-    month: 'numeric',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    second: '2-digit',
-    hour12: true
-  }).format(new Date(ms))
-}
-
-function stringify(value: unknown): string {
-  if (typeof value === 'string') return value
-  try {
-    return JSON.stringify(value, null, 2)
-  } catch {
-    return String(value)
-  }
-}
-
-function ToolCard({ call }: { call: ToolCall }): React.JSX.Element {
-  const [open, setOpen] = useState(false)
-  const done = call.result != null
-  const isError = call.result?.isError === true
-  const tone: 'green' | 'amber' | 'slate' = isError ? 'slate' : done ? 'green' : 'amber'
-  const label = isError ? '실패' : done ? '완료' : '실행 중…'
-  const args = stringify(call.input).replace(/\n/g, ' ')
-  const duration =
-    call.result?.durationMs != null ? ` · ${(call.result.durationMs / 1000).toFixed(1)}s` : ''
-  return (
-    <div
-      className={`rounded-[10px] border ${
-        isError ? 'border-rust bg-rust-soft' : 'border-border bg-panel'
-      } overflow-hidden font-mono text-[12.5px] text-ink`}
-    >
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full cursor-pointer items-center gap-2.5 border-0 bg-transparent px-3 py-2 text-left"
-        aria-expanded={open}
-      >
-        <span aria-hidden className="w-3 text-[10px] text-ink3">
-          {open ? '▼' : '▶'}
-        </span>
-        <Dot tone={tone} />
-        <span className="font-semibold text-rust">{call.name}</span>
-        <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-ink3">
-          ({args})
-        </span>
-        <span className="font-sans text-[11px] text-ink3">
-          {label}
-          {duration}
-        </span>
-      </button>
-      {open && (
-        <div className="border-t border-border bg-bg/50 px-3 py-2 text-[12px]">
-          <div className="mb-1 font-sans text-[10.5px] uppercase tracking-wide text-ink3">
-            input
-          </div>
-          <pre className="m-0 mb-2 overflow-auto whitespace-pre-wrap break-words text-ink">
-            {stringify(call.input)}
-          </pre>
-          {call.result && (
-            <>
-              <div className="mb-1 font-sans text-[10.5px] uppercase tracking-wide text-ink3">
-                output
-              </div>
-              {typeof call.result.output === 'string' ? (
-                <Markdown source={call.result.output} />
-              ) : (
-                <pre className="m-0 overflow-auto whitespace-pre-wrap break-words text-ink">
-                  {stringify(call.result.output)}
-                </pre>
-              )}
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-interface MessageMetaProps {
-  text: string
-  createdAt: number
-  align: 'left' | 'right'
-}
-
-function MessageMeta({ text, createdAt, align }: MessageMetaProps): React.JSX.Element {
-  return (
-    <div
-      className={`mt-1 flex items-center gap-1 text-ink3 opacity-0 transition-opacity duration-200 group-hover:opacity-100 focus-within:opacity-100 ${
-        align === 'right' ? 'justify-end' : 'justify-start'
-      }`}
-    >
-      {text && <CopyIconButton text={text} />}
-      <span className="font-mono text-[10.5px]" title={formatTimeFull(createdAt)}>
-        {formatTimeShort(createdAt)}
-      </span>
-    </div>
-  )
-}
-
-interface AssistantMessageProps {
-  message: Message
-}
-
-function AssistantMessage({ message }: AssistantMessageProps): React.JSX.Element {
-  return (
-    <div className="group flex flex-col">
-      <div className="flex flex-col gap-2.5 text-[14px] leading-[1.7] text-ink">
-        {message.toolCalls?.map((tc) => (
-          <ToolCard key={tc.toolUseId} call={tc} />
-        ))}
-        {message.content && <Markdown source={message.content} />}
-      </div>
-      <MessageMeta text={message.content} createdAt={message.createdAt} align="left" />
-    </div>
-  )
-}
-
-interface UserMessageProps {
-  message: Message
-}
-
-function UserMessage({ message }: UserMessageProps): React.JSX.Element {
-  return (
-    <div className="group flex flex-col items-end">
-      <div className="max-w-[75%] whitespace-pre-wrap rounded-2xl bg-bubble-user px-4 py-2.5 text-[14px] leading-[1.7] text-ink">
-        {message.content}
-      </div>
-      <MessageMeta text={message.content} createdAt={message.createdAt} align="right" />
-    </div>
-  )
-}
-
-interface PendingAssistantProps {
-  turnStartedAt: number | null
-  pendingDelta: string
-}
-
-function PendingAssistant({
-  turnStartedAt,
-  pendingDelta
-}: PendingAssistantProps): React.JSX.Element {
-  return (
-    <div className="flex flex-col gap-2.5 text-[14px] leading-[1.7] text-ink">
-      {pendingDelta && <Markdown source={pendingDelta} />}
-      <StatusLine turnStartedAt={turnStartedAt} outputApproxFromText={pendingDelta} />
-    </div>
-  )
 }
 
 export function ChatTile({ chat, backendLabel }: ChatTileProps): React.JSX.Element {
@@ -537,84 +365,5 @@ export function ChatTile({ chat, backendLabel }: ChatTileProps): React.JSX.Eleme
         </div>
       </div>
     </section>
-  )
-}
-
-const MENU_ITEM =
-  'flex w-full cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-left text-[13px] text-ink hover:bg-sidebar disabled:cursor-not-allowed disabled:text-ink3'
-
-// mockup `project/variations/v1-shell.jsx:186-188` 의 chip1 — composer 좌측 하단의
-// 행위 chip. 시맨틱 토큰으로 재현.
-interface ComposerChipProps {
-  icon: IconName
-  label: string
-  disabled?: boolean
-  title?: string
-  onClick?: () => void
-  ariaHasPopup?: boolean
-  ariaExpanded?: boolean
-}
-
-const ComposerChip = forwardRef<HTMLButtonElement, ComposerChipProps>(function ComposerChip(
-  { icon, label, disabled, title, onClick, ariaHasPopup, ariaExpanded },
-  ref
-): React.JSX.Element {
-  return (
-    <button
-      ref={ref}
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      title={title}
-      aria-haspopup={ariaHasPopup ? 'menu' : undefined}
-      aria-expanded={ariaHasPopup ? ariaExpanded : undefined}
-      className="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-md border border-border bg-bg px-2 text-[12px] text-ink2 hover:bg-sidebar disabled:cursor-not-allowed disabled:opacity-50"
-    >
-      <Icon name={icon} size={12} />
-      <span>{label}</span>
-    </button>
-  )
-})
-
-interface SkillsMenuProps {
-  skills: SkillInfo[]
-  onPick: (name: string) => void
-}
-
-function SkillsMenu({ skills, onPick }: SkillsMenuProps): React.JSX.Element {
-  return (
-    <div role="none" className="flex flex-col">
-      <div className="max-h-[280px] overflow-y-auto">
-        {skills.length === 0 ? (
-          <div className="px-2 py-2 text-[11.5px] leading-relaxed text-ink3">
-            스킬이 없습니다. <span className="font-mono">~/.claude/skills/</span> 또는 프로젝트의{' '}
-            <span className="font-mono">.claude/skills/</span> 에 SKILL.md 를 두세요.
-          </div>
-        ) : (
-          skills.map((s) => (
-            <button
-              key={s.name}
-              type="button"
-              role="menuitem"
-              onClick={() => onPick(s.name)}
-              className={`group/skillrow relative ${MENU_ITEM}`}
-            >
-              <span className="flex-1 font-mono text-[12.5px]">/{s.name}</span>
-              {s.argumentHint && (
-                <span className="font-mono text-[10.5px] text-ink3">{s.argumentHint}</span>
-              )}
-              {s.description && (
-                <span
-                  role="tooltip"
-                  className="pointer-events-none absolute left-full top-0 z-10 ml-2 hidden w-[240px] rounded-md border border-border bg-panel p-2 text-[11.5px] leading-relaxed text-ink2 shadow-lg group-hover/skillrow:block"
-                >
-                  {s.description}
-                </span>
-              )}
-            </button>
-          ))
-        )}
-      </div>
-    </div>
   )
 }
