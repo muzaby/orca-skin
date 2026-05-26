@@ -9,7 +9,7 @@
 | `chats/` | 사용자 의도 트랜스크립트 (Claude Design 핸드오프) — *왜* 가 산다 | `chats/CLAUDE.md` |
 | `docs/` | PRD, TRD, 전략 문서 — *무엇을* / *어떻게* 가 산다 | `docs/CLAUDE.md` |
 | `project/` | HTML/CSS/JS 디자인 프로토타입 (variation A 채택) — *어떻게 보여야 하는가* | `project/CLAUDE.md` |
-| `app/` | Orca v1 실제 구현체 (electron-vite + React/TypeScript). Phase 3 — 로컬 SQLite SSOT + 세션 히스토리. | `app/CLAUDE.md` |
+| `app/` | Orca v1 실제 구현체 (electron-vite + React/TypeScript). Phase 3+ — 로컬 SQLite SSOT + 세션 히스토리 + DOM Architecture + `frame/` & `screens/` 슬롯 분리. | `app/CLAUDE.md` |
 
 ## 새 세션 진입 시 읽는 순서
 
@@ -31,9 +31,12 @@
 | Phase 1 (mockup 시각 재현 + Tailwind v4) | 완료 — `app/src/renderer/` |
 | **Phase 2 (claude-code 단일 어댑터 + 채팅 IPC)** | **완료** — `app/src/main/`, `app/src/preload/` |
 | **Phase 2+ (`electron-store` 영속화: Tweaks · lastSessionId · lastBackend · window bounds)** | **완료** — `app/src/main/settings/store.ts` |
-| **Phase 2++ (Composer 스킬 UX: SKILL.md 스캔 · 3-chip 행 · picker · 인라인 자동완성)** | **완료** — `app/src/renderer/src/components/composer/`, `app/src/main/skills/` |
+| **Phase 2++ (Composer 스킬 UX: SKILL.md 스캔 · 3-chip 행 · picker · 인라인 자동완성)** | **완료** — `app/src/renderer/src/frame/composer/` (PR #25 이전엔 `components/composer/`), `app/src/main/skills/` |
 | **Phase 3 (로컬 SQLite SSOT · 세션 히스토리 · 사이드바 비동기 lazy load + 캐시 + kebab 메뉴)** | **완료 (PR #20)** — `app/src/main/db/`, `app/src/renderer/src/state/useSessions.ts`, `useChat.ts` (캐시), `Sidebar.tsx` (kebab rename/delete) |
-| 후속 (opencode 어댑터·캡처 실 구현·테스트·i18n·세션 휴지통 30일 보존) | Future Scope |
+| **Phase 3+ (DOM Architecture: `app-frame-*` 마커 + `data-*` 체계 + Custom titlebar `frame:false` + Grid z-stack + Sidebar resize-handle + Tile structure)** | **완료** — `app/src/renderer/src/frame/`, `data-platform`/`data-context`/`data-behavior` 마커 부착, `docs/FRONTEND_ARCHITECTURE.md` §3.3 |
+| **Phase 3++ (frame/ + screens/ 슬롯 분리 + 마크업 마커 보강)** | **완료 (PR #25)** — 셸 슬롯 `frame/` vs 도메인 화면 `screens/` 디렉토리 분리, 컴포넌트 rename (`Titlebar`→`Header`, `ChatPane`→`ChatTile`, `*Pane`→`*Screen`), `app-frame-composer-repo` / `app-frame-session-row` / `app-frame-floating` 마커 신설 |
+| **Phase 3++ (ChatTile 분해: transcript/composer 부속을 슬롯 디렉토리로 추출)** | **완료 (PR #26)** — 구 620줄 ChatTile.tsx → 369줄. `screens/chat/{format.ts, ToolCard, MessageMeta, AssistantMessage, UserMessage, PendingAssistant}.tsx` + `frame/composer/{ComposerChip, SkillsMenu}.tsx` 추출. `app/CLAUDE.md` 원칙 9 (단일 파일 분해 가이드) 신설 |
+| 후속 (CI 워크플로우·Vitest·i18n·Phase 4 Zustand+멀티세션·opencode 어댑터·캡처 실 구현·세션 휴지통 30일 보존) | Future Scope |
 
 ## 핵심 원칙 (모든 에이전트 공통)
 

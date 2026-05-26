@@ -1,8 +1,8 @@
 # app/ — 코딩 에이전트용 가이드
 
-이 디렉토리는 **Orca v1 의 실제 구현체**가 사는 곳이다. 현재는 **Phase 3+ (로컬 SQLite SSOT + 사이드바 세션 히스토리 + DOM Architecture 적용)** 상태로, claude-code 어댑터 + 채팅 IPC + Composer 스킬 UX + `better-sqlite3` 기반 로컬 DB 영속화 + 사이드바 세션 관리 위에 **`app-frame-*` 구조 클래스 + `data-*` 행동/상태 마커 체계와 4종 신규 기능 (Custom titlebar `frame:false`, Grid z-stack, Sidebar resize-handle, Tile structure)** 이 추가되었다. 본 구현은 `docs/TRD.md` 의 사양과 `docs/FRONTEND_ARCHITECTURE.md` §3.3 의 DOM Architecture Specification 을 따른다.
+이 디렉토리는 **Orca v1 의 실제 구현체**가 사는 곳이다. 현재는 **Phase 3++ (로컬 SQLite SSOT + 사이드바 세션 히스토리 + DOM Architecture + `frame/` & `screens/` 슬롯 분리 + ChatTile 분해)** 상태로, claude-code 어댑터 + 채팅 IPC + Composer 스킬 UX + `better-sqlite3` 기반 로컬 DB 영속화 + 사이드바 세션 관리 위에 **① `app-frame-*` 구조 클래스 + `data-*` 행동/상태 마커 체계와 4종 신규 기능 (Custom titlebar `frame:false`, Grid z-stack, Sidebar resize-handle, Tile structure), ② 마크업 슬롯과 1:1 정렬되는 파일/디렉토리 구조 (`frame/` 셸 슬롯 vs `screens/` 도메인 화면), ③ 컴포넌트 슬롯 분리 (Header / ChatTile / *Screen rename + ChatTile 의 transcript/composer 부속 추출)** 가 누적 적용되었다. 본 구현은 `docs/TRD.md` 의 사양과 `docs/FRONTEND_ARCHITECTURE.md` §3.3 의 DOM Architecture Specification 을 따른다.
 
-## 현재 상태 (Phase 3+ — 로컬 DB + 세션 히스토리 + DOM Architecture)
+## 현재 상태 (Phase 3++ — 로컬 DB + 세션 히스토리 + DOM Architecture + 슬롯 분리)
 
 | 영역                              | 상태                                                                                                                                                                                       |
 | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -13,7 +13,7 @@
 | TypeScript                        | 5.x (strict, target ES2022)                                                                                                                                                                |
 | 스타일링                          | **Tailwind CSS v4** (`@tailwindcss/vite` 플러그인, CSS-first `@theme` 설정) + **`app-frame-*` 마커 클래스 + `data-behavior` / `data-state` / `data-axis` / `data-context` / `data-platform` 속성 공존** (FRONTEND §3.3) |
 | 메인 (`src/main/index.ts`)        | IpcRouter 부트 + `createWindow` (`frame:false` + 윈도우 컨트롤 IPC `orca:window:{minimize,maximize,close}` 직접 부착). `contextIsolation: true` / `nodeIntegration: false` / `sandbox: true` 명시 |
-| 렌더러 (`src/renderer/src/`)      | **Phase 1 시각 재현 + Phase 2 채팅 IPC + Phase 3 세션 히스토리 + Phase 3+ DOM Architecture** — Frame(`app-frame-root` + `FrameGrid`/`FrameBody`/`OverlaySlot`/`ModalSlot`/`DebugSlot`)/Titlebar(drag 2-layer + 플랫폼 분기)/Sidebar(실세션 + kebab + resize-handle + width 영속화)/ChatPane(`pane-host>pane-row>tile` 래핑)/CameraPane/Projects/EngineSettings/SkillsMcp + Tweaks(DebugSlot) + Installer/Auth modal(ModalSlot, backdrop 은 OverlaySlot). 캡처는 placeholder |
+| 렌더러 (`src/renderer/src/`)      | **Phase 1 시각 재현 + Phase 2 채팅 IPC + Phase 3 세션 히스토리 + Phase 3+ DOM Architecture + Phase 3++ frame/screens 분리 + ChatTile 분해** — `frame/` 셸 슬롯 (Frame · Header (구 Titlebar) · Sidebar · ChatTile (구 ChatPane) + header/composer/modal/debug 하위) / `screens/` 도메인 화면 (Camera/Projects/ProjectDetail/Engine/SkillsMcp/Captures Screen) + `screens/chat/` ChatTile transcript 부속 (PR #26) + Tweaks(DebugSlot) + Installer/Auth modal(ModalSlot, backdrop 은 OverlaySlot). 캡처는 placeholder |
 | 프리로드 (`src/preload/index.ts`) | `contextBridge.exposeInMainWorld('orca', OrcaApi)` — chat/backend/install/settings/skills/files/session/project/**window** 화이트리스트 + **`orca.platform` sync 노출**                  |
 | 패키저                            | electron-builder (`electron-builder.yml`)                                                                                                                                                  |
 | 도메인 코드 (IPC/어댑터)          | **claude-code 단일 어댑터 (SDK query)** + **로컬 SQLite SSOT** — ClaudeCodeAdapter(SDK NDJSON 정규화), AdapterRegistry, IpcRouter, Installer, SettingsStore, DbQueries (prepared statements), 마이그레이션 러너. opencode 는 future work                                  |
@@ -47,8 +47,8 @@
 | `src/renderer/src/state/useChat.ts`                       | useReducer + `chat.onEvent` 구독 + **세션 메모리 캐시** (`useRef<Map<id, CachedSession>>`) — 같은 세션 재진입 시 IPC 생략. `loadSession(id, title?)` · `renameSession` · `invalidateSessionCache` 노출 | 구현됨 (Phase 3)                       |
 | `src/renderer/src/state/useSessions.ts`                   | `session.list` 메타 캐시 (부팅 1회 + 턴 종료 자동 refresh). `remove(id)` / `rename(id, title)` — IPC + refresh | 구현됨 (Phase 3)                       |
 | `src/renderer/src/state/useBackend.ts`                    | 부트 시 `orca.backend.list()` 호출 → 설치 상태 보관                             | 구현됨                                  |
-| `src/renderer/src/components/install/InstallerDialog.tsx` | 설치 진행 로그 + 수동 명령 복사                                                 | 구현됨                                  |
-| `src/renderer/src/components/auth/AuthExpiredModal.tsx`   | `claude /login` 안내 + 새 대화                                                  | 구현됨                                  |
+| `src/renderer/src/frame/modal/InstallerDialog.tsx`        | 설치 진행 로그 + 수동 명령 복사. `#app-frame-modal` 슬롯                       | 구현됨                                  |
+| `src/renderer/src/frame/modal/AuthExpiredModal.tsx`       | `claude /login` 안내 + 새 대화. `#app-frame-modal` 슬롯                        | 구현됨                                  |
 | `src/renderer/src/main.tsx`                               | React 엔트리 + DOM mount + 글로벌 CSS import                                    | 구현됨                                  |
 | `src/renderer/src/App.tsx`                                | 루트 셸 — Tweaks state, theme/density/**platform** effect, 화면 라우팅, Frame 자식 슬롯 (Sidebar+body + OverlaySlot + ModalSlot + DebugSlot) 배치 | 구현됨 (Phase 3+)                       |
 | `src/renderer/src/frame/Frame.tsx`                        | `Frame` (`app-frame-root`) + `FrameGrid` (1×1 z-stack) + `FrameBody` + `OverlaySlot` (modal backdrop, z 부호 반전) + `ModalSlot` (focus-trap, z 부호 반전) + `DebugSlot` (`#app-frame-debug`, 상시 z=30) sub-export. FRONTEND §3.3 SSOT | 구현됨 (Phase 3+)                       |
@@ -97,7 +97,7 @@ Phase 1 의 1차 목표는 **mockup 픽셀 재현**이었으며, 마이그레이
 
 **DOM 마커 체계 (Phase 3+ 도입).** 구조 식별을 위한 `app-frame-*` 클래스와 행동/상태 메타 (`data-behavior`, `data-state`, `data-axis`, `data-context`, `data-platform`) 는 **Tailwind 유틸과 공존하는 마커 전용**이다. 시각 스타일은 여전히 Tailwind 유틸이 진실. 새 컴포넌트 추가 시 가이드라인 (`docs/FRONTEND_ARCHITECTURE.md` §3.3) 의 트리 위치에 맞는 `app-frame-*` 클래스를 부여하고, 인터랙션이 있으면 `data-behavior` / `data-state` 도 함께 부여한다. 새 CSS 파일/규칙은 추가하지 않는다 — grid 1×1 z-stack 같은 레이아웃도 Tailwind arbitrary value 로 표현 (`grid-cols-1 grid-rows-1 [&>*]:[grid-area:1/1]`).
 
-**그룹 스코프 (`group` / `group-hover:`) 는 named group 으로 격리.** 자체 hover 인터랙션을 가진 컴포넌트 (코드블럭, 카드, 행 등) 는 익명 `group` 대신 `group/<컴포넌트명>` + `group-hover/<컴포넌트명>:` 패턴을 쓴다. 이유: `AssistantMessage` 같은 상위 컴포넌트가 이미 `.group` 으로 마킹돼 있을 때 익명 `group-hover:` 는 상위 group 까지 매칭되어 형제 인스턴스도 같이 hover 상태가 된다 (메시지 본문 hover → 그 메시지 내 모든 코드블럭의 카피 버튼이 동시에 노출되는 버그 사례). 예: `CodeBlock` 은 `group/codeblock` + `group-hover/codeblock:opacity-100` 으로 hover 범위를 자기 자신으로 한정한다 (`components/markdown/CodeBlock.tsx`). Sidebar 의 `SessionRow` 도 `group/session` + `group-hover/session:grid` 로 자기 kebab 버튼만 노출 (`app/Sidebar.tsx`).
+**그룹 스코프 (`group` / `group-hover:`) 는 named group 으로 격리.** 자체 hover 인터랙션을 가진 컴포넌트 (코드블럭, 카드, 행 등) 는 익명 `group` 대신 `group/<컴포넌트명>` + `group-hover/<컴포넌트명>:` 패턴을 쓴다. 이유: `AssistantMessage` 같은 상위 컴포넌트가 이미 `.group` 으로 마킹돼 있을 때 익명 `group-hover:` 는 상위 group 까지 매칭되어 형제 인스턴스도 같이 hover 상태가 된다 (메시지 본문 hover → 그 메시지 내 모든 코드블럭의 카피 버튼이 동시에 노출되는 버그 사례). 예: `CodeBlock` 은 `group/codeblock` + `group-hover/codeblock:opacity-100` 으로 hover 범위를 자기 자신으로 한정한다 (`screens/chat/markdown/CodeBlock.tsx`). Sidebar 의 `SessionRow` 도 `group/session` + `group-hover/session:grid` 로 자기 kebab 버튼만 노출 (`frame/sidebar/SessionRow.tsx`).
 
 ### 데스크톱 컨텍스트는 production 에서 제외
 
@@ -144,7 +144,7 @@ new BrowserWindow({
 - **부하 모델**: 사이드바 메타 (`session.list`) 는 부팅 1회 + 턴 종료 시 자동 refresh. 메시지 (`session.load`) 는 사이드바 클릭 또는 부팅 자동 복원 시점에만 1회 IPC.
 - **메모리 캐시**: `useChat` 내부 `useRef<Map<sessionId, CachedSession>>`. 활성 세션을 떠날 때 snapshot 저장 → 같은 세션 재진입 시 IPC 없이 `LOAD_SESSION_FROM_CACHE`. 무효화: 세션 삭제 시 `invalidateSessionCache(id)` 호출, 이름 변경 시 cache entry 의 title 동기화. 크기 제한 없음 (Phase 4 LRU cap 검토).
 - **즉시 제목**: `ChatState.title` 이 사이드바 메타 (`title || preview`) 에서 클릭 즉시 채워짐 → 헤더가 "새 대화" 깜빡임 없이 정확한 제목 표시. 부팅 자동 복원만 메타 없이 호출되고 IPC 응답의 `LoadedSession.title` 로 reconcile.
-- **로딩 인디케이터**: `loadingSession` flag — ChatPane 이 "대화 불러오는 중…" 한 줄.
+- **로딩 인디케이터**: `loadingSession` flag — ChatTile 이 "대화 불러오는 중…" 한 줄.
 
 ## 의존성 정책
 
@@ -199,7 +199,9 @@ new BrowserWindow({
 | Phase 2++ | Composer 스킬 UX — `SKILL.md` 스캔 · `orca:skills:list` IPC · 3-chip 행 (첨부·현재 프레임·Skill) · Skill picker popover · 활성 스킬 `/skillname` chip 강조 · 인라인 자동완성 dropdown | **완료**                    |
 | **Phase 3** | **로컬 SQLite SSOT** — `better-sqlite3@^12` + `<userData>/orca.db` (sessions / messages / tool_calls). 마이그레이션 러너 + WAL · foreign_keys. ChatEvent → DB persist (router turn-local 상태). 사이드바 "최근 대화" 실세션 연동 · **비동기 lazy load** (메타 부팅 1회 + messages 진입 시점 1회) · **메모리 캐시** (재진입 IPC 생략) · **즉시 제목 표시** (state.title). 사이드바 행 **kebab 메뉴** (이름 변경 / 삭제) + inline rename. 부팅 시 lastSessionId 자동 복원 (메시지까지 비동기 fetch). | **완료 (PR #20)**           |
 | **Phase 3+** | **DOM Architecture 일괄 적용** — `app-frame-*` 마커 클래스 + `data-behavior` / `data-state` / `data-axis` / `data-context` / `data-platform` 체계. 4종 신규 기능: ① Custom titlebar (`frame: false` + macOS `titleBarStyle: 'hidden'` + 윈도우 컨트롤 IPC 3개 + `orca.platform` sync 노출), ② Grid z-stack (`#app-frame-overlay` modal backdrop 전용 z 부호 반전 + `#app-frame-modal` focus-trap + `#app-frame-debug` floating UI 호스트 3슬롯), ③ Sidebar resize-handle (180–480px clamp, `Settings.sidebarWidth` 영속화), ④ Tile structure (`pane-host > pane-row > tile` 마크업). SSOT 는 `docs/FRONTEND_ARCHITECTURE.md` §3.3. | **완료 (브랜치 `claude/charming-galileo-7lAqY`, 커밋 `45e129f` + 정정 `acf1295`)** |
-| 후속    | opencode 어댑터, `V1Captures` 실 구현 (캡처 RAW 보관 + AI 분석). 다국어 (`src/shared/i18n/ko.ts`). Vitest / Playwright 테스트. 세션 휴지통 30일 보존 (soft delete). 세션 메타 LRU 캐시 cap. 자동 제목 생성 (요약). Tile 우측 분할 콘텐츠 (`app-frame-tile-separator` 도입). | Future Scope                |
+| **Phase 3++ (PR #25)** | **`frame/` + `screens/` 슬롯 분리** — 셸 슬롯(Frame/Header/Sidebar/ChatTile/Composer/Modal/Debug) 은 `frame/` 으로, 도메인 화면 (Chat/Camera/Projects/Engine/SkillsMcp/Captures) 은 `screens/` 로 1:1 정렬. 컴포넌트 rename: `Titlebar` → `Header`, `ChatPane` → `ChatTile`, `*Pane` / `*Placeholder` / 화면 이름 → `*Screen` 접미사. 마커 보강: `app-frame-composer-repo` (3-chip 행 wrapper) · `app-frame-session-row` (sidebar 세션 행) · `app-frame-floating` (body portal Popover / Autocomplete). `docs/GLOSSARY.md` 에 *Frame/Tile/Screen/Header/Slot* 정의 + 사용 금지 어휘에 *Pane* / *Titlebar (셸 헤더 의미)* 추가. | **완료 (PR #25, 커밋 `1d68e05`)** |
+| **Phase 3++ (PR #26)** | **ChatTile 분해** — 620줄 단일 파일에 모인 transcript 컴포넌트 5개 + composer 부속 2개 + 시간/JSON 포맷 유틸을 슬롯 디렉토리로 추출. 신규: `screens/chat/{format.ts, ToolCard, MessageMeta, AssistantMessage, UserMessage, PendingAssistant}.tsx` + `frame/composer/{ComposerChip, SkillsMenu}.tsx` 총 8개. ChatTile.tsx 잔류 = 셸 컴포지션 + state hook 연결 + 입력 핸들러만 (369줄). 에이전트 원칙 9 (단일 파일 분해 가이드: 한 파일 5+ 컴포넌트 또는 400줄 초과 시 분해 검토, 새 파일은 슬롯 디렉토리에 배치) 신설. | **완료 (PR #26, 커밋 `3d202ff`)** |
+| 후속    | CI 워크플로우 (`.github/workflows/`), Vitest / Playwright 테스트, opencode 어댑터, `V1Captures` 실 구현 (캡처 RAW 보관 + AI 분석), 다국어 (`src/shared/i18n/ko.ts`), 세션 휴지통 30일 보존 (soft delete), 세션 메타 LRU 캐시 cap, 자동 제목 생성 (요약), Tile 우측 분할 콘텐츠 (`app-frame-tile-separator` 도입), **Phase 4 (Zustand 전환 + 멀티세션, `FRONTEND_ARCHITECTURE.md` §4.4)**. | Future Scope                |
 
 ## 위치 규약
 
