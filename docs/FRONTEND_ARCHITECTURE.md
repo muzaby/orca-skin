@@ -1,7 +1,7 @@
 # Frontend Architecture
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-05-20
+> 최종 업데이트: 2026-05-26
 > 관련 문서: [BACKEND_ARCHITECTURE.md](./BACKEND_ARCHITECTURE.md), [IPC_CONTRACT.md](./IPC_CONTRACT.md), [GLOSSARY.md](./GLOSSARY.md), [TRD.md](./TRD.md) §6 데이터 모델, [PRD.md](./PRD.md) §8 / §9 / §10
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 
@@ -33,11 +33,12 @@
 | 빌드 도구 | electron-vite | ^5.0.0 | 3-config (main/preload/renderer) |
 | 상태 관리 | **현재: React Context + useReducer.** Zustand 전환 예정 (Future) | — | 단일 inflight + props drilling 모델로 시작. 멀티세션 (Phase 4) / 영속성 통합 시점에 Zustand 로 전환 — §4.4 참조 |
 | 라우팅 | 없음 (App.tsx 의 `screenId` state 로 화면 전환) | — | `app/screens.ts` 의 5 ScreenId enum |
-| 스타일링 | Tailwind CSS v4 (`@tailwindcss/vite`) + CSS-first `@theme` 토큰 | ^4.1.16 | `tailwind.config.js` 없음 |
+| 스타일링 | Tailwind CSS v4 (`@tailwindcss/vite`) + CSS-first `@theme` 토큰 | ^4.1.16 | `tailwind.config.js` 없음. Tailwind 유틸 + `app-frame-*` 마커 클래스 (§3.3) **공존**. |
 | 마크다운 렌더링 | react-markdown + remark-gfm | ^9.1.0 / ^4.0.1 | GFM 테이블·체크박스 지원 |
 | 코드 하이라이팅 | shiki (async 싱글톤 로드) | ^1.29.2 | 11언어 + 3테마, MutationObserver 로 data-theme 추적 |
 | 가상 스크롤 | **미사용** (TanStack Virtual 등 채택 안 됨) | — | 임계값·도입 시점 모두 TBD |
 | 폰트 | Google Fonts CDN (Source Serif 4 / Inter / JetBrains Mono) | — | `index.html` link, CSP 허용 |
+| 플랫폼 통합 | Electron `frame: false` + custom titlebar | — | macOS `titleBarStyle: 'hidden'` + traffic light overlay, Windows/Linux 는 WinControls 가 직접 그림 (§3.3 / §6.5) |
 
 ---
 
@@ -54,10 +55,10 @@ src/renderer/
     ├── env.d.ts                     # Vite 클라이언트 타입
     │
     ├── app/                         # 화면 컴포넌트 (도메인 카탈로그 §8 참조)
-    │   ├── Frame.tsx                # 전체 컨테이너 (flex column)
-    │   ├── Titlebar.tsx             # Orca 브랜드 + breadcrumb + WinControls + drag region
-    │   ├── Sidebar.tsx              # 네비게이션 + 새 대화 + 최근 대화 + collapsed/expanded
-    │   ├── ChatPane.tsx             # 메시지 리스트 + Composer + ToolCard + 자동완성
+    │   ├── Frame.tsx                # `Frame` (app-frame-root) + `FrameGrid` / `FrameBody` / `OverlaySlot` / `ModalSlot` / `DebugSlot` sub-export (§3.3)
+    │   ├── Titlebar.tsx             # Orca 브랜드 + breadcrumb + WinControls + drag 2-layer + 플랫폼 분기 (macOS 80px 좌측 패딩)
+    │   ├── Sidebar.tsx              # 네비게이션 + 새 대화 + 최근 대화 + collapsible + resizable (180–480px clamp, `app-frame-resize-handle` 내장, width 영속화)
+    │   ├── ChatPane.tsx             # `app-frame-pane-host > pane-row > app-frame-tile` 래핑. 메시지 리스트 + Composer + ToolCard + 자동완성
     │   ├── CameraPane.tsx           # Bayer 뷰포트 + Histogram + Slider + 메트릭 (mockup)
     │   ├── Projects.tsx             # 프로젝트 카드 그리드 (mockup, Future Scope)
     │   ├── EngineSettings.tsx       # 엔진/모델 카드 (mockup, Future Scope)
@@ -71,7 +72,7 @@ src/renderer/
     ├── components/                  # 재사용 컴포넌트
     │   ├── atoms/                   # presentational only — store import 금지
     │   │   ├── Icon.tsx             # SVG 아이콘 카탈로그 (~35종)
-    │   │   ├── WinControls.tsx
+    │   │   ├── WinControls.tsx      # minimize/maximize/close 버튼. macOS 에서 null (OS traffic light). `data-behavior="action:window-*"` + `orca.window.*` IPC 호출
     │   │   ├── Avatar.tsx
     │   │   ├── Status.tsx           # Dot + Status (green/amber/red/slate)
     │   │   ├── CopyIconButton.tsx
@@ -120,6 +121,134 @@ src/renderer/
 4. 상태 / IPC 캡슐화 hook 인가? → `state/`
 5. CSS 변수 추가인가? → `styles/tokens.css` 의 `@theme` + 세 테마 스코프 모두
 
+### 3.3 DOM Architecture Specification (Phase 3+)
+
+> **채택 결정 (2026-05-26)**: 렌더러 전체에 구조 식별 클래스 + 행동/상태 메타 속성을 부여하는 마크업 컨벤션. 외부 도구(테스트·접근성·디버깅 인스펙터·디자인 시스템 분리)가 DOM 만으로 셸 구조와 인터랙션 상태를 읽을 수 있게 한다. 단일 PR (`claude/charming-galileo-7lAqY`, 커밋 `45e129f` + 정정 `acf1295`) 로 일괄 적용 완료.
+
+#### 3.3.1 속성 체계 — 역할 분리
+
+| 속성 | 역할 | 예시 |
+|---|---|---|
+| `class="app-frame-*"` | 구조 식별 — *이게 뭐다* | `app-frame-sidebar`, `app-frame-tile`, `app-frame-composer-input` |
+| `class="<tailwind>"` | 스타일링 — *이렇게 생겼다* | `flex flex-col w-56 bg-sidebar` |
+| `data-behavior="..."` | JS 행동 — *이걸 할 수 있다* | `drag-region`, `no-drag`, `resizable`, `collapsible`, `virtualizable`, `interactive`, `focus-trap`, `dismissible`, `action:{name}` |
+| `data-state="..."` | 현재 상태 — *지금 이 상태다* | `expanded`/`collapsed`, `visible`/`hidden` |
+| `data-axis`, `data-context` | 메타 설정 — *이런 조건이다* | `vertical`/`horizontal`, `sidebar`/`tile`/`modal`/`overlay`/`debug` |
+| `data-theme`, `data-platform` | 루트 환경 — `<html>` 에만 | `classic`/`dark`/`cool`, `darwin`/`win32`/`linux` |
+
+**원칙**: 두 속성은 **공존**한다. `app-frame-*` 클래스는 마커이며 시각 스타일은 같은 element 의 Tailwind 유틸이 계속 진실. 마커 부여로 인한 시각 회귀는 없어야 한다.
+
+#### 3.3.2 DOM 골격 트리
+
+```
+html[data-theme][data-platform]
+└── #root
+    └── .app-frame-root                                  (flex column, 셸 컨테이너)
+        ├── header.app-frame-header                       (drag 2-layer)
+        │   ├── div[data-behavior="drag-region"]         (absolute inset-0)
+        │   ├── .app-frame-header-left  [no-drag]        (brand · breadcrumb)
+        │   ├── .app-frame-header-center                 (drag 유지)
+        │   └── .app-frame-header-right [no-drag]
+        │       └── .app-frame-window-controls           (Win/Linux 만, macOS 는 null)
+        │
+        └── .app-frame-grid                               (1×1 CSS grid, z-stack)
+            ├── .app-frame-body                z=0       (Sidebar + Main 가로 배치)
+            │   ├── aside.app-frame-sidebar
+            │   │   [data-behavior="collapsible resizable"]
+            │   │   [data-state="expanded|collapsed"]
+            │   │   ├── .app-frame-sidebar-body
+            │   │   │   ├── .app-frame-sidebar-brand
+            │   │   │   ├── nav.app-frame-sidebar-nav
+            │   │   │   ├── .app-frame-sidebar-sessions
+            │   │   │   └── .app-frame-sidebar-footer
+            │   │   └── .app-frame-resize-handle          (aside 자식 — collapse 시 함께 사라짐)
+            │   │
+            │   └── main(.app-frame-pane-host)
+            │       └── .app-frame-pane-row
+            │           └── .app-frame-tile [data-behavior="resizable"]
+            │               ├── .app-frame-titlebar
+            │               ├── .app-frame-transcript [data-behavior="virtualizable"]
+            │               └── .app-frame-composer
+            │                   ├── .app-frame-composer-repo  [data-behavior="dismissible"]
+            │                   ├── .app-frame-composer-input [data-behavior="interactive"]
+            │                   └── .app-frame-composer-controls
+            │
+            ├── #app-frame-overlay   z=-10 ↔ 10           (modal backdrop: blur + dim + pointer block)
+            ├── #app-frame-modal     z=-20 ↔ 20           (focus-trap 컨테이너)
+            └── #app-frame-debug     z=30                 (TweaksPanel 등 개발 보조 floating UI)
+```
+
+footer 는 두지 않음 — Orca 는 정보 분산 배치 (모델/사용량 → composer 하단, 브랜치/상태 → titlebar, 계정 → sidebar footer).
+
+#### 3.3.3 Drag 2-layer 패턴
+
+Electron `frame: false` 윈도우에서 드래그 영역을 정의할 때 동일하게 적용:
+
+```
+container (relative)
+├── drag-layer (absolute inset-0, style={{ WebkitAppRegion: 'drag' }})
+└── content-layer (relative z-[1])   ← 클릭 가능
+```
+
+inline 클래스 `[-webkit-app-region:drag]` 대신 `style={{ WebkitAppRegion: 'drag' }}` 로 명시 — 의미 명확 + TS 타입 안정.
+
+#### 3.3.4 Sidebar 캡슐화
+
+resize-handle 은 `aside` 형제가 아니라 **자식**으로 둔다.
+
+| 위치 | 이름 | 이유 |
+|---|---|---|
+| aside 내부 | `app-frame-resize-handle` | sidebar 에 소속된 조작 장치. collapse 시 함께 사라진다. |
+| tile 사이 | `app-frame-tile-separator` | 독립적인 두 tile 사이의 분리선. (현재 단일 tile 이라 미사용 — 후속 분할 시 도입.) |
+
+같은 역할이지만 소속 관계가 다르므로 이름을 구분한다.
+
+#### 3.3.5 Overlay / Modal / Debug 슬롯 규칙
+
+`#app-frame-overlay` 는 **modal backdrop 전용**이며, modal 활성 시에만 떠올라야 한다. visibility 토글은 **z 부호 반전**으로 한다.
+
+| 슬롯 | 평소 z | modal 활성 시 z | 역할 | children |
+|---|---|---|---|---|
+| `#app-frame-overlay` | `-10` | `10` | backdrop (`bg-black/40 backdrop-blur-sm`). 평소엔 body 뒤로 깔려 보이지도 클릭도 안 됨. | 없음 — 순수 layer |
+| `#app-frame-modal` | `-20` | `20` | focus-trap 컨테이너. 두 모달은 동시에 열리지 않으므로 conditional render 로 1개만 노출. | `<InstallerDialog>` 또는 `<AuthExpiredModal>` |
+| `#app-frame-debug` | `30` (상시) | `30` (상시) | TweaksPanel 등 개발 보조 floating UI. modal 상태와 무관. wrapper `pointer-events-none` + 자식 `pointer-events-auto`. | `<TweaksPanel>` 등 |
+
+규칙:
+- overlay 와 modal 의 z 부호는 **항상 동시에** 반전 (modal 발생 ↔ 부재).
+- `data-state="visible|hidden"` 마커는 보존하되, **실제 visibility 는 z 가 결정**.
+- DOM 은 항상 마운트된 상태 — z 부호 반전만으로 토글.
+- backdrop 시각 (blur + dim) 은 overlay element 의 stable 스타일 — z 가 음수일 때는 어차피 안 보이므로 별도 토글 불요.
+- modal 컴포넌트들은 자체 `fixed inset-0 bg-black/40` backdrop 을 갖지 않는다 — backdrop 은 `#app-frame-overlay` 가 단독으로 담당. panel 만 `grid place-items-center` 로 중앙 배치.
+
+#### 3.3.6 data-* 마커 카탈로그 (현재 사용)
+
+| 위치 | 속성 | 값 |
+|---|---|---|
+| `<html>` | `data-theme` / `data-platform` | `classic\|dark\|cool` / `darwin\|win32\|linux` |
+| header drag-layer | `data-behavior` | `drag-region` |
+| header content-layer · 좌 · 우 | `data-behavior` | `no-drag` |
+| WinControls 각 버튼 | `data-behavior` | `action:window-minimize\|window-maximize\|window-close` |
+| `aside.app-frame-sidebar` | `data-behavior` / `data-state` | `collapsible resizable` / `expanded\|collapsed` |
+| `.app-frame-resize-handle` | `data-behavior` / `data-axis` / `data-context` / `data-state` | `resizable` / `vertical` / `sidebar` / `visible\|hidden` |
+| `.app-frame-tile` | `data-behavior` | `resizable` |
+| `.app-frame-transcript` | `data-behavior` | `virtualizable` |
+| `.app-frame-composer-repo` | `data-behavior` | `dismissible` |
+| `.app-frame-composer-input` | `data-behavior` | `interactive` |
+| 스크롤 하단 버튼 (있을 때) | `data-behavior` | `action:scroll-bottom` |
+| composer send/cancel 버튼 | `data-behavior` | `action:send` / `action:cancel-turn` |
+| `#app-frame-overlay` | `data-state` / `data-context` | `visible\|hidden` / `overlay` |
+| `#app-frame-modal` | `data-behavior` / `data-state` / `data-context` | `focus-trap blocks-interaction` / `visible\|hidden` / `modal` |
+| `#app-frame-debug` | `data-context` | `debug` |
+
+#### 3.3.7 마커 전용 원칙
+
+새 클래스/속성은 **기존 Tailwind 유틸과 공존**한다. 기존 유틸을 교체하지 않는다. 새 CSS 파일/규칙은 추가하지 않는다 (grid 1×1 z-stack 도 Tailwind arbitrary value `grid-cols-1 grid-rows-1 [&>*]:[grid-area:1/1]` 로). 시각 회귀 0 을 목표.
+
+새 컴포넌트 추가 시:
+1. 가이드라인의 트리 위치에 맞는 `app-frame-*` 클래스 부여.
+2. 인터랙션이 있으면 `data-behavior` / `data-state` 도 함께.
+3. 시각 스타일은 Tailwind 유틸로 — 마커가 스타일을 대신하지 않는다.
+
 ---
 
 ## 4. 상태 관리
@@ -132,7 +261,7 @@ src/renderer/
 | 상태 종류 | 위치 | 영속화 | 예시 |
 |---|---|---|---|
 | 채팅 세션 상태 | `useChat()` 의 useReducer (`ChatState`) | **현재: 메모리만**. Phase 3+ 로컬 DB 도입 시 영속화 (BACKEND §6) | sessionId, messages, pendingDelta, inflight |
-| Tweaks (theme/density/sidebar) | `useTweaks()` + electron-store | ✅ `orca:settings:get` / `set` | theme, density, sidebarCollapsed |
+| Tweaks (theme/density/sidebar) | `useTweaks()` + electron-store | ✅ `orca:settings:get` / `set` | theme, density, sidebarCollapsed, **sidebarWidth** (180–480, default 248 — Phase 3+) |
 | 백엔드 설치 상태 | `useBackend()` useState 캐시 | — | backends, active |
 | Skills 카탈로그 | `useSkills()` useState 캐시 | — | SkillInfo[] (부팅 1회 스캔) |
 | 자동완성 상태 | `useSkillAutocomplete / useFileAutocomplete` 의 useMemo + useState | — | open, query, activeIndex |
@@ -295,6 +424,14 @@ useEffect(density): ──► document.documentElement.style.fontSize = DENSITY_
 - 이미지: data-uri 만 허용 (위 §6.3).
 - 외부 URL 자동 차단: `will-navigate` (Main) + `setWindowOpenHandler` (Main).
 
+### 6.5 Custom Titlebar / 윈도우 컨트롤 (Phase 3+)
+
+- BrowserWindow: `frame: false` + macOS `titleBarStyle: 'hidden'` + `trafficLightPosition: { x: 12, y: 10 }` (`app/src/main/index.ts`).
+- `data-platform` 부착: App boot effect 에서 `documentElement.dataset.platform = window.orca.platform` 1회 (preload 가 sync 노출).
+- IPC: `window.orca.window.{minimize,maximize,close}()` 3개 (IPC_CONTRACT §2.8).
+- macOS 분기: `WinControls` 가 `window.orca.platform === 'darwin'` 일 때 `null` 반환 — OS traffic light 가 그린다. 헤더 좌측 패딩 80px 로 traffic light 영역 회피.
+- drag 영역: `[-webkit-app-region:drag]` inline 클래스 대신 `style={{ WebkitAppRegion: 'drag' }}` (§3.3.3 의 2-layer 패턴).
+
 ---
 
 ## 7. UX 패턴
@@ -330,8 +467,8 @@ useEffect(density): ──► document.documentElement.style.fontSize = DENSITY_
 | 요청 대기 | StatusLine "Thinking... (Ns · ~Mtokens)" | `atoms/StatusLine.tsx` |
 | 스트리밍 중 | StatusLine + 응답 메시지에 누적 텍스트 | `ChatPane.tsx` |
 | 에러 (`recoverable: true`) | 메시지 영역에 에러 카드 | `chatReducer.ts` 의 `state.error` |
-| 에러 (`auth.expired`) | AuthExpiredModal (`claude /login` 안내) | `components/auth/AuthExpiredModal.tsx` |
-| CLI 설치 진행 | InstallerDialog (라인별 로그 + 수동 명령 복사) | `components/install/InstallerDialog.tsx` |
+| 에러 (`auth.expired`) | AuthExpiredModal (`claude /login` 안내) — `#app-frame-modal` 슬롯, backdrop 은 `#app-frame-overlay` 가 담당 (§3.3.5) | `components/auth/AuthExpiredModal.tsx` |
+| CLI 설치 진행 | InstallerDialog (라인별 로그 + 수동 명령 복사) — 동일하게 `#app-frame-modal` + `#app-frame-overlay` backdrop | `components/install/InstallerDialog.tsx` |
 | 네트워크 단절 | TBD (전역 배너 미구현) | — |
 
 ### 7.4 접근성
@@ -339,6 +476,14 @@ useEffect(density): ──► document.documentElement.style.fontSize = DENSITY_
 - 모든 인터랙티브 요소 키보드 접근 가능 (Composer / Sidebar / TweaksPanel)
 - 다크/라이트/쿨 3 테마 — `data-theme` 속성 기반
 - ARIA 레이블 / 스크린리더 지원: 현재 부분 적용 (TBD — 체계적 audit 필요)
+
+### 7.5 Sidebar Resize (Phase 3+)
+
+- 드래그 영역: `aside.app-frame-sidebar` 우측 1px hairline (`app-frame-resize-handle`) — aside 의 자식이라 collapse 시 함께 사라진다.
+- 로직: `onMouseDown` → document `mousemove` clamp(180, 480) → `onWidthChange` 콜백 → `mouseup` 에서 `window.orca.settings.set({ sidebarWidth })` 1회.
+- 영속화: `Settings.sidebarWidth: number` (180–480, default 248). `useTweaks` 가 부팅 시 hydrate + flush.
+- collapsed 상태: handle 의 `data-state="hidden"` + `pointer-events-none`. 폭은 `w-14` (56px) 고정.
+- 명명: aside 내부는 `resize-handle`, tile 사이는 `separator` 로 구분 (§3.3.4).
 
 ---
 
@@ -400,7 +545,7 @@ Main 이 `AbortSignal` 을 SDK `query()` 에 전파 → 현재 inflight 만 중�
 
 ### 9.4 채널 전체 목록
 
-[IPC_CONTRACT.md](./IPC_CONTRACT.md) §2 참조. Phase 2 활성 11채널.
+[IPC_CONTRACT.md](./IPC_CONTRACT.md) §2 참조. Phase 2 활성 11채널 + Phase 3+ window 3채널 = **14채널** (정확 수치는 IPC_CONTRACT 가 SSOT).
 
 ---
 
@@ -420,6 +565,11 @@ Main 이 `AbortSignal` 을 SDK `query()` 에 전파 → 현재 inflight 만 중�
 | InstallerDialog | Phase 2 | ✅ 완료 | claude-code 는 SDK 자동 처리로 즉시 done |
 | Tweaks (theme/density/sidebar) + electron-store 영속화 | Phase 2+ | ✅ 완료 | `useTweaks` |
 | 세션 재개 (lastSessionId 부팅 복원) | Phase 2+ | ✅ 완료 | `RESTORE_SESSION` 액션 |
+| DOM Architecture 마커 체계 (`app-frame-*` + `data-*`) | Phase 3+ | ✅ 완료 | §3.3 — 단일 PR 일괄 적용 (`45e129f`) |
+| Custom titlebar (`frame: false` + 윈도우 컨트롤 IPC) | Phase 3+ | ✅ 완료 | §6.5 — 플랫폼 분기 + IPC 3채널 |
+| Grid z-stack (overlay/modal/debug 3슬롯) | Phase 3+ | ✅ 완료 | §3.3.5 — z 부호 반전 토글 (정정 `acf1295`) |
+| Sidebar resize-handle | Phase 3+ | ✅ 완료 | §7.5 — 180–480px clamp, `sidebarWidth` 영속화 |
+| Tile structure (`pane-host > pane-row > tile`) | Phase 3+ | ✅ 마크업만 | §3.3.2 — 우측 분할 콘텐츠는 후속 |
 | Zustand 전환 (Phase 4 진입 PR 과 묶음) | Phase 4 | ⏳ 채택 결정 | §4.4 — 단일 root + sessions 슬라이스. Phase 3 사전 마이그레이션 금지 |
 | Projects 화면 | Phase 1 | 🚧 mockup 만 | Future Scope |
 | EngineSettings 화면 | Phase 1 | 🚧 mockup 만 | Phase 3+ 자격증명 UI 와 통합 예정 |

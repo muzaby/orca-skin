@@ -2,13 +2,13 @@
 
 > 이 문서는 Main ↔ Renderer 간 IPC 채널의 **단일 진실 공급원 (SSOT)** 이다.
 > 채널을 추가/변경할 때는 코드와 이 문서를 함께 갱신한다.
-> 최종 업데이트: 2026-05-20
+> 최종 업데이트: 2026-05-26
 > 관련 문서: [FRONTEND_ARCHITECTURE.md](./FRONTEND_ARCHITECTURE.md), [BACKEND_ARCHITECTURE.md](./BACKEND_ARCHITECTURE.md), [GLOSSARY.md](./GLOSSARY.md), [TRD.md](./TRD.md) §5
 
 ## 1. 명명 규칙
 
 - 형식: `orca:<domain>:<action>` — 소문자 + 콜론 구분
-- 도메인 (7개): `chat`, `backend`, `install`, `settings`, `skills`, `files`, `session`
+- 도메인 (8개): `chat`, `backend`, `install`, `settings`, `skills`, `files`, `session`, `window`
 - 방향:
   - Renderer → Main 요청: `ipcMain.handle` + `ipcRenderer.invoke` (Promise 반환)
   - Main → Renderer 이벤트: `webContents.send` + `ipcRenderer.on` (단방향 push)
@@ -16,9 +16,9 @@
 - 채널 상수: `app/src/shared/ipc.ts` 의 `CHANNELS` 객체. 문자열 리터럴 직접 사용 금지.
 - 입력 검증: 모든 `ipcMain.handle` 핸들러는 **zod 스키마 (`app/src/shared/protocol.ts`)** 로 페이로드 검증. 검증 실패 시 에러 throw.
 
-## 2. 채널 카탈로그 (Phase 2 활성 — 11 채널)
+## 2. 채널 카탈로그 (Phase 2 활성 11 + Phase 3+ window 3 = 14 채널)
 
-`app/src/shared/ipc.ts:5-17` 의 `CHANNELS` 상수와 1:1 일치.
+`app/src/shared/ipc.ts` 의 `CHANNELS` 상수와 1:1 일치.
 
 ### 2.1 Chat
 
@@ -50,12 +50,13 @@
 | `orca:settings:get` | R→M (invoke) | — | `Settings` | electron-store 의 전체 설정 객체. |
 | `orca:settings:set` | R→M (invoke) | `SettingsPatch` = `Partial<Settings>` | `Settings` | 부분 패치 후 병합·검증된 전체 객체 반환. |
 
-`Settings` 타입 (`app/src/shared/ipc.ts:87-94`):
+`Settings` 타입 (`app/src/shared/ipc.ts`):
 ```typescript
 interface Settings {
   theme: 'classic' | 'dark' | 'cool'
   density: 'compact' | 'normal' | 'comfortable'
   sidebarCollapsed: boolean
+  sidebarWidth: number          // 180–480, default 248 (Phase 3+ 도입)
   lastBackend: Backend | null
   lastSessionId: string | null
   windowBounds: { x: number; y: number; width: number; height: number } | null
@@ -82,7 +83,22 @@ interface Settings {
 |---|---|---|---|---|
 | `orca:session:cwd` | R→M (invoke) | — | `Promise<string>` | 현재 작업 디렉토리. 파일 자동완성·`init` 이벤트의 `cwd` 검증용. |
 
-### 2.8 예약 / 미노출 채널
+### 2.8 Window (Phase 3+)
+
+`frame: false` 커스텀 타이틀바의 `WinControls` 가 호출. macOS 는 OS traffic light 가 윈도우 조작을 담당하므로 `WinControls` 가 null 을 반환 → 이 채널 호출자가 없다 (채널 자체는 플랫폼 공통 노출).
+
+| 채널 | 방향 | 페이로드 | 응답 | 설명 |
+|---|---|---|---|---|
+| `orca:window:minimize` | R→M (invoke) | — | `Promise<void>` | 현재 BrowserWindow 최소화 (`mainWindow.minimize()`). |
+| `orca:window:maximize` | R→M (invoke) | — | `Promise<void>` | 최대화 토글 (`isMaximized() ? unmaximize() : maximize()`). |
+| `orca:window:close` | R→M (invoke) | — | `Promise<void>` | 윈도우 종료 (`mainWindow.close()`). |
+
+추가:
+- **preload 노출**: `window.orca.window.{minimize,maximize,close}()`.
+- **핸들러 위치**: `app/src/main/index.ts` 의 `createWindow` 내부 (router 가 아닌 직접 부착 — 윈도우 인스턴스 직접 참조 필요).
+- **`window.orca.platform`** (sync 노출): `'darwin' | 'win32' | 'linux'`. `<html data-platform>` 부착 + WinControls 플랫폼 분기에 사용.
+
+### 2.9 예약 / 미노출 채널
 
 코드에 채널 상수는 없지만 향후 도입이 예약된 도메인:
 
