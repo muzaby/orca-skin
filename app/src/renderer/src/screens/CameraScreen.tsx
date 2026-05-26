@@ -64,7 +64,7 @@ export function Metric({ label, value, unit, tone = 'ok' }: MetricProps): React.
   )
 }
 
-export function CameraPane(): React.JSX.Element {
+export function CameraScreen(): React.JSX.Element {
   const tabs: [string, boolean][] = [
     ['RGB', true],
     ['Bayer', false],

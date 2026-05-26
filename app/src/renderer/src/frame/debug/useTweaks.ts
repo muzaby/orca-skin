@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { ThemeId, DensityId } from './theme'
+import type { ThemeId, DensityId } from '../theme'
 
 export interface Tweaks {
   theme: ThemeId

@@ -1,25 +1,25 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Frame, FrameGrid, FrameBody, ModalSlot, OverlaySlot, DebugSlot } from './app/Frame'
-import { Titlebar } from './app/Titlebar'
-import { Sidebar } from './app/Sidebar'
-import { ChatPane } from './app/ChatPane'
-// CameraPane 은 일반 'chat' 화면에서 자동 노출하지 않음 — 추후 별도 노출 방법 논의.
-// 컴포넌트는 보존 (`./app/CameraPane`).
-import { Projects } from './app/Projects'
-import { ProjectDetail } from './app/ProjectDetail'
-import { EngineSettings } from './app/EngineSettings'
-import { SkillsMcp } from './app/SkillsMcp'
-import { CapturesPlaceholder } from './app/CapturesPlaceholder'
-import { TweaksPanel, TweakSection, TweakRadio, TweakToggle } from './app/TweaksPanel'
-import { useTweaks } from './app/useTweaks'
-import { SCREENS, type ScreenId } from './app/screens'
-import { DENSITY_FONT } from './app/theme'
+import { Frame, FrameGrid, FrameBody, ModalSlot, OverlaySlot, DebugSlot } from './frame/Frame'
+import { Header } from './frame/Header'
+import { Sidebar } from './frame/Sidebar'
+import { ChatTile } from './frame/ChatTile'
+// CameraScreen 은 일반 'chat' 화면에서 자동 노출하지 않음 — 추후 별도 노출 방법 논의.
+// 컴포넌트는 보존 (`./screens/CameraScreen`).
+import { ProjectsScreen } from './screens/ProjectsScreen'
+import { ProjectDetailScreen } from './screens/ProjectDetailScreen'
+import { EngineScreen } from './screens/EngineScreen'
+import { SkillsMcpScreen } from './screens/SkillsMcpScreen'
+import { CapturesScreen } from './screens/CapturesScreen'
+import { TweaksPanel, TweakSection, TweakRadio, TweakToggle } from './frame/debug/TweaksPanel'
+import { useTweaks } from './frame/debug/useTweaks'
+import { SCREENS, type ScreenId } from './screens/registry'
+import { DENSITY_FONT } from './frame/theme'
 import { useChat } from './state/useChat'
 import { useBackend } from './state/useBackend'
 import { useSessions } from './state/useSessions'
 import { useProjects } from './state/useProjects'
-import { InstallerDialog } from './components/install/InstallerDialog'
-import { AuthExpiredModal } from './components/auth/AuthExpiredModal'
+import { InstallerDialog } from './frame/modal/InstallerDialog'
+import { AuthExpiredModal } from './frame/modal/AuthExpiredModal'
 
 function App(): React.JSX.Element {
   const [screen, setScreen] = useState<ScreenId>('chat')
@@ -77,10 +77,10 @@ function App(): React.JSX.Element {
 
   let body: React.ReactNode
   if (screen === 'chat') {
-    body = <ChatPane chat={chat} backendLabel={backendLabel} />
+    body = <ChatTile chat={chat} backendLabel={backendLabel} />
   } else if (screen === 'projects') {
     body = (
-      <Projects
+      <ProjectsScreen
         projects={projects.list}
         loading={projects.loading}
         onOpenProject={(id) => {
@@ -94,7 +94,7 @@ function App(): React.JSX.Element {
     )
   } else if (screen === 'project-detail' && selectedProjectId) {
     body = (
-      <ProjectDetail
+      <ProjectDetailScreen
         projectId={selectedProjectId}
         projects={projects.list}
         chat={chat}
@@ -106,9 +106,9 @@ function App(): React.JSX.Element {
         }}
       />
     )
-  } else if (screen === 'engine') body = <EngineSettings />
-  else if (screen === 'skills') body = <SkillsMcp />
-  else body = <CapturesPlaceholder />
+  } else if (screen === 'engine') body = <EngineScreen />
+  else if (screen === 'skills') body = <SkillsMcpScreen />
+  else body = <CapturesScreen />
 
   const current = SCREENS.find((s) => s.id === screen)!
   const authExpired = chat.state.error?.code === 'auth.expired'
@@ -117,7 +117,7 @@ function App(): React.JSX.Element {
 
   return (
     <Frame label={`Orca · ${current.label}`}>
-      <Titlebar breadcrumb={current.breadcrumb} />
+      <Header breadcrumb={current.breadcrumb} />
       <FrameGrid>
         <FrameBody>
           <Sidebar

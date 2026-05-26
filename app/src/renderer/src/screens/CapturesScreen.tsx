@@ -1,6 +1,6 @@
 import { Icon } from '../components/atoms/Icon'
 
-export function CapturesPlaceholder(): React.JSX.Element {
+export function CapturesScreen(): React.JSX.Element {
   return (
     <section className="flex flex-1 flex-col items-center justify-center gap-3.5 bg-bg p-10 text-center">
       <div className="grid h-14 w-14 place-items-center rounded-[14px] bg-rust-soft text-rust">

@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState, type RefObject } from 'react'
 import { createPortal } from 'react-dom'
-import { Icon } from '../atoms/Icon'
+import { Icon } from '../../components/atoms/Icon'
 import type { FileEntry } from '../../../../shared/ipc'
 
 interface FileAutocompleteProps {
@@ -51,8 +51,10 @@ export function FileAutocomplete({
       ref={panelRef}
       role="listbox"
       aria-label="파일 경로 자동완성"
-      className="fixed z-50 min-w-[280px] max-w-[420px] overflow-hidden rounded-lg border border-border bg-panel p-1 shadow-lg"
+      className="app-frame-floating fixed z-50 min-w-[280px] max-w-[420px] overflow-hidden rounded-lg border border-border bg-panel p-1 shadow-lg"
       style={{ left: pos.left, bottom: pos.bottom }}
+      data-context="floating"
+      data-behavior="dismissible"
     >
       <div className="border-b border-border px-2 py-1 font-mono text-[10.5px] text-ink3">
         {headerLabel}

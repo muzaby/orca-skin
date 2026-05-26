@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
-import { Icon } from '../components/atoms/Icon'
-import { Popover } from '../components/atoms/Popover'
-import type { SessionListItem } from '../../../shared/ipc'
+import { Icon } from '../../components/atoms/Icon'
+import { Popover } from '../../components/atoms/Popover'
+import type { SessionListItem } from '../../../../shared/ipc'
 
 // 한 시점에 한 행만 메뉴 / rename 모드. 각 행이 로컬 state 를 갖고 자기 popover 를
 // anchor 한다. Popover atom 의 outside-click 핸들러가 다른 행 클릭 시 자동 닫음.
-// Sidebar 와 ProjectDetail 양쪽에서 재사용 (kebab/rename/delete UX 통일).
+// Sidebar 와 ProjectDetailScreen 양쪽에서 재사용 (kebab/rename/delete UX 통일).
 export interface SessionRowProps {
   session: SessionListItem
   isActive: boolean
@@ -53,9 +53,13 @@ export function SessionRow({
   if (renaming) {
     return (
       <div
-        className={`flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] ${
+        className={`app-frame-session-row flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] ${
           isActive ? 'bg-black/[0.04] text-ink' : 'text-ink2'
         }`}
+        data-context="session"
+        data-state={isActive ? 'active' : 'inactive'}
+        data-behavior="interactive renaming"
+        data-session-id={session.id}
       >
         <RenameInput initial={baseLabel} onCommit={commitRename} onCancel={cancelRename} />
       </div>
@@ -65,9 +69,13 @@ export function SessionRow({
   return (
     <div
       onClick={() => onSelect?.(session.id)}
-      className={`group/session relative flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-[12px] ${
+      className={`app-frame-session-row group/session relative flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-[12px] ${
         isActive ? 'bg-black/[0.04] text-ink' : 'text-ink2'
       }`}
+      data-context="session"
+      data-state={isActive ? 'active' : 'inactive'}
+      data-behavior="interactive selectable"
+      data-session-id={session.id}
       title={label}
     >
       <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">

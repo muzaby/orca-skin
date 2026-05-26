@@ -33,6 +33,11 @@
 | **contextBridge** | Electron API. preload 스크립트가 sandboxed renderer 에 안전하게 함수를 노출하는 도구. |
 | **window.orca** | Renderer 에서 IPC 호출을 위한 단일 진입점. 노출 표면은 [IPC_CONTRACT.md](./IPC_CONTRACT.md) §2 참조. |
 | **Phase 1·2·3·4** | PRD §8 의 단계별 로드맵. Phase 1 = 시각 재현, Phase 2 = IPC + 단일 어댑터 + 세션 재개, Phase 3 = 과거 대화 목록, Phase 4 = 멀티 세션. |
+| **Frame** | 셸의 외곽 — `app-frame-root` element 와 그 자식 슬롯 트리 (header / grid / body / sidebar / pane-host / tile / composer / overlay / modal / debug). 코드상으로는 `src/renderer/src/frame/` 디렉토리에 1:1 대응. FRONTEND §3.3 SSOT. |
+| **Tile** | `app-frame-pane-host > pane-row > app-frame-tile` 트리의 단위. tile 의 *내용물* 은 도메인 화면(Screen) 이다. 현재는 단일 tile (`ChatTile`) 만 존재하며 우측 분할은 Future Scope (`app-frame-tile-separator`). |
+| **Screen** | tile 의 *내용물* 인 도메인 화면. `src/renderer/src/screens/` 에 모임. 파일 명명은 `*Screen.tsx` (예: `ProjectsScreen`, `EngineScreen`). 화면 카탈로그는 `screens/registry.ts`. |
+| **Header** | `app-frame-header` 슬롯 — 셸 최상단 OS 윈도우 헤더 (브랜드 + breadcrumb + WinControls). tile 의 헤더(`app-frame-titlebar`) 와 구분된다. |
+| **Slot** | 마크업 트리에서 정해진 자리. `app-frame-*` 클래스 + (필요 시) `data-context` 로 식별. |
 
 ## 3. 사용하지 않는 용어 (혼동 방지)
 
@@ -41,7 +46,9 @@
 - ❌ **"LLM Provider"** → **Backend** 또는 **SessionAdapter** 로 통일. Orca 는 LLM API 를 직접 호출하지 않고 외부 CLI/SDK 를 래핑한다.
 - ❌ **"Conversation"** → **Session** 으로 통일.
 - ❌ **"Thread"** (대화 의미) → **Session** 으로 통일.
-- ❌ **"Chat"** (도메인 객체로) → **Session** 으로 통일. "Chat 화면" / "ChatPane" 처럼 *UI 영역 이름* 으로는 허용.
+- ❌ **"Chat"** (도메인 객체로) → **Session** 으로 통일. "Chat 화면" 처럼 *UI 영역 이름* 으로는 허용 (단, 컴포넌트 이름은 `ChatTile` — 아래 *Pane* 항목 참조).
+- ❌ **"Pane"** — DOM Architecture 의 마크업 슬롯에 없는 어휘. **Tile** (단일 tile) / **Screen** (도메인 화면) 으로 분리한다. 구 `ChatPane` 은 `ChatTile`, 구 `CameraPane` 은 `CameraScreen`. `app-frame-pane-host` / `app-frame-pane-row` 는 *복수 tile 의 가로 행* 을 가리키는 구조 마커로만 사용한다.
+- ❌ **"Titlebar"** (셸 헤더 의미로) — `Header` 로 통일. `app-frame-titlebar` 는 *tile 내부 헤더* 만을 가리킨다.
 - ❌ **"Token"** (UI 청크 의미로) → **Delta** 로 통일. LLM token count 의미로는 사용 허용 (`inputTokens` / `outputTokens`).
-- ❌ **"Capture"** — Orca 의 도메인 카탈로그에서 제외 (사용자 결정). `CapturesPlaceholder.tsx` 코드는 남아있으나 문서·논의에서는 거론하지 않는다.
+- ❌ **"Capture"** — Orca 의 도메인 카탈로그에서 제외 (사용자 결정). `CapturesScreen.tsx` 코드는 남아있으나 문서·논의에서는 거론하지 않는다.
 - ❌ **"Provider"** (LLM 의미로) — 위 "LLM Provider" 와 동일.
