@@ -379,140 +379,157 @@ export function ChatPane({ chat, backendLabel }: ChatPaneProps): React.JSX.Eleme
   const showPendingAssistant = state.inflight
 
   return (
-    <section className="flex min-w-0 flex-1 flex-col bg-bg">
-      <div className="flex items-center gap-3 border-b border-border px-6 pb-2.5 pt-3.5">
-        <div className="min-w-0 flex-1">
-          <div className="overflow-hidden text-ellipsis whitespace-nowrap font-serif text-[17px] font-semibold tracking-tight text-ink">
-            {title}
+    <section className="app-frame-pane-host flex min-w-0 flex-1 flex-col bg-bg">
+      <div className="app-frame-pane-row flex min-h-0 flex-1">
+        <div className="app-frame-tile flex min-w-0 flex-1 flex-col" data-behavior="resizable">
+          <div className="app-frame-titlebar flex items-center gap-3 border-b border-border px-6 pb-2.5 pt-3.5">
+            <div className="min-w-0 flex-1">
+              <div className="overflow-hidden text-ellipsis whitespace-nowrap font-serif text-[17px] font-semibold tracking-tight text-ink">
+                {title}
+              </div>
+              <div className="mt-0.5 flex items-center gap-2 text-[11.5px] text-ink3">
+                <span className="inline-flex items-center gap-1">
+                  <Dot tone="green" /> {backendLabel}
+                </span>
+                {state.sessionId && (
+                  <>
+                    <span>·</span>
+                    <span className="font-mono text-[10.5px]">{state.sessionId.slice(0, 8)}</span>
+                  </>
+                )}
+              </div>
+            </div>
+            <div className="ml-auto flex gap-1">
+              <button className={ICON_BTN} title="검색">
+                <Icon name="search" size={14} />
+              </button>
+              <button className={ICON_BTN} title="복사">
+                <Icon name="copy" size={14} />
+              </button>
+              <button className={ICON_BTN} title="설정">
+                <Icon name="settings" size={14} />
+              </button>
+            </div>
           </div>
-          <div className="mt-0.5 flex items-center gap-2 text-[11.5px] text-ink3">
-            <span className="inline-flex items-center gap-1">
-              <Dot tone="green" /> {backendLabel}
-            </span>
-            {state.sessionId && (
-              <>
-                <span>·</span>
-                <span className="font-mono text-[10.5px]">{state.sessionId.slice(0, 8)}</span>
-              </>
+
+          <div
+            ref={scrollRef}
+            className="app-frame-transcript flex flex-1 flex-col gap-[22px] overflow-auto px-6 py-5"
+            data-behavior="virtualizable"
+          >
+            {state.loadingSession && (
+              <div className="m-auto text-center text-[13px] text-ink3">대화 불러오는 중…</div>
+            )}
+            {isEmpty && (
+              <div className="m-auto text-center text-[13px] text-ink3">
+                Claude Code 에 첫 메시지를 보내보세요.
+              </div>
+            )}
+            {state.messages.map((m, i) =>
+              m.role === 'user' ? (
+                <UserMessage key={i} message={m} />
+              ) : (
+                <AssistantMessage key={i} message={m} />
+              )
+            )}
+            {showPendingAssistant && (
+              <PendingAssistant
+                turnStartedAt={state.turnStartedAt}
+                pendingDelta={state.pendingDelta}
+              />
+            )}
+            {state.error && (
+              <div className="rounded-[10px] border border-rust bg-rust-soft px-3 py-2 text-[12.5px] text-ink">
+                <div className="font-semibold">에러: {state.error.code}</div>
+                <div className="mt-1 text-ink2">{state.error.message}</div>
+              </div>
             )}
           </div>
-        </div>
-        <div className="ml-auto flex gap-1">
-          <button className={ICON_BTN} title="검색">
-            <Icon name="search" size={14} />
-          </button>
-          <button className={ICON_BTN} title="복사">
-            <Icon name="copy" size={14} />
-          </button>
-          <button className={ICON_BTN} title="설정">
-            <Icon name="settings" size={14} />
-          </button>
-        </div>
-      </div>
 
-      <div ref={scrollRef} className="flex flex-1 flex-col gap-[22px] overflow-auto px-6 py-5">
-        {state.loadingSession && (
-          <div className="m-auto text-center text-[13px] text-ink3">대화 불러오는 중…</div>
-        )}
-        {isEmpty && (
-          <div className="m-auto text-center text-[13px] text-ink3">
-            Claude Code 에 첫 메시지를 보내보세요.
-          </div>
-        )}
-        {state.messages.map((m, i) =>
-          m.role === 'user' ? (
-            <UserMessage key={i} message={m} />
-          ) : (
-            <AssistantMessage key={i} message={m} />
-          )
-        )}
-        {showPendingAssistant && (
-          <PendingAssistant turnStartedAt={state.turnStartedAt} pendingDelta={state.pendingDelta} />
-        )}
-        {state.error && (
-          <div className="rounded-[10px] border border-rust bg-rust-soft px-3 py-2 text-[12.5px] text-ink">
-            <div className="font-semibold">에러: {state.error.code}</div>
-            <div className="mt-1 text-ink2">{state.error.message}</div>
-          </div>
-        )}
-      </div>
-
-      <div className="px-6 pb-[18px] pt-3">
-        <div className="rounded-[14px] border border-border bg-panel px-3 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,.03)]">
-          <div ref={textareaWrapRef}>
-            <HighlightedTextarea
-              ref={textareaRef}
-              value={draft}
-              onChange={setDraft}
-              onCaretChange={setCaret}
-              onKeyDown={onKeyDown}
-              knownSkillNames={knownSkillNames}
-              validFilePaths={fileAutocomplete.validPaths}
-              placeholder="Orca에게 메시지 보내기… (Enter 전송 / Shift+Enter 줄바꿈)"
-              ariaLabel="메시지 입력"
+          <div className="app-frame-composer px-6 pb-[18px] pt-3">
+            <div className="rounded-[14px] border border-border bg-panel px-3 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,.03)]">
+              <div
+                ref={textareaWrapRef}
+                className="app-frame-composer-input"
+                data-behavior="interactive"
+              >
+                <HighlightedTextarea
+                  ref={textareaRef}
+                  value={draft}
+                  onChange={setDraft}
+                  onCaretChange={setCaret}
+                  onKeyDown={onKeyDown}
+                  knownSkillNames={knownSkillNames}
+                  validFilePaths={fileAutocomplete.validPaths}
+                  placeholder="Orca에게 메시지 보내기… (Enter 전송 / Shift+Enter 줄바꿈)"
+                  ariaLabel="메시지 입력"
+                />
+              </div>
+              <div className="app-frame-composer-controls flex items-center gap-1.5 pt-1">
+                <ComposerChip icon="plus" label="첨부" disabled title="준비 중" />
+                <ComposerChip icon="cam" label="현재 프레임" disabled title="준비 중" />
+                <ComposerChip
+                  ref={skillButtonRef}
+                  icon="bolt"
+                  label="Skill"
+                  onClick={() => setMenuOpen((v) => !v)}
+                  ariaHasPopup
+                  ariaExpanded={menuOpen}
+                />
+                <span className="ml-auto flex items-center gap-2">
+                  <span className="text-[11px] text-ink3">{backendLabel}</span>
+                  {state.inflight ? (
+                    <button
+                      onClick={cancel}
+                      className="grid h-[30px] w-[30px] cursor-pointer place-items-center rounded-lg border-0 bg-ink2 text-white"
+                      title="중단"
+                      data-behavior="action:cancel-turn"
+                    >
+                      <Icon name="pause" size={14} color="#fff" />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        if (draft.trim() !== '') {
+                          send(draft)
+                          setDraft('')
+                          setCaret(0)
+                        }
+                      }}
+                      disabled={draft.trim() === ''}
+                      className="grid h-[30px] w-[30px] cursor-pointer place-items-center rounded-lg border-0 bg-rust text-white disabled:cursor-not-allowed disabled:opacity-40"
+                      title="전송 (Enter)"
+                      data-behavior="action:send"
+                    >
+                      <Icon name="send" size={14} color="#fff" />
+                    </button>
+                  )}
+                </span>
+              </div>
+            </div>
+            <Popover open={menuOpen} anchorRef={skillButtonRef} onClose={closeMenu}>
+              <SkillsMenu skills={skills} onPick={insertSkillFromMenu} />
+            </Popover>
+            <SkillAutocomplete
+              open={autocomplete.open}
+              anchorRef={textareaWrapRef}
+              suggestions={autocomplete.suggestions}
+              activeIndex={autocomplete.activeIndex}
+              onHover={autocomplete.setActiveIndex}
+              onPick={applyAutocomplete}
+            />
+            <FileAutocomplete
+              open={fileAutocomplete.open}
+              loading={fileAutocomplete.loading}
+              anchorRef={textareaWrapRef}
+              dirPath={fileAutocomplete.dirPath}
+              suggestions={fileAutocomplete.suggestions}
+              activeIndex={fileAutocomplete.activeIndex}
+              onHover={fileAutocomplete.setActiveIndex}
+              onPick={applyFileAutocomplete}
             />
           </div>
-          <div className="flex items-center gap-1.5 pt-1">
-            <ComposerChip icon="plus" label="첨부" disabled title="준비 중" />
-            <ComposerChip icon="cam" label="현재 프레임" disabled title="준비 중" />
-            <ComposerChip
-              ref={skillButtonRef}
-              icon="bolt"
-              label="Skill"
-              onClick={() => setMenuOpen((v) => !v)}
-              ariaHasPopup
-              ariaExpanded={menuOpen}
-            />
-            <span className="ml-auto flex items-center gap-2">
-              <span className="text-[11px] text-ink3">{backendLabel}</span>
-              {state.inflight ? (
-                <button
-                  onClick={cancel}
-                  className="grid h-[30px] w-[30px] cursor-pointer place-items-center rounded-lg border-0 bg-ink2 text-white"
-                  title="중단"
-                >
-                  <Icon name="pause" size={14} color="#fff" />
-                </button>
-              ) : (
-                <button
-                  onClick={() => {
-                    if (draft.trim() !== '') {
-                      send(draft)
-                      setDraft('')
-                      setCaret(0)
-                    }
-                  }}
-                  disabled={draft.trim() === ''}
-                  className="grid h-[30px] w-[30px] cursor-pointer place-items-center rounded-lg border-0 bg-rust text-white disabled:cursor-not-allowed disabled:opacity-40"
-                  title="전송 (Enter)"
-                >
-                  <Icon name="send" size={14} color="#fff" />
-                </button>
-              )}
-            </span>
-          </div>
         </div>
-        <Popover open={menuOpen} anchorRef={skillButtonRef} onClose={closeMenu}>
-          <SkillsMenu skills={skills} onPick={insertSkillFromMenu} />
-        </Popover>
-        <SkillAutocomplete
-          open={autocomplete.open}
-          anchorRef={textareaWrapRef}
-          suggestions={autocomplete.suggestions}
-          activeIndex={autocomplete.activeIndex}
-          onHover={autocomplete.setActiveIndex}
-          onPick={applyAutocomplete}
-        />
-        <FileAutocomplete
-          open={fileAutocomplete.open}
-          loading={fileAutocomplete.loading}
-          anchorRef={textareaWrapRef}
-          dirPath={fileAutocomplete.dirPath}
-          suggestions={fileAutocomplete.suggestions}
-          activeIndex={fileAutocomplete.activeIndex}
-          onHover={fileAutocomplete.setActiveIndex}
-          onPick={applyFileAutocomplete}
-        />
       </div>
     </section>
   )
