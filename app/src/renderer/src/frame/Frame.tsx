@@ -38,6 +38,19 @@ export function FrameBody({ children }: { children: ReactNode }): React.JSX.Elem
   return <div className="app-frame-body z-0 flex min-h-0 min-w-0">{children}</div>
 }
 
+// app-frame-main — nav 라우터의 mount point. Sidebar 우측의 전체 콘텐츠 영역.
+// AppRouter 가 이 슬롯에 현재 Page 를 렌더한다 — nav 메뉴 전환 시 이 슬롯의 자식만 swap.
+export function FrameMain({ children }: { children: ReactNode }): React.JSX.Element {
+  return (
+    <main
+      className="app-frame-main min-h-0 flex-1"
+      data-context="route-target"
+    >
+      {children}
+    </main>
+  )
+}
+
 // #app-frame-overlay — modal backdrop. modal 활성 시 z=10 으로 떠올라 blur + dim +
 // pointer block 을 제공. 평소엔 z=-10 으로 body 뒤에 깔려 보이지도 클릭도 되지 않는다.
 // children 없음 — 순수 backdrop layer.

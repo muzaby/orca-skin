@@ -3,30 +3,13 @@ import { Icon, type IconName } from '../components/atoms/Icon'
 import { Avatar } from '../components/atoms/Avatar'
 import { Dot } from '../components/atoms/Status'
 import { SessionRow } from './sidebar/SessionRow'
+import { useNavigation } from '../app/providers/NavigationProvider'
+import { useTweakContext } from '../app/providers/TweakProvider'
+import { useBackendContext } from '../app/providers/BackendProvider'
+import { useChatContext } from '../app/providers/ChatProvider'
+import { useSessionsContext } from '../app/providers/SessionsProvider'
+import { useProjectsContext } from '../app/providers/ProjectsProvider'
 import type { ScreenId } from '../screens/registry'
-import type { Project, SessionListItem } from '../../../shared/ipc'
-
-export const SIDEBAR_MIN_WIDTH = 180
-export const SIDEBAR_MAX_WIDTH = 480
-export const SIDEBAR_DEFAULT_WIDTH = 248
-
-export interface SidebarProps {
-  active?: ScreenId
-  collapsed?: boolean
-  width?: number
-  onWidthChange?: (next: number) => void
-  onSelect?: (screen: ScreenId) => void
-  onNewChat?: () => void
-  backendLabel?: string
-  backendInstalled?: boolean
-  sessions?: SessionListItem[]
-  // 세션 라벨의 `<프로젝트>/<타이틀>` prefix 합성에 사용. projectId → name lookup.
-  projects?: Project[]
-  activeSessionId?: string | null
-  onSelectSession?: (sessionId: string) => void
-  onDeleteSession?: (sessionId: string) => void
-  onRenameSession?: (sessionId: string, title: string) => void
-}
 
 interface NavItem {
   i: IconName
@@ -45,24 +28,24 @@ const NAV: NavItem[] = [
 const SECTION_HEAD =
   'px-3 pb-1 pt-3.5 font-serif text-[11px] font-semibold uppercase tracking-[0.04em] text-ink3'
 
+export const SIDEBAR_MIN_WIDTH = 180
+export const SIDEBAR_MAX_WIDTH = 480
+export const SIDEBAR_DEFAULT_WIDTH = 248
+
 const clamp = (n: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, n))
 
-export function Sidebar({
-  active = 'chat',
-  collapsed = false,
-  width = SIDEBAR_DEFAULT_WIDTH,
-  onWidthChange,
-  onSelect,
-  onNewChat,
-  backendLabel = 'Claude Code',
-  backendInstalled = true,
-  sessions = [],
-  projects = [],
-  activeSessionId = null,
-  onSelectSession,
-  onDeleteSession,
-  onRenameSession
-}: SidebarProps): React.JSX.Element {
+export function Sidebar(): React.JSX.Element {
+  const { current, navigate } = useNavigation()
+  const { t, setTweak } = useTweakContext()
+  const { backendLabel, claudeCodeInstalled } = useBackendContext()
+  const { state, newChat, loadSession, invalidateSessionCache, renameSession } = useChatContext()
+  const sessionsCtx = useSessionsContext()
+  const { list: projects } = useProjectsContext()
+
+  const collapsed = t.sidebarCollapsed
+  const width = t.sidebarWidth
+  const active = current === 'project-detail' ? 'projects' : current
+
   const projectNameById = useMemo(() => {
     const map = new Map<string, string>()
     for (const p of projects) map.set(p.id, p.name)
@@ -70,8 +53,6 @@ export function Sidebar({
   }, [projects])
 
   const asideRef = useRef<HTMLElement>(null)
-  // 드래그 진행 중 폭을 onWidthChange 로만 통보 (App 측이 settings.set 한 번만 호출).
-  // ref 로 마지막 폭을 유지하여 mouseup 에서 commit.
   const draggingRef = useRef(false)
 
   const startResize = useCallback(
@@ -85,7 +66,7 @@ export function Sidebar({
       const onMove = (ev: MouseEvent): void => {
         if (!draggingRef.current) return
         const next = clamp(Math.round(ev.clientX - left), SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH)
-        onWidthChange?.(next)
+        setTweak('sidebarWidth', next)
       }
       const onUp = (): void => {
         draggingRef.current = false
@@ -95,7 +76,35 @@ export function Sidebar({
       window.addEventListener('mousemove', onMove)
       window.addEventListener('mouseup', onUp)
     },
-    [collapsed, onWidthChange]
+    [collapsed, setTweak]
+  )
+
+  const handleSelectSession = useCallback(
+    (id: string): void => {
+      navigate('chat')
+      const meta = sessionsCtx.list.find((s) => s.id === id)
+      const metaTitle = meta?.title?.trim() || meta?.preview?.trim() || null
+      void loadSession(id, metaTitle)
+    },
+    [navigate, sessionsCtx.list, loadSession]
+  )
+
+  const handleDeleteSession = useCallback(
+    (id: string): void => {
+      invalidateSessionCache(id)
+      void sessionsCtx.remove(id).then(() => {
+        if (state.sessionId === id) newChat()
+      })
+    },
+    [invalidateSessionCache, sessionsCtx, state.sessionId, newChat]
+  )
+
+  const handleRenameSession = useCallback(
+    (id: string, title: string): void => {
+      void renameSession(id, title)
+      void sessionsCtx.rename(id, title)
+    },
+    [renameSession, sessionsCtx]
   )
 
   if (collapsed) {
@@ -110,7 +119,7 @@ export function Sidebar({
           {icons.map((n, i) => (
             <button
               key={n}
-              onClick={() => i === 0 && onNewChat?.()}
+              onClick={() => i === 0 && newChat()}
               className={`h-9 w-9 cursor-pointer rounded-lg border-0 ${
                 i === 1 ? 'bg-rust-soft text-rust' : 'bg-transparent text-ink2'
               }`}
@@ -134,7 +143,7 @@ export function Sidebar({
       <div className="app-frame-sidebar-body flex min-h-0 flex-1 flex-col">
         <div className="app-frame-sidebar-brand px-3 pb-1.5 pt-2.5">
           <button
-            onClick={() => onNewChat?.()}
+            onClick={() => newChat()}
             className="flex w-full cursor-pointer items-center gap-2 rounded-lg border border-border bg-panel px-2.5 py-2 font-medium text-ink"
           >
             <Icon name="plus" size={14} /> 새 대화
@@ -151,7 +160,7 @@ export function Sidebar({
             return (
               <div
                 key={it.i}
-                onClick={() => onSelect?.(it.screen)}
+                onClick={() => navigate(it.screen)}
                 className={`flex cursor-pointer items-center gap-[9px] rounded-md px-2.5 py-1.5 text-[13px] ${
                   isActive ? 'bg-black/[0.04] font-medium text-ink' : 'text-ink2'
                 }`}
@@ -165,18 +174,18 @@ export function Sidebar({
 
         <div className={SECTION_HEAD}>최근 대화</div>
         <div className="app-frame-sidebar-sessions flex-1 overflow-y-auto px-1.5 pt-1">
-          {sessions.length === 0 ? (
+          {sessionsCtx.list.length === 0 ? (
             <div className="px-1.5 text-[11.5px] text-ink3">아직 저장된 대화가 없습니다.</div>
           ) : (
-            sessions.map((s) => (
+            sessionsCtx.list.map((s) => (
               <SessionRow
                 key={s.id}
                 session={s}
-                isActive={s.id === activeSessionId}
+                isActive={s.id === state.sessionId}
                 projectName={s.projectId ? (projectNameById.get(s.projectId) ?? null) : null}
-                onSelect={onSelectSession}
-                onDelete={onDeleteSession}
-                onRename={onRenameSession}
+                onSelect={handleSelectSession}
+                onDelete={handleDeleteSession}
+                onRename={handleRenameSession}
               />
             ))
           )}
@@ -187,8 +196,8 @@ export function Sidebar({
           <div className="min-w-0 flex-1">
             <div className="text-[12px] font-medium text-ink">{backendLabel}</div>
             <div className="flex items-center gap-1.5 text-[10.5px] text-ink3">
-              <Dot tone={backendInstalled ? 'green' : 'amber'} />
-              {backendInstalled ? '설치됨' : '설치 필요'}
+              <Dot tone={claudeCodeInstalled ? 'green' : 'amber'} />
+              {claudeCodeInstalled ? '설치됨' : '설치 필요'}
             </div>
           </div>
           <button className="h-[26px] w-[26px] cursor-pointer rounded-md border-0 bg-transparent text-ink3">
@@ -197,8 +206,6 @@ export function Sidebar({
         </div>
       </div>
 
-      {/* resize-handle — aside 의 우측 끝 1px hairline. 가이드라인은 aside 의 자식으로
-          두어 sidebar collapse 시 자동으로 함께 사라지도록 캡슐화한다. */}
       <div
         className="app-frame-resize-handle absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-border-strong"
         data-behavior="resizable"
