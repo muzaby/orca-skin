@@ -4,13 +4,10 @@ import { Dot } from '../components/atoms/Status'
 import { CopyIconButton } from '../components/atoms/CopyIconButton'
 import { StatusLine } from '../components/atoms/StatusLine'
 import { Popover } from '../components/atoms/Popover'
-import {
-  HighlightedTextarea,
-  type HighlightedTextareaHandle
-} from '../components/composer/HighlightedTextarea'
-import { SkillAutocomplete } from '../components/composer/SkillAutocomplete'
-import { FileAutocomplete } from '../components/composer/FileAutocomplete'
-import { Markdown } from '../components/markdown/Markdown'
+import { HighlightedTextarea, type HighlightedTextareaHandle } from './composer/HighlightedTextarea'
+import { SkillAutocomplete } from './composer/SkillAutocomplete'
+import { FileAutocomplete } from './composer/FileAutocomplete'
+import { Markdown } from '../screens/chat/markdown/Markdown'
 import type { UseChat } from '../state/useChat'
 import type { Message, ToolCall } from '../state/chatReducer'
 import { useSkills } from '../state/useSkills'
@@ -21,7 +18,7 @@ import type { FileEntry, SkillInfo } from '../../../shared/ipc'
 const ICON_BTN =
   'grid h-7 w-7 cursor-pointer place-items-center rounded-md border-0 bg-transparent text-ink2'
 
-interface ChatPaneProps {
+interface ChatTileProps {
   chat: UseChat
   backendLabel: string
 }
@@ -199,7 +196,7 @@ function PendingAssistant({
   )
 }
 
-export function ChatPane({ chat, backendLabel }: ChatPaneProps): React.JSX.Element {
+export function ChatTile({ chat, backendLabel }: ChatTileProps): React.JSX.Element {
   const { state, send, cancel } = chat
   const [draft, setDraft] = useState('')
   const [caret, setCaret] = useState(0)
@@ -466,16 +463,24 @@ export function ChatPane({ chat, backendLabel }: ChatPaneProps): React.JSX.Eleme
                 />
               </div>
               <div className="app-frame-composer-controls flex items-center gap-1.5 pt-1">
-                <ComposerChip icon="plus" label="첨부" disabled title="준비 중" />
-                <ComposerChip icon="cam" label="현재 프레임" disabled title="준비 중" />
-                <ComposerChip
-                  ref={skillButtonRef}
-                  icon="bolt"
-                  label="Skill"
-                  onClick={() => setMenuOpen((v) => !v)}
-                  ariaHasPopup
-                  ariaExpanded={menuOpen}
-                />
+                {/* repo zone — 첨부 후보들 (파일/현재 프레임/Skill). 명세 §3.3.2 의
+                    app-frame-composer-repo 슬롯. data-behavior="dismissible" 은 향후 칩
+                    제거 UX 도입 시점에 각 칩 element 로 내려간다. */}
+                <div
+                  className="app-frame-composer-repo flex items-center gap-1.5"
+                  data-behavior="dismissible"
+                >
+                  <ComposerChip icon="plus" label="첨부" disabled title="준비 중" />
+                  <ComposerChip icon="cam" label="현재 프레임" disabled title="준비 중" />
+                  <ComposerChip
+                    ref={skillButtonRef}
+                    icon="bolt"
+                    label="Skill"
+                    onClick={() => setMenuOpen((v) => !v)}
+                    ariaHasPopup
+                    ariaExpanded={menuOpen}
+                  />
+                </div>
                 <span className="ml-auto flex items-center gap-2">
                   <span className="text-[11px] text-ink3">{backendLabel}</span>
                   {state.inflight ? (

@@ -45,8 +45,10 @@ export function SkillAutocomplete({
       ref={panelRef}
       role="listbox"
       aria-label="스킬 자동완성"
-      className="fixed z-50 min-w-[280px] max-w-[420px] overflow-hidden rounded-lg border border-border bg-panel p-1 shadow-lg"
+      className="app-frame-floating fixed z-50 min-w-[280px] max-w-[420px] overflow-hidden rounded-lg border border-border bg-panel p-1 shadow-lg"
       style={{ left: pos.left, bottom: pos.bottom }}
+      data-context="floating"
+      data-behavior="dismissible"
     >
       <div className="max-h-[280px] overflow-y-auto">
         {suggestions.map((s, i) => {

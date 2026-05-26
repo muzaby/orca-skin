@@ -76,7 +76,7 @@ const TONE_ICON: Record<Engine['tone'], string> = {
   slate: '#6b6452'
 }
 
-export function EngineSettings(): React.JSX.Element {
+export function EngineScreen(): React.JSX.Element {
   return (
     <section className="flex-1 overflow-auto px-8 pb-10 pt-6">
       <div className="mb-1 flex items-baseline gap-3.5">

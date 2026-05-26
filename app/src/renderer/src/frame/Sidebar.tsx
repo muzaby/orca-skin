@@ -2,8 +2,8 @@ import { useCallback, useMemo, useRef } from 'react'
 import { Icon, type IconName } from '../components/atoms/Icon'
 import { Avatar } from '../components/atoms/Avatar'
 import { Dot } from '../components/atoms/Status'
-import { SessionRow } from './SessionRow'
-import type { ScreenId } from './screens'
+import { SessionRow } from './sidebar/SessionRow'
+import type { ScreenId } from '../screens/registry'
 import type { Project, SessionListItem } from '../../../shared/ipc'
 
 export const SIDEBAR_MIN_WIDTH = 180

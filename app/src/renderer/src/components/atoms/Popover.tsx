@@ -57,8 +57,10 @@ export function Popover({
     <div
       ref={panelRef}
       role="menu"
-      className={`fixed z-50 min-w-[240px] rounded-lg border border-border bg-panel p-1 shadow-lg ${className}`}
+      className={`app-frame-floating fixed z-50 min-w-[240px] rounded-lg border border-border bg-panel p-1 shadow-lg ${className}`}
       style={{ left: pos.left, bottom: pos.bottom }}
+      data-context="floating"
+      data-behavior="dismissible"
     >
       {children}
     </div>,

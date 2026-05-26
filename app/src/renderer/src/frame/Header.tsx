@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'react'
-import { WinControls } from '../components/atoms/WinControls'
+import { WinControls } from './header/WinControls'
 
-export interface TitlebarProps {
+export interface HeaderProps {
   project?: string
   breadcrumb?: string | null
 }
@@ -14,10 +14,10 @@ const NO_DRAG_STYLE: CSSProperties = { WebkitAppRegion: 'no-drag' } as CSSProper
 // 80px 만큼 밀어준다. Windows/Linux 는 우측 WinControls.
 const isDarwin = (): boolean => typeof window !== 'undefined' && window.orca?.platform === 'darwin'
 
-export function Titlebar({
+export function Header({
   project = 'cam-validation-v3',
   breadcrumb
-}: TitlebarProps): React.JSX.Element {
+}: HeaderProps): React.JSX.Element {
   const macOsPadLeft = isDarwin() ? 'pl-[80px]' : 'pl-[14px]'
   return (
     <header

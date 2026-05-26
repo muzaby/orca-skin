@@ -92,7 +92,7 @@ function PermRow({ label, desc }: { label: string; desc: string }): React.JSX.El
   )
 }
 
-export function SkillsMcp(): React.JSX.Element {
+export function SkillsMcpScreen(): React.JSX.Element {
   return (
     <section className="flex-1 overflow-auto px-8 pb-10 pt-6">
       <div className="flex items-baseline gap-3.5">

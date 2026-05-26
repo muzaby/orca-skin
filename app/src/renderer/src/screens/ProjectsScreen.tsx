@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { Icon } from '../components/atoms/Icon'
-import { CreateProjectModal } from '../components/projects/CreateProjectModal'
+import { CreateProjectModal } from './projects/CreateProjectModal'
 import type { Project } from '../../../shared/ipc'
 
-interface ProjectsProps {
+interface ProjectsScreenProps {
   projects: Project[]
   loading: boolean
   onOpenProject: (id: string) => void
@@ -26,12 +26,12 @@ function formatRelative(updatedAt: number): string {
   )
 }
 
-export function Projects({
+export function ProjectsScreen({
   projects,
   loading,
   onOpenProject,
   onCreate
-}: ProjectsProps): React.JSX.Element {
+}: ProjectsScreenProps): React.JSX.Element {
   const [createOpen, setCreateOpen] = useState(false)
 
   return (

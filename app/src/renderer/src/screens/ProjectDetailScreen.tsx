@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import { Icon } from '../components/atoms/Icon'
-import { ChatPane } from './ChatPane'
-import { SessionRow } from './SessionRow'
-import { EditInstructionsModal } from '../components/projects/EditInstructionsModal'
+import { ChatTile } from '../frame/ChatTile'
+import { SessionRow } from '../frame/sidebar/SessionRow'
+import { EditInstructionsModal } from './projects/EditInstructionsModal'
 import { useProjectSessions } from '../state/useProjectSessions'
 import type { UseChat } from '../state/useChat'
 import type { Project } from '../../../shared/ipc'
 
-interface ProjectDetailProps {
+interface ProjectDetailScreenProps {
   projectId: string
   projects: Project[]
   chat: UseChat
@@ -15,12 +15,12 @@ interface ProjectDetailProps {
   onBack: () => void
   // 사용자가 랜딩의 입력창에서 첫 메시지를 보내거나, 대화 리스트의 기존 세션을
   // 클릭하면 ProjectDetail 을 떠나 일반 'chat' 화면으로 전환한다. App.tsx 가
-  // setScreen('chat') 으로 라우팅 — ProjectDetail unmount, ChatPane 풀-사이즈 mount.
+  // setScreen('chat') 으로 라우팅 — ProjectDetailScreen unmount, ChatTile 풀-사이즈 mount.
   onLeaveToChat: () => void
   onUpdateInstructions: (instructions: string) => Promise<void>
 }
 
-// ProjectDetail 화면은 **랜딩 모드만** 보여준다 — 활성 세션이나 메시지가 생기는
+// ProjectDetailScreen 은 **랜딩 모드만** 보여준다 — 활성 세션이나 메시지가 생기는
 // 순간 onLeaveToChat() 으로 빠져나간다.
 // 레이어 (사용자 요구):
 //   1. ← 모든 프로젝트
@@ -28,7 +28,7 @@ interface ProjectDetailProps {
 //   3. 채팅 패널 (큰 높이)
 //   4. 프로젝트 내 대화 리스트
 //   우측: 지침 + 파일 placeholder
-export function ProjectDetail({
+export function ProjectDetailScreen({
   projectId,
   projects,
   chat,
@@ -36,7 +36,7 @@ export function ProjectDetail({
   onBack,
   onLeaveToChat,
   onUpdateInstructions
-}: ProjectDetailProps): React.JSX.Element {
+}: ProjectDetailScreenProps): React.JSX.Element {
   const sessions = useProjectSessions(projectId)
   const project = projects.find((p) => p.id === projectId) ?? null
 
@@ -74,7 +74,7 @@ export function ProjectDetail({
   ])
 
   // 채팅 턴이 끝나면 새 세션이 추가됐을 수 있으므로 프로젝트 세션 목록도 refresh.
-  // 사용자가 ChatPane 화면에서 send 한 후 다시 카드를 클릭해 돌아왔을 때
+  // 사용자가 ChatTile 화면에서 send 한 후 다시 카드를 클릭해 돌아왔을 때
   // 최신 세션 목록이 보이도록.
   useEffect(() => {
     if (!chat.state.inflight) void sessions.refresh()
@@ -104,7 +104,7 @@ export function ProjectDetail({
         </div>
 
         <div className="min-h-0 flex-1">
-          <ChatPane chat={chat} backendLabel={backendLabel} />
+          <ChatTile chat={chat} backendLabel={backendLabel} />
         </div>
 
         <div className="flex max-h-[180px] flex-none flex-col border-t border-border bg-sidebar">
