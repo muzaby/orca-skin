@@ -11,8 +11,9 @@ export function AuthExpiredModal({
 }: AuthExpiredModalProps): React.JSX.Element | null {
   if (!open) return null
   const cmd = 'claude /login'
+  // backdrop 은 #app-frame-overlay 가 담당. panel 만 grid cell 중앙에.
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40">
+    <div className="grid h-full w-full place-items-center">
       <div className="w-[440px] max-w-[90vw] rounded-xl border border-border bg-panel p-5 shadow-xl">
         <div className="mb-2 font-serif text-[16px] font-semibold text-ink">
           Claude Code 인증 만료
