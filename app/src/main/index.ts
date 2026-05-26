@@ -1,20 +1,27 @@
-import { app, shell, BrowserWindow } from 'electron'
+import { app, shell, BrowserWindow, ipcMain } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { IpcRouter } from './ipc/router'
+import { CHANNELS } from '../shared/ipc'
 import type { SettingsStore } from './settings/store'
 
 const DEFAULT_BOUNDS = { width: 900, height: 670 }
 
 function createWindow(settings: SettingsStore): void {
   const saved = settings.getAll().windowBounds
-  // Create the browser window.
+  // 커스텀 타이틀바 — HTML 헤더로 직접 그린다. macOS 는 traffic light 만 OS 가
+  // 그리도록 `titleBarStyle: 'hidden'` + `trafficLightPosition` 으로 36px 헤더 안에
+  // 수직 중앙. Windows/Linux 는 frameless, WinControls 가 minimize/maximize/close 를 그린다.
   const mainWindow = new BrowserWindow({
     ...DEFAULT_BOUNDS,
     ...(saved ?? {}),
     show: false,
     autoHideMenuBar: true,
+    frame: false,
+    ...(process.platform === 'darwin'
+      ? { titleBarStyle: 'hidden' as const, trafficLightPosition: { x: 12, y: 10 } }
+      : {}),
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -38,6 +45,23 @@ function createWindow(settings: SettingsStore): void {
     shell.openExternal(details.url)
     return { action: 'deny' }
   })
+
+  // 커스텀 타이틀바의 minimize/maximize/close 버튼이 호출하는 IPC. 인자 없음, void 반환.
+  // 채널은 mainWindow 마다 등록되는 것이 아니라 ipcMain 글로벌이라 createWindow 안에서
+  // 한 번만 부착. 다중 윈도우 도입 시 router 로 옮긴다.
+  const bindWindowControls = (): void => {
+    ipcMain.handle(CHANNELS.windowMinimize, () => {
+      mainWindow.minimize()
+    })
+    ipcMain.handle(CHANNELS.windowMaximize, () => {
+      if (mainWindow.isMaximized()) mainWindow.unmaximize()
+      else mainWindow.maximize()
+    })
+    ipcMain.handle(CHANNELS.windowClose, () => {
+      mainWindow.close()
+    })
+  }
+  bindWindowControls()
 
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.

@@ -73,7 +73,17 @@ const orca = {
     delete: (id: string): Promise<void> => ipcRenderer.invoke(CHANNELS.projectDelete, { id }),
     listSessions: (projectId: string): Promise<SessionListItem[]> =>
       ipcRenderer.invoke(CHANNELS.projectListSessions, { projectId })
-  }
+  },
+  // 커스텀 타이틀바 (frame:false) 의 WinControls 가 호출. macOS 는 OS traffic light 사용으로
+  // 호출 자체가 없으나 채널은 플랫폼 공통으로 노출.
+  window: {
+    minimize: (): Promise<void> => ipcRenderer.invoke(CHANNELS.windowMinimize),
+    maximize: (): Promise<void> => ipcRenderer.invoke(CHANNELS.windowMaximize),
+    close: (): Promise<void> => ipcRenderer.invoke(CHANNELS.windowClose)
+  },
+  // 데스크톱 플랫폼 식별자. renderer 의 `<html data-platform>` 에 부착되고,
+  // WinControls 가 macOS 에서 null 을 반환하는 분기 등에 사용.
+  platform: process.platform as 'darwin' | 'win32' | 'linux'
 }
 
 export type OrcaApi = typeof orca

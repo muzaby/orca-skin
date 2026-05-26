@@ -22,7 +22,10 @@ export const CHANNELS = {
   projectCreate: 'orca:project:create',
   projectUpdate: 'orca:project:update',
   projectDelete: 'orca:project:delete',
-  projectListSessions: 'orca:project:listSessions'
+  projectListSessions: 'orca:project:listSessions',
+  windowMinimize: 'orca:window:minimize',
+  windowMaximize: 'orca:window:maximize',
+  windowClose: 'orca:window:close'
 } as const
 
 // Backend (Phase 2: claude-code 단일. opencode 는 future work)
@@ -100,6 +103,7 @@ export interface Settings {
   theme: ThemePref
   density: DensityPref
   sidebarCollapsed: boolean
+  sidebarWidth: number
   lastBackend: Backend | null
   lastSessionId: string | null
   windowBounds: WindowBounds | null

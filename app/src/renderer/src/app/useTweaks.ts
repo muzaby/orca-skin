@@ -5,12 +5,14 @@ export interface Tweaks {
   theme: ThemeId
   density: DensityId
   sidebarCollapsed: boolean
+  sidebarWidth: number
 }
 
 const DEFAULTS: Tweaks = {
   theme: 'classic',
   density: 'normal',
-  sidebarCollapsed: false
+  sidebarCollapsed: false,
+  sidebarWidth: 248
 }
 
 // settings 영속화와 양방향 바인딩되는 Tweaks 훅.
@@ -26,7 +28,8 @@ export function useTweaks(): [Tweaks, <K extends keyof Tweaks>(key: K, val: Twea
       setTweaks({
         theme: s.theme,
         density: s.density,
-        sidebarCollapsed: s.sidebarCollapsed
+        sidebarCollapsed: s.sidebarCollapsed,
+        sidebarWidth: s.sidebarWidth
       })
     })
     return () => {

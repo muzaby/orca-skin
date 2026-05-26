@@ -123,10 +123,21 @@ const WindowBoundsSchema = z.object({
   height: z.number()
 })
 
+// 사이드바 폭 범위 — 가독성·접힘 토글(아이콘 폭 56) 과의 충돌 회피를 위해 180–480.
+const SIDEBAR_WIDTH_MIN = 180
+const SIDEBAR_WIDTH_MAX = 480
+const SIDEBAR_WIDTH_DEFAULT = 248
+
 export const SettingsSchema = z.object({
   theme: z.enum(['classic', 'dark', 'cool']).default('classic'),
   density: z.enum(['compact', 'normal', 'comfortable']).default('normal'),
   sidebarCollapsed: z.boolean().default(false),
+  sidebarWidth: z
+    .number()
+    .int()
+    .min(SIDEBAR_WIDTH_MIN)
+    .max(SIDEBAR_WIDTH_MAX)
+    .default(SIDEBAR_WIDTH_DEFAULT),
   lastBackend: BackendSchema.nullable().default(null),
   lastSessionId: z.string().nullable().default(null),
   windowBounds: WindowBoundsSchema.nullable().default(null)
@@ -137,6 +148,7 @@ export const SettingsPatchSchema = z
     theme: z.enum(['classic', 'dark', 'cool']),
     density: z.enum(['compact', 'normal', 'comfortable']),
     sidebarCollapsed: z.boolean(),
+    sidebarWidth: z.number().int().min(SIDEBAR_WIDTH_MIN).max(SIDEBAR_WIDTH_MAX),
     lastBackend: BackendSchema.nullable(),
     lastSessionId: z.string().nullable(),
     windowBounds: WindowBoundsSchema.nullable()
