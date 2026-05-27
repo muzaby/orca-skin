@@ -36,7 +36,8 @@
 | **Phase 3+ (DOM Architecture: `app-frame-*` 마커 + `data-*` 체계 + Custom titlebar `frame:false` + Grid z-stack + Sidebar resize-handle + Tile structure)** | **완료** — `app/src/renderer/src/frame/`, `data-platform`/`data-context`/`data-behavior` 마커 부착, `docs/FRONTEND_ARCHITECTURE.md` §3.3 |
 | **Phase 3++ (frame/ + screens/ 슬롯 분리 + 마크업 마커 보강)** | **완료 (PR #25)** — 셸 슬롯 `frame/` vs 도메인 화면 `screens/` 디렉토리 분리, 컴포넌트 rename (`Titlebar`→`Header`, `ChatPane`→`ChatTile`, `*Pane`→`*Screen`), `app-frame-composer-repo` / `app-frame-session-row` / `app-frame-floating` 마커 신설 |
 | **Phase 3++ (ChatTile 분해: transcript/composer 부속을 슬롯 디렉토리로 추출)** | **완료 (PR #26)** — 구 620줄 ChatTile.tsx → 369줄. `screens/chat/{format.ts, ToolCard, MessageMeta, AssistantMessage, UserMessage, PendingAssistant}.tsx` + `frame/composer/{ComposerChip, SkillsMenu}.tsx` 추출. `app/CLAUDE.md` 원칙 9 (단일 파일 분해 가이드) 신설 |
-| 후속 (CI 워크플로우·Vitest·i18n·Phase 4 Zustand+멀티세션·opencode 어댑터·캡처 실 구현·세션 휴지통 30일 보존) | Future Scope |
+| **Feature-based 구조 감사 + FRONTEND_ARCHITECTURE.md 엄격 갱신** | **완료 (이번 PR)** — `frame/` 완전 해체 결정 (→ `app/` + `features/` + `shared/`), `pages/` = 조립만, `router` = which, App Shell §3.A 조립 규칙 신설, §3-2 목표 트리 + §10 구현 대기 행 추가. 코드 변경 없음 — 문서만. |
+| 후속 (CI 워크플로우·Vitest·i18n·Phase 4 Zustand+멀티세션·opencode 어댑터·캡처 실 구현·세션 휴지통 30일 보존, **frame/ 해체 구현·features/ 도입·shared/ 도입**) | Future Scope |
 
 ## 핵심 원칙 (모든 에이전트 공통)
 
