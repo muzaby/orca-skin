@@ -57,12 +57,16 @@ src/renderer/
     ├── env.d.ts                     # Vite 클라이언트 타입
     │
     ├── app/                         ✅ 셸 — 고정 골격. cross-feature wiring 권한.
-    │   ├── AppLayout.tsx            # Header + Sidebar (슬롯 wiring) + main + OverlayLayer 직접 조립
+    │   ├── AppLayout.tsx            # Header + Sidebar (슬롯) + main + OverlayLayer 조립. 본체는 wiring hook 호출 + JSX 만
     │   ├── Header.tsx               # `app-frame-header` — 브랜드 + breadcrumb + WinControls + drag 2-layer
-    │   ├── Sidebar.tsx              # `app-frame-sidebar` — NAV + collapsible/resizable + 3개 슬롯 (newChat/sessions/footer)
+    │   ├── Sidebar.tsx              # `app-frame-sidebar` — NAV + collapsible/resizable + 3개 슬롯 (newChat/sessions/footer). React.memo + 도메인 특정 설정값 (SIDEBAR_MIN/MAX/DEFAULT_WIDTH) 유지
     │   ├── OverlayLayer.tsx         # `#app-frame-overlay` + `#app-frame-modal` + `#app-frame-debug` 3슬롯 통합
     │   ├── WinControls.tsx          # minimize/maximize/close IPC. macOS → null
-    │   └── router.tsx               # ScreenId switch → Page 컴포넌트 매핑 (which)
+    │   ├── router.tsx               # ScreenId switch → Page 컴포넌트 매핑 (which)
+    │   └── hooks/                   # 🆕 cross-feature wiring (셸 내부 전용)
+    │       ├── useChatSessionsSync.ts   # chat 턴 완료 → sessions 자동 refresh
+    │       ├── useSessionHandlers.ts    # navigate/chat/sessions 핸들러 합성 + projectNameById
+    │       └── useSidebarSlots.tsx      # Sidebar React.memo 효과 위한 slot ReactNode 안정화
     │
     ├── pages/                       ✅ 조립 전용 — Context 읽기 + features 배치. 비즈니스 로직 0.
     │   ├── ChatPage.tsx             # useBackendContext → ChatView.backendLabel wiring
@@ -87,7 +91,7 @@ src/renderer/
     ├── shared/                      ✅ 범용 — 도메인 로직 0. 모든 레이어 의존 가능.
     │   ├── navigation/              # NavigationProvider, useNavigation, screens.ts (ScreenId 카탈로그)
     │   ├── theme/                   # TweakProvider, useTweakContext
-    │   ├── hooks/                   # useTweaks (theme/density state), useSkills (orca:skills:list)
+    │   ├── hooks/                   # useTweaks (theme/density), useSkills (orca:skills:list), useDragResize (1D 드래그→숫자 일반 메커니즘)
     │   ├── api/ipc.ts               # `window.orca.*` 타입드 래퍼 — chatApi/backendApi/installApi/settingsApi/skillApi/fileApi/sessionApi/projectApi/windowApi
     │   ├── config/theme.ts          # ThemeId / DensityId 타입 + DENSITY_FONT
     │   ├── types/screen.ts          # ScreenId 타입
@@ -155,10 +159,10 @@ src/renderer/
 
 > PR #29 로 강제됨 (ESLint `eslint-plugin-boundaries` v6 `boundaries/dependencies` 규칙). 의존 방향: `app/` → `pages/` → `features/` → `shared/`. 위반 시 `npm run lint` 가 차단.
 
-- **`app/`**: Provider 합성 + 라우터 + 앱 셸 레이아웃 원자. `router.tsx` = 어느 pages/를 보여줄지. `AppLayout.tsx` = 셸 조립. Header/Sidebar/OverlayLayer/WinControls = 도메인 지식 없는 레이아웃 컴포넌트. ❌ 비즈니스 로직 금지.
+- **`app/`**: Provider 합성 + 라우터 + 앱 셸 레이아웃 원자. `router.tsx` = 어느 pages/를 보여줄지. `AppLayout.tsx` = 셸 조립 (wiring hook 호출 + JSX 만). Header/Sidebar/OverlayLayer/WinControls = 레이아웃 컴포넌트 — 셸의 *도메인 특정 설정값과 적용* (예: `SIDEBAR_MIN/MAX/DEFAULT_WIDTH` + `setTweak('sidebarWidth', n)`) 은 컴포넌트 자체에 잔류 (공용 인프라가 아니므로). cross-feature wiring (chat→sessions 동기화, 다중 도메인 핸들러 합성, slot 안정화 등) 은 **`app/hooks/`** 에 캡슐화. ❌ 도메인 비즈니스 로직 (UI 위젯 설정/적용을 넘어선 도메인 규칙) 금지.
 - **`pages/`**: 라우터가 `<Outlet>` (`app-frame-body > main`) 에 마운트하는 진입점. **무엇을 배치할지 조립만. 비즈니스 로직 없음.** features/ + shared/ 를 가져다 배치하는 역할.
 - **`features/<domain>/`**: 도메인 기능 모듈. 6-슬롯 (`components/` / `hooks/` / `api/` / `store/` / `types.ts` / `index.ts`). 외부 노출: `index.ts` barrel 만. 다른 feature 의 내부 파일 직접 import 금지. features 간 직접 의존 금지 — 공유 필요 시 `shared/` 로. **IPC 호출: `shared/api/ipc.ts` 래퍼 경유만 허용. `window.orca.*` 직접 호출 금지.**
-- **`shared/`** (renderer 내부): 도메인 지식 없는 재사용 자산. `ui/` = 도메인-무관 UI 원자 (구 `components/atoms/`). `hooks/` = 도메인-무관 hook. `api/ipc.ts` = `window.orca.*` 타입드 래퍼. `config/` = 상수·테마 타입. **store / 도메인 hook import 금지.**
+- **`shared/`** (renderer 내부): 도메인 지식 없는 재사용 자산. `ui/` = 도메인-무관 UI 원자 (구 `components/atoms/`). `hooks/` = 도메인-무관 hook — 셸 컴포넌트의 *재사용 가능한 메커니즘* (예: 1D 드래그→숫자 `useDragResize`) 도 여기에. *도메인 특정 설정* (sidebar 폭 경계, sessions 액션 wiring 등) 은 shared 자격 미달. `api/ipc.ts` = `window.orca.*` 타입드 래퍼. `config/` = 상수·테마 타입. **store / 도메인 hook import 금지.**
 - **`styles/`**: Tailwind + CSS 변수만. JS 의존 없음.
 
 ### 3.2 새 파일을 만들 때 결정 흐름
@@ -211,7 +215,7 @@ app/AppLayout.tsx
 | `pages/XxxPage.tsx` | **무엇을 배치할지** 조립만 (비즈니스 로직 없음) |
 | `features/<domain>/` | **실제 비즈니스 로직** (components + hooks + reducer) |
 
-#### 적용 결과 (PR #29)
+#### 적용 결과 (PR #29 + PR #30)
 
 | 항목 | 적용 후 상태 |
 |---|---|
@@ -219,8 +223,9 @@ app/AppLayout.tsx
 | ChatTile 위치 | ✅ `features/chat/components/ChatTile.tsx` |
 | Composer 위치 | ✅ `features/chat/components/composer/` |
 | 오버레이 | ✅ `app/OverlayLayer.tsx` 통합 (overlay/modal/debug 3슬롯, z 부호 반전 토글) |
-| 셸 조립 | ✅ `app/AppLayout.tsx` 단일 파일 직접 조립 |
+| AppLayout 본체 | ✅ wiring 3-hook (`app/hooks/useChatSessionsSync` · `useSessionHandlers` · `useSidebarSlots`) 로 분리. 본체는 hook 호출 + JSX 조립만 (30여 줄). 도메인 Context 직접 구독 0건. |
 | Sidebar 메모이제이션 | ✅ `React.memo()` + NavigationContext/TweakContext selector 한정 구독 (도메인 슬롯은 props 주입) |
+| Sidebar 드래그 메커니즘 | ✅ `shared/hooks/useDragResize` 로 분리 (sidebar 핸들바·설정값 모르는 일반 1D 드래그→숫자 hook). `SIDEBAR_MIN/MAX/DEFAULT_WIDTH` 상수·`asideRef`·`setTweak('sidebarWidth', n)` 적용은 Sidebar 잔류 (도메인 특정 설정) |
 
 ---
 
@@ -589,9 +594,11 @@ useEffect(density): ──► document.documentElement.style.fontSize = DENSITY_
 ### 7.5 Sidebar Resize (Phase 3+)
 
 - 드래그 영역: `aside.app-frame-sidebar` 우측 1px hairline (`app-frame-resize-handle`) — aside 의 자식이라 collapse 시 함께 사라진다.
-- 로직: `onMouseDown` → document `mousemove` clamp(180, 480) → `onWidthChange` 콜백 → `mouseup` 에서 `window.orca.settings.set({ sidebarWidth })` 1회.
-- 영속화: `Settings.sidebarWidth: number` (180–480, default 248). `useTweaks` 가 부팅 시 hydrate + flush.
-- collapsed 상태: handle 의 `data-state="hidden"` + `pointer-events-none`. 폭은 `w-14` (56px) 고정.
+- **2단 분리** (PR #30):
+  - 일반 메커니즘 → `shared/hooks/useDragResize` (`getOrigin` / `min` / `max` / `disabled` / `onChange` 옵션. sidebar 라는 도메인을 모르며 tile separator 등에도 재사용 가능).
+  - 도메인 특정 설정·적용 → `app/Sidebar.tsx` (`SIDEBAR_MIN/MAX/DEFAULT_WIDTH` 상수, `asideRef`, `setTweak('sidebarWidth', n)` onChange).
+- 영속화: `Settings.sidebarWidth: number` (180–480, default 248). `shared/hooks/useTweaks` 가 부팅 시 hydrate + flush.
+- collapsed 상태: handle 의 `data-state="hidden"` + `pointer-events-none`. 폭은 `w-14` (56px) 고정. `useDragResize` 의 `disabled: collapsed` 옵션으로 mousedown 무반응.
 - 명명: aside 내부는 `resize-handle`, tile 사이는 `separator` 로 구분 (§3.3.4).
 
 ---

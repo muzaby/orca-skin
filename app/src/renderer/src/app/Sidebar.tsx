@@ -2,6 +2,7 @@ import { memo, useCallback, useRef, type ReactNode } from 'react'
 import { Icon, type IconName } from '../shared/ui/Icon'
 import { useNavigation } from '../shared/navigation'
 import { useTweakContext } from '../shared/theme'
+import { useDragResize } from '../shared/hooks/useDragResize'
 import type { ScreenId } from '../shared/types/screen'
 
 interface NavItem {
@@ -21,11 +22,11 @@ const NAV: NavItem[] = [
 const SECTION_HEAD =
   'px-3 pb-1 pt-3.5 font-serif text-[11px] font-semibold uppercase tracking-[0.04em] text-ink3'
 
+// sidebar 의 *도메인 특정* 설정값. 공용 인프라가 아니라 sidebar 자체 책임이므로
+// 일반 useDragResize 훅이 아닌 이 파일에 둔다.
 export const SIDEBAR_MIN_WIDTH = 180
 export const SIDEBAR_MAX_WIDTH = 480
 export const SIDEBAR_DEFAULT_WIDTH = 248
-
-const clamp = (n: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, n))
 
 export interface SidebarProps {
   // '새 대화' 슬롯 — features/chat 의 도메인 버튼.
@@ -39,6 +40,8 @@ export interface SidebarProps {
 // 앱 셸의 sidebar 골격. NavigationContext + TweakContext 만 자체 구독해 collapse /
 // resize / NAV 메뉴 / brand 영역을 그린다. 도메인 위젯 (새 대화 / 세션 목록 /
 // 백엔드 상태) 은 slot 으로 주입받아 ChatContext 등 도메인 Context 결합을 끊는다.
+// 드래그 메커니즘은 shared/hooks/useDragResize 에 위임; 여기서는 sidebar 측의
+// 설정값 (SIDEBAR_*) 과 적용 (setTweak('sidebarWidth', n)) 만 책임진다.
 // React.memo: slot ReactNode 가 부모에서 안정적으로 전달되는 한 NavigationContext /
 // TweakContext 변경 시에만 리렌더 (FRONTEND_ARCHITECTURE §3.A).
 function SidebarImpl({ newChatSlot, sessionsSlot, footerSlot }: SidebarProps): React.JSX.Element {
@@ -50,31 +53,22 @@ function SidebarImpl({ newChatSlot, sessionsSlot, footerSlot }: SidebarProps): R
   const active = current === 'project-detail' ? 'projects' : current
 
   const asideRef = useRef<HTMLElement>(null)
-  const draggingRef = useRef(false)
 
-  const startResize = useCallback(
-    (e: React.MouseEvent): void => {
-      if (collapsed) return
-      e.preventDefault()
-      draggingRef.current = true
-      const aside = asideRef.current
-      if (!aside) return
-      const left = aside.getBoundingClientRect().left
-      const onMove = (ev: MouseEvent): void => {
-        if (!draggingRef.current) return
-        const next = clamp(Math.round(ev.clientX - left), SIDEBAR_MIN_WIDTH, SIDEBAR_MAX_WIDTH)
-        setTweak('sidebarWidth', next)
-      }
-      const onUp = (): void => {
-        draggingRef.current = false
-        window.removeEventListener('mousemove', onMove)
-        window.removeEventListener('mouseup', onUp)
-      }
-      window.addEventListener('mousemove', onMove)
-      window.addEventListener('mouseup', onUp)
-    },
-    [collapsed, setTweak]
+  const handleWidthChange = useCallback(
+    (n: number): void => setTweak('sidebarWidth', n),
+    [setTweak]
   )
+  const getOrigin = useCallback(
+    (): number => asideRef.current?.getBoundingClientRect().left ?? 0,
+    []
+  )
+  const { startResize } = useDragResize({
+    getOrigin,
+    min: SIDEBAR_MIN_WIDTH,
+    max: SIDEBAR_MAX_WIDTH,
+    disabled: collapsed,
+    onChange: handleWidthChange
+  })
 
   if (collapsed) {
     // 접힌 상태에서는 NAV 만 아이콘으로 표시. 도메인 슬롯은 노출하지 않는다.
