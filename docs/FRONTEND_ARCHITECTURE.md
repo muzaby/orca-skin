@@ -1,7 +1,7 @@
 # Frontend Architecture
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-05-26 (PR #25 frame/screens 분리 + PR #26 ChatTile 분해 반영)
+> 최종 업데이트: 2026-05-27 (Feature-based 구조 감사 결과 반영. frame/ 완전 해체 결정. App Shell Outlet 조립 규칙 신설. features/ + shared/ 목표 구조 §3 기술. 구현 대기 항목 §3.2 / §3.A / §10 명시.)
 > 관련 문서: [BACKEND_ARCHITECTURE.md](./BACKEND_ARCHITECTURE.md), [IPC_CONTRACT.md](./IPC_CONTRACT.md), [GLOSSARY.md](./GLOSSARY.md), [TRD.md](./TRD.md) §6 데이터 모델, [PRD.md](./PRD.md) §8 / §9 / §10
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 
@@ -32,7 +32,7 @@
 | 언어 | TypeScript | ~5.x (strict, target ES2022) | tsconfig.web.json 분리 |
 | 빌드 도구 | electron-vite | ^5.0.0 | 3-config (main/preload/renderer) |
 | 상태 관리 | **현재: React Context + useReducer.** Zustand 전환 예정 (Future) | — | 단일 inflight + props drilling 모델로 시작. 멀티세션 (Phase 4) / 영속성 통합 시점에 Zustand 로 전환 — §4.4 참조 |
-| 라우팅 | 없음 (App.tsx 의 `screenId` state 로 화면 전환) | — | `screens/registry.ts` 의 ScreenId enum |
+| 라우팅 | **현재**: `NavigationProvider` + `AppRouter` switch (`app/router.tsx`, 라이브러리 미사용). **채택 결정 (후속 PR)**: `app/AppLayout.tsx` 에서 Header · Sidebar · `<Outlet>` · OverlayLayer 직접 조립. `<Outlet>` 개념 = `app-frame-main` 슬롯의 현재 `<AppRouter />`. React Router v7 / TanStack Router 채택 여부는 후속 결정. | — | §3.A App Shell 조립 규칙 참조. `screens/registry.ts` 의 ScreenId enum |
 | 스타일링 | Tailwind CSS v4 (`@tailwindcss/vite`) + CSS-first `@theme` 토큰 | ^4.1.16 | `tailwind.config.js` 없음. Tailwind 유틸 + `app-frame-*` 마커 클래스 (§3.3) **공존**. |
 | 마크다운 렌더링 | react-markdown + remark-gfm | ^9.1.0 / ^4.0.1 | GFM 테이블·체크박스 지원 |
 | 코드 하이라이팅 | shiki (async 싱글톤 로드) | ^1.29.2 | 11언어 + 3테마, MutationObserver 로 data-theme 추적 |
@@ -44,7 +44,9 @@
 
 ## 3. 디렉토리 구조
 
-`app/src/renderer/src/` 의 실제 트리.
+### 3-1. 현재 상태 (코드 기준)
+
+`app/src/renderer/src/` 의 실제 트리. ✅ 준수 / ⚠️ 부분 준수 / ❌ 위반 마커 포함.
 
 ```
 src/renderer/
@@ -54,96 +56,225 @@ src/renderer/
     ├── App.tsx                      # 루트 셸 — Tweaks state, theme/density effect, 화면 라우팅
     ├── env.d.ts                     # Vite 클라이언트 타입
     │
-    ├── frame/                       # 셸 슬롯 — app-frame-* 마커와 1:1 정렬 (PR #25)
-    │   ├── Frame.tsx                # `Frame` (app-frame-root) + `FrameGrid` / `FrameBody` / `OverlaySlot` / `ModalSlot` / `DebugSlot` sub-export (§3.3)
-    │   ├── Header.tsx               # `app-frame-header` — Orca 브랜드 + breadcrumb + WinControls + drag 2-layer + 플랫폼 분기 (macOS 80px 좌측 패딩). 구 `Titlebar` 에서 rename.
-    │   ├── Sidebar.tsx              # `app-frame-sidebar` — 네비게이션 + 새 대화 + 최근 대화 + collapsible + resizable (180–480px clamp, `app-frame-resize-handle` 내장, width 영속화)
-    │   ├── ChatTile.tsx             # `app-frame-pane-host > pane-row > app-frame-tile` 채팅 tile **셸 + state hook 연결 + 입력 핸들러만**. 구 `ChatPane` 에서 rename + 분해 (PR #26). transcript / composer 부속은 외부 파일.
+    ├── app/                         ✅ 준수 — Provider 합성 + Router
+    │   ├── providers/               # 6개 (Tweak/Navigation/Backend/Sessions/Projects/Chat)
+    │   └── router.tsx               # ScreenId switch → Page
+    │
+    ├── pages/                       ✅ 준수 — 라우터가 <Outlet> (app-frame-body > main) 에 마운트
+    │   │                            ★ 규칙: features/ + shared/ 배치만. 비즈니스 로직 없음.
+    │   ├── ChatPage.tsx             # 9줄
+    │   ├── ProjectsPage.tsx         # 18줄
+    │   ├── ProjectDetailPage.tsx    # 29줄
+    │   ├── EnginePage.tsx           # 5줄
+    │   ├── SkillsPage.tsx           # 5줄
+    │   └── CapturesPage.tsx         # 5줄
+    │
+    ├── frame/                       ⚠️ 부분 준수 — 셸 슬롯 + 도메인 혼재.
+    │   │                            ❌ 해체 대기 (§3.2 목표 상태 참조)
+    │   ├── Frame.tsx                # `Frame` (app-frame-root) + FrameGrid/FrameBody/Slot sub-export
+    │   ├── Header.tsx               # `app-frame-header` — 브랜드 + breadcrumb + WinControls + drag
+    │   ├── Sidebar.tsx              # `app-frame-sidebar` — 네비게이션 + 세션 목록 + collapsible/resizable
+    │   ├── ChatTile.tsx             # ❌ 도메인 컴포넌트 → features/chat/ 이동 대상
+    │   ├── ModalLayer.tsx           # `#app-frame-modal` 슬롯 (OverlayLayer 통합 대상)
+    │   ├── DebugLayer.tsx           # `#app-frame-debug` 슬롯 (OverlayLayer 통합 대상)
     │   ├── theme.ts                 # ThemeId / DensityId / DENSITY_FONT
     │   ├── header/
-    │   │   └── WinControls.tsx      # minimize/maximize/close. macOS 에서 null. `data-behavior="action:window-*"` + `orca.window.*` IPC
+    │   │   └── WinControls.tsx      # minimize/maximize/close. macOS null.
     │   ├── sidebar/
-    │   │   └── SessionRow.tsx       # `app-frame-session-row` + `data-context="session"` + `data-state="active|inactive"` + `data-session-id`. kebab/rename/delete.
-    │   ├── composer/                # composer 슬롯 내부 부속
-    │   │   ├── HighlightedTextarea.tsx  # textarea + mirror overlay (chip 강조)
-    │   │   ├── SkillAutocomplete.tsx    # `/skill` floating dropdown (body portal + `app-frame-floating`)
-    │   │   ├── FileAutocomplete.tsx     # `@path` floating dropdown (body portal + `app-frame-floating`)
-    │   │   ├── ComposerChip.tsx         # `app-frame-composer-repo` zone 의 행위 chip 원자 (첨부/현재 프레임/Skill)
-    │   │   └── SkillsMenu.tsx           # Skill 칩 popover 의 메뉴 본문
-    │   ├── modal/                   # `#app-frame-modal` 슬롯 — backdrop 은 `#app-frame-overlay` 가 단독 (§3.3.5)
+    │   │   └── SessionRow.tsx       # `app-frame-session-row`. ⚠️ 세션 렌더링 로직 혼재.
+    │   ├── composer/                # composer 슬롯 부속 → features/chat/components/composer/ 이동 대상
+    │   │   ├── HighlightedTextarea.tsx
+    │   │   ├── SkillAutocomplete.tsx
+    │   │   ├── FileAutocomplete.tsx
+    │   │   ├── ComposerChip.tsx
+    │   │   └── SkillsMenu.tsx
+    │   ├── modal/
     │   │   ├── InstallerDialog.tsx
     │   │   └── AuthExpiredModal.tsx
-    │   └── debug/                   # `#app-frame-debug` 슬롯 — modal 무관 floating UI
+    │   └── debug/
     │       ├── TweaksPanel.tsx
-    │       └── useTweaks.ts
+    │       └── useTweaks.ts         # ❌ hook → shared/hooks/ 이동 대상
     │
-    ├── screens/                     # 도메인 화면 — tile 의 내용물 (PR #25)
-    │   ├── registry.ts              # ScreenId enum + 카탈로그 (구 `app/screens.ts`)
-    │   ├── ChatScreen?              # (별도 분리 없음 — 채팅은 ChatTile 본문에 직결, 우측 분할 도입 시점에 분리 검토)
-    │   ├── CameraScreen.tsx         # Bayer 뷰포트 + Histogram + Slider + 메트릭 (mockup)
-    │   ├── ProjectsScreen.tsx       # 프로젝트 카드 그리드
-    │   ├── ProjectDetailScreen.tsx  # 랜딩 + 내부 ChatTile + 세션 리스트
-    │   ├── EngineScreen.tsx         # 엔진/모델 카드
-    │   ├── SkillsMcpScreen.tsx      # Skills + MCP 토글
-    │   ├── CapturesScreen.tsx       # placeholder (GLOSSARY §3 — 도메인 카탈로그 제외)
-    │   ├── chat/                    # ChatTile transcript 부속 (PR #26)
-    │   │   ├── format.ts            # formatTimeShort / formatTimeFull / stringify (공유 유틸)
-    │   │   ├── ToolCard.tsx         # 툴 호출 카드 (input/output 토글)
-    │   │   ├── MessageMeta.tsx      # hover 시 시간 + copy 노출
-    │   │   ├── AssistantMessage.tsx
-    │   │   ├── UserMessage.tsx
-    │   │   ├── PendingAssistant.tsx # 스트리밍 중 delta + StatusLine
-    │   │   └── markdown/
-    │   │       ├── Markdown.tsx     # react-markdown + remarkGfm
-    │   │       └── CodeBlock.tsx    # shiki async + 테마 추적
-    │   └── projects/
-    │       ├── CreateProjectModal.tsx
-    │       └── EditInstructionsModal.tsx
+    ├── screens/                     ❌ 위반 — features/<domain>/components/ 로 이주 대상
+    │   ├── registry.ts              # ScreenId enum (app/ 또는 shared/types/ 이주 대상)
+    │   ├── CameraScreen.tsx
+    │   ├── ProjectsScreen.tsx
+    │   ├── ProjectDetailScreen.tsx
+    │   ├── EngineScreen.tsx
+    │   ├── SkillsMcpScreen.tsx
+    │   ├── CapturesScreen.tsx
+    │   ├── chat/                    # transcript 부속 (AssistantMessage/UserMessage/ToolCard 등)
+    │   └── projects/                # CreateProjectModal / EditInstructionsModal
     │
-    ├── components/                  # 도메인-무관 atom (presentational only)
-    │   └── atoms/
-    │       ├── Icon.tsx             # SVG 아이콘 카탈로그 (~35종)
-    │       ├── Avatar.tsx
-    │       ├── Status.tsx           # Dot + Status (green/amber/red/slate)
-    │       ├── CopyIconButton.tsx
-    │       ├── Popover.tsx          # anchor 기반 floating menu (body portal + `app-frame-floating`)
-    │       ├── StatusLine.tsx       # "Thinking... (45s · ~120 tokens)"
-    │       ├── BayerPattern.tsx     # 카메라 뷰포트 시뮬레이션 (mockup 용)
-    │       └── Histogram.tsx
+    ├── state/                       ❌ 위반 — features/<domain>/hooks/ 로 분산 대상
+    │   │                            window.orca.* 직접 호출 → shared/api/ipc.ts 래퍼 도입 대기
+    │   ├── chatReducer.ts
+    │   ├── useChat.ts
+    │   ├── useSessions.ts
+    │   ├── useProjects.ts
+    │   ├── useProjectSessions.ts
+    │   ├── useBackend.ts
+    │   ├── useSkills.ts
+    │   ├── useSkillAutocomplete.ts
+    │   └── useFileAutocomplete.ts
     │
-    ├── state/                       # 훅 + 리듀서
-    │   ├── chatReducer.ts           # ChatState reducer
-    │   ├── useChat.ts               # useReducer + window.orca.chat 구독 + 세션 메모리 캐시
-    │   ├── useSessions.ts           # session.list 메타 캐시 + remove/rename
-    │   ├── useProjects.ts           # 프로젝트 목록 + create/update
-    │   ├── useProjectSessions.ts    # 프로젝트 소속 세션 목록
-    │   ├── useBackend.ts            # 백엔드 목록 + 설치 상태
-    │   ├── useSkills.ts             # window.orca.skills.list() 캐시
-    │   ├── useSkillAutocomplete.ts  # `/` 자동완성 매칭 로직
-    │   └── useFileAutocomplete.ts   # `@` 자동완성 + 디렉토리 네비게이션
-    │
-    └── styles/
+    ├── components/atoms/            ✅ 준수 — 도메인-무관 UI 원자 (shared/ui/ 이주 대상)
+    └── styles/                      ✅ 준수
         ├── tokens.css               # Tailwind @theme + [data-theme] 스코프
         └── app.css                  # @import tailwindcss + @layer base + @utility kbd
 ```
 
+### 3-2. 목표 상태 (채택 결정, 구현 대기)
+
+> **`frame/` 디렉토리는 완전 해체** — 이동이 아니라 제거. 내용물을 3곳으로 분산:
+> - 비즈니스 로직 → `features/<domain>/`
+> - 범용 구현 (도메인 무관) → `shared/`
+> - 앱 셸 레이아웃 원자 → `app/` 직속 (providers/, router.tsx 와 같은 계층)
+
+**`frame/` 해체 귀속 매핑:**
+
+| 구 위치 | 목표 위치 |
+|---|---|
+| `frame/Header.tsx` | `app/Header.tsx` |
+| `frame/Sidebar.tsx` (레이아웃만) | `app/Sidebar.tsx` |
+| `frame/ModalLayer.tsx` + `frame/DebugLayer.tsx` | `app/OverlayLayer.tsx` (통합) |
+| `frame/header/WinControls.tsx` | `app/WinControls.tsx` |
+| `frame/Frame.tsx` / FrameGrid | `app/AppLayout.tsx` 인라인 흡수 |
+| `frame/ChatTile.tsx` | `features/chat/components/ChatTile.tsx` |
+| `frame/composer/` (전체) | `features/chat/components/composer/` |
+| `frame/sidebar/SessionRow.tsx` | `features/sessions/components/SessionRow.tsx` |
+| `frame/debug/useTweaks.ts` | `shared/hooks/useTweaks.ts` |
+| `frame/theme.ts` | `shared/config/theme.ts` |
+
+**목표 디렉토리 트리:**
+
+```
+src/renderer/src/
+├── main.tsx
+│
+├── app/                             Provider 합성 + Router + 셸 조립
+│   ├── providers/
+│   ├── router.tsx                   ★ 어느 pages/를 보여줄지 결정
+│   ├── AppLayout.tsx                🆕 셸 조립 (Header + Sidebar + <Outlet> + OverlayLayer)
+│   ├── Header.tsx                   (구 frame/Header.tsx)
+│   ├── Sidebar.tsx                  (구 frame/Sidebar.tsx — 레이아웃만)
+│   ├── OverlayLayer.tsx             🆕 구 ModalLayer + DebugLayer 통합
+│   └── WinControls.tsx              (구 frame/header/WinControls.tsx)
+│   🚫 frame/ 서브디렉토리 없음
+│
+├── pages/                           ★ 무엇을 배치할지 조립만. 비즈니스 로직 없음.
+│   ├── ChatPage.tsx                 → features/chat 컴포넌트 배치
+│   ├── ProjectsPage.tsx             → features/projects 컴포넌트 배치
+│   └── ...
+│
+├── features/                        🆕 핵심 도메인 모듈
+│   ├── chat/
+│   │   ├── components/              (ChatTile, transcript 컴포넌트, composer/)
+│   │   ├── hooks/                   (useChat, useSkillAutocomplete, useFileAutocomplete)
+│   │   ├── reducer/                 (chatReducer)
+│   │   ├── types.ts
+│   │   └── index.ts                 (public barrel)
+│   ├── sessions/
+│   │   ├── components/              (SessionRow, SessionList)
+│   │   ├── hooks/                   (useSessions)
+│   │   └── index.ts
+│   ├── projects/
+│   │   ├── components/              (ProjectsScreen, ProjectDetailScreen, 모달)
+│   │   ├── hooks/                   (useProjects, useProjectSessions)
+│   │   └── index.ts
+│   ├── skills/
+│   │   ├── hooks/                   (useSkills)
+│   │   └── index.ts
+│   ├── engine/  ├── camera/  ├── captures/
+│   └── backend/
+│       └── hooks/                   (useBackend)
+│
+├── shared/                          🆕 도메인 무관 재사용 자산
+│   ├── ui/                          (현 components/atoms/ 이주)
+│   ├── hooks/                       (useTweaks 이주, useDebounce 등)
+│   ├── api/
+│   │   └── ipc.ts                   🆕 window.orca.* 타입드 래퍼
+│   ├── config/                      (ThemeId/DensityId 이주)
+│   └── types/
+│
+├── stores/                          ⏳ Phase 4 (Zustand)
+└── styles/                          변경 없음
+```
+
 ### 3.1 디렉토리 책임 규칙
 
-- **`frame/`**: 셸 슬롯. 마크업의 `app-frame-<slot>` 과 1:1 정렬되는 React 모듈만. 도메인 로직 금지 — *어디에 그릴지* 만 담당. 하위 `header/` / `sidebar/` / `composer/` / `modal/` / `debug/` 는 해당 슬롯에 속한 부속을 둔다.
-- **`screens/`**: tile 의 *내용물*. 도메인 화면 (Chat/Camera/Projects/Engine/SkillsMcp/Captures). 파일은 `*Screen.tsx` 접미사. `chat/` 하위는 ChatTile 의 transcript 부속 (메시지 컴포넌트·툴 카드·markdown), `projects/` 하위는 Projects 도메인 다이얼로그.
-- **`components/atoms/`**: 도메인-무관 + 슬롯-무관 atom. presentational only. props 받아서 렌더링만. **store / IPC 직접 호출 금지.** 슬롯 전용 부속 (WinControls 등) 은 여기 두지 않고 `frame/<slot>/` 으로.
-- **`state/`**: 모든 reducer + hook. **IPC 호출은 여기서 캡슐화** (`useChat` 가 `window.orca.chat.onEvent` 구독 등). 컴포넌트는 hook 을 통해 사용.
+> 아래는 **목표 상태** (§3-2) 기준의 책임 규칙. 현재 코드의 `frame/` / `screens/` / `state/` 는 이 규칙으로 재분류 대기 중.
+
+- **`app/`**: Provider 합성 + 라우터 + 앱 셸 레이아웃 원자. `router.tsx` = 어느 pages/를 보여줄지. `AppLayout.tsx` = 셸 조립. Header/Sidebar/OverlayLayer/WinControls = 도메인 지식 없는 레이아웃 컴포넌트. ❌ 비즈니스 로직 금지.
+- **`pages/`**: 라우터가 `<Outlet>` (`app-frame-body > main`) 에 마운트하는 진입점. **무엇을 배치할지 조립만. 비즈니스 로직 없음.** features/ + shared/ 를 가져다 배치하는 역할.
+- **`features/<domain>/`**: 도메인 기능 모듈. 6-슬롯 (`components/` / `hooks/` / `api/` / `store/` / `types.ts` / `index.ts`). 외부 노출: `index.ts` barrel 만. 다른 feature 의 내부 파일 직접 import 금지. features 간 직접 의존 금지 — 공유 필요 시 `shared/` 로. **IPC 호출: `shared/api/ipc.ts` 래퍼 경유만 허용. `window.orca.*` 직접 호출 금지.**
+- **`shared/`** (renderer 내부): 도메인 지식 없는 재사용 자산. `ui/` = 도메인-무관 UI 원자 (구 `components/atoms/`). `hooks/` = 도메인-무관 hook. `api/ipc.ts` = `window.orca.*` 타입드 래퍼. `config/` = 상수·테마 타입. **store / 도메인 hook import 금지.**
 - **`styles/`**: Tailwind + CSS 변수만. JS 의존 없음.
 
 ### 3.2 새 파일을 만들 때 결정 흐름
 
-1. **마크업 `app-frame-<slot>` 슬롯의 일부인가?** → `frame/<slot>/` (예: composer 의 새 chip → `frame/composer/`, modal 다이얼로그 → `frame/modal/`)
-2. **tile 의 *내용물* (도메인 화면) 인가?** → `screens/`. 화면 셸이면 `<Name>Screen.tsx`, 부속이면 `screens/<domain>/`
-3. **도메인-무관 + 슬롯-무관 atom 인가?** → `components/atoms/`
-4. **상태 / IPC 캡슐화 hook 인가?** → `state/`
-5. **CSS 변수 추가인가?** → `styles/tokens.css` 의 `@theme` + 세 테마 스코프 모두
+> **목표 상태** (§3-2) 기준. 현재 과도기에는 기존 위치를 유지하되, 새 파일은 아래 흐름으로 배치.
 
-> 분해 가이드 (`app/CLAUDE.md` 원칙 9): 한 파일이 (a) 5+ 컴포넌트를 담거나 (b) 400줄을 넘으면 분해 검토. 새 파일은 위 결정 흐름에 따라 슬롯 디렉토리에 배치.
+1. **어느 페이지를 보여줄지 (라우팅)?** → `app/router.tsx` 에 경로 추가
+2. **페이지 조립 (배치만, 로직 없음)?** → `pages/XxxPage.tsx`
+3. **도메인 비즈니스 로직 (컴포넌트·hook·reducer)?** → `features/<domain>/components/` 또는 `features/<domain>/hooks/`
+4. **도메인-무관 UI 원자 (presentational only)?** → `shared/ui/`
+5. **도메인-무관 hook?** → `shared/hooks/`
+6. **앱 셸 레이아웃 (라우팅 시 재마운트 없는 고정 컴포넌트)?** → `app/` 직속
+7. **CSS 변수 추가?** → `styles/tokens.css` 의 `@theme` + 세 테마 스코프 모두
+
+> 분해 가이드 (`app/CLAUDE.md` 원칙 9): 한 파일이 (a) 5+ 컴포넌트를 담거나 (b) 400줄을 넘으면 분해 검토. 새 파일은 위 결정 흐름에 따라 배치.
+
+### 3.A App Shell 조립 규칙 (채택 결정, 구현 대기)
+
+#### 정규 레이아웃 다이어그램
+
+```
+app/AppLayout.tsx
+└── app-frame                                    ← Frame 컨테이너
+    ├── Header (TitleBar)                        ← 고정. 라우팅 시 재마운트 없음.
+    ├── app-body (flex row)
+    │   ├── Sidebar (aside)                      ← 고정. React.memo. 전용 selector만.
+    │   └── main [data-context="route-target"]
+    │       └── <Outlet />                       ← ★ 여기만 라우팅 전환 시 교체 → pages/ 마운트
+    └── OverlayLayer                             ← z-index 토글, useOverlay() hook 제어
+```
+
+#### 슬롯별 불변 규칙
+
+| 슬롯 | 규칙 | 위반 예시 |
+|---|---|---|
+| **Header** | 라우팅 변경 시 재마운트 없음. 도메인 상태 직접 소비 금지. | Header 안에서 useChat() 호출 |
+| **Sidebar** | `React.memo()` 필수. NavigationContext/TweakContext/SessionsContext selector만 구독. ChatContext 직접 구독 금지. | Sidebar 에서 chat 스트리밍 상태 읽기 |
+| **`<Outlet>`** | `app-frame-main` 슬롯 자식만 교체. Header/Sidebar unmount 없음. | 화면 전환 시 Header 리렌더 |
+| **OverlayLayer** | `ModalLayer + DebugLayer` 통합. `useOverlay()` hook이 `modalActive` bool 관리. z-index 직접 토글. | 별도 backdrop 컴포넌트 추가 |
+
+#### 조립 위치 원칙
+
+- 셸 조립 = `app/AppLayout.tsx` 단일 파일에서 직접.
+- `AppShell`, `AppContainer` 등 중간 wrapper 로 숨기지 않는다.
+- Provider 합성은 `app/providers/` 에서 수행, 조립 파일은 JSX 레이아웃만.
+
+#### 3계층 역할 구분
+
+| 계층 | 역할 |
+|---|---|
+| `app/router.tsx` | **어느 pages/를 보여줄지** 결정 |
+| `pages/XxxPage.tsx` | **무엇을 배치할지** 조립만 (비즈니스 로직 없음) |
+| `features/<domain>/` | **실제 비즈니스 로직** (components + hooks + reducer) |
+
+#### 현재 상태 vs. 목표 상태
+
+| 항목 | 현재 | 목표 |
+|---|---|---|
+| `frame/` 디렉토리 | 존재 (셸+도메인 혼재) | **완전 해체** → app/ / features/ / shared/ 분산 |
+| ChatTile 위치 | `frame/ChatTile.tsx` | `features/chat/components/ChatTile.tsx` |
+| Composer 위치 | `frame/composer/` | `features/chat/components/composer/` |
+| 오버레이 | `ModalLayer.tsx` + `DebugLayer.tsx` | `app/OverlayLayer.tsx` (통합) |
+| 셸 조립 | `App.tsx` 내 `AppShell` 중첩 | `app/AppLayout.tsx` 직접 조립 |
+| Sidebar 메모이제이션 | 미적용 | `React.memo()` + selector 제한 |
+
+---
 
 ### 3.3 DOM Architecture Specification (Phase 3+)
 
@@ -321,6 +452,7 @@ interface ChatState {
 
 - ❌ **입력창 텍스트를 전역 store 에 두기** — 매 키 입력마다 전역 리렌더 발생. Composer 의 draft 는 컴포넌트 로컬 `useState` 로.
 - ❌ **컴포넌트에서 `window.orca` 직접 호출** — `state/use*.ts` hook 으로 캡슐화한다. (현재 `useTweaks` / `useChat` / `useBackend` / `useSkills` / `useFileAutocomplete` 가 이 책임을 가짐.) Zustand 전환 후에도 IPC 호출은 store action 안에 머무르며 컴포넌트는 selector / action 만 사용한다.
+- ❌ **`features/` hook 에서 `window.orca.*` 직접 호출** — 목표 상태 (§3-2) 에서 `shared/api/ipc.ts` 타입드 래퍼를 경유한다. 현재 `state/` hook 전체가 직접 호출 중 (감사 결과). 후속 PR 에서 래퍼 도입 후 일괄 수정. 이 래퍼가 없으면 테스트 진입점이 없고 IPC 계약 변경 시 전체 hook 파일을 뒤져야 한다.
 - ❌ **`useEffect` 안에서 store→다른 store 갱신** — 무한 루프 위험. reducer 의 단일 액션으로 묶을 것.
 - ❌ **`messages` 배열을 mutate** — reducer 는 `.slice()` 후 새 배열 반환 (`chatReducer.ts` 패턴).
 - ❌ **Tailwind 클래스에 raw hex 색상** — 시맨틱 토큰 (`bg-bg`, `text-ink`, `border-border`) 우선. 새 색이 필요하면 `tokens.css` 의 `@theme` 에 추가하고 세 테마 스코프 모두 채움.
@@ -601,6 +733,9 @@ Main 이 `AbortSignal` 을 SDK `query()` 에 전파 → 현재 inflight 만 중�
 | Sidebar resize-handle | Phase 3+ | ✅ 완료 | §7.5 — 180–480px clamp, `sidebarWidth` 영속화 |
 | Tile structure (`pane-host > pane-row > tile`) | Phase 3+ | ✅ 마크업만 | §3.3.2 — 우측 분할 콘텐츠는 후속 |
 | Zustand 전환 (Phase 4 진입 PR 과 묶음) | Phase 4 | ⏳ 채택 결정 | §4.4 — 단일 root + sessions 슬라이스. Phase 3 사전 마이그레이션 금지 |
+| **App Shell 정규화** (`frame/` 해체 + AppLayout.tsx 직접 조립) | 후속 PR | ⏳ 문서 확정, 구현 대기 | §3.A — `ChatTile.tsx` → `features/chat/`. `ModalLayer+DebugLayer` → `OverlayLayer`. Sidebar `React.memo`. |
+| **`features/<domain>/` 도입** (`screens/` + `state/` 흡수) | 후속 PR | ⏳ 문서 확정, 구현 대기 | §3-2 목표 트리. 도입 순서: chat → sessions → projects → engine/skills/camera/captures. |
+| **`shared/` 도입** (`shared/api/ipc.ts` + `shared/ui/` + `shared/hooks/` + `shared/config/`) | 후속 PR | ⏳ 문서 확정, 구현 대기 | §3-2 목표 트리. `window.orca.*` 래퍼 도입 후 state/ hook 일괄 수정. |
 | Projects 화면 | Phase 1 | 🚧 mockup 만 | Future Scope |
 | EngineSettings 화면 | Phase 1 | 🚧 mockup 만 | Phase 3+ 자격증명 UI 와 통합 예정 |
 | SkillsMcp 화면 (권한·MCP 토글) | Phase 1 | 🚧 mockup 만 | Phase 4+ |
