@@ -1,7 +1,7 @@
 import { useCallback, useRef, type ReactNode } from 'react'
 import { Icon, type IconName } from '../shared/ui/Icon'
-import { useNavigation } from './providers/NavigationProvider'
-import { useTweakContext } from './providers/TweakProvider'
+import { useNavigation } from '../shared/navigation'
+import { useTweakContext } from '../shared/theme'
 import type { ScreenId } from '../shared/types/screen'
 
 interface NavItem {

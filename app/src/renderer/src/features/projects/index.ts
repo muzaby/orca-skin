@@ -1,2 +1,4 @@
+export { ProjectsProvider, useProjectsContext } from './providers/ProjectsProvider'
 export { ProjectsView } from './components/ProjectsView'
-export { ProjectDetailView } from './components/ProjectDetailView'
+export { ProjectLandingHeader } from './components/ProjectLandingHeader'
+export { ProjectInstructionsSidebar } from './components/ProjectInstructionsSidebar'

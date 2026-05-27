@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, type ReactNode } from 'react'
-import { useTweaks, type Tweaks } from '../../shared/hooks/useTweaks'
-import { DENSITY_FONT } from '../../shared/config/theme'
-import { getPlatform } from '../../shared/api/ipc'
+import { useTweaks, type Tweaks } from '../hooks/useTweaks'
+import { DENSITY_FONT } from '../config/theme'
+import { getPlatform } from '../api/ipc'
 
 interface TweakContextValue {
   t: Tweaks

@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { SessionListItem } from '../../../../../shared/ipc'
-import { projectApi } from '../../../shared/api/ipc'
+import { projectApi, sessionApi } from '../../../shared/api/ipc'
 
 export interface UseProjectSessions {
   list: SessionListItem[]
   loading: boolean
   refresh: () => Promise<void>
+  remove: (sessionId: string) => Promise<void>
+  rename: (sessionId: string, title: string) => Promise<void>
 }
 
 // 특정 프로젝트에 소속된 세션 목록. projectId 변경 시 자동 refetch.
@@ -39,5 +41,21 @@ export function useProjectSessions(projectId: string): UseProjectSessions {
     }
   }, [projectId])
 
-  return { list, loading, refresh }
+  const remove = useCallback(
+    async (sessionId: string) => {
+      await sessionApi.delete(sessionId)
+      await refresh()
+    },
+    [refresh]
+  )
+
+  const rename = useCallback(
+    async (sessionId: string, title: string) => {
+      await sessionApi.rename(sessionId, title)
+      await refresh()
+    },
+    [refresh]
+  )
+
+  return { list, loading, refresh, remove, rename }
 }
