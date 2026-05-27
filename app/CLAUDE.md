@@ -1,8 +1,8 @@
 # app/ — 코딩 에이전트용 가이드
 
-이 디렉토리는 **Orca v1 의 실제 구현체**가 사는 곳이다. 현재는 **Phase 3++ (로컬 SQLite SSOT + 사이드바 세션 히스토리 + DOM Architecture + `frame/` & `screens/` 슬롯 분리 + ChatTile 분해)** 상태로, claude-code 어댑터 + 채팅 IPC + Composer 스킬 UX + `better-sqlite3` 기반 로컬 DB 영속화 + 사이드바 세션 관리 위에 **① `app-frame-*` 구조 클래스 + `data-*` 행동/상태 마커 체계와 4종 신규 기능 (Custom titlebar `frame:false`, Grid z-stack, Sidebar resize-handle, Tile structure), ② 마크업 슬롯과 1:1 정렬되는 파일/디렉토리 구조 (`frame/` 셸 슬롯 vs `screens/` 도메인 화면), ③ 컴포넌트 슬롯 분리 (Header / ChatTile / *Screen rename + ChatTile 의 transcript/composer 부속 추출)** 가 누적 적용되었다. 본 구현은 `docs/TRD.md` 의 사양과 `docs/FRONTEND_ARCHITECTURE.md` §3.3 의 DOM Architecture Specification 을 따른다.
+이 디렉토리는 **Orca v1 의 실제 구현체**가 사는 곳이다. 현재는 **Phase 3++ (로컬 SQLite SSOT + 사이드바 세션 히스토리 + DOM Architecture + 4-layer Feature 아키텍처)** 상태로, claude-code 어댑터 + 채팅 IPC + Composer 스킬 UX + `better-sqlite3` 기반 로컬 DB 영속화 + 사이드바 세션 관리 위에 **① `app-frame-*` 구조 클래스 + `data-*` 행동/상태 마커 체계, ② 4-layer 렌더러 아키텍처 (`app/` 셸 · `pages/` 조립 · `features/` 도메인 · `shared/` 공통), ③ ESLint boundaries v6 로 레이어 역방향·cross-feature import 회귀 차단** 이 누적 적용되었다. 본 구현은 `docs/TRD.md` 의 사양과 `docs/FRONTEND_ARCHITECTURE.md` §3 의 아키텍처 명세를 따른다.
 
-## 현재 상태 (Phase 3++ — 로컬 DB + 세션 히스토리 + DOM Architecture + 슬롯 분리)
+## 현재 상태 (Phase 3++ — 로컬 DB + 세션 히스토리 + DOM Architecture + 4-layer Feature 아키텍처)
 
 | 영역                              | 상태                                                                                                                                                                                       |
 | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -13,7 +13,7 @@
 | TypeScript                        | 5.x (strict, target ES2022)                                                                                                                                                                |
 | 스타일링                          | **Tailwind CSS v4** (`@tailwindcss/vite` 플러그인, CSS-first `@theme` 설정) + **`app-frame-*` 마커 클래스 + `data-behavior` / `data-state` / `data-axis` / `data-context` / `data-platform` 속성 공존** (FRONTEND §3.3) |
 | 메인 (`src/main/index.ts`)        | IpcRouter 부트 + `createWindow` (`frame:false` + 윈도우 컨트롤 IPC `orca:window:{minimize,maximize,close}` 직접 부착). `contextIsolation: true` / `nodeIntegration: false` / `sandbox: true` 명시 |
-| 렌더러 (`src/renderer/src/`)      | **Phase 1 시각 재현 + Phase 2 채팅 IPC + Phase 3 세션 히스토리 + Phase 3+ DOM Architecture + Phase 3++ frame/screens 분리 + ChatTile 분해** — `frame/` 셸 슬롯 (Frame · Header (구 Titlebar) · Sidebar · ChatTile (구 ChatPane) + header/composer/modal/debug 하위) / `screens/` 도메인 화면 (Camera/Projects/ProjectDetail/Engine/SkillsMcp/Captures Screen) + `screens/chat/` ChatTile transcript 부속 (PR #26) + Tweaks(DebugSlot) + Installer/Auth modal(ModalSlot, backdrop 은 OverlaySlot). 캡처는 placeholder |
+| 렌더러 (`src/renderer/src/`)      | **Phase 1~3++ 누적** — `app/` 셸 (AppLayout · Header · Sidebar · OverlayLayer · WinControls · router), `pages/` 조립 (ChatPage · ProjectsPage · ProjectLandingPage · EnginePage · SkillsPage · CapturesPage), `features/` 도메인 6개 (backend · camera · captures · chat · engine · projects · sessions · skills), `shared/` 공통 (navigation · theme · hooks · ui · api · config · types). ESLint boundaries v6 로 레이어 방향 강제. |
 | 프리로드 (`src/preload/index.ts`) | `contextBridge.exposeInMainWorld('orca', OrcaApi)` — chat/backend/install/settings/skills/files/session/project/**window** 화이트리스트 + **`orca.platform` sync 노출**                  |
 | 패키저                            | electron-builder (`electron-builder.yml`)                                                                                                                                                  |
 | 도메인 코드 (IPC/어댑터)          | **claude-code 단일 어댑터 (SDK query)** + **로컬 SQLite SSOT** — ClaudeCodeAdapter(SDK NDJSON 정규화), AdapterRegistry, IpcRouter, Installer, SettingsStore, DbQueries (prepared statements), 마이그레이션 러너. opencode 는 future work                                  |
@@ -25,58 +25,123 @@
 
 경로는 electron-vite (`@quick-start/electron` react-ts 템플릿) 의 sub-config 분할을 반영한다. 빌드는 `electron.vite.config.ts` 의 main/preload/renderer 3개 sub-config 가 각각 처리한다.
 
+### 렌더러 4-layer 아키텍처 (`src/renderer/src/`)
+
+레이어 의존 방향: `app/` → `pages/` → `features/` → `shared/`. 역방향 및 cross-feature import 는 `eslint-plugin-boundaries` v6 (`boundaries/dependencies` 규칙) 로 **빌드 시 차단**.
+
+```
+src/renderer/src/
+├── App.tsx                  # Provider 합성 루트 (Tweak → Navigation → Backend → Sessions → Projects → Chat)
+├── main.tsx                 # React 엔트리 + DOM mount
+├── app/                     # 셸 — 고정 골격 (cross-feature wiring 권한 있음)
+│   ├── AppLayout.tsx        # Header + Sidebar (슬롯 wiring) + main + OverlayLayer 조립
+│   ├── Header.tsx           # app-frame-header, drag 2-layer, WinControls 통합
+│   ├── Sidebar.tsx          # app-frame-sidebar, collapsible/resizable, SessionList/NewChatButton 슬롯
+│   ├── OverlayLayer.tsx     # modal backdrop z-stack + InstallerDialog + AuthExpiredModal
+│   ├── WinControls.tsx      # minimize/maximize/close IPC. macOS → null
+│   └── router.tsx           # 화면 ID → Page 컴포넌트 매핑 (which)
+├── pages/                   # 조립 전용 — Context 읽기 + features 배치 + cross-feature props. 로직 0
+│   ├── ChatPage.tsx         # useBackendContext → ChatView.backendLabel wiring
+│   ├── ProjectsPage.tsx     # ProjectsScreen 단순 배치
+│   ├── ProjectLandingPage.tsx # 프로젝트 채팅 랜딩 (useProjectChatLanding + ChatTile + ProjectSessionsPanel + ProjectInstructionsSidebar)
+│   ├── EnginePage.tsx
+│   ├── SkillsPage.tsx
+│   └── CapturesPage.tsx
+├── features/                # 도메인별 — 각 feature 는 자기 레이어 내부만 의존
+│   ├── backend/
+│   │   ├── providers/BackendProvider.tsx   # useBackendContext export
+│   │   ├── hooks/useBackend.ts
+│   │   ├── components/BackendStatus.tsx    # sidebar footer widget
+│   │   ├── components/InstallerDialog.tsx
+│   │   ├── components/AuthExpiredModal.tsx
+│   │   └── index.ts                        # barrel: BackendProvider, useBackendContext, BackendStatus, …
+│   ├── chat/
+│   │   ├── providers/ChatProvider.tsx      # useChatContext export
+│   │   ├── hooks/useChat.ts                # useReducer + 세션 캐시 + loadSession/newChat/send/…
+│   │   ├── hooks/useProjectChatLanding.ts  # 프로젝트 랜딩 라이프사이클 (enter/leave 감지)
+│   │   ├── hooks/useSkillAutocomplete.ts
+│   │   ├── hooks/useFileAutocomplete.ts
+│   │   ├── reducer/chatReducer.ts          # ChatState reducer (SEND/RECV/NEW/LOAD/RENAME/…)
+│   │   ├── components/ChatTile.tsx         # 채팅 tile — 셸 + state hook 연결 + 입력 핸들러
+│   │   ├── components/ChatView.tsx         # ChatTile wrapper (backendLabel prop 수신)
+│   │   ├── components/NewChatButton.tsx    # sidebar 슬롯 widget
+│   │   ├── components/composer/…           # HighlightedTextarea, SkillAutocomplete, FileAutocomplete, ComposerChip, SkillsMenu
+│   │   ├── components/transcript/…         # AssistantMessage, UserMessage, PendingAssistant, ToolCard, MessageMeta
+│   │   ├── components/markdown/…           # Markdown, CodeBlock (react-markdown + shiki)
+│   │   ├── format.ts                       # formatTimeShort / formatTimeFull / stringify
+│   │   └── index.ts
+│   ├── sessions/
+│   │   ├── providers/SessionsProvider.tsx  # useSessionsContext export
+│   │   ├── hooks/useSessions.ts            # 세션 메타 목록 (list/refresh/remove/rename)
+│   │   ├── hooks/useProjectSessions.ts     # 프로젝트 세션 IPC 래퍼 (list/remove/rename)
+│   │   ├── components/SessionList.tsx      # sidebar 슬롯 — 세션 행 목록 (SessionRow 합성)
+│   │   ├── components/SessionRow.tsx       # app-frame-session-row, kebab 메뉴, inline rename
+│   │   ├── components/ProjectSessionsPanel.tsx # 프로젝트 랜딩용 세션 패널 (IPC 캡슐화)
+│   │   └── index.ts
+│   ├── projects/
+│   │   ├── providers/ProjectsProvider.tsx  # useProjectsContext export
+│   │   ├── hooks/useProjects.ts
+│   │   ├── components/ProjectsView.tsx / ProjectsScreen.tsx
+│   │   ├── components/ProjectLandingHeader.tsx  # 뒤로가기 + 프로젝트명 헤더
+│   │   ├── components/ProjectInstructionsSidebar.tsx  # 지침 사이드바 + 편집 모달 state
+│   │   ├── components/CreateProjectModal.tsx
+│   │   ├── components/EditInstructionsModal.tsx
+│   │   └── index.ts
+│   ├── skills/
+│   │   ├── hooks/useSkillsMcp.ts           # (SkillsMcp 화면 전용)
+│   │   ├── components/SkillsMcpView.tsx
+│   │   └── index.ts
+│   ├── camera/ · engine/ · captures/      # CameraView, EngineView, CapturesView + index.ts
+├── shared/                  # 범용 — 모든 레이어가 의존 가능, 도메인 로직 0
+│   ├── navigation/
+│   │   ├── NavigationProvider.tsx          # useNavigation export (screens 라우팅 상태)
+│   │   ├── screens.ts                      # 화면 ID + 라벨 + breadcrumb 카탈로그
+│   │   └── index.ts
+│   ├── theme/
+│   │   ├── TweakProvider.tsx               # useTweakContext export (theme/density state)
+│   │   └── index.ts
+│   ├── hooks/
+│   │   ├── useSkills.ts                    # orca:skills:list IPC → SkillInfo[] 캐시
+│   │   └── useTweaks.ts                    # theme/density state hook (TweakProvider 내부)
+│   ├── config/theme.ts                     # ThemeId / DensityId 타입 + DENSITY_FONT
+│   ├── types/screen.ts                     # ScreenId 타입
+│   ├── api/ipc.ts                          # window.orca.* 타입드 래퍼
+│   └── ui/                                 # 도메인-무관 UI atom: Icon, Avatar, Status+Dot, BayerPattern,
+│                                           #   Histogram, Popover, CopyIconButton, StatusLine, TweaksPanel
+└── styles/
+    ├── tokens.css                          # Tailwind @theme (시맨틱 토큰) + [data-theme] 스코프
+    └── app.css                             # Tailwind 엔트리 + @layer base 리셋 + @utility kbd
+```
+
+### Main / Preload / Shared (변경 없음)
+
 | 경로                                                      | 책임                                                                            | 현 상태                                 |
 | --------------------------------------------------------- | ------------------------------------------------------------------------------- | --------------------------------------- |
-| `src/main/index.ts`                                       | Electron `app` 부트, BrowserWindow (`frame: false` + macOS `titleBarStyle: 'hidden'` + `trafficLightPosition`), IpcRouter 부착, 윈도우 컨트롤 IPC 3개 (`orca:window:{minimize,maximize,close}`) 직접 부착 | 구현됨 (Phase 3+)                       |
+| `src/main/index.ts`                                       | Electron `app` 부트, BrowserWindow (`frame: false` + macOS `titleBarStyle: 'hidden'` + `trafficLightPosition`), IpcRouter 부착, 윈도우 컨트롤 IPC 3개 직접 부착 | 구현됨 (Phase 3+)                       |
 | `src/main/ipc/router.ts`                                  | IPC 채널 라우팅 + 입력 검증 (zod) + ChatEvent → DB persist (turn-local 상태 머신)| 구현됨 (Phase 3)                       |
-| `src/main/adapters/types.ts`                              | `SessionAdapter`, `ChatEvent`, `Backend` 공통 타입                              | 구현됨                                  |
-| `src/main/adapters/claude-code.ts`                        | `@anthropic-ai/claude-agent-sdk` query() · SDKMessage → ChatEvent 정규화        | 구현됨 (Phase 3 SDK 마이그레이션)       |
+| `src/main/adapters/claude-code.ts`                        | `@anthropic-ai/claude-agent-sdk` query() · SDKMessage → ChatEvent 정규화        | 구현됨                                  |
 | `src/main/adapters/opencode.ts`                           | opencode `serve` / SDK / SSE                                                    | **미구현 (future work)**                |
-| `src/main/adapters/registry.ts`                           | 설치 상태 + 활성 백엔드 선택                                                    | 구현됨 (claude-code 단일)               |
 | `src/main/installer/index.ts`                             | CLI 설치 자동화 (`npm install -g @anthropic-ai/claude-code`)                    | 구현됨                                  |
-| `src/main/settings/store.ts`                              | `electron-store` 단일 객체 스토어. `getAll()` / `patch()` 모두 zod 검증         | 구현됨 (Phase 2+)                       |
-| `src/main/db/index.ts`                                    | `better-sqlite3` connection singleton, `<userData>/orca.db`, WAL · foreign_keys, 부팅 시 마이그레이션 1회 실행 | 구현됨 (Phase 3)        |
-| `src/main/db/migrate.ts`                                  | `_migrations` 메타 테이블 기반 적용 추적. SQL 은 vite `?raw` 로 main 번들에 인라인 | 구현됨 (Phase 3)                       |
-| `src/main/db/migrations/0001_initial.sql`                 | sessions / messages / tool_calls + 인덱스. **병합 후 절대 수정 금지**           | 구현됨 (Phase 3)                       |
-| `src/main/db/queries.ts`                                  | 11개 prepared statements: list/load/append/update/rename/delete 세션·메시지·툴콜 | 구현됨 (Phase 3)                       |
-| `src/main/db/types.ts`                                    | row · insert 인터페이스 (`SessionRow` / `MessageInsert` / `ToolCallInsert` 등)   | 구현됨 (Phase 3)                       |
+| `src/main/settings/store.ts`                              | `electron-store` + zod. `Settings.sidebarWidth` 포함                            | 구현됨 (Phase 2+)                       |
+| `src/main/db/`                                            | `better-sqlite3` singleton + WAL + 마이그레이션 러너 + queries (11개 prepared statements) | 구현됨 (Phase 3)       |
 | `src/main/files/scan.ts`                                  | `@` 파일 자동완성용 — `cwd + relDir` 한 단계 listing                            | 구현됨                                  |
-| `src/shared/ipc.ts`                                       | `CHANNELS` 상수 + 순수 TS 타입. **zod 0 의존** (preload 안전). Phase 2 11채널 + Phase 3 session/project + Phase 3+ window 3채널. `Settings.sidebarWidth` 추가. SSOT 는 `docs/IPC_CONTRACT.md` §2 | 구현됨 (Phase 3+)                       |
+| `src/main/skills/scan.ts`                                 | `~/.claude/skills/` · `<cwd>/.claude/skills/` `SKILL.md` frontmatter 스캔      | 구현됨                                  |
+| `src/shared/ipc.ts`                                       | `CHANNELS` 상수 + 순수 TS 타입. **zod 0 의존** (preload 안전). SSOT 는 `docs/IPC_CONTRACT.md` §2 | 구현됨 (Phase 3+)      |
 | `src/shared/protocol.ts`                                  | zod 스키마 (main 전용). 타입은 `ipc.ts` 에서 re-export                          | 구현됨                                  |
-| `src/renderer/src/state/chatReducer.ts`                   | ChatState reducer — SEND/RECV/NEW/CANCEL/CLEAR_ERROR + SET_CWD + LOAD/RENAME 세션 액션. `title` 필드로 즉시 제목 표시 | 구현됨 (Phase 3)                       |
-| `src/renderer/src/state/useChat.ts`                       | useReducer + `chat.onEvent` 구독 + **세션 메모리 캐시** (`useRef<Map<id, CachedSession>>`) — 같은 세션 재진입 시 IPC 생략. `loadSession(id, title?)` · `renameSession` · `invalidateSessionCache` 노출 | 구현됨 (Phase 3)                       |
-| `src/renderer/src/state/useSessions.ts`                   | `session.list` 메타 캐시 (부팅 1회 + 턴 종료 자동 refresh). `remove(id)` / `rename(id, title)` — IPC + refresh | 구현됨 (Phase 3)                       |
-| `src/renderer/src/state/useBackend.ts`                    | 부트 시 `orca.backend.list()` 호출 → 설치 상태 보관                             | 구현됨                                  |
-| `src/renderer/src/frame/modal/InstallerDialog.tsx`        | 설치 진행 로그 + 수동 명령 복사. `#app-frame-modal` 슬롯                       | 구현됨                                  |
-| `src/renderer/src/frame/modal/AuthExpiredModal.tsx`       | `claude /login` 안내 + 새 대화. `#app-frame-modal` 슬롯                        | 구현됨                                  |
-| `src/renderer/src/main.tsx`                               | React 엔트리 + DOM mount + 글로벌 CSS import                                    | 구현됨                                  |
-| `src/renderer/src/App.tsx`                                | 루트 셸 — Tweaks state, theme/density/**platform** effect, 화면 라우팅, Frame 자식 슬롯 (Sidebar+body + OverlaySlot + ModalSlot + DebugSlot) 배치 | 구현됨 (Phase 3+)                       |
-| `src/renderer/src/frame/Frame.tsx`                        | `Frame` (`app-frame-root`) + `FrameGrid` (1×1 z-stack) + `FrameBody` + `OverlaySlot` (modal backdrop, z 부호 반전) + `ModalSlot` (focus-trap, z 부호 반전) + `DebugSlot` (`#app-frame-debug`, 상시 z=30) sub-export. FRONTEND §3.3 SSOT | 구현됨 (Phase 3+)                       |
-| `src/renderer/src/frame/Header.tsx`                       | `Header` — `app-frame-header` + drag 2-layer (absolute drag-region + relative content-layer) + 플랫폼 분기 (macOS 80px 좌측 패딩) + WinControls. 구 `Titlebar` 에서 rename — `app-frame-titlebar` (tile 헤더) 와의 혼동 제거. | 구현됨 (Phase 3+)                       |
-| `src/renderer/src/frame/Sidebar.tsx`                      | `Sidebar` — `app-frame-sidebar` + `data-behavior="collapsible resizable"` + `data-state`. 새 대화, 메뉴, 프로젝트, **최근 대화 (실세션 메타 + 행 hover 시 kebab → "이름 변경" / "삭제(rust)" Popover 메뉴 + inline rename input)**, 엔진 footer. `SessionRow` 컴포넌트 분리 (`frame/sidebar/SessionRow.tsx`). **`app-frame-resize-handle` 자식 내장 (180–480px clamp, `Settings.sidebarWidth` 영속화)** | 구현됨 (Phase 3+)                       |
-| `src/renderer/src/frame/ChatTile.tsx`                     | `app-frame-pane-host > pane-row > app-frame-tile` 래핑 — 채팅 tile **셸 + state hook 연결 + 입력 핸들러** 만 담는다. 헤더 → `app-frame-titlebar`, 스크롤 → `app-frame-transcript` (`data-behavior="virtualizable"`), composer → `app-frame-composer` + 내부 sub-region (`composer-input` interactive, `composer-controls` 에 `composer-repo` 3-chip 행 dismissible). transcript 메시지 컴포넌트 (`AssistantMessage` / `UserMessage` / `PendingAssistant` / `ToolCard` / `MessageMeta`) 는 `screens/chat/` 에, composer 부속 (`ComposerChip` / `SkillsMenu`) 은 `frame/composer/` 에 분리됨 | 구현됨 (Phase 3+)                       |
-| `src/renderer/src/frame/sidebar/SessionRow.tsx`           | `app-frame-session-row` + `data-context="session"` + `data-state="active\|inactive"` + `data-behavior="interactive selectable\|interactive renaming"` + `data-session-id`. Sidebar 와 ProjectDetailScreen 양쪽에서 재사용 | 구현됨 (Phase 3+)                       |
-| `src/renderer/src/frame/header/WinControls.tsx`           | minimize/maximize/close 버튼. macOS 에서 null 반환 (OS traffic light). 각 버튼 `data-behavior="action:window-*"` + `window.orca.window.*()` 호출. `app-frame-window-controls` 마커. (`components/atoms/` 에서 `frame/header/` 로 이동 — header 전용 슬롯 부속) | 구현됨 (Phase 3+)                       |
-| `src/renderer/src/frame/composer/{HighlightedTextarea,SkillAutocomplete,FileAutocomplete,ComposerChip,SkillsMenu}.tsx` | composer 슬롯 내부 부속. HighlightedTextarea (textarea + mirror overlay, `/skill` 활성 chip 강조 + caret 추적), SkillAutocomplete (caret 근처 floating dropdown), FileAutocomplete (`@path` floating dropdown). 두 autocomplete 는 `document.body` portal + `app-frame-floating` + `data-context="floating"`. ComposerChip (composer-repo zone 의 행위 chip 원자), SkillsMenu (Skill 칩 popover 의 메뉴 본문) | 구현됨 (Phase 3+)                       |
-| `src/renderer/src/frame/modal/{InstallerDialog,AuthExpiredModal}.tsx` | `#app-frame-modal` 슬롯에 그려지는 다이얼로그. 자체 backdrop 없음 — `#app-frame-overlay` 가 단독 담당. panel 만 `grid place-items-center` 로 중앙 배치 | 구현됨 (Phase 3+)                       |
-| `src/renderer/src/frame/debug/{TweaksPanel,useTweaks}.{tsx,ts}` | `#app-frame-debug` 슬롯에 그려지는 floating UI + state hook. modal 상태와 무관하게 항상 z=30 | 구현됨                                  |
-| `src/renderer/src/frame/theme.ts`                         | `ThemeId` / `DensityId` 타입 + `DENSITY_FONT` (색상은 CSS 변수가 진실)          | 구현됨                                  |
-| `src/renderer/src/screens/{CameraScreen,ProjectsScreen,ProjectDetailScreen,EngineScreen,SkillsMcpScreen,CapturesScreen}.tsx` | tile 의 내용물 — 도메인 화면. CameraScreen (Bayer 뷰포트 / Histogram / Slider / Metric), ProjectsScreen (카드 그리드), ProjectDetailScreen (랜딩 + 내부 ChatTile + 세션 리스트), EngineScreen (엔진/모델 카드), SkillsMcpScreen (Skills / MCP / 권한), CapturesScreen (placeholder) | 구현됨                                  |
-| `src/renderer/src/screens/registry.ts`                    | 화면 ID + 라벨 + breadcrumb 카탈로그 (구 `app/screens.ts`)                      | 구현됨                                  |
-| `src/renderer/src/screens/chat/markdown/{Markdown,CodeBlock}.tsx` | ChatTile 의 transcript 내부 마크다운 렌더링 부속. react-markdown + shiki | 구현됨                                  |
-| `src/renderer/src/screens/chat/{format.ts,ToolCard,MessageMeta,AssistantMessage,UserMessage,PendingAssistant}.tsx` | ChatTile transcript 의 메시지 컴포넌트 가족. format.ts (`formatTimeShort` / `formatTimeFull` / `stringify` 공유 유틸), ToolCard (툴 호출 카드 with toggle), MessageMeta (hover 시 시간 + copy 노출), Assistant/UserMessage (메시지 한 줄), PendingAssistant (스트리밍 중 delta + StatusLine) | 구현됨                                  |
-| `src/renderer/src/screens/projects/{CreateProjectModal,EditInstructionsModal}.tsx` | Projects 도메인 부속 다이얼로그 | 구현됨                                  |
-| `src/renderer/src/components/atoms/*`                     | 도메인-무관 UI atom: `Icon` (kebab/edit/trash 등), `Avatar`, `Status`+`Dot`, `BayerPattern`, `Histogram`, `Popover` (anchor-ref floating menu — body portal + `app-frame-floating` + `data-context="floating"`), `CopyIconButton`, `StatusLine` | 구현됨 (Tailwind 클래스)                |
-| `src/main/skills/scan.ts`                                 | `~/.claude/skills/` · `<cwd>/.claude/skills/` 의 `SKILL.md` frontmatter 부팅 1회 스캔 | 구현됨                                  |
-| `src/renderer/src/state/useSkills.ts`                     | `orca:skills:list` IPC 로 `SkillInfo[]` 캐시                                    | 구현됨                                  |
-| `src/renderer/src/state/useSkillAutocomplete.ts`          | `text + caret + skills` → `{open, query, suggestions, activeIndex, tokenStart, close}`. render-time 비교 (effect 없음) | 구현됨                                  |
-| `src/renderer/src/styles/tokens.css`                      | Tailwind `@theme` (시맨틱 토큰) + `[data-theme]` 스코프 (classic/dark/cool)     | 구현됨                                  |
-| `src/renderer/src/styles/app.css`                         | Tailwind 엔트리 (`@import 'tailwindcss'`) + `@layer base` 리셋 + `@utility kbd` | 구현됨                                  |
-| `src/preload/index.ts`                                    | `contextBridge.exposeInMainWorld` 화이트리스트                                  | 템플릿 기본 (Phase 2 에서 교체)         |
-| `src/shared/protocol.ts`                                  | Renderer ↔ Main 메시지 스키마                                                   | 미작성 (Phase 2)                        |
-| `src/shared/i18n/ko.ts`                                   | 한국어 라벨                                                                     | 미작성 (현재는 mockup 인라인 한국어)    |
+| `src/shared/i18n/ko.ts`                                   | 한국어 라벨                                                                     | 미작성 (현재는 인라인 한국어)           |
 
 > 이 레이아웃에서 벗어나려면 사용자에게 먼저 확인. TRD §1.2 와 코드를 동시에 갱신해야 한다.
+
+### 의존성 규칙 요약 (ESLint boundaries v6)
+
+```
+app/     → pages · features · shared  (허용)
+pages/   → features · shared          (허용)
+features/<X>/ → shared + 동일 feature 내부만 (허용)  |  다른 feature → 차단
+shared/  → shared 내부만              (허용)
+```
+
+위반 시 `npm run lint` 에서 `boundaries/dependencies` error 발생. cross-feature 데이터 흐름이 필요하면 **pages/ 또는 app/ 에서 props 로 전달** (결정 트리 규칙 5).
 
 ## 스타일링 정책 (Tailwind v4)
 
@@ -187,7 +252,7 @@ new BrowserWindow({
 6. **테스트 동반.** 어댑터 정규화, reducer, IPC 스키마는 단위 테스트와 함께 작성 (TRD §10). Phase 1 UI 는 시각 검증으로 갈음.
 7. **`package.json` 메타데이터는 템플릿 기본값이다.** 차후 도메인 PR 에서 `name`, `productName`, `description`, `author` 갱신. `electron-builder.yml` 도 검토.
 8. **TRD 와 코드가 충돌하면 사용자에게 물어라.** TRD 갱신과 코드 변경은 같은 PR 또는 짝 PR 로.
-9. **단일 파일 분해 가이드.** `.tsx` / `.ts` 파일은 *하나의 응집된 책임* 을 지킨다. 다음 두 조건 중 하나라도 충족하면 분해를 검토한다: (1) 한 파일에 **5개 이상의 React 컴포넌트** 가 모여 있고 그중 일부가 *셸/슬롯이 다른 위치* 에 자리할 수 있다, (2) 파일이 **400줄을 넘는다**. 단일 컴포넌트의 응집된 구현(예: `HighlightedTextarea`, `chatReducer`) 은 예외. 분해 시 새 파일은 **마크업 슬롯에 맞는 디렉토리** (`frame/<slot>/` 또는 `screens/<screen>/`) 에 둔다 — PR #25 의 슬롯 분리를 보존하기 위함. 수치(5개·400줄)는 *경고 트리거* 이지 절대 규칙이 아니다 — PR 리뷰에서 *왜 한 파일에 두었는지* 설명을 요구하는 시그널.
+9. **단일 파일 분해 가이드.** `.tsx` / `.ts` 파일은 *하나의 응집된 책임* 을 지킨다. 다음 두 조건 중 하나라도 충족하면 분해를 검토한다: (1) 한 파일에 **5개 이상의 React 컴포넌트** 가 모여 있고 그중 일부가 *레이어/슬롯이 다른 위치* 에 자리할 수 있다, (2) 파일이 **400줄을 넘는다**. 단일 컴포넌트의 응집된 구현(예: `HighlightedTextarea`, `chatReducer`) 은 예외. 분해 시 새 파일은 **해당 레이어·feature 의 디렉토리** (`features/<X>/components/` · `features/<X>/hooks/` · `shared/ui/` 등) 에 둔다 — 4-layer 경계를 보존하기 위함. 수치(5개·400줄)는 *경고 트리거* 이지 절대 규칙이 아니다 — PR 리뷰에서 *왜 한 파일에 두었는지* 설명을 요구하는 시그널.
 
 ## Phase 로드맵
 
@@ -201,6 +266,8 @@ new BrowserWindow({
 | **Phase 3+** | **DOM Architecture 일괄 적용** — `app-frame-*` 마커 클래스 + `data-behavior` / `data-state` / `data-axis` / `data-context` / `data-platform` 체계. 4종 신규 기능: ① Custom titlebar (`frame: false` + macOS `titleBarStyle: 'hidden'` + 윈도우 컨트롤 IPC 3개 + `orca.platform` sync 노출), ② Grid z-stack (`#app-frame-overlay` modal backdrop 전용 z 부호 반전 + `#app-frame-modal` focus-trap + `#app-frame-debug` floating UI 호스트 3슬롯), ③ Sidebar resize-handle (180–480px clamp, `Settings.sidebarWidth` 영속화), ④ Tile structure (`pane-host > pane-row > tile` 마크업). SSOT 는 `docs/FRONTEND_ARCHITECTURE.md` §3.3. | **완료 (브랜치 `claude/charming-galileo-7lAqY`, 커밋 `45e129f` + 정정 `acf1295`)** |
 | **Phase 3++ (PR #25)** | **`frame/` + `screens/` 슬롯 분리** — 셸 슬롯(Frame/Header/Sidebar/ChatTile/Composer/Modal/Debug) 은 `frame/` 으로, 도메인 화면 (Chat/Camera/Projects/Engine/SkillsMcp/Captures) 은 `screens/` 로 1:1 정렬. 컴포넌트 rename: `Titlebar` → `Header`, `ChatPane` → `ChatTile`, `*Pane` / `*Placeholder` / 화면 이름 → `*Screen` 접미사. 마커 보강: `app-frame-composer-repo` (3-chip 행 wrapper) · `app-frame-session-row` (sidebar 세션 행) · `app-frame-floating` (body portal Popover / Autocomplete). `docs/GLOSSARY.md` 에 *Frame/Tile/Screen/Header/Slot* 정의 + 사용 금지 어휘에 *Pane* / *Titlebar (셸 헤더 의미)* 추가. | **완료 (PR #25, 커밋 `1d68e05`)** |
 | **Phase 3++ (PR #26)** | **ChatTile 분해** — 620줄 단일 파일에 모인 transcript 컴포넌트 5개 + composer 부속 2개 + 시간/JSON 포맷 유틸을 슬롯 디렉토리로 추출. 신규: `screens/chat/{format.ts, ToolCard, MessageMeta, AssistantMessage, UserMessage, PendingAssistant}.tsx` + `frame/composer/{ComposerChip, SkillsMenu}.tsx` 총 8개. ChatTile.tsx 잔류 = 셸 컴포지션 + state hook 연결 + 입력 핸들러만 (369줄). 에이전트 원칙 9 (단일 파일 분해 가이드: 한 파일 5+ 컴포넌트 또는 400줄 초과 시 분해 검토, 새 파일은 슬롯 디렉토리에 배치) 신설. | **완료 (PR #26, 커밋 `3d202ff`)** |
+| **Feature-based 구조 감사 + FRONTEND_ARCHITECTURE.md 엄격 갱신 (PR #28)** | **완료 (PR #28)** — `frame/` 완전 해체 결정 (→ `app/` + `features/` + `shared/`), `pages/` = 조립만, `router` = which, App Shell §3.A 조립 규칙 신설, §3-2 목표 트리 + §10 구현 대기 행 추가. 코드 변경 없음 — 문서만. | **완료 (PR #28)** |
+| **Feature-based 아키텍처 구현 + ESLint boundaries 강제 (PR #29)** | **4-layer 렌더러 아키텍처 전면 구현.** `app/providers/` 6개 → `features/<X>/providers/` 4개 + `shared/navigation/` + `shared/theme/` 로 이전. `frame/` + `screens/` + `state/` 완전 해체 → `app/` (셸) · `pages/` (조립) · `features/` (도메인 6개) · `shared/` (범용) 4-layer 완성. `useSkills` → `shared/hooks/`. `useProjectSessions` → `features/sessions/hooks/`. `ProjectDetail` 3-파일 (`ProjectDetailPage` + `ProjectDetailView` + `ProjectDetailScreen`) → `pages/ProjectLandingPage.tsx` 단일 파일 통합. 신규: `useProjectChatLanding` · `ProjectSessionsPanel` · `ProjectLandingHeader` · `ProjectInstructionsSidebar`. `eslint-plugin-boundaries` v6 (`boundaries/dependencies`) 로 레이어 역방향·cross-feature import 회귀 차단. | **완료 (PR #29)** |
 | 후속    | CI 워크플로우 (`.github/workflows/`), Vitest / Playwright 테스트, opencode 어댑터, `V1Captures` 실 구현 (캡처 RAW 보관 + AI 분석), 다국어 (`src/shared/i18n/ko.ts`), 세션 휴지통 30일 보존 (soft delete), 세션 메타 LRU 캐시 cap, 자동 제목 생성 (요약), Tile 우측 분할 콘텐츠 (`app-frame-tile-separator` 도입), **Phase 4 (Zustand 전환 + 멀티세션, `FRONTEND_ARCHITECTURE.md` §4.4)**. | Future Scope                |
 
 ## 위치 규약
