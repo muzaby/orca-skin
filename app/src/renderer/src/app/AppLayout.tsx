@@ -58,6 +58,30 @@ export function AppLayout(): React.JSX.Element {
     [chat, sessionsCtx]
   )
 
+  // Sidebar slot 들을 안정화 — React.memo(Sidebar) 가 효과를 내려면 props 가 referentially
+  // stable 해야 한다. chat.state.inflight 변화로 AppLayout 이 리렌더돼도 slot identity 가
+  // 유지되어 Sidebar 는 skip 된다.
+  const newChatSlot = useMemo(() => <NewChatButton />, [])
+  const footerSlot = useMemo(() => <BackendStatus />, [])
+  const sessionsSlot = useMemo(
+    () => (
+      <SessionList
+        currentSessionId={chat.state.sessionId}
+        projectNameById={projectNameById}
+        onSelect={handleSelectSession}
+        onDelete={handleDeleteSession}
+        onRename={handleRenameSession}
+      />
+    ),
+    [
+      chat.state.sessionId,
+      projectNameById,
+      handleSelectSession,
+      handleDeleteSession,
+      handleRenameSession
+    ]
+  )
+
   return (
     <div
       className="app-frame-root flex h-full w-full flex-col overflow-hidden bg-bg font-sans text-[13px] leading-[1.45] text-ink"
@@ -66,19 +90,7 @@ export function AppLayout(): React.JSX.Element {
       <Header breadcrumb={info.breadcrumb} />
       <div className="app-frame-grid relative grid min-h-0 flex-1 grid-cols-1 grid-rows-1 [&>*]:[grid-area:1/1]">
         <div className="app-frame-body z-0 flex min-h-0 min-w-0">
-          <Sidebar
-            newChatSlot={<NewChatButton />}
-            sessionsSlot={
-              <SessionList
-                currentSessionId={chat.state.sessionId}
-                projectNameById={projectNameById}
-                onSelect={handleSelectSession}
-                onDelete={handleDeleteSession}
-                onRename={handleRenameSession}
-              />
-            }
-            footerSlot={<BackendStatus />}
-          />
+          <Sidebar newChatSlot={newChatSlot} sessionsSlot={sessionsSlot} footerSlot={footerSlot} />
           <main className="app-frame-main min-h-0 flex-1" data-context="route-target">
             <AppRouter />
           </main>

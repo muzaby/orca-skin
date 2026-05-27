@@ -1,4 +1,4 @@
-import { useCallback, useRef, type ReactNode } from 'react'
+import { memo, useCallback, useRef, type ReactNode } from 'react'
 import { Icon, type IconName } from '../shared/ui/Icon'
 import { useNavigation } from '../shared/navigation'
 import { useTweakContext } from '../shared/theme'
@@ -39,11 +39,9 @@ export interface SidebarProps {
 // 앱 셸의 sidebar 골격. NavigationContext + TweakContext 만 자체 구독해 collapse /
 // resize / NAV 메뉴 / brand 영역을 그린다. 도메인 위젯 (새 대화 / 세션 목록 /
 // 백엔드 상태) 은 slot 으로 주입받아 ChatContext 등 도메인 Context 결합을 끊는다.
-export function Sidebar({
-  newChatSlot,
-  sessionsSlot,
-  footerSlot
-}: SidebarProps): React.JSX.Element {
+// React.memo: slot ReactNode 가 부모에서 안정적으로 전달되는 한 NavigationContext /
+// TweakContext 변경 시에만 리렌더 (FRONTEND_ARCHITECTURE §3.A).
+function SidebarImpl({ newChatSlot, sessionsSlot, footerSlot }: SidebarProps): React.JSX.Element {
   const { current, navigate } = useNavigation()
   const { t, setTweak } = useTweakContext()
 
@@ -154,3 +152,5 @@ export function Sidebar({
     </aside>
   )
 }
+
+export const Sidebar = memo(SidebarImpl)
