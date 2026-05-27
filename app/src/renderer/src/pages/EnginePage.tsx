@@ -1,5 +1,5 @@
-import { EngineScreen } from '../screens/EngineScreen'
+import { EngineView } from '../features/engine'
 
 export function EnginePage(): React.JSX.Element {
-  return <EngineScreen />
+  return <EngineView />
 }

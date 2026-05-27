@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useState, type ReactNode } from 'react'
-import { SCREENS, type ScreenId, type ScreenInfo } from '../../screens/registry'
+import { SCREENS, type ScreenInfo } from '../screens'
+import type { ScreenId } from '../../shared/types/screen'
 
 interface NavParams {
   projectId?: string

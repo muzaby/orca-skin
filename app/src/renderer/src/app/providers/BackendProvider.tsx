@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
-import { useBackend } from '../../state/useBackend'
+import { useBackend } from '../../features/backend/hooks/useBackend'
 
 type UseBackendReturn = ReturnType<typeof useBackend>
 

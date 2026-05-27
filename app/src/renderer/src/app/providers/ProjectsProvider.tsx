@@ -1,5 +1,5 @@
 import { createContext, useContext, type ReactNode } from 'react'
-import { useProjects } from '../../state/useProjects'
+import { useProjects } from '../../features/projects/hooks/useProjects'
 
 type UseProjectsReturn = ReturnType<typeof useProjects>
 

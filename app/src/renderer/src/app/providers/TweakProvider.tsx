@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, type ReactNode } from 'react'
-import { useTweaks, type Tweaks } from '../../frame/debug/useTweaks'
-import { DENSITY_FONT } from '../../frame/theme'
+import { useTweaks, type Tweaks } from '../../shared/hooks/useTweaks'
+import { DENSITY_FONT } from '../../shared/config/theme'
+import { getPlatform } from '../../shared/api/ipc'
 
 interface TweakContextValue {
   t: Tweaks
@@ -22,9 +23,8 @@ export function TweakProvider({ children }: { children: ReactNode }): React.JSX.
 
   // html[data-platform] 부착 — preload 가 sync 노출하므로 mount 직후 1회.
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.orca?.platform) {
-      document.documentElement.dataset.platform = window.orca.platform
-    }
+    const p = getPlatform()
+    if (p) document.documentElement.dataset.platform = p
   }, [])
 
   return <TweakContext.Provider value={{ t, setTweak }}>{children}</TweakContext.Provider>
