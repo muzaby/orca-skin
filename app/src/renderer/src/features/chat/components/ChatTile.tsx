@@ -204,7 +204,7 @@ export function ChatTile({ chat, backendLabel }: ChatTileProps): React.JSX.Eleme
   const showPendingAssistant = state.inflight
 
   return (
-    <section className="app-frame-pane-host flex min-w-0 flex-1 flex-col bg-bg">
+    <section className="app-frame-pane-host flex min-h-0 min-w-0 flex-1 flex-col bg-bg">
       <div className="app-frame-pane-row flex min-h-0 flex-1">
         <div className="app-frame-tile flex min-w-0 flex-1 flex-col" data-behavior="resizable">
           <div className="app-frame-titlebar flex items-center gap-3 border-b border-border px-6 pb-2.5 pt-3.5">
