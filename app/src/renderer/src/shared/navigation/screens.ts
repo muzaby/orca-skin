@@ -1,4 +1,4 @@
-import type { ScreenId } from '../shared/types/screen'
+import type { ScreenId } from '../types/screen'
 
 export interface ScreenInfo {
   id: ScreenId

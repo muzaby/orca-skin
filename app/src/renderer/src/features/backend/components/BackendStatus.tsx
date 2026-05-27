@@ -1,7 +1,7 @@
 import { Avatar } from '../../../shared/ui/Avatar'
 import { Dot } from '../../../shared/ui/Status'
 import { Icon } from '../../../shared/ui/Icon'
-import { useBackendContext } from '../../../app/providers/BackendProvider'
+import { useBackendContext } from '../providers/BackendProvider'
 
 // Sidebar 의 footer 슬롯에 주입되는 도메인 컴포넌트. 이름은 *위치* (footer) 가
 // 아닌 *역할* (현재 활성 백엔드 정보 표시) 기준. BackendContext 자체 구독.

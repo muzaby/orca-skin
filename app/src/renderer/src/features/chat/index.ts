@@ -1,2 +1,5 @@
+export { ChatProvider, useChatContext } from './providers/ChatProvider'
 export { ChatView } from './components/ChatView'
 export { NewChatButton } from './components/NewChatButton'
+export { ChatTile } from './components/ChatTile'
+export { useProjectChatLanding } from './hooks/useProjectChatLanding'

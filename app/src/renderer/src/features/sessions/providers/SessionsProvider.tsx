@@ -1,5 +1,5 @@
 import { createContext, useContext, type ReactNode } from 'react'
-import { useSessions } from '../../features/sessions/hooks/useSessions'
+import { useSessions } from '../hooks/useSessions'
 
 type UseSessionsReturn = ReturnType<typeof useSessions>
 

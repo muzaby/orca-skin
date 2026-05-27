@@ -1,5 +1,5 @@
-import { useProjectsContext } from '../../../app/providers/ProjectsProvider'
-import { useNavigation } from '../../../app/providers/NavigationProvider'
+import { useProjectsContext } from '../providers/ProjectsProvider'
+import { useNavigation } from '../../../shared/navigation'
 import { ProjectsScreen } from './ProjectsScreen'
 
 export function ProjectsView(): React.JSX.Element {

@@ -21,6 +21,9 @@ export interface UseChat {
   renameSession: (sessionId: string, title: string) => void
   // 세션 삭제 등으로 캐시 entry 를 비울 때.
   invalidateSessionCache: (sessionId: string) => void
+  // 외부에서 세션이 삭제됐을 때 chat-side 정리 — 캐시 invalidation + 활성 세션이면
+  // 새 채팅으로 reset. project 컨텍스트가 있으면 그 프로젝트로 새 채팅을 시작.
+  handleSessionDeleted: (sessionId: string, fallbackProjectId?: string | null) => void
 }
 
 export function useChat(): UseChat {
@@ -156,6 +159,16 @@ export function useChat(): UseChat {
     cacheRef.current.delete(sessionId)
   }, [])
 
+  const handleSessionDeleted = useCallback(
+    (sessionId: string, fallbackProjectId?: string | null) => {
+      cacheRef.current.delete(sessionId)
+      if (stateRef.current.sessionId === sessionId) {
+        dispatch({ type: 'NEW_CHAT', projectId: fallbackProjectId ?? null })
+      }
+    },
+    []
+  )
+
   return {
     state,
     send,
@@ -164,6 +177,7 @@ export function useChat(): UseChat {
     clearError,
     loadSession,
     renameSession,
-    invalidateSessionCache
+    invalidateSessionCache,
+    handleSessionDeleted
   }
 }

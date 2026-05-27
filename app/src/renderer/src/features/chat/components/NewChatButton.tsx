@@ -1,5 +1,5 @@
 import { Icon } from '../../../shared/ui/Icon'
-import { useChatContext } from '../../../app/providers/ChatProvider'
+import { useChatContext } from '../providers/ChatProvider'
 
 // Sidebar 의 '새 대화' 슬롯에 주입되는 도메인 버튼. ChatContext 를 자체 구독.
 export function NewChatButton(): React.JSX.Element {

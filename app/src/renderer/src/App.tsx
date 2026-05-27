@@ -1,9 +1,9 @@
-import { TweakProvider } from './app/providers/TweakProvider'
-import { NavigationProvider } from './app/providers/NavigationProvider'
-import { BackendProvider } from './app/providers/BackendProvider'
-import { SessionsProvider } from './app/providers/SessionsProvider'
-import { ProjectsProvider } from './app/providers/ProjectsProvider'
-import { ChatProvider } from './app/providers/ChatProvider'
+import { TweakProvider } from './shared/theme'
+import { NavigationProvider } from './shared/navigation'
+import { BackendProvider } from './features/backend'
+import { SessionsProvider } from './features/sessions'
+import { ProjectsProvider } from './features/projects'
+import { ChatProvider } from './features/chat'
 import { AppLayout } from './app/AppLayout'
 
 function App(): React.JSX.Element {

@@ -1,6 +1,6 @@
-import { useBackendContext } from './providers/BackendProvider'
-import { useChatContext } from './providers/ChatProvider'
-import { useTweakContext } from './providers/TweakProvider'
+import { useBackendContext } from '../features/backend'
+import { useChatContext } from '../features/chat'
+import { useTweakContext } from '../shared/theme'
 import { InstallerDialog, AuthExpiredModal } from '../features/backend'
 import { TweaksPanel, TweakSection, TweakRadio, TweakToggle } from '../shared/ui/TweaksPanel'
 

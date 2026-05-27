@@ -1,5 +1,5 @@
 import { createContext, useContext, type ReactNode } from 'react'
-import { useChat } from '../../features/chat/hooks/useChat'
+import { useChat } from '../hooks/useChat'
 
 type UseChatReturn = ReturnType<typeof useChat>
 

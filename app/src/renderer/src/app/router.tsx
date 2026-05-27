@@ -1,7 +1,7 @@
-import { useNavigation } from './providers/NavigationProvider'
+import { useNavigation } from '../shared/navigation'
 import { ChatPage } from '../pages/ChatPage'
 import { ProjectsPage } from '../pages/ProjectsPage'
-import { ProjectDetailPage } from '../pages/ProjectDetailPage'
+import { ProjectLandingPage } from '../pages/ProjectLandingPage'
 import { EnginePage } from '../pages/EnginePage'
 import { SkillsPage } from '../pages/SkillsPage'
 import { CapturesPage } from '../pages/CapturesPage'
@@ -14,7 +14,7 @@ export function AppRouter(): React.JSX.Element {
     case 'projects':
       return <ProjectsPage />
     case 'project-detail':
-      return <ProjectDetailPage projectId={params.projectId ?? ''} />
+      return <ProjectLandingPage projectId={params.projectId ?? ''} />
     case 'engine':
       return <EnginePage />
     case 'skills':
