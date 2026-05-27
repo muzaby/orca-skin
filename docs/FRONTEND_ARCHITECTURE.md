@@ -32,7 +32,7 @@
 | 언어 | TypeScript | ~5.x (strict, target ES2022) | tsconfig.web.json 분리 |
 | 빌드 도구 | electron-vite | ^5.0.0 | 3-config (main/preload/renderer) |
 | 상태 관리 | **현재: React Context + useReducer.** Zustand 전환 예정 (Future) | — | 단일 inflight + props drilling 모델로 시작. 멀티세션 (Phase 4) / 영속성 통합 시점에 Zustand 로 전환 — §4.4 참조 |
-| 라우팅 | `shared/navigation/NavigationProvider` + `app/router.tsx` 의 ScreenId switch (라이브러리 미사용). `app/AppLayout.tsx` 가 Header · Sidebar · `<AppRouter />` · OverlayLayer 를 직접 조립 (PR #29 적용). `<Outlet>` 역할 = `app-frame-main` 슬롯의 `<AppRouter />`. React Router v7 / TanStack Router 채택 여부는 미정. | — | §3.A App Shell 조립 규칙 참조. ScreenId 카탈로그는 `shared/navigation/screens.ts` |
+| 라우팅 | **`react-router-dom` v7 BrowserRouter** + `app://` 커스텀 스킴 (production) / Vite dev server (dev). `app/router.tsx` 의 `<Routes>` 가 URL path → Page 매핑. `app/BootRedirector.tsx` 가 `/` → `/chat/<lastSessionId>` 또는 `/new` replace. `app/hooks/useChatRouteSync.ts` 가 URL ↔ ChatState 양방향 동기화. `app/AppLayout.tsx` 가 Header · Sidebar · `<AppRouter />` · OverlayLayer 를 직접 조립. | ^7.10.1 | §3.A App Shell 조립 규칙 참조. path 카탈로그 (라벨/breadcrumb) 는 `shared/navigation/routes.ts` |
 | 스타일링 | Tailwind CSS v4 (`@tailwindcss/vite`) + CSS-first `@theme` 토큰 | ^4.1.16 | `tailwind.config.js` 없음. Tailwind 유틸 + `app-frame-*` 마커 클래스 (§3.3) **공존**. |
 | 마크다운 렌더링 | react-markdown + remark-gfm | ^9.1.0 / ^4.0.1 | GFM 테이블·체크박스 지원 |
 | 코드 하이라이팅 | shiki (async 싱글톤 로드) | ^1.29.2 | 11언어 + 3테마, MutationObserver 로 data-theme 추적 |
@@ -62,24 +62,27 @@ src/renderer/
     │   ├── Sidebar.tsx              # `app-frame-sidebar` — NAV + collapsible/resizable + 3개 슬롯 (newChat/sessions/footer). React.memo + 도메인 특정 설정값 (SIDEBAR_MIN/MAX/DEFAULT_WIDTH) 유지
     │   ├── OverlayLayer.tsx         # `#app-frame-overlay` + `#app-frame-modal` + `#app-frame-debug` 3슬롯 통합
     │   ├── WinControls.tsx          # minimize/maximize/close IPC. macOS → null
-    │   ├── router.tsx               # ScreenId switch → Page 컴포넌트 매핑 (which)
-    │   └── hooks/                   # 🆕 cross-feature wiring (셸 내부 전용)
+    │   ├── router.tsx               # `<Routes>` — URL path → Page (which). `/`=BootRedirector · `/new`=NewChatLandingPage · `/chat`→/new · `/chat/:sessionId`=ChatPage · `/projects` · `/projects/:projectId` · `/engine` · `/skills` · `/captures` · `*`→/new
+    │   ├── BootRedirector.tsx       # `/` 라우트 element — settings.lastSessionId → `/chat/<id>` 또는 `/new` replace
+    │   └── hooks/                   # cross-feature wiring (셸 내부 전용)
+    │       ├── useChatRouteSync.ts      # URL ↔ ChatState 동기화 (방향 1: `/new` · `/chat/:id` · `/projects/:id` 모두 처리, 방향 2: armed-ref 패턴 — sessionId null→non-null 전이 시 `/chat/<id>` replace)
     │       ├── useChatSessionsSync.ts   # chat 턴 완료 → sessions 자동 refresh
-    │       ├── useSessionHandlers.ts    # navigate/chat/sessions 핸들러 합성 + projectNameById
+    │       ├── useSessionHandlers.ts    # navigate(`/chat/<id>`)/chat/sessions 핸들러 합성 + projectNameById
     │       └── useSidebarSlots.tsx      # Sidebar React.memo 효과 위한 slot ReactNode 안정화
     │
     ├── pages/                       ✅ 조립 전용 — Context 읽기 + features 배치. 비즈니스 로직 0.
-    │   ├── ChatPage.tsx             # useBackendContext → ChatView.backendLabel wiring
+    │   ├── NewChatLandingPage.tsx   # `/new` — empty 시 중앙 Composer (랜딩), 메시지 있으면 ChatTile
+    │   ├── ChatPage.tsx             # `/chat/:sessionId` — useBackendContext → ChatView.backendLabel wiring
     │   ├── ProjectsPage.tsx         # ProjectsView 단순 배치
-    │   ├── ProjectLandingPage.tsx   # 프로젝트 채팅 랜딩 (useProjectChatLanding + ChatTile + ProjectSessionsPanel + ProjectInstructionsSidebar)
+    │   ├── ProjectLandingPage.tsx   # 프로젝트 채팅 랜딩 (ChatTile + ProjectSessionsPanel + ProjectInstructionsSidebar). 랜딩 라이프사이클은 셸의 useChatRouteSync 가 담당
     │   ├── EnginePage.tsx
     │   ├── SkillsPage.tsx
     │   └── CapturesPage.tsx
     │
     ├── features/                    ✅ 도메인 모듈 — 자기 레이어 내부만 의존. cross-feature import 금지.
     │   ├── backend/                 # BackendProvider, useBackend, BackendStatus, InstallerDialog, AuthExpiredModal
-    │   ├── chat/                    # ChatProvider, useChat, useProjectChatLanding, useSkillAutocomplete, useFileAutocomplete,
-    │   │                            #   chatReducer, ChatTile, ChatView, NewChatButton, composer/, transcript/, markdown/, format.ts
+    │   ├── chat/                    # ChatProvider, useChat, useSkillAutocomplete, useFileAutocomplete,
+    │   │                            #   chatReducer, ChatTile, Composer, ChatView, NewChatButton, composer/, transcript/, markdown/, format.ts
     │   ├── sessions/                # SessionsProvider, useSessions, useProjectSessions, SessionList, SessionRow, ProjectSessionsPanel
     │   ├── projects/                # ProjectsProvider, useProjects, ProjectsView/Screen, ProjectLandingHeader,
     │   │                            #   ProjectInstructionsSidebar, CreateProjectModal, EditInstructionsModal
@@ -89,12 +92,11 @@ src/renderer/
     │   └── captures/                # CapturesView
     │
     ├── shared/                      ✅ 범용 — 도메인 로직 0. 모든 레이어 의존 가능.
-    │   ├── navigation/              # NavigationProvider, useNavigation, screens.ts (ScreenId 카탈로그)
+    │   ├── navigation/              # routes.ts (path 패턴 + 라벨 + breadcrumb 카탈로그 — AppLayout matchPath 소스)
     │   ├── theme/                   # TweakProvider, useTweakContext
     │   ├── hooks/                   # useTweaks (theme/density), useSkills (orca:skills:list), useDragResize (1D 드래그→숫자 일반 메커니즘)
     │   ├── api/ipc.ts               # `window.orca.*` 타입드 래퍼 — chatApi/backendApi/installApi/settingsApi/skillApi/fileApi/sessionApi/projectApi/windowApi
     │   ├── config/theme.ts          # ThemeId / DensityId 타입 + DENSITY_FONT
-    │   ├── types/screen.ts          # ScreenId 타입
     │   └── ui/                      # Icon, Avatar, Status, Dot, Popover, CopyIconButton, StatusLine, TweaksPanel, BayerPattern, Histogram
     │
     └── styles/                      ✅
@@ -605,7 +607,7 @@ useEffect(density): ──► document.documentElement.style.fontSize = DENSITY_
 
 ## 8. 도메인 카탈로그 (Orca 고유)
 
-`shared/navigation/screens.ts` 의 `ScreenId` 카탈로그 + Tweaks 패널을 화면 단위로 정리.
+`shared/navigation/routes.ts` 의 path 카탈로그 + Tweaks 패널을 화면 단위로 정리.
 
 | ID / 컴포넌트 | 화면 라벨 | breadcrumb | Phase 상태 | 비고 |
 |---|---|---|---|---|

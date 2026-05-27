@@ -86,17 +86,14 @@ export function useChat(): UseChat {
     [snapshotActiveToCache]
   )
 
-  // 앱 부트 시 마지막 세션 자동 복원 (TRD §10 "재시작 재개").
+  // 앱 부트 시 cwd 1회 조회 — init 이벤트가 오면 같은 값으로 덮어쓰기.
+  // 마지막 세션 자동 복원은 BootRedirector(`/` → `/chat/<lastSessionId>`) + URL→State
+  // 동기화(useChatRouteSync) 가 인계받았다 — 더 이상 여기서 loadSession 을 직접 부르지 않는다.
   useEffect(() => {
-    void settingsApi.get().then((s) => {
-      if (s.lastSessionId) void loadSession(s.lastSessionId)
-    })
-    // 세션 init 이벤트 전에도 cwd 를 알 수 있도록 부팅 시 1회 조회. main 의
-    // defaultCwd 와 동일 — init 이 오면 같은 값으로 덮어쓰기.
     void sessionApi.cwd().then((cwd) => {
       dispatch({ type: 'SET_CWD', cwd })
     })
-  }, [loadSession])
+  }, [])
 
   useEffect(() => {
     const unsub = chatApi.onEvent((ev) => {

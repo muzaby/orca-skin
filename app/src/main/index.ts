@@ -1,10 +1,48 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
-import { join } from 'path'
+import { app, shell, BrowserWindow, ipcMain, protocol, net } from 'electron'
+import { join, extname } from 'path'
+import { existsSync } from 'fs'
+import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { IpcRouter } from './ipc/router'
 import { CHANNELS } from '../shared/ipc'
 import type { SettingsStore } from './settings/store'
+
+// renderer 번들 루트 — production 빌드에서 electron-vite 가 `out/renderer/` 에
+// `index.html` + `assets/*` 을 산출한다. 본 모듈 위치(`out/main/index.js`) 기준 상대.
+const RENDERER_DIST = join(__dirname, '../renderer')
+
+// app:// 커스텀 스킴을 표준(standard) 스킴으로 사전 등록. 표준 스킴이라야
+// `URL.pathname`, history `pushState`/`popstate`, BrowserRouter 가 일관 동작한다.
+// 반드시 `app.ready` *이전* 에 호출돼야 효력 발생.
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'app',
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+      corsEnabled: true
+    }
+  }
+])
+
+// app://renderer/<path> 핸들러.
+// - 디스크에 실존하는 자산 (확장자 보유 파일) → 그 파일을 그대로 서빙.
+// - 그 외 모든 path (BrowserRouter 가 다루는 SPA 경로) → index.html 로 SPA fallback.
+//   이 fallback 이 새로고침/직접 진입/딥링크의 핵심.
+function registerAppProtocol(): void {
+  protocol.handle('app', async (request) => {
+    const url = new URL(request.url)
+    const decoded = decodeURIComponent(url.pathname)
+    // `/foo/bar` → `foo/bar` 로 정규화 후 RENDERER_DIST 와 결합.
+    const rel = decoded.replace(/^\/+/, '')
+    const candidate = rel ? join(RENDERER_DIST, rel) : join(RENDERER_DIST, 'index.html')
+    const isAsset = extname(candidate) !== ''
+    const target = isAsset && existsSync(candidate) ? candidate : join(RENDERER_DIST, 'index.html')
+    return net.fetch(pathToFileURL(target).toString())
+  })
+}
 
 const DEFAULT_BOUNDS = { width: 900, height: 670 }
 
@@ -64,11 +102,13 @@ function createWindow(settings: SettingsStore): void {
   bindWindowControls()
 
   // HMR for renderer base on electron-vite cli.
-  // Load the remote URL for development or the local html file for production.
+  // dev: Vite dev server (http://localhost:…) — BrowserRouter 가 history API 로 동작.
+  // prod: app:// 커스텀 스킴 — 위에 등록한 protocol.handle 이 SPA fallback 을 수행해
+  // BrowserRouter 의 deep URL 새로고침을 받쳐준다.
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
   } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    mainWindow.loadURL('app://renderer/')
   }
 }
 
@@ -81,6 +121,9 @@ app.whenReady().then(async () => {
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
   })
+
+  // 윈도우 생성 이전에 app:// 핸들러를 부착해 renderer 로딩이 바로 받쳐지도록.
+  registerAppProtocol()
 
   const router = new IpcRouter()
   await router.start()

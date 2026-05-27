@@ -38,7 +38,6 @@ export default defineConfig(
             'useBackendContext',
             'useSessionsContext',
             'useProjectsContext',
-            'useNavigation',
             'useTweakContext'
           ]
         }

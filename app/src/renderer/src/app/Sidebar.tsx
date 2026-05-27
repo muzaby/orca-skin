@@ -1,22 +1,29 @@
 import { memo, useCallback, useRef, type ReactNode } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { Icon, type IconName } from '../shared/ui/Icon'
-import { useNavigation } from '../shared/navigation'
 import { useTweakContext } from '../shared/theme'
 import { useDragResize } from '../shared/hooks/useDragResize'
-import type { ScreenId } from '../shared/types/screen'
 
 interface NavItem {
   i: IconName
   l: string
-  screen: ScreenId
+  path: string
+  // pathname prefix 매칭으로 active 판정. `/projects` 와 `/projects/:id` 모두 활성,
+  // `/new` 와 `/chat/:sessionId` 모두 활성 — `isActive(pathname)` 가 그 차이를 흡수.
+  isActive: (pathname: string) => boolean
 }
 
 const NAV: NavItem[] = [
-  { i: 'chat', l: '채팅', screen: 'chat' },
-  { i: 'folder', l: '프로젝트', screen: 'projects' },
-  { i: 'flask', l: '캡처 & 분석', screen: 'captures' },
-  { i: 'cpu', l: '엔진 & 모델', screen: 'engine' },
-  { i: 'bolt', l: 'Skills & MCP', screen: 'skills' }
+  {
+    i: 'chat',
+    l: '채팅',
+    path: '/new',
+    isActive: (p) => p === '/new' || p.startsWith('/chat/') || p === '/chat'
+  },
+  { i: 'folder', l: '프로젝트', path: '/projects', isActive: (p) => p.startsWith('/projects') },
+  { i: 'flask', l: '캡처 & 분석', path: '/captures', isActive: (p) => p.startsWith('/captures') },
+  { i: 'cpu', l: '엔진 & 모델', path: '/engine', isActive: (p) => p.startsWith('/engine') },
+  { i: 'bolt', l: 'Skills & MCP', path: '/skills', isActive: (p) => p.startsWith('/skills') }
 ]
 
 const SECTION_HEAD =
@@ -37,20 +44,20 @@ export interface SidebarProps {
   footerSlot: ReactNode
 }
 
-// 앱 셸의 sidebar 골격. NavigationContext + TweakContext 만 자체 구독해 collapse /
+// 앱 셸의 sidebar 골격. router pathname + TweakContext 를 자체 구독해 collapse /
 // resize / NAV 메뉴 / brand 영역을 그린다. 도메인 위젯 (새 대화 / 세션 목록 /
 // 백엔드 상태) 은 slot 으로 주입받아 ChatContext 등 도메인 Context 결합을 끊는다.
 // 드래그 메커니즘은 shared/hooks/useDragResize 에 위임; 여기서는 sidebar 측의
 // 설정값 (SIDEBAR_*) 과 적용 (setTweak('sidebarWidth', n)) 만 책임진다.
-// React.memo: slot ReactNode 가 부모에서 안정적으로 전달되는 한 NavigationContext /
-// TweakContext 변경 시에만 리렌더 (FRONTEND_ARCHITECTURE §3.A).
+// React.memo: slot ReactNode 가 부모에서 안정적으로 전달되는 한 router/TweakContext
+// 변경 시에만 리렌더 (FRONTEND_ARCHITECTURE §3.A).
 function SidebarImpl({ newChatSlot, sessionsSlot, footerSlot }: SidebarProps): React.JSX.Element {
-  const { current, navigate } = useNavigation()
+  const { pathname } = useLocation()
+  const navigate = useNavigate()
   const { t, setTweak } = useTweakContext()
 
   const collapsed = t.sidebarCollapsed
   const width = t.sidebarWidth
-  const active = current === 'project-detail' ? 'projects' : current
 
   const asideRef = useRef<HTMLElement>(null)
 
@@ -108,11 +115,11 @@ function SidebarImpl({ newChatSlot, sessionsSlot, footerSlot }: SidebarProps): R
 
         <nav className="app-frame-sidebar-nav px-1.5 py-1">
           {NAV.map((it) => {
-            const isActive = it.screen === active
+            const isActive = it.isActive(pathname)
             return (
               <div
-                key={it.i}
-                onClick={() => navigate(it.screen)}
+                key={it.path}
+                onClick={() => navigate(it.path)}
                 className={`flex cursor-pointer items-center gap-[9px] rounded-md px-2.5 py-1.5 text-[13px] ${
                   isActive ? 'bg-black/[0.04] font-medium text-ink' : 'text-ink2'
                 }`}

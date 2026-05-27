@@ -1,27 +1,22 @@
-import { useNavigation } from '../shared/navigation'
-import { ChatTile, useChatContext, useProjectChatLanding } from '../features/chat'
+import { useNavigate, useParams } from 'react-router-dom'
+import { ChatTile, useChatContext } from '../features/chat'
 import { useBackendContext } from '../features/backend'
 import { ProjectLandingHeader, ProjectInstructionsSidebar } from '../features/projects'
 import { ProjectSessionsPanel } from '../features/sessions'
 
-interface ProjectLandingPageProps {
-  projectId: string
-}
-
-// page = "어떤 Feature 를 배치할지" 결정 (조립 + cross-feature wiring).
-// 모든 로직 (chat 라이프사이클, 세션 IPC, 모달 state) 은 feature 내부에 가둠;
-// page 는 Context 읽기 + features 배치 + 인라인 wiring 만 수행.
-export function ProjectLandingPage({ projectId }: ProjectLandingPageProps): React.JSX.Element {
-  const { navigate } = useNavigation()
+// page = "어떤 Feature 를 배치할지" 결정 (조립만). 채팅 라이프사이클(랜딩 reset
+// / 첫 턴 후 URL upgrade) 은 셸의 `useChatRouteSync` 가 담당하므로 여기서는 별도
+// hook 호출 없이 순수 조립.
+export function ProjectLandingPage(): React.JSX.Element {
+  const { projectId = '' } = useParams<{ projectId: string }>()
+  const navigate = useNavigate()
   const chat = useChatContext()
   const { backendLabel } = useBackendContext()
-
-  useProjectChatLanding(projectId, () => navigate('chat'))
 
   return (
     <section className="flex min-w-0 flex-1">
       <div className="flex min-w-0 flex-1 flex-col bg-bg">
-        <ProjectLandingHeader projectId={projectId} onBack={() => navigate('projects')} />
+        <ProjectLandingHeader projectId={projectId} onBack={() => navigate('/projects')} />
         <div className="min-h-0 flex-1">
           <ChatTile chat={chat} backendLabel={backendLabel} />
         </div>
@@ -29,7 +24,7 @@ export function ProjectLandingPage({ projectId }: ProjectLandingPageProps): Reac
           projectId={projectId}
           currentSessionId={chat.state.sessionId}
           refreshOnTurnEnd={chat.state.inflight}
-          onSessionSelected={(id) => void chat.loadSession(id)}
+          onSessionSelected={(id) => navigate(`/chat/${id}`)}
           onSessionDeleting={(id) => chat.handleSessionDeleted(id, projectId)}
           onSessionRenamed={chat.renameSession}
         />

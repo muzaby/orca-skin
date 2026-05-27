@@ -12,8 +12,8 @@
 | React                             | 19.x                                                                                                                                                                                       |
 | TypeScript                        | 5.x (strict, target ES2022)                                                                                                                                                                |
 | 스타일링                          | **Tailwind CSS v4** (`@tailwindcss/vite` 플러그인, CSS-first `@theme` 설정) + **`app-frame-*` 마커 클래스 + `data-behavior` / `data-state` / `data-axis` / `data-context` / `data-platform` 속성 공존** (FRONTEND §3.3) |
-| 메인 (`src/main/index.ts`)        | IpcRouter 부트 + `createWindow` (`frame:false` + 윈도우 컨트롤 IPC `orca:window:{minimize,maximize,close}` 직접 부착). `contextIsolation: true` / `nodeIntegration: false` / `sandbox: true` 명시 |
-| 렌더러 (`src/renderer/src/`)      | **Phase 1~3++ 누적** — `app/` 셸 (AppLayout · Header · Sidebar · OverlayLayer · WinControls · router), `pages/` 조립 (ChatPage · ProjectsPage · ProjectLandingPage · EnginePage · SkillsPage · CapturesPage), `features/` 도메인 6개 (backend · camera · captures · chat · engine · projects · sessions · skills), `shared/` 공통 (navigation · theme · hooks · ui · api · config · types). ESLint boundaries v6 로 레이어 방향 강제. |
+| 메인 (`src/main/index.ts`)        | **`app://` 커스텀 스킴 등록 (standard/secure/supportFetchAPI) + `protocol.handle` 의 SPA fallback** + IpcRouter 부트 + `createWindow` (`frame:false` + 윈도우 컨트롤 IPC 3개). 보안 옵션 명시 (contextIsolation/nodeIntegration/sandbox).      |
+| 렌더러 (`src/renderer/src/`)      | **Phase 1~3++ 누적** — `app/` 셸 (AppLayout · Header · Sidebar · OverlayLayer · WinControls · router · BootRedirector), `pages/` 조립 (NewChatLandingPage · ChatPage · ProjectsPage · ProjectLandingPage · EnginePage · SkillsPage · CapturesPage), `features/` 도메인 6개 (backend · camera · captures · chat · engine · projects · sessions · skills), `shared/` 공통 (navigation · theme · hooks · ui · api · config). ESLint boundaries v6 로 레이어 방향 강제. **`react-router-dom` v7 BrowserRouter + `app://` 커스텀 스킴** 으로 URL 자체가 라우팅 진실의 출처. |
 | 프리로드 (`src/preload/index.ts`) | `contextBridge.exposeInMainWorld('orca', OrcaApi)` — chat/backend/install/settings/skills/files/session/project/**window** 화이트리스트 + **`orca.platform` sync 노출**                  |
 | 패키저                            | electron-builder (`electron-builder.yml`)                                                                                                                                                  |
 | 도메인 코드 (IPC/어댑터)          | **claude-code 단일 어댑터 (SDK query)** + **로컬 SQLite SSOT** — ClaudeCodeAdapter(SDK NDJSON 정규화), AdapterRegistry, IpcRouter, Installer, SettingsStore, DbQueries (prepared statements), 마이그레이션 러너. opencode 는 future work                                  |
@@ -31,7 +31,7 @@
 
 ```
 src/renderer/src/
-├── App.tsx                  # Provider 합성 루트 (Tweak → Navigation → Backend → Sessions → Projects → Chat)
+├── App.tsx                  # Provider 합성 루트 (Tweak → BrowserRouter → Backend → Sessions → Projects → Chat)
 ├── main.tsx                 # React 엔트리 + DOM mount
 ├── app/                     # 셸 — 고정 골격 (cross-feature wiring 권한 있음)
 │   ├── AppLayout.tsx        # Header + Sidebar (슬롯 wiring) + main + OverlayLayer 조립
@@ -39,9 +39,12 @@ src/renderer/src/
 │   ├── Sidebar.tsx          # app-frame-sidebar, collapsible/resizable, SessionList/NewChatButton 슬롯
 │   ├── OverlayLayer.tsx     # modal backdrop z-stack + InstallerDialog + AuthExpiredModal
 │   ├── WinControls.tsx      # minimize/maximize/close IPC. macOS → null
-│   └── router.tsx           # 화면 ID → Page 컴포넌트 매핑 (which)
+│   ├── router.tsx           # path → Page 매핑 (`react-router-dom` v7 `<Routes>` — `/new`, `/chat/:sessionId`, `/projects`, `/projects/:projectId`, `/engine`, `/skills`, `/captures`, catch-all → `/new`)
+│   ├── BootRedirector.tsx   # `/` 라우트 element — settings.lastSessionId → `/chat/<id>` 또는 `/new` replace
+│   └── hooks/useChatRouteSync.ts  # URL ↔ ChatState 양방향 동기화 (방향 1: URL→loadSession/newChat, 방향 2: 첫 턴 완료 시 `/new` → `/chat/<id>` replace)
 ├── pages/                   # 조립 전용 — Context 읽기 + features 배치 + cross-feature props. 로직 0
-│   ├── ChatPage.tsx         # useBackendContext → ChatView.backendLabel wiring
+│   ├── NewChatLandingPage.tsx # `/new` — 메시지 비어 있으면 중앙 Composer (랜딩), 메시지 있으면 ChatTile
+│   ├── ChatPage.tsx         # `/chat/:sessionId` — ChatView (전체 ChatTile)
 │   ├── ProjectsPage.tsx     # ProjectsScreen 단순 배치
 │   ├── ProjectLandingPage.tsx # 프로젝트 채팅 랜딩 (useProjectChatLanding + ChatTile + ProjectSessionsPanel + ProjectInstructionsSidebar)
 │   ├── EnginePage.tsx
@@ -58,11 +61,11 @@ src/renderer/src/
 │   ├── chat/
 │   │   ├── providers/ChatProvider.tsx      # useChatContext export
 │   │   ├── hooks/useChat.ts                # useReducer + 세션 캐시 + loadSession/newChat/send/…
-│   │   ├── hooks/useProjectChatLanding.ts  # 프로젝트 랜딩 라이프사이클 (enter/leave 감지)
 │   │   ├── hooks/useSkillAutocomplete.ts
 │   │   ├── hooks/useFileAutocomplete.ts
 │   │   ├── reducer/chatReducer.ts          # ChatState reducer (SEND/RECV/NEW/LOAD/RENAME/…)
-│   │   ├── components/ChatTile.tsx         # 채팅 tile — 셸 + state hook 연결 + 입력 핸들러
+│   │   ├── components/ChatTile.tsx         # 채팅 tile — 헤더 + transcript + <Composer />
+│   │   ├── components/Composer.tsx         # textarea + chip 행 + send/cancel + autocomplete (ChatTile/NewChatLandingPage 양쪽 재사용)
 │   │   ├── components/ChatView.tsx         # ChatTile wrapper (backendLabel prop 수신)
 │   │   ├── components/NewChatButton.tsx    # sidebar 슬롯 widget
 │   │   ├── components/composer/…           # HighlightedTextarea, SkillAutocomplete, FileAutocomplete, ComposerChip, SkillsMenu
@@ -94,8 +97,7 @@ src/renderer/src/
 │   ├── camera/ · engine/ · captures/      # CameraView, EngineView, CapturesView + index.ts
 ├── shared/                  # 범용 — 모든 레이어가 의존 가능, 도메인 로직 0
 │   ├── navigation/
-│   │   ├── NavigationProvider.tsx          # useNavigation export (screens 라우팅 상태)
-│   │   ├── screens.ts                      # 화면 ID + 라벨 + breadcrumb 카탈로그
+│   │   ├── routes.ts                       # path 패턴 + 라벨 + breadcrumb 카탈로그 (AppLayout 의 matchPath 소스)
 │   │   └── index.ts
 │   ├── theme/
 │   │   ├── TweakProvider.tsx               # useTweakContext export (theme/density state)
@@ -104,7 +106,6 @@ src/renderer/src/
 │   │   ├── useSkills.ts                    # orca:skills:list IPC → SkillInfo[] 캐시
 │   │   └── useTweaks.ts                    # theme/density state hook (TweakProvider 내부)
 │   ├── config/theme.ts                     # ThemeId / DensityId 타입 + DENSITY_FONT
-│   ├── types/screen.ts                     # ScreenId 타입
 │   ├── api/ipc.ts                          # window.orca.* 타입드 래퍼
 │   └── ui/                                 # 도메인-무관 UI atom: Icon, Avatar, Status+Dot, BayerPattern,
 │                                           #   Histogram, Popover, CopyIconButton, StatusLine, TweaksPanel
@@ -215,7 +216,7 @@ new BrowserWindow({
 
 - TRD §2 의 Stack 표 밖의 패키지 추가는 **사용자 승인 필수**. PR 설명에 _왜_ 가 들어가야 한다.
 - 이미 채택된 것 (도입 시점만 자유): React, react-markdown, shiki, electron-store, zod, vitest, playwright.
-- 설치 완료: **Tailwind CSS v4** (`tailwindcss@^4`, `@tailwindcss/vite@^4`), **`better-sqlite3@^12`** (Phase 3 — Electron 39 V8 ABI 호환을 위해 12.x 메이저 사용. Windows prebuild 포함).
+- 설치 완료: **Tailwind CSS v4** (`tailwindcss@^4`, `@tailwindcss/vite@^4`), **`better-sqlite3@^12`** (Phase 3 — Electron 39 V8 ABI 호환을 위해 12.x 메이저 사용. Windows prebuild 포함), **`react-router-dom@^7`** (URL/path 라우팅 — `app://` 커스텀 스킴 + BrowserRouter).
 - 템플릿 동봉 (사전 승인): `@electron-toolkit/utils`, `@electron-toolkit/preload`.
 - 미정 항목 (PRD §11 / TRD §15 — 단독 결정 금지):
   - ~~OQ1~~ React 19 확정 (2026-05-20)
@@ -268,6 +269,7 @@ new BrowserWindow({
 | **Phase 3++ (PR #26)** | **ChatTile 분해** — 620줄 단일 파일에 모인 transcript 컴포넌트 5개 + composer 부속 2개 + 시간/JSON 포맷 유틸을 슬롯 디렉토리로 추출. 신규: `screens/chat/{format.ts, ToolCard, MessageMeta, AssistantMessage, UserMessage, PendingAssistant}.tsx` + `frame/composer/{ComposerChip, SkillsMenu}.tsx` 총 8개. ChatTile.tsx 잔류 = 셸 컴포지션 + state hook 연결 + 입력 핸들러만 (369줄). 에이전트 원칙 9 (단일 파일 분해 가이드: 한 파일 5+ 컴포넌트 또는 400줄 초과 시 분해 검토, 새 파일은 슬롯 디렉토리에 배치) 신설. | **완료 (PR #26, 커밋 `3d202ff`)** |
 | **Feature-based 구조 감사 + FRONTEND_ARCHITECTURE.md 엄격 갱신 (PR #28)** | **완료 (PR #28)** — `frame/` 완전 해체 결정 (→ `app/` + `features/` + `shared/`), `pages/` = 조립만, `router` = which, App Shell §3.A 조립 규칙 신설, §3-2 목표 트리 + §10 구현 대기 행 추가. 코드 변경 없음 — 문서만. | **완료 (PR #28)** |
 | **Feature-based 아키텍처 구현 + ESLint boundaries 강제 (PR #29)** | **4-layer 렌더러 아키텍처 전면 구현.** `app/providers/` 6개 → `features/<X>/providers/` 4개 + `shared/navigation/` + `shared/theme/` 로 이전. `frame/` + `screens/` + `state/` 완전 해체 → `app/` (셸) · `pages/` (조립) · `features/` (도메인 6개) · `shared/` (범용) 4-layer 완성. `useSkills` → `shared/hooks/`. `useProjectSessions` → `features/sessions/hooks/`. `ProjectDetail` 3-파일 (`ProjectDetailPage` + `ProjectDetailView` + `ProjectDetailScreen`) → `pages/ProjectLandingPage.tsx` 단일 파일 통합. 신규: `useProjectChatLanding` · `ProjectSessionsPanel` · `ProjectLandingHeader` · `ProjectInstructionsSidebar`. `eslint-plugin-boundaries` v6 (`boundaries/dependencies`) 로 레이어 역방향·cross-feature import 회귀 차단. | **완료 (PR #29)** |
+| **URL/path 라우팅 전환 (`app://` 커스텀 스킴 + BrowserRouter)** | **Context-기반 `ScreenId` enum 라우팅 → URL/path 라우팅 전면 전환.** `react-router-dom@^7` 도입. main: `protocol.registerSchemesAsPrivileged` 로 `app://` 표준 스킴 등록 + `protocol.handle` 의 SPA fallback (자산 파일은 그대로, 그 외 path 는 `index.html`); production 로딩이 `loadFile` → `loadURL('app://renderer/')`. renderer: `NavigationProvider` 삭제 → `BrowserRouter`. `app/router.tsx` switch → `<Routes>` (`/`=BootRedirector · `/new`=ChatPage · `/chat`=Navigate→/new · `/chat/:sessionId`=ChatPage · `/projects` · `/projects/:projectId` · `/engine` · `/skills` · `/captures` · `*`→/new). 신규 `BootRedirector` 가 `settings.lastSessionId` 조회 후 `/chat/<id>` 또는 `/new` 로 replace — `useChat` 의 부팅 자동 복원 effect 제거. 신규 `useChatRouteSync` 가 URL ↔ ChatState 양방향 동기화 (방향 1: URL→loadSession/newChat, 방향 2: 첫 턴 완료 시 `/new` → `/chat/<id>` `replace`). `Sidebar`/`useSessionHandlers`/`NewChatButton`/`ProjectsView`/`ProjectLandingPage` 의 `navigate(screen)` → `navigate('/path')`. `electron.vite.config.ts` 에 `enforce: 'post'` 플러그인으로 `base: '/'` 강제 (electron-vite preset 의 production `./` 덮어쓰기 우회). 삭제: `shared/navigation/NavigationProvider.tsx`, `shared/navigation/screens.ts`, `shared/types/screen.ts`. 신규 `shared/navigation/routes.ts` (path 패턴 + 라벨 + breadcrumb). | **본 PR** |
 | 후속    | CI 워크플로우 (`.github/workflows/`), Vitest / Playwright 테스트, opencode 어댑터, `V1Captures` 실 구현 (캡처 RAW 보관 + AI 분석), 다국어 (`src/shared/i18n/ko.ts`), 세션 휴지통 30일 보존 (soft delete), 세션 메타 LRU 캐시 cap, 자동 제목 생성 (요약), Tile 우측 분할 콘텐츠 (`app-frame-tile-separator` 도입), **Phase 4 (Zustand 전환 + 멀티세션, `FRONTEND_ARCHITECTURE.md` §4.4)**. | Future Scope                |
 
 ## 위치 규약
