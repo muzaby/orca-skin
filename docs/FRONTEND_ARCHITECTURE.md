@@ -62,26 +62,27 @@ src/renderer/
     │   ├── Sidebar.tsx              # `app-frame-sidebar` — NAV + collapsible/resizable + 3개 슬롯 (newChat/sessions/footer). React.memo + 도메인 특정 설정값 (SIDEBAR_MIN/MAX/DEFAULT_WIDTH) 유지
     │   ├── OverlayLayer.tsx         # `#app-frame-overlay` + `#app-frame-modal` + `#app-frame-debug` 3슬롯 통합
     │   ├── WinControls.tsx          # minimize/maximize/close IPC. macOS → null
-    │   ├── router.tsx               # `<Routes>` — URL path → Page (which). `/`=BootRedirector · `/new`=ChatPage · `/chat`→/new · `/chat/:sessionId`=ChatPage · `/projects` · `/projects/:projectId` · `/engine` · `/skills` · `/captures` · `*`→/new
+    │   ├── router.tsx               # `<Routes>` — URL path → Page (which). `/`=BootRedirector · `/new`=NewChatLandingPage · `/chat`→/new · `/chat/:sessionId`=ChatPage · `/projects` · `/projects/:projectId` · `/engine` · `/skills` · `/captures` · `*`→/new
     │   ├── BootRedirector.tsx       # `/` 라우트 element — settings.lastSessionId → `/chat/<id>` 또는 `/new` replace
     │   └── hooks/                   # cross-feature wiring (셸 내부 전용)
-    │       ├── useChatRouteSync.ts      # URL ↔ ChatState 양방향 동기화 (방향 1: URL→loadSession/newChat, 방향 2: 첫 턴 완료 시 `/new` → `/chat/<id>` replace)
+    │       ├── useChatRouteSync.ts      # URL ↔ ChatState 동기화 (방향 1: `/new` · `/chat/:id` · `/projects/:id` 모두 처리, 방향 2: armed-ref 패턴 — sessionId null→non-null 전이 시 `/chat/<id>` replace)
     │       ├── useChatSessionsSync.ts   # chat 턴 완료 → sessions 자동 refresh
     │       ├── useSessionHandlers.ts    # navigate(`/chat/<id>`)/chat/sessions 핸들러 합성 + projectNameById
     │       └── useSidebarSlots.tsx      # Sidebar React.memo 효과 위한 slot ReactNode 안정화
     │
     ├── pages/                       ✅ 조립 전용 — Context 읽기 + features 배치. 비즈니스 로직 0.
-    │   ├── ChatPage.tsx             # useBackendContext → ChatView.backendLabel wiring
+    │   ├── NewChatLandingPage.tsx   # `/new` — empty 시 중앙 Composer (랜딩), 메시지 있으면 ChatTile
+    │   ├── ChatPage.tsx             # `/chat/:sessionId` — useBackendContext → ChatView.backendLabel wiring
     │   ├── ProjectsPage.tsx         # ProjectsView 단순 배치
-    │   ├── ProjectLandingPage.tsx   # 프로젝트 채팅 랜딩 (useProjectChatLanding + ChatTile + ProjectSessionsPanel + ProjectInstructionsSidebar)
+    │   ├── ProjectLandingPage.tsx   # 프로젝트 채팅 랜딩 (ChatTile + ProjectSessionsPanel + ProjectInstructionsSidebar). 랜딩 라이프사이클은 셸의 useChatRouteSync 가 담당
     │   ├── EnginePage.tsx
     │   ├── SkillsPage.tsx
     │   └── CapturesPage.tsx
     │
     ├── features/                    ✅ 도메인 모듈 — 자기 레이어 내부만 의존. cross-feature import 금지.
     │   ├── backend/                 # BackendProvider, useBackend, BackendStatus, InstallerDialog, AuthExpiredModal
-    │   ├── chat/                    # ChatProvider, useChat, useProjectChatLanding, useSkillAutocomplete, useFileAutocomplete,
-    │   │                            #   chatReducer, ChatTile, ChatView, NewChatButton, composer/, transcript/, markdown/, format.ts
+    │   ├── chat/                    # ChatProvider, useChat, useSkillAutocomplete, useFileAutocomplete,
+    │   │                            #   chatReducer, ChatTile, Composer, ChatView, NewChatButton, composer/, transcript/, markdown/, format.ts
     │   ├── sessions/                # SessionsProvider, useSessions, useProjectSessions, SessionList, SessionRow, ProjectSessionsPanel
     │   ├── projects/                # ProjectsProvider, useProjects, ProjectsView/Screen, ProjectLandingHeader,
     │   │                            #   ProjectInstructionsSidebar, CreateProjectModal, EditInstructionsModal

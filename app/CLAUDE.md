@@ -13,7 +13,7 @@
 | TypeScript                        | 5.x (strict, target ES2022)                                                                                                                                                                |
 | 스타일링                          | **Tailwind CSS v4** (`@tailwindcss/vite` 플러그인, CSS-first `@theme` 설정) + **`app-frame-*` 마커 클래스 + `data-behavior` / `data-state` / `data-axis` / `data-context` / `data-platform` 속성 공존** (FRONTEND §3.3) |
 | 메인 (`src/main/index.ts`)        | **`app://` 커스텀 스킴 등록 (standard/secure/supportFetchAPI) + `protocol.handle` 의 SPA fallback** + IpcRouter 부트 + `createWindow` (`frame:false` + 윈도우 컨트롤 IPC 3개). 보안 옵션 명시 (contextIsolation/nodeIntegration/sandbox).      |
-| 렌더러 (`src/renderer/src/`)      | **Phase 1~3++ 누적** — `app/` 셸 (AppLayout · Header · Sidebar · OverlayLayer · WinControls · router · BootRedirector), `pages/` 조립 (ChatPage · ProjectsPage · ProjectLandingPage · EnginePage · SkillsPage · CapturesPage), `features/` 도메인 6개 (backend · camera · captures · chat · engine · projects · sessions · skills), `shared/` 공통 (navigation · theme · hooks · ui · api · config). ESLint boundaries v6 로 레이어 방향 강제. **`react-router-dom` v7 BrowserRouter + `app://` 커스텀 스킴** 으로 URL 자체가 라우팅 진실의 출처. |
+| 렌더러 (`src/renderer/src/`)      | **Phase 1~3++ 누적** — `app/` 셸 (AppLayout · Header · Sidebar · OverlayLayer · WinControls · router · BootRedirector), `pages/` 조립 (NewChatLandingPage · ChatPage · ProjectsPage · ProjectLandingPage · EnginePage · SkillsPage · CapturesPage), `features/` 도메인 6개 (backend · camera · captures · chat · engine · projects · sessions · skills), `shared/` 공통 (navigation · theme · hooks · ui · api · config). ESLint boundaries v6 로 레이어 방향 강제. **`react-router-dom` v7 BrowserRouter + `app://` 커스텀 스킴** 으로 URL 자체가 라우팅 진실의 출처. |
 | 프리로드 (`src/preload/index.ts`) | `contextBridge.exposeInMainWorld('orca', OrcaApi)` — chat/backend/install/settings/skills/files/session/project/**window** 화이트리스트 + **`orca.platform` sync 노출**                  |
 | 패키저                            | electron-builder (`electron-builder.yml`)                                                                                                                                                  |
 | 도메인 코드 (IPC/어댑터)          | **claude-code 단일 어댑터 (SDK query)** + **로컬 SQLite SSOT** — ClaudeCodeAdapter(SDK NDJSON 정규화), AdapterRegistry, IpcRouter, Installer, SettingsStore, DbQueries (prepared statements), 마이그레이션 러너. opencode 는 future work                                  |
@@ -43,7 +43,8 @@ src/renderer/src/
 │   ├── BootRedirector.tsx   # `/` 라우트 element — settings.lastSessionId → `/chat/<id>` 또는 `/new` replace
 │   └── hooks/useChatRouteSync.ts  # URL ↔ ChatState 양방향 동기화 (방향 1: URL→loadSession/newChat, 방향 2: 첫 턴 완료 시 `/new` → `/chat/<id>` replace)
 ├── pages/                   # 조립 전용 — Context 읽기 + features 배치 + cross-feature props. 로직 0
-│   ├── ChatPage.tsx         # useBackendContext → ChatView.backendLabel wiring
+│   ├── NewChatLandingPage.tsx # `/new` — 메시지 비어 있으면 중앙 Composer (랜딩), 메시지 있으면 ChatTile
+│   ├── ChatPage.tsx         # `/chat/:sessionId` — ChatView (전체 ChatTile)
 │   ├── ProjectsPage.tsx     # ProjectsScreen 단순 배치
 │   ├── ProjectLandingPage.tsx # 프로젝트 채팅 랜딩 (useProjectChatLanding + ChatTile + ProjectSessionsPanel + ProjectInstructionsSidebar)
 │   ├── EnginePage.tsx
@@ -60,11 +61,11 @@ src/renderer/src/
 │   ├── chat/
 │   │   ├── providers/ChatProvider.tsx      # useChatContext export
 │   │   ├── hooks/useChat.ts                # useReducer + 세션 캐시 + loadSession/newChat/send/…
-│   │   ├── hooks/useProjectChatLanding.ts  # 프로젝트 랜딩 라이프사이클 (enter/leave 감지)
 │   │   ├── hooks/useSkillAutocomplete.ts
 │   │   ├── hooks/useFileAutocomplete.ts
 │   │   ├── reducer/chatReducer.ts          # ChatState reducer (SEND/RECV/NEW/LOAD/RENAME/…)
-│   │   ├── components/ChatTile.tsx         # 채팅 tile — 셸 + state hook 연결 + 입력 핸들러
+│   │   ├── components/ChatTile.tsx         # 채팅 tile — 헤더 + transcript + <Composer />
+│   │   ├── components/Composer.tsx         # textarea + chip 행 + send/cancel + autocomplete (ChatTile/NewChatLandingPage 양쪽 재사용)
 │   │   ├── components/ChatView.tsx         # ChatTile wrapper (backendLabel prop 수신)
 │   │   ├── components/NewChatButton.tsx    # sidebar 슬롯 widget
 │   │   ├── components/composer/…           # HighlightedTextarea, SkillAutocomplete, FileAutocomplete, ComposerChip, SkillsMenu

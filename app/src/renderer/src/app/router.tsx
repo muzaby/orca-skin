@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import { ChatPage } from '../pages/ChatPage'
+import { NewChatLandingPage } from '../pages/NewChatLandingPage'
 import { ProjectsPage } from '../pages/ProjectsPage'
 import { ProjectLandingPage } from '../pages/ProjectLandingPage'
 import { EnginePage } from '../pages/EnginePage'
@@ -19,7 +20,7 @@ export function AppRouter(): React.JSX.Element {
   return (
     <Routes>
       <Route path="/" element={<BootRedirector />} />
-      <Route path="/new" element={<ChatPage />} />
+      <Route path="/new" element={<NewChatLandingPage />} />
       <Route path="/chat" element={<Navigate to="/new" replace />} />
       <Route path="/chat/:sessionId" element={<ChatPage />} />
       <Route path="/projects" element={<ProjectsPage />} />
