@@ -1,2 +1,1 @@
-export { NavigationProvider, useNavigation } from './NavigationProvider'
-export { SCREENS, type ScreenInfo } from './screens'
+export { ROUTES, DEFAULT_ROUTE_INFO, type RouteInfo } from './routes'

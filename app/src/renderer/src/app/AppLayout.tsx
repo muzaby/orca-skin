@@ -1,8 +1,10 @@
-import { useNavigation } from '../shared/navigation'
+import { matchPath, useLocation } from 'react-router-dom'
+import { DEFAULT_ROUTE_INFO, ROUTES, type RouteInfo } from '../shared/navigation'
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
 import { OverlayLayer } from './OverlayLayer'
 import { AppRouter } from './router'
+import { useChatRouteSync } from './hooks/useChatRouteSync'
 import { useChatSessionsSync } from './hooks/useChatSessionsSync'
 import { useSessionHandlers } from './hooks/useSessionHandlers'
 import { useSidebarSlots } from './hooks/useSidebarSlots'
@@ -12,8 +14,10 @@ import { useSidebarSlots } from './hooks/useSidebarSlots'
 // cross-feature wiring (chat→sessions 동기화, 세션 핸들러 합성, slot 안정화) 은
 // app/hooks/ 의 hook 으로 위임 — AppLayout 본체는 조립만 한다.
 export function AppLayout(): React.JSX.Element {
-  const { info } = useNavigation()
+  const { pathname } = useLocation()
+  const info = matchRouteInfo(pathname)
 
+  useChatRouteSync()
   useChatSessionsSync()
   const handlers = useSessionHandlers()
   const slots = useSidebarSlots(handlers)
@@ -35,4 +39,11 @@ export function AppLayout(): React.JSX.Element {
       </div>
     </div>
   )
+}
+
+function matchRouteInfo(pathname: string): RouteInfo {
+  for (const r of ROUTES) {
+    if (matchPath(r.pattern, pathname)) return r
+  }
+  return DEFAULT_ROUTE_INFO
 }

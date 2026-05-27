@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react'
-import { useNavigation } from '../../shared/navigation'
+import { useNavigate } from 'react-router-dom'
 import { useChatContext } from '../../features/chat'
 import { useSessionsContext } from '../../features/sessions'
 import { useProjectsContext } from '../../features/projects'
@@ -12,10 +12,12 @@ export interface SessionHandlers {
   handleRenameSession: (id: string, title: string) => void
 }
 
-// 사이드바 SessionList 가 필요로 하는 cross-feature 핸들러 합성. navigate / chat /
-// sessions 액션을 묶어 단일 핸들러로 노출 (SessionList 가 features 경계를 넘지 않도록).
+// 사이드바 SessionList 가 필요로 하는 cross-feature 핸들러 합성. URL 변경을 통해
+// 라우팅을 진실의 출처로 만든다 — 선택은 `navigate(\`/chat/<id>\`)`, 삭제 후 현재
+// 활성 세션이면 `/new` 로 replace. 실제 세션 로드/리셋은 useChatRouteSync 가 URL
+// 변화에서 흡수.
 export function useSessionHandlers(): SessionHandlers {
-  const { navigate } = useNavigation()
+  const navigate = useNavigate()
   const chat = useChatContext()
   const sessionsCtx = useSessionsContext()
   const { list: projects } = useProjectsContext()
@@ -28,20 +30,20 @@ export function useSessionHandlers(): SessionHandlers {
 
   const handleSelectSession = useCallback(
     (id: string): void => {
-      navigate('chat')
-      const meta = sessionsCtx.list.find((s) => s.id === id)
-      const metaTitle = meta?.title?.trim() || meta?.preview?.trim() || null
-      void chat.loadSession(id, metaTitle)
+      // 메타 title 의 즉시 적용은 useChatRouteSync 가 sessions list 에서 직접 읽음.
+      navigate(`/chat/${id}`)
     },
-    [navigate, sessionsCtx.list, chat]
+    [navigate]
   )
 
   const handleDeleteSession = useCallback(
     (id: string): void => {
+      const wasActive = chat.state.sessionId === id
       chat.handleSessionDeleted(id)
       void sessionsCtx.remove(id)
+      if (wasActive) navigate('/new', { replace: true })
     },
-    [chat, sessionsCtx]
+    [chat, sessionsCtx, navigate]
   )
 
   const handleRenameSession = useCallback(
