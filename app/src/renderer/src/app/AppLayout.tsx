@@ -27,7 +27,7 @@ export function AppLayout(): React.JSX.Element {
       className="app-frame-root flex h-full w-full flex-col overflow-hidden bg-bg font-sans text-[13px] leading-[1.45] text-ink"
       data-screen-label={`Orca · ${info.label}`}
     >
-      <Header breadcrumb={info.breadcrumb} />
+      <Header />
       <div className="app-frame-grid relative grid min-h-0 flex-1 grid-cols-1 grid-rows-1 [&>*]:[grid-area:1/1]">
         <div className="app-frame-body z-0 flex min-h-0 min-w-0">
           <Sidebar {...slots} />

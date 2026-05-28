@@ -1,11 +1,7 @@
 import type { CSSProperties } from 'react'
 import { WinControls } from './WinControls'
+import { Icon } from '../shared/ui/Icon'
 import { getPlatform } from '../shared/api/ipc'
-
-export interface HeaderProps {
-  project?: string
-  breadcrumb?: string | null
-}
 
 // React 의 CSSProperties 에는 WebkitAppRegion 이 없어 명시 캐스팅.
 const DRAG_STYLE: CSSProperties = { WebkitAppRegion: 'drag' } as CSSProperties
@@ -15,10 +11,12 @@ const NO_DRAG_STYLE: CSSProperties = { WebkitAppRegion: 'no-drag' } as CSSProper
 // 80px 만큼 밀어준다. Windows/Linux 는 우측 WinControls.
 const isDarwin = (): boolean => getPlatform() === 'darwin'
 
-export function Header({
-  project = 'cam-validation-v3',
-  breadcrumb
-}: HeaderProps): React.JSX.Element {
+const ICON_BTN =
+  'grid h-[22px] w-[22px] cursor-pointer place-items-center rounded border-0 bg-transparent text-ink2 hover:bg-black/[0.06]'
+
+const noop = (): void => {}
+
+export function Header(): React.JSX.Element {
   const macOsPadLeft = isDarwin() ? 'pl-[80px]' : 'pl-[14px]'
   return (
     <header
@@ -33,22 +31,25 @@ export function Header({
       />
       {/* content-layer — 실제 클릭 가능한 콘텐츠. drag-region 위에 z=1 로 오른다. */}
       <div
-        className="app-frame-header-left relative z-[1] flex items-center gap-2"
+        className="app-frame-header-left relative z-[1] flex items-center gap-0.5"
         style={NO_DRAG_STYLE}
         data-behavior="no-drag"
       >
-        <div className="grid h-[18px] w-[18px] place-items-center rounded-[5px] bg-rust font-serif text-[12px] font-bold text-white">
-          O
-        </div>
-        <span className="font-serif text-[13px] font-semibold tracking-tight text-ink">Orca</span>
-        <span className="text-[11px] text-ink3">—</span>
-        <span className="text-[12px] text-ink2">{project}</span>
-        {breadcrumb && (
-          <>
-            <span className="mx-1 text-[11px] text-ink3">›</span>
-            <span className="text-[12px] text-ink2">{breadcrumb}</span>
-          </>
-        )}
+        <button type="button" aria-label="시스템 메뉴" onClick={noop} className={ICON_BTN}>
+          <Icon name="menu" size={14} />
+        </button>
+        <button type="button" aria-label="사이드바 접기" onClick={noop} className={ICON_BTN}>
+          <Icon name="panelL" size={14} />
+        </button>
+        <button type="button" aria-label="검색" onClick={noop} className={ICON_BTN}>
+          <Icon name="search" size={14} />
+        </button>
+        <button type="button" aria-label="뒤로 가기" onClick={noop} className={ICON_BTN}>
+          <Icon name="arrowL" size={14} />
+        </button>
+        <button type="button" aria-label="앞으로 가기" onClick={noop} className={ICON_BTN}>
+          <Icon name="arrowR" size={14} />
+        </button>
       </div>
       <div className="app-frame-header-center relative z-[1] flex-1" aria-hidden />
       <div
