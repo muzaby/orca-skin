@@ -14,12 +14,7 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  {
-    i: 'plus',
-    l: '새 대화',
-    path: '/new',
-    isActive: (p) => p === '/new' || p.startsWith('/chat/') || p === '/chat'
-  },
+  { i: 'plus', l: '새 대화', path: '/new', isActive: (p) => p === '/new' },
   { i: 'folder', l: '프로젝트', path: '/projects', isActive: (p) => p.startsWith('/projects') },
   { i: 'clock', l: '자동화', path: '/routines', isActive: (p) => p.startsWith('/routines') }
 ]
