@@ -1,18 +1,23 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { Composer, useChatContext } from '../features/chat'
 import { useBackendContext } from '../features/backend'
-import { ProjectLandingHeader, ProjectInstructionsSidebar } from '../features/projects'
+import {
+  ProjectInfoHero,
+  ProjectInstructionsSidebar,
+  ProjectLandingHeader
+} from '../features/projects'
 import { ProjectSessionsPanel } from '../features/sessions'
 
 // page = "어떤 Feature 를 배치할지" 결정 (조립만). 채팅 라이프사이클(랜딩 reset
 // / 첫 턴 후 URL upgrade) 은 셸의 `useChatRouteSync` 가 담당하므로 여기서는 별도
-// hook 호출 없이 순수 조립. 본 랜딩은 "허브" 모델 — transcript 없이 Composer +
-// 최근 대화 목록을 LEFT 컬럼에, 우측 컬럼에 지침/파일 사이드바. 첫 메시지 송신
-// 후엔 `useChatRouteSync` 가 `/chat/<id>` 로 upgrade.
+// hook 호출 없이 순수 조립.
 //
-// 레이아웃: 상단 풀-너비 HEADER + 12-col grid (xl 미만은 단일 컬럼 자연 스택).
-// LEFT col-span-7 / RIGHT col-span-5 로 viewport 비례 7:5 비율 유지 — w-[fixed]
-// 가 아닌 grid 비율 모델이어야 윈도우 폭과 무관하게 레퍼런스 비율이 보존된다.
+// 레이아웃 슬롯:
+// - HEADER (풀-너비): ProjectLandingHeader — "모든 프로젝트" 링크만.
+// - LEFT col-span-7: ProjectInfoHero (제목/지침/메타) → Composer → 세션 목록.
+// - RIGHT col-span-5: ProjectInstructionsSidebar (지침 + 파일 placeholder).
+// xl 미만(< 1280px)에서는 단일 컬럼 자연 스택. grid 비율 모델 채택 — 윈도우 폭과
+// 무관하게 레퍼런스의 7:5 비율(58:42) 유지.
 export function ProjectLandingPage(): React.JSX.Element {
   const { projectId = '' } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
@@ -21,10 +26,11 @@ export function ProjectLandingPage(): React.JSX.Element {
 
   return (
     <section className="flex min-w-0 flex-1 flex-col bg-bg">
-      <ProjectLandingHeader projectId={projectId} onBack={() => navigate('/projects')} />
+      <ProjectLandingHeader onBack={() => navigate('/projects')} />
       <div className="grid min-w-0 flex-1 grid-cols-1 xl:grid-cols-12">
         <main className="flex min-w-0 flex-col xl:col-span-7">
-          <div className="mx-auto w-full max-w-2xl space-y-6 px-6 py-6">
+          <div className="mx-auto w-full max-w-2xl space-y-6 px-6 py-8">
+            <ProjectInfoHero projectId={projectId} />
             <Composer chat={chat} backendLabel={backendLabel} />
             <ProjectSessionsPanel
               projectId={projectId}

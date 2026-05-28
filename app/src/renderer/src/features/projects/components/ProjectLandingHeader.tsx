@@ -1,39 +1,27 @@
 import { Icon } from '../../../shared/ui/Icon'
-import { useProjectsContext } from '../providers/ProjectsProvider'
 
 interface ProjectLandingHeaderProps {
-  projectId: string
   onBack: () => void
 }
 
-// 프로젝트 랜딩의 상단 영역 — 뒤로 가기 + 프로젝트 이름 + 지침 한 줄.
-// ProjectsContext 직접 구독 (intra-feature OK). page 는 projectId 만 wiring.
-export function ProjectLandingHeader({
-  projectId,
-  onBack
-}: ProjectLandingHeaderProps): React.JSX.Element {
-  const { list } = useProjectsContext()
-  const project = list.find((p) => p.id === projectId) ?? null
-
+// 프로젝트 랜딩 페이지 상단 풀-너비 navigation strip — "모든 프로젝트" 뒤로가기
+// 링크 하나만 노출. 프로젝트 제목/지침/메타는 LEFT 컬럼의 ProjectInfoHero 가
+// 담당한다 (목업 분리 결정).
+export function ProjectLandingHeader({ onBack }: ProjectLandingHeaderProps): React.JSX.Element {
   return (
-    <>
-      <div className="flex items-center gap-2 border-b border-border bg-bg/90 px-6 py-2.5 backdrop-blur">
-        <button
-          onClick={onBack}
-          className="flex cursor-pointer items-center gap-1 rounded-md border-0 bg-transparent px-1.5 py-1 text-[12px] text-ink2 hover:text-ink"
-        >
-          <Icon name="chevR" size={12} style={{ transform: 'rotate(180deg)' }} />
-          모든 프로젝트
-        </button>
-      </div>
-      <div className="border-b border-border px-6 pb-3 pt-4">
-        <h1 className="m-0 font-serif text-[22px] font-semibold tracking-[-0.01em] text-ink">
-          {project?.name ?? '…'}
-        </h1>
-        {project?.instructions.trim() ? (
-          <div className="mt-1 line-clamp-1 text-[12px] text-ink3">{project.instructions}</div>
-        ) : null}
-      </div>
-    </>
+    <header
+      role="navigation"
+      aria-label="프로젝트 탐색"
+      className="flex items-center gap-2 border-b border-border bg-bg/90 px-6 py-2.5 backdrop-blur"
+    >
+      <button
+        onClick={onBack}
+        aria-label="모든 프로젝트로 돌아가기"
+        className="flex cursor-pointer items-center gap-1 rounded-md border-0 bg-transparent px-1.5 py-1 text-[12px] text-ink2 transition-colors duration-150 hover:bg-panel/60 hover:text-ink focus-visible:ring-2 focus-visible:ring-rust focus-visible:ring-offset-1 focus-visible:outline-none"
+      >
+        <Icon name="chevR" size={12} style={{ transform: 'rotate(180deg)' }} />
+        모든 프로젝트
+      </button>
+    </header>
   )
 }
