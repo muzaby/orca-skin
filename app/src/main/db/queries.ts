@@ -252,11 +252,16 @@ export class DbQueries {
   }
 }
 
-// 사용자 입력을 FTS5 MATCH 식으로 quote. 큰따옴표는 escape, 양끝은 quote 로 감싸
-// AND / OR / NEAR / NOT / 콜론 등 FTS5 연산자를 모두 리터럴로 취급. 토큰화는
-// SQLite 의 unicode61 이 알아서 처리. trim 후 비면 null (호출자가 빈 결과 처리).
+// 사용자 입력을 FTS5 MATCH 식으로 변환. 공백 기준 토큰 분리 후 각 토큰을 quote 로
+// 감싸 AND / OR / NEAR / NOT / 콜론 등 FTS5 연산자를 리터럴로 취급. 모든 토큰에
+// `*` prefix wildcard 부착 — 사용자가 어느 토큰이든 미완성으로 타이핑 중일 수 있다는
+// 가정 (예: "함 호" → "함수 호출" 매칭). 짧은 토큰의 매치 폭증은 LIMIT + FTS5 rank
+// 정렬로 흡수. 토큰이 0개면 null (호출자가 빈 결과 처리).
 function toFtsMatch(raw: string): string | null {
-  const trimmed = raw.trim()
-  if (trimmed === '') return null
-  return '"' + trimmed.replace(/"/g, '""') + '"'
+  const tokens = raw
+    .trim()
+    .split(/\s+/)
+    .filter((t) => t !== '')
+  if (tokens.length === 0) return null
+  return tokens.map((t) => '"' + t.replace(/"/g, '""') + '"*').join(' ')
 }
