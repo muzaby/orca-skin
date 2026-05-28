@@ -17,7 +17,7 @@ export function ProjectInstructionsSidebar({
   const [editOpen, setEditOpen] = useState(false)
 
   return (
-    <aside className="flex w-[320px] flex-none flex-col border-l border-border bg-bg">
+    <div className="flex flex-col">
       <section className="border-b border-border px-5 py-4">
         <div className="mb-1.5 flex items-center">
           <div className="font-serif text-[13px] font-semibold text-ink">지침</div>
@@ -64,6 +64,6 @@ export function ProjectInstructionsSidebar({
           await update(projectId, { instructions })
         }}
       />
-    </aside>
+    </div>
   )
 }
