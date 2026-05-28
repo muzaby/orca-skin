@@ -1,18 +1,13 @@
+import { useState } from 'react'
 import { Icon } from '../../../shared/ui/Icon'
 import { Dot } from '../../../shared/ui/Status'
-import type { StatusTone } from '../../../shared/ui/Status'
+import type { McpServer } from '../../../../../shared/ipc'
+import { useMcpServers } from '../hooks/useMcpServers'
+import { AddMcpServerModal, type McpFormValues } from './AddMcpServerModal'
 
 interface Skill {
   name: string
   desc: string
-  enabled: boolean
-}
-
-interface Mcp {
-  name: string
-  cmd: string
-  tools: number
-  status: StatusTone
   enabled: boolean
 }
 
@@ -24,39 +19,26 @@ const SKILLS: Skill[] = [
   { name: 'color-checker', desc: 'X-Rite 차트 자동 검출 + ΔE 계산', enabled: false }
 ]
 
-const MCPS: Mcp[] = [
-  {
-    name: 'cam-board-mcp',
-    cmd: 'node ./mcp/board-server.js',
-    tools: 14,
-    status: 'green',
-    enabled: true
-  },
-  { name: 'github', cmd: 'mcp-server-github', tools: 8, status: 'green', enabled: true },
-  {
-    name: 'jira-validation',
-    cmd: 'mcp-jira --project=CAMVAL',
-    tools: 6,
-    status: 'amber',
-    enabled: false
-  }
-]
-
 function SectionHead({
   title,
   count,
-  action
+  action,
+  onAction
 }: {
   title: string
   count?: string
   action?: string
+  onAction?: () => void
 }): React.JSX.Element {
   return (
     <div className="mb-2.5 flex items-baseline gap-2.5">
       <span className="font-serif text-[16px] font-semibold text-ink">{title}</span>
       {count && <span className="text-[12px] text-ink3">{count}</span>}
       {action && (
-        <button className="ml-auto cursor-pointer border-0 bg-transparent text-[12px] font-medium text-rust">
+        <button
+          onClick={onAction}
+          className="ml-auto cursor-pointer border-0 bg-transparent text-[12px] font-medium text-rust"
+        >
           + {action}
         </button>
       )}
@@ -64,10 +46,13 @@ function SectionHead({
   )
 }
 
-function Toggle({ on }: { on: boolean }): React.JSX.Element {
+function Toggle({ on, onClick }: { on: boolean; onClick?: () => void }): React.JSX.Element {
   return (
-    <div
-      className={`relative h-[17px] w-[30px] flex-none cursor-pointer rounded-[9px] ${
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={on}
+      className={`relative h-[17px] w-[30px] flex-none cursor-pointer rounded-[9px] border-0 ${
         on ? 'bg-rust' : 'bg-border-strong'
       }`}
     >
@@ -75,7 +60,7 @@ function Toggle({ on }: { on: boolean }): React.JSX.Element {
         className="absolute top-[1.5px] h-[14px] w-[14px] rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,.2)] transition-[left] duration-150"
         style={{ left: on ? 14.5 : 1.5 }}
       />
-    </div>
+    </button>
   )
 }
 
@@ -92,7 +77,104 @@ function PermRow({ label, desc }: { label: string; desc: string }): React.JSX.El
   )
 }
 
+function commandLine(m: McpServer): string {
+  if (m.transport === 'stdio') {
+    return [m.command ?? '', ...m.args].filter((s) => s !== '').join(' ')
+  }
+  return m.url ?? ''
+}
+
+function McpRow({
+  m,
+  last,
+  onToggle,
+  onEdit,
+  onDelete
+}: {
+  m: McpServer
+  last: boolean
+  onToggle: () => void
+  onEdit: () => void
+  onDelete: () => void
+}): React.JSX.Element {
+  return (
+    <div className={`group/mcp px-3.5 py-3 ${last ? '' : 'border-b border-border'}`}>
+      <div className="flex items-center gap-2.5">
+        <Dot tone={m.enabled ? 'green' : 'slate'} />
+        <span className="font-mono text-[12.5px] font-semibold text-ink">{m.name}</span>
+        <span className="rounded bg-cream-50 px-1.5 py-0.5 text-[10px] uppercase text-ink3">
+          {m.transport}
+        </span>
+        <div className="ml-auto flex items-center gap-1.5">
+          <button
+            onClick={onEdit}
+            aria-label="편집"
+            className="hidden h-6 w-6 cursor-pointer place-items-center rounded border-0 bg-transparent text-ink3 hover:text-ink2 group-hover/mcp:grid"
+          >
+            <Icon name="edit" size={12} />
+          </button>
+          <button
+            onClick={onDelete}
+            aria-label="삭제"
+            className="hidden h-6 w-6 cursor-pointer place-items-center rounded border-0 bg-transparent text-ink3 hover:text-rust group-hover/mcp:grid"
+          >
+            <Icon name="trash" size={12} />
+          </button>
+          <Toggle on={m.enabled} onClick={onToggle} />
+        </div>
+      </div>
+      {m.description !== '' && (
+        <div className="mt-1 pl-[17px] text-[11.5px] text-ink2">{m.description}</div>
+      )}
+      <div className="mt-1 pl-[17px] font-mono text-[11px] text-ink2">{commandLine(m)}</div>
+    </div>
+  )
+}
+
 export function SkillsMcpView(): React.JSX.Element {
+  const { list, add, update, toggle, remove } = useMcpServers()
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editing, setEditing] = useState<McpServer | undefined>(undefined)
+
+  const enabledCount = list.filter((m) => m.enabled).length
+
+  const openAdd = (): void => {
+    setEditing(undefined)
+    setModalOpen(true)
+  }
+  const openEdit = (m: McpServer): void => {
+    setEditing(m)
+    setModalOpen(true)
+  }
+
+  const handleSave = async (v: McpFormValues): Promise<void> => {
+    if (editing) {
+      await update({
+        id: editing.id,
+        name: v.name,
+        description: v.description,
+        transport: v.transport,
+        command: v.command,
+        args: v.args,
+        authEnvKey: v.authEnvKey,
+        url: v.url,
+        ...(v.auth !== undefined ? { auth: v.auth } : {})
+      })
+    } else {
+      await add({
+        name: v.name,
+        description: v.description,
+        transport: v.transport,
+        enabled: true,
+        command: v.command,
+        args: v.args,
+        authEnvKey: v.authEnvKey,
+        url: v.url,
+        ...(v.auth !== undefined ? { auth: v.auth } : {})
+      })
+    }
+  }
+
   return (
     <section className="flex-1 overflow-auto px-8 pb-10 pt-6">
       <div className="flex items-baseline gap-3.5">
@@ -102,7 +184,7 @@ export function SkillsMcpView(): React.JSX.Element {
         <span className="text-[13px] text-ink3">Claude가 사용할 수 있는 도구</span>
       </div>
       <p className="mb-[22px] mt-1.5 text-[13.5px] text-ink2">
-        <b>cam-validation-v3</b> 프로젝트에 설치된 항목입니다.
+        활성화된 MCP 서버는 모든 대화에 공통으로 적용됩니다.
       </p>
 
       <div className="grid grid-cols-[1.2fr_1fr] gap-[22px]">
@@ -136,22 +218,29 @@ export function SkillsMcpView(): React.JSX.Element {
         </div>
 
         <div>
-          <SectionHead title="MCP 서버" count="2 / 3 연결됨" action="추가" />
+          <SectionHead
+            title="MCP 서버"
+            count={`${enabledCount} / ${list.length} 활성`}
+            action="추가"
+            onAction={openAdd}
+          />
           <div className="overflow-hidden rounded-xl border border-border bg-panel">
-            {MCPS.map((m, i) => (
-              <div
-                key={m.name}
-                className={`px-3.5 py-3 ${i < MCPS.length - 1 ? 'border-b border-border' : ''}`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <Dot tone={m.status} />
-                  <span className="font-mono text-[12.5px] font-semibold text-ink">{m.name}</span>
-                  <span className="ml-auto text-[11px] text-ink3">{m.tools} 툴</span>
-                  <Toggle on={m.enabled} />
-                </div>
-                <div className="mt-1 pl-[17px] font-mono text-[11px] text-ink2">{m.cmd}</div>
+            {list.length === 0 ? (
+              <div className="px-3.5 py-6 text-center text-[12.5px] text-ink3">
+                등록된 MCP 서버가 없습니다. “+ 추가”로 시작하세요.
               </div>
-            ))}
+            ) : (
+              list.map((m, i) => (
+                <McpRow
+                  key={m.id}
+                  m={m}
+                  last={i === list.length - 1}
+                  onToggle={() => void toggle(m.id, !m.enabled)}
+                  onEdit={() => openEdit(m)}
+                  onDelete={() => void remove(m.id)}
+                />
+              ))
+            )}
           </div>
 
           <div className="mt-[22px]">
@@ -164,6 +253,13 @@ export function SkillsMcpView(): React.JSX.Element {
           </div>
         </div>
       </div>
+
+      <AddMcpServerModal
+        open={modalOpen}
+        initial={editing}
+        onClose={() => setModalOpen(false)}
+        onSave={handleSave}
+      />
     </section>
   )
 }

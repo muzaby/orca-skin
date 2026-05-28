@@ -14,6 +14,7 @@ import {
   DeleteProjectSchema,
   ListProjectSessionsSchema,
   SearchMessagesRequestSchema,
+  DeleteMcpServerSchema,
   type BackendListResult,
   type ChatEvent,
   type FileEntry,
@@ -21,6 +22,7 @@ import {
   type LoadedMessage,
   type LoadedSession,
   type LoadedToolCall,
+  type McpServer,
   type Project,
   type SearchHit,
   type SessionListItem,
@@ -30,6 +32,7 @@ import {
 import { AdapterRegistry } from '../adapters/registry'
 import { Installer } from '../installer'
 import { SettingsStore } from '../settings/store'
+import { McpStore } from '../mcp/store'
 import { scanSkills } from '../skills/scan'
 import { listDir } from '../files/scan'
 import { initDb, type DbQueries } from '../db'
@@ -55,6 +58,7 @@ export class IpcRouter {
   private readonly installer = new Installer(this.registry)
   private readonly inflight = new Map<WebContents, InflightTurn>()
   readonly settings = new SettingsStore()
+  readonly mcp = new McpStore()
   // 부팅 시 1회 스캔하여 메모리에 캐시. fs.watch hot-reload 는 본 PR 범위 밖 (재시작).
   private skillsCache: SkillInfo[] = []
   // chat send 와 files list, session cwd 노출에서 모두 동일하게 사용하는 단일
@@ -91,6 +95,10 @@ export class IpcRouter {
     ipcMain.handle(CHANNELS.projectDelete, this.handleProjectDelete)
     ipcMain.handle(CHANNELS.projectListSessions, this.handleProjectListSessions)
     ipcMain.handle(CHANNELS.searchMessages, this.handleSearchMessages)
+    ipcMain.handle(CHANNELS.mcpList, this.handleMcpList)
+    ipcMain.handle(CHANNELS.mcpAdd, this.handleMcpAdd)
+    ipcMain.handle(CHANNELS.mcpUpdate, this.handleMcpUpdate)
+    ipcMain.handle(CHANNELS.mcpDelete, this.handleMcpDelete)
   }
 
   private sendChatEvent(wc: WebContents, ev: ChatEvent): void {
@@ -165,6 +173,9 @@ export class IpcRouter {
       turn.pendingUserText = null
     }
 
+    // 전역 MCP 설정 — 활성화된 서버를 query 옵션(mcpServers + allowedTools)으로 주입.
+    const mcpOptions = this.mcp.buildQueryOptions()
+
     const cwd = this.defaultCwd
     try {
       for await (const ev of adapter.sendMessage(
@@ -172,7 +183,8 @@ export class IpcRouter {
         parsed.data.text,
         cwd,
         controller.signal,
-        systemPromptAppend
+        systemPromptAppend,
+        mcpOptions
       )) {
         this.persist(turn, ev)
         this.sendChatEvent(event.sender, ev)
@@ -460,6 +472,26 @@ export class IpcRouter {
       createdAt: r.created_at,
       snippet: r.snippet
     }))
+  }
+
+  private handleMcpList = async (): Promise<McpServer[]> => {
+    return this.mcp.list()
+  }
+
+  private handleMcpAdd = async (_event: IpcMainInvokeEvent, raw: unknown): Promise<McpServer> => {
+    return this.mcp.add(raw)
+  }
+
+  private handleMcpUpdate = async (
+    _event: IpcMainInvokeEvent,
+    raw: unknown
+  ): Promise<McpServer | null> => {
+    return this.mcp.update(raw)
+  }
+
+  private handleMcpDelete = async (_event: IpcMainInvokeEvent, raw: unknown): Promise<void> => {
+    const parsed = DeleteMcpServerSchema.parse(raw)
+    this.mcp.remove(parsed.id)
   }
 }
 

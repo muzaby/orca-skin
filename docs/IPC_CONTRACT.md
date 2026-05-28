@@ -8,7 +8,7 @@
 ## 1. 명명 규칙
 
 - 형식: `orca:<domain>:<action>` — 소문자 + 콜론 구분
-- 도메인 (9개): `chat`, `backend`, `install`, `settings`, `skills`, `files`, `session`, `window`, `search`
+- 도메인 (11개): `chat`, `backend`, `install`, `settings`, `skills`, `files`, `session`, `project`, `window`, `search`, `mcp`
 - 방향:
   - Renderer → Main 요청: `ipcMain.handle` + `ipcRenderer.invoke` (Promise 반환)
   - Main → Renderer 이벤트: `webContents.send` + `ipcRenderer.on` (단방향 push)
@@ -16,9 +16,9 @@
 - 채널 상수: `app/src/shared/ipc.ts` 의 `CHANNELS` 객체. 문자열 리터럴 직접 사용 금지.
 - 입력 검증: 모든 `ipcMain.handle` 핸들러는 **zod 스키마 (`app/src/shared/protocol.ts`)** 로 페이로드 검증. 검증 실패 시 에러 throw.
 
-## 2. 채널 카탈로그 (총 24 채널)
+## 2. 채널 카탈로그 (총 28 채널)
 
-도메인별 분포: `chat` 3 · `backend` 1 · `install` 2 · `settings` 2 · `skills` 1 · `files` 1 · `session` 5 · `project` 5 · `window` 3 · `search` 1.
+도메인별 분포: `chat` 3 · `backend` 1 · `install` 2 · `settings` 2 · `skills` 1 · `files` 1 · `session` 5 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4.
 
 `app/src/shared/ipc.ts` 의 `CHANNELS` 상수와 1:1 일치.
 
@@ -141,7 +141,36 @@ interface SearchHit {
 - **실행 위치**: main thread 직접 (better-sqlite3 sync). FTS5 latency 가 단위 ms 라 worker thread 도입 보류 — 향후 perf 회귀 시 `utilityProcess` 로 위임 검토.
 - **렌더러 debounce**: 150ms + request id supersede 로 stale 응답 폐기.
 
-### 2.10 예약 / 미노출 채널
+### 2.10 MCP (Phase 3++)
+
+전역 MCP 서버 설정 CRUD. `/skills` 화면(`SkillsMcpView`)이 단일 호출자. 영속화는 electron-store (`orca-mcp`) — **인증 비밀은 Electron `safeStorage` 로 암호화**(base64 authEnc)해 저장하고, renderer 로는 raw secret 대신 보유 여부(`hasAuth`)만 노출한다. 활성화된 서버는 `handleChatSend` 가 `McpStore.buildQueryOptions()` 로 변환해 매 query 의 `mcpServers` + `allowedTools`(`mcp__<name>__*`) 옵션에 주입.
+
+| 채널 | 방향 | 페이로드 | 응답 | 설명 |
+|---|---|---|---|---|
+| `orca:mcp:list` | R→M (invoke) | — | `McpServer[]` | 전역 MCP 서버 목록 (DTO — 비밀 제외, `hasAuth` 포함). |
+| `orca:mcp:add` | R→M (invoke) | `CreateMcpServerRequest` | `McpServer` | 서버 추가. `name` 유일 + `^[A-Za-z0-9_-]+$`. transport 별 필수 필드 검증. |
+| `orca:mcp:update` | R→M (invoke) | `UpdateMcpServerRequest` = `{ id } & Partial<...>` | `McpServer \| null` | 부분 수정 (토글 enabled 포함). `auth` 미지정=유지, `''`=제거, 그 외=재암호화. |
+| `orca:mcp:delete` | R→M (invoke) | `DeleteMcpServerRequest` = `{ id }` | `Promise<void>` | 서버 삭제. |
+
+`McpServer` DTO (`app/src/shared/ipc.ts`):
+```typescript
+interface McpServer {
+  id: string
+  name: string
+  description: string
+  transport: 'stdio' | 'http'
+  enabled: boolean
+  command: string | null   // stdio
+  args: string[]           // stdio
+  authEnvKey: string | null // stdio — 인증값을 주입할 env 이름 (비밀 아님)
+  url: string | null       // http
+  hasAuth: boolean         // 인증 비밀 보유 여부 (raw 값은 main safeStorage 만 접근)
+}
+```
+
+transport→SDK 매핑: stdio → `{ command, args, env: { [authEnvKey]: secret } }`, http → `{ type:'http', url, headers: { Authorization: 'Bearer '+secret } }`.
+
+### 2.11 예약 / 미노출 채널
 
 코드에 채널 상수는 없지만 향후 도입이 예약된 도메인:
 

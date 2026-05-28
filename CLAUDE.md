@@ -9,7 +9,7 @@
 | `chats/` | 사용자 의도 트랜스크립트 (Claude Design 핸드오프) — *왜* 가 산다 | `chats/CLAUDE.md` |
 | `docs/` | PRD, TRD, 전략 문서 — *무엇을* / *어떻게* 가 산다 | `docs/CLAUDE.md` |
 | `project/` | HTML/CSS/JS 디자인 프로토타입 (variation A 채택) — *어떻게 보여야 하는가* | `project/CLAUDE.md` |
-| `app/` | Orca v1 실제 구현체 (electron-vite + React/TypeScript). Phase 3++ — 로컬 SQLite SSOT + 세션 히스토리 + DOM Architecture + 4-layer Feature 아키텍처 (`app/` · `pages/` · `features/` · `shared/`) + ESLint boundaries 강제 + URL/path 라우팅 (`app://` + BrowserRouter) + **Header 액션 5-버튼 툴바 + Sidebar brand/nav 재구성 + FTS5 대화 검색 모달**. | `app/CLAUDE.md` |
+| `app/` | Orca v1 실제 구현체 (electron-vite + React/TypeScript). Phase 3++ — 로컬 SQLite SSOT + 세션 히스토리 + DOM Architecture + 4-layer Feature 아키텍처 (`app/` · `pages/` · `features/` · `shared/`) + ESLint boundaries 강제 + URL/path 라우팅 (`app://` + BrowserRouter) + **Header 액션 5-버튼 툴바 + Sidebar brand/nav 재구성 + FTS5 대화 검색 모달 + MCP 서버 지원 (safeStorage 암호화)**. | `app/CLAUDE.md` |
 
 ## 새 세션 진입 시 읽는 순서
 
@@ -42,6 +42,7 @@
 | **Phase 3++ (Sidebar brand + nav 재구성 + Header 5-버튼 툴바)** | **완료** — Sidebar `app-frame-sidebar-brand` = 🐋 + "Orca" 로고 (newChatSlot 폐기). nav = 3-항목 (새 대화·프로젝트·자동화 placeholder). Header `app-frame-header-left` = 5-버튼 액션 툴바 (햄버거 popover + 종료 menuitem · 사이드바 접기 토글 · 검색 · 뒤로 · 앞으로). `NewChatButton.tsx` 삭제. shared/ui/Icon.tsx 에 clock·menu·arrowL·arrowR 추가. Popover 에 `placement: 'top' \| 'bottom'` 확장. |
 | **Phase 3++ (FTS5 대화 검색 모달)** | **완료** — `0003_messages_fts.sql` (FTS5 가상 테이블 + 3 트리거 + 백필), `orca:search:messages` IPC (`searchApi.messages`), `app/SearchModal.tsx` (150ms debounce + request id supersede + `<mark>` split-parse XSS 방어 + ↑↓/Enter/Esc), `toFtsMatch` 가 모든 토큰에 prefix wildcard `*` 부착. |
 | **Phase 3++ (활성 효과 URL 동기화)** | **완료** — `useSessionHandlers` 의 `currentSessionId` 를 `matchPath('/chat/:sessionId', pathname)` 로 도출. ChatContext.state.sessionId 의존 제거. Sidebar nav '새 대화' isActive 도 `p === '/new'` 로 좁힘. |
+| **Phase 3++ (MCP 서버 지원)** | **완료** — 사이드바 nav 4번째 'Skills & MCP'(`/skills`) 노출. `orca:mcp:*` 4채널 + `McpStore`(electron-store `orca-mcp`, 인증값 `safeStorage` 암호화). `SkillsMcpView` MCP 섹션 실데이터화 + `AddMcpServerModal`(stdio/streamable-http 2종). `handleChatSend` 가 활성 서버를 `query().options.mcpServers`+`allowedTools`(`mcp__<name>__*`) 에 주입. |
 | 후속 (CI 워크플로우·Vitest·i18n·`/routines` placeholder·Phase 4 Zustand+멀티세션·opencode 어댑터·캡처 실 구현·세션 휴지통 30일 보존) | Future Scope |
 
 ## 핵심 원칙 (모든 에이전트 공통)

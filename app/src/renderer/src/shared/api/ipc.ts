@@ -2,10 +2,12 @@ import type {
   Backend,
   BackendListResult,
   ChatEvent,
+  CreateMcpServerRequest,
   CreateProjectRequest,
   FileEntry,
   InstallStatus,
   LoadedSession,
+  McpServer,
   Project,
   SearchHit,
   SendChatMessage,
@@ -13,6 +15,7 @@ import type {
   Settings,
   SettingsPatch,
   SkillInfo,
+  UpdateMcpServerRequest,
   UpdateProjectRequest
 } from '../../../../shared/ipc'
 
@@ -76,6 +79,13 @@ export const windowApi = {
 export const searchApi = {
   messages: (q: string, limit?: number): Promise<SearchHit[]> =>
     window.orca.search.messages(q, limit)
+}
+
+export const mcpApi = {
+  list: (): Promise<McpServer[]> => window.orca.mcp.list(),
+  add: (req: CreateMcpServerRequest): Promise<McpServer> => window.orca.mcp.add(req),
+  update: (req: UpdateMcpServerRequest): Promise<McpServer | null> => window.orca.mcp.update(req),
+  delete: (id: string): Promise<void> => window.orca.mcp.delete(id)
 }
 
 // 플랫폼 식별자. preload 가 sync 노출하지만, 모듈 로드 시점에 window.orca 가

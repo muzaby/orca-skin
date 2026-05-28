@@ -122,6 +122,65 @@ export const SearchMessagesRequestSchema = z.object({
   limit: z.number().int().positive().max(100).optional()
 })
 
+// MCP 서버 설정 (전역). name 은 mcpServers record 의 key 가 되므로 SDK/CLI 가 허용하는
+// 식별자 문자만 (도구 이름 `mcp__<name>__<tool>` 의 일부로 들어간다). transport 별 필수
+// 필드를 superRefine 으로 검증한다. auth 는 평문 입력 — main 이 safeStorage 로 암호화 저장.
+const McpTransportSchema = z.enum(['stdio', 'http'])
+
+const McpServerBaseSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .min(1)
+    .max(64)
+    .regex(/^[A-Za-z0-9_-]+$/, 'name 은 영숫자 · _ · - 만 허용'),
+  description: z.string().max(500).default(''),
+  transport: McpTransportSchema,
+  enabled: z.boolean().default(true),
+  command: z.string().trim().max(500).optional(),
+  args: z.array(z.string().max(500)).max(64).optional(),
+  authEnvKey: z
+    .string()
+    .trim()
+    .max(128)
+    .regex(/^[A-Za-z_][A-Za-z0-9_]*$/, 'authEnvKey 는 환경변수 이름 규칙을 따라야 함')
+    .optional(),
+  url: z.string().trim().url().max(2000).optional(),
+  auth: z.string().max(4000).optional()
+})
+
+function refineMcpTransport(
+  data: { transport: 'stdio' | 'http'; command?: string; url?: string },
+  ctx: z.RefinementCtx
+): void {
+  if (data.transport === 'stdio' && (!data.command || data.command.trim() === '')) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'stdio 는 command 필수',
+      path: ['command']
+    })
+  }
+  if (data.transport === 'http' && (!data.url || data.url.trim() === '')) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'http 는 url 필수', path: ['url'] })
+  }
+}
+
+export const CreateMcpServerSchema = McpServerBaseSchema.superRefine(refineMcpTransport)
+
+export const UpdateMcpServerSchema = McpServerBaseSchema.partial()
+  .extend({ id: z.string().min(1) })
+  .superRefine((data, ctx) => {
+    // transport 가 주어진 경우에만 해당 필수 필드를 강제 (부분 수정 허용).
+    if (data.transport) {
+      refineMcpTransport(
+        data as { transport: 'stdio' | 'http'; command?: string; url?: string },
+        ctx
+      )
+    }
+  })
+
+export const DeleteMcpServerSchema = z.object({ id: z.string().min(1) })
+
 // Settings (TRD §6.7) — Phase 2+ 영속화. 깨진 디스크 데이터도 default 로 복원되도록
 // 모든 키에 default 를 지정한다.
 const WindowBoundsSchema = z.object({
@@ -195,5 +254,10 @@ export type {
   DeleteProjectRequest,
   ListProjectSessionsRequest,
   SearchMessagesRequest,
-  SearchHit
+  SearchHit,
+  McpTransport,
+  McpServer,
+  CreateMcpServerRequest,
+  UpdateMcpServerRequest,
+  DeleteMcpServerRequest
 } from './ipc'
