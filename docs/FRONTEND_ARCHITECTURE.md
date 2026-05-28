@@ -268,7 +268,7 @@ html[data-theme][data-platform]
             │   │   [data-state="expanded|collapsed"]
             │   │   ├── .app-frame-sidebar-body
             │   │   │   ├── .app-frame-sidebar-brand    (🐋 + "Orca" 브랜드 로고)
-            │   │   │   ├── nav.app-frame-sidebar-nav   (3-항목: 새 대화 · 프로젝트 · 자동화)
+            │   │   │   ├── nav.app-frame-sidebar-nav   (4-항목: 새 대화 · 프로젝트 · 자동화 · Skills & MCP)
             │   │   │   ├── .app-frame-sidebar-sessions
             │   │   │   └── .app-frame-sidebar-footer
             │   │   └── .app-frame-resize-handle          (aside 자식 — collapse 시 함께 사라짐)
@@ -617,19 +617,19 @@ useEffect(density): ──► document.documentElement.style.fontSize = DENSITY_
 | `projects` (`features/projects/components/ProjectsScreen.tsx`) | 02 프로젝트 | 프로젝트 | ✅ '프로젝트' | **✅ Phase 3 활성** | 카드 그리드 + 생성 다이얼로그. ProjectDetail 은 `pages/ProjectLandingPage.tsx` 단일 파일. |
 | `routines` (placeholder, 라우트 미정의) | 자동화 | — | ✅ '자동화' | **⏳ Phase 3++ 신설** | nav 항목만 추가, 라우트는 미정의 — `router.tsx` catch-all 이 `/new` 로 흡수. 후속 PR 에서 `pages/RoutinesPage.tsx` + 라우트 등록. |
 | `engine` (`features/engine/components/EngineView.tsx`) | 03 엔진 & 모델 | 설정 · 엔진 & 모델 | ❌ (URL 직접 진입) | 🚧 Phase 1 mockup | nav 에서 빠짐 (Phase 3++ 재구성). 라우트 `/engine` 는 살아 있음. |
-| `skills` (`features/skills/components/SkillsMcpView.tsx`) | 04 Skills / MCP | 설정 · Skills & MCP | ❌ (URL 직접 진입) | 🚧 Phase 1 mockup + Phase 2 부분 활성 | nav 에서 빠짐. Skills 목록 스캔은 Composer 자동완성에 그대로 활성. |
+| `skills` (`features/skills/components/SkillsMcpView.tsx`) | 04 Skills / MCP | 설정 · Skills & MCP | ✅ 'Skills & MCP' | **✅ Phase 3++ MCP 활성** | nav 4번째 항목으로 노출. **MCP 섹션 실 연동** (`useMcpServers` + `orca:mcp:*` + `AddMcpServerModal` 추가/편집/토글/삭제, 전역 적용). Skills(좌측)·권한 섹션은 여전히 mockup. |
 | (Tweaks Panel) `shared/ui/TweaksPanel.tsx` | (플로팅 패널 — `#app-frame-debug` 슬롯) | — | — | **✅ Phase 2+ 영속** | theme / density / sidebarCollapsed / sidebarWidth — electron-store 동기화. |
 | (SearchModal) `app/SearchModal.tsx` | (모달 — `#app-frame-modal` 슬롯) | — | — | **✅ Phase 3++ 활성** | FTS5 대화 검색. Header 검색 버튼 → `searchOpen` lift → OverlayLayer conditional mount. |
 
 > **CameraView** 와 **CapturesView** 는 `features/camera/` · `features/captures/` 에 존재하지만 도메인 카탈로그에서 제외 (GLOSSARY §3 사용자 결정). Sidebar nav 에도 없음.
 >
-> **Sidebar nav 재구성 (Phase 3++)**: nav 노출은 3-항목 (새 대화·프로젝트·자동화) 으로 축소. engine/skills/captures 는 *라우트가 살아 있으나 nav 미노출* — URL 직접 진입 또는 향후 nav 복귀 가능.
+> **Sidebar nav 재구성 (Phase 3++)**: nav 노출은 4-항목 (새 대화·프로젝트·자동화·Skills & MCP). engine/captures 는 *라우트가 살아 있으나 nav 미노출* — URL 직접 진입 또는 향후 nav 복귀 가능. (skills 는 MCP 지원 도입과 함께 nav 복귀.)
 
 ### 8.1 Future Scope 도메인의 IPC 연결 시점
 
 - **Projects**: Phase 3+ 로컬 DB 도입 (BACKEND §6) 과 함께. 세션을 프로젝트별로 그룹화하는 메타데이터.
 - **EngineSettings**: Phase 3+ 어댑터별 자격증명 저장 (BACKEND §8) 과 함께. base URL + API key 입력 UI.
-- **SkillsMcp 권한·MCP**: Phase 4+ SDK 고급 기능 (`options.permissionMode` / `mcpServers`) 도입 시. PRD OQ9 미정.
+- **SkillsMcp — MCP 서버**: ✅ Phase 3++ 구현 완료 — `orca:mcp:*` CRUD + `McpStore`(safeStorage) + `handleChatSend` 가 `query().options.mcpServers`+`allowedTools` 주입 (전역). 권한 섹션 + Skills 좌측 토글 + `options.permissionMode`/`canUseTool` 는 Phase 4+ (PRD OQ9 미정).
 
 ---
 
@@ -706,9 +706,10 @@ Main 이 `AbortSignal` 을 SDK `query()` 에 전파 → 현재 inflight 만 중�
 | **Header 액션 5-버튼 툴바** | Phase 3++ | ✅ 완료 | menu (popover · 종료 menuitem → windowApi.close) · panelL (사이드바 접기 토글) · search (대화 검색 모달) · arrowL/arrowR (navigate ∓1, 항상 enabled). HeaderProps `onOpenSearch` prop 만 노출. |
 | **FTS5 대화 검색 모달** | Phase 3++ | ✅ 완료 | `0003_messages_fts.sql` 마이그레이션 (가상 테이블 + 3 트리거 + 백필). `orca:search:messages` IPC (IPC_CONTRACT §2.9). `app/SearchModal.tsx` (150ms debounce + request id supersede + `<mark>` split-parse XSS 방어). `toFtsMatch` 가 모든 토큰에 prefix wildcard `*` 부착. |
 | **활성 효과 URL 동기화** | Phase 3++ | ✅ 완료 | `useSessionHandlers` 의 `currentSessionId` 를 `matchPath('/chat/:sessionId', pathname)` 로 도출 — `ChatContext.state.sessionId` 의존 제거 (캐시/IPC 용도로만 잔존). Sidebar nav '새 대화' isActive 도 `p === '/new'` 로 좁힘. |
+| **MCP 서버 지원 + nav Skills & MCP 항목** | Phase 3++ | ✅ 완료 | nav 4번째 항목 'Skills & MCP'(`/skills`) 신설. `SkillsMcpView` MCP 섹션 실 연동 (`useMcpServers` + `orca:mcp:*` 4채널 + `AddMcpServerModal` stdio/http). `McpStore`(electron-store `orca-mcp`, 인증값 `safeStorage` 암호화). `handleChatSend` 가 활성 서버를 `query().options.mcpServers`+`allowedTools`(`mcp__<name>__*`) 에 전역 주입. |
 | Projects 화면 | Phase 1 | 🚧 mockup 만 | Future Scope |
 | EngineSettings 화면 | Phase 1 | 🚧 mockup 만 | Phase 3+ 자격증명 UI 와 통합 예정 |
-| SkillsMcp 화면 (권한·MCP 토글) | Phase 1 | 🚧 mockup 만 | Phase 4+ |
+| SkillsMcp 화면 — Skills 좌측·권한 토글 | Phase 1 | 🚧 mockup 만 (MCP 섹션은 Phase 3++ 실 연동) | Phase 4+ (`canUseTool`/`permissionMode`) |
 | 메시지 가상 스크롤 | TBD | ❌ 미구현 | 임계값·라이브러리 미정 |
 | 멀티세션 UI | Phase 4 | ❌ 미구현 | §5 확장점 anchor |
 | 키보드 단축키 (Cmd/Ctrl+N 등) | Future | ❌ 미구현 | OQ 추가 후보 |

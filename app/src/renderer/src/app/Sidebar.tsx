@@ -16,7 +16,8 @@ interface NavItem {
 const NAV: NavItem[] = [
   { i: 'plus', l: '새 대화', path: '/new', isActive: (p) => p === '/new' },
   { i: 'folder', l: '프로젝트', path: '/projects', isActive: (p) => p.startsWith('/projects') },
-  { i: 'clock', l: '자동화', path: '/routines', isActive: (p) => p.startsWith('/routines') }
+  { i: 'clock', l: '자동화', path: '/routines', isActive: (p) => p.startsWith('/routines') },
+  { i: 'layers', l: 'Skills & MCP', path: '/skills', isActive: (p) => p.startsWith('/skills') }
 ]
 
 const SECTION_HEAD =

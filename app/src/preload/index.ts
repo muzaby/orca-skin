@@ -4,10 +4,12 @@ import {
   type Backend,
   type BackendListResult,
   type ChatEvent,
+  type CreateMcpServerRequest,
   type CreateProjectRequest,
   type FileEntry,
   type InstallStatus,
   type LoadedSession,
+  type McpServer,
   type Project,
   type SearchHit,
   type SendChatMessage,
@@ -15,6 +17,7 @@ import {
   type Settings,
   type SettingsPatch,
   type SkillInfo,
+  type UpdateMcpServerRequest,
   type UpdateProjectRequest
 } from '../shared/ipc'
 
@@ -85,6 +88,14 @@ const orca = {
   search: {
     messages: (q: string, limit?: number): Promise<SearchHit[]> =>
       ipcRenderer.invoke(CHANNELS.searchMessages, { q, limit })
+  },
+  mcp: {
+    list: (): Promise<McpServer[]> => ipcRenderer.invoke(CHANNELS.mcpList),
+    add: (req: CreateMcpServerRequest): Promise<McpServer> =>
+      ipcRenderer.invoke(CHANNELS.mcpAdd, req),
+    update: (req: UpdateMcpServerRequest): Promise<McpServer | null> =>
+      ipcRenderer.invoke(CHANNELS.mcpUpdate, req),
+    delete: (id: string): Promise<void> => ipcRenderer.invoke(CHANNELS.mcpDelete, { id })
   },
   // 데스크톱 플랫폼 식별자. renderer 의 `<html data-platform>` 에 부착되고,
   // WinControls 가 macOS 에서 null 을 반환하는 분기 등에 사용.

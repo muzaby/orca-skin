@@ -26,7 +26,11 @@ export const CHANNELS = {
   windowMinimize: 'orca:window:minimize',
   windowMaximize: 'orca:window:maximize',
   windowClose: 'orca:window:close',
-  searchMessages: 'orca:search:messages'
+  searchMessages: 'orca:search:messages',
+  mcpList: 'orca:mcp:list',
+  mcpAdd: 'orca:mcp:add',
+  mcpUpdate: 'orca:mcp:update',
+  mcpDelete: 'orca:mcp:delete'
 } as const
 
 // Backend (Phase 2: claude-code 단일. opencode 는 future work)
@@ -219,4 +223,57 @@ export interface SearchHit {
   // SQLite snippet() 가 생성한 `<mark>…</mark>` 포함 발췌. 렌더러는 split-parse 후
   // React 노드로 재구성 (innerHTML 사용 금지 — XSS 방어).
   snippet: string
+}
+
+// MCP 서버 설정 (전역) — claude-agent-sdk query 의 mcpServers / allowedTools 로 주입.
+// stdio: 로컬 프로세스 (command + args). http: streamable HTTP 엔드포인트 (url).
+export type McpTransport = 'stdio' | 'http'
+
+// renderer 로 노출되는 DTO. 인증 비밀(authEnc)은 절대 포함하지 않고 보유 여부(hasAuth)만 전달.
+export interface McpServer {
+  id: string
+  name: string
+  description: string
+  transport: McpTransport
+  enabled: boolean
+  // stdio
+  command: string | null
+  args: string[]
+  // 인증값을 주입할 환경변수 이름 (stdio 전용, 비밀 아님)
+  authEnvKey: string | null
+  // http
+  url: string | null
+  // 인증 비밀 보유 여부 (raw 값은 main 만 safeStorage 복호화로 접근)
+  hasAuth: boolean
+}
+
+// 생성/수정 요청 — 비밀값(auth)은 평문으로 전달되며 main 이 safeStorage 로 암호화 저장.
+// auth 가 undefined 면 비밀 미변경(수정 시 기존 유지), 빈 문자열이면 비밀 제거.
+export interface CreateMcpServerRequest {
+  name: string
+  description: string
+  transport: McpTransport
+  enabled: boolean
+  command?: string
+  args?: string[]
+  authEnvKey?: string
+  url?: string
+  auth?: string
+}
+
+export interface UpdateMcpServerRequest {
+  id: string
+  name?: string
+  description?: string
+  transport?: McpTransport
+  enabled?: boolean
+  command?: string
+  args?: string[]
+  authEnvKey?: string
+  url?: string
+  auth?: string
+}
+
+export interface DeleteMcpServerRequest {
+  id: string
 }

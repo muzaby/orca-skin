@@ -5,7 +5,7 @@
 import { createRequire } from 'node:module'
 import { query, type SDKMessage } from '@anthropic-ai/claude-agent-sdk'
 import type { ChatEvent } from '../../shared/ipc'
-import type { SessionAdapter } from './types'
+import type { McpQueryOptions, SessionAdapter } from './types'
 
 const requireFn = createRequire(import.meta.url)
 
@@ -147,7 +147,8 @@ export class ClaudeCodeAdapter implements SessionAdapter {
     text: string,
     cwd: string,
     signal?: AbortSignal,
-    systemPromptAppend?: string
+    systemPromptAppend?: string,
+    mcp?: McpQueryOptions
   ): AsyncIterable<ChatEvent> {
     const abortController = new AbortController()
     const onAbort = (): void => abortController.abort()
@@ -168,6 +169,14 @@ export class ClaudeCodeAdapter implements SessionAdapter {
           }
         : {}
 
+    // 활성화된 MCP 서버가 있을 때만 mcpServers + allowedTools 를 주입한다. allowedTools 는
+    // `mcp__<name>__*` 와일드카드로 서버 전체 도구를 자동 허용 — Orca 엔 canUseTool 핸들러가
+    // 없어 (Phase 4 anchor) 미허용 시 도구 호출이 멈추기 때문.
+    const mcpOption =
+      mcp && Object.keys(mcp.servers).length > 0
+        ? { mcpServers: mcp.servers, allowedTools: mcp.allowedTools }
+        : {}
+
     try {
       for await (const msg of query({
         prompt: text,
@@ -176,7 +185,8 @@ export class ClaudeCodeAdapter implements SessionAdapter {
           includePartialMessages: true,
           cwd,
           abortController,
-          ...systemPromptOption
+          ...systemPromptOption,
+          ...mcpOption
           // permissionMode / canUseTool / hooks: Phase 4 anchor (OQ9)
         }
       })) {
