@@ -33,18 +33,16 @@ export function ProjectSessionsPanel({
   }, [refreshOnTurnEnd])
 
   return (
-    <div className="flex max-h-[180px] flex-none flex-col border-t border-border bg-sidebar">
-      <div className="flex items-baseline gap-2 px-4 pb-1 pt-3">
-        <div className="font-serif text-[11px] font-semibold uppercase tracking-[0.04em] text-ink3">
-          이 프로젝트의 대화
-        </div>
+    <section className="flex flex-col">
+      <div className="mb-2 flex items-baseline gap-2 px-1">
+        <div className="font-serif text-[13px] font-semibold text-ink">이 프로젝트의 대화</div>
         <div className="text-[11px] text-ink3">
           {sessions.loading ? '불러오는 중…' : `${sessions.list.length}개`}
         </div>
       </div>
-      <div className="flex-1 overflow-y-auto px-1.5 pb-2">
+      <div className="flex flex-col">
         {!sessions.loading && sessions.list.length === 0 ? (
-          <div className="px-2.5 py-2 text-[11.5px] text-ink3">
+          <div className="rounded-lg border border-dashed border-border bg-panel/40 px-4 py-6 text-center text-[12px] leading-[1.55] text-ink3">
             아직 이 프로젝트에 속한 대화가 없습니다. 위 입력창에서 첫 메시지를 보내보세요.
           </div>
         ) : (
@@ -66,6 +64,6 @@ export function ProjectSessionsPanel({
           ))
         )}
       </div>
-    </div>
+    </section>
   )
 }
