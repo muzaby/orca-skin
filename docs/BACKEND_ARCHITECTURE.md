@@ -398,6 +398,8 @@ new BrowserWindow({
 | 로그 / 에러 메시지 노출 | **절대 금지** — 마스킹 의무 |
 | Linux 추가 의존성 | libsecret 필요 (배포 시 의존성 명시) |
 
+> **첫 실사용처 (Phase 3++ — MCP 서버 설정)**: 전역 MCP 서버 설정의 인증값(stdio API 키 / http Bearer 토큰)이 본 모델의 첫 구현이다. **저장 위치는 electron-store + safeStorage 조합**으로 결정 — `src/main/mcp/store.ts` 의 `McpStore` 가 `orca-mcp` 스토어에 평문 대신 `safeStorage.encryptString` → base64(`authEnc`)로만 저장하고, renderer DTO(`McpServer`)는 raw secret 대신 보유 여부(`hasAuth`)만 노출한다. 복호화는 `buildQueryOptions()` 가 query 직전에만 수행(메모리 단기 체류). `isEncryptionAvailable()` 이 false 면 인증값 저장을 거부(에러)하되, 인증 없는 서버 등록은 허용. EngineSettings 의 어댑터별 base URL/API key 는 동일 패턴을 따른다(후속).
+
 ### 8.5 외부 콘텐츠 처리
 
 - 마크다운 렌더링: react-markdown 기본값 (raw HTML 비활성). 이미지는 data-uri 만 허용.
