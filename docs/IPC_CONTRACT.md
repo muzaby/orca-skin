@@ -8,7 +8,7 @@
 ## 1. 명명 규칙
 
 - 형식: `orca:<domain>:<action>` — 소문자 + 콜론 구분
-- 도메인 (8개): `chat`, `backend`, `install`, `settings`, `skills`, `files`, `session`, `window`
+- 도메인 (9개): `chat`, `backend`, `install`, `settings`, `skills`, `files`, `session`, `window`, `search`
 - 방향:
   - Renderer → Main 요청: `ipcMain.handle` + `ipcRenderer.invoke` (Promise 반환)
   - Main → Renderer 이벤트: `webContents.send` + `ipcRenderer.on` (단방향 push)
@@ -16,7 +16,9 @@
 - 채널 상수: `app/src/shared/ipc.ts` 의 `CHANNELS` 객체. 문자열 리터럴 직접 사용 금지.
 - 입력 검증: 모든 `ipcMain.handle` 핸들러는 **zod 스키마 (`app/src/shared/protocol.ts`)** 로 페이로드 검증. 검증 실패 시 에러 throw.
 
-## 2. 채널 카탈로그 (Phase 2 활성 11 + Phase 3+ window 3 = 14 채널)
+## 2. 채널 카탈로그 (총 24 채널)
+
+도메인별 분포: `chat` 3 · `backend` 1 · `install` 2 · `settings` 2 · `skills` 1 · `files` 1 · `session` 5 · `project` 5 · `window` 3 · `search` 1.
 
 `app/src/shared/ipc.ts` 의 `CHANNELS` 상수와 1:1 일치.
 
@@ -82,6 +84,20 @@ interface Settings {
 | 채널 | 방향 | 페이로드 | 응답 | 설명 |
 |---|---|---|---|---|
 | `orca:session:cwd` | R→M (invoke) | — | `Promise<string>` | 현재 작업 디렉토리. 파일 자동완성·`init` 이벤트의 `cwd` 검증용. |
+| `orca:session:list` | R→M (invoke) | — | `SessionListItem[]` | 사이드바 '최근 대화' 메타 목록. DB SSOT — `updatedAt` 내림차순. |
+| `orca:session:load` | R→M (invoke) | `LoadSessionRequest` = `{ sessionId: string }` | `LoadedSession \| null` | 세션 메시지 + 툴콜 일괄 로드. Phase 3 lazy load 진입점. |
+| `orca:session:delete` | R→M (invoke) | `DeleteSessionRequest` = `{ sessionId: string }` | `Promise<void>` | hard delete (CASCADE — messages/tool_calls 동반 삭제). `lastSessionId` 가 대상이면 settings 도 해제. |
+| `orca:session:rename` | R→M (invoke) | `RenameSessionRequest` = `{ sessionId: string; title: string }` | `Promise<void>` | title 덮어쓰기 + `updatedAt` 갱신. title 길이 1–120 자. |
+
+### 2.7-b Project (Phase 3)
+
+| 채널 | 방향 | 페이로드 | 응답 | 설명 |
+|---|---|---|---|---|
+| `orca:project:list` | R→M (invoke) | — | `Project[]` | 모든 프로젝트, `updatedAt` 내림차순. |
+| `orca:project:create` | R→M (invoke) | `CreateProjectRequest` = `{ name: string; instructions: string }` | `Project` | 생성 + 신규 row 반환. name 1–120 자, instructions 최대 8000 자. |
+| `orca:project:update` | R→M (invoke) | `UpdateProjectRequest` = `{ id: string; name?: string; instructions?: string }` | `Promise<void>` | 부분 업데이트. null 인자는 기존 값 유지. |
+| `orca:project:delete` | R→M (invoke) | `{ id: string }` | `Promise<void>` | ON DELETE SET NULL — sessions.project_id 정리. 세션 자체는 보존. |
+| `orca:project:listSessions` | R→M (invoke) | `ListProjectSessionsRequest` = `{ projectId: string }` | `SessionListItem[]` | 프로젝트 소속 세션만. |
 
 ### 2.8 Window (Phase 3+)
 
@@ -98,17 +114,44 @@ interface Settings {
 - **핸들러 위치**: `app/src/main/index.ts` 의 `createWindow` 내부 (router 가 아닌 직접 부착 — 윈도우 인스턴스 직접 참조 필요).
 - **`window.orca.platform`** (sync 노출): `'darwin' | 'win32' | 'linux'`. `<html data-platform>` 부착 + WinControls 플랫폼 분기에 사용.
 
-### 2.9 예약 / 미노출 채널
+### 2.9 Search (Phase 3++)
+
+대화 이력 전체 검색. Header 의 검색 버튼이 여는 `SearchModal` 이 단일 호출자. 백엔드는 SQLite FTS5 가상 테이블 (`messages_fts`) — `0003_messages_fts.sql` 마이그레이션이 INSERT/UPDATE/DELETE 트리거로 `messages` 와 동기 유지.
+
+| 채널 | 방향 | 페이로드 | 응답 | 설명 |
+|---|---|---|---|---|
+| `orca:search:messages` | R→M (invoke) | `SearchMessagesRequest` = `{ q: string; limit?: number }` (q: 1–200자, limit: 1–100, default 30) | `SearchHit[]` | FTS5 검색. 결과는 rank 정렬, 최대 `limit` 개. |
+
+`SearchHit` 타입 (`app/src/shared/ipc.ts`):
+```typescript
+interface SearchHit {
+  messageId: number
+  sessionId: string
+  sessionTitle: string | null
+  role: 'user' | 'assistant'
+  createdAt: number
+  // SQLite snippet() 가 생성한 `<mark>…</mark>` 포함 발췌. 렌더러는 split-parse 후
+  // React 노드로 재구성 (innerHTML 우회로 XSS 방어).
+  snippet: string
+}
+```
+
+추가:
+- **입력어 prefix 매칭**: `toFtsMatch` (`app/src/main/db/queries.ts`) 가 공백 토큰 분리 후 *모든 토큰* 에 `*` wildcard 부착 (예: `진행 중` → `"진행"* "중"*`). 어느 토큰이든 미완성으로 타이핑 중일 수 있다는 가정. 짧은 토큰의 매치 폭증은 LIMIT + FTS5 rank 정렬로 흡수.
+- **실행 위치**: main thread 직접 (better-sqlite3 sync). FTS5 latency 가 단위 ms 라 worker thread 도입 보류 — 향후 perf 회귀 시 `utilityProcess` 로 위임 검토.
+- **렌더러 debounce**: 150ms + request id supersede 로 stale 응답 폐기.
+
+### 2.10 예약 / 미노출 채널
 
 코드에 채널 상수는 없지만 향후 도입이 예약된 도메인:
 
 | 도메인 | 도입 시점 | 채택 결정 |
 |---|---|---|
 | `backend:select` | opencode 어댑터 활성화 시 | 단일 백엔드라 현재 미노출 |
-| `message:*` (list / append / delete) | **Phase 3+** 과거 대화 목록 도입 시 | BACKEND_ARCHITECTURE.md §6 의 로컬 DB 채택과 함께 |
-| `session:list` / `session:load` / `session:delete` | **Phase 3+** | `SessionAdapter.listSessions?()` / `loadSession?()` 옵셔널 메서드 노출 |
+| `message:*` (개별 append / delete 등) | **Future** | 현재는 chat 턴 단위로 main 이 일괄 persist — 개별 메시지 조작 API 필요 시 도입 |
 | `credentials:set` / `credentials:hasKey` | **Phase 3+** | safeStorage 자격증명 저장 (BACKEND §8) |
 | `skills:reload` | **Future** | 핫리로드 도입 시 |
+| `routines:*` | **Future** | Sidebar nav 의 `/routines` placeholder 가 활성 페이지로 승격될 때 |
 
 ## 3. ChatEvent variant 정의
 

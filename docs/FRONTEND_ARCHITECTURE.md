@@ -256,7 +256,7 @@ html[data-theme][data-platform]
     └── .app-frame-root                                  (flex column, 셸 컨테이너)
         ├── header.app-frame-header                       (drag 2-layer)
         │   ├── div[data-behavior="drag-region"]         (absolute inset-0)
-        │   ├── .app-frame-header-left  [no-drag]        (brand · breadcrumb)
+        │   ├── .app-frame-header-left  [no-drag]        (5-버튼 툴바: menu · panelL · search · arrowL · arrowR)
         │   ├── .app-frame-header-center                 (drag 유지)
         │   └── .app-frame-header-right [no-drag]
         │       └── .app-frame-window-controls           (Win/Linux 만, macOS 는 null)
@@ -267,8 +267,8 @@ html[data-theme][data-platform]
             │   │   [data-behavior="collapsible resizable"]
             │   │   [data-state="expanded|collapsed"]
             │   │   ├── .app-frame-sidebar-body
-            │   │   │   ├── .app-frame-sidebar-brand
-            │   │   │   ├── nav.app-frame-sidebar-nav
+            │   │   │   ├── .app-frame-sidebar-brand    (🐋 + "Orca" 브랜드 로고)
+            │   │   │   ├── nav.app-frame-sidebar-nav   (3-항목: 새 대화 · 프로젝트 · 자동화)
             │   │   │   ├── .app-frame-sidebar-sessions
             │   │   │   └── .app-frame-sidebar-footer
             │   │   └── .app-frame-resize-handle          (aside 자식 — collapse 시 함께 사라짐)
@@ -284,7 +284,7 @@ html[data-theme][data-platform]
             │                       └── .app-frame-composer-repo  [data-behavior="dismissible"]
             │
             ├── #app-frame-overlay   z=-10 ↔ 10           (modal backdrop: blur + dim + pointer block)
-            ├── #app-frame-modal     z=-20 ↔ 20           (focus-trap 컨테이너)
+            ├── #app-frame-modal     z=-20 ↔ 20           (focus-trap 컨테이너 — InstallerDialog · AuthExpiredModal · SearchModal)
             └── #app-frame-debug     z=30                 (TweaksPanel 등 개발 보조 floating UI)
 ```
 
@@ -352,6 +352,7 @@ resize-handle 은 `aside` 형제가 아니라 **자식**으로 둔다.
 | composer send/cancel 버튼 | `data-behavior` | `action:send` / `action:cancel-turn` |
 | `.app-frame-session-row` | `data-context` / `data-state` / `data-behavior` | `session` / `active\|inactive` / `interactive selectable\|interactive renaming` |
 | `.app-frame-floating` (Popover / SkillAutocomplete / FileAutocomplete) | `data-context` / `data-behavior` | `floating` / `dismissible` |
+| `.app-frame-search-modal` (SearchModal 패널) | `data-context` / `data-behavior` | `modal` / `focus-trap` |
 | `#app-frame-overlay` | `data-state` / `data-context` | `visible\|hidden` / `overlay` |
 | `#app-frame-modal` | `data-behavior` / `data-state` / `data-context` | `focus-trap blocks-interaction` / `visible\|hidden` / `modal` |
 | `#app-frame-debug` | `data-context` | `debug` |
@@ -547,6 +548,7 @@ useEffect(density): ──► document.documentElement.style.fontSize = DENSITY_
 - IPC: `window.orca.window.{minimize,maximize,close}()` 3개 (IPC_CONTRACT §2.8).
 - macOS 분기: `WinControls` 가 `window.orca.platform === 'darwin'` 일 때 `null` 반환 — OS traffic light 가 그린다. 헤더 좌측 패딩 80px 로 traffic light 영역 회피.
 - drag 영역: `[-webkit-app-region:drag]` inline 클래스 대신 `style={{ WebkitAppRegion: 'drag' }}` (§3.3.3 의 2-layer 패턴).
+- **header-left 내용물 (Phase 3++)**: 액션 5-버튼 툴바 — `menu` (시스템 메뉴 popover · 자식 `종료` → `windowApi.close()`) · `panelL` (사이드바 접기 토글 · `setTweak('sidebarCollapsed', !current)`) · `search` (대화 검색 모달 열기 — `SearchModal`) · `arrowL` / `arrowR` (`navigate(-1)` / `navigate(1)` 항상 enabled, 추적 없음). 모든 버튼은 `data-behavior="no-drag"` 영역 안. 기존 brand + breadcrumb 표시는 제거 (브랜드는 Sidebar 의 `app-frame-sidebar-brand` 로 이동).
 
 ---
 
@@ -609,15 +611,19 @@ useEffect(density): ──► document.documentElement.style.fontSize = DENSITY_
 
 `shared/navigation/routes.ts` 의 path 카탈로그 + Tweaks 패널을 화면 단위로 정리.
 
-| ID / 컴포넌트 | 화면 라벨 | breadcrumb | Phase 상태 | 비고 |
-|---|---|---|---|---|
-| `chat` (`features/chat/components/ChatTile.tsx`) | 01 채팅 | (없음) | **✅ Phase 1·2 활성** | 실 IPC 연결됨. Composer 자동완성·ToolCard·Markdown·CodeBlock 모두 구현. transcript 메시지 컴포넌트는 `features/chat/components/transcript/`. |
-| `projects` (`features/projects/components/ProjectsScreen.tsx`) | 02 프로젝트 | 프로젝트 | **✅ Phase 3 활성** | 카드 그리드 + 생성 다이얼로그. ProjectDetail 은 PR #29 에서 `pages/ProjectLandingPage.tsx` 단일 파일로 통합 (헤더 + ChatTile + 세션 패널 + 지침 사이드바). |
-| `engine` (`features/engine/components/EngineView.tsx`) | 03 엔진 & 모델 | 설정 · 엔진 & 모델 | 🚧 Phase 1 mockup | 엔진/모델 카드 시각만. **Phase 3+ 도입 예정**: 어댑터별 base URL + API key 입력 UI 의 호스트 (BACKEND §8). |
-| `skills` (`features/skills/components/SkillsMcpView.tsx`) | 04 Skills / MCP | 설정 · Skills & MCP | 🚧 Phase 1 mockup + Phase 2 부분 활성 | 시각은 mockup. Skills 목록 스캔 (`shared/hooks/useSkills`) 은 Composer 자동완성에 활성. 권한·MCP 토글은 Future. |
-| (Tweaks Panel) `shared/ui/TweaksPanel.tsx` | (플로팅 패널 — `#app-frame-debug` 슬롯) | — | **✅ Phase 2+ 영속** | theme / density / sidebarCollapsed / sidebarWidth — electron-store 동기화. |
+| ID / 컴포넌트 | 화면 라벨 | breadcrumb | Sidebar nav | Phase 상태 | 비고 |
+|---|---|---|---|---|---|
+| `chat` (`features/chat/components/ChatTile.tsx`) | 01 채팅 | (없음) | ✅ '새 대화' | **✅ Phase 1·2 활성** | 실 IPC 연결됨. Composer 자동완성·ToolCard·Markdown·CodeBlock 모두 구현. |
+| `projects` (`features/projects/components/ProjectsScreen.tsx`) | 02 프로젝트 | 프로젝트 | ✅ '프로젝트' | **✅ Phase 3 활성** | 카드 그리드 + 생성 다이얼로그. ProjectDetail 은 `pages/ProjectLandingPage.tsx` 단일 파일. |
+| `routines` (placeholder, 라우트 미정의) | 자동화 | — | ✅ '자동화' | **⏳ Phase 3++ 신설** | nav 항목만 추가, 라우트는 미정의 — `router.tsx` catch-all 이 `/new` 로 흡수. 후속 PR 에서 `pages/RoutinesPage.tsx` + 라우트 등록. |
+| `engine` (`features/engine/components/EngineView.tsx`) | 03 엔진 & 모델 | 설정 · 엔진 & 모델 | ❌ (URL 직접 진입) | 🚧 Phase 1 mockup | nav 에서 빠짐 (Phase 3++ 재구성). 라우트 `/engine` 는 살아 있음. |
+| `skills` (`features/skills/components/SkillsMcpView.tsx`) | 04 Skills / MCP | 설정 · Skills & MCP | ❌ (URL 직접 진입) | 🚧 Phase 1 mockup + Phase 2 부분 활성 | nav 에서 빠짐. Skills 목록 스캔은 Composer 자동완성에 그대로 활성. |
+| (Tweaks Panel) `shared/ui/TweaksPanel.tsx` | (플로팅 패널 — `#app-frame-debug` 슬롯) | — | — | **✅ Phase 2+ 영속** | theme / density / sidebarCollapsed / sidebarWidth — electron-store 동기화. |
+| (SearchModal) `app/SearchModal.tsx` | (모달 — `#app-frame-modal` 슬롯) | — | — | **✅ Phase 3++ 활성** | FTS5 대화 검색. Header 검색 버튼 → `searchOpen` lift → OverlayLayer conditional mount. |
 
-> **CameraView** 와 **CapturesView** 는 `features/camera/` · `features/captures/` 에 존재하지만 도메인 카탈로그에서 제외 (GLOSSARY §3 사용자 결정).
+> **CameraView** 와 **CapturesView** 는 `features/camera/` · `features/captures/` 에 존재하지만 도메인 카탈로그에서 제외 (GLOSSARY §3 사용자 결정). Sidebar nav 에도 없음.
+>
+> **Sidebar nav 재구성 (Phase 3++)**: nav 노출은 3-항목 (새 대화·프로젝트·자동화) 으로 축소. engine/skills/captures 는 *라우트가 살아 있으나 nav 미노출* — URL 직접 진입 또는 향후 nav 복귀 가능.
 
 ### 8.1 Future Scope 도메인의 IPC 연결 시점
 
@@ -667,7 +673,7 @@ Main 이 `AbortSignal` 을 SDK `query()` 에 전파 → 현재 inflight 만 중�
 
 ### 9.4 채널 전체 목록
 
-[IPC_CONTRACT.md](./IPC_CONTRACT.md) §2 참조. Phase 2 활성 11채널 + Phase 3+ window 3채널 = **14채널** (정확 수치는 IPC_CONTRACT 가 SSOT).
+[IPC_CONTRACT.md](./IPC_CONTRACT.md) §2 참조. 현재 **총 24 채널** (정확 수치는 IPC_CONTRACT 가 SSOT — chat 3 · backend 1 · install 2 · settings 2 · skills 1 · files 1 · session 5 · project 5 · window 3 · search 1).
 
 ---
 
@@ -696,6 +702,10 @@ Main 이 `AbortSignal` 을 SDK `query()` 에 전파 → 현재 inflight 만 중�
 | **App Shell 정규화** (`frame/` 해체 + AppLayout.tsx 직접 조립) | PR #29 | ✅ 완료 | §3.A — `ChatTile.tsx` → `features/chat/`. `ModalLayer+DebugLayer` → `OverlayLayer` 통합 3슬롯. Sidebar `React.memo` 적용. |
 | **`features/<domain>/` 도입** (`screens/` + `state/` 흡수) | PR #29 | ✅ 완료 | 8개 도메인 (chat / sessions / projects / backend / engine / skills / camera / captures). 6-슬롯 구조 (components/hooks/reducer/providers/types/index). |
 | **`shared/` 도입** (`shared/api/ipc.ts` + `shared/ui/` + `shared/hooks/` + `shared/config/` + `shared/navigation/` + `shared/theme/` + `shared/types/`) | PR #29 | ✅ 완료 | `window.orca.*` 래퍼 (chatApi/backendApi/installApi/settingsApi/skillApi/fileApi/sessionApi/projectApi/windowApi) 경유. `features/` 내 직접 호출 0건. ESLint boundaries v6 로 layer 방향 강제. |
+| **Sidebar brand 교체 + nav 3-항목화** | Phase 3++ | ✅ 완료 | `app-frame-sidebar-brand` = 🐋 + "Orca" 로고 (이전 newChatSlot 폐기). nav = 새 대화 (`/new`) · 프로젝트 (`/projects`) · 자동화 (`/routines` — placeholder). `NewChatButton.tsx` 삭제. |
+| **Header 액션 5-버튼 툴바** | Phase 3++ | ✅ 완료 | menu (popover · 종료 menuitem → windowApi.close) · panelL (사이드바 접기 토글) · search (대화 검색 모달) · arrowL/arrowR (navigate ∓1, 항상 enabled). HeaderProps `onOpenSearch` prop 만 노출. |
+| **FTS5 대화 검색 모달** | Phase 3++ | ✅ 완료 | `0003_messages_fts.sql` 마이그레이션 (가상 테이블 + 3 트리거 + 백필). `orca:search:messages` IPC (IPC_CONTRACT §2.9). `app/SearchModal.tsx` (150ms debounce + request id supersede + `<mark>` split-parse XSS 방어). `toFtsMatch` 가 모든 토큰에 prefix wildcard `*` 부착. |
+| **활성 효과 URL 동기화** | Phase 3++ | ✅ 완료 | `useSessionHandlers` 의 `currentSessionId` 를 `matchPath('/chat/:sessionId', pathname)` 로 도출 — `ChatContext.state.sessionId` 의존 제거 (캐시/IPC 용도로만 잔존). Sidebar nav '새 대화' isActive 도 `p === '/new'` 로 좁힘. |
 | Projects 화면 | Phase 1 | 🚧 mockup 만 | Future Scope |
 | EngineSettings 화면 | Phase 1 | 🚧 mockup 만 | Phase 3+ 자격증명 UI 와 통합 예정 |
 | SkillsMcp 화면 (권한·MCP 토글) | Phase 1 | 🚧 mockup 만 | Phase 4+ |
