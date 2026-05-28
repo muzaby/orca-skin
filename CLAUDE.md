@@ -9,7 +9,7 @@
 | `chats/` | 사용자 의도 트랜스크립트 (Claude Design 핸드오프) — *왜* 가 산다 | `chats/CLAUDE.md` |
 | `docs/` | PRD, TRD, 전략 문서 — *무엇을* / *어떻게* 가 산다 | `docs/CLAUDE.md` |
 | `project/` | HTML/CSS/JS 디자인 프로토타입 (variation A 채택) — *어떻게 보여야 하는가* | `project/CLAUDE.md` |
-| `app/` | Orca v1 실제 구현체 (electron-vite + React/TypeScript). Phase 3++ — 로컬 SQLite SSOT + 세션 히스토리 + DOM Architecture + 4-layer Feature 아키텍처 (`app/` · `pages/` · `features/` · `shared/`) + ESLint boundaries 강제. | `app/CLAUDE.md` |
+| `app/` | Orca v1 실제 구현체 (electron-vite + React/TypeScript). Phase 3++ — 로컬 SQLite SSOT + 세션 히스토리 + DOM Architecture + 4-layer Feature 아키텍처 (`app/` · `pages/` · `features/` · `shared/`) + ESLint boundaries 강제 + URL/path 라우팅 (`app://` + BrowserRouter) + **Header 액션 5-버튼 툴바 + Sidebar brand/nav 재구성 + FTS5 대화 검색 모달**. | `app/CLAUDE.md` |
 
 ## 새 세션 진입 시 읽는 순서
 
@@ -38,7 +38,11 @@
 | **Phase 3++ (ChatTile 분해: transcript/composer 부속을 슬롯 디렉토리로 추출)** | **완료 (PR #26)** — 구 620줄 ChatTile.tsx → 369줄. `screens/chat/{format.ts, ToolCard, MessageMeta, AssistantMessage, UserMessage, PendingAssistant}.tsx` + `frame/composer/{ComposerChip, SkillsMenu}.tsx` 추출. `app/CLAUDE.md` 원칙 9 (단일 파일 분해 가이드) 신설 |
 | **Feature-based 구조 감사 + FRONTEND_ARCHITECTURE.md 엄격 갱신** | **완료 (PR #28)** — `frame/` 완전 해체 결정 (→ `app/` + `features/` + `shared/`), `pages/` = 조립만, `router` = which, App Shell §3.A 조립 규칙 신설, §3-2 목표 트리 + §10 구현 대기 행 추가. 코드 변경 없음 — 문서만. |
 | **Feature-based 아키텍처 구현 + ESLint boundaries 강제 (PR #29)** | **완료 (PR #29)** — `app/providers/` 6개 Provider → `features/<X>/providers/` 4개 + `shared/navigation/` + `shared/theme/`. `screens/` + `frame/` → `app/` · `pages/` · `features/` · `shared/` 4-layer 완성. `ProjectDetail` 3-파일 → `pages/ProjectLandingPage.tsx` 단일 파일 통합. `eslint-plugin-boundaries` v6 + `boundaries/dependencies` 규칙으로 역방향·cross-feature import 회귀 차단. |
-| 후속 (CI 워크플로우·Vitest·i18n·Phase 4 Zustand+멀티세션·opencode 어댑터·캡처 실 구현·세션 휴지통 30일 보존) | Future Scope |
+| **URL/path 라우팅 전환 (`app://` 커스텀 스킴 + `react-router-dom` v7 BrowserRouter)** | **완료** — Context-기반 `ScreenId` enum → URL path. main 의 `protocol.registerSchemesAsPrivileged` + `protocol.handle` SPA fallback, `loadURL('app://renderer/')`. `app/router.tsx` `<Routes>` + `BootRedirector` (settings.lastSessionId → `/chat/<id>` 또는 `/new` replace) + `useChatRouteSync` (URL ↔ ChatState). |
+| **Phase 3++ (Sidebar brand + nav 재구성 + Header 5-버튼 툴바)** | **완료** — Sidebar `app-frame-sidebar-brand` = 🐋 + "Orca" 로고 (newChatSlot 폐기). nav = 3-항목 (새 대화·프로젝트·자동화 placeholder). Header `app-frame-header-left` = 5-버튼 액션 툴바 (햄버거 popover + 종료 menuitem · 사이드바 접기 토글 · 검색 · 뒤로 · 앞으로). `NewChatButton.tsx` 삭제. shared/ui/Icon.tsx 에 clock·menu·arrowL·arrowR 추가. Popover 에 `placement: 'top' \| 'bottom'` 확장. |
+| **Phase 3++ (FTS5 대화 검색 모달)** | **완료** — `0003_messages_fts.sql` (FTS5 가상 테이블 + 3 트리거 + 백필), `orca:search:messages` IPC (`searchApi.messages`), `app/SearchModal.tsx` (150ms debounce + request id supersede + `<mark>` split-parse XSS 방어 + ↑↓/Enter/Esc), `toFtsMatch` 가 모든 토큰에 prefix wildcard `*` 부착. |
+| **Phase 3++ (활성 효과 URL 동기화)** | **완료** — `useSessionHandlers` 의 `currentSessionId` 를 `matchPath('/chat/:sessionId', pathname)` 로 도출. ChatContext.state.sessionId 의존 제거. Sidebar nav '새 대화' isActive 도 `p === '/new'` 로 좁힘. |
+| 후속 (CI 워크플로우·Vitest·i18n·`/routines` placeholder·Phase 4 Zustand+멀티세션·opencode 어댑터·캡처 실 구현·세션 휴지통 30일 보존) | Future Scope |
 
 ## 핵심 원칙 (모든 에이전트 공통)
 
