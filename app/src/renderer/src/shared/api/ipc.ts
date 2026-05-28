@@ -7,6 +7,7 @@ import type {
   InstallStatus,
   LoadedSession,
   Project,
+  SearchHit,
   SendChatMessage,
   SessionListItem,
   Settings,
@@ -70,6 +71,11 @@ export const windowApi = {
   minimize: (): Promise<void> => window.orca.window.minimize(),
   maximize: (): Promise<void> => window.orca.window.maximize(),
   close: (): Promise<void> => window.orca.window.close()
+}
+
+export const searchApi = {
+  messages: (q: string, limit?: number): Promise<SearchHit[]> =>
+    window.orca.search.messages(q, limit)
 }
 
 // 플랫폼 식별자. preload 가 sync 노출하지만, 모듈 로드 시점에 window.orca 가

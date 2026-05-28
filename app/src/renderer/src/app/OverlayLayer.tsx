@@ -3,6 +3,12 @@ import { useChatContext } from '../features/chat'
 import { useTweakContext } from '../shared/theme'
 import { InstallerDialog, AuthExpiredModal } from '../features/backend'
 import { TweaksPanel, TweakSection, TweakRadio, TweakToggle } from '../shared/ui/TweaksPanel'
+import { SearchModal } from './SearchModal'
+
+interface OverlayLayerProps {
+  searchOpen: boolean
+  onCloseSearch: () => void
+}
 
 // 셸의 z-stack 3슬롯 (overlay/modal/debug) 골격. 구 frame/ModalLayer +
 // frame/DebugLayer + frame/Frame 의 OverlaySlot/ModalSlot/DebugSlot 를 통합.
@@ -10,13 +16,13 @@ import { TweaksPanel, TweakSection, TweakRadio, TweakToggle } from '../shared/ui
 //   - #app-frame-overlay : modal 활성 시 z=10 (backdrop), 평소 -z-10
 //   - #app-frame-modal   : modal 활성 시 z=20 (focus-trap), 평소 -z-20
 //   - #app-frame-debug   : 항상 z=30 (TweaksPanel, modal 상태 무관)
-export function OverlayLayer(): React.JSX.Element {
+export function OverlayLayer({ searchOpen, onCloseSearch }: OverlayLayerProps): React.JSX.Element {
   const { installerOpen, setInstallerOpen, refresh } = useBackendContext()
   const { state, newChat, clearError } = useChatContext()
   const { t, setTweak } = useTweakContext()
 
   const authExpired = state.error?.code === 'auth.expired'
-  const modalActive = installerOpen || authExpired
+  const modalActive = installerOpen || authExpired || searchOpen
 
   return (
     <>
@@ -43,6 +49,7 @@ export function OverlayLayer(): React.JSX.Element {
           }}
         />
         <AuthExpiredModal open={authExpired} onNewChat={newChat} onDismiss={clearError} />
+        {searchOpen && <SearchModal onClose={onCloseSearch} />}
       </div>
       <div id="app-frame-debug" className="pointer-events-none z-30" data-context="debug">
         <div className="pointer-events-auto">

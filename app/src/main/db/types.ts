@@ -81,3 +81,14 @@ export interface ToolCallInsert {
   name: string
   inputJson: string
 }
+
+// FTS5 검색 결과 한 행. snippet 은 SQLite snippet() 가 생성한 `<mark>…</mark>`
+// 포함 짧은 발췌. 렌더러는 split 으로 파싱 후 React 노드로 재구성한다 (XSS 방어).
+export interface SearchHitRow {
+  message_id: number
+  session_id: string
+  role: MessageRole
+  created_at: number
+  session_title: string | null
+  snippet: string
+}

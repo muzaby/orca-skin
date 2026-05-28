@@ -25,7 +25,8 @@ export const CHANNELS = {
   projectListSessions: 'orca:project:listSessions',
   windowMinimize: 'orca:window:minimize',
   windowMaximize: 'orca:window:maximize',
-  windowClose: 'orca:window:close'
+  windowClose: 'orca:window:close',
+  searchMessages: 'orca:search:messages'
 } as const
 
 // Backend (Phase 2: claude-code 단일. opencode 는 future work)
@@ -201,4 +202,21 @@ export interface DeleteProjectRequest {
 
 export interface ListProjectSessionsRequest {
   projectId: string
+}
+
+// 대화 검색 (Phase 3++ Header 검색 모달) — FTS5 백엔드.
+export interface SearchMessagesRequest {
+  q: string
+  limit?: number
+}
+
+export interface SearchHit {
+  messageId: number
+  sessionId: string
+  sessionTitle: string | null
+  role: 'user' | 'assistant'
+  createdAt: number
+  // SQLite snippet() 가 생성한 `<mark>…</mark>` 포함 발췌. 렌더러는 split-parse 후
+  // React 노드로 재구성 (innerHTML 사용 금지 — XSS 방어).
+  snippet: string
 }

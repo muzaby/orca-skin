@@ -1,3 +1,4 @@
+import { useCallback, useState } from 'react'
 import { matchPath, useLocation } from 'react-router-dom'
 import { DEFAULT_ROUTE_INFO, ROUTES, type RouteInfo } from '../shared/navigation'
 import { Header } from './Header'
@@ -22,12 +23,18 @@ export function AppLayout(): React.JSX.Element {
   const handlers = useSessionHandlers()
   const slots = useSidebarSlots(handlers)
 
+  // 대화 검색 모달은 셸 단일 인스턴스 — 열기는 Header, 렌더는 OverlayLayer 한 곳.
+  // 두 노드 모두 app/ 셸 레이어 안에 있으므로 Context 없이 useState 로 lift.
+  const [searchOpen, setSearchOpen] = useState(false)
+  const openSearch = useCallback(() => setSearchOpen(true), [])
+  const closeSearch = useCallback(() => setSearchOpen(false), [])
+
   return (
     <div
       className="app-frame-root flex h-full w-full flex-col overflow-hidden bg-bg font-sans text-[13px] leading-[1.45] text-ink"
       data-screen-label={`Orca · ${info.label}`}
     >
-      <Header />
+      <Header onOpenSearch={openSearch} />
       <div className="app-frame-grid relative grid min-h-0 flex-1 grid-cols-1 grid-rows-1 [&>*]:[grid-area:1/1]">
         <div className="app-frame-body z-0 flex min-h-0 min-w-0">
           <Sidebar {...slots} />
@@ -35,7 +42,7 @@ export function AppLayout(): React.JSX.Element {
             <AppRouter />
           </main>
         </div>
-        <OverlayLayer />
+        <OverlayLayer searchOpen={searchOpen} onCloseSearch={closeSearch} />
       </div>
     </div>
   )

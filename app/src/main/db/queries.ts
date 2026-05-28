@@ -4,6 +4,7 @@ import type {
   MessageRow,
   ProjectInsert,
   ProjectRow,
+  SearchHitRow,
   SessionInsert,
   SessionListRow,
   ToolCallInsert,
@@ -34,6 +35,8 @@ export class DbQueries {
   private readonly listSessionsByProjectStmt: Database.Statement
   // 매 chat:send 마다 1회 호출 — sessionId 에서 소속 프로젝트의 instructions 한 방에 조회.
   private readonly getProjectInstructionsForSessionStmt: Database.Statement
+  // FTS5 검색 — messages_fts virtual table 을 messages + sessions 와 조인.
+  private readonly searchMessagesStmt: Database.Statement
 
   constructor(db: Database.Database) {
     this.insertSessionStmt = db.prepare(`
@@ -128,6 +131,21 @@ export class DbQueries {
       FROM projects p
       JOIN sessions s ON s.project_id = p.id
       WHERE s.id = @sessionId
+    `)
+    this.searchMessagesStmt = db.prepare(`
+      SELECT
+        m.id AS message_id,
+        m.session_id,
+        m.role,
+        m.created_at,
+        s.title AS session_title,
+        snippet(messages_fts, 0, '<mark>', '</mark>', '…', 24) AS snippet
+      FROM messages_fts
+      JOIN messages m ON m.id = messages_fts.rowid
+      JOIN sessions s ON s.id = m.session_id
+      WHERE messages_fts MATCH @query
+      ORDER BY rank
+      LIMIT @limit
     `)
   }
 
@@ -224,4 +242,21 @@ export class DbQueries {
       | undefined
     return row?.instructions ?? null
   }
+
+  // 사용자 입력어를 FTS5 MATCH 표현식으로 안전하게 변환 후 검색.
+  // 입력어가 비어 있거나 quote 처리 후 empty 면 빈 결과 반환.
+  searchMessages(rawQuery: string, limit = 30): SearchHitRow[] {
+    const fts = toFtsMatch(rawQuery)
+    if (!fts) return []
+    return this.searchMessagesStmt.all({ query: fts, limit }) as SearchHitRow[]
+  }
+}
+
+// 사용자 입력을 FTS5 MATCH 식으로 quote. 큰따옴표는 escape, 양끝은 quote 로 감싸
+// AND / OR / NEAR / NOT / 콜론 등 FTS5 연산자를 모두 리터럴로 취급. 토큰화는
+// SQLite 의 unicode61 이 알아서 처리. trim 후 비면 null (호출자가 빈 결과 처리).
+function toFtsMatch(raw: string): string | null {
+  const trimmed = raw.trim()
+  if (trimmed === '') return null
+  return '"' + trimmed.replace(/"/g, '""') + '"'
 }

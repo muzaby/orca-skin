@@ -114,6 +114,14 @@ export const DeleteProjectSchema = z.object({ id: z.string().min(1) })
 
 export const ListProjectSessionsSchema = z.object({ projectId: z.string().min(1) })
 
+// 대화 검색 (Phase 3++) — limit 상한 100 은 UI 가 한 번에 보여줄 최대 행 보호선.
+// q 최대 길이 200 은 한 모달 입력어로 합리적인 상한 (FTS5 query string 자체에는
+// 더 큰 상한이 있지만, UX 상 200 이상이면 검색이 아닌 잘못된 입력).
+export const SearchMessagesRequestSchema = z.object({
+  q: z.string().min(1).max(200),
+  limit: z.number().int().positive().max(100).optional()
+})
+
 // Settings (TRD §6.7) — Phase 2+ 영속화. 깨진 디스크 데이터도 default 로 복원되도록
 // 모든 키에 default 를 지정한다.
 const WindowBoundsSchema = z.object({
@@ -185,5 +193,7 @@ export type {
   CreateProjectRequest,
   UpdateProjectRequest,
   DeleteProjectRequest,
-  ListProjectSessionsRequest
+  ListProjectSessionsRequest,
+  SearchMessagesRequest,
+  SearchHit
 } from './ipc'

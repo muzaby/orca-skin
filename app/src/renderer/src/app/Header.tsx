@@ -1,7 +1,10 @@
-import type { CSSProperties } from 'react'
+import { useRef, useState, type CSSProperties } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { WinControls } from './WinControls'
 import { Icon } from '../shared/ui/Icon'
-import { getPlatform } from '../shared/api/ipc'
+import { Popover } from '../shared/ui/Popover'
+import { useTweakContext } from '../shared/theme'
+import { getPlatform, windowApi } from '../shared/api/ipc'
 
 // React 의 CSSProperties 에는 WebkitAppRegion 이 없어 명시 캐스팅.
 const DRAG_STYLE: CSSProperties = { WebkitAppRegion: 'drag' } as CSSProperties
@@ -14,10 +17,17 @@ const isDarwin = (): boolean => getPlatform() === 'darwin'
 const ICON_BTN =
   'grid h-[22px] w-[22px] cursor-pointer place-items-center rounded border-0 bg-transparent text-ink2 hover:bg-black/[0.06]'
 
-const noop = (): void => {}
+export interface HeaderProps {
+  onOpenSearch: () => void
+}
 
-export function Header(): React.JSX.Element {
+export function Header({ onOpenSearch }: HeaderProps): React.JSX.Element {
   const macOsPadLeft = isDarwin() ? 'pl-[80px]' : 'pl-[14px]'
+  const navigate = useNavigate()
+  const { t, setTweak } = useTweakContext()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const menuAnchorRef = useRef<HTMLButtonElement>(null)
+
   return (
     <header
       className={`app-frame-header relative flex h-9 flex-none select-none items-center border-b border-border bg-sidebar ${macOsPadLeft} pr-[10px] text-[12px] text-ink2`}
@@ -35,19 +45,42 @@ export function Header(): React.JSX.Element {
         style={NO_DRAG_STYLE}
         data-behavior="no-drag"
       >
-        <button type="button" aria-label="시스템 메뉴" onClick={noop} className={ICON_BTN}>
+        <button
+          ref={menuAnchorRef}
+          type="button"
+          aria-label="시스템 메뉴"
+          aria-haspopup="menu"
+          aria-expanded={menuOpen}
+          onClick={() => setMenuOpen((v) => !v)}
+          className={ICON_BTN}
+        >
           <Icon name="menu" size={14} />
         </button>
-        <button type="button" aria-label="사이드바 접기" onClick={noop} className={ICON_BTN}>
+        <button
+          type="button"
+          aria-label="사이드바 접기"
+          onClick={() => setTweak('sidebarCollapsed', !t.sidebarCollapsed)}
+          className={ICON_BTN}
+        >
           <Icon name="panelL" size={14} />
         </button>
-        <button type="button" aria-label="검색" onClick={noop} className={ICON_BTN}>
+        <button type="button" aria-label="검색" onClick={onOpenSearch} className={ICON_BTN}>
           <Icon name="search" size={14} />
         </button>
-        <button type="button" aria-label="뒤로 가기" onClick={noop} className={ICON_BTN}>
+        <button
+          type="button"
+          aria-label="뒤로 가기"
+          onClick={() => navigate(-1)}
+          className={ICON_BTN}
+        >
           <Icon name="arrowL" size={14} />
         </button>
-        <button type="button" aria-label="앞으로 가기" onClick={noop} className={ICON_BTN}>
+        <button
+          type="button"
+          aria-label="앞으로 가기"
+          onClick={() => navigate(1)}
+          className={ICON_BTN}
+        >
           <Icon name="arrowR" size={14} />
         </button>
       </div>
@@ -59,6 +92,26 @@ export function Header(): React.JSX.Element {
       >
         <WinControls />
       </div>
+      <Popover
+        open={menuOpen}
+        anchorRef={menuAnchorRef}
+        onClose={() => setMenuOpen(false)}
+        placement="bottom"
+        className="min-w-[160px]"
+      >
+        <button
+          type="button"
+          role="menuitem"
+          onClick={() => {
+            setMenuOpen(false)
+            void windowApi.close()
+          }}
+          className="flex w-full cursor-pointer items-center gap-2 rounded-md border-0 bg-transparent px-2.5 py-1.5 text-left text-[12.5px] text-ink hover:bg-sidebar"
+        >
+          <Icon name="power" size={14} />
+          <span>종료</span>
+        </button>
+      </Popover>
     </header>
   )
 }
