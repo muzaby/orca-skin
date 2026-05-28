@@ -6,9 +6,16 @@ interface PopoverProps {
   anchorRef: RefObject<HTMLElement | null>
   onClose: () => void
   children: ReactNode
-  // anchor 의 상단에 정렬하여 위로 열린다 (Composer 좌측 하단 + 버튼용).
-  // 다른 placement 가 필요해지면 그때 확장.
+  // 'top' (default) = anchor 위로 열림 (Composer 좌측 하단 버튼용 — 기존 동작).
+  // 'bottom' = anchor 아래로 열림 (Header 햄버거 드롭다운용).
+  placement?: 'top' | 'bottom'
   className?: string
+}
+
+interface PopoverPos {
+  left: number
+  top?: number
+  bottom?: number
 }
 
 export function Popover({
@@ -16,21 +23,23 @@ export function Popover({
   anchorRef,
   onClose,
   children,
+  placement = 'top',
   className = ''
 }: PopoverProps): React.JSX.Element | null {
   const panelRef = useRef<HTMLDivElement>(null)
-  const [pos, setPos] = useState<{ left: number; bottom: number } | null>(null)
+  const [pos, setPos] = useState<PopoverPos | null>(null)
 
   useLayoutEffect(() => {
     if (!open) return
     const el = anchorRef.current
     if (!el) return
     const rect = el.getBoundingClientRect()
-    setPos({
-      left: rect.left,
-      bottom: window.innerHeight - rect.top + 6
-    })
-  }, [open, anchorRef])
+    if (placement === 'bottom') {
+      setPos({ left: rect.left, top: rect.bottom + 6 })
+    } else {
+      setPos({ left: rect.left, bottom: window.innerHeight - rect.top + 6 })
+    }
+  }, [open, anchorRef, placement])
 
   useEffect(() => {
     if (!open) return
@@ -58,7 +67,7 @@ export function Popover({
       ref={panelRef}
       role="menu"
       className={`app-frame-floating fixed z-50 min-w-[240px] rounded-lg border border-border bg-panel p-1 shadow-lg ${className}`}
-      style={{ left: pos.left, bottom: pos.bottom }}
+      style={pos}
       data-context="floating"
       data-behavior="dismissible"
     >

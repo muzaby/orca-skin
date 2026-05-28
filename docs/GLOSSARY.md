@@ -36,7 +36,7 @@
 | **Frame** | 셸의 외곽 — `app-frame-root` element 와 그 자식 슬롯 트리 (header / grid / body / sidebar / pane-host / tile / composer / overlay / modal / debug). 코드상으로는 `src/renderer/src/frame/` 디렉토리에 1:1 대응. FRONTEND §3.3 SSOT. |
 | **Tile** | `app-frame-pane-host > pane-row > app-frame-tile` 트리의 단위. tile 의 *내용물* 은 도메인 화면(Screen) 이다. 현재는 단일 tile (`ChatTile`) 만 존재하며 우측 분할은 Future Scope (`app-frame-tile-separator`). |
 | **Screen** | tile 의 *내용물* 인 도메인 화면. `src/renderer/src/screens/` 에 모임. 파일 명명은 `*Screen.tsx` (예: `ProjectsScreen`, `EngineScreen`). 화면 카탈로그는 `screens/registry.ts`. |
-| **Header** | `app-frame-header` 슬롯 — 셸 최상단 OS 윈도우 헤더 (브랜드 + breadcrumb + WinControls). tile 의 헤더(`app-frame-titlebar`) 와 구분된다. |
+| **Header** | `app-frame-header` 슬롯 — 셸 최상단 OS 윈도우 헤더 (액션 5-버튼 툴바 + WinControls). tile 의 헤더(`app-frame-titlebar`) 와 구분된다. *Phase 3++ 이후*: 브랜드는 Sidebar 의 `app-frame-sidebar-brand` 로 이동했고, breadcrumb 표시는 제거. header-left 는 menu / panelL / search / arrowL / arrowR 5-버튼 툴바. |
 | **Slot** | 마크업 트리에서 정해진 자리. `app-frame-*` 클래스 + (필요 시) `data-context` 로 식별. |
 
 ## 3. 사용하지 않는 용어 (혼동 방지)

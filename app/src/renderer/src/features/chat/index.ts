@@ -1,5 +1,4 @@
 export { ChatProvider, useChatContext } from './providers/ChatProvider'
 export { ChatView } from './components/ChatView'
-export { NewChatButton } from './components/NewChatButton'
 export { ChatTile } from './components/ChatTile'
 export { Composer } from './components/Composer'

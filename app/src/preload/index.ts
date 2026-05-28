@@ -9,6 +9,7 @@ import {
   type InstallStatus,
   type LoadedSession,
   type Project,
+  type SearchHit,
   type SendChatMessage,
   type SessionListItem,
   type Settings,
@@ -80,6 +81,10 @@ const orca = {
     minimize: (): Promise<void> => ipcRenderer.invoke(CHANNELS.windowMinimize),
     maximize: (): Promise<void> => ipcRenderer.invoke(CHANNELS.windowMaximize),
     close: (): Promise<void> => ipcRenderer.invoke(CHANNELS.windowClose)
+  },
+  search: {
+    messages: (q: string, limit?: number): Promise<SearchHit[]> =>
+      ipcRenderer.invoke(CHANNELS.searchMessages, { q, limit })
   },
   // 데스크톱 플랫폼 식별자. renderer 의 `<html data-platform>` 에 부착되고,
   // WinControls 가 macOS 에서 null 을 반환하는 분기 등에 사용.

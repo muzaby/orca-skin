@@ -36,6 +36,10 @@ export type IconName =
   | 'layers'
   | 'kebab'
   | 'edit'
+  | 'clock'
+  | 'menu'
+  | 'arrowL'
+  | 'arrowR'
 
 const ICONS: Record<IconName, string> = {
   chat: 'M3 4h10a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-3 2.5V12H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z',
@@ -75,7 +79,11 @@ const ICONS: Record<IconName, string> = {
   // kebab — 세로 3 dots. circle 대신 stroke 가 그리는 짧은 수직 선분으로 표현
   // (현 Icon 은 stroke 기반이라 dot fill 이 까다로움). 시각적으로 dot 처럼 보이도록 strokeLinecap=round 활용.
   kebab: 'M8 4v.01M8 8v.01M8 12v.01',
-  edit: 'M11 2l3 3-7.5 7.5-3.5.5.5-3.5L11 2z'
+  edit: 'M11 2l3 3-7.5 7.5-3.5.5.5-3.5L11 2z',
+  clock: 'M8 3a5 5 0 1 0 0 10A5 5 0 0 0 8 3zM8 5v3l2 1',
+  menu: 'M3 4h10M3 8h10M3 12h10',
+  arrowL: 'M10 3l-5 5 5 5M5 8h8',
+  arrowR: 'M6 3l5 5-5 5M3 8h8'
 }
 
 export interface IconProps {

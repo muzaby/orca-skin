@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { matchPath, useLocation, useNavigate } from 'react-router-dom'
 import { useChatContext } from '../../features/chat'
 import { useSessionsContext } from '../../features/sessions'
 import { useProjectsContext } from '../../features/projects'
@@ -18,9 +18,16 @@ export interface SessionHandlers {
 // 변화에서 흡수.
 export function useSessionHandlers(): SessionHandlers {
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const chat = useChatContext()
   const sessionsCtx = useSessionsContext()
   const { list: projects } = useProjectsContext()
+
+  // 사이드바 활성 세션의 진실은 URL — `/chat/:sessionId` 에 있을 때만 해당 행이 활성.
+  // ChatContext.state.sessionId 는 캐시/IPC 용도로 다른 라우트에서도 유지되므로 UI
+  // 활성 표시에는 부적합 (다른 라우트로 이동해도 활성 잔존 버그 원인).
+  const match = matchPath('/chat/:sessionId', pathname)
+  const currentSessionId = match?.params.sessionId ?? null
 
   const projectNameById = useMemo(() => {
     const map = new Map<string, string>()
@@ -38,12 +45,12 @@ export function useSessionHandlers(): SessionHandlers {
 
   const handleDeleteSession = useCallback(
     (id: string): void => {
-      const wasActive = chat.state.sessionId === id
+      const wasActive = currentSessionId === id
       chat.handleSessionDeleted(id)
       void sessionsCtx.remove(id)
       if (wasActive) navigate('/new', { replace: true })
     },
-    [chat, sessionsCtx, navigate]
+    [currentSessionId, chat, sessionsCtx, navigate]
   )
 
   const handleRenameSession = useCallback(
@@ -55,7 +62,7 @@ export function useSessionHandlers(): SessionHandlers {
   )
 
   return {
-    currentSessionId: chat.state.sessionId,
+    currentSessionId,
     projectNameById,
     handleSelectSession,
     handleDeleteSession,

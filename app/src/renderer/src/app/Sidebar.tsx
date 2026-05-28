@@ -14,16 +14,9 @@ interface NavItem {
 }
 
 const NAV: NavItem[] = [
-  {
-    i: 'chat',
-    l: '채팅',
-    path: '/new',
-    isActive: (p) => p === '/new' || p.startsWith('/chat/') || p === '/chat'
-  },
+  { i: 'plus', l: '새 대화', path: '/new', isActive: (p) => p === '/new' },
   { i: 'folder', l: '프로젝트', path: '/projects', isActive: (p) => p.startsWith('/projects') },
-  { i: 'flask', l: '캡처 & 분석', path: '/captures', isActive: (p) => p.startsWith('/captures') },
-  { i: 'cpu', l: '엔진 & 모델', path: '/engine', isActive: (p) => p.startsWith('/engine') },
-  { i: 'bolt', l: 'Skills & MCP', path: '/skills', isActive: (p) => p.startsWith('/skills') }
+  { i: 'clock', l: '자동화', path: '/routines', isActive: (p) => p.startsWith('/routines') }
 ]
 
 const SECTION_HEAD =
@@ -36,8 +29,6 @@ export const SIDEBAR_MAX_WIDTH = 480
 export const SIDEBAR_DEFAULT_WIDTH = 248
 
 export interface SidebarProps {
-  // '새 대화' 슬롯 — features/chat 의 도메인 버튼.
-  newChatSlot: ReactNode
   // '최근 대화' 슬롯 — features/sessions 의 SessionList.
   sessionsSlot: ReactNode
   // footer 슬롯 — features/backend 의 BackendStatus.
@@ -51,7 +42,7 @@ export interface SidebarProps {
 // 설정값 (SIDEBAR_*) 과 적용 (setTweak('sidebarWidth', n)) 만 책임진다.
 // React.memo: slot ReactNode 가 부모에서 안정적으로 전달되는 한 router/TweakContext
 // 변경 시에만 리렌더 (FRONTEND_ARCHITECTURE §3.A).
-function SidebarImpl({ newChatSlot, sessionsSlot, footerSlot }: SidebarProps): React.JSX.Element {
+function SidebarImpl({ sessionsSlot, footerSlot }: SidebarProps): React.JSX.Element {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const { t, setTweak } = useTweakContext()
@@ -79,7 +70,6 @@ function SidebarImpl({ newChatSlot, sessionsSlot, footerSlot }: SidebarProps): R
 
   if (collapsed) {
     // 접힌 상태에서는 NAV 만 아이콘으로 표시. 도메인 슬롯은 노출하지 않는다.
-    const icons: IconName[] = ['plus', 'chat', 'folder', 'flask', 'cpu', 'settings']
     return (
       <aside
         className="app-frame-sidebar relative flex w-14 flex-none flex-col items-center gap-1 border-r border-border bg-sidebar py-3"
@@ -87,16 +77,21 @@ function SidebarImpl({ newChatSlot, sessionsSlot, footerSlot }: SidebarProps): R
         data-state="collapsed"
       >
         <div className="app-frame-sidebar-body flex flex-col items-center gap-1">
-          {icons.map((n, i) => (
-            <button
-              key={n}
-              className={`h-9 w-9 cursor-pointer rounded-lg border-0 ${
-                i === 1 ? 'bg-rust-soft text-rust' : 'bg-transparent text-ink2'
-              }`}
-            >
-              <Icon name={n} size={17} />
-            </button>
-          ))}
+          {NAV.map((it) => {
+            const isActive = it.isActive(pathname)
+            return (
+              <button
+                key={it.path}
+                onClick={() => navigate(it.path)}
+                aria-label={it.l}
+                className={`h-9 w-9 cursor-pointer rounded-lg border-0 ${
+                  isActive ? 'bg-rust-soft text-rust' : 'bg-transparent text-ink2'
+                }`}
+              >
+                <Icon name={it.i} size={17} />
+              </button>
+            )
+          })}
         </div>
       </aside>
     )
@@ -111,7 +106,12 @@ function SidebarImpl({ newChatSlot, sessionsSlot, footerSlot }: SidebarProps): R
       data-state="expanded"
     >
       <div className="app-frame-sidebar-body flex min-h-0 flex-1 flex-col">
-        <div className="app-frame-sidebar-brand px-3 pb-1.5 pt-2.5">{newChatSlot}</div>
+        <div className="app-frame-sidebar-brand flex items-center gap-2 px-3 pb-1.5 pt-2.5">
+          <span className="text-[18px] leading-none" aria-hidden>
+            🐋
+          </span>
+          <span className="font-serif text-[15px] font-semibold tracking-tight text-ink">Orca</span>
+        </div>
 
         <nav className="app-frame-sidebar-nav px-1.5 py-1">
           {NAV.map((it) => {

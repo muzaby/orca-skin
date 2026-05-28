@@ -13,6 +13,7 @@ import {
   UpdateProjectSchema,
   DeleteProjectSchema,
   ListProjectSessionsSchema,
+  SearchMessagesRequestSchema,
   type BackendListResult,
   type ChatEvent,
   type FileEntry,
@@ -21,6 +22,7 @@ import {
   type LoadedSession,
   type LoadedToolCall,
   type Project,
+  type SearchHit,
   type SessionListItem,
   type Settings,
   type SkillInfo
@@ -88,6 +90,7 @@ export class IpcRouter {
     ipcMain.handle(CHANNELS.projectUpdate, this.handleProjectUpdate)
     ipcMain.handle(CHANNELS.projectDelete, this.handleProjectDelete)
     ipcMain.handle(CHANNELS.projectListSessions, this.handleProjectListSessions)
+    ipcMain.handle(CHANNELS.searchMessages, this.handleSearchMessages)
   }
 
   private sendChatEvent(wc: WebContents, ev: ChatEvent): void {
@@ -436,6 +439,27 @@ export class IpcRouter {
   ): Promise<SessionListItem[]> => {
     const parsed = ListProjectSessionsSchema.parse(raw)
     return this.db.listSessionsByProject(parsed.projectId).map(toSessionListItem)
+  }
+
+  // 대화 검색 — main thread 에서 FTS5 prepared statement 실행. better-sqlite3 가
+  // sync 라 main 이 블록되지만 FTS5 + LIMIT 30 의 latency 는 단위 ms 수준으로
+  // renderer 의 150ms debounce 하에서 체감 영향 없음. perf 회귀 발생 시 utilityProcess
+  // 로 이전 검토 (계획 문서 §Worker thread 보류 근거).
+  private handleSearchMessages = async (
+    _event: IpcMainInvokeEvent,
+    raw: unknown
+  ): Promise<SearchHit[]> => {
+    const parsed = SearchMessagesRequestSchema.safeParse(raw)
+    if (!parsed.success) return []
+    const rows = this.db.searchMessages(parsed.data.q, parsed.data.limit ?? 30)
+    return rows.map((r) => ({
+      messageId: r.message_id,
+      sessionId: r.session_id,
+      sessionTitle: r.session_title,
+      role: r.role,
+      createdAt: r.created_at,
+      snippet: r.snippet
+    }))
   }
 }
 
