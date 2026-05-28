@@ -139,13 +139,21 @@ const McpServerBaseSchema = z.object({
   enabled: z.boolean().default(true),
   command: z.string().trim().max(500).optional(),
   args: z.array(z.string().max(500)).max(64).optional(),
-  authEnvKey: z
-    .string()
-    .trim()
-    .max(128)
-    .regex(/^[A-Za-z_][A-Za-z0-9_]*$/, 'authEnvKey 는 환경변수 이름 규칙을 따라야 함')
-    .optional(),
-  url: z.string().trim().url().max(2000).optional(),
+  // 미사용 optional 필드는 모달에서 빈 문자열로 전송될 수 있다. 포맷(regex/url) 검증이
+  // '' 를 거부하므로 '' → undefined 로 강제해 "비어 있으면 미설정"으로 취급한다.
+  authEnvKey: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z
+      .string()
+      .trim()
+      .max(128)
+      .regex(/^[A-Za-z_][A-Za-z0-9_]*$/, 'authEnvKey 는 환경변수 이름 규칙을 따라야 함')
+      .optional()
+  ),
+  url: z.preprocess(
+    (v) => (v === '' ? undefined : v),
+    z.string().trim().url().max(2000).optional()
+  ),
   auth: z.string().max(4000).optional()
 })
 
