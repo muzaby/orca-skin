@@ -4,6 +4,7 @@ import { useRuntimeContext } from '../providers/RuntimeProvider'
 // Python 런타임 상태/진행 로그 모달. InstallerDialog 스트리밍 패턴을 따른다 —
 // #app-frame-overlay 가 backdrop, 이 컴포넌트는 grid cell 중앙에 panel 만 놓는다.
 // 실패 시 재시도 버튼을 노출한다.
+// 개발 빌드 전용 — 수동 prepare(설치) 트리거. production 미노출 (OverlayLayer 게이트).
 export function RuntimeModal(): React.JSX.Element | null {
   const { status, log, prepare, modalOpen, setModalOpen } = useRuntimeContext()
   const logRef = useRef<HTMLPreElement>(null)

@@ -24,7 +24,10 @@ export function OverlayLayer({ searchOpen, onCloseSearch }: OverlayLayerProps): 
   const { t, setTweak } = useTweakContext()
 
   const authExpired = state.error?.code === 'auth.expired'
-  const modalActive = installerOpen || authExpired || searchOpen || runtimeModalOpen
+  // 런타임 모달은 개발 빌드 전용(수동 prepare). production 에선 modalOpen 이 토글될
+  // 경로(RuntimeStatus 위젯)가 렌더되지 않으므로 항상 false 지만, 명시적으로 게이팅.
+  const modalActive =
+    installerOpen || authExpired || searchOpen || (import.meta.env.DEV && runtimeModalOpen)
 
   return (
     <>
@@ -51,7 +54,7 @@ export function OverlayLayer({ searchOpen, onCloseSearch }: OverlayLayerProps): 
           }}
         />
         <AuthExpiredModal open={authExpired} onNewChat={newChat} onDismiss={clearError} />
-        <RuntimeModal />
+        {import.meta.env.DEV && <RuntimeModal />}
         {searchOpen && <SearchModal onClose={onCloseSearch} />}
       </div>
       <div id="app-frame-debug" className="pointer-events-none z-30" data-context="debug">

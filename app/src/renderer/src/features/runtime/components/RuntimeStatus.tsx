@@ -18,6 +18,8 @@ const STAGE_TONE: Record<RuntimeStage, StatusTone> = {
 
 // Sidebar footer 슬롯에 주입되는 도메인 위젯. uv 격리 Python 런타임의 준비 상태를
 // 표시하고, 클릭 시 상태/로그 모달을 연다. RuntimeContext 자체 구독.
+// 개발 빌드 전용 — production 은 설치 단계에서 런타임을 준비하므로 앱 내 노출 안 함
+// (useSidebarSlots 의 import.meta.env.DEV 게이트 참조).
 export function RuntimeStatus(): React.JSX.Element {
   const { status, setModalOpen } = useRuntimeContext()
   const stage = status.stage
