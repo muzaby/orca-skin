@@ -11,8 +11,9 @@ export function getBundledUvPath(): string {
   if (app.isPackaged) {
     return join(process.resourcesPath, 'bin', UV_BIN)
   }
-  // __dirname = out/main (빌드 후) 또는 src/main (dev). 프로젝트 루트로 거슬러 올라간다.
-  const projectRoot = join(__dirname, '../../..')
+  // electron-vite 는 dev 에서도 main 을 out/main 으로 번들한다 → __dirname = <app>/out/main.
+  // 앱 프로젝트 루트(<app> = resources 의 부모)로 두 단계 거슬러 올라간다: out/main → out → <app>.
+  const projectRoot = join(__dirname, '../..')
   const plat = `${process.platform}-${process.arch}`
   return join(projectRoot, 'resources', 'bin', plat, UV_BIN)
 }
