@@ -15,8 +15,20 @@ export function mcpJsonPath(): string {
   return join(orcaConfigDir(), 'mcp.json')
 }
 
-export function skillsPluginDir(): string {
-  return join(orcaConfigDir(), 'plugins', 'orca-skills')
+// 확장 정규 레이어. ~/.config/orca 디렉토리 *자체*가 Claude 어댑터 관점의 로컬 플러그인이 된다
+// (.claude-plugin/plugin.json 은 어댑터가 생성하는 머티리얼라이즈 산출물). 백엔드-중립 정규 소스인
+// skills/ · agents/ · commands/ 가 그 루트에 평면으로 놓인다. mcp.json(점 없음)은 Claude 플러그인
+// 로더가 무시하므로 MCP 는 query 옵션으로 별도 주입된다(이중 주입 없음).
+export function skillsDir(): string {
+  return join(orcaConfigDir(), 'skills')
+}
+
+export function agentsDir(): string {
+  return join(orcaConfigDir(), 'agents')
+}
+
+export function commandsDir(): string {
+  return join(orcaConfigDir(), 'commands')
 }
 
 // 부팅 시 1회. mkdir -p 의미 (recursive). 이미 있으면 무시.

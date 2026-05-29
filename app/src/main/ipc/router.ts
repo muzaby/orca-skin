@@ -35,7 +35,7 @@ import { SettingsStore } from '../settings/store'
 import { McpStore } from '../mcp/store'
 import { migrateMcpToFile } from '../mcp/migrate'
 import { ensureConfigDir } from '../config/paths'
-import { ensureSkillsPlugin } from '../skills/plugin-bundle'
+import { ensureOrcaPlugin } from '../skills/plugin-bundle'
 import { scanSkills } from '../skills/scan'
 import { listDir } from '../files/scan'
 import { initDb, type DbQueries } from '../db'
@@ -81,7 +81,7 @@ export class IpcRouter {
     } catch (e) {
       console.warn('[boot] MCP 마이그레이션 건너뜀:', e)
     }
-    await ensureSkillsPlugin().catch((e) => console.warn('[boot] ensureSkillsPlugin 실패:', e))
+    await ensureOrcaPlugin().catch((e) => console.warn('[boot] ensureOrcaPlugin 실패:', e))
     // ClaudeCodeAdapter 가 사용하는 cwd 와 동일한 값으로 스킬 스캔.
     this.skillsCache = await scanSkills(this.defaultCwd).catch(() => [])
     this.register()
