@@ -33,6 +33,9 @@ import { AdapterRegistry } from '../adapters/registry'
 import { Installer } from '../installer'
 import { SettingsStore } from '../settings/store'
 import { McpStore } from '../mcp/store'
+import { migrateMcpToFile } from '../mcp/migrate'
+import { ensureConfigDir } from '../config/paths'
+import { ensureSkillsPlugin } from '../skills/plugin-bundle'
 import { scanSkills } from '../skills/scan'
 import { listDir } from '../files/scan'
 import { initDb, type DbQueries } from '../db'
@@ -58,7 +61,7 @@ export class IpcRouter {
   private readonly installer = new Installer(this.registry)
   private readonly inflight = new Map<WebContents, InflightTurn>()
   readonly settings = new SettingsStore()
-  readonly mcp = new McpStore()
+  readonly mcp = new McpStore(this.settings)
   // 부팅 시 1회 스캔하여 메모리에 캐시. fs.watch hot-reload 는 본 PR 범위 밖 (재시작).
   private skillsCache: SkillInfo[] = []
   // chat send 와 files list, session cwd 노출에서 모두 동일하게 사용하는 단일
@@ -70,6 +73,15 @@ export class IpcRouter {
     this.db = initDb()
     await this.registry.refreshInstallState()
     this.defaultCwd = app.getPath('home')
+    // ~/.config/orca 보장 → 레거시 MCP 이전(1회) → Skill 플러그인 번들 골격 보장.
+    // 어느 단계 실패도 부팅을 막지 않는다(채팅/세션 기능은 독립).
+    await ensureConfigDir().catch((e) => console.warn('[boot] ensureConfigDir 실패:', e))
+    try {
+      migrateMcpToFile(this.settings)
+    } catch (e) {
+      console.warn('[boot] MCP 마이그레이션 건너뜀:', e)
+    }
+    await ensureSkillsPlugin().catch((e) => console.warn('[boot] ensureSkillsPlugin 실패:', e))
     // ClaudeCodeAdapter 가 사용하는 cwd 와 동일한 값으로 스킬 스캔.
     this.skillsCache = await scanSkills(this.defaultCwd).catch(() => [])
     this.register()
