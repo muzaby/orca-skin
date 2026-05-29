@@ -1,16 +1,13 @@
 import type { Backend, ChatEvent } from '../../shared/ipc'
+import type { ClaudeMcpConfig } from '../mcp/schema'
 
 export type { Backend, ChatEvent }
 
-// claude-agent-sdk 의 query().options.mcpServers value 와 구조적으로 호환되는 로컬 타입.
-// SDK export 이름 변경에 영향받지 않도록 spec (typescript.md §McpServerConfig) 을 그대로 옮긴다.
-export type McpServerConfig =
-  | { type?: 'stdio'; command: string; args?: string[]; env?: Record<string, string> }
-  | { type: 'http'; url: string; headers?: Record<string, string> }
-
-// 한 query 에 주입할 MCP 옵션 묶음. servers 가 비어 있으면 호출부에서 옵션 자체를 생략한다.
+// 한 query 에 주입할 MCP 옵션 묶음. 어댑터 레이어로 넘어온 시점이므로 servers 는 정규형이 아니라
+// **백엔드 타깃 타입(ClaudeMcpConfig)** 으로 다룬다 — claude-code 의 query().options.mcpServers
+// (Record<string, McpServerConfig>) 에 그대로 대입된다. servers 가 비어 있으면 옵션 자체를 생략.
 export interface McpQueryOptions {
-  servers: Record<string, McpServerConfig>
+  servers: ClaudeMcpConfig
   allowedTools: string[]
 }
 

@@ -9,7 +9,7 @@ import type { SettingsStore } from '../settings/store'
 import { mcpFileExists, writeMcpFile } from '../config/mcp-file'
 import { SecretStore } from '../config/secret-store'
 import { safeDecrypt } from './crypto'
-import type { ClaudeMcp, OrcaMcpServers } from './schema'
+import type { ClaudeMcp, OrcaMcpConfig } from './schema'
 
 const LegacyRecordSchema = z.object({
   name: z.string(),
@@ -36,7 +36,7 @@ export function migrateMcpToFile(settings: SettingsStore): void {
   if (!parsed.success || parsed.data.servers.length === 0) return
 
   const secrets = new SecretStore()
-  const servers: OrcaMcpServers = {}
+  const servers: OrcaMcpConfig = {}
   const mcpEnabled: Record<string, boolean> = {}
   const mcpMeta: Record<string, { description: string }> = {}
 

@@ -18,9 +18,9 @@ import type { SettingsStore } from '../settings/store'
 import type { McpQueryOptions } from '../adapters/types'
 import { readMcpFile, writeMcpFile } from '../config/mcp-file'
 import { SecretStore } from '../config/secret-store'
-import { toClaudecodeConfig } from './convert'
+import { toClaudeConfig } from './convert'
 import { makeResolver } from './resolver'
-import type { ClaudeMcp, OrcaMcpServers } from './schema'
+import type { ClaudeMcp, OrcaMcpConfig } from './schema'
 
 const VAR_RE = /\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g
 
@@ -47,11 +47,11 @@ export class McpStore {
 
   constructor(private readonly settings: SettingsStore) {}
 
-  private read(): OrcaMcpServers {
+  private read(): OrcaMcpConfig {
     return readMcpFile().mcpServers
   }
 
-  private write(servers: OrcaMcpServers): void {
+  private write(servers: OrcaMcpConfig): void {
     writeMcpFile({ mcpServers: servers })
   }
 
@@ -238,17 +238,21 @@ export class McpStore {
   buildQueryOptions(): McpQueryOptions {
     const s = this.settings.getAll()
     const all = this.read()
-    const enabledServers: OrcaMcpServers = {}
+    const enabledOrca: OrcaMcpConfig = {}
     for (const [name, server] of Object.entries(all)) {
-      if ((s.mcpEnabled[name] ?? true) === true) enabledServers[name] = server
+      if ((s.mcpEnabled[name] ?? true) === true) enabledOrca[name] = server
     }
-    const { config, dropped } = toClaudecodeConfig(enabledServers, makeResolver(this.secrets))
+    // 어댑터 경계로 넘기는 값은 정규형이 아니라 Claude 타깃(ClaudeMcpConfig)으로 다룬다.
+    const { config: claudeConfig, dropped } = toClaudeConfig(
+      enabledOrca,
+      makeResolver(this.secrets)
+    )
     for (const d of dropped) {
       console.warn(`[mcp] 서버 '${d.name}' 를 건너뜀: ${d.reason}`)
     }
     return {
-      servers: config,
-      allowedTools: Object.keys(config).map((n) => `mcp__${n}__*`)
+      servers: claudeConfig,
+      allowedTools: Object.keys(claudeConfig).map((n) => `mcp__${n}__*`)
     }
   }
 }

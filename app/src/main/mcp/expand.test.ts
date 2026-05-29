@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { expandEnv, type Resolver } from './expand'
-import type { OrcaMcpServers } from './schema'
+import type { OrcaMcpConfig } from './schema'
 
 const resolver =
   (map: Record<string, string>): Resolver =>
@@ -9,7 +9,7 @@ const resolver =
 
 describe('expandEnv', () => {
   it('정의된 ${VAR} 를 stdio env 에서 치환한다', () => {
-    const src: OrcaMcpServers = {
+    const src: OrcaMcpConfig = {
       gh: { command: 'gh-mcp', env: { TOKEN: '${GH_TOKEN}' } }
     }
     const { servers, dropped } = expandEnv(src, resolver({ GH_TOKEN: 'secret123' }))
@@ -18,7 +18,7 @@ describe('expandEnv', () => {
   })
 
   it('http headers 의 ${VAR} 도 치환한다', () => {
-    const src: OrcaMcpServers = {
+    const src: OrcaMcpConfig = {
       api: { type: 'http', url: 'https://x', headers: { Authorization: 'Bearer ${KEY}' } }
     }
     const { servers, dropped } = expandEnv(src, resolver({ KEY: 'abc' }))
@@ -27,7 +27,7 @@ describe('expandEnv', () => {
   })
 
   it('한 문자열의 여러 ${VAR} 를 모두 치환한다', () => {
-    const src: OrcaMcpServers = {
+    const src: OrcaMcpConfig = {
       s: { command: 'c', env: { U: '${A}-${B}' } }
     }
     const { servers } = expandEnv(src, resolver({ A: '1', B: '2' }))
@@ -35,7 +35,7 @@ describe('expandEnv', () => {
   })
 
   it('미해결 ${VAR} 가 있으면 서버를 드롭하고 사유를 기록한다 (빈 문자열 치환 금지)', () => {
-    const src: OrcaMcpServers = {
+    const src: OrcaMcpConfig = {
       bad: { command: 'c', env: { T: '${MISSING}' } },
       good: { command: 'c2' }
     }
@@ -47,7 +47,7 @@ describe('expandEnv', () => {
   })
 
   it('변수 없는 서버는 그대로 통과한다', () => {
-    const src: OrcaMcpServers = { plain: { command: 'c', args: ['x'] } }
+    const src: OrcaMcpConfig = { plain: { command: 'c', args: ['x'] } }
     const { servers, dropped } = expandEnv(src, resolver({}))
     expect(dropped).toEqual([])
     expect(servers.plain).toMatchObject({ command: 'c', args: ['x'] })

@@ -1,33 +1,29 @@
 import { describe, it, expect } from 'vitest'
-import { toClaudecodeConfig, toOpencodeConfig } from './convert'
+import { toClaudeConfig, toOpencodeConfig } from './convert'
 import type { Resolver } from './expand'
-import type { OrcaMcpServers } from './schema'
+import type { OrcaMcpConfig } from './schema'
 
 const resolver =
   (map: Record<string, string> = {}): Resolver =>
   (n) =>
     map[n]
 
-describe('toClaudecodeConfig', () => {
-  it('stdio 서버를 env 와 함께 매핑한다', () => {
-    const src: OrcaMcpServers = {
+describe('toClaudeConfig', () => {
+  // Orca 정규형 == Claude 형식이므로 구조는 항등 — ${VAR} 확장만 일어난다.
+  it('stdio 서버를 ${VAR} 확장해 항등 매핑한다', () => {
+    const src: OrcaMcpConfig = {
       gh: { command: 'gh-mcp', args: ['serve'], env: { TOKEN: '${T}' } }
     }
-    const { config, dropped } = toClaudecodeConfig(src, resolver({ T: 'sec' }))
+    const { config, dropped } = toClaudeConfig(src, resolver({ T: 'sec' }))
     expect(dropped).toEqual([])
-    expect(config.gh).toEqual({
-      type: 'stdio',
-      command: 'gh-mcp',
-      args: ['serve'],
-      env: { TOKEN: 'sec' }
-    })
+    expect(config.gh).toEqual({ command: 'gh-mcp', args: ['serve'], env: { TOKEN: 'sec' } })
   })
 
-  it('http 서버를 headers 와 함께 매핑한다', () => {
-    const src: OrcaMcpServers = {
+  it('http 서버를 headers 와 함께 항등 매핑한다', () => {
+    const src: OrcaMcpConfig = {
       api: { type: 'http', url: 'https://x', headers: { Authorization: 'Bearer ${K}' } }
     }
-    const { config } = toClaudecodeConfig(src, resolver({ K: 'abc' }))
+    const { config } = toClaudeConfig(src, resolver({ K: 'abc' }))
     expect(config.api).toEqual({
       type: 'http',
       url: 'https://x',
@@ -35,27 +31,27 @@ describe('toClaudecodeConfig', () => {
     })
   })
 
-  it('sse 는 프로그래매틱 mcpServers 에서 http 로 강제된다', () => {
-    const src: OrcaMcpServers = { s: { type: 'sse', url: 'https://sse' } }
-    const { config } = toClaudecodeConfig(src, resolver())
-    expect(config.s).toEqual({ type: 'http', url: 'https://sse' })
+  it('sse 는 그대로 보존된다 (SDK 가 sse 트랜스포트를 지원)', () => {
+    const src: OrcaMcpConfig = { s: { type: 'sse', url: 'https://sse' } }
+    const { config } = toClaudeConfig(src, resolver())
+    expect(config.s).toEqual({ type: 'sse', url: 'https://sse' })
   })
 
   it('미해결 변수 서버를 dropped 로 전파한다', () => {
-    const src: OrcaMcpServers = { bad: { command: 'c', env: { T: '${MISSING}' } } }
-    const { config, dropped } = toClaudecodeConfig(src, resolver())
+    const src: OrcaMcpConfig = { bad: { command: 'c', env: { T: '${MISSING}' } } }
+    const { config, dropped } = toClaudeConfig(src, resolver())
     expect(config).toEqual({})
     expect(dropped[0].name).toBe('bad')
   })
 
   it('빈 소스는 빈 config', () => {
-    expect(toClaudecodeConfig({}, resolver())).toEqual({ config: {}, dropped: [] })
+    expect(toClaudeConfig({}, resolver())).toEqual({ config: {}, dropped: [] })
   })
 })
 
 describe('toOpencodeConfig', () => {
   it('stdio → local (command 배열) 매핑', () => {
-    const src: OrcaMcpServers = {
+    const src: OrcaMcpConfig = {
       gh: { command: 'gh-mcp', args: ['serve'], env: { TOKEN: '${T}' } }
     }
     const { config, dropped } = toOpencodeConfig(src, resolver({ T: 'sec' }))
@@ -69,7 +65,7 @@ describe('toOpencodeConfig', () => {
   })
 
   it('http/sse → remote 매핑', () => {
-    const src: OrcaMcpServers = {
+    const src: OrcaMcpConfig = {
       api: { type: 'http', url: 'https://x', headers: { A: '${K}' } },
       ev: { type: 'sse', url: 'https://sse' }
     }
