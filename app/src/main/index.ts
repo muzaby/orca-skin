@@ -5,8 +5,13 @@ import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { IpcRouter } from './ipc/router'
+import { PythonRuntime } from './runtime'
 import { CHANNELS } from '../shared/ipc'
 import type { SettingsStore } from './settings/store'
+
+// `--prepare-runtime`: GUI 없이 Python(uv) 런타임만 준비하고 종료하는 헤드리스 모드.
+// `npm run prepare-runtime` 이 main 번들 빌드 후 `electron . --prepare-runtime` 로 호출한다.
+const PREPARE_ONLY = process.argv.includes('--prepare-runtime')
 
 // renderer 번들 루트 — production 빌드에서 electron-vite 가 `out/renderer/` 에
 // `index.html` + `assets/*` 을 산출한다. 본 모듈 위치(`out/main/index.js`) 기준 상대.
@@ -117,6 +122,18 @@ function createWindow(settings: SettingsStore): void {
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.electron')
+
+  // 헤드리스 준비 모드: 윈도우/프로토콜/IpcRouter 부팅을 생략하고 런타임만 준비 후 종료.
+  if (PREPARE_ONLY) {
+    const rt = new PythonRuntime()
+    rt.on('status', (st) => {
+      if (st.stage === 'error') console.error('[runtime] error:', st.error)
+      else console.log('[runtime]', st.stage, st.log ?? '')
+    })
+    await rt.ensure()
+    app.exit(rt.status.stage === 'ready' ? 0 : 1)
+    return
+  }
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)

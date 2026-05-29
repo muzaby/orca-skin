@@ -9,7 +9,7 @@
 // 대용량 바이너리는 git 에 커밋하지 않는다(.gitignore). CI / 로컬 빌드 직전에 실행한다.
 
 import { mkdir, chmod, rm } from 'node:fs/promises'
-import { createWriteStream } from 'node:fs'
+import { createWriteStream, existsSync } from 'node:fs'
 import { pipeline } from 'node:stream/promises'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -48,6 +48,15 @@ async function main() {
   const url = `${base}/${spec.file}`
 
   const outDir = join(projectRoot, 'resources', 'bin', target)
+
+  // 멱등 가드: 바이너리가 이미 있으면 재다운로드 스킵 (predev 훅 반복 호출 대비).
+  // 버전 고정(UV_VERSION 명시) 또는 --force/UV_FORCE 시에는 우회한다.
+  const force = process.argv.includes('--force') || process.env.UV_FORCE
+  if (!force && UV_VERSION === 'latest' && existsSync(join(outDir, spec.bin))) {
+    console.log(`이미 존재: ${join('resources', 'bin', target, spec.bin)} (재다운로드 스킵)`)
+    return
+  }
+
   await mkdir(outDir, { recursive: true })
 
   const archivePath = join(outDir, spec.file)

@@ -226,7 +226,7 @@ new BrowserWindow({
 - 이미 채택된 것 (도입 시점만 자유): React, react-markdown, shiki, electron-store, zod, vitest, playwright.
 - 설치 완료: **Tailwind CSS v4** (`tailwindcss@^4`, `@tailwindcss/vite@^4`), **`better-sqlite3@^12`** (Phase 3 — Electron 39 V8 ABI 호환을 위해 12.x 메이저 사용. Windows prebuild 포함), **`react-router-dom@^7`** (URL/path 라우팅 — `app://` 커스텀 스킴 + BrowserRouter).
 - 템플릿 동봉 (사전 승인): `@electron-toolkit/utils`, `@electron-toolkit/preload`.
-- **`uv` 바이너리 동봉 (Phase 3++)**: npm 패키지가 아니라 빌드 산출물. `scripts/fetch-uv.mjs` 가 GitHub 릴리스에서 받아 `resources/bin/<platform>-<arch>/` 에 배치(`.gitignore` 처리, `npm run fetch-uv`), electron-builder `extraResources` 로 동봉. Python 인터프리터는 첫 실행 시 `uv python install 3.12` 로 다운로드 (4-A). 격리 위치는 `<userData>/runtime`.
+- **`uv` 바이너리 동봉 (Phase 3++)**: npm 패키지가 아니라 빌드 산출물. `scripts/fetch-uv.mjs` 가 GitHub 릴리스에서 받아 `resources/bin/<platform>-<arch>/` 에 배치(`.gitignore` 처리, `npm run fetch-uv`), electron-builder `extraResources` 로 동봉. Python 인터프리터는 첫 실행 시 `uv python install 3.12` 로 다운로드 (4-A). 격리 위치는 `<userData>/runtime`. **개발 경로**: 렌더러 런타임 UI 는 제거됨 — `npm run dev` 가 `predev`로 uv 자동 배치 + 부팅 시 자동 `ensure()`(진행/에러는 dev 터미널 `[runtime] …` 로깅), GUI 없이 미리 준비하려면 `npm run prepare-runtime`(헤드리스). production 은 설치 단계에서 준비.
 - 미정 항목 (PRD §11 / TRD §15 — 단독 결정 금지):
   - ~~OQ1~~ React 19 확정 (2026-05-20)
   - OQ2: 마크다운/하이라이트 라이브러리 최종 결정
@@ -241,7 +241,9 @@ new BrowserWindow({
 
 | 스크립트              | 동작                                                              |
 | --------------------- | ----------------------------------------------------------------- |
-| `npm run dev`         | electron-vite dev (HMR for renderer, main/preload watch+restart)  |
+| `npm run dev`         | electron-vite dev (HMR for renderer, main/preload watch+restart). `predev` 가 `fetch-uv`(멱등) 선행 + 부팅 시 Python 런타임 자동 `ensure()`. 진행/에러는 dev 터미널 `[runtime] …` 로깅 |
+| `npm run fetch-uv`    | uv 바이너리를 `resources/bin/<plat>-<arch>/` 에 배치 (이미 있으면 스킵 — `--force`/`UV_FORCE` 로 강제) |
+| `npm run prepare-runtime` | GUI 없이 Python 런타임 사전 준비 — `fetch-uv` → main 번들 빌드 → `electron . --prepare-runtime` 헤드리스 부팅으로 venv/인터프리터 생성 후 종료(ready=0 / error=1). CI 사전 워밍·GUI 없는 사전 다운로드용 |
 | `npm run build`       | `tsc --noEmit && electron-vite build` (3-config 번들 → `out/`)    |
 | `npm start`           | `electron-vite preview` (프로덕션 번들 실행)                      |
 | `npm run build:win`   | `electron-vite build && electron-builder --win` Windows 배포 산출 |

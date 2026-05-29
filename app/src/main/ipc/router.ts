@@ -1,4 +1,5 @@
 import { ipcMain, app, webContents, type WebContents, type IpcMainInvokeEvent } from 'electron'
+import { is } from '@electron-toolkit/utils'
 import { randomUUID } from 'node:crypto'
 import {
   CHANNELS,
@@ -108,7 +109,12 @@ export class IpcRouter {
     ipcMain.handle(CHANNELS.runtimeStatus, this.handleRuntimeStatus)
     ipcMain.handle(CHANNELS.runtimePrepare, this.handleRuntimePrepare)
     // 런타임 초기화 진행 상태를 모든 창에 브로드캐스트.
+    // 렌더러 런타임 UI 가 제거되어 dev 에선 터미널 로깅으로 진행/에러를 관찰한다.
     this.runtime.on('status', (st: RuntimeStatus) => {
+      if (is.dev) {
+        if (st.stage === 'error') console.error('[runtime] error:', st.error)
+        else console.log('[runtime]', st.stage, st.log ?? '')
+      }
       for (const wc of webContents.getAllWebContents()) {
         if (!wc.isDestroyed()) wc.send(CHANNELS.runtimeStatusEvent, st)
       }
