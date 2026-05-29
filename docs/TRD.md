@@ -86,7 +86,8 @@ electron-vite 환경 기준. 표 밖 의존성 추가 시 **사용자 승인 필
 | 영속화 (Phase 2+) | `electron-store` | — | **확정 (Phase 2+ 완료)** | 6 키 — `theme` / `density` / `sidebarCollapsed` / `lastBackend` / `lastSessionId` / `windowBounds`. §6.7 참조 |
 | 로컬 DB (Phase 3+) | better-sqlite3 (Phase 3 MVP raw) / Drizzle 후보 (Phase 4 재검토) | — | **채택 (Phase 3+)** | 메시지·세션 메타 SSOT. 어댑터 외부 저장 (jsonl 등) 은 단방향 동기화 소스로 격하. 마이그레이션 `src/main/db/migrations/NNN_<name>.sql`. **Phase 3 MVP: raw better-sqlite3 + prepared statements (쿼리 6 개 내외, ORM 가치 작음). Drizzle 은 Phase 4 멀티 세션·artifact·권한·통계 도입 시 재검토 (2026-05-20).** 상세 `BACKEND_ARCHITECTURE.md` §6 |
 | 자격증명 (Phase 3+) | Electron `safeStorage` (OS keychain) | — | **채택 (Phase 3+)** | 어댑터별 base URL + API key 암호화 저장. `BACKEND_ARCHITECTURE.md` §8.4 |
-| 패키징 | electron-builder | ^26 | 미정 OQ3 | signing/notarization/auto-update |
+| Python 런타임 (Phase 3++) | `uv` (동봉 바이너리) + python-build-standalone (첫 실행 다운로드) | uv latest / Python 3.12 | **채택 (Phase 3++)** | agent 의 Python 도구 실행용 격리 환경. `<userData>/runtime` 의 uv venv + 인터프리터. 시스템 비오염. 인터프리터 확보 4-A(github 다운로드) 기본, operator 가 `UV_PYTHON_INSTALL_MIRROR`/`UV_DEFAULT_INDEX` 지정 시 그 값으로 수렴. SDK `query().options.env` 로 `UV_*`/`PATH` 주입. uv 바이너리는 빌드 전 `scripts/fetch-uv.mjs` 로 `resources/bin/` 배치 + `extraResources` 동봉 |
+| 패키징 | electron-builder | ^26 | 미정 OQ3 | signing/notarization/auto-update. **uv 바이너리 `extraResources` 동봉. macOS 는 동봉 바이너리 codesign/notarize 대상 포함 필요** |
 | 테스트 (단위) | Vitest | latest | 확정 | 어댑터·reducer·IPC zod·installer |
 | 테스트 (E2E) | Playwright | latest | 확정 | Electron 지원 |
 
@@ -131,6 +132,8 @@ Phase 2 범위 밖 (예약 — 도입 시점에 재등록):
 | `orca:session:list` / `:load` / `:delete` | **Phase 3+** | `SessionAdapter.listSessions?()` / `loadSession?()` 옵셔널 메서드 노출 |
 | `orca:credentials:set` / `:hasKey` | **Phase 3+** | safeStorage 자격증명 (`BACKEND_ARCHITECTURE.md` §8.4) |
 | `orca:skills:reload` | **Future** | 핫리로드 도입 시 |
+
+> **Phase 3+ 이후 추가 도메인** (본 표는 Phase 2 미러라 누락 — SSOT 는 IPC_CONTRACT §2): `session` 5 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · **`runtime` 3 (Python uv 런타임 — `orca:runtime:status` / `:prepare` / `:statusEvent`, IPC_CONTRACT §2.11)**. 총 31 채널.
 
 ### 5.3 `window.orca` API (Preload 화이트리스트)
 

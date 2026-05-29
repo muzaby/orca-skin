@@ -21,6 +21,9 @@
 | **Artifact** | 큰 산출물 — 첨부 파일, 모델이 생성한 markdown / 코드 / 이미지 등. **Phase 3+ 채택 결정**: 파일 시스템 (`<userData>/artifacts/<sessionId>/...`) 에 저장하고 DB 에는 경로·해시·크기만 보관. 현재 미구현. | (Phase 3+ 도입 예정) | BACKEND_ARCHITECTURE.md §6 |
 | **Credential** | 어댑터별 자격증명 — base URL + API key 등. **Phase 3+ 채택 결정**: Electron safeStorage (OS keychain) 로 암호화 저장. 현재는 미구현 (claude-code 어댑터는 SDK 가 `~/.claude` 자격증명 자동 사용). | (Phase 3+ 도입 예정) | BACKEND_ARCHITECTURE.md §8 |
 | **Project** | 프로젝트 카드 그리드 화면. **Phase 1 mockup 만** 구현 (실 데이터 없음). PRD §9 Future Scope. | `Projects.tsx` | PRD §9 |
+| **Python Runtime** | 앱이 `<userData>/runtime` 에 제공하는 **uv 기반 격리 Python 환경** (venv + 인터프리터 3.12). agent 가 Python 도구를 실행할 때 시스템을 오염시키지 않도록 격리. 부팅 시 비동기 초기화(멱등·자가복구·`.ready` 마커), 상태는 `RuntimeStatus`(`idle/preparing/ready/error`). | `PythonRuntime`, `RuntimeStatus` | `app/src/main/runtime/` / `app/src/shared/ipc.ts` |
+| **uv** | Astral 의 Python 패키지·인터프리터 관리자. 바이너리만 동봉(`resources/bin/`), 인터프리터는 첫 실행 시 다운로드(4-A). agent 는 `uv run python` / `uv pip install` 로 격리 환경에 수렴. | `buildPyEnv`, `PY_AGENT_RULES` | `app/src/main/runtime/env.ts` |
+| **buildPyEnv** | Python 런타임 환경변수의 **단일 소스**. 초기화와 agent 실행(SDK `query().options.env`)이 동일 env 공유. 인덱스/미러(`UV_DEFAULT_INDEX`·`UV_PYTHON_INSTALL_MIRROR`·`PIP_INDEX_URL`)는 하드코딩하지 않고 operator env pass-through — 미설정 시 공개 PyPI/github 기본. | `buildPyEnv()` | `app/src/main/runtime/env.ts` |
 
 ## 2. 아키텍처 용어
 

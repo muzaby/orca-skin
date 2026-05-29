@@ -155,3 +155,5 @@ thumb
 sketch
 
 # End of https://www.toptal.com/developers/gitignore/api/react,node
+# uv 바이너리 (Python 런타임 동봉) — scripts/fetch-uv.mjs 로 빌드 전 생성, 커밋하지 않음
+resources/bin/

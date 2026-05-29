@@ -137,7 +137,7 @@ function SidebarImpl({ sessionsSlot, footerSlot }: SidebarProps): React.JSX.Elem
           {sessionsSlot}
         </div>
 
-        <div className="app-frame-sidebar-footer flex items-center gap-2 border-t border-border p-2.5">
+        <div className="app-frame-sidebar-footer flex flex-col gap-1 border-t border-border p-2.5">
           {footerSlot}
         </div>
       </div>

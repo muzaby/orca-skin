@@ -9,6 +9,7 @@ import type {
   LoadedSession,
   McpServer,
   Project,
+  RuntimeStatus,
   SearchHit,
   SendChatMessage,
   SessionListItem,
@@ -86,6 +87,13 @@ export const mcpApi = {
   add: (req: CreateMcpServerRequest): Promise<McpServer> => window.orca.mcp.add(req),
   update: (req: UpdateMcpServerRequest): Promise<McpServer | null> => window.orca.mcp.update(req),
   delete: (id: string): Promise<void> => window.orca.mcp.delete(id)
+}
+
+export const runtimeApi = {
+  status: (): Promise<RuntimeStatus> => window.orca.runtime.status(),
+  prepare: (): Promise<void> => window.orca.runtime.prepare(),
+  onStatus: (handler: (st: RuntimeStatus) => void): (() => void) =>
+    window.orca.runtime.onStatus(handler)
 }
 
 // 플랫폼 식별자. preload 가 sync 노출하지만, 모듈 로드 시점에 window.orca 가

@@ -1,4 +1,4 @@
-import { ipcMain, app, type WebContents, type IpcMainInvokeEvent } from 'electron'
+import { ipcMain, app, webContents, type WebContents, type IpcMainInvokeEvent } from 'electron'
 import { randomUUID } from 'node:crypto'
 import {
   CHANNELS,
@@ -36,6 +36,8 @@ import { McpStore } from '../mcp/store'
 import { scanSkills } from '../skills/scan'
 import { listDir } from '../files/scan'
 import { initDb, type DbQueries } from '../db'
+import { PythonRuntime, PY_AGENT_RULES } from '../runtime'
+import type { RuntimeStatus } from '../../shared/ipc'
 
 interface InflightTurn {
   controller: AbortController
@@ -59,6 +61,7 @@ export class IpcRouter {
   private readonly inflight = new Map<WebContents, InflightTurn>()
   readonly settings = new SettingsStore()
   readonly mcp = new McpStore()
+  readonly runtime = new PythonRuntime()
   // 부팅 시 1회 스캔하여 메모리에 캐시. fs.watch hot-reload 는 본 PR 범위 밖 (재시작).
   private skillsCache: SkillInfo[] = []
   // chat send 와 files list, session cwd 노출에서 모두 동일하게 사용하는 단일
@@ -73,6 +76,9 @@ export class IpcRouter {
     // ClaudeCodeAdapter 가 사용하는 cwd 와 동일한 값으로 스킬 스캔.
     this.skillsCache = await scanSkills(this.defaultCwd).catch(() => [])
     this.register()
+    // Python 런타임 (uv 격리 인터프리터) 비동기 초기화. await 하지 않아 부팅을 막지
+    // 않는다 — 진행 상태는 runtime:statusEvent 로 모든 webContents 에 스트리밍된다.
+    void this.runtime.ensure()
   }
 
   private register(): void {
@@ -99,6 +105,14 @@ export class IpcRouter {
     ipcMain.handle(CHANNELS.mcpAdd, this.handleMcpAdd)
     ipcMain.handle(CHANNELS.mcpUpdate, this.handleMcpUpdate)
     ipcMain.handle(CHANNELS.mcpDelete, this.handleMcpDelete)
+    ipcMain.handle(CHANNELS.runtimeStatus, this.handleRuntimeStatus)
+    ipcMain.handle(CHANNELS.runtimePrepare, this.handleRuntimePrepare)
+    // 런타임 초기화 진행 상태를 모든 창에 브로드캐스트.
+    this.runtime.on('status', (st: RuntimeStatus) => {
+      for (const wc of webContents.getAllWebContents()) {
+        if (!wc.isDestroyed()) wc.send(CHANNELS.runtimeStatusEvent, st)
+      }
+    })
   }
 
   private sendChatEvent(wc: WebContents, ev: ChatEvent): void {
@@ -173,8 +187,17 @@ export class IpcRouter {
       turn.pendingUserText = null
     }
 
+    // Python 런타임 도구 사용 규약을 항상 시스템 프롬프트에 합류. 프로젝트 지침이
+    // 있으면 그 뒤에 붙인다 (둘 다 SDK 기본 claude_code preset 뒤로 append).
+    const promptAppend = systemPromptAppend
+      ? `${systemPromptAppend}\n\n${PY_AGENT_RULES}`
+      : PY_AGENT_RULES
+
     // 전역 MCP 설정 — 활성화된 서버를 query 옵션(mcpServers + allowedTools)으로 주입.
     const mcpOptions = this.mcp.buildQueryOptions()
+
+    // Python 런타임 env (uv 격리). ready 전이면 null → SDK 기본 env 로 동작.
+    const pyEnv = this.runtime.getEnv() ?? undefined
 
     const cwd = this.defaultCwd
     try {
@@ -183,8 +206,9 @@ export class IpcRouter {
         parsed.data.text,
         cwd,
         controller.signal,
-        systemPromptAppend,
-        mcpOptions
+        promptAppend,
+        mcpOptions,
+        pyEnv
       )) {
         this.persist(turn, ev)
         this.sendChatEvent(event.sender, ev)
@@ -492,6 +516,16 @@ export class IpcRouter {
   private handleMcpDelete = async (_event: IpcMainInvokeEvent, raw: unknown): Promise<void> => {
     const parsed = DeleteMcpServerSchema.parse(raw)
     this.mcp.remove(parsed.id)
+  }
+
+  // 현재 런타임 상태 조회 (renderer 마운트 시점의 초기 동기화용). 인자 없음.
+  private handleRuntimeStatus = async (): Promise<RuntimeStatus> => {
+    return this.runtime.status
+  }
+
+  // 실패 후 재시도 또는 수동 준비 트리거. 진행 상태는 statusEvent 로 별도 스트리밍.
+  private handleRuntimePrepare = async (): Promise<void> => {
+    await this.runtime.retry()
   }
 }
 

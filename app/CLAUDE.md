@@ -13,7 +13,7 @@
 | TypeScript                        | 5.x (strict, target ES2022)                                                                                                                                                                |
 | 스타일링                          | **Tailwind CSS v4** (`@tailwindcss/vite` 플러그인, CSS-first `@theme` 설정) + **`app-frame-*` 마커 클래스 + `data-behavior` / `data-state` / `data-axis` / `data-context` / `data-platform` 속성 공존** (FRONTEND §3.3) |
 | 메인 (`src/main/index.ts`)        | **`app://` 커스텀 스킴 등록 (standard/secure/supportFetchAPI) + `protocol.handle` 의 SPA fallback** + IpcRouter 부트 + `createWindow` (`frame:false` + 윈도우 컨트롤 IPC 3개). 보안 옵션 명시 (contextIsolation/nodeIntegration/sandbox).      |
-| 렌더러 (`src/renderer/src/`)      | **Phase 1~3++ 누적** — `app/` 셸 (AppLayout · Header · Sidebar · OverlayLayer · WinControls · router · BootRedirector), `pages/` 조립 (NewChatLandingPage · ChatPage · ProjectsPage · ProjectLandingPage · EnginePage · SkillsPage · CapturesPage), `features/` 도메인 6개 (backend · camera · captures · chat · engine · projects · sessions · skills), `shared/` 공통 (navigation · theme · hooks · ui · api · config). ESLint boundaries v6 로 레이어 방향 강제. **`react-router-dom` v7 BrowserRouter + `app://` 커스텀 스킴** 으로 URL 자체가 라우팅 진실의 출처. |
+| 렌더러 (`src/renderer/src/`)      | **Phase 1~3++ 누적** — `app/` 셸 (AppLayout · Header · Sidebar · OverlayLayer · WinControls · router · BootRedirector), `pages/` 조립 (NewChatLandingPage · ChatPage · ProjectsPage · ProjectLandingPage · EnginePage · SkillsPage · CapturesPage), `features/` 도메인 (backend · camera · captures · chat · engine · projects · runtime · sessions · skills), `shared/` 공통 (navigation · theme · hooks · ui · api · config). ESLint boundaries v6 로 레이어 방향 강제. **`react-router-dom` v7 BrowserRouter + `app://` 커스텀 스킴** 으로 URL 자체가 라우팅 진실의 출처. |
 | 프리로드 (`src/preload/index.ts`) | `contextBridge.exposeInMainWorld('orca', OrcaApi)` — chat/backend/install/settings/skills/files/session/project/window/search/**mcp** 화이트리스트 + **`orca.platform` sync 노출**                  |
 | 패키저                            | electron-builder (`electron-builder.yml`)                                                                                                                                                  |
 | 도메인 코드 (IPC/어댑터)          | **claude-code 단일 어댑터 (SDK query)** + **로컬 SQLite SSOT** — ClaudeCodeAdapter(SDK NDJSON 정규화), AdapterRegistry, IpcRouter, Installer, SettingsStore, DbQueries (prepared statements), 마이그레이션 러너. opencode 는 future work                                  |
@@ -31,7 +31,7 @@
 
 ```
 src/renderer/src/
-├── App.tsx                  # Provider 합성 루트 (Tweak → BrowserRouter → Backend → Sessions → Projects → Chat)
+├── App.tsx                  # Provider 합성 루트 (Tweak → BrowserRouter → Backend → Runtime → Sessions → Projects → Chat)
 ├── main.tsx                 # React 엔트리 + DOM mount
 ├── app/                     # 셸 — 고정 골격 (cross-feature wiring 권한 있음)
 │   ├── AppLayout.tsx        # Header + Sidebar (슬롯 wiring) + main + OverlayLayer 조립
@@ -94,6 +94,12 @@ src/renderer/src/
 │   │   ├── hooks/useSkillsMcp.ts           # (SkillsMcp 화면 전용)
 │   │   ├── components/SkillsMcpView.tsx
 │   │   └── index.ts
+│   ├── runtime/                            # Python(uv) 런타임 상태·제어
+│   │   ├── providers/RuntimeProvider.tsx   # useRuntimeContext export (+ modalOpen)
+│   │   ├── hooks/useRuntime.ts             # orca:runtime:* 구독 + prepare
+│   │   ├── components/RuntimeStatus.tsx    # sidebar footer 위젯 (Dot + 단계 라벨)
+│   │   ├── components/RuntimeModal.tsx     # 진행 로그 + 재시도 (InstallerDialog 패턴)
+│   │   └── index.ts
 │   ├── camera/ · engine/ · captures/      # CameraView, EngineView, CapturesView + index.ts
 ├── shared/                  # 범용 — 모든 레이어가 의존 가능, 도메인 로직 0
 │   ├── navigation/
@@ -125,6 +131,7 @@ src/renderer/src/
 | `src/main/installer/index.ts`                             | CLI 설치 자동화 (`npm install -g @anthropic-ai/claude-code`)                    | 구현됨                                  |
 | `src/main/settings/store.ts`                              | `electron-store` + zod. `Settings.sidebarWidth` 포함                            | 구현됨 (Phase 2+)                       |
 | `src/main/mcp/store.ts`                                   | `electron-store` (`orca-mcp`) + zod. 전역 MCP 서버 CRUD + `safeStorage` 암호화(authEnc) + `buildQueryOptions()` (활성 서버 → SDK `mcpServers`/`allowedTools`) | 구현됨 (Phase 3++)        |
+| `src/main/runtime/`                                       | **Python 런타임 (uv 격리 인터프리터).** `paths.ts` (userData 경로 + 번들 uv 해석) · `env.ts` (`buildPyEnv` 단일 소스 + `PY_AGENT_RULES`) · `PythonRuntime.ts` (멱등 초기화 상태기계 + `.ready` 마커 + EventEmitter status). `IpcRouter.start()` 가 `ensure()` 비동기 킥, `handleChatSend` 가 `getEnv()` 를 SDK `query().options.env` 로 주입 | 구현됨 (Phase 3++)        |
 | `src/main/db/`                                            | `better-sqlite3` singleton + WAL + 마이그레이션 러너 + queries (11개 prepared statements) | 구현됨 (Phase 3)       |
 | `src/main/files/scan.ts`                                  | `@` 파일 자동완성용 — `cwd + relDir` 한 단계 listing                            | 구현됨                                  |
 | `src/main/skills/scan.ts`                                 | `~/.claude/skills/` · `<cwd>/.claude/skills/` `SKILL.md` frontmatter 스캔      | 구현됨                                  |
@@ -219,6 +226,7 @@ new BrowserWindow({
 - 이미 채택된 것 (도입 시점만 자유): React, react-markdown, shiki, electron-store, zod, vitest, playwright.
 - 설치 완료: **Tailwind CSS v4** (`tailwindcss@^4`, `@tailwindcss/vite@^4`), **`better-sqlite3@^12`** (Phase 3 — Electron 39 V8 ABI 호환을 위해 12.x 메이저 사용. Windows prebuild 포함), **`react-router-dom@^7`** (URL/path 라우팅 — `app://` 커스텀 스킴 + BrowserRouter).
 - 템플릿 동봉 (사전 승인): `@electron-toolkit/utils`, `@electron-toolkit/preload`.
+- **`uv` 바이너리 동봉 (Phase 3++)**: npm 패키지가 아니라 빌드 산출물. `scripts/fetch-uv.mjs` 가 GitHub 릴리스에서 받아 `resources/bin/<platform>-<arch>/` 에 배치(`.gitignore` 처리, `npm run fetch-uv`), electron-builder `extraResources` 로 동봉. Python 인터프리터는 첫 실행 시 `uv python install 3.12` 로 다운로드 (4-A). 격리 위치는 `<userData>/runtime`.
 - 미정 항목 (PRD §11 / TRD §15 — 단독 결정 금지):
   - ~~OQ1~~ React 19 확정 (2026-05-20)
   - OQ2: 마크다운/하이라이트 라이브러리 최종 결정
@@ -275,6 +283,7 @@ new BrowserWindow({
 | **Phase 3++ (FTS5 대화 검색 모달 + IPC)** | **대화 이력 전체 검색.** `0003_messages_fts.sql` 마이그레이션 (FTS5 가상 테이블 `messages_fts` + INSERT/UPDATE/DELETE 트리거 + 기존 메시지 백필). `DbQueries.searchMessages` prepared statement (FTS5 quote escape + 모든 토큰에 prefix wildcard `*` 부착 — 어느 토큰이든 미완성일 수 있다는 가정). 신규 IPC 채널 `orca:search:messages` + zod 스키마 + preload `orca.search.messages` + renderer `searchApi.messages`. `app/SearchModal.tsx` 신설 — `#app-frame-modal` 슬롯 안에 conditional mount (React 19 useEffect 내 setState 금지 회피), 150ms debounce + request id supersede + `<mark>` split-parse XSS 방어 + ↑↓/Enter/Esc 키보드. `AppLayout` 이 `searchOpen` useState lift, Header `onOpenSearch` / OverlayLayer `searchOpen+onCloseSearch` props 로 전파. Worker thread 도입 보류 (FTS5 latency 단위 ms — 향후 perf 회귀 시 utilityProcess 위임 검토). | **완료** |
 | **Phase 3++ (Sidebar 활성 효과 URL 동기화)** | **활성 표시의 진실은 URL.** `useSessionHandlers` 의 `currentSessionId` 를 `matchPath('/chat/:sessionId', pathname)` 로 도출 — 기존 `ChatContext.state.sessionId` 의존 제거 (캐시/IPC 호출 용도로만 잔존). 다른 라우트로 이동 시 모든 세션 행 활성 자동 해제. Sidebar NAV[0] '새 대화' isActive 도 `p === '/new'` 로 좁힘 (`/chat/<id>` 진입 시 활성 해제). `handleDeleteSession` 의 `wasActive` 검사도 새 `currentSessionId` 사용. | **완료** |
 | **Phase 3++ (MCP 서버 지원)** | **전역 MCP 서버 등록·관리 + query 주입.** 사이드바 nav 4번째 항목 'Skills & MCP'(`/skills`) 신설. `SkillsMcpView` 의 MCP 섹션을 하드코딩 mockup → 실데이터(`useMcpServers`)로 교체 (토글·삭제·추가/편집 모달 `AddMcpServerModal`). 신규 IPC 도메인 `orca:mcp:*` 4채널 + `McpStore`(`src/main/mcp/store.ts`, electron-store `orca-mcp`). **인증값은 Electron `safeStorage` 로 암호화 저장** (authEnc base64, renderer 엔 `hasAuth` boolean 만 노출 — 보안 베이스라인 준수). transport 2종: stdio(command·args·인증 env) / streamable-http(url·Bearer 토큰). `handleChatSend` 가 `buildQueryOptions()` 로 활성 서버를 `query().options.mcpServers` + `allowedTools`(`mcp__<name>__*`) 에 주입. `SessionAdapter.sendMessage` 에 `mcp?: McpQueryOptions` 인자 추가. Skills(좌측)·권한 섹션은 mockup 유지. | **완료** |
+| **Phase 3++ (uv 기반 Python 런타임 내장)** | **agent 의 Python 실행을 위한 격리 uv 환경.** `<userData>/runtime` 에 uv venv + 인터프리터(3.12) 격리 — 시스템 비오염. `src/main/runtime/` 3모듈 (`paths`·`env`·`PythonRuntime`): `buildPyEnv` 가 `UV_*`/`PATH` 단일 소스 생성(인덱스/미러는 operator env pass-through — 미설정 시 공개 PyPI/github 기본), `PythonRuntime` 가 멱등 초기화 상태기계(`.ready` 마커 + 자가복구 + EventEmitter status). `IpcRouter.start()` 가 `ensure()` 비동기 킥, `handleChatSend` 가 `getEnv()` 를 SDK `query().options.env` 에 주입 + `PY_AGENT_RULES`(uv run / uv pip 규약) 를 systemPrompt 에 합류. 신규 IPC 도메인 `orca:runtime:*` 3채널(status/prepare/statusEvent, 모든 창 브로드캐스트). 렌더러 `features/runtime/` (RuntimeProvider · useRuntime · RuntimeStatus 사이드바 풋터 위젯 · RuntimeModal — InstallerDialog 스트리밍 패턴, 실패 시 재시도). 패키징: uv 바이너리 `scripts/fetch-uv.mjs` → `resources/bin/` + electron-builder `extraResources` 동봉. `SessionAdapter.sendMessage` 에 `env?` 인자 추가. | **완료** |
 | 후속    | CI 워크플로우 (`.github/workflows/`), Vitest / Playwright 테스트, opencode 어댑터, `V1Captures` 실 구현 (캡처 RAW 보관 + AI 분석), 다국어 (`src/shared/i18n/ko.ts`), 세션 휴지통 30일 보존 (soft delete), 세션 메타 LRU 캐시 cap, 자동 제목 생성 (요약), Tile 우측 분할 콘텐츠 (`app-frame-tile-separator` 도입), `pages/RoutinesPage.tsx` placeholder + `/routines` 라우트 등록, **Phase 4 (Zustand 전환 + 멀티세션, `FRONTEND_ARCHITECTURE.md` §4.4)**. | Future Scope                |
 
 ## 위치 규약
