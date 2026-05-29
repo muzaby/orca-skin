@@ -213,8 +213,9 @@ Renderer (UI) → Electron IPC → `SessionAdapter` → `ClaudeCodeAdapter` 또�
 | **Bayer 디버그 모드** | R/G1/G2/B 채널 분리 + RGB 디코딩 뷰 (row-noise, 채널 imbalance 분석용) | 동 |
 | **품질 메트릭** | SNR, ΔG1−G2, Sharpness, DR, ΔE, MTF50 (tone: ok/warn/bad) | 동 |
 | **로컬 워크스페이스** | `~/orca/projects/{name}/captures/`, `skills/`, `.mcp.json`, `sessions.db` | 프로토타입 도메인 단서 |
+| **Python 런타임 (내장)** ✅ 구현 (Phase 3++) | agent 의 Python 코드 실행/패키지 설치를 위한 **uv 기반 격리 환경** (`<userData>/runtime` venv + 인터프리터 3.12). 시스템 Python 비의존·비오염. 인터프리터 첫 실행 다운로드(4-A), operator env 로 사내 미러/인덱스 지정 가능. SDK `query().options.env` 주입 + agent 규약(`uv run`/`uv pip`). | TRD §2·§5, IPC_CONTRACT §2.11, `app/src/main/runtime/` |
 
-§9 항목들은 *언제* 구현할지 본 문서에서 약속하지 않는다.
+§9 항목들은 *언제* 구현할지 본 문서에서 약속하지 않는다 (✅ 표시 항목은 이미 구현됨).
 
 ---
 

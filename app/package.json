@@ -1,5 +1,5 @@
 {
-  "name": "app",
+  "name": "orca",
   "version": "1.0.0",
   "description": "An Electron application with React and TypeScript",
   "main": "./out/main/index.js",
@@ -12,7 +12,10 @@
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
     "start": "electron-vite preview",
+    "predev": "npm run fetch-uv",
     "dev": "electron-vite dev",
+    "fetch-uv": "node scripts/fetch-uv.mjs",
+    "prepare-runtime": "npm run fetch-uv && electron-vite build && electron . --prepare-runtime",
     "build": "npm run typecheck && electron-vite build",
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",

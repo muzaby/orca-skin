@@ -8,7 +8,7 @@
 ## 1. 명명 규칙
 
 - 형식: `orca:<domain>:<action>` — 소문자 + 콜론 구분
-- 도메인 (11개): `chat`, `backend`, `install`, `settings`, `skills`, `files`, `session`, `project`, `window`, `search`, `mcp`
+- 도메인 (12개): `chat`, `backend`, `install`, `settings`, `skills`, `files`, `session`, `project`, `window`, `search`, `mcp`, `runtime`
 - 방향:
   - Renderer → Main 요청: `ipcMain.handle` + `ipcRenderer.invoke` (Promise 반환)
   - Main → Renderer 이벤트: `webContents.send` + `ipcRenderer.on` (단방향 push)
@@ -16,9 +16,9 @@
 - 채널 상수: `app/src/shared/ipc.ts` 의 `CHANNELS` 객체. 문자열 리터럴 직접 사용 금지.
 - 입력 검증: 모든 `ipcMain.handle` 핸들러는 **zod 스키마 (`app/src/shared/protocol.ts`)** 로 페이로드 검증. 검증 실패 시 에러 throw.
 
-## 2. 채널 카탈로그 (총 28 채널)
+## 2. 채널 카탈로그 (총 31 채널)
 
-도메인별 분포: `chat` 3 · `backend` 1 · `install` 2 · `settings` 2 · `skills` 1 · `files` 1 · `session` 5 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4.
+도메인별 분포: `chat` 3 · `backend` 1 · `install` 2 · `settings` 2 · `skills` 1 · `files` 1 · `session` 5 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `runtime` 3.
 
 `app/src/shared/ipc.ts` 의 `CHANNELS` 상수와 1:1 일치.
 
@@ -170,7 +170,28 @@ interface McpServer {
 
 transport→SDK 매핑: stdio → `{ command, args, env: { [authEnvKey]: secret } }`, http → `{ type:'http', url, headers: { Authorization: 'Bearer '+secret } }`.
 
-### 2.11 예약 / 미노출 채널
+### 2.11 Runtime (Python — uv 격리 인터프리터)
+
+앱이 `<userData>/runtime` 에 제공하는 uv 기반 격리 Python 환경의 상태/제어. 부팅 시 `IpcRouter.start()` 가 `PythonRuntime.ensure()` 를 비동기로 킥하며, 진행 상태는 `orca:runtime:statusEvent` 로 모든 창에 브로드캐스트된다. agent 의 도구 실행에는 `handleChatSend` 가 `PythonRuntime.getEnv()` 의 `UV_*`/`PATH` 를 SDK `query().options.env` 로 주입한다. 인터프리터는 첫 실행 시 `uv python install 3.12` 로 확보(4-A); operator 가 `UV_PYTHON_INSTALL_MIRROR`/`UV_DEFAULT_INDEX`/`PIP_INDEX_URL` 를 환경에 지정하면 그 값으로 수렴(미설정 시 github/공개 PyPI).
+
+| 채널 | 방향 | 페이로드 | 응답 | 설명 |
+|---|---|---|---|---|
+| `orca:runtime:status` | R→M (invoke) | — | `RuntimeStatus` | 현재 런타임 상태 1회 조회 (renderer 마운트 시 초기 동기화). |
+| `orca:runtime:prepare` | R→M (invoke) | — | `Promise<void>` | 초기화 재시도/수동 준비 트리거. 진행은 statusEvent 로 스트리밍. |
+| `orca:runtime:statusEvent` | M→R (send) | `RuntimeStatus` | — | 초기화 진행 상태 스트림 (preparing 단계 로그 청크 포함). |
+
+`RuntimeStatus` (`app/src/shared/ipc.ts`):
+```typescript
+type RuntimeStage = 'idle' | 'preparing' | 'ready' | 'error'
+interface RuntimeStatus {
+  stage: RuntimeStage
+  ready: boolean
+  log?: string    // preparing 단계 라벨 또는 자식 프로세스 stdout/stderr 청크
+  error?: string  // stage === 'error' 일 때만
+}
+```
+
+### 2.12 예약 / 미노출 채널
 
 코드에 채널 상수는 없지만 향후 도입이 예약된 도메인:
 

@@ -12,7 +12,14 @@ export interface SidebarSlots {
 // 해야 한다. AppLayout 이 chat.state.inflight 토글 등으로 리렌더돼도 slot identity 가
 // 유지되어 Sidebar 가 skip 된다.
 export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
-  const footerSlot = useMemo(() => <BackendStatus />, [])
+  const footerSlot = useMemo(
+    () => (
+      <div className="flex items-center gap-2">
+        <BackendStatus />
+      </div>
+    ),
+    []
+  )
   const sessionsSlot = useMemo(
     () => (
       <SessionList

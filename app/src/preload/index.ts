@@ -11,6 +11,7 @@ import {
   type LoadedSession,
   type McpServer,
   type Project,
+  type RuntimeStatus,
   type SearchHit,
   type SendChatMessage,
   type SessionListItem,
@@ -96,6 +97,17 @@ const orca = {
     update: (req: UpdateMcpServerRequest): Promise<McpServer | null> =>
       ipcRenderer.invoke(CHANNELS.mcpUpdate, req),
     delete: (id: string): Promise<void> => ipcRenderer.invoke(CHANNELS.mcpDelete, { id })
+  },
+  // Python 런타임 (uv 격리 인터프리터). status: 현재 상태 조회, prepare: 재시도 트리거,
+  // onStatus: 초기화 진행 스트림 구독.
+  runtime: {
+    status: (): Promise<RuntimeStatus> => ipcRenderer.invoke(CHANNELS.runtimeStatus),
+    prepare: (): Promise<void> => ipcRenderer.invoke(CHANNELS.runtimePrepare),
+    onStatus: (handler: (st: RuntimeStatus) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, st: RuntimeStatus): void => handler(st)
+      ipcRenderer.on(CHANNELS.runtimeStatusEvent, listener)
+      return () => ipcRenderer.off(CHANNELS.runtimeStatusEvent, listener)
+    }
   },
   // 데스크톱 플랫폼 식별자. renderer 의 `<html data-platform>` 에 부착되고,
   // WinControls 가 macOS 에서 null 을 반환하는 분기 등에 사용.

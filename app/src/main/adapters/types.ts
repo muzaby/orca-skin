@@ -27,6 +27,9 @@ export interface SessionAdapter {
     // 비어 있거나 undefined 면 SDK 기본 동작 그대로.
     systemPromptAppend?: string,
     // 활성화된 MCP 서버 + 허용 도구. undefined 또는 빈 servers 면 옵션 미주입.
-    mcp?: McpQueryOptions
+    mcp?: McpQueryOptions,
+    // agent 도구(Bash 등)가 실행될 자식 프로세스에 주입할 환경변수. Python 런타임
+    // (uv 격리 인터프리터) 의 UV_*/PATH 등이 들어온다. undefined 면 SDK 기본 env.
+    env?: Record<string, string>
   ): AsyncIterable<ChatEvent>
 }

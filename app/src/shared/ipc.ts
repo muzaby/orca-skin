@@ -30,7 +30,10 @@ export const CHANNELS = {
   mcpList: 'orca:mcp:list',
   mcpAdd: 'orca:mcp:add',
   mcpUpdate: 'orca:mcp:update',
-  mcpDelete: 'orca:mcp:delete'
+  mcpDelete: 'orca:mcp:delete',
+  runtimeStatus: 'orca:runtime:status',
+  runtimePrepare: 'orca:runtime:prepare',
+  runtimeStatusEvent: 'orca:runtime:statusEvent'
 } as const
 
 // Backend (Phase 2: claude-code 단일. opencode 는 future work)
@@ -276,4 +279,17 @@ export interface UpdateMcpServerRequest {
 
 export interface DeleteMcpServerRequest {
   id: string
+}
+
+// Python 런타임 (uv 기반 격리 인터프리터) 상태.
+// 초기화 단계: idle(미시작) → preparing(진행 중) → ready(준비됨) | error(실패).
+export type RuntimeStage = 'idle' | 'preparing' | 'ready' | 'error'
+
+export interface RuntimeStatus {
+  stage: RuntimeStage
+  ready: boolean
+  // 진행 단계 라벨 또는 자식 프로세스 stdout/stderr 누적 청크.
+  log?: string
+  // stage === 'error' 일 때만.
+  error?: string
 }

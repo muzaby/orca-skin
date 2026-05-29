@@ -148,7 +148,8 @@ export class ClaudeCodeAdapter implements SessionAdapter {
     cwd: string,
     signal?: AbortSignal,
     systemPromptAppend?: string,
-    mcp?: McpQueryOptions
+    mcp?: McpQueryOptions,
+    env?: Record<string, string>
   ): AsyncIterable<ChatEvent> {
     const abortController = new AbortController()
     const onAbort = (): void => abortController.abort()
@@ -177,6 +178,10 @@ export class ClaudeCodeAdapter implements SessionAdapter {
         ? { mcpServers: mcp.servers, allowedTools: mcp.allowedTools }
         : {}
 
+    // Python 런타임 env 주입 — agent 의 Bash 도구가 실행하는 자식 프로세스가 내장
+    // uv venv / 인터프리터로 수렴하도록 UV_*/PATH 등을 넘긴다. env 미제공 시 SDK 기본.
+    const envOption = env ? { env } : {}
+
     try {
       for await (const msg of query({
         prompt: text,
@@ -186,7 +191,8 @@ export class ClaudeCodeAdapter implements SessionAdapter {
           cwd,
           abortController,
           ...systemPromptOption,
-          ...mcpOption
+          ...mcpOption,
+          ...envOption
           // permissionMode / canUseTool / hooks: Phase 4 anchor (OQ9)
         }
       })) {

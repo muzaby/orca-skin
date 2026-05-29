@@ -9,7 +9,7 @@
 | `chats/` | 사용자 의도 트랜스크립트 (Claude Design 핸드오프) — *왜* 가 산다 | `chats/CLAUDE.md` |
 | `docs/` | PRD, TRD, 전략 문서 — *무엇을* / *어떻게* 가 산다 | `docs/CLAUDE.md` |
 | `project/` | HTML/CSS/JS 디자인 프로토타입 (variation A 채택) — *어떻게 보여야 하는가* | `project/CLAUDE.md` |
-| `app/` | Orca v1 실제 구현체 (electron-vite + React/TypeScript). Phase 3++ — 로컬 SQLite SSOT + 세션 히스토리 + DOM Architecture + 4-layer Feature 아키텍처 (`app/` · `pages/` · `features/` · `shared/`) + ESLint boundaries 강제 + URL/path 라우팅 (`app://` + BrowserRouter) + **Header 액션 5-버튼 툴바 + Sidebar brand/nav 재구성 + FTS5 대화 검색 모달 + MCP 서버 지원 (safeStorage 암호화)**. | `app/CLAUDE.md` |
+| `app/` | Orca v1 실제 구현체 (electron-vite + React/TypeScript). Phase 3++ — 로컬 SQLite SSOT + 세션 히스토리 + DOM Architecture + 4-layer Feature 아키텍처 (`app/` · `pages/` · `features/` · `shared/`) + ESLint boundaries 강제 + URL/path 라우팅 (`app://` + BrowserRouter) + **Header 액션 5-버튼 툴바 + Sidebar brand/nav 재구성 + FTS5 대화 검색 모달 + MCP 서버 지원 (safeStorage 암호화) + uv 기반 Python 런타임 내장 (격리 venv + SDK env 주입)**. | `app/CLAUDE.md` |
 
 ## 새 세션 진입 시 읽는 순서
 

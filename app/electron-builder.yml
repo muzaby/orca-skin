@@ -1,5 +1,5 @@
-appId: com.electron.app
-productName: app
+appId: com.orca.app
+productName: orca
 directories:
   buildResources: build
 files:
@@ -11,8 +11,15 @@ files:
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
 asarUnpack:
   - resources/**
+# uv 바이너리 동봉 (Python 런타임 4-A 다운로드 분기). 빌드 전 scripts/fetch-uv.mjs 로
+# resources/bin/<platform>-<arch>/uv(.exe) 를 배치한다. 런타임이 이를 userData/runtime 으로
+# 복사해 사용. macOS 는 동봉 바이너리를 codesign/notarize 대상에 포함해야 Gatekeeper 통과.
+extraResources:
+  - from: resources/bin/${os}-${arch}
+    to: bin
+    filter: ['**/*']
 win:
-  executableName: app
+  executableName: orca
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
