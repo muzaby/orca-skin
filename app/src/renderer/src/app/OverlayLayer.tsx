@@ -2,7 +2,6 @@ import { useBackendContext } from '../features/backend'
 import { useChatContext } from '../features/chat'
 import { useTweakContext } from '../shared/theme'
 import { InstallerDialog, AuthExpiredModal } from '../features/backend'
-import { RuntimeModal, useRuntimeContext } from '../features/runtime'
 import { TweaksPanel, TweakSection, TweakRadio, TweakToggle } from '../shared/ui/TweaksPanel'
 import { SearchModal } from './SearchModal'
 
@@ -19,15 +18,11 @@ interface OverlayLayerProps {
 //   - #app-frame-debug   : 항상 z=30 (TweaksPanel, modal 상태 무관)
 export function OverlayLayer({ searchOpen, onCloseSearch }: OverlayLayerProps): React.JSX.Element {
   const { installerOpen, setInstallerOpen, refresh } = useBackendContext()
-  const { modalOpen: runtimeModalOpen } = useRuntimeContext()
   const { state, newChat, clearError } = useChatContext()
   const { t, setTweak } = useTweakContext()
 
   const authExpired = state.error?.code === 'auth.expired'
-  // 런타임 모달은 개발 빌드 전용(수동 prepare). production 에선 modalOpen 이 토글될
-  // 경로(RuntimeStatus 위젯)가 렌더되지 않으므로 항상 false 지만, 명시적으로 게이팅.
-  const modalActive =
-    installerOpen || authExpired || searchOpen || (import.meta.env.DEV && runtimeModalOpen)
+  const modalActive = installerOpen || authExpired || searchOpen
 
   return (
     <>
@@ -54,7 +49,6 @@ export function OverlayLayer({ searchOpen, onCloseSearch }: OverlayLayerProps): 
           }}
         />
         <AuthExpiredModal open={authExpired} onNewChat={newChat} onDismiss={clearError} />
-        {import.meta.env.DEV && <RuntimeModal />}
         {searchOpen && <SearchModal onClose={onCloseSearch} />}
       </div>
       <div id="app-frame-debug" className="pointer-events-none z-30" data-context="debug">

@@ -1,7 +1,6 @@
 import { BrowserRouter } from 'react-router-dom'
 import { TweakProvider } from './shared/theme'
 import { BackendProvider } from './features/backend'
-import { RuntimeProvider } from './features/runtime'
 import { SessionsProvider } from './features/sessions'
 import { ProjectsProvider } from './features/projects'
 import { ChatProvider } from './features/chat'
@@ -12,15 +11,13 @@ function App(): React.JSX.Element {
     <TweakProvider>
       <BrowserRouter>
         <BackendProvider>
-          <RuntimeProvider>
-            <SessionsProvider>
-              <ProjectsProvider>
-                <ChatProvider>
-                  <AppLayout />
-                </ChatProvider>
-              </ProjectsProvider>
-            </SessionsProvider>
-          </RuntimeProvider>
+          <SessionsProvider>
+            <ProjectsProvider>
+              <ChatProvider>
+                <AppLayout />
+              </ChatProvider>
+            </ProjectsProvider>
+          </SessionsProvider>
         </BackendProvider>
       </BrowserRouter>
     </TweakProvider>

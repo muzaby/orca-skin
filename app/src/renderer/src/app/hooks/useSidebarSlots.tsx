@@ -1,7 +1,6 @@
 import { useMemo, type ReactNode } from 'react'
 import { SessionList } from '../../features/sessions'
 import { BackendStatus } from '../../features/backend'
-import { RuntimeStatus } from '../../features/runtime'
 import type { SessionHandlers } from './useSessionHandlers'
 
 export interface SidebarSlots {
@@ -15,14 +14,9 @@ export interface SidebarSlots {
 export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
   const footerSlot = useMemo(
     () => (
-      <>
-        <div className="flex items-center gap-2">
-          <BackendStatus />
-        </div>
-        {/* Python(uv) 런타임은 배포 시 설치 단계에서 준비된다 — 앱 실행 후 인앱 설치는
-            production 시나리오에 없다. 수동 준비(prepare) 트리거는 개발 빌드에서만 노출. */}
-        {import.meta.env.DEV && <RuntimeStatus />}
-      </>
+      <div className="flex items-center gap-2">
+        <BackendStatus />
+      </div>
     ),
     []
   )
