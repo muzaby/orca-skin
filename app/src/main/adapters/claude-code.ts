@@ -6,6 +6,7 @@ import { createRequire } from 'node:module'
 import { query, type SDKMessage } from '@anthropic-ai/claude-agent-sdk'
 import type { ChatEvent } from '../../shared/ipc'
 import type { McpQueryOptions, SessionAdapter } from './types'
+import { skillsPluginDir } from '../config/paths'
 
 const requireFn = createRequire(import.meta.url)
 
@@ -182,6 +183,13 @@ export class ClaudeCodeAdapter implements SessionAdapter {
     // uv venv / 인터프리터로 수렴하도록 UV_*/PATH 등을 넘긴다. env 미제공 시 SDK 기본.
     const envOption = env ? { env } : {}
 
+    // Orca Skill 원천소스 = orca-skills 플러그인 번들. 부팅 시 ensureSkillsPlugin() 으로 골격이
+    // 보장되어 있다. plugins(local) + skills:'all' 로 번들 안 SKILL.md 를 SDK 에 명시 로드한다.
+    const skillsOption = {
+      plugins: [{ type: 'local' as const, path: skillsPluginDir() }],
+      skills: 'all' as const
+    }
+
     try {
       for await (const msg of query({
         prompt: text,
@@ -192,7 +200,8 @@ export class ClaudeCodeAdapter implements SessionAdapter {
           abortController,
           ...systemPromptOption,
           ...mcpOption,
-          ...envOption
+          ...envOption,
+          ...skillsOption
           // permissionMode / canUseTool / hooks: Phase 4 anchor (OQ9)
         }
       })) {

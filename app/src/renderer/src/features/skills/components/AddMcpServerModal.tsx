@@ -172,16 +172,28 @@ function AddMcpServerModalOpen({
             </label>
           </>
         ) : (
-          <label className="mb-3 block">
-            <div className={FIELD_LABEL}>URL</div>
-            <input
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              maxLength={2000}
-              placeholder="https://example.com/mcp"
-              className={`${FIELD_INPUT} font-mono`}
-            />
-          </label>
+          <>
+            <label className="mb-3 block">
+              <div className={FIELD_LABEL}>URL</div>
+              <input
+                value={url}
+                onChange={(e) => setUrl(e.target.value)}
+                maxLength={2000}
+                placeholder="https://example.com/mcp"
+                className={`${FIELD_INPUT} font-mono`}
+              />
+            </label>
+            <label className="mb-3 block">
+              <div className={FIELD_LABEL}>인증 환경변수 이름 (선택)</div>
+              <input
+                value={authEnvKey}
+                onChange={(e) => setAuthEnvKey(e.target.value)}
+                maxLength={128}
+                placeholder="예: API_TOKEN — 비워 두면 자동 생성"
+                className={`${FIELD_INPUT} font-mono`}
+              />
+            </label>
+          </>
         )}
 
         <label className="mb-4 block">

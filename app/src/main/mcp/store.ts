@@ -1,12 +1,12 @@
-// MCP 서버 설정 영속화 (전역). electron-store 단일 컬렉션 + zod 검증.
-// 인증 비밀(auth)은 평문으로 디스크에 남기지 않는다 — Electron safeStorage(OS 키체인)로
-// 암호화해 base64(authEnc) 로만 저장하고, renderer 에는 보유 여부(hasAuth)만 노출한다.
-// (보안 베이스라인: app/CLAUDE.md "비밀 저장" + BACKEND_ARCHITECTURE safeStorage 모델)
+// 전역 MCP 서버 관리. 3개 출처를 조율한다:
+//   ① mcp.json (~/.config/orca) — 정규 소스(순정 Claude mcpServers 스키마 + ${VAR} 플레이스홀더)
+//   ② secret-store (<userData>, safeStorage) — 비밀. env-var 이름으로 키잉.
+//   ③ settings (electron-store) — enabled on/off(mcpEnabled) + Orca 전용 메타(mcpMeta.description)
+//
+// renderer 로 나가는 DTO(McpServer)는 id/transport/description 등 Orca 관점 필드를 갖는다.
+// 정규 소스엔 id/description 이 없으므로 id = name(고유 키)으로 두고, description 은 settings 에서
+// 합성한다. 비밀 평문은 절대 mcp.json·DTO 에 들어가지 않는다(hasAuth boolean 만 노출).
 
-import { randomUUID } from 'node:crypto'
-import { safeStorage } from 'electron'
-import Store from 'electron-store'
-import { z } from 'zod'
 import {
   CreateMcpServerSchema,
   UpdateMcpServerSchema,
@@ -14,177 +14,241 @@ import {
   type McpServer,
   type UpdateMcpServerRequest
 } from '../../shared/protocol'
-import type { McpQueryOptions, McpServerConfig } from '../adapters/types'
+import type { SettingsStore } from '../settings/store'
+import type { McpQueryOptions } from '../adapters/types'
+import { readMcpFile, writeMcpFile } from '../config/mcp-file'
+import { SecretStore } from '../config/secret-store'
+import { toClaudecodeConfig } from './convert'
+import { makeResolver } from './resolver'
+import type { ClaudeMcp, OrcaMcpServers } from './schema'
 
-// 디스크 레코드 — DTO 와 달리 authEnc(암호문) · createdAt/updatedAt 포함.
-const McpRecordSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  description: z.string().default(''),
-  transport: z.enum(['stdio', 'http']),
-  enabled: z.boolean().default(true),
-  command: z.string().nullable().default(null),
-  args: z.array(z.string()).default([]),
-  authEnvKey: z.string().nullable().default(null),
-  url: z.string().nullable().default(null),
-  authEnc: z.string().nullable().default(null),
-  createdAt: z.number(),
-  updatedAt: z.number()
-})
+const VAR_RE = /\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g
 
-type McpRecord = z.infer<typeof McpRecordSchema>
-
-const StateSchema = z.object({ servers: z.array(McpRecordSchema).default([]) })
-type State = z.infer<typeof StateSchema>
-type Raw = Record<string, unknown>
-
-function readSafe(raw: Raw): State {
-  const parsed = StateSchema.safeParse(raw)
-  if (parsed.success) return parsed.data
-  return { servers: [] }
-}
-
-function toDto(r: McpRecord): McpServer {
-  return {
-    id: r.id,
-    name: r.name,
-    description: r.description,
-    transport: r.transport,
-    enabled: r.enabled,
-    command: r.command,
-    args: r.args,
-    authEnvKey: r.authEnvKey,
-    url: r.url,
-    hasAuth: r.authEnc != null
+// 소스 항목이 참조하는 첫 ${VAR} 이름 = "인증 env-var". app 이 만든 서버는 정확히 하나.
+// 손으로 편집한 다변수 서버는 첫 변수를 best-effort 로 노출(DTO 는 표시/편집용).
+function authVarOf(server: ClaudeMcp): string | null {
+  const haystack =
+    'url' in server ? Object.values(server.headers ?? {}) : Object.values(server.env ?? {})
+  for (const v of haystack) {
+    const re = new RegExp(VAR_RE.source)
+    const m = re.exec(v)
+    if (m) return m[1]
   }
+  return null
 }
 
-function encrypt(plain: string): string {
-  if (!safeStorage.isEncryptionAvailable()) {
-    throw new Error('safeStorage 암호화를 사용할 수 없어 인증값을 저장할 수 없습니다.')
-  }
-  return safeStorage.encryptString(plain).toString('base64')
-}
-
-function decrypt(b64: string): string {
-  return safeStorage.decryptString(Buffer.from(b64, 'base64'))
+// authEnvKey 미지정 + 비밀만 있을 때 합성하는 env-var 이름.
+function synthVar(name: string): string {
+  return `ORCA_MCP_${name.toUpperCase().replace(/[^A-Z0-9_]/g, '_')}_AUTH`
 }
 
 export class McpStore {
-  private readonly store = new Store<Raw>({
-    name: 'orca-mcp',
-    defaults: { servers: [] }
-  })
+  private readonly secrets = new SecretStore()
 
-  private read(): State {
-    return readSafe(this.store.store)
+  constructor(private readonly settings: SettingsStore) {}
+
+  private read(): OrcaMcpServers {
+    return readMcpFile().mcpServers
   }
 
-  private write(state: State): void {
-    this.store.store = state as Raw
+  private write(servers: OrcaMcpServers): void {
+    writeMcpFile({ mcpServers: servers })
+  }
+
+  private toDto(name: string, server: ClaudeMcp): McpServer {
+    const isHttp = 'url' in server
+    const authEnvKey = authVarOf(server)
+    const s = this.settings.getAll()
+    return {
+      id: name,
+      name,
+      description: s.mcpMeta[name]?.description ?? '',
+      transport: isHttp ? 'http' : 'stdio',
+      enabled: s.mcpEnabled[name] ?? true,
+      command: isHttp ? null : (server.command ?? null),
+      args: isHttp ? [] : (server.args ?? []),
+      authEnvKey,
+      url: isHttp ? server.url : null,
+      hasAuth: authEnvKey != null && this.secrets.has(authEnvKey)
+    }
   }
 
   list(): McpServer[] {
-    return this.read().servers.map(toDto)
+    const servers = this.read()
+    return Object.entries(servers).map(([name, server]) => this.toDto(name, server))
+  }
+
+  // 정규 소스 항목 + 비밀 사이드 이펙트를 함께 구성한다.
+  // auth 평문이 주어지면 secret-store 에 env-var 이름으로 저장하고 소스엔 ${VAR} 만 남긴다.
+  private buildSource(
+    name: string,
+    transport: 'stdio' | 'http',
+    fields: {
+      command?: string | null
+      args?: string[]
+      url?: string | null
+      authEnvKey?: string | null
+    },
+    auth: string | undefined,
+    prevAuthVar: string | null
+  ): ClaudeMcp {
+    // 인증 env-var 이름 결정: 명시 authEnvKey → 기존 var → (비밀 있으면) 합성.
+    const explicit =
+      fields.authEnvKey && fields.authEnvKey.trim() !== '' ? fields.authEnvKey.trim() : null
+    const hasSecretNow =
+      auth !== undefined ? auth !== '' : prevAuthVar != null && this.secrets.has(prevAuthVar)
+    const authVar = explicit ?? prevAuthVar ?? (hasSecretNow ? synthVar(name) : null)
+
+    // auth 미변경인데 env-var 이름이 바뀌면 기존 비밀을 새 이름으로 옮긴다(고아 방지).
+    if (
+      auth === undefined &&
+      prevAuthVar &&
+      authVar &&
+      authVar !== prevAuthVar &&
+      this.secrets.has(prevAuthVar)
+    ) {
+      const moved = this.secrets.get(prevAuthVar)
+      if (moved !== undefined) this.secrets.set(authVar, moved)
+      this.deleteSecretIfUnused(prevAuthVar, name)
+    }
+
+    // 비밀 적용: auth undefined → 미변경. '' → 제거. 그 외 → 저장.
+    if (auth !== undefined && authVar) {
+      if (auth === '') this.deleteSecretIfUnused(authVar, name)
+      else this.secrets.set(authVar, auth)
+    }
+
+    const placeholder = authVar && hasSecretNow
+
+    if (transport === 'http') {
+      const headers = placeholder ? { Authorization: `Bearer \${${authVar}}` } : undefined
+      return { type: 'http', url: (fields.url ?? '').trim(), ...(headers ? { headers } : {}) }
+    }
+    const env = placeholder ? { [authVar]: `\${${authVar}}` } : undefined
+    return {
+      command: (fields.command ?? '').trim(),
+      ...(fields.args && fields.args.length > 0 ? { args: fields.args } : {}),
+      ...(env ? { env } : {})
+    }
   }
 
   add(input: unknown): McpServer {
     const data: CreateMcpServerRequest = CreateMcpServerSchema.parse(input)
-    const state = this.read()
-    if (state.servers.some((s) => s.name === data.name)) {
+    const servers = this.read()
+    if (servers[data.name]) {
       throw new Error(`이미 존재하는 MCP 서버 이름입니다: ${data.name}`)
     }
-    const now = Date.now()
-    const record: McpRecord = {
-      id: randomUUID(),
-      name: data.name,
-      description: data.description ?? '',
-      transport: data.transport,
-      enabled: data.enabled ?? true,
-      command: data.transport === 'stdio' ? (data.command ?? null) : null,
-      args: data.transport === 'stdio' ? (data.args ?? []) : [],
-      authEnvKey: data.transport === 'stdio' ? (data.authEnvKey ?? null) : null,
-      url: data.transport === 'http' ? (data.url ?? null) : null,
-      authEnc: data.auth && data.auth !== '' ? encrypt(data.auth) : null,
-      createdAt: now,
-      updatedAt: now
-    }
-    this.write({ servers: [...state.servers, record] })
-    return toDto(record)
+    const source = this.buildSource(
+      data.name,
+      data.transport,
+      { command: data.command, args: data.args, url: data.url, authEnvKey: data.authEnvKey },
+      data.auth,
+      null
+    )
+    servers[data.name] = source
+    this.write(servers)
+    const s = this.settings.getAll()
+    this.settings.patch({
+      mcpEnabled: { ...s.mcpEnabled, [data.name]: data.enabled ?? true },
+      mcpMeta: { ...s.mcpMeta, [data.name]: { description: data.description ?? '' } }
+    })
+    return this.toDto(data.name, source)
   }
 
   update(input: unknown): McpServer | null {
     const data: UpdateMcpServerRequest = UpdateMcpServerSchema.parse(input)
-    const state = this.read()
-    const idx = state.servers.findIndex((s) => s.id === data.id)
-    if (idx === -1) return null
-    const prev = state.servers[idx]
+    const servers = this.read()
+    const prevName = data.id
+    const prev = servers[prevName]
+    if (!prev) return null
 
-    if (data.name && data.name !== prev.name) {
-      if (state.servers.some((s) => s.name === data.name && s.id !== data.id)) {
-        throw new Error(`이미 존재하는 MCP 서버 이름입니다: ${data.name}`)
-      }
+    const nextName = data.name ?? prevName
+    if (nextName !== prevName && servers[nextName]) {
+      throw new Error(`이미 존재하는 MCP 서버 이름입니다: ${nextName}`)
     }
 
-    const transport = data.transport ?? prev.transport
-    const next: McpRecord = {
-      ...prev,
-      name: data.name ?? prev.name,
-      description: data.description ?? prev.description,
+    const transport: 'stdio' | 'http' = data.transport ?? ('url' in prev ? 'http' : 'stdio')
+    const prevAuthVar = authVarOf(prev)
+    const prevCmd = 'url' in prev ? null : prev.command
+    const prevArgs = 'url' in prev ? [] : (prev.args ?? [])
+    const prevUrl = 'url' in prev ? prev.url : null
+
+    const source = this.buildSource(
+      nextName,
       transport,
-      enabled: data.enabled ?? prev.enabled,
-      command: transport === 'stdio' ? (data.command ?? prev.command) : null,
-      args: transport === 'stdio' ? (data.args ?? prev.args) : [],
-      authEnvKey: transport === 'stdio' ? (data.authEnvKey ?? prev.authEnvKey) : null,
-      url: transport === 'http' ? (data.url ?? prev.url) : null,
-      // auth undefined → 미변경(기존 유지). 빈 문자열 → 비밀 제거. 그 외 → 재암호화.
-      authEnc:
-        data.auth === undefined ? prev.authEnc : data.auth === '' ? null : encrypt(data.auth),
-      updatedAt: Date.now()
+      {
+        command: data.command ?? prevCmd,
+        args: data.args ?? prevArgs,
+        url: data.url ?? prevUrl,
+        authEnvKey: data.authEnvKey ?? prevAuthVar
+      },
+      data.auth,
+      prevAuthVar
+    )
+
+    // rekey on rename.
+    if (nextName !== prevName) delete servers[prevName]
+    servers[nextName] = source
+    this.write(servers)
+
+    // settings 메타 이전.
+    const s = this.settings.getAll()
+    const enabled = { ...s.mcpEnabled }
+    const meta = { ...s.mcpMeta }
+    const wasEnabled = enabled[prevName] ?? true
+    const prevDesc = meta[prevName]?.description ?? ''
+    if (nextName !== prevName) {
+      delete enabled[prevName]
+      delete meta[prevName]
     }
-    const servers = [...state.servers]
-    servers[idx] = next
-    this.write({ servers })
-    return toDto(next)
+    enabled[nextName] = data.enabled ?? wasEnabled
+    meta[nextName] = { description: data.description ?? prevDesc }
+    this.settings.patch({ mcpEnabled: enabled, mcpMeta: meta })
+
+    return this.toDto(nextName, source)
   }
 
   remove(id: string): void {
-    const state = this.read()
-    this.write({ servers: state.servers.filter((s) => s.id !== id) })
+    const servers = this.read()
+    const target = servers[id]
+    if (!target) return
+    const authVar = authVarOf(target)
+    delete servers[id]
+    this.write(servers)
+    if (authVar) this.deleteSecretIfUnused(authVar, id)
+    const s = this.settings.getAll()
+    const enabled = { ...s.mcpEnabled }
+    const meta = { ...s.mcpMeta }
+    delete enabled[id]
+    delete meta[id]
+    this.settings.patch({ mcpEnabled: enabled, mcpMeta: meta })
   }
 
-  // 활성화된 서버를 SDK query 옵션으로 변환. 비밀은 이 시점에만 복호화해 메모리에 잠깐 머문다.
+  // 같은 env-var 를 다른 서버가 참조하지 않을 때만 비밀을 삭제(공유 토큰 보호).
+  private deleteSecretIfUnused(authVar: string, excludeName: string): void {
+    const servers = this.read()
+    const stillUsed = Object.entries(servers).some(
+      ([n, srv]) => n !== excludeName && authVarOf(srv) === authVar
+    )
+    if (!stillUsed) this.secrets.delete(authVar)
+  }
+
+  // 활성화된 서버를 SDK query 옵션으로 변환. 비밀은 resolver 안에서만 잠깐 복호화된다.
+  // 미해결 ${VAR} 로 드롭된 서버는 console.warn 으로 기록(조용히 삼키지 않는다).
   buildQueryOptions(): McpQueryOptions {
-    const servers: Record<string, McpServerConfig> = {}
-    const allowedTools: string[] = []
-    for (const r of this.read().servers) {
-      if (!r.enabled) continue
-      const auth = r.authEnc ? safeDecrypt(r.authEnc) : null
-      if (r.transport === 'stdio') {
-        if (!r.command) continue
-        const env = r.authEnvKey && auth ? { [r.authEnvKey]: auth } : undefined
-        servers[r.name] = {
-          type: 'stdio',
-          command: r.command,
-          args: r.args,
-          ...(env ? { env } : {})
-        }
-      } else {
-        if (!r.url) continue
-        const headers = auth ? { Authorization: `Bearer ${auth}` } : undefined
-        servers[r.name] = { type: 'http', url: r.url, ...(headers ? { headers } : {}) }
-      }
-      allowedTools.push(`mcp__${r.name}__*`)
+    const s = this.settings.getAll()
+    const all = this.read()
+    const enabledServers: OrcaMcpServers = {}
+    for (const [name, server] of Object.entries(all)) {
+      if ((s.mcpEnabled[name] ?? true) === true) enabledServers[name] = server
     }
-    return { servers, allowedTools }
-  }
-}
-
-// 복호화 실패(키체인 잠김·다른 사용자 등)는 해당 인증을 생략하고 서버는 계속 등록.
-function safeDecrypt(b64: string): string | null {
-  try {
-    return decrypt(b64)
-  } catch {
-    return null
+    const { config, dropped } = toClaudecodeConfig(enabledServers, makeResolver(this.secrets))
+    for (const d of dropped) {
+      console.warn(`[mcp] 서버 '${d.name}' 를 건너뜀: ${d.reason}`)
+    }
+    return {
+      servers: config,
+      allowedTools: Object.keys(config).map((n) => `mcp__${n}__*`)
+    }
   }
 }
