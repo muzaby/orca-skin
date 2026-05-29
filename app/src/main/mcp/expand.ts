@@ -5,12 +5,12 @@
 // 미해결 변수가 하나라도 있으면 해당 **서버 전체를 드롭** + 사유 기록한다. 조용한 빈 문자열
 // 치환은 금지(비밀 누락을 숨기면 디버깅 불가 + 인증 없는 요청이 새어나감).
 
-import type { OrcaMcpServers, ClaudeMcp } from './schema'
+import type { OrcaMcpConfig, ClaudeMcp } from './schema'
 
 export type Resolver = (name: string) => string | undefined
 
 export interface ExpandResult {
-  servers: OrcaMcpServers
+  servers: OrcaMcpConfig
   dropped: { name: string; reason: string }[]
 }
 
@@ -50,8 +50,8 @@ function expandOne(server: ClaudeMcp, resolve: Resolver): { server: ClaudeMcp; m
   return { server: next, missing: [...missing] }
 }
 
-export function expandEnv(servers: OrcaMcpServers, resolve: Resolver): ExpandResult {
-  const out: OrcaMcpServers = {}
+export function expandEnv(servers: OrcaMcpConfig, resolve: Resolver): ExpandResult {
+  const out: OrcaMcpConfig = {}
   const dropped: { name: string; reason: string }[] = []
   for (const [name, server] of Object.entries(servers)) {
     const { server: expanded, missing } = expandOne(server, resolve)

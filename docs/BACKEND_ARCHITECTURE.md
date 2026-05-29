@@ -176,7 +176,7 @@ SDK 가 throw 하는 에러 메시지/코드에서 `401` / `OAuth` / `expired` �
 | `options.permissionMode` / `canUseTool` | ⏳ | Phase 4 (OQ9) | 도구 권한 정책 미정 |
 | `options.hooks` (PreToolUse / PostToolUse / Stop) | ⏳ | Phase 4 | 도구 호출 감사 |
 | `createSdkMcpServer` + `tool()` | ⏳ | Phase 4+ | in-process MCP 서버(별건) |
-| `options.mcpServers` | ✅ | MCP&Skill 통합 레이어 | 정규 소스(`mcp.json`) → `toClaudecodeConfig` → 활성 서버 주입. `allowedTools`=`mcp__<name>__*` |
+| `options.mcpServers` | ✅ | MCP&Skill 통합 레이어 | 정규 소스(`mcp.json`) → `toClaudeConfig` → 활성 서버 주입. `allowedTools`=`mcp__<name>__*` |
 | `options.plugins` + `options.skills` | ✅ | MCP&Skill 통합 레이어 | `orca-skills` 로컬 플러그인 번들(`~/.config/orca/plugins/orca-skills`) + `skills:'all'` 명시 로드 |
 | `prompt: AsyncIterable<SDKUserMessage>` | ⏳ | Phase 4 | 다중 이미지 / 실시간 중단 |
 | `forkSession` / `listSessions` / `loadSession` | ⏳ | Phase 3+/4 | 과거 대화 / 멀티 세션 anchor (§6 의 로컬 DB 가 진실의 기준이 되므로 SDK 메서드는 *동기화 소스* 로만) |
@@ -408,9 +408,11 @@ new BrowserWindow({
 >
 > **`${VAR}` resolver 순서 = safeStorage(비밀) → process.env (2단계)**. 미해결 변수가 있으면 해당 **서버를 드롭 + 사유 기록**(`console.warn`) — 조용한 빈 문자열 치환 금지(인증 없는 요청 누출 방지).
 >
-> **양 백엔드 대칭 변환 파이프라인** (`src/main/mcp/`): `expandEnv`(순수) → `toClaudecodeConfig` / `toOpencodeConfig`(순수, **동형** — 둘 다 `to<Backend>Config(servers, resolve) → { config: Record<string, <Backend>Mcp>; dropped }`). claude-code 는 항등에 가깝지만(소스가 곧 Claude 스키마) `sse→http` 정규화·`McpServerConfig` 셰이핑을 하므로 명시적 변환기로 존재. `allowedTools` 는 config 에 넣지 않고 호출부에서 `Object.keys` 로 파생. **"IR(중간형)" 표현은 쓰지 않는다** — 소스가 곧 Claude 스키마. opencode 변환기는 순수 함수 + 단위 테스트만 존재(어댑터·라이프사이클·백엔드 선택 미구현, `Backend`=`'claude-code'` 유지).
+> **타입 모델**: 정규 컬렉션 타입은 `OrcaMcpConfig`(claude-code 스펙). Claude 형식은 이와 동일하므로 **별칭** `type ClaudeMcpConfig = OrcaMcpConfig` 로 못박는다. 단일 항목 타입 `ClaudeMcp` 의 http/sse 는 분리된 판별 멤버라 SDK `McpServerConfig`(stdio|http|sse) 유니온에 그대로 대입된다. **"IR(중간형)" 표현은 쓰지 않는다** — 정규형이 곧 claude-code 스펙.
 >
-> **비밀 누출 불변식**: `writeMcpFile` 은 *미확장 정규 소스*(`OrcaMcpServers`, `${VAR}`)만 받는다(타입 강제). `expandEnv` 의 확장 결과(평문)는 SDK 주입 타깃(`toClaudecodeConfig` 출력)으로만 흐르고 절대 파일에 기록되지 않는다.
+> **양 백엔드 대칭 변환 파이프라인** (`src/main/mcp/`): `expandEnv`(순수) → `toClaudeConfig` / `toOpencodeConfig`(순수, **동형 시그니처** — 둘 다 `to<Backend>Config(servers, resolve) → { config: <Backend>McpConfig; dropped }`). `OrcaMcpConfig == ClaudeMcpConfig` 이므로 `toClaudeConfig` 는 **구조적으로 항등**(${VAR} 확장만) — "변환 불필요 특례"로 두지 않고 어댑터 경계에서 값이 `ClaudeMcpConfig` 라는 이름으로 다뤄지는 명시적 지점으로 존재한다. SDK 가 sse 트랜스포트를 지원하므로 sse→http 강제는 하지 않는다. `allowedTools` 는 config 에 넣지 않고 호출부(`buildQueryOptions`)에서 `Object.keys` 로 파생. opencode 변환기는 순수 함수 + 단위 테스트만 존재(어댑터·라이프사이클·백엔드 선택 미구현, `Backend`=`'claude-code'` 유지).
+>
+> **비밀 누출 불변식**: `writeMcpFile` 은 *미확장 정규 소스*(`OrcaMcpConfig`, `${VAR}`)만 받는다(타입 강제). `expandEnv` 의 확장 결과(평문)는 SDK 주입 타깃(`toClaudeConfig`/`toOpencodeConfig` 출력)으로만 흐르고 절대 파일에 기록되지 않는다.
 >
 > **Skill**: 원천소스 = `~/.config/orca/plugins/orca-skills` 플러그인 번들. 부팅 시 골격(`.claude-plugin/plugin.json` + `skills/`) 멱등 보장 후 query() 에 `plugins:[{type:'local',path}]` + `skills:'all'` 로 명시 로드.
 >

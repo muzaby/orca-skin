@@ -4,10 +4,10 @@
 import { readFileSync, writeFileSync, renameSync } from 'node:fs'
 import { z } from 'zod'
 import { mcpJsonPath } from './paths'
-import { OrcaMcpServersSchema, type OrcaMcpServers } from '../mcp/schema'
+import { OrcaMcpConfigSchema, type OrcaMcpConfig } from '../mcp/schema'
 
 const McpFileSchema = z.object({
-  mcpServers: OrcaMcpServersSchema.default({})
+  mcpServers: OrcaMcpConfigSchema.default({})
 })
 export type McpFile = z.infer<typeof McpFileSchema>
 
@@ -27,7 +27,7 @@ export function readMcpFile(): McpFile {
 }
 
 // 미확장 소스만 받는다(타입으로 강제). 확장된 비밀값이 파일로 새어나가지 않게 호출부에서 보장.
-export function writeMcpFile(file: { mcpServers: OrcaMcpServers }): void {
+export function writeMcpFile(file: { mcpServers: OrcaMcpConfig }): void {
   const path = mcpJsonPath()
   const tmp = `${path}.tmp`
   writeFileSync(tmp, JSON.stringify(file, null, 2), 'utf8')

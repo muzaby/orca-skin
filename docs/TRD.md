@@ -511,12 +511,12 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 - **(anchor) electron-updater + GitHub Releases** — OQ3 패키징·배포 전략에서 함께 결정.
 - **(anchor) Auto-update 채널** — OQ3.
 - **(anchor) 하드웨어 어댑터 (BoardAdapter)** — USB/카메라 제어. `src/main/adapters/board.ts` 예약, 네이티브 모듈 (`orca-board.node`, libusb) Phase 2~3.
-- **(anchor) opencode 어댑터** — Phase 1 에서는 미구현. §7.2 의 사양 (서버 라이프사이클, SDK 호출, SSE 매핑) 그대로 살아있으나 코드는 인터페이스 후크만 남아있다. claude-code 단독 운영이 안정화되면 도입. **단, MCP 설정 변환기 `toOpencodeConfig` 는 MCP&Skill 통합 레이어에서 *순수 함수 + 단위 테스트만* 선구현됨** (어댑터·라이프사이클·백엔드 선택은 여전히 미구현, `Backend`=`'claude-code'` 유지). `toClaudecodeConfig` 와 **동형 대칭 변환기**(동일 시그니처, `Record<string, <Backend>Mcp>` 반환).
+- **(anchor) opencode 어댑터** — Phase 1 에서는 미구현. §7.2 의 사양 (서버 라이프사이클, SDK 호출, SSE 매핑) 그대로 살아있으나 코드는 인터페이스 후크만 남아있다. claude-code 단독 운영이 안정화되면 도입. **단, MCP 설정 변환기 `toOpencodeConfig` 는 MCP&Skill 통합 레이어에서 *순수 함수 + 단위 테스트만* 선구현됨** (어댑터·라이프사이클·백엔드 선택은 여전히 미구현, `Backend`=`'claude-code'` 유지). `toClaudeConfig` 와 **동형 대칭 변환기**(동일 시그니처, `Record<string, <Backend>Mcp>` 반환).
 - **(anchor) OpenAI Compatible 백엔드** — `SessionAdapter` 인터페이스 재활용 가능. 3번째 어댑터 구현체 추가.
 - **(anchor) Agent SDK 고급 기능** — `permissionMode` / `canUseTool` / `hooks` / `createSdkMcpServer` (in-process custom tools) / 외부 `mcpServers` / `forkSession` / `startup()` (사전 워밍) / `AsyncIterable<SDKUserMessage>` 스트리밍 입력. 채택 표는 `BACKEND_ARCHITECTURE.md` §4.6 의 ⏳ 행 참조. Phase 4+ — 도구 권한 정책(OQ9) 결정 후 진행.
 - **(anchor) 어댑터 도구명 정규화 (OQ10)** — claude vs opencode 의 `tool_use.name` / `tool_use.input` 차이 해소 정책. PRD §11 OQ10 결정 후 어댑터별 매핑 표 확정.
 - **(anchor) ChatEvent sessionId 확장** — Phase 4 멀티 세션 진입 시 모든 변형(`assistant_delta` / `assistant_message` / `tool_use` / `tool_result` / `result` / `error`)에 `sessionId` 필드 추가. main↔renderer IPC 는 Electron 의 ordered+lossless 보장을 그대로 활용 (별도 메시지큐 미도입). 상세 anchor 는 `FRONTEND_ARCHITECTURE.md` §5.
-- **(구현됨) MCP & Skill 통합 레이어** — 정규 소스 = `~/.config/orca/mcp.json`(순정 Claude `mcpServers` 스키마 + `${VAR}`, 평문 비밀 0). 비밀은 secret-store(safeStorage, env-var 이름 키잉), enabled/description 은 settings. `${VAR}` resolver = safeStorage→process.env(미해결 시 서버 드롭). **양 백엔드 대칭 변환기**(`toClaudecodeConfig`/`toOpencodeConfig`, 순수). Skill = `~/.config/orca/plugins/orca-skills` 플러그인 번들을 query() 에 `plugins`+`skills:'all'` 로 명시 로드. 레거시 `orca-mcp` 1회 마이그레이션. 상세 `BACKEND_ARCHITECTURE.md` §8.4.
+- **(구현됨) MCP & Skill 통합 레이어** — 정규 소스 = `~/.config/orca/mcp.json`(순정 Claude `mcpServers` 스키마 + `${VAR}`, 평문 비밀 0). 비밀은 secret-store(safeStorage, env-var 이름 키잉), enabled/description 은 settings. `${VAR}` resolver = safeStorage→process.env(미해결 시 서버 드롭). **양 백엔드 대칭 변환기**(`toClaudeConfig`/`toOpencodeConfig`, 순수). Skill = `~/.config/orca/plugins/orca-skills` 플러그인 번들을 query() 에 `plugins`+`skills:'all'` 로 명시 로드. 레거시 `orca-mcp` 1회 마이그레이션. 상세 `BACKEND_ARCHITECTURE.md` §8.4.
 - **(anchor) Captures / Projects 확장** — PRD §9 Future Scope. 별도 IPC 도메인 + 모듈 추가.
 - **(anchor) 멀티 세션 / 과거 대화 목록** — Phase 3+. 인터페이스 `SessionAdapter.listSessions?()` / `loadSession?()` 이미 예약. Sidebar 세션 리스트 UI는 Phase 4.
 - **(anchor) 재시작 재개** — Phase 2. Settings.store 의 `lastSessionId` 키 추가, 앱 부트 시 복원.
@@ -537,7 +537,7 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 - **Reducer**: 모든 액션 (SEND_USER_MESSAGE, RECV_EVENT, NEW_CHAT, CANCEL_CHAT) → 상태 전이 정확성
 - **IPC 검증**: zod 스키마 (SendChatMessage, ChatEvent, InstallStatus 등)
 - **Installer**: 의존성 점검 (curl), opencode 설치 명령 조합
-- **(구현됨) MCP 변환 파이프라인**: `expandEnv`(${VAR} 정의/미정의 드롭·다중 변수·빈 소스) + `toClaudecodeConfig`/`toOpencodeConfig`(stdio/http 매핑·sse→http·dropped 전파·빈 소스) — `src/main/mcp/{expand,convert}.test.ts`, 14 케이스. electron 비의존 순수 함수. `npm test` = `vitest run`. store/secret-store 등 electron 결합 모듈은 런타임 수동 검증(BACKEND §8.4 불변식).
+- **(구현됨) MCP 변환 파이프라인**: `expandEnv`(${VAR} 정의/미정의 드롭·다중 변수·빈 소스) + `toClaudeConfig`(구조 항등·sse 보존)/`toOpencodeConfig`(stdio→local·http/sse→remote)·dropped 전파·빈 소스 — `src/main/mcp/{expand,convert}.test.ts`, 14 케이스. electron 비의존 순수 함수. `npm test` = `vitest run`. store/secret-store 등 electron 결합 모듈은 런타임 수동 검증(BACKEND §8.4 불변식).
 
 ### 통합 테스트
 
