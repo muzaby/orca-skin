@@ -121,7 +121,7 @@ function createWindow(settings: SettingsStore): void {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
-  electronApp.setAppUserModelId('com.electron')
+  electronApp.setAppUserModelId('com.orca.app')
 
   // 헤드리스 준비 모드: 윈도우/프로토콜/IpcRouter 부팅을 생략하고 런타임만 준비 후 종료.
   if (PREPARE_ONLY) {
