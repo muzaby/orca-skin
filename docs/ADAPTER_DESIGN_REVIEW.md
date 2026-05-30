@@ -323,7 +323,7 @@ const protectEnv: OrcaHookHandler = (ctx) =>
 ### 6.5 권장 설계: 정규화 코어 + 백엔드별 이스케이프 해치
 
 ```ts
-interface OrcaHookSet {  // PLACEHOLDER
+interface OrcaHookSet {
   // 양 백엔드가 머티리얼라이즈하는 중립 코어 (§6.2 교집합 이벤트만)
   normalized: Partial<Record<OrcaHookEvent, OrcaHookHandler[]>>
 
