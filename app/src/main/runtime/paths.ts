@@ -21,6 +21,7 @@ export function getBundledUvPath(): string {
 // userData 기준 경로 모음 — 초기화·실행 모두 이 함수에서 도출한다.
 export function getRuntimePaths(userData: string): {
   runtimeDir: string
+  binDir: string
   configDir: string
   uvBin: string
   pythonDir: string
@@ -32,13 +33,16 @@ export function getRuntimePaths(userData: string): {
   appPipConf: string
 } {
   const runtimeDir = join(userData, 'runtime')
+  // 모든 써드파티 실행 바이너리(uv 등)는 userData 최상위 bin/ 에서 관리한다.
+  const binDir = join(userData, 'bin')
   const configDir = join(userData, 'config')
   const isWin = process.platform === 'win32'
   const venvDir = join(runtimeDir, 'venv')
   return {
     runtimeDir,
+    binDir,
     configDir,
-    uvBin: join(runtimeDir, UV_BIN),
+    uvBin: join(binDir, UV_BIN),
     pythonDir: join(runtimeDir, 'python'),
     venvDir,
     venvBin: join(venvDir, isWin ? 'Scripts' : 'bin'),
