@@ -115,6 +115,10 @@ export interface Settings {
   lastBackend: Backend | null
   lastSessionId: string | null
   windowBounds: WindowBounds | null
+  // MCP 서버 enabled on/off (키 = 서버 name). 부재 ⇒ enabled=true.
+  mcpEnabled: Record<string, boolean>
+  // MCP 서버 Orca 전용 메타(description) — mcp.json(순정 Claude 스키마) 에 없는 필드.
+  mcpMeta: Record<string, { description: string }>
 }
 
 export type SettingsPatch = Partial<Settings>
