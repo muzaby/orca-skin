@@ -1,4 +1,5 @@
 import type {
+  AskRespond,
   Backend,
   BackendListResult,
   ChatEvent,
@@ -79,6 +80,10 @@ export const windowApi = {
 export const searchApi = {
   messages: (q: string, limit?: number): Promise<SearchHit[]> =>
     window.orca.search.messages(q, limit)
+}
+
+export const askApi = {
+  respond: (req: AskRespond): Promise<void> => window.orca.ask.respond(req)
 }
 
 export const mcpApi = {

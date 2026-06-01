@@ -33,7 +33,8 @@ export const CHANNELS = {
   mcpDelete: 'orca:mcp:delete',
   runtimeStatus: 'orca:runtime:status',
   runtimePrepare: 'orca:runtime:prepare',
-  runtimeStatusEvent: 'orca:runtime:statusEvent'
+  runtimeStatusEvent: 'orca:runtime:statusEvent',
+  askRespond: 'orca:ask:respond'
 } as const
 
 // Backend (Phase 2: claude-code 단일. opencode 는 future work)
@@ -65,6 +66,49 @@ export type ChatEvent =
     }
   | { type: 'result'; data: { usage?: { inputTokens: number; outputTokens: number } } }
   | { type: 'error'; data: { code: ErrorCode; message: string; recoverable: boolean } }
+  // Claude Agent SDK 의 AskUserQuestion 도구 발화. canUseTool 콜백(main)이 query 를
+  // 일시 중지한 채 renderer 에 질문 묶음을 surface 한다. 응답은 askRespond 채널로 회신.
+  | { type: 'ask_question'; data: AskQuestionRequest }
+
+// AskUserQuestion (백엔드 중립) — SDK 입력 스키마(docs/agent-sdk/user-input)를 그대로 반영.
+// 한 호출에 1~4 질문, 각 질문 2~4 옵션. 미리보기(previewFormat)는 v1 미지원.
+export interface AskQuestionOption {
+  label: string
+  description: string
+}
+
+export interface AskQuestion {
+  // 표시할 전체 질문 텍스트 (응답 answers 의 key 가 된다).
+  question: string
+  // 짧은 라벨 (≤12자).
+  header: string
+  options: AskQuestionOption[]
+  // true 면 사용자가 여러 옵션을 선택할 수 있다.
+  multiSelect: boolean
+}
+
+// canUseTool → renderer 로 가는 질문 묶음. requestId 로 응답을 라우팅한다.
+export interface AskQuestionRequest {
+  requestId: string
+  questions: AskQuestion[]
+}
+
+// renderer → main 응답 (askRespond 채널). 답변 또는 건너뛰기.
+export type AskRespond =
+  | {
+      requestId: string
+      type: 'answered'
+      // key = 질문 텍스트, value = 선택 label(단일) / label[] (다중) / 자유입력 텍스트(기타).
+      answers: Record<string, string | string[]>
+      // 사용자가 질문 카드를 닫고 일반 회신을 입력한 경우만.
+      response?: string
+    }
+  | { requestId: string; type: 'skipped' }
+
+// 어댑터가 받는 중립 결과 (requestId 제거판). claude-code 어댑터가 canUseTool 반환값으로 매핑.
+export type AskResult =
+  | { type: 'answered'; answers: Record<string, string | string[]>; response?: string }
+  | { type: 'skipped' }
 
 // IPC payloads (TRD §5.2 의 활성 부분)
 export interface SendChatMessage {

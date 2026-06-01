@@ -3,8 +3,13 @@
 // 내부 매핑은 architecture.md §5.4, SDK API 명세는 docs/spec/claude/agent-sdk/typescript.md 참조.
 
 import { createRequire } from 'node:module'
-import { query, type SDKMessage } from '@anthropic-ai/claude-agent-sdk'
-import type { ChatEvent } from '../../shared/ipc'
+import {
+  query,
+  type CanUseTool,
+  type PermissionResult,
+  type SDKMessage
+} from '@anthropic-ai/claude-agent-sdk'
+import type { AskQuestion, AskResult, ChatEvent } from '../../shared/ipc'
 import type { SessionAdapter } from './types'
 import type { TurnRequest } from '../capabilities/types'
 import type { Resolver } from '../mcp/expand'
@@ -127,6 +132,42 @@ export function normalize(msg: SDKMessage, cwd: string): ChatEvent[] {
   return []
 }
 
+// AskUserQuestion 회피 안내 — skip 시 Claude 에 전달할 거부 메시지.
+const ASK_SKIP_MESSAGE = '사용자가 질문에 답하지 않고 건너뛰었습니다. 최선의 판단으로 진행하세요.'
+
+// 중립 askUser 콜백을 claude-code 의 canUseTool 로 어댑트한다. SDK 고유의 canUseTool/
+// PermissionResult 형태를 어댑터 내부에만 가둬, 어댑터 경계(TurnRequest)는 중립 콜백만 노출한다
+// (opencode 어댑터가 같은 askUser 를 자기 방식으로 소비 가능). 순수 매핑이라 단위 테스트 대상.
+//
+// - AskUserQuestion: askUser 로 질문을 위임하고 결과를 allow(answers) / deny(skip) 로 매핑.
+//   답변 시 원본 questions 배열을 그대로 echo 해야 한다(SDK 도구 처리 규약).
+// - 그 외 도구: 전부 allow passthrough — 현행 무-권한-UI 동작을 보존한다(일반 도구 권한 UI 는
+//   별도 작업, Phase 4 anchor).
+export function makeCanUseTool(
+  askUser: (questions: AskQuestion[]) => Promise<AskResult>
+): CanUseTool {
+  return async (toolName, input): Promise<PermissionResult> => {
+    if (toolName !== 'AskUserQuestion') {
+      return { behavior: 'allow', updatedInput: input }
+    }
+    const questions = Array.isArray((input as { questions?: unknown }).questions)
+      ? (input as { questions: AskQuestion[] }).questions
+      : []
+    const result = await askUser(questions)
+    if (result.type === 'skipped') {
+      return { behavior: 'deny', message: ASK_SKIP_MESSAGE }
+    }
+    return {
+      behavior: 'allow',
+      updatedInput: {
+        questions,
+        answers: result.answers,
+        ...(result.response !== undefined ? { response: result.response } : {})
+      }
+    }
+  }
+}
+
 export class ClaudeCodeAdapter implements SessionAdapter {
   readonly id = 'claude-code' as const
 
@@ -151,7 +192,7 @@ export class ClaudeCodeAdapter implements SessionAdapter {
   }
 
   async *sendMessage(req: TurnRequest): AsyncIterable<ChatEvent> {
-    const { sessionId, text, cwd, signal, capabilities, env } = req
+    const { sessionId, text, cwd, signal, capabilities, env, askUser } = req
 
     const abortController = new AbortController()
     const onAbort = (): void => abortController.abort()
@@ -177,8 +218,11 @@ export class ClaudeCodeAdapter implements SessionAdapter {
           ...adaptMcp(mcpConfig),
           ...adaptSkills(),
           ...(env ? { env } : {}),
-          ...adaptHooks(capabilities.hooks)
-          // permissionMode / canUseTool: Phase 4 anchor (OQ9)
+          ...adaptHooks(capabilities.hooks),
+          // canUseTool — AskUserQuestion 만 사용자에게 위임(askUser), 그 외 도구는 allow
+          // passthrough. askUser 미주입(opencode 등) 시 옵션 자체를 생략해 현행 동작 유지.
+          ...(askUser ? { canUseTool: makeCanUseTool(askUser) } : {})
+          // permissionMode / 일반 도구 권한 UI: Phase 4 anchor (OQ9)
         }
       })) {
         for (const ev of normalize(msg, cwd)) yield ev

@@ -6,6 +6,7 @@ import { SkillAutocomplete } from './composer/SkillAutocomplete'
 import { FileAutocomplete } from './composer/FileAutocomplete'
 import { ComposerChip } from './composer/ComposerChip'
 import { SkillsMenu } from './composer/SkillsMenu'
+import { AskUserQuestionCard } from './AskUserQuestionCard'
 import type { UseChat } from '../hooks/useChat'
 import { useSkills } from '../../../shared/hooks/useSkills'
 import { useSkillAutocomplete } from '../hooks/useSkillAutocomplete'
@@ -22,7 +23,9 @@ interface ComposerProps {
 // 자체 local state (draft / caret / menuOpen) 는 컴포넌트 내부에 가두고, 외부에는
 // 오직 `chat` 도메인 액션 (send / cancel) 만 의존한다.
 export function Composer({ chat, backendLabel }: ComposerProps): React.JSX.Element {
-  const { state, send, cancel } = chat
+  const { state, send, cancel, answerAsk, skipAsk } = chat
+  // 큐의 맨 앞 질문만 렌더(canUseTool 이 query 를 막아 보통 1개). 응답 시 다음 질문이 노출.
+  const activeAsk = state.pendingAsks[0]
   const [draft, setDraft] = useState('')
   const [caret, setCaret] = useState(0)
   const skills = useSkills()
@@ -185,6 +188,14 @@ export function Composer({ chat, backendLabel }: ComposerProps): React.JSX.Eleme
 
   return (
     <div className="app-frame-composer px-6 pb-[18px] pt-3">
+      {activeAsk && (
+        <AskUserQuestionCard
+          key={activeAsk.requestId}
+          ask={activeAsk}
+          onSubmit={(answers, response) => answerAsk(activeAsk.requestId, answers, response)}
+          onSkip={() => skipAsk(activeAsk.requestId)}
+        />
+      )}
       <div className="rounded-[14px] border border-border bg-panel px-3 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,.03)]">
         <div ref={textareaWrapRef} className="app-frame-composer-input" data-behavior="interactive">
           <HighlightedTextarea

@@ -1,4 +1,9 @@
-import type { ChatEvent, ErrorCode, LoadedSession } from '../../../../../shared/ipc'
+import type {
+  AskQuestionRequest,
+  ChatEvent,
+  ErrorCode,
+  LoadedSession
+} from '../../../../../shared/ipc'
 
 export interface ToolCall {
   toolUseId: string
@@ -35,6 +40,9 @@ export interface ChatState {
   turnStartedAt: number | null
   pendingInputTokens?: number
   error?: { code: ErrorCode; message: string; recoverable: boolean }
+  // Claude 가 AskUserQuestion 으로 던진 미응답 질문 묶음 큐. canUseTool 이 query 를 일시
+  // 중지한 채 응답을 기다리므로 보통 길이 0~1 이지만, 안전하게 큐로 모델링해 앞에서 소비한다.
+  pendingAsks: AskQuestionRequest[]
 }
 
 export const initialChatState: ChatState = {
@@ -46,7 +54,8 @@ export const initialChatState: ChatState = {
   pendingDelta: '',
   inflight: false,
   loadingSession: false,
-  turnStartedAt: null
+  turnStartedAt: null,
+  pendingAsks: []
 }
 
 // 메모리 캐시에 저장하는 한 세션의 snapshot. useChat 의 cacheRef 가 다룬다.
@@ -67,6 +76,8 @@ export type ChatAction =
   | { type: 'LOAD_SESSION_FROM_CACHE'; sessionId: string; cached: CachedSession }
   | { type: 'LOAD_SESSION_ERROR' }
   | { type: 'RENAME_SESSION'; sessionId: string; title: string }
+  // 사용자가 질문에 답하거나 건너뛰어 해당 requestId 의 카드를 큐에서 제거.
+  | { type: 'RESOLVE_ASK'; requestId: string }
 
 function upsertToolCall(messages: Message[], tc: ToolCall): Message[] {
   // 마지막 assistant 메시지에 부착. 없으면 새로 만든다.
@@ -205,8 +216,18 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           return base
         }
 
+        case 'ask_question':
+          return { ...state, pendingAsks: [...state.pendingAsks, ev.data] }
+
         case 'error':
-          return { ...state, error: ev.data, inflight: false, turnStartedAt: null }
+          // 턴이 끊기면 보류 질문은 main 이 broker abort 로 skip 처리하므로 카드도 비운다.
+          return {
+            ...state,
+            error: ev.data,
+            inflight: false,
+            turnStartedAt: null,
+            pendingAsks: []
+          }
       }
       return state
     }
@@ -221,7 +242,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return { ...state, cwd: action.cwd }
 
     case 'CANCEL_CHAT':
-      return { ...state, inflight: false, turnStartedAt: null }
+      // 턴 취소 시 main 의 broker 가 보류 질문을 skip 으로 해소하므로 카드도 함께 비운다.
+      return { ...state, inflight: false, turnStartedAt: null, pendingAsks: [] }
 
     case 'CLEAR_ERROR':
       return { ...state, error: undefined }
@@ -286,5 +308,11 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'RENAME_SESSION':
       if (state.sessionId !== action.sessionId) return state
       return { ...state, title: action.title }
+
+    case 'RESOLVE_ASK':
+      return {
+        ...state,
+        pendingAsks: state.pendingAsks.filter((a) => a.requestId !== action.requestId)
+      }
   }
 }

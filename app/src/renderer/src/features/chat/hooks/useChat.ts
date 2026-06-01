@@ -5,7 +5,7 @@ import {
   type CachedSession,
   type ChatState
 } from '../reducer/chatReducer'
-import { chatApi, sessionApi, settingsApi } from '../../../shared/api/ipc'
+import { askApi, chatApi, sessionApi, settingsApi } from '../../../shared/api/ipc'
 
 export interface UseChat {
   state: ChatState
@@ -24,6 +24,14 @@ export interface UseChat {
   // 외부에서 세션이 삭제됐을 때 chat-side 정리 — 캐시 invalidation + 활성 세션이면
   // 새 채팅으로 reset. project 컨텍스트가 있으면 그 프로젝트로 새 채팅을 시작.
   handleSessionDeleted: (sessionId: string, fallbackProjectId?: string | null) => void
+  // AskUserQuestion 응답 — 사용자의 선택을 main(broker)으로 회신하고 카드를 큐에서 제거.
+  answerAsk: (
+    requestId: string,
+    answers: Record<string, string | string[]>,
+    response?: string
+  ) => void
+  // AskUserQuestion 건너뛰기 — main 이 deny 로 매핑해 Claude 가 스스로 진행.
+  skipAsk: (requestId: string) => void
 }
 
 export function useChat(): UseChat {
@@ -166,6 +174,24 @@ export function useChat(): UseChat {
     []
   )
 
+  const answerAsk = useCallback(
+    (requestId: string, answers: Record<string, string | string[]>, response?: string): void => {
+      void askApi.respond({
+        requestId,
+        type: 'answered',
+        answers,
+        ...(response !== undefined ? { response } : {})
+      })
+      dispatch({ type: 'RESOLVE_ASK', requestId })
+    },
+    []
+  )
+
+  const skipAsk = useCallback((requestId: string): void => {
+    void askApi.respond({ requestId, type: 'skipped' })
+    dispatch({ type: 'RESOLVE_ASK', requestId })
+  }, [])
+
   return {
     state,
     send,
@@ -175,6 +201,8 @@ export function useChat(): UseChat {
     loadSession,
     renameSession,
     invalidateSessionCache,
-    handleSessionDeleted
+    handleSessionDeleted,
+    answerAsk,
+    skipAsk
   }
 }

@@ -16,6 +16,7 @@ import {
   ListProjectSessionsSchema,
   SearchMessagesRequestSchema,
   DeleteMcpServerSchema,
+  AskRespondSchema,
   type BackendListResult,
   type ChatEvent,
   type FileEntry,
@@ -42,7 +43,8 @@ import { listDir } from '../files/scan'
 import { initDb, type DbQueries } from '../db'
 import { PythonRuntime, PY_AGENT_RULES } from '../runtime'
 import { CapabilityBuilder } from '../capabilities/builder'
-import type { RuntimeStatus } from '../../shared/ipc'
+import { AskUserQuestionBroker } from '../ask/broker'
+import type { AskQuestion, AskResult, RuntimeStatus } from '../../shared/ipc'
 
 interface InflightTurn {
   controller: AbortController
@@ -68,6 +70,8 @@ export class IpcRouter {
   private readonly registry = new AdapterRegistry(() => this.mcp.resolver())
   private readonly installer = new Installer(this.registry)
   private readonly inflight = new Map<WebContents, InflightTurn>()
+  // AskUserQuestion (canUseTool) ↔ renderer 응답을 잇는 Promise 다리.
+  private readonly ask = new AskUserQuestionBroker()
   readonly runtime = new PythonRuntime()
   // 부팅 시 1회 스캔하여 메모리에 캐시. fs.watch hot-reload 는 본 PR 범위 밖 (재시작).
   private skillsCache: SkillInfo[] = []
@@ -133,6 +137,7 @@ export class IpcRouter {
     ipcMain.handle(CHANNELS.mcpDelete, this.handleMcpDelete)
     ipcMain.handle(CHANNELS.runtimeStatus, this.handleRuntimeStatus)
     ipcMain.handle(CHANNELS.runtimePrepare, this.handleRuntimePrepare)
+    ipcMain.handle(CHANNELS.askRespond, this.handleAskRespond)
     // 런타임 초기화 진행 상태를 모든 창에 브로드캐스트.
     // 렌더러 런타임 UI 가 제거되어 dev 에선 터미널 로깅으로 진행/에러를 관찰한다.
     this.runtime.on('status', (st: RuntimeStatus) => {
@@ -217,6 +222,16 @@ export class IpcRouter {
     // Python 런타임 env (uv 격리) 는 capability 가 아니라 TurnRequest 직속. ready 전이면 SDK 기본 env.
     const pyEnv = this.runtime.getEnv() ?? undefined
 
+    // AskUserQuestion 위임 — canUseTool 이 호출하면 requestId 를 발급해 ask_question
+    // ChatEvent 로 renderer 에 surface 하고, broker 가 응답(또는 turn abort)까지 Promise 를
+    // 보류한다. ask_question 은 generator 가 yield 하는 이벤트가 아니라 여기서 직접 전송.
+    const wc = event.sender
+    const askUser = (questions: AskQuestion[]): Promise<AskResult> => {
+      const requestId = randomUUID()
+      this.sendChatEvent(wc, { type: 'ask_question', data: { requestId, questions } })
+      return this.ask.register(requestId, controller.signal)
+    }
+
     const cwd = this.defaultCwd
     try {
       for await (const ev of adapter.sendMessage({
@@ -225,7 +240,8 @@ export class IpcRouter {
         cwd,
         signal: controller.signal,
         capabilities,
-        env: pyEnv
+        env: pyEnv,
+        askUser
       })) {
         this.persist(turn, ev)
         this.sendChatEvent(event.sender, ev)
@@ -543,6 +559,22 @@ export class IpcRouter {
   // 실패 후 재시도 또는 수동 준비 트리거. 진행 상태는 statusEvent 로 별도 스트리밍.
   private handleRuntimePrepare = async (): Promise<void> => {
     await this.runtime.retry()
+  }
+
+  // AskUserQuestion 응답 — renderer 가 사용자의 선택(answered) 또는 건너뛰기(skipped)를
+  // requestId 와 함께 회신. broker 가 보류 중이던 canUseTool Promise 를 해소해 query 가 재개된다.
+  private handleAskRespond = async (_event: IpcMainInvokeEvent, raw: unknown): Promise<void> => {
+    const parsed = AskRespondSchema.safeParse(raw)
+    if (!parsed.success) return
+    if (parsed.data.type === 'skipped') {
+      this.ask.resolve(parsed.data.requestId, { type: 'skipped' })
+      return
+    }
+    this.ask.resolve(parsed.data.requestId, {
+      type: 'answered',
+      answers: parsed.data.answers,
+      ...(parsed.data.response !== undefined ? { response: parsed.data.response } : {})
+    })
   }
 }
 
