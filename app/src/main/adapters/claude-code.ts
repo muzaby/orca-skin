@@ -5,8 +5,11 @@
 import { createRequire } from 'node:module'
 import { query, type SDKMessage } from '@anthropic-ai/claude-agent-sdk'
 import type { ChatEvent } from '../../shared/ipc'
-import type { McpQueryOptions, SessionAdapter } from './types'
-import { orcaConfigDir } from '../config/paths'
+import type { SessionAdapter } from './types'
+import type { TurnRequest } from '../capabilities/types'
+import type { Resolver } from '../mcp/expand'
+import { toClaudeConfig } from '../mcp/convert'
+import { adaptHooks, adaptMcp, adaptSkills, adaptSystemPrompt } from './claude-adapt'
 
 const requireFn = createRequire(import.meta.url)
 
@@ -127,6 +130,10 @@ export function normalize(msg: SDKMessage, cwd: string): ChatEvent[] {
 export class ClaudeCodeAdapter implements SessionAdapter {
   readonly id = 'claude-code' as const
 
+  // resolver 팩토리를 주입받는다 (McpStore.resolver()). ${VAR} 확장/비밀 복호화는 어댑트
+  // 시점(sendMessage)에만 호출해 디스크/중간 구조에 평문이 남지 않게 한다.
+  constructor(private readonly makeResolver: () => Resolver) {}
+
   async isInstalled(): Promise<{ installed: boolean; version?: string }> {
     try {
       const pkg = requireFn('@anthropic-ai/claude-agent-sdk/package.json') as { version?: string }
@@ -143,53 +150,19 @@ export class ClaudeCodeAdapter implements SessionAdapter {
     yield { step: 'complete', done: true }
   }
 
-  async *sendMessage(
-    sessionId: string | null,
-    text: string,
-    cwd: string,
-    signal?: AbortSignal,
-    systemPromptAppend?: string,
-    mcp?: McpQueryOptions,
-    env?: Record<string, string>
-  ): AsyncIterable<ChatEvent> {
+  async *sendMessage(req: TurnRequest): AsyncIterable<ChatEvent> {
+    const { sessionId, text, cwd, signal, capabilities, env } = req
+
     const abortController = new AbortController()
     const onAbort = (): void => abortController.abort()
     if (signal?.aborted) abortController.abort()
     else signal?.addEventListener('abort', onAbort)
 
-    // claude_code preset + append 형태. preset 으로 claude-code 의 기본 시스템 프롬프트
-    // (작업 디렉토리, 도구 카탈로그 등 동적 섹션) 는 유지하고, 프로젝트별 지침만 덧붙인다.
-    // append 가 빈 문자열이면 옵션 자체를 빼서 SDK 기본 동작 그대로.
-    const systemPromptOption =
-      systemPromptAppend && systemPromptAppend.trim() !== ''
-        ? {
-            systemPrompt: {
-              type: 'preset' as const,
-              preset: 'claude_code' as const,
-              append: systemPromptAppend
-            }
-          }
-        : {}
-
-    // 활성화된 MCP 서버가 있을 때만 mcpServers + allowedTools 를 주입한다. allowedTools 는
-    // `mcp__<name>__*` 와일드카드로 서버 전체 도구를 자동 허용 — Orca 엔 canUseTool 핸들러가
-    // 없어 (Phase 4 anchor) 미허용 시 도구 호출이 멈추기 때문.
-    const mcpOption =
-      mcp && Object.keys(mcp.servers).length > 0
-        ? { mcpServers: mcp.servers, allowedTools: mcp.allowedTools }
-        : {}
-
-    // Python 런타임 env 주입 — agent 의 Bash 도구가 실행하는 자식 프로세스가 내장
-    // uv venv / 인터프리터로 수렴하도록 UV_*/PATH 등을 넘긴다. env 미제공 시 SDK 기본.
-    const envOption = env ? { env } : {}
-
-    // Orca 확장 정규 소스 = ~/.config/orca 디렉토리(= Claude 로컬 플러그인). 부팅 시
-    // ensureOrcaPlugin() 으로 .claude-plugin/plugin.json + skills/·agents/·commands/ 골격이
-    // 보장되어 있다. plugins(local) + skills:'all' 로 정규 소스의 SKILL.md 를 SDK 에 명시 로드한다.
-    // (agents/·commands/ 도 같은 플러그인이라 사용자가 파일을 두면 자동 로드된다.)
-    const skillsOption = {
-      plugins: [{ type: 'local' as const, path: orcaConfigDir() }],
-      skills: 'all' as const
+    // ${VAR} 확장 + 비밀 복호화는 여기(어댑트 시점)에서만. 미확장 정규 소스를 받아
+    // resolver 로 확장 → Claude 타깃(ClaudeMcpConfig). 미해결 변수로 드롭된 서버는 경고 로깅.
+    const { config: mcpConfig, dropped } = toClaudeConfig(capabilities.mcp, this.makeResolver())
+    for (const d of dropped) {
+      console.warn(`[mcp] 서버 '${d.name}' 를 건너뜀: ${d.reason}`)
     }
 
     try {
@@ -200,11 +173,12 @@ export class ClaudeCodeAdapter implements SessionAdapter {
           includePartialMessages: true,
           cwd,
           abortController,
-          ...systemPromptOption,
-          ...mcpOption,
-          ...envOption,
-          ...skillsOption
-          // permissionMode / canUseTool / hooks: Phase 4 anchor (OQ9)
+          ...adaptSystemPrompt(capabilities.systemPromptAppend),
+          ...adaptMcp(mcpConfig),
+          ...adaptSkills(),
+          ...(env ? { env } : {}),
+          ...adaptHooks(capabilities.hooks)
+          // permissionMode / canUseTool: Phase 4 anchor (OQ9)
         }
       })) {
         for (const ev of normalize(msg, cwd)) yield ev

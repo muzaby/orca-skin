@@ -15,10 +15,9 @@ import {
   type UpdateMcpServerRequest
 } from '../../shared/protocol'
 import type { SettingsStore } from '../settings/store'
-import type { McpQueryOptions } from '../adapters/types'
 import { readMcpFile, writeMcpFile } from '../config/mcp-file'
 import { SecretStore } from '../config/secret-store'
-import { toClaudeConfig } from './convert'
+import type { Resolver } from './expand'
 import { makeResolver } from './resolver'
 import type { ClaudeMcp, OrcaMcpConfig } from './schema'
 
@@ -233,26 +232,22 @@ export class McpStore {
     if (!stillUsed) this.secrets.delete(authVar)
   }
 
-  // 활성화된 서버를 SDK query 옵션으로 변환. 비밀은 resolver 안에서만 잠깐 복호화된다.
-  // 미해결 ${VAR} 로 드롭된 서버는 console.warn 으로 기록(조용히 삼키지 않는다).
-  buildQueryOptions(): McpQueryOptions {
+  // 활성화된 서버를 백엔드 중립 정규형(미확장 ${VAR})으로 반환. 어댑터가 자기 resolver 로 확장 후
+  // 자기 형식으로 어댑트한다 — 변환·allowedTools 조립은 더 이상 McpStore 책임이 아니다
+  // (설계검토 §9: router 는 백엔드 중립, 변환은 어댑터). 비밀은 디스크/이 반환값에 들어가지 않는다.
+  enabledConfig(): OrcaMcpConfig {
     const s = this.settings.getAll()
     const all = this.read()
-    const enabledOrca: OrcaMcpConfig = {}
+    const out: OrcaMcpConfig = {}
     for (const [name, server] of Object.entries(all)) {
-      if ((s.mcpEnabled[name] ?? true) === true) enabledOrca[name] = server
+      if ((s.mcpEnabled[name] ?? true) === true) out[name] = server
     }
-    // 어댑터 경계로 넘기는 값은 정규형이 아니라 Claude 타깃(ClaudeMcpConfig)으로 다룬다.
-    const { config: claudeConfig, dropped } = toClaudeConfig(
-      enabledOrca,
-      makeResolver(this.secrets)
-    )
-    for (const d of dropped) {
-      console.warn(`[mcp] 서버 '${d.name}' 를 건너뜀: ${d.reason}`)
-    }
-    return {
-      servers: claudeConfig,
-      allowedTools: Object.keys(claudeConfig).map((n) => `mcp__${n}__*`)
-    }
+    return out
+  }
+
+  // resolver 팩토리 노출. 비밀 단일 소유권은 McpStore 가 유지하고(this.secrets), 확장 시점은
+  // 어댑터의 어댑트 시점으로 미룬다 — 미확장 ${VAR} 를 넘기고 어댑터가 이 resolver 로 복호화.
+  resolver(): Resolver {
+    return makeResolver(this.secrets)
   }
 }

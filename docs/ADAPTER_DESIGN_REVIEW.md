@@ -152,7 +152,7 @@ const skillsOption = {
 ┌──────────────────────────────────────────────────────────────│─────┐
 │ Tier B — SessionAdapter (백엔드 종속, "얇은 양방향 번역기")    ▼      │
 │                                                                     │
-│  머티리얼라이즈(주입)        ┌── claude: toClaudeConfig + plugins +   │
+│  어댑트(주입)                ┌── claude: toClaudeConfig + plugins +   │
 │   capabilities → 자기 형식 ──┤        skills:'all' + options.hooks    │
 │                             └── opencode: toOpencodeConfig + config   │
 │                                      on-disk + plugin module          │
@@ -191,13 +191,13 @@ interface TurnRequest {
   text: string
   cwd: string
   signal?: AbortSignal
-  capabilities: OrcaCapabilities    // 미확장 중립 번들 — 어댑터가 자기 형식으로 머티리얼라이즈
+  capabilities: OrcaCapabilities    // 미확장 중립 번들 — 어댑터가 자기 형식으로 어댑트
 }
 ```
 
 **왜 증식이 멈추는가**: 새 보조기능을 추가할 때 하는 일은 단 두 가지 —
 1. `OrcaCapabilities` 에 필드 1개 추가 (중립 데이터),
-2. *그 기능을 이해하는 어댑터의 머티리얼라이저* 에서만 처리 추가.
+2. *그 기능을 이해하는 어댑터의 어댑트 변환* 에서만 처리 추가.
 
 `sendMessage` 시그니처는 **영원히 그대로**다. 기능을 모르는 어댑터는 그 필드를 무시하면 된다(opencode 가 아직 hook 미지원이면 `capabilities.hooks` 를 안 본다). 어댑터들이 "남의 기능 인자"를 떠안지 않는다.
 
@@ -211,17 +211,17 @@ for await (const ev of adapter.sendMessage({ sessionId, text, cwd, signal, capab
   this.persist(turn, ev); this.sendChatEvent(sender, ev)
 }
 
-// claude-code 어댑터 내부 — 여기서 "비로소" claude 형식으로 머티리얼라이즈
+// claude-code 어댑터 내부 — 여기서 "비로소" claude 형식으로 어댑트
 const { config } = toClaudeConfig(req.capabilities.mcp, this.resolver)  // ${VAR} 확장도 여기서
 query({ prompt: req.text, options: {
-  ...materializeSystemPrompt(req.capabilities.systemPromptAppend),
-  ...materializeMcp(config),                  // mcpServers + allowedTools
-  ...materializeSkills(req.capabilities),      // plugins + skills:'all'
-  ...materializeHooks(req.capabilities.hooks)  // §6
+  ...adaptSystemPrompt(req.capabilities.systemPromptAppend),
+  ...adaptMcp(config),                  // mcpServers + allowedTools
+  ...adaptSkills(req.capabilities),      // plugins + skills:'all'
+  ...adaptHooks(req.capabilities.hooks)  // §6
 }})
 ```
 
-핵심 변화: 현재 router 가 하던 `buildQueryOptions()`(claude 타깃 굽기)를 **어댑터 안으로 되돌린다.** router 는 다시 백엔드 중립이 되고, `${VAR}` 확장(비밀 복호화)도 머티리얼라이즈 시점에만 일어난다(누출 표면 축소).
+핵심 변화: 현재 router 가 하던 `buildQueryOptions()`(claude 타깃 굽기)를 **어댑터 안으로 되돌린다.** router 는 다시 백엔드 중립이 되고, `${VAR}` 확장(비밀 복호화)도 어댑트 시점에만 일어난다(누출 표면 축소).
 
 ---
 
@@ -229,7 +229,7 @@ query({ prompt: req.text, options: {
 
 모든 변환기는 **순수 함수**로 유지한다(electron 비의존 → 단위 테스트 가능, `mcp/convert.ts` 가 선례). 동형 시그니처 `to<Backend><Asset>(source, resolve) → { config, dropped }`.
 
-| 자산 | 정규 소스 (Tier A, 중립) | claude 머티리얼라이저 | opencode 머티리얼라이저 | 정규화도 |
+| 자산 | 정규 소스 (Tier A, 중립) | claude 어댑트 | opencode 어댑트 | 정규화도 |
 |---|---|---|---|---|
 | **MCP** | `mcp.json` (`OrcaMcpConfig`) | `toClaudeConfig` → `options.mcpServers` + `allowedTools` | `toOpencodeConfig` → `opencode.json` `mcp` | ✅ 구현됨 |
 | **Skill** | `skills/<n>/SKILL.md` | `plugins:[{local}]` + `skills:'all'` | 네이티브 글로빙 경로로 심링크/복사 | ✅ 변환 불필요(양 백엔드 공통) |
@@ -324,7 +324,7 @@ const protectEnv: OrcaHookHandler = (ctx) =>
 
 ```ts
 interface OrcaHookSet {
-  // 양 백엔드가 머티리얼라이즈하는 중립 코어 (§6.2 교집합 이벤트만)
+  // 양 백엔드가 어댑트하는 중립 코어 (§6.2 교집합 이벤트만)
   normalized: Partial<Record<OrcaHookEvent, OrcaHookHandler[]>>
 
   // 환원 불가 영역을 위한 탈출구 — 정규화하지 않고 그대로 전달
@@ -351,9 +351,9 @@ Hook 은 정의상 도구 호출/세션 시점에 **임의 로직**을 실행한
 | 리스크 | 내용 | 완화 |
 |---|---|---|
 | **단일 객체 vs 위치 인자** | `TurnRequest` 로 묶으면 "무엇이 필수인가" 가시성이 인자 나열보다 약해질 수 있음 | TS 타입으로 필수/옵셔널 강제. `capabilities` 는 *항상 존재*(빈 기능 = 빈 컬렉션, `undefined` 분기 제거) |
-| **과잉 추상화(YAGNI)** | opencode 가 아직 미구현인데 일반화 비용을 먼저 치르는가 | 핵심 반박: **MCP 가 *이미* 2계층이다.** 신규 추상화를 *발명*하는 게 아니라 *이미 있는 패턴으로 통일*하는 것 → 순(net) 복잡도는 오히려 감소. opencode 머티리얼라이저 *구현* 은 어댑터 도입 PR 로 미룰 수 있음(인터페이스만 선반영) |
+| **과잉 추상화(YAGNI)** | opencode 가 아직 미구현인데 일반화 비용을 먼저 치르는가 | 핵심 반박: **MCP 가 *이미* 2계층이다.** 신규 추상화를 *발명*하는 게 아니라 *이미 있는 패턴으로 통일*하는 것 → 순(net) 복잡도는 오히려 감소. opencode 어댑트(어댑터) *구현* 은 어댑터 도입 PR 로 미룰 수 있음(인터페이스만 선반영) |
 | **인프로세스 콜백 이식성 갭** | hook 의 claude(인프로세스)/opencode(out-of-process) 비대칭 | §6.4 에 명시. `before-tool` 동기 게이팅 왕복 비용을 설계 문서에 경고로 박아두고, opencode 1차 구현은 비동기 hook(A 경로) 우선·동기 게이팅 후순위 |
-| **비밀 누출 불변식 희석** | capability 번들이 커지며 비밀이 디스크/메모리에 새는 표면 확대 | **MCP 의 불변식을 capability 계층 전체로 승격**: 디스크 정규 소스는 *항상 미확장*(`${VAR}`), `resolve`/복호화는 *머티리얼라이즈 시점만*, 확장 결과는 *메모리→어댑터 주입만*, 절대 파일 미기록. hooks/agents/commands 정규 소스에 동일 적용. `writeMcpFile` 의 "미확장 타입만 받기" 강제를 일반화 |
+| **비밀 누출 불변식 희석** | capability 번들이 커지며 비밀이 디스크/메모리에 새는 표면 확대 | **MCP 의 불변식을 capability 계층 전체로 승격**: 디스크 정규 소스는 *항상 미확장*(`${VAR}`), `resolve`/복호화는 *어댑트 시점만*, 확장 결과는 *메모리→어댑터 주입만*, 절대 파일 미기록. hooks/agents/commands 정규 소스에 동일 적용. `writeMcpFile` 의 "미확장 타입만 받기" 강제를 일반화 |
 | **이벤트 택소노미 갭** | 백엔드별 hook 이벤트 차이로 "어떤 백엔드에선 안 되는 hook" 발생 | `OrcaHookEvent.supportedBackends` 메타 + UI 비활성/경고 (§6.2) |
 | **정규화도 ≠ 균일** | skill 은 변환 불필요, MCP 는 구조 항등, agent 는 구조 변환, hook 은 부분 — "2계층"이 모든 자산에 똑같이 깔끔하진 않음 | §5 매트릭스로 자산별 정규화도를 *명시*. 일률 적용을 강요하지 않고 "같은 *경계 규칙*, 다른 *변환 깊이*"로 둠 |
 
@@ -366,10 +366,10 @@ Hook 은 정의상 도구 호출/세션 시점에 **임의 로직**을 실행한
 | 문서 | 위치 | 현재 진술 | 채택 시 |
 |---|---|---|---|
 | `BACKEND_ARCHITECTURE.md` | §8.4 (이식성 경계) | "Hook·full-plugin 은 정규화 대상이 아니며 백엔드별 슬롯으로 둔다" | "Hook 은 이벤트 어휘·결정 형식·인프로세스 핸들러까지 정규화(코어) + 환원 불가만 `backendSpecific` 이스케이프 해치" |
-| `BACKEND_ARCHITECTURE.md` | §4.7 (Adapter 책임 확장) | `getSkillPaths`/`getCredentialKeys` 등 자산별 개별 메서드 | `materialize(capabilities)` 단일 진입점으로 수렴 검토 |
+| `BACKEND_ARCHITECTURE.md` | §4.7 (Adapter 책임 확장) | `getSkillPaths`/`getCredentialKeys` 등 자산별 개별 메서드 | `adapt(capabilities)` 단일 진입점으로 수렴 검토 |
 | `TRD.md` | §6.3 SessionAdapter | 위치 인자 시그니처(`sendMessage(sessionId, text, cwd, …)`) | `sendMessage(req: TurnRequest)` 객체 시그니처 + `OrcaCapabilities` 추가 |
 | `app/CLAUDE.md` | adapters 설명 | "claude-code 단일 어댑터 (SDK query)" | 2계층 capability 모델 1줄 추가 |
-| `GLOSSARY.md` | §1/§2 | — | "Capability Bundle", "Materializer", "OrcaHook(Event/Decision)" 용어 추가 |
+| `GLOSSARY.md` | §1/§2 | — | "Capability Bundle", "Adapt(어댑터 아웃바운드 변환)", "OrcaHook(Event/Decision)" 용어 추가 |
 | `IPC_CONTRACT.md` | §2 | (hook IPC 없음) | hook CRUD 도메인 추가 시 채널 정의 |
 
 ---
@@ -380,8 +380,8 @@ Hook 은 정의상 도구 호출/세션 시점에 **임의 로직**을 실행한
 
 1. **시그니처 통합** — `sendMessage(req: TurnRequest)` + `OrcaCapabilities` 도입. 기존 MCP/systemPrompt 를 번들 필드로 이동. `buildQueryOptions()`(claude 타깃 굽기)를 router → claude 어댑터로 되돌림. **opencode 무관, 즉시 가치**(증상 A·B·C 해소).
 2. **자산 흡수** — skill/agent/command 의 정규 소스를 `OrcaCapabilities` 로 명시 편입(현재 `ensureOrcaPlugin` 부수효과 의존을 데이터 흐름으로 가시화).
-3. **Hook 정규화 코어** — `OrcaHookSet.normalized` + claude 머티리얼라이저(인프로세스 콜백 래핑). claude 단독에서 hook 기능 전체 동작. `backendSpecific` 슬롯 예약.
-4. **opencode 어댑터** — 머티리얼라이저(`toOpencodeConfig` 는 이미 있음) + hook 브릿지(A 경로). 이 시점에야 2계층의 *대칭*이 실증된다.
+3. **Hook 정규화 코어** — `OrcaHookSet.normalized` + claude 어댑트(인프로세스 콜백 래핑). claude 단독에서 hook 기능 전체 동작. `backendSpecific` 슬롯 예약.
+4. **opencode 어댑터** — 어댑트 변환(`toOpencodeConfig` 는 이미 있음) + hook 브릿지(A 경로). 이 시점에야 2계층의 *대칭*이 실증된다.
 
 각 단계는 독립적으로 가치가 있고, 1단계만으로도 사용자가 느끼는 복잡도(인자 증식)는 사라진다.
 
