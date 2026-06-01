@@ -14,7 +14,7 @@
     "start": "electron-vite preview",
     "predev": "npm run fetch-uv",
     "dev": "electron-vite dev",
-    "fetch-uv": "node scripts/fetch-uv.mjs",
+    "fetch-uv": "node --use-system-ca scripts/fetch-uv.mjs",
     "prepare-runtime": "npm run fetch-uv && electron-vite build && electron . --prepare-runtime",
     "build": "npm run typecheck && electron-vite build",
     "postinstall": "electron-builder install-app-deps",
