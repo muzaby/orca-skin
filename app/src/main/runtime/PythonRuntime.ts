@@ -66,18 +66,19 @@ export class PythonRuntime extends EventEmitter {
       // [1] .ready 마커 확인 — 일치하면 즉시 스킵
       const ready = await this._readReady(paths.readyFile)
       if (ready === READY_CONTENT) {
-        // venv 존재 확인
+        // venv + uv 바이너리 존재 확인 (PATH 가 uvBin 위치에 의존하므로 둘 다 필요)
         const venvOk = await this._exists(paths.venvBin)
-        if (venvOk) {
+        const uvOk = await this._exists(paths.uvBin)
+        if (venvOk && uvOk) {
           this._env = buildPyEnv(this.userData)
           this.emit_status({ stage: 'ready', ready: true })
           return
         }
       }
 
-      // [2] uv 바이너리 배치
+      // [2] uv 바이너리 배치 — userData 최상위 bin/ 에 둔다
       this.stage('preparing', 'uv 바이너리 배치 중…')
-      await mkdir(paths.runtimeDir, { recursive: true })
+      await mkdir(paths.binDir, { recursive: true })
       await mkdir(paths.configDir, { recursive: true })
       const bundledUv = getBundledUvPath()
       await copyFile(bundledUv, paths.uvBin)

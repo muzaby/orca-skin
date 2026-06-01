@@ -15,7 +15,7 @@ import { getRuntimePaths } from './paths'
 export function buildPyEnv(userData: string): Record<string, string> {
   const p = getRuntimePaths(userData)
   const sep = process.platform === 'win32' ? ';' : ':'
-  const uvDir = p.runtimeDir // uv 바이너리가 복사되는 디렉토리
+  const uvDir = p.binDir // uv 바이너리가 복사되는 디렉토리 (userData 최상위 bin/)
 
   return {
     ...process.env,

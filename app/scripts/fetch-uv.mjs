@@ -6,6 +6,12 @@
 //   node scripts/fetch-uv.mjs win32-x64        # 특정 타깃 (크로스 준비)
 //   UV_VERSION=0.5.0 node scripts/fetch-uv.mjs # 버전 고정
 //
+// 폐쇄망(프록시) 지원:
+//   표준 프록시 환경변수(HTTPS_PROXY / HTTP_PROXY / ALL_PROXY, 소문자 변형 포함)를
+//   자동 감지해 undici ProxyAgent 로 다운로드한다. NO_PROXY 도 존중한다.
+//   프록시 미설정(일반망)이면 글로벌 fetch 를 그대로 쓰며 undici 를 로드하지 않는다.
+//   사내 CA 는 npm script 의 `node --use-system-ca` 로 OS 신뢰 저장소를 사용한다.
+//
 // 대용량 바이너리는 git 에 커밋하지 않는다(.gitignore). CI / 로컬 빌드 직전에 실행한다.
 
 import { mkdir, chmod, rm } from 'node:fs/promises'
@@ -19,6 +25,41 @@ import { promisify } from 'node:util'
 const execFileAsync = promisify(execFile)
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const projectRoot = join(__dirname, '..')
+
+// 표준 프록시 환경변수에서 대상 URL 에 적용할 프록시를 해석한다.
+// https → HTTPS_PROXY, http → HTTP_PROXY, 공통 폴백 ALL_PROXY. 대/소문자 모두 확인.
+// NO_PROXY(쉼표 구분, *, 도메인 suffix) 매칭 시 직접 연결(null).
+function resolveProxy(targetUrl) {
+  const lc = (k) => process.env[k] ?? process.env[k.toLowerCase()]
+  const { protocol, hostname } = new URL(targetUrl)
+
+  const noProxy = lc('NO_PROXY')
+  if (noProxy) {
+    const host = hostname.toLowerCase()
+    const bypass = noProxy
+      .split(',')
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean)
+      .some((r) => r === '*' || host === r || host.endsWith(r.startsWith('.') ? r : `.${r}`))
+    if (bypass) return null
+  }
+
+  const proxy =
+    protocol === 'https:'
+      ? lc('HTTPS_PROXY') ?? lc('ALL_PROXY')
+      : lc('HTTP_PROXY') ?? lc('ALL_PROXY')
+  return proxy?.trim() || null
+}
+
+// 프록시가 있으면 undici ProxyAgent dispatcher 로, 없으면 글로벌 fetch.
+// undici 는 프록시가 있을 때만 동적 import — 일반망은 추가 로드 없음.
+async function fetchUrl(url) {
+  const proxy = resolveProxy(url)
+  if (!proxy) return fetch(url)
+  const { fetch: undiciFetch, ProxyAgent } = await import('undici')
+  console.log(`프록시 사용: ${proxy}`)
+  return undiciFetch(url, { dispatcher: new ProxyAgent(proxy) })
+}
 
 const UV_VERSION = process.env.UV_VERSION ?? 'latest'
 
@@ -61,7 +102,7 @@ async function main() {
 
   const archivePath = join(outDir, spec.file)
   console.log(`다운로드: ${url}`)
-  const res = await fetch(url)
+  const res = await fetchUrl(url)
   if (!res.ok || !res.body) {
     console.error(`다운로드 실패: HTTP ${res.status}`)
     process.exit(1)
