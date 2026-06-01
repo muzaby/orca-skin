@@ -31,6 +31,7 @@ export function getRuntimePaths(userData: string): {
   readyFile: string
   appUvToml: string
   appPipConf: string
+  orcaEnvExample: string
 } {
   const runtimeDir = join(userData, 'runtime')
   // 모든 써드파티 실행 바이너리(uv 등)는 userData 최상위 bin/ 에서 관리한다.
@@ -49,6 +50,8 @@ export function getRuntimePaths(userData: string): {
     cacheDir: join(runtimeDir, 'uv-cache'),
     readyFile: join(configDir, '.ready'),
     appUvToml: join(configDir, 'app-uv.toml'),
-    appPipConf: join(configDir, 'app-pip.conf')
+    appPipConf: join(configDir, 'app-pip.conf'),
+    // orca.env 와 같은 위치(userData 최상위)에 example 을 둬 운영자가 바로 발견·복사하도록.
+    orcaEnvExample: join(userData, 'orca.env.example')
   }
 }

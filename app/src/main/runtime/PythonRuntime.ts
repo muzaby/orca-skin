@@ -5,6 +5,7 @@ import { copyFile, mkdir, readFile, writeFile, access, chmod } from 'node:fs/pro
 import { constants } from 'node:fs'
 import { getRuntimePaths, getBundledUvPath } from './paths'
 import { buildPyEnv } from './env'
+import { ORCA_ENV_TEMPLATE } from './envFile'
 import type { RuntimeStatus, RuntimeStage } from '../../shared/ipc'
 
 const PYTHON_VERSION = '3.12'
@@ -20,6 +21,7 @@ const READY_CONTENT = `${APP_VERSION}:${PYTHON_VERSION}`
 export class PythonRuntime extends EventEmitter {
   private _status: RuntimeStatus = { stage: 'idle', ready: false }
   private _env: Record<string, string> | null = null
+  private _installLog = '' // [4] python install 단계 누적 로그 (실패 시 진단용)
   private userData: string
 
   constructor() {
@@ -92,9 +94,12 @@ export class PythonRuntime extends EventEmitter {
 
       // [4] Python 인터프리터 확보
       // UV_PYTHON_INSTALL_MIRROR 가 process.env 에 있으면 buildPyEnv 가 pass-through 함.
+      // 폐쇄망 진단을 위해 이 단계 로그를 누적해 둔다(실패 시 remediation 힌트 판정에 사용).
       this.stage('preparing', `Python ${PYTHON_VERSION} 인터프리터 설치 중…`)
       const env = buildPyEnv(this.userData)
+      this._installLog = ''
       await this._exec(paths.uvBin, ['python', 'install', PYTHON_VERSION], env, (log) => {
+        this._installLog += log
         this.emit_status({ stage: 'preparing', ready: false, log })
       })
 
@@ -124,8 +129,23 @@ export class PythonRuntime extends EventEmitter {
       this.emit_status({ stage: 'ready', ready: true })
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
-      this.emit_status({ stage: 'error', ready: false, error: message })
+      this.emit_status({ stage: 'error', ready: false, error: this._withRemediation(message) })
     }
+  }
+
+  // 폐쇄망 네트워크/인증서 실패로 보이면 한국어 remediation 힌트를 덧붙인다.
+  // 판정 근거: 에러 메시지 + Python 설치 단계 누적 로그.
+  private _withRemediation(message: string): string {
+    const haystack = `${message}\n${this._installLog}`
+    if (!/certificate|UnknownIssuer|Connect|download|mirror|proxy/i.test(haystack)) return message
+    return (
+      `${message}\n\n` +
+      '폐쇄망으로 보입니다. <userData>/orca.env (또는 머신 전역 %PROGRAMDATA%\\orca\\orca.env) 에 다음을 설정하세요:\n' +
+      '  - UV_PYTHON_INSTALL_MIRROR: 사내 python-build-standalone 미러 URL\n' +
+      '  - UV_DEFAULT_INDEX / PIP_INDEX_URL: 사내 PyPI 인덱스 URL\n' +
+      '  - 인증서 오류(UnknownIssuer)면 사내 CA 를 OS 신뢰저장소에 설치하고 UV_NATIVE_TLS=1(기본) 유지, 또는 SSL_CERT_FILE 로 CA 번들 지정\n' +
+      '자세한 안내는 같은 위치의 orca.env.example 또는 docs/CLOSED_NETWORK_RUNTIME.md 참고.'
+    )
   }
 
   private async _readReady(file: string): Promise<string> {
@@ -158,6 +178,11 @@ export class PythonRuntime extends EventEmitter {
       '[global]\n# 사내 인덱스는 PIP_INDEX_URL 환경변수로 지정하세요.\n',
       'utf-8'
     )
+    // 폐쇄망 운영자용 orca.env 템플릿. 본파일(orca.env)은 건드리지 않고 example 만,
+    // 그것도 아직 없을 때만 기록한다(운영자 편집을 덮어쓰지 않기 위해).
+    if (!(await this._exists(paths.orcaEnvExample))) {
+      await writeFile(paths.orcaEnvExample, ORCA_ENV_TEMPLATE, 'utf-8')
+    }
   }
 
   private _exec(

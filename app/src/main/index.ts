@@ -5,7 +5,7 @@ import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { IpcRouter } from './ipc/router'
-import { PythonRuntime } from './runtime'
+import { PythonRuntime, loadOperatorEnv } from './runtime'
 import { CHANNELS } from '../shared/ipc'
 import type { SettingsStore } from './settings/store'
 
@@ -122,6 +122,11 @@ function createWindow(settings: SettingsStore): void {
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.orca.app')
+
+  // 운영자 env 파일(orca.env) 주입 — 폐쇄망 사내 미러/인덱스/프록시/TLS 를 process.env 로 흡수.
+  // PythonRuntime / IpcRouter 보다 먼저 호출해야 buildPyEnv 의 pass-through 에 반영된다.
+  const loaded = loadOperatorEnv()
+  if (is.dev && loaded.length) console.log('[runtime] env:', loaded.join(', '))
 
   // 헤드리스 준비 모드: 윈도우/프로토콜/IpcRouter 부팅을 생략하고 런타임만 준비 후 종료.
   if (PREPARE_ONLY) {

@@ -18,6 +18,10 @@ extraResources:
   - from: resources/bin/${os}-${arch}
     to: bin
     filter: ['**/*']
+  # 폐쇄망 운영자용 env 템플릿 — 설치 디렉토리(resources)에 동봉해 IT 가 orca.env 로 복사·편집.
+  # loadOperatorEnv 가 packaged 시 process.resourcesPath/orca.env 를 1순위(낮음) 계층으로 읽는다.
+  - from: build/orca.env.example
+    to: orca.env.example
 win:
   executableName: orca
 nsis:
