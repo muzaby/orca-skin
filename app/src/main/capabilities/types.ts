@@ -1,9 +1,9 @@
 // Tier A — 백엔드 중립 Capability 타입. 어댑터 위에 세우는 "Orca 범용 데이터 계층"의 입력
 // 데이터 모델이다 (설계검토 §9 1단계). 어떤 백엔드(claude-code / opencode …)로 가든 동일한
-// 형태로 조립되고, 각 어댑터가 자기 형식으로 머티리얼라이즈한다.
+// 형태로 조립되고, 각 어댑터가 자기 형식으로 어댑트(adapt)한다.
 //
 // 불변식: 여기 담기는 mcp 는 **미확장**(${VAR} 플레이스홀더 보유). 비밀 확장/복호화는 어댑터의
-// 머티리얼라이즈 시점에만 일어나며 이 구조체에는 절대 평문이 들어오지 않는다.
+// 어댑트 시점에만 일어나며 이 구조체에는 절대 평문이 들어오지 않는다.
 
 import type { OrcaMcpConfig } from '../mcp/schema'
 import type { SkillInfo } from '../../shared/ipc'
@@ -14,9 +14,9 @@ export type OrcaSkillRef = SkillInfo
 
 // 한 턴에 적용할 백엔드 중립 보조기능 묶음. 어댑터가 이를 받아 자기 query 옵션으로 굽는다.
 export interface OrcaCapabilities {
-  // 활성 MCP 서버 (미확장 ${VAR}). 어댑터가 resolver 로 확장 후 자기 형식으로 머티리얼라이즈.
+  // 활성 MCP 서버 (미확장 ${VAR}). 어댑터가 resolver 로 확장 후 자기 형식으로 어댑트.
   mcp: OrcaMcpConfig
-  // SKILL.md 메타 (가시화 목적). 현재 머티리얼라이즈는 항상-on skills 경로가 구동하므로
+  // SKILL.md 메타 (가시화 목적). 현재 어댑트는 항상-on skills 경로가 구동하므로
   // 이 배열은 아직 옵션 생성을 구동하지 않는다 — 죽은 데이터가 아니라 "보여주기" 용도.
   skills: OrcaSkillRef[]
   // 정규화된 Hook 핸들러 집합 (§6). 이번 PR 의 실런타임 경로는 {normalized:{}} 라 옵션 미주입.

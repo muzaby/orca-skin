@@ -64,7 +64,7 @@ export class IpcRouter {
   readonly settings = new SettingsStore()
   readonly mcp = new McpStore(this.settings)
   // resolver 팩토리를 lazy arrow 로 넘긴다 — 호출은 턴 실행 시점이라 this.mcp 가 이미 할당돼 있다
-  // (field-init 순서 무관). 비밀 확장은 어댑터의 머티리얼라이즈 시점에만.
+  // (field-init 순서 무관). 비밀 확장은 어댑터의 어댑트 시점에만.
   private readonly registry = new AdapterRegistry(() => this.mcp.resolver())
   private readonly installer = new Installer(this.registry)
   private readonly inflight = new Map<WebContents, InflightTurn>()

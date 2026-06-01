@@ -1,5 +1,5 @@
 // CapabilityBuilder — Tier A 조립기. 정규 소스(DB 지침 · McpStore · 스킬 스캔)를 읽어 백엔드
-// 중립 OrcaCapabilities 로 굽는다. 어댑터/백엔드를 전혀 모른다 — 머티리얼라이즈(claude 타깃 변환·
+// 중립 OrcaCapabilities 로 조립한다. 어댑터/백엔드를 전혀 모른다 — 어댑트(claude 타깃 변환·
 // ${VAR} 확장)는 전적으로 어댑터 책임. router 에 흩어져 있던 지침 조회 + PY_AGENT_RULES join 을
 // 이리로 이주해 "이 보조기능은 어디서 조립하지?"를 단일 위치로 모은다 (설계검토 §9 1단계).
 //
@@ -38,11 +38,11 @@ export class CapabilityBuilder {
       : this.pyAgentRules
 
     return {
-      // 미확장 정규형 — 어댑터가 자기 resolver 로 확장 후 머티리얼라이즈.
+      // 미확장 정규형 — 어댑터가 자기 resolver 로 확장 후 어댑트.
       mcp: this.mcp.enabledConfig(),
-      // 가시화 메타 (머티리얼라이즈는 어댑터의 항상-on skills 경로가 구동).
+      // 가시화 메타 (어댑트는 어댑터의 항상-on skills 경로가 구동).
       skills: this.skills(),
-      // 이번 PR 의 실런타임 경로는 비어 있음 → materializeHooks 가 {} → options.hooks 미주입.
+      // 이번 PR 의 실런타임 경로는 비어 있음 → adaptHooks 가 {} → options.hooks 미주입.
       hooks: { normalized: {} },
       systemPromptAppend
     }

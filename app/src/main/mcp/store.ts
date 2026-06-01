@@ -233,7 +233,7 @@ export class McpStore {
   }
 
   // 활성화된 서버를 백엔드 중립 정규형(미확장 ${VAR})으로 반환. 어댑터가 자기 resolver 로 확장 후
-  // 자기 형식으로 머티리얼라이즈한다 — 변환·allowedTools 조립은 더 이상 McpStore 책임이 아니다
+  // 자기 형식으로 어댑트한다 — 변환·allowedTools 조립은 더 이상 McpStore 책임이 아니다
   // (설계검토 §9: router 는 백엔드 중립, 변환은 어댑터). 비밀은 디스크/이 반환값에 들어가지 않는다.
   enabledConfig(): OrcaMcpConfig {
     const s = this.settings.getAll()
@@ -246,7 +246,7 @@ export class McpStore {
   }
 
   // resolver 팩토리 노출. 비밀 단일 소유권은 McpStore 가 유지하고(this.secrets), 확장 시점은
-  // 어댑터의 머티리얼라이즈로 미룬다 — 미확장 ${VAR} 를 넘기고 어댑터가 이 resolver 로 복호화.
+  // 어댑터의 어댑트 시점으로 미룬다 — 미확장 ${VAR} 를 넘기고 어댑터가 이 resolver 로 복호화.
   resolver(): Resolver {
     return makeResolver(this.secrets)
   }

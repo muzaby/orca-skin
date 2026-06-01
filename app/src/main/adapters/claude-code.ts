@@ -9,12 +9,7 @@ import type { SessionAdapter } from './types'
 import type { TurnRequest } from '../capabilities/types'
 import type { Resolver } from '../mcp/expand'
 import { toClaudeConfig } from '../mcp/convert'
-import {
-  materializeHooks,
-  materializeMcp,
-  materializeSkills,
-  materializeSystemPrompt
-} from './claude-materialize'
+import { adaptHooks, adaptMcp, adaptSkills, adaptSystemPrompt } from './claude-adapt'
 
 const requireFn = createRequire(import.meta.url)
 
@@ -135,7 +130,7 @@ export function normalize(msg: SDKMessage, cwd: string): ChatEvent[] {
 export class ClaudeCodeAdapter implements SessionAdapter {
   readonly id = 'claude-code' as const
 
-  // resolver 팩토리를 주입받는다 (McpStore.resolver()). ${VAR} 확장/비밀 복호화는 머티리얼라이즈
+  // resolver 팩토리를 주입받는다 (McpStore.resolver()). ${VAR} 확장/비밀 복호화는 어댑트
   // 시점(sendMessage)에만 호출해 디스크/중간 구조에 평문이 남지 않게 한다.
   constructor(private readonly makeResolver: () => Resolver) {}
 
@@ -163,7 +158,7 @@ export class ClaudeCodeAdapter implements SessionAdapter {
     if (signal?.aborted) abortController.abort()
     else signal?.addEventListener('abort', onAbort)
 
-    // ${VAR} 확장 + 비밀 복호화는 여기(머티리얼라이즈 시점)에서만. 미확장 정규 소스를 받아
+    // ${VAR} 확장 + 비밀 복호화는 여기(어댑트 시점)에서만. 미확장 정규 소스를 받아
     // resolver 로 확장 → Claude 타깃(ClaudeMcpConfig). 미해결 변수로 드롭된 서버는 경고 로깅.
     const { config: mcpConfig, dropped } = toClaudeConfig(capabilities.mcp, this.makeResolver())
     for (const d of dropped) {
@@ -178,11 +173,11 @@ export class ClaudeCodeAdapter implements SessionAdapter {
           includePartialMessages: true,
           cwd,
           abortController,
-          ...materializeSystemPrompt(capabilities.systemPromptAppend),
-          ...materializeMcp(mcpConfig),
-          ...materializeSkills(),
+          ...adaptSystemPrompt(capabilities.systemPromptAppend),
+          ...adaptMcp(mcpConfig),
+          ...adaptSkills(),
           ...(env ? { env } : {}),
-          ...materializeHooks(capabilities.hooks)
+          ...adaptHooks(capabilities.hooks)
           // permissionMode / canUseTool: Phase 4 anchor (OQ9)
         }
       })) {

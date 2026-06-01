@@ -39,7 +39,7 @@ export const OrcaMcpConfigSchema = z.record(z.string(), ClaudeMcpSchema)
 export type OrcaMcpConfig = z.infer<typeof OrcaMcpConfigSchema>
 
 // Orca 정규형 == Claude 형식. Orca 가 claude-code 스펙을 정규형으로 채택했으므로 동일 타입(별칭).
-// 어댑터 레이어로 넘어가는 값은 이 이름(ClaudeMcpConfig)으로 다룬다(§convert / claude-materialize).
+// 어댑터 레이어로 넘어가는 값은 이 이름(ClaudeMcpConfig)으로 다룬다(§convert / claude-adapt).
 export type ClaudeMcpConfig = OrcaMcpConfig
 
 // --- opencode 타깃: 항목 + 컬렉션 (백엔드-프리픽스) ---

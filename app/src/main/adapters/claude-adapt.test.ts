@@ -1,22 +1,22 @@
 import { describe, it, expect } from 'vitest'
 import {
   makeClaudeHookCallback,
-  materializeHooks,
-  materializeMcp,
-  materializeSkills,
-  materializeSystemPrompt,
+  adaptHooks,
+  adaptMcp,
+  adaptSkills,
+  adaptSystemPrompt,
   toClaudeHookOutput,
   toContext
-} from './claude-materialize'
+} from './claude-adapt'
 import type { OrcaHookHandler } from '../capabilities/hooks'
 
-describe('materializeMcp', () => {
+describe('adaptMcp', () => {
   it('빈 config 는 옵션 생략', () => {
-    expect(materializeMcp({})).toEqual({})
+    expect(adaptMcp({})).toEqual({})
   })
 
   it('서버가 있으면 mcpServers + allowedTools(`mcp__<name>__*`)', () => {
-    const out = materializeMcp({
+    const out = adaptMcp({
       gh: { command: 'gh-mcp' },
       api: { type: 'http', url: 'https://x' }
     }) as { mcpServers: object; allowedTools: string[] }
@@ -28,35 +28,35 @@ describe('materializeMcp', () => {
   })
 })
 
-describe('materializeSystemPrompt', () => {
+describe('adaptSystemPrompt', () => {
   it('빈/공백 append 는 옵션 생략', () => {
-    expect(materializeSystemPrompt(undefined)).toEqual({})
-    expect(materializeSystemPrompt('   ')).toEqual({})
+    expect(adaptSystemPrompt(undefined)).toEqual({})
+    expect(adaptSystemPrompt('   ')).toEqual({})
   })
 
   it('텍스트가 있으면 claude_code preset + append', () => {
-    expect(materializeSystemPrompt('rules')).toEqual({
+    expect(adaptSystemPrompt('rules')).toEqual({
       systemPrompt: { type: 'preset', preset: 'claude_code', append: 'rules' }
     })
   })
 })
 
-describe('materializeSkills', () => {
+describe('adaptSkills', () => {
   it('항상 plugins(local) + skills:all 구조를 반환', () => {
-    const out = materializeSkills() as { plugins: { type: string; path: string }[]; skills: string }
+    const out = adaptSkills() as { plugins: { type: string; path: string }[]; skills: string }
     expect(out.plugins[0].type).toBe('local')
     expect(typeof out.plugins[0].path).toBe('string')
     expect(out.skills).toBe('all')
   })
 })
 
-describe('materializeHooks', () => {
+describe('adaptHooks', () => {
   it('빈 normalized 는 옵션 생략 (실런타임 경로 — options.hooks 미주입)', () => {
-    expect(materializeHooks({ normalized: {} })).toEqual({})
+    expect(adaptHooks({ normalized: {} })).toEqual({})
   })
 
   it('핸들러가 있으면 hooks 매처를 만든다', () => {
-    const out = materializeHooks({
+    const out = adaptHooks({
       normalized: { 'before-tool': [() => ({})] }
     }) as { hooks: Record<string, unknown[]> }
     expect(out.hooks).toBeDefined()
