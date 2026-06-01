@@ -9,7 +9,7 @@ import {
   type PermissionResult,
   type SDKMessage
 } from '@anthropic-ai/claude-agent-sdk'
-import type { AskQuestion, AskResult, ChatEvent } from '../../shared/ipc'
+import type { AskQuestion, AskResult, ChatEvent, PlanDecision } from '../../shared/ipc'
 import type { SessionAdapter } from './types'
 import type { TurnRequest } from '../capabilities/types'
 import type { Resolver } from '../mcp/expand'
@@ -134,37 +134,58 @@ export function normalize(msg: SDKMessage, cwd: string): ChatEvent[] {
 
 // AskUserQuestion 회피 안내 — skip 시 Claude 에 전달할 거부 메시지.
 const ASK_SKIP_MESSAGE = '사용자가 질문에 답하지 않고 건너뛰었습니다. 최선의 판단으로 진행하세요.'
+// 계획 거부 — 에이전트가 재제안·재작성하지 않고 멈추도록 지시(거부 시 router 가 turn abort 도 함).
+const PLAN_REJECT_MESSAGE =
+  '사용자가 계획을 거부했습니다. 다른 계획이나 제안 없이 여기서 중단하세요.'
 
-// 중립 askUser 콜백을 claude-code 의 canUseTool 로 어댑트한다. SDK 고유의 canUseTool/
-// PermissionResult 형태를 어댑터 내부에만 가둬, 어댑터 경계(TurnRequest)는 중립 콜백만 노출한다
-// (opencode 어댑터가 같은 askUser 를 자기 방식으로 소비 가능). 순수 매핑이라 단위 테스트 대상.
+// 백엔드 중립 콜백을 claude-code 의 canUseTool 로 어댑트한다. SDK 고유의 canUseTool/
+// PermissionResult/도구이름(AskUserQuestion·ExitPlanMode) 형태를 어댑터 내부에만 가둬,
+// 어댑터 경계(TurnRequest)는 중립 콜백(askUser·reviewPlan)만 노출한다 — opencode 어댑터가
+// 동일 콜백을 자기 메커니즘으로 소비 가능. 순수 매핑이라 단위 테스트 대상.
 //
-// - AskUserQuestion: askUser 로 질문을 위임하고 결과를 allow(answers) / deny(skip) 로 매핑.
-//   답변 시 원본 questions 배열을 그대로 echo 해야 한다(SDK 도구 처리 규약).
-// - 그 외 도구: 전부 allow passthrough — 현행 무-권한-UI 동작을 보존한다(일반 도구 권한 UI 는
-//   별도 작업, Phase 4 anchor).
-export function makeCanUseTool(
-  askUser: (questions: AskQuestion[]) => Promise<AskResult>
-): CanUseTool {
+// - AskUserQuestion → askUser. 답변 시 원본 questions 를 그대로 echo(도구 처리 규약).
+// - ExitPlanMode → reviewPlan. approved=allow / revise=deny(피드백) / rejected=deny(중단).
+// - 그 외 도구(또는 핸들러 미주입) → allow passthrough(현행 무-권한-UI 동작 보존).
+export interface CanUseToolHandlers {
+  askUser?: (questions: AskQuestion[]) => Promise<AskResult>
+  reviewPlan?: (plan: string) => Promise<PlanDecision>
+}
+
+export function makeCanUseTool(handlers: CanUseToolHandlers): CanUseTool {
+  const { askUser, reviewPlan } = handlers
   return async (toolName, input): Promise<PermissionResult> => {
-    if (toolName !== 'AskUserQuestion') {
-      return { behavior: 'allow', updatedInput: input }
-    }
-    const questions = Array.isArray((input as { questions?: unknown }).questions)
-      ? (input as { questions: AskQuestion[] }).questions
-      : []
-    const result = await askUser(questions)
-    if (result.type === 'skipped') {
-      return { behavior: 'deny', message: ASK_SKIP_MESSAGE }
-    }
-    return {
-      behavior: 'allow',
-      updatedInput: {
-        questions,
-        answers: result.answers,
-        ...(result.response !== undefined ? { response: result.response } : {})
+    if (toolName === 'AskUserQuestion' && askUser) {
+      const questions = Array.isArray((input as { questions?: unknown }).questions)
+        ? (input as { questions: AskQuestion[] }).questions
+        : []
+      const result = await askUser(questions)
+      if (result.type === 'skipped') {
+        return { behavior: 'deny', message: ASK_SKIP_MESSAGE }
+      }
+      return {
+        behavior: 'allow',
+        updatedInput: {
+          questions,
+          answers: result.answers,
+          ...(result.response !== undefined ? { response: result.response } : {})
+        }
       }
     }
+    if (toolName === 'ExitPlanMode' && reviewPlan) {
+      const plan =
+        typeof (input as { plan?: unknown }).plan === 'string'
+          ? (input as { plan: string }).plan
+          : ''
+      const decision = await reviewPlan(plan)
+      if (decision.type === 'approved') {
+        return { behavior: 'allow', updatedInput: input }
+      }
+      if (decision.type === 'revise') {
+        return { behavior: 'deny', message: '사용자 수정 요청: ' + decision.feedback }
+      }
+      return { behavior: 'deny', message: PLAN_REJECT_MESSAGE }
+    }
+    return { behavior: 'allow', updatedInput: input }
   }
 }
 
@@ -192,7 +213,8 @@ export class ClaudeCodeAdapter implements SessionAdapter {
   }
 
   async *sendMessage(req: TurnRequest): AsyncIterable<ChatEvent> {
-    const { sessionId, text, cwd, signal, capabilities, env, askUser, permissionMode } = req
+    const { sessionId, text, cwd, signal, capabilities, env, askUser, reviewPlan, permissionMode } =
+      req
 
     const abortController = new AbortController()
     const onAbort = (): void => abortController.abort()
@@ -219,9 +241,9 @@ export class ClaudeCodeAdapter implements SessionAdapter {
           ...adaptSkills(),
           ...(env ? { env } : {}),
           ...adaptHooks(capabilities.hooks),
-          // canUseTool — AskUserQuestion 만 사용자에게 위임(askUser), 그 외 도구는 allow
-          // passthrough. askUser 미주입(opencode 등) 시 옵션 자체를 생략해 현행 동작 유지.
-          ...(askUser ? { canUseTool: makeCanUseTool(askUser) } : {}),
+          // canUseTool — AskUserQuestion → askUser, ExitPlanMode → reviewPlan, 그 외 allow
+          // passthrough. 둘 다 미주입(opencode 등) 시 옵션 자체를 생략해 현행 동작 유지.
+          ...(askUser || reviewPlan ? { canUseTool: makeCanUseTool({ askUser, reviewPlan }) } : {}),
           // 권한 모드 (Composer 모드 버튼) — 'plan'/'acceptEdits' 는 SDK PermissionMode 의
           // 부분집합이라 그대로 대입 가능. 부재 시 SDK 기본(default) 동작.
           ...(permissionMode ? { permissionMode } : {})
@@ -230,7 +252,8 @@ export class ClaudeCodeAdapter implements SessionAdapter {
         for (const ev of normalize(msg, cwd)) yield ev
       }
     } catch (err) {
-      yield detectError(err)
+      // 의도적 중단(턴 취소 / 계획 거부)은 에러가 아니므로 error 이벤트를 내지 않는다.
+      if (!abortController.signal.aborted) yield detectError(err)
     } finally {
       signal?.removeEventListener('abort', onAbort)
     }

@@ -9,6 +9,7 @@ import { SkillsMenu } from './composer/SkillsMenu'
 import { ModeMenu } from './composer/ModeMenu'
 import { MODE_LABELS } from './composer/modes'
 import { AskUserQuestionCard } from './AskUserQuestionCard'
+import { PlanReviewCard } from './PlanReviewCard'
 import type { UseChat } from '../hooks/useChat'
 import { useSkills } from '../../../shared/hooks/useSkills'
 import { useSkillAutocomplete } from '../hooks/useSkillAutocomplete'
@@ -25,9 +26,20 @@ interface ComposerProps {
 // 자체 local state (draft / caret / menuOpen) 는 컴포넌트 내부에 가두고, 외부에는
 // 오직 `chat` 도메인 액션 (send / cancel) 만 의존한다.
 export function Composer({ chat, backendLabel }: ComposerProps): React.JSX.Element {
-  const { state, send, cancel, answerAsk, skipAsk, setPermissionMode } = chat
+  const {
+    state,
+    send,
+    cancel,
+    answerAsk,
+    skipAsk,
+    setPermissionMode,
+    approvePlan,
+    revisePlan,
+    rejectPlan
+  } = chat
   // 큐의 맨 앞 질문만 렌더(canUseTool 이 query 를 막아 보통 1개). 응답 시 다음 질문이 노출.
   const activeAsk = state.pendingAsks[0]
+  const planReview = state.pendingPlanReview
   const modeButtonRef = useRef<HTMLButtonElement>(null)
   const [modeMenuOpen, setModeMenuOpen] = useState(false)
   const [draft, setDraft] = useState('')
@@ -192,6 +204,15 @@ export function Composer({ chat, backendLabel }: ComposerProps): React.JSX.Eleme
 
   return (
     <div className="app-frame-composer px-6 pb-[18px] pt-3">
+      {planReview && (
+        <PlanReviewCard
+          key={planReview.requestId}
+          review={planReview}
+          onApprove={() => approvePlan(planReview.requestId)}
+          onRevise={(feedback) => revisePlan(planReview.requestId, feedback)}
+          onReject={() => rejectPlan(planReview.requestId)}
+        />
+      )}
       {activeAsk && (
         <AskUserQuestionCard
           key={activeAsk.requestId}

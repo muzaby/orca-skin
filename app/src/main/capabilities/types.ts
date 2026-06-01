@@ -6,7 +6,13 @@
 // 어댑트 시점에만 일어나며 이 구조체에는 절대 평문이 들어오지 않는다.
 
 import type { OrcaMcpConfig } from '../mcp/schema'
-import type { AskQuestion, AskResult, PermissionMode, SkillInfo } from '../../shared/ipc'
+import type {
+  AskQuestion,
+  AskResult,
+  PermissionMode,
+  PlanDecision,
+  SkillInfo
+} from '../../shared/ipc'
 import type { OrcaHookSet } from './hooks'
 
 // SKILL.md 스캔 메타 DTO 를 그대로 재사용 (step 2 — 자산 가시화).
@@ -38,6 +44,9 @@ export interface TurnRequest {
   // 백엔드 중립 사용자 질문 콜백 (AskUserQuestion). 어댑터가 자기 SDK 의 권한/질문 메커니즘
   // (claude-code 는 canUseTool)으로 어댑트해 사용한다. router 가 broker 에 바인딩해 주입.
   askUser?: (questions: AskQuestion[]) => Promise<AskResult>
+  // 백엔드 중립 계획 검토 콜백 (plan 모드). 어댑터가 자기 plan-승인 메커니즘
+  // (claude-code 는 ExitPlanMode/canUseTool)으로 어댑트한다.
+  reviewPlan?: (plan: string) => Promise<PlanDecision>
   // 이 턴의 권한 모드 (Composer 모드 버튼). 어댑터가 자기 query 옵션으로 어댑트.
   // capability 가 아니라 query-레벨 제어라 env/askUser 처럼 TurnRequest 직속.
   permissionMode?: PermissionMode

@@ -89,6 +89,13 @@ export const ChatEventSchema: z.ZodType<ChatEvent> = z.discriminatedUnion('type'
       requestId: z.string(),
       questions: z.array(AskQuestionSchema)
     })
+  }),
+  z.object({
+    type: z.literal('plan_review'),
+    data: z.object({
+      requestId: z.string(),
+      plan: z.string()
+    })
   })
 ])
 
@@ -223,6 +230,17 @@ export const AskRespondSchema = z.discriminatedUnion('type', [
   })
 ])
 
+// plan 모드 계획 검토 응답 (renderer → main). revise 는 비어 있지 않은 피드백 필수.
+export const PlanRespondSchema = z.discriminatedUnion('type', [
+  z.object({ requestId: z.string().min(1), type: z.literal('approved') }),
+  z.object({ requestId: z.string().min(1), type: z.literal('rejected') }),
+  z.object({
+    requestId: z.string().min(1),
+    type: z.literal('revise'),
+    feedback: z.string().min(1)
+  })
+])
+
 // 런타임 채널(status/prepare)은 입력 인자가 없다. invoke 시 undefined 가 전달되므로
 // 별도 검증 스키마 없이 핸들러에서 인자를 무시한다(아래 router 참고).
 
@@ -320,5 +338,8 @@ export type {
   AskQuestionRequest,
   AskRespond,
   AskResult,
-  PermissionMode
+  PermissionMode,
+  PlanReviewRequest,
+  PlanRespond,
+  PlanDecision
 } from './ipc'

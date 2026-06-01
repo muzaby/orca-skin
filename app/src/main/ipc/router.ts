@@ -17,6 +17,7 @@ import {
   SearchMessagesRequestSchema,
   DeleteMcpServerSchema,
   AskRespondSchema,
+  PlanRespondSchema,
   type BackendListResult,
   type ChatEvent,
   type FileEntry,
@@ -43,8 +44,8 @@ import { listDir } from '../files/scan'
 import { initDb, type DbQueries } from '../db'
 import { PythonRuntime, PY_AGENT_RULES } from '../runtime'
 import { CapabilityBuilder } from '../capabilities/builder'
-import { AskUserQuestionBroker } from '../ask/broker'
-import type { AskQuestion, AskResult, RuntimeStatus } from '../../shared/ipc'
+import { InteractionBroker } from '../ask/broker'
+import type { AskQuestion, AskResult, PlanDecision, RuntimeStatus } from '../../shared/ipc'
 
 interface InflightTurn {
   controller: AbortController
@@ -70,8 +71,9 @@ export class IpcRouter {
   private readonly registry = new AdapterRegistry(() => this.mcp.resolver())
   private readonly installer = new Installer(this.registry)
   private readonly inflight = new Map<WebContents, InflightTurn>()
-  // AskUserQuestion (canUseTool) ↔ renderer 응답을 잇는 Promise 다리.
-  private readonly ask = new AskUserQuestionBroker()
+  // canUseTool(AskUserQuestion / ExitPlanMode) ↔ renderer 응답을 잇는 Promise 다리.
+  private readonly ask = new InteractionBroker<AskResult>()
+  private readonly plan = new InteractionBroker<PlanDecision>()
   readonly runtime = new PythonRuntime()
   // 부팅 시 1회 스캔하여 메모리에 캐시. fs.watch hot-reload 는 본 PR 범위 밖 (재시작).
   private skillsCache: SkillInfo[] = []
@@ -138,6 +140,7 @@ export class IpcRouter {
     ipcMain.handle(CHANNELS.runtimeStatus, this.handleRuntimeStatus)
     ipcMain.handle(CHANNELS.runtimePrepare, this.handleRuntimePrepare)
     ipcMain.handle(CHANNELS.askRespond, this.handleAskRespond)
+    ipcMain.handle(CHANNELS.planRespond, this.handlePlanRespond)
     // 런타임 초기화 진행 상태를 모든 창에 브로드캐스트.
     // 렌더러 런타임 UI 가 제거되어 dev 에선 터미널 로깅으로 진행/에러를 관찰한다.
     this.runtime.on('status', (st: RuntimeStatus) => {
@@ -229,7 +232,14 @@ export class IpcRouter {
     const askUser = (questions: AskQuestion[]): Promise<AskResult> => {
       const requestId = randomUUID()
       this.sendChatEvent(wc, { type: 'ask_question', data: { requestId, questions } })
-      return this.ask.register(requestId, controller.signal)
+      return this.ask.register(requestId, controller.signal, { type: 'skipped' })
+    }
+    // plan 모드 계획 검토 — ExitPlanMode 시 계획을 surface 하고 응답(승인/수정/거부) 대기.
+    // turn abort(취소/거부) 시 broker 가 {rejected} 로 fallback.
+    const reviewPlan = (plan: string): Promise<PlanDecision> => {
+      const requestId = randomUUID()
+      this.sendChatEvent(wc, { type: 'plan_review', data: { requestId, plan } })
+      return this.plan.register(requestId, controller.signal, { type: 'rejected' })
     }
 
     const cwd = this.defaultCwd
@@ -242,6 +252,7 @@ export class IpcRouter {
         capabilities,
         env: pyEnv,
         askUser,
+        reviewPlan,
         permissionMode: parsed.data.permissionMode
       })) {
         this.persist(turn, ev)
@@ -576,6 +587,24 @@ export class IpcRouter {
       answers: parsed.data.answers,
       ...(parsed.data.response !== undefined ? { response: parsed.data.response } : {})
     })
+  }
+
+  // plan 모드 계획 검토 응답. approved=실행 / revise=피드백 반영 재작성 / rejected=중단.
+  // 거부는 broker 해소에 더해 해당 턴을 abort 해 에이전트가 재제안 없이 즉시 멈추게 한다.
+  private handlePlanRespond = async (event: IpcMainInvokeEvent, raw: unknown): Promise<void> => {
+    const parsed = PlanRespondSchema.safeParse(raw)
+    if (!parsed.success) return
+    if (parsed.data.type === 'revise') {
+      this.plan.resolve(parsed.data.requestId, { type: 'revise', feedback: parsed.data.feedback })
+      return
+    }
+    if (parsed.data.type === 'approved') {
+      this.plan.resolve(parsed.data.requestId, { type: 'approved' })
+      return
+    }
+    // rejected: broker 해소 + 턴 중단(재제안 차단).
+    this.plan.resolve(parsed.data.requestId, { type: 'rejected' })
+    this.inflight.get(event.sender)?.controller.abort()
   }
 }
 

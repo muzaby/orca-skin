@@ -3,7 +3,8 @@ import type {
   ChatEvent,
   ErrorCode,
   LoadedSession,
-  PermissionMode
+  PermissionMode,
+  PlanReviewRequest
 } from '../../../../../shared/ipc'
 
 export interface ToolCall {
@@ -47,6 +48,9 @@ export interface ChatState {
   // Composer 모드 버튼이 정하는 이 대화의 권한 모드. send 시 IPC 페이로드로 실린다.
   // 새 대화마다 기본값 'plan' 으로 리셋(initialChatState).
   permissionMode: PermissionMode
+  // plan 모드에서 에이전트가 제출한 계획(ExitPlanMode). canUseTool 직렬화로 동시 1개.
+  // 승인/수정/거부 시 null. (백엔드 중립 — SDK 를 모름.)
+  pendingPlanReview: PlanReviewRequest | null
 }
 
 export const initialChatState: ChatState = {
@@ -60,7 +64,8 @@ export const initialChatState: ChatState = {
   loadingSession: false,
   turnStartedAt: null,
   pendingAsks: [],
-  permissionMode: 'plan'
+  permissionMode: 'plan',
+  pendingPlanReview: null
 }
 
 // 메모리 캐시에 저장하는 한 세션의 snapshot. useChat 의 cacheRef 가 다룬다.
@@ -85,6 +90,8 @@ export type ChatAction =
   | { type: 'RESOLVE_ASK'; requestId: string }
   // Composer 모드 버튼 선택 (계획 / 편집 수락).
   | { type: 'SET_PERMISSION_MODE'; mode: PermissionMode }
+  // 계획 카드 응답(승인/수정/거부) 후 카드 제거.
+  | { type: 'RESOLVE_PLAN' }
 
 function upsertToolCall(messages: Message[], tc: ToolCall): Message[] {
   // 마지막 assistant 메시지에 부착. 없으면 새로 만든다.
@@ -226,14 +233,18 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         case 'ask_question':
           return { ...state, pendingAsks: [...state.pendingAsks, ev.data] }
 
+        case 'plan_review':
+          return { ...state, pendingPlanReview: ev.data }
+
         case 'error':
-          // 턴이 끊기면 보류 질문은 main 이 broker abort 로 skip 처리하므로 카드도 비운다.
+          // 턴이 끊기면 보류 게이트(질문/계획)는 main 이 broker abort 로 정리하므로 카드도 비운다.
           return {
             ...state,
             error: ev.data,
             inflight: false,
             turnStartedAt: null,
-            pendingAsks: []
+            pendingAsks: [],
+            pendingPlanReview: null
           }
       }
       return state
@@ -249,8 +260,14 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return { ...state, cwd: action.cwd }
 
     case 'CANCEL_CHAT':
-      // 턴 취소 시 main 의 broker 가 보류 질문을 skip 으로 해소하므로 카드도 함께 비운다.
-      return { ...state, inflight: false, turnStartedAt: null, pendingAsks: [] }
+      // 턴 취소 시 main 의 broker 가 보류 게이트를 해소하므로 카드(질문/계획)도 함께 비운다.
+      return {
+        ...state,
+        inflight: false,
+        turnStartedAt: null,
+        pendingAsks: [],
+        pendingPlanReview: null
+      }
 
     case 'CLEAR_ERROR':
       return { ...state, error: undefined }
@@ -324,5 +341,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
 
     case 'SET_PERMISSION_MODE':
       return { ...state, permissionMode: action.mode }
+
+    case 'RESOLVE_PLAN':
+      return { ...state, pendingPlanReview: null }
   }
 }

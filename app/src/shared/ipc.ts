@@ -34,7 +34,8 @@ export const CHANNELS = {
   runtimeStatus: 'orca:runtime:status',
   runtimePrepare: 'orca:runtime:prepare',
   runtimeStatusEvent: 'orca:runtime:statusEvent',
-  askRespond: 'orca:ask:respond'
+  askRespond: 'orca:ask:respond',
+  planRespond: 'orca:plan:respond'
 } as const
 
 // Backend (Phase 2: claude-code 단일. opencode 는 future work)
@@ -69,6 +70,9 @@ export type ChatEvent =
   // Claude Agent SDK 의 AskUserQuestion 도구 발화. canUseTool 콜백(main)이 query 를
   // 일시 중지한 채 renderer 에 질문 묶음을 surface 한다. 응답은 askRespond 채널로 회신.
   | { type: 'ask_question'; data: AskQuestionRequest }
+  // plan 모드의 ExitPlanMode 도구 발화. 에이전트가 제출한 계획을 renderer 에 surface 한다.
+  // 응답(승인/수정/거부)은 planRespond 채널로 회신. (백엔드 중립 — 어댑터가 자기 메커니즘에서 매핑.)
+  | { type: 'plan_review'; data: PlanReviewRequest }
 
 // AskUserQuestion (백엔드 중립) — SDK 입력 스키마(docs/agent-sdk/user-input)를 그대로 반영.
 // 한 호출에 1~4 질문, 각 질문 2~4 옵션. 미리보기(previewFormat)는 v1 미지원.
@@ -109,6 +113,27 @@ export type AskRespond =
 export type AskResult =
   | { type: 'answered'; answers: Record<string, string | string[]>; response?: string }
   | { type: 'skipped' }
+
+// plan 모드 계획 검토 (백엔드 중립). 어댑터가 자기 plan-승인 메커니즘(claude-code 는
+// ExitPlanMode/canUseTool)에서 이 형태로 매핑한다 — 렌더러·IPC·reducer 는 SDK 를 모른다.
+export interface PlanReviewRequest {
+  requestId: string
+  // 에이전트가 제출한 계획 (마크다운). 렌더러가 카드로 렌더.
+  plan: string
+}
+
+// renderer → main 응답 (planRespond 채널).
+// approved=실행 / rejected=중단(재제안 금지) / revise=피드백 반영해 재작성.
+export type PlanRespond =
+  | { requestId: string; type: 'approved' }
+  | { requestId: string; type: 'rejected' }
+  | { requestId: string; type: 'revise'; feedback: string }
+
+// 어댑터가 받는 중립 결과 (requestId 제거판).
+export type PlanDecision =
+  | { type: 'approved' }
+  | { type: 'rejected' }
+  | { type: 'revise'; feedback: string }
 
 // IPC payloads (TRD §5.2 의 활성 부분)
 export interface SendChatMessage {

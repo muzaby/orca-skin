@@ -1,5 +1,6 @@
 import type {
   AskRespond,
+  PlanRespond,
   Backend,
   BackendListResult,
   ChatEvent,
@@ -84,6 +85,10 @@ export const searchApi = {
 
 export const askApi = {
   respond: (req: AskRespond): Promise<void> => window.orca.ask.respond(req)
+}
+
+export const planApi = {
+  respond: (req: PlanRespond): Promise<void> => window.orca.plan.respond(req)
 }
 
 export const mcpApi = {

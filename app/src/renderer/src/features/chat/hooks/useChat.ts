@@ -5,7 +5,7 @@ import {
   type CachedSession,
   type ChatState
 } from '../reducer/chatReducer'
-import { askApi, chatApi, sessionApi, settingsApi } from '../../../shared/api/ipc'
+import { askApi, chatApi, planApi, sessionApi, settingsApi } from '../../../shared/api/ipc'
 import type { PermissionMode } from '../../../../../shared/ipc'
 
 export interface UseChat {
@@ -35,6 +35,10 @@ export interface UseChat {
   skipAsk: (requestId: string) => void
   // Composer 모드 버튼 — 이 대화의 권한 모드 선택 (계획 / 편집 수락).
   setPermissionMode: (mode: PermissionMode) => void
+  // plan 모드 계획 카드 — 승인(실행) / 수정 제안(피드백 반영 재작성) / 거부(턴 중단).
+  approvePlan: (requestId: string) => void
+  revisePlan: (requestId: string, feedback: string) => void
+  rejectPlan: (requestId: string) => void
 }
 
 export function useChat(): UseChat {
@@ -200,6 +204,25 @@ export function useChat(): UseChat {
     dispatch({ type: 'SET_PERMISSION_MODE', mode })
   }, [])
 
+  const approvePlan = useCallback((requestId: string): void => {
+    void planApi.respond({ requestId, type: 'approved' })
+    dispatch({ type: 'RESOLVE_PLAN' })
+  }, [])
+
+  const revisePlan = useCallback((requestId: string, feedback: string): void => {
+    const trimmed = feedback.trim()
+    if (trimmed === '') return
+    void planApi.respond({ requestId, type: 'revise', feedback: trimmed })
+    dispatch({ type: 'RESOLVE_PLAN' })
+  }, [])
+
+  const rejectPlan = useCallback((requestId: string): void => {
+    void planApi.respond({ requestId, type: 'rejected' })
+    // 거부는 턴 중단 — 카드 제거 + inflight 종료(main 이 turn abort, result 이벤트 없음).
+    dispatch({ type: 'RESOLVE_PLAN' })
+    dispatch({ type: 'CANCEL_CHAT' })
+  }, [])
+
   return {
     state,
     send,
@@ -212,6 +235,9 @@ export function useChat(): UseChat {
     handleSessionDeleted,
     answerAsk,
     skipAsk,
-    setPermissionMode
+    setPermissionMode,
+    approvePlan,
+    revisePlan,
+    rejectPlan
   }
 }
