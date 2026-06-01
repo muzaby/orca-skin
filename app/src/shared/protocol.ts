@@ -95,7 +95,8 @@ export const ChatEventSchema: z.ZodType<ChatEvent> = z.discriminatedUnion('type'
 export const SendChatMessageSchema = z.object({
   sessionId: z.string().nullable(),
   projectId: z.string().nullable(),
-  text: z.string().min(1)
+  text: z.string().min(1),
+  permissionMode: z.enum(['plan', 'acceptEdits']).optional()
 })
 
 export const CancelChatSchema = z.object({ sessionId: z.string() })
@@ -318,5 +319,6 @@ export type {
   AskQuestion,
   AskQuestionRequest,
   AskRespond,
-  AskResult
+  AskResult,
+  PermissionMode
 } from './ipc'

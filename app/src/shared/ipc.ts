@@ -117,7 +117,13 @@ export interface SendChatMessage {
   // main 이 sessionId → project_id → instructions 를 DB 에서 직접 조회한다.
   projectId: string | null
   text: string
+  // 이 턴에 적용할 권한 모드 (Composer 모드 버튼). 부재 시 main 이 기본값(plan) 적용.
+  permissionMode?: PermissionMode
 }
+
+// Composer 권한 모드 버튼이 노출하는 두 모드. SDK PermissionMode 의 부분집합 —
+// 'plan'(읽기 전용·계획) / 'acceptEdits'(파일 편집 자동 수락).
+export type PermissionMode = 'plan' | 'acceptEdits'
 
 export interface CancelChat {
   sessionId: string

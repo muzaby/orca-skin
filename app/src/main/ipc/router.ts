@@ -241,7 +241,8 @@ export class IpcRouter {
         signal: controller.signal,
         capabilities,
         env: pyEnv,
-        askUser
+        askUser,
+        permissionMode: parsed.data.permissionMode
       })) {
         this.persist(turn, ev)
         this.sendChatEvent(event.sender, ev)

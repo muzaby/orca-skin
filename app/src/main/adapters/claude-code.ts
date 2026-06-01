@@ -192,7 +192,7 @@ export class ClaudeCodeAdapter implements SessionAdapter {
   }
 
   async *sendMessage(req: TurnRequest): AsyncIterable<ChatEvent> {
-    const { sessionId, text, cwd, signal, capabilities, env, askUser } = req
+    const { sessionId, text, cwd, signal, capabilities, env, askUser, permissionMode } = req
 
     const abortController = new AbortController()
     const onAbort = (): void => abortController.abort()
@@ -221,8 +221,10 @@ export class ClaudeCodeAdapter implements SessionAdapter {
           ...adaptHooks(capabilities.hooks),
           // canUseTool — AskUserQuestion 만 사용자에게 위임(askUser), 그 외 도구는 allow
           // passthrough. askUser 미주입(opencode 등) 시 옵션 자체를 생략해 현행 동작 유지.
-          ...(askUser ? { canUseTool: makeCanUseTool(askUser) } : {})
-          // permissionMode / 일반 도구 권한 UI: Phase 4 anchor (OQ9)
+          ...(askUser ? { canUseTool: makeCanUseTool(askUser) } : {}),
+          // 권한 모드 (Composer 모드 버튼) — 'plan'/'acceptEdits' 는 SDK PermissionMode 의
+          // 부분집합이라 그대로 대입 가능. 부재 시 SDK 기본(default) 동작.
+          ...(permissionMode ? { permissionMode } : {})
         }
       })) {
         for (const ev of normalize(msg, cwd)) yield ev

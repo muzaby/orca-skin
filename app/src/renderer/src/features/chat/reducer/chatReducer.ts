@@ -2,7 +2,8 @@ import type {
   AskQuestionRequest,
   ChatEvent,
   ErrorCode,
-  LoadedSession
+  LoadedSession,
+  PermissionMode
 } from '../../../../../shared/ipc'
 
 export interface ToolCall {
@@ -43,6 +44,9 @@ export interface ChatState {
   // Claude 가 AskUserQuestion 으로 던진 미응답 질문 묶음 큐. canUseTool 이 query 를 일시
   // 중지한 채 응답을 기다리므로 보통 길이 0~1 이지만, 안전하게 큐로 모델링해 앞에서 소비한다.
   pendingAsks: AskQuestionRequest[]
+  // Composer 모드 버튼이 정하는 이 대화의 권한 모드. send 시 IPC 페이로드로 실린다.
+  // 새 대화마다 기본값 'plan' 으로 리셋(initialChatState).
+  permissionMode: PermissionMode
 }
 
 export const initialChatState: ChatState = {
@@ -55,7 +59,8 @@ export const initialChatState: ChatState = {
   inflight: false,
   loadingSession: false,
   turnStartedAt: null,
-  pendingAsks: []
+  pendingAsks: [],
+  permissionMode: 'plan'
 }
 
 // 메모리 캐시에 저장하는 한 세션의 snapshot. useChat 의 cacheRef 가 다룬다.
@@ -78,6 +83,8 @@ export type ChatAction =
   | { type: 'RENAME_SESSION'; sessionId: string; title: string }
   // 사용자가 질문에 답하거나 건너뛰어 해당 requestId 의 카드를 큐에서 제거.
   | { type: 'RESOLVE_ASK'; requestId: string }
+  // Composer 모드 버튼 선택 (계획 / 편집 수락).
+  | { type: 'SET_PERMISSION_MODE'; mode: PermissionMode }
 
 function upsertToolCall(messages: Message[], tc: ToolCall): Message[] {
   // 마지막 assistant 메시지에 부착. 없으면 새로 만든다.
@@ -314,5 +321,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ...state,
         pendingAsks: state.pendingAsks.filter((a) => a.requestId !== action.requestId)
       }
+
+    case 'SET_PERMISSION_MODE':
+      return { ...state, permissionMode: action.mode }
   }
 }

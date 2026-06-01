@@ -6,6 +6,8 @@ import { SkillAutocomplete } from './composer/SkillAutocomplete'
 import { FileAutocomplete } from './composer/FileAutocomplete'
 import { ComposerChip } from './composer/ComposerChip'
 import { SkillsMenu } from './composer/SkillsMenu'
+import { ModeMenu } from './composer/ModeMenu'
+import { MODE_LABELS } from './composer/modes'
 import { AskUserQuestionCard } from './AskUserQuestionCard'
 import type { UseChat } from '../hooks/useChat'
 import { useSkills } from '../../../shared/hooks/useSkills'
@@ -23,9 +25,11 @@ interface ComposerProps {
 // 자체 local state (draft / caret / menuOpen) 는 컴포넌트 내부에 가두고, 외부에는
 // 오직 `chat` 도메인 액션 (send / cancel) 만 의존한다.
 export function Composer({ chat, backendLabel }: ComposerProps): React.JSX.Element {
-  const { state, send, cancel, answerAsk, skipAsk } = chat
+  const { state, send, cancel, answerAsk, skipAsk, setPermissionMode } = chat
   // 큐의 맨 앞 질문만 렌더(canUseTool 이 query 를 막아 보통 1개). 응답 시 다음 질문이 노출.
   const activeAsk = state.pendingAsks[0]
+  const modeButtonRef = useRef<HTMLButtonElement>(null)
+  const [modeMenuOpen, setModeMenuOpen] = useState(false)
   const [draft, setDraft] = useState('')
   const [caret, setCaret] = useState(0)
   const skills = useSkills()
@@ -218,6 +222,15 @@ export function Composer({ chat, backendLabel }: ComposerProps): React.JSX.Eleme
             className="app-frame-composer-repo flex items-center gap-1.5"
             data-behavior="dismissible"
           >
+            <ComposerChip
+              ref={modeButtonRef}
+              icon="board"
+              label={MODE_LABELS[state.permissionMode]}
+              onClick={() => setModeMenuOpen((v) => !v)}
+              ariaHasPopup
+              ariaExpanded={modeMenuOpen}
+              title="권한 모드"
+            />
             <ComposerChip icon="plus" label="첨부" disabled title="준비 중" />
             <ComposerChip icon="cam" label="현재 프레임" disabled title="준비 중" />
             <ComposerChip
@@ -254,6 +267,15 @@ export function Composer({ chat, backendLabel }: ComposerProps): React.JSX.Eleme
           </span>
         </div>
       </div>
+      <Popover open={modeMenuOpen} anchorRef={modeButtonRef} onClose={() => setModeMenuOpen(false)}>
+        <ModeMenu
+          mode={state.permissionMode}
+          onPick={(mode) => {
+            setPermissionMode(mode)
+            setModeMenuOpen(false)
+          }}
+        />
+      </Popover>
       <Popover open={menuOpen} anchorRef={skillButtonRef} onClose={closeMenu}>
         <SkillsMenu skills={skills} onPick={insertSkillFromMenu} />
       </Popover>

@@ -6,6 +6,7 @@ import {
   type ChatState
 } from '../reducer/chatReducer'
 import { askApi, chatApi, sessionApi, settingsApi } from '../../../shared/api/ipc'
+import type { PermissionMode } from '../../../../../shared/ipc'
 
 export interface UseChat {
   state: ChatState
@@ -32,6 +33,8 @@ export interface UseChat {
   ) => void
   // AskUserQuestion 건너뛰기 — main 이 deny 로 매핑해 Claude 가 스스로 진행.
   skipAsk: (requestId: string) => void
+  // Composer 모드 버튼 — 이 대화의 권한 모드 선택 (계획 / 편집 수락).
+  setPermissionMode: (mode: PermissionMode) => void
 }
 
 export function useChat(): UseChat {
@@ -128,10 +131,11 @@ export function useChat(): UseChat {
       void chatApi.send({
         sessionId: state.sessionId,
         projectId: state.sessionId ? null : state.pendingProjectId,
-        text: trimmed
+        text: trimmed,
+        permissionMode: state.permissionMode
       })
     },
-    [state.sessionId, state.inflight, state.pendingProjectId]
+    [state.sessionId, state.inflight, state.pendingProjectId, state.permissionMode]
   )
 
   const cancel = useCallback(() => {
@@ -192,6 +196,10 @@ export function useChat(): UseChat {
     dispatch({ type: 'RESOLVE_ASK', requestId })
   }, [])
 
+  const setPermissionMode = useCallback((mode: PermissionMode): void => {
+    dispatch({ type: 'SET_PERMISSION_MODE', mode })
+  }, [])
+
   return {
     state,
     send,
@@ -203,6 +211,7 @@ export function useChat(): UseChat {
     invalidateSessionCache,
     handleSessionDeleted,
     answerAsk,
-    skipAsk
+    skipAsk,
+    setPermissionMode
   }
 }
