@@ -1,0 +1,50 @@
+// CapabilityBuilder — Tier A 조립기. 정규 소스(DB 지침 · McpStore · 스킬 스캔)를 읽어 백엔드
+// 중립 OrcaCapabilities 로 굽는다. 어댑터/백엔드를 전혀 모른다 — 머티리얼라이즈(claude 타깃 변환·
+// ${VAR} 확장)는 전적으로 어댑터 책임. router 에 흩어져 있던 지침 조회 + PY_AGENT_RULES join 을
+// 이리로 이주해 "이 보조기능은 어디서 조립하지?"를 단일 위치로 모은다 (설계검토 §9 1단계).
+//
+// env(uv 런타임)는 capability 가 아니라 TurnRequest 직속이라 빌더를 우회한다 — router 가 직접 조립.
+
+import type { DbQueries } from '../db'
+import type { McpStore } from '../mcp/store'
+import type { SkillInfo } from '../../shared/ipc'
+import type { OrcaCapabilities } from './types'
+
+export class CapabilityBuilder {
+  constructor(
+    private readonly db: DbQueries,
+    private readonly mcp: McpStore,
+    private readonly skills: () => SkillInfo[],
+    private readonly pyAgentRules: string
+  ) {}
+
+  // sessionId 가 있으면 resume 경로(세션→프로젝트 지침 조회), 없으면 새 채팅(projectId 직접 조회).
+  // 새 채팅이면 projectId 를, resume 면 null 을 넘긴다.
+  build(sessionId: string | null, projectId: string | null): OrcaCapabilities {
+    // 프로젝트 지침 조회. 매 턴 1회 prepared statement — DB SSOT, 캐시 없음(지침 편집이 같은
+    // 세션의 다음 메시지부터 즉시 반영). resume 경로는 세션 바인딩으로, 새 채팅은 projectId 로.
+    let instructions: string | undefined
+    if (sessionId) {
+      const ins = this.db.getProjectInstructionsForSession(sessionId)
+      if (ins && ins.trim() !== '') instructions = ins
+    } else if (projectId) {
+      const p = this.db.getProject(projectId)
+      if (p && p.instructions.trim() !== '') instructions = p.instructions
+    }
+
+    // Python 런타임 도구 사용 규약을 항상 시스템 프롬프트에 합류. 프로젝트 지침이 있으면 그 뒤에 붙인다.
+    const systemPromptAppend = instructions
+      ? `${instructions}\n\n${this.pyAgentRules}`
+      : this.pyAgentRules
+
+    return {
+      // 미확장 정규형 — 어댑터가 자기 resolver 로 확장 후 머티리얼라이즈.
+      mcp: this.mcp.enabledConfig(),
+      // 가시화 메타 (머티리얼라이즈는 어댑터의 항상-on skills 경로가 구동).
+      skills: this.skills(),
+      // 이번 PR 의 실런타임 경로는 비어 있음 → materializeHooks 가 {} → options.hooks 미주입.
+      hooks: { normalized: {} },
+      systemPromptAppend
+    }
+  }
+}

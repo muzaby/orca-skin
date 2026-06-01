@@ -41,6 +41,7 @@ import { scanSkills } from '../skills/scan'
 import { listDir } from '../files/scan'
 import { initDb, type DbQueries } from '../db'
 import { PythonRuntime, PY_AGENT_RULES } from '../runtime'
+import { CapabilityBuilder } from '../capabilities/builder'
 import type { RuntimeStatus } from '../../shared/ipc'
 
 interface InflightTurn {
@@ -60,11 +61,13 @@ interface InflightTurn {
 }
 
 export class IpcRouter {
-  private readonly registry = new AdapterRegistry()
-  private readonly installer = new Installer(this.registry)
-  private readonly inflight = new Map<WebContents, InflightTurn>()
   readonly settings = new SettingsStore()
   readonly mcp = new McpStore(this.settings)
+  // resolver 팩토리를 lazy arrow 로 넘긴다 — 호출은 턴 실행 시점이라 this.mcp 가 이미 할당돼 있다
+  // (field-init 순서 무관). 비밀 확장은 어댑터의 머티리얼라이즈 시점에만.
+  private readonly registry = new AdapterRegistry(() => this.mcp.resolver())
+  private readonly installer = new Installer(this.registry)
+  private readonly inflight = new Map<WebContents, InflightTurn>()
   readonly runtime = new PythonRuntime()
   // 부팅 시 1회 스캔하여 메모리에 캐시. fs.watch hot-reload 는 본 PR 범위 밖 (재시작).
   private skillsCache: SkillInfo[] = []
@@ -72,9 +75,19 @@ export class IpcRouter {
   // cwd. 현재는 home 으로 고정 — 향후 사용자 선택 디렉토리로 확장 가능.
   private defaultCwd: string = ''
   private db!: DbQueries
+  // Tier A 조립기. db 가 !-asserted 라 field-init 시점엔 undefined → start() 에서 initDb() 이후 생성.
+  private capabilities!: CapabilityBuilder
 
   async start(): Promise<void> {
     this.db = initDb()
+    // 빌더는 db 인스턴스가 필요해 여기서 생성(field-init 금지). skills 는 lazy getter 라 스캔
+    // 완료 전에 만들어도 무방 — 턴 실행 시점에 최신 skillsCache 를 읽는다.
+    this.capabilities = new CapabilityBuilder(
+      this.db,
+      this.mcp,
+      () => this.skillsCache,
+      PY_AGENT_RULES
+    )
     await this.registry.refreshInstallState()
     this.defaultCwd = app.getPath('home')
     // ~/.config/orca 보장 → 레거시 MCP 이전(1회) → Skill 플러그인 번들 골격 보장.
@@ -180,17 +193,6 @@ export class IpcRouter {
     }
     this.inflight.set(event.sender, turn)
 
-    // 프로젝트 지침 조회. 매 send 마다 1회 prepared statement — DB SSOT, 캐시 없음.
-    // 따라서 지침 편집이 같은 세션의 다음 메시지부터 즉시 반영된다.
-    let systemPromptAppend: string | undefined
-    if (parsed.data.sessionId) {
-      const ins = this.db.getProjectInstructionsForSession(parsed.data.sessionId)
-      if (ins && ins.trim() !== '') systemPromptAppend = ins
-    } else if (parsed.data.projectId) {
-      const p = this.db.getProject(parsed.data.projectId)
-      if (p && p.instructions.trim() !== '') systemPromptAppend = p.instructions
-    }
-
     // resume 경로: sessionId 가 들어왔다는 건 이전 init 으로 sessions row 가 이미
     // 존재한다는 의미. 다음 init 이벤트를 기다리지 않고 user 메시지를 즉시 기록.
     if (parsed.data.sessionId) {
@@ -205,29 +207,26 @@ export class IpcRouter {
       turn.pendingUserText = null
     }
 
-    // Python 런타임 도구 사용 규약을 항상 시스템 프롬프트에 합류. 프로젝트 지침이
-    // 있으면 그 뒤에 붙인다 (둘 다 SDK 기본 claude_code preset 뒤로 append).
-    const promptAppend = systemPromptAppend
-      ? `${systemPromptAppend}\n\n${PY_AGENT_RULES}`
-      : PY_AGENT_RULES
+    // 백엔드 중립 보조기능(지침+PY_AGENT_RULES · MCP · skills · hooks)을 빌더가 조립.
+    // resume 면 projectId 는 세션 바인딩에서 조회되므로 null 을 넘긴다.
+    const capabilities = this.capabilities.build(
+      parsed.data.sessionId,
+      parsed.data.sessionId ? null : parsed.data.projectId
+    )
 
-    // 전역 MCP 설정 — 활성화된 서버를 query 옵션(mcpServers + allowedTools)으로 주입.
-    const mcpOptions = this.mcp.buildQueryOptions()
-
-    // Python 런타임 env (uv 격리). ready 전이면 null → SDK 기본 env 로 동작.
+    // Python 런타임 env (uv 격리) 는 capability 가 아니라 TurnRequest 직속. ready 전이면 SDK 기본 env.
     const pyEnv = this.runtime.getEnv() ?? undefined
 
     const cwd = this.defaultCwd
     try {
-      for await (const ev of adapter.sendMessage(
-        parsed.data.sessionId,
-        parsed.data.text,
+      for await (const ev of adapter.sendMessage({
+        sessionId: parsed.data.sessionId,
+        text: parsed.data.text,
         cwd,
-        controller.signal,
-        promptAppend,
-        mcpOptions,
-        pyEnv
-      )) {
+        signal: controller.signal,
+        capabilities,
+        env: pyEnv
+      })) {
         this.persist(turn, ev)
         this.sendChatEvent(event.sender, ev)
       }
