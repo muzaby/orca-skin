@@ -147,7 +147,7 @@ export function ChatTile({ chat, backendLabel }: ChatTileProps): React.JSX.Eleme
               style={{ width: state.planTileWidth }}
               data-context="plan"
             >
-              <PlanTile key={state.pendingPlanReview?.requestId ?? 'resolved'} chat={chat} />
+              <PlanTile chat={chat} />
             </div>
           </>
         )}

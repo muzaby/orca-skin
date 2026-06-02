@@ -39,8 +39,9 @@ export interface UseChat {
   approvePlan: (requestId: string) => void
   revisePlan: (requestId: string, feedback: string) => void
   rejectPlan: (requestId: string) => void
-  // 우측 계획 타일 — 헤더 토글 / 닫기 X / 분리선 드래그 폭 조절.
+  // 우측 계획 타일 — 헤더 토글 / 닫기 X / 열기(승인 카드 '플랜 열기') / 분리선 드래그 폭 조절.
   togglePlanTile: () => void
+  openPlanTile: () => void
   closePlanTile: () => void
   setPlanTileWidth: (width: number) => void
 }
@@ -234,6 +235,10 @@ export function useChat(): UseChat {
     dispatch({ type: 'TOGGLE_PLAN_TILE' })
   }, [])
 
+  const openPlanTile = useCallback((): void => {
+    dispatch({ type: 'SET_PLAN_TILE_OPEN', open: true })
+  }, [])
+
   const closePlanTile = useCallback((): void => {
     dispatch({ type: 'SET_PLAN_TILE_OPEN', open: false })
   }, [])
@@ -259,6 +264,7 @@ export function useChat(): UseChat {
     revisePlan,
     rejectPlan,
     togglePlanTile,
+    openPlanTile,
     closePlanTile,
     setPlanTileWidth
   }

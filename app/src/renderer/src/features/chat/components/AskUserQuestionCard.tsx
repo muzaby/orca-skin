@@ -34,15 +34,23 @@ export function AskUserQuestionCard({
   // 질문별 선택 라벨 배열(단일=최대 1) + 기타 자유입력 텍스트.
   const [picks, setPicks] = useState<string[][]>(() => questions.map(() => []))
   const [other, setOther] = useState<string[]>(() => questions.map(() => ''))
+  // 한 번에 질문 1개만 보여준다. 좌우 화살표로 이동. (Composer 가 key={requestId} 로
+  // 카드를 재마운트하므로 새 질문 묶음에선 0 으로 리셋된다.)
+  const [current, setCurrent] = useState(0)
   const rootRef = useRef<HTMLDivElement>(null)
 
-  // 마운트 시 첫 옵션에 포커스. Composer 가 key={requestId} 로 질문마다 카드를 새로
-  // 마운트하므로 picks/other 는 useState 초기값으로 이미 리셋된다(상태 리셋 불필요).
+  const last = questions.length - 1
+  const multiQuestion = questions.length > 1
+  const goPrev = (): void => setCurrent((c) => Math.max(0, c - 1))
+  const goNext = (): void => setCurrent((c) => Math.min(last, c + 1))
+
+  // 현재 질문 전환(및 마운트) 시 그 질문의 첫 옵션으로 포커스. picks/other 는 useState
+  // 초기값으로 이미 리셋되므로 effect 내 setState 는 없다(React19 룰 무위반).
   useEffect(() => {
     queueMicrotask(() => {
       rootRef.current?.querySelector<HTMLButtonElement>('[role="option"]')?.focus()
     })
-  }, [])
+  }, [current])
 
   const built = questions.map((q, i) => answerFor(q.multiSelect, picks[i], other[i]))
   const canSubmit = built.every((v) => v !== null)
@@ -111,7 +119,8 @@ export function AskUserQuestionCard({
     }
   }
 
-  // 카드 루트 키보드: Esc=건너뛰기, Enter=제출(textarea 안에서는 줄바꿈 허용).
+  // 카드 루트 키보드: Esc=건너뛰기, Enter=제출(textarea 안에서는 줄바꿈 허용),
+  // ←→=질문 이동(textarea 밖 & 다중 질문일 때만 — listbox 는 ↑↓ 만 쓰므로 비충돌).
   const onRootKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
     if (e.key === 'Escape') {
       e.preventDefault()
@@ -126,6 +135,16 @@ export function AskUserQuestionCard({
     ) {
       e.preventDefault()
       submit()
+      return
+    }
+    if (multiQuestion && !(e.target instanceof HTMLTextAreaElement)) {
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        goPrev()
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        goNext()
+      }
     }
   }
 
@@ -139,68 +158,100 @@ export function AskUserQuestionCard({
       aria-label="명확화 질문"
       onKeyDown={onRootKeyDown}
     >
-      {questions.map((q, qIdx) => (
-        <div key={qIdx} className={qIdx > 0 ? 'mt-3.5 border-t border-border pt-3' : ''}>
-          <div className="mb-1 flex items-baseline gap-2">
-            <span className="rounded bg-rust-soft px-1.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-wide text-rust">
-              {q.header}
-            </span>
-            {q.multiSelect && <span className="text-[10.5px] text-ink3">여러 개 선택 가능</span>}
-          </div>
-          <div className="mb-2 text-[13.5px] font-medium text-ink">{q.question}</div>
-          <div
-            role="listbox"
-            aria-multiselectable={q.multiSelect}
-            className="flex flex-col gap-1.5"
+      {multiQuestion && (
+        <div className="mb-2.5 flex items-center gap-2">
+          <button
+            type="button"
+            onClick={goPrev}
+            disabled={current === 0}
+            aria-label="이전 질문"
+            data-behavior="interactive"
+            className="grid h-6 w-6 cursor-pointer place-items-center rounded-md border-0 bg-transparent text-ink2 hover:bg-sidebar disabled:cursor-not-allowed disabled:opacity-30"
           >
-            {q.options.map((opt) => {
-              const selected = picks[qIdx].includes(opt.label)
-              return (
-                <button
-                  key={opt.label}
-                  type="button"
-                  role="option"
-                  aria-selected={selected}
-                  onClick={() => toggle(qIdx, opt.label, q.multiSelect)}
-                  onKeyDown={(e) => {
-                    if (e.key === ' ') {
-                      e.preventDefault()
-                      toggle(qIdx, opt.label, q.multiSelect)
-                    } else {
-                      onOptionKeyDown(e)
-                    }
-                  }}
-                  className={`flex w-full items-start gap-2 rounded-[10px] border px-3 py-2 text-left transition-colors ${
-                    selected ? 'border-rust bg-rust-soft' : 'border-border bg-bg hover:bg-sidebar'
-                  }`}
-                >
-                  <span
-                    className={`mt-0.5 grid h-4 w-4 shrink-0 place-items-center border ${
-                      q.multiSelect ? 'rounded-[4px]' : 'rounded-full'
-                    } ${selected ? 'border-rust bg-rust text-white' : 'border-border-strong'}`}
-                  >
-                    {selected && <Icon name="check" size={11} color="#fff" />}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block text-[13px] font-medium text-ink">{opt.label}</span>
-                    {opt.description && (
-                      <span className="block text-[12px] text-ink2">{opt.description}</span>
-                    )}
-                  </span>
-                </button>
-              )
-            })}
-          </div>
-          <textarea
-            value={other[qIdx]}
-            onChange={(e) => changeOther(qIdx, e.target.value, q.multiSelect)}
-            placeholder="기타 — 직접 입력…"
-            rows={1}
-            aria-label={`${q.header} 기타 직접 입력`}
-            className="mt-1.5 w-full resize-y rounded-[10px] border border-border bg-bg px-3 py-1.5 text-[13px] text-ink placeholder:text-ink3 focus:border-border-strong focus:outline-none"
-          />
+            <Icon name="arrowL" size={14} />
+          </button>
+          <span className="font-mono text-[11.5px] tabular-nums text-ink3">
+            {current + 1}/{questions.length}
+          </span>
+          <button
+            type="button"
+            onClick={goNext}
+            disabled={current === last}
+            aria-label="다음 질문"
+            data-behavior="interactive"
+            className="grid h-6 w-6 cursor-pointer place-items-center rounded-md border-0 bg-transparent text-ink2 hover:bg-sidebar disabled:cursor-not-allowed disabled:opacity-30"
+          >
+            <Icon name="arrowR" size={14} />
+          </button>
         </div>
-      ))}
+      )}
+
+      {(() => {
+        const qIdx = current
+        const q = questions[qIdx]
+        return (
+          <div>
+            <div className="mb-1 flex items-baseline gap-2">
+              <span className="rounded bg-rust-soft px-1.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-wide text-rust">
+                {q.header}
+              </span>
+              {q.multiSelect && <span className="text-[10.5px] text-ink3">여러 개 선택 가능</span>}
+            </div>
+            <div className="mb-2 text-[13.5px] font-medium text-ink">{q.question}</div>
+            <div
+              role="listbox"
+              aria-multiselectable={q.multiSelect}
+              className="flex flex-col gap-1.5"
+            >
+              {q.options.map((opt) => {
+                const selected = picks[qIdx].includes(opt.label)
+                return (
+                  <button
+                    key={opt.label}
+                    type="button"
+                    role="option"
+                    aria-selected={selected}
+                    onClick={() => toggle(qIdx, opt.label, q.multiSelect)}
+                    onKeyDown={(e) => {
+                      if (e.key === ' ') {
+                        e.preventDefault()
+                        toggle(qIdx, opt.label, q.multiSelect)
+                      } else {
+                        onOptionKeyDown(e)
+                      }
+                    }}
+                    className={`flex w-full items-start gap-2 rounded-[10px] border px-3 py-2 text-left transition-colors ${
+                      selected ? 'border-rust bg-rust-soft' : 'border-border bg-bg hover:bg-sidebar'
+                    }`}
+                  >
+                    <span
+                      className={`mt-0.5 grid h-4 w-4 shrink-0 place-items-center border ${
+                        q.multiSelect ? 'rounded-[4px]' : 'rounded-full'
+                      } ${selected ? 'border-rust bg-rust text-white' : 'border-border-strong'}`}
+                    >
+                      {selected && <Icon name="check" size={11} color="#fff" />}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-[13px] font-medium text-ink">{opt.label}</span>
+                      {opt.description && (
+                        <span className="block text-[12px] text-ink2">{opt.description}</span>
+                      )}
+                    </span>
+                  </button>
+                )
+              })}
+            </div>
+            <textarea
+              value={other[qIdx]}
+              onChange={(e) => changeOther(qIdx, e.target.value, q.multiSelect)}
+              placeholder="기타 — 직접 입력…"
+              rows={1}
+              aria-label={`${q.header} 기타 직접 입력`}
+              className="mt-1.5 w-full resize-y rounded-[10px] border border-border bg-bg px-3 py-1.5 text-[13px] text-ink placeholder:text-ink3 focus:border-border-strong focus:outline-none"
+            />
+          </div>
+        )
+      })()}
 
       <div className="mt-3 flex items-center gap-3">
         <button
@@ -221,8 +272,13 @@ export function AskUserQuestionCard({
           건너뛰기
         </button>
         <span className="ml-auto text-[11px] text-ink3">
-          <kbd>↑↓</kbd> 이동 · <kbd>Space</kbd> 선택 · <kbd>Enter</kbd> 제출 · <kbd>Esc</kbd>{' '}
-          건너뛰기
+          <kbd>↑↓</kbd> 이동 · <kbd>Space</kbd> 선택 ·{' '}
+          {multiQuestion && (
+            <>
+              <kbd>←→</kbd> 질문 ·{' '}
+            </>
+          )}
+          <kbd>Enter</kbd> 제출 · <kbd>Esc</kbd> 건너뛰기
         </span>
       </div>
     </div>
