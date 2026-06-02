@@ -1,10 +1,13 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { Icon } from '../../../shared/ui/Icon'
 import { Dot } from '../../../shared/ui/Status'
+import { useDragResize } from '../../../shared/hooks/useDragResize'
 import { AssistantMessage } from './transcript/AssistantMessage'
 import { UserMessage } from './transcript/UserMessage'
 import { PendingAssistant } from './transcript/PendingAssistant'
 import { Composer } from './Composer'
+import { PlanTile } from './PlanTile'
+import { PLAN_TILE_MIN_WIDTH, PLAN_TILE_MAX_WIDTH } from '../reducer/chatReducer'
 import type { UseChat } from '../hooks/useChat'
 
 const ICON_BTN =
@@ -18,11 +21,25 @@ interface ChatTileProps {
 export function ChatTile({ chat, backendLabel }: ChatTileProps): React.JSX.Element {
   const { state } = chat
   const scrollRef = useRef<HTMLDivElement>(null)
+  const rowRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const el = scrollRef.current
     if (el) el.scrollTop = el.scrollHeight
   }, [state.messages, state.pendingDelta])
+
+  // 우측 계획 타일은 행의 오른쪽 끝에 도킹 — 커서를 왼쪽으로 끌수록 폭이 커지므로 invert.
+  const getRowRight = useCallback(
+    (): number => rowRef.current?.getBoundingClientRect().right ?? 0,
+    []
+  )
+  const { startResize } = useDragResize({
+    getOrigin: getRowRight,
+    min: PLAN_TILE_MIN_WIDTH,
+    max: PLAN_TILE_MAX_WIDTH,
+    invert: true,
+    onChange: chat.setPlanTileWidth
+  })
 
   const isEmpty = state.messages.length === 0 && state.pendingDelta === '' && !state.loadingSession
   // 사이드바 메타 (state.title) 가 즉시 채워지므로 사용자가 세션을 선택한 순간부터
@@ -36,7 +53,7 @@ export function ChatTile({ chat, backendLabel }: ChatTileProps): React.JSX.Eleme
 
   return (
     <section className="app-frame-pane-host flex min-h-0 min-w-0 flex-1 flex-col bg-bg">
-      <div className="app-frame-pane-row flex min-h-0 flex-1">
+      <div ref={rowRef} className="app-frame-pane-row relative flex min-h-0 flex-1">
         <div className="app-frame-tile flex min-w-0 flex-1 flex-col" data-behavior="resizable">
           <div className="app-frame-titlebar flex items-center gap-3 border-b border-border px-6 pb-2.5 pt-3.5">
             <div className="min-w-0 flex-1">
@@ -64,6 +81,15 @@ export function ChatTile({ chat, backendLabel }: ChatTileProps): React.JSX.Eleme
               </button>
               <button className={ICON_BTN} title="설정">
                 <Icon name="settings" size={14} />
+              </button>
+              <button
+                type="button"
+                onClick={chat.togglePlanTile}
+                aria-pressed={state.planTileOpen}
+                className={`${ICON_BTN} ${state.planTileOpen ? 'text-rust' : ''}`}
+                title="계획 패널"
+              >
+                <Icon name="panelR" size={14} />
               </button>
             </div>
           </div>
@@ -104,6 +130,27 @@ export function ChatTile({ chat, backendLabel }: ChatTileProps): React.JSX.Eleme
 
           <Composer chat={chat} backendLabel={backendLabel} />
         </div>
+
+        {state.planTileOpen && (
+          <>
+            <div
+              className="app-frame-tile-separator w-1 shrink-0 cursor-col-resize bg-border hover:bg-border-strong"
+              data-behavior="resizable"
+              data-axis="vertical"
+              data-context="tile"
+              data-state="visible"
+              onMouseDown={startResize}
+              aria-label="Resize plan panel"
+            />
+            <div
+              className="app-frame-tile flex shrink-0 flex-col"
+              style={{ width: state.planTileWidth }}
+              data-context="plan"
+            >
+              <PlanTile key={state.pendingPlanReview?.requestId ?? 'resolved'} chat={chat} />
+            </div>
+          </>
+        )}
       </div>
     </section>
   )

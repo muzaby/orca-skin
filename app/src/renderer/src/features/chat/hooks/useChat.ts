@@ -39,6 +39,10 @@ export interface UseChat {
   approvePlan: (requestId: string) => void
   revisePlan: (requestId: string, feedback: string) => void
   rejectPlan: (requestId: string) => void
+  // 우측 계획 타일 — 헤더 토글 / 닫기 X / 분리선 드래그 폭 조절.
+  togglePlanTile: () => void
+  closePlanTile: () => void
+  setPlanTileWidth: (width: number) => void
 }
 
 export function useChat(): UseChat {
@@ -226,6 +230,18 @@ export function useChat(): UseChat {
     dispatch({ type: 'CANCEL_CHAT' })
   }, [])
 
+  const togglePlanTile = useCallback((): void => {
+    dispatch({ type: 'TOGGLE_PLAN_TILE' })
+  }, [])
+
+  const closePlanTile = useCallback((): void => {
+    dispatch({ type: 'SET_PLAN_TILE_OPEN', open: false })
+  }, [])
+
+  const setPlanTileWidth = useCallback((width: number): void => {
+    dispatch({ type: 'SET_PLAN_TILE_WIDTH', width })
+  }, [])
+
   return {
     state,
     send,
@@ -241,6 +257,9 @@ export function useChat(): UseChat {
     setPermissionMode,
     approvePlan,
     revisePlan,
-    rejectPlan
+    rejectPlan,
+    togglePlanTile,
+    closePlanTile,
+    setPlanTileWidth
   }
 }

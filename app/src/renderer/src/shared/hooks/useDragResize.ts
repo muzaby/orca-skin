@@ -9,6 +9,9 @@ export interface UseDragResizeOptions {
   max: number
   // 드래그 비활성 (예: sidebar collapsed).
   disabled?: boolean
+  // 우측 도킹 패널처럼 폭이 커서를 왼쪽으로 끌수록 커지는 경우 true.
+  // false(기본)=좌측 도킹(폭 = clientX - origin), true=우측 도킹(폭 = origin - clientX).
+  invert?: boolean
   onChange: (value: number) => void
 }
 
@@ -19,7 +22,7 @@ const clamp = (n: number, lo: number, hi: number): number => Math.max(lo, Math.m
 export function useDragResize(opts: UseDragResizeOptions): {
   startResize: (e: React.MouseEvent) => void
 } {
-  const { getOrigin, min, max, disabled, onChange } = opts
+  const { getOrigin, min, max, disabled, invert, onChange } = opts
   const draggingRef = useRef(false)
 
   const startResize = useCallback(
@@ -30,7 +33,8 @@ export function useDragResize(opts: UseDragResizeOptions): {
       const origin = getOrigin()
       const onMove = (ev: MouseEvent): void => {
         if (!draggingRef.current) return
-        onChange(clamp(Math.round(ev.clientX - origin), min, max))
+        const raw = invert ? origin - ev.clientX : ev.clientX - origin
+        onChange(clamp(Math.round(raw), min, max))
       }
       const onUp = (): void => {
         draggingRef.current = false
@@ -40,7 +44,7 @@ export function useDragResize(opts: UseDragResizeOptions): {
       window.addEventListener('mousemove', onMove)
       window.addEventListener('mouseup', onUp)
     },
-    [getOrigin, min, max, disabled, onChange]
+    [getOrigin, min, max, disabled, invert, onChange]
   )
 
   return { startResize }

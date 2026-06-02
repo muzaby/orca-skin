@@ -20,6 +20,7 @@ export type IconName =
   | 'chevD'
   | 'chevU'
   | 'panelL'
+  | 'panelR'
   | 'download'
   | 'copy'
   | 'pause'
@@ -62,6 +63,7 @@ const ICONS: Record<IconName, string> = {
   chevD: 'M3 6l5 5 5-5',
   chevU: 'M3 10l5-5 5 5',
   panelL: 'M2 3h12v10H2zM6 3v10',
+  panelR: 'M2 3h12v10H2zM10 3v10',
   download: 'M8 2v9M4 8l4 4 4-4M2 14h12',
   copy: 'M5 5h7v7H5zM3 3h7v2',
   pause: 'M5 3v10M11 3v10',

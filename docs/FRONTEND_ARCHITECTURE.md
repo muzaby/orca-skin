@@ -313,7 +313,7 @@ resize-handle 은 `aside` 형제가 아니라 **자식**으로 둔다.
 | 위치 | 이름 | 이유 |
 |---|---|---|
 | aside 내부 | `app-frame-resize-handle` | sidebar 에 소속된 조작 장치. collapse 시 함께 사라진다. |
-| tile 사이 | `app-frame-tile-separator` | 독립적인 두 tile 사이의 분리선. (현재 단일 tile 이라 미사용 — 후속 분할 시 도입.) |
+| tile 사이 | `app-frame-tile-separator` | 독립적인 두 tile 사이의 분리선. **구현됨** — plan 모드 검토용 우측 계획 타일(`PlanTile`)을 채팅 tile 과 분할. `useDragResize({ invert: true })` 로 우측 도킹 폭 조절(280–640px). |
 
 같은 역할이지만 소속 관계가 다르므로 이름을 구분한다.
 
