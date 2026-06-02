@@ -1,7 +1,7 @@
 # Backend Architecture
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-05-20
+> 최종 업데이트: 2026-06-02 (Phase 3++ 구현 반영: DB/MCP/Runtime/CapabilityBuilder. §2·§3·§3.1·§4·§5·§6·§7·§9·§11 갱신.)
 > 관련 문서: [FRONTEND_ARCHITECTURE.md](./FRONTEND_ARCHITECTURE.md), [IPC_CONTRACT.md](./IPC_CONTRACT.md), [GLOSSARY.md](./GLOSSARY.md), [TRD.md](./TRD.md), [claude-code-spec.md](./claude-code-spec.md), [PRD.md](./PRD.md)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 
@@ -35,9 +35,9 @@
 | LLM SDK (opencode) | @opencode-ai/sdk | — | **미설치** (Future, OQ7) |
 | 입력 검증 | zod | ^4.4.3 | `src/shared/protocol.ts` 스키마 |
 | 설정 저장 | electron-store | ^8.2.0 | 단일 객체 스토어 (`orca-settings`) |
-| 로컬 DB | **미선정** (TBD) | — | Phase 3+ 채택 결정 (§6) — better-sqlite3 / Drizzle 등 |
+| 로컬 DB | **better-sqlite3** | ^12.x | ✅ Phase 3 도입 완료. 동기 API, Electron 호환. 직접 마이그레이션 (`db/migrations/`). WAL + foreign_keys pragma. |
 | HTTP 클라이언트 | (SDK 내부) | — | 별도 채택 없음 |
-| 보안 저장 (자격증명) | Electron safeStorage | (Phase 3+) | OS keychain — macOS Keychain / Windows DPAPI / Linux libsecret |
+| 보안 저장 (자격증명) | Electron safeStorage | (Electron 내장) | ✅ Phase 3++ 도입 완료 (MCP 인증 비밀 첫 실사용). OS keychain — macOS Keychain / Windows DPAPI / Linux libsecret. `config/secret-store.ts` 래퍼. |
 | 자동 업데이트 | **미선정** (PRD OQ3) | — | electron-updater 채택 미확정 |
 | 로깅 | TBD | — | 라이브러리 미선정 |
 | 패키저 | electron-builder | — | `electron-builder.yml` |
@@ -52,14 +52,46 @@
 Electron App
 ├── Main Process (src/main/)
 │   ├── index.ts                # 부트: IpcRouter → BrowserWindow → 라이프사이클
-│   ├── ipc/router.ts           # 11 채널 등록 + zod 검증 + 디스패치
+│   ├── ipc/router.ts           # 31 채널 등록 + zod 검증 + 디스패치 + CapabilityBuilder 조립
 │   ├── adapters/
 │   │   ├── types.ts            # SessionAdapter / Backend 공통 타입
 │   │   ├── registry.ts         # AdapterRegistry — claude-code 단일 등록
-│   │   └── claude-code.ts      # ClaudeCodeAdapter — SDK query() 직접 사용
+│   │   ├── claude-code.ts      # ClaudeCodeAdapter — SDK query() 직접 사용
+│   │   └── claude-adapt.ts     # OrcaCapabilities → claude query() 옵션 순수 변환 (adaptMcp / adaptSystemPrompt / adaptSkills / adaptHooks)
+│   ├── capabilities/
+│   │   ├── types.ts            # OrcaCapabilities (백엔드 중립 보조기능 집합)
+│   │   ├── hooks.ts            # OrcaHookSet 평가기 (before/after-tool 결정)
+│   │   └── builder.ts          # CapabilityBuilder — DB/McpStore/Skills 읽어 OrcaCapabilities 조립
+│   ├── config/
+│   │   ├── paths.ts            # orcaConfigDir() (~/.config/orca) 경로 상수
+│   │   ├── mcp-file.ts         # mcp.json atomic write (temp+rename)
+│   │   └── secret-store.ts     # Electron safeStorage 래퍼 — 암호화/복호화
+│   ├── db/
+│   │   ├── index.ts            # DB 초기화 (better-sqlite3) + DbQueries 팩토리. WAL + foreign_keys.
+│   │   ├── migrate.ts          # 마이그레이션 실행기 (schema_version 추적, 순번 자동 실행)
+│   │   ├── queries.ts          # 모든 prepared statement (sessions/messages/projects/FTS5)
+│   │   ├── types.ts            # DB 행 타입 (SessionRow / MessageRow / ProjectRow 등)
+│   │   └── migrations/
+│   │       ├── 0001_initial.sql        # sessions + messages + tool_calls 테이블
+│   │       ├── 0002_projects.sql       # projects 테이블 + sessions.project_id FK
+│   │       └── 0003_messages_fts.sql   # FTS5 가상 테이블 + 3 트리거 + 백필
+│   ├── mcp/
+│   │   ├── schema.ts           # OrcaMcpConfig (= ClaudeMcpConfig 별칭). 순정 Claude mcpServers 스키마.
+│   │   ├── store.ts            # McpStore — mcp.json + secret-store + settings(mcpEnabled/mcpMeta) 조율
+│   │   ├── convert.ts          # toClaudeConfig / toOpencodeConfig 순수 변환 (동형 시그니처)
+│   │   ├── expand.ts           # ${VAR} 플레이스홀더 확장
+│   │   ├── resolver.ts         # safeStorage → process.env 2단계 해소. 미해결 변수 → 서버 드롭.
+│   │   ├── crypto.ts           # safeStorage encrypt/decrypt 헬퍼
+│   │   └── migrate.ts          # 레거시 orca-mcp 스토어 → 파일 모델 1회 이전 (부팅 시, mcp.json 부재 시만)
+│   ├── runtime/
+│   │   ├── PythonRuntime.ts    # uv 기반 격리 Python 환경 관리. ensure() / getEnv() / statusEvent 브로드캐스트.
+│   │   ├── env.ts              # UV_*/PATH env 조립 (SDK query().options.env 주입용)
+│   │   └── paths.ts            # <userData>/runtime 경로 상수
 │   ├── installer/index.ts      # 4줄 래퍼 — adapter.install() 의 AsyncIterable yield
-│   ├── settings/store.ts       # electron-store 영속화 (6 키)
-│   └── skills/scan.ts          # ~/.claude/skills + <cwd>/.claude/skills 부팅 1회 스캔
+│   ├── settings/store.ts       # electron-store 영속화 (9 키 — §6.2)
+│   └── skills/
+│       ├── scan.ts             # ~/.claude/skills + <cwd>/.claude/skills 부팅 1회 스캔
+│       └── plugin-bundle.ts    # ensureOrcaPlugin() — ~/.config/orca/.claude-plugin/plugin.json 생성
 │
 ├── Preload (src/preload/index.ts)
 │   └── contextBridge.exposeInMainWorld('orca', api) — window.orca 노출 (IPC_CONTRACT §2)
@@ -71,15 +103,19 @@ Electron App
 
 ```
 1. app.whenReady()
-2. router = new IpcRouter(settings)
-3. router.start()                    # 11 채널 ipcMain.handle / send 등록
-4. createWindow(router.settings)     # BrowserWindow + webPreferences 명시
+2. settings = new SettingsStore()           # electron-store 로드 (9 키, §6.2)
+3. db = openDatabase()                      # better-sqlite3 초기화 + 마이그레이션 자동 실행
+4. mcpStore = new McpStore(db, settings)    # mcp.json + secret-store + settings 조율. 레거시 1회 이전.
+5. router = new IpcRouter(settings, db, mcpStore, ...)
+6. router.start()                           # 31 채널 ipcMain.handle / send 등록. CapabilityBuilder 초기화.
+7. createWindow(settings)                   # BrowserWindow + webPreferences 명시
    ├─ contextIsolation: true
    ├─ nodeIntegration: false
    ├─ sandbox: true
    └─ preload: '../preload/index.js'
-5. windowBounds 복구 (settings.getAll().windowBounds 와 DEFAULT_BOUNDS merge)
-6. mainWindow.on('close') → settings.patch({ windowBounds })
+8. PythonRuntime.ensure() 비동기 킥          # 진행 상태는 orca:runtime:statusEvent 로 브로드캐스트
+9. windowBounds 복구 (settings.getAll().windowBounds 와 DEFAULT_BOUNDS merge)
+10. mainWindow.on('close') → settings.patch({ windowBounds })
 ```
 
 ### 3.2 모듈 간 import 규약
@@ -123,20 +159,24 @@ export interface SessionAdapter {
 
 ### 4.3 ClaudeCodeAdapter 호출 패턴
 
+`claude-adapt.ts` 의 순수 변환 함수들이 `OrcaCapabilities` → claude `query()` 옵션 조각(object)으로 변환하며, `...spread` 로 합성된다.
+
 ```typescript
 import { query } from '@anthropic-ai/claude-agent-sdk'
+import { adaptMcp, adaptSystemPrompt, adaptSkills, adaptHooks } from './claude-adapt'
 
-async function* sendMessage(sessionId, text, cwd, signal) {
+async function* sendMessage(sessionId, text, cwd, caps, resolvedMcp, signal) {
   try {
-    for await (const msg of query({
-      prompt: text,
-      options: {
-        resume: sessionId ?? undefined,
-        includePartialMessages: true,
-        cwd,
-        // permissionMode / canUseTool / hooks: Phase 4 anchor (PRD OQ9)
-      }
-    })) {
+    const opts = {
+      resume: sessionId ?? undefined,
+      includePartialMessages: true,
+      cwd,
+      ...adaptMcp(resolvedMcp),            // mcpServers + allowedTools (빈 config면 생략)
+      ...adaptSystemPrompt(caps.systemPromptAppend), // systemPrompt preset:claude_code + append
+      ...adaptSkills(),                    // plugins:[{type:'local', path:~/.config/orca}] + skills:'all'
+      ...adaptHooks(caps.hooks),           // PreToolUse / PostToolUse / UserPromptSubmit hook 콜백
+    }
+    for await (const msg of query({ prompt: text, options: opts })) {
       yield normalize(msg)  // SDKMessage → ChatEvent
     }
   } catch (err) {
@@ -144,6 +184,27 @@ async function* sendMessage(sessionId, text, cwd, signal) {
   }
 }
 ```
+
+`adaptMcp` 는 활성 서버가 없으면 옵션 자체를 빈 객체로 반환(생략). `allowedTools` 는 `mcp__<name>__*` 와일드카드로 서버 전체 도구 자동 허용 — `canUseTool` 미도입(Phase 4 anchor) 환경에서 도구 호출 차단 방지.
+
+### 4.4 CapabilityBuilder (백엔드 중립 보조기능 조립)
+
+`capabilities/builder.ts` 의 `CapabilityBuilder` 는 DB / McpStore / Skills 를 읽어 **백엔드 중립** `OrcaCapabilities` 를 조립한다. 어댑터를 전혀 모른다 — 어댑트(claude 타깃 변환 + `${VAR}` 확장)는 `claude-adapt.ts` 와 `mcp/resolver.ts` 의 책임.
+
+```typescript
+interface OrcaCapabilities {
+  mcpConfig: OrcaMcpConfig          // 확장 전 정규 소스 (${VAR} 미확장)
+  systemPromptAppend?: string       // 프로젝트 지침 + PY_AGENT_RULES 합성
+  skills: SkillInfo[]               // 가시화 메타 (어댑트는 항상-on)
+  hooks: OrcaHookSet                // before-tool / after-tool / prompt-submit 핸들러 집합
+}
+```
+
+`build(sessionId, projectId)` 동작:
+- resume 경로 (`sessionId !== null`): 세션 바인딩으로 프로젝트 지침 조회
+- 새 채팅 경로 (`sessionId === null`): `projectId` 로 직접 조회
+- `systemPromptAppend` = (프로젝트 지침 있으면 그 뒤에) `PY_AGENT_RULES` 항상 합류
+- 매 턴 DB 1회 조회 — 캐시 없음 (지침 편집이 다음 메시지부터 즉시 반영)
 
 ### 4.4 SDKMessage → ChatEvent 정규화
 
@@ -209,11 +270,21 @@ opencode 등 다중 어댑터 환경 대비:
 
 ## 5. 동시성 모델
 
-### 5.1 현재 상태 (Phase 1·2)
+### 5.1 현재 상태 (Phase 3)
 
 - **단일 inflight**: `ChatState.inflight: boolean` — 한 시점에 한 요청만.
-- `chat:send` invoke → 어댑터의 `sendMessage` AsyncIterable 소비 → 각 ChatEvent 를 `webContents.send('orca:chat:event', ...)` 로 발행.
+- `chat:send` invoke → `CapabilityBuilder.build()` → 어댑터의 `sendMessage` AsyncIterable 소비 → 각 ChatEvent 를 `webContents.send('orca:chat:event', ...)` 로 발행.
 - `chat:cancel` invoke → 해당 sessionId 의 `AbortController.abort()` → SDK `query()` 중단.
+
+**InflightTurn 상태 머신** (`ipc/router.ts` 내부): 새 채팅에서 `init` 이벤트 도착 전까지 user 메시지를 in-memory 에 보관하는 상태 머신.
+
+| 상태 | 동작 |
+|---|---|
+| 새 채팅 시작 (`sessionId: null`) | `pendingUserText` 에 user 메시지 보관. DB insert 보류. |
+| `init` 이벤트 도착 | `db.insertSession()` + `db.appendMessage(pendingUserText)` → `pendingUserText = null` (중복 방지) |
+| resume 경로 (`sessionId !== null`) | `init` 이전에 user 메시지를 즉시 `db.appendMessage()`. pendingUserText 없음. |
+| `assistant_message` 이벤트 | `db.appendMessage()` + `updateSessionPreview()` (`last_message_preview` / `updated_at`) |
+| `result` 이벤트 | InflightTurn 클리어. renderer 에 `inflight = false` 전달. |
 
 ### 5.2 Phase 4 멀티세션 anchor
 
@@ -231,56 +302,68 @@ opencode 등 다중 어댑터 환경 대비:
 
 ## 6. 데이터 영속성 — 2 계층 모델 (사용자 결정)
 
-### 6.1 현재 상태 (Phase 2)
+### 6.1 현재 상태 (Phase 3++)
 
 | 항목 | 위치 | 상태 |
 |---|---|---|
-| **electron-store** (`settings/store.ts`) | `~/Library/Application Support/orca-settings/...` (OS별 userData) | ✅ 완료 |
-| **자체 메시지 DB** | — | ❌ 없음 (better-sqlite3 등 미채택) |
-| **채팅 이력** | claude-code SDK 가 `~/.claude/projects/<cwd>/<sessionId>.jsonl` 에 자동 저장 | ⚠️ **어댑터 외부 저장** — Orca 가 통합 관리·백업 불가능 |
-| **첨부 / 산출물** | — | ❌ 없음 |
+| **electron-store** (`settings/store.ts`) | `~/Library/Application Support/orca-settings/...` (OS별 userData) | ✅ 완료 (9 키 — §6.2) |
+| **로컬 SQLite DB** (`db/`) | `<userData>/orca.db` (better-sqlite3, WAL + foreign_keys) | ✅ Phase 3 완료 |
+| **FTS5 전문 검색** | `messages_fts` 가상 테이블 (3 트리거로 `messages` 와 동기 유지) | ✅ Phase 3++ 완료 |
+| **MCP 인증 비밀** | `orca-secrets` (electron-store) + safeStorage 암호화 | ✅ Phase 3++ 완료 |
+| **첨부 / 산출물 디렉토리** | — | ❌ 미구현 (Future) |
 
-### 6.2 electron-store 의 6 키 카탈로그
+### 6.2 electron-store 의 9 키 카탈로그
 
-`app/src/main/settings/store.ts` + `src/shared/ipc.ts:87-94`:
+`app/src/main/settings/store.ts` + `src/shared/ipc.ts` 의 `Settings` 타입:
 
 | 키 | 타입 | 기본값 | 용도 |
 |---|---|---|---|
 | `theme` | `'classic' \| 'dark' \| 'cool'` | `'classic'` | Tweaks 테마 |
 | `density` | `'compact' \| 'normal' \| 'comfortable'` | `'normal'` | Tweaks 밀도 |
 | `sidebarCollapsed` | `boolean` | `false` | Sidebar 펼침 상태 |
+| `sidebarWidth` | `number` | `248` | Sidebar 너비 (180–480, Phase 3+) |
 | `lastBackend` | `Backend \| null` | `null` | 직전 활성 백엔드 (재시작 시 복원) |
-| `lastSessionId` | `string \| null` | `null` | 재시작 후 세션 재개 (Phase 2+) |
+| `lastSessionId` | `string \| null` | `null` | 재시작 후 세션 재개 |
 | `windowBounds` | `{x, y, width, height} \| null` | `null` | BrowserWindow 위치·크기 복원 |
+| `mcpEnabled` | `Record<string, boolean>` | `{}` | MCP 서버 on/off (키=name, 부재⇒true). mcp.json 정의와 분리. |
+| `mcpMeta` | `Record<string, { description: string }>` | `{}` | MCP Orca 전용 메타 (순정 Claude 스키마 오염 방지). |
 
 **검증 전략**:
 - Read: `SettingsSchema.safeParse()` → 실패 시 `{}` fallback (깨진 디스크 데이터 복원)
 - Write: `SettingsPatchSchema.parse()` → 병합 → `SettingsSchema.parse()`
 
-### 6.3 채택된 영속성 모델 (Phase 3+ 도입 결정)
+### 6.3 로컬 DB (Phase 3 도입 완료)
 
-> **사용자 결정**: 어댑터별 외부 저장 방식 (jsonl, SQLite, 클라우드 등) 이 제각각이고 Orca 가 통합 관리·백업할 수 없으므로, **Orca 자체 영속성** 을 2 계층으로 도입한다.
+> **선택 이유**: better-sqlite3 — 동기 API (Main thread 직접 실행, worker thread 불필요), Electron 호환, 마이그레이션 자체 관리 용이 (Drizzle/Prisma ORM 의존 없이 SQL 파일 직접 관리).
 
-#### 계층 1 — 로컬 DB
+#### 현재 스키마 (3 마이그레이션)
 
-| 저장 대상 | 비고 |
+| 마이그레이션 | 내용 |
 |---|---|
-| 세션 메타데이터 | sessionId, title, backend, model, system prompt, created/updated_at |
-| 메시지 본문 (텍스트) | role, content, created_at, metadata (tokens, model) |
-| 첨부 메타데이터 | filename, mime_type, storage_path (계층 2 ref), size |
-| 산출물 경로 | storage_path (계층 2 ref) + hash + size |
-| 도구 호출 이력 | toolUseId, name, input, output, isError, durationMs |
+| `0001_initial.sql` | `sessions` + `messages` + `tool_calls` 테이블. WAL + foreign_keys pragma 설정. |
+| `0002_projects.sql` | `projects` 테이블 + `sessions.project_id` FK (`ON DELETE SET NULL`). |
+| `0003_messages_fts.sql` | `messages_fts` FTS5 가상 테이블 + INSERT/UPDATE/DELETE 3 트리거 (`messages` 와 동기 유지) + 기존 행 백필. |
 
-**라이브러리 후보 (미정 — 신규 OQ)**: better-sqlite3 / Drizzle / Prisma / sql.js. 결정 기준: 동기 API, Electron 호환, 마이그레이션 도구.
-
-**마이그레이션 규칙 (도입 시)**:
+**마이그레이션 규칙**:
 - `src/main/db/migrations/NNN_<name>.sql` (NNN = 0으로 패딩된 일련번호)
 - 한 번 머지된 마이그레이션은 절대 수정하지 않는다 (스키마 변경은 새 마이그레이션으로)
-- 앱 시작 시 자동 실행, `schema_version` 테이블로 추적
+- 앱 시작 시 `db/migrate.ts` 가 자동 실행. `schema_version` 테이블로 실행 이력 추적.
 
-**FTS5 (전문 검색) 도입 여부**: 미정 (신규 OQ).
+#### 저장 대상 (현재 구현)
 
-#### 계층 2 — 파일 시스템
+| 테이블 | 저장 내용 |
+|---|---|
+| `sessions` | sessionId, title, backend, projectId, createdAt, updatedAt, lastMessagePreview |
+| `messages` | sessionId FK, role, content(text), createdAt, metadata(JSON) |
+| `tool_calls` | messageId FK, toolUseId, name, input, output, isError, durationMs |
+| `projects` | id, name, instructions, createdAt, updatedAt |
+| `messages_fts` | FTS5 가상 테이블 (content + sessionId 인덱싱. rank 정렬. `toFtsMatch` 가 토큰마다 `*` wildcard 부착.) |
+
+#### FTS5 검색
+
+`db/queries.ts` 의 `toFtsMatch(q)` — 공백으로 토큰 분리 후 모든 토큰에 prefix wildcard `*` 부착 (예: `진행 중` → `"진행"* "중"*`). 결과는 FTS5 rank 정렬, LIMIT 적용.
+
+#### 6.4 계층 2 — 파일 시스템 (Future)
 
 | 저장 대상 | 경로 패턴 |
 |---|---|
@@ -293,18 +376,12 @@ opencode 등 다중 어댑터 환경 대비:
 #### 어댑터 외부 저장과의 관계
 
 - 어댑터별 외부 저장 (claude-code 의 `~/.claude/projects/<cwd>/<sessionId>.jsonl` 등) 은 **단방향 동기화 소스** 로만 취급.
-- **Orca 로컬 DB 가 진실의 기준** — 어댑터 외부 데이터를 읽어 DB 에 반영하되, DB 변경을 어댑터로 push 하지 않는다.
-- 동기화 시점: 세션 목록 로드 시 (`session:list`), 세션 상세 로드 시 (`session:load`).
+- **Orca 로컬 DB 가 진실의 기준** — IPC 이벤트 흐름 (`InflightTurn` 상태 머신, §5.1) 을 통해 DB 에 실시간 persist. 외부 jsonl 직접 읽기 없음.
 
 #### 백업 전략
 
 - DB 파일 1개 + `<userData>/artifacts/` 디렉토리 = 단일 export/import 단위
 - export 형식: TBD (zip / tar.gz / DB dump)
-
-### 6.4 도입 시점
-
-- **Phase 3** (과거 대화 목록 단계) 진입 시 일괄 도입.
-- 영향 받는 IPC 채널: `message:list / append / delete`, `session:list / load / delete` — 모두 [IPC_CONTRACT.md](./IPC_CONTRACT.md) §2.8 예약 채널.
 
 ---
 
@@ -323,6 +400,11 @@ opencode 등 다중 어댑터 환경 대비:
 | 핫리로드 | ❌ 없음 (재시작 필요) |
 
 > **⚠️ 현재 경로는 claude-code 어댑터 전용** (`~/.claude/...` 은 Claude Code 의 표준 경로). 다른 어댑터 (opencode 등) 도 지원하면 스캔 경로 분리 필요 — 사용자 결정.
+
+**`skills/plugin-bundle.ts`** — `ensureOrcaPlugin()`:
+- `~/.config/orca/.claude-plugin/plugin.json` 을 생성하여 Orca config 디렉토리 자체를 **Claude 로컬 플러그인**으로 마테리얼라이즈.
+- `adaptSkills()` (§4.3) 이 `plugins:[{type:'local', path:~/.config/orca}]` + `skills:'all'` 로 로드하면 `skills/`, `agents/`, `commands/` 가 자동 로드됨.
+- `mcp.json` 은 플러그인 로더가 무시 → MCP 는 `options.mcpServers` 로 별도 주입 (이중 주입 없음).
 
 ### 7.2 어댑터별 Skills 경로 분리 (Future 채택 결정)
 
@@ -452,15 +534,19 @@ font-src 'self' https://fonts.gstatic.com
 ```typescript
 ipcMain.handle('orca:chat:send', async (event, req) => {
   const validated = SendChatMessageSchema.parse(req)  // zod 검증
+  const caps = capabilityBuilder.build(validated.sessionId, validated.projectId)
+  const resolvedMcp = mcpStore.buildQueryOptions()
   const adapter = registry.getActive()
-  for await (const ev of adapter.sendMessage(validated.sessionId, validated.text, cwd)) {
+  const turn = new InflightTurn(validated)
+  for await (const ev of adapter.sendMessage(validated.sessionId, validated.text, cwd, caps, resolvedMcp, abortCtrl.signal)) {
+    turn.persist(ev, db)           // InflightTurn 상태 머신 (§5.1)
     event.sender.send('orca:chat:event', ev)
   }
 })
 ```
 
-- 9 개 `ipcMain.handle` + 2 개 `webContents.send` = 11 채널 (IPC_CONTRACT §2)
-- 모든 invoke 는 zod 검증 (`SendChatMessageSchema`, `CancelChatSchema`, `StartInstallSchema`, `SettingsPatchSchema`, `ListFilesRequestSchema`)
+- **총 31 채널** (IPC_CONTRACT §2): `ipcMain.handle` invoke + `webContents.send` push. 도메인 12개 (chat · backend · install · settings · skills · files · session · project · window · search · mcp · runtime).
+- 모든 invoke 는 zod 스키마 (`app/src/shared/protocol.ts`) 로 페이로드 검증.
 
 ### 9.2 명명 규칙
 
@@ -503,27 +589,32 @@ ipcMain.handle('orca:chat:send', async (event, req) => {
 
 | 영역 | Phase | 상태 | 비고 |
 |---|---|---|---|
-| BrowserWindow + 보안 옵션 명시 | Phase 1 | ✅ 완료 | `main/index.ts:21-23` |
-| IpcRouter + 11 채널 등록 | Phase 2 | ✅ 완료 | `ipc/router.ts` |
+| BrowserWindow + 보안 옵션 명시 | Phase 1 | ✅ 완료 | `main/index.ts` |
+| IpcRouter + 31 채널 등록 | Phase 3++ | ✅ 완료 | `ipc/router.ts` (IPC_CONTRACT §2) |
 | 모든 invoke 의 zod 검증 | Phase 2 | ✅ 완료 | `shared/protocol.ts` |
 | SessionAdapter 인터페이스 | Phase 2 | ✅ 완료 | `adapters/types.ts` |
 | ClaudeCodeAdapter (SDK `query()`) | Phase 3 | ✅ 완료 | CLI spawn 폐기 (2026-05-18) |
+| `claude-adapt.ts` (Capability → claude 옵션 변환) | Phase 3++ | ✅ 완료 | adaptMcp / adaptSystemPrompt / adaptSkills / adaptHooks |
+| `capabilities/` CapabilityBuilder | Phase 3++ | ✅ 완료 | DB/McpStore/Skills 읽어 OrcaCapabilities 조립 |
+| InflightTurn 상태 머신 | Phase 3 | ✅ 완료 | 새 채팅 user 메시지 in-memory 보관 → init 도착 시 DB insert |
 | OpencodeAdapter | Future | ❌ 미구현 | PRD OQ7 |
 | AdapterRegistry | Phase 2 | ✅ 완료 | claude-code 단일 등록 |
 | Installer (래퍼) | Phase 2 | ✅ 완료 | 4줄 — 어댑터의 `install()` yield |
-| electron-store (6 키) | Phase 2+ | ✅ 완료 | `settings/store.ts` |
+| electron-store (9 키) | Phase 3++ | ✅ 완료 | `settings/store.ts` — sidebarWidth / mcpEnabled / mcpMeta 추가 |
 | Skills 스캔 (`~/.claude/skills` + cwd) | Phase 2 | ✅ 완료 | claude-code 전용 — 어댑터별 분리는 Future |
+| `ensureOrcaPlugin()` / plugin-bundle | Phase 3++ | ✅ 완료 | `~/.config/orca` 를 Claude 로컬 플러그인으로 마테리얼라이즈 |
 | 인증 만료 감지 (`auth.expired`) | Phase 2 | ✅ 완료 | UI 에 AuthExpiredModal 노출 |
-| 로컬 DB (메시지 / 메타) | Phase 3+ | ❌ 미구현 | §6.3 채택 결정. 라이브러리·스키마·마이그레이션 도구 TBD |
-| Artifacts 디렉토리 (큰 산출물) | Phase 3+ | ❌ 미구현 | §6.3 |
-| safeStorage 자격증명 저장 | Phase 3+ | ❌ 미구현 | §8.4 |
+| 로컬 DB (sessions / messages / projects / tool_calls) | Phase 3 | ✅ 완료 | better-sqlite3 + 3 마이그레이션. `db/` 디렉토리. |
+| FTS5 전문 검색 (`messages_fts`) | Phase 3++ | ✅ 완료 | `0003_messages_fts.sql` + `orca:search:messages` IPC |
+| MCP 서버 CRUD + safeStorage 인증 비밀 | Phase 3++ | ✅ 완료 | `mcp/store.ts` + `config/secret-store.ts`. 파일-백드 모델. |
+| Python uv 런타임 (`runtime/`) | Phase 3++ | ✅ 완료 | PythonRuntime.ensure() + `orca:runtime:*` 3채널 |
+| Artifacts 디렉토리 (큰 산출물) | Future | ❌ 미구현 | §6.4 |
 | 자동 업데이트 | Future | ❌ 미구현 | PRD OQ3 |
 | 로깅 라이브러리 | TBD | ❌ 미구현 | electron-log 후보 |
 | `options.permissionMode` (도구 권한) | Phase 4 | ❌ 미구현 | PRD OQ9 |
-| `options.hooks` (도구 감사) | Phase 4 | ❌ 미구현 | — |
-| `mcpServers` / `createSdkMcpServer` | Phase 4+ | ❌ 미구현 | — |
+| `options.hooks` 완전 구현 (도구 감사 외부 핸들러) | Phase 4 | ❌ 미구현 | 현재 인프로세스 OrcaHookSet 은 구현됨 |
 | 멀티세션 (`requestRegistry: Map`) | Phase 4 | ❌ 미구현 | FRONTEND §5 와 함께 |
-| Zustand persist 전략 (renderer store ↔ 로컬 DB / electron-store) | Phase 4 | ❌ 미정 OQ | FRONTEND §4.4.6 — middleware vs custom subscribe, storage 어댑터 선택 |
+| Zustand persist 전략 (renderer store ↔ 로컬 DB / electron-store) | Phase 4 | ❌ 미정 OQ | FRONTEND §4.4.6 |
 | i18n (`src/shared/i18n/ko.ts`) | Future | ❌ 미구현 | 현재 인라인 한국어 |
 
 > 이 표는 코드 변경 시 함께 갱신한다.

@@ -1,7 +1,7 @@
 # Frontend Architecture
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-05-27 (PR #29 적용 완료 반영. §3-1 트리를 실제 코드 구조로 교체, §3-2 를 이행 이력으로 재정렬, §3.A / §10 의 "구현 대기" 표기를 "PR #29 적용 완료" 로 갱신. `frame/` · `screens/` · `state/` 디렉토리 부재 — `app/` · `pages/` · `features/` · `shared/` 4-layer 가 SSOT.)
+> 최종 업데이트: 2026-06-02 (§3-1 app/hooks/ 설명 보강, §9.4 채널 수 31로 정정.)
 > 관련 문서: [BACKEND_ARCHITECTURE.md](./BACKEND_ARCHITECTURE.md), [IPC_CONTRACT.md](./IPC_CONTRACT.md), [GLOSSARY.md](./GLOSSARY.md), [TRD.md](./TRD.md) §6 데이터 모델, [PRD.md](./PRD.md) §8 / §9 / §10
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 
@@ -66,8 +66,8 @@ src/renderer/
     │   ├── BootRedirector.tsx       # `/` 라우트 element — settings.lastSessionId → `/chat/<id>` 또는 `/new` replace
     │   └── hooks/                   # cross-feature wiring (셸 내부 전용)
     │       ├── useChatRouteSync.ts      # URL ↔ ChatState 동기화 (방향 1: `/new` · `/chat/:id` · `/projects/:id` 모두 처리, 방향 2: armed-ref 패턴 — sessionId null→non-null 전이 시 `/chat/<id>` replace)
-    │       ├── useChatSessionsSync.ts   # chat 턴 완료 → sessions 자동 refresh
-    │       ├── useSessionHandlers.ts    # navigate(`/chat/<id>`)/chat/sessions 핸들러 합성 + projectNameById
+    │       ├── useChatSessionsSync.ts   # inflight: true→false 전환 감지 → sessionsCtx.refresh(). 폴링·pub-sub 없음. AppLayout 에서 호출 (cross-feature wiring 권한 보유).
+    │       ├── useSessionHandlers.ts    # navigate(`/chat/<id>`)/chat/sessions 핸들러 합성 + projectNameById. currentSessionId = URL matchPath('/chat/:sessionId') 로 도출 (ChatContext.state 아님 — 활성 하이라이트 SSOT = URL).
     │       └── useSidebarSlots.tsx      # Sidebar React.memo 효과 위한 slot ReactNode 안정화
     │
     ├── pages/                       ✅ 조립 전용 — Context 읽기 + features 배치. 비즈니스 로직 0.
@@ -673,7 +673,7 @@ Main 이 `AbortSignal` 을 SDK `query()` 에 전파 → 현재 inflight 만 중�
 
 ### 9.4 채널 전체 목록
 
-[IPC_CONTRACT.md](./IPC_CONTRACT.md) §2 참조. 현재 **총 24 채널** (정확 수치는 IPC_CONTRACT 가 SSOT — chat 3 · backend 1 · install 2 · settings 2 · skills 1 · files 1 · session 5 · project 5 · window 3 · search 1).
+[IPC_CONTRACT.md](./IPC_CONTRACT.md) §2 참조. 현재 **총 31 채널** (정확 수치는 IPC_CONTRACT 가 SSOT — chat 3 · backend 1 · install 2 · settings 2 · skills 1 · files 1 · session 5 · project 5 · window 3 · search 1 · mcp 4 · runtime 3).
 
 ---
 
