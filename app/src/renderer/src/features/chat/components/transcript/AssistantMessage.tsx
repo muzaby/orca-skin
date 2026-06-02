@@ -9,7 +9,7 @@ interface AssistantMessageProps {
 
 export function AssistantMessage({ message }: AssistantMessageProps): React.JSX.Element {
   return (
-    <div className="group flex flex-col">
+    <div className="group/msg relative flex w-full flex-col">
       <div className="flex flex-col gap-[var(--chat-item-gap)] text-[14px] leading-[1.7] text-ink">
         {message.toolCalls && message.toolCalls.length > 0 && (
           <ToolGroup calls={message.toolCalls} />

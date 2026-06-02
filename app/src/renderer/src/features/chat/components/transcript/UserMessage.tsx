@@ -7,11 +7,13 @@ interface UserMessageProps {
 
 export function UserMessage({ message }: UserMessageProps): React.JSX.Element {
   return (
-    <div className="group flex flex-col items-end">
-      <div className="max-w-[75%] whitespace-pre-wrap rounded-2xl bg-bubble-user px-4 py-2.5 text-[14px] leading-[1.7] text-ink">
-        {message.content}
+    <div className="group/msg flex w-full justify-end">
+      <div className="flex min-w-0 max-w-[75%] flex-col items-end">
+        <div className="relative flex max-w-full flex-col whitespace-pre-wrap text-pretty rounded-2xl bg-bubble-user px-4 py-3 text-[14px] leading-[1.7] text-ink [overflow-wrap:anywhere] select-text">
+          {message.content}
+        </div>
+        <MessageMeta text={message.content} createdAt={message.createdAt} align="right" />
       </div>
-      <MessageMeta text={message.content} createdAt={message.createdAt} align="right" />
     </div>
   )
 }
