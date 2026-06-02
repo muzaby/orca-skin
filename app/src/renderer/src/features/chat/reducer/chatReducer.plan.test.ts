@@ -25,6 +25,17 @@ describe('chatReducer — 계획 검토(plan_review)', () => {
     expect(cleared.pendingPlanReview).toBeNull()
   })
 
+  it('승인 흐름(RESOLVE_PLAN + SET_PERMISSION_MODE) — 카드 제거 + 모드를 acceptEdits 로 전환', () => {
+    // approvePlan 이 dispatch 하는 두 액션의 결합 효과: 계획 카드는 사라지고 권한 모드는
+    // plan → acceptEdits 로 전환되어 다음 턴이 plan 모드로 재진입(ExitPlanMode 재호출)하지 않는다.
+    const withPlan = chatReducer(initialChatState, recv({ type: 'plan_review', data: REVIEW }))
+    expect(withPlan.permissionMode).toBe('plan')
+    const resolved = chatReducer(withPlan, { type: 'RESOLVE_PLAN' })
+    const approved = chatReducer(resolved, { type: 'SET_PERMISSION_MODE', mode: 'acceptEdits' })
+    expect(approved.pendingPlanReview).toBeNull()
+    expect(approved.permissionMode).toBe('acceptEdits')
+  })
+
   it('CANCEL_CHAT / error / NEW_CHAT 가 카드를 비운다', () => {
     const withPlan = chatReducer(initialChatState, recv({ type: 'plan_review', data: REVIEW }))
     expect(chatReducer(withPlan, { type: 'CANCEL_CHAT' }).pendingPlanReview).toBeNull()

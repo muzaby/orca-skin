@@ -207,6 +207,9 @@ export function useChat(): UseChat {
   const approvePlan = useCallback((requestId: string): void => {
     void planApi.respond({ requestId, type: 'approved' })
     dispatch({ type: 'RESOLVE_PLAN' })
+    // 승인 = plan 모드 종료. 칩을 '편집 수락'으로 전환 → 다음 턴이 plan 모드로 재진입하지
+    // 않아 ExitPlanMode 재호출(단순 질문 시 계획 카드 재출현)을 막는다.
+    dispatch({ type: 'SET_PERMISSION_MODE', mode: 'acceptEdits' })
   }, [])
 
   const revisePlan = useCallback((requestId: string, feedback: string): void => {
