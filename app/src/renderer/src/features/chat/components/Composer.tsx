@@ -1,6 +1,7 @@
 import { useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { Icon } from '../../../shared/ui/Icon'
 import { Popover } from '../../../shared/ui/Popover'
+import { ReadingColumn } from '../../../shared/ui/ReadingColumn'
 import { HighlightedTextarea, type HighlightedTextareaHandle } from './composer/HighlightedTextarea'
 import { SkillAutocomplete } from './composer/SkillAutocomplete'
 import { FileAutocomplete } from './composer/FileAutocomplete'
@@ -192,90 +193,92 @@ export function Composer({ chat, backendLabel }: ComposerProps): React.JSX.Eleme
   }
 
   return (
-    <div className="app-frame-composer px-6 pb-[18px] pt-3">
-      {activeAsk && (
-        <AskUserQuestionCard
-          key={activeAsk.requestId}
-          ask={activeAsk}
-          onSubmit={(answers, response) => answerAsk(activeAsk.requestId, answers, response)}
-          onSkip={() => skipAsk(activeAsk.requestId)}
-        />
-      )}
-      {state.pendingPlanReview ? (
-        <PlanApprovalCard key={state.pendingPlanReview.requestId} chat={chat} />
-      ) : (
-        <div className="rounded-[14px] border border-border bg-panel px-3 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,.03)]">
-          <div
-            ref={textareaWrapRef}
-            className="app-frame-composer-input"
-            data-behavior="interactive"
-          >
-            <HighlightedTextarea
-              ref={textareaRef}
-              value={draft}
-              onChange={setDraft}
-              onCaretChange={setCaret}
-              onKeyDown={onKeyDown}
-              knownSkillNames={knownSkillNames}
-              validFilePaths={fileAutocomplete.validPaths}
-              placeholder="Orca에게 메시지 보내기… (Enter 전송 / Shift+Enter 줄바꿈)"
-              ariaLabel="메시지 입력"
-            />
-          </div>
-          <div className="app-frame-composer-controls flex items-center gap-1.5 pt-1">
-            {/* repo zone — 첨부 후보들 (파일/현재 프레임/Skill). 명세 §3.3.2 의
-              app-frame-composer-repo 슬롯. data-behavior="dismissible" 은 향후 칩
-              제거 UX 도입 시점에 각 칩 element 로 내려간다. */}
+    <div className="app-frame-composer pb-[18px] pt-3">
+      <ReadingColumn>
+        {activeAsk && (
+          <AskUserQuestionCard
+            key={activeAsk.requestId}
+            ask={activeAsk}
+            onSubmit={(answers, response) => answerAsk(activeAsk.requestId, answers, response)}
+            onSkip={() => skipAsk(activeAsk.requestId)}
+          />
+        )}
+        {state.pendingPlanReview ? (
+          <PlanApprovalCard key={state.pendingPlanReview.requestId} chat={chat} />
+        ) : (
+          <div className="rounded-[14px] border border-border bg-panel px-3 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,.03)]">
             <div
-              className="app-frame-composer-repo flex items-center gap-1.5"
-              data-behavior="dismissible"
+              ref={textareaWrapRef}
+              className="app-frame-composer-input"
+              data-behavior="interactive"
             >
-              <ComposerChip
-                ref={modeButtonRef}
-                icon="board"
-                label={MODE_LABELS[state.permissionMode]}
-                onClick={() => setModeMenuOpen((v) => !v)}
-                ariaHasPopup
-                ariaExpanded={modeMenuOpen}
-                title="권한 모드"
-              />
-              <ComposerChip icon="plus" label="첨부" disabled title="준비 중" />
-              <ComposerChip icon="cam" label="현재 프레임" disabled title="준비 중" />
-              <ComposerChip
-                ref={skillButtonRef}
-                icon="bolt"
-                label="Skill"
-                onClick={() => setMenuOpen((v) => !v)}
-                ariaHasPopup
-                ariaExpanded={menuOpen}
+              <HighlightedTextarea
+                ref={textareaRef}
+                value={draft}
+                onChange={setDraft}
+                onCaretChange={setCaret}
+                onKeyDown={onKeyDown}
+                knownSkillNames={knownSkillNames}
+                validFilePaths={fileAutocomplete.validPaths}
+                placeholder="Orca에게 메시지 보내기… (Enter 전송 / Shift+Enter 줄바꿈)"
+                ariaLabel="메시지 입력"
               />
             </div>
-            <span className="ml-auto flex items-center gap-2">
-              <span className="text-[11px] text-ink3">{backendLabel}</span>
-              {state.inflight ? (
-                <button
-                  onClick={cancel}
-                  className="grid h-[30px] w-[30px] cursor-pointer place-items-center rounded-lg border-0 bg-ink2 text-white"
-                  title="중단"
-                  data-behavior="action:cancel-turn"
-                >
-                  <Icon name="pause" size={14} color="#fff" />
-                </button>
-              ) : (
-                <button
-                  onClick={submit}
-                  disabled={draft.trim() === ''}
-                  className="grid h-[30px] w-[30px] cursor-pointer place-items-center rounded-lg border-0 bg-rust text-white disabled:cursor-not-allowed disabled:opacity-40"
-                  title="전송 (Enter)"
-                  data-behavior="action:send"
-                >
-                  <Icon name="send" size={14} color="#fff" />
-                </button>
-              )}
-            </span>
+            <div className="app-frame-composer-controls flex items-center gap-1.5 pt-1">
+              {/* repo zone — 첨부 후보들 (파일/현재 프레임/Skill). 명세 §3.3.2 의
+              app-frame-composer-repo 슬롯. data-behavior="dismissible" 은 향후 칩
+              제거 UX 도입 시점에 각 칩 element 로 내려간다. */}
+              <div
+                className="app-frame-composer-repo flex items-center gap-1.5"
+                data-behavior="dismissible"
+              >
+                <ComposerChip
+                  ref={modeButtonRef}
+                  icon="board"
+                  label={MODE_LABELS[state.permissionMode]}
+                  onClick={() => setModeMenuOpen((v) => !v)}
+                  ariaHasPopup
+                  ariaExpanded={modeMenuOpen}
+                  title="권한 모드"
+                />
+                <ComposerChip icon="plus" label="첨부" disabled title="준비 중" />
+                <ComposerChip icon="cam" label="현재 프레임" disabled title="준비 중" />
+                <ComposerChip
+                  ref={skillButtonRef}
+                  icon="bolt"
+                  label="Skill"
+                  onClick={() => setMenuOpen((v) => !v)}
+                  ariaHasPopup
+                  ariaExpanded={menuOpen}
+                />
+              </div>
+              <span className="ml-auto flex items-center gap-2">
+                <span className="text-[11px] text-ink3">{backendLabel}</span>
+                {state.inflight ? (
+                  <button
+                    onClick={cancel}
+                    className="grid h-[30px] w-[30px] cursor-pointer place-items-center rounded-lg border-0 bg-ink2 text-white"
+                    title="중단"
+                    data-behavior="action:cancel-turn"
+                  >
+                    <Icon name="pause" size={14} color="#fff" />
+                  </button>
+                ) : (
+                  <button
+                    onClick={submit}
+                    disabled={draft.trim() === ''}
+                    className="grid h-[30px] w-[30px] cursor-pointer place-items-center rounded-lg border-0 bg-rust text-white disabled:cursor-not-allowed disabled:opacity-40"
+                    title="전송 (Enter)"
+                    data-behavior="action:send"
+                  >
+                    <Icon name="send" size={14} color="#fff" />
+                  </button>
+                )}
+              </span>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </ReadingColumn>
       <Popover open={modeMenuOpen} anchorRef={modeButtonRef} onClose={() => setModeMenuOpen(false)}>
         <ModeMenu
           mode={state.permissionMode}

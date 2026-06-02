@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { Icon } from '../../../shared/ui/Icon'
 import { Dot } from '../../../shared/ui/Status'
+import { ReadingColumn } from '../../../shared/ui/ReadingColumn'
 import { useDragResize } from '../../../shared/hooks/useDragResize'
 import { AssistantMessage } from './transcript/AssistantMessage'
 import { UserMessage } from './transcript/UserMessage'
@@ -96,36 +97,38 @@ export function ChatTile({ chat, backendLabel }: ChatTileProps): React.JSX.Eleme
 
           <div
             ref={scrollRef}
-            className="app-frame-transcript flex flex-1 flex-col gap-[22px] overflow-auto px-6 py-5"
+            className="app-frame-transcript flex flex-1 flex-col overflow-auto py-5"
             data-behavior="virtualizable"
           >
-            {state.loadingSession && (
-              <div className="m-auto text-center text-[13px] text-ink3">대화 불러오는 중…</div>
-            )}
-            {isEmpty && (
-              <div className="m-auto text-center text-[13px] text-ink3">
-                Claude Code 에 첫 메시지를 보내보세요.
-              </div>
-            )}
-            {state.messages.map((m, i) =>
-              m.role === 'user' ? (
-                <UserMessage key={i} message={m} />
-              ) : (
-                <AssistantMessage key={i} message={m} />
-              )
-            )}
-            {showPendingAssistant && (
-              <PendingAssistant
-                turnStartedAt={state.turnStartedAt}
-                pendingDelta={state.pendingDelta}
-              />
-            )}
-            {state.error && (
-              <div className="rounded-[10px] border border-rust bg-rust-soft px-3 py-2 text-[12.5px] text-ink">
-                <div className="font-semibold">에러: {state.error.code}</div>
-                <div className="mt-1 text-ink2">{state.error.message}</div>
-              </div>
-            )}
+            <ReadingColumn className="flex min-h-full flex-1 flex-col gap-[var(--chat-turn-gap)]">
+              {state.loadingSession && (
+                <div className="m-auto text-center text-[13px] text-ink3">대화 불러오는 중…</div>
+              )}
+              {isEmpty && (
+                <div className="m-auto text-center text-[13px] text-ink3">
+                  Claude Code 에 첫 메시지를 보내보세요.
+                </div>
+              )}
+              {state.messages.map((m, i) =>
+                m.role === 'user' ? (
+                  <UserMessage key={i} message={m} />
+                ) : (
+                  <AssistantMessage key={i} message={m} />
+                )
+              )}
+              {showPendingAssistant && (
+                <PendingAssistant
+                  turnStartedAt={state.turnStartedAt}
+                  pendingDelta={state.pendingDelta}
+                />
+              )}
+              {state.error && (
+                <div className="rounded-[10px] border border-rust bg-rust-soft px-3 py-2 text-[12.5px] text-ink">
+                  <div className="font-semibold">에러: {state.error.code}</div>
+                  <div className="mt-1 text-ink2">{state.error.message}</div>
+                </div>
+              )}
+            </ReadingColumn>
           </div>
 
           <Composer chat={chat} backendLabel={backendLabel} />

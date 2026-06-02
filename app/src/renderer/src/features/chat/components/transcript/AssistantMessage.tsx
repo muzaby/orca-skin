@@ -1,5 +1,5 @@
 import { Markdown } from '../markdown/Markdown'
-import { ToolCard } from './ToolCard'
+import { ToolGroup } from './ToolGroup'
 import { MessageMeta } from './MessageMeta'
 import type { Message } from '../../reducer/chatReducer'
 
@@ -10,10 +10,10 @@ interface AssistantMessageProps {
 export function AssistantMessage({ message }: AssistantMessageProps): React.JSX.Element {
   return (
     <div className="group flex flex-col">
-      <div className="flex flex-col gap-2.5 text-[14px] leading-[1.7] text-ink">
-        {message.toolCalls?.map((tc) => (
-          <ToolCard key={tc.toolUseId} call={tc} />
-        ))}
+      <div className="flex flex-col gap-[var(--chat-item-gap)] text-[14px] leading-[1.7] text-ink">
+        {message.toolCalls && message.toolCalls.length > 0 && (
+          <ToolGroup calls={message.toolCalls} />
+        )}
         {message.content && <Markdown source={message.content} />}
       </div>
       <MessageMeta text={message.content} createdAt={message.createdAt} align="left" />
