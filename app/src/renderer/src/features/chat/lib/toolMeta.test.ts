@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { summarizeToolGroup, toolDescription, toolVerbCategory } from './toolMeta'
+import {
+  summarizeToolGroup,
+  toolDescription,
+  toolDiffStat,
+  toolGroupSegments,
+  toolVerbCategory
+} from './toolMeta'
 import type { ToolCall } from '../reducer/chatReducer'
 
 const call = (name: string, input: unknown, done = true): ToolCall => ({
@@ -9,6 +15,13 @@ const call = (name: string, input: unknown, done = true): ToolCall => ({
   ...(done ? { result: { output: '', isError: false } } : {})
 })
 
+const errorCall = (name: string, input: unknown): ToolCall => ({
+  toolUseId: `${name}-${Math.random()}`,
+  name,
+  input,
+  result: { output: '', isError: true }
+})
+
 describe('toolVerbCategory', () => {
   it('도구 이름을 카테고리로 매핑한다', () => {
     expect(toolVerbCategory('Bash')).toBe('ran')
@@ -16,6 +29,7 @@ describe('toolVerbCategory', () => {
     expect(toolVerbCategory('Write')).toBe('created')
     expect(toolVerbCategory('Edit')).toBe('edited')
     expect(toolVerbCategory('ExitPlanMode')).toBe('planned')
+    expect(toolVerbCategory('AskUserQuestion')).toBe('requested')
     expect(toolVerbCategory('Read')).toBe('used')
     expect(toolVerbCategory('Glob')).toBe('used')
     expect(toolVerbCategory('mcp__server__tool')).toBe('used')
@@ -44,9 +58,64 @@ describe('toolDescription', () => {
     expect(toolDescription(call('ExitPlanMode', { plan: '...' }))).toBe('제안된 계획')
   })
 
+  it('AskUserQuestion 은 첫 질문 header', () => {
+    expect(
+      toolDescription(
+        call('AskUserQuestion', {
+          questions: [{ header: '배포 방식', question: '어떻게 배포할까요?' }]
+        })
+      )
+    ).toBe('배포 방식')
+  })
+
   it('서술을 못 찾으면 도구 이름으로 폴백', () => {
     expect(toolDescription(call('Bash', { command: 'ls' }))).toBe('Bash')
     expect(toolDescription(call('Unknown', null))).toBe('Unknown')
+  })
+})
+
+describe('toolDiffStat', () => {
+  it('Write 는 content 라인 전부 added', () => {
+    expect(toolDiffStat(call('Write', { file_path: 'a', content: 'l1\nl2\nl3' }))).toEqual({
+      added: 3,
+      removed: 0
+    })
+  })
+
+  it('Edit 는 old/new diff 카운트', () => {
+    expect(
+      toolDiffStat(call('Edit', { file_path: 'a', old_string: 'a\nb', new_string: 'a\nB\nc' }))
+    ).toEqual({ added: 2, removed: 1 })
+  })
+
+  it('MultiEdit 는 edit 합산', () => {
+    const stat = toolDiffStat(
+      call('MultiEdit', {
+        file_path: 'a',
+        edits: [
+          { old_string: '', new_string: 'x' },
+          { old_string: 'y', new_string: '' }
+        ]
+      })
+    )
+    expect(stat).toEqual({ added: 1, removed: 1 })
+  })
+
+  it('diff 대상 아닌 도구는 null', () => {
+    expect(toolDiffStat(call('Bash', { command: 'ls' }))).toBeNull()
+  })
+})
+
+describe('toolGroupSegments', () => {
+  it('실패 카테고리에 hasError 플래그', () => {
+    const segs = toolGroupSegments([
+      errorCall('Bash', { command: 'a' }),
+      call('Write', { file_path: 'x', content: 'y' })
+    ])
+    const ran = segs.find((s) => s.category === 'ran')
+    const created = segs.find((s) => s.category === 'created')
+    expect(ran?.hasError).toBe(true)
+    expect(created?.hasError).toBe(false)
   })
 })
 

@@ -3,9 +3,10 @@ import { Icon } from '../../../shared/ui/Icon'
 import { Dot } from '../../../shared/ui/Status'
 import { ReadingColumn } from '../../../shared/ui/ReadingColumn'
 import { useDragResize } from '../../../shared/hooks/useDragResize'
-import { AssistantMessage } from './transcript/AssistantMessage'
-import { UserMessage } from './transcript/UserMessage'
+import { AssistantTurn } from './transcript/AssistantTurn'
+import { UserTurn } from './transcript/UserTurn'
 import { PendingAssistant } from './transcript/PendingAssistant'
+import { groupTurns } from '../lib/turns'
 import { Composer } from './Composer'
 import { PlanTile } from './PlanTile'
 import { PLAN_TILE_MIN_WIDTH, PLAN_TILE_MAX_WIDTH } from '../reducer/chatReducer'
@@ -109,11 +110,16 @@ export function ChatTile({ chat, backendLabel }: ChatTileProps): React.JSX.Eleme
                   Claude Code 에 첫 메시지를 보내보세요.
                 </div>
               )}
-              {state.messages.map((m, i) =>
-                m.role === 'user' ? (
-                  <UserMessage key={i} message={m} />
+              {groupTurns(state.messages).map((turn, ti, arr) =>
+                turn.role === 'user' ? (
+                  <UserTurn key={turn.startIndex} turn={turn} />
                 ) : (
-                  <AssistantMessage key={i} message={m} />
+                  <AssistantTurn
+                    key={turn.startIndex}
+                    turn={turn}
+                    // 마지막 턴이 에이전트이고 아직 inflight 면 메타 숨김(턴 종료 시 노출).
+                    pending={state.inflight && ti === arr.length - 1}
+                  />
                 )
               )}
               {showPendingAssistant && (

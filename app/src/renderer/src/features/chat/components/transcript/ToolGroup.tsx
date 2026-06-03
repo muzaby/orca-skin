@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { ToolCard } from './ToolCard'
 import {
   VERB_LABEL,
-  summarizeToolGroup,
   toolDescription,
+  toolGroupSegments,
   toolVerbCategory
 } from '../../lib/toolMeta'
 import type { ToolCall } from '../../reducer/chatReducer'
@@ -16,9 +16,7 @@ export function ToolGroup({ calls }: { calls: ToolCall[] }): React.JSX.Element {
   // 마지막 pending call (진행 중 헤더 텍스트의 출처)
   let pending: ToolCall | null = null
   for (const c of calls) if (c.result == null) pending = c
-  const summary = pending
-    ? `${VERB_LABEL[toolVerbCategory(pending.name)]} ${toolDescription(pending)}`
-    : summarizeToolGroup(calls)
+  const segments = toolGroupSegments(calls)
   return (
     <div className="flex flex-col gap-[var(--chat-item-gap)]">
       <button
@@ -30,7 +28,22 @@ export function ToolGroup({ calls }: { calls: ToolCall[] }): React.JSX.Element {
         <span aria-hidden className="w-3 text-[10px] text-ink3">
           {open ? '▼' : '▶'}
         </span>
-        <span className="min-w-0 truncate font-medium">{summary}</span>
+        <span className="min-w-0 truncate font-medium">
+          {pending ? (
+            // 진행 중 — 마지막 pending 도구 서술
+            `${VERB_LABEL[toolVerbCategory(pending.name)]} ${toolDescription(pending)}`
+          ) : (
+            // 완료 — 동사별 카운트 요약(실패 카테고리 동사는 빨강)
+            <>
+              {segments.map((seg, i) => (
+                <span key={seg.category}>
+                  {i > 0 && ', '}
+                  <span className={seg.hasError ? 'text-rust' : undefined}>{seg.text}</span>
+                </span>
+              ))}
+            </>
+          )}
+        </span>
       </button>
       {open && (
         <div className="flex flex-col gap-[var(--chat-item-gap)] rounded-[10px] bg-sidebar p-2.5">
