@@ -1,5 +1,11 @@
 import { useState } from 'react'
-import { VERB_LABEL, toolDescription, toolDiffStat, toolVerbCategory } from '../../lib/toolMeta'
+import {
+  VERB_LABEL,
+  VERB_LABEL_ACTIVE,
+  toolDescription,
+  toolDiffStat,
+  toolVerbCategory
+} from '../../lib/toolMeta'
 import { BashBody } from './tool-bodies/BashBody'
 import { DiffBody } from './tool-bodies/DiffBody'
 import { ReadBody } from './tool-bodies/ReadBody'
@@ -30,7 +36,9 @@ export function ToolCard({ call }: { call: ToolCall }): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const done = call.result != null
   const isError = call.result?.isError === true
-  const verb = VERB_LABEL[toolVerbCategory(call.name)]
+  const cat = toolVerbCategory(call.name)
+  // 진행 중이면 진행 시제(실행 중…), 완료되면 완료 시제(실행됨).
+  const verb = done ? VERB_LABEL[cat] : VERB_LABEL_ACTIVE[cat]
   const description = toolDescription(call)
   const stat = toolDiffStat(call)
   const statusLabel = isError ? '실패' : done ? '완료' : '실행 중…'

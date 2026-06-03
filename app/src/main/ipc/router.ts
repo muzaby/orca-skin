@@ -61,12 +61,14 @@ interface InflightTurn {
   // row 에 묶이도록, assistant_message 또는 tool_use 중 먼저 도착한 쪽에서 생성.
   // assistant_message 처리 후 / tool_result 도착 시 reset 한다.
   currentAssistantMessageId: number | null
-  // AskUserQuestion 답변 영속용. SDK 가 emit 하는 tool_use input 엔 answers 가 없고
-  // 답변은 canUseTool/broker 에만 일시 존재하므로, 여기 FIFO 큐에 모아 두었다가 해당
-  // AskUserQuestion tool_result 의 output 에 주입한다(persist). canUseTool 직렬화로 순서 일치.
+  // AskUserQuestion 답변 영속. SDK 는 canUseTool 의 answers 를 메시지 스트림으로 되돌리지
+  // 않으므로(answers 담은 tool_result 미발행), router 가 answer 와 tool_use id 가 모두
+  // 확보되는 시점에 tool_result 를 합성한다(flushAskAnswers). 2-큐로 도착 순서 무관.
   pendingAskAnswers: Array<{ answers: Record<string, string | string[]>; response?: string }>
-  // toolUseId → 도구 이름. tool_result 시점에 AskUserQuestion 여부 판별용.
-  toolName: Map<string, string>
+  // 답을 아직 못 받은 AskUserQuestion tool_use id 들(FIFO).
+  askPendingIds: string[]
+  // 합성 완료된 id → answers. 실제 tool_result 가 뒤늦게 와도 clobber 하지 않도록 재주입용.
+  askResolved: Map<string, { answers: Record<string, string | string[]>; response?: string }>
 }
 
 export class IpcRouter {
@@ -205,7 +207,8 @@ export class IpcRouter {
       pendingProjectId: parsed.data.sessionId ? null : parsed.data.projectId,
       currentAssistantMessageId: null,
       pendingAskAnswers: [],
-      toolName: new Map()
+      askPendingIds: [],
+      askResolved: new Map()
     }
     this.inflight.set(event.sender, turn)
 
@@ -241,12 +244,13 @@ export class IpcRouter {
       const requestId = randomUUID()
       this.sendChatEvent(wc, { type: 'ask_question', data: { requestId, questions } })
       const result = await this.ask.register(requestId, controller.signal, { type: 'skipped' })
-      // 답변을 영속 큐에 적재 — 곧 도착할 AskUserQuestion tool_result output 에 주입한다.
+      // 답변을 큐에 적재 후 즉시 페어링 시도(tool_use id 가 먼저 와 있을 수도 있다).
       if (result.type === 'answered') {
         turn.pendingAskAnswers.push({
           answers: result.answers,
           ...(result.response !== undefined ? { response: result.response } : {})
         })
+        this.flushAskAnswers(turn, wc)
       }
       return result
     }
@@ -273,6 +277,11 @@ export class IpcRouter {
       })) {
         this.persist(turn, ev)
         this.sendChatEvent(event.sender, ev)
+        // AskUserQuestion tool_use 가 도착하면 id 를 페어링 큐에 넣고 답변과 매칭 시도.
+        if (ev.type === 'tool_use' && ev.data.name === 'AskUserQuestion') {
+          turn.askPendingIds.push(ev.data.toolUseId)
+          this.flushAskAnswers(turn, event.sender)
+        }
       }
     } catch (err) {
       this.sendChatEvent(event.sender, {
@@ -285,6 +294,23 @@ export class IpcRouter {
       })
     } finally {
       this.inflight.delete(event.sender)
+    }
+  }
+
+  // AskUserQuestion 답변과 tool_use id 를 페어링해 tool_result 를 합성한다(SDK 가 answers 를
+  // 안 돌려주므로). 페어가 생길 때마다 DB 저장 + renderer 로 tool_result ChatEvent 전송 →
+  // 카드가 결과를 받아 '질문 중'→'요청됨' 으로 전이하고 AskExchange 가 답변 버블을 렌더한다.
+  private flushAskAnswers(turn: InflightTurn, wc: WebContents): void {
+    while (turn.pendingAskAnswers.length > 0 && turn.askPendingIds.length > 0) {
+      const toolUseId = turn.askPendingIds.shift()!
+      const a = turn.pendingAskAnswers.shift()!
+      const output = {
+        answers: a.answers,
+        ...(a.response !== undefined ? { response: a.response } : {})
+      }
+      turn.askResolved.set(toolUseId, a)
+      this.db.updateToolCallResult(toolUseId, JSON.stringify(output), 'ok')
+      this.sendChatEvent(wc, { type: 'tool_result', data: { toolUseId, output, isError: false } })
     }
   }
 
@@ -330,7 +356,6 @@ export class IpcRouter {
             createdAt: now
           })
         }
-        turn.toolName.set(ev.data.toolUseId, ev.data.name)
         this.db.appendToolCall({
           messageId: turn.currentAssistantMessageId,
           toolUseId: ev.data.toolUseId,
@@ -356,16 +381,13 @@ export class IpcRouter {
         break
       }
       case 'tool_result': {
-        // AskUserQuestion 의 답변은 SDK output 에 없으므로, 큐에 모아둔 답변을 output 에 주입.
-        // ev 를 변형하므로 DB persist + 이어지는 renderer forward(같은 ev) 모두 답변을 갖는다.
-        if (
-          turn.toolName.get(ev.data.toolUseId) === 'AskUserQuestion' &&
-          turn.pendingAskAnswers.length > 0
-        ) {
-          const a = turn.pendingAskAnswers.shift()!
+        // 합성으로 이미 답변을 채운 AskUserQuestion id 에 실제 tool_result 가 뒤늦게 오면
+        // 저장된 answers 로 재주입해 빈 output 으로 덮어쓰지 않게 한다.
+        const resolved = turn.askResolved.get(ev.data.toolUseId)
+        if (resolved) {
           ev.data.output = {
-            answers: a.answers,
-            ...(a.response !== undefined ? { response: a.response } : {})
+            answers: resolved.answers,
+            ...(resolved.response !== undefined ? { response: resolved.response } : {})
           }
         }
         this.db.updateToolCallResult(

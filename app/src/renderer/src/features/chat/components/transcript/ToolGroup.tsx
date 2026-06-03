@@ -1,18 +1,19 @@
 import { useState } from 'react'
 import { ToolCard } from './ToolCard'
 import {
-  VERB_LABEL,
+  VERB_LABEL_ACTIVE,
   toolDescription,
   toolGroupSegments,
   toolVerbCategory
 } from '../../lib/toolMeta'
 import type { ToolCall } from '../../reducer/chatReducer'
 
-// 한 어시스턴트 턴의 toolCalls 를 외곽 Disclosure 로 묶는다 (설계서 §3.3 2단 중첩).
-// 외곽 = 그룹 요약 토글, 내부 = 각 ToolCard 가 자체 펼침/접힘 보유. 도구 1개여도 동일 구조.
-// 헤더는 Claude Code 양식 모방 — 진행 중엔 현재 도구 서술, 완료되면 동사별 카운트 요약.
-export function ToolGroup({ calls }: { calls: ToolCall[] }): React.JSX.Element {
+// 한 어시스턴트 턴의 toolCalls 를 묶는다. 도구가 1개면 그룹 헤더 없이 카드만, 2+ 일 때만
+// disclosure 그룹 헤더(진행 중엔 현재 도구 서술, 완료되면 동사별 카운트 요약).
+export function ToolGroup({ calls }: { calls: ToolCall[] }): React.JSX.Element | null {
   const [open, setOpen] = useState(true)
+  // 단일 도구: 그룹 헤더 없이 카드만(카드 자체가 border/bg 보유).
+  if (calls.length <= 1) return calls[0] ? <ToolCard call={calls[0]} /> : null
   // 마지막 pending call (진행 중 헤더 텍스트의 출처)
   let pending: ToolCall | null = null
   for (const c of calls) if (c.result == null) pending = c
@@ -30,8 +31,8 @@ export function ToolGroup({ calls }: { calls: ToolCall[] }): React.JSX.Element {
         </span>
         <span className="min-w-0 truncate font-medium">
           {pending ? (
-            // 진행 중 — 마지막 pending 도구 서술
-            `${VERB_LABEL[toolVerbCategory(pending.name)]} ${toolDescription(pending)}`
+            // 진행 중 — 마지막 pending 도구 서술(진행 시제)
+            `${VERB_LABEL_ACTIVE[toolVerbCategory(pending.name)]} ${toolDescription(pending)}`
           ) : (
             // 완료 — 동사별 카운트 요약(실패 카테고리 동사는 빨강)
             <>

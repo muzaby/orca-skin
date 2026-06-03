@@ -10,7 +10,7 @@ import { diffLines } from './diff'
 
 export type VerbCategory = 'ran' | 'created' | 'edited' | 'used' | 'planned' | 'requested'
 
-// 동사 라벨 (인라인 한국어 — shared/i18n/ko.ts 는 future scope)
+// 동사 라벨 — 완료 시제 (인라인 한국어, shared/i18n/ko.ts 는 future scope)
 export const VERB_LABEL: Record<VerbCategory, string> = {
   ran: '실행됨',
   created: '생성됨',
@@ -18,6 +18,16 @@ export const VERB_LABEL: Record<VerbCategory, string> = {
   used: '사용함',
   planned: '제안된 계획',
   requested: '요청됨'
+}
+
+// 동사 라벨 — 진행 시제 (도구가 아직 result 없이 동작 중일 때)
+export const VERB_LABEL_ACTIVE: Record<VerbCategory, string> = {
+  ran: '실행 중',
+  created: '생성 중',
+  edited: '편집 중',
+  used: '사용 중',
+  planned: '계획 제안 중',
+  requested: '질문 중'
 }
 
 // 단위 라벨 — planned 는 단위 없는 싱글톤 명사

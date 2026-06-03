@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
+  VERB_LABEL,
+  VERB_LABEL_ACTIVE,
   summarizeToolGroup,
   toolDescription,
   toolDiffStat,
@@ -103,6 +105,19 @@ describe('toolDiffStat', () => {
 
   it('diff 대상 아닌 도구는 null', () => {
     expect(toolDiffStat(call('Bash', { command: 'ls' }))).toBeNull()
+  })
+})
+
+describe('VERB_LABEL / VERB_LABEL_ACTIVE', () => {
+  it('완료 시제와 진행 시제가 모든 카테고리에 정의됨', () => {
+    const cats = ['ran', 'created', 'edited', 'used', 'planned', 'requested'] as const
+    for (const c of cats) {
+      expect(VERB_LABEL[c]).toBeTruthy()
+      expect(VERB_LABEL_ACTIVE[c]).toBeTruthy()
+      expect(VERB_LABEL_ACTIVE[c]).not.toBe(VERB_LABEL[c])
+    }
+    expect(VERB_LABEL.ran).toBe('실행됨')
+    expect(VERB_LABEL_ACTIVE.ran).toBe('실행 중')
   })
 })
 
