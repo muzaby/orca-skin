@@ -38,11 +38,20 @@ export function AskUserQuestionCard({
   // 카드를 재마운트하므로 새 질문 묶음에선 0 으로 리셋된다.)
   const [current, setCurrent] = useState(0)
   const rootRef = useRef<HTMLDivElement>(null)
+  // 단일 선택 시 다음 질문으로 자동 진행하는 지연 타이머(선택 하이라이트를 잠깐 보여준 뒤 이동).
+  const advanceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const last = questions.length - 1
   const multiQuestion = questions.length > 1
   const goPrev = (): void => setCurrent((c) => Math.max(0, c - 1))
   const goNext = (): void => setCurrent((c) => Math.min(last, c + 1))
+
+  // 언마운트 시 진행 타이머 정리.
+  useEffect(() => {
+    return () => {
+      if (advanceTimer.current) clearTimeout(advanceTimer.current)
+    }
+  }, [])
 
   // 현재 질문 전환(및 마운트) 시 그 질문의 첫 옵션으로 포커스. picks/other 는 useState
   // 초기값으로 이미 리셋되므로 effect 내 setState 는 없다(React19 룰 무위반).
@@ -65,6 +74,8 @@ export function AskUserQuestionCard({
   }
 
   const toggle = (qIdx: number, label: string, multiSelect: boolean): void => {
+    // 단일 선택에서 "새로 선택"(해제가 아님)인지 — 자동 진행 판단용. setPicks 전 현재값 기준.
+    const isSelecting = !multiSelect && picks[qIdx][0] !== label
     setPicks((prev) => {
       const next = prev.map((p) => p.slice())
       if (multiSelect) {
@@ -84,6 +95,14 @@ export function AskUserQuestionCard({
         next[qIdx] = ''
         return next
       })
+      // 단일 선택을 새로 고르면 마지막 질문이 아닌 한 다음 질문으로 자동 진행(짧은 지연으로
+      // 선택 하이라이트를 보여준 뒤). 다중 선택/해제는 진행하지 않는다(수동 화살표 유지).
+      if (isSelecting && qIdx < last) {
+        if (advanceTimer.current) clearTimeout(advanceTimer.current)
+        advanceTimer.current = setTimeout(() => {
+          setCurrent((c) => (c === qIdx ? qIdx + 1 : c))
+        }, 160)
+      }
     }
   }
 
