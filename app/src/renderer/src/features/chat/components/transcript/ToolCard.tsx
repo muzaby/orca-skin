@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { VERB_LABEL, toolDescription, toolDiffStat, toolVerbCategory } from '../../lib/toolMeta'
 import { BashBody } from './tool-bodies/BashBody'
 import { DiffBody } from './tool-bodies/DiffBody'
+import { ReadBody } from './tool-bodies/ReadBody'
 import { KeyValueBody } from './tool-bodies/KeyValueBody'
 import { AskBody } from './tool-bodies/AskBody'
 import type { ToolCall } from '../../reducer/chatReducer'
@@ -16,6 +17,8 @@ function ToolBody({ call }: { call: ToolCall }): React.JSX.Element {
     case 'Edit':
     case 'MultiEdit':
       return <DiffBody call={call} />
+    case 'Read':
+      return <ReadBody call={call} />
     case 'AskUserQuestion':
       return <AskBody call={call} />
     default:
@@ -46,15 +49,16 @@ export function ToolCard({ call }: { call: ToolCall }): React.JSX.Element {
           {open ? '▼' : '▶'}
         </span>
         <span className={`font-medium ${isError ? 'text-rust' : 'text-ink2'}`}>{verb}</span>
-        <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-ink3">
-          {description}
+        {/* 서술 + diff-stat 을 한 묶음으로 — '생성됨 <파일> +99' 처럼 서술 바로 뒤에 붙는다. */}
+        <span className="flex min-w-0 flex-1 items-center gap-1.5">
+          <span className="min-w-0 truncate text-ink3">{description}</span>
+          {stat && (stat.added > 0 || stat.removed > 0) && (
+            <span className="shrink-0 font-mono text-[11px]">
+              {stat.added > 0 && <span className="text-good">+{stat.added}</span>}
+              {stat.removed > 0 && <span className="ml-1 text-bad">-{stat.removed}</span>}
+            </span>
+          )}
         </span>
-        {stat && (stat.added > 0 || stat.removed > 0) && (
-          <span className="shrink-0 font-mono text-[11px]">
-            {stat.added > 0 && <span className="text-good">+{stat.added}</span>}
-            {stat.removed > 0 && <span className="ml-1 text-bad">-{stat.removed}</span>}
-          </span>
-        )}
       </button>
       {open && (
         <div className="border-t border-border bg-bg/50 px-3 py-2 font-mono text-[12px]">

@@ -27,18 +27,26 @@ describe('parseAsk', () => {
     expect(response).toBeNull()
   })
 
-  it('input.answers 없으면 result.output 폴백', () => {
+  it('input.answers 없으면 result.output.answers(router 주입) 사용', () => {
     const { items } = parseAsk(
-      call({ questions: [{ header: 'h', question: 'Q?' }] }, { 'Q?': '답' })
+      call({ questions: [{ header: 'h', question: 'Q?' }] }, { answers: { 'Q?': '답' } })
     )
     expect(items[0].answer).toBe('답')
   })
 
-  it('response 자유회신 추출', () => {
-    const { response } = parseAsk(
-      call({ questions: [{ header: 'h', question: 'Q?' }], answers: {}, response: '직접 회신' })
-    )
-    expect(response).toBe('직접 회신')
+  it('response 는 input 또는 result.output 에서 추출', () => {
+    expect(
+      parseAsk(call({ questions: [{ header: 'h', question: 'Q?' }], response: '직접 회신' }))
+        .response
+    ).toBe('직접 회신')
+    expect(
+      parseAsk(
+        call(
+          { questions: [{ header: 'h', question: 'Q?' }] },
+          { answers: {}, response: '출력회신' }
+        )
+      ).response
+    ).toBe('출력회신')
   })
 
   it('questions 없으면 빈 items', () => {

@@ -61,6 +61,12 @@ interface InflightTurn {
   // row 에 묶이도록, assistant_message 또는 tool_use 중 먼저 도착한 쪽에서 생성.
   // assistant_message 처리 후 / tool_result 도착 시 reset 한다.
   currentAssistantMessageId: number | null
+  // AskUserQuestion 답변 영속용. SDK 가 emit 하는 tool_use input 엔 answers 가 없고
+  // 답변은 canUseTool/broker 에만 일시 존재하므로, 여기 FIFO 큐에 모아 두었다가 해당
+  // AskUserQuestion tool_result 의 output 에 주입한다(persist). canUseTool 직렬화로 순서 일치.
+  pendingAskAnswers: Array<{ answers: Record<string, string | string[]>; response?: string }>
+  // toolUseId → 도구 이름. tool_result 시점에 AskUserQuestion 여부 판별용.
+  toolName: Map<string, string>
 }
 
 export class IpcRouter {
@@ -197,7 +203,9 @@ export class IpcRouter {
       pendingUserText: parsed.data.text,
       dbSessionId: parsed.data.sessionId,
       pendingProjectId: parsed.data.sessionId ? null : parsed.data.projectId,
-      currentAssistantMessageId: null
+      currentAssistantMessageId: null,
+      pendingAskAnswers: [],
+      toolName: new Map()
     }
     this.inflight.set(event.sender, turn)
 
@@ -229,10 +237,18 @@ export class IpcRouter {
     // ChatEvent 로 renderer 에 surface 하고, broker 가 응답(또는 turn abort)까지 Promise 를
     // 보류한다. ask_question 은 generator 가 yield 하는 이벤트가 아니라 여기서 직접 전송.
     const wc = event.sender
-    const askUser = (questions: AskQuestion[]): Promise<AskResult> => {
+    const askUser = async (questions: AskQuestion[]): Promise<AskResult> => {
       const requestId = randomUUID()
       this.sendChatEvent(wc, { type: 'ask_question', data: { requestId, questions } })
-      return this.ask.register(requestId, controller.signal, { type: 'skipped' })
+      const result = await this.ask.register(requestId, controller.signal, { type: 'skipped' })
+      // 답변을 영속 큐에 적재 — 곧 도착할 AskUserQuestion tool_result output 에 주입한다.
+      if (result.type === 'answered') {
+        turn.pendingAskAnswers.push({
+          answers: result.answers,
+          ...(result.response !== undefined ? { response: result.response } : {})
+        })
+      }
+      return result
     }
     // plan 모드 계획 검토 — ExitPlanMode 시 계획을 surface 하고 응답(승인/수정/거부) 대기.
     // turn abort(취소/거부) 시 broker 가 {rejected} 로 fallback.
@@ -314,6 +330,7 @@ export class IpcRouter {
             createdAt: now
           })
         }
+        turn.toolName.set(ev.data.toolUseId, ev.data.name)
         this.db.appendToolCall({
           messageId: turn.currentAssistantMessageId,
           toolUseId: ev.data.toolUseId,
@@ -339,6 +356,18 @@ export class IpcRouter {
         break
       }
       case 'tool_result': {
+        // AskUserQuestion 의 답변은 SDK output 에 없으므로, 큐에 모아둔 답변을 output 에 주입.
+        // ev 를 변형하므로 DB persist + 이어지는 renderer forward(같은 ev) 모두 답변을 갖는다.
+        if (
+          turn.toolName.get(ev.data.toolUseId) === 'AskUserQuestion' &&
+          turn.pendingAskAnswers.length > 0
+        ) {
+          const a = turn.pendingAskAnswers.shift()!
+          ev.data.output = {
+            answers: a.answers,
+            ...(a.response !== undefined ? { response: a.response } : {})
+          }
+        }
         this.db.updateToolCallResult(
           ev.data.toolUseId,
           JSON.stringify(ev.data.output ?? null),

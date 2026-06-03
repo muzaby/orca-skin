@@ -27,11 +27,12 @@ function asRecord(v: unknown): Record<string, unknown> | null {
 
 export function parseAsk(call: ToolCall): ParsedAsk {
   const rec = asRecord(call.input)
+  const out = asRecord(call.result?.output)
   const rawQuestions = Array.isArray(rec?.questions) ? (rec!.questions as unknown[]) : []
 
-  // answers: input.answers 우선, 없으면 result.output 가 객체면 사용.
-  const answers: Record<string, unknown> =
-    asRecord(rec?.answers) ?? asRecord(call.result?.output) ?? {}
+  // answers: input.answers(드묾) → result.output.answers(router 가 주입) → {}.
+  // (main 이 AskUserQuestion tool_result output 에 { answers, response? } 를 주입한다.)
+  const answers: Record<string, unknown> = asRecord(rec?.answers) ?? asRecord(out?.answers) ?? {}
 
   const items: AskItem[] = rawQuestions.map((q) => {
     const qr = asRecord(q)
@@ -40,6 +41,8 @@ export function parseAsk(call: ToolCall): ParsedAsk {
     return { header, question, answer: answerText(answers[question]) }
   })
 
-  const response = typeof rec?.response === 'string' ? rec.response : null
+  const response =
+    (typeof rec?.response === 'string' ? rec.response : null) ??
+    (typeof out?.response === 'string' ? out.response : null)
   return { items, response }
 }
