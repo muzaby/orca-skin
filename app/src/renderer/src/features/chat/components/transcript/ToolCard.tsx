@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Icon } from '../../../../shared/ui/Icon'
 import {
   VERB_LABEL,
   VERB_LABEL_ACTIVE,
@@ -45,33 +46,44 @@ export function ToolCard({ call }: { call: ToolCall }): React.JSX.Element {
   const duration =
     call.result?.durationMs != null ? ` · ${(call.result.durationMs / 1000).toFixed(1)}s` : ''
   return (
-    <div className="overflow-hidden rounded-[10px] border border-border bg-panel text-[12.5px] text-ink">
+    <div className="overflow-hidden rounded-r6 border border-t5 bg-t1 text-footnote text-t9">
       {/* 헤더: [동사] [친화적 서술] (+N-M) — 도구 이름·raw·상태는 본문으로 (Claude Code 양식) */}
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full cursor-pointer items-center gap-2.5 border-0 bg-transparent px-3 py-2 text-left font-sans"
+        className="group/tool flex w-full cursor-default items-center gap-g4 border-0 bg-transparent px-p6 py-p4 text-left font-sans outline-none hide-focus-ring ring-focus"
         aria-expanded={open}
       >
-        <span aria-hidden className="w-3 text-[10px] text-ink3">
-          {open ? '▼' : '▶'}
+        <span
+          aria-hidden
+          className="shrink-0 text-t6 transition-transform"
+          style={{ transform: open ? 'rotate(90deg)' : undefined }}
+        >
+          <Icon name="chevR" size={12} />
         </span>
-        <span className={`font-medium ${isError ? 'text-rust' : 'text-ink2'}`}>{verb}</span>
+        <span
+          className={`font-medium ${
+            isError ? 'text-rust' : done ? 'text-t6 group-hover/tool:text-t7' : 'epitaxy-text-shine'
+          }`}
+        >
+          {verb}
+        </span>
+        {!done && <span className="sr-only">실행 중</span>}
         {/* 서술 + diff-stat 을 한 묶음으로 — '생성됨 <파일> +99' 처럼 서술 바로 뒤에 붙는다. */}
-        <span className="flex min-w-0 flex-1 items-center gap-1.5">
-          <span className="min-w-0 truncate text-ink3">{description}</span>
+        <span className="flex min-w-0 flex-1 items-center gap-g3">
+          <span className="min-w-0 truncate text-t6">{description}</span>
           {stat && (stat.added > 0 || stat.removed > 0) && (
-            <span className="shrink-0 font-mono text-[11px]">
-              {stat.added > 0 && <span className="text-good">+{stat.added}</span>}
-              {stat.removed > 0 && <span className="ml-1 text-bad">-{stat.removed}</span>}
+            <span className="shrink-0 font-mono text-caption tabular-nums">
+              {stat.added > 0 && <span className="text-extended-green">+{stat.added}</span>}
+              {stat.removed > 0 && <span className="ml-1 text-extended-pink">-{stat.removed}</span>}
             </span>
           )}
         </span>
       </button>
       {open && (
-        <div className="border-t border-border bg-bg/50 px-3 py-2 font-mono text-[12px]">
-          <div className="mb-2 flex items-center gap-2 font-sans text-[11px] text-ink3">
-            <span className={`font-semibold ${isError ? 'text-rust' : 'text-ink2'}`}>
+        <div className="border-t border-t5 px-p6 py-p4 font-mono text-footnote">
+          <div className="mb-g4 flex items-center gap-g3 font-sans text-caption text-t6">
+            <span className={`font-semibold ${isError ? 'text-rust' : 'text-t6'}`}>
               {call.name}
             </span>
             <span>

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Icon } from '../../../../shared/ui/Icon'
 import { ToolCard } from './ToolCard'
 import {
   VERB_LABEL_ACTIVE,
@@ -24,12 +25,16 @@ export function ToolGroup({ calls }: { calls: ToolCall[] }): React.JSX.Element |
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="flex w-full cursor-pointer items-center gap-2 border-0 bg-transparent px-1 text-left text-[12px] text-ink2"
+        className="group/tool flex w-full cursor-default items-center gap-g3 border-0 bg-transparent px-1 text-left text-footnote text-t6 outline-none hide-focus-ring ring-focus"
       >
-        <span aria-hidden className="w-3 text-[10px] text-ink3">
-          {open ? '▼' : '▶'}
+        <span
+          aria-hidden
+          className="shrink-0 text-t6 transition-transform"
+          style={{ transform: open ? 'rotate(90deg)' : undefined }}
+        >
+          <Icon name="chevR" size={12} />
         </span>
-        <span className="min-w-0 truncate font-medium">
+        <span className={`min-w-0 truncate font-medium ${pending ? 'epitaxy-text-shine' : ''}`}>
           {pending ? (
             // 진행 중 — 마지막 pending 도구 서술(진행 시제)
             `${VERB_LABEL_ACTIVE[toolVerbCategory(pending.name)]} ${toolDescription(pending)}`
@@ -47,7 +52,7 @@ export function ToolGroup({ calls }: { calls: ToolCall[] }): React.JSX.Element |
         </span>
       </button>
       {open && (
-        <div className="flex flex-col gap-[var(--chat-item-gap)] rounded-[10px] bg-sidebar p-2.5">
+        <div className="flex flex-col gap-[var(--chat-item-gap)] rounded-r6 bg-t2 p-p6">
           {calls.map((c) => (
             <ToolCard key={c.toolUseId} call={c} />
           ))}

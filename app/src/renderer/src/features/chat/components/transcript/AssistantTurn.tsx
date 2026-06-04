@@ -1,5 +1,6 @@
 import { AssistantMessage } from './AssistantMessage'
 import { MessageMeta } from './MessageMeta'
+import { YellowDot } from './YellowDot'
 import { turnCopyText, type Turn } from '../../lib/turns'
 
 interface AssistantTurnProps {
@@ -10,10 +11,19 @@ interface AssistantTurnProps {
 
 // 에이전트 턴 — 텍스트↔툴콜로 쪼개진 여러 assistant 메시지의 본문을 스택하고,
 // 복사/시간 메타는 턴 끝에 한 번만(마지막 메시지 시각 + 합친 텍스트).
+// `group/msg` (named) 로 hover 를 자기 턴에만 한정 — 익명 group 은 형제 턴까지
+// 매칭돼 모든 메시지 메타가 동시에 노출되는 버그가 난다 (app/CLAUDE.md 그룹 스코프).
 export function AssistantTurn({ turn, pending }: AssistantTurnProps): React.JSX.Element {
   const last = turn.messages[turn.messages.length - 1]
+  // 도구를 실행한 agentic 턴이면 좌측 yellow dot 마커.
+  const agentic = turn.messages.some((m) => m.toolCalls && m.toolCalls.length > 0)
   return (
-    <div className="group flex flex-col gap-[var(--chat-item-gap)]">
+    <div className="group/msg relative flex flex-col gap-[var(--chat-item-gap)]">
+      {agentic && (
+        <span className="absolute left-[-21px] top-0">
+          <YellowDot />
+        </span>
+      )}
       {turn.messages.map((m, i) => (
         <AssistantMessage key={i} message={m} />
       ))}
