@@ -1,6 +1,8 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import {
   CHANNELS,
+  type AskRespond,
+  type PlanRespond,
   type Backend,
   type BackendListResult,
   type ChatEvent,
@@ -108,6 +110,15 @@ const orca = {
       ipcRenderer.on(CHANNELS.runtimeStatusEvent, listener)
       return () => ipcRenderer.off(CHANNELS.runtimeStatusEvent, listener)
     }
+  },
+  // AskUserQuestion 응답 — 사용자의 선택/건너뛰기를 main 으로 회신. 질문 수신은 별도 채널이
+  // 아니라 기존 chat.onEvent 스트림의 ask_question 이벤트로 도착한다.
+  ask: {
+    respond: (req: AskRespond): Promise<void> => ipcRenderer.invoke(CHANNELS.askRespond, req)
+  },
+  // plan 모드 계획 검토 응답 (승인/수정/거부). 계획 수신은 chat.onEvent 의 plan_review 이벤트.
+  plan: {
+    respond: (req: PlanRespond): Promise<void> => ipcRenderer.invoke(CHANNELS.planRespond, req)
   },
   // 데스크톱 플랫폼 식별자. renderer 의 `<html data-platform>` 에 부착되고,
   // WinControls 가 macOS 에서 null 을 반환하는 분기 등에 사용.

@@ -19,6 +19,17 @@ const ErrorCodeSchema: z.ZodType<ErrorCode> = z.enum([
   'internal'
 ])
 
+// AskUserQuestion 입력 스키마. SDK 가 1~4 질문 / 각 2~4 옵션을 보내므로 상한만 느슨히 강제.
+const AskQuestionSchema = z.object({
+  question: z.string(),
+  header: z.string(),
+  options: z
+    .array(z.object({ label: z.string(), description: z.string() }))
+    .min(1)
+    .max(8),
+  multiSelect: z.boolean()
+})
+
 export const ChatEventSchema: z.ZodType<ChatEvent> = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('init'),
@@ -71,13 +82,28 @@ export const ChatEventSchema: z.ZodType<ChatEvent> = z.discriminatedUnion('type'
       message: z.string(),
       recoverable: z.boolean()
     })
+  }),
+  z.object({
+    type: z.literal('ask_question'),
+    data: z.object({
+      requestId: z.string(),
+      questions: z.array(AskQuestionSchema)
+    })
+  }),
+  z.object({
+    type: z.literal('plan_review'),
+    data: z.object({
+      requestId: z.string(),
+      plan: z.string()
+    })
   })
 ])
 
 export const SendChatMessageSchema = z.object({
   sessionId: z.string().nullable(),
   projectId: z.string().nullable(),
-  text: z.string().min(1)
+  text: z.string().min(1),
+  permissionMode: z.enum(['plan', 'acceptEdits']).optional()
 })
 
 export const CancelChatSchema = z.object({ sessionId: z.string() })
@@ -189,6 +215,32 @@ export const UpdateMcpServerSchema = McpServerBaseSchema.partial()
 
 export const DeleteMcpServerSchema = z.object({ id: z.string().min(1) })
 
+// AskUserQuestion 응답 (renderer → main). answered 면 answers 맵, skipped 면 표식만.
+// answers value 는 단일 선택(string) / 다중 선택(string[]) / 기타 자유입력(string) 을 모두 수용.
+export const AskRespondSchema = z.discriminatedUnion('type', [
+  z.object({
+    requestId: z.string().min(1),
+    type: z.literal('answered'),
+    answers: z.record(z.string(), z.union([z.string(), z.array(z.string())])),
+    response: z.string().optional()
+  }),
+  z.object({
+    requestId: z.string().min(1),
+    type: z.literal('skipped')
+  })
+])
+
+// plan 모드 계획 검토 응답 (renderer → main). revise 는 비어 있지 않은 피드백 필수.
+export const PlanRespondSchema = z.discriminatedUnion('type', [
+  z.object({ requestId: z.string().min(1), type: z.literal('approved') }),
+  z.object({ requestId: z.string().min(1), type: z.literal('rejected') }),
+  z.object({
+    requestId: z.string().min(1),
+    type: z.literal('revise'),
+    feedback: z.string().min(1)
+  })
+])
+
 // 런타임 채널(status/prepare)은 입력 인자가 없다. invoke 시 undefined 가 전달되므로
 // 별도 검증 스키마 없이 핸들러에서 인자를 무시한다(아래 router 참고).
 
@@ -280,5 +332,14 @@ export type {
   UpdateMcpServerRequest,
   DeleteMcpServerRequest,
   RuntimeStage,
-  RuntimeStatus
+  RuntimeStatus,
+  AskQuestionOption,
+  AskQuestion,
+  AskQuestionRequest,
+  AskRespond,
+  AskResult,
+  PermissionMode,
+  PlanReviewRequest,
+  PlanRespond,
+  PlanDecision
 } from './ipc'

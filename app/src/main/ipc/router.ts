@@ -16,6 +16,8 @@ import {
   ListProjectSessionsSchema,
   SearchMessagesRequestSchema,
   DeleteMcpServerSchema,
+  AskRespondSchema,
+  PlanRespondSchema,
   type BackendListResult,
   type ChatEvent,
   type FileEntry,
@@ -42,7 +44,8 @@ import { listDir } from '../files/scan'
 import { initDb, type DbQueries } from '../db'
 import { PythonRuntime, PY_AGENT_RULES } from '../runtime'
 import { CapabilityBuilder } from '../capabilities/builder'
-import type { RuntimeStatus } from '../../shared/ipc'
+import { InteractionBroker } from '../ask/broker'
+import type { AskQuestion, AskResult, PlanDecision, RuntimeStatus } from '../../shared/ipc'
 
 interface InflightTurn {
   controller: AbortController
@@ -58,6 +61,14 @@ interface InflightTurn {
   // row 에 묶이도록, assistant_message 또는 tool_use 중 먼저 도착한 쪽에서 생성.
   // assistant_message 처리 후 / tool_result 도착 시 reset 한다.
   currentAssistantMessageId: number | null
+  // AskUserQuestion 답변 영속. SDK 는 canUseTool 의 answers 를 메시지 스트림으로 되돌리지
+  // 않으므로(answers 담은 tool_result 미발행), router 가 answer 와 tool_use id 가 모두
+  // 확보되는 시점에 tool_result 를 합성한다(flushAskAnswers). 2-큐로 도착 순서 무관.
+  pendingAskAnswers: Array<{ answers: Record<string, string | string[]>; response?: string }>
+  // 답을 아직 못 받은 AskUserQuestion tool_use id 들(FIFO).
+  askPendingIds: string[]
+  // 합성 완료된 id → answers. 실제 tool_result 가 뒤늦게 와도 clobber 하지 않도록 재주입용.
+  askResolved: Map<string, { answers: Record<string, string | string[]>; response?: string }>
 }
 
 export class IpcRouter {
@@ -68,6 +79,9 @@ export class IpcRouter {
   private readonly registry = new AdapterRegistry(() => this.mcp.resolver())
   private readonly installer = new Installer(this.registry)
   private readonly inflight = new Map<WebContents, InflightTurn>()
+  // canUseTool(AskUserQuestion / ExitPlanMode) ↔ renderer 응답을 잇는 Promise 다리.
+  private readonly ask = new InteractionBroker<AskResult>()
+  private readonly plan = new InteractionBroker<PlanDecision>()
   readonly runtime = new PythonRuntime()
   // 부팅 시 1회 스캔하여 메모리에 캐시. fs.watch hot-reload 는 본 PR 범위 밖 (재시작).
   private skillsCache: SkillInfo[] = []
@@ -133,6 +147,8 @@ export class IpcRouter {
     ipcMain.handle(CHANNELS.mcpDelete, this.handleMcpDelete)
     ipcMain.handle(CHANNELS.runtimeStatus, this.handleRuntimeStatus)
     ipcMain.handle(CHANNELS.runtimePrepare, this.handleRuntimePrepare)
+    ipcMain.handle(CHANNELS.askRespond, this.handleAskRespond)
+    ipcMain.handle(CHANNELS.planRespond, this.handlePlanRespond)
     // 런타임 초기화 진행 상태를 모든 창에 브로드캐스트.
     // 렌더러 런타임 UI 가 제거되어 dev 에선 터미널 로깅으로 진행/에러를 관찰한다.
     this.runtime.on('status', (st: RuntimeStatus) => {
@@ -189,7 +205,10 @@ export class IpcRouter {
       pendingUserText: parsed.data.text,
       dbSessionId: parsed.data.sessionId,
       pendingProjectId: parsed.data.sessionId ? null : parsed.data.projectId,
-      currentAssistantMessageId: null
+      currentAssistantMessageId: null,
+      pendingAskAnswers: [],
+      askPendingIds: [],
+      askResolved: new Map()
     }
     this.inflight.set(event.sender, turn)
 
@@ -217,6 +236,32 @@ export class IpcRouter {
     // Python 런타임 env (uv 격리) 는 capability 가 아니라 TurnRequest 직속. ready 전이면 SDK 기본 env.
     const pyEnv = this.runtime.getEnv() ?? undefined
 
+    // AskUserQuestion 위임 — canUseTool 이 호출하면 requestId 를 발급해 ask_question
+    // ChatEvent 로 renderer 에 surface 하고, broker 가 응답(또는 turn abort)까지 Promise 를
+    // 보류한다. ask_question 은 generator 가 yield 하는 이벤트가 아니라 여기서 직접 전송.
+    const wc = event.sender
+    const askUser = async (questions: AskQuestion[]): Promise<AskResult> => {
+      const requestId = randomUUID()
+      this.sendChatEvent(wc, { type: 'ask_question', data: { requestId, questions } })
+      const result = await this.ask.register(requestId, controller.signal, { type: 'skipped' })
+      // 답변을 큐에 적재 후 즉시 페어링 시도(tool_use id 가 먼저 와 있을 수도 있다).
+      if (result.type === 'answered') {
+        turn.pendingAskAnswers.push({
+          answers: result.answers,
+          ...(result.response !== undefined ? { response: result.response } : {})
+        })
+        this.flushAskAnswers(turn, wc)
+      }
+      return result
+    }
+    // plan 모드 계획 검토 — ExitPlanMode 시 계획을 surface 하고 응답(승인/수정/거부) 대기.
+    // turn abort(취소/거부) 시 broker 가 {rejected} 로 fallback.
+    const reviewPlan = (plan: string): Promise<PlanDecision> => {
+      const requestId = randomUUID()
+      this.sendChatEvent(wc, { type: 'plan_review', data: { requestId, plan } })
+      return this.plan.register(requestId, controller.signal, { type: 'rejected' })
+    }
+
     const cwd = this.defaultCwd
     try {
       for await (const ev of adapter.sendMessage({
@@ -225,10 +270,18 @@ export class IpcRouter {
         cwd,
         signal: controller.signal,
         capabilities,
-        env: pyEnv
+        env: pyEnv,
+        askUser,
+        reviewPlan,
+        permissionMode: parsed.data.permissionMode
       })) {
         this.persist(turn, ev)
         this.sendChatEvent(event.sender, ev)
+        // AskUserQuestion tool_use 가 도착하면 id 를 페어링 큐에 넣고 답변과 매칭 시도.
+        if (ev.type === 'tool_use' && ev.data.name === 'AskUserQuestion') {
+          turn.askPendingIds.push(ev.data.toolUseId)
+          this.flushAskAnswers(turn, event.sender)
+        }
       }
     } catch (err) {
       this.sendChatEvent(event.sender, {
@@ -241,6 +294,23 @@ export class IpcRouter {
       })
     } finally {
       this.inflight.delete(event.sender)
+    }
+  }
+
+  // AskUserQuestion 답변과 tool_use id 를 페어링해 tool_result 를 합성한다(SDK 가 answers 를
+  // 안 돌려주므로). 페어가 생길 때마다 DB 저장 + renderer 로 tool_result ChatEvent 전송 →
+  // 카드가 결과를 받아 '질문 중'→'요청됨' 으로 전이하고 AskExchange 가 답변 버블을 렌더한다.
+  private flushAskAnswers(turn: InflightTurn, wc: WebContents): void {
+    while (turn.pendingAskAnswers.length > 0 && turn.askPendingIds.length > 0) {
+      const toolUseId = turn.askPendingIds.shift()!
+      const a = turn.pendingAskAnswers.shift()!
+      const output = {
+        answers: a.answers,
+        ...(a.response !== undefined ? { response: a.response } : {})
+      }
+      turn.askResolved.set(toolUseId, a)
+      this.db.updateToolCallResult(toolUseId, JSON.stringify(output), 'ok')
+      this.sendChatEvent(wc, { type: 'tool_result', data: { toolUseId, output, isError: false } })
     }
   }
 
@@ -311,6 +381,15 @@ export class IpcRouter {
         break
       }
       case 'tool_result': {
+        // 합성으로 이미 답변을 채운 AskUserQuestion id 에 실제 tool_result 가 뒤늦게 오면
+        // 저장된 answers 로 재주입해 빈 output 으로 덮어쓰지 않게 한다.
+        const resolved = turn.askResolved.get(ev.data.toolUseId)
+        if (resolved) {
+          ev.data.output = {
+            answers: resolved.answers,
+            ...(resolved.response !== undefined ? { response: resolved.response } : {})
+          }
+        }
         this.db.updateToolCallResult(
           ev.data.toolUseId,
           JSON.stringify(ev.data.output ?? null),
@@ -543,6 +622,40 @@ export class IpcRouter {
   // 실패 후 재시도 또는 수동 준비 트리거. 진행 상태는 statusEvent 로 별도 스트리밍.
   private handleRuntimePrepare = async (): Promise<void> => {
     await this.runtime.retry()
+  }
+
+  // AskUserQuestion 응답 — renderer 가 사용자의 선택(answered) 또는 건너뛰기(skipped)를
+  // requestId 와 함께 회신. broker 가 보류 중이던 canUseTool Promise 를 해소해 query 가 재개된다.
+  private handleAskRespond = async (_event: IpcMainInvokeEvent, raw: unknown): Promise<void> => {
+    const parsed = AskRespondSchema.safeParse(raw)
+    if (!parsed.success) return
+    if (parsed.data.type === 'skipped') {
+      this.ask.resolve(parsed.data.requestId, { type: 'skipped' })
+      return
+    }
+    this.ask.resolve(parsed.data.requestId, {
+      type: 'answered',
+      answers: parsed.data.answers,
+      ...(parsed.data.response !== undefined ? { response: parsed.data.response } : {})
+    })
+  }
+
+  // plan 모드 계획 검토 응답. approved=실행 / revise=피드백 반영 재작성 / rejected=중단.
+  // 거부는 broker 해소에 더해 해당 턴을 abort 해 에이전트가 재제안 없이 즉시 멈추게 한다.
+  private handlePlanRespond = async (event: IpcMainInvokeEvent, raw: unknown): Promise<void> => {
+    const parsed = PlanRespondSchema.safeParse(raw)
+    if (!parsed.success) return
+    if (parsed.data.type === 'revise') {
+      this.plan.resolve(parsed.data.requestId, { type: 'revise', feedback: parsed.data.feedback })
+      return
+    }
+    if (parsed.data.type === 'approved') {
+      this.plan.resolve(parsed.data.requestId, { type: 'approved' })
+      return
+    }
+    // rejected: broker 해소 + 턴 중단(재제안 차단).
+    this.plan.resolve(parsed.data.requestId, { type: 'rejected' })
+    this.inflight.get(event.sender)?.controller.abort()
   }
 }
 

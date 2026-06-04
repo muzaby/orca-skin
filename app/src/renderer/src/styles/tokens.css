@@ -50,6 +50,12 @@
   --color-stage-600: #2a323d;
   --color-stage-500: #4a5666;
 
+  /* Chat layout — reading column shared by transcript + composer (single source). */
+  --reading-column: 768px;
+  --reading-gutter: 24px;
+  --chat-turn-gap: 22px;
+  --chat-item-gap: 8px;
+
   /* Typography */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --font-serif: 'Source Serif 4', 'Source Serif Pro', 'Tiempos Headline', Georgia, serif;

@@ -33,7 +33,9 @@ export const CHANNELS = {
   mcpDelete: 'orca:mcp:delete',
   runtimeStatus: 'orca:runtime:status',
   runtimePrepare: 'orca:runtime:prepare',
-  runtimeStatusEvent: 'orca:runtime:statusEvent'
+  runtimeStatusEvent: 'orca:runtime:statusEvent',
+  askRespond: 'orca:ask:respond',
+  planRespond: 'orca:plan:respond'
 } as const
 
 // Backend (Phase 2: claude-code 단일. opencode 는 future work)
@@ -65,6 +67,73 @@ export type ChatEvent =
     }
   | { type: 'result'; data: { usage?: { inputTokens: number; outputTokens: number } } }
   | { type: 'error'; data: { code: ErrorCode; message: string; recoverable: boolean } }
+  // Claude Agent SDK 의 AskUserQuestion 도구 발화. canUseTool 콜백(main)이 query 를
+  // 일시 중지한 채 renderer 에 질문 묶음을 surface 한다. 응답은 askRespond 채널로 회신.
+  | { type: 'ask_question'; data: AskQuestionRequest }
+  // plan 모드의 ExitPlanMode 도구 발화. 에이전트가 제출한 계획을 renderer 에 surface 한다.
+  // 응답(승인/수정/거부)은 planRespond 채널로 회신. (백엔드 중립 — 어댑터가 자기 메커니즘에서 매핑.)
+  | { type: 'plan_review'; data: PlanReviewRequest }
+
+// AskUserQuestion (백엔드 중립) — SDK 입력 스키마(docs/agent-sdk/user-input)를 그대로 반영.
+// 한 호출에 1~4 질문, 각 질문 2~4 옵션. 미리보기(previewFormat)는 v1 미지원.
+export interface AskQuestionOption {
+  label: string
+  description: string
+}
+
+export interface AskQuestion {
+  // 표시할 전체 질문 텍스트 (응답 answers 의 key 가 된다).
+  question: string
+  // 짧은 라벨 (≤12자).
+  header: string
+  options: AskQuestionOption[]
+  // true 면 사용자가 여러 옵션을 선택할 수 있다.
+  multiSelect: boolean
+}
+
+// canUseTool → renderer 로 가는 질문 묶음. requestId 로 응답을 라우팅한다.
+export interface AskQuestionRequest {
+  requestId: string
+  questions: AskQuestion[]
+}
+
+// renderer → main 응답 (askRespond 채널). 답변 또는 건너뛰기.
+export type AskRespond =
+  | {
+      requestId: string
+      type: 'answered'
+      // key = 질문 텍스트, value = 선택 label(단일) / label[] (다중) / 자유입력 텍스트(기타).
+      answers: Record<string, string | string[]>
+      // 사용자가 질문 카드를 닫고 일반 회신을 입력한 경우만.
+      response?: string
+    }
+  | { requestId: string; type: 'skipped' }
+
+// 어댑터가 받는 중립 결과 (requestId 제거판). claude-code 어댑터가 canUseTool 반환값으로 매핑.
+export type AskResult =
+  | { type: 'answered'; answers: Record<string, string | string[]>; response?: string }
+  | { type: 'skipped' }
+
+// plan 모드 계획 검토 (백엔드 중립). 어댑터가 자기 plan-승인 메커니즘(claude-code 는
+// ExitPlanMode/canUseTool)에서 이 형태로 매핑한다 — 렌더러·IPC·reducer 는 SDK 를 모른다.
+export interface PlanReviewRequest {
+  requestId: string
+  // 에이전트가 제출한 계획 (마크다운). 렌더러가 카드로 렌더.
+  plan: string
+}
+
+// renderer → main 응답 (planRespond 채널).
+// approved=실행 / rejected=중단(재제안 금지) / revise=피드백 반영해 재작성.
+export type PlanRespond =
+  | { requestId: string; type: 'approved' }
+  | { requestId: string; type: 'rejected' }
+  | { requestId: string; type: 'revise'; feedback: string }
+
+// 어댑터가 받는 중립 결과 (requestId 제거판).
+export type PlanDecision =
+  | { type: 'approved' }
+  | { type: 'rejected' }
+  | { type: 'revise'; feedback: string }
 
 // IPC payloads (TRD §5.2 의 활성 부분)
 export interface SendChatMessage {
@@ -73,7 +142,13 @@ export interface SendChatMessage {
   // main 이 sessionId → project_id → instructions 를 DB 에서 직접 조회한다.
   projectId: string | null
   text: string
+  // 이 턴에 적용할 권한 모드 (Composer 모드 버튼). 부재 시 main 이 기본값(plan) 적용.
+  permissionMode?: PermissionMode
 }
+
+// Composer 권한 모드 버튼이 노출하는 두 모드. SDK PermissionMode 의 부분집합 —
+// 'plan'(읽기 전용·계획) / 'acceptEdits'(파일 편집 자동 수락).
+export type PermissionMode = 'plan' | 'acceptEdits'
 
 export interface CancelChat {
   sessionId: string

@@ -45,13 +45,22 @@ function isLang(s: string): s is (typeof LANGUAGES)[number] {
 interface CodeBlockProps {
   code: string
   lang?: string
+  // shiki 의 줄별 `<span class="line">` 에 CSS 카운터로 라인넘버 거터를 붙인다(Read 등).
+  showLineNumbers?: boolean
 }
+
+// shiki `.line` 스팬에 라인넘버 ::before 거터. 새 CSS 없이 Tailwind arbitrary 유틸로만.
+const LINE_NUMBER_CLASSES =
+  '[&_code]:[counter-reset:line] ' +
+  '[&_.line]:before:[content:counter(line)] [&_.line]:before:[counter-increment:line] ' +
+  '[&_.line]:before:mr-4 [&_.line]:before:inline-block [&_.line]:before:w-6 ' +
+  '[&_.line]:before:text-right [&_.line]:before:text-ink3 [&_.line]:before:select-none'
 
 /** shiki 비동기 로드 — 첫 마운트 시 plain pre fallback, 로드 후 HTML 교체.
  *  html state 에 어떤 (code, lang, theme) 에 대해 계산됐는지를 함께 저장 —
  *  입력이 바뀌면 자연히 stale 로 간주해 fallback 렌더. 동기 setState 가 없어
  *  `react-hooks/set-state-in-effect` rule 위반을 피한다. */
-export function CodeBlock({ code, lang }: CodeBlockProps): React.JSX.Element {
+export function CodeBlock({ code, lang, showLineNumbers }: CodeBlockProps): React.JSX.Element {
   const theme = useThemeId()
   const safeLang = lang && isLang(lang) ? lang : 'text'
   const [hl, setHl] = useState<{
@@ -96,7 +105,10 @@ export function CodeBlock({ code, lang }: CodeBlockProps): React.JSX.Element {
     return (
       <div className="group/codeblock my-2 overflow-hidden rounded-lg border border-border [&_pre]:m-0 [&_pre]:overflow-auto [&_pre]:p-3 [&_pre]:text-[12.5px] [&_pre]:leading-[1.55]">
         {header}
-        <div dangerouslySetInnerHTML={{ __html: html }} />
+        <div
+          className={showLineNumbers ? LINE_NUMBER_CLASSES : undefined}
+          dangerouslySetInnerHTML={{ __html: html }}
+        />
       </div>
     )
   }

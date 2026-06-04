@@ -5,7 +5,8 @@ import {
   type CachedSession,
   type ChatState
 } from '../reducer/chatReducer'
-import { chatApi, sessionApi, settingsApi } from '../../../shared/api/ipc'
+import { askApi, chatApi, planApi, sessionApi, settingsApi } from '../../../shared/api/ipc'
+import type { PermissionMode } from '../../../../../shared/ipc'
 
 export interface UseChat {
   state: ChatState
@@ -24,6 +25,25 @@ export interface UseChat {
   // 외부에서 세션이 삭제됐을 때 chat-side 정리 — 캐시 invalidation + 활성 세션이면
   // 새 채팅으로 reset. project 컨텍스트가 있으면 그 프로젝트로 새 채팅을 시작.
   handleSessionDeleted: (sessionId: string, fallbackProjectId?: string | null) => void
+  // AskUserQuestion 응답 — 사용자의 선택을 main(broker)으로 회신하고 카드를 큐에서 제거.
+  answerAsk: (
+    requestId: string,
+    answers: Record<string, string | string[]>,
+    response?: string
+  ) => void
+  // AskUserQuestion 건너뛰기 — main 이 deny 로 매핑해 Claude 가 스스로 진행.
+  skipAsk: (requestId: string) => void
+  // Composer 모드 버튼 — 이 대화의 권한 모드 선택 (계획 / 편집 수락).
+  setPermissionMode: (mode: PermissionMode) => void
+  // plan 모드 계획 카드 — 승인(실행) / 수정 제안(피드백 반영 재작성) / 거부(턴 중단).
+  approvePlan: (requestId: string) => void
+  revisePlan: (requestId: string, feedback: string) => void
+  rejectPlan: (requestId: string) => void
+  // 우측 계획 타일 — 헤더 토글 / 닫기 X / 열기(승인 카드 '플랜 열기') / 분리선 드래그 폭 조절.
+  togglePlanTile: () => void
+  openPlanTile: () => void
+  closePlanTile: () => void
+  setPlanTileWidth: (width: number) => void
 }
 
 export function useChat(): UseChat {
@@ -120,10 +140,11 @@ export function useChat(): UseChat {
       void chatApi.send({
         sessionId: state.sessionId,
         projectId: state.sessionId ? null : state.pendingProjectId,
-        text: trimmed
+        text: trimmed,
+        permissionMode: state.permissionMode
       })
     },
-    [state.sessionId, state.inflight, state.pendingProjectId]
+    [state.sessionId, state.inflight, state.pendingProjectId, state.permissionMode]
   )
 
   const cancel = useCallback(() => {
@@ -166,6 +187,66 @@ export function useChat(): UseChat {
     []
   )
 
+  const answerAsk = useCallback(
+    (requestId: string, answers: Record<string, string | string[]>, response?: string): void => {
+      void askApi.respond({
+        requestId,
+        type: 'answered',
+        answers,
+        ...(response !== undefined ? { response } : {})
+      })
+      dispatch({ type: 'RESOLVE_ASK', requestId })
+    },
+    []
+  )
+
+  const skipAsk = useCallback((requestId: string): void => {
+    void askApi.respond({ requestId, type: 'skipped' })
+    dispatch({ type: 'RESOLVE_ASK', requestId })
+  }, [])
+
+  const setPermissionMode = useCallback((mode: PermissionMode): void => {
+    dispatch({ type: 'SET_PERMISSION_MODE', mode })
+  }, [])
+
+  const approvePlan = useCallback((requestId: string): void => {
+    void planApi.respond({ requestId, type: 'approved' })
+    dispatch({ type: 'RESOLVE_PLAN' })
+    // 승인 = plan 모드 종료. 칩을 '편집 수락'으로 전환 → 다음 턴이 plan 모드로 재진입하지
+    // 않아 ExitPlanMode 재호출(단순 질문 시 계획 카드 재출현)을 막는다.
+    dispatch({ type: 'SET_PERMISSION_MODE', mode: 'acceptEdits' })
+  }, [])
+
+  const revisePlan = useCallback((requestId: string, feedback: string): void => {
+    const trimmed = feedback.trim()
+    if (trimmed === '') return
+    void planApi.respond({ requestId, type: 'revise', feedback: trimmed })
+    dispatch({ type: 'RESOLVE_PLAN' })
+  }, [])
+
+  const rejectPlan = useCallback((requestId: string): void => {
+    void planApi.respond({ requestId, type: 'rejected' })
+    // 거부는 턴 중단 — 카드 제거 + inflight 종료(main 이 turn abort, result 이벤트 없음).
+    dispatch({ type: 'RESOLVE_PLAN' })
+    dispatch({ type: 'CANCEL_CHAT' })
+  }, [])
+
+  const togglePlanTile = useCallback((): void => {
+    dispatch({ type: 'TOGGLE_PLAN_TILE' })
+  }, [])
+
+  const openPlanTile = useCallback((): void => {
+    dispatch({ type: 'SET_PLAN_TILE_OPEN', open: true })
+  }, [])
+
+  const closePlanTile = useCallback((): void => {
+    dispatch({ type: 'SET_PLAN_TILE_OPEN', open: false })
+  }, [])
+
+  const setPlanTileWidth = useCallback((width: number): void => {
+    dispatch({ type: 'SET_PLAN_TILE_WIDTH', width })
+  }, [])
+
   return {
     state,
     send,
@@ -175,6 +256,16 @@ export function useChat(): UseChat {
     loadSession,
     renameSession,
     invalidateSessionCache,
-    handleSessionDeleted
+    handleSessionDeleted,
+    answerAsk,
+    skipAsk,
+    setPermissionMode,
+    approvePlan,
+    revisePlan,
+    rejectPlan,
+    togglePlanTile,
+    openPlanTile,
+    closePlanTile,
+    setPlanTileWidth
   }
 }
