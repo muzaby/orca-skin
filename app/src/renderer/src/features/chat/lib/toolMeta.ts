@@ -109,6 +109,16 @@ export function toolDescription(call: ToolCall): string {
       if (fp) return basename(fp)
       break
     }
+    case 'Bash':
+    case 'PowerShell': {
+      // description 이 없으면 명령 자체로 작업을 식별 (도구명 "Bash" 보다 유용).
+      const command = stringField(rec, 'command')
+      if (command) {
+        const firstLine = command.split('\n')[0].trim()
+        return firstLine.length > 80 ? `${firstLine.slice(0, 80)}…` : firstLine
+      }
+      break
+    }
     case 'Glob':
     case 'Grep': {
       const pattern = stringField(rec, 'pattern')
@@ -166,7 +176,12 @@ export function toolDiffStat(call: ToolCall): { added: number; removed: number }
 // 그룹 요약 세그먼트 — 카테고리별 카운트 + 에러 여부(렌더에서 동사를 빨강 처리).
 export interface ToolGroupSegment {
   category: VerbCategory
+  /** 합쳐진 라벨 ("실행됨 명령 2개") — 문자열 요약용. */
   text: string
+  /** 동사 라벨만 ("실행됨") — 헤더 span 분리 렌더용. */
+  verb: string
+  /** 단위+카운트만 ("명령 2개") — 단위 없는 카테고리(planned)는 null. */
+  count: string | null
   hasError: boolean
 }
 
@@ -185,8 +200,10 @@ export function toolGroupSegments(calls: ToolCall[]): ToolGroupSegment[] {
     if (!n) continue
     const unit = UNIT_LABEL[cat]
     // 단위 없는 카테고리(planned)는 카운트 없이 명사 라벨만
-    const text = unit == null ? VERB_LABEL[cat] : `${VERB_LABEL[cat]} ${unit} ${n}개`
-    segments.push({ category: cat, text, hasError: errors.get(cat) === true })
+    const verb = VERB_LABEL[cat]
+    const count = unit == null ? null : `${unit} ${n}개`
+    const text = count == null ? verb : `${verb} ${count}`
+    segments.push({ category: cat, text, verb, count, hasError: errors.get(cat) === true })
   }
   return segments
 }

@@ -4,9 +4,6 @@ import { CopyIconButton } from '../../../shared/ui/CopyIconButton'
 import { Markdown } from './markdown/Markdown'
 import type { UseChat } from '../hooks/useChat'
 
-const ICON_BTN =
-  'grid h-7 w-7 cursor-default place-items-center rounded-r4 border-0 bg-transparent text-t6 outline-none hide-focus-ring ring-focus hover:bg-fill-uncontained-hover hover:text-t7'
-
 interface PlanTileProps {
   chat: UseChat
 }
@@ -23,7 +20,7 @@ export function PlanTile({ chat }: PlanTileProps): React.JSX.Element {
       <div className="app-frame-tile-header flex items-center gap-2 border-b border-t5 px-4 pb-2.5 pt-3.5">
         <span className="font-serif text-[15px] font-semibold tracking-tight text-t9">계획</span>
         <div className="ml-auto flex items-center gap-g2">
-          <CopyIconButton text={state.planContent ?? ''} title="플랜 복사" className={ICON_BTN} />
+          <CopyIconButton text={state.planContent ?? ''} title="플랜 복사" />
           <Button
             iconOnly
             size="small"

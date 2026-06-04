@@ -70,8 +70,12 @@ describe('toolDescription', () => {
     ).toBe('배포 방식')
   })
 
+  it('Bash 는 description 없으면 명령 첫 줄로 폴백', () => {
+    expect(toolDescription(call('Bash', { command: 'ls' }))).toBe('ls')
+    expect(toolDescription(call('Bash', { command: 'npm test\nnpm run build' }))).toBe('npm test')
+  })
+
   it('서술을 못 찾으면 도구 이름으로 폴백', () => {
-    expect(toolDescription(call('Bash', { command: 'ls' }))).toBe('Bash')
     expect(toolDescription(call('Unknown', null))).toBe('Unknown')
   })
 })

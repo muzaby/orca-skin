@@ -6,18 +6,17 @@ import type { ToolCall } from '../../../reducer/chatReducer'
 function Row({ row }: { row: DiffRow }): React.JSX.Element {
   const marker = row.type === 'add' ? '+' : row.type === 'del' ? '-' : ' '
   const bg = row.type === 'add' ? 'bg-good/10' : row.type === 'del' ? 'bg-bad/10' : ''
-  const markerTone =
-    row.type === 'add' ? 'text-good' : row.type === 'del' ? 'text-bad' : 'text-ink3'
+  const markerTone = row.type === 'add' ? 'text-good' : row.type === 'del' ? 'text-bad' : 'text-t6'
   return (
     <div className={`flex ${bg}`}>
-      <span className="w-10 shrink-0 select-none px-1 text-right text-ink3 tabular-nums">
+      <span className="w-10 shrink-0 select-none px-1 text-right text-t6 tabular-nums">
         {row.oldNo ?? ''}
       </span>
-      <span className="w-10 shrink-0 select-none px-1 text-right text-ink3 tabular-nums">
+      <span className="w-10 shrink-0 select-none px-1 text-right text-t6 tabular-nums">
         {row.newNo ?? ''}
       </span>
       <span className={`w-4 shrink-0 select-none text-center ${markerTone}`}>{marker}</span>
-      <span className="whitespace-pre-wrap break-words text-ink">{row.text || ' '}</span>
+      <span className="whitespace-pre-wrap break-words text-t9">{row.text || ' '}</span>
     </div>
   )
 }
@@ -54,17 +53,14 @@ export function DiffBody({ call }: { call: ToolCall }): React.JSX.Element {
 
   return (
     <div className="flex flex-col gap-2">
-      {filePath && <div className="text-[11.5px] text-ink2">{filePath}</div>}
+      {filePath && <div className="text-caption text-t6">{filePath}</div>}
       {hunks.length === 0 ? (
-        <pre className="m-0 overflow-auto whitespace-pre-wrap break-words text-ink">
+        <pre className="m-0 overflow-auto whitespace-pre-wrap break-words text-code text-t9">
           {stringify(call.input)}
         </pre>
       ) : (
         hunks.map((rows, hi) => (
-          <div
-            key={hi}
-            className="overflow-hidden rounded-[8px] border border-border text-[12px] leading-[1.55]"
-          >
+          <div key={hi} className="overflow-hidden rounded-r4 border border-t5 font-mono text-code">
             {rows.map((row, ri) => (
               <Row key={ri} row={row} />
             ))}

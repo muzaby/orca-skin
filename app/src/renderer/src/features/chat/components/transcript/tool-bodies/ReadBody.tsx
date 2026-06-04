@@ -14,11 +14,11 @@ export function ReadBody({ call }: { call: ToolCall }): React.JSX.Element {
 
   return (
     <div className="flex flex-col gap-2">
-      {filePath && <div className="text-[11.5px] text-ink2">{filePath}</div>}
+      {filePath && <div className="text-caption text-t6">{filePath}</div>}
       {call.result && content.trim() !== '' ? (
-        <CodeBlock code={stripLineNumberGutter(content)} lang={lang} showLineNumbers />
+        <CodeBlock code={stripLineNumberGutter(content)} lang={lang} showLineNumbers embedded />
       ) : (
-        <pre className="m-0 overflow-auto whitespace-pre-wrap break-words text-ink">
+        <pre className="m-0 overflow-auto whitespace-pre-wrap break-words text-code text-t9">
           {stringify(call.input)}
         </pre>
       )}
