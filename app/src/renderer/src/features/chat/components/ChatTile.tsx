@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { Icon } from '../../../shared/ui/Icon'
+import { Button } from '../../../shared/ui/Button'
 import { Dot } from '../../../shared/ui/Status'
 import { ReadingColumn } from '../../../shared/ui/ReadingColumn'
 import { useDragResize } from '../../../shared/hooks/useDragResize'
@@ -13,7 +14,7 @@ import { PLAN_TILE_MIN_WIDTH, PLAN_TILE_MAX_WIDTH } from '../reducer/chatReducer
 import type { UseChat } from '../hooks/useChat'
 
 const ICON_BTN =
-  'grid h-7 w-7 cursor-pointer place-items-center rounded-md border-0 bg-transparent text-ink2'
+  'grid h-7 w-7 cursor-default place-items-center rounded-r4 border-0 bg-transparent text-t6 outline-none hide-focus-ring ring-focus transition-colors hover:bg-fill-uncontained-hover hover:text-t7'
 
 interface ChatTileProps {
   chat: UseChat
@@ -84,15 +85,15 @@ export function ChatTile({ chat, backendLabel }: ChatTileProps): React.JSX.Eleme
               <button className={ICON_BTN} title="설정">
                 <Icon name="settings" size={14} />
               </button>
-              <button
-                type="button"
+              <Button
+                iconOnly
+                size="small"
+                leadingIcon="panelR"
                 onClick={chat.togglePlanTile}
-                aria-pressed={state.planTileOpen}
-                className={`${ICON_BTN} ${state.planTileOpen ? 'text-rust' : ''}`}
+                pressed={state.planTileOpen}
                 title="계획 패널"
-              >
-                <Icon name="panelR" size={14} />
-              </button>
+                aria-label="계획 패널"
+              />
             </div>
           </div>
 

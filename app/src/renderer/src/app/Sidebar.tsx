@@ -121,11 +121,12 @@ function SidebarImpl({ sessionsSlot, footerSlot }: SidebarProps): React.JSX.Elem
           {NAV.map((it) => {
             const isActive = it.isActive(pathname)
             return (
-              <div
+              <button
                 key={it.path}
+                type="button"
                 onClick={() => navigate(it.path)}
                 aria-current={isActive ? 'page' : undefined}
-                className={`flex cursor-default items-center gap-g4 rounded-r4 px-2.5 py-1.5 text-footnote transition-colors ${
+                className={`flex w-full cursor-default items-center gap-g4 rounded-r4 border-0 bg-transparent px-2.5 py-1.5 text-left text-footnote outline-none hide-focus-ring ring-focus transition-colors ${
                   isActive
                     ? 'bg-fill-uncontained-active font-medium text-t9'
                     : 'text-t6 hover:bg-fill-uncontained-hover hover:text-t7'
@@ -133,7 +134,7 @@ function SidebarImpl({ sessionsSlot, footerSlot }: SidebarProps): React.JSX.Elem
               >
                 <Icon name={it.i} size={14} />
                 <span>{it.l}</span>
-              </div>
+              </button>
             )
           })}
         </nav>
