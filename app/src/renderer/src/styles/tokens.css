@@ -79,6 +79,7 @@
 
   /* Surfaces + assistant text */
   --color-surface-primary-elevated: var(--color-panel);
+  --color-surface-prompt-blur: color-mix(in srgb, var(--color-panel) 78%, transparent);
   --color-text-assistant-primary: var(--color-ink);
   --color-text-assistant-secondary: var(--color-ink2);
 

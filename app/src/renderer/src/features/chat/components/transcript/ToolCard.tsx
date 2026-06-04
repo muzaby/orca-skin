@@ -33,7 +33,16 @@ function ToolBody({ call }: { call: ToolCall }): React.JSX.Element {
   }
 }
 
-export function ToolCard({ call }: { call: ToolCall }): React.JSX.Element {
+// 전략문서 5.4 양식 — 카드가 아니라 *행*. 동사→이름→diff→chevron(마지막).
+// 펼침 본문(코드/diff)만 recessed 블록. `inGroup` 이면 그룹 카드(bg-bg) 위라
+// 본문은 테두리로만 구분, standalone 이면 본문이 bg-bg recessed.
+export function ToolCard({
+  call,
+  inGroup = false
+}: {
+  call: ToolCall
+  inGroup?: boolean
+}): React.JSX.Element {
   const [open, setOpen] = useState(false)
   const done = call.result != null
   const isError = call.result?.isError === true
@@ -46,52 +55,62 @@ export function ToolCard({ call }: { call: ToolCall }): React.JSX.Element {
   const duration =
     call.result?.durationMs != null ? ` · ${(call.result.durationMs / 1000).toFixed(1)}s` : ''
   return (
-    <div className="overflow-hidden rounded-r6 border border-t5 bg-t1 text-footnote text-t9">
-      {/* 헤더: [동사] [친화적 서술] (+N-M) — 도구 이름·raw·상태는 본문으로 (Claude Code 양식) */}
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="group/tool flex w-full cursor-default items-center gap-g4 border-0 bg-transparent px-p6 py-p4 text-left font-sans outline-none hide-focus-ring ring-focus"
+    <div className="flex flex-col">
+      {/* 행: [동사] [서술] (+N-M) [chevron] — chevron 은 마지막 (전략 5.4) */}
+      <div
+        role="button"
+        tabIndex={0}
         aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            setOpen((v) => !v)
+          }
+        }}
+        className="group/tool flex max-w-full cursor-pointer items-center gap-g2 self-start text-left text-body text-t6 outline-none hide-focus-ring ring-focus"
       >
         <span
-          aria-hidden
-          className="shrink-0 text-t6 transition-transform"
-          style={{ transform: open ? 'rotate(90deg)' : undefined }}
-        >
-          <Icon name="chevR" size={12} />
-        </span>
-        <span
-          className={`font-medium ${
-            isError ? 'text-rust' : done ? 'text-t6 group-hover/tool:text-t7' : 'epitaxy-text-shine'
+          className={`shrink-0 ${
+            isError ? 'text-rust' : done ? 'group-hover/tool:text-t9' : 'epitaxy-text-shine'
           }`}
         >
           {verb}
         </span>
         {!done && <span className="sr-only">실행 중</span>}
-        {/* 서술 + diff-stat 을 한 묶음으로 — '생성됨 <파일> +99' 처럼 서술 바로 뒤에 붙는다. */}
-        <span className="flex min-w-0 flex-1 items-center gap-g3">
-          <span className="min-w-0 truncate text-t6">{description}</span>
-          {stat && (stat.added > 0 || stat.removed > 0) && (
-            <span className="shrink-0 font-mono text-caption tabular-nums">
-              {stat.added > 0 && <span className="text-extended-green">+{stat.added}</span>}
-              {stat.removed > 0 && <span className="ml-1 text-extended-pink">-{stat.removed}</span>}
-            </span>
-          )}
+        <span className="min-w-0 truncate group-hover/tool:text-t9">{description}</span>
+        {stat && (stat.added > 0 || stat.removed > 0) && (
+          <span className="shrink-0 font-mono text-caption tabular-nums">
+            {stat.added > 0 && <span className="text-extended-green">+{stat.added}</span>}
+            {stat.removed > 0 && <span className="ml-1 text-extended-pink">-{stat.removed}</span>}
+          </span>
+        )}
+        <span
+          aria-hidden
+          className="shrink-0 transition-transform"
+          style={{ transform: open ? 'rotate(90deg)' : undefined }}
+        >
+          <Icon name="chevR" size={12} />
         </span>
-      </button>
+      </div>
       {open && (
-        <div className="border-t border-t5 px-p6 py-p4 font-mono text-footnote">
-          <div className="mb-g4 flex items-center gap-g3 font-sans text-caption text-t6">
-            <span className={`font-semibold ${isError ? 'text-rust' : 'text-t6'}`}>
-              {call.name}
-            </span>
-            <span>
-              {statusLabel}
-              {duration}
-            </span>
+        <div
+          className={`mt-g2 overflow-hidden rounded-r4 font-mono text-footnote text-t9 ${
+            inGroup ? 'border border-t5' : 'bg-bg'
+          }`}
+        >
+          <div className="px-p5 py-p4">
+            <div className="mb-g3 flex items-center gap-g3 font-sans text-caption text-t6">
+              <span className={`font-semibold ${isError ? 'text-rust' : 'text-t7'}`}>
+                {call.name}
+              </span>
+              <span>
+                {statusLabel}
+                {duration}
+              </span>
+            </div>
+            <ToolBody call={call} />
           </div>
-          <ToolBody call={call} />
         </div>
       )}
     </div>

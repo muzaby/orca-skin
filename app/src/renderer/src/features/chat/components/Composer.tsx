@@ -212,7 +212,7 @@ export function Composer({ chat, backendLabel }: ComposerProps): React.JSX.Eleme
           <PlanApprovalCard key={state.pendingPlanReview.requestId} chat={chat} />
         ) : (
           <div
-            className="epitaxy-prompt rounded-r7 border border-t5 bg-surface-primary-elevated px-3 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,.03)]"
+            className="epitaxy-prompt rounded-r7 bg-surface-prompt-blur effect-prompt-blur px-3 py-2.5"
             data-surface="prompt"
           >
             <div

@@ -18,7 +18,7 @@ export function PlanTile({ chat }: PlanTileProps): React.JSX.Element {
   const { state, closePlanTile } = chat
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col bg-bg" data-context="plan">
+    <div className="flex min-h-0 flex-1 flex-col" data-context="plan">
       {/* 헤더 — 채팅 타일 titlebar 와 동일한 높이/패딩 */}
       <div className="app-frame-tile-header flex items-center gap-2 border-b border-t5 px-4 pb-2.5 pt-3.5">
         <span className="font-serif text-[15px] font-semibold tracking-tight text-t9">계획</span>
