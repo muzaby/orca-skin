@@ -1,5 +1,4 @@
-import ReactDiffViewer from 'react-diff-viewer-continued'
-import { diffLines as jsDiffLines } from 'diff'
+import { diffLines } from 'diff'
 import { stringify } from '../../../format'
 import type { ToolCall } from '../../../reducer/chatReducer'
 
@@ -8,8 +7,6 @@ interface DiffPair {
   newValue: string
 }
 
-// Write/Edit/MultiEdit input → 비교 쌍(들). Write 는 신규 생성('' → content),
-// Edit 은 단일 쌍, MultiEdit 은 edit 별로 분리.
 function buildPairs(call: ToolCall): DiffPair[] {
   const rec = call.input as Record<string, unknown> | null
   if (!rec || typeof rec !== 'object') return []
@@ -34,55 +31,97 @@ function buildPairs(call: ToolCall): DiffPair[] {
   return []
 }
 
-// 색 변수는 light/dark 동형 — 테마는 `data-theme` 의 CSS 변수가 자동 재정의하므로
-// 라이브러리의 light/dark 분기와 무관하게 같은 토큰 var() 를 양쪽에 매핑한다.
-const DIFF_VARS = {
-  diffViewerBackground: 'transparent',
-  diffViewerColor: 'var(--color-t9)',
-  addedBackground: 'color-mix(in srgb, var(--color-good) 14%, transparent)',
-  addedColor: 'var(--color-t9)',
-  removedBackground: 'color-mix(in srgb, var(--color-bad) 14%, transparent)',
-  removedColor: 'var(--color-t9)',
-  wordAddedBackground: 'color-mix(in srgb, var(--color-good) 32%, transparent)',
-  wordRemovedBackground: 'color-mix(in srgb, var(--color-bad) 32%, transparent)',
-  addedGutterBackground: 'color-mix(in srgb, var(--color-good) 18%, transparent)',
-  removedGutterBackground: 'color-mix(in srgb, var(--color-bad) 18%, transparent)',
-  gutterBackground: 'transparent',
-  gutterColor: 'var(--color-t6)',
-  addedGutterColor: 'var(--color-t6)',
-  removedGutterColor: 'var(--color-t6)',
-  codeFoldBackground: 'var(--color-bg)',
-  codeFoldGutterBackground: 'var(--color-bg)',
-  codeFoldContentColor: 'var(--color-t6)',
-  emptyLineBackground: 'transparent',
-  highlightBackground: 'transparent',
-  highlightGutterBackground: 'transparent'
+interface DiffLine {
+  type: 'added' | 'removed' | 'unchanged'
+  lineNo: number
+  text: string
 }
 
-const DIFF_STYLES = {
-  variables: { light: DIFF_VARS, dark: DIFF_VARS },
-  contentText: { fontFamily: 'var(--font-mono)', fontSize: 'var(--text-code)' }
+function buildDiffLines(oldValue: string, newValue: string): DiffLine[] {
+  const hunks = diffLines(oldValue, newValue)
+  const result: DiffLine[] = []
+  let oldLine = 1
+  let newLine = 1
+
+  for (const hunk of hunks) {
+    const lines = hunk.value.split('\n')
+    // diffLines includes trailing empty string when value ends with \n
+    if (lines[lines.length - 1] === '') lines.pop()
+
+    if (hunk.removed) {
+      for (const text of lines) {
+        result.push({ type: 'removed', lineNo: oldLine++, text })
+      }
+    } else if (hunk.added) {
+      for (const text of lines) {
+        result.push({ type: 'added', lineNo: newLine++, text })
+      }
+    } else {
+      for (const text of lines) {
+        result.push({ type: 'unchanged', lineNo: newLine, text })
+        oldLine++
+        newLine++
+      }
+    }
+  }
+
+  return result
 }
 
-// 인라인 뷰는 기본적으로 라인넘버 gutter 를 old/new 2개 렌더한다. `hideLineNumbers` 로 둘 다
-// 끄고 `renderGutter` 로 단일 gutter 를 그려 행마다 해당 줄 번호(제거행=old, 추가행=new)를
-// 한 컬럼에 표시한다. colgroup 도 [gutter, marker, content] 3열로 자동 정렬돼 본문 열이 보존된다.
-function renderGutter({
-  lineNumber,
-  additionalLineNumber
-}: {
-  // 라이브러리 타입은 number 지만 런타임상 추가행은 lineNumber=null 을 넘긴다.
-  lineNumber: number | null
-  additionalLineNumber?: number | null
-}): React.JSX.Element {
+function DiffTable({ oldValue, newValue }: DiffPair): React.JSX.Element {
+  const lines = buildDiffLines(oldValue, newValue)
+
   return (
-    <td className="select-none whitespace-nowrap px-2 text-right align-baseline text-t6 tabular-nums">
-      <pre className="m-0 text-code opacity-60">{lineNumber ?? additionalLineNumber ?? ''}</pre>
-    </td>
+    <table
+      className="w-full border-collapse font-mono"
+      style={{ userSelect: 'text', WebkitUserSelect: 'text' }}
+    >
+      <colgroup>
+        <col style={{ width: '3em' }} />
+        <col style={{ width: '1.4em' }} />
+        <col />
+      </colgroup>
+      <tbody>
+        {lines.map((line, i) => {
+          const isAdded = line.type === 'added'
+          const isRemoved = line.type === 'removed'
+          const rowBg = isAdded
+            ? 'bg-[color-mix(in_srgb,var(--color-good)_14%,transparent)]'
+            : isRemoved
+              ? 'bg-[color-mix(in_srgb,var(--color-bad)_14%,transparent)]'
+              : ''
+          const gutterBg = isAdded
+            ? 'bg-[color-mix(in_srgb,var(--color-good)_18%,transparent)]'
+            : isRemoved
+              ? 'bg-[color-mix(in_srgb,var(--color-bad)_18%,transparent)]'
+              : 'bg-transparent'
+          return (
+            <tr key={i} className={rowBg}>
+              <td
+                className={`select-none whitespace-nowrap px-2 text-right align-baseline tabular-nums ${gutterBg}`}
+              >
+                <pre className="m-0 text-code text-t6 opacity-60">{line.lineNo}</pre>
+              </td>
+              <td
+                className={`select-none px-1 text-center align-baseline ${gutterBg}`}
+              >
+                <pre className="m-0 text-code text-t6">
+                  {isAdded ? '+' : isRemoved ? '-' : ' '}
+                </pre>
+              </td>
+              <td className="px-2 align-baseline">
+                <pre className="m-0 whitespace-pre-wrap break-all text-code text-t9">
+                  {line.text}
+                </pre>
+              </td>
+            </tr>
+          )
+        })}
+      </tbody>
+    </table>
   )
 }
 
-// Write/Edit/MultiEdit 본문 — jsdiff + react-diff-viewer-continued 통합(inline) diff.
 export function DiffBody({ call }: { call: ToolCall }): React.JSX.Element {
   const pairs = buildPairs(call)
 
@@ -95,19 +134,7 @@ export function DiffBody({ call }: { call: ToolCall }): React.JSX.Element {
       ) : (
         pairs.map((p, i) => (
           <div key={i} className="overflow-auto rounded-r4 border border-t5">
-            <ReactDiffViewer
-              oldValue={p.oldValue}
-              newValue={p.newValue}
-              splitView={false}
-              showDiffOnly
-              hideSummary
-              hideLineNumbers
-              renderGutter={renderGutter}
-              disableWorker
-              compareMethod={jsDiffLines}
-              useDarkTheme={false}
-              styles={DIFF_STYLES}
-            />
+            <DiffTable oldValue={p.oldValue} newValue={p.newValue} />
           </div>
         ))
       )}
