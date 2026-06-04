@@ -415,7 +415,7 @@ type ModelProviderConfig =
 
 | Capability | 탐지 방법 |
 |---|---|
-| OpenCode direct API 존재 | SDK client 메서드 존재 / `types.gen.ts` |
+| OpenCode direct API 존재 (`DirectBackendCapabilities` §17) | SDK client 메서드 존재 / `types.gen.ts` |
 | OpenCode provider 목록 / agents / health | `config.providers()` / `app.agents()` / `global.health()` `[검증]` |
 | Claude session 기능 | SDK 타입 / options 지원 여부 `[미확인]` |
 | Claude permission modes | `setPermissionMode` 호출 가능 여부 |
@@ -434,3 +434,98 @@ App file.read      → (read_only, policy 'pass')                  → 프롬프
 ```
 
 > Test Matrix 축(Provider × Session × Permission × Direct command × File × Search × Stream × UI × Telemetry)은 구현 PR 에서 §13 의 `[미확인]` 확정 후 채운다.
+
+## 17. DirectBackendAPI — capability-gated optional layer
+
+**① 설명.** provider 대칭이 아니다. OpenCode 는 `find.*`/`file.*`/`session.*` 직접 API 가 풍부하나 `[검증]`, Claude 는 disk 세션 + `continue`/`resume`/`fork` 만 제공하고 OpenCode식 `find.*`/`file.read` 직접 API 는 공식 미확인 `[미확인]`. 따라서 DirectBackendAPI 는 **공통 필수가 아니라 capability 기반 optional** 이다 — §15 probe 결과가 `false` 면 UI 가 해당 액션 버튼을 사전 비활성/숨김(사후 `capability_unsupported` 에러보다 UX 우월).
+
+**② 예시.** OpenCode `find.files({ type:'file'|'directory', directory, limit:1–200 })` `[검증]`, `file.read` → `{ type:'raw'|'patch', content }` `[검증]`(렌더 분기는 ../frontend/rendering.md §1.6 — `raw`→FilePreviewCard / `patch`→DiffCard). `find.text/files/symbols` 는 agent tool result 일 수도, app-originated direct search(§3 AppCommandPolicy `read_only`)일 수도 있어 `origin` 배지로 구분. Claude 세션에선 이 버튼들이 숨겨진다.
+
+**③ 현재 코드 갭.** 없음(claude 단독 — OpenCode 어댑터 도입 시 노출). §15 가 "OpenCode direct API 존재"를 *탐지*만 언급하고 타입은 본 절이 정본.
+
+**④ 인터페이스 (정본).**
+
+```ts
+interface DirectBackendCapabilities {
+  findText?: boolean
+  findFiles?: boolean        // 옵션: type('file'|'directory'), directory(검색 루트 override), limit(1–200) [검증]
+  findSymbols?: boolean
+  fileReadRaw?: boolean      // file.read { type:'raw' }
+  fileReadPatch?: boolean    // file.read { type:'patch' }
+  fileStatus?: boolean
+  sessionChildren?: boolean
+  conversationRevert?: boolean
+  conversationUnrevert?: boolean
+  contextInjectionNoReply?: boolean  // session.prompt({ noReply:true }) → context-only UserMessage [검증]
+  structuredOutput?: boolean         // session.prompt({ format:{ type:'json_schema', schema, retryCount? } }) [검증]
+}
+```
+
+> OpenCode 측은 `[검증]`, Claude 대응(`find.*`/`file.read` 직접 API)은 공식 미확인 `[미확인]`(§13). DirectBackendAPI 노출 여부는 §15 CapabilityProbe 가 결정.
+
+## 18. WorkspaceManager — cwd / allowed dirs / sandbox scope
+
+**① 설명.** 작업 경로·허용 디렉토리·파일 컨텍스트·sandbox 범위를 한 곳에서 관리한다. provider 호출 직전 cwd/allowed-dirs 를 주입하고, app-originated direct file 접근(§3 AppCommandPolicy)의 경계를 정한다.
+
+**② 예시.** "이 세션은 `~/proj` 와 그 하위만 접근" → WorkspaceManager 가 allowed dirs 게이트. Electron `sandbox:true`([security.md](./security.md) §1)와 결합해 파일 mutation 범위를 워크스페이스로 제한.
+
+**③ 현재 코드 갭.** cwd 는 `AppSession.cwd`(§7) + `init` 이벤트(§2)로만 흐르고, allowed-dirs/file-context 정규 추상 없음. Electron `sandbox:true`(security.md §1)는 *프로세스 수준* 격리일 뿐 워크스페이스 범위 추상이 아니다.
+
+**④ 인터페이스 (정본).**
+
+```ts
+interface WorkspaceManager {
+  cwd(sessionId: string): string
+  allowedDirs(sessionId: string): string[]
+  isWithinScope(sessionId: string, path: string): boolean   // app-originated file 접근 게이트 (§3)
+}
+```
+
+## 19. ConfigManager — Claude options ↔ OpenCode config merge
+
+**① 설명.** provider 별 런타임 옵션 표면을 병합한다. Claude 는 `options`(model/permissionMode/cwd/env…), OpenCode 는 서버 `config`(`config.get`/`config.providers`)를 갖는다 `[검증]`. ConfigManager 는 앱 공통 설정 + provider 설정을 merge 해 어댑터에 전달. §11 `ModelProviderConfig` 가 *모델 설정 표면 노출* 이라면, ConfigManager 는 *런타임 옵션 병합* 이다(경계 구분).
+
+**③ 현재 코드 갭.** 현행은 claude `query()` options 를 `SendChatMessage`(`src/shared/ipc.ts`)에서 직접 구성 — OpenCode config merge 표면 없음. electron-store 설정(`src/main/settings/store.ts`)과 provider config 의 병합 추상 미존재.
+
+**④ 인터페이스 (정본).**
+
+```ts
+interface ConfigManager {
+  resolve(provider: ProviderId, sessionId: string): {
+    claude?: { model?: string; permissionMode?: NormalizedPermissionMode; cwd?: string; env?: Record<string, string> }
+    opencode?: unknown   // config.get / config.providers 병합 결과 [검증: 표면 존재 / 미확인: 정확한 스키마]
+  }
+}
+```
+
+## 20. 구현 우선순위 (P0 / P1)
+
+설계 항목의 구현 시퀀싱. **P0** = 범용 런타임의 필수 골격(권한·이벤트·세션), **P1** = 렌더링·직접 API·운영 계층. 항목은 본 문서(또는 frontend) 절로 링크.
+
+### P0
+
+| 항목 | 위치 |
+|---|---|
+| NormalizedEvent | §2 |
+| permission.requested 1급 이벤트 | §3 |
+| PermissionBridge | §3 |
+| PendingApprovalStateMachine | §3 |
+| ApprovalResolution (2분기) | §3 |
+| AppCommandPolicy (3분기) | §3 |
+| PermissionModeController | §3 |
+| SessionCapability + CapabilityProbe | §4 / §15 |
+| RevertManager | §5 |
+
+### P1
+
+| 항목 | 위치 |
+|---|---|
+| ToolRendererRegistry | ../frontend/rendering.md §1.6 |
+| DirectBackendAPI | §17 |
+| TelemetryService | §8 |
+| WorkspaceManager | §18 |
+| ConfigManager | §19 |
+| AuthStore | §9 |
+| AuditLog | §10 |
+| ErrorClassifier | §6 |
+| 정규화 Persistence (AppMessagePart) | §7 |

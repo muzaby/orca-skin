@@ -52,7 +52,7 @@
 
 **① 설명.** 렌더러는 **이벤트 타입이 아니라 의미(semantic kind)** 로 카드를 선택한다. 같은 `tool.call.completed` 라도 결과 형태에 따라 다른 카드로 분기한다. 예: ../backend/provider-runtime.md §7 의 `file` part 가 `readType:'raw'` 면 `FilePreviewCard`, `'patch'` 면 `DiffCard`.
 
-**② 예시.** OpenCode `file.read` → `{ type:'raw'|'patch', content }` `[검증]`. `selectFileRenderer(read) = read.type==='patch' ? 'diff' : 'file_preview'`. `find.text/files/symbols` 는 agent tool result 일 수도, app-originated direct search 일 수도 있어 둘 다 `SearchCard` 로 가되 `origin` 배지를 표시.
+**② 예시.** OpenCode `file.read` → `{ type:'raw'|'patch', content }` `[검증]`. `selectFileRenderer(read) = read.type==='patch' ? 'diff' : 'file_preview'`. `find.text/files/symbols` 는 agent tool result 일 수도, app-originated direct search(../backend/provider-runtime.md §17 DirectBackendAPI)일 수도 있어 둘 다 `SearchCard` 로 가되 `origin` 배지를 표시.
 
 **③ 현재 코드 갭.** 현행은 **registry 없음** — `features/chat/components/transcript/ToolCard.tsx` 가 tool **이름** 으로 switch-case 분기(Bash/PowerShell→`BashBody`, Write/Edit/MultiEdit→`DiffBody`, Read→`FileBody`, AskUserQuestion→`AskBody`, default→`KeyValueBody`). semantic kind 추상·plugin 등록 패턴 없음.
 
