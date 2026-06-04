@@ -50,6 +50,8 @@ interface CodeBlockProps {
   // tool-body 안에 임베드될 때 — 바깥 카드 크롬(border/rounded/bg/margin) 제거.
   // ToolCard 본문이 이미 단일 카드를 제공하므로 이중 컨테이너 중첩을 막는다.
   embedded?: boolean
+  // 언어 라벨 + 복사 헤더 표시 여부. ToolCard 헤더가 경로/복사를 이미 제공하면 false.
+  showHeader?: boolean
 }
 
 // shiki `.line` 스팬에 라인넘버 ::before 거터. 새 CSS 없이 Tailwind arbitrary 유틸로만.
@@ -67,7 +69,8 @@ export function CodeBlock({
   code,
   lang,
   showLineNumbers,
-  embedded
+  embedded,
+  showHeader = true
 }: CodeBlockProps): React.JSX.Element {
   const theme = useThemeId()
   const safeLang = lang && isLang(lang) ? lang : 'text'
@@ -117,7 +120,7 @@ export function CodeBlock({
   if (html) {
     return (
       <div className={`${shell} [&_pre]:m-0 [&_pre]:overflow-auto [&_pre]:p-3 [&_pre]:text-code`}>
-        {header}
+        {showHeader && header}
         <div
           className={showLineNumbers ? LINE_NUMBER_CLASSES : undefined}
           dangerouslySetInnerHTML={{ __html: html }}

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Icon } from '../../../../shared/ui/Icon'
+import { CopyIconButton } from '../../../../shared/ui/CopyIconButton'
 import {
   VERB_LABEL,
   VERB_LABEL_ACTIVE,
@@ -7,12 +8,79 @@ import {
   toolDiffStat,
   toolVerbCategory
 } from '../../lib/toolMeta'
+import { extToLang, stripLineNumberGutter } from '../../lib/lang'
+import { stringify } from '../../format'
+import { CodeBlock } from '../markdown/CodeBlock'
 import { BashBody } from './tool-bodies/BashBody'
 import { DiffBody } from './tool-bodies/DiffBody'
-import { ReadBody } from './tool-bodies/ReadBody'
 import { KeyValueBody } from './tool-bodies/KeyValueBody'
 import { AskBody } from './tool-bodies/AskBody'
 import type { ToolCall } from '../../reducer/chatReducer'
+
+const FILE_TOOLS = new Set(['Read', 'Write', 'Edit', 'MultiEdit'])
+
+// result.output 을 문자열로.
+function resultOutput(call: ToolCall): string {
+  const o = call.result?.output
+  return o == null ? '' : typeof o === 'string' ? o : stringify(o)
+}
+
+// 본문 헤더 레이블 — 파일 도구는 file_path 전체(절대경로), 그 외는 도구 이름.
+function headerLabel(call: ToolCall): string {
+  const rec = call.input as { file_path?: unknown } | null
+  const fp = typeof rec?.file_path === 'string' ? rec.file_path : null
+  return FILE_TOOLS.has(call.name) && fp ? fp : call.name
+}
+
+// 헤더 복사 버튼의 복사 대상(도구별).
+function copyText(call: ToolCall): string {
+  const rec =
+    typeof call.input === 'object' && call.input !== null
+      ? (call.input as Record<string, unknown>)
+      : {}
+  switch (call.name) {
+    case 'Bash':
+    case 'PowerShell': {
+      const command = typeof rec.command === 'string' ? rec.command : stringify(call.input)
+      const out = resultOutput(call)
+      return `$ ${command}` + (out.trim() !== '' ? `\n${out}` : '')
+    }
+    case 'Write':
+      return typeof rec.content === 'string' ? rec.content : stringify(call.input)
+    case 'Read':
+    case 'Edit':
+    case 'MultiEdit':
+      return resultOutput(call)
+    default: {
+      const out = resultOutput(call)
+      return out.trim() !== '' ? out : stringify(call.input)
+    }
+  }
+}
+
+// Read 본문 — result.output 을 cat -n 거터 제거 후 언어 헤더 없는 코드블록으로(라인넘버).
+function FileBody({ call }: { call: ToolCall }): React.JSX.Element {
+  const rec = call.input as { file_path?: unknown } | null
+  const filePath = typeof rec?.file_path === 'string' ? rec.file_path : null
+  const lang = filePath ? extToLang(filePath) : undefined
+  const output = resultOutput(call)
+  if (call.result && output.trim() !== '') {
+    return (
+      <CodeBlock
+        code={stripLineNumberGutter(output)}
+        lang={lang}
+        showLineNumbers
+        showHeader={false}
+        embedded
+      />
+    )
+  }
+  return (
+    <pre className="m-0 overflow-auto whitespace-pre-wrap break-words text-code text-t9">
+      {stringify(call.input)}
+    </pre>
+  )
+}
 
 // 도구별 본문 디스패치. 미지 도구는 KeyValueBody 로 폴백(타 SDK 도 합리적 렌더).
 function ToolBody({ call }: { call: ToolCall }): React.JSX.Element {
@@ -25,7 +93,7 @@ function ToolBody({ call }: { call: ToolCall }): React.JSX.Element {
     case 'MultiEdit':
       return <DiffBody call={call} />
     case 'Read':
-      return <ReadBody call={call} />
+      return <FileBody call={call} />
     case 'AskUserQuestion':
       return <AskBody call={call} />
     default:
@@ -54,13 +122,10 @@ export function ToolCard({
   const done = call.result != null
   const isError = call.result?.isError === true
   const cat = toolVerbCategory(call.name)
-  // 진행 중이면 진행 시제(실행 중…), 완료되면 완료 시제(실행됨).
+  // 진행 중이면 진행 시제(읽는 중…), 완료되면 완료 시제(읽음).
   const verb = done ? VERB_LABEL[cat] : VERB_LABEL_ACTIVE[cat]
   const description = toolDescription(call)
   const stat = toolDiffStat(call)
-  const statusLabel = isError ? '실패' : done ? '완료' : '실행 중…'
-  const duration =
-    call.result?.durationMs != null ? ` · ${(call.result.durationMs / 1000).toFixed(1)}s` : ''
   return (
     <div className="flex w-full flex-col">
       {/* 행: [동사] [서술] (+N-M) [chevron] — chevron 은 마지막 (전략 5.4) */}
@@ -105,19 +170,21 @@ export function ToolCard({
         <div className="min-h-0 overflow-hidden">
           {(open || wasOpened) && (
             <div
-              className={`mt-g2 overflow-hidden rounded-r4 font-mono text-footnote text-t9 ${
+              className={`group/toolbody mt-g2 overflow-hidden rounded-r4 font-mono text-footnote text-t9 ${
                 inGroup ? 'border border-t5' : 'bg-bg'
               }`}
             >
               <div className="px-p5 py-p4">
+                {/* 헤더 — 절대경로/도구명 + 우측 복사(hover 노출). status 텍스트 없음. */}
                 <div className="mb-g3 flex items-center gap-g3 font-sans text-caption text-t6">
-                  <span className={`font-semibold ${isError ? 'text-rust' : 'text-t7'}`}>
-                    {call.name}
+                  <span
+                    className={`min-w-0 truncate font-semibold ${isError ? 'text-rust' : 'text-t7'}`}
+                  >
+                    {headerLabel(call)}
                   </span>
-                  <span>
-                    {statusLabel}
-                    {duration}
-                  </span>
+                  <div className="ml-auto shrink-0 opacity-0 transition-opacity duration-150 ease-[cubic-bezier(0.215,0.61,0.355,1)] motion-reduce:transition-none group-hover/toolbody:opacity-100 focus-within:opacity-100">
+                    <CopyIconButton text={copyText(call)} title="복사" />
+                  </div>
                 </div>
                 <ToolBody call={call} />
               </div>

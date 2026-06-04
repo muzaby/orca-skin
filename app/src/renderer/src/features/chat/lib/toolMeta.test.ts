@@ -32,7 +32,7 @@ describe('toolVerbCategory', () => {
     expect(toolVerbCategory('Edit')).toBe('edited')
     expect(toolVerbCategory('ExitPlanMode')).toBe('planned')
     expect(toolVerbCategory('AskUserQuestion')).toBe('requested')
-    expect(toolVerbCategory('Read')).toBe('used')
+    expect(toolVerbCategory('Read')).toBe('read')
     expect(toolVerbCategory('Glob')).toBe('used')
     expect(toolVerbCategory('mcp__server__tool')).toBe('used')
   })
@@ -114,7 +114,7 @@ describe('toolDiffStat', () => {
 
 describe('VERB_LABEL / VERB_LABEL_ACTIVE', () => {
   it('완료 시제와 진행 시제가 모든 카테고리에 정의됨', () => {
-    const cats = ['ran', 'created', 'edited', 'used', 'planned', 'requested'] as const
+    const cats = ['ran', 'created', 'edited', 'read', 'used', 'planned', 'requested'] as const
     for (const c of cats) {
       expect(VERB_LABEL[c]).toBeTruthy()
       expect(VERB_LABEL_ACTIVE[c]).toBeTruthy()
@@ -122,6 +122,13 @@ describe('VERB_LABEL / VERB_LABEL_ACTIVE', () => {
     }
     expect(VERB_LABEL.ran).toBe('실행됨')
     expect(VERB_LABEL_ACTIVE.ran).toBe('실행 중')
+  })
+
+  it('Claude Code 어휘 라벨', () => {
+    expect(VERB_LABEL.created).toBe('업데이트됨')
+    expect(VERB_LABEL.edited).toBe('수정됨')
+    expect(VERB_LABEL.read).toBe('읽음')
+    expect(VERB_LABEL_ACTIVE.read).toBe('읽는 중')
   })
 })
 
@@ -148,13 +155,13 @@ describe('summarizeToolGroup', () => {
       call('Write', { file_path: 'y' }),
       call('Write', { file_path: 'z' })
     ]
-    expect(summarizeToolGroup(calls)).toBe('실행됨 명령 3개, 생성됨 파일 3개')
+    expect(summarizeToolGroup(calls)).toBe('실행됨 명령 3개, 업데이트됨 파일 3개')
   })
 
-  it('used 카테고리는 도구 단위', () => {
+  it('Read 는 read 카테고리, Glob 등은 used 도구', () => {
     expect(
       summarizeToolGroup([call('Read', { file_path: 'a' }), call('Glob', { pattern: 'b' })])
-    ).toBe('사용함 도구 2개')
+    ).toBe('읽음 파일 1개, 사용함 도구 1개')
   })
 
   it('planned 싱글톤은 카운트 없이 명사 라벨만', () => {

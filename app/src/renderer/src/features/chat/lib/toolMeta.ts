@@ -6,15 +6,16 @@
 // 미지 도구명은 'used' 로 폴백하므로 타 SDK 의 낯선 도구도 합리적으로 렌더된다.
 
 import type { ToolCall } from '../reducer/chatReducer'
-import { diffLines } from './diff'
+import { diffLines as jsDiffLines } from 'diff'
 
-export type VerbCategory = 'ran' | 'created' | 'edited' | 'used' | 'planned' | 'requested'
+export type VerbCategory = 'ran' | 'created' | 'edited' | 'read' | 'used' | 'planned' | 'requested'
 
 // 동사 라벨 — 완료 시제 (인라인 한국어, shared/i18n/ko.ts 는 future scope)
 export const VERB_LABEL: Record<VerbCategory, string> = {
   ran: '실행됨',
-  created: '생성됨',
-  edited: '편집됨',
+  created: '업데이트됨',
+  edited: '수정됨',
+  read: '읽음',
   used: '사용함',
   planned: '제안된 계획',
   requested: '요청됨'
@@ -23,8 +24,9 @@ export const VERB_LABEL: Record<VerbCategory, string> = {
 // 동사 라벨 — 진행 시제 (도구가 아직 result 없이 동작 중일 때)
 export const VERB_LABEL_ACTIVE: Record<VerbCategory, string> = {
   ran: '실행 중',
-  created: '생성 중',
-  edited: '편집 중',
+  created: '업데이트 중',
+  edited: '수정 중',
+  read: '읽는 중',
   used: '사용 중',
   planned: '계획 제안 중',
   requested: '질문 중'
@@ -35,13 +37,22 @@ export const UNIT_LABEL: Record<VerbCategory, string | null> = {
   ran: '명령',
   created: '파일',
   edited: '파일',
+  read: '파일',
   used: '도구',
   planned: null,
   requested: '질문'
 }
 
 // 요약 조립 순서
-const CATEGORY_ORDER: VerbCategory[] = ['ran', 'created', 'edited', 'used', 'requested', 'planned']
+const CATEGORY_ORDER: VerbCategory[] = [
+  'ran',
+  'created',
+  'edited',
+  'read',
+  'used',
+  'requested',
+  'planned'
+]
 
 // 도구 이름 → 카테고리 (전략 문서 §3 관찰 매핑)
 export function toolVerbCategory(name: string): VerbCategory {
@@ -54,12 +65,14 @@ export function toolVerbCategory(name: string): VerbCategory {
     case 'Edit':
     case 'MultiEdit':
       return 'edited'
+    case 'Read':
+      return 'read'
     case 'ExitPlanMode':
       return 'planned'
     case 'AskUserQuestion':
       return 'requested'
     default:
-      // Read / Glob / Grep / WebFetch / WebSearch / Task* / mcp__* / 그 외
+      // Glob / Grep / WebFetch / WebSearch / Task* / mcp__* / 그 외
       return 'used'
   }
 }
@@ -138,6 +151,17 @@ export function toolDescription(call: ToolCall): string {
   return call.name
 }
 
+// jsdiff 라인 diff → 추가/삭제 라인 카운트.
+function countChanges(oldStr: string, newStr: string): { added: number; removed: number } {
+  let added = 0
+  let removed = 0
+  for (const part of jsDiffLines(oldStr, newStr)) {
+    if (part.added) added += part.count ?? 0
+    else if (part.removed) removed += part.count ?? 0
+  }
+  return { added, removed }
+}
+
 // Write/Edit/MultiEdit 의 diff-stat (+추가 / -삭제 라인). 그 외는 null.
 export function toolDiffStat(call: ToolCall): { added: number; removed: number } | null {
   const rec = asRecord(call.input)
@@ -145,14 +169,12 @@ export function toolDiffStat(call: ToolCall): { added: number; removed: number }
   switch (call.name) {
     case 'Write': {
       const content = stringField(rec, 'content') ?? ''
-      const { added, removed } = diffLines('', content)
-      return { added, removed }
+      return countChanges('', content)
     }
     case 'Edit': {
       const oldStr = typeof rec.old_string === 'string' ? rec.old_string : ''
       const newStr = typeof rec.new_string === 'string' ? rec.new_string : ''
-      const { added, removed } = diffLines(oldStr, newStr)
-      return { added, removed }
+      return countChanges(oldStr, newStr)
     }
     case 'MultiEdit': {
       const edits = Array.isArray(rec.edits) ? rec.edits : []
@@ -162,7 +184,7 @@ export function toolDiffStat(call: ToolCall): { added: number; removed: number }
         const er = asRecord(e)
         const oldStr = typeof er?.old_string === 'string' ? er.old_string : ''
         const newStr = typeof er?.new_string === 'string' ? er.new_string : ''
-        const stat = diffLines(oldStr, newStr)
+        const stat = countChanges(oldStr, newStr)
         added += stat.added
         removed += stat.removed
       }
