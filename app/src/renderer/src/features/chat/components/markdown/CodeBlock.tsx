@@ -130,7 +130,7 @@ export function CodeBlock({
   }
   return (
     <div className={`${shell} ${embedded ? '' : 'bg-t1'}`}>
-      {header}
+      {showHeader && header}
       <pre className="m-0 overflow-auto p-3 text-code text-t9">
         <code>{code}</code>
       </pre>
