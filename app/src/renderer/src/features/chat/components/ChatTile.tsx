@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { Icon } from '../../../shared/ui/Icon'
+import { Button } from '../../../shared/ui/Button'
 import { Dot } from '../../../shared/ui/Status'
 import { ReadingColumn } from '../../../shared/ui/ReadingColumn'
 import { useDragResize } from '../../../shared/hooks/useDragResize'
@@ -13,7 +14,7 @@ import { PLAN_TILE_MIN_WIDTH, PLAN_TILE_MAX_WIDTH } from '../reducer/chatReducer
 import type { UseChat } from '../hooks/useChat'
 
 const ICON_BTN =
-  'grid h-7 w-7 cursor-pointer place-items-center rounded-md border-0 bg-transparent text-ink2'
+  'grid h-7 w-7 cursor-default place-items-center rounded-r4 border-0 bg-transparent text-t6 outline-none hide-focus-ring ring-focus transition-colors hover:bg-fill-uncontained-hover hover:text-t7'
 
 interface ChatTileProps {
   chat: UseChat
@@ -55,8 +56,11 @@ export function ChatTile({ chat, backendLabel }: ChatTileProps): React.JSX.Eleme
 
   return (
     <section className="app-frame-pane-host flex min-h-0 min-w-0 flex-1 flex-col bg-bg">
-      <div ref={rowRef} className="app-frame-pane-row relative flex min-h-0 flex-1">
-        <div className="app-frame-tile flex min-w-0 flex-1 flex-col" data-behavior="resizable">
+      <div ref={rowRef} className="app-frame-pane-row relative flex min-h-0 flex-1 p-2">
+        <div
+          className="app-frame-tile flex min-w-0 flex-1 flex-col overflow-hidden rounded-r6 bg-surface-primary-elevated effect-primary-elevated"
+          data-behavior="resizable"
+        >
           <div className="app-frame-titlebar flex items-center gap-3 border-b border-border px-6 pb-2.5 pt-3.5">
             <div className="min-w-0 flex-1">
               <div className="overflow-hidden text-ellipsis whitespace-nowrap font-serif text-[17px] font-semibold tracking-tight text-ink">
@@ -84,15 +88,15 @@ export function ChatTile({ chat, backendLabel }: ChatTileProps): React.JSX.Eleme
               <button className={ICON_BTN} title="설정">
                 <Icon name="settings" size={14} />
               </button>
-              <button
-                type="button"
+              <Button
+                iconOnly
+                size="small"
+                leadingIcon="panelR"
                 onClick={chat.togglePlanTile}
-                aria-pressed={state.planTileOpen}
-                className={`${ICON_BTN} ${state.planTileOpen ? 'text-rust' : ''}`}
+                pressed={state.planTileOpen}
                 title="계획 패널"
-              >
-                <Icon name="panelR" size={14} />
-              </button>
+                aria-label="계획 패널"
+              />
             </div>
           </div>
 
@@ -143,16 +147,21 @@ export function ChatTile({ chat, backendLabel }: ChatTileProps): React.JSX.Eleme
         {state.planTileOpen && (
           <>
             <div
-              className="app-frame-tile-separator w-1 shrink-0 cursor-col-resize bg-border hover:bg-border-strong"
+              className="app-frame-tile-separator group/sep relative w-3 shrink-0 cursor-col-resize"
               data-behavior="resizable"
               data-axis="vertical"
               data-context="tile"
               data-state="visible"
               onMouseDown={startResize}
               aria-label="Resize plan panel"
-            />
+            >
+              <span
+                aria-hidden
+                className="absolute left-1/2 top-1/2 h-10 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-border-strong opacity-0 transition-opacity duration-150 group-hover/sep:opacity-100"
+              />
+            </div>
             <div
-              className="app-frame-tile flex shrink-0 flex-col"
+              className="app-frame-tile flex shrink-0 flex-col overflow-hidden rounded-r6 bg-surface-primary-elevated effect-primary-elevated"
               style={{ width: state.planTileWidth }}
               data-context="plan"
             >

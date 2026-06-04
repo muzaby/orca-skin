@@ -8,7 +8,7 @@ export function WinControls(): React.JSX.Element | null {
   if (getPlatform() === 'darwin') return null
 
   const base =
-    'grid h-[22px] w-[28px] place-items-center rounded border-0 bg-transparent text-ink2 hover:bg-black/[0.06]'
+    'grid h-[22px] w-[28px] place-items-center rounded border-0 bg-transparent text-t6 hover:bg-fill-uncontained-hover'
   return (
     <div
       className="app-frame-window-controls ml-auto flex gap-1.5"

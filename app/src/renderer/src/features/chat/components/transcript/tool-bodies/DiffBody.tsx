@@ -1,73 +1,140 @@
-import { diffLines, type DiffRow } from '../../../lib/diff'
+import { diffLines } from 'diff'
 import { stringify } from '../../../format'
 import type { ToolCall } from '../../../reducer/chatReducer'
 
-// 하나의 diff 행 — git-diff 스타일(좌측 라인넘버 거터 + +/- 마커 + 배경).
-function Row({ row }: { row: DiffRow }): React.JSX.Element {
-  const marker = row.type === 'add' ? '+' : row.type === 'del' ? '-' : ' '
-  const bg = row.type === 'add' ? 'bg-good/10' : row.type === 'del' ? 'bg-bad/10' : ''
-  const markerTone =
-    row.type === 'add' ? 'text-good' : row.type === 'del' ? 'text-bad' : 'text-ink3'
-  return (
-    <div className={`flex ${bg}`}>
-      <span className="w-10 shrink-0 select-none px-1 text-right text-ink3 tabular-nums">
-        {row.oldNo ?? ''}
-      </span>
-      <span className="w-10 shrink-0 select-none px-1 text-right text-ink3 tabular-nums">
-        {row.newNo ?? ''}
-      </span>
-      <span className={`w-4 shrink-0 select-none text-center ${markerTone}`}>{marker}</span>
-      <span className="whitespace-pre-wrap break-words text-ink">{row.text || ' '}</span>
-    </div>
-  )
+interface DiffPair {
+  oldValue: string
+  newValue: string
 }
 
-// Write/Edit/MultiEdit input 에서 diff 행 묶음(들)을 산출. MultiEdit 은 edit 별로 분리.
-function buildHunks(call: ToolCall): DiffRow[][] {
+function buildPairs(call: ToolCall): DiffPair[] {
   const rec = call.input as Record<string, unknown> | null
   if (!rec || typeof rec !== 'object') return []
   if (call.name === 'Write') {
     const content = typeof rec.content === 'string' ? rec.content : ''
-    return [diffLines('', content).rows]
+    return [{ oldValue: '', newValue: content }]
   }
   if (call.name === 'Edit') {
-    const oldStr = typeof rec.old_string === 'string' ? rec.old_string : ''
-    const newStr = typeof rec.new_string === 'string' ? rec.new_string : ''
-    return [diffLines(oldStr, newStr).rows]
+    const oldValue = typeof rec.old_string === 'string' ? rec.old_string : ''
+    const newValue = typeof rec.new_string === 'string' ? rec.new_string : ''
+    return [{ oldValue, newValue }]
   }
   if (call.name === 'MultiEdit' && Array.isArray(rec.edits)) {
     return rec.edits.map((e) => {
       const er = (e ?? {}) as Record<string, unknown>
-      const oldStr = typeof er.old_string === 'string' ? er.old_string : ''
-      const newStr = typeof er.new_string === 'string' ? er.new_string : ''
-      return diffLines(oldStr, newStr).rows
+      return {
+        oldValue: typeof er.old_string === 'string' ? er.old_string : '',
+        newValue: typeof er.new_string === 'string' ? er.new_string : ''
+      }
     })
   }
   return []
 }
 
-// Write/Edit/MultiEdit 본문 — 파일 경로 + git-diff. 라인넘버는 거터에 베스트에포트(1부터).
+interface DiffLine {
+  type: 'added' | 'removed' | 'unchanged'
+  lineNo: number
+  text: string
+}
+
+function buildDiffLines(oldValue: string, newValue: string): DiffLine[] {
+  const hunks = diffLines(oldValue, newValue)
+  const result: DiffLine[] = []
+  let oldLine = 1
+  let newLine = 1
+
+  for (const hunk of hunks) {
+    const lines = hunk.value.split('\n')
+    // diffLines includes trailing empty string when value ends with \n
+    if (lines[lines.length - 1] === '') lines.pop()
+
+    if (hunk.removed) {
+      for (const text of lines) {
+        result.push({ type: 'removed', lineNo: oldLine++, text })
+      }
+    } else if (hunk.added) {
+      for (const text of lines) {
+        result.push({ type: 'added', lineNo: newLine++, text })
+      }
+    } else {
+      for (const text of lines) {
+        result.push({ type: 'unchanged', lineNo: newLine, text })
+        oldLine++
+        newLine++
+      }
+    }
+  }
+
+  return result
+}
+
+function DiffTable({ oldValue, newValue }: DiffPair): React.JSX.Element {
+  const lines = buildDiffLines(oldValue, newValue)
+
+  return (
+    <table
+      className="w-full border-collapse font-mono"
+      style={{ userSelect: 'text', WebkitUserSelect: 'text' }}
+    >
+      <colgroup>
+        <col style={{ width: '3em' }} />
+        <col style={{ width: '1.4em' }} />
+        <col />
+      </colgroup>
+      <tbody>
+        {lines.map((line, i) => {
+          const isAdded = line.type === 'added'
+          const isRemoved = line.type === 'removed'
+          const rowBg = isAdded
+            ? 'bg-[color-mix(in_srgb,var(--color-good)_14%,transparent)]'
+            : isRemoved
+              ? 'bg-[color-mix(in_srgb,var(--color-bad)_14%,transparent)]'
+              : ''
+          const gutterBg = isAdded
+            ? 'bg-[color-mix(in_srgb,var(--color-good)_18%,transparent)]'
+            : isRemoved
+              ? 'bg-[color-mix(in_srgb,var(--color-bad)_18%,transparent)]'
+              : 'bg-transparent'
+          return (
+            <tr key={i} className={rowBg}>
+              <td
+                className={`select-none whitespace-nowrap px-2 text-right align-baseline tabular-nums ${gutterBg}`}
+              >
+                <pre className="m-0 text-code text-t6 opacity-60">{line.lineNo}</pre>
+              </td>
+              <td
+                className={`select-none px-1 text-center align-baseline ${gutterBg}`}
+              >
+                <pre className="m-0 text-code text-t6">
+                  {isAdded ? '+' : isRemoved ? '-' : ' '}
+                </pre>
+              </td>
+              <td className="px-2 align-baseline">
+                <pre className="m-0 whitespace-pre-wrap break-all text-code text-t9">
+                  {line.text}
+                </pre>
+              </td>
+            </tr>
+          )
+        })}
+      </tbody>
+    </table>
+  )
+}
+
 export function DiffBody({ call }: { call: ToolCall }): React.JSX.Element {
-  const rec = call.input as { file_path?: unknown } | null
-  const filePath = typeof rec?.file_path === 'string' ? rec.file_path : null
-  const hunks = buildHunks(call)
+  const pairs = buildPairs(call)
 
   return (
     <div className="flex flex-col gap-2">
-      {filePath && <div className="text-[11.5px] text-ink2">{filePath}</div>}
-      {hunks.length === 0 ? (
-        <pre className="m-0 overflow-auto whitespace-pre-wrap break-words text-ink">
+      {pairs.length === 0 ? (
+        <pre className="m-0 overflow-auto whitespace-pre-wrap break-words text-code text-t9">
           {stringify(call.input)}
         </pre>
       ) : (
-        hunks.map((rows, hi) => (
-          <div
-            key={hi}
-            className="overflow-hidden rounded-[8px] border border-border text-[12px] leading-[1.55]"
-          >
-            {rows.map((row, ri) => (
-              <Row key={ri} row={row} />
-            ))}
+        pairs.map((p, i) => (
+          <div key={i} className="overflow-auto rounded-r4 border border-t5">
+            <DiffTable oldValue={p.oldValue} newValue={p.newValue} />
           </div>
         ))
       )}

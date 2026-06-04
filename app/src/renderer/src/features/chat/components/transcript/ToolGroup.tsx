@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Icon } from '../../../../shared/ui/Icon'
 import { ToolCard } from './ToolCard'
 import {
   VERB_LABEL_ACTIVE,
@@ -19,40 +20,49 @@ export function ToolGroup({ calls }: { calls: ToolCall[] }): React.JSX.Element |
   for (const c of calls) if (c.result == null) pending = c
   const segments = toolGroupSegments(calls)
   return (
-    <div className="flex flex-col gap-[var(--chat-item-gap)]">
+    <div className="flex w-full flex-col gap-[var(--chat-item-gap)]">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="flex w-full cursor-pointer items-center gap-2 border-0 bg-transparent px-1 text-left text-[12px] text-ink2"
+        className="group/tool flex max-w-full cursor-pointer items-center gap-g1 self-start border-0 bg-transparent text-left text-body text-t6 outline-none hide-focus-ring ring-focus"
       >
-        <span aria-hidden className="w-3 text-[10px] text-ink3">
-          {open ? '▼' : '▶'}
-        </span>
-        <span className="min-w-0 truncate font-medium">
+        <span
+          className={`min-w-0 truncate group-hover/tool:text-t9 ${pending ? 'epitaxy-text-shine' : ''}`}
+        >
           {pending ? (
             // 진행 중 — 마지막 pending 도구 서술(진행 시제)
             `${VERB_LABEL_ACTIVE[toolVerbCategory(pending.name)]} ${toolDescription(pending)}`
           ) : (
-            // 완료 — 동사별 카운트 요약(실패 카테고리 동사는 빨강)
+            // 완료 — 동사별 카운트 요약. 동사(primary)와 카운트(secondary) span 분리.
             <>
               {segments.map((seg, i) => (
-                <span key={seg.category}>
+                <span key={seg.category} className={seg.hasError ? 'text-rust' : undefined}>
                   {i > 0 && ', '}
-                  <span className={seg.hasError ? 'text-rust' : undefined}>{seg.text}</span>
+                  <span className={seg.hasError ? undefined : 'text-t9'}>{seg.verb}</span>
+                  {seg.count && <span className="text-t6"> {seg.count}</span>}
                 </span>
               ))}
             </>
           )}
         </span>
+        <span aria-hidden className={`shrink-0 transition-transform ${open ? 'rotate-90' : ''}`}>
+          <Icon name="chevR" size={12} />
+        </span>
       </button>
-      {open && (
-        <div className="flex flex-col gap-[var(--chat-item-gap)] rounded-[10px] bg-sidebar p-2.5">
-          {calls.map((c) => (
-            <ToolCard key={c.toolUseId} call={c} />
-          ))}
+      <div
+        className={`grid transition-[grid-template-rows,opacity] duration-200 ease-[cubic-bezier(0.215,0.61,0.355,1)] motion-reduce:transition-none ${
+          open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+        }`}
+      >
+        <div className="min-h-0 overflow-hidden">
+          <div className="mt-g2 flex flex-col gap-[var(--chat-item-gap)] rounded-r6 bg-bg p-p7">
+            {calls.map((c) => (
+              <ToolCard key={c.toolUseId} call={c} inGroup />
+            ))}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   )
 }

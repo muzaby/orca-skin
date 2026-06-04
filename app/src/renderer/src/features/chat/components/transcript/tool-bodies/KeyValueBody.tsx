@@ -15,10 +15,10 @@ export function KeyValueBody({ call }: { call: ToolCall }): React.JSX.Element {
   return (
     <div className="flex flex-col gap-2">
       {entries.length > 0 ? (
-        <div className="whitespace-pre-wrap break-words text-ink">
+        <div className="whitespace-pre-wrap break-words text-t9">
           {entries.map(([k, v]) => (
             <div key={k}>
-              <span className="text-ink3">{k}: </span>
+              <span className="text-t6">{k}: </span>
               {typeof v === 'string' ? v : stringify(v)}
             </div>
           ))}
@@ -26,7 +26,7 @@ export function KeyValueBody({ call }: { call: ToolCall }): React.JSX.Element {
       ) : (
         rec == null &&
         call.input != null && (
-          <pre className="m-0 overflow-auto whitespace-pre-wrap break-words text-ink">
+          <pre className="m-0 overflow-auto whitespace-pre-wrap break-words text-code text-t9">
             {stringify(call.input)}
           </pre>
         )
@@ -34,12 +34,12 @@ export function KeyValueBody({ call }: { call: ToolCall }): React.JSX.Element {
       {call.result &&
         (typeof output === 'string' ? (
           output.trim() !== '' && (
-            <div className="border-t border-border pt-2">
+            <div className="border-t border-t5 pt-2">
               <Markdown source={output} />
             </div>
           )
         ) : (
-          <pre className="m-0 border-t border-border pt-2 overflow-auto whitespace-pre-wrap break-words text-ink">
+          <pre className="m-0 border-t border-t5 pt-2 overflow-auto whitespace-pre-wrap break-words text-code text-t9">
             {stringify(output)}
           </pre>
         ))}

@@ -42,3 +42,80 @@
   background: var(--color-panel);
   color: var(--color-ink2);
 }
+
+/* ── Epitaxy primitives ───────────────────────────────────────────────
+   Patterns from the Claude Code desktop design system that are behaviour,
+   not a single token: button background layer, focus-ring strategy, and
+   the in-progress shimmer. Colours still resolve through theme tokens. */
+
+/* Background layer span for buttons. Sits behind the label (-z-[1]); the
+   component paints variant/state colours via Tailwind classes on the span.
+   This utility only owns the transition so every button feels consistent. */
+@utility btn-squish {
+  transition:
+    background-color 120ms ease,
+    box-shadow 120ms ease,
+    border-color 120ms ease;
+}
+
+/* "mouse → no ring, keyboard → ring" focus strategy. `hide-focus-ring`
+   removes the native outline always; `ring-focus` paints a custom ring on
+   :focus-visible only. Pair them on interactive elements. */
+@utility hide-focus-ring {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+@utility ring-focus {
+  &:focus-visible {
+    outline: none;
+    box-shadow:
+      0 0 0 2px var(--color-bg),
+      0 0 0 4px color-mix(in srgb, var(--color-rust) 70%, transparent);
+  }
+}
+
+/* Elevated floating-tile shadow (tiles-shell look). */
+@utility effect-primary-elevated {
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 6px 16px rgba(0, 0, 0, 0.06);
+}
+
+/* Prompt bar surface — frosted blur + lift (strategy ch.8). */
+@utility effect-prompt-blur {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.04),
+    0 8px 24px rgba(0, 0, 0, 0.08);
+}
+
+/* Shimmer text for in-progress tool/plan rows. */
+@keyframes epitaxy-shine {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+@utility epitaxy-text-shine {
+  background-image: linear-gradient(
+    100deg,
+    var(--color-ink3) 35%,
+    var(--color-ink) 50%,
+    var(--color-ink3) 65%
+  );
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: epitaxy-shine 1.6s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .epitaxy-text-shine {
+    animation: none;
+    color: var(--color-ink2);
+    -webkit-text-fill-color: var(--color-ink2);
+  }
+}

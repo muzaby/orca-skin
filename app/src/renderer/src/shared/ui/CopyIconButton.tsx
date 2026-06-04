@@ -1,12 +1,15 @@
 import { useState } from 'react'
-import { Icon } from './Icon'
+import { Button } from './Button'
 
 export interface CopyIconButtonProps {
   text: string
   title?: string
+  /** Extra classes appended to the underlying Button (sizing/spacing tweaks). */
   className?: string
 }
 
+// Epitaxy 복사 버튼 — Button(iconOnly/uncontained/small) 위에 구현해 btn-squish 배경
+// 레이어 + relative isolate + ring-focus + fill-uncontained hover/active 토큰을 그대로 획득.
 export function CopyIconButton({
   text,
   title = '메시지 복사',
@@ -23,17 +26,15 @@ export function CopyIconButton({
     }
   }
   return (
-    <button
-      type="button"
+    <Button
+      iconOnly
+      variant="uncontained"
+      size="small"
+      leadingIcon={copied ? 'check' : 'copy'}
       onClick={onClick}
-      className={
-        className ??
-        'grid h-6 w-6 cursor-pointer place-items-center rounded border-0 bg-transparent text-ink3 hover:bg-cream-100 hover:text-ink2'
-      }
       title={copied ? '복사됨' : title}
       aria-label={title}
-    >
-      <Icon name={copied ? 'check' : 'copy'} size={12} />
-    </button>
+      className={className}
+    />
   )
 }

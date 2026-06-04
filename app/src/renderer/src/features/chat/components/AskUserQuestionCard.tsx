@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Icon } from '../../../shared/ui/Icon'
+import { Button } from '../../../shared/ui/Button'
+import { YellowDot } from './transcript/YellowDot'
 import type { AskQuestionRequest } from '../../../../../shared/ipc'
 
 interface AskUserQuestionCardProps {
@@ -146,6 +148,16 @@ export function AskUserQuestionCard({
       onSkip()
       return
     }
+    // 1~9 숫자키 = 현재 질문의 N번째 옵션 직접 선택 (Desktop variant 단축키).
+    if (!(e.target instanceof HTMLTextAreaElement) && /^[1-9]$/.test(e.key)) {
+      const q = questions[current]
+      const optIdx = Number(e.key) - 1
+      if (q && optIdx < q.options.length) {
+        e.preventDefault()
+        toggle(current, q.options[optIdx].label, q.multiSelect)
+        return
+      }
+    }
     if (
       e.key === 'Enter' &&
       !e.shiftKey &&
@@ -170,7 +182,8 @@ export function AskUserQuestionCard({
   return (
     <div
       ref={rootRef}
-      className="app-frame-ask mb-2 rounded-[14px] border border-border bg-panel px-3.5 py-3 shadow-[0_1px_2px_rgba(0,0,0,.03)]"
+      className="app-frame-ask mb-2 rounded-r7 border border-t5 bg-surface-primary-elevated px-3.5 py-3 shadow-[0_1px_2px_rgba(0,0,0,.03)]"
+      data-surface="prompt"
       data-ask-user-input
       data-behavior="interactive"
       role="group"
@@ -178,30 +191,26 @@ export function AskUserQuestionCard({
       onKeyDown={onRootKeyDown}
     >
       {multiQuestion && (
-        <div className="mb-2.5 flex items-center gap-2">
-          <button
-            type="button"
+        <div className="mb-2.5 flex items-center gap-g3">
+          <Button
+            iconOnly
+            size="small"
+            leadingIcon="arrowL"
             onClick={goPrev}
             disabled={current === 0}
             aria-label="이전 질문"
-            data-behavior="interactive"
-            className="grid h-6 w-6 cursor-pointer place-items-center rounded-md border-0 bg-transparent text-ink2 hover:bg-sidebar disabled:cursor-not-allowed disabled:opacity-30"
-          >
-            <Icon name="arrowL" size={14} />
-          </button>
-          <span className="font-mono text-[11.5px] tabular-nums text-ink3">
+          />
+          <span className="font-mono text-caption tabular-nums text-t6">
             {current + 1}/{questions.length}
           </span>
-          <button
-            type="button"
+          <Button
+            iconOnly
+            size="small"
+            leadingIcon="arrowR"
             onClick={goNext}
             disabled={current === last}
             aria-label="다음 질문"
-            data-behavior="interactive"
-            className="grid h-6 w-6 cursor-pointer place-items-center rounded-md border-0 bg-transparent text-ink2 hover:bg-sidebar disabled:cursor-not-allowed disabled:opacity-30"
-          >
-            <Icon name="arrowR" size={14} />
-          </button>
+          />
         </div>
       )}
 
@@ -210,19 +219,20 @@ export function AskUserQuestionCard({
         const q = questions[qIdx]
         return (
           <div>
-            <div className="mb-1 flex items-baseline gap-2">
-              <span className="rounded bg-rust-soft px-1.5 py-0.5 text-[10.5px] font-semibold uppercase tracking-wide text-rust">
+            <div className="mb-1 flex items-center gap-g3">
+              <YellowDot />
+              <span className="rounded bg-rust-soft px-1.5 py-0.5 text-caption font-semibold uppercase tracking-wide text-rust">
                 {q.header}
               </span>
-              {q.multiSelect && <span className="text-[10.5px] text-ink3">여러 개 선택 가능</span>}
+              {q.multiSelect && <span className="text-caption text-t6">여러 개 선택 가능</span>}
             </div>
-            <div className="mb-2 text-[13.5px] font-medium text-ink">{q.question}</div>
+            <div className="mb-2 text-[13.5px] font-medium text-t9">{q.question}</div>
             <div
               role="listbox"
               aria-multiselectable={q.multiSelect}
-              className="flex flex-col gap-1.5"
+              className="flex flex-col gap-g3"
             >
-              {q.options.map((opt) => {
+              {q.options.map((opt, optIdx) => {
                 const selected = picks[qIdx].includes(opt.label)
                 return (
                   <button
@@ -239,8 +249,8 @@ export function AskUserQuestionCard({
                         onOptionKeyDown(e)
                       }
                     }}
-                    className={`flex w-full items-start gap-2 rounded-[10px] border px-3 py-2 text-left transition-colors ${
-                      selected ? 'border-rust bg-rust-soft' : 'border-border bg-bg hover:bg-sidebar'
+                    className={`flex w-full items-start gap-g4 rounded-r4 border px-3 py-2 text-left outline-none hide-focus-ring ring-focus transition-colors ${
+                      selected ? 'border-rust bg-rust-soft' : 'border-t5 bg-t1 hover:bg-t2'
                     }`}
                   >
                     <span
@@ -250,12 +260,17 @@ export function AskUserQuestionCard({
                     >
                       {selected && <Icon name="check" size={11} color="#fff" />}
                     </span>
-                    <span className="min-w-0">
-                      <span className="block text-[13px] font-medium text-ink">{opt.label}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-footnote font-medium text-t9">{opt.label}</span>
                       {opt.description && (
-                        <span className="block text-[12px] text-ink2">{opt.description}</span>
+                        <span className="block text-caption text-t6">{opt.description}</span>
                       )}
                     </span>
+                    {optIdx < 9 && (
+                      <kbd className="mt-0.5 shrink-0" aria-hidden>
+                        {optIdx + 1}
+                      </kbd>
+                    )}
                   </button>
                 )
               })}
@@ -266,31 +281,29 @@ export function AskUserQuestionCard({
               placeholder="기타 — 직접 입력…"
               rows={1}
               aria-label={`${q.header} 기타 직접 입력`}
-              className="mt-1.5 w-full resize-y rounded-[10px] border border-border bg-bg px-3 py-1.5 text-[13px] text-ink placeholder:text-ink3 focus:border-border-strong focus:outline-none"
+              className="mt-1.5 w-full resize-y rounded-r4 border border-t5 bg-t1 px-3 py-1.5 text-footnote text-t9 outline-none ring-focus placeholder:text-t6 focus:border-border-strong"
+              style={
+                { fieldSizing: 'content', maxHeight: 'calc(4lh + 0.75rem)' } as React.CSSProperties
+              }
             />
           </div>
         )
       })()}
 
-      <div className="mt-3 flex items-center gap-3">
-        <button
-          type="button"
+      <div className="mt-3 flex items-center gap-g4">
+        <Button
+          variant="primary"
           onClick={submit}
           disabled={!canSubmit}
-          className="rounded-lg border-0 bg-rust px-3.5 py-1.5 text-[13px] font-medium text-white disabled:cursor-not-allowed disabled:opacity-40"
           data-behavior="action:send"
+          kbd="Enter"
         >
           제출
-        </button>
-        <button
-          type="button"
-          onClick={onSkip}
-          className="cursor-pointer rounded-lg border border-border bg-transparent px-3 py-1.5 text-[13px] text-ink2 hover:bg-sidebar"
-          data-behavior="dismissible"
-        >
+        </Button>
+        <Button variant="contained" onClick={onSkip} data-behavior="dismissible">
           건너뛰기
-        </button>
-        <span className="ml-auto text-[11px] text-ink3">
+        </Button>
+        <span className="ml-auto text-caption text-t6">
           <kbd>↑↓</kbd> 이동 · <kbd>Space</kbd> 선택 ·{' '}
           {multiQuestion && (
             <>
