@@ -21,6 +21,7 @@
 | [persistence.md](./arch/backend/persistence.md) | 2계층 영속성·로컬 DB·FTS5 |
 | [security.md](./arch/backend/security.md) | webPreferences·자격증명 모델(safeStorage)·MCP&Skill 통합 레이어·CSP |
 | [runtime-ipc.md](./arch/backend/runtime-ipc.md) | 동시성 모델·IPC 핸들러 구조·시스템 통합 |
+| [terms.md](./arch/backend/terms.md) | **사람용 용어 해설** — 백엔드 요소 이름을 쉬운 한국어로(정의는 GLOSSARY/arch 정본 링크). AI 정본 아님 |
 
 ### Frontend (`arch/frontend/`)
 
@@ -32,6 +33,7 @@
 | [state.md](./arch/frontend/state.md) | 상태 관리·Zustand 전환 결정·멀티세션 anchor |
 | [rendering.md](./arch/frontend/rendering.md) | 렌더링 전략·**ToolRendererRegistry**·StructuredOutput·Streaming lifecycle·TelemetryPanel |
 | [ux-domains.md](./arch/frontend/ux-domains.md) | UX 패턴·**ApprovalCard 일반화**·도메인 카탈로그·IPC 호출 |
+| [terms.md](./arch/frontend/terms.md) | **사람용 용어 해설** — 프론트엔드 요소 이름을 쉬운 한국어로(정의는 GLOSSARY/arch 정본 링크). AI 정본 아님 |
 
 ### 그 외
 

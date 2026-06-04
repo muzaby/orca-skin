@@ -2,7 +2,8 @@
 
 > 이 프로젝트에서 사용하는 용어를 한 곳에 정의한다. 문서·코드·UI 라벨이 같은 개념을 다르게 부르지 않도록 한다.
 > 최종 업데이트: 2026-05-20
-> 관련 문서: [ARCHITECTURE.md](ARCHITECTURE.md), [ARCHITECTURE.md](ARCHITECTURE.md), [IPC_CONTRACT.md](./IPC_CONTRACT.md), [TRD.md](./TRD.md), [PRD.md](./PRD.md)
+> 관련 문서: [ARCHITECTURE.md](ARCHITECTURE.md), [IPC_CONTRACT.md](./IPC_CONTRACT.md), [TRD.md](./TRD.md), [PRD.md](./PRD.md)
+> 사람용 해설(파생): [arch/frontend/terms.md](./arch/frontend/terms.md) · [arch/backend/terms.md](./arch/backend/terms.md) — 본 SSOT 를 쉬운 한국어로 풀어 링크하는 사람용 문서.
 
 ## 1. 도메인 용어
 
