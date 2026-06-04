@@ -25,6 +25,13 @@ function resultOutput(call: ToolCall): string {
   return o == null ? '' : typeof o === 'string' ? o : stringify(o)
 }
 
+// 본문 헤더 레이블 — 파일 도구는 file_path 전체(절대경로), 그 외는 도구 이름.
+function headerLabel(call: ToolCall): string {
+  const rec = call.input as { file_path?: unknown } | null
+  const fp = typeof rec?.file_path === 'string' ? rec.file_path : null
+  return FILE_TOOLS.has(call.name) && fp ? fp : call.name
+}
+
 // 헤더 복사 버튼의 복사 대상(도구별).
 function copyText(call: ToolCall): string {
   const rec =
@@ -168,20 +175,18 @@ export function ToolCard({
               }`}
             >
               <div className="px-p5 py-p4">
-                {/* 본문 헤더(도구명 + 우측 복사, hover 노출) — 비파일 도구에만.
-                    파일 도구(Read/Write/Edit/MultiEdit)는 행/경로 줄이 이미 식별을 제공하므로 생략. */}
-                {!FILE_TOOLS.has(call.name) && (
-                  <div className="mb-g3 flex items-center gap-g3 font-sans text-caption text-t6">
-                    <span
-                      className={`min-w-0 truncate font-semibold ${isError ? 'text-rust' : 'text-t7'}`}
-                    >
-                      {call.name}
-                    </span>
-                    <div className="ml-auto shrink-0 opacity-0 transition-opacity duration-150 ease-[cubic-bezier(0.215,0.61,0.355,1)] motion-reduce:transition-none group-hover/toolbody:opacity-100 focus-within:opacity-100">
-                      <CopyIconButton text={copyText(call)} title="복사" />
-                    </div>
+                {/* 본문 헤더(경로/도구명 + 우측 복사) — 모든 도구 공통, 복사버튼 항상 노출.
+                    ToolBody 내부의 중복 헤더(DiffBody 경로 줄/CodeBlock 언어 헤더)는 제거됨. */}
+                <div className="mb-g3 flex items-center gap-g3 font-sans text-caption text-t6">
+                  <span
+                    className={`min-w-0 truncate font-semibold ${isError ? 'text-rust' : 'text-t7'}`}
+                  >
+                    {headerLabel(call)}
+                  </span>
+                  <div className="ml-auto shrink-0">
+                    <CopyIconButton text={copyText(call)} title="복사" />
                   </div>
-                )}
+                </div>
                 <ToolBody call={call} />
               </div>
             </div>

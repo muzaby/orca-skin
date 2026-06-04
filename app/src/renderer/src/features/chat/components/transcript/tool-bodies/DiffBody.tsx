@@ -68,13 +68,10 @@ const DIFF_STYLES = {
 
 // Write/Edit/MultiEdit 본문 — jsdiff + react-diff-viewer-continued 통합(inline) diff.
 export function DiffBody({ call }: { call: ToolCall }): React.JSX.Element {
-  const rec = call.input as { file_path?: unknown } | null
-  const filePath = typeof rec?.file_path === 'string' ? rec.file_path : null
   const pairs = buildPairs(call)
 
   return (
     <div className="flex flex-col gap-2">
-      {filePath && <div className="text-caption text-t6">{filePath}</div>}
       {pairs.length === 0 ? (
         <pre className="m-0 overflow-auto whitespace-pre-wrap break-words text-code text-t9">
           {stringify(call.input)}
