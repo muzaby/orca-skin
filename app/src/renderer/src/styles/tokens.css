@@ -42,6 +42,42 @@
   --color-bad: #b54a3a;
   --color-slate-dot: #98a2b3;
 
+  /* ── Epitaxy tone scale (t1→t9, surface→text) ──────────────────────
+     Vocabulary borrowed from the Claude Code desktop design system;
+     concrete values map onto Orca's warm palette. Alias tokens (t1/t2/
+     t5/t6/t9) reference semantic tokens so they re-theme automatically —
+     do NOT override aliases in [data-theme] scopes (double definition).
+     Only the non-alias values (t3/t7/t8) carry per-theme overrides. */
+  --color-t1: var(--color-panel); /* card / tool-block surface */
+  --color-t2: var(--color-sidebar); /* hover surface */
+  --color-t3: #ece5d6; /* press (active) surface — themed */
+  --color-t4: var(--color-rust-soft); /* strong / selected surface */
+  --color-t5: var(--color-border); /* divider / border */
+  --color-t6: var(--color-ink2); /* muted text (descriptions) */
+  --color-t7: #4a4434; /* title text — themed */
+  --color-t8: #3a3528; /* active text — themed */
+  --color-t9: var(--color-ink); /* primary text */
+
+  /* Fills (button backgrounds) + accent */
+  --color-accent: var(--color-rust);
+  --color-fill-primary: var(--color-rust);
+  --color-fill-primary-hover: #b8593a; /* themed */
+  --color-fill-contained: var(--color-bg);
+  --color-fill-contained-hover: var(--color-sidebar);
+  --color-fill-uncontained-hover: var(--color-sidebar);
+  --color-fill-selected: var(--color-rust-soft);
+  --color-fill-busy: var(--color-sidebar);
+
+  /* Extended accents (agentic marker + diff) */
+  --color-extended-yellow: var(--color-amber);
+  --color-extended-green: var(--color-good);
+  --color-extended-pink: var(--color-bad);
+
+  /* Surfaces + assistant text */
+  --color-surface-primary-elevated: var(--color-panel);
+  --color-text-assistant-primary: var(--color-ink);
+  --color-text-assistant-secondary: var(--color-ink2);
+
   /* Camera viewport / engineering chrome */
   --color-stage-950: #0a0d10;
   --color-stage-900: #0c0f12;
@@ -55,6 +91,43 @@
   --reading-gutter: 24px;
   --chat-turn-gap: 22px;
   --chat-item-gap: 8px;
+
+  /* ── Epitaxy structure scale (rem-based → cascades with density) ────
+     `--spacing-*` feeds every spacing utility (gap/p/m/w/h), `--radius-*`
+     feeds `rounded-*`, `--text-*` feeds font-size utilities. */
+  --spacing-g1: 0.125rem; /* 2px @ 16 base */
+  --spacing-g2: 0.25rem;
+  --spacing-g3: 0.375rem;
+  --spacing-g4: 0.5rem;
+  --spacing-g5: 0.625rem;
+  --spacing-g6: 0.75rem;
+  --spacing-p1: 0.125rem;
+  --spacing-p2: 0.25rem;
+  --spacing-p3: 0.375rem;
+  --spacing-p4: 0.5rem;
+  --spacing-p5: 0.625rem;
+  --spacing-p6: 0.75rem;
+  --spacing-p7: 1rem;
+  --spacing-p8: 1.25rem;
+
+  --radius-r3: 0.375rem; /* 6px */
+  --radius-r4: 0.5rem; /* 8px */
+  --radius-r5: 0.625rem; /* 10px */
+  --radius-r6: 0.75rem; /* 12px */
+  --radius-r7: 0.875rem; /* 14px */
+
+  /* Type scale — rem relative to density root (13px normal). Values keep
+     Orca's existing visual sizes (caption≈10.5 / footnote≈12 / body≈13 /
+     heading≈17px) while gaining a named, density-aware vocabulary. */
+  --text-caption: 0.808rem;
+  --text-caption--line-height: 1.4;
+  --text-footnote: 0.923rem;
+  --text-footnote--line-height: 1.45;
+  --text-body: 1rem;
+  --text-body--line-height: 1.5;
+  --text-heading: 1.308rem;
+  --text-heading--line-height: 1.3;
+  --text-heading--font-weight: 600;
 
   /* Typography */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
@@ -78,6 +151,12 @@
   --color-rust: #e07855;
   --color-rust-soft: #4a2214;
   --color-bubble-user: #121212;
+
+  /* Epitaxy non-alias tones (aliases follow their semantic source above) */
+  --color-t3: #2f2a22;
+  --color-t7: #d8d0c0;
+  --color-t8: #e8e0d0;
+  --color-fill-primary-hover: #c96743;
 }
 
 [data-theme='cool'] {
@@ -92,4 +171,10 @@
   --color-rust: #2563eb;
   --color-rust-soft: #dbeafe;
   --color-bubble-user: #f0eee6;
+
+  /* Epitaxy non-alias tones */
+  --color-t3: #e2e8f0;
+  --color-t7: #1e293b;
+  --color-t8: #0f172a;
+  --color-fill-primary-hover: #1d4ed8;
 }
