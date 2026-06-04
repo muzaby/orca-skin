@@ -26,7 +26,7 @@ export const ComposerChip = forwardRef<HTMLButtonElement, ComposerChipProps>(fun
       title={title}
       aria-haspopup={ariaHasPopup ? 'menu' : undefined}
       aria-expanded={ariaHasPopup ? ariaExpanded : undefined}
-      className="inline-flex h-7 cursor-pointer items-center gap-1.5 rounded-md border border-border bg-bg px-2 text-[12px] text-ink2 hover:bg-sidebar disabled:cursor-not-allowed disabled:opacity-50"
+      className="inline-flex h-7 cursor-default items-center gap-g3 rounded-r4 border border-t5 bg-fill-contained px-p5 text-footnote text-t6 outline-none hide-focus-ring ring-focus transition-colors hover:bg-fill-contained-hover hover:text-t7 disabled:cursor-not-allowed disabled:opacity-50"
     >
       <Icon name={icon} size={12} />
       <span>{label}</span>

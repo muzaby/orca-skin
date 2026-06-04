@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import { Icon } from '../../../shared/ui/Icon'
+import { Button } from '../../../shared/ui/Button'
+import { UsageCircle } from '../../../shared/ui/UsageCircle'
 import { Popover } from '../../../shared/ui/Popover'
 import { ReadingColumn } from '../../../shared/ui/ReadingColumn'
 import { HighlightedTextarea, type HighlightedTextareaHandle } from './composer/HighlightedTextarea'
@@ -21,6 +22,10 @@ interface ComposerProps {
   chat: UseChat
   backendLabel: string
 }
+
+// Claude 컨텍스트 윈도우(토큰). usage 도넛 비율 산출용 — 마지막 result 의
+// 실측 inputTokens 를 이 값으로 나눈다(가짜 수치 아님).
+const CONTEXT_WINDOW = 200_000
 
 // 채팅 입력 composer — textarea + chip 행 + send/cancel 버튼 + skills/file 자동완성.
 // ChatTile 과 NewChatLandingPage 양쪽에서 동일하게 재사용.
@@ -206,7 +211,10 @@ export function Composer({ chat, backendLabel }: ComposerProps): React.JSX.Eleme
         {state.pendingPlanReview ? (
           <PlanApprovalCard key={state.pendingPlanReview.requestId} chat={chat} />
         ) : (
-          <div className="rounded-[14px] border border-border bg-panel px-3 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,.03)]">
+          <div
+            className="epitaxy-prompt rounded-r7 border border-t5 bg-surface-primary-elevated px-3 py-2.5 shadow-[0_1px_2px_rgba(0,0,0,.03)]"
+            data-surface="prompt"
+          >
             <div
               ref={textareaWrapRef}
               className="app-frame-composer-input"
@@ -252,27 +260,36 @@ export function Composer({ chat, backendLabel }: ComposerProps): React.JSX.Eleme
                   ariaExpanded={menuOpen}
                 />
               </div>
-              <span className="ml-auto flex items-center gap-2">
-                <span className="text-[11px] text-ink3">{backendLabel}</span>
+              <span className="ml-auto flex items-center gap-g4">
+                <span className="text-caption text-t6">{backendLabel}</span>
+                {state.pendingInputTokens != null && (
+                  <UsageCircle
+                    ratio={state.pendingInputTokens / CONTEXT_WINDOW}
+                    aria-label={`컨텍스트 사용량: ${Math.round((state.pendingInputTokens / CONTEXT_WINDOW) * 100)}%`}
+                    title={`컨텍스트 ~${Math.round(state.pendingInputTokens / 1000)}k 토큰 / ${CONTEXT_WINDOW / 1000}k`}
+                  />
+                )}
                 {state.inflight ? (
-                  <button
+                  <Button
+                    iconOnly
+                    variant="uncontained"
+                    leadingIcon="pause"
                     onClick={cancel}
-                    className="grid h-[30px] w-[30px] cursor-pointer place-items-center rounded-lg border-0 bg-ink2 text-white"
                     title="중단"
+                    aria-label="중단"
                     data-behavior="action:cancel-turn"
-                  >
-                    <Icon name="pause" size={14} color="#fff" />
-                  </button>
+                  />
                 ) : (
-                  <button
+                  <Button
+                    iconOnly
+                    variant="primary"
+                    leadingIcon="send"
                     onClick={submit}
                     disabled={draft.trim() === ''}
-                    className="grid h-[30px] w-[30px] cursor-pointer place-items-center rounded-lg border-0 bg-rust text-white disabled:cursor-not-allowed disabled:opacity-40"
                     title="전송 (Enter)"
+                    aria-label="전송"
                     data-behavior="action:send"
-                  >
-                    <Icon name="send" size={14} color="#fff" />
-                  </button>
+                  />
                 )}
               </span>
             </div>
