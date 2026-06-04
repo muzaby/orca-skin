@@ -221,6 +221,8 @@ interface OrcaCapabilities {
 | `SDKPermissionDeniedMessage` (Phase 4) | (현재 무시 — 권한 정책 도입 시 매핑) |
 | 어댑터 catch → Error | `{ type: 'error', data: { code: 'sdk.*' \| 'auth.expired' \| ..., message, recoverable } }` |
 
+> **정규화 계층 (설계 확정 / 구현 대기)**: 위 `ChatEvent` 는 claude-code 결합 형태다. provider 중립 `NormalizedEvent`(+ `permission.requested` 1급 이벤트) 로의 승격 설계와 현행 9종 전수 매핑표는 **§12.1** 참조.
+
 ### 4.5 인증 만료 감지
 
 SDK 가 throw 하는 에러 메시지/코드에서 `401` / `OAuth` / `expired` 패턴 매칭 → `error / auth.expired` 이벤트 발행 → UI 의 AuthExpiredModal 로 `claude /login` 안내.
@@ -616,12 +618,405 @@ ipcMain.handle('orca:chat:send', async (event, req) => {
 | 멀티세션 (`requestRegistry: Map`) | Phase 4 | ❌ 미구현 | FRONTEND §5 와 함께 |
 | Zustand persist 전략 (renderer store ↔ 로컬 DB / electron-store) | Phase 4 | ❌ 미정 OQ | FRONTEND §4.4.6 |
 | i18n (`src/shared/i18n/ko.ts`) | Future | ❌ 미구현 | 현재 인라인 한국어 |
+| **Provider Runtime Model (정규화 계층)** | Future | 📐 설계 확정 / 구현 대기 | §12 — NormalizedEvent · PermissionBridge · AppCommandPolicy · SessionCapability · RevertManager · ErrorClassifier · Telemetry · AuthStore · AuditLog. SDK 타입 확정(§12.12) 후 착수 |
 
 > 이 표는 코드 변경 시 함께 갱신한다.
 
 ---
 
-## 12. 참고
+## 12. Provider Runtime Model — 범용 정규화 계층 (설계 확정 / 구현 대기)
+
+> **상태**: 📐 *설계 확정 · 구현 대기*. 본 절은 **인터페이스/설계만** 정의하며 현재 코드 동작을 바꾸지 않는다 (코드 변경 0). 여기 정의한 타입은 **정본(SSOT)** 이며, FRONTEND_ARCHITECTURE 의 렌더링/UX 절은 이 타입들을 *참조만* 한다(중복 정의 금지).
+>
+> **출처 신뢰 원칙**: 각 사실 옆에 `[검증]`(SDK 1차 출처/현재 코드에서 확인됨) / `[미확인]`(구현 전 실제 SDK 타입에서 직접 확정 필요)을 표기한다. **현재 `@anthropic-ai/claude-agent-sdk` 와 OpenCode SDK 가 `node_modules` 에 미설치**라 다수 항목이 `[미확인]` 이다 — §12.12 의 확정 절차를 거친 뒤 구현에 들어간다.
+>
+> **rename 범위 밖**: 실제 코드 심볼(`ChatEvent`·`SessionAdapter`·`makeCanUseTool` 등)은 이번 라운드에서 변경하지 않는다. 본 절의 *목표 타입명*(`NormalizedEvent` 등)과 현행 코드명의 대응은 §12.11 매핑표로만 둔다.
+
+### 12.0 왜 — 현재 결합의 3가지 괴리
+
+Phase 3++ 구현은 claude-code SDK 에 강하게 결합돼 있어, 범용(OpenCode + Claude) 런타임 모델과 어긋난다. 핵심 명제: **이 앱은 "툴 이름 매핑" 앱이 아니라, 서로 다른 SDK 런타임을 공통 이벤트·세션·권한·직접 호출 모델로 정규화하는 앱이다.**
+
+| 괴리 | 현재 코드 | 목표 |
+|---|---|---|
+| 이벤트가 provider-specific | `ChatEvent`(`src/shared/ipc.ts`, 9종) 가 Claude SDK 메시지 모양. `sessionId`/`provider`/`toolRunId` 정규화 축 없음 | `NormalizedEvent` (§12.1) + `permission.requested` 1급 이벤트 |
+| 일반 권한 승인 UX 부재 | `makeCanUseTool`(`src/main/adapters/claude-code.ts`) 가 `AskUserQuestion`/`ExitPlanMode` 만 surface, **그 외 모든 tool 을 무조건 allow** | PermissionBridge + ApprovalResolution 2분기 (§12.2) |
+| capability/revert/app-command/telemetry/audit/error 계층 부재 | 없음 | §12.3 ~ §12.10 |
+
+> **ADAPTER_DESIGN_REVIEW 연속성**: 본 정규화 계층은 신규 발명이 아니라 [`ADAPTER_DESIGN_REVIEW.md`](./ADAPTER_DESIGN_REVIEW.md) 의 **2계층 모델**(Tier A `OrcaCapabilities` / Tier B 얇은 `SessionAdapter`)과 **중립 이벤트 어휘 `OrcaHookEvent`**(§6.2)의 *다음 단계*다. 그 리뷰가 제안한 `sendMessage(req: TurnRequest)` 객체 시그니처는 **이미 코드에 채택됨**(§4.3) — 정규화 계층은 그 위에 `NormalizedEvent`(아웃바운드 이벤트)와 권한/세션/revert 정규화를 추가한다. `OrcaHookSet`(§4.4·ADAPTER_DESIGN_REVIEW §6.5)과 `OrcaHookDecision` 은 §12.2 의 권한 결정 흐름과 의미가 겹치며, 구현 시 단일 결정 모델로 합류 검토.
+
+### 12.1 NormalizedEvent — provider 중립 이벤트
+
+**① 설명.** OpenCode 는 `event.subscribe()` SSE 스트림(`event.type` + `event.properties`)을 `[검증]`, Claude 는 `query()`/`ClaudeSDKClient` 메시지 async iterator + `canUseTool` 콜백을 사용한다 `[검증]`. 이 둘을 단일 이벤트 union 으로 정규화한다. 모든 이벤트는 `sessionId` 를 갖고(멀티세션 라우팅), 권한 요청은 1급 이벤트다.
+
+**② 예시.** "Bash 한 줄 실행" 한 턴이 현재는 `tool_use` → `tool_result` 두 `ChatEvent` 로 흐른다. 정규화 후엔 `sessionId`/`provider`/`toolRunId` 를 가진 `tool.call.started` → `tool.call.completed` 가 되어, 같은 `toolRunId` 로 start/complete 를 매칭하고 어느 provider/세션에서 왔는지 식별한다.
+
+**③ 현재 코드 갭.** `ChatEvent`(`src/shared/ipc.ts:59-75`)는 `init` variant 만 `sessionId` 를 갖고 나머지는 단일 세션 가정. `provider` 필드 없음. tool 이벤트는 `tool_use`/`tool_result` 로 분리돼 있으나 정규 `toolRunId` 명명·origin 개념 없음.
+
+**④ 인터페이스 (정본).**
+
+```ts
+type ProviderId = 'claude-code' | 'opencode'
+
+type NormalizedEvent =
+  | { type: 'message.delta';      sessionId: string; provider: ProviderId; messageId: string; delta: unknown }
+  | { type: 'message.completed';  sessionId: string; provider: ProviderId; messageId: string; message: unknown } // [미확인] payload 모양
+  | { type: 'tool.call.started';  sessionId: string; provider: ProviderId; toolRunId: string; toolName: string; args: unknown }
+  | { type: 'tool.call.completed';sessionId: string; provider: ProviderId; toolRunId: string; result: unknown; isError: boolean; durationMs?: number }
+  | { type: 'permission.requested'; sessionId: string; provider: ProviderId; approvalId: string; origin: 'agent' | 'app'; action: PermissionAction } // §12.2
+  | { type: 'permission.resolved';  sessionId: string; provider: ProviderId; approvalId: string; resolution: ApprovalResolution }
+  | { type: 'session.updated';    sessionId: string; provider: ProviderId; patch: unknown }
+  | { type: 'telemetry';          sessionId: string; provider: ProviderId; usage: ProviderReportedTelemetry } // §12.7
+  | { type: 'error';              sessionId?: string; provider: ProviderId; error: ClassifiedError }           // §12.5
+
+// 한 provider 원본 1개가 N개 NormalizedEvent 로 분해될 수 있다(delta+tool 동시).
+type ProviderEventMapper = { provider: ProviderId; map(raw: unknown): NormalizedEvent[] }
+```
+
+**현행 `ChatEvent`(9종) ↔ `NormalizedEvent` 전수 매핑표** `[검증: 현재 코드]`:
+
+| 현행 `ChatEvent` | → `NormalizedEvent` | 비고 |
+|---|---|---|
+| `init` | `session.updated`(최초) — `sessionId`/`model`/`cwd` 주입 | 현재 sessionId 출처 |
+| `assistant_delta` | `message.delta` | 스트리밍 텍스트 |
+| `assistant_message` | `message.completed` | 완성본 |
+| `tool_use` | `tool.call.started` | `toolUseId` → `toolRunId` |
+| `tool_result` | `tool.call.completed` | `isError`/`durationMs` 보존 |
+| `result` | `telemetry` | `usage` → `ProviderReportedTelemetry` (§12.7) |
+| `error` | `error` | `ErrorCode` → `ClassifiedError` (§12.5) |
+| `ask_question` | `permission.requested`(`origin:'agent'`) | Claude `AskUserQuestion` 의 합성 — §12.2 |
+| `plan_review` | `permission.requested`(`origin:'agent'`) | Claude `ExitPlanMode` 의 합성 — §12.2 |
+
+> `[미확인]`: OpenCode `event.type` enum 전수와 Claude 메시지 타입 전수는 `types.gen.ts` / Claude SDK 타입에서 추출해 위 매핑을 완성한다(§12.12). 현재 union 은 골격이다.
+
+### 12.2 권한 정규화 파이프라인
+
+#### permission.requested 는 1급 이벤트 (`origin`)
+
+**① 설명.** 권한 요청은 반드시 `origin` 을 갖는다. `agent` = 에이전트가 tool 을 쓰려다 발생, `app` = 앱이 직접 SDK API 를 호출하려다 발생(§12.2 AppCommandPolicy).
+
+**② 예시.** 현재 자동 allow 되는 `Bash rm -rf build/` 가 `permission.requested{origin:'agent', action:{kind:'shell', label:'rm -rf build/', risk:'high'}}` 로 surface → 렌더러 ApprovalCard(FRONTEND §7) 가 뜨고, 사용자 결정이 콜백으로 회신된다.
+
+**③ 현재 코드 갭.** `makeCanUseTool`(`src/main/adapters/claude-code.ts`)은 `AskUserQuestion`/`ExitPlanMode` 두 도구만 `askUser`/`reviewPlan` 콜백으로 surface 하고 **그 외 전부 `{behavior:'allow'}` passthrough**. 즉 일반 tool 승인 경로가 없다. `allowedTools=mcp__<name>__*` 와일드카드(§4.3)도 같은 "차단 안 함" 전제.
+
+**④ 인터페이스 (정본).**
+
+```ts
+type PermissionAction = { kind: string; label: string; input?: unknown; risk?: 'low' | 'medium' | 'high' }
+```
+
+- **OpenCode (agent)**: event 스트림에서 permission request 감지 → `postSessionByIdPermissionsByPermissionId({path, body})` → `boolean` 회신 `[검증]`.
+- **Claude (agent)**: `canUseTool` 콜백 지점에서 합성 `permission.requested` 발행 → UI 결정 후 콜백을 `PermissionResult` 로 resolve. `canUseTool` 은 권한 평가의 마지막 단계 `[검증]`.
+
+#### ApprovalResolution — 2분기 (4값 모델 폐기)
+
+**① 설명.** 실제 Claude `PermissionResult` 는 **2분기**다. "modified input" 은 `allow` 의 `updatedInput` 필드, "interrupt" 는 `deny` 의 boolean. `allow` 에는 향후 자동승인 규칙을 갱신하는 `updatedPermissions` 가 있다(trust escalation 직결).
+
+**② 예시.** (a) 사용자가 Bash 인자를 `rm -rf build/` → `rm -rf build/tmp/` 로 고쳐 승인 = `allow{updatedInput}`. (b) "이 세션 동안 Read 는 자동 허용" = `allow{updatedPermissions:[addRules…]}`. (c) "거부하고 에이전트 중단" = `deny{interrupt:true}`.
+
+**③ 현재 코드 갭.** 현행 `AskResult`/`PlanDecision`(`src/shared/ipc.ts`)은 이 2분기의 *도메인 특수형*이다(answered/skipped, approved/rejected/revise). `makeCanUseTool` 이 Claude `PermissionResult` 를 직접 반환하지만 정규 `ApprovalResolution` 추상이 없어 OpenCode 와 공유 불가.
+
+**④ 인터페이스 (정본).**
+
+```ts
+type ApprovalResolution =
+  | { type: 'allow'; updatedInput?: unknown; updatedPermissions?: PermissionUpdate[] }
+  | { type: 'deny';  message?: string; interrupt?: boolean }
+
+// Claude TS 기준 [검증]
+type PermissionUpdate =
+  | { type: 'addRules' | 'replaceRules' | 'removeRules'; rules: unknown[]; behavior: 'allow' | 'deny' | 'ask'; destination?: unknown }
+  | { type: 'setMode'; mode: NormalizedPermissionMode }
+```
+
+**Provider 별 downcast (OpenCode boolean 손실표)**:
+
+| Provider | allow | deny |
+|---|---|---|
+| OpenCode | `body:true` — `updatedInput`/`updatedPermissions` **표현 불가, 무시(손실)** | `body:false` |
+| Claude | `{behavior:'allow', updatedInput, updatedPermissions}` | `{behavior:'deny', message, interrupt}` |
+
+> UI 는 OpenCode 세션에서 `updatedInput`/`updatedPermissions` 가 손실됨을 **명시**(provider capability 차이) — FRONTEND §7 ApprovalCard 가 배지로 표시.
+
+#### PendingApprovalStateMachine
+
+**① 설명.** 콜백형(Claude `canUseTool` Promise)과 이벤트형(OpenCode SSE + response endpoint) 승인을 동일 상태 모델로 처리: `requested → resolving → resolved(allow|deny)`, 이탈 분기 `timed_out`/`aborted`.
+
+**③ 현재 코드 갭.** `src/main/ask/broker.ts` 의 `InteractionBroker<T>`(register/resolve + abort signal + default-on-cancel)가 이 상태기계의 **부분 구현**이다 — 단, ask/plan 전용. 일반 권한으로 일반화하면 그대로 PendingApprovalStateMachine 이 된다.
+
+**④ 인터페이스 (정본).**
+
+```ts
+type PendingApprovalState = 'requested' | 'resolving' | 'resolved' | 'timed_out' | 'aborted'
+
+interface PermissionBridge {                          // agent-originated approval 만 담당
+  request(ev: Extract<NormalizedEvent, { type: 'permission.requested' }>): Promise<ApprovalResolution>
+  // Claude: resolved 도달 시 canUseTool Promise 를 PermissionResult 로 resolve
+  // OpenCode: resolved 도달 시 postSessionByIdPermissionsByPermissionId 호출(boolean downcast)
+}
+```
+
+#### AppCommandPolicy — 3분기 (app-originated)
+
+**① 설명.** OpenCode 는 앱이 *직접* 호출하는 상태변경/권한우회 API 를 제공한다. 이는 agent tool permission gate **바깥**이므로 앱 자체 정책이 필요하다 `[검증]`. read-only / bypass-risk / state-changing 3분기.
+
+**② 예시.** `file.read`(무프롬프트 통과) vs `session.shell`(agent gate 밖 → 항상 승인) vs `session.revert`(상태 변경 → 승인 + audit). Claude 단독에선 대부분 무의미하나 **OpenCode 확장점**으로 필요.
+
+**③ 현재 코드 갭.** 없음(Claude 단독이라 app-originated direct call 표면이 아직 없음). OpenCode 어댑터 도입 시 필수.
+
+**④ 인터페이스 (정본).**
+
+```ts
+type AppCommandKind =
+  | 'read_only_direct_action'      // file.read, find.text/files/symbols, file.status
+  | 'bypass_risk_direct_action'    // session.shell, session.command, direct file mutation
+  | 'state_changing_direct_action' // session.revert/unrevert/abort/delete/share/init
+
+const DEFAULT_APP_COMMAND_POLICY: Record<AppCommandKind, 'pass' | 'require_approval'> = {
+  read_only_direct_action: 'pass',
+  bypass_risk_direct_action: 'require_approval',
+  state_changing_direct_action: 'require_approval',
+}
+```
+
+> `session.summarize` 의 side effect(요약을 세션에 저장하는지)는 공식 문서상 불명확 `[미확인]` → 확정 전까지 보수적으로 `state_changing` 분류.
+
+#### PermissionModeController — 세션 중 신뢰 상향
+
+**① 설명.** Claude 는 `setPermissionMode()`(TS)/`set_permission_mode()`(Python)로 mid-session 모드를 즉시 전환한다 `[검증]`. 모드 전수: `default | acceptEdits | plan | dontAsk | bypassPermissions | auto`(auto=TS 전용 모델 분류기).
+
+**② 예시.** 사용자가 "계획만 보기(plan)" 로 시작했다가, 신뢰가 쌓이면 런타임에 `accept_edits` 로 올려 파일 편집 자동 수락. 이후 `allow` 시 `updatedPermissions` 로 규칙 누적.
+
+**③ 현재 코드 갭.** 현행은 per-turn `permissionMode: 'plan' | 'acceptEdits'`(`src/shared/ipc.ts`, 2종)만 `SendChatMessage` 로 전달. **mid-session 전환 없음**. 또 현재 어댑터는 `query()` **one-off** 구조라 런타임 전환의 **선행 조건 = `ClaudeSDKClient` 전환**(동일 세션 재사용, §5 동시성과 연계).
+
+**④ 인터페이스 (정본).**
+
+```ts
+type NormalizedPermissionMode =
+  | 'default' | 'accept_edits' | 'plan' | 'dont_ask' | 'bypass' | 'auto_classified'
+
+interface PermissionModeController {
+  getCurrentMode(): NormalizedPermissionMode
+  setMode(mode: NormalizedPermissionMode): Promise<void>            // Claude: setPermissionMode / OpenCode: 앱 레벨 에뮬레이션 [미확인]
+}
+```
+
+| Provider | 처리 |
+|---|---|
+| Claude | `setPermissionMode` 런타임 전환. `auto`(TS)=모델 분류기 승인 |
+| OpenCode | 동일 런타임 mode setter 가 공식 문서에 없음 → 앱 레벨 "이후 같은 종류 자동 승인" 에뮬레이션 `[미확인]` |
+
+> **권한 평가 순서 불일치 `[부분 불확실]`**: 공식 문서에 두 서술이 병존한다 — (a) `Hooks → Deny → Mode → Allow → canUseTool`, (b) `PreToolUse Hook → Deny → Allow → Ask → Mode → canUseTool → PostToolUse Hook`. **둘 다 1차 출처이며 불일치.** 구현은 hooks 3분기(allow/deny/passthrough)·ask rules·Pre/PostToolUse hook 까지 포함한 완전 파이프라인으로 모델링하고, 대상 SDK 버전 기준으로 단일화한다(§12.12).
+
+### 12.3 SessionCapability + CapabilityProbe
+
+**① 설명.** provider 는 대칭이 아니다. 세션 기능을 런타임에 탐지(probe)해 `AppSession.capabilities` 에 캐시하고, UI 는 `false` 인 액션 버튼을 **사전 비활성/숨김**(사후 `capability_unsupported` 에러보다 UX 우월).
+
+**② 예시.** OpenCode 는 `session.children`/`share`/`init`(AGENTS.md) `[검증]`, Claude 는 `continueConversation`/`resume`/`forkSession` `[검증]`. 서로 대응이 없으므로 사이드바/메뉴가 가용한 액션만 노출.
+
+**③ 현재 코드 갭.** `SessionAdapter`(`src/main/adapters/types.ts`)는 `isInstalled`/`install`/`sendMessage`(+옵셔널 listSessions/loadSession)만 — capability 서술자 없음.
+
+**④ 인터페이스 (정본).**
+
+```ts
+interface SessionCapabilities {
+  // lifecycle
+  continue?: boolean; resume?: boolean; fork?: boolean; persistSessionFalse?: boolean; delete?: boolean; update?: boolean
+  // structure / control
+  children?: boolean; summarize?: boolean; abort?: boolean; share?: boolean; init?: boolean
+  // context
+  contextInjectionNoReply?: boolean; structuredOutput?: boolean
+  // revert (§12.4)
+  conversationRevert?: boolean; conversationUnrevert?: boolean; fileCheckpointCreate?: boolean; fileCheckpointRestore?: boolean
+}
+
+interface CapabilityProbe {
+  provider: ProviderId
+  discover(): Promise<{ session: SessionCapabilities; revert: RevertCapabilities; cancellation: CancellationCapability }>
+}
+```
+
+| 기능 | OpenCode | Claude Code |
+|---|---|---|
+| continue/resume/fork | 동일 표면 없음 `[미확인]` | `continueConversation`/`resume`/`forkSession` `[검증]` |
+| children / summarize / abort / share / init | `session.*` `[검증]` | 대응 `[미확인]` |
+| noReply context injection | `session.prompt({noReply:true})` `[검증]` | `[미확인]` |
+| structured output | `session.prompt({format})` `[검증]` | 대응 개념 존재, 형식 `[미확인]` |
+
+### 12.4 RevertManager — 되돌리기 의미 분리 (핵심)
+
+**① 설명.** **conversation revert ≠ file revert. 절대 합치지 않는다.** 대화/메시지 상태 되돌리기와 파일 변경 snapshot/복원은 별개 개념·별개 capability.
+
+**② 예시.** OpenCode `session.revert`/`unrevert` = 대화 상태 되돌리기 `[검증]`. Claude file checkpointing(실험적, `betas` 로 활성화) = 파일 snapshot/복원 `[검증]`. 한쪽만 있는 provider 에서 다른 쪽 버튼은 숨긴다.
+
+**③ 현재 코드 갭.** 둘 다 없음.
+
+**④ 인터페이스 (정본).**
+
+```ts
+interface RevertCapabilities {
+  conversationRevert: boolean; conversationUnrevert: boolean
+  fileCheckpointCreate: boolean; fileCheckpointRestore: boolean
+}
+interface CancellationCapability {
+  sessionAbort?: boolean   // OpenCode: session.abort [검증]
+  denyInterrupt?: boolean  // Claude: PermissionResultDeny.interrupt [검증]
+  abortSignal?: boolean    // Claude: ToolPermissionContext.signal [미확인 — 현재 "future" 표기]
+}
+```
+
+### 12.5 ErrorClassifier — 8분류 + cancellation 분리
+
+**① 설명.** `error` 이벤트는 분류돼야 재시도/표시 정책을 결정할 수 있다. 8 category + retryable 플래그.
+
+**③ 현재 코드 갭.** 현행은 `detectError()`(`src/main/adapters/claude-code.ts`) 휴리스틱(401/OAuth/expired 정규식 → `auth.expired`)과 `ErrorCode` enum(`sdk.*`/`cli.*`/`auth.expired`/`protocol.parse`/`internal`)뿐 — 정규 분류기/`retryable` 없음.
+
+**④ 인터페이스 (정본).**
+
+```ts
+type ErrorCategory =
+  | 'provider_connection_error'  // OpenCode 서버 다운, Claude 바이너리 부재
+  | 'auth_error'                 // API key 무효/누락 (현행 auth.expired)
+  | 'permission_denied'          // user deny / policy deny
+  | 'tool_execution_error'       // shell exit≠0, file read 실패
+  | 'stream_error'               // SSE 끊김, iterator 오류
+  | 'capability_unsupported'     // 예: Claude 에 OpenCode식 find.* 없음
+  | 'schema_validation_error'    // structured output 검증 실패
+  | 'user_cancelled'             // abort/interrupt
+
+interface ClassifiedError { category: ErrorCategory; message: string; retryable: boolean; provider?: ProviderId; cause?: unknown }
+interface ErrorClassifier { classify(error: unknown, ctx: { provider: ProviderId; phase: string }): ClassifiedError }
+```
+
+### 12.6 정규화 Persistence — AppMessagePart
+
+**① 설명.** 이벤트 스트림과 별개로 대화 기록을 저장·재렌더링하는 내부 모델. OpenCode 가 messages 를 `{ info: Message, parts: Part[] }[]` 로 다루는 것을 반영해 **parts** 모델을 둔다. 무거운 페이로드(stdout/파일 본문)는 별도 blob store 로 분리해 메시지 행을 가볍게 유지.
+
+**③ 현재 코드 갭.** 현행 DB(`src/main/db/`)는 `messages.content TEXT` + `tool_calls`(input_json/result_json) 구조 — 평면 텍스트 + 별 테이블. parts union·blob 분리 없음. (마이그레이션은 "구현 대기".)
+
+**④ 인터페이스 (정본).**
+
+```ts
+interface AppSession { id: string; provider: ProviderId; providerSessionId: string; title?: string; cwd?: string; capabilities: SessionCapabilities; createdAt: string; updatedAt: string }
+interface AppMessage { id: string; sessionId: string; providerMessageId?: string; role: 'user'|'assistant'|'system'|'tool'|'context'; parts: AppMessagePart[]; createdAt: string }
+type AppMessagePart =
+  | { type: 'text'; text: string }
+  | { type: 'reasoning'; text: string; collapsed?: boolean }
+  | { type: 'tool_call'; toolRunId: string; toolName: string; args: unknown }   // 무거운 페이로드는 blobRef 로 분리
+  | { type: 'tool_result'; toolRunId: string; result: unknown }
+  | { type: 'file'; path: string; readType?: 'raw' | 'patch'; content?: string }
+  | { type: 'diff'; patch: string }
+  | { type: 'structured_output'; value: unknown }
+  | { type: 'error'; error: unknown }
+```
+
+> 구현 전략: 스트리밍 중 `tool_call` part 를 먼저 append → `tool.call.completed` 도착 시 동일 `toolRunId` 로 `tool_result` 매칭. 무거운 stdout/파일 본문은 blob 로 빼고 행엔 ref 만.
+
+### 12.7 TelemetryService
+
+**① 설명.** provider 가 usage/cost 를 제공하면 쓰고, 없으면 앱이 자체 집계. 2계층.
+
+**③ 현재 코드 갭.** 현행은 `result` 이벤트의 `usage`(inputTokens/outputTokens)만 매핑(§4.4). cost·latency·app-measured 집계 없음. (렌더러 `UsageCircle` 가 inputTokens 비율만 표시 — FRONTEND §6.)
+
+**④ 인터페이스 (정본).**
+
+```ts
+interface ProviderReportedTelemetry { provider: ProviderId; model?: string; inputTokens?: number; outputTokens?: number; costUsd?: number } // [미확인] 정확한 필드
+interface AppMeasuredTelemetry { latencyMs?: number; toolDurationMs?: number; streamDurationMs?: number; eventCount?: number; bytesStreamed?: number; errorRate?: number; cancelRate?: number }
+interface TelemetryService { providerReported(sessionId: string): ProviderReportedTelemetry | undefined; appMeasured(sessionId: string): AppMeasuredTelemetry }
+```
+
+### 12.8 AuthStore — 키 저장소가 아니라 주입 전략
+
+**① 설명.** provider 별 auth 주입 지점이 다르므로 단일 "키 저장소"가 아니라 **주입 전략**으로 모델링한다. 비밀값은 OS keychain/secret store 에 두고 메모리 노출 최소화.
+
+**③ 현재 코드 갭.** 현행은 (a) Claude SDK 가 `~/.claude` 자격증명 자동 사용(§8.3) + (b) MCP 인증 비밀만 safeStorage(§8.4) — provider-중립 주입 전략 추상 없음. §8.4 의 safeStorage 모델을 "주입 전략" 으로 재서술하면 그대로 AuthStore 의 한 갈래가 된다.
+
+**④ 인터페이스 (정본).**
+
+```ts
+type ClaudeAuthMode =
+  | { kind: 'api_key'; env: { ANTHROPIC_API_KEY: string } }
+  | { kind: 'local_binary'; pathToClaudeCodeExecutable: string }  // 구독 세션 [검증]
+  | { kind: 'bedrock'; region: string }
+  | { kind: 'vertex'; project: string }
+
+type AuthInjection =
+  | { provider: 'opencode';        via: 'auth.set'; body: { id: string; type: 'api'; key: string } }     // 서버 API [검증]
+  | { provider: 'claude-code';     via: 'process_env_or_binary'; mode: ClaudeAuthMode }
+  | { provider: 'openai_compatible'; via: 'baseURL+apiKey'; baseURL: string; apiKey: string }            // OpenCode provider 경유 [검증]
+
+interface AuthStore { resolve(provider: ProviderId): Promise<AuthInjection> }
+```
+
+### 12.9 AuditLog
+
+**① 설명.** permission/app-command/revert/shell 실행을 기록. 입출력은 원문 대신 **해시**로 저장(민감 데이터 노출 축소). 기록은 PermissionBridge·AppCommandPolicy 결정 지점에 **hook 으로 박는다**. state-changing/bypass-risk 는 audit 누락이 곧 보안 공백이므로 기록 실패 시 액션을 막는 **fail-closed** 옵션.
+
+**③ 현재 코드 갭.** 없음(감사 로그 미도입).
+
+**④ 인터페이스 (정본).**
+
+```ts
+interface AuditLogEntry {
+  id: string; sessionId: string; actor: 'user' | 'agent' | 'app'; provider: ProviderId
+  origin: 'agent' | 'app'; action: string; risk: 'low' | 'medium' | 'high'
+  decision?: ApprovalResolution; inputHash?: string; outputHash?: string; createdAt: string
+}
+```
+
+### 12.10 ModelProviderConfig — 게이트웨이를 합치지 않는다
+
+**① 설명.** 두 런타임의 모델 구조는 **비대칭**이라 앱 공통 추론 게이트웨이를 두지 않는다. provider 별 "모델 설정 표면"만 정규화해 노출하고, 추론 트래픽은 각 런타임이 처리.
+
+**② 예시.** OpenCode 는 `opencode.json` `provider` 섹션에서 75+ provider + 임의 `baseURL` override + `@ai-sdk/openai-compatible`(LiteLLM/vLLM/Ollama/LM Studio) 등록 `[검증]`. Claude Agent SDK 는 모델이 SDK 에 결합 — `model`/`fallbackModel` + 인증 경로로만 제한 `[검증]`. 따라서 "커스텀 OpenAI-compatible provider 추가" UI 는 **OpenCode runtime 일 때만** 노출.
+
+**③ 현재 코드 갭.** 없음(claude 고정). OpenCode 도입 시 분기.
+
+**④ 인터페이스 (정본).**
+
+```ts
+type ModelProviderConfig =
+  | { runtime: 'opencode'; providers: Array<{ id: string; npm?: string; name?: string; baseURL?: string; models: Record<string, { name?: string; limit?: { context?: number; output?: number } }> }> }
+  | { runtime: 'claude-code'; model?: string; fallbackModel?: string; auth: ClaudeAuthMode }
+```
+
+### 12.11 현행명 → 목표명 매핑표 (rename 범위 밖 — 문서로만)
+
+> 실제 코드 심볼은 이번 라운드에서 변경하지 않는다(사용자 확정). 이름 정렬은 *구조가 실제로 바뀌는 구현 PR* 로 미룬다.
+
+| 현행 코드 심볼 | 위치 | 목표명 | 비고 |
+|---|---|---|---|
+| `ChatEvent` | `src/shared/ipc.ts` | `NormalizedEvent` | sessionId/provider/toolRunId 필드 추가 시 함께 rename |
+| `tool_use` / `tool_result` | 〃 | `tool.call.started` / `tool.call.completed` | toolUseId→toolRunId |
+| `ask_question` / `plan_review` | 〃 | `permission.requested(origin:'agent')` | 합성 |
+| `AskResult` / `PlanDecision` | 〃 | `ApprovalResolution` 특수형 | 2분기로 일반화 |
+| `InteractionBroker` | `src/main/ask/broker.ts` | `PermissionBridge` + `PendingApprovalStateMachine` | ask/plan → 전체 tool |
+| `makeCanUseTool` | `src/main/adapters/claude-code.ts` | (PermissionBridge 어댑트) | 일반 tool 승인 경로 |
+| `detectError` | 〃 | `ErrorClassifier.classify` | 8분류 |
+| `permissionMode`(2종) | `src/shared/ipc.ts` | `NormalizedPermissionMode`(6종) | + 런타임 전환 |
+| `usage`(result) | §4.4 | `ProviderReportedTelemetry` | + AppMeasured |
+
+### 12.12 구현 전 SDK 타입 확정 절차 (`[미확인]` 일괄)
+
+> **선결 제약**: 두 SDK 가 현재 미설치. 아래 항목은 실제 타입 파일을 받아 확정한 **뒤** 구현에 들어간다.
+
+| 항목 | 확인 위치 |
+|---|---|
+| OpenCode `event.type` enum 전수 (§12.1 매핑 완성) | `packages/sdk/js/src/gen/types.gen.ts` |
+| Claude 권한 평가 순서 단일화(hooks/ask/Pre·PostToolUse 포함) | 대상 SDK 버전 permissions 문서 |
+| Claude usage/cost 노출 형식 (§12.7) | `result` 메시지 타입 |
+| OpenCode usage/cost 노출 형식 | `session.message` / `Message` 타입 |
+| OpenCode mode setter 부재 확정 (§12.2) | `types.gen.ts` / 서버 OpenAPI |
+| Claude children/summarize/abort/share/init 대응 (§12.3) | Claude SDK 타입 |
+| OpenCode file checkpoint 대응 (§12.4) | 서버 OpenAPI |
+| `session.summarize` side effect (§12.2 분류) | `types.gen.ts` / 서버 동작 |
+| `forkSession`/`persistSession`/`includePartialMessages` 정확한 옵션명 | Claude SDK 타입 |
+| Claude `ToolPermissionContext.signal`(abort) 실사용 가능 여부 | Claude SDK 타입 (현재 "future" 표기) |
+| Claude structured output 형식 (FRONTEND `StructuredOutputState` 흡수 가능?) | Claude SDK 타입 |
+
+---
+
+## 13. 참고
 
 - IPC 채널 정의: [IPC_CONTRACT.md](./IPC_CONTRACT.md)
 - 용어 정의: [GLOSSARY.md](./GLOSSARY.md)

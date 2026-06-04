@@ -550,6 +550,84 @@ useEffect(density): ──► document.documentElement.style.fontSize = DENSITY_
 - drag 영역: `[-webkit-app-region:drag]` inline 클래스 대신 `style={{ WebkitAppRegion: 'drag' }}` (§3.3.3 의 2-layer 패턴).
 - **header-left 내용물 (Phase 3++)**: 액션 5-버튼 툴바 — `menu` (시스템 메뉴 popover · 자식 `종료` → `windowApi.close()`) · `panelL` (사이드바 접기 토글 · `setTweak('sidebarCollapsed', !current)`) · `search` (대화 검색 모달 열기 — `SearchModal`) · `arrowL` / `arrowR` (`navigate(-1)` / `navigate(1)` 항상 enabled, 추적 없음). 모든 버튼은 `data-behavior="no-drag"` 영역 안. 기존 brand + breadcrumb 표시는 제거 (브랜드는 Sidebar 의 `app-frame-sidebar-brand` 로 이동).
 
+### 6.6 ToolRendererRegistry (설계 확정 / 구현 대기)
+
+> **상태**: 📐 설계 확정 · 구현 대기. 정본 타입(`NormalizedEvent`/`AppMessagePart`)은 [BACKEND_ARCHITECTURE.md](./BACKEND_ARCHITECTURE.md) §12 가 소유 — 본 절은 *렌더링 계약*만 정의(참조).
+
+**① 설명.** 렌더러는 **이벤트 타입이 아니라 의미(semantic kind)** 로 카드를 선택한다. 같은 `tool.call.completed` 라도 결과 형태에 따라 다른 카드로 분기한다. 예: BACKEND §12.6 의 `file` part 가 `readType:'raw'` 면 `FilePreviewCard`, `'patch'` 면 `DiffCard`.
+
+**② 예시.** OpenCode `file.read` → `{ type:'raw'|'patch', content }` `[검증]`. `selectFileRenderer(read) = read.type==='patch' ? 'diff' : 'file_preview'`. `find.text/files/symbols` 는 agent tool result 일 수도, app-originated direct search 일 수도 있어 둘 다 `SearchCard` 로 가되 `origin` 배지를 표시.
+
+**③ 현재 코드 갭.** 현행은 **registry 없음** — `features/chat/components/transcript/ToolCard.tsx` 가 tool **이름** 으로 switch-case 분기(Bash/PowerShell→`BashBody`, Write/Edit/MultiEdit→`DiffBody`, Read→`FileBody`, AskUserQuestion→`AskBody`, default→`KeyValueBody`). semantic kind 추상·plugin 등록 패턴 없음.
+
+**④ 인터페이스 (렌더링 계약).**
+
+```ts
+type RenderableKind =
+  | 'terminal' | 'file_preview' | 'diff' | 'search'
+  | 'approval' | 'agent_task' | 'session_graph'
+  | 'context_injection' | 'structured_output' | 'error' | 'telemetry'
+
+interface ToolRenderer<P = unknown> {
+  kind: RenderableKind
+  match(input: NormalizedEvent | AppMessagePart): boolean   // 정본 타입: BACKEND §12.1 / §12.6
+  toProps(input: NormalizedEvent | AppMessagePart): P
+}
+interface ToolRendererRegistry { register(r: ToolRenderer): void; resolve(input: NormalizedEvent | AppMessagePart): ToolRenderer | undefined }
+```
+
+| Renderer | 대상 | 현행 대응 |
+|---|---|---|
+| `TerminalCard` | shell/command 실행 | `BashBody` |
+| `FilePreviewCard` | `file.read` `raw` | `FileBody` |
+| `DiffCard` | `file.read` `patch`, edit/write | `DiffBody` |
+| `SearchCard` | `find.*`, grep/glob | (없음) |
+| `ApprovalCard` | `permission.requested` | `PlanApprovalCard`(plan 한정) — §7.6 |
+| `AgentTaskCard` / `SessionGraphCard` / `ContextInjectionCard` | subagent / `children`·`fork`·`revert` / `noReply` | (없음) |
+| `StructuredOutputCard` | `format:json_schema` 결과 | (없음) — §6.7 |
+| `ErrorCard` / `TelemetryPanel` | error / usage·cost | `state.error` 카드 / `UsageCircle`(비율만) — §6.9 |
+
+### 6.7 StructuredOutput 렌더링 (설계 확정 / 구현 대기)
+
+**① 설명.** OpenCode `session.prompt({ format: { type:'json_schema', schema, retryCount? } })` 와 실패 시 `result.data.info.error`(`StructuredOutputError`)를 UI 상태로 정규화 `[검증]`. Claude 측 형식은 `[미확인]`(BACKEND §12.12) — 동일 상태로 흡수 가능한지 구현 전 확인.
+
+**③ 현재 코드 갭.** 미구현. reasoning/thinking 블록 전용 렌더도 없음(현재 일반 텍스트로 스트리밍).
+
+**④ 인터페이스.**
+
+```ts
+type StructuredOutputState =
+  | { status: 'valid'; value: unknown; schema: unknown }
+  | { status: 'invalid'; error: unknown; raw?: string }
+  | { status: 'retrying'; attempt: number; maxRetries: number }
+```
+
+`StructuredOutputCard` 는 `valid`=트리/접기 뷰, `invalid`=raw + 검증오류, `retrying`=진행 표시.
+
+### 6.8 Streaming lifecycle & backpressure (설계 확정 / 구현 대기)
+
+**① 설명.** OpenCode SSE 와 Claude async iterator 를 단일 lifecycle 로 정규화: `open → streaming → (reconnect)* → closed`. partial 재조립 / 중복 dedup(eventId) / 순서 보장(monotonic seq) / 긴 tool 출력 버퍼링·절단.
+
+**③ 현재 코드 갭.** 현행은 §6.2 의 16ms throttle + `assistant_delta` 누적만. dedup/재연결/절단 정책 없음(`orca:chat:event` 가 ordered+lossless 1채널이라 단일 세션에선 충분).
+
+**④ 인터페이스.**
+
+```ts
+type StreamLifecycleState = 'open' | 'streaming' | 'reconnecting' | 'closed' | 'errored'
+interface StreamBufferPolicy { maxBytesPerToolRun: number; truncateStrategy: 'head'|'middle'|'tail'; preserveLastLines: number }
+interface ReconnectPolicy { maxRetries: number; backoffMs: (attempt: number) => number; resumeFrom?: 'last_seq' | 'restart' }
+```
+
+- `TerminalCard` stdout/stderr 는 `maxBytesPerToolRun` 으로 캡 → 초과 시 `truncated:true` props 로 "잘림" 표시.
+- SSE 재연결 시 마지막 `seq` 까지 dedup. Claude iterator 는 재연결 개념 없음 → `resumeFrom:'restart'` + 쿼리 재실행 정책 별도.
+- auto-scroll 은 사용자가 위로 스크롤하면 pin 해제(로그 뷰어 패턴).
+
+### 6.9 TelemetryPanel (설계 확정 / 구현 대기)
+
+**① 설명.** provider-reported(token/cost/model) + app-measured(latency/duration/event count) 를 패널로. 정본 타입: BACKEND §12.7.
+
+**③ 현재 코드 갭.** 현행 `shared/ui/UsageCircle.tsx` 가 `state.pendingInputTokens / 200_000` 비율 도넛만 표시. cost·model·latency·세션별 통계 없음.
+
 ---
 
 ## 7. UX 패턴
@@ -604,6 +682,18 @@ useEffect(density): ──► document.documentElement.style.fontSize = DENSITY_
 - 영속화: `Settings.sidebarWidth: number` (180–480, default 248). `shared/hooks/useTweaks` 가 부팅 시 hydrate + flush.
 - collapsed 상태: handle 의 `data-state="hidden"` + `pointer-events-none`. 폭은 `w-14` (56px) 고정. `useDragResize` 의 `disabled: collapsed` 옵션으로 mousedown 무반응.
 - 명명: aside 내부는 `resize-handle`, tile 사이는 `separator` 로 구분 (§3.3.4).
+
+### 7.6 ApprovalCard 일반화 (설계 확정 / 구현 대기)
+
+> **상태**: 📐 설계 확정 · 구현 대기. 정본 타입(`permission.requested`/`ApprovalResolution`/`NormalizedPermissionMode`)은 [BACKEND_ARCHITECTURE.md](./BACKEND_ARCHITECTURE.md) §12.2 가 소유.
+
+**① 설명.** 현재 plan 전용인 승인 UI 를 **모든 agent tool `permission.requested`** 를 받는 일반 ApprovalCard 로 확장한다. 카드는 `origin`(agent/app) · `risk` · `provider` 배지를 표시하고, 사용자 결정을 `ApprovalResolution` 2분기로 회신한다.
+
+**② 예시.** Bash `rm -rf …` 승인 카드에서 (a) 인자를 고쳐 승인 → `allow{updatedInput}`, (b) "이 세션 동안 Read 자동 허용" 토글 → `allow{updatedPermissions}`, (c) 거부 + 에이전트 중단 → `deny{interrupt:true}`. **OpenCode 세션이면** `updatedInput`/`updatedPermissions` 가 boolean 으로 downcast 되어 손실됨을 카드에 배지로 명시(BACKEND §12.2 손실표).
+
+**③ 현재 코드 갭.** 현행은 `features/chat/components/PlanApprovalCard.tsx`(plan 검토 한정) + `AskUserQuestionCard.tsx`(명확화 질문) 둘뿐. 일반 tool 승인 카드 없음 — main 의 `makeCanUseTool` 이 Ask/Plan 외 전부 자동 allow 하므로 애초에 surface 되는 이벤트가 없다(BACKEND §12.2 ③). PermissionModeController(6종 런타임 전환)도 미연동 — 현재 Composer `ModeMenu` 가 per-turn 2종(plan/acceptEdits)만.
+
+**④ 연동.** `permission.requested` 이벤트 → reducer 가 `pendingApprovals` 큐에 적재 → ApprovalCard 가 Composer 입력창을 대체(현 `PlanApprovalCard` 패턴 재사용) → 결정은 PermissionBridge(BACKEND §12.2)로 회신. 렌더링은 ToolRendererRegistry 의 `'approval'` kind(§6.6).
 
 ---
 
@@ -716,6 +806,9 @@ Main 이 `AbortSignal` 을 SDK `query()` 에 전파 → 현재 inflight 만 중�
 | 네트워크 단절 배너 | Future | ❌ 미구현 | — |
 | ARIA / 스크린리더 audit | Future | 🚧 부분 적용 | 체계적 audit TBD |
 | i18n (`src/shared/i18n/ko.ts`) | Future | ❌ 미구현 | 현재는 mockup 인라인 한국어 |
+| **ToolRendererRegistry (semantic kind)** | Future | 📐 설계 확정 / 구현 대기 | §6.6 — 현행 `ToolCard.tsx` switch-case 대체. 정본 BACKEND §12 |
+| **ApprovalCard 일반화 + PermissionModeController 연동** | Future | 📐 설계 확정 / 구현 대기 | §7.6 — 현행 plan 전용 → 모든 agent tool. 정본 BACKEND §12.2 |
+| **StructuredOutput / Streaming lifecycle / TelemetryPanel** | Future | 📐 설계 확정 / 구현 대기 | §6.7·§6.8·§6.9 |
 
 > 이 표는 코드 변경 시 함께 갱신한다.
 

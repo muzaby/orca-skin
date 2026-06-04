@@ -213,6 +213,8 @@ Discriminated union. 어댑터가 CLI/SDK의 다양한 형식을 이 하나의 �
 
 > **(OQ10)** `tool_use.name` / `tool_use.input` 표준화 정책 미정 — PRD §11 OQ10 진실 원천. Phase 3 단일 백엔드 운영에서는 raw 전달 (분기 의미 없음). opencode 어댑터 활성화 PR 에서 결정.
 
+> **(정규화 계층 — 설계 확정 / 구현 대기)** 위 `ChatEvent` 는 claude-code 결합 형태다. provider 중립 `NormalizedEvent`(+ `permission.requested` 1급 이벤트) 로의 승격 설계와 현행 9종 전수 매핑표는 [`BACKEND_ARCHITECTURE.md`](./BACKEND_ARCHITECTURE.md) §12 가 정본. **충돌 지점**: 본 표의 `permissionMode` 2종(plan/acceptEdits)·`error.code` enum 은 정규화 목표(6종 모드 / `ErrorCategory` 8분류)와 어긋난다 — 구현 PR 에서 정합.
+
 ### 6.3 SessionAdapter (공통 인터페이스)
 
 ```typescript
@@ -233,7 +235,7 @@ interface SessionAdapter {
 }
 ```
 
-내부 구현 패턴 (SDKMessage→ChatEvent 정규화, AbortSignal 전파, 인증 만료 감지, 인스톨러 스트리밍) 의 SSOT 는 [`BACKEND_ARCHITECTURE.md`](./BACKEND_ARCHITECTURE.md) §4.
+내부 구현 패턴 (SDKMessage→ChatEvent 정규화, AbortSignal 전파, 인증 만료 감지, 인스톨러 스트리밍) 의 SSOT 는 [`BACKEND_ARCHITECTURE.md`](./BACKEND_ARCHITECTURE.md) §4. 현재 코드는 이미 `sendMessage(req: TurnRequest)` 객체 시그니처를 채택했다(BACKEND §4.3). provider 중립 capability/권한/revert 정규화(SessionCapability·PermissionBridge·RevertManager 등)의 설계는 BACKEND §12 (설계 확정 / 구현 대기).
 
 ### 6.4 SessionInfo
 
