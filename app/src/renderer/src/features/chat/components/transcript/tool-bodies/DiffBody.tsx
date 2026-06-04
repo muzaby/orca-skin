@@ -63,7 +63,9 @@ const DIFF_STYLES = {
   variables: { light: DIFF_VARS, dark: DIFF_VARS },
   contentText: { fontFamily: 'var(--font-mono)', fontSize: 'var(--text-code)' },
   lineNumber: { color: 'var(--color-t6)' },
-  gutter: { padding: '0 0.5em', minWidth: '1.6em' }
+  // 인라인 뷰는 라인넘버 gutter 를 2개(old/new) 렌더한다. 첫 번째(old) 를 숨겨
+  // new 라인넘버 한 컬럼만 남긴다. (removed 줄은 '-' 마커로 식별)
+  gutter: { padding: '0 0.5em', minWidth: '1.6em', '&:first-of-type': { display: 'none' } }
 }
 
 // Write/Edit/MultiEdit 본문 — jsdiff + react-diff-viewer-continued 통합(inline) diff.
