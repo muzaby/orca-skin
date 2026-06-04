@@ -18,7 +18,7 @@
 3. **`docs/TRD.md`** — 어떻게 구현할지. 코드 작업의 1차 참고서.
 4. **`app/CLAUDE.md`** → `app/` — 구현 디렉토리 규칙·모듈 레이아웃·의존성 정책·보안 베이스라인.
 5. (필요 시) **`project/electron/index.html`** — 시각 기준 (variation A). 픽셀 퍼펙트 *재현* 대상이지 그대로 가져갈 production 코드가 아니다.
-6. (필요 시) **`docs/llm-chat-desktop-strategy.md`** — TRD 가 소화한 전략적 근거. TRD 결정의 *왜* 를 거슬러볼 때.
+6. (필요 시) **`docs/etc/llm-chat-desktop-strategy.md`** — TRD 가 소화한 전략적 근거. TRD 결정의 *왜* 를 거슬러볼 때.
 
 ## 현재 페이즈
 
@@ -33,17 +33,17 @@
 | **Phase 2+ (`electron-store` 영속화: Tweaks · lastSessionId · lastBackend · window bounds)** | **완료** — `app/src/main/settings/store.ts` |
 | **Phase 2++ (Composer 스킬 UX: SKILL.md 스캔 · 3-chip 행 · picker · 인라인 자동완성)** | **완료** — `app/src/renderer/src/frame/composer/` (PR #25 이전엔 `components/composer/`), `app/src/main/skills/` |
 | **Phase 3 (로컬 SQLite SSOT · 세션 히스토리 · 사이드바 비동기 lazy load + 캐시 + kebab 메뉴)** | **완료 (PR #20)** — `app/src/main/db/`, `app/src/renderer/src/state/useSessions.ts`, `useChat.ts` (캐시), `Sidebar.tsx` (kebab rename/delete) |
-| **Phase 3+ (DOM Architecture: `app-frame-*` 마커 + `data-*` 체계 + Custom titlebar `frame:false` + Grid z-stack + Sidebar resize-handle + Tile structure)** | **완료** — `app/src/renderer/src/frame/`, `data-platform`/`data-context`/`data-behavior` 마커 부착, `docs/FRONTEND_ARCHITECTURE.md` §3.3 |
+| **Phase 3+ (DOM Architecture: `app-frame-*` 마커 + `data-*` 체계 + Custom titlebar `frame:false` + Grid z-stack + Sidebar resize-handle + Tile structure)** | **완료** — `app/src/renderer/src/frame/`, `data-platform`/`data-context`/`data-behavior` 마커 부착, `docs/[docs/arch/frontend/dom-architecture.md](docs/arch/frontend/dom-architecture.md) |
 | **Phase 3++ (frame/ + screens/ 슬롯 분리 + 마크업 마커 보강)** | **완료 (PR #25)** — 셸 슬롯 `frame/` vs 도메인 화면 `screens/` 디렉토리 분리, 컴포넌트 rename (`Titlebar`→`Header`, `ChatPane`→`ChatTile`, `*Pane`→`*Screen`), `app-frame-composer-repo` / `app-frame-session-row` / `app-frame-floating` 마커 신설 |
 | **Phase 3++ (ChatTile 분해: transcript/composer 부속을 슬롯 디렉토리로 추출)** | **완료 (PR #26)** — 구 620줄 ChatTile.tsx → 369줄. `screens/chat/{format.ts, ToolCard, MessageMeta, AssistantMessage, UserMessage, PendingAssistant}.tsx` + `frame/composer/{ComposerChip, SkillsMenu}.tsx` 추출. `app/CLAUDE.md` 원칙 9 (단일 파일 분해 가이드) 신설 |
-| **Feature-based 구조 감사 + FRONTEND_ARCHITECTURE.md 엄격 갱신** | **완료 (PR #28)** — `frame/` 완전 해체 결정 (→ `app/` + `features/` + `shared/`), `pages/` = 조립만, `router` = which, App Shell §3.A 조립 규칙 신설, §3-2 목표 트리 + §10 구현 대기 행 추가. 코드 변경 없음 — 문서만. |
+| **Feature-based 구조 감사 + [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) 엄격 갱신** | **완료 (PR #28)** — `frame/` 완전 해체 결정 (→ `app/` + `features/` + `shared/`), `pages/` = 조립만, `router` = which, App Shell §3.A 조립 규칙 신설, §3-2 목표 트리 + §10 구현 대기 행 추가. 코드 변경 없음 — 문서만. |
 | **Feature-based 아키텍처 구현 + ESLint boundaries 강제 (PR #29)** | **완료 (PR #29)** — `app/providers/` 6개 Provider → `features/<X>/providers/` 4개 + `shared/navigation/` + `shared/theme/`. `screens/` + `frame/` → `app/` · `pages/` · `features/` · `shared/` 4-layer 완성. `ProjectDetail` 3-파일 → `pages/ProjectLandingPage.tsx` 단일 파일 통합. `eslint-plugin-boundaries` v6 + `boundaries/dependencies` 규칙으로 역방향·cross-feature import 회귀 차단. |
 | **URL/path 라우팅 전환 (`app://` 커스텀 스킴 + `react-router-dom` v7 BrowserRouter)** | **완료** — Context-기반 `ScreenId` enum → URL path. main 의 `protocol.registerSchemesAsPrivileged` + `protocol.handle` SPA fallback, `loadURL('app://renderer/')`. `app/router.tsx` `<Routes>` + `BootRedirector` (settings.lastSessionId → `/chat/<id>` 또는 `/new` replace) + `useChatRouteSync` (URL ↔ ChatState). |
 | **Phase 3++ (Sidebar brand + nav 재구성 + Header 5-버튼 툴바)** | **완료** — Sidebar `app-frame-sidebar-brand` = 🐋 + "Orca" 로고 (newChatSlot 폐기). nav = 3-항목 (새 대화·프로젝트·자동화 placeholder). Header `app-frame-header-left` = 5-버튼 액션 툴바 (햄버거 popover + 종료 menuitem · 사이드바 접기 토글 · 검색 · 뒤로 · 앞으로). `NewChatButton.tsx` 삭제. shared/ui/Icon.tsx 에 clock·menu·arrowL·arrowR 추가. Popover 에 `placement: 'top' \| 'bottom'` 확장. |
 | **Phase 3++ (FTS5 대화 검색 모달)** | **완료** — `0003_messages_fts.sql` (FTS5 가상 테이블 + 3 트리거 + 백필), `orca:search:messages` IPC (`searchApi.messages`), `app/SearchModal.tsx` (150ms debounce + request id supersede + `<mark>` split-parse XSS 방어 + ↑↓/Enter/Esc), `toFtsMatch` 가 모든 토큰에 prefix wildcard `*` 부착. |
 | **Phase 3++ (활성 효과 URL 동기화)** | **완료** — `useSessionHandlers` 의 `currentSessionId` 를 `matchPath('/chat/:sessionId', pathname)` 로 도출. ChatContext.state.sessionId 의존 제거. Sidebar nav '새 대화' isActive 도 `p === '/new'` 로 좁힘. |
 | **Phase 3++ (MCP 서버 지원)** | **완료** — 사이드바 nav 4번째 'Skills & MCP'(`/skills`) 노출. `orca:mcp:*` 4채널 + `McpStore`(electron-store `orca-mcp`, 인증값 `safeStorage` 암호화). `SkillsMcpView` MCP 섹션 실데이터화 + `AddMcpServerModal`(stdio/streamable-http 2종). `handleChatSend` 가 활성 서버를 `query().options.mcpServers`+`allowedTools`(`mcp__<name>__*`) 에 주입. |
-| **범용 Provider Runtime 재설계 (설계 + 인터페이스)** | **설계 확정 / 구현 대기** — OpenCode/Claude 공통 정규화 계층을 기존 아키텍처 문서에 흡수. `docs/BACKEND_ARCHITECTURE.md` §12 (정본: NormalizedEvent·PermissionBridge·ApprovalResolution 2분기·AppCommandPolicy 3분기·PermissionModeController·SessionCapability·RevertManager·ErrorClassifier·AppMessagePart·Telemetry·AuthStore·AuditLog) + `docs/FRONTEND_ARCHITECTURE.md` §6.6~6.9·§7.6 (ToolRendererRegistry·ApprovalCard 일반화·StructuredOutput·Streaming·TelemetryPanel). Claude 기준 + OpenCode 확장점만. 코드 변경 0 (rename 범위 밖, 매핑표로만). 두 SDK 미설치 → `[미확인]` 보존. |
+| **범용 Provider Runtime 재설계 (설계 + 인터페이스)** | **설계 확정 / 구현 대기** — OpenCode/Claude 공통 정규화 계층을 기존 아키텍처 문서에 흡수. `docs/[docs/arch/backend/provider-runtime.md](docs/arch/backend/provider-runtime.md) (정본: NormalizedEvent·PermissionBridge·ApprovalResolution 2분기·AppCommandPolicy 3분기·PermissionModeController·SessionCapability·RevertManager·ErrorClassifier·AppMessagePart·Telemetry·AuthStore·AuditLog) + `docs/[docs/arch/frontend/rendering.md](docs/arch/frontend/rendering.md) §1.6~6.9·§7.6 (ToolRendererRegistry·ApprovalCard 일반화·StructuredOutput·Streaming·TelemetryPanel). Claude 기준 + OpenCode 확장점만. 코드 변경 0 (rename 범위 밖, 매핑표로만). 두 SDK 미설치 → `[미확인]` 보존. |
 | 후속 (CI 워크플로우·Vitest·i18n·`/routines` placeholder·Phase 4 Zustand+멀티세션·opencode 어댑터·캡처 실 구현·세션 휴지통 30일 보존) | Future Scope |
 
 ## 핵심 원칙 (모든 에이전트 공통)
@@ -57,7 +57,7 @@
 
 ## 별도 제품 방향 (본 저장소 내 *문서로만* 존재)
 
-- `docs/lightweight-llm-strategy.md` — 로컬 4B LLM 기반 이미지 센서 QA 시스템. **Orca 와 독립** 한 별개 제품 방향. 본 저장소에서 구현체는 없다.
+- `docs/etc/lightweight-llm-strategy.md` — 로컬 4B LLM 기반 이미지 센서 QA 시스템. **Orca 와 독립** 한 별개 제품 방향. 본 저장소에서 구현체는 없다.
 
 ## 외부 진입점과의 구분
 

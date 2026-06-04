@@ -1,0 +1,325 @@
+# Backend Architecture — Adapters (어댑터·CapabilityBuilder·파일/리소스·Hook 정규화)
+
+> 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
+> 최종 업데이트: 2026-06-04 (BACKEND_ARCHITECTURE.md 분해 — docs/ARCHITECTURE.md 인덱스 참조)
+> 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [provider-runtime.md](./provider-runtime.md), [overview.md](./overview.md), [adapter-design 흡수], [../../claude-code-spec.md](../../claude-code-spec.md)
+> 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
+
+## 1. Backend Adapter 추상화
+
+> ⚠️ **"LLM Provider" 가 아니다.** Orca 는 LLM API 를 직접 호출하지 않고 외부 CLI/SDK (Claude Code SDK, opencode 등) 를 래핑한다. 용어는 [GLOSSARY.md](./GLOSSARY.md) §3 참조.
+
+### 1.1 SessionAdapter 인터페이스 계약
+
+`app/src/main/adapters/types.ts:5-15` 그대로:
+
+```typescript
+export interface SessionAdapter {
+  readonly id: Backend
+  isInstalled(): Promise<{ installed: boolean; version?: string; binPath?: string }>
+  install(): AsyncIterable<{ step: string; log?: string; error?: string; done?: boolean }>
+  sendMessage(
+    sessionId: string | null,   // null = 새 세션
+    text: string,
+    cwd: string,
+    signal?: AbortSignal
+  ): AsyncIterable<ChatEvent>
+}
+```
+
+### 1.2 등록된 백엔드 (현재 — Phase 3 SDK)
+
+| Backend | 어댑터 파일 | 구현 방식 | 상태 |
+|---|---|---|---|
+| `claude-code` | `adapters/claude-code.ts` | `@anthropic-ai/claude-agent-sdk` 의 `query()` 함수 직접 호출 | ✅ Phase 3 채택 (CLI spawn 폐기) |
+| `opencode` | (없음) | — | ⏳ Future (PRD OQ7) |
+
+`AdapterRegistry` (`adapters/registry.ts`) 는 현재 `claude-code` 단일 어댑터만 등록. 활성 백엔드는 부팅 시 자동 결정 (`this.active = claudeCode.id`).
+
+### 1.3 ClaudeCodeAdapter 호출 패턴
+
+`claude-adapt.ts` 의 순수 변환 함수들이 `OrcaCapabilities` → claude `query()` 옵션 조각(object)으로 변환하며, `...spread` 로 합성된다.
+
+```typescript
+import { query } from '@anthropic-ai/claude-agent-sdk'
+import { adaptMcp, adaptSystemPrompt, adaptSkills, adaptHooks } from './claude-adapt'
+
+async function* sendMessage(sessionId, text, cwd, caps, resolvedMcp, signal) {
+  try {
+    const opts = {
+      resume: sessionId ?? undefined,
+      includePartialMessages: true,
+      cwd,
+      ...adaptMcp(resolvedMcp),            // mcpServers + allowedTools (빈 config면 생략)
+      ...adaptSystemPrompt(caps.systemPromptAppend), // systemPrompt preset:claude_code + append
+      ...adaptSkills(),                    // plugins:[{type:'local', path:~/.config/orca}] + skills:'all'
+      ...adaptHooks(caps.hooks),           // PreToolUse / PostToolUse / UserPromptSubmit hook 콜백
+    }
+    for await (const msg of query({ prompt: text, options: opts })) {
+      yield normalize(msg)  // SDKMessage → ChatEvent
+    }
+  } catch (err) {
+    yield { type: 'error', data: detectError(err) }
+  }
+}
+```
+
+`adaptMcp` 는 활성 서버가 없으면 옵션 자체를 빈 객체로 반환(생략). `allowedTools` 는 `mcp__<name>__*` 와일드카드로 서버 전체 도구 자동 허용 — `canUseTool` 미도입(Phase 4 anchor) 환경에서 도구 호출 차단 방지.
+
+### 1.4 CapabilityBuilder (백엔드 중립 보조기능 조립)
+
+`capabilities/builder.ts` 의 `CapabilityBuilder` 는 DB / McpStore / Skills 를 읽어 **백엔드 중립** `OrcaCapabilities` 를 조립한다. 어댑터를 전혀 모른다 — 어댑트(claude 타깃 변환 + `${VAR}` 확장)는 `claude-adapt.ts` 와 `mcp/resolver.ts` 의 책임.
+
+```typescript
+interface OrcaCapabilities {
+  mcpConfig: OrcaMcpConfig          // 확장 전 정규 소스 (${VAR} 미확장)
+  systemPromptAppend?: string       // 프로젝트 지침 + PY_AGENT_RULES 합성
+  skills: SkillInfo[]               // 가시화 메타 (어댑트는 항상-on)
+  hooks: OrcaHookSet                // before-tool / after-tool / prompt-submit 핸들러 집합
+}
+```
+
+`build(sessionId, projectId)` 동작:
+- resume 경로 (`sessionId !== null`): 세션 바인딩으로 프로젝트 지침 조회
+- 새 채팅 경로 (`sessionId === null`): `projectId` 로 직접 조회
+- `systemPromptAppend` = (프로젝트 지침 있으면 그 뒤에) `PY_AGENT_RULES` 항상 합류
+- 매 턴 DB 1회 조회 — 캐시 없음 (지침 편집이 다음 메시지부터 즉시 반영)
+
+### 1.5 SDKMessage → ChatEvent 정규화
+
+`adapters/claude-code.ts` 의 `normalize()` 함수 (줄 30-124):
+
+| SDKMessage | → ChatEvent |
+|---|---|
+| `SDKSystemMessage { subtype: 'init', session_id, model? }` | `{ type: 'init', data: { sessionId, model, cwd } }` |
+| `SDKPartialAssistantMessage` 의 `event.delta.type === 'text_delta'` | `{ type: 'assistant_delta', data: { text } }` |
+| `SDKAssistantMessage` 의 `content` 내 text block (완성본) | `{ type: 'assistant_message', data: { text } }` |
+| `SDKAssistantMessage` 의 `content` 내 `tool_use` block | `{ type: 'tool_use', data: { toolUseId, name, input } }` |
+| `SDKUserMessage` 의 `content` 내 `tool_result` block | `{ type: 'tool_result', data: { toolUseId, output, isError, durationMs? } }` |
+| `SDKResultMessage { subtype: 'success' \| 'error_*', usage, total_cost_usd }` | `{ type: 'result', data: { usage } }` |
+| `SDKPermissionDeniedMessage` (Phase 4) | (현재 무시 — 권한 정책 도입 시 매핑) |
+| 어댑터 catch → Error | `{ type: 'error', data: { code: 'sdk.*' \| 'auth.expired' \| ..., message, recoverable } }` |
+
+> **정규화 계층 (설계 확정 / 구현 대기)**: 위 `ChatEvent` 는 claude-code 결합 형태다. provider 중립 `NormalizedEvent`(+ `permission.requested` 1급 이벤트) 로의 승격 설계와 현행 9종 전수 매핑표는 **provider-runtime.md §2** 참조.
+
+### 1.6 인증 만료 감지
+
+SDK 가 throw 하는 에러 메시지/코드에서 `401` / `OAuth` / `expired` 패턴 매칭 → `error / auth.expired` 이벤트 발행 → UI 의 AuthExpiredModal 로 `claude /login` 안내.
+
+### 1.7 SDK 채택 범위 (Phase 3 MVP)
+
+| SDK 기능 | Orca | Phase | 비고 |
+|---|---|---|---|
+| `query({ prompt, options })` 단일 진입점 | ✅ | Phase 3 | CLI `claude -p` 의 대체 |
+| `options.resume: sessionId` | ✅ | Phase 3 | `--resume` 직접 대응 |
+| `options.includePartialMessages: true` | ✅ | Phase 3 | delta 스트리밍 |
+| `options.cwd` | ✅ | Phase 3 | spawn `{ cwd }` 대체 |
+| `result.total_cost_usd` / `usage` | ✅(부분) | Phase 3 | `usage` 만 매핑, cost 는 별도 결정 |
+| `options.permissionMode` / `canUseTool` | ⏳ | Phase 4 (OQ9) | 도구 권한 정책 미정 |
+| `options.hooks` (PreToolUse / PostToolUse / Stop) | ⏳ | Phase 4 | 도구 호출 감사 |
+| `createSdkMcpServer` + `tool()` | ⏳ | Phase 4+ | in-process MCP 서버(별건) |
+| `options.mcpServers` | ✅ | MCP&Skill 통합 레이어 | 정규 소스(`mcp.json`) → `toClaudeConfig` → 활성 서버 주입. `allowedTools`=`mcp__<name>__*` |
+| `options.plugins` + `options.skills` | ✅ | MCP&Skill 통합 레이어 | `~/.config/orca` 디렉토리 *자체*를 로컬 플러그인으로 머티리얼라이즈(`.claude-plugin/plugin.json` + `skills/`·`agents/`·`commands/`) → `plugins:[{local, path: ~/.config/orca}]` + `skills:'all'` |
+| `prompt: AsyncIterable<SDKUserMessage>` | ⏳ | Phase 4 | 다중 이미지 / 실시간 중단 |
+| `forkSession` / `listSessions` / `loadSession` | ⏳ | Phase 3+/4 | 과거 대화 / 멀티 세션 anchor (persistence.md 의 로컬 DB 가 진실의 기준이 되므로 SDK 메서드는 *동기화 소스* 로만) |
+
+자세한 SDK API 시그니처는 [`docs/spec/claude/agent-sdk/typescript.md`](./spec/claude/agent-sdk/typescript.md) (SSOT).
+
+### 1.8 Adapter 책임 확장 (Future anchor)
+
+opencode 등 다중 어댑터 환경 대비:
+
+| 책임 | 현재 (claude-code 전용) | Future 인터페이스 |
+|---|---|---|
+| Skills 스캔 경로 | `skills/scan.ts` 에 `~/.claude/skills/` + `<cwd>/.claude/skills/` 하드코딩 | `SessionAdapter.getSkillPaths(cwd): string[]` 인터페이스로 책임 이관 — §2 참조 |
+| 자격증명 키 이름 | 없음 (SDK 가 `~/.claude` 자동 사용) | 각 어댑터가 `getCredentialKeys(): string[]` 등으로 base URL / API key 키 이름 정의 — security.md 참조 |
+| 외부 세션 저장소 → Orca DB 동기화 | 없음 (현재 SDK 의 jsonl 을 직접 읽지 않음) | `listSessions / loadSession` 옵셔널 메서드로 외부 jsonl/SQLite 등을 Orca 로컬 DB 로 단방향 동기화 — persistence.md 참조 |
+| 설치 / binary 해소 | SDK `optionalDependencies` 가 자동 처리 → `install()` 즉시 `done: true` 반환 | opencode 등은 별도 install 스크립트 필요 |
+
+### 1.9 새 백엔드 추가 체크리스트
+
+1. `src/main/adapters/<id>.ts` 생성
+2. `SessionAdapter` 인터페이스 구현 + `normalize()` (해당 SDK/CLI 의 이벤트 → ChatEvent)
+3. `adapters/registry.ts` 에 등록
+4. `Backend` union 에 ID 추가 (`src/shared/ipc.ts`)
+5. (Future) 어댑터별 Skills 스캔 경로 / 자격증명 키 / 세션 동기화 메서드 정의
+6. 설치가 필요하면 `install()` AsyncIterable 구현, 인스톨러 UI 안내 추가
+7. preload 의 `backend:select` 채널 재노출 (현재 미노출)
+8. 통합 테스트 추가
+
+---
+
+
+## 2. 파일 및 리소스
+
+### 2.1 Skills 스캔 (현재)
+
+`app/src/main/skills/scan.ts`:
+
+| 항목 | 값 |
+|---|---|
+| 스캔 경로 | `~/.claude/skills/<name>/SKILL.md` + `<cwd>/.claude/skills/<name>/SKILL.md` |
+| 파서 | frontmatter 정규식 (`^---\s*\n...\n---`) |
+| 인식 키 | `name`, `description`, `argument-hint` |
+| 캐싱 | 부팅 시 1회 스캔 → `skillsCache` (`router.ts`) |
+| 핫리로드 | ❌ 없음 (재시작 필요) |
+
+> **⚠️ 현재 경로는 claude-code 어댑터 전용** (`~/.claude/...` 은 Claude Code 의 표준 경로). 다른 어댑터 (opencode 등) 도 지원하면 스캔 경로 분리 필요 — 사용자 결정.
+
+**`skills/plugin-bundle.ts`** — `ensureOrcaPlugin()`:
+- `~/.config/orca/.claude-plugin/plugin.json` 을 생성하여 Orca config 디렉토리 자체를 **Claude 로컬 플러그인**으로 마테리얼라이즈.
+- `adaptSkills()` (§1.3) 이 `plugins:[{type:'local', path:~/.config/orca}]` + `skills:'all'` 로 로드하면 `skills/`, `agents/`, `commands/` 가 자동 로드됨.
+- `mcp.json` 은 플러그인 로더가 무시 → MCP 는 `options.mcpServers` 로 별도 주입 (이중 주입 없음).
+
+### 2.2 어댑터별 Skills 경로 분리 (Future 채택 결정)
+
+- 현재 `skills/scan.ts` 의 하드코딩을 `SessionAdapter.getSkillPaths(cwd): string[]` 인터페이스로 책임 이관.
+- 어댑터별 스캔 경로 예시 (도입 시):
+
+| Backend | 예상 경로 |
+|---|---|
+| `claude-code` | `~/.claude/skills/` + `<cwd>/.claude/skills/` (현재) |
+| `opencode` | `~/.config/opencode/skills/` (TBD — opencode 공식 경로 확인 필요) |
+
+- IPC `orca:skills:list` 의 응답은 활성 어댑터의 경로만 반영 (또는 모든 등록된 어댑터의 경로 통합 — 결정 필요).
+
+### 2.3 Artifacts 디렉토리 (Phase 3+ 도입)
+
+- 경로: `<userData>/artifacts/<sessionId>/<uuid>.<ext>`
+- GC 전략: 세션 삭제 시 디렉토리째 제거 + DB CASCADE
+- 동기화 안 됨 (로컬 only). 클라우드 백업은 export/import 단위로만.
+
+### 2.4 로그
+
+- 위치 / 라이브러리: **TBD**.
+- 후보: `<userData>/logs/main.log` + `<userData>/logs/renderer.log`, electron-log 등.
+- 일자별 로테이션 / 크기 제한 정책: TBD.
+
+---
+
+
+## 3. 자산 변환 매트릭스 + Hook 정규화 모델
+
+> 구 `ADAPTER_DESIGN_REVIEW.md` §5·§6 흡수 (2026-06-04). 어댑터 *위* Tier A capability 계층의 자산 변환 + hook 정규화 설계 근거. 2계층 개요는 §1.4(CapabilityBuilder) 참조. 본 모델의 권한 결정(allow/deny/ask)은 [provider-runtime.md §3](./provider-runtime.md) 의 `ApprovalResolution` 2분기와 합류 검토 대상이다.
+
+### 3.1 자산별 변환기 매트릭스
+
+모든 변환기는 **순수 함수**로 유지한다(electron 비의존 → 단위 테스트 가능, `mcp/convert.ts` 가 선례). 동형 시그니처 `to<Backend><Asset>(source, resolve) → { config, dropped }`.
+
+| 자산 | 정규 소스 (Tier A, 중립) | claude 어댑트 | opencode 어댑트 | 정규화도 |
+|---|---|---|---|---|
+| **MCP** | `mcp.json` (`OrcaMcpConfig`) | `toClaudeConfig` → `options.mcpServers` + `allowedTools` | `toOpencodeConfig` → `opencode.json` `mcp` | ✅ 구현됨 |
+| **Skill** | `skills/<n>/SKILL.md` | `plugins:[{local}]` + `skills:'all'` | 네이티브 글로빙 경로로 심링크/복사 | ✅ 변환 불필요(양 백엔드 공통) |
+| **Agent** | `agents/<n>.md` | 같은 로컬 플러그인에 포함(자동 로드) | `~/.config/opencode/agent/` 로 셰이핑 | ⏳ 변환기 anchor |
+| **Command** | `commands/<n>.md` | 같은 로컬 플러그인에 포함 | `~/.config/opencode/command/` 로 셰이핑 | ⏳ 변환기 anchor |
+| **systemPrompt** | 중립 문자열(프로젝트 지침) | `preset:'claude_code' + append` | opencode system prompt 옵션 | ⏳ |
+| **Hook** | `hooks/` (`OrcaHookSet`, §3.2) | `options.hooks` 콜백 + (선언형은 hooks.json) | 코드생성 플러그인 모듈 브릿지 | ⚠️ 부분(§3.2) |
+
+→ "어댑터를 Orca 범용 데이터 계층으로"라는 질문의 답은 이 표다: **어댑터는 표의 *세로 한 칸*(자기 백엔드 열)만 안다. 가로(자산 종류)와 정규 소스(Tier A)는 어댑터 밖이 소유한다.**
+
+---
+
+### 3.2 Hook 정규화 모델
+
+> **정직한 결론 먼저**: Hook 의 **이벤트 어휘 + 결정(출력) 형식 + 인프로세스 핸들러 로직 소유권**까지는 정규화 가능하다. 환원 불가능한 것은 **opencode 의 out-of-process 디스패치 브릿지 비용**과 **백엔드별 이벤트 택소노미 갭**뿐이다. 따라서 "Hook 은 정규화 대상이 아니다"라는 현행 문서 입장은 *과도하게 비관적*이다 — 정규화 가능한 큰 표면을 포기하고 있다.
+
+#### 3.2.1 왜 hook 이 "어려운" 자산인가 (MCP 와의 차이)
+
+MCP/skill 은 **정적 선언 데이터**다 — 디스크 파일을 다른 형식의 디스크 파일/옵션으로 변환하면 끝. Hook 은 **실행 시점 콜백 + 양방향 제어 흐름**이다 — 이벤트가 발생하고(런타임), 로직이 결정을 *되돌려*(allow/block/inject) 에이전트 진행을 바꾼다. 정적 변환만으로는 안 되고 *실행 주체*가 어딘가 있어야 한다. 그 실행 주체의 위치가 백엔드마다 다른 게 난점의 핵심이다 (§3.2.4).
+
+#### 3.2.2 중립 이벤트 어휘 — `OrcaHookEvent`
+
+claude SDK 이벤트(`docs/spec/claude/agent-sdk/hooks.md`)를 Orca 중립 어휘로 매핑한다. **교집합을 코어로, 백엔드 전용은 메타데이터로 표시**한다.
+
+| `OrcaHookEvent` | claude 이벤트 | opencode 대응(추정) | 코어/전용 |
+|---|---|---|---|
+| `before-tool` | `PreToolUse` | tool.execute.before | 코어(양쪽) |
+| `after-tool` | `PostToolUse` | tool.execute.after | 코어 |
+| `on-prompt` | `UserPromptSubmit` | chat.message | 코어 |
+| `on-turn-end` | `Stop` | session.idle | 코어 |
+| `on-session-start` / `on-session-end` | `SessionStart`/`SessionEnd` | session.* | 코어 |
+| `on-subagent-end` | `SubagentStop` | (확인 필요) | claude 우선 |
+| `on-notification` | `Notification` | (확인 필요) | claude 우선 |
+| `before-compact` | `PreCompact` | (없을 수 있음) | claude 전용 |
+| (없음) | `WorktreeCreate` 등 claude TS 전용 다수 | — | claude 전용 |
+
+**한계 명시**: claude 의 hook 이벤트 목록(`hooks.md` 표)은 opencode 보다 훨씬 풍부하다(`PostToolBatch`, `Worktree*`, `TeammateIdle` 등). → `OrcaHookEvent` 의 각 항목에 **`supportedBackends` 메타**를 달고, 미지원 백엔드에서는 UI 에서 해당 hook 을 비활성/경고한다. 정규화는 *교집합* 에서 무손실, *전용 영역* 은 §3.2.5 이스케이프 해치로.
+
+#### 3.2.3 중립 입출력 형식
+
+```ts
+interface OrcaHookContext {        // 핸들러가 받는 것 (claude HookInput 의 중립화)
+  event: OrcaHookEvent
+  sessionId: string
+  cwd: string
+  toolName?: string                // before/after-tool
+  toolInput?: unknown              // before-tool
+  toolOutput?: unknown             // after-tool
+  prompt?: string                  // on-prompt
+  signal: AbortSignal
+  raw: unknown                     // 백엔드 원본 payload 패스스루 (필드명/구조 미스매치 흡수, §3.2.5)
+}
+
+interface OrcaHookDecision {       // 핸들러가 돌려주는 것 (claude HookOutput 의 중립화)
+  decision?: 'allow' | 'deny' | 'ask'  // ↔ permissionDecision (claude 'defer' 는 제외 — §3.2.5)
+  reason?: string                  // ↔ permissionDecisionReason / stopReason
+  injectContext?: string           // ↔ additionalContext / systemMessage (대화에 컨텍스트 주입)
+  updatedToolInput?: unknown       // ↔ updatedInput (before-tool 입력 변형)
+  updatedToolOutput?: unknown      // ↔ updatedToolOutput (after-tool 결과 변형)
+  continue?: boolean               // ↔ continue
+}
+
+type OrcaHookHandler = (ctx: OrcaHookContext) => Promise<OrcaHookDecision> | OrcaHookDecision
+```
+
+여러 핸들러가 같은 이벤트에 등록되면 **충돌 해소 규칙을 정규 규칙으로 명문화**한다(claude 의 우선순위와 일치): `deny > ask > allow`. (claude 고유의 `defer` 는 §3.2.5 escape-hatch.)
+
+claude 의 `HookCallback`/`HookOutput`(`hooks.md` 예제 참조)과 **거의 1:1 매핑**된다. `.env` 보호 예제(`hooks.md`)를 중립 핸들러로 쓰면:
+
+```ts
+const protectEnv: OrcaHookHandler = (ctx) =>
+  (ctx.toolName?.match(/Write|Edit/) && String((ctx.toolInput as any)?.file_path).endsWith('.env'))
+    ? { action: 'block', reason: 'Cannot modify .env files' }
+    : { action: 'allow' }
+```
+
+**한계 명시**: ① claude 의 `hookSpecificOutput`(불투명·이벤트별 확장 필드)과 `defer`(쿼리 종료 후 재개) 결정은 중립 형식으로 완전 흡수 불가 → §3.2.5 이스케이프 해치. ② 백엔드 payload 필드명/구조 미스매치(`tool_input`(snake) vs opencode 필드)는 코어가 공통 필드만 약속하고 원본은 `raw` 로 패스스루 — 어댑터가 `raw` 를 채운다.
+
+#### 3.2.4 디스패치 분기점 — 정규화의 진짜 경계
+
+여기가 "정규화 가능 / 불가능"이 갈리는 지점이다.
+
+- **claude (인프로세스)**: SDK 가 `query().options.hooks` 로 **인프로세스 TS 콜백**을 받는다. → Orca 가 hook 로직을 `OrcaHookHandler`(인프로세스 함수)로 소유하고, claude 어댑터는 이를 claude `HookCallback` 으로 **얇게 래핑**해 넘기면 된다. **claude 단독 운영에서는 거의 완전 정규화** — 어휘·입출력·로직 전부 Orca 소유, 어댑터는 시그니처 어댑팅만.
+
+- **opencode (out-of-process `serve`)**: opencode 는 HTTP 서버로 동작하고 hook 을 **별도 TS 플러그인 코드 모듈**로 로드한다. Orca 메인 프로세스의 인프로세스 콜백을 직접 호출할 수 없다. 두 가지 길:
+  - **(A) 코드생성 브릿지**: opencode config 에 *thin 플러그인 모듈*을 생성해 두고, 그 모듈이 발생 이벤트를 Orca 메인으로(local HTTP/IPC) 되돌려 `OrcaHookHandler` 를 실행 → 결정을 회신. 임의 TS 로직을 그대로 살릴 수 있으나, **`before-tool` 같은 동기 게이팅은 왕복(round-trip) 레이턴시**가 붙는다(도구 실행을 막아 세우고 메인의 응답을 기다림). 후처리/로깅 계열(`after-tool`, `on-*`)은 비동기라 비용이 작다.
+  - **(B) 선언형 변환**: 단순·선언형 hook(예: "이 도구는 차단", "이 프롬프트에 이 텍스트 주입")만 opencode 네이티브 형식으로 정적 변환. **임의 TS 로직은 표현 불가** → 표현력 손실.
+
+→ **정규화 불가 영역이 이만큼으로 좁혀진다**: ① opencode 의 out-of-process 브릿지 비용(레이턴시) + ② (B 경로 선택 시) 표현력 한계 + ③ §3.2.2 의 백엔드 전용 이벤트. **이벤트 어휘·결정 형식·핸들러 로직 자체는 정규화된다.**
+
+#### 3.2.5 권장 설계: 정규화 코어 + 백엔드별 이스케이프 해치
+
+```ts
+interface OrcaHookSet {
+  // 양 백엔드가 어댑트하는 중립 코어 (§3.2.2 교집합 이벤트만)
+  normalized: Partial<Record<OrcaHookEvent, OrcaHookHandler[]>>
+
+  // 환원 불가 영역을 위한 탈출구 — 정규화하지 않고 그대로 전달
+  backendSpecific?: {
+    'claude-code'?: unknown   // 예: 선언형 hooks.json 조각, hookSpecificOutput 사용 콜백
+    'opencode'?: unknown      // 예: opencode 네이티브 플러그인 모듈 경로
+  }
+}
+```
+
+이 설계는 사용자의 작업 결정 2("Hook 도 정규화 시도")를 **정직하게** 충족한다: 정규화 가능한 최대 표면을 `normalized` 로 가져가되, 본질적으로 백엔드에 묶이는 잔여만 `backendSpecific` 슬롯으로 격리한다. "전부 정규화 가능"이라고 거짓말하지 않고, "전부 포기"라고 과소평가하지도 않는다.
+
+#### 3.2.6 보안 주의 — hook 은 임의 코드 실행
+
+Hook 은 정의상 도구 호출/세션 시점에 **임의 로직**을 실행한다. claude 선언형 hook 은 shell 명령까지 돈다. 정규 소스 `~/.config/orca/hooks/` 를 도입한다면:
+- 출처 신뢰 모델(누가 hook 을 넣을 수 있는가)을 명시하고,
+- renderer 에는 hook *메타*만 노출(코드 본문 비노출),
+- 비밀은 security.md 의 불변식대로 hook 코드에 평문 인라인 금지(secret-store 경유).
+
+---
+

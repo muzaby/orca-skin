@@ -2,7 +2,7 @@
 
 > 이 프로젝트에서 사용하는 용어를 한 곳에 정의한다. 문서·코드·UI 라벨이 같은 개념을 다르게 부르지 않도록 한다.
 > 최종 업데이트: 2026-05-20
-> 관련 문서: [FRONTEND_ARCHITECTURE.md](./FRONTEND_ARCHITECTURE.md), [BACKEND_ARCHITECTURE.md](./BACKEND_ARCHITECTURE.md), [IPC_CONTRACT.md](./IPC_CONTRACT.md), [TRD.md](./TRD.md), [PRD.md](./PRD.md)
+> 관련 문서: [ARCHITECTURE.md](ARCHITECTURE.md), [ARCHITECTURE.md](ARCHITECTURE.md), [IPC_CONTRACT.md](./IPC_CONTRACT.md), [TRD.md](./TRD.md), [PRD.md](./PRD.md)
 
 ## 1. 도메인 용어
 
@@ -18,8 +18,8 @@
 | **Tool Call** | 어시스턴트가 호출한 도구 1회 (Read / Write / Bash 등). `toolUseId` 로 input/result 쌍이 결합된다. | `tool_use`, `tool_result` ChatEvent | TRD §6.2 |
 | **Skill** | `SKILL.md` frontmatter (name, description, argument-hint) 로 정의된 슬래시 명령. 입력창에서 `/skillname` 으로 호출. **스캔 경로는 어댑터별로 다르다** (현재는 claude-code 의 `~/.claude/skills/` + `<cwd>/.claude/skills/` 만). | `SkillInfo` | `app/src/main/skills/scan.ts` / `app/src/shared/ipc.ts:100-104` |
 | **Tweaks** | 사용자 환경 설정 — `theme` / `density` / `sidebarCollapsed`. electron-store 로 영속. | `Tweaks` | `app/src/renderer/src/app/useTweaks.ts` |
-| **Artifact** | 큰 산출물 — 첨부 파일, 모델이 생성한 markdown / 코드 / 이미지 등. **Phase 3+ 채택 결정**: 파일 시스템 (`<userData>/artifacts/<sessionId>/...`) 에 저장하고 DB 에는 경로·해시·크기만 보관. 현재 미구현. | (Phase 3+ 도입 예정) | BACKEND_ARCHITECTURE.md §6 |
-| **Credential** | 어댑터별 자격증명 — base URL + API key 등. **Phase 3+ 채택 결정**: Electron safeStorage (OS keychain) 로 암호화 저장. 현재는 미구현 (claude-code 어댑터는 SDK 가 `~/.claude` 자격증명 자동 사용). | (Phase 3+ 도입 예정) | BACKEND_ARCHITECTURE.md §8 |
+| **Artifact** | 큰 산출물 — 첨부 파일, 모델이 생성한 markdown / 코드 / 이미지 등. **Phase 3+ 채택 결정**: 파일 시스템 (`<userData>/artifacts/<sessionId>/...`) 에 저장하고 DB 에는 경로·해시·크기만 보관. 현재 미구현. | (Phase 3+ 도입 예정) | [arch/backend/persistence.md](arch/backend/persistence.md) |
+| **Credential** | 어댑터별 자격증명 — base URL + API key 등. **Phase 3+ 채택 결정**: Electron safeStorage (OS keychain) 로 암호화 저장. 현재는 미구현 (claude-code 어댑터는 SDK 가 `~/.claude` 자격증명 자동 사용). | (Phase 3+ 도입 예정) | [arch/backend/security.md](arch/backend/security.md) |
 | **Project** | 프로젝트 카드 그리드 화면. **Phase 1 mockup 만** 구현 (실 데이터 없음). PRD §9 Future Scope. | `Projects.tsx` | PRD §9 |
 | **Python Runtime** | 앱이 `<userData>/runtime` 에 제공하는 **uv 기반 격리 Python 환경** (venv + 인터프리터 3.12). agent 가 Python 도구를 실행할 때 시스템을 오염시키지 않도록 격리. 부팅 시 비동기 초기화(멱등·자가복구·`.ready` 마커), 상태는 `RuntimeStatus`(`idle/preparing/ready/error`). | `PythonRuntime`, `RuntimeStatus` | `app/src/main/runtime/` / `app/src/shared/ipc.ts` |
 | **uv** | Astral 의 Python 패키지·인터프리터 관리자. 바이너리만 동봉(`resources/bin/`), 인터프리터는 첫 실행 시 다운로드(4-A). agent 는 `uv run python` / `uv pip install` 로 격리 환경에 수렴. | `buildPyEnv`, `PY_AGENT_RULES` | `app/src/main/runtime/env.ts` |
@@ -36,7 +36,7 @@
 | **contextBridge** | Electron API. preload 스크립트가 sandboxed renderer 에 안전하게 함수를 노출하는 도구. |
 | **window.orca** | Renderer 에서 IPC 호출을 위한 단일 진입점. 노출 표면은 [IPC_CONTRACT.md](./IPC_CONTRACT.md) §2 참조. |
 | **Phase 1·2·3·4** | PRD §8 의 단계별 로드맵. Phase 1 = 시각 재현, Phase 2 = IPC + 단일 어댑터 + 세션 재개, Phase 3 = 과거 대화 목록, Phase 4 = 멀티 세션. |
-| **Frame** | 셸의 외곽 — `app-frame-root` element 와 그 자식 슬롯 트리 (header / grid / body / sidebar / pane-host / tile / composer / overlay / modal / debug). 코드상으로는 `src/renderer/src/frame/` 디렉토리에 1:1 대응. FRONTEND §3.3 SSOT. |
+| **Frame** | 셸의 외곽 — `app-frame-root` element 와 그 자식 슬롯 트리 (header / grid / body / sidebar / pane-host / tile / composer / overlay / modal / debug). 코드상으로는 `src/renderer/src/frame/` 디렉토리에 1:1 대응. [arch/frontend/dom-architecture.md](arch/frontend/dom-architecture.md) SSOT. |
 | **Tile** | `app-frame-pane-host > pane-row > app-frame-tile` 트리의 단위. tile 의 *내용물* 은 도메인 화면(Screen) 이다. 채팅 tile(`ChatTile`) 우측에 **plan 모드 계획 타일(`PlanTile`)** 이 `app-frame-tile-separator` 분리선으로 분할되어 붙는다(ExitPlanMode 시 자동 오픈 + 헤더 `panelR` 토글). |
 | **Screen** | tile 의 *내용물* 인 도메인 화면. `src/renderer/src/screens/` 에 모임. 파일 명명은 `*Screen.tsx` (예: `ProjectsScreen`, `EngineScreen`). 화면 카탈로그는 `screens/registry.ts`. |
 | **Header** | `app-frame-header` 슬롯 — 셸 최상단 OS 윈도우 헤더 (액션 5-버튼 툴바 + WinControls). tile 의 헤더(`app-frame-titlebar`) 와 구분된다. *Phase 3++ 이후*: 브랜드는 Sidebar 의 `app-frame-sidebar-brand` 로 이동했고, breadcrumb 표시는 제거. header-left 는 menu / panelL / search / arrowL / arrowR 5-버튼 툴바. |

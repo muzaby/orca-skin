@@ -1,4 +1,6 @@
-# Claude Code CLI 실행 스펙 (외부 공식 문서 해설 미러 + Orca 채택 표기)
+# Claude Code CLI 실행 스펙 (`spec/claude/` 라우터 + Orca 채택 표기)
+
+> **역할 변경 (2026-06-04, docs 재구성)**: 본 문서는 1차적으로 **`docs/spec/claude/` 원문 미러로 가는 라우터**다 — 원문은 아래 "1차 원본" 링크가 SSOT. CLI/SDK 권한 매핑·정규화 같은 **Orca 합성 설계**는 [`arch/backend/provider-runtime.md`](./arch/backend/provider-runtime.md)(권한 정규화)·[`arch/backend/adapters.md`](./arch/backend/adapters.md)(SDK 채택)로 이관됐다. 본 문서의 **§ 번호(§3·§4·§5·§7·§13)는 하위 호환을 위해 보존**한다(PRD/TRD·`app/src/main/skills/scan.ts §5.3` 가 인용). 새 인용은 위 arch 문서를 우선한다.
 
 > **본 문서의 위치**
 > 이 문서는 Claude Code 공식 한국어 문서의 **해설 미러** 이다. 원문은 본 저장소의 `docs/spec/claude/` 에 *원문 그대로* 보관되며, 본 문서는 그 원문을 *Orca 관점* 으로 정리하고 채택 표기를 덧붙인다. PRD/TRD/architecture 가 Claude Code CLI 의 동작·플래그·이벤트를 인용할 때 본 문서가 단일 출처(SSOT) 역할을 한다.
@@ -52,7 +54,7 @@ claude -p "What does the auth module do?"
 
 `-p` 와 함께 쓰는 모든 플래그의 정식 분류는 `docs/spec/claude/cli-reference.md` 가 SSOT. 본 문서는 *Orca 관점에서 의미가 있는 플래그* 만 다룬다 (§14 카탈로그 참조).
 
-✅ **Orca v1 채택** — ClaudeCodeAdapter 가 매 턴 `claude -p "<text>" --output-format stream-json --verbose --include-partial-messages [--resume <id>]` 형식으로 `child_process.spawn` 한다 (`TRD.md §7.1`, `BACKEND_ARCHITECTURE.md §4`). 입력은 `-p` 인자로 전달하고, `cwd` 는 spawn 옵션에 둔다.
+✅ **Orca v1 채택** — ClaudeCodeAdapter 가 매 턴 `claude -p "<text>" --output-format stream-json --verbose --include-partial-messages [--resume <id>]` 형식으로 `child_process.spawn` 한다 (`TRD.md §7.1`, `arch/backend/adapters.md §1`). 입력은 `-p` 인자로 전달하고, `cwd` 는 spawn 옵션에 둔다.
 
 ---
 
@@ -98,7 +100,7 @@ claude -p "Extract main function names from auth.py" \
   --json-schema '{"type":"object","properties":{"functions":{"type":"array","items":{"type":"string"}}},"required":["functions"]}'
 ```
 
-✅ **Orca v1 채택** — `stream-json` 만 사용한다. ClaudeCodeAdapter 는 stdout 을 NDJSON 으로 라인 단위 파싱하여 `ChatEvent` 로 정규화한다 (`TRD.md §6.2`, `BACKEND_ARCHITECTURE.md §4.4`). `text`/`json` 단발 모드는 첫 토큰 지연이 길어 챗 UX 와 맞지 않는다.
+✅ **Orca v1 채택** — `stream-json` 만 사용한다. ClaudeCodeAdapter 는 stdout 을 NDJSON 으로 라인 단위 파싱하여 `ChatEvent` 로 정규화한다 (`TRD.md §6.2`, `arch/backend/adapters.md §1.5`). `text`/`json` 단발 모드는 첫 토큰 지연이 길어 챗 UX 와 맞지 않는다.
 
 ❌ `--json-schema` 미사용 — Phase 1 은 자유 텍스트 챗 응답이 목표.
 
@@ -174,7 +176,7 @@ API 요청이 재시도 가능한 오류로 실패하면 Claude Code 가 재시�
 | `system/plugin_install` | (전달하지 않음) | Phase 1: 플러그인 시스템 사용 안 함 |
 | `result` | `result` | 턴 종료 신호 (TRD §5.4) |
 
-부분 라인 처리: spawn stdout 은 chunk 경계가 임의이므로 라인 버퍼를 유지하다가 `\n` 만나면 파싱한다 (`BACKEND_ARCHITECTURE.md §4.4`). *Phase 3 SDK 마이그레이션 후엔 라인 버퍼 직접 처리 없이 SDK 의 SDKMessage union 으로 대체됨.*
+부분 라인 처리: spawn stdout 은 chunk 경계가 임의이므로 라인 버퍼를 유지하다가 `\n` 만나면 파싱한다 (`arch/backend/adapters.md §1.5`). *Phase 3 SDK 마이그레이션 후엔 라인 버퍼 직접 처리 없이 SDK 의 SDKMessage union 으로 대체됨.*
 
 ---
 
@@ -301,7 +303,7 @@ claude -p "Continue that review" --resume "$session_id"
 3. Renderer 는 `sessionId` 변수 1개만 메모리에 보유
 4. 2턴부터: `claude -p "<text>" --output-format stream-json --resume <sessionId>`
 
-근거: `docs/llm-chat-desktop-strategy.md §6.2~6.3`, `docs/TRD.md §7.1`, `docs/BACKEND_ARCHITECTURE.md §4`.
+근거: `docs/etc/llm-chat-desktop-strategy.md §6.2~6.3`, `docs/TRD.md §7.1`, `docs/arch/backend/adapters.md §1`.
 
 ❌ `--continue` 미사용 — Orca 는 단일 세션 이외에 *이전 세션 자동 이어가기* 시나리오가 없다 (Phase 3 에서 명시적 세션 선택 UI 도입 예정).
 
@@ -384,7 +386,7 @@ claude -p "Extract function names" \
 
 CLI (`claude -p`) 외에 [Python](https://code.claude.com/docs/ko/agent-sdk/python) 및 [TypeScript](https://code.claude.com/docs/ko/agent-sdk/typescript) 패키지가 있다. 콜백 기반 도구 승인, 메시지 객체 직접 조작, 실시간 응답 스트리밍에 대한 프로그래밍 제어가 필요할 때 사용한다.
 
-✅ **Orca v1 채택** (Phase 3 마이그레이션, 2026-05-18) — TypeScript SDK `@anthropic-ai/claude-agent-sdk` 의 `query()` 함수를 진입점으로 사용. CLI spawn (§1, §3) 의 기능은 SDK `Options` 와 1:1 대응 (예: `--resume <id>` ↔ `options.resume`, `--include-partial-messages` ↔ `options.includePartialMessages`, `--output-format stream-json` 은 SDK 의 SDKMessage union 으로 대체됨). SDK API 시그니처·`Options` 필드 명세는 [`docs/spec/claude/agent-sdk/typescript.md`](./spec/claude/agent-sdk/typescript.md) 원문 미러가 단일 출처. SDKMessage → ChatEvent 매핑·내부 구현 패턴·MVP 채택 범위는 [`BACKEND_ARCHITECTURE.md` §4](./BACKEND_ARCHITECTURE.md) 참조.
+✅ **Orca v1 채택** (Phase 3 마이그레이션, 2026-05-18) — TypeScript SDK `@anthropic-ai/claude-agent-sdk` 의 `query()` 함수를 진입점으로 사용. CLI spawn (§1, §3) 의 기능은 SDK `Options` 와 1:1 대응 (예: `--resume <id>` ↔ `options.resume`, `--include-partial-messages` ↔ `options.includePartialMessages`, `--output-format stream-json` 은 SDK 의 SDKMessage union 으로 대체됨). SDK API 시그니처·`Options` 필드 명세는 [`docs/spec/claude/agent-sdk/typescript.md`](./spec/claude/agent-sdk/typescript.md) 원문 미러가 단일 출처. SDKMessage → ChatEvent 매핑·내부 구현 패턴·MVP 채택 범위는 [`arch/backend/adapters.md` §1](./arch/backend/adapters.md) 참조.
 
 Phase 3 가 사용하는 기능은 *최소* — `query()` + `options.includePartialMessages` + `options.resume` + `options.cwd`. 고급 기능 (`permissionMode` / `canUseTool` / `hooks` / `createSdkMcpServer` / custom tools / external `mcpServers` / `forkSession` / `startup()` / `AsyncIterable<SDKUserMessage>` 스트리밍 입력) 은 ⏳ Phase 4+ anchor.
 
@@ -412,7 +414,7 @@ Phase 3 가 사용하는 기능은 *최소* — `query()` + `options.includePart
 | 턴/비용 제한 | `--max-turns` / `--max-budget-usd` — Phase 1 미사용, Phase 3 *Skills 안전장치* 후보 |
 | 작업 디렉토리 | `--add-dir` 미사용 — spawn 의 `cwd` 만 사용 |
 | Hook 가시성 | SDK `options.hooks` (PreToolUse/PostToolUse/Stop/...) — Phase 4 anchor (도구 권한 정책 OQ9 결정 후) |
-| Agent SDK | ✅ **채택 (Phase 3)** — TypeScript SDK `query()` + 최소 옵션 (`resume`, `includePartialMessages`, `cwd`). `BACKEND_ARCHITECTURE.md §4` SSOT |
+| Agent SDK | ✅ **채택 (Phase 3)** — TypeScript SDK `query()` + 최소 옵션 (`resume`, `includePartialMessages`, `cwd`). `arch/backend/adapters.md §1` SSOT |
 | 인증 만료 감지 | SDK 가 throw 하는 에러 메시지/코드에서 `401` / `OAuth` / `expired` 패턴 매칭 (CLI 의 stdout/stderr 패턴 매칭 대체) |
 | 환경변수 | HOME (`~/.claude` 자격증명), `CLAUDE_*` (필요 시). PATH 의존성 (npm 글로벌 bin) 폐기 — SDK 가 `optionalDependencies` 로 platform binary 자동 처리 |
 | `cwd` | `options.cwd` 로 전달 — `app.getPath('home')` 기본. 프로젝트별 cwd 선택 UI 는 future work |
@@ -444,8 +446,8 @@ Phase 3 가 사용하는 기능은 *최소* — `query()` + `options.includePart
 | 원격: `code.claude.com/docs/ko/headless`, `.../ko/cli-reference`, `.../ko/agent-sdk/typescript` | 위 미러들의 외부 원본 (참고용) |
 | `docs/spec/CLAUDE.md` | 원문 미러 디렉토리의 정책 (편집 금지·수동 동기화) |
 | `docs/TRD.md` §7.1 | ClaudeCodeAdapter 외부 계약 (spec 의 적용 결과) |
-| `docs/BACKEND_ARCHITECTURE.md` §4 | ClaudeCodeAdapter 내부 구현 + SDK 채택 범위 표 + SDKMessage→ChatEvent 매핑 |
-| `docs/llm-chat-desktop-strategy.md` §6 | one-shot + `--resume` 채택의 전략적 근거 (Phase 3 의 `options.resume` 도 동일 메커니즘) |
+| `docs/arch/backend/adapters.md` §1 | ClaudeCodeAdapter 내부 구현 + SDK 채택 범위 표 + SDKMessage→ChatEvent 매핑 |
+| `docs/etc/llm-chat-desktop-strategy.md` §6 | one-shot + `--resume` 채택의 전략적 근거 (Phase 3 의 `options.resume` 도 동일 메커니즘) |
 | `docs/PRD.md` §7, §11 | 백엔드 선택 결정 및 OQ |
 
 ---

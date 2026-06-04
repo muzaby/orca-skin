@@ -1,11 +1,11 @@
 # Orca — Technical Requirements Document (v1)
 
-> `docs/PRD.md` 의 *WHAT* 을 *HOW* 로 옮기는 기술 사양. 기능·스택·API·데이터 모델을 다룬다. 시스템 구성·프로세스 모델·모듈 레이아웃·데이터 흐름 등 아키텍처 구조는 `docs/FRONTEND_ARCHITECTURE.md` (Renderer) + `docs/BACKEND_ARCHITECTURE.md` (Main) + `docs/IPC_CONTRACT.md` (채널 SSOT) + `docs/GLOSSARY.md` (용어 SSOT) 4 문서 참조.
+> `docs/PRD.md` 의 *WHAT* 을 *HOW* 로 옮기는 기술 사양. 기능·스택·API·데이터 모델을 다룬다. 시스템 구성·프로세스 모델·모듈 레이아웃·데이터 흐름 등 아키텍처 구조는 `docs/ARCHITECTURE.md` (Renderer) + `docs/ARCHITECTURE.md` (Main) + `docs/IPC_CONTRACT.md` (채널 SSOT) + `docs/GLOSSARY.md` (용어 SSOT) 4 문서 참조.
 
 | 항목 | 값 |
 |---|---|
 | 문서 버전 | v1 (MVP 구현 사양) |
-| 입력 | `docs/PRD.md` (MVP §6, §7, §11), `docs/llm-chat-desktop-strategy.md` |
+| 입력 | `docs/PRD.md` (MVP §6, §7, §11), `docs/etc/llm-chat-desktop-strategy.md` |
 | 출력 대상 | 코드 작성 에이전트 / 구현자 |
 | 범위 | Phase 1 MVP 본문. Phase 2~4 / Future Scope = §10 anchor only |
 | 미정 항목 처리 | PRD §11 Open Questions 는 **여기서 결정하지 않는다.** "결정 후 결정값으로 대체" 표시만 둔다. |
@@ -24,7 +24,7 @@
 
 본문은 Phase 1 만 다루며, Phase 2~4 확장 구조는 §10 의 anchor 로만 언급한다. 하드웨어·Skills·MCP·Captures·Projects 등 도메인 기능은 `docs/PRD.md` §9 Future Scope 를 참조.
 
-시스템이 **어떻게 구성되어 있고 입력이 어디로 흘러가는가** 는 `docs/FRONTEND_ARCHITECTURE.md` / `docs/BACKEND_ARCHITECTURE.md` / `docs/IPC_CONTRACT.md` 4문서에서 다룬다 (2026-05-20 이전 `architecture.md` 단일 파일에서 분할).
+시스템이 **어떻게 구성되어 있고 입력이 어디로 흘러가는가** 는 `docs/ARCHITECTURE.md` / `docs/ARCHITECTURE.md` / `docs/IPC_CONTRACT.md` 4문서에서 다룬다 (2026-05-20 이전 `architecture.md` 단일 파일에서 분할).
 
 ---
 
@@ -45,7 +45,7 @@ PRD §6.1 의 F1~F10 을 *수용 기준* 으로 구체화한다.
 | F9 | **인증 만료 처리** | ClaudeCodeAdapter, Auth modal | Claude Code OAuth 401 감지 (stdout/stderr `"401"` / `"expired"` 패턴) → `error / auth.expired` 이벤트 → UI 모달 "`claude /login` 을 터미널에서 실행 후 새 대화" | §6.1 |
 | F10 | **Tweaks 패널** | TweaksPanel, useTweaks | 테마 선택 (Classic/Dark/Cool) + 밀도 슬라이더 (11.5/13/14.5px) + 사이드바 접기 토글 → `data-theme` 속성 + root `font-size` 동적 갱신 → Tailwind `@theme` 토큰 스코프 cascade → 전 화면 반영. 선택값은 Phase 1에서 메모리만 (Phase 2+ `electron-store` 로 영속화). 트리 remount 불요 (CSS 변수 재설정으로 충분). Phase 2+ 에서 ThemeProvider 로 영속화 연동 검토 | §6.1 |
 
-**비고**: 모듈 경로·정확한 IPC 채널·컴포넌트 트리는 `FRONTEND_ARCHITECTURE.md` / `BACKEND_ARCHITECTURE.md` / `IPC_CONTRACT.md` 참조. 위 표는 *기능 정의* 에만 집중.
+**비고**: 모듈 경로·정확한 IPC 채널·컴포넌트 트리는 [ARCHITECTURE.md](ARCHITECTURE.md) / `IPC_CONTRACT.md` 참조. 위 표는 *기능 정의* 에만 집중.
 
 ---
 
@@ -57,10 +57,10 @@ PRD §6.2 의 N1~N6 을 구현 가능한 형태로 변환한다.
 |---|---|---|
 | N1 | **플랫폼** | Windows x64 1차 지원. macOS (arm64 + x64), Linux (x64) 는 후순위. Electron 다중 빌드 (`electron-builder.yml`) |
 | N2 | **i18n** | 한국어 라벨 (`src/shared/i18n/ko.ts`). 기술 용어/터미널 출력은 영어 그대로. |
-| N3 | **접근성** | 키보드 단축키: 새 대화 (Ctrl+N), **전송 (Enter), 줄바꿈 (Shift+Enter)**, Tweaks 패널 (Shift+T 등, `FRONTEND_ARCHITECTURE.md` §7.1 참조). 다크모드는 Tweaks 경유 (CSS 변수 override). ARIA label은 주요 UI 요소에. (전송 키 결정: 2026-05-13 — chat 류 앱 관례를 따라 Ctrl+Enter 대신 Enter 단일 키로 변경) |
+| N3 | **접근성** | 키보드 단축키: 새 대화 (Ctrl+N), **전송 (Enter), 줄바꿈 (Shift+Enter)**, Tweaks 패널 (Shift+T 등, [arch/frontend/ux-domains.md](arch/frontend/ux-domains.md) §1.1 참조). 다크모드는 Tweaks 경유 (CSS 변수 override). ARIA label은 주요 UI 요소에. (전송 키 결정: 2026-05-13 — chat 류 앱 관례를 따라 Ctrl+Enter 대신 Enter 단일 키로 변경) |
 | N4 | **데이터 위치** | 세션 본체: CLI 저장소 (Claude Code: `~/.claude/projects/<cwd>/<id>.jsonl`, opencode: `~/.local/share/opencode/` 등). 앱: 메모리에 `sessionId` 변수 1개만 보유. Phase 2+ `electron-store` (선택값·마지막 세션 ID 등) |
 | N5 | **응답 지연 가이드** | 첫 토큰까지 지연, 시작 시간 SLA = OQ6. 목표치가 정해지면 본 섹션 갱신. |
-| N6 | **보안** | 현재 (Phase 2): OAuth/API 키 미저장 (SDK 가 `~/.claude` 자동 사용). **Phase 3+ 채택 결정**: 어댑터별 base URL + API key 를 safeStorage 로 저장 (`BACKEND_ARCHITECTURE.md` §8.4). 마크다운 렌더링 시 XSS sanitize (react-markdown 기본). Electron contextIsolation=true, sandbox=true 적용 (상세는 `BACKEND_ARCHITECTURE.md` §8). |
+| N6 | **보안** | 현재 (Phase 2): OAuth/API 키 미저장 (SDK 가 `~/.claude` 자동 사용). **Phase 3+ 채택 결정**: 어댑터별 base URL + API key 를 safeStorage 로 저장 ([arch/backend/security.md](arch/backend/security.md) §1.4). 마크다운 렌더링 시 XSS sanitize (react-markdown 기본). Electron contextIsolation=true, sandbox=true 적용 (상세는 [arch/backend/security.md](arch/backend/security.md)). |
 
 ---
 
@@ -75,7 +75,7 @@ electron-vite 환경 기준. 표 밖 의존성 추가 시 **사용자 승인 필
 | 번들러 | Vite | ^7 | 확정 | electron-vite가 sub-config 통합 |
 | 언어 | TypeScript | strict, `target: ES2022` | 확정 | 타입 안정성 |
 | UI 프레임워크 | React | ^19 | 확정 (~~OQ1~~ 해소, 2026-05-20) | React Hooks + Context/reducer |
-| 상태 관리 (Renderer) | **Phase 1·2**: React Context + useReducer. **Phase 4**: Zustand | — | 확정 (Phase 4 전환 채택) | 단일 root + `sessions: Record<sessionId, SessionState>` 슬라이스. 외부 dispatch (`getState().recv(ev)`) 로 React 트리 외부에서 호출. **Phase 3 사전 마이그레이션 금지** — Phase 4 진입 PR 묶음에서 한 번에 전환. 상세 `FRONTEND_ARCHITECTURE.md` §4.4 |
+| 상태 관리 (Renderer) | **Phase 1·2**: React Context + useReducer. **Phase 4**: Zustand | — | 확정 (Phase 4 전환 채택) | 단일 root + `sessions: Record<sessionId, SessionState>` 슬라이스. 외부 dispatch (`getState().recv(ev)`) 로 React 트리 외부에서 호출. **Phase 3 사전 마이그레이션 금지** — Phase 4 진입 PR 묶음에서 한 번에 전환. 상세 [arch/frontend/state.md](arch/frontend/state.md) §1.4 |
 | 스타일링 | Tailwind CSS | **^4** (`@tailwindcss/vite` 플러그인, CSS-first `@theme`) | 확정 (Phase 1 완료) | utility-first. `styles/tokens.css` 의 `@theme` 블록으로 시맨틱 디자인 토큰 정의 (`--color-{bg,sidebar,ink,...}`). `[data-theme]` 스코프로 Classic/Dark/Cool 전환. Tweaks 패널과 연동. 자세한 정책은 `app/CLAUDE.md` "스타일링 정책" 참조 |
 | 마크다운 렌더링 | react-markdown + remark-gfm + shiki | `^9` / `^4` / `^1` | 확정 (Phase A `feat-pretty-ui` 도입) | GFM (표·체크박스) + 코드 블록 syntax highlighting. shiki 번들은 11개 언어 (ts/js/tsx/jsx/python/bash/json/yaml/html/css/markdown) 로 제한 |
 | LLM 백엔드 SDK (Claude) | `@anthropic-ai/claude-agent-sdk` | latest | 확정 (Phase 3 채택, 2026-05-18) | TypeScript SDK. 진입점 `query({ prompt, options })`. 플랫폼별 native binary 는 `optionalDependencies` 자동 처리. 최소 요구 Node.js 18+. API 명세 SSOT 는 `docs/spec/claude/agent-sdk/typescript.md` |
@@ -84,8 +84,8 @@ electron-vite 환경 기준. 표 밖 의존성 추가 시 **사용자 승인 필
 | IPC 보안 | `@electron-toolkit/preload` + contextBridge | ^3 | 확정 | preload 화이트리스트 |
 | 입력 검증 | zod | latest | 확정 | IPC 메시지 + SDK / SSE 응답 파싱 |
 | 영속화 (Phase 2+) | `electron-store` | — | **확정 (Phase 2+ 완료)** | 6 키 — `theme` / `density` / `sidebarCollapsed` / `lastBackend` / `lastSessionId` / `windowBounds`. §6.7 참조 |
-| 로컬 DB (Phase 3+) | better-sqlite3 (Phase 3 MVP raw) / Drizzle 후보 (Phase 4 재검토) | — | **채택 (Phase 3+)** | 메시지·세션 메타 SSOT. 어댑터 외부 저장 (jsonl 등) 은 단방향 동기화 소스로 격하. 마이그레이션 `src/main/db/migrations/NNN_<name>.sql`. **Phase 3 MVP: raw better-sqlite3 + prepared statements (쿼리 6 개 내외, ORM 가치 작음). Drizzle 은 Phase 4 멀티 세션·artifact·권한·통계 도입 시 재검토 (2026-05-20).** 상세 `BACKEND_ARCHITECTURE.md` §6 |
-| 자격증명 (Phase 3+) | Electron `safeStorage` (OS keychain) | — | **채택 (Phase 3+)** | 어댑터별 base URL + API key 암호화 저장. `BACKEND_ARCHITECTURE.md` §8.4 |
+| 로컬 DB (Phase 3+) | better-sqlite3 (Phase 3 MVP raw) / Drizzle 후보 (Phase 4 재검토) | — | **채택 (Phase 3+)** | 메시지·세션 메타 SSOT. 어댑터 외부 저장 (jsonl 등) 은 단방향 동기화 소스로 격하. 마이그레이션 `src/main/db/migrations/NNN_<name>.sql`. **Phase 3 MVP: raw better-sqlite3 + prepared statements (쿼리 6 개 내외, ORM 가치 작음). Drizzle 은 Phase 4 멀티 세션·artifact·권한·통계 도입 시 재검토 (2026-05-20).** 상세 [arch/backend/persistence.md](arch/backend/persistence.md) |
+| 자격증명 (Phase 3+) | Electron `safeStorage` (OS keychain) | — | **채택 (Phase 3+)** | 어댑터별 base URL + API key 암호화 저장. [arch/backend/security.md](arch/backend/security.md) §1.4 |
 | Python 런타임 (Phase 3++) | `uv` (동봉 바이너리) + python-build-standalone (첫 실행 다운로드) | uv latest / Python 3.12 | **채택 (Phase 3++)** | agent 의 Python 도구 실행용 격리 환경. `<userData>/runtime` 의 uv venv + 인터프리터. 시스템 비오염. 인터프리터 확보 4-A(github 다운로드) 기본, operator 가 `UV_PYTHON_INSTALL_MIRROR`/`UV_DEFAULT_INDEX` 지정 시 그 값으로 수렴. SDK `query().options.env` 로 `UV_*`/`PATH` 주입. uv 바이너리는 빌드 전 `scripts/fetch-uv.mjs` 로 `resources/bin/` 배치 + `extraResources` 동봉 |
 | 패키징 | electron-builder | ^26 | 미정 OQ3 | signing/notarization/auto-update. **uv 바이너리 `extraResources` 동봉. macOS 는 동봉 바이너리 codesign/notarize 대상 포함 필요** |
 | 테스트 (단위) | Vitest | latest | 확정 | 어댑터·reducer·IPC zod·installer |
@@ -128,9 +128,9 @@ Phase 2 범위 밖 (예약 — 도입 시점에 재등록):
 | 채널 | 도입 시점 | 사유 |
 |---|---|---|
 | `orca:backend:select` | opencode 어댑터 활성화 시 | 단일 백엔드 운영, 선택 호출자 없음 |
-| `orca:message:*` (list / append / delete) | **Phase 3+** | 로컬 DB SSOT 도입과 함께 (`BACKEND_ARCHITECTURE.md` §6) |
+| `orca:message:*` (list / append / delete) | **Phase 3+** | 로컬 DB SSOT 도입과 함께 ([arch/backend/persistence.md](arch/backend/persistence.md)) |
 | `orca:session:list` / `:load` / `:delete` | **Phase 3+** | `SessionAdapter.listSessions?()` / `loadSession?()` 옵셔널 메서드 노출 |
-| `orca:credentials:set` / `:hasKey` | **Phase 3+** | safeStorage 자격증명 (`BACKEND_ARCHITECTURE.md` §8.4) |
+| `orca:credentials:set` / `:hasKey` | **Phase 3+** | safeStorage 자격증명 ([arch/backend/security.md](arch/backend/security.md) §1.4) |
 | `orca:skills:reload` | **Future** | 핫리로드 도입 시 |
 
 > **Phase 3+ 이후 추가 도메인** (본 표는 Phase 2 미러라 누락 — SSOT 는 IPC_CONTRACT §2): `session` 5 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · **`runtime` 3 (Python uv 런타임 — `orca:runtime:status` / `:prepare` / `:statusEvent`, IPC_CONTRACT §2.11)**. 총 31 채널.
@@ -209,11 +209,11 @@ Discriminated union. 어댑터가 CLI/SDK의 다양한 형식을 이 하나의 �
 | `result` | `{ usage?: { inputTokens: number; outputTokens: number; }; }` | 어댑터 | 턴 완료, `inflight = false` |
 | `error` | `{ code: string; message: string; recoverable: boolean; }` | 어댑터 (언제든) | 에러 토스트 + 선택적 복구 UI |
 
-> **(Phase 4 anchor)** 멀티 세션 (§10) 도입 시 모든 변형에 `sessionId: string` 필드 추가 예정. 현재는 `init` 만 보유 — 단일 inflight 모델에서는 sessionId 식별 불요. main↔renderer IPC 는 Electron 의 ordered+lossless 보장을 그대로 활용 (별도 메시지큐 미도입). 상세는 `FRONTEND_ARCHITECTURE.md` §5.
+> **(Phase 4 anchor)** 멀티 세션 (§10) 도입 시 모든 변형에 `sessionId: string` 필드 추가 예정. 현재는 `init` 만 보유 — 단일 inflight 모델에서는 sessionId 식별 불요. main↔renderer IPC 는 Electron 의 ordered+lossless 보장을 그대로 활용 (별도 메시지큐 미도입). 상세는 [arch/frontend/state.md](arch/frontend/state.md) §2.
 
 > **(OQ10)** `tool_use.name` / `tool_use.input` 표준화 정책 미정 — PRD §11 OQ10 진실 원천. Phase 3 단일 백엔드 운영에서는 raw 전달 (분기 의미 없음). opencode 어댑터 활성화 PR 에서 결정.
 
-> **(정규화 계층 — 설계 확정 / 구현 대기)** 위 `ChatEvent` 는 claude-code 결합 형태다. provider 중립 `NormalizedEvent`(+ `permission.requested` 1급 이벤트) 로의 승격 설계와 현행 9종 전수 매핑표는 [`BACKEND_ARCHITECTURE.md`](./BACKEND_ARCHITECTURE.md) §12 가 정본. **충돌 지점**: 본 표의 `permissionMode` 2종(plan/acceptEdits)·`error.code` enum 은 정규화 목표(6종 모드 / `ErrorCategory` 8분류)와 어긋난다 — 구현 PR 에서 정합.
+> **(정규화 계층 — 설계 확정 / 구현 대기)** 위 `ChatEvent` 는 claude-code 결합 형태다. provider 중립 `NormalizedEvent`(+ `permission.requested` 1급 이벤트) 로의 승격 설계와 현행 9종 전수 매핑표는 [arch/backend/provider-runtime.md](arch/backend/provider-runtime.md) 가 정본. **충돌 지점**: 본 표의 `permissionMode` 2종(plan/acceptEdits)·`error.code` enum 은 정규화 목표(6종 모드 / `ErrorCategory` 8분류)와 어긋난다 — 구현 PR 에서 정합.
 
 ### 6.3 SessionAdapter (공통 인터페이스)
 
@@ -235,7 +235,7 @@ interface SessionAdapter {
 }
 ```
 
-내부 구현 패턴 (SDKMessage→ChatEvent 정규화, AbortSignal 전파, 인증 만료 감지, 인스톨러 스트리밍) 의 SSOT 는 [`BACKEND_ARCHITECTURE.md`](./BACKEND_ARCHITECTURE.md) §4. 현재 코드는 이미 `sendMessage(req: TurnRequest)` 객체 시그니처를 채택했다(BACKEND §4.3). provider 중립 capability/권한/revert 정규화(SessionCapability·PermissionBridge·RevertManager 등)의 설계는 BACKEND §12 (설계 확정 / 구현 대기).
+내부 구현 패턴 (SDKMessage→ChatEvent 정규화, AbortSignal 전파, 인증 만료 감지, 인스톨러 스트리밍) 의 SSOT 는 [arch/backend/adapters.md](arch/backend/adapters.md). 현재 코드는 이미 `sendMessage(req: TurnRequest)` 객체 시그니처를 채택했다([arch/backend/adapters.md](arch/backend/adapters.md) §1.3). provider 중립 capability/권한/revert 정규화(SessionCapability·PermissionBridge·RevertManager 등)의 설계는 [arch/backend/provider-runtime.md](arch/backend/provider-runtime.md) (설계 확정 / 구현 대기).
 
 ### 6.4 SessionInfo
 
@@ -318,11 +318,11 @@ Phase 2+ 에서 `electron-store` 로 영속화 완료. `IPC_CONTRACT.md` §2.4 �
 
 ## 7. Backend Adapters (외부 인터페이스 계약)
 
-어댑터가 외부 CLI/SDK와 주고받는 명령·플래그·SDK 호출의 계약. *내부 구현* (SDKMessage 정규화, 서버 라이프사이클 등) 은 `BACKEND_ARCHITECTURE.md` §4 참조.
+어댑터가 외부 CLI/SDK와 주고받는 명령·플래그·SDK 호출의 계약. *내부 구현* (SDKMessage 정규화, 서버 라이프사이클 등) 은 [arch/backend/adapters.md](arch/backend/adapters.md) 참조.
 
 ### 7.1 ClaudeCodeAdapter
 
-> SDK `query()` API 시그니처·`Options` 필드·SDKMessage 타입·세션 재개 메커니즘 상세는 [`docs/spec/claude/agent-sdk/typescript.md`](./spec/claude/agent-sdk/typescript.md) 가 단일 출처. CLI 플래그 ↔ SDK Options 대응 표·SDKMessage→ChatEvent 매핑·MVP 채택 범위·내부 구현 패턴은 [`BACKEND_ARCHITECTURE.md` §4](./BACKEND_ARCHITECTURE.md) 참조. 본 절은 *어댑터가 외부와 어떻게 계약하는지* 만 다룬다. 권한 정책 미정(OQ9) 은 `claude-code-spec.md §5` 참조.
+> SDK `query()` API 시그니처·`Options` 필드·SDKMessage 타입·세션 재개 메커니즘 상세는 [`docs/spec/claude/agent-sdk/typescript.md`](./spec/claude/agent-sdk/typescript.md) 가 단일 출처. CLI 플래그 ↔ SDK Options 대응 표·SDKMessage→ChatEvent 매핑·MVP 채택 범위·내부 구현 패턴은 [[arch/backend/adapters.md](arch/backend/adapters.md)](./[ARCHITECTURE.md](ARCHITECTURE.md)) 참조. 본 절은 *어댑터가 외부와 어떻게 계약하는지* 만 다룬다. 권한 정책 미정(OQ9) 은 `claude-code-spec.md §5` 참조.
 
 **설치 탐지**:
 
@@ -515,17 +515,17 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 - **(anchor) 하드웨어 어댑터 (BoardAdapter)** — USB/카메라 제어. `src/main/adapters/board.ts` 예약, 네이티브 모듈 (`orca-board.node`, libusb) Phase 2~3.
 - **(anchor) opencode 어댑터** — Phase 1 에서는 미구현. §7.2 의 사양 (서버 라이프사이클, SDK 호출, SSE 매핑) 그대로 살아있으나 코드는 인터페이스 후크만 남아있다. claude-code 단독 운영이 안정화되면 도입. **단, MCP 설정 변환기 `toOpencodeConfig` 는 MCP&Skill 통합 레이어에서 *순수 함수 + 단위 테스트만* 선구현됨** (어댑터·라이프사이클·백엔드 선택은 여전히 미구현, `Backend`=`'claude-code'` 유지). `toClaudeConfig` 와 **동형 대칭 변환기**(동일 시그니처, `Record<string, <Backend>Mcp>` 반환).
 - **(anchor) OpenAI Compatible 백엔드** — `SessionAdapter` 인터페이스 재활용 가능. 3번째 어댑터 구현체 추가.
-- **(anchor) Agent SDK 고급 기능** — `permissionMode` / `canUseTool` / `hooks` / `createSdkMcpServer` (in-process custom tools) / 외부 `mcpServers` / `forkSession` / `startup()` (사전 워밍) / `AsyncIterable<SDKUserMessage>` 스트리밍 입력. 채택 표는 `BACKEND_ARCHITECTURE.md` §4.6 의 ⏳ 행 참조. Phase 4+ — 도구 권한 정책(OQ9) 결정 후 진행.
+- **(anchor) Agent SDK 고급 기능** — `permissionMode` / `canUseTool` / `hooks` / `createSdkMcpServer` (in-process custom tools) / 외부 `mcpServers` / `forkSession` / `startup()` (사전 워밍) / `AsyncIterable<SDKUserMessage>` 스트리밍 입력. 채택 표는 [arch/backend/adapters.md](arch/backend/adapters.md) §1.7 의 ⏳ 행 참조. Phase 4+ — 도구 권한 정책(OQ9) 결정 후 진행.
 - **(anchor) 어댑터 도구명 정규화 (OQ10)** — claude vs opencode 의 `tool_use.name` / `tool_use.input` 차이 해소 정책. PRD §11 OQ10 결정 후 어댑터별 매핑 표 확정.
-- **(anchor) ChatEvent sessionId 확장** — Phase 4 멀티 세션 진입 시 모든 변형(`assistant_delta` / `assistant_message` / `tool_use` / `tool_result` / `result` / `error`)에 `sessionId` 필드 추가. main↔renderer IPC 는 Electron 의 ordered+lossless 보장을 그대로 활용 (별도 메시지큐 미도입). 상세 anchor 는 `FRONTEND_ARCHITECTURE.md` §5.
-- **(구현됨) MCP & Skill 통합 레이어** — 정규 소스 = `~/.config/orca/mcp.json`(순정 Claude `mcpServers` 스키마 + `${VAR}`, 평문 비밀 0). 비밀은 secret-store(safeStorage, env-var 이름 키잉), enabled/description 은 settings. `${VAR}` resolver = safeStorage→process.env(미해결 시 서버 드롭). **양 백엔드 대칭 변환기**(`toClaudeConfig`/`toOpencodeConfig`, 순수). **확장 정규 레이어**: `~/.config/orca` 디렉토리 자체를 Claude 로컬 플러그인으로 머티리얼라이즈(`.claude-plugin/plugin.json` + 정규 소스 `skills/`·`agents/`·`commands/`) → query() 에 `plugins:[{local, path: ~/.config/orca}]`+`skills:'all'`. Skill 은 양 백엔드 공통(opencode `.claude/skills` 네이티브), Hook/full-plugin 은 백엔드 종속이라 정규화 제외. 레거시 `orca-mcp` 1회 마이그레이션. 상세 `BACKEND_ARCHITECTURE.md` §8.4.
+- **(anchor) ChatEvent sessionId 확장** — Phase 4 멀티 세션 진입 시 모든 변형(`assistant_delta` / `assistant_message` / `tool_use` / `tool_result` / `result` / `error`)에 `sessionId` 필드 추가. main↔renderer IPC 는 Electron 의 ordered+lossless 보장을 그대로 활용 (별도 메시지큐 미도입). 상세 anchor 는 [arch/frontend/state.md](arch/frontend/state.md) §2.
+- **(구현됨) MCP & Skill 통합 레이어** — 정규 소스 = `~/.config/orca/mcp.json`(순정 Claude `mcpServers` 스키마 + `${VAR}`, 평문 비밀 0). 비밀은 secret-store(safeStorage, env-var 이름 키잉), enabled/description 은 settings. `${VAR}` resolver = safeStorage→process.env(미해결 시 서버 드롭). **양 백엔드 대칭 변환기**(`toClaudeConfig`/`toOpencodeConfig`, 순수). **확장 정규 레이어**: `~/.config/orca` 디렉토리 자체를 Claude 로컬 플러그인으로 머티리얼라이즈(`.claude-plugin/plugin.json` + 정규 소스 `skills/`·`agents/`·`commands/`) → query() 에 `plugins:[{local, path: ~/.config/orca}]`+`skills:'all'`. Skill 은 양 백엔드 공통(opencode `.claude/skills` 네이티브), Hook/full-plugin 은 백엔드 종속이라 정규화 제외. 레거시 `orca-mcp` 1회 마이그레이션. 상세 [arch/backend/security.md](arch/backend/security.md) §1.4.
 - **(anchor) Captures / Projects 확장** — PRD §9 Future Scope. 별도 IPC 도메인 + 모듈 추가.
 - **(anchor) 멀티 세션 / 과거 대화 목록** — Phase 3+. 인터페이스 `SessionAdapter.listSessions?()` / `loadSession?()` 이미 예약. Sidebar 세션 리스트 UI는 Phase 4.
 - **(anchor) 재시작 재개** — Phase 2. Settings.store 의 `lastSessionId` 키 추가, 앱 부트 시 복원.
-- **(anchor) Zustand 전환 (Phase 4 진입 PR 묶음)** — 단일 root + `sessions: Record<sessionId, SessionState>` 슬라이스. 외부 dispatch (`getState().recv(ev)`) — React 트리 외부에서 호출 가능. **Phase 3 사전 마이그레이션 금지**. 상세 `FRONTEND_ARCHITECTURE.md` §4.4.
-- **(anchor) 로컬 DB (Phase 3+)** — 메시지·세션 메타데이터 SSOT. 마이그레이션 `src/main/db/migrations/NNN_<name>.sql` (병합 후 절대 수정 금지). 라이브러리 미정 (better-sqlite3 / Drizzle 후보). 상세 `BACKEND_ARCHITECTURE.md` §6.
-- **(anchor) Artifact FS 저장 (Phase 3+)** — `<userData>/artifacts/<sessionId>/<uuid>.<ext>`. DB 에는 경로·해시·크기만. 클라우드 동기화 없음 (export/import 만). `GLOSSARY.md` "Artifact" / `BACKEND_ARCHITECTURE.md` §6.
-- **(anchor) safeStorage 자격증명 (Phase 3+)** — 어댑터별 base URL + API key 를 Electron `safeStorage` (OS keychain) 로 암호화 저장. `BACKEND_ARCHITECTURE.md` §8.4.
+- **(anchor) Zustand 전환 (Phase 4 진입 PR 묶음)** — 단일 root + `sessions: Record<sessionId, SessionState>` 슬라이스. 외부 dispatch (`getState().recv(ev)`) — React 트리 외부에서 호출 가능. **Phase 3 사전 마이그레이션 금지**. 상세 [arch/frontend/state.md](arch/frontend/state.md) §1.4.
+- **(anchor) 로컬 DB (Phase 3+)** — 메시지·세션 메타데이터 SSOT. 마이그레이션 `src/main/db/migrations/NNN_<name>.sql` (병합 후 절대 수정 금지). 라이브러리 미정 (better-sqlite3 / Drizzle 후보). 상세 [arch/backend/persistence.md](arch/backend/persistence.md).
+- **(anchor) Artifact FS 저장 (Phase 3+)** — `<userData>/artifacts/<sessionId>/<uuid>.<ext>`. DB 에는 경로·해시·크기만. 클라우드 동기화 없음 (export/import 만). `GLOSSARY.md` "Artifact" / [arch/backend/persistence.md](arch/backend/persistence.md).
+- **(anchor) safeStorage 자격증명 (Phase 3+)** — 어댑터별 base URL + API key 를 Electron `safeStorage` (OS keychain) 로 암호화 저장. [arch/backend/security.md](arch/backend/security.md) §1.4.
 - **(anchor) 추가 IPC 도메인 (Phase 3+/Future)** — `message:*` / `session:list/load/delete` / `credentials:set/hasKey` / `skills:reload`. `IPC_CONTRACT.md` §2.8 예약 표 참조.
 - **PRD §11 OQ1~OQ8** — 미정 항목. 여기서 결정하지 않음. 결정값 도착 시 본 문서 갱신.
 
@@ -539,7 +539,7 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 - **Reducer**: 모든 액션 (SEND_USER_MESSAGE, RECV_EVENT, NEW_CHAT, CANCEL_CHAT) → 상태 전이 정확성
 - **IPC 검증**: zod 스키마 (SendChatMessage, ChatEvent, InstallStatus 등)
 - **Installer**: 의존성 점검 (curl), opencode 설치 명령 조합
-- **(구현됨) MCP 변환 파이프라인**: `expandEnv`(${VAR} 정의/미정의 드롭·다중 변수·빈 소스) + `toClaudeConfig`(구조 항등·sse 보존)/`toOpencodeConfig`(stdio→local·http/sse→remote)·dropped 전파·빈 소스 — `src/main/mcp/{expand,convert}.test.ts`, 14 케이스. electron 비의존 순수 함수. `npm test` = `vitest run`. store/secret-store 등 electron 결합 모듈은 런타임 수동 검증(BACKEND §8.4 불변식).
+- **(구현됨) MCP 변환 파이프라인**: `expandEnv`(${VAR} 정의/미정의 드롭·다중 변수·빈 소스) + `toClaudeConfig`(구조 항등·sse 보존)/`toOpencodeConfig`(stdio→local·http/sse→remote)·dropped 전파·빈 소스 — `src/main/mcp/{expand,convert}.test.ts`, 14 케이스. electron 비의존 순수 함수. `npm test` = `vitest run`. store/secret-store 등 electron 결합 모듈은 런타임 수동 검증([arch/backend/security.md](arch/backend/security.md) §1.4 불변식).
 
 ### 통합 테스트
 
@@ -566,9 +566,9 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 ## 12. References
 
 - `docs/PRD.md` — 제품 정의 (WHAT)
-- `docs/llm-chat-desktop-strategy.md` — 기술 결정 근거
-- `docs/FRONTEND_ARCHITECTURE.md` — Renderer 구조·상태 관리·도메인 화면 카탈로그
-- `docs/BACKEND_ARCHITECTURE.md` — Main 구조·Adapter·영속성·자격증명·보안
+- `docs/etc/llm-chat-desktop-strategy.md` — 기술 결정 근거
+- `docs/ARCHITECTURE.md` — Renderer 구조·상태 관리·도메인 화면 카탈로그
+- `docs/ARCHITECTURE.md` — Main 구조·Adapter·영속성·자격증명·보안
 - `docs/IPC_CONTRACT.md` — Main ↔ Renderer 채널 SSOT
 - `docs/GLOSSARY.md` — 용어 단일 출처
 - `docs/claude-code-spec.md` — Claude Code CLI 공식 스펙 미러 (§7.1 외부 계약의 단일 출처)
