@@ -64,7 +64,11 @@
   --color-fill-primary-hover: #b8593a; /* themed */
   --color-fill-contained: var(--color-bg);
   --color-fill-contained-hover: var(--color-sidebar);
-  --color-fill-uncontained-hover: var(--color-sidebar);
+  /* Ghost (uncontained) hover/active are translucent ink overlays so they
+     stay visible on ANY surface (incl. the sidebar-coloured titlebar). The
+     ink token flips per theme, so the overlay adapts automatically. */
+  --color-fill-uncontained-hover: color-mix(in srgb, var(--color-ink) 8%, transparent);
+  --color-fill-uncontained-active: color-mix(in srgb, var(--color-ink) 14%, transparent);
   --color-fill-selected: var(--color-rust-soft);
   --color-fill-busy: var(--color-sidebar);
 

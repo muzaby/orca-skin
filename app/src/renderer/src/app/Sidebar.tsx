@@ -21,7 +21,7 @@ const NAV: NavItem[] = [
 ]
 
 const SECTION_HEAD =
-  'px-3 pb-1 pt-3.5 font-serif text-[11px] font-semibold uppercase tracking-[0.04em] text-ink3'
+  'px-3 pb-1 pt-3.5 font-serif text-caption font-semibold uppercase tracking-[0.04em] text-ink3'
 
 // sidebar 의 *도메인 특정* 설정값. 공용 인프라가 아니라 sidebar 자체 책임이므로
 // 일반 useDragResize 훅이 아닌 이 파일에 둔다.
@@ -85,8 +85,11 @@ function SidebarImpl({ sessionsSlot, footerSlot }: SidebarProps): React.JSX.Elem
                 key={it.path}
                 onClick={() => navigate(it.path)}
                 aria-label={it.l}
-                className={`h-9 w-9 cursor-pointer rounded-lg border-0 ${
-                  isActive ? 'bg-rust-soft text-rust' : 'bg-transparent text-ink2'
+                aria-current={isActive ? 'page' : undefined}
+                className={`grid h-9 w-9 cursor-default place-items-center rounded-r5 border-0 outline-none hide-focus-ring ring-focus transition-colors ${
+                  isActive
+                    ? 'bg-fill-selected text-rust'
+                    : 'bg-transparent text-t6 hover:bg-fill-uncontained-hover hover:text-t7'
                 }`}
               >
                 <Icon name={it.i} size={17} />
@@ -121,8 +124,11 @@ function SidebarImpl({ sessionsSlot, footerSlot }: SidebarProps): React.JSX.Elem
               <div
                 key={it.path}
                 onClick={() => navigate(it.path)}
-                className={`flex cursor-pointer items-center gap-[9px] rounded-md px-2.5 py-1.5 text-[13px] ${
-                  isActive ? 'bg-black/[0.04] font-medium text-ink' : 'text-ink2'
+                aria-current={isActive ? 'page' : undefined}
+                className={`flex cursor-default items-center gap-g4 rounded-r4 px-2.5 py-1.5 text-footnote transition-colors ${
+                  isActive
+                    ? 'bg-fill-uncontained-active font-medium text-t9'
+                    : 'text-t6 hover:bg-fill-uncontained-hover hover:text-t7'
                 }`}
               >
                 <Icon name={it.i} size={14} />

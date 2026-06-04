@@ -64,7 +64,7 @@ function squishClass(variant: ButtonVariant, pressed: boolean): string {
       return 'border border-t5 bg-fill-contained group-hover/btn:bg-fill-contained-hover'
     case 'uncontained':
     default:
-      return 'bg-transparent group-hover/btn:bg-t2 enabled:group-active/btn:bg-t3'
+      return 'bg-transparent group-hover/btn:bg-fill-uncontained-hover enabled:group-active/btn:bg-fill-uncontained-active'
   }
 }
 
