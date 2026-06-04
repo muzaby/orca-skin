@@ -1,5 +1,6 @@
 import { useState, type KeyboardEvent } from 'react'
-import { Dot } from '../../../shared/ui/Status'
+import { Button } from '../../../shared/ui/Button'
+import { YellowDot } from './transcript/YellowDot'
 import type { UseChat } from '../hooks/useChat'
 
 interface PlanApprovalCardProps {
@@ -39,20 +40,21 @@ export function PlanApprovalCard({ chat }: PlanApprovalCardProps): React.JSX.Ele
 
   return (
     <div
-      className="app-frame-plan-approval rounded-[14px] border border-border bg-panel px-3.5 py-3 shadow-[0_1px_2px_rgba(0,0,0,.03)]"
+      className="app-frame-plan-approval rounded-r7 border border-t5 bg-surface-primary-elevated px-3.5 py-3 shadow-[0_1px_2px_rgba(0,0,0,.03)]"
+      data-surface="prompt"
       data-behavior="interactive"
       role="group"
       aria-label="계획 승인"
       onKeyDown={onKeyDown}
     >
-      <div className="flex items-center gap-2">
-        <Dot tone="amber" />
-        <span className="text-[13px] font-medium text-ink">Claude가 계획을 제안했습니다</span>
+      <div className="flex items-center gap-g3">
+        <YellowDot />
+        <span className="text-footnote font-medium text-t9">Claude가 계획을 제안했습니다</span>
         {!state.planTileOpen && (
           <button
             type="button"
             onClick={openPlanTile}
-            className="ml-auto cursor-pointer border-0 bg-transparent text-[12.5px] font-medium text-rust hover:underline"
+            className="ml-auto cursor-default border-0 bg-transparent text-footnote font-medium text-rust outline-none hide-focus-ring ring-focus hover:underline"
           >
             플랜 열기
           </button>
@@ -60,50 +62,43 @@ export function PlanApprovalCard({ chat }: PlanApprovalCardProps): React.JSX.Ele
       </div>
 
       <div
-        className="mt-2 grid transition-[grid-template-rows] duration-200 ease-out"
+        className="mt-2 grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none"
         style={{ gridTemplateRows: reviseOpen ? '1fr' : '0fr' }}
       >
-        <div className="overflow-hidden">
+        <div className="min-h-0 overflow-hidden">
           <textarea
             value={feedback}
             onChange={(e) => setFeedback(e.target.value)}
             placeholder="수정 제안 내용을 입력하세요… (입력 후 ‘수정 요청 보내기’)"
             rows={3}
             aria-label="수정 제안 내용"
-            className="mb-1 w-full resize-y rounded-[10px] border border-border bg-bg px-3 py-1.5 text-[13px] text-ink placeholder:text-ink3 focus:border-border-strong focus:outline-none"
+            className="mb-1 w-full resize-y rounded-r5 border border-t5 bg-bg px-3 py-1.5 text-footnote text-t9 outline-none ring-focus placeholder:text-t6 focus:border-border-strong"
           />
         </div>
       </div>
 
-      <div className="mt-2.5 flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => rejectPlan(rid)}
-            className="cursor-pointer rounded-lg border border-border bg-transparent px-3 py-1.5 text-[13px] text-ink2 hover:bg-sidebar"
-            data-behavior="dismissible"
-          >
+      <div className="mt-2.5 flex items-center justify-between gap-g3">
+        <div className="flex items-center gap-g3">
+          <Button variant="contained" onClick={() => rejectPlan(rid)} data-behavior="dismissible">
             거부
-          </button>
-          <button
-            type="button"
+          </Button>
+          <Button
+            variant="uncontained"
             onClick={onReviseClick}
             disabled={reviseOpen && !canRevise}
-            className="cursor-pointer rounded-lg border border-border bg-bg px-3 py-1.5 text-[13px] text-ink2 hover:bg-sidebar disabled:cursor-not-allowed disabled:opacity-40"
             title={reviseOpen && !canRevise ? '수정 제안 내용을 먼저 입력하세요' : undefined}
           >
             {reviseOpen ? '수정 요청 보내기' : '수정…'}
-          </button>
+          </Button>
         </div>
-        <button
-          type="button"
+        <Button
+          variant="primary"
           onClick={() => approvePlan(rid)}
-          className="flex cursor-pointer items-center gap-2 rounded-lg border-0 bg-rust px-3.5 py-1.5 text-[13px] font-medium text-white"
           data-behavior="action:send"
+          kbd="Ctrl+Enter"
         >
           수락
-          <kbd className="text-[10.5px] opacity-80">Ctrl+Enter</kbd>
-        </button>
+        </Button>
       </div>
     </div>
   )
