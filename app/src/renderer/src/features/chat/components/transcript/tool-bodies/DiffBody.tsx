@@ -61,11 +61,25 @@ const DIFF_VARS = {
 
 const DIFF_STYLES = {
   variables: { light: DIFF_VARS, dark: DIFF_VARS },
-  contentText: { fontFamily: 'var(--font-mono)', fontSize: 'var(--text-code)' },
-  lineNumber: { color: 'var(--color-t6)' },
-  // 인라인 뷰는 라인넘버 gutter 를 2개(old/new) 렌더한다. 첫 번째(old) 를 숨겨
-  // new 라인넘버 한 컬럼만 남긴다. (removed 줄은 '-' 마커로 식별)
-  gutter: { padding: '0 0.5em', minWidth: '1.6em', '&:first-of-type': { display: 'none' } }
+  contentText: { fontFamily: 'var(--font-mono)', fontSize: 'var(--text-code)' }
+}
+
+// 인라인 뷰는 기본적으로 라인넘버 gutter 를 old/new 2개 렌더한다. `hideLineNumbers` 로 둘 다
+// 끄고 `renderGutter` 로 단일 gutter 를 그려 행마다 해당 줄 번호(제거행=old, 추가행=new)를
+// 한 컬럼에 표시한다. colgroup 도 [gutter, marker, content] 3열로 자동 정렬돼 본문 열이 보존된다.
+function renderGutter({
+  lineNumber,
+  additionalLineNumber
+}: {
+  // 라이브러리 타입은 number 지만 런타임상 추가행은 lineNumber=null 을 넘긴다.
+  lineNumber: number | null
+  additionalLineNumber?: number | null
+}): React.JSX.Element {
+  return (
+    <td className="select-none whitespace-nowrap px-2 text-right align-baseline text-t6 tabular-nums">
+      <pre className="m-0 text-code opacity-60">{lineNumber ?? additionalLineNumber ?? ''}</pre>
+    </td>
+  )
 }
 
 // Write/Edit/MultiEdit 본문 — jsdiff + react-diff-viewer-continued 통합(inline) diff.
@@ -87,6 +101,8 @@ export function DiffBody({ call }: { call: ToolCall }): React.JSX.Element {
               splitView={false}
               showDiffOnly
               hideSummary
+              hideLineNumbers
+              renderGutter={renderGutter}
               disableWorker
               compareMethod={jsDiffLines}
               useDarkTheme={false}
