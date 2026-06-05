@@ -1,6 +1,9 @@
 // IPC 채널 이름 + 순수 TS 타입. zod 의존 없음 — preload (sandbox=true) 와 renderer 모두 안전하게 import.
 // main 프로세스의 런타임 검증 (zod 스키마) 은 ./protocol.ts 에 별도로 둔다.
 
+// 권한 모드 정규화 타입 (type-only — 런타임 사이클 없음). permission-mode.ts 와 상호 type import.
+import type { NormalizedPermissionMode } from './permission-mode'
+
 // Phase 2 활성 채널 (preload 노출 대상). 미사용 채널은 의도적으로 누락.
 export const CHANNELS = {
   chatSend: 'orca:chat:send',
@@ -36,7 +39,10 @@ export const CHANNELS = {
   runtimeStatusEvent: 'orca:runtime:statusEvent',
   // 권한 응답 단일 채널 — ask/plan/tool 세 종류의 승인 응답이 모두 이 채널로 흐른다
   // (askRespond/planRespond 2채널 통합). 응답 = { approvalId, resolution: ApprovalResolution }.
-  permissionRespond: 'orca:permission:respond'
+  permissionRespond: 'orca:permission:respond',
+  // 세션 진행 중 권한 모드 라이브 전환 (PR③). { sessionId, mode } 를 main 에 invoke —
+  // 진행 중 턴이면 즉시 Query.setPermissionMode, 아니면 controller 에 기록해 다음 턴에 반영.
+  permissionSetMode: 'orca:permission:setMode'
 } as const
 
 // Backend (Phase 2: claude-code 단일. opencode 는 future work)
@@ -222,8 +228,8 @@ export interface SendChatMessage {
   // main 이 sessionId → project_id → instructions 를 DB 에서 직접 조회한다.
   projectId: string | null
   text: string
-  // 이 턴에 적용할 권한 모드 (Composer 모드 버튼). 부재 시 main 이 기본값(plan) 적용.
-  permissionMode?: PermissionMode
+  // 이 턴에 적용할 권한 모드 (정규화 6종 — Composer 모드 버튼). 부재 시 main 이 기본값(plan) 적용.
+  permissionMode?: NormalizedPermissionMode
 }
 
 // Composer 권한 모드 버튼이 노출하는 두 모드. SDK PermissionMode 의 부분집합 —
@@ -236,6 +242,13 @@ export type PermissionMode = 'plan' | 'acceptEdits'
 
 export interface CancelChat {
   sessionId: string
+}
+
+// 권한 모드 라이브 전환 요청 (orca:permission:setMode). 정규화 6종을 그대로 싣는다 —
+// main 이 toClaudePermissionMode 로 SDK 모드로 변환해 라이브/다음-턴에 적용.
+export interface SetPermissionMode {
+  sessionId: string
+  mode: NormalizedPermissionMode
 }
 
 // ── Capability(능력 탐지) — provider-runtime.md §4/§5 ──────────────────────────────

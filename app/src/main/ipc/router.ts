@@ -17,6 +17,7 @@ import {
   SearchMessagesRequestSchema,
   DeleteMcpServerSchema,
   PermissionRespondSchema,
+  SetPermissionModeSchema,
   type BackendListResult,
   type FileEntry,
   type InstallStatus,
@@ -45,6 +46,9 @@ import { PythonRuntime, PY_AGENT_RULES } from '../runtime'
 import { ExtensionBuilder } from '../extensions/builder'
 import { InteractionBroker } from '../ask/broker'
 import { agentPermissionRequest } from '../runtime-events/permission-bridge'
+import { PermissionModeController } from '../runtime-events/permission-mode-controller'
+import { toClaudePermissionMode } from '../../shared/permission-mode'
+import type { LiveTurn } from '../adapters/types'
 import { makeClassifiedError } from '../runtime-errors/classifier'
 import { claudeErrorClassifier } from '../runtime-errors/claude-classifier'
 import type {
@@ -56,6 +60,9 @@ import type {
 
 interface InflightTurn {
   controller: AbortController
+  // 이 턴의 라이브 핸들 (PR③). orca:permission:setMode 가 진행 중 턴이면 여기로 모드를 즉시
+  // 전환한다(Query.setPermissionMode). sendMessage 직후 채워진다.
+  live: LiveTurn | null
   // sendMessage 호출 시점에 채워두는 사용자 입력. claude-code 의 init 이벤트가
   // session_id 를 발급한 시점에 DB 에 user message row 로 저장한다.
   pendingUserText: string | null
@@ -92,6 +99,8 @@ export class IpcRouter {
   // "세션 동안 허용"으로 부여된 도구 — 같은 세션의 이후 턴에서 카드 없이 자동 허용. 키 =
   // dbSessionId, 값 = 허용된 toolName 집합. 프로세스 메모리에만 보존(영속 안 함).
   private readonly sessionAllowedTools = new Map<string, Set<string>>()
+  // 세션별 권한 모드 SSOT (PR②/③). orca:permission:setMode 와 handleChatSend 가 갱신한다.
+  private readonly permissionModes = new PermissionModeController()
   readonly runtime = new PythonRuntime()
   // 부팅 시 1회 스캔하여 메모리에 캐시. fs.watch hot-reload 는 본 PR 범위 밖 (재시작).
   private skillsCache: SkillInfo[] = []
@@ -172,6 +181,7 @@ export class IpcRouter {
     ipcMain.handle(CHANNELS.runtimeStatus, this.handleRuntimeStatus)
     ipcMain.handle(CHANNELS.runtimePrepare, this.handleRuntimePrepare)
     ipcMain.handle(CHANNELS.permissionRespond, this.handlePermissionRespond)
+    ipcMain.handle(CHANNELS.permissionSetMode, this.handlePermissionSetMode)
     // 런타임 초기화 진행 상태를 모든 창에 브로드캐스트.
     // 렌더러 런타임 UI 가 제거되어 dev 에선 터미널 로깅으로 진행/에러를 관찰한다.
     this.runtime.on('status', (st: RuntimeStatus) => {
@@ -225,6 +235,7 @@ export class IpcRouter {
     // 새 채팅 경로(sessionId=null)면 renderer 가 보낸 projectId 를 init 시점에 binding.
     const turn: InflightTurn = {
       controller,
+      live: null,
       pendingUserText: parsed.data.text,
       dbSessionId: parsed.data.sessionId,
       pendingProjectId: parsed.data.sessionId ? null : parsed.data.projectId,
@@ -301,9 +312,16 @@ export class IpcRouter {
       return resolution
     }
 
+    // 세션 모드 SSOT 동기화 — resume 경로(sessionId 확정)에서 이번 턴 모드를 controller 에 기록.
+    // 라이브 전환(setMode IPC)과 다음 턴이 같은 출처를 읽도록 한다.
+    if (parsed.data.sessionId && parsed.data.permissionMode) {
+      void this.permissionModes.setMode(parsed.data.sessionId, parsed.data.permissionMode)
+    }
+
     const cwd = this.defaultCwd
     try {
-      for await (const ev of adapter.sendMessage({
+      // sendMessage 가 query() 를 즉시 시작하므로 try 안에서 호출 — 동기 throw 도 동일 경로로 분류.
+      const live = adapter.sendMessage({
         sessionId: parsed.data.sessionId,
         text: parsed.data.text,
         cwd,
@@ -312,7 +330,9 @@ export class IpcRouter {
         env: pyEnv,
         requestApproval,
         permissionMode: parsed.data.permissionMode
-      })) {
+      })
+      turn.live = live
+      for await (const ev of live.events) {
         this.persist(turn, ev)
         this.sendChatEvent(event.sender, ev)
         // AskUserQuestion tool 호출이 도착하면 id 를 페어링 큐에 넣고 답변과 매칭 시도.
@@ -699,6 +719,28 @@ export class IpcRouter {
 
     if (resolution.behavior === 'deny' && resolution.interrupt) {
       this.inflight.get(event.sender)?.controller.abort()
+    }
+  }
+
+  // 권한 모드 라이브 전환 (orca:permission:setMode, PR③). 두 경로:
+  //   ① controller(세션 SSOT) 갱신 — 다음 턴 send 가 이 값을 싣는다.
+  //   ② 진행 중 턴(같은 세션)이면 Query.setPermissionMode 로 즉시 전환 — 그 턴의 이후 도구부터 반영.
+  private handlePermissionSetMode = async (
+    event: IpcMainInvokeEvent,
+    raw: unknown
+  ): Promise<void> => {
+    const parsed = SetPermissionModeSchema.safeParse(raw)
+    if (!parsed.success) return
+    const { sessionId, mode } = parsed.data
+    void this.permissionModes.setMode(sessionId, mode)
+
+    const turn = this.inflight.get(event.sender)
+    if (turn?.live && turn.dbSessionId === sessionId) {
+      try {
+        await turn.live.setPermissionMode(toClaudePermissionMode(mode))
+      } catch {
+        // 라이브 전환 실패(핸들이 막 닫힘 등)는 무시 — controller 값이 다음 턴에 반영된다.
+      }
     }
   }
 }

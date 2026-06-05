@@ -16,9 +16,9 @@
 - 채널 상수: `app/src/shared/ipc.ts` 의 `CHANNELS` 객체. 문자열 리터럴 직접 사용 금지.
 - 입력 검증: 모든 `ipcMain.handle` 핸들러는 **zod 스키마 (`app/src/shared/protocol.ts`)** 로 페이로드 검증. 검증 실패 시 에러 throw.
 
-## 2. 채널 카탈로그 (총 31 채널)
+## 2. 채널 카탈로그 (총 33 채널)
 
-도메인별 분포: `chat` 3 · `backend` 1 · `install` 2 · `settings` 2 · `skills` 1 · `files` 1 · `session` 5 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `runtime` 3.
+도메인별 분포: `chat` 3 · `backend` 1 · `install` 2 · `settings` 2 · `skills` 1 · `files` 1 · `session` 5 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `runtime` 3 · `permission` 2 (`respond` · `setMode`).
 
 `app/src/shared/ipc.ts` 의 `CHANNELS` 상수와 1:1 일치.
 
@@ -227,6 +227,8 @@ interface RuntimeStatus {
 `PermissionAction` = `{kind:'ask_question', request} | {kind:'plan_review', request} | {kind:'tool_approval', toolName, input}`. `ApprovalResolution` = `{behavior:'allow', updatedInput?, updatedPermissions?} | {behavior:'deny', message?, interrupt?}` (claude `PermissionResult` 와 동형 + 앱 레벨 세션 권한 `updatedPermissions:[{toolName, scope:'session'}]`).
 
 **권한 응답 채널 단일화.** ask/plan/tool 세 종류의 승인 응답은 모두 단일 `permissionRespond`(`orca:permission:respond`, renderer→main invoke) 채널로 흐른다(구 `askRespond`/`planRespond` 2채널 통합). 페이로드 = `{approvalId, resolution: ApprovalResolution}`. main(`InteractionBroker<ApprovalResolution>`)이 `approvalId` 로 보류 중인 `canUseTool` Promise 를 해소한다. 부수효과: ① `allow.updatedPermissions{scope:'session'}` → 해당 세션의 자동 허용 도구 집합 갱신(같은 세션 이후 턴 카드 미surface), ② `deny.interrupt` → 해당 턴 abort(plan reject). **위험 도구 게이트**: `makeCanUseTool` 이 화이트리스트(`Bash`·`Write`·`Edit`·`MultiEdit`·`NotebookEdit`, `permission-bridge.ts` 의 `RISKY_TOOLS`)에 든 도구만 `tool_approval` 로 surface 하고, 안전 도구는 자동 통과한다.
+
+**권한 모드 라이브 전환 (PR③).** `permissionSetMode`(`orca:permission:setMode`, renderer→main invoke). 페이로드 = `{sessionId, mode: NormalizedPermissionMode}`(정규화 6종 — `default`·`accept_edits`·`plan`·`dont_ask`·`bypass`·`auto_classified`). main 은 두 경로로 적용한다: ① `PermissionModeController`(세션 SSOT) 갱신 → 다음 턴 send 페이로드에 반영, ② 같은 세션의 진행 중 턴이 있으면 그 턴의 라이브 핸들로 즉시 `Query.setPermissionMode`(`toClaudePermissionMode` 변환) — 그 턴의 이후 도구부터 적용. 턴-스코프 스트리밍 입력(`prompt: AsyncIterable<SDKUserMessage>`)에서만 control 메서드가 열린다(resume-from-DB 모델 유지). 위험 모드(`bypass`·`dont_ask`)는 렌더러 `ModeMenu` 가 2-스텝 확인으로 가드한다.
 
 ## 4. 에러 코드
 

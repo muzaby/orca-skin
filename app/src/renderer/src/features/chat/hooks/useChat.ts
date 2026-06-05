@@ -6,7 +6,7 @@ import {
   type ChatState
 } from '../reducer/chatReducer'
 import { chatApi, permissionApi, sessionApi, settingsApi } from '../../../shared/api/ipc'
-import type { PermissionMode } from '../../../../../shared/ipc'
+import type { NormalizedPermissionMode } from '../../../../../shared/permission-mode'
 
 export interface UseChat {
   state: ChatState
@@ -33,8 +33,8 @@ export interface UseChat {
   ) => void
   // AskUserQuestion 건너뛰기 — main 이 deny 로 매핑해 Claude 가 스스로 진행.
   skipAsk: (requestId: string) => void
-  // Composer 모드 버튼 — 이 대화의 권한 모드 선택 (계획 / 편집 수락).
-  setPermissionMode: (mode: PermissionMode) => void
+  // Composer 모드 버튼 — 이 대화의 권한 모드 선택 (정규화 6종). 활성 세션이면 라이브 전환 IPC 도 발행.
+  setPermissionMode: (mode: NormalizedPermissionMode) => void
   // plan 모드 계획 카드 — 승인(실행) / 수정 제안(피드백 반영 재작성) / 거부(턴 중단).
   approvePlan: (requestId: string) => void
   revisePlan: (requestId: string, feedback: string) => void
@@ -212,8 +212,12 @@ export function useChat(): UseChat {
     dispatch({ type: 'RESOLVE_ASK', requestId })
   }, [])
 
-  const setPermissionMode = useCallback((mode: PermissionMode): void => {
+  const setPermissionMode = useCallback((mode: NormalizedPermissionMode): void => {
     dispatch({ type: 'SET_PERMISSION_MODE', mode })
+    // 활성 세션이면 라이브 전환 IPC 발행 — main 이 진행 중 턴이면 즉시 Query.setPermissionMode,
+    // 아니면 controller 에 기록해 다음 턴에 반영. 새 채팅(sessionId 미발급)은 send 페이로드로 전달.
+    const sid = stateRef.current.sessionId
+    if (sid) void permissionApi.setMode({ sessionId: sid, mode })
   }, [])
 
   const approvePlan = useCallback((requestId: string): void => {
@@ -221,7 +225,7 @@ export function useChat(): UseChat {
     dispatch({ type: 'RESOLVE_PLAN' })
     // 승인 = plan 모드 종료. 칩을 '편집 수락'으로 전환 → 다음 턴이 plan 모드로 재진입하지
     // 않아 ExitPlanMode 재호출(단순 질문 시 계획 카드 재출현)을 막는다.
-    dispatch({ type: 'SET_PERMISSION_MODE', mode: 'acceptEdits' })
+    dispatch({ type: 'SET_PERMISSION_MODE', mode: 'accept_edits' })
   }, [])
 
   const revisePlan = useCallback((requestId: string, feedback: string): void => {

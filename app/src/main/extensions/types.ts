@@ -9,12 +9,8 @@
 // 어댑트 시점에만 일어나며 이 구조체에는 절대 평문이 들어오지 않는다.
 
 import type { OrcaMcpConfig } from '../mcp/schema'
-import type {
-  ApprovalResolution,
-  PermissionAction,
-  PermissionMode,
-  SkillInfo
-} from '../../shared/ipc'
+import type { ApprovalResolution, PermissionAction, SkillInfo } from '../../shared/ipc'
+import type { NormalizedPermissionMode } from '../../shared/permission-mode'
 import type { NormalizedHookSet } from './hooks'
 
 // SKILL.md 스캔 메타 DTO 를 그대로 재사용 (step 2 — 자산 가시화).
@@ -48,7 +44,8 @@ export interface TurnRequest {
   // 자기 SDK 의 권한 메커니즘(claude-code 는 canUseTool)으로 어댑트한다. router 가 broker
   // 에 바인딩해 주입하며, 미주입(opencode 등)이면 어댑터가 현행 자동 통과 동작을 유지.
   requestApproval?: (action: PermissionAction) => Promise<ApprovalResolution>
-  // 이 턴의 권한 모드 (Composer 모드 버튼). 어댑터가 자기 query 옵션으로 어댑트.
-  // 확장 묶음이 아니라 query-레벨 제어라 env/askUser 처럼 TurnRequest 직속.
-  permissionMode?: PermissionMode
+  // 이 턴의 권한 모드 (정규화 6종 — Composer 모드 버튼). 어댑터가 toClaudePermissionMode 로
+  // 자기 query 옵션(SDK PermissionMode)으로 어댑트. 확장 묶음이 아니라 query-레벨 제어라
+  // env/askUser 처럼 TurnRequest 직속.
+  permissionMode?: NormalizedPermissionMode
 }

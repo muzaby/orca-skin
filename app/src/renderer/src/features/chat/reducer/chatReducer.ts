@@ -3,9 +3,9 @@ import type {
   NormalizedEvent,
   ClassifiedError,
   LoadedSession,
-  PermissionMode,
   PlanReviewRequest
 } from '../../../../../shared/ipc'
+import type { NormalizedPermissionMode } from '../../../../../shared/permission-mode'
 
 export interface ToolCall {
   toolUseId: string
@@ -47,7 +47,7 @@ export interface ChatState {
   pendingAsks: AskQuestionRequest[]
   // Composer 모드 버튼이 정하는 이 대화의 권한 모드. send 시 IPC 페이로드로 실린다.
   // 새 대화마다 기본값 'plan' 으로 리셋(initialChatState).
-  permissionMode: PermissionMode
+  permissionMode: NormalizedPermissionMode
   // plan 모드에서 에이전트가 제출한 계획(ExitPlanMode). canUseTool 직렬화로 동시 1개.
   // 승인/수정/거부 시 null. (백엔드 중립 — SDK 를 모름.) 우측 계획 타일의 액션바
   // (승인/수정/거부) 노출 여부 + requestId 의 소스.
@@ -109,7 +109,7 @@ export type ChatAction =
   // 사용자가 질문에 답하거나 건너뛰어 해당 requestId 의 카드를 큐에서 제거.
   | { type: 'RESOLVE_ASK'; requestId: string }
   // Composer 모드 버튼 선택 (계획 / 편집 수락).
-  | { type: 'SET_PERMISSION_MODE'; mode: PermissionMode }
+  | { type: 'SET_PERMISSION_MODE'; mode: NormalizedPermissionMode }
   // 계획 카드 응답(승인/수정/거부) 후 액션 게이트 제거(타일 내용은 유지).
   | { type: 'RESOLVE_PLAN' }
   // 위험 도구 승인 카드 응답(허용/세션허용/거부) 후 게이트 제거.

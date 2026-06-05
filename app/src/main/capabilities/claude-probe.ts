@@ -34,6 +34,7 @@ export const CLAUDE_DESCRIPTOR: ProviderDescriptor = {
     abort: true, // AbortController 중단 [검증-런타임]
     share: false, // Claude SDK 에 대응 함수 없음 (OpenCode 전용) [N/A-claude]
     init: true, // system/init(=session.updated) 이벤트 [검증-런타임]
+    liveModeSwitch: true, // Query.setPermissionMode (스트리밍 입력 모드, PR③ 와이어) [검증-타입]
     // context
     contextInjectionNoReply: true, // systemPrompt.append (typescript.md:484) 무응답 주입; 형식은 런타임 검증 필요 [미확인-런타임]
     structuredOutput: true, // Options.outputFormat json_schema (typescript.md:465) 타입 확정; 출력 형식 미검증 [검증-타입 / 형식 미확인-런타임]

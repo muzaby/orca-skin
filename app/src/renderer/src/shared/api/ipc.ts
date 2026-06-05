@@ -1,5 +1,6 @@
 import type {
   PermissionRespond,
+  SetPermissionMode,
   Backend,
   BackendListResult,
   NormalizedEvent,
@@ -84,7 +85,8 @@ export const searchApi = {
 }
 
 export const permissionApi = {
-  respond: (req: PermissionRespond): Promise<void> => window.orca.permission.respond(req)
+  respond: (req: PermissionRespond): Promise<void> => window.orca.permission.respond(req),
+  setMode: (req: SetPermissionMode): Promise<void> => window.orca.permission.setMode(req)
 }
 
 export const mcpApi = {
