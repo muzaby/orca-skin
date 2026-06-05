@@ -210,7 +210,7 @@ interface RuntimeStatus {
 
 ## 3. NormalizedEvent variant 정의
 
-> **표준화 스테이지 B (provider-runtime.md §2)**: `orca:chat:event` 의 와이어 타입이 SDK 모양의 `ChatEvent` 에서 provider 중립 **`NormalizedEvent`** 로 전환됐다. 모든 이벤트가 `sessionId`·`provider` 를 갖고, tool 은 `toolRunId` 로 start/complete 를 매칭한다. `ChatEvent` 는 claude 어댑터 내부 중간표현으로만 잔존하고, 어댑터가 `chatEventToNormalized` 로 변환해 yield 한다. `app/src/shared/ipc.ts` 의 `NormalizedEvent` union 이 정본.
+> **표준화 스테이지 B (provider-runtime.md §2)**: `orca:chat:event` 의 와이어 타입은 provider 중립 **`NormalizedEvent`** 다. 모든 이벤트가 `sessionId`·`provider` 를 갖고, tool 은 `toolRunId` 로 start/complete 를 매칭한다. claude 어댑터는 SDK 메시지를 `claudeToNormalized`(`adapters/claude-map.ts`)로 이 타입에 **직접** 정규화한다(구 `ChatEvent` 중간표현은 제거됨). `app/src/shared/ipc.ts` 의 `NormalizedEvent` union 이 정본.
 
 | `type` | 필드(공통: `sessionId`·`provider`) | 발생 시점 | Renderer 처리 (`chatReducer.ts`) |
 |---|---|---|---|
@@ -233,14 +233,12 @@ interface RuntimeStatus {
 | code | 의미 | 발생 위치 | 회복 방법 |
 |---|---|---|---|
 | `sdk.crashed` | SDK 의 `query()` 내부 예외 | claude-code 어댑터 | 새 대화 (보통 `recoverable: true`) |
-| `sdk.spawn-failed` | SDK 가 platform binary 해소 실패 | claude-code 어댑터 부팅 | 인스톨러 다이얼로그 |
-| `cli.not-installed` *(deprecated)* | CLI 미발견. Phase 3 SDK 마이그레이션 이후 사실상 발생 안 함 | (legacy) | — |
-| `cli.spawn-failed` *(deprecated)* | CLI 실행 실패 | (legacy) | — |
-| `cli.crashed` *(deprecated)* | CLI 비정상 종료 | (legacy) | — |
-| `cli.timeout` *(deprecated)* | CLI 응답 timeout | (legacy) | — |
+| `sdk.spawn-failed` | SDK 가 platform binary 해소 실패 / 활성 백엔드 부재 | claude-code 어댑터 부팅·router | 인스톨러 다이얼로그 |
 | `auth.expired` | SDK 가 401 / OAuth / expired 패턴 throw | claude-code 어댑터 | `claude /login` 안내 모달 (AuthExpiredModal) |
-| `protocol.parse` | 어댑터 정규화 실패 (예상치 못한 SDKMessage 형태) | normalize 함수 | 새 대화 |
+| `protocol.parse` | 어댑터 정규화 실패 (예상치 못한 SDKMessage 형태) | claudeToNormalized | 새 대화 |
 | `internal` | 그 외 알 수 없는 에러 | router / 어댑터 | 새 대화 |
+
+> 구 `cli.*` 코드 그룹(`cli.not-installed`/`cli.spawn-failed`/`cli.crashed`/`cli.timeout`)은 Phase 3 SDK 마이그레이션 후 제거됨(legacy 정리).
 
 > `cli.*` 코드 그룹은 Phase 3 SDK 마이그레이션 이후 deprecated. 후속 PR 에서 정리 예정.
 

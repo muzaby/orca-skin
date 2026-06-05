@@ -213,7 +213,7 @@ Discriminated union. 어댑터가 CLI/SDK의 다양한 형식을 이 하나의 �
 
 > **(OQ10)** `tool_use.name` / `tool_use.input` 표준화 정책 미정 — PRD §11 OQ10 진실 원천. Phase 3 단일 백엔드 운영에서는 raw 전달 (분기 의미 없음). opencode 어댑터 활성화 PR 에서 결정.
 
-> **(정규화 계층 — 설계 확정 / 구현 대기)** 위 `ChatEvent` 는 claude-code 결합 형태다. provider 중립 `NormalizedEvent`(+ `permission.requested` 1급 이벤트) 로의 승격 설계와 현행 9종 전수 매핑표는 [arch/backend/provider-runtime.md](arch/backend/provider-runtime.md) 가 정본. **충돌 지점**: 본 표의 `permissionMode` 2종(plan/acceptEdits)·`error.code` enum 은 정규화 목표(6종 모드 / `ErrorCategory` 8분류)와 어긋난다 — 구현 PR 에서 정합.
+> **(정규화 계층 — 구현됨)** 위 `ChatEvent` 표는 구 claude-code 결합 형태로 **제거됨**. 와이어(`orca:chat:event`)는 provider 중립 **`NormalizedEvent`**(`session.updated`·`message.delta/completed`·`tool.call.started/completed`·`telemetry`·`error`·`permission.requested`/`permission.resolved`)이며 claude 어댑터가 `claudeToNormalized`(`adapters/claude-map.ts`)로 SDK 메시지를 직접 정규화한다. 정본은 [arch/backend/provider-runtime.md](arch/backend/provider-runtime.md) §2 + `app/src/shared/ipc.ts`. 본 §6.2 표는 변이명 매핑 참고용 히스토리로만 둔다(`init`→`session.updated`, `assistant_delta`→`message.delta`, `tool_use`→`tool.call.started` 등).
 
 ### 6.3 SessionAdapter (공통 인터페이스)
 

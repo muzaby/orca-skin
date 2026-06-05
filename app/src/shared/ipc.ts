@@ -41,43 +41,18 @@ export const CHANNELS = {
 // Backend (Phase 2: claude-code 단일. opencode 는 future work)
 export type Backend = 'claude-code'
 
-// Error 코드 (TRD §6.6)
-// Phase 3 (SDK 마이그레이션): sdk.* 가 신규 표준. cli.* 는 CLI spawn 시기 호환을 위해 보존
-// (deprecated — 후속 PR 에서 정리).
+// Error 코드 (TRD §6.6). Phase 3 SDK 마이그레이션 후 sdk.* 표준. (구 cli.* 코드는 제거됨.)
 export type ErrorCode =
   | 'sdk.crashed'
   | 'sdk.spawn-failed'
-  | 'cli.not-installed'
-  | 'cli.spawn-failed'
-  | 'cli.crashed'
-  | 'cli.timeout'
   | 'auth.expired'
   | 'protocol.parse'
   | 'internal'
 
-// ChatEvent (TRD §6.2) — 어댑터→Renderer 정규화 스트림
-export type ChatEvent =
-  | { type: 'init'; data: { sessionId: string; model?: string; cwd: string } }
-  | { type: 'assistant_delta'; data: { text: string } }
-  | { type: 'assistant_message'; data: { text: string } }
-  | { type: 'tool_use'; data: { toolUseId: string; name: string; input: unknown } }
-  | {
-      type: 'tool_result'
-      data: { toolUseId: string; output: unknown; isError: boolean; durationMs?: number }
-    }
-  | { type: 'result'; data: { usage?: { inputTokens: number; outputTokens: number } } }
-  | { type: 'error'; data: { code: ErrorCode; message: string; recoverable: boolean } }
-  // Claude Agent SDK 의 AskUserQuestion 도구 발화. canUseTool 콜백(main)이 query 를
-  // 일시 중지한 채 renderer 에 질문 묶음을 surface 한다. 응답은 askRespond 채널로 회신.
-  | { type: 'ask_question'; data: AskQuestionRequest }
-  // plan 모드의 ExitPlanMode 도구 발화. 에이전트가 제출한 계획을 renderer 에 surface 한다.
-  // 응답(승인/수정/거부)은 planRespond 채널로 회신. (백엔드 중립 — 어댑터가 자기 메커니즘에서 매핑.)
-  | { type: 'plan_review'; data: PlanReviewRequest }
-
 // ── NormalizedEvent (provider-runtime.md §2) — 와이어(orca:chat:event)의 정규 이벤트 ─────────
 // 모든 이벤트가 sessionId(멀티세션 라우팅)·provider 를 갖고, tool 은 toolRunId 로 start/complete
-// 를 매칭한다. ChatEvent(위, SDK 모양)는 어댑터 내부 중간표현으로 남고, 어댑터가 chatEventToNormalized
-// 로 변환해 이 타입을 yield 한다. OpenCode 는 provider:'opencode' 매퍼가 같은 union 으로 정규화(seam).
+// 를 매칭한다. claude 어댑터는 SDK 메시지를 claudeToNormalized(adapters/claude-map.ts)로 이 타입에
+// 직접 정규화한다. OpenCode 는 provider:'opencode' 매퍼가 같은 union 으로 정규화(seam).
 // 권한 요청은 permission.requested 1급 이벤트(origin 으로 agent/app 구분, action.kind 로 종류 구분).
 export type ProviderId = 'claude-code' | 'opencode'
 

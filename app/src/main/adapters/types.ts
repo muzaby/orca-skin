@@ -1,7 +1,7 @@
-import type { Backend, ChatEvent, NormalizedEvent } from '../../shared/ipc'
+import type { Backend, NormalizedEvent } from '../../shared/ipc'
 import type { TurnRequest } from '../capabilities/types'
 
-export type { Backend, ChatEvent, NormalizedEvent }
+export type { Backend, NormalizedEvent }
 
 export interface SessionAdapter {
   readonly id: Backend

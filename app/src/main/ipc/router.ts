@@ -212,7 +212,7 @@ export class IpcRouter {
         type: 'error',
         provider: 'claude-code',
         error: {
-          code: 'cli.not-installed',
+          code: 'sdk.spawn-failed',
           message: '활성 백엔드가 없습니다.',
           recoverable: true
         }

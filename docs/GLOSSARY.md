@@ -11,12 +11,12 @@
 |---|---|---|---|
 | **Session** | 하나의 대화 컨텍스트. `sessionId` 로 식별. **현재 (Phase 1·2)**: 어댑터가 발급 (Claude Code SDK 의 `--resume` 호환 ID). **Phase 3+**: Orca 로컬 DB 의 row 가 진실의 기준이 되며 어댑터 외부 저장 (jsonl 등) 은 단방향 동기화 소스. | `sessionId: string`, `ChatState.sessionId` | TRD §6.5 / `app/src/shared/ipc.ts` |
 | **Message** | 세션 안의 단일 발화. `role: 'user' \| 'assistant'` + 본문 + (assistant 의 경우) 부착된 ToolCall 들. | `Message`, `ChatState.messages` | `app/src/renderer/src/state/chatReducer.ts` |
-| **ChatEvent** | 어댑터→Renderer 정규화 스트림의 단위. 7가지 variant 의 discriminated union (`init / assistant_delta / assistant_message / tool_use / tool_result / result / error`). | `ChatEvent` | `app/src/shared/ipc.ts:37-47` (TRD §6.2 SSOT) |
-| **Delta** | 어시스턴트 응답이 스트리밍되는 동안 도착하는 부분 텍스트 조각. UI 에는 `pendingDelta` 에 누적되며 DB 에는 최종 메시지만 저장 (Phase 3+). | `assistant_delta`, `ChatState.pendingDelta` | TRD §6.2 / `chatReducer.ts` |
+| **NormalizedEvent** | 어댑터→Renderer 정규화 스트림(`orca:chat:event`)의 단위. provider 중립 discriminated union: `session.updated / message.delta / message.completed / tool.call.started / tool.call.completed / telemetry / error / permission.requested / permission.resolved`. 모든 이벤트가 `sessionId`·`provider`, tool 은 `toolRunId` 보유. claude 어댑터가 `claudeToNormalized`(`adapters/claude-map.ts`)로 SDK 메시지를 직접 정규화한다. (구 `ChatEvent` 는 제거됨.) | `NormalizedEvent` | `app/src/shared/ipc.ts` (provider-runtime.md §2 SSOT) |
+| **Delta** | 어시스턴트 응답이 스트리밍되는 동안 도착하는 부분 텍스트 조각. UI 에는 `pendingDelta` 에 누적되며 DB 에는 최종 메시지만 저장. | `message.delta`, `ChatState.pendingDelta` | provider-runtime.md §2 / `chatReducer.ts` |
 | **Backend** | LLM 실행 백엔드의 식별자. **현재**: `'claude-code'` 단일. **Future**: `'opencode'` 등 추가 가능. | `Backend` | `app/src/shared/ipc.ts:20` |
 | **SessionAdapter** | 모든 백엔드가 구현하는 공통 인터페이스 (`isInstalled / install / sendMessage`). LLM 직접 호출이 아니라 외부 CLI/SDK 의 래퍼다. | `SessionAdapter` | `app/src/main/adapters/types.ts` |
 | **AdapterRegistry** | 등록된 어댑터의 설치 상태를 추적하고 활성 백엔드를 결정. | `AdapterRegistry` | `app/src/main/adapters/registry.ts` |
-| **Tool Call** | 어시스턴트가 호출한 도구 1회 (Read / Write / Bash 등). `toolUseId` 로 input/result 쌍이 결합된다. | `tool_use`, `tool_result` ChatEvent | TRD §6.2 |
+| **Tool Call** | 어시스턴트가 호출한 도구 1회 (Read / Write / Bash 등). `toolRunId` 로 start/completed 쌍이 결합된다. | `tool.call.started`, `tool.call.completed` NormalizedEvent | provider-runtime.md §2 |
 | **Skill** | `SKILL.md` frontmatter (name, description, argument-hint) 로 정의된 슬래시 명령. 입력창에서 `/skillname` 으로 호출. **스캔 경로는 어댑터별로 다르다** (현재는 claude-code 의 `~/.claude/skills/` + `<cwd>/.claude/skills/` 만). | `SkillInfo` | `app/src/main/skills/scan.ts` / `app/src/shared/ipc.ts:100-104` |
 | **Tweaks** | 사용자 환경 설정 — `theme` / `density` / `sidebarCollapsed`. electron-store 로 영속. | `Tweaks` | `app/src/renderer/src/app/useTweaks.ts` |
 | **Artifact** | 큰 산출물 — 첨부 파일, 모델이 생성한 markdown / 코드 / 이미지 등. **Phase 3+ 채택 결정**: 파일 시스템 (`<userData>/artifacts/<sessionId>/...`) 에 저장하고 DB 에는 경로·해시·크기만 보관. 현재 미구현. | (Phase 3+ 도입 예정) | [arch/backend/persistence.md](arch/backend/persistence.md) |
