@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { claudeToNormalized, detectError, type MapContext } from './claude-map'
+import { claudeToNormalized, type MapContext } from './claude-map'
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk'
 
 const ctx = (sessionId = 's1'): MapContext => ({ provider: 'claude-code', sessionId, cwd: '/w' })
@@ -115,30 +115,5 @@ describe('claudeToNormalized', () => {
     expect(claudeToNormalized(sdk({ type: 'system', subtype: 'compact_boundary' }), ctx())).toEqual(
       []
     )
-  })
-})
-
-describe('detectError', () => {
-  it('인증 패턴 → auth.expired', () => {
-    const out = detectError(new Error('401 Unauthorized'), ctx())
-    expect(out).toEqual({
-      type: 'error',
-      sessionId: 's1',
-      provider: 'claude-code',
-      error: {
-        code: 'auth.expired',
-        message: 'Claude Code 인증이 만료되었습니다.',
-        recoverable: true
-      }
-    })
-  })
-
-  it('일반 에러 → sdk.crashed (sessionId 미상이면 생략)', () => {
-    const out = detectError(new Error('boom'), ctx(''))
-    expect(out).toEqual({
-      type: 'error',
-      provider: 'claude-code',
-      error: { code: 'sdk.crashed', message: 'boom', recoverable: true }
-    })
   })
 })

@@ -42,13 +42,32 @@ export const CHANNELS = {
 // Backend (Phase 2: claude-code 단일. opencode 는 future work)
 export type Backend = 'claude-code'
 
-// Error 코드 (TRD §6.6). Phase 3 SDK 마이그레이션 후 sdk.* 표준. (구 cli.* 코드는 제거됨.)
-export type ErrorCode =
-  | 'sdk.crashed'
-  | 'sdk.spawn-failed'
-  | 'auth.expired'
-  | 'protocol.parse'
-  | 'internal'
+// 에러 분류 (provider-runtime.md §6 정본). 와이어 error 이벤트는 8 category + retryable 로
+// 정규화된 ClassifiedError 를 싣는다 — 재시도/표시 정책을 category 로 결정한다. 구 ErrorCode
+// (sdk.*/auth.expired/protocol.parse/internal) 는 ErrorClassifier 도입과 함께 제거됐다.
+// claude-only 단계에서는 claude 가 실제 생성하는 부분집합(auth_error·provider_connection_error·
+// stream_error·schema_validation_error·user_cancelled)만 능동 생성되고 나머지는 seam(OpenCode
+// 어댑터 도입 시 채운다).
+export type ErrorCategory =
+  | 'provider_connection_error' // OpenCode 서버 다운, Claude 바이너리 부재
+  | 'auth_error' // API key 무효/누락 (구 auth.expired — 재로그인 모달 분기)
+  | 'permission_denied' // user deny / policy deny
+  | 'tool_execution_error' // shell exit≠0, file read 실패
+  | 'stream_error' // SSE 끊김, iterator 오류
+  | 'capability_unsupported' // 예: Claude 에 OpenCode식 find.* 없음
+  | 'schema_validation_error' // structured output / IPC payload 검증 실패
+  | 'user_cancelled' // abort/interrupt (정상 종료 — emit 안 함, 분류만)
+
+// 정규화된 에러 (provider-runtime.md §6 정본). retryable 은 표시/재시도 정책 힌트.
+// cause 는 IPC(wc.send structuredClone) 경계를 넘으므로 직렬화 안전값만 담는다 — Error
+// 인스턴스/함수 금지(반드시 sanitizeCause 로 평탄화). provider 는 라우팅/표시용 출처.
+export interface ClassifiedError {
+  category: ErrorCategory
+  message: string
+  retryable: boolean
+  provider?: ProviderId
+  cause?: unknown
+}
 
 // ── NormalizedEvent (provider-runtime.md §2) — 와이어(orca:chat:event)의 정규 이벤트 ─────────
 // 모든 이벤트가 sessionId(멀티세션 라우팅)·provider 를 갖고, tool 은 toolRunId 로 start/complete
@@ -130,7 +149,7 @@ export type NormalizedEvent =
       type: 'error'
       sessionId?: string
       provider: ProviderId
-      error: { code: ErrorCode; message: string; recoverable: boolean }
+      error: ClassifiedError
     }
   // 권한 요청/해소 1급 이벤트 — AskUserQuestion·ExitPlanMode·일반 도구 게이트를 단일 경로로 통합.
   // approvalId 로 요청↔응답을 라우팅한다(renderer 는 이 id 로 permissionRespond 회신).

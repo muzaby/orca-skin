@@ -10,7 +10,8 @@ import type {
   NormalizedEvent,
   PermissionAction
 } from '../../shared/ipc'
-import { claudeToNormalized, detectError, type MapContext } from './claude-map'
+import { claudeToNormalized, type MapContext } from './claude-map'
+import { claudeErrorClassifier, errorEvent } from '../runtime-errors/claude-classifier'
 import type { SessionAdapter } from './types'
 import type { TurnRequest } from '../extensions/types'
 import type { Resolver } from '../mcp/expand'
@@ -174,8 +175,15 @@ export class ClaudeCodeAdapter implements SessionAdapter {
         yield* claudeToNormalized(msg, ctx)
       }
     } catch (err) {
-      // 의도적 중단(턴 취소 / 계획 거부)은 에러가 아니므로 error 이벤트를 내지 않는다.
-      if (!abortController.signal.aborted) yield detectError(err, ctx)
+      // 의도적 중단(턴 취소 / 계획 거부)은 에러가 아니므로 error 이벤트를 내지 않는다
+      // (user_cancelled 로 분류되지만 emit 안 함 — 설계 결정 3).
+      if (!abortController.signal.aborted) {
+        const classified = claudeErrorClassifier.classify(err, {
+          provider: 'claude-code',
+          phase: 'sendMessage'
+        })
+        yield errorEvent(classified, ctx.sessionId)
+      }
     } finally {
       signal?.removeEventListener('abort', onAbort)
     }
