@@ -60,6 +60,9 @@ export interface ChatState {
   // 우측 계획 타일에 표시할 마지막 계획 마크다운. 승인/거부 후에도 유지해 읽기전용으로
   // 계속 보여준다(= pendingPlanReview 와 수명 분리). 세션 전환/새 대화 시 비움.
   planContent: string | null
+  // 위험 도구(Bash/Write/Edit 등) 실행 승인 게이트. permission.requested(tool_approval)
+  // 도착 시 세팅, 허용/세션허용/거부 응답 시 null. canUseTool 직렬화로 동시 1개.
+  pendingToolApproval: { approvalId: string; toolName: string; input: unknown } | null
 }
 
 export const initialChatState: ChatState = {
@@ -77,7 +80,8 @@ export const initialChatState: ChatState = {
   pendingPlanReview: null,
   planTileOpen: false,
   planTileWidth: 360,
-  planContent: null
+  planContent: null,
+  pendingToolApproval: null
 }
 
 // 계획 타일 폭 clamp 범위.
@@ -108,6 +112,8 @@ export type ChatAction =
   | { type: 'SET_PERMISSION_MODE'; mode: PermissionMode }
   // 계획 카드 응답(승인/수정/거부) 후 액션 게이트 제거(타일 내용은 유지).
   | { type: 'RESOLVE_PLAN' }
+  // 위험 도구 승인 카드 응답(허용/세션허용/거부) 후 게이트 제거.
+  | { type: 'RESOLVE_TOOL_APPROVAL' }
   // 우측 계획 타일 가시성 토글(헤더 버튼).
   | { type: 'TOGGLE_PLAN_TILE' }
   // 우측 계획 타일 가시성 명시 설정(닫기 X).
@@ -253,8 +259,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         }
 
         case 'permission.requested':
-          // 권한 요청을 종류별 UI 상태로 분기. approvalId 는 action.request.requestId 와 동일하므로
-          // 카드는 기존대로 askRespond/planRespond(requestId) 로 회신한다.
+          // 권한 요청을 종류별 UI 상태로 분기. ask/plan 은 approvalId === action.request.requestId,
+          // tool 은 ev.approvalId 를 키로 단일 permissionRespond 채널로 회신한다.
           if (ev.action.kind === 'ask_question') {
             return { ...state, pendingAsks: [...state.pendingAsks, ev.action.request] }
           }
@@ -267,22 +273,30 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
               planTileOpen: true
             }
           }
-          // tool_approval 은 현재 자동 통과(전용 UI 없음 — C2 ApprovalCard 일반화에서 표면화).
-          return state
+          // tool_approval — 위험 도구 실행 승인 게이트. approvalId 로 응답을 라우팅한다.
+          return {
+            ...state,
+            pendingToolApproval: {
+              approvalId: ev.approvalId,
+              toolName: ev.action.toolName,
+              input: ev.action.input
+            }
+          }
 
         case 'permission.resolved':
           // 해소 이벤트는 audit/telemetry 용 — 카드는 respond 시 로컬 RESOLVE_* 로 이미 닫힌다.
           return state
 
         case 'error':
-          // 턴이 끊기면 보류 게이트(질문/계획)는 main 이 broker abort 로 정리하므로 카드도 비운다.
+          // 턴이 끊기면 보류 게이트(질문/계획/도구)는 main 이 broker abort 로 정리하므로 카드도 비운다.
           return {
             ...state,
             error: ev.error,
             inflight: false,
             turnStartedAt: null,
             pendingAsks: [],
-            pendingPlanReview: null
+            pendingPlanReview: null,
+            pendingToolApproval: null
           }
       }
       return state
@@ -298,13 +312,14 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return { ...state, cwd: action.cwd }
 
     case 'CANCEL_CHAT':
-      // 턴 취소 시 main 의 broker 가 보류 게이트를 해소하므로 카드(질문/계획)도 함께 비운다.
+      // 턴 취소 시 main 의 broker 가 보류 게이트를 해소하므로 카드(질문/계획/도구)도 함께 비운다.
       return {
         ...state,
         inflight: false,
         turnStartedAt: null,
         pendingAsks: [],
-        pendingPlanReview: null
+        pendingPlanReview: null,
+        pendingToolApproval: null
       }
 
     case 'CLEAR_ERROR':
@@ -383,6 +398,10 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'RESOLVE_PLAN':
       // 액션 게이트만 닫는다 — planContent/planTileOpen 은 유지(검토 후 읽기전용 표시).
       return { ...state, pendingPlanReview: null }
+
+    case 'RESOLVE_TOOL_APPROVAL':
+      // 위험 도구 승인 카드 응답 후 게이트 제거 → Composer 입력창 복귀.
+      return { ...state, pendingToolApproval: null }
 
     case 'TOGGLE_PLAN_TILE':
       return { ...state, planTileOpen: !state.planTileOpen }

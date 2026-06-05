@@ -34,8 +34,9 @@ export const CHANNELS = {
   runtimeStatus: 'orca:runtime:status',
   runtimePrepare: 'orca:runtime:prepare',
   runtimeStatusEvent: 'orca:runtime:statusEvent',
-  askRespond: 'orca:ask:respond',
-  planRespond: 'orca:plan:respond'
+  // 권한 응답 단일 채널 — ask/plan/tool 세 종류의 승인 응답이 모두 이 채널로 흐른다
+  // (askRespond/planRespond 2채널 통합). 응답 = { approvalId, resolution: ApprovalResolution }.
+  permissionRespond: 'orca:permission:respond'
 } as const
 
 // Backend (Phase 2: claude-code 단일. opencode 는 future work)
@@ -66,11 +67,27 @@ export type PermissionAction =
   | { kind: 'plan_review'; request: PlanReviewRequest }
   | { kind: 'tool_approval'; toolName: string; input: unknown }
 
+// 세션 범위 권한 부여(provider-runtime.md §3 updatedPermissions). "세션 동안 허용" 선택 시
+// allow.updatedPermissions 에 실려, router 가 sessionAllowedTools(Map<sessionId, Set<toolName>>)
+// 를 갱신해 같은 세션의 이후 턴에서 동일 도구를 카드 없이 자동 허용한다. SDK updatedPermissions
+// 는 미사용 — 권한 영속은 앱 레벨에서 관리한다.
+export interface PermissionUpdate {
+  toolName: string
+  scope: 'session'
+}
+
 // 권한 해소의 2분기(4값 모델 폐기 — provider-runtime.md §3). claude PermissionResult 와 동형:
 // allow{updatedInput?} ↔ behavior:'allow', deny{message?,interrupt?} ↔ behavior:'deny'.
 export type ApprovalResolution =
-  | { behavior: 'allow'; updatedInput?: unknown }
+  | { behavior: 'allow'; updatedInput?: unknown; updatedPermissions?: PermissionUpdate[] }
   | { behavior: 'deny'; message?: string; interrupt?: boolean }
+
+// renderer → main 단일 권한 응답 (permissionRespond 채널). approvalId 로 보류 중인
+// 승인(InteractionBroker)을 라우팅하고, resolution 으로 해소한다.
+export interface PermissionRespond {
+  approvalId: string
+  resolution: ApprovalResolution
+}
 
 export type NormalizedEvent =
   | {
@@ -116,7 +133,7 @@ export type NormalizedEvent =
       error: { code: ErrorCode; message: string; recoverable: boolean }
     }
   // 권한 요청/해소 1급 이벤트 — AskUserQuestion·ExitPlanMode·일반 도구 게이트를 단일 경로로 통합.
-  // approvalId 로 요청↔응답을 라우팅한다(renderer 는 이 id 로 askRespond/planRespond 회신).
+  // approvalId 로 요청↔응답을 라우팅한다(renderer 는 이 id 로 permissionRespond 회신).
   | {
       type: 'permission.requested'
       provider: ProviderId
@@ -156,19 +173,9 @@ export interface AskQuestionRequest {
   questions: AskQuestion[]
 }
 
-// renderer → main 응답 (askRespond 채널). 답변 또는 건너뛰기.
-export type AskRespond =
-  | {
-      requestId: string
-      type: 'answered'
-      // key = 질문 텍스트, value = 선택 label(단일) / label[] (다중) / 자유입력 텍스트(기타).
-      answers: Record<string, string | string[]>
-      // 사용자가 질문 카드를 닫고 일반 회신을 입력한 경우만.
-      response?: string
-    }
-  | { requestId: string; type: 'skipped' }
-
-// 어댑터가 받는 중립 결과 (requestId 제거판). claude-code 어댑터가 canUseTool 반환값으로 매핑.
+// AskUserQuestion 의 답변 중립 표현 (어댑터/router 내부 도메인 타입). answers 는 질문↔선택의
+// 맵, response 는 자유회신. renderer→main 와이어는 단일 PermissionRespond(resolution.allow.
+// updatedInput 에 {answers, response} 동봉)로 통일됐다 — 이 타입은 그 updatedInput 의 형태다.
 export type AskResult =
   | { type: 'answered'; answers: Record<string, string | string[]>; response?: string }
   | { type: 'skipped' }
@@ -181,14 +188,9 @@ export interface PlanReviewRequest {
   plan: string
 }
 
-// renderer → main 응답 (planRespond 채널).
-// approved=실행 / rejected=중단(재제안 금지) / revise=피드백 반영해 재작성.
-export type PlanRespond =
-  | { requestId: string; type: 'approved' }
-  | { requestId: string; type: 'rejected' }
-  | { requestId: string; type: 'revise'; feedback: string }
-
-// 어댑터가 받는 중립 결과 (requestId 제거판).
+// 계획 검토의 중립 결과 (어댑터/router 내부 도메인 타입). approved=실행 / rejected=중단
+// (재제안 금지) / revise=피드백 반영해 재작성. renderer→main 와이어는 PermissionRespond 로
+// 통일됐다 — approved↔allow, revise↔deny{message}, rejected↔deny{interrupt:true} 로 매핑.
 export type PlanDecision =
   | { type: 'approved' }
   | { type: 'rejected' }

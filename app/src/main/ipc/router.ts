@@ -16,8 +16,7 @@ import {
   ListProjectSessionsSchema,
   SearchMessagesRequestSchema,
   DeleteMcpServerSchema,
-  AskRespondSchema,
-  PlanRespondSchema,
+  PermissionRespondSchema,
   type BackendListResult,
   type FileEntry,
   type InstallStatus,
@@ -47,10 +46,9 @@ import { CapabilityBuilder } from '../capabilities/builder'
 import { InteractionBroker } from '../ask/broker'
 import { agentPermissionRequest } from '../runtime-events/permission-bridge'
 import type {
-  AskQuestion,
-  AskResult,
+  ApprovalResolution,
   NormalizedEvent,
-  PlanDecision,
+  PermissionAction,
   RuntimeStatus
 } from '../../shared/ipc'
 
@@ -86,9 +84,12 @@ export class IpcRouter {
   private readonly registry = new AdapterRegistry(() => this.mcp.resolver())
   private readonly installer = new Installer(this.registry)
   private readonly inflight = new Map<WebContents, InflightTurn>()
-  // canUseTool(AskUserQuestion / ExitPlanMode) ↔ renderer 응답을 잇는 Promise 다리.
-  private readonly ask = new InteractionBroker<AskResult>()
-  private readonly plan = new InteractionBroker<PlanDecision>()
+  // canUseTool(AskUserQuestion / ExitPlanMode / 위험 도구) ↔ renderer 응답을 잇는 단일 Promise
+  // 다리. approvalId 로 키잉되며 ApprovalResolution(allow/deny 2분기)으로 해소된다.
+  private readonly approvals = new InteractionBroker<ApprovalResolution>()
+  // "세션 동안 허용"으로 부여된 도구 — 같은 세션의 이후 턴에서 카드 없이 자동 허용. 키 =
+  // dbSessionId, 값 = 허용된 toolName 집합. 프로세스 메모리에만 보존(영속 안 함).
+  private readonly sessionAllowedTools = new Map<string, Set<string>>()
   readonly runtime = new PythonRuntime()
   // 부팅 시 1회 스캔하여 메모리에 캐시. fs.watch hot-reload 는 본 PR 범위 밖 (재시작).
   private skillsCache: SkillInfo[] = []
@@ -168,8 +169,7 @@ export class IpcRouter {
     ipcMain.handle(CHANNELS.mcpDelete, this.handleMcpDelete)
     ipcMain.handle(CHANNELS.runtimeStatus, this.handleRuntimeStatus)
     ipcMain.handle(CHANNELS.runtimePrepare, this.handleRuntimePrepare)
-    ipcMain.handle(CHANNELS.askRespond, this.handleAskRespond)
-    ipcMain.handle(CHANNELS.planRespond, this.handlePlanRespond)
+    ipcMain.handle(CHANNELS.permissionRespond, this.handlePermissionRespond)
     // 런타임 초기화 진행 상태를 모든 창에 브로드캐스트.
     // 렌더러 런타임 UI 가 제거되어 dev 에선 터미널 로깅으로 진행/에러를 관찰한다.
     this.runtime.on('status', (st: RuntimeStatus) => {
@@ -259,42 +259,46 @@ export class IpcRouter {
     // Python 런타임 env (uv 격리) 는 capability 가 아니라 TurnRequest 직속. ready 전이면 SDK 기본 env.
     const pyEnv = this.runtime.getEnv() ?? undefined
 
-    // AskUserQuestion 위임 — canUseTool 이 호출하면 requestId 를 발급해 ask_question
-    // ChatEvent 로 renderer 에 surface 하고, broker 가 응답(또는 turn abort)까지 Promise 를
-    // 보류한다. ask_question 은 generator 가 yield 하는 이벤트가 아니라 여기서 직접 전송.
+    // 단일 권한 승인 위임 — 어댑터의 canUseTool 이 ask_question·plan_review·tool_approval 중
+    // 하나를 PermissionAction 으로 넘기면, approvalId 를 발급해 permission.requested 이벤트로
+    // renderer 에 surface 하고 broker 가 응답(또는 turn abort)까지 Promise 를 보류한다.
+    // tool_approval 은 "세션 동안 허용"으로 부여된 도구면 카드 없이 즉시 allow 한다.
     const wc = event.sender
-    const askUser = async (questions: AskQuestion[]): Promise<AskResult> => {
-      const requestId = randomUUID()
-      this.sendChatEvent(
-        wc,
-        agentPermissionRequest('claude-code', requestId, {
-          kind: 'ask_question',
-          request: { requestId, questions }
-        })
-      )
-      const result = await this.ask.register(requestId, controller.signal, { type: 'skipped' })
-      // 답변을 큐에 적재 후 즉시 페어링 시도(tool_use id 가 먼저 와 있을 수도 있다).
-      if (result.type === 'answered') {
+    const requestApproval = async (action: PermissionAction): Promise<ApprovalResolution> => {
+      // 세션 자동 허용된 위험 도구는 카드 미surface — 즉시 통과.
+      if (action.kind === 'tool_approval') {
+        const sid = turn.dbSessionId
+        if (sid && this.sessionAllowedTools.get(sid)?.has(action.toolName)) {
+          return { behavior: 'allow' }
+        }
+      }
+      const approvalId = randomUUID()
+      // 어댑터가 넘긴 request.requestId 는 비어 있으므로 approvalId 를 주입한다 — renderer 의
+      // 카드(pendingAsks/pendingPlanReview)가 이 id 로 permissionRespond 회신할 수 있게.
+      const outbound: PermissionAction =
+        action.kind === 'tool_approval'
+          ? action
+          : action.kind === 'ask_question'
+            ? { kind: 'ask_question', request: { ...action.request, requestId: approvalId } }
+            : { kind: 'plan_review', request: { ...action.request, requestId: approvalId } }
+      this.sendChatEvent(wc, agentPermissionRequest('claude-code', approvalId, outbound))
+      const resolution = await this.approvals.register(approvalId, controller.signal, {
+        behavior: 'deny'
+      })
+      // ask_question 후처리 — 답변을 큐에 적재 후 즉시 페어링 시도(tool_use id 가 먼저 와
+      // 있을 수도 있다). SDK 가 answers 를 메시지 스트림으로 안 돌려주므로 router 가 합성한다.
+      if (action.kind === 'ask_question' && resolution.behavior === 'allow') {
+        const ui = (resolution.updatedInput ?? {}) as {
+          answers?: Record<string, string | string[]>
+          response?: unknown
+        }
         turn.pendingAskAnswers.push({
-          answers: result.answers,
-          ...(result.response !== undefined ? { response: result.response } : {})
+          answers: ui.answers ?? {},
+          ...(typeof ui.response === 'string' ? { response: ui.response } : {})
         })
         this.flushAskAnswers(turn, wc)
       }
-      return result
-    }
-    // plan 모드 계획 검토 — ExitPlanMode 시 계획을 surface 하고 응답(승인/수정/거부) 대기.
-    // turn abort(취소/거부) 시 broker 가 {rejected} 로 fallback.
-    const reviewPlan = (plan: string): Promise<PlanDecision> => {
-      const requestId = randomUUID()
-      this.sendChatEvent(
-        wc,
-        agentPermissionRequest('claude-code', requestId, {
-          kind: 'plan_review',
-          request: { requestId, plan }
-        })
-      )
-      return this.plan.register(requestId, controller.signal, { type: 'rejected' })
+      return resolution
     }
 
     const cwd = this.defaultCwd
@@ -306,8 +310,7 @@ export class IpcRouter {
         signal: controller.signal,
         capabilities,
         env: pyEnv,
-        askUser,
-        reviewPlan,
+        requestApproval,
         permissionMode: parsed.data.permissionMode
       })) {
         this.persist(turn, ev)
@@ -667,38 +670,34 @@ export class IpcRouter {
     await this.runtime.retry()
   }
 
-  // AskUserQuestion 응답 — renderer 가 사용자의 선택(answered) 또는 건너뛰기(skipped)를
-  // requestId 와 함께 회신. broker 가 보류 중이던 canUseTool Promise 를 해소해 query 가 재개된다.
-  private handleAskRespond = async (_event: IpcMainInvokeEvent, raw: unknown): Promise<void> => {
-    const parsed = AskRespondSchema.safeParse(raw)
+  // 단일 권한 응답 — renderer 가 ask/plan/tool 승인을 approvalId + ApprovalResolution 으로
+  // 회신. broker 가 보류 중이던 canUseTool Promise 를 해소해 query 가 재개된다. 두 가지 부수효과:
+  //   ① allow + updatedPermissions(scope:session) → 해당 세션의 sessionAllowedTools 갱신
+  //      (같은 세션 이후 턴에서 자동 허용).
+  //   ② deny + interrupt → 해당 턴 abort (plan reject 의 turn-abort 동작 보존).
+  private handlePermissionRespond = async (
+    event: IpcMainInvokeEvent,
+    raw: unknown
+  ): Promise<void> => {
+    const parsed = PermissionRespondSchema.safeParse(raw)
     if (!parsed.success) return
-    if (parsed.data.type === 'skipped') {
-      this.ask.resolve(parsed.data.requestId, { type: 'skipped' })
-      return
-    }
-    this.ask.resolve(parsed.data.requestId, {
-      type: 'answered',
-      answers: parsed.data.answers,
-      ...(parsed.data.response !== undefined ? { response: parsed.data.response } : {})
-    })
-  }
+    const { approvalId, resolution } = parsed.data
+    this.approvals.resolve(approvalId, resolution)
 
-  // plan 모드 계획 검토 응답. approved=실행 / revise=피드백 반영 재작성 / rejected=중단.
-  // 거부는 broker 해소에 더해 해당 턴을 abort 해 에이전트가 재제안 없이 즉시 멈추게 한다.
-  private handlePlanRespond = async (event: IpcMainInvokeEvent, raw: unknown): Promise<void> => {
-    const parsed = PlanRespondSchema.safeParse(raw)
-    if (!parsed.success) return
-    if (parsed.data.type === 'revise') {
-      this.plan.resolve(parsed.data.requestId, { type: 'revise', feedback: parsed.data.feedback })
-      return
+    if (resolution.behavior === 'allow' && resolution.updatedPermissions) {
+      const sid = this.inflight.get(event.sender)?.dbSessionId
+      if (sid) {
+        const set = this.sessionAllowedTools.get(sid) ?? new Set<string>()
+        for (const p of resolution.updatedPermissions) {
+          if (p.scope === 'session') set.add(p.toolName)
+        }
+        this.sessionAllowedTools.set(sid, set)
+      }
     }
-    if (parsed.data.type === 'approved') {
-      this.plan.resolve(parsed.data.requestId, { type: 'approved' })
-      return
+
+    if (resolution.behavior === 'deny' && resolution.interrupt) {
+      this.inflight.get(event.sender)?.controller.abort()
     }
-    // rejected: broker 해소 + 턴 중단(재제안 차단).
-    this.plan.resolve(parsed.data.requestId, { type: 'rejected' })
-    this.inflight.get(event.sender)?.controller.abort()
   }
 }
 

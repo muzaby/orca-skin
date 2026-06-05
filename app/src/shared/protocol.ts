@@ -126,31 +126,32 @@ export const UpdateMcpServerSchema = McpServerBaseSchema.partial()
 
 export const DeleteMcpServerSchema = z.object({ id: z.string().min(1) })
 
-// AskUserQuestion 응답 (renderer → main). answered 면 answers 맵, skipped 면 표식만.
-// answers value 는 단일 선택(string) / 다중 선택(string[]) / 기타 자유입력(string) 을 모두 수용.
-export const AskRespondSchema = z.discriminatedUnion('type', [
+// 권한 응답 단일 스키마 (renderer → main, permissionRespond 채널). ask/plan/tool 세 종류의
+// 승인 응답을 ApprovalResolution 2분기로 통일한다. allow 는 updatedInput(ask 답변·plan 입력
+// echo)·updatedPermissions("세션 동안 허용")를 선택 동봉, deny 는 message(plan revise 피드백·
+// tool 거부 사유)·interrupt(plan reject·turn abort)를 선택 동봉한다.
+const PermissionUpdateSchema = z.object({
+  toolName: z.string().min(1),
+  scope: z.literal('session')
+})
+
+const ApprovalResolutionSchema = z.discriminatedUnion('behavior', [
   z.object({
-    requestId: z.string().min(1),
-    type: z.literal('answered'),
-    answers: z.record(z.string(), z.union([z.string(), z.array(z.string())])),
-    response: z.string().optional()
+    behavior: z.literal('allow'),
+    updatedInput: z.unknown().optional(),
+    updatedPermissions: z.array(PermissionUpdateSchema).optional()
   }),
   z.object({
-    requestId: z.string().min(1),
-    type: z.literal('skipped')
+    behavior: z.literal('deny'),
+    message: z.string().optional(),
+    interrupt: z.boolean().optional()
   })
 ])
 
-// plan 모드 계획 검토 응답 (renderer → main). revise 는 비어 있지 않은 피드백 필수.
-export const PlanRespondSchema = z.discriminatedUnion('type', [
-  z.object({ requestId: z.string().min(1), type: z.literal('approved') }),
-  z.object({ requestId: z.string().min(1), type: z.literal('rejected') }),
-  z.object({
-    requestId: z.string().min(1),
-    type: z.literal('revise'),
-    feedback: z.string().min(1)
-  })
-])
+export const PermissionRespondSchema = z.object({
+  approvalId: z.string().min(1),
+  resolution: ApprovalResolutionSchema
+})
 
 // 런타임 채널(status/prepare)은 입력 인자가 없다. invoke 시 undefined 가 전달되므로
 // 별도 검증 스키마 없이 핸들러에서 인자를 무시한다(아래 router 참고).
@@ -246,10 +247,12 @@ export type {
   AskQuestionOption,
   AskQuestion,
   AskQuestionRequest,
-  AskRespond,
   AskResult,
   PermissionMode,
+  PermissionAction,
+  PermissionUpdate,
+  PermissionRespond,
+  ApprovalResolution,
   PlanReviewRequest,
-  PlanRespond,
   PlanDecision
 } from './ipc'

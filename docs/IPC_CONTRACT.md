@@ -221,10 +221,12 @@ interface RuntimeStatus {
 | `tool.call.completed` | `toolRunId; result; isError; durationMs?` | 도구 실행 완료 (SDK `tool_result` block) | `toolRunId` 매칭하여 ToolCall 업데이트 |
 | `telemetry` | `usage?: { inputTokens; outputTokens }` | 어댑터 턴 종료 (SDK `SDKResultMessage`) | `inflight = false`, `pendingInputTokens` 갱신 |
 | `error` | `error: { code; message; recoverable }` (`sessionId?`) | 어댑터 catch 또는 SDK 에러 | `state.error` 설정, `inflight = false` |
-| `permission.requested` | `approvalId; origin; action: PermissionAction` | AskUserQuestion·ExitPlanMode·일반 도구 게이트(canUseTool) | `action.kind` 로 분기 → `pendingAsks` / `pendingPlanReview`. 응답은 `askRespond`/`planRespond`(approvalId=requestId) |
+| `permission.requested` | `approvalId; origin; action: PermissionAction` | AskUserQuestion·ExitPlanMode·**위험 도구 게이트**(canUseTool) | `action.kind` 로 분기 → `pendingAsks` / `pendingPlanReview` / `pendingToolApproval`. 응답은 단일 `permissionRespond`(`{approvalId, resolution}`, approvalId=requestId) |
 | `permission.resolved` | `approvalId; resolution: ApprovalResolution` | 권한 해소(audit/telemetry) | no-op(카드는 respond 시 로컬 RESOLVE_* 로 닫힘) |
 
-`PermissionAction` = `{kind:'ask_question', request} | {kind:'plan_review', request} | {kind:'tool_approval', toolName, input}`. `ApprovalResolution` = `{behavior:'allow', updatedInput?} | {behavior:'deny', message?, interrupt?}` (claude `PermissionResult` 와 동형).
+`PermissionAction` = `{kind:'ask_question', request} | {kind:'plan_review', request} | {kind:'tool_approval', toolName, input}`. `ApprovalResolution` = `{behavior:'allow', updatedInput?, updatedPermissions?} | {behavior:'deny', message?, interrupt?}` (claude `PermissionResult` 와 동형 + 앱 레벨 세션 권한 `updatedPermissions:[{toolName, scope:'session'}]`).
+
+**권한 응답 채널 단일화.** ask/plan/tool 세 종류의 승인 응답은 모두 단일 `permissionRespond`(`orca:permission:respond`, renderer→main invoke) 채널로 흐른다(구 `askRespond`/`planRespond` 2채널 통합). 페이로드 = `{approvalId, resolution: ApprovalResolution}`. main(`InteractionBroker<ApprovalResolution>`)이 `approvalId` 로 보류 중인 `canUseTool` Promise 를 해소한다. 부수효과: ① `allow.updatedPermissions{scope:'session'}` → 해당 세션의 자동 허용 도구 집합 갱신(같은 세션 이후 턴 카드 미surface), ② `deny.interrupt` → 해당 턴 abort(plan reject). **위험 도구 게이트**: `makeCanUseTool` 이 화이트리스트(`Bash`·`Write`·`Edit`·`MultiEdit`·`NotebookEdit`, `permission-bridge.ts` 의 `RISKY_TOOLS`)에 든 도구만 `tool_approval` 로 surface 하고, 안전 도구는 자동 통과한다.
 
 ## 4. 에러 코드
 

@@ -5,18 +5,97 @@ import type { UseChat } from '../hooks/useChat'
 
 // ApprovalCard — Composer 의 입력 패널을 *대체*하는 승인 게이트(rendering.md §7.6 일반화).
 // permission.requested 의 action.kind 별로 분기한다:
-//   - plan_review   : ExitPlanMode 계획 승인(거부/수정…/수락). 현재 구현(아래 PlanApprovalBody).
-//   - tool_approval : 일반 도구 게이트 승인 — seam. 현재 router 는 일반 도구를 자동 통과시키므로
-//                     렌더러까지 도달하지 않는다(B2). pendingApprovals 큐 + 일반 approve/deny 핸들러
-//                     도입 시 활성(후속). 그 전까지는 null.
+//   - plan_review   : ExitPlanMode 계획 승인(거부/수정…/수락). PlanApprovalBody.
+//   - tool_approval : 위험 도구(Bash/Write/Edit 등) 실행 승인(거부/세션허용/허용). ToolApprovalBody.
 //   - ask_question  : 질문 카드는 입력 *위*에 additive 로 뜨는 별도 패턴(AskUserQuestionCard)이라
 //                     입력-대체형인 본 컴포넌트가 아니라 Composer 가 직접 배치한다.
 //
-// Composer 가 key={requestId} 로 재마운트하므로 feedback/reviseOpen 은 계획마다 리셋된다.
+// Composer 가 key={requestId/approvalId} 로 재마운트하므로 로컬 state 는 요청마다 리셋된다.
 export function ApprovalCard({ chat }: { chat: UseChat }): React.JSX.Element | null {
   if (chat.state.pendingPlanReview) return <PlanApprovalBody chat={chat} />
-  // tool_approval seam — 활성 시 여기서 일반 승인 본문을 렌더.
+  if (chat.state.pendingToolApproval) return <ToolApprovalBody chat={chat} />
   return null
+}
+
+// 도구 input 을 1~2줄로 요약. Bash 는 command, Write/Edit 는 file_path 를 우선 노출하고,
+// 그 외는 JSON 직렬화 후 truncate. 렌더링 전용이라 누락 필드는 조용히 무시.
+function summarizeToolInput(input: unknown): string {
+  if (input && typeof input === 'object') {
+    const o = input as Record<string, unknown>
+    if (typeof o.command === 'string') return o.command
+    if (typeof o.file_path === 'string') return o.file_path
+    if (typeof o.path === 'string') return o.path
+  }
+  try {
+    return JSON.stringify(input)
+  } catch {
+    return String(input)
+  }
+}
+
+function ToolApprovalBody({ chat }: { chat: UseChat }): React.JSX.Element | null {
+  const { state, approveTool, approveToolForSession, denyTool } = chat
+  const pending = state.pendingToolApproval
+  if (!pending) return null
+  const { approvalId, toolName } = pending
+
+  const onKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
+    if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) {
+      e.preventDefault()
+      approveTool(approvalId)
+    }
+  }
+
+  const summary = summarizeToolInput(pending.input)
+
+  return (
+    <div
+      className="app-frame-plan-approval rounded-r7 border border-t5 bg-surface-primary-elevated px-3.5 py-3 shadow-[0_1px_2px_rgba(0,0,0,.03)]"
+      data-surface="prompt"
+      data-behavior="interactive"
+      role="group"
+      aria-label="도구 실행 승인"
+      onKeyDown={onKeyDown}
+    >
+      <div className="flex items-center gap-g3">
+        <YellowDot />
+        <span className="text-footnote font-medium text-t9">
+          Claude가 {toolName} 실행 권한을 요청합니다
+        </span>
+      </div>
+
+      <div className="mt-1.5 line-clamp-2 break-all rounded-r5 bg-bg px-3 py-1.5 font-mono text-caption text-t7">
+        {summary}
+      </div>
+
+      <div className="mt-2.5 flex items-center justify-between gap-g3">
+        <div className="flex items-center gap-g3">
+          <Button
+            variant="contained"
+            onClick={() => denyTool(approvalId)}
+            data-behavior="dismissible"
+          >
+            거부
+          </Button>
+          <Button
+            variant="uncontained"
+            onClick={() => approveToolForSession(approvalId, toolName)}
+            title="이 세션 동안 같은 도구를 자동 허용"
+          >
+            세션 동안 허용
+          </Button>
+        </div>
+        <Button
+          variant="primary"
+          onClick={() => approveTool(approvalId)}
+          data-behavior="action:send"
+          kbd="Ctrl+Enter"
+        >
+          허용
+        </Button>
+      </div>
+    </div>
+  )
 }
 
 function PlanApprovalBody({ chat }: { chat: UseChat }): React.JSX.Element | null {

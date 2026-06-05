@@ -78,7 +78,7 @@ interface ToolRendererRegistry { register(r: ToolRenderer): void; resolve(input:
 | `FilePreviewCard` | `file.read` `raw` | `FileBody` |
 | `DiffCard` | `file.read` `patch`, edit/write | `DiffBody` |
 | `SearchCard` | `find.*`, grep/glob | (없음) |
-| `ApprovalCard` | `permission.requested` | `ApprovalCard`(구현됨, plan_review) — tool_approval seam, ux-domains.md §1.6 |
+| `ApprovalCard` | `permission.requested` | `ApprovalCard`(구현됨, plan_review + tool_approval) — ux-domains.md §1.6 |
 | `AgentTaskCard` / `SessionGraphCard` / `ContextInjectionCard` | subagent / `children`·`fork`·`revert` / `noReply` | (없음) |
 | `StructuredOutputCard` | `format:json_schema` 결과 | (없음) — §1.7 |
 | `ErrorCard` / `TelemetryPanel` | error / usage·cost | `state.error` 카드 / `UsageCircle`(비율만) — §1.9 |

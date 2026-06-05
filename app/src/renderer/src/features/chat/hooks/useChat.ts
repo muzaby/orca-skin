@@ -5,7 +5,7 @@ import {
   type CachedSession,
   type ChatState
 } from '../reducer/chatReducer'
-import { askApi, chatApi, planApi, sessionApi, settingsApi } from '../../../shared/api/ipc'
+import { chatApi, permissionApi, sessionApi, settingsApi } from '../../../shared/api/ipc'
 import type { PermissionMode } from '../../../../../shared/ipc'
 
 export interface UseChat {
@@ -39,6 +39,10 @@ export interface UseChat {
   approvePlan: (requestId: string) => void
   revisePlan: (requestId: string, feedback: string) => void
   rejectPlan: (requestId: string) => void
+  // 위험 도구 승인 카드 — 허용(이번만) / 세션 동안 허용 / 거부(턴 계속, 중단 아님).
+  approveTool: (approvalId: string) => void
+  approveToolForSession: (approvalId: string, toolName: string) => void
+  denyTool: (approvalId: string) => void
   // 우측 계획 타일 — 헤더 토글 / 닫기 X / 열기(승인 카드 '플랜 열기') / 분리선 드래그 폭 조절.
   togglePlanTile: () => void
   openPlanTile: () => void
@@ -187,13 +191,16 @@ export function useChat(): UseChat {
     []
   )
 
+  // requestId === approvalId (router 가 두 값을 동일하게 발급). 권한 응답은 단일
+  // permissionApi.respond 로 통일하고, 각 도메인 후처리는 ApprovalResolution 으로 표현한다.
   const answerAsk = useCallback(
     (requestId: string, answers: Record<string, string | string[]>, response?: string): void => {
-      void askApi.respond({
-        requestId,
-        type: 'answered',
-        answers,
-        ...(response !== undefined ? { response } : {})
+      void permissionApi.respond({
+        approvalId: requestId,
+        resolution: {
+          behavior: 'allow',
+          updatedInput: { answers, ...(response !== undefined ? { response } : {}) }
+        }
       })
       dispatch({ type: 'RESOLVE_ASK', requestId })
     },
@@ -201,7 +208,7 @@ export function useChat(): UseChat {
   )
 
   const skipAsk = useCallback((requestId: string): void => {
-    void askApi.respond({ requestId, type: 'skipped' })
+    void permissionApi.respond({ approvalId: requestId, resolution: { behavior: 'deny' } })
     dispatch({ type: 'RESOLVE_ASK', requestId })
   }, [])
 
@@ -210,7 +217,7 @@ export function useChat(): UseChat {
   }, [])
 
   const approvePlan = useCallback((requestId: string): void => {
-    void planApi.respond({ requestId, type: 'approved' })
+    void permissionApi.respond({ approvalId: requestId, resolution: { behavior: 'allow' } })
     dispatch({ type: 'RESOLVE_PLAN' })
     // 승인 = plan 모드 종료. 칩을 '편집 수락'으로 전환 → 다음 턴이 plan 모드로 재진입하지
     // 않아 ExitPlanMode 재호출(단순 질문 시 계획 카드 재출현)을 막는다.
@@ -220,15 +227,45 @@ export function useChat(): UseChat {
   const revisePlan = useCallback((requestId: string, feedback: string): void => {
     const trimmed = feedback.trim()
     if (trimmed === '') return
-    void planApi.respond({ requestId, type: 'revise', feedback: trimmed })
+    // revise = deny + 피드백 메시지(어댑터가 '사용자 수정 요청: '+message 로 재작성 유도).
+    void permissionApi.respond({
+      approvalId: requestId,
+      resolution: { behavior: 'deny', message: trimmed }
+    })
     dispatch({ type: 'RESOLVE_PLAN' })
   }, [])
 
   const rejectPlan = useCallback((requestId: string): void => {
-    void planApi.respond({ requestId, type: 'rejected' })
-    // 거부는 턴 중단 — 카드 제거 + inflight 종료(main 이 turn abort, result 이벤트 없음).
+    // reject = deny + interrupt(main 이 turn abort). 카드 제거 + inflight 종료.
+    void permissionApi.respond({
+      approvalId: requestId,
+      resolution: { behavior: 'deny', interrupt: true }
+    })
     dispatch({ type: 'RESOLVE_PLAN' })
     dispatch({ type: 'CANCEL_CHAT' })
+  }, [])
+
+  // 위험 도구 승인 — 허용(이번만) / 세션 동안 허용 / 거부(턴 계속, 중단 아님).
+  const approveTool = useCallback((approvalId: string): void => {
+    void permissionApi.respond({ approvalId, resolution: { behavior: 'allow' } })
+    dispatch({ type: 'RESOLVE_TOOL_APPROVAL' })
+  }, [])
+
+  const approveToolForSession = useCallback((approvalId: string, toolName: string): void => {
+    void permissionApi.respond({
+      approvalId,
+      resolution: { behavior: 'allow', updatedPermissions: [{ toolName, scope: 'session' }] }
+    })
+    dispatch({ type: 'RESOLVE_TOOL_APPROVAL' })
+  }, [])
+
+  const denyTool = useCallback((approvalId: string): void => {
+    // 거부만 — interrupt 없이 deny 라 턴은 계속된다(에이전트가 다른 경로 모색).
+    void permissionApi.respond({
+      approvalId,
+      resolution: { behavior: 'deny', interrupt: false }
+    })
+    dispatch({ type: 'RESOLVE_TOOL_APPROVAL' })
   }, [])
 
   const togglePlanTile = useCallback((): void => {
@@ -263,6 +300,9 @@ export function useChat(): UseChat {
     approvePlan,
     revisePlan,
     rejectPlan,
+    approveTool,
+    approveToolForSession,
+    denyTool,
     togglePlanTile,
     openPlanTile,
     closePlanTile,
