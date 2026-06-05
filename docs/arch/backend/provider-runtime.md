@@ -177,9 +177,11 @@ type NormalizedPermissionMode =
 
 interface PermissionModeController {
   getCurrentMode(): NormalizedPermissionMode
-  setMode(mode: NormalizedPermissionMode): Promise<void>            // Claude: setPermissionMode / OpenCode: 앱 레벨 에뮬레이션 [미확인]
+  setMode(mode: NormalizedPermissionMode): Promise<void>            // Claude: setPermissionMode / OpenCode: 앱 레벨 에뮬레이션 [미확인-opencode]
 }
 ```
+
+> **구현 상태**: PR② 에서 순수 seam 으로 안착 — `NormalizedPermissionMode`(6종)·`toClaudePermissionMode`·`fromUiPermissionMode`(`src/shared/permission-mode.ts`) + 세션-키 `PermissionModeController`(`src/main/runtime-events/permission-mode-controller.ts`, sessionId 인자 보유)·Vitest. router/adapter 와이어링과 라이브 `Query.setPermissionMode` 위임은 PR③(스트리밍 입력 전환).
 
 | Provider | 처리 |
 |---|---|
@@ -204,6 +206,7 @@ interface SessionCapabilities {
   continue?: boolean; resume?: boolean; fork?: boolean; persistSessionFalse?: boolean; delete?: boolean; update?: boolean
   // structure / control
   children?: boolean; summarize?: boolean; abort?: boolean; share?: boolean; init?: boolean
+  liveModeSwitch?: boolean  // 세션 중 권한 모드 라이브 전환 (Claude setPermissionMode, 스트리밍 입력 전용). PR③ 활성.
   // context
   contextInjectionNoReply?: boolean; structuredOutput?: boolean
   // revert (§5)

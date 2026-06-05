@@ -228,6 +228,10 @@ export interface SendChatMessage {
 
 // Composer 권한 모드 버튼이 노출하는 두 모드. SDK PermissionMode 의 부분집합 —
 // 'plan'(읽기 전용·계획) / 'acceptEdits'(파일 편집 자동 수락).
+//
+// 정규화 어휘와의 관계: 앱 내부 SSOT 는 `NormalizedPermissionMode`(6종, src/shared/permission-mode.ts)
+// 이고 이 2종은 그 부분집합이다(`plan`↔'plan', `acceptEdits`↔'accept_edits'). 6종 전체 UI 노출과
+// 라이브 전환은 PR③ 에서. 브리지: `fromUiPermissionMode()` (permission-mode.ts).
 export type PermissionMode = 'plan' | 'acceptEdits'
 
 export interface CancelChat {
@@ -256,6 +260,9 @@ export interface SessionCapabilities {
   abort?: boolean
   share?: boolean
   init?: boolean
+  // 세션 중 권한 모드 라이브 전환 지원 (Claude: Query.setPermissionMode, 스트리밍 입력 모드 전용).
+  // PR② 는 선언만 — 값(CLAUDE_DESCRIPTOR set)과 UI 게이팅은 PR③(스트리밍 입력 전환)에서 활성.
+  liveModeSwitch?: boolean
   // context
   contextInjectionNoReply?: boolean
   structuredOutput?: boolean
