@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
 import {
   CHANNELS,
   type PermissionRespond,
+  type SetPermissionMode,
   type Backend,
   type BackendListResult,
   type NormalizedEvent,
@@ -114,7 +115,10 @@ const orca = {
   // main 에 회신. 요청 수신은 별도 채널이 아니라 chat.onEvent 의 permission.requested 이벤트.
   permission: {
     respond: (req: PermissionRespond): Promise<void> =>
-      ipcRenderer.invoke(CHANNELS.permissionRespond, req)
+      ipcRenderer.invoke(CHANNELS.permissionRespond, req),
+    // 세션 진행 중 권한 모드 라이브 전환 (PR③).
+    setMode: (req: SetPermissionMode): Promise<void> =>
+      ipcRenderer.invoke(CHANNELS.permissionSetMode, req)
   },
   // 데스크톱 플랫폼 식별자. renderer 의 `<html data-platform>` 에 부착되고,
   // WinControls 가 macOS 에서 null 을 반환하는 분기 등에 사용.

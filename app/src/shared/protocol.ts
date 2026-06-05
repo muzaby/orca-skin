@@ -10,14 +10,30 @@ const BackendSchema: z.ZodType<Backend> = z.enum(['claude-code'])
 // orca:chat:event 는 main→renderer send(검증 불요)라 NormalizedEvent 용 zod 스키마는 두지 않는다.
 // (구 ChatEventSchema 는 ChatEvent 폐기와 함께 제거 — 와이어가 NormalizedEvent 로 전환됨.)
 
+// 정규화 권한 모드 6종 (shared/permission-mode.ts NormalizedPermissionMode 와 일치).
+const NormalizedPermissionModeSchema = z.enum([
+  'default',
+  'accept_edits',
+  'plan',
+  'dont_ask',
+  'bypass',
+  'auto_classified'
+])
+
 export const SendChatMessageSchema = z.object({
   sessionId: z.string().nullable(),
   projectId: z.string().nullable(),
   text: z.string().min(1),
-  permissionMode: z.enum(['plan', 'acceptEdits']).optional()
+  permissionMode: NormalizedPermissionModeSchema.optional()
 })
 
 export const CancelChatSchema = z.object({ sessionId: z.string() })
+
+// 권한 모드 라이브 전환 (orca:permission:setMode).
+export const SetPermissionModeSchema = z.object({
+  sessionId: z.string().min(1),
+  mode: NormalizedPermissionModeSchema
+})
 
 export const StartInstallSchema = z.object({ backend: BackendSchema })
 
@@ -257,6 +273,7 @@ export type {
   PermissionAction,
   PermissionUpdate,
   PermissionRespond,
+  SetPermissionMode,
   ApprovalResolution,
   PlanReviewRequest,
   PlanDecision

@@ -10,9 +10,11 @@ import type {
   NormalizedEvent,
   PermissionAction
 } from '../../shared/ipc'
+import { toClaudePermissionMode } from '../../shared/permission-mode'
 import { claudeToNormalized, type MapContext } from './claude-map'
 import { claudeErrorClassifier, errorEvent } from '../runtime-errors/claude-classifier'
-import type { SessionAdapter } from './types'
+import { createTurnInputStream } from './streaming-input'
+import type { LiveTurn, SessionAdapter } from './types'
 import type { TurnRequest } from '../extensions/types'
 import type { Resolver } from '../mcp/expand'
 import { toClaudeConfig } from '../mcp/convert'
@@ -132,7 +134,11 @@ export class ClaudeCodeAdapter implements SessionAdapter {
     yield { step: 'complete', done: true }
   }
 
-  async *sendMessage(req: TurnRequest): AsyncIterable<NormalizedEvent> {
+  // 한 턴을 **스트리밍 입력 모드**로 실행한다(PR③ 옵션 A). prompt 를 string 이 아니라 이 턴의
+  // 메시지 1건을 내보내고 result 도착까지 열려있는 AsyncIterable 로 넘겨, 턴 진행 중 반환된 Query
+  // 핸들에서 setPermissionMode/interrupt/setModel 이 열리게 한다. result 도착(또는 abort) 시 입력
+  // 스트림을 닫아 서브프로세스를 종료 → 다음 턴은 또 resume 로 새로(세션 모델 변화 0).
+  sendMessage(req: TurnRequest): LiveTurn {
     const { sessionId, text, cwd, signal, extensions, env, requestApproval, permissionMode } = req
 
     // 매퍼 컨텍스트 — sessionId 는 init(=session.updated)에서 갱신된다(resume 면 초기값이 그 id).
@@ -150,42 +156,60 @@ export class ClaudeCodeAdapter implements SessionAdapter {
       console.warn(`[mcp] 서버 '${d.name}' 를 건너뜀: ${d.reason}`)
     }
 
-    try {
-      for await (const msg of query({
-        prompt: text,
-        options: {
-          resume: sessionId ?? undefined,
-          includePartialMessages: true,
-          cwd,
-          abortController,
-          ...adaptSystemPrompt(extensions.systemPromptAppend),
-          ...adaptMcp(mcpConfig),
-          ...adaptSkills(),
-          ...(env ? { env } : {}),
-          ...adaptHooks(extensions.hooks),
-          // canUseTool — AskUserQuestion·ExitPlanMode·위험 도구를 requestApproval 로 게이트하고
-          // 안전 도구는 allow passthrough. 콜백 미주입(opencode 등) 시 옵션 자체를 생략해 현행
-          // 자동 통과 동작을 유지한다.
-          ...(requestApproval ? { canUseTool: makeCanUseTool(requestApproval) } : {}),
-          // 권한 모드 (Composer 모드 버튼) — 'plan'/'acceptEdits' 는 SDK PermissionMode 의
-          // 부분집합이라 그대로 대입 가능. 부재 시 SDK 기본(default) 동작.
-          ...(permissionMode ? { permissionMode } : {})
+    // 턴-스코프 입력 스트림 — close() 까지 미종료(streaming-input.ts 가 불변식 격리).
+    const input = createTurnInputStream(text)
+
+    const handle = query({
+      prompt: input.stream,
+      options: {
+        resume: sessionId ?? undefined,
+        includePartialMessages: true,
+        cwd,
+        abortController,
+        ...adaptSystemPrompt(extensions.systemPromptAppend),
+        ...adaptMcp(mcpConfig),
+        ...adaptSkills(),
+        ...(env ? { env } : {}),
+        ...adaptHooks(extensions.hooks),
+        // canUseTool — AskUserQuestion·ExitPlanMode·위험 도구를 requestApproval 로 게이트하고
+        // 안전 도구는 allow passthrough. 콜백 미주입(opencode 등) 시 옵션 자체를 생략해 현행
+        // 자동 통과 동작을 유지한다.
+        ...(requestApproval ? { canUseTool: makeCanUseTool(requestApproval) } : {}),
+        // 권한 모드 (정규화 6종 → SDK PermissionMode). 부재 시 SDK 기본(default) 동작.
+        ...(permissionMode ? { permissionMode: toClaudePermissionMode(permissionMode) } : {})
+      }
+    })
+
+    async function* events(): AsyncIterable<NormalizedEvent> {
+      try {
+        for await (const msg of handle) {
+          yield* claudeToNormalized(msg, ctx)
+          // 턴 종료 신호 — result 도착 시 입력 스트림을 닫아 서브프로세스가 종료되게 한다.
+          if (msg.type === 'result') input.close()
         }
-      })) {
-        yield* claudeToNormalized(msg, ctx)
+      } catch (err) {
+        // 의도적 중단(턴 취소 / 계획 거부)은 에러가 아니므로 error 이벤트를 내지 않는다
+        // (user_cancelled 로 분류되지만 emit 안 함 — 설계 결정 3).
+        if (!abortController.signal.aborted) {
+          const classified = claudeErrorClassifier.classify(err, {
+            provider: 'claude-code',
+            phase: 'sendMessage'
+          })
+          yield errorEvent(classified, ctx.sessionId)
+        }
+      } finally {
+        // 어떤 경로로 끝나든 입력 스트림을 닫아(멱등) 핸들/서브프로세스 누수를 막는다.
+        input.close()
+        signal?.removeEventListener('abort', onAbort)
       }
-    } catch (err) {
-      // 의도적 중단(턴 취소 / 계획 거부)은 에러가 아니므로 error 이벤트를 내지 않는다
-      // (user_cancelled 로 분류되지만 emit 안 함 — 설계 결정 3).
-      if (!abortController.signal.aborted) {
-        const classified = claudeErrorClassifier.classify(err, {
-          provider: 'claude-code',
-          phase: 'sendMessage'
-        })
-        yield errorEvent(classified, ctx.sessionId)
-      }
-    } finally {
-      signal?.removeEventListener('abort', onAbort)
+    }
+
+    return {
+      events: events(),
+      // 라이브 control — 스트리밍 입력 모드라야 동작하는 SDK Query 메서드에 위임.
+      setPermissionMode: (mode) => handle.setPermissionMode(mode),
+      interrupt: () => handle.interrupt(),
+      setModel: (model) => handle.setModel(model)
     }
   }
 }

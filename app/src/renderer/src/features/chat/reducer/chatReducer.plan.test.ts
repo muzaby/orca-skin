@@ -81,9 +81,9 @@ describe('chatReducer — 계획 검토(plan_review)', () => {
     const withPlan = chatReducer(initialChatState, recv(planEvent()))
     expect(withPlan.permissionMode).toBe('plan')
     const resolved = chatReducer(withPlan, { type: 'RESOLVE_PLAN' })
-    const approved = chatReducer(resolved, { type: 'SET_PERMISSION_MODE', mode: 'acceptEdits' })
+    const approved = chatReducer(resolved, { type: 'SET_PERMISSION_MODE', mode: 'accept_edits' })
     expect(approved.pendingPlanReview).toBeNull()
-    expect(approved.permissionMode).toBe('acceptEdits')
+    expect(approved.permissionMode).toBe('accept_edits')
   })
 
   it('CANCEL_CHAT / error / NEW_CHAT 가 카드를 비운다', () => {

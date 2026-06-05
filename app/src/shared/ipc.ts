@@ -1,6 +1,9 @@
 // IPC 채널 이름 + 순수 TS 타입. zod 의존 없음 — preload (sandbox=true) 와 renderer 모두 안전하게 import.
 // main 프로세스의 런타임 검증 (zod 스키마) 은 ./protocol.ts 에 별도로 둔다.
 
+// 권한 모드 정규화 타입 (type-only — 런타임 사이클 없음). permission-mode.ts 와 상호 type import.
+import type { NormalizedPermissionMode } from './permission-mode'
+
 // Phase 2 활성 채널 (preload 노출 대상). 미사용 채널은 의도적으로 누락.
 export const CHANNELS = {
   chatSend: 'orca:chat:send',
@@ -36,7 +39,10 @@ export const CHANNELS = {
   runtimeStatusEvent: 'orca:runtime:statusEvent',
   // 권한 응답 단일 채널 — ask/plan/tool 세 종류의 승인 응답이 모두 이 채널로 흐른다
   // (askRespond/planRespond 2채널 통합). 응답 = { approvalId, resolution: ApprovalResolution }.
-  permissionRespond: 'orca:permission:respond'
+  permissionRespond: 'orca:permission:respond',
+  // 세션 진행 중 권한 모드 라이브 전환 (PR③). { sessionId, mode } 를 main 에 invoke —
+  // 진행 중 턴이면 즉시 Query.setPermissionMode, 아니면 controller 에 기록해 다음 턴에 반영.
+  permissionSetMode: 'orca:permission:setMode'
 } as const
 
 // Backend (Phase 2: claude-code 단일. opencode 는 future work)
@@ -222,16 +228,27 @@ export interface SendChatMessage {
   // main 이 sessionId → project_id → instructions 를 DB 에서 직접 조회한다.
   projectId: string | null
   text: string
-  // 이 턴에 적용할 권한 모드 (Composer 모드 버튼). 부재 시 main 이 기본값(plan) 적용.
-  permissionMode?: PermissionMode
+  // 이 턴에 적용할 권한 모드 (정규화 6종 — Composer 모드 버튼). 부재 시 main 이 기본값(plan) 적용.
+  permissionMode?: NormalizedPermissionMode
 }
 
 // Composer 권한 모드 버튼이 노출하는 두 모드. SDK PermissionMode 의 부분집합 —
 // 'plan'(읽기 전용·계획) / 'acceptEdits'(파일 편집 자동 수락).
+//
+// 정규화 어휘와의 관계: 앱 내부 SSOT 는 `NormalizedPermissionMode`(6종, src/shared/permission-mode.ts)
+// 이고 이 2종은 그 부분집합이다(`plan`↔'plan', `acceptEdits`↔'accept_edits'). 6종 전체 UI 노출과
+// 라이브 전환은 PR③ 에서. 브리지: `fromUiPermissionMode()` (permission-mode.ts).
 export type PermissionMode = 'plan' | 'acceptEdits'
 
 export interface CancelChat {
   sessionId: string
+}
+
+// 권한 모드 라이브 전환 요청 (orca:permission:setMode). 정규화 6종을 그대로 싣는다 —
+// main 이 toClaudePermissionMode 로 SDK 모드로 변환해 라이브/다음-턴에 적용.
+export interface SetPermissionMode {
+  sessionId: string
+  mode: NormalizedPermissionMode
 }
 
 // ── Capability(능력 탐지) — provider-runtime.md §4/§5 ──────────────────────────────
@@ -256,6 +273,9 @@ export interface SessionCapabilities {
   abort?: boolean
   share?: boolean
   init?: boolean
+  // 세션 중 권한 모드 라이브 전환 지원 (Claude: Query.setPermissionMode, 스트리밍 입력 모드 전용).
+  // PR② 는 선언만 — 값(CLAUDE_DESCRIPTOR set)과 UI 게이팅은 PR③(스트리밍 입력 전환)에서 활성.
+  liveModeSwitch?: boolean
   // context
   contextInjectionNoReply?: boolean
   structuredOutput?: boolean

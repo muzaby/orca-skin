@@ -7,16 +7,16 @@ describe('chatReducer — 권한 모드', () => {
   })
 
   it('SET_PERMISSION_MODE 가 모드를 갱신', () => {
-    const s = chatReducer(initialChatState, { type: 'SET_PERMISSION_MODE', mode: 'acceptEdits' })
-    expect(s.permissionMode).toBe('acceptEdits')
+    const s = chatReducer(initialChatState, { type: 'SET_PERMISSION_MODE', mode: 'accept_edits' })
+    expect(s.permissionMode).toBe('accept_edits')
   })
 
   it('NEW_CHAT 는 모드를 plan 으로 리셋', () => {
     const edited = chatReducer(initialChatState, {
       type: 'SET_PERMISSION_MODE',
-      mode: 'acceptEdits'
+      mode: 'accept_edits'
     })
-    expect(edited.permissionMode).toBe('acceptEdits')
+    expect(edited.permissionMode).toBe('accept_edits')
     const fresh = chatReducer(edited, { type: 'NEW_CHAT' })
     expect(fresh.permissionMode).toBe('plan')
   })
@@ -24,9 +24,9 @@ describe('chatReducer — 권한 모드', () => {
   it('SEND_USER_MESSAGE 는 현재 모드를 유지', () => {
     const edited = chatReducer(initialChatState, {
       type: 'SET_PERMISSION_MODE',
-      mode: 'acceptEdits'
+      mode: 'accept_edits'
     })
     const sent = chatReducer(edited, { type: 'SEND_USER_MESSAGE', text: 'hi' })
-    expect(sent.permissionMode).toBe('acceptEdits')
+    expect(sent.permissionMode).toBe('accept_edits')
   })
 })

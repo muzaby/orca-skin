@@ -1,7 +1,19 @@
 import type { Backend, NormalizedEvent, ProviderDescriptor } from '../../shared/ipc'
+import type { ClaudePermissionMode } from '../../shared/permission-mode'
 import type { TurnRequest } from '../extensions/types'
 
 export type { Backend, NormalizedEvent }
+
+// 한 턴의 라이브 핸들 (provider-runtime.md §3, PR③ 옵션 A). 턴 진행 중에만 유효하다 —
+// `events` 소비가 끝나면 핸들이 닫힌다. control 3종은 스트리밍 입력 모드에서만 동작하는 SDK
+// Query 메서드(setPermissionMode/interrupt/setModel)에 위임된다. 라이브 미지원 백엔드는
+// no-op 구현을 돌려줄 수 있다(다음-턴 모드로 폴백).
+export interface LiveTurn {
+  events: AsyncIterable<NormalizedEvent>
+  setPermissionMode(mode: ClaudePermissionMode): Promise<void>
+  interrupt(): Promise<void>
+  setModel(model?: string): Promise<void>
+}
 
 export interface SessionAdapter {
   readonly id: Backend
@@ -12,6 +24,7 @@ export interface SessionAdapter {
   install(): AsyncIterable<{ step: string; log?: string; error?: string; done?: boolean }>
   // 한 턴 실행. 확장 리소스(mcp·skills·hooks·systemPrompt)는 req.extensions 로, uv 런타임 env 는
   // req.env 로 전달된다 — 위치 인자 증식(구 7개) 대신 단일 TurnRequest 로 통합 (설계검토 §9).
-  // provider 중립 NormalizedEvent 스트림(provider-runtime.md §2)을 yield 한다.
-  sendMessage(req: TurnRequest): AsyncIterable<NormalizedEvent>
+  // 라이브 핸들(LiveTurn)을 돌려준다 — `events` 가 provider 중립 NormalizedEvent 스트림(§2),
+  // control 메서드는 턴 진행 중 권한 모드 라이브 전환 등에 쓰인다.
+  sendMessage(req: TurnRequest): LiveTurn
 }

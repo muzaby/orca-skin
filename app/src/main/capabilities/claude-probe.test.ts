@@ -21,9 +21,12 @@ describe('claude capability probe', () => {
     expect(s.update).toBe(true)
   })
 
-  it('미확인 기능은 false 로 잠금 (fork/children/summarize/share)', () => {
+  it('fork 는 SDK Options.forkSession 타입으로 확정되어 true [검증-타입]', () => {
+    expect(CLAUDE_DESCRIPTOR.session.fork).toBe(true)
+  })
+
+  it('Claude SDK 에 대응 없는 OpenCode 전용 능력은 false (children/summarize/share) [N/A-claude]', () => {
     const s = CLAUDE_DESCRIPTOR.session
-    expect(s.fork).toBe(false)
     expect(s.children).toBe(false)
     expect(s.summarize).toBe(false)
     expect(s.share).toBe(false)

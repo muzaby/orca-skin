@@ -9,7 +9,7 @@
 >
 > **계층 위치 + 방법론 (짝 문서 [standardization.md](./standardization.md))**: 이 문서는 **런타임 정규화**(세션 *실행 중* 의 이벤트·권한·세션 흐름)를 다룬다. **배포 계층 표준화**(무엇을 배포·주입하는가 — AGENTS.md·MCP·SKILL.md)는 standardization.md 가 짝으로 다루며, 그 **ExtensionDeployer 산출물이 런타임 설정 입력이 되는 단방향** 연결이다. 또한 여기 정의한 정본 인터페이스는 *목표 카탈로그*다 — 구현은 **rule of three** 로 점진 추출하며, **v1 은 `permission.requested` 를 우선 정규화**하고 나머지 이벤트는 소비자가 생길 때 케이스를 추가한다(EventStream union 미완성 허용, standardization.md §1·§6 과 정합).
 >
-> **출처 신뢰 원칙**: 각 사실 옆에 `[검증]`(SDK 1차 출처/현재 코드에서 확인됨) / `[미확인]`(구현 전 실제 SDK 타입에서 직접 확정 필요)을 표기한다. **현재 `@anthropic-ai/claude-agent-sdk` 와 OpenCode SDK 가 `node_modules` 에 미설치**라 다수 항목이 `[미확인]` 이다 — §13 의 확정 절차를 거친 뒤 구현에 들어간다.
+> **출처 신뢰 원칙**: 각 사실 옆에 출처 태그를 표기한다 — `[검증-타입]`(SDK 타입 시그니처로 확정, spec 문서 근거) / `[검증-런타임]`(현재 코드 구동/소비로 확인) / `[미확인-런타임]`(타입은 있으나 동작·형식 미검증) / `[N/A-claude]`(Claude SDK 에 대응 개념 없음 — OpenCode 전용) / `[미확인-opencode]`(OpenCode SDK 미설치로 미정). **교정(2026-06)**: Claude Agent SDK 는 `node_modules` 미설치라도 리포에 버전관리된 spec 문서(`docs/spec/claude/agent-sdk/typescript.md`)로 타입이 확정된다 — 따라서 Claude 축의 옛 `[미확인]` 은 spec 문서로 대조해 `[검증-타입]`/`[미확인-런타임]`/`[N/A-claude]` 로 분해했다(claude-probe.ts 정정 완료). **OpenCode SDK 만 여전히 미설치**라 그쪽 항목은 `[미확인-opencode]` 로 §13 절차를 거쳐 확정한다.
 >
 > **rename 범위 밖**: 실제 코드 심볼(`ChatEvent`·`SessionAdapter`·`makeCanUseTool` 등)은 이번 라운드에서 변경하지 않는다. 본 절의 *목표 타입명*(`NormalizedEvent` 등)과 현행 코드명의 대응은 §12 매핑표로만 둔다.
 
@@ -163,11 +163,11 @@ const DEFAULT_APP_COMMAND_POLICY: Record<AppCommandKind, 'pass' | 'require_appro
 
 #### PermissionModeController — 세션 중 신뢰 상향
 
-**① 설명.** Claude 는 `setPermissionMode()`(TS)/`set_permission_mode()`(Python)로 mid-session 모드를 즉시 전환한다 `[검증]`. 모드 전수: `default | acceptEdits | plan | dontAsk | bypassPermissions | auto`(auto=TS 전용 모델 분류기).
+**① 설명.** Claude 는 `Query.setPermissionMode()`(TS)/`set_permission_mode()`(Python)로 mid-session 모드를 즉시 전환한다 `[검증-타입]`(typescript.md Query 인터페이스). 모드 전수: `default | acceptEdits | plan | dontAsk | bypassPermissions | auto`(auto=TS 전용 모델 분류기) `[검증-타입]`(typescript.md:520). **선결조건**: 이 control 메서드들은 typescript.md Query 주석상 **스트리밍 입력 모드 전용**("Only available in streaming input mode") — 즉 `query()` 에 `prompt` 를 `string` 이 아닌 `AsyncIterable<SDKUserMessage>` 로 넘겨 장수명 `Query` 핸들을 유지해야 열린다.
 
 **② 예시.** 사용자가 "계획만 보기(plan)" 로 시작했다가, 신뢰가 쌓이면 런타임에 `accept_edits` 로 올려 파일 편집 자동 수락. 이후 `allow` 시 `updatedPermissions` 로 규칙 누적.
 
-**③ 현재 코드 갭.** 현행은 per-turn `permissionMode: 'plan' | 'acceptEdits'`(`src/shared/ipc.ts`, 2종)만 `SendChatMessage` 로 전달. **mid-session 전환 없음**. 또 현재 어댑터는 `query()` **one-off** 구조라 런타임 전환의 **선행 조건 = `ClaudeSDKClient` 전환**(동일 세션 재사용, runtime-ipc.md §1(동시성)과 연계).
+**③ 현재 코드 갭.** 현행은 per-turn `permissionMode: 'plan' | 'acceptEdits'`(`src/shared/ipc.ts`, 2종)만 `SendChatMessage` 로 전달. **mid-session 전환 없음**. 또 현재 어댑터(`claude-code.ts`)는 `prompt: text(string)` 로 `query()` 를 매 턴 **one-off** 호출한다. **교정**: 런타임 전환의 선행 조건은 "장수명 `ClaudeSDKClient` 클래스"가 아니라 **스트리밍 입력 모드 전환**이다 — 동일 `query()` 함수에 `prompt` 만 `AsyncIterable<SDKUserMessage>` 로 넘기면 반환된 `Query` 핸들에서 `setPermissionMode`/`interrupt`/`setModel` 이 열린다(별도 클라이언트 클래스 불요). 입력 큐가 살아있는 동안 generator 가 `return` 되지 않아야 핸들이 유지된다. runtime-ipc.md §1(동시성)의 멀티세션 `requestRegistry` 와 세션별 `Query` 핸들 수명을 연결한다.
 
 **④ 인터페이스 (정본).**
 
@@ -177,9 +177,11 @@ type NormalizedPermissionMode =
 
 interface PermissionModeController {
   getCurrentMode(): NormalizedPermissionMode
-  setMode(mode: NormalizedPermissionMode): Promise<void>            // Claude: setPermissionMode / OpenCode: 앱 레벨 에뮬레이션 [미확인]
+  setMode(mode: NormalizedPermissionMode): Promise<void>            // Claude: setPermissionMode / OpenCode: 앱 레벨 에뮬레이션 [미확인-opencode]
 }
 ```
+
+> **구현 상태**: PR② 에서 순수 seam 으로 안착 — `NormalizedPermissionMode`(6종)·`toClaudePermissionMode`·`fromUiPermissionMode`(`src/shared/permission-mode.ts`) + 세션-키 `PermissionModeController`(`src/main/runtime-events/permission-mode-controller.ts`, sessionId 인자 보유)·Vitest. router/adapter 와이어링과 라이브 `Query.setPermissionMode` 위임은 PR③(스트리밍 입력 전환).
 
 | Provider | 처리 |
 |---|---|
@@ -194,7 +196,7 @@ interface PermissionModeController {
 
 **② 예시.** OpenCode 는 `session.children`/`share`/`init`(AGENTS.md) `[검증]`, Claude 는 `continueConversation`/`resume`/`forkSession` `[검증]`. 서로 대응이 없으므로 사이드바/메뉴가 가용한 액션만 노출.
 
-**③ 현재 코드 갭.** ✅ **해소** — `SessionAdapter.describe(): ProviderDescriptor` 추가(`src/main/adapters/types.ts`). claude 는 두 SDK 미설치(§13)라 introspection 대신 **정적 서술자** `CLAUDE_DESCRIPTOR`(`src/main/capabilities/claude-probe.ts`)를 반환하고, `discover()` 는 opencode introspection seam 용 async. 능력은 `backend:list` 가 `registry.describeAll()` 로 computed-on-the-fly 부착(영속 안 함 — 백엔드의 함수). 순수 DTO 는 `src/shared/ipc.ts`(SSOT), main 재노출 + `CapabilityProbe` 는 `src/main/capabilities/types.ts`. UI 는 `BackendStatus` 지표 + Composer cancel 게이팅으로 소비. `[미확인]` 값은 필드별 주석으로 audit trail 보존(설치 후 모순 시 정정).
+**③ 현재 코드 갭.** ✅ **해소** — `SessionAdapter.describe(): ProviderDescriptor` 추가(`src/main/adapters/types.ts`). claude 는 **정적 서술자** `CLAUDE_DESCRIPTOR`(`src/main/capabilities/claude-probe.ts`)를 반환한다 — 능력은 세션별이 아니라 backend 별 고정이고, 타입으로 확정되는 능력은 spec 문서로 검증되므로 런타임 introspection 이 불필요하다(`discover()` 가 async 인 건 opencode introspection seam 용). 능력은 `backend:list` 가 `registry.describeAll()` 로 computed-on-the-fly 부착(영속 안 함 — 백엔드의 함수). 순수 DTO 는 `src/shared/ipc.ts`(SSOT), main 재노출 + `CapabilityProbe` 는 `src/main/capabilities/types.ts`. UI 는 `BackendStatus` 지표 + Composer cancel 게이팅으로 소비. 필드별 출처 태그(`[검증-타입]`/`[검증-런타임]`/`[미확인-런타임]`/`[N/A-claude]`/`[미확인-opencode]`)로 audit trail 보존.
 
 **④ 인터페이스 (정본).**
 
@@ -204,6 +206,7 @@ interface SessionCapabilities {
   continue?: boolean; resume?: boolean; fork?: boolean; persistSessionFalse?: boolean; delete?: boolean; update?: boolean
   // structure / control
   children?: boolean; summarize?: boolean; abort?: boolean; share?: boolean; init?: boolean
+  liveModeSwitch?: boolean  // 세션 중 권한 모드 라이브 전환 (Claude setPermissionMode, 스트리밍 입력 전용). PR③ 활성.
   // context
   contextInjectionNoReply?: boolean; structuredOutput?: boolean
   // revert (§5)
@@ -218,10 +221,11 @@ interface CapabilityProbe {
 
 | 기능 | OpenCode | Claude Code |
 |---|---|---|
-| continue/resume/fork | 동일 표면 없음 `[미확인]` | `continueConversation`/`resume`/`forkSession` `[검증]` |
-| children / summarize / abort / share / init | `session.*` `[검증]` | 대응 `[미확인]` |
-| noReply context injection | `session.prompt({noReply:true})` `[검증]` | `[미확인]` |
-| structured output | `session.prompt({format})` `[검증]` | 대응 개념 존재, 형식 `[미확인]` |
+| continue/resume/fork | 동일 표면 없음 `[미확인-opencode]` | `continue`/`resume`/`forkSession` (typescript.md Options) `[검증-타입]` |
+| children / summarize / share | `session.*` `[검증]` | Claude SDK 대응 함수 없음 `[N/A-claude]` |
+| abort / init | `session.*` `[검증]` | AbortController / system:init `[검증-런타임]` |
+| noReply context injection | `session.prompt({noReply:true})` `[검증]` | `systemPrompt.append` (typescript.md:484) — 형식 `[미확인-런타임]` |
+| structured output | `session.prompt({format})` `[검증]` | `Options.outputFormat` json_schema (typescript.md:465) `[검증-타입]`, 출력 형식 `[미확인-런타임]` |
 
 ## 5. RevertManager — 되돌리기 의미 분리 (핵심)
 
@@ -379,21 +383,21 @@ type ModelProviderConfig =
 
 ## 13. 구현 전 SDK 타입 확정 절차 (`[미확인]` 일괄)
 
-> **선결 제약**: 두 SDK 가 현재 미설치. 아래 항목은 실제 타입 파일을 받아 확정한 **뒤** 구현에 들어간다.
+> **선결 제약 (교정 2026-06)**: **Claude SDK 타입은 리포의 spec 문서(`docs/spec/claude/agent-sdk/typescript.md`)로 확정 가능**하므로 Claude 축 항목은 아래 표에서 spec 대조로 해소했다. **OpenCode SDK 만 여전히 미설치**라 그쪽 항목은 실제 타입 파일을 받아 확정한 **뒤** 구현에 들어간다.
 
-| 항목 | 확인 위치 |
-|---|---|
-| OpenCode `event.type` enum 전수 (§2 매핑 완성) | `packages/sdk/js/src/gen/types.gen.ts` |
-| Claude 권한 평가 순서 단일화(hooks/ask/Pre·PostToolUse 포함) | 대상 SDK 버전 permissions 문서 |
-| Claude usage/cost 노출 형식 (§8) | `result` 메시지 타입 |
-| OpenCode usage/cost 노출 형식 | `session.message` / `Message` 타입 |
-| OpenCode mode setter 부재 확정 (§3) | `types.gen.ts` / 서버 OpenAPI |
-| Claude children/summarize/abort/share/init 대응 (§4) | Claude SDK 타입 |
-| OpenCode file checkpoint 대응 (§5) | 서버 OpenAPI |
-| `session.summarize` side effect (§3 분류) | `types.gen.ts` / 서버 동작 |
-| `forkSession`/`persistSession`/`includePartialMessages` 정확한 옵션명 | Claude SDK 타입 |
-| Claude `ToolPermissionContext.signal`(abort) 실사용 가능 여부 | Claude SDK 타입 (현재 "future" 표기) |
-| Claude structured output 형식 (FRONTEND `StructuredOutputState` 흡수 가능?) | Claude SDK 타입 |
+| 항목 | 확인 위치 | 상태 |
+|---|---|---|
+| OpenCode `event.type` enum 전수 (§2 매핑 완성) | `packages/sdk/js/src/gen/types.gen.ts` | `[미확인-opencode]` |
+| Claude 권한 평가 순서 단일화(hooks/ask/Pre·PostToolUse 포함) | 대상 SDK 버전 permissions 문서 | `[부분 불확실]`(공식 문서 2서술 병존, §3) |
+| Claude usage/cost 노출 형식 (§8) | `result` 메시지 타입 (typescript.md) | `[미확인-런타임]`(타입 존재, 형식 구동검증) |
+| OpenCode usage/cost 노출 형식 | `session.message` / `Message` 타입 | `[미확인-opencode]` |
+| OpenCode mode setter 부재 확정 (§3) | `types.gen.ts` / 서버 OpenAPI | `[미확인-opencode]` |
+| Claude children/summarize/share 대응 (§4) | typescript.md (대응 함수 없음) | `[N/A-claude]` 확정 — abort/init 은 `[검증-런타임]` |
+| OpenCode file checkpoint 대응 (§5) | 서버 OpenAPI | `[미확인-opencode]` |
+| `session.summarize` side effect (§3 분류) | `types.gen.ts` / 서버 동작 | `[미확인-opencode]` |
+| `forkSession`/`persistSession`/`includePartialMessages` 정확한 옵션명 | typescript.md:457/470/460 | `[검증-타입]` 확정 |
+| Claude `ToolPermissionContext.signal`(abort) 실사용 가능 여부 | typescript.md (canUseTool signal) | `[미확인-런타임]`(타입 존재, 실사용 구동검증) |
+| Claude structured output 형식 (FRONTEND `StructuredOutputState` 흡수 가능?) | typescript.md:465 `outputFormat` | `[검증-타입]` 형식 존재 — 출력 매핑 `[미확인-런타임]` |
 
 ---
 
@@ -415,7 +419,7 @@ type ModelProviderConfig =
 
 §4 의 capability 타입은 런타임에 탐지해 `AppSession.capabilities` 에 캐시하고, UI 는 `false` 인 액션 버튼을 **사전 비활성/숨김**(사후 `capability_unsupported` 에러보다 UX 우월).
 
-> **현재 구현 (claude 단독).** 두 SDK 미설치(§13)라 *런타임 introspection* 대신 **정적 서술자**(`CLAUDE_DESCRIPTOR`)를 반환한다. 영속은 **computed-on-the-fly** — `AppSession.capabilities` DB 컬럼 없이 `backend:list` 응답에 매번 다시 계산해 붙인다(capabilities 는 세션별 데이터가 아니라 백엔드의 함수). `discover()` 가 async 인 건 opencode SDK 메서드 introspection seam 을 위함. UI 소비자: `BackendStatus` 지원-기능 지표 + Composer cancel 버튼 `cancellation.sessionAbort` 게이팅(claude 는 true 라 오늘 실효 0 — 미래 백엔드 seam).
+> **현재 구현 (claude 단독).** 능력은 backend 별 고정이고 타입 확정분은 spec 문서로 검증되므로 *런타임 introspection* 대신 **정적 서술자**(`CLAUDE_DESCRIPTOR`)를 반환한다(§13 교정). 영속은 **computed-on-the-fly** — `AppSession.capabilities` DB 컬럼 없이 `backend:list` 응답에 매번 다시 계산해 붙인다(capabilities 는 세션별 데이터가 아니라 백엔드의 함수). `discover()` 가 async 인 건 opencode SDK 메서드 introspection seam 을 위함. UI 소비자: `BackendStatus` 지원-기능 지표 + Composer cancel 버튼 `cancellation.sessionAbort` 게이팅(claude 는 true 라 오늘 실효 0 — 미래 백엔드 seam).
 
 | Capability | 탐지 방법 |
 |---|---|
