@@ -78,9 +78,24 @@ export type ChatEvent =
 // 모든 이벤트가 sessionId(멀티세션 라우팅)·provider 를 갖고, tool 은 toolRunId 로 start/complete
 // 를 매칭한다. ChatEvent(위, SDK 모양)는 어댑터 내부 중간표현으로 남고, 어댑터가 chatEventToNormalized
 // 로 변환해 이 타입을 yield 한다. OpenCode 는 provider:'opencode' 매퍼가 같은 union 으로 정규화(seam).
-// permission.requested/resolved 1급 이벤트(PermissionAction·ApprovalResolution)는 B2 에서 추가한다.
-// ask_question/plan_review 는 B2 까지의 전환기 variant — B2 가 permission.requested(origin:'agent')로 흡수.
+// 권한 요청은 permission.requested 1급 이벤트(origin 으로 agent/app 구분, action.kind 로 종류 구분).
 export type ProviderId = 'claude-code' | 'opencode'
+
+// 권한 요청의 출처. agent = 에이전트 도구 발화(AskUserQuestion·ExitPlanMode·일반 도구),
+// app = 앱이 합성한 명령(slash command 등 — AppCommandPolicy 가 분류).
+export type PermissionOrigin = 'agent' | 'app'
+
+// provider 중립 권한 액션. claude 의 AskUserQuestion/ExitPlanMode/일반도구를 이 3종으로 합성한다.
+export type PermissionAction =
+  | { kind: 'ask_question'; request: AskQuestionRequest }
+  | { kind: 'plan_review'; request: PlanReviewRequest }
+  | { kind: 'tool_approval'; toolName: string; input: unknown }
+
+// 권한 해소의 2분기(4값 모델 폐기 — provider-runtime.md §3). claude PermissionResult 와 동형:
+// allow{updatedInput?} ↔ behavior:'allow', deny{message?,interrupt?} ↔ behavior:'deny'.
+export type ApprovalResolution =
+  | { behavior: 'allow'; updatedInput?: unknown }
+  | { behavior: 'deny'; message?: string; interrupt?: boolean }
 
 export type NormalizedEvent =
   | {
@@ -125,9 +140,23 @@ export type NormalizedEvent =
       provider: ProviderId
       error: { code: ErrorCode; message: string; recoverable: boolean }
     }
-  // 전환기 variant (B2 가 permission.requested 로 흡수).
-  | { type: 'ask_question'; provider: ProviderId; sessionId?: string; data: AskQuestionRequest }
-  | { type: 'plan_review'; provider: ProviderId; sessionId?: string; data: PlanReviewRequest }
+  // 권한 요청/해소 1급 이벤트 — AskUserQuestion·ExitPlanMode·일반 도구 게이트를 단일 경로로 통합.
+  // approvalId 로 요청↔응답을 라우팅한다(renderer 는 이 id 로 askRespond/planRespond 회신).
+  | {
+      type: 'permission.requested'
+      provider: ProviderId
+      sessionId?: string
+      approvalId: string
+      origin: PermissionOrigin
+      action: PermissionAction
+    }
+  | {
+      type: 'permission.resolved'
+      provider: ProviderId
+      sessionId?: string
+      approvalId: string
+      resolution: ApprovalResolution
+    }
 
 // AskUserQuestion (백엔드 중립) — SDK 입력 스키마(docs/agent-sdk/user-input)를 그대로 반영.
 // 한 호출에 1~4 질문, 각 질문 2~4 옵션. 미리보기(previewFormat)는 v1 미지원.

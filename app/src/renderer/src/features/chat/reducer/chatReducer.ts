@@ -252,17 +252,27 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           return base
         }
 
-        case 'ask_question':
-          return { ...state, pendingAsks: [...state.pendingAsks, ev.data] }
-
-        case 'plan_review':
-          // 계획 도착 → 액션 게이트 설정 + 우측 타일에 내용 표시 + 자동 오픈(auto-trigger).
-          return {
-            ...state,
-            pendingPlanReview: ev.data,
-            planContent: ev.data.plan,
-            planTileOpen: true
+        case 'permission.requested':
+          // 권한 요청을 종류별 UI 상태로 분기. approvalId 는 action.request.requestId 와 동일하므로
+          // 카드는 기존대로 askRespond/planRespond(requestId) 로 회신한다.
+          if (ev.action.kind === 'ask_question') {
+            return { ...state, pendingAsks: [...state.pendingAsks, ev.action.request] }
           }
+          if (ev.action.kind === 'plan_review') {
+            // 계획 도착 → 액션 게이트 설정 + 우측 타일에 내용 표시 + 자동 오픈(auto-trigger).
+            return {
+              ...state,
+              pendingPlanReview: ev.action.request,
+              planContent: ev.action.request.plan,
+              planTileOpen: true
+            }
+          }
+          // tool_approval 은 현재 자동 통과(전용 UI 없음 — C2 ApprovalCard 일반화에서 표면화).
+          return state
+
+        case 'permission.resolved':
+          // 해소 이벤트는 audit/telemetry 용 — 카드는 respond 시 로컬 RESOLVE_* 로 이미 닫힌다.
+          return state
 
         case 'error':
           // 턴이 끊기면 보류 게이트(질문/계획)는 main 이 broker abort 로 정리하므로 카드도 비운다.

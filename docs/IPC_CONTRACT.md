@@ -208,19 +208,23 @@ interface RuntimeStatus {
 | `skills:reload` | **Future** | 핫리로드 도입 시 |
 | `routines:*` | **Future** | Sidebar nav 의 `/routines` placeholder 가 활성 페이지로 승격될 때 |
 
-## 3. ChatEvent variant 정의
+## 3. NormalizedEvent variant 정의
 
-`app/src/shared/ipc.ts:37-47` 의 discriminated union 그대로.
+> **표준화 스테이지 B (provider-runtime.md §2)**: `orca:chat:event` 의 와이어 타입이 SDK 모양의 `ChatEvent` 에서 provider 중립 **`NormalizedEvent`** 로 전환됐다. 모든 이벤트가 `sessionId`·`provider` 를 갖고, tool 은 `toolRunId` 로 start/complete 를 매칭한다. `ChatEvent` 는 claude 어댑터 내부 중간표현으로만 잔존하고, 어댑터가 `chatEventToNormalized` 로 변환해 yield 한다. `app/src/shared/ipc.ts` 의 `NormalizedEvent` union 이 정본.
 
-| `type` | `data` 스키마 | 발생 시점 | Renderer 처리 (`chatReducer.ts`) |
+| `type` | 필드(공통: `sessionId`·`provider`) | 발생 시점 | Renderer 처리 (`chatReducer.ts`) |
 |---|---|---|---|
-| `init` | `{ sessionId: string; model?: string; cwd: string }` | 어댑터의 첫 메시지 (SDK `SDKSystemMessage.init`) | `state.sessionId` 저장, `state.cwd` 갱신 |
-| `assistant_delta` | `{ text: string }` | LLM 스트리밍 (SDK `SDKPartialAssistantMessage.text_delta`) | `pendingDelta += text` (16ms throttle 리렌더) |
-| `assistant_message` | `{ text: string }` | LLM 턴 종료 (SDK `SDKAssistantMessage` 완성본의 text block) | `pendingDelta` → `messages` 의 새 assistant 메시지로 commit |
-| `tool_use` | `{ toolUseId: string; name: string; input: unknown }` | LLM 의 도구 호출 (SDK `SDKAssistantMessage` 의 `tool_use` block) | 현재 assistant 메시지에 ToolCall 부착 |
-| `tool_result` | `{ toolUseId: string; output: unknown; isError: boolean; durationMs?: number }` | 도구 실행 완료 (SDK `SDKUserMessage` 의 `tool_result` block) | `toolUseId` 매칭하여 ToolCall 업데이트 |
-| `result` | `{ usage?: { inputTokens: number; outputTokens: number } }` | 어댑터 턴 종료 (SDK `SDKResultMessage`) | `inflight = false`, `pendingInputTokens` 갱신 |
-| `error` | `{ code: ErrorCode; message: string; recoverable: boolean }` | 어댑터 catch 또는 SDK 에러 | `state.error` 설정, `inflight = false` |
+| `session.updated` | `patch: { model?; cwd? }` | 어댑터의 첫 메시지 (SDK `SDKSystemMessage.init`) | `state.sessionId` 저장, `state.cwd` 갱신 |
+| `message.delta` | `delta: { text }` | LLM 스트리밍 (SDK `text_delta`) | `pendingDelta += text` |
+| `message.completed` | `message: { text }` | LLM 턴 종료 (SDK `SDKAssistantMessage` text block) | `pendingDelta` → 새 assistant 메시지로 commit |
+| `tool.call.started` | `toolRunId; toolName; args` | LLM 도구 호출 (SDK `tool_use` block) | 현재 메시지에 ToolCall 부착(키=`toolRunId`) |
+| `tool.call.completed` | `toolRunId; result; isError; durationMs?` | 도구 실행 완료 (SDK `tool_result` block) | `toolRunId` 매칭하여 ToolCall 업데이트 |
+| `telemetry` | `usage?: { inputTokens; outputTokens }` | 어댑터 턴 종료 (SDK `SDKResultMessage`) | `inflight = false`, `pendingInputTokens` 갱신 |
+| `error` | `error: { code; message; recoverable }` (`sessionId?`) | 어댑터 catch 또는 SDK 에러 | `state.error` 설정, `inflight = false` |
+| `permission.requested` | `approvalId; origin; action: PermissionAction` | AskUserQuestion·ExitPlanMode·일반 도구 게이트(canUseTool) | `action.kind` 로 분기 → `pendingAsks` / `pendingPlanReview`. 응답은 `askRespond`/`planRespond`(approvalId=requestId) |
+| `permission.resolved` | `approvalId; resolution: ApprovalResolution` | 권한 해소(audit/telemetry) | no-op(카드는 respond 시 로컬 RESOLVE_* 로 닫힘) |
+
+`PermissionAction` = `{kind:'ask_question', request} | {kind:'plan_review', request} | {kind:'tool_approval', toolName, input}`. `ApprovalResolution` = `{behavior:'allow', updatedInput?} | {behavior:'deny', message?, interrupt?}` (claude `PermissionResult` 와 동형).
 
 ## 4. 에러 코드
 

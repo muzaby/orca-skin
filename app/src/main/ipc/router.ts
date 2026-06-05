@@ -45,6 +45,7 @@ import { initDb, type DbQueries } from '../db'
 import { PythonRuntime, PY_AGENT_RULES } from '../runtime'
 import { CapabilityBuilder } from '../capabilities/builder'
 import { InteractionBroker } from '../ask/broker'
+import { agentPermissionRequest } from '../runtime-events/permission-bridge'
 import type {
   AskQuestion,
   AskResult,
@@ -264,11 +265,13 @@ export class IpcRouter {
     const wc = event.sender
     const askUser = async (questions: AskQuestion[]): Promise<AskResult> => {
       const requestId = randomUUID()
-      this.sendChatEvent(wc, {
-        type: 'ask_question',
-        provider: 'claude-code',
-        data: { requestId, questions }
-      })
+      this.sendChatEvent(
+        wc,
+        agentPermissionRequest('claude-code', requestId, {
+          kind: 'ask_question',
+          request: { requestId, questions }
+        })
+      )
       const result = await this.ask.register(requestId, controller.signal, { type: 'skipped' })
       // 답변을 큐에 적재 후 즉시 페어링 시도(tool_use id 가 먼저 와 있을 수도 있다).
       if (result.type === 'answered') {
@@ -284,11 +287,13 @@ export class IpcRouter {
     // turn abort(취소/거부) 시 broker 가 {rejected} 로 fallback.
     const reviewPlan = (plan: string): Promise<PlanDecision> => {
       const requestId = randomUUID()
-      this.sendChatEvent(wc, {
-        type: 'plan_review',
-        provider: 'claude-code',
-        data: { requestId, plan }
-      })
+      this.sendChatEvent(
+        wc,
+        agentPermissionRequest('claude-code', requestId, {
+          kind: 'plan_review',
+          request: { requestId, plan }
+        })
+      )
       return this.plan.register(requestId, controller.signal, { type: 'rejected' })
     }
 
