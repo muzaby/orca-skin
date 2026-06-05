@@ -12,7 +12,7 @@ import type {
 } from '../../shared/ipc'
 import { claudeToNormalized, detectError, type MapContext } from './claude-map'
 import type { SessionAdapter } from './types'
-import type { TurnRequest } from '../capabilities/types'
+import type { TurnRequest } from '../extensions/types'
 import type { Resolver } from '../mcp/expand'
 import { toClaudeConfig } from '../mcp/convert'
 import { isRiskyTool } from '../runtime-events/permission-bridge'
@@ -125,7 +125,7 @@ export class ClaudeCodeAdapter implements SessionAdapter {
   }
 
   async *sendMessage(req: TurnRequest): AsyncIterable<NormalizedEvent> {
-    const { sessionId, text, cwd, signal, capabilities, env, requestApproval, permissionMode } = req
+    const { sessionId, text, cwd, signal, extensions, env, requestApproval, permissionMode } = req
 
     // 매퍼 컨텍스트 — sessionId 는 init(=session.updated)에서 갱신된다(resume 면 초기값이 그 id).
     const ctx: MapContext = { provider: 'claude-code', sessionId: sessionId ?? '', cwd }
@@ -137,7 +137,7 @@ export class ClaudeCodeAdapter implements SessionAdapter {
 
     // ${VAR} 확장 + 비밀 복호화는 여기(어댑트 시점)에서만. 미확장 정규 소스를 받아
     // resolver 로 확장 → Claude 타깃(ClaudeMcpConfig). 미해결 변수로 드롭된 서버는 경고 로깅.
-    const { config: mcpConfig, dropped } = toClaudeConfig(capabilities.mcp, this.makeResolver())
+    const { config: mcpConfig, dropped } = toClaudeConfig(extensions.mcp, this.makeResolver())
     for (const d of dropped) {
       console.warn(`[mcp] 서버 '${d.name}' 를 건너뜀: ${d.reason}`)
     }
@@ -150,11 +150,11 @@ export class ClaudeCodeAdapter implements SessionAdapter {
           includePartialMessages: true,
           cwd,
           abortController,
-          ...adaptSystemPrompt(capabilities.systemPromptAppend),
+          ...adaptSystemPrompt(extensions.systemPromptAppend),
           ...adaptMcp(mcpConfig),
           ...adaptSkills(),
           ...(env ? { env } : {}),
-          ...adaptHooks(capabilities.hooks),
+          ...adaptHooks(extensions.hooks),
           // canUseTool — AskUserQuestion·ExitPlanMode·위험 도구를 requestApproval 로 게이트하고
           // 안전 도구는 allow passthrough. 콜백 미주입(opencode 등) 시 옵션 자체를 생략해 현행
           // 자동 통과 동작을 유지한다.

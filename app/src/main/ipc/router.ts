@@ -42,7 +42,7 @@ import { scanSkills } from '../skills/scan'
 import { listDir } from '../files/scan'
 import { initDb, type DbQueries } from '../db'
 import { PythonRuntime, PY_AGENT_RULES } from '../runtime'
-import { CapabilityBuilder } from '../capabilities/builder'
+import { ExtensionBuilder } from '../extensions/builder'
 import { InteractionBroker } from '../ask/broker'
 import { agentPermissionRequest } from '../runtime-events/permission-bridge'
 import type {
@@ -97,14 +97,14 @@ export class IpcRouter {
   // cwd. 현재는 home 으로 고정 — 향후 사용자 선택 디렉토리로 확장 가능.
   private defaultCwd: string = ''
   private db!: DbQueries
-  // Tier A 조립기. db 가 !-asserted 라 field-init 시점엔 undefined → start() 에서 initDb() 이후 생성.
-  private capabilities!: CapabilityBuilder
+  // Extension 계층 조립기. db 가 !-asserted 라 field-init 시점엔 undefined → start() 에서 initDb() 이후 생성.
+  private extensions!: ExtensionBuilder
 
   async start(): Promise<void> {
     this.db = initDb()
     // 빌더는 db 인스턴스가 필요해 여기서 생성(field-init 금지). skills 는 lazy getter 라 스캔
     // 완료 전에 만들어도 무방 — 턴 실행 시점에 최신 skillsCache 를 읽는다.
-    this.capabilities = new CapabilityBuilder(
+    this.extensions = new ExtensionBuilder(
       this.db,
       this.mcp,
       () => this.skillsCache,
@@ -249,14 +249,14 @@ export class IpcRouter {
       turn.pendingUserText = null
     }
 
-    // 백엔드 중립 보조기능(지침+PY_AGENT_RULES · MCP · skills · hooks)을 빌더가 조립.
+    // 백엔드 중립 확장 리소스(지침+PY_AGENT_RULES · MCP · skills · hooks)를 빌더가 조립.
     // resume 면 projectId 는 세션 바인딩에서 조회되므로 null 을 넘긴다.
-    const capabilities = this.capabilities.build(
+    const extensions = this.extensions.build(
       parsed.data.sessionId,
       parsed.data.sessionId ? null : parsed.data.projectId
     )
 
-    // Python 런타임 env (uv 격리) 는 capability 가 아니라 TurnRequest 직속. ready 전이면 SDK 기본 env.
+    // Python 런타임 env (uv 격리) 는 확장 묶음이 아니라 TurnRequest 직속. ready 전이면 SDK 기본 env.
     const pyEnv = this.runtime.getEnv() ?? undefined
 
     // 단일 권한 승인 위임 — 어댑터의 canUseTool 이 ask_question·plan_review·tool_approval 중
@@ -308,7 +308,7 @@ export class IpcRouter {
         text: parsed.data.text,
         cwd,
         signal: controller.signal,
-        capabilities,
+        extensions,
         env: pyEnv,
         requestApproval,
         permissionMode: parsed.data.permissionMode
