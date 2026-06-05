@@ -31,7 +31,7 @@ Phase 3++ 구현은 claude-code SDK 에 강하게 결합돼 있어, 범용(OpenC
 
 **② 예시.** "Bash 한 줄 실행" 한 턴이 현재는 `tool_use` → `tool_result` 두 `ChatEvent` 로 흐른다. 정규화 후엔 `sessionId`/`provider`/`toolRunId` 를 가진 `tool.call.started` → `tool.call.completed` 가 되어, 같은 `toolRunId` 로 start/complete 를 매칭하고 어느 provider/세션에서 왔는지 식별한다.
 
-**③ 현재 코드 갭.** `ChatEvent`(`src/shared/ipc.ts:59-75`)는 `init` variant 만 `sessionId` 를 갖고 나머지는 단일 세션 가정. `provider` 필드 없음. tool 이벤트는 `tool_use`/`tool_result` 로 분리돼 있으나 정규 `toolRunId` 명명·origin 개념 없음.
+**③ 현재 코드 갭.** 스테이지 B1/B1′ (`f61658f`·`3973112`) 로 와이어가 `NormalizedEvent`(`session.updated`·`message.delta/completed`·`tool.call.started/completed`·`telemetry`·`error`)로 전면 전환되고 매핑이 `adapters/claude-map.ts` 의 `claudeToNormalized` 로 이관됨(구 `ChatEvent` 타입 완전 제거, PR #47). `sessionId`/`toolRunId` 정규화 축 확보. **잔여 갭**: `provider` 축은 claude 고정값(`ProviderId` 에 opencode seam만).
 
 **④ 인터페이스 (정본).**
 
@@ -53,9 +53,9 @@ type NormalizedEvent =
 type ProviderEventMapper = { provider: ProviderId; map(raw: unknown): NormalizedEvent[] }
 ```
 
-**현행 `ChatEvent`(9종) ↔ `NormalizedEvent` 전수 매핑표** `[검증: 현재 코드]`:
+**claude SDK 메시지 ↔ `NormalizedEvent` 매핑표** (`adapters/claude-map.ts` 의 `claudeToNormalized` 로 구현 — SDK 메시지를 `NormalizedEvent` 로 **직접** 정규화, 구 `ChatEvent` 중간표현 제거) `[검증: 현재 코드]`:
 
-| 현행 `ChatEvent` | → `NormalizedEvent` | 비고 |
+| claude SDK 메시지(subtype) | → `NormalizedEvent` | 비고 |
 |---|---|---|
 | `init` | `session.updated`(최초) — `sessionId`/`model`/`cwd` 주입 | 현재 sessionId 출처 |
 | `assistant_delta` | `message.delta` | 스트리밍 텍스트 |
@@ -77,7 +77,7 @@ type ProviderEventMapper = { provider: ProviderId; map(raw: unknown): Normalized
 
 **② 예시.** 현재 자동 allow 되는 `Bash rm -rf build/` 가 `permission.requested{origin:'agent', action:{kind:'shell', label:'rm -rf build/', risk:'high'}}` 로 surface → 렌더러 ApprovalCard(../frontend/ux-domains.md §1.6) 가 뜨고, 사용자 결정이 콜백으로 회신된다.
 
-**③ 현재 코드 갭.** `makeCanUseTool`(`src/main/adapters/claude-code.ts`)은 `AskUserQuestion`/`ExitPlanMode` 두 도구만 `askUser`/`reviewPlan` 콜백으로 surface 하고 **그 외 전부 `{behavior:'allow'}` passthrough**. 즉 일반 tool 승인 경로가 없다. `allowedTools=mcp__<name>__*` 와일드카드(adapters.md §1.3)도 같은 "차단 안 함" 전제.
+**③ 현재 코드 갭.** 스테이지 B2 (`a78a247`) 로 `permission.requested`/`permission.resolved` 가 **1급 `NormalizedEvent`** 가 됨 — router 가 ask/plan 을 `permission.requested`(`approvalId=requestId`)로 emit, reducer 가 `action.kind`(ask_question/plan_review/tool_approval 3종)로 분기. `runtime-events/permission-bridge.ts` 가 합성·`AppCommandPolicy` 3분기 seam 보유. **잔여 갭**: `makeCanUseTool`(`src/main/adapters/claude-code.ts`)은 여전히 `AskUserQuestion`/`ExitPlanMode` 두 도구만 surface 하고 **그 외 전부 `{behavior:'allow'}` passthrough** — 즉 `tool_approval` 일반 게이트는 seam(미활성). `allowedTools=mcp__<name>__*` 와일드카드(adapters.md §1.3)도 같은 "차단 안 함" 전제.
 
 **④ 인터페이스 (정본).**
 
@@ -249,7 +249,7 @@ interface CancellationCapability {
 
 **① 설명.** `error` 이벤트는 분류돼야 재시도/표시 정책을 결정할 수 있다. 8 category + retryable 플래그.
 
-**③ 현재 코드 갭.** 현행은 `detectError()`(`src/main/adapters/claude-code.ts`) 휴리스틱(401/OAuth/expired 정규식 → `auth.expired`)과 `ErrorCode` enum(`sdk.*`/`cli.*`/`auth.expired`/`protocol.parse`/`internal`)뿐 — 정규 분류기/`retryable` 없음.
+**③ 현재 코드 갭.** 현행은 `detectError()`(`src/main/adapters/claude-code.ts`) 휴리스틱(401/OAuth/expired 정규식 → `auth.expired`)과 `ErrorCode` enum(`sdk.*`/`auth.expired`/`protocol.parse`/`internal`; 구 `cli.*` 코드는 PR #47 에서 제거)뿐 — 정규 분류기/`retryable` 없음.
 
 **④ 인터페이스 (정본).**
 

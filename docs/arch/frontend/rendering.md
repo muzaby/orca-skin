@@ -54,7 +54,7 @@
 
 **② 예시.** OpenCode `file.read` → `{ type:'raw'|'patch', content }` `[검증]`. `selectFileRenderer(read) = read.type==='patch' ? 'diff' : 'file_preview'`. `find.text/files/symbols` 는 agent tool result 일 수도, app-originated direct search(../backend/provider-runtime.md §17 DirectBackendAPI)일 수도 있어 둘 다 `SearchCard` 로 가되 `origin` 배지를 표시.
 
-**③ 현재 코드 갭.** 현행은 **registry 없음** — `features/chat/components/transcript/ToolCard.tsx` 가 tool **이름** 으로 switch-case 분기(Bash/PowerShell→`BashBody`, Write/Edit/MultiEdit→`DiffBody`, Read→`FileBody`, AskUserQuestion→`AskBody`, default→`KeyValueBody`). semantic kind 추상·plugin 등록 패턴 없음.
+**③ 현재 코드 갭.** 스테이지 C1 (`691f6bb`) 로 `features/chat/components/transcript/registry.ts` 의 **`ToolRendererRegistry` 도입** — `ToolCard` 가 tool 이름 switch 대신 `registry.resolve(name).Body` 로 디스패치. 현행 `RenderableKind = command | file_edit | file_read | ask | generic` (정본 union 의 **부분집합** — 나머지 kind 는 seam), `match` 는 provider 중립 도구이름. plugin 등록 패턴(`register`) 확보. 매칭은 순수 함수라 단위 테스트 대상.
 
 **④ 인터페이스 (렌더링 계약).**
 
@@ -78,7 +78,7 @@ interface ToolRendererRegistry { register(r: ToolRenderer): void; resolve(input:
 | `FilePreviewCard` | `file.read` `raw` | `FileBody` |
 | `DiffCard` | `file.read` `patch`, edit/write | `DiffBody` |
 | `SearchCard` | `find.*`, grep/glob | (없음) |
-| `ApprovalCard` | `permission.requested` | `PlanApprovalCard`(plan 한정) — ux-domains.md §1.6 |
+| `ApprovalCard` | `permission.requested` | `ApprovalCard`(구현됨, plan_review) — tool_approval seam, ux-domains.md §1.6 |
 | `AgentTaskCard` / `SessionGraphCard` / `ContextInjectionCard` | subagent / `children`·`fork`·`revert` / `noReply` | (없음) |
 | `StructuredOutputCard` | `format:json_schema` 결과 | (없음) — §1.7 |
 | `ErrorCard` / `TelemetryPanel` | error / usage·cost | `state.error` 카드 / `UsageCircle`(비율만) — §1.9 |
