@@ -9,7 +9,7 @@ interface PlanTileProps {
 }
 
 // 채팅 타일 우측의 분할 tile. ExitPlanMode 가 제출한 계획(plan 마크다운)을 *내용 전용*으로
-// 표시한다. 승인/수정/거부 액션은 Composer 의 입력창 교체형 승인 카드(PlanApprovalCard)로
+// 표시한다. 승인/수정/거부 액션은 Composer 의 입력창 교체형 승인 카드(ApprovalCard)로
 // 이전됨 — 여기엔 헤더 복사/닫기 + 본문만 남는다.
 export function PlanTile({ chat }: PlanTileProps): React.JSX.Element {
   const { state, closePlanTile } = chat

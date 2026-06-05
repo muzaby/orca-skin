@@ -3,17 +3,23 @@ import { Button } from '../../../shared/ui/Button'
 import { YellowDot } from './transcript/YellowDot'
 import type { UseChat } from '../hooks/useChat'
 
-interface PlanApprovalCardProps {
-  chat: UseChat
+// ApprovalCard — Composer 의 입력 패널을 *대체*하는 승인 게이트(rendering.md §7.6 일반화).
+// permission.requested 의 action.kind 별로 분기한다:
+//   - plan_review   : ExitPlanMode 계획 승인(거부/수정…/수락). 현재 구현(아래 PlanApprovalBody).
+//   - tool_approval : 일반 도구 게이트 승인 — seam. 현재 router 는 일반 도구를 자동 통과시키므로
+//                     렌더러까지 도달하지 않는다(B2). pendingApprovals 큐 + 일반 approve/deny 핸들러
+//                     도입 시 활성(후속). 그 전까지는 null.
+//   - ask_question  : 질문 카드는 입력 *위*에 additive 로 뜨는 별도 패턴(AskUserQuestionCard)이라
+//                     입력-대체형인 본 컴포넌트가 아니라 Composer 가 직접 배치한다.
+//
+// Composer 가 key={requestId} 로 재마운트하므로 feedback/reviseOpen 은 계획마다 리셋된다.
+export function ApprovalCard({ chat }: { chat: UseChat }): React.JSX.Element | null {
+  if (chat.state.pendingPlanReview) return <PlanApprovalBody chat={chat} />
+  // tool_approval seam — 활성 시 여기서 일반 승인 본문을 렌더.
+  return null
 }
 
-// plan 모드에서 에이전트가 계획(ExitPlanMode)을 제출하면 Composer 의 입력 패널을 *대체*하는
-// 승인 카드. Claude Code 웹의 .epitaxy-approval-card 미러.
-// - 헤더: amber dot + 상태 문구 + (패널이 닫혀 있으면) "플랜 열기".
-// - 액션: 거부(턴 중단) / 수정…(피드백 textarea expand → 에이전트 재계획) / 수락(실행).
-// - Ctrl/Cmd+Enter = 수락. (오발 방지로 단순 Enter 는 바인딩하지 않는다.)
-// Composer 가 key={requestId} 로 재마운트하므로 feedback/reviseOpen 은 계획마다 리셋된다.
-export function PlanApprovalCard({ chat }: PlanApprovalCardProps): React.JSX.Element | null {
+function PlanApprovalBody({ chat }: { chat: UseChat }): React.JSX.Element | null {
   const { state, approvePlan, revisePlan, rejectPlan, openPlanTile } = chat
   const review = state.pendingPlanReview
   const [feedback, setFeedback] = useState('')
