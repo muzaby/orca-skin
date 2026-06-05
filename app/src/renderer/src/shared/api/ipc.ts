@@ -3,7 +3,7 @@ import type {
   PlanRespond,
   Backend,
   BackendListResult,
-  ChatEvent,
+  NormalizedEvent,
   CreateMcpServerRequest,
   CreateProjectRequest,
   FileEntry,
@@ -28,7 +28,8 @@ import type {
 export const chatApi = {
   send: (req: SendChatMessage): Promise<void> => window.orca.chat.send(req),
   cancel: (sessionId: string): Promise<void> => window.orca.chat.cancel(sessionId),
-  onEvent: (handler: (ev: ChatEvent) => void): (() => void) => window.orca.chat.onEvent(handler)
+  onEvent: (handler: (ev: NormalizedEvent) => void): (() => void) =>
+    window.orca.chat.onEvent(handler)
 }
 
 export const backendApi = {

@@ -74,6 +74,61 @@ export type ChatEvent =
   // 응답(승인/수정/거부)은 planRespond 채널로 회신. (백엔드 중립 — 어댑터가 자기 메커니즘에서 매핑.)
   | { type: 'plan_review'; data: PlanReviewRequest }
 
+// ── NormalizedEvent (provider-runtime.md §2) — 와이어(orca:chat:event)의 정규 이벤트 ─────────
+// 모든 이벤트가 sessionId(멀티세션 라우팅)·provider 를 갖고, tool 은 toolRunId 로 start/complete
+// 를 매칭한다. ChatEvent(위, SDK 모양)는 어댑터 내부 중간표현으로 남고, 어댑터가 chatEventToNormalized
+// 로 변환해 이 타입을 yield 한다. OpenCode 는 provider:'opencode' 매퍼가 같은 union 으로 정규화(seam).
+// permission.requested/resolved 1급 이벤트(PermissionAction·ApprovalResolution)는 B2 에서 추가한다.
+// ask_question/plan_review 는 B2 까지의 전환기 variant — B2 가 permission.requested(origin:'agent')로 흡수.
+export type ProviderId = 'claude-code' | 'opencode'
+
+export type NormalizedEvent =
+  | {
+      type: 'session.updated'
+      sessionId: string
+      provider: ProviderId
+      patch: { model?: string; cwd?: string }
+    }
+  | { type: 'message.delta'; sessionId: string; provider: ProviderId; delta: { text: string } }
+  | {
+      type: 'message.completed'
+      sessionId: string
+      provider: ProviderId
+      message: { text: string }
+    }
+  | {
+      type: 'tool.call.started'
+      sessionId: string
+      provider: ProviderId
+      toolRunId: string
+      toolName: string
+      args: unknown
+    }
+  | {
+      type: 'tool.call.completed'
+      sessionId: string
+      provider: ProviderId
+      toolRunId: string
+      result: unknown
+      isError: boolean
+      durationMs?: number
+    }
+  | {
+      type: 'telemetry'
+      sessionId: string
+      provider: ProviderId
+      usage?: { inputTokens: number; outputTokens: number }
+    }
+  | {
+      type: 'error'
+      sessionId?: string
+      provider: ProviderId
+      error: { code: ErrorCode; message: string; recoverable: boolean }
+    }
+  // 전환기 variant (B2 가 permission.requested 로 흡수).
+  | { type: 'ask_question'; provider: ProviderId; sessionId?: string; data: AskQuestionRequest }
+  | { type: 'plan_review'; provider: ProviderId; sessionId?: string; data: PlanReviewRequest }
+
 // AskUserQuestion (백엔드 중립) — SDK 입력 스키마(docs/agent-sdk/user-input)를 그대로 반영.
 // 한 호출에 1~4 질문, 각 질문 2~4 옵션. 미리보기(previewFormat)는 v1 미지원.
 export interface AskQuestionOption {

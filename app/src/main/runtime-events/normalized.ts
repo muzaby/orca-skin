@@ -1,61 +1,12 @@
-// NormalizedEvent — provider 중립 이벤트 union (provider-runtime.md §2 정본).
+// NormalizedEvent 매퍼 — provider 중립 이벤트(provider-runtime.md §2)의 claude 변환기.
+// 타입(NormalizedEvent·ProviderId)은 와이어 타입이라 shared/ipc.ts 가 정본. 본 파일은 매퍼만.
 //
-// 스테이지 B1: 타입 + 순수 매퍼를 main 내부에 확정한다(아직 IPC 와이어엔 올리지 않는다 — 위험 0).
-// B1' 에서 와이어(orca:chat:event)·reducer·persist 를 이 타입으로 전환하고, B2 에서
-// permission.requested/resolved 1급 이벤트(PermissionAction·ApprovalResolution)를 추가한다.
-//
-// 추상화 본체: 모든 이벤트가 sessionId(멀티세션 라우팅)·provider 를 갖고, tool 은 toolRunId 로
-// start/complete 를 매칭한다. OpenCode 는 provider:'opencode' 매퍼가 같은 union 으로 정규화한다(seam).
+// 스테이지 B1': 어댑터가 SDK 메시지를 normalize()(ChatEvent 중간표현)한 뒤 chatEventToNormalized 로
+// 변환해 NormalizedEvent 를 yield 한다. B2 에서 permission.requested(origin:'agent') 1급 이벤트를 추가.
 
-import type { ChatEvent, ErrorCode } from '../../shared/ipc'
+import type { ChatEvent, NormalizedEvent, ProviderId } from '../../shared/ipc'
 
-export type ProviderId = 'claude-code' | 'opencode'
-
-// B1 스코프 union — claude 매퍼가 실제 생성하는 스트리밍 이벤트. permission.requested/resolved 는
-// B2 에서 PermissionAction·ApprovalResolution 과 함께 추가된다(SSOT §2 의 완전 union 의 부분집합).
-export type NormalizedEvent =
-  | {
-      type: 'session.updated'
-      sessionId: string
-      provider: ProviderId
-      patch: { model?: string; cwd?: string }
-    }
-  | { type: 'message.delta'; sessionId: string; provider: ProviderId; delta: { text: string } }
-  | {
-      type: 'message.completed'
-      sessionId: string
-      provider: ProviderId
-      message: { text: string }
-    }
-  | {
-      type: 'tool.call.started'
-      sessionId: string
-      provider: ProviderId
-      toolRunId: string
-      toolName: string
-      args: unknown
-    }
-  | {
-      type: 'tool.call.completed'
-      sessionId: string
-      provider: ProviderId
-      toolRunId: string
-      result: unknown
-      isError: boolean
-      durationMs?: number
-    }
-  | {
-      type: 'telemetry'
-      sessionId: string
-      provider: ProviderId
-      usage?: { inputTokens: number; outputTokens: number }
-    }
-  | {
-      type: 'error'
-      sessionId?: string
-      provider: ProviderId
-      error: { code: ErrorCode; message: string; recoverable: boolean }
-    }
+export type { NormalizedEvent, ProviderId }
 
 // 매퍼 컨텍스트 — provider 고정, sessionId 는 턴 동안 init(=session.updated)에서 갱신된다.
 // 한 provider 원본 1개가 N개 NormalizedEvent 로 분해될 수 있다(예: assistant = message + tool).

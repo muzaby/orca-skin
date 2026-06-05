@@ -5,7 +5,7 @@ import {
   type PlanRespond,
   type Backend,
   type BackendListResult,
-  type ChatEvent,
+  type NormalizedEvent,
   type CreateMcpServerRequest,
   type CreateProjectRequest,
   type FileEntry,
@@ -29,8 +29,8 @@ import {
 const orca = {
   chat: {
     send: (req: SendChatMessage): Promise<void> => ipcRenderer.invoke(CHANNELS.chatSend, req),
-    onEvent: (handler: (ev: ChatEvent) => void): (() => void) => {
-      const listener = (_e: IpcRendererEvent, ev: ChatEvent): void => handler(ev)
+    onEvent: (handler: (ev: NormalizedEvent) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, ev: NormalizedEvent): void => handler(ev)
       ipcRenderer.on(CHANNELS.chatEvent, listener)
       return () => ipcRenderer.off(CHANNELS.chatEvent, listener)
     },

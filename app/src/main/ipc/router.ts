@@ -19,7 +19,6 @@ import {
   AskRespondSchema,
   PlanRespondSchema,
   type BackendListResult,
-  type ChatEvent,
   type FileEntry,
   type InstallStatus,
   type LoadedMessage,
@@ -46,7 +45,13 @@ import { initDb, type DbQueries } from '../db'
 import { PythonRuntime, PY_AGENT_RULES } from '../runtime'
 import { CapabilityBuilder } from '../capabilities/builder'
 import { InteractionBroker } from '../ask/broker'
-import type { AskQuestion, AskResult, PlanDecision, RuntimeStatus } from '../../shared/ipc'
+import type {
+  AskQuestion,
+  AskResult,
+  NormalizedEvent,
+  PlanDecision,
+  RuntimeStatus
+} from '../../shared/ipc'
 
 interface InflightTurn {
   controller: AbortController
@@ -177,7 +182,7 @@ export class IpcRouter {
     })
   }
 
-  private sendChatEvent(wc: WebContents, ev: ChatEvent): void {
+  private sendChatEvent(wc: WebContents, ev: NormalizedEvent): void {
     if (!wc.isDestroyed()) wc.send(CHANNELS.chatEvent, ev)
   }
 
@@ -190,7 +195,8 @@ export class IpcRouter {
     if (!parsed.success) {
       this.sendChatEvent(event.sender, {
         type: 'error',
-        data: {
+        provider: 'claude-code',
+        error: {
           code: 'internal',
           message: 'invalid chat:send payload',
           recoverable: false
@@ -203,7 +209,8 @@ export class IpcRouter {
     if (!adapter) {
       this.sendChatEvent(event.sender, {
         type: 'error',
-        data: {
+        provider: 'claude-code',
+        error: {
           code: 'cli.not-installed',
           message: '활성 백엔드가 없습니다.',
           recoverable: true
@@ -257,7 +264,11 @@ export class IpcRouter {
     const wc = event.sender
     const askUser = async (questions: AskQuestion[]): Promise<AskResult> => {
       const requestId = randomUUID()
-      this.sendChatEvent(wc, { type: 'ask_question', data: { requestId, questions } })
+      this.sendChatEvent(wc, {
+        type: 'ask_question',
+        provider: 'claude-code',
+        data: { requestId, questions }
+      })
       const result = await this.ask.register(requestId, controller.signal, { type: 'skipped' })
       // 답변을 큐에 적재 후 즉시 페어링 시도(tool_use id 가 먼저 와 있을 수도 있다).
       if (result.type === 'answered') {
@@ -273,7 +284,11 @@ export class IpcRouter {
     // turn abort(취소/거부) 시 broker 가 {rejected} 로 fallback.
     const reviewPlan = (plan: string): Promise<PlanDecision> => {
       const requestId = randomUUID()
-      this.sendChatEvent(wc, { type: 'plan_review', data: { requestId, plan } })
+      this.sendChatEvent(wc, {
+        type: 'plan_review',
+        provider: 'claude-code',
+        data: { requestId, plan }
+      })
       return this.plan.register(requestId, controller.signal, { type: 'rejected' })
     }
 
@@ -292,16 +307,17 @@ export class IpcRouter {
       })) {
         this.persist(turn, ev)
         this.sendChatEvent(event.sender, ev)
-        // AskUserQuestion tool_use 가 도착하면 id 를 페어링 큐에 넣고 답변과 매칭 시도.
-        if (ev.type === 'tool_use' && ev.data.name === 'AskUserQuestion') {
-          turn.askPendingIds.push(ev.data.toolUseId)
+        // AskUserQuestion tool 호출이 도착하면 id 를 페어링 큐에 넣고 답변과 매칭 시도.
+        if (ev.type === 'tool.call.started' && ev.toolName === 'AskUserQuestion') {
+          turn.askPendingIds.push(ev.toolRunId)
           this.flushAskAnswers(turn, event.sender)
         }
       }
     } catch (err) {
       this.sendChatEvent(event.sender, {
         type: 'error',
-        data: {
+        provider: 'claude-code',
+        error: {
           code: 'internal',
           message: err instanceof Error ? err.message : String(err),
           recoverable: false
@@ -325,20 +341,27 @@ export class IpcRouter {
       }
       turn.askResolved.set(toolUseId, a)
       this.db.updateToolCallResult(toolUseId, JSON.stringify(output), 'ok')
-      this.sendChatEvent(wc, { type: 'tool_result', data: { toolUseId, output, isError: false } })
+      this.sendChatEvent(wc, {
+        type: 'tool.call.completed',
+        sessionId: turn.dbSessionId ?? '',
+        provider: 'claude-code',
+        toolRunId: toolUseId,
+        result: output,
+        isError: false
+      })
     }
   }
 
-  // 어댑터가 yield 한 ChatEvent 를 DB 에 기록. tool_use 가 assistant_message 보다
+  // 어댑터가 yield 한 NormalizedEvent 를 DB 에 기록. tool.call.started 가 message.completed 보다
   // 먼저 도착해도 같은 message row 에 묶이도록 currentAssistantMessageId 를 유지한다.
-  // 새 SDKAssistantMessage 의 경계는 assistant_message 완료 시점 또는 tool_result
-  // 도착 시점에서 reset 한다 — SDK 가 한 turn 안에서 (assistant → user(tool_result)
-  // → assistant) 순으로 메시지를 흘리기 때문.
-  private persist(turn: InflightTurn, ev: ChatEvent): void {
+  // 새 SDKAssistantMessage 의 경계는 message.completed 또는 tool.call.completed 도착 시점에서
+  // reset 한다 — SDK 가 한 turn 안에서 (assistant → user(tool_result) → assistant) 순으로 흘리기 때문.
+  private persist(turn: InflightTurn, ev: NormalizedEvent): void {
     const now = Date.now()
     switch (ev.type) {
-      case 'init': {
-        const sessionId = ev.data.sessionId
+      case 'session.updated': {
+        // claude 의 system/init — sessionId 발급 시점. sessions row 생성 + 대기 user 메시지 기록.
+        const sessionId = ev.sessionId
         turn.dbSessionId = sessionId
         const title = turn.pendingUserText ? previewOf(turn.pendingUserText, 60) : null
         this.db.insertSession({
@@ -361,7 +384,7 @@ export class IpcRouter {
         }
         break
       }
-      case 'tool_use': {
+      case 'tool.call.started': {
         if (!turn.dbSessionId) break
         if (turn.currentAssistantMessageId == null) {
           turn.currentAssistantMessageId = this.db.appendMessage({
@@ -373,47 +396,47 @@ export class IpcRouter {
         }
         this.db.appendToolCall({
           messageId: turn.currentAssistantMessageId,
-          toolUseId: ev.data.toolUseId,
-          name: ev.data.name,
-          inputJson: JSON.stringify(ev.data.input ?? null)
+          toolUseId: ev.toolRunId,
+          name: ev.toolName,
+          inputJson: JSON.stringify(ev.args ?? null)
         })
         break
       }
-      case 'assistant_message': {
+      case 'message.completed': {
         if (!turn.dbSessionId) break
         if (turn.currentAssistantMessageId != null) {
-          this.db.updateMessageContent(turn.currentAssistantMessageId, ev.data.text)
+          this.db.updateMessageContent(turn.currentAssistantMessageId, ev.message.text)
         } else {
           turn.currentAssistantMessageId = this.db.appendMessage({
             sessionId: turn.dbSessionId,
             role: 'assistant',
-            content: ev.data.text,
+            content: ev.message.text,
             createdAt: now
           })
         }
-        this.db.updateSessionPreview(turn.dbSessionId, previewOf(ev.data.text), now)
+        this.db.updateSessionPreview(turn.dbSessionId, previewOf(ev.message.text), now)
         turn.currentAssistantMessageId = null
         break
       }
-      case 'tool_result': {
+      case 'tool.call.completed': {
         // 합성으로 이미 답변을 채운 AskUserQuestion id 에 실제 tool_result 가 뒤늦게 오면
         // 저장된 answers 로 재주입해 빈 output 으로 덮어쓰지 않게 한다.
-        const resolved = turn.askResolved.get(ev.data.toolUseId)
+        const resolved = turn.askResolved.get(ev.toolRunId)
         if (resolved) {
-          ev.data.output = {
+          ev.result = {
             answers: resolved.answers,
             ...(resolved.response !== undefined ? { response: resolved.response } : {})
           }
         }
         this.db.updateToolCallResult(
-          ev.data.toolUseId,
-          JSON.stringify(ev.data.output ?? null),
-          ev.data.isError ? 'error' : 'ok'
+          ev.toolRunId,
+          JSON.stringify(ev.result ?? null),
+          ev.isError ? 'error' : 'ok'
         )
         turn.currentAssistantMessageId = null
         break
       }
-      // assistant_delta 는 transient 라 DB 미저장. result / error 는 별도 row 없음.
+      // message.delta 는 transient 라 DB 미저장. telemetry / error / ask_question / plan_review 는 별도 row 없음.
     }
   }
 

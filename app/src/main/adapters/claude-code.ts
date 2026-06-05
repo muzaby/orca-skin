@@ -9,7 +9,14 @@ import {
   type PermissionResult,
   type SDKMessage
 } from '@anthropic-ai/claude-agent-sdk'
-import type { AskQuestion, AskResult, ChatEvent, PlanDecision } from '../../shared/ipc'
+import type {
+  AskQuestion,
+  AskResult,
+  ChatEvent,
+  NormalizedEvent,
+  PlanDecision
+} from '../../shared/ipc'
+import { chatEventToNormalized, type MapContext } from '../runtime-events/normalized'
 import type { SessionAdapter } from './types'
 import type { TurnRequest } from '../capabilities/types'
 import type { Resolver } from '../mcp/expand'
@@ -212,9 +219,12 @@ export class ClaudeCodeAdapter implements SessionAdapter {
     yield { step: 'complete', done: true }
   }
 
-  async *sendMessage(req: TurnRequest): AsyncIterable<ChatEvent> {
+  async *sendMessage(req: TurnRequest): AsyncIterable<NormalizedEvent> {
     const { sessionId, text, cwd, signal, capabilities, env, askUser, reviewPlan, permissionMode } =
       req
+
+    // 매퍼 컨텍스트 — sessionId 는 init(=session.updated)에서 갱신된다(resume 면 초기값이 그 id).
+    const ctx: MapContext = { provider: 'claude-code', sessionId: sessionId ?? '', cwd }
 
     const abortController = new AbortController()
     const onAbort = (): void => abortController.abort()
@@ -249,11 +259,11 @@ export class ClaudeCodeAdapter implements SessionAdapter {
           ...(permissionMode ? { permissionMode } : {})
         }
       })) {
-        for (const ev of normalize(msg, cwd)) yield ev
+        for (const ev of normalize(msg, cwd)) yield* chatEventToNormalized(ev, ctx)
       }
     } catch (err) {
       // 의도적 중단(턴 취소 / 계획 거부)은 에러가 아니므로 error 이벤트를 내지 않는다.
-      if (!abortController.signal.aborted) yield detectError(err)
+      if (!abortController.signal.aborted) yield* chatEventToNormalized(detectError(err), ctx)
     } finally {
       signal?.removeEventListener('abort', onAbort)
     }

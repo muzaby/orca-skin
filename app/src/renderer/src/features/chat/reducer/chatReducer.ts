@@ -1,6 +1,6 @@
 import type {
   AskQuestionRequest,
-  ChatEvent,
+  NormalizedEvent,
   ErrorCode,
   LoadedSession,
   PermissionMode,
@@ -92,7 +92,7 @@ export interface CachedSession {
 
 export type ChatAction =
   | { type: 'SEND_USER_MESSAGE'; text: string }
-  | { type: 'RECV_EVENT'; event: ChatEvent }
+  | { type: 'RECV_EVENT'; event: NormalizedEvent }
   | { type: 'NEW_CHAT'; projectId?: string | null }
   | { type: 'CANCEL_CHAT' }
   | { type: 'CLEAR_ERROR' }
@@ -180,58 +180,58 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'RECV_EVENT': {
       const ev = action.event
       switch (ev.type) {
-        case 'init':
-          // init 도착 시점에 sessionId 가 발급되므로 pendingProjectId 는 역할 종료 (binding 완료).
+        case 'session.updated':
+          // sessionId 발급 시점(claude init) → pendingProjectId 역할 종료(binding 완료). cwd 갱신.
           return {
             ...state,
-            sessionId: ev.data.sessionId,
-            cwd: ev.data.cwd,
+            sessionId: ev.sessionId,
+            cwd: ev.patch.cwd ?? state.cwd,
             pendingProjectId: null
           }
 
-        case 'assistant_delta':
-          return { ...state, pendingDelta: state.pendingDelta + ev.data.text }
+        case 'message.delta':
+          return { ...state, pendingDelta: state.pendingDelta + ev.delta.text }
 
-        case 'assistant_message': {
+        case 'message.completed': {
           // pendingDelta 가 있으면 그것을 최종본으로 교체하고, 아니면 신규 메시지 추가
           const last = state.messages[state.messages.length - 1]
           if (state.pendingDelta && last?.role === 'assistant' && last.content === '') {
             const next = state.messages.slice()
-            next[next.length - 1] = { ...last, content: ev.data.text, createdAt: Date.now() }
+            next[next.length - 1] = { ...last, content: ev.message.text, createdAt: Date.now() }
             return { ...state, messages: next, pendingDelta: '' }
           }
           return {
             ...state,
             messages: [
               ...state.messages,
-              { role: 'assistant', content: ev.data.text, createdAt: Date.now() }
+              { role: 'assistant', content: ev.message.text, createdAt: Date.now() }
             ],
             pendingDelta: ''
           }
         }
 
-        case 'tool_use':
+        case 'tool.call.started':
           return {
             ...state,
             messages: upsertToolCall(state.messages, {
-              toolUseId: ev.data.toolUseId,
-              name: ev.data.name,
-              input: ev.data.input
+              toolUseId: ev.toolRunId,
+              name: ev.toolName,
+              input: ev.args
             })
           }
 
-        case 'tool_result':
+        case 'tool.call.completed':
           return {
             ...state,
-            messages: updateToolResult(state.messages, ev.data.toolUseId, {
-              output: ev.data.output,
-              isError: ev.data.isError,
-              durationMs: ev.data.durationMs
+            messages: updateToolResult(state.messages, ev.toolRunId, {
+              output: ev.result,
+              isError: ev.isError,
+              durationMs: ev.durationMs
             })
           }
 
-        case 'result': {
-          const inputTokens = ev.data.usage?.inputTokens
+        case 'telemetry': {
+          const inputTokens = ev.usage?.inputTokens
           const base = {
             ...state,
             inflight: false,
@@ -268,7 +268,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           // 턴이 끊기면 보류 게이트(질문/계획)는 main 이 broker abort 로 정리하므로 카드도 비운다.
           return {
             ...state,
-            error: ev.data,
+            error: ev.error,
             inflight: false,
             turnStartedAt: null,
             pendingAsks: [],
