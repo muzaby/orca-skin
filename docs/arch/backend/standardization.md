@@ -99,7 +99,7 @@ class OpenCodeEngine {
 └── dist/<engine>/           # ExtensionDeployer 생성물 (편집 금지)
 ```
 
-> **현행 갭 (채택 방향)**: 현재 `ensureOrcaPlugin()`([`skills/plugin-bundle.ts`](../../../app/src/main/skills/plugin-bundle.ts))은 `~/.config/orca/` 에 **직접** `.claude-plugin/plugin.json` + `skills/`·`agents/`·`commands/` 를 머티리얼라이즈한다([adapters.md §2.1](./adapters.md)). **sources/dist 분리도, `mcp/` 서브디렉토리도, AGENTS.md 도 아직 없다.** 본 절은 그 진화 방향이며 코드 변경은 구현 PR 로 미룬다.
+> **구현됨 (스테이지 A)**: sources/dist 분리가 코드에 반영됐다. 경로 헬퍼는 [`config/paths.ts`](../../../app/src/main/config/paths.ts)(`sourcesDir`/`distDir(engine)`/`sourcesMcpDir`/`sourcesHooksDir`/`agentsMdPath` 등), 구 평면 레이아웃 1회 이전은 [`config/migrate-sources.ts`](../../../app/src/main/config/migrate-sources.ts)(`migrateConfigToSources`, 멱등). `mcp.json` 은 `sources/mcp/mcp.json` 으로, AGENTS.md 자리는 `sources/instructions/AGENTS.md`. 구 `ensureOrcaPlugin()`(`skills/plugin-bundle.ts`)은 삭제되고 ExtensionDeployer 로 흡수됐다(§5.2). 부트 순서: `ensureConfigDir → migrateConfigToSources → migrateMcpToFile → deploy('claude-code') → scanSkills`.
 
 ### 5.2 ExtensionDeployer
 
@@ -124,6 +124,8 @@ function deploy(engine: EngineId, opts: DeployOptions): DeployResult {
 | hooks | **변환 없이 엔진별로 복사만** | 표준 부재 (§2) |
 
 `dist/<engine>` 산출물은 편집 대상이 아니다. 기존 파일이 마지막 배포와 다르면(사용자가 손댄 경우) 무단 덮어쓰기를 막기 위해 **항상 백업 후 기록**한다.
+
+> **구현됨 (스테이지 A)**: [`deploy/deployer.ts`](../../../app/src/main/deploy/deployer.ts) 의 `deploy(engine, {dryRun?})` 가 render→validate(MCP 키 이름)→dryRun?plan:backup-then-write 를 수행한다. claude 축: skills/agents/commands/hooks 는 `dist/claude-code/` 로 **복사**, manifest(`.claude-plugin/plugin.json`) 작성, mcp 는 런타임 query 주입이라 **검증만**. backup 은 `.bak` 1개 롤링. [`deploy/conformance.ts`](../../../app/src/main/deploy/conformance.ts) 가 `StandardConformance`(§5.3) + claude 구체값. **claude-only — `engine` 파라미터·`sources/hooks/<engine>` 가 OpenCode seam.** Vitest: `deployer.test.ts`·`conformance.test.ts`·`config/migrate-sources.test.ts`.
 
 > **현행 선례 재사용**: "render sources → engine config" 는 이미 MCP 축에서 구현돼 있다 — `mcp/convert.ts` 의 순수 함수 `toClaudeConfig`/`toOpencodeConfig`(동형 시그니처), `mcp/resolver.ts` 의 `${VAR}` resolver(safeStorage → process.env 2단계), `mcp/expand.ts` 의 `expandEnv`([security.md §1.4](./security.md), [adapters.md §3.1](./adapters.md)). ExtensionDeployer 의 mcp 축은 이 함수들을 *호출*하면 되고 새로 발명하지 않는다.
 

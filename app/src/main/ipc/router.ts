@@ -38,7 +38,8 @@ import { SettingsStore } from '../settings/store'
 import { McpStore } from '../mcp/store'
 import { migrateMcpToFile } from '../mcp/migrate'
 import { ensureConfigDir } from '../config/paths'
-import { ensureOrcaPlugin } from '../skills/plugin-bundle'
+import { migrateConfigToSources } from '../config/migrate-sources'
+import { deploy } from '../deploy/deployer'
 import { scanSkills } from '../skills/scan'
 import { listDir } from '../files/scan'
 import { initDb, type DbQueries } from '../db'
@@ -104,15 +105,29 @@ export class IpcRouter {
     )
     await this.registry.refreshInstallState()
     this.defaultCwd = app.getPath('home')
-    // ~/.config/orca 보장 → 레거시 MCP 이전(1회) → Skill 플러그인 번들 골격 보장.
-    // 어느 단계 실패도 부팅을 막지 않는다(채팅/세션 기능은 독립).
+    // ~/.config/orca 보장 → sources/ 레이아웃 이전(1회) → 레거시 MCP 이전(1회) →
+    // 정규 소스 → dist/<engine> 배포(ExtensionDeployer). 어느 단계 실패도 부팅을 막지
+    // 않는다(채팅/세션 기능은 독립). sources 이전이 MCP 이전보다 먼저여야 한다 —
+    // 구 루트 mcp.json 을 sources/mcp/ 로 옮긴 뒤 mcpFileExists() 가 sources/ 를 보게.
     await ensureConfigDir().catch((e) => console.warn('[boot] ensureConfigDir 실패:', e))
+    try {
+      migrateConfigToSources()
+    } catch (e) {
+      console.warn('[boot] sources 마이그레이션 건너뜀:', e)
+    }
     try {
       migrateMcpToFile(this.settings)
     } catch (e) {
       console.warn('[boot] MCP 마이그레이션 건너뜀:', e)
     }
-    await ensureOrcaPlugin().catch((e) => console.warn('[boot] ensureOrcaPlugin 실패:', e))
+    try {
+      const r = deploy('claude-code')
+      if (!r.validation.ok) {
+        for (const err of r.validation.errors) console.warn('[deploy] 검증 경고:', err)
+      }
+    } catch (e) {
+      console.warn('[boot] 배포 건너뜀:', e)
+    }
     // ClaudeCodeAdapter 가 사용하는 cwd 와 동일한 값으로 스킬 스캔.
     this.skillsCache = await scanSkills(this.defaultCwd).catch(() => [])
     this.register()
