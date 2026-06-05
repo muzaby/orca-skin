@@ -122,7 +122,7 @@ type PermissionUpdate =
 
 **① 설명.** 콜백형(Claude `canUseTool` Promise)과 이벤트형(OpenCode SSE + response endpoint) 승인을 동일 상태 모델로 처리: `requested → resolving → resolved(allow|deny)`, 이탈 분기 `timed_out`/`aborted`.
 
-**③ 현재 코드 갭.** `src/main/ask/broker.ts` 의 `InteractionBroker<T>`(register/resolve + abort signal + default-on-cancel)가 이 상태기계의 **부분 구현**이다. 스테이지 C 마무리로 router 가 ask/plan 2브로커를 단일 `InteractionBroker<ApprovalResolution>`(`approvals`)로 통합해 **ask·plan·tool 전 종류**의 권한 요청이 하나의 broker 를 거친다 — `PendingApprovalStateMachine` 의 핵심(보류·해소·abort fallback)이 충족됐다. 잔여: `timed_out` 분기·OpenCode 이벤트형 편입.
+**③ 현재 코드 갭.** `src/main/ask/broker.ts` 의 `InteractionBroker<T>`(register/resolve + abort signal + default-on-cancel)가 이 상태기계를 구현한다. 스테이지 C 마무리로 router 가 ask/plan 2브로커를 단일 `InteractionBroker<ApprovalResolution>`(`approvals`)로 통합해 **ask·plan·tool 전 종류**의 권한 요청이 하나의 broker 를 거친다. **`timed_out` 분기 구현 완료** — `register(…, opts?: { timeoutMs, timeoutValue, onSettle })` 가 선택적 wall-clock timeout 을 받고, 종료 경로(`resolved`/`timed_out`/`aborted`)를 단일 `settle()` 로 정리하며 `PendingApprovalState`(`'requested'|'resolving'|'resolved'|'timed_out'|'aborted'`)를 `onSettle` 로 통지한다(`opts` 미전달 시 종전 동작 100% 동일). 단 router 는 timeout 을 **와이어링하지 않는다** — 승인 카드 표시 중 벽시계 auto-deny 는 UX 를 해치므로 mechanism 만 준비(OpenCode 이벤트형·서버 permission TTL 도입 시 소비). **잔여: OpenCode 이벤트형 편입**(SSE permission request → broker).
 
 **④ 인터페이스 (정본).**
 
@@ -181,7 +181,7 @@ interface PermissionModeController {
 }
 ```
 
-> **구현 상태**: PR② 에서 순수 seam 으로 안착 — `NormalizedPermissionMode`(6종)·`toClaudePermissionMode`·`fromUiPermissionMode`(`src/shared/permission-mode.ts`) + 세션-키 `PermissionModeController`(`src/main/runtime-events/permission-mode-controller.ts`, sessionId 인자 보유)·Vitest. router/adapter 와이어링과 라이브 `Query.setPermissionMode` 위임은 PR③(스트리밍 입력 전환).
+> **구현 상태**: ✅ **PR③ 라이브 전환까지 구현 완료.** `NormalizedPermissionMode`(6종)·`toClaudePermissionMode`·`fromUiPermissionMode`(`src/shared/permission-mode.ts`) + 세션-키 `PermissionModeController`(`src/main/runtime-events/permission-mode-controller.ts`, sessionId 인자) + Vitest. **router/adapter 와이어링·라이브 `Query.setPermissionMode` 위임 완료** — 어댑터가 매 턴 streaming input 모드(`createTurnInputStream` → `prompt: AsyncIterable<SDKUserMessage>`, `src/main/adapters/streaming-input.ts`)로 `query()` 를 호출해 살아있는 `Query` 핸들을 유지하고, `src/main/adapters/claude-code.ts:209-212` 가 `setPermissionMode`/`interrupt`/`setModel` 을 핸들에 위임한다. `src/main/ipc/router.ts:728-745` 의 `handlePermissionSetMode`(채널 `orca:permission:setMode`)가 ① controller(세션 SSOT) 갱신 + ② 진행 중 턴이면 `turn.live.setPermissionMode(toClaudePermissionMode(mode))` 즉시 위임. **잔여: 풀 크로스턴 멀티세션**(resume-from-DB SSOT 충돌·구동 UI 부재 — Phase 4).
 
 | Provider | 처리 |
 |---|---|
@@ -206,7 +206,7 @@ interface SessionCapabilities {
   continue?: boolean; resume?: boolean; fork?: boolean; persistSessionFalse?: boolean; delete?: boolean; update?: boolean
   // structure / control
   children?: boolean; summarize?: boolean; abort?: boolean; share?: boolean; init?: boolean
-  liveModeSwitch?: boolean  // 세션 중 권한 모드 라이브 전환 (Claude setPermissionMode, 스트리밍 입력 전용). PR③ 활성.
+  liveModeSwitch?: boolean  // 세션 중 권한 모드 라이브 전환 (Claude setPermissionMode, 스트리밍 입력 전용). ✅ 구현 완료(router.ts:728-745 + claude-code.ts:209-212).
   // context
   contextInjectionNoReply?: boolean; structuredOutput?: boolean
   // revert (§5)
@@ -514,13 +514,13 @@ interface ConfigManager {
 
 | 항목 | 위치 |
 |---|---|
-| NormalizedEvent | §2 |
-| permission.requested 1급 이벤트 | §3 |
-| PermissionBridge | §3 |
-| PendingApprovalStateMachine | §3 |
-| ApprovalResolution (2분기) | §3 |
-| AppCommandPolicy (3분기) | §3 |
-| PermissionModeController | §3 |
+| NormalizedEvent | §2 — ✅ 구현 (스테이지 B1/B1′, `claudeToNormalized`. 잔여: `provider` 축 claude 고정·OpenCode seam) |
+| permission.requested 1급 이벤트 | §3 — ✅ 구현 (스테이지 B2, `agentPermissionRequest`) |
+| PermissionBridge | §3 — ✅ 구현 (`InteractionBroker<ApprovalResolution>` 단일 통합. 잔여: OpenCode 이벤트형) |
+| PendingApprovalStateMachine | §3 — ✅ 구현 (register/settle + `timed_out` 분기 + `onSettle`. 잔여: OpenCode 이벤트형 편입) |
+| ApprovalResolution (2분기) | §3 — ✅ 구현 (`ipc.ts` allow/deny discriminated union + `protocol.ts` 스키마) |
+| AppCommandPolicy (3분기) | §3 — 🔴 seam (`classifyAppCommand`, 빈 표·fallback `require_approval`. claude 단독 기능 표면 0 — slash command/OpenCode 도입 시 채움) |
+| PermissionModeController | §3 — ✅ 구현 (라이브 `setPermissionMode` 위임 포함. 잔여: 풀 크로스턴 멀티세션 — Phase 4) |
 | SessionCapability + CapabilityProbe | §4 / §15 — ✅ 구현 (claude 정적 probe `CLAUDE_DESCRIPTOR` + `SessionAdapter.describe()` + `backend:list` computed-on-the-fly 부착 + UI 사전 게이팅) |
 | RevertManager | §5 — ✅ seam 구현 (cap-가드 4메서드, claude 전 cap false 라 throw-only) |
 
