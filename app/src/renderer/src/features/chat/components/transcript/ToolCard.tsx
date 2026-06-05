@@ -8,13 +8,8 @@ import {
   toolDiffStat,
   toolVerbCategory
 } from '../../lib/toolMeta'
-import { extToLang, stripLineNumberGutter } from '../../lib/lang'
 import { stringify } from '../../format'
-import { CodeBlock } from '../markdown/CodeBlock'
-import { BashBody } from './tool-bodies/BashBody'
-import { DiffBody } from './tool-bodies/DiffBody'
-import { KeyValueBody } from './tool-bodies/KeyValueBody'
-import { AskBody } from './tool-bodies/AskBody'
+import { toolRendererRegistry } from './registry'
 import type { ToolCall } from '../../reducer/chatReducer'
 
 const FILE_TOOLS = new Set(['Read', 'Write', 'Edit', 'MultiEdit'])
@@ -58,47 +53,10 @@ function copyText(call: ToolCall): string {
   }
 }
 
-// Read 본문 — result.output 을 cat -n 거터 제거 후 언어 헤더 없는 코드블록으로(라인넘버).
-function FileBody({ call }: { call: ToolCall }): React.JSX.Element {
-  const rec = call.input as { file_path?: unknown } | null
-  const filePath = typeof rec?.file_path === 'string' ? rec.file_path : null
-  const lang = filePath ? extToLang(filePath) : undefined
-  const output = resultOutput(call)
-  if (call.result && output.trim() !== '') {
-    return (
-      <CodeBlock
-        code={stripLineNumberGutter(output)}
-        lang={lang}
-        showLineNumbers
-        showHeader={false}
-        embedded
-      />
-    )
-  }
-  return (
-    <pre className="m-0 overflow-auto whitespace-pre-wrap break-words text-code text-t9">
-      {stringify(call.input)}
-    </pre>
-  )
-}
-
-// 도구별 본문 디스패치. 미지 도구는 KeyValueBody 로 폴백(타 SDK 도 합리적 렌더).
+// 도구별 본문 디스패치 — 도구 이름 switch 대신 ToolRendererRegistry 로 시맨틱 해소(rendering.md §1.6).
 function ToolBody({ call }: { call: ToolCall }): React.JSX.Element {
-  switch (call.name) {
-    case 'Bash':
-    case 'PowerShell':
-      return <BashBody call={call} />
-    case 'Write':
-    case 'Edit':
-    case 'MultiEdit':
-      return <DiffBody call={call} />
-    case 'Read':
-      return <FileBody call={call} />
-    case 'AskUserQuestion':
-      return <AskBody call={call} />
-    default:
-      return <KeyValueBody call={call} />
-  }
+  const Body = toolRendererRegistry.resolve(call.name).Body
+  return <Body call={call} />
 }
 
 // 전략문서 5.4 양식 — 카드가 아니라 *행*. 동사→이름→diff→chevron(마지막).

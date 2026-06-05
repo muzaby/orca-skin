@@ -11,7 +11,7 @@ import { SkillsMenu } from './composer/SkillsMenu'
 import { ModeMenu } from './composer/ModeMenu'
 import { MODE_LABELS } from './composer/modes'
 import { AskUserQuestionCard } from './AskUserQuestionCard'
-import { PlanApprovalCard } from './PlanApprovalCard'
+import { ApprovalCard } from './ApprovalCard'
 import type { UseChat } from '../hooks/useChat'
 import { useSkills } from '../../../shared/hooks/useSkills'
 import { useSkillAutocomplete } from '../hooks/useSkillAutocomplete'
@@ -209,7 +209,7 @@ export function Composer({ chat, backendLabel }: ComposerProps): React.JSX.Eleme
           />
         )}
         {state.pendingPlanReview ? (
-          <PlanApprovalCard key={state.pendingPlanReview.requestId} chat={chat} />
+          <ApprovalCard key={state.pendingPlanReview.requestId} chat={chat} />
         ) : (
           <div
             className="epitaxy-prompt rounded-r7 bg-surface-prompt-blur effect-prompt-blur px-3 py-2.5"

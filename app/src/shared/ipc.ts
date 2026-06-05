@@ -41,38 +41,97 @@ export const CHANNELS = {
 // Backend (Phase 2: claude-code 단일. opencode 는 future work)
 export type Backend = 'claude-code'
 
-// Error 코드 (TRD §6.6)
-// Phase 3 (SDK 마이그레이션): sdk.* 가 신규 표준. cli.* 는 CLI spawn 시기 호환을 위해 보존
-// (deprecated — 후속 PR 에서 정리).
+// Error 코드 (TRD §6.6). Phase 3 SDK 마이그레이션 후 sdk.* 표준. (구 cli.* 코드는 제거됨.)
 export type ErrorCode =
   | 'sdk.crashed'
   | 'sdk.spawn-failed'
-  | 'cli.not-installed'
-  | 'cli.spawn-failed'
-  | 'cli.crashed'
-  | 'cli.timeout'
   | 'auth.expired'
   | 'protocol.parse'
   | 'internal'
 
-// ChatEvent (TRD §6.2) — 어댑터→Renderer 정규화 스트림
-export type ChatEvent =
-  | { type: 'init'; data: { sessionId: string; model?: string; cwd: string } }
-  | { type: 'assistant_delta'; data: { text: string } }
-  | { type: 'assistant_message'; data: { text: string } }
-  | { type: 'tool_use'; data: { toolUseId: string; name: string; input: unknown } }
+// ── NormalizedEvent (provider-runtime.md §2) — 와이어(orca:chat:event)의 정규 이벤트 ─────────
+// 모든 이벤트가 sessionId(멀티세션 라우팅)·provider 를 갖고, tool 은 toolRunId 로 start/complete
+// 를 매칭한다. claude 어댑터는 SDK 메시지를 claudeToNormalized(adapters/claude-map.ts)로 이 타입에
+// 직접 정규화한다. OpenCode 는 provider:'opencode' 매퍼가 같은 union 으로 정규화(seam).
+// 권한 요청은 permission.requested 1급 이벤트(origin 으로 agent/app 구분, action.kind 로 종류 구분).
+export type ProviderId = 'claude-code' | 'opencode'
+
+// 권한 요청의 출처. agent = 에이전트 도구 발화(AskUserQuestion·ExitPlanMode·일반 도구),
+// app = 앱이 합성한 명령(slash command 등 — AppCommandPolicy 가 분류).
+export type PermissionOrigin = 'agent' | 'app'
+
+// provider 중립 권한 액션. claude 의 AskUserQuestion/ExitPlanMode/일반도구를 이 3종으로 합성한다.
+export type PermissionAction =
+  | { kind: 'ask_question'; request: AskQuestionRequest }
+  | { kind: 'plan_review'; request: PlanReviewRequest }
+  | { kind: 'tool_approval'; toolName: string; input: unknown }
+
+// 권한 해소의 2분기(4값 모델 폐기 — provider-runtime.md §3). claude PermissionResult 와 동형:
+// allow{updatedInput?} ↔ behavior:'allow', deny{message?,interrupt?} ↔ behavior:'deny'.
+export type ApprovalResolution =
+  | { behavior: 'allow'; updatedInput?: unknown }
+  | { behavior: 'deny'; message?: string; interrupt?: boolean }
+
+export type NormalizedEvent =
   | {
-      type: 'tool_result'
-      data: { toolUseId: string; output: unknown; isError: boolean; durationMs?: number }
+      type: 'session.updated'
+      sessionId: string
+      provider: ProviderId
+      patch: { model?: string; cwd?: string }
     }
-  | { type: 'result'; data: { usage?: { inputTokens: number; outputTokens: number } } }
-  | { type: 'error'; data: { code: ErrorCode; message: string; recoverable: boolean } }
-  // Claude Agent SDK 의 AskUserQuestion 도구 발화. canUseTool 콜백(main)이 query 를
-  // 일시 중지한 채 renderer 에 질문 묶음을 surface 한다. 응답은 askRespond 채널로 회신.
-  | { type: 'ask_question'; data: AskQuestionRequest }
-  // plan 모드의 ExitPlanMode 도구 발화. 에이전트가 제출한 계획을 renderer 에 surface 한다.
-  // 응답(승인/수정/거부)은 planRespond 채널로 회신. (백엔드 중립 — 어댑터가 자기 메커니즘에서 매핑.)
-  | { type: 'plan_review'; data: PlanReviewRequest }
+  | { type: 'message.delta'; sessionId: string; provider: ProviderId; delta: { text: string } }
+  | {
+      type: 'message.completed'
+      sessionId: string
+      provider: ProviderId
+      message: { text: string }
+    }
+  | {
+      type: 'tool.call.started'
+      sessionId: string
+      provider: ProviderId
+      toolRunId: string
+      toolName: string
+      args: unknown
+    }
+  | {
+      type: 'tool.call.completed'
+      sessionId: string
+      provider: ProviderId
+      toolRunId: string
+      result: unknown
+      isError: boolean
+      durationMs?: number
+    }
+  | {
+      type: 'telemetry'
+      sessionId: string
+      provider: ProviderId
+      usage?: { inputTokens: number; outputTokens: number }
+    }
+  | {
+      type: 'error'
+      sessionId?: string
+      provider: ProviderId
+      error: { code: ErrorCode; message: string; recoverable: boolean }
+    }
+  // 권한 요청/해소 1급 이벤트 — AskUserQuestion·ExitPlanMode·일반 도구 게이트를 단일 경로로 통합.
+  // approvalId 로 요청↔응답을 라우팅한다(renderer 는 이 id 로 askRespond/planRespond 회신).
+  | {
+      type: 'permission.requested'
+      provider: ProviderId
+      sessionId?: string
+      approvalId: string
+      origin: PermissionOrigin
+      action: PermissionAction
+    }
+  | {
+      type: 'permission.resolved'
+      provider: ProviderId
+      sessionId?: string
+      approvalId: string
+      resolution: ApprovalResolution
+    }
 
 // AskUserQuestion (백엔드 중립) — SDK 입력 스키마(docs/agent-sdk/user-input)를 그대로 반영.
 // 한 호출에 1~4 질문, 각 질문 2~4 옵션. 미리보기(previewFormat)는 v1 미지원.

@@ -3,101 +3,12 @@
 // 타입과 CHANNELS 만 필요한 곳은 ./ipc 에서 import.
 
 import { z } from 'zod'
-import type { Backend, ChatEvent, ErrorCode } from './ipc'
+import type { Backend } from './ipc'
 
 const BackendSchema: z.ZodType<Backend> = z.enum(['claude-code'])
 
-const ErrorCodeSchema: z.ZodType<ErrorCode> = z.enum([
-  'sdk.crashed',
-  'sdk.spawn-failed',
-  'cli.not-installed',
-  'cli.spawn-failed',
-  'cli.crashed',
-  'cli.timeout',
-  'auth.expired',
-  'protocol.parse',
-  'internal'
-])
-
-// AskUserQuestion 입력 스키마. SDK 가 1~4 질문 / 각 2~4 옵션을 보내므로 상한만 느슨히 강제.
-const AskQuestionSchema = z.object({
-  question: z.string(),
-  header: z.string(),
-  options: z
-    .array(z.object({ label: z.string(), description: z.string() }))
-    .min(1)
-    .max(8),
-  multiSelect: z.boolean()
-})
-
-export const ChatEventSchema: z.ZodType<ChatEvent> = z.discriminatedUnion('type', [
-  z.object({
-    type: z.literal('init'),
-    data: z.object({
-      sessionId: z.string(),
-      model: z.string().optional(),
-      cwd: z.string()
-    })
-  }),
-  z.object({
-    type: z.literal('assistant_delta'),
-    data: z.object({ text: z.string() })
-  }),
-  z.object({
-    type: z.literal('assistant_message'),
-    data: z.object({ text: z.string() })
-  }),
-  z.object({
-    type: z.literal('tool_use'),
-    data: z.object({
-      toolUseId: z.string(),
-      name: z.string(),
-      input: z.unknown()
-    })
-  }),
-  z.object({
-    type: z.literal('tool_result'),
-    data: z.object({
-      toolUseId: z.string(),
-      output: z.unknown(),
-      isError: z.boolean(),
-      durationMs: z.number().optional()
-    })
-  }),
-  z.object({
-    type: z.literal('result'),
-    data: z.object({
-      usage: z
-        .object({
-          inputTokens: z.number(),
-          outputTokens: z.number()
-        })
-        .optional()
-    })
-  }),
-  z.object({
-    type: z.literal('error'),
-    data: z.object({
-      code: ErrorCodeSchema,
-      message: z.string(),
-      recoverable: z.boolean()
-    })
-  }),
-  z.object({
-    type: z.literal('ask_question'),
-    data: z.object({
-      requestId: z.string(),
-      questions: z.array(AskQuestionSchema)
-    })
-  }),
-  z.object({
-    type: z.literal('plan_review'),
-    data: z.object({
-      requestId: z.string(),
-      plan: z.string()
-    })
-  })
-])
+// orca:chat:event 는 main→renderer send(검증 불요)라 NormalizedEvent 용 zod 스키마는 두지 않는다.
+// (구 ChatEventSchema 는 ChatEvent 폐기와 함께 제거 — 와이어가 NormalizedEvent 로 전환됨.)
 
 export const SendChatMessageSchema = z.object({
   sessionId: z.string().nullable(),
@@ -297,7 +208,6 @@ export const SettingsPatchSchema = z
 export { CHANNELS } from './ipc'
 export type {
   Backend,
-  ChatEvent,
   ErrorCode,
   SendChatMessage,
   CancelChat,

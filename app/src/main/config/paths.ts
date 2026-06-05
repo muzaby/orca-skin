@@ -1,34 +1,44 @@
-// Orca config 루트 경로 헬퍼. MCP 정의(mcp.json)와 Skill 플러그인 번들은 DB/settings 의
-// <userData> 와 분리해 ~/.config/orca 아래 둔다 (제안서 명시 — 사용자가 직접 편집·버전관리 가능한
-// "설정 소스" 성격). 비밀은 여기 두지 않는다(secret-store 가 <userData> 의 safeStorage 로 보관).
+// Orca config 루트 경로 헬퍼. 사람이 편집하는 정규 소스(sources/)와 엔진별 배포 산출물(dist/<engine>/)을
+// DB/settings 의 <userData> 와 분리해 ~/.config/orca 아래 둔다 (제안서 명시 — 사용자가 직접 편집·버전관리
+// 가능한 "설정 소스" 성격). 비밀은 여기 두지 않는다(secret-store 가 <userData> 의 safeStorage 로 보관).
+//
+// 표준화 계층(arch/backend/standardization.md §5.1):
+//   ~/.config/orca/
+//   ├── sources/                 # 사람이 편집하는 단일 원천 (instructions/AGENTS.md · skills · agents ·
+//   │   └── mcp/mcp.json         #   commands · mcp/mcp.json · hooks/<engine>) — 레이아웃은 deployer/
+//   └── dist/<engine>/           #   migrate-sources 가 root 기준으로 구성한다.
+//
+// 본 파일은 *다른 모듈이 실제로 참조하는* 경로만 노출한다(미사용 sources*/dist* 서브 게터는 제거됨 —
+// 레이아웃 구성은 deploy/deployer.ts · config/migrate-sources.ts 가 root 기준 join 으로 담당).
+// 런타임에서 claude 어댑터가 로드하는 로컬 플러그인 루트는 dist/<engine>/ 다.
 
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { mkdir } from 'node:fs/promises'
+import type { Backend } from '../../shared/ipc'
 
 // 모든 OS 동일하게 ~/.config/orca (제안서 §환경구성). Windows 에서도 homedir() 하위로 통일.
 export function orcaConfigDir(): string {
   return join(homedir(), '.config', 'orca')
 }
 
+// 정규 소스 루트(사람 편집 SSOT).
+export function sourcesDir(): string {
+  return join(orcaConfigDir(), 'sources')
+}
+
+export function sourcesMcpDir(): string {
+  return join(sourcesDir(), 'mcp')
+}
+
+// MCP 정규 소스. mcp/mcp.json = 순정 Claude mcpServers 스키마 + ${VAR} 플레이스홀더(평문 비밀 0).
 export function mcpJsonPath(): string {
-  return join(orcaConfigDir(), 'mcp.json')
+  return join(sourcesMcpDir(), 'mcp.json')
 }
 
-// 확장 정규 레이어. ~/.config/orca 디렉토리 *자체*가 Claude 어댑터 관점의 로컬 플러그인이 된다
-// (.claude-plugin/plugin.json 은 어댑터가 생성하는 머티리얼라이즈 산출물). 백엔드-중립 정규 소스인
-// skills/ · agents/ · commands/ 가 그 루트에 평면으로 놓인다. mcp.json(점 없음)은 Claude 플러그인
-// 로더가 무시하므로 MCP 는 query 옵션으로 별도 주입된다(이중 주입 없음).
-export function skillsDir(): string {
-  return join(orcaConfigDir(), 'skills')
-}
-
-export function agentsDir(): string {
-  return join(orcaConfigDir(), 'agents')
-}
-
-export function commandsDir(): string {
-  return join(orcaConfigDir(), 'commands')
+// 배포 산출물 루트(ExtensionDeployer 생성, 편집 금지). claude 로컬 플러그인 루트 = dist/claude-code/.
+export function distDir(engine: Backend): string {
+  return join(orcaConfigDir(), 'dist', engine)
 }
 
 // 부팅 시 1회. mkdir -p 의미 (recursive). 이미 있으면 무시.

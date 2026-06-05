@@ -1,6 +1,6 @@
 import type {
   AskQuestionRequest,
-  ChatEvent,
+  NormalizedEvent,
   ErrorCode,
   LoadedSession,
   PermissionMode,
@@ -92,7 +92,7 @@ export interface CachedSession {
 
 export type ChatAction =
   | { type: 'SEND_USER_MESSAGE'; text: string }
-  | { type: 'RECV_EVENT'; event: ChatEvent }
+  | { type: 'RECV_EVENT'; event: NormalizedEvent }
   | { type: 'NEW_CHAT'; projectId?: string | null }
   | { type: 'CANCEL_CHAT' }
   | { type: 'CLEAR_ERROR' }
@@ -180,58 +180,58 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'RECV_EVENT': {
       const ev = action.event
       switch (ev.type) {
-        case 'init':
-          // init 도착 시점에 sessionId 가 발급되므로 pendingProjectId 는 역할 종료 (binding 완료).
+        case 'session.updated':
+          // sessionId 발급 시점(claude init) → pendingProjectId 역할 종료(binding 완료). cwd 갱신.
           return {
             ...state,
-            sessionId: ev.data.sessionId,
-            cwd: ev.data.cwd,
+            sessionId: ev.sessionId,
+            cwd: ev.patch.cwd ?? state.cwd,
             pendingProjectId: null
           }
 
-        case 'assistant_delta':
-          return { ...state, pendingDelta: state.pendingDelta + ev.data.text }
+        case 'message.delta':
+          return { ...state, pendingDelta: state.pendingDelta + ev.delta.text }
 
-        case 'assistant_message': {
+        case 'message.completed': {
           // pendingDelta 가 있으면 그것을 최종본으로 교체하고, 아니면 신규 메시지 추가
           const last = state.messages[state.messages.length - 1]
           if (state.pendingDelta && last?.role === 'assistant' && last.content === '') {
             const next = state.messages.slice()
-            next[next.length - 1] = { ...last, content: ev.data.text, createdAt: Date.now() }
+            next[next.length - 1] = { ...last, content: ev.message.text, createdAt: Date.now() }
             return { ...state, messages: next, pendingDelta: '' }
           }
           return {
             ...state,
             messages: [
               ...state.messages,
-              { role: 'assistant', content: ev.data.text, createdAt: Date.now() }
+              { role: 'assistant', content: ev.message.text, createdAt: Date.now() }
             ],
             pendingDelta: ''
           }
         }
 
-        case 'tool_use':
+        case 'tool.call.started':
           return {
             ...state,
             messages: upsertToolCall(state.messages, {
-              toolUseId: ev.data.toolUseId,
-              name: ev.data.name,
-              input: ev.data.input
+              toolUseId: ev.toolRunId,
+              name: ev.toolName,
+              input: ev.args
             })
           }
 
-        case 'tool_result':
+        case 'tool.call.completed':
           return {
             ...state,
-            messages: updateToolResult(state.messages, ev.data.toolUseId, {
-              output: ev.data.output,
-              isError: ev.data.isError,
-              durationMs: ev.data.durationMs
+            messages: updateToolResult(state.messages, ev.toolRunId, {
+              output: ev.result,
+              isError: ev.isError,
+              durationMs: ev.durationMs
             })
           }
 
-        case 'result': {
-          const inputTokens = ev.data.usage?.inputTokens
+        case 'telemetry': {
+          const inputTokens = ev.usage?.inputTokens
           const base = {
             ...state,
             inflight: false,
@@ -252,23 +252,33 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           return base
         }
 
-        case 'ask_question':
-          return { ...state, pendingAsks: [...state.pendingAsks, ev.data] }
-
-        case 'plan_review':
-          // 계획 도착 → 액션 게이트 설정 + 우측 타일에 내용 표시 + 자동 오픈(auto-trigger).
-          return {
-            ...state,
-            pendingPlanReview: ev.data,
-            planContent: ev.data.plan,
-            planTileOpen: true
+        case 'permission.requested':
+          // 권한 요청을 종류별 UI 상태로 분기. approvalId 는 action.request.requestId 와 동일하므로
+          // 카드는 기존대로 askRespond/planRespond(requestId) 로 회신한다.
+          if (ev.action.kind === 'ask_question') {
+            return { ...state, pendingAsks: [...state.pendingAsks, ev.action.request] }
           }
+          if (ev.action.kind === 'plan_review') {
+            // 계획 도착 → 액션 게이트 설정 + 우측 타일에 내용 표시 + 자동 오픈(auto-trigger).
+            return {
+              ...state,
+              pendingPlanReview: ev.action.request,
+              planContent: ev.action.request.plan,
+              planTileOpen: true
+            }
+          }
+          // tool_approval 은 현재 자동 통과(전용 UI 없음 — C2 ApprovalCard 일반화에서 표면화).
+          return state
+
+        case 'permission.resolved':
+          // 해소 이벤트는 audit/telemetry 용 — 카드는 respond 시 로컬 RESOLVE_* 로 이미 닫힌다.
+          return state
 
         case 'error':
           // 턴이 끊기면 보류 게이트(질문/계획)는 main 이 broker abort 로 정리하므로 카드도 비운다.
           return {
             ...state,
-            error: ev.data,
+            error: ev.error,
             inflight: false,
             turnStartedAt: null,
             pendingAsks: [],

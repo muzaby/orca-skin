@@ -18,7 +18,7 @@ import type {
   UserPromptSubmitHookSpecificOutput
 } from '@anthropic-ai/claude-agent-sdk'
 import type { ClaudeMcpConfig } from '../mcp/schema'
-import { orcaConfigDir } from '../config/paths'
+import { distDir } from '../config/paths'
 import {
   resolveHookDecisions,
   type OrcaHookContext,
@@ -45,12 +45,12 @@ export function adaptSystemPrompt(append?: string): object {
   return { systemPrompt: { type: 'preset' as const, preset: 'claude_code' as const, append } }
 }
 
-// 확장 정규 레이어 = ~/.config/orca 디렉토리(= Claude 로컬 플러그인). 부팅 시 ensureOrcaPlugin()
-// 으로 골격이 보장된다. plugins(local) + skills:'all' 로 정규 소스의 SKILL.md 를 명시 로드한다.
-// (현재 OrcaCapabilities.skills 배열은 가시화 메타일 뿐 — 어댑트는 항상-on 으로 구동.)
+// claude 로컬 플러그인 루트 = dist/claude-code/(ExtensionDeployer 가 sources/ 에서 렌더한 산출물).
+// 부팅 시 deploy('claude-code') 로 매니페스트 + skills/agents/commands 가 보장된다. plugins(local) +
+// skills:'all' 로 배포된 SKILL.md 를 명시 로드한다. (OrcaCapabilities.skills 배열은 가시화 메타일 뿐.)
 export function adaptSkills(): object {
   return {
-    plugins: [{ type: 'local' as const, path: orcaConfigDir() }],
+    plugins: [{ type: 'local' as const, path: distDir('claude-code') }],
     skills: 'all' as const
   }
 }

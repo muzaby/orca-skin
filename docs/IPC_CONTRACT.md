@@ -3,7 +3,7 @@
 > 이 문서는 Main ↔ Renderer 간 IPC 채널의 **단일 진실 공급원 (SSOT)** 이다.
 > 채널을 추가/변경할 때는 코드와 이 문서를 함께 갱신한다.
 > 최종 업데이트: 2026-05-26
-> 관련 문서: [FRONTEND_ARCHITECTURE.md](./FRONTEND_ARCHITECTURE.md), [BACKEND_ARCHITECTURE.md](./BACKEND_ARCHITECTURE.md), [GLOSSARY.md](./GLOSSARY.md), [TRD.md](./TRD.md) §5
+> 관련 문서: [ARCHITECTURE.md](ARCHITECTURE.md), [ARCHITECTURE.md](ARCHITECTURE.md), [GLOSSARY.md](./GLOSSARY.md), [TRD.md](./TRD.md) §5
 
 ## 1. 명명 규칙
 
@@ -66,7 +66,7 @@ interface Settings {
   mcpMeta: Record<string, { description: string }>    // MCP Orca 전용 메타 (mcp.json 순정 유지)
 }
 ```
-> MCP 서버 정의의 진실은 `~/.config/orca/mcp.json`(순정 Claude `mcpServers` 스키마 + `${VAR}`). `enabled`/`description` 만 settings 가 보유한다 — `orca:mcp:*` 핸들러가 mcp.json + secret-store + settings 를 함께 조율(BACKEND §8.4).
+> MCP 서버 정의의 진실은 `~/.config/orca/mcp.json`(순정 Claude `mcpServers` 스키마 + `${VAR}`). `enabled`/`description` 만 settings 가 보유한다 — `orca:mcp:*` 핸들러가 mcp.json + secret-store + settings 를 함께 조율([arch/backend/security.md](arch/backend/security.md) §1.4).
 
 ### 2.5 Skills
 
@@ -74,7 +74,7 @@ interface Settings {
 |---|---|---|---|---|
 | `orca:skills:list` | R→M (invoke) | — | `SkillInfo[]` = `{ name: string; description: string; argumentHint?: string }[]` | 부팅 시 1회 스캔된 SKILL.md 카탈로그. **핫리로드 없음** (재시작 필요). |
 
-> **현재 스캔 경로 (claude-code 전용)**: `~/.claude/skills/<name>/SKILL.md` + `<cwd>/.claude/skills/<name>/SKILL.md`. **Future**: 어댑터별 스캔 경로 분리 — BACKEND_ARCHITECTURE.md §4 / §7 참조.
+> **현재 스캔 경로 (claude-code 전용)**: `~/.claude/skills/<name>/SKILL.md` + `<cwd>/.claude/skills/<name>/SKILL.md`. **Future**: 어댑터별 스캔 경로 분리 — [arch/backend/adapters.md](arch/backend/adapters.md) / §7 참조.
 
 ### 2.6 Files
 
@@ -146,7 +146,7 @@ interface SearchHit {
 
 ### 2.10 MCP (Phase 3++)
 
-전역 MCP 서버 설정 CRUD. `/skills` 화면(`SkillsMcpView`)이 단일 호출자. **영속화는 파일-백드 모델** — 정의의 진실은 `~/.config/orca/mcp.json`(순정 Claude `mcpServers` 스키마 + `${VAR}`), **인증 비밀은 secret-store(`orca-secrets` + `safeStorage`)에 env-var 이름으로 암호화 저장**(mcp.json 엔 `${VAR}` 만, renderer 엔 `hasAuth` boolean 만), enabled/description 은 settings(`mcpEnabled`/`mcpMeta`). 활성화된 서버는 `handleChatSend` 가 `McpStore.buildQueryOptions()`(→ `toClaudeConfig`)로 변환해 매 query 의 `mcpServers` + `allowedTools`(`mcp__<name>__*`) 옵션에 주입. 상세 = BACKEND §8.4.
+전역 MCP 서버 설정 CRUD. `/skills` 화면(`SkillsMcpView`)이 단일 호출자. **영속화는 파일-백드 모델** — 정의의 진실은 `~/.config/orca/mcp.json`(순정 Claude `mcpServers` 스키마 + `${VAR}`), **인증 비밀은 secret-store(`orca-secrets` + `safeStorage`)에 env-var 이름으로 암호화 저장**(mcp.json 엔 `${VAR}` 만, renderer 엔 `hasAuth` boolean 만), enabled/description 은 settings(`mcpEnabled`/`mcpMeta`). 활성화된 서버는 `handleChatSend` 가 `McpStore.buildQueryOptions()`(→ `toClaudeConfig`)로 변환해 매 query 의 `mcpServers` + `allowedTools`(`mcp__<name>__*`) 옵션에 주입. 상세 = [arch/backend/security.md](arch/backend/security.md) §1.4.
 
 > IPC DTO 표면(`McpServer` + 4채널)은 파일-백드 재설계 전후로 **불변**이다(preload/renderer 무영향). `id` = 서버 `name`(고유 키), `authEnvKey` 는 stdio·http 양쪽에서 비밀을 주입할 env-var 이름.
 
@@ -204,23 +204,27 @@ interface RuntimeStatus {
 |---|---|---|
 | `backend:select` | opencode 어댑터 활성화 시 | 단일 백엔드라 현재 미노출 |
 | `message:*` (개별 append / delete 등) | **Future** | 현재는 chat 턴 단위로 main 이 일괄 persist — 개별 메시지 조작 API 필요 시 도입 |
-| `credentials:set` / `credentials:hasKey` | **Phase 3+** | safeStorage 자격증명 저장 (BACKEND §8) |
+| `credentials:set` / `credentials:hasKey` | **Phase 3+** | safeStorage 자격증명 저장 ([arch/backend/security.md](arch/backend/security.md)) |
 | `skills:reload` | **Future** | 핫리로드 도입 시 |
 | `routines:*` | **Future** | Sidebar nav 의 `/routines` placeholder 가 활성 페이지로 승격될 때 |
 
-## 3. ChatEvent variant 정의
+## 3. NormalizedEvent variant 정의
 
-`app/src/shared/ipc.ts:37-47` 의 discriminated union 그대로.
+> **표준화 스테이지 B (provider-runtime.md §2)**: `orca:chat:event` 의 와이어 타입은 provider 중립 **`NormalizedEvent`** 다. 모든 이벤트가 `sessionId`·`provider` 를 갖고, tool 은 `toolRunId` 로 start/complete 를 매칭한다. claude 어댑터는 SDK 메시지를 `claudeToNormalized`(`adapters/claude-map.ts`)로 이 타입에 **직접** 정규화한다(구 `ChatEvent` 중간표현은 제거됨). `app/src/shared/ipc.ts` 의 `NormalizedEvent` union 이 정본.
 
-| `type` | `data` 스키마 | 발생 시점 | Renderer 처리 (`chatReducer.ts`) |
+| `type` | 필드(공통: `sessionId`·`provider`) | 발생 시점 | Renderer 처리 (`chatReducer.ts`) |
 |---|---|---|---|
-| `init` | `{ sessionId: string; model?: string; cwd: string }` | 어댑터의 첫 메시지 (SDK `SDKSystemMessage.init`) | `state.sessionId` 저장, `state.cwd` 갱신 |
-| `assistant_delta` | `{ text: string }` | LLM 스트리밍 (SDK `SDKPartialAssistantMessage.text_delta`) | `pendingDelta += text` (16ms throttle 리렌더) |
-| `assistant_message` | `{ text: string }` | LLM 턴 종료 (SDK `SDKAssistantMessage` 완성본의 text block) | `pendingDelta` → `messages` 의 새 assistant 메시지로 commit |
-| `tool_use` | `{ toolUseId: string; name: string; input: unknown }` | LLM 의 도구 호출 (SDK `SDKAssistantMessage` 의 `tool_use` block) | 현재 assistant 메시지에 ToolCall 부착 |
-| `tool_result` | `{ toolUseId: string; output: unknown; isError: boolean; durationMs?: number }` | 도구 실행 완료 (SDK `SDKUserMessage` 의 `tool_result` block) | `toolUseId` 매칭하여 ToolCall 업데이트 |
-| `result` | `{ usage?: { inputTokens: number; outputTokens: number } }` | 어댑터 턴 종료 (SDK `SDKResultMessage`) | `inflight = false`, `pendingInputTokens` 갱신 |
-| `error` | `{ code: ErrorCode; message: string; recoverable: boolean }` | 어댑터 catch 또는 SDK 에러 | `state.error` 설정, `inflight = false` |
+| `session.updated` | `patch: { model?; cwd? }` | 어댑터의 첫 메시지 (SDK `SDKSystemMessage.init`) | `state.sessionId` 저장, `state.cwd` 갱신 |
+| `message.delta` | `delta: { text }` | LLM 스트리밍 (SDK `text_delta`) | `pendingDelta += text` |
+| `message.completed` | `message: { text }` | LLM 턴 종료 (SDK `SDKAssistantMessage` text block) | `pendingDelta` → 새 assistant 메시지로 commit |
+| `tool.call.started` | `toolRunId; toolName; args` | LLM 도구 호출 (SDK `tool_use` block) | 현재 메시지에 ToolCall 부착(키=`toolRunId`) |
+| `tool.call.completed` | `toolRunId; result; isError; durationMs?` | 도구 실행 완료 (SDK `tool_result` block) | `toolRunId` 매칭하여 ToolCall 업데이트 |
+| `telemetry` | `usage?: { inputTokens; outputTokens }` | 어댑터 턴 종료 (SDK `SDKResultMessage`) | `inflight = false`, `pendingInputTokens` 갱신 |
+| `error` | `error: { code; message; recoverable }` (`sessionId?`) | 어댑터 catch 또는 SDK 에러 | `state.error` 설정, `inflight = false` |
+| `permission.requested` | `approvalId; origin; action: PermissionAction` | AskUserQuestion·ExitPlanMode·일반 도구 게이트(canUseTool) | `action.kind` 로 분기 → `pendingAsks` / `pendingPlanReview`. 응답은 `askRespond`/`planRespond`(approvalId=requestId) |
+| `permission.resolved` | `approvalId; resolution: ApprovalResolution` | 권한 해소(audit/telemetry) | no-op(카드는 respond 시 로컬 RESOLVE_* 로 닫힘) |
+
+`PermissionAction` = `{kind:'ask_question', request} | {kind:'plan_review', request} | {kind:'tool_approval', toolName, input}`. `ApprovalResolution` = `{behavior:'allow', updatedInput?} | {behavior:'deny', message?, interrupt?}` (claude `PermissionResult` 와 동형).
 
 ## 4. 에러 코드
 
@@ -229,14 +233,12 @@ interface RuntimeStatus {
 | code | 의미 | 발생 위치 | 회복 방법 |
 |---|---|---|---|
 | `sdk.crashed` | SDK 의 `query()` 내부 예외 | claude-code 어댑터 | 새 대화 (보통 `recoverable: true`) |
-| `sdk.spawn-failed` | SDK 가 platform binary 해소 실패 | claude-code 어댑터 부팅 | 인스톨러 다이얼로그 |
-| `cli.not-installed` *(deprecated)* | CLI 미발견. Phase 3 SDK 마이그레이션 이후 사실상 발생 안 함 | (legacy) | — |
-| `cli.spawn-failed` *(deprecated)* | CLI 실행 실패 | (legacy) | — |
-| `cli.crashed` *(deprecated)* | CLI 비정상 종료 | (legacy) | — |
-| `cli.timeout` *(deprecated)* | CLI 응답 timeout | (legacy) | — |
+| `sdk.spawn-failed` | SDK 가 platform binary 해소 실패 / 활성 백엔드 부재 | claude-code 어댑터 부팅·router | 인스톨러 다이얼로그 |
 | `auth.expired` | SDK 가 401 / OAuth / expired 패턴 throw | claude-code 어댑터 | `claude /login` 안내 모달 (AuthExpiredModal) |
-| `protocol.parse` | 어댑터 정규화 실패 (예상치 못한 SDKMessage 형태) | normalize 함수 | 새 대화 |
+| `protocol.parse` | 어댑터 정규화 실패 (예상치 못한 SDKMessage 형태) | claudeToNormalized | 새 대화 |
 | `internal` | 그 외 알 수 없는 에러 | router / 어댑터 | 새 대화 |
+
+> 구 `cli.*` 코드 그룹(`cli.not-installed`/`cli.spawn-failed`/`cli.crashed`/`cli.timeout`)은 Phase 3 SDK 마이그레이션 후 제거됨(legacy 정리).
 
 > `cli.*` 코드 그룹은 Phase 3 SDK 마이그레이션 이후 deprecated. 후속 PR 에서 정리 예정.
 

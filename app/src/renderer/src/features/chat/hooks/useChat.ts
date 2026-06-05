@@ -119,10 +119,10 @@ export function useChat(): UseChat {
     const unsub = chatApi.onEvent((ev) => {
       dispatch({ type: 'RECV_EVENT', event: ev })
       // 어댑터가 발급한 첫 sessionId 를 영속화. opencode 가 들어오면 lastBackend
-      // 도 함께 갱신해야 한다 (OQ7).
-      if (ev.type === 'init') {
+      // 도 함께 갱신해야 한다 (OQ7). init 은 NormalizedEvent 의 session.updated 로 정규화됐다.
+      if (ev.type === 'session.updated') {
         void settingsApi.set({
-          lastSessionId: ev.data.sessionId,
+          lastSessionId: ev.sessionId,
           lastBackend: 'claude-code'
         })
       }
