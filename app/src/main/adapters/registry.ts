@@ -1,4 +1,4 @@
-import type { Backend } from '../../shared/ipc'
+import type { Backend, ProviderDescriptor } from '../../shared/ipc'
 import type { Resolver } from '../mcp/expand'
 import type { SessionAdapter } from './types'
 import { ClaudeCodeAdapter } from './claude-code'
@@ -56,5 +56,17 @@ export class AdapterRegistry {
 
   get(backend: Backend): SessionAdapter | null {
     return this.adapters.get(backend) ?? null
+  }
+
+  // 활성 백엔드의 능력 서술자 (활성 없으면 null). backend:list 가 active 엔트리에 부착.
+  describeActive(): ProviderDescriptor | null {
+    return this.getActive()?.describe() ?? null
+  }
+
+  // 등록된 모든 백엔드의 능력 서술자. backend:list 가 각 엔트리에 부착(computed-on-the-fly).
+  describeAll(): Record<Backend, ProviderDescriptor> {
+    const out = {} as Record<Backend, ProviderDescriptor>
+    for (const [id, adapter] of this.adapters) out[id] = adapter.describe()
+    return out
   }
 }

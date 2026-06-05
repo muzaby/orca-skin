@@ -34,7 +34,7 @@
 
 | 채널 | 방향 | 페이로드 | 응답 | 설명 |
 |---|---|---|---|---|
-| `orca:backend:list` | R→M (invoke) | — | `BackendListResult` = `{ backends: { id: Backend; installed: boolean; version?: string }[]; active?: Backend }` | 등록된 어댑터의 설치 상태 + 활성 백엔드. |
+| `orca:backend:list` | R→M (invoke) | — | `BackendListResult` = `{ backends: { id: Backend; installed: boolean; version?: string; capabilities?: ProviderDescriptor }[]; active?: Backend }` | 등록된 어댑터의 설치 상태 + 활성 백엔드 + 능력 서술자(`capabilities`, computed-on-the-fly — provider-runtime.md §4/§15). 신규 채널 아님(기존 페이로드 비파괴 확장). |
 
 > **예약 (현재 미노출)**: `orca:backend:select` — 단일 백엔드 (`claude-code`) 라 호출자가 없어 preload 에서 의도적으로 제외. opencode 어댑터 활성화 PR 에서 재노출.
 

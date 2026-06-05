@@ -21,6 +21,10 @@ import type { FileEntry, SkillInfo } from '../../../../../shared/ipc'
 interface ComposerProps {
   chat: UseChat
   backendLabel: string
+  // 활성 백엔드가 턴 중단(cancellation.sessionAbort)을 지원하는가(§15 사전 게이팅).
+  // cross-feature 데이터라 backend feature 를 직접 import 하지 않고 page 가 props 로 주입한다.
+  // claude 는 항상 true 라 오늘 실효 0 — 미래 백엔드(중단 미지원)를 위한 seam.
+  canAbort: boolean
 }
 
 // Claude 컨텍스트 윈도우(토큰). usage 도넛 비율 산출용 — 마지막 result 의
@@ -31,7 +35,7 @@ const CONTEXT_WINDOW = 200_000
 // ChatTile 과 NewChatLandingPage 양쪽에서 동일하게 재사용.
 // 자체 local state (draft / caret / menuOpen) 는 컴포넌트 내부에 가두고, 외부에는
 // 오직 `chat` 도메인 액션 (send / cancel) 만 의존한다.
-export function Composer({ chat, backendLabel }: ComposerProps): React.JSX.Element {
+export function Composer({ chat, backendLabel, canAbort }: ComposerProps): React.JSX.Element {
   const { state, send, cancel, answerAsk, skipAsk, setPermissionMode } = chat
   // 큐의 맨 앞 질문만 렌더(canUseTool 이 query 를 막아 보통 1개). 응답 시 다음 질문이 노출.
   const activeAsk = state.pendingAsks[0]
@@ -278,7 +282,8 @@ export function Composer({ chat, backendLabel }: ComposerProps): React.JSX.Eleme
                     variant="uncontained"
                     leadingIcon="pause"
                     onClick={cancel}
-                    title="중단"
+                    disabled={!canAbort}
+                    title={canAbort ? '중단' : '이 백엔드는 중단을 지원하지 않습니다'}
                     aria-label="중단"
                     data-behavior="action:cancel-turn"
                   />

@@ -17,6 +17,8 @@ import type { Resolver } from '../mcp/expand'
 import { toClaudeConfig } from '../mcp/convert'
 import { isRiskyTool } from '../runtime-events/permission-bridge'
 import { adaptHooks, adaptMcp, adaptSkills, adaptSystemPrompt } from './claude-adapt'
+import { CLAUDE_DESCRIPTOR } from '../capabilities/claude-probe'
+import type { ProviderDescriptor } from '../../shared/ipc'
 
 const requireFn = createRequire(import.meta.url)
 
@@ -107,6 +109,11 @@ export class ClaudeCodeAdapter implements SessionAdapter {
   // resolver 팩토리를 주입받는다 (McpStore.resolver()). ${VAR} 확장/비밀 복호화는 어댑트
   // 시점(sendMessage)에만 호출해 디스크/중간 구조에 평문이 남지 않게 한다.
   constructor(private readonly makeResolver: () => Resolver) {}
+
+  // 정적 능력 서술자 (claude-probe.ts 의 단일 출처를 반환 — drift 없음).
+  describe(): ProviderDescriptor {
+    return CLAUDE_DESCRIPTOR
+  }
 
   async isInstalled(): Promise<{ installed: boolean; version?: string }> {
     try {

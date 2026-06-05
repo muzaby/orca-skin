@@ -455,7 +455,10 @@ export class IpcRouter {
   }
 
   private handleBackendList = async (): Promise<BackendListResult> => {
-    const backends = this.registry.list()
+    // 능력 서술자를 computed-on-the-fly 로 각 엔트리에 부착(DB 미관여 — §4). capabilities 는
+    // 백엔드의 함수(세션별 데이터 아님)라 영속하지 않고 매 응답에 다시 계산해 붙인다.
+    const descriptors = this.registry.describeAll()
+    const backends = this.registry.list().map((b) => ({ ...b, capabilities: descriptors[b.id] }))
     const active = this.registry.getActiveId() ?? undefined
     return { backends, ...(active ? { active } : {}) }
   }

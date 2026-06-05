@@ -9,7 +9,9 @@ import { useBackendContext } from '../features/backend'
 //   가 인계받는다.
 export function NewChatLandingPage(): React.JSX.Element {
   const chat = useChatContext()
-  const { backendLabel } = useBackendContext()
+  const { backendLabel, capabilities } = useBackendContext()
+  // 능력 서술자가 로드됐는데 sessionAbort 가 아니면 중단 게이팅(미로드면 현행 동작 유지).
+  const canAbort = capabilities ? capabilities.cancellation.sessionAbort === true : true
   const isEmpty = chat.state.messages.length === 0 && !chat.state.loadingSession
 
   if (isEmpty) {
@@ -19,10 +21,10 @@ export function NewChatLandingPage(): React.JSX.Element {
           <div className="mb-3 text-center font-serif text-[20px] font-semibold tracking-tight text-ink">
             무엇을 도와드릴까요?
           </div>
-          <Composer chat={chat} backendLabel={backendLabel} />
+          <Composer chat={chat} backendLabel={backendLabel} canAbort={canAbort} />
         </div>
       </section>
     )
   }
-  return <ChatTile chat={chat} backendLabel={backendLabel} />
+  return <ChatTile chat={chat} backendLabel={backendLabel} canAbort={canAbort} />
 }

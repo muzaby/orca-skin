@@ -215,8 +215,71 @@ export interface CancelChat {
   sessionId: string
 }
 
+// ── Capability(능력 탐지) — provider-runtime.md §4/§5 ──────────────────────────────
+// ※ 어휘 주의: 여기의 "capability"(능력 탐지, 백엔드→앱, 세션 중)는 extensions/ 의
+//   "Extension"(주입 묶음, 앱→백엔드, 세션 전)과 무관한 별개 개념이다 (GLOSSARY §1/§2).
+//   백엔드가 *지원하는* 라이프사이클 기능을 서술해, UI 가 false 인 액션을 사전 게이팅한다.
+// 순수 데이터 DTO 라 IPC 경계를 넘는다(BackendListResult). main 의 능력-탐지 추상화
+// (CapabilityProbe)는 src/main/capabilities/types.ts 가 이 타입들을 재노출하며 정의한다.
+
+// 백엔드가 지원하는 세션 라이프사이클 기능 (provider-runtime.md §4 정본).
+export interface SessionCapabilities {
+  // lifecycle
+  continue?: boolean
+  resume?: boolean
+  fork?: boolean
+  persistSessionFalse?: boolean
+  delete?: boolean
+  update?: boolean
+  // structure / control
+  children?: boolean
+  summarize?: boolean
+  abort?: boolean
+  share?: boolean
+  init?: boolean
+  // context
+  contextInjectionNoReply?: boolean
+  structuredOutput?: boolean
+  // revert (§5) — conversation 측. file 측은 RevertCapabilities 가 별도 보유.
+  conversationRevert?: boolean
+  conversationUnrevert?: boolean
+  fileCheckpointCreate?: boolean
+  fileCheckpointRestore?: boolean
+}
+
+// 되돌리기 능력 (provider-runtime.md §5 정본). **conversation revert ≠ file revert — 절대 병합 금지.**
+// 대화/메시지 상태 되돌리기와 파일 변경 snapshot/복원은 별개 개념·별개 capability.
+export interface RevertCapabilities {
+  conversationRevert: boolean
+  conversationUnrevert: boolean
+  fileCheckpointCreate: boolean
+  fileCheckpointRestore: boolean
+}
+
+// 취소 능력 (provider-runtime.md §5 정본).
+export interface CancellationCapability {
+  sessionAbort?: boolean // OpenCode: session.abort / Claude: AbortController
+  denyInterrupt?: boolean // Claude: PermissionResultDeny.interrupt
+  abortSignal?: boolean // Claude: ToolPermissionContext.signal
+}
+
+// 한 provider 의 능력 서술자 묶음. CapabilityProbe.discover() 의 산출물이며,
+// BackendListResult 로 렌더러에 computed-on-the-fly 전달된다(영속 안 함).
+export interface ProviderDescriptor {
+  provider: ProviderId
+  session: SessionCapabilities
+  revert: RevertCapabilities
+  cancellation: CancellationCapability
+}
+
 export interface BackendListResult {
-  backends: { id: Backend; installed: boolean; version?: string }[]
+  // capabilities = 해당 백엔드의 능력 서술자(없으면 미탐지). optional 이라 비파괴 확장.
+  backends: {
+    id: Backend
+    installed: boolean
+    version?: string
+    capabilities?: ProviderDescriptor
+  }[]
   active?: Backend
 }
 

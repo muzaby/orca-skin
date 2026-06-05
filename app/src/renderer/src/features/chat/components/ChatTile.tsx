@@ -19,9 +19,11 @@ const ICON_BTN =
 interface ChatTileProps {
   chat: UseChat
   backendLabel: string
+  // 활성 백엔드의 중단 지원 여부(§15). page → ChatView 를 거쳐 Composer 로 전달.
+  canAbort: boolean
 }
 
-export function ChatTile({ chat, backendLabel }: ChatTileProps): React.JSX.Element {
+export function ChatTile({ chat, backendLabel, canAbort }: ChatTileProps): React.JSX.Element {
   const { state } = chat
   const scrollRef = useRef<HTMLDivElement>(null)
   const rowRef = useRef<HTMLDivElement>(null)
@@ -141,7 +143,7 @@ export function ChatTile({ chat, backendLabel }: ChatTileProps): React.JSX.Eleme
             </ReadingColumn>
           </div>
 
-          <Composer chat={chat} backendLabel={backendLabel} />
+          <Composer chat={chat} backendLabel={backendLabel} canAbort={canAbort} />
         </div>
 
         {state.planTileOpen && (
