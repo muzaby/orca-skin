@@ -208,8 +208,11 @@ export function Composer({ chat, backendLabel }: ComposerProps): React.JSX.Eleme
             onSkip={() => skipAsk(activeAsk.requestId)}
           />
         )}
-        {state.pendingPlanReview ? (
-          <ApprovalCard key={state.pendingPlanReview.requestId} chat={chat} />
+        {state.pendingPlanReview || state.pendingToolApproval ? (
+          <ApprovalCard
+            key={state.pendingPlanReview?.requestId ?? state.pendingToolApproval?.approvalId}
+            chat={chat}
+          />
         ) : (
           <div
             className="epitaxy-prompt rounded-r7 bg-surface-prompt-blur effect-prompt-blur px-3 py-2.5"

@@ -1,6 +1,5 @@
 import type {
-  AskRespond,
-  PlanRespond,
+  PermissionRespond,
   Backend,
   BackendListResult,
   NormalizedEvent,
@@ -84,12 +83,8 @@ export const searchApi = {
     window.orca.search.messages(q, limit)
 }
 
-export const askApi = {
-  respond: (req: AskRespond): Promise<void> => window.orca.ask.respond(req)
-}
-
-export const planApi = {
-  respond: (req: PlanRespond): Promise<void> => window.orca.plan.respond(req)
+export const permissionApi = {
+  respond: (req: PermissionRespond): Promise<void> => window.orca.permission.respond(req)
 }
 
 export const mcpApi = {

@@ -77,7 +77,7 @@ type ProviderEventMapper = { provider: ProviderId; map(raw: unknown): Normalized
 
 **② 예시.** 현재 자동 allow 되는 `Bash rm -rf build/` 가 `permission.requested{origin:'agent', action:{kind:'shell', label:'rm -rf build/', risk:'high'}}` 로 surface → 렌더러 ApprovalCard(../frontend/ux-domains.md §1.6) 가 뜨고, 사용자 결정이 콜백으로 회신된다.
 
-**③ 현재 코드 갭.** 스테이지 B2 (`a78a247`) 로 `permission.requested`/`permission.resolved` 가 **1급 `NormalizedEvent`** 가 됨 — router 가 ask/plan 을 `permission.requested`(`approvalId=requestId`)로 emit, reducer 가 `action.kind`(ask_question/plan_review/tool_approval 3종)로 분기. `runtime-events/permission-bridge.ts` 가 합성·`AppCommandPolicy` 3분기 seam 보유. **잔여 갭**: `makeCanUseTool`(`src/main/adapters/claude-code.ts`)은 여전히 `AskUserQuestion`/`ExitPlanMode` 두 도구만 surface 하고 **그 외 전부 `{behavior:'allow'}` passthrough** — 즉 `tool_approval` 일반 게이트는 seam(미활성). `allowedTools=mcp__<name>__*` 와일드카드(adapters.md §1.3)도 같은 "차단 안 함" 전제.
+**③ 현재 코드 갭.** 스테이지 B2 (`a78a247`) 로 `permission.requested`/`permission.resolved` 가 **1급 `NormalizedEvent`** 가 됨 — router 가 ask/plan/tool 을 `permission.requested`(`approvalId=requestId`)로 emit, reducer 가 `action.kind`(ask_question/plan_review/tool_approval 3종)로 분기. `runtime-events/permission-bridge.ts` 가 합성·`AppCommandPolicy` 3분기 seam 보유. **스테이지 C 마무리로 `tool_approval` 게이트 활성** — `makeCanUseTool`(`src/main/adapters/claude-code.ts`)이 `RISKY_TOOLS` 화이트리스트(`Bash`·`Write`·`Edit`·`MultiEdit`·`NotebookEdit`, `permission-bridge.ts` 의 `isRiskyTool`)에 든 도구를 `tool_approval` 로 surface 하고, 안전 도구(Read/Glob/Grep 등)는 `{behavior:'allow'}` passthrough(Claude Code 웹/CLI 기본 패턴). 권한 응답은 단일 `permissionRespond` 채널 + `InteractionBroker<ApprovalResolution>` 로 통일됐다(구 askRespond/planRespond 2채널·ask/plan 2브로커 통합). "세션 동안 허용"은 `allow.updatedPermissions{scope:'session'}` → router 의 `sessionAllowedTools: Map<sessionId, Set<toolName>>` 로 앱 레벨 관리(SDK `updatedPermissions` 미사용). **잔여 갭**: `allowedTools=mcp__<name>__*` 와일드카드(adapters.md §1.3)는 여전히 "차단 안 함" 전제 · 위험 화이트리스트는 정적 상수(per-tool risk 등급·정규식 매칭은 후속).
 
 **④ 인터페이스 (정본).**
 
@@ -122,7 +122,7 @@ type PermissionUpdate =
 
 **① 설명.** 콜백형(Claude `canUseTool` Promise)과 이벤트형(OpenCode SSE + response endpoint) 승인을 동일 상태 모델로 처리: `requested → resolving → resolved(allow|deny)`, 이탈 분기 `timed_out`/`aborted`.
 
-**③ 현재 코드 갭.** `src/main/ask/broker.ts` 의 `InteractionBroker<T>`(register/resolve + abort signal + default-on-cancel)가 이 상태기계의 **부분 구현**이다 — 단, ask/plan 전용. 일반 권한으로 일반화하면 그대로 PendingApprovalStateMachine 이 된다.
+**③ 현재 코드 갭.** `src/main/ask/broker.ts` 의 `InteractionBroker<T>`(register/resolve + abort signal + default-on-cancel)가 이 상태기계의 **부분 구현**이다. 스테이지 C 마무리로 router 가 ask/plan 2브로커를 단일 `InteractionBroker<ApprovalResolution>`(`approvals`)로 통합해 **ask·plan·tool 전 종류**의 권한 요청이 하나의 broker 를 거친다 — `PendingApprovalStateMachine` 의 핵심(보류·해소·abort fallback)이 충족됐다. 잔여: `timed_out` 분기·OpenCode 이벤트형 편입.
 
 **④ 인터페이스 (정본).**
 
@@ -370,9 +370,9 @@ type ModelProviderConfig =
 | `ChatEvent` | `src/shared/ipc.ts` | `NormalizedEvent` | sessionId/provider/toolRunId 필드 추가 시 함께 rename |
 | `tool_use` / `tool_result` | 〃 | `tool.call.started` / `tool.call.completed` | toolUseId→toolRunId |
 | `ask_question` / `plan_review` | 〃 | `permission.requested(origin:'agent')` | 합성 |
-| `AskResult` / `PlanDecision` | 〃 | `ApprovalResolution` 특수형 | 2분기로 일반화 |
-| `InteractionBroker` | `src/main/ask/broker.ts` | `PermissionBridge` + `PendingApprovalStateMachine` | ask/plan → 전체 tool |
-| `makeCanUseTool` | `src/main/adapters/claude-code.ts` | (PermissionBridge 어댑트) | 일반 tool 승인 경로 |
+| `AskResult` / `PlanDecision` | 〃 | `ApprovalResolution` 특수형 | ✅ 와이어는 단일 `permissionRespond`(`{approvalId, resolution}`)로 2분기 일반화 완료(스테이지 C). `AskResult`/`PlanDecision` 은 어댑터/router 내부 도메인 표현으로 잔존 |
+| `InteractionBroker` | `src/main/ask/broker.ts` | `PermissionBridge` + `PendingApprovalStateMachine` | ✅ ask/plan 2브로커 → 단일 `InteractionBroker<ApprovalResolution>`(전체 tool) 통합 완료(스테이지 C) |
+| `makeCanUseTool` | `src/main/adapters/claude-code.ts` | (PermissionBridge 어댑트) | ✅ 위험 도구 게이트(`RISKY_TOOLS`) 활성 — 단일 `requestApproval(action)` 콜백 소비(스테이지 C) |
 | `detectError` | 〃 | `ErrorClassifier.classify` | 8분류 |
 | `permissionMode`(2종) | `src/shared/ipc.ts` | `NormalizedPermissionMode`(6종) | + 런타임 전환 |
 | `usage`(result) | adapters.md §1.5 | `ProviderReportedTelemetry` | + AppMeasured |
