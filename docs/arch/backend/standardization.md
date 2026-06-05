@@ -5,7 +5,7 @@
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [provider-runtime.md](./provider-runtime.md) (런타임 정규화 — *짝 문서*), [adapters.md](./adapters.md) (자산 변환 매트릭스), [security.md](./security.md) (비밀·MCP credential), [terms.md](./terms.md) (사람용 용어)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 
-> **상태**: 📐 *설계 확정 · 구현 대기*. 본 문서는 **배포 계층(deploy-time) 표준화** 설계만 정의하며 현재 코드 동작을 바꾸지 않는다 (코드 변경 0). 신규 배포 타입(`ExtensionDeployer`·`StandardConformance`)은 본 문서가 **정본(SSOT)** 이고, 런타임 타입(`PermissionBridge`·`RevertManager`·`NormalizedEvent`)은 [provider-runtime.md](./provider-runtime.md) 가 정본 — 본 문서는 *참조만* 한다(중복 정의 금지).
+> **상태**: 🛠 *§5.1 배포 계층 구현 완료 (스테이지 A, PR #47) · 잔여 표준(agents/commands 변환·hook full-plugin) 설계 대기*. `sources/dist` 분리 + `ExtensionDeployer` + `StandardConformance` + `migrate-sources` 가 코드에 반영됐다(§5.1·§5.2·§5.3 의 "구현됨 (스테이지 A)" 주석 참조). 신규 배포 타입(`ExtensionDeployer`·`StandardConformance`)은 본 문서가 **정본(SSOT)** 이고, 런타임 타입(`PermissionBridge`·`RevertManager`·`NormalizedEvent`)은 [provider-runtime.md](./provider-runtime.md) 가 정본 — 본 문서는 *참조만* 한다(중복 정의 금지).
 >
 > **출처 신뢰 원칙**: 각 사실 옆에 `[검증]`(SDK 1차 출처/현재 코드 확인) / `[미확인]`(구현 전 실제 SDK 타입 확정 필요)을 표기한다. **두 SDK 미설치**라 다수 항목이 `[미확인]`.
 >
@@ -99,7 +99,7 @@ class OpenCodeEngine {
 └── dist/<engine>/           # ExtensionDeployer 생성물 (편집 금지)
 ```
 
-> **구현됨 (스테이지 A)**: sources/dist 분리가 코드에 반영됐다. 경로 헬퍼는 [`config/paths.ts`](../../../app/src/main/config/paths.ts)(`sourcesDir`/`distDir(engine)`/`sourcesMcpDir`/`sourcesHooksDir`/`agentsMdPath` 등), 구 평면 레이아웃 1회 이전은 [`config/migrate-sources.ts`](../../../app/src/main/config/migrate-sources.ts)(`migrateConfigToSources`, 멱등). `mcp.json` 은 `sources/mcp/mcp.json` 으로, AGENTS.md 자리는 `sources/instructions/AGENTS.md`. 구 `ensureOrcaPlugin()`(`skills/plugin-bundle.ts`)은 삭제되고 ExtensionDeployer 로 흡수됐다(§5.2). 부트 순서: `ensureConfigDir → migrateConfigToSources → migrateMcpToFile → deploy('claude-code') → scanSkills`.
+> **구현됨 (스테이지 A)**: sources/dist 분리가 코드에 반영됐다. 경로 헬퍼 [`config/paths.ts`](../../../app/src/main/config/paths.ts)는 *다른 모듈이 실제 참조하는* 6종만 export(`orcaConfigDir`/`sourcesDir`/`sourcesMcpDir`/`mcpJsonPath`/`distDir(engine)`/`ensureConfigDir`) — 미사용 `sources*/dist*` 서브 게터(`sourcesHooksDir`/`agentsMdPath`/`distSkillsDir` 등)는 제거되고, 그 하위 레이아웃 구성은 `deploy/deployer.ts`·`config/migrate-sources.ts` 가 root 기준 join 으로 담당. 구 평면 레이아웃 1회 이전은 [`config/migrate-sources.ts`](../../../app/src/main/config/migrate-sources.ts)(`migrateConfigToSources`, 멱등). `mcp.json` 은 `sources/mcp/mcp.json` 으로, AGENTS.md 자리는 `sources/instructions/AGENTS.md`. 구 `ensureOrcaPlugin()`(`skills/plugin-bundle.ts`)은 삭제되고 ExtensionDeployer 로 흡수됐다(§5.2). 부트 순서: `ensureConfigDir → migrateConfigToSources → migrateMcpToFile → deploy('claude-code') → scanSkills`.
 
 ### 5.2 ExtensionDeployer
 
