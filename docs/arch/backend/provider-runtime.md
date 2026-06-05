@@ -2,10 +2,12 @@
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
 > 최종 업데이트: 2026-06-04 (BACKEND_ARCHITECTURE.md 분해 — docs/ARCHITECTURE.md 인덱스 참조)
-> 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [adapters.md](./adapters.md), [persistence.md](./persistence.md), [../frontend/rendering.md](../frontend/rendering.md), [../frontend/ux-domains.md](../frontend/ux-domains.md)
+> 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [standardization.md](./standardization.md) (배포 계층 표준화 — *짝 문서*), [adapters.md](./adapters.md), [persistence.md](./persistence.md), [../frontend/rendering.md](../frontend/rendering.md), [../frontend/ux-domains.md](../frontend/ux-domains.md)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 
 > **상태**: 📐 *설계 확정 · 구현 대기*. 본 절은 **인터페이스/설계만** 정의하며 현재 코드 동작을 바꾸지 않는다 (코드 변경 0). 여기 정의한 타입은 **정본(SSOT)** 이며, ../frontend/ 의 렌더링·UX 문서(rendering.md·ux-domains.md)은 이 타입들을 *참조만* 한다(중복 정의 금지).
+>
+> **계층 위치 + 방법론 (짝 문서 [standardization.md](./standardization.md))**: 이 문서는 **런타임 정규화**(세션 *실행 중* 의 이벤트·권한·세션 흐름)를 다룬다. **배포 계층 표준화**(무엇을 배포·주입하는가 — AGENTS.md·MCP·SKILL.md)는 standardization.md 가 짝으로 다루며, 그 **ExtensionDeployer 산출물이 런타임 설정 입력이 되는 단방향** 연결이다. 또한 여기 정의한 정본 인터페이스는 *목표 카탈로그*다 — 구현은 **rule of three** 로 점진 추출하며, **v1 은 `permission.requested` 를 우선 정규화**하고 나머지 이벤트는 소비자가 생길 때 케이스를 추가한다(EventStream union 미완성 허용, standardization.md §1·§6 과 정합).
 >
 > **출처 신뢰 원칙**: 각 사실 옆에 `[검증]`(SDK 1차 출처/현재 코드에서 확인됨) / `[미확인]`(구현 전 실제 SDK 타입에서 직접 확정 필요)을 표기한다. **현재 `@anthropic-ai/claude-agent-sdk` 와 OpenCode SDK 가 `node_modules` 에 미설치**라 다수 항목이 `[미확인]` 이다 — §13 의 확정 절차를 거친 뒤 구현에 들어간다.
 >

@@ -127,6 +127,8 @@ SDK 가 throw 하는 에러 메시지/코드에서 `401` / `OAuth` / `expired` �
 
 ### 1.8 Adapter 책임 확장 (Future anchor)
 
+> **rule of three ([standardization.md §4](./standardization.md))**: 현 `SessionAdapter`(§1.1)는 세션 실행의 얇은 계약이며 **claude 단일 구체** 구현뿐이다. *엔진 전체*(인증·되돌리기·직접 API 등)를 묶는 범용 `BackendAdapter` 추출은 **3번째 엔진까지 미룬다** — 두 엔진은 구체 클래스(`ClaudeEngine`/`OpenCodeEngine`)로 시작하고 겹치는 부분만 추출한다.
+
 opencode 등 다중 어댑터 환경 대비:
 
 | 책임 | 현재 (claude-code 전용) | Future 인터페이스 |
@@ -213,7 +215,7 @@ opencode 등 다중 어댑터 환경 대비:
 | **Agent** | `agents/<n>.md` | 같은 로컬 플러그인에 포함(자동 로드) | `~/.config/opencode/agent/` 로 셰이핑 | ⏳ 변환기 anchor |
 | **Command** | `commands/<n>.md` | 같은 로컬 플러그인에 포함 | `~/.config/opencode/command/` 로 셰이핑 | ⏳ 변환기 anchor |
 | **systemPrompt** | 중립 문자열(프로젝트 지침) | `preset:'claude_code' + append` | opencode system prompt 옵션 | ⏳ |
-| **Hook** | `hooks/` (`OrcaHookSet`, §3.2) | `options.hooks` 콜백 + (선언형은 hooks.json) | 코드생성 플러그인 모듈 브릿지 | ⚠️ 부분(§3.2) |
+| **Hook** | **엔진별 분리** `sources/hooks/<engine>/` (표준 부재) | `options.hooks` in-process 콜백(claude-side `OrcaHookSet`, §3.2.5) | 네이티브 플러그인 모듈(분리 복사) | ❌ 정규화 안 함(§3.2 정정) |
 
 → "어댑터를 Orca 범용 데이터 계층으로"라는 질문의 답은 이 표다: **어댑터는 표의 *세로 한 칸*(자기 백엔드 열)만 안다. 가로(자산 종류)와 정규 소스(Tier A)는 어댑터 밖이 소유한다.**
 
@@ -221,7 +223,9 @@ opencode 등 다중 어댑터 환경 대비:
 
 ### 3.2 Hook 정규화 모델
 
-> **정직한 결론 먼저**: Hook 의 **이벤트 어휘 + 결정(출력) 형식 + 인프로세스 핸들러 로직 소유권**까지는 정규화 가능하다. 환원 불가능한 것은 **opencode 의 out-of-process 디스패치 브릿지 비용**과 **백엔드별 이벤트 택소노미 갭**뿐이다. 따라서 "Hook 은 정규화 대상이 아니다"라는 현행 문서 입장은 *과도하게 비관적*이다 — 정규화 가능한 큰 표면을 포기하고 있다.
+> **결론 (2026-06-05 정정 — [standardization.md §2](./standardization.md) 채택)**: Hook 은 **cross-tool 표준이 부재**하고 엔진별 실행 모델이 근본적으로 다르므로(shell exit code / in-process throw / config matcher) **정규화하지 않고 엔진별로 분리**한다. 배포 계층에서 사용자 작성 hook 은 `~/.config/orca/sources/hooks/<engine>/` 로 엔진별 분리해 변환 없이 복사한다(standardization.md §5).
+>
+> 아래 §3.2.1~3.2.4 의 기술 분석은 **이 결론의 근거로 보존**한다 — 분석이 입증하는 것은 정확히 "교차-엔진 정규화는 out-of-process 브릿지 비용·표현력 손실·이벤트 택소노미 갭으로 손익이 맞지 않는다"는 점이다. (이전 라운드는 같은 분석에서 "정규화 가능 표면이 크다"는 *반대 결론*을 냈으나, 표준화 설계 채택으로 입장을 정정한다.) 단, **claude-side in-process `OrcaHookSet`** 은 교차-tool 표준이 아니라 *claude 어댑터 구현 디테일*로서 코드에 존재하며 유지된다(§3.2.5).
 
 #### 3.2.1 왜 hook 이 "어려운" 자산인가 (MCP 와의 차이)
 
@@ -297,7 +301,9 @@ const protectEnv: OrcaHookHandler = (ctx) =>
 
 → **정규화 불가 영역이 이만큼으로 좁혀진다**: ① opencode 의 out-of-process 브릿지 비용(레이턴시) + ② (B 경로 선택 시) 표현력 한계 + ③ §3.2.2 의 백엔드 전용 이벤트. **이벤트 어휘·결정 형식·핸들러 로직 자체는 정규화된다.**
 
-#### 3.2.5 권장 설계: 정규화 코어 + 백엔드별 이스케이프 해치
+#### 3.2.5 코드 현실: claude-side in-process `OrcaHookSet` (교차-tool 표준 아님)
+
+> **코드 진실**: `OrcaHookSet` 은 이미 구현·테스트된 코드다 — `capabilities/hooks.ts`(`OrcaHookSet`/`OrcaHookEvent`), `adapters/claude-adapt.ts`(`adaptHooks()` + `ORCA_TO_CLAUDE_EVENT`), `claude-adapt.test.ts`, `capabilities/builder.ts`(현재 `hooks: { normalized: {} }` — 빈 핸들러). 이는 **claude 어댑터가 SDK `query().options.hooks` 로 넘기는 in-process 콜백**의 형태이며, **교차-엔진(claude+opencode) 정규화 표준이 아니다**. §3.2 정정에 따라 `normalized` 는 *앱이 주입하는 claude 전용 in-process hook* 의 컨테이너로 재해석하고, `backendSpecific` 슬롯이 엔진별 분리(§2 채택)의 코드 표현이다. opencode 의 hook 은 `backendSpecific.opencode`(네이티브 플러그인 모듈 경로)로 분리되며 `normalized` 로 합치지 않는다.
 
 ```ts
 interface OrcaHookSet {
@@ -312,7 +318,7 @@ interface OrcaHookSet {
 }
 ```
 
-이 설계는 사용자의 작업 결정 2("Hook 도 정규화 시도")를 **정직하게** 충족한다: 정규화 가능한 최대 표면을 `normalized` 로 가져가되, 본질적으로 백엔드에 묶이는 잔여만 `backendSpecific` 슬롯으로 격리한다. "전부 정규화 가능"이라고 거짓말하지 않고, "전부 포기"라고 과소평가하지도 않는다.
+이 구조는 §2 채택과 정합한다: 교차-tool hook 표준이 없으므로 `normalized` 는 *claude 단일 엔진의 in-process 콜백*에 한정하고(범용 정규화 야망 폐기), 엔진별로 묶이는 hook 은 `backendSpecific` 으로 분리한다. 배포 계층의 사용자 작성 hook 파일은 코드 타입이 아니라 `sources/hooks/<engine>/` 디렉토리로 엔진별 분리된다([standardization.md §5.1](./standardization.md)).
 
 #### 3.2.6 보안 주의 — hook 은 임의 코드 실행
 

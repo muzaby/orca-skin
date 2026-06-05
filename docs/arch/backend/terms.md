@@ -77,5 +77,19 @@
 | **Telemetry / AuthStore / AuditLog** | 사용량·비용 집계 / 인증 주입 전략 / 권한·실행 감사 기록. | [provider-runtime.md §8·§9·§10](./provider-runtime.md) |
 
 > 구현 우선순위(P0/P1)는 [provider-runtime.md §20](./provider-runtime.md) 참조.
->
+
+## 7. 표준 계층 (배포 — 무엇을 배포·주입하나)
+
+> 📐 설계 확정·구현 대기. 정본은 [standardization.md](./standardization.md). §6 런타임 계층(세션 *중*)의 짝으로, 세션 *시작 전* 무엇을 깔지를 다룬다.
+
+| 이름 | 쉬운 설명 | 정본 |
+|---|---|---|
+| **표준 우선(standards-first)** | 엔진이 아니라 업계 표준(AGENTS.md·MCP·SKILL.md)을 1차 추상화 단위로. 새 엔진 = "그 표준을 구현하나?" 라는 한 질문. | [standardization.md §1·§2](./standardization.md) |
+| **표준/런타임 2계층** | 배포 시점(세션 전, 무엇을 깔까) vs 실행 시점(세션 중, 이벤트·권한). 단방향: 배포 산출물 → 런타임 입력. | [standardization.md §3](./standardization.md) |
+| **sources / dist** | 사람이 편집하는 단일 원천(sources) → 엔진별 생성물(dist, 편집 금지). | [standardization.md §5.1](./standardization.md) |
+| **ExtensionDeployer** | sources 를 엔진 규약으로 렌더 → 검증 → 백업 후 기록(dryRun 지원). | [standardization.md §5.2](./standardization.md) |
+| **StandardConformance** | 엔진을 "표준을 얼마나 구현하나"로 기술(instructions/tool/skill/hook + mcpSpecVersion). | [standardization.md §5.3](./standardization.md) |
+| **AGENTS.md** | instructions 표준(AAIF). Orca instructions SSOT 채택 방향(현 systemPromptAppend+PY_AGENT_RULES 와 통합). | [standardization.md §5.4](./standardization.md) |
+| **Engine 구체클래스** | 범용 어댑터를 미리 안 만들고 ClaudeEngine/OpenCodeEngine 구체 클래스로 시작, 3번째 엔진에서 공통 추출(rule of three). | [standardization.md §4](./standardization.md) |
+
 > 사용하지 않는 어휘(Provider/Conversation/Thread 등)는 [GLOSSARY §3](../../GLOSSARY.md#3-사용하지-않는-용어-혼동-방지).

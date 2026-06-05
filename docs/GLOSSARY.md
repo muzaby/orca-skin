@@ -42,6 +42,12 @@
 | **Screen** | tile 의 *내용물* 인 도메인 화면. `src/renderer/src/screens/` 에 모임. 파일 명명은 `*Screen.tsx` (예: `ProjectsScreen`, `EngineScreen`). 화면 카탈로그는 `screens/registry.ts`. |
 | **Header** | `app-frame-header` 슬롯 — 셸 최상단 OS 윈도우 헤더 (액션 5-버튼 툴바 + WinControls). tile 의 헤더(`app-frame-titlebar`) 와 구분된다. *Phase 3++ 이후*: 브랜드는 Sidebar 의 `app-frame-sidebar-brand` 로 이동했고, breadcrumb 표시는 제거. header-left 는 menu / panelL / search / arrowL / arrowR 5-버튼 툴바. |
 | **Slot** | 마크업 트리에서 정해진 자리. `app-frame-*` 클래스 + (필요 시) `data-context` 로 식별. |
+| **Engine** | 코딩 에이전트 런타임의 구체 구현 (ClaudeEngine / OpenCodeEngine). **설계 채택**: 범용 `BackendAdapter` 를 미리 만들지 않고 구체 클래스로 시작, 3번째 엔진에서 공통 추출 (rule of three). 현행 코드는 `SessionAdapter`(claude 단일). 정본 [arch/backend/standardization.md](./arch/backend/standardization.md) §4. ("Backend" 와 의미 인접 — Engine 은 *전체 런타임*, Backend 는 *식별자/얇은 세션 계약*.) |
+| **표준 계층 / 런타임 계층** | 배포 시점(세션 전 — 무엇을 배포·주입) vs 실행 시점(세션 중 — 이벤트·권한·되돌리기). 단방향 연결 (배포 산출물 → 런타임 입력). 정본 [standardization.md](./arch/backend/standardization.md) §3 / [provider-runtime.md](./arch/backend/provider-runtime.md). |
+| **sources / dist** | 확장 리소스의 단일 원천(`~/.config/orca/sources/`, 사람 편집) ↔ 엔진별 생성물(`dist/<engine>/`, 편집 금지). **설계 채택 / 구현 대기** — 현행 `ensureOrcaPlugin()` 은 `~/.config/orca/` 직접 write. 정본 standardization.md §5.1. |
+| **ExtensionDeployer** | `sources` 를 엔진 규약으로 render → validate → backup-then-write 하는 배포기 (dryRun 지원). 현행 선례: `mcp/convert.ts`(`toClaudeConfig`/`toOpencodeConfig`). 정본 standardization.md §5.2. |
+| **StandardConformance** | 엔진을 "표준(AGENTS.md·MCP·SKILL.md·hook)을 얼마나 구현하나"로 기술하는 구조 (+ `mcpSpecVersion`). 정본 standardization.md §5.3. |
+| **AGENTS.md** | instructions 업계 표준 (AAIF / Linux Foundation). **설계 채택 방향**: Orca instructions SSOT (현 `systemPromptAppend` + `PY_AGENT_RULES` 와 통합 경로). 코드 미도입. 정본 standardization.md §5.4. |
 
 ## 3. 사용하지 않는 용어 (혼동 방지)
 

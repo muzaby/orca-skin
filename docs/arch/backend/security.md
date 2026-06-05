@@ -69,7 +69,7 @@ new BrowserWindow({
 >
 > **비밀 누출 불변식**: `writeMcpFile` 은 *미확장 정규 소스*(`OrcaMcpConfig`, `${VAR}`)만 받는다(타입 강제). `expandEnv` 의 확장 결과(평문)는 SDK 주입 타깃(`toClaudeConfig`/`toOpencodeConfig` 출력)으로만 흐르고 절대 파일에 기록되지 않는다.
 >
-> **확장 정규 레이어 (정규 소스 + 어댑터 머티리얼라이저)**: MCP 의 `정규소스→변환기→주입` 패턴을 확장(skill/agent/command) 전반으로 일반화한다. 백엔드-중립 정규 소스를 `~/.config/orca` 한 곳에 두고, 각 어댑터가 실행 시 자기 백엔드 형식으로 *머티리얼라이즈(주입)* 한다.
+> **확장 정규 레이어 (정규 소스 + 어댑터 머티리얼라이저)**: MCP 의 `정규소스→변환기→주입` 패턴을 확장(skill/agent/command) 전반으로 일반화한다. 백엔드-중립 정규 소스를 `~/.config/orca` 한 곳에 두고, 각 어댑터가 실행 시 자기 백엔드 형식으로 *머티리얼라이즈(주입)* 한다. → 이 패턴의 배포 계층 정본은 [standardization.md §5](./standardization.md)(`ExtensionDeployer`·sources/dist 분리)이며, `toClaudeConfig`/`toOpencodeConfig`/`expandEnv`(`src/main/mcp/`)가 그 mcp 축의 현행 구현체다. sources/dist 도입 시 `mcp.json` 은 `sources/mcp/` 로 이동한다.
 >
 > - **정규 소스**(백엔드 중립): `~/.config/orca/{skills/<name>/SKILL.md, agents/<name>.md, commands/<name>.md}` + `mcp.json`. 비밀은 secret-store(safeStorage)에만.
 > - **Claude 어댑터 머티리얼라이즈**(인프로세스 `query()`): `ensureOrcaPlugin()` 이 `~/.config/orca` 에 `.claude-plugin/plugin.json` 을 생성 → **디렉토리 자체가 Claude 로컬 플러그인**이 된다. `plugins:[{type:'local', path: ~/.config/orca}]` + `skills:'all'` 로 로드(같은 플러그인이라 agents/·commands/ 도 자동 로드). `mcp.json`(점 없음)은 플러그인 로더가 무시 → MCP 는 `options.mcpServers` 로 별도 주입(이중 주입 없음).
