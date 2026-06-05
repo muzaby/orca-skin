@@ -1,7 +1,7 @@
 import type {
   AskQuestionRequest,
   NormalizedEvent,
-  ErrorCode,
+  ClassifiedError,
   LoadedSession,
   PermissionMode,
   PlanReviewRequest
@@ -41,7 +41,7 @@ export interface ChatState {
   loadingSession: boolean
   turnStartedAt: number | null
   pendingInputTokens?: number
-  error?: { code: ErrorCode; message: string; recoverable: boolean }
+  error?: ClassifiedError
   // Claude 가 AskUserQuestion 으로 던진 미응답 질문 묶음 큐. canUseTool 이 query 를 일시
   // 중지한 채 응답을 기다리므로 보통 길이 0~1 이지만, 안전하게 큐로 모델링해 앞에서 소비한다.
   pendingAsks: AskQuestionRequest[]

@@ -21,7 +21,7 @@ export function OverlayLayer({ searchOpen, onCloseSearch }: OverlayLayerProps): 
   const { state, newChat, clearError } = useChatContext()
   const { t, setTweak } = useTweakContext()
 
-  const authExpired = state.error?.code === 'auth.expired'
+  const authExpired = state.error?.category === 'auth_error'
   const modalActive = installerOpen || authExpired || searchOpen
 
   return (

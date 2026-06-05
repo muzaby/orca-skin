@@ -17,23 +17,8 @@ export interface MapContext {
   cwd: string
 }
 
-const AUTH_PATTERNS = [/\b401\b/i, /\bunauthori[sz]ed\b/i, /\bOAuth\b/i, /\bexpired\b/i]
-
-// 어댑터 예외 → error NormalizedEvent. 인증 만료 패턴은 auth.expired(렌더러가 재로그인 모달 분기).
-export function detectError(err: unknown, ctx: MapContext): NormalizedEvent {
-  const msg = err instanceof Error ? err.message : String(err)
-  const isAuth = AUTH_PATTERNS.some((re) => re.test(msg))
-  return {
-    type: 'error',
-    ...(ctx.sessionId !== '' ? { sessionId: ctx.sessionId } : {}),
-    provider: ctx.provider,
-    error: {
-      code: isAuth ? 'auth.expired' : 'sdk.crashed',
-      message: isAuth ? 'Claude Code 인증이 만료되었습니다.' : msg,
-      recoverable: true
-    }
-  }
-}
+// 어댑터 예외 → error 분류/이벤트는 runtime-errors/claude-classifier.ts 로 이전됐다
+// (ErrorClassifier, provider-runtime.md §6). 본 파일은 SDKMessage→정규화만 담당한다.
 
 export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): NormalizedEvent[] {
   const { provider } = ctx

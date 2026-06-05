@@ -61,7 +61,7 @@ describe('chatReducer — AskUserQuestion 큐', () => {
         recv({
           type: 'error',
           provider: 'claude-code',
-          error: { code: 'internal', message: 'x', recoverable: false }
+          error: { category: 'schema_validation_error', message: 'x', retryable: false }
         })
       ).pendingAsks
     ).toEqual([])

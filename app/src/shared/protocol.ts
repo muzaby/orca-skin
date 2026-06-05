@@ -209,7 +209,8 @@ export const SettingsPatchSchema = z
 export { CHANNELS } from './ipc'
 export type {
   Backend,
-  ErrorCode,
+  ErrorCategory,
+  ClassifiedError,
   SendChatMessage,
   CancelChat,
   BackendListResult,

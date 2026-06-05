@@ -46,7 +46,7 @@ describe('chatReducer — 위험 도구 승인(tool_approval)', () => {
         recv({
           type: 'error',
           provider: 'claude-code',
-          error: { code: 'internal', message: 'x', recoverable: false }
+          error: { category: 'schema_validation_error', message: 'x', retryable: false }
         })
       ).pendingToolApproval
     ).toBeNull()

@@ -45,6 +45,8 @@ import { PythonRuntime, PY_AGENT_RULES } from '../runtime'
 import { ExtensionBuilder } from '../extensions/builder'
 import { InteractionBroker } from '../ask/broker'
 import { agentPermissionRequest } from '../runtime-events/permission-bridge'
+import { makeClassifiedError } from '../runtime-errors/classifier'
+import { claudeErrorClassifier } from '../runtime-errors/claude-classifier'
 import type {
   ApprovalResolution,
   NormalizedEvent,
@@ -197,11 +199,10 @@ export class IpcRouter {
       this.sendChatEvent(event.sender, {
         type: 'error',
         provider: 'claude-code',
-        error: {
-          code: 'internal',
-          message: 'invalid chat:send payload',
-          recoverable: false
-        }
+        error: makeClassifiedError('schema_validation_error', 'invalid chat:send payload', {
+          retryable: false,
+          provider: 'claude-code'
+        })
       })
       return
     }
@@ -211,11 +212,10 @@ export class IpcRouter {
       this.sendChatEvent(event.sender, {
         type: 'error',
         provider: 'claude-code',
-        error: {
-          code: 'sdk.spawn-failed',
-          message: '활성 백엔드가 없습니다.',
-          recoverable: true
-        }
+        error: makeClassifiedError('provider_connection_error', '활성 백엔드가 없습니다.', {
+          retryable: true,
+          provider: 'claude-code'
+        })
       })
       return
     }
@@ -325,11 +325,10 @@ export class IpcRouter {
       this.sendChatEvent(event.sender, {
         type: 'error',
         provider: 'claude-code',
-        error: {
-          code: 'internal',
-          message: err instanceof Error ? err.message : String(err),
-          recoverable: false
-        }
+        error: claudeErrorClassifier.classify(err, {
+          provider: 'claude-code',
+          phase: 'sendMessage'
+        })
       })
     } finally {
       this.inflight.delete(event.sender)
