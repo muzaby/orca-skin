@@ -48,6 +48,10 @@
 | **ExtensionDeployer** | `sources` 를 엔진 규약으로 render → validate → backup-then-write 하는 배포기 (dryRun 지원). 현행 선례: `mcp/convert.ts`(`toClaudeConfig`/`toOpencodeConfig`). 정본 standardization.md §5.2. |
 | **StandardConformance** | 엔진을 "표준(AGENTS.md·MCP·SKILL.md·hook)을 얼마나 구현하나"로 기술하는 구조 (+ `mcpSpecVersion`). 정본 standardization.md §5.3. |
 | **AGENTS.md** | instructions 업계 표준 (AAIF / Linux Foundation). **설계 채택 방향**: Orca instructions SSOT (현 `systemPromptAppend` + `PY_AGENT_RULES` 와 통합 경로). 코드 미도입. 정본 standardization.md §5.4. |
+| **TurnExtensions / Extension(확장 리소스)** | 한 턴에 주입하는 활성 확장 리소스 묶음 (mcp · skills · hooks · systemPromptAppend) — Extension 계층의 *런타임 조립물*. `ExtensionBuilder`(`app/src/main/extensions/builder.ts`) 가 정규 소스에서 생성하고 어댑터가 자기 query 옵션으로 어댑트한다. `ExtensionDeployer` 의 배포-시점 산출물(dist/)과 대응하는 *주입-시점* 묶음. (구 `OrcaCapabilities`/`CapabilityBuilder` — 아래 capability 어휘 충돌로 개명, `TurnRequest.extensions`.) 코드 `app/src/main/extensions/types.ts`. |
+| **SessionCapabilities / capability(능력 탐지)** | 백엔드가 *지원하는* 라이프사이클 기능(fork/revert/abort/structuredOutput…)의 서술. 방향: **백엔드→앱**(탐지·게이팅), 시점: **세션 중**(런타임 계층). UI 가 `false` 인 액션을 사전 비활성/숨김(사후 `capability_unsupported` 보다 UX 우월). **Extension(주입 묶음, 앱→백엔드, 세션 전)과 무관한 별개 개념** — 이 어휘 충돌을 없애려 per-turn 묶음을 Extension 으로 개명했다. 순수 DTO 는 `app/src/shared/ipc.ts`(SSOT, `ProviderDescriptor`), main 재노출은 `app/src/main/capabilities/types.ts`. 정본 provider-runtime.md §4. |
+| **CapabilityProbe** | 한 provider 의 능력을 탐지해 `ProviderDescriptor` 를 반환하는 main 전용 추상화. claude 는 두 SDK 미설치(§13)라 introspection 불가 → **정적 서술자**(`CLAUDE_DESCRIPTOR`, 문서 지식 기반) 반환. `discover()` 가 async 인 건 opencode SDK introspection seam. `backend:list` 가 `describeAll()` 로 능력을 computed-on-the-fly 부착(영속 안 함). 코드 `app/src/main/capabilities/claude-probe.ts`. |
+| **RevertManager** | 되돌리기 능력의 런타임 seam. **conversation revert ≠ file revert — 절대 병합 금지**(§5)라 메서드 4개를 각자 `RevertCapabilities` 로 가드. claude 는 전 cap false 라 오늘 전 메서드 throw(호출자 없음) — §5 의미 분리를 코드로 앵커하고 테스트로만 운동되는 seam. 코드 `app/src/main/capabilities/revert-manager.ts`. 정본 provider-runtime.md §5. |
 
 ## 3. 사용하지 않는 용어 (혼동 방지)
 

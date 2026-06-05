@@ -8,7 +8,7 @@ import {
   toClaudeHookOutput,
   toContext
 } from './claude-adapt'
-import type { OrcaHookHandler } from '../capabilities/hooks'
+import type { NormalizedHookHandler } from '../extensions/hooks'
 
 describe('adaptMcp', () => {
   it('빈 config 는 옵션 생략', () => {
@@ -119,7 +119,7 @@ describe('toClaudeHookOutput', () => {
 
 describe('makeClaudeHookCallback', () => {
   // .env-protect 핸들러 — 단위 테스트 픽스처(빌트인 미탑재, 래퍼가 deny 를 만드는지만 증명).
-  const protectEnv: OrcaHookHandler = (ctx) => {
+  const protectEnv: NormalizedHookHandler = (ctx) => {
     const input = ctx.toolInput as { file_path?: string } | undefined
     const name = input?.file_path?.split('/').pop()
     if (name === '.env') return { decision: 'deny', reason: 'Cannot modify .env files' }

@@ -1,51 +1,30 @@
-// Tier A — 백엔드 중립 Capability 타입. 어댑터 위에 세우는 "Orca 범용 데이터 계층"의 입력
-// 데이터 모델이다 (설계검토 §9 1단계). 어떤 백엔드(claude-code / opencode …)로 가든 동일한
-// 형태로 조립되고, 각 어댑터가 자기 형식으로 어댑트(adapt)한다.
+// Capability(능력 탐지) — 런타임 계층 (provider-runtime.md §4/§5/§15).
 //
-// 불변식: 여기 담기는 mcp 는 **미확장**(${VAR} 플레이스홀더 보유). 비밀 확장/복호화는 어댑터의
-// 어댑트 시점에만 일어나며 이 구조체에는 절대 평문이 들어오지 않는다.
+// ※ 어휘 주의 (GLOSSARY §1/§2): 이 디렉토리의 "capability" 는 **능력 탐지** 다.
+//   - 방향: 백엔드 → 앱 (탐지/게이팅).   시점: 세션 중 (런타임 계층).
+//   - 무엇: 백엔드가 *지원하는* 라이프사이클 기능(fork/revert/abort…)의 서술.
+//   이는 src/main/extensions/ 의 "Extension"(주입 묶음, 앱→백엔드, 세션 전)과 무관한
+//   별개 개념이다. 두 어휘가 충돌하지 않도록 per-turn 묶음을 Extension 으로 개명했고,
+//   비워진 capabilities/ 를 능력-탐지 전용으로 되살린다.
+//
+// 순수 데이터 DTO(SessionCapabilities/RevertCapabilities/CancellationCapability/
+// ProviderDescriptor)는 IPC 경계를 넘으므로 shared/ipc.ts 가 SSOT 다 — 여기서 재노출만 한다
+// (drift 방지). 본 파일은 그 위에 main 전용 탐지 추상화(CapabilityProbe)를 더한다.
 
-import type { OrcaMcpConfig } from '../mcp/schema'
 import type {
-  ApprovalResolution,
-  PermissionAction,
-  PermissionMode,
-  SkillInfo
+  ProviderId,
+  ProviderDescriptor,
+  SessionCapabilities,
+  RevertCapabilities,
+  CancellationCapability
 } from '../../shared/ipc'
-import type { OrcaHookSet } from './hooks'
 
-// SKILL.md 스캔 메타 DTO 를 그대로 재사용 (step 2 — 자산 가시화).
-export type OrcaSkillRef = SkillInfo
+export type { ProviderDescriptor, SessionCapabilities, RevertCapabilities, CancellationCapability }
 
-// 한 턴에 적용할 백엔드 중립 보조기능 묶음. 어댑터가 이를 받아 자기 query 옵션으로 굽는다.
-export interface OrcaCapabilities {
-  // 활성 MCP 서버 (미확장 ${VAR}). 어댑터가 resolver 로 확장 후 자기 형식으로 어댑트.
-  mcp: OrcaMcpConfig
-  // SKILL.md 메타 (가시화 목적). 현재 어댑트는 항상-on skills 경로가 구동하므로
-  // 이 배열은 아직 옵션 생성을 구동하지 않는다 — 죽은 데이터가 아니라 "보여주기" 용도.
-  skills: OrcaSkillRef[]
-  // 정규화된 Hook 핸들러 집합 (§6). 이번 PR 의 실런타임 경로는 {normalized:{}} 라 옵션 미주입.
-  hooks: OrcaHookSet
-  // SDK 기본 시스템 프롬프트 뒤에 append 할 중립 텍스트 (프로젝트 지침 + PY_AGENT_RULES).
-  systemPromptAppend?: string
-}
-
-// 한 턴 실행 요청. sendMessage 의 인자 증식(7개)을 단일 객체로 통합한다 (설계검토 §9 1단계).
-export interface TurnRequest {
-  sessionId: string | null
-  text: string
-  cwd: string
-  signal?: AbortSignal
-  capabilities: OrcaCapabilities
-  // uv 런타임 인프라 — capability 가 아니라 자식 프로세스 env 주입. 그래서 capabilities 가 아닌
-  // TurnRequest 직속이다 (router 호출처에서 runtime.getEnv() 로 조립, 빌더 우회).
-  env?: Record<string, string>
-  // 백엔드 중립 권한 승인 콜백 — ask_question·plan_review·tool_approval 세 종류를 단일
-  // PermissionAction 으로 받아 ApprovalResolution(allow/deny 2분기)을 돌려준다. 어댑터가
-  // 자기 SDK 의 권한 메커니즘(claude-code 는 canUseTool)으로 어댑트한다. router 가 broker
-  // 에 바인딩해 주입하며, 미주입(opencode 등)이면 어댑터가 현행 자동 통과 동작을 유지.
-  requestApproval?: (action: PermissionAction) => Promise<ApprovalResolution>
-  // 이 턴의 권한 모드 (Composer 모드 버튼). 어댑터가 자기 query 옵션으로 어댑트.
-  // capability 가 아니라 query-레벨 제어라 env/askUser 처럼 TurnRequest 직속.
-  permissionMode?: PermissionMode
+// 한 provider 의 능력을 탐지하는 main 전용 추상화. discover() 는 async — opencode SDK
+// introspection(메서드 존재 여부 등)을 seam 으로 열어두기 위함이다. claude 어댑터는 두 SDK
+// 미설치 상태에서 SDK 메서드를 호출할 수 없으므로 정적 서술자(문서 지식 기반)를 반환한다(§13).
+export interface CapabilityProbe {
+  provider: ProviderId
+  discover(): Promise<ProviderDescriptor>
 }

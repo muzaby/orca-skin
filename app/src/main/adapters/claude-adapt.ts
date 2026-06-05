@@ -1,4 +1,4 @@
-// claude 어댑트 변환 — 백엔드 중립 Capability 조각을 claude query() 옵션 조각으로 변환하는 순수
+// claude 어댑트 변환 — 백엔드 중립 Extension 조각을 claude query() 옵션 조각으로 변환하는 순수
 // 함수들. 인바운드(백엔드→중립)가 normalize 라면, 이쪽은 그 아웃바운드 짝(중립→백엔드)으로,
 // Ports & Adapters 의 어댑터 경계 변환이다 (mcp/convert.ts 의 toClaudeConfig 와 동급의 "백엔드 종속
 // 순수 변환기"). 각 함수는 `...spread` 로 합성될 옵션 조각(object)을 반환한다 — claude-code.ts 가
@@ -21,12 +21,12 @@ import type { ClaudeMcpConfig } from '../mcp/schema'
 import { distDir } from '../config/paths'
 import {
   resolveHookDecisions,
-  type OrcaHookContext,
-  type OrcaHookDecision,
-  type OrcaHookEvent,
-  type OrcaHookHandler,
-  type OrcaHookSet
-} from '../capabilities/hooks'
+  type NormalizedHookContext,
+  type NormalizedHookDecision,
+  type NormalizedHookEvent,
+  type NormalizedHookHandler,
+  type NormalizedHookSet
+} from '../extensions/hooks'
 
 // 활성 MCP 서버가 있을 때만 mcpServers + allowedTools 를 주입한다. allowedTools 는
 // `mcp__<name>__*` 와일드카드로 서버 전체 도구를 자동 허용 — Orca 엔 canUseTool 핸들러가 없어
@@ -47,7 +47,7 @@ export function adaptSystemPrompt(append?: string): object {
 
 // claude 로컬 플러그인 루트 = dist/claude-code/(ExtensionDeployer 가 sources/ 에서 렌더한 산출물).
 // 부팅 시 deploy('claude-code') 로 매니페스트 + skills/agents/commands 가 보장된다. plugins(local) +
-// skills:'all' 로 배포된 SKILL.md 를 명시 로드한다. (OrcaCapabilities.skills 배열은 가시화 메타일 뿐.)
+// skills:'all' 로 배포된 SKILL.md 를 명시 로드한다. (TurnExtensions.skills 배열은 가시화 메타일 뿐.)
 export function adaptSkills(): object {
   return {
     plugins: [{ type: 'local' as const, path: distDir('claude-code') }],
@@ -55,8 +55,8 @@ export function adaptSkills(): object {
   }
 }
 
-// OrcaHookEvent → claude HookEvent.
-const ORCA_TO_CLAUDE_EVENT: Record<OrcaHookEvent, HookEvent> = {
+// NormalizedHookEvent → claude HookEvent.
+const NORMALIZED_TO_CLAUDE_EVENT: Record<NormalizedHookEvent, HookEvent> = {
   'before-tool': 'PreToolUse',
   'after-tool': 'PostToolUse',
   'on-prompt': 'UserPromptSubmit',
@@ -71,14 +71,19 @@ const ORCA_TO_CLAUDE_EVENT: Record<OrcaHookEvent, HookEvent> = {
 // 정규화된 Hook 집합을 claude options.hooks 조각으로 변환한다. 핸들러가 등록된 이벤트만 매처로
 // 묶고, 비어 있으면 옵션 자체를 생략 — 이번 PR 의 빌더는 {normalized:{}} 를 공급하므로 {} 가 되어
 // options.hooks 가 런타임에 주입되지 않는다 (실 채팅 동작 0 변경).
-export function adaptHooks(set: OrcaHookSet): object {
+export function adaptHooks(set: NormalizedHookSet): object {
   const active = (
-    Object.entries(set.normalized) as [OrcaHookEvent, OrcaHookHandler[] | undefined][]
-  ).filter((e): e is [OrcaHookEvent, OrcaHookHandler[]] => Array.isArray(e[1]) && e[1].length > 0)
+    Object.entries(set.normalized) as [NormalizedHookEvent, NormalizedHookHandler[] | undefined][]
+  ).filter(
+    (e): e is [NormalizedHookEvent, NormalizedHookHandler[]] =>
+      Array.isArray(e[1]) && e[1].length > 0
+  )
   if (active.length === 0) return {}
   const hooks: Partial<Record<HookEvent, HookCallbackMatcher[]>> = {}
   for (const [event, handlers] of active) {
-    hooks[ORCA_TO_CLAUDE_EVENT[event]] = [{ hooks: [makeClaudeHookCallback(event, handlers)] }]
+    hooks[NORMALIZED_TO_CLAUDE_EVENT[event]] = [
+      { hooks: [makeClaudeHookCallback(event, handlers)] }
+    ]
   }
   return { hooks }
 }
@@ -94,12 +99,12 @@ interface ClaudeHookInputLike {
   [k: string]: unknown
 }
 
-// claude snake_case 입력 → 중립 OrcaHookContext (순수 매퍼). raw 에 원본을 패스스루.
+// claude snake_case 입력 → 중립 NormalizedHookContext (순수 매퍼). raw 에 원본을 패스스루.
 export function toContext(
-  event: OrcaHookEvent,
+  event: NormalizedHookEvent,
   input: ClaudeHookInputLike,
   signal: AbortSignal
-): OrcaHookContext {
+): NormalizedHookContext {
   return {
     event,
     sessionId: input.session_id ?? '',
@@ -117,8 +122,8 @@ export function toContext(
 // after-tool→additionalContext/updatedToolOutput, on-prompt→additionalContext, 그 외 lifecycle→
 // systemMessage. continue:false 는 최상위로.
 export function toClaudeHookOutput(
-  event: OrcaHookEvent,
-  decision: OrcaHookDecision
+  event: NormalizedHookEvent,
+  decision: NormalizedHookDecision
 ): HookJSONOutput {
   const out: SyncHookJSONOutput = {}
   if (decision.continue === false) out.continue = false
@@ -169,15 +174,15 @@ export function toClaudeHookOutput(
   return out
 }
 
-// OrcaHookHandler[] → claude HookCallback. snake_case 입력을 toContext 로 매핑 → 핸들러 전부 실행
+// NormalizedHookHandler[] → claude HookCallback. snake_case 입력을 toContext 로 매핑 → 핸들러 전부 실행
 // → resolveHookDecisions 로 1결정 병합 → toClaudeHookOutput 으로 다시 변환한다.
 export function makeClaudeHookCallback(
-  event: OrcaHookEvent,
-  handlers: OrcaHookHandler[]
+  event: NormalizedHookEvent,
+  handlers: NormalizedHookHandler[]
 ): HookCallback {
   return async (input, _toolUseID, { signal }) => {
     const ctx = toContext(event, input as unknown as ClaudeHookInputLike, signal)
-    const decisions: OrcaHookDecision[] = []
+    const decisions: NormalizedHookDecision[] = []
     for (const handler of handlers) decisions.push(await handler(ctx))
     return toClaudeHookOutput(event, resolveHookDecisions(decisions))
   }

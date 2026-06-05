@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { Backend, BackendListResult } from '../../../../../shared/ipc'
+import type { Backend, BackendListResult, ProviderDescriptor } from '../../../../../shared/ipc'
 import { backendApi } from '../../../shared/api/ipc'
 
 export interface UseBackend {
   list: BackendListResult['backends']
   active: Backend | null
+  // 활성 백엔드의 능력 서술자 (없으면 null). UI 의 사전 게이팅·지표 소비자가 읽는다(§15).
+  capabilities: ProviderDescriptor | null
   loading: boolean
   refresh: () => Promise<void>
 }
@@ -31,9 +33,12 @@ export function useBackend(): UseBackend {
     }
   }, [])
 
+  const capabilities = data?.backends.find((b) => b.id === data.active)?.capabilities ?? null
+
   return {
     list: data?.backends ?? [],
     active: data?.active ?? null,
+    capabilities,
     loading,
     refresh
   }

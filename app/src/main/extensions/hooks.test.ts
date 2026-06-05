@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { resolveHookDecisions, type OrcaHookDecision } from './hooks'
+import { resolveHookDecisions, type NormalizedHookDecision } from './hooks'
 
 describe('resolveHookDecisions', () => {
   it('빈 배열은 빈 결정', () => {
@@ -11,7 +11,7 @@ describe('resolveHookDecisions', () => {
   })
 
   it('deny > ask > allow — 가장 제한적인 결정 채택', () => {
-    const decisions: OrcaHookDecision[] = [
+    const decisions: NormalizedHookDecision[] = [
       { decision: 'allow' },
       { decision: 'deny', reason: 'blocked' },
       { decision: 'ask' }

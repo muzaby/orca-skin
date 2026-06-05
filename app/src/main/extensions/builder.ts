@@ -1,16 +1,16 @@
-// CapabilityBuilder — Tier A 조립기. 정규 소스(DB 지침 · McpStore · 스킬 스캔)를 읽어 백엔드
-// 중립 OrcaCapabilities 로 조립한다. 어댑터/백엔드를 전혀 모른다 — 어댑트(claude 타깃 변환·
+// ExtensionBuilder — Extension 계층 조립기. 정규 소스(DB 지침 · McpStore · 스킬 스캔)를 읽어 백엔드
+// 중립 TurnExtensions 로 조립한다. 어댑터/백엔드를 전혀 모른다 — 어댑트(claude 타깃 변환·
 // ${VAR} 확장)는 전적으로 어댑터 책임. router 에 흩어져 있던 지침 조회 + PY_AGENT_RULES join 을
-// 이리로 이주해 "이 보조기능은 어디서 조립하지?"를 단일 위치로 모은다 (설계검토 §9 1단계).
+// 이리로 이주해 "이 확장 리소스는 어디서 조립하지?"를 단일 위치로 모은다 (설계검토 §9 1단계).
 //
-// env(uv 런타임)는 capability 가 아니라 TurnRequest 직속이라 빌더를 우회한다 — router 가 직접 조립.
+// env(uv 런타임)는 확장 묶음이 아니라 TurnRequest 직속이라 빌더를 우회한다 — router 가 직접 조립.
 
 import type { DbQueries } from '../db'
 import type { McpStore } from '../mcp/store'
 import type { SkillInfo } from '../../shared/ipc'
-import type { OrcaCapabilities } from './types'
+import type { TurnExtensions } from './types'
 
-export class CapabilityBuilder {
+export class ExtensionBuilder {
   constructor(
     private readonly db: DbQueries,
     private readonly mcp: McpStore,
@@ -20,7 +20,7 @@ export class CapabilityBuilder {
 
   // sessionId 가 있으면 resume 경로(세션→프로젝트 지침 조회), 없으면 새 채팅(projectId 직접 조회).
   // 새 채팅이면 projectId 를, resume 면 null 을 넘긴다.
-  build(sessionId: string | null, projectId: string | null): OrcaCapabilities {
+  build(sessionId: string | null, projectId: string | null): TurnExtensions {
     // 프로젝트 지침 조회. 매 턴 1회 prepared statement — DB SSOT, 캐시 없음(지침 편집이 같은
     // 세션의 다음 메시지부터 즉시 반영). resume 경로는 세션 바인딩으로, 새 채팅은 projectId 로.
     let instructions: string | undefined

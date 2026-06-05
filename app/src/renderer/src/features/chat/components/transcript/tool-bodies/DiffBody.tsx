@@ -102,12 +102,8 @@ function DiffTable({ oldValue, newValue }: DiffPair): React.JSX.Element {
               >
                 <pre className="m-0 text-code text-t6 opacity-60">{line.lineNo}</pre>
               </td>
-              <td
-                className={`select-none px-1 text-center align-baseline ${gutterBg}`}
-              >
-                <pre className="m-0 text-code text-t6">
-                  {isAdded ? '+' : isRemoved ? '-' : ' '}
-                </pre>
+              <td className={`select-none px-1 text-center align-baseline ${gutterBg}`}>
+                <pre className="m-0 text-code text-t6">{isAdded ? '+' : isRemoved ? '-' : ' '}</pre>
               </td>
               <td className="px-2 align-baseline">
                 <pre className="m-0 whitespace-pre-wrap break-all text-code text-t9">

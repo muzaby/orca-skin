@@ -194,7 +194,7 @@ interface PermissionModeController {
 
 **② 예시.** OpenCode 는 `session.children`/`share`/`init`(AGENTS.md) `[검증]`, Claude 는 `continueConversation`/`resume`/`forkSession` `[검증]`. 서로 대응이 없으므로 사이드바/메뉴가 가용한 액션만 노출.
 
-**③ 현재 코드 갭.** `SessionAdapter`(`src/main/adapters/types.ts`)는 `isInstalled`/`install`/`sendMessage`(+옵셔널 listSessions/loadSession)만 — capability 서술자 없음.
+**③ 현재 코드 갭.** ✅ **해소** — `SessionAdapter.describe(): ProviderDescriptor` 추가(`src/main/adapters/types.ts`). claude 는 두 SDK 미설치(§13)라 introspection 대신 **정적 서술자** `CLAUDE_DESCRIPTOR`(`src/main/capabilities/claude-probe.ts`)를 반환하고, `discover()` 는 opencode introspection seam 용 async. 능력은 `backend:list` 가 `registry.describeAll()` 로 computed-on-the-fly 부착(영속 안 함 — 백엔드의 함수). 순수 DTO 는 `src/shared/ipc.ts`(SSOT), main 재노출 + `CapabilityProbe` 는 `src/main/capabilities/types.ts`. UI 는 `BackendStatus` 지표 + Composer cancel 게이팅으로 소비. `[미확인]` 값은 필드별 주석으로 audit trail 보존(설치 후 모순 시 정정).
 
 **④ 인터페이스 (정본).**
 
@@ -229,7 +229,7 @@ interface CapabilityProbe {
 
 **② 예시.** OpenCode `session.revert`/`unrevert` = 대화 상태 되돌리기 `[검증]`. Claude file checkpointing(실험적, `betas` 로 활성화) = 파일 snapshot/복원 `[검증]`. 한쪽만 있는 provider 에서 다른 쪽 버튼은 숨긴다.
 
-**③ 현재 코드 갭.** 둘 다 없음.
+**③ 현재 코드 갭.** ✅ **seam 구현** — `RevertManager`(`src/main/capabilities/revert-manager.ts`)가 `RevertCapabilities` 를 주입받아 메서드 4개(`revertConversation`/`unrevertConversation`/`createFileCheckpoint`/`restoreFileCheckpoint`)를 각자 자기 cap 으로 가드한다. **단일 revert() 금지** — conversation↔file 을 절대 병합하지 않는다. claude 는 전 cap false 라 오늘 모든 메서드가 "미지원" throw 이고 호출자도 없다(§5 의미 분리를 코드로 앵커 + 테스트로만 운동되는 seam). cap=true 백엔드(OpenCode 대화 revert / Claude file checkpoint beta) 도입 시 활성화.
 
 **④ 인터페이스 (정본).**
 
@@ -415,6 +415,8 @@ type ModelProviderConfig =
 
 §4 의 capability 타입은 런타임에 탐지해 `AppSession.capabilities` 에 캐시하고, UI 는 `false` 인 액션 버튼을 **사전 비활성/숨김**(사후 `capability_unsupported` 에러보다 UX 우월).
 
+> **현재 구현 (claude 단독).** 두 SDK 미설치(§13)라 *런타임 introspection* 대신 **정적 서술자**(`CLAUDE_DESCRIPTOR`)를 반환한다. 영속은 **computed-on-the-fly** — `AppSession.capabilities` DB 컬럼 없이 `backend:list` 응답에 매번 다시 계산해 붙인다(capabilities 는 세션별 데이터가 아니라 백엔드의 함수). `discover()` 가 async 인 건 opencode SDK 메서드 introspection seam 을 위함. UI 소비자: `BackendStatus` 지원-기능 지표 + Composer cancel 버튼 `cancellation.sessionAbort` 게이팅(claude 는 true 라 오늘 실효 0 — 미래 백엔드 seam).
+
 | Capability | 탐지 방법 |
 |---|---|
 | OpenCode direct API 존재 (`DirectBackendCapabilities` §17) | SDK client 메서드 존재 / `types.gen.ts` |
@@ -515,8 +517,8 @@ interface ConfigManager {
 | ApprovalResolution (2분기) | §3 |
 | AppCommandPolicy (3분기) | §3 |
 | PermissionModeController | §3 |
-| SessionCapability + CapabilityProbe | §4 / §15 |
-| RevertManager | §5 |
+| SessionCapability + CapabilityProbe | §4 / §15 — ✅ 구현 (claude 정적 probe `CLAUDE_DESCRIPTOR` + `SessionAdapter.describe()` + `backend:list` computed-on-the-fly 부착 + UI 사전 게이팅) |
+| RevertManager | §5 — ✅ seam 구현 (cap-가드 4메서드, claude 전 cap false 라 throw-only) |
 
 ### P1
 

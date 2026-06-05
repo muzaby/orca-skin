@@ -3,7 +3,7 @@
 // 시작한다: render(sources→engine 규약) → validate(특히 MCP 키 이름) → dryRun ? 계획 : backup-then-write.
 //
 // claude-code 축별 동작:
-//   instructions : AGENTS.md 는 런타임 systemPromptAppend 로 주입(CapabilityBuilder) → dist 파일 미생성(중립).
+//   instructions : AGENTS.md 는 런타임 systemPromptAppend 로 주입(ExtensionBuilder) → dist 파일 미생성(중립).
 //   skills/agents/commands : sources/ → dist/<engine>/ 로 **복사**(심링크 아님 — 샌드박스 이슈 회피).
 //   mcp : claude 는 MCP 를 파일이 아니라 query() options 로 런타임 주입 → 여기선 **키 이름 검증만**.
 //   hooks : sources/hooks/<engine>/ → dist/<engine>/hooks 로 **변환 없이 복사만**(표준 부재 §2).

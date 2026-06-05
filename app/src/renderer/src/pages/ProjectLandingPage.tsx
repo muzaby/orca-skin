@@ -22,7 +22,9 @@ export function ProjectLandingPage(): React.JSX.Element {
   const { projectId = '' } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
   const chat = useChatContext()
-  const { backendLabel } = useBackendContext()
+  const { backendLabel, capabilities } = useBackendContext()
+  // 능력 서술자가 로드됐는데 sessionAbort 가 아니면 중단 게이팅(미로드면 현행 동작 유지).
+  const canAbort = capabilities ? capabilities.cancellation.sessionAbort === true : true
 
   return (
     <section className="flex min-w-0 flex-1 flex-col bg-bg">
@@ -31,7 +33,7 @@ export function ProjectLandingPage(): React.JSX.Element {
         <main className="flex min-w-0 flex-col xl:col-span-7">
           <div className="mx-auto w-full max-w-2xl space-y-6 px-6 py-8">
             <ProjectInfoHero projectId={projectId} />
-            <Composer chat={chat} backendLabel={backendLabel} />
+            <Composer chat={chat} backendLabel={backendLabel} canAbort={canAbort} />
             <ProjectSessionsPanel
               projectId={projectId}
               currentSessionId={chat.state.sessionId}
