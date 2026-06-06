@@ -12,24 +12,11 @@ import { partsText } from '../lib/parts'
 import { Composer } from './Composer'
 import { PlanTile } from './PlanTile'
 import { PLAN_TILE_MIN_WIDTH, PLAN_TILE_MAX_WIDTH } from '../reducer/chatReducer'
+import { errorCategoryLabel } from '../lib/errorLabels'
 import type { UseChat } from '../hooks/useChat'
-import type { ErrorCategory } from '../../../../../shared/ipc'
 
 const ICON_BTN =
   'grid h-7 w-7 cursor-default place-items-center rounded-r4 border-0 bg-transparent text-t6 outline-none hide-focus-ring ring-focus transition-colors hover:bg-fill-uncontained-hover hover:text-t7'
-
-// ClassifiedError.category → 사용자용 한국어 라벨 (에러 카드 헤더). 미지정 category 는
-// 원문 키를 그대로 노출(seam category 가 추가돼도 깨지지 않게).
-const ERROR_CATEGORY_LABELS: Record<ErrorCategory, string> = {
-  provider_connection_error: '백엔드 연결 오류',
-  auth_error: '인증 오류',
-  permission_denied: '권한 거부',
-  tool_execution_error: '도구 실행 오류',
-  stream_error: '스트림 오류',
-  capability_unsupported: '지원하지 않는 기능',
-  schema_validation_error: '입력 검증 오류',
-  user_cancelled: '사용자 취소'
-}
 
 interface ChatTileProps {
   chat: UseChat
@@ -156,7 +143,7 @@ export function ChatTile({ chat, backendLabel, canAbort }: ChatTileProps): React
                 <div className="rounded-[10px] border border-rust bg-rust-soft px-3 py-2 text-[12.5px] text-ink">
                   <div className="flex items-center gap-2">
                     <span className="font-semibold">
-                      에러: {ERROR_CATEGORY_LABELS[state.error.category] ?? state.error.category}
+                      에러: {errorCategoryLabel(state.error.category)}
                     </span>
                     {state.error.retryable && (
                       <span className="rounded-full border border-border px-1.5 py-px text-[10.5px] text-ink3">

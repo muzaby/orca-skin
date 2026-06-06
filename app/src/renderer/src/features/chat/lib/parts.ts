@@ -61,3 +61,10 @@ export function partsErrors(parts: AppMessagePart[]): unknown[] {
   for (const p of parts) if (p.type === 'error') errs.push(p.error)
   return errs
 }
+
+// structured_output 파트들의 value.
+export function partsStructured(parts: AppMessagePart[]): unknown[] {
+  const out: unknown[] = []
+  for (const p of parts) if (p.type === 'structured_output') out.push(p.value)
+  return out
+}
