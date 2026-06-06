@@ -39,6 +39,9 @@ export interface ChatState {
   cwd: string | null
   messages: Message[]
   pendingDelta: string
+  // 라이브 확장사고 누적(transient — PendingAssistant 가 표시). 완성 시 message.reasoning 이
+  // 영속 reasoning 파트로 굳히며 비운다. pendingDelta 와 동형.
+  pendingReasoning: string
   inflight: boolean
   // 사이드바 세션 클릭 또는 부팅 시 lastSessionId 자동 복원으로 메시지를 비동기 로드하는
   // 동안 true. ChatPane 이 인디케이터를 표시한다.
@@ -76,6 +79,7 @@ export const initialChatState: ChatState = {
   cwd: null,
   messages: [],
   pendingDelta: '',
+  pendingReasoning: '',
   inflight: false,
   loadingSession: false,
   turnStartedAt: null,
@@ -148,6 +152,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           { role: 'user', createdAt: Date.now(), parts: [{ type: 'text', text: action.text }] }
         ],
         pendingDelta: '',
+        pendingReasoning: '',
         inflight: true,
         turnStartedAt: Date.now(),
         pendingInputTokens: undefined,
@@ -169,9 +174,15 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         case 'message.delta':
           return { ...state, pendingDelta: state.pendingDelta + ev.delta.text }
 
+        case 'message.reasoning.delta':
+          // 라이브 확장사고 누적(transient). PendingAssistant 가 펼친 프리뷰로 표시.
+          return { ...state, pendingReasoning: state.pendingReasoning + ev.delta.text }
+
         case 'message.reasoning':
+          // 완성 사고 블록 → 영속 reasoning 파트. 라이브 프리뷰(pendingReasoning)는 비운다.
           return {
             ...state,
+            pendingReasoning: '',
             messages: appendAssistantPart(state.messages, {
               type: 'reasoning',
               text: ev.text,
@@ -220,6 +231,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             ...state,
             inflight: false,
             turnStartedAt: null,
+            // 턴 종료 — 미완 라이브 사고 프리뷰는 비운다(영속은 완성 블록의 message.reasoning).
+            pendingReasoning: '',
             ...(inputTokens != null ? { pendingInputTokens: inputTokens } : {})
           }
           // pendingDelta 가 아직 남아있으면(message.completed 없이 끝남) text 파트로 굳힌다.

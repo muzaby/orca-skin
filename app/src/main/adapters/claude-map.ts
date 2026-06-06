@@ -38,9 +38,13 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
     ]
   }
 
-  // SDKPartialAssistantMessage(text_delta) → message.delta
+  // SDKPartialAssistantMessage → message.delta(text_delta) / message.reasoning.delta(thinking_delta)
   if (msg.type === 'stream_event') {
-    const ev = (msg as unknown as { event?: { delta?: { type?: string; text?: string } } }).event
+    const ev = (
+      msg as unknown as {
+        event?: { delta?: { type?: string; text?: string; thinking?: string } }
+      }
+    ).event
     if (ev?.delta?.type === 'text_delta' && typeof ev.delta.text === 'string') {
       return [
         {
@@ -51,6 +55,17 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
         }
       ]
     }
+    if (ev?.delta?.type === 'thinking_delta' && typeof ev.delta.thinking === 'string') {
+      return [
+        {
+          type: 'message.reasoning.delta',
+          sessionId: ctx.sessionId,
+          provider,
+          delta: { text: ev.delta.thinking }
+        }
+      ]
+    }
+    // signature_delta 등 그 외 델타는 스트림에서 무시(완성 블록의 message.reasoning 이 signature 보관).
     return []
   }
 

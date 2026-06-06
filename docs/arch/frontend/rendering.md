@@ -88,7 +88,7 @@ interface ToolRendererRegistry { register(r: ToolRenderer): void; resolve(input:
 
 **① 설명.** OpenCode `session.prompt({ format: { type:'json_schema', schema, retryCount? } })` 와 실패 시 `result.data.info.error`(`StructuredOutputError`)를 UI 상태로 정규화 `[검증]`. Claude 측 형식은 `[미확인]`(../backend/provider-runtime.md §13) — 동일 상태로 흡수 가능한지 구현 전 확인.
 
-**③ 현재 코드 갭.** 미구현. reasoning/thinking 블록 전용 렌더도 없음(현재 일반 텍스트로 스트리밍).
+**③ 현재 코드 갭.** structured_output 은 최소 구현(`StructuredOutputCard`, claude 소스 없음 — §1.6). reasoning 은 **라이브 스트리밍 구현됨** — `message.reasoning.delta`(claude `thinking_delta`) → `pendingReasoning` → `PendingAssistant` 가 펼친 `ReasoningBlock` 프리뷰로 표시, 완성 시 `message.reasoning` 이 영속 reasoning 파트(접이식)로 대체. 런타임이 `thinking_delta` 를 안 흘리면 완성 블록만 표시(graceful).
 
 **④ 인터페이스.**
 

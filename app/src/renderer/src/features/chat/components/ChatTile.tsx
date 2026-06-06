@@ -137,6 +137,7 @@ export function ChatTile({ chat, backendLabel, canAbort }: ChatTileProps): React
                 <PendingAssistant
                   turnStartedAt={state.turnStartedAt}
                   pendingDelta={state.pendingDelta}
+                  pendingReasoning={state.pendingReasoning}
                 />
               )}
               {state.error && (

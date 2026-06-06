@@ -217,7 +217,8 @@ interface RuntimeStatus {
 | `session.updated` | `patch: { model?; cwd? }` | 어댑터의 첫 메시지 (SDK `SDKSystemMessage.init`) | `state.sessionId` 저장, `state.cwd` 갱신 |
 | `message.delta` | `delta: { text }` | LLM 스트리밍 (SDK `text_delta`) | `pendingDelta += text` |
 | `message.completed` | `message: { text }` | LLM 턴 종료 (SDK `SDKAssistantMessage` text block) | 현재 assistant 메시지에 `text` 파트 append, `pendingDelta` 비움 |
-| `message.reasoning` | `text; signature?` | 확장사고 블록 (SDK `SDKAssistantMessage` thinking block) | 현재 assistant 메시지에 `reasoning` 파트 append (signature 는 opaque 보관) |
+| `message.reasoning` | `text; signature?` | 확장사고 블록 (SDK `SDKAssistantMessage` thinking block) | 현재 assistant 메시지에 `reasoning` 파트 append (signature 는 opaque 보관) + `pendingReasoning` 비움 |
+| `message.reasoning.delta` | `delta: { text }` | 확장사고 라이브 (SDK `thinking_delta`) | `pendingReasoning += text` (transient, 미저장). `message.delta` 와 동형 — 런타임 미수신 시 발생 안 함 |
 | `tool.call.started` | `toolRunId; toolName; args` | LLM 도구 호출 (SDK `tool_use` block) | 현재 assistant 메시지에 `tool_call` 파트 append |
 | `tool.call.completed` | `toolRunId; result; isError; durationMs?` | 도구 실행 완료 (SDK `tool_result` block) | `tool_result` 파트 append (`toolRunId` 로 `tool_call` 과 페어링) |
 | `telemetry` | `usage?: { inputTokens; outputTokens }` | 어댑터 턴 종료 (SDK `SDKResultMessage`) | `inflight = false`, `pendingInputTokens` 갱신 |

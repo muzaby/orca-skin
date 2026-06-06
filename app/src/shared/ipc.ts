@@ -137,6 +137,14 @@ export type NormalizedEvent =
       text: string
       signature?: string
     }
+  // 확장사고 라이브 델타(transient — message.delta 와 동형, DB 미저장). 영속은 완성 블록의
+  // message.reasoning 이 담당. 런타임이 thinking_delta 를 안 흘리면 발생 안 함(graceful).
+  | {
+      type: 'message.reasoning.delta'
+      sessionId: string
+      provider: ProviderId
+      delta: { text: string }
+    }
   | {
       type: 'tool.call.started'
       sessionId: string

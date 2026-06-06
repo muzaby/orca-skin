@@ -41,7 +41,8 @@ type ProviderId = 'claude-code' | 'opencode'
 type NormalizedEvent =
   | { type: 'message.delta';      sessionId: string; provider: ProviderId; messageId: string; delta: unknown }
   | { type: 'message.completed';  sessionId: string; provider: ProviderId; messageId: string; message: unknown } // [미확인] payload 모양
-  | { type: 'message.reasoning';  sessionId: string; provider: ProviderId; text: string; signature?: string } // 확장사고 블록 [검증-타입: BetaThinkingBlock]
+  | { type: 'message.reasoning';  sessionId: string; provider: ProviderId; text: string; signature?: string } // 확장사고 완성 블록 [검증-타입: BetaThinkingBlock] — 영속
+  | { type: 'message.reasoning.delta'; sessionId: string; provider: ProviderId; delta: { text: string } } // 확장사고 라이브 [검증-타입: BetaThinkingDelta] — transient(미저장)
   | { type: 'tool.call.started';  sessionId: string; provider: ProviderId; toolRunId: string; toolName: string; args: unknown }
   | { type: 'tool.call.completed';sessionId: string; provider: ProviderId; toolRunId: string; result: unknown; isError: boolean; durationMs?: number }
   | { type: 'permission.requested'; sessionId: string; provider: ProviderId; approvalId: string; origin: 'agent' | 'app'; action: PermissionAction } // §3
@@ -59,7 +60,8 @@ type ProviderEventMapper = { provider: ProviderId; map(raw: unknown): Normalized
 | claude SDK 메시지(subtype) | → `NormalizedEvent` | 비고 |
 |---|---|---|
 | `init` | `session.updated`(최초) — `sessionId`/`model`/`cwd` 주입 | 현재 sessionId 출처 |
-| `assistant_delta` | `message.delta` | 스트리밍 텍스트 |
+| `assistant_delta` | `message.delta` | 스트리밍 텍스트 (`text_delta`) |
+| `stream_event`(thinking_delta) | `message.reasoning.delta` | 라이브 확장사고 (transient). 미수신 시 발생 안 함 |
 | `assistant_message` | `message.completed` | 완성본 |
 | `assistant`(thinking block) | `message.reasoning` | 확장사고 — `text`+opaque `signature`. `display:'omitted'` 면 미발생 |
 | `tool_use` | `tool.call.started` | `toolUseId` → `toolRunId` |

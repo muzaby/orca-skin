@@ -102,6 +102,56 @@ describe('chatReducer — AppMessagePart 모델', () => {
     expect(partsText(s.messages[1].parts)).toBe('hello')
   })
 
+  it('message.reasoning.delta 가 pendingReasoning 에 누적되고 완성 블록이 비운다', () => {
+    let s = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'q' })
+    s = apply(s, [
+      {
+        type: 'message.reasoning.delta',
+        sessionId: 's',
+        provider: 'claude-code',
+        delta: { text: '먼저 ' }
+      },
+      {
+        type: 'message.reasoning.delta',
+        sessionId: 's',
+        provider: 'claude-code',
+        delta: { text: '확인' }
+      }
+    ])
+    expect(s.pendingReasoning).toBe('먼저 확인')
+    // 완성 사고 블록 → 영속 reasoning 파트 + 라이브 프리뷰 비움
+    s = apply(s, [
+      {
+        type: 'message.reasoning',
+        sessionId: 's',
+        provider: 'claude-code',
+        text: '먼저 확인',
+        signature: 'sig'
+      }
+    ])
+    expect(s.pendingReasoning).toBe('')
+    expect(partsReasoning(s.messages[1].parts)).toEqual([{ text: '먼저 확인', signature: 'sig' }])
+  })
+
+  it('telemetry 가 미완 pendingReasoning 을 비운다', () => {
+    let s = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'q' })
+    s = apply(s, [
+      {
+        type: 'message.reasoning.delta',
+        sessionId: 's',
+        provider: 'claude-code',
+        delta: { text: '생각만' }
+      },
+      {
+        type: 'telemetry',
+        sessionId: 's',
+        provider: 'claude-code',
+        usage: { inputTokens: 1, outputTokens: 1 }
+      }
+    ])
+    expect(s.pendingReasoning).toBe('')
+  })
+
   it('LOAD_SESSION 은 parts 를 그대로 싣는다', () => {
     const session: LoadedSession = {
       id: 's1',

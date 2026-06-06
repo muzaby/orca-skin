@@ -37,6 +37,36 @@ describe('claudeToNormalized', () => {
     ])
   })
 
+  it('stream_event(thinking_delta) → message.reasoning.delta', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'stream_event',
+        event: { delta: { type: 'thinking_delta', thinking: '음...' } }
+      }),
+      ctx()
+    )
+    expect(out).toEqual([
+      {
+        type: 'message.reasoning.delta',
+        sessionId: 's1',
+        provider: 'claude-code',
+        delta: { text: '음...' }
+      }
+    ])
+  })
+
+  it('stream_event(signature_delta) → [] (스트림에서 무시)', () => {
+    expect(
+      claudeToNormalized(
+        sdk({
+          type: 'stream_event',
+          event: { delta: { type: 'signature_delta', signature: 'x' } }
+        }),
+        ctx()
+      )
+    ).toEqual([])
+  })
+
   it('assistant → tool.call.started + message.completed (순서 보존)', () => {
     const out = claudeToNormalized(
       sdk({
