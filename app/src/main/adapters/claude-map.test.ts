@@ -68,6 +68,46 @@ describe('claudeToNormalized', () => {
     ])
   })
 
+  it('assistant thinking 블록 → message.reasoning (signature 보존, text 와 공존)', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          content: [
+            { type: 'thinking', thinking: '먼저 확인하자', signature: 'sig1' },
+            { type: 'text', text: '완료' }
+          ]
+        }
+      }),
+      ctx()
+    )
+    expect(out).toEqual([
+      {
+        type: 'message.reasoning',
+        sessionId: 's1',
+        provider: 'claude-code',
+        text: '먼저 확인하자',
+        signature: 'sig1'
+      },
+      {
+        type: 'message.completed',
+        sessionId: 's1',
+        provider: 'claude-code',
+        message: { text: '완료' }
+      }
+    ])
+  })
+
+  it('signature 없는 thinking 블록 → message.reasoning (signature 생략)', () => {
+    const out = claudeToNormalized(
+      sdk({ type: 'assistant', message: { content: [{ type: 'thinking', thinking: 't' }] } }),
+      ctx()
+    )
+    expect(out).toEqual([
+      { type: 'message.reasoning', sessionId: 's1', provider: 'claude-code', text: 't' }
+    ])
+  })
+
   it('user(tool_result) → tool.call.completed', () => {
     const out = claudeToNormalized(
       sdk({

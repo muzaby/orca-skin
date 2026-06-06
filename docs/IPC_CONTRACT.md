@@ -88,7 +88,7 @@ interface Settings {
 |---|---|---|---|---|
 | `orca:session:cwd` | R→M (invoke) | — | `Promise<string>` | 현재 작업 디렉토리. 파일 자동완성·`init` 이벤트의 `cwd` 검증용. |
 | `orca:session:list` | R→M (invoke) | — | `SessionListItem[]` | 사이드바 '최근 대화' 메타 목록. DB SSOT — `updatedAt` 내림차순. |
-| `orca:session:load` | R→M (invoke) | `LoadSessionRequest` = `{ sessionId: string }` | `LoadedSession \| null` | 세션 메시지 + 툴콜 일괄 로드. Phase 3 lazy load 진입점. |
+| `orca:session:load` | R→M (invoke) | `LoadSessionRequest` = `{ sessionId: string }` | `LoadedSession \| null` | 세션 메시지를 순서 보존 parts(`LoadedMessage.parts: AppMessagePart[]`, provider-runtime.md §7)로 일괄 로드. Phase 3 lazy load 진입점. |
 | `orca:session:delete` | R→M (invoke) | `DeleteSessionRequest` = `{ sessionId: string }` | `Promise<void>` | hard delete (CASCADE — messages/tool_calls 동반 삭제). `lastSessionId` 가 대상이면 settings 도 해제. |
 | `orca:session:rename` | R→M (invoke) | `RenameSessionRequest` = `{ sessionId: string; title: string }` | `Promise<void>` | title 덮어쓰기 + `updatedAt` 갱신. title 길이 1–120 자. |
 
@@ -216,9 +216,10 @@ interface RuntimeStatus {
 |---|---|---|---|
 | `session.updated` | `patch: { model?; cwd? }` | 어댑터의 첫 메시지 (SDK `SDKSystemMessage.init`) | `state.sessionId` 저장, `state.cwd` 갱신 |
 | `message.delta` | `delta: { text }` | LLM 스트리밍 (SDK `text_delta`) | `pendingDelta += text` |
-| `message.completed` | `message: { text }` | LLM 턴 종료 (SDK `SDKAssistantMessage` text block) | `pendingDelta` → 새 assistant 메시지로 commit |
-| `tool.call.started` | `toolRunId; toolName; args` | LLM 도구 호출 (SDK `tool_use` block) | 현재 메시지에 ToolCall 부착(키=`toolRunId`) |
-| `tool.call.completed` | `toolRunId; result; isError; durationMs?` | 도구 실행 완료 (SDK `tool_result` block) | `toolRunId` 매칭하여 ToolCall 업데이트 |
+| `message.completed` | `message: { text }` | LLM 턴 종료 (SDK `SDKAssistantMessage` text block) | 현재 assistant 메시지에 `text` 파트 append, `pendingDelta` 비움 |
+| `message.reasoning` | `text; signature?` | 확장사고 블록 (SDK `SDKAssistantMessage` thinking block) | 현재 assistant 메시지에 `reasoning` 파트 append (signature 는 opaque 보관) |
+| `tool.call.started` | `toolRunId; toolName; args` | LLM 도구 호출 (SDK `tool_use` block) | 현재 assistant 메시지에 `tool_call` 파트 append |
+| `tool.call.completed` | `toolRunId; result; isError; durationMs?` | 도구 실행 완료 (SDK `tool_result` block) | `tool_result` 파트 append (`toolRunId` 로 `tool_call` 과 페어링) |
 | `telemetry` | `usage?: { inputTokens; outputTokens }` | 어댑터 턴 종료 (SDK `SDKResultMessage`) | `inflight = false`, `pendingInputTokens` 갱신 |
 | `error` | `error: { code; message; recoverable }` (`sessionId?`) | 어댑터 catch 또는 SDK 에러 | `state.error` 설정, `inflight = false` |
 | `permission.requested` | `approvalId; origin; action: PermissionAction` | AskUserQuestion·ExitPlanMode·**위험 도구 게이트**(canUseTool) | `action.kind` 로 분기 → `pendingAsks` / `pendingPlanReview` / `pendingToolApproval`. 응답은 단일 `permissionRespond`(`{approvalId, resolution}`, approvalId=requestId) |

@@ -2,6 +2,7 @@ import type Database from 'better-sqlite3'
 import migration0001 from './migrations/0001_initial.sql?raw'
 import migration0002 from './migrations/0002_projects.sql?raw'
 import migration0003 from './migrations/0003_messages_fts.sql?raw'
+import migration0004 from './migrations/0004_message_parts.sql?raw'
 
 interface Migration {
   name: string
@@ -11,7 +12,8 @@ interface Migration {
 const MIGRATIONS: Migration[] = [
   { name: '0001_initial', sql: migration0001 },
   { name: '0002_projects', sql: migration0002 },
-  { name: '0003_messages_fts', sql: migration0003 }
+  { name: '0003_messages_fts', sql: migration0003 },
+  { name: '0004_message_parts', sql: migration0004 }
 ]
 
 const META_TABLE = `

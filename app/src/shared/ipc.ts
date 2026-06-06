@@ -128,6 +128,15 @@ export type NormalizedEvent =
       provider: ProviderId
       message: { text: string }
     }
+  // 확장사고(extended thinking) 블록 — provider-runtime.md §7 reasoning part 의 출처.
+  // signature 는 멀티턴 재전송 무결성용 opaque 값(해석 금지, 원형 보관).
+  | {
+      type: 'message.reasoning'
+      sessionId: string
+      provider: ProviderId
+      text: string
+      signature?: string
+    }
   | {
       type: 'tool.call.started'
       sessionId: string
@@ -403,19 +412,30 @@ export interface RenameSessionRequest {
   title: string
 }
 
-// 로드된 세션 — Renderer 의 chatReducer state 와 1:1 대응.
-export interface LoadedToolCall {
-  toolUseId: string
-  name: string
-  input: unknown
-  result?: { output: unknown; isError: boolean }
-}
+// 정규화 메시지 파트(provider-runtime.md §7) — persistence·wire·reducer 공통 SSOT.
+// claude 가 실제로 채우는 종류: text / reasoning / tool_call / tool_result / error.
+// file / diff / structured_output 은 모델 정의만 두고 OpenCode 어댑터 도입 시 채운다(seam).
+export type AppMessagePart =
+  | { type: 'text'; text: string }
+  | { type: 'reasoning'; text: string; signature?: string }
+  | { type: 'tool_call'; toolRunId: string; toolName: string; args: unknown }
+  | {
+      type: 'tool_result'
+      toolRunId: string
+      result: unknown
+      isError: boolean
+      durationMs?: number
+    }
+  | { type: 'file'; path: string; readType?: 'raw' | 'patch'; content?: string }
+  | { type: 'diff'; patch: string }
+  | { type: 'structured_output'; value: unknown }
+  | { type: 'error'; error: unknown }
 
+// 로드된 세션 — Renderer 의 chatReducer state 와 1:1 대응. 메시지는 순서 보존 parts 로 표현.
 export interface LoadedMessage {
   role: 'user' | 'assistant'
-  content: string
+  parts: AppMessagePart[]
   createdAt: number
-  toolCalls?: LoadedToolCall[]
 }
 
 export interface LoadedSession {

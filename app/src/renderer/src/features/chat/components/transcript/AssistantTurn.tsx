@@ -16,7 +16,7 @@ interface AssistantTurnProps {
 export function AssistantTurn({ turn, pending }: AssistantTurnProps): React.JSX.Element {
   const last = turn.messages[turn.messages.length - 1]
   // 도구를 실행한 agentic 턴이면 좌측 yellow dot 마커.
-  const agentic = turn.messages.some((m) => m.toolCalls && m.toolCalls.length > 0)
+  const agentic = turn.messages.some((m) => m.parts.some((p) => p.type === 'tool_call'))
   return (
     <div className="group/msg relative flex flex-col gap-[var(--chat-item-gap)]">
       {agentic && (

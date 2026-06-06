@@ -1,6 +1,8 @@
 import { Markdown } from '../markdown/Markdown'
 import { ToolGroup } from './ToolGroup'
 import { AskExchange } from './AskExchange'
+import { ReasoningBlock } from './ReasoningBlock'
+import { partsReasoning, partsText, partsToolCalls } from '../../lib/parts'
 import type { Message } from '../../reducer/chatReducer'
 
 interface AssistantMessageProps {
@@ -8,16 +10,20 @@ interface AssistantMessageProps {
 }
 
 // 본문 전용 — 메타(복사/시간)는 턴 단위로 AssistantTurn 이 한 번만 렌더한다.
-// AskUserQuestion 콜은 요청됨 툴카드(ToolGroup) + 인라인 대화(AskExchange) 병존.
+// parts → reasoning 블록 + 도구 그룹(tool_call+tool_result 페어) + AskUserQuestion 인라인 대화 + 텍스트.
 export function AssistantMessage({ message }: AssistantMessageProps): React.JSX.Element {
-  const asks = (message.toolCalls ?? []).filter((c) => c.name === 'AskUserQuestion')
+  const reasoning = partsReasoning(message.parts)
+  const calls = partsToolCalls(message.parts)
+  const asks = calls.filter((c) => c.name === 'AskUserQuestion')
+  const text = partsText(message.parts)
   return (
     <div className="flex flex-col gap-[var(--chat-item-gap)] text-[14px] leading-[1.7] text-ink">
-      {message.toolCalls && message.toolCalls.length > 0 && <ToolGroup calls={message.toolCalls} />}
+      {reasoning.length > 0 && <ReasoningBlock items={reasoning} />}
+      {calls.length > 0 && <ToolGroup calls={calls} />}
       {asks.map((c) => (
         <AskExchange key={c.toolUseId} call={c} />
       ))}
-      {message.content && <Markdown source={message.content} />}
+      {text && <Markdown source={text} />}
     </div>
   )
 }

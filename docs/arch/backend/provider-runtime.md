@@ -41,6 +41,7 @@ type ProviderId = 'claude-code' | 'opencode'
 type NormalizedEvent =
   | { type: 'message.delta';      sessionId: string; provider: ProviderId; messageId: string; delta: unknown }
   | { type: 'message.completed';  sessionId: string; provider: ProviderId; messageId: string; message: unknown } // [미확인] payload 모양
+  | { type: 'message.reasoning';  sessionId: string; provider: ProviderId; text: string; signature?: string } // 확장사고 블록 [검증-타입: BetaThinkingBlock]
   | { type: 'tool.call.started';  sessionId: string; provider: ProviderId; toolRunId: string; toolName: string; args: unknown }
   | { type: 'tool.call.completed';sessionId: string; provider: ProviderId; toolRunId: string; result: unknown; isError: boolean; durationMs?: number }
   | { type: 'permission.requested'; sessionId: string; provider: ProviderId; approvalId: string; origin: 'agent' | 'app'; action: PermissionAction } // §3
@@ -60,6 +61,7 @@ type ProviderEventMapper = { provider: ProviderId; map(raw: unknown): Normalized
 | `init` | `session.updated`(최초) — `sessionId`/`model`/`cwd` 주입 | 현재 sessionId 출처 |
 | `assistant_delta` | `message.delta` | 스트리밍 텍스트 |
 | `assistant_message` | `message.completed` | 완성본 |
+| `assistant`(thinking block) | `message.reasoning` | 확장사고 — `text`+opaque `signature`. `display:'omitted'` 면 미발생 |
 | `tool_use` | `tool.call.started` | `toolUseId` → `toolRunId` |
 | `tool_result` | `tool.call.completed` | `isError`/`durationMs` 보존 |
 | `result` | `telemetry` | `usage` → `ProviderReportedTelemetry` (§8) |
@@ -276,18 +278,19 @@ interface ErrorClassifier { classify(error: unknown, ctx: { provider: ProviderId
 
 **① 설명.** 이벤트 스트림과 별개로 대화 기록을 저장·재렌더링하는 내부 모델. OpenCode 가 messages 를 `{ info: Message, parts: Part[] }[]` 로 다루는 것을 반영해 **parts** 모델을 둔다. 무거운 페이로드(stdout/파일 본문)는 별도 blob store 로 분리해 메시지 행을 가볍게 유지.
 
-**③ 현재 코드 갭.** 현행 DB(`src/main/db/`)는 `messages.content TEXT` + `tool_calls`(input_json/result_json) 구조 — 평면 텍스트 + 별 테이블. parts union·blob 분리 없음. (마이그레이션은 "구현 대기".)
+**③ 현재 코드.** ✅ **구현 완료** — `0004_message_parts.sql` 가 `message_parts(message_id FK, idx, type, tool_run_id, payload_json)` 를 신설하고 기존 `messages.content`/`tool_calls` 를 parts 로 backfill 후 `tool_calls` 를 DROP 한다(정식 배포 전이라 하위호환 불요). `messages.content` 는 **text/reasoning parts 의 concat 캐시**로 유지해 FTS5 contentless 트리거를 건드리지 않는다. `router.persist` 가 한 턴의 모든 파트(text/reasoning/tool_call/tool_result/error)를 같은 assistant 메시지에 순서대로 append 하고(`DbQueries.appendPart`/`upsertToolResultPart`), `handleSessionLoad` 가 `loadParts` 로 `LoadedMessage.parts: AppMessagePart[]` 를 재구성한다. **claude 가 채우는 종류**: text/tool_call/tool_result/error + **reasoning**(확장사고 — `claude-map` 이 `assistant` content 의 `thinking` block → `message.reasoning` 이벤트, signature opaque 보관). `file`/`diff`/`structured_output` 은 union 정의만 두고 OpenCode 어댑터 도입 시 채운다(seam). blob 분리(무거운 stdout/파일 본문)는 후속(Phase 4).
 
 **④ 인터페이스 (정본).**
 
 ```ts
 interface AppSession { id: string; provider: ProviderId; providerSessionId: string; title?: string; cwd?: string; capabilities: SessionCapabilities; createdAt: string; updatedAt: string }
 interface AppMessage { id: string; sessionId: string; providerMessageId?: string; role: 'user'|'assistant'|'system'|'tool'|'context'; parts: AppMessagePart[]; createdAt: string }
+// ✅ 구현형(`app/src/shared/ipc.ts`). reasoning.signature 는 멀티턴 재전송 무결성용 opaque.
 type AppMessagePart =
   | { type: 'text'; text: string }
-  | { type: 'reasoning'; text: string; collapsed?: boolean }
-  | { type: 'tool_call'; toolRunId: string; toolName: string; args: unknown }   // 무거운 페이로드는 blobRef 로 분리
-  | { type: 'tool_result'; toolRunId: string; result: unknown }
+  | { type: 'reasoning'; text: string; signature?: string }
+  | { type: 'tool_call'; toolRunId: string; toolName: string; args: unknown }   // 무거운 페이로드는 blobRef 로 분리(후속)
+  | { type: 'tool_result'; toolRunId: string; result: unknown; isError: boolean; durationMs?: number }
   | { type: 'file'; path: string; readType?: 'raw' | 'patch'; content?: string }
   | { type: 'diff'; patch: string }
   | { type: 'structured_output'; value: unknown }
@@ -536,4 +539,4 @@ interface ConfigManager {
 | AuthStore | §9 |
 | AuditLog | §10 |
 | ErrorClassifier | §6 |
-| 정규화 Persistence (AppMessagePart) | §7 |
+| 정규화 Persistence (AppMessagePart) | §7 — ✅ 구현 (message_parts + reasoning. file/diff/structured_output·blob 분리는 seam) |

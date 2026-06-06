@@ -21,9 +21,9 @@ import {
   type BackendListResult,
   type FileEntry,
   type InstallStatus,
+  type AppMessagePart,
   type LoadedMessage,
   type LoadedSession,
-  type LoadedToolCall,
   type McpServer,
   type Project,
   type SearchHit,
@@ -42,6 +42,7 @@ import { deploy } from '../deploy/deployer'
 import { scanSkills } from '../skills/scan'
 import { listDir } from '../files/scan'
 import { initDb, type DbQueries } from '../db'
+import type { LoadedPartRow } from '../db/types'
 import { PythonRuntime, PY_AGENT_RULES } from '../runtime'
 import { ExtensionBuilder } from '../extensions/builder'
 import { InteractionBroker } from '../ask/broker'
@@ -71,10 +72,12 @@ interface InflightTurn {
   // 새 채팅 첫 메시지일 때 renderer 가 전달한 projectId. init 이벤트의 insertSession
   // 시점에 함께 row 에 박혀 별도 UPDATE 없이 binding 이 끝난다. resume 경로면 항상 null.
   pendingProjectId: string | null
-  // 현재 assistant turn 의 message row id. tool_use 가 먼저 yield 되어도 같은
-  // row 에 묶이도록, assistant_message 또는 tool_use 중 먼저 도착한 쪽에서 생성.
-  // assistant_message 처리 후 / tool_result 도착 시 reset 한다.
+  // 현재 assistant turn 의 message row id. 한 턴의 모든 파트(reasoning/text/tool_*/error)를
+  // 같은 메시지에 순서대로 누적하고, 턴 종료(telemetry) 시 reset 한다.
   currentAssistantMessageId: number | null
+  // 현재 assistant 메시지의 text 파트 누적본 — messages.content(FTS5 캐시) 동기화용.
+  // currentAssistantMessageId 갱신 시 함께 ''로 리셋.
+  assistantText: string
   // AskUserQuestion 답변 영속. SDK 는 canUseTool 의 answers 를 메시지 스트림으로 되돌리지
   // 않으므로(answers 담은 tool_result 미발행), router 가 answer 와 tool_use id 가 모두
   // 확보되는 시점에 tool_result 를 합성한다(flushAskAnswers). 2-큐로 도착 순서 무관.
@@ -240,6 +243,7 @@ export class IpcRouter {
       dbSessionId: parsed.data.sessionId,
       pendingProjectId: parsed.data.sessionId ? null : parsed.data.projectId,
       currentAssistantMessageId: null,
+      assistantText: '',
       pendingAskAnswers: [],
       askPendingIds: [],
       askResolved: new Map()
@@ -250,12 +254,7 @@ export class IpcRouter {
     // 존재한다는 의미. 다음 init 이벤트를 기다리지 않고 user 메시지를 즉시 기록.
     if (parsed.data.sessionId) {
       const now = Date.now()
-      this.db.appendMessage({
-        sessionId: parsed.data.sessionId,
-        role: 'user',
-        content: parsed.data.text,
-        createdAt: now
-      })
+      this.persistUserMessage(parsed.data.sessionId, parsed.data.text, now)
       this.db.updateSessionPreview(parsed.data.sessionId, previewOf(parsed.data.text), now)
       turn.pendingUserText = null
     }
@@ -367,7 +366,15 @@ export class IpcRouter {
         ...(a.response !== undefined ? { response: a.response } : {})
       }
       turn.askResolved.set(toolUseId, a)
-      this.db.updateToolCallResult(toolUseId, JSON.stringify(output), 'ok')
+      // AskUserQuestion 은 SDK tool_result 가 안 오므로 합성 — 현재 assistant 메시지에
+      // tool_result 파트를 upsert(실제 tool_result 가 늦게 와도 같은 toolRunId 로 덮어쓴다).
+      if (turn.currentAssistantMessageId != null) {
+        this.db.upsertToolResultPart(
+          turn.currentAssistantMessageId,
+          toolUseId,
+          JSON.stringify({ result: output, isError: false })
+        )
+      }
       this.sendChatEvent(wc, {
         type: 'tool.call.completed',
         sessionId: turn.dbSessionId ?? '',
@@ -379,10 +386,34 @@ export class IpcRouter {
     }
   }
 
-  // 어댑터가 yield 한 NormalizedEvent 를 DB 에 기록. tool.call.started 가 message.completed 보다
-  // 먼저 도착해도 같은 message row 에 묶이도록 currentAssistantMessageId 를 유지한다.
-  // 새 SDKAssistantMessage 의 경계는 message.completed 또는 tool.call.completed 도착 시점에서
-  // reset 한다 — SDK 가 한 turn 안에서 (assistant → user(tool_result) → assistant) 순으로 흘리기 때문.
+  // 현재 assistant 메시지를 보장(없으면 빈 메시지 생성 + text 캐시 리셋)하고 id 를 반환한다.
+  // 한 턴의 reasoning/text/tool_*/error 파트를 같은 메시지에 순서대로 묶기 위한 진입점.
+  private ensureAssistantMessage(turn: InflightTurn, sessionId: string): number {
+    if (turn.currentAssistantMessageId == null) {
+      turn.currentAssistantMessageId = this.db.appendMessage({
+        sessionId,
+        role: 'assistant',
+        content: '',
+        createdAt: Date.now()
+      })
+      turn.assistantText = ''
+    }
+    return turn.currentAssistantMessageId
+  }
+
+  // user 메시지 1건을 messages row + text 파트로 영속한다(content 는 FTS5 캐시).
+  private persistUserMessage(sessionId: string, text: string, createdAt: number): void {
+    const id = this.db.appendMessage({ sessionId, role: 'user', content: text, createdAt })
+    this.db.appendPart({
+      messageId: id,
+      type: 'text',
+      toolRunId: null,
+      payloadJson: JSON.stringify({ text })
+    })
+  }
+
+  // 어댑터가 yield 한 NormalizedEvent 를 DB 에 순서 보존 parts 로 기록(provider-runtime.md §7).
+  // 한 턴의 모든 assistant 파트는 같은 메시지에 누적되고 telemetry(턴 종료)에서 reset 한다.
   private persist(turn: InflightTurn, ev: NormalizedEvent): void {
     const now = Date.now()
     switch (ev.type) {
@@ -399,53 +430,54 @@ export class IpcRouter {
           createdAt: now
         })
         if (turn.pendingUserText) {
-          this.db.appendMessage({
-            sessionId,
-            role: 'user',
-            content: turn.pendingUserText,
-            createdAt: now
-          })
+          this.persistUserMessage(sessionId, turn.pendingUserText, now)
           this.db.updateSessionPreview(sessionId, previewOf(turn.pendingUserText), now)
           if (title) this.db.updateSessionTitle(sessionId, title)
           turn.pendingUserText = null
         }
         break
       }
+      case 'message.reasoning': {
+        if (!turn.dbSessionId) break
+        const id = this.ensureAssistantMessage(turn, turn.dbSessionId)
+        this.db.appendPart({
+          messageId: id,
+          type: 'reasoning',
+          toolRunId: null,
+          payloadJson: JSON.stringify({
+            text: ev.text,
+            ...(ev.signature !== undefined ? { signature: ev.signature } : {})
+          })
+        })
+        break
+      }
       case 'tool.call.started': {
         if (!turn.dbSessionId) break
-        if (turn.currentAssistantMessageId == null) {
-          turn.currentAssistantMessageId = this.db.appendMessage({
-            sessionId: turn.dbSessionId,
-            role: 'assistant',
-            content: '',
-            createdAt: now
-          })
-        }
-        this.db.appendToolCall({
-          messageId: turn.currentAssistantMessageId,
-          toolUseId: ev.toolRunId,
-          name: ev.toolName,
-          inputJson: JSON.stringify(ev.args ?? null)
+        const id = this.ensureAssistantMessage(turn, turn.dbSessionId)
+        this.db.appendPart({
+          messageId: id,
+          type: 'tool_call',
+          toolRunId: ev.toolRunId,
+          payloadJson: JSON.stringify({ toolName: ev.toolName, args: ev.args ?? null })
         })
         break
       }
       case 'message.completed': {
         if (!turn.dbSessionId) break
-        if (turn.currentAssistantMessageId != null) {
-          this.db.updateMessageContent(turn.currentAssistantMessageId, ev.message.text)
-        } else {
-          turn.currentAssistantMessageId = this.db.appendMessage({
-            sessionId: turn.dbSessionId,
-            role: 'assistant',
-            content: ev.message.text,
-            createdAt: now
-          })
-        }
+        const id = this.ensureAssistantMessage(turn, turn.dbSessionId)
+        this.db.appendPart({
+          messageId: id,
+          type: 'text',
+          toolRunId: null,
+          payloadJson: JSON.stringify({ text: ev.message.text })
+        })
+        turn.assistantText += ev.message.text
+        this.db.updateMessageContent(id, turn.assistantText)
         this.db.updateSessionPreview(turn.dbSessionId, previewOf(ev.message.text), now)
-        turn.currentAssistantMessageId = null
         break
       }
       case 'tool.call.completed': {
+        if (!turn.dbSessionId) break
         // 합성으로 이미 답변을 채운 AskUserQuestion id 에 실제 tool_result 가 뒤늦게 오면
         // 저장된 answers 로 재주입해 빈 output 으로 덮어쓰지 않게 한다.
         const resolved = turn.askResolved.get(ev.toolRunId)
@@ -455,15 +487,35 @@ export class IpcRouter {
             ...(resolved.response !== undefined ? { response: resolved.response } : {})
           }
         }
-        this.db.updateToolCallResult(
+        const id = this.ensureAssistantMessage(turn, turn.dbSessionId)
+        this.db.upsertToolResultPart(
+          id,
           ev.toolRunId,
-          JSON.stringify(ev.result ?? null),
-          ev.isError ? 'error' : 'ok'
+          JSON.stringify({
+            result: ev.result ?? null,
+            isError: ev.isError,
+            ...(ev.durationMs !== undefined ? { durationMs: ev.durationMs } : {})
+          })
         )
-        turn.currentAssistantMessageId = null
         break
       }
-      // message.delta 는 transient 라 DB 미저장. telemetry / error / ask_question / plan_review 는 별도 row 없음.
+      case 'error': {
+        if (!turn.dbSessionId) break
+        const id = this.ensureAssistantMessage(turn, turn.dbSessionId)
+        this.db.appendPart({
+          messageId: id,
+          type: 'error',
+          toolRunId: null,
+          payloadJson: JSON.stringify({ error: ev.error })
+        })
+        break
+      }
+      case 'telemetry':
+        // 턴 종료 — 다음 assistant 파트는 새 메시지에 묶이도록 reset.
+        turn.currentAssistantMessageId = null
+        turn.assistantText = ''
+        break
+      // message.delta 는 transient(미저장). permission.* 는 별도 row 없음.
     }
   }
 
@@ -530,42 +582,24 @@ export class IpcRouter {
     const parsed = LoadSessionRequestSchema.safeParse(raw)
     if (!parsed.success) return null
 
-    const rows = this.db.loadMessages(parsed.data.sessionId)
-    if (rows.length === 0) return null
+    // 세션의 모든 파트를 메시지 순서(message_idx) → 파트 순서(part_idx)로 조회해 재구성.
+    const partRows = this.db.loadParts(parsed.data.sessionId)
+    if (partRows.length === 0) return null
     const sessions = this.db.listSessions(1000)
     const meta = sessions.find((s) => s.id === parsed.data.sessionId)
     if (!meta) return null
 
-    const tools = this.db.loadToolCalls(parsed.data.sessionId)
-    const toolsByMessage = new Map<number, LoadedToolCall[]>()
-    for (const tc of tools) {
-      const result =
-        tc.result_json == null
-          ? undefined
-          : {
-              output: safeJsonParse(tc.result_json),
-              isError: tc.status === 'error'
-            }
-      const call: LoadedToolCall = {
-        toolUseId: tc.tool_use_id,
-        name: tc.name,
-        input: safeJsonParse(tc.input_json),
-        ...(result ? { result } : {})
+    const messages: LoadedMessage[] = []
+    let curId: number | null = null
+    let cur: LoadedMessage | null = null
+    for (const r of partRows) {
+      if (r.message_id !== curId) {
+        cur = { role: r.role, parts: [], createdAt: r.created_at }
+        messages.push(cur)
+        curId = r.message_id
       }
-      const list = toolsByMessage.get(tc.message_id) ?? []
-      list.push(call)
-      toolsByMessage.set(tc.message_id, list)
+      cur!.parts.push(partFromRow(r))
     }
-
-    const messages: LoadedMessage[] = rows.map((m) => {
-      const calls = toolsByMessage.get(m.id)
-      return {
-        role: m.role,
-        content: m.content,
-        createdAt: m.created_at,
-        ...(calls && calls.length > 0 ? { toolCalls: calls } : {})
-      }
-    })
 
     return {
       id: meta.id,
@@ -790,4 +824,17 @@ function safeJsonParse(s: string): unknown {
   } catch {
     return s
   }
+}
+
+// message_parts 한 행 → AppMessagePart. payload_json 은 type 외 필드의 JSON 이고, tool_*
+// 의 toolRunId 는 별도 컬럼이라 재부착한다. payload 는 우리가 쓴 것이라 shape 가 보장된다.
+function partFromRow(r: LoadedPartRow): AppMessagePart {
+  const payload = safeJsonParse(r.payload_json)
+  const base = (typeof payload === 'object' && payload !== null ? payload : {}) as Record<
+    string,
+    unknown
+  >
+  const part: Record<string, unknown> = { type: r.type, ...base }
+  if (r.tool_run_id != null) part.toolRunId = r.tool_run_id
+  return part as unknown as AppMessagePart
 }

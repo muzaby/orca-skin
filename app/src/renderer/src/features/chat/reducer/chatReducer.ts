@@ -1,4 +1,5 @@
 import type {
+  AppMessagePart,
   AskQuestionRequest,
   NormalizedEvent,
   ClassifiedError,
@@ -7,6 +8,8 @@ import type {
 } from '../../../../../shared/ipc'
 import type { NormalizedPermissionMode } from '../../../../../shared/permission-mode'
 
+// transcript 렌더가 쓰는 도구 호출 view — parts 의 tool_call+tool_result 를 toolRunId 로
+// 페어링한 결과(lib/parts.ts partsToolCalls). 더 이상 Message 의 필드가 아니다.
 export interface ToolCall {
   toolUseId: string
   name: string
@@ -14,11 +17,12 @@ export interface ToolCall {
   result?: { output: unknown; isError: boolean; durationMs?: number }
 }
 
+// 메시지 = 순서 보존 parts 목록(provider-runtime.md §7). text 는 lib/parts.ts 셀렉터로 합치고,
+// tool_call/tool_result 는 toolRunId 로 페어링해 렌더한다.
 export interface Message {
   role: 'user' | 'assistant'
-  content: string
   createdAt: number
-  toolCalls?: ToolCall[]
+  parts: AppMessagePart[]
 }
 
 export interface ChatState {
@@ -121,50 +125,17 @@ export type ChatAction =
   // 우측 계획 타일 폭 설정(분리선 드래그). clamp 는 리듀서가 적용.
   | { type: 'SET_PLAN_TILE_WIDTH'; width: number }
 
-function upsertToolCall(messages: Message[], tc: ToolCall): Message[] {
-  // 마지막 assistant 메시지에 부착. 없으면 새로 만든다.
-  const idx = (() => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      if (messages[i].role === 'assistant') return i
-    }
-    return -1
-  })()
-  if (idx === -1) {
-    return [...messages, { role: 'assistant', content: '', createdAt: Date.now(), toolCalls: [tc] }]
+// 현재 assistant 메시지에 파트를 누적한다. 마지막 메시지가 user 면(턴 시작) 새 assistant
+// 메시지를 만들고, assistant 면 그 parts 끝에 붙인다 — 한 턴의 reasoning/text/tool_*/error
+// 가 같은 메시지로 묶인다(main persist 와 동형).
+function appendAssistantPart(messages: Message[], part: AppMessagePart): Message[] {
+  const last = messages[messages.length - 1]
+  if (!last || last.role === 'user') {
+    return [...messages, { role: 'assistant', createdAt: Date.now(), parts: [part] }]
   }
   const next = messages.slice()
-  const m = next[idx]
-  const calls = m.toolCalls ?? []
-  const existing = calls.findIndex((c) => c.toolUseId === tc.toolUseId)
-  if (existing >= 0) {
-    const merged = { ...calls[existing], ...tc }
-    next[idx] = { ...m, toolCalls: calls.map((c, i) => (i === existing ? merged : c)) }
-  } else {
-    next[idx] = { ...m, toolCalls: [...calls, tc] }
-  }
+  next[next.length - 1] = { ...last, parts: [...last.parts, part] }
   return next
-}
-
-function updateToolResult(
-  messages: Message[],
-  toolUseId: string,
-  result: NonNullable<ToolCall['result']>
-): Message[] {
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const m = messages[i]
-    if (!m.toolCalls) continue
-    const callIdx = m.toolCalls.findIndex((c) => c.toolUseId === toolUseId)
-    if (callIdx >= 0) {
-      const next = messages.slice()
-      const updated = { ...m.toolCalls[callIdx], result }
-      next[i] = {
-        ...m,
-        toolCalls: m.toolCalls.map((c, idx) => (idx === callIdx ? updated : c))
-      }
-      return next
-    }
-  }
-  return messages
 }
 
 export function chatReducer(state: ChatState, action: ChatAction): ChatState {
@@ -174,7 +145,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ...state,
         messages: [
           ...state.messages,
-          { role: 'user', content: action.text, createdAt: Date.now() }
+          { role: 'user', createdAt: Date.now(), parts: [{ type: 'text', text: action.text }] }
         ],
         pendingDelta: '',
         inflight: true,
@@ -198,41 +169,48 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         case 'message.delta':
           return { ...state, pendingDelta: state.pendingDelta + ev.delta.text }
 
-        case 'message.completed': {
-          // pendingDelta 가 있으면 그것을 최종본으로 교체하고, 아니면 신규 메시지 추가
-          const last = state.messages[state.messages.length - 1]
-          if (state.pendingDelta && last?.role === 'assistant' && last.content === '') {
-            const next = state.messages.slice()
-            next[next.length - 1] = { ...last, content: ev.message.text, createdAt: Date.now() }
-            return { ...state, messages: next, pendingDelta: '' }
-          }
+        case 'message.reasoning':
           return {
             ...state,
-            messages: [
-              ...state.messages,
-              { role: 'assistant', content: ev.message.text, createdAt: Date.now() }
-            ],
+            messages: appendAssistantPart(state.messages, {
+              type: 'reasoning',
+              text: ev.text,
+              ...(ev.signature !== undefined ? { signature: ev.signature } : {})
+            })
+          }
+
+        case 'message.completed':
+          // 스트리밍 델타는 PendingAssistant 가 라이브로 보여줬으니, 완성본을 text 파트로 굳히고
+          // pendingDelta 를 비운다.
+          return {
+            ...state,
+            messages: appendAssistantPart(state.messages, {
+              type: 'text',
+              text: ev.message.text
+            }),
             pendingDelta: ''
           }
-        }
 
         case 'tool.call.started':
           return {
             ...state,
-            messages: upsertToolCall(state.messages, {
-              toolUseId: ev.toolRunId,
-              name: ev.toolName,
-              input: ev.args
+            messages: appendAssistantPart(state.messages, {
+              type: 'tool_call',
+              toolRunId: ev.toolRunId,
+              toolName: ev.toolName,
+              args: ev.args
             })
           }
 
         case 'tool.call.completed':
           return {
             ...state,
-            messages: updateToolResult(state.messages, ev.toolRunId, {
-              output: ev.result,
+            messages: appendAssistantPart(state.messages, {
+              type: 'tool_result',
+              toolRunId: ev.toolRunId,
+              result: ev.result,
               isError: ev.isError,
-              durationMs: ev.durationMs
+              ...(ev.durationMs !== undefined ? { durationMs: ev.durationMs } : {})
             })
           }
 
@@ -244,14 +222,14 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             turnStartedAt: null,
             ...(inputTokens != null ? { pendingInputTokens: inputTokens } : {})
           }
-          // pendingDelta 가 아직 남아있으면 최종 메시지로 굳힌다
+          // pendingDelta 가 아직 남아있으면(message.completed 없이 끝남) text 파트로 굳힌다.
           if (state.pendingDelta) {
             return {
               ...base,
-              messages: [
-                ...state.messages,
-                { role: 'assistant', content: state.pendingDelta, createdAt: Date.now() }
-              ],
+              messages: appendAssistantPart(state.messages, {
+                type: 'text',
+                text: state.pendingDelta
+              }),
               pendingDelta: ''
             }
           }
@@ -343,18 +321,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'LOAD_SESSION': {
       const messages: Message[] = action.session.messages.map((m) => ({
         role: m.role,
-        content: m.content,
         createdAt: m.createdAt,
-        ...(m.toolCalls && m.toolCalls.length > 0
-          ? {
-              toolCalls: m.toolCalls.map((tc) => ({
-                toolUseId: tc.toolUseId,
-                name: tc.name,
-                input: tc.input,
-                ...(tc.result ? { result: tc.result } : {})
-              }))
-            }
-          : {})
+        parts: m.parts
       }))
       return {
         ...initialChatState,
