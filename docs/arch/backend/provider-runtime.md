@@ -62,9 +62,9 @@ type ProviderEventMapper = { provider: ProviderId; map(raw: unknown): Normalized
 | `init` | `session.updated`(최초) — `sessionId`/`model`/`cwd` 주입 | 현재 sessionId 출처 |
 | `assistant_delta` | `message.delta` | 스트리밍 텍스트 (`text_delta`) |
 | `stream_event`(thinking_delta) | `message.reasoning.delta` | 라이브 확장사고 (transient). 미수신 시 발생 안 함 |
-| `assistant_message` | `message.completed` | 완성본 |
+| `assistant`(text block) | `message.completed` | 완성본. **블록 단위로 emit** — 한 assistant 메시지의 여러 text 블록을 말미에 합치지 않고 만나는 위치에서 각각 emit(메시지 내부 "텍스트 → 도구 → 텍스트" 순서 보존). 빈 text 블록은 스킵 |
 | `assistant`(thinking block) | `message.reasoning` | 확장사고 — `text`+opaque `signature`. `display:'omitted'` 면 미발생 |
-| `tool_use` | `tool.call.started` | `toolUseId` → `toolRunId` |
+| `tool_use` | `tool.call.started` | `toolUseId` → `toolRunId`. content 배열 순서 그대로(text/tool 인터리브 보존) |
 | `tool_result` | `tool.call.completed` | `isError`/`durationMs` 보존 |
 | `result` | `telemetry` | `usage` → `ProviderReportedTelemetry` (§8) |
 | `error` | `error` | `ErrorCode` → `ClassifiedError` (§6) |

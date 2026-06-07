@@ -3,8 +3,9 @@
 // 어댑터(claude-code.ts)가 query() 스트림의 각 SDKMessage 를 이 함수로 NormalizedEvent 로 정규화한다.
 //
 // 매핑(architecture 매핑표): system/init → session.updated, stream_event(text_delta) → message.delta,
-// assistant → tool.call.started* + message.completed, user(tool_result) → tool.call.completed,
-// result → telemetry. 한 SDKMessage 가 N개 NormalizedEvent 로 분해될 수 있다(assistant = tool+message).
+// assistant → content 블록 순서대로 message.completed/message.reasoning/tool.call.started,
+// user(tool_result) → tool.call.completed, result → telemetry.
+// 한 SDKMessage 가 N개 NormalizedEvent 로 분해될 수 있다(assistant = text/tool 블록 순서 보존).
 
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk'
 import type { NormalizedEvent, ProviderId } from '../../shared/ipc'
@@ -69,16 +70,25 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
     return []
   }
 
-  // SDKAssistantMessage → tool.call.started* + message.completed
+  // SDKAssistantMessage → content 블록 순서 그대로 N개 NormalizedEvent 로 분해.
+  // 텍스트를 말미에 합치지 않고 만나는 위치에서 message.completed 를 emit 한다 →
+  // 같은 메시지 안의 "텍스트 → 도구 → 텍스트" 순서가 보존된다(메시지 내부 역전 방지).
   if (msg.type === 'assistant') {
     const content = (msg as unknown as { message?: { content?: unknown[] } }).message?.content ?? []
     const events: NormalizedEvent[] = []
-    let assembled = ''
     for (const part of content) {
       if (typeof part !== 'object' || part === null) continue
       const p = part as Record<string, unknown>
       if (p.type === 'text' && typeof p.text === 'string') {
-        assembled += p.text
+        // 빈 텍스트 블록은 스킵(과거 assembled !== '' 가드와 동등).
+        if (p.text !== '') {
+          events.push({
+            type: 'message.completed',
+            sessionId: ctx.sessionId,
+            provider,
+            message: { text: p.text }
+          })
+        }
       } else if (p.type === 'thinking' && typeof p.thinking === 'string') {
         // 확장사고 블록(BetaThinkingBlock) → reasoning. signature 는 opaque 보관.
         events.push({
@@ -102,14 +112,6 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
           })
         }
       }
-    }
-    if (assembled !== '') {
-      events.push({
-        type: 'message.completed',
-        sessionId: ctx.sessionId,
-        provider,
-        message: { text: assembled }
-      })
     }
     return events
   }
