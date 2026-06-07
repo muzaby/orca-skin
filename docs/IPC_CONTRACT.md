@@ -221,7 +221,7 @@ interface RuntimeStatus {
 | `message.reasoning.delta` | `delta: { text }` | 확장사고 라이브 (SDK `thinking_delta`) | `pendingReasoning += text` (transient, 미저장). `message.delta` 와 동형 — 런타임 미수신 시 발생 안 함 |
 | `tool.call.started` | `toolRunId; toolName; args` | LLM 도구 호출 (SDK `tool_use` block) | 현재 assistant 메시지에 `tool_call` 파트 append |
 | `tool.call.completed` | `toolRunId; result; isError; durationMs?` | 도구 실행 완료 (SDK `tool_result` block) | `tool_result` 파트 append (`toolRunId` 로 `tool_call` 과 페어링) |
-| `telemetry` | `usage?: { inputTokens; outputTokens }` | 어댑터 턴 종료 (SDK `SDKResultMessage`) | `inflight = false`, `pendingInputTokens` 갱신 |
+| `telemetry` | `usage?: ProviderReportedTelemetry` (model·input/output·캐시 토큰·costUsd·durationMs·numTurns·modelUsage) | 어댑터 턴 종료 (SDK `SDKResultMessage`) | `inflight = false`, `pendingInputTokens`·`lastTelemetry`·`sessionCostUsd`(누산)·`lastTurnLatencyMs` 갱신 → TelemetryPanel |
 | `error` | `error: { code; message; recoverable }` (`sessionId?`) | 어댑터 catch 또는 SDK 에러 | `state.error` 설정, `inflight = false` |
 | `permission.requested` | `approvalId; origin; action: PermissionAction` | AskUserQuestion·ExitPlanMode·**위험 도구 게이트**(canUseTool) | `action.kind` 로 분기 → `pendingAsks` / `pendingPlanReview` / `pendingToolApproval`. 응답은 단일 `permissionRespond`(`{approvalId, resolution}`, approvalId=requestId) |
 | `permission.resolved` | `approvalId; resolution: ApprovalResolution` | 권한 해소(audit/telemetry) | no-op(카드는 respond 시 로컬 RESOLVE_* 로 닫힘) |

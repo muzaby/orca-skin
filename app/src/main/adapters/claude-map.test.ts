@@ -244,6 +244,99 @@ describe('claudeToNormalized', () => {
     ])
   })
 
+  it('result → telemetry 가 cost·duration·num_turns·캐시 토큰을 정규화한다', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        total_cost_usd: 0.0123,
+        duration_ms: 4200,
+        num_turns: 3,
+        usage: {
+          input_tokens: 100,
+          output_tokens: 50,
+          cache_read_input_tokens: 30,
+          cache_creation_input_tokens: 10
+        }
+      }),
+      ctx()
+    )
+    expect(out).toEqual([
+      {
+        type: 'telemetry',
+        sessionId: 's1',
+        provider: 'claude-code',
+        usage: {
+          inputTokens: 100,
+          outputTokens: 50,
+          cacheReadTokens: 30,
+          cacheCreationTokens: 10,
+          costUsd: 0.0123,
+          durationMs: 4200,
+          numTurns: 3
+        }
+      }
+    ])
+  })
+
+  it('result.modelUsage → camelCase 정규화 + 단일 모델이면 top-level model 채움', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        modelUsage: {
+          'claude-opus-4': {
+            costUSD: 0.05,
+            inputTokens: 200,
+            outputTokens: 80,
+            cacheReadInputTokens: 5,
+            cacheCreationInputTokens: 0
+          }
+        }
+      }),
+      ctx()
+    )
+    expect(out).toEqual([
+      {
+        type: 'telemetry',
+        sessionId: 's1',
+        provider: 'claude-code',
+        usage: {
+          model: 'claude-opus-4',
+          modelUsage: {
+            'claude-opus-4': {
+              costUsd: 0.05,
+              inputTokens: 200,
+              outputTokens: 80,
+              cacheReadTokens: 5,
+              cacheCreationTokens: 0
+            }
+          }
+        }
+      }
+    ])
+  })
+
+  it('result.modelUsage 다중 모델이면 top-level model 을 안 채운다', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        modelUsage: {
+          'claude-opus-4': { costUSD: 0.05 },
+          'claude-haiku-4': { costUSD: 0.001 }
+        }
+      }),
+      ctx()
+    )
+    const ev = out[0] as { usage?: { model?: string; modelUsage?: Record<string, unknown> } }
+    expect(ev.usage?.model).toBeUndefined()
+    expect(Object.keys(ev.usage?.modelUsage ?? {})).toEqual(['claude-opus-4', 'claude-haiku-4'])
+  })
+
+  it('result(잡음만, 의미있는 필드 없음) → telemetry (usage 생략)', () => {
+    expect(
+      claudeToNormalized(sdk({ type: 'result', subtype: 'success', is_error: false }), ctx())
+    ).toEqual([{ type: 'telemetry', sessionId: 's1', provider: 'claude-code' }])
+  })
+
   it('미사용 SDK 메시지 → []', () => {
     expect(claudeToNormalized(sdk({ type: 'system', subtype: 'compact_boundary' }), ctx())).toEqual(
       []

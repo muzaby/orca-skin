@@ -12,6 +12,7 @@ import { ModeMenu } from './composer/ModeMenu'
 import { MODE_LABELS } from './composer/modes'
 import { AskUserQuestionCard } from './AskUserQuestionCard'
 import { ApprovalCard } from './ApprovalCard'
+import { TelemetryPanel } from './TelemetryPanel'
 import type { UseChat } from '../hooks/useChat'
 import { useSkills } from '../../../shared/hooks/useSkills'
 import { useSkillAutocomplete } from '../hooks/useSkillAutocomplete'
@@ -49,6 +50,8 @@ export function Composer({ chat, backendLabel, canAbort }: ComposerProps): React
   const textareaRef = useRef<HighlightedTextareaHandle>(null)
   const textareaWrapRef = useRef<HTMLDivElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const telemetryButtonRef = useRef<HTMLButtonElement>(null)
+  const [telemetryOpen, setTelemetryOpen] = useState(false)
 
   const closeMenu = (): void => setMenuOpen(false)
 
@@ -269,12 +272,42 @@ export function Composer({ chat, backendLabel, canAbort }: ComposerProps): React
               </div>
               <span className="ml-auto flex items-center gap-g4">
                 <span className="text-caption text-t6">{backendLabel}</span>
-                {state.pendingInputTokens != null && (
-                  <UsageCircle
-                    ratio={state.pendingInputTokens / CONTEXT_WINDOW}
-                    aria-label={`컨텍스트 사용량: ${Math.round((state.pendingInputTokens / CONTEXT_WINDOW) * 100)}%`}
-                    title={`컨텍스트 ~${Math.round(state.pendingInputTokens / 1000)}k 토큰 / ${CONTEXT_WINDOW / 1000}k`}
-                  />
+                {state.pendingInputTokens != null &&
+                  (state.lastTelemetry ? (
+                    <button
+                      ref={telemetryButtonRef}
+                      type="button"
+                      onClick={() => setTelemetryOpen((v) => !v)}
+                      className="flex items-center rounded-sm focus:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                      aria-haspopup="menu"
+                      aria-expanded={telemetryOpen}
+                      title="사용량 · 비용 보기"
+                      data-behavior="action:toggle-telemetry"
+                    >
+                      <UsageCircle
+                        ratio={state.pendingInputTokens / CONTEXT_WINDOW}
+                        aria-label={`컨텍스트 사용량: ${Math.round((state.pendingInputTokens / CONTEXT_WINDOW) * 100)}%`}
+                      />
+                    </button>
+                  ) : (
+                    <UsageCircle
+                      ratio={state.pendingInputTokens / CONTEXT_WINDOW}
+                      aria-label={`컨텍스트 사용량: ${Math.round((state.pendingInputTokens / CONTEXT_WINDOW) * 100)}%`}
+                      title={`컨텍스트 ~${Math.round(state.pendingInputTokens / 1000)}k 토큰 / ${CONTEXT_WINDOW / 1000}k`}
+                    />
+                  ))}
+                {state.lastTelemetry && (
+                  <Popover
+                    open={telemetryOpen}
+                    anchorRef={telemetryButtonRef}
+                    onClose={() => setTelemetryOpen(false)}
+                  >
+                    <TelemetryPanel
+                      telemetry={state.lastTelemetry}
+                      sessionCostUsd={state.sessionCostUsd}
+                      latencyMs={state.lastTurnLatencyMs}
+                    />
+                  </Popover>
                 )}
                 {state.inflight ? (
                   <Button

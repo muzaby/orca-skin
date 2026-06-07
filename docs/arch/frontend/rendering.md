@@ -84,7 +84,7 @@ interface ToolRendererRegistry { register(r: ToolRenderer): void; resolve(input:
 | `AgentTaskCard` / `SessionGraphCard` / `ContextInjectionCard` | subagent / `children`·`fork`·`revert` / `noReply` | 🔴 seam (OpenCode 전용) |
 | `StructuredOutputCard`(`structured_output`) | `format:json_schema` 결과 | ⏳ 최소 구현(`StructuredOutputCard` — value→pretty JSON. claude 미와이어라 소스 없음) — §1.7 |
 | `ErrorCard`(`error`) | error 파트 | ✅ `ErrorCard`(트랜스크립트 인라인) + `state.error` 배너(라이브 턴) |
-| `TelemetryPanel`(`telemetry`) | usage·cost·latency | ⏳ `UsageCircle`(inputTokens 비율만) — §1.9 미구현 |
+| `TelemetryPanel`(`telemetry`) | usage·cost·latency | ✅ `TelemetryPanel`(cost·model·latency·토큰 분해) — Composer usage 도넛 트리거 Popover, §1.9 |
 
 ### 1.7 StructuredOutput 렌더링 (설계 확정 / 구현 대기)
 
@@ -121,11 +121,13 @@ interface ReconnectPolicy { maxRetries: number; backoffMs: (attempt: number) => 
 - SSE 재연결 시 마지막 `seq` 까지 dedup. Claude iterator 는 재연결 개념 없음 → `resumeFrom:'restart'` + 쿼리 재실행 정책 별도.
 - auto-scroll 은 사용자가 위로 스크롤하면 pin 해제(로그 뷰어 패턴).
 
-### 1.9 TelemetryPanel (설계 확정 / 구현 대기)
+### 1.9 TelemetryPanel (구현 완료)
 
-**① 설명.** provider-reported(token/cost/model) + app-measured(latency/duration/event count) 를 패널로. 정본 타입: ../backend/provider-runtime.md §8.
+**① 설명.** provider-reported(token/cost/model) + app-measured(latency) 를 패널로. 정본 타입: ../backend/provider-runtime.md §8.
 
-**③ 현재 코드 갭.** 현행 `shared/ui/UsageCircle.tsx` 가 `state.pendingInputTokens / 200_000` 비율 도넛만 표시. cost·model·latency·세션별 통계 없음.
+**② 구현.** `features/chat/components/TelemetryPanel.tsx` — 턴 종료 `telemetry` 이벤트가 실은 `ProviderReportedTelemetry`(cost·model·modelUsage·input/output·캐시 토큰·durationMs·numTurns)와 reducer 가 산출한 app-measured latency(`lastTurnLatencyMs` = 전송→telemetry 벽시계) + 세션 누적 비용(`sessionCostUsd`, SDK 가 세션 합계 미제공이라 턴마다 누산 — cost-tracking.md §147)을 행으로 표시. 값 없는 행은 생략. Composer 풋터의 usage 도넛(`UsageCircle`)을 클릭 트리거로 삼아 `shared/ui/Popover.tsx` 안에 띄운다(`state.lastTelemetry` 없으면 도넛만 — 현행 graceful). 모든 값은 추정치(청구 권위 아님).
+
+**③ (해소) 과거 갭.** 구 `UsageCircle` 는 `pendingInputTokens / 200_000` 비율 도넛만 표시했고 cost·model·latency 가 없었다 — 본 패널로 보강.
 
 ---
 

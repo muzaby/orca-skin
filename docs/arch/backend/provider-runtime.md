@@ -305,14 +305,14 @@ type AppMessagePart =
 
 **① 설명.** provider 가 usage/cost 를 제공하면 쓰고, 없으면 앱이 자체 집계. 2계층.
 
-**③ 현재 코드 갭.** 현행은 `result` 이벤트의 `usage`(inputTokens/outputTokens)만 매핑(adapters.md §1.5). cost·latency·app-measured 집계 없음. (렌더러 `UsageCircle` 가 inputTokens 비율만 표시 — ../frontend/rendering.md.)
+**③ 구현 상태.** `claude-map.ts` 가 `result` 메시지에서 `ProviderReportedTelemetry`(cost·model·modelUsage·input/output·캐시 토큰·durationMs·numTurns)를 정규화해 `telemetry` 이벤트에 싣고, reducer(`chatReducer` telemetry case)가 `lastTelemetry` + 세션 누적 `sessionCostUsd`(턴별 누산 — cost-tracking.md §147 SDK 세션 합계 미제공) + app-measured `lastTurnLatencyMs`(전송→telemetry 벽시계)를 산출. 렌더러 `TelemetryPanel`(../frontend/rendering.md §1.9)이 표시. **잔여(후속)**: AppMeasured 전체 집계(eventCount/bytesStreamed/errorRate/cancelRate)·DB 영속·세션 통계 화면.
 
-**④ 인터페이스 (정본).**
+**④ 인터페이스 (정본 — `[검증-런타임]` cost-tracking.md 로 필드 확정).** 구현된 정본 타입은 `src/shared/ipc.ts` 의 `ProviderReportedTelemetry`/`TelemetryModelUsage`(claude `result` 의 snake/camel 혼용을 camelCase 정규화).
 
 ```ts
-interface ProviderReportedTelemetry { provider: ProviderId; model?: string; inputTokens?: number; outputTokens?: number; costUsd?: number } // [미확인] 정확한 필드
-interface AppMeasuredTelemetry { latencyMs?: number; toolDurationMs?: number; streamDurationMs?: number; eventCount?: number; bytesStreamed?: number; errorRate?: number; cancelRate?: number }
-interface TelemetryService { providerReported(sessionId: string): ProviderReportedTelemetry | undefined; appMeasured(sessionId: string): AppMeasuredTelemetry }
+interface TelemetryModelUsage { costUsd?: number; inputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheCreationTokens?: number }
+interface ProviderReportedTelemetry { model?: string; inputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheCreationTokens?: number; costUsd?: number; durationMs?: number; numTurns?: number; modelUsage?: Record<string, TelemetryModelUsage> }
+interface AppMeasuredTelemetry { latencyMs?: number; toolDurationMs?: number; streamDurationMs?: number; eventCount?: number; bytesStreamed?: number; errorRate?: number; cancelRate?: number } // latencyMs 만 구현(reducer lastTurnLatencyMs), 나머지 후속
 ```
 
 ## 9. AuthStore — 키 저장소가 아니라 주입 전략
@@ -384,7 +384,7 @@ type ModelProviderConfig =
 | `makeCanUseTool` | `src/main/adapters/claude-code.ts` | (PermissionBridge 어댑트) | ✅ 위험 도구 게이트(`RISKY_TOOLS`) 활성 — 단일 `requestApproval(action)` 콜백 소비(스테이지 C) |
 | `detectError` | 〃 | `ErrorClassifier.classify` | 8분류 |
 | `permissionMode`(2종) | `src/shared/ipc.ts` | `NormalizedPermissionMode`(6종) | + 런타임 전환 |
-| `usage`(result) | adapters.md §1.5 | `ProviderReportedTelemetry` | + AppMeasured |
+| `usage`(result) | adapters.md §1.5 | `ProviderReportedTelemetry`(구현됨 §8) | + AppMeasured(latency 만, 나머지 후속) |
 
 ## 13. 구현 전 SDK 타입 확정 절차 (`[미확인]` 일괄)
 
@@ -394,7 +394,7 @@ type ModelProviderConfig =
 |---|---|---|
 | OpenCode `event.type` enum 전수 (§2 매핑 완성) | `packages/sdk/js/src/gen/types.gen.ts` | `[미확인-opencode]` |
 | Claude 권한 평가 순서 단일화(hooks/ask/Pre·PostToolUse 포함) | 대상 SDK 버전 permissions 문서 | `[부분 불확실]`(공식 문서 2서술 병존, §3) |
-| Claude usage/cost 노출 형식 (§8) | `result` 메시지 타입 (typescript.md) | `[미확인-런타임]`(타입 존재, 형식 구동검증) |
+| Claude usage/cost 노출 형식 (§8) | `result` 메시지 타입 (cost-tracking.md) | `[검증-타입]` 해소 — `total_cost_usd`·`modelUsage{costUSD,inputTokens,outputTokens,cacheReadInputTokens,cacheCreationInputTokens}`·`usage{cache_*_input_tokens}`·`duration_ms`·`num_turns` 로 §8 구현. 런타임 실측값 일치는 GUI 1회 확인 권장 |
 | OpenCode usage/cost 노출 형식 | `session.message` / `Message` 타입 | `[미확인-opencode]` |
 | OpenCode mode setter 부재 확정 (§3) | `types.gen.ts` / 서버 OpenAPI | `[미확인-opencode]` |
 | Claude children/summarize/share 대응 (§4) | typescript.md (대응 함수 없음) | `[N/A-claude]` 확정 — abort/init 은 `[검증-런타임]` |

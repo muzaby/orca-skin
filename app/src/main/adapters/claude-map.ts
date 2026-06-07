@@ -8,7 +8,12 @@
 // 한 SDKMessage 가 N개 NormalizedEvent 로 분해될 수 있다(assistant = text/tool 블록 순서 보존).
 
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk'
-import type { NormalizedEvent, ProviderId } from '../../shared/ipc'
+import type {
+  NormalizedEvent,
+  ProviderId,
+  ProviderReportedTelemetry,
+  TelemetryModelUsage
+} from '../../shared/ipc'
 
 // 매퍼 컨텍스트 — provider 고정, sessionId 는 턴 동안 system/init(=session.updated)에서 갱신된다
 // (resume 면 초기값이 그 id). cwd 는 session.updated.patch 에 실린다.
@@ -139,28 +144,114 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
     return events
   }
 
-  // SDKResultMessage → telemetry (턴 종료)
+  // SDKResultMessage → telemetry (턴 종료). provider-runtime.md §8 ProviderReportedTelemetry.
+  // SDK 타입 직접 의존을 피해 좁히기로 읽는다. total_cost_usd/modelUsage 는 추정값(cost-tracking.md),
+  // 각 필드 optional 가드 — 런타임 미제공 시 그냥 빠진다(graceful, 현행 빈 telemetry 동작 보존).
   if (msg.type === 'result') {
-    const usage = (msg as unknown as { usage?: { input_tokens?: number; output_tokens?: number } })
-      .usage
-    if (
-      usage &&
-      typeof usage.input_tokens === 'number' &&
-      typeof usage.output_tokens === 'number'
-    ) {
-      return [
+    const r = msg as unknown as {
+      total_cost_usd?: number
+      duration_ms?: number
+      num_turns?: number
+      usage?: {
+        input_tokens?: number
+        output_tokens?: number
+        cache_read_input_tokens?: number
+        cache_creation_input_tokens?: number
+      }
+      modelUsage?: Record<
+        string,
         {
-          type: 'telemetry',
-          sessionId: ctx.sessionId,
-          provider,
-          usage: { inputTokens: usage.input_tokens, outputTokens: usage.output_tokens }
+          costUSD?: number
+          inputTokens?: number
+          outputTokens?: number
+          cacheReadInputTokens?: number
+          cacheCreationInputTokens?: number
         }
-      ]
+      >
     }
-    return [{ type: 'telemetry', sessionId: ctx.sessionId, provider }]
+    const telemetry = normalizeResultTelemetry(r)
+    return [
+      {
+        type: 'telemetry',
+        sessionId: ctx.sessionId,
+        provider,
+        ...(telemetry ? { usage: telemetry } : {})
+      }
+    ]
   }
 
   // 그 외 SDK 메시지 (compact_boundary, plugin_install, task_*, permission_denied,
   // rate_limit_event, status, api_retry, hook_*, auth_status 등) 는 Phase 3 미사용.
   return []
+}
+
+// SDKResultMessage 의 사용량/비용을 ProviderReportedTelemetry 로 정규화. 의미있는 필드가 하나도
+// 없으면 undefined 반환(어댑터가 usage 를 생략 → 현행 빈 telemetry 와 동일). num 가드로 NaN 차단.
+function normalizeResultTelemetry(r: {
+  total_cost_usd?: number
+  duration_ms?: number
+  num_turns?: number
+  usage?: {
+    input_tokens?: number
+    output_tokens?: number
+    cache_read_input_tokens?: number
+    cache_creation_input_tokens?: number
+  }
+  modelUsage?: Record<
+    string,
+    {
+      costUSD?: number
+      inputTokens?: number
+      outputTokens?: number
+      cacheReadInputTokens?: number
+      cacheCreationInputTokens?: number
+    }
+  >
+}): ProviderReportedTelemetry | undefined {
+  const num = (v: unknown): number | undefined => (typeof v === 'number' ? v : undefined)
+  const out: ProviderReportedTelemetry = {}
+
+  const inputTokens = num(r.usage?.input_tokens)
+  const outputTokens = num(r.usage?.output_tokens)
+  const cacheReadTokens = num(r.usage?.cache_read_input_tokens)
+  const cacheCreationTokens = num(r.usage?.cache_creation_input_tokens)
+  if (inputTokens !== undefined) out.inputTokens = inputTokens
+  if (outputTokens !== undefined) out.outputTokens = outputTokens
+  if (cacheReadTokens !== undefined) out.cacheReadTokens = cacheReadTokens
+  if (cacheCreationTokens !== undefined) out.cacheCreationTokens = cacheCreationTokens
+
+  const costUsd = num(r.total_cost_usd)
+  const durationMs = num(r.duration_ms)
+  const numTurns = num(r.num_turns)
+  if (costUsd !== undefined) out.costUsd = costUsd
+  if (durationMs !== undefined) out.durationMs = durationMs
+  if (numTurns !== undefined) out.numTurns = numTurns
+
+  if (r.modelUsage && typeof r.modelUsage === 'object') {
+    const modelUsage: Record<string, TelemetryModelUsage> = {}
+    let firstModel: string | undefined
+    for (const [model, mu] of Object.entries(r.modelUsage)) {
+      if (!mu || typeof mu !== 'object') continue
+      const entry: TelemetryModelUsage = {}
+      const c = num(mu.costUSD)
+      const it = num(mu.inputTokens)
+      const ot = num(mu.outputTokens)
+      const crt = num(mu.cacheReadInputTokens)
+      const cct = num(mu.cacheCreationInputTokens)
+      if (c !== undefined) entry.costUsd = c
+      if (it !== undefined) entry.inputTokens = it
+      if (ot !== undefined) entry.outputTokens = ot
+      if (crt !== undefined) entry.cacheReadTokens = crt
+      if (cct !== undefined) entry.cacheCreationTokens = cct
+      modelUsage[model] = entry
+      if (firstModel === undefined) firstModel = model
+    }
+    if (Object.keys(modelUsage).length > 0) {
+      out.modelUsage = modelUsage
+      // 단일 모델 턴이면 편의상 top-level model 도 채운다.
+      if (Object.keys(modelUsage).length === 1 && firstModel) out.model = firstModel
+    }
+  }
+
+  return Object.keys(out).length > 0 ? out : undefined
 }

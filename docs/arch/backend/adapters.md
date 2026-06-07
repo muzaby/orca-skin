@@ -114,7 +114,7 @@ SDK 가 throw 하는 에러 메시지/코드에서 `401` / `OAuth` / `expired` �
 | `options.resume: sessionId` | ✅ | Phase 3 | `--resume` 직접 대응 |
 | `options.includePartialMessages: true` | ✅ | Phase 3 | delta 스트리밍 |
 | `options.cwd` | ✅ | Phase 3 | spawn `{ cwd }` 대체 |
-| `result.total_cost_usd` / `usage` | ✅(부분) | Phase 3 | `usage` 만 매핑, cost 는 별도 결정 |
+| `result.total_cost_usd` / `usage` / `modelUsage` / `duration_ms` | ✅ | Phase 3++ | `ProviderReportedTelemetry` 로 정규화(cost·model·캐시 토큰·duration·numTurns) → TelemetryPanel (provider-runtime.md §8) |
 | `options.permissionMode` / `canUseTool` | ⏳ | Phase 4 (OQ9) | 도구 권한 정책 미정 |
 | `options.hooks` (PreToolUse / PostToolUse / Stop) | ⏳ | Phase 4 | 도구 호출 감사 |
 | `createSdkMcpServer` + `tool()` | ⏳ | Phase 4+ | in-process MCP 서버(별건) |

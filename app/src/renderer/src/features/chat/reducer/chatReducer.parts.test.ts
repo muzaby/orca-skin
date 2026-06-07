@@ -152,6 +152,79 @@ describe('chatReducer — AppMessagePart 모델', () => {
     expect(s.pendingReasoning).toBe('')
   })
 
+  it('telemetry 가 lastTelemetry 를 저장하고 세션 비용을 누산한다', () => {
+    let s = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'q1' })
+    s = apply(s, [
+      {
+        type: 'telemetry',
+        sessionId: 's',
+        provider: 'claude-code',
+        usage: {
+          inputTokens: 100,
+          outputTokens: 50,
+          costUsd: 0.01,
+          model: 'opus',
+          durationMs: 1000
+        }
+      }
+    ])
+    expect(s.lastTelemetry).toEqual({
+      inputTokens: 100,
+      outputTokens: 50,
+      costUsd: 0.01,
+      model: 'opus',
+      durationMs: 1000
+    })
+    expect(s.sessionCostUsd).toBe(0.01)
+    expect(s.pendingInputTokens).toBe(100)
+    expect(s.lastTurnLatencyMs).toBeTypeOf('number')
+
+    // 두 번째 턴 — costUsd 누산, lastTelemetry 교체
+    s = chatReducer(s, { type: 'SEND_USER_MESSAGE', text: 'q2' })
+    s = apply(s, [
+      {
+        type: 'telemetry',
+        sessionId: 's',
+        provider: 'claude-code',
+        usage: { inputTokens: 200, outputTokens: 80, costUsd: 0.02 }
+      }
+    ])
+    expect(s.sessionCostUsd).toBeCloseTo(0.03)
+    expect(s.lastTelemetry?.inputTokens).toBe(200)
+  })
+
+  it('costUsd 없는 telemetry 는 세션 누적을 건드리지 않는다', () => {
+    let s = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'q' })
+    s = apply(s, [
+      {
+        type: 'telemetry',
+        sessionId: 's',
+        provider: 'claude-code',
+        usage: { inputTokens: 10, outputTokens: 5, costUsd: 0.5 }
+      }
+    ])
+    expect(s.sessionCostUsd).toBe(0.5)
+    s = chatReducer(s, { type: 'SEND_USER_MESSAGE', text: 'q2' })
+    s = apply(s, [{ type: 'telemetry', sessionId: 's', provider: 'claude-code' }])
+    expect(s.sessionCostUsd).toBe(0.5) // 변동 없음
+  })
+
+  it('NEW_CHAT 은 telemetry 상태를 리셋한다', () => {
+    let s = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'q' })
+    s = apply(s, [
+      {
+        type: 'telemetry',
+        sessionId: 's',
+        provider: 'claude-code',
+        usage: { inputTokens: 10, outputTokens: 5, costUsd: 0.5 }
+      }
+    ])
+    s = chatReducer(s, { type: 'NEW_CHAT' })
+    expect(s.lastTelemetry).toBeUndefined()
+    expect(s.sessionCostUsd).toBeUndefined()
+    expect(s.lastTurnLatencyMs).toBeUndefined()
+  })
+
   it('LOAD_SESSION 은 parts 를 그대로 싣는다', () => {
     const session: LoadedSession = {
       id: 's1',

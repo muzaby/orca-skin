@@ -114,6 +114,29 @@ export interface PermissionRespond {
   resolution: ApprovalResolution
 }
 
+// provider 가 턴 종료 시 보고하는 사용량/비용 통계 (provider-runtime.md §8 ProviderReportedTelemetry).
+// 전 필드 optional — 런타임이 일부만 주거나 안 줄 수 있다(graceful). claude `result` 의 snake_case·
+// camelCase 혼용 필드를 camelCase 로 정규화한다. cost 는 추정값(cost-tracking.md §14 — 청구 권위 아님).
+export interface TelemetryModelUsage {
+  costUsd?: number
+  inputTokens?: number
+  outputTokens?: number
+  cacheReadTokens?: number
+  cacheCreationTokens?: number
+}
+
+export interface ProviderReportedTelemetry {
+  model?: string
+  inputTokens?: number
+  outputTokens?: number
+  cacheReadTokens?: number
+  cacheCreationTokens?: number
+  costUsd?: number
+  durationMs?: number
+  numTurns?: number
+  modelUsage?: Record<string, TelemetryModelUsage>
+}
+
 export type NormalizedEvent =
   | {
       type: 'session.updated'
@@ -166,7 +189,7 @@ export type NormalizedEvent =
       type: 'telemetry'
       sessionId: string
       provider: ProviderId
-      usage?: { inputTokens: number; outputTokens: number }
+      usage?: ProviderReportedTelemetry
     }
   | {
       type: 'error'

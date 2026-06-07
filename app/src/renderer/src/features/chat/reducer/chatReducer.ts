@@ -4,7 +4,8 @@ import type {
   NormalizedEvent,
   ClassifiedError,
   LoadedSession,
-  PlanReviewRequest
+  PlanReviewRequest,
+  ProviderReportedTelemetry
 } from '../../../../../shared/ipc'
 import type { NormalizedPermissionMode } from '../../../../../shared/permission-mode'
 
@@ -48,6 +49,15 @@ export interface ChatState {
   loadingSession: boolean
   turnStartedAt: number | null
   pendingInputTokens?: number
+  // 마지막 턴의 provider-reported 통계(cost·model·latency·토큰 분해). TelemetryPanel 의 소스.
+  // 턴 종료(telemetry) 시 세팅, 세션 전환/새 대화 시 비움.
+  lastTelemetry?: ProviderReportedTelemetry
+  // 세션 내 누적 추정 비용(USD). SDK 는 query() 호출별 cost 만 주고 세션 합계를 안 주므로
+  // (cost-tracking.md §147) 턴마다 costUsd 를 직접 누산한다. 세션 전환/새 대화 시 0 으로 리셋.
+  sessionCostUsd?: number
+  // 마지막 턴의 app-measured latency(ms) = turnStartedAt → telemetry 도착 벽시계.
+  // provider-reported durationMs(엔진 내부 측정)와 별개의 사용자 체감 지표.
+  lastTurnLatencyMs?: number
   error?: ClassifiedError
   // Claude 가 AskUserQuestion 으로 던진 미응답 질문 묶음 큐. canUseTool 이 query 를 일시
   // 중지한 채 응답을 기다리므로 보통 길이 0~1 이지만, 안전하게 큐로 모델링해 앞에서 소비한다.
@@ -226,14 +236,24 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           }
 
         case 'telemetry': {
-          const inputTokens = ev.usage?.inputTokens
+          const telemetry = ev.usage
+          const inputTokens = telemetry?.inputTokens
+          // app-measured latency — 이 턴을 보낸 시점부터 telemetry 도착까지 벽시계.
+          const latencyMs =
+            state.turnStartedAt != null ? Date.now() - state.turnStartedAt : undefined
           const base = {
             ...state,
             inflight: false,
             turnStartedAt: null,
             // 턴 종료 — 미완 라이브 사고 프리뷰는 비운다(영속은 완성 블록의 message.reasoning).
             pendingReasoning: '',
-            ...(inputTokens != null ? { pendingInputTokens: inputTokens } : {})
+            ...(inputTokens != null ? { pendingInputTokens: inputTokens } : {}),
+            ...(telemetry ? { lastTelemetry: telemetry } : {}),
+            ...(latencyMs != null ? { lastTurnLatencyMs: latencyMs } : {}),
+            // 세션 누적 비용 — SDK 미제공이라 턴마다 직접 누산(cost-tracking.md §147).
+            ...(telemetry?.costUsd != null
+              ? { sessionCostUsd: (state.sessionCostUsd ?? 0) + telemetry.costUsd }
+              : {})
           }
           // pendingDelta 가 아직 남아있으면(message.completed 없이 끝남) text 파트로 굳힌다.
           if (state.pendingDelta) {
