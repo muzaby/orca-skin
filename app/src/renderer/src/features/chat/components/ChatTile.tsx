@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Icon } from '../../../shared/ui/Icon'
 import { Button } from '../../../shared/ui/Button'
 import { Dot } from '../../../shared/ui/Status'
@@ -30,9 +30,56 @@ export function ChatTile({ chat, backendLabel, canAbort }: ChatTileProps): React
   const scrollRef = useRef<HTMLDivElement>(null)
   const rowRef = useRef<HTMLDivElement>(null)
 
+  // auto-scroll pin (rendering.md §1.8 ⑤ — 로그 뷰어 패턴). 맨 아래에 붙어 있을 때만
+  // 스트리밍을 따라 내려간다. 사용자가 위로 올리면 pin 해제 → 과거 대화 고정 + "맨 아래로" 버튼.
+  const pinnedRef = useRef(true)
+  const prevLenRef = useRef(state.messages.length)
+  const [showJump, setShowJump] = useState(false)
+
+  const isAtBottom = useCallback((el: HTMLDivElement): boolean => {
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 24
+  }, [])
+
+  // 스크롤 이벤트는 rAF 로 스로틀 — pin 상태와 버튼 노출 여부만 갱신.
+  const scrollRafRef = useRef<number | null>(null)
+  const onScroll = useCallback(() => {
+    if (scrollRafRef.current !== null) return
+    scrollRafRef.current = requestAnimationFrame(() => {
+      scrollRafRef.current = null
+      const el = scrollRef.current
+      if (!el) return
+      const atBottom = isAtBottom(el)
+      pinnedRef.current = atBottom
+      setShowJump(!atBottom && el.scrollHeight > el.clientHeight + 24)
+    })
+  }, [isAtBottom])
+
+  useEffect(() => {
+    return () => {
+      if (scrollRafRef.current !== null) cancelAnimationFrame(scrollRafRef.current)
+    }
+  }, [])
+
+  const scrollToBottom = useCallback(() => {
+    const el = scrollRef.current
+    if (!el) return
+    el.scrollTop = el.scrollHeight
+    pinnedRef.current = true
+    setShowJump(false)
+  }, [])
+
   useEffect(() => {
     const el = scrollRef.current
-    if (el) el.scrollTop = el.scrollHeight
+    if (!el) return
+    // 새 user 메시지(사용자가 전송)면 항상 따라 내려가며 재-pin. 그 외에는 pin 일 때만.
+    const grew = state.messages.length > prevLenRef.current
+    const lastIsUser = state.messages[state.messages.length - 1]?.role === 'user'
+    prevLenRef.current = state.messages.length
+    if ((grew && lastIsUser) || pinnedRef.current) {
+      el.scrollTop = el.scrollHeight
+      pinnedRef.current = true
+      setShowJump(false)
+    }
   }, [state.messages, state.pendingDelta])
 
   // 우측 계획 타일은 행의 오른쪽 끝에 도킹 — 커서를 왼쪽으로 끌수록 폭이 커지므로 invert.
@@ -109,6 +156,7 @@ export function ChatTile({ chat, backendLabel, canAbort }: ChatTileProps): React
 
           <div
             ref={scrollRef}
+            onScroll={onScroll}
             className="app-frame-transcript flex flex-1 flex-col overflow-auto py-5"
             data-behavior="virtualizable"
           >
@@ -163,7 +211,13 @@ export function ChatTile({ chat, backendLabel, canAbort }: ChatTileProps): React
             </ReadingColumn>
           </div>
 
-          <Composer chat={chat} backendLabel={backendLabel} canAbort={canAbort} />
+          <Composer
+            chat={chat}
+            backendLabel={backendLabel}
+            canAbort={canAbort}
+            showScrollToBottom={showJump}
+            onScrollToBottom={scrollToBottom}
+          />
         </div>
 
         {state.planTileOpen && (

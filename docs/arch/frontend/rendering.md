@@ -15,7 +15,7 @@
 
 ### 1.2 스트리밍 렌더링 최적화
 
-- `message.delta` 이벤트마다 `pendingDelta` 에 누적(`chatReducer.ts`). UI 업데이트 **16ms throttle** 은 *설계 확정/구현 대기*(현행은 React 기본 배칭에만 의존 — §1.8).
+- `message.delta` 이벤트마다 `pendingDelta` 에 누적(`chatReducer.ts`). UI 업데이트 **16ms throttle 구현 완료** — `features/chat/lib/eventCoalescer.ts` 가 델타(message.delta·message.reasoning.delta)를 `requestAnimationFrame` 한 틱마다 모아 한꺼번에 dispatch 하고, React 19 자동 배칭이 그 틱의 N개 dispatch 를 1렌더로 묶는다(프레임당 1렌더, reducer 무변경). 비-델타 이벤트(message.completed·tool.call.*·telemetry)는 버퍼를 먼저 flush 한 뒤 emit 해 순서를 보존(§1.7 Option B). `useChat` 구독부가 코얼레서를 생성·주입하고 세션 전환(newChat/loadSession)·언마운트 시 `dispose()` 로 스테일 델타를 폐기한다.
 - **정정(2026-06, 코드가 진실)**: 마크다운 파싱은 스트리밍 *중에도* 라이브로 수행한다 — `PendingAssistant` 가 `pendingDelta` 를 `<Markdown>` 으로 렌더(과거 "스트리밍 중 plain text" 서술은 구현과 불일치라 폐기). 코드 블록 하이라이팅(shiki)은 ToolCard 첫 오픈까지 지연(비용 회피).
 - `message.completed` 도착 시 `pendingDelta` 를 `text` 파트로 commit 하고 비운다(provider-runtime.md §7).
 
@@ -119,7 +119,7 @@ interface ReconnectPolicy { maxRetries: number; backoffMs: (attempt: number) => 
 
 - `TerminalCard` stdout/stderr 는 `maxBytesPerToolRun` 으로 캡 → 초과 시 `truncated:true` props 로 "잘림" 표시.
 - SSE 재연결 시 마지막 `seq` 까지 dedup. Claude iterator 는 재연결 개념 없음 → `resumeFrom:'restart'` + 쿼리 재실행 정책 별도.
-- auto-scroll 은 사용자가 위로 스크롤하면 pin 해제(로그 뷰어 패턴).
+- auto-scroll pin **구현 완료** (`ChatTile.tsx`): 스크롤 컨테이너가 맨 아래(`scrollHeight-scrollTop-clientHeight < 24px`)에 붙어 있을 때만 스트리밍을 따라 내려간다(로그 뷰어 패턴). 사용자가 위로 스크롤하면 `pinnedRef` 해제 → 과거 대화 고정. 단, 새 user 메시지(사용자 전송)는 항상 따라 내려가며 재-pin. pin 해제 상태에선 컴포저 기준 상단·가로 중앙(`Composer.tsx` 의 `absolute bottom-full left-1/2`)에 **"맨 아래로" 버튼**(`chevD` 아이콘)을 띄워 클릭 시 재-pin. 버튼 props 는 optional — transcript 가 없는 랜딩(NewChat/Project)엔 미전달.
 
 ### 1.9 TelemetryPanel (구현 완료)
 

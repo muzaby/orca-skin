@@ -1,0 +1,71 @@
+import type { NormalizedEvent } from '../../../../../shared/ipc'
+
+// 스트리밍 델타(message.delta · message.reasoning.delta)는 SDK 토큰 1개당 IPC 이벤트 1개로
+// 도착한다. 토큰마다 즉시 dispatch 하면 transcript 가 토큰 수만큼 재렌더된다(rendering.md §1.2).
+// 이 코얼레서는 델타를 버퍼에 모아 scheduler(보통 requestAnimationFrame) 한 틱마다 한꺼번에
+// emit 한다 — React 19 의 자동 배칭이 "단일 동기 실행 안의 N개 dispatch" 를 1렌더로 묶으므로
+// 결과적으로 프레임당 1렌더가 된다(reducer 는 무변경, 외형 동일).
+//
+// 순서 불변식: message.completed · tool.call.* · telemetry 같은 비-델타 이벤트가 오면 버퍼를
+// 먼저 동기 flush 한 뒤 그 이벤트를 emit 한다 → "텍스트→도구→텍스트" 순서(Option B) 보존.
+
+const DELTA_TYPES = new Set<NormalizedEvent['type']>(['message.delta', 'message.reasoning.delta'])
+
+export interface CoalescerScheduler {
+  schedule: (cb: () => void) => number
+  cancel: (handle: number) => void
+}
+
+export interface EventCoalescer {
+  // 인바운드 이벤트 1개 라우팅 — 델타면 버퍼링, 그 외면 즉시(버퍼 flush 후) emit.
+  push: (ev: NormalizedEvent) => void
+  // 버퍼에 남은 델타를 지금 즉시 비운다.
+  flush: () => void
+  // 예약 취소 + 버퍼 폐기(emit 없이). 세션 전환·언마운트 시 스테일 델타 제거용. 이후 재사용 가능.
+  dispose: () => void
+}
+
+export function createEventCoalescer(
+  emit: (ev: NormalizedEvent) => void,
+  scheduler: CoalescerScheduler
+): EventCoalescer {
+  let buffer: NormalizedEvent[] = []
+  let handle: number | null = null
+
+  const flush = (): void => {
+    if (handle !== null) {
+      scheduler.cancel(handle)
+      handle = null
+    }
+    if (buffer.length === 0) return
+    const batch = buffer
+    buffer = []
+    for (const ev of batch) emit(ev)
+  }
+
+  const push = (ev: NormalizedEvent): void => {
+    if (DELTA_TYPES.has(ev.type)) {
+      buffer.push(ev)
+      if (handle === null) {
+        handle = scheduler.schedule(() => {
+          handle = null
+          flush()
+        })
+      }
+      return
+    }
+    // 비-델타: 순서 보존을 위해 버퍼를 먼저 비우고 emit.
+    flush()
+    emit(ev)
+  }
+
+  const dispose = (): void => {
+    if (handle !== null) {
+      scheduler.cancel(handle)
+      handle = null
+    }
+    buffer = []
+  }
+
+  return { push, flush, dispose }
+}
