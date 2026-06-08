@@ -1,26 +1,23 @@
 import type Database from 'better-sqlite3'
 import type {
+  LoadedPartRow,
   MessageInsert,
-  MessageRow,
+  MessagePartInsert,
   ProjectInsert,
   ProjectRow,
   SearchHitRow,
   SessionInsert,
-  SessionListRow,
-  ToolCallInsert,
-  ToolCallRow,
-  ToolCallStatus
+  SessionListRow
 } from './types'
 
 export class DbQueries {
   private readonly insertSessionStmt: Database.Statement
   private readonly listSessionsStmt: Database.Statement
-  private readonly loadMessagesStmt: Database.Statement
-  private readonly loadToolCallsStmt: Database.Statement
+  private readonly loadPartsStmt: Database.Statement
   private readonly appendMessageStmt: Database.Statement
   private readonly updateMessageContentStmt: Database.Statement
-  private readonly appendToolCallStmt: Database.Statement
-  private readonly updateToolCallResultStmt: Database.Statement
+  private readonly appendPartStmt: Database.Statement
+  private readonly updateToolResultPartStmt: Database.Statement
   private readonly updateSessionPreviewStmt: Database.Statement
   private readonly updateSessionTitleStmt: Database.Statement
   // 사용자가 명시적으로 rename — 기존 title 이 있어도 덮어쓴다.
@@ -50,18 +47,20 @@ export class DbQueries {
       ORDER BY updated_at DESC
       LIMIT @limit
     `)
-    this.loadMessagesStmt = db.prepare(`
-      SELECT id, session_id, role, content, created_at, idx
-      FROM messages
-      WHERE session_id = @sessionId
-      ORDER BY idx ASC
-    `)
-    this.loadToolCallsStmt = db.prepare(`
-      SELECT tc.id, tc.message_id, tc.tool_use_id, tc.name, tc.input_json, tc.result_json, tc.status
-      FROM tool_calls tc
-      JOIN messages m ON tc.message_id = m.id
+    this.loadPartsStmt = db.prepare(`
+      SELECT
+        m.id AS message_id,
+        m.role AS role,
+        m.created_at AS created_at,
+        m.idx AS message_idx,
+        mp.idx AS part_idx,
+        mp.type AS type,
+        mp.tool_run_id AS tool_run_id,
+        mp.payload_json AS payload_json
+      FROM messages m
+      JOIN message_parts mp ON mp.message_id = m.id
       WHERE m.session_id = @sessionId
-      ORDER BY tc.id ASC
+      ORDER BY m.idx ASC, mp.idx ASC
     `)
     this.appendMessageStmt = db.prepare(`
       INSERT INTO messages (session_id, role, content, created_at, idx)
@@ -76,14 +75,23 @@ export class DbQueries {
     this.updateMessageContentStmt = db.prepare(`
       UPDATE messages SET content = @content WHERE id = @id
     `)
-    this.appendToolCallStmt = db.prepare(`
-      INSERT INTO tool_calls (message_id, tool_use_id, name, input_json, result_json, status)
-      VALUES (@messageId, @toolUseId, @name, @inputJson, NULL, 'pending')
+    // 파트 append — idx 는 같은 message 내 MAX(idx)+1 로 자동 부여(호출자 미지정).
+    this.appendPartStmt = db.prepare(`
+      INSERT INTO message_parts (message_id, idx, type, tool_run_id, payload_json)
+      VALUES (
+        @messageId,
+        COALESCE((SELECT MAX(idx) + 1 FROM message_parts WHERE message_id = @messageId), 0),
+        @type,
+        @toolRunId,
+        @payloadJson
+      )
     `)
-    this.updateToolCallResultStmt = db.prepare(`
-      UPDATE tool_calls
-      SET result_json = @resultJson, status = @status
-      WHERE tool_use_id = @toolUseId
+    // tool_result 파트 갱신 — 같은 toolRunId 의 결과를 in-place 로 덮어쓴다(AskUserQuestion
+    // 합성 후 실제 tool_result 가 늦게 와도 중복 행을 만들지 않게). 0행이면 호출자가 append.
+    this.updateToolResultPartStmt = db.prepare(`
+      UPDATE message_parts
+      SET payload_json = @payloadJson
+      WHERE tool_run_id = @toolRunId AND type = 'tool_result'
     `)
     this.updateSessionPreviewStmt = db.prepare(`
       UPDATE sessions
@@ -157,12 +165,8 @@ export class DbQueries {
     return this.listSessionsStmt.all({ limit }) as SessionListRow[]
   }
 
-  loadMessages(sessionId: string): MessageRow[] {
-    return this.loadMessagesStmt.all({ sessionId }) as MessageRow[]
-  }
-
-  loadToolCalls(sessionId: string): ToolCallRow[] {
-    return this.loadToolCallsStmt.all({ sessionId }) as ToolCallRow[]
+  loadParts(sessionId: string): LoadedPartRow[] {
+    return this.loadPartsStmt.all({ sessionId }) as LoadedPartRow[]
   }
 
   appendMessage(row: MessageInsert): number {
@@ -170,17 +174,24 @@ export class DbQueries {
     return Number(info.lastInsertRowid)
   }
 
+  // messages.content 는 text/reasoning parts 의 concat 캐시(FTS5 색인용). 파트 append 와
+  // 별개로 호출해 캐시를 동기화한다.
   updateMessageContent(id: number, content: string): void {
     this.updateMessageContentStmt.run({ id, content })
   }
 
-  appendToolCall(row: ToolCallInsert): number {
-    const info = this.appendToolCallStmt.run(row)
+  appendPart(row: MessagePartInsert): number {
+    const info = this.appendPartStmt.run(row)
     return Number(info.lastInsertRowid)
   }
 
-  updateToolCallResult(toolUseId: string, resultJson: string, status: ToolCallStatus): void {
-    this.updateToolCallResultStmt.run({ toolUseId, resultJson, status })
+  // tool_result 파트 upsert — 같은 toolRunId 가 있으면 갱신, 없으면 append. messageId 는
+  // append 폴백에만 쓰인다(현재 assistant 메시지).
+  upsertToolResultPart(messageId: number, toolRunId: string, payloadJson: string): void {
+    const info = this.updateToolResultPartStmt.run({ toolRunId, payloadJson })
+    if (info.changes === 0) {
+      this.appendPart({ messageId, type: 'tool_result', toolRunId, payloadJson })
+    }
   }
 
   updateSessionPreview(id: string, preview: string, updatedAt: number): void {

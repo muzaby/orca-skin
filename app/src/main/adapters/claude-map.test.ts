@@ -37,7 +37,37 @@ describe('claudeToNormalized', () => {
     ])
   })
 
-  it('assistant → tool.call.started + message.completed (순서 보존)', () => {
+  it('stream_event(thinking_delta) → message.reasoning.delta', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'stream_event',
+        event: { delta: { type: 'thinking_delta', thinking: '음...' } }
+      }),
+      ctx()
+    )
+    expect(out).toEqual([
+      {
+        type: 'message.reasoning.delta',
+        sessionId: 's1',
+        provider: 'claude-code',
+        delta: { text: '음...' }
+      }
+    ])
+  })
+
+  it('stream_event(signature_delta) → [] (스트림에서 무시)', () => {
+    expect(
+      claudeToNormalized(
+        sdk({
+          type: 'stream_event',
+          event: { delta: { type: 'signature_delta', signature: 'x' } }
+        }),
+        ctx()
+      )
+    ).toEqual([])
+  })
+
+  it('assistant → 콘텐츠 순서 보존(text 먼저 → tool.call.started)', () => {
     const out = claudeToNormalized(
       sdk({
         type: 'assistant',
@@ -52,19 +82,122 @@ describe('claudeToNormalized', () => {
     )
     expect(out).toEqual([
       {
+        type: 'message.completed',
+        sessionId: 's1',
+        provider: 'claude-code',
+        message: { text: 'done' }
+      },
+      {
         type: 'tool.call.started',
         sessionId: 's1',
         provider: 'claude-code',
         toolRunId: 't1',
         toolName: 'Bash',
         args: { cmd: 'ls' }
+      }
+    ])
+  })
+
+  it('assistant [text, tool, text] → text 가 도구 앞뒤로 분리 emit', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          content: [
+            { type: 'text', text: '확인할게요' },
+            { type: 'tool_use', id: 't1', name: 'Read', input: { path: 'a.ts' } },
+            { type: 'text', text: '완료' }
+          ]
+        }
+      }),
+      ctx()
+    )
+    expect(out).toEqual([
+      {
+        type: 'message.completed',
+        sessionId: 's1',
+        provider: 'claude-code',
+        message: { text: '확인할게요' }
+      },
+      {
+        type: 'tool.call.started',
+        sessionId: 's1',
+        provider: 'claude-code',
+        toolRunId: 't1',
+        toolName: 'Read',
+        args: { path: 'a.ts' }
       },
       {
         type: 'message.completed',
         sessionId: 's1',
         provider: 'claude-code',
-        message: { text: 'done' }
+        message: { text: '완료' }
       }
+    ])
+  })
+
+  it('빈 텍스트 블록은 message.completed 를 만들지 않는다', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          content: [
+            { type: 'text', text: '' },
+            { type: 'tool_use', id: 't1', name: 'Bash', input: {} }
+          ]
+        }
+      }),
+      ctx()
+    )
+    expect(out).toEqual([
+      {
+        type: 'tool.call.started',
+        sessionId: 's1',
+        provider: 'claude-code',
+        toolRunId: 't1',
+        toolName: 'Bash',
+        args: {}
+      }
+    ])
+  })
+
+  it('assistant thinking 블록 → message.reasoning (signature 보존, text 와 공존)', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          content: [
+            { type: 'thinking', thinking: '먼저 확인하자', signature: 'sig1' },
+            { type: 'text', text: '완료' }
+          ]
+        }
+      }),
+      ctx()
+    )
+    expect(out).toEqual([
+      {
+        type: 'message.reasoning',
+        sessionId: 's1',
+        provider: 'claude-code',
+        text: '먼저 확인하자',
+        signature: 'sig1'
+      },
+      {
+        type: 'message.completed',
+        sessionId: 's1',
+        provider: 'claude-code',
+        message: { text: '완료' }
+      }
+    ])
+  })
+
+  it('signature 없는 thinking 블록 → message.reasoning (signature 생략)', () => {
+    const out = claudeToNormalized(
+      sdk({ type: 'assistant', message: { content: [{ type: 'thinking', thinking: 't' }] } }),
+      ctx()
+    )
+    expect(out).toEqual([
+      { type: 'message.reasoning', sessionId: 's1', provider: 'claude-code', text: 't' }
     ])
   })
 

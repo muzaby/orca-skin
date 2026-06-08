@@ -4,8 +4,8 @@ import type { Message } from '../reducer/chatReducer'
 
 const msg = (role: 'user' | 'assistant', content: string, createdAt = 0): Message => ({
   role,
-  content,
-  createdAt
+  createdAt,
+  parts: content === '' ? [] : [{ type: 'text', text: content }]
 })
 
 describe('groupTurns', () => {

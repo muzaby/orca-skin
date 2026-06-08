@@ -5,7 +5,18 @@
 import type { Backend } from '../../shared/ipc'
 
 export type MessageRole = 'user' | 'assistant'
-export type ToolCallStatus = 'pending' | 'ok' | 'error' | 'cancelled'
+
+// message_parts.type — AppMessagePart(provider-runtime.md §7)의 DB 표현. payload_json 은
+// type 외 나머지 필드의 JSON 직렬화(tool_run_id 는 별도 컬럼이라 payload 에 중복 저장 안 함).
+export type MessagePartType =
+  | 'text'
+  | 'reasoning'
+  | 'tool_call'
+  | 'tool_result'
+  | 'file'
+  | 'diff'
+  | 'structured_output'
+  | 'error'
 
 export interface SessionRow {
   id: string
@@ -50,14 +61,14 @@ export interface MessageRow {
   idx: number
 }
 
-export interface ToolCallRow {
+// 한 메시지에 속한 순서 보존 파트 한 행. payload_json 은 type 별 페이로드 JSON.
+export interface MessagePartRow {
   id: number
   message_id: number
-  tool_use_id: string
-  name: string
-  input_json: string
-  result_json: string | null
-  status: ToolCallStatus
+  idx: number
+  type: MessagePartType
+  tool_run_id: string | null
+  payload_json: string
 }
 
 export interface SessionInsert {
@@ -75,11 +86,25 @@ export interface MessageInsert {
   createdAt: number
 }
 
-export interface ToolCallInsert {
+// 파트 append DTO. idx 는 SQL 이 message 내 MAX(idx)+1 로 자동 부여(호출자 미지정).
+export interface MessagePartInsert {
   messageId: number
-  toolUseId: string
-  name: string
-  inputJson: string
+  type: MessagePartType
+  toolRunId: string | null
+  payloadJson: string
+}
+
+// loadParts 의 한 행 — message_parts 를 messages 와 조인해 메시지 메타(role/순서)를 함께 싣는다.
+// message_idx(메시지 순서) → part_idx(파트 순서)로 정렬해 세션 전체 파트를 재구성한다.
+export interface LoadedPartRow {
+  message_id: number
+  role: MessageRole
+  created_at: number
+  message_idx: number
+  part_idx: number
+  type: MessagePartType
+  tool_run_id: string | null
+  payload_json: string
 }
 
 // FTS5 검색 결과 한 행. snippet 은 SQLite snippet() 가 생성한 `<mark>…</mark>`

@@ -1,3 +1,4 @@
+import { partsText } from '../../lib/parts'
 import type { Message } from '../../reducer/chatReducer'
 
 interface UserMessageProps {
@@ -9,7 +10,7 @@ export function UserMessage({ message }: UserMessageProps): React.JSX.Element {
   return (
     <div className="flex flex-col items-end">
       <div className="max-w-[80%] whitespace-pre-wrap rounded-r6 bg-bubble-user px-p7 py-p5 text-body text-ink">
-        {message.content}
+        {partsText(message.parts)}
       </div>
     </div>
   )

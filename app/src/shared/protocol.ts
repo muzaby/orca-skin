@@ -250,7 +250,7 @@ export type {
   RenameSessionRequest,
   LoadedSession,
   LoadedMessage,
-  LoadedToolCall,
+  AppMessagePart,
   Project,
   CreateProjectRequest,
   UpdateProjectRequest,

@@ -1,6 +1,7 @@
 // 메시지를 "턴"으로 묶는 순수 헬퍼. 한 에이전트 응답이 텍스트↔툴콜 교대로 여러 assistant
 // 메시지로 쪼개져도, 복사/시간 메타는 사용자 턴·에이전트 턴 단위로 한 번만 찍는다 (transcript 렌더).
 
+import { partsText } from './parts'
 import type { Message } from '../reducer/chatReducer'
 
 export interface Turn {
@@ -25,10 +26,10 @@ export function groupTurns(messages: Message[]): Turn[] {
   return turns
 }
 
-// 턴의 복사 대상 텍스트 — 메시지 content 를 빈 값 제외하고 합친다.
+// 턴의 복사 대상 텍스트 — 각 메시지의 text 파트를 합치고 빈 값은 제외한다.
 export function turnCopyText(turn: Turn): string {
   return turn.messages
-    .map((m) => m.content)
+    .map((m) => partsText(m.parts))
     .filter((c) => c.trim() !== '')
     .join('\n\n')
 }

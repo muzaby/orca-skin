@@ -55,7 +55,7 @@ function copyText(call: ToolCall): string {
 
 // 도구별 본문 디스패치 — 도구 이름 switch 대신 ToolRendererRegistry 로 시맨틱 해소(rendering.md §1.6).
 function ToolBody({ call }: { call: ToolCall }): React.JSX.Element {
-  const Body = toolRendererRegistry.resolve(call.name).Body
+  const Body = toolRendererRegistry.resolve(call).Body
   return <Body call={call} />
 }
 

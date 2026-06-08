@@ -15,9 +15,9 @@
 
 ### 1.2 스트리밍 렌더링 최적화
 
-- `assistant_delta` 이벤트마다 `pendingDelta` 에 누적. UI 업데이트는 **16ms throttle** (60Hz 리렌더 상한).
-- 마크다운 파싱은 `pendingDelta` 가 메시지로 commit 되는 시점 (`assistant_message`) 에 1회만 — 스트리밍 중에는 plain text.
-- 코드 블록 하이라이팅도 동일하게 지연 (shiki async 로드).
+- `message.delta` 이벤트마다 `pendingDelta` 에 누적(`chatReducer.ts`). UI 업데이트 **16ms throttle** 은 *설계 확정/구현 대기*(현행은 React 기본 배칭에만 의존 — §1.8).
+- **정정(2026-06, 코드가 진실)**: 마크다운 파싱은 스트리밍 *중에도* 라이브로 수행한다 — `PendingAssistant` 가 `pendingDelta` 를 `<Markdown>` 으로 렌더(과거 "스트리밍 중 plain text" 서술은 구현과 불일치라 폐기). 코드 블록 하이라이팅(shiki)은 ToolCard 첫 오픈까지 지연(비용 회피).
+- `message.completed` 도착 시 `pendingDelta` 를 `text` 파트로 commit 하고 비운다(provider-runtime.md §7).
 
 ### 1.3 마크다운 + 코드 블록
 
@@ -54,7 +54,9 @@
 
 **② 예시.** OpenCode `file.read` → `{ type:'raw'|'patch', content }` `[검증]`. `selectFileRenderer(read) = read.type==='patch' ? 'diff' : 'file_preview'`. `find.text/files/symbols` 는 agent tool result 일 수도, app-originated direct search(../backend/provider-runtime.md §17 DirectBackendAPI)일 수도 있어 둘 다 `SearchCard` 로 가되 `origin` 배지를 표시.
 
-**③ 현재 코드 갭.** 스테이지 C1 (`691f6bb`) 로 `features/chat/components/transcript/registry.ts` 의 **`ToolRendererRegistry` 도입** — `ToolCard` 가 tool 이름 switch 대신 `registry.resolve(name).Body` 로 디스패치. 현행 `RenderableKind = command | file_edit | file_read | ask | generic` (정본 union 의 **부분집합** — 나머지 kind 는 seam), `match` 는 provider 중립 도구이름. plugin 등록 패턴(`register`) 확보. 매칭은 순수 함수라 단위 테스트 대상.
+**③ 현재 코드.** ✅ **표준화 완료** — `features/chat/components/transcript/registry.ts` 의 `RenderableKind` 가 정본 taxonomy(`terminal·file_preview·diff·search·approval·agent_task·session_graph·context_injection·structured_output·error·telemetry`) + 실용 fallback `generic` + AskUserQuestion 컴팩트 본문용 `ask`(비정본)로 정렬됐다. `match`/`resolve` 는 도구 이름이 아니라 **`ToolCall`(= tool_call+tool_result 파트 페어의 렌더 view)** 를 받아 result shape 까지 검사 가능(§1.6 "의미로 분류"). 본 레지스트리는 *도구 본문* 만 다루므로 `terminal`(Bash/PowerShell)·`file_preview`(Read)·`diff`(Write/Edit/MultiEdit)·`ask`·`generic` 만 등록한다. `search`·`agent_task`·`session_graph`·`context_injection`·`approval`(별도 `ApprovalCard`)·`telemetry`(§1.9)는 OpenCode/별도 표면 전용이라 미등록 seam. 매칭은 순수 함수라 단위 테스트 대상.
+
+**③′ 콘텐츠 순서 보존 렌더 (AssistantMessage).** `AssistantMessage` 는 더 이상 파트를 타입별로 뭉쳐(reasoning→도구그룹→텍스트…) 고정 순서로 렌더하지 않는다. `lib/parts.ts` 의 `messageSegments(parts)` 가 parts 를 **만나는 순서대로** "연속 동종" 으로 묶은 `MessageSegment[]`(`reasoning`/`tools`/`ask`/`text`/`structured`/`error`)로 투영하고, `AssistantMessage` 는 그 배열을 순서대로 기존 컴포넌트(`ReasoningBlock`/`ToolGroup`/`AskExchange`/`Markdown`/`StructuredOutputCard`/`ErrorCard`)에 1:1 매핑한다 → 모델이 말한 "텍스트 → 도구 → 텍스트" 흐름이 화면에 그대로 보인다. 단일 도구는 `ToolGroup` 이 헤더 없이 `ToolCard` 만, 연속 병렬 도구만 그룹으로 묶는다. **sub-agent(Task/Agent)는 별도 처리 없이 `tools` 세그먼트의 일반 도구 카드로 순서 안에 끼어 렌더된다(자동 충족).** 영속된 `error`/`structured_output` 파트가 로드 세션에서 안 보이던 갭도 이 디스패치로 메웠다. 이 순서 보존의 백엔드 짝은 `claude-map` 이 assistant content 블록을 **순서 그대로 emit**(텍스트 말미 합치기 폐기, provider-runtime.md §2)하는 것이다.
 
 **④ 인터페이스 (렌더링 계약).**
 
@@ -74,20 +76,21 @@ interface ToolRendererRegistry { register(r: ToolRenderer): void; resolve(input:
 
 | Renderer | 대상 | 현행 대응 |
 |---|---|---|
-| `TerminalCard` | shell/command 실행 | `BashBody` |
-| `FilePreviewCard` | `file.read` `raw` | `FileBody` |
-| `DiffCard` | `file.read` `patch`, edit/write | `DiffBody` |
-| `SearchCard` | `find.*`, grep/glob | (없음) |
-| `ApprovalCard` | `permission.requested` | `ApprovalCard`(구현됨, plan_review + tool_approval) — ux-domains.md §1.6 |
-| `AgentTaskCard` / `SessionGraphCard` / `ContextInjectionCard` | subagent / `children`·`fork`·`revert` / `noReply` | (없음) |
-| `StructuredOutputCard` | `format:json_schema` 결과 | (없음) — §1.7 |
-| `ErrorCard` / `TelemetryPanel` | error / usage·cost | `state.error` 카드 / `UsageCircle`(비율만) — §1.9 |
+| `TerminalCard`(`terminal`) | shell/command 실행 | ✅ `BashBody` |
+| `FilePreviewCard`(`file_preview`) | `file.read` `raw`, Read | ✅ `FileBody` |
+| `DiffCard`(`diff`) | `file.read` `patch`, edit/write | ✅ `DiffBody` |
+| `SearchCard`(`search`) | `find.*`, grep/glob | 🔴 seam (OpenCode 전용 소스) |
+| `ApprovalCard`(`approval`) | `permission.requested` | ✅ `ApprovalCard`(plan_review + tool_approval, 레지스트리 밖) — ux-domains.md §1.6 |
+| `AgentTaskCard` / `SessionGraphCard` / `ContextInjectionCard` | subagent / `children`·`fork`·`revert` / `noReply` | 🔴 seam (OpenCode 전용) |
+| `StructuredOutputCard`(`structured_output`) | `format:json_schema` 결과 | ⏳ 최소 구현(`StructuredOutputCard` — value→pretty JSON. claude 미와이어라 소스 없음) — §1.7 |
+| `ErrorCard`(`error`) | error 파트 | ✅ `ErrorCard`(트랜스크립트 인라인) + `state.error` 배너(라이브 턴) |
+| `TelemetryPanel`(`telemetry`) | usage·cost·latency | ⏳ `UsageCircle`(inputTokens 비율만) — §1.9 미구현 |
 
 ### 1.7 StructuredOutput 렌더링 (설계 확정 / 구현 대기)
 
 **① 설명.** OpenCode `session.prompt({ format: { type:'json_schema', schema, retryCount? } })` 와 실패 시 `result.data.info.error`(`StructuredOutputError`)를 UI 상태로 정규화 `[검증]`. Claude 측 형식은 `[미확인]`(../backend/provider-runtime.md §13) — 동일 상태로 흡수 가능한지 구현 전 확인.
 
-**③ 현재 코드 갭.** 미구현. reasoning/thinking 블록 전용 렌더도 없음(현재 일반 텍스트로 스트리밍).
+**③ 현재 코드 갭.** structured_output 은 최소 구현(`StructuredOutputCard`, claude 소스 없음 — §1.6). reasoning 은 **라이브 스트리밍 구현됨** — `message.reasoning.delta`(claude `thinking_delta`) → `pendingReasoning` → `PendingAssistant` 가 펼친 `ReasoningBlock` 프리뷰로 표시, 완성 시 `message.reasoning` 이 영속 reasoning 파트(접이식)로 대체. 런타임이 `thinking_delta` 를 안 흘리면 완성 블록만 표시(graceful).
 
 **④ 인터페이스.**
 
