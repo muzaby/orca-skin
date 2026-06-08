@@ -9,6 +9,8 @@ export interface UsageCircleProps {
   ratio: number
   size?: number
   title?: string
+  /** compaction 임박 등 경고 상태 — progress arc 를 경고색(warn 토큰)으로 칠한다. */
+  warn?: boolean
   'aria-label'?: string
 }
 
@@ -16,6 +18,7 @@ export function UsageCircle({
   ratio,
   size = 12,
   title,
+  warn,
   'aria-label': ariaLabel
 }: UsageCircleProps): React.JSX.Element {
   const clamped = Math.max(0, Math.min(1, ratio))
@@ -37,7 +40,7 @@ export function UsageCircle({
         fill="none"
         strokeWidth="2"
         strokeLinecap="round"
-        stroke="var(--color-accent)"
+        stroke={warn ? 'var(--color-warn)' : 'var(--color-accent)'}
         strokeDasharray={CIRCUMFERENCE}
         strokeDashoffset={CIRCUMFERENCE * (1 - clamped)}
         className="transition-[stroke-dashoffset] duration-300"

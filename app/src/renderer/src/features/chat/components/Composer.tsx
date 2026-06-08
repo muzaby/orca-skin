@@ -16,7 +16,7 @@ import { ApprovalCard } from './ApprovalCard'
 import { TelemetryPanel } from './TelemetryPanel'
 import type { UseChat } from '../hooks/useChat'
 import { contextTokens } from '../lib/telemetry'
-import { contextWindowFor } from '../lib/contextWindow'
+import { contextWindowFor, nearCompaction } from '../lib/contextWindow'
 import { useSkills } from '../../../shared/hooks/useSkills'
 import { useSkillAutocomplete } from '../hooks/useSkillAutocomplete'
 import { useFileAutocomplete } from '../hooks/useFileAutocomplete'
@@ -300,6 +300,7 @@ export function Composer({
                     const tokens = contextTokens(state.lastTelemetry)
                     const window = contextWindowFor(state.lastTelemetry.model)
                     const pct = Math.round((tokens / window) * 100)
+                    const warn = nearCompaction(tokens, window)
                     return (
                       <button
                         ref={telemetryButtonRef}
@@ -308,11 +309,14 @@ export function Composer({
                         className="flex items-center rounded-sm focus:outline-none focus-visible:ring-1 focus-visible:ring-accent"
                         aria-haspopup="menu"
                         aria-expanded={telemetryOpen}
-                        title={`컨텍스트 ~${Math.round(tokens / 1000)}k / ${window / 1000}k 토큰 · 사용량 보기`}
+                        title={`컨텍스트 ~${Math.round(tokens / 1000)}k / ${window / 1000}k 토큰 · 사용량 보기${
+                          warn ? ' · 컨텍스트 한계 임박' : ''
+                        }`}
                         data-behavior="action:toggle-telemetry"
                       >
                         <UsageCircle
                           ratio={tokens / window}
+                          warn={warn}
                           aria-label={`컨텍스트 사용량: ${pct}%`}
                         />
                       </button>

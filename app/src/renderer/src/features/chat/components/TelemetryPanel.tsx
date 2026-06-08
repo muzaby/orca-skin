@@ -1,6 +1,6 @@
 import type { ProviderReportedTelemetry } from '../../../../../shared/ipc'
 import { contextTokens } from '../lib/telemetry'
-import { contextWindowFor } from '../lib/contextWindow'
+import { contextWindowFor, nearCompaction } from '../lib/contextWindow'
 
 interface TelemetryPanelProps {
   // 마지막 턴의 provider-reported 통계. 없으면 패널 자체가 렌더되지 않는다(호출 측 가드).
@@ -31,14 +31,25 @@ export function TelemetryPanel({ telemetry }: TelemetryPanelProps): React.JSX.El
   const window = contextWindowFor(t.model)
   const used = contextTokens(t) // input + cache
   const pct = Math.round((used / window) * 100)
+  const warn = nearCompaction(used, window)
 
   return (
     <div className="min-w-[220px] px-g1 py-g1" data-context="telemetry-panel">
       <div className="px-g2 pb-g1 pt-g1 text-caption font-medium text-t6">컨텍스트 사용량</div>
-      <Row label="입력 토큰 (마지막 턴 누적)" value={fmtTokens(input)} />
+      <Row label="입력 토큰 (마지막 턴)" value={fmtTokens(input)} />
       <Row label="캐시" value={fmtTokens(cache)} />
       <Row label="컨텍스트 윈도우" value={fmtTokens(window)} />
       <Row label="사용량" value={`${pct}%`} />
+      {warn && (
+        <div className="px-g2 pb-g1 pt-g2">
+          <div className="flex items-baseline justify-between gap-g4">
+            <span className="text-caption font-medium text-warn">곧 컨텍스트 정리(compaction)</span>
+          </div>
+          <div className="pt-px text-[10.5px] leading-snug text-t6">
+            버퍼·임계는 CLI 버전에 따라 달라지는 추정값입니다.
+          </div>
+        </div>
+      )}
     </div>
   )
 }

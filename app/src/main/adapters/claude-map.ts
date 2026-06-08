@@ -21,6 +21,16 @@ export interface MapContext {
   provider: ProviderId
   sessionId: string
   cwd: string
+  // 마지막 assistant 메시지의 usage 스냅샷 — /context 상단 % 근사용. 턴 누적이 아니라 그 턴
+  // *마지막* 요청에서 모델이 본 입력 컨텍스트다. 멀티스텝(도구 N회) 턴에서 result.usage 는
+  // 단계별 입력이 합산돼 과대 집계되므로, result telemetry 의 컨텍스트 입력 3종을 이 값으로 덮는다.
+  // assistant 가 여러 번 와도 마지막 것이 남는다(ctx 는 턴 1회 생성·스트림 전체 공유).
+  lastAssistantUsage?: {
+    inputTokens?: number
+    outputTokens?: number
+    cacheReadTokens?: number
+    cacheCreationTokens?: number
+  }
 }
 
 // 어댑터 예외 → error 분류/이벤트는 runtime-errors/claude-classifier.ts 로 이전됐다
@@ -79,7 +89,29 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
   // 텍스트를 말미에 합치지 않고 만나는 위치에서 message.completed 를 emit 한다 →
   // 같은 메시지 안의 "텍스트 → 도구 → 텍스트" 순서가 보존된다(메시지 내부 역전 방지).
   if (msg.type === 'assistant') {
-    const content = (msg as unknown as { message?: { content?: unknown[] } }).message?.content ?? []
+    const m = (
+      msg as unknown as {
+        message?: { content?: unknown[]; usage?: Record<string, unknown> }
+      }
+    ).message
+    const content = m?.content ?? []
+    // 마지막 assistant usage 스냅샷 갱신(컨텍스트 점유 = 이 턴 마지막 요청 입력). Anthropic 표준
+    // shape(input_tokens/output_tokens/cache_read_input_tokens/cache_creation_input_tokens)을
+    // num 가드로 좁혀 읽는다. 의미값이 하나라도 있을 때만 덮어쓴다.
+    const u = m?.usage
+    if (u && typeof u === 'object') {
+      const num = (v: unknown): number | undefined => (typeof v === 'number' ? v : undefined)
+      const snapshot: NonNullable<MapContext['lastAssistantUsage']> = {}
+      const it = num(u.input_tokens)
+      const ot = num(u.output_tokens)
+      const crt = num(u.cache_read_input_tokens)
+      const cct = num(u.cache_creation_input_tokens)
+      if (it !== undefined) snapshot.inputTokens = it
+      if (ot !== undefined) snapshot.outputTokens = ot
+      if (crt !== undefined) snapshot.cacheReadTokens = crt
+      if (cct !== undefined) snapshot.cacheCreationTokens = cct
+      if (Object.keys(snapshot).length > 0) ctx.lastAssistantUsage = snapshot
+    }
     const events: NormalizedEvent[] = []
     for (const part of content) {
       if (typeof part !== 'object' || part === null) continue
@@ -173,6 +205,20 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
       >
     }
     const telemetry = normalizeResultTelemetry(r)
+    // 컨텍스트 점유 입력 3종(input·cache_read·cache_creation)을 마지막 assistant 스냅샷으로 대체
+    // — /context 상단 % 와 같은 정의(모델이 마지막으로 본 입력)로 근사. costUsd·durationMs·
+    // numTurns·modelUsage·model 은 턴 누적이 맞아 result 값 유지(사용자 결정). 스냅샷이 없으면
+    // (assistant usage 미수신) result.usage 로 graceful fallback — 기존 동작 보존.
+    if (telemetry && ctx.lastAssistantUsage) {
+      const snap = ctx.lastAssistantUsage
+      if (snap.inputTokens !== undefined) telemetry.inputTokens = snap.inputTokens
+      else delete telemetry.inputTokens
+      if (snap.cacheReadTokens !== undefined) telemetry.cacheReadTokens = snap.cacheReadTokens
+      else delete telemetry.cacheReadTokens
+      if (snap.cacheCreationTokens !== undefined)
+        telemetry.cacheCreationTokens = snap.cacheCreationTokens
+      else delete telemetry.cacheCreationTokens
+    }
     return [
       {
         type: 'telemetry',

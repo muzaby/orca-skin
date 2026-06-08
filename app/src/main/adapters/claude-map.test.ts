@@ -352,6 +352,73 @@ describe('claudeToNormalized', () => {
     ).toEqual([{ type: 'telemetry', sessionId: 's1', provider: 'claude-code' }])
   })
 
+  it('멀티스텝 턴: telemetry 컨텍스트 입력은 마지막 assistant 스냅샷(누적 아님), 비용은 result', () => {
+    const c = ctx()
+    // assistant#1 → tool → assistant#2 → result(usage 누적). ctx 는 스트림 전체 공유.
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          content: [{ type: 'tool_use', id: 't1', name: 'Read', input: {} }],
+          usage: { input_tokens: 100, output_tokens: 10, cache_read_input_tokens: 5000 }
+        }
+      }),
+      c
+    )
+    claudeToNormalized(
+      sdk({
+        type: 'user',
+        message: { content: [{ type: 'tool_result', tool_use_id: 't1', content: 'ok' }] }
+      }),
+      c
+    )
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          content: [{ type: 'text', text: 'done' }],
+          usage: { input_tokens: 120, output_tokens: 30, cache_read_input_tokens: 5200 }
+        }
+      }),
+      c
+    )
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        total_cost_usd: 0.02,
+        usage: {
+          input_tokens: 220, // 단계별 누적(100+120) — 이 값이 아니라 마지막 스냅샷을 써야 함
+          output_tokens: 40,
+          cache_read_input_tokens: 10200
+        }
+      }),
+      c
+    )
+    const ev = out[0] as { usage?: Record<string, number> }
+    // 컨텍스트 입력 3종 = 마지막 assistant(#2) 스냅샷. 누적(220/10200) 이 아님.
+    expect(ev.usage?.inputTokens).toBe(120)
+    expect(ev.usage?.cacheReadTokens).toBe(5200)
+    expect(ev.usage?.cacheCreationTokens).toBeUndefined() // 스냅샷에 없으면 빠진다
+    // 비용은 result 누적값 유지(사용자 결정).
+    expect(ev.usage?.costUsd).toBe(0.02)
+  })
+
+  it('assistant usage 가 없으면 result.usage 로 graceful fallback', () => {
+    const c = ctx()
+    // usage 없는 assistant → 스냅샷 미갱신. result.usage 가 그대로 telemetry 가 된다.
+    claudeToNormalized(
+      sdk({ type: 'assistant', message: { content: [{ type: 'text', text: 'hi' }] } }),
+      c
+    )
+    const out = claudeToNormalized(
+      sdk({ type: 'result', usage: { input_tokens: 77, cache_read_input_tokens: 33 } }),
+      c
+    )
+    const ev = out[0] as { usage?: Record<string, number> }
+    expect(ev.usage?.inputTokens).toBe(77)
+    expect(ev.usage?.cacheReadTokens).toBe(33)
+  })
+
   it('미사용 SDK 메시지 → []', () => {
     expect(claudeToNormalized(sdk({ type: 'system', subtype: 'compact_boundary' }), ctx())).toEqual(
       []

@@ -102,13 +102,22 @@ export function ChatTile({ chat, backendLabel, canAbort }: ChatTileProps): React
     if (Math.abs(needed - spacerH) > 1) setSpacerH(needed)
 
     if (state.inflight && isNewUserMessage && top != null) {
-      // 사용자 버블을 뷰포트 상단으로 smooth 앵커. spacer 적용(다음 paint) 후 스크롤하도록 rAF.
+      // 사용자 버블을 뷰포트 상단으로 smooth 앵커하되, transcript 상단 패딩(py-5)만큼 간격을 둬
+      // "첫 메시지처럼" frame 상단에서 일정 거리에 멈춘다. gap 은 컨테이너 computed paddingTop
+      // 에서 도출해 패딩이 바뀌어도 자동 추종한다. 목표는 [0, 최대 스크롤] 로 안전 클램프.
+      // 이중 rAF — 첫 프레임에서 spacer 레이아웃 flush, 둘째에서 scrollTo. 단일 rAF 면 spacer
+      // 여유가 아직 반영 전이라 목표 top 까지 못 가고 브라우저가 짧게 클램프(덜컥임)한다.
       pinnedRef.current = false
       requestAnimationFrame(() => {
-        const e = scrollRef.current
-        if (!e) return
-        const t = lastUserTop(e)
-        if (t != null) e.scrollTo({ top: t, behavior: 'smooth' })
+        requestAnimationFrame(() => {
+          const e = scrollRef.current
+          if (!e) return
+          const t = lastUserTop(e)
+          if (t == null) return
+          const gap = parseFloat(getComputedStyle(e).paddingTop) || 0
+          const target = Math.min(Math.max(0, t - gap), e.scrollHeight - e.clientHeight)
+          e.scrollTo({ top: target, behavior: 'smooth' })
+        })
       })
     } else if (pinnedRef.current) {
       el.scrollTop = el.scrollHeight
