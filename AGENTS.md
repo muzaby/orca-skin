@@ -42,6 +42,27 @@
 - 흐름: Claude `plan.md`(READY) → Codex 구현 + 게이트 통과(`impl/IMPL_DONE`) → Claude `verify.md`(PASS/FAIL). FAIL 이면 verify 의 "미충족" 체크리스트로 Codex 재구현.
 - 규칙·상태 머신·템플릿 정본은 [`docs/handoff/AGENTS.md`](docs/handoff/AGENTS.md).
 
+## 커밋 프로토콜 (Commit Protocol)
+
+두 에이전트는 커밋 메시지 **trailer(`Key: value`)** 로 통신한다 (`git interpret-trailers` 파싱). **관례 — 기계적 강제(템플릿·CI·훅) 없음, 두 에이전트가 준수한다.**
+
+- 제목: `<type>(<scope>): <요약>` (type=`feat|fix|refactor|docs|test|chore`).
+- 본문과 빈 줄로 분리된 마지막 문단에 trailer 를 모은다. 안 쓰는 키는 줄을 생략한다(빈 값 금지).
+
+| Key | 허용값 | 작성 주체 |
+|---|---|---|
+| `Agent` | `codex` \| `claude` | 둘 다 |
+| `Handoff` | `docs/handoff/<NNNN-slug>/` \| `none` | 둘 다 |
+| `Status` | `implemented` \| `partial` \| `blocked` \| `verified` | 둘 다 |
+| `Criteria-Met` / `Criteria-Pending` | `3/5` / 미충족 목록 | **구현 커밋(Codex)만** |
+| `Verified-By` | `pending` \| `claude:pass` \| `claude:fail` | 구현=`pending`, 검증=결과 |
+| `Next-Action` | `codex` \| `claude` \| `none` | **검증 커밋(Claude)만** |
+| `Refs` | `#<이슈번호>` | 둘 다(선택) |
+
+- **구현 커밋(Codex)**: `Agent: codex` + `Status: implemented|partial|blocked` + `Criteria-*` + `Verified-By: pending`.
+- **검증 커밋(Claude)**: `Agent: claude` + `Status: verified` + `Verified-By: claude:pass|claude:fail` + `Next-Action`.
+- 필드 의미·예시·파싱 명령 상세는 [`docs/git-template.md`](docs/git-template.md).
+
 ## AGENTS.md / CLAUDE.md 규약
 
 - **정본은 `AGENTS.md`.** Codex 등 표준 에이전트가 네이티브로 읽는다. 내용 편집은 항상 `AGENTS.md` 에서 한다.

@@ -66,14 +66,14 @@ plan/DRAFT ─(Claude 작성 완료)→ plan/READY ─(다음=Codex)
 - 구현 후 게이트 통과: `cd app && npm run lint && npm run typecheck && npm test`.
 - `plan.md` 의 "구현 보고/체크리스트" 섹션 기입 (변경 파일·실행 명령·게이트 결과·블로커).
 - `INDEX.md` 갱신: `impl/IMPL_DONE`, 다음=Claude, 대상 커밋 hash 기재.
-- commit `feat|fix|refactor(scope): …` (한국어) → `git push`.
+- commit `feat|fix|refactor(scope): …` (한국어) + **구현 커밋 trailer**(`Agent: codex`·`Status`·`Criteria-Met`·`Verified-By: pending` …) → `git push`.
 
 ### 3. 검증 (Claude Code)
 - `git pull` → `_templates/verify.template.md` 를 `<NNNN-slug>/verify.md` 로 복사해 작성.
 - **요구사항 충족 매트릭스**(증거 첨부) + **검증 책임 분리표(사람/에이전트)** + 게이트 재실행 + 위생 검토 + PHASES 정합.
 - **PASS**: `INDEX.md` `verify/PASS` → `docs/PHASES.md` 표 행 승격(PR#/커밋) → (사용자 요청 시) PR.
 - **FAIL**: verify "미충족 요구사항" 체크리스트 작성 → `INDEX.md` `verify/FAIL`, 다음=Codex, 라운드 +1.
-- commit `docs(handoff): <slug> 검증 (PASS|FAIL r<N>)` → `git push`.
+- commit `docs(handoff): <slug> 검증 (PASS|FAIL r<N>)` + **검증 커밋 trailer**(`Agent: claude`·`Status: verified`·`Verified-By: claude:pass|claude:fail`·`Next-Action` …) → `git push`.
 
 ## 충돌 최소화 (단일 브랜치)
 
@@ -106,5 +106,6 @@ plan/DRAFT ─(Claude 작성 완료)→ plan/READY ─(다음=Codex)
 ## 커밋·git 규약
 
 - 커밋: `<type>(<scope>): <한국어 메시지>` — Claude 는 주로 `docs(handoff)`, Codex 는 `feat/fix/refactor`.
+- **trailer 규약**(`Agent`/`Status`/`Verified-By`/`Next-Action` 등 `Key: value`): 정본은 root [`../../AGENTS.md`](../../AGENTS.md) "커밋 프로토콜", 상세·예시·파싱은 [`../git-template.md`](../git-template.md). 여기서 재서술하지 않는다.
 - push: `git push -u origin <branch>` (네트워크 실패 시 2/4/8/16s 백오프, 최대 4회).
 - PR 은 사용자가 명시적으로 요청할 때만 생성한다.
