@@ -96,13 +96,16 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
         }
       } else if (p.type === 'thinking' && typeof p.thinking === 'string') {
         // 확장사고 블록(BetaThinkingBlock) → reasoning. signature 는 opaque 보관.
-        events.push({
-          type: 'message.reasoning',
-          sessionId: ctx.sessionId,
-          provider,
-          text: p.thinking,
-          ...(typeof p.signature === 'string' ? { signature: p.signature } : {})
-        })
+        // 빈/공백 사고는 스킵(빈 "사고 과정" 카드 영속 방지 — 빈 text 블록 가드와 동형).
+        if (p.thinking.trim() !== '') {
+          events.push({
+            type: 'message.reasoning',
+            sessionId: ctx.sessionId,
+            provider,
+            text: p.thinking,
+            ...(typeof p.signature === 'string' ? { signature: p.signature } : {})
+          })
+        }
       } else if (p.type === 'tool_use') {
         const toolRunId = typeof p.id === 'string' ? p.id : ''
         const toolName = typeof p.name === 'string' ? p.name : ''

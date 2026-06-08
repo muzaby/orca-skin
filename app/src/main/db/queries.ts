@@ -20,6 +20,9 @@ export class DbQueries {
   private readonly updateToolResultPartStmt: Database.Statement
   private readonly updateSessionPreviewStmt: Database.Statement
   private readonly updateSessionTitleStmt: Database.Statement
+  // 턴 종료 시 마지막 텔레메트리(JSON) + 세션 누적 비용 영속 — 컨텍스트 도넛/패널 복원용.
+  private readonly updateSessionTelemetryStmt: Database.Statement
+  private readonly getSessionCostStmt: Database.Statement
   // 사용자가 명시적으로 rename — 기존 title 이 있어도 덮어쓴다.
   // updateSessionTitleStmt 는 첫 init 시점 채우기 용도 (WHERE title IS NULL).
   private readonly renameSessionStmt: Database.Statement
@@ -42,7 +45,8 @@ export class DbQueries {
       ON CONFLICT(id) DO NOTHING
     `)
     this.listSessionsStmt = db.prepare(`
-      SELECT id, backend, title, updated_at, last_message_preview, project_id
+      SELECT id, backend, title, updated_at, last_message_preview, project_id,
+             last_telemetry_json, session_cost_usd
       FROM sessions
       ORDER BY updated_at DESC
       LIMIT @limit
@@ -100,6 +104,15 @@ export class DbQueries {
     `)
     this.updateSessionTitleStmt = db.prepare(`
       UPDATE sessions SET title = @title WHERE id = @id AND title IS NULL
+    `)
+    // updated_at 은 건드리지 않는다 — 텔레메트리는 콘텐츠 변경이 아니라 사이드바 재정렬 방지.
+    this.updateSessionTelemetryStmt = db.prepare(`
+      UPDATE sessions
+      SET last_telemetry_json = @telemetryJson, session_cost_usd = @sessionCostUsd
+      WHERE id = @id
+    `)
+    this.getSessionCostStmt = db.prepare(`
+      SELECT session_cost_usd FROM sessions WHERE id = @id
     `)
     this.renameSessionStmt = db.prepare(`
       UPDATE sessions SET title = @title, updated_at = @updatedAt WHERE id = @id
@@ -200,6 +213,19 @@ export class DbQueries {
 
   updateSessionTitle(id: string, title: string): void {
     this.updateSessionTitleStmt.run({ id, title })
+  }
+
+  // 마지막 턴 텔레메트리(JSON 직렬화) + 세션 누적 비용 영속. 컨텍스트 도넛/패널 복원용.
+  updateSessionTelemetry(id: string, telemetryJson: string, sessionCostUsd: number | null): void {
+    this.updateSessionTelemetryStmt.run({ id, telemetryJson, sessionCostUsd })
+  }
+
+  // 세션의 현재 누적 비용(없으면 null). 턴마다 직접 누산하기 위해 직전 값을 읽는다.
+  getSessionCost(id: string): number | null {
+    const row = this.getSessionCostStmt.get({ id }) as
+      | { session_cost_usd: number | null }
+      | undefined
+    return row?.session_cost_usd ?? null
   }
 
   renameSession(id: string, title: string, updatedAt: number): void {

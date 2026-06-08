@@ -35,6 +35,9 @@ export interface SessionListRow {
   updated_at: number
   last_message_preview: string | null
   project_id: string | null
+  // 0005 — 마지막 턴 텔레메트리(JSON) + 세션 누적 비용. 컨텍스트 도넛/패널 복원용(nullable).
+  last_telemetry_json: string | null
+  session_cost_usd: number | null
 }
 
 export interface ProjectRow {

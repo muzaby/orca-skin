@@ -176,8 +176,11 @@ describe('chatReducer — AppMessagePart 모델', () => {
       durationMs: 1000
     })
     expect(s.sessionCostUsd).toBe(0.01)
-    expect(s.pendingInputTokens).toBe(100)
     expect(s.lastTurnLatencyMs).toBeTypeOf('number')
+
+    // SEND 는 lastTelemetry 를 비우지 않는다 — 컨텍스트 도넛이 턴 진행 중에도 유지.
+    const afterSend = chatReducer(s, { type: 'SEND_USER_MESSAGE', text: 'mid' })
+    expect(afterSend.lastTelemetry?.inputTokens).toBe(100)
 
     // 두 번째 턴 — costUsd 누산, lastTelemetry 교체
     s = chatReducer(s, { type: 'SEND_USER_MESSAGE', text: 'q2' })
@@ -255,5 +258,34 @@ describe('chatReducer — AppMessagePart 모델', () => {
         result: { output: 'data', isError: false }
       }
     ])
+  })
+
+  it('LOAD_SESSION 은 영속된 telemetry/비용을 복원한다(컨텍스트 도넛 유지)', () => {
+    const session: LoadedSession = {
+      id: 's2',
+      backend: 'claude-code',
+      title: 't',
+      messages: [{ role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'q' }] }],
+      lastTelemetry: { inputTokens: 1234, outputTokens: 56, costUsd: 0.04 },
+      sessionCostUsd: 0.09
+    }
+    const s = chatReducer(initialChatState, { type: 'LOAD_SESSION', session })
+    expect(s.lastTelemetry?.inputTokens).toBe(1234)
+    expect(s.sessionCostUsd).toBe(0.09)
+  })
+
+  it('LOAD_SESSION_FROM_CACHE 는 캐시의 telemetry/비용을 복원한다', () => {
+    const s = chatReducer(initialChatState, {
+      type: 'LOAD_SESSION_FROM_CACHE',
+      sessionId: 's3',
+      cached: {
+        title: 't',
+        messages: [{ role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'q' }] }],
+        lastTelemetry: { inputTokens: 777 },
+        sessionCostUsd: 0.02
+      }
+    })
+    expect(s.lastTelemetry?.inputTokens).toBe(777)
+    expect(s.sessionCostUsd).toBe(0.02)
   })
 })

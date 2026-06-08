@@ -15,6 +15,7 @@ import { AskUserQuestionCard } from './AskUserQuestionCard'
 import { ApprovalCard } from './ApprovalCard'
 import { TelemetryPanel } from './TelemetryPanel'
 import type { UseChat } from '../hooks/useChat'
+import { contextTokens } from '../lib/telemetry'
 import { useSkills } from '../../../shared/hooks/useSkills'
 import { useSkillAutocomplete } from '../hooks/useSkillAutocomplete'
 import { useFileAutocomplete } from '../hooks/useFileAutocomplete'
@@ -295,30 +296,30 @@ export function Composer({
               </div>
               <span className="ml-auto flex items-center gap-g4">
                 <span className="text-caption text-t6">{backendLabel}</span>
-                {state.pendingInputTokens != null &&
-                  (state.lastTelemetry ? (
-                    <button
-                      ref={telemetryButtonRef}
-                      type="button"
-                      onClick={() => setTelemetryOpen((v) => !v)}
-                      className="flex items-center rounded-sm focus:outline-none focus-visible:ring-1 focus-visible:ring-accent"
-                      aria-haspopup="menu"
-                      aria-expanded={telemetryOpen}
-                      title="사용량 · 비용 보기"
-                      data-behavior="action:toggle-telemetry"
-                    >
-                      <UsageCircle
-                        ratio={state.pendingInputTokens / CONTEXT_WINDOW}
-                        aria-label={`컨텍스트 사용량: ${Math.round((state.pendingInputTokens / CONTEXT_WINDOW) * 100)}%`}
-                      />
-                    </button>
-                  ) : (
-                    <UsageCircle
-                      ratio={state.pendingInputTokens / CONTEXT_WINDOW}
-                      aria-label={`컨텍스트 사용량: ${Math.round((state.pendingInputTokens / CONTEXT_WINDOW) * 100)}%`}
-                      title={`컨텍스트 ~${Math.round(state.pendingInputTokens / 1000)}k 토큰 / ${CONTEXT_WINDOW / 1000}k`}
-                    />
-                  ))}
+                {state.lastTelemetry &&
+                  (() => {
+                    // 컨텍스트 사용량 = 입력+캐시+출력 합산(마지막 턴). 세션 동안 lastTelemetry 가
+                    // 유지·복원되므로 도넛도 세션 수명 동안 표시된다.
+                    const tokens = contextTokens(state.lastTelemetry)
+                    const pct = Math.round((tokens / CONTEXT_WINDOW) * 100)
+                    return (
+                      <button
+                        ref={telemetryButtonRef}
+                        type="button"
+                        onClick={() => setTelemetryOpen((v) => !v)}
+                        className="flex items-center rounded-sm focus:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                        aria-haspopup="menu"
+                        aria-expanded={telemetryOpen}
+                        title={`컨텍스트 ~${Math.round(tokens / 1000)}k 토큰 / ${CONTEXT_WINDOW / 1000}k · 사용량·비용 보기`}
+                        data-behavior="action:toggle-telemetry"
+                      >
+                        <UsageCircle
+                          ratio={tokens / CONTEXT_WINDOW}
+                          aria-label={`컨텍스트 사용량: ${pct}%`}
+                        />
+                      </button>
+                    )
+                  })()}
                 {state.lastTelemetry && (
                   <Popover
                     open={telemetryOpen}

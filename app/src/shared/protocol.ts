@@ -251,6 +251,7 @@ export type {
   LoadedSession,
   LoadedMessage,
   AppMessagePart,
+  ProviderReportedTelemetry,
   Project,
   CreateProjectRequest,
   UpdateProjectRequest,

@@ -104,6 +104,7 @@ export function messageSegments(parts: AppMessagePart[]): MessageSegment[] {
       if (current?.kind === 'text') current.text += p.text
       else segments.push((current = { kind: 'text', text: p.text }))
     } else if (p.type === 'reasoning') {
+      if (p.text.trim() === '') continue // 빈/공백 reasoning 은 빈 카드라 스킵(빈 text 와 동형)
       const item: ReasoningItem = {
         text: p.text,
         ...(p.signature !== undefined ? { signature: p.signature } : {})

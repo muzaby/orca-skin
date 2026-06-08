@@ -201,6 +201,21 @@ describe('claudeToNormalized', () => {
     ])
   })
 
+  it('빈/공백 thinking 블록은 message.reasoning 을 emit 하지 않는다', () => {
+    expect(
+      claudeToNormalized(
+        sdk({ type: 'assistant', message: { content: [{ type: 'thinking', thinking: '' }] } }),
+        ctx()
+      )
+    ).toEqual([])
+    expect(
+      claudeToNormalized(
+        sdk({ type: 'assistant', message: { content: [{ type: 'thinking', thinking: '  \n ' }] } }),
+        ctx()
+      )
+    ).toEqual([])
+  })
+
   it('user(tool_result) → tool.call.completed', () => {
     const out = claudeToNormalized(
       sdk({

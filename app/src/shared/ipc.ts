@@ -474,6 +474,10 @@ export interface LoadedSession {
   backend: Backend
   title: string | null
   messages: LoadedMessage[]
+  // 세션 마지막 턴의 provider-reported 통계 — 컨텍스트 도넛/TelemetryPanel 을 세션 수명 동안
+  // 복원하기 위해 sessions 행에 영속(0005 마이그레이션). 비용은 세션 누적치.
+  lastTelemetry?: ProviderReportedTelemetry
+  sessionCostUsd?: number
 }
 
 // 프로젝트 (Phase 3+) — 대화 묶음 + 전용 시스템 프롬프트 (instructions).

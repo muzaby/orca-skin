@@ -35,9 +35,21 @@ export function ChatTile({ chat, backendLabel, canAbort }: ChatTileProps): React
   const pinnedRef = useRef(true)
   const prevLenRef = useRef(state.messages.length)
   const [showJump, setShowJump] = useState(false)
+  // 예약공간(ChatGPT식 앵커) — 새 user 메시지를 뷰포트 상단으로 올릴 수 있도록 transcript 끝에
+  // 둘 여백 높이. 답변이 길어질수록 0 으로 수렴.
+  const [spacerH, setSpacerH] = useState(0)
 
   const isAtBottom = useCallback((el: HTMLDivElement): boolean => {
     return el.scrollHeight - el.scrollTop - el.clientHeight < 24
+  }, [])
+
+  // 최신 user 턴 버블의 스크롤 콘텐츠 상 top 위치(스크롤 컨테이너 기준, scrollTop 무관). 없으면 null.
+  // offsetParent 가 불확실하므로 getBoundingClientRect 차이 + scrollTop 으로 견고하게 계산.
+  const lastUserTop = useCallback((el: HTMLDivElement): number | null => {
+    const nodes = el.querySelectorAll<HTMLElement>('[data-app-user-turn]')
+    const last = nodes[nodes.length - 1]
+    if (!last) return null
+    return last.getBoundingClientRect().top - el.getBoundingClientRect().top + el.scrollTop
   }, [])
 
   // 스크롤 이벤트는 rAF 로 스로틀 — pin 상태와 버튼 노출 여부만 갱신.
@@ -71,16 +83,34 @@ export function ChatTile({ chat, backendLabel, canAbort }: ChatTileProps): React
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
-    // 새 user 메시지(사용자가 전송)면 항상 따라 내려가며 재-pin. 그 외에는 pin 일 때만.
     const grew = state.messages.length > prevLenRef.current
     const lastIsUser = state.messages[state.messages.length - 1]?.role === 'user'
+    const isNewUserMessage = grew && lastIsUser
     prevLenRef.current = state.messages.length
-    if ((grew && lastIsUser) || pinnedRef.current) {
+
+    // 예약공간 재계산(매 렌더): 최신 user 버블 위쪽(top)부터 콘텐츠 끝까지의 높이가 한 뷰포트보다
+    // 작으면 그만큼 여백을 둬, 버블을 상단까지 올릴 수 있게 한다. 답변이 길어지면 0 으로 수렴.
+    const top = lastUserTop(el)
+    const realContentH = el.scrollHeight - spacerH // 현재 spacer 제외한 실제 콘텐츠 높이
+    const belowTop = top != null ? realContentH - top : realContentH
+    const needed = Math.round(Math.max(0, el.clientHeight - belowTop))
+    // 서브픽셀 jitter 로 인한 렌더 루프 방지 — 1px 초과 변화만 반영.
+    if (Math.abs(needed - spacerH) > 1) setSpacerH(needed)
+
+    if (isNewUserMessage && top != null) {
+      // 사용자 버블을 뷰포트 상단으로 smooth 앵커. spacer 적용(다음 paint) 후 스크롤하도록 rAF.
+      pinnedRef.current = false
+      requestAnimationFrame(() => {
+        const e = scrollRef.current
+        if (!e) return
+        const t = lastUserTop(e)
+        if (t != null) e.scrollTo({ top: t, behavior: 'smooth' })
+      })
+    } else if (pinnedRef.current) {
       el.scrollTop = el.scrollHeight
-      pinnedRef.current = true
       setShowJump(false)
     }
-  }, [state.messages, state.pendingDelta])
+  }, [state.messages, state.pendingDelta, spacerH, lastUserTop])
 
   // 우측 계획 타일은 행의 오른쪽 끝에 도킹 — 커서를 왼쪽으로 끌수록 폭이 커지므로 invert.
   const getRowRight = useCallback(
@@ -209,6 +239,8 @@ export function ChatTile({ chat, backendLabel, canAbort }: ChatTileProps): React
                 </div>
               )}
             </ReadingColumn>
+            {/* 예약공간 — 최신 user 버블을 상단으로 앵커하기 위한 하단 여백(ChatGPT식). */}
+            {spacerH > 0 && <div aria-hidden className="shrink-0" style={{ height: spacerH }} />}
           </div>
 
           <Composer

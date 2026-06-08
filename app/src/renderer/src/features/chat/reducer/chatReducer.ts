@@ -48,9 +48,9 @@ export interface ChatState {
   // 동안 true. ChatPane 이 인디케이터를 표시한다.
   loadingSession: boolean
   turnStartedAt: number | null
-  pendingInputTokens?: number
-  // 마지막 턴의 provider-reported 통계(cost·model·latency·토큰 분해). TelemetryPanel 의 소스.
-  // 턴 종료(telemetry) 시 세팅, 세션 전환/새 대화 시 비움.
+  // 마지막 턴의 provider-reported 통계(cost·model·latency·토큰 분해). TelemetryPanel + 컨텍스트
+  // 도넛(contextTokens 파생)의 소스. 턴 종료(telemetry) 시 세팅, 세션 로드 시 DB/캐시에서 복원,
+  // 새 대화에서만 비움. SEND 는 비우지 않아 턴 진행 중에도 도넛이 유지된다.
   lastTelemetry?: ProviderReportedTelemetry
   // 세션 내 누적 추정 비용(USD). SDK 는 query() 호출별 cost 만 주고 세션 합계를 안 주므로
   // (cost-tracking.md §147) 턴마다 costUsd 를 직접 누산한다. 세션 전환/새 대화 시 0 으로 리셋.
@@ -110,6 +110,9 @@ export const PLAN_TILE_MAX_WIDTH = 640
 export interface CachedSession {
   title: string | null
   messages: Message[]
+  // 세션 전환 후 복귀 시 컨텍스트 도넛/패널을 복원하기 위한 마지막 텔레메트리 + 누적 비용.
+  lastTelemetry?: ProviderReportedTelemetry
+  sessionCostUsd?: number
 }
 
 export type ChatAction =
@@ -165,7 +168,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         pendingReasoning: '',
         inflight: true,
         turnStartedAt: Date.now(),
-        pendingInputTokens: undefined,
+        // lastTelemetry 는 비우지 않는다 — 컨텍스트 도넛이 턴 진행 중에도 직전 값을 유지.
         error: undefined
       }
 
@@ -237,7 +240,6 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
 
         case 'telemetry': {
           const telemetry = ev.usage
-          const inputTokens = telemetry?.inputTokens
           // app-measured latency — 이 턴을 보낸 시점부터 telemetry 도착까지 벽시계.
           const latencyMs =
             state.turnStartedAt != null ? Date.now() - state.turnStartedAt : undefined
@@ -247,7 +249,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             turnStartedAt: null,
             // 턴 종료 — 미완 라이브 사고 프리뷰는 비운다(영속은 완성 블록의 message.reasoning).
             pendingReasoning: '',
-            ...(inputTokens != null ? { pendingInputTokens: inputTokens } : {}),
+            // 도넛/패널은 lastTelemetry 파생 — 세션 동안 유지·영속(컨텍스트 사용량 소스).
             ...(telemetry ? { lastTelemetry: telemetry } : {}),
             ...(latencyMs != null ? { lastTurnLatencyMs: latencyMs } : {}),
             // 세션 누적 비용 — SDK 미제공이라 턴마다 직접 누산(cost-tracking.md §147).
@@ -362,7 +364,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         cwd: state.cwd,
         sessionId: action.session.id,
         title: action.session.title,
-        messages
+        messages,
+        // 컨텍스트 도넛/패널을 세션 수명 동안 유지 — DB 영속값에서 복원.
+        ...(action.session.lastTelemetry ? { lastTelemetry: action.session.lastTelemetry } : {}),
+        ...(action.session.sessionCostUsd != null
+          ? { sessionCostUsd: action.session.sessionCostUsd }
+          : {})
       }
     }
 
@@ -373,7 +380,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         cwd: state.cwd,
         sessionId: action.sessionId,
         title: action.cached.title,
-        messages: action.cached.messages
+        messages: action.cached.messages,
+        // 캐시 snapshot 에서 도넛/패널 복원(세션 전환 후 복귀 시 유지).
+        ...(action.cached.lastTelemetry ? { lastTelemetry: action.cached.lastTelemetry } : {}),
+        ...(action.cached.sessionCostUsd != null
+          ? { sessionCostUsd: action.cached.sessionCostUsd }
+          : {})
       }
 
     // DB 에 row 가 없거나 IPC 실패. 빈 ChatPane 으로 fallback — lastSessionId 같은
