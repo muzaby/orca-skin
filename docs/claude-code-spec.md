@@ -9,7 +9,7 @@
 >   - `docs/spec/claude/headless.md` — 프로그래밍 방식 실행 (구 "헤드리스 모드")
 >   - `docs/spec/claude/cli-reference.md` — 전체 CLI 명령·플래그 참조
 > - **원격 원문**: `https://code.claude.com/docs/ko/headless`, `https://code.claude.com/docs/ko/cli-reference`
-> - **동기화 책임**: 원문이 갱신되면 (1) `docs/spec/claude/*.md` 를 *통째로 덮어쓰기* 한 뒤 (2) 본 문서를 미러와 정합화한다. 사람이 수동, 자동 동기화 없음. 미러 정책은 `docs/spec/CLAUDE.md` 참조.
+> - **동기화 책임**: 원문이 갱신되면 (1) `docs/spec/claude/*.md` 를 *통째로 덮어쓰기* 한 뒤 (2) 본 문서를 미러와 정합화한다. 사람이 수동, 자동 동기화 없음. 미러 정책은 `docs/spec/AGENTS.md` 참조.
 > - **편집 규칙**: 외부 사실(플래그·이벤트 스키마)은 원문 미러를 따른다. 본 문서가 *추가* 하는 것은 **Orca v1 채택 박스**, 정리표, 절 번호 안정성 뿐이다.
 > - **절 번호 안정**: PRD/TRD/architecture 가 본 문서를 §번호 로 인용한다. 절 번호 (§3·§4·§5·§7·§13) 는 함부로 재번호하지 않는다. 새 사실은 끝(§14)에 흡수하거나 기존 절의 하위 절로 둔다.
 > - **각주 표기 범례**: 각 섹션 말미에 다음 중 하나가 있다.
@@ -441,10 +441,10 @@ Phase 3 가 사용하는 기능은 *최소* — `query()` + `options.includePart
 |---|---|
 | `docs/spec/claude/headless.md` | 1차 원문 미러 — 프로그래밍 방식 실행. 본 문서 §0~§9 의 사실 (CLI 측면) |
 | `docs/spec/claude/cli-reference.md` | 1차 원문 미러 — 전체 CLI 명령·플래그. 본 문서 §5·§7·§14 의 사실 |
-| `docs/spec/claude/agent-sdk/CLAUDE.md` | Agent SDK 원문 미러 인덱스 (Phase 3 채택 이후 진입점) |
+| `docs/spec/claude/agent-sdk/AGENTS.md` | Agent SDK 원문 미러 인덱스 (Phase 3 채택 이후 진입점) |
 | `docs/spec/claude/agent-sdk/typescript.md` | `query()` / `Options` / SDKMessage 명세 단일 출처 (§10 의 사실) |
 | 원격: `code.claude.com/docs/ko/headless`, `.../ko/cli-reference`, `.../ko/agent-sdk/typescript` | 위 미러들의 외부 원본 (참고용) |
-| `docs/spec/CLAUDE.md` | 원문 미러 디렉토리의 정책 (편집 금지·수동 동기화) |
+| `docs/spec/AGENTS.md` | 원문 미러 디렉토리의 정책 (편집 금지·수동 동기화) |
 | `docs/TRD.md` §7.1 | ClaudeCodeAdapter 외부 계약 (spec 의 적용 결과) |
 | `docs/arch/backend/adapters.md` §1 | ClaudeCodeAdapter 내부 구현 + SDK 채택 범위 표 + SDKMessage→ChatEvent 매핑 |
 | `docs/etc/llm-chat-desktop-strategy.md` §6 | one-shot + `--resume` 채택의 전략적 근거 (Phase 3 의 `options.resume` 도 동일 메커니즘) |

@@ -174,4 +174,4 @@ Electron App
 - 외부 SDK 사양 SSOT: [`docs/spec/claude/agent-sdk/typescript.md`](./spec/claude/agent-sdk/typescript.md)
 - CLI 시기 외부 계약 + Orca 채택 표기: [claude-code-spec.md](./claude-code-spec.md)
 - Phase 로드맵 / Future Scope: [PRD.md](./PRD.md) §8 / §9 / §11
-- 운영 규칙: [`app/CLAUDE.md`](../app/CLAUDE.md)
+- 운영 규칙: [`app/AGENTS.md`](../app/AGENTS.md)

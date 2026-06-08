@@ -76,7 +76,7 @@ electron-vite 환경 기준. 표 밖 의존성 추가 시 **사용자 승인 필
 | 언어 | TypeScript | strict, `target: ES2022` | 확정 | 타입 안정성 |
 | UI 프레임워크 | React | ^19 | 확정 (~~OQ1~~ 해소, 2026-05-20) | React Hooks + Context/reducer |
 | 상태 관리 (Renderer) | **Phase 1·2**: React Context + useReducer. **Phase 4**: Zustand | — | 확정 (Phase 4 전환 채택) | 단일 root + `sessions: Record<sessionId, SessionState>` 슬라이스. 외부 dispatch (`getState().recv(ev)`) 로 React 트리 외부에서 호출. **Phase 3 사전 마이그레이션 금지** — Phase 4 진입 PR 묶음에서 한 번에 전환. 상세 [arch/frontend/state.md](arch/frontend/state.md) §1.4 |
-| 스타일링 | Tailwind CSS | **^4** (`@tailwindcss/vite` 플러그인, CSS-first `@theme`) | 확정 (Phase 1 완료) | utility-first. `styles/tokens.css` 의 `@theme` 블록으로 시맨틱 디자인 토큰 정의 (`--color-{bg,sidebar,ink,...}`). `[data-theme]` 스코프로 Classic/Dark/Cool 전환. Tweaks 패널과 연동. 자세한 정책은 `app/CLAUDE.md` "스타일링 정책" 참조 |
+| 스타일링 | Tailwind CSS | **^4** (`@tailwindcss/vite` 플러그인, CSS-first `@theme`) | 확정 (Phase 1 완료) | utility-first. `styles/tokens.css` 의 `@theme` 블록으로 시맨틱 디자인 토큰 정의 (`--color-{bg,sidebar,ink,...}`). `[data-theme]` 스코프로 Classic/Dark/Cool 전환. Tweaks 패널과 연동. 자세한 정책은 `app/AGENTS.md` "스타일링 정책" 참조 |
 | 마크다운 렌더링 | react-markdown + remark-gfm + shiki | `^9` / `^4` / `^1` | 확정 (Phase A `feat-pretty-ui` 도입) | GFM (표·체크박스) + 코드 블록 syntax highlighting. shiki 번들은 11개 언어 (ts/js/tsx/jsx/python/bash/json/yaml/html/css/markdown) 로 제한 |
 | LLM 백엔드 SDK (Claude) | `@anthropic-ai/claude-agent-sdk` | latest | 확정 (Phase 3 채택, 2026-05-18) | TypeScript SDK. 진입점 `query({ prompt, options })`. 플랫폼별 native binary 는 `optionalDependencies` 자동 처리. 최소 요구 Node.js 18+. API 명세 SSOT 는 `docs/spec/claude/agent-sdk/typescript.md` |
 | HTTP (opencode) | `@opencode-ai/sdk` | latest | 확정 | 공식 SDK 사용 |
@@ -572,5 +572,5 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 - `docs/IPC_CONTRACT.md` — Main ↔ Renderer 채널 SSOT
 - `docs/GLOSSARY.md` — 용어 단일 출처
 - `docs/claude-code-spec.md` — Claude Code CLI 공식 스펙 미러 (§7.1 외부 계약의 단일 출처)
-- `app/CLAUDE.md` — 코드 작업 가이드
+- `app/AGENTS.md` — 코드 작업 가이드
 - `project/electron/` — 시각 기준 프로토타입
