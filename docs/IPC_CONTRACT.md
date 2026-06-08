@@ -88,7 +88,7 @@ interface Settings {
 |---|---|---|---|---|
 | `orca:session:cwd` | R→M (invoke) | — | `Promise<string>` | 현재 작업 디렉토리. 파일 자동완성·`init` 이벤트의 `cwd` 검증용. |
 | `orca:session:list` | R→M (invoke) | — | `SessionListItem[]` | 사이드바 '최근 대화' 메타 목록. DB SSOT — `updatedAt` 내림차순. |
-| `orca:session:load` | R→M (invoke) | `LoadSessionRequest` = `{ sessionId: string }` | `LoadedSession \| null` | 세션 메시지를 순서 보존 parts(`LoadedMessage.parts: AppMessagePart[]`, provider-runtime.md §7)로 일괄 로드. Phase 3 lazy load 진입점. `LoadedSession` 은 마지막 턴 통계 `lastTelemetry?: ProviderReportedTelemetry` + 세션 누적 `sessionCostUsd?` 를 함께 실어 컨텍스트 도넛/TelemetryPanel 을 세션 수명 동안 복원(`0005` 영속). |
+| `orca:session:load` | R→M (invoke) | `LoadSessionRequest` = `{ sessionId: string }` | `LoadedSession \| null` | 세션 메시지를 순서 보존 parts(`LoadedMessage.parts: AppMessagePart[]`, provider-runtime.md §7)로 일괄 로드. Phase 3 lazy load 진입점. `LoadedSession` 은 마지막 턴 통계 `lastTelemetry?: ProviderReportedTelemetry`(usage_events 최신 행에서 재구성)를 실어 컨텍스트 도넛/패널을 세션 수명 동안 복원. 비용은 `usage_events` 원장(`0005`)이 SSOT — 시간/모델별 집계용. |
 | `orca:session:delete` | R→M (invoke) | `DeleteSessionRequest` = `{ sessionId: string }` | `Promise<void>` | hard delete (CASCADE — messages/tool_calls 동반 삭제). `lastSessionId` 가 대상이면 settings 도 해제. |
 | `orca:session:rename` | R→M (invoke) | `RenameSessionRequest` = `{ sessionId: string; title: string }` | `Promise<void>` | title 덮어쓰기 + `updatedAt` 갱신. title 길이 1–120 자. |
 

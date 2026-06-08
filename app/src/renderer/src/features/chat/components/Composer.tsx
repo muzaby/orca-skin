@@ -16,6 +16,7 @@ import { ApprovalCard } from './ApprovalCard'
 import { TelemetryPanel } from './TelemetryPanel'
 import type { UseChat } from '../hooks/useChat'
 import { contextTokens } from '../lib/telemetry'
+import { contextWindowFor } from '../lib/contextWindow'
 import { useSkills } from '../../../shared/hooks/useSkills'
 import { useSkillAutocomplete } from '../hooks/useSkillAutocomplete'
 import { useFileAutocomplete } from '../hooks/useFileAutocomplete'
@@ -33,10 +34,6 @@ interface ComposerProps {
   showScrollToBottom?: boolean
   onScrollToBottom?: () => void
 }
-
-// Claude 컨텍스트 윈도우(토큰). usage 도넛 비율 산출용 — 마지막 result 의
-// 실측 inputTokens 를 이 값으로 나눈다(가짜 수치 아님).
-const CONTEXT_WINDOW = 200_000
 
 // 채팅 입력 composer — textarea + chip 행 + send/cancel 버튼 + skills/file 자동완성.
 // ChatTile 과 NewChatLandingPage 양쪽에서 동일하게 재사용.
@@ -298,10 +295,11 @@ export function Composer({
                 <span className="text-caption text-t6">{backendLabel}</span>
                 {state.lastTelemetry &&
                   (() => {
-                    // 컨텍스트 사용량 = 입력+캐시+출력 합산(마지막 턴). 세션 동안 lastTelemetry 가
-                    // 유지·복원되므로 도넛도 세션 수명 동안 표시된다.
+                    // 컨텍스트 사용량 = (입력+캐시)/모델 윈도우(마지막 턴 기준). 세션 동안 lastTelemetry
+                    // 가 유지·복원되므로 도넛도 세션 수명 동안 표시된다.
                     const tokens = contextTokens(state.lastTelemetry)
-                    const pct = Math.round((tokens / CONTEXT_WINDOW) * 100)
+                    const window = contextWindowFor(state.lastTelemetry.model)
+                    const pct = Math.round((tokens / window) * 100)
                     return (
                       <button
                         ref={telemetryButtonRef}
@@ -310,11 +308,11 @@ export function Composer({
                         className="flex items-center rounded-sm focus:outline-none focus-visible:ring-1 focus-visible:ring-accent"
                         aria-haspopup="menu"
                         aria-expanded={telemetryOpen}
-                        title={`컨텍스트 ~${Math.round(tokens / 1000)}k 토큰 / ${CONTEXT_WINDOW / 1000}k · 사용량·비용 보기`}
+                        title={`컨텍스트 ~${Math.round(tokens / 1000)}k / ${window / 1000}k 토큰 · 사용량 보기`}
                         data-behavior="action:toggle-telemetry"
                       >
                         <UsageCircle
-                          ratio={tokens / CONTEXT_WINDOW}
+                          ratio={tokens / window}
                           aria-label={`컨텍스트 사용량: ${pct}%`}
                         />
                       </button>
@@ -326,11 +324,7 @@ export function Composer({
                     anchorRef={telemetryButtonRef}
                     onClose={() => setTelemetryOpen(false)}
                   >
-                    <TelemetryPanel
-                      telemetry={state.lastTelemetry}
-                      sessionCostUsd={state.sessionCostUsd}
-                      latencyMs={state.lastTurnLatencyMs}
-                    />
+                    <TelemetryPanel telemetry={state.lastTelemetry} />
                   </Popover>
                 )}
                 {state.inflight ? (

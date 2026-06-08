@@ -79,8 +79,7 @@ export function useChat(): UseChat {
     cacheRef.current.set(cur.sessionId, {
       title: cur.title,
       messages: cur.messages,
-      ...(cur.lastTelemetry ? { lastTelemetry: cur.lastTelemetry } : {}),
-      ...(cur.sessionCostUsd != null ? { sessionCostUsd: cur.sessionCostUsd } : {})
+      ...(cur.lastTelemetry ? { lastTelemetry: cur.lastTelemetry } : {})
     })
   }, [])
 

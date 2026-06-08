@@ -120,17 +120,15 @@ interface ReconnectPolicy { maxRetries: number; backoffMs: (attempt: number) => 
 - `TerminalCard` stdout/stderr 는 `maxBytesPerToolRun` 으로 캡 → 초과 시 `truncated:true` props 로 "잘림" 표시.
 - SSE 재연결 시 마지막 `seq` 까지 dedup. Claude iterator 는 재연결 개념 없음 → `resumeFrom:'restart'` + 쿼리 재실행 정책 별도.
 - auto-scroll pin **구현 완료** (`ChatTile.tsx`): 스크롤 컨테이너가 맨 아래(`scrollHeight-scrollTop-clientHeight < 24px`)에 붙어 있을 때만 스트리밍을 따라 내려간다(로그 뷰어 패턴). 사용자가 위로 스크롤하면 `pinnedRef` 해제 → 과거 대화 고정. pin 해제 상태에선 컴포저 기준 상단·가로 중앙(`Composer.tsx` 의 `absolute bottom-full left-1/2`)에 **"맨 아래로" 버튼**(`chevD` 아이콘)을 띄워 클릭 시 재-pin. 버튼 props 는 optional — transcript 가 없는 랜딩(NewChat/Project)엔 미전달.
-- **새 user 메시지 상단 앵커 (ChatGPT식, 구현 완료)**: 프롬프트 전송 시 사용자 버블을 뷰포트 상단으로 `scrollTo({behavior:'smooth'})` 앵커한다. transcript 끝의 **예약 spacer**(높이 = `max(0, viewportH - 버블top~콘텐츠끝)`, 매 렌더 재계산·서브픽셀 가드)가 버블이 상단까지 올라갈 공간을 보장하고 답변이 길어질수록 0 으로 수렴한다. 최신 user 턴은 `data-app-user-turn` 마커로 식별. 앵커 직후 `pinnedRef=false` 라 스트리밍이 강제로 바닥으로 끌어내리지 않고 답변이 예약공간을 채운다.
+- **새 user 메시지 상단 앵커 (ChatGPT식, 구현 완료)**: 프롬프트 전송 시 사용자 버블을 뷰포트 상단으로 `scrollTo({behavior:'smooth'})` 앵커한다. transcript 끝의 **예약 spacer**(높이 = `max(0, viewportH - 버블top~콘텐츠끝)`, 서브픽셀 가드)가 버블이 상단까지 올라갈 공간을 보장하고 답변이 길어질수록 0 으로 수렴한다. 최신 user 턴은 `data-app-user-turn` 마커로 식별. 앵커 직후 `pinnedRef=false` 라 스트리밍이 강제로 바닥으로 끌어내리지 않고 답변이 예약공간을 채운다. **예약공간은 `state.inflight` 턴에만 확보**한다 — 전송 순간 확보, 턴 완료(telemetry)·세션 로드·idle 에선 0 으로 해제(하단 빈 공간이 남지 않게).
 
-### 1.9 TelemetryPanel (구현 완료)
+### 1.9 컨텍스트 사용량 도넛/패널 (구현 완료)
 
-**① 설명.** provider-reported(token/cost/model) + app-measured(latency) 를 패널로. 정본 타입: ../backend/provider-runtime.md §8.
+**① 설명.** Composer 풋터 usage 도넛 = **마지막 턴 컨텍스트 비율**. 클릭 시 패널에 컨텍스트 4항목.
 
-**② 구현.** `features/chat/components/TelemetryPanel.tsx` — 턴 종료 `telemetry` 이벤트가 실은 `ProviderReportedTelemetry`(cost·model·modelUsage·input/output·캐시 토큰·durationMs·numTurns)와 reducer 가 산출한 app-measured latency(`lastTurnLatencyMs` = 전송→telemetry 벽시계) + 세션 누적 비용(`sessionCostUsd`, SDK 가 세션 합계 미제공이라 턴마다 누산 — cost-tracking.md §147)을 행으로 표시. 값 없는 행은 생략. Composer 풋터의 usage 도넛(`UsageCircle`)을 클릭 트리거로 삼아 `shared/ui/Popover.tsx` 안에 띄운다(`state.lastTelemetry` 없으면 미표시). 모든 값은 추정치(청구 권위 아님).
+**② 구현.** 도넛/패널은 **`state.lastTelemetry` 단일 소스로 구동**한다(`pendingInputTokens` 폐기). 컨텍스트 사용량 토큰 = `contextTokens = input + cacheRead + cacheCreation`(**출력 제외**, `features/chat/lib/telemetry.ts`). 도넛 비율 = `contextTokens / contextWindowFor(model)`. 윈도우는 **기본 200k, 모델명에 `'1m'` 포함 시 1M**(`features/chat/lib/contextWindow.ts` — 정적 맵/env 불필요). `TelemetryPanel.tsx` 는 **4행만** 표시: ① 입력 토큰(마지막 턴 누적) ② 캐시(read+creation) ③ 컨텍스트 윈도우 ④ 사용량%=(①+②)/③. `state.lastTelemetry` 없으면 미표시.
 
-**③ (해소) 과거 갭.** 구 `UsageCircle` 는 `pendingInputTokens / 200_000` 비율 도넛만 표시했고 cost·model·latency 가 없었다 — 본 패널로 보강.
-
-**④ 세션 영속 (구현 완료).** 도넛/패널은 **`state.lastTelemetry` 단일 소스로 구동**한다(`pendingInputTokens` 필드 폐기). 컨텍스트 도넛 비율 = `contextTokens(lastTelemetry)/200_000` 이며 `contextTokens = input + cacheRead + cacheCreation + output`(`features/chat/lib/telemetry.ts`). 과거엔 메모리 전용이라 `SEND`/세션 전환/재시작 시 사라졌다 — 이제 **마지막 턴 telemetry(JSON) + 세션 누적 비용을 `sessions` 행에 영속**(`0005_session_telemetry.sql`, `updateSessionTelemetry`)하고 `LoadedSession.lastTelemetry`/`sessionCostUsd` 로 복원(reducer `LOAD_SESSION`/`LOAD_SESSION_FROM_CACHE`, 메모리 캐시 `CachedSession` 도 포함). `SEND` 는 `lastTelemetry` 를 비우지 않아 턴 진행 중에도 유지 → 컨텍스트는 세션 수명(=`/clear` 전까지, 새 대화에서만 0) 동안 항상 표시. 비용은 세션 누적치(월 단위 전역 롤업은 별개·후속).
+**③ 세션 영속 + 비용 원장 (구현 완료).** 과거엔 메모리 전용이라 `SEND`/세션 전환/재시작 시 도넛이 사라졌다. 이제 턴 종료마다 **per-turn `usage_events` 원장**(`0005_usage_events.sql` — `session_id`(세션 삭제 시 `SET NULL`)·`model`·`created_at`·input/output/cache 토큰·`cost_usd`)에 1행 적재(`insertUsageEvent`). 세션 로드 시 **최신 행에서 `lastTelemetry` 재구성**(`getLatestUsage` + main `usage/usageMap.ts` `usageRowToTelemetry`) → `LoadedSession.lastTelemetry` 로 복원(reducer `LOAD_SESSION`/`LOAD_SESSION_FROM_CACHE`, 메모리 캐시 `CachedSession` 도 포함). `SEND` 는 `lastTelemetry` 를 비우지 않아 턴 진행 중에도 유지 → 컨텍스트는 세션 수명(새 대화에서만 0) 동안 항상 표시. **비용/지연/모델 행은 패널에서 제거** — 비용은 원장이 SSOT 이며 시간(`created_at`)·모델별 집계로 1일/주/월 사용량을 산출(추후 usage 화면; 스키마만 준비). `sessionCostUsd`/`lastTurnLatencyMs` state 필드 폐기.
 
 **⑤ 빈 reasoning 카드 스킵 (구현 완료).** 빈/공백 "사고 과정" 카드가 뜨던 문제 해소 — `claude-map`(빈 `thinking` emit 안 함)·`messageSegments`(빈 reasoning 파트 스킵)·`ReasoningBlock`(합친 텍스트 공백이면 `null`) 3층 가드. 라이브 경로 `PendingAssistant` 는 기존 `{pendingReasoning && …}` 로 이미 가드됨.
 

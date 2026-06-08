@@ -24,7 +24,6 @@ import {
   type AppMessagePart,
   type LoadedMessage,
   type LoadedSession,
-  type ProviderReportedTelemetry,
   type McpServer,
   type Project,
   type SearchHit,
@@ -32,6 +31,7 @@ import {
   type Settings,
   type SkillInfo
 } from '../../shared/protocol'
+import { usageRowToTelemetry } from '../usage/usageMap'
 import { AdapterRegistry } from '../adapters/registry'
 import { Installer } from '../installer'
 import { SettingsStore } from '../settings/store'
@@ -512,15 +512,22 @@ export class IpcRouter {
         break
       }
       case 'telemetry': {
-        // 마지막 턴 텔레메트리 + 세션 누적 비용을 sessions 행에 영속 — 컨텍스트 도넛/패널이
-        // 재진입/재시작 후에도 복원되도록(세션 수명 영속). usage 없으면 스킵.
-        const sid = turn.dbSessionId
-        if (sid && ev.usage) {
-          const prevCost = this.db.getSessionCost(sid) ?? 0
-          const cost = ev.usage.costUsd != null ? prevCost + ev.usage.costUsd : prevCost
-          this.db.updateSessionTelemetry(sid, JSON.stringify(ev.usage), cost > 0 ? cost : null)
+        // 턴 종료 — 사용량 1행을 원장(usage_events)에 적재. 시간/모델별 집계(추후 usage 화면) +
+        // 세션 최신 행에서 컨텍스트 도넛/패널 복원의 원천. usage 없으면 스킵.
+        const u = ev.usage
+        if (turn.dbSessionId && u) {
+          this.db.insertUsageEvent({
+            sessionId: turn.dbSessionId,
+            model: u.model ?? null,
+            createdAt: now,
+            inputTokens: u.inputTokens ?? null,
+            outputTokens: u.outputTokens ?? null,
+            cacheReadTokens: u.cacheReadTokens ?? null,
+            cacheCreationTokens: u.cacheCreationTokens ?? null,
+            costUsd: u.costUsd ?? null
+          })
         }
-        // 턴 종료 — 다음 assistant 파트는 새 메시지에 묶이도록 reset.
+        // 다음 assistant 파트는 새 메시지에 묶이도록 reset.
         turn.currentAssistantMessageId = null
         turn.assistantText = ''
         break
@@ -611,18 +618,16 @@ export class IpcRouter {
       cur!.parts.push(partFromRow(r))
     }
 
-    // 마지막 턴 텔레메트리 + 세션 누적 비용 복원 — 컨텍스트 도넛/패널을 세션 수명 동안 표시.
-    const lastTelemetry = meta.last_telemetry_json
-      ? (JSON.parse(meta.last_telemetry_json) as ProviderReportedTelemetry)
-      : undefined
+    // 세션 마지막 턴 사용량 → 컨텍스트 도넛/패널 복원(세션 수명 동안 표시).
+    const usage = this.db.getLatestUsage(parsed.data.sessionId)
+    const lastTelemetry = usage ? usageRowToTelemetry(usage) : undefined
 
     return {
       id: meta.id,
       backend: meta.backend,
       title: meta.title,
       messages,
-      ...(lastTelemetry ? { lastTelemetry } : {}),
-      ...(meta.session_cost_usd != null ? { sessionCostUsd: meta.session_cost_usd } : {})
+      ...(lastTelemetry ? { lastTelemetry } : {})
     }
   }
 

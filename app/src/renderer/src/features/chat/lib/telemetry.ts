@@ -1,14 +1,8 @@
 import type { ProviderReportedTelemetry } from '../../../../../shared/ipc'
 
-// 도넛이 표시하는 "컨텍스트 사용량" 토큰. 다음 턴에 컨텍스트로 실릴 양의 근사치 —
-// 마지막 턴의 입력(input) + 프롬프트 캐시(read·creation) + 출력(output)을 합산한다.
-// input 만 쓰면 프롬프트 캐싱 활성 시 과소집계되므로 캐시·출력을 포함한다. 각 필드는
-// 런타임이 일부만 줄 수 있어 optional graceful 합산.
+// 도넛이 표시하는 "컨텍스트 사용량" 토큰 = 마지막 턴의 input + 프롬프트 캐시(read·creation).
+// 마지막 턴에 모델로 들어간 입력 컨텍스트 크기의 근사치. 출력은 제외(다음 턴 입력이 되기 전이라
+// 현재 컨텍스트가 아님). 각 필드는 런타임이 일부만 줄 수 있어 optional graceful 합산.
 export function contextTokens(t: ProviderReportedTelemetry): number {
-  return (
-    (t.inputTokens ?? 0) +
-    (t.cacheReadTokens ?? 0) +
-    (t.cacheCreationTokens ?? 0) +
-    (t.outputTokens ?? 0)
-  )
+  return (t.inputTokens ?? 0) + (t.cacheReadTokens ?? 0) + (t.cacheCreationTokens ?? 0)
 }

@@ -152,7 +152,7 @@ describe('chatReducer — AppMessagePart 모델', () => {
     expect(s.pendingReasoning).toBe('')
   })
 
-  it('telemetry 가 lastTelemetry 를 저장하고 세션 비용을 누산한다', () => {
+  it('telemetry 가 lastTelemetry 를 저장하고 SEND 가 유지·교체한다', () => {
     let s = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'q1' })
     s = apply(s, [
       {
@@ -162,54 +162,33 @@ describe('chatReducer — AppMessagePart 모델', () => {
         usage: {
           inputTokens: 100,
           outputTokens: 50,
-          costUsd: 0.01,
-          model: 'opus',
-          durationMs: 1000
+          cacheReadTokens: 300,
+          model: 'opus'
         }
       }
     ])
     expect(s.lastTelemetry).toEqual({
       inputTokens: 100,
       outputTokens: 50,
-      costUsd: 0.01,
-      model: 'opus',
-      durationMs: 1000
+      cacheReadTokens: 300,
+      model: 'opus'
     })
-    expect(s.sessionCostUsd).toBe(0.01)
-    expect(s.lastTurnLatencyMs).toBeTypeOf('number')
 
     // SEND 는 lastTelemetry 를 비우지 않는다 — 컨텍스트 도넛이 턴 진행 중에도 유지.
     const afterSend = chatReducer(s, { type: 'SEND_USER_MESSAGE', text: 'mid' })
     expect(afterSend.lastTelemetry?.inputTokens).toBe(100)
 
-    // 두 번째 턴 — costUsd 누산, lastTelemetry 교체
+    // 두 번째 턴 — lastTelemetry 교체
     s = chatReducer(s, { type: 'SEND_USER_MESSAGE', text: 'q2' })
     s = apply(s, [
       {
         type: 'telemetry',
         sessionId: 's',
         provider: 'claude-code',
-        usage: { inputTokens: 200, outputTokens: 80, costUsd: 0.02 }
+        usage: { inputTokens: 200, outputTokens: 80 }
       }
     ])
-    expect(s.sessionCostUsd).toBeCloseTo(0.03)
     expect(s.lastTelemetry?.inputTokens).toBe(200)
-  })
-
-  it('costUsd 없는 telemetry 는 세션 누적을 건드리지 않는다', () => {
-    let s = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'q' })
-    s = apply(s, [
-      {
-        type: 'telemetry',
-        sessionId: 's',
-        provider: 'claude-code',
-        usage: { inputTokens: 10, outputTokens: 5, costUsd: 0.5 }
-      }
-    ])
-    expect(s.sessionCostUsd).toBe(0.5)
-    s = chatReducer(s, { type: 'SEND_USER_MESSAGE', text: 'q2' })
-    s = apply(s, [{ type: 'telemetry', sessionId: 's', provider: 'claude-code' }])
-    expect(s.sessionCostUsd).toBe(0.5) // 변동 없음
   })
 
   it('NEW_CHAT 은 telemetry 상태를 리셋한다', () => {
@@ -219,13 +198,11 @@ describe('chatReducer — AppMessagePart 모델', () => {
         type: 'telemetry',
         sessionId: 's',
         provider: 'claude-code',
-        usage: { inputTokens: 10, outputTokens: 5, costUsd: 0.5 }
+        usage: { inputTokens: 10, outputTokens: 5 }
       }
     ])
     s = chatReducer(s, { type: 'NEW_CHAT' })
     expect(s.lastTelemetry).toBeUndefined()
-    expect(s.sessionCostUsd).toBeUndefined()
-    expect(s.lastTurnLatencyMs).toBeUndefined()
   })
 
   it('LOAD_SESSION 은 parts 를 그대로 싣는다', () => {
@@ -260,32 +237,29 @@ describe('chatReducer — AppMessagePart 모델', () => {
     ])
   })
 
-  it('LOAD_SESSION 은 영속된 telemetry/비용을 복원한다(컨텍스트 도넛 유지)', () => {
+  it('LOAD_SESSION 은 복원된 마지막 턴 telemetry 를 싣는다(컨텍스트 도넛 유지)', () => {
     const session: LoadedSession = {
       id: 's2',
       backend: 'claude-code',
       title: 't',
       messages: [{ role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'q' }] }],
-      lastTelemetry: { inputTokens: 1234, outputTokens: 56, costUsd: 0.04 },
-      sessionCostUsd: 0.09
+      lastTelemetry: { inputTokens: 1234, cacheReadTokens: 500, model: 'opus' }
     }
     const s = chatReducer(initialChatState, { type: 'LOAD_SESSION', session })
     expect(s.lastTelemetry?.inputTokens).toBe(1234)
-    expect(s.sessionCostUsd).toBe(0.09)
+    expect(s.lastTelemetry?.cacheReadTokens).toBe(500)
   })
 
-  it('LOAD_SESSION_FROM_CACHE 는 캐시의 telemetry/비용을 복원한다', () => {
+  it('LOAD_SESSION_FROM_CACHE 는 캐시의 telemetry 를 복원한다', () => {
     const s = chatReducer(initialChatState, {
       type: 'LOAD_SESSION_FROM_CACHE',
       sessionId: 's3',
       cached: {
         title: 't',
         messages: [{ role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'q' }] }],
-        lastTelemetry: { inputTokens: 777 },
-        sessionCostUsd: 0.02
+        lastTelemetry: { inputTokens: 777 }
       }
     })
     expect(s.lastTelemetry?.inputTokens).toBe(777)
-    expect(s.sessionCostUsd).toBe(0.02)
   })
 })

@@ -41,13 +41,15 @@
 
 > **선택 이유**: better-sqlite3 — 동기 API (Main thread 직접 실행, worker thread 불필요), Electron 호환, 마이그레이션 자체 관리 용이 (Drizzle/Prisma ORM 의존 없이 SQL 파일 직접 관리).
 
-#### 현재 스키마 (3 마이그레이션)
+#### 현재 스키마 (5 마이그레이션)
 
 | 마이그레이션 | 내용 |
 |---|---|
-| `0001_initial.sql` | `sessions` + `messages` + `tool_calls` 테이블. WAL + foreign_keys pragma 설정. |
+| `0001_initial.sql` | `sessions` + `messages` + `tool_calls` 테이블. WAL + foreign_keys pragma 설정. (`tool_calls` 는 `0004` 에서 제거) |
 | `0002_projects.sql` | `projects` 테이블 + `sessions.project_id` FK (`ON DELETE SET NULL`). |
 | `0003_messages_fts.sql` | `messages_fts` FTS5 가상 테이블 + INSERT/UPDATE/DELETE 3 트리거 (`messages` 와 동기 유지) + 기존 행 백필. |
+| `0004_message_parts.sql` | `message_parts`(순서 보존 parts, provider-runtime.md §7) 테이블 + backfill, `tool_calls` DROP. `messages.content` 는 FTS5 text-cache 로 유지. |
+| `0005_usage_events.sql` | `usage_events`(per-turn 사용량 원장 — `session_id` `ON DELETE SET NULL`·`model`·`created_at`·input/output/cache 토큰·`cost_usd`) + `created_at`/`session_id` 인덱스. 시간·모델별 집계(1일/주/월)와 세션 최신 행에서 컨텍스트 도넛/패널 복원. |
 
 **마이그레이션 규칙**:
 - `src/main/db/migrations/NNN_<name>.sql` (NNN = 0으로 패딩된 일련번호)

@@ -88,16 +88,20 @@ export function ChatTile({ chat, backendLabel, canAbort }: ChatTileProps): React
     const isNewUserMessage = grew && lastIsUser
     prevLenRef.current = state.messages.length
 
-    // 예약공간 재계산(매 렌더): 최신 user 버블 위쪽(top)부터 콘텐츠 끝까지의 높이가 한 뷰포트보다
-    // 작으면 그만큼 여백을 둬, 버블을 상단까지 올릴 수 있게 한다. 답변이 길어지면 0 으로 수렴.
     const top = lastUserTop(el)
-    const realContentH = el.scrollHeight - spacerH // 현재 spacer 제외한 실제 콘텐츠 높이
-    const belowTop = top != null ? realContentH - top : realContentH
-    const needed = Math.round(Math.max(0, el.clientHeight - belowTop))
+    // 예약공간은 inflight 턴에만 확보한다 — 전송 순간 버블을 상단으로 올리고 답변이 그 아래로
+    // 이어지게 한다. 턴 완료·세션 로드·idle 에선 0(하단 빈 공간이 남지 않게). 최신 user 버블 top
+    // 부터 콘텐츠 끝까지가 한 뷰포트보다 작으면 그만큼 여백 → 답변이 길어지면 0 으로 수렴.
+    let needed = 0
+    if (state.inflight) {
+      const realContentH = el.scrollHeight - spacerH // 현재 spacer 제외한 실제 콘텐츠 높이
+      const belowTop = top != null ? realContentH - top : realContentH
+      needed = Math.round(Math.max(0, el.clientHeight - belowTop))
+    }
     // 서브픽셀 jitter 로 인한 렌더 루프 방지 — 1px 초과 변화만 반영.
     if (Math.abs(needed - spacerH) > 1) setSpacerH(needed)
 
-    if (isNewUserMessage && top != null) {
+    if (state.inflight && isNewUserMessage && top != null) {
       // 사용자 버블을 뷰포트 상단으로 smooth 앵커. spacer 적용(다음 paint) 후 스크롤하도록 rAF.
       pinnedRef.current = false
       requestAnimationFrame(() => {
@@ -110,7 +114,7 @@ export function ChatTile({ chat, backendLabel, canAbort }: ChatTileProps): React
       el.scrollTop = el.scrollHeight
       setShowJump(false)
     }
-  }, [state.messages, state.pendingDelta, spacerH, lastUserTop])
+  }, [state.messages, state.pendingDelta, state.inflight, spacerH, lastUserTop])
 
   // 우측 계획 타일은 행의 오른쪽 끝에 도킹 — 커서를 왼쪽으로 끌수록 폭이 커지므로 invert.
   const getRowRight = useCallback(

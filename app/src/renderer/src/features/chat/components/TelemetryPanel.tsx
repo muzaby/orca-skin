@@ -1,27 +1,15 @@
 import type { ProviderReportedTelemetry } from '../../../../../shared/ipc'
+import { contextTokens } from '../lib/telemetry'
+import { contextWindowFor } from '../lib/contextWindow'
 
 interface TelemetryPanelProps {
   // 마지막 턴의 provider-reported 통계. 없으면 패널 자체가 렌더되지 않는다(호출 측 가드).
   telemetry: ProviderReportedTelemetry
-  // 세션 내 누적 추정 비용(USD). reducer 가 턴마다 costUsd 를 누산.
-  sessionCostUsd?: number
-  // app-measured latency(ms) = 전송 → telemetry 도착 벽시계.
-  latencyMs?: number
-}
-
-// USD 추정 비용 포맷 — 매우 작은 값도 보이도록 4자리(cost-tracking.md 예시와 동일).
-function fmtUsd(v: number): string {
-  return `$${v.toFixed(4)}`
 }
 
 // 토큰 수 — 1k 이상은 k 축약, 그 미만은 원수.
 function fmtTokens(v: number): string {
   return v >= 1000 ? `${(v / 1000).toFixed(1)}k` : String(v)
-}
-
-// ms → 사람이 읽는 시간. 1s 미만은 ms, 그 이상은 s.
-function fmtMs(ms: number): string {
-  return ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${Math.round(ms)}ms`
 }
 
 function Row({ label, value }: { label: string; value: string }): React.JSX.Element {
@@ -33,45 +21,24 @@ function Row({ label, value }: { label: string; value: string }): React.JSX.Elem
   )
 }
 
-// 턴 종료 시 SDK 가 보고한 사용량/비용을 표면화하는 패널 (rendering.md §1.9 TelemetryPanel).
-// Composer 풋터의 usage 도넛을 트리거로 Popover 안에 렌더된다. 모든 값은 추정치이며 청구
-// 권위가 아니다(cost-tracking.md). 값이 없는 행은 생략해 잡음을 줄인다.
-export function TelemetryPanel({
-  telemetry,
-  sessionCostUsd,
-  latencyMs
-}: TelemetryPanelProps): React.JSX.Element {
+// 컨텍스트 사용량 패널 (rendering.md §1.9). Composer 풋터의 usage 도넛을 클릭하면 Popover 로 뜬다.
+// 마지막 턴 기준 컨텍스트 4항목만 표시: 누적 입력 토큰 · 캐시 · 컨텍스트 윈도우 · 사용량%.
+// (비용/지연/모델은 usage_events 원장으로 옮겨 추후 usage 화면에서 집계.)
+export function TelemetryPanel({ telemetry }: TelemetryPanelProps): React.JSX.Element {
   const t = telemetry
-  const models = t.modelUsage ? Object.keys(t.modelUsage) : t.model ? [t.model] : []
-  const cacheTotal = (t.cacheReadTokens ?? 0) + (t.cacheCreationTokens ?? 0)
+  const input = t.inputTokens ?? 0
+  const cache = (t.cacheReadTokens ?? 0) + (t.cacheCreationTokens ?? 0)
+  const window = contextWindowFor(t.model)
+  const used = contextTokens(t) // input + cache
+  const pct = Math.round((used / window) * 100)
 
   return (
     <div className="min-w-[220px] px-g1 py-g1" data-context="telemetry-panel">
-      <div className="px-g2 pb-g1 pt-g1 text-caption font-medium text-t6">사용량 · 비용 (추정)</div>
-
-      {models.length > 0 && <Row label="모델" value={models.join(', ')} />}
-
-      {t.costUsd != null && <Row label="이번 턴 비용" value={fmtUsd(t.costUsd)} />}
-      {sessionCostUsd != null && sessionCostUsd > 0 && (
-        <Row label="세션 누적 비용" value={fmtUsd(sessionCostUsd)} />
-      )}
-
-      {(t.inputTokens != null || t.outputTokens != null) && (
-        <Row
-          label="토큰 (입력 / 출력)"
-          value={`${fmtTokens(t.inputTokens ?? 0)} / ${fmtTokens(t.outputTokens ?? 0)}`}
-        />
-      )}
-      {cacheTotal > 0 && (
-        <Row
-          label="캐시 (읽기 / 생성)"
-          value={`${fmtTokens(t.cacheReadTokens ?? 0)} / ${fmtTokens(t.cacheCreationTokens ?? 0)}`}
-        />
-      )}
-
-      {latencyMs != null && <Row label="응답 시간" value={fmtMs(latencyMs)} />}
-      {t.durationMs != null && <Row label="엔진 처리 시간" value={fmtMs(t.durationMs)} />}
-      {t.numTurns != null && <Row label="단계 수" value={String(t.numTurns)} />}
+      <div className="px-g2 pb-g1 pt-g1 text-caption font-medium text-t6">컨텍스트 사용량</div>
+      <Row label="입력 토큰 (마지막 턴 누적)" value={fmtTokens(input)} />
+      <Row label="캐시" value={fmtTokens(cache)} />
+      <Row label="컨텍스트 윈도우" value={fmtTokens(window)} />
+      <Row label="사용량" value={`${pct}%`} />
     </div>
   )
 }
