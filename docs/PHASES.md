@@ -1,12 +1,19 @@
 # Orca 구현 페이즈 이력
 
 > 독자: AI agent. **완료 이력의 정본은 `git log`** 이고, 본 문서는 사람이 읽는 요약이다.
-> `app/CLAUDE.md` 에서 분리(2026-06-05) — 영속 지침 파일의 컨텍스트 로드 부담을 줄이기 위해 changelog 성격의 표를 여기로 옮겼다.
-> 현재 작업 규칙·구현 지침은 [`../app/CLAUDE.md`](../app/CLAUDE.md) 에 있다.
+> `app/AGENTS.md` 에서 분리(2026-06-05) — 영속 지침 파일의 컨텍스트 로드 부담을 줄이기 위해 changelog 성격의 표를 여기로 옮겼다.
+> 현재 작업 규칙·구현 지침은 [`../app/AGENTS.md`](../app/AGENTS.md) 에 있다.
 
 ## 현재 상태
 
 **Phase 3++** — 로컬 SQLite SSOT + 세션 히스토리 + DOM Architecture + 4-layer Feature 아키텍처 + MCP/Skill 통합 + uv 기반 Python 런타임 + provider 표준화 리팩토링(배포 A · 런타임 B · 프론트 C) + **정규화 parts persistence(AppMessagePart) + reasoning(확장사고) 영속·라이브 스트리밍 + ToolRendererRegistry 표준 taxonomy + 메시지 내 콘텐츠 순서 보존 렌더(Option B)**.
+
+## 현재 작업 중 (In Progress)
+
+진행 중인 Claude Code ↔ Codex 협업 작업의 라이브 상태는 디스패치 보드에 있다. **여기서는 링크만 둔다** (변동성 정보의 정본은 보드, 완료 시 아래 "페이즈 표" 로 승격).
+
+- 디스패치 보드: [`handoff/INDEX.md`](handoff/INDEX.md) — 작업별 단계(plan/impl/verify)·상태·다음 행동 주체.
+- 협업 규약·템플릿: [`handoff/AGENTS.md`](handoff/AGENTS.md).
 
 ## 페이즈 표
 

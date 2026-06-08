@@ -98,4 +98,4 @@
 - 백엔드 측 구조: [../backend/overview.md](../backend/overview.md)
 - 데이터 모델 SSOT: [TRD.md](./TRD.md) §6
 - 로드맵 / Phase: [PRD.md](./PRD.md) §8 / §9 Future Scope
-- 디자인 토큰 정책: [PRD.md](./PRD.md) §10 + `app/CLAUDE.md` 스타일링 정책 절
+- 디자인 토큰 정책: [PRD.md](./PRD.md) §10 + `app/AGENTS.md` 스타일링 정책 절
