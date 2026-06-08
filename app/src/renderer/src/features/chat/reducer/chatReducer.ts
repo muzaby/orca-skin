@@ -8,6 +8,7 @@ import type {
   ProviderReportedTelemetry
 } from '../../../../../shared/ipc'
 import type { NormalizedPermissionMode } from '../../../../../shared/permission-mode'
+import { contextTokens } from '../lib/telemetry'
 
 // transcript 렌더가 쓰는 도구 호출 view — parts 의 tool_call+tool_result 를 toolRunId 로
 // 페어링한 결과(lib/parts.ts partsToolCalls). 더 이상 Message 의 필드가 아니다.
@@ -241,8 +242,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             // 턴 종료 — 미완 라이브 사고 프리뷰는 비운다(영속은 완성 블록의 message.reasoning).
             pendingReasoning: '',
             // 도넛/패널은 lastTelemetry 파생(컨텍스트 사용량 소스). 비용/지연 누산은 제거 —
-            // 비용은 main 의 usage_events 원장(집계)이 SSOT.
-            ...(telemetry ? { lastTelemetry: telemetry } : {})
+            // 비용은 main 의 usage_events 원장(집계)이 SSOT. 컨텍스트 0인 턴(/context 등 로컬
+            // 슬래시 명령 — 모델 미호출)은 직전 도넛 값을 덮어쓰지 않게 스킵한다.
+            ...(telemetry && contextTokens(telemetry) > 0 ? { lastTelemetry: telemetry } : {})
           }
           // pendingDelta 가 아직 남아있으면(message.completed 없이 끝남) text 파트로 굳힌다.
           if (state.pendingDelta) {

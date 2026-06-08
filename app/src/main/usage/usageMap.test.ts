@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { usageRowToTelemetry } from './usageMap'
+import { usageRowToTelemetry, hasContextTokens } from './usageMap'
 import type { UsageRow } from '../db/types'
 
 const row = (over: Partial<UsageRow>): UsageRow => ({
@@ -36,5 +36,19 @@ describe('usageRowToTelemetry', () => {
       inputTokens: 100,
       cacheReadTokens: 1000
     })
+  })
+})
+
+describe('hasContextTokens', () => {
+  it('컨텍스트 3종이 모두 없거나 0이면 false (/context 류 빈 턴)', () => {
+    expect(hasContextTokens({})).toBe(false)
+    expect(hasContextTokens({ inputTokens: 0 })).toBe(false)
+    expect(hasContextTokens({ outputTokens: 99 })).toBe(false) // 출력은 컨텍스트 아님
+  })
+
+  it('input·cacheRead·cacheCreation 중 하나라도 1 이상이면 true', () => {
+    expect(hasContextTokens({ inputTokens: 1 })).toBe(true)
+    expect(hasContextTokens({ cacheReadTokens: 1 })).toBe(true)
+    expect(hasContextTokens({ cacheCreationTokens: 1 })).toBe(true)
   })
 })

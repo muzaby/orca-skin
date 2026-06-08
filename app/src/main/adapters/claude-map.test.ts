@@ -419,6 +419,30 @@ describe('claudeToNormalized', () => {
     expect(ev.usage?.cacheReadTokens).toBe(33)
   })
 
+  it('스냅샷이 input 만 줄 때 result 의 cache_read 를 보존한다(붕괴 방지)', () => {
+    const c = ctx()
+    // assistant usage 가 input_tokens 만 담고 cache 필드를 안 줌. result 는 cache_read 보유.
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: { content: [{ type: 'text', text: 'done' }], usage: { input_tokens: 4 } }
+      }),
+      c
+    )
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        usage: { input_tokens: 4, cache_read_input_tokens: 35000, cache_creation_input_tokens: 700 }
+      }),
+      c
+    )
+    const ev = out[0] as { usage?: Record<string, number> }
+    // input 은 스냅샷(=result 와 동일) 4. cache 는 스냅샷에 없으니 result 값 보존 — delete 금지.
+    expect(ev.usage?.inputTokens).toBe(4)
+    expect(ev.usage?.cacheReadTokens).toBe(35000)
+    expect(ev.usage?.cacheCreationTokens).toBe(700)
+  })
+
   it('미사용 SDK 메시지 → []', () => {
     expect(claudeToNormalized(sdk({ type: 'system', subtype: 'compact_boundary' }), ctx())).toEqual(
       []

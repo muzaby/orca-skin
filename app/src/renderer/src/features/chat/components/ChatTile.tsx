@@ -34,9 +34,10 @@ export function ChatTile({ chat, backendLabel, canAbort }: ChatTileProps): React
   // 스트리밍을 따라 내려간다. 사용자가 위로 올리면 pin 해제 → 과거 대화 고정 + "맨 아래로" 버튼.
   const pinnedRef = useRef(true)
   const prevLenRef = useRef(state.messages.length)
+  const prevSessionRef = useRef(state.sessionId)
   const [showJump, setShowJump] = useState(false)
-  // 예약공간(ChatGPT식 앵커) — 새 user 메시지를 뷰포트 상단으로 올릴 수 있도록 transcript 끝에
-  // 둘 여백 높이. 답변이 길어질수록 0 으로 수렴.
+  // 예약공간(ChatGPT식 앵커) — 새 user 메시지를 뷰포트 50% 라인까지 올릴 수 있도록 transcript 끝에
+  // 둘 여백 높이. 답변이 그 아래를 채울수록 0 으로 자연 수렴(완료 시 스냅 회수 없음).
   const [spacerH, setSpacerH] = useState(0)
 
   const isAtBottom = useCallback((el: HTMLDivElement): boolean => {
@@ -88,25 +89,29 @@ export function ChatTile({ chat, backendLabel, canAbort }: ChatTileProps): React
     const isNewUserMessage = grew && lastIsUser
     prevLenRef.current = state.messages.length
 
+    // 세션 전환(LOAD_SESSION/_FROM_CACHE/NEW_CHAT) 시엔 앵커/예약공간 수학을 건너뛰고 여백을
+    // 0 으로 수렴시킨다 — 로드된 옛 세션 하단에 직전 세션의 여백이 남지 않게. (새 대화 첫 메시지는
+    // sessionId 가 session.updated 전까지 null 유지 → sessionChanged false → 앵커 경로 정상 실행.)
+    const sessionChanged = state.sessionId !== prevSessionRef.current
+    prevSessionRef.current = state.sessionId
+
     const top = lastUserTop(el)
-    // 예약공간은 inflight 턴에만 확보한다 — 전송 순간 버블을 상단으로 올리고 답변이 그 아래로
-    // 이어지게 한다. 턴 완료·세션 로드·idle 에선 0(하단 빈 공간이 남지 않게). 최신 user 버블 top
-    // 부터 콘텐츠 끝까지가 한 뷰포트보다 작으면 그만큼 여백 → 답변이 길어지면 0 으로 수렴.
+    // 연속 수렴(B) — 예약공간을 inflight 게이트 없이 매 렌더 재계산한다. 최신 user 버블 top 부터
+    // 콘텐츠 끝까지(belowTop)가 반 뷰포트보다 작으면 그만큼 여백 → 버블이 50% 라인에 머문다.
+    // 답변이 그 아래를 채우면 belowTop 가 커져 needed 0 으로 자연 수렴(완료 시 스냅 회수 없음).
     let needed = 0
-    if (state.inflight) {
+    if (!sessionChanged) {
       const realContentH = el.scrollHeight - spacerH // 현재 spacer 제외한 실제 콘텐츠 높이
       const belowTop = top != null ? realContentH - top : realContentH
-      needed = Math.round(Math.max(0, el.clientHeight - belowTop))
+      needed = Math.round(Math.max(0, 0.5 * el.clientHeight - belowTop))
     }
     // 서브픽셀 jitter 로 인한 렌더 루프 방지 — 1px 초과 변화만 반영.
     if (Math.abs(needed - spacerH) > 1) setSpacerH(needed)
 
-    if (state.inflight && isNewUserMessage && top != null) {
-      // 사용자 버블을 뷰포트 상단으로 smooth 앵커하되, transcript 상단 패딩(py-5)만큼 간격을 둬
-      // "첫 메시지처럼" frame 상단에서 일정 거리에 멈춘다. gap 은 컨테이너 computed paddingTop
-      // 에서 도출해 패딩이 바뀌어도 자동 추종한다. 목표는 [0, 최대 스크롤] 로 안전 클램프.
-      // 이중 rAF — 첫 프레임에서 spacer 레이아웃 flush, 둘째에서 scrollTo. 단일 rAF 면 spacer
-      // 여유가 아직 반영 전이라 목표 top 까지 못 가고 브라우저가 짧게 클램프(덜컥임)한다.
+    if (!sessionChanged && isNewUserMessage && top != null) {
+      // 사용자 버블을 뷰포트 50% 라인으로 smooth 앵커한다. 이미 미드라인보다 위에 있으면 그대로
+      // 둔다(아래로 끌어내리지 않음). 이중 rAF — 첫 프레임에서 spacer 레이아웃 flush, 둘째에서
+      // scrollTo. 단일 rAF 면 spacer 여유가 아직 반영 전이라 목표 top 까지 못 가고 클램프(덜컥임).
       pinnedRef.current = false
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
@@ -114,16 +119,19 @@ export function ChatTile({ chat, backendLabel, canAbort }: ChatTileProps): React
           if (!e) return
           const t = lastUserTop(e)
           if (t == null) return
-          const gap = parseFloat(getComputedStyle(e).paddingTop) || 0
-          const target = Math.min(Math.max(0, t - gap), e.scrollHeight - e.clientHeight)
-          e.scrollTo({ top: target, behavior: 'smooth' })
+          const mid = 0.5 * e.clientHeight
+          if (t - e.scrollTop > mid) {
+            // 버블이 미드라인보다 아래일 때만 끌어올린다.
+            const target = Math.min(Math.max(0, t - mid), e.scrollHeight - e.clientHeight)
+            e.scrollTo({ top: target, behavior: 'smooth' })
+          }
         })
       })
     } else if (pinnedRef.current) {
       el.scrollTop = el.scrollHeight
       setShowJump(false)
     }
-  }, [state.messages, state.pendingDelta, state.inflight, spacerH, lastUserTop])
+  }, [state.messages, state.pendingDelta, state.inflight, state.sessionId, spacerH, lastUserTop])
 
   // 우측 계획 타일은 행의 오른쪽 끝에 도킹 — 커서를 왼쪽으로 끌수록 폭이 커지므로 invert.
   const getRowRight = useCallback(

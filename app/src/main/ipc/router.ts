@@ -31,7 +31,7 @@ import {
   type Settings,
   type SkillInfo
 } from '../../shared/protocol'
-import { usageRowToTelemetry } from '../usage/usageMap'
+import { usageRowToTelemetry, hasContextTokens } from '../usage/usageMap'
 import { AdapterRegistry } from '../adapters/registry'
 import { Installer } from '../installer'
 import { SettingsStore } from '../settings/store'
@@ -513,9 +513,10 @@ export class IpcRouter {
       }
       case 'telemetry': {
         // 턴 종료 — 사용량 1행을 원장(usage_events)에 적재. 시간/모델별 집계(추후 usage 화면) +
-        // 세션 최신 행에서 컨텍스트 도넛/패널 복원의 원천. usage 없으면 스킵.
+        // 세션 최신 행에서 컨텍스트 도넛/패널 복원의 원천. usage 없거나 컨텍스트 0(/context 등
+        // 로컬 슬래시 명령 — 모델 미호출)이면 스킵 — 빈 행이 최신 행으로 도넛을 0으로 덮지 않게.
         const u = ev.usage
-        if (turn.dbSessionId && u) {
+        if (turn.dbSessionId && u && hasContextTokens(u)) {
           this.db.insertUsageEvent({
             sessionId: turn.dbSessionId,
             model: u.model ?? null,

@@ -191,6 +191,40 @@ describe('chatReducer — AppMessagePart 모델', () => {
     expect(s.lastTelemetry?.inputTokens).toBe(200)
   })
 
+  it('컨텍스트 0인 telemetry(/context 등)는 lastTelemetry 를 덮지 않고 턴만 종료한다', () => {
+    let s = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'q1' })
+    s = apply(s, [
+      {
+        type: 'telemetry',
+        sessionId: 's',
+        provider: 'claude-code',
+        usage: { inputTokens: 5000, cacheReadTokens: 12000, model: 'opus' }
+      }
+    ])
+    expect(s.lastTelemetry?.inputTokens).toBe(5000)
+
+    // 빈 컨텍스트 턴 — usage 가 출력만/없음 → 직전 도넛 값 보존, 단 inflight 은 false 로.
+    s = chatReducer(s, { type: 'SEND_USER_MESSAGE', text: '/context' })
+    s = apply(s, [
+      { type: 'telemetry', sessionId: 's', provider: 'claude-code', usage: { outputTokens: 10 } }
+    ])
+    expect(s.lastTelemetry?.inputTokens).toBe(5000)
+    expect(s.lastTelemetry?.cacheReadTokens).toBe(12000)
+    expect(s.inflight).toBe(false)
+
+    // usage 자체가 없는 telemetry 도 보존(회귀 가드).
+    s = chatReducer(s, { type: 'SEND_USER_MESSAGE', text: '/help' })
+    s = apply(s, [{ type: 'telemetry', sessionId: 's', provider: 'claude-code' }])
+    expect(s.lastTelemetry?.inputTokens).toBe(5000)
+
+    // 컨텍스트 있는 턴은 정상 교체.
+    s = chatReducer(s, { type: 'SEND_USER_MESSAGE', text: 'q2' })
+    s = apply(s, [
+      { type: 'telemetry', sessionId: 's', provider: 'claude-code', usage: { inputTokens: 8000 } }
+    ])
+    expect(s.lastTelemetry?.inputTokens).toBe(8000)
+  })
+
   it('NEW_CHAT 은 telemetry 상태를 리셋한다', () => {
     let s = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'q' })
     s = apply(s, [

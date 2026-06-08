@@ -22,24 +22,27 @@ function Row({ label, value }: { label: string; value: string }): React.JSX.Elem
 }
 
 // 컨텍스트 사용량 패널 (rendering.md §1.9). Composer 풋터의 usage 도넛을 클릭하면 Popover 로 뜬다.
-// 마지막 턴 기준 컨텍스트 4항목만 표시: 누적 입력 토큰 · 캐시 · 컨텍스트 윈도우 · 사용량%.
+// /context 와 같은 프레이밍 — 주 표시 `사용 중  used / window (pct%)` + 분해(신규 입력·캐시).
+// used = contextTokens = inputTokens + cacheRead + cacheCreation (= /context 분자 정의).
+// 작은 inputTokens(캐시 제외 신규 입력)를 컨텍스트 크기로 오해하지 않게 라벨을 명확히 한다.
 // (비용/지연/모델은 usage_events 원장으로 옮겨 추후 usage 화면에서 집계.)
 export function TelemetryPanel({ telemetry }: TelemetryPanelProps): React.JSX.Element {
   const t = telemetry
   const input = t.inputTokens ?? 0
-  const cache = (t.cacheReadTokens ?? 0) + (t.cacheCreationTokens ?? 0)
+  const cacheRead = t.cacheReadTokens ?? 0
+  const cacheCreation = t.cacheCreationTokens ?? 0
   const window = contextWindowFor(t.model)
-  const used = contextTokens(t) // input + cache
+  const used = contextTokens(t) // input + cacheRead + cacheCreation
   const pct = Math.round((used / window) * 100)
   const warn = nearCompaction(used, window)
 
   return (
     <div className="min-w-[220px] px-g1 py-g1" data-context="telemetry-panel">
       <div className="px-g2 pb-g1 pt-g1 text-caption font-medium text-t6">컨텍스트 사용량</div>
-      <Row label="입력 토큰 (마지막 턴)" value={fmtTokens(input)} />
-      <Row label="캐시" value={fmtTokens(cache)} />
-      <Row label="컨텍스트 윈도우" value={fmtTokens(window)} />
-      <Row label="사용량" value={`${pct}%`} />
+      <Row label="사용 중" value={`${fmtTokens(used)} / ${fmtTokens(window)} (${pct}%)`} />
+      <Row label="신규 입력(비캐시)" value={fmtTokens(input)} />
+      <Row label="캐시 읽기" value={fmtTokens(cacheRead)} />
+      {cacheCreation > 0 && <Row label="캐시 생성" value={fmtTokens(cacheCreation)} />}
       {warn && (
         <div className="px-g2 pb-g1 pt-g2">
           <div className="flex items-baseline justify-between gap-g4">

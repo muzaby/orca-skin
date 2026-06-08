@@ -207,17 +207,15 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
     const telemetry = normalizeResultTelemetry(r)
     // 컨텍스트 점유 입력 3종(input·cache_read·cache_creation)을 마지막 assistant 스냅샷으로 대체
     // — /context 상단 % 와 같은 정의(모델이 마지막으로 본 입력)로 근사. costUsd·durationMs·
-    // numTurns·modelUsage·model 은 턴 누적이 맞아 result 값 유지(사용자 결정). 스냅샷이 없으면
-    // (assistant usage 미수신) result.usage 로 graceful fallback — 기존 동작 보존.
+    // numTurns·modelUsage·model 은 턴 누적이 맞아 result 값 유지(사용자 결정).
+    // 스냅샷에 있는 필드만 덮는다 — 없는 필드는 result.usage 값을 보존한다. (스냅샷이 input 만
+    // 담고 cache_read 를 안 줄 때 delete 하면 contextTokens 가 input(≈1) 으로 붕괴 → 도넛 0~1%.)
     if (telemetry && ctx.lastAssistantUsage) {
       const snap = ctx.lastAssistantUsage
       if (snap.inputTokens !== undefined) telemetry.inputTokens = snap.inputTokens
-      else delete telemetry.inputTokens
       if (snap.cacheReadTokens !== undefined) telemetry.cacheReadTokens = snap.cacheReadTokens
-      else delete telemetry.cacheReadTokens
       if (snap.cacheCreationTokens !== undefined)
         telemetry.cacheCreationTokens = snap.cacheCreationTokens
-      else delete telemetry.cacheCreationTokens
     }
     return [
       {
