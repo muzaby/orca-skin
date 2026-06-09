@@ -7,7 +7,9 @@ import type {
   ProjectRow,
   SearchHitRow,
   SessionInsert,
-  SessionListRow
+  SessionListRow,
+  UsageEventInsert,
+  UsageRow
 } from './types'
 
 export class DbQueries {
@@ -20,6 +22,9 @@ export class DbQueries {
   private readonly updateToolResultPartStmt: Database.Statement
   private readonly updateSessionPreviewStmt: Database.Statement
   private readonly updateSessionTitleStmt: Database.Statement
+  // per-turn 사용량 원장 — insert(턴 종료) + 세션 최신 행 조회(컨텍스트 도넛/패널 복원).
+  private readonly insertUsageEventStmt: Database.Statement
+  private readonly getLatestUsageStmt: Database.Statement
   // 사용자가 명시적으로 rename — 기존 title 이 있어도 덮어쓴다.
   // updateSessionTitleStmt 는 첫 init 시점 채우기 용도 (WHERE title IS NULL).
   private readonly renameSessionStmt: Database.Statement
@@ -100,6 +105,18 @@ export class DbQueries {
     `)
     this.updateSessionTitleStmt = db.prepare(`
       UPDATE sessions SET title = @title WHERE id = @id AND title IS NULL
+    `)
+    this.insertUsageEventStmt = db.prepare(`
+      INSERT INTO usage_events
+        (session_id, model, created_at, input_tokens, output_tokens,
+         cache_read_tokens, cache_creation_tokens, cost_usd)
+      VALUES
+        (@sessionId, @model, @createdAt, @inputTokens, @outputTokens,
+         @cacheReadTokens, @cacheCreationTokens, @costUsd)
+    `)
+    // 세션의 마지막 턴 사용량 — 컨텍스트 도넛/패널을 세션 로드 시 복원.
+    this.getLatestUsageStmt = db.prepare(`
+      SELECT * FROM usage_events WHERE session_id = @sessionId ORDER BY created_at DESC LIMIT 1
     `)
     this.renameSessionStmt = db.prepare(`
       UPDATE sessions SET title = @title, updated_at = @updatedAt WHERE id = @id
@@ -200,6 +217,16 @@ export class DbQueries {
 
   updateSessionTitle(id: string, title: string): void {
     this.updateSessionTitleStmt.run({ id, title })
+  }
+
+  // 턴 종료 시 사용량 1행 적재. 시간/모델별 집계 + 세션 최신 행 복원의 원천.
+  insertUsageEvent(row: UsageEventInsert): void {
+    this.insertUsageEventStmt.run(row)
+  }
+
+  // 세션의 마지막 턴 사용량 행(없으면 undefined). 컨텍스트 도넛/패널 복원용.
+  getLatestUsage(sessionId: string): UsageRow | undefined {
+    return this.getLatestUsageStmt.get({ sessionId }) as UsageRow | undefined
   }
 
   renameSession(id: string, title: string, updatedAt: number): void {

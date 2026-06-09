@@ -15,7 +15,7 @@
 
 ### 1.2 스트리밍 렌더링 최적화
 
-- `message.delta` 이벤트마다 `pendingDelta` 에 누적(`chatReducer.ts`). UI 업데이트 **16ms throttle** 은 *설계 확정/구현 대기*(현행은 React 기본 배칭에만 의존 — §1.8).
+- `message.delta` 이벤트마다 `pendingDelta` 에 누적(`chatReducer.ts`). UI 업데이트 **16ms throttle 구현 완료** — `features/chat/lib/eventCoalescer.ts` 가 델타(message.delta·message.reasoning.delta)를 `requestAnimationFrame` 한 틱마다 모아 한꺼번에 dispatch 하고, React 19 자동 배칭이 그 틱의 N개 dispatch 를 1렌더로 묶는다(프레임당 1렌더, reducer 무변경). 비-델타 이벤트(message.completed·tool.call.*·telemetry)는 버퍼를 먼저 flush 한 뒤 emit 해 순서를 보존(§1.7 Option B). `useChat` 구독부가 코얼레서를 생성·주입하고 세션 전환(newChat/loadSession)·언마운트 시 `dispose()` 로 스테일 델타를 폐기한다.
 - **정정(2026-06, 코드가 진실)**: 마크다운 파싱은 스트리밍 *중에도* 라이브로 수행한다 — `PendingAssistant` 가 `pendingDelta` 를 `<Markdown>` 으로 렌더(과거 "스트리밍 중 plain text" 서술은 구현과 불일치라 폐기). 코드 블록 하이라이팅(shiki)은 ToolCard 첫 오픈까지 지연(비용 회피).
 - `message.completed` 도착 시 `pendingDelta` 를 `text` 파트로 commit 하고 비운다(provider-runtime.md §7).
 
@@ -84,7 +84,7 @@ interface ToolRendererRegistry { register(r: ToolRenderer): void; resolve(input:
 | `AgentTaskCard` / `SessionGraphCard` / `ContextInjectionCard` | subagent / `children`·`fork`·`revert` / `noReply` | 🔴 seam (OpenCode 전용) |
 | `StructuredOutputCard`(`structured_output`) | `format:json_schema` 결과 | ⏳ 최소 구현(`StructuredOutputCard` — value→pretty JSON. claude 미와이어라 소스 없음) — §1.7 |
 | `ErrorCard`(`error`) | error 파트 | ✅ `ErrorCard`(트랜스크립트 인라인) + `state.error` 배너(라이브 턴) |
-| `TelemetryPanel`(`telemetry`) | usage·cost·latency | ⏳ `UsageCircle`(inputTokens 비율만) — §1.9 미구현 |
+| `TelemetryPanel`(`telemetry`) | usage·cost·latency | ✅ `TelemetryPanel`(cost·model·latency·토큰 분해) — Composer usage 도넛 트리거 Popover, §1.9 |
 
 ### 1.7 StructuredOutput 렌더링 (설계 확정 / 구현 대기)
 
@@ -119,13 +119,26 @@ interface ReconnectPolicy { maxRetries: number; backoffMs: (attempt: number) => 
 
 - `TerminalCard` stdout/stderr 는 `maxBytesPerToolRun` 으로 캡 → 초과 시 `truncated:true` props 로 "잘림" 표시.
 - SSE 재연결 시 마지막 `seq` 까지 dedup. Claude iterator 는 재연결 개념 없음 → `resumeFrom:'restart'` + 쿼리 재실행 정책 별도.
-- auto-scroll 은 사용자가 위로 스크롤하면 pin 해제(로그 뷰어 패턴).
+- auto-scroll pin **구현 완료** (`ChatTile.tsx`): 스크롤 컨테이너가 맨 아래(`scrollHeight-scrollTop-clientHeight < 24px`)에 붙어 있을 때만 스트리밍을 따라 내려간다(로그 뷰어 패턴). 사용자가 위로 스크롤하면 `pinnedRef` 해제 → 과거 대화 고정. pin 해제 상태에선 컴포저 기준 상단·가로 중앙(`Composer.tsx` 의 `absolute bottom-full left-1/2`)에 **"맨 아래로" 버튼**(`chevD` 아이콘)을 띄워 클릭 시 재-pin. 버튼 props 는 optional — transcript 가 없는 랜딩(NewChat/Project)엔 미전달.
+- **새 user 메시지 50% 미드라인 앵커 (구현 완료)**: 프롬프트 전송 시 사용자 버블을 뷰포트 **50% 라인**으로 `scrollTo({behavior:'smooth'})` 앵커한다. transcript 끝의 **예약 spacer**(높이 = `max(0, 0.5·clientHeight - 버블top~콘텐츠끝)`, 서브픽셀 가드)가 버블이 미드라인까지 올라갈 공간을 보장하고 답변이 그 아래를 채울수록 0 으로 수렴한다. 최신 user 턴은 `data-app-user-turn` 마커로 식별. 앵커 직후 `pinnedRef=false` 라 스트리밍이 강제로 바닥으로 끌어내리지 않고 답변이 예약공간을 채운다.
+  - **비-회수(연속 수렴, 전략 B)**: 예약공간은 `state.inflight` 게이트 없이 **매 렌더 재계산**한다 — 턴 완료 시 스냅으로 회수하지 않는다. 긴 답변은 내용이 예약공간을 채우며 `needed` 0 으로 자연 수렴, 짧은 답변은 버블이 50% 라인에 머문다. (과거의 `inflight` 게이트는 완료 순간 여백을 0 으로 스냅해 덜컥였다.)
+  - **이미 미드라인 위면 끌어내리지 않음**: `scrollTo` 는 `버블top - scrollTop > 0.5·clientHeight`(버블이 미드라인보다 아래)일 때만 실행. 목표는 `버블top - 0.5·clientHeight`, `[0, scrollHeight-clientHeight]` 로 안전 클램프.
+  - **세션 전환 리셋**: `state.sessionId` 변화(LOAD_SESSION/_FROM_CACHE/NEW_CHAT) 시엔 앵커/spacer 수학을 건너뛰고 `needed=0` 으로 수렴 — 로드된 옛 세션 하단에 직전 세션 여백이 남지 않게. (새 대화 첫 메시지는 `sessionId` 가 `session.updated` 전까지 null 유지 → `sessionChanged` false → 앵커 경로 정상 실행.)
+  - **이중 rAF**: 앵커 `scrollTo` 는 spacer 가 DOM/레이아웃에 반영된 *다음* 프레임에 실행한다(`requestAnimationFrame` 2단 — 첫 프레임 레이아웃 flush, 둘째 프레임 scrollTo). 단일 rAF 면 spacer 여유가 아직 반영 전이라 목표 top 까지 못 가고 브라우저가 짧게 클램프(덜컥임)했다.
 
-### 1.9 TelemetryPanel (설계 확정 / 구현 대기)
+### 1.9 컨텍스트 사용량 도넛/패널 (구현 완료)
 
-**① 설명.** provider-reported(token/cost/model) + app-measured(latency/duration/event count) 를 패널로. 정본 타입: ../backend/provider-runtime.md §8.
+**① 설명.** Composer 풋터 usage 도넛 = **마지막 턴 컨텍스트 비율**. 클릭 시 패널에 컨텍스트 4항목.
 
-**③ 현재 코드 갭.** 현행 `shared/ui/UsageCircle.tsx` 가 `state.pendingInputTokens / 200_000` 비율 도넛만 표시. cost·model·latency·세션별 통계 없음.
+**② 구현.** 도넛/패널은 **`state.lastTelemetry` 단일 소스로 구동**한다(`pendingInputTokens` 폐기). 컨텍스트 사용량 토큰 = `contextTokens = input + cacheRead + cacheCreation`(**출력 제외**, `features/chat/lib/telemetry.ts`) = **`/context` 상단 분자와 같은 정의**(전체 컨텍스트 점유). 도넛 비율 = `contextTokens / contextWindowFor(model)`. 윈도우는 **기본 200k, 모델명에 `'1m'` 포함 시 1M**(`features/chat/lib/contextWindow.ts` — 정적 맵/env 불필요). `TelemetryPanel.tsx` 는 `/context` 와 같은 프레이밍: 주 표시 **`사용 중  used / window (pct%)`**(예: `35.7k / 200k (18%)`) + 분해 행 **신규 입력(비캐시)**=`inputTokens` · **캐시 읽기**=`cacheReadTokens` · **캐시 생성**=`cacheCreationTokens`(>0 일 때만) (+ 임박 시 경고). `inputTokens` 단독은 캐시 제외 신규 입력이라 resume+캐싱 환경에선 작다(≈1) — 라벨로 컨텍스트 크기와 구분. `state.lastTelemetry` 없으면 미표시.
+
+- **컨텍스트 입력 = 마지막 assistant 스냅샷 (`/context` 근사 교정)**: 도넛/패널의 컨텍스트 입력 3종(input·cacheRead·cacheCreation)은 **그 턴 *마지막* assistant 메시지의 `usage`** 다(턴 누적 아님). 매퍼(`claude-map.ts`)가 `result.usage`(멀티스텝에서 단계별 입력이 합산돼 과대 집계) 대신 `ctx.lastAssistantUsage` 로 덮어 `/context` 상단 %("모델이 마지막으로 본 입력 / 윈도우")와 같은 정의로 근사한다. **스냅샷에 있는 필드만 덮는다** — 없는 필드는 `result.usage` 값을 보존한다(스냅샷이 `input` 만 주고 `cache_read` 를 안 줄 때 `delete` 하면 `contextTokens` 가 input(≈1)으로 붕괴 → 도넛 0~1%; field-merge 로 방지). **비용(`costUsd`)·지연·`numTurns`·`modelUsage`·`model` 은 result 누적값 유지**(비용은 턴 전체 합이 맞음). `/context` 와 100% 일치는 불가(클라이언트가 모든 입력 구성요소를 보지 못함) — *근사*가 목표.
+- **컨텍스트 0 턴은 도넛 소스 미갱신 (`/context` 등 로컬 슬래시 명령)**: `/context`·`/help` 등은 모델을 호출하지 않아 컨텍스트(=비용)가 없는 빈 telemetry 를 만든다. 이 빈 값이 직전 도넛을 0 으로 덮지 않게 두 지점에서 가드: ① **라이브** — reducer `telemetry` case 가 `contextTokens(telemetry) > 0` 일 때만 `lastTelemetry` 교체(턴 종료 `inflight:false` 등은 그대로). ② **복원** — main `router.ts` 가 `hasContextTokens(usage)`(`usage/usageMap.ts`) 일 때만 `usage_events` 적재 → 빈 행이 최신 행으로 복원돼 0 으로 덮는 일 방지(`getLatestUsage` 단순 최신행 쿼리 유지).
+- **compaction 임박 경고**: `nearCompaction(used, window)`(`contextWindow.ts`) = `used ≥ (window - AUTOCOMPACT_BUFFER) * 0.835`. `AUTOCOMPACT_BUFFER`(~33k)는 CLI 버전·`CLAUDE_AUTOCOMPACT_PCT_OVERRIDE` 에 따라 가변인 *추정값*. true 면 도넛 progress arc 가 경고색(`--color-warn`, `UsageCircle.warn` prop), title 에 "컨텍스트 한계 임박", 패널에 "곧 컨텍스트 정리(compaction)" 경고 행(추정값 캡션 포함).
+
+**③ 세션 영속 + 비용 원장 (구현 완료).** 과거엔 메모리 전용이라 `SEND`/세션 전환/재시작 시 도넛이 사라졌다. 이제 턴 종료마다 **per-turn `usage_events` 원장**(`0005_usage_events.sql` — `session_id`(세션 삭제 시 `SET NULL`)·`model`·`created_at`·input/output/cache 토큰·`cost_usd`)에 1행 적재(`insertUsageEvent`). 세션 로드 시 **최신 행에서 `lastTelemetry` 재구성**(`getLatestUsage` + main `usage/usageMap.ts` `usageRowToTelemetry`) → `LoadedSession.lastTelemetry` 로 복원(reducer `LOAD_SESSION`/`LOAD_SESSION_FROM_CACHE`, 메모리 캐시 `CachedSession` 도 포함). `SEND` 는 `lastTelemetry` 를 비우지 않아 턴 진행 중에도 유지 → 컨텍스트는 세션 수명(새 대화에서만 0) 동안 항상 표시. **비용/지연/모델 행은 패널에서 제거** — 비용은 원장이 SSOT 이며 시간(`created_at`)·모델별 집계로 1일/주/월 사용량을 산출(추후 usage 화면; 스키마만 준비). `sessionCostUsd`/`lastTurnLatencyMs` state 필드 폐기.
+
+**⑤ 빈 reasoning 카드 스킵 (구현 완료).** 빈/공백 "사고 과정" 카드가 뜨던 문제 해소 — `claude-map`(빈 `thinking` emit 안 함)·`messageSegments`(빈 reasoning 파트 스킵)·`ReasoningBlock`(합친 텍스트 공백이면 `null`) 3층 가드. 라이브 경로 `PendingAssistant` 는 기존 `{pendingReasoning && …}` 로 이미 가드됨.
 
 ---
 

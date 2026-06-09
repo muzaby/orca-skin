@@ -6,7 +6,7 @@ import { turnCopyText, type Turn } from '../../lib/turns'
 export function UserTurn({ turn }: { turn: Turn }): React.JSX.Element {
   const last = turn.messages[turn.messages.length - 1]
   return (
-    <div className="group/msg flex flex-col gap-[var(--chat-item-gap)]">
+    <div className="group/msg flex flex-col gap-[var(--chat-item-gap)]" data-app-user-turn>
       {turn.messages.map((m, i) => (
         <UserMessage key={i} message={m} />
       ))}

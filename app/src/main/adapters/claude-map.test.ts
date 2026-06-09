@@ -201,6 +201,21 @@ describe('claudeToNormalized', () => {
     ])
   })
 
+  it('빈/공백 thinking 블록은 message.reasoning 을 emit 하지 않는다', () => {
+    expect(
+      claudeToNormalized(
+        sdk({ type: 'assistant', message: { content: [{ type: 'thinking', thinking: '' }] } }),
+        ctx()
+      )
+    ).toEqual([])
+    expect(
+      claudeToNormalized(
+        sdk({ type: 'assistant', message: { content: [{ type: 'thinking', thinking: '  \n ' }] } }),
+        ctx()
+      )
+    ).toEqual([])
+  })
+
   it('user(tool_result) → tool.call.completed', () => {
     const out = claudeToNormalized(
       sdk({
@@ -242,6 +257,190 @@ describe('claudeToNormalized', () => {
     expect(claudeToNormalized(sdk({ type: 'result' }), ctx())).toEqual([
       { type: 'telemetry', sessionId: 's1', provider: 'claude-code' }
     ])
+  })
+
+  it('result → telemetry 가 cost·duration·num_turns·캐시 토큰을 정규화한다', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        total_cost_usd: 0.0123,
+        duration_ms: 4200,
+        num_turns: 3,
+        usage: {
+          input_tokens: 100,
+          output_tokens: 50,
+          cache_read_input_tokens: 30,
+          cache_creation_input_tokens: 10
+        }
+      }),
+      ctx()
+    )
+    expect(out).toEqual([
+      {
+        type: 'telemetry',
+        sessionId: 's1',
+        provider: 'claude-code',
+        usage: {
+          inputTokens: 100,
+          outputTokens: 50,
+          cacheReadTokens: 30,
+          cacheCreationTokens: 10,
+          costUsd: 0.0123,
+          durationMs: 4200,
+          numTurns: 3
+        }
+      }
+    ])
+  })
+
+  it('result.modelUsage → camelCase 정규화 + 단일 모델이면 top-level model 채움', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        modelUsage: {
+          'claude-opus-4': {
+            costUSD: 0.05,
+            inputTokens: 200,
+            outputTokens: 80,
+            cacheReadInputTokens: 5,
+            cacheCreationInputTokens: 0
+          }
+        }
+      }),
+      ctx()
+    )
+    expect(out).toEqual([
+      {
+        type: 'telemetry',
+        sessionId: 's1',
+        provider: 'claude-code',
+        usage: {
+          model: 'claude-opus-4',
+          modelUsage: {
+            'claude-opus-4': {
+              costUsd: 0.05,
+              inputTokens: 200,
+              outputTokens: 80,
+              cacheReadTokens: 5,
+              cacheCreationTokens: 0
+            }
+          }
+        }
+      }
+    ])
+  })
+
+  it('result.modelUsage 다중 모델이면 top-level model 을 안 채운다', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        modelUsage: {
+          'claude-opus-4': { costUSD: 0.05 },
+          'claude-haiku-4': { costUSD: 0.001 }
+        }
+      }),
+      ctx()
+    )
+    const ev = out[0] as { usage?: { model?: string; modelUsage?: Record<string, unknown> } }
+    expect(ev.usage?.model).toBeUndefined()
+    expect(Object.keys(ev.usage?.modelUsage ?? {})).toEqual(['claude-opus-4', 'claude-haiku-4'])
+  })
+
+  it('result(잡음만, 의미있는 필드 없음) → telemetry (usage 생략)', () => {
+    expect(
+      claudeToNormalized(sdk({ type: 'result', subtype: 'success', is_error: false }), ctx())
+    ).toEqual([{ type: 'telemetry', sessionId: 's1', provider: 'claude-code' }])
+  })
+
+  it('멀티스텝 턴: telemetry 컨텍스트 입력은 마지막 assistant 스냅샷(누적 아님), 비용은 result', () => {
+    const c = ctx()
+    // assistant#1 → tool → assistant#2 → result(usage 누적). ctx 는 스트림 전체 공유.
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          content: [{ type: 'tool_use', id: 't1', name: 'Read', input: {} }],
+          usage: { input_tokens: 100, output_tokens: 10, cache_read_input_tokens: 5000 }
+        }
+      }),
+      c
+    )
+    claudeToNormalized(
+      sdk({
+        type: 'user',
+        message: { content: [{ type: 'tool_result', tool_use_id: 't1', content: 'ok' }] }
+      }),
+      c
+    )
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          content: [{ type: 'text', text: 'done' }],
+          usage: { input_tokens: 120, output_tokens: 30, cache_read_input_tokens: 5200 }
+        }
+      }),
+      c
+    )
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        total_cost_usd: 0.02,
+        usage: {
+          input_tokens: 220, // 단계별 누적(100+120) — 이 값이 아니라 마지막 스냅샷을 써야 함
+          output_tokens: 40,
+          cache_read_input_tokens: 10200
+        }
+      }),
+      c
+    )
+    const ev = out[0] as { usage?: Record<string, number> }
+    // 컨텍스트 입력 3종 = 마지막 assistant(#2) 스냅샷. 누적(220/10200) 이 아님.
+    expect(ev.usage?.inputTokens).toBe(120)
+    expect(ev.usage?.cacheReadTokens).toBe(5200)
+    expect(ev.usage?.cacheCreationTokens).toBeUndefined() // 스냅샷에 없으면 빠진다
+    // 비용은 result 누적값 유지(사용자 결정).
+    expect(ev.usage?.costUsd).toBe(0.02)
+  })
+
+  it('assistant usage 가 없으면 result.usage 로 graceful fallback', () => {
+    const c = ctx()
+    // usage 없는 assistant → 스냅샷 미갱신. result.usage 가 그대로 telemetry 가 된다.
+    claudeToNormalized(
+      sdk({ type: 'assistant', message: { content: [{ type: 'text', text: 'hi' }] } }),
+      c
+    )
+    const out = claudeToNormalized(
+      sdk({ type: 'result', usage: { input_tokens: 77, cache_read_input_tokens: 33 } }),
+      c
+    )
+    const ev = out[0] as { usage?: Record<string, number> }
+    expect(ev.usage?.inputTokens).toBe(77)
+    expect(ev.usage?.cacheReadTokens).toBe(33)
+  })
+
+  it('스냅샷이 input 만 줄 때 result 의 cache_read 를 보존한다(붕괴 방지)', () => {
+    const c = ctx()
+    // assistant usage 가 input_tokens 만 담고 cache 필드를 안 줌. result 는 cache_read 보유.
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: { content: [{ type: 'text', text: 'done' }], usage: { input_tokens: 4 } }
+      }),
+      c
+    )
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        usage: { input_tokens: 4, cache_read_input_tokens: 35000, cache_creation_input_tokens: 700 }
+      }),
+      c
+    )
+    const ev = out[0] as { usage?: Record<string, number> }
+    // input 은 스냅샷(=result 와 동일) 4. cache 는 스냅샷에 없으니 result 값 보존 — delete 금지.
+    expect(ev.usage?.inputTokens).toBe(4)
+    expect(ev.usage?.cacheReadTokens).toBe(35000)
+    expect(ev.usage?.cacheCreationTokens).toBe(700)
   })
 
   it('미사용 SDK 메시지 → []', () => {

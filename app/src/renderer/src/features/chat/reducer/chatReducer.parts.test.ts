@@ -152,6 +152,93 @@ describe('chatReducer — AppMessagePart 모델', () => {
     expect(s.pendingReasoning).toBe('')
   })
 
+  it('telemetry 가 lastTelemetry 를 저장하고 SEND 가 유지·교체한다', () => {
+    let s = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'q1' })
+    s = apply(s, [
+      {
+        type: 'telemetry',
+        sessionId: 's',
+        provider: 'claude-code',
+        usage: {
+          inputTokens: 100,
+          outputTokens: 50,
+          cacheReadTokens: 300,
+          model: 'opus'
+        }
+      }
+    ])
+    expect(s.lastTelemetry).toEqual({
+      inputTokens: 100,
+      outputTokens: 50,
+      cacheReadTokens: 300,
+      model: 'opus'
+    })
+
+    // SEND 는 lastTelemetry 를 비우지 않는다 — 컨텍스트 도넛이 턴 진행 중에도 유지.
+    const afterSend = chatReducer(s, { type: 'SEND_USER_MESSAGE', text: 'mid' })
+    expect(afterSend.lastTelemetry?.inputTokens).toBe(100)
+
+    // 두 번째 턴 — lastTelemetry 교체
+    s = chatReducer(s, { type: 'SEND_USER_MESSAGE', text: 'q2' })
+    s = apply(s, [
+      {
+        type: 'telemetry',
+        sessionId: 's',
+        provider: 'claude-code',
+        usage: { inputTokens: 200, outputTokens: 80 }
+      }
+    ])
+    expect(s.lastTelemetry?.inputTokens).toBe(200)
+  })
+
+  it('컨텍스트 0인 telemetry(/context 등)는 lastTelemetry 를 덮지 않고 턴만 종료한다', () => {
+    let s = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'q1' })
+    s = apply(s, [
+      {
+        type: 'telemetry',
+        sessionId: 's',
+        provider: 'claude-code',
+        usage: { inputTokens: 5000, cacheReadTokens: 12000, model: 'opus' }
+      }
+    ])
+    expect(s.lastTelemetry?.inputTokens).toBe(5000)
+
+    // 빈 컨텍스트 턴 — usage 가 출력만/없음 → 직전 도넛 값 보존, 단 inflight 은 false 로.
+    s = chatReducer(s, { type: 'SEND_USER_MESSAGE', text: '/context' })
+    s = apply(s, [
+      { type: 'telemetry', sessionId: 's', provider: 'claude-code', usage: { outputTokens: 10 } }
+    ])
+    expect(s.lastTelemetry?.inputTokens).toBe(5000)
+    expect(s.lastTelemetry?.cacheReadTokens).toBe(12000)
+    expect(s.inflight).toBe(false)
+
+    // usage 자체가 없는 telemetry 도 보존(회귀 가드).
+    s = chatReducer(s, { type: 'SEND_USER_MESSAGE', text: '/help' })
+    s = apply(s, [{ type: 'telemetry', sessionId: 's', provider: 'claude-code' }])
+    expect(s.lastTelemetry?.inputTokens).toBe(5000)
+
+    // 컨텍스트 있는 턴은 정상 교체.
+    s = chatReducer(s, { type: 'SEND_USER_MESSAGE', text: 'q2' })
+    s = apply(s, [
+      { type: 'telemetry', sessionId: 's', provider: 'claude-code', usage: { inputTokens: 8000 } }
+    ])
+    expect(s.lastTelemetry?.inputTokens).toBe(8000)
+  })
+
+  it('NEW_CHAT 은 telemetry 상태를 리셋한다', () => {
+    let s = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'q' })
+    s = apply(s, [
+      {
+        type: 'telemetry',
+        sessionId: 's',
+        provider: 'claude-code',
+        usage: { inputTokens: 10, outputTokens: 5 }
+      }
+    ])
+    s = chatReducer(s, { type: 'NEW_CHAT' })
+    expect(s.lastTelemetry).toBeUndefined()
+  })
+
   it('LOAD_SESSION 은 parts 를 그대로 싣는다', () => {
     const session: LoadedSession = {
       id: 's1',
@@ -182,5 +269,31 @@ describe('chatReducer — AppMessagePart 모델', () => {
         result: { output: 'data', isError: false }
       }
     ])
+  })
+
+  it('LOAD_SESSION 은 복원된 마지막 턴 telemetry 를 싣는다(컨텍스트 도넛 유지)', () => {
+    const session: LoadedSession = {
+      id: 's2',
+      backend: 'claude-code',
+      title: 't',
+      messages: [{ role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'q' }] }],
+      lastTelemetry: { inputTokens: 1234, cacheReadTokens: 500, model: 'opus' }
+    }
+    const s = chatReducer(initialChatState, { type: 'LOAD_SESSION', session })
+    expect(s.lastTelemetry?.inputTokens).toBe(1234)
+    expect(s.lastTelemetry?.cacheReadTokens).toBe(500)
+  })
+
+  it('LOAD_SESSION_FROM_CACHE 는 캐시의 telemetry 를 복원한다', () => {
+    const s = chatReducer(initialChatState, {
+      type: 'LOAD_SESSION_FROM_CACHE',
+      sessionId: 's3',
+      cached: {
+        title: 't',
+        messages: [{ role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'q' }] }],
+        lastTelemetry: { inputTokens: 777 }
+      }
+    })
+    expect(s.lastTelemetry?.inputTokens).toBe(777)
   })
 })

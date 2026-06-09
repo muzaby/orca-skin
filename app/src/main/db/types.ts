@@ -37,6 +37,30 @@ export interface SessionListRow {
   project_id: string | null
 }
 
+// 0005 usage_events — per-turn 사용량 원장. 시간/모델별 집계 + 세션 최신 행에서 컨텍스트 복원.
+export interface UsageEventInsert {
+  sessionId: string | null
+  model: string | null
+  createdAt: number
+  inputTokens: number | null
+  outputTokens: number | null
+  cacheReadTokens: number | null
+  cacheCreationTokens: number | null
+  costUsd: number | null
+}
+
+export interface UsageRow {
+  id: number
+  session_id: string | null
+  model: string | null
+  created_at: number
+  input_tokens: number | null
+  output_tokens: number | null
+  cache_read_tokens: number | null
+  cache_creation_tokens: number | null
+  cost_usd: number | null
+}
+
 export interface ProjectRow {
   id: string
   name: string

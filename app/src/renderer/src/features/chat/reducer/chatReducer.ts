@@ -4,9 +4,11 @@ import type {
   NormalizedEvent,
   ClassifiedError,
   LoadedSession,
-  PlanReviewRequest
+  PlanReviewRequest,
+  ProviderReportedTelemetry
 } from '../../../../../shared/ipc'
 import type { NormalizedPermissionMode } from '../../../../../shared/permission-mode'
+import { contextTokens } from '../lib/telemetry'
 
 // transcript 렌더가 쓰는 도구 호출 view — parts 의 tool_call+tool_result 를 toolRunId 로
 // 페어링한 결과(lib/parts.ts partsToolCalls). 더 이상 Message 의 필드가 아니다.
@@ -47,7 +49,11 @@ export interface ChatState {
   // 동안 true. ChatPane 이 인디케이터를 표시한다.
   loadingSession: boolean
   turnStartedAt: number | null
-  pendingInputTokens?: number
+  // 마지막 턴의 provider-reported 통계(model·토큰·캐시 분해). 컨텍스트 도넛 + TelemetryPanel(입력·
+  // 캐시·윈도우·사용%)의 소스. 턴 종료(telemetry) 시 세팅, 세션 로드 시 usage_events 최신 행에서
+  // 복원, 새 대화에서만 비움. SEND 는 비우지 않아 턴 진행 중에도 도넛이 유지된다.
+  // 비용/지연은 패널에서 빠졌고 비용은 usage_events 원장(집계)이 SSOT 라 state 에 두지 않는다.
+  lastTelemetry?: ProviderReportedTelemetry
   error?: ClassifiedError
   // Claude 가 AskUserQuestion 으로 던진 미응답 질문 묶음 큐. canUseTool 이 query 를 일시
   // 중지한 채 응답을 기다리므로 보통 길이 0~1 이지만, 안전하게 큐로 모델링해 앞에서 소비한다.
@@ -100,6 +106,8 @@ export const PLAN_TILE_MAX_WIDTH = 640
 export interface CachedSession {
   title: string | null
   messages: Message[]
+  // 세션 전환 후 복귀 시 컨텍스트 도넛/패널을 복원하기 위한 마지막 텔레메트리.
+  lastTelemetry?: ProviderReportedTelemetry
 }
 
 export type ChatAction =
@@ -155,7 +163,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         pendingReasoning: '',
         inflight: true,
         turnStartedAt: Date.now(),
-        pendingInputTokens: undefined,
+        // lastTelemetry 는 비우지 않는다 — 컨텍스트 도넛이 턴 진행 중에도 직전 값을 유지.
         error: undefined
       }
 
@@ -226,14 +234,17 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           }
 
         case 'telemetry': {
-          const inputTokens = ev.usage?.inputTokens
+          const telemetry = ev.usage
           const base = {
             ...state,
             inflight: false,
             turnStartedAt: null,
             // 턴 종료 — 미완 라이브 사고 프리뷰는 비운다(영속은 완성 블록의 message.reasoning).
             pendingReasoning: '',
-            ...(inputTokens != null ? { pendingInputTokens: inputTokens } : {})
+            // 도넛/패널은 lastTelemetry 파생(컨텍스트 사용량 소스). 비용/지연 누산은 제거 —
+            // 비용은 main 의 usage_events 원장(집계)이 SSOT. 컨텍스트 0인 턴(/context 등 로컬
+            // 슬래시 명령 — 모델 미호출)은 직전 도넛 값을 덮어쓰지 않게 스킵한다.
+            ...(telemetry && contextTokens(telemetry) > 0 ? { lastTelemetry: telemetry } : {})
           }
           // pendingDelta 가 아직 남아있으면(message.completed 없이 끝남) text 파트로 굳힌다.
           if (state.pendingDelta) {
@@ -342,7 +353,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         cwd: state.cwd,
         sessionId: action.session.id,
         title: action.session.title,
-        messages
+        messages,
+        // 컨텍스트 도넛/패널을 세션 수명 동안 유지 — usage_events 최신 행에서 복원.
+        ...(action.session.lastTelemetry ? { lastTelemetry: action.session.lastTelemetry } : {})
       }
     }
 
@@ -353,7 +366,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         cwd: state.cwd,
         sessionId: action.sessionId,
         title: action.cached.title,
-        messages: action.cached.messages
+        messages: action.cached.messages,
+        // 캐시 snapshot 에서 도넛/패널 복원(세션 전환 후 복귀 시 유지).
+        ...(action.cached.lastTelemetry ? { lastTelemetry: action.cached.lastTelemetry } : {})
       }
 
     // DB 에 row 가 없거나 IPC 실패. 빈 ChatPane 으로 fallback — lastSessionId 같은

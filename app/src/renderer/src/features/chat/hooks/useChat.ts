@@ -7,6 +7,8 @@ import {
 } from '../reducer/chatReducer'
 import { chatApi, permissionApi, sessionApi, settingsApi } from '../../../shared/api/ipc'
 import type { NormalizedPermissionMode } from '../../../../../shared/permission-mode'
+import type { NormalizedEvent } from '../../../../../shared/ipc'
+import { createEventCoalescer, type EventCoalescer } from '../lib/eventCoalescer'
 
 export interface UseChat {
   state: ChatState
@@ -65,6 +67,10 @@ export function useChat(): UseChat {
   // 단일 사용자·단일 윈도우라 수십 entry 이내. LRU 도입은 Phase 4.
   const cacheRef = useRef<Map<string, CachedSession>>(new Map())
 
+  // 스트리밍 델타 코얼레서 — 구독 effect 가 생성/주입. 세션 전환 시 잔여 버퍼를 폐기하기 위해
+  // ref 로 노출(send/newChat/loadSession 콜백에서 dispose).
+  const coalescerRef = useRef<EventCoalescer | null>(null)
+
   // 활성 세션을 떠날 때 호출. messages 가 비어 있으면 (loading 중 또는 빈 세션)
   // 의미 있는 snapshot 이 아니므로 skip.
   const snapshotActiveToCache = useCallback((): void => {
@@ -72,7 +78,8 @@ export function useChat(): UseChat {
     if (!cur.sessionId || cur.loadingSession || cur.messages.length === 0) return
     cacheRef.current.set(cur.sessionId, {
       title: cur.title,
-      messages: cur.messages
+      messages: cur.messages,
+      ...(cur.lastTelemetry ? { lastTelemetry: cur.lastTelemetry } : {})
     })
   }, [])
 
@@ -82,6 +89,8 @@ export function useChat(): UseChat {
     async (sessionId: string, title: string | null = null) => {
       if (stateRef.current.sessionId === sessionId && !stateRef.current.loadingSession) return
 
+      // 세션 전환 — 직전 세션의 잔여 델타가 새 state 에 붙지 않도록 폐기.
+      coalescerRef.current?.dispose()
       snapshotActiveToCache()
 
       const cached = cacheRef.current.get(sessionId)
@@ -120,7 +129,8 @@ export function useChat(): UseChat {
   }, [])
 
   useEffect(() => {
-    const unsub = chatApi.onEvent((ev) => {
+    // 코얼레서가 실제로 reducer 로 흘려보내는 지점. session.updated 영속화 부수효과도 여기서.
+    const emit = (ev: NormalizedEvent): void => {
       dispatch({ type: 'RECV_EVENT', event: ev })
       // 어댑터가 발급한 첫 sessionId 를 영속화. opencode 가 들어오면 lastBackend
       // 도 함께 갱신해야 한다 (OQ7). init 은 NormalizedEvent 의 session.updated 로 정규화됐다.
@@ -130,8 +140,19 @@ export function useChat(): UseChat {
           lastBackend: 'claude-code'
         })
       }
+    }
+    const coalescer = createEventCoalescer(emit, {
+      schedule: (cb) => requestAnimationFrame(cb),
+      cancel: (h) => cancelAnimationFrame(h)
     })
-    return unsub
+    coalescerRef.current = coalescer
+    // 델타는 프레임 단위로 모으고(§1.2 throttle), 비-델타는 순서 보존을 위해 즉시 flush 후 emit.
+    const unsub = chatApi.onEvent((ev) => coalescer.push(ev))
+    return () => {
+      unsub()
+      coalescer.dispose()
+      coalescerRef.current = null
+    }
   }, [])
 
   const send = useCallback(
@@ -158,6 +179,7 @@ export function useChat(): UseChat {
 
   const newChat = useCallback(
     (projectId: string | null = null) => {
+      coalescerRef.current?.dispose()
       snapshotActiveToCache()
       dispatch({ type: 'NEW_CHAT', projectId })
       void settingsApi.set({ lastSessionId: null })

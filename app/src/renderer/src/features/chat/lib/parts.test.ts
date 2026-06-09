@@ -119,4 +119,13 @@ describe('messageSegments', () => {
       { kind: 'error', error: { message: 'boom' } }
     ])
   })
+
+  it('빈/공백 reasoning 파트는 스킵한다(빈 사고 카드 방지)', () => {
+    const parts: AppMessagePart[] = [
+      { type: 'reasoning', text: '' },
+      { type: 'reasoning', text: '  \n  ' },
+      { type: 'text', text: 'hello' }
+    ]
+    expect(messageSegments(parts)).toEqual([{ kind: 'text', text: 'hello' }])
+  })
 })

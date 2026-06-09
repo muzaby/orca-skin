@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { Button } from '../../../shared/ui/Button'
+import { Icon } from '../../../shared/ui/Icon'
 import { UsageCircle } from '../../../shared/ui/UsageCircle'
 import { Popover } from '../../../shared/ui/Popover'
 import { ReadingColumn } from '../../../shared/ui/ReadingColumn'
@@ -12,7 +13,10 @@ import { ModeMenu } from './composer/ModeMenu'
 import { MODE_LABELS } from './composer/modes'
 import { AskUserQuestionCard } from './AskUserQuestionCard'
 import { ApprovalCard } from './ApprovalCard'
+import { TelemetryPanel } from './TelemetryPanel'
 import type { UseChat } from '../hooks/useChat'
+import { contextTokens } from '../lib/telemetry'
+import { contextWindowFor, nearCompaction } from '../lib/contextWindow'
 import { useSkills } from '../../../shared/hooks/useSkills'
 import { useSkillAutocomplete } from '../hooks/useSkillAutocomplete'
 import { useFileAutocomplete } from '../hooks/useFileAutocomplete'
@@ -25,17 +29,23 @@ interface ComposerProps {
   // cross-feature 데이터라 backend feature 를 직접 import 하지 않고 page 가 props 로 주입한다.
   // claude 는 항상 true 라 오늘 실효 0 — 미래 백엔드(중단 미지원)를 위한 seam.
   canAbort: boolean
+  // transcript 가 있는 ChatTile 에서만 주입 — auto-scroll pin 이 해제됐을 때 컴포저 상단
+  // 중앙에 "맨 아래로" 버튼을 띄운다. 랜딩(NewChat/Project)은 미전달 → 버튼 미표시.
+  showScrollToBottom?: boolean
+  onScrollToBottom?: () => void
 }
-
-// Claude 컨텍스트 윈도우(토큰). usage 도넛 비율 산출용 — 마지막 result 의
-// 실측 inputTokens 를 이 값으로 나눈다(가짜 수치 아님).
-const CONTEXT_WINDOW = 200_000
 
 // 채팅 입력 composer — textarea + chip 행 + send/cancel 버튼 + skills/file 자동완성.
 // ChatTile 과 NewChatLandingPage 양쪽에서 동일하게 재사용.
 // 자체 local state (draft / caret / menuOpen) 는 컴포넌트 내부에 가두고, 외부에는
 // 오직 `chat` 도메인 액션 (send / cancel) 만 의존한다.
-export function Composer({ chat, backendLabel, canAbort }: ComposerProps): React.JSX.Element {
+export function Composer({
+  chat,
+  backendLabel,
+  canAbort,
+  showScrollToBottom,
+  onScrollToBottom
+}: ComposerProps): React.JSX.Element {
   const { state, send, cancel, answerAsk, skipAsk, setPermissionMode } = chat
   // 큐의 맨 앞 질문만 렌더(canUseTool 이 query 를 막아 보통 1개). 응답 시 다음 질문이 노출.
   const activeAsk = state.pendingAsks[0]
@@ -49,6 +59,8 @@ export function Composer({ chat, backendLabel, canAbort }: ComposerProps): React
   const textareaRef = useRef<HighlightedTextareaHandle>(null)
   const textareaWrapRef = useRef<HTMLDivElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const telemetryButtonRef = useRef<HTMLButtonElement>(null)
+  const [telemetryOpen, setTelemetryOpen] = useState(false)
 
   const closeMenu = (): void => setMenuOpen(false)
 
@@ -202,7 +214,19 @@ export function Composer({ chat, backendLabel, canAbort }: ComposerProps): React
   }
 
   return (
-    <div className="app-frame-composer pb-[18px] pt-3">
+    <div className="app-frame-composer relative pb-[18px] pt-3">
+      {showScrollToBottom && (
+        <button
+          type="button"
+          onClick={onScrollToBottom}
+          aria-label="맨 아래로"
+          title="맨 아래로"
+          data-behavior="action:scroll-to-bottom"
+          className="absolute bottom-full left-1/2 mb-2 grid h-8 w-8 -translate-x-1/2 place-items-center rounded-full border border-border bg-surface-primary-elevated text-ink2 effect-primary-elevated transition-colors hover:bg-fill-uncontained-hover hover:text-ink"
+        >
+          <Icon name="chevD" size={16} />
+        </button>
+      )}
       <ReadingColumn>
         {activeAsk && (
           <AskUserQuestionCard
@@ -269,12 +293,43 @@ export function Composer({ chat, backendLabel, canAbort }: ComposerProps): React
               </div>
               <span className="ml-auto flex items-center gap-g4">
                 <span className="text-caption text-t6">{backendLabel}</span>
-                {state.pendingInputTokens != null && (
-                  <UsageCircle
-                    ratio={state.pendingInputTokens / CONTEXT_WINDOW}
-                    aria-label={`컨텍스트 사용량: ${Math.round((state.pendingInputTokens / CONTEXT_WINDOW) * 100)}%`}
-                    title={`컨텍스트 ~${Math.round(state.pendingInputTokens / 1000)}k 토큰 / ${CONTEXT_WINDOW / 1000}k`}
-                  />
+                {state.lastTelemetry &&
+                  (() => {
+                    // 컨텍스트 사용량 = (입력+캐시)/모델 윈도우(마지막 턴 기준). 세션 동안 lastTelemetry
+                    // 가 유지·복원되므로 도넛도 세션 수명 동안 표시된다.
+                    const tokens = contextTokens(state.lastTelemetry)
+                    const window = contextWindowFor(state.lastTelemetry.model)
+                    const pct = Math.round((tokens / window) * 100)
+                    const warn = nearCompaction(tokens, window)
+                    return (
+                      <button
+                        ref={telemetryButtonRef}
+                        type="button"
+                        onClick={() => setTelemetryOpen((v) => !v)}
+                        className="flex items-center rounded-sm focus:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                        aria-haspopup="menu"
+                        aria-expanded={telemetryOpen}
+                        title={`컨텍스트 ~${Math.round(tokens / 1000)}k / ${window / 1000}k 토큰 · 사용량 보기${
+                          warn ? ' · 컨텍스트 한계 임박' : ''
+                        }`}
+                        data-behavior="action:toggle-telemetry"
+                      >
+                        <UsageCircle
+                          ratio={tokens / window}
+                          warn={warn}
+                          aria-label={`컨텍스트 사용량: ${pct}%`}
+                        />
+                      </button>
+                    )
+                  })()}
+                {state.lastTelemetry && (
+                  <Popover
+                    open={telemetryOpen}
+                    anchorRef={telemetryButtonRef}
+                    onClose={() => setTelemetryOpen(false)}
+                  >
+                    <TelemetryPanel telemetry={state.lastTelemetry} />
+                  </Popover>
                 )}
                 {state.inflight ? (
                   <Button

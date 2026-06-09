@@ -114,6 +114,29 @@ export interface PermissionRespond {
   resolution: ApprovalResolution
 }
 
+// provider 가 턴 종료 시 보고하는 사용량/비용 통계 (provider-runtime.md §8 ProviderReportedTelemetry).
+// 전 필드 optional — 런타임이 일부만 주거나 안 줄 수 있다(graceful). claude `result` 의 snake_case·
+// camelCase 혼용 필드를 camelCase 로 정규화한다. cost 는 추정값(cost-tracking.md §14 — 청구 권위 아님).
+export interface TelemetryModelUsage {
+  costUsd?: number
+  inputTokens?: number
+  outputTokens?: number
+  cacheReadTokens?: number
+  cacheCreationTokens?: number
+}
+
+export interface ProviderReportedTelemetry {
+  model?: string
+  inputTokens?: number
+  outputTokens?: number
+  cacheReadTokens?: number
+  cacheCreationTokens?: number
+  costUsd?: number
+  durationMs?: number
+  numTurns?: number
+  modelUsage?: Record<string, TelemetryModelUsage>
+}
+
 export type NormalizedEvent =
   | {
       type: 'session.updated'
@@ -166,7 +189,7 @@ export type NormalizedEvent =
       type: 'telemetry'
       sessionId: string
       provider: ProviderId
-      usage?: { inputTokens: number; outputTokens: number }
+      usage?: ProviderReportedTelemetry
     }
   | {
       type: 'error'
@@ -451,6 +474,9 @@ export interface LoadedSession {
   backend: Backend
   title: string | null
   messages: LoadedMessage[]
+  // 세션 마지막 턴의 provider-reported 통계 — 컨텍스트 도넛/TelemetryPanel 을 세션 수명 동안
+  // 복원(usage_events 최신 행에서 재구성). 비용 집계는 원장 SUM 으로 별도(추후 usage 화면).
+  lastTelemetry?: ProviderReportedTelemetry
 }
 
 // 프로젝트 (Phase 3+) — 대화 묶음 + 전용 시스템 프롬프트 (instructions).

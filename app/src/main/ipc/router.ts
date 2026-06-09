@@ -31,6 +31,7 @@ import {
   type Settings,
   type SkillInfo
 } from '../../shared/protocol'
+import { usageRowToTelemetry, hasContextTokens } from '../usage/usageMap'
 import { AdapterRegistry } from '../adapters/registry'
 import { Installer } from '../installer'
 import { SettingsStore } from '../settings/store'
@@ -510,11 +511,28 @@ export class IpcRouter {
         })
         break
       }
-      case 'telemetry':
-        // 턴 종료 — 다음 assistant 파트는 새 메시지에 묶이도록 reset.
+      case 'telemetry': {
+        // 턴 종료 — 사용량 1행을 원장(usage_events)에 적재. 시간/모델별 집계(추후 usage 화면) +
+        // 세션 최신 행에서 컨텍스트 도넛/패널 복원의 원천. usage 없거나 컨텍스트 0(/context 등
+        // 로컬 슬래시 명령 — 모델 미호출)이면 스킵 — 빈 행이 최신 행으로 도넛을 0으로 덮지 않게.
+        const u = ev.usage
+        if (turn.dbSessionId && u && hasContextTokens(u)) {
+          this.db.insertUsageEvent({
+            sessionId: turn.dbSessionId,
+            model: u.model ?? null,
+            createdAt: now,
+            inputTokens: u.inputTokens ?? null,
+            outputTokens: u.outputTokens ?? null,
+            cacheReadTokens: u.cacheReadTokens ?? null,
+            cacheCreationTokens: u.cacheCreationTokens ?? null,
+            costUsd: u.costUsd ?? null
+          })
+        }
+        // 다음 assistant 파트는 새 메시지에 묶이도록 reset.
         turn.currentAssistantMessageId = null
         turn.assistantText = ''
         break
+      }
       // message.delta 는 transient(미저장). permission.* 는 별도 row 없음.
     }
   }
@@ -601,11 +619,16 @@ export class IpcRouter {
       cur!.parts.push(partFromRow(r))
     }
 
+    // 세션 마지막 턴 사용량 → 컨텍스트 도넛/패널 복원(세션 수명 동안 표시).
+    const usage = this.db.getLatestUsage(parsed.data.sessionId)
+    const lastTelemetry = usage ? usageRowToTelemetry(usage) : undefined
+
     return {
       id: meta.id,
       backend: meta.backend,
       title: meta.title,
-      messages
+      messages,
+      ...(lastTelemetry ? { lastTelemetry } : {})
     }
   }
 
