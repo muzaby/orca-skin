@@ -101,23 +101,23 @@
 
 ## [Codex 기입] 구현 체크리스트
 
-- [ ] 1: `0006_turn_usage.sql`(리네임+분할+이관+drop) + `migrate.ts` 등록
-- [ ] 2: `types.ts` DTO 통일(Turn*Insert/Row + UsageSumRow)
-- [ ] 3: `queries.ts` insertTurnUsage(id 반환)·insertTurnModelUsage·getLatestTurnUsage·sumUsageSince
-- [ ] 4: `usageMap.ts` 재구성(primary model + modelUsage) + 테스트 갱신
-- [ ] 5: `router.ts` persist 모델별 + getLatestTurnUsage + recordAndBroadcast
-- [ ] 6–8: `cost/{boundaries,tracker}.ts` + router 배선(부팅 recompute + handle)
-- [ ] 9–11: `shared/ipc.ts` 타입/채널 + preload/renderer 브리지 + `features/cost` + `App.tsx`
-- [ ] 12: 테스트(boundaries 신규 + 모델별/sum/usageMap 갱신)
-- [ ] 14: `docs/IPC_CONTRACT.md` +2 채널·session:load 갱신
-- [ ] 13: 게이트 `lint && typecheck && test`
+- [x] 1: `0006_turn_usage.sql`(리네임+분할+이관+drop) + `migrate.ts` 등록
+- [x] 2: `types.ts` DTO 통일(Turn*Insert/Row + UsageSumRow)
+- [x] 3: `queries.ts` insertTurnUsage(id 반환)·insertTurnModelUsage·getLatestTurnUsage·sumUsageSince
+- [x] 4: `usageMap.ts` 재구성(primary model + modelUsage) + 테스트 갱신
+- [x] 5: `router.ts` persist 모델별 + getLatestTurnUsage + recordAndBroadcast
+- [x] 6–8: `cost/{boundaries,tracker}.ts` + router 배선(부팅 recompute + handle)
+- [x] 9–11: `shared/ipc.ts` 타입/채널 + preload/renderer 브리지 + `features/cost` + `App.tsx`
+- [x] 12: 테스트(boundaries 신규 + 모델별/sum/usageMap 갱신)
+- [x] 14: `docs/IPC_CONTRACT.md` +2 채널·session:load 갱신
+- [x] 13: 게이트 `lint && typecheck && test`
 
 ## [Codex 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` |
-| 게이트 결과 | lint … / typecheck … / test … |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | `app/src/main/db/migrations/0006_turn_usage.sql`, `app/src/main/db/{migrate,types,queries}.ts`, `app/src/main/usage/usageMap.ts`, `app/src/main/ipc/router.ts`, `app/src/main/cost/{boundaries,tracker}.ts`, `app/src/shared/{ipc,protocol}.ts`, `app/src/preload/index.ts`, `app/src/renderer/src/shared/api/ipc.ts`, `app/src/renderer/src/features/cost/**`, `app/src/renderer/src/App.tsx`, 관련 테스트, `docs/IPC_CONTRACT.md` |
+| 실행 명령 | `cd app && npm run lint && npm run typecheck && npm test` |
+| 게이트 결과 | lint 통과 / typecheck 통과 / test 통과(38 files, 260 tests) |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `4213cad` |

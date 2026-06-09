@@ -50,9 +50,9 @@ export interface ChatState {
   loadingSession: boolean
   turnStartedAt: number | null
   // 마지막 턴의 provider-reported 통계(model·토큰·캐시 분해). 컨텍스트 도넛 + TelemetryPanel(입력·
-  // 캐시·윈도우·사용%)의 소스. 턴 종료(telemetry) 시 세팅, 세션 로드 시 usage_events 최신 행에서
+  // 캐시·윈도우·사용%)의 소스. 턴 종료(telemetry) 시 세팅, 세션 로드 시 turn_usage 최신 행에서
   // 복원, 새 대화에서만 비움. SEND 는 비우지 않아 턴 진행 중에도 도넛이 유지된다.
-  // 비용/지연은 패널에서 빠졌고 비용은 usage_events 원장(집계)이 SSOT 라 state 에 두지 않는다.
+  // 비용/지연은 패널에서 빠졌고 비용은 turn_usage 원장(집계)이 SSOT 라 state 에 두지 않는다.
   lastTelemetry?: ProviderReportedTelemetry
   error?: ClassifiedError
   // Claude 가 AskUserQuestion 으로 던진 미응답 질문 묶음 큐. canUseTool 이 query 를 일시
@@ -242,7 +242,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             // 턴 종료 — 미완 라이브 사고 프리뷰는 비운다(영속은 완성 블록의 message.reasoning).
             pendingReasoning: '',
             // 도넛/패널은 lastTelemetry 파생(컨텍스트 사용량 소스). 비용/지연 누산은 제거 —
-            // 비용은 main 의 usage_events 원장(집계)이 SSOT. 컨텍스트 0인 턴(/context 등 로컬
+            // 비용은 main 의 turn_usage 원장(집계)이 SSOT. 컨텍스트 0인 턴(/context 등 로컬
             // 슬래시 명령 — 모델 미호출)은 직전 도넛 값을 덮어쓰지 않게 스킵한다.
             ...(telemetry && contextTokens(telemetry) > 0 ? { lastTelemetry: telemetry } : {})
           }
@@ -354,7 +354,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         sessionId: action.session.id,
         title: action.session.title,
         messages,
-        // 컨텍스트 도넛/패널을 세션 수명 동안 유지 — usage_events 최신 행에서 복원.
+        // 컨텍스트 도넛/패널을 세션 수명 동안 유지 — turn_usage 최신 행에서 복원.
         ...(action.session.lastTelemetry ? { lastTelemetry: action.session.lastTelemetry } : {})
       }
     }

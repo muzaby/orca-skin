@@ -32,6 +32,7 @@ import {
   type SkillInfo
 } from '../../shared/protocol'
 import { usageRowToTelemetry, hasContextTokens } from '../usage/usageMap'
+import { CostTracker } from '../cost/tracker'
 import { AdapterRegistry } from '../adapters/registry'
 import { Installer } from '../installer'
 import { SettingsStore } from '../settings/store'
@@ -57,7 +58,8 @@ import type {
   ApprovalResolution,
   NormalizedEvent,
   PermissionAction,
-  RuntimeStatus
+  RuntimeStatus,
+  CostSummary
 } from '../../shared/ipc'
 
 interface InflightTurn {
@@ -112,11 +114,14 @@ export class IpcRouter {
   // cwd. 현재는 home 으로 고정 — 향후 사용자 선택 디렉토리로 확장 가능.
   private defaultCwd: string = ''
   private db!: DbQueries
+  private cost!: CostTracker
   // Extension 계층 조립기. db 가 !-asserted 라 field-init 시점엔 undefined → start() 에서 initDb() 이후 생성.
   private extensions!: ExtensionBuilder
 
   async start(): Promise<void> {
     this.db = initDb()
+    this.cost = new CostTracker(this.db)
+    this.cost.recompute()
     // 빌더는 db 인스턴스가 필요해 여기서 생성(field-init 금지). skills 는 lazy getter 라 스캔
     // 완료 전에 만들어도 무방 — 턴 실행 시점에 최신 skillsCache 를 읽는다.
     this.extensions = new ExtensionBuilder(
@@ -184,6 +189,7 @@ export class IpcRouter {
     ipcMain.handle(CHANNELS.mcpDelete, this.handleMcpDelete)
     ipcMain.handle(CHANNELS.runtimeStatus, this.handleRuntimeStatus)
     ipcMain.handle(CHANNELS.runtimePrepare, this.handleRuntimePrepare)
+    ipcMain.handle(CHANNELS.costSummary, this.handleCostSummary)
     ipcMain.handle(CHANNELS.permissionRespond, this.handlePermissionRespond)
     ipcMain.handle(CHANNELS.permissionSetMode, this.handlePermissionSetMode)
     // 런타임 초기화 진행 상태를 모든 창에 브로드캐스트.
@@ -512,21 +518,46 @@ export class IpcRouter {
         break
       }
       case 'telemetry': {
-        // 턴 종료 — 사용량 1행을 원장(usage_events)에 적재. 시간/모델별 집계(추후 usage 화면) +
-        // 세션 최신 행에서 컨텍스트 도넛/패널 복원의 원천. usage 없거나 컨텍스트 0(/context 등
-        // 로컬 슬래시 명령 — 모델 미호출)이면 스킵 — 빈 행이 최신 행으로 도넛을 0으로 덮지 않게.
+        // 턴 종료 — 사용량 부모/자식 행을 turn_usage 원장에 적재. 시간 집계 + 세션 최신 행에서
+        // 컨텍스트 도넛/패널 복원의 원천. usage 없거나 컨텍스트 0(/context 등 로컬 슬래시
+        // 명령 — 모델 미호출)이면 스킵 — 빈 행이 최신 행으로 도넛을 0으로 덮지 않게.
         const u = ev.usage
         if (turn.dbSessionId && u && hasContextTokens(u)) {
-          this.db.insertUsageEvent({
+          const turnUsageId = this.db.insertTurnUsage({
             sessionId: turn.dbSessionId,
-            model: u.model ?? null,
+            messageId: turn.currentAssistantMessageId,
             createdAt: now,
             inputTokens: u.inputTokens ?? null,
             outputTokens: u.outputTokens ?? null,
-            cacheReadTokens: u.cacheReadTokens ?? null,
-            cacheCreationTokens: u.cacheCreationTokens ?? null,
-            costUsd: u.costUsd ?? null
+            cacheCreationInputTokens: u.cacheCreationTokens ?? null,
+            cacheReadInputTokens: u.cacheReadTokens ?? null,
+            totalCostUsd: u.costUsd ?? null
           })
+          const modelEntries = Object.entries(u.modelUsage ?? {})
+          if (modelEntries.length > 0) {
+            for (const [model, mu] of modelEntries) {
+              this.db.insertTurnModelUsage({
+                turnUsageId,
+                model,
+                inputTokens: mu.inputTokens ?? null,
+                outputTokens: mu.outputTokens ?? null,
+                cacheCreationInputTokens: mu.cacheCreationTokens ?? null,
+                cacheReadInputTokens: mu.cacheReadTokens ?? null,
+                costUsd: mu.costUsd ?? null
+              })
+            }
+          } else if (u.model) {
+            this.db.insertTurnModelUsage({
+              turnUsageId,
+              model: u.model,
+              inputTokens: u.inputTokens ?? null,
+              outputTokens: u.outputTokens ?? null,
+              cacheCreationInputTokens: u.cacheCreationTokens ?? null,
+              cacheReadInputTokens: u.cacheReadTokens ?? null,
+              costUsd: u.costUsd ?? null
+            })
+          }
+          this.cost.recordAndBroadcast()
         }
         // 다음 assistant 파트는 새 메시지에 묶이도록 reset.
         turn.currentAssistantMessageId = null
@@ -620,8 +651,8 @@ export class IpcRouter {
     }
 
     // 세션 마지막 턴 사용량 → 컨텍스트 도넛/패널 복원(세션 수명 동안 표시).
-    const usage = this.db.getLatestUsage(parsed.data.sessionId)
-    const lastTelemetry = usage ? usageRowToTelemetry(usage) : undefined
+    const usage = this.db.getLatestTurnUsage(parsed.data.sessionId)
+    const lastTelemetry = usage ? usageRowToTelemetry(usage.turn, usage.modelUsage) : undefined
 
     return {
       id: meta.id,
@@ -740,6 +771,10 @@ export class IpcRouter {
   }
 
   // 현재 런타임 상태 조회 (renderer 마운트 시점의 초기 동기화용). 인자 없음.
+  private handleCostSummary = async (): Promise<CostSummary> => {
+    return this.cost.getSummary()
+  }
+
   private handleRuntimeStatus = async (): Promise<RuntimeStatus> => {
     return this.runtime.status
   }

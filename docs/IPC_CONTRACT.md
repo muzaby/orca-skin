@@ -2,13 +2,13 @@
 
 > 이 문서는 Main ↔ Renderer 간 IPC 채널의 **단일 진실 공급원 (SSOT)** 이다.
 > 채널을 추가/변경할 때는 코드와 이 문서를 함께 갱신한다.
-> 최종 업데이트: 2026-05-26
+> 최종 업데이트: 2026-06-09
 > 관련 문서: [ARCHITECTURE.md](ARCHITECTURE.md), [ARCHITECTURE.md](ARCHITECTURE.md), [GLOSSARY.md](./GLOSSARY.md), [TRD.md](./TRD.md) §5
 
 ## 1. 명명 규칙
 
 - 형식: `orca:<domain>:<action>` — 소문자 + 콜론 구분
-- 도메인 (12개): `chat`, `backend`, `install`, `settings`, `skills`, `files`, `session`, `project`, `window`, `search`, `mcp`, `runtime`
+- 도메인 (14개): `chat`, `backend`, `install`, `settings`, `skills`, `files`, `session`, `project`, `window`, `search`, `mcp`, `runtime`, `cost`, `permission`
 - 방향:
   - Renderer → Main 요청: `ipcMain.handle` + `ipcRenderer.invoke` (Promise 반환)
   - Main → Renderer 이벤트: `webContents.send` + `ipcRenderer.on` (단방향 push)
@@ -16,9 +16,9 @@
 - 채널 상수: `app/src/shared/ipc.ts` 의 `CHANNELS` 객체. 문자열 리터럴 직접 사용 금지.
 - 입력 검증: 모든 `ipcMain.handle` 핸들러는 **zod 스키마 (`app/src/shared/protocol.ts`)** 로 페이로드 검증. 검증 실패 시 에러 throw.
 
-## 2. 채널 카탈로그 (총 33 채널)
+## 2. 채널 카탈로그 (총 35 채널)
 
-도메인별 분포: `chat` 3 · `backend` 1 · `install` 2 · `settings` 2 · `skills` 1 · `files` 1 · `session` 5 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `runtime` 3 · `permission` 2 (`respond` · `setMode`).
+도메인별 분포: `chat` 3 · `backend` 1 · `install` 2 · `settings` 2 · `skills` 1 · `files` 1 · `session` 5 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `runtime` 3 · `cost` 2 · `permission` 2 (`respond` · `setMode`).
 
 `app/src/shared/ipc.ts` 의 `CHANNELS` 상수와 1:1 일치.
 
@@ -88,7 +88,7 @@ interface Settings {
 |---|---|---|---|---|
 | `orca:session:cwd` | R→M (invoke) | — | `Promise<string>` | 현재 작업 디렉토리. 파일 자동완성·`init` 이벤트의 `cwd` 검증용. |
 | `orca:session:list` | R→M (invoke) | — | `SessionListItem[]` | 사이드바 '최근 대화' 메타 목록. DB SSOT — `updatedAt` 내림차순. |
-| `orca:session:load` | R→M (invoke) | `LoadSessionRequest` = `{ sessionId: string }` | `LoadedSession \| null` | 세션 메시지를 순서 보존 parts(`LoadedMessage.parts: AppMessagePart[]`, provider-runtime.md §7)로 일괄 로드. Phase 3 lazy load 진입점. `LoadedSession` 은 마지막 턴 통계 `lastTelemetry?: ProviderReportedTelemetry`(usage_events 최신 행에서 재구성)를 실어 컨텍스트 도넛/패널을 세션 수명 동안 복원. 비용은 `usage_events` 원장(`0005`)이 SSOT — 시간/모델별 집계용. |
+| `orca:session:load` | R→M (invoke) | `LoadSessionRequest` = `{ sessionId: string }` | `LoadedSession \| null` | 세션 메시지를 순서 보존 parts(`LoadedMessage.parts: AppMessagePart[]`, provider-runtime.md §7)로 일괄 로드. Phase 3 lazy load 진입점. `LoadedSession` 은 마지막 턴 통계 `lastTelemetry?: ProviderReportedTelemetry`(`turn_usage` 최신 부모 행 + `turn_model_usage` 자식 행에서 재구성)를 실어 컨텍스트 도넛/패널을 세션 수명 동안 복원. 비용은 `turn_usage` 원장(`0006`)이 SSOT — 일/주/월 시간 집계용이며 모델별 분해는 `turn_model_usage` 에 보존한다. |
 | `orca:session:delete` | R→M (invoke) | `DeleteSessionRequest` = `{ sessionId: string }` | `Promise<void>` | hard delete (CASCADE — messages/tool_calls 동반 삭제). `lastSessionId` 가 대상이면 settings 도 해제. |
 | `orca:session:rename` | R→M (invoke) | `RenameSessionRequest` = `{ sessionId: string; title: string }` | `Promise<void>` | title 덮어쓰기 + `updatedAt` 갱신. title 길이 1–120 자. |
 
@@ -196,7 +196,34 @@ interface RuntimeStatus {
 }
 ```
 
-### 2.12 예약 / 미노출 채널
+
+### 2.12 Cost (Phase 3++)
+
+일/주/월 비용·토큰 누적 summary. Main 의 `CostTracker` 가 `turn_usage.created_at` 기준 SQL `SUM` 으로 재계산하고, Renderer 는 표시 UI 없이 읽기전용 Context 미러만 유지한다.
+
+| 채널 | 방향 | 페이로드 | 응답 | 설명 |
+|---|---|---|---|---|
+| `orca:cost:summary` | R→M (invoke) | — | `CostSummary` | 현재 캐시된 일/주/월 비용·토큰 누적값 1회 조회. 앱 부팅 시 main 이 1회 `recompute()` 한 값을 반환한다. |
+| `orca:cost:summaryEvent` | M→R (send) | `CostSummary` | — | telemetry 저장 직후 `CostTracker.recordAndBroadcast()` 가 모든 창에 push 하는 summary 갱신 이벤트. |
+
+`CostSummary` 타입 (`app/src/shared/ipc.ts`):
+```typescript
+interface CostPeriodSummary {
+  totalCostUsd: number
+  inputTokens: number
+  outputTokens: number
+  cacheCreationInputTokens: number
+  cacheReadInputTokens: number
+}
+interface CostSummary {
+  day: CostPeriodSummary
+  week: CostPeriodSummary
+  month: CostPeriodSummary
+  updatedAt: number
+}
+```
+
+### 2.13 예약 / 미노출 채널
 
 코드에 채널 상수는 없지만 향후 도입이 예약된 도메인:
 
@@ -265,8 +292,8 @@ interface RuntimeStatus {
 2. `app/src/shared/protocol.ts` — zod 스키마 추가 (요청 검증 필요 시)
 3. `app/src/main/ipc/router.ts` — `ipcMain.handle` 등록 + 검증 로직
 4. `app/src/preload/index.ts` — `window.orca.<domain>.<action>` 노출 추가
-5. Renderer 사용처 (`app/src/renderer/src/state/use*.ts` 또는 컴포넌트)
-6. **이 문서 §2 의 표 갱신** (도메인 추가 시 §2.x 신설)
+5. Renderer 사용처 (`app/src/renderer/src/shared/api/ipc.ts`, feature provider/hook 또는 컴포넌트)
+6. **이 문서 §2 의 표 갱신** (도메인 추가 시 §2.x 신설, 총 채널 수/도메인별 분포도 동시 갱신)
 7. 영향 받는 FRONTEND/BACKEND 문서 anchor 업데이트
 8. PR 설명에 IPC 변경 사항 명시
 

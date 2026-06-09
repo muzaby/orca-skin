@@ -5,6 +5,7 @@ import {
   type SetPermissionMode,
   type Backend,
   type BackendListResult,
+  type CostSummary,
   type NormalizedEvent,
   type CreateMcpServerRequest,
   type CreateProjectRequest,
@@ -102,6 +103,14 @@ const orca = {
   },
   // Python 런타임 (uv 격리 인터프리터). status: 현재 상태 조회, prepare: 재시도 트리거,
   // onStatus: 초기화 진행 스트림 구독.
+  cost: {
+    summary: (): Promise<CostSummary> => ipcRenderer.invoke(CHANNELS.costSummary),
+    onSummary: (handler: (summary: CostSummary) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, summary: CostSummary): void => handler(summary)
+      ipcRenderer.on(CHANNELS.costSummaryEvent, listener)
+      return () => ipcRenderer.off(CHANNELS.costSummaryEvent, listener)
+    }
+  },
   runtime: {
     status: (): Promise<RuntimeStatus> => ipcRenderer.invoke(CHANNELS.runtimeStatus),
     prepare: (): Promise<void> => ipcRenderer.invoke(CHANNELS.runtimePrepare),
