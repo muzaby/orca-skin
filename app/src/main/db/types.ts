@@ -37,28 +37,57 @@ export interface SessionListRow {
   project_id: string | null
 }
 
-// 0005 usage_events — per-turn 사용량 원장. 시간/모델별 집계 + 세션 최신 행에서 컨텍스트 복원.
-export interface UsageEventInsert {
+// 0006 turn_usage — per-turn 사용량 원장. 모델별 분해는 turn_model_usage 자식 행에 저장.
+export interface TurnUsageInsert {
   sessionId: string | null
-  model: string | null
+  messageId: number | null
   createdAt: number
   inputTokens: number | null
   outputTokens: number | null
-  cacheReadTokens: number | null
-  cacheCreationTokens: number | null
-  costUsd: number | null
+  cacheCreationInputTokens: number | null
+  cacheReadInputTokens: number | null
+  totalCostUsd: number | null
 }
 
-export interface UsageRow {
+export interface TurnUsageRow {
   id: number
   session_id: string | null
-  model: string | null
+  message_id: number | null
   created_at: number
   input_tokens: number | null
   output_tokens: number | null
-  cache_read_tokens: number | null
-  cache_creation_tokens: number | null
+  cache_creation_input_tokens: number | null
+  cache_read_input_tokens: number | null
+  total_cost_usd: number | null
+}
+
+export interface TurnModelUsageInsert {
+  turnUsageId: number
+  model: string
+  inputTokens: number | null
+  outputTokens: number | null
+  cacheCreationInputTokens: number | null
+  cacheReadInputTokens: number | null
+  costUsd: number | null
+}
+
+export interface TurnModelUsageRow {
+  id: number
+  turn_usage_id: number
+  model: string
+  input_tokens: number | null
+  output_tokens: number | null
+  cache_creation_input_tokens: number | null
+  cache_read_input_tokens: number | null
   cost_usd: number | null
+}
+
+export interface UsageSumRow {
+  input_tokens: number
+  output_tokens: number
+  cache_creation_input_tokens: number
+  cache_read_input_tokens: number
+  total_cost_usd: number
 }
 
 export interface ProjectRow {

@@ -3,6 +3,7 @@ import type {
   SetPermissionMode,
   Backend,
   BackendListResult,
+  CostSummary,
   NormalizedEvent,
   CreateMcpServerRequest,
   CreateProjectRequest,
@@ -82,6 +83,12 @@ export const windowApi = {
 export const searchApi = {
   messages: (q: string, limit?: number): Promise<SearchHit[]> =>
     window.orca.search.messages(q, limit)
+}
+
+export const costApi = {
+  summary: (): Promise<CostSummary> => window.orca.cost.summary(),
+  onSummary: (handler: (summary: CostSummary) => void): (() => void) =>
+    window.orca.cost.onSummary(handler)
 }
 
 export const permissionApi = {

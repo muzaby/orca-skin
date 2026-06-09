@@ -230,6 +230,8 @@ export type {
   SendChatMessage,
   CancelChat,
   BackendListResult,
+  CostPeriodSummary,
+  CostSummary,
   SessionCapabilities,
   RevertCapabilities,
   CancellationCapability,
