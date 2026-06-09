@@ -44,6 +44,7 @@ import { listDir } from '../files/scan'
 import { initDb, type DbQueries } from '../db'
 import type { LoadedPartRow } from '../db/types'
 import { PythonRuntime, PY_AGENT_RULES } from '../runtime'
+import { CostTracker } from '../cost/tracker'
 import { ExtensionBuilder } from '../extensions/builder'
 import { InteractionBroker } from '../ask/broker'
 import { agentPermissionRequest } from '../runtime-events/permission-bridge'
@@ -56,7 +57,8 @@ import type {
   ApprovalResolution,
   NormalizedEvent,
   PermissionAction,
-  RuntimeStatus
+  RuntimeStatus,
+  CostSummary
 } from '../../shared/ipc'
 
 interface InflightTurn {
@@ -111,11 +113,14 @@ export class IpcRouter {
   // cwd. 현재는 home 으로 고정 — 향후 사용자 선택 디렉토리로 확장 가능.
   private defaultCwd: string = ''
   private db!: DbQueries
+  private cost!: CostTracker
   // Extension 계층 조립기. db 가 !-asserted 라 field-init 시점엔 undefined → start() 에서 initDb() 이후 생성.
   private extensions!: ExtensionBuilder
 
   async start(): Promise<void> {
     this.db = initDb()
+    this.cost = new CostTracker(this.db)
+    this.cost.recompute()
     // 빌더는 db 인스턴스가 필요해 여기서 생성(field-init 금지). skills 는 lazy getter 라 스캔
     // 완료 전에 만들어도 무방 — 턴 실행 시점에 최신 skillsCache 를 읽는다.
     this.extensions = new ExtensionBuilder(
@@ -183,6 +188,7 @@ export class IpcRouter {
     ipcMain.handle(CHANNELS.mcpDelete, this.handleMcpDelete)
     ipcMain.handle(CHANNELS.runtimeStatus, this.handleRuntimeStatus)
     ipcMain.handle(CHANNELS.runtimePrepare, this.handleRuntimePrepare)
+    ipcMain.handle(CHANNELS.costSummary, this.handleCostSummary)
     ipcMain.handle(CHANNELS.permissionRespond, this.handlePermissionRespond)
     ipcMain.handle(CHANNELS.permissionSetMode, this.handlePermissionSetMode)
     // 런타임 초기화 진행 상태를 모든 창에 브로드캐스트.
@@ -511,6 +517,21 @@ export class IpcRouter {
         break
       }
       case 'telemetry':
+        if (turn.dbSessionId && ev.usage) {
+          const usageId = this.db.insertTurnUsage({
+            sessionId: turn.dbSessionId,
+            inputTokens: ev.usage.inputTokens,
+            outputTokens: ev.usage.outputTokens,
+            cacheCreationInputTokens: ev.usage.cacheCreationInputTokens,
+            cacheReadInputTokens: ev.usage.cacheReadInputTokens,
+            totalCostUsd: ev.usage.totalCostUsd,
+            createdAt: now
+          })
+          for (const modelUsage of ev.usage.models) {
+            this.db.insertTurnModelUsage({ turnUsageId: usageId, ...modelUsage })
+          }
+          this.cost.recordAndBroadcast(now)
+        }
         // 턴 종료 — 다음 assistant 파트는 새 메시지에 묶이도록 reset.
         turn.currentAssistantMessageId = null
         turn.assistantText = ''
@@ -724,6 +745,10 @@ export class IpcRouter {
   // 실패 후 재시도 또는 수동 준비 트리거. 진행 상태는 statusEvent 로 별도 스트리밍.
   private handleRuntimePrepare = async (): Promise<void> => {
     await this.runtime.retry()
+  }
+
+  private handleCostSummary = async (): Promise<CostSummary> => {
+    return this.cost.getSummary()
   }
 
   // 단일 권한 응답 — renderer 가 ask/plan/tool 승인을 approvalId + ApprovalResolution 으로

@@ -2,13 +2,13 @@
 
 > 이 문서는 Main ↔ Renderer 간 IPC 채널의 **단일 진실 공급원 (SSOT)** 이다.
 > 채널을 추가/변경할 때는 코드와 이 문서를 함께 갱신한다.
-> 최종 업데이트: 2026-05-26
+> 최종 업데이트: 2026-06-09
 > 관련 문서: [ARCHITECTURE.md](ARCHITECTURE.md), [ARCHITECTURE.md](ARCHITECTURE.md), [GLOSSARY.md](./GLOSSARY.md), [TRD.md](./TRD.md) §5
 
 ## 1. 명명 규칙
 
 - 형식: `orca:<domain>:<action>` — 소문자 + 콜론 구분
-- 도메인 (12개): `chat`, `backend`, `install`, `settings`, `skills`, `files`, `session`, `project`, `window`, `search`, `mcp`, `runtime`
+- 도메인 (13개): `chat`, `backend`, `install`, `settings`, `skills`, `files`, `session`, `project`, `window`, `search`, `mcp`, `runtime`, `cost`
 - 방향:
   - Renderer → Main 요청: `ipcMain.handle` + `ipcRenderer.invoke` (Promise 반환)
   - Main → Renderer 이벤트: `webContents.send` + `ipcRenderer.on` (단방향 push)
@@ -16,9 +16,9 @@
 - 채널 상수: `app/src/shared/ipc.ts` 의 `CHANNELS` 객체. 문자열 리터럴 직접 사용 금지.
 - 입력 검증: 모든 `ipcMain.handle` 핸들러는 **zod 스키마 (`app/src/shared/protocol.ts`)** 로 페이로드 검증. 검증 실패 시 에러 throw.
 
-## 2. 채널 카탈로그 (총 33 채널)
+## 2. 채널 카탈로그 (총 35 채널)
 
-도메인별 분포: `chat` 3 · `backend` 1 · `install` 2 · `settings` 2 · `skills` 1 · `files` 1 · `session` 5 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `runtime` 3 · `permission` 2 (`respond` · `setMode`).
+도메인별 분포: `chat` 3 · `backend` 1 · `install` 2 · `settings` 2 · `skills` 1 · `files` 1 · `session` 5 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `runtime` 3 · `cost` 2 · `permission` 2 (`respond` · `setMode`).
 
 `app/src/shared/ipc.ts` 의 `CHANNELS` 상수와 1:1 일치.
 
@@ -196,7 +196,32 @@ interface RuntimeStatus {
 }
 ```
 
-### 2.12 예약 / 미노출 채널
+### 2.12 Cost
+
+턴별 SDK result 에서 저장한 `turn_usage` 를 main 이 집계한 일/주/월 누적 비용 미러. Backend(DB)가 SSOT 이며 renderer 는 Provider 에 캐시만 둔다.
+
+| 채널 | 방향 | 페이로드 | 응답 | 설명 |
+|---|---|---|---|---|
+| `orca:cost:summary` | R→M (invoke) | — | `CostSummary` | 앱 시작/Provider 마운트 시 현재 일/주/월 누적 비용·토큰 합계를 1회 조회. |
+| `orca:cost:summaryEvent` | M→R (send) | `CostSummary` | — | 새 턴 usage 저장 후 재집계한 누적 비용·토큰 합계 push. |
+
+`CostSummary` (`app/src/shared/ipc.ts`):
+```typescript
+interface CostUsageTotals {
+  costUsd: number
+  inputTokens: number
+  outputTokens: number
+  cacheCreationInputTokens: number
+  cacheReadInputTokens: number
+}
+interface CostSummary {
+  day: CostUsageTotals
+  week: CostUsageTotals
+  month: CostUsageTotals
+}
+```
+
+### 2.13 예약 / 미노출 채널
 
 코드에 채널 상수는 없지만 향후 도입이 예약된 도메인:
 
@@ -221,7 +246,7 @@ interface RuntimeStatus {
 | `message.reasoning.delta` | `delta: { text }` | 확장사고 라이브 (SDK `thinking_delta`) | `pendingReasoning += text` (transient, 미저장). `message.delta` 와 동형 — 런타임 미수신 시 발생 안 함 |
 | `tool.call.started` | `toolRunId; toolName; args` | LLM 도구 호출 (SDK `tool_use` block) | 현재 assistant 메시지에 `tool_call` 파트 append |
 | `tool.call.completed` | `toolRunId; result; isError; durationMs?` | 도구 실행 완료 (SDK `tool_result` block) | `tool_result` 파트 append (`toolRunId` 로 `tool_call` 과 페어링) |
-| `telemetry` | `usage?: { inputTokens; outputTokens }` | 어댑터 턴 종료 (SDK `SDKResultMessage`) | `inflight = false`, `pendingInputTokens` 갱신 |
+| `telemetry` | `usage?: { inputTokens; outputTokens; cacheCreationInputTokens; cacheReadInputTokens; totalCostUsd; contextWindow?; models[] }` | 어댑터 턴 종료 (SDK `SDKResultMessage`) | `inflight = false`, `pendingUsage` 갱신, main 은 `turn_usage`/`turn_model_usage` 저장 후 `cost:summaryEvent` 브로드캐스트 |
 | `error` | `error: { code; message; recoverable }` (`sessionId?`) | 어댑터 catch 또는 SDK 에러 | `state.error` 설정, `inflight = false` |
 | `permission.requested` | `approvalId; origin; action: PermissionAction` | AskUserQuestion·ExitPlanMode·**위험 도구 게이트**(canUseTool) | `action.kind` 로 분기 → `pendingAsks` / `pendingPlanReview` / `pendingToolApproval`. 응답은 단일 `permissionRespond`(`{approvalId, resolution}`, approvalId=requestId) |
 | `permission.resolved` | `approvalId; resolution: ApprovalResolution` | 권한 해소(audit/telemetry) | no-op(카드는 respond 시 로컬 RESOLVE_* 로 닫힘) |

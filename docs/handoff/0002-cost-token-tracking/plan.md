@@ -247,21 +247,33 @@ ratio = used / contextWindow          // 요구식: (… ) / contextWindow * 100
 
 ## [Codex 기입] 구현 체크리스트
 
-- [ ] 1-1/1-2: `shared/ipc.ts` telemetry.usage 확장 + `claude-map.ts` result 추출
-- [ ] 1-3: `0005_turn_usage.sql` (2 테이블 + 2 인덱스) + `migrate.ts` 등록
-- [ ] 2-1: `types.ts`/`queries.ts` DTO·insert·sum + `router.ts` telemetry persist
-- [ ] 3-1: `chatReducer.ts` pendingUsage + `Composer.tsx` % 보정
-- [ ] 3-2: `cost/{boundaries,tracker}.ts` + router 배선 + preload/renderer 브리지 + `features/cost` + `App.tsx`
-- [ ] 테스트: `claude-map.test.ts` 확장 + `boundaries.test.ts` 신규
-- [ ] `docs/IPC_CONTRACT.md` +2 채널 갱신
-- [ ] 게이트: `npm run lint && npm run typecheck && npm test`
+- [x] 1-1/1-2: `shared/ipc.ts` telemetry.usage 확장 + `claude-map.ts` result 추출
+- [x] 1-3: `0005_turn_usage.sql` (2 테이블 + 2 인덱스) + `migrate.ts` 등록
+- [x] 2-1: `types.ts`/`queries.ts` DTO·insert·sum + `router.ts` telemetry persist
+- [x] 3-1: `chatReducer.ts` pendingUsage + `Composer.tsx` % 보정
+- [x] 3-2: `cost/{boundaries,tracker}.ts` + router 배선 + preload/renderer 브리지 + `features/cost` + `App.tsx`
+- [x] 테스트: `claude-map.test.ts` 확장 + `boundaries.test.ts` 신규
+- [x] `docs/IPC_CONTRACT.md` +2 채널 갱신
+- [x] 게이트: `npm run lint && npm run typecheck && npm test`
 
 ## [Codex 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` |
-| 게이트 결과 | lint … / typecheck … / test … |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | `app/src/shared/ipc.ts`, `app/src/main/adapters/claude-map.ts`, `app/src/main/db/**`, `app/src/main/cost/**`, `app/src/main/ipc/router.ts`, `app/src/preload/index.ts`, `app/src/renderer/src/**`, `docs/IPC_CONTRACT.md` |
+| 실행 명령 | `cd app && npm run lint && npm run typecheck && npm test` |
+| 게이트 결과 | PASS — lint/typecheck/vitest 224개 테스트 통과 |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `(이번 커밋)` |
+
+- 변경 파일:
+  - `app/src/shared/ipc.ts`, `app/src/main/adapters/claude-map.ts`: SDK result usage/modelUsage/cost/contextWindow 정규화.
+  - `app/src/main/db/migrations/0005_turn_usage.sql`, `migrate.ts`, `types.ts`, `queries.ts`: 턴/모델별 usage 저장 및 합계 쿼리.
+  - `app/src/main/cost/{boundaries.ts,tracker.ts}`, `app/src/main/ipc/router.ts`: 비용 합계 main 싱글턴, 부팅 recompute, telemetry 저장 후 broadcast.
+  - `app/src/preload/index.ts`, `app/src/renderer/src/shared/api/ipc.ts`, `app/src/renderer/src/features/cost/*`, `app/src/renderer/src/App.tsx`: cost summary invoke/push 브리지와 renderer Provider 미러.
+  - `app/src/renderer/src/features/chat/reducer/chatReducer.ts`, `app/src/renderer/src/features/chat/components/Composer.tsx`: pendingUsage 스냅샷과 contextWindow 기반 도넛 비율.
+  - `app/src/main/adapters/claude-map.test.ts`, `app/src/main/cost/boundaries.test.ts`, `app/src/renderer/src/features/chat/reducer/chatReducer.parts.test.ts`: usage/boundary/reducer 회귀 테스트.
+  - `docs/IPC_CONTRACT.md`: 채널 35개 및 cost 채널 계약 반영.
+- 게이트 결과:
+  - PASS: `cd app && npm run lint && npm run typecheck && npm test`
+- 블로커: 없음.

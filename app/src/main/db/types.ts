@@ -117,3 +117,31 @@ export interface SearchHitRow {
   session_title: string | null
   snippet: string
 }
+
+export interface TurnUsageInsert {
+  sessionId: string
+  inputTokens: number
+  outputTokens: number
+  cacheCreationInputTokens: number
+  cacheReadInputTokens: number
+  totalCostUsd: number
+  createdAt: number
+}
+
+export interface TurnModelUsageInsert {
+  turnUsageId: number
+  model: string
+  inputTokens: number
+  outputTokens: number
+  cacheCreationInputTokens: number
+  cacheReadInputTokens: number
+  costUsd: number
+}
+
+export interface UsageTotalsRow {
+  costUsd: number
+  inputTokens: number
+  outputTokens: number
+  cacheCreationInputTokens: number
+  cacheReadInputTokens: number
+}

@@ -146,7 +146,14 @@ describe('chatReducer — AppMessagePart 모델', () => {
         type: 'telemetry',
         sessionId: 's',
         provider: 'claude-code',
-        usage: { inputTokens: 1, outputTokens: 1 }
+        usage: {
+          inputTokens: 1,
+          outputTokens: 1,
+          cacheCreationInputTokens: 0,
+          cacheReadInputTokens: 0,
+          totalCostUsd: 0,
+          models: []
+        }
       }
     ])
     expect(s.pendingReasoning).toBe('')

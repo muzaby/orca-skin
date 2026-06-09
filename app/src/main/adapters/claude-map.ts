@@ -141,19 +141,57 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
 
   // SDKResultMessage → telemetry (턴 종료)
   if (msg.type === 'result') {
-    const usage = (msg as unknown as { usage?: { input_tokens?: number; output_tokens?: number } })
-      .usage
+    const result = msg as unknown as {
+      usage?: {
+        input_tokens?: number
+        output_tokens?: number
+        cache_creation_input_tokens?: number
+        cache_read_input_tokens?: number
+      }
+      total_cost_usd?: number
+      modelUsage?: Record<
+        string,
+        {
+          inputTokens?: number
+          outputTokens?: number
+          cacheCreationInputTokens?: number
+          cacheReadInputTokens?: number
+          costUSD?: number
+          contextWindow?: number
+        }
+      >
+    }
+    const { usage, modelUsage } = result
     if (
       usage &&
       typeof usage.input_tokens === 'number' &&
       typeof usage.output_tokens === 'number'
     ) {
+      const modelEntries = Object.entries(modelUsage ?? {})
+      const contextWindows = modelEntries
+        .map(([, m]) => m.contextWindow)
+        .filter((v): v is number => typeof v === 'number')
       return [
         {
           type: 'telemetry',
           sessionId: ctx.sessionId,
           provider,
-          usage: { inputTokens: usage.input_tokens, outputTokens: usage.output_tokens }
+          usage: {
+            inputTokens: usage.input_tokens,
+            outputTokens: usage.output_tokens,
+            cacheCreationInputTokens: usage.cache_creation_input_tokens ?? 0,
+            cacheReadInputTokens: usage.cache_read_input_tokens ?? 0,
+            totalCostUsd: result.total_cost_usd ?? 0,
+            ...(contextWindows.length > 0 ? { contextWindow: Math.max(...contextWindows) } : {}),
+            models: modelEntries.map(([model, m]) => ({
+              model,
+              inputTokens: m.inputTokens ?? 0,
+              outputTokens: m.outputTokens ?? 0,
+              cacheCreationInputTokens: m.cacheCreationInputTokens ?? 0,
+              cacheReadInputTokens: m.cacheReadInputTokens ?? 0,
+              costUsd: m.costUSD ?? 0
+            }))
+          }
         }
       ]
     }

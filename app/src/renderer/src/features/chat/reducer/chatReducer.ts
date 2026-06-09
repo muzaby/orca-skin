@@ -4,7 +4,8 @@ import type {
   NormalizedEvent,
   ClassifiedError,
   LoadedSession,
-  PlanReviewRequest
+  PlanReviewRequest,
+  TurnUsage
 } from '../../../../../shared/ipc'
 import type { NormalizedPermissionMode } from '../../../../../shared/permission-mode'
 
@@ -47,7 +48,10 @@ export interface ChatState {
   // 동안 true. ChatPane 이 인디케이터를 표시한다.
   loadingSession: boolean
   turnStartedAt: number | null
-  pendingInputTokens?: number
+  pendingUsage?: Pick<
+    TurnUsage,
+    'inputTokens' | 'cacheCreationInputTokens' | 'cacheReadInputTokens' | 'contextWindow'
+  >
   error?: ClassifiedError
   // Claude 가 AskUserQuestion 으로 던진 미응답 질문 묶음 큐. canUseTool 이 query 를 일시
   // 중지한 채 응답을 기다리므로 보통 길이 0~1 이지만, 안전하게 큐로 모델링해 앞에서 소비한다.
@@ -155,7 +159,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         pendingReasoning: '',
         inflight: true,
         turnStartedAt: Date.now(),
-        pendingInputTokens: undefined,
+        pendingUsage: undefined,
         error: undefined
       }
 
@@ -226,14 +230,14 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           }
 
         case 'telemetry': {
-          const inputTokens = ev.usage?.inputTokens
+          const usage = ev.usage
           const base = {
             ...state,
             inflight: false,
             turnStartedAt: null,
             // 턴 종료 — 미완 라이브 사고 프리뷰는 비운다(영속은 완성 블록의 message.reasoning).
             pendingReasoning: '',
-            ...(inputTokens != null ? { pendingInputTokens: inputTokens } : {})
+            ...(usage ? { pendingUsage: usage } : {})
           }
           // pendingDelta 가 아직 남아있으면(message.completed 없이 끝남) text 파트로 굳힌다.
           if (state.pendingDelta) {

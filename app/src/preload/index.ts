@@ -6,6 +6,7 @@ import {
   type Backend,
   type BackendListResult,
   type NormalizedEvent,
+  type CostSummary,
   type CreateMcpServerRequest,
   type CreateProjectRequest,
   type FileEntry,
@@ -109,6 +110,14 @@ const orca = {
       const listener = (_e: IpcRendererEvent, st: RuntimeStatus): void => handler(st)
       ipcRenderer.on(CHANNELS.runtimeStatusEvent, listener)
       return () => ipcRenderer.off(CHANNELS.runtimeStatusEvent, listener)
+    }
+  },
+  cost: {
+    summary: (): Promise<CostSummary> => ipcRenderer.invoke(CHANNELS.costSummary),
+    onSummary: (handler: (summary: CostSummary) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, summary: CostSummary): void => handler(summary)
+      ipcRenderer.on(CHANNELS.costSummaryEvent, listener)
+      return () => ipcRenderer.off(CHANNELS.costSummaryEvent, listener)
     }
   },
   // 권한 응답 (ask/plan/tool 단일 채널) — 사용자의 승인/거부를 approvalId + resolution 으로

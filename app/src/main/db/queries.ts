@@ -7,7 +7,10 @@ import type {
   ProjectRow,
   SearchHitRow,
   SessionInsert,
-  SessionListRow
+  SessionListRow,
+  TurnModelUsageInsert,
+  TurnUsageInsert,
+  UsageTotalsRow
 } from './types'
 
 export class DbQueries {
@@ -34,6 +37,9 @@ export class DbQueries {
   private readonly getProjectInstructionsForSessionStmt: Database.Statement
   // FTS5 검색 — messages_fts virtual table 을 messages + sessions 와 조인.
   private readonly searchMessagesStmt: Database.Statement
+  private readonly insertTurnUsageStmt: Database.Statement
+  private readonly insertTurnModelUsageStmt: Database.Statement
+  private readonly sumUsageSinceStmt: Database.Statement
 
   constructor(db: Database.Database) {
     this.insertSessionStmt = db.prepare(`
@@ -155,6 +161,56 @@ export class DbQueries {
       ORDER BY rank
       LIMIT @limit
     `)
+    this.insertTurnUsageStmt = db.prepare(`
+      INSERT INTO turn_usage (
+        session_id,
+        input_tokens,
+        output_tokens,
+        cache_creation_input_tokens,
+        cache_read_input_tokens,
+        total_cost_usd,
+        created_at
+      )
+      VALUES (
+        @sessionId,
+        @inputTokens,
+        @outputTokens,
+        @cacheCreationInputTokens,
+        @cacheReadInputTokens,
+        @totalCostUsd,
+        @createdAt
+      )
+    `)
+    this.insertTurnModelUsageStmt = db.prepare(`
+      INSERT INTO turn_model_usage (
+        turn_usage_id,
+        model,
+        input_tokens,
+        output_tokens,
+        cache_creation_input_tokens,
+        cache_read_input_tokens,
+        cost_usd
+      )
+      VALUES (
+        @turnUsageId,
+        @model,
+        @inputTokens,
+        @outputTokens,
+        @cacheCreationInputTokens,
+        @cacheReadInputTokens,
+        @costUsd
+      )
+    `)
+    this.sumUsageSinceStmt = db.prepare(`
+      SELECT
+        COALESCE(SUM(total_cost_usd), 0) AS costUsd,
+        COALESCE(SUM(input_tokens), 0) AS inputTokens,
+        COALESCE(SUM(output_tokens), 0) AS outputTokens,
+        COALESCE(SUM(cache_creation_input_tokens), 0) AS cacheCreationInputTokens,
+        COALESCE(SUM(cache_read_input_tokens), 0) AS cacheReadInputTokens
+      FROM turn_usage
+      WHERE created_at >= @since
+    `)
   }
 
   insertSession(row: SessionInsert): void {
@@ -252,6 +308,19 @@ export class DbQueries {
       | { instructions: string }
       | undefined
     return row?.instructions ?? null
+  }
+
+  insertTurnUsage(row: TurnUsageInsert): number {
+    const info = this.insertTurnUsageStmt.run(row)
+    return Number(info.lastInsertRowid)
+  }
+
+  insertTurnModelUsage(row: TurnModelUsageInsert): void {
+    this.insertTurnModelUsageStmt.run(row)
+  }
+
+  sumUsageSince(since: number): UsageTotalsRow {
+    return this.sumUsageSinceStmt.get({ since }) as UsageTotalsRow
   }
 
   // 사용자 입력어를 FTS5 MATCH 표현식으로 안전하게 변환 후 검색.

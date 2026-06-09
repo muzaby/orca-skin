@@ -37,6 +37,8 @@ export const CHANNELS = {
   runtimeStatus: 'orca:runtime:status',
   runtimePrepare: 'orca:runtime:prepare',
   runtimeStatusEvent: 'orca:runtime:statusEvent',
+  costSummary: 'orca:cost:summary',
+  costSummaryEvent: 'orca:cost:summaryEvent',
   // 권한 응답 단일 채널 — ask/plan/tool 세 종류의 승인 응답이 모두 이 채널로 흐른다
   // (askRespond/planRespond 2채널 통합). 응답 = { approvalId, resolution: ApprovalResolution }.
   permissionRespond: 'orca:permission:respond',
@@ -73,6 +75,39 @@ export interface ClassifiedError {
   retryable: boolean
   provider?: ProviderId
   cause?: unknown
+}
+
+export interface TurnModelUsage {
+  model: string
+  inputTokens: number
+  outputTokens: number
+  cacheCreationInputTokens: number
+  cacheReadInputTokens: number
+  costUsd: number
+}
+
+export interface TurnUsage {
+  inputTokens: number
+  outputTokens: number
+  cacheCreationInputTokens: number
+  cacheReadInputTokens: number
+  totalCostUsd: number
+  contextWindow?: number
+  models: TurnModelUsage[]
+}
+
+export interface CostUsageTotals {
+  costUsd: number
+  inputTokens: number
+  outputTokens: number
+  cacheCreationInputTokens: number
+  cacheReadInputTokens: number
+}
+
+export interface CostSummary {
+  day: CostUsageTotals
+  week: CostUsageTotals
+  month: CostUsageTotals
 }
 
 // ── NormalizedEvent (provider-runtime.md §2) — 와이어(orca:chat:event)의 정규 이벤트 ─────────
@@ -166,7 +201,7 @@ export type NormalizedEvent =
       type: 'telemetry'
       sessionId: string
       provider: ProviderId
-      usage?: { inputTokens: number; outputTokens: number }
+      usage?: TurnUsage
     }
   | {
       type: 'error'

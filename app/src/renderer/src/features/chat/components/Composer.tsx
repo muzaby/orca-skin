@@ -27,9 +27,8 @@ interface ComposerProps {
   canAbort: boolean
 }
 
-// Claude 컨텍스트 윈도우(토큰). usage 도넛 비율 산출용 — 마지막 result 의
-// 실측 inputTokens 를 이 값으로 나눈다(가짜 수치 아님).
-const CONTEXT_WINDOW = 200_000
+// SDK modelUsage.contextWindow 가 없을 때만 쓰는 방어적 fallback.
+const FALLBACK_CONTEXT_WINDOW = 200_000
 
 // 채팅 입력 composer — textarea + chip 행 + send/cancel 버튼 + skills/file 자동완성.
 // ChatTile 과 NewChatLandingPage 양쪽에서 동일하게 재사용.
@@ -54,6 +53,17 @@ export function Composer({ chat, backendLabel, canAbort }: ComposerProps): React
 
   const autocomplete = useSkillAutocomplete(draft, caret, skills)
   const fileAutocomplete = useFileAutocomplete(draft, caret, state.cwd)
+  const pendingUsage = state.pendingUsage
+  const contextWindow =
+    pendingUsage?.contextWindow && pendingUsage.contextWindow > 0
+      ? pendingUsage.contextWindow
+      : FALLBACK_CONTEXT_WINDOW
+  const usedContextTokens = pendingUsage
+    ? pendingUsage.inputTokens +
+      pendingUsage.cacheCreationInputTokens +
+      pendingUsage.cacheReadInputTokens
+    : null
+  const contextRatio = usedContextTokens != null ? usedContextTokens / contextWindow : null
 
   // Skill chip / popover 선택: 항상 draft 끝에 `/name ` 삽입 (기존 동작 유지).
   const insertSkillFromMenu = (name: string): void => {
@@ -269,11 +279,11 @@ export function Composer({ chat, backendLabel, canAbort }: ComposerProps): React
               </div>
               <span className="ml-auto flex items-center gap-g4">
                 <span className="text-caption text-t6">{backendLabel}</span>
-                {state.pendingInputTokens != null && (
+                {usedContextTokens != null && contextRatio != null && (
                   <UsageCircle
-                    ratio={state.pendingInputTokens / CONTEXT_WINDOW}
-                    aria-label={`컨텍스트 사용량: ${Math.round((state.pendingInputTokens / CONTEXT_WINDOW) * 100)}%`}
-                    title={`컨텍스트 ~${Math.round(state.pendingInputTokens / 1000)}k 토큰 / ${CONTEXT_WINDOW / 1000}k`}
+                    ratio={contextRatio}
+                    aria-label={`컨텍스트 사용량: ${Math.round(contextRatio * 100)}%`}
+                    title={`컨텍스트 ~${Math.round(usedContextTokens / 1000)}k 토큰 / ${Math.round(contextWindow / 1000)}k`}
                   />
                 )}
                 {state.inflight ? (

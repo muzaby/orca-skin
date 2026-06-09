@@ -14,6 +14,6 @@
 | slug | 단계 | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 |---|---|---|---|---|---|---|
 | `0001-handoff-bootstrap` | verify | PASS | — | (이번 커밋) | 1 | 협업 인프라 자체 부트스트랩. Claude 단독 수행(설계+구현+검증). |
-| `0002-cost-token-tracking` | plan | READY | Codex | — | 1 | 비용·토큰 추적: SDK result 전체 추출 → DB 2 테이블 → Composer % 보정 + 누적비용 backend 소유/frontend 미러. opus-4-8 /plan 산출물. |
+| `0002-cost-token-tracking` | impl | IMPL_DONE | Claude | (이번 커밋) | 1 | 비용·토큰 추적 구현 완료. 게이트 통과: `cd app && npm run lint && npm run typecheck && npm test`. |
 
 > 새 작업: 마지막 일련번호 +1 로 행을 추가하고 `<NNNN-slug>/plan.md` 를 생성한다.

@@ -223,9 +223,36 @@ describe('claudeToNormalized', () => {
     ])
   })
 
-  it('result(usage) → telemetry', () => {
+  it('result(full usage + modelUsage) → telemetry 전체 usage 필드', () => {
     const out = claudeToNormalized(
-      sdk({ type: 'result', usage: { input_tokens: 10, output_tokens: 20 } }),
+      sdk({
+        type: 'result',
+        total_cost_usd: 0.1234,
+        usage: {
+          input_tokens: 10,
+          output_tokens: 20,
+          cache_creation_input_tokens: 30,
+          cache_read_input_tokens: 40
+        },
+        modelUsage: {
+          'claude-opus-4-5': {
+            inputTokens: 11,
+            outputTokens: 21,
+            cacheCreationInputTokens: 31,
+            cacheReadInputTokens: 41,
+            costUSD: 0.12,
+            contextWindow: 200000
+          },
+          'claude-haiku-4-5': {
+            inputTokens: 1,
+            outputTokens: 2,
+            cacheCreationInputTokens: 3,
+            cacheReadInputTokens: 4,
+            costUSD: 0.0034,
+            contextWindow: 100000
+          }
+        }
+      }),
       ctx()
     )
     expect(out).toEqual([
@@ -233,7 +260,32 @@ describe('claudeToNormalized', () => {
         type: 'telemetry',
         sessionId: 's1',
         provider: 'claude-code',
-        usage: { inputTokens: 10, outputTokens: 20 }
+        usage: {
+          inputTokens: 10,
+          outputTokens: 20,
+          cacheCreationInputTokens: 30,
+          cacheReadInputTokens: 40,
+          totalCostUsd: 0.1234,
+          contextWindow: 200000,
+          models: [
+            {
+              model: 'claude-opus-4-5',
+              inputTokens: 11,
+              outputTokens: 21,
+              cacheCreationInputTokens: 31,
+              cacheReadInputTokens: 41,
+              costUsd: 0.12
+            },
+            {
+              model: 'claude-haiku-4-5',
+              inputTokens: 1,
+              outputTokens: 2,
+              cacheCreationInputTokens: 3,
+              cacheReadInputTokens: 4,
+              costUsd: 0.0034
+            }
+          ]
+        }
       }
     ])
   })

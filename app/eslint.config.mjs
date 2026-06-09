@@ -38,7 +38,8 @@ export default defineConfig(
             'useBackendContext',
             'useSessionsContext',
             'useProjectsContext',
-            'useTweakContext'
+            'useTweakContext',
+            'useCost'
           ]
         }
       ]
