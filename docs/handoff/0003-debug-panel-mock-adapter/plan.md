@@ -4,13 +4,13 @@
 
 ## 메타
 
-| 항목 | 값 |
-|---|---|
-| slug | `0003-debug-panel-mock-adapter` |
-| 작성자 | Claude Code |
-| 일자 | 2026-06-10 |
-| 매핑 | PHASES "현재 작업 중" → 보드. PR 은 본 작업 단위 1개 |
-| 상태 | READY |
+| 항목   | 값                                                   |
+| ------ | ---------------------------------------------------- |
+| slug   | `0003-debug-panel-mock-adapter`                      |
+| 작성자 | Claude Code                                          |
+| 일자   | 2026-06-10                                           |
+| 매핑   | PHASES "현재 작업 중" → 보드. PR 은 본 작업 단위 1개 |
+| 상태   | READY                                                |
 
 ## Context (왜)
 
@@ -58,7 +58,7 @@ LLM API 없이 renderer 사이드(스트리밍·사고 블록·도구 카드·�
   - `docs/IPC_CONTRACT.md`(debug 도메인 §2.x 신설·총 채널 35→37·§3 `permission.resolved` 발행 주체)·`docs/arch/frontend/layers.md`(features/debug + FloatingPanel) 갱신 — **Claude 가 verify 단계에서 수행** (도메인 분리: Codex=`app/**`, Claude=`docs/**`).
   - `permission.resolved` 의 renderer 신규 처리(no-op 유지 — IPC_CONTRACT §3 계약 그대로).
   - mock 모드 영속화(의도적 비영속 — 재시작 시 OFF), 시나리오 외부 파일화, prod tree-shake 최적화 추가 작업.
-  - /compact·핸드오프 제안 UX 자체 (본 작업은 그 디버깅 *수단* 만 제공).
+  - /compact·핸드오프 제안 UX 자체 (본 작업은 그 디버깅 _수단_ 만 제공).
 
 ## 설계
 
@@ -68,19 +68,22 @@ LLM API 없이 renderer 사이드(스트리밍·사고 블록·도구 카드·�
 
 ```ts
 export type MockStep =
-  | { kind: 'emit'; event: MockEventSpec }
-  | { kind: 'delay'; ms: number }
-  | { kind: 'telemetry' }                                  // ctx.contextUsageRatio 로 usage 산출
-  | { kind: 'approval'; action: PermissionAction           // requestId 는 빈 문자열 — 라우터가 approvalId 주입(기존 규약, router.ts:295-300)
-      allow: MockStep[] | ((res: ApprovalResolution) => MockStep[])
-      deny:  MockStep[] | ((res: ApprovalResolution) => MockStep[]) }
+  | { kind: "emit"; event: MockEventSpec }
+  | { kind: "delay"; ms: number }
+  | { kind: "telemetry" } // ctx.contextUsageRatio 로 usage 산출
+  | {
+      kind: "approval";
+      action: PermissionAction; // requestId 는 빈 문자열 — 라우터가 approvalId 주입(기존 규약, router.ts:295-300)
+      allow: MockStep[] | ((res: ApprovalResolution) => MockStep[]);
+      deny: MockStep[] | ((res: ApprovalResolution) => MockStep[]);
+    };
 
 export interface MockCtx {
-  sessionId: string
-  contextUsageRatio: number
-  signal?: AbortSignal
-  requestApproval?: (a: PermissionAction) => Promise<ApprovalResolution>
-  sleep?: (ms: number) => Promise<void>                    // 테스트 주입용
+  sessionId: string;
+  contextUsageRatio: number;
+  signal?: AbortSignal;
+  requestApproval?: (a: PermissionAction) => Promise<ApprovalResolution>;
+  sleep?: (ms: number) => Promise<void>; // 테스트 주입용
 }
 ```
 
@@ -88,17 +91,38 @@ export interface MockCtx {
 
 ```ts
 tool_approval: [
-  emit({ type: 'message.delta', delta: { text: '위험 도구를 실행하겠습니다…' } }), delay(300),
-  { kind: 'approval',
-    action: { kind: 'tool_approval', toolName: 'Bash', input: { command: 'rm -rf /tmp/mock' } },
+  emit({
+    type: "message.delta",
+    delta: { text: "위험 도구를 실행하겠습니다…" },
+  }),
+  delay(300),
+  {
+    kind: "approval",
+    action: {
+      kind: "tool_approval",
+      toolName: "Bash",
+      input: { command: "rm -rf /tmp/mock" },
+    },
     allow: [
-      emit({ type: 'tool.call.started', toolRunId: 'mock-bash-1', toolName: 'Bash', args: { command: 'rm -rf /tmp/mock' } }),
+      emit({
+        type: "tool.call.started",
+        toolRunId: "mock-bash-1",
+        toolName: "Bash",
+        args: { command: "rm -rf /tmp/mock" },
+      }),
       delay(600),
-      emit({ type: 'tool.call.completed', toolRunId: 'mock-bash-1', result: { stdout: 'ok' }, isError: false, durationMs: 600 }),
-      ...closing('삭제 완료.')
+      emit({
+        type: "tool.call.completed",
+        toolRunId: "mock-bash-1",
+        result: { stdout: "ok" },
+        isError: false,
+        durationMs: 600,
+      }),
+      ...closing("삭제 완료."),
     ],
-    deny: [...closing('거부되어 실행하지 않았습니다.')] }
-]
+    deny: [...closing("거부되어 실행하지 않았습니다.")],
+  },
+];
 ```
 
 ### MockAdapter (`mock.ts`)
@@ -148,15 +172,15 @@ this.sendChatEvent(wc, { type: 'permission.resolved', provider: 'claude-code',
 
 ### 재사용할 기존 함수·유틸·파일
 
-| 대상 | 경로 | 용도 |
-|---|---|---|
-| `SessionAdapter` / `LiveTurn` / `TurnRequest` | `app/src/main/adapters/types.ts`, `extensions/types.ts` | MockAdapter 가 구현할 계약 |
-| `requestApproval` 클로저 + `InteractionBroker` | `app/src/main/ipc/router.ts:284-319`, `ask/broker.ts` | 권한 왕복 — 재구현 금지, 콜백만 호출 |
-| `agentPermissionRequest` | `app/src/main/runtime-events/permission-bridge.ts` | 라우터가 이미 사용 — 무변경 |
-| `NormalizedEvent` 11종 / `PermissionAction` / `ApprovalResolution` | `app/src/shared/ipc.ts` | 시나리오 이벤트 타입 정본 |
-| 테스트 fixture 패턴 | `app/src/main/adapters/claude-map.test.ts`, `features/chat/reducer/chatReducer.*.test.ts` | "입력→이벤트 배열" 단언 스타일 |
-| `useTweakContext` / `settingsApi` | `shared/theme/TweakProvider.tsx`, `shared/api/ipc.ts` | 기존 tweaks 섹션 이식 — 로직 무변경 |
-| 기존 패널 atom | `shared/ui/TweaksPanel.tsx` (→ FloatingPanel.tsx) | 개명·일반화, 신규 작성 아님 |
+| 대상                                                               | 경로                                                                                      | 용도                                 |
+| ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- | ------------------------------------ |
+| `SessionAdapter` / `LiveTurn` / `TurnRequest`                      | `app/src/main/adapters/types.ts`, `extensions/types.ts`                                   | MockAdapter 가 구현할 계약           |
+| `requestApproval` 클로저 + `InteractionBroker`                     | `app/src/main/ipc/router.ts:284-319`, `ask/broker.ts`                                     | 권한 왕복 — 재구현 금지, 콜백만 호출 |
+| `agentPermissionRequest`                                           | `app/src/main/runtime-events/permission-bridge.ts`                                        | 라우터가 이미 사용 — 무변경          |
+| `NormalizedEvent` 11종 / `PermissionAction` / `ApprovalResolution` | `app/src/shared/ipc.ts`                                                                   | 시나리오 이벤트 타입 정본            |
+| 테스트 fixture 패턴                                                | `app/src/main/adapters/claude-map.test.ts`, `features/chat/reducer/chatReducer.*.test.ts` | "입력→이벤트 배열" 단언 스타일       |
+| `useTweakContext` / `settingsApi`                                  | `shared/theme/TweakProvider.tsx`, `shared/api/ipc.ts`                                     | 기존 tweaks 섹션 이식 — 로직 무변경  |
+| 기존 패널 atom                                                     | `shared/ui/TweaksPanel.tsx` (→ FloatingPanel.tsx)                                         | 개명·일반화, 신규 작성 아님          |
 
 ### 레이어 경계 준수
 
@@ -187,14 +211,22 @@ this.sendChatEvent(wc, { type: 'permission.resolved', provider: 'claude-code',
 
 ## [Codex 기입] 구현 체크리스트
 
-- [ ] …
+- [x] AC1-2: shared IPC 채널/Mock 상태 타입과 `DebugMockPatchSchema` 추가.
+- [x] AC3-8: 순수 `mock-scenarios` DSL·인터프리터와 8개 시나리오 구현.
+- [x] AC9: `MockAdapter` 구현(`claude-code` 위장, sessionId 발급/보존, interrupt/no-op control).
+- [x] AC10-11: 라우터 dev-only mock 상태/핸들러/어댑터 선택 및 `permission.resolved` 공통 발행.
+- [x] AC12: preload `window.orca.debug` 및 renderer `debugApi` 추가.
+- [x] AC13-15: TweaksPanel → FloatingPanel 일반화, `features/debug` 패널 신설, `OverlayLayer` dev-only 렌더링.
+- [x] AC16: `mock-scenarios.test.ts`, `mock.test.ts` 추가.
+- [x] AC17: `npm run lint`, `npm run typecheck`, `npm test` 통과.
+- [x] AC18: `npm run build` 통과 및 prod 산출물 debug 문자열 부재 확인(`rg` check). 수동 시각 검증은 verify/사용자 단계에서 수행.
 
 ## [Codex 기입] 구현 보고
 
-| 항목 | 내용 |
-|---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` |
-| 게이트 결과 | … |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | … |
+| 항목            | 내용                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 변경 파일       | `app/src/shared/ipc.ts`, `app/src/shared/protocol.ts`, `app/src/main/adapters/mock-scenarios.ts`, `app/src/main/adapters/mock-scenarios.test.ts`, `app/src/main/adapters/mock.ts`, `app/src/main/adapters/mock.test.ts`, `app/src/main/ipc/router.ts`, `app/src/preload/index.ts`, `app/src/renderer/src/shared/api/ipc.ts`, `app/src/renderer/src/shared/ui/FloatingPanel.tsx`(`TweaksPanel.tsx` git mv), `app/src/renderer/src/features/debug/**`, `app/src/renderer/src/app/OverlayLayer.tsx` |
+| 실행 명령       | `git pull --ff-only`(upstream 미설정으로 실패), `npm rebuild better-sqlite3`, `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`, `rg -n "debugGetMock\|debugSetMock\|orca:debug:getMock\|orca:debug:setMock\|MockAdapter\|handleDebug" out/main`, `rg -n "DebugPanel\|Mock 모드\|텍스트 스트리밍" out/renderer`                                                                                                                                                                   |
+| 게이트 결과     | PASS — lint/typecheck/test/build 통과, prod 산출물 debug 등록/패널 문자열 없음. 최초 `npm test` 는 better-sqlite3 Node ABI 불일치와 full 시나리오 test guard 누락으로 실패했고, `npm rebuild better-sqlite3` 및 full 시나리오 error 이벤트 추가 후 재실행 통과.                                                                                                                                                                                                                                  |
+| 블로커 / 역질문 | 없음. 단, 브랜치 upstream 이 없어 `git pull --ff-only` 는 원격 최신화 없이 종료됨.                                                                                                                                                                                                                                                                                                                                                                                                               |
+| 대상 커밋       | 78f1601                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |

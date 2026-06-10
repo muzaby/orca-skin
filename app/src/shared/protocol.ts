@@ -3,6 +3,7 @@
 // 타입과 CHANNELS 만 필요한 곳은 ./ipc 에서 import.
 
 import { z } from 'zod'
+import { MOCK_SCENARIO_IDS } from './ipc'
 import type { Backend } from './ipc'
 
 const BackendSchema: z.ZodType<Backend> = z.enum(['claude-code'])
@@ -36,6 +37,14 @@ export const SetPermissionModeSchema = z.object({
 })
 
 export const StartInstallSchema = z.object({ backend: BackendSchema })
+
+export const DebugMockPatchSchema = z
+  .object({
+    enabled: z.boolean(),
+    scenarioId: z.enum(MOCK_SCENARIO_IDS),
+    contextUsageRatio: z.number().min(0).max(1)
+  })
+  .partial()
 
 export const ListFilesRequestSchema = z.object({
   cwd: z.string().min(1),
@@ -279,5 +288,7 @@ export type {
   SetPermissionMode,
   ApprovalResolution,
   PlanReviewRequest,
-  PlanDecision
+  PlanDecision,
+  MockScenarioId,
+  DebugMockState
 } from './ipc'

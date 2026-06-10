@@ -22,7 +22,8 @@ import {
   type SettingsPatch,
   type SkillInfo,
   type UpdateMcpServerRequest,
-  type UpdateProjectRequest
+  type UpdateProjectRequest,
+  type DebugMockState
 } from '../shared/ipc'
 
 // Phase 2 노출 표면 — renderer 가 실제 사용하는 6개 채널만.
@@ -128,6 +129,11 @@ const orca = {
     // 세션 진행 중 권한 모드 라이브 전환 (PR③).
     setMode: (req: SetPermissionMode): Promise<void> =>
       ipcRenderer.invoke(CHANNELS.permissionSetMode, req)
+  },
+  debug: {
+    getMock: (): Promise<DebugMockState> => ipcRenderer.invoke(CHANNELS.debugGetMock),
+    setMock: (patch: Partial<DebugMockState>): Promise<DebugMockState> =>
+      ipcRenderer.invoke(CHANNELS.debugSetMock, patch)
   },
   // 데스크톱 플랫폼 식별자. renderer 의 `<html data-platform>` 에 부착되고,
   // WinControls 가 macOS 에서 null 을 반환하는 분기 등에 사용.
