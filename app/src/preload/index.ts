@@ -18,6 +18,7 @@ import {
   type SearchHit,
   type SendChatMessage,
   type SessionListItem,
+  type SessionTitleEvent,
   type Settings,
   type SettingsPatch,
   type SkillInfo,
@@ -71,7 +72,12 @@ const orca = {
     delete: (sessionId: string): Promise<void> =>
       ipcRenderer.invoke(CHANNELS.sessionDelete, { sessionId }),
     rename: (sessionId: string, title: string): Promise<void> =>
-      ipcRenderer.invoke(CHANNELS.sessionRename, { sessionId, title })
+      ipcRenderer.invoke(CHANNELS.sessionRename, { sessionId, title }),
+    onTitle: (handler: (ev: SessionTitleEvent) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, ev: SessionTitleEvent): void => handler(ev)
+      ipcRenderer.on(CHANNELS.sessionTitleEvent, listener)
+      return () => ipcRenderer.off(CHANNELS.sessionTitleEvent, listener)
+    }
   },
   project: {
     list: (): Promise<Project[]> => ipcRenderer.invoke(CHANNELS.projectList),

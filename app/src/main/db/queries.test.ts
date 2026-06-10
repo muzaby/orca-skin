@@ -6,6 +6,7 @@ import migration0003 from './migrations/0003_messages_fts.sql?raw'
 import migration0004 from './migrations/0004_message_parts.sql?raw'
 import migration0005 from './migrations/0005_usage_events.sql?raw'
 import migration0006 from './migrations/0006_turn_usage.sql?raw'
+import migration0007 from './migrations/0007_title_source.sql?raw'
 import { DbQueries } from './queries'
 
 function dbWithMigrations(): Database.Database {
@@ -17,6 +18,7 @@ function dbWithMigrations(): Database.Database {
   db.exec(migration0004)
   db.exec(migration0005)
   db.exec(migration0006)
+  db.exec(migration0007)
   return db
 }
 
@@ -195,6 +197,62 @@ describe('DbQueries turn usage', () => {
       cache_creation_input_tokens: 0,
       cache_read_input_tokens: 0,
       total_cost_usd: 0
+    })
+  })
+})
+
+describe('DbQueries session title source', () => {
+  it('getTitleSource 는 기본 auto 값을 읽는다', () => {
+    const db = dbWithMigrations()
+    insertSession(db)
+    const q = new DbQueries(db)
+
+    expect(q.getTitleSource('s1')).toBe('auto')
+    expect(q.getTitleSource('missing')).toBeNull()
+  })
+
+  it('updateSessionTitleAuto 는 auto 행만 갱신하고 user 행은 보호한다', () => {
+    const db = dbWithMigrations()
+    insertSession(db, 'auto-session')
+    insertSession(db, 'user-session')
+    const q = new DbQueries(db)
+
+    q.renameSession('user-session', '사용자 제목', 10)
+
+    expect(q.updateSessionTitleAuto('auto-session', '자동 제목', 20)).toBe(true)
+    expect(q.updateSessionTitleAuto('user-session', '덮어쓰기 시도', 20)).toBe(false)
+
+    expect(
+      db
+        .prepare('SELECT title, title_source, updated_at FROM sessions WHERE id = ?')
+        .get('auto-session')
+    ).toEqual({
+      title: '자동 제목',
+      title_source: 'auto',
+      updated_at: 20
+    })
+    expect(
+      db
+        .prepare('SELECT title, title_source, updated_at FROM sessions WHERE id = ?')
+        .get('user-session')
+    ).toEqual({
+      title: '사용자 제목',
+      title_source: 'user',
+      updated_at: 10
+    })
+  })
+
+  it('renameSession 은 title_source 를 user 로 표기한다', () => {
+    const db = dbWithMigrations()
+    insertSession(db)
+    const q = new DbQueries(db)
+
+    q.renameSession('s1', '수동 제목', 30)
+
+    expect(q.getTitleSource('s1')).toBe('user')
+    expect(db.prepare('SELECT title, updated_at FROM sessions WHERE id = ?').get('s1')).toEqual({
+      title: '수동 제목',
+      updated_at: 30
     })
   })
 })

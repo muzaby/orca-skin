@@ -256,6 +256,7 @@ export type {
   ListFilesRequest,
   FileEntry,
   SessionListItem,
+  SessionTitleEvent,
   LoadSessionRequest,
   DeleteSessionRequest,
   RenameSessionRequest,

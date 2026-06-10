@@ -15,6 +15,7 @@ import type {
   SearchHit,
   SendChatMessage,
   SessionListItem,
+  SessionTitleEvent,
   Settings,
   SettingsPatch,
   SkillInfo,
@@ -63,7 +64,9 @@ export const sessionApi = {
   load: (sessionId: string): Promise<LoadedSession | null> => window.orca.session.load(sessionId),
   delete: (sessionId: string): Promise<void> => window.orca.session.delete(sessionId),
   rename: (sessionId: string, title: string): Promise<void> =>
-    window.orca.session.rename(sessionId, title)
+    window.orca.session.rename(sessionId, title),
+  onTitle: (handler: (ev: SessionTitleEvent) => void): (() => void) =>
+    window.orca.session.onTitle(handler)
 }
 
 export const projectApi = {

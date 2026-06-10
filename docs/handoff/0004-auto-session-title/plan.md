@@ -257,21 +257,21 @@
 
 ## [Codex 기입] 구현 체크리스트
 
-- [ ] `0007_title_source.sql` 마이그레이션 + queries 3종 + `queries.test.ts` 케이스
-- [ ] `SessionAdapter.complete` 인터페이스 + claude/mock 구현(단일 턴·도구 제한 포함)
-- [ ] `src/main/title/` 순수 함수 + vitest
-- [ ] router `telemetry` 트리거 + `generateTitle` + 브로드캐스트
-- [ ] `handleSessionRename` → `title_source='user'`
-- [ ] shared 채널 + preload 구독 + renderer(useSessions/useChat) 반영
-- [ ] `IPC_CONTRACT.md`(37→38) + `docs/AGENTS.md` stale 채널 수 정정
-- [ ] 게이트 통과 (lint / typecheck / test)
+- [x] `0007_title_source.sql` 마이그레이션 + queries 3종 + `queries.test.ts` 케이스
+- [x] `SessionAdapter.complete` 인터페이스 + claude/mock 구현(단일 턴·도구 제한 포함)
+- [x] `src/main/title/` 순수 함수 + vitest
+- [x] router `telemetry` 트리거 + `generateTitle` + 브로드캐스트
+- [x] `handleSessionRename` → `title_source='user'`
+- [x] shared 채널 + preload 구독 + renderer(useSessions/useChat) 반영
+- [x] `IPC_CONTRACT.md`(37→38) + `docs/AGENTS.md` stale 채널 수 정정
+- [x] 게이트 통과 (lint / typecheck / test)
 
 ## [Codex 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` |
-| 게이트 결과 | lint ? / typecheck ? / test ? |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | `app/src/main/db/**`, `app/src/main/title/**`, `app/src/main/adapters/**`, `app/src/main/ipc/router.ts`, `app/src/shared/{ipc,protocol}.ts`, `app/src/preload/**`, `app/src/renderer/src/shared/api/ipc.ts`, `app/src/renderer/src/features/{sessions,chat}/hooks/**`, `docs/IPC_CONTRACT.md`, `docs/AGENTS.md` |
+| 실행 명령 | `npm run lint` / `npm run typecheck` / `npm test` |
+| 게이트 결과 | lint PASS / typecheck PASS / test PASS (283 tests) |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | 4e7ae11 |

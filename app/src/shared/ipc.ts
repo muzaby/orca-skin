@@ -21,6 +21,7 @@ export const CHANNELS = {
   sessionLoad: 'orca:session:load',
   sessionDelete: 'orca:session:delete',
   sessionRename: 'orca:session:rename',
+  sessionTitleEvent: 'orca:session:titleEvent',
   projectList: 'orca:project:list',
   projectCreate: 'orca:project:create',
   projectUpdate: 'orca:project:update',
@@ -83,6 +84,11 @@ export interface CostSummary {
   week: CostPeriodSummary
   month: CostPeriodSummary
   updatedAt: number
+}
+
+export interface SessionTitleEvent {
+  sessionId: string
+  title: string
 }
 
 // Backend (Phase 2: claude-code 단일. opencode 는 future work)

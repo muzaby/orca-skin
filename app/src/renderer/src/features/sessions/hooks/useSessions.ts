@@ -35,8 +35,14 @@ export function useSessions(): UseSessions {
         if (cancelled) return
         setLoading(false)
       })
+    const unsubscribeTitle = sessionApi.onTitle((ev) => {
+      setList((items) =>
+        items.map((item) => (item.id === ev.sessionId ? { ...item, title: ev.title } : item))
+      )
+    })
     return () => {
       cancelled = true
+      unsubscribeTitle()
     }
   }, [])
 

@@ -22,6 +22,10 @@ export class MockAdapter implements SessionAdapter {
     yield { step: 'mock-ready', done: true }
   }
 
+  async complete(): Promise<string> {
+    return 'Mock 자동 제목'
+  }
+
   sendMessage(req: TurnRequest): LiveTurn {
     const state = this.getState()
     const internal = new AbortController()

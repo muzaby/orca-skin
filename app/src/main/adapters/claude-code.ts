@@ -3,7 +3,13 @@
 // 내부 매핑은 architecture.md §5.4, SDK API 명세는 docs/spec/claude/agent-sdk/typescript.md 참조.
 
 import { createRequire } from 'node:module'
-import { query, type CanUseTool, type PermissionResult } from '@anthropic-ai/claude-agent-sdk'
+import {
+  query,
+  type CanUseTool,
+  type Options,
+  type PermissionResult,
+  type SDKMessage
+} from '@anthropic-ai/claude-agent-sdk'
 import type {
   AskQuestion,
   ApprovalResolution,
@@ -14,7 +20,7 @@ import { toClaudePermissionMode } from '../../shared/permission-mode'
 import { claudeToNormalized, type MapContext } from './claude-map'
 import { claudeErrorClassifier, errorEvent } from '../runtime-errors/claude-classifier'
 import { createTurnInputStream } from './streaming-input'
-import type { LiveTurn, SessionAdapter } from './types'
+import type { CompleteRequest, LiveTurn, SessionAdapter } from './types'
 import type { TurnRequest } from '../extensions/types'
 import type { Resolver } from '../mcp/expand'
 import { toClaudeConfig } from '../mcp/convert'
@@ -32,6 +38,7 @@ const PLAN_REJECT_MESSAGE =
   '사용자가 계획을 거부했습니다. 다른 계획이나 제안 없이 여기서 중단하세요.'
 // 일반 도구 거부 기본 사유 (resolution.message 부재 시).
 const TOOL_DENY_MESSAGE = '사용자가 도구 실행을 거부했습니다.'
+const CLAUDE_TITLE_MODEL = 'claude-haiku-4-5'
 
 // 단일 권한 콜백(requestApproval)을 claude-code 의 canUseTool 로 어댑트한다. SDK 고유의
 // canUseTool/PermissionResult/도구이름(AskUserQuestion·ExitPlanMode) 형태를 어댑터 내부에만
@@ -134,6 +141,45 @@ export class ClaudeCodeAdapter implements SessionAdapter {
     yield { step: 'complete', done: true }
   }
 
+  async complete(req: CompleteRequest): Promise<string> {
+    const model = req.model ?? CLAUDE_TITLE_MODEL
+    try {
+      return await this.runCompletion(req, model)
+    } catch (err) {
+      if (req.signal?.aborted || !isLikelyModelSelectionError(err)) throw err
+      return this.runCompletion(req)
+    }
+  }
+
+  private async runCompletion(req: CompleteRequest, model?: string): Promise<string> {
+    const abortController = new AbortController()
+    const onAbort = (): void => abortController.abort()
+    if (req.signal?.aborted) abortController.abort()
+    else req.signal?.addEventListener('abort', onAbort, { once: true })
+
+    const options: Options = {
+      abortController,
+      maxTurns: 1,
+      tools: [],
+      allowedTools: [],
+      settingSources: [],
+      persistSession: false,
+      ...(req.cwd ? { cwd: req.cwd } : {}),
+      ...(model ? { model } : {})
+    }
+
+    try {
+      const chunks: string[] = []
+      for await (const msg of query({ prompt: req.prompt, options })) {
+        const text = assistantText(msg)
+        if (text) chunks.push(text)
+      }
+      return chunks.join('').trim()
+    } finally {
+      req.signal?.removeEventListener('abort', onAbort)
+    }
+  }
+
   // 한 턴을 **스트리밍 입력 모드**로 실행한다(PR③ 옵션 A). prompt 를 string 이 아니라 이 턴의
   // 메시지 1건을 내보내고 result 도착까지 열려있는 AsyncIterable 로 넘겨, 턴 진행 중 반환된 Query
   // 핸들에서 setPermissionMode/interrupt/setModel 이 열리게 한다. result 도착(또는 abort) 시 입력
@@ -212,4 +258,23 @@ export class ClaudeCodeAdapter implements SessionAdapter {
       setModel: (model) => handle.setModel(model)
     }
   }
+}
+
+function assistantText(msg: SDKMessage): string {
+  if (msg.type !== 'assistant') return ''
+  const content = msg.message.content
+  if (!Array.isArray(content)) return ''
+  return content
+    .map((block) => {
+      if (typeof block === 'object' && block != null && 'type' in block && block.type === 'text') {
+        return typeof block.text === 'string' ? block.text : ''
+      }
+      return ''
+    })
+    .join('')
+}
+
+function isLikelyModelSelectionError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err)
+  return /model|haiku|not found|unknown|invalid/i.test(message)
 }
