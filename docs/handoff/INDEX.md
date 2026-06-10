@@ -14,5 +14,6 @@
 | slug | 단계 | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 |---|---|---|---|---|---|---|
 | `0001-handoff-bootstrap` | verify | PASS | — | (이번 커밋) | 1 | 협업 인프라 자체 부트스트랩. Claude 단독 수행(설계+구현+검증). |
+| `0002-cost-token-tracking` | verify | PASS | — | 999c99b | 1 | 비용·토큰 추적. 14/14 충족, 게이트 260/260. 스키마 통일(`usage_events`→`turn_usage`+`turn_model_usage`) + 모델별 영속 + 일/주/월 누적(main 싱글턴 + renderer 미러). PHASES 승격. (대상 커밋 INDEX 기재 `4213cad`→실 `999c99b`, verify 위생 노트 ①) |
 
 > 새 작업: 마지막 일련번호 +1 로 행을 추가하고 `<NNNN-slug>/plan.md` 를 생성한다.

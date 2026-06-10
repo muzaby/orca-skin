@@ -1,27 +1,54 @@
-import type { ProviderReportedTelemetry } from '../../shared/ipc'
-import type { UsageRow } from '../db/types'
+import type { ProviderReportedTelemetry, TelemetryModelUsage } from '../../shared/ipc'
+import type { TurnModelUsageRow, TurnUsageRow } from '../db/types'
 
-// usage_events 의 한 행(세션 마지막 턴)을 컨텍스트 도넛/패널이 쓰는 ProviderReportedTelemetry 로
-// 복원한다. 패널은 입력·캐시·모델만 표시하므로 durationMs/numTurns/modelUsage 는 생략.
-// null 필드는 키 자체를 빼서 optional 의미를 유지(graceful).
-// 컨텍스트 점유(input + cache_read + cache_creation)가 1 이상인지 — usage_events 적재 가드.
+// 컨텍스트 점유(input + cache_read + cache_creation)가 1 이상인지 — turn_usage 적재 가드.
 // /context 등 로컬 슬래시 명령은 모델을 호출하지 않아 컨텍스트도 비용도 없는 빈 행을 만든다.
-// 이런 행을 적재하면 getLatestUsage 가 복원 시 직전 도넛 값을 0으로 덮어쓴다 → 적재 자체를 스킵.
+// 이런 행을 적재하면 getLatestTurnUsage 가 복원 시 직전 도넛 값을 0으로 덮어쓴다 → 적재 자체를 스킵.
 export function hasContextTokens(usage: ProviderReportedTelemetry): boolean {
   return (
     (usage.inputTokens ?? 0) + (usage.cacheReadTokens ?? 0) + (usage.cacheCreationTokens ?? 0) > 0
   )
 }
 
-export function usageRowToTelemetry(row: UsageRow): ProviderReportedTelemetry {
+export function usageRowToTelemetry(
+  turn: TurnUsageRow,
+  modelRows: TurnModelUsageRow[]
+): ProviderReportedTelemetry {
+  const modelUsage = modelRows.reduce<Record<string, TelemetryModelUsage>>((acc, row) => {
+    acc[row.model] = {
+      ...(row.input_tokens != null ? { inputTokens: row.input_tokens } : {}),
+      ...(row.output_tokens != null ? { outputTokens: row.output_tokens } : {}),
+      ...(row.cache_read_input_tokens != null
+        ? { cacheReadTokens: row.cache_read_input_tokens }
+        : {}),
+      ...(row.cache_creation_input_tokens != null
+        ? { cacheCreationTokens: row.cache_creation_input_tokens }
+        : {}),
+      ...(row.cost_usd != null ? { costUsd: row.cost_usd } : {})
+    }
+    return acc
+  }, {})
+
+  const primary = primaryModel(modelRows)
   return {
-    ...(row.model != null ? { model: row.model } : {}),
-    ...(row.input_tokens != null ? { inputTokens: row.input_tokens } : {}),
-    ...(row.output_tokens != null ? { outputTokens: row.output_tokens } : {}),
-    ...(row.cache_read_tokens != null ? { cacheReadTokens: row.cache_read_tokens } : {}),
-    ...(row.cache_creation_tokens != null
-      ? { cacheCreationTokens: row.cache_creation_tokens }
+    ...(primary ? { model: primary } : {}),
+    ...(turn.input_tokens != null ? { inputTokens: turn.input_tokens } : {}),
+    ...(turn.output_tokens != null ? { outputTokens: turn.output_tokens } : {}),
+    ...(turn.cache_read_input_tokens != null
+      ? { cacheReadTokens: turn.cache_read_input_tokens }
       : {}),
-    ...(row.cost_usd != null ? { costUsd: row.cost_usd } : {})
+    ...(turn.cache_creation_input_tokens != null
+      ? { cacheCreationTokens: turn.cache_creation_input_tokens }
+      : {}),
+    ...(turn.total_cost_usd != null ? { costUsd: turn.total_cost_usd } : {}),
+    ...(Object.keys(modelUsage).length > 0 ? { modelUsage } : {})
   }
+}
+
+function primaryModel(rows: TurnModelUsageRow[]): string | undefined {
+  let best: TurnModelUsageRow | undefined
+  for (const row of rows) {
+    if (!best || (row.input_tokens ?? 0) > (best.input_tokens ?? 0)) best = row
+  }
+  return best?.model
 }

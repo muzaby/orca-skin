@@ -8,8 +8,11 @@ import type {
   SearchHitRow,
   SessionInsert,
   SessionListRow,
-  UsageEventInsert,
-  UsageRow
+  TurnModelUsageInsert,
+  TurnModelUsageRow,
+  TurnUsageInsert,
+  TurnUsageRow,
+  UsageSumRow
 } from './types'
 
 export class DbQueries {
@@ -23,8 +26,11 @@ export class DbQueries {
   private readonly updateSessionPreviewStmt: Database.Statement
   private readonly updateSessionTitleStmt: Database.Statement
   // per-turn 사용량 원장 — insert(턴 종료) + 세션 최신 행 조회(컨텍스트 도넛/패널 복원).
-  private readonly insertUsageEventStmt: Database.Statement
-  private readonly getLatestUsageStmt: Database.Statement
+  private readonly insertTurnUsageStmt: Database.Statement
+  private readonly insertTurnModelUsageStmt: Database.Statement
+  private readonly getLatestTurnUsageStmt: Database.Statement
+  private readonly listTurnModelUsageStmt: Database.Statement
+  private readonly sumUsageSinceStmt: Database.Statement
   // 사용자가 명시적으로 rename — 기존 title 이 있어도 덮어쓴다.
   // updateSessionTitleStmt 는 첫 init 시점 채우기 용도 (WHERE title IS NULL).
   private readonly renameSessionStmt: Database.Statement
@@ -106,17 +112,40 @@ export class DbQueries {
     this.updateSessionTitleStmt = db.prepare(`
       UPDATE sessions SET title = @title WHERE id = @id AND title IS NULL
     `)
-    this.insertUsageEventStmt = db.prepare(`
-      INSERT INTO usage_events
-        (session_id, model, created_at, input_tokens, output_tokens,
-         cache_read_tokens, cache_creation_tokens, cost_usd)
+    this.insertTurnUsageStmt = db.prepare(`
+      INSERT INTO turn_usage
+        (session_id, message_id, created_at, input_tokens, output_tokens,
+         cache_creation_input_tokens, cache_read_input_tokens, total_cost_usd)
       VALUES
-        (@sessionId, @model, @createdAt, @inputTokens, @outputTokens,
-         @cacheReadTokens, @cacheCreationTokens, @costUsd)
+        (@sessionId, @messageId, @createdAt, @inputTokens, @outputTokens,
+         @cacheCreationInputTokens, @cacheReadInputTokens, @totalCostUsd)
+    `)
+    this.insertTurnModelUsageStmt = db.prepare(`
+      INSERT INTO turn_model_usage
+        (turn_usage_id, model, input_tokens, output_tokens,
+         cache_creation_input_tokens, cache_read_input_tokens, cost_usd)
+      VALUES
+        (@turnUsageId, @model, @inputTokens, @outputTokens,
+         @cacheCreationInputTokens, @cacheReadInputTokens, @costUsd)
     `)
     // 세션의 마지막 턴 사용량 — 컨텍스트 도넛/패널을 세션 로드 시 복원.
-    this.getLatestUsageStmt = db.prepare(`
-      SELECT * FROM usage_events WHERE session_id = @sessionId ORDER BY created_at DESC LIMIT 1
+    this.getLatestTurnUsageStmt = db.prepare(`
+      SELECT * FROM turn_usage WHERE session_id = @sessionId ORDER BY created_at DESC, id DESC LIMIT 1
+    `)
+    this.listTurnModelUsageStmt = db.prepare(`
+      SELECT * FROM turn_model_usage
+      WHERE turn_usage_id = @turnUsageId
+      ORDER BY COALESCE(input_tokens, 0) DESC, id ASC
+    `)
+    this.sumUsageSinceStmt = db.prepare(`
+      SELECT
+        COALESCE(SUM(input_tokens), 0) AS input_tokens,
+        COALESCE(SUM(output_tokens), 0) AS output_tokens,
+        COALESCE(SUM(cache_creation_input_tokens), 0) AS cache_creation_input_tokens,
+        COALESCE(SUM(cache_read_input_tokens), 0) AS cache_read_input_tokens,
+        COALESCE(SUM(total_cost_usd), 0) AS total_cost_usd
+      FROM turn_usage
+      WHERE created_at >= @since
     `)
     this.renameSessionStmt = db.prepare(`
       UPDATE sessions SET title = @title, updated_at = @updatedAt WHERE id = @id
@@ -219,14 +248,30 @@ export class DbQueries {
     this.updateSessionTitleStmt.run({ id, title })
   }
 
-  // 턴 종료 시 사용량 1행 적재. 시간/모델별 집계 + 세션 최신 행 복원의 원천.
-  insertUsageEvent(row: UsageEventInsert): void {
-    this.insertUsageEventStmt.run(row)
+  // 턴 종료 시 turn_usage 부모 1행 적재. 반환 id 로 turn_model_usage 자식을 연결한다.
+  insertTurnUsage(row: TurnUsageInsert): number {
+    const info = this.insertTurnUsageStmt.run(row)
+    return Number(info.lastInsertRowid)
+  }
+
+  insertTurnModelUsage(row: TurnModelUsageInsert): void {
+    this.insertTurnModelUsageStmt.run(row)
   }
 
   // 세션의 마지막 턴 사용량 행(없으면 undefined). 컨텍스트 도넛/패널 복원용.
-  getLatestUsage(sessionId: string): UsageRow | undefined {
-    return this.getLatestUsageStmt.get({ sessionId }) as UsageRow | undefined
+  getLatestTurnUsage(
+    sessionId: string
+  ): { turn: TurnUsageRow; modelUsage: TurnModelUsageRow[] } | undefined {
+    const turn = this.getLatestTurnUsageStmt.get({ sessionId }) as TurnUsageRow | undefined
+    if (!turn) return undefined
+    const modelUsage = this.listTurnModelUsageStmt.all({
+      turnUsageId: turn.id
+    }) as TurnModelUsageRow[]
+    return { turn, modelUsage }
+  }
+
+  sumUsageSince(sinceMs: number): UsageSumRow {
+    return this.sumUsageSinceStmt.get({ since: sinceMs }) as UsageSumRow
   }
 
   renameSession(id: string, title: string, updatedAt: number): void {

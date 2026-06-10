@@ -25,7 +25,7 @@ function Row({ label, value }: { label: string; value: string }): React.JSX.Elem
 // /context 와 같은 프레이밍 — 주 표시 `사용 중  used / window (pct%)` + 분해(신규 입력·캐시).
 // used = contextTokens = inputTokens + cacheRead + cacheCreation (= /context 분자 정의).
 // 작은 inputTokens(캐시 제외 신규 입력)를 컨텍스트 크기로 오해하지 않게 라벨을 명확히 한다.
-// (비용/지연/모델은 usage_events 원장으로 옮겨 추후 usage 화면에서 집계.)
+// (비용/지연/모델은 turn_usage 원장으로 옮겨 추후 usage 화면에서 집계.)
 export function TelemetryPanel({ telemetry }: TelemetryPanelProps): React.JSX.Element {
   const t = telemetry
   const input = t.inputTokens ?? 0

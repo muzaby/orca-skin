@@ -37,6 +37,8 @@ export const CHANNELS = {
   runtimeStatus: 'orca:runtime:status',
   runtimePrepare: 'orca:runtime:prepare',
   runtimeStatusEvent: 'orca:runtime:statusEvent',
+  costSummary: 'orca:cost:summary',
+  costSummaryEvent: 'orca:cost:summaryEvent',
   // 권한 응답 단일 채널 — ask/plan/tool 세 종류의 승인 응답이 모두 이 채널로 흐른다
   // (askRespond/planRespond 2채널 통합). 응답 = { approvalId, resolution: ApprovalResolution }.
   permissionRespond: 'orca:permission:respond',
@@ -44,6 +46,21 @@ export const CHANNELS = {
   // 진행 중 턴이면 즉시 Query.setPermissionMode, 아니면 controller 에 기록해 다음 턴에 반영.
   permissionSetMode: 'orca:permission:setMode'
 } as const
+
+export interface CostPeriodSummary {
+  totalCostUsd: number
+  inputTokens: number
+  outputTokens: number
+  cacheCreationInputTokens: number
+  cacheReadInputTokens: number
+}
+
+export interface CostSummary {
+  day: CostPeriodSummary
+  week: CostPeriodSummary
+  month: CostPeriodSummary
+  updatedAt: number
+}
 
 // Backend (Phase 2: claude-code 단일. opencode 는 future work)
 export type Backend = 'claude-code'
@@ -475,7 +492,7 @@ export interface LoadedSession {
   title: string | null
   messages: LoadedMessage[]
   // 세션 마지막 턴의 provider-reported 통계 — 컨텍스트 도넛/TelemetryPanel 을 세션 수명 동안
-  // 복원(usage_events 최신 행에서 재구성). 비용 집계는 원장 SUM 으로 별도(추후 usage 화면).
+  // 복원(turn_usage 최신 행에서 재구성). 비용 집계는 원장 SUM 으로 별도(추후 usage 화면).
   lastTelemetry?: ProviderReportedTelemetry
 }
 
