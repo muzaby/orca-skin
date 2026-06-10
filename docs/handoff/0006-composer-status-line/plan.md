@@ -152,20 +152,20 @@ view-model → (문구/`showCompact`/`recommend`) 매핑은 **순수 함수**로
 
 ## [Codex 기입] 구현 체크리스트
 
-- [ ] `ConversationStatusLine.tsx` (pill, safe→null, aria 속성)
-- [ ] `StatusPopover.tsx` (제목/설명/정보 3줄/버튼/disclaimer)
-- [ ] `statusCopy.ts` (카피 표 1:1)
-- [ ] view-model 매핑 순수함수 + 단위테스트
-- [ ] `Composer.tsx` 통합 (삽입 위치 + Popover 토글 + view-model 합성 + 임시 근사 TODO)
-- [ ] `newChat` / `useCost` 실배선, `onCompact` 스텁
-- [ ] 게이트 3종 통과 + boundaries 위반 0
+- [x] `ConversationStatusLine.tsx` (pill, safe→null, aria 속성)
+- [x] `StatusPopover.tsx` (제목/설명/정보 3줄/버튼/disclaimer)
+- [x] `statusCopy.ts` (카피 표 1:1)
+- [x] view-model 매핑 순수함수 + 단위테스트
+- [x] `Composer.tsx` 통합 (삽입 위치 + Popover 토글 + view-model 합성 + 임시 근사 TODO)
+- [x] `newChat` / `useCost` 실배선, `onCompact` 스텁
+- [x] 게이트 3종 통과 + boundaries 위반 0
 
 ## [Codex 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` |
-| 게이트 결과 | lint ⬜ / typecheck ⬜ / test ⬜ (N passed) |
-| 블로커 / 역질문 | (없으면 "없음") |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | `app/src/renderer/src/features/chat/components/Composer.tsx`, `ChatTile.tsx`, `ChatView.tsx`, `composer/ConversationStatusLine.tsx`, `composer/StatusPopover.tsx`, `composer/statusCopy.ts`, `composer/statusViewModel.ts`, `composer/statusViewModel.test.ts`, `app/src/renderer/src/features/cost/index.ts`, `features/cost/lib/formatCost.ts`, `pages/{ChatPage,NewChatLandingPage,ProjectLandingPage}.tsx` |
+| 실행 명령 | `npm run lint` / `npm run typecheck` / `npm test` (`npm test` 최초 better-sqlite3 ABI 불일치 실패 후 `npm rebuild better-sqlite3` 실행, 재실행 통과) |
+| 게이트 결과 | lint ✅ / typecheck ✅ / test ✅ (286 passed) |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `b94cc76` |
