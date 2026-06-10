@@ -274,4 +274,4 @@
 | 실행 명령 | `npm run lint` / `npm run typecheck` / `npm test` |
 | 게이트 결과 | lint PASS / typecheck PASS / test PASS (283 tests) |
 | 블로커 / 역질문 | 없음 |
-| 대상 커밋 | 517beda |
+| 대상 커밋 | 9c4f1a1 |
