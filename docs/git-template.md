@@ -26,8 +26,8 @@ Claude Code(설계·검증)와 Codex(구현)는 **분리된 환경에서 git 커
 | `Agent` | 커밋 작성 에이전트 | `codex` \| `claude` | 둘 다 |
 | `Handoff` | 연관 hand-off 작업 디렉토리 | `docs/handoff/<NNNN-slug>/` \| `none` | 둘 다 |
 | `Status` | 작업 상태 | `implemented` \| `partial` \| `blocked` \| `verified` | 둘 다 |
-| `Criteria-Met` | 충족 인수 기준 수 | `<충족>/<전체>` (예 `3/5`) | **구현 커밋만** |
-| `Criteria-Pending` | 미충족 기준 목록 | 자유 텍스트(기준 번호·요약) | **구현 커밋만** |
+| `Criteria-Met` | 충족 인수 기준 수 | `<충족>/<전체>` (예 `3/5`) | **구현 커밋만** (구현 에이전트) |
+| `Criteria-Pending` | 미충족 기준 목록 | 자유 텍스트(기준 번호·요약) | **구현 커밋만** (구현 에이전트) |
 | `Verified-By` | 검증 결과 | `pending` \| `claude:pass` \| `claude:fail` | 구현=`pending`, 검증=결과 |
 | `Next-Action` | 다음 차례 주체 | `codex` \| `claude` \| `none` | **검증 커밋만** |
 | `Refs` | 연관 이슈 | `#<이슈번호>` | 둘 다(선택) |
@@ -36,7 +36,7 @@ Claude Code(설계·검증)와 Codex(구현)는 **분리된 환경에서 git 커
 
 ## 에이전트별 작성 규칙
 
-- **구현 커밋 (Codex)**: `Agent: codex` · `Status: implemented|partial|blocked` · `Criteria-Met` · (미충족 있으면) `Criteria-Pending` · `Verified-By: pending`. `Next-Action` 은 넣지 않는다.
+- **구현 커밋**: `Agent: <구현 에이전트>` · `Status: implemented|partial|blocked` · `Criteria-Met` · (미충족 있으면) `Criteria-Pending` · `Verified-By: pending`. `Next-Action` 은 넣지 않는다. 구현 에이전트는 보통 Codex(기능 구현)지만, **리팩토링·버그수정은 Claude 가 구현**하므로 그 경우 `Agent: claude` 로 동일 형식을 쓴다 (역할 분담 정본은 [`handoff/AGENTS.md`](handoff/AGENTS.md)).
 - **검증 커밋 (Claude)**: `Agent: claude` · `Status: verified` · `Verified-By: claude:pass|claude:fail` · `Next-Action: codex|claude|none`. `Criteria-*` 는 넣지 않는다.
 - **공통**: `Handoff`, `Refs`(선택).
 
