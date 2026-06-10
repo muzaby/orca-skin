@@ -80,6 +80,6 @@
 |---|---|
 | 변경 파일 | `app/src/main/adapters/claude-code.ts`, `AGENTS.md`, `docs/handoff/AGENTS.md`, `docs/git-template.md`, `docs/handoff/{INDEX.md,0005-title-completion-fixes/**}` |
 | 실행 명령 | `npm run lint` / `npm run typecheck` / `npm test` |
-| 게이트 결과 | (구현 커밋 시 기입) |
+| 게이트 결과 | lint ✅ / typecheck ✅ / test ✅ (283 passed) |
 | 블로커 / 역질문 | 없음 |
-| 대상 커밋 | (구현 커밋 시 기입) |
+| 대상 커밋 | `c13bd44` |
