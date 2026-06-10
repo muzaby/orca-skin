@@ -23,9 +23,15 @@ interface ChatTileProps {
   backendLabel: string
   // 활성 백엔드의 중단 지원 여부(§15). page → ChatView 를 거쳐 Composer 로 전달.
   canAbort: boolean
+  costToday?: string
 }
 
-export function ChatTile({ chat, backendLabel, canAbort }: ChatTileProps): React.JSX.Element {
+export function ChatTile({
+  chat,
+  backendLabel,
+  canAbort,
+  costToday
+}: ChatTileProps): React.JSX.Element {
   const { state } = chat
   const scrollRef = useRef<HTMLDivElement>(null)
   const rowRef = useRef<HTMLDivElement>(null)
@@ -270,6 +276,7 @@ export function ChatTile({ chat, backendLabel, canAbort }: ChatTileProps): React
             canAbort={canAbort}
             showScrollToBottom={showJump}
             onScrollToBottom={scrollToBottom}
+            costToday={costToday}
           />
         </div>
 

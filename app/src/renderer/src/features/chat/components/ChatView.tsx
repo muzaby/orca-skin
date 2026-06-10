@@ -6,9 +6,12 @@ interface ChatViewProps {
   backendLabel: string
   // 활성 백엔드의 중단 지원 여부(§15). page 가 capabilities 에서 도출해 주입.
   canAbort: boolean
+  costToday?: string
 }
 
-export function ChatView({ backendLabel, canAbort }: ChatViewProps): React.JSX.Element {
+export function ChatView({ backendLabel, canAbort, costToday }: ChatViewProps): React.JSX.Element {
   const chat = useChatContext()
-  return <ChatTile chat={chat} backendLabel={backendLabel} canAbort={canAbort} />
+  return (
+    <ChatTile chat={chat} backendLabel={backendLabel} canAbort={canAbort} costToday={costToday} />
+  )
 }
