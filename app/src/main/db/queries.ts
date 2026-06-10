@@ -8,6 +8,7 @@ import type {
   SearchHitRow,
   SessionInsert,
   SessionListRow,
+  SessionTitleSource,
   TurnModelUsageInsert,
   TurnModelUsageRow,
   TurnUsageInsert,
@@ -25,6 +26,8 @@ export class DbQueries {
   private readonly updateToolResultPartStmt: Database.Statement
   private readonly updateSessionPreviewStmt: Database.Statement
   private readonly updateSessionTitleStmt: Database.Statement
+  private readonly getTitleSourceStmt: Database.Statement
+  private readonly updateSessionTitleAutoStmt: Database.Statement
   // per-turn 사용량 원장 — insert(턴 종료) + 세션 최신 행 조회(컨텍스트 도넛/패널 복원).
   private readonly insertTurnUsageStmt: Database.Statement
   private readonly insertTurnModelUsageStmt: Database.Statement
@@ -53,7 +56,7 @@ export class DbQueries {
       ON CONFLICT(id) DO NOTHING
     `)
     this.listSessionsStmt = db.prepare(`
-      SELECT id, backend, title, updated_at, last_message_preview, project_id
+      SELECT id, backend, title, updated_at, last_message_preview, project_id, title_source
       FROM sessions
       ORDER BY updated_at DESC
       LIMIT @limit
@@ -112,6 +115,14 @@ export class DbQueries {
     this.updateSessionTitleStmt = db.prepare(`
       UPDATE sessions SET title = @title WHERE id = @id AND title IS NULL
     `)
+    this.getTitleSourceStmt = db.prepare(`
+      SELECT title_source FROM sessions WHERE id = @id
+    `)
+    this.updateSessionTitleAutoStmt = db.prepare(`
+      UPDATE sessions
+      SET title = @title, title_source = 'auto', updated_at = @updatedAt
+      WHERE id = @id AND title_source != 'user'
+    `)
     this.insertTurnUsageStmt = db.prepare(`
       INSERT INTO turn_usage
         (session_id, message_id, created_at, input_tokens, output_tokens,
@@ -148,7 +159,9 @@ export class DbQueries {
       WHERE created_at >= @since
     `)
     this.renameSessionStmt = db.prepare(`
-      UPDATE sessions SET title = @title, updated_at = @updatedAt WHERE id = @id
+      UPDATE sessions
+      SET title = @title, title_source = 'user', updated_at = @updatedAt
+      WHERE id = @id
     `)
     this.deleteSessionStmt = db.prepare(`DELETE FROM sessions WHERE id = @id`)
     this.listProjectsStmt = db.prepare(`
@@ -175,7 +188,7 @@ export class DbQueries {
     `)
     this.deleteProjectStmt = db.prepare(`DELETE FROM projects WHERE id = @id`)
     this.listSessionsByProjectStmt = db.prepare(`
-      SELECT id, backend, title, updated_at, last_message_preview, project_id
+      SELECT id, backend, title, updated_at, last_message_preview, project_id, title_source
       FROM sessions
       WHERE project_id = @projectId
       ORDER BY updated_at DESC
@@ -246,6 +259,18 @@ export class DbQueries {
 
   updateSessionTitle(id: string, title: string): void {
     this.updateSessionTitleStmt.run({ id, title })
+  }
+
+  getTitleSource(id: string): SessionTitleSource | null {
+    const row = this.getTitleSourceStmt.get({ id }) as
+      | { title_source: SessionTitleSource }
+      | undefined
+    return row?.title_source ?? null
+  }
+
+  updateSessionTitleAuto(id: string, title: string, updatedAt: number): boolean {
+    const info = this.updateSessionTitleAutoStmt.run({ id, title, updatedAt })
+    return info.changes > 0
   }
 
   // 턴 종료 시 turn_usage 부모 1행 적재. 반환 id 로 turn_model_usage 자식을 연결한다.

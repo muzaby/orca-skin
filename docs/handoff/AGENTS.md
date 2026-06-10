@@ -4,8 +4,10 @@
 
 | 에이전트 | 역할 | 산출물 |
 |---|---|---|
-| **Claude Code** | 설계 + 검증 | `plan.md` (설계) · `verify.md` (검증) |
-| **Codex** | 구현 | 코드 (`app/**`) + `plan.md` 의 "구현 보고" 섹션 기입 |
+| **Claude Code** | 설계 + 검증 (+ 비기능 구현) | `plan.md` (설계) · `verify.md` (검증) · 리팩토링/버그수정 코드 |
+| **Codex** | 기능 구현 | 코드 (`app/**`) + `plan.md` 의 "구현 보고" 섹션 기입 |
+
+> **구현 주체 분담 규칙**: *기능 구현* 은 Codex 담당. **리팩토링·버그수정 등 비기능 작업은 Claude 가 핸드오프 문서를 만들어 직접 구현까지 수행**한다 — 이 경우 아래 라이프사이클의 plan → impl → verify 를 Claude 가 순차 수행하며, 구현 커밋 trailer 는 `Agent: claude` + `Status: implemented` + `Criteria-*` + `Verified-By: pending` 으로 작성한다(형식은 [`../git-template.md`](../git-template.md)).
 
 두 에이전트는 **분리된 환경**에서 동작하며 라이브 채널이 없다. **git 공유 브랜치가 유일한 메시지 버스**다 — 작업 전 `git pull`, 작업 후 `git push`. 단일 브랜치 순차 진행.
 

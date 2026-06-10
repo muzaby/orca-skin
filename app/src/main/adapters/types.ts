@@ -15,6 +15,13 @@ export interface LiveTurn {
   setModel(model?: string): Promise<void>
 }
 
+export interface CompleteRequest {
+  prompt: string
+  model?: string
+  cwd?: string
+  signal?: AbortSignal
+}
+
 export interface SessionAdapter {
   readonly id: Backend
   // 이 백엔드가 *지원하는* 능력 서술자 (capabilities/types.ts). UI 의 사전 게이팅·지표 소비자가
@@ -22,6 +29,9 @@ export interface SessionAdapter {
   describe(): ProviderDescriptor
   isInstalled(): Promise<{ installed: boolean; version?: string; binPath?: string }>
   install(): AsyncIterable<{ step: string; log?: string; error?: string; done?: boolean }>
+  // 세션 resume 과 무관한 단발 completion. 자동 제목 생성처럼 대화 컨텍스트를 오염시키면
+  // 안 되는 보조 호출에만 쓴다. router 는 provider 별 저가 모델을 알지 않는다.
+  complete(req: CompleteRequest): Promise<string>
   // 한 턴 실행. 확장 리소스(mcp·skills·hooks·systemPrompt)는 req.extensions 로, uv 런타임 env 는
   // req.env 로 전달된다 — 위치 인자 증식(구 7개) 대신 단일 TurnRequest 로 통합 (설계검토 §9).
   // 라이브 핸들(LiveTurn)을 돌려준다 — `events` 가 provider 중립 NormalizedEvent 스트림(§2),

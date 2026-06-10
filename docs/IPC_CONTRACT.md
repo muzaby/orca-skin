@@ -16,9 +16,9 @@
 - 채널 상수: `app/src/shared/ipc.ts` 의 `CHANNELS` 객체. 문자열 리터럴 직접 사용 금지.
 - 입력 검증: 모든 `ipcMain.handle` 핸들러는 **zod 스키마 (`app/src/shared/protocol.ts`)** 로 페이로드 검증. 검증 실패 시 에러 throw.
 
-## 2. 채널 카탈로그 (총 37 채널)
+## 2. 채널 카탈로그 (총 38 채널)
 
-도메인별 분포: `chat` 3 · `backend` 1 · `install` 2 · `settings` 2 · `skills` 1 · `files` 1 · `session` 5 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `runtime` 3 · `cost` 2 · `permission` 2 (`respond` · `setMode`) · `debug` 2 (dev 전용 — `getMock` · `setMock`).
+도메인별 분포: `chat` 3 · `backend` 1 · `install` 2 · `settings` 2 · `skills` 1 · `files` 1 · `session` 6 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `runtime` 3 · `cost` 2 · `permission` 2 (`respond` · `setMode`) · `debug` 2 (dev 전용 — `getMock` · `setMock`).
 
 `app/src/shared/ipc.ts` 의 `CHANNELS` 상수와 1:1 일치. **단, `debug` 2채널은 `import.meta.env.DEV` 일 때만 `ipcMain.handle` 로 등록된다** (CHANNELS 상수 문자열은 상존하나 prod 핸들러 미등록 — §2.13 참조).
 
@@ -90,7 +90,8 @@ interface Settings {
 | `orca:session:list` | R→M (invoke) | — | `SessionListItem[]` | 사이드바 '최근 대화' 메타 목록. DB SSOT — `updatedAt` 내림차순. |
 | `orca:session:load` | R→M (invoke) | `LoadSessionRequest` = `{ sessionId: string }` | `LoadedSession \| null` | 세션 메시지를 순서 보존 parts(`LoadedMessage.parts: AppMessagePart[]`, provider-runtime.md §7)로 일괄 로드. Phase 3 lazy load 진입점. `LoadedSession` 은 마지막 턴 통계 `lastTelemetry?: ProviderReportedTelemetry`(`turn_usage` 최신 부모 행 + `turn_model_usage` 자식 행에서 재구성)를 실어 컨텍스트 도넛/패널을 세션 수명 동안 복원. 비용은 `turn_usage` 원장(`0006`)이 SSOT — 일/주/월 시간 집계용이며 모델별 분해는 `turn_model_usage` 에 보존한다. |
 | `orca:session:delete` | R→M (invoke) | `DeleteSessionRequest` = `{ sessionId: string }` | `Promise<void>` | hard delete (CASCADE — messages/tool_calls 동반 삭제). `lastSessionId` 가 대상이면 settings 도 해제. |
-| `orca:session:rename` | R→M (invoke) | `RenameSessionRequest` = `{ sessionId: string; title: string }` | `Promise<void>` | title 덮어쓰기 + `updatedAt` 갱신. title 길이 1–120 자. |
+| `orca:session:rename` | R→M (invoke) | `RenameSessionRequest` = `{ sessionId: string; title: string }` | `Promise<void>` | title 덮어쓰기 + `updatedAt` 갱신. title 길이 1–120 자. 사용자 rename 으로 간주해 DB `title_source='user'` 로 표기한다. |
+| `orca:session:titleEvent` | M→R (send) | `SessionTitleEvent` = `{ sessionId: string; title: string }` | — | 새 세션 첫 턴 종료 후 main 이 자동 요약 제목을 영속화하면 모든 창에 push 한다. renderer 는 사이드바 목록과 활성 세션 헤더를 새로고침 없이 갱신한다. |
 
 ### 2.7-b Project (Phase 3)
 

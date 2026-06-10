@@ -155,6 +155,16 @@ export function useChat(): UseChat {
     }
   }, [])
 
+  useEffect(() => {
+    return sessionApi.onTitle((ev) => {
+      const cached = cacheRef.current.get(ev.sessionId)
+      if (cached) cacheRef.current.set(ev.sessionId, { ...cached, title: ev.title })
+      if (stateRef.current.sessionId === ev.sessionId) {
+        dispatch({ type: 'RENAME_SESSION', sessionId: ev.sessionId, title: ev.title })
+      }
+    })
+  }, [])
+
   const send = useCallback(
     (text: string) => {
       const trimmed = text.trim()

@@ -5,6 +5,7 @@
 import type { Backend } from '../../shared/ipc'
 
 export type MessageRole = 'user' | 'assistant'
+export type SessionTitleSource = 'auto' | 'user'
 
 // message_parts.type — AppMessagePart(provider-runtime.md §7)의 DB 표현. payload_json 은
 // type 외 나머지 필드의 JSON 직렬화(tool_run_id 는 별도 컬럼이라 payload 에 중복 저장 안 함).
@@ -26,6 +27,7 @@ export interface SessionRow {
   updated_at: number
   last_message_preview: string | null
   project_id: string | null
+  title_source: SessionTitleSource
 }
 
 export interface SessionListRow {
@@ -35,6 +37,7 @@ export interface SessionListRow {
   updated_at: number
   last_message_preview: string | null
   project_id: string | null
+  title_source: SessionTitleSource
 }
 
 // 0006 turn_usage — per-turn 사용량 원장. 모델별 분해는 turn_model_usage 자식 행에 저장.

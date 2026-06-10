@@ -54,15 +54,17 @@ import { InteractionBroker } from '../ask/broker'
 import { agentPermissionRequest } from '../runtime-events/permission-bridge'
 import { PermissionModeController } from '../runtime-events/permission-mode-controller'
 import { toClaudePermissionMode } from '../../shared/permission-mode'
-import type { LiveTurn } from '../adapters/types'
+import type { LiveTurn, SessionAdapter } from '../adapters/types'
 import { makeClassifiedError } from '../runtime-errors/classifier'
+import { normalizeTitle, shouldGenerateTitle, titlePrompt } from '../title/title'
 import { claudeErrorClassifier } from '../runtime-errors/claude-classifier'
 import type {
   ApprovalResolution,
   NormalizedEvent,
   PermissionAction,
   RuntimeStatus,
-  CostSummary
+  CostSummary,
+  SessionTitleEvent
 } from '../../shared/ipc'
 
 interface InflightTurn {
@@ -70,14 +72,19 @@ interface InflightTurn {
   // 이 턴의 라이브 핸들 (PR③). orca:permission:setMode 가 진행 중 턴이면 여기로 모드를 즉시
   // 전환한다(Query.setPermissionMode). sendMessage 직후 채워진다.
   live: LiveTurn | null
+  titleAdapter: SessionAdapter
   // sendMessage 호출 시점에 채워두는 사용자 입력. claude-code 의 init 이벤트가
   // session_id 를 발급한 시점에 DB 에 user message row 로 저장한다.
   pendingUserText: string | null
+  firstUserText: string
   // init 이벤트로 확정된 DB sessionId. resume 의 경우 sendMessage 인자와 같다.
   dbSessionId: string | null
   // 새 채팅 첫 메시지일 때 renderer 가 전달한 projectId. init 이벤트의 insertSession
   // 시점에 함께 row 에 박혀 별도 UPDATE 없이 binding 이 끝난다. resume 경로면 항상 null.
   pendingProjectId: string | null
+  isNewSession: boolean
+  cwd: string
+  titleGenerationStarted: boolean
   // 현재 assistant turn 의 message row id. 한 턴의 모든 파트(reasoning/text/tool_*/error)를
   // 같은 메시지에 순서대로 누적하고, 턴 종료(telemetry) 시 reset 한다.
   currentAssistantMessageId: number | null
@@ -229,6 +236,12 @@ export class IpcRouter {
     if (!wc.isDestroyed()) wc.send(CHANNELS.installStatus, st)
   }
 
+  private broadcastSessionTitle(ev: SessionTitleEvent): void {
+    for (const wc of webContents.getAllWebContents()) {
+      if (!wc.isDestroyed()) wc.send(CHANNELS.sessionTitleEvent, ev)
+    }
+  }
+
   private handleChatSend = async (event: IpcMainInvokeEvent, raw: unknown): Promise<void> => {
     const parsed = SendChatMessageSchema.safeParse(raw)
     if (!parsed.success) {
@@ -263,9 +276,14 @@ export class IpcRouter {
     const turn: InflightTurn = {
       controller,
       live: null,
+      titleAdapter: adapter,
       pendingUserText: parsed.data.text,
+      firstUserText: parsed.data.text,
       dbSessionId: parsed.data.sessionId,
       pendingProjectId: parsed.data.sessionId ? null : parsed.data.projectId,
+      isNewSession: parsed.data.sessionId == null,
+      cwd: this.defaultCwd,
+      titleGenerationStarted: false,
       currentAssistantMessageId: null,
       assistantText: '',
       pendingAskAnswers: [],
@@ -348,7 +366,7 @@ export class IpcRouter {
       void this.permissionModes.setMode(parsed.data.sessionId, parsed.data.permissionMode)
     }
 
-    const cwd = this.defaultCwd
+    const cwd = turn.cwd
     try {
       // sendMessage 가 query() 를 즉시 시작하므로 try 안에서 호출 — 동기 throw 도 동일 경로로 분류.
       const live = adapter.sendMessage({
@@ -583,12 +601,61 @@ export class IpcRouter {
           }
           this.cost.recordAndBroadcast()
         }
+        this.maybeStartTitleGeneration(turn)
         // 다음 assistant 파트는 새 메시지에 묶이도록 reset.
         turn.currentAssistantMessageId = null
         turn.assistantText = ''
         break
       }
       // message.delta 는 transient(미저장). permission.* 는 별도 row 없음.
+    }
+  }
+
+  private maybeStartTitleGeneration(turn: InflightTurn): void {
+    const titleSource = turn.dbSessionId ? this.db.getTitleSource(turn.dbSessionId) : null
+    if (
+      !shouldGenerateTitle({
+        isNewSession: turn.isNewSession,
+        titleSource,
+        alreadyStarted: turn.titleGenerationStarted,
+        sessionId: turn.dbSessionId,
+        firstUserText: turn.firstUserText
+      })
+    ) {
+      return
+    }
+    turn.titleGenerationStarted = true
+    void this.generateTitle({
+      sessionId: turn.dbSessionId!,
+      firstUserText: turn.firstUserText,
+      cwd: turn.cwd,
+      adapter: turn.titleAdapter
+    })
+  }
+
+  private async generateTitle(req: {
+    sessionId: string
+    firstUserText: string
+    cwd: string
+    adapter: SessionAdapter
+  }): Promise<void> {
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 30_000)
+    try {
+      if (this.db.getTitleSource(req.sessionId) === 'user') return
+      const raw = await req.adapter.complete({
+        prompt: titlePrompt(req.firstUserText),
+        cwd: req.cwd,
+        signal: controller.signal
+      })
+      const title = normalizeTitle(raw)
+      if (!title) return
+      const updated = this.db.updateSessionTitleAuto(req.sessionId, title, Date.now())
+      if (updated) this.broadcastSessionTitle({ sessionId: req.sessionId, title })
+    } catch (err) {
+      console.warn('[session-title] 자동 제목 생성 실패:', err)
+    } finally {
+      clearTimeout(timeout)
     }
   }
 
