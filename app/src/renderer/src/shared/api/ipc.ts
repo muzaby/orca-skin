@@ -19,7 +19,8 @@ import type {
   SettingsPatch,
   SkillInfo,
   UpdateMcpServerRequest,
-  UpdateProjectRequest
+  UpdateProjectRequest,
+  DebugMockState
 } from '../../../../shared/ipc'
 
 // renderer 의 모든 IPC 호출 진입점. window.orca.* 의 얇은 typed 패스-스루로,
@@ -94,6 +95,12 @@ export const costApi = {
 export const permissionApi = {
   respond: (req: PermissionRespond): Promise<void> => window.orca.permission.respond(req),
   setMode: (req: SetPermissionMode): Promise<void> => window.orca.permission.setMode(req)
+}
+
+export const debugApi = {
+  getMock: (): Promise<DebugMockState> => window.orca.debug.getMock(),
+  setMock: (patch: Partial<DebugMockState>): Promise<DebugMockState> =>
+    window.orca.debug.setMock(patch)
 }
 
 export const mcpApi = {

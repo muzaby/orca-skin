@@ -1,12 +1,12 @@
 import { useRef, useState, type ReactNode } from 'react'
 
-interface RadioOption<V> {
+interface ChoiceOption<V> {
   value: V
   label: string
 }
 
-export interface TweaksPanelProps {
-  title?: string
+export interface FloatingPanelProps {
+  title: string
   children: ReactNode
 }
 
@@ -17,7 +17,7 @@ const PANEL_CLASS =
   '[backdrop-filter:blur(24px)_saturate(160%)] [-webkit-backdrop-filter:blur(24px)_saturate(160%)] ' +
   'font-sans text-[11.5px] leading-[1.4]'
 
-export function TweaksPanel({ title = 'Tweaks', children }: TweaksPanelProps): React.JSX.Element {
+export function FloatingPanel({ title, children }: FloatingPanelProps): React.JSX.Element {
   const [open, setOpen] = useState(true)
   const dragRef = useRef<HTMLDivElement | null>(null)
   const offsetRef = useRef({ x: 16, y: 16 })
@@ -54,7 +54,7 @@ export function TweaksPanel({ title = 'Tweaks', children }: TweaksPanelProps): R
         onClick={() => setOpen(true)}
         className="fixed bottom-4 right-4 z-[2147483646] cursor-pointer rounded-full border-[0.5px] border-white/60 bg-[rgba(250,249,247,0.78)] px-3 py-1.5 font-mono text-[11px] text-[#29261b] shadow-[0_8px_24px_rgba(0,0,0,.18)] [backdrop-filter:blur(24px)_saturate(160%)]"
       >
-        Tweaks
+        {title}
       </button>
     )
   }
@@ -82,7 +82,7 @@ export function TweaksPanel({ title = 'Tweaks', children }: TweaksPanelProps): R
   )
 }
 
-export function TweakSection({ label }: { label: string }): React.JSX.Element {
+export function PanelSection({ label }: { label: string }): React.JSX.Element {
   return (
     <div className="pt-2.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-[rgba(41,38,27,0.45)] first:pt-0">
       {label}
@@ -90,7 +90,7 @@ export function TweakSection({ label }: { label: string }): React.JSX.Element {
   )
 }
 
-export function TweakToggle({
+export function PanelToggle({
   label,
   value,
   onChange
@@ -123,7 +123,7 @@ export function TweakToggle({
   )
 }
 
-export function TweakRadio<V extends string>({
+export function PanelRadio<V extends string>({
   label,
   value,
   options,
@@ -131,7 +131,7 @@ export function TweakRadio<V extends string>({
 }: {
   label: string
   value: V
-  options: RadioOption<V>[]
+  options: ChoiceOption<V>[]
   onChange: (v: V) => void
 }): React.JSX.Element {
   const idx = Math.max(
@@ -166,5 +166,70 @@ export function TweakRadio<V extends string>({
         ))}
       </div>
     </div>
+  )
+}
+
+export function PanelSelect<V extends string>({
+  label,
+  value,
+  options,
+  onChange
+}: {
+  label: string
+  value: V
+  options: ChoiceOption<V>[]
+  onChange: (v: V) => void
+}): React.JSX.Element {
+  return (
+    <label className="mb-3 block">
+      <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.12em] text-[#7a7464]">
+        {label}
+      </span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value as V)}
+        className="w-full cursor-pointer rounded-lg border border-black/10 bg-white/55 px-2.5 py-1.5 text-[11px] font-medium text-[#29261b] outline-none transition focus:border-[#8f7d5a]"
+      >
+        {options.map((o) => (
+          <option key={o.value} value={o.value}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+    </label>
+  )
+}
+
+export function PanelSlider({
+  label,
+  value,
+  min = 0,
+  max = 100,
+  step = 1,
+  onChange
+}: {
+  label: string
+  value: number
+  min?: number
+  max?: number
+  step?: number
+  onChange: (v: number) => void
+}): React.JSX.Element {
+  return (
+    <label className="mb-3 block">
+      <span className="mb-1 flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.12em] text-[#7a7464]">
+        <span>{label}</span>
+        <span className="font-mono text-[#29261b]">{Math.round(value)}%</span>
+      </span>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(e) => onChange(Number(e.target.value))}
+        className="w-full accent-[#8f7d5a]"
+      />
+    </label>
   )
 }

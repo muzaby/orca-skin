@@ -44,8 +44,31 @@ export const CHANNELS = {
   permissionRespond: 'orca:permission:respond',
   // 세션 진행 중 권한 모드 라이브 전환 (PR③). { sessionId, mode } 를 main 에 invoke —
   // 진행 중 턴이면 즉시 Query.setPermissionMode, 아니면 controller 에 기록해 다음 턴에 반영.
-  permissionSetMode: 'orca:permission:setMode'
+  permissionSetMode: 'orca:permission:setMode',
+  debugGetMock: 'orca:debug:getMock',
+  debugSetMock: 'orca:debug:setMock'
 } as const
+
+// dev 전용 MockAdapter 시나리오. ProviderId/Backend 에 mock 을 추가하지 않고 claude-code 로
+// 위장해 실제 라우터·영속화·renderer reducer 경로를 그대로 검증한다.
+export const MOCK_SCENARIO_IDS = [
+  'text_streaming',
+  'reasoning',
+  'tool_calls',
+  'tool_approval',
+  'ask_question',
+  'plan_review',
+  'error',
+  'full'
+] as const
+
+export type MockScenarioId = (typeof MOCK_SCENARIO_IDS)[number]
+
+export interface DebugMockState {
+  enabled: boolean
+  scenarioId: MockScenarioId
+  contextUsageRatio: number
+}
 
 export interface CostPeriodSummary {
   totalCostUsd: number

@@ -18,6 +18,7 @@ import {
   DeleteMcpServerSchema,
   PermissionRespondSchema,
   SetPermissionModeSchema,
+  DebugMockPatchSchema,
   type BackendListResult,
   type FileEntry,
   type InstallStatus,
@@ -29,11 +30,13 @@ import {
   type SearchHit,
   type SessionListItem,
   type Settings,
-  type SkillInfo
+  type SkillInfo,
+  type DebugMockState
 } from '../../shared/protocol'
 import { usageRowToTelemetry, hasContextTokens } from '../usage/usageMap'
 import { CostTracker } from '../cost/tracker'
 import { AdapterRegistry } from '../adapters/registry'
+import { MockAdapter } from '../adapters/mock'
 import { Installer } from '../installer'
 import { SettingsStore } from '../settings/store'
 import { McpStore } from '../mcp/store'
@@ -117,6 +120,12 @@ export class IpcRouter {
   private cost!: CostTracker
   // Extension 계층 조립기. db 가 !-asserted 라 field-init 시점엔 undefined → start() 에서 initDb() 이후 생성.
   private extensions!: ExtensionBuilder
+  private readonly debugMock: DebugMockState = {
+    enabled: false,
+    scenarioId: 'full',
+    contextUsageRatio: 0.3
+  }
+  private readonly mockAdapter = import.meta.env.DEV ? new MockAdapter(() => this.debugMock) : null
 
   async start(): Promise<void> {
     this.db = initDb()
@@ -192,6 +201,13 @@ export class IpcRouter {
     ipcMain.handle(CHANNELS.costSummary, this.handleCostSummary)
     ipcMain.handle(CHANNELS.permissionRespond, this.handlePermissionRespond)
     ipcMain.handle(CHANNELS.permissionSetMode, this.handlePermissionSetMode)
+    if (import.meta.env.DEV) {
+      ipcMain.handle(CHANNELS.debugGetMock, async () => ({ ...this.debugMock }))
+      ipcMain.handle(CHANNELS.debugSetMock, async (_event, raw) => {
+        Object.assign(this.debugMock, DebugMockPatchSchema.parse(raw))
+        return { ...this.debugMock }
+      })
+    }
     // 런타임 초기화 진행 상태를 모든 창에 브로드캐스트.
     // 렌더러 런타임 UI 가 제거되어 dev 에선 터미널 로깅으로 진행/에러를 관찰한다.
     this.runtime.on('status', (st: RuntimeStatus) => {
@@ -227,7 +243,8 @@ export class IpcRouter {
       return
     }
 
-    const adapter = this.registry.getActive()
+    const adapter =
+      this.mockAdapter && this.debugMock.enabled ? this.mockAdapter : this.registry.getActive()
     if (!adapter) {
       this.sendChatEvent(event.sender, {
         type: 'error',
@@ -301,6 +318,13 @@ export class IpcRouter {
       this.sendChatEvent(wc, agentPermissionRequest('claude-code', approvalId, outbound))
       const resolution = await this.approvals.register(approvalId, controller.signal, {
         behavior: 'deny'
+      })
+      this.sendChatEvent(wc, {
+        type: 'permission.resolved',
+        provider: 'claude-code',
+        ...(turn.dbSessionId ? { sessionId: turn.dbSessionId } : {}),
+        approvalId,
+        resolution
       })
       // ask_question 후처리 — 답변을 큐에 적재 후 즉시 페어링 시도(tool_use id 가 먼저 와
       // 있을 수도 있다). SDK 가 answers 를 메시지 스트림으로 안 돌려주므로 router 가 합성한다.
