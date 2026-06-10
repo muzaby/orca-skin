@@ -38,7 +38,9 @@ const PLAN_REJECT_MESSAGE =
   '사용자가 계획을 거부했습니다. 다른 계획이나 제안 없이 여기서 중단하세요.'
 // 일반 도구 거부 기본 사유 (resolution.message 부재 시).
 const TOOL_DENY_MESSAGE = '사용자가 도구 실행을 거부했습니다.'
-const CLAUDE_TITLE_MODEL = 'claude-haiku-4-5'
+// 제목 생성용 저가 모델 — CLI 가 해석하는 *별칭*('haiku'|'sonnet'|'opus' 또는 전체 모델명,
+// docs/spec/claude/cli-reference.md `--model`). API 별칭(claude-haiku-4-5)은 해석되지 않는다.
+const CLAUDE_TITLE_MODEL = 'haiku'
 
 // 단일 권한 콜백(requestApproval)을 claude-code 의 canUseTool 로 어댑트한다. SDK 고유의
 // canUseTool/PermissionResult/도구이름(AskUserQuestion·ExitPlanMode) 형태를 어댑터 내부에만
@@ -142,30 +144,34 @@ export class ClaudeCodeAdapter implements SessionAdapter {
   }
 
   async complete(req: CompleteRequest): Promise<string> {
-    const model = req.model ?? CLAUDE_TITLE_MODEL
+    // 모델은 CompleteRequest.model 단일 채널로 흐른다. 1차는 저가 모델(별칭)로 시도하고,
+    // 비-abort 실패면 model 을 생략해 provider default 모델로 1회 이관한다(graceful degrade
+    // 는 호출자 몫 — router 의 try/catch). 첫 실패를 로깅해 모델 오설정이 은폐되지 않게 한다.
     try {
-      return await this.runCompletion(req, model)
+      return await this.runCompletion({ ...req, model: req.model ?? CLAUDE_TITLE_MODEL })
     } catch (err) {
-      if (req.signal?.aborted || !isLikelyModelSelectionError(err)) throw err
-      return this.runCompletion(req)
+      if (req.signal?.aborted) throw err
+      console.warn('[session-title] 저가 모델 completion 실패 — default 모델로 재시도:', err)
+      return this.runCompletion({ ...req, model: undefined })
     }
   }
 
-  private async runCompletion(req: CompleteRequest, model?: string): Promise<string> {
+  private async runCompletion(req: CompleteRequest): Promise<string> {
     const abortController = new AbortController()
     const onAbort = (): void => abortController.abort()
     if (req.signal?.aborted) abortController.abort()
     else req.signal?.addEventListener('abort', onAbort, { once: true })
 
+    // settingSources 는 명시하지 않는다 — SDK 기본(모든 소스 로드)으로 사용자/프로젝트 설정의
+    // env 가 적용되게 sendMessage 경로와 정합 (docs/spec/claude/agent-sdk/typescript.md).
     const options: Options = {
       abortController,
       maxTurns: 1,
       tools: [],
       allowedTools: [],
-      settingSources: [],
       persistSession: false,
       ...(req.cwd ? { cwd: req.cwd } : {}),
-      ...(model ? { model } : {})
+      ...(req.model ? { model: req.model } : {})
     }
 
     try {
@@ -272,9 +278,4 @@ function assistantText(msg: SDKMessage): string {
       return ''
     })
     .join('')
-}
-
-function isLikelyModelSelectionError(err: unknown): boolean {
-  const message = err instanceof Error ? err.message : String(err)
-  return /model|haiku|not found|unknown|invalid/i.test(message)
 }
