@@ -2,13 +2,13 @@
 
 > 이 문서는 Main ↔ Renderer 간 IPC 채널의 **단일 진실 공급원 (SSOT)** 이다.
 > 채널을 추가/변경할 때는 코드와 이 문서를 함께 갱신한다.
-> 최종 업데이트: 2026-06-09
+> 최종 업데이트: 2026-06-10
 > 관련 문서: [ARCHITECTURE.md](ARCHITECTURE.md), [ARCHITECTURE.md](ARCHITECTURE.md), [GLOSSARY.md](./GLOSSARY.md), [TRD.md](./TRD.md) §5
 
 ## 1. 명명 규칙
 
 - 형식: `orca:<domain>:<action>` — 소문자 + 콜론 구분
-- 도메인 (14개): `chat`, `backend`, `install`, `settings`, `skills`, `files`, `session`, `project`, `window`, `search`, `mcp`, `runtime`, `cost`, `permission`
+- 도메인 (15개): `chat`, `backend`, `install`, `settings`, `skills`, `files`, `session`, `project`, `window`, `search`, `mcp`, `runtime`, `cost`, `permission`, `debug`(dev 전용)
 - 방향:
   - Renderer → Main 요청: `ipcMain.handle` + `ipcRenderer.invoke` (Promise 반환)
   - Main → Renderer 이벤트: `webContents.send` + `ipcRenderer.on` (단방향 push)
@@ -16,11 +16,11 @@
 - 채널 상수: `app/src/shared/ipc.ts` 의 `CHANNELS` 객체. 문자열 리터럴 직접 사용 금지.
 - 입력 검증: 모든 `ipcMain.handle` 핸들러는 **zod 스키마 (`app/src/shared/protocol.ts`)** 로 페이로드 검증. 검증 실패 시 에러 throw.
 
-## 2. 채널 카탈로그 (총 35 채널)
+## 2. 채널 카탈로그 (총 37 채널)
 
-도메인별 분포: `chat` 3 · `backend` 1 · `install` 2 · `settings` 2 · `skills` 1 · `files` 1 · `session` 5 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `runtime` 3 · `cost` 2 · `permission` 2 (`respond` · `setMode`).
+도메인별 분포: `chat` 3 · `backend` 1 · `install` 2 · `settings` 2 · `skills` 1 · `files` 1 · `session` 5 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `runtime` 3 · `cost` 2 · `permission` 2 (`respond` · `setMode`) · `debug` 2 (dev 전용 — `getMock` · `setMock`).
 
-`app/src/shared/ipc.ts` 의 `CHANNELS` 상수와 1:1 일치.
+`app/src/shared/ipc.ts` 의 `CHANNELS` 상수와 1:1 일치. **단, `debug` 2채널은 `import.meta.env.DEV` 일 때만 `ipcMain.handle` 로 등록된다** (CHANNELS 상수 문자열은 상존하나 prod 핸들러 미등록 — §2.13 참조).
 
 ### 2.1 Chat
 
@@ -223,7 +223,20 @@ interface CostSummary {
 }
 ```
 
-### 2.13 예약 / 미노출 채널
+### 2.13 Debug (dev 전용 — MockAdapter 하네스)
+
+LLM API 없이 renderer 의 스트리밍·사고 블록·도구 카드·권한 승인 카드·에러·컨텍스트 도넛을 라이브 디버깅하기 위한 **dev 전용** 채널. main 의 `MockAdapter`(`adapters/mock.ts`, `id='claude-code'` 위장)가 라우터의 권한 합성·DB 영속화·IPC 송신 경로를 실트래픽과 동형으로 타며, renderer 의 `features/debug` 패널(`FloatingPanel`)이 단일 호출자다.
+
+> **prod 안전성**: `debug` 도메인은 `import.meta.env.DEV` 게이트 안에서만 `ipcMain.handle` 로 등록되고 MockAdapter 도 그때만 인스턴스화된다(빌드타임 상수라 prod 번들에서 dead-code 제거 — `out/main` 에 핸들러 등록 코드 부재, `out/renderer` 에 DebugPanel 미포함). preload 는 `window.orca.debug` 를 상시 노출하나, prod 에선 main 핸들러가 없어 invoke 가 무효다. mock 모드 상태(`debugMock`)는 **비영속** — 재시작 시 OFF.
+
+| 채널 | 방향 | 페이로드 | 응답 | 설명 |
+|---|---|---|---|---|
+| `orca:debug:getMock` | R→M (invoke) | — | `DebugMockState` = `{ enabled: boolean; scenarioId: MockScenarioId; contextUsageRatio: number }` | 현재 mock 상태 1회 조회 (패널 마운트 시 동기화). |
+| `orca:debug:setMock` | R→M (invoke) | `Partial<DebugMockState>` (`DebugMockPatchSchema` — 세 필드 optional, `contextUsageRatio` 0~1) | `DebugMockState` | mock 상태 부분 패치 후 병합된 전체 반환. `enabled` 토글 시 `handleChatSend` 의 어댑터 선택이 MockAdapter ↔ 활성 어댑터로 분기. |
+
+`MockScenarioId` 8종 (`app/src/shared/ipc.ts` `MOCK_SCENARIO_IDS`): `text_streaming` · `reasoning` · `tool_calls` · `tool_approval` · `ask_question` · `plan_review` · `error` · `full`. `full` 은 `NormalizedEvent` union 11종을 전수 산출(권한 2종은 approval 스텝이 라우터를 경유해 합성). 시나리오 telemetry 는 `costUsd: 0`·`model: 'mock-sonnet'`, 컨텍스트 토큰 합 = `round(contextUsageRatio × 200_000)` 로 도넛/`nearCompaction` 경고를 구동.
+
+### 2.14 예약 / 미노출 채널
 
 코드에 채널 상수는 없지만 향후 도입이 예약된 도메인:
 
@@ -251,7 +264,7 @@ interface CostSummary {
 | `telemetry` | `usage?: ProviderReportedTelemetry` (model·input/output·캐시 토큰·costUsd·durationMs·numTurns·modelUsage) | 어댑터 턴 종료 (SDK `SDKResultMessage`) | `inflight = false`, `pendingInputTokens`·`lastTelemetry`·`sessionCostUsd`(누산)·`lastTurnLatencyMs` 갱신 → TelemetryPanel |
 | `error` | `error: { code; message; recoverable }` (`sessionId?`) | 어댑터 catch 또는 SDK 에러 | `state.error` 설정, `inflight = false` |
 | `permission.requested` | `approvalId; origin; action: PermissionAction` | AskUserQuestion·ExitPlanMode·**위험 도구 게이트**(canUseTool) | `action.kind` 로 분기 → `pendingAsks` / `pendingPlanReview` / `pendingToolApproval`. 응답은 단일 `permissionRespond`(`{approvalId, resolution}`, approvalId=requestId) |
-| `permission.resolved` | `approvalId; resolution: ApprovalResolution` | 권한 해소(audit/telemetry) | no-op(카드는 respond 시 로컬 RESOLVE_* 로 닫힘) |
+| `permission.resolved` | `approvalId; resolution: ApprovalResolution` | 라우터 `requestApproval` 클로저가 broker 해소 직후 발행(mock/실경로 공통 — audit/telemetry 용) | no-op(카드는 respond 시 로컬 RESOLVE_* 로 닫힘) |
 
 `PermissionAction` = `{kind:'ask_question', request} | {kind:'plan_review', request} | {kind:'tool_approval', toolName, input}`. `ApprovalResolution` = `{behavior:'allow', updatedInput?, updatedPermissions?} | {behavior:'deny', message?, interrupt?}` (claude `PermissionResult` 와 동형 + 앱 레벨 세션 권한 `updatedPermissions:[{toolName, scope:'session'}]`).
 

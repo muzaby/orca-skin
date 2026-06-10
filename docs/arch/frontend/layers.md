@@ -23,7 +23,7 @@ src/renderer/
     │   ├── AppLayout.tsx            # Header + Sidebar (슬롯) + main + OverlayLayer 조립. 본체는 wiring hook 호출 + JSX 만
     │   ├── Header.tsx               # `app-frame-header` — 브랜드 + breadcrumb + WinControls + drag 2-layer
     │   ├── Sidebar.tsx              # `app-frame-sidebar` — NAV + collapsible/resizable + 3개 슬롯 (newChat/sessions/footer). React.memo + 도메인 특정 설정값 (SIDEBAR_MIN/MAX/DEFAULT_WIDTH) 유지
-    │   ├── OverlayLayer.tsx         # `#app-frame-overlay` + `#app-frame-modal` + `#app-frame-debug` 3슬롯 통합
+    │   ├── OverlayLayer.tsx         # `#app-frame-overlay` + `#app-frame-modal` + `#app-frame-debug` 3슬롯 통합 (`#app-frame-debug` 는 dev 전용 `features/debug` DebugPanel 호스트)
     │   ├── WinControls.tsx          # minimize/maximize/close IPC. macOS → null
     │   ├── router.tsx               # `<Routes>` — URL path → Page (which). `/`=BootRedirector · `/new`=NewChatLandingPage · `/chat`→/new · `/chat/:sessionId`=ChatPage · `/projects` · `/projects/:projectId` · `/engine` · `/skills` · `/captures` · `*`→/new
     │   ├── BootRedirector.tsx       # `/` 라우트 element — settings.lastSessionId → `/chat/<id>` 또는 `/new` replace
@@ -52,15 +52,16 @@ src/renderer/
     │   ├── skills/                  # useSkillsMcp, SkillsMcpView
     │   ├── camera/                  # CameraView
     │   ├── engine/                  # EngineView
-    │   └── captures/                # CapturesView
+    │   ├── captures/                # CapturesView
+    │   └── debug/                   # (dev 전용) DebugPanel, useDebugMock — MockAdapter 하네스 UI. OverlayLayer 가 `import.meta.env.DEV` 게이트로 마운트
     │
     ├── shared/                      ✅ 범용 — 도메인 로직 0. 모든 레이어 의존 가능.
     │   ├── navigation/              # routes.ts (path 패턴 + 라벨 + breadcrumb 카탈로그 — AppLayout matchPath 소스)
     │   ├── theme/                   # TweakProvider, useTweakContext
     │   ├── hooks/                   # useTweaks (theme/density), useSkills (orca:skills:list), useDragResize (1D 드래그→숫자 일반 메커니즘)
-    │   ├── api/ipc.ts               # `window.orca.*` 타입드 래퍼 — chatApi/backendApi/installApi/settingsApi/skillApi/fileApi/sessionApi/projectApi/windowApi
+    │   ├── api/ipc.ts               # `window.orca.*` 타입드 래퍼 — chatApi/backendApi/installApi/settingsApi/skillApi/fileApi/sessionApi/projectApi/windowApi/debugApi(dev 전용)
     │   ├── config/theme.ts          # ThemeId / DensityId 타입 + DENSITY_FONT
-    │   └── ui/                      # Icon, Avatar, Status, Dot, Popover, CopyIconButton, StatusLine, TweaksPanel, BayerPattern, Histogram
+    │   └── ui/                      # Icon, Avatar, Status, Dot, Popover, CopyIconButton, StatusLine, FloatingPanel(+ PanelSection/Toggle/Radio/Select/Slider atom), BayerPattern, Histogram
     │
     └── styles/                      ✅
         ├── tokens.css               # Tailwind @theme + [data-theme] 스코프
