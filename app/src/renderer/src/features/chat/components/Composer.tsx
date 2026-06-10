@@ -10,7 +10,11 @@ import { FileAutocomplete } from './composer/FileAutocomplete'
 import { ComposerChip } from './composer/ComposerChip'
 import { SkillsMenu } from './composer/SkillsMenu'
 import { ModeMenu } from './composer/ModeMenu'
+import { ConversationStatusLine } from './composer/ConversationStatusLine'
+import { StatusPopover } from './composer/StatusPopover'
+import { conversationStatusModel as conversationStatusModelFactory } from './composer/statusViewModel'
 import { MODE_LABELS } from './composer/modes'
+import type { ConversationStatus } from './composer/statusCopy'
 import { AskUserQuestionCard } from './AskUserQuestionCard'
 import { ApprovalCard } from './ApprovalCard'
 import { TelemetryPanel } from './TelemetryPanel'
@@ -33,6 +37,8 @@ interface ComposerProps {
   // 중앙에 "맨 아래로" 버튼을 띄운다. 랜딩(NewChat/Project)은 미전달 → 버튼 미표시.
   showScrollToBottom?: boolean
   onScrollToBottom?: () => void
+  // cross-feature 비용 summary 는 page/app 계층에서 문자열로 포맷해 주입한다.
+  costToday?: string
 }
 
 // 채팅 입력 composer — textarea + chip 행 + send/cancel 버튼 + skills/file 자동완성.
@@ -44,7 +50,8 @@ export function Composer({
   backendLabel,
   canAbort,
   showScrollToBottom,
-  onScrollToBottom
+  onScrollToBottom,
+  costToday
 }: ComposerProps): React.JSX.Element {
   const { state, send, cancel, answerAsk, skipAsk, setPermissionMode } = chat
   // 큐의 맨 앞 질문만 렌더(canUseTool 이 query 를 막아 보통 1개). 응답 시 다음 질문이 노출.
@@ -61,11 +68,40 @@ export function Composer({
   const [menuOpen, setMenuOpen] = useState(false)
   const telemetryButtonRef = useRef<HTMLButtonElement>(null)
   const [telemetryOpen, setTelemetryOpen] = useState(false)
+  const conversationStatusButtonRef = useRef<HTMLButtonElement>(null)
+  const [conversationStatusOpen, setConversationStatusOpen] = useState(false)
+  const conversationStatusPopoverId = 'conversation-status-popover'
 
   const closeMenu = (): void => setMenuOpen(false)
 
   const autocomplete = useSkillAutocomplete(draft, caret, skills)
   const fileAutocomplete = useFileAutocomplete(draft, caret, state.cwd)
+
+  const conversationStatusModel = useMemo(() => {
+    // TODO(후속 핸드오프): 정식 상태 판정 신호로 교체 — 현재는 임시 근사
+    let conversationStatus: ConversationStatus = 'safe'
+    if (state.lastTelemetry) {
+      const tokens = contextTokens(state.lastTelemetry)
+      const window = contextWindowFor(state.lastTelemetry.model)
+      const ratio = tokens / window
+      if (nearCompaction(tokens, window) || ratio >= 0.85) {
+        conversationStatus = 'danger'
+      } else if (ratio >= 0.6) {
+        conversationStatus = 'warn'
+      }
+    }
+    return conversationStatusModelFactory(conversationStatus, costToday)
+  }, [state.lastTelemetry, costToday])
+
+  const toggleConversationStatus = (): void => {
+    if (!conversationStatusModel) return
+    setConversationStatusOpen((v) => !v)
+  }
+
+  const compactStub = (): void => {
+    // TODO(후속 핸드오프): compact 실동작
+    console.warn('compact action is not implemented yet')
+  }
 
   // Skill chip / popover 선택: 항상 draft 끝에 `/name ` 삽입 (기존 동작 유지).
   const insertSkillFromMenu = (name: string): void => {
@@ -228,6 +264,29 @@ export function Composer({
         </button>
       )}
       <ReadingColumn>
+        <ConversationStatusLine
+          ref={conversationStatusButtonRef}
+          model={conversationStatusModel}
+          open={conversationStatusOpen}
+          onToggle={toggleConversationStatus}
+          popoverId={conversationStatusPopoverId}
+        />
+        {conversationStatusModel && (
+          <Popover
+            open={conversationStatusOpen}
+            anchorRef={conversationStatusButtonRef}
+            onClose={() => setConversationStatusOpen(false)}
+            placement="top"
+            className="p-0"
+          >
+            <StatusPopover
+              id={conversationStatusPopoverId}
+              model={conversationStatusModel}
+              onCompact={compactStub}
+              onNewChat={() => chat.newChat()}
+            />
+          </Popover>
+        )}
         {activeAsk && (
           <AskUserQuestionCard
             key={activeAsk.requestId}
