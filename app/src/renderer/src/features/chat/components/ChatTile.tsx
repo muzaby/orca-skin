@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../../../shared/ui/Icon'
 import { Button } from '../../../shared/ui/Button'
 import { Dot } from '../../../shared/ui/Status'
@@ -43,8 +43,10 @@ export function ChatTile({
   const prevSessionRef = useRef(state.sessionId)
   const [showJump, setShowJump] = useState(false)
   // 예약공간(ChatGPT식 앵커) — 새 user 메시지를 뷰포트 50% 라인까지 올릴 수 있도록 transcript 끝에
-  // 둘 여백 높이. 답변이 그 아래를 채울수록 0 으로 자연 수렴(완료 시 스냅 회수 없음).
-  const [spacerH, setSpacerH] = useState(0)
+  // 둘 여백. React 상태가 아닌 DOM 직접 제어 — 같은 effect 안에서 높이 반영→scrollTo 를 동기로
+  // 끝내 rAF/재렌더 대기를 없앤다 (rAF 는 창 occlusion 시 정지하고, 스트리밍 재렌더 부하에 밀려
+  // 수백 ms 지연돼 앵커가 늦거나 아예 안 일어난다).
+  const spacerRef = useRef<HTMLDivElement>(null)
 
   const isAtBottom = useCallback((el: HTMLDivElement): boolean => {
     return el.scrollHeight - el.scrollTop - el.clientHeight < 24
@@ -89,7 +91,8 @@ export function ChatTile({
 
   useEffect(() => {
     const el = scrollRef.current
-    if (!el) return
+    const spacer = spacerRef.current
+    if (!el || !spacer) return
     const grew = state.messages.length > prevLenRef.current
     const lastIsUser = state.messages[state.messages.length - 1]?.role === 'user'
     const isNewUserMessage = grew && lastIsUser
@@ -105,39 +108,32 @@ export function ChatTile({
     // 연속 수렴(B) — 예약공간을 inflight 게이트 없이 매 렌더 재계산한다. 최신 user 버블 top 부터
     // 콘텐츠 끝까지(belowTop)가 반 뷰포트보다 작으면 그만큼 여백 → 버블이 50% 라인에 머문다.
     // 답변이 그 아래를 채우면 belowTop 가 커져 needed 0 으로 자연 수렴(완료 시 스냅 회수 없음).
+    const spacerH = spacer.offsetHeight
     let needed = 0
     if (!sessionChanged) {
       const realContentH = el.scrollHeight - spacerH // 현재 spacer 제외한 실제 콘텐츠 높이
       const belowTop = top != null ? realContentH - top : realContentH
       needed = Math.round(Math.max(0, 0.5 * el.clientHeight - belowTop))
     }
-    // 서브픽셀 jitter 로 인한 렌더 루프 방지 — 1px 초과 변화만 반영.
-    if (Math.abs(needed - spacerH) > 1) setSpacerH(needed)
+    // 서브픽셀 jitter 로 인한 레이아웃 루프 방지 — 1px 초과 변화만 반영.
+    if (Math.abs(needed - spacerH) > 1) spacer.style.height = `${needed}px`
 
     if (!sessionChanged && isNewUserMessage && top != null) {
       // 사용자 버블을 뷰포트 50% 라인으로 smooth 앵커한다. 이미 미드라인보다 위에 있으면 그대로
-      // 둔다(아래로 끌어내리지 않음). 이중 rAF — 첫 프레임에서 spacer 레이아웃 flush, 둘째에서
-      // scrollTo. 단일 rAF 면 spacer 여유가 아직 반영 전이라 목표 top 까지 못 가고 클램프(덜컥임).
+      // 둔다(아래로 끌어내리지 않음). spacer 높이를 바로 위에서 동기 반영했으므로 scrollHeight 가
+      // 이미 새 여백을 포함한다 — 목표 top 까지 클램프 없이 도달.
       pinnedRef.current = false
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          const e = scrollRef.current
-          if (!e) return
-          const t = lastUserTop(e)
-          if (t == null) return
-          const mid = 0.5 * e.clientHeight
-          if (t - e.scrollTop > mid) {
-            // 버블이 미드라인보다 아래일 때만 끌어올린다.
-            const target = Math.min(Math.max(0, t - mid), e.scrollHeight - e.clientHeight)
-            e.scrollTo({ top: target, behavior: 'smooth' })
-          }
-        })
-      })
+      const mid = 0.5 * el.clientHeight
+      if (top - el.scrollTop > mid) {
+        // 버블이 미드라인보다 아래일 때만 끌어올린다.
+        const target = Math.min(Math.max(0, top - mid), el.scrollHeight - el.clientHeight)
+        el.scrollTo({ top: target, behavior: 'smooth' })
+      }
     } else if (pinnedRef.current) {
       el.scrollTop = el.scrollHeight
       setShowJump(false)
     }
-  }, [state.messages, state.pendingDelta, state.inflight, state.sessionId, spacerH, lastUserTop])
+  }, [state.messages, state.pendingDelta, state.inflight, state.sessionId, lastUserTop])
 
   // 우측 계획 타일은 행의 오른쪽 끝에 도킹 — 커서를 왼쪽으로 끌수록 폭이 커지므로 invert.
   const getRowRight = useCallback(
@@ -151,6 +147,10 @@ export function ChatTile({
     invert: true,
     onChange: chat.setPlanTileWidth
   })
+
+  // 델타 프레임(messages 참조 불변)에서 Turn 객체 identity 를 고정 — memo 된 턴 컴포넌트가
+  // props 비교만으로 재렌더를 건너뛴다 (0007-transcript-render-memo).
+  const turns = useMemo(() => groupTurns(state.messages), [state.messages])
 
   const isEmpty = state.messages.length === 0 && state.pendingDelta === '' && !state.loadingSession
   // 사이드바 메타 (state.title) 가 즉시 채워지므로 사용자가 세션을 선택한 순간부터
@@ -167,14 +167,16 @@ export function ChatTile({
 
   return (
     <section className="app-frame-pane-host flex min-h-0 min-w-0 flex-1 flex-col bg-bg">
-      <div ref={rowRef} className="app-frame-pane-row relative flex min-h-0 flex-1 p-2">
+      <div ref={rowRef} className="app-frame-pane-row relative flex min-h-0 flex-1">
+        {/* Claude Code 룩: transcript 는 별도 카드 없이 bg 평면 위에 그대로 — 우측
+            plan tile 만 보더 카드로 분리된다. */}
         <div
-          className="app-frame-tile flex min-w-0 flex-1 flex-col overflow-hidden rounded-r6 bg-surface-primary-elevated effect-primary-elevated"
+          className="app-frame-tile flex min-w-0 flex-1 flex-col overflow-hidden bg-bg"
           data-behavior="resizable"
         >
-          <div className="app-frame-titlebar flex items-center gap-3 border-b border-border px-6 pb-2.5 pt-3.5">
+          <div className="app-frame-titlebar flex items-center gap-3 px-6 pb-2 pt-3">
             <div className="min-w-0 flex-1">
-              <div className="overflow-hidden text-ellipsis whitespace-nowrap font-serif text-[17px] font-semibold tracking-tight text-ink">
+              <div className="overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-medium text-ink">
                 {title}
               </div>
               <div className="mt-0.5 flex items-center gap-2 text-[11.5px] text-ink3">
@@ -211,13 +213,16 @@ export function ChatTile({
             </div>
           </div>
 
+          {/* 블록 흐름 유지 — flex 컨테이너로 만들면 ReadingColumn(flex-basis 0)이 콘텐츠와 함께
+              자라지 않아 transcript 가 박스를 오버플로하고, 예약공간 spacer 가 콘텐츠와 겹쳐
+              scrollHeight = 콘텐츠 + spacer 가정(아래 effect 의 realContentH)이 깨진다. */}
           <div
             ref={scrollRef}
             onScroll={onScroll}
-            className="app-frame-transcript flex flex-1 flex-col overflow-auto py-5"
+            className="app-frame-transcript flex-1 overflow-auto py-5"
             data-behavior="virtualizable"
           >
-            <ReadingColumn className="flex min-h-full flex-1 flex-col gap-[var(--chat-turn-gap)]">
+            <ReadingColumn className="flex min-h-full flex-col gap-[var(--chat-turn-gap)]">
               {state.loadingSession && (
                 <div className="m-auto text-center text-[13px] text-ink3">대화 불러오는 중…</div>
               )}
@@ -226,7 +231,7 @@ export function ChatTile({
                   Claude Code 에 첫 메시지를 보내보세요.
                 </div>
               )}
-              {groupTurns(state.messages).map((turn, ti, arr) =>
+              {turns.map((turn, ti, arr) =>
                 turn.role === 'user' ? (
                   <UserTurn key={turn.startIndex} turn={turn} />
                 ) : (
@@ -266,8 +271,9 @@ export function ChatTile({
                 </div>
               )}
             </ReadingColumn>
-            {/* 예약공간 — 최신 user 버블을 상단으로 앵커하기 위한 하단 여백(ChatGPT식). */}
-            {spacerH > 0 && <div aria-hidden className="shrink-0" style={{ height: spacerH }} />}
+            {/* 예약공간 — 최신 user 버블을 50% 라인으로 앵커하기 위한 하단 여백(ChatGPT식).
+                높이는 위 effect 가 DOM 으로 직접 제어한다. */}
+            <div ref={spacerRef} aria-hidden />
           </div>
 
           <Composer
@@ -297,7 +303,7 @@ export function ChatTile({
               />
             </div>
             <div
-              className="app-frame-tile flex shrink-0 flex-col overflow-hidden rounded-r6 bg-surface-primary-elevated effect-primary-elevated"
+              className="app-frame-tile my-2 mr-2 flex shrink-0 flex-col overflow-hidden rounded-r6 border border-border bg-panel"
               style={{ width: state.planTileWidth }}
               data-context="plan"
             >

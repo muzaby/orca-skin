@@ -20,8 +20,8 @@ const NAV: NavItem[] = [
   { i: 'layers', l: 'Skills & MCP', path: '/skills', isActive: (p) => p.startsWith('/skills') }
 ]
 
-const SECTION_HEAD =
-  'px-3 pb-1 pt-3.5 font-serif text-caption font-semibold uppercase tracking-[0.04em] text-ink3'
+// Claude Code 사이드바의 "Recents" 헤더 — sans 소문자 그대로, 연한 잉크.
+const SECTION_HEAD = 'px-3 pb-1 pt-4 text-caption font-medium text-ink3'
 
 // sidebar 의 *도메인 특정* 설정값. 공용 인프라가 아니라 sidebar 자체 책임이므로
 // 일반 useDragResize 훅이 아닌 이 파일에 둔다.
@@ -73,7 +73,7 @@ function SidebarImpl({ sessionsSlot, footerSlot }: SidebarProps): React.JSX.Elem
     // 접힌 상태에서는 NAV 만 아이콘으로 표시. 도메인 슬롯은 노출하지 않는다.
     return (
       <aside
-        className="app-frame-sidebar relative flex w-14 flex-none flex-col items-center gap-1 border-r border-border bg-sidebar py-3"
+        className="app-frame-sidebar relative my-2 ml-2 flex w-14 flex-none flex-col items-center gap-1 rounded-r6 border border-border bg-sidebar py-3"
         data-behavior="collapsible resizable"
         data-state="collapsed"
       >
@@ -104,7 +104,9 @@ function SidebarImpl({ sessionsSlot, footerSlot }: SidebarProps): React.JSX.Elem
   return (
     <aside
       ref={asideRef}
-      className="app-frame-sidebar relative flex flex-none flex-col border-r border-border bg-sidebar"
+      // Claude Code 룩: 사이드바는 배경 위에 떠 있는 라운드 카드 — 우측 마진은
+      // 두지 않아 transcript 의 reading gutter 가 카드와의 간격을 만든다.
+      className="app-frame-sidebar relative my-2 ml-2 flex flex-none flex-col overflow-hidden rounded-r6 border border-border bg-sidebar"
       style={{ width }}
       data-behavior="collapsible resizable"
       data-state="expanded"
@@ -114,7 +116,7 @@ function SidebarImpl({ sessionsSlot, footerSlot }: SidebarProps): React.JSX.Elem
           <span className="text-[18px] leading-none" aria-hidden>
             🐋
           </span>
-          <span className="font-serif text-[15px] font-semibold tracking-tight text-ink">Orca</span>
+          <span className="font-serif text-[16px] font-semibold tracking-tight text-ink">Orca</span>
         </div>
 
         <nav className="app-frame-sidebar-nav px-1.5 py-1">
@@ -129,7 +131,7 @@ function SidebarImpl({ sessionsSlot, footerSlot }: SidebarProps): React.JSX.Elem
                 className={`flex w-full cursor-default items-center gap-g4 rounded-r4 border-0 bg-transparent px-2.5 py-1.5 text-left text-footnote outline-none hide-focus-ring ring-focus transition-colors ${
                   isActive
                     ? 'bg-fill-uncontained-active font-medium text-t9'
-                    : 'text-t6 hover:bg-fill-uncontained-hover hover:text-t7'
+                    : 'text-t7 hover:bg-fill-uncontained-hover hover:text-t9'
                 }`}
               >
                 <Icon name={it.i} size={14} />

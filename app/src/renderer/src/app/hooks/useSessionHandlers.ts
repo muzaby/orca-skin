@@ -29,6 +29,13 @@ export function useSessionHandlers(): SessionHandlers {
   const match = matchPath('/chat/:sessionId', pathname)
   const currentSessionId = match?.params.sessionId ?? null
 
+  // chat/sessionsCtx 객체는 렌더마다 새로 만들어진다(useChat 반환 리터럴) — 객체 전체를
+  // useCallback deps 로 쓰면 스트리밍 델타 프레임마다 핸들러가 재생성돼 useSidebarSlots 의
+  // slot 안정화(→ Sidebar memo)가 무력화된다. 안정([] deps) 함수만 뽑아 의존한다
+  // (0007-transcript-render-memo).
+  const { handleSessionDeleted, renameSession } = chat
+  const { remove: removeSession, rename: renameSessionMeta } = sessionsCtx
+
   const projectNameById = useMemo(() => {
     const map = new Map<string, string>()
     for (const p of projects) map.set(p.id, p.name)
@@ -46,19 +53,19 @@ export function useSessionHandlers(): SessionHandlers {
   const handleDeleteSession = useCallback(
     (id: string): void => {
       const wasActive = currentSessionId === id
-      chat.handleSessionDeleted(id)
-      void sessionsCtx.remove(id)
+      handleSessionDeleted(id)
+      void removeSession(id)
       if (wasActive) navigate('/new', { replace: true })
     },
-    [currentSessionId, chat, sessionsCtx, navigate]
+    [currentSessionId, handleSessionDeleted, removeSession, navigate]
   )
 
   const handleRenameSession = useCallback(
     (id: string, title: string): void => {
-      void chat.renameSession(id, title)
-      void sessionsCtx.rename(id, title)
+      void renameSession(id, title)
+      void renameSessionMeta(id, title)
     },
-    [chat, sessionsCtx]
+    [renameSession, renameSessionMeta]
   )
 
   return {

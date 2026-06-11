@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { CodeBlock } from './CodeBlock'
@@ -78,7 +79,9 @@ export interface MarkdownProps {
   source: string
 }
 
-export function Markdown({ source }: MarkdownProps): React.JSX.Element {
+// memo: source 는 string(값 비교)이라 기본 shallow 비교로 동일 본문의 unified 재파싱을
+// 건너뛴다 — 부모(messageSegments)가 세그먼트 객체를 재생성해도 안전 (0007-transcript-render-memo).
+export const Markdown = memo(function Markdown({ source }: MarkdownProps): React.JSX.Element {
   return (
     <div className="text-[13.5px] leading-[1.65] text-ink [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={COMPONENTS}>
@@ -86,4 +89,4 @@ export function Markdown({ source }: MarkdownProps): React.JSX.Element {
       </ReactMarkdown>
     </div>
   )
-}
+})
