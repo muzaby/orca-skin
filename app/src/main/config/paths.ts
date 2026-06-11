@@ -6,11 +6,11 @@
 //   ~/.config/orca/
 //   ├── orca.json                # 앱 전역 설정(agent/provider/authToken/baseUrl/env/models).
 //   ├── sources/                 # 사람이 편집하는 단일 원천 (instructions/AGENTS.md · skills · agents ·
-//   │   └── mcp/mcp.json         #   commands · mcp/mcp.json · hooks/<engine>) — 레이아웃은 deployer/
-//   └── dist/<engine>/           #   migrate-sources 가 root 기준으로 구성한다.
+//   │   └── mcp/mcp.json         #   commands · mcp/mcp.json · hooks/<engine>) — 레이아웃은
+//   └── dist/<engine>/           #   deployer 가 root 기준으로 구성한다.
 //
 // 본 파일은 *다른 모듈이 실제로 참조하는* 경로만 노출한다(미사용 sources*/dist* 서브 게터는 제거됨 —
-// 레이아웃 구성은 deploy/deployer.ts · config/migrate-sources.ts 가 root 기준 join 으로 담당).
+// 레이아웃 구성은 deploy/deployer.ts 가 root 기준 join 으로 담당).
 // 런타임에서 claude 어댑터가 로드하는 로컬 플러그인 루트는 dist/<engine>/ 다.
 
 import { homedir } from 'node:os'

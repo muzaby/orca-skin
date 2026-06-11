@@ -5,6 +5,7 @@ import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { IpcRouter } from './ipc/router'
+import { closeDb } from './db'
 import { PythonRuntime } from './runtime'
 import { CHANNELS } from '../shared/ipc'
 import type { SettingsStore } from './settings/store'
@@ -159,6 +160,12 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
   }
+})
+
+// 종료 직전 DB 커넥션 정리 — WAL 체크포인트가 마무리되도록 명시적으로 close 한다.
+// PREPARE_ONLY(헤드리스) 모드는 DB 를 열지 않으므로 무해한 no-op.
+app.on('will-quit', () => {
+  closeDb()
 })
 
 // In this file you can include the rest of your app's specific main process

@@ -3,7 +3,7 @@
 // mcp.json 에는 ${VAR} 플레이스홀더만 남고, 실제 비밀은 여기(<userData>) 에만 존재한다.
 
 import Store from 'electron-store'
-import { encrypt, safeDecrypt } from '../mcp/crypto'
+import { encrypt, safeDecrypt } from './crypto'
 
 type Raw = Record<string, unknown>
 
