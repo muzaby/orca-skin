@@ -74,7 +74,7 @@ export function CameraView(): React.JSX.Element {
     ['B', false]
   ]
   return (
-    <section className="flex w-[480px] flex-none flex-col border-l border-border bg-sidebar">
+    <section className="my-2 mr-2 flex w-[480px] flex-none flex-col overflow-hidden rounded-r6 border border-border bg-sidebar">
       <div className="flex items-center gap-2 border-b border-border px-4 pb-2 pt-3">
         <Icon name="cam" size={15} />
         <span className="font-serif text-[14px] font-semibold text-ink">하드웨어 제어</span>

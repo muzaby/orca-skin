@@ -302,7 +302,7 @@ export function Composer({
           />
         ) : (
           <div
-            className="epitaxy-prompt rounded-r7 bg-surface-prompt-blur effect-prompt-blur px-3 py-2.5"
+            className="epitaxy-prompt rounded-r7 border border-border bg-panel px-3 py-2.5 shadow-[0_2px_12px_rgba(0,0,0,0.04)]"
             data-surface="prompt"
           >
             <div

@@ -3,21 +3,23 @@
    (e.g. `--color-ink` → `bg-ink`, `text-ink`, `border-ink`). */
 
 @theme {
-  /* Semantic tokens — default (classic) palette */
-  --color-bg: #fbf9f4;
-  --color-sidebar: #f3eee3;
+  /* Semantic tokens — default (classic) palette.
+     Values mirror the Claude Code (claude.ai) light theme: ivory surfaces,
+     near-black neutral ink, crail accent. */
+  --color-bg: #faf9f5;
+  --color-sidebar: #f5f4ed;
   --color-panel: #ffffff;
-  --color-border: #ebe3d0;
-  --color-border-strong: #ddd2b6;
-  --color-ink: #29261b;
-  --color-ink2: #6b6452;
-  --color-ink3: #a8a092;
+  --color-border: #e5e3d9;
+  --color-border-strong: #d2d0c5;
+  --color-ink: #141413;
+  --color-ink2: #6b6a65;
+  --color-ink3: #a3a19a;
   --color-rust: #c96442;
-  --color-rust-soft: #f4dcc9;
+  --color-rust-soft: #f1e3da;
   --color-bubble-user: #f0eee6;
 
   /* Static accent palette — not themed */
-  --color-cream-0: #fbf9f4;
+  --color-cream-0: #faf9f5;
   --color-cream-50: #f7f3eb;
   --color-cream-100: #f0eadd;
   --color-cream-200: #e6dcc6;
@@ -28,8 +30,8 @@
   --color-ink-400: #8a8270;
   --color-ink-300: #a8a092;
   --color-ink-200: #c9c1ae;
-  --color-line: #ebe3d0;
-  --color-line-strong: #ddd2b6;
+  --color-line: #e5e3d9;
+  --color-line-strong: #d2d0c5;
   --color-moss: #6c7a3f;
   --color-indigo: #4a5b8c;
   --color-rose: #b85a6e;
@@ -50,18 +52,18 @@
      Only the non-alias values (t3/t7/t8) carry per-theme overrides. */
   --color-t1: var(--color-panel); /* card / tool-block surface */
   --color-t2: var(--color-sidebar); /* hover surface */
-  --color-t3: #ece5d6; /* press (active) surface — themed */
+  --color-t3: #eae8df; /* press (active) surface — themed */
   --color-t4: var(--color-rust-soft); /* strong / selected surface */
   --color-t5: var(--color-border); /* divider / border */
   --color-t6: var(--color-ink2); /* muted text (descriptions) */
-  --color-t7: #4a4434; /* title text — themed */
-  --color-t8: #3a3528; /* active text — themed */
+  --color-t7: #3d3d3a; /* title text — themed */
+  --color-t8: #21201e; /* active text — themed */
   --color-t9: var(--color-ink); /* primary text */
 
   /* Fills (button backgrounds) + accent */
   --color-accent: var(--color-rust);
   --color-fill-primary: var(--color-rust);
-  --color-fill-primary-hover: #b8593a; /* themed */
+  --color-fill-primary-hover: #ba5b38; /* themed */
   --color-fill-contained: var(--color-bg);
   --color-fill-contained-hover: var(--color-sidebar);
   /* Ghost (uncontained) hover/active are translucent ink overlays so they
@@ -79,7 +81,6 @@
 
   /* Surfaces + assistant text */
   --color-surface-primary-elevated: var(--color-panel);
-  --color-surface-prompt-blur: color-mix(in srgb, var(--color-panel) 78%, transparent);
   --color-text-assistant-primary: var(--color-ink);
   --color-text-assistant-secondary: var(--color-ink2);
 
@@ -147,23 +148,25 @@
    re-themes the whole tree without remounting. */
 
 [data-theme='dark'] {
-  --color-bg: #1c1a16;
-  --color-sidebar: #231f1a;
-  --color-panel: #2a2620;
-  --color-border: #3a342a;
-  --color-border-strong: #4a4234;
-  --color-ink: #f0eadd;
-  --color-ink2: #a8a092;
-  --color-ink3: #6b6452;
-  --color-rust: #e07855;
-  --color-rust-soft: #4a2214;
-  --color-bubble-user: #121212;
+  /* Claude Code (claude.ai) dark theme: warm charcoal surfaces, ivory ink,
+     lightened terracotta accent. */
+  --color-bg: #262624;
+  --color-sidebar: #1f1e1b;
+  --color-panel: #30302e;
+  --color-border: #3d3d3a;
+  --color-border-strong: #4c4b46;
+  --color-ink: #f0efea;
+  --color-ink2: #b3b0a7;
+  --color-ink3: #797772;
+  --color-rust: #d97757;
+  --color-rust-soft: #3e2b22;
+  --color-bubble-user: #30302e;
 
   /* Epitaxy non-alias tones (aliases follow their semantic source above) */
-  --color-t3: #2f2a22;
-  --color-t7: #d8d0c0;
-  --color-t8: #e8e0d0;
-  --color-fill-primary-hover: #c96743;
+  --color-t3: #34342f;
+  --color-t7: #c9c7bf;
+  --color-t8: #e8e6de;
+  --color-fill-primary-hover: #c26646;
 }
 
 [data-theme='cool'] {

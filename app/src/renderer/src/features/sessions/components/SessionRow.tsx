@@ -53,8 +53,8 @@ export function SessionRow({
   if (renaming) {
     return (
       <div
-        className={`app-frame-session-row flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] ${
-          isActive ? 'bg-black/[0.04] text-ink' : 'text-ink2'
+        className={`app-frame-session-row flex items-center gap-1.5 rounded-md px-2 py-[5px] text-[12.5px] ${
+          isActive ? 'bg-fill-uncontained-active text-ink' : 'text-t7'
         }`}
         data-context="session"
         data-state={isActive ? 'active' : 'inactive'}
@@ -69,8 +69,8 @@ export function SessionRow({
   return (
     <div
       onClick={() => onSelect?.(session.id)}
-      className={`app-frame-session-row group/session relative flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 text-[12px] ${
-        isActive ? 'bg-black/[0.04] text-ink' : 'text-ink2'
+      className={`app-frame-session-row group/session relative flex cursor-pointer items-center gap-1.5 rounded-md px-2 py-[5px] text-[12.5px] transition-colors ${
+        isActive ? 'bg-fill-uncontained-active text-ink' : 'text-t7 hover:bg-fill-uncontained-hover'
       }`}
       data-context="session"
       data-state={isActive ? 'active' : 'inactive'}

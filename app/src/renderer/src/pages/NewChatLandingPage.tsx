@@ -21,7 +21,7 @@ export function NewChatLandingPage(): React.JSX.Element {
     return (
       <section className="flex min-h-0 min-w-0 flex-1 items-center justify-center bg-bg">
         <div className="w-full max-w-[720px]">
-          <div className="mb-3 text-center font-serif text-[20px] font-semibold tracking-tight text-ink">
+          <div className="mb-3 text-center font-serif text-[24px] font-semibold tracking-tight text-ink">
             무엇을 도와드릴까요?
           </div>
           <Composer
