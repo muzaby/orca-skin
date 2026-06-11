@@ -21,5 +21,6 @@
 | `0006-composer-status-line`     | verify | PASS      | —         | 393c8c8   | 1      | 검증 PASS — 인수 10/10 충족, 게이트 3종(lint/typecheck/test 286) 통과, 레이어 경계 0(cost 는 page 주입), 신규 의존성 0, 카피 표 1:1. Tier1 pill + Tier2 팝오버 presentational 셸 + view-model 순수함수 + 임시 상태근사 TODO. PHASES 승격. (대상 커밋 INDEX 기재 `b94cc76`→실 `393c8c8`, verify 위생 노트 ①) 사람 확인 대기: 시각 검증·카피 어감 (verify §책임 분리). |
 
 | `0007-transcript-render-memo`   | verify | PASS      | —         | a68e465   | 1      | 스트리밍 재렌더 범위 축소(성능) — 비기능 = Claude 직접 구현. `groupTurns` useMemo + 턴/메시지/마크다운 memo + `useSessionHandlers` deps 안정화(Sidebar memo 복원) + Header memo. CDP rAF 측정(35턴 mock): 최대 블로킹 549~614ms → 133~166ms. 게이트 lint/typecheck ✅, test 283/290 — 실패 7건은 better-sqlite3 ABI 환경(변경 무관, verify §게이트). PHASES 승격. 사람 확인 대기: 스트리밍 스크롤 시각 검증 (verify §책임 분리). |
+| `0008-chat-anchor-reserve`      | impl   | IN_PROGRESS | Claude  | —         | 1      | 스크롤 앵커링 CSS 예약공간 전환(Exchange + `min-h-[50cqh]`, 50% 미드라인 유지·여백은 다음 메시지까지 유지 — 사용자 결정) + Zustand chat store 선행 도입(델타→live 슬라이스, state.md §1.4 시점 개정) + 커밋 경로 카드 단위 격리(`reconcileSegments`) + `StreamingMarkdown` 꼬리 재파스. 비기능 = Claude 직접 구현. |
 
 > 새 작업: 마지막 일련번호 +1 로 행을 추가하고 `<NNNN-slug>/plan.md` 를 생성한다.
