@@ -16,7 +16,7 @@ export const ROUTES: RouteInfo[] = [
   { pattern: '/chat/:sessionId', label: '01 채팅', breadcrumb: null },
   { pattern: '/projects', label: '02 프로젝트', breadcrumb: '프로젝트' },
   { pattern: '/projects/:projectId', label: '02 프로젝트', breadcrumb: '프로젝트' },
-  { pattern: '/engine', label: '03 엔진 & 모델', breadcrumb: '설정 · 엔진 & 모델' },
+  { pattern: '/agent', label: '03 엔진 & 모델', breadcrumb: '설정 · 엔진 & 모델' },
   { pattern: '/skills', label: '04 Skills / MCP', breadcrumb: '설정 · Skills & MCP' },
   { pattern: '/captures', label: '05 캡처 히스토리', breadcrumb: '캡처 히스토리' }
 ]

@@ -58,7 +58,7 @@ export function useChatRouteSync(): void {
       if (wrongState) chatActions.newChat(urlProjectId)
       return
     }
-    // chat 라우트(비채팅, 예: /projects, /engine 등) → no-op.
+    // chat 라우트(비채팅, 예: /projects, /agent 등) → no-op.
   }, [onNew, urlSessionId, urlProjectId, sessions])
 
   // 방향 2 — State → URL (armed-ref)

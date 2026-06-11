@@ -3,7 +3,7 @@ import { ChatPage } from '../pages/ChatPage'
 import { NewChatLandingPage } from '../pages/NewChatLandingPage'
 import { ProjectsPage } from '../pages/ProjectsPage'
 import { ProjectLandingPage } from '../pages/ProjectLandingPage'
-import { EnginePage } from '../pages/EnginePage'
+import { AgentPage } from '../pages/AgentPage'
 import { SkillsPage } from '../pages/SkillsPage'
 import { CapturesPage } from '../pages/CapturesPage'
 import { BootRedirector } from './BootRedirector'
@@ -25,7 +25,7 @@ export function AppRouter(): React.JSX.Element {
       <Route path="/chat/:sessionId" element={<ChatPage />} />
       <Route path="/projects" element={<ProjectsPage />} />
       <Route path="/projects/:projectId" element={<ProjectLandingPage />} />
-      <Route path="/engine" element={<EnginePage />} />
+      <Route path="/agent" element={<AgentPage />} />
       <Route path="/skills" element={<SkillsPage />} />
       <Route path="/captures" element={<CapturesPage />} />
       <Route path="*" element={<Navigate to="/new" replace />} />
