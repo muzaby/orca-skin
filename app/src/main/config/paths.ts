@@ -4,6 +4,7 @@
 //
 // 표준화 계층(arch/backend/standardization.md §5.1):
 //   ~/.config/orca/
+//   ├── orca.json                # 앱 전역 설정(agent/provider/apiKey/baseUrl/env/models).
 //   ├── sources/                 # 사람이 편집하는 단일 원천 (instructions/AGENTS.md · skills · agents ·
 //   │   └── mcp/mcp.json         #   commands · mcp/mcp.json · hooks/<engine>) — 레이아웃은 deployer/
 //   └── dist/<engine>/           #   migrate-sources 가 root 기준으로 구성한다.
@@ -25,6 +26,12 @@ export function orcaConfigDir(): string {
 // 정규 소스 루트(사람 편집 SSOT).
 export function sourcesDir(): string {
   return join(orcaConfigDir(), 'sources')
+}
+
+// Orca 앱 자체 전역 설정 파일. sources/ 는 엔진별 배포 리소스 SSOT 이고, orca.json 은
+// 앱 부팅 시 1회 로드되는 전역 agent/provider 설정이다.
+export function orcaJsonPath(): string {
+  return join(orcaConfigDir(), 'orca.json')
 }
 
 export function sourcesMcpDir(): string {

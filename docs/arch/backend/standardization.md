@@ -89,6 +89,7 @@ class OpenCodeEngine {
 
 ```text
 ~/.config/orca/
+├── orca.json                # 앱 전역 agent/provider 설정 (부팅 1회 로드)
 ├── sources/                 # 사람이 편집하는 단일 원천 (SSOT)
 │   ├── instructions/        # AGENTS.md (SSOT)
 │   ├── skills/              # SKILL.md (폴더 규약)
@@ -99,7 +100,7 @@ class OpenCodeEngine {
 └── dist/<engine>/           # ExtensionDeployer 생성물 (편집 금지)
 ```
 
-> **구현됨 (스테이지 A)**: sources/dist 분리가 코드에 반영됐다. 경로 헬퍼 [`config/paths.ts`](../../../app/src/main/config/paths.ts)는 *다른 모듈이 실제 참조하는* 6종만 export(`orcaConfigDir`/`sourcesDir`/`sourcesMcpDir`/`mcpJsonPath`/`distDir(engine)`/`ensureConfigDir`) — 미사용 `sources*/dist*` 서브 게터(`sourcesHooksDir`/`agentsMdPath`/`distSkillsDir` 등)는 제거되고, 그 하위 레이아웃 구성은 `deploy/deployer.ts`·`config/migrate-sources.ts` 가 root 기준 join 으로 담당. 구 평면 레이아웃 1회 이전은 [`config/migrate-sources.ts`](../../../app/src/main/config/migrate-sources.ts)(`migrateConfigToSources`, 멱등). `mcp.json` 은 `sources/mcp/mcp.json` 으로, AGENTS.md 자리는 `sources/instructions/AGENTS.md`. 구 `ensureOrcaPlugin()`(`skills/plugin-bundle.ts`)은 삭제되고 ExtensionDeployer 로 흡수됐다(§5.2). 부트 순서: `ensureConfigDir → migrateConfigToSources → migrateMcpToFile → deploy('claude-code') → scanSkills`.
+> **구현됨 (스테이지 A)**: sources/dist 분리가 코드에 반영됐다. 경로 헬퍼 [`config/paths.ts`](../../../app/src/main/config/paths.ts)는 *다른 모듈이 실제 참조하는* 경로만 export(`orcaConfigDir`/`orcaJsonPath`/`sourcesDir`/`sourcesMcpDir`/`mcpJsonPath`/`distDir(engine)`/`ensureConfigDir`) — 미사용 `sources*/dist*` 서브 게터(`sourcesHooksDir`/`agentsMdPath`/`distSkillsDir` 등)는 제거되고, 그 하위 레이아웃 구성은 `deploy/deployer.ts`·`config/migrate-sources.ts` 가 root 기준 join 으로 담당. 구 평면 레이아웃 1회 이전은 [`config/migrate-sources.ts`](../../../app/src/main/config/migrate-sources.ts)(`migrateConfigToSources`, 멱등). `mcp.json` 은 `sources/mcp/mcp.json` 으로, AGENTS.md 자리는 `sources/instructions/AGENTS.md`. 루트 `orca.json` 은 sources/dist 배포 리소스가 아니라 앱 전역 설정이며 부팅 시 1회 파싱·캐시된다. 구 `ensureOrcaPlugin()`(`skills/plugin-bundle.ts`)은 삭제되고 ExtensionDeployer 로 흡수됐다(§5.2). 부트 순서: `ensureConfigDir → loadOrcaConfig → migrateConfigToSources → migrateMcpToFile → deploy('claude-code') → scanSkills`.
 
 ### 5.2 ExtensionDeployer
 

@@ -17,7 +17,11 @@ export interface ExpandResult {
 const VAR_RE = /\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g
 
 // 한 문자열 안의 모든 ${VAR} 치환. 미해결 변수는 missing 에 모은다.
-function expandString(value: string, resolve: Resolver, missing: Set<string>): string {
+export function expandVars(
+  value: string,
+  resolve: Resolver,
+  missing: Set<string> = new Set()
+): string {
   return value.replace(VAR_RE, (_m, name: string) => {
     const v = resolve(name)
     if (v === undefined) {
@@ -35,7 +39,7 @@ function expandRecord(
 ): Record<string, string> | undefined {
   if (!rec) return rec
   const out: Record<string, string> = {}
-  for (const [k, v] of Object.entries(rec)) out[k] = expandString(v, resolve, missing)
+  for (const [k, v] of Object.entries(rec)) out[k] = expandVars(v, resolve, missing)
   return out
 }
 

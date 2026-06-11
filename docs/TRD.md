@@ -316,6 +316,31 @@ Phase 2+ 에서 `electron-store` 로 영속화 완료. `IPC_CONTRACT.md` §2.4 �
 
 ---
 
+
+### 6.8 orca.json 전역 설정 (Main 전용)
+
+`~/.config/orca/orca.json` 은 앱 자체의 전역 agent/provider 설정 파일이다. `sources/` 아래 엔진 배포 리소스가 아니며, 부팅 시 1회 로드해 main 프로세스 메모리에 캐시한다. 파일이 없으면 앱이 `{ "version": 1, "agents": [] }` 템플릿을 atomic write(temp+rename) 로 생성하고, 기존 파일은 덮어쓰지 않는다. 손상 JSON 또는 최상위 스키마 위반은 부팅을 막지 않고 기본값으로 동작하며 원본 파일을 보존한다.
+
+```ts
+interface OrcaConfig {
+  version: 1
+  agents: OrcaAgentConfig[]
+}
+
+interface OrcaAgentConfig {
+  adapter: string              // 예: 'claude-code'
+  provider?: string            // claude-code known: 'anthropic' | 'bedrock' | 'vertex'
+  apiKey?: string              // 평문 또는 '${VAR}'
+  baseUrl?: string             // 빈 문자열/공백-only 는 부재 취급
+  env?: Record<string, string> // 값에 '${VAR}' 허용, 매핑 필드보다 우선
+  models: { name: string; family?: string; default?: boolean }[]
+}
+```
+
+선택 규칙(v1)은 단순하다. 실행 adapter id 와 `agents[].adapter` 가 일치하는 **첫 항목**만 사용하며, 일치 항목이 없으면 env 주입 없이 기존 동작을 유지한다. `models` 는 파싱·보존만 하고 이번 범위에서 소비하지 않는다. 복수 agent 간 모델 선택과 `{adapter}-{provider}/{model}` 합성 키, renderer IPC 노출, 모델 선택 UI, 핫리로드는 다음 핸드오프 범위다.
+
+claude-code 소비 규칙은 adapter 내부에 격리한다. `provider=bedrock` 은 `CLAUDE_CODE_USE_BEDROCK=1`, `provider=vertex` 는 `CLAUDE_CODE_USE_VERTEX=1` 로 매핑하고, `anthropic`/부재는 추가 env 가 없다. `apiKey` 는 `ANTHROPIC_API_KEY`, `baseUrl` 은 `ANTHROPIC_BASE_URL` 로 매핑한다. `${VAR}` 는 secret-store → `process.env` 순으로 어댑트 시점에만 해석하며, 미해결 값은 해당 env 키만 드롭한다. `env` 레코드는 마지막에 적용되어 매핑 키를 덮을 수 있다.
+
 ## 7. Backend Adapters (외부 인터페이스 계약)
 
 어댑터가 외부 CLI/SDK와 주고받는 명령·플래그·SDK 호출의 계약. *내부 구현* (SDKMessage 정규화, 서버 라이프사이클 등) 은 [arch/backend/adapters.md](arch/backend/adapters.md) 참조.
