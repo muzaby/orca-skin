@@ -26,6 +26,18 @@ export function groupTurns(messages: Message[]): Turn[] {
   return turns
 }
 
+// 두 Turn 이 렌더 관점에서 동일한가 — React.memo 비교자용(순수). groupTurns 가 호출마다
+// 새 Turn 객체를 만들므로 내용으로 비교한다. reducer 는 과거 Message 객체의 참조를 보존
+// (appendAssistantPart 는 마지막 메시지만 새 객체로 교체)하므로 메시지는 identity 비교로 충분.
+export function turnEquals(a: Turn, b: Turn): boolean {
+  if (a.role !== b.role || a.startIndex !== b.startIndex) return false
+  if (a.messages.length !== b.messages.length) return false
+  for (let i = 0; i < a.messages.length; i++) {
+    if (a.messages[i] !== b.messages[i]) return false
+  }
+  return true
+}
+
 // 턴의 복사 대상 텍스트 — 각 메시지의 text 파트를 합치고 빈 값은 제외한다.
 export function turnCopyText(turn: Turn): string {
   return turn.messages

@@ -1,4 +1,4 @@
-import { useRef, useState, type CSSProperties } from 'react'
+import { memo, useRef, useState, type CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { WinControls } from './WinControls'
 import { Icon } from '../shared/ui/Icon'
@@ -19,7 +19,10 @@ export interface HeaderProps {
   onOpenSearch: () => void
 }
 
-export function Header({ onOpenSearch }: HeaderProps): React.JSX.Element {
+// memo: AppLayout 이 chat 컨텍스트 구독으로 스트리밍 델타 프레임마다 재렌더돼도, 안정 prop
+// (onOpenSearch = useCallback) 만 받는 헤더는 건너뛴다. Tweak/라우터 변경 시엔 자체 구독으로
+// 정상 재렌더 (0007-transcript-render-memo).
+export const Header = memo(function Header({ onOpenSearch }: HeaderProps): React.JSX.Element {
   const macOsPadLeft = isDarwin() ? 'pl-[80px]' : 'pl-[14px]'
   const navigate = useNavigate()
   const { t, setTweak } = useTweakContext()
@@ -28,7 +31,7 @@ export function Header({ onOpenSearch }: HeaderProps): React.JSX.Element {
 
   return (
     <header
-      className={`app-frame-header relative flex h-9 flex-none select-none items-center border-b border-border bg-sidebar ${macOsPadLeft} pr-[10px] text-[12px] text-ink2`}
+      className={`app-frame-header relative flex h-9 flex-none select-none items-center bg-bg ${macOsPadLeft} pr-[10px] text-[12px] text-ink2`}
     >
       {/* drag-layer — 헤더 전체를 덮는 absolute 1층. 콘텐츠 클릭은 z=1 의 content-layer 에서. */}
       <div
@@ -113,4 +116,4 @@ export function Header({ onOpenSearch }: HeaderProps): React.JSX.Element {
       </Popover>
     </header>
   )
-}
+})

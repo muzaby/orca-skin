@@ -1,3 +1,4 @@
+import { memo } from 'react'
 import { Markdown } from '../markdown/Markdown'
 import { ToolGroup } from './ToolGroup'
 import { AskExchange } from './AskExchange'
@@ -15,7 +16,11 @@ interface AssistantMessageProps {
 // parts 를 콘텐츠 순서 보존 세그먼트(messageSegments)로 투영해 만나는 순서대로 렌더한다 →
 // "텍스트 → 도구 → 텍스트" 가 모델이 말한 그대로 분절 표시된다(타입별 뭉치기 아님).
 // sub-agent(Task/Agent)는 별도 처리 없이 tools 세그먼트의 일반 도구 카드로 순서 안에 끼어 렌더된다.
-export function AssistantMessage({ message }: AssistantMessageProps): React.JSX.Element {
+// memo: reducer 가 마지막 메시지만 새 객체로 교체하므로(appendAssistantPart), 같은 턴 안에서도
+// 변하지 않은 메시지는 identity 비교로 재렌더를 건너뛴다 (0007-transcript-render-memo).
+export const AssistantMessage = memo(function AssistantMessage({
+  message
+}: AssistantMessageProps): React.JSX.Element {
   const segments = messageSegments(message.parts)
   return (
     <div className="flex flex-col gap-[var(--chat-item-gap)] text-[14px] leading-[1.7] text-ink">
@@ -37,4 +42,4 @@ export function AssistantMessage({ message }: AssistantMessageProps): React.JSX.
       })}
     </div>
   )
-}
+})
