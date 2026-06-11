@@ -57,4 +57,4 @@
 | 게이트 결과 | lint ✅ / typecheck ✅ / test ✅ (354/354 — chatStore 멀티세션 라우팅 4 신규) / build ✅ |
 | 비고 | reducer 는 세션-단위 순수 함수로 무변경 유지(키 라우팅은 store) — state.md §1.4 의 "액션 sessionId 인자" 안을 대체(문서 개정 포함). 코얼레서 무변경(단일 FIFO·dispose 는 언마운트만). |
 | 블로커 / 역질문 | 없음 |
-| 대상 커밋 | (커밋 후 기입) |
+| 대상 커밋 | `bce274f` |

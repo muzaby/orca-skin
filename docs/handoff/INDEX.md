@@ -29,4 +29,6 @@
 
 | `0012-ipc-cleanup`              | verify | PASS      | —         | 03cc1f5   | 1      | 단계적 아키텍처 리팩토링 스테이지 2/3 (IPC). runtime 고아 3채널 제거(사용자 결정 — 채널 39→36, RuntimeStatus 타입 main 이동) + `ipc/registry.ts` handle 헬퍼로 전 invoke 채널 safeParse 단일 경로(실패 정책 'reject'/{fallback} 등록부 명시 — 동작 변경 0) + IPC_CONTRACT 전면 동기화(agent §2.2-b 편입·§4 ErrorCategory 정정). 게이트 4종 ✅ 351/351. 비기능 = Claude 직접 구현. |
 
+| `0013-renderer-multisession-store` | verify | PASS | —    | bce274f   | 1      | 단계적 아키텍처 리팩토링 스테이지 3/3 (프론트엔드). chatStore 멀티세션 외피(sessions Record + activeKey + NEW_CHAT_KEY 승격 — main TurnRegistry 대칭, 사용자 결정) + ev.sessionId 키 라우팅(비활성 세션 백그라운드 누적·활성 UI 격리) + sessionCache/LOAD_SESSION_FROM_CACHE 폐기(Record 가 캐시 흡수) + Backend/Sessions/Projects/Cost Context 4종 → Zustand store(bootstrap-only Provider). reducer 무변경(키 라우팅은 store — state.md §1.4 개정). 게이트 4종 ✅ 354/354. 비기능 = Claude 직접 구현. 사람 확인 대기: GUI 시각 회귀 + 멀티세션 실기. |
+
 > 새 작업: 마지막 일련번호 +1 로 행을 추가하고 `<NNNN-slug>/plan.md` 를 생성한다.
