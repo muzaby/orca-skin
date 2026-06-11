@@ -22,5 +22,6 @@
 
 | `0007-transcript-render-memo`   | verify | PASS      | —         | a68e465   | 1      | 스트리밍 재렌더 범위 축소(성능) — 비기능 = Claude 직접 구현. `groupTurns` useMemo + 턴/메시지/마크다운 memo + `useSessionHandlers` deps 안정화(Sidebar memo 복원) + Header memo. CDP rAF 측정(35턴 mock): 최대 블로킹 549~614ms → 133~166ms. 게이트 lint/typecheck ✅, test 283/290 — 실패 7건은 better-sqlite3 ABI 환경(변경 무관, verify §게이트). PHASES 승격. 사람 확인 대기: 스트리밍 스크롤 시각 검증 (verify §책임 분리). |
 | `0008-chat-anchor-reserve`      | verify | PASS      | —         | e113eb4   | 1      | 검증 PASS — 인수 12/12, 게이트 4종(lint/typecheck/test 315/electron-vite build) 통과, 레이어 경계 0, 신규 의존성 `zustand@^5`(사용자 승인). 스크롤 앵커링 CSS 예약공간 전환(Exchange + `min-h-[50cqh]`, 50% 미드라인 유지·여백은 다음 메시지까지 유지 — 사용자 결정) + Zustand chat store 선행 도입(델타→live, state.md §1.4 개정) + 커밋 경로 카드 격리(`reconcileSegments`) + `StreamingMarkdown` 꼬리 재파스. PHASES 승격. 사람 확인 대기: 시각 검증·재렌더 실측·cqh 실기 (verify §책임 분리). |
+| `0009-orca-config`              | plan   | READY     | Codex     | —         | 1      | `~/.config/orca/orca.json` 전역 설정 시스템 — agents 배열(adapter/provider/apiKey/baseUrl/env/models) zod 파싱 + 부팅 1회 로드 + main 전역 싱글톤(`getOrcaConfig`) + claude-code SDK env 주입(bedrock/vertex·`ANTHROPIC_*`). apiKey 평문+`${VAR}` 병행(사용자 결정, security 예외 명시). 렌더러 노출·모델 선택 UI 는 다음 핸드오프. |
 
 > 새 작업: 마지막 일련번호 +1 로 행을 추가하고 `<NNNN-slug>/plan.md` 를 생성한다.
