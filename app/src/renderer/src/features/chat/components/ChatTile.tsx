@@ -61,16 +61,23 @@ export function ChatTile({ backendLabel, canAbort, costToday }: ChatTileProps): 
         >
           <ChatTitleBar backendLabel={backendLabel} />
 
-          <TranscriptView
-            messages={messages}
-            inflight={inflight}
-            loadingSession={loadingSession}
-            error={error}
-            anchored={anchored}
-            scrollRef={scrollRef}
-            contentRef={contentRef}
-            onScroll={onScroll}
-          />
+          {/* transcript 상·하단 soft fade — 타이틀 아래/컴포저 위 경계에서 스크롤되는
+              내용이 배경색(from-bg)으로 흐려진다. pointer-events-none 으로 스크롤·선택·
+              클릭을 방해하지 않는다. */}
+          <div className="relative flex min-h-0 flex-1 flex-col">
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-8 bg-gradient-to-b from-bg to-transparent" />
+            <TranscriptView
+              messages={messages}
+              inflight={inflight}
+              loadingSession={loadingSession}
+              error={error}
+              anchored={anchored}
+              scrollRef={scrollRef}
+              contentRef={contentRef}
+              onScroll={onScroll}
+            />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-8 bg-gradient-to-t from-bg to-transparent" />
+          </div>
 
           <Composer
             backendLabel={backendLabel}
@@ -94,11 +101,11 @@ export function ChatTile({ backendLabel, canAbort, costToday }: ChatTileProps): 
             >
               <span
                 aria-hidden
-                className="absolute left-1/2 top-1/2 h-10 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-border-strong opacity-0 transition-opacity duration-150 group-hover/sep:opacity-100"
+                className="absolute left-1/2 top-1/2 h-10 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-border-strong opacity-0 transition-opacity duration-150 group-hover/sep:opacity-100 group-active/sep:opacity-100 group-active/sep:bg-ink3"
               />
             </div>
             <div
-              className="app-frame-tile my-2 mr-2 flex shrink-0 flex-col overflow-hidden rounded-r6 border border-border bg-panel"
+              className="app-frame-tile effect-primary-elevated my-2 mr-2 flex shrink-0 flex-col overflow-hidden rounded-r6 border border-border bg-panel"
               style={{ width: planTileWidth }}
               data-context="plan"
             >

@@ -73,7 +73,7 @@ function SidebarImpl({ sessionsSlot, footerSlot }: SidebarProps): React.JSX.Elem
     // 접힌 상태에서는 NAV 만 아이콘으로 표시. 도메인 슬롯은 노출하지 않는다.
     return (
       <aside
-        className="app-frame-sidebar relative my-2 ml-2 flex w-14 flex-none flex-col items-center gap-1 rounded-r6 border border-border bg-sidebar py-3"
+        className="app-frame-sidebar effect-primary-elevated relative my-2 ml-2 flex w-14 flex-none flex-col items-center gap-1 rounded-r6 border border-border bg-sidebar py-3"
         data-behavior="collapsible resizable"
         data-state="collapsed"
       >
@@ -102,65 +102,77 @@ function SidebarImpl({ sessionsSlot, footerSlot }: SidebarProps): React.JSX.Elem
   }
 
   return (
-    <aside
-      ref={asideRef}
-      // Claude Code 룩: 사이드바는 배경 위에 떠 있는 라운드 카드 — 우측 마진은
-      // 두지 않아 transcript 의 reading gutter 가 카드와의 간격을 만든다.
-      className="app-frame-sidebar relative my-2 ml-2 flex flex-none flex-col overflow-hidden rounded-r6 border border-border bg-sidebar"
-      style={{ width }}
-      data-behavior="collapsible resizable"
-      data-state="expanded"
-    >
-      <div className="app-frame-sidebar-body flex min-h-0 flex-1 flex-col">
-        <div className="app-frame-sidebar-brand flex items-center gap-2 px-3 pb-1.5 pt-2.5">
-          <span className="text-[18px] leading-none" aria-hidden>
-            🐋
-          </span>
-          <span className="font-serif text-[16px] font-semibold tracking-tight text-ink">Orca</span>
+    <>
+      <aside
+        ref={asideRef}
+        // Claude Code 룩: 사이드바는 배경 위에 떠 있는 라운드 카드. 폭 조절 핸들은
+        // 카드 바깥(우측 거터)에 형제로 그려져 카드 내부 border·스크롤바와 겹치지 않는다.
+        className="app-frame-sidebar effect-primary-elevated my-2 ml-2 flex flex-none flex-col overflow-hidden rounded-r6 border border-border bg-sidebar"
+        style={{ width }}
+        data-behavior="collapsible resizable"
+        data-state="expanded"
+      >
+        <div className="app-frame-sidebar-body flex min-h-0 flex-1 flex-col">
+          <div className="app-frame-sidebar-brand flex items-center gap-2 px-3 pb-1.5 pt-2.5">
+            <span className="text-[18px] leading-none" aria-hidden>
+              🐋
+            </span>
+            <span className="font-serif text-[16px] font-semibold tracking-tight text-ink">
+              Orca
+            </span>
+          </div>
+
+          <nav className="app-frame-sidebar-nav px-1.5 py-1">
+            {NAV.map((it) => {
+              const isActive = it.isActive(pathname)
+              return (
+                <button
+                  key={it.path}
+                  type="button"
+                  onClick={() => navigate(it.path)}
+                  aria-current={isActive ? 'page' : undefined}
+                  className={`flex w-full cursor-default items-center gap-g4 rounded-r4 border-0 bg-transparent px-2.5 py-1.5 text-left text-footnote outline-none hide-focus-ring ring-focus transition-colors ${
+                    isActive
+                      ? 'bg-fill-uncontained-active font-medium text-t9'
+                      : 'text-t7 hover:bg-fill-uncontained-hover hover:text-t9'
+                  }`}
+                >
+                  <Icon name={it.i} size={14} />
+                  <span>{it.l}</span>
+                </button>
+              )
+            })}
+          </nav>
+
+          <div className={SECTION_HEAD}>최근 대화</div>
+          <div className="app-frame-sidebar-sessions flex-1 overflow-y-auto px-1.5 pt-1">
+            {sessionsSlot}
+          </div>
+
+          <div className="app-frame-sidebar-footer flex flex-col gap-1 border-t border-border p-2.5">
+            {footerSlot}
+          </div>
         </div>
+      </aside>
 
-        <nav className="app-frame-sidebar-nav px-1.5 py-1">
-          {NAV.map((it) => {
-            const isActive = it.isActive(pathname)
-            return (
-              <button
-                key={it.path}
-                type="button"
-                onClick={() => navigate(it.path)}
-                aria-current={isActive ? 'page' : undefined}
-                className={`flex w-full cursor-default items-center gap-g4 rounded-r4 border-0 bg-transparent px-2.5 py-1.5 text-left text-footnote outline-none hide-focus-ring ring-focus transition-colors ${
-                  isActive
-                    ? 'bg-fill-uncontained-active font-medium text-t9'
-                    : 'text-t7 hover:bg-fill-uncontained-hover hover:text-t9'
-                }`}
-              >
-                <Icon name={it.i} size={14} />
-                <span>{it.l}</span>
-              </button>
-            )
-          })}
-        </nav>
-
-        <div className={SECTION_HEAD}>최근 대화</div>
-        <div className="app-frame-sidebar-sessions flex-1 overflow-y-auto px-1.5 pt-1">
-          {sessionsSlot}
-        </div>
-
-        <div className="app-frame-sidebar-footer flex flex-col gap-1 border-t border-border p-2.5">
-          {footerSlot}
-        </div>
-      </div>
-
+      {/* 폭 조절 핸들 — 카드 바깥 우측 거터에 형제로 배치. plan 타일 separator 와
+          동일한 구조: hover 시 알약 그립(border-strong), press(:active) 중엔 ink3.
+          :active 는 mousedown 받은 엘리먼트에 드래그 내내 유지되므로 JS state 불필요. */}
       <div
-        className="app-frame-resize-handle absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-border-strong"
+        className="app-frame-resize-handle group/sep relative w-3 shrink-0 cursor-col-resize"
         data-behavior="resizable"
         data-axis="vertical"
         data-context="sidebar"
         data-state="visible"
         onMouseDown={startResize}
         aria-label="Resize sidebar"
-      />
-    </aside>
+      >
+        <span
+          aria-hidden
+          className="absolute left-1/2 top-1/2 h-10 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-border-strong opacity-0 transition-opacity duration-150 group-hover/sep:opacity-100 group-active/sep:opacity-100 group-active/sep:bg-ink3"
+        />
+      </div>
+    </>
   )
 }
 
