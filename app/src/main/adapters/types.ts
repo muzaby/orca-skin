@@ -1,6 +1,7 @@
 import type { Backend, NormalizedEvent, ProviderDescriptor } from '../../shared/ipc'
 import type { ClaudePermissionMode } from '../../shared/permission-mode'
 import type { TurnRequest } from '../extensions/types'
+import type { OrcaAgentConfig } from '../config/orca-file'
 
 export type { Backend, NormalizedEvent }
 
@@ -20,6 +21,8 @@ export interface CompleteRequest {
   model?: string
   cwd?: string
   signal?: AbortSignal
+  // orca.json agent 설정. 자동 제목 생성 complete 경로도 sendMessage 와 같은 provider/env 를 쓴다.
+  agent?: OrcaAgentConfig
 }
 
 export interface SessionAdapter {

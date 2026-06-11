@@ -1,4 +1,4 @@
-// MCP 비밀 저장소. 값은 env-var **이름**으로 키잉한다(서버 id 아님) — 여러 서버가 같은
+// MCP·orca.json 공용 비밀 저장소. 값은 env-var **이름**으로 키잉한다(서버 id 아님) — 여러 서버가 같은
 // ${TOKEN} 을 공유할 수 있게. 저장 형태는 { [VAR]: authEncBase64 }(safeStorage 암호문).
 // mcp.json 에는 ${VAR} 플레이스홀더만 남고, 실제 비밀은 여기(<userData>) 에만 존재한다.
 
