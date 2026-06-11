@@ -57,6 +57,12 @@ const AGENT_ENVIRONMENT: AgentEnvironment[] = [
 const ICON_BTN =
   'grid h-7 w-7 cursor-pointer place-items-center rounded-md border-0 bg-transparent text-ink2'
 
+// 카드 우측에 연하게 깔리는 장식용 워터마크. 이미지 중심이 카드 우측 모서리에
+// 투영되도록(좌측 상단 기준 → translate-x-1/2) 배치해 좌측 절반만 노출, 나머지는
+// 카드 overflow-hidden 으로 클립된다. 외부 SVG 직접 참조 (index.html CSP img-src 허용).
+const AGENT_ENV_BG =
+  'https://assets-proxy.anthropic.com/claude-ai/v2/assets/v1/cd02a42d9-Vq_H3mgS.svg'
+
 export function AgentEnvironmentView(): React.JSX.Element {
   return (
     <section className="flex-1 overflow-auto px-8 pb-10 pt-6">
@@ -78,11 +84,16 @@ export function AgentEnvironmentView(): React.JSX.Element {
         {AGENT_ENVIRONMENT.map((e) => (
           <div
             key={e.id}
-            className={`rounded-xl bg-panel px-4 py-3.5 ${
+            className={`relative overflow-hidden rounded-xl bg-panel px-4 py-3.5 ${
               e.active ? 'border border-border-strong' : 'border border-border'
             }`}
           >
-            <div className="flex items-center gap-3">
+            <div
+              aria-hidden
+              className="pointer-events-none absolute right-0 top-0 h-36 w-36 translate-x-1/2 bg-contain bg-center bg-no-repeat opacity-[0.06]"
+              style={{ backgroundImage: `url(${AGENT_ENV_BG})` }}
+            />
+            <div className="relative flex items-center gap-3">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="text-[14px] font-semibold text-ink">{e.name}</span>
@@ -104,11 +115,11 @@ export function AgentEnvironmentView(): React.JSX.Element {
               </button>
             </div>
             {e.error && (
-              <div className="mt-2.5 flex items-center gap-1.5 rounded-md border border-[#f0c9b8] bg-[#fbe9e2] px-3 py-[7px] text-[11.5px] text-[#a0432e]">
+              <div className="relative mt-2.5 flex items-center gap-1.5 rounded-md border border-[#f0c9b8] bg-[#fbe9e2] px-3 py-[7px] text-[11.5px] text-[#a0432e]">
                 <Icon name="alert" size={11} color="#a0432e" /> {e.error}
               </div>
             )}
-            <div className="mt-2.5 flex flex-wrap gap-1.5">
+            <div className="relative mt-2.5 flex flex-wrap gap-1.5">
               {e.models.map((m, i) => {
                 const primary = i === 0 && e.active
                 return (
