@@ -5,12 +5,12 @@
 // 구 모델은 부수효과 대상 턴을 event.sender(WebContents) 로 찾았다 — 턴 레지스트리의
 // 세션 키잉 전환에 맞춰 approvalId→턴 매핑으로 교체(멀티세션·다중 창에서도 정확).
 
-import { ipcMain, type IpcMainInvokeEvent } from 'electron'
-import { CHANNELS, type ApprovalResolution } from '../../../shared/ipc'
+import { CHANNELS, type ApprovalResolution, type PermissionRespond } from '../../../shared/ipc'
 import { PermissionRespondSchema, SetPermissionModeSchema } from '../../../shared/protocol'
 import { toClaudePermissionMode } from '../../../shared/permission-mode'
 import { InteractionBroker } from '../../ask/broker'
 import type { PermissionModeController } from '../../runtime-events/permission-mode-controller'
+import { handle } from '../registry'
 import type { InflightTurn, TurnRegistry } from './turn-registry'
 
 export class ApprovalCoordinator {
@@ -43,13 +43,7 @@ export class ApprovalCoordinator {
   //   ① allow + updatedPermissions(scope:session) → 해당 세션의 sessionAllowedTools 갱신
   //      (같은 세션 이후 턴에서 자동 허용).
   //   ② deny + interrupt → 해당 턴 abort (plan reject 의 turn-abort 동작 보존).
-  private handlePermissionRespond = async (
-    _event: IpcMainInvokeEvent,
-    raw: unknown
-  ): Promise<void> => {
-    const parsed = PermissionRespondSchema.safeParse(raw)
-    if (!parsed.success) return
-    const { approvalId, resolution } = parsed.data
+  private respond({ approvalId, resolution }: PermissionRespond): void {
     // resolve 가 finally 정리를 킥하므로 턴 참조는 먼저 확보한다.
     const turn = this.turnsByApproval.get(approvalId)
     this.broker.resolve(approvalId, resolution)
@@ -70,32 +64,30 @@ export class ApprovalCoordinator {
     }
   }
 
-  // 권한 모드 라이브 전환 (orca:permission:setMode). 두 경로:
-  //   ① controller(세션 SSOT) 갱신 — 다음 턴 send 가 이 값을 싣는다.
-  //   ② 진행 중 턴(같은 세션)이면 Query.setPermissionMode 로 즉시 전환 — 그 턴의 이후 도구부터 반영.
-  private makeSetModeHandler(
-    turns: TurnRegistry<unknown>,
-    permissionModes: PermissionModeController
-  ) {
-    return async (_event: IpcMainInvokeEvent, raw: unknown): Promise<void> => {
-      const parsed = SetPermissionModeSchema.safeParse(raw)
-      if (!parsed.success) return
-      const { sessionId, mode } = parsed.data
-      void permissionModes.setMode(sessionId, mode)
+  registerHandlers(turns: TurnRegistry<unknown>, permissionModes: PermissionModeController): void {
+    handle(CHANNELS.permissionRespond, PermissionRespondSchema, { fallback: undefined }, (req) =>
+      this.respond(req)
+    )
 
-      const turn = turns.getBySession(sessionId)
-      if (turn?.live) {
-        try {
-          await turn.live.setPermissionMode(toClaudePermissionMode(mode))
-        } catch {
-          // 라이브 전환 실패(핸들이 막 닫힘 등)는 무시 — controller 값이 다음 턴에 반영된다.
+    // 권한 모드 라이브 전환 (orca:permission:setMode). 두 경로:
+    //   ① controller(세션 SSOT) 갱신 — 다음 턴 send 가 이 값을 싣는다.
+    //   ② 진행 중 턴(같은 세션)이면 Query.setPermissionMode 로 즉시 전환 — 그 턴의 이후 도구부터 반영.
+    handle(
+      CHANNELS.permissionSetMode,
+      SetPermissionModeSchema,
+      { fallback: undefined },
+      async ({ sessionId, mode }): Promise<void> => {
+        void permissionModes.setMode(sessionId, mode)
+
+        const turn = turns.getBySession(sessionId)
+        if (turn?.live) {
+          try {
+            await turn.live.setPermissionMode(toClaudePermissionMode(mode))
+          } catch {
+            // 라이브 전환 실패(핸들이 막 닫힘 등)는 무시 — controller 값이 다음 턴에 반영된다.
+          }
         }
       }
-    }
-  }
-
-  registerHandlers(turns: TurnRegistry<unknown>, permissionModes: PermissionModeController): void {
-    ipcMain.handle(CHANNELS.permissionRespond, this.handlePermissionRespond)
-    ipcMain.handle(CHANNELS.permissionSetMode, this.makeSetModeHandler(turns, permissionModes))
+    )
   }
 }

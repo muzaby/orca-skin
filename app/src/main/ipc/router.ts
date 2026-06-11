@@ -1,9 +1,9 @@
 // IpcRouter — main 측 컴포지션 루트. 의존성 생성 + 부팅 시퀀스 + 핸들러 등록 위임만 담당한다.
 // 도메인 핸들러는 ipc/handlers/, chat 턴 파이프라인은 ipc/chat/ 참조 (handoff 0011 분해).
 
-import { app, webContents } from 'electron'
+import { app } from 'electron'
 import { is } from '@electron-toolkit/utils'
-import { CHANNELS, type DebugMockState, type RuntimeStatus, type SkillInfo } from '../../shared/ipc'
+import type { DebugMockState, SkillInfo } from '../../shared/ipc'
 import { AdapterRegistry } from '../adapters/registry'
 import { MockAdapter } from '../adapters/mock'
 import { Installer } from '../installer'
@@ -16,7 +16,7 @@ import { deploy } from '../deploy/deployer'
 import { scanSkills } from '../skills/scan'
 import { initDb } from '../db'
 import { CostTracker } from '../cost/tracker'
-import { PythonRuntime, PY_AGENT_RULES } from '../runtime'
+import { PythonRuntime, PY_AGENT_RULES, type RuntimeStatus } from '../runtime'
 import { ExtensionBuilder } from '../extensions/builder'
 import { PermissionModeController } from '../runtime-events/permission-mode-controller'
 import type { RouterContext } from './context'
@@ -113,15 +113,12 @@ export class IpcRouter {
     registerMcpHandlers(ctx)
     registerMiscHandlers(ctx)
 
-    // 런타임 초기화 진행 상태를 모든 창에 브로드캐스트.
-    // 렌더러 런타임 UI 가 제거되어 dev 에선 터미널 로깅으로 진행/에러를 관찰한다.
+    // 런타임 초기화 진행/에러는 dev 터미널 로깅으로 관찰한다 — 구 runtime IPC 3채널
+    // (status/prepare/statusEvent)은 renderer 소비처가 없어 제거됨(handoff 0012).
     this.runtime.on('status', (st: RuntimeStatus) => {
       if (is.dev) {
         if (st.stage === 'error') console.error('[runtime] error:', st.error)
         else console.log('[runtime]', st.stage, st.log ?? '')
-      }
-      for (const wc of webContents.getAllWebContents()) {
-        if (!wc.isDestroyed()) wc.send(CHANNELS.runtimeStatusEvent, st)
       }
     })
   }

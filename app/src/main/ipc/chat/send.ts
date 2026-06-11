@@ -2,7 +2,7 @@
 // sendChatEvent)와 orca:chat:cancel. 턴 상태는 TurnRegistry, 영속은 TurnPersistence,
 // 승인 왕복은 ApprovalCoordinator 에 위임하고 여기는 오케스트레이션만 담당한다.
 
-import { ipcMain, type IpcMainInvokeEvent, type WebContents } from 'electron'
+import type { IpcMainInvokeEvent, WebContents } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { CHANNELS, type ApprovalResolution, type PermissionAction } from '../../../shared/ipc'
 import { CancelChatSchema, SendChatMessageSchema } from '../../../shared/protocol'
@@ -22,6 +22,7 @@ import { makeClassifiedError } from '../../runtime-errors/classifier'
 import { claudeErrorClassifier } from '../../runtime-errors/claude-classifier'
 import { sendChatEvent, type RouterContext } from '../context'
 import { previewOf } from '../dto'
+import { handle, handlePlain } from '../registry'
 import type { ApprovalCoordinator } from './approvals'
 import type { TurnPersistence } from './persist'
 import type { InflightTurn, TurnRegistry } from './turn-registry'
@@ -269,11 +270,11 @@ export function registerChatHandlers(deps: ChatDeps): void {
     }
   }
 
-  const handleChatCancel = async (_event: IpcMainInvokeEvent, raw: unknown): Promise<void> => {
-    const parsed = CancelChatSchema.parse(raw)
-    turns.getBySession(parsed.sessionId)?.controller.abort()
-  }
+  // chatSend 는 검증 실패를 reject 가 아닌 error 이벤트로 회신하는 특례 — handlePlain 으로
+  // 등록하고 핸들러 서두에서 직접 safeParse 한다.
+  handlePlain(CHANNELS.chatSend, (raw, event) => handleChatSend(event, raw))
 
-  ipcMain.handle(CHANNELS.chatSend, handleChatSend)
-  ipcMain.handle(CHANNELS.chatCancel, handleChatCancel)
+  handle(CHANNELS.chatCancel, CancelChatSchema, 'reject', (req): void => {
+    turns.getBySession(req.sessionId)?.controller.abort()
+  })
 }

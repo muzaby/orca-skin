@@ -180,9 +180,6 @@ export const PermissionRespondSchema = z.object({
   resolution: ApprovalResolutionSchema
 })
 
-// 런타임 채널(status/prepare)은 입력 인자가 없다. invoke 시 undefined 가 전달되므로
-// 별도 검증 스키마 없이 핸들러에서 인자를 무시한다(아래 router 참고).
-
 // Settings (TRD §6.7) — Phase 2+ 영속화. 깨진 디스크 데이터도 default 로 복원되도록
 // 모든 키에 default 를 지정한다.
 const WindowBoundsSchema = z.object({
@@ -280,8 +277,6 @@ export type {
   CreateMcpServerRequest,
   UpdateMcpServerRequest,
   DeleteMcpServerRequest,
-  RuntimeStage,
-  RuntimeStatus,
   AskQuestionOption,
   AskQuestion,
   AskQuestionRequest,

@@ -54,13 +54,14 @@ Electron App
 │   ├── index.ts                # 부트: IpcRouter → BrowserWindow → 라이프사이클 + will-quit 시 closeDb()
 │   ├── ipc/                    # (handoff 0011 분해 — router 는 컴포지션 루트만)
 │   │   ├── router.ts           # 의존성 생성 + 부팅 시퀀스 + 핸들러 등록 위임 (~140줄)
+│   │   ├── registry.ts         # handle/handlePlain — invoke 등록 + safeParse + 실패 정책(reject|fallback) 단일 경로
 │   │   ├── context.ts          # RouterContext(핸들러 공유 의존성 주입 경계) + send/broadcast 헬퍼
 │   │   ├── dto.ts              # DB row → 와이어 DTO 순수 변환 (previewOf/toSessionListItem/…)
 │   │   ├── handlers/
 │   │   │   ├── session.ts      # sessionCwd/List/Load/Delete/Rename
 │   │   │   ├── project.ts      # projectList/Create/Update/Delete/ListSessions
 │   │   │   ├── mcp.ts          # mcpList/Add/Update/Delete (검증·영속은 McpStore)
-│   │   │   └── misc.ts         # backend/agent/install/settings/skills/files/search/cost/runtime/debug
+│   │   │   └── misc.ts         # backend/agent/install/settings/skills/files/search/cost/debug(dev)
 │   │   └── chat/               # chat 턴 파이프라인
 │   │       ├── send.ts         # chatSend 이벤트 루프(어댑터 LiveTurn 소비→persist→sendChatEvent) + chatCancel
 │   │       ├── turn-registry.ts# InflightTurn 상태 — Map<sessionId, …> + 새-채팅 pending 슬롯(창당 1) → session.updated 시 승격. 서로 다른 세션의 동시 턴 허용(멀티세션 토대), 같은 세션 중복 send 거부.
@@ -133,7 +134,7 @@ Electron App
    e. deploy('claude-code')                 # sources → dist/<engine> 렌더 + conformance 검증
    f. scanSkills(cwd)                       # 스킬 부팅 1회 스캔 → 메모리 캐시
    g. register(ctx)                         # RouterContext 조립 → chat 파이프라인 + 도메인 핸들러 등록 (채널 카탈로그는 IPC_CONTRACT.md)
-   h. runtime.ensure() 비동기 킥             # 진행 상태는 orca:runtime:statusEvent 브로드캐스트
+   h. runtime.ensure() 비동기 킥             # 진행/에러는 dev 터미널 로깅 (runtime IPC 채널 제거 — handoff 0012)
 4. createWindow(router.settings)            # BrowserWindow + webPreferences 명시
    ├─ contextIsolation: true
    ├─ nodeIntegration: false
@@ -178,7 +179,7 @@ Electron App
 | 로컬 DB (sessions / messages / projects / tool_calls) | Phase 3 | ✅ 완료 | better-sqlite3 + 3 마이그레이션. `db/` 디렉토리. |
 | FTS5 전문 검색 (`messages_fts`) | Phase 3++ | ✅ 완료 | `0003_messages_fts.sql` + `orca:search:messages` IPC |
 | MCP 서버 CRUD + safeStorage 인증 비밀 | Phase 3++ | ✅ 완료 | `mcp/store.ts` + `config/secret-store.ts`. 파일-백드 모델. |
-| Python uv 런타임 (`runtime/`) | Phase 3++ | ✅ 완료 | PythonRuntime.ensure() + `orca:runtime:*` 3채널 |
+| Python uv 런타임 (`runtime/`) | Phase 3++ | ✅ 완료 | PythonRuntime.ensure() — main 내부 전용 (구 `orca:runtime:*` 3채널은 renderer 소비처 부재로 제거, handoff 0012) |
 | Artifacts 디렉토리 (큰 산출물) | Future | ❌ 미구현 | persistence.md §1.4 |
 | 자동 업데이트 | Future | ❌ 미구현 | PRD OQ3 |
 | 로깅 라이브러리 | TBD | ❌ 미구현 | electron-log 후보 |

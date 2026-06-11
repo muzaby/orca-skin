@@ -5,7 +5,20 @@ import { copyFile, mkdir, readFile, writeFile, access, chmod } from 'node:fs/pro
 import { constants } from 'node:fs'
 import { getRuntimePaths, getBundledUvPath } from './paths'
 import { buildPyEnv } from './env'
-import type { RuntimeStatus, RuntimeStage } from '../../shared/ipc'
+
+// Python 런타임 (uv 기반 격리 인터프리터) 상태. 초기화 단계: idle(미시작) → preparing(진행 중)
+// → ready(준비됨) | error(실패). main 내부 전용 — 구 runtime IPC 3채널은 renderer 소비처가
+// 없어 제거됨(handoff 0012), 진행 상태는 dev 터미널 로깅으로 관찰한다.
+export type RuntimeStage = 'idle' | 'preparing' | 'ready' | 'error'
+
+export interface RuntimeStatus {
+  stage: RuntimeStage
+  ready: boolean
+  // 진행 단계 라벨 또는 자식 프로세스 stdout/stderr 누적 청크.
+  log?: string
+  // stage === 'error' 일 때만.
+  error?: string
+}
 
 const PYTHON_VERSION = '3.12'
 const APP_VERSION = app.getVersion()

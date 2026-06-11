@@ -133,7 +133,7 @@ Phase 2 범위 밖 (예약 — 도입 시점에 재등록):
 | `orca:credentials:set` / `:hasKey` | **Phase 3+** | safeStorage 자격증명 ([arch/backend/security.md](arch/backend/security.md) §1.4) |
 | `orca:skills:reload` | **Future** | 핫리로드 도입 시 |
 
-> **Phase 3+ 이후 추가 도메인** (본 표는 Phase 2 미러라 누락 — SSOT 는 IPC_CONTRACT §2): `session` 5 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · **`runtime` 3 (Python uv 런타임 — `orca:runtime:status` / `:prepare` / `:statusEvent`, IPC_CONTRACT §2.11)**. 총 31 채널.
+> **Phase 3+ 이후 추가 도메인** (본 표는 Phase 2 미러라 누락 — SSOT 는 IPC_CONTRACT §2): `session` 5 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · ~~`runtime` 3~~ (구 Python uv 런타임 채널 — renderer 소비처 부재로 제거, handoff 0012 · IPC_CONTRACT §2.11). 현행 전수는 IPC_CONTRACT §2 (총 36).
 
 ### 5.3 `window.orca` API (Preload 화이트리스트)
 
