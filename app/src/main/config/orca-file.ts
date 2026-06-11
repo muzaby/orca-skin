@@ -5,6 +5,7 @@
 import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { z } from 'zod'
 import { orcaJsonPath } from './paths'
+import { dedupeAgents } from './provider-key'
 
 export const OrcaModelSchema = z.object({
   name: z.string().min(1),
@@ -16,6 +17,7 @@ export type OrcaModelConfig = z.infer<typeof OrcaModelSchema>
 export const OrcaAgentSchema = z.object({
   adapter: z.string().min(1),
   provider: z.string().optional(),
+  authToken: z.string().optional(),
   apiKey: z.string().optional(),
   baseUrl: z.string().optional(),
   env: z.record(z.string(), z.string()).optional(),
@@ -70,12 +72,16 @@ export function parseOrcaFile(raw: string): ParseOrcaFileResult {
   for (const [index, candidate] of top.data.agents.entries()) {
     const parsed = OrcaAgentSchema.safeParse(candidate)
     if (parsed.success) {
-      agents.push(parsed.data)
+      const { apiKey, authToken, ...rest } = parsed.data
+      if (apiKey !== undefined)
+        warnings.push(`orca.json agents[${index}] apiKey 는 deprecated — authToken 사용 권장`)
+      agents.push({ ...rest, ...((authToken ?? apiKey) ? { authToken: authToken ?? apiKey } : {}) })
     } else {
       warnings.push(`orca.json agents[${index}] 드롭: ${issueSummary(parsed.error)}`)
     }
   }
-  return { config: { version: 1, agents }, warnings }
+  const deduped = dedupeAgents(agents, (warning) => warnings.push(`orca.json ${warning}`))
+  return { config: { version: 1, agents: deduped }, warnings }
 }
 
 export function ensureOrcaFile(): void {

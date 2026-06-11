@@ -330,16 +330,16 @@ interface OrcaConfig {
 interface OrcaAgentConfig {
   adapter: string              // 예: 'claude-code'
   provider?: string            // claude-code known: 'anthropic' | 'bedrock' | 'vertex'
-  apiKey?: string              // 평문 또는 '${VAR}'
+  authToken?: string           // 평문 또는 '${VAR}' (apiKey 는 deprecated 별칭)
   baseUrl?: string             // 빈 문자열/공백-only 는 부재 취급
   env?: Record<string, string> // 값에 '${VAR}' 허용, 매핑 필드보다 우선
   models: { name: string; family?: string; default?: boolean }[]
 }
 ```
 
-선택 규칙(v1)은 단순하다. 실행 adapter id 와 `agents[].adapter` 가 일치하는 **첫 항목**만 사용하며, 일치 항목이 없으면 env 주입 없이 기존 동작을 유지한다. `models` 는 파싱·보존만 하고 이번 범위에서 소비하지 않는다. 복수 agent 간 모델 선택과 `{adapter}-{provider}/{model}` 합성 키, renderer IPC 노출, 모델 선택 UI, 핫리로드는 다음 핸드오프 범위다.
+선택 규칙(v1)은 provider key 기반이다. `agents[].provider` 가 없으면 `adapter` 단독(`claude-code`), 있으면 `${adapter}-${provider(trim·lowercase)}`(`claude-code-bedrock`) 를 합성해 agent 환경을 식별한다. 같은 provider key 중복은 로드 시 두 번째 이후 항목을 드롭하고 경고한다. Composer 는 supported agent 의 `models` 를 `${providerKey}/${family ?? name}` 라벨로 노출하되, IPC/state 는 표시 문자열이 아니라 `providerKey` 와 `modelFamily` 구조 필드를 사용한다. 핫리로드와 앱 내 agent 저장 실동작은 후속 범위다.
 
-claude-code 소비 규칙은 adapter 내부에 격리한다. `provider=bedrock` 은 `CLAUDE_CODE_USE_BEDROCK=1`, `provider=vertex` 는 `CLAUDE_CODE_USE_VERTEX=1` 로 매핑하고, `anthropic`/부재는 추가 env 가 없다. `apiKey` 는 `ANTHROPIC_API_KEY`, `baseUrl` 은 `ANTHROPIC_BASE_URL` 로 매핑한다. `${VAR}` 는 secret-store → `process.env` 순으로 어댑트 시점에만 해석하며, 미해결 값은 해당 env 키만 드롭한다. `env` 레코드는 마지막에 적용되어 매핑 키를 덮을 수 있다.
+claude-code 소비 규칙은 adapter 내부에 격리한다. `provider=bedrock` 은 `CLAUDE_CODE_USE_BEDROCK=1`, `provider=vertex` 는 `CLAUDE_CODE_USE_VERTEX=1` 로 매핑하고, `anthropic`/부재는 추가 env 가 없다. `authToken` 은 `ANTHROPIC_API_KEY`, `baseUrl` 은 `ANTHROPIC_BASE_URL` 로 매핑한다. 구명 `apiKey` 는 deprecated 별칭으로 수용한다. `${VAR}` 는 secret-store → `process.env` 순으로 어댑트 시점에만 해석하며, 미해결 값은 해당 env 키만 드롭한다. `env` 레코드는 마지막에 적용되어 매핑 키를 덮을 수 있다.
 
 ## 7. Backend Adapters (외부 인터페이스 계약)
 
@@ -599,3 +599,11 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 - `docs/claude-code-spec.md` — Claude Code CLI 공식 스펙 미러 (§7.1 외부 계약의 단일 출처)
 - `app/AGENTS.md` — 코드 작업 가이드
 - `project/electron/` — 시각 기준 프로토타입
+
+
+### 6.8.1 Agent/model 선택 (0010-agent-model-select)
+
+- orca.json agents 는 `adapter` + optional `provider` 로 만든 provider key(`${adapter}` 또는 `${adapter}-${provider}`)로 식별한다. 같은 provider key 중복은 로드 시 두 번째 이후를 드롭하고 경고한다.
+- Composer 는 `orca:agent:list` DTO(`key`, `adapter`, `provider`, `models`, `supported`)로 `${providerKey}/${family}` 모델 메뉴를 구성한다. wire/state 는 표시 문자열이 아니라 `providerKey` 와 `modelFamily` 구조 필드를 사용한다.
+- 세션은 adapter(`sessions.backend`) 단위로 잠기며 같은 adapter 안에서는 provider/model family 를 턴 단위로 전환할 수 있다. `sessions.provider_key` 는 바인딩 제약이 아니라 마지막 사용 provider 기록이다.
+- 앱 추가 agent 의 auth token 은 secret store `provider:${provider key}` 에만 저장한다. DB/renderer/agent list DTO 는 토큰·baseUrl·env 를 노출하지 않는다.

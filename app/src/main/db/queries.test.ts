@@ -7,6 +7,7 @@ import migration0004 from './migrations/0004_message_parts.sql?raw'
 import migration0005 from './migrations/0005_usage_events.sql?raw'
 import migration0006 from './migrations/0006_turn_usage.sql?raw'
 import migration0007 from './migrations/0007_title_source.sql?raw'
+import migration0008 from './migrations/0008_provider_key.sql?raw'
 import { DbQueries } from './queries'
 
 function dbWithMigrations(): Database.Database {
@@ -19,6 +20,7 @@ function dbWithMigrations(): Database.Database {
   db.exec(migration0005)
   db.exec(migration0006)
   db.exec(migration0007)
+  db.exec(migration0008)
   return db
 }
 
@@ -35,15 +37,18 @@ function dbBefore0006(): Database.Database {
 
 function insertSession(db: Database.Database, id = 's1'): void {
   db.prepare(
-    `INSERT INTO sessions (id, backend, title, project_id, created_at, updated_at, last_message_preview)
-     VALUES (?, 'claude-code', NULL, NULL, 1, 1, NULL)`
+    `INSERT INTO sessions (id, backend, title, project_id, created_at, updated_at, last_message_preview, provider_key)
+     VALUES (?, 'claude-code', NULL, NULL, 1, 1, NULL, NULL)`
   ).run(id)
 }
 
 describe('0006_turn_usage migration', () => {
   it('usage_events 데이터를 id 보존 turn_usage/turn_model_usage 로 이관하고 기존 테이블을 제거한다', () => {
     const db = dbBefore0006()
-    insertSession(db)
+    db.prepare(
+      `INSERT INTO sessions (id, backend, title, project_id, created_at, updated_at, last_message_preview)
+       VALUES ('s1', 'claude-code', NULL, NULL, 1, 1, NULL)`
+    ).run()
     db.prepare(
       `INSERT INTO usage_events
        (id, session_id, model, created_at, input_tokens, output_tokens, cache_read_tokens,
@@ -254,5 +259,40 @@ describe('DbQueries session title source', () => {
       title: '수동 제목',
       updated_at: 30
     })
+  })
+})
+
+describe('DbQueries provider_key', () => {
+  it('insertSession 과 updateSessionProviderKey 로 마지막 provider 를 기록한다', () => {
+    const db = dbWithMigrations()
+    const q = new DbQueries(db)
+
+    q.insertSession({
+      id: 's-provider',
+      backend: 'claude-code',
+      title: null,
+      projectId: null,
+      createdAt: 10,
+      providerKey: 'claude-code-bedrock'
+    })
+    expect(db.prepare('SELECT provider_key FROM sessions WHERE id = ?').get('s-provider')).toEqual({
+      provider_key: 'claude-code-bedrock'
+    })
+
+    q.updateSessionProviderKey('s-provider', 'claude-code', 20)
+    expect(
+      db.prepare('SELECT provider_key, updated_at FROM sessions WHERE id = ?').get('s-provider')
+    ).toEqual({
+      provider_key: 'claude-code',
+      updated_at: 20
+    })
+  })
+
+  it('레거시 NULL provider_key row 를 조회할 수 있다', () => {
+    const db = dbWithMigrations()
+    insertSession(db, 'legacy')
+    const q = new DbQueries(db)
+
+    expect(q.listSessions()[0].provider_key).toBeNull()
   })
 })

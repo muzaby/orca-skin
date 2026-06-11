@@ -31,7 +31,8 @@ import {
   type SessionListItem,
   type Settings,
   type SkillInfo,
-  type DebugMockState
+  type DebugMockState,
+  type AgentEnvironment
 } from '../../shared/protocol'
 import { usageRowToTelemetry, hasContextTokens } from '../usage/usageMap'
 import { CostTracker } from '../cost/tracker'
@@ -42,7 +43,17 @@ import { SettingsStore } from '../settings/store'
 import { McpStore } from '../mcp/store'
 import { migrateMcpToFile } from '../mcp/migrate'
 import { ensureConfigDir } from '../config/paths'
-import { agentFor, loadOrcaConfig } from '../config/orca-config'
+import { agentFor, getOrcaConfig, loadOrcaConfig } from '../config/orca-config'
+import {
+  agentForProviderKey,
+  authTokenFor,
+  defaultModelFamily,
+  modelNameForFamily,
+  providerKeyOf,
+  toAgentEnvironments
+} from '../config/provider-key'
+import { SecretStore } from '../config/secret-store'
+import type { OrcaAgentConfig } from '../config/orca-file'
 import { migrateConfigToSources } from '../config/migrate-sources'
 import { deploy } from '../deploy/deployer'
 import { scanSkills } from '../skills/scan'
@@ -74,6 +85,8 @@ interface InflightTurn {
   // 전환한다(Query.setPermissionMode). sendMessage 직후 채워진다.
   live: LiveTurn | null
   titleAdapter: SessionAdapter
+  titleAgent?: OrcaAgentConfig
+  providerKey: string | null
   // sendMessage 호출 시점에 채워두는 사용자 입력. claude-code 의 init 이벤트가
   // session_id 를 발급한 시점에 DB 에 user message row 로 저장한다.
   pendingUserText: string | null
@@ -134,6 +147,7 @@ export class IpcRouter {
     contextUsageRatio: 0.3
   }
   private readonly mockAdapter = import.meta.env.DEV ? new MockAdapter(() => this.debugMock) : null
+  private readonly secretStore = new SecretStore()
 
   async start(): Promise<void> {
     this.db = initDb()
@@ -189,6 +203,7 @@ export class IpcRouter {
     ipcMain.handle(CHANNELS.chatSend, this.handleChatSend)
     ipcMain.handle(CHANNELS.chatCancel, this.handleChatCancel)
     ipcMain.handle(CHANNELS.backendList, this.handleBackendList)
+    ipcMain.handle(CHANNELS.agentList, this.handleAgentList)
     ipcMain.handle(CHANNELS.installStart, this.handleInstallStart)
     ipcMain.handle(CHANNELS.settingsGet, this.handleSettingsGet)
     ipcMain.handle(CHANNELS.settingsSet, this.handleSettingsSet)
@@ -234,6 +249,41 @@ export class IpcRouter {
     })
   }
 
+  private resolveTurnAgent(req: {
+    adapter: SessionAdapter
+    sessionId: string | null
+    providerKey: string | null
+    modelFamily: string | null
+  }): { agent?: OrcaAgentConfig; providerKey: string | null; model?: string } {
+    const agents = getOrcaConfig().agents
+    const meta = req.sessionId
+      ? this.db.listSessions(1000).find((session) => session.id === req.sessionId)
+      : undefined
+    const payloadAgent = agentForProviderKey(agents, req.providerKey)
+    let selected = payloadAgent
+
+    if (req.sessionId && payloadAgent && payloadAgent.adapter !== meta?.backend) {
+      console.warn(
+        `[orca-config] providerKey '${req.providerKey}' adapter 불일치 — 세션 provider 로 fallback`
+      )
+      selected = undefined
+    }
+    if (req.sessionId && !selected) {
+      selected = agentForProviderKey(agents, meta?.provider_key) ?? agentFor(req.adapter.id)
+    }
+    if (!req.sessionId && !selected) selected = agentFor(req.adapter.id)
+
+    const token = authTokenFor(selected, {
+      secretStore: this.secretStore,
+      resolve: this.mcp.resolver()
+    })
+    const agent = selected ? { ...selected, ...(token ? { authToken: token } : {}) } : undefined
+    const providerKey = agent ? providerKeyOf(agent) : null
+    const modelFamily = req.modelFamily ?? defaultModelFamily(agent)
+    const model = modelNameForFamily(agent, modelFamily)
+    return { agent, providerKey, ...(model ? { model } : {}) }
+  }
+
   private sendChatEvent(wc: WebContents, ev: NormalizedEvent): void {
     if (!wc.isDestroyed()) wc.send(CHANNELS.chatEvent, ev)
   }
@@ -276,6 +326,13 @@ export class IpcRouter {
       return
     }
 
+    const resolved = this.resolveTurnAgent({
+      adapter,
+      sessionId: parsed.data.sessionId,
+      providerKey: parsed.data.providerKey ?? null,
+      modelFamily: parsed.data.modelFamily ?? null
+    })
+
     const controller = new AbortController()
     // resume 경로면 sessions row 에 이미 binding 된 projectId 가 있으므로 그쪽에서 조회.
     // 새 채팅 경로(sessionId=null)면 renderer 가 보낸 projectId 를 init 시점에 binding.
@@ -283,6 +340,8 @@ export class IpcRouter {
       controller,
       live: null,
       titleAdapter: adapter,
+      titleAgent: resolved.agent,
+      providerKey: resolved.providerKey,
       pendingUserText: parsed.data.text,
       firstUserText: parsed.data.text,
       dbSessionId: parsed.data.sessionId,
@@ -304,6 +363,7 @@ export class IpcRouter {
       const now = Date.now()
       this.persistUserMessage(parsed.data.sessionId, parsed.data.text, now)
       this.db.updateSessionPreview(parsed.data.sessionId, previewOf(parsed.data.text), now)
+      this.db.updateSessionProviderKey(parsed.data.sessionId, turn.providerKey, now)
       turn.pendingUserText = null
     }
 
@@ -382,7 +442,8 @@ export class IpcRouter {
         signal: controller.signal,
         extensions,
         env: pyEnv,
-        agent: agentFor(adapter.id),
+        agent: resolved.agent,
+        model: resolved.model,
         requestApproval,
         permissionMode: parsed.data.permissionMode
       })
@@ -483,11 +544,13 @@ export class IpcRouter {
           backend: 'claude-code',
           title,
           projectId: turn.pendingProjectId,
-          createdAt: now
+          createdAt: now,
+          providerKey: turn.providerKey
         })
         if (turn.pendingUserText) {
           this.persistUserMessage(sessionId, turn.pendingUserText, now)
           this.db.updateSessionPreview(sessionId, previewOf(turn.pendingUserText), now)
+          this.db.updateSessionProviderKey(sessionId, turn.providerKey, now)
           if (title) this.db.updateSessionTitle(sessionId, title)
           turn.pendingUserText = null
         }
@@ -636,7 +699,8 @@ export class IpcRouter {
       sessionId: turn.dbSessionId!,
       firstUserText: turn.firstUserText,
       cwd: turn.cwd,
-      adapter: turn.titleAdapter
+      adapter: turn.titleAdapter,
+      agent: turn.titleAgent
     })
   }
 
@@ -645,6 +709,7 @@ export class IpcRouter {
     firstUserText: string
     cwd: string
     adapter: SessionAdapter
+    agent?: OrcaAgentConfig
   }): Promise<void> {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 30_000)
@@ -654,7 +719,7 @@ export class IpcRouter {
         prompt: titlePrompt(req.firstUserText),
         cwd: req.cwd,
         signal: controller.signal,
-        agent: agentFor(req.adapter.id)
+        agent: req.agent
       })
       const title = normalizeTitle(raw)
       if (!title) return
@@ -671,6 +736,13 @@ export class IpcRouter {
     CancelChatSchema.parse(raw)
     const turn = this.inflight.get(event.sender)
     if (turn) turn.controller.abort()
+  }
+
+  private handleAgentList = async (): Promise<AgentEnvironment[]> => {
+    return toAgentEnvironments(
+      getOrcaConfig().agents,
+      this.registry.list().map((adapter) => adapter.id)
+    )
   }
 
   private handleBackendList = async (): Promise<BackendListResult> => {
@@ -758,6 +830,7 @@ export class IpcRouter {
       backend: meta.backend,
       title: meta.title,
       messages,
+      providerKey: meta.provider_key,
       ...(lastTelemetry ? { lastTelemetry } : {})
     }
   }

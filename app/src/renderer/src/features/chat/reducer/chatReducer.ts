@@ -5,7 +5,8 @@ import type {
   ClassifiedError,
   LoadedSession,
   PlanReviewRequest,
-  ProviderReportedTelemetry
+  ProviderReportedTelemetry,
+  Backend
 } from '../../../../../shared/ipc'
 import type { NormalizedPermissionMode } from '../../../../../shared/permission-mode'
 import { contextTokens } from '../lib/telemetry'
@@ -36,6 +37,9 @@ export interface ChatState {
   // 첫 메시지 send → init 이벤트 시점에 sessionId 가 발급되면 사실상 역할 종료. send 시
   // 함께 IPC 페이로드에 실어 main 으로 보낸다.
   pendingProjectId: string | null
+  backend: Backend | null
+  providerKey: string | null
+  modelFamily: string | null
   // 어댑터가 발급한 세션의 working directory (`init` 이벤트). Composer 의 `@`
   // 파일 자동완성이 이 경로 기준으로 디렉토리를 리스팅한다.
   cwd: string | null
@@ -84,6 +88,9 @@ export const initialChatState: ChatState = {
   sessionId: null,
   title: null,
   pendingProjectId: null,
+  backend: null,
+  providerKey: null,
+  modelFamily: null,
   cwd: null,
   messages: [],
   sendCount: 0,
@@ -106,13 +113,22 @@ export const PLAN_TILE_MAX_WIDTH = 640
 // 메모리 캐시에 저장하는 한 세션의 snapshot. useChat 의 cacheRef 가 다룬다.
 export interface CachedSession {
   title: string | null
+  backend?: Backend | null
   messages: Message[]
   // 세션 전환 후 복귀 시 컨텍스트 도넛/패널을 복원하기 위한 마지막 텔레메트리.
   lastTelemetry?: ProviderReportedTelemetry
+  providerKey?: string | null
+  modelFamily?: string | null
 }
 
 export type ChatAction =
   | { type: 'SEND_USER_MESSAGE'; text: string }
+  | {
+      type: 'SET_MODEL'
+      providerKey: string | null
+      modelFamily: string | null
+      adapter?: string | null
+    }
   | { type: 'RECV_EVENT'; event: NormalizedEvent }
   // 턴이 message.completed 없이 끝났을 때(telemetry 도착 시점) live 버퍼의 잔여 텍스트를
   // text 파트로 굳힌다. 버퍼 소유자는 chatStore — reducer 는 텍스트만 받는다.
@@ -178,6 +194,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           return {
             ...state,
             sessionId: ev.sessionId,
+            backend: 'claude-code',
             cwd: ev.patch.cwd ?? state.cwd,
             pendingProjectId: null
           }
@@ -346,7 +363,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ...initialChatState,
         cwd: state.cwd,
         sessionId: action.session.id,
+        backend: action.session.backend,
         title: action.session.title,
+        providerKey: action.session.providerKey ?? null,
         messages,
         // 컨텍스트 도넛/패널을 세션 수명 동안 유지 — turn_usage 최신 행에서 복원.
         ...(action.session.lastTelemetry ? { lastTelemetry: action.session.lastTelemetry } : {})
@@ -360,6 +379,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         cwd: state.cwd,
         sessionId: action.sessionId,
         title: action.cached.title,
+        backend: action.cached.backend ?? null,
+        providerKey: action.cached.providerKey ?? null,
+        modelFamily: action.cached.modelFamily ?? null,
         messages: action.cached.messages,
         // 캐시 snapshot 에서 도넛/패널 복원(세션 전환 후 복귀 시 유지).
         ...(action.cached.lastTelemetry ? { lastTelemetry: action.cached.lastTelemetry } : {})
@@ -384,6 +406,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
 
     case 'SET_PERMISSION_MODE':
       return { ...state, permissionMode: action.mode }
+
+    case 'SET_MODEL':
+      if (state.sessionId && state.backend && action.adapter && action.adapter !== state.backend) {
+        return state
+      }
+      return { ...state, providerKey: action.providerKey, modelFamily: action.modelFamily }
 
     case 'RESOLVE_PLAN':
       // 액션 게이트만 닫는다 — planContent/planTileOpen 은 유지(검토 후 읽기전용 표시).

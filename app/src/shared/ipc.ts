@@ -10,6 +10,7 @@ export const CHANNELS = {
   chatEvent: 'orca:chat:event',
   chatCancel: 'orca:chat:cancel',
   backendList: 'orca:backend:list',
+  agentList: 'orca:agent:list',
   installStart: 'orca:install:start',
   installStatus: 'orca:install:status',
   settingsGet: 'orca:settings:get',
@@ -93,6 +94,20 @@ export interface SessionTitleEvent {
 
 // Backend (Phase 2: claude-code 단일. opencode 는 future work)
 export type Backend = 'claude-code'
+
+export interface AgentModelView {
+  name: string
+  family?: string
+  default?: boolean
+}
+
+export interface AgentEnvironment {
+  key: string
+  adapter: string
+  provider?: string
+  models: AgentModelView[]
+  supported: boolean
+}
 
 // 에러 분류 (provider-runtime.md §6 정본). 와이어 error 이벤트는 8 category + retryable 로
 // 정규화된 ClassifiedError 를 싣는다 — 재시도/표시 정책을 category 로 결정한다. 구 ErrorCode
@@ -316,6 +331,9 @@ export interface SendChatMessage {
   text: string
   // 이 턴에 적용할 권한 모드 (정규화 6종 — Composer 모드 버튼). 부재 시 main 이 기본값(plan) 적용.
   permissionMode?: NormalizedPermissionMode
+  // 이 턴에 적용할 agent/provider 와 모델 family. 둘 다 optional 이라 기존 payload 호환.
+  providerKey?: string | null
+  modelFamily?: string | null
 }
 
 // Composer 권한 모드 버튼이 노출하는 두 모드. SDK PermissionMode 의 부분집합 —
@@ -523,6 +541,8 @@ export interface LoadedSession {
   // 세션 마지막 턴의 provider-reported 통계 — 컨텍스트 도넛/TelemetryPanel 을 세션 수명 동안
   // 복원(turn_usage 최신 행에서 재구성). 비용 집계는 원장 SUM 으로 별도(추후 usage 화면).
   lastTelemetry?: ProviderReportedTelemetry
+  // sessions.provider_key — 마지막 사용 provider 기록. null 은 레거시/미매칭 fallback.
+  providerKey?: string | null
 }
 
 // 프로젝트 (Phase 3+) — 대화 묶음 + 전용 시스템 프롬프트 (instructions).

@@ -43,6 +43,8 @@ export interface TurnRequest {
   // orca.json agent 설정. 백엔드 중립 확장 묶음이 아니라 adapter 선택 결과이며,
   // 어댑터가 자기 SDK env 로 어댑트할 때까지 미확장 ${VAR} 값을 보존한다.
   agent?: OrcaAgentConfig
+  // 해석 완료된 백엔드 모델 이름. family/provider key 어휘는 config 계층에서 소비한다.
+  model?: string
   // 백엔드 중립 권한 승인 콜백 — ask_question·plan_review·tool_approval 세 종류를 단일
   // PermissionAction 으로 받아 ApprovalResolution(allow/deny 2분기)을 돌려준다. 어댑터가
   // 자기 SDK 의 권한 메커니즘(claude-code 는 canUseTool)으로 어댑트한다. router 가 broker

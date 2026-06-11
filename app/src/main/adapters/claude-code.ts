@@ -195,7 +195,17 @@ export class ClaudeCodeAdapter implements SessionAdapter {
   // 핸들에서 setPermissionMode/interrupt/setModel 이 열리게 한다. result 도착(또는 abort) 시 입력
   // 스트림을 닫아 서브프로세스를 종료 → 다음 턴은 또 resume 로 새로(세션 모델 변화 0).
   sendMessage(req: TurnRequest): LiveTurn {
-    const { sessionId, text, cwd, signal, extensions, env, requestApproval, permissionMode } = req
+    const {
+      sessionId,
+      text,
+      cwd,
+      signal,
+      extensions,
+      env,
+      requestApproval,
+      permissionMode,
+      model
+    } = req
     const mergedEnv = this.agentEnv(req.agent, env)
 
     // 매퍼 컨텍스트 — sessionId 는 init(=session.updated)에서 갱신된다(resume 면 초기값이 그 id).
@@ -233,7 +243,8 @@ export class ClaudeCodeAdapter implements SessionAdapter {
         // 자동 통과 동작을 유지한다.
         ...(requestApproval ? { canUseTool: makeCanUseTool(requestApproval) } : {}),
         // 권한 모드 (정규화 6종 → SDK PermissionMode). 부재 시 SDK 기본(default) 동작.
-        ...(permissionMode ? { permissionMode: toClaudePermissionMode(permissionMode) } : {})
+        ...(permissionMode ? { permissionMode: toClaudePermissionMode(permissionMode) } : {}),
+        ...(model ? { model } : {})
       }
     })
 

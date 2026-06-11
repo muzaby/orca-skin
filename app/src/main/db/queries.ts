@@ -25,6 +25,7 @@ export class DbQueries {
   private readonly appendPartStmt: Database.Statement
   private readonly updateToolResultPartStmt: Database.Statement
   private readonly updateSessionPreviewStmt: Database.Statement
+  private readonly updateSessionProviderKeyStmt: Database.Statement
   private readonly updateSessionTitleStmt: Database.Statement
   private readonly getTitleSourceStmt: Database.Statement
   private readonly updateSessionTitleAutoStmt: Database.Statement
@@ -51,12 +52,12 @@ export class DbQueries {
 
   constructor(db: Database.Database) {
     this.insertSessionStmt = db.prepare(`
-      INSERT INTO sessions (id, backend, title, project_id, created_at, updated_at, last_message_preview)
-      VALUES (@id, @backend, @title, @projectId, @createdAt, @createdAt, NULL)
+      INSERT INTO sessions (id, backend, title, project_id, created_at, updated_at, last_message_preview, provider_key)
+      VALUES (@id, @backend, @title, @projectId, @createdAt, @createdAt, NULL, @providerKey)
       ON CONFLICT(id) DO NOTHING
     `)
     this.listSessionsStmt = db.prepare(`
-      SELECT id, backend, title, updated_at, last_message_preview, project_id, title_source
+      SELECT id, backend, title, updated_at, last_message_preview, project_id, title_source, provider_key
       FROM sessions
       ORDER BY updated_at DESC
       LIMIT @limit
@@ -111,6 +112,9 @@ export class DbQueries {
       UPDATE sessions
       SET last_message_preview = @preview, updated_at = @updatedAt
       WHERE id = @id
+    `)
+    this.updateSessionProviderKeyStmt = db.prepare(`
+      UPDATE sessions SET provider_key = @providerKey, updated_at = @updatedAt WHERE id = @id
     `)
     this.updateSessionTitleStmt = db.prepare(`
       UPDATE sessions SET title = @title WHERE id = @id AND title IS NULL
@@ -188,7 +192,7 @@ export class DbQueries {
     `)
     this.deleteProjectStmt = db.prepare(`DELETE FROM projects WHERE id = @id`)
     this.listSessionsByProjectStmt = db.prepare(`
-      SELECT id, backend, title, updated_at, last_message_preview, project_id, title_source
+      SELECT id, backend, title, updated_at, last_message_preview, project_id, title_source, provider_key
       FROM sessions
       WHERE project_id = @projectId
       ORDER BY updated_at DESC
@@ -217,7 +221,7 @@ export class DbQueries {
   }
 
   insertSession(row: SessionInsert): void {
-    this.insertSessionStmt.run(row)
+    this.insertSessionStmt.run({ ...row, providerKey: row.providerKey ?? null })
   }
 
   listSessions(limit = 50): SessionListRow[] {
@@ -255,6 +259,10 @@ export class DbQueries {
 
   updateSessionPreview(id: string, preview: string, updatedAt: number): void {
     this.updateSessionPreviewStmt.run({ id, preview, updatedAt })
+  }
+
+  updateSessionProviderKey(id: string, providerKey: string | null, updatedAt: number): void {
+    this.updateSessionProviderKeyStmt.run({ id, providerKey, updatedAt })
   }
 
   updateSessionTitle(id: string, title: string): void {

@@ -28,6 +28,7 @@ export interface SessionRow {
   last_message_preview: string | null
   project_id: string | null
   title_source: SessionTitleSource
+  provider_key: string | null
 }
 
 export interface SessionListRow {
@@ -38,6 +39,7 @@ export interface SessionListRow {
   last_message_preview: string | null
   project_id: string | null
   title_source: SessionTitleSource
+  provider_key: string | null
 }
 
 // 0006 turn_usage — per-turn 사용량 원장. 모델별 분해는 turn_model_usage 자식 행에 저장.
@@ -133,6 +135,7 @@ export interface SessionInsert {
   title: string | null
   projectId: string | null
   createdAt: number
+  providerKey?: string | null
 }
 
 export interface MessageInsert {

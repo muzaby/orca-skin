@@ -6,6 +6,7 @@ import migration0004 from './migrations/0004_message_parts.sql?raw'
 import migration0005 from './migrations/0005_usage_events.sql?raw'
 import migration0006 from './migrations/0006_turn_usage.sql?raw'
 import migration0007 from './migrations/0007_title_source.sql?raw'
+import migration0008 from './migrations/0008_provider_key.sql?raw'
 
 interface Migration {
   name: string
@@ -19,7 +20,8 @@ const MIGRATIONS: Migration[] = [
   { name: '0004_message_parts', sql: migration0004 },
   { name: '0005_usage_events', sql: migration0005 },
   { name: '0006_turn_usage', sql: migration0006 },
-  { name: '0007_title_source', sql: migration0007 }
+  { name: '0007_title_source', sql: migration0007 },
+  { name: '0008_provider_key', sql: migration0008 }
 ]
 
 const META_TABLE = `

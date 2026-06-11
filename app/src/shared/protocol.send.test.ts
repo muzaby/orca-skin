@@ -4,8 +4,18 @@ import { SendChatMessageSchema, SetPermissionModeSchema } from './protocol'
 const base = { sessionId: null, projectId: null, text: 'hi' }
 
 describe('SendChatMessageSchema — permissionMode (정규화 6종)', () => {
-  it('permissionMode 부재를 허용', () => {
+  it('permissionMode/model 선택 필드 부재를 허용', () => {
     expect(SendChatMessageSchema.safeParse(base).success).toBe(true)
+  })
+
+  it('providerKey/modelFamily optional 필드를 허용한다', () => {
+    expect(
+      SendChatMessageSchema.safeParse({
+        ...base,
+        providerKey: 'claude-code-bedrock',
+        modelFamily: 'sonnet'
+      }).success
+    ).toBe(true)
   })
 
   it('정규화 6종을 모두 허용', () => {

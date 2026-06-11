@@ -47,7 +47,7 @@ export function toClaudeEnv(
     console.warn(`[orca-config] 알 수 없는 claude-code provider '${agent.provider}' — 무시`)
   }
 
-  setExpanded(env, 'ANTHROPIC_API_KEY', agent.apiKey, resolve, missing)
+  setExpanded(env, 'ANTHROPIC_API_KEY', agent.authToken, resolve, missing)
   setExpanded(env, 'ANTHROPIC_BASE_URL', agent.baseUrl, resolve, missing)
 
   for (const [key, value] of Object.entries(agent.env ?? {})) {
