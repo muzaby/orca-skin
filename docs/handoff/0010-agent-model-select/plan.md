@@ -206,3 +206,14 @@ export interface AgentEnvironment {
 | 게이트 결과 | lint ✅ / typecheck ✅ / 전체 test ⚠️ better-sqlite3 ABI 환경 제한으로 `db/queries.test.ts` 9건 실패(기존 계열) / 범위 테스트 ✅ 39/39 |
 | 블로커 / 역질문 | 없음 — 전체 test 실패는 better-sqlite3 native module ABI 환경 제한 |
 | 대상 커밋 | `c2a90d8` |
+
+## [Codex 기입] 재구현 보고 r2
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `app/src/main/db/queries.test.ts` |
+| 수정 내용 | `dbBefore0006()` 기반 `0006_turn_usage migration` 테스트에서 공유 `insertSession()` 대신 0005 스키마 컬럼(`id, backend, title, project_id, created_at, updated_at, last_message_preview`)만 사용하는 인라인 INSERT로 교체 |
+| 실행 명령 | `npm rebuild better-sqlite3 --build-from-source && npx vitest run src/main/db/queries.test.ts` / `npm run lint && npm run typecheck && npm test` |
+| 게이트 결과 | 범위 테스트 ✅ 9/9 / lint ✅ / typecheck ✅ / 전체 test ✅ 349/349 |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `ecf9752` |

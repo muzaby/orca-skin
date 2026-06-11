@@ -45,7 +45,10 @@ function insertSession(db: Database.Database, id = 's1'): void {
 describe('0006_turn_usage migration', () => {
   it('usage_events 데이터를 id 보존 turn_usage/turn_model_usage 로 이관하고 기존 테이블을 제거한다', () => {
     const db = dbBefore0006()
-    insertSession(db)
+    db.prepare(
+      `INSERT INTO sessions (id, backend, title, project_id, created_at, updated_at, last_message_preview)
+       VALUES ('s1', 'claude-code', NULL, NULL, 1, 1, NULL)`
+    ).run()
     db.prepare(
       `INSERT INTO usage_events
        (id, session_id, model, created_at, input_tokens, output_tokens, cache_read_tokens,
