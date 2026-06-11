@@ -1,17 +1,9 @@
-import { createContext, useContext, type ReactNode } from 'react'
-import { useSessions } from '../hooks/useSessions'
+import { useEffect, type ReactNode } from 'react'
+import { bootstrapSessions } from '../store/sessionsStore'
 
-type UseSessionsReturn = ReturnType<typeof useSessions>
-
-const SessionsContext = createContext<UseSessionsReturn | null>(null)
-
+// sessions 부트스트랩 호스트 — context value 를 제공하지 않는다(ChatProvider 와 동형).
+// 상태는 Zustand sessionsStore 가 담당한다 (handoff 0013 — Context 전파 모델 폐기).
 export function SessionsProvider({ children }: { children: ReactNode }): React.JSX.Element {
-  const sessions = useSessions()
-  return <SessionsContext.Provider value={sessions}>{children}</SessionsContext.Provider>
-}
-
-export function useSessionsContext(): UseSessionsReturn {
-  const ctx = useContext(SessionsContext)
-  if (!ctx) throw new Error('useSessionsContext must be used within SessionsProvider')
-  return ctx
+  useEffect(() => bootstrapSessions(), [])
+  return <>{children}</>
 }

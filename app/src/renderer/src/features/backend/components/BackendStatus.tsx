@@ -2,12 +2,18 @@ import type { ProviderDescriptor } from '../../../../../shared/ipc'
 import { Avatar } from '../../../shared/ui/Avatar'
 import { Dot } from '../../../shared/ui/Status'
 import { Icon } from '../../../shared/ui/Icon'
-import { useBackendContext } from '../providers/BackendProvider'
+import {
+  useBackendCapabilities,
+  useBackendLabel,
+  useClaudeCodeInstalled
+} from '../store/backendStore'
 
 // Sidebar 의 footer 슬롯에 주입되는 도메인 컴포넌트. 이름은 *위치* (footer) 가
-// 아닌 *역할* (현재 활성 백엔드 정보 표시) 기준. BackendContext 자체 구독.
+// 아닌 *역할* (현재 활성 백엔드 정보 표시) 기준. backendStore 자체 구독.
 export function BackendStatus(): React.JSX.Element {
-  const { backendLabel, claudeCodeInstalled, capabilities } = useBackendContext()
+  const backendLabel = useBackendLabel()
+  const claudeCodeInstalled = useClaudeCodeInstalled()
+  const capabilities = useBackendCapabilities()
   // 활성 백엔드 지원 기능의 사람-가시 지표(§15 게이팅 데이터의 소비자). 능력 서술자가 true 인
   // 라이프사이클 기능만 칩으로 노출 — UI 가 무엇을 사전 게이팅하는지 디버깅·관찰용.
   const supported = capabilities ? supportedSessionFeatures(capabilities) : []

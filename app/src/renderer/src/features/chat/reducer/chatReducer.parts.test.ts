@@ -277,16 +277,6 @@ describe('chatReducer — AppMessagePart 모델', () => {
     expect(s.lastTelemetry?.cacheReadTokens).toBe(500)
   })
 
-  it('LOAD_SESSION_FROM_CACHE 는 캐시의 telemetry 를 복원한다', () => {
-    const s = chatReducer(initialChatState, {
-      type: 'LOAD_SESSION_FROM_CACHE',
-      sessionId: 's3',
-      cached: {
-        title: 't',
-        messages: [{ role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'q' }] }],
-        lastTelemetry: { inputTokens: 777 }
-      }
-    })
-    expect(s.lastTelemetry?.inputTokens).toBe(777)
-  })
+  // (구 LOAD_SESSION_FROM_CACHE 케이스는 멀티세션 외피(handoff 0013)에서 액션 자체가
+  // 폐기됨 — sessions Record 가 캐시를 흡수해 재진입은 activeKey 전환만으로 복원된다.)
 })

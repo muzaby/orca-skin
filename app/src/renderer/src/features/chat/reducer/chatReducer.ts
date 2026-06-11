@@ -110,17 +110,6 @@ export const initialChatState: ChatState = {
 export const PLAN_TILE_MIN_WIDTH = 280
 export const PLAN_TILE_MAX_WIDTH = 640
 
-// 메모리 캐시에 저장하는 한 세션의 snapshot. useChat 의 cacheRef 가 다룬다.
-export interface CachedSession {
-  title: string | null
-  backend?: Backend | null
-  messages: Message[]
-  // 세션 전환 후 복귀 시 컨텍스트 도넛/패널을 복원하기 위한 마지막 텔레메트리.
-  lastTelemetry?: ProviderReportedTelemetry
-  providerKey?: string | null
-  modelFamily?: string | null
-}
-
 export type ChatAction =
   | { type: 'SEND_USER_MESSAGE'; text: string }
   | {
@@ -139,8 +128,6 @@ export type ChatAction =
   | { type: 'SET_CWD'; cwd: string }
   | { type: 'START_LOAD_SESSION'; sessionId: string; title: string | null }
   | { type: 'LOAD_SESSION'; session: LoadedSession }
-  | { type: 'LOAD_SESSION_FROM_CACHE'; sessionId: string; cached: CachedSession }
-  | { type: 'LOAD_SESSION_ERROR' }
   | { type: 'RENAME_SESSION'; sessionId: string; title: string }
   // 사용자가 질문에 답하거나 건너뛰어 해당 requestId 의 카드를 큐에서 제거.
   | { type: 'RESOLVE_ASK'; requestId: string }
@@ -372,28 +359,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       }
     }
 
-    // 메모리 캐시 hit — IPC 없이 즉시 교체. loadingSession 도 즉시 false.
-    case 'LOAD_SESSION_FROM_CACHE':
-      return {
-        ...initialChatState,
-        cwd: state.cwd,
-        sessionId: action.sessionId,
-        title: action.cached.title,
-        backend: action.cached.backend ?? null,
-        providerKey: action.cached.providerKey ?? null,
-        modelFamily: action.cached.modelFamily ?? null,
-        messages: action.cached.messages,
-        // 캐시 snapshot 에서 도넛/패널 복원(세션 전환 후 복귀 시 유지).
-        ...(action.cached.lastTelemetry ? { lastTelemetry: action.cached.lastTelemetry } : {})
-      }
-
-    // DB 에 row 가 없거나 IPC 실패. 빈 ChatPane 으로 fallback — lastSessionId 같은
-    // 영속값은 호출 측에서 정리한다.
-    case 'LOAD_SESSION_ERROR':
-      return { ...initialChatState, cwd: state.cwd }
-
-    // 활성 세션의 제목이 변경된 경우에만 reducer state 갱신. 다른 세션의 rename
-    // 은 useChat 의 cacheRef 가 처리하므로 reducer 무관 (no-op).
+    // 이 엔트리의 세션 제목 갱신. store 가 sessionId 키로 라우팅하므로 보통 일치하지만,
+    // 새-채팅 엔트리(sessionId null) 등 불일치 시 no-op 가드.
     case 'RENAME_SESSION':
       if (state.sessionId !== action.sessionId) return state
       return { ...state, title: action.title }

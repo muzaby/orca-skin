@@ -1,4 +1,4 @@
-import { useBackendContext } from '../features/backend'
+import { backendActions, useInstallerOpen } from '../features/backend'
 import { chatActions, useChatSession } from '../features/chat'
 import { DebugPanel } from '../features/debug'
 import { InstallerDialog, AuthExpiredModal } from '../features/backend'
@@ -16,7 +16,7 @@ interface OverlayLayerProps {
 //   - #app-frame-modal   : modal 활성 시 z=20 (focus-trap), 평소 -z-20
 //   - #app-frame-debug   : 항상 z=30 (dev DebugPanel, modal 상태 무관)
 export function OverlayLayer({ searchOpen, onCloseSearch }: OverlayLayerProps): React.JSX.Element {
-  const { installerOpen, setInstallerOpen, refresh } = useBackendContext()
+  const installerOpen = useInstallerOpen()
   const authExpired = useChatSession((s) => s.error?.category === 'auth_error')
   const modalActive = installerOpen || authExpired || searchOpen
 
@@ -38,10 +38,10 @@ export function OverlayLayer({ searchOpen, onCloseSearch }: OverlayLayerProps): 
       >
         <InstallerDialog
           open={installerOpen}
-          onClose={() => setInstallerOpen(false)}
+          onClose={() => backendActions.setInstallerOpen(false)}
           onComplete={() => {
-            setInstallerOpen(false)
-            void refresh()
+            backendActions.setInstallerOpen(false)
+            void backendActions.refresh()
           }}
         />
         <AuthExpiredModal

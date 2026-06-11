@@ -1,17 +1,9 @@
-import { createContext, useContext, type ReactNode } from 'react'
-import { useProjects } from '../hooks/useProjects'
+import { useEffect, type ReactNode } from 'react'
+import { bootstrapProjects } from '../store/projectsStore'
 
-type UseProjectsReturn = ReturnType<typeof useProjects>
-
-const ProjectsContext = createContext<UseProjectsReturn | null>(null)
-
+// projects 부트스트랩 호스트 — context value 를 제공하지 않는다(ChatProvider 와 동형).
+// 상태는 Zustand projectsStore 가 담당한다 (handoff 0013 — Context 전파 모델 폐기).
 export function ProjectsProvider({ children }: { children: ReactNode }): React.JSX.Element {
-  const projects = useProjects()
-  return <ProjectsContext.Provider value={projects}>{children}</ProjectsContext.Provider>
-}
-
-export function useProjectsContext(): UseProjectsReturn {
-  const ctx = useContext(ProjectsContext)
-  if (!ctx) throw new Error('useProjectsContext must be used within ProjectsProvider')
-  return ctx
+  useEffect(() => bootstrapProjects(), [])
+  return <>{children}</>
 }

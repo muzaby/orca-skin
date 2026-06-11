@@ -1,8 +1,8 @@
 import { useCallback, useMemo } from 'react'
 import { matchPath, useLocation, useNavigate } from 'react-router-dom'
 import { chatActions } from '../../features/chat'
-import { useSessionsContext } from '../../features/sessions'
-import { useProjectsContext } from '../../features/projects'
+import { sessionsActions } from '../../features/sessions'
+import { useProjectsState } from '../../features/projects'
 
 export interface SessionHandlers {
   currentSessionId: string | null
@@ -19,8 +19,7 @@ export interface SessionHandlers {
 export function useSessionHandlers(): SessionHandlers {
   const navigate = useNavigate()
   const { pathname } = useLocation()
-  const sessionsCtx = useSessionsContext()
-  const { list: projects } = useProjectsContext()
+  const projects = useProjectsState((s) => s.list)
 
   // 사이드바 활성 세션의 진실은 URL — `/chat/:sessionId` 에 있을 때만 해당 행이 활성.
   // ChatContext.state.sessionId 는 캐시/IPC 용도로 다른 라우트에서도 유지되므로 UI
@@ -28,10 +27,10 @@ export function useSessionHandlers(): SessionHandlers {
   const match = matchPath('/chat/:sessionId', pathname)
   const currentSessionId = match?.params.sessionId ?? null
 
-  // chat 액션은 모듈 상수(chatActions)라 본질적으로 안정 — deps/메모 무력화 걱정이 없다
-  // (0007 의 "안정 함수만 뽑기" 패턴이 store 전환으로 기본값이 됨). sessionsCtx 는 기존 유지.
+  // chat/sessions 액션은 모듈 상수라 본질적으로 안정 — deps/메모 무력화 걱정이 없다
+  // (0007 의 "안정 함수만 뽑기" 패턴이 store 전환으로 기본값이 됨).
   const { handleSessionDeleted, renameSession } = chatActions
-  const { remove: removeSession, rename: renameSessionMeta } = sessionsCtx
+  const { remove: removeSession, rename: renameSessionMeta } = sessionsActions
 
   const projectNameById = useMemo(() => {
     const map = new Map<string, string>()

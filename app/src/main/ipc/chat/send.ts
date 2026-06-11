@@ -257,9 +257,12 @@ export function registerChatHandlers(deps: ChatDeps): void {
         }
       }
     } catch (err) {
+      // sessionId 가 확정된 턴이면 부착 — renderer 멀티세션 store 가 정확한 엔트리로
+      // 라우팅한다(없으면 활성 엔트리 폴백, handoff 0013).
       sendChatEvent(event.sender, {
         type: 'error',
         provider: 'claude-code',
+        ...(turn.dbSessionId ? { sessionId: turn.dbSessionId } : {}),
         error: claudeErrorClassifier.classify(err, {
           provider: 'claude-code',
           phase: 'sendMessage'

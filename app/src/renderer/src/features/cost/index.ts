@@ -1,3 +1,3 @@
 export { CostProvider } from './providers/CostProvider'
-export { useCost } from './providers/costContext'
+export { useCostSummary } from './store/costStore'
 export { formatApproxCost } from './lib/formatCost'

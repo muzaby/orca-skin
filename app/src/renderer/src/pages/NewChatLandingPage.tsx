@@ -1,6 +1,6 @@
 import { ChatTile, Composer, useChatSession } from '../features/chat'
-import { useBackendContext } from '../features/backend'
-import { formatApproxCost, useCost } from '../features/cost'
+import { useBackendCapabilities, useBackendLabel } from '../features/backend'
+import { formatApproxCost, useCostSummary } from '../features/cost'
 
 // `/new` 라우트의 랜딩 페이지.
 // - 메시지가 아예 없을 때: 빈 화면 중앙에 Composer 만 노출 (ChatGPT 스타일).
@@ -10,8 +10,9 @@ import { formatApproxCost, useCost } from '../features/cost'
 //   가 인계받는다.
 export function NewChatLandingPage(): React.JSX.Element {
   const isEmpty = useChatSession((s) => s.messages.length === 0 && !s.loadingSession)
-  const { backendLabel, capabilities } = useBackendContext()
-  const { summary } = useCost()
+  const backendLabel = useBackendLabel()
+  const capabilities = useBackendCapabilities()
+  const summary = useCostSummary()
   // 능력 서술자가 로드됐는데 sessionAbort 가 아니면 중단 게이팅(미로드면 현행 동작 유지).
   const canAbort = capabilities ? capabilities.cancellation.sessionAbort === true : true
   const costToday = summary ? formatApproxCost(summary.day.totalCostUsd) : undefined

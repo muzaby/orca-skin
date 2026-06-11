@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { chatActions, Composer, useChatSession } from '../features/chat'
-import { useBackendContext } from '../features/backend'
-import { formatApproxCost, useCost } from '../features/cost'
+import { useBackendCapabilities, useBackendLabel } from '../features/backend'
+import { formatApproxCost, useCostSummary } from '../features/cost'
 import {
   ProjectInfoHero,
   ProjectInstructionsSidebar,
@@ -24,8 +24,9 @@ export function ProjectLandingPage(): React.JSX.Element {
   const navigate = useNavigate()
   const sessionId = useChatSession((s) => s.sessionId)
   const inflight = useChatSession((s) => s.inflight)
-  const { backendLabel, capabilities } = useBackendContext()
-  const { summary } = useCost()
+  const backendLabel = useBackendLabel()
+  const capabilities = useBackendCapabilities()
+  const summary = useCostSummary()
   // 능력 서술자가 로드됐는데 sessionAbort 가 아니면 중단 게이팅(미로드면 현행 동작 유지).
   const canAbort = capabilities ? capabilities.cancellation.sessionAbort === true : true
   const costToday = summary ? formatApproxCost(summary.day.totalCostUsd) : undefined
