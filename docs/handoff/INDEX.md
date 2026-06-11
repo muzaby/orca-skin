@@ -20,4 +20,6 @@
 | `0005-title-completion-fixes`   | verify | PASS      | —         | c13bd44 | 1      | 0004 사용자 피드백 반영(모델 별칭 `'haiku'` · `settingSources` 제거 · `complete` 호출 경로 정리). 인수 6/6, 게이트 3종(283 tests) 통과. **비기능 작업 = Claude 구현** 규칙 첫 적용. 사람 확인 대기: 실환경 haiku 사용·settings env 적용 (verify §책임 분리). |
 | `0006-composer-status-line`     | verify | PASS      | —         | 393c8c8   | 1      | 검증 PASS — 인수 10/10 충족, 게이트 3종(lint/typecheck/test 286) 통과, 레이어 경계 0(cost 는 page 주입), 신규 의존성 0, 카피 표 1:1. Tier1 pill + Tier2 팝오버 presentational 셸 + view-model 순수함수 + 임시 상태근사 TODO. PHASES 승격. (대상 커밋 INDEX 기재 `b94cc76`→실 `393c8c8`, verify 위생 노트 ①) 사람 확인 대기: 시각 검증·카피 어감 (verify §책임 분리). |
 
+| `0007-transcript-render-memo`   | verify | PASS      | —         | a68e465   | 1      | 스트리밍 재렌더 범위 축소(성능) — 비기능 = Claude 직접 구현. `groupTurns` useMemo + 턴/메시지/마크다운 memo + `useSessionHandlers` deps 안정화(Sidebar memo 복원) + Header memo. CDP rAF 측정(35턴 mock): 최대 블로킹 549~614ms → 133~166ms. 게이트 lint/typecheck ✅, test 283/290 — 실패 7건은 better-sqlite3 ABI 환경(변경 무관, verify §게이트). PHASES 승격. 사람 확인 대기: 스트리밍 스크롤 시각 검증 (verify §책임 분리). |
+
 > 새 작업: 마지막 일련번호 +1 로 행을 추가하고 `<NNNN-slug>/plan.md` 를 생성한다.

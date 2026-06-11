@@ -112,4 +112,4 @@ mock 시나리오(`text_streaming`)로 스트리밍하는 동안 CDP rAF 샘플�
 | 측정 (AFTER, transcript memo) | 최대 **216~333ms**. 프로파일에서 markdown/shiki 소멸. 잔여 원인 추적 → Sidebar `SessionRow` 검출 (`useSessionHandlers` 가 매 렌더 새 `chat` 객체에 의존 → slot 안정화 무효). |
 | 측정 (AFTER, +Sidebar/Header) | 최대 **133~166ms**. `beginWork` 상위권 소멸 — 잔여는 dev 전용 오버헤드(jsxDEV·StrictMode·createTask)와 네이티브 레이아웃/페인트로 프로덕션 빌드에서 추가 축소 예상. |
 | 블로커 / 역질문 | 없음. 잔여 구조 개선(컨텍스트 셀렉터 분리)은 Phase 4 Zustand 전환과 중복이라 비범위 유지. |
-| 대상 커밋 | (브랜치 첫 push 시 기재 — verify.md 메타 참조) |
+| 대상 커밋 | `a68e465` (동반 스타일 커밋 `70419a6`, 어댑터 폴백 `0ec1c39`) |
