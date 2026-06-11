@@ -29,6 +29,32 @@
     height: 100vh;
     display: flex;
   }
+
+  /* 얇은 인셋 스크롤바 — Electron(Chromium) ::-webkit-scrollbar.
+     thumb 의 3px 투명 테두리 + background-clip:padding-box 로 실제 보이는
+     바를 ~4px 로 인셋한다 (알약 형태). */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border-strong);
+    border: 3px solid transparent;
+    background-clip: padding-box;
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--color-ink3);
+    background-clip: padding-box;
+  }
+  /* Firefox 용 (Chromium 에선 무해). */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border-strong) transparent;
+  }
 }
 
 /* Keyboard hint pill — small enough to leave as a reusable component class. */
