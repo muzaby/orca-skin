@@ -62,6 +62,8 @@ new BrowserWindow({
 > - **enabled / description** (settings `mcpEnabled` / `mcpMeta`): per-install UI 상태 + Claude 스키마에 없는 Orca 메타. 정의(mcp.json) 와 분리(D2).
 >
 > **`${VAR}` resolver 순서 = safeStorage(비밀) → process.env (2단계)**. 미해결 변수가 있으면 해당 **서버를 드롭 + 사유 기록**(`console.warn`) — 조용한 빈 문자열 치환 금지(인증 없는 요청 누출 방지).
+
+> **orca.json 예외 (0009)**: 앱 전역 설정 `~/.config/orca/orca.json` 의 `agents[].apiKey` 는 사용자 결정에 따라 평문과 `${VAR}` 플레이스홀더를 모두 허용한다. 권장값은 `${ANTHROPIC_API_KEY}` 처럼 `${VAR}` 를 쓰는 방식이며, resolver 순서는 기존과 동일하게 safeStorage(secret-store) → `process.env` 이다. 평문을 쓰는 경우 파일 권한·디스크 보호 책임은 사용자에게 있다. 값 확장은 claude-code 어댑터 진입 시점에만 수행하고, 미해결 `${VAR}` 는 해당 env 키만 드롭한다(MCP 의 서버 전체 드롭과 다름).
 >
 > **타입 모델**: 정규 컬렉션 타입은 `OrcaMcpConfig`(claude-code 스펙). Claude 형식은 이와 동일하므로 **별칭** `type ClaudeMcpConfig = OrcaMcpConfig` 로 못박는다. 단일 항목 타입 `ClaudeMcp` 의 http/sse 는 분리된 판별 멤버라 SDK `McpServerConfig`(stdio|http|sse) 유니온에 그대로 대입된다. **"IR(중간형)" 표현은 쓰지 않는다** — 정규형이 곧 claude-code 스펙.
 >

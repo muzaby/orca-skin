@@ -26,6 +26,7 @@ import type { Resolver } from '../mcp/expand'
 import { toClaudeConfig } from '../mcp/convert'
 import { isRiskyTool } from '../runtime-events/permission-bridge'
 import { adaptHooks, adaptMcp, adaptSkills, adaptSystemPrompt } from './claude-adapt'
+import { mergeAgentEnv, toClaudeEnv } from './claude-env'
 import { CLAUDE_DESCRIPTOR } from '../capabilities/claude-probe'
 import type { ProviderDescriptor } from '../../shared/ipc'
 
@@ -162,6 +163,8 @@ export class ClaudeCodeAdapter implements SessionAdapter {
     if (req.signal?.aborted) abortController.abort()
     else req.signal?.addEventListener('abort', onAbort, { once: true })
 
+    const agentEnv = this.agentEnv(req.agent)
+
     // settingSources 는 명시하지 않는다 — SDK 기본(모든 소스 로드)으로 사용자/프로젝트 설정의
     // env 가 적용되게 sendMessage 경로와 정합 (docs/spec/claude/agent-sdk/typescript.md).
     const options: Options = {
@@ -170,6 +173,7 @@ export class ClaudeCodeAdapter implements SessionAdapter {
       tools: [],
       allowedTools: [],
       persistSession: false,
+      ...(agentEnv ? { env: agentEnv } : {}),
       ...(req.cwd ? { cwd: req.cwd } : {}),
       ...(req.model ? { model: req.model } : {})
     }
@@ -192,6 +196,7 @@ export class ClaudeCodeAdapter implements SessionAdapter {
   // 스트림을 닫아 서브프로세스를 종료 → 다음 턴은 또 resume 로 새로(세션 모델 변화 0).
   sendMessage(req: TurnRequest): LiveTurn {
     const { sessionId, text, cwd, signal, extensions, env, requestApproval, permissionMode } = req
+    const mergedEnv = this.agentEnv(req.agent, env)
 
     // 매퍼 컨텍스트 — sessionId 는 init(=session.updated)에서 갱신된다(resume 면 초기값이 그 id).
     const ctx: MapContext = { provider: 'claude-code', sessionId: sessionId ?? '', cwd }
@@ -221,7 +226,7 @@ export class ClaudeCodeAdapter implements SessionAdapter {
         ...adaptSystemPrompt(extensions.systemPromptAppend),
         ...adaptMcp(mcpConfig),
         ...adaptSkills(),
-        ...(env ? { env } : {}),
+        ...(mergedEnv ? { env: mergedEnv } : {}),
         ...adaptHooks(extensions.hooks),
         // canUseTool — AskUserQuestion·ExitPlanMode·위험 도구를 requestApproval 로 게이트하고
         // 안전 도구는 allow passthrough. 콜백 미주입(opencode 등) 시 옵션 자체를 생략해 현행
@@ -263,6 +268,19 @@ export class ClaudeCodeAdapter implements SessionAdapter {
       interrupt: () => handle.interrupt(),
       setModel: (model) => handle.setModel(model)
     }
+  }
+
+  private agentEnv(
+    agent: TurnRequest['agent'] | CompleteRequest['agent'],
+    base?: Record<string, string>
+  ): Record<string, string> | undefined {
+    const { env, missing } = toClaudeEnv(agent, this.makeResolver())
+    if (missing.length > 0) {
+      console.warn(
+        `[orca-config] 미해결 환경변수로 일부 claude-code env 를 건너뜀: ${missing.join(', ')}`
+      )
+    }
+    return mergeAgentEnv(base, env)
   }
 }
 

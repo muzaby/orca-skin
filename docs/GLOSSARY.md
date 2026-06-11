@@ -65,4 +65,4 @@
 - ❌ **"Titlebar"** (셸 헤더 의미로) — `Header` 로 통일. `app-frame-titlebar` 는 *tile 내부 헤더* 만을 가리킨다.
 - ❌ **"Token"** (UI 청크 의미로) → **Delta** 로 통일. LLM token count 의미로는 사용 허용 (`inputTokens` / `outputTokens`).
 - ❌ **"Capture"** — Orca 의 도메인 카탈로그에서 제외 (사용자 결정). `CapturesScreen.tsx` 코드는 남아있으나 문서·논의에서는 거론하지 않는다.
-- ❌ **"Provider"** (LLM 의미로) — 위 "LLM Provider" 와 동일.
+- ❌ **"Provider"** (LLM 의미로) — 위 "LLM Provider" 와 동일. 단, `orca.json` 의 `agents[].provider` 는 claude-code SDK 가 사용하는 클라우드 제공자(`anthropic`/`bedrock`/`vertex`) 필드명으로만 허용하며, Orca 도메인 어휘로 일반화하지 않는다.

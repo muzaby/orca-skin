@@ -8,6 +8,7 @@
 // 불변식: 여기 담기는 mcp 는 **미확장**(${VAR} 플레이스홀더 보유). 비밀 확장/복호화는 어댑터의
 // 어댑트 시점에만 일어나며 이 구조체에는 절대 평문이 들어오지 않는다.
 
+import type { OrcaAgentConfig } from '../config/orca-file'
 import type { OrcaMcpConfig } from '../mcp/schema'
 import type { ApprovalResolution, PermissionAction, SkillInfo } from '../../shared/ipc'
 import type { NormalizedPermissionMode } from '../../shared/permission-mode'
@@ -39,6 +40,9 @@ export interface TurnRequest {
   // uv 런타임 인프라 — 확장 묶음이 아니라 자식 프로세스 env 주입. 그래서 extensions 가 아닌
   // TurnRequest 직속이다 (router 호출처에서 runtime.getEnv() 로 조립, 빌더 우회).
   env?: Record<string, string>
+  // orca.json agent 설정. 백엔드 중립 확장 묶음이 아니라 adapter 선택 결과이며,
+  // 어댑터가 자기 SDK env 로 어댑트할 때까지 미확장 ${VAR} 값을 보존한다.
+  agent?: OrcaAgentConfig
   // 백엔드 중립 권한 승인 콜백 — ask_question·plan_review·tool_approval 세 종류를 단일
   // PermissionAction 으로 받아 ApprovalResolution(allow/deny 2분기)을 돌려준다. 어댑터가
   // 자기 SDK 의 권한 메커니즘(claude-code 는 canUseTool)으로 어댑트한다. router 가 broker

@@ -42,6 +42,7 @@ import { SettingsStore } from '../settings/store'
 import { McpStore } from '../mcp/store'
 import { migrateMcpToFile } from '../mcp/migrate'
 import { ensureConfigDir } from '../config/paths'
+import { agentFor, loadOrcaConfig } from '../config/orca-config'
 import { migrateConfigToSources } from '../config/migrate-sources'
 import { deploy } from '../deploy/deployer'
 import { scanSkills } from '../skills/scan'
@@ -153,6 +154,11 @@ export class IpcRouter {
     // 않는다(채팅/세션 기능은 독립). sources 이전이 MCP 이전보다 먼저여야 한다 —
     // 구 루트 mcp.json 을 sources/mcp/ 로 옮긴 뒤 mcpFileExists() 가 sources/ 를 보게.
     await ensureConfigDir().catch((e) => console.warn('[boot] ensureConfigDir 실패:', e))
+    try {
+      loadOrcaConfig()
+    } catch (e) {
+      console.warn('[boot] orca.json 로드 건너뜀:', e)
+    }
     try {
       migrateConfigToSources()
     } catch (e) {
@@ -376,6 +382,7 @@ export class IpcRouter {
         signal: controller.signal,
         extensions,
         env: pyEnv,
+        agent: agentFor(adapter.id),
         requestApproval,
         permissionMode: parsed.data.permissionMode
       })
@@ -646,7 +653,8 @@ export class IpcRouter {
       const raw = await req.adapter.complete({
         prompt: titlePrompt(req.firstUserText),
         cwd: req.cwd,
-        signal: controller.signal
+        signal: controller.signal,
+        agent: agentFor(req.adapter.id)
       })
       const title = normalizeTitle(raw)
       if (!title) return

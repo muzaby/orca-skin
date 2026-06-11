@@ -199,24 +199,24 @@ renderer 변경 0 — 4-layer boundaries 영향 없음. main 내부에서는 SDK
 
 ## [Codex 기입] 구현 체크리스트
 
-- [ ] `paths.ts` `orcaJsonPath()` + 헤더 주석
-- [ ] `mcp/expand.ts` `expandVars` 추출·export (동작 불변)
-- [ ] `config/orca-file.ts` (스키마 + parse + I/O + 템플릿 생성)
-- [ ] `config/orca-config.ts` 싱글톤 (load/get/agentFor)
-- [ ] `adapters/claude-env.ts` (toClaudeEnv + mergeAgentEnv)
-- [ ] `extensions/types.ts` · `adapters/types.ts` 타입 확장
-- [ ] `claude-code.ts` env 합성 2지점 (sendMessage + runCompletion)
-- [ ] `router.ts` 부팅 로드 + agent 전달 2지점
-- [ ] 테스트 3파일 (orca-file / claude-env / expand 보강)
-- [ ] 문서 4건 (TRD / standardization §5.1 / security / GLOSSARY)
-- [ ] 게이트 3종 통과
+- [x] `paths.ts` `orcaJsonPath()` + 헤더 주석
+- [x] `mcp/expand.ts` `expandVars` 추출·export (동작 불변)
+- [x] `config/orca-file.ts` (스키마 + parse + I/O + 템플릿 생성)
+- [x] `config/orca-config.ts` 싱글톤 (load/get/agentFor)
+- [x] `adapters/claude-env.ts` (toClaudeEnv + mergeAgentEnv)
+- [x] `extensions/types.ts` · `adapters/types.ts` 타입 확장
+- [x] `claude-code.ts` env 합성 2지점 (sendMessage + runCompletion)
+- [x] `router.ts` 부팅 로드 + agent 전달 2지점
+- [x] 테스트 3파일 (orca-file / claude-env / expand 보강)
+- [x] 문서 4건 (TRD / standardization §5.1 / security / GLOSSARY)
+- [x] 게이트 3종 실행 (lint/typecheck 통과, 전체 test 는 better-sqlite3 ABI 환경 제한)
 
 ## [Codex 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` |
-| 게이트 결과 | … |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | … |
+| 변경 파일 | `app/src/main/config/{paths,secret-store,orca-file,orca-config}.ts`, `app/src/main/mcp/expand.ts`, `app/src/main/adapters/{claude-env,claude-code,types}.ts`, `app/src/main/extensions/types.ts`, `app/src/main/ipc/router.ts`, 신규/보강 테스트 3건, 문서 4건 |
+| 실행 명령 | `npm run lint` / `npm run typecheck` / `npx vitest run src/main/config/orca-file.test.ts src/main/adapters/claude-env.test.ts src/main/mcp/expand.test.ts` / `npm test` |
+| 게이트 결과 | lint ✅, typecheck ✅, 범위 테스트 26/26 ✅, 전체 `npm test` 는 328/335 통과·7 실패(기존 better-sqlite3 ABI mismatch 환경 제한) |
+| 블로커 / 역질문 | 없음. 전체 테스트의 better-sqlite3 native ABI 불일치는 0007 verify 에도 기록된 환경 문제와 동일 계열이며 본 변경과 무관. |
+| 대상 커밋 | 본 구현 커밋 |
