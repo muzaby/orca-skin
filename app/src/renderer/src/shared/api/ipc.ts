@@ -3,6 +3,7 @@ import type {
   SetPermissionMode,
   Backend,
   BackendListResult,
+  AgentEnvironment,
   CostSummary,
   NormalizedEvent,
   CreateMcpServerRequest,
@@ -37,6 +38,10 @@ export const chatApi = {
 
 export const backendApi = {
   list: (): Promise<BackendListResult> => window.orca.backend.list()
+}
+
+export const agentApi = {
+  list: (): Promise<AgentEnvironment[]> => window.orca.agent.list()
 }
 
 export const installApi = {

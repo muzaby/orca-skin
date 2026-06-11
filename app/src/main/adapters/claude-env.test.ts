@@ -27,7 +27,7 @@ describe('toClaudeEnv', () => {
   it('미지 provider 는 agent 를 드롭하지 않고 경고 후 무시한다', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     const result = toClaudeEnv(
-      { adapter: 'claude-code', provider: 'unknown', apiKey: 'plain', models: [] },
+      { adapter: 'claude-code', provider: 'unknown', authToken: 'plain', models: [] },
       resolver({})
     )
     expect(result.env).toEqual({ ANTHROPIC_API_KEY: 'plain' })
@@ -35,11 +35,11 @@ describe('toClaudeEnv', () => {
     warn.mockRestore()
   })
 
-  it('apiKey/baseUrl 평문과 ${VAR} 를 매핑한다', () => {
+  it('authToken/baseUrl 평문과 ${VAR} 를 매핑한다', () => {
     const result = toClaudeEnv(
       {
         adapter: 'claude-code',
-        apiKey: 'plain-key',
+        authToken: 'plain-key',
         baseUrl: '${BASE_URL}',
         models: []
       },
@@ -53,7 +53,7 @@ describe('toClaudeEnv', () => {
 
   it('빈 문자열과 공백-only 필드는 부재 처리한다', () => {
     const result = toClaudeEnv(
-      { adapter: 'claude-code', apiKey: ' ', baseUrl: '', models: [] },
+      { adapter: 'claude-code', authToken: ' ', baseUrl: '', models: [] },
       resolver({})
     )
     expect(result.env).toEqual({})
@@ -63,7 +63,7 @@ describe('toClaudeEnv', () => {
     const result = toClaudeEnv(
       {
         adapter: 'claude-code',
-        apiKey: '${MISSING}',
+        authToken: '${MISSING}',
         baseUrl: 'https://ok',
         env: { AWS_REGION: '${AWS_REGION}', KEEP: 'plain' },
         models: []
@@ -82,7 +82,7 @@ describe('toClaudeEnv', () => {
     const result = toClaudeEnv(
       {
         adapter: 'claude-code',
-        apiKey: 'field-key',
+        authToken: 'field-key',
         env: { ANTHROPIC_API_KEY: 'env-key' },
         models: []
       },

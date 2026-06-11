@@ -67,6 +67,9 @@ function snapshotActiveToCache(): void {
   if (!cur.sessionId || cur.loadingSession || cur.messages.length === 0) return
   sessionCache.set(cur.sessionId, {
     title: cur.title,
+    backend: cur.backend,
+    providerKey: cur.providerKey,
+    modelFamily: cur.modelFamily,
     messages: cur.messages,
     ...(cur.lastTelemetry ? { lastTelemetry: cur.lastTelemetry } : {})
   })
@@ -150,7 +153,9 @@ function send(text: string): void {
     sessionId: cur.sessionId,
     projectId: cur.sessionId ? null : cur.pendingProjectId,
     text: trimmed,
-    permissionMode: cur.permissionMode
+    permissionMode: cur.permissionMode,
+    providerKey: cur.providerKey,
+    modelFamily: cur.modelFamily
   })
 }
 
@@ -250,6 +255,14 @@ function skipAsk(requestId: string): void {
   dispatch({ type: 'RESOLVE_ASK', requestId })
 }
 
+function setModel(
+  providerKey: string | null,
+  modelFamily: string | null,
+  adapter?: string | null
+): void {
+  dispatch({ type: 'SET_MODEL', providerKey, modelFamily, adapter })
+}
+
 function setPermissionMode(mode: NormalizedPermissionMode): void {
   dispatch({ type: 'SET_PERMISSION_MODE', mode })
   // 활성 세션이면 라이브 전환 IPC 발행 — main 이 진행 중 턴이면 즉시 Query.setPermissionMode,
@@ -324,6 +337,7 @@ export const chatActions = {
   answerAsk,
   skipAsk,
   setPermissionMode,
+  setModel,
   approvePlan,
   revisePlan,
   rejectPlan,

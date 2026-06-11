@@ -5,6 +5,7 @@ import {
   type SetPermissionMode,
   type Backend,
   type BackendListResult,
+  type AgentEnvironment,
   type CostSummary,
   type NormalizedEvent,
   type CreateMcpServerRequest,
@@ -42,6 +43,9 @@ const orca = {
   },
   backend: {
     list: (): Promise<BackendListResult> => ipcRenderer.invoke(CHANNELS.backendList)
+  },
+  agent: {
+    list: (): Promise<AgentEnvironment[]> => ipcRenderer.invoke(CHANNELS.agentList)
   },
   install: {
     start: (backend: Backend): Promise<void> =>

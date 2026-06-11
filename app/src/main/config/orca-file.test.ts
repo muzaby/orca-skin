@@ -28,7 +28,7 @@ describe('parseOrcaFile', () => {
           {
             adapter: 'claude-code',
             provider: 'bedrock',
-            apiKey: '${ANTHROPIC_API_KEY}',
+            authToken: '${ANTHROPIC_API_KEY}',
             baseUrl: '',
             env: { AWS_REGION: 'us-west-2' },
             models: [{ family: 'sonnet', name: 'claude-sonnet-4-5', default: true }],
@@ -43,12 +43,49 @@ describe('parseOrcaFile', () => {
       {
         adapter: 'claude-code',
         provider: 'bedrock',
-        apiKey: '${ANTHROPIC_API_KEY}',
+        authToken: '${ANTHROPIC_API_KEY}',
         baseUrl: '',
         env: { AWS_REGION: 'us-west-2' },
         models: [{ family: 'sonnet', name: 'claude-sonnet-4-5', default: true }]
       }
     ])
+  })
+
+  it('authToken 을 정식 필드로 수용하고 apiKey 별칭은 경고 후 정규화한다', () => {
+    const { config, warnings } = parseOrcaFile(
+      JSON.stringify({
+        version: 1,
+        agents: [
+          { adapter: 'claude-code', apiKey: '${OLD}', models: [] },
+          {
+            adapter: 'claude-code',
+            provider: 'bedrock',
+            apiKey: '${OLD}',
+            authToken: '${NEW}',
+            models: []
+          }
+        ]
+      })
+    )
+
+    expect(config.agents.map((agent) => agent.authToken)).toEqual(['${OLD}', '${NEW}'])
+    expect(config.agents.some((agent) => 'apiKey' in agent)).toBe(false)
+    expect(warnings.filter((warning) => warning.includes('apiKey'))).toHaveLength(2)
+  })
+
+  it('중복 provider key 는 두 번째 이후 agent 를 드롭한다', () => {
+    const { config, warnings } = parseOrcaFile(
+      JSON.stringify({
+        version: 1,
+        agents: [
+          { adapter: 'claude-code', provider: 'BEDROCK', models: [] },
+          { adapter: 'claude-code', provider: 'bedrock', models: [] }
+        ]
+      })
+    )
+
+    expect(config.agents).toHaveLength(1)
+    expect(warnings[0]).toContain('provider key')
   })
 
   it('JSON 손상 시 기본값으로 동작한다', () => {

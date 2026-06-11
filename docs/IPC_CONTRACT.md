@@ -317,3 +317,12 @@ LLM API 없이 renderer 의 스트리밍·사고 블록·도구 카드·권한 �
 - Renderer 에서 채널 이름 문자열 하드코딩 금지 — `window.orca.*` 만 사용.
 - 모든 invoke 핸들러는 `try/catch` + 직렬화 가능한 에러 (`{ code, message, recoverable }`) 반환.
 - 민감 정보 (자격증명·파일 전체 경로 등) 는 로그에 마스킹.
+
+
+## Agent domain (0010)
+
+| Channel | Direction | Payload | Response | Notes |
+|---|---|---|---|---|
+| `orca:agent:list` | renderer → main | none | `AgentEnvironment[]` | orca.json agents 를 renderer-safe DTO 로 반환한다. `authToken`/`baseUrl`/`env`/secret 값 필드는 존재하지 않는다. |
+
+`orca:chat:send` 는 optional `providerKey?: string | null`, `modelFamily?: string | null` 를 수용한다. `orca:session:load` 의 `LoadedSession` 은 optional `providerKey?: string | null` 를 반환한다. 활성 채널 총수는 39개다.

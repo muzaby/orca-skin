@@ -185,24 +185,24 @@ export interface AgentEnvironment {
 
 ## [Codex 기입] 구현 체크리스트
 
-- [ ] `config/provider-key.ts` (providerKeyOf · agentForProviderKey · dedupeAgents · authTokenFor · modelNameForFamily · toAgentEnvironments) + 테스트
-- [ ] `config/orca-file.ts` authToken 리네임 + apiKey 별칭 + 로드 시 dedupe (+테스트)
-- [ ] `db/migrations/0008_provider_key.sql` + `db/{types,queries}.ts` (+테스트)
-- [ ] `shared/ipc.ts` · `shared/protocol.ts` (채널·DTO·스키마)
-- [ ] `extensions/types.ts` TurnRequest.model + `claude-code.ts` model 옵션 주입
-- [ ] `router.ts` (handleAgentList · send provider 해석/`provider_key` 영속·턴 갱신/resume 매칭/토큰 해석(secret store 우선) · 제목 생성 agent · session:load providerKey)
-- [ ] preload + `shared/api/ipc.ts` + `shared/hooks/useAgents.ts`
-- [ ] chat feature (chatReducer · chatStore · ModelMenu · Composer 칩)
-- [ ] engine feature (AgentEnvironmentView 동적화 · mock 규약 · 빈 상태)
-- [ ] 문서 6건 (IPC_CONTRACT / TRD §6.8 / persistence / security / dom-architecture / ux-domains)
-- [ ] 게이트 3종 실행
+- [x] `config/provider-key.ts` (providerKeyOf · agentForProviderKey · dedupeAgents · authTokenFor · modelNameForFamily · toAgentEnvironments) + 테스트
+- [x] `config/orca-file.ts` authToken 리네임 + apiKey 별칭 + 로드 시 dedupe (+테스트)
+- [x] `db/migrations/0008_provider_key.sql` + `db/{types,queries}.ts` (+테스트)
+- [x] `shared/ipc.ts` · `shared/protocol.ts` (채널·DTO·스키마)
+- [x] `extensions/types.ts` TurnRequest.model + `claude-code.ts` model 옵션 주입
+- [x] `router.ts` (handleAgentList · send provider 해석/`provider_key` 영속·턴 갱신/resume 매칭/토큰 해석(secret store 우선) · 제목 생성 agent · session:load providerKey)
+- [x] preload + `shared/api/ipc.ts` + `shared/hooks/useAgents.ts`
+- [x] chat feature (chatReducer · chatStore · ModelMenu · Composer 칩)
+- [x] engine feature (AgentEnvironmentView 동적화 · mock 규약 · 빈 상태)
+- [x] 문서 6건 (IPC_CONTRACT / TRD §6.8 / persistence / security / dom-architecture / ux-domains)
+- [x] 게이트 3종 실행
 
 ## [Codex 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` |
-| 게이트 결과 | lint / typecheck / test |
-| 블로커 / 역질문 | (없으면 "없음") |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | `app/src/main/config/provider-key.ts`, `app/src/main/config/orca-file.ts`, `app/src/main/db/migrations/0008_provider_key.sql`, `app/src/main/db/{types,queries}.ts`, `app/src/shared/{ipc,protocol}.ts`, `app/src/main/{extensions/types.ts,adapters/claude-code.ts,ipc/router.ts}`, `app/src/preload/index.ts`, `app/src/renderer/src/shared/{api/ipc.ts,hooks/useAgents.ts,ui/mock.ts}`, `app/src/renderer/src/features/chat/**`, `app/src/renderer/src/features/engine/components/AgentEnvironmentView.tsx`, 문서 6건 |
+| 실행 명령 | `npm run lint` / `npm run typecheck` / `npm test` / 범위 `npm test -- src/main/config/provider-key.test.ts src/main/config/orca-file.test.ts src/main/adapters/claude-env.test.ts src/shared/protocol.send.test.ts src/renderer/src/features/chat/reducer/chatReducer.permission.test.ts` |
+| 게이트 결과 | lint ✅ / typecheck ✅ / 전체 test ⚠️ better-sqlite3 ABI 환경 제한으로 `db/queries.test.ts` 9건 실패(기존 계열) / 범위 테스트 ✅ 39/39 |
+| 블로커 / 역질문 | 없음 — 전체 test 실패는 better-sqlite3 native module ABI 환경 제한 |
+| 대상 커밋 | `c2a90d8` |

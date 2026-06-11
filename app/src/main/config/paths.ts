@@ -4,7 +4,7 @@
 //
 // 표준화 계층(arch/backend/standardization.md §5.1):
 //   ~/.config/orca/
-//   ├── orca.json                # 앱 전역 설정(agent/provider/apiKey/baseUrl/env/models).
+//   ├── orca.json                # 앱 전역 설정(agent/provider/authToken/baseUrl/env/models).
 //   ├── sources/                 # 사람이 편집하는 단일 원천 (instructions/AGENTS.md · skills · agents ·
 //   │   └── mcp/mcp.json         #   commands · mcp/mcp.json · hooks/<engine>) — 레이아웃은 deployer/
 //   └── dist/<engine>/           #   migrate-sources 가 root 기준으로 구성한다.

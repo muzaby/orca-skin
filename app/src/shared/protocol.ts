@@ -25,7 +25,9 @@ export const SendChatMessageSchema = z.object({
   sessionId: z.string().nullable(),
   projectId: z.string().nullable(),
   text: z.string().min(1),
-  permissionMode: NormalizedPermissionModeSchema.optional()
+  permissionMode: NormalizedPermissionModeSchema.optional(),
+  providerKey: z.string().min(1).nullable().optional(),
+  modelFamily: z.string().min(1).nullable().optional()
 })
 
 export const CancelChatSchema = z.object({ sessionId: z.string() })
@@ -239,6 +241,8 @@ export type {
   SendChatMessage,
   CancelChat,
   BackendListResult,
+  AgentEnvironment,
+  AgentModelView,
   CostPeriodSummary,
   CostSummary,
   SessionCapabilities,

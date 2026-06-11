@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { Button } from '../../../shared/ui/Button'
 import { Icon } from '../../../shared/ui/Icon'
 import { UsageCircle } from '../../../shared/ui/UsageCircle'
@@ -10,6 +10,8 @@ import { FileAutocomplete } from './composer/FileAutocomplete'
 import { ComposerChip } from './composer/ComposerChip'
 import { SkillsMenu } from './composer/SkillsMenu'
 import { ModeMenu } from './composer/ModeMenu'
+import { ModelMenu } from './composer/ModelMenu'
+import { defaultSelection, selectionLabel } from './composer/modelSelection'
 import { ConversationStatusLine } from './composer/ConversationStatusLine'
 import { StatusPopover } from './composer/StatusPopover'
 import { conversationStatusModel as conversationStatusModelFactory } from './composer/statusViewModel'
@@ -22,6 +24,7 @@ import { chatActions, useChatSession } from '../store/chatStore'
 import { contextTokens } from '../lib/telemetry'
 import { contextWindowFor, nearCompaction } from '../lib/contextWindow'
 import { useSkills } from '../../../shared/hooks/useSkills'
+import { useAgents } from '../../../shared/hooks/useAgents'
 import { useSkillAutocomplete } from '../hooks/useSkillAutocomplete'
 import { useFileAutocomplete } from '../hooks/useFileAutocomplete'
 import type { FileEntry, SkillInfo } from '../../../../../shared/ipc'
@@ -52,20 +55,26 @@ export function Composer({
   onScrollToBottom,
   costToday
 }: ComposerProps): React.JSX.Element {
-  const { send, cancel, answerAsk, skipAsk, setPermissionMode } = chatActions
+  const { send, cancel, answerAsk, skipAsk, setPermissionMode, setModel } = chatActions
   const inflight = useChatSession((s) => s.inflight)
   const cwd = useChatSession((s) => s.cwd)
   const lastTelemetry = useChatSession((s) => s.lastTelemetry)
   const permissionMode = useChatSession((s) => s.permissionMode)
+  const backend = useChatSession((s) => s.backend)
+  const providerKey = useChatSession((s) => s.providerKey)
+  const modelFamily = useChatSession((s) => s.modelFamily)
   const pendingPlanReview = useChatSession((s) => s.pendingPlanReview)
   const pendingToolApproval = useChatSession((s) => s.pendingToolApproval)
   // 큐의 맨 앞 질문만 렌더(canUseTool 이 query 를 막아 보통 1개). 응답 시 다음 질문이 노출.
   const activeAsk = useChatSession((s) => s.pendingAsks[0])
   const modeButtonRef = useRef<HTMLButtonElement>(null)
   const [modeMenuOpen, setModeMenuOpen] = useState(false)
+  const modelButtonRef = useRef<HTMLButtonElement>(null)
+  const [modelMenuOpen, setModelMenuOpen] = useState(false)
   const [draft, setDraft] = useState('')
   const [caret, setCaret] = useState(0)
   const skills = useSkills()
+  const agents = useAgents()
   const knownSkillNames = useMemo(() => new Set(skills.map((s) => s.name)), [skills])
   const skillButtonRef = useRef<HTMLButtonElement>(null)
   const textareaRef = useRef<HighlightedTextareaHandle>(null)
@@ -81,6 +90,22 @@ export function Composer({
 
   const autocomplete = useSkillAutocomplete(draft, caret, skills)
   const fileAutocomplete = useFileAutocomplete(draft, caret, cwd)
+
+  const selectedModel = useMemo(() => {
+    if (providerKey)
+      return {
+        providerKey,
+        modelFamily,
+        adapter: agents.find((a) => a.key === providerKey)?.adapter ?? backend ?? 'claude-code'
+      }
+    return defaultSelection(agents, backend)
+  }, [agents, backend, providerKey, modelFamily])
+
+  useEffect(() => {
+    if (providerKey || agents.length === 0) return
+    const next = defaultSelection(agents, backend)
+    if (next) setModel(next.providerKey, next.modelFamily, next.adapter)
+  }, [agents, backend, providerKey, setModel])
 
   const conversationStatusModel = useMemo(() => {
     // TODO(후속 핸드오프): 정식 상태 판정 신호로 교체 — 현재는 임시 근사
@@ -341,6 +366,17 @@ export function Composer({
                   ariaExpanded={modeMenuOpen}
                   title="권한 모드"
                 />
+                {agents.some((agent) => agent.supported) && (
+                  <ComposerChip
+                    ref={modelButtonRef}
+                    icon="cpu"
+                    label={selectionLabel(selectedModel)}
+                    onClick={() => setModelMenuOpen((v) => !v)}
+                    ariaHasPopup
+                    ariaExpanded={modelMenuOpen}
+                    title="모델 선택"
+                  />
+                )}
                 <ComposerChip icon="plus" label="첨부" disabled title="준비 중" />
                 <ComposerChip icon="cam" label="현재 프레임" disabled title="준비 중" />
                 <ComposerChip
@@ -426,6 +462,21 @@ export function Composer({
           onPick={(mode) => {
             setPermissionMode(mode)
             setModeMenuOpen(false)
+          }}
+        />
+      </Popover>
+      <Popover
+        open={modelMenuOpen}
+        anchorRef={modelButtonRef}
+        onClose={() => setModelMenuOpen(false)}
+      >
+        <ModelMenu
+          agents={agents}
+          sessionBackend={backend}
+          selection={selectedModel}
+          onPick={(selection) => {
+            setModel(selection.providerKey, selection.modelFamily, selection.adapter)
+            setModelMenuOpen(false)
           }}
         />
       </Popover>
