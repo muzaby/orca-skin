@@ -27,4 +27,6 @@
 
 | `0011-main-decompose`           | verify | PASS      | —         | 5e835f7   | 1      | 단계적 아키텍처 리팩토링 스테이지 1/3 (백엔드). router.ts 1,070→139줄 분해(handlers/ + chat/) + TurnRegistry sessionId 키잉(멀티세션 토대 — 동시 세션 턴 허용) + getSessionById(N+1 제거) + closeDb 와이어 + config/crypto 이동 + 레거시 1회성 이전 제거(사용자 결정). 게이트 4종 ✅ test 351/351. 비기능 = Claude 직접 구현. 사람 확인 대기: GUI 회귀(채팅·승인·취소). |
 
+| `0012-ipc-cleanup`              | verify | PASS      | —         | 03cc1f5   | 1      | 단계적 아키텍처 리팩토링 스테이지 2/3 (IPC). runtime 고아 3채널 제거(사용자 결정 — 채널 39→36, RuntimeStatus 타입 main 이동) + `ipc/registry.ts` handle 헬퍼로 전 invoke 채널 safeParse 단일 경로(실패 정책 'reject'/{fallback} 등록부 명시 — 동작 변경 0) + IPC_CONTRACT 전면 동기화(agent §2.2-b 편입·§4 ErrorCategory 정정). 게이트 4종 ✅ 351/351. 비기능 = Claude 직접 구현. |
+
 > 새 작업: 마지막 일련번호 +1 로 행을 추가하고 `<NNNN-slug>/plan.md` 를 생성한다.
