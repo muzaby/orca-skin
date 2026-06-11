@@ -1,4 +1,3 @@
-import { useChatContext } from '../providers/ChatProvider'
 import { ChatTile } from './ChatTile'
 
 interface ChatViewProps {
@@ -9,9 +8,8 @@ interface ChatViewProps {
   costToday?: string
 }
 
+// 채팅 상태는 ChatTile 내부가 chatStore selector 로 직접 구독한다 — 여기는 cross-feature
+// props 패스스루만 남는다.
 export function ChatView({ backendLabel, canAbort, costToday }: ChatViewProps): React.JSX.Element {
-  const chat = useChatContext()
-  return (
-    <ChatTile chat={chat} backendLabel={backendLabel} canAbort={canAbort} costToday={costToday} />
-  )
+  return <ChatTile backendLabel={backendLabel} canAbort={canAbort} costToday={costToday} />
 }

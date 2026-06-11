@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import { Icon } from '../../../../shared/ui/Icon'
 import { CopyIconButton } from '../../../../shared/ui/CopyIconButton'
 import {
@@ -62,7 +62,10 @@ function ToolBody({ call }: { call: ToolCall }): React.JSX.Element {
 // 전략문서 5.4 양식 — 카드가 아니라 *행*. 동사→이름→diff→chevron(마지막).
 // 펼침 본문(코드/diff)만 recessed 블록. `inGroup` 이면 그룹 카드(bg-bg) 위라
 // 본문은 테두리로만 구분, standalone 이면 본문이 bg-bg recessed.
-export function ToolCard({
+// memo(shallow): reconcileSegments 가 결과 미변경 ToolCall 의 identity 를 보존하므로,
+// 형제 카드의 결과 도착(tool.call.completed)에 이 카드는 재렌더되지 않는다 — 펼침/shiki
+// 등 카드 내부 상태 변화도 자기 자신에 한정된다 (0008).
+export const ToolCard = memo(function ToolCard({
   call,
   inGroup = false
 }: {
@@ -153,4 +156,4 @@ export function ToolCard({
       </div>
     </div>
   )
-}
+})

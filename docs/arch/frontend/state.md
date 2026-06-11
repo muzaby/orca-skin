@@ -7,14 +7,15 @@
 
 ## 1. 상태 관리
 
-> **현재 (Phase 1·2)**: React Context + useReducer (외부 store 라이브러리 미사용).
-> **채택된 결정**: **Zustand 로 전환**. 패턴은 **단일 root store + `sessions: Record<sessionId, SessionState>` 슬라이스** (Map factory 폐기). 도입 시점은 **Phase 4 진입 PR 과 묶음** (Phase 3 사전 마이그레이션 금지). 상세는 §1.4.
+> **현재 (Phase 3++ / 0008)**: **chat 도메인은 Zustand 도입 완료** (`features/chat/store/chatStore.ts` — `session` 커밋 슬라이스 + `live` 스트리밍 transient 슬라이스, 커밋 변경은 순수 `chatReducer` 래핑). 그 외 도메인(Tweaks/Backend/Skills 등)은 여전히 Context/useState.
+> **채택된 결정**: **Zustand 로 전환**. 패턴은 **단일 root store + `sessions: Record<sessionId, SessionState>` 슬라이스** (Map factory 폐기). 도입 시점은 원래 Phase 4 묶음이었으나 **chat 스코프는 0008(스트리밍 렌더 파이프라인 재설계)에서 선행 도입 — 사용자 결정 2026-06-11**. 멀티세션 외피·전역 슬라이스 흡수는 Phase 4 유지. 상세는 §1.4.
 
 ### 1.1 상태 분류
 
 | 상태 종류 | 위치 | 영속화 | 예시 |
 |---|---|---|---|
-| 채팅 세션 상태 | `features/chat/hooks/useChat` 의 useReducer (`ChatState`) | **Phase 3 부터**: 로컬 SQLite 영속화 (../backend/persistence.md). 메모리 캐시 + DB SSOT 병행. | sessionId, messages, pendingDelta, inflight |
+| 채팅 세션 상태 (커밋) | `features/chat/store/chatStore.ts` 의 Zustand `session` 슬라이스 — 변경은 순수 `chatReducer` 경유 | **Phase 3 부터**: 로컬 SQLite 영속화 (../backend/persistence.md). 메모리 캐시 + DB SSOT 병행. | sessionId, messages, inflight, permissionMode |
+| 채팅 스트리밍 라이브 버퍼 | `chatStore` 의 `live` 슬라이스 (transient — 턴 종료/세션 전환 시 리셋) | — | live.text(구 pendingDelta), live.reasoning |
 | Tweaks (theme/density/sidebar) | `shared/hooks/useTweaks` + electron-store | ✅ `orca:settings:get` / `set` | theme, density, sidebarCollapsed, **sidebarWidth** (180–480, default 248 — Phase 3+) |
 | 백엔드 설치 상태 | `features/backend/hooks/useBackend` useState 캐시 | — | backends, active |
 | Skills 카탈로그 | `shared/hooks/useSkills` useState 캐시 | — | SkillInfo[] (부팅 1회 스캔) |
@@ -22,24 +23,22 @@
 | 입력창 텍스트 | 컴포넌트 로컬 `useState` | — | Composer 의 draft text |
 | UI 인터랙션 (hover/focus/모달) | 컴포넌트 로컬 `useState` | — | TweaksPanel 펼침 여부 |
 
-### 1.2 `ChatState` (실제 정의)
+### 1.2 chat store 구조 (실제 정의 요약)
 
-`app/src/renderer/src/features/chat/reducer/chatReducer.ts` 의 인터페이스 그대로:
+`app/src/renderer/src/features/chat/store/chatStore.ts` + `reducer/chatReducer.ts` (필드 전수는 코드가 정본):
 
 ```typescript
-interface ChatState {
-  sessionId: string | null         // 어댑터가 발급한 세션 ID (init 이벤트)
-  cwd: string | null               // 작업 디렉토리 (@ 파일 자동완성 기준)
-  messages: Message[]              // user/assistant 메시지 배열
-  pendingDelta: string             // 스트리밍 중 누적 텍스트
-  inflight: boolean                // 요청 진행 중 플래그
-  turnStartedAt: number | null     // 회차 시작 시각 (ms, StatusLine 용)
-  pendingInputTokens?: number      // 마지막 result 이벤트의 inputTokens
-  error?: { code: ErrorCode; message: string; recoverable: boolean }
+interface ChatStoreState {
+  session: ChatState // 커밋 상태 — sessionId·cwd·messages·sendCount·inflight·turnStartedAt·
+  //                     permissionMode·pendingAsks·pendingPlanReview·planTile*·lastTelemetry·error…
+  //                     변경은 전부 순수 chatReducer (액션이 dispatch 래퍼로 호출)
+  live: LiveTurnState // 스트리밍 transient — { text, reasoning }. 델타는 reducer 에 닿지 않고
+  //                     이 슬라이스만 갱신 → 델타 프레임에 session 구독자 재렌더 0 (0008)
 }
 ```
 
-7 `ChatAction`: `SEND_USER_MESSAGE` / `RECV_EVENT` / `NEW_CHAT` / `CANCEL_CHAT` / `CLEAR_ERROR` / `RESTORE_SESSION` / `SET_CWD`
+- 스트리밍 델타 누적(구 `pendingDelta`/`pendingReasoning`)은 **reducer 에서 제거** — `live` 슬라이스가 소유하고, `message.completed`(완성본 페이로드)·`telemetry`(잔여분 `COMMIT_PENDING_TEXT` 폴백) 시 parts 로 커밋된다.
+- 컴포넌트 접근은 selector 훅(`useChatSession`/`useLiveText`/`useLiveReasoning`)과 안정 액션 묶음 `chatActions` 로만 — `UseChat` 객체 전달/Context 전파 모델 폐기.
 
 ### 1.3 Anti-pattern (하지 말 것)
 
@@ -54,7 +53,7 @@ interface ChatState {
 
 > **확정 사항 (사용자 결정)**:
 > 1. **단일 root store + `sessions: Record<sessionId, SessionState>` 슬라이스** 패턴 채택. `Map<sessionId, store>` factory 패턴은 폐기.
-> 2. **도입 시점은 Phase 4 멀티세션 진입과 동시** (ChatEvent sessionId 확장 + store 외피 변경 + Zustand 도입을 한 PR 로 묶음). **Phase 3 사전 마이그레이션 금지** — Phase 3 까지는 단일 세션이라 Zustand 이득 없음.
+> 2. ~~도입 시점은 Phase 4 멀티세션 진입과 동시 / Phase 3 사전 마이그레이션 금지~~ → **개정 (2026-06-11, 0008)**: 스트리밍 렌더 파이프라인 재설계가 selector 구독을 요구해 **chat 스코프만 선행 도입**. 현 외피는 단일 세션(`session`+`live`)이며, Phase 4 에서 `sessions: Record<sessionId, …>` 외피 변경(+`ChatEvent.sessionId` 라우팅)과 전역 슬라이스(Tweaks/Backend/Skills) 흡수를 수행한다 — 액션이 "활성 세션 1개" 단위로 캡슐화돼 있어 기계적 치환.
 
 #### 4.4.1 도입의 핵심 명분 — selector 기반 구독
 
@@ -91,9 +90,9 @@ Context + useReducer 도 외피 (`sessions: Record<sessionId, ChatState>`) 변�
 
 #### 4.4.5 전환 시 영향 범위
 
-- `features/chat/reducer/chatReducer.ts` → `features/chat/store/chatStore.ts` (Zustand store) 로 재작성. 기존 액션 (`SEND_USER_MESSAGE` / `RECV_EVENT` 등) 은 store 메서드로 변환 + `sessionId` 인자 추가.
-- `features/chat/hooks/useChat.ts` 의 useReducer 패턴 → `useChatStore((s) => s.sessions[activeId].field)` selector 로 교체.
-- IPC onEvent 핸들러 → `useChatStore.getState().recv(ev)` 로 외부 dispatch.
+- ✅ **(0008 완료)** `features/chat/store/chatStore.ts` 도입 — 단, reducer 를 폐기하지 않고 **순수 `chatReducer` 를 store 액션이 래핑**한다(테스트 자산·불변식 보존). Phase 4 에 `sessionId` 인자 추가.
+- ✅ **(0008 완료)** `useChat.ts` 의 useReducer/Context 패턴 → `useChatSession(selector)`/`chatActions` 로 교체 (`UseChat` 객체·`useChatContext` 폐기, `ChatProvider` 는 부트스트랩 effect 전용).
+- ✅ **(0008 완료)** IPC onEvent 핸들러 → 코얼레서 → store `receive(ev)` 외부 dispatch.
 - `shared/hooks/useTweaks` · `features/backend/hooks/useBackend` · `shared/hooks/useSkills` 도 단계적으로 Zustand root store 의 전역 슬라이스로 흡수 (Chat 마이그레이션 후순).
 - `app/AppLayout.tsx` 의 props drilling (현 `newChatSlot` / `sessionsSlot` / `footerSlot` 슬롯) 은 store 직접 구독으로 단순화 가능 — 단, `shared/ui/` 의 presentational 규칙 (layers.md §1.1) 은 유지.
 

@@ -75,7 +75,7 @@ electron-vite 환경 기준. 표 밖 의존성 추가 시 **사용자 승인 필
 | 번들러 | Vite | ^7 | 확정 | electron-vite가 sub-config 통합 |
 | 언어 | TypeScript | strict, `target: ES2022` | 확정 | 타입 안정성 |
 | UI 프레임워크 | React | ^19 | 확정 (~~OQ1~~ 해소, 2026-05-20) | React Hooks + Context/reducer |
-| 상태 관리 (Renderer) | **Phase 1·2**: React Context + useReducer. **Phase 4**: Zustand | — | 확정 (Phase 4 전환 채택) | 단일 root + `sessions: Record<sessionId, SessionState>` 슬라이스. 외부 dispatch (`getState().recv(ev)`) 로 React 트리 외부에서 호출. **Phase 3 사전 마이그레이션 금지** — Phase 4 진입 PR 묶음에서 한 번에 전환. 상세 [arch/frontend/state.md](arch/frontend/state.md) §1.4 |
+| 상태 관리 (Renderer) | Zustand — **chat 스코프 선행 도입 (0008, 사용자 결정 2026-06-11)** + 순수 `chatReducer` 래핑 | `zustand@^5` | 확정 (Phase 4 전환 채택 → chat 선행) | 단일 chat store = `session`(커밋, 순수 reducer 경유) + `live`(스트리밍 transient) 슬라이스. selector 구독으로 델타 프레임 재렌더를 라이브 리프에 한정, 외부 dispatch(코얼레서 → `receive(ev)`)는 React 트리 밖. **멀티세션 외피(`sessions: Record<sessionId, SessionState>`)·전역 슬라이스(Tweaks/Backend/Skills) 흡수는 Phase 4 유지.** 상세 [arch/frontend/state.md](arch/frontend/state.md) §1.4 |
 | 스타일링 | Tailwind CSS | **^4** (`@tailwindcss/vite` 플러그인, CSS-first `@theme`) | 확정 (Phase 1 완료) | utility-first. `styles/tokens.css` 의 `@theme` 블록으로 시맨틱 디자인 토큰 정의 (`--color-{bg,sidebar,ink,...}`). `[data-theme]` 스코프로 Classic/Dark/Cool 전환. Tweaks 패널과 연동. 자세한 정책은 `app/AGENTS.md` "스타일링 정책" 참조 |
 | 마크다운 렌더링 | react-markdown + remark-gfm + shiki | `^9` / `^4` / `^1` | 확정 (Phase A `feat-pretty-ui` 도입) | GFM (표·체크박스) + 코드 블록 syntax highlighting. shiki 번들은 11개 언어 (ts/js/tsx/jsx/python/bash/json/yaml/html/css/markdown) 로 제한 |
 | LLM 백엔드 SDK (Claude) | `@anthropic-ai/claude-agent-sdk` | latest | 확정 (Phase 3 채택, 2026-05-18) | TypeScript SDK. 진입점 `query({ prompt, options })`. 플랫폼별 native binary 는 `optionalDependencies` 자동 처리. 최소 요구 Node.js 18+. API 명세 SSOT 는 `docs/spec/claude/agent-sdk/typescript.md` |
@@ -91,7 +91,7 @@ electron-vite 환경 기준. 표 밖 의존성 추가 시 **사용자 승인 필
 | 테스트 (단위) | Vitest | latest | 확정 | 어댑터·reducer·IPC zod·installer |
 | 테스트 (E2E) | Playwright | latest | 확정 | Electron 지원 |
 
-**정책**: 위 표 외의 패키지 (예: date-fns, lodash, redux 등) 도입 시 먼저 사용자 확인. (`zustand` 는 Phase 4 전환으로 채택됨.)
+**정책**: 위 표 외의 패키지 (예: date-fns, lodash, redux 등) 도입 시 먼저 사용자 확인. (`zustand` 는 채택 완료 — chat 스코프 선행 도입(0008), 전역 확장은 Phase 4.)
 
 ---
 

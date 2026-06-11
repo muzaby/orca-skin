@@ -2,17 +2,14 @@ import { Icon } from '../../../shared/ui/Icon'
 import { Button } from '../../../shared/ui/Button'
 import { CopyIconButton } from '../../../shared/ui/CopyIconButton'
 import { Markdown } from './markdown/Markdown'
-import type { UseChat } from '../hooks/useChat'
-
-interface PlanTileProps {
-  chat: UseChat
-}
+import { chatActions, useChatSession } from '../store/chatStore'
 
 // 채팅 타일 우측의 분할 tile. ExitPlanMode 가 제출한 계획(plan 마크다운)을 *내용 전용*으로
 // 표시한다. 승인/수정/거부 액션은 Composer 의 입력창 교체형 승인 카드(ApprovalCard)로
 // 이전됨 — 여기엔 헤더 복사/닫기 + 본문만 남는다.
-export function PlanTile({ chat }: PlanTileProps): React.JSX.Element {
-  const { state, closePlanTile } = chat
+export function PlanTile(): React.JSX.Element {
+  const planContent = useChatSession((s) => s.planContent)
+  const { closePlanTile } = chatActions
 
   return (
     <div className="flex min-h-0 flex-1 flex-col" data-context="plan">
@@ -20,7 +17,7 @@ export function PlanTile({ chat }: PlanTileProps): React.JSX.Element {
       <div className="app-frame-tile-header flex items-center gap-2 border-b border-t5 px-4 pb-2.5 pt-3.5">
         <span className="font-serif text-[15px] font-semibold tracking-tight text-t9">계획</span>
         <div className="ml-auto flex items-center gap-g2">
-          <CopyIconButton text={state.planContent ?? ''} title="플랜 복사" />
+          <CopyIconButton text={planContent ?? ''} title="플랜 복사" />
           <Button
             iconOnly
             size="small"
@@ -37,13 +34,13 @@ export function PlanTile({ chat }: PlanTileProps): React.JSX.Element {
         className="flex flex-1 flex-col overflow-y-auto px-4 py-3"
         style={{ scrollbarGutter: 'stable' }}
       >
-        {state.planContent ? (
+        {planContent ? (
           <div className="mx-auto w-full max-w-[68ch] text-[13px] text-ink">
             <div className="mb-[var(--chat-item-gap)] flex items-center gap-g3 text-caption text-t6">
               <Icon name="doc" size={13} />
               <span>텍스트를 선택해 Claude에게 의견을 남기세요</span>
             </div>
-            <Markdown source={state.planContent} />
+            <Markdown source={planContent} />
           </div>
         ) : (
           <div className="m-auto flex max-w-[240px] flex-col items-center gap-g3 text-center text-t6">

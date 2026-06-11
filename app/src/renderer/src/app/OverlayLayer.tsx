@@ -1,5 +1,5 @@
 import { useBackendContext } from '../features/backend'
-import { useChatContext } from '../features/chat'
+import { chatActions, useChatSession } from '../features/chat'
 import { DebugPanel } from '../features/debug'
 import { InstallerDialog, AuthExpiredModal } from '../features/backend'
 import { SearchModal } from './SearchModal'
@@ -17,9 +17,7 @@ interface OverlayLayerProps {
 //   - #app-frame-debug   : 항상 z=30 (dev DebugPanel, modal 상태 무관)
 export function OverlayLayer({ searchOpen, onCloseSearch }: OverlayLayerProps): React.JSX.Element {
   const { installerOpen, setInstallerOpen, refresh } = useBackendContext()
-  const { state, newChat, clearError } = useChatContext()
-
-  const authExpired = state.error?.category === 'auth_error'
+  const authExpired = useChatSession((s) => s.error?.category === 'auth_error')
   const modalActive = installerOpen || authExpired || searchOpen
 
   return (
@@ -46,7 +44,11 @@ export function OverlayLayer({ searchOpen, onCloseSearch }: OverlayLayerProps): 
             void refresh()
           }}
         />
-        <AuthExpiredModal open={authExpired} onNewChat={newChat} onDismiss={clearError} />
+        <AuthExpiredModal
+          open={authExpired}
+          onNewChat={chatActions.newChat}
+          onDismiss={chatActions.clearError}
+        />
         {searchOpen && <SearchModal onClose={onCloseSearch} />}
       </div>
       <div id="app-frame-debug" className="pointer-events-none z-30" data-context="debug">

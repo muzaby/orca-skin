@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react'
 import { matchPath, useLocation, useNavigate } from 'react-router-dom'
-import { useChatContext } from '../../features/chat'
+import { chatActions } from '../../features/chat'
 import { useSessionsContext } from '../../features/sessions'
 import { useProjectsContext } from '../../features/projects'
 
@@ -19,7 +19,6 @@ export interface SessionHandlers {
 export function useSessionHandlers(): SessionHandlers {
   const navigate = useNavigate()
   const { pathname } = useLocation()
-  const chat = useChatContext()
   const sessionsCtx = useSessionsContext()
   const { list: projects } = useProjectsContext()
 
@@ -29,11 +28,9 @@ export function useSessionHandlers(): SessionHandlers {
   const match = matchPath('/chat/:sessionId', pathname)
   const currentSessionId = match?.params.sessionId ?? null
 
-  // chat/sessionsCtx 객체는 렌더마다 새로 만들어진다(useChat 반환 리터럴) — 객체 전체를
-  // useCallback deps 로 쓰면 스트리밍 델타 프레임마다 핸들러가 재생성돼 useSidebarSlots 의
-  // slot 안정화(→ Sidebar memo)가 무력화된다. 안정([] deps) 함수만 뽑아 의존한다
-  // (0007-transcript-render-memo).
-  const { handleSessionDeleted, renameSession } = chat
+  // chat 액션은 모듈 상수(chatActions)라 본질적으로 안정 — deps/메모 무력화 걱정이 없다
+  // (0007 의 "안정 함수만 뽑기" 패턴이 store 전환으로 기본값이 됨). sessionsCtx 는 기존 유지.
+  const { handleSessionDeleted, renameSession } = chatActions
   const { remove: removeSession, rename: renameSessionMeta } = sessionsCtx
 
   const projectNameById = useMemo(() => {

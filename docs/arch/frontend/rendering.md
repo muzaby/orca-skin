@@ -13,11 +13,11 @@
 - 도입 임계값·라이브러리·시점 모두 **TBD**. Phase 1 mockup 단계에서는 메시지 수가 적어 문제 없음.
 - Phase 3+ 로컬 DB 도입과 함께 검토 권장.
 
-### 1.2 스트리밍 렌더링 최적화
+### 1.2 스트리밍 렌더링 최적화 (0008 재설계)
 
-- `message.delta` 이벤트마다 `pendingDelta` 에 누적(`chatReducer.ts`). UI 업데이트 **16ms throttle 구현 완료** — `features/chat/lib/eventCoalescer.ts` 가 델타(message.delta·message.reasoning.delta)를 `requestAnimationFrame` 한 틱마다 모아 한꺼번에 dispatch 하고, React 19 자동 배칭이 그 틱의 N개 dispatch 를 1렌더로 묶는다(프레임당 1렌더, reducer 무변경). 비-델타 이벤트(message.completed·tool.call.*·telemetry)는 버퍼를 먼저 flush 한 뒤 emit 해 순서를 보존(§1.7 Option B). `useChat` 구독부가 코얼레서를 생성·주입하고 세션 전환(newChat/loadSession)·언마운트 시 `dispose()` 로 스테일 델타를 폐기한다.
-- **정정(2026-06, 코드가 진실)**: 마크다운 파싱은 스트리밍 *중에도* 라이브로 수행한다 — `PendingAssistant` 가 `pendingDelta` 를 `<Markdown>` 으로 렌더(과거 "스트리밍 중 plain text" 서술은 구현과 불일치라 폐기). 코드 블록 하이라이팅(shiki)은 ToolCard 첫 오픈까지 지연(비용 회피).
-- `message.completed` 도착 시 `pendingDelta` 를 `text` 파트로 commit 하고 비운다(provider-runtime.md §7).
+- **델타 경로는 reducer 를 우회한다.** `features/chat/lib/eventCoalescer.ts` 가 델타(message.delta·message.reasoning.delta)를 rAF 한 틱마다 모아 `chatStore.receive` 로 비우고(비-델타는 버퍼 선-flush 로 순서 보존, §1.7 Option B), receive 는 델타를 Zustand `live` 슬라이스(`{text, reasoning}`)에만 누적한다 — 커밋 슬라이스(`session`) identity 불변. 결과: **델타 프레임의 재렌더는 live 를 구독하는 라이브 리프뿐** — text 델타 → `LiveText`(+`LiveStatus` 토큰 근사), reasoning 델타 → `LiveReasoning`. transcript(커밋 메시지)·Composer·셸·호스트는 깨어나지 않는다(state.md §1.4).
+- **라이브 마크다운은 꼬리 블록만 재파스** — `StreamingMarkdown` 이 누적 소스를 `lib/markdownBlocks.ts` 의 `splitStableBlocks` 로 "확정 블록들 + 꼬리"로 분할, 확정 블록은 memo 된 `<Markdown>`(string shallow)으로 고정하고 꼬리만 매 델타 unified 재파스한다(프레임당 O(전문)→O(꼬리)). 분할 경계는 보수적(펜스/loose list/들여쓰기 코드 비분할, 완결 줄 뒤만 확정 = append-stable). 코드 블록 하이라이팅(shiki)은 ToolCard 첫 오픈까지 지연(비용 회피).
+- **커밋 경로는 카드 단위로 격리** — `message.completed`(완성본 text 파트 커밋)·`tool.call.*` 는 reducer 커밋으로 마지막 message identity 만 교체하고, `AssistantMessage` 가 `reconcileSegments`(lib/parts.ts) 로 직전 렌더와 대조해 내용 미변경 세그먼트/ToolCall view 의 identity 를 재사용한다 → memo 된 `ToolGroup`/`ToolCard`/`ReasoningBlock`/`Markdown` 이 shallow 로 bail — **tool.call.completed 1건 = 결과가 도착한 ToolCard 1개 재렌더**. `message.completed` 없이 끝난 턴의 잔여 live.text 는 telemetry 시점에 `COMMIT_PENDING_TEXT` 폴백으로 굳힌다(error/cancel 은 폐기 — 기존 동작 동형).
 
 ### 1.3 마크다운 + 코드 블록
 
@@ -119,12 +119,12 @@ interface ReconnectPolicy { maxRetries: number; backoffMs: (attempt: number) => 
 
 - `TerminalCard` stdout/stderr 는 `maxBytesPerToolRun` 으로 캡 → 초과 시 `truncated:true` props 로 "잘림" 표시.
 - SSE 재연결 시 마지막 `seq` 까지 dedup. Claude iterator 는 재연결 개념 없음 → `resumeFrom:'restart'` + 쿼리 재실행 정책 별도.
-- auto-scroll pin **구현 완료** (`ChatTile.tsx`): 스크롤 컨테이너가 맨 아래(`scrollHeight-scrollTop-clientHeight < 24px`)에 붙어 있을 때만 스트리밍을 따라 내려간다(로그 뷰어 패턴). 사용자가 위로 스크롤하면 `pinnedRef` 해제 → 과거 대화 고정. pin 해제 상태에선 컴포저 기준 상단·가로 중앙(`Composer.tsx` 의 `absolute bottom-full left-1/2`)에 **"맨 아래로" 버튼**(`chevD` 아이콘)을 띄워 클릭 시 재-pin. 버튼 props 는 optional — transcript 가 없는 랜딩(NewChat/Project)엔 미전달.
-- **새 user 메시지 50% 미드라인 앵커 (구현 완료)**: 프롬프트 전송 시 사용자 버블을 뷰포트 **50% 라인**으로 `scrollTo({behavior:'smooth'})` 앵커한다. transcript 끝의 **예약 spacer**(높이 = `max(0, 0.5·clientHeight - 버블top~콘텐츠끝)`, 서브픽셀 가드)가 버블이 미드라인까지 올라갈 공간을 보장하고 답변이 그 아래를 채울수록 0 으로 수렴한다. 최신 user 턴은 `data-app-user-turn` 마커로 식별. 앵커 직후 `pinnedRef=false` 라 스트리밍이 강제로 바닥으로 끌어내리지 않고 답변이 예약공간을 채운다.
-  - **비-회수(연속 수렴, 전략 B)**: 예약공간은 `state.inflight` 게이트 없이 **매 렌더 재계산**한다 — 턴 완료 시 스냅으로 회수하지 않는다. 긴 답변은 내용이 예약공간을 채우며 `needed` 0 으로 자연 수렴, 짧은 답변은 버블이 50% 라인에 머문다. (과거의 `inflight` 게이트는 완료 순간 여백을 0 으로 스냅해 덜컥였다.)
-  - **이미 미드라인 위면 끌어내리지 않음**: `scrollTo` 는 `버블top - scrollTop > 0.5·clientHeight`(버블이 미드라인보다 아래)일 때만 실행. 목표는 `버블top - 0.5·clientHeight`, `[0, scrollHeight-clientHeight]` 로 안전 클램프.
-  - **세션 전환 리셋**: `state.sessionId` 변화(LOAD_SESSION/_FROM_CACHE/NEW_CHAT) 시엔 앵커/spacer 수학을 건너뛰고 `needed=0` 으로 수렴 — 로드된 옛 세션 하단에 직전 세션 여백이 남지 않게. (새 대화 첫 메시지는 `sessionId` 가 `session.updated` 전까지 null 유지 → `sessionChanged` false → 앵커 경로 정상 실행.)
-  - **이중 rAF**: 앵커 `scrollTo` 는 spacer 가 DOM/레이아웃에 반영된 *다음* 프레임에 실행한다(`requestAnimationFrame` 2단 — 첫 프레임 레이아웃 flush, 둘째 프레임 scrollTo). 단일 rAF 면 spacer 여유가 아직 반영 전이라 목표 top 까지 못 가고 브라우저가 짧게 클램프(덜컥임)했다.
+- auto-scroll pin **구현 완료** (`hooks/useScrollAnchor.ts`, 0008 이전): 스크롤 컨테이너가 맨 아래(`scrollHeight-scrollTop-clientHeight < 24px`)에 붙어 있을 때만 스트리밍을 따라 내려간다(로그 뷰어 패턴). 사용자가 위로 스크롤하면 `pinnedRef` 해제 → 과거 대화 고정. pin 해제 상태에선 컴포저 기준 상단·가로 중앙(`Composer.tsx` 의 `absolute bottom-full left-1/2`)에 **"맨 아래로" 버튼**(`chevD` 아이콘)을 띄워 클릭 시 재-pin. 버튼 props 는 optional — transcript 가 없는 랜딩(NewChat/Project)엔 미전달. 바닥 추적은 콘텐츠 wrapper(ReadingColumn) **ResizeObserver**(`pinned && inflight` 게이트)가 수행 — idle 중 성장(ToolCard 펼침·shiki 교체)엔 no-op 으로 네이티브 scroll anchoring 과 싸우지 않는다(컨테이너는 `[overflow-anchor:none]` 으로 자체 제어).
+- **새 user 메시지 50% 미드라인 앵커 — CSS 예약공간 방식 (0008 재설계, 구 JS spacer 폐기)**: transcript 를 **교환(Exchange — user 턴 + 후속 assistant 턴들, `lib/turns.ts groupExchanges`)** 단위 wrapper 로 렌더하고, 스크롤 컨테이너를 `[container-type:size]` size container 로 둔 뒤 **라이브 전송으로 생긴 마지막 교환에만 `min-h-[50cqh]`** 를 준다. 스크롤 바닥 = 교환 top 이 정확히 미드라인(cqh 는 content-box 기준이라 py-5 패딩과 수학이 맞음). 전송 시 `useScrollAnchor` 가 `scrollTo({top: scrollHeight, behavior:'smooth'})` 1회 — min-height 가 같은 커밋의 레이아웃에 이미 반영돼 측정/2단 rAF 핵이 불필요하다.
+  - **fill 단계 레이아웃 JS = 0**: 답변이 예약공간 내부를 채우는 동안 `scrollHeight` 불변 → 스크롤 이벤트/측정/보정 전무, 버블은 미드라인에 정지. 예약을 초과하면 scrollHeight 가 자라며 pin-follow(RO)가 이어받는다. Composer 성장/윈도 리사이즈는 cqh 가 CSS 로 자동 추종.
+  - **회수 정책 = 다음 메시지까지 유지 (사용자 결정 2026-06-11)**: 턴 완료 후 짧은 답변의 잔여 여백은 회수하지 않는다(보이는 중 제거 = 콘텐츠가 여백만큼 내려오는 움직임이 기하학적으로 불가피). 다음 전송에서 이전 교환이 "마지막"에서 벗어나며 같은 레이아웃 flush 의 새 예약+앵커 스크롤에 가려 **무점프 해제**된다.
+  - **앵커 트리거 = reducer `sendCount`**(SEND 마다 단조 증가): 메시지 배열 휴리스틱(로드된 세션의 마지막 user 메시지 오탐) 없이 라이브 전송만 정확히 감지. **세션 전환 판정 = sessionId 변화 ∧ messages 교체 동시** — `session.updated` 의 null→id 발급은 messages 를 안 건드리므로 턴 중 예약이 풀리지 않고, 로드/캐시 복원/NEW_CHAT 은 예약 해제 + 즉시 바닥 점프(옛 세션 하단에 여백이 남지 않음).
+  - smooth 앵커 진행 중 "맨 아래로" 버튼 깜빡임은 프로그래매틱 플래그 + `scrollend` 로 억제. 교환 wrapper 는 재부모화가 없어(경계 영원 안정) ToolCard 열림·shiki 상태가 보존된다.
 
 ### 1.9 컨텍스트 사용량 도넛/패널 (구현 완료)
 
