@@ -152,7 +152,7 @@ export class ClaudeCodeAdapter implements SessionAdapter {
     } catch (err) {
       if (req.signal?.aborted) throw err
       console.warn('[session-title] 저가 모델 completion 실패 — default 모델로 재시도:', err)
-      return this.runCompletion({ ...req, model: undefined })
+      return this.runCompletion({ ...req, model: 'default' })
     }
   }
 
