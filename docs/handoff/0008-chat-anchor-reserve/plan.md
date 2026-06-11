@@ -79,4 +79,4 @@
 | 게이트 결과 | lint ✅ / typecheck ✅ / test ✅ 315/315 / 번들 빌드 ✅ |
 | 비고 | 단계 분리 커밋 계획(① store ② reconcile ③ CSS)은 컴파일 결합(ChatTile 이 reducer pending 필드를 직접 참조) 때문에 단일 구현 커밋으로 합침 — 게이트 green 상태 유지 우선. 테스트 환경에서 better-sqlite3 ABI 실패(0007 비고) 재현 안 됨(전체 green). |
 | 블로커 / 역질문 | 없음 |
-| 대상 커밋 | (구현 커밋 hash — 커밋 후 기재) |
+| 대상 커밋 | `e113eb4` |
