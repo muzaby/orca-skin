@@ -79,4 +79,4 @@
 | 게이트 결과 | lint ✅ / typecheck ✅ / test ✅ (351 passed, 48 files — turn-registry 6 신규) / build ✅ |
 | 비고 | better-sqlite3 는 Node ABI 재빌드 후 전체 그린 (0010 검증과 동일 절차). 인수 5의 `permissionSetMode` 는 세션 키 조회로 전환되며 구현상 `turn.dbSessionId === sessionId` 비교가 레지스트리 키 조회로 대체됨(동치). |
 | 블로커 / 역질문 | 없음 |
-| 대상 커밋 | (커밋 후 기입) |
+| 대상 커밋 | `5e835f7` |
