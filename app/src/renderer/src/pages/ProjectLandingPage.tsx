@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from 'react-router-dom'
-import { Composer, useChatContext } from '../features/chat'
+import { chatActions, Composer, useChatSession } from '../features/chat'
 import { useBackendContext } from '../features/backend'
 import { formatApproxCost, useCost } from '../features/cost'
 import {
@@ -22,7 +22,8 @@ import { ProjectSessionsPanel } from '../features/sessions'
 export function ProjectLandingPage(): React.JSX.Element {
   const { projectId = '' } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
-  const chat = useChatContext()
+  const sessionId = useChatSession((s) => s.sessionId)
+  const inflight = useChatSession((s) => s.inflight)
   const { backendLabel, capabilities } = useBackendContext()
   const { summary } = useCost()
   // 능력 서술자가 로드됐는데 sessionAbort 가 아니면 중단 게이팅(미로드면 현행 동작 유지).
@@ -36,19 +37,14 @@ export function ProjectLandingPage(): React.JSX.Element {
         <main className="flex min-w-0 flex-col xl:col-span-7">
           <div className="mx-auto w-full max-w-2xl space-y-6 px-6 py-8">
             <ProjectInfoHero projectId={projectId} />
-            <Composer
-              chat={chat}
-              backendLabel={backendLabel}
-              canAbort={canAbort}
-              costToday={costToday}
-            />
+            <Composer backendLabel={backendLabel} canAbort={canAbort} costToday={costToday} />
             <ProjectSessionsPanel
               projectId={projectId}
-              currentSessionId={chat.state.sessionId}
-              refreshOnTurnEnd={chat.state.inflight}
+              currentSessionId={sessionId}
+              refreshOnTurnEnd={inflight}
               onSessionSelected={(id) => navigate(`/chat/${id}`)}
-              onSessionDeleting={(id) => chat.handleSessionDeleted(id, projectId)}
-              onSessionRenamed={chat.renameSession}
+              onSessionDeleting={(id) => chatActions.handleSessionDeleted(id, projectId)}
+              onSessionRenamed={chatActions.renameSession}
             />
           </div>
         </main>

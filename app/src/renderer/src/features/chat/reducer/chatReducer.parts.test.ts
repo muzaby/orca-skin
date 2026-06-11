@@ -84,12 +84,23 @@ describe('chatReducer — AppMessagePart 모델', () => {
     expect(partsText(s.messages[3].parts)).toBe('a2')
   })
 
-  it('message.completed 가 pendingDelta 를 비운다', () => {
-    let s = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'q' })
-    s = apply(s, [
-      { type: 'message.delta', sessionId: 's', provider: 'claude-code', delta: { text: 'hel' } }
+  it('스트리밍 델타 2종은 reducer 무변경(no-op) — 라이브 버퍼는 chatStore live 슬라이스 소관', () => {
+    const start = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'q' })
+    const s = apply(start, [
+      { type: 'message.delta', sessionId: 's', provider: 'claude-code', delta: { text: 'hel' } },
+      {
+        type: 'message.reasoning.delta',
+        sessionId: 's',
+        provider: 'claude-code',
+        delta: { text: '생각' }
+      }
     ])
-    expect(s.pendingDelta).toBe('hel')
+    // 델타 프레임에 커밋 상태 identity 가 유지된다 → session 구독자 재렌더 0 (0008).
+    expect(s).toBe(start)
+  })
+
+  it('message.completed 가 완성본을 text 파트로 커밋한다', () => {
+    let s = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'q' })
     s = apply(s, [
       {
         type: 'message.completed',
@@ -98,28 +109,11 @@ describe('chatReducer — AppMessagePart 모델', () => {
         message: { text: 'hello' }
       }
     ])
-    expect(s.pendingDelta).toBe('')
     expect(partsText(s.messages[1].parts)).toBe('hello')
   })
 
-  it('message.reasoning.delta 가 pendingReasoning 에 누적되고 완성 블록이 비운다', () => {
+  it('message.reasoning 완성 블록이 영속 reasoning 파트로 커밋된다', () => {
     let s = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'q' })
-    s = apply(s, [
-      {
-        type: 'message.reasoning.delta',
-        sessionId: 's',
-        provider: 'claude-code',
-        delta: { text: '먼저 ' }
-      },
-      {
-        type: 'message.reasoning.delta',
-        sessionId: 's',
-        provider: 'claude-code',
-        delta: { text: '확인' }
-      }
-    ])
-    expect(s.pendingReasoning).toBe('먼저 확인')
-    // 완성 사고 블록 → 영속 reasoning 파트 + 라이브 프리뷰 비움
     s = apply(s, [
       {
         type: 'message.reasoning',
@@ -129,27 +123,26 @@ describe('chatReducer — AppMessagePart 모델', () => {
         signature: 'sig'
       }
     ])
-    expect(s.pendingReasoning).toBe('')
     expect(partsReasoning(s.messages[1].parts)).toEqual([{ text: '먼저 확인', signature: 'sig' }])
   })
 
-  it('telemetry 가 미완 pendingReasoning 을 비운다', () => {
+  it('COMMIT_PENDING_TEXT 가 잔여 라이브 텍스트를 text 파트로 굳히고, 빈 텍스트는 no-op', () => {
     let s = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'q' })
-    s = apply(s, [
-      {
-        type: 'message.reasoning.delta',
-        sessionId: 's',
-        provider: 'claude-code',
-        delta: { text: '생각만' }
-      },
-      {
-        type: 'telemetry',
-        sessionId: 's',
-        provider: 'claude-code',
-        usage: { inputTokens: 1, outputTokens: 1 }
-      }
-    ])
-    expect(s.pendingReasoning).toBe('')
+    const noop = chatReducer(s, { type: 'COMMIT_PENDING_TEXT', text: '' })
+    expect(noop).toBe(s)
+    s = chatReducer(s, { type: 'COMMIT_PENDING_TEXT', text: '잘린 답변' })
+    expect(s.messages).toHaveLength(2)
+    expect(s.messages[1].role).toBe('assistant')
+    expect(partsText(s.messages[1].parts)).toBe('잘린 답변')
+  })
+
+  it('SEND_USER_MESSAGE 가 sendCount 를 단조 증가시키고 NEW_CHAT 이 리셋한다', () => {
+    let s = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'q1' })
+    expect(s.sendCount).toBe(1)
+    s = chatReducer(s, { type: 'SEND_USER_MESSAGE', text: 'q2' })
+    expect(s.sendCount).toBe(2)
+    s = chatReducer(s, { type: 'NEW_CHAT' })
+    expect(s.sendCount).toBe(0)
   })
 
   it('telemetry 가 lastTelemetry 를 저장하고 SEND 가 유지·교체한다', () => {

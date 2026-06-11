@@ -10,7 +10,7 @@ export const UserTurn = memo(
   function UserTurn({ turn }: { turn: Turn }): React.JSX.Element {
     const last = turn.messages[turn.messages.length - 1]
     return (
-      <div className="group/msg flex flex-col gap-[var(--chat-item-gap)]" data-app-user-turn>
+      <div className="group/msg flex flex-col gap-[var(--chat-item-gap)]">
         {turn.messages.map((m, i) => (
           <UserMessage key={i} message={m} />
         ))}

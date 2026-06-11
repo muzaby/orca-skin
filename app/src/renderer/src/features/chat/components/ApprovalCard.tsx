@@ -1,7 +1,7 @@
 import { useState, type KeyboardEvent } from 'react'
 import { Button } from '../../../shared/ui/Button'
 import { YellowDot } from './transcript/YellowDot'
-import type { UseChat } from '../hooks/useChat'
+import { chatActions, useChatSession } from '../store/chatStore'
 
 // ApprovalCard — Composer 의 입력 패널을 *대체*하는 승인 게이트(rendering.md §7.6 일반화).
 // permission.requested 의 action.kind 별로 분기한다:
@@ -11,9 +11,11 @@ import type { UseChat } from '../hooks/useChat'
 //                     입력-대체형인 본 컴포넌트가 아니라 Composer 가 직접 배치한다.
 //
 // Composer 가 key={requestId/approvalId} 로 재마운트하므로 로컬 state 는 요청마다 리셋된다.
-export function ApprovalCard({ chat }: { chat: UseChat }): React.JSX.Element | null {
-  if (chat.state.pendingPlanReview) return <PlanApprovalBody chat={chat} />
-  if (chat.state.pendingToolApproval) return <ToolApprovalBody chat={chat} />
+export function ApprovalCard(): React.JSX.Element | null {
+  const hasPlanReview = useChatSession((s) => s.pendingPlanReview != null)
+  const hasToolApproval = useChatSession((s) => s.pendingToolApproval != null)
+  if (hasPlanReview) return <PlanApprovalBody />
+  if (hasToolApproval) return <ToolApprovalBody />
   return null
 }
 
@@ -33,9 +35,9 @@ function summarizeToolInput(input: unknown): string {
   }
 }
 
-function ToolApprovalBody({ chat }: { chat: UseChat }): React.JSX.Element | null {
-  const { state, approveTool, approveToolForSession, denyTool } = chat
-  const pending = state.pendingToolApproval
+function ToolApprovalBody(): React.JSX.Element | null {
+  const { approveTool, approveToolForSession, denyTool } = chatActions
+  const pending = useChatSession((s) => s.pendingToolApproval)
   if (!pending) return null
   const { approvalId, toolName } = pending
 
@@ -98,9 +100,10 @@ function ToolApprovalBody({ chat }: { chat: UseChat }): React.JSX.Element | null
   )
 }
 
-function PlanApprovalBody({ chat }: { chat: UseChat }): React.JSX.Element | null {
-  const { state, approvePlan, revisePlan, rejectPlan, openPlanTile } = chat
-  const review = state.pendingPlanReview
+function PlanApprovalBody(): React.JSX.Element | null {
+  const { approvePlan, revisePlan, rejectPlan, openPlanTile } = chatActions
+  const review = useChatSession((s) => s.pendingPlanReview)
+  const planTileOpen = useChatSession((s) => s.planTileOpen)
   const [feedback, setFeedback] = useState('')
   const [reviseOpen, setReviseOpen] = useState(false)
   const canRevise = feedback.trim() !== ''
@@ -135,7 +138,7 @@ function PlanApprovalBody({ chat }: { chat: UseChat }): React.JSX.Element | null
       <div className="flex items-center gap-g3">
         <YellowDot />
         <span className="text-footnote font-medium text-t9">Claude가 계획을 제안했습니다</span>
-        {!state.planTileOpen && (
+        {!planTileOpen && (
           <button
             type="button"
             onClick={openPlanTile}

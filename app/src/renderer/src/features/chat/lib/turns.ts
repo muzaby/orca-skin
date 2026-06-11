@@ -38,6 +38,38 @@ export function turnEquals(a: Turn, b: Turn): boolean {
   return true
 }
 
+// 교환(exchange) — user 턴 1개 + 뒤따르는 assistant 턴들. transcript 렌더의 그룹 단위이자
+// 예약공간(min-height 앵커, rendering.md §1.8)의 적용 대상. 경계는 영원히 안정적이다:
+// 새 메시지는 마지막 교환을 확장하거나 새 교환을 추가할 뿐, 기존 교환의 DOM 을 재부모화
+// 하지 않는다(ToolCard 열림·shiki 상태 보존). 세션 선두의 assistant 턴은 user 없는 교환.
+export interface Exchange {
+  // 교환 첫 턴(보통 user)의 startIndex — React key 안정용.
+  startIndex: number
+  turns: Turn[]
+}
+
+export function groupExchanges(messages: Message[]): Exchange[] {
+  const exchanges: Exchange[] = []
+  for (const turn of groupTurns(messages)) {
+    const last = exchanges[exchanges.length - 1]
+    if (turn.role === 'user' || !last) {
+      exchanges.push({ startIndex: turn.startIndex, turns: [turn] })
+    } else {
+      last.turns.push(turn)
+    }
+  }
+  return exchanges
+}
+
+// 두 Exchange 가 렌더 관점에서 동일한가 — React.memo 비교자용(순수). turnEquals 와 동형.
+export function exchangeEquals(a: Exchange, b: Exchange): boolean {
+  if (a.startIndex !== b.startIndex || a.turns.length !== b.turns.length) return false
+  for (let i = 0; i < a.turns.length; i++) {
+    if (!turnEquals(a.turns[i], b.turns[i])) return false
+  }
+  return true
+}
+
 // 턴의 복사 대상 텍스트 — 각 메시지의 text 파트를 합치고 빈 값은 제외한다.
 export function turnCopyText(turn: Turn): string {
   return turn.messages

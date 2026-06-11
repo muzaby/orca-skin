@@ -18,7 +18,7 @@ import type { ConversationStatus } from './composer/statusCopy'
 import { AskUserQuestionCard } from './AskUserQuestionCard'
 import { ApprovalCard } from './ApprovalCard'
 import { TelemetryPanel } from './TelemetryPanel'
-import type { UseChat } from '../hooks/useChat'
+import { chatActions, useChatSession } from '../store/chatStore'
 import { contextTokens } from '../lib/telemetry'
 import { contextWindowFor, nearCompaction } from '../lib/contextWindow'
 import { useSkills } from '../../../shared/hooks/useSkills'
@@ -27,7 +27,6 @@ import { useFileAutocomplete } from '../hooks/useFileAutocomplete'
 import type { FileEntry, SkillInfo } from '../../../../../shared/ipc'
 
 interface ComposerProps {
-  chat: UseChat
   backendLabel: string
   // 활성 백엔드가 턴 중단(cancellation.sessionAbort)을 지원하는가(§15 사전 게이팅).
   // cross-feature 데이터라 backend feature 를 직접 import 하지 않고 page 가 props 로 주입한다.
@@ -43,19 +42,25 @@ interface ComposerProps {
 
 // 채팅 입력 composer — textarea + chip 행 + send/cancel 버튼 + skills/file 자동완성.
 // ChatTile 과 NewChatLandingPage 양쪽에서 동일하게 재사용.
-// 자체 local state (draft / caret / menuOpen) 는 컴포넌트 내부에 가두고, 외부에는
-// 오직 `chat` 도메인 액션 (send / cancel) 만 의존한다.
+// 자체 local state (draft / caret / menuOpen) 는 컴포넌트 내부에 가두고, 채팅 상태는
+// chatStore selector 로 필요한 슬라이스만 구독한다 — 스트리밍 델타/transcript 커밋
+// (messages 교체)에는 깨어나지 않는다 (0008).
 export function Composer({
-  chat,
   backendLabel,
   canAbort,
   showScrollToBottom,
   onScrollToBottom,
   costToday
 }: ComposerProps): React.JSX.Element {
-  const { state, send, cancel, answerAsk, skipAsk, setPermissionMode } = chat
+  const { send, cancel, answerAsk, skipAsk, setPermissionMode } = chatActions
+  const inflight = useChatSession((s) => s.inflight)
+  const cwd = useChatSession((s) => s.cwd)
+  const lastTelemetry = useChatSession((s) => s.lastTelemetry)
+  const permissionMode = useChatSession((s) => s.permissionMode)
+  const pendingPlanReview = useChatSession((s) => s.pendingPlanReview)
+  const pendingToolApproval = useChatSession((s) => s.pendingToolApproval)
   // 큐의 맨 앞 질문만 렌더(canUseTool 이 query 를 막아 보통 1개). 응답 시 다음 질문이 노출.
-  const activeAsk = state.pendingAsks[0]
+  const activeAsk = useChatSession((s) => s.pendingAsks[0])
   const modeButtonRef = useRef<HTMLButtonElement>(null)
   const [modeMenuOpen, setModeMenuOpen] = useState(false)
   const [draft, setDraft] = useState('')
@@ -75,14 +80,14 @@ export function Composer({
   const closeMenu = (): void => setMenuOpen(false)
 
   const autocomplete = useSkillAutocomplete(draft, caret, skills)
-  const fileAutocomplete = useFileAutocomplete(draft, caret, state.cwd)
+  const fileAutocomplete = useFileAutocomplete(draft, caret, cwd)
 
   const conversationStatusModel = useMemo(() => {
     // TODO(후속 핸드오프): 정식 상태 판정 신호로 교체 — 현재는 임시 근사
     let conversationStatus: ConversationStatus = 'safe'
-    if (state.lastTelemetry) {
-      const tokens = contextTokens(state.lastTelemetry)
-      const window = contextWindowFor(state.lastTelemetry.model)
+    if (lastTelemetry) {
+      const tokens = contextTokens(lastTelemetry)
+      const window = contextWindowFor(lastTelemetry.model)
       const ratio = tokens / window
       if (nearCompaction(tokens, window) || ratio >= 0.85) {
         conversationStatus = 'danger'
@@ -91,7 +96,7 @@ export function Composer({
       }
     }
     return conversationStatusModelFactory(conversationStatus, costToday)
-  }, [state.lastTelemetry, costToday])
+  }, [lastTelemetry, costToday])
 
   const toggleConversationStatus = (): void => {
     if (!conversationStatusModel) return
@@ -283,7 +288,7 @@ export function Composer({
               id={conversationStatusPopoverId}
               model={conversationStatusModel}
               onCompact={compactStub}
-              onNewChat={() => chat.newChat()}
+              onNewChat={() => chatActions.newChat()}
             />
           </Popover>
         )}
@@ -295,11 +300,8 @@ export function Composer({
             onSkip={() => skipAsk(activeAsk.requestId)}
           />
         )}
-        {state.pendingPlanReview || state.pendingToolApproval ? (
-          <ApprovalCard
-            key={state.pendingPlanReview?.requestId ?? state.pendingToolApproval?.approvalId}
-            chat={chat}
-          />
+        {pendingPlanReview || pendingToolApproval ? (
+          <ApprovalCard key={pendingPlanReview?.requestId ?? pendingToolApproval?.approvalId} />
         ) : (
           <div
             className="epitaxy-prompt rounded-r7 border border-border bg-panel px-3 py-2.5 shadow-[0_2px_12px_rgba(0,0,0,0.04)]"
@@ -333,7 +335,7 @@ export function Composer({
                 <ComposerChip
                   ref={modeButtonRef}
                   icon="board"
-                  label={MODE_LABELS[state.permissionMode]}
+                  label={MODE_LABELS[permissionMode]}
                   onClick={() => setModeMenuOpen((v) => !v)}
                   ariaHasPopup
                   ariaExpanded={modeMenuOpen}
@@ -352,12 +354,12 @@ export function Composer({
               </div>
               <span className="ml-auto flex items-center gap-g4">
                 <span className="text-caption text-t6">{backendLabel}</span>
-                {state.lastTelemetry &&
+                {lastTelemetry &&
                   (() => {
                     // 컨텍스트 사용량 = (입력+캐시)/모델 윈도우(마지막 턴 기준). 세션 동안 lastTelemetry
                     // 가 유지·복원되므로 도넛도 세션 수명 동안 표시된다.
-                    const tokens = contextTokens(state.lastTelemetry)
-                    const window = contextWindowFor(state.lastTelemetry.model)
+                    const tokens = contextTokens(lastTelemetry)
+                    const window = contextWindowFor(lastTelemetry.model)
                     const pct = Math.round((tokens / window) * 100)
                     const warn = nearCompaction(tokens, window)
                     return (
@@ -381,16 +383,16 @@ export function Composer({
                       </button>
                     )
                   })()}
-                {state.lastTelemetry && (
+                {lastTelemetry && (
                   <Popover
                     open={telemetryOpen}
                     anchorRef={telemetryButtonRef}
                     onClose={() => setTelemetryOpen(false)}
                   >
-                    <TelemetryPanel telemetry={state.lastTelemetry} />
+                    <TelemetryPanel telemetry={lastTelemetry} />
                   </Popover>
                 )}
-                {state.inflight ? (
+                {inflight ? (
                   <Button
                     iconOnly
                     variant="uncontained"
@@ -420,7 +422,7 @@ export function Composer({
       </ReadingColumn>
       <Popover open={modeMenuOpen} anchorRef={modeButtonRef} onClose={() => setModeMenuOpen(false)}>
         <ModeMenu
-          mode={state.permissionMode}
+          mode={permissionMode}
           onPick={(mode) => {
             setPermissionMode(mode)
             setModeMenuOpen(false)

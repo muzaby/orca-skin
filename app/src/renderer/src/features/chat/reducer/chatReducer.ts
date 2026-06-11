@@ -39,11 +39,13 @@ export interface ChatState {
   // 어댑터가 발급한 세션의 working directory (`init` 이벤트). Composer 의 `@`
   // 파일 자동완성이 이 경로 기준으로 디렉토리를 리스팅한다.
   cwd: string | null
+  // 커밋된 transcript 메시지(SSOT 는 DB, 이 배열은 그 미러). 스트리밍 라이브 텍스트/사고는
+  // 여기 없다 — chatStore 의 live 슬라이스(transient)가 담당하고, 완성 시 parts 로 커밋된다.
   messages: Message[]
-  pendingDelta: string
-  // 라이브 확장사고 누적(transient — PendingAssistant 가 표시). 완성 시 message.reasoning 이
-  // 영속 reasoning 파트로 굳히며 비운다. pendingDelta 와 동형.
-  pendingReasoning: string
+  // 이 세션 뷰에서 사용자가 라이브로 전송한 횟수(단조 증가, 세션 전환/새 채팅 시 0 리셋).
+  // useScrollAnchor 가 "새 user 메시지 앵커" 트리거로 쓴다 — 메시지 배열 휴리스틱(로드된
+  // 세션의 마지막 user 메시지 등 오탐) 없이 SEND 만 정확히 감지하기 위한 카운터.
+  sendCount: number
   inflight: boolean
   // 사이드바 세션 클릭 또는 부팅 시 lastSessionId 자동 복원으로 메시지를 비동기 로드하는
   // 동안 true. ChatPane 이 인디케이터를 표시한다.
@@ -84,8 +86,7 @@ export const initialChatState: ChatState = {
   pendingProjectId: null,
   cwd: null,
   messages: [],
-  pendingDelta: '',
-  pendingReasoning: '',
+  sendCount: 0,
   inflight: false,
   loadingSession: false,
   turnStartedAt: null,
@@ -113,6 +114,9 @@ export interface CachedSession {
 export type ChatAction =
   | { type: 'SEND_USER_MESSAGE'; text: string }
   | { type: 'RECV_EVENT'; event: NormalizedEvent }
+  // 턴이 message.completed 없이 끝났을 때(telemetry 도착 시점) live 버퍼의 잔여 텍스트를
+  // text 파트로 굳힌다. 버퍼 소유자는 chatStore — reducer 는 텍스트만 받는다.
+  | { type: 'COMMIT_PENDING_TEXT'; text: string }
   | { type: 'NEW_CHAT'; projectId?: string | null }
   | { type: 'CANCEL_CHAT' }
   | { type: 'CLEAR_ERROR' }
@@ -159,8 +163,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           ...state.messages,
           { role: 'user', createdAt: Date.now(), parts: [{ type: 'text', text: action.text }] }
         ],
-        pendingDelta: '',
-        pendingReasoning: '',
+        sendCount: state.sendCount + 1,
         inflight: true,
         turnStartedAt: Date.now(),
         // lastTelemetry 는 비우지 않는다 — 컨텍스트 도넛이 턴 진행 중에도 직전 값을 유지.
@@ -179,18 +182,14 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             pendingProjectId: null
           }
 
-        case 'message.delta':
-          return { ...state, pendingDelta: state.pendingDelta + ev.delta.text }
-
-        case 'message.reasoning.delta':
-          // 라이브 확장사고 누적(transient). PendingAssistant 가 펼친 프리뷰로 표시.
-          return { ...state, pendingReasoning: state.pendingReasoning + ev.delta.text }
+        // message.delta · message.reasoning.delta 는 reducer 에 도달하지 않는다 —
+        // chatStore.receive 가 live 슬라이스(transient)로 라우팅해 커밋 상태(이 reducer)는
+        // 델타 프레임에 불변으로 남는다(델타당 transcript 재렌더 0).
 
         case 'message.reasoning':
-          // 완성 사고 블록 → 영속 reasoning 파트. 라이브 프리뷰(pendingReasoning)는 비운다.
+          // 완성 사고 블록 → 영속 reasoning 파트. 라이브 프리뷰(live.reasoning)는 store 가 비운다.
           return {
             ...state,
-            pendingReasoning: '',
             messages: appendAssistantPart(state.messages, {
               type: 'reasoning',
               text: ev.text,
@@ -199,15 +198,14 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           }
 
         case 'message.completed':
-          // 스트리밍 델타는 PendingAssistant 가 라이브로 보여줬으니, 완성본을 text 파트로 굳히고
-          // pendingDelta 를 비운다.
+          // 스트리밍 델타는 라이브 리프가 보여줬으니, 완성본을 text 파트로 굳힌다.
+          // (live.text 클리어는 store 가 담당.)
           return {
             ...state,
             messages: appendAssistantPart(state.messages, {
               type: 'text',
               text: ev.message.text
-            }),
-            pendingDelta: ''
+            })
           }
 
         case 'tool.call.started':
@@ -235,29 +233,17 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
 
         case 'telemetry': {
           const telemetry = ev.usage
-          const base = {
+          // 잔여 라이브 텍스트(message.completed 없이 끝난 턴)의 커밋은 store 가 telemetry 직전에
+          // COMMIT_PENDING_TEXT 로 선행 dispatch 한다 — 버퍼 소유가 store 로 이동했기 때문.
+          return {
             ...state,
             inflight: false,
             turnStartedAt: null,
-            // 턴 종료 — 미완 라이브 사고 프리뷰는 비운다(영속은 완성 블록의 message.reasoning).
-            pendingReasoning: '',
             // 도넛/패널은 lastTelemetry 파생(컨텍스트 사용량 소스). 비용/지연 누산은 제거 —
             // 비용은 main 의 turn_usage 원장(집계)이 SSOT. 컨텍스트 0인 턴(/context 등 로컬
             // 슬래시 명령 — 모델 미호출)은 직전 도넛 값을 덮어쓰지 않게 스킵한다.
             ...(telemetry && contextTokens(telemetry) > 0 ? { lastTelemetry: telemetry } : {})
           }
-          // pendingDelta 가 아직 남아있으면(message.completed 없이 끝남) text 파트로 굳힌다.
-          if (state.pendingDelta) {
-            return {
-              ...base,
-              messages: appendAssistantPart(state.messages, {
-                type: 'text',
-                text: state.pendingDelta
-              }),
-              pendingDelta: ''
-            }
-          }
-          return base
         }
 
         case 'permission.requested':
@@ -303,6 +289,14 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       }
       return state
     }
+
+    case 'COMMIT_PENDING_TEXT':
+      // telemetry 폴백 — 빈 텍스트는 빈 파트를 만들지 않는다.
+      if (action.text === '') return state
+      return {
+        ...state,
+        messages: appendAssistantPart(state.messages, { type: 'text', text: action.text })
+      }
 
     case 'NEW_CHAT':
       // cwd 는 새 세션에서도 동일 (main 의 단일 default). 새 대화 즉시 `@` picker

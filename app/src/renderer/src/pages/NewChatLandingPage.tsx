@@ -1,4 +1,4 @@
-import { ChatTile, Composer, useChatContext } from '../features/chat'
+import { ChatTile, Composer, useChatSession } from '../features/chat'
 import { useBackendContext } from '../features/backend'
 import { formatApproxCost, useCost } from '../features/cost'
 
@@ -9,12 +9,11 @@ import { formatApproxCost, useCost } from '../features/cost'
 //   `useChatRouteSync` Direction 2 가 URL 을 `/chat/<id>` 로 replace 하여 ChatPage
 //   가 인계받는다.
 export function NewChatLandingPage(): React.JSX.Element {
-  const chat = useChatContext()
+  const isEmpty = useChatSession((s) => s.messages.length === 0 && !s.loadingSession)
   const { backendLabel, capabilities } = useBackendContext()
   const { summary } = useCost()
   // 능력 서술자가 로드됐는데 sessionAbort 가 아니면 중단 게이팅(미로드면 현행 동작 유지).
   const canAbort = capabilities ? capabilities.cancellation.sessionAbort === true : true
-  const isEmpty = chat.state.messages.length === 0 && !chat.state.loadingSession
   const costToday = summary ? formatApproxCost(summary.day.totalCostUsd) : undefined
 
   if (isEmpty) {
@@ -24,17 +23,10 @@ export function NewChatLandingPage(): React.JSX.Element {
           <div className="mb-3 text-center font-serif text-[24px] font-semibold tracking-tight text-ink">
             무엇을 도와드릴까요?
           </div>
-          <Composer
-            chat={chat}
-            backendLabel={backendLabel}
-            canAbort={canAbort}
-            costToday={costToday}
-          />
+          <Composer backendLabel={backendLabel} canAbort={canAbort} costToday={costToday} />
         </div>
       </section>
     )
   }
-  return (
-    <ChatTile chat={chat} backendLabel={backendLabel} canAbort={canAbort} costToday={costToday} />
-  )
+  return <ChatTile backendLabel={backendLabel} canAbort={canAbort} costToday={costToday} />
 }

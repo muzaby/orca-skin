@@ -1,0 +1,72 @@
+import { memo } from 'react'
+import { Icon } from '../../../shared/ui/Icon'
+import { Button } from '../../../shared/ui/Button'
+import { Dot } from '../../../shared/ui/Status'
+import { chatActions, useChatSession } from '../store/chatStore'
+import { partsText } from '../lib/parts'
+import type { ChatState } from '../reducer/chatReducer'
+
+const ICON_BTN =
+  'grid h-7 w-7 cursor-default place-items-center rounded-r4 border-0 bg-transparent text-t6 outline-none hide-focus-ring ring-focus transition-colors hover:bg-fill-uncontained-hover hover:text-t7'
+
+// 사이드바 메타 (state.title) 가 즉시 채워지므로 사용자가 세션을 선택한 순간부터
+// 헤더에 정확한 제목 표시. 메타가 없는 부팅 자동 복원 1회만 첫 user 메시지에서 fallback.
+function selectTitle(s: ChatState): string {
+  const meta = s.title?.trim()
+  if (meta) return meta
+  const u = s.messages.find((m) => m.role === 'user')
+  return (u && partsText(u.parts).slice(0, 60)) || '새 대화'
+}
+
+// 채팅 타일 titlebar — 제목·백엔드·세션 ID·우측 액션. selector 가 primitive 를 반환하므로
+// 스트리밍 커밋(messages 교체)에도 제목 문자열이 같으면 재렌더되지 않는다.
+export const ChatTitleBar = memo(function ChatTitleBar({
+  backendLabel
+}: {
+  backendLabel: string
+}): React.JSX.Element {
+  const title = useChatSession(selectTitle)
+  const sessionId = useChatSession((s) => s.sessionId)
+  const planTileOpen = useChatSession((s) => s.planTileOpen)
+
+  return (
+    <div className="app-frame-titlebar flex items-center gap-3 px-6 pb-2 pt-3">
+      <div className="min-w-0 flex-1">
+        <div className="overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-medium text-ink">
+          {title}
+        </div>
+        <div className="mt-0.5 flex items-center gap-2 text-[11.5px] text-ink3">
+          <span className="inline-flex items-center gap-1">
+            <Dot tone="green" /> {backendLabel}
+          </span>
+          {sessionId && (
+            <>
+              <span>·</span>
+              <span className="font-mono text-[10.5px]">{sessionId.slice(0, 8)}</span>
+            </>
+          )}
+        </div>
+      </div>
+      <div className="ml-auto flex gap-1">
+        <button className={ICON_BTN} title="검색">
+          <Icon name="search" size={14} />
+        </button>
+        <button className={ICON_BTN} title="복사">
+          <Icon name="copy" size={14} />
+        </button>
+        <button className={ICON_BTN} title="설정">
+          <Icon name="settings" size={14} />
+        </button>
+        <Button
+          iconOnly
+          size="small"
+          leadingIcon="panelR"
+          onClick={chatActions.togglePlanTile}
+          pressed={planTileOpen}
+          title="계획 패널"
+          aria-label="계획 패널"
+        />
+      </div>
+    </div>
+  )
+})

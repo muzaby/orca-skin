@@ -1,18 +1,20 @@
 import { useEffect, useRef } from 'react'
 import { matchPath, useLocation, useNavigate } from 'react-router-dom'
-import { useChatContext } from '../../features/chat'
+import { chatActions, useChatSession, useChatStore } from '../../features/chat'
 import { useSessionsContext } from '../../features/sessions'
 
-// URL ↔ ChatState 의 양방향 동기화. AppLayout 레벨에서 한 번만 마운트해 두면
+// URL ↔ chat store 의 양방향 동기화. AppLayout 레벨에서 한 번만 마운트해 두면
 // chat 적합 라우트 세 가지(`/new`, `/chat/:sessionId`, `/projects/:projectId`)
 // 에서 모든 라이프사이클을 받쳐준다.
 //
 // 방향 1 — URL → State
 //   - `/new`                  : dirty (sessionId / pendingProjectId / messages) → newChat()
-//   - `/chat/:sessionId`      : state.sessionId 가 url 과 다르면 loadSession(id, metaTitle)
+//   - `/chat/:sessionId`      : sessionId 가 url 과 다르면 loadSession(id, metaTitle)
 //   - `/projects/:projectId`  : pendingProjectId 가 url 과 다르거나 sessionId 가 남아 있으면
 //                               newChat(projectId). 단, messages.length 는 검사하지 않음 —
 //                               사용자가 랜딩에서 입력 중일 때 wipe 되지 않도록.
+//   상태는 effect 안에서 getState() 로 *imperative* 하게 읽는다 — 상태 변화(첫 전송 등)가
+//   이 effect 를 재실행해 대화를 wipe 하지 않도록 트리거는 URL/sessions 변화로 한정.
 //
 // 방향 2 — State → URL (armed-ref 로 stale state race 차단)
 //   - `/new` 또는 `/projects/:projectId` 에서 sessionId 가 null 인 상태를 한 번
@@ -24,7 +26,6 @@ import { useSessionsContext } from '../../features/sessions'
 export function useChatRouteSync(): void {
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const chat = useChatContext()
   const { list: sessions } = useSessionsContext()
 
   const onNew = pathname === '/new'
@@ -33,40 +34,35 @@ export function useChatRouteSync(): void {
   const urlSessionId = chatMatch?.params.sessionId ?? null
   const urlProjectId = projectMatch?.params.projectId ?? null
 
-  // 방향 1 — URL → State
+  // 방향 1 — URL → State (URL/sessions 변화만 트리거, 상태는 imperative read)
   useEffect(() => {
+    const cur = useChatStore.getState().session
     if (onNew) {
       // `/new` 는 깨끗한 새 대화. 직전에 프로젝트 랜딩에서 `pendingProjectId` 가
       // 묶여 있던 경우도 함께 해제한다.
-      const dirty =
-        chat.state.sessionId != null ||
-        chat.state.pendingProjectId != null ||
-        chat.state.messages.length > 0
-      if (dirty) chat.newChat()
+      const dirty = cur.sessionId != null || cur.pendingProjectId != null || cur.messages.length > 0
+      if (dirty) chatActions.newChat()
       return
     }
     if (urlSessionId != null) {
-      if (chat.state.sessionId === urlSessionId && !chat.state.loadingSession) return
+      if (cur.sessionId === urlSessionId && !cur.loadingSession) return
       const meta = sessions.find((s) => s.id === urlSessionId)
       const metaTitle = meta?.title?.trim() || meta?.preview?.trim() || null
-      void chat.loadSession(urlSessionId, metaTitle)
+      void chatActions.loadSession(urlSessionId, metaTitle)
       return
     }
     if (urlProjectId != null) {
       // 프로젝트 랜딩으로 진입 / 다른 프로젝트로 전이 시에만 reset. 이미 같은
       // 프로젝트에 묶여 있고(sessionId 도 없음) 사용자가 입력 중인 상태는 보존.
-      const wrongState =
-        chat.state.pendingProjectId !== urlProjectId || chat.state.sessionId != null
-      if (wrongState) chat.newChat(urlProjectId)
+      const wrongState = cur.pendingProjectId !== urlProjectId || cur.sessionId != null
+      if (wrongState) chatActions.newChat(urlProjectId)
       return
     }
     // chat 라우트(비채팅, 예: /projects, /engine 등) → no-op.
-    // chat 객체는 매 렌더 새 wrapper 를 받을 수 있어 deps 에 넣지 않는다.
-    // URL 과 sessions list 변화만 동기화 트리거 (messages.length 는 의도적으로 제외).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onNew, urlSessionId, urlProjectId, sessions])
 
   // 방향 2 — State → URL (armed-ref)
+  const sessionId = useChatSession((s) => s.sessionId)
   const armedRef = useRef(false)
   useEffect(() => {
     const upgradable = onNew || urlProjectId != null
@@ -74,7 +70,7 @@ export function useChatRouteSync(): void {
       armedRef.current = false
       return
     }
-    if (chat.state.sessionId == null) {
+    if (sessionId == null) {
       // newChat 적용된 뒤 — 다음 sessionId 발급을 기다리는 상태.
       armedRef.current = true
       return
@@ -82,7 +78,7 @@ export function useChatRouteSync(): void {
     if (armedRef.current) {
       // null → non-null 전이를 한 번만 발사.
       armedRef.current = false
-      navigate(`/chat/${chat.state.sessionId}`, { replace: true })
+      navigate(`/chat/${sessionId}`, { replace: true })
     }
-  }, [onNew, urlProjectId, chat.state.sessionId, navigate])
+  }, [onNew, urlProjectId, sessionId, navigate])
 }

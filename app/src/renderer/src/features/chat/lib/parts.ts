@@ -135,3 +135,85 @@ export function messageSegments(parts: AppMessagePart[]): MessageSegment[] {
 
   return segments
 }
+
+// ── 세그먼트 identity 보존 reconcile (0008) ─────────────────────────────────
+//
+// messageSegments 는 호출마다 새 세그먼트/ToolCall view 객체를 만든다 — 그대로 렌더에 쓰면
+// tool.call.* 커밋 한 번에 메시지 내 모든 세그먼트·카드가 재렌더된다. reducer 는 parts 객체의
+// identity 를 보존하므로(appendAssistantPart 는 배열만 복사), 이전 렌더의 세그먼트와 필드
+// identity 로 대조해 "내용이 같으면 이전 객체를 재사용"하면 하위 memo 컴포넌트(ToolsSegment·
+// ToolCard·ReasoningBlock…)가 shallow 비교만으로 재렌더를 건너뛴다 → 커밋 1건의 재렌더가
+// "변경된 카드 1개"로 좁혀진다.
+
+function resultEquals(a: ToolCall['result'], b: ToolCall['result']): boolean {
+  if (a === b) return true
+  if (!a || !b) return false
+  return a.output === b.output && a.isError === b.isError && a.durationMs === b.durationMs
+}
+
+function toolCallEquals(a: ToolCall, b: ToolCall): boolean {
+  return (
+    a.toolUseId === b.toolUseId &&
+    a.name === b.name &&
+    a.input === b.input &&
+    resultEquals(a.result, b.result)
+  )
+}
+
+function reasoningItemEquals(a: ReasoningItem, b: ReasoningItem): boolean {
+  return a.text === b.text && a.signature === b.signature
+}
+
+function reconcileSegment(prev: MessageSegment, next: MessageSegment): MessageSegment {
+  if (prev.kind !== next.kind) return next
+  switch (next.kind) {
+    case 'text':
+      return prev.kind === 'text' && prev.text === next.text ? prev : next
+    case 'reasoning': {
+      if (prev.kind !== 'reasoning' || prev.items.length !== next.items.length) return next
+      for (let i = 0; i < next.items.length; i++) {
+        if (!reasoningItemEquals(prev.items[i], next.items[i])) return next
+      }
+      return prev
+    }
+    case 'tools': {
+      if (prev.kind !== 'tools') return next
+      const calls: ToolCall[] = new Array(next.calls.length)
+      let changed = prev.calls.length !== next.calls.length
+      for (let i = 0; i < next.calls.length; i++) {
+        const pc = prev.calls[i]
+        if (pc && toolCallEquals(pc, next.calls[i])) {
+          calls[i] = pc
+        } else {
+          calls[i] = next.calls[i]
+          changed = true
+        }
+      }
+      return changed ? { kind: 'tools', calls } : prev
+    }
+    case 'ask':
+      return prev.kind === 'ask' && toolCallEquals(prev.call, next.call) ? prev : next
+    case 'structured':
+      return prev.kind === 'structured' && prev.value === next.value ? prev : next
+    case 'error':
+      return prev.kind === 'error' && prev.error === next.error ? prev : next
+  }
+}
+
+// 이전 렌더의 세그먼트 배열과 새로 계산한 배열을 대조해 변하지 않은 세그먼트(와 그 안의
+// ToolCall view)의 identity 를 재사용한다(순수). 전부 동일하면 prev 배열 자체를 반환.
+export function reconcileSegments(
+  prev: MessageSegment[] | null,
+  next: MessageSegment[]
+): MessageSegment[] {
+  if (!prev || prev.length === 0) return next
+  let changed = prev.length !== next.length
+  const out: MessageSegment[] = new Array(next.length)
+  for (let i = 0; i < next.length; i++) {
+    const p = prev[i]
+    const r = p ? reconcileSegment(p, next[i]) : next[i]
+    if (r !== p) changed = true
+    out[i] = r
+  }
+  return changed ? out : prev
+}

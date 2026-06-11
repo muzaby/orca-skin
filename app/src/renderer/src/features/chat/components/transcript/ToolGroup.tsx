@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { memo, useState } from 'react'
 import { Icon } from '../../../../shared/ui/Icon'
 import { ToolCard } from './ToolCard'
 import {
@@ -11,7 +11,13 @@ import type { ToolCall } from '../../reducer/chatReducer'
 
 // 한 어시스턴트 턴의 toolCalls 를 묶는다. 도구가 1개면 그룹 헤더 없이 카드만, 2+ 일 때만
 // disclosure 그룹 헤더(진행 중엔 현재 도구 서술, 완료되면 동사별 카운트 요약).
-export function ToolGroup({ calls }: { calls: ToolCall[] }): React.JSX.Element | null {
+// memo(shallow): reconcileSegments 가 변하지 않은 세그먼트의 calls 배열 identity 를
+// 보존하므로 다른 세그먼트가 갱신돼도 이 그룹은 재렌더되지 않는다 (0008).
+export const ToolGroup = memo(function ToolGroup({
+  calls
+}: {
+  calls: ToolCall[]
+}): React.JSX.Element | null {
   const [open, setOpen] = useState(true)
   // 단일 도구: 그룹 헤더 없이 카드만(카드 자체가 border/bg 보유).
   if (calls.length <= 1) return calls[0] ? <ToolCard call={calls[0]} /> : null
@@ -65,4 +71,4 @@ export function ToolGroup({ calls }: { calls: ToolCall[] }): React.JSX.Element |
       </div>
     </div>
   )
-}
+})
