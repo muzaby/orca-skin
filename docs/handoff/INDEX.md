@@ -31,4 +31,6 @@
 
 | `0013-renderer-multisession-store` | verify | PASS | —    | bce274f   | 1      | 단계적 아키텍처 리팩토링 스테이지 3/3 (프론트엔드). chatStore 멀티세션 외피(sessions Record + activeKey + NEW_CHAT_KEY 승격 — main TurnRegistry 대칭, 사용자 결정) + ev.sessionId 키 라우팅(비활성 세션 백그라운드 누적·활성 UI 격리) + sessionCache/LOAD_SESSION_FROM_CACHE 폐기(Record 가 캐시 흡수) + Backend/Sessions/Projects/Cost Context 4종 → Zustand store(bootstrap-only Provider). reducer 무변경(키 라우팅은 store — state.md §1.4 개정). 게이트 4종 ✅ 354/354. 비기능 = Claude 직접 구현. 사람 확인 대기: GUI 시각 회귀 + 멀티세션 실기. |
 
+| `0014-provider-settings-dist`   | verify | PASS      | —         | `9585cb7` | 1      | provider settings dist 재구조화 (비기능 = Claude 직접 구현, 사용자 결정 4건 반영). `sources/settings/<adapter>/<provider>/settings.json`(어댑터-네이티브 SSOT) + 어댑터당 meta.json → deployer 가 `dist/<engine>/plugin/`(공유 플러그인) + `<provider>/.claude/settings.json` 렌더 → 런타임은 SDK `resolveSettings`(@alpha, flat 폴백) + `filterEscalatingDefaultMode` + `${VAR}`/secret 주입 → `query({settings, settingSources: []})` **격리모드**(0005 결정 폐기). orca.json `agents` 제거(`{version, env?}` — 클린 브레이크) + `toClaudeEnv` 삭제(TRD 레시피 표 대체) + agent:list 원천 교체(페이로드 shape 0010 유지, renderer 변경 0) + 로더 주입 seam(opencode). 게이트 4종 ✅ 372/372 (+28). 사람 확인 대기: **OAuth 격리모드 실기(1순위)** · bedrock 실환경 · ModelMenu 회귀 · 기존 ~/.claude env 의존 사용자 이전 안내. |
+
 > 새 작업: 마지막 일련번호 +1 로 행을 추가하고 `<NNNN-slug>/plan.md` 를 생성한다.
