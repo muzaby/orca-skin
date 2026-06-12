@@ -102,6 +102,8 @@ font-src 'self' https://fonts.gstatic.com
 
 
 
-### Agent provider auth token (0010 → 0014)
+### Agent provider auth token (0010 → 0014 → 0015)
 
-앱에서 추가되는 adapter/provider 조합의 접근 토큰은 secret store(safeStorage) 키 `provider:${provider key}` 에만 저장한다(키 규약 0010 유지). settings 해석 시점에만 복호화해 effective settings 의 `env.ANTHROPIC_API_KEY` 로 합성하며 DB, renderer IPC DTO, 로그, dist 산출물에는 평문·해시를 남기지 않는다. settings.json `env` 의 수동 설정 경로는 권장값이 `${VAR}` placeholder 다(위 "provider settings 예외").
+앱에서 추가되는 adapter/provider 조합의 접근 토큰은 secret store(safeStorage) 키 `provider:${provider key}` 에만 저장한다(키 규약 0010 유지). settings 해석 시점에만 복호화해 effective 의 `env.ANTHROPIC_API_KEY` 로 합성하며 DB, renderer IPC DTO, 로그, dist 산출물에는 평문·해시를 남기지 않는다. settings.json `env` 의 수동 설정 경로는 권장값이 `${VAR}` placeholder 다(위 "provider settings 예외").
+
+**argv 평문 불변식 (handoff 0015)**: provider settings 는 `query()` 의 flag 레이어(`options.settings` → CLI `--settings`)로 주입되는데, 이 값은 SDK 가 직렬화 없이 CLI argv 에 그대로 push 하므로 **process list(같은 사용자에게 가시)에 노출된다**. 따라서 해석된 effective 를 주입할 때 `env`(확장·secret 주입 완료 — 평문 비밀 포함)는 settings 문자열에서 **제외**하고 subprocess env(`options.env`)로만 흘려보낸다. argv 에는 비-비밀 settings(model·permissions 등)만 인라인 JSON 문자열로 실린다. 이 분리가 깨지면(env 를 settings 에 되넣으면) 평문 토큰이 argv 로 새므로 회귀 금지선이다 — `adapters/claude-settings.ts`(분리 반환) + `adapters/claude-adapt.ts`(`adaptSettings`=문자열·env 제외 / `adaptEnv`=subprocess env)로 강제한다.

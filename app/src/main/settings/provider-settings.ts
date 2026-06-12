@@ -43,15 +43,18 @@ export interface ProviderEntry {
 }
 
 // 해석 완료된 provider settings — TurnRequest/CompleteRequest 로 어댑터에 전달되는 불투명 blob.
-// settings 는 어댑터-네이티브 스키마(claude-code = Claude settings.json effective)이며 env 값의
-// ${VAR} 확장·secret 주입이 끝난 상태다.
+// settings 와 env 를 **분리**한다 (handoff 0015): settings 는 어댑터-네이티브 스키마에서
+// transport-env 를 뺀 것으로 flag 레이어(인라인 JSON 문자열)로 주입되고, env 는 ${VAR} 확장·
+// secret 주입이 끝난 subprocess env 오버레이다 (argv 평문 비밀 노출 방지 — security.md 불변식).
 export interface ResolvedProviderSettings {
   providerKey: string
   provider: string
   settings: Record<string, unknown>
+  env: Record<string, string>
 }
 
-// 어댑터 종속 해석기 — 컴포지션 루트(ipc/router.ts)가 어댑터별로 주입한다.
+// 어댑터 종속 해석기 — 컴포지션 루트(ipc/router.ts)가 어댑터별로 주입한다. 반환은 settings 와
+// subprocess env 의 분리 쌍 (handoff 0015) — opencode 로더도 자기 포맷에서 동일 분리를 결정한다.
 export type ProviderSettingsLoader = (args: {
   providerKey: string
   provider: string
@@ -61,7 +64,7 @@ export type ProviderSettingsLoader = (args: {
   sourcesSettingsFile: string
   resolve: Resolver
   secrets?: SecretReader
-}) => Promise<Record<string, unknown>>
+}) => Promise<{ settings: Record<string, unknown>; env: Record<string, string> }>
 
 // meta.json 관용 파싱 — 파일 부재/손상은 {} (provider 열거에 영향 없음), 항목 단위 위반은
 // 해당 provider 만 드롭 (orca-file.ts 3단 관용 패턴).
@@ -231,6 +234,7 @@ export function mergeEnvLayers(
 
 interface CacheEntry {
   settings: Record<string, unknown>
+  env: Record<string, string>
   mtimeMs: number
   srcPath: string
 }
@@ -280,11 +284,16 @@ export class ProviderSettingsService {
     const mtimeMs = statMtime(srcPath)
     const hit = this.cache.get(entry.key)
     if (hit && hit.srcPath === srcPath && hit.mtimeMs === mtimeMs) {
-      return { providerKey: entry.key, provider: entry.provider, settings: hit.settings }
+      return {
+        providerKey: entry.key,
+        provider: entry.provider,
+        settings: hit.settings,
+        env: hit.env
+      }
     }
 
     try {
-      const settings = await loader({
+      const { settings, env } = await loader({
         providerKey: entry.key,
         provider: entry.provider,
         distProviderDir,
@@ -292,8 +301,8 @@ export class ProviderSettingsService {
         resolve: this.makeResolver(),
         secrets: this.secrets
       })
-      this.cache.set(entry.key, { settings, mtimeMs, srcPath })
-      return { providerKey: entry.key, provider: entry.provider, settings }
+      this.cache.set(entry.key, { settings, env, mtimeMs, srcPath })
+      return { providerKey: entry.key, provider: entry.provider, settings, env }
     } catch (err) {
       console.warn(
         `[provider-settings] '${entry.key}' settings 해석 실패 — settings 없이 진행:`,

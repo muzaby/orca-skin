@@ -10,6 +10,9 @@
 //   1. settings.env 값의 ${VAR} 확장 (미해결 키는 드롭 + 경고 — claude-env.ts 의 구 정책 계승)
 //   2. secret-store `provider:${providerKey}` 토큰이 있으면 env.ANTHROPIC_API_KEY 로 주입
 //      (UI 로 저장한 토큰이 계속 동작 — handoff 0010 키 규약 유지)
+//
+// 반환은 {settings, env} 분리 쌍 (handoff 0015): settings 는 effective 에서 env 를 뺀 것(flag
+// 레이어 인라인 JSON 으로 argv 노출 — 비밀 불가), env 는 subprocess env 로 따로 흐른다.
 
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -98,10 +101,11 @@ export const loadClaudeProviderSettings: ProviderSettingsLoader = async ({
   const token = secrets?.get(`provider:${providerKey}`)
   if (token !== undefined && token.trim() !== '') env.ANTHROPIC_API_KEY = token
 
-  // 원본 env(미확장 ${VAR})는 항상 확장 결과로 **치환**한다 — 전부 드롭됐어도 미확장 값이
-  // 그대로 SDK 로 새지 않게 키 자체를 비운다.
-  const out: SettingsObject = { ...effective }
-  delete out.env
-  if (Object.keys(env).length > 0) out.env = env
-  return out
+  // settings 와 env 를 분리한다 (handoff 0015). settings 는 effective 에서 env 를 뺀 것 —
+  // flag 레이어(인라인 JSON 문자열)로 argv 에 실리므로 비밀이 들어가면 안 된다. 확장·secret
+  // 주입이 끝난 env(평문 비밀 포함)는 subprocess env 로 따로 흘려보낸다. 미확장 ${VAR} 가
+  // settings.env 로 남아 SDK 로 새는 일도 차단(env 키 자체를 settings 에서 제거).
+  const settings: SettingsObject = { ...effective }
+  delete settings.env
+  return { settings, env }
 }

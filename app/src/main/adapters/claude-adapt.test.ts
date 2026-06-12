@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { join } from 'node:path'
 import {
   makeClaudeHookCallback,
+  adaptEnv,
   adaptHooks,
   adaptMcp,
   adaptSettings,
@@ -11,6 +12,7 @@ import {
   toContext
 } from './claude-adapt'
 import type { NormalizedHookHandler } from '../extensions/hooks'
+import type { ResolvedProviderSettings } from '../settings/provider-settings'
 
 describe('adaptMcp', () => {
   it('빈 config 는 옵션 생략', () => {
@@ -52,22 +54,54 @@ describe('adaptSkills', () => {
   })
 })
 
+function blob(over: Partial<ResolvedProviderSettings> = {}): ResolvedProviderSettings {
+  return {
+    providerKey: 'claude-code-anthropic',
+    provider: 'anthropic',
+    settings: {},
+    env: {},
+    ...over
+  }
+}
+
 describe('adaptSettings', () => {
   it('blob 부재여도 settingSources:[] 격리모드를 유지한다 (handoff 0014)', () => {
     expect(adaptSettings(undefined)).toEqual({ settingSources: [] })
   })
 
   it('빈 settings 객체는 settings 옵션을 생략한다', () => {
-    expect(
-      adaptSettings({ providerKey: 'claude-code-anthropic', provider: 'anthropic', settings: {} })
-    ).toEqual({ settingSources: [] })
+    expect(adaptSettings(blob({ settings: {} }))).toEqual({ settingSources: [] })
   })
 
-  it('settings 가 있으면 flag 레이어(options.settings)로 주입한다', () => {
-    const settings = { env: { ANTHROPIC_BASE_URL: 'https://x' }, model: 'claude-sonnet-4-6' }
-    expect(
-      adaptSettings({ providerKey: 'claude-code-bedrock', provider: 'bedrock', settings })
-    ).toEqual({ settingSources: [], settings })
+  it('settings 가 있으면 **인라인 JSON 문자열**로 직렬화해 주입한다 (handoff 0015)', () => {
+    const settings = { model: 'claude-sonnet-4-6', permissions: { allow: ['Read'] } }
+    const out = adaptSettings(blob({ provider: 'bedrock', settings })) as {
+      settingSources: unknown[]
+      settings: string
+    }
+    expect(out.settingSources).toEqual([])
+    // SDK transport 가 문자열만 지원하므로 객체가 아니라 문자열이어야 한다.
+    expect(typeof out.settings).toBe('string')
+    expect(JSON.parse(out.settings)).toEqual(settings)
+  })
+})
+
+describe('adaptEnv', () => {
+  it('base/blob env 둘 다 없으면 옵션 생략 (SDK 기본 env 상속)', () => {
+    expect(adaptEnv(undefined, undefined)).toEqual({})
+    expect(adaptEnv(undefined, blob({ env: {} }))).toEqual({})
+  })
+
+  it('provider env 가 있으면 base 위에 오버레이해 subprocess env 로 병합한다', () => {
+    const out = adaptEnv({ PATH: '/bin', A: 'base' }, blob({ env: { A: 'prov', B: 'b' } })) as {
+      env: Record<string, string>
+    }
+    // provider env 가 턴 env 를 이긴다 (agent-overlay 정책 계승).
+    expect(out.env).toEqual({ PATH: '/bin', A: 'prov', B: 'b' })
+  })
+
+  it('base 만 있고 provider env 가 없으면 base 를 그대로 넘긴다', () => {
+    expect(adaptEnv({ PATH: '/bin' }, blob({ env: {} }))).toEqual({ env: { PATH: '/bin' } })
   })
 })
 

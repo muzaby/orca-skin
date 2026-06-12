@@ -25,7 +25,14 @@ import type { TurnRequest } from '../extensions/types'
 import type { Resolver } from '../mcp/expand'
 import { toClaudeConfig } from '../mcp/convert'
 import { isRiskyTool } from '../runtime-events/permission-bridge'
-import { adaptHooks, adaptMcp, adaptSettings, adaptSkills, adaptSystemPrompt } from './claude-adapt'
+import {
+  adaptEnv,
+  adaptHooks,
+  adaptMcp,
+  adaptSettings,
+  adaptSkills,
+  adaptSystemPrompt
+} from './claude-adapt'
 import { CLAUDE_DESCRIPTOR } from '../capabilities/claude-probe'
 import type { ProviderDescriptor } from '../../shared/ipc'
 
@@ -162,8 +169,9 @@ export class ClaudeCodeAdapter implements SessionAdapter {
     if (req.signal?.aborted) abortController.abort()
     else req.signal?.addEventListener('abort', onAbort, { once: true })
 
-    // 격리모드 + provider settings 주입 (handoff 0014) — sendMessage 경로와 대칭.
+    // 격리모드 + provider settings 주입 (handoff 0014/0015) — sendMessage 경로와 대칭.
     // 0005 의 "settingSources 미지정(전 소스 로드)" 결정은 본 핸드오프가 명시 폐기했다.
+    // settings 는 인라인 JSON 문자열(adaptSettings), provider env 는 subprocess env(adaptEnv).
     const options: Options = {
       abortController,
       maxTurns: 1,
@@ -171,7 +179,7 @@ export class ClaudeCodeAdapter implements SessionAdapter {
       allowedTools: [],
       persistSession: false,
       ...adaptSettings(req.providerSettings),
-      ...(req.env ? { env: req.env } : {}),
+      ...adaptEnv(req.env, req.providerSettings),
       ...(req.cwd ? { cwd: req.cwd } : {}),
       ...(req.model ? { model: req.model } : {})
     }
@@ -233,10 +241,11 @@ export class ClaudeCodeAdapter implements SessionAdapter {
         ...adaptSystemPrompt(extensions.systemPromptAppend),
         ...adaptMcp(mcpConfig),
         ...adaptSkills(),
-        // provider settings 격리 주입 (handoff 0014) — settings(flag 레이어) + settingSources:[].
-        // provider env(ANTHROPIC_*, CLAUDE_CODE_USE_* 등)는 settings.env 로 SDK 가 적용한다.
+        // provider settings 격리 주입 (handoff 0014/0015) — settings(인라인 JSON 문자열, flag
+        // 레이어) + settingSources:[]. provider env(ANTHROPIC_*, CLAUDE_CODE_USE_* 등)는
+        // adaptEnv 가 턴 env 위에 오버레이해 subprocess env 로 SDK 에 넘긴다(argv 평문 차단).
         ...adaptSettings(req.providerSettings),
-        ...(env ? { env } : {}),
+        ...adaptEnv(env, req.providerSettings),
         ...adaptHooks(extensions.hooks),
         // canUseTool — AskUserQuestion·ExitPlanMode·위험 도구를 requestApproval 로 게이트하고
         // 안전 도구는 allow passthrough. 콜백 미주입(opencode 등) 시 옵션 자체를 생략해 현행

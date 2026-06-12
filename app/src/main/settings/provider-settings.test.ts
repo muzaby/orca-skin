@@ -157,9 +157,12 @@ describe('ProviderSettingsService', () => {
     }
   }
 
-  it('로더에 dist/sources 경로와 resolver 를 위임하고 결과를 blob 으로 돌려준다', async () => {
+  it('로더에 dist/sources 경로와 resolver 를 위임하고 결과를 blob({settings, env})으로 돌려준다', async () => {
     seedDist('anthropic', '{"env":{"A":"1"}}')
-    const loader = vi.fn(async (args) => ({ marker: args.providerKey }))
+    const loader = vi.fn(async (args) => ({
+      settings: { marker: args.providerKey },
+      env: { A: 'expanded' }
+    }))
     const svc = new ProviderSettingsService(
       { 'claude-code': loader },
       () => () => undefined,
@@ -170,7 +173,8 @@ describe('ProviderSettingsService', () => {
     expect(blob).toEqual({
       providerKey: 'claude-code-anthropic',
       provider: 'anthropic',
-      settings: { marker: 'claude-code-anthropic' }
+      settings: { marker: 'claude-code-anthropic' },
+      env: { A: 'expanded' }
     })
     expect(loader.mock.calls[0][0].distProviderDir).toBe(
       join(root, 'dist', 'claude-code', 'anthropic')
@@ -183,7 +187,7 @@ describe('ProviderSettingsService', () => {
   it('mtime 캐시 — 동일 mtime 재호출은 로더를 다시 부르지 않고 invalidateAll 후 재해석한다', async () => {
     const file = seedDist('anthropic', '{}')
     utimesSync(file, new Date(1000), new Date(1000))
-    const loader = vi.fn(async () => ({}))
+    const loader = vi.fn(async () => ({ settings: {}, env: {} }))
     const svc = new ProviderSettingsService(
       { 'claude-code': loader },
       () => () => undefined,

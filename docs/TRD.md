@@ -352,7 +352,12 @@ interface OrcaConfig {
 - 최초 부팅 시 `anthropic/settings.json`(`{"env":{}}`) + meta.json 을 스캐폴드한다(`deploy/scaffold.ts`, 멱등 — 기존 파일 불가침).
 - ExtensionDeployer 가 `dist/<adapter>/<provider>/.claude/settings.json` 으로 복사 배포한다(§ standardization.md §5.2).
 
-**런타임 주입 (격리모드)**: 턴/completion 의 `query()` 는 `settingSources: []`(SDK isolation mode — 사용자 `~/.claude`·프로젝트 `.claude` 미로드)로 실행하고, provider settings 는 SDK `resolveSettings({cwd: dist/<adapter>/<provider>, settingSources: ['project']})`(@alpha, CLI 동일 머지 엔진)로 해석한 effective 객체를 `options.settings`(flag 레이어 — `--settings` 동등)로 주입한다. `filterEscalatingDefaultMode` 로 settings.json 의 escalating `permissions.defaultMode`(bypassPermissions·acceptEdits·auto)는 무력화된다 — **의도된 동작**(권한은 Orca 의 canUseTool 게이트가 담당). 해석·캐시는 `settings/provider-settings.ts` 의 `ProviderSettingsService`(mtime 캐시, deploy 후 무효화), claude 종속 어휘는 `adapters/claude-settings.ts` 에 격리된다. resolveSettings 함수 부재(SDK 버전 변동) 시 flat JSON 읽기로 폴백한다.
+**런타임 주입 (격리모드)**: 턴/completion 의 `query()` 는 `settingSources: []`(SDK isolation mode — 사용자 `~/.claude`·프로젝트 `.claude` 미로드)로 실행하고, provider settings 는 SDK `resolveSettings({cwd: dist/<adapter>/<provider>, settingSources: ['project']})`(@alpha, CLI 동일 머지 엔진)로 해석한 effective 를 주입한다. `filterEscalatingDefaultMode` 로 settings.json 의 escalating `permissions.defaultMode`(bypassPermissions·acceptEdits·auto)는 무력화된다 — **의도된 동작**(권한은 Orca 의 canUseTool 게이트가 담당). 해석·캐시는 `settings/provider-settings.ts` 의 `ProviderSettingsService`(mtime 캐시, deploy 후 무효화), claude 종속 어휘는 `adapters/claude-settings.ts` 에 격리된다. resolveSettings 함수 부재(SDK 버전 변동) 시 flat JSON 읽기로 폴백한다.
+
+주입 채널은 **두 갈래로 분리**한다(handoff 0015):
+
+- **settings(env 제외) → `options.settings`(flag 레이어, `--settings` 동등)에 인라인 JSON 문자열**로 넣는다. SDK 의 `Options.settings` 는 d.ts 상 `string | Settings` 지만 **런타임 transport 는 값을 직렬화 없이 CLI argv 에 그대로 push** 한다(0.3.143~0.3.175 확인). 따라서 객체를 넘기면 spawn 이 `"[object Object]"` 로 강제 변환해 settings 가 적용되지 않으므로 `JSON.stringify` 한 문자열을 넘긴다(CLI `--settings` 는 "JSON 파일 경로 또는 인라인 JSON 문자열" 을 허용 — cli-reference.md).
+- **settings.env → subprocess env(`options.env`)** 로 분리한다. effective 의 `env`(${VAR} 확장·secret 주입 완료)는 argv 로 노출되는 settings 문자열에서 **제외**하고, 턴 env(uv 런타임 + orca.json 앱 env) 위에 오버레이해 spawn env 로 넘긴다 — argv 평문 비밀 노출 차단(security.md §1.4 불변식). 격리모드라 flag-settings.env 와 subprocess env 의 우선순위 충돌은 없다.
 
 > **0005 결정 폐기**: 0005 의 "settingSources 미지정(전 소스 로드)" 은 본 격리모드 도입으로 폐기됐다. 기존에 `~/.claude/settings.json` 의 env(API 키 등)에 의존하던 사용자는 provider settings.json 의 `env` 블록으로 옮겨야 한다. OAuth 자격증명(`~/.claude/.credentials.json`/keychain)은 settings 가 아니라 격리모드와 무관하게 동작해야 하나 실기 검증 대기다(handoff 0014 verify).
 

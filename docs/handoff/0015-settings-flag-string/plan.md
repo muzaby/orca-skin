@@ -92,10 +92,19 @@
 
 ## [Claude 기입] 구현 체크리스트
 
-- [ ] 인수 기준 1~6 구현
-- [ ] 인수 기준 7 게이트 + 테스트
-- [ ] 인수 기준 8 문서
+- [x] 인수 기준 1~6 구현
+- [x] 인수 기준 7 게이트 + 테스트
+- [x] 인수 기준 8 문서
 
 ## [Claude 기입] 구현 보고
 
-(구현 착수 시 기입)
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `settings/provider-settings.ts`(로더 계약·`ResolvedProviderSettings.env`·캐시) · `adapters/claude-settings.ts`(분리 반환) · `adapters/claude-adapt.ts`(`adaptSettings` JSON.stringify + `adaptEnv` 신설) · `adapters/claude-code.ts`(양 경로 `adaptEnv`) + 테스트 3종 · 문서(TRD §6.8 · security.md · standardization.md §5.1) |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `npm test` · `npm run build` |
+| 게이트 결과 | lint ✅ / typecheck ✅(node+web) / test ✅ **375 passed (50 files, 372→+3)** / build ✅ electron-vite |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | (구현 커밋 후 기재) |
+
+- `send.ts`/`title-generation.ts`/`misc.ts`/`turn-registry.ts` 무변경 확인(blob 패스스루) — renderer/IPC 변경 0.
+- 사람 확인 대기 항목은 verify.md 책임 분리표 참조.
