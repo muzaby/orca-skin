@@ -19,7 +19,6 @@ import type {
 } from '@anthropic-ai/claude-agent-sdk'
 import type { ClaudeMcpConfig } from '../mcp/schema'
 import { distPluginDir } from '../config/paths'
-import type { ResolvedProviderSettings } from '../settings/provider-settings'
 import {
   resolveHookDecisions,
   type NormalizedHookContext,
@@ -55,16 +54,6 @@ export function adaptSkills(): object {
     plugins: [{ type: 'local' as const, path: distPluginDir('claude-code') }],
     skills: 'all' as const
   }
-}
-
-// provider settings 의 env 만 Claude SDK subprocess env 로 전달한다. settings.json 의 나머지
-// 키는 query options.settings 로 주입하지 않고, settingSources 도 지정하지 않아 SDK 기본 옵션을
-// 따른다. blob 부재/빈 env 면 undefined 를 반환해 options.env 조각 자체를 생략하게 한다.
-export function adaptProviderEnv(
-  blob?: ResolvedProviderSettings
-): Record<string, string> | undefined {
-  if (!blob?.env || Object.keys(blob.env).length === 0) return undefined
-  return blob.env
 }
 
 // NormalizedHookEvent → claude HookEvent.

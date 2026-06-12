@@ -352,9 +352,9 @@ interface OrcaConfig {
 - 최초 부팅 시 `anthropic/settings.json`(`{"env":{}}`) + meta.json 을 스캐폴드한다(`deploy/scaffold.ts`, 멱등 — 기존 파일 불가침).
 - ExtensionDeployer 가 `dist/<adapter>/<provider>/.claude/settings.json` 으로 복사 배포한다(§ standardization.md §5.2).
 
-**런타임 env 주입**: provider settings 는 SDK `resolveSettings({cwd: dist/<adapter>/<provider>, settingSources: ['project']})`(@alpha, CLI 동일 머지 엔진)로 해석한 effective 객체에서 `env` 만 추출한다. 턴/completion 의 `query()` 에는 `options.settings` 를 주입하지 않고 `settingSources` 도 지정하지 않는다(SDK 기본 소스 정책). 추출된 `ResolvedProviderSettings.env` 는 uv 런타임 env + `orca.json` 앱 전역 env 위에 overlay 되어 `options.env` 로 전달된다. `filterEscalatingDefaultMode` 로 settings.json 의 escalating `permissions.defaultMode`(bypassPermissions·acceptEdits·auto)는 env 추출 전 무력화된다 — **의도된 동작**(권한은 Orca 의 canUseTool 게이트가 담당). 해석·캐시는 `settings/provider-settings.ts` 의 `ProviderSettingsService`(mtime 캐시, deploy 후 무효화), claude 종속 어휘는 `adapters/claude-settings.ts` 에 격리된다. resolveSettings 함수 부재(SDK 버전 변동) 시 flat JSON 읽기로 폴백한다.
+**런타임 local settings materialize**: provider settings 원본(`sources/settings/<adapter>/<provider>/settings.json`)은 턴/completion 시작 직전에 작업 디렉토리의 `.claude/settings.local.json` 으로 복사한다. `query()` 에는 `options.settings` 를 주입하지 않고 `settingSources` 도 지정하지 않는다(SDK 기본 소스 정책). 따라서 Claude Code 의 공식 settings scope/precedence 체계가 `.claude/settings.local.json` 을 읽는다. uv 런타임 env + `orca.json` 앱 전역 env 는 기존처럼 subprocess 베이스(`options.env`)로만 전달하며 provider settings 의 `env` 를 별도로 추출·병합하지 않는다. `ProviderSettingsService` 는 provider 선택과 캐시/진단을 위해 loader 해석 결과를 유지하되, claude-code 어댑터의 런타임 입력은 `ResolvedProviderSettings.sourcesSettingsFile` 을 materialize 하는 방식이다.
 
-> **0014 격리모드 결정 개정**: 0014 의 `query({ settings, settingSources: [] })` 주입은 폐기한다. 공식 Claude Code settings 의 scope/precedence 체계는 SDK 기본 옵션에 맡기고, Orca provider settings 파일은 provider 별 env(예: API 키, Bedrock/Vertex 플래그)를 `options.env` 로 공급하는 원천으로만 사용한다. 기존에 `~/.claude/settings.json` 의 env(API 키 등)에 의존하던 사용자는 provider settings.json 의 `env` 블록으로 옮길 수 있다.
+> **0014 격리모드 결정 개정**: 0014 의 `query({ settings, settingSources: [] })` 주입과 후속 `ResolvedProviderSettings.env → options.env` 주입은 폐기한다. Orca provider settings 파일은 query 옵션 레이어가 아니라 작업 디렉토리의 Claude local settings 파일로 배치된다.
 
 **provider env 레시피** (구 `toClaudeEnv` 매핑 코드는 삭제 — 사용자가 네이티브 env 로 직접 작성):
 
@@ -365,7 +365,7 @@ interface OrcaConfig {
 | vertex | `{ "env": { "CLAUDE_CODE_USE_VERTEX": "1" } }` |
 | 게이트웨이 | `{ "env": { "ANTHROPIC_BASE_URL": "https://gw.example.com", "ANTHROPIC_AUTH_TOKEN": "${GW_TOKEN}" } }` |
 
-`${VAR}` 는 secret-store → `process.env` 순으로 해석 시점에만 확장하며, 미해결 값은 해당 env 키만 드롭한다. secret-store 의 `provider:${providerKey}` 토큰은 해석 시 `env.ANTHROPIC_API_KEY` 로 주입된다(0010 키 규약 유지). orca.json 의 `env` 는 settings 가 아니라 subprocess env 베이스(`options.env`)로 병합된다.
+provider settings 원본은 `.claude/settings.local.json` 으로 복사되므로, 해당 파일의 해석은 Claude Code settings 로더의 책임이다. orca.json 의 `env` 는 settings 가 아니라 subprocess env 베이스(`options.env`)로 병합된다.
 
 ## 7. Backend Adapters (외부 인터페이스 계약)
 

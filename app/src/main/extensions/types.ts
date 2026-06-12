@@ -41,7 +41,7 @@ export interface TurnRequest {
   // 프로세스 env 주입이라 TurnRequest 직속 — router 호출처(ipc/chat/send.ts)에서 조립한다.
   env?: Record<string, string>
   // main(ProviderSettingsService)이 해석 완료한 provider settings blob. claude-code 는
-  // blob.settings 자체를 query options.settings 로 주입하지 않고, blob.env 만 options.env 로 병합한다.
+  // sourcesSettingsFile 을 cwd/.claude/settings.local.json 으로 복사하고 query options.settings 로 주입하지 않는다.
   providerSettings?: ResolvedProviderSettings
   // 해석 완료된 백엔드 모델 이름. family/provider key 어휘는 config 계층에서 소비한다.
   model?: string

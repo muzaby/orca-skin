@@ -170,7 +170,14 @@ describe('ProviderSettingsService', () => {
     expect(blob).toEqual({
       providerKey: 'claude-code-anthropic',
       provider: 'anthropic',
-      env: { A: '1' },
+      sourcesSettingsFile: join(
+        root,
+        'sources',
+        'settings',
+        'claude-code',
+        'anthropic',
+        'settings.json'
+      ),
       settings: { env: { A: '1' }, marker: 'claude-code-anthropic' }
     })
     expect(loader.mock.calls[0][0].distProviderDir).toBe(

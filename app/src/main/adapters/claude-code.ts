@@ -25,14 +25,8 @@ import type { TurnRequest } from '../extensions/types'
 import type { Resolver } from '../mcp/expand'
 import { toClaudeConfig } from '../mcp/convert'
 import { isRiskyTool } from '../runtime-events/permission-bridge'
-import {
-  adaptHooks,
-  adaptMcp,
-  adaptProviderEnv,
-  adaptSkills,
-  adaptSystemPrompt
-} from './claude-adapt'
-import { mergeEnvLayers } from '../settings/provider-settings'
+import { adaptHooks, adaptMcp, adaptSkills, adaptSystemPrompt } from './claude-adapt'
+import { materializeLocalSettings } from './claude-settings-local'
 import { CLAUDE_DESCRIPTOR } from '../capabilities/claude-probe'
 import type { ProviderDescriptor } from '../../shared/ipc'
 
@@ -169,16 +163,16 @@ export class ClaudeCodeAdapter implements SessionAdapter {
     if (req.signal?.aborted) abortController.abort()
     else req.signal?.addEventListener('abort', onAbort, { once: true })
 
-    // provider settings env 는 req.env 위에 overlay 로 병합한다. settings/settingSources 는
-    // query 옵션으로 다루지 않고 SDK 기본 설정 소스 정책을 따른다.
-    const mergedEnv = mergeEnvLayers(req.env, adaptProviderEnv(req.providerSettings) ?? {})
+    // provider settings 는 작업 디렉토리의 .claude/settings.local.json 으로 복사해
+    // Claude Code SDK 기본 settings source 정책으로 읽히게 한다.
+    if (req.cwd) materializeLocalSettings(req.cwd, req.providerSettings)
     const options: Options = {
       abortController,
       maxTurns: 1,
       tools: [],
       allowedTools: [],
       persistSession: false,
-      ...(mergedEnv ? { env: mergedEnv } : {}),
+      ...(req.env ? { env: req.env } : {}),
       ...(req.cwd ? { cwd: req.cwd } : {}),
       ...(req.model ? { model: req.model } : {})
     }
@@ -230,7 +224,7 @@ export class ClaudeCodeAdapter implements SessionAdapter {
     // 턴-스코프 입력 스트림 — close() 까지 미종료(streaming-input.ts 가 불변식 격리).
     const input = createTurnInputStream(text)
 
-    const mergedEnv = mergeEnvLayers(env, adaptProviderEnv(req.providerSettings) ?? {})
+    materializeLocalSettings(cwd, req.providerSettings)
 
     const handle = query({
       prompt: input.stream,
@@ -242,9 +236,9 @@ export class ClaudeCodeAdapter implements SessionAdapter {
         ...adaptSystemPrompt(extensions.systemPromptAppend),
         ...adaptMcp(mcpConfig),
         ...adaptSkills(),
-        // provider settings 에서 해석된 env(ANTHROPIC_*, CLAUDE_CODE_USE_* 등)는
-        // options.env 로 전달한다. settings/settingSources 는 query 옵션에 주입하지 않는다.
-        ...(mergedEnv ? { env: mergedEnv } : {}),
+        // provider settings 는 cwd/.claude/settings.local.json 으로 materialize 한다.
+        // options.settings/settingSources 는 query 옵션에 주입하지 않는다.
+        ...(env ? { env } : {}),
         ...adaptHooks(extensions.hooks),
         // canUseTool — AskUserQuestion·ExitPlanMode·위험 도구를 requestApproval 로 게이트하고
         // 안전 도구는 allow passthrough. 콜백 미주입(opencode 등) 시 옵션 자체를 생략해 현행

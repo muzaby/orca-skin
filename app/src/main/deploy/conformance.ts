@@ -28,8 +28,8 @@ export interface StandardConformance {
   settings: {
     // provider 별 settings 파일을 dist/<engine>/<provider>/ 로 분리 배포하는가 (handoff 0014).
     perProvider: boolean
-    // 런타임 주입 메커니즘. claude = provider settings env 를 SDK Options.env 로 주입.
-    mechanism: 'sdk_options_env' | 'native_config_file' | 'none'
+    // 런타임 주입 메커니즘. claude = provider settings 를 cwd .claude/settings.local.json 으로 복사.
+    mechanism: 'cwd_settings_local_file' | 'native_config_file' | 'none'
   }
 }
 
@@ -59,9 +59,9 @@ const claudeCodeConformance: StandardConformance = {
   },
   settings: {
     perProvider: true,
-    // resolveSettings({cwd: dist/<engine>/<provider>}) 로 로드한 effective 에서 env 만 추출해
-    // query options.env 로 병합한다. options.settings/settingSources 는 주입하지 않는다.
-    mechanism: 'sdk_options_env'
+    // sources settings.json 원본을 query cwd 의 .claude/settings.local.json 으로 복사하고,
+    // options.settings/settingSources/provider env 는 query 옵션에 주입하지 않는다.
+    mechanism: 'cwd_settings_local_file'
   }
 }
 

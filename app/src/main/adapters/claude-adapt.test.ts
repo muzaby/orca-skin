@@ -4,7 +4,6 @@ import {
   makeClaudeHookCallback,
   adaptHooks,
   adaptMcp,
-  adaptProviderEnv,
   adaptSkills,
   adaptSystemPrompt,
   toClaudeHookOutput,
@@ -49,27 +48,6 @@ describe('adaptSkills', () => {
     expect(out.plugins[0].type).toBe('local')
     expect(out.plugins[0].path.endsWith(join('dist', 'claude-code', 'plugin'))).toBe(true)
     expect(out.skills).toBe('all')
-  })
-})
-
-describe('adaptProviderEnv', () => {
-  it('blob 부재 또는 빈 env 는 options.env 를 생략한다', () => {
-    expect(adaptProviderEnv(undefined)).toBeUndefined()
-    expect(
-      adaptProviderEnv({
-        providerKey: 'claude-code-anthropic',
-        provider: 'anthropic',
-        settings: {}
-      })
-    ).toBeUndefined()
-  })
-
-  it('ResolvedProviderSettings.env 만 반환하고 settings/settingSources 는 다루지 않는다', () => {
-    const env = { ANTHROPIC_BASE_URL: 'https://x' }
-    const settings = { env, model: 'claude-sonnet-4-6' }
-    expect(
-      adaptProviderEnv({ providerKey: 'claude-code-bedrock', provider: 'bedrock', env, settings })
-    ).toBe(env)
   })
 })
 

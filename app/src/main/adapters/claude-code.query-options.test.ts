@@ -1,4 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 const sdkMock = vi.hoisted(() => ({
   query: vi.fn(),
@@ -20,6 +23,8 @@ vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
 
 import { ClaudeCodeAdapter } from './claude-code'
 
+let root: string
+
 function extensions(): {
   mcp: Record<string, never>
   skills: []
@@ -32,34 +37,43 @@ function extensions(): {
   }
 }
 
-describe('ClaudeCodeAdapter query provider env options', () => {
+describe('ClaudeCodeAdapter query provider settings materialization', () => {
   beforeEach(() => {
+    root = mkdtempSync(join(tmpdir(), 'orca-claude-query-options-'))
     sdkMock.query.mockReset()
     sdkMock.query.mockReturnValue(sdkMock.handle)
   })
 
-  it('sendMessage 는 provider env 를 options.env 로 병합하고 settings/settingSources 를 주입하지 않는다', () => {
+  afterEach(() => {
+    rmSync(root, { recursive: true, force: true })
+  })
+
+  it('sendMessage 는 source settings 를 cwd/.claude/settings.local.json 으로 복사하고 settings/settingSources 를 주입하지 않는다', () => {
+    const cwd = join(root, 'work')
+    const source = join(root, 'sources', 'settings', 'claude-code', 'bedrock', 'settings.json')
+    mkdirSync(join(source, '..'), { recursive: true })
+    writeFileSync(source, '{"env":{"CLAUDE_CODE_USE_BEDROCK":"1"}}', 'utf8')
+
     const adapter = new ClaudeCodeAdapter(() => () => undefined)
     adapter.sendMessage({
       sessionId: null,
       text: 'hello',
-      cwd: '/tmp/orca',
+      cwd,
       extensions: extensions(),
-      env: { PATH: '/bin', A: 'base' },
+      env: { PATH: '/bin' },
       providerSettings: {
         providerKey: 'claude-code-bedrock',
         provider: 'bedrock',
-        env: { A: 'provider', CLAUDE_CODE_USE_BEDROCK: '1' },
-        settings: { env: { A: 'provider', CLAUDE_CODE_USE_BEDROCK: '1' }, model: 'ignored' }
+        sourcesSettingsFile: source,
+        settings: { env: { CLAUDE_CODE_USE_BEDROCK: '1' } }
       }
     })
 
+    expect(readFileSync(join(cwd, '.claude', 'settings.local.json'), 'utf8')).toBe(
+      '{"env":{"CLAUDE_CODE_USE_BEDROCK":"1"}}'
+    )
     const options = sdkMock.query.mock.calls[0][0].options
-    expect(options.env).toMatchObject({
-      PATH: '/bin',
-      A: 'provider',
-      CLAUDE_CODE_USE_BEDROCK: '1'
-    })
+    expect(options.env).toEqual({ PATH: '/bin' })
     expect(options).not.toHaveProperty('settings')
     expect(options).not.toHaveProperty('settingSources')
   })
