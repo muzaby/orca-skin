@@ -6,9 +6,9 @@
 // adapters/claude-settings.ts, 미래 opencode 로더는 자기 포맷을 그대로 해석해 같은 blob 으로
 // 돌려주면 된다 (정규화 0 — settings 스키마는 어댑터-네이티브 그대로 흐른다).
 //
-// 캐시: providerKey → {settings, mtimeMs}. dist 파일 mtime 변화 시 재해석, deploy 후
-// invalidateAll(). 비밀 확장은 로더 내부(해석 시점)에서만 — 디스크/캐시 외부로 평문이
-// 새지 않게 caller 는 blob 을 query 옵션 주입에만 쓴다.
+// 캐시: providerKey → {settings, env, mtimeMs}. dist 파일 mtime 변화 시 재해석, deploy 후
+// invalidateAll(). 비밀 확장은 로더 내부(해석 시점)에서만 — caller 는 해석된 env 를
+// query options.env 로만 주입하고 settings blob 자체는 query 옵션으로 넘기지 않는다.
 
 import { existsSync, readdirSync, readFileSync, statSync, type Dirent } from 'node:fs'
 import { join } from 'node:path'
@@ -42,12 +42,14 @@ export interface ProviderEntry {
   models: OrcaModelConfig[]
 }
 
-// 해석 완료된 provider settings — TurnRequest/CompleteRequest 로 어댑터에 전달되는 불투명 blob.
-// settings 는 어댑터-네이티브 스키마(claude-code = Claude settings.json effective)이며 env 값의
-// ${VAR} 확장·secret 주입이 끝난 상태다.
+// 해석 완료된 provider settings — TurnRequest/CompleteRequest 로 어댑터에 전달된다.
+// env 는 어댑터 로더가 settings.json 에서 추출·확장·secret 주입까지 끝낸 값이며,
+// claude-code 어댑터는 query options.env 로만 전달한다. settings 는 캐시/진단용 원본 effective
+// 객체일 뿐 query options.settings 로 다루지 않는다.
 export interface ResolvedProviderSettings {
   providerKey: string
   provider: string
+  env?: Record<string, string>
   settings: Record<string, unknown>
 }
 
@@ -209,6 +211,16 @@ export function expandEnvRecord(
   return { env: out, missing: [...missing] }
 }
 
+function envRecordOf(settings: Record<string, unknown>): Record<string, string> {
+  const env = settings.env
+  if (typeof env !== 'object' || env === null || Array.isArray(env)) return {}
+  const out: Record<string, string> = {}
+  for (const [key, value] of Object.entries(env)) {
+    if (typeof value === 'string') out[key] = value
+  }
+  return out
+}
+
 function processEnvRecord(): Record<string, string> {
   const out: Record<string, string> = {}
   for (const [key, value] of Object.entries(process.env)) {
@@ -231,6 +243,7 @@ export function mergeEnvLayers(
 
 interface CacheEntry {
   settings: Record<string, unknown>
+  env?: Record<string, string>
   mtimeMs: number
   srcPath: string
 }
@@ -259,7 +272,7 @@ export class ProviderSettingsService {
   }
 
   // entry 의 settings 를 해석해 blob 으로 반환. 로더 미등록 어댑터(미래 opencode 전 단계)는
-  // undefined — caller 는 settings 없이 진행한다(격리모드 유지). 해석 실패도 동일(경고 후).
+  // undefined — caller 는 provider env 없이 SDK 기본 설정 정책으로 진행한다. 해석 실패도 동일(경고 후).
   async resolve(entry: ProviderEntry): Promise<ResolvedProviderSettings | undefined> {
     const loader = this.loaders[entry.adapter]
     if (!loader) return undefined
@@ -280,7 +293,12 @@ export class ProviderSettingsService {
     const mtimeMs = statMtime(srcPath)
     const hit = this.cache.get(entry.key)
     if (hit && hit.srcPath === srcPath && hit.mtimeMs === mtimeMs) {
-      return { providerKey: entry.key, provider: entry.provider, settings: hit.settings }
+      return {
+        providerKey: entry.key,
+        provider: entry.provider,
+        ...(hit.env ? { env: hit.env } : {}),
+        settings: hit.settings
+      }
     }
 
     try {
@@ -292,8 +310,20 @@ export class ProviderSettingsService {
         resolve: this.makeResolver(),
         secrets: this.secrets
       })
-      this.cache.set(entry.key, { settings, mtimeMs, srcPath })
-      return { providerKey: entry.key, provider: entry.provider, settings }
+      const env = envRecordOf(settings)
+      const resolved = {
+        providerKey: entry.key,
+        provider: entry.provider,
+        ...(Object.keys(env).length > 0 ? { env } : {}),
+        settings
+      }
+      this.cache.set(entry.key, {
+        settings,
+        ...(resolved.env ? { env: resolved.env } : {}),
+        mtimeMs,
+        srcPath
+      })
+      return resolved
     } catch (err) {
       console.warn(
         `[provider-settings] '${entry.key}' settings 해석 실패 — settings 없이 진행:`,

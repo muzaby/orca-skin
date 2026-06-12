@@ -42,7 +42,7 @@ export interface SessionAdapter {
 
 ```typescript
 import { query } from '@anthropic-ai/claude-agent-sdk'
-import { adaptMcp, adaptSystemPrompt, adaptSettings, adaptSkills, adaptHooks } from './claude-adapt'
+import { adaptMcp, adaptSystemPrompt, adaptProviderEnv, adaptSkills, adaptHooks } from './claude-adapt'
 
 async function* sendMessage(sessionId, text, cwd, caps, resolvedMcp, signal) {
   try {
@@ -53,7 +53,7 @@ async function* sendMessage(sessionId, text, cwd, caps, resolvedMcp, signal) {
       ...adaptMcp(resolvedMcp),            // mcpServers + allowedTools (빈 config면 생략)
       ...adaptSystemPrompt(caps.systemPromptAppend), // systemPrompt preset:claude_code + append
       ...adaptSkills(),                    // plugins:[{type:'local', path:dist/claude-code/plugin}] + skills:'all'
-      ...adaptSettings(req.providerSettings), // settings(flag 레이어) + settingSources:[] 격리 (0014, TRD §6.8)
+      env: mergeEnvLayers(req.env, adaptProviderEnv(req.providerSettings) ?? {}), // provider env → options.env
       ...adaptHooks(caps.hooks),           // PreToolUse / PostToolUse / UserPromptSubmit hook 콜백
     }
     for await (const msg of query({ prompt: text, options: opts })) {
@@ -65,7 +65,7 @@ async function* sendMessage(sessionId, text, cwd, caps, resolvedMcp, signal) {
 }
 ```
 
-`adaptMcp` 는 활성 서버가 없으면 옵션 자체를 빈 객체로 반환(생략). `allowedTools` 는 `mcp__<name>__*` 와일드카드로 서버 전체 도구 자동 허용 — `canUseTool` 미도입(Phase 4 anchor) 환경에서 도구 호출 차단 방지. `adaptSettings` 는 blob 부재여도 `settingSources: []`(SDK isolation mode)를 항상 반환한다 — Orca 세션의 설정 원천은 `dist/<engine>/<provider>/` 단일 출처(해석은 `adapters/claude-settings.ts` 의 `loadClaudeProviderSettings` — SDK `resolveSettings` + `filterEscalatingDefaultMode` + env `${VAR}` 확장·secret 주입, 캐시는 `settings/provider-settings.ts`).
+`adaptMcp` 는 활성 서버가 없으면 옵션 자체를 빈 객체로 반환(생략). `allowedTools` 는 `mcp__<name>__*` 와일드카드로 서버 전체 도구 자동 허용 — `canUseTool` 미도입(Phase 4 anchor) 환경에서 도구 호출 차단 방지. `adaptProviderEnv` 는 `ResolvedProviderSettings.env` 만 반환한다 — query 에 `options.settings`/`settingSources` 를 주입하지 않고, provider settings 의 env 만 `options.env` 로 병합한다(해석은 `adapters/claude-settings.ts` 의 `loadClaudeProviderSettings` — SDK `resolveSettings` + `filterEscalatingDefaultMode` + env `${VAR}` 확장·secret 주입, 캐시는 `settings/provider-settings.ts`).
 
 ### 1.4 CapabilityBuilder (백엔드 중립 보조기능 조립)
 
@@ -172,7 +172,7 @@ opencode 등 다중 어댑터 환경 대비:
 **플러그인 마테리얼라이즈** (구 `skills/plugin-bundle.ts` 의 `ensureOrcaPlugin()` 은 ExtensionDeployer 로 흡수 — standardization.md §5.2):
 - ExtensionDeployer 가 `dist/claude-code/plugin/.claude-plugin/plugin.json` + skills/agents/commands/hooks 를 렌더해 그 디렉토리를 **Claude 로컬 플러그인**으로 마테리얼라이즈 (0014 — provider 디렉토리 `dist/claude-code/<provider>/` 와 분리).
 - `adaptSkills()` (§1.3) 이 `plugins:[{type:'local', path:dist/claude-code/plugin}]` + `skills:'all'` 로 로드하면 `skills/`, `agents/`, `commands/` 가 자동 로드됨.
-- MCP 는 `options.mcpServers` 로 별도 주입 (이중 주입 없음). settings.json 은 플러그인 스펙 밖이라 provider 디렉토리에서 `options.settings` 로 주입 (TRD §6.8).
+- MCP 는 `options.mcpServers` 로 별도 주입 (이중 주입 없음). settings.json 은 플러그인 스펙 밖이라 provider 디렉토리에서 해석한 `env` 만 `options.env` 로 병합 (TRD §6.8).
 
 ### 2.2 어댑터별 Skills 경로 분리 (Future 채택 결정)
 

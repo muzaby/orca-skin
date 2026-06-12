@@ -21,8 +21,8 @@ export interface CompleteRequest {
   model?: string
   cwd?: string
   signal?: AbortSignal
-  // 해석 완료 provider settings (handoff 0014). 자동 제목 생성 complete 경로도 sendMessage 와
-  // 같은 provider settings/격리모드를 쓴다 (대칭 — 0005 의 "settingSources 미지정" 결정 폐기).
+  // 해석 완료 provider settings. 자동 제목 생성 complete 경로도 sendMessage 와 같은
+  // provider env 병합 정책을 쓴다(settings/settingSources query 주입 없음).
   providerSettings?: ResolvedProviderSettings
   // subprocess env (orca.json 앱 전역 env). sendMessage 경로와 동일 조립 결과를 받는다.
   env?: Record<string, string>

@@ -40,9 +40,8 @@ export interface TurnRequest {
   // subprocess env (uv 런타임 + orca.json 앱 전역 env 병합 결과). 확장 묶음이 아니라 자식
   // 프로세스 env 주입이라 TurnRequest 직속 — router 호출처(ipc/chat/send.ts)에서 조립한다.
   env?: Record<string, string>
-  // main(ProviderSettingsService)이 해석 완료한 provider settings blob (handoff 0014).
-  // 어댑터-네이티브 스키마 그대로이며 어댑터는 자기 query 옵션에 꽂기만 한다
-  // (claude-code = options.settings + settingSources:[] 격리 — adaptSettings).
+  // main(ProviderSettingsService)이 해석 완료한 provider settings blob. claude-code 는
+  // blob.settings 자체를 query options.settings 로 주입하지 않고, blob.env 만 options.env 로 병합한다.
   providerSettings?: ResolvedProviderSettings
   // 해석 완료된 백엔드 모델 이름. family/provider key 어휘는 config 계층에서 소비한다.
   model?: string

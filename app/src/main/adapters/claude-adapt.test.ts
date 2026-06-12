@@ -4,7 +4,7 @@ import {
   makeClaudeHookCallback,
   adaptHooks,
   adaptMcp,
-  adaptSettings,
+  adaptProviderEnv,
   adaptSkills,
   adaptSystemPrompt,
   toClaudeHookOutput,
@@ -52,22 +52,24 @@ describe('adaptSkills', () => {
   })
 })
 
-describe('adaptSettings', () => {
-  it('blob 부재여도 settingSources:[] 격리모드를 유지한다 (handoff 0014)', () => {
-    expect(adaptSettings(undefined)).toEqual({ settingSources: [] })
+describe('adaptProviderEnv', () => {
+  it('blob 부재 또는 빈 env 는 options.env 를 생략한다', () => {
+    expect(adaptProviderEnv(undefined)).toBeUndefined()
+    expect(
+      adaptProviderEnv({
+        providerKey: 'claude-code-anthropic',
+        provider: 'anthropic',
+        settings: {}
+      })
+    ).toBeUndefined()
   })
 
-  it('빈 settings 객체는 settings 옵션을 생략한다', () => {
+  it('ResolvedProviderSettings.env 만 반환하고 settings/settingSources 는 다루지 않는다', () => {
+    const env = { ANTHROPIC_BASE_URL: 'https://x' }
+    const settings = { env, model: 'claude-sonnet-4-6' }
     expect(
-      adaptSettings({ providerKey: 'claude-code-anthropic', provider: 'anthropic', settings: {} })
-    ).toEqual({ settingSources: [] })
-  })
-
-  it('settings 가 있으면 flag 레이어(options.settings)로 주입한다', () => {
-    const settings = { env: { ANTHROPIC_BASE_URL: 'https://x' }, model: 'claude-sonnet-4-6' }
-    expect(
-      adaptSettings({ providerKey: 'claude-code-bedrock', provider: 'bedrock', settings })
-    ).toEqual({ settingSources: [], settings })
+      adaptProviderEnv({ providerKey: 'claude-code-bedrock', provider: 'bedrock', env, settings })
+    ).toBe(env)
   })
 })
 

@@ -182,7 +182,7 @@ export function deploy(
   actions.push('copy skills/agents/commands/hooks')
 
   // provider settings — 검증 통과한 provider 만. settings.json 부재 디렉토리도 provider 로
-  // 인정하되 dist 파일은 만들지 않는다(런타임 격리모드에서 settings 없이 동작).
+  // 인정하되 dist 파일은 만들지 않는다(런타임에서 provider env 없이 SDK 기본 정책으로 동작).
   for (const provider of settingsScan.providers) {
     const src = join(sources, 'settings', engine, provider, 'settings.json')
     if (!existsSync(src)) continue

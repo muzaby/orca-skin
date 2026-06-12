@@ -159,7 +159,7 @@ describe('ProviderSettingsService', () => {
 
   it('로더에 dist/sources 경로와 resolver 를 위임하고 결과를 blob 으로 돌려준다', async () => {
     seedDist('anthropic', '{"env":{"A":"1"}}')
-    const loader = vi.fn(async (args) => ({ marker: args.providerKey }))
+    const loader = vi.fn(async (args) => ({ env: { A: '1' }, marker: args.providerKey }))
     const svc = new ProviderSettingsService(
       { 'claude-code': loader },
       () => () => undefined,
@@ -170,7 +170,8 @@ describe('ProviderSettingsService', () => {
     expect(blob).toEqual({
       providerKey: 'claude-code-anthropic',
       provider: 'anthropic',
-      settings: { marker: 'claude-code-anthropic' }
+      env: { A: '1' },
+      settings: { env: { A: '1' }, marker: 'claude-code-anthropic' }
     })
     expect(loader.mock.calls[0][0].distProviderDir).toBe(
       join(root, 'dist', 'claude-code', 'anthropic')

@@ -57,17 +57,14 @@ export function adaptSkills(): object {
   }
 }
 
-// provider settings 격리 주입 (handoff 0014). 해석 완료 blob 을 flag settings 레이어
-// (options.settings — CLI --settings 동등, 사용자 제어 설정 중 최우선)로 넘기고,
-// settingSources:[] 로 사용자 ~/.claude·프로젝트 .claude 를 차단한다(SDK isolation mode).
-// blob 부재(미등록 어댑터 폴백 등)여도 격리모드는 유지 — Orca 세션의 설정 원천은 항상
-// dist/<engine>/<provider>/ 단일 출처다. (CLAUDE.md 는 'project' 소스 없이도 Orca 가
-// systemPromptAppend 로 지침을 주입하므로 영향 없음.)
-export function adaptSettings(blob?: ResolvedProviderSettings): object {
-  return {
-    settingSources: [],
-    ...(blob && Object.keys(blob.settings).length > 0 ? { settings: blob.settings } : {})
-  }
+// provider settings 의 env 만 Claude SDK subprocess env 로 전달한다. settings.json 의 나머지
+// 키는 query options.settings 로 주입하지 않고, settingSources 도 지정하지 않아 SDK 기본 옵션을
+// 따른다. blob 부재/빈 env 면 undefined 를 반환해 options.env 조각 자체를 생략하게 한다.
+export function adaptProviderEnv(
+  blob?: ResolvedProviderSettings
+): Record<string, string> | undefined {
+  if (!blob?.env || Object.keys(blob.env).length === 0) return undefined
+  return blob.env
 }
 
 // NormalizedHookEvent → claude HookEvent.

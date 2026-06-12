@@ -25,7 +25,14 @@ import type { TurnRequest } from '../extensions/types'
 import type { Resolver } from '../mcp/expand'
 import { toClaudeConfig } from '../mcp/convert'
 import { isRiskyTool } from '../runtime-events/permission-bridge'
-import { adaptHooks, adaptMcp, adaptSettings, adaptSkills, adaptSystemPrompt } from './claude-adapt'
+import {
+  adaptHooks,
+  adaptMcp,
+  adaptProviderEnv,
+  adaptSkills,
+  adaptSystemPrompt
+} from './claude-adapt'
+import { mergeEnvLayers } from '../settings/provider-settings'
 import { CLAUDE_DESCRIPTOR } from '../capabilities/claude-probe'
 import type { ProviderDescriptor } from '../../shared/ipc'
 
@@ -162,16 +169,16 @@ export class ClaudeCodeAdapter implements SessionAdapter {
     if (req.signal?.aborted) abortController.abort()
     else req.signal?.addEventListener('abort', onAbort, { once: true })
 
-    // 격리모드 + provider settings 주입 (handoff 0014) — sendMessage 경로와 대칭.
-    // 0005 의 "settingSources 미지정(전 소스 로드)" 결정은 본 핸드오프가 명시 폐기했다.
+    // provider settings env 는 req.env 위에 overlay 로 병합한다. settings/settingSources 는
+    // query 옵션으로 다루지 않고 SDK 기본 설정 소스 정책을 따른다.
+    const mergedEnv = mergeEnvLayers(req.env, adaptProviderEnv(req.providerSettings) ?? {})
     const options: Options = {
       abortController,
       maxTurns: 1,
       tools: [],
       allowedTools: [],
       persistSession: false,
-      ...adaptSettings(req.providerSettings),
-      ...(req.env ? { env: req.env } : {}),
+      ...(mergedEnv ? { env: mergedEnv } : {}),
       ...(req.cwd ? { cwd: req.cwd } : {}),
       ...(req.model ? { model: req.model } : {})
     }
@@ -223,6 +230,8 @@ export class ClaudeCodeAdapter implements SessionAdapter {
     // 턴-스코프 입력 스트림 — close() 까지 미종료(streaming-input.ts 가 불변식 격리).
     const input = createTurnInputStream(text)
 
+    const mergedEnv = mergeEnvLayers(env, adaptProviderEnv(req.providerSettings) ?? {})
+
     const handle = query({
       prompt: input.stream,
       options: {
@@ -233,10 +242,9 @@ export class ClaudeCodeAdapter implements SessionAdapter {
         ...adaptSystemPrompt(extensions.systemPromptAppend),
         ...adaptMcp(mcpConfig),
         ...adaptSkills(),
-        // provider settings 격리 주입 (handoff 0014) — settings(flag 레이어) + settingSources:[].
-        // provider env(ANTHROPIC_*, CLAUDE_CODE_USE_* 등)는 settings.env 로 SDK 가 적용한다.
-        ...adaptSettings(req.providerSettings),
-        ...(env ? { env } : {}),
+        // provider settings 에서 해석된 env(ANTHROPIC_*, CLAUDE_CODE_USE_* 등)는
+        // options.env 로 전달한다. settings/settingSources 는 query 옵션에 주입하지 않는다.
+        ...(mergedEnv ? { env: mergedEnv } : {}),
         ...adaptHooks(extensions.hooks),
         // canUseTool — AskUserQuestion·ExitPlanMode·위험 도구를 requestApproval 로 게이트하고
         // 안전 도구는 allow passthrough. 콜백 미주입(opencode 등) 시 옵션 자체를 생략해 현행
