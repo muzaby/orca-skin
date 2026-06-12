@@ -104,7 +104,7 @@
 | 실행 명령 | `npm run lint` · `npm run typecheck` · `npm test` · `npm run build` |
 | 게이트 결과 | lint ✅ / typecheck ✅(node+web) / test ✅ **375 passed (50 files, 372→+3)** / build ✅ electron-vite |
 | 블로커 / 역질문 | 없음 |
-| 대상 커밋 | (구현 커밋 후 기재) |
+| 대상 커밋 | `210f0ac` |
 
 - `send.ts`/`title-generation.ts`/`misc.ts`/`turn-registry.ts` 무변경 확인(blob 패스스루) — renderer/IPC 변경 0.
 - 사람 확인 대기 항목은 verify.md 책임 분리표 참조.
