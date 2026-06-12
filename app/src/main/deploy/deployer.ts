@@ -4,10 +4,15 @@
 //
 // claude-code 축별 동작:
 //   instructions : AGENTS.md 는 런타임 systemPromptAppend 로 주입(ExtensionBuilder) → dist 파일 미생성(중립).
-//   skills/agents/commands : sources/ → dist/<engine>/ 로 **복사**(심링크 아님 — 샌드박스 이슈 회피).
+//   skills/agents/commands : sources/ → dist/<engine>/plugin/ 으로 **복사**(심링크 아님 — 샌드박스 이슈 회피).
 //   mcp : claude 는 MCP 를 파일이 아니라 query() options 로 런타임 주입 → 여기선 **키 이름 검증만**.
-//   hooks : sources/hooks/<engine>/ → dist/<engine>/hooks 로 **변환 없이 복사만**(표준 부재 §2).
-//   manifest : dist/<engine>/.claude-plugin/plugin.json 작성(claude 로컬 플러그인 루트).
+//   hooks : sources/hooks/<engine>/ → dist/<engine>/plugin/hooks 로 **변환 없이 복사만**(표준 부재 §2).
+//   manifest : dist/<engine>/plugin/.claude-plugin/plugin.json 작성(claude 로컬 플러그인 루트).
+//   settings : sources/settings/<engine>/<provider>/settings.json → dist/<engine>/<provider>/.claude/
+//              settings.json 으로 **복사**(handoff 0014). 플러그인 스펙엔 settings.json 이 없으므로
+//              플러그인 루트(plugin/) 밖 provider 디렉토리에 두고, 런타임은 SDK resolveSettings 의
+//              project 소스 고정 경로(<cwd>/.claude/settings.json)에 맞춰 cwd 로 이 디렉토리를 넘긴다.
+//              meta.json(어댑터당 1개, Orca 메타)은 dist 로 가지 않는다 — sources 에서 직접 읽는다.
 //
 // dist/<engine> 는 편집 대상이 아니다. 무단 덮어쓰기를 막기 위해 기록 전 항상 백업한다(.bak 1개 롤링).
 // 레이아웃은 paths.ts 의 sources*/dist* 헬퍼와 일치해야 한다 — 본 함수는 테스트 용이성을 위해 root 를
@@ -20,7 +25,9 @@ import {
   cpSync,
   rmSync,
   renameSync,
-  readFileSync
+  readFileSync,
+  readdirSync,
+  type Dirent
 } from 'node:fs'
 import { join } from 'node:path'
 import type { Backend } from '../../shared/ipc'
@@ -39,6 +46,8 @@ export interface DeployResult {
 }
 
 const MCP_KEY_RE = /^[A-Za-z0-9_-]+$/
+// provider 디렉토리 이름 = providerKey(`${adapter}-${provider}`)의 구성 요소 — MCP 키와 동일 제약.
+const PROVIDER_NAME_RE = /^[A-Za-z0-9_-]+$/
 
 // MCP 서버 키 이름 검증(잘못된 키는 엔진이 조용히 무시할 수 있으므로). 파일 부재/손상은 ok(서버 0).
 function validateMcp(mcpJson: string): { ok: boolean; errors: string[] } {
@@ -72,6 +81,40 @@ function copyDir(src: string, dest: string): void {
   }
 }
 
+// sources/settings/<engine>/ 의 provider 디렉토리 열거 + settings.json 검증. 이름 위반/JSON 파싱
+// 실패는 해당 provider 만 에러에 추가하고 나머지는 계속 배포한다 (3단 관용 — 항목 단위 격리).
+function scanProviderSettings(settingsRoot: string): {
+  providers: string[]
+  errors: string[]
+} {
+  const providers: string[] = []
+  const errors: string[] = []
+  let entries: Dirent[]
+  try {
+    entries = readdirSync(settingsRoot, { withFileTypes: true })
+  } catch {
+    return { providers, errors } // settings 소스 부재 = provider 0 (정상)
+  }
+  for (const entry of entries) {
+    if (!entry.isDirectory()) continue
+    if (!PROVIDER_NAME_RE.test(entry.name)) {
+      errors.push(`provider 디렉토리 '${entry.name}' 는 [A-Za-z0-9_-] 만 허용됩니다.`)
+      continue
+    }
+    const settingsPath = join(settingsRoot, entry.name, 'settings.json')
+    if (existsSync(settingsPath)) {
+      try {
+        JSON.parse(readFileSync(settingsPath, 'utf8'))
+      } catch {
+        errors.push(`settings/${entry.name}/settings.json 파싱 실패 — JSON 형식을 확인하세요.`)
+        continue
+      }
+    }
+    providers.push(entry.name)
+  }
+  return { providers, errors }
+}
+
 export function deploy(
   engine: Backend,
   opts: DeployOptions = {},
@@ -80,16 +123,23 @@ export function deploy(
   const dryRun = !!opts.dryRun
   const sources = join(root, 'sources')
   const dist = join(root, 'dist', engine)
+  const plugin = join(dist, 'plugin')
   const actions: string[] = []
 
-  const validation = validateMcp(join(sources, 'mcp', 'mcp.json'))
+  const mcpValidation = validateMcp(join(sources, 'mcp', 'mcp.json'))
+  const settingsScan = scanProviderSettings(join(sources, 'settings', engine))
+  const validation = {
+    ok: mcpValidation.ok && settingsScan.errors.length === 0,
+    errors: [...mcpValidation.errors, ...settingsScan.errors]
+  }
 
   if (dryRun) {
     actions.push(
       `validate mcp keys (${validation.ok ? 'ok' : validation.errors.length + ' error(s)'})`
     )
     if (existsSync(dist)) actions.push(`backup ${dist} → ${dist}.bak`)
-    actions.push('render manifest + copy skills/agents/commands/hooks → dist')
+    actions.push('render manifest + copy skills/agents/commands/hooks → dist/plugin')
+    actions.push(`copy settings (${settingsScan.providers.length} provider(s))`)
     return { engine, dryRun, actions, backedUp: false, validation }
   }
 
@@ -108,10 +158,10 @@ export function deploy(
     }
   }
 
-  // manifest (claude 로컬 플러그인 루트).
-  mkdirSync(join(dist, '.claude-plugin'), { recursive: true })
+  // manifest (claude 로컬 플러그인 루트 = dist/<engine>/plugin/).
+  mkdirSync(join(plugin, '.claude-plugin'), { recursive: true })
   writeFileSync(
-    join(dist, '.claude-plugin', 'plugin.json'),
+    join(plugin, '.claude-plugin', 'plugin.json'),
     JSON.stringify(
       {
         name: 'orca',
@@ -125,11 +175,22 @@ export function deploy(
   )
   actions.push('write manifest')
 
-  copyDir(join(sources, 'skills'), join(dist, 'skills'))
-  copyDir(join(sources, 'agents'), join(dist, 'agents'))
-  copyDir(join(sources, 'commands'), join(dist, 'commands'))
-  copyDir(join(sources, 'hooks', engine), join(dist, 'hooks'))
+  copyDir(join(sources, 'skills'), join(plugin, 'skills'))
+  copyDir(join(sources, 'agents'), join(plugin, 'agents'))
+  copyDir(join(sources, 'commands'), join(plugin, 'commands'))
+  copyDir(join(sources, 'hooks', engine), join(plugin, 'hooks'))
   actions.push('copy skills/agents/commands/hooks')
+
+  // provider settings — 검증 통과한 provider 만. settings.json 부재 디렉토리도 provider 로
+  // 인정하되 dist 파일은 만들지 않는다(런타임 격리모드에서 settings 없이 동작).
+  for (const provider of settingsScan.providers) {
+    const src = join(sources, 'settings', engine, provider, 'settings.json')
+    if (!existsSync(src)) continue
+    const destDir = join(dist, provider, '.claude')
+    mkdirSync(destDir, { recursive: true })
+    cpSync(src, join(destDir, 'settings.json'), { force: true })
+  }
+  actions.push(`copy settings (${settingsScan.providers.length} provider(s))`)
 
   // 배포 마커(드리프트 식별·디버깅용).
   writeFileSync(

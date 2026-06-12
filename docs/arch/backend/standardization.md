@@ -89,18 +89,24 @@ class OpenCodeEngine {
 
 ```text
 ~/.config/orca/
-├── orca.json                # 앱 전역 agent/provider 설정 (부팅 1회 로드)
+├── orca.json                # 앱 전역 env (부팅 1회 로드 — agents 필드는 0014 에서 제거, TRD §6.8)
 ├── sources/                 # 사람이 편집하는 단일 원천 (SSOT)
 │   ├── instructions/        # AGENTS.md (SSOT)
 │   ├── skills/              # SKILL.md (폴더 규약)
 │   ├── mcp/                 # 벤더 중립 MCP 서버 정의
+│   ├── settings/            # provider 별 settings (0014 — 어댑터-네이티브 스키마, TRD §6.8)
+│   │   └── <adapter>/       #   meta.json (어댑터당 1개, Orca 메타 — dist 미배포)
+│   │       ├── meta.json    #   디렉토리 이름 = provider (열거 SSOT)
+│   │       └── <provider>/settings.json
 │   └── hooks/               # 표준 없음 → 엔진별 분리
 │       ├── claude/
 │       └── opencode/
 └── dist/<engine>/           # ExtensionDeployer 생성물 (편집 금지)
+    ├── plugin/              #   공유 로컬 플러그인 루트 (.claude-plugin/plugin.json + skills/…)
+    └── <provider>/.claude/settings.json  # SDK resolveSettings({cwd:<provider dir>}) 가 읽는 위치
 ```
 
-> **구현됨 (스테이지 A)**: sources/dist 분리가 코드에 반영됐다. 경로 헬퍼 [`config/paths.ts`](../../../app/src/main/config/paths.ts)는 *다른 모듈이 실제 참조하는* 경로만 export(`orcaConfigDir`/`orcaJsonPath`/`sourcesDir`/`sourcesMcpDir`/`mcpJsonPath`/`distDir(engine)`/`ensureConfigDir`) — 미사용 `sources*/dist*` 서브 게터(`sourcesHooksDir`/`agentsMdPath`/`distSkillsDir` 등)는 제거되고, 그 하위 레이아웃 구성은 `deploy/deployer.ts`·`config/migrate-sources.ts` 가 root 기준 join 으로 담당. 구 평면 레이아웃 1회 이전은 [`config/migrate-sources.ts`](../../../app/src/main/config/migrate-sources.ts)(`migrateConfigToSources`, 멱등). `mcp.json` 은 `sources/mcp/mcp.json` 으로, AGENTS.md 자리는 `sources/instructions/AGENTS.md`. 루트 `orca.json` 은 sources/dist 배포 리소스가 아니라 앱 전역 설정이며 부팅 시 1회 파싱·캐시된다. 구 `ensureOrcaPlugin()`(`skills/plugin-bundle.ts`)은 삭제되고 ExtensionDeployer 로 흡수됐다(§5.2). 부트 순서: `ensureConfigDir → loadOrcaConfig → migrateConfigToSources → migrateMcpToFile → deploy('claude-code') → scanSkills`.
+> **구현됨 (스테이지 A → 0014 개정)**: sources/dist 분리가 코드에 반영됐다. 경로 헬퍼 [`config/paths.ts`](../../../app/src/main/config/paths.ts)는 *다른 모듈이 실제 참조하는* 경로만 export(`orcaConfigDir`/`orcaJsonPath`/`sourcesDir`/`sourcesMcpDir`/`mcpJsonPath`/`sourcesSettingsDir(adapter)`/`distDir(engine)`/`distPluginDir(engine)`/`distProviderDir(engine, provider)`/`ensureConfigDir`) — 그 하위 레이아웃 구성은 `deploy/deployer.ts` 가 root 기준 join 으로 담당. `mcp.json` 은 `sources/mcp/mcp.json` 으로, AGENTS.md 자리는 `sources/instructions/AGENTS.md`. 루트 `orca.json` 은 sources/dist 배포 리소스가 아니라 앱 전역 env 이며 부팅 시 1회 파싱·캐시된다. **플러그인 스펙엔 settings.json 이 들어갈 수 없으므로** provider settings 는 플러그인 루트(`plugin/`) 밖 `<provider>/` 디렉토리에 배포되고, 런타임은 격리모드(`settingSources:[]`) + flag settings(`options.settings`) 주입으로 소비한다(TRD §6.8). 부트 순서: `ensureConfigDir → loadOrcaConfig → scaffoldProviderSettings('claude-code') → deploy('claude-code') → providerSettings.invalidateAll() → scanSkills`.
 
 ### 5.2 ExtensionDeployer
 
@@ -123,10 +129,11 @@ function deploy(engine: EngineId, opts: DeployOptions): DeployResult {
 | skills | 규약 디렉터리에 **복사** 배치 | 심링크는 샌드박스 이슈를 피해 복사 우선 |
 | mcp | 벤더 중립 정의를 엔진별 config 로 렌더 + **키 이름 검증** | 잘못된 키는 조용히 무시될 수 있으므로 |
 | hooks | **변환 없이 엔진별로 복사만** | 표준 부재 (§2) |
+| settings | provider 별 settings.json 을 **복사** + **JSON 파싱·디렉토리 이름 검증** | 어댑터-네이티브 스키마 그대로(변환 0) — 0014, TRD §6.8 |
 
 `dist/<engine>` 산출물은 편집 대상이 아니다. 기존 파일이 마지막 배포와 다르면(사용자가 손댄 경우) 무단 덮어쓰기를 막기 위해 **항상 백업 후 기록**한다.
 
-> **구현됨 (스테이지 A)**: [`deploy/deployer.ts`](../../../app/src/main/deploy/deployer.ts) 의 `deploy(engine, {dryRun?})` 가 render→validate(MCP 키 이름)→dryRun?plan:backup-then-write 를 수행한다. claude 축: skills/agents/commands/hooks 는 `dist/claude-code/` 로 **복사**, manifest(`.claude-plugin/plugin.json`) 작성, mcp 는 런타임 query 주입이라 **검증만**. backup 은 `.bak` 1개 롤링. [`deploy/conformance.ts`](../../../app/src/main/deploy/conformance.ts) 가 `StandardConformance`(§5.3) + claude 구체값. **claude-only — `engine` 파라미터·`sources/hooks/<engine>` 가 OpenCode seam.** Vitest: `deployer.test.ts`·`conformance.test.ts`·`config/migrate-sources.test.ts`.
+> **구현됨 (스테이지 A → 0014 개정)**: [`deploy/deployer.ts`](../../../app/src/main/deploy/deployer.ts) 의 `deploy(engine, {dryRun?})` 가 render→validate(MCP 키 이름 + settings JSON/provider 이름)→dryRun?plan:backup-then-write 를 수행한다. claude 축: skills/agents/commands/hooks 는 `dist/claude-code/plugin/` 으로 **복사**, manifest(`plugin/.claude-plugin/plugin.json`) 작성, mcp 는 런타임 query 주입이라 **검증만**, settings 는 `sources/settings/claude-code/<provider>/settings.json` → `dist/claude-code/<provider>/.claude/settings.json` **복사**(파싱 실패 provider 만 격리 드롭). backup 은 dist 루트 단위 `.bak` 1개 롤링(plugin/·provider 디렉토리 모두 커버). [`deploy/conformance.ts`](../../../app/src/main/deploy/conformance.ts) 가 `StandardConformance`(§5.3 — settings 축 `perProvider`/`mechanism` 추가) + claude 구체값. 최초 부팅 스캐폴드는 [`deploy/scaffold.ts`](../../../app/src/main/deploy/scaffold.ts). **claude-only — `engine` 파라미터·`sources/hooks/<engine>`·settings 로더 주입(`ProviderSettingsLoader`)이 OpenCode seam.** Vitest: `deployer.test.ts`·`conformance.test.ts`·`scaffold.test.ts`.
 
 > **현행 선례 재사용**: "render sources → engine config" 는 이미 MCP 축에서 구현돼 있다 — `mcp/convert.ts` 의 순수 함수 `toClaudeConfig`/`toOpencodeConfig`(동형 시그니처), `mcp/resolver.ts` 의 `${VAR}` resolver(safeStorage → process.env 2단계), `mcp/expand.ts` 의 `expandEnv`([security.md §1.4](./security.md), [adapters.md §3.1](./adapters.md)). ExtensionDeployer 의 mcp 축은 이 함수들을 *호출*하면 되고 새로 발명하지 않는다.
 

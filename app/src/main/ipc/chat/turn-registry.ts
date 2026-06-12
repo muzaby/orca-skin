@@ -9,7 +9,7 @@
 // 실사용은 W = WebContents.
 
 import type { LiveTurn, SessionAdapter } from '../../adapters/types'
-import type { OrcaAgentConfig } from '../../config/orca-file'
+import type { ResolvedProviderSettings } from '../../settings/provider-settings'
 
 export interface InflightTurn {
   controller: AbortController
@@ -17,7 +17,9 @@ export interface InflightTurn {
   // 전환한다(Query.setPermissionMode). sendMessage 직후 채워진다.
   live: LiveTurn | null
   titleAdapter: SessionAdapter
-  titleAgent?: OrcaAgentConfig
+  // 제목 생성 complete 가 본 턴과 같은 provider settings/env 를 쓰도록 보관 (handoff 0014).
+  titleSettings?: ResolvedProviderSettings
+  titleEnv?: Record<string, string>
   providerKey: string | null
   // sendMessage 호출 시점에 채워두는 사용자 입력. claude-code 의 init 이벤트가
   // session_id 를 발급한 시점에 DB 에 user message row 로 저장한다.

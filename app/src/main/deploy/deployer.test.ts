@@ -26,28 +26,82 @@ function seedSources(mcpJson = '{"mcpServers":{}}'): void {
   writeFile(join(root, 'sources', 'mcp', 'mcp.json'), mcpJson)
 }
 
+function seedProviderSettings(provider: string, settings = '{"env":{}}'): void {
+  writeFile(join(root, 'sources', 'settings', 'claude-code', provider, 'settings.json'), settings)
+}
+
 const dist = (): string => join(root, 'dist', 'claude-code')
+const plugin = (): string => join(dist(), 'plugin')
 
 describe('deploy', () => {
-  it('sources/ 를 dist/<engine>/ 로 렌더한다(manifest + 복사)', () => {
+  it('sources/ 를 dist/<engine>/plugin/ 으로 렌더한다(manifest + 복사)', () => {
     seedSources()
     const r = deploy('claude-code', {}, root)
 
     expect(r.dryRun).toBe(false)
     expect(r.validation.ok).toBe(true)
-    expect(existsSync(join(dist(), '.claude-plugin', 'plugin.json'))).toBe(true)
-    expect(readFileSync(join(dist(), 'skills', 'demo', 'SKILL.md'), 'utf8')).toBe('# demo')
-    expect(readFileSync(join(dist(), 'agents', 'a.md'), 'utf8')).toBe('agent')
-    expect(readFileSync(join(dist(), 'commands', 'c.md'), 'utf8')).toBe('cmd')
-    expect(readFileSync(join(dist(), 'hooks', 'h.txt'), 'utf8')).toBe('hook')
+    expect(existsSync(join(plugin(), '.claude-plugin', 'plugin.json'))).toBe(true)
+    expect(readFileSync(join(plugin(), 'skills', 'demo', 'SKILL.md'), 'utf8')).toBe('# demo')
+    expect(readFileSync(join(plugin(), 'agents', 'a.md'), 'utf8')).toBe('agent')
+    expect(readFileSync(join(plugin(), 'commands', 'c.md'), 'utf8')).toBe('cmd')
+    expect(readFileSync(join(plugin(), 'hooks', 'h.txt'), 'utf8')).toBe('hook')
     expect(existsSync(join(dist(), '.orca-deploy.json'))).toBe(true)
+  })
+
+  it('provider settings 를 dist/<engine>/<provider>/.claude/settings.json 으로 복사한다', () => {
+    seedSources()
+    seedProviderSettings('anthropic', '{"env":{"A":"1"}}')
+    seedProviderSettings('bedrock', '{"env":{"CLAUDE_CODE_USE_BEDROCK":"1"}}')
+    // meta.json 은 dist 로 가지 않는다.
+    writeFile(join(root, 'sources', 'settings', 'claude-code', 'meta.json'), '{}')
+
+    const r = deploy('claude-code', {}, root)
+    expect(r.validation.ok).toBe(true)
+    expect(
+      JSON.parse(readFileSync(join(dist(), 'anthropic', '.claude', 'settings.json'), 'utf8'))
+    ).toEqual({ env: { A: '1' } })
+    expect(
+      JSON.parse(readFileSync(join(dist(), 'bedrock', '.claude', 'settings.json'), 'utf8'))
+    ).toEqual({ env: { CLAUDE_CODE_USE_BEDROCK: '1' } })
+    expect(existsSync(join(dist(), 'meta.json'))).toBe(false)
+    expect(r.actions.join(' ')).toContain('2 provider(s)')
+  })
+
+  it('settings.json 파싱 실패는 해당 provider 만 에러로 보고하고 나머지는 배포한다', () => {
+    seedSources()
+    seedProviderSettings('anthropic')
+    seedProviderSettings('bedrock', '{broken')
+
+    const r = deploy('claude-code', {}, root)
+    expect(r.validation.ok).toBe(false)
+    expect(r.validation.errors.join(' ')).toContain('settings/bedrock/settings.json')
+    expect(existsSync(join(dist(), 'anthropic', '.claude', 'settings.json'))).toBe(true)
+    expect(existsSync(join(dist(), 'bedrock'))).toBe(false)
+  })
+
+  it('잘못된 provider 디렉토리 이름을 검증 오류로 보고한다', () => {
+    seedSources()
+    seedProviderSettings('bad name!')
+    const r = deploy('claude-code', {}, root)
+    expect(r.validation.ok).toBe(false)
+    expect(r.validation.errors.join(' ')).toContain('bad name!')
+  })
+
+  it('settings.json 없는 provider 디렉토리는 dist 파일 없이 허용한다', () => {
+    seedSources()
+    mkdirSync(join(root, 'sources', 'settings', 'claude-code', 'vertex'), { recursive: true })
+    const r = deploy('claude-code', {}, root)
+    expect(r.validation.ok).toBe(true)
+    expect(r.actions.join(' ')).toContain('1 provider(s)')
+    expect(existsSync(join(dist(), 'vertex'))).toBe(false)
   })
 
   it('dryRun 은 계획만 반환하고 dist 를 쓰지 않는다', () => {
     seedSources()
+    seedProviderSettings('anthropic')
     const r = deploy('claude-code', { dryRun: true }, root)
     expect(r.dryRun).toBe(true)
-    expect(r.actions.length).toBeGreaterThan(0)
+    expect(r.actions.join(' ')).toContain('copy settings (1 provider(s))')
     expect(existsSync(dist())).toBe(false)
   })
 
@@ -58,18 +112,20 @@ describe('deploy', () => {
     expect(r.validation.errors.join(' ')).toContain('bad name!')
   })
 
-  it('재배포 시 기존 dist 를 백업(.bak)하고 새로 쓴다', () => {
+  it('재배포 시 기존 dist 를 백업(.bak)하고 새로 쓴다 — provider 디렉토리 포함 루트 단위', () => {
     seedSources()
+    seedProviderSettings('anthropic')
     deploy('claude-code', {}, root)
     const r2 = deploy('claude-code', {}, root)
     expect(r2.backedUp).toBe(true)
     expect(existsSync(`${dist()}.bak`)).toBe(true)
+    expect(existsSync(join(`${dist()}.bak`, 'anthropic', '.claude', 'settings.json'))).toBe(true)
   })
 
-  it('sources 하위가 비어도 빈 dist 디렉토리를 만든다', () => {
+  it('sources 하위가 비어도 빈 plugin 디렉토리를 만든다', () => {
     writeFile(join(root, 'sources', 'mcp', 'mcp.json'), '{"mcpServers":{}}')
     const r = deploy('claude-code', {}, root)
     expect(r.validation.ok).toBe(true)
-    expect(existsSync(join(dist(), 'skills'))).toBe(true)
+    expect(existsSync(join(plugin(), 'skills'))).toBe(true)
   })
 })

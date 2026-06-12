@@ -13,6 +13,9 @@ import { ensureConfigDir } from '../config/paths'
 import { loadOrcaConfig } from '../config/orca-config'
 import { SecretStore } from '../config/secret-store'
 import { deploy } from '../deploy/deployer'
+import { scaffoldProviderSettings } from '../deploy/scaffold'
+import { ProviderSettingsService } from '../settings/provider-settings'
+import { loadClaudeProviderSettings } from '../adapters/claude-settings'
 import { scanSkills } from '../skills/scan'
 import { initDb } from '../db'
 import { CostTracker } from '../cost/tracker'
@@ -57,7 +60,8 @@ export class IpcRouter {
     const extensions = new ExtensionBuilder(db, this.mcp, () => this.skillsCache, PY_AGENT_RULES)
     await this.registry.refreshInstallState()
     this.defaultCwd = app.getPath('home')
-    // ~/.config/orca 보장 → orca.json 로드 → 정규 소스 → dist/<engine> 배포(ExtensionDeployer).
+    // ~/.config/orca 보장 → orca.json 로드 → provider settings 스캐폴드(최초 1회) →
+    // dist/<engine> 배포(ExtensionDeployer) → settings 해석 캐시 무효화.
     // 어느 단계 실패도 부팅을 막지 않는다(채팅/세션 기능은 독립).
     await ensureConfigDir().catch((e) => console.warn('[boot] ensureConfigDir 실패:', e))
     try {
@@ -65,11 +69,24 @@ export class IpcRouter {
     } catch (e) {
       console.warn('[boot] orca.json 로드 건너뜀:', e)
     }
+    const secretStore = new SecretStore()
+    const providerSettings = new ProviderSettingsService(
+      { 'claude-code': loadClaudeProviderSettings },
+      () => this.mcp.resolver(),
+      secretStore
+    )
+    try {
+      const s = scaffoldProviderSettings('claude-code')
+      for (const path of s.created) console.log('[scaffold] 생성:', path)
+    } catch (e) {
+      console.warn('[boot] provider settings 스캐폴드 건너뜀:', e)
+    }
     try {
       const r = deploy('claude-code')
       if (!r.validation.ok) {
         for (const err of r.validation.errors) console.warn('[deploy] 검증 경고:', err)
       }
+      providerSettings.invalidateAll()
     } catch (e) {
       console.warn('[boot] 배포 건너뜀:', e)
     }
@@ -84,8 +101,9 @@ export class IpcRouter {
       installer: new Installer(this.registry),
       cost,
       runtime: this.runtime,
-      secretStore: new SecretStore(),
+      secretStore,
       extensions,
+      providerSettings,
       getSkills: () => this.skillsCache,
       getCwd: () => this.defaultCwd,
       debugMock: this.debugMock,

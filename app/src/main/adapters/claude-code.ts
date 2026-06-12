@@ -25,8 +25,7 @@ import type { TurnRequest } from '../extensions/types'
 import type { Resolver } from '../mcp/expand'
 import { toClaudeConfig } from '../mcp/convert'
 import { isRiskyTool } from '../runtime-events/permission-bridge'
-import { adaptHooks, adaptMcp, adaptSkills, adaptSystemPrompt } from './claude-adapt'
-import { mergeAgentEnv, toClaudeEnv } from './claude-env'
+import { adaptHooks, adaptMcp, adaptSettings, adaptSkills, adaptSystemPrompt } from './claude-adapt'
 import { CLAUDE_DESCRIPTOR } from '../capabilities/claude-probe'
 import type { ProviderDescriptor } from '../../shared/ipc'
 
@@ -163,17 +162,16 @@ export class ClaudeCodeAdapter implements SessionAdapter {
     if (req.signal?.aborted) abortController.abort()
     else req.signal?.addEventListener('abort', onAbort, { once: true })
 
-    const agentEnv = this.agentEnv(req.agent)
-
-    // settingSources 는 명시하지 않는다 — SDK 기본(모든 소스 로드)으로 사용자/프로젝트 설정의
-    // env 가 적용되게 sendMessage 경로와 정합 (docs/spec/claude/agent-sdk/typescript.md).
+    // 격리모드 + provider settings 주입 (handoff 0014) — sendMessage 경로와 대칭.
+    // 0005 의 "settingSources 미지정(전 소스 로드)" 결정은 본 핸드오프가 명시 폐기했다.
     const options: Options = {
       abortController,
       maxTurns: 1,
       tools: [],
       allowedTools: [],
       persistSession: false,
-      ...(agentEnv ? { env: agentEnv } : {}),
+      ...adaptSettings(req.providerSettings),
+      ...(req.env ? { env: req.env } : {}),
       ...(req.cwd ? { cwd: req.cwd } : {}),
       ...(req.model ? { model: req.model } : {})
     }
@@ -206,7 +204,6 @@ export class ClaudeCodeAdapter implements SessionAdapter {
       permissionMode,
       model
     } = req
-    const mergedEnv = this.agentEnv(req.agent, env)
 
     // 매퍼 컨텍스트 — sessionId 는 init(=session.updated)에서 갱신된다(resume 면 초기값이 그 id).
     const ctx: MapContext = { provider: 'claude-code', sessionId: sessionId ?? '', cwd }
@@ -236,7 +233,10 @@ export class ClaudeCodeAdapter implements SessionAdapter {
         ...adaptSystemPrompt(extensions.systemPromptAppend),
         ...adaptMcp(mcpConfig),
         ...adaptSkills(),
-        ...(mergedEnv ? { env: mergedEnv } : {}),
+        // provider settings 격리 주입 (handoff 0014) — settings(flag 레이어) + settingSources:[].
+        // provider env(ANTHROPIC_*, CLAUDE_CODE_USE_* 등)는 settings.env 로 SDK 가 적용한다.
+        ...adaptSettings(req.providerSettings),
+        ...(env ? { env } : {}),
         ...adaptHooks(extensions.hooks),
         // canUseTool — AskUserQuestion·ExitPlanMode·위험 도구를 requestApproval 로 게이트하고
         // 안전 도구는 allow passthrough. 콜백 미주입(opencode 등) 시 옵션 자체를 생략해 현행
@@ -279,19 +279,6 @@ export class ClaudeCodeAdapter implements SessionAdapter {
       interrupt: () => handle.interrupt(),
       setModel: (model) => handle.setModel(model)
     }
-  }
-
-  private agentEnv(
-    agent: TurnRequest['agent'] | CompleteRequest['agent'],
-    base?: Record<string, string>
-  ): Record<string, string> | undefined {
-    const { env, missing } = toClaudeEnv(agent, this.makeResolver())
-    if (missing.length > 0) {
-      console.warn(
-        `[orca-config] 미해결 환경변수로 일부 claude-code env 를 건너뜀: ${missing.join(', ')}`
-      )
-    }
-    return mergeAgentEnv(base, env)
   }
 }
 

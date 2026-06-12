@@ -6,15 +6,15 @@ import type { IpcMainInvokeEvent, WebContents } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { CHANNELS, type ApprovalResolution, type PermissionAction } from '../../../shared/ipc'
 import { CancelChatSchema, SendChatMessageSchema } from '../../../shared/protocol'
-import { agentFor, getOrcaConfig } from '../../config/orca-config'
+import { appEnv } from '../../config/orca-config'
 import {
-  agentForProviderKey,
-  authTokenFor,
   defaultModelFamily,
+  defaultProvider,
+  expandEnvRecord,
+  mergeEnvLayers,
   modelNameForFamily,
-  providerKeyOf
-} from '../../config/provider-key'
-import type { OrcaAgentConfig } from '../../config/orca-file'
+  type ResolvedProviderSettings
+} from '../../settings/provider-settings'
 import type { SessionAdapter } from '../../adapters/types'
 import { agentPermissionRequest } from '../../runtime-events/permission-bridge'
 import type { PermissionModeController } from '../../runtime-events/permission-mode-controller'
@@ -35,9 +35,11 @@ export interface ChatDeps {
   permissionModes: PermissionModeController
 }
 
-// 턴 단위 agent/provider/model 해석 (handoff 0010) — payload providerKey 가 어댑터와
-// 일치하면 적용, 불일치/무효면 세션의 마지막 provider_key → orca.json 기본 agent 폴백.
-function resolveTurnAgent(
+// 턴 단위 provider/model 해석 (handoff 0010 → 0014) — payload providerKey 가 어댑터와
+// 일치하면 적용, 불일치/무효면 세션의 마지막 provider_key → 기본 provider(anthropic 우선) 폴백.
+// 원천은 sources/settings/<adapter>/ 트리(ProviderSettingsService)이며, settings 해석(blob)은
+// dist 캐시에서 가져온다. 비밀(secret-store 토큰·${VAR})은 해석기 내부에서만 평문화된다.
+async function resolveTurnProvider(
   ctx: RouterContext,
   req: {
     adapter: SessionAdapter
@@ -45,32 +47,47 @@ function resolveTurnAgent(
     providerKey: string | null
     modelFamily: string | null
   }
-): { agent?: OrcaAgentConfig; providerKey: string | null; model?: string } {
-  const agents = getOrcaConfig().agents
+): Promise<{
+  providerSettings?: ResolvedProviderSettings
+  providerKey: string | null
+  model?: string
+}> {
+  const entries = ctx.providerSettings.list(req.adapter.id)
   const meta = req.sessionId ? ctx.db.getSessionById(req.sessionId) : undefined
-  const payloadAgent = agentForProviderKey(agents, req.providerKey)
-  let selected = payloadAgent
+  const byKey = (key: string | null | undefined): (typeof entries)[number] | undefined =>
+    key ? entries.find((entry) => entry.key === key) : undefined
 
-  if (req.sessionId && payloadAgent && payloadAgent.adapter !== meta?.backend) {
+  let selected = byKey(req.providerKey)
+  if (req.sessionId && selected && selected.adapter !== meta?.backend) {
     console.warn(
-      `[orca-config] providerKey '${req.providerKey}' adapter 불일치 — 세션 provider 로 fallback`
+      `[provider-settings] providerKey '${req.providerKey}' adapter 불일치 — 세션 provider 로 fallback`
     )
     selected = undefined
   }
-  if (req.sessionId && !selected) {
-    selected = agentForProviderKey(agents, meta?.provider_key) ?? agentFor(req.adapter.id)
-  }
-  if (!req.sessionId && !selected) selected = agentFor(req.adapter.id)
+  if (req.sessionId && !selected) selected = byKey(meta?.provider_key)
+  if (!selected) selected = defaultProvider(entries)
+  if (!selected) return { providerKey: null }
 
-  const token = authTokenFor(selected, {
-    secretStore: ctx.secretStore,
-    resolve: ctx.mcp.resolver()
-  })
-  const agent = selected ? { ...selected, ...(token ? { authToken: token } : {}) } : undefined
-  const providerKey = agent ? providerKeyOf(agent) : null
-  const modelFamily = req.modelFamily ?? defaultModelFamily(agent)
-  const model = modelNameForFamily(agent, modelFamily)
-  return { agent, providerKey, ...(model ? { model } : {}) }
+  const providerSettings = await ctx.providerSettings.resolve(selected)
+  const modelFamily = req.modelFamily ?? defaultModelFamily(selected.models)
+  const model = modelNameForFamily(selected.models, modelFamily)
+  return {
+    providerKey: selected.key,
+    ...(providerSettings ? { providerSettings } : {}),
+    ...(model ? { model } : {})
+  }
+}
+
+// subprocess env 조립 — uv 런타임 env 베이스 위에 orca.json 앱 전역 env(${VAR} 확장)를 병합.
+function buildTurnEnv(
+  ctx: RouterContext,
+  pyEnv: Record<string, string> | undefined
+): Record<string, string> | undefined {
+  const { env: expanded, missing } = expandEnvRecord(appEnv(), ctx.mcp.resolver())
+  if (missing.length > 0) {
+    console.warn(`[orca-config] 미해결 환경변수로 일부 앱 env 키를 건너뜀: ${missing.join(', ')}`)
+  }
+  return mergeEnvLayers(pyEnv, expanded)
 }
 
 export function registerChatHandlers(deps: ChatDeps): void {
@@ -123,12 +140,15 @@ export function registerChatHandlers(deps: ChatDeps): void {
       return
     }
 
-    const resolved = resolveTurnAgent(ctx, {
+    const resolved = await resolveTurnProvider(ctx, {
       adapter,
       sessionId: parsed.data.sessionId,
       providerKey: parsed.data.providerKey ?? null,
       modelFamily: parsed.data.modelFamily ?? null
     })
+
+    // Python 런타임 env (uv 격리) + orca.json 앱 전역 env. ready 전이면 앱 env 만 (없으면 SDK 기본).
+    const turnEnv = buildTurnEnv(ctx, ctx.runtime.getEnv() ?? undefined)
 
     const controller = new AbortController()
     // resume 경로면 sessions row 에 이미 binding 된 projectId 가 있으므로 그쪽에서 조회.
@@ -137,7 +157,8 @@ export function registerChatHandlers(deps: ChatDeps): void {
       controller,
       live: null,
       titleAdapter: adapter,
-      titleAgent: resolved.agent,
+      titleSettings: resolved.providerSettings,
+      titleEnv: turnEnv,
       providerKey: resolved.providerKey,
       pendingUserText: parsed.data.text,
       firstUserText: parsed.data.text,
@@ -171,9 +192,6 @@ export function registerChatHandlers(deps: ChatDeps): void {
       parsed.data.sessionId,
       parsed.data.sessionId ? null : parsed.data.projectId
     )
-
-    // Python 런타임 env (uv 격리) 는 확장 묶음이 아니라 TurnRequest 직속. ready 전이면 SDK 기본 env.
-    const pyEnv = ctx.runtime.getEnv() ?? undefined
 
     // 단일 권한 승인 위임 — 어댑터의 canUseTool 이 ask_question·plan_review·tool_approval 중
     // 하나를 PermissionAction 으로 넘기면, approvalId 를 발급해 permission.requested 이벤트로
@@ -236,8 +254,8 @@ export function registerChatHandlers(deps: ChatDeps): void {
         cwd: turn.cwd,
         signal: controller.signal,
         extensions,
-        env: pyEnv,
-        agent: resolved.agent,
+        env: turnEnv,
+        providerSettings: resolved.providerSettings,
         model: resolved.model,
         requestApproval,
         permissionMode: parsed.data.permissionMode

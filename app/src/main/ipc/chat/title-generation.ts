@@ -3,7 +3,7 @@
 
 import type { DbQueries } from '../../db'
 import type { SessionAdapter } from '../../adapters/types'
-import type { OrcaAgentConfig } from '../../config/orca-file'
+import type { ResolvedProviderSettings } from '../../settings/provider-settings'
 import { normalizeTitle, shouldGenerateTitle, titlePrompt } from '../../title/title'
 import { broadcastSessionTitle } from '../context'
 import type { InflightTurn } from './turn-registry'
@@ -30,7 +30,8 @@ export class TitleGenerator {
       firstUserText: turn.firstUserText,
       cwd: turn.cwd,
       adapter: turn.titleAdapter,
-      agent: turn.titleAgent
+      providerSettings: turn.titleSettings,
+      env: turn.titleEnv
     })
   }
 
@@ -39,7 +40,8 @@ export class TitleGenerator {
     firstUserText: string
     cwd: string
     adapter: SessionAdapter
-    agent?: OrcaAgentConfig
+    providerSettings?: ResolvedProviderSettings
+    env?: Record<string, string>
   }): Promise<void> {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 30_000)
@@ -49,7 +51,8 @@ export class TitleGenerator {
         prompt: titlePrompt(req.firstUserText),
         cwd: req.cwd,
         signal: controller.signal,
-        agent: req.agent
+        providerSettings: req.providerSettings,
+        env: req.env
       })
       const title = normalizeTitle(raw)
       if (!title) return

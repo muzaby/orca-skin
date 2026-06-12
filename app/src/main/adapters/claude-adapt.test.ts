@@ -1,8 +1,10 @@
 import { describe, it, expect } from 'vitest'
+import { join } from 'node:path'
 import {
   makeClaudeHookCallback,
   adaptHooks,
   adaptMcp,
+  adaptSettings,
   adaptSkills,
   adaptSystemPrompt,
   toClaudeHookOutput,
@@ -42,11 +44,30 @@ describe('adaptSystemPrompt', () => {
 })
 
 describe('adaptSkills', () => {
-  it('항상 plugins(local) + skills:all 구조를 반환', () => {
+  it('항상 plugins(local) + skills:all 구조를 반환하고 플러그인 루트는 dist/claude-code/plugin', () => {
     const out = adaptSkills() as { plugins: { type: string; path: string }[]; skills: string }
     expect(out.plugins[0].type).toBe('local')
-    expect(typeof out.plugins[0].path).toBe('string')
+    expect(out.plugins[0].path.endsWith(join('dist', 'claude-code', 'plugin'))).toBe(true)
     expect(out.skills).toBe('all')
+  })
+})
+
+describe('adaptSettings', () => {
+  it('blob 부재여도 settingSources:[] 격리모드를 유지한다 (handoff 0014)', () => {
+    expect(adaptSettings(undefined)).toEqual({ settingSources: [] })
+  })
+
+  it('빈 settings 객체는 settings 옵션을 생략한다', () => {
+    expect(
+      adaptSettings({ providerKey: 'claude-code-anthropic', provider: 'anthropic', settings: {} })
+    ).toEqual({ settingSources: [] })
+  })
+
+  it('settings 가 있으면 flag 레이어(options.settings)로 주입한다', () => {
+    const settings = { env: { ANTHROPIC_BASE_URL: 'https://x' }, model: 'claude-sonnet-4-6' }
+    expect(
+      adaptSettings({ providerKey: 'claude-code-bedrock', provider: 'bedrock', settings })
+    ).toEqual({ settingSources: [], settings })
   })
 })
 

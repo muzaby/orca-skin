@@ -16,8 +16,7 @@ import {
   type Settings,
   type SkillInfo
 } from '../../../shared/protocol'
-import { getOrcaConfig } from '../../config/orca-config'
-import { toAgentEnvironments } from '../../config/provider-key'
+import { toAgentEnvironments } from '../../settings/provider-settings'
 import { listDir } from '../../files/scan'
 import { sendInstallStatus, type RouterContext } from '../context'
 import { handle, handlePlain } from '../registry'
@@ -32,12 +31,15 @@ export function registerMiscHandlers(ctx: RouterContext): void {
     return { backends, ...(active ? { active } : {}) }
   })
 
-  handlePlain(CHANNELS.agentList, (): AgentEnvironment[] =>
-    toAgentEnvironments(
-      getOrcaConfig().agents,
-      ctx.registry.list().map((adapter) => adapter.id)
-    )
-  )
+  // 원천 = sources/settings/<adapter>/ 트리 (handoff 0014 — 구 orca.json agents[] 대체).
+  // 페이로드 shape(AgentEnvironment)는 0010 과 동일 유지 — renderer ModelMenu 변경 0.
+  handlePlain(CHANNELS.agentList, (): AgentEnvironment[] => {
+    const supported = ctx.registry.list().map((adapter) => adapter.id)
+    const entries = ctx.providerSettings
+      .adapters()
+      .flatMap((adapter) => ctx.providerSettings.list(adapter))
+    return toAgentEnvironments(entries, supported)
+  })
 
   handle(CHANNELS.installStart, StartInstallSchema, 'reject', async (req, event): Promise<void> => {
     for await (const st of ctx.installer.start(req.backend)) {

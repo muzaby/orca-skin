@@ -317,29 +317,55 @@ Phase 2+ 에서 `electron-store` 로 영속화 완료. `IPC_CONTRACT.md` §2.4 �
 ---
 
 
-### 6.8 orca.json 전역 설정 (Main 전용)
+### 6.8 orca.json 전역 설정 + provider settings 트리 (Main 전용)
 
-`~/.config/orca/orca.json` 은 앱 자체의 전역 agent/provider 설정 파일이다. `sources/` 아래 엔진 배포 리소스가 아니며, 부팅 시 1회 로드해 main 프로세스 메모리에 캐시한다. 파일이 없으면 앱이 `{ "version": 1, "agents": [] }` 템플릿을 atomic write(temp+rename) 로 생성하고, 기존 파일은 덮어쓰지 않는다. 손상 JSON 또는 최상위 스키마 위반은 부팅을 막지 않고 기본값으로 동작하며 원본 파일을 보존한다.
+**orca.json (handoff 0014 에서 축소)**: `~/.config/orca/orca.json` 은 앱 자체의 전역 환경변수 파일이다. `sources/` 아래 엔진 배포 리소스가 아니며, 부팅 시 1회 로드해 main 프로세스 메모리에 캐시한다. 파일이 없으면 앱이 `{ "version": 1 }` 템플릿을 atomic write(temp+rename) 로 생성하고, 기존 파일은 덮어쓰지 않는다. 손상 JSON 또는 최상위 스키마 위반은 부팅을 막지 않고 기본값으로 동작하며 원본 파일을 보존한다.
 
 ```ts
 interface OrcaConfig {
   version: 1
-  agents: OrcaAgentConfig[]
-}
-
-interface OrcaAgentConfig {
-  adapter: string              // 예: 'claude-code'
-  provider?: string            // claude-code known: 'anthropic' | 'bedrock' | 'vertex'
-  authToken?: string           // 평문 또는 '${VAR}' (apiKey 는 deprecated 별칭)
-  baseUrl?: string             // 빈 문자열/공백-only 는 부재 취급
-  env?: Record<string, string> // 값에 '${VAR}' 허용, 매핑 필드보다 우선
-  models: { name: string; family?: string; default?: boolean }[]
+  env?: Record<string, string> // 앱 전역 env — 모든 어댑터 subprocess 공통 베이스. 값에 '${VAR}' 허용
 }
 ```
 
-선택 규칙(v1)은 provider key 기반이다. `agents[].provider` 가 없으면 `adapter` 단독(`claude-code`), 있으면 `${adapter}-${provider(trim·lowercase)}`(`claude-code-bedrock`) 를 합성해 agent 환경을 식별한다. 같은 provider key 중복은 로드 시 두 번째 이후 항목을 드롭하고 경고한다. Composer 는 supported agent 의 `models` 를 `${providerKey}/${family ?? name}` 라벨로 노출하되, IPC/state 는 표시 문자열이 아니라 `providerKey` 와 `modelFamily` 구조 필드를 사용한다. 핫리로드와 앱 내 agent 저장 실동작은 후속 범위다.
+구 `agents[]` 필드(0009~0010)는 **제거됐다 (클린 브레이크 — 마이그레이션 없음)**. 잔존 파일에서 `agents` 키 발견 시 부팅 경고만 내고 무시한다. 수동 이전 표:
 
-claude-code 소비 규칙은 adapter 내부에 격리한다. `provider=bedrock` 은 `CLAUDE_CODE_USE_BEDROCK=1`, `provider=vertex` 는 `CLAUDE_CODE_USE_VERTEX=1` 로 매핑하고, `anthropic`/부재는 추가 env 가 없다. `authToken` 은 `ANTHROPIC_API_KEY`, `baseUrl` 은 `ANTHROPIC_BASE_URL` 로 매핑한다. 구명 `apiKey` 는 deprecated 별칭으로 수용한다. `${VAR}` 는 secret-store → `process.env` 순으로 어댑트 시점에만 해석하며, 미해결 값은 해당 env 키만 드롭한다. `env` 레코드는 마지막에 적용되어 매핑 키를 덮을 수 있다.
+| 구 orca.json agents[] 필드 | 새 위치 |
+|---|---|
+| `adapter`+`provider` (식별) | `sources/settings/<adapter>/<provider>/` **디렉토리 이름** |
+| `authToken` | secret-store(`provider:${providerKey}`, 앱 UI) 또는 settings.json `env.ANTHROPIC_API_KEY`(`${VAR}` 권장) |
+| `baseUrl` | settings.json `env.ANTHROPIC_BASE_URL` |
+| `env` | settings.json `env` 블록 |
+| `models` | `sources/settings/<adapter>/meta.json` 의 `<provider>.models` |
+
+**provider settings 트리 (SSOT = sources/)**: provider 별 설정은 어댑터-네이티브 스키마 파일로 사용자가 직접 편집한다. claude-code 의 settings.json 스키마는 순정 Claude Code settings.json 그대로다 — Orca 전용 키 발명 없음.
+
+```text
+~/.config/orca/sources/settings/<adapter>/
+├── meta.json                  # 어댑터당 1개 — Orca 메타 (dist 미배포, ModelMenu 용)
+│                              #   { "<provider>": { "label"?: string, "models"?: [{name,family?,default?}] } }
+└── <provider>/settings.json   # 어댑터-네이티브 스키마 (claude-code = Claude settings.json)
+```
+
+- **열거 SSOT 는 디렉토리 목록**(`readdir`). meta.json 엔트리 부재 provider 는 models 빈 배열로 동작하고, 디렉토리 없는 meta 키는 경고 후 무시한다(드리프트 관용).
+- provider key 는 `${adapter}-${provider}`(0010 규약 유지, 디렉토리 이름 = provider, `[A-Za-z0-9_-]` 제한). 중복은 디렉토리 구조상 불가능하다.
+- 최초 부팅 시 `anthropic/settings.json`(`{"env":{}}`) + meta.json 을 스캐폴드한다(`deploy/scaffold.ts`, 멱등 — 기존 파일 불가침).
+- ExtensionDeployer 가 `dist/<adapter>/<provider>/.claude/settings.json` 으로 복사 배포한다(§ standardization.md §5.2).
+
+**런타임 주입 (격리모드)**: 턴/completion 의 `query()` 는 `settingSources: []`(SDK isolation mode — 사용자 `~/.claude`·프로젝트 `.claude` 미로드)로 실행하고, provider settings 는 SDK `resolveSettings({cwd: dist/<adapter>/<provider>, settingSources: ['project']})`(@alpha, CLI 동일 머지 엔진)로 해석한 effective 객체를 `options.settings`(flag 레이어 — `--settings` 동등)로 주입한다. `filterEscalatingDefaultMode` 로 settings.json 의 escalating `permissions.defaultMode`(bypassPermissions·acceptEdits·auto)는 무력화된다 — **의도된 동작**(권한은 Orca 의 canUseTool 게이트가 담당). 해석·캐시는 `settings/provider-settings.ts` 의 `ProviderSettingsService`(mtime 캐시, deploy 후 무효화), claude 종속 어휘는 `adapters/claude-settings.ts` 에 격리된다. resolveSettings 함수 부재(SDK 버전 변동) 시 flat JSON 읽기로 폴백한다.
+
+> **0005 결정 폐기**: 0005 의 "settingSources 미지정(전 소스 로드)" 은 본 격리모드 도입으로 폐기됐다. 기존에 `~/.claude/settings.json` 의 env(API 키 등)에 의존하던 사용자는 provider settings.json 의 `env` 블록으로 옮겨야 한다. OAuth 자격증명(`~/.claude/.credentials.json`/keychain)은 settings 가 아니라 격리모드와 무관하게 동작해야 하나 실기 검증 대기다(handoff 0014 verify).
+
+**provider env 레시피** (구 `toClaudeEnv` 매핑 코드는 삭제 — 사용자가 네이티브 env 로 직접 작성):
+
+| provider | `sources/settings/claude-code/<provider>/settings.json` |
+|---|---|
+| anthropic | `{ "env": {} }` (OAuth) 또는 `{ "env": { "ANTHROPIC_API_KEY": "${MY_KEY}" } }` |
+| bedrock | `{ "env": { "CLAUDE_CODE_USE_BEDROCK": "1", "AWS_REGION": "us-west-2" } }` |
+| vertex | `{ "env": { "CLAUDE_CODE_USE_VERTEX": "1" } }` |
+| 게이트웨이 | `{ "env": { "ANTHROPIC_BASE_URL": "https://gw.example.com", "ANTHROPIC_AUTH_TOKEN": "${GW_TOKEN}" } }` |
+
+`${VAR}` 는 secret-store → `process.env` 순으로 해석 시점에만 확장하며, 미해결 값은 해당 env 키만 드롭한다. secret-store 의 `provider:${providerKey}` 토큰은 해석 시 `env.ANTHROPIC_API_KEY` 로 주입된다(0010 키 규약 유지). orca.json 의 `env` 는 settings 가 아니라 subprocess env 베이스(`options.env`)로 병합된다.
 
 ## 7. Backend Adapters (외부 인터페이스 계약)
 
@@ -601,9 +627,9 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 - `project/electron/` — 시각 기준 프로토타입
 
 
-### 6.8.1 Agent/model 선택 (0010-agent-model-select)
+### 6.8.1 Agent/model 선택 (0010-agent-model-select → 0014 원천 교체)
 
-- orca.json agents 는 `adapter` + optional `provider` 로 만든 provider key(`${adapter}` 또는 `${adapter}-${provider}`)로 식별한다. 같은 provider key 중복은 로드 시 두 번째 이후를 드롭하고 경고한다.
-- Composer 는 `orca:agent:list` DTO(`key`, `adapter`, `provider`, `models`, `supported`)로 `${providerKey}/${family}` 모델 메뉴를 구성한다. wire/state 는 표시 문자열이 아니라 `providerKey` 와 `modelFamily` 구조 필드를 사용한다.
-- 세션은 adapter(`sessions.backend`) 단위로 잠기며 같은 adapter 안에서는 provider/model family 를 턴 단위로 전환할 수 있다. `sessions.provider_key` 는 바인딩 제약이 아니라 마지막 사용 provider 기록이다.
-- 앱 추가 agent 의 auth token 은 secret store `provider:${provider key}` 에만 저장한다. DB/renderer/agent list DTO 는 토큰·baseUrl·env 를 노출하지 않는다.
+- provider 환경은 provider key(`${adapter}-${provider}`)로 식별한다. 원천은 0014 부터 orca.json agents[] 가 아니라 **`sources/settings/<adapter>/` 디렉토리 트리**다 (§6.8) — 중복 키는 구조상 불가능.
+- Composer 는 `orca:agent:list` DTO(`key`, `adapter`, `provider`, `models`, `supported` — **shape 는 0010 과 동일**)로 `${providerKey}/${family}` 모델 메뉴를 구성한다. models/label 은 meta.json, wire/state 는 표시 문자열이 아니라 `providerKey` 와 `modelFamily` 구조 필드를 사용한다.
+- 세션은 adapter(`sessions.backend`) 단위로 잠기며 같은 adapter 안에서는 provider/model family 를 턴 단위로 전환할 수 있다. `sessions.provider_key` 는 바인딩 제약이 아니라 마지막 사용 provider 기록이다. 턴 해석 폴백: payload providerKey(어댑터 일치 시) → 세션 provider_key → 기본 provider(anthropic 우선, 없으면 이름순 첫 디렉토리).
+- 앱 추가 provider 의 auth token 은 secret store `provider:${provider key}` 에만 저장한다. DB/renderer/agent list DTO 는 토큰·env 를 노출하지 않는다.

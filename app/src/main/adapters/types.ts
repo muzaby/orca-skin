@@ -1,7 +1,7 @@
 import type { Backend, NormalizedEvent, ProviderDescriptor } from '../../shared/ipc'
 import type { ClaudePermissionMode } from '../../shared/permission-mode'
 import type { TurnRequest } from '../extensions/types'
-import type { OrcaAgentConfig } from '../config/orca-file'
+import type { ResolvedProviderSettings } from '../settings/provider-settings'
 
 export type { Backend, NormalizedEvent }
 
@@ -21,8 +21,11 @@ export interface CompleteRequest {
   model?: string
   cwd?: string
   signal?: AbortSignal
-  // orca.json agent 설정. 자동 제목 생성 complete 경로도 sendMessage 와 같은 provider/env 를 쓴다.
-  agent?: OrcaAgentConfig
+  // 해석 완료 provider settings (handoff 0014). 자동 제목 생성 complete 경로도 sendMessage 와
+  // 같은 provider settings/격리모드를 쓴다 (대칭 — 0005 의 "settingSources 미지정" 결정 폐기).
+  providerSettings?: ResolvedProviderSettings
+  // subprocess env (orca.json 앱 전역 env). sendMessage 경로와 동일 조립 결과를 받는다.
+  env?: Record<string, string>
 }
 
 export interface SessionAdapter {

@@ -21,6 +21,7 @@ import type { CostTracker } from '../cost/tracker'
 import type { PythonRuntime } from '../runtime'
 import type { SecretStore } from '../config/secret-store'
 import type { ExtensionBuilder } from '../extensions/builder'
+import type { ProviderSettingsService } from '../settings/provider-settings'
 
 export interface RouterContext {
   db: DbQueries
@@ -32,6 +33,8 @@ export interface RouterContext {
   runtime: PythonRuntime
   secretStore: SecretStore
   extensions: ExtensionBuilder
+  // provider settings 해석 서비스 (handoff 0014) — 열거(sources/settings 트리) + 해석 캐시.
+  providerSettings: ProviderSettingsService
   // 부팅 1회 스캔 캐시 — 턴 실행 시점에 최신 값을 읽도록 getter 로 노출.
   getSkills(): SkillInfo[]
   // chat send · files list · session cwd 가 공유하는 단일 cwd (현재 home 고정).

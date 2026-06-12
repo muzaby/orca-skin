@@ -18,7 +18,8 @@ import type {
   UserPromptSubmitHookSpecificOutput
 } from '@anthropic-ai/claude-agent-sdk'
 import type { ClaudeMcpConfig } from '../mcp/schema'
-import { distDir } from '../config/paths'
+import { distPluginDir } from '../config/paths'
+import type { ResolvedProviderSettings } from '../settings/provider-settings'
 import {
   resolveHookDecisions,
   type NormalizedHookContext,
@@ -45,13 +46,27 @@ export function adaptSystemPrompt(append?: string): object {
   return { systemPrompt: { type: 'preset' as const, preset: 'claude_code' as const, append } }
 }
 
-// claude 로컬 플러그인 루트 = dist/claude-code/(ExtensionDeployer 가 sources/ 에서 렌더한 산출물).
-// 부팅 시 deploy('claude-code') 로 매니페스트 + skills/agents/commands 가 보장된다. plugins(local) +
-// skills:'all' 로 배포된 SKILL.md 를 명시 로드한다. (TurnExtensions.skills 배열은 가시화 메타일 뿐.)
+// claude 로컬 플러그인 루트 = dist/claude-code/plugin/ (ExtensionDeployer 가 sources/ 에서 렌더한
+// 산출물 — handoff 0014 에서 provider 디렉토리와 분리). 부팅 시 deploy('claude-code') 로 매니페스트 +
+// skills/agents/commands 가 보장된다. plugins(local) + skills:'all' 로 배포된 SKILL.md 를 명시
+// 로드한다. (TurnExtensions.skills 배열은 가시화 메타일 뿐.)
 export function adaptSkills(): object {
   return {
-    plugins: [{ type: 'local' as const, path: distDir('claude-code') }],
+    plugins: [{ type: 'local' as const, path: distPluginDir('claude-code') }],
     skills: 'all' as const
+  }
+}
+
+// provider settings 격리 주입 (handoff 0014). 해석 완료 blob 을 flag settings 레이어
+// (options.settings — CLI --settings 동등, 사용자 제어 설정 중 최우선)로 넘기고,
+// settingSources:[] 로 사용자 ~/.claude·프로젝트 .claude 를 차단한다(SDK isolation mode).
+// blob 부재(미등록 어댑터 폴백 등)여도 격리모드는 유지 — Orca 세션의 설정 원천은 항상
+// dist/<engine>/<provider>/ 단일 출처다. (CLAUDE.md 는 'project' 소스 없이도 Orca 가
+// systemPromptAppend 로 지침을 주입하므로 영향 없음.)
+export function adaptSettings(blob?: ResolvedProviderSettings): object {
+  return {
+    settingSources: [],
+    ...(blob && Object.keys(blob.settings).length > 0 ? { settings: blob.settings } : {})
   }
 }
 
