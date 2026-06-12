@@ -33,4 +33,6 @@
 
 | `0014-provider-settings-dist`   | verify | PASS      | —         | `9585cb7` | 1      | provider settings dist 재구조화 (비기능 = Claude 직접 구현, 사용자 결정 4건 반영). `sources/settings/<adapter>/<provider>/settings.json`(어댑터-네이티브 SSOT) + 어댑터당 meta.json → deployer 가 `dist/<engine>/plugin/`(공유 플러그인) + `<provider>/.claude/settings.json` 렌더 → 런타임은 SDK `resolveSettings`(@alpha, flat 폴백) + `filterEscalatingDefaultMode` + `${VAR}`/secret 주입 → `query({settings, settingSources: []})` **격리모드**(0005 결정 폐기). orca.json `agents` 제거(`{version, env?}` — 클린 브레이크) + `toClaudeEnv` 삭제(TRD 레시피 표 대체) + agent:list 원천 교체(페이로드 shape 0010 유지, renderer 변경 0) + 로더 주입 seam(opencode). 게이트 4종 ✅ 372/372 (+28). 사람 확인 대기: **OAuth 격리모드 실기(1순위)** · bedrock 실환경 · ModelMenu 회귀 · 기존 ~/.claude env 의존 사용자 이전 안내. |
 
+| `0015-settings-flag-string`     | plan   | READY     | Claude    | —         | 1      | 0014 후속 버그수정 (비기능 = Claude 직접 구현). SDK `Options.settings` 는 d.ts 와 달리 런타임 transport 가 **문자열만** 지원 (0.3.143~0.3.175 동일 — argv 에 무직렬화 push, 객체는 `"[object Object]"` 로 강제 변환되어 settings 미적용). 수정: 로더 반환을 `{settings, env}` 로 분리 → `adaptSettings` 는 **인라인 JSON 문자열** 주입(env 제외 — argv 평문 비밀 방지) + 신규 `adaptEnv` 가 provider env 를 subprocess env 로 병합. 상세는 [`0015-settings-flag-string/plan.md`](0015-settings-flag-string/plan.md). |
+
 > 새 작업: 마지막 일련번호 +1 로 행을 추가하고 `<NNNN-slug>/plan.md` 를 생성한다.
