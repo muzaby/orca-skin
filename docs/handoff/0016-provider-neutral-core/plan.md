@@ -23,7 +23,17 @@
 
 **비유**: 봉투(`NormalizedEvent`)는 "어느 우체국에서 왔는지 무관"하게 만들었다는데, 봉투 제작 라인 3곳(send/persist/renderer)이 전부 "클로드 우체국" 도장을 미리 찍는다. opencode 우체국을 열면 라인을 다 고쳐야 하고, 한 곳이라도 빠지면 잘못된 도장이 찍힌다.
 
-**채택안(1-B 코어 완전중립)**: 이벤트에서 `provider` 필드를 제거해 **코어를 진짜 중립**으로 만들고, "어느 백엔드인지"는 **세션↔어댑터 바인딩**(세션 row 의 `backend`/`provider_key`, 0010)에서 파생한다. 구체 provider 리터럴은 **어댑터 계층(+probe/mock/단일 주입 seam)** 밖에서 사라진다.
+**채택안(1-B 코어 완전중립)**: 이벤트에서 `provider` 필드를 제거해 **코어를 진짜 중립**으로 만들고, "어느 백엔드인지"는 **세션↔어댑터 바인딩**(세션 row 의 `backend`/`provider_key`, 0010)에서 파생한다. 구체 provider 리터럴은 **어댑터 계층(+probe/mock/컴포지션 루트)** 밖에서 사라진다.
+
+### 재검토 — "필드 제거" 가 옳은 근거 (방향 검증, 2026-06-13)
+
+방향이 맞는지 코드로 재검증한 결과, **필드 제거의 진짜 근거는 리터럴 하드코딩(A3)이 아니라 이중 진실원(A2)이다**:
+
+1. **`NormalizedEvent.provider` 는 어떤 production 소비자도 읽지 않는다** (검증: `rg "\.provider" app/src/renderer` 의 비-테스트 히트는 `AgentEnvironmentView`의 `agent.provider`(설정 목록 타입, 이벤트 아님)뿐 — chatStore 라우팅은 `ev.sessionId`로만 한다(`chatStore.ts:142`). main 도 `claude-map.ts`가 채워 보낼 뿐 읽어서 분기하는 곳이 없다). 즉 **모든 이벤트·모든 테스트가 의무적으로 들고 다니는 write-only 메타데이터**다.
+2. 그 필드는 `session.backend`(0010 세션-어댑터 잠금)와 **중복된 이중 진실원**이다 — 스탭1 **A2** 가 지적한 스멜. 멀티백엔드에서도 소비자는 `sessionId`로 라우팅 → 세션에서 backend 를 1회 조회하면 되므로 per-event provider 는 미래에도 불필요하다.
+3. **제거 안전성**: 소비자가 안 읽으므로 동작이 깨질 수 없고, 누락은 typecheck 가 전수로 잡는다 — **기계적 변경(논리 위험 아님)**. (스탭2 의 "위험 중(광범위)" 평가를 이 사실로 하향: 변경 범위는 넓으나 risk 는 낮음.)
+
+리터럴 제거(A3)는 이 작업의 *부수 효과* 이지 1차 근거가 아니다.
 
 ### 검토 후 기각한 대안 (스탭2)
 
@@ -36,7 +46,8 @@
 
 1. `provider: ProviderId` 필드를 **모든 `NormalizedEvent` variant** 에서 제거한다(`app/src/shared/ipc.ts:198-270`). 코어·렌더러 어디서도 `ev.provider` 를 읽지 않는다(컴파일 에러로 강제됨).
 2. 어댑터 매퍼 `adapters/claude-map.ts`(`claudeToNormalized`)가 normalized 이벤트에 `provider` 를 더 이상 세팅하지 않는다(필드 제거 정합).
-3. 오케스트레이터의 provider 리터럴 제거: `ipc/chat/send.ts` 의 error 이벤트 생성부와 `makeClassifiedError(...)` 호출이 `'claude-code'` 리터럴을 쓰지 않는다 — 활성 어댑터 식별자(`adapter.id` / `ctx.registry.getActive().id`)를 단일 출처로 사용한다. `ClassifiedError.provider`(ipc.ts:409) 는 유지하되 값의 출처가 어댑터(=`claudeErrorClassifier` 가 자기 id) 또는 활성 `adapter.id` 다.
+3. 오케스트레이터의 provider 리터럴 제거: `ipc/chat/send.ts` 의 error 이벤트 생성부와 `makeClassifiedError(...)` 호출이 `'claude-code'` 리터럴을 쓰지 않는다 — 어댑터가 있으면 그 식별자(`adapter.id`)를 출처로 쓰고, **없으면 생략**한다. `ClassifiedError.provider`(ipc.ts:409) 를 **optional 로 낮춘다** — `claudeErrorClassifier` 처럼 어댑터 컨텍스트가 있으면 자기 id 로 채우고, 어댑터 해석 *이전* 의 오케스트레이션 에러(아래 4-bis)는 provider 없이 발행한다. (ClassifiedError.provider 도 소비자가 분기에 안 쓰므로 optional 화가 무해하다.)
+4-bis. **세션-이전(sessionId·활성 어댑터 부재) 에러 처리**: `send.ts` 의 첫 에러들(`schema_validation_error` · "활성 백엔드가 없습니다") 은 세션도 어댑터도 없어 provider 를 어디서도 파생할 수 없다 — 이벤트는 (1번에 따라) provider 필드가 없고, 그 안의 `ClassifiedError.provider` 도 **부재**다. 이 경로가 "provider 미상" 의 정상 케이스임을 코드/주석으로 명확히 한다.
 4. `ipc/chat/persist.ts` 의 `db.insertSession({ backend })` 가 리터럴 대신 **턴 어댑터 id** 를 쓴다(턴에 `adapterId` 를 보관하거나 `turn.titleAdapter.id` 재사용). persist 가 합성하는 `tool.call.completed` 이벤트의 provider 필드도 1번에 따라 제거.
 5. 렌더러 `features/chat/store/chatStore.ts` 가 `lastBackend: 'claude-code'` 리터럴을 제거한다 — 활성 세션의 backend(세션 메타/backend store 의 활성 백엔드)에서 파생하거나 `lastBackend` 갱신을 backend store 책임으로 옮긴다. OQ7 landmine 주석 제거.
 6. **불변식**: 구체 provider 문자열 리터럴(`'claude-code'`/`'opencode'`)은 비-테스트 소스에서 `adapters/**` · `capabilities/**`(probe) · `adapters/mock*`(dev) **밖에 등장하지 않는다**. (`router.ts` 의 부팅 배선 리터럴은 컴포지션 루트로서 허용 — §설계 참조.) verify 가 `rg "'claude-code'|'opencode'"` 로 대조.
@@ -58,7 +69,8 @@
 
 ## 영향 받는 파일
 
-- `app/src/shared/ipc.ts` — `NormalizedEvent` variant 들에서 `provider` 제거(ClassifiedError.provider 출처 정리)
+- `app/src/shared/ipc.ts` — `NormalizedEvent` variant 들에서 `provider` 제거 + `ClassifiedError.provider` 를 optional 로
+- `app/src/main/runtime-errors/classifier.ts` · `claude-classifier.ts` — provider optional 화(어댑터 컨텍스트 있을 때만 채움)
 - `app/src/main/adapters/claude-map.ts` (+`claude-map.test.ts`) — provider 미설정
 - `app/src/main/ipc/chat/send.ts` · `persist.ts` · `context.ts` — 리터럴 제거 · `adapter.id` 출처화
 - `app/src/main/ipc/chat/turn-registry.ts` — 필요 시 `adapterId` 보관 필드 추가
@@ -80,7 +92,7 @@
 
 | 위험 | 완화 |
 |---|---|
-| 와이어 계약 변경(provider 제거) — 다수 소비자 | 컴파일러가 모든 `ev.provider` 사용처를 에러로 노출 → 전수 처리. grep 보강 |
+| 와이어 계약 변경(provider 제거) — 변경 범위 넓음 | **소비자가 `ev.provider` 를 읽지 않음(재검토에서 검증)** — 변경은 기계적이고 typecheck 가 누락을 전수 검출. 변경 *범위* 는 넓으나 논리 *위험* 은 낮음 |
 | 멀티 윈도우/멀티세션에서 provider 식별 | 세션↔어댑터 바인딩(0010)에서 파생 — 세션 단위가 provider 의 올바른 스코프 |
 | dev MockAdapter(`id:'claude-code'`) | 어댑터 계층이라 6번 불변식에 포함되지 않음 |
 | 누수 잔존 | verify 가 `rg "'claude-code'\|'opencode'"` 비-테스트 소스 0 대조(router 배선 예외 명시) |
