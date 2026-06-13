@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { matchPath, useLocation, useNavigate } from 'react-router-dom'
-import { chatActions, useChatSession, useChatStore } from '../../features/chat'
-import { useSessionsContext } from '../../features/sessions'
+import { chatActions, getActiveChatSession, useChatSession } from '../../features/chat'
+import { useSessionsState } from '../../features/sessions'
 
 // URL ↔ chat store 의 양방향 동기화. AppLayout 레벨에서 한 번만 마운트해 두면
 // chat 적합 라우트 세 가지(`/new`, `/chat/:sessionId`, `/projects/:projectId`)
@@ -26,7 +26,7 @@ import { useSessionsContext } from '../../features/sessions'
 export function useChatRouteSync(): void {
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const { list: sessions } = useSessionsContext()
+  const sessions = useSessionsState((s) => s.list)
 
   const onNew = pathname === '/new'
   const chatMatch = matchPath('/chat/:sessionId', pathname)
@@ -36,7 +36,7 @@ export function useChatRouteSync(): void {
 
   // 방향 1 — URL → State (URL/sessions 변화만 트리거, 상태는 imperative read)
   useEffect(() => {
-    const cur = useChatStore.getState().session
+    const cur = getActiveChatSession()
     if (onNew) {
       // `/new` 는 깨끗한 새 대화. 직전에 프로젝트 랜딩에서 `pendingProjectId` 가
       // 묶여 있던 경우도 함께 해제한다.

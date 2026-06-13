@@ -36,9 +36,6 @@ export const CHANNELS = {
   mcpAdd: 'orca:mcp:add',
   mcpUpdate: 'orca:mcp:update',
   mcpDelete: 'orca:mcp:delete',
-  runtimeStatus: 'orca:runtime:status',
-  runtimePrepare: 'orca:runtime:prepare',
-  runtimeStatusEvent: 'orca:runtime:statusEvent',
   costSummary: 'orca:cost:summary',
   costSummaryEvent: 'orca:cost:summaryEvent',
   // 권한 응답 단일 채널 — ask/plan/tool 세 종류의 승인 응답이 모두 이 채널로 흐른다
@@ -643,15 +640,5 @@ export interface DeleteMcpServerRequest {
   id: string
 }
 
-// Python 런타임 (uv 기반 격리 인터프리터) 상태.
-// 초기화 단계: idle(미시작) → preparing(진행 중) → ready(준비됨) | error(실패).
-export type RuntimeStage = 'idle' | 'preparing' | 'ready' | 'error'
-
-export interface RuntimeStatus {
-  stage: RuntimeStage
-  ready: boolean
-  // 진행 단계 라벨 또는 자식 프로세스 stdout/stderr 누적 청크.
-  log?: string
-  // stage === 'error' 일 때만.
-  error?: string
-}
+// (구 RuntimeStage/RuntimeStatus 는 runtime IPC 채널 제거와 함께 src/main/runtime/ 으로 이동 —
+// 와이어 타입이 아니다. handoff 0012.)

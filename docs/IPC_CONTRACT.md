@@ -2,23 +2,27 @@
 
 > 이 문서는 Main ↔ Renderer 간 IPC 채널의 **단일 진실 공급원 (SSOT)** 이다.
 > 채널을 추가/변경할 때는 코드와 이 문서를 함께 갱신한다.
-> 최종 업데이트: 2026-06-10
+> 최종 업데이트: 2026-06-11 (handoff 0012 — runtime 도메인 제거 · agent 도메인 §2.2-b 편입 · 검증 실패 정책 명문화 · §4 ErrorCategory 정정)
 > 관련 문서: [ARCHITECTURE.md](ARCHITECTURE.md), [ARCHITECTURE.md](ARCHITECTURE.md), [GLOSSARY.md](./GLOSSARY.md), [TRD.md](./TRD.md) §5
 
 ## 1. 명명 규칙
 
 - 형식: `orca:<domain>:<action>` — 소문자 + 콜론 구분
-- 도메인 (15개): `chat`, `backend`, `install`, `settings`, `skills`, `files`, `session`, `project`, `window`, `search`, `mcp`, `runtime`, `cost`, `permission`, `debug`(dev 전용)
+- 도메인 (15개): `chat`, `backend`, `agent`, `install`, `settings`, `skills`, `files`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `permission`, `debug`(dev 전용)
 - 방향:
   - Renderer → Main 요청: `ipcMain.handle` + `ipcRenderer.invoke` (Promise 반환)
   - Main → Renderer 이벤트: `webContents.send` + `ipcRenderer.on` (단방향 push)
 - preload 노출: `window.orca.<domain>.<action>(...)` 형태 (`app/src/preload/index.ts`)
 - 채널 상수: `app/src/shared/ipc.ts` 의 `CHANNELS` 객체. 문자열 리터럴 직접 사용 금지.
-- 입력 검증: 모든 `ipcMain.handle` 핸들러는 **zod 스키마 (`app/src/shared/protocol.ts`)** 로 페이로드 검증. 검증 실패 시 에러 throw.
+- 입력 검증: 모든 invoke 핸들러는 `app/src/main/ipc/registry.ts` 의 `handle(channel, schema, invalid, fn)` 헬퍼를 경유해 **zod 스키마 (`app/src/shared/protocol.ts`)** 로 safeParse 검증한다. 채널별 실패 정책은 등록부에 명시:
+  - `'reject'` — zod 에러로 invoke reject (쓰기·생성류: project create/update/delete/listSessions · mcp delete · install start · chat cancel · debug setMock). 무효 페이로드 = 프로그래머 오류 표면화.
+  - `{ fallback }` — 무해 폴백 반환 (조회·무시-안전류: session load(null)/delete/rename(undefined) · files list([]) · search([]) · permission respond/setMode(undefined)).
+  - 특례: `chat:send` 는 실패를 `error` 이벤트로 회신(§2.1). 입력이 없거나 store 내부 zod 가 검증하는 채널(settings set · mcp add/update)은 `handlePlain`.
+- 출력(main→renderer send) 무검증: `NormalizedEvent` 등의 형상 보증은 어댑터 정규화(`claude-map.ts`)가 담당 — 의도된 설계.
 
-## 2. 채널 카탈로그 (총 38 채널)
+## 2. 채널 카탈로그 (총 36 채널)
 
-도메인별 분포: `chat` 3 · `backend` 1 · `install` 2 · `settings` 2 · `skills` 1 · `files` 1 · `session` 6 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `runtime` 3 · `cost` 2 · `permission` 2 (`respond` · `setMode`) · `debug` 2 (dev 전용 — `getMock` · `setMock`).
+도메인별 분포: `chat` 3 · `backend` 1 · `agent` 1 · `install` 2 · `settings` 2 · `skills` 1 · `files` 1 · `session` 6 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `cost` 2 · `permission` 2 (`respond` · `setMode`) · `debug` 2 (dev 전용 — `getMock` · `setMock`).
 
 `app/src/shared/ipc.ts` 의 `CHANNELS` 상수와 1:1 일치. **단, `debug` 2채널은 `import.meta.env.DEV` 일 때만 `ipcMain.handle` 로 등록된다** (CHANNELS 상수 문자열은 상존하나 prod 핸들러 미등록 — §2.13 참조).
 
@@ -26,7 +30,7 @@
 
 | 채널 | 방향 | 페이로드 | 응답/스트림 | 설명 |
 |---|---|---|---|---|
-| `orca:chat:send` | R→M (invoke) | `SendChatMessage` = `{ sessionId: string \| null; text: string }` | `Promise<void>` (ack) | 메시지 전송. 응답은 `orca:chat:event` 스트림으로 발행. `sessionId === null` 이면 새 세션. |
+| `orca:chat:send` | R→M (invoke) | `SendChatMessage` = `{ sessionId: string \| null; projectId: string \| null; text: string; permissionMode?; providerKey?: string \| null; modelFamily?: string \| null }` | `Promise<void>` (ack) | 메시지 전송. 응답은 `orca:chat:event` 스트림으로 발행. `sessionId === null` 이면 새 세션. 같은 세션(또는 같은 창의 새-채팅 슬롯)에 진행 중 턴이 있으면 `error` 이벤트로 거부 — **서로 다른 세션의 동시 턴은 허용**(handoff 0011 TurnRegistry). |
 | `orca:chat:event` | M→R (send) | — | `ChatEvent` (반복) | 어댑터 정규화 스트림. variant 정의는 §3 참조. |
 | `orca:chat:cancel` | R→M (invoke) | `CancelChat` = `{ sessionId: string }` | `Promise<void>` | 진행 중 요청 취소 (`AbortSignal` 전파). |
 
@@ -37,6 +41,12 @@
 | `orca:backend:list` | R→M (invoke) | — | `BackendListResult` = `{ backends: { id: Backend; installed: boolean; version?: string; capabilities?: ProviderDescriptor }[]; active?: Backend }` | 등록된 어댑터의 설치 상태 + 활성 백엔드 + 능력 서술자(`capabilities`, computed-on-the-fly — provider-runtime.md §4/§15). 신규 채널 아님(기존 페이로드 비파괴 확장). |
 
 > **예약 (현재 미노출)**: `orca:backend:select` — 단일 백엔드 (`claude-code`) 라 호출자가 없어 preload 에서 의도적으로 제외. opencode 어댑터 활성화 PR 에서 재노출.
+
+### 2.2-b Agent (handoff 0010)
+
+| 채널 | 방향 | 페이로드 | 응답 | 설명 |
+|---|---|---|---|---|
+| `orca:agent:list` | R→M (invoke) | — | `AgentEnvironment[]` | `~/.config/orca/orca.json` 의 agents 를 renderer-safe DTO 로 반환. `authToken`/`baseUrl`/`env`/secret 값 필드는 존재하지 않는다(화이트리스트 — `toAgentEnvironments`). |
 
 ### 2.3 Install
 
@@ -176,27 +186,9 @@ interface McpServer {
 
 소스(mcp.json)→SDK 매핑(`toClaudeConfig`, 구조 항등): stdio → `{ command, args, env: { [authEnvKey]: '${authEnvKey}' } }`, http → `{ type:'http', url, headers: { Authorization: 'Bearer ${authEnvKey}' } }`, sse → 그대로 보존(SDK 가 sse 트랜스포트 지원). `${VAR}` 는 query 직전 resolver(safeStorage→process.env)로 확장되며, 미해결 시 해당 서버는 드롭된다.
 
-### 2.11 Runtime (Python — uv 격리 인터프리터)
+### 2.11 Runtime — **제거됨 (handoff 0012)**
 
-앱이 `<userData>/runtime` 에 제공하는 uv 기반 격리 Python 환경의 상태/제어. 부팅 시 `IpcRouter.start()` 가 `PythonRuntime.ensure()` 를 비동기로 킥하며, 진행 상태는 `orca:runtime:statusEvent` 로 모든 창에 브로드캐스트된다. agent 의 도구 실행에는 `handleChatSend` 가 `PythonRuntime.getEnv()` 의 `UV_*`/`PATH` 를 SDK `query().options.env` 로 주입한다. 인터프리터는 첫 실행 시 `uv python install 3.12` 로 확보(4-A); operator 가 `UV_PYTHON_INSTALL_MIRROR`/`UV_DEFAULT_INDEX`/`PIP_INDEX_URL` 를 환경에 지정하면 그 값으로 수렴(미설정 시 github/공개 PyPI).
-
-| 채널 | 방향 | 페이로드 | 응답 | 설명 |
-|---|---|---|---|---|
-| `orca:runtime:status` | R→M (invoke) | — | `RuntimeStatus` | 현재 런타임 상태 1회 조회 (renderer 마운트 시 초기 동기화). |
-| `orca:runtime:prepare` | R→M (invoke) | — | `Promise<void>` | 초기화 재시도/수동 준비 트리거. 진행은 statusEvent 로 스트리밍. |
-| `orca:runtime:statusEvent` | M→R (send) | `RuntimeStatus` | — | 초기화 진행 상태 스트림 (preparing 단계 로그 청크 포함). |
-
-`RuntimeStatus` (`app/src/shared/ipc.ts`):
-```typescript
-type RuntimeStage = 'idle' | 'preparing' | 'ready' | 'error'
-interface RuntimeStatus {
-  stage: RuntimeStage
-  ready: boolean
-  log?: string    // preparing 단계 라벨 또는 자식 프로세스 stdout/stderr 청크
-  error?: string  // stage === 'error' 일 때만
-}
-```
-
+구 `orca:runtime:{status,prepare,statusEvent}` 3채널은 renderer 소비처(과거 `features/runtime` RuntimeStatus 위젯)가 제거된 뒤 preload 에만 노출된 고아 채널이라 **2026-06-11 제거**됐다. `PythonRuntime`(uv 격리 인터프리터) 자체는 main 내부에 유지된다 — `IpcRouter.start()` 가 `ensure()` 를 비동기로 킥하고, `handleChatSend` 가 `getEnv()` 의 `UV_*`/`PATH` 를 SDK `query().options.env` 로 주입하며, 진행 상태는 dev 터미널 로깅으로 관찰한다. `RuntimeStage`/`RuntimeStatus` 타입은 `app/src/main/runtime/` 으로 이동(와이어 타입 아님). 런타임 UI 재도입 시 §6 변경 절차로 재추가한다.
 
 ### 2.12 Cost (Phase 3++)
 
@@ -256,13 +248,13 @@ LLM API 없이 renderer 의 스트리밍·사고 블록·도구 카드·권한 �
 | `type` | 필드(공통: `sessionId`·`provider`) | 발생 시점 | Renderer 처리 (`chatReducer.ts`) |
 |---|---|---|---|
 | `session.updated` | `patch: { model?; cwd? }` | 어댑터의 첫 메시지 (SDK `SDKSystemMessage.init`) | `state.sessionId` 저장, `state.cwd` 갱신 |
-| `message.delta` | `delta: { text }` | LLM 스트리밍 (SDK `text_delta`) | `pendingDelta += text` |
-| `message.completed` | `message: { text }` | LLM 턴 종료 (SDK `SDKAssistantMessage` text block) | 현재 assistant 메시지에 `text` 파트 append, `pendingDelta` 비움 |
-| `message.reasoning` | `text; signature?` | 확장사고 블록 (SDK `SDKAssistantMessage` thinking block) | 현재 assistant 메시지에 `reasoning` 파트 append (signature 는 opaque 보관) + `pendingReasoning` 비움 |
-| `message.reasoning.delta` | `delta: { text }` | 확장사고 라이브 (SDK `thinking_delta`) | `pendingReasoning += text` (transient, 미저장). `message.delta` 와 동형 — 런타임 미수신 시 발생 안 함 |
+| `message.delta` | `delta: { text }` | LLM 스트리밍 (SDK `text_delta`) | chat store `live.text += text` (0008 — reducer 미경유 transient) |
+| `message.completed` | `message: { text }` | LLM 턴 종료 (SDK `SDKAssistantMessage` text block) | 현재 assistant 메시지에 `text` 파트 append, `live.text` 비움 |
+| `message.reasoning` | `text; signature?` | 확장사고 블록 (SDK `SDKAssistantMessage` thinking block) | 현재 assistant 메시지에 `reasoning` 파트 append (signature 는 opaque 보관) + `live.reasoning` 비움 |
+| `message.reasoning.delta` | `delta: { text }` | 확장사고 라이브 (SDK `thinking_delta`) | chat store `live.reasoning += text` (transient, 미저장). `message.delta` 와 동형 — 런타임 미수신 시 발생 안 함 |
 | `tool.call.started` | `toolRunId; toolName; args` | LLM 도구 호출 (SDK `tool_use` block) | 현재 assistant 메시지에 `tool_call` 파트 append |
 | `tool.call.completed` | `toolRunId; result; isError; durationMs?` | 도구 실행 완료 (SDK `tool_result` block) | `tool_result` 파트 append (`toolRunId` 로 `tool_call` 과 페어링) |
-| `telemetry` | `usage?: ProviderReportedTelemetry` (model·input/output·캐시 토큰·costUsd·durationMs·numTurns·modelUsage) | 어댑터 턴 종료 (SDK `SDKResultMessage`) | `inflight = false`, `pendingInputTokens`·`lastTelemetry`·`sessionCostUsd`(누산)·`lastTurnLatencyMs` 갱신 → TelemetryPanel |
+| `telemetry` | `usage?: ProviderReportedTelemetry` (model·input/output·캐시 토큰·costUsd·durationMs·numTurns·modelUsage) | 어댑터 턴 종료 (SDK `SDKResultMessage`) | `inflight = false`, `lastTelemetry`·`sessionCostUsd`(누산) 갱신 → 컨텍스트 도넛/TelemetryPanel |
 | `error` | `error: { code; message; recoverable }` (`sessionId?`) | 어댑터 catch 또는 SDK 에러 | `state.error` 설정, `inflight = false` |
 | `permission.requested` | `approvalId; origin; action: PermissionAction` | AskUserQuestion·ExitPlanMode·**위험 도구 게이트**(canUseTool) | `action.kind` 로 분기 → `pendingAsks` / `pendingPlanReview` / `pendingToolApproval`. 응답은 단일 `permissionRespond`(`{approvalId, resolution}`, approvalId=requestId) |
 | `permission.resolved` | `approvalId; resolution: ApprovalResolution` | 라우터 `requestApproval` 클로저가 broker 해소 직후 발행(mock/실경로 공통 — audit/telemetry 용) | no-op(카드는 respond 시 로컬 RESOLVE_* 로 닫힘) |
@@ -273,21 +265,20 @@ LLM API 없이 renderer 의 스트리밍·사고 블록·도구 카드·권한 �
 
 **권한 모드 라이브 전환 (PR③).** `permissionSetMode`(`orca:permission:setMode`, renderer→main invoke). 페이로드 = `{sessionId, mode: NormalizedPermissionMode}`(정규화 6종 — `default`·`accept_edits`·`plan`·`dont_ask`·`bypass`·`auto_classified`). main 은 두 경로로 적용한다: ① `PermissionModeController`(세션 SSOT) 갱신 → 다음 턴 send 페이로드에 반영, ② 같은 세션의 진행 중 턴이 있으면 그 턴의 라이브 핸들로 즉시 `Query.setPermissionMode`(`toClaudePermissionMode` 변환) — 그 턴의 이후 도구부터 적용. 턴-스코프 스트리밍 입력(`prompt: AsyncIterable<SDKUserMessage>`)에서만 control 메서드가 열린다(resume-from-DB 모델 유지). 위험 모드(`bypass`·`dont_ask`)는 렌더러 `ModeMenu` 가 2-스텝 확인으로 가드한다.
 
-## 4. 에러 코드
+## 4. 에러 분류 (ErrorCategory)
 
-`app/src/shared/ipc.ts:25-34` 의 `ErrorCode` 그대로.
+`orca:chat:event` 의 `error` 이벤트는 `ClassifiedError` = `{ category; message; retryable; provider; cause? }` 를 싣는다 (`app/src/shared/ipc.ts` `ErrorCategory` 8종 — provider-runtime.md §6 정본). 구 `ErrorCode`(`sdk.*`/`cli.*`) 모델은 표준화 리팩토링(PR #47)에서 폐기됐다.
 
-| code | 의미 | 발생 위치 | 회복 방법 |
+| category | 의미 | 발생 위치 | retryable 기본 |
 |---|---|---|---|
-| `sdk.crashed` | SDK 의 `query()` 내부 예외 | claude-code 어댑터 | 새 대화 (보통 `recoverable: true`) |
-| `sdk.spawn-failed` | SDK 가 platform binary 해소 실패 / 활성 백엔드 부재 | claude-code 어댑터 부팅·router | 인스톨러 다이얼로그 |
-| `auth.expired` | SDK 가 401 / OAuth / expired 패턴 throw | claude-code 어댑터 | `claude /login` 안내 모달 (AuthExpiredModal) |
-| `protocol.parse` | 어댑터 정규화 실패 (예상치 못한 SDKMessage 형태) | claudeToNormalized | 새 대화 |
-| `internal` | 그 외 알 수 없는 에러 | router / 어댑터 | 새 대화 |
-
-> 구 `cli.*` 코드 그룹(`cli.not-installed`/`cli.spawn-failed`/`cli.crashed`/`cli.timeout`)은 Phase 3 SDK 마이그레이션 후 제거됨(legacy 정리).
-
-> `cli.*` 코드 그룹은 Phase 3 SDK 마이그레이션 이후 deprecated. 후속 PR 에서 정리 예정.
+| `provider_connection_error` | 백엔드 바이너리 부재 · 서버 다운 · 활성 백엔드 없음 · 같은 세션 중복 send | 어댑터 부팅 · chat send | true |
+| `auth_error` | API key 무효/만료 (재로그인 모달 분기 — AuthExpiredModal) | claude-code 어댑터 | false |
+| `permission_denied` | 사용자 deny / policy deny | 권한 게이트 | false |
+| `tool_execution_error` | shell exit≠0 · 파일 read 실패 | 도구 실행 | false |
+| `stream_error` | SSE 끊김 · iterator 오류 | 어댑터 스트림 | true |
+| `capability_unsupported` | 백엔드 미지원 기능 호출 | capability 가드 | false |
+| `schema_validation_error` | structured output / IPC payload 검증 실패 | chat send 서두 등 | false |
+| `user_cancelled` | abort/interrupt — 정상 종료 (emit 안 함, 분류만) | — | false |
 
 ## 5. 타입 정의 위치
 
@@ -304,7 +295,7 @@ LLM API 없이 renderer 의 스트리밍·사고 블록·도구 카드·권한 �
 
 1. `app/src/shared/ipc.ts` — 채널 상수 + 타입 정의 추가/변경
 2. `app/src/shared/protocol.ts` — zod 스키마 추가 (요청 검증 필요 시)
-3. `app/src/main/ipc/router.ts` — `ipcMain.handle` 등록 + 검증 로직
+3. `app/src/main/ipc/handlers/<domain>.ts`(또는 chat 계열이면 `ipc/chat/`) — `registry.ts` 의 `handle(channel, schema, invalid, fn)` 로 등록(실패 정책 명시). 새 도메인이면 파일 신설 후 `ipc/router.ts` 의 `register()` 에서 호출
 4. `app/src/preload/index.ts` — `window.orca.<domain>.<action>` 노출 추가
 5. Renderer 사용처 (`app/src/renderer/src/shared/api/ipc.ts`, feature provider/hook 또는 컴포넌트)
 6. **이 문서 §2 의 표 갱신** (도메인 추가 시 §2.x 신설, 총 채널 수/도메인별 분포도 동시 갱신)
@@ -318,11 +309,3 @@ LLM API 없이 renderer 의 스트리밍·사고 블록·도구 카드·권한 �
 - 모든 invoke 핸들러는 `try/catch` + 직렬화 가능한 에러 (`{ code, message, recoverable }`) 반환.
 - 민감 정보 (자격증명·파일 전체 경로 등) 는 로그에 마스킹.
 
-
-## Agent domain (0010)
-
-| Channel | Direction | Payload | Response | Notes |
-|---|---|---|---|---|
-| `orca:agent:list` | renderer → main | none | `AgentEnvironment[]` | orca.json agents 를 renderer-safe DTO 로 반환한다. `authToken`/`baseUrl`/`env`/secret 값 필드는 존재하지 않는다. |
-
-`orca:chat:send` 는 optional `providerKey?: string | null`, `modelFamily?: string | null` 를 수용한다. `orca:session:load` 의 `LoadedSession` 은 optional `providerKey?: string | null` 를 반환한다. 활성 채널 총수는 39개다.

@@ -63,7 +63,7 @@ new BrowserWindow({
 >
 > **`${VAR}` resolver 순서 = safeStorage(비밀) → process.env (2단계)**. 미해결 변수가 있으면 해당 **서버를 드롭 + 사유 기록**(`console.warn`) — 조용한 빈 문자열 치환 금지(인증 없는 요청 누출 방지).
 
-> **orca.json 예외 (0009)**: 앱 전역 설정 `~/.config/orca/orca.json` 의 `agents[].authToken (`apiKey` 별칭)` 는 사용자 결정에 따라 평문과 `${VAR}` 플레이스홀더를 모두 허용한다. 권장값은 `${ANTHROPIC_API_KEY}` 처럼 `${VAR}` 를 쓰는 방식이며, resolver 순서는 기존과 동일하게 safeStorage(secret-store) → `process.env` 이다. 평문을 쓰는 경우 파일 권한·디스크 보호 책임은 사용자에게 있다. 값 확장은 claude-code 어댑터 진입 시점에만 수행하고, 미해결 `${VAR}` 는 해당 env 키만 드롭한다(MCP 의 서버 전체 드롭과 다름).
+> **provider settings 예외 (0009 → 0014 이전)**: 구 orca.json `agents[].authToken` 의 평문 허용 예외는 **`sources/settings/<adapter>/<provider>/settings.json` 의 `env` 블록으로 이전**됐다(orca.json agents 필드 제거 — TRD §6.8). env 값에 평문과 `${VAR}` 플레이스홀더를 모두 허용하되 권장값은 `${ANTHROPIC_API_KEY}` 형태의 `${VAR}` 이며, resolver 순서는 기존과 동일하게 safeStorage(secret-store) → `process.env` 이다. 평문을 쓰는 경우 파일 권한·디스크 보호 책임은 사용자에게 있다. 값 확장은 settings 해석 시점(`adapters/claude-settings.ts`)에만 수행하고(dist 산출물에는 미확장 `${VAR}` 그대로 복사 — 디스크 평문 0 유지), 미해결 `${VAR}` 는 해당 env 키만 드롭한다(MCP 의 서버 전체 드롭과 다름). 격리모드(`settingSources:[]`)로 사용자 `~/.claude/settings.json` 은 세션에 적용되지 않는다.
 >
 > **타입 모델**: 정규 컬렉션 타입은 `OrcaMcpConfig`(claude-code 스펙). Claude 형식은 이와 동일하므로 **별칭** `type ClaudeMcpConfig = OrcaMcpConfig` 로 못박는다. 단일 항목 타입 `ClaudeMcp` 의 http/sse 는 분리된 판별 멤버라 SDK `McpServerConfig`(stdio|http|sse) 유니온에 그대로 대입된다. **"IR(중간형)" 표현은 쓰지 않는다** — 정규형이 곧 claude-code 스펙.
 >
@@ -74,7 +74,7 @@ new BrowserWindow({
 > **확장 정규 레이어 (정규 소스 + 어댑터 머티리얼라이저)**: MCP 의 `정규소스→변환기→주입` 패턴을 확장(skill/agent/command) 전반으로 일반화한다. 백엔드-중립 정규 소스를 `~/.config/orca` 한 곳에 두고, 각 어댑터가 실행 시 자기 백엔드 형식으로 *머티리얼라이즈(주입)* 한다. → 이 패턴의 배포 계층 정본은 [standardization.md §5](./standardization.md)(`ExtensionDeployer`·sources/dist 분리)이며, `toClaudeConfig`/`toOpencodeConfig`/`expandEnv`(`src/main/mcp/`)가 그 mcp 축의 현행 구현체다. sources/dist 도입 시 `mcp.json` 은 `sources/mcp/` 로 이동한다.
 >
 > - **정규 소스**(백엔드 중립): `~/.config/orca/{skills/<name>/SKILL.md, agents/<name>.md, commands/<name>.md}` + `mcp.json`. 비밀은 secret-store(safeStorage)에만.
-> - **Claude 어댑터 머티리얼라이즈**(인프로세스 `query()`): `ensureOrcaPlugin()` 이 `~/.config/orca` 에 `.claude-plugin/plugin.json` 을 생성 → **디렉토리 자체가 Claude 로컬 플러그인**이 된다. `plugins:[{type:'local', path: ~/.config/orca}]` + `skills:'all'` 로 로드(같은 플러그인이라 agents/·commands/ 도 자동 로드). `mcp.json`(점 없음)은 플러그인 로더가 무시 → MCP 는 `options.mcpServers` 로 별도 주입(이중 주입 없음).
+> - **Claude 어댑터 머티리얼라이즈**(인프로세스 `query()`): ExtensionDeployer 가 `dist/claude-code/plugin/` 에 `.claude-plugin/plugin.json` + skills/agents/commands 를 렌더 → **그 디렉토리가 Claude 로컬 플러그인**이 된다. `plugins:[{type:'local', path: dist/claude-code/plugin}]` + `skills:'all'` 로 로드(같은 플러그인이라 agents/·commands/ 도 자동 로드). MCP 는 `options.mcpServers` 로 별도 주입(이중 주입 없음), provider settings 는 `dist/claude-code/<provider>/` 에서 `options.settings` 로 주입(0014, TRD §6.8).
 > - **opencode 어댑터 머티리얼라이즈**(future anchor, 미구현): `opencode serve` + config-on-disk 모델이라 query 주입 불가 — `toOpencodeConfig(mcp.json)` 를 `opencode.json` `mcp` 키로 쓰고, skills 는 opencode 가 네이티브 글로빙하는 경로로 심링크/복사, agents/commands 는 변환기로 `~/.config/opencode/{agent,command}` 에 셰이핑.
 >
 > **이식성 경계 (= 변환 가능성)**: **Skill(`SKILL.md`)** 은 변환 없이 양 백엔드 공통(opencode 가 `.claude/skills`·`~/.claude/skills` 네이티브 글로빙). **MCP/Agent/Command** 는 변환 가능(MCP 는 구현됨, agent/command 변환기는 anchor). **Hook·full-plugin 번들** 은 본질적으로 백엔드 종속(Claude=선언형 `hooks.json`+shell·manifest 디렉토리 / opencode=TS 코드 모듈; SDK 도 Claude=인프로세스 vs opencode=`serve` HTTP) → 정규화 대상이 아니며 향후 백엔드별 슬롯으로 둔다. `skill-creator` 같은 full Claude 플러그인은 정규 모델에 포함하지 않는다(필요 시 `SKILL.md` 만 `skills/` 로 추출).
@@ -102,6 +102,8 @@ font-src 'self' https://fonts.gstatic.com
 
 
 
-### Agent provider auth token (0010)
+### Agent provider auth token (0010 → 0014 → 0015)
 
-앱에서 추가되는 agent/provider 조합의 접근 토큰은 secret store(safeStorage) 키 `provider:${provider key}` 에만 저장한다. 턴 실행 시점에만 복호화해 adapter env 로 합성하며 DB, renderer IPC DTO, 로그에는 평문·해시를 남기지 않는다. orca.json 의 `authToken` 은 호환/수동 설정 경로이며 권장값은 `${VAR}` placeholder 다.
+앱에서 추가되는 adapter/provider 조합의 접근 토큰은 secret store(safeStorage) 키 `provider:${provider key}` 에만 저장한다(키 규약 0010 유지). settings 해석 시점에만 복호화해 effective 의 `env.ANTHROPIC_API_KEY` 로 합성하며 DB, renderer IPC DTO, 로그, dist 산출물에는 평문·해시를 남기지 않는다. settings.json `env` 의 수동 설정 경로는 권장값이 `${VAR}` placeholder 다(위 "provider settings 예외").
+
+**argv 평문 불변식 (handoff 0015)**: provider settings 는 `query()` 의 flag 레이어(`options.settings` → CLI `--settings`)로 주입되는데, 이 값은 SDK 가 직렬화 없이 CLI argv 에 그대로 push 하므로 **process list(같은 사용자에게 가시)에 노출된다**. 따라서 해석된 effective 를 주입할 때 `env`(확장·secret 주입 완료 — 평문 비밀 포함)는 settings 문자열에서 **제외**하고 subprocess env(`options.env`)로만 흘려보낸다. argv 에는 비-비밀 settings(model·permissions 등)만 인라인 JSON 문자열로 실린다. 이 분리가 깨지면(env 를 settings 에 되넣으면) 평문 토큰이 argv 로 새므로 회귀 금지선이다 — `adapters/claude-settings.ts`(분리 반환) + `adapters/claude-adapt.ts`(`adaptSettings`=문자열·env 제외 / `adaptEnv`=subprocess env)로 강제한다.

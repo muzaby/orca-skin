@@ -1,98 +1,39 @@
-import type { AgentEnvironment, AgentModelView, Backend } from '../../shared/ipc'
-import { expandVars, type Resolver } from '../mcp/expand'
-import type { OrcaAgentConfig, OrcaModelConfig } from './orca-file'
+// provider key 어휘 — `${adapter}-${provider}` 합성 키 (handoff 0010 규약 유지). 세션의
+// provider_key 영속·secret-store 키(`provider:${providerKey}`)·renderer ModelMenu 가 공유하는
+// 식별자다. agent 목록 조회/모델 해석은 handoff 0014 에서 settings/provider-settings.ts 로 이전.
 
 export interface SecretReader {
   get(name: string): string | undefined
 }
 
-export function providerKeyOf(agent: Pick<OrcaAgentConfig, 'adapter' | 'provider'>): string {
-  const provider = agent.provider?.trim().toLowerCase()
-  return provider ? `${agent.adapter}-${provider}` : agent.adapter
+export function providerKeyOf(adapter: string, provider: string): string {
+  const normalized = provider.trim().toLowerCase()
+  return normalized ? `${adapter}-${normalized}` : adapter
 }
 
-export function agentForProviderKey(
-  agents: OrcaAgentConfig[],
-  providerKey: string | null | undefined
-): OrcaAgentConfig | undefined {
-  if (!providerKey) return undefined
-  return agents.find((agent) => providerKeyOf(agent) === providerKey)
+export interface ParsedProviderKey {
+  adapter: string
+  provider?: string
 }
 
-export function dedupeAgents(
-  agents: OrcaAgentConfig[],
-  warn: (message: string) => void = () => {}
-): OrcaAgentConfig[] {
-  const seen = new Set<string>()
-  const out: OrcaAgentConfig[] = []
-  for (const agent of agents) {
-    const key = providerKeyOf(agent)
-    if (seen.has(key)) {
-      warn(`provider key '${key}' 중복 — 두 번째 이후 agent 드롭`)
-      continue
+// 합성 키 → {adapter, provider}. adapter id 자체가 하이픈을 포함하므로(claude-code) 알려진
+// adapter 목록과의 최장 접두 매칭으로 분해한다. 매칭 실패(미지 adapter)는 undefined —
+// 구 데이터/오타 키는 호출자가 기본 provider 로 폴백한다.
+export function parseProviderKey(
+  key: string | null | undefined,
+  knownAdapters: Iterable<string>
+): ParsedProviderKey | undefined {
+  if (!key) return undefined
+  let best: ParsedProviderKey | undefined
+  for (const adapter of knownAdapters) {
+    if (key === adapter) {
+      if (!best || adapter.length > best.adapter.length) best = { adapter }
+    } else if (key.startsWith(`${adapter}-`)) {
+      const provider = key.slice(adapter.length + 1)
+      if (provider && (!best || adapter.length > best.adapter.length)) {
+        best = { adapter, provider }
+      }
     }
-    seen.add(key)
-    out.push(agent)
   }
-  return out
-}
-
-export function authTokenFor(
-  agent: OrcaAgentConfig | undefined,
-  options: { secretStore?: SecretReader; resolve: Resolver }
-): string | undefined {
-  if (!agent) return undefined
-  const secret = options.secretStore?.get(`provider:${providerKeyOf(agent)}`)
-  if (present(secret)) return secret
-  if (!present(agent.authToken)) return undefined
-  const missing = new Set<string>()
-  const expanded = expandVars(agent.authToken!, options.resolve, missing)
-  return missing.size === 0 && present(expanded) ? expanded : undefined
-}
-
-export function modelNameForFamily(
-  agent: OrcaAgentConfig | undefined,
-  family: string | null | undefined
-): string | undefined {
-  if (!agent || agent.models.length === 0) return undefined
-  const wanted = family?.trim()
-  const byFamily = wanted
-    ? agent.models.find((model) => modelKey(model) === wanted || model.name === wanted)
-    : undefined
-  const selected = byFamily ?? agent.models.find((model) => model.default) ?? agent.models[0]
-  return selected?.name
-}
-
-export function modelKey(model: OrcaModelConfig): string {
-  return model.family ?? model.name
-}
-
-export function defaultModelFamily(agent: OrcaAgentConfig | undefined): string | null {
-  if (!agent || agent.models.length === 0) return null
-  const selected = agent.models.find((model) => model.default) ?? agent.models[0]
-  return selected ? modelKey(selected) : null
-}
-
-export function toAgentEnvironments(
-  agents: OrcaAgentConfig[],
-  supportedAdapters: Iterable<string>
-): AgentEnvironment[] {
-  const supported = new Set(supportedAdapters)
-  return agents.map((agent) => ({
-    key: providerKeyOf(agent),
-    adapter: agent.adapter as Backend,
-    ...(present(agent.provider) ? { provider: agent.provider!.trim().toLowerCase() } : {}),
-    supported: supported.has(agent.adapter),
-    models: agent.models.map(
-      (model): AgentModelView => ({
-        name: model.name,
-        ...(model.family ? { family: model.family } : {}),
-        ...(model.default !== undefined ? { default: model.default } : {})
-      })
-    )
-  }))
-}
-
-function present(value: string | undefined): value is string {
-  return value !== undefined && value.trim() !== ''
+  return best
 }

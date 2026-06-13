@@ -1,5 +1,6 @@
 // safeStorage(OS 키체인) 암호화 헬퍼. 비밀(MCP 인증 토큰 등)을 평문으로 디스크에 남기지 않기
-// 위해 base64 암호문으로만 저장한다. store.ts / secret-store.ts 가 공유.
+// 위해 base64 암호문으로만 저장한다. secret-store.ts 가 소비한다 (구 mcp/crypto.ts —
+// config↔mcp 역방향 import 제거를 위해 config/ 로 이동, handoff 0011).
 
 import { safeStorage } from 'electron'
 

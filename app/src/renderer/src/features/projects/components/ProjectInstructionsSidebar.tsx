@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Icon } from '../../../shared/ui/Icon'
 import { EditInstructionsModal } from './EditInstructionsModal'
-import { useProjectsContext } from '../providers/ProjectsProvider'
+import { projectsActions, useProjectsState } from '../store/projectsStore'
 
 interface ProjectInstructionsSidebarProps {
   projectId: string
@@ -12,7 +12,8 @@ interface ProjectInstructionsSidebarProps {
 export function ProjectInstructionsSidebar({
   projectId
 }: ProjectInstructionsSidebarProps): React.JSX.Element {
-  const { list, update } = useProjectsContext()
+  const list = useProjectsState((s) => s.list)
+  const { update } = projectsActions
   const project = list.find((p) => p.id === projectId) ?? null
   const [editOpen, setEditOpen] = useState(false)
 

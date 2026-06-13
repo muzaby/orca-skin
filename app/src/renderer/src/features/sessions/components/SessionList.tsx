@@ -1,5 +1,5 @@
 import { SessionRow } from './SessionRow'
-import { useSessionsContext } from '../providers/SessionsProvider'
+import { useSessionsState } from '../store/sessionsStore'
 
 interface SessionListProps {
   // ChatContext, ProjectsContext 는 cross-feature 이므로 app/AppLayout 가 wiring.
@@ -19,7 +19,7 @@ export function SessionList({
   onDelete,
   onRename
 }: SessionListProps): React.JSX.Element {
-  const { list } = useSessionsContext()
+  const list = useSessionsState((s) => s.list)
 
   if (list.length === 0) {
     return <div className="px-1.5 text-[11.5px] text-ink3">아직 저장된 대화가 없습니다.</div>

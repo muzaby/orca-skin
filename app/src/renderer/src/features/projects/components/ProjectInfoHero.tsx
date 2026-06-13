@@ -1,4 +1,4 @@
-import { useProjectsContext } from '../providers/ProjectsProvider'
+import { useProjectsState } from '../store/projectsStore'
 
 interface ProjectInfoHeroProps {
   projectId: string
@@ -9,7 +9,7 @@ interface ProjectInfoHeroProps {
 // wiring. ProjectInstructionsSidebar 와 같은 ProjectsContext.list 를 구독하므로
 // 지침 편집 시 양쪽이 자동 sync.
 export function ProjectInfoHero({ projectId }: ProjectInfoHeroProps): React.JSX.Element {
-  const { list } = useProjectsContext()
+  const list = useProjectsState((s) => s.list)
   const project = list.find((p) => p.id === projectId) ?? null
 
   if (!project) {

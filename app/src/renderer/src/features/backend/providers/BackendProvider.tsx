@@ -1,47 +1,10 @@
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
-import { useBackend } from '../hooks/useBackend'
+import { useEffect, type ReactNode } from 'react'
+import { bootstrapBackend } from '../store/backendStore'
 
-type UseBackendReturn = ReturnType<typeof useBackend>
-
-interface BackendContextValue extends UseBackendReturn {
-  installerOpen: boolean
-  setInstallerOpen: (open: boolean) => void
-  backendLabel: string
-  claudeCodeInstalled: boolean
-}
-
-const BackendContext = createContext<BackendContextValue | null>(null)
-
+// backend 부트스트랩 호스트 — context value 를 제공하지 않는다(ChatProvider 와 동형).
+// 상태는 Zustand backendStore(selector 구독)가 담당하고, 여기서는 부팅 1회 설치 상태
+// 조회 + 미설치 시 인스톨러 자동 오픈만 연결한다 (handoff 0013 — Context 전파 모델 폐기).
 export function BackendProvider({ children }: { children: ReactNode }): React.JSX.Element {
-  const backend = useBackend()
-  const [installerOpen, setInstallerOpen] = useState(false)
-  const autoOpenedRef = useRef(false)
-
-  // 백엔드 탐지 후 미설치 시 인스톨러 노출 — 최초 1회만 자동 오픈.
-  useEffect(() => {
-    if (backend.loading || autoOpenedRef.current) return
-    const cc = backend.list.find((b) => b.id === 'claude-code')
-    if (cc && !cc.installed) {
-      autoOpenedRef.current = true
-      queueMicrotask(() => setInstallerOpen(true))
-    }
-  }, [backend.loading, backend.list])
-
-  const claudeCode = backend.list.find((b) => b.id === 'claude-code')
-  const backendLabel = claudeCode?.version ? `Claude Code · ${claudeCode.version}` : 'Claude Code'
-  const claudeCodeInstalled = claudeCode?.installed === true
-
-  return (
-    <BackendContext.Provider
-      value={{ ...backend, installerOpen, setInstallerOpen, backendLabel, claudeCodeInstalled }}
-    >
-      {children}
-    </BackendContext.Provider>
-  )
-}
-
-export function useBackendContext(): BackendContextValue {
-  const ctx = useContext(BackendContext)
-  if (!ctx) throw new Error('useBackendContext must be used within BackendProvider')
-  return ctx
+  useEffect(() => bootstrapBackend(), [])
+  return <>{children}</>
 }

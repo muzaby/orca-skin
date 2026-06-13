@@ -19,6 +19,9 @@ import type {
 export class DbQueries {
   private readonly insertSessionStmt: Database.Statement
   private readonly listSessionsStmt: Database.Statement
+  // 단건 메타 조회 — resolveTurnAgent(매 chat:send)·sessionLoad 가 사용. listSessions 전체
+  // 로드 후 find 하던 N+1 패턴의 대체.
+  private readonly getSessionByIdStmt: Database.Statement
   private readonly loadPartsStmt: Database.Statement
   private readonly appendMessageStmt: Database.Statement
   private readonly updateMessageContentStmt: Database.Statement
@@ -61,6 +64,11 @@ export class DbQueries {
       FROM sessions
       ORDER BY updated_at DESC
       LIMIT @limit
+    `)
+    this.getSessionByIdStmt = db.prepare(`
+      SELECT id, backend, title, updated_at, last_message_preview, project_id, title_source, provider_key
+      FROM sessions
+      WHERE id = @id
     `)
     this.loadPartsStmt = db.prepare(`
       SELECT
@@ -226,6 +234,10 @@ export class DbQueries {
 
   listSessions(limit = 50): SessionListRow[] {
     return this.listSessionsStmt.all({ limit }) as SessionListRow[]
+  }
+
+  getSessionById(id: string): SessionListRow | undefined {
+    return this.getSessionByIdStmt.get({ id }) as SessionListRow | undefined
   }
 
   loadParts(sessionId: string): LoadedPartRow[] {

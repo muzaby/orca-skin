@@ -1,38 +1,23 @@
-// orca.json 읽기/생성. 파일은 앱 전역 agent/provider 설정의 정규 소스다.
+// orca.json 읽기/생성. 파일은 **앱 자체 전역 환경변수**(모든 어댑터 공통 process env 베이스)의
+// 정규 소스다 — agent/provider 설정은 handoff 0014 에서 sources/settings/<adapter>/<provider>/
+// settings.json 으로 이전됐다 (구 agents[] 필드는 제거 — 클린 브레이크, 발견 시 경고만).
 // 부재 시 사용자가 발견·편집할 수 있게 빈 템플릿을 atomic(temp+rename) 생성한다.
 // 손상 파일은 절대 덮어쓰지 않고 기본값으로만 동작한다.
 
 import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { z } from 'zod'
 import { orcaJsonPath } from './paths'
-import { dedupeAgents } from './provider-key'
-
-export const OrcaModelSchema = z.object({
-  name: z.string().min(1),
-  family: z.string().optional(),
-  default: z.boolean().optional()
-})
-export type OrcaModelConfig = z.infer<typeof OrcaModelSchema>
-
-export const OrcaAgentSchema = z.object({
-  adapter: z.string().min(1),
-  provider: z.string().optional(),
-  authToken: z.string().optional(),
-  apiKey: z.string().optional(),
-  baseUrl: z.string().optional(),
-  env: z.record(z.string(), z.string()).optional(),
-  models: z.array(OrcaModelSchema).default([])
-})
-export type OrcaAgentConfig = z.infer<typeof OrcaAgentSchema>
 
 const OrcaConfigTopSchema = z.object({
   version: z.literal(1),
-  agents: z.array(z.unknown())
+  env: z.record(z.string(), z.string()).optional()
 })
 
 export interface OrcaConfig {
   version: 1
-  agents: OrcaAgentConfig[]
+  // 앱 전역 env (${VAR} 플레이스홀더 허용 — 확장은 소비 시점). 모든 어댑터 subprocess 에
+  // 공통 베이스로 병합된다. provider 별 env 는 settings.json 의 env 블록이 담당.
+  env?: Record<string, string>
 }
 
 export interface ParseOrcaFileResult {
@@ -40,7 +25,7 @@ export interface ParseOrcaFileResult {
   warnings: string[]
 }
 
-const DEFAULT_ORCA_CONFIG: OrcaConfig = { version: 1, agents: [] }
+const DEFAULT_ORCA_CONFIG: OrcaConfig = { version: 1 }
 
 function issueSummary(error: z.ZodError): string {
   return error.issues
@@ -67,21 +52,18 @@ export function parseOrcaFile(raw: string): ParseOrcaFileResult {
     }
   }
 
-  const agents: OrcaAgentConfig[] = []
   const warnings: string[] = []
-  for (const [index, candidate] of top.data.agents.entries()) {
-    const parsed = OrcaAgentSchema.safeParse(candidate)
-    if (parsed.success) {
-      const { apiKey, authToken, ...rest } = parsed.data
-      if (apiKey !== undefined)
-        warnings.push(`orca.json agents[${index}] apiKey 는 deprecated — authToken 사용 권장`)
-      agents.push({ ...rest, ...((authToken ?? apiKey) ? { authToken: authToken ?? apiKey } : {}) })
-    } else {
-      warnings.push(`orca.json agents[${index}] 드롭: ${issueSummary(parsed.error)}`)
-    }
+  // 구 스키마(handoff 0009~0010) 잔존 감지 — 마이그레이션 없이 무시하되 1회 경고로 안내한다.
+  if (typeof json === 'object' && json !== null && 'agents' in json) {
+    warnings.push(
+      'orca.json 의 agents 필드는 제거됐습니다(handoff 0014) — provider 설정은 ' +
+        'sources/settings/<adapter>/<provider>/settings.json 으로 이전하세요 (TRD §6.8).'
+    )
   }
-  const deduped = dedupeAgents(agents, (warning) => warnings.push(`orca.json ${warning}`))
-  return { config: { version: 1, agents: deduped }, warnings }
+  return {
+    config: { version: 1, ...(top.data.env ? { env: top.data.env } : {}) },
+    warnings
+  }
 }
 
 export function ensureOrcaFile(): void {

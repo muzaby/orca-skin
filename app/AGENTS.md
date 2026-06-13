@@ -70,7 +70,7 @@ new BrowserWindow({
 - **DB 위치** `<userData>/orca.db` (`app.getPath('userData')` 단일 출처). 부팅 PRAGMA `journal_mode=WAL` + `foreign_keys=ON`.
 - **마이그레이션** `NNNN_<name>.sql` (4자리 zero-pad). **머지된 마이그레이션 파일은 절대 수정 금지** — 변경은 새 파일로. SQL 은 vite `?raw` 로 main 번들에 인라인. 상태는 `_migrations(name PK, applied_at)` 메타.
 - **SSOT 는 DB.** claude-code `resume` 은 컨텍스트 유지용일 뿐 메시지 출처는 DB. 삭제는 hard delete (CASCADE).
-- **메모리 캐시**: `useChat` 내부 `useRef<Map<sessionId, CachedSession>>`. 세션 이탈 시 snapshot 저장 → 재진입 시 IPC 없이 복원. 무효화는 삭제 시 `invalidateSessionCache(id)`, 이름 변경 시 cache title 동기화. 크기 제한 없음 (Phase 4 LRU cap).
+- **메모리 캐시**: `chatStore` 의 `sessions: Record<sessionId, …>` 외피가 캐시 역할 흡수(handoff 0013) — 본 적 있는 세션 재진입은 IPC 없이 `activeKey` 전환. 무효화는 삭제 시 `invalidateSessionCache(id)`(엔트리 drop). 크기 제한 없음 (LRU cap 은 Future Scope).
 - 스키마 · FTS5 · WAL 상세 → [`../docs/arch/backend/persistence.md`](../docs/arch/backend/persistence.md).
 
 ## 스타일링

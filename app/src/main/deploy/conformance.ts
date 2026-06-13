@@ -25,6 +25,12 @@ export interface StandardConformance {
     standardized: false // 항상 false (§2 — cross-tool 표준 부재)
     executionModel: 'shell_exitcode' | 'inprocess_throw' | 'config_matcher'
   }
+  settings: {
+    // provider 별 settings 파일을 dist/<engine>/<provider>/ 로 분리 배포하는가 (handoff 0014).
+    perProvider: boolean
+    // 런타임 주입 메커니즘. claude = SDK flag settings(Options.settings) + settingSources:[] 격리.
+    mechanism: 'sdk_flag_settings_isolation' | 'native_config_file' | 'none'
+  }
 }
 
 // claude-code 의 구체 표준 적합도.
@@ -50,6 +56,12 @@ const claudeCodeConformance: StandardConformance = {
   hook: {
     standardized: false,
     executionModel: 'inprocess_throw' // SDK in-process canUseTool/hook 콜백
+  },
+  settings: {
+    perProvider: true,
+    // resolveSettings({cwd: dist/<engine>/<provider>}) 로 로드한 effective 를 query
+    // options.settings 로 주입하고 settingSources:[] 로 사용자 ~/.claude 를 격리한다 (0014).
+    mechanism: 'sdk_flag_settings_isolation'
   }
 }
 
