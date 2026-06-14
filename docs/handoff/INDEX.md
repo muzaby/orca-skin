@@ -41,6 +41,8 @@
 
 | `0018-settings-branded-types`   | verify | PASS      | —         | `37e95e1` | 1      | 검증 PASS — 인수 7/7 충족, 게이트 4종(lint/typecheck/test 377/build) 통과. 0015 "비밀↛argv" 불변식을 `delete settings.env` 관례 → **컴파일타임 branded 타입**으로 격상: `ArgvSafeSettings`(env 제거)·`SubprocessEnv` phantom unique symbol + 분리·브랜딩은 단일 생성자 `splitProviderSettings` 1곳(as 격리). `adaptSettings`=ArgvSafe만·`adaptEnv`=SubprocessEnv만 수용 → **env 머금은 객체→argv 컴파일 에러**. `@ts-expect-error` 음성 타입 테스트 2건을 신규 `typecheck:test`(main 테스트 타입체크, 빌드 emit 무영향) 게이트로 고정. `delete settings.env` ad-hoc 제거. 런타임 동작 0015 와 동일(런타임 속성 0). 문서 3건(security/standardization/TRD). 비기능=Claude 직접 구현. **구조 견고화 3-part 시리즈(0016·0017·0018) 완료.** PHASES 승격. 사람 확인 대기: 실환경 턴 1회 settings/env 적용. |
 
+| `0020-composer-cc-layout`       | plan   | READY     | Codex     | —         | 1      | Composer 를 Claude Code 레이아웃으로 재배치(사용자 결정) — 전송버튼 입력행 inline · 하단 우측 `모델·작업량·도넛` · 좌측 `권한모드+"+"`(첨부/현재프레임/Skill 은 `+` 메뉴로) · autogrow 상한 확대. **작업량(effort) 풀스택 배선**: SDK `Options.effort`(low~max) 를 `model` 흐름 미러로 renderer→IPC→TurnRequest→claude-code 어댑터에 전달(per-turn, 기본 high). 신규 `EffortMenu`·`AttachMenu`. IPC_CONTRACT chat send payload 갱신. 기능 구현 = Codex 차례. |
+
 | `0019-test-abi-green`           | plan   | READY     | Claude    | —         | 1      | 0010~0018 구조 감사(plan-eng-review 2026-06-14) 후속 — 게이트 위생. `npm test`(vitest, Node ABI 137) ↔ `postinstall: install-app-deps`(Electron ABI 140) 단일 `.node` 충돌로 `db/queries.test.ts` 상시 9-red(코드 무관, 9개 verify 가 "변경 무관"으로 누적 설명 = red-무시 훈련 안티패턴). 채택: dual-ABI 제거 불가 → **각 진입점 자기-ABI 보장**(`pretest`=Node·`predev`/`prebuild`=Electron, `ensure-sqlite-abi.mjs` 멱등, fetch-uv 패턴 동형). 검증됨: `npm rebuild better-sqlite3` 후 377/377 green. 비기능=Claude 직접 구현. |
 
 > 새 작업: 마지막 일련번호 +1 로 행을 추가하고 `<NNNN-slug>/plan.md` 를 생성한다.
