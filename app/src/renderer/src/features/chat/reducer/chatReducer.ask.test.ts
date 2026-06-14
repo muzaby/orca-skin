@@ -25,7 +25,6 @@ const recv = (ev: NormalizedEvent): { type: 'RECV_EVENT'; event: NormalizedEvent
 // AskUserQuestion 은 permission.requested(action.kind='ask_question')로 도착한다(B2).
 const askEvent = (id: string): NormalizedEvent => ({
   type: 'permission.requested',
-  provider: 'claude-code',
   approvalId: id,
   origin: 'agent',
   action: { kind: 'ask_question', request: REQ(id) }
@@ -60,7 +59,6 @@ describe('chatReducer — AskUserQuestion 큐', () => {
         withAsk,
         recv({
           type: 'error',
-          provider: 'claude-code',
           error: { category: 'schema_validation_error', message: 'x', retryable: false }
         })
       ).pendingAsks

@@ -17,14 +17,12 @@ describe('chatReducer — AppMessagePart 모델', () => {
       {
         type: 'message.reasoning',
         sessionId: 's',
-        provider: 'claude-code',
         text: '생각',
         signature: 'sig'
       },
       {
         type: 'tool.call.started',
         sessionId: 's',
-        provider: 'claude-code',
         toolRunId: 't1',
         toolName: 'Bash',
         args: { command: 'ls' }
@@ -32,7 +30,6 @@ describe('chatReducer — AppMessagePart 모델', () => {
       {
         type: 'tool.call.completed',
         sessionId: 's',
-        provider: 'claude-code',
         toolRunId: 't1',
         result: 'ok',
         isError: false
@@ -40,7 +37,6 @@ describe('chatReducer — AppMessagePart 모델', () => {
       {
         type: 'message.completed',
         sessionId: 's',
-        provider: 'claude-code',
         message: { text: '완료' }
       }
     ])
@@ -67,7 +63,6 @@ describe('chatReducer — AppMessagePart 모델', () => {
       {
         type: 'message.completed',
         sessionId: 's',
-        provider: 'claude-code',
         message: { text: 'a1' }
       }
     ])
@@ -76,7 +71,6 @@ describe('chatReducer — AppMessagePart 모델', () => {
       {
         type: 'message.completed',
         sessionId: 's',
-        provider: 'claude-code',
         message: { text: 'a2' }
       }
     ])
@@ -87,11 +81,10 @@ describe('chatReducer — AppMessagePart 모델', () => {
   it('스트리밍 델타 2종은 reducer 무변경(no-op) — 라이브 버퍼는 chatStore live 슬라이스 소관', () => {
     const start = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'q' })
     const s = apply(start, [
-      { type: 'message.delta', sessionId: 's', provider: 'claude-code', delta: { text: 'hel' } },
+      { type: 'message.delta', sessionId: 's', delta: { text: 'hel' } },
       {
         type: 'message.reasoning.delta',
         sessionId: 's',
-        provider: 'claude-code',
         delta: { text: '생각' }
       }
     ])
@@ -105,7 +98,6 @@ describe('chatReducer — AppMessagePart 모델', () => {
       {
         type: 'message.completed',
         sessionId: 's',
-        provider: 'claude-code',
         message: { text: 'hello' }
       }
     ])
@@ -118,7 +110,6 @@ describe('chatReducer — AppMessagePart 모델', () => {
       {
         type: 'message.reasoning',
         sessionId: 's',
-        provider: 'claude-code',
         text: '먼저 확인',
         signature: 'sig'
       }
@@ -151,7 +142,6 @@ describe('chatReducer — AppMessagePart 모델', () => {
       {
         type: 'telemetry',
         sessionId: 's',
-        provider: 'claude-code',
         usage: {
           inputTokens: 100,
           outputTokens: 50,
@@ -177,7 +167,6 @@ describe('chatReducer — AppMessagePart 모델', () => {
       {
         type: 'telemetry',
         sessionId: 's',
-        provider: 'claude-code',
         usage: { inputTokens: 200, outputTokens: 80 }
       }
     ])
@@ -190,7 +179,6 @@ describe('chatReducer — AppMessagePart 모델', () => {
       {
         type: 'telemetry',
         sessionId: 's',
-        provider: 'claude-code',
         usage: { inputTokens: 5000, cacheReadTokens: 12000, model: 'opus' }
       }
     ])
@@ -198,23 +186,19 @@ describe('chatReducer — AppMessagePart 모델', () => {
 
     // 빈 컨텍스트 턴 — usage 가 출력만/없음 → 직전 도넛 값 보존, 단 inflight 은 false 로.
     s = chatReducer(s, { type: 'SEND_USER_MESSAGE', text: '/context' })
-    s = apply(s, [
-      { type: 'telemetry', sessionId: 's', provider: 'claude-code', usage: { outputTokens: 10 } }
-    ])
+    s = apply(s, [{ type: 'telemetry', sessionId: 's', usage: { outputTokens: 10 } }])
     expect(s.lastTelemetry?.inputTokens).toBe(5000)
     expect(s.lastTelemetry?.cacheReadTokens).toBe(12000)
     expect(s.inflight).toBe(false)
 
     // usage 자체가 없는 telemetry 도 보존(회귀 가드).
     s = chatReducer(s, { type: 'SEND_USER_MESSAGE', text: '/help' })
-    s = apply(s, [{ type: 'telemetry', sessionId: 's', provider: 'claude-code' }])
+    s = apply(s, [{ type: 'telemetry', sessionId: 's' }])
     expect(s.lastTelemetry?.inputTokens).toBe(5000)
 
     // 컨텍스트 있는 턴은 정상 교체.
     s = chatReducer(s, { type: 'SEND_USER_MESSAGE', text: 'q2' })
-    s = apply(s, [
-      { type: 'telemetry', sessionId: 's', provider: 'claude-code', usage: { inputTokens: 8000 } }
-    ])
+    s = apply(s, [{ type: 'telemetry', sessionId: 's', usage: { inputTokens: 8000 } }])
     expect(s.lastTelemetry?.inputTokens).toBe(8000)
   })
 
@@ -224,7 +208,6 @@ describe('chatReducer — AppMessagePart 모델', () => {
       {
         type: 'telemetry',
         sessionId: 's',
-        provider: 'claude-code',
         usage: { inputTokens: 10, outputTokens: 5 }
       }
     ])

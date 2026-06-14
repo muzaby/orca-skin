@@ -10,6 +10,7 @@
 | `docs/` | PRD, TRD, 아키텍처·전략 문서, 페이즈 이력 — *무엇을* / *어떻게* 가 산다 | `docs/AGENTS.md` |
 | `project/` | HTML/CSS/JS 디자인 프로토타입 아카이브 — *어떻게 보여야 하는가* | `project/AGENTS.md` |
 | `app/` | Orca v1 실제 구현체 (electron-vite + React/TypeScript). 4-layer Feature 아키텍처 (`app/` · `pages/` · `features/` · `shared/`, ESLint boundaries 강제). 구현 작업 규칙은 가이드, 페이즈 이력은 `docs/PHASES.md` 참조. | `app/AGENTS.md` |
+| `app/src/main/` | Electron **main 프로세스** 레이어 가이드 — L0 shared→L1 domain→L2 adapters→L3 ipc DAG, 하향 의존만 (eslint-plugin-boundaries + import/no-cycle 강제, handoff 0017). | `app/src/main/AGENTS.md` |
 | `docs/handoff/` | Claude Code ↔ Codex 협업 hand-off (plan/verify 문서 + 디스패치 보드) | `docs/handoff/AGENTS.md` |
 
 ## 새 세션 진입 시 읽는 순서
@@ -47,8 +48,10 @@
 
 두 에이전트는 커밋 메시지 **trailer(`Key: value`)** 로 통신한다 (`git interpret-trailers` 파싱). **관례 — 기계적 강제(템플릿·CI·훅) 없음, 두 에이전트가 준수한다.**
 
+커밋은 **2층 2독자** 다(우선순위 랭킹 아님): **산문 본문 = 사람용**(왜를 짧은 문장 + 맥락으로, 2~3줄), **trailer 꼬리 + `Handoff:` = 기계(AI)용**(메시지 버스 + 깊이 포인터, 비타협 유지). *무엇* 은 diff 가, *깊이* 는 `Handoff:` 가 가리키는 `plan.md`/`verify.md` 가 주므로 본문에 중복하지 않는다.
+
 - 제목: `<type>(<scope>): <요약>` (type=`feat|fix|refactor|docs|test|chore`).
-- 본문과 빈 줄로 분리된 마지막 문단에 trailer 를 모은다. 안 쓰는 키는 줄을 생략한다(빈 값 금지).
+- 본문과 빈 줄로 분리된 마지막 문단에 trailer 를 모은다. 안 쓰는 키는 줄을 생략한다(빈 값 금지). **trailer 블록 내부에는 빈 줄을 넣지 않는다** — `Co-Authored-By`·세션 URL 도 같은 블록(빈 줄로 끊으면 앞 trailer 가 파싱에서 누락).
 
 | Key | 허용값 | 작성 주체 |
 |---|---|---|

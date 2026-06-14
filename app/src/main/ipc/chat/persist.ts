@@ -70,7 +70,6 @@ export class TurnPersistence {
       sendChatEvent(wc, {
         type: 'tool.call.completed',
         sessionId: turn.dbSessionId ?? '',
-        provider: 'claude-code',
         toolRunId: toolUseId,
         result: output,
         isError: false
@@ -88,7 +87,8 @@ export class TurnPersistence {
         const title = turn.pendingUserText ? previewOf(turn.pendingUserText, 60) : null
         this.db.insertSession({
           id: sessionId,
-          backend: 'claude-code',
+          // backend 출처는 이 턴이 잠긴 어댑터(0010 세션-어댑터 바인딩) — 리터럴 금지(0016).
+          backend: turn.titleAdapter.id,
           title,
           projectId: turn.pendingProjectId,
           createdAt: now,

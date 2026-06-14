@@ -10,15 +10,14 @@
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk'
 import type {
   NormalizedEvent,
-  ProviderId,
   ProviderReportedTelemetry,
   TelemetryModelUsage
 } from '../../shared/ipc'
 
-// 매퍼 컨텍스트 — provider 고정, sessionId 는 턴 동안 system/init(=session.updated)에서 갱신된다
-// (resume 면 초기값이 그 id). cwd 는 session.updated.patch 에 실린다.
+// 매퍼 컨텍스트 — sessionId 는 턴 동안 system/init(=session.updated)에서 갱신된다
+// (resume 면 초기값이 그 id). cwd 는 session.updated.patch 에 실린다. 코어 중립(0016)으로
+// provider 는 이벤트에 싣지 않으므로 ctx 도 들지 않는다.
 export interface MapContext {
-  provider: ProviderId
   sessionId: string
   cwd: string
   // 마지막 assistant 메시지의 usage 스냅샷 — /context 상단 % 근사용. 턴 누적이 아니라 그 턴
@@ -37,8 +36,6 @@ export interface MapContext {
 // (ErrorClassifier, provider-runtime.md §6). 본 파일은 SDKMessage→정규화만 담당한다.
 
 export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): NormalizedEvent[] {
-  const { provider } = ctx
-
   // SDKSystemMessage(subtype:'init') → session.updated (+ ctx.sessionId 갱신)
   if (msg.type === 'system' && (msg as { subtype?: string }).subtype === 'init') {
     const m = msg as unknown as { session_id?: string; model?: string }
@@ -48,7 +45,6 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
       {
         type: 'session.updated',
         sessionId: m.session_id,
-        provider,
         patch: { ...(m.model !== undefined ? { model: m.model } : {}), cwd: ctx.cwd }
       }
     ]
@@ -66,7 +62,6 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
         {
           type: 'message.delta',
           sessionId: ctx.sessionId,
-          provider,
           delta: { text: ev.delta.text }
         }
       ]
@@ -76,7 +71,6 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
         {
           type: 'message.reasoning.delta',
           sessionId: ctx.sessionId,
-          provider,
           delta: { text: ev.delta.thinking }
         }
       ]
@@ -122,7 +116,6 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
           events.push({
             type: 'message.completed',
             sessionId: ctx.sessionId,
-            provider,
             message: { text: p.text }
           })
         }
@@ -133,7 +126,6 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
           events.push({
             type: 'message.reasoning',
             sessionId: ctx.sessionId,
-            provider,
             text: p.thinking,
             ...(typeof p.signature === 'string' ? { signature: p.signature } : {})
           })
@@ -145,7 +137,6 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
           events.push({
             type: 'tool.call.started',
             sessionId: ctx.sessionId,
-            provider,
             toolRunId,
             toolName,
             args: p.input
@@ -169,7 +160,6 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
         events.push({
           type: 'tool.call.completed',
           sessionId: ctx.sessionId,
-          provider,
           toolRunId,
           result: p.content,
           isError: p.is_error === true
@@ -221,7 +211,6 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
       {
         type: 'telemetry',
         sessionId: ctx.sessionId,
-        provider,
         ...(telemetry ? { usage: telemetry } : {})
       }
     ]

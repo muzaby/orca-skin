@@ -124,7 +124,8 @@ export type ErrorCategory =
 
 // 정규화된 에러 (provider-runtime.md §6 정본). retryable 은 표시/재시도 정책 힌트.
 // cause 는 IPC(wc.send structuredClone) 경계를 넘으므로 직렬화 안전값만 담는다 — Error
-// 인스턴스/함수 금지(반드시 sanitizeCause 로 평탄화). provider 는 라우팅/표시용 출처.
+// 인스턴스/함수 금지(반드시 sanitizeCause 로 평탄화). provider 는 optional(표시용) — 어댑터
+// 컨텍스트가 있을 때만 채우고, 세션-이전 오케스트레이션 에러(스키마 검증·활성 백엔드 없음)는 부재(0016).
 export interface ClassifiedError {
   category: ErrorCategory
   message: string
@@ -134,9 +135,10 @@ export interface ClassifiedError {
 }
 
 // ── NormalizedEvent (provider-runtime.md §2) — 와이어(orca:chat:event)의 정규 이벤트 ─────────
-// 모든 이벤트가 sessionId(멀티세션 라우팅)·provider 를 갖고, tool 은 toolRunId 로 start/complete
-// 를 매칭한다. claude 어댑터는 SDK 메시지를 claudeToNormalized(adapters/claude-map.ts)로 이 타입에
-// 직접 정규화한다. OpenCode 는 provider:'opencode' 매퍼가 같은 union 으로 정규화(seam).
+// 이벤트는 sessionId(멀티세션 라우팅)로 키잉되고 tool 은 toolRunId 로 start/complete 를 매칭한다.
+// 코어 중립(0016): 이벤트는 provider 를 싣지 않는다 — "어느 백엔드인지" 는 session.backend 파생.
+// claude 어댑터는 SDK 메시지를 claudeToNormalized(adapters/claude-map.ts)로 이 타입에 직접
+// 정규화한다. OpenCode 도 같은 union 으로 정규화(seam, provider 무관).
 // 권한 요청은 permission.requested 1급 이벤트(origin 으로 agent/app 구분, action.kind 로 종류 구분).
 export type ProviderId = 'claude-code' | 'opencode'
 
@@ -195,18 +197,19 @@ export interface ProviderReportedTelemetry {
   modelUsage?: Record<string, TelemetryModelUsage>
 }
 
+// 코어 중립(handoff 0016): NormalizedEvent 는 "어느 백엔드에서 왔는지" 를 더 이상 싣지 않는다.
+// provider 는 어떤 소비자도 읽지 않는 write-only 메타였고 session.backend(0010 세션-어댑터
+// 잠금)와 중복된 이중 진실원이었다. "어느 백엔드인지" 는 sessionId → session.backend 로 파생한다.
 export type NormalizedEvent =
   | {
       type: 'session.updated'
       sessionId: string
-      provider: ProviderId
       patch: { model?: string; cwd?: string }
     }
-  | { type: 'message.delta'; sessionId: string; provider: ProviderId; delta: { text: string } }
+  | { type: 'message.delta'; sessionId: string; delta: { text: string } }
   | {
       type: 'message.completed'
       sessionId: string
-      provider: ProviderId
       message: { text: string }
     }
   // 확장사고(extended thinking) 블록 — provider-runtime.md §7 reasoning part 의 출처.
@@ -214,7 +217,6 @@ export type NormalizedEvent =
   | {
       type: 'message.reasoning'
       sessionId: string
-      provider: ProviderId
       text: string
       signature?: string
     }
@@ -223,13 +225,11 @@ export type NormalizedEvent =
   | {
       type: 'message.reasoning.delta'
       sessionId: string
-      provider: ProviderId
       delta: { text: string }
     }
   | {
       type: 'tool.call.started'
       sessionId: string
-      provider: ProviderId
       toolRunId: string
       toolName: string
       args: unknown
@@ -237,7 +237,6 @@ export type NormalizedEvent =
   | {
       type: 'tool.call.completed'
       sessionId: string
-      provider: ProviderId
       toolRunId: string
       result: unknown
       isError: boolean
@@ -246,20 +245,17 @@ export type NormalizedEvent =
   | {
       type: 'telemetry'
       sessionId: string
-      provider: ProviderId
       usage?: ProviderReportedTelemetry
     }
   | {
       type: 'error'
       sessionId?: string
-      provider: ProviderId
       error: ClassifiedError
     }
   // 권한 요청/해소 1급 이벤트 — AskUserQuestion·ExitPlanMode·일반 도구 게이트를 단일 경로로 통합.
   // approvalId 로 요청↔응답을 라우팅한다(renderer 는 이 id 로 permissionRespond 회신).
   | {
       type: 'permission.requested'
-      provider: ProviderId
       sessionId?: string
       approvalId: string
       origin: PermissionOrigin
@@ -267,7 +263,6 @@ export type NormalizedEvent =
     }
   | {
       type: 'permission.resolved'
-      provider: ProviderId
       sessionId?: string
       approvalId: string
       resolution: ApprovalResolution

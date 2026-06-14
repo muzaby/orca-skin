@@ -12,7 +12,6 @@ const recv = (ev: NormalizedEvent): { type: 'RECV_EVENT'; event: NormalizedEvent
 // ExitPlanMode 는 permission.requested(action.kind='plan_review')로 도착한다(B2).
 const planEvent = (): NormalizedEvent => ({
   type: 'permission.requested',
-  provider: 'claude-code',
   approvalId: REVIEW.requestId,
   origin: 'agent',
   action: { kind: 'plan_review', request: REVIEW }
@@ -95,7 +94,6 @@ describe('chatReducer — 계획 검토(plan_review)', () => {
         withPlan,
         recv({
           type: 'error',
-          provider: 'claude-code',
           error: { category: 'schema_validation_error', message: 'x', retryable: false }
         })
       ).pendingPlanReview

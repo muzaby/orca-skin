@@ -19,7 +19,11 @@ import type {
 } from '@anthropic-ai/claude-agent-sdk'
 import type { ClaudeMcpConfig } from '../mcp/schema'
 import { distPluginDir } from '../config/paths'
-import { mergeEnvLayers, type ResolvedProviderSettings } from '../settings/provider-settings'
+import {
+  mergeEnvLayers,
+  type ArgvSafeSettings,
+  type SubprocessEnv
+} from '../settings/provider-settings'
 import {
   resolveHookDecisions,
   type NormalizedHookContext,
@@ -68,15 +72,16 @@ export function adaptSkills(): object {
 // 경로 또는 인라인 JSON 문자열" 을 받으므로(cli-reference.md) JSON.stringify 로 넘긴다.
 // blob 의 env 는 여기 싣지 않는다 — argv 평문 비밀 노출 방지(adaptEnv 가 subprocess env 로).
 //
-// blob 부재(미등록 어댑터 폴백 등)여도 격리모드는 유지 — Orca 세션의 설정 원천은 항상
+// settings 부재(미등록 어댑터 폴백 등)여도 격리모드는 유지 — Orca 세션의 설정 원천은 항상
 // dist/<engine>/<provider>/ 단일 출처다. (CLAUDE.md 는 'project' 소스 없이도 Orca 가
 // systemPromptAppend 로 지침을 주입하므로 영향 없음.)
-export function adaptSettings(blob?: ResolvedProviderSettings): object {
+//
+// **타입 격상(handoff 0018)**: 인자는 `ArgvSafeSettings`(env 가 제거·브랜딩된 설정)만 받는다.
+// env 머금은 임의 객체는 브랜드 미보유로 컴파일 에러 — "비밀(env)↛argv" 불변식이 타입으로 강제된다.
+export function adaptSettings(settings?: ArgvSafeSettings): object {
   return {
     settingSources: [],
-    ...(blob && Object.keys(blob.settings).length > 0
-      ? { settings: JSON.stringify(blob.settings) }
-      : {})
+    ...(settings && Object.keys(settings).length > 0 ? { settings: JSON.stringify(settings) } : {})
   }
 }
 
@@ -84,12 +89,9 @@ export function adaptSettings(blob?: ResolvedProviderSettings): object {
 // settings 의 env(${VAR} 확장·secret 주입 완료)를 오버레이한다 — provider env 가 턴 env 를
 // 이긴다(구 claude-env 의 agent-overlay 정책 계승). 격리모드(settingSources:[])라 settings.env
 // 와 subprocess env 의 우선순위 충돌이 없어 둘은 등가다. 병합 결과가 없으면 옵션 자체를 생략해
-// SDK 기본 env(process.env 상속) 동작을 유지한다.
-export function adaptEnv(
-  base: Record<string, string> | undefined,
-  blob?: ResolvedProviderSettings
-): object {
-  const merged = mergeEnvLayers(base, blob?.env ?? {})
+// SDK 기본 env(process.env 상속) 동작을 유지한다. 인자는 `SubprocessEnv`(브랜딩된 env)만 받는다(0018).
+export function adaptEnv(base: Record<string, string> | undefined, env?: SubprocessEnv): object {
+  const merged = mergeEnvLayers(base, env ?? {})
   return merged ? { env: merged } : {}
 }
 

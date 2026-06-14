@@ -27,7 +27,6 @@ const delta = (text: string): NormalizedEvent =>
   ({
     type: 'message.delta',
     sessionId: 's',
-    provider: 'claude-code',
     delta: { text }
   }) as NormalizedEvent
 
@@ -35,7 +34,6 @@ const completed = (text: string): NormalizedEvent =>
   ({
     type: 'message.completed',
     sessionId: 's',
-    provider: 'claude-code',
     message: { text }
   }) as NormalizedEvent
 

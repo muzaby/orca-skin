@@ -10,7 +10,6 @@ const recv = (ev: NormalizedEvent): { type: 'RECV_EVENT'; event: NormalizedEvent
 // 위험 도구 게이트는 permission.requested(action.kind='tool_approval')로 도착한다.
 const toolEvent = (approvalId: string, toolName = 'Bash'): NormalizedEvent => ({
   type: 'permission.requested',
-  provider: 'claude-code',
   approvalId,
   origin: 'agent',
   action: { kind: 'tool_approval', toolName, input: { command: 'ls -la' } }
@@ -45,7 +44,6 @@ describe('chatReducer — 위험 도구 승인(tool_approval)', () => {
         withTool,
         recv({
           type: 'error',
-          provider: 'claude-code',
           error: { category: 'schema_validation_error', message: 'x', retryable: false }
         })
       ).pendingToolApproval

@@ -96,12 +96,12 @@ export function registerChatHandlers(deps: ChatDeps): void {
   const handleChatSend = async (event: IpcMainInvokeEvent, raw: unknown): Promise<void> => {
     const parsed = SendChatMessageSchema.safeParse(raw)
     if (!parsed.success) {
+      // 세션-이전 에러(0016): 세션도 활성 어댑터도 없어 provider 를 파생할 수 없다 — 이벤트·
+      // ClassifiedError 모두 provider 부재가 정상.
       sendChatEvent(event.sender, {
         type: 'error',
-        provider: 'claude-code',
         error: makeClassifiedError('schema_validation_error', 'invalid chat:send payload', {
-          retryable: false,
-          provider: 'claude-code'
+          retryable: false
         })
       })
       return
@@ -115,12 +115,11 @@ export function registerChatHandlers(deps: ChatDeps): void {
     if (duplicate) {
       sendChatEvent(event.sender, {
         type: 'error',
-        provider: 'claude-code',
         ...(parsed.data.sessionId ? { sessionId: parsed.data.sessionId } : {}),
         error: makeClassifiedError(
           'provider_connection_error',
           '이미 진행 중인 턴이 있습니다. 완료 후 다시 시도하세요.',
-          { retryable: true, provider: 'claude-code' }
+          { retryable: true }
         )
       })
       return
@@ -129,12 +128,11 @@ export function registerChatHandlers(deps: ChatDeps): void {
     const adapter =
       ctx.mockAdapter && ctx.debugMock.enabled ? ctx.mockAdapter : ctx.registry.getActive()
     if (!adapter) {
+      // 세션-이전 에러(0016): 활성 어댑터 부재가 곧 이 에러의 원인 — provider 부재가 정상.
       sendChatEvent(event.sender, {
         type: 'error',
-        provider: 'claude-code',
         error: makeClassifiedError('provider_connection_error', '활성 백엔드가 없습니다.', {
-          retryable: true,
-          provider: 'claude-code'
+          retryable: true
         })
       })
       return
@@ -215,11 +213,10 @@ export function registerChatHandlers(deps: ChatDeps): void {
           : action.kind === 'ask_question'
             ? { kind: 'ask_question', request: { ...action.request, requestId: approvalId } }
             : { kind: 'plan_review', request: { ...action.request, requestId: approvalId } }
-      sendChatEvent(wc, agentPermissionRequest('claude-code', approvalId, outbound))
+      sendChatEvent(wc, agentPermissionRequest(approvalId, outbound))
       const resolution = await approvals.register(approvalId, turn, controller.signal)
       sendChatEvent(wc, {
         type: 'permission.resolved',
-        provider: 'claude-code',
         ...(turn.dbSessionId ? { sessionId: turn.dbSessionId } : {}),
         approvalId,
         resolution
@@ -279,10 +276,10 @@ export function registerChatHandlers(deps: ChatDeps): void {
       // 라우팅한다(없으면 활성 엔트리 폴백, handoff 0013).
       sendChatEvent(event.sender, {
         type: 'error',
-        provider: 'claude-code',
         ...(turn.dbSessionId ? { sessionId: turn.dbSessionId } : {}),
+        // 활성 어댑터에서 provider 파생(0016) — 표시용. 분기에 쓰지 않는다.
         error: claudeErrorClassifier.classify(err, {
-          provider: 'claude-code',
+          provider: adapter.id,
           phase: 'sendMessage'
         })
       })

@@ -11,6 +11,7 @@ import {
   mergeEnvLayers,
   modelNameForFamily,
   ProviderSettingsService,
+  splitProviderSettings,
   toAgentEnvironments,
   type OrcaModelConfig,
   type ProviderEntry
@@ -159,10 +160,9 @@ describe('ProviderSettingsService', () => {
 
   it('로더에 dist/sources 경로와 resolver 를 위임하고 결과를 blob({settings, env})으로 돌려준다', async () => {
     seedDist('anthropic', '{"env":{"A":"1"}}')
-    const loader = vi.fn(async (args) => ({
-      settings: { marker: args.providerKey },
-      env: { A: 'expanded' }
-    }))
+    const loader = vi.fn(async (args) =>
+      splitProviderSettings({ marker: args.providerKey }, { A: 'expanded' })
+    )
     const svc = new ProviderSettingsService(
       { 'claude-code': loader },
       () => () => undefined,
@@ -187,7 +187,7 @@ describe('ProviderSettingsService', () => {
   it('mtime 캐시 — 동일 mtime 재호출은 로더를 다시 부르지 않고 invalidateAll 후 재해석한다', async () => {
     const file = seedDist('anthropic', '{}')
     utimesSync(file, new Date(1000), new Date(1000))
-    const loader = vi.fn(async () => ({ settings: {}, env: {} }))
+    const loader = vi.fn(async () => splitProviderSettings({}, {}))
     const svc = new ProviderSettingsService(
       { 'claude-code': loader },
       () => () => undefined,

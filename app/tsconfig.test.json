@@ -1,0 +1,10 @@
+{
+  "//": "main 프로세스 테스트(*.test.ts) 타입체크 전용 (handoff 0018). tsconfig.node 는 빌드용이라 테스트를 제외하므로, @ts-expect-error 음성 타입 테스트(비밀↛argv 강제)를 게이트로 굳히려면 별도 패스가 필요하다. 빌드 산출에는 영향 없음(emit 0).",
+  "extends": "./tsconfig.node.json",
+  "include": ["src/main/**/*", "src/preload/**/*", "src/shared/**/*"],
+  "exclude": [],
+  "compilerOptions": {
+    "composite": false,
+    "types": ["electron-vite/node"]
+  }
+}
