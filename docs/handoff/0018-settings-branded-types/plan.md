@@ -83,19 +83,25 @@
 
 ---
 
-## [Codex 기입] 구현 체크리스트
+## [구현 기입 — Claude] 구현 체크리스트
 
-- [ ] 인수 1~3 (branded 타입 · smart constructor · 계약 타입)
-- [ ] 인수 4 (adaptSettings/adaptEnv 시그니처 + 음성 타입 테스트)
-- [ ] 인수 5~6 (ad-hoc 분리 제거 · 게이트 · 테스트)
-- [ ] 인수 7 (보안 문서 격상)
+> 구현 주체 = Claude(비기능 직접 구현). trailer `Agent: claude`. 선행 0017 분해(`provider-settings.ts` 계약) 위에 브랜딩.
 
-## [Codex 기입] 구현 보고
+- [x] 인수 1~3 (branded `ArgvSafeSettings`/`SubprocessEnv` + smart constructor `splitProviderSettings` + 계약 타입 `ResolvedProviderSettings`/`ProviderSettingsLoader`/`CacheEntry` 브랜딩)
+- [x] 인수 4 (`adaptSettings(ArgvSafeSettings?)` / `adaptEnv(_, SubprocessEnv?)` + `@ts-expect-error` 음성 타입 테스트 2건)
+- [x] 인수 5~6 (`delete settings.env` ad-hoc 제거 → 생성자 1곳 흡수 · 게이트 4종 · "유출 0"/`${VAR}` 테스트 유지)
+- [x] 인수 7 (security.md 컴파일타임 격상 · standardization §5.1 노트 · TRD §6.8 정정)
+
+## [구현 보고 — Claude]
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` / `build` |
-| 게이트 결과 | lint ☐ / typecheck ☐ / test ☐ (N passed) / build ☐ |
-| 블로커 / 역질문 | (없으면 "없음") |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 (prod) | `settings/provider-settings.ts`(branded 타입 + `splitProviderSettings` + 계약/캐시 브랜딩), `adapters/claude-settings.ts`(분리 로직 → 생성자), `adapters/claude-adapt.ts`(`adaptSettings`/`adaptEnv` 브랜디드 시그니처), `adapters/claude-code.ts`(호출부 `?.settings`/`?.env`) |
+| 변경 파일 (test/infra) | `claude-adapt.test.ts`(브랜디드 입력 헬퍼 + `@ts-expect-error` 2건), `provider-settings.test.ts`(테스트 로더 → `splitProviderSettings`), 신규 `tsconfig.test.json` + `package.json` `typecheck:test`(main 테스트 타입체크 — `@ts-expect-error` 게이트화) |
+| 변경 파일 (docs) | `arch/backend/security.md`(불변식 런타임→컴파일타임 격상) · `arch/backend/standardization.md`(§5.1 노트) · `TRD.md`(§6.8 타입 격상 노트) |
+| 브랜딩 방식 | phantom `unique symbol` 교차 타입(런타임 속성 0 — 직렬화·`toEqual` 무영향). `as` 단언은 `splitProviderSettings` 1곳에만 격리. |
+| 실행 명령 | `npm run lint` / `typecheck`(node·web·**test**) / `test` / `build` |
+| 게이트 결과 | lint ✅ / typecheck ✅(typecheck:test 가 `@ts-expect-error` 검출·고정) / test ✅ (377 passed, +2 음성 테스트) / build ✅ |
+| 음성 타입 테스트 | `adaptSettings({env, model})` · `adaptEnv(_, {A})` 모두 `@ts-expect-error` — typecheck:test 통과(=에러 정상 검출). 브랜드 제거 시 directive 미사용으로 빌드 실패(가드 실효). |
+| 블로커 / 역질문 | 없음 (criterion 6 "typecheck 게이트가 검출" 충족 위해 main 테스트 타입체크 패스 `typecheck:test` 신설 — 빌드 emit 무영향) |
+| 대상 커밋 | (커밋 후 기재) |

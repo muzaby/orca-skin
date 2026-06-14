@@ -38,19 +38,45 @@ export {
 } from './provider-registry'
 export { expandEnvRecord, mergeEnvLayers } from './env-merge'
 
+// ── Branded(nominal) 비밀/직렬화 경계 타입 (handoff 0018) ─────────────────────────────────
+// "비밀(env)↛argv" 불변식을 런타임 관례(delete settings.env + 주석)에서 **컴파일타임 타입**으로
+// 격상한다 (security.md). 두 타입은 일반 Record 를 직접 대입할 수 없고(브랜드 미보유), 브랜딩은
+// 오직 splitProviderSettings(아래 단일 신뢰 경계)에서만 일어난다. 브랜드는 phantom unique symbol
+// 이라 런타임 속성 0 (직렬화·동등성 영향 없음).
+declare const argvSafeBrand: unique symbol
+declare const subprocessEnvBrand: unique symbol
+// argv(--settings 인라인 JSON)로 안전한 설정 — env(평문 비밀 가능)가 제거된 것.
+export type ArgvSafeSettings = Record<string, unknown> & { readonly [argvSafeBrand]: true }
+// subprocess(spawn) env 로만 흐르는 env — ${VAR}/secret 확장 완료(평문 비밀 포함 가능).
+export type SubprocessEnv = Record<string, string> & { readonly [subprocessEnvBrand]: true }
+
+// 유일한 신뢰 경계(handoff 0018) — effective settings 에서 env 를 떼어내 settings/env 를 각각
+// 브랜딩한다. 이 함수 밖에서는 ArgvSafeSettings/SubprocessEnv 브랜딩(=`as`)이 존재하지 않으므로,
+// "env 머금은 객체를 argv 로 보내기"가 타입 단계에서 불가능해진다(Parse, don't validate).
+// 모든 어댑터 로더(claude-code·미래 opencode)는 이 생성자를 통해서만 {settings, env} 를 만든다.
+export function splitProviderSettings(
+  effective: Record<string, unknown>,
+  env: Record<string, string>
+): { settings: ArgvSafeSettings; env: SubprocessEnv } {
+  const settings: Record<string, unknown> = { ...effective }
+  delete settings.env
+  return { settings: settings as ArgvSafeSettings, env: env as SubprocessEnv }
+}
+
 // 해석 완료된 provider settings — TurnRequest/CompleteRequest 로 어댑터에 전달되는 불투명 blob.
-// settings 와 env 를 **분리**한다 (handoff 0015): settings 는 어댑터-네이티브 스키마에서
-// transport-env 를 뺀 것으로 flag 레이어(인라인 JSON 문자열)로 주입되고, env 는 ${VAR} 확장·
-// secret 주입이 끝난 subprocess env 오버레이다 (argv 평문 비밀 노출 방지 — security.md 불변식).
+// settings 와 env 를 **분리**한다 (handoff 0015; 0018 로 타입 브랜딩): settings(ArgvSafeSettings)는
+// 어댑터-네이티브 스키마에서 transport-env 를 뺀 것으로 flag 레이어(인라인 JSON 문자열)로 주입되고,
+// env(SubprocessEnv)는 ${VAR} 확장·secret 주입이 끝난 subprocess env 오버레이다 (argv 평문 비밀
+// 노출 방지 — security.md 불변식, 이제 타입이 강제).
 export interface ResolvedProviderSettings {
   providerKey: string
   provider: string
-  settings: Record<string, unknown>
-  env: Record<string, string>
+  settings: ArgvSafeSettings
+  env: SubprocessEnv
 }
 
-// 어댑터 종속 해석기 — 컴포지션 루트(ipc/router.ts)가 어댑터별로 주입한다. 반환은 settings 와
-// subprocess env 의 분리 쌍 (handoff 0015) — opencode 로더도 자기 포맷에서 동일 분리를 결정한다.
+// 어댑터 종속 해석기 — 컴포지션 루트(ipc/router.ts)가 어댑터별로 주입한다. 반환은 splitProviderSettings
+// 가 만든 브랜디드 분리 쌍 (handoff 0015/0018) — opencode 로더도 같은 생성자를 통해야 한다.
 export type ProviderSettingsLoader = (args: {
   providerKey: string
   provider: string
@@ -60,11 +86,11 @@ export type ProviderSettingsLoader = (args: {
   sourcesSettingsFile: string
   resolve: Resolver
   secrets?: SecretReader
-}) => Promise<{ settings: Record<string, unknown>; env: Record<string, string> }>
+}) => Promise<{ settings: ArgvSafeSettings; env: SubprocessEnv }>
 
 interface CacheEntry {
-  settings: Record<string, unknown>
-  env: Record<string, string>
+  settings: ArgvSafeSettings
+  env: SubprocessEnv
   mtimeMs: number
   srcPath: string
 }

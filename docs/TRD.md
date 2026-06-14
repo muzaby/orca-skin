@@ -359,6 +359,8 @@ interface OrcaConfig {
 - **settings(env 제외) → `options.settings`(flag 레이어, `--settings` 동등)에 인라인 JSON 문자열**로 넣는다. SDK 의 `Options.settings` 는 d.ts 상 `string | Settings` 지만 **런타임 transport 는 값을 직렬화 없이 CLI argv 에 그대로 push** 한다(0.3.143~0.3.175 확인). 따라서 객체를 넘기면 spawn 이 `"[object Object]"` 로 강제 변환해 settings 가 적용되지 않으므로 `JSON.stringify` 한 문자열을 넘긴다(CLI `--settings` 는 "JSON 파일 경로 또는 인라인 JSON 문자열" 을 허용 — cli-reference.md).
 - **settings.env → subprocess env(`options.env`)** 로 분리한다. effective 의 `env`(${VAR} 확장·secret 주입 완료)는 argv 로 노출되는 settings 문자열에서 **제외**하고, 턴 env(uv 런타임 + orca.json 앱 env) 위에 오버레이해 spawn env 로 넘긴다 — argv 평문 비밀 노출 차단(security.md §1.4 불변식). 격리모드라 flag-settings.env 와 subprocess env 의 우선순위 충돌은 없다.
 
+> **타입 격상 (handoff 0018)**: 위 분리는 branded 타입 `ArgvSafeSettings`(env 제거)·`SubprocessEnv` + 단일 smart constructor `splitProviderSettings`(`settings/provider-settings.ts`)로 컴파일타임 강제된다. `adaptSettings` 는 `ArgvSafeSettings` 만, `adaptEnv` 는 `SubprocessEnv` 만 받으므로 env 머금은 객체를 argv 로 보내면 빌드 에러(음성 타입 테스트 `@ts-expect-error` 로 고정). 런타임 동작은 0015 와 동일 — 타입만 추가.
+
 > **0005 결정 폐기**: 0005 의 "settingSources 미지정(전 소스 로드)" 은 본 격리모드 도입으로 폐기됐다. 기존에 `~/.claude/settings.json` 의 env(API 키 등)에 의존하던 사용자는 provider settings.json 의 `env` 블록으로 옮겨야 한다. OAuth 자격증명(`~/.claude/.credentials.json`/keychain)은 settings 가 아니라 격리모드와 무관하게 동작해야 하나 실기 검증 대기다(handoff 0014 verify).
 
 **provider env 레시피** (구 `toClaudeEnv` 매핑 코드는 삭제 — 사용자가 네이티브 env 로 직접 작성):

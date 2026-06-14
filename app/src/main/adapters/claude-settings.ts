@@ -18,7 +18,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import * as sdk from '@anthropic-ai/claude-agent-sdk'
 import type { ProviderSettingsLoader } from '../settings/provider-settings'
-import { expandEnvRecord } from '../settings/provider-settings'
+import { expandEnvRecord, splitProviderSettings } from '../settings/provider-settings'
 
 // CLI 가 repo-커밋 파일의 escalating 모드에 적용하는 trust 필터와 동등한 목록
 // (sdk.d.ts resolveSettings remarks). flat 폴백 경로에서 수동 적용한다.
@@ -101,11 +101,8 @@ export const loadClaudeProviderSettings: ProviderSettingsLoader = async ({
   const token = secrets?.get(`provider:${providerKey}`)
   if (token !== undefined && token.trim() !== '') env.ANTHROPIC_API_KEY = token
 
-  // settings 와 env 를 분리한다 (handoff 0015). settings 는 effective 에서 env 를 뺀 것 —
-  // flag 레이어(인라인 JSON 문자열)로 argv 에 실리므로 비밀이 들어가면 안 된다. 확장·secret
-  // 주입이 끝난 env(평문 비밀 포함)는 subprocess env 로 따로 흘려보낸다. 미확장 ${VAR} 가
-  // settings.env 로 남아 SDK 로 새는 일도 차단(env 키 자체를 settings 에서 제거).
-  const settings: SettingsObject = { ...effective }
-  delete settings.env
-  return { settings, env }
+  // settings 와 env 를 분리·브랜딩한다 (handoff 0015 분리 · 0018 타입 격상). splitProviderSettings
+  // 단일 신뢰 경계가 effective 에서 env 키를 제거(미확장 ${VAR}·평문 비밀이 settings→argv 로 새지
+  // 않게)하고 ArgvSafeSettings/SubprocessEnv 로 브랜딩한다 — 여기서 ad-hoc 분리는 더 이상 없다.
+  return splitProviderSettings(effective, env)
 }

@@ -178,8 +178,8 @@ export class ClaudeCodeAdapter implements SessionAdapter {
       tools: [],
       allowedTools: [],
       persistSession: false,
-      ...adaptSettings(req.providerSettings),
-      ...adaptEnv(req.env, req.providerSettings),
+      ...adaptSettings(req.providerSettings?.settings),
+      ...adaptEnv(req.env, req.providerSettings?.env),
       ...(req.cwd ? { cwd: req.cwd } : {}),
       ...(req.model ? { model: req.model } : {})
     }
@@ -244,8 +244,8 @@ export class ClaudeCodeAdapter implements SessionAdapter {
         // provider settings 격리 주입 (handoff 0014/0015) — settings(인라인 JSON 문자열, flag
         // 레이어) + settingSources:[]. provider env(ANTHROPIC_*, CLAUDE_CODE_USE_* 등)는
         // adaptEnv 가 턴 env 위에 오버레이해 subprocess env 로 SDK 에 넘긴다(argv 평문 차단).
-        ...adaptSettings(req.providerSettings),
-        ...adaptEnv(env, req.providerSettings),
+        ...adaptSettings(req.providerSettings?.settings),
+        ...adaptEnv(env, req.providerSettings?.env),
         ...adaptHooks(extensions.hooks),
         // canUseTool — AskUserQuestion·ExitPlanMode·위험 도구를 requestApproval 로 게이트하고
         // 안전 도구는 allow passthrough. 콜백 미주입(opencode 등) 시 옵션 자체를 생략해 현행
