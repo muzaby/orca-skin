@@ -30,7 +30,7 @@
 
 | 채널 | 방향 | 페이로드 | 응답/스트림 | 설명 |
 |---|---|---|---|---|
-| `orca:chat:send` | R→M (invoke) | `SendChatMessage` = `{ sessionId: string \| null; projectId: string \| null; text: string; permissionMode?; providerKey?: string \| null; modelFamily?: string \| null }` | `Promise<void>` (ack) | 메시지 전송. 응답은 `orca:chat:event` 스트림으로 발행. `sessionId === null` 이면 새 세션. 같은 세션(또는 같은 창의 새-채팅 슬롯)에 진행 중 턴이 있으면 `error` 이벤트로 거부 — **서로 다른 세션의 동시 턴은 허용**(handoff 0011 TurnRegistry). |
+| `orca:chat:send` | R→M (invoke) | `SendChatMessage` = `{ sessionId: string \| null; projectId: string \| null; text: string; permissionMode?; providerKey?: string \| null; modelFamily?: string \| null; effort?: 'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max' }` | `Promise<void>` (ack) | 메시지 전송. `effort` 는 Claude Code SDK `Options.effort` 로 per-turn 전달된다(기본 UI 값 `high`). 응답은 `orca:chat:event` 스트림으로 발행. `sessionId === null` 이면 새 세션. 같은 세션(또는 같은 창의 새-채팅 슬롯)에 진행 중 턴이 있으면 `error` 이벤트로 거부 — **서로 다른 세션의 동시 턴은 허용**(handoff 0011 TurnRegistry). |
 | `orca:chat:event` | M→R (send) | — | `ChatEvent` (반복) | 어댑터 정규화 스트림. variant 정의는 §3 참조. |
 | `orca:chat:cancel` | R→M (invoke) | `CancelChat` = `{ sessionId: string }` | `Promise<void>` | 진행 중 요청 취소 (`AbortSignal` 전파). |
 

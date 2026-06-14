@@ -210,7 +210,8 @@ export class ClaudeCodeAdapter implements SessionAdapter {
       env,
       requestApproval,
       permissionMode,
-      model
+      model,
+      effort
     } = req
 
     // 매퍼 컨텍스트 — sessionId 는 init(=session.updated)에서 갱신된다(resume 면 초기값이 그 id).
@@ -253,7 +254,8 @@ export class ClaudeCodeAdapter implements SessionAdapter {
         ...(requestApproval ? { canUseTool: makeCanUseTool(requestApproval) } : {}),
         // 권한 모드 (정규화 6종 → SDK PermissionMode). 부재 시 SDK 기본(default) 동작.
         ...(permissionMode ? { permissionMode: toClaudePermissionMode(permissionMode) } : {}),
-        ...(model ? { model } : {})
+        ...(model ? { model } : {}),
+        ...(effort ? { effort } : {})
       }
     })
 

@@ -4,19 +4,20 @@
 
 ## 메타
 
-| 항목 | 값 |
-|---|---|
-| slug | `0020-composer-cc-layout` |
-| 작성자 | Claude Code |
-| 일자 | 2026-06-15 |
-| 매핑 | PHASES "현재 작업 중" |
-| 상태 | DRAFT → READY |
+| 항목   | 값                        |
+| ------ | ------------------------- |
+| slug   | `0020-composer-cc-layout` |
+| 작성자 | Claude Code               |
+| 일자   | 2026-06-15                |
+| 매핑   | PHASES "현재 작업 중"     |
+| 상태   | DRAFT → READY             |
 
 ## Context (왜)
 
 오르카 채팅 composer(메시지 입력 영역)를 **Claude Code 데스크톱 앱 레이아웃**으로 정렬한다. 현재는 textarea 아래 **단일 컨트롤 행**에 모든 칩(권한모드·모델·첨부·현재프레임·Skill)이 좌측, 백엔드 라벨·도넛·전송 버튼이 우측에 몰려 있다.
 
 사용자 결정(질의 완료):
+
 - 전송 버튼을 **프롬프트 입력과 같은 줄**로 끌어올리고, 하단 컨트롤 행 우측을 `모델 · 작업량 · 도넛` 순으로 재배치.
 - 좌측 하단은 `권한모드 + "+"` 만 남기고, 기존 `첨부·현재프레임·Skill` 은 **`+` 메뉴 안으로** 이동.
 - **작업량(effort)은 기능까지 구현** — `low|medium|high|xhigh|max` 선택을 어댑터→SDK `Options.effort` 로 전달(per-turn).
@@ -117,22 +118,22 @@ SDK 가 `Options.effort?: 'low'|'medium'|'high'|'xhigh'|'max'` 를 직접 지원
 
 ## [Codex 기입] 구현 체크리스트
 
-- [ ] shared `EffortLevel` + `SendChatMessageSchema.effort`
-- [ ] renderer store/reducer `effort` state·`SET_EFFORT`·`setEffort`·send payload
-- [ ] main `TurnRequest.effort` · `send.ts` 전달 · `claude-code.ts` query option
-- [ ] Composer 레이아웃 재배열(전송 inline · 우측 모델/작업량/도넛 · 좌측 권한모드/`+`)
-- [ ] 신규 `EffortMenu.tsx` · `AttachMenu.tsx` + 칩 정리
-- [ ] `HighlightedTextarea` max-h 확대
-- [ ] `IPC_CONTRACT.md` 갱신
-- [ ] 신규 테스트 3종
-- [ ] 게이트 4종 통과
+- [x] shared `EffortLevel` + `SendChatMessageSchema.effort`
+- [x] renderer store/reducer `effort` state·`SET_EFFORT`·`setEffort`·send payload
+- [x] main `TurnRequest.effort` · `send.ts` 전달 · `claude-code.ts` query option
+- [x] Composer 레이아웃 재배열(전송 inline · 우측 모델/작업량/도넛 · 좌측 권한모드/`+`)
+- [x] 신규 `EffortMenu.tsx` · `AttachMenu.tsx` + 칩 정리
+- [x] `HighlightedTextarea` max-h 확대
+- [x] `IPC_CONTRACT.md` 갱신
+- [x] 신규 테스트 3종
+- [x] 게이트 4종 통과
 
 ## [Codex 기입] 구현 보고
 
-| 항목 | 내용 |
-|---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` / `build` |
-| 게이트 결과 | lint … / typecheck … / test … / build … |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `<hash>` |
+| 항목            | 내용                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 변경 파일       | `app/src/shared/ipc.ts`, `app/src/shared/protocol.ts`, `app/src/renderer/src/features/chat/store/chatStore.ts`, `app/src/renderer/src/features/chat/reducer/chatReducer.ts`, `app/src/renderer/src/features/chat/components/Composer.tsx`, `app/src/renderer/src/features/chat/components/composer/{AttachMenu.tsx,EffortMenu.tsx,effort.ts,HighlightedTextarea.tsx}`, `app/src/main/extensions/types.ts`, `app/src/main/ipc/chat/send.ts`, `app/src/main/adapters/claude-code.ts`, 테스트 3종, `docs/IPC_CONTRACT.md` |
+| 실행 명령       | `npm rebuild better-sqlite3` / `npm run lint` / `npm run typecheck` / `npm test` / `npm run build`                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| 게이트 결과     | lint PASS / typecheck PASS / test 381 PASS / build PASS                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| 블로커 / 역질문 | 없음. `npm test` 전 better-sqlite3 가 Electron ABI 로 남아 있어 Node ABI 재빌드 후 전체 green 확인.                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| 대상 커밋       | `97f4c52`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |

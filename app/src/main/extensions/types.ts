@@ -10,7 +10,7 @@
 
 import type { ResolvedProviderSettings } from '../settings/provider-settings'
 import type { OrcaMcpConfig } from '../mcp/schema'
-import type { ApprovalResolution, PermissionAction, SkillInfo } from '../../shared/ipc'
+import type { ApprovalResolution, EffortLevel, PermissionAction, SkillInfo } from '../../shared/ipc'
 import type { NormalizedPermissionMode } from '../../shared/permission-mode'
 import type { NormalizedHookSet } from './hooks'
 
@@ -55,4 +55,6 @@ export interface TurnRequest {
   // 자기 query 옵션(SDK PermissionMode)으로 어댑트. 확장 묶음이 아니라 query-레벨 제어라
   // env/askUser 처럼 TurnRequest 직속.
   permissionMode?: NormalizedPermissionMode
+  // Claude Code thinking effort. SDK Options.effort 로 per-turn 전달한다.
+  effort?: EffortLevel
 }

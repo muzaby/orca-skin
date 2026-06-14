@@ -6,7 +6,8 @@ import type {
   LoadedSession,
   PlanReviewRequest,
   ProviderReportedTelemetry,
-  Backend
+  Backend,
+  EffortLevel
 } from '../../../../../shared/ipc'
 import type { NormalizedPermissionMode } from '../../../../../shared/permission-mode'
 import { contextTokens } from '../lib/telemetry'
@@ -40,6 +41,7 @@ export interface ChatState {
   backend: Backend | null
   providerKey: string | null
   modelFamily: string | null
+  effort: EffortLevel
   // 어댑터가 발급한 세션의 working directory (`init` 이벤트). Composer 의 `@`
   // 파일 자동완성이 이 경로 기준으로 디렉토리를 리스팅한다.
   cwd: string | null
@@ -91,6 +93,7 @@ export const initialChatState: ChatState = {
   backend: null,
   providerKey: null,
   modelFamily: null,
+  effort: 'high',
   cwd: null,
   messages: [],
   sendCount: 0,
@@ -118,6 +121,7 @@ export type ChatAction =
       modelFamily: string | null
       adapter?: string | null
     }
+  | { type: 'SET_EFFORT'; effort: EffortLevel }
   | { type: 'RECV_EVENT'; event: NormalizedEvent }
   // 턴이 message.completed 없이 끝났을 때(telemetry 도착 시점) live 버퍼의 잔여 텍스트를
   // text 파트로 굳힌다. 버퍼 소유자는 chatStore — reducer 는 텍스트만 받는다.
@@ -379,6 +383,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         return state
       }
       return { ...state, providerKey: action.providerKey, modelFamily: action.modelFamily }
+
+    case 'SET_EFFORT':
+      return { ...state, effort: action.effort }
 
     case 'RESOLVE_PLAN':
       // 액션 게이트만 닫는다 — planContent/planTileOpen 은 유지(검토 후 읽기전용 표시).
