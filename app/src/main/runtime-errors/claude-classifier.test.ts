@@ -63,7 +63,6 @@ describe('errorEvent', () => {
     expect(errorEvent(e, 's1')).toEqual({
       type: 'error',
       sessionId: 's1',
-      provider: 'claude-code',
       error: e
     })
   })
@@ -71,7 +70,7 @@ describe('errorEvent', () => {
   it("sessionId 가 '' 이면 생략", () => {
     const e = makeClassifiedError('stream_error', 'x')
     const ev = errorEvent(e, '')
-    expect(ev).toEqual({ type: 'error', provider: 'claude-code', error: e })
+    expect(ev).toEqual({ type: 'error', error: e })
     expect('sessionId' in ev).toBe(false)
   })
 })

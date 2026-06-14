@@ -24,14 +24,12 @@ const flushRaf = (): void => {
 const delta = (text: string, sessionId = 's'): NormalizedEvent => ({
   type: 'message.delta',
   sessionId,
-  provider: 'claude-code',
   delta: { text }
 })
 
 const reasoningDelta = (text: string): NormalizedEvent => ({
   type: 'message.reasoning.delta',
   sessionId: 's',
-  provider: 'claude-code',
   delta: { text }
 })
 
@@ -79,7 +77,6 @@ describe('chatStore — 델타/커밋 라우팅', () => {
     ingestChatEvent({
       type: 'message.completed',
       sessionId: 's',
-      provider: 'claude-code',
       message: { text: '스트리밍 완성본' }
     })
     expect(entry().live.text).toBe('')
@@ -92,7 +89,6 @@ describe('chatStore — 델타/커밋 라우팅', () => {
     ingestChatEvent({
       type: 'telemetry',
       sessionId: 's',
-      provider: 'claude-code',
       usage: { inputTokens: 10, outputTokens: 5 }
     })
     expect(entry().live).toEqual({ text: '', reasoning: '' })
@@ -105,7 +101,6 @@ describe('chatStore — 델타/커밋 라우팅', () => {
     ingestChatEvent({
       type: 'error',
       sessionId: 's',
-      provider: 'claude-code',
       error: { category: 'stream_error', message: 'boom', retryable: true }
     })
     expect(entry().live.text).toBe('')
@@ -118,7 +113,6 @@ describe('chatStore — 델타/커밋 라우팅', () => {
     ingestChatEvent({
       type: 'tool.call.started',
       sessionId: 's',
-      provider: 'claude-code',
       toolRunId: 't1',
       toolName: 'Bash',
       args: { command: 'ls' }
@@ -148,7 +142,6 @@ describe('chatStore — 멀티세션 키 라우팅 (handoff 0013)', () => {
     ingestChatEvent({
       type: 'message.completed',
       sessionId: 'bg',
-      provider: 'claude-code',
       message: { text: '백그라운드 완성' }
     })
     expect(entry('s')).toBe(activeBefore) // 활성 엔트리 identity 불변 — UI 재렌더 0
@@ -171,7 +164,6 @@ describe('chatStore — 멀티세션 키 라우팅 (handoff 0013)', () => {
     ingestChatEvent({
       type: 'session.updated',
       sessionId: 'fresh',
-      provider: 'claude-code',
       patch: {}
     })
     const st = useChatStore.getState()
@@ -190,7 +182,6 @@ describe('chatStore — 멀티세션 키 라우팅 (handoff 0013)', () => {
   it('sessionId 없는 error 이벤트는 활성 엔트리로 폴백한다', () => {
     ingestChatEvent({
       type: 'error',
-      provider: 'claude-code',
       error: { category: 'provider_connection_error', message: '활성 백엔드 없음', retryable: true }
     })
     expect(entry('s').session.error?.message).toBe('활성 백엔드 없음')

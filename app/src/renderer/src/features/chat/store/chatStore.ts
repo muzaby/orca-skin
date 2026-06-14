@@ -190,9 +190,10 @@ function receive(ev: NormalizedEvent): void {
     case 'session.updated':
       dispatchTo(key, { type: 'RECV_EVENT', event: ev })
       // 마지막 활성 세션 영속화 — 백그라운드 턴이 lastSessionId 를 가로채지 않도록 활성만.
-      // opencode 가 들어오면 lastBackend 도 함께 갱신해야 한다 (OQ7).
+      // 코어 중립(0016): chat store 는 backend 를 모른다(이벤트에 provider 없음·레이어 경계상
+      // backend store 의존 불가). lastBackend 영속은 backend store 소관 — 여기선 세션만 기록한다.
       if (key === getState().activeKey) {
-        void settingsApi.set({ lastSessionId: ev.sessionId, lastBackend: 'claude-code' })
+        void settingsApi.set({ lastSessionId: ev.sessionId })
       }
       return
 

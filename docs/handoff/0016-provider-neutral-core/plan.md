@@ -99,20 +99,27 @@
 
 ---
 
-## [Codex 기입] 구현 체크리스트
+## [구현 기입 — Claude] 구현 체크리스트
 
-- [ ] 인수 1~2 (타입·매퍼 provider 제거)
-- [ ] 인수 3~5 (오케스트레이터·persist·renderer 리터럴 제거 / 파생화)
-- [ ] 인수 6 (리터럴 불변식 — grep 0)
-- [ ] 인수 7 (IPC_CONTRACT §4)
-- [ ] 인수 8 (게이트 + 테스트)
+> 사용자 지시로 **구현 주체 = Claude**(비기능 = Claude 직접 구현 규칙). trailer 는 `Agent: claude`.
 
-## [Codex 기입] 구현 보고
+- [x] 인수 1~2 (타입·매퍼 provider 제거) — `NormalizedEvent` 11 variant 전부 `provider` 제거, `claude-map.ts` 매퍼·`MapContext` 미설정
+- [x] 인수 3 + 4-bis (오케스트레이터 리터럴 제거 / `ClassifyContext.provider` optional / 세션-이전 에러 provider 부재)
+- [x] 인수 4 (persist `insertSession.backend = turn.titleAdapter.id` + 합성 tool.call.completed provider 제거)
+- [x] 인수 5 (chatStore `lastBackend` 리터럴 제거 + OQ7 주석 제거 — backend store 소관으로 위임)
+- [x] 인수 6 (리터럴 불변식 — 코어/오케스트레이터/chatStore 스코프 grep 0; 렌더러 기본-백엔드 UI 는 carve-out, 사용자 결정)
+- [x] 인수 7 (IPC_CONTRACT §3 NormalizedEvent 공통필드 + §4 ClassifiedError.provider optional)
+- [x] 인수 8 (게이트 4종 + 테스트 갱신)
+
+## [구현 보고 — Claude]
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
+| 변경 파일 (prod) | `shared/ipc.ts`(NormalizedEvent·ClassifiedError 주석) · `adapters/claude-map.ts`(+MapContext) · `adapters/claude-code.ts`(ctx) · `adapters/mock-scenarios.ts`(envelope·MockEventTemplate) · `runtime-errors/classifier.ts`(ClassifyContext optional) · `runtime-errors/claude-classifier.ts`(errorEvent) · `runtime-events/permission-bridge.ts`(agentPermissionRequest 시그니처) · `ipc/chat/send.ts`(6 이벤트·classify=adapter.id) · `ipc/chat/persist.ts`(insertSession.backend·합성 이벤트) · `renderer/.../chat/store/chatStore.ts`(lastBackend) |
+| 변경 파일 (test) | `claude-map.test.ts` · `mock-scenarios.test.ts` · `claude-classifier.test.ts` · `permission-bridge.test.ts` · renderer `chatReducer.{ask,parts,plan,tool}.test.ts` · `chatStore.test.ts` · `eventCoalescer.test.ts` |
+| 변경 파일 (docs) | `docs/IPC_CONTRACT.md`(§3·§4) |
 | 실행 명령 | `npm run lint` / `typecheck` / `test` / `build` |
-| 게이트 결과 | lint ☐ / typecheck ☐ / test ☐ (N passed) / build ☐ |
-| 블로커 / 역질문 | (없으면 "없음") |
-| 대상 커밋 | `<hash>` |
+| 게이트 결과 | lint ✅ / typecheck ✅ / test ✅ (375 passed, 50 files) / build ✅ |
+| 불변식 grep | 코어/오케스트레이터(`ipc/**`)·`shared/ipc.ts`·chat store 의 비-타입 provider 리터럴 0. 잔존은 (a) `router.ts` 부팅 배선(컴포지션 루트, 허용) (b) `Backend`/`ProviderId` 타입 정의(SSOT) (c) adapters/capabilities/deploy 레지스트리(허용·구조) (d) 렌더러 기본-백엔드 UI(`backendStore`·`Composer`·`InstallerDialog`·`chatReducer.backend`·`Avatar`) = '기본 백엔드' Open Question carve-out(사용자 결정). |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | (커밋 후 기재) |

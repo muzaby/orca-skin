@@ -19,7 +19,7 @@ export type MockStep =
   | { kind: 'telemetry' }
 
 type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never
-type MockEventTemplate = DistributiveOmit<NormalizedEvent, 'provider' | 'sessionId'> & {
+type MockEventTemplate = DistributiveOmit<NormalizedEvent, 'sessionId'> & {
   sessionId?: string
 }
 
@@ -299,11 +299,10 @@ function withEnvelope(event: MockEventTemplate, ctx: MockCtx): NormalizedEvent {
     return {
       ...event,
       sessionId,
-      provider: PROVIDER,
       patch: { ...event.patch, cwd: event.patch.cwd ?? ctx.cwd }
     } as NormalizedEvent
   }
-  return { ...event, sessionId, provider: PROVIDER } as NormalizedEvent
+  return { ...event, sessionId } as NormalizedEvent
 }
 
 function usageForRatio(ratio: number): ProviderReportedTelemetry {

@@ -243,9 +243,9 @@ LLM API 없이 renderer 의 스트리밍·사고 블록·도구 카드·권한 �
 
 ## 3. NormalizedEvent variant 정의
 
-> **표준화 스테이지 B (provider-runtime.md §2)**: `orca:chat:event` 의 와이어 타입은 provider 중립 **`NormalizedEvent`** 다. 모든 이벤트가 `sessionId`·`provider` 를 갖고, tool 은 `toolRunId` 로 start/complete 를 매칭한다. claude 어댑터는 SDK 메시지를 `claudeToNormalized`(`adapters/claude-map.ts`)로 이 타입에 **직접** 정규화한다(구 `ChatEvent` 중간표현은 제거됨). `app/src/shared/ipc.ts` 의 `NormalizedEvent` union 이 정본.
+> **표준화 스테이지 B (provider-runtime.md §2)**: `orca:chat:event` 의 와이어 타입은 provider 중립 **`NormalizedEvent`** 다. 이벤트는 `sessionId` 로 키잉되고, tool 은 `toolRunId` 로 start/complete 를 매칭한다. **코어 중립(handoff 0016): 이벤트는 `provider` 필드를 싣지 않는다** — 어떤 소비자도 읽지 않는 write-only 메타였고 `session.backend`(0010 세션-어댑터 잠금)와 중복된 이중 진실원이라 제거했다. "어느 백엔드인지" 는 `sessionId` → `session.backend` 로 파생한다. claude 어댑터는 SDK 메시지를 `claudeToNormalized`(`adapters/claude-map.ts`)로 이 타입에 **직접** 정규화한다(구 `ChatEvent` 중간표현은 제거됨). `app/src/shared/ipc.ts` 의 `NormalizedEvent` union 이 정본.
 
-| `type` | 필드(공통: `sessionId`·`provider`) | 발생 시점 | Renderer 처리 (`chatReducer.ts`) |
+| `type` | 필드(공통: `sessionId`) | 발생 시점 | Renderer 처리 (`chatReducer.ts`) |
 |---|---|---|---|
 | `session.updated` | `patch: { model?; cwd? }` | 어댑터의 첫 메시지 (SDK `SDKSystemMessage.init`) | `state.sessionId` 저장, `state.cwd` 갱신 |
 | `message.delta` | `delta: { text }` | LLM 스트리밍 (SDK `text_delta`) | chat store `live.text += text` (0008 — reducer 미경유 transient) |
@@ -267,7 +267,7 @@ LLM API 없이 renderer 의 스트리밍·사고 블록·도구 카드·권한 �
 
 ## 4. 에러 분류 (ErrorCategory)
 
-`orca:chat:event` 의 `error` 이벤트는 `ClassifiedError` = `{ category; message; retryable; provider; cause? }` 를 싣는다 (`app/src/shared/ipc.ts` `ErrorCategory` 8종 — provider-runtime.md §6 정본). 구 `ErrorCode`(`sdk.*`/`cli.*`) 모델은 표준화 리팩토링(PR #47)에서 폐기됐다.
+`orca:chat:event` 의 `error` 이벤트는 `ClassifiedError` = `{ category; message; retryable; provider?; cause? }` 를 싣는다 (`app/src/shared/ipc.ts` `ErrorCategory` 8종 — provider-runtime.md §6 정본). 구 `ErrorCode`(`sdk.*`/`cli.*`) 모델은 표준화 리팩토링(PR #47)에서 폐기됐다. **코어 중립(0016): `provider` 는 optional(표시용)** — 어댑터 컨텍스트가 있을 때만 분류기가 채우고, 세션-이전 오케스트레이션 에러(스키마 검증 실패·활성 백엔드 없음)는 provider 부재로 발행한다.
 
 | category | 의미 | 발생 위치 | retryable 기본 |
 |---|---|---|---|

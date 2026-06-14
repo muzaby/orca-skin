@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { claudeToNormalized, type MapContext } from './claude-map'
 import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk'
 
-const ctx = (sessionId = 's1'): MapContext => ({ provider: 'claude-code', sessionId, cwd: '/w' })
+const ctx = (sessionId = 's1'): MapContext => ({ sessionId, cwd: '/w' })
 const sdk = (m: unknown): SDKMessage => m as SDKMessage
 
 describe('claudeToNormalized', () => {
@@ -16,7 +16,6 @@ describe('claudeToNormalized', () => {
       {
         type: 'session.updated',
         sessionId: 'new1',
-        provider: 'claude-code',
         patch: { model: 'opus', cwd: '/w' }
       }
     ])
@@ -32,9 +31,7 @@ describe('claudeToNormalized', () => {
       sdk({ type: 'stream_event', event: { delta: { type: 'text_delta', text: 'hi' } } }),
       ctx()
     )
-    expect(out).toEqual([
-      { type: 'message.delta', sessionId: 's1', provider: 'claude-code', delta: { text: 'hi' } }
-    ])
+    expect(out).toEqual([{ type: 'message.delta', sessionId: 's1', delta: { text: 'hi' } }])
   })
 
   it('stream_event(thinking_delta) → message.reasoning.delta', () => {
@@ -49,7 +46,6 @@ describe('claudeToNormalized', () => {
       {
         type: 'message.reasoning.delta',
         sessionId: 's1',
-        provider: 'claude-code',
         delta: { text: '음...' }
       }
     ])
@@ -84,13 +80,11 @@ describe('claudeToNormalized', () => {
       {
         type: 'message.completed',
         sessionId: 's1',
-        provider: 'claude-code',
         message: { text: 'done' }
       },
       {
         type: 'tool.call.started',
         sessionId: 's1',
-        provider: 'claude-code',
         toolRunId: 't1',
         toolName: 'Bash',
         args: { cmd: 'ls' }
@@ -116,13 +110,11 @@ describe('claudeToNormalized', () => {
       {
         type: 'message.completed',
         sessionId: 's1',
-        provider: 'claude-code',
         message: { text: '확인할게요' }
       },
       {
         type: 'tool.call.started',
         sessionId: 's1',
-        provider: 'claude-code',
         toolRunId: 't1',
         toolName: 'Read',
         args: { path: 'a.ts' }
@@ -130,7 +122,6 @@ describe('claudeToNormalized', () => {
       {
         type: 'message.completed',
         sessionId: 's1',
-        provider: 'claude-code',
         message: { text: '완료' }
       }
     ])
@@ -153,7 +144,6 @@ describe('claudeToNormalized', () => {
       {
         type: 'tool.call.started',
         sessionId: 's1',
-        provider: 'claude-code',
         toolRunId: 't1',
         toolName: 'Bash',
         args: {}
@@ -178,14 +168,12 @@ describe('claudeToNormalized', () => {
       {
         type: 'message.reasoning',
         sessionId: 's1',
-        provider: 'claude-code',
         text: '먼저 확인하자',
         signature: 'sig1'
       },
       {
         type: 'message.completed',
         sessionId: 's1',
-        provider: 'claude-code',
         message: { text: '완료' }
       }
     ])
@@ -196,9 +184,7 @@ describe('claudeToNormalized', () => {
       sdk({ type: 'assistant', message: { content: [{ type: 'thinking', thinking: 't' }] } }),
       ctx()
     )
-    expect(out).toEqual([
-      { type: 'message.reasoning', sessionId: 's1', provider: 'claude-code', text: 't' }
-    ])
+    expect(out).toEqual([{ type: 'message.reasoning', sessionId: 's1', text: 't' }])
   })
 
   it('빈/공백 thinking 블록은 message.reasoning 을 emit 하지 않는다', () => {
@@ -230,7 +216,6 @@ describe('claudeToNormalized', () => {
       {
         type: 'tool.call.completed',
         sessionId: 's1',
-        provider: 'claude-code',
         toolRunId: 't1',
         result: 'ok',
         isError: false
@@ -247,7 +232,6 @@ describe('claudeToNormalized', () => {
       {
         type: 'telemetry',
         sessionId: 's1',
-        provider: 'claude-code',
         usage: { inputTokens: 10, outputTokens: 20 }
       }
     ])
@@ -255,7 +239,7 @@ describe('claudeToNormalized', () => {
 
   it('result(usage 없음) → telemetry (usage 생략)', () => {
     expect(claudeToNormalized(sdk({ type: 'result' }), ctx())).toEqual([
-      { type: 'telemetry', sessionId: 's1', provider: 'claude-code' }
+      { type: 'telemetry', sessionId: 's1' }
     ])
   })
 
@@ -279,7 +263,6 @@ describe('claudeToNormalized', () => {
       {
         type: 'telemetry',
         sessionId: 's1',
-        provider: 'claude-code',
         usage: {
           inputTokens: 100,
           outputTokens: 50,
@@ -313,7 +296,6 @@ describe('claudeToNormalized', () => {
       {
         type: 'telemetry',
         sessionId: 's1',
-        provider: 'claude-code',
         usage: {
           model: 'claude-opus-4',
           modelUsage: {
@@ -349,7 +331,7 @@ describe('claudeToNormalized', () => {
   it('result(잡음만, 의미있는 필드 없음) → telemetry (usage 생략)', () => {
     expect(
       claudeToNormalized(sdk({ type: 'result', subtype: 'success', is_error: false }), ctx())
-    ).toEqual([{ type: 'telemetry', sessionId: 's1', provider: 'claude-code' }])
+    ).toEqual([{ type: 'telemetry', sessionId: 's1' }])
   })
 
   it('멀티스텝 턴: telemetry 컨텍스트 입력은 마지막 assistant 스냅샷(누적 아님), 비용은 result', () => {

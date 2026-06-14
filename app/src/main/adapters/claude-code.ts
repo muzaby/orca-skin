@@ -214,7 +214,7 @@ export class ClaudeCodeAdapter implements SessionAdapter {
     } = req
 
     // 매퍼 컨텍스트 — sessionId 는 init(=session.updated)에서 갱신된다(resume 면 초기값이 그 id).
-    const ctx: MapContext = { provider: 'claude-code', sessionId: sessionId ?? '', cwd }
+    const ctx: MapContext = { sessionId: sessionId ?? '', cwd }
 
     const abortController = new AbortController()
     const onAbort = (): void => abortController.abort()

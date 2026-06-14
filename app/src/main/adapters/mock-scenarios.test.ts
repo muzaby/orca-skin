@@ -49,15 +49,13 @@ describe('mock scenarios', () => {
     )
   })
 
-  it('emit 이벤트에 provider/sessionId/cwd 를 주입한다', async () => {
+  it('emit 이벤트에 sessionId/cwd 를 주입한다 (코어 중립 0016: provider 미주입)', async () => {
     const { events } = await collect(SCENARIOS.text_streaming)
     expect(events[0]).toEqual({
       type: 'session.updated',
       sessionId: 's1',
-      provider: 'claude-code',
       patch: { model: 'mock-sonnet', cwd: '/w' }
     })
-    expect(events.every((ev) => ev.provider === 'claude-code')).toBe(true)
     expect(events.every((ev) => ('sessionId' in ev ? ev.sessionId === 's1' : true))).toBe(true)
   })
 

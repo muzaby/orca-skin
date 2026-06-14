@@ -50,6 +50,7 @@ export const claudeErrorClassifier: ErrorClassifier = {
 }
 
 // ClassifiedError → error NormalizedEvent 봉투. sessionId 가 미상('')이면 생략(envelope optional).
+// 코어 중립(0016): 이벤트는 provider 를 싣지 않는다 — provider 식별은 ClassifiedError.provider(표시용).
 export function errorEvent(
   error: ClassifiedError,
   sessionId: string
@@ -57,7 +58,6 @@ export function errorEvent(
   return {
     type: 'error',
     ...(sessionId !== '' ? { sessionId } : {}),
-    provider: 'claude-code',
     error
   }
 }
