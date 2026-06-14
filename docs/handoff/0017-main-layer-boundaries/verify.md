@@ -9,7 +9,7 @@
 | slug | `0017-main-layer-boundaries` |
 | 검증자 | Claude Code |
 | 일자 | 2026-06-14 |
-| 대상 커밋 | `<impl-hash>` (커밋 후 INDEX 기재) |
+| 대상 커밋 | `c26419d` |
 | 라운드 | 1 |
 | 상태 | PASS |
 
