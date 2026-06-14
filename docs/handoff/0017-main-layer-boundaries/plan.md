@@ -82,20 +82,26 @@ renderer 4-layer 는 `eslint-plugin-boundaries` 가 빌드 때 강제해 **위�
 
 ---
 
-## [Codex 기입] 구현 체크리스트
+## [구현 기입 — Claude] 구현 체크리스트
 
-- [ ] 인수 1 (main/AGENTS.md 레이어 가이드)
-- [ ] 인수 2 (boundaries main 블록)
-- [ ] 인수 3 (import/no-cycle)
-- [ ] 인수 4 (provider-settings 분해)
-- [ ] 인수 5~6 (위반 0 · 게이트 · 문서)
+> 구현 주체 = Claude(비기능 직접 구현). trailer `Agent: claude`. 신규 devDep `eslint-plugin-import`(사용자 승인).
 
-## [Codex 기입] 구현 보고
+- [x] 인수 1 (`src/main/AGENTS.md` 레이어 DAG 가이드 + `CLAUDE.md` stub)
+- [x] 인수 2 (boundaries main 블록 — `src/main/**`+`src/shared/**`, L0 shared→L1 domain→L2 adapters→L3 ipc)
+- [x] 인수 3 (`import/no-cycle` — TS 파서 `import/parsers` 등록으로 .ts 역-에지 추적, 임의 순환 검출 확인)
+- [x] 인수 4 (provider-settings 분해 → `provider-registry`·`model-resolve`·`env-merge` + 배럴 re-export 무회귀)
+- [x] 인수 5~6 (위반 0 · 게이트 4종 · 루트/ app AGENTS.md 링크)
+
+## [구현 보고 — Claude]
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
+| 변경 파일 (lint) | `eslint.config.mjs`(main boundaries 블록 + import/no-cycle + import/parsers), `package.json`/`package-lock.json`(eslint-plugin-import ^2.32.0) |
+| 변경 파일 (D2) | `settings/provider-settings.ts`(해석 서비스 + 계약 타입 + 배럴), 신규 `settings/{provider-registry,model-resolve,env-merge}.ts` |
+| 변경 파일 (docs) | 신규 `src/main/AGENTS.md`+`CLAUDE.md`, 루트 `AGENTS.md`(표), `app/AGENTS.md`(모듈 레이아웃 링크) |
+| 레이어 분류 메모 | `installer` = L2(adapters) — `AdapterRegistry` 주입 사용(L1 분류 시 유일한 상위참조였음, L2 로 교정). 그 외 src/main/* = L1 domain. |
 | 실행 명령 | `npm run lint` / `typecheck` / `test` / `build` |
-| 게이트 결과 | lint ☐ / typecheck ☐ / test ☐ (N passed) / build ☐ |
-| 블로커 / 역질문 | (없으면 "없음") |
-| 대상 커밋 | `<hash>` |
+| 게이트 결과 | lint ✅(boundaries·no-cycle error 0) / typecheck ✅ / test ✅ (375 passed, 50 files — D2 무회귀) / build ✅ |
+| no-cycle 검증 | 임의 2-파일 순환(model-resolve↔provider-registry) 주입 시 `import/no-cycle` error 발생 확인 후 원복 — 가드 실효성 입증. 기존 코드 순환 0. |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | (커밋 후 기재) |

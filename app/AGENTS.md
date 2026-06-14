@@ -29,6 +29,8 @@ shared/      → shared 내부만                  (범용 atom. 도메인 로�
 
 전체 디렉토리 트리 · 슬롯별 책임 · App.tsx Provider 합성 순서는 [`../docs/arch/frontend/layers.md`](../docs/arch/frontend/layers.md) 가 정본이다 (여기 사본을 두면 드리프트한다). cross-feature 데이터가 필요하면 역방향/타-feature import 대신 **pages/ 또는 app/ 에서 props 로 전달**한다.
 
+**main 레이어 경계** — main 프로세스도 렌더러처럼 하향 의존만 허용한다(L0 shared→L1 domain→L2 adapters→L3 ipc). `eslint-plugin-boundaries` + `import/no-cycle` 로 강제(`eslint.config.mjs` 의 `src/main/**` 블록). 레이어 매핑·작업 규칙 정본은 [`src/main/AGENTS.md`](src/main/AGENTS.md) (handoff 0017).
+
 **main / preload 핵심 경로** (채널 전수·계약은 [`../docs/IPC_CONTRACT.md`](../docs/IPC_CONTRACT.md)):
 
 | 경로                          | 책임                                                                                          |

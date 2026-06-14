@@ -10,6 +10,7 @@
 | `docs/` | PRD, TRD, 아키텍처·전략 문서, 페이즈 이력 — *무엇을* / *어떻게* 가 산다 | `docs/AGENTS.md` |
 | `project/` | HTML/CSS/JS 디자인 프로토타입 아카이브 — *어떻게 보여야 하는가* | `project/AGENTS.md` |
 | `app/` | Orca v1 실제 구현체 (electron-vite + React/TypeScript). 4-layer Feature 아키텍처 (`app/` · `pages/` · `features/` · `shared/`, ESLint boundaries 강제). 구현 작업 규칙은 가이드, 페이즈 이력은 `docs/PHASES.md` 참조. | `app/AGENTS.md` |
+| `app/src/main/` | Electron **main 프로세스** 레이어 가이드 — L0 shared→L1 domain→L2 adapters→L3 ipc DAG, 하향 의존만 (eslint-plugin-boundaries + import/no-cycle 강제, handoff 0017). | `app/src/main/AGENTS.md` |
 | `docs/handoff/` | Claude Code ↔ Codex 협업 hand-off (plan/verify 문서 + 디스패치 보드) | `docs/handoff/AGENTS.md` |
 
 ## 새 세션 진입 시 읽는 순서
