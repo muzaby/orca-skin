@@ -103,7 +103,8 @@ export function Composer({
       return {
         providerKey,
         modelFamily,
-        adapter: agents.find((a) => a.key === providerKey)?.adapter ?? backend ?? 'claude-code'
+        adapter: agents.find((a) => a.key === providerKey)?.adapter ?? backend ?? 'claude-code',
+        provider: agents.find((a) => a.key === providerKey)?.provider
       }
     return defaultSelection(agents, backend)
   }, [agents, backend, providerKey, modelFamily])
@@ -394,7 +395,6 @@ export function Composer({
               >
                 <ComposerChip
                   ref={modeButtonRef}
-                  icon="board"
                   label={MODE_LABELS[permissionMode]}
                   onClick={() => setModeMenuOpen((v) => !v)}
                   ariaHasPopup
@@ -404,7 +404,6 @@ export function Composer({
                 <ComposerChip
                   ref={attachButtonRef}
                   icon="plus"
-                  label="+"
                   onClick={() => setAttachMenuOpen((v) => !v)}
                   ariaHasPopup
                   ariaExpanded={attachMenuOpen}
@@ -415,7 +414,6 @@ export function Composer({
                 {agents.some((agent) => agent.supported) && (
                   <ComposerChip
                     ref={modelButtonRef}
-                    icon="cpu"
                     label={selectionLabel(selectedModel)}
                     onClick={() => setModelMenuOpen((v) => !v)}
                     ariaHasPopup
@@ -425,7 +423,6 @@ export function Composer({
                 )}
                 <ComposerChip
                   ref={effortButtonRef}
-                  icon="sparkle"
                   label={EFFORT_LABELS[effort]}
                   onClick={() => setEffortMenuOpen((v) => !v)}
                   ariaHasPopup

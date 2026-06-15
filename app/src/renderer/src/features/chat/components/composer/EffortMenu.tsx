@@ -34,7 +34,6 @@ export function EffortMenu({ effort, onPick }: EffortMenuProps): React.JSX.Eleme
             onClick={() => onPick(level)}
             className={MENU_ITEM}
           >
-            <Icon name="sparkle" size={13} />
             <span className="min-w-0 flex-1">
               <span className="flex items-center gap-1.5 text-[13px] font-medium text-ink">
                 {EFFORT_LABELS[level]}

@@ -4,6 +4,7 @@ export interface ModelSelection {
   providerKey: string
   modelFamily: string | null
   adapter: string
+  provider?: string
 }
 
 export function modelKey(model: AgentModelView): string {
@@ -21,7 +22,8 @@ export function defaultSelection(
     return {
       providerKey: agent.key,
       modelFamily: model ? modelKey(model) : null,
-      adapter: agent.adapter
+      adapter: agent.adapter,
+      provider: agent.provider
     }
   }
   return null
@@ -29,7 +31,7 @@ export function defaultSelection(
 
 export function selectionLabel(selection: ModelSelection | null): string {
   if (!selection) return '모델'
-  return selection.modelFamily
-    ? `${selection.providerKey}/${selection.modelFamily}`
-    : selection.providerKey
+  // adapter 제외 — provider 가 있으면 provider, 없으면 providerKey(=adapter 단독) 폴백.
+  const left = selection.provider ?? selection.providerKey
+  return selection.modelFamily ? `${left}/${selection.modelFamily}` : left
 }
