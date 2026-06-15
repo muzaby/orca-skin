@@ -14,6 +14,7 @@ export function AgentEnvironmentView(): React.JSX.Element {
   const { agents, state, refresh, add, update, remove, read } = useEngines()
   const [modal, setModal] = useState<ModalState>(null)
   const [loadingKey, setLoadingKey] = useState<string | null>(null)
+  const [readError, setReadError] = useState<string | null>(null)
 
   useEffect(() => {
     void refresh()
@@ -21,9 +22,13 @@ export function AgentEnvironmentView(): React.JSX.Element {
 
   const openEdit = async (agent: AgentEnvironment): Promise<void> => {
     setLoadingKey(agent.key)
+    setReadError(null)
     try {
       const result = await read(agent.key)
       setModal({ mode: 'edit', agent, settingsJson: result.settingsJson })
+    } catch (e) {
+      // 과거엔 read 실패가 조용히 삼켜져 "편집이 안 열린다"로 보였다 — 이제 사유를 표시한다.
+      setReadError(e instanceof Error ? e.message : '설정을 불러오지 못했어요.')
     } finally {
       setLoadingKey(null)
     }
@@ -54,9 +59,9 @@ export function AgentEnvironmentView(): React.JSX.Element {
         메뉴가 구성됩니다. 편집 후 앱 재시작 없이 모델 메뉴가 갱신됩니다.
       </p>
 
-      {state.error && (
+      {(state.error || readError) && (
         <div className="mb-3 rounded-lg bg-rust-soft px-3 py-2 text-[12px] text-rust">
-          {state.error}
+          {state.error ?? readError}
         </div>
       )}
 

@@ -1,9 +1,5 @@
 import type { AgentEnvironment } from '../../../../../shared/ipc'
-import { Icon } from '../../../shared/ui/Icon'
 import { EngineModelList } from './EngineModelList'
-
-const AGENT_ENV_BG =
-  'https://assets-proxy.anthropic.com/claude-ai/v2/assets/v1/cd02a42d9-Vq_H3mgS.svg'
 
 interface EngineCardProps {
   agent: AgentEnvironment
@@ -20,13 +16,8 @@ export function EngineCard({
 }: EngineCardProps): React.JSX.Element {
   const canMutate = agent.adapter === 'claude-code'
   return (
-    <div className="relative overflow-hidden rounded-xl border border-border bg-panel px-4 py-3.5">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute right-0 top-0 h-36 w-36 translate-x-1/2 bg-contain bg-center bg-no-repeat opacity-[0.06]"
-        style={{ backgroundImage: `url(${AGENT_ENV_BG})` }}
-      />
-      <div className="relative flex items-center gap-3">
+    <div className="rounded-xl border border-border bg-panel px-4 py-3.5">
+      <div className="flex items-center gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="text-[14px] font-semibold text-ink">{agent.adapter}</span>
@@ -43,19 +34,17 @@ export function EngineCard({
           type="button"
           disabled={!canMutate || busy}
           onClick={() => onEdit(agent)}
-          className="grid h-7 w-7 place-items-center rounded-md border-0 bg-transparent text-ink2 hover:bg-sidebar hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
-          aria-label="엔진 설정 편집"
+          className="rounded-lg border border-border px-3 py-1.5 text-[12.5px] font-medium text-ink hover:border-border-strong hover:bg-sidebar disabled:cursor-not-allowed disabled:opacity-40"
         >
-          <Icon name="settings" size={13} />
+          편집
         </button>
         <button
           type="button"
           disabled={!canMutate || busy}
           onClick={() => onDelete(agent)}
-          className="grid h-7 w-7 place-items-center rounded-md border-0 bg-transparent text-ink2 hover:bg-rust-soft hover:text-rust disabled:cursor-not-allowed disabled:opacity-40"
-          aria-label="엔진 삭제"
+          className="rounded-lg border border-border px-3 py-1.5 text-[12.5px] font-medium text-rust hover:bg-rust-soft disabled:cursor-not-allowed disabled:opacity-40"
         >
-          <Icon name="trash" size={13} />
+          삭제
         </button>
       </div>
       <EngineModelList models={agent.models} />
