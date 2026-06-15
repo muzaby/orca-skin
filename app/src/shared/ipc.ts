@@ -45,7 +45,11 @@ export const CHANNELS = {
   // 진행 중 턴이면 즉시 Query.setPermissionMode, 아니면 controller 에 기록해 다음 턴에 반영.
   permissionSetMode: 'orca:permission:setMode',
   debugGetMock: 'orca:debug:getMock',
-  debugSetMock: 'orca:debug:setMock'
+  debugSetMock: 'orca:debug:setMock',
+  engineAdd: 'orca:engine:add',
+  engineUpdate: 'orca:engine:update',
+  engineDelete: 'orca:engine:delete',
+  engineRead: 'orca:engine:read'
 } as const
 
 // dev 전용 MockAdapter 시나리오. ProviderId/Backend 에 mock 을 추가하지 않고 claude-code 로
@@ -106,6 +110,39 @@ export interface AgentEnvironment {
   provider?: string
   models: AgentModelView[]
   supported: boolean
+}
+
+export interface CreateEngineRequest {
+  engine: 'claude-code'
+  provider: string
+  settingsJson: string
+}
+
+export interface UpdateEngineRequest {
+  key: string
+  settingsJson: string
+}
+
+export interface DeleteEngineRequest {
+  key: string
+}
+
+export interface ReadEngineRequest {
+  key: string
+}
+
+export interface EngineReadResult {
+  key: string
+  engine: 'claude-code'
+  provider: string
+  settingsJson: string
+}
+
+export interface EngineWriteResult {
+  key: string
+  engine: 'claude-code'
+  provider: string
+  models: AgentModelView[]
 }
 
 // 에러 분류 (provider-runtime.md §6 정본). 와이어 error 이벤트는 8 category + retryable 로

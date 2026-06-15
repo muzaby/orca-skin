@@ -165,22 +165,22 @@ alias(`family`)만 보여 실제 모델명이 가려진다.
 
 ## [Codex 기입] 구현 체크리스트
 
-- [ ] 인수 기준 1 — 엔진 추가 모달(블러 배경)
-- [ ] 인수 기준 2 — 드롭다운/provider input/settings textarea + 검증
-- [ ] 인수 기준 3 — engine add write IPC + 원자적 settings.json 생성
-- [ ] 인수 기준 4 — `extractModels` env 키 추출 + meta.json 갱신 (+ 폴백) + 단위 테스트
-- [ ] 인수 기준 5 — 뷰 분해(EngineCard 등) + 부분 리렌더
-- [ ] 인수 기준 6 — 공유 agent store + Composer 싱크
-- [ ] 인수 기준 7 — 편집(프리필)/삭제(디렉토리 제거)
-- [ ] 인수 기준 8 — 모델명 부각 카드 UI
-- [ ] 인수 기준 9 — IPC_CONTRACT 갱신 + 게이트 4종
+- [x] 인수 기준 1 — 엔진 추가 모달(블러 배경)
+- [x] 인수 기준 2 — 드롭다운/provider input/settings textarea + 검증
+- [x] 인수 기준 3 — engine add write IPC + 원자적 settings.json 생성
+- [x] 인수 기준 4 — `extractModels` env 키 추출 + meta.json 갱신 (+ 폴백) + 단위 테스트
+- [x] 인수 기준 5 — 뷰 분해(EngineCard 등) + 부분 리렌더
+- [x] 인수 기준 6 — 공유 agent store + Composer 싱크
+- [x] 인수 기준 7 — 편집(프리필)/삭제(디렉토리 제거)
+- [x] 인수 기준 8 — 모델명 부각 카드 UI
+- [x] 인수 기준 9 — IPC_CONTRACT 갱신 + 게이트 4종
 
 ## [Codex 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` / `build` |
-| 게이트 결과 | lint … / typecheck … / test … / build … |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | `app/src/shared/{ipc,protocol}.ts`, `app/src/main/settings/engine-write.ts`, `app/src/main/ipc/handlers/engine.ts`, `app/src/preload/index.ts`, `app/src/renderer/src/shared/{api/ipc.ts,hooks/useAgents.ts,stores/agentStore.ts}`, `app/src/renderer/src/features/engine/**`, `docs/IPC_CONTRACT.md` |
+| 실행 명령 | `cd app && npm run lint` / `cd app && npm run typecheck` / `cd app && npm test` / `cd app && npm run build` |
+| 게이트 결과 | lint PASS / typecheck PASS / test PASS(384/384; 실행 전 better-sqlite3 Node ABI mismatch 9건 확인 후 `npm rebuild better-sqlite3` 로 복구) / build PASS |
+| 블로커 / 역질문 | 없음. UI 시각 검증은 사람 확인 필요. |
+| 대상 커밋 | `50b8dce` |
