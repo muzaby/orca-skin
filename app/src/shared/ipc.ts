@@ -92,6 +92,8 @@ export interface SessionTitleEvent {
 // Backend (Phase 2: claude-code 단일. opencode 는 future work)
 export type Backend = 'claude-code'
 
+export type EffortLevel = 'low' | 'medium' | 'high' | 'xhigh' | 'max'
+
 export interface AgentModelView {
   name: string
   family?: string
@@ -326,6 +328,8 @@ export interface SendChatMessage {
   // 이 턴에 적용할 agent/provider 와 모델 family. 둘 다 optional 이라 기존 payload 호환.
   providerKey?: string | null
   modelFamily?: string | null
+  // 이 턴에 적용할 Claude Code thinking effort. per-turn 전송만 지원한다.
+  effort?: EffortLevel
 }
 
 // Composer 권한 모드 버튼이 노출하는 두 모드. SDK PermissionMode 의 부분집합 —

@@ -11,6 +11,9 @@ import { ComposerChip } from './composer/ComposerChip'
 import { SkillsMenu } from './composer/SkillsMenu'
 import { ModeMenu } from './composer/ModeMenu'
 import { ModelMenu } from './composer/ModelMenu'
+import { EffortMenu } from './composer/EffortMenu'
+import { EFFORT_LABELS } from './composer/effort'
+import { AttachMenu } from './composer/AttachMenu'
 import { defaultSelection, selectionLabel } from './composer/modelSelection'
 import { ConversationStatusLine } from './composer/ConversationStatusLine'
 import { StatusPopover } from './composer/StatusPopover'
@@ -55,7 +58,7 @@ export function Composer({
   onScrollToBottom,
   costToday
 }: ComposerProps): React.JSX.Element {
-  const { send, cancel, answerAsk, skipAsk, setPermissionMode, setModel } = chatActions
+  const { send, cancel, answerAsk, skipAsk, setPermissionMode, setModel, setEffort } = chatActions
   const inflight = useChatSession((s) => s.inflight)
   const cwd = useChatSession((s) => s.cwd)
   const lastTelemetry = useChatSession((s) => s.lastTelemetry)
@@ -63,6 +66,7 @@ export function Composer({
   const backend = useChatSession((s) => s.backend)
   const providerKey = useChatSession((s) => s.providerKey)
   const modelFamily = useChatSession((s) => s.modelFamily)
+  const effort = useChatSession((s) => s.effort)
   const pendingPlanReview = useChatSession((s) => s.pendingPlanReview)
   const pendingToolApproval = useChatSession((s) => s.pendingToolApproval)
   // 큐의 맨 앞 질문만 렌더(canUseTool 이 query 를 막아 보통 1개). 응답 시 다음 질문이 노출.
@@ -71,12 +75,15 @@ export function Composer({
   const [modeMenuOpen, setModeMenuOpen] = useState(false)
   const modelButtonRef = useRef<HTMLButtonElement>(null)
   const [modelMenuOpen, setModelMenuOpen] = useState(false)
+  const effortButtonRef = useRef<HTMLButtonElement>(null)
+  const [effortMenuOpen, setEffortMenuOpen] = useState(false)
+  const attachButtonRef = useRef<HTMLButtonElement>(null)
+  const [attachMenuOpen, setAttachMenuOpen] = useState(false)
   const [draft, setDraft] = useState('')
   const [caret, setCaret] = useState(0)
   const skills = useSkills()
   const agents = useAgents()
   const knownSkillNames = useMemo(() => new Set(skills.map((s) => s.name)), [skills])
-  const skillButtonRef = useRef<HTMLButtonElement>(null)
   const textareaRef = useRef<HighlightedTextareaHandle>(null)
   const textareaWrapRef = useRef<HTMLDivElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -96,7 +103,8 @@ export function Composer({
       return {
         providerKey,
         modelFamily,
-        adapter: agents.find((a) => a.key === providerKey)?.adapter ?? backend ?? 'claude-code'
+        adapter: agents.find((a) => a.key === providerKey)?.adapter ?? backend ?? 'claude-code',
+        provider: agents.find((a) => a.key === providerKey)?.provider
       }
     return defaultSelection(agents, backend)
   }, [agents, backend, providerKey, modelFamily])
@@ -331,25 +339,53 @@ export function Composer({
           <div
             className="epitaxy-prompt rounded-r7 border border-border bg-panel px-3 py-2.5 shadow-[0_2px_12px_rgba(0,0,0,0.04)]"
             data-surface="prompt"
+            title={`백엔드: ${backendLabel}`}
           >
-            <div
-              ref={textareaWrapRef}
-              className="app-frame-composer-input"
-              data-behavior="interactive"
-            >
-              <HighlightedTextarea
-                ref={textareaRef}
-                value={draft}
-                onChange={setDraft}
-                onCaretChange={setCaret}
-                onKeyDown={onKeyDown}
-                knownSkillNames={knownSkillNames}
-                validFilePaths={fileAutocomplete.validPaths}
-                placeholder="Orca에게 메시지 보내기… (Enter 전송 / Shift+Enter 줄바꿈)"
-                ariaLabel="메시지 입력"
-              />
+            <div className="flex items-end gap-2">
+              <div
+                ref={textareaWrapRef}
+                className="app-frame-composer-input min-w-0 flex-1"
+                data-behavior="interactive"
+              >
+                <HighlightedTextarea
+                  ref={textareaRef}
+                  value={draft}
+                  onChange={setDraft}
+                  onCaretChange={setCaret}
+                  onKeyDown={onKeyDown}
+                  knownSkillNames={knownSkillNames}
+                  validFilePaths={fileAutocomplete.validPaths}
+                  placeholder="Orca에게 메시지 보내기… (Enter 전송 / Shift+Enter 줄바꿈)"
+                  ariaLabel="메시지 입력"
+                />
+              </div>
+              {inflight ? (
+                <Button
+                  iconOnly
+                  variant="uncontained"
+                  leadingIcon="pause"
+                  onClick={cancel}
+                  disabled={!canAbort}
+                  title={canAbort ? '중단' : '이 백엔드는 중단을 지원하지 않습니다'}
+                  aria-label="중단"
+                  data-behavior="action:cancel-turn"
+                  className="mb-1 shrink-0 rounded-full"
+                />
+              ) : (
+                <Button
+                  iconOnly
+                  variant="primary"
+                  leadingIcon="send"
+                  onClick={submit}
+                  disabled={draft.trim() === ''}
+                  title="전송 (Enter)"
+                  aria-label="전송"
+                  data-behavior="action:send"
+                  className="mb-1 shrink-0 rounded-full"
+                />
+              )}
             </div>
-            <div className="app-frame-composer-controls flex items-center gap-1.5 pt-1">
+            <div className="app-frame-composer-controls flex items-center gap-1.5 pt-1.5">
               {/* repo zone — 첨부 후보들 (파일/현재 프레임/Skill). 명세 §3.3.2 의
               app-frame-composer-repo 슬롯. data-behavior="dismissible" 은 향후 칩
               제거 UX 도입 시점에 각 칩 element 로 내려간다. */}
@@ -359,17 +395,25 @@ export function Composer({
               >
                 <ComposerChip
                   ref={modeButtonRef}
-                  icon="board"
                   label={MODE_LABELS[permissionMode]}
                   onClick={() => setModeMenuOpen((v) => !v)}
                   ariaHasPopup
                   ariaExpanded={modeMenuOpen}
                   title="권한 모드"
                 />
+                <ComposerChip
+                  ref={attachButtonRef}
+                  icon="plus"
+                  onClick={() => setAttachMenuOpen((v) => !v)}
+                  ariaHasPopup
+                  ariaExpanded={attachMenuOpen}
+                  title="추가 메뉴"
+                />
+              </div>
+              <span className="ml-auto flex items-center gap-g4">
                 {agents.some((agent) => agent.supported) && (
                   <ComposerChip
                     ref={modelButtonRef}
-                    icon="cpu"
                     label={selectionLabel(selectedModel)}
                     onClick={() => setModelMenuOpen((v) => !v)}
                     ariaHasPopup
@@ -377,19 +421,14 @@ export function Composer({
                     title="모델 선택"
                   />
                 )}
-                <ComposerChip icon="plus" label="첨부" disabled title="준비 중" />
-                <ComposerChip icon="cam" label="현재 프레임" disabled title="준비 중" />
                 <ComposerChip
-                  ref={skillButtonRef}
-                  icon="bolt"
-                  label="Skill"
-                  onClick={() => setMenuOpen((v) => !v)}
+                  ref={effortButtonRef}
+                  label={EFFORT_LABELS[effort]}
+                  onClick={() => setEffortMenuOpen((v) => !v)}
                   ariaHasPopup
-                  ariaExpanded={menuOpen}
+                  ariaExpanded={effortMenuOpen}
+                  title="작업량"
                 />
-              </div>
-              <span className="ml-auto flex items-center gap-g4">
-                <span className="text-caption text-t6">{backendLabel}</span>
                 {lastTelemetry &&
                   (() => {
                     // 컨텍스트 사용량 = (입력+캐시)/모델 윈도우(마지막 턴 기준). 세션 동안 lastTelemetry
@@ -428,29 +467,6 @@ export function Composer({
                     <TelemetryPanel telemetry={lastTelemetry} />
                   </Popover>
                 )}
-                {inflight ? (
-                  <Button
-                    iconOnly
-                    variant="uncontained"
-                    leadingIcon="pause"
-                    onClick={cancel}
-                    disabled={!canAbort}
-                    title={canAbort ? '중단' : '이 백엔드는 중단을 지원하지 않습니다'}
-                    aria-label="중단"
-                    data-behavior="action:cancel-turn"
-                  />
-                ) : (
-                  <Button
-                    iconOnly
-                    variant="primary"
-                    leadingIcon="send"
-                    onClick={submit}
-                    disabled={draft.trim() === ''}
-                    title="전송 (Enter)"
-                    aria-label="전송"
-                    data-behavior="action:send"
-                  />
-                )}
               </span>
             </div>
           </div>
@@ -462,6 +478,31 @@ export function Composer({
           onPick={(mode) => {
             setPermissionMode(mode)
             setModeMenuOpen(false)
+          }}
+        />
+      </Popover>
+      <Popover
+        open={attachMenuOpen}
+        anchorRef={attachButtonRef}
+        onClose={() => setAttachMenuOpen(false)}
+      >
+        <AttachMenu
+          onPickSkill={() => {
+            setAttachMenuOpen(false)
+            setMenuOpen(true)
+          }}
+        />
+      </Popover>
+      <Popover
+        open={effortMenuOpen}
+        anchorRef={effortButtonRef}
+        onClose={() => setEffortMenuOpen(false)}
+      >
+        <EffortMenu
+          effort={effort}
+          onPick={(nextEffort) => {
+            setEffort(nextEffort)
+            setEffortMenuOpen(false)
           }}
         />
       </Popover>
@@ -480,7 +521,7 @@ export function Composer({
           }}
         />
       </Popover>
-      <Popover open={menuOpen} anchorRef={skillButtonRef} onClose={closeMenu}>
+      <Popover open={menuOpen} anchorRef={attachButtonRef} onClose={closeMenu}>
         <SkillsMenu skills={skills} onPick={insertSkillFromMenu} />
       </Popover>
       <SkillAutocomplete

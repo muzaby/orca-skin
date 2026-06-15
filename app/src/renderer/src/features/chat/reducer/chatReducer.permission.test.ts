@@ -95,3 +95,11 @@ describe('chatReducer — 모델 선택', () => {
     expect(loaded.modelFamily).toBeNull()
   })
 })
+
+describe('chatReducer — effort', () => {
+  it('기본 작업량은 high 이고 SET_EFFORT 로 변경된다', () => {
+    expect(initialChatState.effort).toBe('high')
+    const s = chatReducer(initialChatState, { type: 'SET_EFFORT', effort: 'xhigh' })
+    expect(s.effort).toBe('xhigh')
+  })
+})

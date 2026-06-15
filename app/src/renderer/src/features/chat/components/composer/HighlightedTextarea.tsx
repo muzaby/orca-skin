@@ -152,7 +152,7 @@ export const HighlightedTextarea = forwardRef<HighlightedTextareaHandle, Highlig
         <div
           ref={mirrorRef}
           aria-hidden
-          className={`${sharedTypo} pointer-events-none max-h-40 min-h-9 overflow-hidden text-ink`}
+          className={`${sharedTypo} pointer-events-none max-h-56 min-h-9 overflow-hidden text-ink`}
         >
           {value === '' && placeholder ? (
             <span className="text-ink3">{placeholder}</span>
@@ -190,7 +190,7 @@ export const HighlightedTextarea = forwardRef<HighlightedTextareaHandle, Highlig
           placeholder={placeholder}
           rows={rows}
           aria-label={ariaLabel}
-          className={`${sharedTypo} absolute inset-0 max-h-40 min-h-9 resize-none border-0 bg-transparent text-transparent caret-ink outline-none placeholder:text-transparent ${textareaClassName}`}
+          className={`${sharedTypo} absolute inset-0 max-h-56 min-h-9 resize-none border-0 bg-transparent text-transparent caret-ink outline-none placeholder:text-transparent ${textareaClassName}`}
         />
       </div>
     )

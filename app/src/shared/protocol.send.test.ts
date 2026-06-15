@@ -55,3 +55,15 @@ describe('SetPermissionModeSchema', () => {
     ).toBe(false)
   })
 })
+
+describe('SendChatMessageSchema — effort', () => {
+  it('effort 5종을 모두 허용한다', () => {
+    for (const effort of ['low', 'medium', 'high', 'xhigh', 'max']) {
+      expect(SendChatMessageSchema.safeParse({ ...base, effort }).success).toBe(true)
+    }
+  })
+
+  it('알 수 없는 effort 를 거부한다', () => {
+    expect(SendChatMessageSchema.safeParse({ ...base, effort: 'extreme' }).success).toBe(false)
+  })
+})

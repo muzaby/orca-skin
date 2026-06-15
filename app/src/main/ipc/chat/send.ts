@@ -255,7 +255,8 @@ export function registerChatHandlers(deps: ChatDeps): void {
         providerSettings: resolved.providerSettings,
         model: resolved.model,
         requestApproval,
-        permissionMode: parsed.data.permissionMode
+        permissionMode: parsed.data.permissionMode,
+        effort: parsed.data.effort
       })
       turn.live = live
       for await (const ev of live.events) {

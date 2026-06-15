@@ -4,9 +4,10 @@
 
 import { z } from 'zod'
 import { MOCK_SCENARIO_IDS } from './ipc'
-import type { Backend } from './ipc'
+import type { Backend, EffortLevel } from './ipc'
 
 const BackendSchema: z.ZodType<Backend> = z.enum(['claude-code'])
+const EffortLevelSchema: z.ZodType<EffortLevel> = z.enum(['low', 'medium', 'high', 'xhigh', 'max'])
 
 // orca:chat:event 는 main→renderer send(검증 불요)라 NormalizedEvent 용 zod 스키마는 두지 않는다.
 // (구 ChatEventSchema 는 ChatEvent 폐기와 함께 제거 — 와이어가 NormalizedEvent 로 전환됨.)
@@ -27,7 +28,8 @@ export const SendChatMessageSchema = z.object({
   text: z.string().min(1),
   permissionMode: NormalizedPermissionModeSchema.optional(),
   providerKey: z.string().min(1).nullable().optional(),
-  modelFamily: z.string().min(1).nullable().optional()
+  modelFamily: z.string().min(1).nullable().optional(),
+  effort: EffortLevelSchema.optional()
 })
 
 export const CancelChatSchema = z.object({ sessionId: z.string() })

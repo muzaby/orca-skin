@@ -7,7 +7,7 @@ import {
 } from '../reducer/chatReducer'
 import { chatApi, permissionApi, sessionApi, settingsApi } from '../../../shared/api/ipc'
 import { createEventCoalescer } from '../lib/eventCoalescer'
-import type { NormalizedEvent } from '../../../../../shared/ipc'
+import type { EffortLevel, NormalizedEvent } from '../../../../../shared/ipc'
 import type { NormalizedPermissionMode } from '../../../../../shared/permission-mode'
 
 // Zustand 단일 chat store — arch/frontend/state.md §1.4 채택안의 멀티세션 외피(handoff 0013).
@@ -230,7 +230,8 @@ function send(text: string): void {
     text: trimmed,
     permissionMode: cur.permissionMode,
     providerKey: cur.providerKey,
-    modelFamily: cur.modelFamily
+    modelFamily: cur.modelFamily,
+    effort: cur.effort
   })
 }
 
@@ -338,6 +339,10 @@ function setModel(
   dispatchActive({ type: 'SET_MODEL', providerKey, modelFamily, adapter })
 }
 
+function setEffort(effort: EffortLevel): void {
+  dispatchActive({ type: 'SET_EFFORT', effort })
+}
+
 function setPermissionMode(mode: NormalizedPermissionMode): void {
   dispatchActive({ type: 'SET_PERMISSION_MODE', mode })
   // 활성 세션이면 라이브 전환 IPC 발행 — main 이 진행 중 턴이면 즉시 Query.setPermissionMode,
@@ -413,6 +418,7 @@ export const chatActions = {
   skipAsk,
   setPermissionMode,
   setModel,
+  setEffort,
   approvePlan,
   revisePlan,
   rejectPlan,
