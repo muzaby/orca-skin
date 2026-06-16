@@ -36,6 +36,16 @@ function summarizeToolInput(input: unknown): string {
   }
 }
 
+// 도구 input 의 부가 설명(있으면). Bash 등은 `description` 으로 의도를 전달한다 —
+// 본문에 요약(summarizeToolInput) 위 보조 줄로 노출. 비문자열/공백은 무시.
+function toolDescription(input: unknown): string | null {
+  if (input && typeof input === 'object') {
+    const d = (input as Record<string, unknown>).description
+    if (typeof d === 'string' && d.trim() !== '') return d.trim()
+  }
+  return null
+}
+
 export function ToolApprovalBody(): React.JSX.Element | null {
   const { approveTool, approveToolForSession, denyTool } = chatActions
   const pending = useChatSession((s) => s.pendingToolApproval)
@@ -50,6 +60,7 @@ export function ToolApprovalBody(): React.JSX.Element | null {
   }
 
   const summary = summarizeToolInput(pending.input)
+  const description = toolDescription(pending.input)
 
   return (
     <div
@@ -67,19 +78,21 @@ export function ToolApprovalBody(): React.JSX.Element | null {
         </span>
       </div>
 
-      <div className="mt-1.5 line-clamp-2 break-all rounded-r5 bg-bg px-3 py-1.5 font-mono text-caption text-t7">
+      {description && <p className="mt-1 text-caption text-t6">{description}</p>}
+
+      <div className="mt-2 line-clamp-2 break-all rounded-r5 bg-bg px-3 py-1.5 font-mono text-caption text-t7">
         {summary}
       </div>
 
-      <div className="mt-2.5 flex items-center justify-between gap-g3">
+      <div className="mt-3 flex items-center justify-between gap-g3">
+        <Button
+          variant="contained"
+          onClick={() => denyTool(approvalId)}
+          data-behavior="dismissible"
+        >
+          거부
+        </Button>
         <div className="flex items-center gap-g3">
-          <Button
-            variant="contained"
-            onClick={() => denyTool(approvalId)}
-            data-behavior="dismissible"
-          >
-            거부
-          </Button>
           <Button
             variant="uncontained"
             onClick={() => approveToolForSession(approvalId, toolName)}
@@ -87,15 +100,14 @@ export function ToolApprovalBody(): React.JSX.Element | null {
           >
             세션 동안 허용
           </Button>
+          <Button
+            variant="primary"
+            onClick={() => approveTool(approvalId)}
+            data-behavior="action:send"
+          >
+            허용
+          </Button>
         </div>
-        <Button
-          variant="primary"
-          onClick={() => approveTool(approvalId)}
-          data-behavior="action:send"
-          kbd="Ctrl+Enter"
-        >
-          허용
-        </Button>
       </div>
     </div>
   )

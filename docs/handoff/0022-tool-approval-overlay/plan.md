@@ -128,3 +128,29 @@ Orca 채팅 composer 에서 **도구 실행 승인**(위험 도구 Bash/Write/Ed
 | 게이트 결과     | `npm run lint` 실패: 초기 `node_modules` 부재로 `eslint` package/config resolution 실패. 의존성 설치 명령은 네트워크/설치 단계에서 출력 없이 장시간 대기해 중단. |
 | 블로커 / 역질문 | 게이트 실행을 위한 의존성 설치 환경 확인 필요. 코드/IPC/store/reducer 변경 관련 역질문 없음. |
 | 대상 커밋       | `afc7270` |
+
+---
+
+## Round 2 (사용자 피드백 — Claude 직접 구현)
+
+round-1 을 사용자가 **Claude Code 데스크톱 앱**처럼 다듬는 5개 피드백. 이번 라운드는 Claude 가 직접 구현(plan → impl → verify). **항목 5 는 round-1 의 입력 비활성화를 되돌린다.**
+
+### Round-2 인수 기준
+
+1. 권한 요청 중 textarea **입력 가능**(비활성 아님) — round-1 `disabled` 제거. 중단 버튼은 노출 유지(`inflight`).
+2. `HighlightedTextarea` 의 round-1 `disabled` prop 일습 원복 → dead-code 0.
+3. 입력 패널에서 **컨트롤 라인 분리** → 별도 패널. *그 패널만* bg 투명·borderless(`app-frame-composer-controls … px-1`, 테두리/배경 없음). 입력 패널은 테두리·`bg-panel` 유지.
+4. composer 를 **패널 스택**으로 — ask/도구승인/입력/컨트롤을 `flex flex-col gap-2` 로 일정 간격 수직 배치(스크린샷 기준).
+5. `ToolApprovalBody` 버튼: `거부`(좌) · `세션 동안 허용`+`허용`(우 그룹). `허용` 에 `Ctrl+Enter` 라벨 없음(`kbd` 제거), Ctrl/⌘+Enter 승인 핸들러는 유지.
+6. title → (보조 설명) → 요약(코드블록) → 버튼 간격 정돈(`mt-1`/`mt-2`/`mt-3`). input 에 `description` 있으면 본문에 노출(`toolDescription`).
+7. 게이트 4종 통과, 레이어 경계 0, 신규 의존성 0, IPC 무변경.
+
+### Round-2 구현 보고 (Claude)
+
+| 항목            | 내용 |
+| --------------- | ---- |
+| 변경 파일       | `Composer.tsx`(패널 스택 래퍼·컨트롤 패널 분리·`disabled` 제거), `ApprovalCard.tsx`(`toolDescription` 헬퍼·본문 보조설명·버튼 재배치·`kbd` 제거·간격), `composer/HighlightedTextarea.tsx`(`disabled` prop 원복) |
+| 실행 명령       | `npm install`(876 pkgs) → `npm rebuild better-sqlite3`(Node ABI) → `npm run lint`/`typecheck`/`test`/`build` + `npx prettier --write` |
+| 게이트 결과     | lint ✅ · typecheck ✅(node/web/test) · **test 381/381 ✅**(better-sqlite3 Node ABI 재빌드 후 전체 green) · build ✅ |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋       | (impl 커밋 hash — push 후 기재) |

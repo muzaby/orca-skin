@@ -81,7 +81,6 @@ interface HighlightedTextareaProps {
   className?: string
   textareaClassName?: string
   ariaLabel?: string
-  disabled?: boolean
 }
 
 export interface HighlightedTextareaHandle {
@@ -106,8 +105,7 @@ export const HighlightedTextarea = forwardRef<HighlightedTextareaHandle, Highlig
       rows = 1,
       className = '',
       textareaClassName = '',
-      ariaLabel,
-      disabled = false
+      ariaLabel
     },
     ref
   ): React.JSX.Element {
@@ -154,12 +152,10 @@ export const HighlightedTextarea = forwardRef<HighlightedTextareaHandle, Highlig
         <div
           ref={mirrorRef}
           aria-hidden
-          className={`${sharedTypo} pointer-events-none max-h-56 min-h-9 overflow-hidden ${
-            disabled ? 'text-ink3' : 'text-ink'
-          }`}
+          className={`${sharedTypo} pointer-events-none max-h-56 min-h-9 overflow-hidden text-ink`}
         >
           {value === '' && placeholder ? (
-            <span className={disabled ? 'text-ink3/70' : 'text-ink3'}>{placeholder}</span>
+            <span className="text-ink3">{placeholder}</span>
           ) : (
             <>
               {segments.map((s, i) =>
@@ -194,10 +190,7 @@ export const HighlightedTextarea = forwardRef<HighlightedTextareaHandle, Highlig
           placeholder={placeholder}
           rows={rows}
           aria-label={ariaLabel}
-          disabled={disabled}
-          className={`${sharedTypo} absolute inset-0 max-h-56 min-h-9 resize-none border-0 bg-transparent text-transparent outline-none placeholder:text-transparent disabled:cursor-not-allowed ${
-            disabled ? 'caret-transparent' : 'caret-ink'
-          } ${textareaClassName}`}
+          className={`${sharedTypo} absolute inset-0 max-h-56 min-h-9 resize-none border-0 bg-transparent text-transparent caret-ink outline-none placeholder:text-transparent ${textareaClassName}`}
         />
       </div>
     )
