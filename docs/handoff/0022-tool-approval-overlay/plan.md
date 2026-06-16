@@ -153,4 +153,4 @@ round-1 을 사용자가 **Claude Code 데스크톱 앱**처럼 다듬는 5개 �
 | 실행 명령       | `npm install`(876 pkgs) → `npm rebuild better-sqlite3`(Node ABI) → `npm run lint`/`typecheck`/`test`/`build` + `npx prettier --write` |
 | 게이트 결과     | lint ✅ · typecheck ✅(node/web/test) · **test 381/381 ✅**(better-sqlite3 Node ABI 재빌드 후 전체 green) · build ✅ |
 | 블로커 / 역질문 | 없음 |
-| 대상 커밋       | (impl 커밋 hash — push 후 기재) |
+| 대상 커밋       | `3f22e86` |
