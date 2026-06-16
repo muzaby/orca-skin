@@ -112,19 +112,19 @@ Orca 채팅 composer 에서 **도구 실행 승인**(위험 도구 Bash/Write/Ed
 
 ## [Codex 기입] 구현 체크리스트
 
-- [ ] `Composer.tsx` 분기 분해 — ternary 에서 `pendingToolApproval` 제거 + ask 라인 아래 additive `ToolApprovalBody` 라인 추가
-- [ ] `ApprovalCard.tsx` `ToolApprovalBody` export + 주석 갱신(분기별 설명)
-- [ ] `HighlightedTextarea` `disabled` prop 추가 + 비활성 톤
-- [ ] `Composer.tsx` 입력 disabled(`pendingToolApproval`) + 취소 버튼 조건 `inflight || pendingToolApproval` 확장
+- [x] `Composer.tsx` 분기 분해 — ternary 에서 `pendingToolApproval` 제거 + ask 라인 아래 additive `ToolApprovalBody` 라인 추가
+- [x] `ApprovalCard.tsx` `ToolApprovalBody` export + 주석 갱신(분기별 설명)
+- [x] `HighlightedTextarea` `disabled` prop 추가 + 비활성 톤
+- [x] `Composer.tsx` 입력 disabled(`pendingToolApproval`) + 취소 버튼 조건 `inflight || pendingToolApproval` 확장
 - [ ] (선택) `docs/arch/frontend/` 렌더링 문서 분기 1줄 기록
-- [ ] 게이트 4종 통과(lint/typecheck/test/build)
+- [ ] 게이트 4종 통과(lint/typecheck/test/build) — 환경의 `node_modules` 부재/설치 중단으로 실행 불가
 
 ## [Codex 기입] 구현 보고
 
 | 항목            | 내용            |
 | --------------- | --------------- |
-| 변경 파일       |                 |
-| 실행 명령       |                 |
-| 게이트 결과     |                 |
-| 블로커 / 역질문 |                 |
-| 대상 커밋       |                 |
+| 변경 파일       | `app/src/renderer/src/features/chat/components/Composer.tsx`, `app/src/renderer/src/features/chat/components/ApprovalCard.tsx`, `app/src/renderer/src/features/chat/components/composer/HighlightedTextarea.tsx` |
+| 실행 명령       | `npm run lint && npm run typecheck && npm test && npm run build`; `npm install`; `npm ci --ignore-scripts`; `npm install --ignore-scripts --no-audit --no-fund --prefer-offline` |
+| 게이트 결과     | `npm run lint` 실패: 초기 `node_modules` 부재로 `eslint` package/config resolution 실패. 의존성 설치 명령은 네트워크/설치 단계에서 출력 없이 장시간 대기해 중단. |
+| 블로커 / 역질문 | 게이트 실행을 위한 의존성 설치 환경 확인 필요. 코드/IPC/store/reducer 변경 관련 역질문 없음. |
+| 대상 커밋       | `afc7270` |
