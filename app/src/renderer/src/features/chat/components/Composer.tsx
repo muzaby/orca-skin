@@ -21,7 +21,7 @@ import { conversationStatusModel as conversationStatusModelFactory } from './com
 import { MODE_LABELS } from './composer/modes'
 import type { ConversationStatus } from './composer/statusCopy'
 import { AskUserQuestionCard } from './AskUserQuestionCard'
-import { ApprovalCard } from './ApprovalCard'
+import { ApprovalCard, ToolApprovalBody } from './ApprovalCard'
 import { TelemetryPanel } from './TelemetryPanel'
 import { chatActions, useChatSession } from '../store/chatStore'
 import { contextTokens } from '../lib/telemetry'
@@ -222,6 +222,9 @@ export function Composer({
     setCaret(0)
   }
 
+  const toolApprovalPending = pendingToolApproval != null
+  const showCancelButton = inflight || toolApprovalPending
+
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>): void => {
     // 자동완성 open 시 키 우선 처리 — Enter/Tab/Arrow/Escape 는 picker 가 소비.
     // 스킬과 파일은 trigger 가 배타적이라 동시에 open 될 수 없다.
@@ -333,8 +336,9 @@ export function Composer({
             onSkip={() => skipAsk(activeAsk.requestId)}
           />
         )}
-        {pendingPlanReview || pendingToolApproval ? (
-          <ApprovalCard key={pendingPlanReview?.requestId ?? pendingToolApproval?.approvalId} />
+        {pendingToolApproval && <ToolApprovalBody key={pendingToolApproval.approvalId} />}
+        {pendingPlanReview ? (
+          <ApprovalCard key={pendingPlanReview.requestId} />
         ) : (
           <div
             className="epitaxy-prompt rounded-r7 border border-border bg-panel px-3 py-2.5 shadow-[0_2px_12px_rgba(0,0,0,0.04)]"
@@ -357,9 +361,10 @@ export function Composer({
                   validFilePaths={fileAutocomplete.validPaths}
                   placeholder="Orca에게 메시지 보내기… (Enter 전송 / Shift+Enter 줄바꿈)"
                   ariaLabel="메시지 입력"
+                  disabled={toolApprovalPending}
                 />
               </div>
-              {inflight ? (
+              {showCancelButton ? (
                 <Button
                   iconOnly
                   variant="uncontained"
