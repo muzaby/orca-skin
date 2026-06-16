@@ -1,15 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import type { AgentEnvironment } from '../../../../shared/ipc'
-import { agentApi } from '../api/ipc'
+import { useAgentStore } from '../stores/agentStore'
 
-// 부팅 시 main 의 orca.json agent 환경 목록을 한 번 로드한다. hot-reload 는 후속 범위.
 export function useAgents(): AgentEnvironment[] {
-  const [agents, setAgents] = useState<AgentEnvironment[]>([])
+  const agents = useAgentStore((state) => state.agents)
+  const ensureLoaded = useAgentStore((state) => state.ensureLoaded)
+
   useEffect(() => {
-    agentApi
-      .list()
-      .then(setAgents)
-      .catch(() => setAgents([]))
-  }, [])
+    void ensureLoaded()
+  }, [ensureLoaded])
+
   return agents
 }

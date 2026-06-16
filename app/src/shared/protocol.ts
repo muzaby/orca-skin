@@ -155,6 +155,29 @@ export const UpdateMcpServerSchema = McpServerBaseSchema.partial()
 
 export const DeleteMcpServerSchema = z.object({ id: z.string().min(1) })
 
+const EngineSchema = z.literal('claude-code')
+const ProviderNameSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(64)
+  .regex(/^[A-Za-z0-9_-]+$/, 'provider 는 영숫자 · _ · - 만 허용')
+
+export const CreateEngineSchema = z.object({
+  engine: EngineSchema,
+  provider: ProviderNameSchema,
+  settingsJson: z.string().min(1)
+})
+
+export const UpdateEngineSchema = z.object({
+  key: z.string().min(1),
+  settingsJson: z.string().min(1)
+})
+
+export const DeleteEngineSchema = z.object({ key: z.string().min(1) })
+
+export const ReadEngineSchema = z.object({ key: z.string().min(1) })
+
 // 권한 응답 단일 스키마 (renderer → main, permissionRespond 채널). ask/plan/tool 세 종류의
 // 승인 응답을 ApprovalResolution 2분기로 통일한다. allow 는 updatedInput(ask 답변·plan 입력
 // echo)·updatedPermissions("세션 동안 허용")를 선택 동봉, deny 는 message(plan revise 피드백·
@@ -292,5 +315,11 @@ export type {
   PlanReviewRequest,
   PlanDecision,
   MockScenarioId,
-  DebugMockState
+  DebugMockState,
+  CreateEngineRequest,
+  UpdateEngineRequest,
+  DeleteEngineRequest,
+  ReadEngineRequest,
+  EngineReadResult,
+  EngineWriteResult
 } from './ipc'

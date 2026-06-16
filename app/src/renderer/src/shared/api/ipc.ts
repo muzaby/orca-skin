@@ -22,7 +22,11 @@ import type {
   SkillInfo,
   UpdateMcpServerRequest,
   UpdateProjectRequest,
-  DebugMockState
+  DebugMockState,
+  CreateEngineRequest,
+  UpdateEngineRequest,
+  EngineReadResult,
+  EngineWriteResult
 } from '../../../../shared/ipc'
 
 // renderer 의 모든 IPC 호출 진입점. window.orca.* 의 얇은 typed 패스-스루로,
@@ -42,6 +46,13 @@ export const backendApi = {
 
 export const agentApi = {
   list: (): Promise<AgentEnvironment[]> => window.orca.agent.list()
+}
+
+export const engineApi = {
+  add: (req: CreateEngineRequest): Promise<EngineWriteResult> => window.orca.engine.add(req),
+  update: (req: UpdateEngineRequest): Promise<EngineWriteResult> => window.orca.engine.update(req),
+  delete: (key: string): Promise<void> => window.orca.engine.delete(key),
+  read: (key: string): Promise<EngineReadResult> => window.orca.engine.read(key)
 }
 
 export const installApi = {

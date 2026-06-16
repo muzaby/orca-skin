@@ -1,0 +1,54 @@
+import { useCallback, useState } from 'react'
+import type {
+  AgentEnvironment,
+  CreateEngineRequest,
+  UpdateEngineRequest
+} from '../../../../../shared/ipc'
+import { engineApi } from '../../../shared/api/ipc'
+import { refreshAgents, useAgentStore } from '../../../shared/stores/agentStore'
+
+export interface EngineMutationState {
+  busy: boolean
+  error: string | null
+}
+
+export function useEngines(): {
+  agents: AgentEnvironment[]
+  state: EngineMutationState
+  refresh: () => Promise<void>
+  add: (req: CreateEngineRequest) => Promise<void>
+  update: (req: UpdateEngineRequest) => Promise<void>
+  remove: (key: string) => Promise<void>
+  read: typeof engineApi.read
+} {
+  const agents = useAgentStore((store) => store.agents)
+  const ensureLoaded = useAgentStore((store) => store.ensureLoaded)
+  const [state, setState] = useState<EngineMutationState>({ busy: false, error: null })
+
+  const mutate = useCallback(async (fn: () => Promise<unknown>): Promise<void> => {
+    setState({ busy: true, error: null })
+    try {
+      await fn()
+      await refreshAgents()
+      setState({ busy: false, error: null })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'engine 작업에 실패했습니다'
+      setState({ busy: false, error: message })
+      throw error
+    }
+  }, [])
+
+  const refresh = useCallback(async (): Promise<void> => {
+    await ensureLoaded()
+  }, [ensureLoaded])
+
+  return {
+    agents,
+    state,
+    refresh,
+    add: (req) => mutate(() => engineApi.add(req)),
+    update: (req) => mutate(() => engineApi.update(req)),
+    remove: (key) => mutate(() => engineApi.delete(key)),
+    read: engineApi.read
+  }
+}

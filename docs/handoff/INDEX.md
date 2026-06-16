@@ -45,4 +45,6 @@
 
 | `0019-test-abi-green` | plan | READY | Claude | — | 1 | 0010~0018 구조 감사(plan-eng-review 2026-06-14) 후속 — 게이트 위생. `npm test`(vitest, Node ABI 137) ↔ `postinstall: install-app-deps`(Electron ABI 140) 단일 `.node` 충돌로 `db/queries.test.ts` 상시 9-red(코드 무관, 9개 verify 가 "변경 무관"으로 누적 설명 = red-무시 훈련 안티패턴). 채택: dual-ABI 제거 불가 → **각 진입점 자기-ABI 보장**(`pretest`=Node·`predev`/`prebuild`=Electron, `ensure-sqlite-abi.mjs` 멱등, fetch-uv 패턴 동형). 검증됨: `npm rebuild better-sqlite3` 후 377/377 green. 비기능=Claude 직접 구현. |
 
+| `0021-engine-model-crud` | impl | IMPL_DONE | Claude | `50b8dce` | 1 | 엔진&모델 페이지(`AgentEnvironmentView`) CRUD 구현 완료. mock 버튼 활성화 → claude-code provider 추가/편집/삭제(블러 모달: engine 드롭다운·provider input·settings.json textarea) + 신규 write IPC(`engine:add/update/delete/read`)가 `sources/settings/claude-code/<provider>/settings.json` 원자적 생성 + 순수 `extractModels`(env 키 `ANTHROPIC_DEFAULT_{SONNET,HAIKU,OPUS}_MODEL`/`ANTHROPIC_MODEL`·`1m` 변형 → meta.json 갱신, 추출 0 시 'SDK 기본 모델' 폴백). 뷰 분해(EngineCard/EngineModelList) + agents 공유 store 승격(refresh)으로 카드·Composer/ModelMenu 싱크. 카드 모델 목록은 실제 모델명 부각(family 태그 secondary). IPC_CONTRACT 동시 갱신. 구현 주체 = Codex. |
+
 > 새 작업: 마지막 일련번호 +1 로 행을 추가하고 `<NNNN-slug>/plan.md` 를 생성한다.

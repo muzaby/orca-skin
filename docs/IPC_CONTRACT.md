@@ -2,13 +2,13 @@
 
 > 이 문서는 Main ↔ Renderer 간 IPC 채널의 **단일 진실 공급원 (SSOT)** 이다.
 > 채널을 추가/변경할 때는 코드와 이 문서를 함께 갱신한다.
-> 최종 업데이트: 2026-06-11 (handoff 0012 — runtime 도메인 제거 · agent 도메인 §2.2-b 편입 · 검증 실패 정책 명문화 · §4 ErrorCategory 정정)
+> 최종 업데이트: 2026-06-15 (handoff 0021 — engine CRUD 도메인 추가)
 > 관련 문서: [ARCHITECTURE.md](ARCHITECTURE.md), [ARCHITECTURE.md](ARCHITECTURE.md), [GLOSSARY.md](./GLOSSARY.md), [TRD.md](./TRD.md) §5
 
 ## 1. 명명 규칙
 
 - 형식: `orca:<domain>:<action>` — 소문자 + 콜론 구분
-- 도메인 (15개): `chat`, `backend`, `agent`, `install`, `settings`, `skills`, `files`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `permission`, `debug`(dev 전용)
+- 도메인 (16개): `chat`, `backend`, `agent`, `engine`, `install`, `settings`, `skills`, `files`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `permission`, `debug`(dev 전용)
 - 방향:
   - Renderer → Main 요청: `ipcMain.handle` + `ipcRenderer.invoke` (Promise 반환)
   - Main → Renderer 이벤트: `webContents.send` + `ipcRenderer.on` (단방향 push)
@@ -20,9 +20,9 @@
   - 특례: `chat:send` 는 실패를 `error` 이벤트로 회신(§2.1). 입력이 없거나 store 내부 zod 가 검증하는 채널(settings set · mcp add/update)은 `handlePlain`.
 - 출력(main→renderer send) 무검증: `NormalizedEvent` 등의 형상 보증은 어댑터 정규화(`claude-map.ts`)가 담당 — 의도된 설계.
 
-## 2. 채널 카탈로그 (총 36 채널)
+## 2. 채널 카탈로그 (총 40 채널)
 
-도메인별 분포: `chat` 3 · `backend` 1 · `agent` 1 · `install` 2 · `settings` 2 · `skills` 1 · `files` 1 · `session` 6 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `cost` 2 · `permission` 2 (`respond` · `setMode`) · `debug` 2 (dev 전용 — `getMock` · `setMock`).
+도메인별 분포: `chat` 3 · `backend` 1 · `agent` 1 · `engine` 4 · `install` 2 · `settings` 2 · `skills` 1 · `files` 1 · `session` 6 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `cost` 2 · `permission` 2 (`respond` · `setMode`) · `debug` 2 (dev 전용 — `getMock` · `setMock`).
 
 `app/src/shared/ipc.ts` 의 `CHANNELS` 상수와 1:1 일치. **단, `debug` 2채널은 `import.meta.env.DEV` 일 때만 `ipcMain.handle` 로 등록된다** (CHANNELS 상수 문자열은 상존하나 prod 핸들러 미등록 — §2.13 참조).
 
@@ -46,7 +46,16 @@
 
 | 채널 | 방향 | 페이로드 | 응답 | 설명 |
 |---|---|---|---|---|
-| `orca:agent:list` | R→M (invoke) | — | `AgentEnvironment[]` | `~/.config/orca/orca.json` 의 agents 를 renderer-safe DTO 로 반환. `authToken`/`baseUrl`/`env`/secret 값 필드는 존재하지 않는다(화이트리스트 — `toAgentEnvironments`). |
+| `orca:agent:list` | R→M (invoke) | — | `AgentEnvironment[]` | `~/.config/orca/sources/settings/<adapter>/<provider>/` 의 provider 디렉토리와 `meta.json` 을 renderer-safe DTO 로 반환. `authToken`/`baseUrl`/`env`/secret 값 필드는 존재하지 않는다(화이트리스트 — `toAgentEnvironments`). |
+
+### 2.2-c Engine (handoff 0021)
+
+| 채널 | 방향 | 페이로드 | 응답 | 설명 |
+|---|---|---|---|---|
+| `orca:engine:add` | R→M (invoke) | `CreateEngineRequest` = `{ engine: 'claude-code'; provider: string; settingsJson: string }` | `EngineWriteResult` | `sources/settings/claude-code/<provider>/settings.json` 을 원자적으로 생성하고 settings env 키에서 모델을 추출해 `claude-code/meta.json` 을 갱신한다. provider 중복/빈 값/허용 문자 위반은 reject. |
+| `orca:engine:update` | R→M (invoke) | `UpdateEngineRequest` = `{ key: string; settingsJson: string }` | `EngineWriteResult` | 기존 provider 의 raw settings.json 을 원자적으로 교체하고 `meta.json` 모델 목록을 재계산한다. provider rename 은 비범위(삭제+추가). |
+| `orca:engine:delete` | R→M (invoke) | `DeleteEngineRequest` = `{ key: string }` | `Promise<void>` | provider 디렉토리를 제거하고 `meta.json` 엔트리를 삭제한다. |
+| `orca:engine:read` | R→M (invoke) | `ReadEngineRequest` = `{ key: string }` | `EngineReadResult` = `{ key; engine: 'claude-code'; provider; settingsJson }` | 편집 모달 프리필용 raw settings.json 읽기. |
 
 ### 2.3 Install
 
