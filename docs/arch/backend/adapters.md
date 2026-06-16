@@ -52,7 +52,7 @@ async function* sendMessage(sessionId, text, cwd, caps, resolvedMcp, signal) {
       cwd,
       ...adaptMcp(resolvedMcp),            // mcpServers + allowedTools (빈 config면 생략)
       ...adaptSystemPrompt(caps.systemPromptAppend), // systemPrompt preset:claude_code + append
-      ...adaptSkills(),                    // skills:'all' — settingSources 경로(SDK 기본 user/project/local)로 발견 (구현 대기: plugins 제거)
+      ...adaptSkills(),                    // skills:'all' — settingSources 경로(SDK 기본 user/project/local)로 발견
       ...adaptSettings(req.providerSettings), // settings(flag 레이어) + disallowedTools 게이팅, settingSources 옵션 생략 (TRD §6.8)
       ...adaptHooks(caps.hooks),           // PreToolUse / PostToolUse / UserPromptSubmit hook 콜백
     }
@@ -65,7 +65,7 @@ async function* sendMessage(sessionId, text, cwd, caps, resolvedMcp, signal) {
 }
 ```
 
-`adaptMcp` 는 활성 서버가 없으면 옵션 자체를 빈 객체로 반환(생략). `allowedTools` 는 `mcp__<name>__*` 와일드카드로 서버 전체 도구 자동 허용 — `canUseTool` 미도입(Phase 4 anchor) 환경에서 도구 호출 차단 방지. **신 설계(구현 대기)**: `adaptSettings` 는 `settingSources` 옵션을 주입하지 않아 SDK 기본 소스(user/project/local)가 활성화되며(격리 해제 — handoff 0014/0015 폐기), Orca 가 막아야 할 도구는 `disallowedTools` 로 차단한다(해석은 `adapters/claude-settings.ts` 의 `loadClaudeProviderSettings` — SDK `resolveSettings` + `filterEscalatingDefaultMode` + env `${VAR}` 확장·secret 주입, 캐시는 `settings/provider-settings.ts`). 본 서술은 신 설계 정본이고 현행 `claude-adapt.ts` 는 `settingSources: []`·`plugins:[{local}]` 구 코드다(후속 코드 라운드 정렬).
+`adaptMcp` 는 활성 서버가 없으면 옵션 자체를 빈 객체로 반환(생략). `allowedTools` 는 `mcp__<name>__*` 와일드카드로 서버 전체 도구 자동 허용 — `canUseTool` 미도입(Phase 4 anchor) 환경에서 도구 호출 차단 방지. **신 설계(0024 구현됨 / disallowedTools 보류)**: `adaptSettings` 는 `settingSources` 옵션을 주입하지 않아 SDK 기본 소스(user/project/local)가 활성화되며(격리 해제 — handoff 0014/0015 폐기), Orca 가 막아야 할 도구는 `disallowedTools` 로 차단한다(해석은 `adapters/claude-settings.ts` 의 `loadClaudeProviderSettings` — SDK `resolveSettings` + `filterEscalatingDefaultMode` + env `${VAR}` 확장·secret 주입, 캐시는 `settings/provider-settings.ts`). `claude-adapt.ts` 는 0024에서 `settingSources`·`plugins` 주입 제거까지 정렬됐다. `disallowedTools` 는 D1 사용자 결정 전이라 보류.
 
 ### 1.4 CapabilityBuilder (백엔드 중립 보조기능 조립)
 
@@ -120,8 +120,8 @@ SDK 가 throw 하는 에러 메시지/코드에서 `401` / `OAuth` / `expired` �
 | `options.hooks` (PreToolUse / PostToolUse / Stop) | ⏳ | Phase 4 | 도구 호출 감사 |
 | `createSdkMcpServer` + `tool()` | ⏳ | Phase 4+ | in-process MCP 서버(별건) |
 | `options.mcpServers` | ✅ | MCP&Skill 통합 레이어 | 정규 소스(`mcp.json`) → `toClaudeConfig` → 활성 서버 주입. `allowedTools`=`mcp__<name>__*` |
-| `options.skills: 'all'` (+ `settingSources` 생략) | ✅ | 표준 정렬 | skill 은 SDK 기본 `settingSources` 경로(user/project/local)로 발견. dist 는 `.claude/skills` 거울(추후 cwd 설치 복사). **구현 대기** — 현행은 `plugins:[{local}]` 구 코드 |
-| `options.disallowedTools` | ✅ | 표준 정렬 | 격리 해제로 끌려오는 사용자 allow 규칙을 확정 차단(deny/disallowed > allow > canUseTool). **구현 대기** |
+| `options.skills: 'all'` (+ `settingSources` 생략) | ✅ | 표준 정렬 | skill 은 SDK 기본 `settingSources` 경로(user/project/local)로 발견. dist 는 `.claude/skills` 거울(추후 cwd 설치 복사). ✅ 0024 구현됨 — `plugins` 주입 제거 |
+| `options.disallowedTools` | ✅ | 표준 정렬 | 격리 해제로 끌려오는 사용자 allow 규칙을 확정 차단(deny/disallowed > allow > canUseTool). **D1 사용자 결정 전 보류** |
 | `options.plugins` (로컬 플러그인) | ⏳ | claude plugin 지원(future) | agents·commands·full-plugin 등 engine-specific 자산 주입 채널. `~/.claude/plugins` 스캔 + query 주입(§3.1) |
 | `prompt: AsyncIterable<SDKUserMessage>` | ⏳ | Phase 4 | 다중 이미지 / 실시간 중단 |
 | `forkSession` / `listSessions` / `loadSession` | ⏳ | Phase 3+/4 | 과거 대화 / 멀티 세션 anchor (persistence.md 의 로컬 DB 가 진실의 기준이 되므로 SDK 메서드는 *동기화 소스* 로만) |
@@ -171,11 +171,11 @@ opencode 등 다중 어댑터 환경 대비:
 
 > **⚠️ 현재 경로는 claude-code 어댑터 전용** (`~/.claude/...` 은 Claude Code 의 표준 경로). 다른 어댑터 (opencode 등) 도 지원하면 스캔 경로 분리 필요 — 사용자 결정.
 
-**Skill/MCP 머티리얼라이즈** (신 설계 — 구현 대기, standardization.md §5.1/§5.2):
+**Skill/MCP 머티리얼라이즈** (0024 구현됨 / disallowedTools 보류, standardization.md §5.1/§5.2):
 - ExtensionDeployer 가 호환 자산을 SDK 표준 경로 거울로 배포 = 설치 스테이징: skill → `dist/<engine>/.claude/skills/`, mcp → `dist/<engine>/.mcp.json`(${VAR} 보존). 추후 "cwd 설치(복사)" 기능이 설치 대상으로 복사한다.
 - `adaptSkills()` (§1.3) 은 `skills:'all'` 만 두고 skill 은 `settingSources` 경로(SDK 기본 user/project/local — 옵션 생략)로 발견한다(`plugins` 주입 제거).
 - MCP 는 `options.mcpServers` 로 주입 (런타임 ${VAR} 확장). settings.json 은 query flag(`options.settings`)로 주입 (거울 예외, TRD §6.8).
-- agents·commands·hooks·plugin 은 engine-specific 이라 배포하지 않는다 — 추후 claude plugin 지원으로 연기(§3.1). (현행 코드는 구 `plugin/` 컨테이너 + manifest + `plugins:[{local}]` — 후속 코드 라운드 정렬.)
+- agents·commands·hooks·plugin 은 engine-specific 이라 배포하지 않는다 — 추후 claude plugin 지원으로 연기(§3.1). (0024에서 구 `plugin/` 컨테이너 + manifest + `plugins:[{local}]` 경로를 제거했다.)
 
 ### 2.2 어댑터별 Skills 경로 분리 (Future 채택 결정)
 

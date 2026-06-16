@@ -26,10 +26,10 @@ export interface StandardConformance {
     executionModel: 'shell_exitcode' | 'inprocess_throw' | 'config_matcher'
   }
   settings: {
-    // provider 별 settings 파일을 dist/<engine>/<provider>/ 로 분리 배포하는가 (handoff 0014).
+    // provider 별 settings 를 어댑터별로 분리 관리하는가.
     perProvider: boolean
-    // 런타임 주입 메커니즘. claude = SDK flag settings(Options.settings) + settingSources:[] 격리.
-    mechanism: 'sdk_flag_settings_isolation' | 'native_config_file' | 'none'
+    // 런타임 주입 메커니즘. claude = SDK flag settings(Options.settings) + 기본 settingSources 상속.
+    mechanism: 'sdk_flag_settings_default_sources' | 'native_config_file' | 'none'
   }
 }
 
@@ -59,9 +59,9 @@ const claudeCodeConformance: StandardConformance = {
   },
   settings: {
     perProvider: true,
-    // resolveSettings({cwd: dist/<engine>/<provider>}) 로 로드한 effective 를 query
-    // options.settings 로 주입하고 settingSources:[] 로 사용자 ~/.claude 를 격리한다 (0014).
-    mechanism: 'sdk_flag_settings_isolation'
+    // sources/settings 의 provider settings 를 query options.settings 로 주입하고
+    // settingSources 는 생략해 사용자 ~/.claude/project/local 소스를 상속한다.
+    mechanism: 'sdk_flag_settings_default_sources'
   }
 }
 

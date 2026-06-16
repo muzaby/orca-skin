@@ -113,7 +113,7 @@ class OpenCodeEngine {
 >
 > **격리 해제**: `query()` 호출에서 `settingSources` 옵션을 **생략**해 SDK 기본값(user+project+local 전부)으로 사용자 전역 `~/.claude` skill·설정을 상속한다. 그로 끌려오는 사용자 allow 규칙은 `disallowedTools` 옵션으로 확정 차단한다(SDK 권한 평가: hooks→deny/disallowed→ask→allow→canUseTool — disallowed 가 allow·canUseTool 보다 상위). **이는 handoff 0014/0015 가 채택한 `settingSources: []` 격리모드 결정을 폐기(supersede)한다** — 0014/0015 문서는 historical 기록으로 보존하고 supersession 만 본 절·TRD §6.8·PHASES 에 기재.
 >
-> **구현 상태 (문서 선행 — 코드 다음 라운드)**: 본 절은 **신 설계의 정본**이다. 현행 코드(`deploy/deployer.ts` 의 `plugin/` 컨테이너 + manifest + agents/commands/hooks 복사, `claude-adapt.ts` 의 `plugins:[{local}]`·`settingSources:[]`)는 **구 레이아웃**이며, deployer/claude-adapt/paths(`distPluginDir` 등 헬퍼·부트 순서 포함) + `deployer.test`/`conformance` 정렬은 후속 코드 라운드(페어 PR)가 수행한다.
+> **구현 상태 (0024 구현됨)**: 코드가 신 레이아웃으로 정렬됐다. `deploy/deployer.ts` 는 skill→`.claude/skills`·mcp→`.mcp.json` 만 배포하고, `claude-adapt.ts` 는 `plugins`·`settingSources` 를 주입하지 않는다. 단 `disallowedTools` 차단 목록은 D1 사용자 확정 전이라 보류했다.
 
 ### 5.2 ExtensionDeployer
 
@@ -140,7 +140,7 @@ function deploy(engine: EngineId, opts: DeployOptions): DeployResult {
 
 `dist/<engine>` 산출물은 편집 대상이 아니다. 기존 파일이 마지막 배포와 다르면(사용자가 손댄 경우) 무단 덮어쓰기를 막기 위해 **항상 백업 후 기록**한다.
 
-> **구현 상태 (문서 선행 — 코드 다음 라운드)**: 위 축별 동작은 **신 설계의 정본**이다. 현행 [`deploy/deployer.ts`](../../../app/src/main/deploy/deployer.ts) 는 아직 구 레이아웃을 수행한다 — skills/agents/commands/hooks 를 `dist/<engine>/plugin/` 으로 복사 + manifest(`plugin/.claude-plugin/plugin.json`) 작성 + settings 를 `dist/<engine>/<provider>/.claude/settings.json` 으로 복사. 신 레이아웃(skill→`.claude/skills`, mcp→`.mcp.json` 배포; manifest·agents·commands·hooks·settings 복사 제거)으로의 정렬과 [`conformance.ts`](../../../app/src/main/deploy/conformance.ts)(§5.3, `compatibilityPaths` 등)·`deployer.test.ts` 갱신은 후속 코드 라운드(페어 PR)가 수행한다. 최초 부팅 스캐폴드 [`deploy/scaffold.ts`](../../../app/src/main/deploy/scaffold.ts) 는 provider settings 만 시드한다 — skill/agents/commands/hooks 의 번들 first-party 콘텐츠는 없다(전부 사용자 제공). **claude-only — `engine` 파라미터·settings 로더 주입(`ProviderSettingsLoader`)이 OpenCode seam.**
+> **구현 상태 (0024 구현됨)**: [`deploy/deployer.ts`](../../../app/src/main/deploy/deployer.ts) 는 신 레이아웃으로 정렬됐다 — skill→`.claude/skills`, mcp→`.mcp.json` 배포, manifest·agents·commands·hooks·settings dist 복사 제거. [`conformance.ts`](../../../app/src/main/deploy/conformance.ts) 와 `deployer.test.ts` 도 같은 레이아웃을 검증한다. `disallowedTools` 는 D1 사용자 확정 전이라 코드 주입 보류. 최초 부팅 스캐폴드 [`deploy/scaffold.ts`](../../../app/src/main/deploy/scaffold.ts) 는 provider settings 만 시드한다 — skill/agents/commands/hooks 의 번들 first-party 콘텐츠는 없다(전부 사용자 제공). **claude-only — `engine` 파라미터·settings 로더 주입(`ProviderSettingsLoader`)이 OpenCode seam.**
 
 > **현행 선례 재사용**: "render sources → engine config" 는 이미 MCP 축에서 구현돼 있다 — `mcp/convert.ts` 의 순수 함수 `toClaudeConfig`/`toOpencodeConfig`(동형 시그니처), `mcp/resolver.ts` 의 `${VAR}` resolver(safeStorage → process.env 2단계), `mcp/expand.ts` 의 `expandEnv`([security.md §1.4](./security.md), [adapters.md §3.1](./adapters.md)). ExtensionDeployer 의 mcp 축은 이 함수들을 *호출*하면 되고 새로 발명하지 않는다.
 

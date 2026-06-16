@@ -18,7 +18,6 @@ import type {
   UserPromptSubmitHookSpecificOutput
 } from '@anthropic-ai/claude-agent-sdk'
 import type { ClaudeMcpConfig } from '../mcp/schema'
-import { distPluginDir } from '../config/paths'
 import {
   mergeEnvLayers,
   type ArgvSafeSettings,
@@ -50,20 +49,16 @@ export function adaptSystemPrompt(append?: string): object {
   return { systemPrompt: { type: 'preset' as const, preset: 'claude_code' as const, append } }
 }
 
-// claude 로컬 플러그인 루트 = dist/claude-code/plugin/ (ExtensionDeployer 가 sources/ 에서 렌더한
-// 산출물 — handoff 0014 에서 provider 디렉토리와 분리). 부팅 시 deploy('claude-code') 로 매니페스트 +
-// skills/agents/commands 가 보장된다. plugins(local) + skills:'all' 로 배포된 SKILL.md 를 명시
-// 로드한다. (TurnExtensions.skills 배열은 가시화 메타일 뿐.)
+// Skill 은 SDK 기본 settingSources(user/project/local) 경로에서 발견한다. Orca dist 의
+// .claude/skills 는 설치 스테이징 거울일 뿐 query 옵션에 로컬 plugin 을 주입하지 않는다.
+// TurnExtensions.skills 배열은 가시화 메타일 뿐이므로 여기서는 skills:'all' 필터만 유지한다.
 export function adaptSkills(): object {
-  return {
-    plugins: [{ type: 'local' as const, path: distPluginDir('claude-code') }],
-    skills: 'all' as const
-  }
+  return { skills: 'all' as const }
 }
 
-// provider settings 격리 주입 (handoff 0014/0015). 해석 완료 blob 의 settings 를 flag settings
-// 레이어(options.settings — CLI --settings 동등, 사용자 제어 설정 중 최우선)로 넘기고,
-// settingSources:[] 로 사용자 ~/.claude·프로젝트 .claude 를 차단한다(SDK isolation mode).
+// provider settings flag 주입 (handoff 0023/0024). 해석 완료 blob 의 settings 를 flag settings
+// 레이어(options.settings — CLI --settings 동등, 사용자 제어 설정 중 최우선)로 넘긴다.
+// settingSources 옵션은 생략해 SDK 기본 user/project/local 소스를 상속한다.
 //
 // **settings 는 인라인 JSON 문자열로 직렬화한다** (handoff 0015 결함 수정): SDK 의
 // Options.settings 는 d.ts 상 `string | Settings` 지만 런타임 transport 는 값을 직렬화 없이
@@ -72,24 +67,17 @@ export function adaptSkills(): object {
 // 경로 또는 인라인 JSON 문자열" 을 받으므로(cli-reference.md) JSON.stringify 로 넘긴다.
 // blob 의 env 는 여기 싣지 않는다 — argv 평문 비밀 노출 방지(adaptEnv 가 subprocess env 로).
 //
-// settings 부재(미등록 어댑터 폴백 등)여도 격리모드는 유지 — Orca 세션의 설정 원천은 항상
-// dist/<engine>/<provider>/ 단일 출처다. (CLAUDE.md 는 'project' 소스 없이도 Orca 가
-// systemPromptAppend 로 지침을 주입하므로 영향 없음.)
-//
 // **타입 격상(handoff 0018)**: 인자는 `ArgvSafeSettings`(env 가 제거·브랜딩된 설정)만 받는다.
 // env 머금은 임의 객체는 브랜드 미보유로 컴파일 에러 — "비밀(env)↛argv" 불변식이 타입으로 강제된다.
 export function adaptSettings(settings?: ArgvSafeSettings): object {
-  return {
-    settingSources: [],
-    ...(settings && Object.keys(settings).length > 0 ? { settings: JSON.stringify(settings) } : {})
-  }
+  return settings && Object.keys(settings).length > 0 ? { settings: JSON.stringify(settings) } : {}
 }
 
 // subprocess env 주입 (handoff 0015). 턴 env(uv 런타임 + orca.json 앱 env) 베이스 위에 provider
 // settings 의 env(${VAR} 확장·secret 주입 완료)를 오버레이한다 — provider env 가 턴 env 를
-// 이긴다(구 claude-env 의 agent-overlay 정책 계승). 격리모드(settingSources:[])라 settings.env
-// 와 subprocess env 의 우선순위 충돌이 없어 둘은 등가다. 병합 결과가 없으면 옵션 자체를 생략해
-// SDK 기본 env(process.env 상속) 동작을 유지한다. 인자는 `SubprocessEnv`(브랜딩된 env)만 받는다(0018).
+// 이긴다(구 claude-env 의 agent-overlay 정책 계승). provider settings env 는 settings flag 에서
+// 분리되어 subprocess env 로만 흐른다. 병합 결과가 없으면 옵션 자체를 생략해 SDK 기본
+// env(process.env 상속) 동작을 유지한다. 인자는 `SubprocessEnv`(브랜딩된 env)만 받는다(0018).
 export function adaptEnv(base: Record<string, string> | undefined, env?: SubprocessEnv): object {
   const merged = mergeEnvLayers(base, env ?? {})
   return merged ? { env: merged } : {}
