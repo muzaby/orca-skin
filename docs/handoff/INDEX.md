@@ -45,4 +45,6 @@
 
 | `0019-test-abi-green` | plan | READY | Claude | — | 1 | 0010~0018 구조 감사(plan-eng-review 2026-06-14) 후속 — 게이트 위생. `npm test`(vitest, Node ABI 137) ↔ `postinstall: install-app-deps`(Electron ABI 140) 단일 `.node` 충돌로 `db/queries.test.ts` 상시 9-red(코드 무관, 9개 verify 가 "변경 무관"으로 누적 설명 = red-무시 훈련 안티패턴). 채택: dual-ABI 제거 불가 → **각 진입점 자기-ABI 보장**(`pretest`=Node·`predev`/`prebuild`=Electron, `ensure-sqlite-abi.mjs` 멱등, fetch-uv 패턴 동형). 검증됨: `npm rebuild better-sqlite3` 후 377/377 green. 비기능=Claude 직접 구현. |
 
+| `0022-tool-approval-overlay` | plan | READY | Codex | — | 1 | 도구 승인(tool_approval) 렌더를 입력 *대체* → 입력 패널 **바로 위 별도 카드 스택**(`AskUserQuestionCard` 패턴 — `app-frame-composer` 엔 공유 border 없고 각 카드가 자기 `border+shadow`)으로 전환 + 입력 비활성(`HighlightedTextarea` `disabled`)·취소(중단) 버튼 활성(`inflight \|\| pendingToolApproval`). `Composer.tsx:336-338` ternary 에서 tool 분리(ask 라인 미러), `ToolApprovalBody` export(스타일 그대로). **plan_review 는 현행 입력 대체 유지**(사용자 결정 — 수정 입력으로 이어짐). IPC/reducer/store 무변경·신규 의존성 0·UI 시각검증. 구현=Codex. |
+
 > 새 작업: 마지막 일련번호 +1 로 행을 추가하고 `<NNNN-slug>/plan.md` 를 생성한다.
