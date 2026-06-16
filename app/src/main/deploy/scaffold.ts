@@ -21,7 +21,7 @@ const SETTINGS_TEMPLATE = { env: {} }
 // settings/provider-settings.ts 의 OrcaModelSchema (구 orca.json agents[].models 와 동일).
 const META_TEMPLATE = { [DEFAULT_PROVIDER]: { label: 'Anthropic', models: [] } }
 
-function writeJsonAtomic(path: string, value: unknown): void {
+export function writeJsonAtomic(path: string, value: unknown): void {
   const tmp = `${path}.tmp`
   writeFileSync(tmp, JSON.stringify(value, null, 2) + '\n', 'utf8')
   renameSync(tmp, path)

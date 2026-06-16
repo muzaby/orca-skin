@@ -26,6 +26,7 @@ import type { RouterContext } from './context'
 import { registerSessionHandlers } from './handlers/session'
 import { registerProjectHandlers } from './handlers/project'
 import { registerMcpHandlers } from './handlers/mcp'
+import { registerEngineHandlers } from './handlers/engine'
 import { registerMiscHandlers } from './handlers/misc'
 import { registerChatHandlers } from './chat/send'
 import { TurnRegistry } from './chat/turn-registry'
@@ -129,6 +130,7 @@ export class IpcRouter {
     registerSessionHandlers(ctx)
     registerProjectHandlers(ctx)
     registerMcpHandlers(ctx)
+    registerEngineHandlers(ctx)
     registerMiscHandlers(ctx)
 
     // 런타임 초기화 진행/에러는 dev 터미널 로깅으로 관찰한다 — 구 runtime IPC 3채널

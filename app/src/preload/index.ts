@@ -24,7 +24,11 @@ import {
   type SkillInfo,
   type UpdateMcpServerRequest,
   type UpdateProjectRequest,
-  type DebugMockState
+  type DebugMockState,
+  type CreateEngineRequest,
+  type UpdateEngineRequest,
+  type EngineReadResult,
+  type EngineWriteResult
 } from '../shared/ipc'
 
 // Phase 2 노출 표면 — renderer 가 실제 사용하는 6개 채널만.
@@ -45,6 +49,15 @@ const orca = {
   },
   agent: {
     list: (): Promise<AgentEnvironment[]> => ipcRenderer.invoke(CHANNELS.agentList)
+  },
+  engine: {
+    add: (req: CreateEngineRequest): Promise<EngineWriteResult> =>
+      ipcRenderer.invoke(CHANNELS.engineAdd, req),
+    update: (req: UpdateEngineRequest): Promise<EngineWriteResult> =>
+      ipcRenderer.invoke(CHANNELS.engineUpdate, req),
+    delete: (key: string): Promise<void> => ipcRenderer.invoke(CHANNELS.engineDelete, { key }),
+    read: (key: string): Promise<EngineReadResult> =>
+      ipcRenderer.invoke(CHANNELS.engineRead, { key })
   },
   install: {
     start: (backend: Backend): Promise<void> =>
