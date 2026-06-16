@@ -3,10 +3,11 @@ import { Button } from '../../../shared/ui/Button'
 import { YellowDot } from './transcript/YellowDot'
 import { chatActions, useChatSession } from '../store/chatStore'
 
-// ApprovalCard — Composer 의 입력 패널을 *대체*하는 승인 게이트(rendering.md §7.6 일반화).
+// ApprovalCard — Composer 의 입력 패널을 *대체*하는 계획 승인 게이트(rendering.md §7.6).
 // permission.requested 의 action.kind 별로 분기한다:
 //   - plan_review   : ExitPlanMode 계획 승인(거부/수정…/수락). PlanApprovalBody.
-//   - tool_approval : 위험 도구(Bash/Write/Edit 등) 실행 승인(거부/세션허용/허용). ToolApprovalBody.
+//   - tool_approval : 위험 도구(Bash/Write/Edit 등) 실행 승인은 입력 위 additive 카드
+//                     패턴이라 Composer 가 ToolApprovalBody 를 직접 배치한다.
 //   - ask_question  : 질문 카드는 입력 *위*에 additive 로 뜨는 별도 패턴(AskUserQuestionCard)이라
 //                     입력-대체형인 본 컴포넌트가 아니라 Composer 가 직접 배치한다.
 //
@@ -35,7 +36,17 @@ function summarizeToolInput(input: unknown): string {
   }
 }
 
-function ToolApprovalBody(): React.JSX.Element | null {
+// 도구 input 의 부가 설명(있으면). Bash 등은 `description` 으로 의도를 전달한다 —
+// 본문에 요약(summarizeToolInput) 위 보조 줄로 노출. 비문자열/공백은 무시.
+function toolDescription(input: unknown): string | null {
+  if (input && typeof input === 'object') {
+    const d = (input as Record<string, unknown>).description
+    if (typeof d === 'string' && d.trim() !== '') return d.trim()
+  }
+  return null
+}
+
+export function ToolApprovalBody(): React.JSX.Element | null {
   const { approveTool, approveToolForSession, denyTool } = chatActions
   const pending = useChatSession((s) => s.pendingToolApproval)
   if (!pending) return null
@@ -49,6 +60,7 @@ function ToolApprovalBody(): React.JSX.Element | null {
   }
 
   const summary = summarizeToolInput(pending.input)
+  const description = toolDescription(pending.input)
 
   return (
     <div
@@ -66,19 +78,21 @@ function ToolApprovalBody(): React.JSX.Element | null {
         </span>
       </div>
 
-      <div className="mt-1.5 line-clamp-2 break-all rounded-r5 bg-bg px-3 py-1.5 font-mono text-caption text-t7">
+      {description && <p className="mt-1 text-caption text-t6">{description}</p>}
+
+      <div className="mt-2 line-clamp-2 break-all rounded-r5 bg-bg px-3 py-1.5 font-mono text-caption text-t7">
         {summary}
       </div>
 
-      <div className="mt-2.5 flex items-center justify-between gap-g3">
+      <div className="mt-3 flex items-center justify-between gap-g3">
+        <Button
+          variant="contained"
+          onClick={() => denyTool(approvalId)}
+          data-behavior="dismissible"
+        >
+          거부
+        </Button>
         <div className="flex items-center gap-g3">
-          <Button
-            variant="contained"
-            onClick={() => denyTool(approvalId)}
-            data-behavior="dismissible"
-          >
-            거부
-          </Button>
           <Button
             variant="uncontained"
             onClick={() => approveToolForSession(approvalId, toolName)}
@@ -86,15 +100,14 @@ function ToolApprovalBody(): React.JSX.Element | null {
           >
             세션 동안 허용
           </Button>
+          <Button
+            variant="primary"
+            onClick={() => approveTool(approvalId)}
+            data-behavior="action:send"
+          >
+            허용
+          </Button>
         </div>
-        <Button
-          variant="primary"
-          onClick={() => approveTool(approvalId)}
-          data-behavior="action:send"
-          kbd="Ctrl+Enter"
-        >
-          허용
-        </Button>
       </div>
     </div>
   )

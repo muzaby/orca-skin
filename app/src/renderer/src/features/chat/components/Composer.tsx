@@ -21,7 +21,7 @@ import { conversationStatusModel as conversationStatusModelFactory } from './com
 import { MODE_LABELS } from './composer/modes'
 import type { ConversationStatus } from './composer/statusCopy'
 import { AskUserQuestionCard } from './AskUserQuestionCard'
-import { ApprovalCard } from './ApprovalCard'
+import { ApprovalCard, ToolApprovalBody } from './ApprovalCard'
 import { TelemetryPanel } from './TelemetryPanel'
 import { chatActions, useChatSession } from '../store/chatStore'
 import { contextTokens } from '../lib/telemetry'
@@ -222,6 +222,9 @@ export function Composer({
     setCaret(0)
   }
 
+  const toolApprovalPending = pendingToolApproval != null
+  const showCancelButton = inflight || toolApprovalPending
+
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>): void => {
     // 자동완성 open 시 키 우선 처리 — Enter/Tab/Arrow/Escape 는 picker 가 소비.
     // 스킬과 파일은 trigger 가 배타적이라 동시에 open 될 수 없다.
@@ -325,67 +328,74 @@ export function Composer({
             />
           </Popover>
         )}
-        {activeAsk && (
-          <AskUserQuestionCard
-            key={activeAsk.requestId}
-            ask={activeAsk}
-            onSubmit={(answers, response) => answerAsk(activeAsk.requestId, answers, response)}
-            onSkip={() => skipAsk(activeAsk.requestId)}
-          />
-        )}
-        {pendingPlanReview || pendingToolApproval ? (
-          <ApprovalCard key={pendingPlanReview?.requestId ?? pendingToolApproval?.approvalId} />
-        ) : (
-          <div
-            className="epitaxy-prompt rounded-r7 border border-border bg-panel px-3 py-2.5 shadow-[0_2px_12px_rgba(0,0,0,0.04)]"
-            data-surface="prompt"
-            title={`백엔드: ${backendLabel}`}
-          >
-            <div className="flex items-end gap-2">
-              <div
-                ref={textareaWrapRef}
-                className="app-frame-composer-input min-w-0 flex-1"
-                data-behavior="interactive"
-              >
-                <HighlightedTextarea
-                  ref={textareaRef}
-                  value={draft}
-                  onChange={setDraft}
-                  onCaretChange={setCaret}
-                  onKeyDown={onKeyDown}
-                  knownSkillNames={knownSkillNames}
-                  validFilePaths={fileAutocomplete.validPaths}
-                  placeholder="Orca에게 메시지 보내기… (Enter 전송 / Shift+Enter 줄바꿈)"
-                  ariaLabel="메시지 입력"
-                />
+        {/* 패널 스택 — ask / 도구 승인 / 입력 패널 / 컨트롤 패널을 일정 간격으로 쌓는다(스크린샷 기준). */}
+        <div className="flex flex-col gap-2">
+          {activeAsk && (
+            <AskUserQuestionCard
+              key={activeAsk.requestId}
+              ask={activeAsk}
+              onSubmit={(answers, response) => answerAsk(activeAsk.requestId, answers, response)}
+              onSkip={() => skipAsk(activeAsk.requestId)}
+            />
+          )}
+          {pendingToolApproval && <ToolApprovalBody key={pendingToolApproval.approvalId} />}
+          {pendingPlanReview ? (
+            <ApprovalCard key={pendingPlanReview.requestId} />
+          ) : (
+            <div
+              className="epitaxy-prompt rounded-r7 border border-border bg-panel px-3 py-2.5 shadow-[0_2px_12px_rgba(0,0,0,0.04)]"
+              data-surface="prompt"
+              title={`백엔드: ${backendLabel}`}
+            >
+              <div className="flex items-end gap-2">
+                <div
+                  ref={textareaWrapRef}
+                  className="app-frame-composer-input min-w-0 flex-1"
+                  data-behavior="interactive"
+                >
+                  <HighlightedTextarea
+                    ref={textareaRef}
+                    value={draft}
+                    onChange={setDraft}
+                    onCaretChange={setCaret}
+                    onKeyDown={onKeyDown}
+                    knownSkillNames={knownSkillNames}
+                    validFilePaths={fileAutocomplete.validPaths}
+                    placeholder="Orca에게 메시지 보내기… (Enter 전송 / Shift+Enter 줄바꿈)"
+                    ariaLabel="메시지 입력"
+                  />
+                </div>
+                {showCancelButton ? (
+                  <Button
+                    iconOnly
+                    variant="uncontained"
+                    leadingIcon="pause"
+                    onClick={cancel}
+                    disabled={!canAbort}
+                    title={canAbort ? '중단' : '이 백엔드는 중단을 지원하지 않습니다'}
+                    aria-label="중단"
+                    data-behavior="action:cancel-turn"
+                    className="mb-1 shrink-0 rounded-full"
+                  />
+                ) : (
+                  <Button
+                    iconOnly
+                    variant="primary"
+                    leadingIcon="send"
+                    onClick={submit}
+                    disabled={draft.trim() === ''}
+                    title="전송 (Enter)"
+                    aria-label="전송"
+                    data-behavior="action:send"
+                    className="mb-1 shrink-0 rounded-full"
+                  />
+                )}
               </div>
-              {inflight ? (
-                <Button
-                  iconOnly
-                  variant="uncontained"
-                  leadingIcon="pause"
-                  onClick={cancel}
-                  disabled={!canAbort}
-                  title={canAbort ? '중단' : '이 백엔드는 중단을 지원하지 않습니다'}
-                  aria-label="중단"
-                  data-behavior="action:cancel-turn"
-                  className="mb-1 shrink-0 rounded-full"
-                />
-              ) : (
-                <Button
-                  iconOnly
-                  variant="primary"
-                  leadingIcon="send"
-                  onClick={submit}
-                  disabled={draft.trim() === ''}
-                  title="전송 (Enter)"
-                  aria-label="전송"
-                  data-behavior="action:send"
-                  className="mb-1 shrink-0 rounded-full"
-                />
-              )}
             </div>
-            <div className="app-frame-composer-controls flex items-center gap-1.5 pt-1.5">
+          )}
+          {/* 컨트롤 패널 — 입력 패널에서 분리한 칩 행. 이 패널만 bg 투명·borderless. */}
+          {!pendingPlanReview && (
+            <div className="app-frame-composer-controls flex items-center gap-1.5 px-1">
               {/* repo zone — 첨부 후보들 (파일/현재 프레임/Skill). 명세 §3.3.2 의
               app-frame-composer-repo 슬롯. data-behavior="dismissible" 은 향후 칩
               제거 UX 도입 시점에 각 칩 element 로 내려간다. */}
@@ -469,8 +479,8 @@ export function Composer({
                 )}
               </span>
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </ReadingColumn>
       <Popover open={modeMenuOpen} anchorRef={modeButtonRef} onClose={() => setModeMenuOpen(false)}>
         <ModeMenu
