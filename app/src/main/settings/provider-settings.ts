@@ -1,20 +1,19 @@
 // Provider settings 해석 서비스 (handoff 0014; 0017 D2 분해 후 = "해석 서비스 + 계약 타입").
-// sources/settings/<adapter>/ 트리(열거는 provider-registry.ts)에서 dist/<adapter>/<provider>/ 에
-// 배포된 어댑터-네이티브 settings 를 로더로 해석해 캐시한다.
+// sources/settings/<adapter>/ 트리(열거는 provider-registry.ts)의 어댑터-네이티브 settings 를 로더로 해석해 캐시한다.
 //
 // 어댑터 일반화 시점: 본 모듈은 어댑터-중립이다. 실제 settings 해석(SDK resolveSettings 등
 // 어댑터 종속 어휘)은 주입된 ProviderSettingsLoader 가 담당한다 — claude-code 로더는
 // adapters/claude-settings.ts, 미래 opencode 로더는 자기 포맷을 그대로 해석해 같은 blob 으로
 // 돌려주면 된다 (정규화 0 — settings 스키마는 어댑터-네이티브 그대로 흐른다).
 //
-// 캐시: providerKey → {settings, mtimeMs}. dist 파일 mtime 변화 시 재해석, deploy 후
+// 캐시: providerKey → {settings, mtimeMs}. sources 파일 mtime 변화 시 재해석, deploy 후
 // invalidateAll(). 비밀 확장은 로더 내부(해석 시점)에서만 — 디스크/캐시 외부로 평문이
 // 새지 않게 caller 는 blob 을 query 옵션 주입에만 쓴다.
 //
 // 0017 분해: 열거→provider-registry.ts · 모델 해석→model-resolve.ts · env 유틸→env-merge.ts.
 // 호출처 무회귀를 위해 본 모듈이 그 3개를 배럴 re-export 한다(기존 import 경로 보존).
 
-import { existsSync, statSync } from 'node:fs'
+import { statSync } from 'node:fs'
 import { join } from 'node:path'
 import { orcaConfigDir } from '../config/paths'
 import { type SecretReader } from '../config/provider-key'
@@ -80,9 +79,7 @@ export interface ResolvedProviderSettings {
 export type ProviderSettingsLoader = (args: {
   providerKey: string
   provider: string
-  // dist/<adapter>/<provider> (SDK resolveSettings 의 cwd)
-  distProviderDir: string
-  // sources/settings/<adapter>/<provider>/settings.json — dist 미배포 시 flat-read 폴백
+  // sources/settings/<adapter>/<provider>/settings.json
   sourcesSettingsFile: string
   resolve: Resolver
   secrets?: SecretReader
@@ -113,19 +110,17 @@ export class ProviderSettingsService {
     return listProviders(adapter, this.root)
   }
 
-  // deploy 직후 호출 — dist 재렌더로 캐시 전체 무효화.
+  // deploy 직후 호출 — sources/dist 정렬 작업 이후 캐시 전체 무효화.
   invalidateAll(): void {
     this.cache.clear()
   }
 
   // entry 의 settings 를 해석해 blob 으로 반환. 로더 미등록 어댑터(미래 opencode 전 단계)는
-  // undefined — caller 는 settings 없이 진행한다(격리모드 유지). 해석 실패도 동일(경고 후).
+  // undefined — caller 는 settings 없이 진행한다. 해석 실패도 동일(경고 후).
   async resolve(entry: ProviderEntry): Promise<ResolvedProviderSettings | undefined> {
     const loader = this.loaders[entry.adapter]
     if (!loader) return undefined
 
-    const distProviderDir = join(this.root, 'dist', entry.adapter, entry.provider)
-    const distFile = join(distProviderDir, '.claude', 'settings.json')
     const sourcesSettingsFile = join(
       this.root,
       'sources',
@@ -134,9 +129,9 @@ export class ProviderSettingsService {
       entry.provider,
       'settings.json'
     )
-    // mtime 스테일 체크 — dist 우선, 없으면 sources 폴백 경로 기준. 둘 다 없으면 mtime 0
+    // mtime 스테일 체크 — sources 파일 기준. 파일이 없으면 mtime 0
     // (빈 settings 캐시도 유효 — 파일 등장 시 mtime 변화로 재해석).
-    const srcPath = existsSync(distFile) ? distFile : sourcesSettingsFile
+    const srcPath = sourcesSettingsFile
     const mtimeMs = statMtime(srcPath)
     const hit = this.cache.get(entry.key)
     if (hit && hit.srcPath === srcPath && hit.mtimeMs === mtimeMs) {
@@ -152,7 +147,6 @@ export class ProviderSettingsService {
       const { settings, env } = await loader({
         providerKey: entry.key,
         provider: entry.provider,
-        distProviderDir,
         sourcesSettingsFile,
         resolve: this.makeResolver(),
         secrets: this.secrets

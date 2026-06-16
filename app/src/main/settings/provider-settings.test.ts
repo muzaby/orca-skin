@@ -143,8 +143,8 @@ describe('env 유틸', () => {
 })
 
 describe('ProviderSettingsService', () => {
-  function seedDist(provider: string, settings: string): string {
-    const file = join(root, 'dist', 'claude-code', provider, '.claude', 'settings.json')
+  function seedSource(provider: string, settings: string): string {
+    const file = join(root, 'sources', 'settings', 'claude-code', provider, 'settings.json')
     writeFile(file, settings)
     return file
   }
@@ -158,8 +158,8 @@ describe('ProviderSettingsService', () => {
     }
   }
 
-  it('로더에 dist/sources 경로와 resolver 를 위임하고 결과를 blob({settings, env})으로 돌려준다', async () => {
-    seedDist('anthropic', '{"env":{"A":"1"}}')
+  it('로더에 sources 경로와 resolver 를 위임하고 결과를 blob({settings, env})으로 돌려준다', async () => {
+    seedSource('anthropic', '{"env":{"A":"1"}}')
     const loader = vi.fn(async (args) =>
       splitProviderSettings({ marker: args.providerKey }, { A: 'expanded' })
     )
@@ -176,16 +176,13 @@ describe('ProviderSettingsService', () => {
       settings: { marker: 'claude-code-anthropic' },
       env: { A: 'expanded' }
     })
-    expect(loader.mock.calls[0][0].distProviderDir).toBe(
-      join(root, 'dist', 'claude-code', 'anthropic')
-    )
     expect(loader.mock.calls[0][0].sourcesSettingsFile).toBe(
       join(root, 'sources', 'settings', 'claude-code', 'anthropic', 'settings.json')
     )
   })
 
   it('mtime 캐시 — 동일 mtime 재호출은 로더를 다시 부르지 않고 invalidateAll 후 재해석한다', async () => {
-    const file = seedDist('anthropic', '{}')
+    const file = seedSource('anthropic', '{}')
     utimesSync(file, new Date(1000), new Date(1000))
     const loader = vi.fn(async () => splitProviderSettings({}, {}))
     const svc = new ProviderSettingsService(

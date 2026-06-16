@@ -9,12 +9,11 @@
 //   │   ├── mcp/mcp.json                #   agents · commands · mcp/mcp.json · hooks/<engine> ·
 //   │   └── settings/<adapter>/         #   settings/<adapter>/<provider>/settings.json + meta.json)
 //   └── dist/<engine>/                  # deployer 산출 (읽기 전용)
-//       ├── plugin/                     #   공유 로컬 플러그인 루트 (.claude-plugin + skills/…)
-//       └── <provider>/.claude/settings.json  # SDK resolveSettings({cwd:<provider dir>}) 가 읽는 위치
+//       ├── .claude/skills/             #   SDK 표준 경로 거울(설치 스테이징)
+//       └── .mcp.json                   #   ${VAR} placeholder 보존 MCP 거울
 //
-// 본 파일은 *다른 모듈이 실제로 참조하는* 경로만 노출한다(레이아웃 세부 구성은 deploy/deployer.ts 가
-// root 기준 join 으로 담당). 런타임에서 claude 어댑터가 로드하는 로컬 플러그인 루트는
-// dist/<engine>/plugin/ 이고, provider 별 settings 는 dist/<engine>/<provider>/ 다.
+// 본 파일은 *다른 모듈이 실제로 참조하는* 경로만 노출한다. 런타임 settings 는 dist 가 아니라
+// sources/settings/<adapter>/<provider>/settings.json 을 해석해 query flag 로 주입한다.
 
 import { homedir } from 'node:os'
 import { join } from 'node:path'
@@ -58,15 +57,14 @@ export function distDir(engine: Backend): string {
   return join(orcaConfigDir(), 'dist', engine)
 }
 
-// claude 로컬 플러그인 루트 = dist/<engine>/plugin/ (handoff 0014 — provider 디렉토리와 분리).
-export function distPluginDir(engine: Backend): string {
-  return join(distDir(engine), 'plugin')
+// SDK 표준 skill 경로 거울(설치 스테이징).
+export function distSkillsDir(engine: Backend): string {
+  return join(distDir(engine), '.claude', 'skills')
 }
 
-// provider 별 settings 배포 위치. SDK resolveSettings 의 project 소스가 <cwd>/.claude/settings.json
-// 고정 경로라 이 디렉토리를 cwd 로 넘긴다 (adapters/claude-settings.ts).
-export function distProviderDir(engine: Backend, provider: string): string {
-  return join(distDir(engine), provider)
+// MCP 정규 소스의 dist 거울. ${VAR} placeholder 를 보존한다.
+export function distMcpJsonPath(engine: Backend): string {
+  return join(distDir(engine), '.mcp.json')
 }
 
 // 부팅 시 1회. mkdir -p 의미 (recursive). 이미 있으면 무시.

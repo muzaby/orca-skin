@@ -75,22 +75,22 @@
 
 ## [구현 기입] 구현 체크리스트
 
-- [ ] #1 deployer 레이아웃(skill→`.claude/skills`·`.mcp.json` 배포·manifest/agents/commands/hooks/settings 복사 제거)
-- [ ] #2 paths 헬퍼 신 레이아웃
-- [ ] #3 adaptSkills plugins 제거
-- [ ] #4 adaptSettings settingSources 제거 + (D1 확정 후) disallowedTools
-- [ ] #5 settings 읽기 경로 sources 정합
-- [ ] #6 adaptMcp 정합(외부 MCP 머지 확인)
-- [ ] #7 conformance compatibilityPaths
-- [ ] #8 테스트(deployer/claude-adapt/conformance)
-- [ ] #10 0023 문서 "구현 대기" 마커 해소
+- [x] #1 deployer 레이아웃(skill→`.claude/skills`·`.mcp.json` 배포·manifest/agents/commands/hooks/settings 복사 제거)
+- [x] #2 paths 헬퍼 신 레이아웃
+- [x] #3 adaptSkills plugins 제거
+- [x] #4 adaptSettings settingSources 제거 / [ ] disallowedTools 는 D1 사용자 확정 전 보류
+- [x] #5 settings 읽기 경로 sources 정합
+- [x] #6 adaptMcp 정합(기존 mcpServers+allowedTools 순수 변환 유지; settingSources 생략으로 외부 MCP 상속 가능)
+- [x] #7 conformance compatibilityPaths
+- [x] #8 테스트(deployer/claude-adapt/conformance + settings 경로)
+- [x] #10 0023 문서 "구현 대기" 마커 해소(단 D1 disallowedTools 보류 표기)
 
 ## [구현 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` / `build` |
-| 게이트 결과 | lint … / typecheck … / test … / build … |
-| 블로커 / 역질문 | … (D1 확정 여부 포함) |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | `app/src/main/deploy/deployer.ts`, `app/src/main/config/paths.ts`, `app/src/main/adapters/claude-adapt.ts`, `app/src/main/adapters/claude-settings.ts`, `app/src/main/settings/provider-settings.ts`, `app/src/main/deploy/conformance.ts`, 관련 테스트, 문서 정합 마커 |
+| 실행 명령 | `cd app && npm run lint`; `cd app && npm run typecheck`; `cd app && npm test -- --run src/main/deploy/deployer.test.ts src/main/adapters/claude-adapt.test.ts src/main/adapters/claude-settings.test.ts src/main/settings/provider-settings.test.ts src/main/deploy/conformance.test.ts`; `cd app && npm test`; `cd app && npm rebuild better-sqlite3 && npm test`; `cd app && npm run build` |
+| 게이트 결과 | lint PASS / typecheck PASS / targeted test 50 PASS / first full test FAIL(9건 better-sqlite3 Node ABI mismatch) / `npm rebuild better-sqlite3` 후 full test PASS / 최종 full test 390 PASS / build PASS |
+| 블로커 / 역질문 | D1 미확정: `disallowedTools` 차단 목록과 사용자 allow 규칙 우회 대응 정책은 보류. 나머지 구조 변경은 구현 완료. |
+| 대상 커밋 | `2705a3b` |

@@ -4,15 +4,10 @@
 //
 // claude-code 축별 동작:
 //   instructions : AGENTS.md 는 런타임 systemPromptAppend 로 주입(ExtensionBuilder) → dist 파일 미생성(중립).
-//   skills/agents/commands : sources/ → dist/<engine>/plugin/ 으로 **복사**(심링크 아님 — 샌드박스 이슈 회피).
-//   mcp : claude 는 MCP 를 파일이 아니라 query() options 로 런타임 주입 → 여기선 **키 이름 검증만**.
-//   hooks : sources/hooks/<engine>/ → dist/<engine>/plugin/hooks 로 **변환 없이 복사만**(표준 부재 §2).
-//   manifest : dist/<engine>/plugin/.claude-plugin/plugin.json 작성(claude 로컬 플러그인 루트).
-//   settings : sources/settings/<engine>/<provider>/settings.json → dist/<engine>/<provider>/.claude/
-//              settings.json 으로 **복사**(handoff 0014). 플러그인 스펙엔 settings.json 이 없으므로
-//              플러그인 루트(plugin/) 밖 provider 디렉토리에 두고, 런타임은 SDK resolveSettings 의
-//              project 소스 고정 경로(<cwd>/.claude/settings.json)에 맞춰 cwd 로 이 디렉토리를 넘긴다.
-//              meta.json(어댑터당 1개, Orca 메타)은 dist 로 가지 않는다 — sources 에서 직접 읽는다.
+//   skills : sources/skills → dist/<engine>/.claude/skills/ 로 **복사**(SDK 표준 경로 거울).
+//   mcp : sources/mcp/mcp.json → dist/<engine>/.mcp.json 으로 **복사**(${VAR} placeholder 보존) + 키 검증.
+//   agents/commands/hooks/plugin/settings : engine-specific 또는 flag 주입 자산이므로 dist 로 배포하지 않는다.
+//              meta.json(어댑터당 1개, Orca 메타)은 sources 에서 직접 읽는다.
 //
 // dist/<engine> 는 편집 대상이 아니다. 무단 덮어쓰기를 막기 위해 기록 전 항상 백업한다(.bak 1개 롤링).
 // 레이아웃은 paths.ts 의 sources*/dist* 헬퍼와 일치해야 한다 — 본 함수는 테스트 용이성을 위해 root 를
@@ -22,6 +17,7 @@ import {
   existsSync,
   mkdirSync,
   writeFileSync,
+  copyFileSync,
   cpSync,
   rmSync,
   renameSync,
@@ -123,10 +119,12 @@ export function deploy(
   const dryRun = !!opts.dryRun
   const sources = join(root, 'sources')
   const dist = join(root, 'dist', engine)
-  const plugin = join(dist, 'plugin')
+  const skillsDest = join(dist, '.claude', 'skills')
+  const mcpSrc = join(sources, 'mcp', 'mcp.json')
+  const mcpDest = join(dist, '.mcp.json')
   const actions: string[] = []
 
-  const mcpValidation = validateMcp(join(sources, 'mcp', 'mcp.json'))
+  const mcpValidation = validateMcp(mcpSrc)
   const settingsScan = scanProviderSettings(join(sources, 'settings', engine))
   const validation = {
     ok: mcpValidation.ok && settingsScan.errors.length === 0,
@@ -138,8 +136,9 @@ export function deploy(
       `validate mcp keys (${validation.ok ? 'ok' : validation.errors.length + ' error(s)'})`
     )
     if (existsSync(dist)) actions.push(`backup ${dist} → ${dist}.bak`)
-    actions.push('render manifest + copy skills/agents/commands/hooks → dist/plugin')
-    actions.push(`copy settings (${settingsScan.providers.length} provider(s))`)
+    actions.push('copy skills → dist/.claude/skills')
+    actions.push(existsSync(mcpSrc) ? 'copy mcp → dist/.mcp.json' : 'skip mcp (missing source)')
+    actions.push('skip agents/commands/hooks/plugin/settings dist copy')
     return { engine, dryRun, actions, backedUp: false, validation }
   }
 
@@ -158,39 +157,18 @@ export function deploy(
     }
   }
 
-  // manifest (claude 로컬 플러그인 루트 = dist/<engine>/plugin/).
-  mkdirSync(join(plugin, '.claude-plugin'), { recursive: true })
-  writeFileSync(
-    join(plugin, '.claude-plugin', 'plugin.json'),
-    JSON.stringify(
-      {
-        name: 'orca',
-        description: 'Orca 정규 확장(skills/agents/commands) — Orca 가 관리',
-        version: '1.0.0'
-      },
-      null,
-      2
-    ),
-    'utf8'
-  )
-  actions.push('write manifest')
+  copyDir(join(sources, 'skills'), skillsDest)
+  actions.push('copy skills → dist/.claude/skills')
 
-  copyDir(join(sources, 'skills'), join(plugin, 'skills'))
-  copyDir(join(sources, 'agents'), join(plugin, 'agents'))
-  copyDir(join(sources, 'commands'), join(plugin, 'commands'))
-  copyDir(join(sources, 'hooks', engine), join(plugin, 'hooks'))
-  actions.push('copy skills/agents/commands/hooks')
-
-  // provider settings — 검증 통과한 provider 만. settings.json 부재 디렉토리도 provider 로
-  // 인정하되 dist 파일은 만들지 않는다(런타임 격리모드에서 settings 없이 동작).
-  for (const provider of settingsScan.providers) {
-    const src = join(sources, 'settings', engine, provider, 'settings.json')
-    if (!existsSync(src)) continue
-    const destDir = join(dist, provider, '.claude')
-    mkdirSync(destDir, { recursive: true })
-    cpSync(src, join(destDir, 'settings.json'), { force: true })
+  if (existsSync(mcpSrc)) {
+    mkdirSync(dist, { recursive: true })
+    copyFileSync(mcpSrc, mcpDest)
+    actions.push('copy mcp → dist/.mcp.json')
+  } else {
+    actions.push('skip mcp (missing source)')
   }
-  actions.push(`copy settings (${settingsScan.providers.length} provider(s))`)
+
+  actions.push('skip agents/commands/hooks/plugin/settings dist copy')
 
   // 배포 마커(드리프트 식별·디버깅용).
   writeFileSync(
