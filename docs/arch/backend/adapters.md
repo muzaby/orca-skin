@@ -52,8 +52,8 @@ async function* sendMessage(sessionId, text, cwd, caps, resolvedMcp, signal) {
       cwd,
       ...adaptMcp(resolvedMcp),            // mcpServers + allowedTools (빈 config면 생략)
       ...adaptSystemPrompt(caps.systemPromptAppend), // systemPrompt preset:claude_code + append
-      ...adaptSkills(),                    // plugins:[{type:'local', path:dist/claude-code/plugin}] + skills:'all'
-      ...adaptSettings(req.providerSettings), // settings(flag 레이어) + settingSources:[] 격리 (0014, TRD §6.8)
+      ...adaptSkills(),                    // skills:'all' — settingSources 경로(SDK 기본 user/project/local)로 발견 (구현 대기: plugins 제거)
+      ...adaptSettings(req.providerSettings), // settings(flag 레이어) + disallowedTools 게이팅, settingSources 옵션 생략 (TRD §6.8)
       ...adaptHooks(caps.hooks),           // PreToolUse / PostToolUse / UserPromptSubmit hook 콜백
     }
     for await (const msg of query({ prompt: text, options: opts })) {
@@ -65,7 +65,7 @@ async function* sendMessage(sessionId, text, cwd, caps, resolvedMcp, signal) {
 }
 ```
 
-`adaptMcp` 는 활성 서버가 없으면 옵션 자체를 빈 객체로 반환(생략). `allowedTools` 는 `mcp__<name>__*` 와일드카드로 서버 전체 도구 자동 허용 — `canUseTool` 미도입(Phase 4 anchor) 환경에서 도구 호출 차단 방지. `adaptSettings` 는 blob 부재여도 `settingSources: []`(SDK isolation mode)를 항상 반환한다 — Orca 세션의 설정 원천은 `dist/<engine>/<provider>/` 단일 출처(해석은 `adapters/claude-settings.ts` 의 `loadClaudeProviderSettings` — SDK `resolveSettings` + `filterEscalatingDefaultMode` + env `${VAR}` 확장·secret 주입, 캐시는 `settings/provider-settings.ts`).
+`adaptMcp` 는 활성 서버가 없으면 옵션 자체를 빈 객체로 반환(생략). `allowedTools` 는 `mcp__<name>__*` 와일드카드로 서버 전체 도구 자동 허용 — `canUseTool` 미도입(Phase 4 anchor) 환경에서 도구 호출 차단 방지. **신 설계(구현 대기)**: `adaptSettings` 는 `settingSources` 옵션을 주입하지 않아 SDK 기본 소스(user/project/local)가 활성화되며(격리 해제 — handoff 0014/0015 폐기), Orca 가 막아야 할 도구는 `disallowedTools` 로 차단한다(해석은 `adapters/claude-settings.ts` 의 `loadClaudeProviderSettings` — SDK `resolveSettings` + `filterEscalatingDefaultMode` + env `${VAR}` 확장·secret 주입, 캐시는 `settings/provider-settings.ts`). 본 서술은 신 설계 정본이고 현행 `claude-adapt.ts` 는 `settingSources: []`·`plugins:[{local}]` 구 코드다(후속 코드 라운드 정렬).
 
 ### 1.4 CapabilityBuilder (백엔드 중립 보조기능 조립)
 
@@ -120,7 +120,9 @@ SDK 가 throw 하는 에러 메시지/코드에서 `401` / `OAuth` / `expired` �
 | `options.hooks` (PreToolUse / PostToolUse / Stop) | ⏳ | Phase 4 | 도구 호출 감사 |
 | `createSdkMcpServer` + `tool()` | ⏳ | Phase 4+ | in-process MCP 서버(별건) |
 | `options.mcpServers` | ✅ | MCP&Skill 통합 레이어 | 정규 소스(`mcp.json`) → `toClaudeConfig` → 활성 서버 주입. `allowedTools`=`mcp__<name>__*` |
-| `options.plugins` + `options.skills` | ✅ | MCP&Skill 통합 레이어 | `~/.config/orca` 디렉토리 *자체*를 로컬 플러그인으로 머티리얼라이즈(`.claude-plugin/plugin.json` + `skills/`·`agents/`·`commands/`) → `plugins:[{local, path: ~/.config/orca}]` + `skills:'all'` |
+| `options.skills: 'all'` (+ `settingSources` 생략) | ✅ | 표준 정렬 | skill 은 SDK 기본 `settingSources` 경로(user/project/local)로 발견. dist 는 `.claude/skills` 거울(추후 cwd 설치 복사). **구현 대기** — 현행은 `plugins:[{local}]` 구 코드 |
+| `options.disallowedTools` | ✅ | 표준 정렬 | 격리 해제로 끌려오는 사용자 allow 규칙을 확정 차단(deny/disallowed > allow > canUseTool). **구현 대기** |
+| `options.plugins` (로컬 플러그인) | ⏳ | claude plugin 지원(future) | agents·commands·full-plugin 등 engine-specific 자산 주입 채널. `~/.claude/plugins` 스캔 + query 주입(§3.1) |
 | `prompt: AsyncIterable<SDKUserMessage>` | ⏳ | Phase 4 | 다중 이미지 / 실시간 중단 |
 | `forkSession` / `listSessions` / `loadSession` | ⏳ | Phase 3+/4 | 과거 대화 / 멀티 세션 anchor (persistence.md 의 로컬 DB 가 진실의 기준이 되므로 SDK 메서드는 *동기화 소스* 로만) |
 
@@ -169,10 +171,11 @@ opencode 등 다중 어댑터 환경 대비:
 
 > **⚠️ 현재 경로는 claude-code 어댑터 전용** (`~/.claude/...` 은 Claude Code 의 표준 경로). 다른 어댑터 (opencode 등) 도 지원하면 스캔 경로 분리 필요 — 사용자 결정.
 
-**플러그인 마테리얼라이즈** (구 `skills/plugin-bundle.ts` 의 `ensureOrcaPlugin()` 은 ExtensionDeployer 로 흡수 — standardization.md §5.2):
-- ExtensionDeployer 가 `dist/claude-code/plugin/.claude-plugin/plugin.json` + skills/agents/commands/hooks 를 렌더해 그 디렉토리를 **Claude 로컬 플러그인**으로 마테리얼라이즈 (0014 — provider 디렉토리 `dist/claude-code/<provider>/` 와 분리).
-- `adaptSkills()` (§1.3) 이 `plugins:[{type:'local', path:dist/claude-code/plugin}]` + `skills:'all'` 로 로드하면 `skills/`, `agents/`, `commands/` 가 자동 로드됨.
-- MCP 는 `options.mcpServers` 로 별도 주입 (이중 주입 없음). settings.json 은 플러그인 스펙 밖이라 provider 디렉토리에서 `options.settings` 로 주입 (TRD §6.8).
+**Skill/MCP 머티리얼라이즈** (신 설계 — 구현 대기, standardization.md §5.1/§5.2):
+- ExtensionDeployer 가 호환 자산을 SDK 표준 경로 거울로 배포 = 설치 스테이징: skill → `dist/<engine>/.claude/skills/`, mcp → `dist/<engine>/.mcp.json`(${VAR} 보존). 추후 "cwd 설치(복사)" 기능이 설치 대상으로 복사한다.
+- `adaptSkills()` (§1.3) 은 `skills:'all'` 만 두고 skill 은 `settingSources` 경로(SDK 기본 user/project/local — 옵션 생략)로 발견한다(`plugins` 주입 제거).
+- MCP 는 `options.mcpServers` 로 주입 (런타임 ${VAR} 확장). settings.json 은 query flag(`options.settings`)로 주입 (거울 예외, TRD §6.8).
+- agents·commands·hooks·plugin 은 engine-specific 이라 배포하지 않는다 — 추후 claude plugin 지원으로 연기(§3.1). (현행 코드는 구 `plugin/` 컨테이너 + manifest + `plugins:[{local}]` — 후속 코드 라운드 정렬.)
 
 ### 2.2 어댑터별 Skills 경로 분리 (Future 채택 결정)
 
@@ -211,20 +214,20 @@ opencode 등 다중 어댑터 환경 대비:
 
 | 자산 | 정규 소스 (Tier A, 중립) | claude 어댑트 | opencode 어댑트 | 정규화도 |
 |---|---|---|---|---|
-| **MCP** | `mcp.json` (`OrcaMcpConfig`) | `toClaudeConfig` → `options.mcpServers` + `allowedTools` | `toOpencodeConfig` → `opencode.json` `mcp` | ✅ 구현됨 |
-| **Skill** | `skills/<n>/SKILL.md` | `plugins:[{local}]` + `skills:'all'` | 네이티브 글로빙 경로로 심링크/복사 | ✅ 변환 불필요(양 백엔드 공통) |
-| **Agent** | `agents/<n>.md` | 같은 로컬 플러그인에 포함(자동 로드) | `~/.config/opencode/agent/` 로 셰이핑 | ⏳ 변환기 anchor |
-| **Command** | `commands/<n>.md` | 같은 로컬 플러그인에 포함 | `~/.config/opencode/command/` 로 셰이핑 | ⏳ 변환기 anchor |
+| **MCP** | `mcp.json` (`OrcaMcpConfig`) | `toClaudeConfig` → `options.mcpServers` + `allowedTools`; 디스크 거울 `dist/<engine>/.mcp.json`(${VAR} 보존) | `toOpencodeConfig` → `opencode.json` `mcp` | ✅ 구현됨 |
+| **Skill** | `skills/<n>/SKILL.md` | `dist/<engine>/.claude/skills/` 배포 → `settingSources` 경로로 발견(`skills:'all'`) | 네이티브 글로빙 경로로 심링크/복사 | ✅ 변환 불필요(양 백엔드 공통) |
 | **systemPrompt** | 중립 문자열(프로젝트 지침) | `preset:'claude_code' + append` | opencode system prompt 옵션 | ⏳ |
-| **Hook** | **엔진별 분리** `sources/hooks/<engine>/` (표준 부재) | `options.hooks` in-process 콜백(claude-side `OrcaHookSet`, §3.2.5) | 네이티브 플러그인 모듈(분리 복사) | ❌ 정규화 안 함(§3.2 정정) |
+| **Hook(런타임)** | **런타임 전용** — 배포 자산 아님 | `options.hooks` in-process 콜백(claude-side `OrcaHookSet`, §3.2.5) | 네이티브 플러그인 모듈 | ❌ 정규화 안 함(§3.2) |
 
 → "어댑터를 Orca 범용 데이터 계층으로"라는 질문의 답은 이 표다: **어댑터는 표의 *세로 한 칸*(자기 백엔드 열)만 안다. 가로(자산 종류)와 정규 소스(Tier A)는 어댑터 밖이 소유한다.**
+
+> **engine-specific 자산 연기 (agents·commands·plugin·hooks 배포)**: **agents·commands·full-plugin 번들**은 cross-engine 표준이 아니라 **엔진 고유**다 — Orca SSOT 에서 제외하고 배포하지 않는다(standardization.md §2). 이들과 **hooks 의 파일 배포**(구 `sources/hooks/<engine>` → `dist/<engine>/plugin/hooks` 복사)는 추후 **claude plugin 지원**(가까운 미래: `~/.claude/plugins` 스캔 + query 호출 시 사용자 설정에 따라 주입 여부 결정 — `options.plugins` 채널 재사용)으로 도입한다. 단 **런타임 hook 기능**(`options.hooks` in-process, §3.2.5)은 위 표대로 별개 유지된다. (구 Agent/Command "로컬 플러그인 자동 로드" 행은 plugin 컨테이너 폐기로 제거.)
 
 ---
 
 ### 3.2 Hook 정규화 모델
 
-> **결론 (2026-06-05 정정 — [standardization.md §2](./standardization.md) 채택)**: Hook 은 **cross-tool 표준이 부재**하고 엔진별 실행 모델이 근본적으로 다르므로(shell exit code / in-process throw / config matcher) **정규화하지 않고 엔진별로 분리**한다. 배포 계층에서 사용자 작성 hook 은 `~/.config/orca/sources/hooks/<engine>/` 로 엔진별 분리해 변환 없이 복사한다(standardization.md §5).
+> **결론 (2026-06-05 정정 — [standardization.md §2](./standardization.md) 채택)**: Hook 은 **cross-tool 표준이 부재**하고 엔진별 실행 모델이 근본적으로 다르므로(shell exit code / in-process throw / config matcher) **정규화하지 않고 엔진별로 분리**한다. 배포 계층에서 사용자 작성 hook 의 **파일 배포는 추후 claude plugin 지원으로 연기**한다(engine-specific — §3.1, standardization.md §2). 런타임 hook(`options.hooks` in-process, §3.2.5)은 그와 별개로 어댑터 구현 디테일로 유지된다.
 >
 > 아래 §3.2.1~3.2.4 의 기술 분석은 **이 결론의 근거로 보존**한다 — 분석이 입증하는 것은 정확히 "교차-엔진 정규화는 out-of-process 브릿지 비용·표현력 손실·이벤트 택소노미 갭으로 손익이 맞지 않는다"는 점이다. (이전 라운드는 같은 분석에서 "정규화 가능 표면이 크다"는 *반대 결론*을 냈으나, 표준화 설계 채택으로 입장을 정정한다.) 단, **claude-side in-process `OrcaHookSet`** 은 교차-tool 표준이 아니라 *claude 어댑터 구현 디테일*로서 코드에 존재하며 유지된다(§3.2.5).
 

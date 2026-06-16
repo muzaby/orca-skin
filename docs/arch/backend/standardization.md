@@ -40,6 +40,8 @@ AGENTS.md 와 MCP 는 같은 재단(AAIF) 거버넌스로 수렴했으므로 공
 
 `commands` 는 독립 축이 아니다. Claude 가 custom commands 를 skills 로 병합했으므로, commands 는 skill 의 invocation surface 로 본다(adapters.md §3.1 Command 행).
 
+**호환성 기준 소유 모델**: 위 표의 처리는 "엔진 밖에서도 표준인가"(=cross-engine 호환)로 갈린다. Orca SSOT 가 관리·배포하는 **호환 자산은 AGENTS.md·MCP·SKILL.md** 셋이다. 반면 **agents·commands·hooks·full-plugin 번들**은 엔진 고유(엔진 *안에서만* 표준)라 **engine-specific 으로 분류**하고 Orca SSOT 에서 제외한다 — 각 엔진이 SSOT 이며 Orca 는 배포하지 않는다. 이들의 지원은 추후 **claude plugin 지원**(가까운 미래: `~/.claude/plugins` 스캔 + query 호출 시 사용자 설정에 따라 주입 여부 결정)으로 연기한다(adapters.md §3.1). 단 **런타임 hook**(`options.hooks` in-process 콜백)은 배포 자산이 아니라 어댑터 구현 디테일로 유지된다(adapters.md §3.2.5).
+
 ## 3. 시스템 구조
 
 ```text
@@ -89,24 +91,29 @@ class OpenCodeEngine {
 
 ```text
 ~/.config/orca/
-├── orca.json                # 앱 전역 env (부팅 1회 로드 — agents 필드는 0014 에서 제거, TRD §6.8)
-├── sources/                 # 사람이 편집하는 단일 원천 (SSOT)
-│   ├── instructions/        # AGENTS.md (SSOT)
-│   ├── skills/              # SKILL.md (폴더 규약)
-│   ├── mcp/                 # 벤더 중립 MCP 서버 정의
-│   ├── settings/            # provider 별 settings (0014 — 어댑터-네이티브 스키마, TRD §6.8)
-│   │   └── <adapter>/       #   meta.json (어댑터당 1개, Orca 메타 — dist 미배포)
-│   │       ├── meta.json    #   디렉토리 이름 = provider (열거 SSOT)
-│   │       └── <provider>/settings.json
-│   └── hooks/               # 표준 없음 → 엔진별 분리
-│       ├── claude/
-│       └── opencode/
-└── dist/<engine>/           # ExtensionDeployer 생성물 (편집 금지)
-    ├── plugin/              #   공유 로컬 플러그인 루트 (.claude-plugin/plugin.json + skills/…)
-    └── <provider>/.claude/settings.json  # SDK resolveSettings({cwd:<provider dir>}) 가 읽는 위치
+├── orca.json                # 앱 전역 env (부팅 1회 로드 — agents 필드 제거, TRD §6.8)
+├── sources/                 # 사람이 편집하는 단일 원천 (SSOT — 호환 자산만)
+│   ├── instructions/        # AGENTS.md (SSOT, cross-engine 표준)
+│   ├── skills/              # SKILL.md (폴더 규약, cross-engine 표준)
+│   ├── mcp/                 # 벤더 중립 MCP 서버 정의 (${VAR} placeholder)
+│   └── settings/            # provider 별 settings (어댑터-네이티브 스키마, TRD §6.8)
+│       └── <adapter>/       #   meta.json (어댑터당 1개, Orca 메타 — dist 미배포)
+│           ├── meta.json    #   디렉토리 이름 = provider (열거 SSOT)
+│           └── <provider>/settings.json
+└── dist/<engine>/           # ExtensionDeployer 산출 = 설치 스테이징 (편집 금지)
+    ├── .claude/skills/      #   → 설치 대상 <cwd>/.claude/skills/ 로 복사될 SDK 표준 거울
+    └── .mcp.json            #   → 설치 대상 <cwd>/.mcp.json (${VAR} placeholder 보존)
+    # settings.json 은 dist 에 두지 않음 — query flag(options.settings)로 주입(아래)
+    # agents·commands·hooks·plugin 은 engine-specific → 배포 안 함(§2, 추후 plugin 지원)
 ```
 
-> **구현됨 (스테이지 A → 0014 개정)**: sources/dist 분리가 코드에 반영됐다. 경로 헬퍼 [`config/paths.ts`](../../../app/src/main/config/paths.ts)는 *다른 모듈이 실제 참조하는* 경로만 export(`orcaConfigDir`/`orcaJsonPath`/`sourcesDir`/`sourcesMcpDir`/`mcpJsonPath`/`sourcesSettingsDir(adapter)`/`distDir(engine)`/`distPluginDir(engine)`/`distProviderDir(engine, provider)`/`ensureConfigDir`) — 그 하위 레이아웃 구성은 `deploy/deployer.ts` 가 root 기준 join 으로 담당. `mcp.json` 은 `sources/mcp/mcp.json` 으로, AGENTS.md 자리는 `sources/instructions/AGENTS.md`. 루트 `orca.json` 은 sources/dist 배포 리소스가 아니라 앱 전역 env 이며 부팅 시 1회 파싱·캐시된다. **플러그인 스펙엔 settings.json 이 들어갈 수 없으므로** provider settings 는 플러그인 루트(`plugin/`) 밖 `<provider>/` 디렉토리에 배포되고, 런타임은 격리모드(`settingSources:[]`) + flag settings(`options.settings`) 주입으로 소비한다(TRD §6.8). **flag settings 는 인라인 JSON 문자열로 주입하고 env 는 subprocess env 로 분리한다**(handoff 0015 — SDK transport 가 `options.settings` 를 직렬화 없이 argv push 하므로 객체 불가 + argv 평문 비밀 차단, security.md §1.4; **0018 에서 branded 타입 `ArgvSafeSettings`/`SubprocessEnv` + 단일 생성자 `splitProviderSettings` 로 이 분리를 컴파일타임 강제**). 부트 순서: `ensureConfigDir → loadOrcaConfig → scaffoldProviderSettings('claude-code') → deploy('claude-code') → providerSettings.invalidateAll() → scanSkills`.
+> **소유 모델 (자산 호환성 기준 SSOT 분리)**: 호환 자산(**skill·mcp·AGENTS.md** — 엔진 밖에서도 표준)은 **Orca 가 SSOT** 이고 각 엔진 dist 로 projection 한다. 비호환 자산(**agents·commands·hooks·plugin** — 엔진 고유)은 **각 엔진이 SSOT** 이며 Orca 는 관여하지 않는다(추후 claude plugin 지원으로 연기 — §2, adapters.md §3.1).
+>
+> **dist = 설치 스테이징**: `dist/<engine>/` 는 SDK 가 직접 읽는 곳이 아니라, 추후 구현될 "cwd 설치(복사)" 기능이 설치 대상으로 복사할 **SDK 표준 경로 거울**이다 — `skill → .claude/skills/`, `mcp → 루트 .mcp.json`(${VAR} placeholder 보존). 복사 후 SDK 기본 `project` 소스(`<cwd>/.claude`)가 이를 로드한다. **settings.json 은 거울의 예외** — 파일로 설치하지 않고 query flag(`options.settings` 인라인 JSON 문자열)로 주입한다(settingSources 와 직교·최우선 레이어, TRD §6.8). flag settings 와 env 분리(인라인 JSON 문자열 / subprocess env)는 handoff 0015·0018 의 branded 타입(`ArgvSafeSettings`/`SubprocessEnv`)으로 유지된다(security.md §1.4).
+>
+> **격리 해제**: `query()` 호출에서 `settingSources` 옵션을 **생략**해 SDK 기본값(user+project+local 전부)으로 사용자 전역 `~/.claude` skill·설정을 상속한다. 그로 끌려오는 사용자 allow 규칙은 `disallowedTools` 옵션으로 확정 차단한다(SDK 권한 평가: hooks→deny/disallowed→ask→allow→canUseTool — disallowed 가 allow·canUseTool 보다 상위). **이는 handoff 0014/0015 가 채택한 `settingSources: []` 격리모드 결정을 폐기(supersede)한다** — 0014/0015 문서는 historical 기록으로 보존하고 supersession 만 본 절·TRD §6.8·PHASES 에 기재.
+>
+> **구현 상태 (문서 선행 — 코드 다음 라운드)**: 본 절은 **신 설계의 정본**이다. 현행 코드(`deploy/deployer.ts` 의 `plugin/` 컨테이너 + manifest + agents/commands/hooks 복사, `claude-adapt.ts` 의 `plugins:[{local}]`·`settingSources:[]`)는 **구 레이아웃**이며, deployer/claude-adapt/paths(`distPluginDir` 등 헬퍼·부트 순서 포함) + `deployer.test`/`conformance` 정렬은 후속 코드 라운드(페어 PR)가 수행한다.
 
 ### 5.2 ExtensionDeployer
 
@@ -126,14 +133,14 @@ function deploy(engine: EngineId, opts: DeployOptions): DeployResult {
 | 축 | 렌더 동작 | 비고 |
 |---|---|---|
 | instructions | AGENTS.md 를 SSOT 로 두고 각 엔진 instruction 파일로 렌더 | 엔진이 AGENTS.md 를 직접 읽거나 `@import` 로 끌어쓰면 그대로 사용 |
-| skills | 규약 디렉터리에 **복사** 배치 | 심링크는 샌드박스 이슈를 피해 복사 우선 |
-| mcp | 벤더 중립 정의를 엔진별 config 로 렌더 + **키 이름 검증** | 잘못된 키는 조용히 무시될 수 있으므로 |
-| hooks | **변환 없이 엔진별로 복사만** | 표준 부재 (§2) |
-| settings | provider 별 settings.json 을 **복사** + **JSON 파싱·디렉토리 이름 검증** | 어댑터-네이티브 스키마 그대로(변환 0) — 0014, TRD §6.8 |
+| skills | `dist/<engine>/.claude/skills/` 로 **복사** (SDK 표준 경로 거울) | 심링크는 샌드박스 이슈를 피해 복사 우선. 추후 cwd 설치 복사 원본 |
+| mcp | `${VAR}` placeholder 보존한 채 `dist/<engine>/.mcp.json` 로 **배포** + **키 이름 검증** | 비밀 디스크 미잔류 — 런타임에 SDK 가 subprocess env 로 `${VAR}` 확장(security.md §1.4) |
+
+> **dist 에 두지 않는 것**: ① **settings.json** — provider settings 는 파일 설치가 아니라 query flag(`options.settings`)로 주입(거울 예외, TRD §6.8). ② **agents·commands·hooks·plugin + manifest** — engine-specific 자산이라 Orca 가 배포하지 않는다(구 `plugin/` 컨테이너·`.claude-plugin/plugin.json`·hooks 복사 제거). 추후 claude plugin 지원으로 연기(§2, adapters.md §3.1). 런타임 hook 기능은 `options.hooks` in-process 경로로 별도 유지(adapters.md §3.2.5).
 
 `dist/<engine>` 산출물은 편집 대상이 아니다. 기존 파일이 마지막 배포와 다르면(사용자가 손댄 경우) 무단 덮어쓰기를 막기 위해 **항상 백업 후 기록**한다.
 
-> **구현됨 (스테이지 A → 0014 개정)**: [`deploy/deployer.ts`](../../../app/src/main/deploy/deployer.ts) 의 `deploy(engine, {dryRun?})` 가 render→validate(MCP 키 이름 + settings JSON/provider 이름)→dryRun?plan:backup-then-write 를 수행한다. claude 축: skills/agents/commands/hooks 는 `dist/claude-code/plugin/` 으로 **복사**, manifest(`plugin/.claude-plugin/plugin.json`) 작성, mcp 는 런타임 query 주입이라 **검증만**, settings 는 `sources/settings/claude-code/<provider>/settings.json` → `dist/claude-code/<provider>/.claude/settings.json` **복사**(파싱 실패 provider 만 격리 드롭). backup 은 dist 루트 단위 `.bak` 1개 롤링(plugin/·provider 디렉토리 모두 커버). [`deploy/conformance.ts`](../../../app/src/main/deploy/conformance.ts) 가 `StandardConformance`(§5.3 — settings 축 `perProvider`/`mechanism` 추가) + claude 구체값. 최초 부팅 스캐폴드는 [`deploy/scaffold.ts`](../../../app/src/main/deploy/scaffold.ts). **claude-only — `engine` 파라미터·`sources/hooks/<engine>`·settings 로더 주입(`ProviderSettingsLoader`)이 OpenCode seam.** Vitest: `deployer.test.ts`·`conformance.test.ts`·`scaffold.test.ts`.
+> **구현 상태 (문서 선행 — 코드 다음 라운드)**: 위 축별 동작은 **신 설계의 정본**이다. 현행 [`deploy/deployer.ts`](../../../app/src/main/deploy/deployer.ts) 는 아직 구 레이아웃을 수행한다 — skills/agents/commands/hooks 를 `dist/<engine>/plugin/` 으로 복사 + manifest(`plugin/.claude-plugin/plugin.json`) 작성 + settings 를 `dist/<engine>/<provider>/.claude/settings.json` 으로 복사. 신 레이아웃(skill→`.claude/skills`, mcp→`.mcp.json` 배포; manifest·agents·commands·hooks·settings 복사 제거)으로의 정렬과 [`conformance.ts`](../../../app/src/main/deploy/conformance.ts)(§5.3, `compatibilityPaths` 등)·`deployer.test.ts` 갱신은 후속 코드 라운드(페어 PR)가 수행한다. 최초 부팅 스캐폴드 [`deploy/scaffold.ts`](../../../app/src/main/deploy/scaffold.ts) 는 provider settings 만 시드한다 — skill/agents/commands/hooks 의 번들 first-party 콘텐츠는 없다(전부 사용자 제공). **claude-only — `engine` 파라미터·settings 로더 주입(`ProviderSettingsLoader`)이 OpenCode seam.**
 
 > **현행 선례 재사용**: "render sources → engine config" 는 이미 MCP 축에서 구현돼 있다 — `mcp/convert.ts` 의 순수 함수 `toClaudeConfig`/`toOpencodeConfig`(동형 시그니처), `mcp/resolver.ts` 의 `${VAR}` resolver(safeStorage → process.env 2단계), `mcp/expand.ts` 의 `expandEnv`([security.md §1.4](./security.md), [adapters.md §3.1](./adapters.md)). ExtensionDeployer 의 mcp 축은 이 함수들을 *호출*하면 되고 새로 발명하지 않는다.
 
