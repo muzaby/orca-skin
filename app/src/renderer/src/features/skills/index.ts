@@ -1,1 +1,1 @@
-export { SkillsMcpView } from './components/SkillsMcpView'
+export { SkillsCustomizeView } from './components/customize/SkillsCustomizeView'

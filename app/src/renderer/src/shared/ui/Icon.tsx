@@ -41,6 +41,10 @@ export type IconName =
   | 'menu'
   | 'arrowL'
   | 'arrowR'
+  | 'briefcase'
+  | 'eye'
+  | 'code'
+  | 'upload'
 
 const ICONS: Record<IconName, string> = {
   chat: 'M3 4h10a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-3 2.5V12H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z',
@@ -85,7 +89,13 @@ const ICONS: Record<IconName, string> = {
   clock: 'M8 3a5 5 0 1 0 0 10A5 5 0 0 0 8 3zM8 5v3l2 1',
   menu: 'M3 4h10M3 8h10M3 12h10',
   arrowL: 'M10 3l-5 5 5 5M5 8h8',
-  arrowR: 'M6 3l5 5-5 5M3 8h8'
+  arrowR: 'M6 3l5 5-5 5M3 8h8',
+  // briefcase — 맞춤설정 랜딩 히어로
+  briefcase:
+    'M2 6a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6zM6 5V3.5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1V5M2 8.5h12',
+  eye: 'M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8zM8 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
+  code: 'M5.5 5L2.5 8l3 3M10.5 5l3 3-3 3M9 3.5l-2 9',
+  upload: 'M8 11V2M4 6l4-4 4 4M2 14h12'
 }
 
 export interface IconProps {
