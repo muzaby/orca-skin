@@ -42,7 +42,7 @@ export interface TurnRequest {
   env?: Record<string, string>
   // main(ProviderSettingsService)이 해석 완료한 provider settings blob (handoff 0014).
   // 어댑터-네이티브 스키마 그대로이며 어댑터는 자기 query 옵션에 꽂기만 한다
-  // (claude-code = options.settings + settingSources:[] 격리 — adaptSettings).
+  // (claude-code = options.settings flag + SDK 기본 settingSources 상속 — adaptSettings).
   providerSettings?: ResolvedProviderSettings
   // 해석 완료된 백엔드 모델 이름. family/provider key 어휘는 config 계층에서 소비한다.
   model?: string

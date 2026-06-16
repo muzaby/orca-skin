@@ -1,10 +1,9 @@
-// claude-code provider settings 로더 (handoff 0014) — dist/claude-code/<provider>/.claude/
-// settings.json 을 SDK resolveSettings(CLI 와 동일 머지 엔진)로 해석해 effective 객체를 만든다.
+// claude-code provider settings 로더 — sources/settings/claude-code/<provider>/settings.json 을
+// flat-read 한 뒤 escalating defaultMode 필터와 env 분리를 적용한다.
 // 어댑터 종속 어휘(SDK API · ANTHROPIC_API_KEY · escalating 모드)는 이 파일 안에만 둔다.
 //
-// resolveSettings/filterEscalatingDefaultMode 는 @alpha API 라 시그니처 변동 가능 — 함수 부재
-// 시 flat JSON.parse 폴백 1경로를 유지한다(패키지가 'latest' 지정). 폴백에서도 escalating
-// defaultMode 제거는 수동으로 동등 적용한다.
+// provider settings 는 dist/.claude 로 배포하지 않으므로 sources 파일을 직접 읽는다.
+// escalating defaultMode 제거는 SDK filterEscalatingDefaultMode 와 동등하게 수동 적용한다.
 //
 // env 후처리(해석 시점에만 — 디스크/캐시 외부 평문 0):
 //   1. settings.env 값의 ${VAR} 확장 (미해결 키는 드롭 + 경고 — claude-env.ts 의 구 정책 계승)
@@ -15,8 +14,6 @@
 // 레이어 인라인 JSON 으로 argv 노출 — 비밀 불가), env 는 subprocess env 로 따로 흐른다.
 
 import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
-import * as sdk from '@anthropic-ai/claude-agent-sdk'
 import type { ProviderSettingsLoader } from '../settings/provider-settings'
 import { expandEnvRecord, splitProviderSettings } from '../settings/provider-settings'
 
@@ -66,31 +63,11 @@ function envRecordOf(settings: SettingsObject): Record<string, string> {
 
 export const loadClaudeProviderSettings: ProviderSettingsLoader = async ({
   providerKey,
-  distProviderDir,
   sourcesSettingsFile,
   resolve,
   secrets
 }) => {
-  const distFile = join(distProviderDir, '.claude', 'settings.json')
-  let effective: SettingsObject
-
-  if (typeof sdk.resolveSettings === 'function' && existsSync(distFile)) {
-    // SDK 머지 엔진 경로 — project 소스(<cwd>/.claude/settings.json) 단독 + 정책 티어
-    // (managed 는 settingSources 와 무관하게 항상 읽힌다 — 의도된 동작, 정책 준수).
-    const resolved = await sdk.resolveSettings({
-      cwd: distProviderDir,
-      settingSources: ['project']
-    })
-    effective =
-      typeof sdk.filterEscalatingDefaultMode === 'function'
-        ? (sdk.filterEscalatingDefaultMode(resolved) as SettingsObject)
-        : stripEscalatingDefaultMode(resolved.effective as SettingsObject)
-  } else {
-    // flat 폴백 — dist 우선, 미배포(부팅 후 추가된 provider 등)면 sources 직접 읽기.
-    effective = stripEscalatingDefaultMode(
-      flatRead(distFile) ?? flatRead(sourcesSettingsFile) ?? {}
-    )
-  }
+  const effective = stripEscalatingDefaultMode(flatRead(sourcesSettingsFile) ?? {})
 
   const { env, missing } = expandEnvRecord(envRecordOf(effective), resolve)
   if (missing.length > 0) {

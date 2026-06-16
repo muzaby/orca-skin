@@ -169,8 +169,8 @@ export class ClaudeCodeAdapter implements SessionAdapter {
     if (req.signal?.aborted) abortController.abort()
     else req.signal?.addEventListener('abort', onAbort, { once: true })
 
-    // 격리모드 + provider settings 주입 (handoff 0014/0015) — sendMessage 경로와 대칭.
-    // 0005 의 "settingSources 미지정(전 소스 로드)" 결정은 본 핸드오프가 명시 폐기했다.
+    // provider settings flag 주입 — sendMessage 경로와 대칭.
+    // settingSources 는 생략해 SDK 기본 user/project/local 소스를 상속한다.
     // settings 는 인라인 JSON 문자열(adaptSettings), provider env 는 subprocess env(adaptEnv).
     const options: Options = {
       abortController,
@@ -242,8 +242,8 @@ export class ClaudeCodeAdapter implements SessionAdapter {
         ...adaptSystemPrompt(extensions.systemPromptAppend),
         ...adaptMcp(mcpConfig),
         ...adaptSkills(),
-        // provider settings 격리 주입 (handoff 0014/0015) — settings(인라인 JSON 문자열, flag
-        // 레이어) + settingSources:[]. provider env(ANTHROPIC_*, CLAUDE_CODE_USE_* 등)는
+        // provider settings flag 주입 — settings(인라인 JSON 문자열, flag 레이어).
+        // settingSources 는 생략해 SDK 기본 user/project/local 소스를 상속한다. provider env(ANTHROPIC_*, CLAUDE_CODE_USE_* 등)는
         // adaptEnv 가 턴 env 위에 오버레이해 subprocess env 로 SDK 에 넘긴다(argv 평문 차단).
         ...adaptSettings(req.providerSettings?.settings),
         ...adaptEnv(env, req.providerSettings?.env),

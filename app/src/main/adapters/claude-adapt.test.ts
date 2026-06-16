@@ -1,5 +1,4 @@
 import { describe, it, expect } from 'vitest'
-import { join } from 'node:path'
 import {
   makeClaudeHookCallback,
   adaptEnv,
@@ -46,11 +45,8 @@ describe('adaptSystemPrompt', () => {
 })
 
 describe('adaptSkills', () => {
-  it('항상 plugins(local) + skills:all 구조를 반환하고 플러그인 루트는 dist/claude-code/plugin', () => {
-    const out = adaptSkills() as { plugins: { type: string; path: string }[]; skills: string }
-    expect(out.plugins[0].type).toBe('local')
-    expect(out.plugins[0].path.endsWith(join('dist', 'claude-code', 'plugin'))).toBe(true)
-    expect(out.skills).toBe('all')
+  it('plugins(local) 없이 skills:all 필터만 반환한다', () => {
+    expect(adaptSkills()).toEqual({ skills: 'all' })
   })
 })
 
@@ -63,21 +59,20 @@ const subEnv = (env: Record<string, string>): ReturnType<typeof splitProviderSet
   splitProviderSettings({}, env).env
 
 describe('adaptSettings', () => {
-  it('settings 부재여도 settingSources:[] 격리모드를 유지한다 (handoff 0014)', () => {
-    expect(adaptSettings(undefined)).toEqual({ settingSources: [] })
+  it('settings 부재 시 옵션을 생략하고 settingSources 를 주입하지 않는다', () => {
+    expect(adaptSettings(undefined)).toEqual({})
   })
 
   it('빈 settings 객체는 settings 옵션을 생략한다', () => {
-    expect(adaptSettings(argvSafe({}))).toEqual({ settingSources: [] })
+    expect(adaptSettings(argvSafe({}))).toEqual({})
   })
 
   it('settings 가 있으면 **인라인 JSON 문자열**로 직렬화해 주입한다 (handoff 0015)', () => {
     const raw = { model: 'claude-sonnet-4-6', permissions: { allow: ['Read'] } }
     const out = adaptSettings(argvSafe(raw)) as {
-      settingSources: unknown[]
       settings: string
     }
-    expect(out.settingSources).toEqual([])
+    expect('settingSources' in out).toBe(false)
     // SDK transport 가 문자열만 지원하므로 객체가 아니라 문자열이어야 한다.
     expect(typeof out.settings).toBe('string')
     expect(JSON.parse(out.settings)).toEqual(raw)
@@ -88,7 +83,6 @@ describe('adaptSettings', () => {
     adaptSettings({ env: { SECRET: 'plaintext' }, model: 'm' })
     // splitProviderSettings 를 거친 값은 env 가 제거되어(브랜디드) 안전하게 수용된다.
     expect(adaptSettings(argvSafe({ env: { SECRET: 'plaintext' }, model: 'm' }))).toEqual({
-      settingSources: [],
       settings: JSON.stringify({ model: 'm' })
     })
   })
