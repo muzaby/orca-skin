@@ -5,7 +5,8 @@ import { debugApi } from '../../../shared/api/ipc'
 const DEFAULT_DEBUG_MOCK: DebugMockState = {
   enabled: false,
   scenarioId: 'full',
-  contextUsageRatio: 0.3
+  contextUsageRatio: 0.3,
+  wireLog: false
 }
 
 export function useDebugMock(): {

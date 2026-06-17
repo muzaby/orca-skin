@@ -71,6 +71,8 @@ export interface DebugMockState {
   enabled: boolean
   scenarioId: MockScenarioId
   contextUsageRatio: number
+  // dev 전용 — main 의 outbound wire message(NormalizedEvent) 를 터미널에 덤프할지.
+  wireLog: boolean
 }
 
 export interface CostPeriodSummary {

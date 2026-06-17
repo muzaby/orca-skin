@@ -18,7 +18,7 @@ import {
 } from '../../../shared/protocol'
 import { toAgentEnvironments } from '../../settings/provider-settings'
 import { listDir } from '../../files/scan'
-import { sendInstallStatus, type RouterContext } from '../context'
+import { sendInstallStatus, setWireLog, type RouterContext } from '../context'
 import { handle, handlePlain } from '../registry'
 
 export function registerMiscHandlers(ctx: RouterContext): void {
@@ -85,9 +85,11 @@ export function registerMiscHandlers(ctx: RouterContext): void {
   handlePlain(CHANNELS.costSummary, (): CostSummary => ctx.cost.getSummary())
 
   if (import.meta.env.DEV) {
+    setWireLog(ctx.debugMock.wireLog)
     handlePlain(CHANNELS.debugGetMock, (): DebugMockState => ({ ...ctx.debugMock }))
     handle(CHANNELS.debugSetMock, DebugMockPatchSchema, 'reject', (patch): DebugMockState => {
       Object.assign(ctx.debugMock, patch)
+      setWireLog(ctx.debugMock.wireLog)
       return { ...ctx.debugMock }
     })
   }

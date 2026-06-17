@@ -15,7 +15,8 @@ describe('MockAdapter', () => {
     const state: DebugMockState = {
       enabled: true,
       scenarioId: 'text_streaming',
-      contextUsageRatio: 0.3
+      contextUsageRatio: 0.3,
+      wireLog: false
     }
     const adapter = new MockAdapter(() => state)
 
@@ -32,7 +33,12 @@ describe('MockAdapter', () => {
   })
 
   it('매 턴 getState 를 읽어 scenario/context 를 반영한다', async () => {
-    const state: DebugMockState = { enabled: true, scenarioId: 'error', contextUsageRatio: 0.3 }
+    const state: DebugMockState = {
+      enabled: true,
+      scenarioId: 'error',
+      contextUsageRatio: 0.3,
+      wireLog: false
+    }
     const adapter = new MockAdapter(() => state)
     const first = await collect(
       adapter.sendMessage({ sessionId: 's1', text: 'hi', cwd: '/w', extensions }).events
@@ -51,7 +57,8 @@ describe('MockAdapter', () => {
     const state: DebugMockState = {
       enabled: true,
       scenarioId: 'text_streaming',
-      contextUsageRatio: 0.3
+      contextUsageRatio: 0.3,
+      wireLog: false
     }
     const adapter = new MockAdapter(() => state)
     const live = adapter.sendMessage({ sessionId: 's1', text: 'hi', cwd: '/w', extensions })
@@ -63,7 +70,8 @@ describe('MockAdapter', () => {
     const state: DebugMockState = {
       enabled: true,
       scenarioId: 'tool_approval',
-      contextUsageRatio: 0.3
+      contextUsageRatio: 0.3,
+      wireLog: false
     }
     const adapter = new MockAdapter(() => state)
     const events = await collect(

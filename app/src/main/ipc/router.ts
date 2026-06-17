@@ -49,7 +49,8 @@ export class IpcRouter {
   private readonly debugMock: DebugMockState = {
     enabled: false,
     scenarioId: 'full',
-    contextUsageRatio: 0.3
+    contextUsageRatio: 0.3,
+    wireLog: false
   }
 
   async start(): Promise<void> {
