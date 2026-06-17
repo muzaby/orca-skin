@@ -18,10 +18,12 @@ import type { SettingsStore } from '../settings/store'
 import { readMcpFile, writeMcpFile } from '../config/mcp-file'
 import { SecretStore } from '../config/secret-store'
 import type { Resolver } from './expand'
+import { VAR_RE } from './expand'
 import { makeResolver } from './resolver'
 import type { ClaudeMcp, OrcaMcpConfig } from './schema'
 
-const VAR_RE = /\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g
+// VAR_RE(global) 의 비-global 사본 — .exec 는 lastIndex 를 진행시키지 않아 무상태로 재사용 가능.
+const VAR_NAME_RE = new RegExp(VAR_RE.source)
 
 // 소스 항목이 참조하는 첫 ${VAR} 이름 = "인증 env-var". app 이 만든 서버는 정확히 하나.
 // 손으로 편집한 다변수 서버는 첫 변수를 best-effort 로 노출(DTO 는 표시/편집용).
@@ -29,8 +31,7 @@ function authVarOf(server: ClaudeMcp): string | null {
   const haystack =
     'url' in server ? Object.values(server.headers ?? {}) : Object.values(server.env ?? {})
   for (const v of haystack) {
-    const re = new RegExp(VAR_RE.source)
-    const m = re.exec(v)
+    const m = VAR_NAME_RE.exec(v)
     if (m) return m[1]
   }
   return null
