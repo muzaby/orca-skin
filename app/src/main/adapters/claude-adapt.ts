@@ -18,11 +18,7 @@ import type {
   UserPromptSubmitHookSpecificOutput
 } from '@anthropic-ai/claude-agent-sdk'
 import type { ClaudeMcpConfig } from '../mcp/schema'
-import {
-  mergeEnvLayers,
-  type ArgvSafeSettings,
-  type SubprocessEnv
-} from '../settings/provider-settings'
+import type { ProviderSettings } from '../settings/provider-settings'
 import {
   resolveHookDecisions,
   type NormalizedHookContext,
@@ -56,31 +52,30 @@ export function adaptSkills(): object {
   return { skills: 'all' as const }
 }
 
-// provider settings flag 주입 (handoff 0023/0024). 해석 완료 blob 의 settings 를 flag settings
+// provider settings flag 주입 (handoff 0023/0024/0028). 해석 완료 blob 의 settings 를 flag settings
 // 레이어(options.settings — CLI --settings 동등, 사용자 제어 설정 중 최우선)로 넘긴다.
-// settingSources 옵션은 생략해 SDK 기본 user/project/local 소스를 상속한다.
+// settingSources 옵션은 생략해 SDK 기본 user/project/local 소스를 상속하며, 이 flag settings 가
+// 그 위에 얹혀 `~/.claude/settings.json` 을 덮어쓴다(env 포함 — handoff 0028).
 //
 // **settings 는 인라인 JSON 문자열로 직렬화한다** (handoff 0015 결함 수정): SDK 의
 // Options.settings 는 d.ts 상 `string | Settings` 지만 런타임 transport 는 값을 직렬화 없이
 // CLI argv 에 그대로 push 하므로(0.3.143~0.3.175 동일), 객체를 넘기면 spawn 이
 // "[object Object]" 로 강제 변환해 settings 가 적용되지 않는다. CLI --settings 는 "JSON 파일
 // 경로 또는 인라인 JSON 문자열" 을 받으므로(cli-reference.md) JSON.stringify 로 넘긴다.
-// blob 의 env 는 여기 싣지 않는다 — argv 평문 비밀 노출 방지(adaptEnv 가 subprocess env 로).
 //
-// **타입 격상(handoff 0018)**: 인자는 `ArgvSafeSettings`(env 가 제거·브랜딩된 설정)만 받는다.
-// env 머금은 임의 객체는 브랜드 미보유로 컴파일 에러 — "비밀(env)↛argv" 불변식이 타입으로 강제된다.
-export function adaptSettings(settings?: ArgvSafeSettings): object {
+// **env↛argv 분리 폐기(handoff 0028)**: provider settings.json 은 `~/.claude/settings.json` 과
+// 동일 취급이라 env(auth key 포함)를 settings 안에 그대로 실어 argv 로 넘긴다 — 앱 환경구성이
+// 사용자 전역 env 를 덮어쓰는 메커니즘. argv 평문 노출(same-user process list)은 수용된 트레이드오프.
+export function adaptSettings(settings?: ProviderSettings): object {
   return settings && Object.keys(settings).length > 0 ? { settings: JSON.stringify(settings) } : {}
 }
 
-// subprocess env 주입 (handoff 0015). 턴 env(uv 런타임 + orca.json 앱 env) 베이스 위에 provider
-// settings 의 env(${VAR} 확장·secret 주입 완료)를 오버레이한다 — provider env 가 턴 env 를
-// 이긴다(구 claude-env 의 agent-overlay 정책 계승). provider settings env 는 settings flag 에서
-// 분리되어 subprocess env 로만 흐른다. 병합 결과가 없으면 옵션 자체를 생략해 SDK 기본
-// env(process.env 상속) 동작을 유지한다. 인자는 `SubprocessEnv`(브랜딩된 env)만 받는다(0018).
-export function adaptEnv(base: Record<string, string> | undefined, env?: SubprocessEnv): object {
-  const merged = mergeEnvLayers(base, env ?? {})
-  return merged ? { env: merged } : {}
+// 시스템(턴) env 주입. 턴 env(uv 런타임 + orca.json 앱 env 병합 결과)를 options.env(subprocess
+// env)로 넘긴다. provider settings 의 env 는 settings flag(adaptSettings)로 흐르므로 여기서는
+// 시스템 env 만 다룬다(handoff 0028). 베이스가 없으면 옵션을 생략해 SDK 기본 env(process.env
+// 상속) 동작을 유지한다.
+export function adaptEnv(base?: Record<string, string>): object {
+  return base && Object.keys(base).length > 0 ? { env: base } : {}
 }
 
 // NormalizedHookEvent → claude HookEvent.

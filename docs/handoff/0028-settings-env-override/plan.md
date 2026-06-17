@@ -87,23 +87,24 @@
 
 ## [구현] 체크리스트 (Claude 직접)
 
-- [ ] `claude-settings.ts` 로더 verbatim 축소 + env 후처리/secret 주입 제거
-- [ ] `provider-settings.ts` split/branded 제거 + `ProviderSettings` 타입 + 서비스/로더 시그니처 축소
-- [ ] `router.ts` 서비스 생성자 인자 정리
-- [ ] `claude-adapt.ts` `adaptSettings`/`adaptEnv` 시그니처·주석 갱신
-- [ ] `claude.ts` 두 query 경로 `adaptEnv` 호출 + 주석 갱신
-- [ ] `types.ts`/`extensions/types.ts`/`scaffold.ts` 주석 정합
-- [ ] 테스트 3종 갱신(음성 타입 테스트 제거 포함)
-- [ ] 문서 3종(security/TRD/standardization) 갱신
-- [ ] 게이트 4종 통과
+- [x] `claude-settings.ts` 로더 verbatim 축소 + env 후처리/secret 주입 제거
+- [x] `provider-settings.ts` split/branded 제거 + `ProviderSettings` 타입 + 서비스/로더 시그니처 축소
+- [x] `router.ts` 서비스 생성자 인자 정리
+- [x] `claude-adapt.ts` `adaptSettings`/`adaptEnv` 시그니처·주석 갱신
+- [x] `claude.ts` 두 query 경로 `adaptEnv` 호출 + 주석 갱신
+- [x] `scaffold.ts` 템플릿 주석 정합 (`types.ts`/`extensions/types.ts` 는 기존 주석이 정확해 무변경)
+- [x] 테스트 3종 갱신(음성 타입 테스트 제거 포함)
+- [x] 문서 3종(security/TRD/standardization) 갱신
+- [x] 게이트 4종 통과
 - [ ] INDEX/PHASES 갱신 + 구현 커밋(trailer) push
 
 ## [구현] 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | (구현 후 기입) |
-| 실행 명령 | `npm run lint` / `typecheck` / `typecheck:test` / `test` |
-| 게이트 결과 | (구현 후 기입) |
-| 블로커 / 역질문 | (구현 후 기입) |
-| 대상 커밋 | (구현 후 기입) |
+| 변경 파일 | 코드 6: `adapters/{claude-settings,claude-adapt,claude}.ts`·`settings/provider-settings.ts`·`ipc/router.ts`·`deploy/scaffold.ts` / 테스트 3: `adapters/{claude-settings,claude-adapt}.test.ts`·`settings/provider-settings.test.ts` / 문서 3: `security.md`·`TRD.md`·`standardization.md` |
+| 실행 명령 | `npm run lint` / `npm run typecheck`(node·web·test) / `npm test` |
+| 게이트 결과 | lint ✅ / typecheck ✅(node·web·test 전부) / test ✅ — 영향 3파일 **36/36**, 전체 387/396(실패 9건은 `db/queries.test.ts` better-sqlite3 Node ABI 환경 이슈, 본 변경 무관 — handoff 0019 dual-ABI 계열) |
+| 잔존 참조 grep | `splitProviderSettings\|ArgvSafeSettings\|SubprocessEnv\|envRecordOf\|providerSettings\?\.env` → **0건** (`app/src/**/*.ts`) |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | (impl 커밋 — push 후 INDEX 기재) |

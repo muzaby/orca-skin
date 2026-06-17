@@ -13,8 +13,9 @@ import { orcaConfigDir } from '../config/paths'
 
 const DEFAULT_PROVIDER = 'anthropic'
 
-// 기본 provider 의 settings.json 템플릿. env 는 ${VAR} 플레이스홀더(secret-store/process.env 로
-// 확장) 또는 평문을 허용한다 — 비워두면 SDK 의 기존 인증(OAuth 등)으로 동작.
+// 기본 provider 의 settings.json 템플릿. `~/.claude/settings.json` 과 동일 스키마/취급이다
+// (handoff 0028) — env 에 auth key 등을 직접 적어 관리하고(Orca 는 ${VAR} 확장을 하지 않음),
+// 비워두면 SDK 의 기존 인증(OAuth 등)으로 동작한다.
 const SETTINGS_TEMPLATE = { env: {} }
 
 export function writeJsonAtomic(path: string, value: unknown): void {

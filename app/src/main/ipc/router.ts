@@ -72,11 +72,7 @@ export class IpcRouter {
       console.warn('[boot] orca.json 로드 건너뜀:', e)
     }
     const secretStore = new SecretStore()
-    const providerSettings = new ProviderSettingsService(
-      { claude: loadClaudeProviderSettings },
-      () => this.mcp.resolver(),
-      secretStore
-    )
+    const providerSettings = new ProviderSettingsService({ claude: loadClaudeProviderSettings })
     try {
       const s = scaffoldProviderSettings('claude')
       for (const path of s.created) console.log('[scaffold] 생성:', path)

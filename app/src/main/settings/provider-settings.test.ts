@@ -11,7 +11,6 @@ import {
   mergeEnvLayers,
   modelNameForFamily,
   ProviderSettingsService,
-  splitProviderSettings,
   toAgentEnvironments,
   type ParsedModel,
   type ProviderEntry
@@ -196,39 +195,28 @@ describe('ProviderSettingsService', () => {
     }
   }
 
-  it('로더에 sources 경로와 resolver 를 위임하고 결과를 blob({settings, env})으로 돌려준다', async () => {
+  it('로더에 sources 경로를 위임하고 결과를 blob({settings})으로 돌려준다', async () => {
     seedSource('anthropic', '{"env":{"A":"1"}}')
-    const loader = vi.fn(async (args) =>
-      splitProviderSettings({ marker: args.providerKey }, { A: 'expanded' })
-    )
-    const svc = new ProviderSettingsService(
-      { claude: loader },
-      () => () => undefined,
-      undefined,
-      root
-    )
+    let seenFile = ''
+    const loader = vi.fn(async (a: { sourcesSettingsFile: string }) => {
+      seenFile = a.sourcesSettingsFile
+      return { settings: { env: { A: '1' }, model: 'm' } }
+    })
+    const svc = new ProviderSettingsService({ claude: loader }, root)
     const blob = await svc.resolve(entryOf('anthropic'))
     expect(blob).toEqual({
       providerKey: 'claude-anthropic',
       provider: 'anthropic',
-      settings: { marker: 'claude-anthropic' },
-      env: { A: 'expanded' }
+      settings: { env: { A: '1' }, model: 'm' }
     })
-    expect(loader.mock.calls[0][0].sourcesSettingsFile).toBe(
-      join(root, 'sources', 'settings', 'claude', 'anthropic', 'settings.json')
-    )
+    expect(seenFile).toBe(join(root, 'sources', 'settings', 'claude', 'anthropic', 'settings.json'))
   })
 
   it('mtime 캐시 — 동일 mtime 재호출은 로더를 다시 부르지 않고 invalidateAll 후 재해석한다', async () => {
     const file = seedSource('anthropic', '{}')
     utimesSync(file, new Date(1000), new Date(1000))
-    const loader = vi.fn(async () => splitProviderSettings({}, {}))
-    const svc = new ProviderSettingsService(
-      { claude: loader },
-      () => () => undefined,
-      undefined,
-      root
-    )
+    const loader = vi.fn(async () => ({ settings: {} }))
+    const svc = new ProviderSettingsService({ claude: loader }, root)
     await svc.resolve(entryOf('anthropic'))
     await svc.resolve(entryOf('anthropic'))
     expect(loader).toHaveBeenCalledTimes(1)
@@ -248,12 +236,7 @@ describe('ProviderSettingsService', () => {
     const failing = vi.fn(async () => {
       throw new Error('boom')
     })
-    const svc = new ProviderSettingsService(
-      { claude: failing },
-      () => () => undefined,
-      undefined,
-      root
-    )
+    const svc = new ProviderSettingsService({ claude: failing }, root)
     expect(
       await svc.resolve({
         key: 'opencode-local',
