@@ -73,7 +73,7 @@ export class IpcRouter {
     }
     const secretStore = new SecretStore()
     const providerSettings = new ProviderSettingsService(
-      { 'claude': loadClaudeProviderSettings },
+      { claude: loadClaudeProviderSettings },
       () => this.mcp.resolver(),
       secretStore
     )

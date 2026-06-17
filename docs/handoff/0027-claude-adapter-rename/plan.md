@@ -109,7 +109,7 @@ Orca 의 claude 어댑터/엔진 식별자는 기존 `'claude-code'` 에서 현�
 - [x] 영향 테스트 새 id/경로로 갱신
 - [x] 외부 어휘(버킷 C) 무변경 grep 확인
 - [x] 문서 6건 동기화
-- [ ] 게이트 통과 (환경 제한: npm 의존성 설치 불가)
+- [x] 게이트 통과 (검증 환경에서 `npm ci` 성공 → lint/typecheck/test 400/400, ABI 재빌드 후 green)
 
 ## 구현 보고
 

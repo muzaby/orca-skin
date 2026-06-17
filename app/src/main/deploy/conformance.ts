@@ -66,7 +66,7 @@ const claudeConformance: StandardConformance = {
 }
 
 const CONFORMANCE: Record<Backend, StandardConformance> = {
-  'claude': claudeConformance
+  claude: claudeConformance
 }
 
 export function conformanceOf(engine: Backend): StandardConformance {

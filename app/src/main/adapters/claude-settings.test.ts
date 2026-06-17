@@ -28,14 +28,7 @@ function args(
   return {
     providerKey: 'claude-anthropic',
     provider: 'anthropic',
-    sourcesSettingsFile: join(
-      root,
-      'sources',
-      'settings',
-      'claude',
-      'anthropic',
-      'settings.json'
-    ),
+    sourcesSettingsFile: join(root, 'sources', 'settings', 'claude', 'anthropic', 'settings.json'),
     resolve: () => undefined as string | undefined,
     ...overrides
   }
@@ -92,8 +85,7 @@ describe('loadClaudeProviderSettings — sources flat read', () => {
     const out = await loadClaudeProviderSettings(
       args({
         secrets: {
-          get: (name: string) =>
-            name === 'provider:claude-anthropic' ? 'secret-token' : undefined
+          get: (name: string) => (name === 'provider:claude-anthropic' ? 'secret-token' : undefined)
         }
       })
     )
