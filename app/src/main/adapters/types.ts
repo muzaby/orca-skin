@@ -1,4 +1,9 @@
-import type { Backend, NormalizedEvent, ProviderDescriptor } from '../../shared/ipc'
+import type {
+  Backend,
+  ClassifiedError,
+  NormalizedEvent,
+  ProviderDescriptor
+} from '../../shared/ipc'
 import type { ClaudePermissionMode } from '../../shared/permission-mode'
 import type { TurnRequest } from '../extensions/types'
 import type { ResolvedProviderSettings } from '../settings/provider-settings'
@@ -43,4 +48,8 @@ export interface SessionAdapter {
   // 라이브 핸들(LiveTurn)을 돌려준다 — `events` 가 provider 중립 NormalizedEvent 스트림(§2),
   // control 메서드는 턴 진행 중 권한 모드 라이브 전환 등에 쓰인다.
   sendMessage(req: TurnRequest): LiveTurn
+  // 이 백엔드의 임의 예외를 provider 중립 ClassifiedError 로 정규화한다(provider-runtime.md §6).
+  // 오케스트레이션(ipc/chat)이 특정 엔진 분류기를 직접 import 하지 않도록 어댑터가 소유한다 —
+  // 어댑터가 자기 id 를 provider 로 채운다. phase 는 발생 단계(예: 'sendMessage').
+  classifyError(error: unknown, phase: string): ClassifiedError
 }

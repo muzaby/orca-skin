@@ -6,10 +6,11 @@
 // settings.json 은 어댑터-네이티브 스키마(claude = Claude settings.json)다. bedrock/vertex 등
 // 추가 provider 는 사용자가 디렉토리를 만들고 env 블록을 직접 작성한다 (TRD §6.8 레시피 표).
 
-import { existsSync, mkdirSync, readdirSync, renameSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Backend } from '../../shared/ipc'
 import { orcaConfigDir } from '../config/paths'
+import { writeJsonAtomic } from '../config/json-file'
 
 const DEFAULT_PROVIDER = 'anthropic'
 
@@ -17,12 +18,6 @@ const DEFAULT_PROVIDER = 'anthropic'
 // (handoff 0028) — env 에 auth key 등을 직접 적어 관리하고(Orca 는 ${VAR} 확장을 하지 않음),
 // 비워두면 SDK 의 기존 인증(OAuth 등)으로 동작한다.
 const SETTINGS_TEMPLATE = { env: {} }
-
-export function writeJsonAtomic(path: string, value: unknown): void {
-  const tmp = `${path}.tmp`
-  writeFileSync(tmp, JSON.stringify(value, null, 2) + '\n', 'utf8')
-  renameSync(tmp, path)
-}
 
 function hasProviderDir(settingsDir: string): boolean {
   try {

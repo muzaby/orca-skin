@@ -4,9 +4,10 @@
 // 부재 시 사용자가 발견·편집할 수 있게 빈 템플릿을 atomic(temp+rename) 생성한다.
 // 손상 파일은 절대 덮어쓰지 않고 기본값으로만 동작한다.
 
-import { existsSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { z } from 'zod'
 import { orcaJsonPath } from './paths'
+import { writeJsonAtomic } from './json-file'
 
 const OrcaConfigTopSchema = z.object({
   version: z.literal(1),
@@ -69,9 +70,7 @@ export function parseOrcaFile(raw: string): ParseOrcaFileResult {
 export function ensureOrcaFile(): void {
   const path = orcaJsonPath()
   if (existsSync(path)) return
-  const tmp = `${path}.tmp`
-  writeFileSync(tmp, JSON.stringify(DEFAULT_ORCA_CONFIG, null, 2), 'utf8')
-  renameSync(tmp, path)
+  writeJsonAtomic(path, DEFAULT_ORCA_CONFIG)
 }
 
 export function readOrcaFile(): ParseOrcaFileResult {

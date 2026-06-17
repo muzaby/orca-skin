@@ -38,6 +38,16 @@ export interface MapContext {
 // usage 필드 타입가드 — number 가 아니면 undefined(누락 의미값은 덮어쓰지 않게).
 const num = (v: unknown): number | undefined => (typeof v === 'number' ? v : undefined)
 
+// num 가드를 적용해 *정의된 숫자 필드만* target 에 복사한다(undefined/NaN 드롭). usage 스냅샷·
+// telemetry·modelUsage 가 같은 "raw → 가드 → 조건부 대입" 패턴을 반복하므로 한 곳으로 모은다.
+function assignNums(target: object, fields: Record<string, unknown>): void {
+  const out = target as Record<string, number>
+  for (const [key, raw] of Object.entries(fields)) {
+    const n = num(raw)
+    if (n !== undefined) out[key] = n
+  }
+}
+
 export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): NormalizedEvent[] {
   // SDKSystemMessage(subtype:'init') → session.updated (+ ctx.sessionId 갱신)
   if (msg.type === 'system' && (msg as { subtype?: string }).subtype === 'init') {
@@ -98,14 +108,12 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
     const u = m?.usage
     if (u && typeof u === 'object') {
       const snapshot: NonNullable<MapContext['lastAssistantUsage']> = {}
-      const it = num(u.input_tokens)
-      const ot = num(u.output_tokens)
-      const crt = num(u.cache_read_input_tokens)
-      const cct = num(u.cache_creation_input_tokens)
-      if (it !== undefined) snapshot.inputTokens = it
-      if (ot !== undefined) snapshot.outputTokens = ot
-      if (crt !== undefined) snapshot.cacheReadTokens = crt
-      if (cct !== undefined) snapshot.cacheCreationTokens = cct
+      assignNums(snapshot, {
+        inputTokens: u.input_tokens,
+        outputTokens: u.output_tokens,
+        cacheReadTokens: u.cache_read_input_tokens,
+        cacheCreationTokens: u.cache_creation_input_tokens
+      })
       if (Object.keys(snapshot).length > 0) ctx.lastAssistantUsage = snapshot
     }
     const events: NormalizedEvent[] = []
@@ -248,45 +256,35 @@ function normalizeResultTelemetry(r: {
 }): ProviderReportedTelemetry | undefined {
   const out: ProviderReportedTelemetry = {}
 
-  const inputTokens = num(r.usage?.input_tokens)
-  const outputTokens = num(r.usage?.output_tokens)
-  const cacheReadTokens = num(r.usage?.cache_read_input_tokens)
-  const cacheCreationTokens = num(r.usage?.cache_creation_input_tokens)
-  if (inputTokens !== undefined) out.inputTokens = inputTokens
-  if (outputTokens !== undefined) out.outputTokens = outputTokens
-  if (cacheReadTokens !== undefined) out.cacheReadTokens = cacheReadTokens
-  if (cacheCreationTokens !== undefined) out.cacheCreationTokens = cacheCreationTokens
-
-  const costUsd = num(r.total_cost_usd)
-  const durationMs = num(r.duration_ms)
-  const numTurns = num(r.num_turns)
-  if (costUsd !== undefined) out.costUsd = costUsd
-  if (durationMs !== undefined) out.durationMs = durationMs
-  if (numTurns !== undefined) out.numTurns = numTurns
+  assignNums(out, {
+    inputTokens: r.usage?.input_tokens,
+    outputTokens: r.usage?.output_tokens,
+    cacheReadTokens: r.usage?.cache_read_input_tokens,
+    cacheCreationTokens: r.usage?.cache_creation_input_tokens,
+    costUsd: r.total_cost_usd,
+    durationMs: r.duration_ms,
+    numTurns: r.num_turns
+  })
 
   if (r.modelUsage && typeof r.modelUsage === 'object') {
     const modelUsage: Record<string, TelemetryModelUsage> = {}
-    let firstModel: string | undefined
     for (const [model, mu] of Object.entries(r.modelUsage)) {
       if (!mu || typeof mu !== 'object') continue
       const entry: TelemetryModelUsage = {}
-      const c = num(mu.costUSD)
-      const it = num(mu.inputTokens)
-      const ot = num(mu.outputTokens)
-      const crt = num(mu.cacheReadInputTokens)
-      const cct = num(mu.cacheCreationInputTokens)
-      if (c !== undefined) entry.costUsd = c
-      if (it !== undefined) entry.inputTokens = it
-      if (ot !== undefined) entry.outputTokens = ot
-      if (crt !== undefined) entry.cacheReadTokens = crt
-      if (cct !== undefined) entry.cacheCreationTokens = cct
+      assignNums(entry, {
+        costUsd: mu.costUSD,
+        inputTokens: mu.inputTokens,
+        outputTokens: mu.outputTokens,
+        cacheReadTokens: mu.cacheReadInputTokens,
+        cacheCreationTokens: mu.cacheCreationInputTokens
+      })
       modelUsage[model] = entry
-      if (firstModel === undefined) firstModel = model
     }
-    if (Object.keys(modelUsage).length > 0) {
+    const models = Object.keys(modelUsage)
+    if (models.length > 0) {
       out.modelUsage = modelUsage
       // 단일 모델 턴이면 편의상 top-level model 도 채운다.
-      if (Object.keys(modelUsage).length === 1 && firstModel) out.model = firstModel
+      if (models.length === 1) out.model = models[0]
     }
   }
 

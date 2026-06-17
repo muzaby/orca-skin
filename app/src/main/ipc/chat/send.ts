@@ -19,7 +19,6 @@ import type { SessionAdapter } from '../../adapters/types'
 import { agentPermissionRequest } from '../../runtime-events/permission-bridge'
 import type { PermissionModeController } from '../../runtime-events/permission-mode-controller'
 import { makeClassifiedError } from '../../runtime-errors/classifier'
-import { claudeErrorClassifier } from '../../runtime-errors/claude-classifier'
 import { sendChatEvent, type RouterContext } from '../context'
 import { previewOf } from '../dto'
 import { handle, handlePlain } from '../registry'
@@ -278,11 +277,8 @@ export function registerChatHandlers(deps: ChatDeps): void {
       sendChatEvent(event.sender, {
         type: 'error',
         ...(turn.dbSessionId ? { sessionId: turn.dbSessionId } : {}),
-        // 활성 어댑터에서 provider 파생(0016) — 표시용. 분기에 쓰지 않는다.
-        error: claudeErrorClassifier.classify(err, {
-          provider: adapter.id,
-          phase: 'sendMessage'
-        })
+        // 어댑터 소유 분류기(0016) — provider 는 어댑터가 자기 id 로 채운다. 표시용, 분기 미사용.
+        error: adapter.classifyError(err, 'sendMessage')
       })
     } finally {
       turns.finish(turn)
