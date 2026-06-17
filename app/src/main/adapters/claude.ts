@@ -13,6 +13,7 @@ import {
 import type {
   AskQuestion,
   ApprovalResolution,
+  ClassifiedError,
   NormalizedEvent,
   PermissionAction
 } from '../../shared/ipc'
@@ -132,6 +133,11 @@ export class ClaudeAdapter implements SessionAdapter {
   // 정적 능력 서술자 (claude-probe.ts 의 단일 출처를 반환 — drift 없음).
   describe(): ProviderDescriptor {
     return CLAUDE_DESCRIPTOR
+  }
+
+  // 어댑터 소유 에러 정규화 — claude 분류기에 위임하고 provider 는 자기 id 로 채운다.
+  classifyError(error: unknown, phase: string): ClassifiedError {
+    return claudeErrorClassifier.classify(error, { provider: this.id, phase })
   }
 
   async isInstalled(): Promise<{ installed: boolean; version?: string }> {

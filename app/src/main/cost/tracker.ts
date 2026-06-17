@@ -1,5 +1,4 @@
-import { webContents } from 'electron'
-import { CHANNELS, type CostPeriodSummary, type CostSummary } from '../../shared/ipc'
+import type { CostPeriodSummary, CostSummary } from '../../shared/ipc'
 import type { DbQueries } from '../db'
 import type { UsageSumRow } from '../db/types'
 import { boundaries } from './boundaries'
@@ -7,7 +6,12 @@ import { boundaries } from './boundaries'
 export class CostTracker {
   private summary: CostSummary = emptySummary()
 
-  constructor(private readonly db: DbQueries) {}
+  // broadcast 는 컴포지션 루트(ipc/router.ts)가 주입한다 — IPC 송출 배선을 분리해 domain(L1)을
+  // electron 비의존으로 유지한다(테스트 시 스파이로 검증 가능). 기본 no-op.
+  constructor(
+    private readonly db: DbQueries,
+    private readonly broadcast: (summary: CostSummary) => void = () => {}
+  ) {}
 
   recompute(now = Date.now()): CostSummary {
     const sums = this.db.sumUsageByBoundaries(boundaries(now))
@@ -22,9 +26,7 @@ export class CostTracker {
 
   recordAndBroadcast(): CostSummary {
     const summary = this.recompute()
-    for (const wc of webContents.getAllWebContents()) {
-      if (!wc.isDestroyed()) wc.send(CHANNELS.costSummaryEvent, summary)
-    }
+    this.broadcast(summary)
     return summary
   }
 
