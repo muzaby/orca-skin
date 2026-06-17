@@ -13,6 +13,7 @@ import type {
   TurnModelUsageRow,
   TurnUsageInsert,
   TurnUsageRow,
+  UsageByBoundaries,
   UsageSumRow
 } from './types'
 
@@ -37,7 +38,7 @@ export class DbQueries {
   private readonly insertTurnModelUsageStmt: Database.Statement
   private readonly getLatestTurnUsageStmt: Database.Statement
   private readonly listTurnModelUsageStmt: Database.Statement
-  private readonly sumUsageSinceStmt: Database.Statement
+  private readonly sumUsageByBoundariesStmt: Database.Statement
   // 사용자가 명시적으로 rename — 기존 title 이 있어도 덮어쓴다.
   // updateSessionTitleStmt 는 첫 init 시점 채우기 용도 (WHERE title IS NULL).
   private readonly renameSessionStmt: Database.Statement
@@ -160,15 +161,27 @@ export class DbQueries {
       WHERE turn_usage_id = @turnUsageId
       ORDER BY COALESCE(input_tokens, 0) DESC, id ASC
     `)
-    this.sumUsageSinceStmt = db.prepare(`
+    // 1일/주/월 합산을 한 번의 스캔으로 — dayStart ≥ weekStart ≥ monthStart 이므로 monthStart
+    // 이후 행만 훑고 구간별 조건부 SUM 으로 3구간 × 5지표를 동시 집계한다(구 sumUsageSince 3회 대체).
+    this.sumUsageByBoundariesStmt = db.prepare(`
       SELECT
-        COALESCE(SUM(input_tokens), 0) AS input_tokens,
-        COALESCE(SUM(output_tokens), 0) AS output_tokens,
-        COALESCE(SUM(cache_creation_input_tokens), 0) AS cache_creation_input_tokens,
-        COALESCE(SUM(cache_read_input_tokens), 0) AS cache_read_input_tokens,
-        COALESCE(SUM(total_cost_usd), 0) AS total_cost_usd
+        COALESCE(SUM(CASE WHEN created_at >= @dayStart THEN input_tokens END), 0) AS day_input_tokens,
+        COALESCE(SUM(CASE WHEN created_at >= @dayStart THEN output_tokens END), 0) AS day_output_tokens,
+        COALESCE(SUM(CASE WHEN created_at >= @dayStart THEN cache_creation_input_tokens END), 0) AS day_cache_creation_input_tokens,
+        COALESCE(SUM(CASE WHEN created_at >= @dayStart THEN cache_read_input_tokens END), 0) AS day_cache_read_input_tokens,
+        COALESCE(SUM(CASE WHEN created_at >= @dayStart THEN total_cost_usd END), 0) AS day_total_cost_usd,
+        COALESCE(SUM(CASE WHEN created_at >= @weekStart THEN input_tokens END), 0) AS week_input_tokens,
+        COALESCE(SUM(CASE WHEN created_at >= @weekStart THEN output_tokens END), 0) AS week_output_tokens,
+        COALESCE(SUM(CASE WHEN created_at >= @weekStart THEN cache_creation_input_tokens END), 0) AS week_cache_creation_input_tokens,
+        COALESCE(SUM(CASE WHEN created_at >= @weekStart THEN cache_read_input_tokens END), 0) AS week_cache_read_input_tokens,
+        COALESCE(SUM(CASE WHEN created_at >= @weekStart THEN total_cost_usd END), 0) AS week_total_cost_usd,
+        COALESCE(SUM(input_tokens), 0) AS month_input_tokens,
+        COALESCE(SUM(output_tokens), 0) AS month_output_tokens,
+        COALESCE(SUM(cache_creation_input_tokens), 0) AS month_cache_creation_input_tokens,
+        COALESCE(SUM(cache_read_input_tokens), 0) AS month_cache_read_input_tokens,
+        COALESCE(SUM(total_cost_usd), 0) AS month_total_cost_usd
       FROM turn_usage
-      WHERE created_at >= @since
+      WHERE created_at >= @monthStart
     `)
     this.renameSessionStmt = db.prepare(`
       UPDATE sessions
@@ -315,8 +328,20 @@ export class DbQueries {
     return { turn, modelUsage }
   }
 
-  sumUsageSince(sinceMs: number): UsageSumRow {
-    return this.sumUsageSinceStmt.get({ since: sinceMs }) as UsageSumRow
+  sumUsageByBoundaries(b: {
+    dayStart: number
+    weekStart: number
+    monthStart: number
+  }): UsageByBoundaries {
+    const r = this.sumUsageByBoundariesStmt.get(b) as Record<string, number>
+    const period = (prefix: 'day' | 'week' | 'month'): UsageSumRow => ({
+      input_tokens: r[`${prefix}_input_tokens`],
+      output_tokens: r[`${prefix}_output_tokens`],
+      cache_creation_input_tokens: r[`${prefix}_cache_creation_input_tokens`],
+      cache_read_input_tokens: r[`${prefix}_cache_read_input_tokens`],
+      total_cost_usd: r[`${prefix}_total_cost_usd`]
+    })
+    return { day: period('day'), week: period('week'), month: period('month') }
   }
 
   renameSession(id: string, title: string, updatedAt: number): void {

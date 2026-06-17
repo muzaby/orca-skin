@@ -64,6 +64,10 @@ interface CacheEntry {
 
 export class ProviderSettingsService {
   private readonly cache = new Map<string, CacheEntry>()
+  // 어댑터별 provider 열거 캐시 — list() 는 매 chat:send 마다 도므로 디스크 readdir+readFile+parse
+  // 를 반복하지 않는다. provider 트리를 바꾸는 앱 경로(engine add/update/delete·deploy)가
+  // invalidateAll() 로 비우므로 resolve() 의 mtime 캐시와 동일 수명 정책을 따른다.
+  private readonly listCache = new Map<string, ProviderEntry[]>()
 
   constructor(
     private readonly loaders: Record<string, ProviderSettingsLoader>,
@@ -75,12 +79,17 @@ export class ProviderSettingsService {
   }
 
   list(adapter: string): ProviderEntry[] {
-    return listProviders(adapter, this.root)
+    const hit = this.listCache.get(adapter)
+    if (hit) return hit
+    const entries = listProviders(adapter, this.root)
+    this.listCache.set(adapter, entries)
+    return entries
   }
 
   // deploy 직후 호출 — sources/dist 정렬 작업 이후 캐시 전체 무효화.
   invalidateAll(): void {
     this.cache.clear()
+    this.listCache.clear()
   }
 
   // entry 의 settings 를 해석해 blob 으로 반환. 로더 미등록 어댑터(미래 opencode 전 단계)는
