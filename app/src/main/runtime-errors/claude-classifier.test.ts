@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { claudeErrorClassifier, errorEvent } from './claude-classifier'
 import { sanitizeCause, makeClassifiedError } from './classifier'
 
-const ctx = { provider: 'claude-code' as const, phase: 'sendMessage' }
+const ctx = { provider: 'claude' as const, phase: 'sendMessage' }
 
 describe('claudeErrorClassifier.classify', () => {
   it('401/unauthorized/OAuth/expired → auth_error (안내 문구 + retryable false)', () => {
@@ -11,7 +11,7 @@ describe('claudeErrorClassifier.classify', () => {
       expect(c.category).toBe('auth_error')
       expect(c.message).toBe('Claude Code 인증이 만료되었습니다.')
       expect(c.retryable).toBe(false)
-      expect(c.provider).toBe('claude-code')
+      expect(c.provider).toBe('claude')
     }
   })
 
@@ -59,7 +59,7 @@ describe('claudeErrorClassifier.classify', () => {
 
 describe('errorEvent', () => {
   it('sessionId 가 있으면 envelope 에 포함', () => {
-    const e = makeClassifiedError('stream_error', 'x', { provider: 'claude-code' })
+    const e = makeClassifiedError('stream_error', 'x', { provider: 'claude' })
     expect(errorEvent(e, 's1')).toEqual({
       type: 'error',
       sessionId: 's1',

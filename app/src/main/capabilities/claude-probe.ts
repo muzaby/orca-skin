@@ -1,4 +1,4 @@
-// claude-code 정적 능력 서술자 (CapabilityProbe 구현).
+// claude 정적 능력 서술자 (CapabilityProbe 구현).
 //
 // claude probe 는 **정적 서술자**(문서 지식 기반)를 반환한다. SDK 메서드를 import/호출해
 // 런타임 introspection 하지는 않는다 — 능력은 세션별이 아니라 backend 별로 고정이고, 타입
@@ -16,10 +16,10 @@
 
 import type { CapabilityProbe, ProviderDescriptor } from './types'
 
-// claude-code 가 *지원하는* 능력의 단일 출처. SessionAdapter.describe() 도 이 const 를 반환해
+// claude 가 *지원하는* 능력의 단일 출처. SessionAdapter.describe() 도 이 const 를 반환해
 // 서술자가 두 곳에서 어긋나지 않게 한다(drift 없는 단일 출처).
 export const CLAUDE_DESCRIPTOR: ProviderDescriptor = {
-  provider: 'claude-code',
+  provider: 'claude',
   session: {
     // lifecycle
     continue: true, // SDK Options.continue [검증-런타임]
@@ -60,7 +60,7 @@ export const CLAUDE_DESCRIPTOR: ProviderDescriptor = {
 
 // 정적 probe — discover() 는 인터페이스 호환(async)을 위해 Promise 로 const 를 감싼다.
 export const claudeCapabilityProbe: CapabilityProbe = {
-  provider: 'claude-code',
+  provider: 'claude',
   discover(): Promise<ProviderDescriptor> {
     return Promise.resolve(CLAUDE_DESCRIPTOR)
   }

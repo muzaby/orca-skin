@@ -14,17 +14,17 @@ function tempRoot(): string {
 }
 
 describe('engine settings writes', () => {
-  it('adds, reads, updates and deletes a claude-code provider (settings.json only — no meta.json)', () => {
+  it('adds, reads, updates and deletes a claude provider (settings.json only — no meta.json)', () => {
     const root = tempRoot()
     const created = addProviderSettings(
-      'claude-code',
+      'claude',
       'Bedrock',
       JSON.stringify({ env: { ANTHROPIC_MODEL: 'bedrock-sonnet' } }),
       root
     )
     expect(created).toEqual({
-      key: 'claude-code-bedrock',
-      engine: 'claude-code',
+      key: 'claude-bedrock',
+      engine: 'claude',
       provider: 'bedrock'
     })
     expect(readProviderSettings(created.key, root).settingsJson).toContain('bedrock-sonnet')
@@ -34,22 +34,22 @@ describe('engine settings writes', () => {
       JSON.stringify({ env: { ANTHROPIC_DEFAULT_HAIKU_MODEL: 'haiku-1m' } }),
       root
     )
-    const settingsPath = join(root, 'sources/settings/claude-code/bedrock/settings.json')
+    const settingsPath = join(root, 'sources/settings/claude/bedrock/settings.json')
     expect(JSON.parse(readFileSync(settingsPath, 'utf8'))).toEqual({
       env: { ANTHROPIC_DEFAULT_HAIKU_MODEL: 'haiku-1m' }
     })
 
     // 파생 캐시(meta.json)는 더 이상 만들지 않는다.
-    expect(existsSync(join(root, 'sources/settings/claude-code/meta.json'))).toBe(false)
+    expect(existsSync(join(root, 'sources/settings/claude/meta.json'))).toBe(false)
 
     deleteProviderSettings(created.key, root)
-    expect(existsSync(join(root, 'sources/settings/claude-code/bedrock'))).toBe(false)
+    expect(existsSync(join(root, 'sources/settings/claude/bedrock'))).toBe(false)
   })
 
-  it('rejects non claude-code engines and duplicate providers', () => {
+  it('rejects non claude engines and duplicate providers', () => {
     const root = tempRoot()
-    addProviderSettings('claude-code', 'anthropic', '{}', root)
-    expect(() => addProviderSettings('claude-code', 'anthropic', '{}', root)).toThrow(
+    addProviderSettings('claude', 'anthropic', '{}', root)
+    expect(() => addProviderSettings('claude', 'anthropic', '{}', root)).toThrow(
       '이미 존재하는 provider'
     )
   })

@@ -2,7 +2,7 @@
 // (standardization.md §5.2). 다단계 파이프라인/다중 drift 정책을 두지 않고 안전한 기본 동작 하나로
 // 시작한다: render(sources→engine 규약) → validate(특히 MCP 키 이름) → dryRun ? 계획 : backup-then-write.
 //
-// claude-code 축별 동작:
+// claude 축별 동작:
 //   instructions : AGENTS.md 는 런타임 systemPromptAppend 로 주입(ExtensionBuilder) → dist 파일 미생성(중립).
 //   skills : sources/skills → dist/<engine>/.claude/skills/ 로 **복사**(SDK 표준 경로 거울).
 //   mcp : sources/mcp/mcp.json → dist/<engine>/.mcp.json 으로 **복사**(${VAR} placeholder 보존) + 키 검증.

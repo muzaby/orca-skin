@@ -23,7 +23,7 @@ vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
   query: queryMock
 }))
 
-import { ClaudeCodeAdapter } from './claude-code'
+import { ClaudeAdapter } from './claude'
 import type { TurnRequest } from '../extensions/types'
 
 const baseReq = (): TurnRequest => ({
@@ -37,9 +37,9 @@ const baseReq = (): TurnRequest => ({
   }
 })
 
-describe('ClaudeCodeAdapter — effort', () => {
+describe('ClaudeAdapter — effort', () => {
   it('TurnRequest.effort 를 SDK query options 로 전달한다', () => {
-    const adapter = new ClaudeCodeAdapter(() => () => undefined)
+    const adapter = new ClaudeAdapter(() => () => undefined)
     adapter.sendMessage({ ...baseReq(), effort: 'xhigh' })
 
     expect(queryMock).toHaveBeenCalledTimes(1)

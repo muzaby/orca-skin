@@ -18,7 +18,7 @@ import {
 } from './provider-settings'
 
 let root: string
-const settingsDir = (): string => join(root, 'sources', 'settings', 'claude-code')
+const settingsDir = (): string => join(root, 'sources', 'settings', 'claude')
 
 function writeFile(p: string, content: string): void {
   mkdirSync(join(p, '..'), { recursive: true })
@@ -41,8 +41,8 @@ describe('listProviders / listAdapters', () => {
     )
     writeFile(join(settingsDir(), 'bedrock', 'settings.json'), '{}')
 
-    const entries = listProviders('claude-code', root)
-    expect(entries.map((e) => e.key)).toEqual(['claude-code-anthropic', 'claude-code-bedrock'])
+    const entries = listProviders('claude', root)
+    expect(entries.map((e) => e.key)).toEqual(['claude-anthropic', 'claude-bedrock'])
     // 커스텀(sonnet) 만 노출, default.
     expect(entries[0].models).toEqual([
       {
@@ -56,20 +56,20 @@ describe('listProviders / listAdapters', () => {
     // 빈 settings → 3개 alias, sonnet default.
     expect(entries[1].models.map((m) => m.alias)).toEqual(['sonnet', 'opus', 'haiku'])
     expect(entries[1].models.filter((m) => m.isDefault)).toHaveLength(1)
-    expect(listAdapters(root)).toEqual(['claude-code'])
+    expect(listAdapters(root)).toEqual(['claude'])
   })
 
   it('settings.json 부재/손상은 기본 모델(3 alias)로 열거 — 디렉토리=열거 SSOT', () => {
     vi.spyOn(console, 'warn').mockImplementation(() => {})
     mkdirSync(join(settingsDir(), 'anthropic'), { recursive: true })
-    expect(listProviders('claude-code', root)[0].models.map((m) => m.alias)).toEqual([
+    expect(listProviders('claude', root)[0].models.map((m) => m.alias)).toEqual([
       'sonnet',
       'opus',
       'haiku'
     ])
 
     writeFile(join(settingsDir(), 'anthropic', 'settings.json'), '{broken')
-    expect(listProviders('claude-code', root)[0].models.map((m) => m.alias)).toEqual([
+    expect(listProviders('claude', root)[0].models.map((m) => m.alias)).toEqual([
       'sonnet',
       'opus',
       'haiku'
@@ -77,16 +77,16 @@ describe('listProviders / listAdapters', () => {
   })
 
   it('settings 트리 부재 시 빈 배열 (스캐폴드 전 안전)', () => {
-    expect(listProviders('claude-code', root)).toEqual([])
+    expect(listProviders('claude', root)).toEqual([])
     expect(listAdapters(root)).toEqual([])
   })
 
   it('defaultProvider 는 anthropic 우선, 없으면 이름순 첫 항목', () => {
     mkdirSync(join(settingsDir(), 'vertex'), { recursive: true })
     mkdirSync(join(settingsDir(), 'bedrock'), { recursive: true })
-    expect(defaultProvider(listProviders('claude-code', root))?.provider).toBe('bedrock')
+    expect(defaultProvider(listProviders('claude', root))?.provider).toBe('bedrock')
     mkdirSync(join(settingsDir(), 'anthropic'), { recursive: true })
-    expect(defaultProvider(listProviders('claude-code', root))?.provider).toBe('anthropic')
+    expect(defaultProvider(listProviders('claude', root))?.provider).toBe('anthropic')
   })
 })
 
@@ -122,8 +122,8 @@ describe('toAgentEnvironments', () => {
   it('ParsedModel 을 그대로 통과시키고 비밀 계열 필드를 노출하지 않는다', () => {
     const entries: ProviderEntry[] = [
       {
-        key: 'claude-code-bedrock',
-        adapter: 'claude-code',
+        key: 'claude-bedrock',
+        adapter: 'claude',
         provider: 'bedrock',
         models: [
           {
@@ -137,10 +137,10 @@ describe('toAgentEnvironments', () => {
       },
       { key: 'opencode-local', adapter: 'opencode', provider: 'local', models: [] }
     ]
-    const envs = toAgentEnvironments(entries, ['claude-code'])
+    const envs = toAgentEnvironments(entries, ['claude'])
     expect(envs[0]).toEqual({
-      key: 'claude-code-bedrock',
-      adapter: 'claude-code',
+      key: 'claude-bedrock',
+      adapter: 'claude',
       provider: 'bedrock',
       supported: true,
       models: [
@@ -182,15 +182,15 @@ describe('env 유틸', () => {
 
 describe('ProviderSettingsService', () => {
   function seedSource(provider: string, settings: string): string {
-    const file = join(root, 'sources', 'settings', 'claude-code', provider, 'settings.json')
+    const file = join(root, 'sources', 'settings', 'claude', provider, 'settings.json')
     writeFile(file, settings)
     return file
   }
 
   function entryOf(provider: string): ProviderEntry {
     return {
-      key: `claude-code-${provider}`,
-      adapter: 'claude-code',
+      key: `claude-${provider}`,
+      adapter: 'claude',
       provider,
       models: []
     }
@@ -202,20 +202,20 @@ describe('ProviderSettingsService', () => {
       splitProviderSettings({ marker: args.providerKey }, { A: 'expanded' })
     )
     const svc = new ProviderSettingsService(
-      { 'claude-code': loader },
+      { 'claude': loader },
       () => () => undefined,
       undefined,
       root
     )
     const blob = await svc.resolve(entryOf('anthropic'))
     expect(blob).toEqual({
-      providerKey: 'claude-code-anthropic',
+      providerKey: 'claude-anthropic',
       provider: 'anthropic',
-      settings: { marker: 'claude-code-anthropic' },
+      settings: { marker: 'claude-anthropic' },
       env: { A: 'expanded' }
     })
     expect(loader.mock.calls[0][0].sourcesSettingsFile).toBe(
-      join(root, 'sources', 'settings', 'claude-code', 'anthropic', 'settings.json')
+      join(root, 'sources', 'settings', 'claude', 'anthropic', 'settings.json')
     )
   })
 
@@ -224,7 +224,7 @@ describe('ProviderSettingsService', () => {
     utimesSync(file, new Date(1000), new Date(1000))
     const loader = vi.fn(async () => splitProviderSettings({}, {}))
     const svc = new ProviderSettingsService(
-      { 'claude-code': loader },
+      { 'claude': loader },
       () => () => undefined,
       undefined,
       root
@@ -249,7 +249,7 @@ describe('ProviderSettingsService', () => {
       throw new Error('boom')
     })
     const svc = new ProviderSettingsService(
-      { 'claude-code': failing },
+      { 'claude': failing },
       () => () => undefined,
       undefined,
       root

@@ -14,7 +14,7 @@ export function EngineCard({
   onEdit,
   onDelete
 }: EngineCardProps): React.JSX.Element {
-  const canMutate = agent.adapter === 'claude-code'
+  const canMutate = agent.adapter === 'claude'
   return (
     <div className="rounded-xl border border-border bg-panel px-4 py-3.5">
       <div className="flex items-center gap-3">

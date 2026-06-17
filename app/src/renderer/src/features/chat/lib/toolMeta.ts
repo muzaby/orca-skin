@@ -2,7 +2,7 @@
 // ToolCall 타입/reducer/IPC/DB 는 변경하지 않고, 렌더 시점에 친화적 서술·동사 카테고리·
 // 그룹 요약을 *계산* 한다. (전략 문서 §4 참조)
 //
-// 백엔드 중립: 입력은 중립 ToolCall(name/input/result) 뿐 — claude-code 전용 의존 없음.
+// 백엔드 중립: 입력은 중립 ToolCall(name/input/result) 뿐 — claude 전용 의존 없음.
 // 미지 도구명은 'used' 로 폴백하므로 타 SDK 의 낯선 도구도 합리적으로 렌더된다.
 
 import type { ToolCall } from '../reducer/chatReducer'

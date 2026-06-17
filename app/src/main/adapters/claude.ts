@@ -1,4 +1,4 @@
-// ClaudeCodeAdapter — @anthropic-ai/claude-agent-sdk 의 query() 함수를 통해 Claude Code 와 통신.
+// ClaudeAdapter — @anthropic-ai/claude-agent-sdk 의 query() 함수를 통해 Claude Code 와 통신.
 // CLI spawn 방식은 폐기 (Phase 3, 2026-05-18) — 외부 계약은 TRD §7.1,
 // 내부 매핑은 architecture.md §5.4, SDK API 명세는 docs/spec/claude/agent-sdk/typescript.md 참조.
 
@@ -49,7 +49,7 @@ const TOOL_DENY_MESSAGE = '사용자가 도구 실행을 거부했습니다.'
 // docs/spec/claude/cli-reference.md `--model`). API 별칭(claude-haiku-4-5)은 해석되지 않는다.
 const CLAUDE_TITLE_MODEL = 'haiku'
 
-// 단일 권한 콜백(requestApproval)을 claude-code 의 canUseTool 로 어댑트한다. SDK 고유의
+// 단일 권한 콜백(requestApproval)을 claude 의 canUseTool 로 어댑트한다. SDK 고유의
 // canUseTool/PermissionResult/도구이름(AskUserQuestion·ExitPlanMode) 형태를 어댑터 내부에만
 // 가둬, 어댑터 경계(TurnRequest)는 중립 콜백 하나(requestApproval: PermissionAction →
 // ApprovalResolution)만 노출한다 — opencode 어댑터가 동일 콜백을 자기 메커니즘으로 소비 가능.
@@ -122,8 +122,8 @@ export function makeCanUseTool(
   }
 }
 
-export class ClaudeCodeAdapter implements SessionAdapter {
-  readonly id = 'claude-code' as const
+export class ClaudeAdapter implements SessionAdapter {
+  readonly id = 'claude' as const
 
   // resolver 팩토리를 주입받는다 (McpStore.resolver()). ${VAR} 확장/비밀 복호화는 어댑트
   // 시점(sendMessage)에만 호출해 디스크/중간 구조에 평문이 남지 않게 한다.
@@ -271,7 +271,7 @@ export class ClaudeCodeAdapter implements SessionAdapter {
         // (user_cancelled 로 분류되지만 emit 안 함 — 설계 결정 3).
         if (!abortController.signal.aborted) {
           const classified = claudeErrorClassifier.classify(err, {
-            provider: 'claude-code',
+            provider: 'claude',
             phase: 'sendMessage'
           })
           yield errorEvent(classified, ctx.sessionId)

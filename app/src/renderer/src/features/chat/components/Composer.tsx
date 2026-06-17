@@ -103,7 +103,7 @@ export function Composer({
       return {
         providerKey,
         modelFamily,
-        adapter: agents.find((a) => a.key === providerKey)?.adapter ?? backend ?? 'claude-code',
+        adapter: agents.find((a) => a.key === providerKey)?.adapter ?? backend ?? 'claude',
         provider: agents.find((a) => a.key === providerKey)?.provider
       }
     return defaultSelection(agents, backend)

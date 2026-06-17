@@ -1,14 +1,14 @@
 import type { Backend, ProviderDescriptor } from '../../shared/ipc'
 import type { Resolver } from '../mcp/expand'
 import type { SessionAdapter } from './types'
-import { ClaudeCodeAdapter } from './claude-code'
+import { ClaudeAdapter } from './claude'
 
 interface InstalledInfo {
   installed: boolean
   version?: string
 }
 
-// Phase 1: 단일 백엔드 (claude-code). opencode 는 future work — TRD §10 anchor.
+// Phase 1: 단일 백엔드 (claude). opencode 는 future work — TRD §10 anchor.
 export class AdapterRegistry {
   private readonly adapters = new Map<Backend, SessionAdapter>()
   private active: Backend | null = null
@@ -17,9 +17,9 @@ export class AdapterRegistry {
   // resolver 팩토리를 어댑터 ctor 로 전달한다. 호출 시점(턴 실행)에 this.mcp 가 이미 할당돼 있도록
   // IpcRouter 가 lazy arrow `() => this.mcp.resolver()` 를 넘긴다 (field-init 순서 무관).
   constructor(makeResolver: () => Resolver) {
-    const claudeCode = new ClaudeCodeAdapter(makeResolver)
-    this.adapters.set(claudeCode.id, claudeCode)
-    this.active = claudeCode.id
+    const claude = new ClaudeAdapter(makeResolver)
+    this.adapters.set(claude.id, claude)
+    this.active = claude.id
   }
 
   async refreshInstallState(): Promise<void> {

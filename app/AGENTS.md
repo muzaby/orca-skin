@@ -36,7 +36,7 @@ shared/      → shared 내부만                  (범용 atom. 도메인 로�
 | 경로                          | 책임                                                                                          |
 | ----------------------------- | --------------------------------------------------------------------------------------------- |
 | `src/main/ipc/router.ts`      | IPC 라우팅 + zod 검증 + `NormalizedEvent` → DB persist (turn-local 상태)                       |
-| `src/main/adapters/`          | claude-code 어댑터 — `claude-code.ts`(query) · `claude-map.ts`(SDK→`NormalizedEvent`) · `claude-adapt.ts`(outbound). opencode 는 future |
+| `src/main/adapters/`          | claude 어댑터 — `claude.ts`(query) · `claude-map.ts`(SDK→`NormalizedEvent`) · `claude-adapt.ts`(outbound). opencode 는 future |
 | `src/main/db/`                | better-sqlite3 singleton + WAL + 마이그레이션 러너 + prepared statements                       |
 | `src/main/mcp/`               | 파일-백드 MCP 모델 (`mcp.json` + safeStorage 비밀 + 대칭 변환기 `toClaudeConfig`/`toOpencodeConfig`) |
 | `src/main/deploy/`            | `ExtensionDeployer` + `StandardConformance` (sources → `dist/<engine>/` 렌더)                  |
@@ -71,7 +71,7 @@ new BrowserWindow({
 - `better-sqlite3@^12` raw + prepared statements. 12.x 메이저 = Electron 39 V8 ABI 호환 (11.x 비호환, Windows prebuild 포함). ORM 미도입 — Drizzle 재검토는 Phase 4.
 - **DB 위치** `<userData>/orca.db` (`app.getPath('userData')` 단일 출처). 부팅 PRAGMA `journal_mode=WAL` + `foreign_keys=ON`.
 - **마이그레이션** `NNNN_<name>.sql` (4자리 zero-pad). **머지된 마이그레이션 파일은 절대 수정 금지** — 변경은 새 파일로. SQL 은 vite `?raw` 로 main 번들에 인라인. 상태는 `_migrations(name PK, applied_at)` 메타.
-- **SSOT 는 DB.** claude-code `resume` 은 컨텍스트 유지용일 뿐 메시지 출처는 DB. 삭제는 hard delete (CASCADE).
+- **SSOT 는 DB.** claude `resume` 은 컨텍스트 유지용일 뿐 메시지 출처는 DB. 삭제는 hard delete (CASCADE).
 - **메모리 캐시**: `chatStore` 의 `sessions: Record<sessionId, …>` 외피가 캐시 역할 흡수(handoff 0013) — 본 적 있는 세션 재진입은 IPC 없이 `activeKey` 전환. 무효화는 삭제 시 `invalidateSessionCache(id)`(엔트리 drop). 크기 제한 없음 (LRU cap 은 Future Scope).
 - 스키마 · FTS5 · WAL 상세 → [`../docs/arch/backend/persistence.md`](../docs/arch/backend/persistence.md).
 

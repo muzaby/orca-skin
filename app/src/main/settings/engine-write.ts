@@ -4,7 +4,7 @@ import { providerKeyOf, parseProviderKey } from '../config/provider-key'
 import { orcaConfigDir } from '../config/paths'
 import { writeJsonAtomic } from '../deploy/scaffold'
 
-const SUPPORTED_ENGINE = 'claude-code'
+const SUPPORTED_ENGINE = 'claude'
 const PROVIDER_NAME_RE = /^[A-Za-z0-9_-]+$/
 
 export interface EngineReadResult {
@@ -21,7 +21,7 @@ export interface EngineWriteResult {
 }
 
 function requireClaudeEngine(engine: string): asserts engine is typeof SUPPORTED_ENGINE {
-  if (engine !== SUPPORTED_ENGINE) throw new Error('claude-code engine 만 수정할 수 있습니다')
+  if (engine !== SUPPORTED_ENGINE) throw new Error('claude engine 만 수정할 수 있습니다')
 }
 
 function normalizeProvider(provider: string): string {

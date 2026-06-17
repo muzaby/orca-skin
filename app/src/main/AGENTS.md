@@ -21,7 +21,7 @@ L0 shared     →  L0 shared                                  (순수 타입/상
 |---|---|---|---|
 | **L0 shared** | `src/shared/` (`ipc.ts`·`protocol.ts`·`permission-mode.ts`) | 순수 타입·상수·zod 스키마. 런타임 의존 0. | shared |
 | **L1 domain/infra** | `src/main/{db,config,settings,usage,cost,runtime,mcp,runtime-errors,runtime-events,capabilities,extensions,deploy,skills,ask,files,title}` | DB·설정·MCP·런타임·정규화 조각 등. 어댑터/IPC 비의존. | domain(동일 레이어) · shared |
-| **L2 adapters** | `src/main/{adapters,installer}` | `SessionAdapter` 구현(claude-code·mock) + 어댑터 오케스트레이션(`installer` 는 `AdapterRegistry` 사용). | adapters · domain · shared |
+| **L2 adapters** | `src/main/{adapters,installer}` | `SessionAdapter` 구현(claude·mock) + 어댑터 오케스트레이션(`installer` 는 `AdapterRegistry` 사용). | adapters · domain · shared |
 | **L3 ipc** | `src/main/ipc/**` (router·handlers·chat) | IPC 라우팅·zod 검증·턴 오케스트레이션·persist. 컴포지션 루트. | ipc · adapters · domain · shared |
 | **컴포지션 루트** | `src/main/index.ts` | 부팅 배선. 하위 전부 의존 허용(구체 엔진명 리터럴 허용 — 1회성 배선). | 전부 |
 
@@ -36,5 +36,5 @@ L0 shared     →  L0 shared                                  (순수 타입/상
 
 - **상위를 참조하고 싶으면 의존을 뒤집어라.** 콜백/인터페이스 주입(컴포지션 루트가 배선)으로 방향을 하향으로 유지한다. 예: `Installer` 는 `AdapterRegistry`(L2)를 생성자 주입받는다(L2 내부).
 - **같은 레이어 순환이 필요해 보이면** 공통 조각을 더 낮은 레이어(또는 별도 모듈)로 추출한다 — `import/no-cycle` 가 강제.
-- **구체 provider/engine 리터럴**(`'claude-code'` 등)은 `adapters`·`capabilities`·`deploy`(레지스트리)·컴포지션 루트(`ipc/router.ts`·`index.ts`) 안에만. 코어·오케스트레이션은 백엔드 중립(handoff 0016).
+- **구체 provider/engine 리터럴**(`'claude'` 등)은 `adapters`·`capabilities`·`deploy`(레지스트리)·컴포지션 루트(`ipc/router.ts`·`index.ts`) 안에만. 코어·오케스트레이션은 백엔드 중립(handoff 0016).
 - 모듈이 4책임 이상으로 비대해지면(junk-drawer) 응집 단위로 분해한다(0017 D2: `provider-settings.ts` → `provider-registry`·`model-resolve`·`env-merge`·서비스). 외부 import 가 많으면 배럴 re-export 로 무회귀 분해.

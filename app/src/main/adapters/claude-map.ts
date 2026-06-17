@@ -1,6 +1,6 @@
 // claude SDKMessage → NormalizedEvent 직접 매퍼 (provider-runtime.md §2).
 // SDK 는 타입-only import 라 런타임에 로드되지 않는다 → electron/SDK 비의존 순수 함수 = vitest 대상.
-// 어댑터(claude-code.ts)가 query() 스트림의 각 SDKMessage 를 이 함수로 NormalizedEvent 로 정규화한다.
+// 어댑터(claude.ts)가 query() 스트림의 각 SDKMessage 를 이 함수로 NormalizedEvent 로 정규화한다.
 //
 // 매핑(architecture 매핑표): system/init → session.updated, stream_event(text_delta) → message.delta,
 // assistant → content 블록 순서대로 message.completed/message.reasoning/tool.call.started,

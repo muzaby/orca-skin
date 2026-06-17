@@ -2,7 +2,7 @@
 // sources/settings/<adapter>/ 트리(열거는 provider-registry.ts)의 어댑터-네이티브 settings 를 로더로 해석해 캐시한다.
 //
 // 어댑터 일반화 시점: 본 모듈은 어댑터-중립이다. 실제 settings 해석(SDK resolveSettings 등
-// 어댑터 종속 어휘)은 주입된 ProviderSettingsLoader 가 담당한다 — claude-code 로더는
+// 어댑터 종속 어휘)은 주입된 ProviderSettingsLoader 가 담당한다 — claude 로더는
 // adapters/claude-settings.ts, 미래 opencode 로더는 자기 포맷을 그대로 해석해 같은 blob 으로
 // 돌려주면 된다 (정규화 0 — settings 스키마는 어댑터-네이티브 그대로 흐른다).
 //
@@ -51,7 +51,7 @@ export type SubprocessEnv = Record<string, string> & { readonly [subprocessEnvBr
 // 유일한 신뢰 경계(handoff 0018) — effective settings 에서 env 를 떼어내 settings/env 를 각각
 // 브랜딩한다. 이 함수 밖에서는 ArgvSafeSettings/SubprocessEnv 브랜딩(=`as`)이 존재하지 않으므로,
 // "env 머금은 객체를 argv 로 보내기"가 타입 단계에서 불가능해진다(Parse, don't validate).
-// 모든 어댑터 로더(claude-code·미래 opencode)는 이 생성자를 통해서만 {settings, env} 를 만든다.
+// 모든 어댑터 로더(claude·미래 opencode)는 이 생성자를 통해서만 {settings, env} 를 만든다.
 export function splitProviderSettings(
   effective: Record<string, unknown>,
   env: Record<string, string>
