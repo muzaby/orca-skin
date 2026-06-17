@@ -46,15 +46,15 @@
 
 | 채널 | 방향 | 페이로드 | 응답 | 설명 |
 |---|---|---|---|---|
-| `orca:agent:list` | R→M (invoke) | — | `AgentEnvironment[]` | `~/.config/orca/sources/settings/<adapter>/<provider>/` 의 provider 디렉토리와 `meta.json` 을 renderer-safe DTO 로 반환. `authToken`/`baseUrl`/`env`/secret 값 필드는 존재하지 않는다(화이트리스트 — `toAgentEnvironments`). |
+| `orca:agent:list` | R→M (invoke) | — | `AgentEnvironment[]` | `~/.config/orca/sources/settings/<adapter>/<provider>/` 의 provider 디렉토리를 열거하고 각 `settings.json` 을 `claude-model-parser` 로 파싱해 renderer-safe DTO 로 반환. `models` 는 `AgentModelView = { alias, model: string\|null, isCustom, oneMillionContext, isDefault }`. `authToken`/`baseUrl`/`env`/secret 값 필드는 존재하지 않는다(화이트리스트 — `toAgentEnvironments`). |
 
 ### 2.2-c Engine (handoff 0021)
 
 | 채널 | 방향 | 페이로드 | 응답 | 설명 |
 |---|---|---|---|---|
-| `orca:engine:add` | R→M (invoke) | `CreateEngineRequest` = `{ engine: 'claude-code'; provider: string; settingsJson: string }` | `EngineWriteResult` | `sources/settings/claude-code/<provider>/settings.json` 을 원자적으로 생성하고 settings env 키에서 모델을 추출해 `claude-code/meta.json` 을 갱신한다. provider 중복/빈 값/허용 문자 위반은 reject. |
-| `orca:engine:update` | R→M (invoke) | `UpdateEngineRequest` = `{ key: string; settingsJson: string }` | `EngineWriteResult` | 기존 provider 의 raw settings.json 을 원자적으로 교체하고 `meta.json` 모델 목록을 재계산한다. provider rename 은 비범위(삭제+추가). |
-| `orca:engine:delete` | R→M (invoke) | `DeleteEngineRequest` = `{ key: string }` | `Promise<void>` | provider 디렉토리를 제거하고 `meta.json` 엔트리를 삭제한다. |
+| `orca:engine:add` | R→M (invoke) | `CreateEngineRequest` = `{ engine: 'claude-code'; provider: string; settingsJson: string }` | `EngineWriteResult` = `{ key; engine: 'claude-code'; provider }` | `sources/settings/claude-code/<provider>/settings.json` 을 원자적으로 생성한다(파생 캐시 없음 — 모델은 열거 시 settings.json 파싱). provider 중복/빈 값/허용 문자 위반은 reject. |
+| `orca:engine:update` | R→M (invoke) | `UpdateEngineRequest` = `{ key: string; settingsJson: string }` | `EngineWriteResult` | 기존 provider 의 raw settings.json 을 원자적으로 교체한다. provider rename 은 비범위(삭제+추가). |
+| `orca:engine:delete` | R→M (invoke) | `DeleteEngineRequest` = `{ key: string }` | `Promise<void>` | provider 디렉토리를 제거한다. |
 | `orca:engine:read` | R→M (invoke) | `ReadEngineRequest` = `{ key: string }` | `EngineReadResult` = `{ key; engine: 'claude-code'; provider; settingsJson }` | 편집 모달 프리필용 raw settings.json 읽기. |
 
 ### 2.3 Install

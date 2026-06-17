@@ -336,20 +336,19 @@ interface OrcaConfig {
 | `authToken` | secret-store(`provider:${providerKey}`, 앱 UI) 또는 settings.json `env.ANTHROPIC_API_KEY`(`${VAR}` 권장) |
 | `baseUrl` | settings.json `env.ANTHROPIC_BASE_URL` |
 | `env` | settings.json `env` 블록 |
-| `models` | `sources/settings/<adapter>/meta.json` 의 `<provider>.models` |
+| `models` | `sources/settings/<adapter>/<provider>/settings.json` 의 `env` 모델 키에서 파싱 (`claude-model-parser`) |
 
 **provider settings 트리 (SSOT = sources/)**: provider 별 설정은 어댑터-네이티브 스키마 파일로 사용자가 직접 편집한다. claude-code 의 settings.json 스키마는 순정 Claude Code settings.json 그대로다 — Orca 전용 키 발명 없음.
 
 ```text
 ~/.config/orca/sources/settings/<adapter>/
-├── meta.json                  # 어댑터당 1개 — Orca 메타 (dist 미배포, ModelMenu 용)
-│                              #   { "<provider>": { "label"?: string, "models"?: [{name,family?,default?}] } }
 └── <provider>/settings.json   # 어댑터-네이티브 스키마 (claude-code = Claude settings.json)
 ```
 
-- **열거 SSOT 는 디렉토리 목록**(`readdir`). meta.json 엔트리 부재 provider 는 models 빈 배열로 동작하고, 디렉토리 없는 meta 키는 경고 후 무시한다(드리프트 관용).
+- **열거 SSOT 는 디렉토리 목록**(`readdir`). 모델 목록은 파생 캐시 파일 없이 각 provider 의 `settings.json` 을 열거 시점에 `claude-model-parser` 로 파싱해 얻는다(settings 부재/손상 시 기본 alias 목록으로 관용 열거).
+- **모델 파싱 규약**(`claude-model-parser.ts`, 순수 함수): `env.ANTHROPIC_DEFAULT_{SONNET,OPUS,HAIKU}_MODEL` 키가 있으면 그 alias 만 노출(=`isCustom`), 전무하면 sonnet/opus/haiku 3개를 `model:null` 로 노출. `[1m]` 접미사는 분리해 `oneMillionContext` 로 보존. default 는 명시 모델(`env.ANTHROPIC_MODEL`>`model`)·alias 폴백(sonnet→haiku→opus)을 노출 목록 안에서 평가해 **정확히 1개** 부여한다. `model:null` 항목은 SDK 가 bare alias 를 해석한다(모델명 추측 금지).
 - provider key 는 `${adapter}-${provider}`(0010 규약 유지, 디렉토리 이름 = provider, `[A-Za-z0-9_-]` 제한). 중복은 디렉토리 구조상 불가능하다.
-- 최초 부팅 시 `anthropic/settings.json`(`{"env":{}}`) + meta.json 을 스캐폴드한다(`deploy/scaffold.ts`, 멱등 — 기존 파일 불가침).
+- 최초 부팅 시 `anthropic/settings.json`(`{"env":{}}`)을 스캐폴드한다(`deploy/scaffold.ts`, 멱등 — 기존 파일 불가침).
 - provider settings.json 은 **dist 로 배포하지 않는다** — query flag(`options.settings`)로 주입한다(아래 "런타임 주입", standardization.md §5.1 거울 예외). skill 은 `dist/<engine>/.claude/skills/`, mcp 는 `dist/<engine>/.mcp.json` 로 배포한다(설치 스테이징 — standardization.md §5.2).
 
 **런타임 주입 (격리 해제 — 0024 구현됨 / disallowedTools 보류)**: 턴/completion 의 `query()` 는 `settingSources` 옵션을 **생략**해 SDK 기본값(`user`+`project`+`local` 전부)으로 실행한다 — 사용자 전역 `~/.claude` skill·설정을 상속한다. provider settings 는 SDK `resolveSettings`(@alpha, CLI 동일 머지 엔진)로 해석한 effective 를 flag 레이어(`options.settings`)로 주입한다(settingSources 와 직교·최우선). 격리 해제로 끌려오는 사용자 allow 규칙은 **`disallowedTools` 옵션으로 확정 차단**한다(SDK 권한 평가: hooks→deny/disallowed→ask→allow→canUseTool — disallowed 가 allow·canUseTool 보다 상위). `filterEscalatingDefaultMode` 로 settings.json 의 escalating `permissions.defaultMode`(bypassPermissions·acceptEdits·auto)는 무력화된다 — **의도된 동작**(권한은 Orca 의 canUseTool + disallowedTools 게이트가 담당). 해석·캐시는 `settings/provider-settings.ts` 의 `ProviderSettingsService`(mtime 캐시, deploy 후 무효화), claude 종속 어휘는 `adapters/claude-settings.ts` 에 격리된다. resolveSettings 함수 부재(SDK 버전 변동) 시 flat JSON 읽기로 폴백한다. (`claude-adapt.ts` 는 0024에서 `settingSources` 를 생략하도록 정렬됐다. `disallowedTools` 는 D1 사용자 결정 전이라 보류.)
@@ -637,6 +636,6 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 ### 6.8.1 Agent/model 선택 (0010-agent-model-select → 0014 원천 교체)
 
 - provider 환경은 provider key(`${adapter}-${provider}`)로 식별한다. 원천은 0014 부터 orca.json agents[] 가 아니라 **`sources/settings/<adapter>/` 디렉토리 트리**다 (§6.8) — 중복 키는 구조상 불가능.
-- Composer 는 `orca:agent:list` DTO(`key`, `adapter`, `provider`, `models`, `supported` — **shape 는 0010 과 동일**)로 `${providerKey}/${family}` 모델 메뉴를 구성한다. models/label 은 meta.json, wire/state 는 표시 문자열이 아니라 `providerKey` 와 `modelFamily` 구조 필드를 사용한다.
+- Composer 는 `orca:agent:list` DTO(`key`, `adapter`, `provider`, `models`, `supported`)로 `${providerKey}/${alias}` 모델 메뉴를 구성한다. `models` 항목은 `{alias, model, isCustom, oneMillionContext, isDefault}`(`AgentModelView`) 이며 settings.json 파싱 결과다. wire/state 는 표시 문자열이 아니라 `providerKey` 와 `modelFamily`(=alias 값 운반) 구조 필드를 사용한다.
 - 세션은 adapter(`sessions.backend`) 단위로 잠기며 같은 adapter 안에서는 provider/model family 를 턴 단위로 전환할 수 있다. `sessions.provider_key` 는 바인딩 제약이 아니라 마지막 사용 provider 기록이다. 턴 해석 폴백: payload providerKey(어댑터 일치 시) → 세션 provider_key → 기본 provider(anthropic 우선, 없으면 이름순 첫 디렉토리).
 - 앱 추가 provider 의 auth token 은 secret store `provider:${provider key}` 에만 저장한다. DB/renderer/agent list DTO 는 토큰·env 를 노출하지 않는다.

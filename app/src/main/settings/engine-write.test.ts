@@ -1,11 +1,10 @@
-import { mkdtempSync, readFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import {
   addProviderSettings,
   deleteProviderSettings,
-  extractModels,
   readProviderSettings,
   updateProviderSettings
 } from './engine-write'
@@ -14,36 +13,8 @@ function tempRoot(): string {
   return mkdtempSync(join(tmpdir(), 'orca-engine-write-'))
 }
 
-describe('extractModels', () => {
-  it('extracts family models from Claude env keys and marks ANTHROPIC_MODEL as default', () => {
-    const models = extractModels(
-      JSON.stringify({
-        env: {
-          ANTHROPIC_DEFAULT_SONNET_MODEL: 'claude-sonnet-4-5',
-          ANTHROPIC_DEFAULT_HAIKU_MODEL: 'claude-haiku-4-5',
-          ANTHROPIC_DEFAULT_OPUS_MODEL: 'claude-opus-4-1-1m',
-          ANTHROPIC_MODEL: 'claude-sonnet-4-5'
-        }
-      })
-    )
-
-    expect(models).toEqual([
-      { name: 'claude-sonnet-4-5', family: 'sonnet', default: true },
-      { name: 'claude-haiku-4-5', family: 'haiku' },
-      { name: 'claude-opus-4-1-1m', family: 'opus·1m' }
-    ])
-  })
-
-  it('uses top-level model as default and returns empty models for SDK fallback', () => {
-    expect(extractModels(JSON.stringify({ model: 'claude-sonnet-1m' }))).toEqual([
-      { name: 'claude-sonnet-1m', family: 'sonnet·1m', default: true }
-    ])
-    expect(extractModels(JSON.stringify({ env: { OTHER: 'x' } }))).toEqual([])
-  })
-})
-
 describe('engine settings writes', () => {
-  it('adds, reads, updates and deletes a claude-code provider', () => {
+  it('adds, reads, updates and deletes a claude-code provider (settings.json only — no meta.json)', () => {
     const root = tempRoot()
     const created = addProviderSettings(
       'claude-code',
@@ -51,7 +22,11 @@ describe('engine settings writes', () => {
       JSON.stringify({ env: { ANTHROPIC_MODEL: 'bedrock-sonnet' } }),
       root
     )
-    expect(created.key).toBe('claude-code-bedrock')
+    expect(created).toEqual({
+      key: 'claude-code-bedrock',
+      engine: 'claude-code',
+      provider: 'bedrock'
+    })
     expect(readProviderSettings(created.key, root).settingsJson).toContain('bedrock-sonnet')
 
     updateProviderSettings(
@@ -59,15 +34,23 @@ describe('engine settings writes', () => {
       JSON.stringify({ env: { ANTHROPIC_DEFAULT_HAIKU_MODEL: 'haiku-1m' } }),
       root
     )
-    const meta = JSON.parse(
-      readFileSync(join(root, 'sources/settings/claude-code/meta.json'), 'utf8')
-    )
-    expect(meta.bedrock.models).toEqual([{ name: 'haiku-1m', family: 'haiku·1m' }])
+    const settingsPath = join(root, 'sources/settings/claude-code/bedrock/settings.json')
+    expect(JSON.parse(readFileSync(settingsPath, 'utf8'))).toEqual({
+      env: { ANTHROPIC_DEFAULT_HAIKU_MODEL: 'haiku-1m' }
+    })
+
+    // 파생 캐시(meta.json)는 더 이상 만들지 않는다.
+    expect(existsSync(join(root, 'sources/settings/claude-code/meta.json'))).toBe(false)
 
     deleteProviderSettings(created.key, root)
-    const after = JSON.parse(
-      readFileSync(join(root, 'sources/settings/claude-code/meta.json'), 'utf8')
+    expect(existsSync(join(root, 'sources/settings/claude-code/bedrock'))).toBe(false)
+  })
+
+  it('rejects non claude-code engines and duplicate providers', () => {
+    const root = tempRoot()
+    addProviderSettings('claude-code', 'anthropic', '{}', root)
+    expect(() => addProviderSettings('claude-code', 'anthropic', '{}', root)).toThrow(
+      '이미 존재하는 provider'
     )
-    expect(after.bedrock).toBeUndefined()
   })
 })

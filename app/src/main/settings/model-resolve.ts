@@ -1,46 +1,43 @@
-// 모델 해석 (handoff 0017 D2 분해 — 구 provider-settings.ts 의 "모델 해석" 책임).
-// sources/settings/<adapter>/meta.json 의 provider 별 models 가 원천이며, family→name 해석과
-// orca:agent:list 페이로드 변환을 담당한다. 순수 함수 — vitest 대상.
+// 모델 해석 (handoff 0017 D2; settings-json-model-parser 로 meta.json 제거 후 재정의).
+// provider 별 모델은 이제 sources/settings/<adapter>/<provider>/settings.json 을 claude-model-parser
+// 로 파싱해 얻는다(provider-registry.listProviders). 본 모듈은 alias→name 해석과 orca:agent:list
+// 페이로드 변환을 담당한다. 순수 함수 — vitest 대상.
 
-import { z } from 'zod'
 import type { AgentEnvironment, AgentModelView } from '../../shared/ipc'
+import type { ParsedModel } from './claude-model-parser'
 
-// 모델 항목 스키마 — 구 orca.json agents[].models 와 동일 (handoff 0010). 이제는
-// sources/settings/<adapter>/meta.json 의 provider 별 models 가 원천이다.
-export const OrcaModelSchema = z.object({
-  name: z.string().min(1),
-  family: z.string().optional(),
-  default: z.boolean().optional()
-})
-export type OrcaModelConfig = z.infer<typeof OrcaModelSchema>
+export type { ParsedModel } from './claude-model-parser'
 
-export function modelKey(model: OrcaModelConfig): string {
-  return model.family ?? model.name
+export function modelKey(model: ParsedModel): string {
+  return model.alias
 }
 
+// 선택된 alias 를 SDK 에 넘길 model 문자열로 해석. model 이 null(커스텀 미구성)이면 bare alias
+// (sonnet/opus/haiku)를 그대로 넘겨 SDK 가 해석하게 한다 — 추측 금지(모델명 임의 생성 안 함).
 export function modelNameForFamily(
-  models: OrcaModelConfig[],
-  family: string | null | undefined
+  models: ParsedModel[],
+  alias: string | null | undefined
 ): string | undefined {
   if (models.length === 0) return undefined
-  const wanted = family?.trim()
-  const byFamily = wanted
-    ? models.find((model) => modelKey(model) === wanted || model.name === wanted)
+  const wanted = alias?.trim()
+  const byAlias = wanted
+    ? models.find((model) => model.alias === wanted || model.model === wanted)
     : undefined
-  const selected = byFamily ?? models.find((model) => model.default) ?? models[0]
-  return selected?.name
+  const selected = byAlias ?? models.find((model) => model.isDefault) ?? models[0]
+  if (!selected) return undefined
+  return selected.model ?? selected.alias
 }
 
-export function defaultModelFamily(models: OrcaModelConfig[]): string | null {
+export function defaultModelFamily(models: ParsedModel[]): string | null {
   if (models.length === 0) return null
-  const selected = models.find((model) => model.default) ?? models[0]
-  return selected ? modelKey(selected) : null
+  const selected = models.find((model) => model.isDefault) ?? models[0]
+  return selected ? selected.alias : null
 }
 
-// ProviderEntry(provider-registry.ts)를 orca:agent:list 페이로드로 — shape 는 handoff 0010 과
-// 동일 유지 (renderer ModelMenu 변경 0). 순환을 피해 구조적 입력만 받는다(ProviderEntry 미import).
+// ProviderEntry(provider-registry.ts)를 orca:agent:list 페이로드로 변환. 순환을 피해 구조적
+// 입력만 받는다(ProviderEntry 미import). ParsedModel 을 필드 변환 없이 그대로 통과시킨다.
 export function toAgentEnvironments(
-  entries: { key: string; adapter: string; provider: string; models: OrcaModelConfig[] }[],
+  entries: { key: string; adapter: string; provider: string; models: ParsedModel[] }[],
   supportedAdapters: Iterable<string>
 ): AgentEnvironment[] {
   const supported = new Set(supportedAdapters)
@@ -51,9 +48,11 @@ export function toAgentEnvironments(
     supported: supported.has(entry.adapter),
     models: entry.models.map(
       (model): AgentModelView => ({
-        name: model.name,
-        ...(model.family ? { family: model.family } : {}),
-        ...(model.default !== undefined ? { default: model.default } : {})
+        alias: model.alias,
+        model: model.model,
+        isCustom: model.isCustom,
+        oneMillionContext: model.oneMillionContext,
+        isDefault: model.isDefault
       })
     )
   }))

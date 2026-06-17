@@ -97,9 +97,8 @@ class OpenCodeEngine {
 │   ├── skills/              # SKILL.md (폴더 규약, cross-engine 표준)
 │   ├── mcp/                 # 벤더 중립 MCP 서버 정의 (${VAR} placeholder)
 │   └── settings/            # provider 별 settings (어댑터-네이티브 스키마, TRD §6.8)
-│       └── <adapter>/       #   meta.json (어댑터당 1개, Orca 메타 — dist 미배포)
-│           ├── meta.json    #   디렉토리 이름 = provider (열거 SSOT)
-│           └── <provider>/settings.json
+│       └── <adapter>/       #   디렉토리 이름 = provider (열거 SSOT)
+│           └── <provider>/settings.json  # 모델은 settings.json 파싱(claude-model-parser, 파생 캐시 없음)
 └── dist/<engine>/           # ExtensionDeployer 산출 = 설치 스테이징 (편집 금지)
     ├── .claude/skills/      #   → 설치 대상 <cwd>/.claude/skills/ 로 복사될 SDK 표준 거울
     └── .mcp.json            #   → 설치 대상 <cwd>/.mcp.json (${VAR} placeholder 보존)

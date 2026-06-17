@@ -13,7 +13,7 @@ import {
   ProviderSettingsService,
   splitProviderSettings,
   toAgentEnvironments,
-  type OrcaModelConfig,
+  type ParsedModel,
   type ProviderEntry
 } from './provider-settings'
 
@@ -34,33 +34,46 @@ afterEach(() => {
 })
 
 describe('listProviders / listAdapters', () => {
-  it('디렉토리가 열거 SSOT — meta.json 은 라벨/모델만 공급한다', () => {
-    writeFile(join(settingsDir(), 'anthropic', 'settings.json'), '{}')
-    mkdirSync(join(settingsDir(), 'bedrock'), { recursive: true })
+  it('디렉토리가 열거 SSOT — 각 provider 의 settings.json 을 파싱해 모델을 채운다', () => {
     writeFile(
-      join(settingsDir(), 'meta.json'),
-      JSON.stringify({
-        anthropic: { label: 'Anthropic', models: [{ name: 'claude-sonnet-4-6', default: true }] }
-      })
+      join(settingsDir(), 'anthropic', 'settings.json'),
+      JSON.stringify({ env: { ANTHROPIC_DEFAULT_SONNET_MODEL: 'claude-sonnet-4-6' } })
     )
+    writeFile(join(settingsDir(), 'bedrock', 'settings.json'), '{}')
 
     const entries = listProviders('claude-code', root)
     expect(entries.map((e) => e.key)).toEqual(['claude-code-anthropic', 'claude-code-bedrock'])
-    expect(entries[0].label).toBe('Anthropic')
-    expect(entries[0].models).toEqual([{ name: 'claude-sonnet-4-6', default: true }])
-    expect(entries[1].models).toEqual([])
+    // 커스텀(sonnet) 만 노출, default.
+    expect(entries[0].models).toEqual([
+      {
+        alias: 'sonnet',
+        model: 'claude-sonnet-4-6',
+        isCustom: true,
+        oneMillionContext: false,
+        isDefault: true
+      }
+    ])
+    // 빈 settings → 3개 alias, sonnet default.
+    expect(entries[1].models.map((m) => m.alias)).toEqual(['sonnet', 'opus', 'haiku'])
+    expect(entries[1].models.filter((m) => m.isDefault)).toHaveLength(1)
     expect(listAdapters(root)).toEqual(['claude-code'])
   })
 
-  it('디렉토리 없는 meta 키는 경고 후 무시하고, 손상 meta 는 열거에 영향이 없다', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  it('settings.json 부재/손상은 기본 모델(3 alias)로 열거 — 디렉토리=열거 SSOT', () => {
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
     mkdirSync(join(settingsDir(), 'anthropic'), { recursive: true })
-    writeFile(join(settingsDir(), 'meta.json'), JSON.stringify({ ghost: { label: 'X' } }))
-    expect(listProviders('claude-code', root)).toHaveLength(1)
-    expect(warn.mock.calls.join(' ')).toContain('ghost')
+    expect(listProviders('claude-code', root)[0].models.map((m) => m.alias)).toEqual([
+      'sonnet',
+      'opus',
+      'haiku'
+    ])
 
-    writeFile(join(settingsDir(), 'meta.json'), '{broken')
-    expect(listProviders('claude-code', root)).toHaveLength(1)
+    writeFile(join(settingsDir(), 'anthropic', 'settings.json'), '{broken')
+    expect(listProviders('claude-code', root)[0].models.map((m) => m.alias)).toEqual([
+      'sonnet',
+      'opus',
+      'haiku'
+    ])
   })
 
   it('settings 트리 부재 시 빈 배열 (스캐폴드 전 안전)', () => {
@@ -77,33 +90,50 @@ describe('listProviders / listAdapters', () => {
   })
 })
 
-describe('model helpers (meta.json models 기준 — 구 0010 의미 보존)', () => {
-  const models: OrcaModelConfig[] = [
-    { name: 'claude-sonnet-4-5', family: 'sonnet', default: true },
-    { name: 'claude-haiku-4-5' }
+describe('model helpers (alias 기준)', () => {
+  const models: ParsedModel[] = [
+    {
+      alias: 'sonnet',
+      model: 'claude-sonnet-4-6',
+      isCustom: true,
+      oneMillionContext: false,
+      isDefault: true
+    },
+    { alias: 'haiku', model: null, isCustom: false, oneMillionContext: false, isDefault: false }
   ]
 
-  it('modelNameForFamily 는 family/name 매칭 후 default, 빈 배열이면 undefined', () => {
-    expect(modelNameForFamily(models, 'sonnet')).toBe('claude-sonnet-4-5')
-    expect(modelNameForFamily(models, 'claude-haiku-4-5')).toBe('claude-haiku-4-5')
-    expect(modelNameForFamily(models, 'missing')).toBe('claude-sonnet-4-5')
+  it('modelNameForFamily 는 alias/model 매칭 후 default, null 모델은 bare alias 반환', () => {
+    expect(modelNameForFamily(models, 'sonnet')).toBe('claude-sonnet-4-6')
+    expect(modelNameForFamily(models, 'claude-sonnet-4-6')).toBe('claude-sonnet-4-6')
+    // null 모델 alias → SDK 가 해석하도록 bare alias 그대로.
+    expect(modelNameForFamily(models, 'haiku')).toBe('haiku')
+    // 미매칭 → default 의 model.
+    expect(modelNameForFamily(models, 'missing')).toBe('claude-sonnet-4-6')
     expect(modelNameForFamily([], 'sonnet')).toBeUndefined()
   })
 
-  it('defaultModelFamily 는 default 모델의 family/name, 빈 배열이면 null', () => {
+  it('defaultModelFamily 는 default 항목의 alias, 빈 배열이면 null', () => {
     expect(defaultModelFamily(models)).toBe('sonnet')
     expect(defaultModelFamily([])).toBeNull()
   })
 })
 
 describe('toAgentEnvironments', () => {
-  it('0010 페이로드 shape 를 유지하고 비밀 계열 필드를 노출하지 않는다', () => {
+  it('ParsedModel 을 그대로 통과시키고 비밀 계열 필드를 노출하지 않는다', () => {
     const entries: ProviderEntry[] = [
       {
         key: 'claude-code-bedrock',
         adapter: 'claude-code',
         provider: 'bedrock',
-        models: [{ name: 'claude-sonnet-4-5', family: 'sonnet', default: true }]
+        models: [
+          {
+            alias: 'sonnet',
+            model: 'claude-sonnet-4-6',
+            isCustom: true,
+            oneMillionContext: false,
+            isDefault: true
+          }
+        ]
       },
       { key: 'opencode-local', adapter: 'opencode', provider: 'local', models: [] }
     ]
@@ -113,7 +143,15 @@ describe('toAgentEnvironments', () => {
       adapter: 'claude-code',
       provider: 'bedrock',
       supported: true,
-      models: [{ name: 'claude-sonnet-4-5', family: 'sonnet', default: true }]
+      models: [
+        {
+          alias: 'sonnet',
+          model: 'claude-sonnet-4-6',
+          isCustom: true,
+          oneMillionContext: false,
+          isDefault: true
+        }
+      ]
     })
     expect(envs[1].supported).toBe(false)
     expect('authToken' in envs[0]).toBe(false)
