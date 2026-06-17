@@ -64,7 +64,7 @@ describe('parseOrcaFile', () => {
       JSON.stringify({
         version: 1,
         env: { A: '1' },
-        agents: [{ adapter: 'claude-code', provider: 'bedrock', models: [] }]
+        agents: [{ adapter: 'claude', provider: 'bedrock', models: [] }]
       })
     )
     expect(config).toEqual({ version: 1, env: { A: '1' } })

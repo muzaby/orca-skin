@@ -1,4 +1,4 @@
-// claude-code provider settings 로더 — sources/settings/claude-code/<provider>/settings.json 을
+// claude provider settings 로더 — sources/settings/claude/<provider>/settings.json 을
 // flat-read 한 뒤 escalating defaultMode 필터와 env 분리를 적용한다.
 // 어댑터 종속 어휘(SDK API · ANTHROPIC_API_KEY · escalating 모드)는 이 파일 안에만 둔다.
 //

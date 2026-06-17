@@ -37,7 +37,7 @@ export function EngineFormModal({
 }: EngineFormModalProps): React.JSX.Element {
   const editing = mode === 'edit'
   const [step, setStep] = useState<Step>(editing ? 3 : 1)
-  const [engineId, setEngineId] = useState('claude-code')
+  const [engineId, setEngineId] = useState('claude')
   const [providerId, setProviderId] = useState(editing ? 'custom' : '')
   const [providerName, setProviderName] = useState(editProvider)
   const [settingsJson, setSettingsJson] = useState(initialSettingsJson)

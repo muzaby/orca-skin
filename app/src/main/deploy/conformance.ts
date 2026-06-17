@@ -33,8 +33,8 @@ export interface StandardConformance {
   }
 }
 
-// claude-code 의 구체 표준 적합도.
-const claudeCodeConformance: StandardConformance = {
+// claude 의 구체 표준 적합도.
+const claudeConformance: StandardConformance = {
   instructions: {
     // claude 는 현재 AGENTS.md 를 네이티브로 읽지 않고 CLAUDE.md 를 읽는다 → manual_import.
     // Orca 는 instructions 를 systemPromptAppend(런타임)로 주입하므로 AGENTS.md SSOT 는
@@ -66,7 +66,7 @@ const claudeCodeConformance: StandardConformance = {
 }
 
 const CONFORMANCE: Record<Backend, StandardConformance> = {
-  'claude-code': claudeCodeConformance
+  'claude': claudeConformance
 }
 
 export function conformanceOf(engine: Backend): StandardConformance {

@@ -32,7 +32,7 @@ export interface MockCtx {
   requestApproval?: (action: PermissionAction) => Promise<ApprovalResolution>
 }
 
-const PROVIDER = 'claude-code' as const
+const PROVIDER = 'claude' as const
 const MODEL = 'mock-sonnet'
 const CONTEXT_WINDOW = 200_000
 

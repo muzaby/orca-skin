@@ -40,7 +40,7 @@
 |---|---|---|---|---|
 | `orca:backend:list` | R→M (invoke) | — | `BackendListResult` = `{ backends: { id: Backend; installed: boolean; version?: string; capabilities?: ProviderDescriptor }[]; active?: Backend }` | 등록된 어댑터의 설치 상태 + 활성 백엔드 + 능력 서술자(`capabilities`, computed-on-the-fly — provider-runtime.md §4/§15). 신규 채널 아님(기존 페이로드 비파괴 확장). |
 
-> **예약 (현재 미노출)**: `orca:backend:select` — 단일 백엔드 (`claude-code`) 라 호출자가 없어 preload 에서 의도적으로 제외. opencode 어댑터 활성화 PR 에서 재노출.
+> **예약 (현재 미노출)**: `orca:backend:select` — 단일 백엔드 (`claude`) 라 호출자가 없어 preload 에서 의도적으로 제외. opencode 어댑터 활성화 PR 에서 재노출.
 
 ### 2.2-b Agent (handoff 0010)
 
@@ -52,16 +52,16 @@
 
 | 채널 | 방향 | 페이로드 | 응답 | 설명 |
 |---|---|---|---|---|
-| `orca:engine:add` | R→M (invoke) | `CreateEngineRequest` = `{ engine: 'claude-code'; provider: string; settingsJson: string }` | `EngineWriteResult` = `{ key; engine: 'claude-code'; provider }` | `sources/settings/claude-code/<provider>/settings.json` 을 원자적으로 생성한다(파생 캐시 없음 — 모델은 열거 시 settings.json 파싱). provider 중복/빈 값/허용 문자 위반은 reject. |
+| `orca:engine:add` | R→M (invoke) | `CreateEngineRequest` = `{ engine: 'claude'; provider: string; settingsJson: string }` | `EngineWriteResult` = `{ key; engine: 'claude'; provider }` | `sources/settings/claude/<provider>/settings.json` 을 원자적으로 생성한다(파생 캐시 없음 — 모델은 열거 시 settings.json 파싱). provider 중복/빈 값/허용 문자 위반은 reject. |
 | `orca:engine:update` | R→M (invoke) | `UpdateEngineRequest` = `{ key: string; settingsJson: string }` | `EngineWriteResult` | 기존 provider 의 raw settings.json 을 원자적으로 교체한다. provider rename 은 비범위(삭제+추가). |
 | `orca:engine:delete` | R→M (invoke) | `DeleteEngineRequest` = `{ key: string }` | `Promise<void>` | provider 디렉토리를 제거한다. |
-| `orca:engine:read` | R→M (invoke) | `ReadEngineRequest` = `{ key: string }` | `EngineReadResult` = `{ key; engine: 'claude-code'; provider; settingsJson }` | 편집 모달 프리필용 raw settings.json 읽기. |
+| `orca:engine:read` | R→M (invoke) | `ReadEngineRequest` = `{ key: string }` | `EngineReadResult` = `{ key; engine: 'claude'; provider; settingsJson }` | 편집 모달 프리필용 raw settings.json 읽기. |
 
 ### 2.3 Install
 
 | 채널 | 방향 | 페이로드 | 응답/스트림 | 설명 |
 |---|---|---|---|---|
-| `orca:install:start` | R→M (invoke) | `StartInstall` = `{ backend: Backend }` | `Promise<void>` (ack) | 백엔드 설치 시작. 진행 상태는 `orca:install:status` 스트림. **현재 claude-code 는 SDK `optionalDependencies` 가 binary 를 자동 해소** 하므로 즉시 `done: true` 반환. |
+| `orca:install:start` | R→M (invoke) | `StartInstall` = `{ backend: Backend }` | `Promise<void>` (ack) | 백엔드 설치 시작. 진행 상태는 `orca:install:status` 스트림. **현재 claude 는 SDK `optionalDependencies` 가 binary 를 자동 해소** 하므로 즉시 `done: true` 반환. |
 | `orca:install:status` | M→R (send) | — | `InstallStatus` = `{ step: string; progress?: number; log?: string; error?: string; done?: boolean }` | 설치 라인별 진행 이벤트. |
 
 ### 2.4 Settings
@@ -93,7 +93,7 @@ interface Settings {
 |---|---|---|---|---|
 | `orca:skills:list` | R→M (invoke) | — | `SkillInfo[]` = `{ name: string; description: string; argumentHint?: string }[]` | 부팅 시 1회 스캔된 SKILL.md 카탈로그. **핫리로드 없음** (재시작 필요). |
 
-> **현재 스캔 경로 (claude-code 전용)**: `~/.claude/skills/<name>/SKILL.md` + `<cwd>/.claude/skills/<name>/SKILL.md`. **Future**: 어댑터별 스캔 경로 분리 — [arch/backend/adapters.md](arch/backend/adapters.md) / §7 참조.
+> **현재 스캔 경로 (claude 전용)**: `~/.claude/skills/<name>/SKILL.md` + `<cwd>/.claude/skills/<name>/SKILL.md`. **Future**: 어댑터별 스캔 경로 분리 — [arch/backend/adapters.md](arch/backend/adapters.md) / §7 참조.
 
 ### 2.6 Files
 
@@ -227,7 +227,7 @@ interface CostSummary {
 
 ### 2.13 Debug (dev 전용 — MockAdapter 하네스)
 
-LLM API 없이 renderer 의 스트리밍·사고 블록·도구 카드·권한 승인 카드·에러·컨텍스트 도넛을 라이브 디버깅하기 위한 **dev 전용** 채널. main 의 `MockAdapter`(`adapters/mock.ts`, `id='claude-code'` 위장)가 라우터의 권한 합성·DB 영속화·IPC 송신 경로를 실트래픽과 동형으로 타며, renderer 의 `features/debug` 패널(`FloatingPanel`)이 단일 호출자다.
+LLM API 없이 renderer 의 스트리밍·사고 블록·도구 카드·권한 승인 카드·에러·컨텍스트 도넛을 라이브 디버깅하기 위한 **dev 전용** 채널. main 의 `MockAdapter`(`adapters/mock.ts`, `id='claude'` 위장)가 라우터의 권한 합성·DB 영속화·IPC 송신 경로를 실트래픽과 동형으로 타며, renderer 의 `features/debug` 패널(`FloatingPanel`)이 단일 호출자다.
 
 > **prod 안전성**: `debug` 도메인은 `import.meta.env.DEV` 게이트 안에서만 `ipcMain.handle` 로 등록되고 MockAdapter 도 그때만 인스턴스화된다(빌드타임 상수라 prod 번들에서 dead-code 제거 — `out/main` 에 핸들러 등록 코드 부재, `out/renderer` 에 DebugPanel 미포함). preload 는 `window.orca.debug` 를 상시 노출하나, prod 에선 main 핸들러가 없어 invoke 가 무효다. mock 모드 상태(`debugMock`)는 **비영속** — 재시작 시 OFF.
 
@@ -281,7 +281,7 @@ LLM API 없이 renderer 의 스트리밍·사고 블록·도구 카드·권한 �
 | category | 의미 | 발생 위치 | retryable 기본 |
 |---|---|---|---|
 | `provider_connection_error` | 백엔드 바이너리 부재 · 서버 다운 · 활성 백엔드 없음 · 같은 세션 중복 send | 어댑터 부팅 · chat send | true |
-| `auth_error` | API key 무효/만료 (재로그인 모달 분기 — AuthExpiredModal) | claude-code 어댑터 | false |
+| `auth_error` | API key 무효/만료 (재로그인 모달 분기 — AuthExpiredModal) | claude 어댑터 | false |
 | `permission_denied` | 사용자 deny / policy deny | 권한 게이트 | false |
 | `tool_execution_error` | shell exit≠0 · 파일 read 실패 | 도구 실행 | false |
 | `stream_error` | SSE 끊김 · iterator 오류 | 어댑터 스트림 | true |

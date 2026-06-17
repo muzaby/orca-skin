@@ -185,7 +185,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           return {
             ...state,
             sessionId: ev.sessionId,
-            backend: 'claude-code',
+            backend: 'claude',
             cwd: ev.patch.cwd ?? state.cwd,
             pendingProjectId: null
           }

@@ -1,10 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { ClaudeCodeAdapter } from './claude-code'
+import { ClaudeAdapter } from './claude'
 import { CLAUDE_DESCRIPTOR } from '../capabilities/claude-probe'
 
-const adapter = new ClaudeCodeAdapter(() => () => undefined)
+const adapter = new ClaudeAdapter(() => () => undefined)
 
-describe('ClaudeCodeAdapter.describe', () => {
+describe('ClaudeAdapter.describe', () => {
   it('describe() 는 단일 출처 CLAUDE_DESCRIPTOR 를 반환(drift 없음)', () => {
     expect(adapter.describe()).toBe(CLAUDE_DESCRIPTOR)
   })

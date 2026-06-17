@@ -67,7 +67,7 @@ export function AgentEnvironmentView(): React.JSX.Element {
 
       {agents.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border-strong bg-panel px-4 py-6 text-[13px] text-ink2">
-          등록된 provider 가 없습니다. 엔진 추가 버튼으로 claude-code provider 를 생성하세요.
+          등록된 provider 가 없습니다. 엔진 추가 버튼으로 claude provider 를 생성하세요.
         </div>
       ) : (
         <div className="flex flex-col gap-2.5">
@@ -89,7 +89,7 @@ export function AgentEnvironmentView(): React.JSX.Element {
           busy={state.busy}
           onClose={() => setModal(null)}
           onSubmit={async ({ provider, settingsJson }) => {
-            await add({ engine: 'claude-code', provider, settingsJson })
+            await add({ engine: 'claude', provider, settingsJson })
             setModal(null)
           }}
         />

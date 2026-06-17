@@ -16,7 +16,7 @@ export interface ParsedProviderKey {
   provider?: string
 }
 
-// 합성 키 → {adapter, provider}. adapter id 자체가 하이픈을 포함하므로(claude-code) 알려진
+// 합성 키 → {adapter, provider}. provider 나 future adapter id 가 하이픈을 포함할 수 있으므로 알려진
 // adapter 목록과의 최장 접두 매칭으로 분해한다. 매칭 실패(미지 adapter)는 undefined —
 // 구 데이터/오타 키는 호출자가 기본 provider 로 폴백한다.
 export function parseProviderKey(

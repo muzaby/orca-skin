@@ -1,5 +1,5 @@
 // Extension 계층 — 백엔드 중립 확장(Extension) 타입. 어댑터 위에 세우는 "Orca 범용 데이터 계층"의
-// 입력 데이터 모델이다 (설계검토 §9 1단계). 어떤 백엔드(claude-code / opencode …)로 가든 동일한
+// 입력 데이터 모델이다 (설계검토 §9 1단계). 어떤 백엔드(claude / opencode …)로 가든 동일한
 // 형태로 조립되고, 각 어댑터가 자기 형식으로 어댑트(adapt)한다.
 //
 // ※ 어휘 주의: 여기의 "Extension"(주입 묶음, 앱→백엔드, 세션 전)과 capabilities/ 의
@@ -42,13 +42,13 @@ export interface TurnRequest {
   env?: Record<string, string>
   // main(ProviderSettingsService)이 해석 완료한 provider settings blob (handoff 0014).
   // 어댑터-네이티브 스키마 그대로이며 어댑터는 자기 query 옵션에 꽂기만 한다
-  // (claude-code = options.settings flag + SDK 기본 settingSources 상속 — adaptSettings).
+  // (claude = options.settings flag + SDK 기본 settingSources 상속 — adaptSettings).
   providerSettings?: ResolvedProviderSettings
   // 해석 완료된 백엔드 모델 이름. family/provider key 어휘는 config 계층에서 소비한다.
   model?: string
   // 백엔드 중립 권한 승인 콜백 — ask_question·plan_review·tool_approval 세 종류를 단일
   // PermissionAction 으로 받아 ApprovalResolution(allow/deny 2분기)을 돌려준다. 어댑터가
-  // 자기 SDK 의 권한 메커니즘(claude-code 는 canUseTool)으로 어댑트한다. router 가 broker
+  // 자기 SDK 의 권한 메커니즘(claude 는 canUseTool)으로 어댑트한다. router 가 broker
   // 에 바인딩해 주입하며, 미주입(opencode 등)이면 어댑터가 현행 자동 통과 동작을 유지.
   requestApproval?: (action: PermissionAction) => Promise<ApprovalResolution>
   // 이 턴의 권한 모드 (정규화 6종 — Composer 모드 버튼). 어댑터가 toClaudePermissionMode 로

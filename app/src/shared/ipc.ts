@@ -52,7 +52,7 @@ export const CHANNELS = {
   engineRead: 'orca:engine:read'
 } as const
 
-// dev 전용 MockAdapter 시나리오. ProviderId/Backend 에 mock 을 추가하지 않고 claude-code 로
+// dev 전용 MockAdapter 시나리오. ProviderId/Backend 에 mock 을 추가하지 않고 claude 로
 // 위장해 실제 라우터·영속화·renderer reducer 경로를 그대로 검증한다.
 export const MOCK_SCENARIO_IDS = [
   'text_streaming',
@@ -95,8 +95,8 @@ export interface SessionTitleEvent {
   title: string
 }
 
-// Backend (Phase 2: claude-code 단일. opencode 는 future work)
-export type Backend = 'claude-code'
+// Backend (Phase 2: claude 단일. opencode 는 future work)
+export type Backend = 'claude'
 
 export type EffortLevel = 'low' | 'medium' | 'high' | 'xhigh' | 'max'
 
@@ -117,7 +117,7 @@ export interface AgentEnvironment {
 }
 
 export interface CreateEngineRequest {
-  engine: 'claude-code'
+  engine: 'claude'
   provider: string
   settingsJson: string
 }
@@ -137,14 +137,14 @@ export interface ReadEngineRequest {
 
 export interface EngineReadResult {
   key: string
-  engine: 'claude-code'
+  engine: 'claude'
   provider: string
   settingsJson: string
 }
 
 export interface EngineWriteResult {
   key: string
-  engine: 'claude-code'
+  engine: 'claude'
   provider: string
 }
 
@@ -182,7 +182,7 @@ export interface ClassifiedError {
 // claude 어댑터는 SDK 메시지를 claudeToNormalized(adapters/claude-map.ts)로 이 타입에 직접
 // 정규화한다. OpenCode 도 같은 union 으로 정규화(seam, provider 무관).
 // 권한 요청은 permission.requested 1급 이벤트(origin 으로 agent/app 구분, action.kind 로 종류 구분).
-export type ProviderId = 'claude-code' | 'opencode'
+export type ProviderId = 'claude' | 'opencode'
 
 // 권한 요청의 출처. agent = 에이전트 도구 발화(AskUserQuestion·ExitPlanMode·일반 도구),
 // app = 앱이 합성한 명령(slash command 등 — AppCommandPolicy 가 분류).
@@ -340,7 +340,7 @@ export type AskResult =
   | { type: 'answered'; answers: Record<string, string | string[]>; response?: string }
   | { type: 'skipped' }
 
-// plan 모드 계획 검토 (백엔드 중립). 어댑터가 자기 plan-승인 메커니즘(claude-code 는
+// plan 모드 계획 검토 (백엔드 중립). 어댑터가 자기 plan-승인 메커니즘(claude 는
 // ExitPlanMode/canUseTool)에서 이 형태로 매핑한다 — 렌더러·IPC·reducer 는 SDK 를 모른다.
 export interface PlanReviewRequest {
   requestId: string

@@ -12,7 +12,7 @@ describe('SendChatMessageSchema — permissionMode (정규화 6종)', () => {
     expect(
       SendChatMessageSchema.safeParse({
         ...base,
-        providerKey: 'claude-code-bedrock',
+        providerKey: 'claude-bedrock',
         modelFamily: 'sonnet'
       }).success
     ).toBe(true)

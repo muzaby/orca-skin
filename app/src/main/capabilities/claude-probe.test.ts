@@ -2,9 +2,9 @@ import { describe, it, expect } from 'vitest'
 import { CLAUDE_DESCRIPTOR, claudeCapabilityProbe } from './claude-probe'
 
 describe('claude capability probe', () => {
-  it('provider id 는 claude-code', () => {
-    expect(CLAUDE_DESCRIPTOR.provider).toBe('claude-code')
-    expect(claudeCapabilityProbe.provider).toBe('claude-code')
+  it('provider id 는 claude', () => {
+    expect(CLAUDE_DESCRIPTOR.provider).toBe('claude')
+    expect(claudeCapabilityProbe.provider).toBe('claude')
   })
 
   it('discover() 는 정적 서술자를 반환', async () => {

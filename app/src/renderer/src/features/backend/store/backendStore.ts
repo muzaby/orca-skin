@@ -39,7 +39,7 @@ export function bootstrapBackend(): () => void {
   void backendApi.list().then((result) => {
     if (!alive) return
     setState({ list: result.backends, active: result.active ?? null, loading: false })
-    const cc = result.backends.find((b) => b.id === 'claude-code')
+    const cc = result.backends.find((b) => b.id === 'claude')
     if (cc && !cc.installed && !autoOpened) {
       autoOpened = true
       queueMicrotask(() => {
@@ -69,11 +69,11 @@ export function useBackendCapabilities(): ProviderDescriptor | null {
 
 export function useBackendLabel(): string {
   return useBackendStore((s) => {
-    const cc = s.list.find((b) => b.id === 'claude-code')
+    const cc = s.list.find((b) => b.id === 'claude')
     return cc?.version ? `Claude Code · ${cc.version}` : 'Claude Code'
   })
 }
 
 export function useClaudeCodeInstalled(): boolean {
-  return useBackendStore((s) => s.list.find((b) => b.id === 'claude-code')?.installed === true)
+  return useBackendStore((s) => s.list.find((b) => b.id === 'claude')?.installed === true)
 }

@@ -35,11 +35,11 @@ describe('chatReducer — 모델 선택', () => {
   it('세션 전에는 provider/model 선택을 자유롭게 갱신한다', () => {
     const s = chatReducer(initialChatState, {
       type: 'SET_MODEL',
-      providerKey: 'claude-code-bedrock',
+      providerKey: 'claude-bedrock',
       modelFamily: 'sonnet',
-      adapter: 'claude-code'
+      adapter: 'claude'
     })
-    expect(s.providerKey).toBe('claude-code-bedrock')
+    expect(s.providerKey).toBe('claude-bedrock')
     expect(s.modelFamily).toBe('sonnet')
   })
 
@@ -48,9 +48,9 @@ describe('chatReducer — 모델 선택', () => {
       type: 'LOAD_SESSION',
       session: {
         id: 's1',
-        backend: 'claude-code',
+        backend: 'claude',
         title: null,
-        providerKey: 'claude-code',
+        providerKey: 'claude',
         messages: [{ role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'hi' }] }]
       }
     })
@@ -60,24 +60,24 @@ describe('chatReducer — 모델 선택', () => {
       modelFamily: 'gpt',
       adapter: 'opencode'
     })
-    expect(blocked.providerKey).toBe('claude-code')
+    expect(blocked.providerKey).toBe('claude')
 
     const switched = chatReducer(loaded, {
       type: 'SET_MODEL',
-      providerKey: 'claude-code-bedrock',
+      providerKey: 'claude-bedrock',
       modelFamily: 'sonnet',
-      adapter: 'claude-code'
+      adapter: 'claude'
     })
-    expect(switched.providerKey).toBe('claude-code-bedrock')
+    expect(switched.providerKey).toBe('claude-bedrock')
     expect(switched.modelFamily).toBe('sonnet')
   })
 
   it('NEW_CHAT 는 모델 선택을 리셋하고 LOAD_SESSION 은 providerKey 를 복원한다', () => {
     const selected = chatReducer(initialChatState, {
       type: 'SET_MODEL',
-      providerKey: 'claude-code-bedrock',
+      providerKey: 'claude-bedrock',
       modelFamily: 'sonnet',
-      adapter: 'claude-code'
+      adapter: 'claude'
     })
     expect(chatReducer(selected, { type: 'NEW_CHAT' }).providerKey).toBeNull()
 
@@ -85,13 +85,13 @@ describe('chatReducer — 모델 선택', () => {
       type: 'LOAD_SESSION',
       session: {
         id: 's1',
-        backend: 'claude-code',
+        backend: 'claude',
         title: null,
-        providerKey: 'claude-code-bedrock',
+        providerKey: 'claude-bedrock',
         messages: [{ role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'hi' }] }]
       }
     })
-    expect(loaded.providerKey).toBe('claude-code-bedrock')
+    expect(loaded.providerKey).toBe('claude-bedrock')
     expect(loaded.modelFamily).toBeNull()
   })
 })

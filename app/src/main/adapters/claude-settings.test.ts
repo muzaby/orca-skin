@@ -26,13 +26,13 @@ function args(
   overrides: Partial<Parameters<typeof loadClaudeProviderSettings>[0]> = {}
 ): Parameters<typeof loadClaudeProviderSettings>[0] {
   return {
-    providerKey: 'claude-code-anthropic',
+    providerKey: 'claude-anthropic',
     provider: 'anthropic',
     sourcesSettingsFile: join(
       root,
       'sources',
       'settings',
-      'claude-code',
+      'claude',
       'anthropic',
       'settings.json'
     ),
@@ -93,7 +93,7 @@ describe('loadClaudeProviderSettings — sources flat read', () => {
       args({
         secrets: {
           get: (name: string) =>
-            name === 'provider:claude-code-anthropic' ? 'secret-token' : undefined
+            name === 'provider:claude-anthropic' ? 'secret-token' : undefined
         }
       })
     )
