@@ -6,6 +6,10 @@ export interface SecretReader {
   get(name: string): string | undefined
 }
 
+// provider 디렉토리 이름 = providerKey(`${adapter}-${provider}`)의 구성 요소. 영숫자·_·- 만 허용.
+// MCP 서버 키도 동일 제약(deploy/deployer.ts 가 재사용).
+export const PROVIDER_NAME_RE = /^[A-Za-z0-9_-]+$/
+
 export function providerKeyOf(adapter: string, provider: string): string {
   const normalized = provider.trim().toLowerCase()
   return normalized ? `${adapter}-${normalized}` : adapter

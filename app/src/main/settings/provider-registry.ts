@@ -5,7 +5,7 @@
 import { readdirSync, readFileSync, type Dirent } from 'node:fs'
 import { join } from 'node:path'
 import { orcaConfigDir } from '../config/paths'
-import { providerKeyOf } from '../config/provider-key'
+import { providerKeyOf, PROVIDER_NAME_RE } from '../config/provider-key'
 import { parseClaudeModels, type ParsedModel } from './claude-model-parser'
 
 // 열거된 provider 1건 (디렉토리 = SSOT, 모델은 settings.json 파싱 결과).
@@ -15,8 +15,6 @@ export interface ProviderEntry {
   provider: string
   models: ParsedModel[]
 }
-
-const PROVIDER_NAME_RE = /^[A-Za-z0-9_-]+$/
 
 // provider 의 settings.json 을 관용 파싱 → 모델 목록. 파일 부재/손상/비객체는 빈 설정({})으로
 // 취급해 provider 가 여전히 기본 alias 목록으로 열거되게 한다(디렉토리 = 열거 SSOT 불변식).

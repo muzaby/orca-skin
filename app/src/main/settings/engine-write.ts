@@ -1,11 +1,10 @@
 import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
-import { providerKeyOf, parseProviderKey } from '../config/provider-key'
+import { providerKeyOf, parseProviderKey, PROVIDER_NAME_RE } from '../config/provider-key'
 import { orcaConfigDir } from '../config/paths'
 import { writeJsonAtomic } from '../deploy/scaffold'
 
 const SUPPORTED_ENGINE = 'claude'
-const PROVIDER_NAME_RE = /^[A-Za-z0-9_-]+$/
 
 export interface EngineReadResult {
   key: string

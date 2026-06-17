@@ -14,7 +14,9 @@ export interface ExpandResult {
   dropped: { name: string; reason: string }[]
 }
 
-const VAR_RE = /\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g
+// ${VAR} 플레이스홀더 패턴 (global — replace 용). 단일 스캔이 필요한 곳(store.ts)은
+// .source 로 비-global 사본을 만들어 무상태 .exec 에 쓴다.
+export const VAR_RE = /\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g
 
 // 한 문자열 안의 모든 ${VAR} 치환. 미해결 변수는 missing 에 모은다.
 export function expandVars(

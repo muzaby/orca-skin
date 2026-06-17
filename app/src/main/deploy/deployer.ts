@@ -27,6 +27,7 @@ import {
 import { join } from 'node:path'
 import type { Backend } from '../../shared/ipc'
 import { orcaConfigDir } from '../config/paths'
+import { PROVIDER_NAME_RE } from '../config/provider-key'
 
 export interface DeployOptions {
   dryRun?: boolean
@@ -40,9 +41,8 @@ export interface DeployResult {
   validation: { ok: boolean; errors: string[] }
 }
 
-const MCP_KEY_RE = /^[A-Za-z0-9_-]+$/
-// provider 디렉토리 이름 = providerKey(`${adapter}-${provider}`)의 구성 요소 — MCP 키와 동일 제약.
-const PROVIDER_NAME_RE = /^[A-Za-z0-9_-]+$/
+// MCP 서버 키 = provider 디렉토리 이름과 동일 제약(영숫자·_·-) — config/provider-key 의 정본 재사용.
+const MCP_KEY_RE = PROVIDER_NAME_RE
 
 // MCP 서버 키 이름 검증(잘못된 키는 엔진이 조용히 무시할 수 있으므로). 파일 부재/손상은 ok(서버 0).
 function validateMcp(mcpJson: string): { ok: boolean; errors: string[] } {

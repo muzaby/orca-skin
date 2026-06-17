@@ -1,11 +1,9 @@
 // main 프로세스 전역 orca.json 캐시. 부팅 시 loadOrcaConfig() 로 1회 로드하고,
 // 미로드 상태의 getOrcaConfig()/appEnv() 호출은 lazy load 로 동일하게 동작한다.
 
-import { ensureOrcaFile, readOrcaFile, type OrcaConfig } from './orca-file'
+import { DEFAULT_ORCA_CONFIG, ensureOrcaFile, readOrcaFile, type OrcaConfig } from './orca-file'
 
 let cached: OrcaConfig | null = null
-
-const DEFAULT_ORCA_CONFIG: OrcaConfig = { version: 1 }
 
 function warnAll(warnings: string[]): void {
   for (const warning of warnings) console.warn(`[orca-config] ${warning}`)

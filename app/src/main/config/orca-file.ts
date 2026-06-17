@@ -25,7 +25,7 @@ export interface ParseOrcaFileResult {
   warnings: string[]
 }
 
-const DEFAULT_ORCA_CONFIG: OrcaConfig = { version: 1 }
+export const DEFAULT_ORCA_CONFIG: OrcaConfig = { version: 1 }
 
 function issueSummary(error: z.ZodError): string {
   return error.issues

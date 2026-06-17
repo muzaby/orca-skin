@@ -35,6 +35,9 @@ export interface MapContext {
 // 어댑터 예외 → error 분류/이벤트는 runtime-errors/claude-classifier.ts 로 이전됐다
 // (ErrorClassifier, provider-runtime.md §6). 본 파일은 SDKMessage→정규화만 담당한다.
 
+// usage 필드 타입가드 — number 가 아니면 undefined(누락 의미값은 덮어쓰지 않게).
+const num = (v: unknown): number | undefined => (typeof v === 'number' ? v : undefined)
+
 export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): NormalizedEvent[] {
   // SDKSystemMessage(subtype:'init') → session.updated (+ ctx.sessionId 갱신)
   if (msg.type === 'system' && (msg as { subtype?: string }).subtype === 'init') {
@@ -94,7 +97,6 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
     // num 가드로 좁혀 읽는다. 의미값이 하나라도 있을 때만 덮어쓴다.
     const u = m?.usage
     if (u && typeof u === 'object') {
-      const num = (v: unknown): number | undefined => (typeof v === 'number' ? v : undefined)
       const snapshot: NonNullable<MapContext['lastAssistantUsage']> = {}
       const it = num(u.input_tokens)
       const ot = num(u.output_tokens)
@@ -244,7 +246,6 @@ function normalizeResultTelemetry(r: {
     }
   >
 }): ProviderReportedTelemetry | undefined {
-  const num = (v: unknown): number | undefined => (typeof v === 'number' ? v : undefined)
   const out: ProviderReportedTelemetry = {}
 
   const inputTokens = num(r.usage?.input_tokens)
