@@ -54,7 +54,7 @@ export type NormalizedHookHandler = (
 export interface NormalizedHookSet {
   normalized: Partial<Record<NormalizedHookEvent, NormalizedHookHandler[]>>
   // 정규화하지 않은 백엔드 종속 Hook (anchor — UI-facing supportedBackends 메타는 이번 스코프 제외).
-  backendSpecific?: { 'claude'?: unknown; opencode?: unknown }
+  backendSpecific?: { claude?: unknown; opencode?: unknown }
 }
 
 // 결정 우선순위: deny > ask > allow (§6.3). 동률(미설정)은 0.

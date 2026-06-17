@@ -202,7 +202,7 @@ describe('ProviderSettingsService', () => {
       splitProviderSettings({ marker: args.providerKey }, { A: 'expanded' })
     )
     const svc = new ProviderSettingsService(
-      { 'claude': loader },
+      { claude: loader },
       () => () => undefined,
       undefined,
       root
@@ -224,7 +224,7 @@ describe('ProviderSettingsService', () => {
     utimesSync(file, new Date(1000), new Date(1000))
     const loader = vi.fn(async () => splitProviderSettings({}, {}))
     const svc = new ProviderSettingsService(
-      { 'claude': loader },
+      { claude: loader },
       () => () => undefined,
       undefined,
       root
@@ -249,7 +249,7 @@ describe('ProviderSettingsService', () => {
       throw new Error('boom')
     })
     const svc = new ProviderSettingsService(
-      { 'claude': failing },
+      { claude: failing },
       () => () => undefined,
       undefined,
       root
