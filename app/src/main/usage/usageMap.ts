@@ -1,4 +1,5 @@
 import type { ProviderReportedTelemetry, TelemetryModelUsage } from '../../shared/ipc'
+import { ifPresent } from '../../shared/obj'
 import type { TurnModelUsageRow, TurnUsageRow } from '../db/types'
 
 // 컨텍스트 점유(input + cache_read + cache_creation)가 1 이상인지 — turn_usage 적재 가드.
@@ -16,31 +17,23 @@ export function usageRowToTelemetry(
 ): ProviderReportedTelemetry {
   const modelUsage = modelRows.reduce<Record<string, TelemetryModelUsage>>((acc, row) => {
     acc[row.model] = {
-      ...(row.input_tokens != null ? { inputTokens: row.input_tokens } : {}),
-      ...(row.output_tokens != null ? { outputTokens: row.output_tokens } : {}),
-      ...(row.cache_read_input_tokens != null
-        ? { cacheReadTokens: row.cache_read_input_tokens }
-        : {}),
-      ...(row.cache_creation_input_tokens != null
-        ? { cacheCreationTokens: row.cache_creation_input_tokens }
-        : {}),
-      ...(row.cost_usd != null ? { costUsd: row.cost_usd } : {})
+      ...ifPresent('inputTokens', row.input_tokens),
+      ...ifPresent('outputTokens', row.output_tokens),
+      ...ifPresent('cacheReadTokens', row.cache_read_input_tokens),
+      ...ifPresent('cacheCreationTokens', row.cache_creation_input_tokens),
+      ...ifPresent('costUsd', row.cost_usd)
     }
     return acc
   }, {})
 
   const primary = primaryModel(modelRows)
   return {
-    ...(primary ? { model: primary } : {}),
-    ...(turn.input_tokens != null ? { inputTokens: turn.input_tokens } : {}),
-    ...(turn.output_tokens != null ? { outputTokens: turn.output_tokens } : {}),
-    ...(turn.cache_read_input_tokens != null
-      ? { cacheReadTokens: turn.cache_read_input_tokens }
-      : {}),
-    ...(turn.cache_creation_input_tokens != null
-      ? { cacheCreationTokens: turn.cache_creation_input_tokens }
-      : {}),
-    ...(turn.total_cost_usd != null ? { costUsd: turn.total_cost_usd } : {}),
+    ...ifPresent('model', primary),
+    ...ifPresent('inputTokens', turn.input_tokens),
+    ...ifPresent('outputTokens', turn.output_tokens),
+    ...ifPresent('cacheReadTokens', turn.cache_read_input_tokens),
+    ...ifPresent('cacheCreationTokens', turn.cache_creation_input_tokens),
+    ...ifPresent('costUsd', turn.total_cost_usd),
     ...(Object.keys(modelUsage).length > 0 ? { modelUsage } : {})
   }
 }

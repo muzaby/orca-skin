@@ -1,7 +1,13 @@
 import { randomUUID } from 'node:crypto'
-import type { DebugMockState, InstallStatus, ProviderDescriptor } from '../../shared/ipc'
+import type {
+  ClassifiedError,
+  DebugMockState,
+  InstallStatus,
+  ProviderDescriptor
+} from '../../shared/ipc'
 import type { TurnRequest } from '../extensions/types'
 import { CLAUDE_DESCRIPTOR } from '../capabilities/claude-probe'
+import { claudeErrorClassifier } from '../runtime-errors/claude-classifier'
 import type { LiveTurn, SessionAdapter } from './types'
 import { runScenario, SCENARIOS } from './mock-scenarios'
 
@@ -24,6 +30,10 @@ export class MockAdapter implements SessionAdapter {
 
   async complete(): Promise<string> {
     return 'Mock 자동 제목'
+  }
+
+  classifyError(error: unknown, phase: string): ClassifiedError {
+    return claudeErrorClassifier.classify(error, { provider: this.id, phase })
   }
 
   sendMessage(req: TurnRequest): LiveTurn {

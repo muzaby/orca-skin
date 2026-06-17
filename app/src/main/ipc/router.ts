@@ -1,9 +1,9 @@
 // IpcRouter — main 측 컴포지션 루트. 의존성 생성 + 부팅 시퀀스 + 핸들러 등록 위임만 담당한다.
 // 도메인 핸들러는 ipc/handlers/, chat 턴 파이프라인은 ipc/chat/ 참조 (handoff 0011 분해).
 
-import { app } from 'electron'
+import { app, webContents } from 'electron'
 import { is } from '@electron-toolkit/utils'
-import type { DebugMockState, SkillInfo } from '../../shared/ipc'
+import { CHANNELS, type DebugMockState, type SkillInfo } from '../../shared/ipc'
 import { AdapterRegistry } from '../adapters/registry'
 import { MockAdapter } from '../adapters/mock'
 import { Installer } from '../installer'
@@ -55,7 +55,12 @@ export class IpcRouter {
 
   async start(): Promise<void> {
     const db = initDb()
-    const cost = new CostTracker(db)
+    // 비용 요약 IPC 송출 배선 — domain(CostTracker)은 electron 비의존, 송출은 여기(컴포지션 루트)서.
+    const cost = new CostTracker(db, (summary) => {
+      for (const wc of webContents.getAllWebContents()) {
+        if (!wc.isDestroyed()) wc.send(CHANNELS.costSummaryEvent, summary)
+      }
+    })
     cost.recompute()
     // 빌더는 db 인스턴스가 필요해 여기서 생성. skills 는 lazy getter 라 스캔
     // 완료 전에 만들어도 무방 — 턴 실행 시점에 최신 skillsCache 를 읽는다.
