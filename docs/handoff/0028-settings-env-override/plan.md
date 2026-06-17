@@ -96,7 +96,7 @@
 - [x] 테스트 3종 갱신(음성 타입 테스트 제거 포함)
 - [x] 문서 3종(security/TRD/standardization) 갱신
 - [x] 게이트 4종 통과
-- [ ] INDEX/PHASES 갱신 + 구현 커밋(trailer) push
+- [x] INDEX/PHASES 갱신 + 구현 커밋(trailer) push
 
 ## [구현] 보고
 
@@ -107,4 +107,4 @@
 | 게이트 결과 | lint ✅ / typecheck ✅(node·web·test 전부) / test ✅ — 영향 3파일 **36/36**, 전체 387/396(실패 9건은 `db/queries.test.ts` better-sqlite3 Node ABI 환경 이슈, 본 변경 무관 — handoff 0019 dual-ABI 계열) |
 | 잔존 참조 grep | `splitProviderSettings\|ArgvSafeSettings\|SubprocessEnv\|envRecordOf\|providerSettings\?\.env` → **0건** (`app/src/**/*.ts`) |
 | 블로커 / 역질문 | 없음 |
-| 대상 커밋 | (impl 커밋 — push 후 INDEX 기재) |
+| 대상 커밋 | `3bf78bc` |
