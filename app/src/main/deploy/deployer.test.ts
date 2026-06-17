@@ -56,13 +56,11 @@ describe('deploy', () => {
     seedSources()
     seedProviderSettings('anthropic', '{"env":{"A":"1"}}')
     seedProviderSettings('bedrock', '{"env":{"CLAUDE_CODE_USE_BEDROCK":"1"}}')
-    writeFile(join(root, 'sources', 'settings', 'claude-code', 'meta.json'), '{}')
 
     const r = deploy('claude-code', {}, root)
     expect(r.validation.ok).toBe(true)
     expect(existsSync(join(dist(), 'anthropic'))).toBe(false)
     expect(existsSync(join(dist(), 'bedrock'))).toBe(false)
-    expect(existsSync(join(dist(), 'meta.json'))).toBe(false)
   })
 
   it('settings.json 파싱 실패는 해당 provider 만 에러로 보고하고 나머지는 배포한다', () => {

@@ -8,7 +8,7 @@ export interface ModelSelection {
 }
 
 export function modelKey(model: AgentModelView): string {
-  return model.family ?? model.name
+  return model.alias
 }
 
 export function defaultSelection(
@@ -18,7 +18,7 @@ export function defaultSelection(
   for (const agent of agents) {
     if (!agent.supported) continue
     if (sessionBackend && agent.adapter !== sessionBackend) continue
-    const model = agent.models.find((m) => m.default) ?? agent.models[0]
+    const model = agent.models.find((m) => m.isDefault) ?? agent.models[0]
     return {
       providerKey: agent.key,
       modelFamily: model ? modelKey(model) : null,

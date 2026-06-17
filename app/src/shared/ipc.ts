@@ -101,9 +101,11 @@ export type Backend = 'claude-code'
 export type EffortLevel = 'low' | 'medium' | 'high' | 'xhigh' | 'max'
 
 export interface AgentModelView {
-  name: string
-  family?: string
-  default?: boolean
+  alias: string
+  model: string | null
+  isCustom: boolean
+  oneMillionContext: boolean
+  isDefault: boolean
 }
 
 export interface AgentEnvironment {
@@ -144,7 +146,6 @@ export interface EngineWriteResult {
   key: string
   engine: 'claude-code'
   provider: string
-  models: AgentModelView[]
 }
 
 // 에러 분류 (provider-runtime.md §6 정본). 와이어 error 이벤트는 8 category + retryable 로

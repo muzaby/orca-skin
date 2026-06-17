@@ -7,7 +7,6 @@
 //   skills : sources/skills → dist/<engine>/.claude/skills/ 로 **복사**(SDK 표준 경로 거울).
 //   mcp : sources/mcp/mcp.json → dist/<engine>/.mcp.json 으로 **복사**(${VAR} placeholder 보존) + 키 검증.
 //   agents/commands/hooks/plugin/settings : engine-specific 또는 flag 주입 자산이므로 dist 로 배포하지 않는다.
-//              meta.json(어댑터당 1개, Orca 메타)은 sources 에서 직접 읽는다.
 //
 // dist/<engine> 는 편집 대상이 아니다. 무단 덮어쓰기를 막기 위해 기록 전 항상 백업한다(.bak 1개 롤링).
 // 레이아웃은 paths.ts 의 sources*/dist* 헬퍼와 일치해야 한다 — 본 함수는 테스트 용이성을 위해 root 를

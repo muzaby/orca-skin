@@ -7,7 +7,7 @@
 //   ├── orca.json                       # 앱 전역 설정(env 만 — agents 는 handoff 0014 에서 제거).
 //   ├── sources/                        # 사람이 편집하는 단일 원천 (instructions/AGENTS.md · skills ·
 //   │   ├── mcp/mcp.json                #   agents · commands · mcp/mcp.json · hooks/<engine> ·
-//   │   └── settings/<adapter>/         #   settings/<adapter>/<provider>/settings.json + meta.json)
+//   │   └── settings/<adapter>/         #   settings/<adapter>/<provider>/settings.json)
 //   └── dist/<engine>/                  # deployer 산출 (읽기 전용)
 //       ├── .claude/skills/             #   SDK 표준 경로 거울(설치 스테이징)
 //       └── .mcp.json                   #   ${VAR} placeholder 보존 MCP 거울
@@ -47,7 +47,7 @@ export function mcpJsonPath(): string {
 
 // provider 별 settings 정규 소스 루트. 하위 디렉토리 이름 = provider (열거 SSOT),
 // 각 디렉토리의 settings.json 은 어댑터-네이티브 스키마(claude-code = Claude settings.json).
-// 같은 레벨의 meta.json 은 어댑터당 1개로 provider 라벨/모델 목록(Orca 메타)을 담는다.
+// 모델 목록은 settings.json 을 파싱해 얻는다(claude-model-parser) — 파생 캐시 파일은 두지 않는다.
 export function sourcesSettingsDir(adapter: Backend): string {
   return join(sourcesDir(), 'settings', adapter)
 }

@@ -22,8 +22,7 @@ import { listAdapters, listProviders, type ProviderEntry } from './provider-regi
 
 // ── 배럴 re-export (0017 분해 — 기존 import 경로 무회귀) ──────────────────────────────────
 export {
-  OrcaModelSchema,
-  type OrcaModelConfig,
+  type ParsedModel,
   modelKey,
   modelNameForFamily,
   defaultModelFamily,
