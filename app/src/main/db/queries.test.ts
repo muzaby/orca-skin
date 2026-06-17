@@ -164,7 +164,7 @@ describe('DbQueries turn usage', () => {
     expect(row?.modelUsage.map((m) => m.model)).toEqual(['claude-opus-4-5', 'claude-haiku-4'])
   })
 
-  it('sumUsageSince 는 null 비용/토큰을 0으로 집계한다', () => {
+  it('sumUsageByBoundaries 는 한 스캔으로 day/week/month 를 집계하고 null 을 0 으로 본다', () => {
     const db = dbWithMigrations()
     insertSession(db)
     const q = new DbQueries(db)
@@ -189,20 +189,34 @@ describe('DbQueries turn usage', () => {
       totalCostUsd: 0.7
     })
 
-    expect(q.sumUsageSince(15)).toEqual({
+    // dayStart=15 → ts=20 행만, weekStart=5/monthStart=0 → 두 행 모두.
+    const sums = q.sumUsageByBoundaries({ dayStart: 15, weekStart: 5, monthStart: 0 })
+    expect(sums.day).toEqual({
       input_tokens: 3,
       output_tokens: 0,
       cache_creation_input_tokens: 5,
       cache_read_input_tokens: 0,
       total_cost_usd: 0.7
     })
-    expect(q.sumUsageSince(999)).toEqual({
+    expect(sums.week).toEqual({
+      input_tokens: 3,
+      output_tokens: 2,
+      cache_creation_input_tokens: 5,
+      cache_read_input_tokens: 4,
+      total_cost_usd: 0.7
+    })
+    expect(sums.month).toEqual(sums.week)
+
+    // 모든 경계가 데이터 이후면 전 구간 0.
+    const empty = q.sumUsageByBoundaries({ dayStart: 999, weekStart: 999, monthStart: 999 })
+    const zero = {
       input_tokens: 0,
       output_tokens: 0,
       cache_creation_input_tokens: 0,
       cache_read_input_tokens: 0,
       total_cost_usd: 0
-    })
+    }
+    expect(empty).toEqual({ day: zero, week: zero, month: zero })
   })
 })
 

@@ -95,6 +95,13 @@ export interface UsageSumRow {
   total_cost_usd: number
 }
 
+// 1일/주/월 경계별 사용량 합산 — 단일 테이블 스캔(조건부 SUM)으로 3구간을 한 번에 집계한다.
+export interface UsageByBoundaries {
+  day: UsageSumRow
+  week: UsageSumRow
+  month: UsageSumRow
+}
+
 export interface ProjectRow {
   id: string
   name: string

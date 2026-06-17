@@ -10,11 +10,11 @@ export class CostTracker {
   constructor(private readonly db: DbQueries) {}
 
   recompute(now = Date.now()): CostSummary {
-    const b = boundaries(now)
+    const sums = this.db.sumUsageByBoundaries(boundaries(now))
     this.summary = {
-      day: toPeriod(this.db.sumUsageSince(b.dayStart)),
-      week: toPeriod(this.db.sumUsageSince(b.weekStart)),
-      month: toPeriod(this.db.sumUsageSince(b.monthStart)),
+      day: toPeriod(sums.day),
+      week: toPeriod(sums.week),
+      month: toPeriod(sums.month),
       updatedAt: now
     }
     return this.summary

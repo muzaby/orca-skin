@@ -247,4 +247,18 @@ describe('ProviderSettingsService', () => {
     ).toBeUndefined()
     expect(await svc.resolve(entryOf('anthropic'))).toBeUndefined()
   })
+
+  it('list 캐시 — 동일 어댑터 재호출은 디스크를 다시 읽지 않고 invalidateAll 후 재열거한다', () => {
+    seedSource('anthropic', '{}')
+    const svc = new ProviderSettingsService({}, root)
+    expect(svc.list('claude').map((e) => e.provider)).toEqual(['anthropic'])
+
+    // 디스크에 provider 추가 — 캐시 히트라 list 결과는 그대로.
+    seedSource('bedrock', '{}')
+    expect(svc.list('claude').map((e) => e.provider)).toEqual(['anthropic'])
+
+    // 무효화 후 재열거.
+    svc.invalidateAll()
+    expect(svc.list('claude').map((e) => e.provider)).toEqual(['anthropic', 'bedrock'])
+  })
 })
