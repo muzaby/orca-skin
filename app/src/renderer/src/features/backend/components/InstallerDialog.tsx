@@ -45,7 +45,7 @@ export function InstallerDialog({
     setDone(false)
     setRunning(true)
     try {
-      await installApi.start('claude-code')
+      await installApi.start('claude')
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err))
       setRunning(false)

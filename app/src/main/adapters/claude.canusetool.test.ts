@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { makeCanUseTool } from './claude-code'
+import { makeCanUseTool } from './claude'
 import type { AskQuestion, ApprovalResolution, PermissionAction } from '../../shared/ipc'
 
 const ctx = { signal: new AbortController().signal } as never

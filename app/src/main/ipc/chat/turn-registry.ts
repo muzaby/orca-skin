@@ -21,7 +21,7 @@ export interface InflightTurn {
   titleSettings?: ResolvedProviderSettings
   titleEnv?: Record<string, string>
   providerKey: string | null
-  // sendMessage 호출 시점에 채워두는 사용자 입력. claude-code 의 init 이벤트가
+  // sendMessage 호출 시점에 채워두는 사용자 입력. claude 의 init 이벤트가
   // session_id 를 발급한 시점에 DB 에 user message row 로 저장한다.
   pendingUserText: string | null
   firstUserText: string

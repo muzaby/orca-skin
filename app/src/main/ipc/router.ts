@@ -73,18 +73,18 @@ export class IpcRouter {
     }
     const secretStore = new SecretStore()
     const providerSettings = new ProviderSettingsService(
-      { 'claude-code': loadClaudeProviderSettings },
+      { 'claude': loadClaudeProviderSettings },
       () => this.mcp.resolver(),
       secretStore
     )
     try {
-      const s = scaffoldProviderSettings('claude-code')
+      const s = scaffoldProviderSettings('claude')
       for (const path of s.created) console.log('[scaffold] 생성:', path)
     } catch (e) {
       console.warn('[boot] provider settings 스캐폴드 건너뜀:', e)
     }
     try {
-      const r = deploy('claude-code')
+      const r = deploy('claude')
       if (!r.validation.ok) {
         for (const err of r.validation.errors) console.warn('[deploy] 검증 경고:', err)
       }
@@ -92,7 +92,7 @@ export class IpcRouter {
     } catch (e) {
       console.warn('[boot] 배포 건너뜀:', e)
     }
-    // ClaudeCodeAdapter 가 사용하는 cwd 와 동일한 값으로 스킬 스캔.
+    // ClaudeAdapter 가 사용하는 cwd 와 동일한 값으로 스킬 스캔.
     this.skillsCache = await scanSkills(this.defaultCwd).catch(() => [])
 
     const ctx: RouterContext = {

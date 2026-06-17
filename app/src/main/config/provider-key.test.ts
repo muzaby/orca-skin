@@ -3,15 +3,15 @@ import { parseProviderKey, providerKeyOf } from './provider-key'
 
 describe('provider key helpers', () => {
   it('providerKeyOf 는 trim/lowercase 합성 키를 만들고 공백 provider 는 adapter 단독', () => {
-    expect(providerKeyOf('claude-code', '  BedRock ')).toBe('claude-code-bedrock')
-    expect(providerKeyOf('claude-code', 'anthropic')).toBe('claude-code-anthropic')
-    expect(providerKeyOf('claude-code', '   ')).toBe('claude-code')
+    expect(providerKeyOf('claude', '  BedRock ')).toBe('claude-bedrock')
+    expect(providerKeyOf('claude', 'anthropic')).toBe('claude-anthropic')
+    expect(providerKeyOf('claude', '   ')).toBe('claude')
   })
 
   it('parseProviderKey 는 알려진 adapter 최장 접두 매칭으로 분해한다 (adapter 자체 하이픈 허용)', () => {
-    const adapters = ['claude-code', 'opencode']
-    expect(parseProviderKey('claude-code-bedrock', adapters)).toEqual({
-      adapter: 'claude-code',
+    const adapters = ['claude', 'opencode']
+    expect(parseProviderKey('claude-bedrock', adapters)).toEqual({
+      adapter: 'claude',
       provider: 'bedrock'
     })
     expect(parseProviderKey('opencode-local', adapters)).toEqual({
@@ -19,19 +19,19 @@ describe('provider key helpers', () => {
       provider: 'local'
     })
     // provider 가 하이픈을 포함해도 나머지 전체가 provider 다.
-    expect(parseProviderKey('claude-code-my-gateway', adapters)).toEqual({
-      adapter: 'claude-code',
+    expect(parseProviderKey('claude-my-gateway', adapters)).toEqual({
+      adapter: 'claude',
       provider: 'my-gateway'
     })
   })
 
   it('parseProviderKey 는 adapter 단독 키와 미지/공백 키를 구분한다', () => {
-    const adapters = ['claude-code']
-    expect(parseProviderKey('claude-code', adapters)).toEqual({ adapter: 'claude-code' })
+    const adapters = ['claude']
+    expect(parseProviderKey('claude', adapters)).toEqual({ adapter: 'claude' })
     expect(parseProviderKey('unknown-bedrock', adapters)).toBeUndefined()
     expect(parseProviderKey(null, adapters)).toBeUndefined()
     expect(parseProviderKey('', adapters)).toBeUndefined()
-    // 빈 provider 조각('claude-code-')은 매칭 실패로 undefined.
-    expect(parseProviderKey('claude-code-', adapters)).toBeUndefined()
+    // 빈 provider 조각('claude-')은 매칭 실패로 undefined.
+    expect(parseProviderKey('claude-', adapters)).toBeUndefined()
   })
 })

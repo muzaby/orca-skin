@@ -38,7 +38,7 @@ function dbBefore0006(): Database.Database {
 function insertSession(db: Database.Database, id = 's1'): void {
   db.prepare(
     `INSERT INTO sessions (id, backend, title, project_id, created_at, updated_at, last_message_preview, provider_key)
-     VALUES (?, 'claude-code', NULL, NULL, 1, 1, NULL, NULL)`
+     VALUES (?, 'claude', NULL, NULL, 1, 1, NULL, NULL)`
   ).run(id)
 }
 
@@ -47,7 +47,7 @@ describe('0006_turn_usage migration', () => {
     const db = dbBefore0006()
     db.prepare(
       `INSERT INTO sessions (id, backend, title, project_id, created_at, updated_at, last_message_preview)
-       VALUES ('s1', 'claude-code', NULL, NULL, 1, 1, NULL)`
+       VALUES ('s1', 'claude', NULL, NULL, 1, 1, NULL)`
     ).run()
     db.prepare(
       `INSERT INTO usage_events
@@ -269,21 +269,21 @@ describe('DbQueries provider_key', () => {
 
     q.insertSession({
       id: 's-provider',
-      backend: 'claude-code',
+      backend: 'claude',
       title: null,
       projectId: null,
       createdAt: 10,
-      providerKey: 'claude-code-bedrock'
+      providerKey: 'claude-bedrock'
     })
     expect(db.prepare('SELECT provider_key FROM sessions WHERE id = ?').get('s-provider')).toEqual({
-      provider_key: 'claude-code-bedrock'
+      provider_key: 'claude-bedrock'
     })
 
-    q.updateSessionProviderKey('s-provider', 'claude-code', 20)
+    q.updateSessionProviderKey('s-provider', 'claude', 20)
     expect(
       db.prepare('SELECT provider_key, updated_at FROM sessions WHERE id = ?').get('s-provider')
     ).toEqual({
-      provider_key: 'claude-code',
+      provider_key: 'claude',
       updated_at: 20
     })
   })

@@ -46,7 +46,7 @@ export function mcpJsonPath(): string {
 }
 
 // provider 별 settings 정규 소스 루트. 하위 디렉토리 이름 = provider (열거 SSOT),
-// 각 디렉토리의 settings.json 은 어댑터-네이티브 스키마(claude-code = Claude settings.json).
+// 각 디렉토리의 settings.json 은 어댑터-네이티브 스키마(claude = Claude settings.json).
 // 모델 목록은 settings.json 을 파싱해 얻는다(claude-model-parser) — 파생 캐시 파일은 두지 않는다.
 export function sourcesSettingsDir(adapter: Backend): string {
   return join(sourcesDir(), 'settings', adapter)

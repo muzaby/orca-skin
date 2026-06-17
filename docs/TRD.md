@@ -11,7 +11,7 @@
 | 미정 항목 처리 | PRD §11 Open Questions 는 **여기서 결정하지 않는다.** "결정 후 결정값으로 대체" 표시만 둔다. |
 
 > **Phase 1 단일 백엔드 결정 (2026-05-13)**
-> Phase 1 MVP 는 **`claude-code` 단일 백엔드** 로 구현한다. `opencode` 어댑터는 `SessionAdapter` 인터페이스로만 자리를 남겨두고 **§10 future anchor** 로 이동했다. 따라서 §4 의 `@opencode-ai/sdk` 와 §7.2 (OpencodeAdapter) 는 *예약 사양* 으로 본다 — 코드에는 구현되어 있지 않다. AdapterRegistry 는 claude-code 만 등록한 상태에서 동작한다 (OQ7 는 자동으로 무관). 자세한 채택 표는 `docs/claude-code-spec.md §11` 도 함께 본다.
+> Phase 1 MVP 는 **`claude` 단일 백엔드** 로 구현한다. `opencode` 어댑터는 `SessionAdapter` 인터페이스로만 자리를 남겨두고 **§10 future anchor** 로 이동했다. 따라서 §4 의 `@opencode-ai/sdk` 와 §7.2 (OpencodeAdapter) 는 *예약 사양* 으로 본다 — 코드에는 구현되어 있지 않다. AdapterRegistry 는 claude 만 등록한 상태에서 동작한다 (OQ7 는 자동으로 무관). 자세한 채택 표는 `docs/claude-code-spec.md §11` 도 함께 본다.
 
 > **Preload 노출 표면 축소 결정 (2026-05-13)**
 > preload `window.orca` 는 **renderer 가 실제 호출하는 채널만** 노출한다 (principle of least privilege). Phase 2 활성 6채널: `chat:send`/`chat:event`/`chat:cancel`/`backend:list`/`install:start`/`install:status`. 이전 Q1 ("`backend:select` 유지") 결정은 본 정책 도입으로 **취소** — 단일 백엔드에서 사용처가 없으므로 main 핸들러까지 함께 제거했다. `settings:get`/`settings:set` 도 동일 사유로 Phase 2 범위 밖. 향후 사용처가 생기면 (멀티 백엔드 / 영속화) 한 PR 에서 preload+main+CHANNELS 를 함께 다시 등록한다. zod 스키마 (`shared/protocol.ts`) 는 main 전용이며, preload 는 zod 비종속의 `shared/ipc.ts` 만 import 한다 (`sandbox: true` 호환).
@@ -42,7 +42,7 @@ PRD §6.1 의 F1~F10 을 *수용 기준* 으로 구체화한다.
 | F6 | **백엔드 선택** | AdapterRegistry, BackendSelector UI | 시작 시 병렬 `isInstalled()` → (둘 다/한쪽/없음) 결과. 둘 다 설치: 사용자 선택 또는 OQ7 정책. 한쪽: 자동 선택. 없음: 인스톨러 트리거. v1에서 세션 중 전환 불가 | §6.1 |
 | F7 | **CLI 설치 자동화** | Installer (IPC `orca:install:*`) | 둘 다 미설치 → 다이얼로그 (npm / curl 선택) → child_process 실행 → 라인 단위 status 스트림 → 완료/실패 표시 | §6.1 |
 | F8 | **설치 실패 폴백** | Installer | 자동 실패 → 수동 명령 전체 텍스트 UI에 표시 + 복사 버튼. Node.js 미설치 (Windows: choco, macOS: brew 안내), npm 글로벌 권한 부족 (sudo / npm config 안내) | §6.1 |
-| F9 | **인증 만료 처리** | ClaudeCodeAdapter, Auth modal | Claude Code OAuth 401 감지 (stdout/stderr `"401"` / `"expired"` 패턴) → `error / auth.expired` 이벤트 → UI 모달 "`claude /login` 을 터미널에서 실행 후 새 대화" | §6.1 |
+| F9 | **인증 만료 처리** | ClaudeAdapter, Auth modal | Claude Code OAuth 401 감지 (stdout/stderr `"401"` / `"expired"` 패턴) → `error / auth.expired` 이벤트 → UI 모달 "`claude /login` 을 터미널에서 실행 후 새 대화" | §6.1 |
 | F10 | **Tweaks 패널** | TweaksPanel, useTweaks | 테마 선택 (Classic/Dark/Cool) + 밀도 슬라이더 (11.5/13/14.5px) + 사이드바 접기 토글 → `data-theme` 속성 + root `font-size` 동적 갱신 → Tailwind `@theme` 토큰 스코프 cascade → 전 화면 반영. 선택값은 Phase 1에서 메모리만 (Phase 2+ `electron-store` 로 영속화). 트리 remount 불요 (CSS 변수 재설정으로 충분). Phase 2+ 에서 ThemeProvider 로 영속화 연동 검토 | §6.1 |
 
 **비고**: 모듈 경로·정확한 IPC 채널·컴포넌트 트리는 [ARCHITECTURE.md](ARCHITECTURE.md) / `IPC_CONTRACT.md` 참조. 위 표는 *기능 정의* 에만 집중.
@@ -115,7 +115,7 @@ Phase 2 활성 **11 채널** — 7 도메인 (chat / backend / install / setting
 | `orca:chat:event` | M→R (send) | — | `ChatEvent` (반복) | ChatEvent union |
 | `orca:chat:cancel` | R→M (invoke) | `CancelChat` = `{ sessionId: string }` | `Promise<void>` — `AbortSignal` 전파 | CancelChat |
 | `orca:backend:list` | R→M (invoke) | — | `BackendListResult` = `{ backends: { id: Backend; installed: boolean; version?: string }[]; active?: Backend }` | (검증 생략) |
-| `orca:install:start` | R→M (invoke) | `StartInstall` = `{ backend: Backend }` | `Promise<void>` (ack). 진행은 `orca:install:status` 스트림. 현재 claude-code 는 SDK `optionalDependencies` 자동 해소 → 즉시 `done: true` | StartInstall |
+| `orca:install:start` | R→M (invoke) | `StartInstall` = `{ backend: Backend }` | `Promise<void>` (ack). 진행은 `orca:install:status` 스트림. 현재 claude 는 SDK `optionalDependencies` 자동 해소 → 즉시 `done: true` | StartInstall |
 | `orca:install:status` | M→R (send) | — | `InstallStatus` = `{ step: string; progress?: number; log?: string; error?: string; done?: boolean }` | InstallStatus |
 | `orca:settings:get` | R→M (invoke) | — | `Settings` (electron-store 전체 객체) | (검증 생략) |
 | `orca:settings:set` | R→M (invoke) | `SettingsPatch` = `Partial<Settings>` | `Settings` (병합·검증된 전체 객체) | SettingsPatch |
@@ -192,7 +192,7 @@ TS 타입 정의의 단일 출처. 구현은 `app/src/shared/ipc.ts` (zod-free) 
 ### 6.1 Backend (백엔드 선택)
 
 ```typescript
-type Backend = 'claude-code' | 'opencode';
+type Backend = 'claude' | 'opencode';
 ```
 
 ### 6.2 ChatEvent (어댑터→Renderer 정규화 스트림)
@@ -213,7 +213,7 @@ Discriminated union. 어댑터가 CLI/SDK의 다양한 형식을 이 하나의 �
 
 > **(OQ10)** `tool_use.name` / `tool_use.input` 표준화 정책 미정 — PRD §11 OQ10 진실 원천. Phase 3 단일 백엔드 운영에서는 raw 전달 (분기 의미 없음). opencode 어댑터 활성화 PR 에서 결정.
 
-> **(정규화 계층 — 구현됨)** 위 `ChatEvent` 표는 구 claude-code 결합 형태로 **제거됨**. 와이어(`orca:chat:event`)는 provider 중립 **`NormalizedEvent`**(`session.updated`·`message.delta/completed`·`tool.call.started/completed`·`telemetry`·`error`·`permission.requested`/`permission.resolved`)이며 claude 어댑터가 `claudeToNormalized`(`adapters/claude-map.ts`)로 SDK 메시지를 직접 정규화한다. 정본은 [arch/backend/provider-runtime.md](arch/backend/provider-runtime.md) §2 + `app/src/shared/ipc.ts`. 본 §6.2 표는 변이명 매핑 참고용 히스토리로만 둔다(`init`→`session.updated`, `assistant_delta`→`message.delta`, `tool_use`→`tool.call.started` 등).
+> **(정규화 계층 — 구현됨)** 위 `ChatEvent` 표는 구 claude 결합 형태로 **제거됨**. 와이어(`orca:chat:event`)는 provider 중립 **`NormalizedEvent`**(`session.updated`·`message.delta/completed`·`tool.call.started/completed`·`telemetry`·`error`·`permission.requested`/`permission.resolved`)이며 claude 어댑터가 `claudeToNormalized`(`adapters/claude-map.ts`)로 SDK 메시지를 직접 정규화한다. 정본은 [arch/backend/provider-runtime.md](arch/backend/provider-runtime.md) §2 + `app/src/shared/ipc.ts`. 본 §6.2 표는 변이명 매핑 참고용 히스토리로만 둔다(`init`→`session.updated`, `assistant_delta`→`message.delta`, `tool_use`→`tool.call.started` 등).
 
 ### 6.3 SessionAdapter (공통 인터페이스)
 
@@ -289,7 +289,7 @@ interface ChatState {
 
 | 코드 | 의미 | 복구 가능 | 사용자 표시 |
 |---|---|---|---|
-| `sdk.crashed` | SDK `query()` 내부 예외 (claude-code 어댑터) | yes | 새 대화 안내 |
+| `sdk.crashed` | SDK `query()` 내부 예외 (claude 어댑터) | yes | 새 대화 안내 |
 | `sdk.spawn-failed` | SDK 가 platform binary 해소 실패 (부팅 시점) | yes | 인스톨러 다이얼로그 트리거 |
 | `cli.not-installed` *(deprecated)* | 백엔드 CLI 미발견 (CLI spawn 시기) | yes | (Phase 3 SDK 마이그레이션 이후 사실상 미발생) |
 | `cli.spawn-failed` *(deprecated)* | spawn 실패 / EACCES / 경로 문제 | yes | (legacy) |
@@ -338,11 +338,11 @@ interface OrcaConfig {
 | `env` | settings.json `env` 블록 |
 | `models` | `sources/settings/<adapter>/<provider>/settings.json` 의 `env` 모델 키에서 파싱 (`claude-model-parser`) |
 
-**provider settings 트리 (SSOT = sources/)**: provider 별 설정은 어댑터-네이티브 스키마 파일로 사용자가 직접 편집한다. claude-code 의 settings.json 스키마는 순정 Claude Code settings.json 그대로다 — Orca 전용 키 발명 없음.
+**provider settings 트리 (SSOT = sources/)**: provider 별 설정은 어댑터-네이티브 스키마 파일로 사용자가 직접 편집한다. claude 의 settings.json 스키마는 순정 Claude Code settings.json 그대로다 — Orca 전용 키 발명 없음.
 
 ```text
 ~/.config/orca/sources/settings/<adapter>/
-└── <provider>/settings.json   # 어댑터-네이티브 스키마 (claude-code = Claude settings.json)
+└── <provider>/settings.json   # 어댑터-네이티브 스키마 (claude = Claude settings.json)
 ```
 
 - **열거 SSOT 는 디렉토리 목록**(`readdir`). 모델 목록은 파생 캐시 파일 없이 각 provider 의 `settings.json` 을 열거 시점에 `claude-model-parser` 로 파싱해 얻는다(settings 부재/손상 시 기본 alias 목록으로 관용 열거).
@@ -364,7 +364,7 @@ interface OrcaConfig {
 
 **provider env 레시피** (구 `toClaudeEnv` 매핑 코드는 삭제 — 사용자가 네이티브 env 로 직접 작성):
 
-| provider | `sources/settings/claude-code/<provider>/settings.json` |
+| provider | `sources/settings/claude/<provider>/settings.json` |
 |---|---|
 | anthropic | `{ "env": {} }` (OAuth) 또는 `{ "env": { "ANTHROPIC_API_KEY": "${MY_KEY}" } }` |
 | bedrock | `{ "env": { "CLAUDE_CODE_USE_BEDROCK": "1", "AWS_REGION": "us-west-2" } }` |
@@ -377,9 +377,9 @@ interface OrcaConfig {
 
 어댑터가 외부 CLI/SDK와 주고받는 명령·플래그·SDK 호출의 계약. *내부 구현* (SDKMessage 정규화, 서버 라이프사이클 등) 은 [arch/backend/adapters.md](arch/backend/adapters.md) 참조.
 
-### 7.1 ClaudeCodeAdapter
+### 7.1 ClaudeAdapter
 
-> SDK `query()` API 시그니처·`Options` 필드·SDKMessage 타입·세션 재개 메커니즘 상세는 [`docs/spec/claude/agent-sdk/typescript.md`](./spec/claude/agent-sdk/typescript.md) 가 단일 출처. CLI 플래그 ↔ SDK Options 대응 표·SDKMessage→ChatEvent 매핑·MVP 채택 범위·내부 구현 패턴은 [[arch/backend/adapters.md](arch/backend/adapters.md)](./[ARCHITECTURE.md](ARCHITECTURE.md)) 참조. 본 절은 *어댑터가 외부와 어떻게 계약하는지* 만 다룬다. 권한 정책 미정(OQ9) 은 `claude-code-spec.md §5` 참조.
+> SDK `query()` API 시그니처·`Options` 필드·SDKMessage 타입·세션 재개 메커니즘 상세는 [`docs/spec/claude/agent-sdk/typescript.md`](./spec/claude/agent-sdk/typescript.md) 가 단일 출처. CLI 플래그 ↔ SDK Options 대응 표·SDKMessage→ChatEvent 매핑·MVP 채택 범위·내부 구현 패턴은 [[arch/backend/adapters.md](arch/backend/adapters.md)](./[ARCHITECTURE.md](ARCHITECTURE.md)) 참조. 본 절은 *어댑터가 외부와 어떻게 계약하는지* 만 다룬다. 권한 정책 미정(OQ9) 은 `claude-spec.md §5` 참조.
 
 **설치 탐지**:
 
@@ -503,7 +503,7 @@ for await (const ev of client.session.send({ id, text, stream: true })) {
 
 사용자에게 보이는 인스톨러 다이얼로그와 프로세스.
 
-> **(2026-05-18 갱신)** 본 인스톨러는 **opencode 전용** 으로 축소됨. Claude Code 는 SDK `@anthropic-ai/claude-agent-sdk` 의 `optionalDependencies` 가 platform binary 를 자동 처리하므로 인스톨러 대상 아님. Phase 3 단일 백엔드 (claude-code) 운영에서는 인스톨러 다이얼로그 자체가 트리거되지 않는다. opencode 어댑터 활성화 시점 (§10 anchor) 에 본 절이 다시 의미를 가진다.
+> **(2026-05-18 갱신)** 본 인스톨러는 **opencode 전용** 으로 축소됨. Claude Code 는 SDK `@anthropic-ai/claude-agent-sdk` 의 `optionalDependencies` 가 platform binary 를 자동 처리하므로 인스톨러 대상 아님. Phase 3 단일 백엔드 (claude) 운영에서는 인스톨러 다이얼로그 자체가 트리거되지 않는다. opencode 어댑터 활성화 시점 (§10 anchor) 에 본 절이 다시 의미를 가진다.
 
 ### 8.1 다이얼로그 단계
 
@@ -570,7 +570,7 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 - **(anchor) electron-updater + GitHub Releases** — OQ3 패키징·배포 전략에서 함께 결정.
 - **(anchor) Auto-update 채널** — OQ3.
 - **(anchor) 하드웨어 어댑터 (BoardAdapter)** — USB/카메라 제어. `src/main/adapters/board.ts` 예약, 네이티브 모듈 (`orca-board.node`, libusb) Phase 2~3.
-- **(anchor) opencode 어댑터** — Phase 1 에서는 미구현. §7.2 의 사양 (서버 라이프사이클, SDK 호출, SSE 매핑) 그대로 살아있으나 코드는 인터페이스 후크만 남아있다. claude-code 단독 운영이 안정화되면 도입. **단, MCP 설정 변환기 `toOpencodeConfig` 는 MCP&Skill 통합 레이어에서 *순수 함수 + 단위 테스트만* 선구현됨** (어댑터·라이프사이클·백엔드 선택은 여전히 미구현, `Backend`=`'claude-code'` 유지). `toClaudeConfig` 와 **동형 대칭 변환기**(동일 시그니처, `Record<string, <Backend>Mcp>` 반환).
+- **(anchor) opencode 어댑터** — Phase 1 에서는 미구현. §7.2 의 사양 (서버 라이프사이클, SDK 호출, SSE 매핑) 그대로 살아있으나 코드는 인터페이스 후크만 남아있다. claude 단독 운영이 안정화되면 도입. **단, MCP 설정 변환기 `toOpencodeConfig` 는 MCP&Skill 통합 레이어에서 *순수 함수 + 단위 테스트만* 선구현됨** (어댑터·라이프사이클·백엔드 선택은 여전히 미구현, `Backend`=`'claude'` 유지). `toClaudeConfig` 와 **동형 대칭 변환기**(동일 시그니처, `Record<string, <Backend>Mcp>` 반환).
 - **(anchor) OpenAI Compatible 백엔드** — `SessionAdapter` 인터페이스 재활용 가능. 3번째 어댑터 구현체 추가.
 - **(anchor) Agent SDK 고급 기능** — `permissionMode` / `canUseTool` / `hooks` / `createSdkMcpServer` (in-process custom tools) / 외부 `mcpServers` / `forkSession` / `startup()` (사전 워밍) / `AsyncIterable<SDKUserMessage>` 스트리밍 입력. 채택 표는 [arch/backend/adapters.md](arch/backend/adapters.md) §1.7 의 ⏳ 행 참조. Phase 4+ — 도구 권한 정책(OQ9) 결정 후 진행.
 - **(anchor) 어댑터 도구명 정규화 (OQ10)** — claude vs opencode 의 `tool_use.name` / `tool_use.input` 차이 해소 정책. PRD §11 OQ10 결정 후 어댑터별 매핑 표 확정.

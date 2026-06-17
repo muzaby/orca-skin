@@ -19,7 +19,7 @@ import { handle } from '../registry'
 
 function refreshProviderSettings(ctx: RouterContext): void {
   try {
-    const result = deploy('claude-code')
+    const result = deploy('claude')
     if (!result.validation.ok) {
       for (const err of result.validation.errors) console.warn('[engine] deploy 검증 경고:', err)
     }

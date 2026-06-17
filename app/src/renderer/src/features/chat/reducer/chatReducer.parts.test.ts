@@ -218,7 +218,7 @@ describe('chatReducer — AppMessagePart 모델', () => {
   it('LOAD_SESSION 은 parts 를 그대로 싣는다', () => {
     const session: LoadedSession = {
       id: 's1',
-      backend: 'claude-code',
+      backend: 'claude',
       title: 't',
       messages: [
         { role: 'user', createdAt: 1, parts: [{ type: 'text', text: '질문' }] },
@@ -250,7 +250,7 @@ describe('chatReducer — AppMessagePart 모델', () => {
   it('LOAD_SESSION 은 복원된 마지막 턴 telemetry 를 싣는다(컨텍스트 도넛 유지)', () => {
     const session: LoadedSession = {
       id: 's2',
-      backend: 'claude-code',
+      backend: 'claude',
       title: 't',
       messages: [{ role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'q' }] }],
       lastTelemetry: { inputTokens: 1234, cacheReadTokens: 500, model: 'opus' }

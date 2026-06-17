@@ -6,7 +6,7 @@ import { z } from 'zod'
 import { MOCK_SCENARIO_IDS } from './ipc'
 import type { Backend, EffortLevel } from './ipc'
 
-const BackendSchema: z.ZodType<Backend> = z.enum(['claude-code'])
+const BackendSchema: z.ZodType<Backend> = z.enum(['claude'])
 const EffortLevelSchema: z.ZodType<EffortLevel> = z.enum(['low', 'medium', 'high', 'xhigh', 'max'])
 
 // orca:chat:event 는 main→renderer send(검증 불요)라 NormalizedEvent 용 zod 스키마는 두지 않는다.
@@ -156,7 +156,7 @@ export const UpdateMcpServerSchema = McpServerBaseSchema.partial()
 
 export const DeleteMcpServerSchema = z.object({ id: z.string().min(1) })
 
-const EngineSchema = z.literal('claude-code')
+const EngineSchema = z.literal('claude')
 const ProviderNameSchema = z
   .string()
   .trim()

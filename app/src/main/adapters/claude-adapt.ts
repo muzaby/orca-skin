@@ -1,10 +1,10 @@
 // claude 어댑트 변환 — 백엔드 중립 Extension 조각을 claude query() 옵션 조각으로 변환하는 순수
 // 함수들. 인바운드(백엔드→중립)가 normalize 라면, 이쪽은 그 아웃바운드 짝(중립→백엔드)으로,
 // Ports & Adapters 의 어댑터 경계 변환이다 (mcp/convert.ts 의 toClaudeConfig 와 동급의 "백엔드 종속
-// 순수 변환기"). 각 함수는 `...spread` 로 합성될 옵션 조각(object)을 반환한다 — claude-code.ts 가
+// 순수 변환기"). 각 함수는 `...spread` 로 합성될 옵션 조각(object)을 반환한다 — claude.ts 가
 // 이미 219줄이라 hook 래핑까지 합치면 CLAUDE.md 원칙 9 의 400줄 경고를 넘어 별 파일로 분리한다.
 //
-// 입력은 이미 ${VAR} 확장이 끝난 값을 받는다 (확장/복호화는 어댑트 시점에만 — claude-code.ts 가
+// 입력은 이미 ${VAR} 확장이 끝난 값을 받는다 (확장/복호화는 어댑트 시점에만 — claude.ts 가
 // toClaudeConfig 로 확장한 결과를 adaptMcp 에 넘긴다).
 
 import type {
@@ -41,7 +41,7 @@ export function adaptMcp(config: ClaudeMcpConfig): object {
   return { mcpServers: config, allowedTools: names.map((n) => `mcp__${n}__*`) }
 }
 
-// claude_code preset + append. preset 으로 claude-code 의 기본 시스템 프롬프트(작업 디렉토리,
+// claude_code preset + append. preset 으로 claude 의 기본 시스템 프롬프트(작업 디렉토리,
 // 도구 카탈로그 등 동적 섹션)는 유지하고, 중립 텍스트(프로젝트 지침 + PY_AGENT_RULES)만 덧붙인다.
 // append 가 비어 있으면 옵션 자체를 빼서 SDK 기본 동작 그대로.
 export function adaptSystemPrompt(append?: string): object {

@@ -13,14 +13,14 @@
 | **Message** | 세션 안의 단일 발화. `role: 'user' \| 'assistant'` + 본문 + (assistant 의 경우) 부착된 ToolCall 들. | `Message`, `ChatState.messages` | `app/src/renderer/src/state/chatReducer.ts` |
 | **NormalizedEvent** | 어댑터→Renderer 정규화 스트림(`orca:chat:event`)의 단위. provider 중립 discriminated union: `session.updated / message.delta / message.completed / tool.call.started / tool.call.completed / telemetry / error / permission.requested / permission.resolved`. 모든 이벤트가 `sessionId`·`provider`, tool 은 `toolRunId` 보유. claude 어댑터가 `claudeToNormalized`(`adapters/claude-map.ts`)로 SDK 메시지를 직접 정규화한다. (구 `ChatEvent` 는 제거됨.) | `NormalizedEvent` | `app/src/shared/ipc.ts` (provider-runtime.md §2 SSOT) |
 | **Delta** | 어시스턴트 응답이 스트리밍되는 동안 도착하는 부분 텍스트 조각. UI 에는 `pendingDelta` 에 누적되며 DB 에는 최종 메시지만 저장. | `message.delta`, `ChatState.pendingDelta` | provider-runtime.md §2 / `chatReducer.ts` |
-| **Backend** | LLM 실행 백엔드의 식별자. **현재**: `'claude-code'` 단일. **Future**: `'opencode'` 등 추가 가능. | `Backend` | `app/src/shared/ipc.ts:20` |
+| **Backend** | LLM 실행 백엔드의 식별자. **현재**: `'claude'` 단일. **Future**: `'opencode'` 등 추가 가능. | `Backend` | `app/src/shared/ipc.ts:20` |
 | **SessionAdapter** | 모든 백엔드가 구현하는 공통 인터페이스 (`isInstalled / install / sendMessage`). LLM 직접 호출이 아니라 외부 CLI/SDK 의 래퍼다. | `SessionAdapter` | `app/src/main/adapters/types.ts` |
 | **AdapterRegistry** | 등록된 어댑터의 설치 상태를 추적하고 활성 백엔드를 결정. | `AdapterRegistry` | `app/src/main/adapters/registry.ts` |
 | **Tool Call** | 어시스턴트가 호출한 도구 1회 (Read / Write / Bash 등). `toolRunId` 로 start/completed 쌍이 결합된다. | `tool.call.started`, `tool.call.completed` NormalizedEvent | provider-runtime.md §2 |
-| **Skill** | `SKILL.md` frontmatter (name, description, argument-hint) 로 정의된 슬래시 명령. 입력창에서 `/skillname` 으로 호출. **스캔 경로는 어댑터별로 다르다** (현재는 claude-code 의 `~/.claude/skills/` + `<cwd>/.claude/skills/` 만). | `SkillInfo` | `app/src/main/skills/scan.ts` / `app/src/shared/ipc.ts:100-104` |
+| **Skill** | `SKILL.md` frontmatter (name, description, argument-hint) 로 정의된 슬래시 명령. 입력창에서 `/skillname` 으로 호출. **스캔 경로는 어댑터별로 다르다** (현재는 claude 의 `~/.claude/skills/` + `<cwd>/.claude/skills/` 만). | `SkillInfo` | `app/src/main/skills/scan.ts` / `app/src/shared/ipc.ts:100-104` |
 | **Tweaks** | 사용자 환경 설정 — `theme` / `density` / `sidebarCollapsed`. electron-store 로 영속. | `Tweaks` | `app/src/renderer/src/app/useTweaks.ts` |
 | **Artifact** | 큰 산출물 — 첨부 파일, 모델이 생성한 markdown / 코드 / 이미지 등. **Phase 3+ 채택 결정**: 파일 시스템 (`<userData>/artifacts/<sessionId>/...`) 에 저장하고 DB 에는 경로·해시·크기만 보관. 현재 미구현. | (Phase 3+ 도입 예정) | [arch/backend/persistence.md](arch/backend/persistence.md) |
-| **Credential** | 어댑터별 자격증명 — base URL + API key 등. **Phase 3+ 채택 결정**: Electron safeStorage (OS keychain) 로 암호화 저장. 현재는 미구현 (claude-code 어댑터는 SDK 가 `~/.claude` 자격증명 자동 사용). | (Phase 3+ 도입 예정) | [arch/backend/security.md](arch/backend/security.md) |
+| **Credential** | 어댑터별 자격증명 — base URL + API key 등. **Phase 3+ 채택 결정**: Electron safeStorage (OS keychain) 로 암호화 저장. 현재는 미구현 (claude 어댑터는 SDK 가 `~/.claude` 자격증명 자동 사용). | (Phase 3+ 도입 예정) | [arch/backend/security.md](arch/backend/security.md) |
 | **Project** | 프로젝트 카드 그리드 화면. **Phase 1 mockup 만** 구현 (실 데이터 없음). PRD §9 Future Scope. | `Projects.tsx` | PRD §9 |
 | **Python Runtime** | 앱이 `<userData>/runtime` 에 제공하는 **uv 기반 격리 Python 환경** (venv + 인터프리터 3.12). agent 가 Python 도구를 실행할 때 시스템을 오염시키지 않도록 격리. 부팅 시 비동기 초기화(멱등·자가복구·`.ready` 마커), 상태는 `RuntimeStatus`(`idle/preparing/ready/error`). | `PythonRuntime`, `RuntimeStatus` | `app/src/main/runtime/` / `app/src/shared/ipc.ts` |
 | **uv** | Astral 의 Python 패키지·인터프리터 관리자. 바이너리만 동봉(`resources/bin/`), 인터프리터는 첫 실행 시 다운로드(4-A). agent 는 `uv run python` / `uv pip install` 로 격리 환경에 수렴. | `buildPyEnv`, `PY_AGENT_RULES` | `app/src/main/runtime/env.ts` |
@@ -65,4 +65,4 @@
 - ❌ **"Titlebar"** (셸 헤더 의미로) — `Header` 로 통일. `app-frame-titlebar` 는 *tile 내부 헤더* 만을 가리킨다.
 - ❌ **"Token"** (UI 청크 의미로) → **Delta** 로 통일. LLM token count 의미로는 사용 허용 (`inputTokens` / `outputTokens`).
 - ❌ **"Capture"** — Orca 의 도메인 카탈로그에서 제외 (사용자 결정). `CapturesScreen.tsx` 코드는 남아있으나 문서·논의에서는 거론하지 않는다.
-- ❌ **"Provider"** (LLM 의미로) — 위 "LLM Provider" 와 동일. 단, `orca.json` 의 `agents[].provider` 는 claude-code SDK 가 사용하는 클라우드 제공자(`anthropic`/`bedrock`/`vertex`) 필드명으로만 허용하며, Orca 도메인 어휘로 일반화하지 않는다.
+- ❌ **"Provider"** (LLM 의미로) — 위 "LLM Provider" 와 동일. 단, `orca.json` 의 `agents[].provider` 는 claude SDK 가 사용하는 클라우드 제공자(`anthropic`/`bedrock`/`vertex`) 필드명으로만 허용하며, Orca 도메인 어휘로 일반화하지 않는다.

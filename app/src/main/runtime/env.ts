@@ -1,7 +1,7 @@
 import { getRuntimePaths } from './paths'
 
 // Python 런타임 환경변수 단일 소스.
-// 초기화(PythonRuntime)와 agent 실행(IpcRouter → ClaudeCodeAdapter → query())이
+// 초기화(PythonRuntime)와 agent 실행(IpcRouter → ClaudeAdapter → query())이
 // 반드시 같은 env 를 사용한다.
 //
 // 설계 원칙:

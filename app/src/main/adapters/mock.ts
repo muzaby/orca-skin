@@ -6,7 +6,7 @@ import type { LiveTurn, SessionAdapter } from './types'
 import { runScenario, SCENARIOS } from './mock-scenarios'
 
 export class MockAdapter implements SessionAdapter {
-  readonly id = 'claude-code' as const
+  readonly id = 'claude' as const
 
   constructor(private readonly getState: () => DebugMockState) {}
 

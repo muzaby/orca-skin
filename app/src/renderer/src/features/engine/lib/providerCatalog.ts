@@ -10,10 +10,10 @@ export interface EngineOption {
   enabled: boolean
 }
 
-// 1단계 — 엔진(adapter). claude-code 만 활성, opencode 는 빗금 목업.
+// 1단계 — 엔진(adapter). claude 만 활성, opencode 는 빗금 목업.
 export const ENGINE_OPTIONS: EngineOption[] = [
   {
-    id: 'claude-code',
+    id: 'claude',
     label: 'Claude Code',
     desc: 'Anthropic 공식 CLI · Agent SDK',
     enabled: true
