@@ -46,7 +46,8 @@ export const DebugMockPatchSchema = z
   .object({
     enabled: z.boolean(),
     scenarioId: z.enum(MOCK_SCENARIO_IDS),
-    contextUsageRatio: z.number().min(0).max(1)
+    contextUsageRatio: z.number().min(0).max(1),
+    wireLog: z.boolean()
   })
   .partial()
 

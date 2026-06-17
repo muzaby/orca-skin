@@ -46,6 +46,11 @@ export function DebugPanel(): React.JSX.Element {
         value={Math.round(state.contextUsageRatio * 100)}
         onChange={(value) => setMock({ contextUsageRatio: value / 100 })}
       />
+      <PanelToggle
+        label="Wire 메시지"
+        value={state.wireLog}
+        onChange={(wireLog) => setMock({ wireLog })}
+      />
 
       <PanelSection label="테마" />
       <PanelRadio
