@@ -11,7 +11,6 @@ import {
   toContext
 } from './claude-adapt'
 import type { NormalizedHookHandler } from '../extensions/hooks'
-import { splitProviderSettings } from '../settings/provider-settings'
 
 describe('adaptMcp', () => {
   it('빈 config 는 옵션 생략', () => {
@@ -50,65 +49,39 @@ describe('adaptSkills', () => {
   })
 })
 
-// 브랜디드 settings/env 는 단일 신뢰 경계 splitProviderSettings 로만 만든다(handoff 0018).
-const argvSafe = (
-  effective: Record<string, unknown>
-): ReturnType<typeof splitProviderSettings>['settings'] =>
-  splitProviderSettings(effective, {}).settings
-const subEnv = (env: Record<string, string>): ReturnType<typeof splitProviderSettings>['env'] =>
-  splitProviderSettings({}, env).env
-
 describe('adaptSettings', () => {
   it('settings 부재 시 옵션을 생략하고 settingSources 를 주입하지 않는다', () => {
     expect(adaptSettings(undefined)).toEqual({})
   })
 
   it('빈 settings 객체는 settings 옵션을 생략한다', () => {
-    expect(adaptSettings(argvSafe({}))).toEqual({})
+    expect(adaptSettings({})).toEqual({})
   })
 
   it('settings 가 있으면 **인라인 JSON 문자열**로 직렬화해 주입한다 (handoff 0015)', () => {
     const raw = { model: 'claude-sonnet-4-6', permissions: { allow: ['Read'] } }
-    const out = adaptSettings(argvSafe(raw)) as {
-      settings: string
-    }
+    const out = adaptSettings(raw) as { settings: string }
     expect('settingSources' in out).toBe(false)
     // SDK transport 가 문자열만 지원하므로 객체가 아니라 문자열이어야 한다.
     expect(typeof out.settings).toBe('string')
     expect(JSON.parse(out.settings)).toEqual(raw)
   })
 
-  it('env 머금은 평문 객체는 타입에서 거부된다 (음성 타입 테스트 — 비밀↛argv 컴파일 강제, 0018)', () => {
-    // @ts-expect-error ArgvSafeSettings 브랜드 미보유 — env 머금은 임의 객체는 adaptSettings 가 거부.
-    adaptSettings({ env: { SECRET: 'plaintext' }, model: 'm' })
-    // splitProviderSettings 를 거친 값은 env 가 제거되어(브랜디드) 안전하게 수용된다.
-    expect(adaptSettings(argvSafe({ env: { SECRET: 'plaintext' }, model: 'm' }))).toEqual({
-      settings: JSON.stringify({ model: 'm' })
-    })
+  it('env 를 그대로 보존해 직렬화한다 (handoff 0028 — ~/.claude 덮어쓰기, env↛argv 분리 폐기)', () => {
+    const raw = { env: { ANTHROPIC_API_KEY: 'plain-key' }, model: 'm' }
+    const out = adaptSettings(raw) as { settings: string }
+    expect(JSON.parse(out.settings)).toEqual(raw)
   })
 })
 
 describe('adaptEnv', () => {
-  it('base/env 둘 다 없으면 옵션 생략 (SDK 기본 env 상속)', () => {
-    expect(adaptEnv(undefined, undefined)).toEqual({})
-    expect(adaptEnv(undefined, subEnv({}))).toEqual({})
+  it('base 가 없거나 비면 옵션 생략 (SDK 기본 env 상속)', () => {
+    expect(adaptEnv(undefined)).toEqual({})
+    expect(adaptEnv({})).toEqual({})
   })
 
-  it('provider env 가 있으면 base 위에 오버레이해 subprocess env 로 병합한다', () => {
-    const out = adaptEnv({ PATH: '/bin', A: 'base' }, subEnv({ A: 'prov', B: 'b' })) as {
-      env: Record<string, string>
-    }
-    // provider env 가 턴 env 를 이긴다 (agent-overlay 정책 계승).
-    expect(out.env).toEqual({ PATH: '/bin', A: 'prov', B: 'b' })
-  })
-
-  it('base 만 있고 provider env 가 없으면 base 를 그대로 넘긴다', () => {
-    expect(adaptEnv({ PATH: '/bin' }, subEnv({}))).toEqual({ env: { PATH: '/bin' } })
-  })
-
-  it('env 머금은 평문 객체는 SubprocessEnv 가 아니어도 통과? — 타입 거부 (0018)', () => {
-    // @ts-expect-error SubprocessEnv 브랜드 미보유 — 임의 env 객체는 adaptEnv 가 거부.
-    adaptEnv(undefined, { A: '1' })
+  it('base(시스템/턴 env)가 있으면 options.env 로 그대로 넘긴다', () => {
+    expect(adaptEnv({ PATH: '/bin', A: 'a' })).toEqual({ env: { PATH: '/bin', A: 'a' } })
   })
 })
 

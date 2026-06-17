@@ -170,8 +170,9 @@ export class ClaudeAdapter implements SessionAdapter {
     else req.signal?.addEventListener('abort', onAbort, { once: true })
 
     // provider settings flag 주입 — sendMessage 경로와 대칭.
-    // settingSources 는 생략해 SDK 기본 user/project/local 소스를 상속한다.
-    // settings 는 인라인 JSON 문자열(adaptSettings), provider env 는 subprocess env(adaptEnv).
+    // settingSources 는 생략해 SDK 기본 user/project/local 소스를 상속하고, settings(env 포함
+    // 인라인 JSON, adaptSettings)가 그 위에 얹혀 ~/.claude/settings.json 을 덮어쓴다(handoff 0028).
+    // options.env(adaptEnv)에는 시스템(턴) env 만.
     const options: Options = {
       abortController,
       maxTurns: 1,
@@ -179,7 +180,7 @@ export class ClaudeAdapter implements SessionAdapter {
       allowedTools: [],
       persistSession: false,
       ...adaptSettings(req.providerSettings?.settings),
-      ...adaptEnv(req.env, req.providerSettings?.env),
+      ...adaptEnv(req.env),
       ...(req.cwd ? { cwd: req.cwd } : {}),
       ...(req.model ? { model: req.model } : {})
     }
@@ -242,11 +243,12 @@ export class ClaudeAdapter implements SessionAdapter {
         ...adaptSystemPrompt(extensions.systemPromptAppend),
         ...adaptMcp(mcpConfig),
         ...adaptSkills(),
-        // provider settings flag 주입 — settings(인라인 JSON 문자열, flag 레이어).
-        // settingSources 는 생략해 SDK 기본 user/project/local 소스를 상속한다. provider env(ANTHROPIC_*, CLAUDE_CODE_USE_* 등)는
-        // adaptEnv 가 턴 env 위에 오버레이해 subprocess env 로 SDK 에 넘긴다(argv 평문 차단).
+        // provider settings flag 주입 — settings(env 포함 인라인 JSON 문자열, flag 레이어).
+        // settingSources 는 생략해 SDK 기본 user/project/local 소스를 상속하고, 이 settings 가
+        // 그 위에 얹혀 ~/.claude/settings.json 을 덮어쓴다(env 포함 — handoff 0028).
+        // options.env(adaptEnv)에는 시스템(턴) env 만 — uv 런타임 + orca.json 앱 env.
         ...adaptSettings(req.providerSettings?.settings),
-        ...adaptEnv(env, req.providerSettings?.env),
+        ...adaptEnv(env),
         ...adaptHooks(extensions.hooks),
         // canUseTool — AskUserQuestion·ExitPlanMode·위험 도구를 requestApproval 로 게이트하고
         // 안전 도구는 allow passthrough. 콜백 미주입(opencode 등) 시 옵션 자체를 생략해 현행

@@ -353,25 +353,25 @@ interface OrcaConfig {
 
 **런타임 주입 (격리 해제 — 0024 구현됨 / disallowedTools 보류)**: 턴/completion 의 `query()` 는 `settingSources` 옵션을 **생략**해 SDK 기본값(`user`+`project`+`local` 전부)으로 실행한다 — 사용자 전역 `~/.claude` skill·설정을 상속한다. provider settings 는 SDK `resolveSettings`(@alpha, CLI 동일 머지 엔진)로 해석한 effective 를 flag 레이어(`options.settings`)로 주입한다(settingSources 와 직교·최우선). 격리 해제로 끌려오는 사용자 allow 규칙은 **`disallowedTools` 옵션으로 확정 차단**한다(SDK 권한 평가: hooks→deny/disallowed→ask→allow→canUseTool — disallowed 가 allow·canUseTool 보다 상위). `filterEscalatingDefaultMode` 로 settings.json 의 escalating `permissions.defaultMode`(bypassPermissions·acceptEdits·auto)는 무력화된다 — **의도된 동작**(권한은 Orca 의 canUseTool + disallowedTools 게이트가 담당). 해석·캐시는 `settings/provider-settings.ts` 의 `ProviderSettingsService`(mtime 캐시, deploy 후 무효화), claude 종속 어휘는 `adapters/claude-settings.ts` 에 격리된다. resolveSettings 함수 부재(SDK 버전 변동) 시 flat JSON 읽기로 폴백한다. (`claude-adapt.ts` 는 0024에서 `settingSources` 를 생략하도록 정렬됐다. `disallowedTools` 는 D1 사용자 결정 전이라 보류.)
 
-주입 채널은 **두 갈래로 분리**한다(handoff 0015):
+주입 채널은 settings 와 시스템 env **두 레이어**다(handoff 0028 — provider settings == `~/.claude/settings.json`):
 
-- **settings(env 제외) → `options.settings`(flag 레이어, `--settings` 동등)에 인라인 JSON 문자열**로 넣는다. SDK 의 `Options.settings` 는 d.ts 상 `string | Settings` 지만 **런타임 transport 는 값을 직렬화 없이 CLI argv 에 그대로 push** 한다(0.3.143~0.3.175 확인). 따라서 객체를 넘기면 spawn 이 `"[object Object]"` 로 강제 변환해 settings 가 적용되지 않으므로 `JSON.stringify` 한 문자열을 넘긴다(CLI `--settings` 는 "JSON 파일 경로 또는 인라인 JSON 문자열" 을 허용 — cli-reference.md).
-- **settings.env → subprocess env(`options.env`)** 로 분리한다. effective 의 `env`(${VAR} 확장·secret 주입 완료)는 argv 로 노출되는 settings 문자열에서 **제외**하고, 턴 env(uv 런타임 + orca.json 앱 env) 위에 오버레이해 spawn env 로 넘긴다 — argv 평문 비밀 노출 차단(security.md §1.4 불변식). settings 에는 env 가 아예 없으므로(분리 후 `ArgvSafeSettings`) flag-settings.env 경로 자체가 없어, 격리 해제 후에도 subprocess env 와의 우선순위 충돌은 없다.
+- **settings(env 포함) → `options.settings`(flag 레이어, `--settings` 동등)에 인라인 JSON 문자열**로 넣는다. SDK 의 `Options.settings` 는 d.ts 상 `string | Settings` 지만 **런타임 transport 는 값을 직렬화 없이 CLI argv 에 그대로 push** 한다(0.3.143~0.3.175 확인). 따라서 객체를 넘기면 spawn 이 `"[object Object]"` 로 강제 변환해 settings 가 적용되지 않으므로 `JSON.stringify` 한 문자열을 넘긴다(CLI `--settings` 는 "JSON 파일 경로 또는 인라인 JSON 문자열" 을 허용 — cli-reference.md). `settingSources` 를 생략해 상속한 사용자 `~/.claude/settings.json` 위에 이 flag settings 가 얹혀 **덮어쓰므로**, provider settings 의 `env`(auth key 등)가 그 안에 함께 실려 사용자 전역 env 를 이긴다.
+- **시스템 env → `options.env`(subprocess env)**: 턴 env(uv 런타임 + orca.json 앱 env 병합 결과)만 싣는다. provider env 는 settings 레이어로 흐르므로 여기엔 없다.
 
-> **타입 격상 (handoff 0018)**: 위 분리는 branded 타입 `ArgvSafeSettings`(env 제거)·`SubprocessEnv` + 단일 smart constructor `splitProviderSettings`(`settings/provider-settings.ts`)로 컴파일타임 강제된다. `adaptSettings` 는 `ArgvSafeSettings` 만, `adaptEnv` 는 `SubprocessEnv` 만 받으므로 env 머금은 객체를 argv 로 보내면 빌드 에러(음성 타입 테스트 `@ts-expect-error` 로 고정). 런타임 동작은 0015 와 동일 — 타입만 추가.
+> **argv 노출 트레이드오프 (handoff 0028 — 0015/0018 폐기)**: `options.settings` 는 argv 로 push 되므로 env(평문 auth key 포함)가 same-user process list 에 노출된다. 이는 "앱 환경구성으로 `~/.claude/settings.json` 을 덮어쓴다"는 요구를 위해 수용한다(Claude Code `--settings` 와 동일 특성). 0015/0018 의 env↛argv 분리(`splitProviderSettings`·branded 타입 `ArgvSafeSettings`/`SubprocessEnv`·음성 타입 테스트)와 Orca 고유 `${VAR}` 확장·secret-store 토큰 주입은 제거했다(security.md §1.4). 0015/0018 문서는 historical 보존.
 
 > **격리 해제 — handoff 0014/0015 격리모드 폐기(supersede)**: 0014/0015 가 도입한 `settingSources: []` 격리모드는 폐기한다. `settingSources` 옵션을 **생략(전 소스 로드)**하는 0005 의 원래 입장으로 되돌리되, 그로 끌려오는 사용자 allow 규칙은 `disallowedTools` 로 차단한다(deny/disallowed > allow > canUseTool). 목적은 사용자가 `~/.claude` 에 전역 설치한 skill·설정을 Orca 세션이 상속하게 하는 것이다. OAuth 자격증명(`~/.claude/.credentials.json`/keychain)은 settings 와 무관하게 동작한다. handoff 0014/0015 문서 자체는 historical 기록으로 보존하고 supersession 만 본 절·standardization §5.1·PHASES 에 기재한다.
 
-**provider env 레시피** (구 `toClaudeEnv` 매핑 코드는 삭제 — 사용자가 네이티브 env 로 직접 작성):
+**provider env 레시피** (`~/.claude/settings.json` 과 동일 — 사용자가 네이티브 env 값을 직접 작성. Orca 는 `${VAR}` 확장 안 함):
 
 | provider | `sources/settings/claude/<provider>/settings.json` |
 |---|---|
-| anthropic | `{ "env": {} }` (OAuth) 또는 `{ "env": { "ANTHROPIC_API_KEY": "${MY_KEY}" } }` |
+| anthropic | `{ "env": {} }` (OAuth) 또는 `{ "env": { "ANTHROPIC_API_KEY": "sk-ant-…" } }` |
 | bedrock | `{ "env": { "CLAUDE_CODE_USE_BEDROCK": "1", "AWS_REGION": "us-west-2" } }` |
 | vertex | `{ "env": { "CLAUDE_CODE_USE_VERTEX": "1" } }` |
-| 게이트웨이 | `{ "env": { "ANTHROPIC_BASE_URL": "https://gw.example.com", "ANTHROPIC_AUTH_TOKEN": "${GW_TOKEN}" } }` |
+| 게이트웨이 | `{ "env": { "ANTHROPIC_BASE_URL": "https://gw.example.com", "ANTHROPIC_AUTH_TOKEN": "<token>" } }` |
 
-`${VAR}` 는 secret-store → `process.env` 순으로 해석 시점에만 확장하며, 미해결 값은 해당 env 키만 드롭한다. secret-store 의 `provider:${providerKey}` 토큰은 해석 시 `env.ANTHROPIC_API_KEY` 로 주입된다(0010 키 규약 유지). orca.json 의 `env` 는 settings 가 아니라 subprocess env 베이스(`options.env`)로 병합된다.
+provider settings 의 `env` 는 `options.settings`(flag) 로 verbatim 주입되어 사용자 `~/.claude/settings.json` 의 env 를 덮어쓴다(handoff 0028). Orca 는 그 env 에 `${VAR}` 확장도 secret-store 토큰 주입도 하지 않는다(Claude 정책 그대로). 한편 orca.json 의 `env`(시스템/앱 전역 env)는 settings 가 아니라 subprocess env 베이스(`options.env`)로 병합된다(여기엔 `expandEnvRecord` 의 `${VAR}` 확장이 그대로 적용 — settings 경로와 별개).
 
 ## 7. Backend Adapters (외부 인터페이스 계약)
 
