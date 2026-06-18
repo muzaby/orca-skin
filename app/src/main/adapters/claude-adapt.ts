@@ -38,7 +38,7 @@ export function adaptMcp(config: ClaudeMcpConfig): object {
 }
 
 // claude_code preset + append. preset 으로 claude 의 기본 시스템 프롬프트(작업 디렉토리,
-// 도구 카탈로그 등 동적 섹션)는 유지하고, 중립 텍스트(프로젝트 지침 + PY_AGENT_RULES)만 덧붙인다.
+// 도구 카탈로그 등 동적 섹션)는 유지하고, 중립 텍스트(프로젝트 지침 + 정적 정책 append)만 덧붙인다.
 // append 가 비어 있으면 옵션 자체를 빼서 SDK 기본 동작 그대로.
 export function adaptSystemPrompt(append?: string): object {
   if (!append || append.trim() === '') return {}

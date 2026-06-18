@@ -89,7 +89,7 @@
 | **sources / dist** | 사람이 편집하는 단일 원천(sources) → 엔진별 생성물(dist, 편집 금지). | [standardization.md §5.1](./standardization.md) |
 | **ExtensionDeployer** | sources 를 엔진 규약으로 렌더 → 검증 → 백업 후 기록(dryRun 지원). | [standardization.md §5.2](./standardization.md) |
 | **StandardConformance** | 엔진을 "표준을 얼마나 구현하나"로 기술(instructions/tool/skill/hook + mcpSpecVersion). | [standardization.md §5.3](./standardization.md) |
-| **AGENTS.md** | instructions 표준(AAIF). Orca instructions SSOT 채택 방향(현 systemPromptAppend+PY_AGENT_RULES 와 통합). | [standardization.md §5.4](./standardization.md) |
+| **AGENTS.md** | instructions 표준(AAIF). Orca instructions SSOT 채택 방향(현 systemPromptAppend+정적 정책 append `prompts/` 와 통합). | [standardization.md §5.4](./standardization.md) |
 | **Engine 구체클래스** | 범용 어댑터를 미리 안 만들고 ClaudeEngine/OpenCodeEngine 구체 클래스로 시작, 3번째 엔진에서 공통 추출(rule of three). | [standardization.md §4](./standardization.md) |
 
 > 사용하지 않는 어휘(Provider/Conversation/Thread 등)는 [GLOSSARY §3](../../GLOSSARY.md#3-사용하지-않는-용어-혼동-방지).

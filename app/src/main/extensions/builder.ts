@@ -1,7 +1,10 @@
 // ExtensionBuilder — Extension 계층 조립기. 정규 소스(DB 지침 · McpStore · 스킬 스캔)를 읽어 백엔드
 // 중립 TurnExtensions 로 조립한다. 어댑터/백엔드를 전혀 모른다 — 어댑트(claude 타깃 변환·
-// ${VAR} 확장)는 전적으로 어댑터 책임. router 에 흩어져 있던 지침 조회 + PY_AGENT_RULES join 을
+// ${VAR} 확장)는 전적으로 어댑터 책임. router 에 흩어져 있던 지침 조회 + 정책 append join 을
 // 이리로 이주해 "이 확장 리소스는 어디서 조립하지?"를 단일 위치로 모은다 (설계검토 §9 1단계).
+//
+// stableAppend = prompts/buildAppend 가 startup 에 1회 조립한 정적 정책 본문(현재 python-runtime).
+// 프로젝트 지침(DB)은 세션마다·매 턴 가변이라 여기서 매 턴 조회해 그 앞에 결합한다.
 //
 // env(uv 런타임)는 확장 묶음이 아니라 TurnRequest 직속이라 빌더를 우회한다 — router 가 직접 조립.
 
@@ -15,7 +18,7 @@ export class ExtensionBuilder {
     private readonly db: DbQueries,
     private readonly mcp: McpStore,
     private readonly skills: () => SkillInfo[],
-    private readonly pyAgentRules: string
+    private readonly stableAppend: string
   ) {}
 
   // sessionId 가 있으면 resume 경로(세션→프로젝트 지침 조회), 없으면 새 채팅(projectId 직접 조회).
@@ -32,10 +35,12 @@ export class ExtensionBuilder {
       if (p && p.instructions.trim() !== '') instructions = p.instructions
     }
 
-    // Python 런타임 도구 사용 규약을 항상 시스템 프롬프트에 합류. 프로젝트 지침이 있으면 그 뒤에 붙인다.
+    // 정적 정책 본문(python-runtime 등)을 항상 시스템 프롬프트에 합류. 프로젝트 지침이 있으면 그
+    // 앞에 둔다(현행 순서 보존 — 가이드 7장 STABLE-first 티어링은 excludeDynamicSections:false 로
+    // cross-대화 캐시가 이미 깨져 순서가 무의미. 무회귀 위해 reorder 안 함. system-prompt.md 참조).
     const systemPromptAppend = instructions
-      ? `${instructions}\n\n${this.pyAgentRules}`
-      : this.pyAgentRules
+      ? `${instructions}\n\n${this.stableAppend}`
+      : this.stableAppend
 
     return {
       // 미확장 정규형 — 어댑터가 자기 resolver 로 확장 후 어댑트.

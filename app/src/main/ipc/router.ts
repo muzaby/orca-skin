@@ -19,8 +19,9 @@ import { loadClaudeProviderSettings } from '../adapters/claude-settings'
 import { scanSkills } from '../skills/scan'
 import { initDb } from '../db'
 import { CostTracker } from '../cost/tracker'
-import { PythonRuntime, PY_AGENT_RULES, type RuntimeStatus } from '../runtime'
+import { PythonRuntime, type RuntimeStatus } from '../runtime'
 import { ExtensionBuilder } from '../extensions/builder'
+import { buildAppend, loadPolicies } from '../prompts'
 import { PermissionModeController } from '../runtime-events/permission-mode-controller'
 import type { RouterContext } from './context'
 import { registerSessionHandlers } from './handlers/session'
@@ -62,9 +63,13 @@ export class IpcRouter {
       }
     })
     cost.recompute()
+    // 정적 정책 본문(prompts/)을 startup 1회 조립. 조건은 startup-known 값(platform)만 — 조건부
+    // 블록이 per-turn ctx 를 요구하면 그 시점에 빌더로 옮긴다. DB 프로젝트 지침은 빌더가 매 턴
+    // 조회하므로(무캐시) 지침 편집 즉시 반영 불변.
+    const stableAppend = buildAppend({ platform: process.platform }, loadPolicies())
     // 빌더는 db 인스턴스가 필요해 여기서 생성. skills 는 lazy getter 라 스캔
     // 완료 전에 만들어도 무방 — 턴 실행 시점에 최신 skillsCache 를 읽는다.
-    const extensions = new ExtensionBuilder(db, this.mcp, () => this.skillsCache, PY_AGENT_RULES)
+    const extensions = new ExtensionBuilder(db, this.mcp, () => this.skillsCache, stableAppend)
     await this.registry.refreshInstallState()
     this.defaultCwd = app.getPath('home')
     // ~/.config/orca 보장 → orca.json 로드 → provider settings 스캐폴드(최초 1회) →
