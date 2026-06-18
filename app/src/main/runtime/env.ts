@@ -33,12 +33,3 @@ export function buildPyEnv(userData: string): Record<string, string> {
     PATH: `${p.venvBin}${sep}${uvDir}${sep}${process.env.PATH ?? ''}`
   } as Record<string, string>
 }
-
-// agent 시스템 프롬프트에 append 할 Python 도구 사용 규약.
-// handleChatSend 가 프로젝트 지침에 이어 붙인다.
-export const PY_AGENT_RULES = `
-## Python 실행 규약
-- Python 코드 실행: \`uv run python <스크립트>\` 또는 \`uv run python -c "..."\` 형태를 사용한다.
-- 패키지 설치: \`uv pip install <패키지>\` 를 사용한다.
-- 시스템 \`python\` / \`pip\` 직접 호출 금지 — 앱이 주입한 격리 환경에서만 동작한다.
-`.trim()

@@ -74,7 +74,7 @@ async function* sendMessage(sessionId, text, cwd, caps, resolvedMcp, signal) {
 ```typescript
 interface OrcaCapabilities {
   mcpConfig: OrcaMcpConfig          // 확장 전 정규 소스 (${VAR} 미확장)
-  systemPromptAppend?: string       // 프로젝트 지침 + PY_AGENT_RULES 합성
+  systemPromptAppend?: string       // 프로젝트 지침 + 정적 정책 append(prompts/) 합성
   skills: SkillInfo[]               // 가시화 메타 (어댑트는 항상-on)
   hooks: OrcaHookSet                // before-tool / after-tool / prompt-submit 핸들러 집합
 }
@@ -83,7 +83,9 @@ interface OrcaCapabilities {
 `build(sessionId, projectId)` 동작:
 - resume 경로 (`sessionId !== null`): 세션 바인딩으로 프로젝트 지침 조회
 - 새 채팅 경로 (`sessionId === null`): `projectId` 로 직접 조회
-- `systemPromptAppend` = (프로젝트 지침 있으면 그 뒤에) `PY_AGENT_RULES` 항상 합류
+- `systemPromptAppend` = (프로젝트 지침 있으면 그 뒤에) 정적 정책 append 항상 합류. 정책 본문은
+  `app/src/main/prompts/`(`policies/python-runtime.md` 등)에서 `buildAppend` 가 startup 1회 조립 —
+  관리 구조·Open Questions 는 [system-prompt.md](./system-prompt.md) 정본 (handoff 0030)
 - 매 턴 DB 1회 조회 — 캐시 없음 (지침 편집이 다음 메시지부터 즉시 반영)
 
 ### 1.5 SDKMessage → ChatEvent 정규화
