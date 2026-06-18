@@ -104,4 +104,4 @@ Opus 4.8 이 작성한 "시스템 프롬프트 관리 가이드 ver2" 는 `@anth
 | 실행 명령 | `npm run lint` / `npm run typecheck` / `npm test`(better-sqlite3 Node ABI 재빌드 후) |
 | 게이트 결과 | lint ✅ / typecheck(node+web+test) ✅ / test ✅ **406/406** (신규 prompts 9 포함) |
 | 블로커 / 역질문 | 없음 |
-| 대상 커밋 | (본 커밋) |
+| 대상 커밋 | `f2fc12c` |
