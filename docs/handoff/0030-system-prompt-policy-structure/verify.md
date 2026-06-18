@@ -9,7 +9,7 @@
 | slug | `0030-system-prompt-policy-structure` |
 | 검증자 | Claude Code |
 | 일자 | 2026-06-18 |
-| 대상 커밋 | (본 커밋) |
+| 대상 커밋 | `f2fc12c` |
 | 라운드 | 1 |
 | 상태 | PASS |
 
