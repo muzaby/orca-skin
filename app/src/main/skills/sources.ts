@@ -48,3 +48,10 @@ export async function writeUploadedSkill(input: {
   await fs.mkdir(dir, { recursive: true })
   await fs.writeFile(join(dir, 'SKILL.md'), input.content, 'utf8')
 }
+
+export async function removeOrcaSkillDir(skillDir: string): Promise<void> {
+  if (!skillDir.startsWith(sourcesSkillsDir())) {
+    throw new Error('Orca 스킬 sources 안의 항목만 제거할 수 있습니다.')
+  }
+  await fs.rm(skillDir, { recursive: true, force: true })
+}

@@ -81,7 +81,7 @@ function SkillRow({
       >
         {s.name}
       </span>
-      {!s.enabled && <span className="ml-auto text-[10.5px] text-ink3">꺼짐</span>}
+      {s.canToggle && !s.enabled && <span className="ml-auto text-[10.5px] text-ink3">꺼짐</span>}
     </button>
   )
 }

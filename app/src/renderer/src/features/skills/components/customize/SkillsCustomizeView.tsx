@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { CustomizeRail, type CustomizeTab } from './CustomizeRail'
 import { CustomizeList } from './CustomizeList'
 import { CustomizeLanding } from './CustomizeLanding'
@@ -18,6 +19,7 @@ function skillKey(sourceId: string, name: string): string {
 export function SkillsCustomizeView(): React.JSX.Element {
   const [tab, setTab] = useState<CustomizeTab | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const navigate = useNavigate()
   const skills = useCustomizeSkills()
   const mcp = useMcpServers()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -35,21 +37,23 @@ export function SkillsCustomizeView(): React.JSX.Element {
     setSelectedId(first ?? null)
   }
 
-  useEffect(() => {
-    if (
-      tab === 'skills' &&
-      selectedId &&
-      !skills.list.some((s) => skillKey(s.sourceId, s.name) === selectedId)
-    ) {
-      setSelectedId(skills.list[0] ? skillKey(skills.list[0].sourceId, skills.list[0].name) : null)
-    }
-    if (tab === 'mcp' && selectedId && !mcp.list.some((s) => s.id === selectedId)) {
-      setSelectedId(mcp.list[0]?.id ?? null)
-    }
-  }, [mcp.list, selectedId, skills.list, tab])
+  const effectiveSelectedId =
+    tab === 'skills'
+      ? skills.list.some((skill) => skillKey(skill.sourceId, skill.name) === selectedId)
+        ? selectedId
+        : skills.list[0]
+          ? skillKey(skills.list[0].sourceId, skills.list[0].name)
+          : null
+      : tab === 'mcp'
+        ? mcp.list.some((server) => server.id === selectedId)
+          ? selectedId
+          : (mcp.list[0]?.id ?? null)
+        : selectedId
 
-  const selectedSkill = skills.list.find((s) => skillKey(s.sourceId, s.name) === selectedId)
-  const selectedMcp = mcp.list.find((s) => s.id === selectedId)
+  const selectedSkill = skills.list.find(
+    (s) => skillKey(s.sourceId, s.name) === effectiveSelectedId
+  )
+  const selectedMcp = mcp.list.find((s) => s.id === effectiveSelectedId)
 
   return (
     <section className="flex h-full min-h-0 w-full" data-context="customize">
@@ -69,7 +73,7 @@ export function SkillsCustomizeView(): React.JSX.Element {
             tab={tab}
             skills={skills.list}
             mcpServers={mcp.list}
-            selectedId={selectedId}
+            selectedId={effectiveSelectedId}
             onSelect={setSelectedId}
             addRef={addRef}
             onAdd={() => {
@@ -80,12 +84,29 @@ export function SkillsCustomizeView(): React.JSX.Element {
           {tab === 'skills' && selectedSkill ? (
             <SkillDetail
               skill={selectedSkill}
-              onToggle={() =>
+              onToggle={() => {
+                if (!selectedSkill.canToggle) return
                 void skills.setEnabled({
                   name: selectedSkill.name,
                   sourceId: selectedSkill.sourceId,
                   enabled: !selectedSkill.enabled
                 })
+              }}
+              onTryInChat={() => {
+                void navigator.clipboard?.writeText(`/${selectedSkill.name} `)
+                navigate('/new')
+              }}
+              onOpenDefault={() =>
+                void skills.open({ name: selectedSkill.name, sourceId: selectedSkill.sourceId })
+              }
+              onShowInFolder={() =>
+                void skills.showInFolder({
+                  name: selectedSkill.name,
+                  sourceId: selectedSkill.sourceId
+                })
+              }
+              onRemove={() =>
+                skills.remove({ name: selectedSkill.name, sourceId: selectedSkill.sourceId })
               }
             />
           ) : tab === 'mcp' && selectedMcp ? (

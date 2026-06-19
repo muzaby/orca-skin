@@ -74,9 +74,12 @@ export const UploadSkillSchema = z.object({
   content: z.string().max(200000)
 })
 
-export const SetSkillEnabledSchema = z.object({
+export const SkillTargetSchema = z.object({
   name: SkillNameSchema,
-  sourceId: z.string().min(1).max(128),
+  sourceId: z.string().min(1).max(128)
+})
+
+export const SetSkillEnabledSchema = SkillTargetSchema.extend({
   enabled: z.boolean()
 })
 
@@ -306,6 +309,7 @@ export type {
   AuthorSkillRequest,
   UploadSkillRequest,
   SetSkillEnabledRequest,
+  SkillTargetRequest,
   ThemePref,
   DensityPref,
   WindowBounds,

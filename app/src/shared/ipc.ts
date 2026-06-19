@@ -19,6 +19,9 @@ export const CHANNELS = {
   skillsAuthor: 'orca:skills:author',
   skillsUpload: 'orca:skills:upload',
   skillsSetEnabled: 'orca:skills:setEnabled',
+  skillsOpen: 'orca:skills:open',
+  skillsShowInFolder: 'orca:skills:showInFolder',
+  skillsRemove: 'orca:skills:remove',
   filesList: 'orca:files:list',
   sessionCwd: 'orca:session:cwd',
   sessionList: 'orca:session:list',
@@ -517,6 +520,12 @@ export interface SkillInfo {
   enabled: boolean
   body?: string
   updatedAt?: number
+  createdAt?: number
+  sourceKind: 'orca' | 'adapter' | 'workspace'
+  canToggle: boolean
+  canRemove: boolean
+  skillPath: string
+  skillDir: string
 }
 
 export interface AuthorSkillRequest {
@@ -534,6 +543,11 @@ export interface SetSkillEnabledRequest {
   name: string
   sourceId: string
   enabled: boolean
+}
+
+export interface SkillTargetRequest {
+  name: string
+  sourceId: string
 }
 
 // `@` 파일 경로 자동완성 — `cwd` 기준 `relDir` 의 직속 항목 한 단계만 리스팅.

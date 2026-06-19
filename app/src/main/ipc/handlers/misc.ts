@@ -7,6 +7,7 @@ import {
   DebugMockPatchSchema,
   ListFilesRequestSchema,
   SetSkillEnabledSchema,
+  SkillTargetSchema,
   SearchMessagesRequestSchema,
   UploadSkillSchema,
   StartInstallSchema,
@@ -19,12 +20,19 @@ import {
   type Settings,
   type SkillInfo
 } from '../../../shared/protocol'
+import { shell } from 'electron'
 import { toAgentEnvironments } from '../../settings/provider-settings'
-import { writeAuthoredSkill, writeUploadedSkill } from '../../skills/sources'
+import { removeOrcaSkillDir, writeAuthoredSkill, writeUploadedSkill } from '../../skills/sources'
 import { skillEnabledKey } from '../../skills/scan'
 import { listDir } from '../../files/scan'
 import { sendInstallStatus, setWireLog, type RouterContext } from '../context'
 import { handle, handlePlain } from '../registry'
+
+function findSkill(ctx: RouterContext, sourceId: string, name: string): SkillInfo {
+  const skill = ctx.getSkills().find((s) => s.sourceId === sourceId && s.name === name)
+  if (!skill) throw new Error(`스킬을 찾을 수 없습니다: ${sourceId}/${name}`)
+  return skill
+}
 
 export function registerMiscHandlers(ctx: RouterContext): void {
   handlePlain(CHANNELS.backendList, (): BackendListResult => {
@@ -76,6 +84,8 @@ export function registerMiscHandlers(ctx: RouterContext): void {
     SetSkillEnabledSchema,
     'reject',
     async (req): Promise<SkillInfo[]> => {
+      const skill = findSkill(ctx, req.sourceId, req.name)
+      if (!skill.canToggle) return ctx.getSkills()
       const current = ctx.settings.getAll()
       ctx.settings.patch({
         skillEnabled: {
@@ -88,10 +98,29 @@ export function registerMiscHandlers(ctx: RouterContext): void {
     }
   )
 
+  handle(CHANNELS.skillsOpen, SkillTargetSchema, 'reject', async (req): Promise<void> => {
+    await shell.openPath(findSkill(ctx, req.sourceId, req.name).skillPath)
+  })
+
+  handle(CHANNELS.skillsShowInFolder, SkillTargetSchema, 'reject', (req): void => {
+    shell.showItemInFolder(findSkill(ctx, req.sourceId, req.name).skillPath)
+  })
+
+  handle(CHANNELS.skillsRemove, SkillTargetSchema, 'reject', async (req): Promise<SkillInfo[]> => {
+    const skill = findSkill(ctx, req.sourceId, req.name)
+    if (!skill.canRemove) throw new Error('Orca 스킬만 제거할 수 있습니다.')
+    await removeOrcaSkillDir(skill.skillDir)
+    const current = ctx.settings.getAll()
+    const skillEnabled = { ...current.skillEnabled }
+    delete skillEnabled[skillEnabledKey(req.sourceId, req.name)]
+    ctx.settings.patch({ skillEnabled })
+    ctx.syncExtensions()
+    return ctx.refreshSkills()
+  })
+
   handle(
     CHANNELS.filesList,
     ListFilesRequestSchema,
-    SetSkillEnabledSchema,
     { fallback: [] as FileEntry[] },
     (req): Promise<FileEntry[]> => listDir(req.cwd, req.relDir)
   )
@@ -103,7 +132,6 @@ export function registerMiscHandlers(ctx: RouterContext): void {
   handle(
     CHANNELS.searchMessages,
     SearchMessagesRequestSchema,
-    UploadSkillSchema,
     { fallback: [] as SearchHit[] },
     (req): SearchHit[] => {
       const rows = ctx.db.searchMessages(req.q, req.limit ?? 30)
