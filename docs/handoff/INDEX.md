@@ -61,4 +61,6 @@
 
 | `0030-system-prompt-policy-structure` | verify | PASS | — | `f2fc12c` | 1 | "시스템 프롬프트 관리 가이드 ver2"(Opus 4.8) Orca 적합성 검토·마이그레이션 (비기능 = Claude 직접 구현, 사용자 결정 3건: 문서+코드 / 5장 전면 구축 / 버킷2 재검토). 가이드 주장을 코드와 1:1 대조해 4버킷 분류 → `PY_AGENT_RULES`(코드 상수)를 가이드 5장 구조 `app/src/main/prompts/`(policies/*.md · registry · loader · `buildAppend` 단일 문자열 · platformHints 스캐폴드)로 무회귀 이주(loader.test 가 바이트 동일 잠금) + 교정 가이드 `docs/arch/backend/system-prompt.md` 신설 + 버킷2 충돌(settingSources local 제외/settings.env 단일주입/옵션 캐싱)을 §5 Open Questions(OQ-A/B/C, 현행 유지 권고·변경은 사용자 결정 후 별도 핸드오프)로 등재. 참조 5문서 정정. 인수 9/9, 게이트 lint/typecheck/typecheck:test/test **406/406**(Node ABI 재빌드 후 green), 레이어 경계 0, 신규 의존성 0. PHASES 승격. 사람 확인 대기: 버킷2 OQ 재검토 결정·실환경 정책 append 적용. |
 
+| `0031-skills-mcp-wiring` | plan | READY | Codex | — | 1 | Skills & MCP 페이지 실로직 배선(목업 제거 + 실 IPC/파일 백엔드). 4페이즈: P1 프론트(목업 제거·connector/커넥터→mcp/MCP 식별자+라벨 전면·claude/클로드 UI 제거·"개인 스킬"→"Orca 스킬") / P2 스킬 sources 백엔드(`sourcesSkillsDir`·`scanSkills` 어댑터경로+소스별 그룹·업로드/author IPC가 `~/.config/orca/sources/skills/<name>/` 작성·`skillEnabled` 영속) / P3 MCP 모달 단일 textarea(기본 스키마 placeholder·단일항목 파싱→`mcpApi.add`)+활성/비활성 2그룹+`useMcpServers` 배선 / P4 싱크 파이프라인(enabled filter→dist→cwd 복사·workspace 기본 cwd·새대화/토글후 첫대화 싱크). Open Q: mcp.json 위치(현행 `sources/mcp/mcp.json` 기본안). |
+
 > 새 작업: 마지막 일련번호 +1 로 행을 추가하고 `<NNNN-slug>/plan.md` 를 생성한다.
