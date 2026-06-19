@@ -24,6 +24,7 @@ export {
   modelKey,
   modelNameForFamily,
   defaultModelFamily,
+  resolveTitleModel,
   toAgentEnvironments
 } from './model-resolve'
 export {

@@ -149,21 +149,12 @@ export class IpcRouter {
     } catch (e) {
       console.warn('[boot] provider settings 스캐폴드 건너뜀:', e)
     }
-    try {
-      const r = deploy('claude', {
-        skillRoots: this.skillRoots(),
-        mcpConfig: this.mcp.enabledConfig()
-      })
-      if (!r.validation.ok) {
-        for (const err of r.validation.errors) console.warn('[deploy] 검증 경고:', err)
-      }
-      providerSettings.invalidateAll()
-    } catch (e) {
-      console.warn('[boot] 배포 건너뜀:', e)
-    }
+    // dist 렌더 + defaultCwd 싱크를 1회 수행(syncExtensions 가 deploy+sync+게이트 마킹을 묶는다).
+    // 첫 턴의 syncExtensionsForTurn 은 이로써 이미 마킹된 defaultCwd 를 건너뛴다.
+    this.syncExtensions()
+    providerSettings.invalidateAll()
     // ClaudeAdapter 가 사용하는 cwd 와 동일한 값으로 스킬 스캔.
     await this.refreshSkills()
-    this.syncExtensions()
 
     const ctx: RouterContext = {
       db,

@@ -13,6 +13,7 @@ import {
   expandEnvRecord,
   mergeEnvLayers,
   modelNameForFamily,
+  resolveTitleModel,
   type ResolvedProviderSettings
 } from '../../settings/provider-settings'
 import type { SessionAdapter } from '../../adapters/types'
@@ -71,13 +72,9 @@ async function resolveTurnProvider(
   const providerSettings = await ctx.providerSettings.resolve(selected)
   const modelFamily = req.modelFamily ?? defaultModelFamily(selected.models)
   const model = modelNameForFamily(selected.models, modelFamily)
-  // 제목 생성 모델은 요청 전에 결정한다: 저가(haiku) alias 가 모델 목록에 있으면 그것을,
-  // 없으면 provider default 모델로 폴백(실패 후 재시도가 아니라 사전 선택). 목록이 비면
-  // undefined → SDK 기본 모델.
-  const hasHaiku = selected.models.some((m) => m.alias === 'haiku')
-  const titleModel = hasHaiku
-    ? modelNameForFamily(selected.models, 'haiku')
-    : modelNameForFamily(selected.models, null)
+  // 제목 생성 모델은 요청 전에 사전 선택한다 (저가 모델 보유 시 그것, 없으면 default — 정책은
+  // settings 레이어 resolveTitleModel 에 둔다).
+  const titleModel = resolveTitleModel(selected.models)
   return {
     providerKey: selected.key,
     ...(providerSettings ? { providerSettings } : {}),
