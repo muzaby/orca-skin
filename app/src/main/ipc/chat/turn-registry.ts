@@ -20,6 +20,8 @@ export interface InflightTurn {
   // 제목 생성 complete 가 본 턴과 같은 provider settings/env 를 쓰도록 보관 (handoff 0014).
   titleSettings?: ResolvedProviderSettings
   titleEnv?: Record<string, string>
+  // 제목 생성용 사전 결정 모델(저가 모델 보유 시 haiku, 없으면 default). 미지정이면 SDK 기본.
+  titleModel?: string
   providerKey: string | null
   // sendMessage 호출 시점에 채워두는 사용자 입력. claude 의 init 이벤트가
   // session_id 를 발급한 시점에 DB 에 user message row 로 저장한다.

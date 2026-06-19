@@ -11,6 +11,7 @@ import {
   toContext
 } from './claude-adapt'
 import type { NormalizedHookHandler } from '../extensions/hooks'
+import type { SkillInfo } from '../../shared/ipc'
 
 describe('adaptMcp', () => {
   it('빈 config 는 옵션 생략', () => {
@@ -44,8 +45,30 @@ describe('adaptSystemPrompt', () => {
 })
 
 describe('adaptSkills', () => {
-  it('plugins(local) 없이 skills:all 필터만 반환한다', () => {
-    expect(adaptSkills()).toEqual({ skills: 'all' })
+  const skill = (name: string, sourceKind: 'orca' | 'adapter', enabled: boolean): SkillInfo => ({
+    name,
+    description: '',
+    sourceId: sourceKind === 'orca' ? 'orca' : 'adapter:claude',
+    sourceLabel: sourceKind === 'orca' ? 'Orca 스킬' : 'CLAUDE 스킬',
+    sourceKind,
+    enabled,
+    canToggle: sourceKind === 'orca',
+    canRemove: sourceKind === 'orca',
+    skillPath: `/x/${name}/SKILL.md`,
+    skillDir: `/x/${name}`
+  })
+
+  it('알려진 스킬이 없으면 skills:all 로 둔다(스캔 누락 보호)', () => {
+    expect(adaptSkills([])).toEqual({ skills: 'all' })
+  })
+
+  it('활성 Orca + 모든 어댑터 스킬만 활성 목록으로 반환한다(비활성 Orca 제외)', () => {
+    const skills = [
+      skill('a', 'orca', true),
+      skill('b', 'orca', false),
+      skill('native', 'adapter', true)
+    ]
+    expect(adaptSkills(skills)).toEqual({ skills: ['a', 'native'] })
   })
 })
 

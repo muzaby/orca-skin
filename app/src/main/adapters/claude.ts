@@ -46,10 +46,6 @@ const PLAN_REJECT_MESSAGE =
   '사용자가 계획을 거부했습니다. 다른 계획이나 제안 없이 여기서 중단하세요.'
 // 일반 도구 거부 기본 사유 (resolution.message 부재 시).
 const TOOL_DENY_MESSAGE = '사용자가 도구 실행을 거부했습니다.'
-// 제목 생성용 저가 모델 — CLI 가 해석하는 *별칭*('haiku'|'sonnet'|'opus' 또는 전체 모델명,
-// docs/spec/claude/cli-reference.md `--model`). API 별칭(claude-haiku-4-5)은 해석되지 않는다.
-const CLAUDE_TITLE_MODEL = 'haiku'
-
 // 단일 권한 콜백(requestApproval)을 claude 의 canUseTool 로 어댑트한다. SDK 고유의
 // canUseTool/PermissionResult/도구이름(AskUserQuestion·ExitPlanMode) 형태를 어댑터 내부에만
 // 가둬, 어댑터 경계(TurnRequest)는 중립 콜백 하나(requestApproval: PermissionAction →
@@ -157,16 +153,11 @@ export class ClaudeAdapter implements SessionAdapter {
   }
 
   async complete(req: CompleteRequest): Promise<string> {
-    // 모델은 CompleteRequest.model 단일 채널로 흐른다. 1차는 저가 모델(별칭)로 시도하고,
-    // 비-abort 실패면 model 을 생략해 provider default 모델로 1회 이관한다(graceful degrade
-    // 는 호출자 몫 — router 의 try/catch). 첫 실패를 로깅해 모델 오설정이 은폐되지 않게 한다.
-    try {
-      return await this.runCompletion({ ...req, model: req.model ?? CLAUDE_TITLE_MODEL })
-    } catch (err) {
-      if (req.signal?.aborted) throw err
-      console.warn('[session-title] 저가 모델 completion 실패 — default 모델로 재시도:', err)
-      return this.runCompletion({ ...req, model: 'default' })
-    }
+    // 모델은 호출자가 요청 전에 결정해 CompleteRequest.model 로 넘긴다 (저가 모델 보유 시
+    // 그것을, 없으면 provider default — title-generation/resolveTurnProvider). 어댑터는 받은
+    // model 그대로 실행하며, model 미지정이면 runCompletion 이 생략해 SDK 기본 모델을 쓴다.
+    // 실패-후-재시도 폴백은 두지 않는다(사전 결정으로 대체). 실패는 호출자가 graceful 처리.
+    return this.runCompletion(req)
   }
 
   private async runCompletion(req: CompleteRequest): Promise<string> {
@@ -248,7 +239,7 @@ export class ClaudeAdapter implements SessionAdapter {
         abortController,
         ...adaptSystemPrompt(extensions.systemPromptAppend),
         ...adaptMcp(mcpConfig),
-        ...adaptSkills(),
+        ...adaptSkills(extensions.skills),
         // provider settings flag 주입 — settings(env 포함 인라인 JSON 문자열, flag 레이어).
         // settingSources 는 생략해 SDK 기본 user/project/local 소스를 상속하고, 이 settings 가
         // 그 위에 얹혀 ~/.claude/settings.json 을 덮어쓴다(env 포함 — handoff 0028).

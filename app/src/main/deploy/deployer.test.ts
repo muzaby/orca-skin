@@ -118,35 +118,28 @@ describe('deploy', () => {
     expect(existsSync(join(`${dist()}.bak`, '.claude', 'skills', 'demo', 'SKILL.md'))).toBe(true)
   })
 
-  it('enabled 옵션이 있으면 꺼진 Orca 스킬과 MCP 를 dist 에서 제외한다', () => {
+  it('Orca 스킬은 enabled 와 무관하게 전량 dist 에 포함하고(활성 제어는 런타임 options.skills) MCP 는 mcpConfig 로 필터된다', () => {
     seedSources('{"mcpServers":{"on":{"command":"npx"},"off":{"command":"node"}}}')
     writeFile(join(root, 'sources', 'skills', 'off', 'SKILL.md'), '# off')
 
-    const r = deploy(
-      'claude',
-      {
-        skillEnabled: { 'orca/demo': true, 'orca/off': false },
-        mcpConfig: { on: { command: 'npx' } }
-      },
-      root
-    )
+    const r = deploy('claude', { mcpConfig: { on: { command: 'npx' } } }, root)
 
     expect(r.validation.ok).toBe(true)
+    // 비활성 스킬도 파일은 복사된다 — 활성/비활성은 어댑터의 options.skills 필터가 담당.
     expect(existsSync(join(dist(), '.claude', 'skills', 'demo', 'SKILL.md'))).toBe(true)
-    expect(existsSync(join(dist(), '.claude', 'skills', 'off', 'SKILL.md'))).toBe(false)
+    expect(existsSync(join(dist(), '.claude', 'skills', 'off', 'SKILL.md'))).toBe(true)
     expect(JSON.parse(readFileSync(join(dist(), '.mcp.json'), 'utf8'))).toEqual({
       mcpServers: { on: { command: 'npx' } }
     })
   })
 
-  it('adapter 스킬은 enabled map 값과 무관하게 dist 에 포함한다', () => {
+  it('adapter 스킬은 dist 로 복사하지 않는다 (SDK settingSources:user 가 ~/.claude 에서 직접 탐색)', () => {
     seedSources()
     writeFile(join(root, 'adapter-skills', 'native', 'SKILL.md'), '# native')
 
     const r = deploy(
       'claude',
       {
-        skillEnabled: { 'orca/demo': true, 'adapter:claude/native': false },
         skillRoots: [
           {
             sourceId: 'orca',
@@ -156,7 +149,7 @@ describe('deploy', () => {
           },
           {
             sourceId: 'adapter:claude',
-            sourceLabel: '어댑터 스킬',
+            sourceLabel: 'CLAUDE 스킬',
             sourceKind: 'adapter',
             rootDir: join(root, 'adapter-skills')
           }
@@ -166,7 +159,9 @@ describe('deploy', () => {
     )
 
     expect(r.validation.ok).toBe(true)
-    expect(existsSync(join(dist(), '.claude', 'skills', 'native', 'SKILL.md'))).toBe(true)
+    // Orca 스킬만 dist 거울에 포함, 어댑터 스킬은 제외.
+    expect(existsSync(join(dist(), '.claude', 'skills', 'demo', 'SKILL.md'))).toBe(true)
+    expect(existsSync(join(dist(), '.claude', 'skills', 'native', 'SKILL.md'))).toBe(false)
   })
 
   it('sources 하위가 비어도 빈 plugin 디렉토리를 만든다', () => {

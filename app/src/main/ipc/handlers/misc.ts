@@ -93,7 +93,8 @@ export function registerMiscHandlers(ctx: RouterContext): void {
           [skillEnabledKey(req.sourceId, req.name)]: req.enabled
         }
       })
-      ctx.syncExtensions()
+      // 토글은 파일을 바꾸지 않는다(모든 Orca 스킬은 항상 배포됨) — 활성화는 런타임
+      // options.skills 필터가 반영하므로 캐시 갱신만으로 충분(파일 재싱크 불필요).
       return ctx.refreshSkills()
     }
   )

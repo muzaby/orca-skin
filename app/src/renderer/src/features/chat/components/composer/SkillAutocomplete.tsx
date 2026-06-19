@@ -65,23 +65,25 @@ export function SkillAutocomplete({
                 onPick(s)
               }}
               onMouseEnter={() => onHover(i)}
-              className={`flex w-full cursor-pointer items-center gap-2 rounded px-2 py-1.5 text-left text-[13px] ${
+              className={`flex w-full cursor-pointer flex-col items-start gap-0.5 rounded px-2 py-1.5 text-left ${
                 active ? 'bg-sidebar text-ink' : 'text-ink hover:bg-sidebar'
               }`}
             >
-              <span className="flex-1 font-mono text-[12.5px]">/{s.name}</span>
-              {s.argumentHint && (
-                <span className="font-mono text-[10.5px] text-ink3">{s.argumentHint}</span>
+              <span className="flex w-full items-center gap-2">
+                <span className="flex-1 truncate font-mono text-[12.5px]">/{s.name}</span>
+                {s.argumentHint && (
+                  <span className="font-mono text-[10.5px] text-ink3">{s.argumentHint}</span>
+                )}
+              </span>
+              {s.description && (
+                <span className="line-clamp-2 w-full text-[11px] leading-snug text-ink3">
+                  {s.description}
+                </span>
               )}
             </button>
           )
         })}
       </div>
-      {suggestions[activeIndex]?.description && (
-        <div className="mt-1 border-t border-border px-2 py-1.5 text-[11.5px] leading-relaxed text-ink2">
-          {suggestions[activeIndex].description}
-        </div>
-      )}
     </div>,
     document.body
   )
