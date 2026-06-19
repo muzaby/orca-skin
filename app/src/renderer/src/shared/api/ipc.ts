@@ -20,6 +20,10 @@ import type {
   Settings,
   SettingsPatch,
   SkillInfo,
+  AuthorSkillRequest,
+  UploadSkillRequest,
+  SetSkillEnabledRequest,
+  SkillTargetRequest,
   UpdateMcpServerRequest,
   UpdateProjectRequest,
   DebugMockState,
@@ -71,7 +75,10 @@ export const skillApi = {
   author: (req: AuthorSkillRequest): Promise<SkillInfo[]> => window.orca.skills.author(req),
   upload: (req: UploadSkillRequest): Promise<SkillInfo[]> => window.orca.skills.upload(req),
   setEnabled: (req: SetSkillEnabledRequest): Promise<SkillInfo[]> =>
-    window.orca.skills.setEnabled(req)
+    window.orca.skills.setEnabled(req),
+  open: (req: SkillTargetRequest): Promise<void> => window.orca.skills.open(req),
+  showInFolder: (req: SkillTargetRequest): Promise<void> => window.orca.skills.showInFolder(req),
+  remove: (req: SkillTargetRequest): Promise<SkillInfo[]> => window.orca.skills.remove(req)
 }
 
 export const fileApi = {

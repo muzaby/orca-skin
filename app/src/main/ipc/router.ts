@@ -1,7 +1,7 @@
 // IpcRouter — main 측 컴포지션 루트. 의존성 생성 + 부팅 시퀀스 + 핸들러 등록 위임만 담당한다.
 // 도메인 핸들러는 ipc/handlers/, chat 턴 파이프라인은 ipc/chat/ 참조 (handoff 0011 분해).
 
-import { app, webContents } from 'electron'
+import { webContents } from 'electron'
 import { mkdir } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
@@ -60,15 +60,22 @@ export class IpcRouter {
 
   private skillRoots(): SkillScanRoot[] {
     return [
-      { sourceId: 'orca', sourceLabel: 'Orca 스킬', rootDir: sourcesSkillsDir() },
+      {
+        sourceId: 'orca',
+        sourceLabel: 'Orca 스킬',
+        sourceKind: 'orca',
+        rootDir: sourcesSkillsDir()
+      },
       {
         sourceId: 'adapter:claude',
         sourceLabel: '어댑터 스킬',
+        sourceKind: 'adapter',
         rootDir: join(homedir(), '.claude', 'skills')
       },
       {
         sourceId: 'workspace:claude',
         sourceLabel: '워크스페이스 스킬',
+        sourceKind: 'workspace',
         rootDir: join(this.defaultCwd, '.claude', 'skills')
       }
     ]

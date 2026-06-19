@@ -29,10 +29,15 @@ describe('scanSkills', () => {
 
     const result = await scanSkills(
       [
-        { sourceId: 'orca', sourceLabel: 'Orca 스킬', rootDir: orca },
-        { sourceId: 'adapter:claude', sourceLabel: '어댑터 스킬', rootDir: adapter }
+        { sourceId: 'orca', sourceLabel: 'Orca 스킬', sourceKind: 'orca', rootDir: orca },
+        {
+          sourceId: 'adapter:claude',
+          sourceLabel: '어댑터 스킬',
+          sourceKind: 'adapter',
+          rootDir: adapter
+        }
       ],
-      { 'orca/alpha': false }
+      { 'orca/alpha': false, 'adapter:claude/beta': false }
     )
 
     expect(result).toEqual(
@@ -42,13 +47,17 @@ describe('scanSkills', () => {
           sourceId: 'orca',
           sourceLabel: 'Orca 스킬',
           enabled: false,
+          canToggle: true,
+          sourceKind: 'orca',
           argumentHint: '<file>'
         }),
         expect.objectContaining({
           name: 'beta',
           sourceId: 'adapter:claude',
           sourceLabel: '어댑터 스킬',
-          enabled: true
+          enabled: true,
+          canToggle: false,
+          sourceKind: 'adapter'
         })
       ])
     )
