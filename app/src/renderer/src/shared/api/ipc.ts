@@ -67,7 +67,11 @@ export const settingsApi = {
 }
 
 export const skillApi = {
-  list: (): Promise<SkillInfo[]> => window.orca.skills.list()
+  list: (): Promise<SkillInfo[]> => window.orca.skills.list(),
+  author: (req: AuthorSkillRequest): Promise<SkillInfo[]> => window.orca.skills.author(req),
+  upload: (req: UploadSkillRequest): Promise<SkillInfo[]> => window.orca.skills.upload(req),
+  setEnabled: (req: SetSkillEnabledRequest): Promise<SkillInfo[]> =>
+    window.orca.skills.setEnabled(req)
 }
 
 export const fileApi = {

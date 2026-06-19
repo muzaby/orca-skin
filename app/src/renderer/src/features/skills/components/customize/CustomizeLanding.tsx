@@ -28,7 +28,6 @@ function ActionCard({
   )
 }
 
-// 맞춤설정 랜딩(첨부 1) — 첫 진입(미선택) 시 목록 없이 표시. 가방 히어로 + 3 액션 카드.
 export function CustomizeLanding({
   onConnect,
   onCreateSkill,
@@ -47,14 +46,13 @@ export function CustomizeLanding({
           </span>
           <h1 className="m-0 font-serif text-[26px] font-semibold text-ink">맞춤설정</h1>
           <p className="mt-2 max-w-[440px] text-[13.5px] leading-[1.6] text-ink2">
-            스킬과 커넥터는 Orca가 사용자와 함께 작업하는 방식을 결정합니다.
+            스킬과 MCP는 Orca가 사용자와 함께 작업하는 방식을 결정합니다.
           </p>
         </div>
-
         <div className="flex flex-col gap-3">
           <ActionCard
             icon="link"
-            title="커넥터 연결"
+            title="MCP 연결"
             desc="Orca가 이미 사용 중인 도구를 읽고 쓸 수 있도록 허용하세요."
             onClick={onConnect}
           />

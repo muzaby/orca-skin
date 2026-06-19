@@ -37,7 +37,9 @@ export interface RouterContext {
   providerSettings: ProviderSettingsService
   // 부팅 1회 스캔 캐시 — 턴 실행 시점에 최신 값을 읽도록 getter 로 노출.
   getSkills(): SkillInfo[]
-  // chat send · files list · session cwd 가 공유하는 단일 cwd (현재 home 고정).
+  refreshSkills(): Promise<SkillInfo[]>
+  syncExtensions(): void
+  // chat send · files list · session cwd 가 공유하는 단일 cwd.
   getCwd(): string
   debugMock: DebugMockState
   mockAdapter: MockAdapter | null

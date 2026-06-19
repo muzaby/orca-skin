@@ -1,14 +1,12 @@
 import { Icon, type IconName } from '../../../../shared/ui/Icon'
 
-export type CustomizeTab = 'skills' | 'connectors'
+export type CustomizeTab = 'skills' | 'mcp'
 
 const NAV: { tab: CustomizeTab; icon: IconName; label: string }[] = [
   { tab: 'skills', icon: 'doc', label: '스킬' },
-  { tab: 'connectors', icon: 'link', label: '커넥터' }
+  { tab: 'mcp', icon: 'link', label: 'MCP' }
 ]
 
-// 맞춤설정 좌측 레일 — nav 전용(스킬/커넥터). 워크스페이스 선택·개인 플러그인·플러그인
-// 탐색은 표시하지 않는다(설계 결정). active 는 사이드바와 동일 패턴(rust + fill-selected).
 export function CustomizeRail({
   tab,
   onSelect
