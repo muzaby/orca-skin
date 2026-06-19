@@ -23,7 +23,7 @@ function formatDate(ms?: number): string {
 
 function MarkdownBody({ source }: { source: string }): React.JSX.Element {
   return (
-    <div className="text-[13.5px] leading-[1.7] text-ink2 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_code]:rounded-r3 [&_code]:bg-cream-50 [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_pre]:overflow-auto [&_pre]:rounded-r4 [&_pre]:bg-cream-50 [&_pre]:p-3">
+    <div className="min-w-0 break-words text-[13.5px] leading-[1.7] text-ink2 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_code]:break-words [&_code]:rounded-r3 [&_code]:bg-cream-50 [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_pre]:rounded-r4 [&_pre]:bg-cream-50 [&_pre]:p-3">
       <ReactMarkdown remarkPlugins={[remarkGfm]}>{source}</ReactMarkdown>
     </div>
   )
