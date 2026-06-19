@@ -139,6 +139,36 @@ describe('deploy', () => {
     })
   })
 
+  it('adapter 스킬은 enabled map 값과 무관하게 dist 에 포함한다', () => {
+    seedSources()
+    writeFile(join(root, 'adapter-skills', 'native', 'SKILL.md'), '# native')
+
+    const r = deploy(
+      'claude',
+      {
+        skillEnabled: { 'orca/demo': true, 'adapter:claude/native': false },
+        skillRoots: [
+          {
+            sourceId: 'orca',
+            sourceLabel: 'Orca 스킬',
+            sourceKind: 'orca',
+            rootDir: join(root, 'sources', 'skills')
+          },
+          {
+            sourceId: 'adapter:claude',
+            sourceLabel: '어댑터 스킬',
+            sourceKind: 'adapter',
+            rootDir: join(root, 'adapter-skills')
+          }
+        ]
+      },
+      root
+    )
+
+    expect(r.validation.ok).toBe(true)
+    expect(existsSync(join(dist(), '.claude', 'skills', 'native', 'SKILL.md'))).toBe(true)
+  })
+
   it('sources 하위가 비어도 빈 plugin 디렉토리를 만든다', () => {
     writeFile(join(root, 'sources', 'mcp', 'mcp.json'), '{"mcpServers":{}}')
     const r = deploy('claude', {}, root)

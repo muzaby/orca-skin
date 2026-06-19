@@ -96,7 +96,8 @@ function copyEnabledSkills(
     for (const entry of entries) {
       if (!entry.isDirectory()) continue
       const name = entry.name
-      if ((enabled[`${root.sourceId}/${name}`] ?? true) !== true) continue
+      if (root.sourceKind === 'orca' && (enabled[`${root.sourceId}/${name}`] ?? true) !== true)
+        continue
       cpSync(join(root.rootDir, name), join(dest, name), { recursive: true, force: true })
     }
   }
@@ -185,7 +186,12 @@ export function deploy(
   if (opts.skillEnabled) {
     copyEnabledSkills(
       opts.skillRoots ?? [
-        { sourceId: 'orca', sourceLabel: 'Orca 스킬', rootDir: join(sources, 'skills') }
+        {
+          sourceId: 'orca',
+          sourceLabel: 'Orca 스킬',
+          sourceKind: 'orca',
+          rootDir: join(sources, 'skills')
+        }
       ],
       skillsDest,
       opts.skillEnabled

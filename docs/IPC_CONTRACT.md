@@ -20,9 +20,9 @@
   - 특례: `chat:send` 는 실패를 `error` 이벤트로 회신(§2.1). 입력이 없거나 store 내부 zod 가 검증하는 채널(settings set · mcp add/update)은 `handlePlain`.
 - 출력(main→renderer send) 무검증: `NormalizedEvent` 등의 형상 보증은 어댑터 정규화(`claude-map.ts`)가 담당 — 의도된 설계.
 
-## 2. 채널 카탈로그 (총 43 채널)
+## 2. 채널 카탈로그 (총 46 채널)
 
-도메인별 분포: `chat` 3 · `backend` 1 · `agent` 1 · `engine` 4 · `install` 2 · `settings` 2 · `skills` 4 · `files` 1 · `session` 6 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `cost` 2 · `permission` 2 (`respond` · `setMode`) · `debug` 2 (dev 전용 — `getMock` · `setMock`).
+도메인별 분포: `chat` 3 · `backend` 1 · `agent` 1 · `engine` 4 · `install` 2 · `settings` 2 · `skills` 7 · `files` 1 · `session` 6 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `cost` 2 · `permission` 2 (`respond` · `setMode`) · `debug` 2 (dev 전용 — `getMock` · `setMock`).
 
 `app/src/shared/ipc.ts` 의 `CHANNELS` 상수와 1:1 일치. **단, `debug` 2채널은 `import.meta.env.DEV` 일 때만 `ipcMain.handle` 로 등록된다** (CHANNELS 상수 문자열은 상존하나 prod 핸들러 미등록 — §2.13 참조).
 
@@ -92,12 +92,15 @@ interface Settings {
 
 ### 2.5 Skills
 
-| 채널                     | 방향         | 페이로드                                                 | 응답                                                                                                        | 설명                                                              |
-| ------------------------ | ------------ | -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `orca:skills:list`       | R→M (invoke) | —                                                        | `SkillInfo[]` = `{ name; description; argumentHint?; sourceId; sourceLabel; enabled; body?; updatedAt? }[]` | Orca sources + 어댑터/워크스페이스 SKILL.md 카탈로그.             |
-| `orca:skills:author`     | R→M (invoke) | `AuthorSkillRequest` = `{ name; description; body }`     | `SkillInfo[]`                                                                                               | `~/.config/orca/sources/skills/<name>/SKILL.md` 작성 후 refresh.  |
-| `orca:skills:upload`     | R→M (invoke) | `UploadSkillRequest` = `{ fileName; content }`           | `SkillInfo[]`                                                                                               | `.md`/`.skill` 파일 내용을 Orca skill source 로 저장 후 refresh.  |
-| `orca:skills:setEnabled` | R→M (invoke) | `SetSkillEnabledRequest` = `{ name; sourceId; enabled }` | `SkillInfo[]`                                                                                               | settings `skillEnabled[sourceId/name]` 을 갱신하고 dist/cwd 싱크. |
+| 채널                       | 방향         | 페이로드                                                 | 응답                                                                                                                                                                           | 설명                                                                                 |
+| -------------------------- | ------------ | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| `orca:skills:list`         | R→M (invoke) | —                                                        | `SkillInfo[]` = `{ name; description; argumentHint?; sourceId; sourceLabel; sourceKind; enabled; canToggle; canRemove; skillPath; skillDir; body?; createdAt?; updatedAt? }[]` | Orca sources + 어댑터/워크스페이스 SKILL.md 카탈로그.                                |
+| `orca:skills:author`       | R→M (invoke) | `AuthorSkillRequest` = `{ name; description; body }`     | `SkillInfo[]`                                                                                                                                                                  | `~/.config/orca/sources/skills/<name>/SKILL.md` 작성 후 refresh.                     |
+| `orca:skills:upload`       | R→M (invoke) | `UploadSkillRequest` = `{ fileName; content }`           | `SkillInfo[]`                                                                                                                                                                  | `.md`/`.skill` 파일 내용을 Orca skill source 로 저장 후 refresh.                     |
+| `orca:skills:setEnabled`   | R→M (invoke) | `SetSkillEnabledRequest` = `{ name; sourceId; enabled }` | `SkillInfo[]`                                                                                                                                                                  | Orca source 스킬만 settings `skillEnabled[sourceId/name]` 을 갱신하고 dist/cwd 싱크. |
+| `orca:skills:open`         | R→M (invoke) | `SkillTargetRequest` = `{ name; sourceId }`              | `Promise<void>`                                                                                                                                                                | SKILL.md 를 OS 기본 앱으로 연다.                                                     |
+| `orca:skills:showInFolder` | R→M (invoke) | `SkillTargetRequest`                                     | `Promise<void>`                                                                                                                                                                | SKILL.md 위치를 OS 파일 관리자에서 표시한다.                                         |
+| `orca:skills:remove`       | R→M (invoke) | `SkillTargetRequest`                                     | `SkillInfo[]`                                                                                                                                                                  | Orca source 스킬 폴더를 제거하고 refresh/sync 한다.                                  |
 
 > **현재 스캔 경로**: `~/.config/orca/sources/skills/<name>/SKILL.md` + 어댑터 네이티브 경로(`~/.claude/skills/<name>/SKILL.md`) + workspace 경로(`<cwd>/.claude/skills/<name>/SKILL.md`).
 

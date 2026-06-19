@@ -9,6 +9,7 @@ import type { SkillInfo } from '../../shared/ipc'
 export interface SkillScanRoot {
   sourceId: string
   sourceLabel: string
+  sourceKind: 'orca' | 'adapter' | 'workspace'
   rootDir: string
 }
 
@@ -56,7 +57,8 @@ async function scanRoot(
   const skills: SkillInfo[] = []
   for (const dir of entries) {
     if (!dir.isDirectory()) continue
-    const skillPath = join(root.rootDir, dir.name, 'SKILL.md')
+    const skillDir = join(root.rootDir, dir.name)
+    const skillPath = join(skillDir, 'SKILL.md')
     const text = await fs.readFile(skillPath, 'utf8').catch(() => null)
     if (text === null) continue
     const meta = parseFrontmatter(text)
@@ -68,9 +70,15 @@ async function scanRoot(
       ...(meta['argument-hint'] ? { argumentHint: meta['argument-hint'] } : {}),
       sourceId: root.sourceId,
       sourceLabel: root.sourceLabel,
-      enabled: enabled[skillEnabledKey(root.sourceId, name)] ?? true,
+      enabled:
+        root.sourceKind === 'orca' ? (enabled[skillEnabledKey(root.sourceId, name)] ?? true) : true,
       body: bodyWithoutFrontmatter(text),
-      ...(stat ? { updatedAt: stat.mtimeMs } : {})
+      sourceKind: root.sourceKind,
+      canToggle: root.sourceKind === 'orca',
+      canRemove: root.sourceKind === 'orca',
+      skillPath,
+      skillDir,
+      ...(stat ? { updatedAt: stat.mtimeMs, createdAt: stat.birthtimeMs } : {})
     })
   }
   return skills

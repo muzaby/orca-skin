@@ -3,6 +3,7 @@ import type {
   AuthorSkillRequest,
   SetSkillEnabledRequest,
   SkillInfo,
+  SkillTargetRequest,
   UploadSkillRequest
 } from '../../../../../shared/ipc'
 import { skillApi } from '../../../shared/api/ipc'
@@ -14,6 +15,9 @@ export interface UseCustomizeSkills {
   author: (req: AuthorSkillRequest) => Promise<void>
   upload: (req: UploadSkillRequest) => Promise<void>
   setEnabled: (req: SetSkillEnabledRequest) => Promise<void>
+  open: (req: SkillTargetRequest) => Promise<void>
+  showInFolder: (req: SkillTargetRequest) => Promise<void>
+  remove: (req: SkillTargetRequest) => Promise<void>
 }
 
 export function useCustomizeSkills(): UseCustomizeSkills {
@@ -53,5 +57,17 @@ export function useCustomizeSkills(): UseCustomizeSkills {
     setList(await skillApi.setEnabled(req))
   }, [])
 
-  return { list, loading, refresh, author, upload, setEnabled }
+  const open = useCallback(async (req: SkillTargetRequest) => {
+    await skillApi.open(req)
+  }, [])
+
+  const showInFolder = useCallback(async (req: SkillTargetRequest) => {
+    await skillApi.showInFolder(req)
+  }, [])
+
+  const remove = useCallback(async (req: SkillTargetRequest) => {
+    setList(await skillApi.remove(req))
+  }, [])
+
+  return { list, loading, refresh, author, upload, setEnabled, open, showInFolder, remove }
 }
