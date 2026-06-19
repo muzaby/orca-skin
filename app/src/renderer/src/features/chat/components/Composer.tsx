@@ -44,6 +44,9 @@ interface ComposerProps {
   onScrollToBottom?: () => void
   // cross-feature 비용 summary 는 page/app 계층에서 문자열로 포맷해 주입한다.
   costToday?: string
+  // 컴포저 초기 입력 시드 — Skills "채팅에서 사용해보기" 가 nav state → page 를 거쳐 주입한다.
+  // 마운트/값 변경 시 1회 draft 에 채우고 포커스한다(사용자 입력 중에는 덮어쓰지 않음).
+  initialDraft?: string
 }
 
 // 채팅 입력 composer — textarea + chip 행 + send/cancel 버튼 + skills/file 자동완성.
@@ -56,7 +59,8 @@ export function Composer({
   canAbort,
   showScrollToBottom,
   onScrollToBottom,
-  costToday
+  costToday,
+  initialDraft
 }: ComposerProps): React.JSX.Element {
   const { send, cancel, answerAsk, skipAsk, setPermissionMode, setModel, setEffort } = chatActions
   const inflight = useChatSession((s) => s.inflight)
@@ -92,6 +96,20 @@ export function Composer({
   const conversationStatusButtonRef = useRef<HTMLButtonElement>(null)
   const [conversationStatusOpen, setConversationStatusOpen] = useState(false)
   const conversationStatusPopoverId = 'conversation-status-popover'
+
+  // initialDraft 시드 — page 가 nav state 로 같은 값을 다시 넘겨도 1회만 적용(seededRef).
+  // 적용 후 캐럿을 끝으로 두고 포커스해 사용자가 바로 이어 입력할 수 있게 한다.
+  const seededRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (initialDraft === undefined || seededRef.current === initialDraft) return
+    seededRef.current = initialDraft
+    setDraft(initialDraft)
+    setCaret(initialDraft.length)
+    requestAnimationFrame(() => {
+      textareaRef.current?.focus()
+      textareaRef.current?.setSelectionRange(initialDraft.length, initialDraft.length)
+    })
+  }, [initialDraft])
 
   const closeMenu = (): void => setMenuOpen(false)
 

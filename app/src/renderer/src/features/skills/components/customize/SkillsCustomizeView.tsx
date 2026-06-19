@@ -93,8 +93,7 @@ export function SkillsCustomizeView(): React.JSX.Element {
                 })
               }}
               onTryInChat={() => {
-                void navigator.clipboard?.writeText(`/${selectedSkill.name} `)
-                navigate('/new')
+                navigate('/new', { state: { composerDraft: `/${selectedSkill.name} ` } })
               }}
               onOpenDefault={() =>
                 void skills.open({ name: selectedSkill.name, sourceId: selectedSkill.sourceId })

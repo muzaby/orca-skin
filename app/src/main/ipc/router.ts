@@ -68,15 +68,9 @@ export class IpcRouter {
       },
       {
         sourceId: 'adapter:claude',
-        sourceLabel: '어댑터 스킬',
+        sourceLabel: 'CLAUDE 스킬',
         sourceKind: 'adapter',
         rootDir: join(homedir(), '.claude', 'skills')
-      },
-      {
-        sourceId: 'workspace:claude',
-        sourceLabel: '워크스페이스 스킬',
-        sourceKind: 'workspace',
-        rootDir: join(this.defaultCwd, '.claude', 'skills')
       }
     ]
   }

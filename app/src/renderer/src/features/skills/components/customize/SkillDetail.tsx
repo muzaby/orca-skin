@@ -113,6 +113,7 @@ export function SkillDetail({
         anchorRef={menuRef}
         onClose={() => setMenuOpen(false)}
         placement="bottom"
+        align="end"
       >
         <MenuRow
           icon="chat"
