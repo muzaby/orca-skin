@@ -1,3 +1,4 @@
+import { useLocation } from 'react-router-dom'
 import { ChatTile, Composer, useChatSession } from '../features/chat'
 import { useBackendCapabilities, useBackendLabel } from '../features/backend'
 import { formatApproxCost, useCostSummary } from '../features/cost'
@@ -16,6 +17,12 @@ export function NewChatLandingPage(): React.JSX.Element {
   // 능력 서술자가 로드됐는데 sessionAbort 가 아니면 중단 게이팅(미로드면 현행 동작 유지).
   const canAbort = capabilities ? capabilities.cancellation.sessionAbort === true : true
   const costToday = summary ? formatApproxCost(summary.day.totalCostUsd) : undefined
+  // Skills 페이지의 "채팅에서 사용해보기" 가 nav state 로 전달한 컴포저 프리필(`/<스킬명> `).
+  const location = useLocation()
+  const composerDraft =
+    typeof (location.state as { composerDraft?: unknown } | null)?.composerDraft === 'string'
+      ? (location.state as { composerDraft: string }).composerDraft
+      : undefined
 
   if (isEmpty) {
     return (
@@ -24,10 +31,22 @@ export function NewChatLandingPage(): React.JSX.Element {
           <div className="mb-3 text-center font-serif text-[24px] font-semibold tracking-tight text-ink">
             무엇을 도와드릴까요?
           </div>
-          <Composer backendLabel={backendLabel} canAbort={canAbort} costToday={costToday} />
+          <Composer
+            backendLabel={backendLabel}
+            canAbort={canAbort}
+            costToday={costToday}
+            initialDraft={composerDraft}
+          />
         </div>
       </section>
     )
   }
-  return <ChatTile backendLabel={backendLabel} canAbort={canAbort} costToday={costToday} />
+  return (
+    <ChatTile
+      backendLabel={backendLabel}
+      canAbort={canAbort}
+      costToday={costToday}
+      initialDraft={composerDraft}
+    />
+  )
 }

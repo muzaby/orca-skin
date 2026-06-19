@@ -13,13 +13,20 @@ interface ChatTileProps {
   // 활성 백엔드의 중단 지원 여부(§15). page → ChatView 를 거쳐 Composer 로 전달.
   canAbort: boolean
   costToday?: string
+  // 컴포저 초기 입력 시드(Skills "채팅에서 사용해보기"). page 가 nav state 로 주입.
+  initialDraft?: string
 }
 
 // 채팅 타일 셸 — 레이아웃 조립(타이틀바·transcript·컴포저·우측 계획 타일 도킹)과
 // 스크롤 앵커 훅 호스팅만 담당한다. 커밋 슬라이스(session)만 selector 로 구독하므로
 // 스트리밍 델타 프레임에는 재렌더되지 않고, 커밋 프레임에도 자식(ChatTitleBar·
 // TranscriptView·Composer)이 각자 memo/selector 로 bail 한다 (0008).
-export function ChatTile({ backendLabel, canAbort, costToday }: ChatTileProps): React.JSX.Element {
+export function ChatTile({
+  backendLabel,
+  canAbort,
+  costToday,
+  initialDraft
+}: ChatTileProps): React.JSX.Element {
   const messages = useChatSession((s) => s.messages)
   const sessionId = useChatSession((s) => s.sessionId)
   const sendCount = useChatSession((s) => s.sendCount)
@@ -85,6 +92,7 @@ export function ChatTile({ backendLabel, canAbort, costToday }: ChatTileProps): 
             showScrollToBottom={showJump}
             onScrollToBottom={scrollToBottom}
             costToday={costToday}
+            initialDraft={initialDraft}
           />
         </div>
 
