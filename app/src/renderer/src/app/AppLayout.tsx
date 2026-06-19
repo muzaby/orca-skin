@@ -38,7 +38,10 @@ export function AppLayout(): React.JSX.Element {
       <div className="app-frame-grid relative grid min-h-0 flex-1 grid-cols-1 grid-rows-1 [&>*]:[grid-area:1/1]">
         <div className="app-frame-body z-0 flex min-h-0 min-w-0">
           <Sidebar {...slots} />
-          <main className="app-frame-main flex min-h-0 flex-1 flex-col" data-context="route-target">
+          <main
+            className="app-frame-main flex min-h-0 min-w-0 flex-1 flex-col"
+            data-context="route-target"
+          >
             <AppRouter />
           </main>
         </div>
