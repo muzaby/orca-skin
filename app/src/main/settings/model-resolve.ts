@@ -34,6 +34,14 @@ export function defaultModelFamily(models: ParsedModel[]): string | null {
   return selected ? selected.alias : null
 }
 
+// 제목 생성용 모델 선택 정책: 저가 모델('haiku' alias)이 있으면 그것을, 없으면 provider default
+// 로 해석한다(요청 전 사전 선택 — 어댑터는 실패-후-재시도 폴백을 두지 않는다). 모델 목록이 비면
+// undefined → SDK 기본 모델. 모델 티어 어휘는 settings 레이어 책임이라 여기 둔다.
+export function resolveTitleModel(models: ParsedModel[]): string | undefined {
+  const hasHaiku = models.some((model) => model.alias === 'haiku')
+  return modelNameForFamily(models, hasHaiku ? 'haiku' : null)
+}
+
 // ProviderEntry(provider-registry.ts)를 orca:agent:list 페이로드로 변환. 순환을 피해 구조적
 // 입력만 받는다(ProviderEntry 미import). ParsedModel 을 필드 변환 없이 그대로 통과시킨다.
 export function toAgentEnvironments(

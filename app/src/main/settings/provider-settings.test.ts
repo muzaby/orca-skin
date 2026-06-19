@@ -10,6 +10,7 @@ import {
   listProviders,
   mergeEnvLayers,
   modelNameForFamily,
+  resolveTitleModel,
   ProviderSettingsService,
   toAgentEnvironments,
   type ParsedModel,
@@ -114,6 +115,14 @@ describe('model helpers (alias 기준)', () => {
   it('defaultModelFamily 는 default 항목의 alias, 빈 배열이면 null', () => {
     expect(defaultModelFamily(models)).toBe('sonnet')
     expect(defaultModelFamily([])).toBeNull()
+  })
+
+  it('resolveTitleModel 은 haiku 보유 시 haiku, 없으면 default, 빈 배열이면 undefined', () => {
+    // haiku 보유 → bare alias(haiku, null 모델).
+    expect(resolveTitleModel(models)).toBe('haiku')
+    // haiku 없음 → default 모델로 폴백.
+    expect(resolveTitleModel([models[0]])).toBe('claude-sonnet-4-6')
+    expect(resolveTitleModel([])).toBeUndefined()
   })
 })
 
