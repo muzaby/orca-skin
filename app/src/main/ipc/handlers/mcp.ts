@@ -8,11 +8,20 @@ import { handle, handlePlain } from '../registry'
 export function registerMcpHandlers(ctx: RouterContext): void {
   handlePlain(CHANNELS.mcpList, (): McpServer[] => ctx.mcp.list())
 
-  handlePlain(CHANNELS.mcpAdd, (raw): McpServer => ctx.mcp.add(raw))
+  handlePlain(CHANNELS.mcpAdd, (raw): McpServer => {
+    const result = ctx.mcp.add(raw)
+    ctx.syncExtensions()
+    return result
+  })
 
-  handlePlain(CHANNELS.mcpUpdate, (raw): McpServer | null => ctx.mcp.update(raw))
+  handlePlain(CHANNELS.mcpUpdate, (raw): McpServer | null => {
+    const result = ctx.mcp.update(raw)
+    ctx.syncExtensions()
+    return result
+  })
 
   handle(CHANNELS.mcpDelete, DeleteMcpServerSchema, 'reject', (req): void => {
     ctx.mcp.remove(req.id)
+    ctx.syncExtensions()
   })
 }

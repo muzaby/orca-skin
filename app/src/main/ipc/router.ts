@@ -2,6 +2,9 @@
 // 도메인 핸들러는 ipc/handlers/, chat 턴 파이프라인은 ipc/chat/ 참조 (handoff 0011 분해).
 
 import { app, webContents } from 'electron'
+import { mkdir } from 'node:fs/promises'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
 import { is } from '@electron-toolkit/utils'
 import { CHANNELS, type DebugMockState, type SkillInfo } from '../../shared/ipc'
 import { AdapterRegistry } from '../adapters/registry'
@@ -9,14 +12,15 @@ import { MockAdapter } from '../adapters/mock'
 import { Installer } from '../installer'
 import { SettingsStore } from '../settings/store'
 import { McpStore } from '../mcp/store'
-import { ensureConfigDir } from '../config/paths'
+import { ensureConfigDir, sourcesSkillsDir, workspaceDir } from '../config/paths'
 import { loadOrcaConfig } from '../config/orca-config'
 import { SecretStore } from '../config/secret-store'
 import { deploy } from '../deploy/deployer'
+import { syncWorkspaceExtensions } from '../deploy/workspace-sync'
 import { scaffoldProviderSettings } from '../deploy/scaffold'
 import { ProviderSettingsService } from '../settings/provider-settings'
 import { loadClaudeProviderSettings } from '../adapters/claude-settings'
-import { scanSkills } from '../skills/scan'
+import { scanSkills, type SkillScanRoot } from '../skills/scan'
 import { initDb } from '../db'
 import { CostTracker } from '../cost/tracker'
 import { PythonRuntime, type RuntimeStatus } from '../runtime'
@@ -45,13 +49,54 @@ export class IpcRouter {
   // 부팅 시 1회 스캔하여 메모리에 캐시. fs.watch hot-reload 는 본 PR 범위 밖 (재시작).
   private skillsCache: SkillInfo[] = []
   // chat send 와 files list, session cwd 노출에서 모두 동일하게 사용하는 단일
-  // cwd. 현재는 home 으로 고정 — 향후 사용자 선택 디렉토리로 확장 가능.
+  // cwd. 기본은 ~/.config/orca/workspace — 향후 사용자 선택 디렉토리로 확장 가능.
   private defaultCwd: string = ''
   private readonly debugMock: DebugMockState = {
     enabled: false,
     scenarioId: 'full',
     contextUsageRatio: 0.3,
     wireLog: false
+  }
+
+  private skillRoots(): SkillScanRoot[] {
+    return [
+      { sourceId: 'orca', sourceLabel: 'Orca 스킬', rootDir: sourcesSkillsDir() },
+      {
+        sourceId: 'adapter:claude',
+        sourceLabel: '어댑터 스킬',
+        rootDir: join(homedir(), '.claude', 'skills')
+      },
+      {
+        sourceId: 'workspace:claude',
+        sourceLabel: '워크스페이스 스킬',
+        rootDir: join(this.defaultCwd, '.claude', 'skills')
+      }
+    ]
+  }
+
+  private async refreshSkills(): Promise<SkillInfo[]> {
+    this.skillsCache = await scanSkills(
+      this.skillRoots(),
+      this.settings.getAll().skillEnabled
+    ).catch(() => [])
+    return this.skillsCache
+  }
+
+  private syncExtensions(): void {
+    try {
+      const settings = this.settings.getAll()
+      const r = deploy('claude', {
+        skillEnabled: settings.skillEnabled,
+        skillRoots: this.skillRoots(),
+        mcpConfig: this.mcp.enabledConfig()
+      })
+      if (!r.validation.ok) {
+        for (const err of r.validation.errors) console.warn('[deploy] 검증 경고:', err)
+      }
+      syncWorkspaceExtensions('claude', this.defaultCwd)
+    } catch (e) {
+      console.warn('[sync] 확장 싱크 건너뜀:', e)
+    }
   }
 
   async start(): Promise<void> {
@@ -71,7 +116,10 @@ export class IpcRouter {
     // 완료 전에 만들어도 무방 — 턴 실행 시점에 최신 skillsCache 를 읽는다.
     const extensions = new ExtensionBuilder(db, this.mcp, () => this.skillsCache, stableAppend)
     await this.registry.refreshInstallState()
-    this.defaultCwd = app.getPath('home')
+    this.defaultCwd = workspaceDir()
+    await mkdir(this.defaultCwd, { recursive: true }).catch((e) =>
+      console.warn('[boot] workspace 생성 실패:', e)
+    )
     // ~/.config/orca 보장 → orca.json 로드 → provider settings 스캐폴드(최초 1회) →
     // dist/<engine> 배포(ExtensionDeployer) → settings 해석 캐시 무효화.
     // 어느 단계 실패도 부팅을 막지 않는다(채팅/세션 기능은 독립).
@@ -90,7 +138,12 @@ export class IpcRouter {
       console.warn('[boot] provider settings 스캐폴드 건너뜀:', e)
     }
     try {
-      const r = deploy('claude')
+      const settings = this.settings.getAll()
+      const r = deploy('claude', {
+        skillEnabled: settings.skillEnabled,
+        skillRoots: this.skillRoots(),
+        mcpConfig: this.mcp.enabledConfig()
+      })
       if (!r.validation.ok) {
         for (const err of r.validation.errors) console.warn('[deploy] 검증 경고:', err)
       }
@@ -99,7 +152,8 @@ export class IpcRouter {
       console.warn('[boot] 배포 건너뜀:', e)
     }
     // ClaudeAdapter 가 사용하는 cwd 와 동일한 값으로 스킬 스캔.
-    this.skillsCache = await scanSkills(this.defaultCwd).catch(() => [])
+    await this.refreshSkills()
+    this.syncExtensions()
 
     const ctx: RouterContext = {
       db,
@@ -113,6 +167,8 @@ export class IpcRouter {
       extensions,
       providerSettings,
       getSkills: () => this.skillsCache,
+      refreshSkills: () => this.refreshSkills(),
+      syncExtensions: () => this.syncExtensions(),
       getCwd: () => this.defaultCwd,
       debugMock: this.debugMock,
       mockAdapter: import.meta.env.DEV ? new MockAdapter(() => this.debugMock) : null

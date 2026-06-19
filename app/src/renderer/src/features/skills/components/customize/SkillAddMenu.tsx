@@ -2,9 +2,6 @@ import { useState, type RefObject } from 'react'
 import { Popover } from '../../../../shared/ui/Popover'
 import { Icon, type IconName } from '../../../../shared/ui/Icon'
 
-// 스킬 목록 헤더 `+` 의 캐스케이딩 메뉴(첨부 1). 1차: 스킬 둘러보기 / 스킬 만들기 ▸.
-// 2차(우측 flyout): Claude와 함께 창작하기 / 스킬 지침 작성 / 스킬 업로드.
-// 둘러보기·창작하기는 정적 스킨 플레이스홀더(닫기만), 지침 작성·업로드는 모달을 연다.
 function MenuRow({
   icon,
   label,
@@ -44,7 +41,6 @@ export function SkillAddMenu({
   onUpload: () => void
 }): React.JSX.Element | null {
   const [subOpen, setSubOpen] = useState(false)
-
   return (
     <Popover open={open} anchorRef={anchorRef} onClose={onClose} placement="bottom">
       <MenuRow icon="board" label="스킬 둘러보기" onClick={onClose} />
@@ -59,7 +55,6 @@ export function SkillAddMenu({
             role="menu"
             className="absolute left-full top-0 z-10 ml-1 min-w-[220px] rounded-lg border border-border bg-panel p-1 shadow-lg"
           >
-            <MenuRow icon="chat" label="Claude와 함께 창작하기" onClick={onClose} />
             <MenuRow
               icon="doc"
               label="스킬 지침 작성"

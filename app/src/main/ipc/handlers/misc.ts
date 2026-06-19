@@ -3,9 +3,12 @@
 
 import {
   CHANNELS,
+  AuthorSkillSchema,
   DebugMockPatchSchema,
   ListFilesRequestSchema,
+  SetSkillEnabledSchema,
   SearchMessagesRequestSchema,
+  UploadSkillSchema,
   StartInstallSchema,
   type AgentEnvironment,
   type BackendListResult,
@@ -17,6 +20,8 @@ import {
   type SkillInfo
 } from '../../../shared/protocol'
 import { toAgentEnvironments } from '../../settings/provider-settings'
+import { writeAuthoredSkill, writeUploadedSkill } from '../../skills/sources'
+import { skillEnabledKey } from '../../skills/scan'
 import { listDir } from '../../files/scan'
 import { sendInstallStatus, setWireLog, type RouterContext } from '../context'
 import { handle, handlePlain } from '../registry'
@@ -54,9 +59,39 @@ export function registerMiscHandlers(ctx: RouterContext): void {
 
   handlePlain(CHANNELS.skillsList, (): SkillInfo[] => ctx.getSkills())
 
+  handle(CHANNELS.skillsAuthor, AuthorSkillSchema, 'reject', async (req): Promise<SkillInfo[]> => {
+    await writeAuthoredSkill(req)
+    ctx.syncExtensions()
+    return ctx.refreshSkills()
+  })
+
+  handle(CHANNELS.skillsUpload, UploadSkillSchema, 'reject', async (req): Promise<SkillInfo[]> => {
+    await writeUploadedSkill(req)
+    ctx.syncExtensions()
+    return ctx.refreshSkills()
+  })
+
+  handle(
+    CHANNELS.skillsSetEnabled,
+    SetSkillEnabledSchema,
+    'reject',
+    async (req): Promise<SkillInfo[]> => {
+      const current = ctx.settings.getAll()
+      ctx.settings.patch({
+        skillEnabled: {
+          ...current.skillEnabled,
+          [skillEnabledKey(req.sourceId, req.name)]: req.enabled
+        }
+      })
+      ctx.syncExtensions()
+      return ctx.refreshSkills()
+    }
+  )
+
   handle(
     CHANNELS.filesList,
     ListFilesRequestSchema,
+    SetSkillEnabledSchema,
     { fallback: [] as FileEntry[] },
     (req): Promise<FileEntry[]> => listDir(req.cwd, req.relDir)
   )
@@ -68,6 +103,7 @@ export function registerMiscHandlers(ctx: RouterContext): void {
   handle(
     CHANNELS.searchMessages,
     SearchMessagesRequestSchema,
+    UploadSkillSchema,
     { fallback: [] as SearchHit[] },
     (req): SearchHit[] => {
       const rows = ctx.db.searchMessages(req.q, req.limit ?? 30)

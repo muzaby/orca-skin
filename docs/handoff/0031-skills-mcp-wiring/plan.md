@@ -4,14 +4,14 @@
 
 ## 메타
 
-| 항목 | 값 |
-|---|---|
-| slug | `0031-skills-mcp-wiring` |
-| 작성자 | Claude Code |
-| 일자 | 2026-06-19 |
-| 구현 주체 | **Codex** (기능 구현) |
-| 매핑 | PHASES "Skills & MCP 실배선" 행 / PR (있으면) |
-| 상태 | DRAFT → READY |
+| 항목      | 값                                            |
+| --------- | --------------------------------------------- |
+| slug      | `0031-skills-mcp-wiring`                      |
+| 작성자    | Claude Code                                   |
+| 일자      | 2026-06-19                                    |
+| 구현 주체 | **Codex** (기능 구현)                         |
+| 매핑      | PHASES "Skills & MCP 실배선" 행 / PR (있으면) |
+| 상태      | DRAFT → READY                                 |
 
 ## Context (왜)
 
@@ -34,12 +34,14 @@
 > verify 가 1:1 로 대조하는 검증 가능한 항목.
 
 ### P1 — UI 라벨/식별자 정리 + 목업 제거 + 기존 IPC 배선 (frontend)
+
 1. `data.ts` 의 `SEED_SKILLS`·`SEED_CONNECTORS` 및 정적 초기화 제거. `SkillsCustomizeView` 는 실데이터(스킬 IPC + `useMcpServers`)로 목록을 채운다 — 잔존 시드/하드코딩 목업 0.
 2. "커넥터"/"connector" 표현을 **"MCP"/`mcp`** 로 전면 변경 — **UI 한국어 라벨 + 영문 식별자 모두**. UI: `CustomizeRail`(nav 라벨), `CustomizeList`(헤더 타이틀), `CustomizeLanding`(카드/문구), 모달 제목. 식별자: `ConnectorItem`→`McpItem`, `ConnectorDetail`→`McpDetail`(+파일명), `ConnectorRow`/`ConnectorGroup`/`CONNECTOR_GROUP_*`/`SEED_CONNECTORS`/`addConnector`/`connectorModalOpen`/`CustomConnectorModal`→`CustomMcpModal`(+파일명) 등 `connector` 어휘 전부 `mcp` 로 리네임. 실 DTO `McpServer`(`shared/ipc.ts`)를 가급적 직접 사용. `rg -i "connector|커넥터"` 가 이 feature 범위에서 0.
 3. "claude"/"클로드" UI 표현 제거: `SkillAddMenu` 의 "Claude와 함께 창작하기" 행 제거(또는 중립 문구), `addedBy: '로컬 (~/.claude/skills)'` 류 하드코딩 문자열 제거(실 스캔 메타로 대체). 이 feature 범위 UI 문자열에서 claude/클로드 0(SDK 경로 어휘 `.claude/` 는 백엔드 한정으로 허용).
 4. 스킬 depth2 목록의 "개인 스킬" 그룹 헤더 → **"Orca 스킬"**(`CustomizeList.tsx`).
 
 ### P2 — 스킬 소스 백엔드 (sources/skills + 어댑터 그룹 + 업로드/author IPC)
+
 5. `paths.ts` 에 `sourcesSkillsDir()`(`~/.config/orca/sources/skills`) 헬퍼 추가.
 6. `scanSkills` 를 **(어댑터 제공 경로 + Orca 소스) 목록**을 받도록 일반화하고, 결과 항목에 **소스 출처(`group: 'orca' | <adapter>`) 메타**를 부여. SDK 슬래시 카탈로그용 기존 호출 호환 유지(시그니처 변경 시 호출부 동기 수정).
 7. **스킬 업로드 IPC**: 업로드 파일/폴더(.md/.zip/.skill)를 `sources/skills/<name>/` 로 복사. `SkillUploadModal` 이 stub append 대신 이 IPC 호출 → 성공 시 목록 refresh.
@@ -48,10 +50,12 @@
 10. 스킬 enabled 토글이 영속화된다(settings 신규 `skillEnabled` record — `mcpEnabled` 패턴 미러).
 
 ### P3 — MCP 모달 재작성 + sources 배선
+
 11. `CustomMcpModal`(구 `CustomConnectorModal`) 의 기존 폼(이름/URL/OAuth 고급) **전부 제거**, **단일 textarea**로 교체. placeholder = MCP 기본 스키마 템플릿(§설계). 추가 시 JSON 파싱 → `CreateMcpServerSchema` 검증 → `mcpApi.add` 로 sources mcp.json 에 병합. 파싱/검증 실패는 인라인 에러.
 12. MCP 탭 목록을 `useMcpServers` 실데이터 + **활성/비활성** 2그룹으로 렌더. 상세(`McpDetail`)의 연결/해제 토글을 `toggle(id, enabled)` 로 배선.
 
 ### P4 — 싱크 파이프라인 + workspace cwd
+
 13. 앱 시작 시 `defaultCwd = ~/.config/orca/workspace`(없으면 생성). `router.ts` 의 `app.getPath('home')` 대체.
 14. enabled 필터 반영: deployer/싱크가 **enabled 스킬·MCP만** dist 로 렌더(MCP 는 `McpStore.enabledConfig()` 재사용, 스킬은 `skillEnabled` 필터).
 15. **cwd 싱크 트리거**: 새 대화 시작 / 토글 후 첫 대화 시 dist → cwd 복사(`./.claude/skills/<skill>`, `./.mcp.json`, adapter=claude). 턴 시작 cwd 사용 지점(`chat/send.ts`) 직전에 멱등 싱크.
@@ -65,6 +69,7 @@
 ## 설계
 
 ### MCP 모달 placeholder 템플릿 (단일 항목)
+
 `ClaudeMcpSchema`(`app/src/main/mcp/schema.ts`) 기준. textarea placeholder 예시:
 
 ```jsonc
@@ -72,8 +77,8 @@
   "my-server": {
     "command": "npx",
     "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path"],
-    "env": { "API_KEY": "${MY_TOKEN}" }
-  }
+    "env": { "API_KEY": "${MY_TOKEN}" },
+  },
 }
 // 또는 원격:
 // { "my-server": { "type": "http", "url": "https://...", "headers": { "Authorization": "Bearer ${TOKEN}" } } }
@@ -82,6 +87,7 @@
 파싱: 입력을 `{ <name>: <entry> }` 로 받아 name·entry 분리 → `CreateMcpServerSchema` 로 검증 후 `mcpApi.add`. `mcpServers` 래퍼가 있으면 벗겨내는 입력 정규화를 둔다.
 
 ### 재사용할 기존 자산
+
 - MCP: `useMcpServers`(`features/skills/hooks/useMcpServers.ts`), `McpStore`(`main/mcp/store.ts`, `enabledConfig()`), `CreateMcpServerSchema`(`shared/protocol.ts`), `mcpApi`(`shared/api/ipc.ts`).
 - 스킬 스캔: `main/skills/scan.ts`(`scanRoot` 재사용), `SkillInfo`(`shared/ipc.ts`), `ctx.getSkills`(`router.ts`).
 - 배포/경로: `deploy()`(`main/deploy/deployer.ts` — `copyDir(sources/skills → dist/.claude/skills)`·`distMcpJsonPath`), `paths.ts`(`sourcesDir`/`distDir`/`distSkillsDir`/`mcpJsonPath`).
@@ -89,6 +95,7 @@
 - 턴 cwd: `router.ts`(`defaultCwd`/`getCwd`), `chat/send.ts`(`cwd: ctx.getCwd()`).
 
 ### 레이어 경계 (`app`/`pages`/`features`/`shared` + main DAG)
+
 - 신규 스킬 sources IPC: 핸들러 `main/ipc/handlers/`(L3), 파일 복사/작성 로직 `main/skills/`(L1), 경로 헬퍼 `main/config/paths.ts`(L1).
 - renderer 는 `features/skills` 내부 + `shared` 만 import(4-layer 유지). cross-feature 없음.
 - 신규 IPC 채널은 `shared/ipc.ts` `CHANNELS` + `protocol.ts` zod + `docs/IPC_CONTRACT.md` **동시 갱신**.
@@ -119,18 +126,18 @@
 
 ## [Codex 기입] 구현 체크리스트
 
-- [ ] P1: 목업 제거 + connector→mcp 리네임 + 라벨/그룹/claude 제거
-- [ ] P2: sourcesSkillsDir + scanSkills 일반화 + 업로드/author IPC + skillEnabled
-- [ ] P3: CustomMcpModal textarea + 활성/비활성 그룹 + toggle 배선
-- [ ] P4: workspace cwd + enabled 필터 dist + cwd 싱크 트리거
-- [ ] IPC_CONTRACT.md 동기화 + 신규 단위 테스트
+- [x] P1: 목업 제거 + connector→mcp 리네임 + 라벨/그룹/claude 제거
+- [x] P2: sourcesSkillsDir + scanSkills 일반화 + 업로드/author IPC + skillEnabled
+- [x] P3: CustomMcpModal textarea + 활성/비활성 그룹 + toggle 배선
+- [x] P4: workspace cwd + enabled 필터 dist + cwd 싱크 트리거
+- [x] IPC_CONTRACT.md 동기화 + 신규 단위 테스트
 
 ## [Codex 기입] 구현 보고
 
-| 항목 | 내용 |
-|---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `typecheck:test` / `test` |
-| 게이트 결과 | lint … / typecheck … / test … (N passed) |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `<hash>` |
+| 항목            | 내용                                                                                                                                                                                                                                                                                        |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 변경 파일       | `app/src/main/**`, `app/src/preload/index.ts`, `app/src/shared/**`, `app/src/renderer/src/features/skills/**`, `app/src/renderer/src/shared/api/ipc.ts`, `docs/IPC_CONTRACT.md`                                                                                                             |
+| 실행 명령       | `git diff --check`; `rg -i "connector\|커넥터\|SEED_SKILLS\|SEED_CONNECTORS" app/src/renderer/src/features/skills/components/customize`; `rg -i "claude\|클로드" app/src/renderer/src/features/skills/components/customize`; `npm run typecheck`; `npm run lint`; `npm test -- --runInBand` |
+| 게이트 결과     | `git diff --check` 통과, feature 범위 금지어 grep 0. npm 게이트는 `node_modules` 불완전 설치 환경으로 실행 불가(`electron-vite/node`, `@electron-toolkit/tsconfig`, `vitest`, `eslint/config` 누락).                                                                                        |
+| 블로커 / 역질문 | 없음. Open Q mcp.json 위치는 기본안(`sources/mcp/mcp.json`) 유지.                                                                                                                                                                                                                           |
+| 대상 커밋       | `d4f82ee`                                                                                                                                                                                                                                                                                   |

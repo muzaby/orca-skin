@@ -16,7 +16,6 @@ import {
   existsSync,
   mkdirSync,
   writeFileSync,
-  copyFileSync,
   cpSync,
   rmSync,
   renameSync,
@@ -26,11 +25,16 @@ import {
 } from 'node:fs'
 import { join } from 'node:path'
 import type { Backend } from '../../shared/ipc'
+import type { OrcaMcpConfig } from '../mcp/schema'
+import type { SkillScanRoot } from '../skills/scan'
 import { orcaConfigDir } from '../config/paths'
 import { PROVIDER_NAME_RE } from '../config/provider-key'
 
 export interface DeployOptions {
   dryRun?: boolean
+  skillEnabled?: Record<string, boolean>
+  skillRoots?: SkillScanRoot[]
+  mcpConfig?: OrcaMcpConfig
 }
 
 export interface DeployResult {
@@ -73,6 +77,28 @@ function copyDir(src: string, dest: string): void {
     cpSync(src, dest, { recursive: true, force: true })
   } else {
     mkdirSync(dest, { recursive: true })
+  }
+}
+
+function copyEnabledSkills(
+  roots: SkillScanRoot[],
+  dest: string,
+  enabled: Record<string, boolean>
+): void {
+  mkdirSync(dest, { recursive: true })
+  for (const root of roots) {
+    let entries: Dirent[]
+    try {
+      entries = readdirSync(root.rootDir, { withFileTypes: true })
+    } catch {
+      continue
+    }
+    for (const entry of entries) {
+      if (!entry.isDirectory()) continue
+      const name = entry.name
+      if ((enabled[`${root.sourceId}/${name}`] ?? true) !== true) continue
+      cpSync(join(root.rootDir, name), join(dest, name), { recursive: true, force: true })
+    }
   }
 }
 
@@ -156,12 +182,27 @@ export function deploy(
     }
   }
 
-  copyDir(join(sources, 'skills'), skillsDest)
-  actions.push('copy skills → dist/.claude/skills')
+  if (opts.skillEnabled) {
+    copyEnabledSkills(
+      opts.skillRoots ?? [
+        { sourceId: 'orca', sourceLabel: 'Orca 스킬', rootDir: join(sources, 'skills') }
+      ],
+      skillsDest,
+      opts.skillEnabled
+    )
+    actions.push('copy enabled skills → dist/.claude/skills')
+  } else {
+    copyDir(join(sources, 'skills'), skillsDest)
+    actions.push('copy skills → dist/.claude/skills')
+  }
 
-  if (existsSync(mcpSrc)) {
+  if (opts.mcpConfig) {
     mkdirSync(dist, { recursive: true })
-    copyFileSync(mcpSrc, mcpDest)
+    writeFileSync(mcpDest, JSON.stringify({ mcpServers: opts.mcpConfig }, null, 2), 'utf8')
+    actions.push('render enabled mcp → dist/.mcp.json')
+  } else if (existsSync(mcpSrc)) {
+    mkdirSync(dist, { recursive: true })
+    writeFileSync(mcpDest, readFileSync(mcpSrc, 'utf8'), 'utf8')
     actions.push('copy mcp → dist/.mcp.json')
   } else {
     actions.push('skip mcp (missing source)')

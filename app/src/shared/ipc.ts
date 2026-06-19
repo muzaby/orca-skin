@@ -16,6 +16,9 @@ export const CHANNELS = {
   settingsGet: 'orca:settings:get',
   settingsSet: 'orca:settings:set',
   skillsList: 'orca:skills:list',
+  skillsAuthor: 'orca:skills:author',
+  skillsUpload: 'orca:skills:upload',
+  skillsSetEnabled: 'orca:skills:setEnabled',
   filesList: 'orca:files:list',
   sessionCwd: 'orca:session:cwd',
   sessionList: 'orca:session:list',
@@ -497,6 +500,8 @@ export interface Settings {
   mcpEnabled: Record<string, boolean>
   // MCP 서버 Orca 전용 메타(description) — mcp.json(순정 Claude 스키마) 에 없는 필드.
   mcpMeta: Record<string, { description: string }>
+  // Skill enabled on/off (키 = sourceId/name). 부재 ⇒ enabled=true.
+  skillEnabled: Record<string, boolean>
 }
 
 export type SettingsPatch = Partial<Settings>
@@ -507,6 +512,28 @@ export interface SkillInfo {
   name: string
   description: string
   argumentHint?: string
+  sourceId: string
+  sourceLabel: string
+  enabled: boolean
+  body?: string
+  updatedAt?: number
+}
+
+export interface AuthorSkillRequest {
+  name: string
+  description: string
+  body: string
+}
+
+export interface UploadSkillRequest {
+  fileName: string
+  content: string
+}
+
+export interface SetSkillEnabledRequest {
+  name: string
+  sourceId: string
+  enabled: boolean
 }
 
 // `@` 파일 경로 자동완성 — `cwd` 기준 `relDir` 의 직속 항목 한 단계만 리스팅.

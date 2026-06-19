@@ -22,6 +22,9 @@ import {
   type Settings,
   type SettingsPatch,
   type SkillInfo,
+  type AuthorSkillRequest,
+  type UploadSkillRequest,
+  type SetSkillEnabledRequest,
   type UpdateMcpServerRequest,
   type UpdateProjectRequest,
   type DebugMockState,
@@ -74,7 +77,13 @@ const orca = {
       ipcRenderer.invoke(CHANNELS.settingsSet, patch)
   },
   skills: {
-    list: (): Promise<SkillInfo[]> => ipcRenderer.invoke(CHANNELS.skillsList)
+    list: (): Promise<SkillInfo[]> => ipcRenderer.invoke(CHANNELS.skillsList),
+    author: (req: AuthorSkillRequest): Promise<SkillInfo[]> =>
+      ipcRenderer.invoke(CHANNELS.skillsAuthor, req),
+    upload: (req: UploadSkillRequest): Promise<SkillInfo[]> =>
+      ipcRenderer.invoke(CHANNELS.skillsUpload, req),
+    setEnabled: (req: SetSkillEnabledRequest): Promise<SkillInfo[]> =>
+      ipcRenderer.invoke(CHANNELS.skillsSetEnabled, req)
   },
   files: {
     list: (cwd: string, relDir: string): Promise<FileEntry[]> =>
