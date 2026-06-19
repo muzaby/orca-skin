@@ -39,6 +39,8 @@ export interface RouterContext {
   getSkills(): SkillInfo[]
   refreshSkills(): Promise<SkillInfo[]>
   syncExtensions(): void
+  // 턴 시작 게이트 — 해당 cwd 가 이번 실행에서 미싱크면 1회 dist→cwd 싱크(세션별 cwd 대비).
+  syncExtensionsForTurn(cwd: string): void
   // chat send · files list · session cwd 가 공유하는 단일 cwd.
   getCwd(): string
   debugMock: DebugMockState

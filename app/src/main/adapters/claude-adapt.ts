@@ -18,6 +18,7 @@ import type {
   UserPromptSubmitHookSpecificOutput
 } from '@anthropic-ai/claude-agent-sdk'
 import type { ClaudeMcpConfig } from '../mcp/schema'
+import type { SkillInfo } from '../../shared/ipc'
 import type { ProviderSettings } from '../settings/provider-settings'
 import {
   resolveHookDecisions,
@@ -45,11 +46,15 @@ export function adaptSystemPrompt(append?: string): object {
   return { systemPrompt: { type: 'preset' as const, preset: 'claude_code' as const, append } }
 }
 
-// Skill 은 SDK 기본 settingSources(user/project/local) 경로에서 발견한다. Orca dist 의
-// .claude/skills 는 설치 스테이징 거울일 뿐 query 옵션에 로컬 plugin 을 주입하지 않는다.
-// TurnExtensions.skills 배열은 가시화 메타일 뿐이므로 여기서는 skills:'all' 필터만 유지한다.
-export function adaptSkills(): object {
-  return { skills: 'all' as const }
+// Skill 은 SDK 기본 settingSources(user/project/local) 경로에서 **발견**되고(cwd/.claude/skills
+// = Orca 거울, ~/.claude/skills = 어댑터), SDK `options.skills`(string[]) 가 그중 **활성**만 필터한다
+// (context filter — 미나열 스킬은 세션에서 숨김). 활성 집합 = 활성화된 Orca 스킬 + 모든 어댑터
+// 스킬(어댑터 스킬은 토글 불가·항상 on). 토글은 파일이 아니라 이 목록으로 반영되므로 재싱크 불필요.
+// 알려진 스킬이 하나도 없으면(스캔 결과 0) 'all' 로 둬 스캔 누락이 스킬을 통째로 가리지 않게 한다.
+export function adaptSkills(skills: SkillInfo[]): object {
+  if (skills.length === 0) return { skills: 'all' as const }
+  const active = skills.filter((s) => s.sourceKind !== 'orca' || s.enabled).map((s) => s.name)
+  return { skills: active }
 }
 
 // provider settings flag 주입 (handoff 0023/0024/0028). 해석 완료 blob 의 settings 를 flag settings

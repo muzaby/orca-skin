@@ -50,6 +50,7 @@ async function resolveTurnProvider(
   providerSettings?: ResolvedProviderSettings
   providerKey: string | null
   model?: string
+  titleModel?: string
 }> {
   const entries = ctx.providerSettings.list(req.adapter.id)
   const meta = req.sessionId ? ctx.db.getSessionById(req.sessionId) : undefined
@@ -70,10 +71,18 @@ async function resolveTurnProvider(
   const providerSettings = await ctx.providerSettings.resolve(selected)
   const modelFamily = req.modelFamily ?? defaultModelFamily(selected.models)
   const model = modelNameForFamily(selected.models, modelFamily)
+  // 제목 생성 모델은 요청 전에 결정한다: 저가(haiku) alias 가 모델 목록에 있으면 그것을,
+  // 없으면 provider default 모델로 폴백(실패 후 재시도가 아니라 사전 선택). 목록이 비면
+  // undefined → SDK 기본 모델.
+  const hasHaiku = selected.models.some((m) => m.alias === 'haiku')
+  const titleModel = hasHaiku
+    ? modelNameForFamily(selected.models, 'haiku')
+    : modelNameForFamily(selected.models, null)
   return {
     providerKey: selected.key,
     ...(providerSettings ? { providerSettings } : {}),
-    ...(model ? { model } : {})
+    ...(model ? { model } : {}),
+    ...(titleModel ? { titleModel } : {})
   }
 }
 
@@ -156,6 +165,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
       titleAdapter: adapter,
       titleSettings: resolved.providerSettings,
       titleEnv: turnEnv,
+      titleModel: resolved.titleModel,
       providerKey: resolved.providerKey,
       pendingUserText: parsed.data.text,
       firstUserText: parsed.data.text,
@@ -183,7 +193,9 @@ export function registerChatHandlers(deps: ChatDeps): void {
       turn.pendingUserText = null
     }
 
-    ctx.syncExtensions()
+    // 파일 싱크는 이 cwd 가 이번 실행에서 처음 쓰일 때만 1회(overwrite-merge). 활성/비활성
+    // 토글은 파일이 아니라 런타임 options.skills 가 반영하므로 매 턴 재싱크가 불필요하다.
+    ctx.syncExtensionsForTurn(turn.cwd)
 
     // 백엔드 중립 확장 리소스(지침+정적 정책 append · MCP · skills · hooks)를 빌더가 조립.
     // resume 면 projectId 는 세션 바인딩에서 조회되므로 null 을 넘긴다.

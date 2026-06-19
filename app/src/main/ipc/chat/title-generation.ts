@@ -31,7 +31,8 @@ export class TitleGenerator {
       cwd: turn.cwd,
       adapter: turn.titleAdapter,
       providerSettings: turn.titleSettings,
-      env: turn.titleEnv
+      env: turn.titleEnv,
+      model: turn.titleModel
     })
   }
 
@@ -42,6 +43,7 @@ export class TitleGenerator {
     adapter: SessionAdapter
     providerSettings?: ResolvedProviderSettings
     env?: Record<string, string>
+    model?: string
   }): Promise<void> {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 30_000)
@@ -52,7 +54,8 @@ export class TitleGenerator {
         cwd: req.cwd,
         signal: controller.signal,
         providerSettings: req.providerSettings,
-        env: req.env
+        env: req.env,
+        ...(req.model ? { model: req.model } : {})
       })
       const title = normalizeTitle(raw)
       if (!title) return

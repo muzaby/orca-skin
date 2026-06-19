@@ -32,7 +32,6 @@ import { PROVIDER_NAME_RE } from '../config/provider-key'
 
 export interface DeployOptions {
   dryRun?: boolean
-  skillEnabled?: Record<string, boolean>
   skillRoots?: SkillScanRoot[]
   mcpConfig?: OrcaMcpConfig
 }
@@ -71,22 +70,14 @@ function validateMcp(mcpJson: string): { ok: boolean; errors: string[] } {
   return { ok: errors.length === 0, errors }
 }
 
-// src 디렉토리를 dest 로 복사(없으면 빈 dest 생성). dist 는 매 배포 새로 만들므로 force:true.
-function copyDir(src: string, dest: string): void {
-  if (existsSync(src)) {
-    cpSync(src, dest, { recursive: true, force: true })
-  } else {
-    mkdirSync(dest, { recursive: true })
-  }
-}
-
-function copyEnabledSkills(
-  roots: SkillScanRoot[],
-  dest: string,
-  enabled: Record<string, boolean>
-): void {
+// Orca 소스 스킬만 dist 로 복사한다 (어댑터/워크스페이스 루트 제외 — 어댑터 스킬은 SDK
+// settingSources:user 가 ~/.claude 에서 직접 탐색하므로 cwd 로 재설치하면 이중이 된다).
+// enabled 여부와 무관하게 전량 복사한다 — 활성/비활성 제어는 런타임 options.skills 필터가
+// 담당하므로(adaptSkills), 재활성 시 파일 재복사가 필요 없다.
+function copyOrcaSkills(roots: SkillScanRoot[], dest: string): void {
   mkdirSync(dest, { recursive: true })
   for (const root of roots) {
+    if (root.sourceKind !== 'orca') continue
     let entries: Dirent[]
     try {
       entries = readdirSync(root.rootDir, { withFileTypes: true })
@@ -95,10 +86,10 @@ function copyEnabledSkills(
     }
     for (const entry of entries) {
       if (!entry.isDirectory()) continue
-      const name = entry.name
-      if (root.sourceKind === 'orca' && (enabled[`${root.sourceId}/${name}`] ?? true) !== true)
-        continue
-      cpSync(join(root.rootDir, name), join(dest, name), { recursive: true, force: true })
+      cpSync(join(root.rootDir, entry.name), join(dest, entry.name), {
+        recursive: true,
+        force: true
+      })
     }
   }
 }
@@ -183,24 +174,18 @@ export function deploy(
     }
   }
 
-  if (opts.skillEnabled) {
-    copyEnabledSkills(
-      opts.skillRoots ?? [
-        {
-          sourceId: 'orca',
-          sourceLabel: 'Orca 스킬',
-          sourceKind: 'orca',
-          rootDir: join(sources, 'skills')
-        }
-      ],
-      skillsDest,
-      opts.skillEnabled
-    )
-    actions.push('copy enabled skills → dist/.claude/skills')
-  } else {
-    copyDir(join(sources, 'skills'), skillsDest)
-    actions.push('copy skills → dist/.claude/skills')
-  }
+  copyOrcaSkills(
+    opts.skillRoots ?? [
+      {
+        sourceId: 'orca',
+        sourceLabel: 'Orca 스킬',
+        sourceKind: 'orca',
+        rootDir: join(sources, 'skills')
+      }
+    ],
+    skillsDest
+  )
+  actions.push('copy orca skills → dist/.claude/skills')
 
   if (opts.mcpConfig) {
     mkdirSync(dist, { recursive: true })

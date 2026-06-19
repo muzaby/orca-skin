@@ -51,6 +51,9 @@ export class IpcRouter {
   // chat send 와 files list, session cwd 노출에서 모두 동일하게 사용하는 단일
   // cwd. 기본은 ~/.config/orca/workspace — 향후 사용자 선택 디렉토리로 확장 가능.
   private defaultCwd: string = ''
+  // 이미 dist→cwd 파일 싱크를 끝낸 cwd 집합. 턴 시작 시 cwd 단위로 1회만 싱크하기 위한 게이트.
+  // boot 1회가 아니라 cwd 단위로 추적해 향후 세션별 cwd 분리 시 각 cwd 첫 턴마다 싱크된다.
+  private readonly syncedCwds = new Set<string>()
   private readonly debugMock: DebugMockState = {
     enabled: false,
     scenarioId: 'full',
@@ -83,21 +86,29 @@ export class IpcRouter {
     return this.skillsCache
   }
 
-  private syncExtensions(): void {
+  // 강제 싱크 — dist 재렌더 + 지정 cwd(기본 defaultCwd)로 overwrite-merge. boot·스킬 CRUD 가
+  // 호출한다. 싱크한 cwd 를 syncedCwds 에 기록해 이후 턴 게이트가 중복 싱크를 건너뛰게 한다.
+  private syncExtensions(cwd: string = this.defaultCwd): void {
     try {
-      const settings = this.settings.getAll()
       const r = deploy('claude', {
-        skillEnabled: settings.skillEnabled,
         skillRoots: this.skillRoots(),
         mcpConfig: this.mcp.enabledConfig()
       })
       if (!r.validation.ok) {
         for (const err of r.validation.errors) console.warn('[deploy] 검증 경고:', err)
       }
-      syncWorkspaceExtensions('claude', this.defaultCwd)
+      syncWorkspaceExtensions('claude', cwd)
+      this.syncedCwds.add(cwd)
     } catch (e) {
       console.warn('[sync] 확장 싱크 건너뜀:', e)
     }
+  }
+
+  // 턴 시작 게이트 — 해당 cwd 가 이번 실행에서 아직 싱크되지 않았을 때만 1회 싱크한다.
+  // (세션별 cwd 분리 시 각 cwd 첫 턴에 싱크. 동일 cwd 공유면 사실상 부팅 후 첫 턴 1회.)
+  private syncExtensionsForTurn(cwd: string): void {
+    if (this.syncedCwds.has(cwd)) return
+    this.syncExtensions(cwd)
   }
 
   async start(): Promise<void> {
@@ -139,9 +150,7 @@ export class IpcRouter {
       console.warn('[boot] provider settings 스캐폴드 건너뜀:', e)
     }
     try {
-      const settings = this.settings.getAll()
       const r = deploy('claude', {
-        skillEnabled: settings.skillEnabled,
         skillRoots: this.skillRoots(),
         mcpConfig: this.mcp.enabledConfig()
       })
@@ -170,6 +179,7 @@ export class IpcRouter {
       getSkills: () => this.skillsCache,
       refreshSkills: () => this.refreshSkills(),
       syncExtensions: () => this.syncExtensions(),
+      syncExtensionsForTurn: (cwd) => this.syncExtensionsForTurn(cwd),
       getCwd: () => this.defaultCwd,
       debugMock: this.debugMock,
       mockAdapter: import.meta.env.DEV ? new MockAdapter(() => this.debugMock) : null
