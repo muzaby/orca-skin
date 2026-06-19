@@ -1,15 +1,8 @@
-import { useState, type RefObject } from 'react'
+import { useMemo, useState, type RefObject } from 'react'
+import type { McpServer, SkillInfo } from '../../../../../../shared/ipc'
 import { Icon } from '../../../../shared/ui/Icon'
 import { Dot } from '../../../../shared/ui/Status'
 import type { CustomizeTab } from './CustomizeRail'
-import {
-  CONNECTOR_GROUP_LABEL,
-  type ConnectorGroup,
-  type ConnectorItem,
-  type SkillItem
-} from './data'
-
-const CONNECTOR_GROUP_ORDER: ConnectorGroup[] = ['local', 'hardware', 'disconnected']
 
 function ListHeader({
   title,
@@ -48,13 +41,11 @@ function ListHeader({
 function GroupHead({
   label,
   open,
-  onToggle,
-  gear
+  onToggle
 }: {
   label: string
   open: boolean
   onToggle: () => void
-  gear?: boolean
 }): React.JSX.Element {
   return (
     <div className="flex items-center px-3.5 pb-1 pt-3">
@@ -66,15 +57,6 @@ function GroupHead({
         <Icon name={open ? 'chevD' : 'chevR'} size={12} />
         {label}
       </button>
-      {gear && (
-        <button
-          type="button"
-          aria-label="그룹 설정"
-          className="ml-auto grid h-6 w-6 cursor-pointer place-items-center rounded-r4 border-0 bg-transparent text-ink3 hover:text-ink2"
-        >
-          <Icon name="settings" size={13} />
-        </button>
-      )}
     </div>
   )
 }
@@ -84,7 +66,7 @@ function SkillRow({
   selected,
   onClick
 }: {
-  s: SkillItem
+  s: SkillInfo
   selected: boolean
   onClick: () => void
 }): React.JSX.Element {
@@ -92,14 +74,10 @@ function SkillRow({
     <button
       type="button"
       onClick={onClick}
-      className={`flex w-full cursor-pointer items-center gap-2 rounded-r4 border-0 px-2.5 py-2 text-left transition-colors ${
-        selected ? 'bg-fill-uncontained-active' : 'bg-transparent hover:bg-fill-uncontained-hover'
-      }`}
+      className={`flex w-full cursor-pointer items-center gap-2 rounded-r4 border-0 px-2.5 py-2 text-left transition-colors ${selected ? 'bg-fill-uncontained-active' : 'bg-transparent hover:bg-fill-uncontained-hover'}`}
     >
       <span
-        className={`truncate font-mono text-[12.5px] ${
-          s.enabled ? 'font-semibold text-ink' : 'text-ink3'
-        }`}
+        className={`truncate font-mono text-[12.5px] ${s.enabled ? 'font-semibold text-ink' : 'text-ink3'}`}
       >
         {s.name}
       </span>
@@ -108,12 +86,12 @@ function SkillRow({
   )
 }
 
-function ConnectorRow({
-  c,
+function McpRow({
+  server,
   selected,
   onClick
 }: {
-  c: ConnectorItem
+  server: McpServer
   selected: boolean
   onClick: () => void
 }): React.JSX.Element {
@@ -121,97 +99,93 @@ function ConnectorRow({
     <button
       type="button"
       onClick={onClick}
-      className={`flex w-full cursor-pointer items-center gap-2.5 rounded-r4 border-0 px-2.5 py-2 text-left transition-colors ${
-        selected ? 'bg-fill-uncontained-active' : 'bg-transparent hover:bg-fill-uncontained-hover'
-      }`}
+      className={`flex w-full cursor-pointer items-center gap-2.5 rounded-r4 border-0 px-2.5 py-2 text-left transition-colors ${selected ? 'bg-fill-uncontained-active' : 'bg-transparent hover:bg-fill-uncontained-hover'}`}
     >
       <span className="grid h-6 w-6 flex-none place-items-center rounded-r3 bg-cream-50 text-ink2">
-        <Icon name={c.icon} size={13} />
+        <Icon name={server.transport === 'http' ? 'link' : 'cpu'} size={13} />
       </span>
-      <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink">{c.name}</span>
-      {c.badge ? (
-        <span className="rounded bg-cream-50 px-1.5 py-0.5 text-[10px] text-ink3">{c.badge}</span>
-      ) : (
-        c.group === 'disconnected' && <Dot tone="slate" />
-      )}
+      <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink">{server.name}</span>
+      {!server.enabled && <Dot tone="slate" />}
     </button>
   )
 }
 
-// 맞춤설정 가운데 목록. 스킬 모드 = "개인 스킬" 접이식 그룹, 커넥터 모드 = 로컬/하드웨어/
-// 연결되지 않음 3그룹. 추가(+) 버튼 ref 는 상위가 캐스케이딩 메뉴 앵커로 사용한다.
 export function CustomizeList({
   tab,
   skills,
-  connectors,
+  mcpServers,
   selectedId,
   onSelect,
   addRef,
   onAdd
 }: {
   tab: CustomizeTab
-  skills: SkillItem[]
-  connectors: ConnectorItem[]
+  skills: SkillInfo[]
+  mcpServers: McpServer[]
   selectedId: string | null
   onSelect: (id: string) => void
   addRef: RefObject<HTMLButtonElement | null>
   onAdd: () => void
 }): React.JSX.Element {
-  const [skillsOpen, setSkillsOpen] = useState(true)
-  const [groupOpen, setGroupOpen] = useState<Record<ConnectorGroup, boolean>>({
-    local: true,
-    hardware: true,
-    disconnected: true
+  const [open, setOpen] = useState<Record<string, boolean>>({
+    'Orca 스킬': true,
+    active: true,
+    inactive: true
   })
-
+  const skillGroups = useMemo(() => {
+    const map = new Map<string, SkillInfo[]>()
+    for (const skill of skills)
+      map.set(skill.sourceLabel, [...(map.get(skill.sourceLabel) ?? []), skill])
+    return [...map.entries()]
+  }, [skills])
+  const mcpGroups: [string, McpServer[]][] = [
+    ['활성 MCP', mcpServers.filter((s) => s.enabled)],
+    ['비활성 MCP', mcpServers.filter((s) => !s.enabled)]
+  ]
   return (
     <div className="flex w-[280px] flex-none flex-col overflow-y-auto border-r border-border">
-      <ListHeader title={tab === 'skills' ? '스킬' : '커넥터'} addRef={addRef} onAdd={onAdd} />
-
-      {tab === 'skills' ? (
-        <div className="px-1.5 pb-3">
-          <GroupHead
-            label="개인 스킬"
-            open={skillsOpen}
-            onToggle={() => setSkillsOpen((v) => !v)}
-          />
-          {skillsOpen &&
-            skills.map((s) => (
-              <SkillRow
-                key={s.id}
-                s={s}
-                selected={s.id === selectedId}
-                onClick={() => onSelect(s.id)}
-              />
-            ))}
-        </div>
-      ) : (
-        <div className="px-1.5 pb-3">
-          {CONNECTOR_GROUP_ORDER.map((g) => {
-            const items = connectors.filter((c) => c.group === g)
-            if (items.length === 0) return null
-            return (
-              <div key={g}>
+      <ListHeader title={tab === 'skills' ? '스킬' : 'MCP'} addRef={addRef} onAdd={onAdd} />
+      <div className="px-1.5 pb-3">
+        {tab === 'skills'
+          ? skillGroups.map(([label, items]) => (
+              <div key={label}>
                 <GroupHead
-                  label={CONNECTOR_GROUP_LABEL[g]}
-                  open={groupOpen[g]}
-                  onToggle={() => setGroupOpen((prev) => ({ ...prev, [g]: !prev[g] }))}
-                  gear={g === 'hardware'}
+                  label={label}
+                  open={open[label] ?? true}
+                  onToggle={() => setOpen((p) => ({ ...p, [label]: !(p[label] ?? true) }))}
                 />
-                {groupOpen[g] &&
-                  items.map((c) => (
-                    <ConnectorRow
-                      key={c.id}
-                      c={c}
-                      selected={c.id === selectedId}
-                      onClick={() => onSelect(c.id)}
+                {(open[label] ?? true) &&
+                  items.map((s) => (
+                    <SkillRow
+                      key={`${s.sourceId}/${s.name}`}
+                      s={s}
+                      selected={`${s.sourceId}/${s.name}` === selectedId}
+                      onClick={() => onSelect(`${s.sourceId}/${s.name}`)}
                     />
                   ))}
               </div>
-            )
-          })}
-        </div>
-      )}
+            ))
+          : mcpGroups.map(([label, items]) =>
+              items.length === 0 ? null : (
+                <div key={label}>
+                  <GroupHead
+                    label={label}
+                    open={open[label] ?? true}
+                    onToggle={() => setOpen((p) => ({ ...p, [label]: !(p[label] ?? true) }))}
+                  />
+                  {(open[label] ?? true) &&
+                    items.map((s) => (
+                      <McpRow
+                        key={s.id}
+                        server={s}
+                        selected={s.id === selectedId}
+                        onClick={() => onSelect(s.id)}
+                      />
+                    ))}
+                </div>
+              )
+            )}
+      </div>
     </div>
   )
 }

@@ -56,6 +56,30 @@ export const ListFilesRequestSchema = z.object({
   relDir: z.string()
 })
 
+const SkillNameSchema = z
+  .string()
+  .trim()
+  .min(1)
+  .max(64)
+  .regex(/^[A-Za-z0-9_-]+$/, 'skill name 은 영숫자 · _ · - 만 허용')
+
+export const AuthorSkillSchema = z.object({
+  name: SkillNameSchema,
+  description: z.string().trim().min(1).max(500),
+  body: z.string().max(20000).default('')
+})
+
+export const UploadSkillSchema = z.object({
+  fileName: z.string().trim().min(1).max(255),
+  content: z.string().max(200000)
+})
+
+export const SetSkillEnabledSchema = z.object({
+  name: SkillNameSchema,
+  sourceId: z.string().min(1).max(128),
+  enabled: z.boolean()
+})
+
 export const LoadSessionRequestSchema = z.object({ sessionId: z.string().min(1) })
 export const DeleteSessionRequestSchema = z.object({ sessionId: z.string().min(1) })
 // 길이 상한 120 — UI 의 표시 한도 60 자보다 여유 있게. 빈 문자열은 무효.
@@ -238,7 +262,8 @@ export const SettingsSchema = z.object({
   mcpEnabled: z.record(z.string(), z.boolean()).default({}),
   // Orca 전용 per-server 메타(description). mcp.json 은 순정 Claude mcpServers 스키마만
   // 담으므로 Claude 스키마에 없는 필드는 여기(앱 설정)에 둔다. 키 = 서버 name.
-  mcpMeta: z.record(z.string(), z.object({ description: z.string().default('') })).default({})
+  mcpMeta: z.record(z.string(), z.object({ description: z.string().default('') })).default({}),
+  skillEnabled: z.record(z.string(), z.boolean()).default({})
 })
 
 export const SettingsPatchSchema = z
@@ -251,7 +276,8 @@ export const SettingsPatchSchema = z
     lastSessionId: z.string().nullable(),
     windowBounds: WindowBoundsSchema.nullable(),
     mcpEnabled: z.record(z.string(), z.boolean()),
-    mcpMeta: z.record(z.string(), z.object({ description: z.string().default('') }))
+    mcpMeta: z.record(z.string(), z.object({ description: z.string().default('') })),
+    skillEnabled: z.record(z.string(), z.boolean())
   })
   .partial()
 
@@ -277,6 +303,9 @@ export type {
   Settings,
   SettingsPatch,
   SkillInfo,
+  AuthorSkillRequest,
+  UploadSkillRequest,
+  SetSkillEnabledRequest,
   ThemePref,
   DensityPref,
   WindowBounds,

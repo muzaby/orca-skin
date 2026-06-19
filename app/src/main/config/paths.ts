@@ -36,6 +36,14 @@ export function orcaJsonPath(): string {
   return join(orcaConfigDir(), 'orca.json')
 }
 
+export function sourcesSkillsDir(): string {
+  return join(sourcesDir(), 'skills')
+}
+
+export function workspaceDir(): string {
+  return join(orcaConfigDir(), 'workspace')
+}
+
 export function sourcesMcpDir(): string {
   return join(sourcesDir(), 'mcp')
 }

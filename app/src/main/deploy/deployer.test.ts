@@ -118,6 +118,27 @@ describe('deploy', () => {
     expect(existsSync(join(`${dist()}.bak`, '.claude', 'skills', 'demo', 'SKILL.md'))).toBe(true)
   })
 
+  it('enabled 옵션이 있으면 꺼진 Orca 스킬과 MCP 를 dist 에서 제외한다', () => {
+    seedSources('{"mcpServers":{"on":{"command":"npx"},"off":{"command":"node"}}}')
+    writeFile(join(root, 'sources', 'skills', 'off', 'SKILL.md'), '# off')
+
+    const r = deploy(
+      'claude',
+      {
+        skillEnabled: { 'orca/demo': true, 'orca/off': false },
+        mcpConfig: { on: { command: 'npx' } }
+      },
+      root
+    )
+
+    expect(r.validation.ok).toBe(true)
+    expect(existsSync(join(dist(), '.claude', 'skills', 'demo', 'SKILL.md'))).toBe(true)
+    expect(existsSync(join(dist(), '.claude', 'skills', 'off', 'SKILL.md'))).toBe(false)
+    expect(JSON.parse(readFileSync(join(dist(), '.mcp.json'), 'utf8'))).toEqual({
+      mcpServers: { on: { command: 'npx' } }
+    })
+  })
+
   it('sources 하위가 비어도 빈 plugin 디렉토리를 만든다', () => {
     writeFile(join(root, 'sources', 'mcp', 'mcp.json'), '{"mcpServers":{}}')
     const r = deploy('claude', {}, root)
