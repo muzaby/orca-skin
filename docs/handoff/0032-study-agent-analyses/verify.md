@@ -55,9 +55,10 @@ Handoff: none
 
 ## PHASES.md 정합성
 
-- **PHASES 승격 N/A.** study/opencode·hermes-agent 는 Orca 제품 로드맵 항목이 아니라
-  `docs/etc/` 의 **레퍼런스 자료**(`lightweight-llm-strategy.md` 와 동결)다. 제품 페이즈 표에
-  넣지 않고 INDEX 비고에 사유를 남긴다.
+- **PHASES 표에 행 승격(완료).** study/opencode·hermes-agent 는 제품 코드가 아니라
+  `docs/etc/` 의 **레퍼런스 자료**(`lightweight-llm-strategy.md` 와 동결)지만, 사용자 요청으로
+  페이즈 표에 "에이전트 아키텍처 분석 study 추가" 행을 레퍼런스 성격 명시와 함께 기재한다.
+  상태 `완료 (커밋 263f55e, 정식화 b3de19b)`.
 
 ## 결론 / 다음 단계
 
