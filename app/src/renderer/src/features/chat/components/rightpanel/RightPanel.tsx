@@ -18,14 +18,16 @@ const SEPARATOR_CAPSULE =
 
 function VerticalSeparator({
   label,
-  onMouseDown
+  onMouseDown,
+  widthClass = 'w-3'
 }: {
   label: string
   onMouseDown: (e: MouseEvent) => void
+  widthClass?: string
 }): React.JSX.Element {
   return (
     <div
-      className="app-frame-tile-separator group/sep relative w-3 shrink-0 cursor-col-resize"
+      className={`app-frame-tile-separator group/sep relative ${widthClass} shrink-0 cursor-col-resize`}
       data-behavior="resizable"
       data-axis="vertical"
       data-context="tile"
@@ -47,15 +49,18 @@ function OuterSeparator({
   panelRef: RefObject<HTMLDivElement | null>
 }): React.JSX.Element {
   const width = useChatSession((s) => s.rightPanelColWidths[0] ?? PANEL_DEFAULT_WIDTH)
+  // 우측 도킹 패널: 오른쪽 모서리가 창에 고정되고 왼쪽(핸들 쪽) 모서리가 움직인다.
+  // 따라서 기준은 패널의 오른쪽 모서리, 폭 = right - clientX (invert) 로 계산해야
+  // 핸들을 왼쪽으로 끌수록 폭이 커진다(마우스 방향 일치). 좌측 도킹 sidebar 와 반대.
   const getOrigin = useCallback(
-    (): number => panelRef.current?.getBoundingClientRect().left ?? 0,
+    (): number => panelRef.current?.getBoundingClientRect().right ?? 0,
     [panelRef]
   )
   const { startResize } = useDragResize({
     getOrigin,
     min: PANEL_MIN_WIDTH,
     max: PANEL_MAX_WIDTH,
-    invert: false,
+    invert: true,
     onChange: (next) => chatActions.setRightPanelColWidth(0, next || width)
   })
   return <VerticalSeparator label="우측 패널 크기 조절" onMouseDown={startResize} />
@@ -79,7 +84,7 @@ function ColumnSeparator({
     max: PANEL_MAX_WIDTH,
     onChange: (next) => chatActions.setRightPanelColWidth(col - 1, next || width)
   })
-  return <VerticalSeparator label="패널 열 크기 조절" onMouseDown={startResize} />
+  return <VerticalSeparator label="패널 열 크기 조절" onMouseDown={startResize} widthClass="w-2" />
 }
 
 function RowSeparator({
@@ -111,7 +116,7 @@ function RowSeparator({
 
   return (
     <div
-      className="app-frame-tile-separator group/sep relative h-3 shrink-0 cursor-row-resize"
+      className="app-frame-tile-separator group/sep relative h-2 shrink-0 cursor-row-resize"
       data-behavior="resizable"
       data-axis="horizontal"
       data-context="tile"
@@ -145,6 +150,7 @@ function RightPanelColumn({
       {tiles.map((id, index) => {
         const tile = tileById(id)
         const Content = tile.Content
+        const HeaderActions = tile.HeaderActions
         const basis =
           tiles.length === 1 ? '100%' : index === 0 ? `${split * 100}%` : `${(1 - split) * 100}%`
         const animation = index === 0 ? 'animate-slide-in-right' : 'animate-slide-in-up'
@@ -152,7 +158,11 @@ function RightPanelColumn({
           <Fragment key={id}>
             {index > 0 && <RowSeparator col={col} columnRef={columnRef} />}
             <div className={`flex min-h-0 ${animation}`} style={{ flexBasis: basis }}>
-              <RightPanelTile id={id} defaultLabel={tile.defaultLabel}>
+              <RightPanelTile
+                id={id}
+                defaultLabel={tile.defaultLabel}
+                headerActions={HeaderActions ? <HeaderActions /> : undefined}
+              >
                 <Content />
               </RightPanelTile>
             </div>
