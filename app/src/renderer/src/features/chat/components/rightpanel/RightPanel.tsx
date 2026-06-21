@@ -137,11 +137,16 @@ function RightPanelColumn({
         const HeaderActions = tile.HeaderActions
         const basis =
           tiles.length === 1 ? '100%' : index === 0 ? `${split * 100}%` : `${(1 - split) * 100}%`
-        const animation = index === 0 ? 'animate-slide-in-right' : 'animate-slide-in-up'
+        // 마운트 연출은 위치 무관 단일 animate-tile-in 으로 통일 — 인덱스(상/하단) 기반 클래스는
+        // 형제 제거로 인덱스가 바뀔 때 애니메이션이 재실행돼 grow 대신 슬라이드가 다시 튄다.
+        // transition-[flex-basis] 로 2→1 타일 시 남은 타일이 basis 100% 까지 부드럽게 커진다.
         return (
           <Fragment key={id}>
             {index > 0 && <RowSeparator col={col} columnRef={columnRef} />}
-            <div className={`flex min-h-0 ${animation}`} style={{ flexBasis: basis }}>
+            <div
+              className="flex min-h-0 animate-tile-in transition-[flex-basis] duration-200 ease-out motion-reduce:animate-none motion-reduce:transition-none"
+              style={{ flexBasis: basis }}
+            >
               <RightPanelTile
                 id={id}
                 defaultLabel={tile.defaultLabel}

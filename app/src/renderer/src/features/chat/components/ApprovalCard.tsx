@@ -2,6 +2,7 @@ import { useState, type KeyboardEvent } from 'react'
 import { Button } from '../../../shared/ui/Button'
 import { YellowDot } from './transcript/YellowDot'
 import { chatActions, useChatSession } from '../store/chatStore'
+import { columnsContain } from '../lib/rightPanelLayout'
 
 // ApprovalCard — Composer 의 입력 패널을 *대체*하는 계획 승인 게이트(rendering.md §7.6).
 // permission.requested 의 action.kind 별로 분기한다:
@@ -116,7 +117,7 @@ export function ToolApprovalBody(): React.JSX.Element | null {
 function PlanApprovalBody(): React.JSX.Element | null {
   const { approvePlan, revisePlan, rejectPlan, setRightPanelTileActive } = chatActions
   const review = useChatSession((s) => s.pendingPlanReview)
-  const planTileOpen = useChatSession((s) => s.rightPanelTiles.includes('plan'))
+  const planTileOpen = useChatSession((s) => columnsContain(s.rightPanelTiles, 'plan'))
   const [feedback, setFeedback] = useState('')
   const [reviseOpen, setReviseOpen] = useState(false)
   const canRevise = feedback.trim() !== ''

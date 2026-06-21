@@ -137,35 +137,23 @@
   }
 }
 
-@keyframes slide-in-right {
+/* 우측 패널 타일 마운트 연출 — 위치(상/하단) 무관 단일 애니메이션. 형제 제거로 인덱스가
+   바뀌어도 재실행되지 않도록 인덱스별 클래스 대신 하나만 쓴다(grow 는 transition-[flex-basis]). */
+@keyframes tile-in {
   0% {
     opacity: 0;
-    transform: translateX(16px);
+    transform: translateY(8px) scale(0.99);
   }
   100% {
     opacity: 1;
-    transform: translateX(0);
+    transform: translateY(0) scale(1);
   }
 }
-@keyframes slide-in-up {
-  0% {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-@utility animate-slide-in-right {
-  animation: slide-in-right 180ms ease-out both;
-}
-@utility animate-slide-in-up {
-  animation: slide-in-up 180ms ease-out both;
+@utility animate-tile-in {
+  animation: tile-in 180ms ease-out both;
 }
 @media (prefers-reduced-motion: reduce) {
-  .animate-slide-in-right,
-  .animate-slide-in-up {
+  .animate-tile-in {
     animation: none;
   }
 }
