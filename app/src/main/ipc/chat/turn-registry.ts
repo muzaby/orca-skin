@@ -11,8 +11,11 @@
 import type { LiveTurn, SessionAdapter } from '../../adapters/types'
 import type { ResolvedProviderSettings } from '../../settings/provider-settings'
 
-export interface InflightTurn {
+export interface InflightTurn<W = unknown> {
   controller: AbortController
+  owner: W
+  cancelled: boolean
+  timedOut: boolean
   // 이 턴의 라이브 핸들 (PR③). orca:permission:setMode 가 진행 중 턴이면 여기로 모드를 즉시
   // 전환한다(Query.setPermissionMode). sendMessage 직후 채워진다.
   live: LiveTurn | null
@@ -52,10 +55,10 @@ export interface InflightTurn {
 }
 
 export class TurnRegistry<W = unknown> {
-  private readonly bySession = new Map<string, InflightTurn>()
-  private readonly pendingByOwner = new Map<W, InflightTurn>()
+  private readonly bySession = new Map<string, InflightTurn<W>>()
+  private readonly pendingByOwner = new Map<W, InflightTurn<W>>()
 
-  getBySession(sessionId: string): InflightTurn | undefined {
+  getBySession(sessionId: string): InflightTurn<W> | undefined {
     return this.bySession.get(sessionId)
   }
 
@@ -68,12 +71,12 @@ export class TurnRegistry<W = unknown> {
   }
 
   // resume 턴 시작 — 같은 세션의 중복 턴은 호출 전 hasSession 으로 가드한다.
-  startResume(sessionId: string, turn: InflightTurn): void {
+  startResume(sessionId: string, turn: InflightTurn<W>): void {
     this.bySession.set(sessionId, turn)
   }
 
   // 새-채팅 턴 시작 — sessionId 발급 전까지 owner(창)당 1개 슬롯.
-  startNew(owner: W, turn: InflightTurn): void {
+  startNew(owner: W, turn: InflightTurn<W>): void {
     this.pendingByOwner.set(owner, turn)
   }
 
@@ -87,7 +90,7 @@ export class TurnRegistry<W = unknown> {
   }
 
   // 턴 종료 — 어느 맵에 있든 값 동일성으로 제거(승격 전 실패한 pending 턴 포함).
-  finish(turn: InflightTurn): void {
+  finish(turn: InflightTurn<W>): void {
     for (const [k, v] of this.bySession) {
       if (v === turn) this.bySession.delete(k)
     }

@@ -120,24 +120,24 @@ Orca 는 턴 실행을 Claude Agent SDK 에 위임하면서 **감독·복구 레
 
 ## [구현] 체크리스트
 
-- [ ] 마이그레이션 0009 + queries(markComplete·incomplete 매핑·assistant insert)
-- [ ] persist.ts complete 전이
-- [ ] send.ts idle 타임아웃(#1)
-- [ ] send.ts 재시도 루프(#4)
-- [ ] shared/ipc.ts `turn.aborted` + `LoadedMessage.incomplete`
-- [ ] send.ts `turn.aborted` emit(#3)
-- [ ] 렌더러 reducer/store turn.aborted + incomplete
-- [ ] transcript incomplete 칩
-- [ ] IPC_CONTRACT.md 갱신
-- [ ] 신규 단위 테스트 5종
-- [ ] 게이트 4종 통과
+- [x] 마이그레이션 0009 + queries(markComplete·incomplete 매핑·assistant insert)
+- [x] persist.ts complete 전이
+- [x] send.ts idle 타임아웃(#1)
+- [x] send.ts 재시도 루프(#4)
+- [x] shared/ipc.ts `turn.aborted` + `LoadedMessage.incomplete`
+- [x] send.ts `turn.aborted` emit(#3)
+- [x] 렌더러 reducer/store turn.aborted + incomplete
+- [x] transcript incomplete 칩
+- [x] IPC_CONTRACT.md 갱신
+- [x] 신규 단위 테스트 5종
+- [ ] 게이트 4종 통과 (node_modules 불완전으로 환경 제한 — 보고 참조)
 
 ## [구현] 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | (구현 후 기입) |
-| 실행 명령 | `npm run lint` / `typecheck` / `typecheck:test` / `test` |
-| 게이트 결과 | (구현 후 기입) |
-| 블로커 / 역질문 | (없으면 "없음") |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | `app/src/main/db/migrations/0009_message_complete.sql`, `app/src/main/db/migrate.ts`, `app/src/main/db/queries.ts`, `app/src/main/db/types.ts`, `app/src/main/ipc/chat/persist.ts`, `app/src/main/ipc/chat/send.ts`, `app/src/main/ipc/chat/turn-registry.ts`, `app/src/main/ipc/handlers/session.ts`, `app/src/shared/ipc.ts`, `app/src/renderer/src/features/chat/reducer/chatReducer.ts`, `app/src/renderer/src/features/chat/store/chatStore.ts`, `app/src/renderer/src/features/chat/components/transcript/AssistantMessage.tsx`, `docs/IPC_CONTRACT.md`, 신규 테스트 3파일 |
+| 실행 명령 | `git diff --check` / `npm run lint` / `npm run typecheck` / `npm run typecheck:test` / `npm test` |
+| 게이트 결과 | `git diff --check` 통과. npm 게이트는 `node_modules` 불완전 상태에서 실패(`electron-vite/node`, `@electron-toolkit/tsconfig`, `vitest` 누락). `npm install`/`npm ci --ignore-scripts` 는 네트워크/패키지 fetch 단계에서 장시간 무응답으로 중단. |
+| 블로커 / 역질문 | 없음 — 코드 구현은 완료, 검증자는 의존성 설치 후 게이트 재실행 필요. |
+| 대상 커밋 | `c31ac25` |

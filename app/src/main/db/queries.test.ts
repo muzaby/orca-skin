@@ -8,6 +8,7 @@ import migration0005 from './migrations/0005_usage_events.sql?raw'
 import migration0006 from './migrations/0006_turn_usage.sql?raw'
 import migration0007 from './migrations/0007_title_source.sql?raw'
 import migration0008 from './migrations/0008_provider_key.sql?raw'
+import migration0009 from './migrations/0009_message_complete.sql?raw'
 import { DbQueries } from './queries'
 
 function dbWithMigrations(): Database.Database {
@@ -21,6 +22,7 @@ function dbWithMigrations(): Database.Database {
   db.exec(migration0006)
   db.exec(migration0007)
   db.exec(migration0008)
+  db.exec(migration0009)
   return db
 }
 
@@ -81,6 +83,31 @@ describe('0006_turn_usage migration', () => {
       cache_creation_input_tokens: 40,
       cost_usd: 0.5
     })
+  })
+})
+
+
+describe('0009_message_complete migration', () => {
+  it('기존 messages 행을 complete=1 로 backfill 한다', () => {
+    const db = new Database(':memory:')
+    db.pragma('foreign_keys = ON')
+    db.exec(migration0001)
+    db.exec(migration0002)
+    db.exec(migration0003)
+    db.exec(migration0004)
+    db.exec(migration0005)
+    db.exec(migration0006)
+    db.exec(migration0007)
+    db.exec(migration0008)
+    insertSession(db)
+    db.prepare(
+      `INSERT INTO messages (session_id, role, content, created_at, idx)
+       VALUES ('s1', 'assistant', 'old', 1, 0)`
+    ).run()
+
+    db.exec(migration0009)
+
+    expect(db.prepare('SELECT complete FROM messages').get()).toEqual({ complete: 1 })
   })
 })
 
@@ -308,5 +335,31 @@ describe('DbQueries provider_key', () => {
     const q = new DbQueries(db)
 
     expect(q.listSessions()[0].provider_key).toBeNull()
+  })
+})
+
+
+describe('DbQueries message complete', () => {
+  it('assistant 메시지를 미완료로 만들고 완료 처리할 수 있다', () => {
+    const db = dbWithMigrations()
+    insertSession(db)
+    const q = new DbQueries(db)
+    const id = q.appendMessage({
+      sessionId: 's1',
+      role: 'assistant',
+      content: '',
+      createdAt: 1,
+      complete: 0
+    })
+    q.appendPart({
+      messageId: id,
+      type: 'text',
+      toolRunId: null,
+      payloadJson: JSON.stringify({ text: 'partial' })
+    })
+
+    expect(q.loadParts('s1')[0].complete).toBe(0)
+    q.markMessageComplete(id)
+    expect(q.loadParts('s1')[0].complete).toBe(1)
   })
 })

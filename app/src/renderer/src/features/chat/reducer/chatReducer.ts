@@ -27,6 +27,7 @@ export interface Message {
   role: 'user' | 'assistant'
   createdAt: number
   parts: AppMessagePart[]
+  incomplete?: boolean
 }
 
 export interface ChatState {
@@ -283,6 +284,16 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           // 해소 이벤트는 audit/telemetry 용 — 카드는 respond 시 로컬 RESOLVE_* 로 이미 닫힌다.
           return state
 
+        case 'turn.aborted':
+          return {
+            ...state,
+            inflight: false,
+            turnStartedAt: null,
+            pendingAsks: [],
+            pendingPlanReview: null,
+            pendingToolApproval: null
+          }
+
         case 'error':
           // 턴이 끊기면 보류 게이트(질문/계획/도구)는 main 이 broker abort 로 정리하므로 카드도 비운다.
           return {
@@ -348,7 +359,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       const messages: Message[] = action.session.messages.map((m) => ({
         role: m.role,
         createdAt: m.createdAt,
-        parts: m.parts
+        parts: m.parts,
+        ...(m.incomplete ? { incomplete: true } : {})
       }))
       return {
         ...initialChatState,
