@@ -49,6 +49,11 @@ export const AssistantMessage = memo(function AssistantMessage({
             return <ErrorCard key={i} error={seg.error} />
         }
       })}
+      {message.incomplete && (
+        <div className="inline-flex w-fit rounded-full border border-border bg-bg2 px-2 py-1 text-xs leading-none text-ink3">
+          응답이 완료되지 않았습니다
+        </div>
+      )}
     </div>
   )
 })

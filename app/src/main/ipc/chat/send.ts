@@ -27,12 +27,50 @@ import type { ApprovalCoordinator } from './approvals'
 import type { TurnPersistence } from './persist'
 import type { InflightTurn, TurnRegistry } from './turn-registry'
 
+export const IDLE_TIMEOUT_MS = 120_000
+export const MAX_RETRIES = 2
+export const RETRY_BACKOFF_MS = [1_000, 2_000] as const
+
 export interface ChatDeps {
   ctx: RouterContext
   turns: TurnRegistry<WebContents>
   approvals: ApprovalCoordinator
   persistence: TurnPersistence
   permissionModes: PermissionModeController
+}
+
+export function createIdleTimer(turn: InflightTurn): { reset: () => void; clear: () => void } {
+  let timer: ReturnType<typeof setTimeout> | null = null
+  const clear = (): void => {
+    if (timer) clearTimeout(timer)
+    timer = null
+  }
+  const reset = (): void => {
+    clear()
+    timer = setTimeout(() => {
+      turn.timedOut = true
+      turn.controller.abort()
+    }, IDLE_TIMEOUT_MS)
+  }
+  return { reset, clear }
+}
+
+export function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (signal.aborted) {
+      reject(new Error('Aborted'))
+      return
+    }
+    const timer = setTimeout(resolve, ms)
+    signal.addEventListener(
+      'abort',
+      () => {
+        clearTimeout(timer)
+        reject(new Error('Aborted'))
+      },
+      { once: true }
+    )
+  })
 }
 
 // 턴 단위 provider/model 해석 (handoff 0010 → 0014) — payload providerKey 가 어댑터와
@@ -156,8 +194,11 @@ export function registerChatHandlers(deps: ChatDeps): void {
     const controller = new AbortController()
     // resume 경로면 sessions row 에 이미 binding 된 projectId 가 있으므로 그쪽에서 조회.
     // 새 채팅 경로(sessionId=null)면 renderer 가 보낸 projectId 를 init 시점에 binding.
-    const turn: InflightTurn = {
+    const turn: InflightTurn<WebContents> = {
       controller,
+      owner: event.sender,
+      cancelled: false,
+      timedOut: false,
       live: null,
       titleAdapter: adapter,
       titleSettings: resolved.providerSettings,
@@ -254,43 +295,81 @@ export function registerChatHandlers(deps: ChatDeps): void {
     }
 
     try {
-      // sendMessage 가 query() 를 즉시 시작하므로 try 안에서 호출 — 동기 throw 도 동일 경로로 분류.
-      const live = adapter.sendMessage({
-        sessionId: parsed.data.sessionId,
-        text: parsed.data.text,
-        cwd: turn.cwd,
-        signal: controller.signal,
-        extensions,
-        env: turnEnv,
-        providerSettings: resolved.providerSettings,
-        model: resolved.model,
-        requestApproval,
-        permissionMode: parsed.data.permissionMode,
-        effort: parsed.data.effort
-      })
-      turn.live = live
-      for await (const ev of live.events) {
-        persistence.persist(turn, ev)
-        sendChatEvent(event.sender, ev)
-        // sessionId 발급(session.updated) — 새-채팅 pending 턴을 sessionId 키로 승격.
-        if (ev.type === 'session.updated') {
-          turns.promote(event.sender, ev.sessionId)
-        }
-        // AskUserQuestion tool 호출이 도착하면 id 를 페어링 큐에 넣고 답변과 매칭 시도.
-        if (ev.type === 'tool.call.started' && ev.toolName === 'AskUserQuestion') {
-          turn.askPendingIds.push(ev.toolRunId)
-          persistence.flushAskAnswers(turn, event.sender)
+      for (let attempt = 0; ; attempt += 1) {
+        let eventsReceived = 0
+        const idle = createIdleTimer(turn)
+        try {
+          // sendMessage 가 query() 를 즉시 시작하므로 try 안에서 호출 — 동기 throw 도 동일 경로로 분류.
+          const live = adapter.sendMessage({
+            sessionId: parsed.data.sessionId,
+            text: parsed.data.text,
+            cwd: turn.cwd,
+            signal: controller.signal,
+            extensions,
+            env: turnEnv,
+            providerSettings: resolved.providerSettings,
+            model: resolved.model,
+            requestApproval,
+            permissionMode: parsed.data.permissionMode,
+            effort: parsed.data.effort
+          })
+          turn.live = live
+          idle.reset()
+          for await (const ev of live.events) {
+            eventsReceived += 1
+            idle.reset()
+            persistence.persist(turn, ev)
+            sendChatEvent(event.sender, ev)
+            // sessionId 발급(session.updated) — 새-채팅 pending 턴을 sessionId 키로 승격.
+            if (ev.type === 'session.updated') {
+              turns.promote(event.sender, ev.sessionId)
+            }
+            // AskUserQuestion tool 호출이 도착하면 id 를 페어링 큐에 넣고 답변과 매칭 시도.
+            if (ev.type === 'tool.call.started' && ev.toolName === 'AskUserQuestion') {
+              turn.askPendingIds.push(ev.toolRunId)
+              persistence.flushAskAnswers(turn, event.sender)
+            }
+          }
+          return
+        } catch (err) {
+          if (turn.cancelled && controller.signal.aborted) return
+          if (turn.timedOut) {
+            sendChatEvent(event.sender, {
+              type: 'error',
+              ...(turn.dbSessionId ? { sessionId: turn.dbSessionId } : {}),
+              error: makeClassifiedError('stream_error', '응답이 없어 턴을 중단했습니다.', {
+                retryable: true
+              })
+            })
+            return
+          }
+          const error = adapter.classifyError(err, 'sendMessage')
+          if (
+            error.retryable &&
+            eventsReceived === 0 &&
+            attempt < MAX_RETRIES &&
+            !controller.signal.aborted
+          ) {
+            try {
+              await abortableDelay(RETRY_BACKOFF_MS[attempt] ?? 2_000, controller.signal)
+            } catch {
+              return
+            }
+            continue
+          }
+          // sessionId 가 확정된 턴이면 부착 — renderer 멀티세션 store 가 정확한 엔트리로
+          // 라우팅한다(없으면 활성 엔트리 폴백, handoff 0013).
+          sendChatEvent(event.sender, {
+            type: 'error',
+            ...(turn.dbSessionId ? { sessionId: turn.dbSessionId } : {}),
+            // 어댑터 소유 분류기(0016) — provider 는 어댑터가 자기 id 로 채운다. 표시용, 분기 미사용.
+            error
+          })
+          return
+        } finally {
+          idle.clear()
         }
       }
-    } catch (err) {
-      // sessionId 가 확정된 턴이면 부착 — renderer 멀티세션 store 가 정확한 엔트리로
-      // 라우팅한다(없으면 활성 엔트리 폴백, handoff 0013).
-      sendChatEvent(event.sender, {
-        type: 'error',
-        ...(turn.dbSessionId ? { sessionId: turn.dbSessionId } : {}),
-        // 어댑터 소유 분류기(0016) — provider 는 어댑터가 자기 id 로 채운다. 표시용, 분기 미사용.
-        error: adapter.classifyError(err, 'sendMessage')
-      })
     } finally {
       turns.finish(turn)
     }
@@ -301,6 +380,14 @@ export function registerChatHandlers(deps: ChatDeps): void {
   handlePlain(CHANNELS.chatSend, (raw, event) => handleChatSend(event, raw))
 
   handle(CHANNELS.chatCancel, CancelChatSchema, 'reject', (req): void => {
-    turns.getBySession(req.sessionId)?.controller.abort()
+    const turn = turns.getBySession(req.sessionId)
+    if (!turn) return
+    turn.cancelled = true
+    turn.controller.abort()
+    sendChatEvent(turn.owner, {
+      type: 'turn.aborted',
+      sessionId: req.sessionId,
+      reason: 'user_cancelled'
+    })
   })
 }

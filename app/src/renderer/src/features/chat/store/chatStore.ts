@@ -181,6 +181,11 @@ function receive(ev: NormalizedEvent): void {
       return
     }
 
+    case 'turn.aborted':
+      dispatchTo(key, { type: 'RECV_EVENT', event: ev })
+      resetLive(key)
+      return
+
     case 'error':
       // 턴 중단 — 미완 라이브 프리뷰는 커밋하지 않고 버린다(기존 동작 동형).
       dispatchTo(key, { type: 'RECV_EVENT', event: ev })

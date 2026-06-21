@@ -39,7 +39,8 @@ export class TurnPersistence {
         sessionId,
         role: 'assistant',
         content: '',
-        createdAt: Date.now()
+        createdAt: Date.now(),
+        complete: 0
       })
       turn.assistantText = ''
     }
@@ -217,6 +218,9 @@ export class TurnPersistence {
             })
           }
           this.cost.recordAndBroadcast()
+        }
+        if (turn.currentAssistantMessageId != null) {
+          this.db.markMessageComplete(turn.currentAssistantMessageId)
         }
         this.onTurnEnd(turn)
         // 다음 assistant 파트는 새 메시지에 묶이도록 reset.

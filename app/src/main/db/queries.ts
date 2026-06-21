@@ -26,6 +26,7 @@ export class DbQueries {
   private readonly loadPartsStmt: Database.Statement
   private readonly appendMessageStmt: Database.Statement
   private readonly updateMessageContentStmt: Database.Statement
+  private readonly markMessageCompleteStmt: Database.Statement
   private readonly appendPartStmt: Database.Statement
   private readonly updateToolResultPartStmt: Database.Statement
   private readonly updateSessionPreviewStmt: Database.Statement
@@ -76,6 +77,7 @@ export class DbQueries {
         m.id AS message_id,
         m.role AS role,
         m.created_at AS created_at,
+        m.complete AS complete,
         m.idx AS message_idx,
         mp.idx AS part_idx,
         mp.type AS type,
@@ -87,17 +89,21 @@ export class DbQueries {
       ORDER BY m.idx ASC, mp.idx ASC
     `)
     this.appendMessageStmt = db.prepare(`
-      INSERT INTO messages (session_id, role, content, created_at, idx)
+      INSERT INTO messages (session_id, role, content, created_at, complete, idx)
       VALUES (
         @sessionId,
         @role,
         @content,
         @createdAt,
+        @complete,
         COALESCE((SELECT MAX(idx) + 1 FROM messages WHERE session_id = @sessionId), 0)
       )
     `)
     this.updateMessageContentStmt = db.prepare(`
       UPDATE messages SET content = @content WHERE id = @id
+    `)
+    this.markMessageCompleteStmt = db.prepare(`
+      UPDATE messages SET complete = 1 WHERE id = @id
     `)
     // 파트 append — idx 는 같은 message 내 MAX(idx)+1 로 자동 부여(호출자 미지정).
     this.appendPartStmt = db.prepare(`
@@ -258,7 +264,7 @@ export class DbQueries {
   }
 
   appendMessage(row: MessageInsert): number {
-    const info = this.appendMessageStmt.run(row)
+    const info = this.appendMessageStmt.run({ ...row, complete: row.complete ?? 1 })
     return Number(info.lastInsertRowid)
   }
 
@@ -266,6 +272,10 @@ export class DbQueries {
   // 별개로 호출해 캐시를 동기화한다.
   updateMessageContent(id: number, content: string): void {
     this.updateMessageContentStmt.run({ id, content })
+  }
+
+  markMessageComplete(id: number): void {
+    this.markMessageCompleteStmt.run({ id })
   }
 
   appendPart(row: MessagePartInsert): number {
