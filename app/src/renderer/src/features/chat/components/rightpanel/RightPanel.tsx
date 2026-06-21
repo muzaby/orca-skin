@@ -43,48 +43,32 @@ function VerticalSeparator({
   )
 }
 
-function OuterSeparator({
-  panelRef
+// 우측 도킹 패널의 세로 리사이즈 핸들. 외곽 핸들과 열 사이 핸들이 같은 규칙을 따른다 —
+// 각 핸들은 *바로 오른쪽 열*(colIndex)의 폭을 조절하고, 그 열의 오른쪽 모서리를 기준으로
+// 폭 = colRight - clientX (invert) 로 계산한다. 패널은 우측 도킹이라 오른쪽 모서리가
+// 고정되고 왼쪽으로 끌수록 폭이 커진다(마우스 방향 일치). 좌측 도킹 sidebar 와 반대.
+// getColRight 는 그 열의 오른쪽 모서리를 드래그 시작 시점에 측정한다(드래그 중에는 오른쪽
+// 이웃 열들의 폭이 고정이므로 모서리도 고정).
+function ColumnResizeSeparator({
+  colIndex,
+  getColRight,
+  label,
+  widthClass
 }: {
-  panelRef: RefObject<HTMLDivElement | null>
+  colIndex: number
+  getColRight: () => number
+  label: string
+  widthClass?: string
 }): React.JSX.Element {
-  const width = useChatSession((s) => s.rightPanelColWidths[0] ?? PANEL_DEFAULT_WIDTH)
-  // 우측 도킹 패널: 오른쪽 모서리가 창에 고정되고 왼쪽(핸들 쪽) 모서리가 움직인다.
-  // 따라서 기준은 패널의 오른쪽 모서리, 폭 = right - clientX (invert) 로 계산해야
-  // 핸들을 왼쪽으로 끌수록 폭이 커진다(마우스 방향 일치). 좌측 도킹 sidebar 와 반대.
-  const getOrigin = useCallback(
-    (): number => panelRef.current?.getBoundingClientRect().right ?? 0,
-    [panelRef]
-  )
+  const width = useChatSession((s) => s.rightPanelColWidths[colIndex] ?? PANEL_DEFAULT_WIDTH)
   const { startResize } = useDragResize({
-    getOrigin,
+    getOrigin: getColRight,
     min: PANEL_MIN_WIDTH,
     max: PANEL_MAX_WIDTH,
     invert: true,
-    onChange: (next) => chatActions.setRightPanelColWidth(0, next || width)
+    onChange: (next) => chatActions.setRightPanelColWidth(colIndex, next || width)
   })
-  return <VerticalSeparator label="우측 패널 크기 조절" onMouseDown={startResize} />
-}
-
-function ColumnSeparator({
-  col,
-  columnRef
-}: {
-  col: number
-  columnRef: RefObject<HTMLDivElement | null>
-}): React.JSX.Element {
-  const width = useChatSession((s) => s.rightPanelColWidths[col - 1] ?? PANEL_DEFAULT_WIDTH)
-  const getOrigin = useCallback(
-    (): number => columnRef.current?.getBoundingClientRect().left ?? 0,
-    [columnRef]
-  )
-  const { startResize } = useDragResize({
-    getOrigin,
-    min: PANEL_MIN_WIDTH,
-    max: PANEL_MAX_WIDTH,
-    onChange: (next) => chatActions.setRightPanelColWidth(col - 1, next || width)
-  })
-  return <VerticalSeparator label="패널 열 크기 조절" onMouseDown={startResize} widthClass="w-2" />
+  return <VerticalSeparator label={label} onMouseDown={startResize} widthClass={widthClass} />
 }
 
 function RowSeparator({
@@ -177,18 +161,42 @@ export function RightPanel({ className = '' }: { className?: string }): React.JS
   const activeTiles = useChatSession((s) => s.rightPanelTiles)
   const widths = useChatSession((s) => s.rightPanelColWidths)
   const splits = useChatSession((s) => s.rightPanelRowSplits)
-  const panelRef = useRef<HTMLDivElement>(null)
+  // 열별 래퍼 div 의 ref 배열. 래퍼는 (있다면) 왼쪽 분리자 + 열로 구성돼 래퍼의 오른쪽
+  // 모서리 = 열의 오른쪽 모서리다. 각 세로 핸들이 자기가 조절하는 열의 오른쪽 모서리를
+  // 측정하는 단일 기준점이 된다 — 외곽 핸들은 0열, 열 사이 핸들은 그 오른쪽 열.
+  const columnRefs = useRef<Array<HTMLDivElement | null>>([])
+  const getColumnRight = useCallback(
+    (index: number) => (): number => columnRefs.current[index]?.getBoundingClientRect().right ?? 0,
+    []
+  )
   const layout = useMemo(() => deriveRightPanelLayout(activeTiles), [activeTiles])
 
   if (layout.columns.length === 0) return null
 
   return (
     <>
-      <OuterSeparator panelRef={panelRef} />
-      <div ref={panelRef} className={`my-2 mr-2 flex min-h-0 shrink-0 ${className}`}>
+      <ColumnResizeSeparator
+        colIndex={0}
+        getColRight={getColumnRight(0)}
+        label="우측 패널 크기 조절"
+      />
+      <div className={`my-2 mr-2 flex min-h-0 shrink-0 ${className}`}>
         {layout.columns.map((column, index) => (
-          <div key={column.col} className="flex min-h-0 shrink-0">
-            {index > 0 && <ColumnSeparator col={column.col} columnRef={panelRef} />}
+          <div
+            key={column.col}
+            ref={(el) => {
+              columnRefs.current[index] = el
+            }}
+            className="flex min-h-0 shrink-0"
+          >
+            {index > 0 && (
+              <ColumnResizeSeparator
+                colIndex={index}
+                getColRight={getColumnRight(index)}
+                label="패널 열 크기 조절"
+                widthClass="w-2"
+              />
+            )}
             <RightPanelColumn
               col={column.col}
               tiles={column.tiles}
