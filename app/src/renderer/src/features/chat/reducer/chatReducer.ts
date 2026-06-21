@@ -12,6 +12,12 @@ import type {
 import type { NormalizedPermissionMode } from '../../../../../shared/permission-mode'
 import { contextTokens } from '../lib/telemetry'
 import type { RightPanelTileId } from '../lib/rightPanelTiles'
+import {
+  addTileColumnMajor,
+  columnsContain,
+  removeTileFromColumns,
+  type RightPanelColumns
+} from '../lib/rightPanelLayout'
 
 // transcript 렌더가 쓰는 도구 호출 view — parts 의 tool_call+tool_result 를 toolRunId 로
 // 페어링한 결과(lib/parts.ts partsToolCalls). 더 이상 Message 의 필드가 아니다.
@@ -75,8 +81,9 @@ export interface ChatState {
   // 승인/수정/거부 시 null. (백엔드 중립 — SDK 를 모름.) 우측 계획 타일의 액션바
   // (승인/수정/거부) 노출 여부 + requestId 의 소스.
   pendingPlanReview: PlanReviewRequest | null
-  // 우측 패널 안의 활성 타일 목록. 활성화 순서대로 column-major 레이아웃에 배치된다.
-  rightPanelTiles: RightPanelTileId[]
+  // 우측 패널 안의 활성 타일. 열 구조(열당 최대 ROWS_PER_COL)를 직접 들고 있어 제거 시
+  // 다른 열로 리플로우되지 않는다(rightPanelLayout 참고). 추가는 column-major 로 채운다.
+  rightPanelTiles: RightPanelColumns
   // 우측 패널 타일별 사용자 라벨 오버라이드. 값이 없으면 tile registry 의 기본 라벨을 쓴다.
   rightPanelTileLabels: Partial<Record<RightPanelTileId, string>>
   // 우측 패널 열별 폭(px). 분리선 드래그로 조절, clamp 280–640.
@@ -278,7 +285,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
               ...state,
               pendingPlanReview: ev.action.request,
               planContent: ev.action.request.plan,
-              rightPanelTiles: addRightPanelTile(state.rightPanelTiles, 'plan')
+              rightPanelTiles: addTileColumnMajor(state.rightPanelTiles, 'plan')
             }
           }
           // tool_approval — 위험 도구 실행 승인 게이트. approvalId 로 응답을 라우팅한다.
@@ -419,20 +426,14 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return { ...state, pendingToolApproval: null }
 
     case 'TOGGLE_RIGHT_PANEL_TILE':
-      return {
-        ...state,
-        rightPanelTiles: state.rightPanelTiles.includes(action.id)
-          ? removeRightPanelTile(state.rightPanelTiles, action.id)
-          : addRightPanelTile(state.rightPanelTiles, action.id)
-      }
+      return columnsContain(state.rightPanelTiles, action.id)
+        ? removeTile(state, action.id)
+        : { ...state, rightPanelTiles: addTileColumnMajor(state.rightPanelTiles, action.id) }
 
     case 'SET_RIGHT_PANEL_TILE_ACTIVE':
-      return {
-        ...state,
-        rightPanelTiles: action.active
-          ? addRightPanelTile(state.rightPanelTiles, action.id)
-          : removeRightPanelTile(state.rightPanelTiles, action.id)
-      }
+      return action.active
+        ? { ...state, rightPanelTiles: addTileColumnMajor(state.rightPanelTiles, action.id) }
+        : removeTile(state, action.id)
 
     case 'RENAME_RIGHT_PANEL_TILE': {
       const label = action.label.trim()
@@ -445,11 +446,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'REMOVE_RIGHT_PANEL_TILE': {
       const nextLabels = { ...state.rightPanelTileLabels }
       delete nextLabels[action.id]
-      return {
-        ...state,
-        rightPanelTiles: removeRightPanelTile(state.rightPanelTiles, action.id),
-        rightPanelTileLabels: nextLabels
-      }
+      return { ...removeTile(state, action.id), rightPanelTileLabels: nextLabels }
     }
 
     case 'SET_RIGHT_PANEL_COL_WIDTH': {
@@ -468,12 +465,19 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
   }
 }
 
-function addRightPanelTile(tiles: RightPanelTileId[], id: RightPanelTileId): RightPanelTileId[] {
-  return tiles.includes(id) ? tiles : [...tiles, id]
-}
-
-function removeRightPanelTile(tiles: RightPanelTileId[], id: RightPanelTileId): RightPanelTileId[] {
-  return tiles.filter((tile) => tile !== id)
+// 타일 제거 — 열 구조에서 해당 타일만 떼어낸다. 그 결과 열이 비면 열을 드롭하면서, 열 인덱스를
+// 키로 쓰는 폭(rightPanelColWidths)·행분할(rightPanelRowSplits) 도 같은 인덱스에서 splice 해
+// 정합을 맞춘다(열이 2→1 로 줄 때는 열이 유지되므로 그대로).
+function removeTile(state: ChatState, id: RightPanelTileId): ChatState {
+  const { columns, removedCol } = removeTileFromColumns(state.rightPanelTiles, id)
+  if (columns === state.rightPanelTiles) return state
+  if (removedCol === null) return { ...state, rightPanelTiles: columns }
+  return {
+    ...state,
+    rightPanelTiles: columns,
+    rightPanelColWidths: state.rightPanelColWidths.filter((_, i) => i !== removedCol),
+    rightPanelRowSplits: state.rightPanelRowSplits.filter((_, i) => i !== removedCol)
+  }
 }
 
 const clampPanelWidth = (n: number): number =>

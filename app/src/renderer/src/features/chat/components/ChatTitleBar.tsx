@@ -1,4 +1,4 @@
-import { memo, useCallback, useRef, useState } from 'react'
+import { memo, useCallback, useMemo, useRef, useState } from 'react'
 import { Icon } from '../../../shared/ui/Icon'
 import { Button } from '../../../shared/ui/Button'
 import { Dot } from '../../../shared/ui/Status'
@@ -7,6 +7,7 @@ import { chatActions, useChatSession } from '../store/chatStore'
 import { partsText } from '../lib/parts'
 import type { ChatState } from '../reducer/chatReducer'
 import { defaultRightPanelTileLabel, type RightPanelTileId } from '../lib/rightPanelTiles'
+import { flattenColumns } from '../lib/rightPanelLayout'
 import { tileRegistry } from './rightpanel/tileRegistry'
 
 const ICON_BTN =
@@ -32,7 +33,10 @@ export const ChatTitleBar = memo(function ChatTitleBar({
 }): React.JSX.Element {
   const title = useChatSession(selectTitle)
   const sessionId = useChatSession((s) => s.sessionId)
-  const activeTiles = useChatSession((s) => s.rightPanelTiles)
+  // 열 구조(stable ref)를 구독하고 평탄 뷰는 메모로 파생 — selector 가 새 배열을 반환하면
+  // zustand Object.is 비교가 매번 깨져 불필요 재렌더가 난다.
+  const tileColumns = useChatSession((s) => s.rightPanelTiles)
+  const activeTiles = useMemo(() => flattenColumns(tileColumns), [tileColumns])
   const labels = useChatSession((s) => s.rightPanelTileLabels)
   const [open, setOpen] = useState(false)
   const anchorRef = useRef<HTMLButtonElement>(null)
