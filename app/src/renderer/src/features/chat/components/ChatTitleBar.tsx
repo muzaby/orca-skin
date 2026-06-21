@@ -81,9 +81,6 @@ export const ChatTitleBar = memo(function ChatTitleBar({
         <button className={ICON_BTN} title="복사">
           <Icon name="copy" size={14} />
         </button>
-        <button className={ICON_BTN} title="설정">
-          <Icon name="settings" size={14} />
-        </button>
         <Button
           ref={anchorRef}
           iconOnly
@@ -109,7 +106,10 @@ export const ChatTitleBar = memo(function ChatTitleBar({
                 key={tile.id}
                 type="button"
                 className={MENU_ITEM}
-                onClick={() => chatActions.toggleRightPanelTile(tile.id)}
+                onClick={() => {
+                  chatActions.toggleRightPanelTile(tile.id)
+                  setOpen(false)
+                }}
                 role="menuitemcheckbox"
                 aria-checked={active}
               >
