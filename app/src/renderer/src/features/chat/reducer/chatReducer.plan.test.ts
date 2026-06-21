@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { chatReducer, initialChatState } from './chatReducer'
+import { PANEL_DEFAULT_WIDTH, chatReducer, initialChatState } from './chatReducer'
 import type { NormalizedEvent, PlanReviewRequest } from '../../../../../shared/ipc'
 
 const REVIEW: PlanReviewRequest = { requestId: 'p1', plan: '# 계획\n- b.py 생성' }
@@ -22,61 +22,110 @@ describe('chatReducer — 계획 검토(plan_review)', () => {
     expect(initialChatState.pendingPlanReview).toBeNull()
   })
 
-  it('계획 타일 기본값', () => {
-    expect(initialChatState.planTileOpen).toBe(false)
+  it('우측 패널 타일 기본값', () => {
+    expect(initialChatState.rightPanelTiles).toEqual([])
+    expect(initialChatState.rightPanelTileLabels).toEqual({})
     expect(initialChatState.planContent).toBeNull()
-    expect(initialChatState.planTileWidth).toBe(360)
+    expect(initialChatState.rightPanelColWidths).toEqual([])
+    expect(PANEL_DEFAULT_WIDTH).toBe(360)
   })
 
-  it('plan_review 이벤트가 pendingPlanReview + planContent 설정 + 타일 자동 오픈', () => {
+  it('plan_review 이벤트가 pendingPlanReview + planContent 설정 + 계획 타일 자동 활성화', () => {
     const s = chatReducer(initialChatState, recv(planEvent()))
     expect(s.pendingPlanReview).toEqual(REVIEW)
     expect(s.planContent).toBe(REVIEW.plan)
-    expect(s.planTileOpen).toBe(true)
+    expect(s.rightPanelTiles).toEqual(['plan'])
   })
 
-  it('RESOLVE_PLAN 은 게이트만 닫고 타일 내용/가시성은 유지(읽기전용)', () => {
+  it('RESOLVE_PLAN 은 게이트만 닫고 타일 내용/활성 상태는 유지(읽기전용)', () => {
     const withPlan = chatReducer(initialChatState, recv(planEvent()))
     const cleared = chatReducer(withPlan, { type: 'RESOLVE_PLAN' })
     expect(cleared.pendingPlanReview).toBeNull()
     expect(cleared.planContent).toBe(REVIEW.plan)
-    expect(cleared.planTileOpen).toBe(true)
+    expect(cleared.rightPanelTiles).toEqual(['plan'])
   })
 
-  it('TOGGLE_PLAN_TILE / SET_PLAN_TILE_OPEN 이 가시성을 제어', () => {
-    const toggled = chatReducer(initialChatState, { type: 'TOGGLE_PLAN_TILE' })
-    expect(toggled.planTileOpen).toBe(true)
-    const closed = chatReducer(toggled, { type: 'SET_PLAN_TILE_OPEN', open: false })
-    expect(closed.planTileOpen).toBe(false)
+  it('우측 패널 타일 toggle/set active 가 중복 없이 활성 순서를 제어', () => {
+    const plan = chatReducer(initialChatState, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'plan' })
+    expect(plan.rightPanelTiles).toEqual(['plan'])
+    const subagent = chatReducer(plan, {
+      type: 'SET_RIGHT_PANEL_TILE_ACTIVE',
+      id: 'subagent',
+      active: true
+    })
+    expect(subagent.rightPanelTiles).toEqual(['plan', 'subagent'])
+    const duplicate = chatReducer(subagent, {
+      type: 'SET_RIGHT_PANEL_TILE_ACTIVE',
+      id: 'plan',
+      active: true
+    })
+    expect(duplicate.rightPanelTiles).toEqual(['plan', 'subagent'])
+    const closed = chatReducer(duplicate, {
+      type: 'SET_RIGHT_PANEL_TILE_ACTIVE',
+      id: 'plan',
+      active: false
+    })
+    expect(closed.rightPanelTiles).toEqual(['subagent'])
   })
 
-  it('SET_PLAN_TILE_WIDTH 가 280–640 으로 clamp', () => {
+  it('이름 변경/삭제가 라벨 오버라이드와 활성 목록을 갱신', () => {
+    const active = chatReducer(initialChatState, {
+      type: 'SET_RIGHT_PANEL_TILE_ACTIVE',
+      id: 'reserved1',
+      active: true
+    })
+    const renamed = chatReducer(active, {
+      type: 'RENAME_RIGHT_PANEL_TILE',
+      id: 'reserved1',
+      label: '메모'
+    })
+    expect(renamed.rightPanelTileLabels.reserved1).toBe('메모')
+    const removed = chatReducer(renamed, { type: 'REMOVE_RIGHT_PANEL_TILE', id: 'reserved1' })
+    expect(removed.rightPanelTiles).toEqual([])
+    expect(removed.rightPanelTileLabels.reserved1).toBeUndefined()
+  })
+
+  it('열 폭과 행 분할을 clamp', () => {
     expect(
-      chatReducer(initialChatState, { type: 'SET_PLAN_TILE_WIDTH', width: 100 }).planTileWidth
+      chatReducer(initialChatState, { type: 'SET_RIGHT_PANEL_COL_WIDTH', col: 0, width: 100 })
+        .rightPanelColWidths[0]
     ).toBe(280)
     expect(
-      chatReducer(initialChatState, { type: 'SET_PLAN_TILE_WIDTH', width: 999 }).planTileWidth
+      chatReducer(initialChatState, { type: 'SET_RIGHT_PANEL_COL_WIDTH', col: 0, width: 999 })
+        .rightPanelColWidths[0]
     ).toBe(640)
     expect(
-      chatReducer(initialChatState, { type: 'SET_PLAN_TILE_WIDTH', width: 420 }).planTileWidth
+      chatReducer(initialChatState, { type: 'SET_RIGHT_PANEL_COL_WIDTH', col: 0, width: 420 })
+        .rightPanelColWidths[0]
     ).toBe(420)
+    expect(
+      chatReducer(initialChatState, { type: 'SET_RIGHT_PANEL_ROW_SPLIT', col: 0, frac: 0.1 })
+        .rightPanelRowSplits[0]
+    ).toBe(0.2)
+    expect(
+      chatReducer(initialChatState, { type: 'SET_RIGHT_PANEL_ROW_SPLIT', col: 0, frac: 0.9 })
+        .rightPanelRowSplits[0]
+    ).toBe(0.8)
+    expect(
+      chatReducer(initialChatState, { type: 'SET_RIGHT_PANEL_ROW_SPLIT', col: 0, frac: 0.5 })
+        .rightPanelRowSplits[0]
+    ).toBe(0.5)
   })
 
-  it('NEW_CHAT 가 계획 타일 상태(내용/가시성/폭)를 리셋', () => {
+  it('NEW_CHAT 가 계획 타일 상태(내용/활성/레이아웃)를 리셋', () => {
     const dirty = chatReducer(chatReducer(initialChatState, recv(planEvent())), {
-      type: 'SET_PLAN_TILE_WIDTH',
+      type: 'SET_RIGHT_PANEL_COL_WIDTH',
+      col: 0,
       width: 500
     })
     expect(dirty.planContent).toBe(REVIEW.plan)
     const fresh = chatReducer(dirty, { type: 'NEW_CHAT' })
-    expect(fresh.planTileOpen).toBe(false)
+    expect(fresh.rightPanelTiles).toEqual([])
     expect(fresh.planContent).toBeNull()
-    expect(fresh.planTileWidth).toBe(360)
+    expect(fresh.rightPanelColWidths).toEqual([])
   })
 
   it('승인 흐름(RESOLVE_PLAN + SET_PERMISSION_MODE) — 카드 제거 + 모드를 acceptEdits 로 전환', () => {
-    // approvePlan 이 dispatch 하는 두 액션의 결합 효과: 계획 카드는 사라지고 권한 모드는
-    // plan → acceptEdits 로 전환되어 다음 턴이 plan 모드로 재진입(ExitPlanMode 재호출)하지 않는다.
     const withPlan = chatReducer(initialChatState, recv(planEvent()))
     expect(withPlan.permissionMode).toBe('plan')
     const resolved = chatReducer(withPlan, { type: 'RESOLVE_PLAN' })

@@ -138,23 +138,23 @@
 
 ## [Codex 기입] 구현 체크리스트
 
-- [ ] reducer 상태 모델 일반화 + 액션 6종 + clamp + plan_review 자동활성
-- [ ] chatStore `chatActions` 교체
-- [ ] `lib/rightPanelLayout.ts` 순수 파생 + 테스트
-- [ ] `rightpanel/` 컴포넌트 6종(Rail/Panel/registry/Plan/SubAgent/Reserved)
-- [ ] ChatTile 도킹 교체
-- [ ] ChatTitleBar 케밥 + Popover
-- [ ] useDragResize y축 지원
-- [ ] app.css slide 키프레임·유틸 + reduced-motion
-- [ ] reducer/layout 단위 테스트
-- [ ] 게이트 4종 통과
+- [x] reducer 상태 모델 일반화 + 액션 6종 + clamp + plan_review 자동활성
+- [x] chatStore `chatActions` 교체
+- [x] `lib/rightPanelLayout.ts` 순수 파생 + 테스트
+- [x] `rightpanel/` 컴포넌트 6종(Rail/Panel/registry/Plan/SubAgent/Reserved)
+- [x] ChatTile 도킹 교체
+- [x] ChatTitleBar 케밥 + Popover
+- [x] useDragResize y축 지원
+- [x] app.css slide 키프레임·유틸 + reduced-motion
+- [x] reducer/layout 단위 테스트
+- [x] 게이트 4종 통과
 
 ## [Codex 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `typecheck:test` / `test` |
-| 게이트 결과 | lint ✅ / typecheck ✅ / test ✅ (N passed) |
-| 블로커 / 역질문 | (없으면 "없음") |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | `chatReducer.ts`, `chatStore.ts`, `ChatTile.tsx`, `ChatTitleBar.tsx`, `ApprovalCard.tsx`, `PlanTile.tsx`, `components/rightpanel/*`, `lib/rightPanelLayout.ts`, `lib/rightPanelTiles.ts`, `useDragResize.ts`, `app.css`, 테스트 2종 |
+| 실행 명령 | `npm run lint` / `npm run typecheck` / `npm run typecheck:test` / `npm test` |
+| 게이트 결과 | lint ✅ / typecheck ✅ / typecheck:test ✅ / test ✅ (422 passed) |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | 구현 커밋 trailer 참조 |

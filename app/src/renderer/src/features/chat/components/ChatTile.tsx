@@ -1,12 +1,9 @@
-import { useCallback, useRef } from 'react'
-import { useDragResize } from '../../../shared/hooks/useDragResize'
 import { ChatTitleBar } from './ChatTitleBar'
 import { TranscriptView } from './transcript/TranscriptView'
 import { Composer } from './Composer'
-import { PlanTile } from './PlanTile'
+import { RightPanel } from './rightpanel/RightPanel'
 import { useScrollAnchor } from '../hooks/useScrollAnchor'
-import { chatActions, useChatSession } from '../store/chatStore'
-import { PLAN_TILE_MIN_WIDTH, PLAN_TILE_MAX_WIDTH } from '../reducer/chatReducer'
+import { useChatSession } from '../store/chatStore'
 
 interface ChatTileProps {
   backendLabel: string
@@ -33,10 +30,6 @@ export function ChatTile({
   const inflight = useChatSession((s) => s.inflight)
   const loadingSession = useChatSession((s) => s.loadingSession)
   const error = useChatSession((s) => s.error)
-  const planTileOpen = useChatSession((s) => s.planTileOpen)
-  const planTileWidth = useChatSession((s) => s.planTileWidth)
-
-  const rowRef = useRef<HTMLDivElement>(null)
   const { scrollRef, contentRef, onScroll, showJump, scrollToBottom, anchored } = useScrollAnchor({
     messages,
     sessionId,
@@ -44,22 +37,9 @@ export function ChatTile({
     inflight
   })
 
-  // 우측 계획 타일은 행의 오른쪽 끝에 도킹 — 커서를 왼쪽으로 끌수록 폭이 커지므로 invert.
-  const getRowRight = useCallback(
-    (): number => rowRef.current?.getBoundingClientRect().right ?? 0,
-    []
-  )
-  const { startResize } = useDragResize({
-    getOrigin: getRowRight,
-    min: PLAN_TILE_MIN_WIDTH,
-    max: PLAN_TILE_MAX_WIDTH,
-    invert: true,
-    onChange: chatActions.setPlanTileWidth
-  })
-
   return (
     <section className="app-frame-pane-host flex min-h-0 min-w-0 flex-1 flex-col bg-bg">
-      <div ref={rowRef} className="app-frame-pane-row relative flex min-h-0 flex-1">
+      <div className="app-frame-pane-row relative flex min-h-0 flex-1">
         {/* Claude Code 룩: transcript 는 별도 카드 없이 bg 평면 위에 그대로 — 우측
             plan tile 만 보더 카드로 분리된다. */}
         <div
@@ -96,31 +76,7 @@ export function ChatTile({
           />
         </div>
 
-        {planTileOpen && (
-          <>
-            <div
-              className="app-frame-tile-separator group/sep relative w-3 shrink-0 cursor-col-resize"
-              data-behavior="resizable"
-              data-axis="vertical"
-              data-context="tile"
-              data-state="visible"
-              onMouseDown={startResize}
-              aria-label="Resize plan panel"
-            >
-              <span
-                aria-hidden
-                className="absolute left-1/2 top-1/2 h-10 w-1 -translate-x-1/2 -translate-y-1/2 rounded-full bg-border-strong opacity-0 transition-opacity duration-150 group-hover/sep:opacity-100 group-active/sep:opacity-100 group-active/sep:bg-ink3"
-              />
-            </div>
-            <div
-              className="app-frame-tile effect-primary-elevated my-2 mr-2 flex shrink-0 flex-col overflow-hidden rounded-r6 border border-border bg-panel"
-              style={{ width: planTileWidth }}
-              data-context="plan"
-            >
-              <PlanTile />
-            </div>
-          </>
-        )}
+        <RightPanel />
       </div>
     </section>
   )

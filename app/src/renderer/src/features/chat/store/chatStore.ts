@@ -9,6 +9,7 @@ import { chatApi, permissionApi, sessionApi, settingsApi } from '../../../shared
 import { createEventCoalescer } from '../lib/eventCoalescer'
 import type { EffortLevel, NormalizedEvent } from '../../../../../shared/ipc'
 import type { NormalizedPermissionMode } from '../../../../../shared/permission-mode'
+import type { RightPanelTileId } from '../lib/rightPanelTiles'
 
 // Zustand 단일 chat store — arch/frontend/state.md §1.4 채택안의 멀티세션 외피(handoff 0013).
 //
@@ -430,10 +431,18 @@ export const chatActions = {
   approveTool,
   approveToolForSession,
   denyTool,
-  togglePlanTile: (): void => dispatchActive({ type: 'TOGGLE_PLAN_TILE' }),
-  openPlanTile: (): void => dispatchActive({ type: 'SET_PLAN_TILE_OPEN', open: true }),
-  closePlanTile: (): void => dispatchActive({ type: 'SET_PLAN_TILE_OPEN', open: false }),
-  setPlanTileWidth: (width: number): void => dispatchActive({ type: 'SET_PLAN_TILE_WIDTH', width })
+  toggleRightPanelTile: (id: RightPanelTileId): void =>
+    dispatchActive({ type: 'TOGGLE_RIGHT_PANEL_TILE', id }),
+  setRightPanelTileActive: (id: RightPanelTileId, active: boolean): void =>
+    dispatchActive({ type: 'SET_RIGHT_PANEL_TILE_ACTIVE', id, active }),
+  renameRightPanelTile: (id: RightPanelTileId, label: string): void =>
+    dispatchActive({ type: 'RENAME_RIGHT_PANEL_TILE', id, label }),
+  removeRightPanelTile: (id: RightPanelTileId): void =>
+    dispatchActive({ type: 'REMOVE_RIGHT_PANEL_TILE', id }),
+  setRightPanelColWidth: (col: number, width: number): void =>
+    dispatchActive({ type: 'SET_RIGHT_PANEL_COL_WIDTH', col, width }),
+  setRightPanelRowSplit: (col: number, frac: number): void =>
+    dispatchActive({ type: 'SET_RIGHT_PANEL_ROW_SPLIT', col, frac })
 }
 
 // IPC 구독·cwd 1회 조회를 연결하는 부트스트랩 — ChatProvider 의 effect 가 1회 호출한다.

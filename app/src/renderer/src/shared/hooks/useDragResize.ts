@@ -12,6 +12,8 @@ export interface UseDragResizeOptions {
   // 우측 도킹 패널처럼 폭이 커서를 왼쪽으로 끌수록 커지는 경우 true.
   // false(기본)=좌측 도킹(폭 = clientX - origin), true=우측 도킹(폭 = origin - clientX).
   invert?: boolean
+  // x(기본)=clientX, y=clientY 기반으로 값을 계산한다.
+  axis?: 'x' | 'y'
   onChange: (value: number) => void
 }
 
@@ -22,7 +24,7 @@ const clamp = (n: number, lo: number, hi: number): number => Math.max(lo, Math.m
 export function useDragResize(opts: UseDragResizeOptions): {
   startResize: (e: React.MouseEvent) => void
 } {
-  const { getOrigin, min, max, disabled, invert, onChange } = opts
+  const { getOrigin, min, max, disabled, invert, axis = 'x', onChange } = opts
   const draggingRef = useRef(false)
 
   const startResize = useCallback(
@@ -33,7 +35,8 @@ export function useDragResize(opts: UseDragResizeOptions): {
       const origin = getOrigin()
       const onMove = (ev: MouseEvent): void => {
         if (!draggingRef.current) return
-        const raw = invert ? origin - ev.clientX : ev.clientX - origin
+        const pointer = axis === 'y' ? ev.clientY : ev.clientX
+        const raw = invert ? origin - pointer : pointer - origin
         onChange(clamp(Math.round(raw), min, max))
       }
       const onUp = (): void => {
@@ -44,7 +47,7 @@ export function useDragResize(opts: UseDragResizeOptions): {
       window.addEventListener('mousemove', onMove)
       window.addEventListener('mouseup', onUp)
     },
-    [getOrigin, min, max, disabled, invert, onChange]
+    [getOrigin, min, max, disabled, invert, axis, onChange]
   )
 
   return { startResize }
