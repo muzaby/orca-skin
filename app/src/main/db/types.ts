@@ -115,7 +115,6 @@ export interface ProjectInsert {
   name: string
   instructions: string
   createdAt: number
-  complete?: 0 | 1
 }
 
 export interface MessageRow {

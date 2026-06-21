@@ -86,7 +86,6 @@ describe('0006_turn_usage migration', () => {
   })
 })
 
-
 describe('0009_message_complete migration', () => {
   it('기존 messages 행을 complete=1 로 backfill 한다', () => {
     const db = new Database(':memory:')
@@ -337,7 +336,6 @@ describe('DbQueries provider_key', () => {
     expect(q.listSessions()[0].provider_key).toBeNull()
   })
 })
-
 
 describe('DbQueries message complete', () => {
   it('assistant 메시지를 미완료로 만들고 완료 처리할 수 있다', () => {
