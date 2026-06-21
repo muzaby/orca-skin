@@ -114,9 +114,9 @@ export function ToolApprovalBody(): React.JSX.Element | null {
 }
 
 function PlanApprovalBody(): React.JSX.Element | null {
-  const { approvePlan, revisePlan, rejectPlan, openPlanTile } = chatActions
+  const { approvePlan, revisePlan, rejectPlan, setRightPanelTileActive } = chatActions
   const review = useChatSession((s) => s.pendingPlanReview)
-  const planTileOpen = useChatSession((s) => s.planTileOpen)
+  const planTileOpen = useChatSession((s) => s.rightPanelTiles.includes('plan'))
   const [feedback, setFeedback] = useState('')
   const [reviseOpen, setReviseOpen] = useState(false)
   const canRevise = feedback.trim() !== ''
@@ -154,7 +154,7 @@ function PlanApprovalBody(): React.JSX.Element | null {
         {!planTileOpen && (
           <button
             type="button"
-            onClick={openPlanTile}
+            onClick={() => setRightPanelTileActive('plan', true)}
             className="ml-auto cursor-default border-0 bg-transparent text-footnote font-medium text-rust outline-none hide-focus-ring ring-focus hover:underline"
           >
             플랜 열기

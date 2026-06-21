@@ -11,6 +11,7 @@ import type {
 } from '../../../../../shared/ipc'
 import type { NormalizedPermissionMode } from '../../../../../shared/permission-mode'
 import { contextTokens } from '../lib/telemetry'
+import type { RightPanelTileId } from '../lib/rightPanelTiles'
 
 // transcript 렌더가 쓰는 도구 호출 view — parts 의 tool_call+tool_result 를 toolRunId 로
 // 페어링한 결과(lib/parts.ts partsToolCalls). 더 이상 Message 의 필드가 아니다.
@@ -74,11 +75,14 @@ export interface ChatState {
   // 승인/수정/거부 시 null. (백엔드 중립 — SDK 를 모름.) 우측 계획 타일의 액션바
   // (승인/수정/거부) 노출 여부 + requestId 의 소스.
   pendingPlanReview: PlanReviewRequest | null
-  // 우측 계획 타일(분할 tile)의 가시성. plan_review 도착 시 자동 true(auto-trigger),
-  // 헤더 토글 버튼/닫기 X 로 수동 제어.
-  planTileOpen: boolean
-  // 우측 계획 타일의 폭(px). 분리선 드래그로 조절, clamp 280–640.
-  planTileWidth: number
+  // 우측 패널 안의 활성 타일 목록. 활성화 순서대로 column-major 레이아웃에 배치된다.
+  rightPanelTiles: RightPanelTileId[]
+  // 우측 패널 타일별 사용자 라벨 오버라이드. 값이 없으면 tile registry 의 기본 라벨을 쓴다.
+  rightPanelTileLabels: Partial<Record<RightPanelTileId, string>>
+  // 우측 패널 열별 폭(px). 분리선 드래그로 조절, clamp 280–640.
+  rightPanelColWidths: number[]
+  // 우측 패널 열 내부의 상단 행 비율. 행 분리선 드래그로 조절, clamp 0.2–0.8.
+  rightPanelRowSplits: number[]
   // 우측 계획 타일에 표시할 마지막 계획 마크다운. 승인/거부 후에도 유지해 읽기전용으로
   // 계속 보여준다(= pendingPlanReview 와 수명 분리). 세션 전환/새 대화 시 비움.
   planContent: string | null
@@ -104,15 +108,21 @@ export const initialChatState: ChatState = {
   pendingAsks: [],
   permissionMode: 'plan',
   pendingPlanReview: null,
-  planTileOpen: false,
-  planTileWidth: 360,
+  rightPanelTiles: [],
+  rightPanelTileLabels: {},
+  rightPanelColWidths: [],
+  rightPanelRowSplits: [],
   planContent: null,
   pendingToolApproval: null
 }
 
-// 계획 타일 폭 clamp 범위.
-export const PLAN_TILE_MIN_WIDTH = 280
-export const PLAN_TILE_MAX_WIDTH = 640
+// 우측 패널 열 폭/행 분할 clamp 범위.
+export const PANEL_MIN_WIDTH = 280
+export const PANEL_MAX_WIDTH = 640
+export const PANEL_DEFAULT_WIDTH = 360
+export const PANEL_MIN_ROW_SPLIT = 0.2
+export const PANEL_MAX_ROW_SPLIT = 0.8
+export const PANEL_DEFAULT_ROW_SPLIT = 0.5
 
 export type ChatAction =
   | { type: 'SEND_USER_MESSAGE'; text: string }
@@ -142,12 +152,13 @@ export type ChatAction =
   | { type: 'RESOLVE_PLAN' }
   // 위험 도구 승인 카드 응답(허용/세션허용/거부) 후 게이트 제거.
   | { type: 'RESOLVE_TOOL_APPROVAL' }
-  // 우측 계획 타일 가시성 토글(헤더 버튼).
-  | { type: 'TOGGLE_PLAN_TILE' }
-  // 우측 계획 타일 가시성 명시 설정(닫기 X).
-  | { type: 'SET_PLAN_TILE_OPEN'; open: boolean }
-  // 우측 계획 타일 폭 설정(분리선 드래그). clamp 는 리듀서가 적용.
-  | { type: 'SET_PLAN_TILE_WIDTH'; width: number }
+  // 우측 패널 타일 활성 상태/라벨/레이아웃 조작.
+  | { type: 'TOGGLE_RIGHT_PANEL_TILE'; id: RightPanelTileId }
+  | { type: 'SET_RIGHT_PANEL_TILE_ACTIVE'; id: RightPanelTileId; active: boolean }
+  | { type: 'RENAME_RIGHT_PANEL_TILE'; id: RightPanelTileId; label: string }
+  | { type: 'REMOVE_RIGHT_PANEL_TILE'; id: RightPanelTileId }
+  | { type: 'SET_RIGHT_PANEL_COL_WIDTH'; col: number; width: number }
+  | { type: 'SET_RIGHT_PANEL_ROW_SPLIT'; col: number; frac: number }
 
 // 현재 assistant 메시지에 파트를 누적한다. 마지막 메시지가 user 면(턴 시작) 새 assistant
 // 메시지를 만들고, assistant 면 그 parts 끝에 붙인다 — 한 턴의 reasoning/text/tool_*/error
@@ -267,7 +278,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
               ...state,
               pendingPlanReview: ev.action.request,
               planContent: ev.action.request.plan,
-              planTileOpen: true
+              rightPanelTiles: addRightPanelTile(state.rightPanelTiles, 'plan')
             }
           }
           // tool_approval — 위험 도구 실행 승인 게이트. approvalId 로 응답을 라우팅한다.
@@ -400,26 +411,73 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return { ...state, effort: action.effort }
 
     case 'RESOLVE_PLAN':
-      // 액션 게이트만 닫는다 — planContent/planTileOpen 은 유지(검토 후 읽기전용 표시).
+      // 액션 게이트만 닫는다 — planContent/계획 타일 활성 상태는 유지(검토 후 읽기전용 표시).
       return { ...state, pendingPlanReview: null }
 
     case 'RESOLVE_TOOL_APPROVAL':
       // 위험 도구 승인 카드 응답 후 게이트 제거 → Composer 입력창 복귀.
       return { ...state, pendingToolApproval: null }
 
-    case 'TOGGLE_PLAN_TILE':
-      return { ...state, planTileOpen: !state.planTileOpen }
-
-    case 'SET_PLAN_TILE_OPEN':
-      return { ...state, planTileOpen: action.open }
-
-    case 'SET_PLAN_TILE_WIDTH':
+    case 'TOGGLE_RIGHT_PANEL_TILE':
       return {
         ...state,
-        planTileWidth: clampPlanTileWidth(action.width)
+        rightPanelTiles: state.rightPanelTiles.includes(action.id)
+          ? removeRightPanelTile(state.rightPanelTiles, action.id)
+          : addRightPanelTile(state.rightPanelTiles, action.id)
       }
+
+    case 'SET_RIGHT_PANEL_TILE_ACTIVE':
+      return {
+        ...state,
+        rightPanelTiles: action.active
+          ? addRightPanelTile(state.rightPanelTiles, action.id)
+          : removeRightPanelTile(state.rightPanelTiles, action.id)
+      }
+
+    case 'RENAME_RIGHT_PANEL_TILE': {
+      const label = action.label.trim()
+      const nextLabels = { ...state.rightPanelTileLabels }
+      if (label) nextLabels[action.id] = label
+      else delete nextLabels[action.id]
+      return { ...state, rightPanelTileLabels: nextLabels }
+    }
+
+    case 'REMOVE_RIGHT_PANEL_TILE': {
+      const nextLabels = { ...state.rightPanelTileLabels }
+      delete nextLabels[action.id]
+      return {
+        ...state,
+        rightPanelTiles: removeRightPanelTile(state.rightPanelTiles, action.id),
+        rightPanelTileLabels: nextLabels
+      }
+    }
+
+    case 'SET_RIGHT_PANEL_COL_WIDTH': {
+      if (action.col < 0) return state
+      const nextWidths = state.rightPanelColWidths.slice()
+      nextWidths[action.col] = clampPanelWidth(action.width)
+      return { ...state, rightPanelColWidths: nextWidths }
+    }
+
+    case 'SET_RIGHT_PANEL_ROW_SPLIT': {
+      if (action.col < 0) return state
+      const nextSplits = state.rightPanelRowSplits.slice()
+      nextSplits[action.col] = clampPanelRowSplit(action.frac)
+      return { ...state, rightPanelRowSplits: nextSplits }
+    }
   }
 }
 
-const clampPlanTileWidth = (n: number): number =>
-  Math.max(PLAN_TILE_MIN_WIDTH, Math.min(PLAN_TILE_MAX_WIDTH, Math.round(n)))
+function addRightPanelTile(tiles: RightPanelTileId[], id: RightPanelTileId): RightPanelTileId[] {
+  return tiles.includes(id) ? tiles : [...tiles, id]
+}
+
+function removeRightPanelTile(tiles: RightPanelTileId[], id: RightPanelTileId): RightPanelTileId[] {
+  return tiles.filter((tile) => tile !== id)
+}
+
+const clampPanelWidth = (n: number): number =>
+  Math.max(PANEL_MIN_WIDTH, Math.min(PANEL_MAX_WIDTH, Math.round(n)))
+
+const clampPanelRowSplit = (n: number): number =>
+  Math.max(PANEL_MIN_ROW_SPLIT, Math.min(PANEL_MAX_ROW_SPLIT, n))
