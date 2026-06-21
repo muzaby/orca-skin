@@ -65,4 +65,6 @@
 
 | `0032-study-agent-analyses` | verify | PASS | — | `263f55e` | 1 | opencode·hermes-agent 아키텍처 분석 보고서를 `docs/etc/study/` 레퍼런스로 추가 (비기능 = Claude 직접 구현, 회고적 정식화). 자체 구현(프레임워크 없는) 코딩 에이전트 2종의 콜스택·핵심모듈·컨텍스트 압축·비용/토큰·권한 게이트를 Orca 설계 비교 참고용으로 적재(opencode 13파일·hermes 13파일=26). 코드 변경 0(`app/**` 무수정)·`.gstack/` 미포함·trailer 규약 준수. 인수 6/6, 앱 게이트 N/A(문서). PHASES 승격(레퍼런스 자료 행, `lightweight-llm-strategy.md` 동결). PR #105. 사람 확인 대기: 분석 내용 사실 정확성·PR 머지. |
 
+| `0033-runtime-resilience` | plan | READY | Claude | — | 1 | 런타임 복원력 (비기능 = Claude 직접 구현). 4항목: ① 턴 idle 타임아웃(무응답 120s→abort+stream_error) ② 부분턴 마커(`messages.complete` 0009 마이그레이션·크래시 시 미완료 칩) ③ 취소 ack(신규 `turn.aborted` 이벤트·멀티세션 sessionId 키 권위 종료) ④ pre-stream 보수적 재시도(이벤트 0개 transient 한정·최대 2회·백오프). 비범위: OS 서브프로세스 감독(#5 SDK 핸들 미노출)·provider fallback(#6 멀티백엔드 의존). 사용자 결정 대기: IDLE_TIMEOUT 기본 120s·MAX_RETRIES 2(보수적 기본값으로 진행). |
+
 > 새 작업: 마지막 일련번호 +1 로 행을 추가하고 `<NNNN-slug>/plan.md` 를 생성한다.
