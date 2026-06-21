@@ -63,4 +63,6 @@
 
 | `0031-skills-mcp-wiring` | impl | IMPL_DONE | Claude | `d4f82ee` | 1 | Codex 구현 완료 — customize 목업 제거·connector→mcp 리네임·스킬 sources IPC(author/upload/enabled)·MCP textarea 모달·enabled filter deploy·workspace cwd 싱크·IPC_CONTRACT 동기화. `git diff --check` 및 금지어 grep 통과. npm 게이트는 불완전 `node_modules` 환경으로 실행 불가(verify 재실행 필요). **Claude 후속 버그수정(사용자 요청 4건)**: ① 어댑터 스킬 그룹 라벨 `어댑터 스킬`→`CLAUDE 스킬` ② 워크스페이스 스킬 그룹/항목 페이지 표시 제거(local 채팅영역 처리는 추후) ③ 케밥 팝오버 우측 정렬(`Popover` `align='end'`, 화면 밖 오버플로 해소) ④ "채팅에서 사용해보기" 클립보드→nav state 컴포저 프리필(`/<스킬명> `). 게이트 lint/typecheck/typecheck:test/test **409/409**(Node ABI 재빌드 후 green), 레이어 경계 0. |
 
+| `0032-study-agent-analyses` | verify | PASS | — | `263f55e` | 1 | opencode·hermes-agent 아키텍처 분석 보고서를 `docs/etc/study/` 레퍼런스로 추가 (비기능 = Claude 직접 구현, 회고적 정식화). 자체 구현(프레임워크 없는) 코딩 에이전트 2종의 콜스택·핵심모듈·컨텍스트 압축·비용/토큰·권한 게이트를 Orca 설계 비교 참고용으로 적재(opencode 13파일·hermes 13파일=26). 코드 변경 0(`app/**` 무수정)·`.gstack/` 미포함·trailer 규약 준수. 인수 6/6, 앱 게이트 N/A(문서). **PHASES 승격 N/A** — 제품 로드맵 항목이 아니라 `docs/etc/` 레퍼런스(`lightweight-llm-strategy.md` 동결). PR #105. 사람 확인 대기: 분석 내용 사실 정확성·PR 머지. |
+
 > 새 작업: 마지막 일련번호 +1 로 행을 추가하고 `<NNNN-slug>/plan.md` 를 생성한다.
