@@ -170,7 +170,10 @@ export function RightPanel({ className = '' }: { className?: string }): React.JS
   const layout = useMemo(() => deriveRightPanelLayout(activeTiles), [activeTiles])
   // 열 래퍼 ref(리사이즈 기준점) + 열 제거 시 남은 열을 빈 자리로 슬라이드(FLIP). 래퍼는 (있다면)
   // 왼쪽 분리자 + 열로 구성돼 래퍼의 오른쪽 모서리 = 열의 오른쪽 모서리(우측 도킹 리사이즈 기준).
-  const { registerColumn, getColumnRight } = useColumnSlideOnReflow(layout.columns.length)
+  // 슬라이드 추적 키는 *열 내용*(tiles) — 인덱스로 추적하면 좌측 열 제거 시 그대로 있는 우측 열이
+  // 엉뚱하게 애니메이션된다(useColumnSlideOnReflow 참고).
+  const columnKeys = useMemo(() => layout.columns.map((c) => c.tiles.join('|')), [layout])
+  const { registerColumn, getColumnRight } = useColumnSlideOnReflow(columnKeys)
 
   if (layout.columns.length === 0) return null
 
