@@ -300,6 +300,11 @@ export type NormalizedEvent =
       sessionId?: string
       error: ClassifiedError
     }
+  | {
+      type: 'turn.aborted'
+      sessionId?: string
+      reason: 'user_cancelled' | 'timeout'
+    }
   // 권한 요청/해소 1급 이벤트 — AskUserQuestion·ExitPlanMode·일반 도구 게이트를 단일 경로로 통합.
   // approvalId 로 요청↔응답을 라우팅한다(renderer 는 이 id 로 permissionRespond 회신).
   | {
@@ -608,6 +613,7 @@ export interface LoadedMessage {
   role: 'user' | 'assistant'
   parts: AppMessagePart[]
   createdAt: number
+  incomplete?: boolean
 }
 
 export interface LoadedSession {

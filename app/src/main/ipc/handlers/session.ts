@@ -40,7 +40,12 @@ export function registerSessionHandlers(ctx: RouterContext): void {
       let cur: LoadedMessage | null = null
       for (const r of partRows) {
         if (r.message_id !== curId) {
-          cur = { role: r.role, parts: [], createdAt: r.created_at }
+          cur = {
+            role: r.role,
+            parts: [],
+            createdAt: r.created_at,
+            ...(r.role === 'assistant' && r.complete === 0 ? { incomplete: true } : {})
+          }
           messages.push(cur)
           curId = r.message_id
         }
