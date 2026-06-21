@@ -12,6 +12,7 @@ import { chatActions, useChatSession } from '../../store/chatStore'
 import { deriveRightPanelLayout } from '../../lib/rightPanelLayout'
 import { tileById } from './tileRegistry'
 import { RightPanelTile } from './RightPanelTile'
+import { useColumnSlideOnReflow } from '../../hooks/useColumnSlideOnReflow'
 
 const SEPARATOR_CAPSULE =
   'absolute left-1/2 top-1/2 rounded-full bg-border-strong opacity-0 transition-opacity duration-150 group-hover/sep:opacity-100 group-active/sep:opacity-100 group-active/sep:bg-ink3'
@@ -166,15 +167,10 @@ export function RightPanel({ className = '' }: { className?: string }): React.JS
   const activeTiles = useChatSession((s) => s.rightPanelTiles)
   const widths = useChatSession((s) => s.rightPanelColWidths)
   const splits = useChatSession((s) => s.rightPanelRowSplits)
-  // 열별 래퍼 div 의 ref 배열. 래퍼는 (있다면) 왼쪽 분리자 + 열로 구성돼 래퍼의 오른쪽
-  // 모서리 = 열의 오른쪽 모서리다. 각 세로 핸들이 자기가 조절하는 열의 오른쪽 모서리를
-  // 측정하는 단일 기준점이 된다 — 외곽 핸들은 0열, 열 사이 핸들은 그 오른쪽 열.
-  const columnRefs = useRef<Array<HTMLDivElement | null>>([])
-  const getColumnRight = useCallback(
-    (index: number) => (): number => columnRefs.current[index]?.getBoundingClientRect().right ?? 0,
-    []
-  )
   const layout = useMemo(() => deriveRightPanelLayout(activeTiles), [activeTiles])
+  // 열 래퍼 ref(리사이즈 기준점) + 열 제거 시 남은 열을 빈 자리로 슬라이드(FLIP). 래퍼는 (있다면)
+  // 왼쪽 분리자 + 열로 구성돼 래퍼의 오른쪽 모서리 = 열의 오른쪽 모서리(우측 도킹 리사이즈 기준).
+  const { registerColumn, getColumnRight } = useColumnSlideOnReflow(layout.columns.length)
 
   if (layout.columns.length === 0) return null
 
@@ -187,13 +183,7 @@ export function RightPanel({ className = '' }: { className?: string }): React.JS
       />
       <div className={`my-2 mr-2 flex min-h-0 shrink-0 ${className}`}>
         {layout.columns.map((column, index) => (
-          <div
-            key={column.col}
-            ref={(el) => {
-              columnRefs.current[index] = el
-            }}
-            className="flex min-h-0 shrink-0"
-          >
+          <div key={column.col} ref={registerColumn(index)} className="flex min-h-0 shrink-0">
             {index > 0 && (
               <ColumnResizeSeparator
                 colIndex={index}
