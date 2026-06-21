@@ -1,4 +1,12 @@
-import { Fragment, useCallback, useMemo, useRef, type MouseEvent, type RefObject } from 'react'
+import {
+  useCallback,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+  type RefObject
+} from 'react'
 import { useDragResize } from '../../../../shared/hooks/useDragResize'
 import {
   PANEL_DEFAULT_ROW_SPLIT,
@@ -9,7 +17,8 @@ import {
   PANEL_MIN_WIDTH
 } from '../../reducer/chatReducer'
 import { chatActions, useChatSession } from '../../store/chatStore'
-import { deriveRightPanelLayout } from '../../lib/rightPanelLayout'
+import { deriveRightPanelLayout, flattenColumns } from '../../lib/rightPanelLayout'
+import type { RightPanelTileId } from '../../lib/rightPanelTiles'
 import { tileById } from './tileRegistry'
 import { RightPanelTile } from './RightPanelTile'
 import { useColumnSlideOnReflow } from '../../hooks/useColumnSlideOnReflow'
@@ -121,44 +130,78 @@ function RightPanelColumn({
   col,
   tiles,
   width,
-  split
+  split,
+  entering
 }: {
   col: number
   tiles: ReturnType<typeof deriveRightPanelLayout>['columns'][number]['tiles']
   width: number
   split: number
+  // 이번에 새로 등장한(토글로 켜진) 타일 집합 — 이 타일만 animate-tile-in 으로 등장 연출한다.
+  // 열 재배치로 remount 된 기존 타일은 여기 없으므로 슬라이드가 재생되지 않는다(RightPanel 참고).
+  entering: Set<RightPanelTileId>
 }): React.JSX.Element {
   const columnRef = useRef<HTMLDivElement>(null)
+  // 2행→1행 제거 시 남은 행이 자라는 방향을 잡는다. 위(0번) 행이 제거되면 남은 행을 바닥에
+  // 고정(justify-end)해 *위로* 자라게, 아래(1번) 행이 제거되면 상단 고정(기본)으로 *아래로*
+  // 자라게 한다 — flex-basis 트랜지션이 크기를 애니메이션(타일은 keyed 라 remount 안 됨).
+  const [anchorBottom, setAnchorBottom] = useState(false)
+  const prevTiles = useRef(tiles)
+
+  useLayoutEffect(() => {
+    const prev = prevTiles.current
+    prevTiles.current = tiles
+    if (prev.length === 2 && tiles.length === 1) {
+      const topRemoved = prev.findIndex((id) => !tiles.includes(id)) === 0
+      setAnchorBottom(topRemoved)
+      if (topRemoved) {
+        const t = window.setTimeout(() => setAnchorBottom(false), 230)
+        return () => window.clearTimeout(t)
+      }
+    } else {
+      setAnchorBottom(false)
+    }
+    return undefined
+  }, [tiles])
+
+  const children: React.JSX.Element[] = []
+  tiles.forEach((id, index) => {
+    const tile = tileById(id)
+    const Content = tile.Content
+    const HeaderActions = tile.HeaderActions
+    const basis =
+      tiles.length === 1 ? '100%' : index === 0 ? `${split * 100}%` : `${(1 - split) * 100}%`
+    // 분리자/타일을 평탄한 keyed 배열로 — Fragment 로 묶으면 분리자 유무에 따라 자식 위치가
+    // 밀려 살아남는 타일이 remount(애니메이션 재생 + 트랜지션 소실)된다. key=id 로 보존한다.
+    if (index > 0) {
+      children.push(<RowSeparator key={`sep-${id}`} col={col} columnRef={columnRef} />)
+    }
+    children.push(
+      <div
+        key={id}
+        className={`flex min-h-0 overflow-hidden transition-[flex-basis] duration-200 ease-out motion-reduce:transition-none${
+          entering.has(id) ? ' animate-tile-in motion-reduce:animate-none' : ''
+        }`}
+        style={{ flexBasis: basis }}
+      >
+        <RightPanelTile
+          id={id}
+          defaultLabel={tile.defaultLabel}
+          headerActions={HeaderActions ? <HeaderActions /> : undefined}
+        >
+          <Content />
+        </RightPanelTile>
+      </div>
+    )
+  })
 
   return (
-    <div ref={columnRef} className="flex min-h-0 shrink-0 flex-col" style={{ width }}>
-      {tiles.map((id, index) => {
-        const tile = tileById(id)
-        const Content = tile.Content
-        const HeaderActions = tile.HeaderActions
-        const basis =
-          tiles.length === 1 ? '100%' : index === 0 ? `${split * 100}%` : `${(1 - split) * 100}%`
-        // 마운트 연출은 위치 무관 단일 animate-tile-in 으로 통일 — 인덱스(상/하단) 기반 클래스는
-        // 형제 제거로 인덱스가 바뀔 때 애니메이션이 재실행돼 grow 대신 슬라이드가 다시 튄다.
-        // transition-[flex-basis] 로 2→1 타일 시 남은 타일이 basis 100% 까지 부드럽게 커진다.
-        return (
-          <Fragment key={id}>
-            {index > 0 && <RowSeparator col={col} columnRef={columnRef} />}
-            <div
-              className="flex min-h-0 animate-tile-in transition-[flex-basis] duration-200 ease-out motion-reduce:animate-none motion-reduce:transition-none"
-              style={{ flexBasis: basis }}
-            >
-              <RightPanelTile
-                id={id}
-                defaultLabel={tile.defaultLabel}
-                headerActions={HeaderActions ? <HeaderActions /> : undefined}
-              >
-                <Content />
-              </RightPanelTile>
-            </div>
-          </Fragment>
-        )
-      })}
+    <div
+      ref={columnRef}
+      className={`flex min-h-0 shrink-0 flex-col${anchorBottom ? ' justify-end' : ''}`}
+      style={{ width }}
+    >
+      {children}
     </div>
   )
 }
@@ -174,6 +217,24 @@ export function RightPanel({ className = '' }: { className?: string }): React.JS
   // 엉뚱하게 애니메이션된다(useColumnSlideOnReflow 참고).
   const columnKeys = useMemo(() => layout.columns.map((c) => c.tiles.join('|')), [layout])
   const { registerColumn, getColumnRight } = useColumnSlideOnReflow(columnKeys)
+
+  // 새로 토글된 타일만 등장 연출(animate-tile-in)한다. 열이 제거되며 남은 열의 타일이 remount
+  // 되어도 직전에 이미 있던 타일이면 연출하지 않아 "빈 자리에서 재생성" 버그를 막는다. 감지는
+  // 레이아웃 이펙트에서만 ref 를 만지고(순수 렌더 유지), 등장 타일은 state 로 들고 있다가 비운다.
+  const flat = useMemo(() => flattenColumns(activeTiles), [activeTiles])
+  const [entering, setEntering] = useState<Set<RightPanelTileId>>(new Set())
+  const prevFlat = useRef<RightPanelTileId[]>([])
+  useLayoutEffect(() => {
+    const added = flat.filter((id) => !prevFlat.current.includes(id))
+    prevFlat.current = flat
+    if (added.length === 0) {
+      setEntering((s) => (s.size === 0 ? s : new Set()))
+      return undefined
+    }
+    setEntering(new Set(added))
+    const t = window.setTimeout(() => setEntering(new Set()), 230)
+    return () => window.clearTimeout(t)
+  }, [flat])
 
   if (layout.columns.length === 0) return null
 
@@ -200,6 +261,7 @@ export function RightPanel({ className = '' }: { className?: string }): React.JS
               tiles={column.tiles}
               width={widths[column.col] ?? PANEL_DEFAULT_WIDTH}
               split={splits[column.col] ?? PANEL_DEFAULT_ROW_SPLIT}
+              entering={entering}
             />
           </div>
         ))}
