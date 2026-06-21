@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { LoadedSession, NormalizedEvent } from '../../../../../shared/ipc'
-import { chatReducer, initialChatState } from './chatReducer'
+import { type ChatAction, chatReducer, initialChatState } from './chatReducer'
 
-const recv = (event: NormalizedEvent) => ({ type: 'RECV_EVENT' as const, event })
+const recv = (event: NormalizedEvent): ChatAction => ({ type: 'RECV_EVENT', event })
 
 describe('chatReducer runtime resilience', () => {
   it('turn.aborted 는 에러 없이 inflight 와 승인 게이트를 종료한다', () => {
@@ -11,7 +11,10 @@ describe('chatReducer runtime resilience', () => {
       {
         ...started,
         pendingAsks: [
-          { requestId: 'a1', question: 'q', header: 'h', options: [] }
+          {
+            requestId: 'a1',
+            questions: [{ question: 'q', header: 'h', options: [], multiSelect: false }]
+          }
         ]
       },
       recv({ type: 'turn.aborted', sessionId: 's1', reason: 'user_cancelled' })
