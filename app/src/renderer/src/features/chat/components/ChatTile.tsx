@@ -46,7 +46,7 @@ export function ChatTile({
           className="app-frame-tile flex min-w-0 flex-1 flex-col overflow-hidden bg-bg"
           data-behavior="resizable"
         >
-          <ChatTitleBar backendLabel={backendLabel} />
+          <ChatTitleBar />
 
           {/* transcript 상·하단 soft fade — 타이틀 아래/컴포저 위 경계에서 스크롤되는
               내용이 배경색(from-bg)으로 흐려진다. pointer-events-none 으로 스크롤·선택·

@@ -65,7 +65,6 @@ export function SkillsCustomizeView(): React.JSX.Element {
             selectTab('skills')
             setAuthorOpen(true)
           }}
-          onBrowsePlugins={() => selectTab('skills')}
         />
       ) : (
         <>

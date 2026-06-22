@@ -22,6 +22,11 @@ interface PopoverPos {
   bottom?: number
 }
 
+// 앵커와 floating 패널 사이 간격(px).
+const GAP = 6
+// flip 판정 시 뷰포트 가장자리에 남겨둘 여유(px).
+const EDGE_MARGIN = 8
+
 export function Popover({
   open,
   anchorRef,
@@ -34,6 +39,10 @@ export function Popover({
   const panelRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<PopoverPos | null>(null)
 
+  // 측정 기반 배치: 패널은 open 동안 항상 마운트(아래 render)하되 pos 확정 전엔
+  // visibility:hidden 으로 측정 가능 상태를 유지한다. 여기서 패널 실제 높이를 읽어
+  // 요청 placement 의 가용 공간과 비교, 부족하면 반대 방향으로 flip 한다 — anchor 가
+  // 뷰포트 상/하단에 붙어 메뉴가 렌더 영역을 벗어나는 것을 방지(기본 방향은 유지).
   useLayoutEffect(() => {
     if (!open) return
     const el = anchorRef.current
@@ -41,10 +50,19 @@ export function Popover({
     const rect = el.getBoundingClientRect()
     const horizontal =
       align === 'end' ? { right: window.innerWidth - rect.right } : { left: rect.left }
-    if (placement === 'bottom') {
-      setPos({ ...horizontal, top: rect.bottom + 6 })
+    const panelH = panelRef.current?.offsetHeight ?? 0
+    const spaceAbove = rect.top
+    const spaceBelow = window.innerHeight - rect.bottom
+    let resolved = placement
+    if (placement === 'top' && panelH + GAP + EDGE_MARGIN > spaceAbove) {
+      resolved = 'bottom'
+    } else if (placement === 'bottom' && panelH + GAP + EDGE_MARGIN > spaceBelow) {
+      resolved = 'top'
+    }
+    if (resolved === 'bottom') {
+      setPos({ ...horizontal, top: rect.bottom + GAP })
     } else {
-      setPos({ ...horizontal, bottom: window.innerHeight - rect.top + 6 })
+      setPos({ ...horizontal, bottom: window.innerHeight - rect.top + GAP })
     }
   }, [open, anchorRef, placement, align])
 
@@ -67,14 +85,23 @@ export function Popover({
     }
   }, [open, onClose, anchorRef])
 
-  if (!open || !pos) return null
+  if (!open) return null
+
+  // pos 미확정 동안에도 패널을 마운트해 높이를 측정한다(visibility:hidden, 화면 밖 좌상단).
+  // pos 가 잡히면 실제 위치로 가시화한다. min-width 강제는 두지 않는다 — 패널이 콘텐츠
+  // 너비를 그대로 따라가 호버 영역과 메뉴 너비가 일치한다(필요 시 consumer 가 className 로 지정).
+  const style: PopoverPos & { visibility?: 'hidden' } = pos ?? {
+    top: 0,
+    left: 0,
+    visibility: 'hidden'
+  }
 
   return createPortal(
     <div
       ref={panelRef}
       role="menu"
-      className={`app-frame-floating fixed z-50 min-w-[240px] rounded-lg border border-border bg-panel p-1 shadow-lg ${className}`}
-      style={pos}
+      className={`app-frame-floating fixed z-50 rounded-lg border border-border bg-panel p-1 shadow-lg ${className}`}
+      style={style}
       data-context="floating"
       data-behavior="dismissible"
     >

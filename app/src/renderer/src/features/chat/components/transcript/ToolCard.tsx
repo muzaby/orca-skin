@@ -131,8 +131,8 @@ export const ToolCard = memo(function ToolCard({
         <div className="min-h-0 overflow-hidden">
           {(open || wasOpened) && (
             <div
-              className={`group/toolbody mt-g2 overflow-hidden rounded-r4 font-mono text-footnote text-t9 ${
-                inGroup ? 'border border-t5' : 'bg-bg'
+              className={`group/toolbody mt-g2 overflow-hidden rounded-r4 border border-t5 font-mono text-footnote text-t9 ${
+                inGroup ? '' : 'bg-bg'
               }`}
             >
               <div className="px-p5 py-p4">
