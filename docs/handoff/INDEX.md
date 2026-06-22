@@ -69,4 +69,6 @@
 
 | `0034-multi-right-panels` | impl | IMPL_DONE | Claude | 구현 커밋 trailer 참조 | 1 | Codex 구현 완료 — 용어를 사용자 확인대로 큰 영역 **RightPanel**, 개별 요소 **RightPanelTile** 로 정리. 단일 계획 타일을 `rightPanelTiles` 상태 모델 + `tileRegistry`/`rightPanelLayout` 기반 col-major 2행 레이아웃으로 일반화하고, 계획/서브에이전트/예약1/예약2 타일·타이틀바/타일 케밥·라벨 변경/삭제·외곽/열/행 리사이즈·slide-in-right/up(reduced-motion 포함)을 구현. `plan_review` 는 계획 타일을 자동 활성화. IPC/main 변경 0. 게이트 lint/typecheck/typecheck:test/test **422/422** 통과(Node ABI 재빌드 후 green). |
 
+| `0035-project-right-panel-cards` | impl | IMPL_DONE | Claude | (push 후 기재) | 1 | 프로젝트 상세 우측 패널(`ProjectInstructionsSidebar`) 지침/파일 섹션을 첨부 이미지(Claude 데스크톱)대로 **테두리+라운드 카드**로 재현 (비기능 = 시각 스타일링, Claude 직접 구현). 평면 `border-b` 구분선 → 독립 카드 2개(`rounded-r6 border bg-panel`·`gap-4 p-5`), `편집` 텍스트버튼·`준비 중` 배지 제거 → 헤더 `+` 아이콘 버튼 통일, 파일 드롭존에 겹친 문서 일러스트(인라인 SVG·테마 추종). 우측 패널을 카드 컴포넌트 3개로 분해(InstructionsCard·FilesCard·FileDropIllustration), 셸은 조립만. IPC/스토어/모달 로직 무변경. 게이트 lint/typecheck/typecheck:test/test **422/422** 통과(Node ABI 재빌드 후 green), 레이어 경계 0, 신규 의존성 0. 사람 확인 대기: UI 시각 검증(카드 톤·일러스트·테마 3종·xl 미만 스택). |
+
 > 새 작업: 마지막 일련번호 +1 로 행을 추가하고 `<NNNN-slug>/plan.md` 를 생성한다.
