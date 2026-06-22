@@ -14,10 +14,6 @@ export function AttachMenu({ onPickSkill }: AttachMenuProps): React.JSX.Element 
         <Icon name="plus" size={13} />
         <span>첨부</span>
       </button>
-      <button type="button" role="menuitem" disabled className={MENU_ITEM} title="준비 중">
-        <Icon name="cam" size={13} />
-        <span>현재 프레임</span>
-      </button>
       <button type="button" role="menuitem" onClick={onPickSkill} className={MENU_ITEM}>
         <Icon name="bolt" size={13} />
         <span>Skill</span>

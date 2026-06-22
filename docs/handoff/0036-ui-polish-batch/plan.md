@@ -90,3 +90,32 @@
 
 - UI 시각 검증(`npm run dev`): ①케밥 호버=메뉴 폭 일치 ②컴포저 메뉴 상단 근처에서 아래로 flip ③자동화 빗금+클릭 무반응 ④랜딩 카드 2개 ⑤툴카드 그룹/단일 펼침 본문 border ⑥타이틀바 부제 사라짐 ⑦도넛 패널 우측 정렬.
 - PR 머지 승인.
+
+---
+
+## [추가작업] 컴포저 팝오버 정렬 + Skill 진입 통합 (Claude 직접 구현)
+
+### 인수 기준 (추가)
+
+8. **컨트롤 팝오버 zone 정렬**: 컴포저 하단 컨트롤 행에서 좌측 zone 아이콘(권한모드·`+`)의 팝오버는 아이콘 **좌측 라인**(`align="start"`)에, 우측 zone 아이콘(모델·작업량·도넛)의 팝오버는 아이콘 **우측 라인**(`align="end"`)에 정렬된다. (도넛은 7에서 이미 적용 — 모델·작업량을 추가 정렬해 우측 zone 일관.)
+9. **`+` 메뉴 정리 + Skill 진입 통합**: `+` 팝오버에서 비활성 '현재 프레임' 항목이 제거되고('첨부'·'Skill' 2항목), 'Skill' 클릭 시 별도 `SkillsMenu` 팝오버 대신 입력란에 `/` 가 삽입되어 사용자가 `/` 를 직접 입력했을 때와 동일한 `SkillAutocomplete` 팝오버가 열린다(스킬 진입 단일 경로).
+
+### 설계 / 변경
+
+- **8 — `Composer.tsx`**: 우측 zone 팝오버 두 개(모델 선택·작업량)에 기존 `Popover` 의 `align="end"` prop 부여. 신규 API 0(`shared/ui/Popover.tsx` 의 `align` 재사용).
+- **9 — `AttachMenu.tsx`**: '현재 프레임' `<button>`(`Icon name="cam"`) 항목 삭제.
+- **9 — `Composer.tsx`**: `onPickSkill` 를 신규 `openSkillPicker`(입력란에 `/` 삽입 → `useSkillAutocomplete` 자동 open)로 연결. 사용처가 사라진 `SkillsMenu` 팝오버·`menuOpen` state·`closeMenu`·`insertSkillFromMenu`·`SkillsMenu` import 제거. `SkillsMenu.tsx`(타 사용처 0) **파일 삭제**.
+
+### 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | Composer.tsx · AttachMenu.tsx (수정 2) / SkillsMenu.tsx (삭제 1) |
+| 실행 명령 | `npm run lint` / `npm run typecheck` / `npm test` |
+| 게이트 결과 | lint ✅ / typecheck ✅(node+web+test) / test ✅ 416 passed — 실패 11건은 `db/queries.test.ts` better-sqlite3 네이티브 바인딩 환경 제한(0019 계열, 변경 무관) |
+| 인수 기준 | 8·9 코드 반영(시각 검증은 사람) |
+| 블로커 / 역질문 | 없음 |
+
+### 사람 확인 대기 (추가)
+
+- UI 시각 검증(`npm run dev`): ⑧모델·작업량·도넛 팝오버가 버튼 우측 라인 정렬 / 권한모드·`+` 는 좌측 라인 ⑨`+` 메뉴에 '현재 프레임' 없음 + 'Skill' 클릭 시 `/` 자동완성 팝오버 열림(직접 `/` 입력과 동일).
