@@ -238,7 +238,10 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
             ? r.error
             : `Claude result failed${r.subtype ? ` (${r.subtype})` : ''}`
       out.push(
-        errorEvent(makeClassifiedError('stream_error', message, { provider: 'claude' }), ctx.sessionId)
+        errorEvent(
+          makeClassifiedError('stream_error', message, { provider: 'claude' }),
+          ctx.sessionId
+        )
       )
     }
     return out
