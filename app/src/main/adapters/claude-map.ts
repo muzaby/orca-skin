@@ -13,6 +13,8 @@ import type {
   ProviderReportedTelemetry,
   TelemetryModelUsage
 } from '../../shared/ipc'
+import { makeClassifiedError } from '../runtime-errors/classifier'
+import { errorEvent } from '../runtime-errors/claude-classifier'
 
 // 매퍼 컨텍스트 — sessionId 는 턴 동안 system/init(=session.updated)에서 갱신된다
 // (resume 면 초기값이 그 id). cwd 는 session.updated.patch 에 실린다. 코어 중립(0016)으로
@@ -193,6 +195,10 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
         cache_read_input_tokens?: number
         cache_creation_input_tokens?: number
       }
+      is_error?: boolean
+      subtype?: string
+      error?: unknown
+      message?: string
       modelUsage?: Record<
         string,
         {
@@ -217,13 +223,25 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
       if (snap.cacheCreationTokens !== undefined)
         telemetry.cacheCreationTokens = snap.cacheCreationTokens
     }
-    return [
+    const out: NormalizedEvent[] = [
       {
         type: 'telemetry',
         sessionId: ctx.sessionId,
         ...(telemetry ? { usage: telemetry } : {})
       }
     ]
+    if (r.is_error === true || (r.subtype !== undefined && r.subtype !== 'success')) {
+      const message =
+        typeof r.message === 'string'
+          ? r.message
+          : typeof r.error === 'string'
+            ? r.error
+            : `Claude result failed${r.subtype ? ` (${r.subtype})` : ''}`
+      out.push(
+        errorEvent(makeClassifiedError('stream_error', message, { provider: 'claude' }), ctx.sessionId)
+      )
+    }
+    return out
   }
 
   // 그 외 SDK 메시지 (compact_boundary, plugin_install, task_*, permission_denied,

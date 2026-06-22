@@ -55,7 +55,7 @@ export const Exchange = memo(
 // 라이브 턴 에러 배너(state.error) — 영속 error 파트의 인라인 카드(ErrorCard)와 별개.
 export function TurnErrorBanner({ error }: { error: ClassifiedError }): React.JSX.Element {
   return (
-    <div className="rounded-[10px] border border-rust bg-rust-soft px-3 py-2 text-[12.5px] text-ink">
+    <div className="rounded-[10px] border border-bad/40 bg-bad/10 px-3 py-2 text-[12.5px] text-ink">
       <div className="flex items-center gap-2">
         <span className="font-semibold">에러: {errorCategoryLabel(error.category)}</span>
         {error.retryable && (

@@ -92,7 +92,8 @@ describe('mock scenarios', () => {
     })
     expect(denied.approvals).toBe(1)
     expect(denied.events.some((ev) => ev.type === 'tool.call.started')).toBe(false)
-    expect(denied.events.some((ev) => ev.type === 'message.completed')).toBe(true)
+    expect(denied.events.some((ev) => ev.type === 'message.completed')).toBe(false)
+    expect(denied.events.some((ev) => ev.type === 'telemetry')).toBe(false)
   })
 
   it('abort 된 signal 은 즉시 종료한다', async () => {
@@ -151,27 +152,27 @@ describe('mock scenarios', () => {
     expect(events.some((ev) => ev.type === 'telemetry')).toBe(false)
   })
 
-  it('full 시나리오는 NormalizedEvent 11종 커버 가드를 통과한다', async () => {
+  it('full 시나리오는 주요 프래그먼트를 거친 뒤 도구 에러 점프로 끝난다', async () => {
     const { events, approvals } = await collect(SCENARIOS.full)
     const types = new Set(events.map((ev) => ev.type))
     if (approvals > 0) {
       types.add('permission.requested')
       types.add('permission.resolved')
     }
-    expect([...types].sort()).toEqual(
-      [
+    expect(types).toEqual(
+      new Set([
         'session.updated',
         'message.delta',
-        'message.completed',
         'message.reasoning',
         'message.reasoning.delta',
         'tool.call.started',
         'tool.call.completed',
-        'telemetry',
         'error',
         'permission.requested',
         'permission.resolved'
-      ].sort()
+      ])
     )
+    expect(events.at(-1)).toMatchObject({ type: 'error' })
+    expect(events.some((ev) => ev.type === 'telemetry')).toBe(false)
   })
 })

@@ -45,3 +45,23 @@ describe('chatReducer runtime resilience', () => {
     expect(next.messages[0]).toMatchObject({ role: 'assistant', incomplete: true })
   })
 })
+
+it('turn.retrying 은 inflight 를 유지하며 retry 표시 상태를 세팅하고 다음 이벤트에서 지운다', () => {
+  const started = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'hi' })
+  const retrying = chatReducer(
+    started,
+    recv({
+      type: 'turn.retrying',
+      sessionId: 's1',
+      attempt: 1,
+      maxRetries: 2,
+      error: { category: 'stream_error', message: 'retry', retryable: true }
+    })
+  )
+
+  expect(retrying.inflight).toBe(true)
+  expect(retrying.retry).toEqual({ attempt: 1, max: 2, category: 'stream_error' })
+
+  const done = chatReducer(retrying, recv({ type: 'telemetry', sessionId: 's1' }))
+  expect(done.retry).toBeUndefined()
+})

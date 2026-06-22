@@ -105,7 +105,7 @@ export const ToolCard = memo(function ToolCard({
       >
         <span
           className={`shrink-0 ${
-            isError ? 'text-rust' : done ? 'group-hover/tool:text-t9' : 'epitaxy-text-shine'
+            isError ? 'text-bad' : done ? 'group-hover/tool:text-t9' : 'epitaxy-text-shine'
           }`}
         >
           {verb}
@@ -140,7 +140,7 @@ export const ToolCard = memo(function ToolCard({
                     ToolBody 내부의 중복 헤더(DiffBody 경로 줄/CodeBlock 언어 헤더)는 제거됨. */}
                 <div className="mb-g3 flex items-center gap-g3 font-sans text-caption text-t6">
                   <span
-                    className={`min-w-0 truncate font-semibold ${isError ? 'text-rust' : 'text-t7'}`}
+                    className={`min-w-0 truncate font-semibold ${isError ? 'text-bad' : 'text-t7'}`}
                   >
                     {headerLabel(call)}
                   </span>

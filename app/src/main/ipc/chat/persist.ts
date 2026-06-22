@@ -228,7 +228,8 @@ export class TurnPersistence {
         turn.assistantText = ''
         break
       }
-      // message.delta 는 transient(미저장). permission.* 는 별도 row 없음.
+      // message.delta/message.reasoning.delta/turn.retrying 은 transient(미저장).
+      // permission.* 는 별도 row 없음.
     }
   }
 }

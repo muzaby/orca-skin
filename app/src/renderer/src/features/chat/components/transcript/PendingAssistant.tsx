@@ -2,6 +2,7 @@ import { StreamingMarkdown } from '../markdown/StreamingMarkdown'
 import { ReasoningBlock } from './ReasoningBlock'
 import { StatusLine } from '../../../../shared/ui/StatusLine'
 import { useChatSession, useLiveReasoning, useLiveText } from '../../store/chatStore'
+import { errorCategoryLabel } from '../../lib/errorLabels'
 
 // 진행 중 턴의 라이브 표면 — 셸은 정적이고, 스트림 종류별 리프가 store 의 live 슬라이스를
 // 직접 구독해 델타 프레임의 재렌더를 자기 자신으로 한정한다 (0008):
@@ -13,6 +14,7 @@ export function PendingAssistant(): React.JSX.Element {
     <div className="flex flex-col gap-2.5 text-[14px] leading-[1.7] text-ink">
       <LiveReasoning />
       <LiveText />
+      <RetryStatus />
       <LiveStatus />
     </div>
   )
@@ -34,4 +36,14 @@ function LiveStatus(): React.JSX.Element {
   const turnStartedAt = useChatSession((s) => s.turnStartedAt)
   const text = useLiveText()
   return <StatusLine turnStartedAt={turnStartedAt} outputApproxFromText={text} />
+}
+
+function RetryStatus(): React.JSX.Element | null {
+  const retry = useChatSession((s) => s.retry)
+  if (!retry) return null
+  return (
+    <div className="text-caption font-medium text-bad">
+      재시도 {retry.attempt}/{retry.max} · {errorCategoryLabel(retry.category)}
+    </div>
+  )
 }
