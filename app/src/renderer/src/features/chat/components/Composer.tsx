@@ -47,6 +47,10 @@ interface ComposerProps {
   // 컴포저 초기 입력 시드 — Skills "채팅에서 사용해보기" 가 nav state → page 를 거쳐 주입한다.
   // 마운트/값 변경 시 1회 draft 에 채우고 포커스한다(사용자 입력 중에는 덮어쓰지 않음).
   initialDraft?: string
+  // 리딩-거터/최대폭(ReadingColumn)을 제거해 컴포저를 부모 컬럼 폭에 꽉 채운다.
+  // 프로젝트 랜딩처럼 이미 컬럼이 폭을 제한하는 곳에서 hero/세션 목록과 좌우 라인을 맞춘다.
+  // 채팅 뷰(ChatTile)는 transcript 와 폭을 공유해야 하므로 미전달(기본 ReadingColumn).
+  flush?: boolean
 }
 
 // 채팅 입력 composer — textarea + chip 행 + send/cancel 버튼 + skills/file 자동완성.
@@ -60,7 +64,8 @@ export function Composer({
   showScrollToBottom,
   onScrollToBottom,
   costToday,
-  initialDraft
+  initialDraft,
+  flush
 }: ComposerProps): React.JSX.Element {
   const { send, cancel, answerAsk, skipAsk, setPermissionMode, setModel, setEffort } = chatActions
   const inflight = useChatSession((s) => s.inflight)
@@ -322,7 +327,7 @@ export function Composer({
           <Icon name="chevD" size={16} />
         </button>
       )}
-      <ReadingColumn>
+      <ColumnWrap flush={flush}>
         <ConversationStatusLine
           ref={conversationStatusButtonRef}
           model={conversationStatusModel}
@@ -499,7 +504,7 @@ export function Composer({
             </div>
           )}
         </div>
-      </ReadingColumn>
+      </ColumnWrap>
       <Popover open={modeMenuOpen} anchorRef={modeButtonRef} onClose={() => setModeMenuOpen(false)}>
         <ModeMenu
           mode={permissionMode}
@@ -572,4 +577,17 @@ export function Composer({
       />
     </div>
   )
+}
+
+// 컴포저 본문 폭 래퍼 — 기본은 ReadingColumn(중앙 정렬·리딩 거터, transcript 와 폭 공유),
+// flush 면 부모 컬럼 폭에 꽉 채워 좌우 라인을 형제 콘텐츠와 정렬한다.
+function ColumnWrap({
+  flush,
+  children
+}: {
+  flush?: boolean
+  children: React.ReactNode
+}): React.JSX.Element {
+  if (flush) return <div className="w-full min-w-0">{children}</div>
+  return <ReadingColumn>{children}</ReadingColumn>
 }
