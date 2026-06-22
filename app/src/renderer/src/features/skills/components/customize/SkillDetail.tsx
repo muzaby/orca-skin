@@ -114,6 +114,7 @@ export function SkillDetail({
         onClose={() => setMenuOpen(false)}
         placement="bottom"
         align="end"
+        className="min-w-[200px]"
       >
         <MenuRow
           icon="chat"

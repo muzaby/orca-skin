@@ -30,12 +30,10 @@ function ActionCard({
 
 export function CustomizeLanding({
   onConnect,
-  onCreateSkill,
-  onBrowsePlugins
+  onCreateSkill
 }: {
   onConnect: () => void
   onCreateSkill: () => void
-  onBrowsePlugins: () => void
 }): React.JSX.Element {
   return (
     <div className="flex min-w-0 flex-1 flex-col items-center overflow-y-auto px-6 py-12">
@@ -61,12 +59,6 @@ export function CustomizeLanding({
             title="새 스킬 만들기"
             desc="Orca에게 프로세스, 팀 규범, 전문 지식을 가르치세요."
             onClick={onCreateSkill}
-          />
-          <ActionCard
-            icon="board"
-            title="플러그인 탐색"
-            desc="분야에 맞는 사전 구축된 지식을 추가하세요."
-            onClick={onBrowsePlugins}
           />
         </div>
       </div>

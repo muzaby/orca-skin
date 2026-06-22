@@ -496,6 +496,7 @@ export function Composer({
                     open={telemetryOpen}
                     anchorRef={telemetryButtonRef}
                     onClose={() => setTelemetryOpen(false)}
+                    align="end"
                   >
                     <TelemetryPanel telemetry={lastTelemetry} />
                   </Popover>

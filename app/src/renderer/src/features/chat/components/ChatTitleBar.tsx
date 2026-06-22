@@ -1,7 +1,6 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react'
 import { Icon } from '../../../shared/ui/Icon'
 import { Button } from '../../../shared/ui/Button'
-import { Dot } from '../../../shared/ui/Status'
 import { Popover } from '../../../shared/ui/Popover'
 import { chatActions, useChatSession } from '../store/chatStore'
 import { partsText } from '../lib/parts'
@@ -24,15 +23,10 @@ function selectTitle(s: ChatState): string {
   return (u && partsText(u.parts).slice(0, 60)) || '새 대화'
 }
 
-// 채팅 타일 titlebar — 제목·백엔드·세션 ID·우측 액션. selector 가 primitive 를 반환하므로
+// 채팅 타일 titlebar — 제목 + 우측 액션. selector 가 primitive 를 반환하므로
 // 스트리밍 커밋(messages 교체)에도 제목 문자열이 같으면 재렌더되지 않는다.
-export const ChatTitleBar = memo(function ChatTitleBar({
-  backendLabel
-}: {
-  backendLabel: string
-}): React.JSX.Element {
+export const ChatTitleBar = memo(function ChatTitleBar(): React.JSX.Element {
   const title = useChatSession(selectTitle)
-  const sessionId = useChatSession((s) => s.sessionId)
   // 열 구조(stable ref)를 구독하고 평탄 뷰는 메모로 파생 — selector 가 새 배열을 반환하면
   // zustand Object.is 비교가 매번 깨져 불필요 재렌더가 난다.
   const tileColumns = useChatSession((s) => s.rightPanelTiles)
@@ -62,17 +56,6 @@ export const ChatTitleBar = memo(function ChatTitleBar({
         <div className="overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-medium text-ink">
           {title}
         </div>
-        <div className="mt-0.5 flex items-center gap-2 text-[11.5px] text-ink3">
-          <span className="inline-flex items-center gap-1">
-            <Dot tone="green" /> {backendLabel}
-          </span>
-          {sessionId && (
-            <>
-              <span>·</span>
-              <span className="font-mono text-[10.5px]">{sessionId.slice(0, 8)}</span>
-            </>
-          )}
-        </div>
       </div>
       <div className="ml-auto flex gap-1">
         <button className={ICON_BTN} title="검색">
@@ -97,6 +80,7 @@ export const ChatTitleBar = memo(function ChatTitleBar({
           onClose={() => setOpen(false)}
           placement="bottom"
           align="end"
+          className="min-w-[200px]"
         >
           <div className="px-2 py-1 text-[11px] font-medium text-t6">타일 표시</div>
           {tileRegistry.map((tile) => {
