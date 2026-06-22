@@ -1,6 +1,6 @@
 import { Icon } from '../../../../shared/ui/Icon'
 import { CopyIconButton } from '../../../../shared/ui/CopyIconButton'
-import { Markdown } from '../markdown/Markdown'
+import { Markdown } from '../../../../shared/ui/markdown/Markdown'
 import { useChatSession } from '../../store/chatStore'
 
 // 계획 타일 헤더 액션 — 본문이 아닌 타일 헤더(RightPanelTile)에서 렌더된다.

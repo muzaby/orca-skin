@@ -1,5 +1,5 @@
 import { memo, useRef } from 'react'
-import { Markdown } from '../markdown/Markdown'
+import { Markdown } from '../../../../shared/ui/markdown/Markdown'
 import { ToolGroup } from './ToolGroup'
 import { AskExchange } from './AskExchange'
 import { ReasoningBlock } from './ReasoningBlock'

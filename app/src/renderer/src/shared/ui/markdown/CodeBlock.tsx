@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { createHighlighter, type Highlighter } from 'shiki'
-import { CopyIconButton } from '../../../../shared/ui/CopyIconButton'
+import { CopyIconButton } from '../CopyIconButton'
 
 const LANGUAGES = [
   'typescript',

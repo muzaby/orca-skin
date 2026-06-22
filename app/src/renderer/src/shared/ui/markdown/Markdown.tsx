@@ -77,13 +77,22 @@ const COMPONENTS: Components = {
 
 export interface MarkdownProps {
   source: string
+  // 본문 래퍼 클래스 override — 미지정 시 채팅 본문 톤(text-ink/leading-1.65).
+  // skills 상세 패널 등 다른 톤이 필요한 호출부가 색·행간을 덮어쓴다.
+  className?: string
 }
+
+const DEFAULT_WRAPPER =
+  'text-[13.5px] leading-[1.65] text-ink [&>*:first-child]:mt-0 [&>*:last-child]:mb-0'
 
 // memo: source 는 string(값 비교)이라 기본 shallow 비교로 동일 본문의 unified 재파싱을
 // 건너뛴다 — 부모(messageSegments)가 세그먼트 객체를 재생성해도 안전 (0007-transcript-render-memo).
-export const Markdown = memo(function Markdown({ source }: MarkdownProps): React.JSX.Element {
+export const Markdown = memo(function Markdown({
+  source,
+  className
+}: MarkdownProps): React.JSX.Element {
   return (
-    <div className="text-[13.5px] leading-[1.65] text-ink [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+    <div className={className ?? DEFAULT_WRAPPER}>
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={COMPONENTS}>
         {source}
       </ReactMarkdown>
