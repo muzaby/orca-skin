@@ -45,6 +45,7 @@ export type IconName =
   | 'eye'
   | 'code'
   | 'upload'
+  | 'pin'
 
 const ICONS: Record<IconName, string> = {
   chat: 'M3 4h10a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-3 2.5V12H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z',
@@ -95,7 +96,9 @@ const ICONS: Record<IconName, string> = {
     'M2 6a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6zM6 5V3.5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1V5M2 8.5h12',
   eye: 'M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8zM8 10a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
   code: 'M5.5 5L2.5 8l3 3M10.5 5l3 3-3 3M9 3.5l-2 9',
-  upload: 'M8 11V2M4 6l4-4 4 4M2 14h12'
+  upload: 'M8 11V2M4 6l4-4 4 4M2 14h12',
+  // pin — 압정(thumbtack). 머리 캡 + 모인 몸통 + 바늘. stroke single-path 규약 유지.
+  pin: 'M5.5 2h5M7 2v3L4.5 7.5h7L9 5V2M8 7.5V13'
 }
 
 export interface IconProps {

@@ -12,7 +12,7 @@ export function ProjectLandingHeader({ onBack }: ProjectLandingHeaderProps): Rea
     <header
       role="navigation"
       aria-label="프로젝트 탐색"
-      className="flex items-center gap-2 border-b border-border bg-bg/90 px-6 py-2.5 backdrop-blur"
+      className="flex items-center gap-2 bg-bg/90 px-6 py-2.5 backdrop-blur"
     >
       <button
         onClick={onBack}

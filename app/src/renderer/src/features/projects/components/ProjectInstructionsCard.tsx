@@ -30,7 +30,7 @@ export function ProjectInstructionsCard({
         </div>
       ) : (
         <div className="text-[12px] leading-[1.5] text-ink3">
-          Claude 의 응답을 맞춤화하는 지침 추가
+          응답을 맞춤화하는 지침을 추가하세요.
         </div>
       )}
     </section>
