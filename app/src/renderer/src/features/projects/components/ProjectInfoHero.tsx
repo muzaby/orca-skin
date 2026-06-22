@@ -9,6 +9,8 @@ interface ProjectInfoHeroProps {
 
 const ACTION_BTN =
   'grid h-7 w-7 cursor-pointer place-items-center rounded-md border-0 bg-transparent text-ink3 hover:bg-fill-uncontained-hover hover:text-ink'
+const MENU_ITEM =
+  'flex cursor-pointer items-center gap-2 border-0 bg-transparent px-2.5 py-1.5 text-left text-[12.5px]'
 
 // LEFT 컬럼 상단 hero — 프로젝트 제목 + 지침 preview(line-clamp-2) + 업데이트
 // 메타. 제목 라인 우측에 핀 + 케밥 메뉴(세부사항 수정 / 삭제). 케밥 메뉴 동작은
@@ -66,7 +68,7 @@ export function ProjectInfoHero({ projectId }: ProjectInfoHeroProps): React.JSX.
                 type="button"
                 role="menuitem"
                 onClick={() => setMenuOpen(false)}
-                className="flex cursor-pointer items-center gap-2 border-0 bg-transparent px-2.5 py-1.5 text-left text-[12.5px] text-ink hover:bg-fill-uncontained-hover"
+                className={`${MENU_ITEM} text-ink hover:bg-fill-uncontained-hover`}
               >
                 <Icon name="edit" size={13} />
                 <span>세부사항 수정</span>
@@ -75,7 +77,7 @@ export function ProjectInfoHero({ projectId }: ProjectInfoHeroProps): React.JSX.
                 type="button"
                 role="menuitem"
                 onClick={() => setMenuOpen(false)}
-                className="flex cursor-pointer items-center gap-2 border-0 bg-transparent px-2.5 py-1.5 text-left text-[12.5px] text-rust hover:bg-rust-soft"
+                className={`${MENU_ITEM} text-rust hover:bg-rust-soft`}
               >
                 <Icon name="trash" size={13} />
                 <span>삭제</span>
