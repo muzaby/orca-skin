@@ -84,4 +84,30 @@
 | 신규 의존성 | 0 |
 | 블로커 / 역질문 | 없음 |
 | 사람 확인 대기 | UI 시각 검증(카드 톤·일러스트·테마 3종·xl 미만 스택) — `app/AGENTS.md` 원칙 4 |
+| 대상 커밋 | `6292227` (라운드 1) |
+
+---
+
+## 라운드 2 — 랜딩 페이지 리파인 (사용자 리뷰 5건)
+
+직전 라운드(PR #111) 머지 전 사용자 리뷰로 랜딩 페이지 레이아웃·헤더·카피를 추가 조정.
+
+### 추가 인수 기준
+
+8. **구조 구분선 제거**: `ProjectLandingHeader` 의 `border-b`, `<aside>` 의 `border-l`/`border-t` 제거. **지침/파일 카드 테두리는 유지**(사용자 결정).
+9. **제목(h1) 라인 우측에 핀 + 케밥**: 케밥 메뉴 `세부사항 수정` / `삭제`(빨강 `text-rust`). 동작 배선은 범위 밖(시각만, 메뉴 닫기만).
+10. **지침 빈-상태 카피에서 "Claude" 제거**: `응답을 맞춤화하는 지침을 추가하세요.`
+11. **파일 카피에 "폴더" 명시**: `… PDF, 문서, 폴더 또는 기타 텍스트를 추가하세요.`
+12. **중앙:우측 = 6:4, 고정 마진, 중앙 정렬 단일 블록**: `max-w-[1200px] mx-auto grid xl:grid-cols-5`(col-span-3:2) + `xl:gap-x-10`(고정). 창이 1200px 초과 시 패널 간 간격이 아니라 좌우 바깥 여백이 증가.
+
+### 라운드 2 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `pages/ProjectLandingPage.tsx`(6:4 중앙 블록·aside 경계 제거) · `ProjectLandingHeader.tsx`(border-b 제거) · `ProjectInfoHero.tsx`(제목 라인 핀+케밥 Popover 메뉴) · `ProjectInstructionsCard.tsx`/`ProjectFilesCard.tsx`(카피) · `ProjectInstructionsSidebar.tsx`(p-5 제거, 컬럼이 패딩 담당) · `shared/ui/Icon.tsx`(`pin` 추가) |
+| 재사용 | `shared/ui/Popover`(placement bottom·align end, `SessionRow`/`ChatTitleBar` 패턴) · 삭제 빨강 `text-rust`/`hover:bg-rust-soft` |
+| 게이트 결과 | lint ✅ / typecheck(node+web+test) ✅ / test ✅ **422/422** |
+| 레이어 경계 | 0 위반 (`features/projects` + `shared/ui` 하향) |
+| 신규 의존성 | 0 |
+| 사람 확인 대기 | UI 시각 검증(구분선 제거·6:4 비율·1200px 초과 시 바깥 여백 증가·제목 핀/케밥 메뉴) |
 | 대상 커밋 | (push 후 기재) |

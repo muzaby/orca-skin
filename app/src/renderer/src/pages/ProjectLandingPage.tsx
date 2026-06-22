@@ -15,10 +15,11 @@ import { ProjectSessionsPanel } from '../features/sessions'
 //
 // 레이아웃 슬롯:
 // - HEADER (풀-너비): ProjectLandingHeader — "모든 프로젝트" 링크만.
-// - LEFT col-span-7: ProjectInfoHero (제목/지침/메타) → Composer → 세션 목록.
-// - RIGHT col-span-5: ProjectInstructionsSidebar (지침 + 파일 placeholder).
-// xl 미만(< 1280px)에서는 단일 컬럼 자연 스택. grid 비율 모델 채택 — 윈도우 폭과
-// 무관하게 레퍼런스의 7:5 비율(58:42) 유지.
+// - LEFT col-span-3: ProjectInfoHero (제목/지침/메타) → Composer → 세션 목록.
+// - RIGHT col-span-2: ProjectInstructionsSidebar (지침 + 파일 placeholder).
+// 중앙:우측 = 6:4. 두 패널은 max-w-[1200px] mx-auto 단일 블록 안에서 고정 gap(gap-x-10)
+// 으로 묶이고, 창이 1200px 를 넘으면 패널 간 간격이 아니라 좌우 바깥 여백이 커진다.
+// xl 미만(< 1280px)에서는 단일 컬럼 자연 스택. 구조 구분선(헤더 하단·패널 사이)은 없음.
 export function ProjectLandingPage(): React.JSX.Element {
   const { projectId = '' } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
@@ -34,22 +35,20 @@ export function ProjectLandingPage(): React.JSX.Element {
   return (
     <section className="flex min-w-0 flex-1 flex-col bg-bg">
       <ProjectLandingHeader onBack={() => navigate('/projects')} />
-      <div className="grid min-w-0 flex-1 grid-cols-1 xl:grid-cols-12">
-        <main className="flex min-w-0 flex-col xl:col-span-7">
-          <div className="mx-auto w-full max-w-2xl space-y-6 px-6 py-8">
-            <ProjectInfoHero projectId={projectId} />
-            <Composer backendLabel={backendLabel} canAbort={canAbort} costToday={costToday} />
-            <ProjectSessionsPanel
-              projectId={projectId}
-              currentSessionId={sessionId}
-              refreshOnTurnEnd={inflight}
-              onSessionSelected={(id) => navigate(`/chat/${id}`)}
-              onSessionDeleting={(id) => chatActions.handleSessionDeleted(id, projectId)}
-              onSessionRenamed={chatActions.renameSession}
-            />
-          </div>
+      <div className="mx-auto grid w-full max-w-[1200px] min-w-0 flex-1 grid-cols-1 gap-y-6 px-6 py-8 xl:grid-cols-5 xl:gap-x-10">
+        <main className="flex min-w-0 flex-col space-y-6 xl:col-span-3">
+          <ProjectInfoHero projectId={projectId} />
+          <Composer backendLabel={backendLabel} canAbort={canAbort} costToday={costToday} />
+          <ProjectSessionsPanel
+            projectId={projectId}
+            currentSessionId={sessionId}
+            refreshOnTurnEnd={inflight}
+            onSessionSelected={(id) => navigate(`/chat/${id}`)}
+            onSessionDeleting={(id) => chatActions.handleSessionDeleted(id, projectId)}
+            onSessionRenamed={chatActions.renameSession}
+          />
         </main>
-        <aside className="min-w-0 border-t border-border xl:col-span-5 xl:border-l xl:border-t-0">
+        <aside className="min-w-0 xl:col-span-2">
           <ProjectInstructionsSidebar projectId={projectId} />
         </aside>
       </div>
