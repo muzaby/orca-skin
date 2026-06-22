@@ -173,6 +173,10 @@ function receive(ev: NormalizedEvent): void {
       patchLive(key, (live) => (live.reasoning !== '' ? { ...live, reasoning: '' } : live))
       return
 
+    case 'turn.retrying':
+      dispatchTo(key, { type: 'RECV_EVENT', event: ev })
+      return
+
     case 'telemetry': {
       // message.completed 없이 턴이 끝난 경우 잔여 라이브 텍스트를 text 파트로 굳힌다.
       const leftover = getState().sessions[key]?.live.text ?? ''

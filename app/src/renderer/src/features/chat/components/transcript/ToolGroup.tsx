@@ -43,7 +43,7 @@ export const ToolGroup = memo(function ToolGroup({
             // 완료 — 동사별 카운트 요약. 동사(primary)와 카운트(secondary) span 분리.
             <>
               {segments.map((seg, i) => (
-                <span key={seg.category} className={seg.hasError ? 'text-rust' : undefined}>
+                <span key={seg.category} className={seg.hasError ? 'text-bad' : undefined}>
                   {i > 0 && ', '}
                   <span className={seg.hasError ? undefined : 'text-t9'}>{seg.verb}</span>
                   {seg.count && <span className="text-t6"> {seg.count}</span>}

@@ -431,3 +431,16 @@ describe('claudeToNormalized', () => {
     )
   })
 })
+
+it('result 에러는 telemetry 와 error 이벤트를 함께 낸다', () => {
+  const out = claudeToNormalized(
+    sdk({ type: 'result', subtype: 'error_max_turns', is_error: true, message: 'bad request' }),
+    ctx()
+  )
+  expect(out[0]).toEqual({ type: 'telemetry', sessionId: 's1' })
+  expect(out[1]).toMatchObject({
+    type: 'error',
+    sessionId: 's1',
+    error: { category: 'stream_error', message: 'bad request' }
+  })
+})
