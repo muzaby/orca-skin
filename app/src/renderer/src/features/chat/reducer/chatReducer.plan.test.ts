@@ -1,8 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { PANEL_DEFAULT_WIDTH, chatReducer, initialChatState } from './chatReducer'
+import { PANEL_DEFAULT_WIDTH, chatReducer, initialChatState, type ChatState } from './chatReducer'
 import type { NormalizedEvent, PlanReviewRequest } from '../../../../../shared/ipc'
 
 const REVIEW: PlanReviewRequest = { requestId: 'p1', plan: '# 계획\n- b.py 생성' }
+
+// 열 id 는 비결정적이라 우측 패널 비교는 tiles 만 본다.
+const colTiles = (s: ChatState): string[][] => s.rightPanelTiles.map((c) => c.tiles)
 
 const recv = (ev: NormalizedEvent): { type: 'RECV_EVENT'; event: NormalizedEvent } => ({
   type: 'RECV_EVENT',
@@ -34,7 +37,7 @@ describe('chatReducer — 계획 검토(plan_review)', () => {
     const s = chatReducer(initialChatState, recv(planEvent()))
     expect(s.pendingPlanReview).toEqual(REVIEW)
     expect(s.planContent).toBe(REVIEW.plan)
-    expect(s.rightPanelTiles).toEqual([['plan']])
+    expect(colTiles(s)).toEqual([['plan']])
   })
 
   it('RESOLVE_PLAN 은 게이트만 닫고 타일 내용/활성 상태는 유지(읽기전용)', () => {
@@ -42,30 +45,30 @@ describe('chatReducer — 계획 검토(plan_review)', () => {
     const cleared = chatReducer(withPlan, { type: 'RESOLVE_PLAN' })
     expect(cleared.pendingPlanReview).toBeNull()
     expect(cleared.planContent).toBe(REVIEW.plan)
-    expect(cleared.rightPanelTiles).toEqual([['plan']])
+    expect(colTiles(cleared)).toEqual([['plan']])
   })
 
   it('우측 패널 타일 toggle/set active 가 중복 없이 column-major 로 배치', () => {
     const plan = chatReducer(initialChatState, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'plan' })
-    expect(plan.rightPanelTiles).toEqual([['plan']])
+    expect(colTiles(plan)).toEqual([['plan']])
     const subagent = chatReducer(plan, {
       type: 'SET_RIGHT_PANEL_TILE_ACTIVE',
       id: 'subagent',
       active: true
     })
-    expect(subagent.rightPanelTiles).toEqual([['plan', 'subagent']])
+    expect(colTiles(subagent)).toEqual([['plan', 'subagent']])
     const duplicate = chatReducer(subagent, {
       type: 'SET_RIGHT_PANEL_TILE_ACTIVE',
       id: 'plan',
       active: true
     })
-    expect(duplicate.rightPanelTiles).toEqual([['plan', 'subagent']])
+    expect(colTiles(duplicate)).toEqual([['plan', 'subagent']])
     const closed = chatReducer(duplicate, {
       type: 'SET_RIGHT_PANEL_TILE_ACTIVE',
       id: 'plan',
       active: false
     })
-    expect(closed.rightPanelTiles).toEqual([['subagent']])
+    expect(colTiles(closed)).toEqual([['subagent']])
   })
 
   it('0열 하단 타일 제거 시 다른 열로 리플로우되지 않는다(사용자 사례)', () => {
@@ -73,10 +76,12 @@ describe('chatReducer — 계획 검토(plan_review)', () => {
     let s = chatReducer(initialChatState, { type: 'TOGGLE_RIGHT_PANEL_TILE', id: 'plan' })
     s = chatReducer(s, { type: 'SET_RIGHT_PANEL_TILE_ACTIVE', id: 'subagent', active: true })
     s = chatReducer(s, { type: 'SET_RIGHT_PANEL_TILE_ACTIVE', id: 'reserved1', active: true })
-    expect(s.rightPanelTiles).toEqual([['plan', 'subagent'], ['reserved1']])
+    expect(colTiles(s)).toEqual([['plan', 'subagent'], ['reserved1']])
     // 0열 2행(subagent) 제거 → 0열[plan] / 1열[reserved1] (reserved1 이 0열로 합쳐지지 않음)
     const removed = chatReducer(s, { type: 'REMOVE_RIGHT_PANEL_TILE', id: 'subagent' })
-    expect(removed.rightPanelTiles).toEqual([['plan'], ['reserved1']])
+    expect(colTiles(removed)).toEqual([['plan'], ['reserved1']])
+    // 우측 열(reserved1) id 보존 → React remount 없음
+    expect(removed.rightPanelTiles[1].id).toBe(s.rightPanelTiles[1].id)
   })
 
   it('열이 비면 열 인덱스 키 폭/행분할도 splice 된다', () => {
@@ -91,7 +96,7 @@ describe('chatReducer — 계획 검토(plan_review)', () => {
     expect(s.rightPanelColWidths).toEqual([300, 500])
     // 1열의 유일 타일(reserved1) 제거 → 1열 드롭, 폭 인덱스1도 제거
     const removed = chatReducer(s, { type: 'REMOVE_RIGHT_PANEL_TILE', id: 'reserved1' })
-    expect(removed.rightPanelTiles).toEqual([['plan', 'subagent']])
+    expect(colTiles(removed)).toEqual([['plan', 'subagent']])
     expect(removed.rightPanelColWidths).toEqual([300])
   })
 
