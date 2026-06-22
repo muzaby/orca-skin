@@ -1,5 +1,5 @@
 import { memo } from 'react'
-import { Markdown } from '../markdown/Markdown'
+import { Markdown } from '../../../../shared/ui/markdown/Markdown'
 import type { ReasoningItem } from '../../lib/parts'
 
 interface ReasoningBlockProps {

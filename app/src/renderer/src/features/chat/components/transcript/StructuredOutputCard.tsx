@@ -1,4 +1,4 @@
-import { CodeBlock } from '../markdown/CodeBlock'
+import { CodeBlock } from '../../../../shared/ui/markdown/CodeBlock'
 import { stringify } from '../../format'
 
 interface StructuredOutputCardProps {

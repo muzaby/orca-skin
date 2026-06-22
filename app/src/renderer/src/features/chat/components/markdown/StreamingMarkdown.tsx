@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react'
-import { Markdown } from './Markdown'
+import { Markdown } from '../../../../shared/ui/markdown/Markdown'
 import { splitStableBlocks } from '../../lib/markdownBlocks'
 
 // 스트리밍 본문 전용 마크다운 — 누적 소스를 "확정 블록들 + 꼬리"로 분할해(markdownBlocks),

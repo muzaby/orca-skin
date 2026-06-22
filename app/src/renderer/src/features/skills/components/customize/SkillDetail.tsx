@@ -1,8 +1,7 @@
 import { useRef, useState } from 'react'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
 import type { SkillInfo } from '../../../../../../shared/ipc'
 import { Icon, type IconName } from '../../../../shared/ui/Icon'
+import { Markdown } from '../../../../shared/ui/markdown/Markdown'
 import { Modal, ModalActions } from '../../../../shared/ui/Modal'
 import { Popover } from '../../../../shared/ui/Popover'
 import { Toggle } from '../../../../shared/ui/Toggle'
@@ -19,14 +18,6 @@ function Meta({ label, value }: { label: string; value: string }): React.JSX.Ele
 function formatDate(ms?: number): string {
   if (!ms) return '알 수 없음'
   return new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium' }).format(new Date(ms))
-}
-
-function MarkdownBody({ source }: { source: string }): React.JSX.Element {
-  return (
-    <div className="min-w-0 break-words text-[13.5px] leading-[1.7] text-ink2 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_code]:break-words [&_code]:rounded-r3 [&_code]:bg-cream-50 [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_pre]:whitespace-pre-wrap [&_pre]:break-words [&_pre]:rounded-r4 [&_pre]:bg-cream-50 [&_pre]:p-3">
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{source}</ReactMarkdown>
-    </div>
-  )
 }
 
 function MenuRow({
@@ -188,7 +179,10 @@ export function SkillDetail({
               {body}
             </pre>
           ) : (
-            <MarkdownBody source={body} />
+            <Markdown
+              source={body}
+              className="min-w-0 break-words text-[13.5px] leading-[1.7] text-ink2 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+            />
           )}
         </div>
       </div>

@@ -1,4 +1,4 @@
-import { Markdown } from '../../markdown/Markdown'
+import { Markdown } from '../../../../../shared/ui/markdown/Markdown'
 import { stringify } from '../../../format'
 import type { ToolCall } from '../../../reducer/chatReducer'
 
