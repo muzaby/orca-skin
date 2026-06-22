@@ -297,6 +297,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
     try {
       for (let attempt = 0; ; attempt += 1) {
         let eventsReceived = 0
+        let sawTerminal = false
         const idle = createIdleTimer(turn)
         try {
           // sendMessage 가 query() 를 즉시 시작하므로 try 안에서 호출 — 동기 throw 도 동일 경로로 분류.
@@ -318,6 +319,9 @@ export function registerChatHandlers(deps: ChatDeps): void {
           for await (const ev of live.events) {
             eventsReceived += 1
             idle.reset()
+            if (ev.type === 'telemetry' || ev.type === 'error' || ev.type === 'turn.aborted') {
+              sawTerminal = true
+            }
             persistence.persist(turn, ev)
             sendChatEvent(event.sender, ev)
             // sessionId 발급(session.updated) — 새-채팅 pending 턴을 sessionId 키로 승격.
@@ -330,10 +334,19 @@ export function registerChatHandlers(deps: ChatDeps): void {
               persistence.flushAskAnswers(turn, event.sender)
             }
           }
+          if (!sawTerminal && !controller.signal.aborted) {
+            const ev = {
+              type: 'telemetry',
+              sessionId: turn.dbSessionId ?? parsed.data.sessionId ?? ''
+            } as const
+            persistence.persist(turn, ev)
+            sendChatEvent(event.sender, ev)
+          }
           return
         } catch (err) {
           if (turn.cancelled && controller.signal.aborted) return
           if (turn.timedOut) {
+            sawTerminal = true
             sendChatEvent(event.sender, {
               type: 'error',
               ...(turn.dbSessionId ? { sessionId: turn.dbSessionId } : {}),
@@ -350,6 +363,13 @@ export function registerChatHandlers(deps: ChatDeps): void {
             attempt < MAX_RETRIES &&
             !controller.signal.aborted
           ) {
+            sendChatEvent(event.sender, {
+              type: 'turn.retrying',
+              ...(turn.dbSessionId ? { sessionId: turn.dbSessionId } : {}),
+              attempt: attempt + 1,
+              maxRetries: MAX_RETRIES,
+              error
+            })
             try {
               await abortableDelay(RETRY_BACKOFF_MS[attempt] ?? 2_000, controller.signal)
             } catch {
@@ -359,6 +379,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
           }
           // sessionId 가 확정된 턴이면 부착 — renderer 멀티세션 store 가 정확한 엔트리로
           // 라우팅한다(없으면 활성 엔트리 폴백, handoff 0013).
+          sawTerminal = true
           sendChatEvent(event.sender, {
             type: 'error',
             ...(turn.dbSessionId ? { sessionId: turn.dbSessionId } : {}),

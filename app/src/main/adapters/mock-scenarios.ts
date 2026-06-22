@@ -39,22 +39,52 @@ const CONTEXT_WINDOW = 200_000
 export const SCENARIOS: Record<MockScenarioId, MockStep[]> = {
   text_streaming: [
     ...prelude(),
-    emit({ type: 'message.delta', delta: { text: '안녕하세요. ' } }),
-    delay(80),
-    emit({ type: 'message.delta', delta: { text: '텍스트 스트리밍 mock 응답입니다.' } }),
-    delay(80),
+    ...textFragment(),
     ...closing('안녕하세요. 텍스트 스트리밍 mock 응답입니다.')
   ],
   reasoning: [
     ...prelude(),
+    ...reasoningFragment(),
+    ...closing('추론 블록을 포함한 mock 응답입니다.')
+  ],
+  tool_calls: [...prelude(), ...toolCallsFragment()],
+  tool_approval: [...prelude(), ...toolApprovalFragment()],
+  ask_question: [...prelude(), ...askQuestionFragment()],
+  plan_review: [...prelude(), planApproval('mock-plan-1', '1. 요구사항 확인\n2. 구현\n3. 테스트')],
+  error: [...prelude(), ...errorFragment()],
+  full: [
+    ...prelude(),
+    emit({ type: 'message.delta', delta: { text: '전체 시나리오를 시작합니다.' } }),
+    ...textFragment(),
+    ...reasoningFragment(),
+    ...toolCallsFragment(),
+    ...toolApprovalFragment(),
+    ...askQuestionFragment(),
+    ...planReviewFragment(),
+    ...errorJumpFragment()
+  ]
+}
+
+function textFragment(): MockStep[] {
+  return [
+    emit({ type: 'message.delta', delta: { text: '안녕하세요. ' } }),
+    delay(80),
+    emit({ type: 'message.delta', delta: { text: '텍스트 스트리밍 mock 응답입니다.' } }),
+    delay(80)
+  ]
+}
+
+function reasoningFragment(): MockStep[] {
+  return [
     emit({ type: 'message.reasoning.delta', delta: { text: '먼저 요청을 분해하고 ' } }),
     delay(80),
     emit({ type: 'message.reasoning.delta', delta: { text: '필요한 도구를 확인합니다.' } }),
-    emit({ type: 'message.reasoning', text: '먼저 요청을 분해하고 필요한 도구를 확인합니다.' }),
-    ...closing('추론 블록을 포함한 mock 응답입니다.')
-  ],
-  tool_calls: [
-    ...prelude(),
+    emit({ type: 'message.reasoning', text: '먼저 요청을 분해하고 필요한 도구를 확인합니다.' })
+  ]
+}
+
+function toolCallsFragment(): MockStep[] {
+  return [
     emit({ type: 'message.delta', delta: { text: '파일을 읽어보겠습니다.' } }),
     emit({
       type: 'tool.call.started',
@@ -69,11 +99,12 @@ export const SCENARIOS: Record<MockScenarioId, MockStep[]> = {
       result: { content: '# Orca\nMock file result' },
       isError: false,
       durationMs: 120
-    }),
-    ...closing('README를 확인했습니다.')
-  ],
-  tool_approval: [
-    ...prelude(),
+    })
+  ]
+}
+
+function toolApprovalFragment(): MockStep[] {
+  return [
     emit({ type: 'message.delta', delta: { text: '위험 도구 실행 권한을 요청합니다.' } }),
     {
       kind: 'approval',
@@ -96,14 +127,15 @@ export const SCENARIOS: Record<MockScenarioId, MockStep[]> = {
           result: { stdout: 'mock ok' },
           isError: false,
           durationMs: 120
-        }),
-        ...closing('승인되어 mock Bash 실행을 완료했습니다.')
+        })
       ],
-      deny: [...closing('거부되어 도구를 실행하지 않았습니다.')]
+      deny: []
     }
-  ],
-  ask_question: [
-    ...prelude(),
+  ]
+}
+
+function askQuestionFragment(): MockStep[] {
+  return [
     emit({ type: 'message.delta', delta: { text: '진행 방향을 선택해 주세요.' } }),
     emit({
       type: 'tool.call.started',
@@ -143,60 +175,65 @@ export const SCENARIOS: Record<MockScenarioId, MockStep[]> = {
         }
       },
       allow: (resolution) => [
-        ...closing(
-          `답변을 반영했습니다: ${JSON.stringify(
-            resolution.behavior === 'allow'
-              ? (resolution.updatedInput ?? { answers: {} })
-              : { answers: {} }
-          )}`
-        )
+        emit({
+          type: 'message.delta',
+          delta: {
+            text: `답변을 반영했습니다: ${JSON.stringify(
+              resolution.behavior === 'allow'
+                ? (resolution.updatedInput ?? { answers: {} })
+                : { answers: {} }
+            )}`
+          }
+        })
       ],
-      deny: [...closing('질문이 건너뛰어져 기본 경로로 진행합니다.')]
+      deny: [
+        emit({ type: 'message.delta', delta: { text: '질문이 건너뛰어져 기본 경로로 진행합니다.' } })
+      ]
     }
-  ],
-  plan_review: [
-    ...prelude(),
+  ]
+}
+
+function planReviewFragment(): MockStep[] {
+  return [
     emit({ type: 'message.delta', delta: { text: '계획을 검토해 주세요.' } }),
-    planApproval('mock-plan-1', '1. 요구사항 확인\n2. 구현\n3. 테스트')
-  ],
-  error: [
-    ...prelude(),
+    {
+      kind: 'approval',
+      action: {
+        kind: 'plan_review',
+        request: {
+          requestId: 'mock-full-plan',
+          plan: '1. 텍스트\n2. 추론\n3. 도구\n4. 승인\n5. 질문'
+        }
+      },
+      allow: [
+        emit({ type: 'message.delta', delta: { text: '계획 승인 후 다음 단계로 진행합니다.' } })
+      ],
+      deny: [
+        emit({ type: 'message.delta', delta: { text: '계획 거부 후에도 에러 점프를 재현합니다.' } })
+      ]
+    }
+  ]
+}
+
+function errorFragment(): MockStep[] {
+  return [
     emit({ type: 'message.delta', delta: { text: '처리 중입니다…' } }),
     delay(80),
     emit({ type: 'message.delta', delta: { text: '문제가 발생했습니다.' } }),
     emit({ type: 'error', error: mockError('mock stream retryable error') })
-  ],
-  full: [
-    ...prelude(),
-    emit({ type: 'message.delta', delta: { text: '전체 시나리오를 시작합니다.' } }),
-    emit({
-      type: 'message.reasoning.delta',
-      delta: { text: '전체 이벤트 커버리지를 점검합니다.' }
-    }),
-    emit({ type: 'message.reasoning', text: '전체 이벤트 커버리지를 점검합니다.' }),
+  ]
+}
+
+function errorJumpFragment(): MockStep[] {
+  return [
+    emit({ type: 'message.delta', delta: { text: '마지막 도구 호출에서 에러 점프를 재현합니다.' } }),
     emit({
       type: 'tool.call.started',
-      toolRunId: 'mock-full-read',
-      toolName: 'Read',
-      args: { file_path: 'src/main.ts' }
+      toolRunId: 'mock-error-jump',
+      toolName: 'Bash',
+      args: { command: 'exit 1' }
     }),
-    emit({
-      type: 'tool.call.completed',
-      toolRunId: 'mock-full-read',
-      result: { content: 'mock content' },
-      isError: false,
-      durationMs: 10
-    }),
-    emit({ type: 'error', error: mockError('full scenario recoverable mock error') }),
-    {
-      kind: 'approval',
-      action: { kind: 'tool_approval', toolName: 'Bash', input: { command: 'echo full' } },
-      allow: [
-        emit({ type: 'message.delta', delta: { text: '승인 이벤트를 통과했습니다.' } }),
-        ...closing('전체 시나리오가 완료되었습니다.')
-      ],
-      deny: [...closing('권한 거부 분기로 전체 시나리오가 완료되었습니다.')]
-    }
+    emit({ type: 'error', error: mockError('full scenario tool error jump') })
   ]
 }
 

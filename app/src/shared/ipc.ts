@@ -301,6 +301,13 @@ export type NormalizedEvent =
       error: ClassifiedError
     }
   | {
+      type: 'turn.retrying'
+      sessionId?: string
+      attempt: number
+      maxRetries: number
+      error: ClassifiedError
+    }
+  | {
       type: 'turn.aborted'
       sessionId?: string
       reason: 'user_cancelled' | 'timeout'

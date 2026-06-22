@@ -13,7 +13,7 @@ import { ModelMenu } from './composer/ModelMenu'
 import { EffortMenu } from './composer/EffortMenu'
 import { EFFORT_LABELS } from './composer/effort'
 import { AttachMenu } from './composer/AttachMenu'
-import { defaultSelection, selectionLabel } from './composer/modelSelection'
+import { defaultSelection, modelKey, selectionLabel } from './composer/modelSelection'
 import { ConversationStatusLine } from './composer/ConversationStatusLine'
 import { StatusPopover } from './composer/StatusPopover'
 import { conversationStatusModel as conversationStatusModelFactory } from './composer/statusViewModel'
@@ -129,10 +129,17 @@ export function Composer({
   }, [agents, backend, providerKey, modelFamily])
 
   useEffect(() => {
-    if (providerKey || agents.length === 0) return
+    if (agents.length === 0) return
+    if (providerKey && modelFamily == null) {
+      const agent = agents.find((a) => a.key === providerKey)
+      const model = agent?.models.find((m) => m.isDefault) ?? agent?.models[0]
+      if (agent && model) setModel(providerKey, modelKey(model), agent.adapter)
+      return
+    }
+    if (providerKey) return
     const next = defaultSelection(agents, backend)
     if (next) setModel(next.providerKey, next.modelFamily, next.adapter)
-  }, [agents, backend, providerKey, setModel])
+  }, [agents, backend, modelFamily, providerKey, setModel])
 
   const conversationStatusModel = useMemo(() => {
     // TODO(후속 핸드오프): 정식 상태 판정 신호로 교체 — 현재는 임시 근사

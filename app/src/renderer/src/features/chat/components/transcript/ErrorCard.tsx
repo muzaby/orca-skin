@@ -22,12 +22,12 @@ function asClassified(error: unknown): { category: string; message: string } {
 export function ErrorCard({ error }: ErrorCardProps): React.JSX.Element {
   const { category, message } = asClassified(error)
   return (
-    <div className="flex items-start gap-2 rounded-r6 border border-rust/40 bg-rust-soft px-p5 py-p4 text-[13px] text-ink">
-      <span className="mt-[1px] text-rust">
+    <div className="flex items-start gap-2 rounded-r6 border border-bad/40 bg-bad/10 px-p5 py-p4 text-[13px] text-ink">
+      <span className="mt-[1px] text-bad">
         <Icon name="alert" size={15} />
       </span>
       <div className="flex min-w-0 flex-col gap-0.5">
-        <span className="font-mono text-[11px] uppercase tracking-[0.04em] text-rust">
+        <span className="font-mono text-[11px] uppercase tracking-[0.04em] text-bad">
           {errorCategoryLabel(category)}
         </span>
         <span className="break-words leading-[1.5] text-ink2">{message}</span>

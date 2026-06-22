@@ -71,6 +71,7 @@ export interface ChatState {
   // 비용/지연은 패널에서 빠졌고 비용은 turn_usage 원장(집계)이 SSOT 라 state 에 두지 않는다.
   lastTelemetry?: ProviderReportedTelemetry
   error?: ClassifiedError
+  retry?: { attempt: number; max: number; category: string }
   // Claude 가 AskUserQuestion 으로 던진 미응답 질문 묶음 큐. canUseTool 이 query 를 일시
   // 중지한 채 응답을 기다리므로 보통 길이 0~1 이지만, 안전하게 큐로 모델링해 앞에서 소비한다.
   pendingAsks: AskQuestionRequest[]
@@ -193,7 +194,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         inflight: true,
         turnStartedAt: Date.now(),
         // lastTelemetry 는 비우지 않는다 — 컨텍스트 도넛이 턴 진행 중에도 직전 값을 유지.
-        error: undefined
+        error: undefined,
+        retry: undefined
       }
 
     case 'RECV_EVENT': {
@@ -206,7 +208,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             sessionId: ev.sessionId,
             backend: 'claude',
             cwd: ev.patch.cwd ?? state.cwd,
-            pendingProjectId: null
+            pendingProjectId: null,
+            retry: undefined
           }
 
         // message.delta · message.reasoning.delta 는 reducer 에 도달하지 않는다 —
@@ -217,6 +220,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           // 완성 사고 블록 → 영속 reasoning 파트. 라이브 프리뷰(live.reasoning)는 store 가 비운다.
           return {
             ...state,
+            retry: undefined,
             messages: appendAssistantPart(state.messages, {
               type: 'reasoning',
               text: ev.text,
@@ -229,6 +233,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           // (live.text 클리어는 store 가 담당.)
           return {
             ...state,
+            retry: undefined,
             messages: appendAssistantPart(state.messages, {
               type: 'text',
               text: ev.message.text
@@ -238,6 +243,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         case 'tool.call.started':
           return {
             ...state,
+            retry: undefined,
             messages: appendAssistantPart(state.messages, {
               type: 'tool_call',
               toolRunId: ev.toolRunId,
@@ -249,6 +255,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         case 'tool.call.completed':
           return {
             ...state,
+            retry: undefined,
             messages: appendAssistantPart(state.messages, {
               type: 'tool_result',
               toolRunId: ev.toolRunId,
@@ -256,6 +263,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
               isError: ev.isError,
               ...(ev.durationMs !== undefined ? { durationMs: ev.durationMs } : {})
             })
+          }
+
+        case 'turn.retrying':
+          return {
+            ...state,
+            retry: { attempt: ev.attempt, max: ev.maxRetries, category: ev.error.category }
           }
 
         case 'telemetry': {
@@ -266,6 +279,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             ...state,
             inflight: false,
             turnStartedAt: null,
+            retry: undefined,
             // 도넛/패널은 lastTelemetry 파생(컨텍스트 사용량 소스). 비용/지연 누산은 제거 —
             // 비용은 main 의 turn_usage 원장(집계)이 SSOT. 컨텍스트 0인 턴(/context 등 로컬
             // 슬래시 명령 — 모델 미호출)은 직전 도넛 값을 덮어쓰지 않게 스킵한다.
@@ -277,12 +291,13 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           // 권한 요청을 종류별 UI 상태로 분기. ask/plan 은 approvalId === action.request.requestId,
           // tool 은 ev.approvalId 를 키로 단일 permissionRespond 채널로 회신한다.
           if (ev.action.kind === 'ask_question') {
-            return { ...state, pendingAsks: [...state.pendingAsks, ev.action.request] }
+            return { ...state, retry: undefined, pendingAsks: [...state.pendingAsks, ev.action.request] }
           }
           if (ev.action.kind === 'plan_review') {
             // 계획 도착 → 액션 게이트 설정 + 우측 타일에 내용 표시 + 자동 오픈(auto-trigger).
             return {
               ...state,
+              retry: undefined,
               pendingPlanReview: ev.action.request,
               planContent: ev.action.request.plan,
               rightPanelTiles: addTileColumnMajor(state.rightPanelTiles, 'plan')
@@ -291,6 +306,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           // tool_approval — 위험 도구 실행 승인 게이트. approvalId 로 응답을 라우팅한다.
           return {
             ...state,
+            retry: undefined,
             pendingToolApproval: {
               approvalId: ev.approvalId,
               toolName: ev.action.toolName,
@@ -300,13 +316,14 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
 
         case 'permission.resolved':
           // 해소 이벤트는 audit/telemetry 용 — 카드는 respond 시 로컬 RESOLVE_* 로 이미 닫힌다.
-          return state
+          return { ...state, retry: undefined }
 
         case 'turn.aborted':
           return {
             ...state,
             inflight: false,
             turnStartedAt: null,
+            retry: undefined,
             pendingAsks: [],
             pendingPlanReview: null,
             pendingToolApproval: null
@@ -319,6 +336,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             error: ev.error,
             inflight: false,
             turnStartedAt: null,
+            retry: undefined,
             pendingAsks: [],
             pendingPlanReview: null,
             pendingToolApproval: null
@@ -350,6 +368,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ...state,
         inflight: false,
         turnStartedAt: null,
+        retry: undefined,
         pendingAsks: [],
         pendingPlanReview: null,
         pendingToolApproval: null
