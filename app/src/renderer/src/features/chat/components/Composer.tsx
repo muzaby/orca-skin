@@ -8,7 +8,6 @@ import { HighlightedTextarea, type HighlightedTextareaHandle } from './composer/
 import { SkillAutocomplete } from './composer/SkillAutocomplete'
 import { FileAutocomplete } from './composer/FileAutocomplete'
 import { ComposerChip } from './composer/ComposerChip'
-import { SkillsMenu } from './composer/SkillsMenu'
 import { ModeMenu } from './composer/ModeMenu'
 import { ModelMenu } from './composer/ModelMenu'
 import { EffortMenu } from './composer/EffortMenu'
@@ -55,7 +54,7 @@ interface ComposerProps {
 
 // 채팅 입력 composer — textarea + chip 행 + send/cancel 버튼 + skills/file 자동완성.
 // ChatTile 과 NewChatLandingPage 양쪽에서 동일하게 재사용.
-// 자체 local state (draft / caret / menuOpen) 는 컴포넌트 내부에 가두고, 채팅 상태는
+// 자체 local state (draft / caret) 는 컴포넌트 내부에 가두고, 채팅 상태는
 // chatStore selector 로 필요한 슬라이스만 구독한다 — 스트리밍 델타/transcript 커밋
 // (messages 교체)에는 깨어나지 않는다 (0008).
 export function Composer({
@@ -95,7 +94,6 @@ export function Composer({
   const knownSkillNames = useMemo(() => new Set(skills.map((s) => s.name)), [skills])
   const textareaRef = useRef<HighlightedTextareaHandle>(null)
   const textareaWrapRef = useRef<HTMLDivElement>(null)
-  const [menuOpen, setMenuOpen] = useState(false)
   const telemetryButtonRef = useRef<HTMLButtonElement>(null)
   const [telemetryOpen, setTelemetryOpen] = useState(false)
   const conversationStatusButtonRef = useRef<HTMLButtonElement>(null)
@@ -115,8 +113,6 @@ export function Composer({
       textareaRef.current?.setSelectionRange(initialDraft.length, initialDraft.length)
     })
   }, [initialDraft])
-
-  const closeMenu = (): void => setMenuOpen(false)
 
   const autocomplete = useSkillAutocomplete(draft, caret, skills)
   const fileAutocomplete = useFileAutocomplete(draft, caret, cwd)
@@ -164,11 +160,12 @@ export function Composer({
     console.warn('compact action is not implemented yet')
   }
 
-  // Skill chip / popover 선택: 항상 draft 끝에 `/name ` 삽입 (기존 동작 유지).
-  const insertSkillFromMenu = (name: string): void => {
-    const token = `/${name} `
+  // "+" 메뉴의 Skill 진입 — 입력란에 `/` 를 넣어 `/` 자동완성(SkillAutocomplete)을 연다.
+  // PARTIAL_RE 가 줄 시작/공백 뒤의 `/` 만 매칭하므로, 끝이 공백/개행이 아니면 ` /` 로 공백을 끼운다.
+  const openSkillPicker = (): void => {
+    setAttachMenuOpen(false)
     setDraft((d) => {
-      const next = d === '' || d.endsWith(' ') || d.endsWith('\n') ? d + token : d + ' ' + token
+      const next = d === '' || d.endsWith(' ') || d.endsWith('\n') ? d + '/' : d + ' /'
       queueMicrotask(() => {
         const el = textareaRef.current?.element
         if (!el) return
@@ -178,7 +175,6 @@ export function Composer({
       })
       return next
     })
-    closeMenu()
   }
 
   // 자동완성 선택: caret 직전 `/partial` 을 `/name ` 으로 치환.
@@ -419,7 +415,7 @@ export function Composer({
           {/* 컨트롤 패널 — 입력 패널에서 분리한 칩 행. 이 패널만 bg 투명·borderless. */}
           {!pendingPlanReview && (
             <div className="app-frame-composer-controls flex items-center gap-1.5 px-1">
-              {/* repo zone — 첨부 후보들 (파일/현재 프레임/Skill). 명세 §3.3.2 의
+              {/* repo zone — 첨부 후보들 (파일/Skill). 명세 §3.3.2 의
               app-frame-composer-repo 슬롯. data-behavior="dismissible" 은 향후 칩
               제거 UX 도입 시점에 각 칩 element 로 내려간다. */}
               <div
@@ -520,17 +516,13 @@ export function Composer({
         anchorRef={attachButtonRef}
         onClose={() => setAttachMenuOpen(false)}
       >
-        <AttachMenu
-          onPickSkill={() => {
-            setAttachMenuOpen(false)
-            setMenuOpen(true)
-          }}
-        />
+        <AttachMenu onPickSkill={openSkillPicker} />
       </Popover>
       <Popover
         open={effortMenuOpen}
         anchorRef={effortButtonRef}
         onClose={() => setEffortMenuOpen(false)}
+        align="end"
       >
         <EffortMenu
           effort={effort}
@@ -544,6 +536,7 @@ export function Composer({
         open={modelMenuOpen}
         anchorRef={modelButtonRef}
         onClose={() => setModelMenuOpen(false)}
+        align="end"
       >
         <ModelMenu
           agents={agents}
@@ -554,9 +547,6 @@ export function Composer({
             setModelMenuOpen(false)
           }}
         />
-      </Popover>
-      <Popover open={menuOpen} anchorRef={attachButtonRef} onClose={closeMenu}>
-        <SkillsMenu skills={skills} onPick={insertSkillFromMenu} />
       </Popover>
       <SkillAutocomplete
         open={autocomplete.open}
