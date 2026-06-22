@@ -187,7 +187,10 @@ function askQuestionFragment(): MockStep[] {
         })
       ],
       deny: [
-        emit({ type: 'message.delta', delta: { text: '질문이 건너뛰어져 기본 경로로 진행합니다.' } })
+        emit({
+          type: 'message.delta',
+          delta: { text: '질문이 건너뛰어져 기본 경로로 진행합니다.' }
+        })
       ]
     }
   ]
@@ -226,7 +229,10 @@ function errorFragment(): MockStep[] {
 
 function errorJumpFragment(): MockStep[] {
   return [
-    emit({ type: 'message.delta', delta: { text: '마지막 도구 호출에서 에러 점프를 재현합니다.' } }),
+    emit({
+      type: 'message.delta',
+      delta: { text: '마지막 도구 호출에서 에러 점프를 재현합니다.' }
+    }),
     emit({
       type: 'tool.call.started',
       toolRunId: 'mock-error-jump',

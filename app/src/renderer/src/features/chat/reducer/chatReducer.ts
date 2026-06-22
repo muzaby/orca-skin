@@ -291,7 +291,11 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           // 권한 요청을 종류별 UI 상태로 분기. ask/plan 은 approvalId === action.request.requestId,
           // tool 은 ev.approvalId 를 키로 단일 permissionRespond 채널로 회신한다.
           if (ev.action.kind === 'ask_question') {
-            return { ...state, retry: undefined, pendingAsks: [...state.pendingAsks, ev.action.request] }
+            return {
+              ...state,
+              retry: undefined,
+              pendingAsks: [...state.pendingAsks, ev.action.request]
+            }
           }
           if (ev.action.kind === 'plan_review') {
             // 계획 도착 → 액션 게이트 설정 + 우측 타일에 내용 표시 + 자동 오픈(auto-trigger).
