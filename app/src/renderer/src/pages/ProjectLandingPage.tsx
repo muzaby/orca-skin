@@ -38,7 +38,7 @@ export function ProjectLandingPage(): React.JSX.Element {
       <div className="mx-auto grid w-full max-w-[1200px] min-w-0 flex-1 grid-cols-1 gap-y-6 px-6 py-8 xl:grid-cols-5 xl:gap-x-10">
         <main className="flex min-w-0 flex-col space-y-6 xl:col-span-3">
           <ProjectInfoHero projectId={projectId} />
-          <Composer backendLabel={backendLabel} canAbort={canAbort} costToday={costToday} />
+          <Composer backendLabel={backendLabel} canAbort={canAbort} costToday={costToday} flush />
           <ProjectSessionsPanel
             projectId={projectId}
             currentSessionId={sessionId}
