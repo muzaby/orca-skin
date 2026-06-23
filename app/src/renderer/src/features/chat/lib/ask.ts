@@ -33,13 +33,26 @@ export function parseAsk(call: ToolCall): ParsedAsk {
   // answers: input.answers(드묾) → result.output.answers(router 가 주입) → {}.
   // (main 이 AskUserQuestion tool_result output 에 { answers, response? } 를 주입한다.)
   const answers: Record<string, unknown> = asRecord(rec?.answers) ?? asRecord(out?.answers) ?? {}
+  // 답변 키(질문텍스트)와 input.questions[].question 이 어긋날 수 있으므로(요청은 정규화 경로,
+  // input 은 원본 tool_use args) 키 매칭이 실패하면 같은 인덱스의 값으로 폴백한다.
+  const answerValues = Object.values(answers)
 
-  const items: AskItem[] = rawQuestions.map((q) => {
-    const qr = asRecord(q)
-    const question = typeof qr?.question === 'string' ? qr.question : ''
-    const header = typeof qr?.header === 'string' ? qr.header : ''
-    return { header, question, answer: answerText(answers[question]) }
-  })
+  // 원본 questions 가 있으면 그 순서/헤더를 쓰되, 없으면(라운드트립 유실) answers 엔트리로
+  // 직접 구성해 답변이 항상 표시되게 한다.
+  const items: AskItem[] =
+    rawQuestions.length > 0
+      ? rawQuestions.map((q, i) => {
+          const qr = asRecord(q)
+          const question = typeof qr?.question === 'string' ? qr.question : ''
+          const header = typeof qr?.header === 'string' ? qr.header : ''
+          const raw = question in answers ? answers[question] : answerValues[i]
+          return { header, question, answer: answerText(raw) }
+        })
+      : Object.entries(answers).map(([question, value]) => ({
+          header: '',
+          question,
+          answer: answerText(value)
+        }))
 
   const response =
     (typeof rec?.response === 'string' ? rec.response : null) ??

@@ -13,10 +13,10 @@ export const AskExchange = memo(function AskExchange({
   const { items, response } = parseAsk(call)
   if (items.length === 0) return null
 
-  // 해소된 Q&A 를 하나의 사용자 버블(우)에 모은다 — 줄마다 "질문(중립) 답변(굵게)".
-  // 참고 스크린샷(이미지 2) 양식.
+  // 해소된 Q&A 를 하나의 어시스턴트 버블(좌)에 모은다 — 줄마다 "질문(중립) 답변(굵게)".
+  // 질문은 어시스턴트가 물은 것이므로 좌측 정렬(사용자 답변 버블=우측과 구분).
   return (
-    <div className="flex justify-end">
+    <div className="flex justify-start">
       <div className="flex max-w-[85%] flex-col gap-1 whitespace-pre-wrap rounded-2xl bg-bubble-user px-4 py-2.5 text-[14px] leading-[1.7] text-ink">
         {items.map((item, i) => (
           <div key={i}>
