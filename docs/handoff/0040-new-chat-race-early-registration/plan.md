@@ -54,6 +54,7 @@ claude SDK `system/init` → **`session.updated`**(sessionId 발급; `persist.ts
 1. **동시 새-채팅 비소멸**: "전송 → 새 대화 → 전송"을 첫 `session.updated` 전에 수행해도 **두 세션 모두 최근 대화에 기록**되고 어느 것도 소멸하지 않는다.
 2. **버블 보존**: 위 시나리오에서 각 세션의 **첫 턴 사용자 메시지 버블이 보존**된다(화면상 둘 다 즉시 보임).
 3. **직렬 단일 진입로**: 2번째 새-채팅은 **즉시 화면 전환(연결 대기 표시)** 되고, 그 main 디스패치(`chatApi.send`)는 **1번째의 `session.updated` 이후** 발생한다.
+   - **3-a (n 연속)**: 새 채팅을 **연속 n번(n≥3)** 첫 `session.updated` 전에 보내도 — ① 항상 `chatApi.send` 호출은 점유 1건뿐(나머지 `newChatQueue` FIFO), ② n개 draft 엔트리가 모두 보존·렌더, ③ 승격이 진행될 때마다 큐가 **진입 순서대로** 하나씩 디스패치되어 n개 전부 정상 승격된다(소실·오승격 0). resume 턴은 게이트 밖이라 독립 동시 진행.
 4. **불변식**: 어느 시점에도 **미승격(sessionId 미발급) 새-채팅 main 턴은 ≤1개**다(렌더러 직렬화). **IPC 채널·payload·`NormalizedEvent`·main 코드 변경 0**.
 5. **배경 승격 비간섭**: 사용자가 2번째 새 채팅으로 이동한 상태에서 1번째 draft 가 `session.updated` 로 승격되어도 **활성 세션의 `activeKey`/URL 을 가로채지 않는다**.
 6. **init 등록**: `session.updated`(init) 시 **사이드바 최근 대화에 해당 세션이 등장**한다(턴 종료를 기다리지 않음).
@@ -164,6 +165,7 @@ release 트리거(session.updated 도착)는 async 이벤트지만 그 핸들러
 - 신규 테스트 요구 (전부 `chatStore.test.ts` — React 무의존 store 직접 검증):
   - **직렬 디스패치**: 새-채팅 A send → `chatApi.send` 1회 + `pendingNewChatKey=A`. A 미승격 상태에서 B send → `chatApi.send` **추가 호출 없음** + B 는 `newChatQueue` + 두 엔트리(draft:A·draft:B) 공존(인수 3·4).
   - **FIFO 승격 + 큐 릴리스**: A `session.updated` → A 가 sessionId 로 re-key + `recentsEpoch++` + B 가 디스패치(`chatApi.send` 2번째)되고 `pendingNewChatKey=B`(인수 1·6). B `session.updated` → B 승격.
+  - **n 연속(n≥3)**: A·B·C 연속 send → `chatApi.send` 1회 + `newChatQueue=[B,C]` + draft 엔트리 3개 공존. A·B·C 순서로 `session.updated` 처리 시 매번 큐가 하나씩 진행(`chatApi.send` 총 3회, 순서 보존)되고 3개 모두 sessionId 로 승격(인수 3-a).
   - **데드락 0**: A 가 init 전 sessionId 없는 `error`/`turn.aborted` → 큐 릴리스로 B 진입(인수 9).
   - **배경 비간섭**: 활성이 B 인데 A 가 승격 → `activeKey` 불변, A 만 re-key(인수 5).
   - **newChat 보존**: in-flight/대기 draft 가 있는 상태에서 `newChat()` → draft 엔트리·큐·`pendingNewChatKey` 불변(인수 2).
