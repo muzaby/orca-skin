@@ -361,3 +361,33 @@ describe('DbQueries message complete', () => {
     expect(q.loadParts('s1')[0].complete).toBe(1)
   })
 })
+
+describe('DbQueries attachment 파트 영속 왕복', () => {
+  it('user 메시지의 attachment 파트가 loadParts→partFromRow 로 복원된다', () => {
+    const db = dbWithMigrations()
+    insertSession(db)
+    const q = new DbQueries(db)
+    const id = q.appendMessage({ sessionId: 's1', role: 'user', content: '이거 봐', createdAt: 1 })
+    q.appendPart({
+      messageId: id,
+      type: 'text',
+      toolRunId: null,
+      payloadJson: JSON.stringify({ text: '이거 봐' })
+    })
+    const attachments = [
+      { id: 'a1', name: 'pic.png', mimeType: 'image/png', kind: 'image', previewDataUrl: 'data:x' },
+      { id: 'a2', name: 'spec.md', mimeType: 'text/markdown', kind: 'file' }
+    ]
+    q.appendPart({
+      messageId: id,
+      type: 'attachment',
+      toolRunId: null,
+      payloadJson: JSON.stringify({ attachments })
+    })
+
+    const rows = q.loadParts('s1')
+    expect(rows.map((r) => r.type)).toEqual(['text', 'attachment'])
+    // 영속 왕복 — attachment 파트가 payload_json 으로 보존된다(파트 복원은 dto.test 가 검증).
+    expect(JSON.parse(rows[1].payload_json)).toEqual({ attachments })
+  })
+})

@@ -23,22 +23,23 @@ export function AttachmentThumb({
   onRemove
 }: AttachmentThumbProps): React.JSX.Element {
   return (
-    <div
-      title={name}
-      className="group/attachment relative h-14 w-14 shrink-0 overflow-hidden rounded-r4 border border-border bg-sidebar"
-    >
-      {isImage && previewUrl ? (
-        <img src={previewUrl} alt={name} className="h-full w-full object-cover" />
-      ) : (
-        <div className="flex h-full w-full items-center justify-center px-1 text-center text-[11px] font-semibold tracking-wide text-ink2">
-          {extLabel(name)}
-        </div>
-      )}
+    // 바깥 wrapper 는 overflow 를 자르지 않는다 — 안쪽 시각 박스만 클립해, 박스 밖으로 나간
+    // 닫기 버튼(우상단)이 hover 시 잘리지 않게 한다.
+    <div title={name} className="group/attachment relative h-14 w-14 shrink-0">
+      <div className="h-full w-full overflow-hidden rounded-r4 border border-border bg-sidebar">
+        {isImage && previewUrl ? (
+          <img src={previewUrl} alt={name} className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center px-1 text-center text-[11px] font-semibold tracking-wide text-ink2">
+            {extLabel(name)}
+          </div>
+        )}
+      </div>
       {onRemove && (
         <button
           type="button"
           onClick={onRemove}
-          className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-border bg-panel text-ink3 opacity-0 shadow-sm transition group-hover/attachment:opacity-100 hover:text-ink"
+          className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-bad text-white opacity-0 shadow-sm transition group-hover/attachment:opacity-100 hover:brightness-110"
           aria-label={`${name} 첨부 제거`}
         >
           <Icon name="x" size={10} />
