@@ -80,9 +80,9 @@
 
 - [x] AC1 옵션 선택 톤 중립화 — 컨테이너 `border-rust bg-rust-soft`→`border-border-strong bg-t3`(중립 면), 인디케이터에만 accent(`border-rust bg-rust`) 유지. 단일=원형/다중=사각 보존.
 - [x] AC2 헤더 chip 정제 — `bg-rust-soft uppercase tracking-wide text-rust`→`bg-t3 text-t7`(중립·sentence-case).
-- [~] AC3 번호 배지·kbd 힌트 — 현 배치 유지(스크린샷 미공유 → 재배치 보류, 무회귀).
-- [~] AC4 이전/다음 화살표 + 1/N 카운터 — 현 배치 유지(동상).
-- [~] AC5 `AskExchange` 버블 — 이미 미니멀·`bg-bubble-user` 일치 → 무변경.
+- [x] AC3 번호 배지·kbd 힌트 (라운드2, 이미지1) — 번호 배지 수직 중앙정렬(`mt-0.5`→`self-center`), 하단 verbose 키보드 힌트 줄(`↑↓ 이동 · Space …`) 제거(스크린샷에 없음, Enter 힌트는 primary 버튼에).
+- [x] AC4 이전/다음 화살표 + 1/N 카운터 (라운드2, 이미지1) — 별도 화살표 행 제거 → 1/N 카운터를 질문 헤더 선두 배지로 이동(`bg-t3 text-t7`); primary 버튼이 전진 겸함(비-마지막=`다음`/goNext·현재 질문 답하면 활성, 마지막=`제출`/submit·전체 답해야 활성), Enter 동일 분기; 우상단 `×`=건너뛰기. ←→ 키보드 질문이동·자동진행 보존.
+- [x] AC5 `AskExchange` 버블 (라운드2, 이미지2) — 좌질문/우답변-항목별 분리 → **단일 우측 사용자 버블**에 줄마다 `질문(text-ink2) 답변(font-semibold)` 결합. `bg-bubble-user` 유지, header 표기 제거.
 - [x] AC6 컴포저 패널 스택 간격 — 카드 루트 `mb-2` 제거(부모 `gap-2` 이중간격 해소).
 - [x] AC7 키보드·자동진행·기타입력·접근성 무회귀 — 핸들러/파싱 무변경, className/토큰만 교체.
 - [x] AC8 classic/dark/cool 3 테마 — 전부 themed 토큰(`t3`·`t7`·`border-strong`·`rust`)만 사용, 신규 토큰 0.
@@ -92,11 +92,12 @@
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | `AskUserQuestionCard.tsx` (P1 선택 톤·P3 mb-2·P4 헤더 chip). `AskExchange.tsx`/`AskBody.tsx`/`tokens.css` 무변경(불필요). |
+| 변경 파일 | **라운드1**: `AskUserQuestionCard.tsx`(P1 선택 톤·P3 mb-2·P4 헤더 chip). **라운드2(스크린샷 재공유 후)**: `AskUserQuestionCard.tsx`(AC3·AC4 — 헤더 카운터·×·다음/제출 버튼·번호배지·힌트줄 제거) + `AskExchange.tsx`(AC5 단일 결합 버블). `AskBody.tsx`/`tokens.css` 무변경. |
 | 실행 명령 | `npm run lint` / `npm run typecheck` / `npm test` |
-| 게이트 결과 | lint ✅ / typecheck ✅(node+web+test) / test ✅ **471/471**(better-sqlite3 Node ABI 재빌드 후 green — 1차 12-red 는 `db/queries.test.ts` dual-ABI 환경=0019 계열, 렌더러 전용 변경 무관) |
-| 인수 기준 | AC1·2·6·7·8 코드 반영. AC3·4·5 는 사용자 판단위임(스크린샷 미공유)에 따라 현 배치 유지(무회귀). 시각 최종 판정은 사람. |
-| 블로커 / 역질문 | 없음 (스크린샷 픽셀 일치는 추후 재공유 시 후속 라운드 가능) |
+| 게이트 결과 | lint ✅ / typecheck ✅(node+web+test) / test ✅ **471/471**(better-sqlite3 Node ABI 재빌드 후 green) |
+| 인수 기준 | **AC1~8 전부 코드 반영**(라운드1=1·2·6·7·8, 라운드2=3·4·5). 시각 최종 판정은 사람. |
+| 블로커 / 역질문 | 없음 |
+| 편차 (라운드2) | ① 헤더 우상단 collapse chevron(⌄)은 미추가(새 collapse 상태 회피 — `×`=건너뛰기만). ② 다중질문 시 per-question header 라벨 대신 1/N 카운터만 표시(스크린샷 일치). ③ 옵션 좌측 라디오/체크 인디케이터는 유지(AC1, 스크린샷엔 없으나 본 라운드 범위 밖). |
 | 대상 커밋 | (push 후 기재) |
 
 ## [사람 확인 대기]
