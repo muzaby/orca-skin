@@ -242,16 +242,21 @@ function send(text: string, attachments: ComposerAttachment[] = []): boolean {
   dispatchActive({ type: 'SEND_USER_MESSAGE', text: trimmed })
   // 새 채팅 (sessionId=null) 첫 메시지일 때만 projectId 전달. resume 경로면 main 이
   // sessionId 로부터 직접 project_id 를 조회하므로 여기서는 null.
-  void chatApi.send({
-    sessionId: cur.sessionId,
-    projectId: cur.sessionId ? null : cur.pendingProjectId,
-    text: trimmed,
-    permissionMode: cur.permissionMode,
-    providerKey: cur.providerKey,
-    modelFamily: cur.modelFamily,
-    effort: cur.effort,
-    attachments
-  })
+  // fire-and-forget — 정상 턴 에러는 main 이 chat:error 이벤트로 surface 한다. invoke 자체가
+  // 거부되는 경우(pre-turn throw)는 main 에서 chat:error 로 변환하지만, 누락 방지 방어선으로
+  // 여기서도 거부를 삼켜 unhandled rejection 콘솔 노이즈를 막는다.
+  void chatApi
+    .send({
+      sessionId: cur.sessionId,
+      projectId: cur.sessionId ? null : cur.pendingProjectId,
+      text: trimmed,
+      permissionMode: cur.permissionMode,
+      providerKey: cur.providerKey,
+      modelFamily: cur.modelFamily,
+      effort: cur.effort,
+      attachments
+    })
+    .catch((err) => console.error('[chat] send invoke rejected', err))
   return true
 }
 

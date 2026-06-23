@@ -14,6 +14,18 @@ import type { SettingsStore } from './settings/store'
 // `npm run prepare-runtime` 이 main 번들 빌드 후 `electron . --prepare-runtime` 로 호출한다.
 const PREPARE_ONLY = process.argv.includes('--prepare-runtime')
 
+// 전역 미처리 예외 가드. Claude SDK 가 claude CLI 서브프로세스 stdin 으로 user 메시지를
+// 쓰다 실패하는 비동기 에러(예: 큰 이미지 첨부 전송 중 'write EOF at
+// WriteWrap.onWriteComplete')는 어댑터의 턴 try/catch 밖(SDK 소유 write 경로)이라 잡히지
+// 않는다. 핸들러가 없으면 Electron 기본 네이티브 에러창이 떠 UX 를 깨므로, 여기서 로깅으로
+// 흡수해 다이얼로그/크래시를 막는다. 진짜 버그를 숨기지 않도록 stderr 로는 항상 남긴다.
+process.on('unhandledRejection', (reason) => {
+  console.error('[main] unhandledRejection:', reason)
+})
+process.on('uncaughtException', (err) => {
+  console.error('[main] uncaughtException:', err)
+})
+
 // renderer 번들 루트 — production 빌드에서 electron-vite 가 `out/renderer/` 에
 // `index.html` + `assets/*` 을 산출한다. 본 모듈 위치(`out/main/index.js`) 기준 상대.
 const RENDERER_DIST = join(__dirname, '../renderer')

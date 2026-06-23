@@ -25,6 +25,7 @@ import type { Base64ImageSource } from '@anthropic-ai/sdk/resources/messages'
 import { formatAttachmentPromptBlock } from './attachment-prompt'
 import type { CompleteRequest, LiveTurn, SessionAdapter } from './types'
 import type { TurnRequest } from '../extensions/types'
+import type { ExtractedAttachmentImage, ExtractedAttachmentText } from '../files/attachments'
 import type { Resolver } from '../mcp/expand'
 import { toClaudeConfig } from '../mcp/convert'
 import { isRiskyTool } from '../runtime-events/permission-bridge'
@@ -231,27 +232,8 @@ export class ClaudeAdapter implements SessionAdapter {
       console.warn(`[mcp] 서버 '${d.name}' 를 건너뜀: ${d.reason}`)
     }
 
-    const content: TurnInputContent =
-      attachmentTexts.length === 0 && attachmentImages.length === 0
-        ? text
-        : [
-            { type: 'text', text },
-            ...attachmentTexts.map((a) => ({
-              type: 'text' as const,
-              text: formatAttachmentPromptBlock(a)
-            })),
-            ...attachmentImages.map((img) => ({
-              type: 'image' as const,
-              source: {
-                type: 'base64',
-                media_type: img.mimeType,
-                data: img.data
-              } as Base64ImageSource
-            }))
-          ]
-
     // 턴-스코프 입력 스트림 — close() 까지 미종료(streaming-input.ts 가 불변식 격리).
-    const input = createTurnInputStream(content)
+    const input = createTurnInputStream(buildTurnContent(text, attachmentTexts, attachmentImages))
 
     const handle = query({
       prompt: input.stream,
@@ -313,6 +295,33 @@ export class ClaudeAdapter implements SessionAdapter {
       setModel: (model) => handle.setModel(model)
     }
   }
+}
+
+// 턴 입력 content 조립 — 첨부 유무/종류에 따라 string vs content-block 배열을 고른다.
+// 텍스트 첨부만 있으면 attachment wrapper 를 본문 text 에 이어붙여 **string 으로 유지**한다
+// (무첨부 턴과 동일한 검증된 경로). content-block 배열은 **이미지 블록이 있을 때만** 쓴다 —
+// 이미지는 image source 블록이 불가피하기 때문. 순수 함수라 단위 테스트 대상.
+export function buildTurnContent(
+  text: string,
+  attachmentTexts: ExtractedAttachmentText[],
+  attachmentImages: ExtractedAttachmentImage[]
+): TurnInputContent {
+  const mergedText =
+    attachmentTexts.length === 0
+      ? text
+      : [text, ...attachmentTexts.map((a) => formatAttachmentPromptBlock(a))].join('\n\n')
+  if (attachmentImages.length === 0) return mergedText
+  return [
+    { type: 'text', text: mergedText },
+    ...attachmentImages.map((img) => ({
+      type: 'image' as const,
+      source: {
+        type: 'base64',
+        media_type: img.mimeType,
+        data: img.data
+      } as Base64ImageSource
+    }))
+  ]
 }
 
 function assistantText(msg: SDKMessage): string {
