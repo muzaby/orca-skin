@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Icon } from '../../../shared/ui/Icon'
 import { Button } from '../../../shared/ui/Button'
-import { YellowDot } from './transcript/YellowDot'
 import type { AskQuestionRequest } from '../../../../../shared/ipc'
 
 interface AskUserQuestionCardProps {
@@ -65,6 +64,9 @@ export function AskUserQuestionCard({
 
   const built = questions.map((q, i) => answerFor(q.multiSelect, picks[i], other[i]))
   const canSubmit = built.every((v) => v !== null)
+  // 마지막 질문이면 primary = 제출, 아니면 다음(현재 질문만 답하면 진행). 화살표 행 대신
+  // primary 버튼이 전진을 겸한다(참고 스크린샷 양식).
+  const isLast = current === last
 
   const submit = (): void => {
     if (!canSubmit) return
@@ -165,7 +167,9 @@ export function AskUserQuestionCard({
       !(e.target instanceof HTMLTextAreaElement)
     ) {
       e.preventDefault()
-      submit()
+      // 마지막 질문이면 제출, 아니면 현재 질문이 답해졌을 때 다음으로.
+      if (isLast) submit()
+      else if (built[current] !== null) goNext()
       return
     }
     if (multiQuestion && !(e.target instanceof HTMLTextAreaElement)) {
@@ -190,43 +194,31 @@ export function AskUserQuestionCard({
       aria-label="명확화 질문"
       onKeyDown={onRootKeyDown}
     >
-      {multiQuestion && (
-        <div className="mb-2.5 flex items-center gap-g3">
-          <Button
-            iconOnly
-            size="small"
-            leadingIcon="arrowL"
-            onClick={goPrev}
-            disabled={current === 0}
-            aria-label="이전 질문"
-          />
-          <span className="font-mono text-caption tabular-nums text-t6">
-            {current + 1}/{questions.length}
-          </span>
-          <Button
-            iconOnly
-            size="small"
-            leadingIcon="arrowR"
-            onClick={goNext}
-            disabled={current === last}
-            aria-label="다음 질문"
-          />
-        </div>
-      )}
-
       {(() => {
         const qIdx = current
         const q = questions[qIdx]
         return (
           <div>
-            <div className="mb-1 flex items-center gap-g3">
-              <YellowDot />
-              <span className="rounded bg-t3 px-1.5 py-0.5 text-caption font-semibold text-t7">
-                {q.header}
-              </span>
-              {q.multiSelect && <span className="text-caption text-t6">여러 개 선택 가능</span>}
+            {/* 헤더 — 다중 질문이면 1/N 카운터, 단일이면 질문 헤더 라벨을 선두 배지로.
+                우측 상단 × 는 건너뛰기(참고 스크린샷). 별도 이전/다음 화살표 행은 없다. */}
+            <div className="mb-2 flex items-start gap-g3">
+              <div className="min-w-0 flex-1">
+                <div className="mb-1 flex items-center gap-g3">
+                  <span className="rounded bg-t3 px-1.5 py-0.5 text-caption font-semibold tabular-nums text-t7">
+                    {multiQuestion ? `${current + 1}/${questions.length}` : q.header}
+                  </span>
+                  {q.multiSelect && <span className="text-caption text-t6">여러 개 선택 가능</span>}
+                </div>
+                <div className="text-[13.5px] font-medium text-t9">{q.question}</div>
+              </div>
+              <Button
+                iconOnly
+                size="small"
+                leadingIcon="x"
+                onClick={onSkip}
+                aria-label="건너뛰기"
+              />
             </div>
-            <div className="mb-2 text-[13.5px] font-medium text-t9">{q.question}</div>
             <div
               role="listbox"
               aria-multiselectable={q.multiSelect}
@@ -267,7 +259,7 @@ export function AskUserQuestionCard({
                       )}
                     </span>
                     {optIdx < 9 && (
-                      <kbd className="mt-0.5 shrink-0" aria-hidden>
+                      <kbd className="shrink-0 self-center" aria-hidden>
                         {optIdx + 1}
                       </kbd>
                     )}
@@ -290,28 +282,19 @@ export function AskUserQuestionCard({
         )
       })()}
 
-      <div className="mt-3 flex items-center gap-g4">
+      <div className="mt-3 flex items-center justify-end gap-g4">
+        <Button variant="uncontained" onClick={onSkip} data-behavior="dismissible">
+          건너뛰기
+        </Button>
         <Button
           variant="primary"
-          onClick={submit}
-          disabled={!canSubmit}
+          onClick={isLast ? submit : goNext}
+          disabled={isLast ? !canSubmit : built[current] === null}
           data-behavior="action:send"
           kbd="Enter"
         >
-          제출
+          {isLast ? '제출' : '다음'}
         </Button>
-        <Button variant="contained" onClick={onSkip} data-behavior="dismissible">
-          건너뛰기
-        </Button>
-        <span className="ml-auto text-caption text-t6">
-          <kbd>↑↓</kbd> 이동 · <kbd>Space</kbd> 선택 ·{' '}
-          {multiQuestion && (
-            <>
-              <kbd>←→</kbd> 질문 ·{' '}
-            </>
-          )}
-          <kbd>Enter</kbd> 제출 · <kbd>Esc</kbd> 건너뛰기
-        </span>
       </div>
     </div>
   )

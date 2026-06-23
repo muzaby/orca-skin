@@ -13,32 +13,19 @@ export const AskExchange = memo(function AskExchange({
   const { items, response } = parseAsk(call)
   if (items.length === 0) return null
 
+  // 해소된 Q&A 를 하나의 사용자 버블(우)에 모은다 — 줄마다 "질문(중립) 답변(굵게)".
+  // 참고 스크린샷(이미지 2) 양식.
   return (
-    <div className="flex flex-col gap-3">
-      {items.map((item, i) => (
-        <div key={i} className="flex flex-col gap-1.5">
-          {/* 질문 — 어시스턴트(좌) */}
-          <div className="text-[14px] leading-[1.7] text-ink">
-            {item.header && <span className="mr-1 text-ink3">{item.header} ·</span>}
-            {item.question}
+    <div className="flex justify-end">
+      <div className="flex max-w-[85%] flex-col gap-1 whitespace-pre-wrap rounded-2xl bg-bubble-user px-4 py-2.5 text-[14px] leading-[1.7] text-ink">
+        {items.map((item, i) => (
+          <div key={i}>
+            <span className="text-ink2">{item.question}</span>
+            {item.answer && <span className="font-semibold"> {item.answer}</span>}
           </div>
-          {/* 답변 — 사용자(우) */}
-          {item.answer && (
-            <div className="flex justify-end">
-              <div className="max-w-[75%] whitespace-pre-wrap rounded-2xl bg-bubble-user px-4 py-2.5 text-[14px] leading-[1.7] text-ink">
-                {item.answer}
-              </div>
-            </div>
-          )}
-        </div>
-      ))}
-      {response && (
-        <div className="flex justify-end">
-          <div className="max-w-[75%] whitespace-pre-wrap rounded-2xl bg-bubble-user px-4 py-2.5 text-[14px] leading-[1.7] text-ink">
-            {response}
-          </div>
-        </div>
-      )}
+        ))}
+        {response && <div className="font-semibold">{response}</div>}
+      </div>
     </div>
   )
 })
