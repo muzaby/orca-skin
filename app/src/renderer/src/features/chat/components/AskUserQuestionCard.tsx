@@ -199,31 +199,11 @@ export function AskUserQuestionCard({
         const q = questions[qIdx]
         return (
           <div>
-            {/* 헤더 — 다중 질문이면 카운터 좌측에 이전/다음 화살표 + 1/N 카운터, 단일이면 질문
-                헤더 라벨을 선두 배지로. 우측 상단 × 는 건너뛰기(참고 스크린샷). */}
+            {/* 헤더 — 선두 배지(다중=1/N 카운터, 단일=질문 헤더 라벨) + 질문. 우측 끝에
+                다중 질문이면 이전/다음 화살표, 그 우측에 × 건너뛰기(참고 스크린샷). */}
             <div className="mb-2 flex items-start gap-g3">
               <div className="min-w-0 flex-1">
                 <div className="mb-1 flex items-center gap-g3">
-                  {multiQuestion && (
-                    <span className="flex items-center gap-g2">
-                      <Button
-                        iconOnly
-                        size="small"
-                        leadingIcon="arrowL"
-                        onClick={goPrev}
-                        disabled={current === 0}
-                        aria-label="이전 질문"
-                      />
-                      <Button
-                        iconOnly
-                        size="small"
-                        leadingIcon="arrowR"
-                        onClick={goNext}
-                        disabled={current === last}
-                        aria-label="다음 질문"
-                      />
-                    </span>
-                  )}
                   <span className="rounded bg-t3 px-1.5 py-0.5 text-caption font-semibold tabular-nums text-t7">
                     {multiQuestion ? `${current + 1}/${questions.length}` : q.header}
                   </span>
@@ -231,6 +211,26 @@ export function AskUserQuestionCard({
                 </div>
                 <div className="text-[13.5px] font-medium text-t9">{q.question}</div>
               </div>
+              {multiQuestion && (
+                <>
+                  <Button
+                    iconOnly
+                    size="small"
+                    leadingIcon="arrowL"
+                    onClick={goPrev}
+                    disabled={current === 0}
+                    aria-label="이전 질문"
+                  />
+                  <Button
+                    iconOnly
+                    size="small"
+                    leadingIcon="arrowR"
+                    onClick={goNext}
+                    disabled={current === last}
+                    aria-label="다음 질문"
+                  />
+                </>
+              )}
               <Button
                 iconOnly
                 size="small"
