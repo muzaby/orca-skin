@@ -100,6 +100,20 @@
 | 편차 (라운드2) | ① 헤더 우상단 collapse chevron(⌄)은 미추가(새 collapse 상태 회피 — `×`=건너뛰기만). ② 다중질문 시 per-question header 라벨 대신 1/N 카운터만 표시(스크린샷 일치). ③ 옵션 좌측 라디오/체크 인디케이터는 유지(AC1, 스크린샷엔 없으나 본 라운드 범위 밖). |
 | 대상 커밋 | (push 후 기재) |
 
+## [라운드3] 피드백 수정 (Claude 직접 구현)
+
+사용자 피드백 3건(스크린샷):
+
+1. **AskExchange 정렬 버그** — 라운드2에서 Q&A 버블이 우측(사용자 측)으로 갔다. 어시스턴트가 물은 것이므로 `justify-end`→`justify-start`(좌측). `bg-bubble-user` 유지(우측 사용자 답변과 구분).
+2. **답변 미표시 버그** (Q1=기타입력 문자열 + Q2=복수선택 배열) — 정적 추적상 데이터 경로는 정상(기존 `ask.test.ts:13` 통과)이라 원인은 **질문 키 불일치**(answers 키=요청 정규화 경로 `q.question` ↔ `parseAsk` 의 질문원천=`call.input.questions` 원본 args). `parseAsk` 를 매칭 비의존으로 강화: questions 있으면 **키 매칭→인덱스 폴백**, questions 비면 **answers 엔트리로 직접 items 구성**. 단위테스트 2건 추가(키 불일치 폴백·questions 빈+answers).
+3. **복수 질문 화살표** — 헤더 `1/N` 카운터 **좌측**에 `←`/`→` 아이콘 버튼(`multiQuestion` 한정, `goPrev`/`goNext`, 경계 `disabled`). 라운드2 다음/제출 버튼·×·자동진행·키보드 유지.
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `AskExchange.tsx`(정렬) · `lib/ask.ts`+`lib/ask.test.ts`(답변 폴백+테스트) · `AskUserQuestionCard.tsx`(화살표) |
+| 게이트 결과 | lint ✅ / typecheck ✅(node+web+test) / test ✅ **473/473**(+2 parseAsk) |
+| 편차 | 답변 미표시는 정적 재현 불가(경로 정상) → 키 불일치 가설에 견고한 폴백으로 대응. 런타임 재현 시 근본원인 추가 확인 가능. |
+
 ## [사람 확인 대기]
 
 - UI 시각 검증(`npm run dev`): 옵션 선택 톤이 중립(회색 면 + 강한 경계, accent 는 라디오/체크 인디케이터에만)으로 바뀌었는지, 헤더 chip 무채도·sentence-case, ask 카드 아래 간격, **3 테마(특히 cool — `rust`=파랑) 선택 톤**.

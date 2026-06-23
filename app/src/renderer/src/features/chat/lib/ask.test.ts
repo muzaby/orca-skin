@@ -52,4 +52,33 @@ describe('parseAsk', () => {
   it('questions 없으면 빈 items', () => {
     expect(parseAsk(call({})).items).toEqual([])
   })
+
+  it('답변 키가 질문텍스트와 어긋나면 같은 인덱스 값으로 폴백', () => {
+    // input.questions 의 question 텍스트와 answers 키가 불일치(정규화 경로 차이)해도
+    // 위치(인덱스) 폴백으로 답을 잡는다.
+    const { items } = parseAsk(
+      call({
+        questions: [
+          { header: '언어', question: '주로 어떤 언어?' },
+          { header: '종류', question: '어떤 종류?' }
+        ],
+        answers: {
+          '주로 어떤 언어를 쓰나요?': ['Python', 'Go'],
+          '어떤 종류의 프로젝트?': '내가입력'
+        }
+      })
+    )
+    expect(items).toEqual([
+      { header: '언어', question: '주로 어떤 언어?', answer: 'Python, Go' },
+      { header: '종류', question: '어떤 종류?', answer: '내가입력' }
+    ])
+  })
+
+  it('input.questions 가 비어도 answers 엔트리로 items 구성', () => {
+    const { items } = parseAsk(call({}, { answers: { 질문1: '기타직접', 질문2: ['A', 'B'] } }))
+    expect(items).toEqual([
+      { header: '', question: '질문1', answer: '기타직접' },
+      { header: '', question: '질문2', answer: 'A, B' }
+    ])
+  })
 })
