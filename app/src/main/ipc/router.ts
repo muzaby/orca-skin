@@ -12,7 +12,7 @@ import { MockAdapter } from '../adapters/mock'
 import { Installer } from '../installer'
 import { SettingsStore } from '../settings/store'
 import { McpStore } from '../mcp/store'
-import { ensureConfigDir, getWorkspacePath, sourcesSkillsDir, workspaceDir } from '../config/paths'
+import { ensureConfigDir, getWorkspacePath, sourcesSkillsDir } from '../config/paths'
 import { loadOrcaConfig } from '../config/orca-config'
 import { SecretStore } from '../config/secret-store'
 import { deploy } from '../deploy/deployer'
@@ -133,7 +133,7 @@ export class IpcRouter {
       broadcastConcurrency({ projectId, count })
     )
     await this.registry.refreshInstallState()
-    this.defaultCwd = workspaceDir()
+    this.defaultCwd = getWorkspacePath(null)
     await mkdir(this.defaultCwd, { recursive: true }).catch((e) =>
       console.warn('[boot] workspace 생성 실패:', e)
     )
@@ -176,7 +176,7 @@ export class IpcRouter {
       refreshSkills: () => this.refreshSkills(),
       syncExtensions: () => this.syncExtensions(),
       syncExtensionsForTurn: (cwd) => this.syncExtensionsForTurn(cwd),
-      getCwd: (projectId, sessionId) => getWorkspacePath(projectId, sessionId),
+      getCwd: (projectId) => getWorkspacePath(projectId ? db.getProject(projectId) : null),
       concurrency,
       debugMock: this.debugMock,
       mockAdapter: import.meta.env.DEV ? new MockAdapter(() => this.debugMock) : null

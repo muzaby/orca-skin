@@ -17,7 +17,7 @@ import { handle, handlePlain } from '../registry'
 
 export function registerSessionHandlers(ctx: RouterContext): void {
   // Renderer 가 세션 init 이벤트 전에도 cwd 를 알 수 있도록 노출. chat send 와
-  // 동일한 cwd 단일 소스 — 현재는 home 고정.
+  // 동일한 cwd 단일 소스 — 인자 없는 호출은 비-프로젝트 기본(projects/default).
   handlePlain(CHANNELS.sessionCwd, (): string => ctx.getCwd())
 
   handlePlain(CHANNELS.sessionList, (): SessionListItem[] =>

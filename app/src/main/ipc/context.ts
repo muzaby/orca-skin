@@ -42,8 +42,9 @@ export interface RouterContext {
   syncExtensions(): void
   // 턴 시작 게이트 — 해당 cwd 가 이번 실행에서 미싱크면 1회 dist→cwd 싱크(세션별 cwd 대비).
   syncExtensionsForTurn(cwd: string): void
-  // chat send · files list · session cwd 가 공유하는 단일 cwd.
-  getCwd(projectId?: string | null, sessionId?: string | null): string
+  // chat send · files list · session cwd 가 공유하는 단일 cwd. 프로젝트 미소속이면
+  // projects/default, 소속이면 projects/<이름>-<프로젝트ID8> (DB 에서 이름 조회).
+  getCwd(projectId?: string | null): string
   concurrency: import('./chat/concurrency-registry').ConcurrencyRegistry
   debugMock: DebugMockState
   mockAdapter: MockAdapter | null
