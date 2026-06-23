@@ -1,4 +1,4 @@
-export type AttachmentSourceKind = 'dialog' | 'drag_drop' | 'clipboard'
+import type { AttachmentSourceKind } from '../../shared/ipc'
 
 export interface AttachmentPromptBlockInput {
   id: string
