@@ -1,11 +1,4 @@
-import {
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ClipboardEvent,
-  type KeyboardEvent
-} from 'react'
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { Button } from '../../../shared/ui/Button'
 import { Icon } from '../../../shared/ui/Icon'
 import { UsageCircle } from '../../../shared/ui/UsageCircle'
@@ -38,14 +31,8 @@ import { useSkills } from '../../../shared/hooks/useSkills'
 import { useAgents } from '../../../shared/hooks/useAgents'
 import { useSkillAutocomplete } from '../hooks/useSkillAutocomplete'
 import { useFileAutocomplete } from '../hooks/useFileAutocomplete'
-import { fileApi } from '../../../shared/api/ipc'
-import { downscaleDataUrl } from '../lib/imageThumb'
-import type {
-  AttachmentView,
-  ComposerAttachment,
-  FileEntry,
-  SkillInfo
-} from '../../../../../shared/ipc'
+import { useAttachments } from '../hooks/useAttachments'
+import type { FileEntry, SkillInfo } from '../../../../../shared/ipc'
 
 interface ComposerProps {
   backendLabel: string
@@ -106,9 +93,18 @@ export function Composer({
   const [attachMenuOpen, setAttachMenuOpen] = useState(false)
   const [draft, setDraft] = useState('')
   const [caret, setCaret] = useState(0)
-  const [attachments, setAttachments] = useState<ComposerAttachment[]>([])
-  const [attachmentPreviews, setAttachmentPreviews] = useState<Record<string, string>>({})
-  const [draggingAttachment, setDraggingAttachment] = useState(false)
+  const {
+    attachments,
+    attachmentPreviews,
+    draggingAttachment,
+    setDraggingAttachment,
+    pickAttachments,
+    removeAttachment,
+    addDroppedFiles,
+    onPaste,
+    buildAttachmentViews,
+    reset: resetAttachments
+  } = useAttachments()
   const skills = useSkills()
   const agents = useAgents()
   const knownSkillNames = useMemo(() => new Set(skills.map((s) => s.name)), [skills])
@@ -263,127 +259,6 @@ export function Composer({
     })
   }
 
-  const addAttachments = async (items: ComposerAttachment[]): Promise<void> => {
-    const startIndex = attachments.length
-    setAttachments((current) => [...current, ...items])
-    const previews: Record<string, string> = {}
-    await Promise.all(
-      items.map(async (att, offset) => {
-        if (!att.mimeType.startsWith('image/')) return
-        const key = `${att.name}-${startIndex + offset}`
-        if (att.kind === 'inline') previews[key] = `data:${att.mimeType};base64,${att.data}`
-        else {
-          const result = await fileApi.readAttachment(att.path).catch(() => null)
-          if (result) previews[key] = `data:${result.mimeType};base64,${result.data}`
-        }
-      })
-    )
-    if (Object.keys(previews).length > 0) {
-      setAttachmentPreviews((current) => ({ ...current, ...previews }))
-    }
-  }
-
-  const pickAttachments = async (): Promise<void> => {
-    setAttachMenuOpen(false)
-    const picked = await fileApi.pickAttachments().catch(() => [])
-    await addAttachments(
-      picked.map((p) => ({
-        kind: 'path' as const,
-        path: p.path,
-        name: p.name,
-        mimeType: p.mimeType,
-        sizeBytes: p.sizeBytes,
-        sourceKind: 'dialog' as const
-      }))
-    )
-  }
-
-  const removeAttachment = (index: number): void => {
-    setAttachments((current) => current.filter((_, i) => i !== index))
-    setAttachmentPreviews((current) => {
-      const next = { ...current }
-      delete next[`${attachments[index]?.name ?? ''}-${index}`]
-      return next
-    })
-  }
-
-  const readFileAsBase64 = (file: File): Promise<string> =>
-    new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onerror = () => reject(reader.error)
-      reader.onload = () => {
-        const result = typeof reader.result === 'string' ? reader.result : ''
-        resolve(result.includes(',') ? result.slice(result.indexOf(',') + 1) : result)
-      }
-      reader.readAsDataURL(file)
-    })
-
-  const addDroppedFiles = async (files: FileList): Promise<void> => {
-    const next: ComposerAttachment[] = []
-    for (const file of Array.from(files)) {
-      const path = fileApi.pathForFile(file)
-      if (path) {
-        next.push({
-          kind: 'path',
-          path,
-          name: file.name,
-          mimeType: file.type || 'application/octet-stream',
-          sizeBytes: file.size,
-          sourceKind: 'drag_drop'
-        })
-      }
-    }
-    await addAttachments(next)
-  }
-
-  const onPaste = (event: ClipboardEvent<HTMLDivElement>): void => {
-    const files = Array.from(event.clipboardData.files).filter((file) =>
-      file.type.startsWith('image/')
-    )
-    if (files.length === 0) return
-    event.preventDefault()
-    void Promise.all(
-      files.map(
-        async (file): Promise<ComposerAttachment> => ({
-          kind: 'inline',
-          data: await readFileAsBase64(file),
-          name: file.name || 'pasted-image.png',
-          mimeType: file.type || 'image/png',
-          sizeBytes: file.size,
-          sourceKind: 'clipboard'
-        })
-      )
-    ).then(addAttachments)
-  }
-
-  // 전송 시 영속·렌더용 첨부 뷰를 만든다 — 이미지는 다운스케일 썸네일로 줄여 DB/트랜스크립트에
-  // 가볍게 남긴다. 썸네일은 컴포저의 비동기 미리보기 state 가 아니라 **소스에서 직접** 만들어
-  // (path=readAttachment, inline=보유 바이트), 빠르게 전송해도 항상 영속되게 한다.
-  const sourceDataUrl = async (att: ComposerAttachment): Promise<string | undefined> => {
-    if (att.kind === 'inline') return `data:${att.mimeType};base64,${att.data}`
-    const read = await fileApi.readAttachment(att.path).catch(() => null)
-    return read ? `data:${read.mimeType};base64,${read.data}` : undefined
-  }
-
-  const buildAttachmentViews = (items: ComposerAttachment[]): Promise<AttachmentView[]> =>
-    Promise.all(
-      items.map(async (att): Promise<AttachmentView> => {
-        const isImage = att.mimeType.startsWith('image/')
-        const view: AttachmentView = {
-          id: crypto.randomUUID(),
-          name: att.name,
-          mimeType: att.mimeType,
-          kind: isImage ? 'image' : 'file',
-          ...(att.sizeBytes !== undefined ? { sizeBytes: att.sizeBytes } : {})
-        }
-        if (isImage) {
-          const full = await sourceDataUrl(att)
-          if (full) view.previewDataUrl = await downscaleDataUrl(full)
-        }
-        return view
-      })
-    )
-
   const submit = (): void => {
     if (draft.trim() === '' || inflight) return
     const text = draft
@@ -392,8 +267,7 @@ export function Composer({
       if (!send(text, items, views)) return
       setDraft('')
       setCaret(0)
-      setAttachments([])
-      setAttachmentPreviews({})
+      resetAttachments()
     })
   }
 
@@ -694,7 +568,13 @@ export function Composer({
         anchorRef={attachButtonRef}
         onClose={() => setAttachMenuOpen(false)}
       >
-        <AttachMenu onPickAttachment={pickAttachments} onPickSkill={openSkillPicker} />
+        <AttachMenu
+          onPickAttachment={() => {
+            setAttachMenuOpen(false)
+            void pickAttachments()
+          }}
+          onPickSkill={openSkillPicker}
+        />
       </Popover>
       <Popover
         open={effortMenuOpen}
