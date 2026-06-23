@@ -23,8 +23,8 @@
 ### 사용자 확정 사항
 
 1. **R1 의 실체 = 동시성 버그.** 일반 단일 전송은 이미 정상 전환된다(`/new` 에서 `messages>0` 이 되는 순간 `NewChatLandingPage` 가 `ChatTile` 로 자연 전환). 문제는 **"전송 → 새 대화 클릭 → 다시 전송"** 을 첫 `session.updated` 도착 전에 빠르게 했을 때다: 랜딩으로 돌아갔다 재전환되고, **2번째 세션이 최근대화에 기록되지 않고 소멸**, 남은 세션은 **첫 턴 사용자 메시지 버블이 사라진다**.
-2. **R2 트리거 시점 = 첫 partial**(`message.delta`).
-3. **제목 생성 turn-end 안전망 유지** — 출력 없이 끝난 턴(즉시 에러 등) 대비.
+2. **R2 트리거 앵커 = `session.updated`(init)**. (1차 응답은 "첫 partial" 이었으나, "첫 이벤트가 partial 이 맞는가?" 재확인 후, 첫 이벤트는 `session.updated`(init)이고 sessionId·DB row 가 그 시점에 존재함을 반영해 init 으로 확정.)
+3. **제목 생성 turn-end 안전망 유지** — 멱등 belt-and-suspenders.
 
 ### 근본 원인 (코드 확인 완료)
 
@@ -34,11 +34,16 @@
 - **메인** `ipc/chat/turn-registry.ts`: `pendingByOwner: Map<WebContents, InflightTurn>` — 창당 pending 슬롯 1개. `send.ts` 의 중복 가드 `turns.hasPending(sender)` 가 2번째 새-채팅 전송을 거부하거나, 타이밍에 따라 `promote(owner, …)` 가 슬롯을 오염시킨다.
 - **상관 키 부재**: `session.updated` 이벤트가 `sessionId` 만 싣고 어느 새-채팅(draft)의 것인지 표시하지 않아, 렌더러가 올바른 엔트리를 골라 승격할 수 없다.
 
-### 이벤트 순서 (확인)
+### 이벤트 순서 (확인 · `claude-map.ts`)
 
-claude SDK `system/init` → **`session.updated`**(sessionId 발급; `persist.ts` 가 `insertSession` 으로 DB 세션 row + 대기 user 메시지 기록) → **`message.delta`**(partials) → … → **`telemetry`**(턴 종료; `persist.ts` 가 `onTurnEnd(turn)` → `TitleGenerator.maybeStart`).
+claude SDK `system/init` → **`session.updated`**(sessionId 발급; `persist.ts` 가 `insertSession` 으로 DB 세션 row + 대기 user 메시지 기록) → **`message.delta`**(partials; `includePartialMessages: true`) → `assistant`(`message.completed`/`tool.call.started`) → … → **`telemetry`**(턴 종료; `persist.ts` 가 `onTurnEnd(turn)` → `TitleGenerator.maybeStart`).
 
-함의: **DB `insertSession` 은 이미 init(= partial 이전) 에서 pre-init** 된다. 반면 **사이드바 "최근 대화" refresh 와 제목 생성은 turn-end 시점**이라 늦다(사이드바는 `useChatSessionsSync` 의 inflight true→false 전이, 제목은 `onTurnEnd`). R2 는 이 둘을 **첫 partial** 로 앞당기는 것이다.
+함의 (중요):
+- **첫 이벤트는 partial 이 아니라 `session.updated`(init)** 이다. partial(`message.delta`)은 그 뒤에 온다.
+- `message.delta` 는 **항상 보장되지 않는다** — 텍스트 없이 도구만 호출하는 턴, init 직후 에러 턴에는 없을 수 있다.
+- **DB `insertSession` 은 이미 init 에서 pre-init** 된다. 반면 **사이드바 refresh·제목 생성은 turn-end** 라 늦다(사이드바=`useChatSessionsSync` 의 inflight true→false, 제목=`onTurnEnd`).
+
+→ **사용자 확정**: 두 후속 작업(등록·제목)의 트리거 앵커는 **`session.updated`(init)** — 진짜 첫 이벤트이자 sessionId·DB row 가 존재하는 가장 이른 시점. (요구사항의 "partial 도착하자마자"는 "complete 를 기다리지 말고 가능한 한 일찍"의 의도이며, 실제 데이터 생성 지점인 init 으로 앵커링한다.)
 
 ## 인수 기준 (Acceptance Criteria)
 
@@ -48,9 +53,9 @@ claude SDK `system/init` → **`session.updated`**(sessionId 발급; `persist.ts
 2. **버블 보존**: 위 시나리오에서 각 세션의 **첫 턴 사용자 메시지 버블이 보존**된다(엉뚱한 엔트리 승격 없음).
 3. **배경 승격 비간섭**: 사용자가 다음 새 채팅으로 이동한 상태에서 이전 draft 가 `session.updated` 로 승격되어도 **활성 세션의 `activeKey`/URL 을 가로채지 않는다**.
 4. **상관 키 왕복**: 새-채팅 전송 payload 에 `draftId` 가 실리고, 그 턴의 `session.updated` 이벤트가 **같은 `draftId` 를 echo** 한다. `docs/IPC_CONTRACT.md` 가 동기화된다.
-5. **첫-partial 등록**: 첫 partial 도착 시 **사이드바 최근 대화에 해당 세션이 등장**한다(턴 종료를 기다리지 않음).
-6. **첫-partial 제목**: 첫 partial 도착 시 **제목 생성 query 가 발사**되어 스트리밍과 **병렬** 진행되고, 완료 시 기존 `sessionTitleEvent` 로 in-place 반영된다.
-7. **안전망 + 멱등**: 출력 없이 끝난 턴은 **turn-end 안전망**으로만 처리(첫-partial 미발사)되고, 제목 생성은 어떤 경우에도 **턴당 1회**만 실행된다(`titleGenerationStarted` 멱등).
+5. **init 등록**: `session.updated`(init) 시 **사이드바 최근 대화에 해당 세션이 등장**한다(턴 종료를 기다리지 않음).
+6. **init 제목**: `session.updated`(init) 시 **제목 생성 query 가 발사**되어 스트리밍과 **병렬** 진행되고, 완료 시 기존 `sessionTitleEvent` 로 in-place 반영된다.
+7. **멱등 + 안전망**: 제목 생성은 **턴당 1회**만 실행된다(`titleGenerationStarted` 멱등). turn-end 안전망 유지(belt-and-suspenders).
 8. **회귀 0**: 일반 단일 새-채팅 및 이어가기(resume, `sessionId != null`) 경로의 동작이 바뀌지 않는다.
 9. **게이트 + 테스트**: `cd app && npm run lint && npm run typecheck && npm test` 통과 + 신규 단위 테스트(아래 게이트 절).
 
@@ -98,12 +103,14 @@ claude SDK `system/init` → **`session.updated`**(sessionId 발급; `persist.ts
 
 `useChatRouteSync` 방향 2(armed-ref)는 무변경: 활성 세션의 sessionId 가 null→non-null 될 때만 navigate 하므로, 배경 draft 승격에는 발사되지 않는다.
 
-### Part B — 첫 partial 에 등록 + 제목 (R2)
+### Part B — `session.updated`(init) 에 등록 + 제목 (R2)
 
-- **제목 생성 (메인 내부 · IPC 무변경)**: `router.ts:195` 에서 만든 `titles`(`TitleGenerator`) 를 `ChatDeps` 로 `registerChatHandlers` 에 주입한다. `send.ts` 이벤트 루프에서 **첫 콘텐츠 이벤트**(`message.delta` / `message.reasoning.delta` / `message.completed` / `tool.call.started`) 1회에 `titles.maybeStart(turn)` 를 호출한다(`turn.contentStarted` 게이트로 1회). `maybeStart` 는 `turn.titleGenerationStarted` 로 **멱등** → 첫-partial 과 turn-end 양쪽에서 호출돼도 1회만 실행. `dbSessionId`/`firstUserText` 는 init 에서 이미 채워져 있어 첫 partial 시점에 사용 가능.
-  - **turn-end 안전망 유지**: `persist.ts` 의 `onTurnEnd(turn)` → `maybeStart` 경로는 그대로 둔다(인수 기준 7). 첫 partial 이 없던 턴(출력 0)은 turn-end 에서만 시도되고, `dbSessionId` 가 있으면 제목 생성, 없으면 `shouldGenerateTitle` 이 false.
-- **최근 대화 등록 (렌더러 · 신규 IPC 채널 0)**: `chatStore.receive()` 에서 엔트리별 **첫 콘텐츠 델타** 1회에 store 카운터 `recentsEpoch` 를 증가시킨다(`SessionEntry.registered` 플래그로 1회 보장 — 전 세션/배경 턴 포함). 셸 훅 `app/src/renderer/src/app/hooks/useChatSessionsSync.ts` 가 `recentsEpoch` 변화를 구독해 `sessionsActions.refresh()` 를 호출한다(`features/chat` → `features/sessions` 직접 결합 금지 → **셸이 호스트**, 경계 준수). 기존 inflight false→refresh 는 완료 후 preview/정렬 동기화로 **유지**(중복 무해).
-- **pre-init 메모**: 세션 DB row 는 이미 `session.updated`(init) 에서 `insertSession` 되어 pre-init 상태다. 현재 별도의 공간/워크스페이스 실제 할당은 turn-end 에 없다(`getWorkspacePath` 는 턴마다 순수 계산, handoff 0039). 따라서 본 작업의 "등록"은 **사이드바 가시화 + 제목**을 첫 partial 로 앞당기는 것이다. 향후 세션별 공간/메타데이터 **실제 선할당**이 필요해지면, complete 를 기다리지 말고 동일하게 **init(또는 첫 partial) 시점에 pre-init** 하라(문서에 기준 명시).
+> 트리거 앵커 = **`session.updated`(init)**. 첫 이벤트이자 sessionId·DB row 가 존재하는 가장 이른 시점이라, 첫-콘텐츠 감지/게이팅(`contentStarted`·`registered` 플래그)이 **불필요**해 설계가 단순해진다.
+
+- **제목 생성 (메인 내부 · IPC 무변경)**: `router.ts:195` 에서 만든 `titles`(`TitleGenerator`) 를 `ChatDeps` 로 `registerChatHandlers` 에 주입한다. `send.ts` 이벤트 루프에서 `ev.type === 'session.updated'` 처리 시 — **`persistence.persist(turn, ev)` 가 `turn.dbSessionId` 세팅 + `insertSession` 을 끝낸 직후** — `titles.maybeStart(turn)` 를 호출한다. `dbSessionId`/`firstUserText` 모두 이 시점에 확보됨. `maybeStart` 는 `turn.titleGenerationStarted` 로 **멱등** → init·turn-end 양쪽에서 호출돼도 1회만 실행. 제목 query 가 스트리밍과 **병렬** 진행.
+  - **turn-end 안전망 유지**: `persist.ts` 의 `onTurnEnd(turn)` → `maybeStart` 경로는 그대로 둔다(인수 기준 7). 새 세션은 init 에서 이미 시작되므로 이제 belt-and-suspenders(멱등 무해).
+- **최근 대화 등록 (렌더러 · 신규 IPC 채널 0)**: `chatStore.receive()` 의 `session.updated`(promoteDraft) 경로에서 store 카운터 `recentsEpoch` 를 증가시킨다(세션당 1회 — 승격 시점, 전 세션/배경 턴 포함). 셸 훅 `app/src/renderer/src/app/hooks/useChatSessionsSync.ts` 가 `recentsEpoch` 변화를 구독해 `sessionsActions.refresh()` 를 호출한다(`features/chat` → `features/sessions` 직접 결합 금지 → **셸이 호스트**, 경계 준수). 기존 inflight false→refresh 는 완료 후 preview/정렬 동기화로 **유지**(중복 무해).
+- **pre-init 메모**: 세션 DB row 는 이미 `session.updated`(init) 에서 `insertSession` 되어 pre-init 상태다. 현재 별도의 공간/워크스페이스 실제 할당은 turn-end 에 없다(`getWorkspacePath` 는 턴마다 순수 계산, handoff 0039). 따라서 본 작업의 "등록"은 **사이드바 가시화 + 제목**을 init 으로 앞당기는 것이다. 향후 세션별 공간/메타데이터 **실제 선할당**이 필요해지면, complete 를 기다리지 말고 동일하게 **init 시점에 pre-init** 하라.
 
 ### 레이어 경계
 
@@ -137,8 +144,8 @@ claude SDK `system/init` → **`session.updated`**(sessionId 발급; `persist.ts
 - 신규 테스트 요구:
   - `turn-registry.test.ts` — 두 draftId 동시 pending → 각각 독립 promote(서로 오염 없음); 같은 draftId 재시작 가드.
   - send 스키마 — `SendChatMessageSchema` 가 `draftId` 를 수용/생략 모두 파싱.
-  - 첫-partial 멱등 — 콘텐츠 이벤트 다수에도 `maybeStart` 가 1회만(또는 `contentStarted` 게이트 단위 검증).
-  - (가능하면) store 순수 로직 — `promoteDraft` 가 비활성 draft 승격 시 `activeKey` 불변, 활성 draft 승격 시 추종.
+  - 제목 멱등 — `session.updated` 다회/`onTurnEnd` 중복 호출에도 `maybeStart` 가 1회만(`titleGenerationStarted`).
+  - (가능하면) store 순수 로직 — `promoteDraft` 가 비활성 draft 승격 시 `activeKey` 불변·`recentsEpoch` 증가, 활성 draft 승격 시 추종.
 
 ---
 
@@ -146,7 +153,7 @@ claude SDK `system/init` → **`session.updated`**(sessionId 발급; `persist.ts
 
 - [ ] L0: `protocol.ts` `draftId?` + `ipc.ts` `session.updated.draftId?` / payload 타입
 - [ ] 메인: `turn-registry` `pendingByDraft` API + `InflightTurn.draftId`
-- [ ] 메인: `send.ts` draftId 가드/시작/승격 + `session.updated` draftId 주입 + 첫-partial `maybeStart`
+- [ ] 메인: `send.ts` draftId 가드/시작/승격 + `session.updated` draftId 주입 + init `maybeStart`
 - [ ] 메인: `router.ts` `titles` 주입(`ChatDeps`)
 - [ ] 렌더러: `chatStore` `send`/`promoteDraft`/`newChat`/`recentsEpoch`
 - [ ] 렌더러: `useChatSessionsSync` `recentsEpoch` refresh
