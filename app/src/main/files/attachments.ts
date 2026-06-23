@@ -2,14 +2,10 @@ import { promises as fs } from 'node:fs'
 import { basename, extname, parse, resolve } from 'node:path'
 import { homedir, platform } from 'node:os'
 import type { AttachmentSourceKind, ComposerAttachment } from '../../shared/ipc'
+import { SUPPORTED_IMAGE_MEDIA_TYPES } from '../capabilities/image'
 
 export const MAX_FILE_CONTEXT_CHARS = 24_000
-export const SUPPORTED_IMAGE_MIME_TYPES = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/gif'
-])
+export const SUPPORTED_IMAGE_MIME_TYPES = new Set<string>(SUPPORTED_IMAGE_MEDIA_TYPES)
 
 export interface ExtractedAttachmentText {
   id: string
@@ -69,12 +65,12 @@ export async function fileMeta(
   return { name: basename(path), mimeType: mimeTypeForPath(path), sizeBytes: st.size }
 }
 
-export function stripDataUrlPrefix(data: string): string {
+function stripDataUrlPrefix(data: string): string {
   const idx = data.indexOf(',')
   return data.startsWith('data:') && idx >= 0 ? data.slice(idx + 1) : data
 }
 
-export function makeAttachmentId(source: { name: string; path?: string; data?: string }): string {
+function makeAttachmentId(source: { name: string; path?: string; data?: string }): string {
   const seed = `${source.name}:${source.path ?? ''}:${source.data?.slice(0, 24) ?? ''}`
   let hash = 0
   for (let i = 0; i < seed.length; i += 1) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0
