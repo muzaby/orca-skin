@@ -13,6 +13,7 @@ import type { OrcaMcpConfig } from '../mcp/schema'
 import type { ApprovalResolution, EffortLevel, PermissionAction, SkillInfo } from '../../shared/ipc'
 import type { NormalizedPermissionMode } from '../../shared/permission-mode'
 import type { NormalizedHookSet } from './hooks'
+import type { ExtractedAttachmentImage, ExtractedAttachmentText } from '../files/attachments'
 
 // SKILL.md 스캔 메타 DTO 를 그대로 재사용 (step 2 — 자산 가시화).
 export type NormalizedSkillRef = SkillInfo
@@ -57,4 +58,6 @@ export interface TurnRequest {
   permissionMode?: NormalizedPermissionMode
   // Claude Code thinking effort. SDK Options.effort 로 per-turn 전달한다.
   effort?: EffortLevel
+  attachmentTexts?: ExtractedAttachmentText[]
+  attachmentImages?: ExtractedAttachmentImage[]
 }

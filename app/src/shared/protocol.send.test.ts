@@ -67,3 +67,36 @@ describe('SendChatMessageSchema — effort', () => {
     expect(SendChatMessageSchema.safeParse({ ...base, effort: 'extreme' }).success).toBe(false)
   })
 })
+
+describe('SendChatMessageSchema — attachments', () => {
+  const base = { sessionId: null, projectId: null, text: 'hello' }
+
+  it('defaults attachments to [] for legacy payloads', () => {
+    const parsed = SendChatMessageSchema.parse(base)
+    expect(parsed.attachments).toEqual([])
+  })
+
+  it('accepts path and inline composer attachment variants', () => {
+    expect(
+      SendChatMessageSchema.safeParse({
+        ...base,
+        attachments: [
+          {
+            kind: 'path',
+            path: '/home/user/a.md',
+            name: 'a.md',
+            mimeType: 'text/markdown',
+            sourceKind: 'dialog'
+          },
+          {
+            kind: 'inline',
+            data: 'abc',
+            name: 'paste.png',
+            mimeType: 'image/png',
+            sourceKind: 'clipboard'
+          }
+        ]
+      }).success
+    ).toBe(true)
+  })
+})

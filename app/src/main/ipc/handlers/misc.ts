@@ -6,6 +6,7 @@ import {
   AuthorSkillSchema,
   DebugMockPatchSchema,
   ListFilesRequestSchema,
+  ReadAttachmentRequestSchema,
   SetSkillEnabledSchema,
   SkillTargetSchema,
   SearchMessagesRequestSchema,
@@ -16,15 +17,23 @@ import {
   type CostSummary,
   type DebugMockState,
   type FileEntry,
+  type PickedAttachment,
+  type ReadAttachmentResult,
   type SearchHit,
   type Settings,
   type SkillInfo
 } from '../../../shared/protocol'
-import { shell } from 'electron'
+import { dialog, shell } from 'electron'
 import { toAgentEnvironments } from '../../settings/provider-settings'
 import { removeOrcaSkillDir, writeAuthoredSkill, writeUploadedSkill } from '../../skills/sources'
 import { skillEnabledKey } from '../../skills/scan'
+import {
+  fileMeta,
+  assertAllowedAttachmentPath,
+  SUPPORTED_IMAGE_MIME_TYPES
+} from '../../files/attachments'
 import { listDir } from '../../files/scan'
+import { promises as fs } from 'node:fs'
 import { sendInstallStatus, setWireLog, type RouterContext } from '../context'
 import { handle, handlePlain } from '../registry'
 
@@ -124,6 +133,37 @@ export function registerMiscHandlers(ctx: RouterContext): void {
     ListFilesRequestSchema,
     { fallback: [] as FileEntry[] },
     (req): Promise<FileEntry[]> => listDir(req.cwd, req.relDir)
+  )
+
+  handlePlain(CHANNELS.filesPickAttachments, async (): Promise<PickedAttachment[]> => {
+    const result = await dialog.showOpenDialog({
+      properties: ['openFile', 'multiSelections'],
+      filters: [
+        { name: 'Attachments', extensions: ['txt', 'md', 'jpg', 'jpeg', 'png', 'webp', 'gif'] }
+      ]
+    })
+    if (result.canceled) return []
+    const picked: PickedAttachment[] = []
+    for (const rawPath of result.filePaths) {
+      const path = assertAllowedAttachmentPath(rawPath)
+      const meta = await fileMeta(path)
+      picked.push({ path, ...meta, sourceKind: 'dialog' })
+    }
+    return picked
+  })
+
+  handle(
+    CHANNELS.filesReadAttachment,
+    ReadAttachmentRequestSchema,
+    'reject',
+    async (req): Promise<ReadAttachmentResult> => {
+      const path = assertAllowedAttachmentPath(req.path)
+      const meta = await fileMeta(path)
+      if (!SUPPORTED_IMAGE_MIME_TYPES.has(meta.mimeType)) {
+        throw new Error('미리보기는 이미지 첨부만 지원합니다.')
+      }
+      return { data: (await fs.readFile(path)).toString('base64'), mimeType: meta.mimeType }
+    }
   )
 
   // 대화 검색 — main thread 에서 FTS5 prepared statement 실행. better-sqlite3 가

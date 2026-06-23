@@ -54,3 +54,12 @@ describe('createTurnInputStream', () => {
     expect(done.done).toBe(true)
   })
 })
+
+it('content block arrays are yielded without string coercion', async () => {
+  const content = [{ type: 'text' as const, text: 'hello block' }]
+  const { stream } = createTurnInputStream(content)
+  const it = stream[Symbol.asyncIterator]()
+  const first = await it.next()
+  expect(first.done).toBe(false)
+  expect(first.value?.message.content).toBe(content)
+})

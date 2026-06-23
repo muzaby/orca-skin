@@ -20,7 +20,9 @@ import type {
 import { toClaudePermissionMode } from '../../shared/permission-mode'
 import { claudeToNormalized, type MapContext } from './claude-map'
 import { claudeErrorClassifier, errorEvent } from '../runtime-errors/claude-classifier'
-import { createTurnInputStream } from './streaming-input'
+import { createTurnInputStream, type TurnInputContent } from './streaming-input'
+import type { Base64ImageSource } from '@anthropic-ai/sdk/resources/messages'
+import { formatAttachmentPromptBlock } from './attachment-prompt'
 import type { CompleteRequest, LiveTurn, SessionAdapter } from './types'
 import type { TurnRequest } from '../extensions/types'
 import type { Resolver } from '../mcp/expand'
@@ -209,7 +211,9 @@ export class ClaudeAdapter implements SessionAdapter {
       requestApproval,
       permissionMode,
       model,
-      effort
+      effort,
+      attachmentTexts = [],
+      attachmentImages = []
     } = req
 
     // 매퍼 컨텍스트 — sessionId 는 init(=session.updated)에서 갱신된다(resume 면 초기값이 그 id).
@@ -227,8 +231,27 @@ export class ClaudeAdapter implements SessionAdapter {
       console.warn(`[mcp] 서버 '${d.name}' 를 건너뜀: ${d.reason}`)
     }
 
+    const content: TurnInputContent =
+      attachmentTexts.length === 0 && attachmentImages.length === 0
+        ? text
+        : [
+            { type: 'text', text },
+            ...attachmentTexts.map((a) => ({
+              type: 'text' as const,
+              text: formatAttachmentPromptBlock(a)
+            })),
+            ...attachmentImages.map((img) => ({
+              type: 'image' as const,
+              source: {
+                type: 'base64',
+                media_type: img.mimeType,
+                data: img.data
+              } as Base64ImageSource
+            }))
+          ]
+
     // 턴-스코프 입력 스트림 — close() 까지 미종료(streaming-input.ts 가 불변식 격리).
-    const input = createTurnInputStream(text)
+    const input = createTurnInputStream(content)
 
     const handle = query({
       prompt: input.stream,

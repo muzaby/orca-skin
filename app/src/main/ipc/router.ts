@@ -12,7 +12,7 @@ import { MockAdapter } from '../adapters/mock'
 import { Installer } from '../installer'
 import { SettingsStore } from '../settings/store'
 import { McpStore } from '../mcp/store'
-import { ensureConfigDir, sourcesSkillsDir, workspaceDir } from '../config/paths'
+import { ensureConfigDir, getWorkspacePath, sourcesSkillsDir, workspaceDir } from '../config/paths'
 import { loadOrcaConfig } from '../config/orca-config'
 import { SecretStore } from '../config/secret-store'
 import { deploy } from '../deploy/deployer'
@@ -38,6 +38,8 @@ import { TurnRegistry } from './chat/turn-registry'
 import { ApprovalCoordinator } from './chat/approvals'
 import { TurnPersistence } from './chat/persist'
 import { TitleGenerator } from './chat/title-generation'
+import { ConcurrencyRegistry } from './chat/concurrency-registry'
+import { broadcastConcurrency } from './context'
 
 export class IpcRouter {
   readonly settings = new SettingsStore()
@@ -127,6 +129,9 @@ export class IpcRouter {
     // 빌더는 db 인스턴스가 필요해 여기서 생성. skills 는 lazy getter 라 스캔
     // 완료 전에 만들어도 무방 — 턴 실행 시점에 최신 skillsCache 를 읽는다.
     const extensions = new ExtensionBuilder(db, this.mcp, () => this.skillsCache, stableAppend)
+    const concurrency = new ConcurrencyRegistry((projectId, count) =>
+      broadcastConcurrency({ projectId, count })
+    )
     await this.registry.refreshInstallState()
     this.defaultCwd = workspaceDir()
     await mkdir(this.defaultCwd, { recursive: true }).catch((e) =>
@@ -171,7 +176,8 @@ export class IpcRouter {
       refreshSkills: () => this.refreshSkills(),
       syncExtensions: () => this.syncExtensions(),
       syncExtensionsForTurn: (cwd) => this.syncExtensionsForTurn(cwd),
-      getCwd: () => this.defaultCwd,
+      getCwd: (projectId, sessionId) => getWorkspacePath(projectId, sessionId),
+      concurrency,
       debugMock: this.debugMock,
       mockAdapter: import.meta.env.DEV ? new MockAdapter(() => this.debugMock) : null
     }
