@@ -196,7 +196,23 @@ export function registerChatHandlers(deps: ChatDeps): void {
       ? (ctx.db.getSessionById(parsed.data.sessionId)?.project_id ?? null)
       : parsed.data.projectId
 
-    const normalizedAttachments = await normalizeAttachments(parsed.data.attachments)
+    // 첨부 정규화(경로 추출·이미지 읽기·검증)는 턴 시작 전 단계라 아래 턴 try/catch 밖이다.
+    // 여기서 throw 하면(홈 밖 경로·unsupported·binary·fs 오류) invoke 가 거부돼 renderer 의
+    // fire-and-forget send 가 콘솔 rejection 으로만 남는다 → 정규 chat:error 로 surface 한다.
+    let normalizedAttachments: Awaited<ReturnType<typeof normalizeAttachments>>
+    try {
+      normalizedAttachments = await normalizeAttachments(parsed.data.attachments)
+    } catch (err) {
+      sendChatEvent(event.sender, {
+        type: 'error',
+        ...(parsed.data.sessionId ? { sessionId: parsed.data.sessionId } : {}),
+        error: makeClassifiedError('schema_validation_error', '첨부 파일을 처리할 수 없습니다.', {
+          retryable: false,
+          cause: err
+        })
+      })
+      return
+    }
 
     const controller = new AbortController()
     // resume 경로면 sessions row 에 이미 binding 된 projectId 가 있으므로 그쪽에서 조회.
