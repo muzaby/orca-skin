@@ -76,28 +76,31 @@
 
 ## [구현 체크리스트] (Claude 직접 구현)
 
-- [ ] AC1 옵션 선택 톤 중립화(단일 원형 / 다중 사각 인디케이터 유지)
-- [ ] AC2 헤더 chip 채도/케이스 정제
-- [ ] AC3 번호 배지·하단 kbd 힌트 배치 정합
-- [ ] AC4 이전/다음 화살표 + 1/N 카운터 배치
-- [ ] AC5 `AskExchange` 질문/답변 버블 톤·여백 정합
-- [ ] AC6 컴포저 패널 스택 간격 미세조정
-- [ ] AC7 키보드·자동진행·기타입력·접근성 무회귀 확인
-- [ ] AC8 classic/dark/cool 3 테마 확인(신규 토큰 시 3 스코프)
-- [ ] 게이트 lint/typecheck/test 통과
+> 사용자 결정: 스크린샷 미공유 → **Claude 판단(Claude Code 중립 톤)** 으로 진행. 선택 시각 = accent-on-indicator-only.
+
+- [x] AC1 옵션 선택 톤 중립화 — 컨테이너 `border-rust bg-rust-soft`→`border-border-strong bg-t3`(중립 면), 인디케이터에만 accent(`border-rust bg-rust`) 유지. 단일=원형/다중=사각 보존.
+- [x] AC2 헤더 chip 정제 — `bg-rust-soft uppercase tracking-wide text-rust`→`bg-t3 text-t7`(중립·sentence-case).
+- [~] AC3 번호 배지·kbd 힌트 — 현 배치 유지(스크린샷 미공유 → 재배치 보류, 무회귀).
+- [~] AC4 이전/다음 화살표 + 1/N 카운터 — 현 배치 유지(동상).
+- [~] AC5 `AskExchange` 버블 — 이미 미니멀·`bg-bubble-user` 일치 → 무변경.
+- [x] AC6 컴포저 패널 스택 간격 — 카드 루트 `mb-2` 제거(부모 `gap-2` 이중간격 해소).
+- [x] AC7 키보드·자동진행·기타입력·접근성 무회귀 — 핸들러/파싱 무변경, className/토큰만 교체.
+- [x] AC8 classic/dark/cool 3 테마 — 전부 themed 토큰(`t3`·`t7`·`border-strong`·`rust`)만 사용, 신규 토큰 0.
+- [x] 게이트 lint/typecheck/test 통과.
 
 ## [구현 보고] (Claude 직접 구현)
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | (구현 후 기입) |
+| 변경 파일 | `AskUserQuestionCard.tsx` (P1 선택 톤·P3 mb-2·P4 헤더 chip). `AskExchange.tsx`/`AskBody.tsx`/`tokens.css` 무변경(불필요). |
 | 실행 명령 | `npm run lint` / `npm run typecheck` / `npm test` |
-| 게이트 결과 | (구현 후 기입) |
-| 인수 기준 | (구현 후 기입 — 시각 검증은 사람) |
-| 블로커 / 역질문 | (없으면 "없음") |
-| 대상 커밋 | `<hash>` |
+| 게이트 결과 | lint ✅ / typecheck ✅(node+web+test) / test ✅ **471/471**(better-sqlite3 Node ABI 재빌드 후 green — 1차 12-red 는 `db/queries.test.ts` dual-ABI 환경=0019 계열, 렌더러 전용 변경 무관) |
+| 인수 기준 | AC1·2·6·7·8 코드 반영. AC3·4·5 는 사용자 판단위임(스크린샷 미공유)에 따라 현 배치 유지(무회귀). 시각 최종 판정은 사람. |
+| 블로커 / 역질문 | 없음 (스크린샷 픽셀 일치는 추후 재공유 시 후속 라운드 가능) |
+| 대상 커밋 | (push 후 기재) |
 
 ## [사람 확인 대기]
 
-- UI 시각 검증(`npm run dev`): 스크린샷 1~5 대조 — 옵션 선택 톤·헤더 chip·번호 배지·kbd·1/N 카운터·질문/답변 버블·패널 스택 간격, 3 테마.
+- UI 시각 검증(`npm run dev`): 옵션 선택 톤이 중립(회색 면 + 강한 경계, accent 는 라디오/체크 인디케이터에만)으로 바뀌었는지, 헤더 chip 무채도·sentence-case, ask 카드 아래 간격, **3 테마(특히 cool — `rust`=파랑) 선택 톤**.
+- 스크린샷 픽셀 일치를 원하면 이미지 1~5 재공유 → 후속 정밀 정렬 라운드.
 - PR 머지 승인.
