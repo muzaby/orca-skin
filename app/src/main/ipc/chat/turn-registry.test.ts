@@ -4,7 +4,7 @@ import { TurnRegistry, type InflightTurn } from './turn-registry'
 // 레지스트리는 턴 객체 내부를 들여다보지 않으므로(키잉·동일성만) 최소 형태로 충분하다.
 // owner 가 InflightTurn<W> 의 필드라 TurnRegistry<object> 와 맞물리도록 object 로 파라미터화한다.
 function fakeTurn(): InflightTurn<object> {
-  return { controller: new AbortController() } as unknown as InflightTurn<object>
+  return { controller: new AbortController(), owner: {} } as unknown as InflightTurn<object>
 }
 
 describe('TurnRegistry', () => {
@@ -27,19 +27,40 @@ describe('TurnRegistry', () => {
     expect(reg.hasPending(owner)).toBe(true)
     expect(reg.hasSession('s1')).toBe(false)
 
-    reg.promote(owner, 's1')
+    turn.owner = owner
+    reg.promote(turn, 's1')
     expect(reg.hasPending(owner)).toBe(false)
     expect(reg.getBySession('s1')).toBe(turn)
   })
 
   it('promote 는 pending 이 없으면 무해한 no-op (resume 턴의 session.updated)', () => {
     const reg = new TurnRegistry<object>()
-    const owner = {}
     const turn = fakeTurn()
     reg.startResume('s1', turn)
-    reg.promote(owner, 's1')
+    reg.promote(turn, 's1')
     expect(reg.getBySession('s1')).toBe(turn)
     expect(reg.size).toBe(1)
+  })
+
+  it('resume session.updated 는 같은 owner 의 새-채팅 pending 턴을 오승격하지 않는다', () => {
+    const reg = new TurnRegistry<object>()
+    const owner = {}
+    const pending = fakeTurn()
+    pending.owner = owner
+    const resume = fakeTurn()
+    resume.owner = owner
+
+    reg.startNew(owner, pending)
+    reg.startResume('resume-existing', resume)
+
+    reg.promote(resume, 'resume-session')
+    expect(reg.hasPending(owner)).toBe(true)
+    expect(reg.getBySession('resume-session')).toBeUndefined()
+    expect(reg.getBySession('resume-existing')).toBe(resume)
+
+    reg.promote(pending, 'fresh-session')
+    expect(reg.hasPending(owner)).toBe(false)
+    expect(reg.getBySession('fresh-session')).toBe(pending)
   })
 
   it('서로 다른 세션의 동시 턴을 허용한다', () => {

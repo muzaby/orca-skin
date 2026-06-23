@@ -17,7 +17,8 @@ import type {
   AttachmentView,
   ComposerAttachment,
   EffortLevel,
-  NormalizedEvent
+  NormalizedEvent,
+  SendChatMessage
 } from '../../../../../shared/ipc'
 import type { NormalizedPermissionMode } from '../../../../../shared/permission-mode'
 import type { RightPanelTileId } from '../lib/rightPanelTiles'
@@ -49,9 +50,17 @@ export interface SessionEntry {
   live: LiveTurnState
 }
 
+interface QueuedNewChat {
+  key: string
+  payload: SendChatMessage
+}
+
 export interface ChatStoreState {
   sessions: Record<string, SessionEntry>
   activeKey: string
+  pendingNewChatKey: string | null
+  newChatQueue: QueuedNewChat[]
+  recentsEpoch: number
   concurrencyByProjectId: Record<string, number>
 }
 
@@ -74,6 +83,9 @@ function freshEntry(projectId: string | null = null): SessionEntry {
 export const useChatStore = create<ChatStoreState>()(() => ({
   sessions: { [NEW_CHAT_KEY]: freshEntry() },
   activeKey: NEW_CHAT_KEY,
+  pendingNewChatKey: null,
+  newChatQueue: [],
+  recentsEpoch: 0,
   concurrencyByProjectId: {}
 }))
 
@@ -118,21 +130,63 @@ function resetLive(key: string): void {
   patchLive(key, (live) => (live.text !== '' || live.reasoning !== '' ? EMPTY_LIVE : live))
 }
 
-// 새-채팅 엔트리를 발급된 sessionId 키로 승격(re-key). 엔트리 객체 동일성을 보존해
-// 진행 중 라이브 버퍼·메시지가 그대로 따라간다. 활성이 새-채팅이었다면 activeKey 도 추종
-// — useChatRouteSync 방향 2(armed-ref)가 sessionId null→non-null 전이로 URL 을 승격한다.
-function promoteNewChat(sessionId: string): void {
+function isTerminalWithoutSession(ev: NormalizedEvent): boolean {
+  if ('sessionId' in ev && ev.sessionId) return false
+  return ev.type === 'error' || ev.type === 'turn.aborted' || ev.type === 'telemetry'
+}
+
+function sendNewChatPayload(payload: SendChatMessage): void {
+  void chatApi.send(payload).catch((err) => console.error('[chat] send invoke rejected', err))
+}
+
+function releaseNewChatGate(expectedKey: string): void {
+  let nextPayload: SendChatMessage | null = null
   setState((s) => {
-    if (s.sessions[sessionId]) return s
-    const entry = s.sessions[NEW_CHAT_KEY]
-    if (!entry) return { sessions: { ...s.sessions, [sessionId]: freshEntry() } }
-    const rest = { ...s.sessions }
-    delete rest[NEW_CHAT_KEY]
+    if (s.pendingNewChatKey !== expectedKey) return s
+    const [next, ...restQueue] = s.newChatQueue
+    nextPayload = next?.payload ?? null
     return {
-      sessions: { ...rest, [sessionId]: entry },
-      ...(s.activeKey === NEW_CHAT_KEY ? { activeKey: sessionId } : {})
+      pendingNewChatKey: next?.key ?? null,
+      newChatQueue: restQueue
     }
   })
+  if (nextPayload) sendNewChatPayload(nextPayload)
+}
+
+// 새-채팅 pending draft 를 발급된 sessionId 키로 승격(re-key). 엔트리 객체 동일성을
+// 보존해 진행 중 라이브 버퍼·메시지가 그대로 따라간다. main 의 promote(turn, sessionId)
+// 신원가드가 resume session.updated 의 오승격을 차단하고, renderer 의 기존 sessionId
+// 가드는 같은 세션 재방출을 방어한다(handoff 0040).
+function promotePendingNewChat(sessionId: string): void {
+  let nextPayload: SendChatMessage | null = null
+  let missingPending = false
+  setState((s) => {
+    if (s.sessions[sessionId]) return s
+    const pendingKey = s.pendingNewChatKey
+    if (!pendingKey) {
+      missingPending = true
+      return s
+    }
+    const entry = s.sessions[pendingKey]
+    if (!entry) {
+      missingPending = true
+      return { pendingNewChatKey: null }
+    }
+    const rest = { ...s.sessions }
+    delete rest[pendingKey]
+    const [next, ...restQueue] = s.newChatQueue
+    nextPayload = next?.payload ?? null
+    return {
+      sessions: { ...rest, [sessionId]: entry },
+      pendingNewChatKey: next?.key ?? null,
+      newChatQueue: restQueue,
+      recentsEpoch: s.recentsEpoch + 1,
+      ...(s.activeKey === pendingKey ? { activeKey: sessionId } : {})
+    }
+  })
+  if (missingPending)
+    console.warn('[chat] session.updated without pending new-chat slot', sessionId)
+  if (nextPayload) sendNewChatPayload(nextPayload)
 }
 
 // 엔트리 제거. 활성 엔트리였다면 깨끗한 새 채팅으로 전환한다.
@@ -154,16 +208,20 @@ function dropSession(sessionId: string, fallbackProjectId: string | null = null)
 // 델타 2종은 그 엔트리의 live 슬라이스로만 흐른다. sessionId 가 없는 이벤트(일부 error)는
 // 활성 엔트리 폴백, 미지 sessionId(엔트리 삭제 후 늦게 도착)는 폐기한다.
 function receive(ev: NormalizedEvent): void {
-  const evSessionId = 'sessionId' in ev ? (ev.sessionId ?? null) : null
+  const evSessionId = 'sessionId' in ev ? ev.sessionId || null : null
 
-  // session.updated = sessionId 발급/확정 시점 — 새-채팅 엔트리를 sessionId 키로 승격.
+  // session.updated = sessionId 발급/확정 시점 — main 에 진입한 pending draft 를 sessionId 키로 승격.
   if (ev.type === 'session.updated' && !getState().sessions[ev.sessionId]) {
-    promoteNewChat(ev.sessionId)
+    promotePendingNewChat(ev.sessionId)
   }
 
   let key: string | null = null
   if (evSessionId && getState().sessions[evSessionId]) key = evSessionId
-  else if (!evSessionId) key = getState().activeKey
+  else if (!evSessionId) {
+    key = isTerminalWithoutSession(ev)
+      ? (getState().pendingNewChatKey ?? getState().activeKey)
+      : getState().activeKey
+  }
   if (!key) return // 미지 세션의 늦은 이벤트 — 폐기
 
   switch (ev.type) {
@@ -196,18 +254,21 @@ function receive(ev: NormalizedEvent): void {
       if (leftover !== '') dispatchTo(key, { type: 'COMMIT_PENDING_TEXT', text: leftover })
       dispatchTo(key, { type: 'RECV_EVENT', event: ev })
       resetLive(key)
+      if (!evSessionId) releaseNewChatGate(key)
       return
     }
 
     case 'turn.aborted':
       dispatchTo(key, { type: 'RECV_EVENT', event: ev })
       resetLive(key)
+      if (!evSessionId) releaseNewChatGate(key)
       return
 
     case 'error':
       // 턴 중단 — 미완 라이브 프리뷰는 커밋하지 않고 버린다(기존 동작 동형).
       dispatchTo(key, { type: 'RECV_EVENT', event: ev })
       resetLive(key)
+      if (!evSessionId) releaseNewChatGate(key)
       return
 
     case 'session.updated':
@@ -246,6 +307,56 @@ function send(
   const trimmed = text.trim()
   const cur = getActiveChatSession()
   if (trimmed === '' || cur.inflight) return false
+
+  if (cur.sessionId == null) {
+    const activeKey = getState().activeKey
+    const draftKey = `draft:${crypto.randomUUID()}`
+    const payload: SendChatMessage = {
+      sessionId: null,
+      projectId: cur.pendingProjectId,
+      text: trimmed,
+      permissionMode: cur.permissionMode,
+      providerKey: cur.providerKey,
+      modelFamily: cur.modelFamily,
+      effort: cur.effort,
+      attachments: [...attachments],
+      attachmentViews: [...attachmentViews]
+    }
+    let shouldDispatch = false
+    setState((s) => {
+      const entry = s.sessions[activeKey]
+      if (!entry || entry.session.sessionId != null) return s
+      const nextEntry: SessionEntry = {
+        ...entry,
+        session: chatReducer(entry.session, {
+          type: 'SEND_USER_MESSAGE',
+          text: trimmed,
+          attachmentViews
+        }),
+        live: EMPTY_LIVE
+      }
+      const sessions = { ...s.sessions }
+      delete sessions[activeKey]
+      sessions[draftKey] = nextEntry
+      sessions[NEW_CHAT_KEY] = freshEntry(cur.pendingProjectId)
+      if (s.pendingNewChatKey == null) {
+        shouldDispatch = true
+        return {
+          sessions,
+          activeKey: draftKey,
+          pendingNewChatKey: draftKey
+        }
+      }
+      return {
+        sessions,
+        activeKey: draftKey,
+        newChatQueue: [...s.newChatQueue, { key: draftKey, payload }]
+      }
+    })
+    if (shouldDispatch) sendNewChatPayload(payload)
+    return true
+  }
+
   // 새 턴 시작 — 직전 턴의 잔여 라이브 버퍼 제거(구 SEND_USER_MESSAGE 의 pending 리셋).
   resetLive(getState().activeKey)
   dispatchActive({ type: 'SEND_USER_MESSAGE', text: trimmed, attachmentViews })
@@ -271,6 +382,22 @@ function send(
 }
 
 function cancel(): void {
+  const s = getState()
+  const activeKey = s.activeKey
+  if (s.newChatQueue.some((item) => item.key === activeKey)) {
+    setState((st) => {
+      const sessions = { ...st.sessions }
+      delete sessions[activeKey]
+      return {
+        sessions: { ...sessions, [NEW_CHAT_KEY]: sessions[NEW_CHAT_KEY] ?? freshEntry() },
+        activeKey: NEW_CHAT_KEY,
+        newChatQueue: st.newChatQueue.filter((item) => item.key !== activeKey)
+      }
+    })
+    void settingsApi.set({ lastSessionId: null })
+    return
+  }
+
   const sid = getActiveChatSession().sessionId
   if (sid) void chatApi.cancel(sid)
   dispatchActive({ type: 'CANCEL_CHAT' })
@@ -519,6 +646,17 @@ export function useChatSession<T>(selector: (s: ChatState) => T): T {
 // 라이브 스트림 리프 전용 — 활성 세션의 text 델타에만 재렌더.
 export function useLiveText(): string {
   return useChatStore((s) => s.sessions[s.activeKey].live.text)
+}
+
+export function useNewChatPending(key?: string): boolean {
+  return useChatStore((s) => {
+    const target = key ?? s.activeKey
+    return s.newChatQueue.some((item) => item.key === target)
+  })
+}
+
+export function useChatRecentsEpoch(): number {
+  return useChatStore((s) => s.recentsEpoch)
 }
 
 // 라이브 사고 리프 전용 — 활성 세션의 reasoning 델타에만 재렌더(본문 text 델타와 격리).

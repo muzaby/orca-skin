@@ -195,7 +195,7 @@ export class IpcRouter {
     const persistence = new TurnPersistence(ctx.db, ctx.cost, (turn) => titles.maybeStart(turn))
     const approvals = new ApprovalCoordinator()
     const permissionModes = new PermissionModeController()
-    registerChatHandlers({ ctx, turns, approvals, persistence, permissionModes })
+    registerChatHandlers({ ctx, turns, approvals, persistence, titles, permissionModes })
     approvals.registerHandlers(turns, permissionModes)
 
     registerSessionHandlers(ctx)
