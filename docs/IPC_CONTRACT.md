@@ -2,13 +2,13 @@
 
 > 이 문서는 Main ↔ Renderer 간 IPC 채널의 **단일 진실 공급원 (SSOT)** 이다.
 > 채널을 추가/변경할 때는 코드와 이 문서를 함께 갱신한다.
-> 최종 업데이트: 2026-06-15 (handoff 0021 — engine CRUD 도메인 추가)
+> 최종 업데이트: 2026-06-23 (handoff 0039 — composer attachments/concurrency)
 > 관련 문서: [ARCHITECTURE.md](ARCHITECTURE.md), [ARCHITECTURE.md](ARCHITECTURE.md), [GLOSSARY.md](./GLOSSARY.md), [TRD.md](./TRD.md) §5
 
 ## 1. 명명 규칙
 
 - 형식: `orca:<domain>:<action>` — 소문자 + 콜론 구분
-- 도메인 (16개): `chat`, `backend`, `agent`, `engine`, `install`, `settings`, `skills`, `files`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `permission`, `debug`(dev 전용)
+- 도메인 (17개): `chat`, `backend`, `agent`, `engine`, `install`, `settings`, `skills`, `files`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `concurrency`, `permission`, `debug`(dev 전용)
 - 방향:
   - Renderer → Main 요청: `ipcMain.handle` + `ipcRenderer.invoke` (Promise 반환)
   - Main → Renderer 이벤트: `webContents.send` + `ipcRenderer.on` (단방향 push)
@@ -20,9 +20,9 @@
   - 특례: `chat:send` 는 실패를 `error` 이벤트로 회신(§2.1). 입력이 없거나 store 내부 zod 가 검증하는 채널(settings set · mcp add/update)은 `handlePlain`.
 - 출력(main→renderer send) 무검증: `NormalizedEvent` 등의 형상 보증은 어댑터 정규화(`claude-map.ts`)가 담당 — 의도된 설계.
 
-## 2. 채널 카탈로그 (총 46 채널)
+## 2. 채널 카탈로그 (총 49 채널)
 
-도메인별 분포: `chat` 3 · `backend` 1 · `agent` 1 · `engine` 4 · `install` 2 · `settings` 2 · `skills` 7 · `files` 1 · `session` 6 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `cost` 2 · `permission` 2 (`respond` · `setMode`) · `debug` 2 (dev 전용 — `getMock` · `setMock`).
+도메인별 분포: `chat` 3 · `backend` 1 · `agent` 1 · `engine` 4 · `install` 2 · `settings` 2 · `skills` 7 · `files` 3 · `session` 6 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `cost` 2 · `concurrency` 1 · `permission` 2 (`respond` · `setMode`) · `debug` 2 (dev 전용 — `getMock` · `setMock`).
 
 `app/src/shared/ipc.ts` 의 `CHANNELS` 상수와 1:1 일치. **단, `debug` 2채널은 `import.meta.env.DEV` 일 때만 `ipcMain.handle` 로 등록된다** (CHANNELS 상수 문자열은 상존하나 prod 핸들러 미등록 — §2.13 참조).
 
@@ -30,7 +30,7 @@
 
 | 채널               | 방향         | 페이로드                                                                                                                                                                                                                            | 응답/스트림           | 설명                                                                                                                                                                                                                                                                                                                                 |
 | ------------------ | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `orca:chat:send`   | R→M (invoke) | `SendChatMessage` = `{ sessionId: string \| null; projectId: string \| null; text: string; permissionMode?; providerKey?: string \| null; modelFamily?: string \| null; effort?: 'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max' }` | `Promise<void>` (ack) | 메시지 전송. `effort` 는 Claude Code SDK `Options.effort` 로 per-turn 전달된다(기본 UI 값 `high`). 응답은 `orca:chat:event` 스트림으로 발행. `sessionId === null` 이면 새 세션. 같은 세션(또는 같은 창의 새-채팅 슬롯)에 진행 중 턴이 있으면 `error` 이벤트로 거부 — **서로 다른 세션의 동시 턴은 허용**(handoff 0011 TurnRegistry). |
+| `orca:chat:send`   | R→M (invoke) | `SendChatMessage` = `{ sessionId: string \| null; projectId: string \| null; text: string; permissionMode?; providerKey?: string \| null; modelFamily?: string \| null; effort?: 'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max'; attachments?: ComposerAttachment[] }` | `Promise<void>` (ack) | 메시지 전송. `effort` 는 Claude Code SDK `Options.effort` 로 per-turn 전달된다(기본 UI 값 `high`). 응답은 `orca:chat:event` 스트림으로 발행. `sessionId === null` 이면 새 세션. 같은 세션(또는 같은 창의 새-채팅 슬롯)에 진행 중 턴이 있으면 `error` 이벤트로 거부 — **서로 다른 세션의 동시 턴은 허용**(handoff 0011 TurnRegistry). |
 | `orca:chat:event`  | M→R (send)   | —                                                                                                                                                                                                                                   | `ChatEvent` (반복)    | 어댑터 정규화 스트림. variant 정의는 §3 참조.                                                                                                                                                                                                                                                                                        |
 | `orca:chat:cancel` | R→M (invoke) | `CancelChat` = `{ sessionId: string }`                                                                                                                                                                                              | `Promise<void>`       | 진행 중 요청 취소 (`AbortSignal` 전파).                                                                                                                                                                                                                                                                                              |
 
@@ -106,9 +106,11 @@ interface Settings {
 
 ### 2.6 Files
 
-| 채널              | 방향         | 페이로드                                               | 응답                                                       | 설명                                                                         |
-| ----------------- | ------------ | ------------------------------------------------------ | ---------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| `orca:files:list` | R→M (invoke) | `ListFilesRequest` = `{ cwd: string; relDir: string }` | `FileEntry[]` = `{ name: string; isDirectory: boolean }[]` | `@` 파일 경로 자동완성용. `cwd` 기준 `relDir` 의 직속 항목 한 단계만 리스팅. |
+| 채널                         | 방향         | 페이로드                                               | 응답                                                       | 설명                                                                         |
+| ---------------------------- | ------------ | ------------------------------------------------------ | ---------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `orca:files:list`            | R→M (invoke) | `ListFilesRequest` = `{ cwd: string; relDir: string }` | `FileEntry[]` = `{ name: string; isDirectory: boolean }[]` | `@` 파일 경로 자동완성용. `cwd` 기준 `relDir` 의 직속 항목 한 단계만 리스팅. |
+| `orca:files:pickAttachments` | R→M (invoke) | —                                                      | `PickedAttachment[]`                                      | 컴포저 첨부 다이얼로그. main 이 OS 파일 선택창을 열고 txt/md/image 경로 메타데이터를 반환한다. |
+| `orca:files:readAttachment`  | R→M (invoke) | `ReadAttachmentRequest` = `{ path: string }`           | `ReadAttachmentResult` = `{ data: string; mimeType: string }` | 이미지 첨부 썸네일용 base64 읽기. main path allowlist 검증 후 image 파일만 반환한다. |
 
 ### 2.7 Session
 
@@ -238,6 +240,13 @@ interface CostSummary {
   updatedAt: number;
 }
 ```
+
+
+### 2.12-b Concurrency
+
+| 채널                       | 방향       | 페이로드                                      | 응답 | 설명                                                                 |
+| -------------------------- | ---------- | --------------------------------------------- | ---- | -------------------------------------------------------------------- |
+| `orca:concurrency:event`   | M→R (send) | `ConcurrencyEvent` = `{ projectId; count }`   | —    | 같은 projectId에서 실행 중인 query 수를 브로드캐스트한다. Composer는 자기 inflight를 차감해 경고 표시 여부를 판정한다. |
 
 ### 2.13 Debug (dev 전용 — MockAdapter 하네스)
 

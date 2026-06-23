@@ -23,6 +23,8 @@ export const CHANNELS = {
   skillsShowInFolder: 'orca:skills:showInFolder',
   skillsRemove: 'orca:skills:remove',
   filesList: 'orca:files:list',
+  filesPickAttachments: 'orca:files:pickAttachments',
+  filesReadAttachment: 'orca:files:readAttachment',
   sessionCwd: 'orca:session:cwd',
   sessionList: 'orca:session:list',
   sessionLoad: 'orca:session:load',
@@ -44,6 +46,7 @@ export const CHANNELS = {
   mcpDelete: 'orca:mcp:delete',
   costSummary: 'orca:cost:summary',
   costSummaryEvent: 'orca:cost:summaryEvent',
+  concurrencyEvent: 'orca:concurrency:event',
   // 권한 응답 단일 채널 — ask/plan/tool 세 종류의 승인 응답이 모두 이 채널로 흐른다
   // (askRespond/planRespond 2채널 통합). 응답 = { approvalId, resolution: ApprovalResolution }.
   permissionRespond: 'orca:permission:respond',
@@ -374,6 +377,48 @@ export type PlanDecision =
   | { type: 'rejected' }
   | { type: 'revise'; feedback: string }
 
+export type AttachmentSourceKind = 'dialog' | 'drag_drop' | 'clipboard'
+
+export type ComposerAttachment =
+  | {
+      kind: 'path'
+      path: string
+      name: string
+      mimeType: string
+      sizeBytes?: number
+      sourceKind: AttachmentSourceKind
+    }
+  | {
+      kind: 'inline'
+      data: string
+      name: string
+      mimeType: string
+      sizeBytes?: number
+      sourceKind: AttachmentSourceKind
+    }
+
+export interface PickedAttachment {
+  path: string
+  name: string
+  mimeType: string
+  sizeBytes: number
+  sourceKind: AttachmentSourceKind
+}
+
+export interface ReadAttachmentRequest {
+  path: string
+}
+
+export interface ReadAttachmentResult {
+  data: string
+  mimeType: string
+}
+
+export interface ConcurrencyEvent {
+  projectId: string
+  count: number
+}
+
 // IPC payloads (TRD §5.2 의 활성 부분)
 export interface SendChatMessage {
   sessionId: string | null
@@ -388,6 +433,7 @@ export interface SendChatMessage {
   modelFamily?: string | null
   // 이 턴에 적용할 Claude Code thinking effort. per-turn 전송만 지원한다.
   effort?: EffortLevel
+  attachments?: ComposerAttachment[]
 }
 
 // Composer 권한 모드 버튼이 노출하는 두 모드. SDK PermissionMode 의 부분집합 —
@@ -633,6 +679,7 @@ export interface LoadedSession {
   lastTelemetry?: ProviderReportedTelemetry
   // sessions.provider_key — 마지막 사용 provider 기록. null 은 레거시/미매칭 fallback.
   providerKey?: string | null
+  projectId?: string | null
 }
 
 // 프로젝트 (Phase 3+) — 대화 묶음 + 전용 시스템 프롬프트 (instructions).

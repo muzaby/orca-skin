@@ -62,6 +62,7 @@ export function registerSessionHandlers(ctx: RouterContext): void {
         title: meta.title,
         messages,
         providerKey: meta.provider_key,
+        projectId: meta.project_id,
         ...(lastTelemetry ? { lastTelemetry } : {})
       }
     }

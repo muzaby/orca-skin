@@ -4,10 +4,31 @@
 
 import { z } from 'zod'
 import { MOCK_SCENARIO_IDS } from './ipc'
-import type { Backend, EffortLevel } from './ipc'
+import type { Backend, ComposerAttachment, EffortLevel } from './ipc'
 
 const BackendSchema: z.ZodType<Backend> = z.enum(['claude'])
 const EffortLevelSchema: z.ZodType<EffortLevel> = z.enum(['low', 'medium', 'high', 'xhigh', 'max'])
+
+const AttachmentSourceKindSchema = z.enum(['dialog', 'drag_drop', 'clipboard'])
+
+const ComposerAttachmentSchema: z.ZodType<ComposerAttachment> = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('path'),
+    path: z.string().min(1),
+    name: z.string().min(1),
+    mimeType: z.string().min(1),
+    sizeBytes: z.number().int().nonnegative().optional(),
+    sourceKind: AttachmentSourceKindSchema
+  }),
+  z.object({
+    kind: z.literal('inline'),
+    data: z.string().min(1),
+    name: z.string().min(1),
+    mimeType: z.string().min(1),
+    sizeBytes: z.number().int().nonnegative().optional(),
+    sourceKind: AttachmentSourceKindSchema
+  })
+])
 
 // orca:chat:event 는 main→renderer send(검증 불요)라 NormalizedEvent 용 zod 스키마는 두지 않는다.
 // (구 ChatEventSchema 는 ChatEvent 폐기와 함께 제거 — 와이어가 NormalizedEvent 로 전환됨.)
@@ -29,7 +50,8 @@ export const SendChatMessageSchema = z.object({
   permissionMode: NormalizedPermissionModeSchema.optional(),
   providerKey: z.string().min(1).nullable().optional(),
   modelFamily: z.string().min(1).nullable().optional(),
-  effort: EffortLevelSchema.optional()
+  effort: EffortLevelSchema.optional(),
+  attachments: z.array(ComposerAttachmentSchema).default([])
 })
 
 export const CancelChatSchema = z.object({ sessionId: z.string() })
@@ -55,6 +77,8 @@ export const ListFilesRequestSchema = z.object({
   cwd: z.string().min(1),
   relDir: z.string()
 })
+
+export const ReadAttachmentRequestSchema = z.object({ path: z.string().min(1) })
 
 const SkillNameSchema = z
   .string()
@@ -291,6 +315,11 @@ export type {
   ErrorCategory,
   ClassifiedError,
   SendChatMessage,
+  ComposerAttachment,
+  PickedAttachment,
+  ReadAttachmentRequest,
+  ReadAttachmentResult,
+  ConcurrencyEvent,
   CancelChat,
   BackendListResult,
   AgentEnvironment,

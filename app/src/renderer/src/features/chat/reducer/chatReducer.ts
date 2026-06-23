@@ -46,6 +46,7 @@ export interface ChatState {
   // 첫 메시지 send → init 이벤트 시점에 sessionId 가 발급되면 사실상 역할 종료. send 시
   // 함께 IPC 페이로드에 실어 main 으로 보낸다.
   pendingProjectId: string | null
+  projectId: string | null
   backend: Backend | null
   providerKey: string | null
   modelFamily: string | null
@@ -103,6 +104,7 @@ export const initialChatState: ChatState = {
   sessionId: null,
   title: null,
   pendingProjectId: null,
+  projectId: null,
   backend: null,
   providerKey: null,
   modelFamily: null,
@@ -209,6 +211,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             backend: 'claude',
             cwd: ev.patch.cwd ?? state.cwd,
             pendingProjectId: null,
+            projectId: state.pendingProjectId ?? state.projectId,
             retry: undefined
           }
 
@@ -361,7 +364,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       // cwd 는 새 세션에서도 동일 (main 의 단일 default). 새 대화 즉시 `@` picker
       // 가 동작하도록 보존 — init 이벤트가 와도 같은 값으로 덮어쓰기만 함.
       // projectId 가 명시되면 새 세션이 해당 프로젝트에 binding 될 준비.
-      return { ...initialChatState, cwd: state.cwd, pendingProjectId: action.projectId ?? null }
+      return {
+        ...initialChatState,
+        cwd: state.cwd,
+        pendingProjectId: action.projectId ?? null,
+        projectId: action.projectId ?? null
+      }
 
     case 'SET_CWD':
       return { ...state, cwd: action.cwd }
@@ -407,6 +415,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ...initialChatState,
         cwd: state.cwd,
         sessionId: action.session.id,
+        projectId: action.session.projectId ?? null,
         backend: action.session.backend,
         title: action.session.title,
         providerKey: action.session.providerKey ?? null,

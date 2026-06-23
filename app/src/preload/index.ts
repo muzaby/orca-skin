@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
+import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
 import {
   CHANNELS,
   type PermissionRespond,
@@ -7,10 +7,13 @@ import {
   type BackendListResult,
   type AgentEnvironment,
   type CostSummary,
+  type ConcurrencyEvent,
   type NormalizedEvent,
   type CreateMcpServerRequest,
   type CreateProjectRequest,
   type FileEntry,
+  type PickedAttachment,
+  type ReadAttachmentResult,
   type InstallStatus,
   type LoadedSession,
   type McpServer,
@@ -93,7 +96,12 @@ const orca = {
   },
   files: {
     list: (cwd: string, relDir: string): Promise<FileEntry[]> =>
-      ipcRenderer.invoke(CHANNELS.filesList, { cwd, relDir })
+      ipcRenderer.invoke(CHANNELS.filesList, { cwd, relDir }),
+    pickAttachments: (): Promise<PickedAttachment[]> =>
+      ipcRenderer.invoke(CHANNELS.filesPickAttachments),
+    readAttachment: (path: string): Promise<ReadAttachmentResult> =>
+      ipcRenderer.invoke(CHANNELS.filesReadAttachment, { path }),
+    pathForFile: (file: File): string => webUtils.getPathForFile(file)
   },
   session: {
     cwd: (): Promise<string> => ipcRenderer.invoke(CHANNELS.sessionCwd),
@@ -145,6 +153,13 @@ const orca = {
       const listener = (_e: IpcRendererEvent, summary: CostSummary): void => handler(summary)
       ipcRenderer.on(CHANNELS.costSummaryEvent, listener)
       return () => ipcRenderer.off(CHANNELS.costSummaryEvent, listener)
+    }
+  },
+  concurrency: {
+    onEvent: (handler: (ev: ConcurrencyEvent) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, ev: ConcurrencyEvent): void => handler(ev)
+      ipcRenderer.on(CHANNELS.concurrencyEvent, listener)
+      return () => ipcRenderer.off(CHANNELS.concurrencyEvent, listener)
     }
   },
   // 권한 응답 (ask/plan/tool 단일 채널) — 사용자의 승인/거부를 approvalId + resolution 으로

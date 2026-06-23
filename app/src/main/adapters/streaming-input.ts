@@ -8,6 +8,9 @@
 // 순수 모듈(electron 비의존) — generator 미종료 불변식의 단일 격리 지점이라 Vitest 로 운동한다.
 
 import type { SDKUserMessage } from '@anthropic-ai/claude-agent-sdk'
+import type { MessageParam } from '@anthropic-ai/sdk/resources'
+
+export type TurnInputContent = MessageParam['content']
 
 export interface TurnInputStream {
   // query({ prompt }) 에 넘기는 입력 스트림.
@@ -16,12 +19,12 @@ export interface TurnInputStream {
   close(): void
 }
 
-// 이 턴의 텍스트 1건을 내보내고 close() 까지 열려있는 입력 스트림을 만든다.
-export function createTurnInputStream(text: string): TurnInputStream {
+// 이 턴의 user 메시지 1건을 내보내고 close() 까지 열려있는 입력 스트림을 만든다.
+export function createTurnInputStream(content: TurnInputContent): TurnInputStream {
   let closed = false
   let wake: (() => void) | null = null
   const queue: SDKUserMessage[] = [
-    { type: 'user', message: { role: 'user', content: text }, parent_tool_use_id: null }
+    { type: 'user', message: { role: 'user', content }, parent_tool_use_id: null }
   ]
 
   async function* gen(): AsyncIterable<SDKUserMessage> {
