@@ -1,8 +1,30 @@
 import { describe, it, expect } from 'vitest'
-import { partsText, partsReasoning, partsToolCalls, partsErrors, messageSegments } from './parts'
+import {
+  partsText,
+  partsReasoning,
+  partsToolCalls,
+  partsErrors,
+  partsAttachments,
+  messageSegments
+} from './parts'
 import type { AppMessagePart } from '../../../../../shared/ipc'
 
 describe('parts selectors', () => {
+  it('partsAttachments 는 attachment 파트의 첨부 뷰를 순서대로 평탄화한다', () => {
+    const parts: AppMessagePart[] = [
+      { type: 'text', text: 'hi' },
+      {
+        type: 'attachment',
+        attachments: [
+          { id: 'a1', name: 'pic.png', mimeType: 'image/png', kind: 'image', previewDataUrl: 'd' },
+          { id: 'a2', name: 'spec.md', mimeType: 'text/markdown', kind: 'file' }
+        ]
+      }
+    ]
+    expect(partsAttachments(parts).map((a) => a.id)).toEqual(['a1', 'a2'])
+    expect(partsAttachments([{ type: 'text', text: 'x' }])).toEqual([])
+  })
+
   it('partsText 는 text 파트만 순서대로 잇는다', () => {
     const parts: AppMessagePart[] = [
       { type: 'text', text: 'a' },

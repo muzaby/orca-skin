@@ -1,13 +1,20 @@
 // AppMessagePart(provider-runtime.md §7) 셀렉터 — 순서 보존 parts 를 transcript 렌더가 쓰는
 // view 로 투영한다(순수). text/reasoning 추출, tool_call↔tool_result 페어링, error 추출.
 
-import type { AppMessagePart } from '../../../../../shared/ipc'
+import type { AppMessagePart, AttachmentView } from '../../../../../shared/ipc'
 import type { ToolCall } from '../reducer/chatReducer'
 
 // text 파트들을 순서대로 이어붙인 본문(마크다운 소스).
 export function partsText(parts: AppMessagePart[]): string {
   let out = ''
   for (const p of parts) if (p.type === 'text') out += p.text
+  return out
+}
+
+// attachment 파트의 첨부 뷰들을 순서대로 평탄화한다(트랜스크립트 user 버블 썸네일).
+export function partsAttachments(parts: AppMessagePart[]): AttachmentView[] {
+  const out: AttachmentView[] = []
+  for (const p of parts) if (p.type === 'attachment') out.push(...p.attachments)
   return out
 }
 

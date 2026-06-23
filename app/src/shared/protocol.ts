@@ -4,7 +4,7 @@
 
 import { z } from 'zod'
 import { MOCK_SCENARIO_IDS } from './ipc'
-import type { Backend, ComposerAttachment, EffortLevel } from './ipc'
+import type { AttachmentView, Backend, ComposerAttachment, EffortLevel } from './ipc'
 
 const BackendSchema: z.ZodType<Backend> = z.enum(['claude'])
 const EffortLevelSchema: z.ZodType<EffortLevel> = z.enum(['low', 'medium', 'high', 'xhigh', 'max'])
@@ -30,6 +30,15 @@ const ComposerAttachmentSchema: z.ZodType<ComposerAttachment> = z.discriminatedU
   })
 ])
 
+const AttachmentViewSchema: z.ZodType<AttachmentView> = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1),
+  mimeType: z.string().min(1),
+  kind: z.enum(['image', 'file']),
+  previewDataUrl: z.string().min(1).optional(),
+  sizeBytes: z.number().int().nonnegative().optional()
+})
+
 // orca:chat:event 는 main→renderer send(검증 불요)라 NormalizedEvent 용 zod 스키마는 두지 않는다.
 // (구 ChatEventSchema 는 ChatEvent 폐기와 함께 제거 — 와이어가 NormalizedEvent 로 전환됨.)
 
@@ -51,7 +60,8 @@ export const SendChatMessageSchema = z.object({
   providerKey: z.string().min(1).nullable().optional(),
   modelFamily: z.string().min(1).nullable().optional(),
   effort: EffortLevelSchema.optional(),
-  attachments: z.array(ComposerAttachmentSchema).default([])
+  attachments: z.array(ComposerAttachmentSchema).default([]),
+  attachmentViews: z.array(AttachmentViewSchema).default([])
 })
 
 export const CancelChatSchema = z.object({ sessionId: z.string() })

@@ -230,6 +230,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
       providerKey: resolved.providerKey,
       pendingUserText: parsed.data.text,
       firstUserText: parsed.data.text,
+      pendingAttachmentViews: parsed.data.attachmentViews,
       dbSessionId: parsed.data.sessionId,
       pendingProjectId: parsed.data.sessionId ? null : parsed.data.projectId,
       isNewSession: parsed.data.sessionId == null,
@@ -248,7 +249,12 @@ export function registerChatHandlers(deps: ChatDeps): void {
     // 존재한다는 의미. 다음 init 이벤트를 기다리지 않고 user 메시지를 즉시 기록.
     if (parsed.data.sessionId) {
       const now = Date.now()
-      persistence.persistUserMessage(parsed.data.sessionId, parsed.data.text, now)
+      persistence.persistUserMessage(
+        parsed.data.sessionId,
+        parsed.data.text,
+        now,
+        parsed.data.attachmentViews
+      )
       ctx.db.updateSessionPreview(parsed.data.sessionId, previewOf(parsed.data.text), now)
       ctx.db.updateSessionProviderKey(parsed.data.sessionId, turn.providerKey, now)
       turn.pendingUserText = null

@@ -405,6 +405,18 @@ export interface PickedAttachment {
   sourceKind: AttachmentSourceKind
 }
 
+// 트랜스크립트 user 버블/영속용 첨부 뷰 — 모델 주입용 ComposerAttachment(경로/바이트)와 별개로
+// 렌더·DB 에 남길 가벼운 메타다. 이미지는 previewDataUrl 에 다운스케일 썸네일(data URL)을 담아
+// reload 후에도 보이게 하고(원본 base64/경로 미보관), 비-이미지는 확장자만 칩으로 표시한다.
+export interface AttachmentView {
+  id: string
+  name: string
+  mimeType: string
+  kind: 'image' | 'file'
+  previewDataUrl?: string
+  sizeBytes?: number
+}
+
 export interface ReadAttachmentRequest {
   path: string
 }
@@ -434,6 +446,9 @@ export interface SendChatMessage {
   // 이 턴에 적용할 Claude Code thinking effort. per-turn 전송만 지원한다.
   effort?: EffortLevel
   attachments?: ComposerAttachment[]
+  // 영속·렌더 전용 첨부 뷰(다운스케일 썸네일 포함). attachments 가 모델 주입용이라면 이쪽은
+  // user 메시지에 attachment 파트로 남겨 트랜스크립트에 보이게 한다.
+  attachmentViews?: AttachmentView[]
 }
 
 // Composer 권한 모드 버튼이 노출하는 두 모드. SDK PermissionMode 의 부분집합 —
@@ -660,6 +675,8 @@ export type AppMessagePart =
   | { type: 'diff'; patch: string }
   | { type: 'structured_output'; value: unknown }
   | { type: 'error'; error: unknown }
+  // 컴포저 첨부(user 턴) — 트랜스크립트 버블에 썸네일로 렌더하고 DB 에 영속한다.
+  | { type: 'attachment'; attachments: AttachmentView[] }
 
 // 로드된 세션 — Renderer 의 chatReducer state 와 1:1 대응. 메시지는 순서 보존 parts 로 표현.
 export interface LoadedMessage {

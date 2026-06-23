@@ -8,6 +8,7 @@
 // electron 비의존(순수 TS) — pending 키를 제네릭으로 두어 vitest 가 임의 객체로 검증한다.
 // 실사용은 W = WebContents.
 
+import type { AttachmentView } from '../../../shared/ipc'
 import type { LiveTurn, SessionAdapter } from '../../adapters/types'
 import type { ResolvedProviderSettings } from '../../settings/provider-settings'
 
@@ -30,6 +31,9 @@ export interface InflightTurn<W = unknown> {
   // session_id 를 발급한 시점에 DB 에 user message row 로 저장한다.
   pendingUserText: string | null
   firstUserText: string
+  // user 메시지에 함께 영속할 첨부 뷰(트랜스크립트 썸네일). pendingUserText 와 같은 시점에
+  // attachment 파트로 저장된다(new-chat 은 init, resume 은 즉시).
+  pendingAttachmentViews: AttachmentView[]
   // init 이벤트로 확정된 DB sessionId. resume 의 경우 sendMessage 인자와 같다.
   dbSessionId: string | null
   // 새 채팅 첫 메시지일 때 renderer 가 전달한 projectId. init 이벤트의 insertSession
