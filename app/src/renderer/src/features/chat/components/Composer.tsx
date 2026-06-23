@@ -16,7 +16,7 @@ import { AttachMenu } from './composer/AttachMenu'
 import { defaultSelection, modelKey, selectionLabel } from './composer/modelSelection'
 import { ConversationStatusLine } from './composer/ConversationStatusLine'
 import { AttachmentTray } from './composer/AttachmentTray'
-import { ConcurrencyNotice } from './ConcurrencyNotice'
+import { Notice } from './Notice'
 import { StatusPopover } from './composer/StatusPopover'
 import { conversationStatusModel as conversationStatusModelFactory } from './composer/statusViewModel'
 import { MODE_LABELS } from './composer/modes'
@@ -116,7 +116,17 @@ export function Composer({
   const [conversationStatusOpen, setConversationStatusOpen] = useState(false)
   const conversationStatusPopoverId = 'conversation-status-popover'
   const projectConcurrencyCount = useProjectConcurrencyCount(projectId)
-  const showConcurrencyNotice = projectConcurrencyCount - (inflight ? 1 : 0) > 0
+  // 같은 프로젝트에서 다른 작업이 실행 중인가(자기 턴 제외). × 닫기는 에피소드 단위 —
+  // 카운트가 해소(0)되거나 프로젝트가 바뀌면 dismiss 를 리셋해 다음 에피소드에 재표시한다.
+  // 리셋은 effect 가 아니라 렌더 중 이전값 비교로 조정한다(React 권장 패턴 — setState-in-effect 회피).
+  const concurrencyActive = projectConcurrencyCount - (inflight ? 1 : 0) > 0
+  const [concurrencyDismissed, setConcurrencyDismissed] = useState(false)
+  const [noticeEpisode, setNoticeEpisode] = useState({ projectId, active: concurrencyActive })
+  if (noticeEpisode.projectId !== projectId || noticeEpisode.active !== concurrencyActive) {
+    setNoticeEpisode({ projectId, active: concurrencyActive })
+    if (noticeEpisode.projectId !== projectId || !concurrencyActive) setConcurrencyDismissed(false)
+  }
+  const showConcurrencyNotice = concurrencyActive && !concurrencyDismissed
 
   // initialDraft 시드 — page 가 nav state 로 같은 값을 다시 넘겨도 1회만 적용(seededRef).
   // 적용 후 캐럿을 끝으로 두고 포커스해 사용자가 바로 이어 입력할 수 있게 한다.
@@ -390,7 +400,7 @@ export function Composer({
             />
           </Popover>
         )}
-        {/* 패널 스택 — ask / 도구 승인 / 입력 패널 / 컨트롤 패널을 일정 간격으로 쌓는다(스크린샷 기준). */}
+        {/* 패널 스택 — ask / 도구 승인 / 안내(<메시지>) / 입력 패널 / 컨트롤 패널을 일정 간격으로 쌓는다. */}
         <div className="flex flex-col gap-2">
           {activeAsk && (
             <AskUserQuestionCard
@@ -401,7 +411,15 @@ export function Composer({
             />
           )}
           {pendingToolApproval && <ToolApprovalBody key={pendingToolApproval.approvalId} />}
-          {showConcurrencyNotice && <ConcurrencyNotice />}
+          {showConcurrencyNotice && (
+            <Notice
+              title="같은 프로젝트에서 다른 작업이 실행 중입니다."
+              onClose={() => setConcurrencyDismissed(true)}
+            >
+              파일 충돌 가능성이 있습니다. Orca는 작업을 차단하지 않으며, 동시 실행 여부는 사용자가
+              판단합니다.
+            </Notice>
+          )}
           {pendingPlanReview ? (
             <ApprovalCard key={pendingPlanReview.requestId} />
           ) : (
