@@ -1,6 +1,6 @@
 # Plan — 0040-new-chat-race-early-registration
 
-> 새-채팅 전송 동시성 버그 해소(draftId 상관) + 첫 partial 시점 최근대화 등록/제목 생성. 정본 규칙은 [`../AGENTS.md`](../AGENTS.md).
+> 새-채팅 전송 동시성 버그 해소(**직렬 디스패치 게이트 + 낙관적 멀티 엔트리**, IPC/main 무변경) + `session.updated`(init) 시점 최근대화 등록/제목 생성. 정본 규칙은 [`../AGENTS.md`](../AGENTS.md).
 
 ## 메타
 
@@ -22,144 +22,167 @@
 
 ### 사용자 확정 사항
 
-1. **R1 의 실체 = 동시성 버그.** 일반 단일 전송은 이미 정상 전환된다(`/new` 에서 `messages>0` 이 되는 순간 `NewChatLandingPage` 가 `ChatTile` 로 자연 전환). 문제는 **"전송 → 새 대화 클릭 → 다시 전송"** 을 첫 `session.updated` 도착 전에 빠르게 했을 때다: 랜딩으로 돌아갔다 재전환되고, **2번째 세션이 최근대화에 기록되지 않고 소멸**, 남은 세션은 **첫 턴 사용자 메시지 버블이 사라진다**.
-2. **R2 트리거 앵커 = `session.updated`(init)**. (1차 응답은 "첫 partial" 이었으나, "첫 이벤트가 partial 이 맞는가?" 재확인 후, 첫 이벤트는 `session.updated`(init)이고 sessionId·DB row 가 그 시점에 존재함을 반영해 init 으로 확정.)
-3. **제목 생성 turn-end 안전망 유지** — 멱등 belt-and-suspenders.
+1. **R1 의 실체 = 동시성 버그.** 일반 단일 전송은 이미 정상 전환된다(`/new` 에서 `messages>0` 이 되는 순간 `NewChatLandingPage` 가 `ChatTile` 로 자연 전환). 문제는 **"전송 → 새 대화 클릭 → 다시 전송"** 을 첫 `session.updated` 도착 전에 빠르게 했을 때다: **2번째 세션이 최근대화에 기록되지 않고 소멸**, 남은 세션은 **첫 턴 사용자 메시지 버블이 사라진다**.
+2. **R1 설계 = 직렬 디스패치 게이트 + 낙관적 멀티 엔트리** (draftId-IPC 방식 **아님**). 화면은 멀티턴처럼 **즉시** 전환되지만(낙관적), main 턴 진입은 **단일 진입로(직렬)** — 2번째 새-채팅 전송은 "연결 대기"로 보이고 1번째가 **id 발급(`session.updated`)** 된 뒤 진입한다. 시스템 관점에선 *임계구간 + 세마포어(1)* 와 동형이며, 렌더러는 단일 스레드 이벤트 루프라 store 상태로 모델링한 모니터(FIFO 큐)로 구현한다.
+3. **R2 트리거 앵커 = `session.updated`(init)**. (1차 응답은 "첫 partial" 이었으나, 첫 이벤트가 `session.updated`(init)이고 sessionId·DB row 가 그 시점에 존재함을 반영해 init 으로 확정.)
+4. **제목 생성 turn-end 안전망 유지** — 멱등 belt-and-suspenders.
 
 ### 근본 원인 (코드 확인 완료)
 
-단일 슬롯 가정이 동시 새-채팅을 못 버틴다.
+멀티세션은 `sessionId` 키잉인데, 새 채팅은 `session.updated`(init) 전까지 sessionId 가 없어 **단일 임시 슬롯**으로 보관한다 — 이 신원-이전(pre-init) 구간이 동시 2개가 되면 가정이 붕괴한다.
 
-- **렌더러** `features/chat/store/chatStore.ts`: 새-채팅 슬롯이 `NEW_CHAT_KEY='__new__'` 단 1개. `newChat()` 는 이 슬롯을 `freshEntry()` 로 덮어쓰므로 **승격 전 메시지가 소실**된다. `promoteNewChat(sessionId)` 는 "현재 `NEW_CHAT_KEY` 엔트리"를 sessionId 로 re-key 하므로, 두 번째 새 채팅이 끼면 **엉뚱한(2번째) 엔트리가 1번째 sessionId 로 승격**된다.
-- **메인** `ipc/chat/turn-registry.ts`: `pendingByOwner: Map<WebContents, InflightTurn>` — 창당 pending 슬롯 1개. `send.ts` 의 중복 가드 `turns.hasPending(sender)` 가 2번째 새-채팅 전송을 거부하거나, 타이밍에 따라 `promote(owner, …)` 가 슬롯을 오염시킨다.
-- **상관 키 부재**: `session.updated` 이벤트가 `sessionId` 만 싣고 어느 새-채팅(draft)의 것인지 표시하지 않아, 렌더러가 올바른 엔트리를 골라 승격할 수 없다.
+- **렌더러** `features/chat/store/chatStore.ts`: 새-채팅 슬롯이 `NEW_CHAT_KEY='__new__'` 단 1개. send 후 `session.updated` 전까지 A 가 이 슬롯에 머문다. 이 구간에 "새 대화" 클릭 시 `useChatRouteSync.ts:43-44`(Direction 1)이 dirty `/new` 에서 `newChat()` 를 호출 → `freshEntry()` 가 슬롯을 덮어써 **A 소멸**. `promoteNewChat(sessionId)` 도 "현재 `NEW_CHAT_KEY` 엔트리"를 re-key 하므로 끼어든 2번째가 엉뚱하게 승격될 수 있다.
+- **메인** `ipc/chat/turn-registry.ts`: `pendingByOwner: Map<WebContents, InflightTurn>` — 창당 pending 슬롯 1개. 동시 미승격 새-채팅 2개를 담지 못한다.
 
-### 이벤트 순서 (확인 · `claude-map.ts`)
+> 본 설계는 **렌더러가 미승격 새-채팅 main 턴을 항상 ≤1개로 직렬화**해 이 단일 슬롯 가정을 *지킨다* — main 을 일반화(멀티 슬롯)하는 대신 불변식을 강제한다. 그래서 **main·IPC 무변경**.
 
-claude SDK `system/init` → **`session.updated`**(sessionId 발급; `persist.ts` 가 `insertSession` 으로 DB 세션 row + 대기 user 메시지 기록) → **`message.delta`**(partials; `includePartialMessages: true`) → `assistant`(`message.completed`/`tool.call.started`) → … → **`telemetry`**(턴 종료; `persist.ts` 가 `onTurnEnd(turn)` → `TitleGenerator.maybeStart`).
+### 이벤트 순서 (확인 · `claude-map.ts` / `send.ts`)
+
+claude SDK `system/init` → **`session.updated`**(sessionId 발급; `persist.ts` 가 `insertSession` 으로 DB 세션 row + 대기 user 메시지 기록) → **`message.delta`**(partials) → `assistant`(`message.completed`/`tool.call.started`) → … → **`telemetry`**(턴 종료; `persist.ts` 가 `onTurnEnd(turn)` → `TitleGenerator.maybeStart`).
 
 함의 (중요):
 - **첫 이벤트는 partial 이 아니라 `session.updated`(init)** 이다. partial(`message.delta`)은 그 뒤에 온다.
-- `message.delta` 는 **항상 보장되지 않는다** — 텍스트 없이 도구만 호출하는 턴, init 직후 에러 턴에는 없을 수 있다.
-- **DB `insertSession` 은 이미 init 에서 pre-init** 된다. 반면 **사이드바 refresh·제목 생성은 turn-end** 라 늦다(사이드바=`useChatSessionsSync` 의 inflight true→false, 제목=`onTurnEnd`).
+- **DB `insertSession` 은 이미 init 에서 pre-init** 된다. 반면 **사이드바 refresh·제목 생성은 turn-end** 라 늦다.
+- 새 채팅은 `session.updated` **전에도 에러로 종료될 수 있다**(`send.ts:159` 중복가드 · `:178` 어댑터 부재 · `:382` sendMessage throw · `:402` 재시도). 이 pre-init 에러는 `turn.dbSessionId == null` 이라 **sessionId 없이** 발행된다(`send.ts:421` 의 `...(turn.dbSessionId ? {sessionId} : {})`). resume 에러는 항상 sessionId 를 갖는다(`send.ts:234` 에서 dbSessionId=sessionId).
 
-→ **사용자 확정**: 두 후속 작업(등록·제목)의 트리거 앵커는 **`session.updated`(init)** — 진짜 첫 이벤트이자 sessionId·DB row 가 존재하는 가장 이른 시점. (요구사항의 "partial 도착하자마자"는 "complete 를 기다리지 말고 가능한 한 일찍"의 의도이며, 실제 데이터 생성 지점인 init 으로 앵커링한다.)
+→ **사용자 확정**: 두 후속 작업(등록·제목)의 트리거 앵커는 **`session.updated`(init)** — sessionId·DB row 가 존재하는 가장 이른 시점.
 
 ## 인수 기준 (Acceptance Criteria)
 
 > verify 가 1:1 로 대조하는 검증 가능 항목.
 
 1. **동시 새-채팅 비소멸**: "전송 → 새 대화 → 전송"을 첫 `session.updated` 전에 수행해도 **두 세션 모두 최근 대화에 기록**되고 어느 것도 소멸하지 않는다.
-2. **버블 보존**: 위 시나리오에서 각 세션의 **첫 턴 사용자 메시지 버블이 보존**된다(엉뚱한 엔트리 승격 없음).
-3. **배경 승격 비간섭**: 사용자가 다음 새 채팅으로 이동한 상태에서 이전 draft 가 `session.updated` 로 승격되어도 **활성 세션의 `activeKey`/URL 을 가로채지 않는다**.
-4. **상관 키 왕복**: 새-채팅 전송 payload 에 `draftId` 가 실리고, 그 턴의 `session.updated` 이벤트가 **같은 `draftId` 를 echo** 한다. `docs/IPC_CONTRACT.md` 가 동기화된다.
-5. **init 등록**: `session.updated`(init) 시 **사이드바 최근 대화에 해당 세션이 등장**한다(턴 종료를 기다리지 않음).
-6. **init 제목**: `session.updated`(init) 시 **제목 생성 query 가 발사**되어 스트리밍과 **병렬** 진행되고, 완료 시 기존 `sessionTitleEvent` 로 in-place 반영된다.
-7. **멱등 + 안전망**: 제목 생성은 **턴당 1회**만 실행된다(`titleGenerationStarted` 멱등). turn-end 안전망 유지(belt-and-suspenders).
-8. **회귀 0**: 일반 단일 새-채팅 및 이어가기(resume, `sessionId != null`) 경로의 동작이 바뀌지 않는다.
-9. **게이트 + 테스트**: `cd app && npm run lint && npm run typecheck && npm test` 통과 + 신규 단위 테스트(아래 게이트 절).
+2. **버블 보존**: 위 시나리오에서 각 세션의 **첫 턴 사용자 메시지 버블이 보존**된다(화면상 둘 다 즉시 보임).
+3. **직렬 단일 진입로**: 2번째 새-채팅은 **즉시 화면 전환(연결 대기 표시)** 되고, 그 main 디스패치(`chatApi.send`)는 **1번째의 `session.updated` 이후** 발생한다.
+4. **불변식**: 어느 시점에도 **미승격(sessionId 미발급) 새-채팅 main 턴은 ≤1개**다(렌더러 직렬화). **IPC 채널·payload·`NormalizedEvent`·main 코드 변경 0**.
+5. **배경 승격 비간섭**: 사용자가 2번째 새 채팅으로 이동한 상태에서 1번째 draft 가 `session.updated` 로 승격되어도 **활성 세션의 `activeKey`/URL 을 가로채지 않는다**.
+6. **init 등록**: `session.updated`(init) 시 **사이드바 최근 대화에 해당 세션이 등장**한다(턴 종료를 기다리지 않음).
+7. **init 제목**: `session.updated`(init) 시 **제목 생성 query 가 발사**되어 스트리밍과 **병렬** 진행되고, 완료 시 기존 `sessionTitleEvent` 로 in-place 반영된다.
+8. **멱등 + 안전망**: 제목 생성은 **턴당 1회**만 실행된다(`titleGenerationStarted` 멱등). turn-end 안전망 유지.
+9. **데드락 0**: 1번째 새-채팅이 init 전 종료(error/abort)해도 게이트가 해제되어 2번째(대기 중)가 진입한다.
+10. **회귀 0**: 일반 단일 새-채팅 및 이어가기(resume, `sessionId != null`) 경로의 동작이 바뀌지 않는다.
+11. **게이트 + 테스트**: `cd app && npm run lint && npm run typecheck && npm test` 통과 + 신규 단위 테스트(아래 게이트 절).
 
 ## 범위 / 비범위
 
-- **범위**: 새-채팅 동시성 상관(draftId) — L0 스키마/타입, 메인 turn-registry/send, 렌더러 chatStore; 첫-partial 트리거(제목 = 메인 내부, 등록 = 렌더러 셸 훅); `IPC_CONTRACT.md` 동기화; 단위 테스트.
+- **범위**: 렌더러 `chatStore` 의 직렬 디스패치 게이트(로컬 draft 키 + 세마포어 상태 + FIFO 큐 + 원자 re-key)·release 라우팅; init 트리거(제목 = 메인 내부 `titles.maybeStart`, 등록 = 렌더러 셸 훅 `recentsEpoch`); "연결 대기" 표시; 단위 테스트.
 - **비범위**:
-  - 낙관적 **URL 선전환**(전송 즉시 `/chat/<임시>` 로 navigate). 현 전환(`messages>0`→`ChatTile`, init 시 URL 승격)으로 R1 의도 충족 — 라우트 임시키 도입은 하지 않는다.
-  - 신규 IPC **채널** 추가(채널 수 불변 — `session.updated` variant 필드 추가만, `chat:send` payload 필드 추가만).
-  - 제목 모델/프롬프트 변경(handoff 0004 그대로 재사용).
-  - 세션 공간/워크스페이스 실제 선할당 신설(현재 그런 할당 없음 — 아래 pre-init 메모 참조).
-  - opencode 등 타 어댑터 일반화.
+  - **IPC 채널/payload/`NormalizedEvent` 변경** — 본 설계의 핵심 이점은 **무변경**. `draftId` IPC 필드는 **도입하지 않는다**(이전 초안 폐기).
+  - **main 코드 변경**(`turn-registry`/`send.ts` 의 pending 모델) — 직렬화로 단일 슬롯 가정이 유지되므로 그대로 둔다. (단, R2 제목을 위한 `titles` 주입은 예외 — 아래 Part B.)
+  - 낙관적 **URL 선전환**(전송 즉시 `/chat/<임시>` navigate). 현 전환(`messages>0`→`ChatTile`, init 시 Direction 2 URL 승격)으로 충족.
+  - 미승격(main 진입) 새-채팅의 **cancel→main abort** — sessionId 부재로 현행 한계 유지(후속). 대기 중 draft cancel 은 로컬 큐 드롭으로 처리.
+  - draft 구간 permission **setMode 라이브 반영**(초기 모드는 send payload 로 전달, init 전 *변경*만 미반영 — 후속).
+  - 제목 모델/프롬프트 변경(handoff 0004 재사용), 세션 공간/워크스페이스 실제 선할당 신설(아래 pre-init 메모), opencode 등 타 어댑터.
 
 ## 설계
 
-### Part A — 동시 새-채팅 상관(draftId)로 R1 해소
+### Part A — 직렬 디스패치 게이트 + 낙관적 멀티 엔트리 (R1)
 
-전송마다 클라이언트가 생성한 `draftId` 로 엔트리/턴을 식별해 단일 슬롯 충돌을 제거한다. 메인의 멀티세션 토대(handoff 0011/0013, `bySession` 키잉)와 정합하며, 새-채팅 pending 도 단일 슬롯에서 **draft 키 맵**으로 일반화한다.
+**불변식**: *미승격 새-채팅 main 턴은 항상 ≤1개.* 렌더러가 디스패치를 직렬화해 보장 → main 단일 `pendingByOwner` 슬롯·`promote(owner, sessionId)` **무변경**, **IPC 무변경**(draftId echo 불필요). 디스패치가 직렬이라 `session.updated` 가 진입 순서대로 오므로 **FIFO 승격이 정확**하다.
 
-**L0 shared** (`src/shared/`)
+#### 시스템 관점 — semaphore(1) ↔ store 모니터 매핑
 
-- `protocol.ts` `SendChatMessageSchema`: optional `draftId: z.string()` 추가(새-채팅 전송만 채움; resume 은 미포함). 재사용: 기존 zod 스키마에 필드 1개.
-- `ipc.ts` `NormalizedEvent` 의 `session.updated` variant: optional `draftId?: string`(상관 echo). `chat:send` payload 타입에도 `draftId?` 반영.
+| 개념 | 구현 |
+|---|---|
+| 세마포어 count | `pendingNewChatKey: string \| null` (`null`=가용/1, non-null=점유/0) |
+| 임계구간 | "미승격 새-채팅 main 턴 1개가 진입한 상태" |
+| **P (acquire)** | `send()` 에서 `pendingNewChatKey` 검사 → null 이면 점유+디스패치, 아니면 큐잉 |
+| **V (release)** | `receive()` 에서 점유 draft 가 **승격(session.updated) 또는 터미널**이면 해제 → 큐 shift → 재점유 |
+| 대기자 큐 | `newChatQueue: string[]` (FIFO draft 키; payload 는 엔트리에 보관) |
 
-**메인** (`src/main/ipc/chat/`)
+**비타협 규칙**: P 의 test-and-set(`pendingNewChatKey` 읽기+쓰기)은 **같은 동기 `setState` 콜백 안에서** 완결한다 — 사이에 `await`/마이크로태스크 금지(TOCTOU 차단). `chatApi.send()`(async)는 **점유 확정 이후**에만 호출한다. 단일 스레드 이벤트 루프라 OS 프리미티브·범용 async-mutex 는 불요(acquirer=`send` ≠ releaser=`receive` 이므로 mutex-around-block 이 아닌 조건변수/모니터 형태이고, UI 는 동기 즉시 갱신이 필요해 `await acquire()` 로 막으면 낙관적 전환이 깨진다).
 
-- `turn-registry.ts`:
-  - `pendingByOwner: Map<W, InflightTurn>` → `pendingByDraft: Map<string, InflightTurn>`.
-  - `startNew(draftId, turn)` / `hasPendingDraft(draftId): boolean` / `promote(draftId, sessionId)` 로 시그니처 변경.
-  - `InflightTurn` 에 `draftId: string` 추가. `owner`(W) 는 이벤트 타깃(cancel/abort `sendChatEvent`)용으로 **유지**.
-  - `finish(turn)` 은 값 동일성 제거이므로 그대로(맵 이름만 변경).
-  - 효과: **동시 새-채팅 pending 허용**(서로 다른 draftId).
-- `send.ts`:
-  - `parsed.data.draftId` 사용. 새-채팅 중복 가드를 `turns.hasPendingDraft(draftId)` 로(같은 draft 재전송만 거부; 서로 다른 새 채팅은 충돌하지 않음). `parsed.data.sessionId` 있으면 기존 `hasSession` 가드 유지.
-  - `turns.startNew(draftId, turn)` (resume 은 `startResume` 유지).
-  - 이벤트 루프에서 `ev.type === 'session.updated'` 시: **outbound 이벤트에 `turn.draftId` 를 주입한 사본**을 `sendChatEvent` 로 보내고(어댑터/`claude-map` 무변경 — 오케스트레이터가 augment), `turns.promote(turn.draftId, ev.sessionId)` 호출.
-  - `InflightTurn` 생성부(`send.ts:220`)에 `draftId` 채움.
+#### 렌더러 `features/chat/store/chatStore.ts` (전부 렌더러-로컬, IPC 0)
 
-**렌더러** (`features/chat/store/chatStore.ts`)
+- 새-채팅 엔트리에 **렌더러-로컬 키** `draft:<uuid>` 를 쓴다(`crypto.randomUUID()`). `NEW_CHAT_KEY` 는 **빈 랜딩(컴포저) 슬롯**으로 유지.
+- 신규 store 상태: `pendingNewChatKey: string | null` + `newChatQueue: string[]`.
+- `send()` — `cur.sessionId == null`(새 채팅)일 때, **단일 `setState` 트랜잭션**으로:
+  1. 현 `NEW_CHAT_KEY` 엔트리를 `draft:<uuid>` 로 re-key(엔트리 객체 동일성 보존 → live/메시지 따라감),
+  2. 그 엔트리에 `SEND_USER_MESSAGE`(버블 즉시) 적용 + live reset,
+  3. `NEW_CHAT_KEY` 를 새 `freshEntry()` 로 재생성, `activeKey = draft:<uuid>`,
+  4. **P**: `pendingNewChatKey == null` 이면 `pendingNewChatKey = draftKey`(점유), 아니면 `newChatQueue.push(draftKey)`(대기).
+  - 트랜잭션 후: 점유한 경우에만 `chatApi.send(payload)`(sessionId=null) fire-and-forget. resume 경로(`sessionId != null`)는 **기존 그대로**(게이트 미적용 — 임계구간 밖, `bySession` 키잉).
+- `receive(session.updated)` — 승격 대상 = **`pendingNewChatKey` 엔트리**(명확·`__new__` 추측 제거)를 `ev.sessionId` 로 re-key(현 `promoteNewChat` 을 "NEW_CHAT_KEY" 대신 "pendingNewChatKey" 기준으로). 그리고:
+  - `recentsEpoch++`(R2 등록, Part B),
+  - **V(release)**: `pendingNewChatKey = null` → `newChatQueue` 비어있지 않으면 shift 한 다음 draft 의 payload 로 `chatApi.send` + `pendingNewChatKey = next`,
+  - `activeKey` 는 승격 draft 가 **현재 활성일 때만** 추종(배경 승격은 URL/activeKey 불변 — 인수 5).
+- **데드락 방지(draftId·타임아웃 없이)** — 불변식상 *sessionId 없는 터미널(error/turn.aborted/init-less telemetry)은 유일한 pre-init 새-채팅 턴 = `pendingNewChatKey`* 임이 확정된다(resume 에러는 항상 sessionId 보유). → `receive()` 의 현 폴백(`chatStore.ts:166` `key = activeKey`)을 **sessionId 없는 터미널 한정 `key = pendingNewChatKey ?? activeKey`** 로 바꾼다. 그 엔트리의 turn 이 종료(reducer inflight=false)되면 V 를 호출해 슬롯을 해제하고 큐를 진행시킨다. 즉 release 조건 = "`pendingNewChatKey` 턴이 **승격 OR 터미널**".
+- `newChat()` — `NEW_CHAT_KEY` 빈 엔트리만 리셋. **핵심**: send 가 `__new__`→`draft:uuid` 로 즉시 re-key 했으므로 in-flight A 는 이미 `NEW_CHAT_KEY` 를 떠났다 → 기존 `newChat()`(NEW_CHAT_KEY 만 리셋)이 **A 를 자동 보존**(별도 보존 로직 사실상 불필요, 회귀 테스트로 가드). 이게 현 버그(Direction 1 → `newChat()` → NEW_CHAT_KEY 의 A 소멸)의 직접 차단.
+- `cancel()` — 활성이 대기 중 draft 면 `newChatQueue` 에서 제거(로컬 드롭, main 미진입). 활성이 `pendingNewChatKey`(main 진입·sessionId 미발급)면 현행 한계 유지(로컬 `CANCEL_CHAT`, main abort 는 후속).
 
-- `send()`: `cur.sessionId == null`(= 새 채팅) 이면 `const draftId = crypto.randomUUID()` 생성 → 현재 `NEW_CHAT_KEY` 엔트리를 `draftId` 키로 re-key(엔트리 객체 동일성 보존 → 메시지/라이브 따라감), `activeKey = draftId`, `NEW_CHAT_KEY` 는 새 `freshEntry()` 로 재생성. `chatApi.send({ …, draftId })`. resume 경로는 draftId 미전달.
-- `promoteNewChat` → `promoteDraft(draftId, sessionId)`: `receive(session.updated)` 에서 `ev.draftId` 의 엔트리를 sessionId 로 re-key. **`activeKey` 는 그 draft 가 현재 활성일 때만 추종**(배경 승격은 URL/activeKey 불변 → 사용자가 옮긴 새 채팅을 가로채지 않음, 인수 기준 3). 하위호환: `ev.draftId` 가 없거나 매칭 엔트리가 없으면 기존 `NEW_CHAT_KEY` 승격으로 폴백.
-- `newChat()`: `NEW_CHAT_KEY` 빈 엔트리만 리셋 — **진행 중 draftId 엔트리는 건드리지 않는다**(소실 방지가 핵심).
-- 라우팅 키 해석(`receive` 의 key 결정)은 draft 엔트리도 `activeKey` 폴백으로 자연 처리되며, 승격 후에는 sessionId 키로 라우팅된다.
+#### 렌더 path (코드 확인 — "낙관적 멀티" 전제 성립, 무변경)
 
-`useChatRouteSync` 방향 2(armed-ref)는 무변경: 활성 세션의 sessionId 가 null→non-null 될 때만 navigate 하므로, 배경 draft 승격에는 발사되지 않는다.
+버블은 `session.updated` **전에** 정규 path 로 그려진다 — 전환 기준이 `sessionId` 가 아니라 **`messages` 길이**라 IPC/init 과 디커플된다:
+- `send()` 의 `SEND_USER_MESSAGE`(`chatStore.ts:251`)가 **동기**로 활성 엔트리 `session.messages` 에 append(IPC 이전) → `NewChatLandingPage.tsx:13` `isEmpty = messages.length === 0` 해제 → `/new` 에서 `ChatTile`(transcript+버블) 즉시 렌더(URL 아직 `/new`, sessionId null).
+- 이후 `session.updated` → 승격 re-key → `useChatRouteSync.ts:78-82` Direction 2(sessionId null→non-null arm-fire)가 `/chat/<id>` 로 URL 만 replace(같은 store 엔트리 매끄러운 인계).
+- 큐 대기 B 도 동일 경로(`draft:<uuidB>` 엔트리 messages>0 → ChatTile) — 디스패치 보류는 **렌더 무관**(스트리밍만 지연), "연결 대기" 인디케이터만 추가. → `NewChatLandingPage`·`ChatTile`·`useChatRouteSync` **무변경**, draft 키에 그대로 적용됨을 확인만.
+
+#### 게이트는 store, hook 아님 (배치 근거)
+
+release 트리거(session.updated 도착)는 async 이벤트지만 그 핸들러 `receive()` 는 **React 트리 밖**에서 돈다(`chatStore.ts:152` 주석, `:231` 모듈-레벨 coalescer, `:494` bootstrap 배선). **Rules of Hooks** 상 `receive()` 에서 hook 직접 호출은 불가능하다. 대안인 `useEffect` pump(store state→effect 반응)는 이 자리엔 열등하다: ① pump 컴포넌트 마운트 의존(코어 불변식이 라이프사이클에 종속) ② effect 는 commit 후 스케줄 → 인입 receive 와 인터리빙해 순서 추론이 어려움 ③ effect 배칭·StrictMode 이중호출 → ref 가드 재도입(결국 명령형) ④ `chatStore.test.ts`(React 무의존)로 테스트 불가. 게다가 acquire(P)는 어차피 `send()` 안 동기 test-and-set 이어야 하므로 release 만 hook 으로 빼면 split-brain 이 된다.
+
+큐 자료구조도 **store 배열**이 맞다(promise-chain·async-mutex 아님): 대기 draft 는 **화면에 렌더**되어야 하므로(낙관적 멀티 "대기" 표시+순서) 큐 정보는 *디스패치 순서 + UI 렌더* 두 소비자를 가진다. store 배열은 한 구조로 둘 다 만족(single source of truth)하고 cancel=`filter`·동기 테스트가 쉽다. promise-chain 은 `resolve` 를 stash 해 결국 상관 상태를 보관하고, splice 불가로 cancel 이 어려우며, UI "대기" store 가 별도로 필요해 **이중 관리**가 된다.
+
+> "hook 형태" 직관은 **Zustand store 가 곧 hook substrate** 라는 사실로 이미 충족된다 — 읽기는 `useChatSession`/신규 `useNewChatPending(key)` hook(반응형), 쓰기는 `receive` 가 store 를 mutate 하면 모든 구독 hook 이 갱신된다. hook 은 "연결 대기" **표시 전용 셀렉터**로만 쓴다.
 
 ### Part B — `session.updated`(init) 에 등록 + 제목 (R2)
 
-> 트리거 앵커 = **`session.updated`(init)**. 첫 이벤트이자 sessionId·DB row 가 존재하는 가장 이른 시점이라, 첫-콘텐츠 감지/게이팅(`contentStarted`·`registered` 플래그)이 **불필요**해 설계가 단순해진다.
+> 트리거 앵커 = **`session.updated`(init)**. sessionId·DB row 가 존재하는 가장 이른 시점이라 첫-콘텐츠 감지/게이팅(`contentStarted`·`registered`)이 **불필요**하다.
 
-- **제목 생성 (메인 내부 · IPC 무변경)**: `router.ts:195` 에서 만든 `titles`(`TitleGenerator`) 를 `ChatDeps` 로 `registerChatHandlers` 에 주입한다. `send.ts` 이벤트 루프에서 `ev.type === 'session.updated'` 처리 시 — **`persistence.persist(turn, ev)` 가 `turn.dbSessionId` 세팅 + `insertSession` 을 끝낸 직후** — `titles.maybeStart(turn)` 를 호출한다. `dbSessionId`/`firstUserText` 모두 이 시점에 확보됨. `maybeStart` 는 `turn.titleGenerationStarted` 로 **멱등** → init·turn-end 양쪽에서 호출돼도 1회만 실행. 제목 query 가 스트리밍과 **병렬** 진행.
-  - **turn-end 안전망 유지**: `persist.ts` 의 `onTurnEnd(turn)` → `maybeStart` 경로는 그대로 둔다(인수 기준 7). 새 세션은 init 에서 이미 시작되므로 이제 belt-and-suspenders(멱등 무해).
-- **최근 대화 등록 (렌더러 · 신규 IPC 채널 0)**: `chatStore.receive()` 의 `session.updated`(promoteDraft) 경로에서 store 카운터 `recentsEpoch` 를 증가시킨다(세션당 1회 — 승격 시점, 전 세션/배경 턴 포함). 셸 훅 `app/src/renderer/src/app/hooks/useChatSessionsSync.ts` 가 `recentsEpoch` 변화를 구독해 `sessionsActions.refresh()` 를 호출한다(`features/chat` → `features/sessions` 직접 결합 금지 → **셸이 호스트**, 경계 준수). 기존 inflight false→refresh 는 완료 후 preview/정렬 동기화로 **유지**(중복 무해).
-- **pre-init 메모**: 세션 DB row 는 이미 `session.updated`(init) 에서 `insertSession` 되어 pre-init 상태다. 현재 별도의 공간/워크스페이스 실제 할당은 turn-end 에 없다(`getWorkspacePath` 는 턴마다 순수 계산, handoff 0039). 따라서 본 작업의 "등록"은 **사이드바 가시화 + 제목**을 init 으로 앞당기는 것이다. 향후 세션별 공간/메타데이터 **실제 선할당**이 필요해지면, complete 를 기다리지 말고 동일하게 **init 시점에 pre-init** 하라.
+- **제목 생성 (메인 내부 · IPC 무변경)**: `router.ts:195` 에서 만든 `titles`(`TitleGenerator`)를 `ChatDeps` 로 `registerChatHandlers` 에 주입한다. `send.ts` 이벤트 루프에서 `ev.type === 'session.updated'` 처리 시 — **`persistence.persist(turn, ev)` 가 `turn.dbSessionId` 세팅 + `insertSession` 을 끝낸 직후** — `titles.maybeStart(turn)` 를 호출한다. `maybeStart` 는 `turn.titleGenerationStarted` 로 **멱등** → init·turn-end 양쪽 호출에도 1회만. 제목 query 가 스트리밍과 **병렬** 진행.
+  - **turn-end 안전망 유지**: `persist.ts` 의 `onTurnEnd(turn)` → `maybeStart` 경로는 그대로(인수 8). 이제 belt-and-suspenders(멱등 무해).
+  - 이는 본 설계에서 **유일한 main 변경**이며 `turn-registry`/pending 모델·IPC 와 무관하다.
+- **최근 대화 등록 (렌더러 · 신규 IPC 채널 0)**: `chatStore.receive()` 의 `session.updated`(= `pendingNewChatKey` 승격) 경로에서 store 카운터 `recentsEpoch` 를 증가(세션당 1회, 전 세션/배경 턴 포함). 셸 훅 `app/src/renderer/src/app/hooks/useChatSessionsSync.ts` 가 `recentsEpoch` 변화를 구독해 `sessionsActions.refresh()` 호출(`features/chat`→`features/sessions` 직접 결합 금지 → **셸이 호스트**, 경계 준수). 기존 inflight false→refresh 는 완료 후 preview/정렬 동기화로 **유지**.
+- **pre-init 메모**: 세션 DB row 는 이미 init 에서 `insertSession`(pre-init). 현재 별도 공간/워크스페이스 실제 할당은 없다(`getWorkspacePath` 는 턴마다 순수 계산, handoff 0039). 본 작업의 "등록"은 **사이드바 가시화 + 제목**을 init 으로 앞당기는 것. 향후 세션별 공간/메타데이터 **실제 선할당**이 필요하면 complete 를 기다리지 말고 동일하게 **init 시점에 pre-init** 하라.
 
 ### 레이어 경계
 
-- L0 `shared` 스키마/타입 추가 → main·renderer 모두 하향 의존(OK).
-- 메인: `turn-registry`·`send` 는 L3 ipc, `TitleGenerator` 주입은 컴포지션 루트(`router.ts`)에서 — 상위 참조 없음.
-- 렌더러: cross-feature(chat→sessions) refresh 는 **셸 훅**(`app/`)이 호스트 — `features/chat` 가 `features/sessions` 를 직접 import 하지 않는다.
+- 렌더러 게이트/큐는 `features/chat/store` 내부(L 동일). cross-feature(chat→sessions) refresh 는 **셸 훅**(`app/`)이 호스트 — `features/chat` 가 `features/sessions` 를 직접 import 하지 않는다.
+- 메인: `titles` 주입은 컴포지션 루트(`router.ts`)에서 — 상위 참조 없음.
 
 ## 영향 받는 파일
 
-- `app/src/shared/protocol.ts` — `SendChatMessageSchema.draftId?`
-- `app/src/shared/ipc.ts` — `session.updated` variant `draftId?`, `chat:send` payload 타입
-- `app/src/main/ipc/chat/turn-registry.ts` — `pendingByDraft` 맵 + draftId API + `InflightTurn.draftId`
-- `app/src/main/ipc/chat/send.ts` — draftId 가드/시작/승격, session.updated draftId 주입, 첫-partial `titles.maybeStart`
-- `app/src/main/ipc/router.ts` — `titles` 를 `ChatDeps` 로 주입
-- `app/src/renderer/src/features/chat/store/chatStore.ts` — `send`/`promoteDraft`/`newChat`/`recentsEpoch`
+- `app/src/renderer/src/features/chat/store/chatStore.ts` — **핵심**. 로컬 draft 키·`pendingNewChatKey`·`newChatQueue`·원자 re-key send·release 라우팅·`recentsEpoch`·`useNewChatPending` 셀렉터
 - `app/src/renderer/src/app/hooks/useChatSessionsSync.ts` — `recentsEpoch` 구독 refresh
-- `app/src/renderer/src/shared/api/ipc.ts` · `app/src/preload/index.ts` — `draftId` 전달 타입
-- `docs/IPC_CONTRACT.md` — `chat:send` payload + `session.updated` `draftId` (§6 변경 절차 동시 갱신)
+- `app/src/renderer/src/features/chat/components/Composer.tsx`(또는 `ChatTile.tsx`) — `useNewChatPending` 으로 "연결 대기" 인디케이터(표시만, 렌더 무영향)
+- `app/src/main/ipc/chat/send.ts` — `session.updated` 처리 시 `titles.maybeStart(turn)`(제목만; pending 모델 무변경)
+- `app/src/main/ipc/router.ts` — `titles` 를 `ChatDeps` 로 주입
+- (검토만·무변경) `NewChatLandingPage.tsx` · `ChatTile.tsx` · `useChatRouteSync.ts` — messages-구동 렌더/Direction 2 URL 승격이 draft 키에 그대로 적용됨을 확인
+- **변경 없음(설계 핵심)**: `app/src/shared/{protocol.ts,ipc.ts}` · `app/src/main/ipc/chat/turn-registry.ts` · `app/src/preload/index.ts` · `app/src/renderer/src/shared/api/ipc.ts` · `docs/IPC_CONTRACT.md`
 
 ## 참고 문서
 
-- `docs/IPC_CONTRACT.md` (§ chat send payload · §3 NormalizedEvent `session.updated`)
-- `docs/arch/frontend/state.md §1.4` (멀티세션 외피 · `NEW_CHAT_KEY` 승격 · handoff 0013)
-- `docs/handoff/0004-auto-session-title/` (제목 생성 seam `SessionAdapter.complete` · `sessionTitleEvent`)
+- `docs/IPC_CONTRACT.md` (§ chat send payload · §3 NormalizedEvent `session.updated` — **변경 없음 확인용**)
+- `docs/arch/frontend/state.md §1.4` (멀티세션 외피 · `NEW_CHAT_KEY` 승격 · §4.4.1/§4.4.2 React-밖 dispatch · handoff 0013)
+- `docs/handoff/0004-auto-session-title/` (제목 생성 seam · `sessionTitleEvent` · `TitleGenerator.maybeStart`)
 - `docs/handoff/0011-main-decompose/`, `0013-renderer-multisession-store/` (세션 키잉 토대)
 - `docs/TRD.md` §6 (세션/메시지 데이터 모델)
 
 ## 게이트
 
 - 통과 필요: `cd app && npm run lint && npm run typecheck && npm test` (better-sqlite3 Node ABI 재빌드 후 전체 green 확인).
-- 신규 테스트 요구:
-  - `turn-registry.test.ts` — 두 draftId 동시 pending → 각각 독립 promote(서로 오염 없음); 같은 draftId 재시작 가드.
-  - send 스키마 — `SendChatMessageSchema` 가 `draftId` 를 수용/생략 모두 파싱.
-  - 제목 멱등 — `session.updated` 다회/`onTurnEnd` 중복 호출에도 `maybeStart` 가 1회만(`titleGenerationStarted`).
-  - (가능하면) store 순수 로직 — `promoteDraft` 가 비활성 draft 승격 시 `activeKey` 불변·`recentsEpoch` 증가, 활성 draft 승격 시 추종.
+- 신규 테스트 요구 (전부 `chatStore.test.ts` — React 무의존 store 직접 검증):
+  - **직렬 디스패치**: 새-채팅 A send → `chatApi.send` 1회 + `pendingNewChatKey=A`. A 미승격 상태에서 B send → `chatApi.send` **추가 호출 없음** + B 는 `newChatQueue` + 두 엔트리(draft:A·draft:B) 공존(인수 3·4).
+  - **FIFO 승격 + 큐 릴리스**: A `session.updated` → A 가 sessionId 로 re-key + `recentsEpoch++` + B 가 디스패치(`chatApi.send` 2번째)되고 `pendingNewChatKey=B`(인수 1·6). B `session.updated` → B 승격.
+  - **데드락 0**: A 가 init 전 sessionId 없는 `error`/`turn.aborted` → 큐 릴리스로 B 진입(인수 9).
+  - **배경 비간섭**: 활성이 B 인데 A 가 승격 → `activeKey` 불변, A 만 re-key(인수 5).
+  - **newChat 보존**: in-flight/대기 draft 가 있는 상태에서 `newChat()` → draft 엔트리·큐·`pendingNewChatKey` 불변(인수 2).
+  - **제목 멱등**: `session.updated` 다회/`onTurnEnd` 중복에도 `maybeStart` 1회(`titleGenerationStarted`)(인수 8). (main 측 — 별도 파일이면 함께.)
 
 ---
 
 ## [Codex 기입] 구현 체크리스트
 
-- [ ] L0: `protocol.ts` `draftId?` + `ipc.ts` `session.updated.draftId?` / payload 타입
-- [ ] 메인: `turn-registry` `pendingByDraft` API + `InflightTurn.draftId`
-- [ ] 메인: `send.ts` draftId 가드/시작/승격 + `session.updated` draftId 주입 + init `maybeStart`
-- [ ] 메인: `router.ts` `titles` 주입(`ChatDeps`)
-- [ ] 렌더러: `chatStore` `send`/`promoteDraft`/`newChat`/`recentsEpoch`
-- [ ] 렌더러: `useChatSessionsSync` `recentsEpoch` refresh
-- [ ] 렌더러: `shared/api/ipc.ts`·`preload/index.ts` draftId 타입
-- [ ] `docs/IPC_CONTRACT.md` 동기화
-- [ ] 신규 단위 테스트 4종
+- [ ] 렌더러: `chatStore` 상태 `pendingNewChatKey`/`newChatQueue` 추가
+- [ ] 렌더러: `send()` 새-채팅 분기 — 원자 re-key(`__new__`→`draft:uuid`) + `SEND_USER_MESSAGE` + P(점유/큐잉) 단일 트랜잭션, 점유 시에만 `chatApi.send`
+- [ ] 렌더러: `receive(session.updated)` — `pendingNewChatKey` 기준 승격 re-key + `recentsEpoch++` + V(release/큐 shift), activeKey 활성 시만 추종
+- [ ] 렌더러: sessionId 없는 터미널 라우팅 `pendingNewChatKey ?? activeKey` + 슬롯 해제(데드락 0)
+- [ ] 렌더러: `cancel()` 대기 draft 큐 드롭 / `newChat()` 보존 확인
+- [ ] 렌더러: `useNewChatPending(key)` 셀렉터 + Composer/ChatTile "연결 대기" 인디케이터
+- [ ] 렌더러: `useChatSessionsSync` `recentsEpoch` 구독 refresh
+- [ ] 메인: `send.ts` `session.updated` 시 `titles.maybeStart(turn)` + `router.ts` `titles` 주입(`ChatDeps`)
+- [ ] 신규 단위 테스트 6종(게이트 절)
+- [ ] (확인) IPC/`shared`/`turn-registry`/`preload`/`IPC_CONTRACT.md`/라우트 컴포넌트 **무변경**
 
 ## [Codex 기입] 구현 보고
 
