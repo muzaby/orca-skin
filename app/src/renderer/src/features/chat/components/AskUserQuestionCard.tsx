@@ -182,7 +182,7 @@ export function AskUserQuestionCard({
   return (
     <div
       ref={rootRef}
-      className="app-frame-ask mb-2 rounded-r7 border border-t5 bg-surface-primary-elevated px-3.5 py-3 shadow-[0_1px_2px_rgba(0,0,0,.03)]"
+      className="app-frame-ask rounded-r7 border border-t5 bg-surface-primary-elevated px-3.5 py-3 shadow-[0_1px_2px_rgba(0,0,0,.03)]"
       data-surface="prompt"
       data-ask-user-input
       data-behavior="interactive"
@@ -221,7 +221,7 @@ export function AskUserQuestionCard({
           <div>
             <div className="mb-1 flex items-center gap-g3">
               <YellowDot />
-              <span className="rounded bg-rust-soft px-1.5 py-0.5 text-caption font-semibold uppercase tracking-wide text-rust">
+              <span className="rounded bg-t3 px-1.5 py-0.5 text-caption font-semibold text-t7">
                 {q.header}
               </span>
               {q.multiSelect && <span className="text-caption text-t6">여러 개 선택 가능</span>}
@@ -250,7 +250,7 @@ export function AskUserQuestionCard({
                       }
                     }}
                     className={`flex w-full items-start gap-g4 rounded-r4 border px-3 py-2 text-left outline-none hide-focus-ring ring-focus transition-colors ${
-                      selected ? 'border-rust bg-rust-soft' : 'border-t5 bg-t1 hover:bg-t2'
+                      selected ? 'border-border-strong bg-t3' : 'border-t5 bg-t1 hover:bg-t2'
                     }`}
                   >
                     <span
