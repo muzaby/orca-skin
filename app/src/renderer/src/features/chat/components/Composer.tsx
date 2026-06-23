@@ -356,14 +356,18 @@ export function Composer({
     ).then(addAttachments)
   }
 
-  // 전송 시 영속·렌더용 첨부 뷰를 만든다 — 이미지는 미리보기를 다운스케일 썸네일로 줄여
-  // DB/트랜스크립트에 가볍게 남긴다. 비-이미지는 메타만(칩이 확장자 표시).
-  const buildAttachmentViews = (
-    items: ComposerAttachment[],
-    previews: Record<string, string>
-  ): Promise<AttachmentView[]> =>
+  // 전송 시 영속·렌더용 첨부 뷰를 만든다 — 이미지는 다운스케일 썸네일로 줄여 DB/트랜스크립트에
+  // 가볍게 남긴다. 썸네일은 컴포저의 비동기 미리보기 state 가 아니라 **소스에서 직접** 만들어
+  // (path=readAttachment, inline=보유 바이트), 빠르게 전송해도 항상 영속되게 한다.
+  const sourceDataUrl = async (att: ComposerAttachment): Promise<string | undefined> => {
+    if (att.kind === 'inline') return `data:${att.mimeType};base64,${att.data}`
+    const read = await fileApi.readAttachment(att.path).catch(() => null)
+    return read ? `data:${read.mimeType};base64,${read.data}` : undefined
+  }
+
+  const buildAttachmentViews = (items: ComposerAttachment[]): Promise<AttachmentView[]> =>
     Promise.all(
-      items.map(async (att, index): Promise<AttachmentView> => {
+      items.map(async (att): Promise<AttachmentView> => {
         const isImage = att.mimeType.startsWith('image/')
         const view: AttachmentView = {
           id: crypto.randomUUID(),
@@ -372,8 +376,10 @@ export function Composer({
           kind: isImage ? 'image' : 'file',
           ...(att.sizeBytes !== undefined ? { sizeBytes: att.sizeBytes } : {})
         }
-        const full = isImage ? previews[`${att.name}-${index}`] : undefined
-        if (full) view.previewDataUrl = await downscaleDataUrl(full)
+        if (isImage) {
+          const full = await sourceDataUrl(att)
+          if (full) view.previewDataUrl = await downscaleDataUrl(full)
+        }
         return view
       })
     )
@@ -382,8 +388,7 @@ export function Composer({
     if (draft.trim() === '' || inflight) return
     const text = draft
     const items = attachments
-    const previews = attachmentPreviews
-    void buildAttachmentViews(items, previews).then((views) => {
+    void buildAttachmentViews(items).then((views) => {
       if (!send(text, items, views)) return
       setDraft('')
       setCaret(0)
