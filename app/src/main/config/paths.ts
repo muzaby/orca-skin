@@ -8,9 +8,12 @@
 //   ├── sources/                        # 사람이 편집하는 단일 원천 (instructions/AGENTS.md · skills ·
 //   │   ├── mcp/mcp.json                #   agents · commands · mcp/mcp.json · hooks/<engine> ·
 //   │   └── settings/<adapter>/         #   settings/<adapter>/<provider>/settings.json)
-//   └── dist/<engine>/                  # deployer 산출 (읽기 전용)
-//       ├── .claude/skills/             #   SDK 표준 경로 거울(설치 스테이징)
-//       └── .mcp.json                   #   ${VAR} placeholder 보존 MCP 거울
+//   ├── dist/<engine>/                  # deployer 산출 (읽기 전용)
+//   │   ├── .claude/skills/             #   SDK 표준 경로 거울(설치 스테이징)
+//   │   └── .mcp.json                   #   ${VAR} placeholder 보존 MCP 거울
+//   └── projects/                       # 세션 작업 디렉토리(cwd) 루트 — dist 확장이 여기로 싱크된다.
+//       ├── default/                    #   비-프로젝트 / cwd 미지정 세션 공용 cwd
+//       └── <이름>-<프로젝트ID8>/        #   프로젝트 소속 세션 cwd (future: 절대경로 지정값으로 대체 가능)
 //
 // 본 파일은 *다른 모듈이 실제로 참조하는* 경로만 노출한다. 런타임 settings 는 dist 가 아니라
 // sources/settings/<adapter>/<provider>/settings.json 을 해석해 query flag 로 주입한다.
@@ -19,7 +22,6 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { mkdir } from 'node:fs/promises'
 import { mkdirSync } from 'node:fs'
-import { app } from 'electron'
 import type { Backend } from '../../shared/ipc'
 
 // 모든 OS 동일하게 ~/.config/orca (제안서 §환경구성). Windows 에서도 homedir() 하위로 통일.
@@ -42,19 +44,42 @@ export function sourcesSkillsDir(): string {
   return join(sourcesDir(), 'skills')
 }
 
-export function workspaceDir(): string {
-  return join(orcaConfigDir(), 'workspace')
+// 모든 세션 cwd 의 단일 루트. default/ 와 프로젝트별 디렉토리가 여기 산다.
+export function projectsDir(): string {
+  return join(orcaConfigDir(), 'projects')
 }
 
-function safeProjectSegment(projectId: string | null | undefined): string {
-  if (!projectId) return 'default'
-  const safe = projectId.replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '')
-  return safe === '' ? 'default' : safe
+// 프로젝트명을 디렉토리 세그먼트로 안전화. 공백류→'_'(사용자 의도), 그 외 비안전 문자→'-',
+// 양끝 구두점 정리, 길이 cap. 빈 결과는 'project' 폴백.
+export function safeProjectName(name: string): string {
+  const safe = name
+    .trim()
+    .replace(/\s+/g, '_')
+    .replace(/[^A-Za-z0-9_.-]+/g, '-')
+    .replace(/^[-_.]+|[-_.]+$/g, '')
+    .slice(0, 40)
+  return safe === '' ? 'project' : safe
 }
 
-export function getWorkspacePath(projectId?: string | null, sessionId?: string | null): string {
-  void sessionId
-  const dir = join(app.getPath('userData'), 'projects', safeProjectSegment(projectId))
+// 프로젝트 ID 단축(git short-hash 風) — 하이픈 제거 후 앞 8자. 이름 충돌 시 디렉토리 구분자.
+export function shortProjectId(id: string): string {
+  return id.replace(/-/g, '').slice(0, 8)
+}
+
+// 프로젝트 소속 세션의 파생 디렉토리명: `<안전화한 이름>-<프로젝트ID8>`.
+export function workspaceDirName(project: { id: string; name: string }): string {
+  return `${safeProjectName(project.name)}-${shortProjectId(project.id)}`
+}
+
+// 세션 cwd 단일 해석기. 프로젝트 미소속이면 projects/default, 소속이면 파생 디렉토리.
+// cwd 는 future scope(절대경로 지정) — 값이 있으면 파생값보다 우선한다(지금은 항상 미설정).
+export function getWorkspacePath(
+  project?: { id: string; name: string; cwd?: string | null } | null
+): string {
+  let dir: string
+  if (!project) dir = join(projectsDir(), 'default')
+  else if (project.cwd) dir = project.cwd
+  else dir = join(projectsDir(), workspaceDirName(project))
   mkdirSync(dir, { recursive: true })
   return dir
 }

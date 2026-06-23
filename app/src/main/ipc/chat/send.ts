@@ -234,7 +234,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
       dbSessionId: parsed.data.sessionId,
       pendingProjectId: parsed.data.sessionId ? null : parsed.data.projectId,
       isNewSession: parsed.data.sessionId == null,
-      cwd: ctx.getCwd(boundProjectId, parsed.data.sessionId),
+      cwd: ctx.getCwd(boundProjectId),
       titleGenerationStarted: false,
       currentAssistantMessageId: null,
       assistantText: '',
