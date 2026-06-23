@@ -39,7 +39,13 @@ import { useAgents } from '../../../shared/hooks/useAgents'
 import { useSkillAutocomplete } from '../hooks/useSkillAutocomplete'
 import { useFileAutocomplete } from '../hooks/useFileAutocomplete'
 import { fileApi } from '../../../shared/api/ipc'
-import type { ComposerAttachment, FileEntry, SkillInfo } from '../../../../../shared/ipc'
+import { downscaleDataUrl } from '../lib/imageThumb'
+import type {
+  AttachmentView,
+  ComposerAttachment,
+  FileEntry,
+  SkillInfo
+} from '../../../../../shared/ipc'
 
 interface ComposerProps {
   backendLabel: string
@@ -350,13 +356,40 @@ export function Composer({
     ).then(addAttachments)
   }
 
+  // 전송 시 영속·렌더용 첨부 뷰를 만든다 — 이미지는 미리보기를 다운스케일 썸네일로 줄여
+  // DB/트랜스크립트에 가볍게 남긴다. 비-이미지는 메타만(칩이 확장자 표시).
+  const buildAttachmentViews = (
+    items: ComposerAttachment[],
+    previews: Record<string, string>
+  ): Promise<AttachmentView[]> =>
+    Promise.all(
+      items.map(async (att, index): Promise<AttachmentView> => {
+        const isImage = att.mimeType.startsWith('image/')
+        const view: AttachmentView = {
+          id: crypto.randomUUID(),
+          name: att.name,
+          mimeType: att.mimeType,
+          kind: isImage ? 'image' : 'file',
+          ...(att.sizeBytes !== undefined ? { sizeBytes: att.sizeBytes } : {})
+        }
+        const full = isImage ? previews[`${att.name}-${index}`] : undefined
+        if (full) view.previewDataUrl = await downscaleDataUrl(full)
+        return view
+      })
+    )
+
   const submit = (): void => {
-    if (draft.trim() === '') return
-    if (!send(draft, attachments)) return
-    setDraft('')
-    setCaret(0)
-    setAttachments([])
-    setAttachmentPreviews({})
+    if (draft.trim() === '' || inflight) return
+    const text = draft
+    const items = attachments
+    const previews = attachmentPreviews
+    void buildAttachmentViews(items, previews).then((views) => {
+      if (!send(text, items, views)) return
+      setDraft('')
+      setCaret(0)
+      setAttachments([])
+      setAttachmentPreviews({})
+    })
   }
 
   const toolApprovalPending = pendingToolApproval != null
@@ -494,8 +527,11 @@ export function Composer({
             <ApprovalCard key={pendingPlanReview.requestId} />
           ) : (
             <div
-              className="epitaxy-prompt rounded-r7 border border-border bg-panel px-3 py-2.5 shadow-[0_2px_12px_rgba(0,0,0,0.04)]"
+              className={`epitaxy-prompt rounded-r7 border bg-panel px-3 py-2.5 shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-colors ${
+                draggingAttachment ? 'border-accent ring-2 ring-accent/40' : 'border-border'
+              }`}
               data-surface="prompt"
+              data-state={draggingAttachment ? 'drag-over' : undefined}
               title={`백엔드: ${backendLabel}`}
             >
               <AttachmentTray
@@ -503,11 +539,6 @@ export function Composer({
                 previews={attachmentPreviews}
                 onRemove={removeAttachment}
               />
-              {draggingAttachment && (
-                <div className="mb-2 rounded-r5 border border-dashed border-accent bg-accent/10 px-3 py-2 text-center text-xs text-ink2">
-                  파일을 놓아 첨부
-                </div>
-              )}
               <div className="flex items-end gap-2">
                 <div
                   ref={textareaWrapRef}

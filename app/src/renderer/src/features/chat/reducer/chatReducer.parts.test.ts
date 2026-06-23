@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { chatReducer, initialChatState, type ChatState } from './chatReducer'
-import { partsText, partsReasoning, partsToolCalls } from '../lib/parts'
+import { partsText, partsReasoning, partsToolCalls, partsAttachments } from '../lib/parts'
 import type { NormalizedEvent, LoadedSession } from '../../../../../shared/ipc'
 
 const recv = (ev: NormalizedEvent): { type: 'RECV_EVENT'; event: NormalizedEvent } => ({
@@ -11,6 +11,23 @@ const apply = (s: ChatState, evs: NormalizedEvent[]): ChatState =>
   evs.reduce((acc, ev) => chatReducer(acc, recv(ev)), s)
 
 describe('chatReducer — AppMessagePart 모델', () => {
+  it('SEND_USER_MESSAGE 의 attachmentViews 가 user 메시지에 attachment 파트로 들어간다', () => {
+    const s = chatReducer(initialChatState, {
+      type: 'SEND_USER_MESSAGE',
+      text: '이거 봐',
+      attachmentViews: [{ id: 'a1', name: 'pic.png', mimeType: 'image/png', kind: 'image' }]
+    })
+    const last = s.messages[s.messages.length - 1]
+    expect(partsText(last.parts)).toBe('이거 봐')
+    expect(partsAttachments(last.parts).map((a) => a.id)).toEqual(['a1'])
+  })
+
+  it('attachmentViews 가 없으면 attachment 파트가 생기지 않는다', () => {
+    const s = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'plain' })
+    const last = s.messages[s.messages.length - 1]
+    expect(partsAttachments(last.parts)).toEqual([])
+  })
+
   it('한 턴의 reasoning/tool/text 가 같은 assistant 메시지에 순서대로 누적된다', () => {
     const start = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: '안녕' })
     const s = apply(start, [

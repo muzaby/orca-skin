@@ -18,6 +18,7 @@ export type MessagePartType =
   | 'diff'
   | 'structured_output'
   | 'error'
+  | 'attachment'
 
 export interface SessionRow {
   id: string

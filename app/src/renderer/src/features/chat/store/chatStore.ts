@@ -13,7 +13,12 @@ import {
   settingsApi
 } from '../../../shared/api/ipc'
 import { createEventCoalescer } from '../lib/eventCoalescer'
-import type { ComposerAttachment, EffortLevel, NormalizedEvent } from '../../../../../shared/ipc'
+import type {
+  AttachmentView,
+  ComposerAttachment,
+  EffortLevel,
+  NormalizedEvent
+} from '../../../../../shared/ipc'
 import type { NormalizedPermissionMode } from '../../../../../shared/permission-mode'
 import type { RightPanelTileId } from '../lib/rightPanelTiles'
 
@@ -233,13 +238,17 @@ export function ingestChatEvent(ev: NormalizedEvent): void {
   coalescer.push(ev)
 }
 
-function send(text: string, attachments: ComposerAttachment[] = []): boolean {
+function send(
+  text: string,
+  attachments: ComposerAttachment[] = [],
+  attachmentViews: AttachmentView[] = []
+): boolean {
   const trimmed = text.trim()
   const cur = getActiveChatSession()
   if (trimmed === '' || cur.inflight) return false
   // 새 턴 시작 — 직전 턴의 잔여 라이브 버퍼 제거(구 SEND_USER_MESSAGE 의 pending 리셋).
   resetLive(getState().activeKey)
-  dispatchActive({ type: 'SEND_USER_MESSAGE', text: trimmed })
+  dispatchActive({ type: 'SEND_USER_MESSAGE', text: trimmed, attachmentViews })
   // 새 채팅 (sessionId=null) 첫 메시지일 때만 projectId 전달. resume 경로면 main 이
   // sessionId 로부터 직접 project_id 를 조회하므로 여기서는 null.
   // fire-and-forget — 정상 턴 에러는 main 이 chat:error 이벤트로 surface 한다. invoke 자체가
@@ -254,7 +263,8 @@ function send(text: string, attachments: ComposerAttachment[] = []): boolean {
       providerKey: cur.providerKey,
       modelFamily: cur.modelFamily,
       effort: cur.effort,
-      attachments
+      attachments,
+      attachmentViews
     })
     .catch((err) => console.error('[chat] send invoke rejected', err))
   return true

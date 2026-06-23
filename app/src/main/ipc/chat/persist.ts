@@ -4,7 +4,7 @@
 // 영속 책임이라 여기 둔다.
 
 import type { WebContents } from 'electron'
-import type { NormalizedEvent } from '../../../shared/ipc'
+import type { AttachmentView, NormalizedEvent } from '../../../shared/ipc'
 import type { DbQueries } from '../../db'
 import type { CostTracker } from '../../cost/tracker'
 import { hasContextTokens } from '../../usage/usageMap'
@@ -21,7 +21,13 @@ export class TurnPersistence {
   ) {}
 
   // user 메시지 1건을 messages row + text 파트로 영속한다(content 는 FTS5 캐시).
-  persistUserMessage(sessionId: string, text: string, createdAt: number): void {
+  // 첨부가 있으면 text 파트 뒤에 attachment 파트(트랜스크립트 썸네일 영속분)를 덧붙인다.
+  persistUserMessage(
+    sessionId: string,
+    text: string,
+    createdAt: number,
+    attachmentViews?: AttachmentView[]
+  ): void {
     const id = this.db.appendMessage({ sessionId, role: 'user', content: text, createdAt })
     this.db.appendPart({
       messageId: id,
@@ -29,6 +35,14 @@ export class TurnPersistence {
       toolRunId: null,
       payloadJson: JSON.stringify({ text })
     })
+    if (attachmentViews && attachmentViews.length > 0) {
+      this.db.appendPart({
+        messageId: id,
+        type: 'attachment',
+        toolRunId: null,
+        payloadJson: JSON.stringify({ attachments: attachmentViews })
+      })
+    }
   }
 
   // 현재 assistant 메시지를 보장(없으면 빈 메시지 생성 + text 캐시 리셋)하고 id 를 반환한다.
@@ -96,7 +110,7 @@ export class TurnPersistence {
           providerKey: turn.providerKey
         })
         if (turn.pendingUserText) {
-          this.persistUserMessage(sessionId, turn.pendingUserText, now)
+          this.persistUserMessage(sessionId, turn.pendingUserText, now, turn.pendingAttachmentViews)
           this.db.updateSessionPreview(sessionId, previewOf(turn.pendingUserText), now)
           this.db.updateSessionProviderKey(sessionId, turn.providerKey, now)
           if (title) this.db.updateSessionTitle(sessionId, title)

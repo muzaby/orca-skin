@@ -1,6 +1,7 @@
 import type {
   AppMessagePart,
   AskQuestionRequest,
+  AttachmentView,
   NormalizedEvent,
   ClassifiedError,
   LoadedSession,
@@ -135,7 +136,7 @@ export const PANEL_MAX_ROW_SPLIT = 0.8
 export const PANEL_DEFAULT_ROW_SPLIT = 0.5
 
 export type ChatAction =
-  | { type: 'SEND_USER_MESSAGE'; text: string }
+  | { type: 'SEND_USER_MESSAGE'; text: string; attachmentViews?: AttachmentView[] }
   | {
       type: 'SET_MODEL'
       providerKey: string | null
@@ -185,13 +186,14 @@ function appendAssistantPart(messages: Message[], part: AppMessagePart): Message
 
 export function chatReducer(state: ChatState, action: ChatAction): ChatState {
   switch (action.type) {
-    case 'SEND_USER_MESSAGE':
+    case 'SEND_USER_MESSAGE': {
+      const userParts: AppMessagePart[] = [{ type: 'text', text: action.text }]
+      if (action.attachmentViews && action.attachmentViews.length > 0) {
+        userParts.push({ type: 'attachment', attachments: action.attachmentViews })
+      }
       return {
         ...state,
-        messages: [
-          ...state.messages,
-          { role: 'user', createdAt: Date.now(), parts: [{ type: 'text', text: action.text }] }
-        ],
+        messages: [...state.messages, { role: 'user', createdAt: Date.now(), parts: userParts }],
         sendCount: state.sendCount + 1,
         inflight: true,
         turnStartedAt: Date.now(),
@@ -199,6 +201,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         error: undefined,
         retry: undefined
       }
+    }
 
     case 'RECV_EVENT': {
       const ev = action.event
