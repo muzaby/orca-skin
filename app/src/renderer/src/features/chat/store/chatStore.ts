@@ -5,9 +5,15 @@ import {
   type ChatAction,
   type ChatState
 } from '../reducer/chatReducer'
-import { chatApi, permissionApi, sessionApi, settingsApi } from '../../../shared/api/ipc'
+import {
+  chatApi,
+  concurrencyApi,
+  permissionApi,
+  sessionApi,
+  settingsApi
+} from '../../../shared/api/ipc'
 import { createEventCoalescer } from '../lib/eventCoalescer'
-import type { EffortLevel, NormalizedEvent } from '../../../../../shared/ipc'
+import type { ComposerAttachment, EffortLevel, NormalizedEvent } from '../../../../../shared/ipc'
 import type { NormalizedPermissionMode } from '../../../../../shared/permission-mode'
 import type { RightPanelTileId } from '../lib/rightPanelTiles'
 
@@ -41,6 +47,7 @@ export interface SessionEntry {
 export interface ChatStoreState {
   sessions: Record<string, SessionEntry>
   activeKey: string
+  concurrencyByProjectId: Record<string, number>
 }
 
 // 새-채팅(아직 sessionId 미발급) 엔트리의 예약 키. 창당 1개 — main 의 pending 슬롯과 대칭.
@@ -61,7 +68,8 @@ function freshEntry(projectId: string | null = null): SessionEntry {
 
 export const useChatStore = create<ChatStoreState>()(() => ({
   sessions: { [NEW_CHAT_KEY]: freshEntry() },
-  activeKey: NEW_CHAT_KEY
+  activeKey: NEW_CHAT_KEY,
+  concurrencyByProjectId: {}
 }))
 
 const { setState, getState } = useChatStore
@@ -225,10 +233,10 @@ export function ingestChatEvent(ev: NormalizedEvent): void {
   coalescer.push(ev)
 }
 
-function send(text: string): void {
+function send(text: string, attachments: ComposerAttachment[] = []): boolean {
   const trimmed = text.trim()
   const cur = getActiveChatSession()
-  if (trimmed === '' || cur.inflight) return
+  if (trimmed === '' || cur.inflight) return false
   // 새 턴 시작 — 직전 턴의 잔여 라이브 버퍼 제거(구 SEND_USER_MESSAGE 의 pending 리셋).
   resetLive(getState().activeKey)
   dispatchActive({ type: 'SEND_USER_MESSAGE', text: trimmed })
@@ -241,8 +249,10 @@ function send(text: string): void {
     permissionMode: cur.permissionMode,
     providerKey: cur.providerKey,
     modelFamily: cur.modelFamily,
-    effort: cur.effort
+    effort: cur.effort,
+    attachments
   })
+  return true
 }
 
 function cancel(): void {
@@ -470,9 +480,15 @@ export function bootstrapChat(): () => void {
   const unsubTitle = sessionApi.onTitle((ev) => {
     renameSession(ev.sessionId, ev.title)
   })
+  const unsubConcurrency = concurrencyApi.onEvent((ev) => {
+    setState((s) => ({
+      concurrencyByProjectId: { ...s.concurrencyByProjectId, [ev.projectId]: ev.count }
+    }))
+  })
   return () => {
     unsubEvents()
     unsubTitle()
+    unsubConcurrency()
     coalescer.dispose()
   }
 }
@@ -493,4 +509,8 @@ export function useLiveText(): string {
 // 라이브 사고 리프 전용 — 활성 세션의 reasoning 델타에만 재렌더(본문 text 델타와 격리).
 export function useLiveReasoning(): string {
   return useChatStore((s) => s.sessions[s.activeKey].live.reasoning)
+}
+
+export function useProjectConcurrencyCount(projectId: string | null): number {
+  return useChatStore((s) => (projectId ? (s.concurrencyByProjectId[projectId] ?? 0) : 0))
 }

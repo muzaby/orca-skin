@@ -18,6 +18,8 @@
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { mkdir } from 'node:fs/promises'
+import { mkdirSync } from 'node:fs'
+import { app } from 'electron'
 import type { Backend } from '../../shared/ipc'
 
 // 모든 OS 동일하게 ~/.config/orca (제안서 §환경구성). Windows 에서도 homedir() 하위로 통일.
@@ -42,6 +44,19 @@ export function sourcesSkillsDir(): string {
 
 export function workspaceDir(): string {
   return join(orcaConfigDir(), 'workspace')
+}
+
+function safeProjectSegment(projectId: string | null | undefined): string {
+  if (!projectId) return 'default'
+  const safe = projectId.replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '')
+  return safe === '' ? 'default' : safe
+}
+
+export function getWorkspacePath(projectId?: string | null, sessionId?: string | null): string {
+  void sessionId
+  const dir = join(app.getPath('userData'), 'projects', safeProjectSegment(projectId))
+  mkdirSync(dir, { recursive: true })
+  return dir
 }
 
 export function sourcesMcpDir(): string {

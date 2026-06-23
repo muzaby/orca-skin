@@ -8,6 +8,7 @@ import {
   type DebugMockState,
   type InstallStatus,
   type NormalizedEvent,
+  type ConcurrencyEvent,
   type SessionTitleEvent,
   type SkillInfo
 } from '../../shared/ipc'
@@ -42,7 +43,8 @@ export interface RouterContext {
   // 턴 시작 게이트 — 해당 cwd 가 이번 실행에서 미싱크면 1회 dist→cwd 싱크(세션별 cwd 대비).
   syncExtensionsForTurn(cwd: string): void
   // chat send · files list · session cwd 가 공유하는 단일 cwd.
-  getCwd(): string
+  getCwd(projectId?: string | null, sessionId?: string | null): string
+  concurrency: import('./chat/concurrency-registry').ConcurrencyRegistry
   debugMock: DebugMockState
   mockAdapter: MockAdapter | null
 }
@@ -59,6 +61,12 @@ export function setWireLog(on: boolean): void {
 export function sendChatEvent(wc: WebContents, ev: NormalizedEvent): void {
   if (wireLogEnabled) console.log('[wire]', ev.type, ev)
   if (!wc.isDestroyed()) wc.send(CHANNELS.chatEvent, ev)
+}
+
+export function broadcastConcurrency(ev: ConcurrencyEvent): void {
+  for (const wc of webContents.getAllWebContents()) {
+    if (!wc.isDestroyed()) wc.send(CHANNELS.concurrencyEvent, ev)
+  }
 }
 
 export function sendInstallStatus(wc: WebContents, st: InstallStatus): void {

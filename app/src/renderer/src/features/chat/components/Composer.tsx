@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ClipboardEvent,
+  type KeyboardEvent
+} from 'react'
 import { Button } from '../../../shared/ui/Button'
 import { Icon } from '../../../shared/ui/Icon'
 import { UsageCircle } from '../../../shared/ui/UsageCircle'
@@ -15,6 +22,8 @@ import { EFFORT_LABELS } from './composer/effort'
 import { AttachMenu } from './composer/AttachMenu'
 import { defaultSelection, modelKey, selectionLabel } from './composer/modelSelection'
 import { ConversationStatusLine } from './composer/ConversationStatusLine'
+import { AttachmentTray } from './composer/AttachmentTray'
+import { ConcurrencyNotice } from './ConcurrencyNotice'
 import { StatusPopover } from './composer/StatusPopover'
 import { conversationStatusModel as conversationStatusModelFactory } from './composer/statusViewModel'
 import { MODE_LABELS } from './composer/modes'
@@ -22,14 +31,15 @@ import type { ConversationStatus } from './composer/statusCopy'
 import { AskUserQuestionCard } from './AskUserQuestionCard'
 import { ApprovalCard, ToolApprovalBody } from './ApprovalCard'
 import { TelemetryPanel } from './TelemetryPanel'
-import { chatActions, useChatSession } from '../store/chatStore'
+import { chatActions, useChatSession, useProjectConcurrencyCount } from '../store/chatStore'
 import { contextTokens } from '../lib/telemetry'
 import { contextWindowFor, nearCompaction } from '../lib/contextWindow'
 import { useSkills } from '../../../shared/hooks/useSkills'
 import { useAgents } from '../../../shared/hooks/useAgents'
 import { useSkillAutocomplete } from '../hooks/useSkillAutocomplete'
 import { useFileAutocomplete } from '../hooks/useFileAutocomplete'
-import type { FileEntry, SkillInfo } from '../../../../../shared/ipc'
+import { fileApi } from '../../../shared/api/ipc'
+import type { ComposerAttachment, FileEntry, SkillInfo } from '../../../../../shared/ipc'
 
 interface ComposerProps {
   backendLabel: string
@@ -76,6 +86,7 @@ export function Composer({
   const modelFamily = useChatSession((s) => s.modelFamily)
   const effort = useChatSession((s) => s.effort)
   const pendingPlanReview = useChatSession((s) => s.pendingPlanReview)
+  const projectId = useChatSession((s) => s.projectId ?? s.pendingProjectId)
   const pendingToolApproval = useChatSession((s) => s.pendingToolApproval)
   // 큐의 맨 앞 질문만 렌더(canUseTool 이 query 를 막아 보통 1개). 응답 시 다음 질문이 노출.
   const activeAsk = useChatSession((s) => s.pendingAsks[0])
@@ -89,6 +100,9 @@ export function Composer({
   const [attachMenuOpen, setAttachMenuOpen] = useState(false)
   const [draft, setDraft] = useState('')
   const [caret, setCaret] = useState(0)
+  const [attachments, setAttachments] = useState<ComposerAttachment[]>([])
+  const [attachmentPreviews, setAttachmentPreviews] = useState<Record<string, string>>({})
+  const [draggingAttachment, setDraggingAttachment] = useState(false)
   const skills = useSkills()
   const agents = useAgents()
   const knownSkillNames = useMemo(() => new Set(skills.map((s) => s.name)), [skills])
@@ -99,6 +113,8 @@ export function Composer({
   const conversationStatusButtonRef = useRef<HTMLButtonElement>(null)
   const [conversationStatusOpen, setConversationStatusOpen] = useState(false)
   const conversationStatusPopoverId = 'conversation-status-popover'
+  const projectConcurrencyCount = useProjectConcurrencyCount(projectId)
+  const showConcurrencyNotice = projectConcurrencyCount - (inflight ? 1 : 0) > 0
 
   // initialDraft 시드 — page 가 nav state 로 같은 값을 다시 넘겨도 1회만 적용(seededRef).
   // 적용 후 캐럿을 끝으로 두고 포커스해 사용자가 바로 이어 입력할 수 있게 한다.
@@ -241,11 +257,106 @@ export function Composer({
     })
   }
 
+  const addAttachments = async (items: ComposerAttachment[]): Promise<void> => {
+    const startIndex = attachments.length
+    setAttachments((current) => [...current, ...items])
+    const previews: Record<string, string> = {}
+    await Promise.all(
+      items.map(async (att, offset) => {
+        if (!att.mimeType.startsWith('image/')) return
+        const key = `${att.name}-${startIndex + offset}`
+        if (att.kind === 'inline') previews[key] = `data:${att.mimeType};base64,${att.data}`
+        else {
+          const result = await fileApi.readAttachment(att.path).catch(() => null)
+          if (result) previews[key] = `data:${result.mimeType};base64,${result.data}`
+        }
+      })
+    )
+    if (Object.keys(previews).length > 0) {
+      setAttachmentPreviews((current) => ({ ...current, ...previews }))
+    }
+  }
+
+  const pickAttachments = async (): Promise<void> => {
+    setAttachMenuOpen(false)
+    const picked = await fileApi.pickAttachments().catch(() => [])
+    await addAttachments(
+      picked.map((p) => ({
+        kind: 'path' as const,
+        path: p.path,
+        name: p.name,
+        mimeType: p.mimeType,
+        sizeBytes: p.sizeBytes,
+        sourceKind: 'dialog' as const
+      }))
+    )
+  }
+
+  const removeAttachment = (index: number): void => {
+    setAttachments((current) => current.filter((_, i) => i !== index))
+    setAttachmentPreviews((current) => {
+      const next = { ...current }
+      delete next[`${attachments[index]?.name ?? ''}-${index}`]
+      return next
+    })
+  }
+
+  const readFileAsBase64 = (file: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onerror = () => reject(reader.error)
+      reader.onload = () => {
+        const result = typeof reader.result === 'string' ? reader.result : ''
+        resolve(result.includes(',') ? result.slice(result.indexOf(',') + 1) : result)
+      }
+      reader.readAsDataURL(file)
+    })
+
+  const addDroppedFiles = async (files: FileList): Promise<void> => {
+    const next: ComposerAttachment[] = []
+    for (const file of Array.from(files)) {
+      const path = fileApi.pathForFile(file)
+      if (path) {
+        next.push({
+          kind: 'path',
+          path,
+          name: file.name,
+          mimeType: file.type || 'application/octet-stream',
+          sizeBytes: file.size,
+          sourceKind: 'drag_drop'
+        })
+      }
+    }
+    await addAttachments(next)
+  }
+
+  const onPaste = (event: ClipboardEvent<HTMLDivElement>): void => {
+    const files = Array.from(event.clipboardData.files).filter((file) =>
+      file.type.startsWith('image/')
+    )
+    if (files.length === 0) return
+    event.preventDefault()
+    void Promise.all(
+      files.map(
+        async (file): Promise<ComposerAttachment> => ({
+          kind: 'inline',
+          data: await readFileAsBase64(file),
+          name: file.name || 'pasted-image.png',
+          mimeType: file.type || 'image/png',
+          sizeBytes: file.size,
+          sourceKind: 'clipboard'
+        })
+      )
+    ).then(addAttachments)
+  }
+
   const submit = (): void => {
     if (draft.trim() === '') return
-    send(draft)
+    if (!send(draft, attachments)) return
     setDraft('')
     setCaret(0)
+    setAttachments([])
+    setAttachmentPreviews({})
   }
 
   const toolApprovalPending = pendingToolApproval != null
@@ -317,7 +428,20 @@ export function Composer({
   }
 
   return (
-    <div className="app-frame-composer relative pb-[18px] pt-3">
+    <div
+      className="app-frame-composer relative pb-[18px] pt-3"
+      onPaste={onPaste}
+      onDragOver={(event) => {
+        event.preventDefault()
+        setDraggingAttachment(true)
+      }}
+      onDragLeave={() => setDraggingAttachment(false)}
+      onDrop={(event) => {
+        event.preventDefault()
+        setDraggingAttachment(false)
+        void addDroppedFiles(event.dataTransfer.files)
+      }}
+    >
       {showScrollToBottom && (
         <button
           type="button"
@@ -365,6 +489,7 @@ export function Composer({
             />
           )}
           {pendingToolApproval && <ToolApprovalBody key={pendingToolApproval.approvalId} />}
+          {showConcurrencyNotice && <ConcurrencyNotice />}
           {pendingPlanReview ? (
             <ApprovalCard key={pendingPlanReview.requestId} />
           ) : (
@@ -373,6 +498,16 @@ export function Composer({
               data-surface="prompt"
               title={`백엔드: ${backendLabel}`}
             >
+              <AttachmentTray
+                attachments={attachments}
+                previews={attachmentPreviews}
+                onRemove={removeAttachment}
+              />
+              {draggingAttachment && (
+                <div className="mb-2 rounded-r5 border border-dashed border-accent bg-accent/10 px-3 py-2 text-center text-xs text-ink2">
+                  파일을 놓아 첨부
+                </div>
+              )}
               <div className="flex items-end gap-2">
                 <div
                   ref={textareaWrapRef}
@@ -523,7 +658,7 @@ export function Composer({
         anchorRef={attachButtonRef}
         onClose={() => setAttachMenuOpen(false)}
       >
-        <AttachMenu onPickSkill={openSkillPicker} />
+        <AttachMenu onPickAttachment={pickAttachments} onPickSkill={openSkillPicker} />
       </Popover>
       <Popover
         open={effortMenuOpen}

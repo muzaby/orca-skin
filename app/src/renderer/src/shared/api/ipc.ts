@@ -5,10 +5,13 @@ import type {
   BackendListResult,
   AgentEnvironment,
   CostSummary,
+  ConcurrencyEvent,
   NormalizedEvent,
   CreateMcpServerRequest,
   CreateProjectRequest,
   FileEntry,
+  PickedAttachment,
+  ReadAttachmentResult,
   InstallStatus,
   LoadedSession,
   McpServer,
@@ -82,7 +85,16 @@ export const skillApi = {
 }
 
 export const fileApi = {
-  list: (cwd: string, relDir: string): Promise<FileEntry[]> => window.orca.files.list(cwd, relDir)
+  list: (cwd: string, relDir: string): Promise<FileEntry[]> => window.orca.files.list(cwd, relDir),
+  pickAttachments: (): Promise<PickedAttachment[]> => window.orca.files.pickAttachments(),
+  readAttachment: (path: string): Promise<ReadAttachmentResult> =>
+    window.orca.files.readAttachment(path),
+  pathForFile: (file: File): string => window.orca.files.pathForFile(file)
+}
+
+export const concurrencyApi = {
+  onEvent: (handler: (ev: ConcurrencyEvent) => void): (() => void) =>
+    window.orca.concurrency.onEvent(handler)
 }
 
 export const sessionApi = {

@@ -6,6 +6,7 @@ import type { IpcMainInvokeEvent, WebContents } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { CHANNELS, type ApprovalResolution, type PermissionAction } from '../../../shared/ipc'
 import { CancelChatSchema, SendChatMessageSchema } from '../../../shared/protocol'
+import { normalizeAttachments } from '../../files/attachments'
 import { appEnv } from '../../config/orca-config'
 import {
   defaultModelFamily,
@@ -191,6 +192,12 @@ export function registerChatHandlers(deps: ChatDeps): void {
     // Python 런타임 env (uv 격리) + orca.json 앱 전역 env. ready 전이면 앱 env 만 (없으면 SDK 기본).
     const turnEnv = buildTurnEnv(ctx, ctx.runtime.getEnv() ?? undefined)
 
+    const boundProjectId = parsed.data.sessionId
+      ? (ctx.db.getSessionById(parsed.data.sessionId)?.project_id ?? null)
+      : parsed.data.projectId
+
+    const normalizedAttachments = await normalizeAttachments(parsed.data.attachments)
+
     const controller = new AbortController()
     // resume 경로면 sessions row 에 이미 binding 된 projectId 가 있으므로 그쪽에서 조회.
     // 새 채팅 경로(sessionId=null)면 renderer 가 보낸 projectId 를 init 시점에 binding.
@@ -210,7 +217,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
       dbSessionId: parsed.data.sessionId,
       pendingProjectId: parsed.data.sessionId ? null : parsed.data.projectId,
       isNewSession: parsed.data.sessionId == null,
-      cwd: ctx.getCwd(),
+      cwd: ctx.getCwd(boundProjectId, parsed.data.sessionId),
       titleGenerationStarted: false,
       currentAssistantMessageId: null,
       assistantText: '',
@@ -312,27 +319,34 @@ export function registerChatHandlers(deps: ChatDeps): void {
             model: resolved.model,
             requestApproval,
             permissionMode: parsed.data.permissionMode,
-            effort: parsed.data.effort
+            effort: parsed.data.effort,
+            attachmentTexts: normalizedAttachments.attachmentTexts,
+            attachmentImages: normalizedAttachments.attachmentImages
           })
-          turn.live = live
-          idle.reset()
-          for await (const ev of live.events) {
-            eventsReceived += 1
+          ctx.concurrency.increment(boundProjectId)
+          try {
+            turn.live = live
             idle.reset()
-            if (ev.type === 'telemetry' || ev.type === 'error' || ev.type === 'turn.aborted') {
-              sawTerminal = true
+            for await (const ev of live.events) {
+              eventsReceived += 1
+              idle.reset()
+              if (ev.type === 'telemetry' || ev.type === 'error' || ev.type === 'turn.aborted') {
+                sawTerminal = true
+              }
+              persistence.persist(turn, ev)
+              sendChatEvent(event.sender, ev)
+              // sessionId 발급(session.updated) — 새-채팅 pending 턴을 sessionId 키로 승격.
+              if (ev.type === 'session.updated') {
+                turns.promote(event.sender, ev.sessionId)
+              }
+              // AskUserQuestion tool 호출이 도착하면 id 를 페어링 큐에 넣고 답변과 매칭 시도.
+              if (ev.type === 'tool.call.started' && ev.toolName === 'AskUserQuestion') {
+                turn.askPendingIds.push(ev.toolRunId)
+                persistence.flushAskAnswers(turn, event.sender)
+              }
             }
-            persistence.persist(turn, ev)
-            sendChatEvent(event.sender, ev)
-            // sessionId 발급(session.updated) — 새-채팅 pending 턴을 sessionId 키로 승격.
-            if (ev.type === 'session.updated') {
-              turns.promote(event.sender, ev.sessionId)
-            }
-            // AskUserQuestion tool 호출이 도착하면 id 를 페어링 큐에 넣고 답변과 매칭 시도.
-            if (ev.type === 'tool.call.started' && ev.toolName === 'AskUserQuestion') {
-              turn.askPendingIds.push(ev.toolRunId)
-              persistence.flushAskAnswers(turn, event.sender)
-            }
+          } finally {
+            ctx.concurrency.decrement(boundProjectId)
           }
           if (!sawTerminal && !controller.signal.aborted) {
             const ev = {
