@@ -24,7 +24,12 @@ import type { ConversationStatus } from './composer/statusCopy'
 import { AskUserQuestionCard } from './AskUserQuestionCard'
 import { ApprovalCard, ToolApprovalBody } from './ApprovalCard'
 import { TelemetryPanel } from './TelemetryPanel'
-import { chatActions, useChatSession, useProjectConcurrencyCount } from '../store/chatStore'
+import {
+  chatActions,
+  useChatSession,
+  useNewChatPending,
+  useProjectConcurrencyCount
+} from '../store/chatStore'
 import { contextTokens } from '../lib/telemetry'
 import { contextWindowFor, nearCompaction } from '../lib/contextWindow'
 import { useSkills } from '../../../shared/hooks/useSkills'
@@ -116,6 +121,7 @@ export function Composer({
   const [conversationStatusOpen, setConversationStatusOpen] = useState(false)
   const conversationStatusPopoverId = 'conversation-status-popover'
   const projectConcurrencyCount = useProjectConcurrencyCount(projectId)
+  const newChatPending = useNewChatPending()
   // 같은 프로젝트에서 다른 작업이 실행 중인가(자기 턴 제외). × 닫기는 에피소드 단위 —
   // 카운트가 해소(0)되거나 프로젝트가 바뀌면 dismiss 를 리셋해 다음 에피소드에 재표시한다.
   // 리셋은 effect 가 아니라 렌더 중 이전값 비교로 조정한다(React 권장 패턴 — setState-in-effect 회피).
@@ -418,6 +424,11 @@ export function Composer({
             >
               파일 충돌 가능성이 있습니다. Orca는 작업을 차단하지 않으며, 동시 실행 여부는 사용자가
               판단합니다.
+            </Notice>
+          )}
+          {newChatPending && (
+            <Notice title="연결 대기 중입니다." icon="sparkle">
+              이전 새 대화의 세션이 준비되는 대로 이 메시지를 순서대로 전송합니다.
             </Notice>
           )}
           {pendingPlanReview ? (

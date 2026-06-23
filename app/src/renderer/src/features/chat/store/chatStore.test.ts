@@ -2,7 +2,7 @@
 // 단위 테스트. IPC(window.orca)를 건드리지 않는 경로만 다룬다 — send/loadSession 등 액션과
 // session.updated 의 설정 영속화는 통합/시각 검증 영역.
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ingestChatEvent, useChatStore, NEW_CHAT_KEY } from './chatStore'
+import { chatActions, ingestChatEvent, useChatStore, NEW_CHAT_KEY } from './chatStore'
 import { initialChatState } from '../reducer/chatReducer'
 import { partsText } from '../lib/parts'
 import type { NormalizedEvent } from '../../../../../shared/ipc'
@@ -10,6 +10,8 @@ import type { NormalizedEvent } from '../../../../../shared/ipc'
 // 코얼레서가 rAF 로 델타를 배칭한다 — 테스트에선 큐에 모았다가 flushRaf() 로 프레임을 흉내낸다.
 // (등록 즉시 실행하는 스텁은 코얼레서의 handle 대입 전에 콜백이 돌아 재예약이 막힌다.)
 let rafQueue: FrameRequestCallback[] = []
+let chatSend: ReturnType<typeof vi.fn>
+let settingsSet: ReturnType<typeof vi.fn>
 vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback): number => {
   rafQueue.push(cb)
   return rafQueue.length
@@ -36,15 +38,30 @@ const reasoningDelta = (text: string): NormalizedEvent => ({
 // 활성 키 's' 에 진행 중 턴 엔트리 1개로 초기화.
 beforeEach(() => {
   rafQueue = []
-  useChatStore.setState({
-    sessions: {
-      s: {
-        session: { ...initialChatState, sessionId: 's', inflight: true, turnStartedAt: 1 },
-        live: { text: '', reasoning: '' }
-      }
-    },
-    activeKey: 's'
+  chatSend = vi.fn().mockResolvedValue(undefined)
+  settingsSet = vi.fn().mockResolvedValue({})
+  vi.stubGlobal('window', {
+    orca: {
+      chat: { send: chatSend, cancel: vi.fn(), onEvent: vi.fn() },
+      settings: { set: settingsSet }
+    }
   })
+  useChatStore.setState(
+    {
+      sessions: {
+        s: {
+          session: { ...initialChatState, sessionId: 's', inflight: true, turnStartedAt: 1 },
+          live: { text: '', reasoning: '' }
+        }
+      },
+      activeKey: 's',
+      pendingNewChatKey: null,
+      newChatQueue: [],
+      recentsEpoch: 0,
+      concurrencyByProjectId: {}
+    },
+    true
+  )
 })
 
 const entry = (
@@ -150,16 +167,18 @@ describe('chatStore — 멀티세션 키 라우팅 (handoff 0013)', () => {
   })
 
   it('session.updated 가 새-채팅 엔트리를 sessionId 키로 승격하고 활성이면 activeKey 추종', () => {
-    // 활성 엔트리의 session.updated 는 lastSessionId 영속화(IPC)를 킥한다 — node 환경 스텁.
-    vi.stubGlobal('window', { orca: { settings: { set: vi.fn() } } })
     useChatStore.setState({
       sessions: {
-        [NEW_CHAT_KEY]: {
+        'draft:a': {
           session: { ...initialChatState, inflight: true, turnStartedAt: 1 },
           live: { text: '', reasoning: '' }
         }
       },
-      activeKey: NEW_CHAT_KEY
+      activeKey: 'draft:a',
+      pendingNewChatKey: 'draft:a',
+      newChatQueue: [],
+      recentsEpoch: 0,
+      concurrencyByProjectId: {}
     })
     ingestChatEvent({
       type: 'session.updated',
@@ -167,9 +186,10 @@ describe('chatStore — 멀티세션 키 라우팅 (handoff 0013)', () => {
       patch: {}
     })
     const st = useChatStore.getState()
-    expect(st.sessions[NEW_CHAT_KEY]).toBeUndefined()
+    expect(st.sessions['draft:a']).toBeUndefined()
     expect(st.sessions.fresh.session.sessionId).toBe('fresh')
     expect(st.activeKey).toBe('fresh')
+    expect(st.recentsEpoch).toBe(1)
   })
 
   it('미지 sessionId 의 늦은 이벤트(엔트리 삭제 후)는 폐기된다', () => {
@@ -185,5 +205,166 @@ describe('chatStore — 멀티세션 키 라우팅 (handoff 0013)', () => {
       error: { category: 'provider_connection_error', message: '활성 백엔드 없음', retryable: true }
     })
     expect(entry('s').session.error?.message).toBe('활성 백엔드 없음')
+  })
+})
+
+describe('chatStore — 0040 새-채팅 직렬 디스패치 게이트', () => {
+  function mockDraftIds(...ids: string[]): void {
+    let i = 0
+    vi.spyOn(crypto, 'randomUUID').mockImplementation(
+      () => (ids[i++] ?? `id-${i}`) as `${string}-${string}-${string}-${string}-${string}`
+    )
+  }
+
+  beforeEach(() => {
+    useChatStore.setState(
+      {
+        sessions: {
+          [NEW_CHAT_KEY]: { session: { ...initialChatState }, live: { text: '', reasoning: '' } }
+        },
+        activeKey: NEW_CHAT_KEY,
+        pendingNewChatKey: null,
+        newChatQueue: [],
+        recentsEpoch: 0,
+        concurrencyByProjectId: {}
+      },
+      true
+    )
+  })
+
+  it('새-채팅 A 미승격 상태에서 B 전송은 화면 draft 로 보존하고 main dispatch 는 큐잉한다', () => {
+    mockDraftIds('a', 'b')
+    expect(chatActions.send('첫 번째')).toBe(true)
+    chatActions.newChat()
+    expect(chatActions.send('두 번째')).toBe(true)
+
+    const st = useChatStore.getState()
+    expect(chatSend).toHaveBeenCalledTimes(1)
+    expect(chatSend).toHaveBeenLastCalledWith(expect.objectContaining({ text: '첫 번째' }))
+    expect(st.pendingNewChatKey).toBe('draft:a')
+    expect(st.newChatQueue.map((item) => item.key)).toEqual(['draft:b'])
+    expect(partsText(st.sessions['draft:a'].session.messages[0].parts)).toBe('첫 번째')
+    expect(partsText(st.sessions['draft:b'].session.messages[0].parts)).toBe('두 번째')
+    expect(st.activeKey).toBe('draft:b')
+  })
+
+  it('session.updated 는 pending draft 만 승격하고 다음 draft 를 snapshot payload 로 FIFO dispatch 한다', () => {
+    mockDraftIds('a', 'b')
+    chatActions.send('첫 번째')
+    chatActions.newChat()
+    chatActions.send('두 번째')
+
+    ingestChatEvent({ type: 'session.updated', sessionId: 's-a', patch: {} })
+
+    const st = useChatStore.getState()
+    expect(st.sessions['draft:a']).toBeUndefined()
+    expect(st.sessions['s-a'].session.sessionId).toBe('s-a')
+    expect(st.pendingNewChatKey).toBe('draft:b')
+    expect(st.newChatQueue).toEqual([])
+    expect(st.activeKey).toBe('draft:b')
+    expect(st.recentsEpoch).toBe(1)
+    expect(chatSend).toHaveBeenCalledTimes(2)
+    expect(chatSend).toHaveBeenNthCalledWith(2, expect.objectContaining({ text: '두 번째' }))
+  })
+
+  it('n개 연속 새-채팅을 순서대로 하나씩 dispatch 하고 모두 승격한다', () => {
+    mockDraftIds('a', 'b', 'c')
+    chatActions.send('A')
+    chatActions.newChat()
+    chatActions.send('B')
+    chatActions.newChat()
+    chatActions.send('C')
+    expect(chatSend).toHaveBeenCalledTimes(1)
+    expect(useChatStore.getState().newChatQueue.map((item) => item.key)).toEqual([
+      'draft:b',
+      'draft:c'
+    ])
+
+    ingestChatEvent({ type: 'session.updated', sessionId: 's-a', patch: {} })
+    ingestChatEvent({ type: 'session.updated', sessionId: 's-b', patch: {} })
+    ingestChatEvent({ type: 'session.updated', sessionId: 's-c', patch: {} })
+
+    const st = useChatStore.getState()
+    expect(chatSend).toHaveBeenCalledTimes(3)
+    expect(st.pendingNewChatKey).toBeNull()
+    expect(st.newChatQueue).toEqual([])
+    expect(
+      ['s-a', 's-b', 's-c'].map((key) => partsText(st.sessions[key].session.messages[0].parts))
+    ).toEqual(['A', 'B', 'C'])
+  })
+
+  it('init 전 sessionId 없는 error 는 pending draft 에 라우팅하고 큐를 진행한다', () => {
+    mockDraftIds('a', 'b')
+    chatActions.send('A')
+    chatActions.newChat()
+    chatActions.send('B')
+
+    ingestChatEvent({
+      type: 'error',
+      error: { category: 'stream_error', message: 'pre-init boom', retryable: true }
+    })
+
+    const st = useChatStore.getState()
+    expect(st.sessions['draft:a'].session.error?.message).toBe('pre-init boom')
+    expect(st.pendingNewChatKey).toBe('draft:b')
+    expect(st.newChatQueue).toEqual([])
+    expect(chatSend).toHaveBeenCalledTimes(2)
+    expect(chatSend).toHaveBeenNthCalledWith(2, expect.objectContaining({ text: 'B' }))
+  })
+
+  it('pending draft cancel 은 gate 를 해제하지 않고 실제 terminal 수신 때 큐를 진행한다', () => {
+    mockDraftIds('a', 'b')
+    chatActions.send('A')
+    chatActions.newChat()
+    chatActions.send('B')
+    useChatStore.setState({ activeKey: 'draft:a' })
+
+    chatActions.cancel()
+    expect(useChatStore.getState().pendingNewChatKey).toBe('draft:a')
+    expect(chatSend).toHaveBeenCalledTimes(1)
+
+    ingestChatEvent({
+      type: 'turn.aborted',
+      reason: 'user_cancelled'
+    })
+    expect(useChatStore.getState().pendingNewChatKey).toBe('draft:b')
+    expect(chatSend).toHaveBeenCalledTimes(2)
+  })
+
+  it('대기 draft cancel 은 큐와 엔트리만 제거하고 main dispatch 를 늘리지 않는다', () => {
+    mockDraftIds('a', 'b')
+    chatActions.send('A')
+    chatActions.newChat()
+    chatActions.send('B')
+
+    chatActions.cancel()
+
+    const st = useChatStore.getState()
+    expect(st.sessions['draft:b']).toBeUndefined()
+    expect(st.activeKey).toBe(NEW_CHAT_KEY)
+    expect(st.pendingNewChatKey).toBe('draft:a')
+    expect(st.newChatQueue).toEqual([])
+    expect(chatSend).toHaveBeenCalledTimes(1)
+  })
+
+  it('이미 존재하는 session.updated 는 pending draft 를 승격하지 않는다', () => {
+    mockDraftIds('a')
+    chatActions.send('A')
+    useChatStore.setState((st) => ({
+      sessions: {
+        ...st.sessions,
+        existing: {
+          session: { ...initialChatState, sessionId: 'existing' },
+          live: { text: '', reasoning: '' }
+        }
+      }
+    }))
+
+    ingestChatEvent({ type: 'session.updated', sessionId: 'existing', patch: {} })
+
+    const st = useChatStore.getState()
+    expect(st.pendingNewChatKey).toBe('draft:a')
+    expect(st.sessions['draft:a']).toBeDefined()
+    expect(st.recentsEpoch).toBe(0)
   })
 })

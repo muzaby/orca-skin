@@ -85,11 +85,12 @@ export class TurnRegistry<W = unknown> {
   }
 
   // session.updated(sessionId 발급) 시점 — pending 턴을 sessionId 키로 승격.
-  // resume 턴(이미 bySession 키)이거나 pending 이 없으면 무해한 no-op.
-  promote(owner: W, sessionId: string): void {
-    const turn = this.pendingByOwner.get(owner)
-    if (!turn) return
-    this.pendingByOwner.delete(owner)
+  // 호출한 턴과 owner 의 pending 슬롯이 같은 객체일 때만 승격한다. resume 턴도
+  // session.updated 를 방출할 수 있으므로 owner 만으로 promote 하면 같은 창의 새-채팅
+  // pending 턴을 resume sessionId 로 오승격할 수 있다(handoff 0040).
+  promote(turn: InflightTurn<W>, sessionId: string): void {
+    if (this.pendingByOwner.get(turn.owner) !== turn) return
+    this.pendingByOwner.delete(turn.owner)
     this.bySession.set(sessionId, turn)
   }
 

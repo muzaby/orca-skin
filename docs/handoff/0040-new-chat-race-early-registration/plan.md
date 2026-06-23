@@ -81,7 +81,7 @@ claude SDK `system/init` → **`session.updated`**(sessionId 발급; `persist.ts
 
 ### Part A — 직렬 디스패치 게이트 + 낙관적 멀티 엔트리 (R1)
 
-**불변식**: *미승격 새-채팅 main 턴은 항상 ≤1개.* 렌더러가 디스패치를 직렬화해 보장 → main 단일 `pendingByOwner` 슬롯·`promote(owner, sessionId)` **무변경**, **IPC 무변경**(draftId echo 불필요). 디스패치가 직렬이라 `session.updated` 가 진입 순서대로 오므로 **FIFO 승격이 정확**하다.
+**불변식**: *미승격 새-채팅 main 턴은 항상 ≤1개.* 렌더러가 디스패치를 직렬화해 보장 → main 단일 `pendingByOwner` 슬롯 모델은 유지하고 `promote` 는 신원가드 API 로만 보강한다. **IPC 무변경**(draftId echo 불필요). 디스패치가 직렬이라 `session.updated` 가 진입 순서대로 오므로 **FIFO 승격이 정확**하다.
 
 #### 시스템 관점 — semaphore(1) ↔ store 모니터 매핑
 
@@ -197,25 +197,25 @@ release 트리거(session.updated 도착)는 async 이벤트지만 그 핸들러
 
 ## [Codex 기입] 구현 체크리스트
 
-- [ ] 렌더러: `chatStore` 상태 `pendingNewChatKey`/`newChatQueue` 추가
-- [ ] 렌더러: `send()` 새-채팅 분기 — 원자 re-key(`__new__`→`draft:uuid`) + `SEND_USER_MESSAGE` + P(점유/큐잉) 단일 트랜잭션, 점유 시에만 `chatApi.send`
-- [ ] 렌더러: `receive(session.updated)` — `pendingNewChatKey` 기준 승격 re-key + `recentsEpoch++` + V(release/큐 shift), activeKey 활성 시만 추종
-- [ ] 렌더러: sessionId 없는 터미널 라우팅 `pendingNewChatKey ?? activeKey` + 슬롯 해제(데드락 0)
-- [ ] 렌더러: `send()` payload 스냅샷 구성 + `newChatQueue` 에 `{ key, payload }` 동봉(Issue 2)
-- [ ] 렌더러: `cancel()` 대기 draft = 큐+엔트리 제거/랜딩 복귀, pending draft = 게이트 미해제(Issue 5) / `newChat()` 보존 확인
-- [ ] 렌더러: `useNewChatPending(key)` 셀렉터 + Composer/ChatTile "연결 대기" 인디케이터
-- [ ] 렌더러: `useChatSessionsSync` `recentsEpoch` 구독 refresh
-- [ ] 메인: `send.ts` `session.updated` 시 `titles.maybeStart(turn)` + `router.ts` `titles` 주입(`ChatDeps`)
-- [ ] 메인: `turn-registry.promote(turn, sessionId)` 신원가드 + `send.ts` 호출부 `turns.promote(turn, …)`(Issue 1, pending 모델 유지)
-- [ ] 신규 단위 테스트 8종(게이트 절)
-- [ ] (확인) IPC/`shared`/`preload`/`IPC_CONTRACT.md`/라우트 컴포넌트 **무변경**, `turn-registry` 는 promote 가드만(pending 모델 유지)
+- [x] 렌더러: `chatStore` 상태 `pendingNewChatKey`/`newChatQueue` 추가
+- [x] 렌더러: `send()` 새-채팅 분기 — 원자 re-key(`__new__`→`draft:uuid`) + `SEND_USER_MESSAGE` + P(점유/큐잉) 단일 트랜잭션, 점유 시에만 `chatApi.send`
+- [x] 렌더러: `receive(session.updated)` — `pendingNewChatKey` 기준 승격 re-key + `recentsEpoch++` + V(release/큐 shift), activeKey 활성 시만 추종
+- [x] 렌더러: sessionId 없는 터미널 라우팅 `pendingNewChatKey ?? activeKey` + 슬롯 해제(데드락 0)
+- [x] 렌더러: `send()` payload 스냅샷 구성 + `newChatQueue` 에 `{ key, payload }` 동봉(Issue 2)
+- [x] 렌더러: `cancel()` 대기 draft = 큐+엔트리 제거/랜딩 복귀, pending draft = 게이트 미해제(Issue 5) / `newChat()` 보존 확인
+- [x] 렌더러: `useNewChatPending(key)` 셀렉터 + Composer/ChatTile "연결 대기" 인디케이터
+- [x] 렌더러: `useChatSessionsSync` `recentsEpoch` 구독 refresh
+- [x] 메인: `send.ts` `session.updated` 시 `titles.maybeStart(turn)` + `router.ts` `titles` 주입(`ChatDeps`)
+- [x] 메인: `turn-registry.promote(turn, sessionId)` 신원가드 + `send.ts` 호출부 `turns.promote(turn, …)`(Issue 1, pending 모델 유지)
+- [x] 신규 단위 테스트 8종(게이트 절)
+- [x] (확인) IPC/`shared`/`preload`/`IPC_CONTRACT.md`/라우트 컴포넌트 **무변경**, `turn-registry` 는 promote 가드만(pending 모델 유지)
 
 ## [Codex 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` |
-| 게이트 결과 | lint ⬜ / typecheck ⬜ / test ⬜ (N passed) |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | `app/src/renderer/src/features/chat/store/chatStore.ts`, `chatStore.test.ts`, `Composer.tsx`, `features/chat/index.ts`, `useChatSessionsSync.ts`, `app/src/main/ipc/chat/{send.ts,turn-registry.ts,turn-registry.test.ts}`, `app/src/main/ipc/router.ts`, 본 `plan.md` |
+| 실행 명령 | `git pull --rebase --autostash`(upstream 없음), `cd app && npm run lint`, `cd app && npm run typecheck`, `cd app && npm test -- chatStore.test.ts turn-registry.test.ts`, `cd app && npm test`, `cd app && npm rebuild better-sqlite3` |
+| 게이트 결과 | lint ✅ / typecheck ✅ / focused test ✅ 24 passed / full test ✅ 471 passed after `npm rebuild better-sqlite3` |
+| 블로커 / 역질문 | 없음. 현재 브랜치에 upstream tracking 이 없어 `git pull --rebase --autostash` 는 원격 지정 요구로 종료됨. |
+| 대상 커밋 | `f6a65d7` |
