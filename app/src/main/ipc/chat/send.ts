@@ -26,6 +26,7 @@ import { previewOf } from '../dto'
 import { handle, handlePlain } from '../registry'
 import type { ApprovalCoordinator } from './approvals'
 import type { TurnPersistence } from './persist'
+import type { TitleGenerator } from './title-generation'
 import type { InflightTurn, TurnRegistry } from './turn-registry'
 
 export const IDLE_TIMEOUT_MS = 120_000
@@ -37,6 +38,7 @@ export interface ChatDeps {
   turns: TurnRegistry<WebContents>
   approvals: ApprovalCoordinator
   persistence: TurnPersistence
+  titles: TitleGenerator
   permissionModes: PermissionModeController
 }
 
@@ -135,7 +137,7 @@ function buildTurnEnv(
 }
 
 export function registerChatHandlers(deps: ChatDeps): void {
-  const { ctx, turns, approvals, persistence, permissionModes } = deps
+  const { ctx, turns, approvals, persistence, titles, permissionModes } = deps
 
   const handleChatSend = async (event: IpcMainInvokeEvent, raw: unknown): Promise<void> => {
     const parsed = SendChatMessageSchema.safeParse(raw)
@@ -356,10 +358,11 @@ export function registerChatHandlers(deps: ChatDeps): void {
                 sawTerminal = true
               }
               persistence.persist(turn, ev)
+              if (ev.type === 'session.updated') titles.maybeStart(turn)
               sendChatEvent(event.sender, ev)
               // sessionId 발급(session.updated) — 새-채팅 pending 턴을 sessionId 키로 승격.
               if (ev.type === 'session.updated') {
-                turns.promote(event.sender, ev.sessionId)
+                turns.promote(turn, ev.sessionId)
               }
               // AskUserQuestion tool 호출이 도착하면 id 를 페어링 큐에 넣고 답변과 매칭 시도.
               if (ev.type === 'tool.call.started' && ev.toolName === 'AskUserQuestion') {
