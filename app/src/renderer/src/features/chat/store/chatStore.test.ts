@@ -51,7 +51,8 @@ beforeEach(() => {
       sessions: {
         s: {
           session: { ...initialChatState, sessionId: 's', inflight: true, turnStartedAt: 1 },
-          live: { text: '', reasoning: '' }
+          live: { text: '', reasoning: '' },
+          subagentMeta: {}
         }
       },
       activeKey: 's',
@@ -149,7 +150,8 @@ describe('chatStore — 멀티세션 키 라우팅 (handoff 0013)', () => {
         ...st.sessions,
         bg: {
           session: { ...initialChatState, sessionId: 'bg', inflight: true, turnStartedAt: 1 },
-          live: { text: '', reasoning: '' }
+          live: { text: '', reasoning: '' },
+          subagentMeta: {}
         }
       }
     }))
@@ -171,7 +173,8 @@ describe('chatStore — 멀티세션 키 라우팅 (handoff 0013)', () => {
       sessions: {
         'draft:a': {
           session: { ...initialChatState, inflight: true, turnStartedAt: 1 },
-          live: { text: '', reasoning: '' }
+          live: { text: '', reasoning: '' },
+          subagentMeta: {}
         }
       },
       activeKey: 'draft:a',
@@ -216,7 +219,8 @@ describe('chatStore — 멀티세션 키 라우팅 (handoff 0013)', () => {
         ...st.sessions,
         bg: {
           session: { ...initialChatState, sessionId: 'bg', inflight: true, turnStartedAt: 1 },
-          live: { text: '', reasoning: '' }
+          live: { text: '', reasoning: '' },
+          subagentMeta: {}
         }
       }
     }))
@@ -241,7 +245,8 @@ describe('chatStore — 멀티세션 키 라우팅 (handoff 0013)', () => {
         ...st.sessions,
         bg: {
           session: { ...initialChatState, sessionId: 'bg', inflight: true, turnStartedAt: 1 },
-          live: { text: '', reasoning: '' }
+          live: { text: '', reasoning: '' },
+          subagentMeta: {}
         }
       }
     }))
@@ -274,7 +279,11 @@ describe('chatStore — 0040 새-채팅 직렬 디스패치 게이트', () => {
     useChatStore.setState(
       {
         sessions: {
-          [NEW_CHAT_KEY]: { session: { ...initialChatState }, live: { text: '', reasoning: '' } }
+          [NEW_CHAT_KEY]: {
+            session: { ...initialChatState },
+            live: { text: '', reasoning: '' },
+            subagentMeta: {}
+          }
         },
         activeKey: NEW_CHAT_KEY,
         pendingNewChatKey: null,
@@ -409,7 +418,8 @@ describe('chatStore — 0040 새-채팅 직렬 디스패치 게이트', () => {
         ...st.sessions,
         existing: {
           session: { ...initialChatState, sessionId: 'existing' },
-          live: { text: '', reasoning: '' }
+          live: { text: '', reasoning: '' },
+          subagentMeta: {}
         }
       }
     }))

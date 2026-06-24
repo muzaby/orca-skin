@@ -66,6 +66,12 @@ export const SendChatMessageSchema = z.object({
 
 export const CancelChatSchema = z.object({ sessionId: z.string() })
 
+// 서브에이전트(Task) 단위 중단 (orca:chat:stopSubagent). toolUseId = 부모 Agent 도구 호출 id.
+export const StopSubagentSchema = z.object({
+  sessionId: z.string().min(1),
+  toolUseId: z.string().min(1)
+})
+
 // 권한 모드 라이브 전환 (orca:permission:setMode).
 export const SetPermissionModeSchema = z.object({
   sessionId: z.string().min(1),

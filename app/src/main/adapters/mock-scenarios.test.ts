@@ -155,14 +155,40 @@ describe('mock scenarios', () => {
         type: 'tool.call.started',
         toolRunId: 'mock-subagent-task-1',
         toolName: 'Task',
-        args: expect.objectContaining({ subagent_type: 'explorer' })
+        args: expect.objectContaining({ subagent_type: 'Explore' })
       })
     )
+    // 부모 Task tool_result 에 서브에이전트 메타(모델·시간·도구수) 영속.
     expect(events).toContainEqual(
       expect.objectContaining({
         type: 'tool.call.completed',
         toolRunId: 'mock-subagent-task-1',
-        isError: false
+        isError: false,
+        subagentMeta: expect.objectContaining({ model: 'claude-haiku-4-5' })
+      })
+    )
+    // subagent.task 라이프사이클(started→…→settled) + 모델 캡처 progress.
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: 'subagent.task',
+        toolUseId: 'mock-subagent-task-1',
+        phase: 'started'
+      })
+    )
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: 'subagent.task',
+        toolUseId: 'mock-subagent-task-1',
+        phase: 'progress',
+        model: 'claude-haiku-4-5'
+      })
+    )
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: 'subagent.task',
+        toolUseId: 'mock-subagent-task-1',
+        phase: 'settled',
+        status: 'completed'
       })
     )
     expect(events.at(-1)).toMatchObject({ type: 'telemetry' })
@@ -193,7 +219,7 @@ describe('mock scenarios', () => {
         type: 'tool.call.completed',
         toolRunId: 'mock-subagent-aborted-parent',
         isError: true,
-        result: expect.objectContaining({ reason: 'aborted', agentLabel: 'Haiku 4.5' })
+        result: expect.objectContaining({ reason: 'aborted' })
       })
     )
   })

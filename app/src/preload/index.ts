@@ -49,7 +49,9 @@ const orca = {
       return () => ipcRenderer.off(CHANNELS.chatEvent, listener)
     },
     cancel: (sessionId: string): Promise<void> =>
-      ipcRenderer.invoke(CHANNELS.chatCancel, { sessionId })
+      ipcRenderer.invoke(CHANNELS.chatCancel, { sessionId }),
+    stopSubagent: (sessionId: string, toolUseId: string): Promise<void> =>
+      ipcRenderer.invoke(CHANNELS.chatStopSubagent, { sessionId, toolUseId })
   },
   backend: {
     list: (): Promise<BackendListResult> => ipcRenderer.invoke(CHANNELS.backendList)

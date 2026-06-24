@@ -9,6 +9,7 @@ export const CHANNELS = {
   chatSend: 'orca:chat:send',
   chatEvent: 'orca:chat:event',
   chatCancel: 'orca:chat:cancel',
+  chatStopSubagent: 'orca:chat:stopSubagent',
   backendList: 'orca:backend:list',
   agentList: 'orca:agent:list',
   installStart: 'orca:install:start',
@@ -301,6 +302,30 @@ export type NormalizedEvent =
       isError: boolean
       durationMs?: number
       parentToolRunId?: string
+      // 부모 Task(서브에이전트) tool_result 면 SDK task_* 누산 메타(모델·시간·도구수)를 실어
+      // 영속한다 — 세션 재로드 후에도 카드/행이 모델·소요시간을 복원하게 한다.
+      subagentMeta?: SubagentTaskMeta
+    }
+  // 서브에이전트(Task) 라이브 메타 — SDK task_started/task_progress/task_notification 정규화.
+  // reducer 미경유(메인 transcript 파트 비오염): store 가 toolUseId 키 transient 맵으로 흡수해
+  // 우측 패널·AgentTaskRow 의 모델/경과시간/현재도구/도구수 표시를 구동한다.
+  | {
+      type: 'subagent.task'
+      sessionId: string
+      // 부모 Agent(Task) 도구 호출 id (= child 들의 parentToolRunId). 표시·중단 키.
+      toolUseId: string
+      phase: 'started' | 'progress' | 'settled'
+      // SDK task_id — stopTask(taskId) 대상. started/progress/settled 에서 실린다.
+      taskId?: string
+      subagentType?: string
+      description?: string
+      // child assistant 메시지의 실제 모델 id(message.model). 'Explore'(subagent_type) 가 아님.
+      model?: string
+      durationMs?: number
+      toolUses?: number
+      lastToolName?: string
+      status?: 'completed' | 'failed' | 'stopped'
+      summary?: string
     }
   | {
       type: 'telemetry'
@@ -666,6 +691,14 @@ export interface RenameSessionRequest {
   title: string
 }
 
+// 서브에이전트(Task) 영속 메타 — 부모 Task tool_result 에 실려 세션 재로드 후에도 모델·소요시간·
+// 도구수를 복원한다. 라이브(진행 중) 표시는 store transient 가, 영속/재로드는 이 필드가 담당.
+export interface SubagentTaskMeta {
+  model?: string
+  durationMs?: number
+  toolUses?: number
+}
+
 // 정규화 메시지 파트(provider-runtime.md §7) — persistence·wire·reducer 공통 SSOT.
 // claude 가 실제로 채우는 종류: text / reasoning / tool_call / tool_result / error.
 // file / diff / structured_output 은 모델 정의만 두고 OpenCode 어댑터 도입 시 채운다(seam).
@@ -688,6 +721,8 @@ export type AppMessagePart =
       isError: boolean
       durationMs?: number
       parentToolRunId?: string
+      // 부모 Task tool_result 면 서브에이전트 영속 메타(모델·시간·도구수).
+      subagentMeta?: SubagentTaskMeta
     }
   | { type: 'file'; path: string; readType?: 'raw' | 'patch'; content?: string }
   | { type: 'diff'; patch: string }
