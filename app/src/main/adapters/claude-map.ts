@@ -36,6 +36,9 @@ export interface MapContext {
   // 서브에이전트(Task) 누산 메타 — task_*/child assistant 에서 모은 모델·시간·도구수를 부모 Task
   // tool_result(tool.call.completed) emit 시 실어 영속한다. toolUseId(= Agent tool_use id) 키.
   subagentMeta?: Map<string, SubagentTaskMeta>
+  // SDK task_id → 부모 Agent/Task tool_use_id. 일부 task_notification 은 task_id 만 권위로 싣고
+  // tool_use_id 가 비어 있을 수 있어, 앞선 task_started/progress 에서 본 매핑으로 복원한다.
+  taskToolUseById?: Map<string, string>
 }
 
 // ctx.subagentMeta 에 정의된 필드만 병합(누락은 기존값 보존). 부모 Task tool_result 영속용 누산.
@@ -57,9 +60,15 @@ function mapTaskSystem(
   subtype: string,
   ctx: MapContext
 ): NormalizedEvent[] {
-  const toolUseId = typeof msg.tool_use_id === 'string' ? msg.tool_use_id : ''
-  if (!toolUseId || msg.skip_transcript === true) return []
   const taskId = typeof msg.task_id === 'string' ? msg.task_id : undefined
+  const rawToolUseId = typeof msg.tool_use_id === 'string' ? msg.tool_use_id : ''
+  const rememberedToolUseId = taskId ? ctx.taskToolUseById?.get(taskId) : undefined
+  const toolUseId = rawToolUseId || rememberedToolUseId || ''
+  if (!toolUseId || msg.skip_transcript === true) return []
+  if (taskId && rawToolUseId) {
+    if (!ctx.taskToolUseById) ctx.taskToolUseById = new Map()
+    ctx.taskToolUseById.set(taskId, rawToolUseId)
+  }
   const subagentType = typeof msg.subagent_type === 'string' ? msg.subagent_type : undefined
   const description = typeof msg.description === 'string' ? msg.description : undefined
   const usage = (typeof msg.usage === 'object' && msg.usage !== null ? msg.usage : {}) as Record<

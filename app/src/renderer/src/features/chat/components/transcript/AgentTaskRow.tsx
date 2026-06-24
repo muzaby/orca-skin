@@ -14,7 +14,7 @@ import type { ToolCall } from '../../reducer/chatReducer'
 const PREFIX: Record<SubagentTaskStatus, string> = {
   running: '에이전트 실행 중',
   completed: '에이전트 완료',
-  aborted: '에이전트 중지됨',
+  aborted: '에이전트 중단됨',
   failed: '에이전트 실패'
 }
 
@@ -25,7 +25,7 @@ const PREFIX: Record<SubagentTaskStatus, string> = {
 // 포맷(진행 중):
 //  · 그룹 내: `에이전트 실행 중 {model} {title} {elapsed}`
 //  · 단일:    `에이전트 실행 중 {model} · {현재 child 도구} · {child 도구수}`
-// 완료/중지/실패: `에이전트 {상태} {model} {title}` (+ 완료 시 durationLabel).
+// 완료/중단/실패: `에이전트 {상태} {model} {title}` (+ 완료 시 durationLabel).
 export function AgentTaskRow({
   call,
   inGroup = false

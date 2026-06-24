@@ -461,7 +461,7 @@ function cancel(): void {
 }
 
 // 서브에이전트(Task) 단위 중단 — 활성 세션의 진행 중 턴에서 한 Agent 도구만 멈춘다(turn 계속).
-// main 이 toolUseId→task_id 를 찾아 SDK stopTask 호출. UI 전이는 SDK 의 settled(stopped) 이벤트.
+// main 이 toolUseId→task_id 를 찾아 SDK stopTask 호출하고, 클릭 즉시 합성 aborted tool_result 를 전파한다.
 function stopSubagent(toolUseId: string): void {
   const sid = getActiveChatSession().sessionId
   if (sid) void chatApi.stopSubagent(sid, toolUseId)

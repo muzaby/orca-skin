@@ -257,7 +257,7 @@ describe('parts selectors', () => {
     ])
   })
 
-  it('subagentTasksFromMessages 는 aborted 결과를 중지됨 상태로 분류한다', () => {
+  it('subagentTasksFromMessages 는 aborted 결과를 중단 상태로 분류한다', () => {
     const messages = [
       {
         role: 'assistant' as const,
