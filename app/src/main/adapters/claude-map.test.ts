@@ -500,6 +500,43 @@ describe('claudeToNormalized — 서브에이전트(Task) 메타', () => {
     ])
   })
 
+  it('tool_use_id 없는 task_notification 은 앞선 task_id 매핑으로 부모 toolUseId 를 복원한다', () => {
+    const c = ctx()
+    claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'task_started',
+        task_id: 'task-1',
+        tool_use_id: 'agent-1',
+        description: '구조 탐색'
+      }),
+      c
+    )
+
+    const out = claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'task_notification',
+        task_id: 'task-1',
+        status: 'stopped',
+        summary: '사용자 중단'
+      }),
+      c
+    )
+
+    expect(out).toEqual([
+      {
+        type: 'subagent.task',
+        sessionId: 's1',
+        toolUseId: 'agent-1',
+        phase: 'settled',
+        taskId: 'task-1',
+        status: 'stopped',
+        summary: '사용자 중단'
+      }
+    ])
+  })
+
   it('tool_use_id 없는 task_* / skip_transcript 는 드롭([])', () => {
     expect(
       claudeToNormalized(sdk({ type: 'system', subtype: 'task_started', task_id: 't' }), ctx())
