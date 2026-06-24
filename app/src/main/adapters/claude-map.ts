@@ -50,6 +50,11 @@ function assignNums(target: object, fields: Record<string, unknown>): void {
   }
 }
 
+function readParentToolRunId(msg: unknown): string | undefined {
+  const id = (msg as { parent_tool_use_id?: unknown }).parent_tool_use_id
+  return typeof id === 'string' && id.trim() !== '' ? id : undefined
+}
+
 export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): NormalizedEvent[] {
   // SDKSystemMessage(subtype:'init') → session.updated (+ ctx.sessionId 갱신)
   if (msg.type === 'system' && (msg as { subtype?: string }).subtype === 'init') {
@@ -104,6 +109,7 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
       }
     ).message
     const content = m?.content ?? []
+    const parentToolRunId = readParentToolRunId(msg)
     // 마지막 assistant usage 스냅샷 갱신(컨텍스트 점유 = 이 턴 마지막 요청 입력). Anthropic 표준
     // shape(input_tokens/output_tokens/cache_read_input_tokens/cache_creation_input_tokens)을
     // num 가드로 좁혀 읽는다. 의미값이 하나라도 있을 때만 덮어쓴다.
@@ -151,7 +157,8 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
             sessionId: ctx.sessionId,
             toolRunId,
             toolName,
-            args: p.input
+            args: p.input,
+            ...(parentToolRunId !== undefined ? { parentToolRunId } : {})
           })
         }
       }
@@ -162,6 +169,7 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
   // SDKUserMessage / SDKUserMessageReplay → tool.call.completed
   if (msg.type === 'user') {
     const content = (msg as unknown as { message?: { content?: unknown[] } }).message?.content ?? []
+    const parentToolRunId = readParentToolRunId(msg)
     const events: NormalizedEvent[] = []
     for (const part of content) {
       if (typeof part !== 'object' || part === null) continue
@@ -174,7 +182,8 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
           sessionId: ctx.sessionId,
           toolRunId,
           result: p.content,
-          isError: p.is_error === true
+          isError: p.is_error === true,
+          ...(parentToolRunId !== undefined ? { parentToolRunId } : {})
         })
       }
     }

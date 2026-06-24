@@ -8,7 +8,15 @@
 import type { ToolCall } from '../reducer/chatReducer'
 import { diffLines as jsDiffLines } from 'diff'
 
-export type VerbCategory = 'ran' | 'created' | 'edited' | 'read' | 'used' | 'planned' | 'requested'
+export type VerbCategory =
+  | 'ran'
+  | 'created'
+  | 'edited'
+  | 'read'
+  | 'used'
+  | 'planned'
+  | 'requested'
+  | 'delegated'
 
 // 동사 라벨 — 완료 시제 (인라인 한국어, shared/i18n/ko.ts 는 future scope)
 export const VERB_LABEL: Record<VerbCategory, string> = {
@@ -18,7 +26,8 @@ export const VERB_LABEL: Record<VerbCategory, string> = {
   read: '읽음',
   used: '사용함',
   planned: '제안된 계획',
-  requested: '요청됨'
+  requested: '요청됨',
+  delegated: '위임됨'
 }
 
 // 동사 라벨 — 진행 시제 (도구가 아직 result 없이 동작 중일 때)
@@ -29,7 +38,8 @@ export const VERB_LABEL_ACTIVE: Record<VerbCategory, string> = {
   read: '읽는 중',
   used: '사용 중',
   planned: '계획 제안 중',
-  requested: '질문 중'
+  requested: '질문 중',
+  delegated: '위임 중'
 }
 
 // 단위 라벨 — planned 는 단위 없는 싱글톤 명사
@@ -40,7 +50,8 @@ export const UNIT_LABEL: Record<VerbCategory, string | null> = {
   read: '파일',
   used: '도구',
   planned: null,
-  requested: '질문'
+  requested: '질문',
+  delegated: '작업'
 }
 
 // 요약 조립 순서
@@ -50,6 +61,7 @@ const CATEGORY_ORDER: VerbCategory[] = [
   'edited',
   'read',
   'used',
+  'delegated',
   'requested',
   'planned'
 ]
@@ -71,6 +83,9 @@ export function toolVerbCategory(name: string): VerbCategory {
       return 'planned'
     case 'AskUserQuestion':
       return 'requested'
+    case 'Task':
+    case 'Agent':
+      return 'delegated'
     default:
       // Glob / Grep / WebFetch / WebSearch / Task* / mcp__* / 그 외
       return 'used'

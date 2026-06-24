@@ -70,6 +70,10 @@ export const MOCK_SCENARIO_IDS = [
   'tool_approval',
   'ask_question',
   'plan_review',
+  'subagent_task',
+  'subagent_task_child',
+  'subagent_task_aborted',
+  'subagent_task_multi',
   'error',
   'full'
 ] as const
@@ -284,6 +288,7 @@ export type NormalizedEvent =
       toolRunId: string
       toolName: string
       args: unknown
+      parentToolRunId?: string
     }
   | {
       type: 'tool.call.completed'
@@ -292,6 +297,7 @@ export type NormalizedEvent =
       result: unknown
       isError: boolean
       durationMs?: number
+      parentToolRunId?: string
     }
   | {
       type: 'telemetry'
@@ -663,13 +669,20 @@ export interface RenameSessionRequest {
 export type AppMessagePart =
   | { type: 'text'; text: string }
   | { type: 'reasoning'; text: string; signature?: string }
-  | { type: 'tool_call'; toolRunId: string; toolName: string; args: unknown }
+  | {
+      type: 'tool_call'
+      toolRunId: string
+      toolName: string
+      args: unknown
+      parentToolRunId?: string
+    }
   | {
       type: 'tool_result'
       toolRunId: string
       result: unknown
       isError: boolean
       durationMs?: number
+      parentToolRunId?: string
     }
   | { type: 'file'; path: string; readType?: 'raw' | 'patch'; content?: string }
   | { type: 'diff'; patch: string }

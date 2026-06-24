@@ -67,6 +67,7 @@ describe('claudeToNormalized', () => {
     const out = claudeToNormalized(
       sdk({
         type: 'assistant',
+        parent_tool_use_id: 'parent-task-1',
         message: {
           content: [
             { type: 'text', text: 'done' },
@@ -87,7 +88,8 @@ describe('claudeToNormalized', () => {
         sessionId: 's1',
         toolRunId: 't1',
         toolName: 'Bash',
-        args: { cmd: 'ls' }
+        args: { cmd: 'ls' },
+        parentToolRunId: 'parent-task-1'
       }
     ])
   })

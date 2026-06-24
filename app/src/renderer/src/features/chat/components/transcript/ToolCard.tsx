@@ -10,6 +10,7 @@ import {
 } from '../../lib/toolMeta'
 import { stringify } from '../../format'
 import { toolRendererRegistry } from './registry'
+import { chatActions } from '../../store/chatStore'
 import type { ToolCall } from '../../reducer/chatReducer'
 
 const FILE_TOOLS = new Set(['Read', 'Write', 'Edit', 'MultiEdit'])
@@ -79,6 +80,9 @@ export const ToolCard = memo(function ToolCard({
   const toggle = (): void => {
     setOpen((v) => !v)
     setWasOpened(true)
+    if (toolRendererRegistry.resolve(call).kind === 'agent_task') {
+      chatActions.openSubagentTask(call.toolUseId)
+    }
   }
   const done = call.result != null
   const isError = call.result?.isError === true

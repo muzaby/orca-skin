@@ -121,24 +121,24 @@
 
 ## [Codex 기입] 구현 체크리스트
 
-- [ ] A1 claude-map `parent_tool_use_id` 캡처 → NormalizedEvent `parentToolRunId`
-- [ ] A2 AppMessagePart `parentToolRunId` 전파 + persist 보존
-- [ ] A3 reducer child 분기(부모 Task 키잉) + 메인 세그먼트 child 제외
-- [ ] A4 IPC_CONTRACT §3·§6 동기화
-- [ ] A5 claude-map · reducer 단위테스트
-- [ ] B1 Task 전용 카드(`agent_task` kind) + 호출/완료/중단 상태
-- [ ] B2 우측 패널 child 트랜스크립트(메인 컴포넌트 재사용) + 펼침→타일 활성화
-- [ ] B3 뒤로가기 리스트↔상세(카드 목록 ↔ 대화록)
-- [ ] B4 서브에이전트 없는 턴 무회귀 + 우측 패널(0034) 무회귀
-- [ ] 게이트 lint/typecheck/test 통과
+- [x] A1 claude-map `parent_tool_use_id` 캡처 → NormalizedEvent `parentToolRunId`
+- [x] A2 AppMessagePart `parentToolRunId` 전파 + persist 보존
+- [x] A3 reducer child 분기(부모 Task 키잉) + 메인 세그먼트 child 제외
+- [x] A4 IPC_CONTRACT §3·§6 동기화
+- [x] A5 claude-map · reducer 단위테스트
+- [x] B1 Task 전용 카드(`agent_task` kind) + 호출/완료/중단 상태
+- [x] B2 우측 패널 child 트랜스크립트(메인 컴포넌트 재사용) + 펼침→타일 활성화
+- [x] B3 뒤로가기 리스트↔상세(카드 목록 ↔ 대화록)
+- [x] B4 서브에이전트 없는 턴 무회귀 + 우측 패널(0034) 무회귀
+- [x] 게이트 lint/typecheck/test 통과
 
 ## [Codex 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `npm run typecheck` / `npm test` |
-| 게이트 결과 | lint ✅ / typecheck ✅ / test ✅ (N passed) |
-| IPC 채널 변경 | (NormalizedEvent/AppMessagePart 변경 요약) |
-| 블로커 / 역질문 | (없으면 "없음") |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | `app/src/shared/ipc.ts`, `app/src/main/adapters/claude-map.ts`, `app/src/main/ipc/chat/persist.ts`, `app/src/renderer/src/features/chat/reducer/chatReducer.ts`, `app/src/renderer/src/features/chat/lib/parts.ts`, `app/src/renderer/src/features/chat/components/transcript/**`, `app/src/renderer/src/features/chat/components/rightpanel/SubAgentTileContent.tsx`, `app/src/renderer/src/features/chat/store/chatStore.ts`, `app/src/main/adapters/mock-scenarios.ts`, `docs/IPC_CONTRACT.md` |
+| 실행 명령 | `npm test -- src/main/adapters/claude-map.test.ts src/main/adapters/mock-scenarios.test.ts src/renderer/src/features/chat/lib/parts.test.ts` / `npm run lint` / `npm run typecheck` / `npm test` |
+| 게이트 결과 | lint ✅ / typecheck ✅ / test ✅ (486 passed) |
+| IPC 채널 변경 | 채널 수 변경 없음. `tool.call.started`/`tool.call.completed` 및 `tool_call`/`tool_result` part 에 optional `parentToolRunId` 추가. Debug `MockScenarioId` 9→12. |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `d2f5ab8` |

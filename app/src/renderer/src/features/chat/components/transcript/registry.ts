@@ -11,6 +11,7 @@ import { BashBody } from './tool-bodies/BashBody'
 import { DiffBody } from './tool-bodies/DiffBody'
 import { FileBody } from './tool-bodies/FileBody'
 import { AskBody } from './tool-bodies/AskBody'
+import { AgentTaskBody } from './tool-bodies/AgentTaskBody'
 import { KeyValueBody } from './tool-bodies/KeyValueBody'
 
 // 렌더 카드의 시맨틱 종류 (rendering.md §1.6 정본 taxonomy). 도구 이름이 아니라 "무엇을
@@ -73,4 +74,9 @@ export const toolRendererRegistry = new ToolRendererRegistry({
   })
   .register({ kind: 'diff', match: (c) => FILE_EDIT_TOOLS.has(c.name), Body: DiffBody })
   .register({ kind: 'file_preview', match: (c) => c.name === 'Read', Body: FileBody })
+  .register({
+    kind: 'agent_task',
+    match: (c) => c.name === 'Task' || c.name === 'Agent',
+    Body: AgentTaskBody
+  })
   .register({ kind: 'ask', match: (c) => c.name === 'AskUserQuestion', Body: AskBody })

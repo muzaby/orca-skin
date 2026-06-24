@@ -5,6 +5,8 @@ import {
   partsToolCalls,
   partsErrors,
   partsAttachments,
+  childMessageForParentToolRunId,
+  subagentTasksFromMessages,
   messageSegments
 } from './parts'
 import type { AppMessagePart } from '../../../../../shared/ipc'
@@ -59,6 +61,81 @@ describe('parts selectors', () => {
       },
       // t2 는 결과 미도착 → result 없음(실행 중)
       { toolUseId: 't2', name: 'Read', input: { path: 'a' } }
+    ])
+  })
+
+  it('parentToolRunId 가 있는 child 도구는 메인 도구 목록에서 제외하고 child message 로 조회한다', () => {
+    const messages = [
+      {
+        role: 'assistant' as const,
+        createdAt: 1,
+        parts: [
+          {
+            type: 'tool_call' as const,
+            toolRunId: 'parent-task',
+            toolName: 'Task',
+            args: { description: 'child 분석' }
+          },
+          {
+            type: 'tool_call' as const,
+            toolRunId: 'child-read',
+            toolName: 'Read',
+            args: { file_path: 'README.md' },
+            parentToolRunId: 'parent-task'
+          },
+          {
+            type: 'tool_result' as const,
+            toolRunId: 'child-read',
+            result: 'ok',
+            isError: false,
+            parentToolRunId: 'parent-task'
+          },
+          {
+            type: 'tool_result' as const,
+            toolRunId: 'parent-task',
+            result: { summary: 'done' },
+            isError: false
+          }
+        ]
+      }
+    ]
+
+    expect(messageSegments(messages[0].parts)).toEqual([
+      {
+        kind: 'tools',
+        calls: [
+          {
+            toolUseId: 'parent-task',
+            name: 'Task',
+            input: { description: 'child 분석' },
+            result: { output: { summary: 'done' }, isError: false }
+          }
+        ]
+      }
+    ])
+    expect(childMessageForParentToolRunId(messages, 'parent-task')?.parts).toEqual([
+      {
+        type: 'tool_call',
+        toolRunId: 'child-read',
+        toolName: 'Read',
+        args: { file_path: 'README.md' },
+        parentToolRunId: 'parent-task'
+      },
+      {
+        type: 'tool_result',
+        toolRunId: 'child-read',
+        result: 'ok',
+        isError: false,
+        parentToolRunId: 'parent-task'
+      }
+    ])
+    expect(subagentTasksFromMessages(messages)).toMatchObject([
+      {
+        toolUseId: 'parent-task',
+        description: 'child 분석',
+        status: 'completed',
+        childToolCount: 1
+      }
     ])
   })
 

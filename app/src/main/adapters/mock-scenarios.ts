@@ -51,6 +51,10 @@ export const SCENARIOS: Record<MockScenarioId, MockStep[]> = {
   tool_approval: [...prelude(), ...toolApprovalFragment()],
   ask_question: [...prelude(), ...askQuestionFragment()],
   plan_review: [...prelude(), planApproval('mock-plan-1', '1. 요구사항 확인\n2. 구현\n3. 테스트')],
+  subagent_task: [...prelude(), ...subagentTaskFragment()],
+  subagent_task_child: [...prelude(), ...subagentTaskChildFragment()],
+  subagent_task_aborted: [...prelude(), ...subagentTaskAbortedFragment()],
+  subagent_task_multi: [...prelude(), ...subagentTaskMultiFragment()],
   error: [...prelude(), ...errorFragment()],
   full: [
     ...prelude(),
@@ -193,6 +197,161 @@ function askQuestionFragment(): MockStep[] {
         })
       ]
     }
+  ]
+}
+
+function subagentTaskFragment(): MockStep[] {
+  return [
+    emit({ type: 'message.delta', delta: { text: '검토용 서브에이전트를 호출합니다.' } }),
+    emit({
+      type: 'tool.call.started',
+      toolRunId: 'mock-subagent-task-1',
+      toolName: 'Task',
+      args: {
+        description: '로그 분석 서브에이전트',
+        prompt: '최근 실행 로그를 점검하고 실패 원인을 요약해줘.',
+        subagent_type: 'explorer'
+      }
+    }),
+    delay(120),
+    emit({
+      type: 'tool.call.completed',
+      toolRunId: 'mock-subagent-task-1',
+      result: {
+        summary: '최근 실행 로그에서 재시도 가능한 네트워크 오류 1건을 확인했습니다.',
+        findings: ['timeout after 30s', 'retryable network error', 'no data corruption']
+      },
+      isError: false,
+      durationMs: 120
+    }),
+    ...closing('서브에이전트 검토 결과를 반영했습니다.')
+  ]
+}
+
+function childReadSteps(parentToolRunId: string, toolRunId: string, filePath: string): MockStep[] {
+  return [
+    emit({
+      type: 'tool.call.started',
+      toolRunId,
+      parentToolRunId,
+      toolName: 'Read',
+      args: { file_path: filePath }
+    }),
+    delay(60),
+    emit({
+      type: 'tool.call.completed',
+      toolRunId,
+      parentToolRunId,
+      result: { content: `mock child content from ${filePath}` },
+      isError: false,
+      durationMs: 60
+    })
+  ]
+}
+
+function subagentTaskChildFragment(): MockStep[] {
+  return [
+    emit({
+      type: 'message.delta',
+      delta: { text: '서브에이전트 child transcript 를 재현합니다.' }
+    }),
+    emit({
+      type: 'tool.call.started',
+      toolRunId: 'mock-subagent-child-parent',
+      toolName: 'Task',
+      args: {
+        description: 'child transcript 수집',
+        prompt: 'README 와 로그를 읽고 요약해줘.',
+        subagent_type: 'explorer'
+      }
+    }),
+    ...childReadSteps('mock-subagent-child-parent', 'mock-subagent-child-read', 'README.md'),
+    emit({
+      type: 'tool.call.completed',
+      toolRunId: 'mock-subagent-child-parent',
+      result: { summary: 'child transcript 수집 완료' },
+      isError: false,
+      durationMs: 180
+    }),
+    ...closing('child transcript 검토가 끝났습니다.')
+  ]
+}
+
+function subagentTaskAbortedFragment(): MockStep[] {
+  return [
+    emit({ type: 'message.delta', delta: { text: '중단되는 서브에이전트를 재현합니다.' } }),
+    emit({
+      type: 'tool.call.started',
+      toolRunId: 'mock-subagent-aborted-parent',
+      toolName: 'Task',
+      args: {
+        description: '중단 경로 검증',
+        prompt: '긴 로그 분석을 시작하지만 중간에 중단됩니다.',
+        subagent_type: 'explorer'
+      }
+    }),
+    emit({
+      type: 'tool.call.started',
+      toolRunId: 'mock-subagent-aborted-child',
+      parentToolRunId: 'mock-subagent-aborted-parent',
+      toolName: 'Bash',
+      args: { command: 'sleep 30 && tail -100 app.log' }
+    }),
+    delay(60),
+    emit({
+      type: 'tool.call.completed',
+      toolRunId: 'mock-subagent-aborted-child',
+      parentToolRunId: 'mock-subagent-aborted-parent',
+      result: { message: '작업이 중단되었습니다.', reason: 'aborted' },
+      isError: true,
+      durationMs: 60
+    }),
+    emit({
+      type: 'tool.call.completed',
+      toolRunId: 'mock-subagent-aborted-parent',
+      result: { message: '서브에이전트가 중단되었습니다.', reason: 'aborted' },
+      isError: true,
+      durationMs: 80
+    })
+  ]
+}
+
+function subagentTaskMultiFragment(): MockStep[] {
+  return [
+    emit({ type: 'message.delta', delta: { text: '복수 서브에이전트를 순차 실행합니다.' } }),
+    emit({
+      type: 'tool.call.started',
+      toolRunId: 'mock-subagent-multi-a',
+      toolName: 'Task',
+      args: { description: '문서 점검', prompt: '문서를 읽어줘.', subagent_type: 'explorer' }
+    }),
+    ...childReadSteps('mock-subagent-multi-a', 'mock-subagent-multi-a-read', 'docs/PRD.md'),
+    emit({
+      type: 'tool.call.completed',
+      toolRunId: 'mock-subagent-multi-a',
+      result: { summary: '문서 점검 완료' },
+      isError: false,
+      durationMs: 120
+    }),
+    emit({
+      type: 'tool.call.started',
+      toolRunId: 'mock-subagent-multi-b',
+      toolName: 'Task',
+      args: {
+        description: '테스트 점검',
+        prompt: '테스트 로그를 확인해줘.',
+        subagent_type: 'explorer'
+      }
+    }),
+    ...childReadSteps('mock-subagent-multi-b', 'mock-subagent-multi-b-read', 'app/test.log'),
+    emit({
+      type: 'tool.call.completed',
+      toolRunId: 'mock-subagent-multi-b',
+      result: { summary: '테스트 점검 완료' },
+      isError: false,
+      durationMs: 140
+    }),
+    ...closing('복수 서브에이전트 검토가 끝났습니다.')
   ]
 }
 
