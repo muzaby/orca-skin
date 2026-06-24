@@ -21,6 +21,7 @@ const SCENARIO_LABELS: Record<MockScenarioId, string> = {
   subagent_task_child: '서브에이전트 child',
   subagent_task_aborted: '서브에이전트 중단',
   subagent_task_multi: '서브에이전트 복수',
+  subagent_task_running: '서브에이전트 진행 중',
   error: '에러',
   full: '전체'
 }

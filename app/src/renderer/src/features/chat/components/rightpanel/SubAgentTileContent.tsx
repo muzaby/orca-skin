@@ -30,6 +30,21 @@ function promptFromCall(call: ToolCall): string | null {
   return null
 }
 
+// Task 결과 output 에서 완료 답변 텍스트를 끌어낸다 — 문자열이면 그대로, 객체면 summary/message.
+function answerTextFromCall(call: ToolCall): string | null {
+  const output = call.result?.output
+  if (output == null) return null
+  if (typeof output === 'string') return output.trim() !== '' ? output : null
+  if (typeof output === 'object') {
+    const rec = output as Record<string, unknown>
+    for (const key of ['summary', 'message', 'text']) {
+      const v = rec[key]
+      if (typeof v === 'string' && v.trim() !== '') return v
+    }
+  }
+  return null
+}
+
 // 타일 헤더 콘텐츠 — 상세(Task 선택)면 뒤로가기 + Task 제목, 목록이면 '백그라운드 작업'.
 // RightPanelTile 의 기본 라벨 span 을 대체한다(tileRegistry 주입). 제목 폰트/톤은 기본 라벨과 일치.
 export function SubAgentTileHeader(): React.JSX.Element {
@@ -71,22 +86,31 @@ export function SubAgentTileContent(): React.JSX.Element {
 
   // 상세 — Task 프롬프트(요청사항)는 사용자 메시지 버블처럼 우측 정렬, 그 아래 child
   // 트랜스크립트를 메인 transcript 컴포넌트로 렌더. 뒤로가기/제목은 타일 헤더가 담당.
+  // 간격은 메인 transcript 양식을 따른다 — 프롬프트↔답변 사이 --chat-turn-gap(턴 간격).
   if (selected) {
     const prompt = promptFromCall(selected.call)
+    // child 트랜스크립트에 실제 답변 텍스트가 없으면(예: 도구 없이 끝난 Task) Task 결과의
+    // summary/message 를 완료 답변으로 폴백 렌더한다(완료됨 답변 출력 보장).
+    const childHasText = childMessage?.parts.some((p) => p.type === 'text') ?? false
+    const answerFallback = childHasText ? null : answerTextFromCall(selected.call)
     return (
-      <div className="min-h-0 flex-1 overflow-auto px-p5 py-p4">
+      <div className="flex min-h-0 flex-1 flex-col gap-[var(--chat-turn-gap)] overflow-auto px-p5 py-p4">
         {prompt && (
-          <div className="mb-g4 flex justify-end">
+          <div className="flex justify-end">
             <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl bg-bubble-user px-4 py-2.5 text-[14px] leading-[1.7] text-ink">
               {prompt}
             </div>
           </div>
         )}
-        {childMessage ? (
-          <AssistantMessage message={childMessage} />
-        ) : (
+        {childMessage && <AssistantMessage message={childMessage} />}
+        {answerFallback && (
+          <div className="whitespace-pre-wrap text-[14px] leading-[1.7] text-ink">
+            {answerFallback}
+          </div>
+        )}
+        {!childMessage && !answerFallback && (
           <div className="rounded-r5 border border-t5 bg-bg2 p-4 text-footnote text-ink3">
-            이 작업에 기록된 하위 도구 호출이 없습니다.
+            이 작업에 기록된 하위 활동이 없습니다.
           </div>
         )}
       </div>

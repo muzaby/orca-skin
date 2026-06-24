@@ -150,6 +150,69 @@ describe('parts selectors', () => {
     ])
   })
 
+  it('child text/reasoning 은 child message 에 포함하고 메인 트랜스크립트에서는 제외한다', () => {
+    const messages = [
+      {
+        role: 'assistant' as const,
+        createdAt: 1,
+        parts: [
+          { type: 'text' as const, text: '서브에이전트를 호출합니다.' },
+          {
+            type: 'tool_call' as const,
+            toolRunId: 'parent-task',
+            toolName: 'Task',
+            args: { description: 'child 분석' }
+          },
+          {
+            type: 'tool_call' as const,
+            toolRunId: 'child-read',
+            toolName: 'Read',
+            args: { file_path: 'README.md' },
+            parentToolRunId: 'parent-task'
+          },
+          {
+            type: 'text' as const,
+            text: '서브에이전트 답변입니다.',
+            parentToolRunId: 'parent-task'
+          },
+          {
+            type: 'tool_result' as const,
+            toolRunId: 'parent-task',
+            result: { summary: 'done' },
+            isError: false
+          }
+        ]
+      }
+    ]
+    // 메인: child 텍스트 제외 — 최상위 텍스트만.
+    expect(partsText(messages[0].parts)).toBe('서브에이전트를 호출합니다.')
+    expect(messageSegments(messages[0].parts)).toEqual([
+      { kind: 'text', text: '서브에이전트를 호출합니다.' },
+      {
+        kind: 'tools',
+        calls: [
+          {
+            toolUseId: 'parent-task',
+            name: 'Task',
+            input: { description: 'child 분석' },
+            result: { output: { summary: 'done' }, isError: false }
+          }
+        ]
+      }
+    ])
+    // child: 도구 + 답변 텍스트가 순서대로 포함되고 parentToolRunId 는 벗겨진다.
+    const child = childMessageForParentToolRunId(messages, 'parent-task')
+    expect(child?.parts).toEqual([
+      {
+        type: 'tool_call',
+        toolRunId: 'child-read',
+        toolName: 'Read',
+        args: { file_path: 'README.md' }
+      },
+      { type: 'text', text: '서브에이전트 답변입니다.' }
+    ])
+  })
+
   it('subagentTasksFromMessages 는 aborted 결과를 중지됨 상태로 분류한다', () => {
     const messages = [
       {

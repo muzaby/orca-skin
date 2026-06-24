@@ -234,9 +234,12 @@ function receive(ev: NormalizedEvent): void {
       return
 
     case 'message.completed':
-      // 완성본(ev.message.text)이 text 파트로 커밋되므로 라이브 프리뷰는 비운다.
+      // 완성본(ev.message.text)이 text 파트로 커밋되므로 라이브 프리뷰는 비운다. 단,
+      // 서브에이전트(Task) child 텍스트(parentToolRunId)는 메인 스트리밍이 아니므로 메인
+      // 라이브 프리뷰를 건드리지 않는다(우측 패널 child 트랜스크립트 전용).
       dispatchTo(key, { type: 'RECV_EVENT', event: ev })
-      patchLive(key, (live) => (live.text !== '' ? { ...live, text: '' } : live))
+      if (ev.parentToolRunId === undefined)
+        patchLive(key, (live) => (live.text !== '' ? { ...live, text: '' } : live))
       return
 
     case 'message.reasoning':

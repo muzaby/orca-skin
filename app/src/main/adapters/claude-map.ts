@@ -134,7 +134,8 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
           events.push({
             type: 'message.completed',
             sessionId: ctx.sessionId,
-            message: { text: p.text }
+            message: { text: p.text },
+            ...(parentToolRunId !== undefined ? { parentToolRunId } : {})
           })
         }
       } else if (p.type === 'thinking' && typeof p.thinking === 'string') {
