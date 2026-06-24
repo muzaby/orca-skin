@@ -9,6 +9,9 @@
   --color-bg: #faf9f5;
   --color-sidebar: #f5f4ed;
   --color-panel: #ffffff;
+  /* Secondary surface — subtle inset/card fill on top of bg (reasoning/structured
+     cards, agent-task surfaces, backend pill). Warmer than bg so bordered cards read. */
+  --color-bg2: #f0eee6;
   --color-border: #e5e3d9;
   --color-border-strong: #d2d0c5;
   --color-ink: #141413;
@@ -153,6 +156,7 @@
   --color-bg: #262624;
   --color-sidebar: #1f1e1b;
   --color-panel: #30302e;
+  --color-bg2: #2b2a28;
   --color-border: #3d3d3a;
   --color-border-strong: #4c4b46;
   --color-ink: #f0efea;
@@ -173,6 +177,7 @@
   --color-bg: #f8fafc;
   --color-sidebar: #f1f5f9;
   --color-panel: #ffffff;
+  --color-bg2: #eef2f7;
   --color-border: #e2e8f0;
   --color-border-strong: #cbd5e1;
   --color-ink: #0f172a;
