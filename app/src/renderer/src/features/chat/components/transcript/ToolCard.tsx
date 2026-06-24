@@ -10,8 +10,8 @@ import {
 } from '../../lib/toolMeta'
 import { stringify } from '../../format'
 import { toolRendererRegistry } from './registry'
-import { chatActions } from '../../store/chatStore'
 import type { ToolCall } from '../../reducer/chatReducer'
+import { AgentTaskCard } from './AgentTaskCard'
 
 const FILE_TOOLS = new Set(['Read', 'Write', 'Edit', 'MultiEdit'])
 
@@ -77,12 +77,13 @@ export const ToolCard = memo(function ToolCard({
   // 최초 오픈 후엔 본문을 계속 마운트 유지 → 닫힘도 grid-rows 전환으로 애니메이션.
   // 한 번도 안 연 카드는 본문 미마운트(shiki 등 선렌더 비용 회피).
   const [wasOpened, setWasOpened] = useState(false)
+  if (toolRendererRegistry.resolve(call).kind === 'agent_task') {
+    return <AgentTaskCard call={call} />
+  }
+
   const toggle = (): void => {
     setOpen((v) => !v)
     setWasOpened(true)
-    if (toolRendererRegistry.resolve(call).kind === 'agent_task') {
-      chatActions.openSubagentTask(call.toolUseId)
-    }
   }
   const done = call.result != null
   const isError = call.result?.isError === true

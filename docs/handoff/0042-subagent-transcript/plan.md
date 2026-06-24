@@ -138,7 +138,7 @@
 |---|---|
 | 변경 파일 | `app/src/shared/ipc.ts`, `app/src/main/adapters/claude-map.ts`, `app/src/main/ipc/chat/persist.ts`, `app/src/renderer/src/features/chat/reducer/chatReducer.ts`, `app/src/renderer/src/features/chat/lib/parts.ts`, `app/src/renderer/src/features/chat/components/transcript/**`, `app/src/renderer/src/features/chat/components/rightpanel/SubAgentTileContent.tsx`, `app/src/renderer/src/features/chat/store/chatStore.ts`, `app/src/main/adapters/mock-scenarios.ts`, `docs/IPC_CONTRACT.md` |
 | 실행 명령 | `npm test -- src/main/adapters/claude-map.test.ts src/main/adapters/mock-scenarios.test.ts src/renderer/src/features/chat/lib/parts.test.ts` / `npm run lint` / `npm run typecheck` / `npm test` |
-| 게이트 결과 | lint ✅ / typecheck ✅ / test ✅ (486 passed) |
+| 게이트 결과 | lint ✅ / typecheck ✅ / test ✅ (487 passed) |
 | IPC 채널 변경 | 채널 수 변경 없음. `tool.call.started`/`tool.call.completed` 및 `tool_call`/`tool_result` part 에 optional `parentToolRunId` 추가. Debug `MockScenarioId` 9→12. |
 | 블로커 / 역질문 | 없음 |
-| 대상 커밋 | `d2f5ab8` |
+| 대상 커밋 | `47d9206` |

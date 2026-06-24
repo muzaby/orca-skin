@@ -64,11 +64,17 @@ export function partsToolCalls(parts: AppMessagePart[]): ToolCall[] {
   return calls
 }
 
+export type SubagentTaskStatus = 'running' | 'completed' | 'failed' | 'aborted'
+
 export interface SubagentTaskSummary {
   toolUseId: string
   description: string
-  status: 'running' | 'completed' | 'failed'
+  status: SubagentTaskStatus
   childToolCount: number
+  toolCountLabel: string
+  durationLabel: string | null
+  tokenLabel: string | null
+  agentLabel: string
   call: ToolCall
 }
 
@@ -147,13 +153,16 @@ export function subagentTasksFromMessages(messages: Message[]): SubagentTaskSumm
       isAgentTaskName(part.toolName)
     ) {
       const call = toolCallFromPart(part, resultByRun)
-      const status =
-        call.result?.isError === true ? 'failed' : call.result ? 'completed' : 'running'
+      const childToolCount = childCounts.get(call.toolUseId) ?? 0
       summaries.push({
         toolUseId: call.toolUseId,
         description: toolDescriptionFromInput(call.input) ?? call.name,
-        status,
-        childToolCount: childCounts.get(call.toolUseId) ?? 0,
+        status: deriveSubagentTaskStatus(call),
+        childToolCount,
+        toolCountLabel: `${childToolCount} 도구 사용`,
+        durationLabel: formatDurationLabel(call.result?.durationMs),
+        tokenLabel: tokenLabelFromResult(call.result?.output),
+        agentLabel: agentLabelFromCall(call),
         call
       })
     }
@@ -163,6 +172,51 @@ export function subagentTasksFromMessages(messages: Message[]): SubagentTaskSumm
 
 export function isAgentTaskName(name: string): boolean {
   return name === 'Task' || name === 'Agent'
+}
+
+export function deriveSubagentTaskStatus(call: ToolCall): SubagentTaskStatus {
+  if (!call.result) return 'running'
+  if (!call.result.isError) return 'completed'
+  const output = call.result.output
+  const reason = valueString(output, 'reason')?.toLowerCase() ?? ''
+  const message = valueString(output, 'message')?.toLowerCase() ?? ''
+  return reason.includes('abort') || message.includes('abort') || message.includes('중단')
+    ? 'aborted'
+    : 'failed'
+}
+
+export function formatDurationLabel(durationMs: number | undefined): string | null {
+  if (durationMs === undefined) return null
+  const seconds = Math.max(1, Math.round(durationMs / 1000))
+  if (seconds < 60) return `${seconds}초`
+  return `${Math.floor(seconds / 60)}분 ${seconds % 60}초`
+}
+
+function valueString(input: unknown, key: string): string | null {
+  if (typeof input !== 'object' || input === null) return null
+  const value = (input as Record<string, unknown>)[key]
+  return typeof value === 'string' && value.trim() !== '' ? value : null
+}
+
+function valueNumber(input: unknown, key: string): number | null {
+  if (typeof input !== 'object' || input === null) return null
+  const value = (input as Record<string, unknown>)[key]
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function tokenLabelFromResult(output: unknown): string | null {
+  const tokens = valueNumber(output, 'tokenCount') ?? valueNumber(output, 'tokens')
+  if (tokens === null) return null
+  return tokens >= 1000 ? `${(tokens / 1000).toFixed(1)}k 토큰` : `${tokens} 토큰`
+}
+
+function agentLabelFromCall(call: ToolCall): string {
+  return (
+    valueString(call.result?.output, 'agentLabel') ??
+    valueString(call.input, 'agentLabel') ??
+    valueString(call.input, 'subagent_type') ??
+    '에이전트'
+  )
 }
 
 function toolDescriptionFromInput(input: unknown): string | null {

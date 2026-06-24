@@ -93,8 +93,9 @@ describe('parts selectors', () => {
           {
             type: 'tool_result' as const,
             toolRunId: 'parent-task',
-            result: { summary: 'done' },
-            isError: false
+            result: { summary: 'done', agentLabel: 'Haiku 4.5', tokenCount: 20600 },
+            isError: false,
+            durationMs: 92_000
           }
         ]
       }
@@ -108,7 +109,11 @@ describe('parts selectors', () => {
             toolUseId: 'parent-task',
             name: 'Task',
             input: { description: 'child 분석' },
-            result: { output: { summary: 'done' }, isError: false }
+            result: {
+              output: { summary: 'done', agentLabel: 'Haiku 4.5', tokenCount: 20600 },
+              isError: false,
+              durationMs: 92_000
+            }
           }
         ]
       }
@@ -134,8 +139,38 @@ describe('parts selectors', () => {
         toolUseId: 'parent-task',
         description: 'child 분석',
         status: 'completed',
-        childToolCount: 1
+        childToolCount: 1,
+        toolCountLabel: '1 도구 사용',
+        durationLabel: '1분 32초',
+        tokenLabel: '20.6k 토큰',
+        agentLabel: 'Haiku 4.5'
       }
+    ])
+  })
+
+  it('subagentTasksFromMessages 는 aborted 결과를 중지됨 상태로 분류한다', () => {
+    const messages = [
+      {
+        role: 'assistant' as const,
+        createdAt: 1,
+        parts: [
+          {
+            type: 'tool_call' as const,
+            toolRunId: 'parent-task',
+            toolName: 'Task',
+            args: { description: '중단 작업' }
+          },
+          {
+            type: 'tool_result' as const,
+            toolRunId: 'parent-task',
+            result: { reason: 'aborted', message: '작업이 중단되었습니다.' },
+            isError: true
+          }
+        ]
+      }
+    ]
+    expect(subagentTasksFromMessages(messages)).toMatchObject([
+      { toolUseId: 'parent-task', description: '중단 작업', status: 'aborted' }
     ])
   })
 

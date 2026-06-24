@@ -191,7 +191,8 @@ describe('mock scenarios', () => {
       expect.objectContaining({
         type: 'tool.call.completed',
         toolRunId: 'mock-subagent-aborted-parent',
-        isError: true
+        isError: true,
+        result: expect.objectContaining({ reason: 'aborted', agentLabel: 'Haiku 4.5' })
       })
     )
   })
