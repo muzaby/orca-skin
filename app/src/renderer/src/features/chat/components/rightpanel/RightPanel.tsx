@@ -167,6 +167,7 @@ function RightPanelColumn({
     const tile = tileById(id)
     const Content = tile.Content
     const HeaderActions = tile.HeaderActions
+    const HeaderContent = tile.HeaderContent
     const basis =
       tiles.length === 1 ? '100%' : index === 0 ? `${split * 100}%` : `${(1 - split) * 100}%`
     // 분리자/타일을 평탄한 keyed 배열로 — Fragment 로 묶으면 분리자 유무에 따라 자식 위치가
@@ -186,6 +187,7 @@ function RightPanelColumn({
           id={id}
           defaultLabel={tile.defaultLabel}
           headerActions={HeaderActions ? <HeaderActions /> : undefined}
+          headerContent={HeaderContent ? <HeaderContent /> : undefined}
         >
           <Content />
         </RightPanelTile>
