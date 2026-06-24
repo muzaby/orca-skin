@@ -7,7 +7,8 @@ import {
   partsAttachments,
   childMessageForParentToolRunId,
   subagentTasksFromMessages,
-  messageSegments
+  messageSegments,
+  modelDisplayLabel
 } from './parts'
 import type { AppMessagePart } from '../../../../../shared/ipc'
 
@@ -213,6 +214,45 @@ describe('parts selectors', () => {
     ])
   })
 
+  it('subagentTasksFromMessages 는 tool_result.subagentMeta 의 모델/시간/도구수를 쓴다', () => {
+    const messages = [
+      {
+        role: 'assistant' as const,
+        createdAt: 1,
+        parts: [
+          {
+            type: 'tool_call' as const,
+            toolRunId: 'parent-task',
+            toolName: 'Task',
+            args: { description: '구조 탐색', subagent_type: 'Explore' }
+          },
+          {
+            type: 'tool_result' as const,
+            toolRunId: 'parent-task',
+            result: { summary: 'done' },
+            isError: false,
+            durationMs: 1000,
+            subagentMeta: { model: 'claude-haiku-4-5', durationMs: 92_000, toolUses: 7 }
+          }
+        ]
+      }
+    ]
+    expect(subagentTasksFromMessages(messages)).toMatchObject([
+      {
+        toolUseId: 'parent-task',
+        description: '구조 탐색',
+        status: 'completed',
+        // 모델 = subagentMeta.model 매핑('Explore' subagent_type 이 아님).
+        agentLabel: 'Haiku 4.5',
+        subagentType: 'Explore',
+        // 도구수·소요시간은 subagentMeta 우선(childCounts/result.durationMs 무시).
+        childToolCount: 7,
+        toolCountLabel: '7 도구 사용',
+        durationLabel: '1분 32초'
+      }
+    ])
+  })
+
   it('subagentTasksFromMessages 는 aborted 결과를 중지됨 상태로 분류한다', () => {
     const messages = [
       {
@@ -237,6 +277,17 @@ describe('parts selectors', () => {
     expect(subagentTasksFromMessages(messages)).toMatchObject([
       { toolUseId: 'parent-task', description: '중단 작업', status: 'aborted' }
     ])
+  })
+
+  it('modelDisplayLabel 은 모델 id 를 친근한 라벨로 매핑한다', () => {
+    expect(modelDisplayLabel('claude-haiku-4-5-20251001')).toBe('Haiku 4.5')
+    expect(modelDisplayLabel('claude-3-5-haiku-20241022')).toBe('Haiku 3.5')
+    expect(modelDisplayLabel('claude-sonnet-4-5')).toBe('Sonnet 4.5')
+    expect(modelDisplayLabel('claude-opus-4-1')).toBe('Opus 4.1')
+    expect(modelDisplayLabel('claude-fable-5')).toBe('Fable 5')
+    expect(modelDisplayLabel('haiku')).toBe('Haiku')
+    // 미인식 패밀리는 원형 보존.
+    expect(modelDisplayLabel('gpt-4o')).toBe('gpt-4o')
   })
 
   it('partsErrors 는 error 파트의 payload 를 모은다', () => {

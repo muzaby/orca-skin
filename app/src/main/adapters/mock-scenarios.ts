@@ -35,6 +35,8 @@ export interface MockCtx {
 const PROVIDER = 'claude' as const
 const MODEL = 'mock-sonnet'
 const CONTEXT_WINDOW = 200_000
+// 서브에이전트 시연 모델 id — modelDisplayLabel 이 'Haiku 4.5' 로 매핑.
+const SUBAGENT_MODEL = 'claude-haiku-4-5'
 
 export const SCENARIOS: Record<MockScenarioId, MockStep[]> = {
   text_streaming: [
@@ -211,10 +213,10 @@ function subagentTaskFragment(): MockStep[] {
       args: {
         description: '로그 분석 서브에이전트',
         prompt: '최근 실행 로그를 점검하고 실패 원인을 요약해줘.',
-        subagent_type: 'explorer',
-        agentLabel: 'Haiku 4.5'
+        subagent_type: 'Explore'
       }
     }),
+    ...subagentStart('mock-subagent-task-1', 'Explore', '로그 분석 서브에이전트'),
     delay(120),
     // child 답변 텍스트(parentToolRunId) — 완료 서브에이전트의 실제 답변 캡처 경로.
     emit({
@@ -224,19 +226,57 @@ function subagentTaskFragment(): MockStep[] {
       },
       parentToolRunId: 'mock-subagent-task-1'
     }),
+    subagentSettled('mock-subagent-task-1', 120, 0),
     emit({
       type: 'tool.call.completed',
       toolRunId: 'mock-subagent-task-1',
       result: {
         summary: '최근 실행 로그에서 재시도 가능한 네트워크 오류 1건을 확인했습니다.',
-        findings: ['timeout after 30s', 'retryable network error', 'no data corruption'],
-        agentLabel: 'Haiku 4.5'
+        findings: ['timeout after 30s', 'retryable network error', 'no data corruption']
       },
       isError: false,
-      durationMs: 120
+      durationMs: 120,
+      subagentMeta: { model: SUBAGENT_MODEL, durationMs: 120, toolUses: 0 }
     }),
     ...closing('서브에이전트 검토 결과를 반영했습니다.')
   ]
+}
+
+// 서브에이전트(Task) 라이브 메타 시연 — 실환경 SDK task_*/child model 이벤트를 mock 직접 emit.
+function subagentStart(toolUseId: string, subagentType: string, description: string): MockStep[] {
+  return [
+    emit({
+      type: 'subagent.task',
+      toolUseId,
+      phase: 'started',
+      taskId: `task-${toolUseId}`,
+      subagentType,
+      description
+    }),
+    // 모델 캡처(실환경: child assistant message.model).
+    emit({ type: 'subagent.task', toolUseId, phase: 'progress', model: SUBAGENT_MODEL })
+  ]
+}
+
+function subagentProgress(toolUseId: string, lastToolName: string, toolUses: number): MockStep {
+  return emit({ type: 'subagent.task', toolUseId, phase: 'progress', lastToolName, toolUses })
+}
+
+function subagentSettled(
+  toolUseId: string,
+  durationMs: number,
+  toolUses: number,
+  status: 'completed' | 'failed' | 'stopped' = 'completed'
+): MockStep {
+  return emit({
+    type: 'subagent.task',
+    toolUseId,
+    phase: 'settled',
+    taskId: `task-${toolUseId}`,
+    status,
+    durationMs,
+    toolUses
+  })
 }
 
 function childReadSteps(parentToolRunId: string, toolRunId: string, filePath: string): MockStep[] {
@@ -273,10 +313,10 @@ function subagentTaskChildFragment(): MockStep[] {
       args: {
         description: 'child transcript 수집',
         prompt: 'README 와 로그를 읽고 요약해줘.',
-        subagent_type: 'explorer',
-        agentLabel: 'Haiku 4.5'
+        subagent_type: 'Explore'
       }
     }),
+    ...subagentStart('mock-subagent-child-parent', 'Explore', 'child transcript 수집'),
     ...childReadSteps('mock-subagent-child-parent', 'mock-subagent-child-read', 'README.md'),
     emit({
       type: 'message.completed',
@@ -285,16 +325,17 @@ function subagentTaskChildFragment(): MockStep[] {
       },
       parentToolRunId: 'mock-subagent-child-parent'
     }),
+    subagentSettled('mock-subagent-child-parent', 92_000, 1),
     emit({
       type: 'tool.call.completed',
       toolRunId: 'mock-subagent-child-parent',
       result: {
         summary: 'child transcript 수집 완료',
-        agentLabel: 'Haiku 4.5',
         tokenCount: 20600
       },
       isError: false,
-      durationMs: 92_000
+      durationMs: 92_000,
+      subagentMeta: { model: SUBAGENT_MODEL, durationMs: 92_000, toolUses: 1 }
     }),
     ...closing('child transcript 검토가 끝났습니다.')
   ]
@@ -310,10 +351,10 @@ function subagentTaskAbortedFragment(): MockStep[] {
       args: {
         description: '중단 경로 검증',
         prompt: '긴 로그 분석을 시작하지만 중간에 중단됩니다.',
-        subagent_type: 'explorer',
-        agentLabel: 'Haiku 4.5'
+        subagent_type: 'Explore'
       }
     }),
+    ...subagentStart('mock-subagent-aborted-parent', 'Explore', '중단 경로 검증'),
     emit({
       type: 'tool.call.started',
       toolRunId: 'mock-subagent-aborted-child',
@@ -330,17 +371,18 @@ function subagentTaskAbortedFragment(): MockStep[] {
       isError: true,
       durationMs: 60
     }),
+    subagentSettled('mock-subagent-aborted-parent', 92_000, 1, 'stopped'),
     emit({
       type: 'tool.call.completed',
       toolRunId: 'mock-subagent-aborted-parent',
       result: {
         message: '서브에이전트가 중단되었습니다.',
         reason: 'aborted',
-        agentLabel: 'Haiku 4.5',
         tokenCount: 40000
       },
       isError: true,
-      durationMs: 92_000
+      durationMs: 92_000,
+      subagentMeta: { model: SUBAGENT_MODEL, durationMs: 92_000, toolUses: 1 }
     })
   ]
 }
@@ -356,8 +398,7 @@ function subagentTaskMultiFragment(): MockStep[] {
       args: {
         description: '문서 점검',
         prompt: '문서를 읽어줘.',
-        subagent_type: 'explorer',
-        agentLabel: 'Haiku 4.5'
+        subagent_type: 'Explore'
       }
     }),
     emit({
@@ -367,10 +408,11 @@ function subagentTaskMultiFragment(): MockStep[] {
       args: {
         description: '테스트 점검',
         prompt: '테스트 로그를 확인해줘.',
-        subagent_type: 'explorer',
-        agentLabel: 'Haiku 4.5'
+        subagent_type: 'Explore'
       }
     }),
+    ...subagentStart('mock-subagent-multi-a', 'Explore', '문서 점검'),
+    ...subagentStart('mock-subagent-multi-b', 'Explore', '테스트 점검'),
     delay(4000),
     ...childReadSteps('mock-subagent-multi-a', 'mock-subagent-multi-a-read', 'docs/PRD.md'),
     ...childReadSteps('mock-subagent-multi-b', 'mock-subagent-multi-b-read', 'app/test.log'),
@@ -379,24 +421,28 @@ function subagentTaskMultiFragment(): MockStep[] {
       message: { text: '문서를 점검했습니다. PRD 의 핵심 범위를 정리했습니다.' },
       parentToolRunId: 'mock-subagent-multi-a'
     }),
+    subagentSettled('mock-subagent-multi-a', 21_000, 1),
     emit({
       type: 'tool.call.completed',
       toolRunId: 'mock-subagent-multi-a',
-      result: { summary: '문서 점검 완료', agentLabel: 'Haiku 4.5', tokenCount: 20600 },
+      result: { summary: '문서 점검 완료', tokenCount: 20600 },
       isError: false,
-      durationMs: 21_000
+      durationMs: 21_000,
+      subagentMeta: { model: SUBAGENT_MODEL, durationMs: 21_000, toolUses: 1 }
     }),
     emit({
       type: 'message.completed',
       message: { text: '테스트 로그를 확인했습니다. 실패 케이스는 없습니다.' },
       parentToolRunId: 'mock-subagent-multi-b'
     }),
+    subagentSettled('mock-subagent-multi-b', 92_000, 1),
     emit({
       type: 'tool.call.completed',
       toolRunId: 'mock-subagent-multi-b',
-      result: { summary: '테스트 점검 완료', agentLabel: 'Haiku 4.5', tokenCount: 40000 },
+      result: { summary: '테스트 점검 완료', tokenCount: 40000 },
       isError: false,
-      durationMs: 92_000
+      durationMs: 92_000,
+      subagentMeta: { model: SUBAGENT_MODEL, durationMs: 92_000, toolUses: 1 }
     }),
     ...closing('복수 서브에이전트 검토가 끝났습니다.')
   ]
@@ -414,10 +460,10 @@ function subagentTaskRunningFragment(): MockStep[] {
       args: {
         description: '구현 구조 탐색',
         prompt: 'app 구현 구조를 조사해줘.',
-        subagent_type: 'explorer',
-        agentLabel: 'Haiku 4.5'
+        subagent_type: 'Explore'
       }
     }),
+    ...subagentStart('mock-subagent-running-parent', 'Explore', '구현 구조 탐색'),
     // child Bash 가 결과 없이 진행 중 → 단일 항목 메타가 '· Bash · N' 로 표시된다.
     emit({
       type: 'tool.call.started',
@@ -426,7 +472,13 @@ function subagentTaskRunningFragment(): MockStep[] {
       toolName: 'Bash',
       args: { command: 'rg --files app/src | wc -l' }
     }),
-    delay(6000),
+    // 라이브 진행 — 현재 도구·도구수 증가 + 경과시간 틱 관찰(피드백 3 개별 시간 추적).
+    subagentProgress('mock-subagent-running-parent', 'Bash', 3),
+    delay(2000),
+    subagentProgress('mock-subagent-running-parent', 'Bash', 5),
+    delay(2000),
+    subagentProgress('mock-subagent-running-parent', 'Bash', 7),
+    delay(2000),
     emit({
       type: 'tool.call.completed',
       toolRunId: 'mock-subagent-running-child',
@@ -440,12 +492,14 @@ function subagentTaskRunningFragment(): MockStep[] {
       message: { text: 'app 구현 구조를 조사했습니다. 4-layer feature 아키텍처를 확인했습니다.' },
       parentToolRunId: 'mock-subagent-running-parent'
     }),
+    subagentSettled('mock-subagent-running-parent', 6200, 7),
     emit({
       type: 'tool.call.completed',
       toolRunId: 'mock-subagent-running-parent',
-      result: { summary: '구현 구조 탐색 완료', agentLabel: 'Haiku 4.5', tokenCount: 12000 },
+      result: { summary: '구현 구조 탐색 완료', tokenCount: 12000 },
       isError: false,
-      durationMs: 6200
+      durationMs: 6200,
+      subagentMeta: { model: SUBAGENT_MODEL, durationMs: 6200, toolUses: 7 }
     }),
     ...closing('진행 중 서브에이전트 재현이 끝났습니다.')
   ]

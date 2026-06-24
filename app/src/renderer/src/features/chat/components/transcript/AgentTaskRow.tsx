@@ -1,9 +1,13 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { Icon } from '../../../../shared/ui/Icon'
 import { formatElapsed, useElapsed } from '../../../../shared/ui/elapsed'
-import { subagentTasksFromMessages, type SubagentTaskStatus } from '../../lib/parts'
+import {
+  modelDisplayLabel,
+  subagentTasksFromMessages,
+  type SubagentTaskStatus
+} from '../../lib/parts'
 import { toolDescription } from '../../lib/toolMeta'
-import { chatActions, useChatSession } from '../../store/chatStore'
+import { chatActions, useChatSession, useSubagentMeta } from '../../store/chatStore'
 import type { ToolCall } from '../../reducer/chatReducer'
 
 // 서브에이전트(Task) 행의 상태별 접두 동사. 진행 중만 shimmer.
@@ -34,27 +38,29 @@ export function AgentTaskRow({
     () => subagentTasksFromMessages(messages).find((t) => t.toolUseId === call.toolUseId),
     [messages, call.toolUseId]
   )
+  // 라이브 메타(진행 중 모델·시간·현재도구·도구수) — SDK task_*/child model 에서 누적.
+  const live = useSubagentMeta(call.toolUseId)
 
   const status: SubagentTaskStatus = summary?.status ?? (call.result ? 'completed' : 'running')
   const running = status === 'running'
-  // 진행 중 경과시간 앵커 — 이 행의 마운트 시각을 로컬에 기록한다(렌더러 전용, reducer/part
-  // 비오염). lazy initializer 라 1회만 평가. 완료 상태로 마운트(세션 복원)되면 durationLabel 을
-  // 쓰므로 이 값은 무관. 진행 중 마운트면 ≈ 서브에이전트 시작 시각.
-  const [mountedAt] = useState(() => Date.now())
-  const elapsedSec = useElapsed(running ? mountedAt : null)
+  // 진행 중 경과시간 앵커 — 라이브 메타의 startedAtMs(첫 task 이벤트 수신 시각)를 우선 사용해
+  // 매 초 로컬 틱한다. 라이브 메타가 없으면(예: 세션 복원 직후) durationLabel 로 폴백.
+  const elapsedSec = useElapsed(running ? (live?.startedAtMs ?? null) : null)
 
-  const model = summary?.agentLabel ?? '에이전트'
+  // 모델: 라이브 메타 모델 → summary(영속/subagent_type) → 폴백.
+  const model = live?.model ? modelDisplayLabel(live.model) : (summary?.agentLabel ?? '에이전트')
   const title = summary?.description ?? toolDescription(call)
   const isBad = status === 'failed'
+  const currentTool = live?.lastToolName ?? summary?.currentChildLabel ?? '…'
+  const toolCount = live?.toolUses ?? summary?.childToolCount ?? 0
 
   // 메타 문자열(접두 동사 우측). nbsp 가 아니라 일반 공백으로 단어 구분.
   let detail: string
+  const elapsed = elapsedSec > 0 ? ` ${formatElapsed(elapsedSec)}` : ''
   if (running && !inGroup) {
-    const current = summary?.currentChildLabel ?? '…'
-    const count = summary?.childToolCount ?? 0
-    detail = `${model} · ${current} · ${count}`
+    // 단일 항목: 모델 · 현재 도구 · 도구수 (+ 경과시간) — 피드백 3(개별 시간 추적).
+    detail = `${model} · ${currentTool} · ${toolCount}${elapsed}`
   } else if (running) {
-    const elapsed = elapsedSec > 0 ? ` ${formatElapsed(elapsedSec)}` : ''
     detail = `${model} ${title}${elapsed}`
   } else {
     const duration = summary?.durationLabel ? ` ${summary.durationLabel}` : ''

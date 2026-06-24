@@ -240,6 +240,9 @@ export class ClaudeAdapter implements SessionAdapter {
       options: {
         resume: sessionId ?? undefined,
         includePartialMessages: true,
+        // 서브에이전트(Task) child 의 text/thinking 블록도 forward 받는다 — 기본은 tool_use/
+        // tool_result 만 와서 서브에이전트 답변이 우측 패널에 안 보였다(handoff 0044 피드백 2).
+        forwardSubagentText: true,
         cwd,
         abortController,
         ...adaptSystemPrompt(extensions.systemPromptAppend),
@@ -292,7 +295,11 @@ export class ClaudeAdapter implements SessionAdapter {
       // 라이브 control — 스트리밍 입력 모드라야 동작하는 SDK Query 메서드에 위임.
       setPermissionMode: (mode) => handle.setPermissionMode(mode),
       interrupt: () => handle.interrupt(),
-      setModel: (model) => handle.setModel(model)
+      setModel: (model) => handle.setModel(model),
+      // 서브에이전트 단위 중단 — task_started/notification 의 task_id 로 stopTask.
+      stopTask: (taskId) => handle.stopTask(taskId),
+      // foreground 서브에이전트를 백그라운드로(필요 시 stopTask 전 fallback). tool_use id 로 단건.
+      backgroundTask: (toolUseId) => handle.backgroundTasks(toolUseId)
     }
   }
 }

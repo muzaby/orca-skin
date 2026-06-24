@@ -187,7 +187,9 @@ export class TurnPersistence {
             result: ev.result ?? null,
             isError: ev.isError,
             ...(ev.durationMs !== undefined ? { durationMs: ev.durationMs } : {}),
-            ...(ev.parentToolRunId !== undefined ? { parentToolRunId: ev.parentToolRunId } : {})
+            ...(ev.parentToolRunId !== undefined ? { parentToolRunId: ev.parentToolRunId } : {}),
+            // 부모 Task 면 서브에이전트 메타(모델·시간·도구수) 영속 — 재로드 후 카드/행 복원.
+            ...(ev.subagentMeta !== undefined ? { subagentMeta: ev.subagentMeta } : {})
           })
         )
         break
@@ -255,7 +257,8 @@ export class TurnPersistence {
         break
       }
       // message.delta/message.reasoning.delta/turn.retrying 은 transient(미저장).
-      // permission.* 는 별도 row 없음.
+      // permission.* 는 별도 row 없음. subagent.task 도 transient — 영속은 부모 Task
+      // tool_result 의 subagentMeta(위 tool.call.completed)가 담당한다.
     }
   }
 }

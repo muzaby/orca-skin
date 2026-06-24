@@ -7,6 +7,7 @@ import type {
   LoadedSession,
   PlanReviewRequest,
   ProviderReportedTelemetry,
+  SubagentTaskMeta,
   Backend,
   EffortLevel
 } from '../../../../../shared/ipc'
@@ -26,7 +27,14 @@ export interface ToolCall {
   toolUseId: string
   name: string
   input: unknown
-  result?: { output: unknown; isError: boolean; durationMs?: number; parentToolRunId?: string }
+  result?: {
+    output: unknown
+    isError: boolean
+    durationMs?: number
+    parentToolRunId?: string
+    // 부모 Task tool_result 면 서브에이전트 영속 메타(모델·시간·도구수) — 재로드 후 카드/행 복원.
+    subagentMeta?: SubagentTaskMeta
+  }
   parentToolRunId?: string
 }
 

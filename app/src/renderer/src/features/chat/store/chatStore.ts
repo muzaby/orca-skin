@@ -45,9 +45,25 @@ export interface LiveTurnState {
   reasoning: string
 }
 
+// 서브에이전트(Task) 라이브 메타 — subagent.task 이벤트(SDK task_*/child model)로 누적되는
+// 진행 중 표시 값. reducer 미경유 transient(메인 transcript 파트 비오염), toolUseId 키.
+// 영속/재로드 복원은 부모 Task tool_result.subagentMeta 가 담당.
+export interface SubagentMetaState {
+  taskId?: string
+  model?: string
+  subagentType?: string
+  durationMs?: number
+  toolUses?: number
+  lastToolName?: string
+  status?: 'completed' | 'failed' | 'stopped'
+  // 진행 중 경과시간 로컬 틱 앵커(첫 비-settled 이벤트 수신 시각).
+  startedAtMs?: number
+}
+
 export interface SessionEntry {
   session: ChatState
   live: LiveTurnState
+  subagentMeta: Record<string, SubagentMetaState>
 }
 
 interface QueuedNewChat {
@@ -68,6 +84,7 @@ export interface ChatStoreState {
 export const NEW_CHAT_KEY = '__new__'
 
 const EMPTY_LIVE: LiveTurnState = { text: '', reasoning: '' }
+const EMPTY_SUBAGENT_META: Record<string, SubagentMetaState> = {}
 
 // main 의 단일 default cwd — 부트스트랩 1회 조회 캐시. 새 엔트리 생성 시 주입해
 // 새 대화에서도 `@` 파일 자동완성이 즉시 동작한다(init 이벤트가 같은 값으로 덮어쓰기만).
@@ -76,7 +93,8 @@ let cwdCache: string | null = null
 function freshEntry(projectId: string | null = null): SessionEntry {
   return {
     session: { ...initialChatState, cwd: cwdCache, pendingProjectId: projectId },
-    live: EMPTY_LIVE
+    live: EMPTY_LIVE,
+    subagentMeta: EMPTY_SUBAGENT_META
   }
 }
 
@@ -128,6 +146,37 @@ function patchLive(key: string, patch: (live: LiveTurnState) => LiveTurnState): 
 
 function resetLive(key: string): void {
   patchLive(key, (live) => (live.text !== '' || live.reasoning !== '' ? EMPTY_LIVE : live))
+}
+
+// subagent.task 이벤트를 해당 엔트리의 transient subagentMeta[toolUseId] 에 병합한다 — 정의된
+// 필드만 갱신하고, 진행 중 경과시간 앵커(startedAtMs)는 첫 비-settled 이벤트에서 1회 기록.
+function patchSubagentMeta(
+  key: string,
+  ev: Extract<NormalizedEvent, { type: 'subagent.task' }>
+): void {
+  setState((s) => {
+    const entry = s.sessions[key]
+    if (!entry) return s
+    const prev = entry.subagentMeta[ev.toolUseId] ?? {}
+    const next: SubagentMetaState = { ...prev }
+    if (ev.taskId !== undefined) next.taskId = ev.taskId
+    if (ev.model !== undefined) next.model = ev.model
+    if (ev.subagentType !== undefined) next.subagentType = ev.subagentType
+    if (ev.durationMs !== undefined) next.durationMs = ev.durationMs
+    if (ev.toolUses !== undefined) next.toolUses = ev.toolUses
+    if (ev.lastToolName !== undefined) next.lastToolName = ev.lastToolName
+    if (ev.status !== undefined) next.status = ev.status
+    if (ev.phase !== 'settled' && next.startedAtMs === undefined) next.startedAtMs = Date.now()
+    return {
+      sessions: {
+        ...s.sessions,
+        [key]: {
+          ...entry,
+          subagentMeta: { ...entry.subagentMeta, [ev.toolUseId]: next }
+        }
+      }
+    }
+  })
 }
 
 function isTerminalWithoutSession(ev: NormalizedEvent): boolean {
@@ -249,6 +298,11 @@ function receive(ev: NormalizedEvent): void {
 
     case 'turn.retrying':
       dispatchTo(key, { type: 'RECV_EVENT', event: ev })
+      return
+
+    case 'subagent.task':
+      // reducer 미경유 — 우측 패널·AgentTaskRow 표시용 transient 메타로만 흡수.
+      patchSubagentMeta(key, ev)
       return
 
     case 'telemetry': {
@@ -406,6 +460,13 @@ function cancel(): void {
   dispatchActive({ type: 'CANCEL_CHAT' })
 }
 
+// 서브에이전트(Task) 단위 중단 — 활성 세션의 진행 중 턴에서 한 Agent 도구만 멈춘다(turn 계속).
+// main 이 toolUseId→task_id 를 찾아 SDK stopTask 호출. UI 전이는 SDK 의 settled(stopped) 이벤트.
+function stopSubagent(toolUseId: string): void {
+  const sid = getActiveChatSession().sessionId
+  if (sid) void chatApi.stopSubagent(sid, toolUseId)
+}
+
 function newChat(projectId: string | null = null): void {
   setState((s) => ({
     sessions: { ...s.sessions, [NEW_CHAT_KEY]: freshEntry(projectId) },
@@ -436,7 +497,10 @@ async function loadSession(sessionId: string, title: string | null = null): Prom
     { type: 'START_LOAD_SESSION', sessionId, title }
   )
   setState((st) => ({
-    sessions: { ...st.sessions, [sessionId]: { session: loadingSession, live: EMPTY_LIVE } },
+    sessions: {
+      ...st.sessions,
+      [sessionId]: { session: loadingSession, live: EMPTY_LIVE, subagentMeta: EMPTY_SUBAGENT_META }
+    },
     activeKey: sessionId
   }))
 
@@ -602,6 +666,7 @@ export const chatActions = {
     dispatchActive({ type: 'SELECT_SUBAGENT_TASK', toolRunId }),
   openSubagentTask: (toolRunId: string): void =>
     dispatchActive({ type: 'OPEN_SUBAGENT_TASK', toolRunId }),
+  stopSubagent,
   setRightPanelColWidth: (col: number, width: number): void =>
     dispatchActive({ type: 'SET_RIGHT_PANEL_COL_WIDTH', col, width }),
   setRightPanelRowSplit: (col: number, frac: number): void =>
@@ -653,6 +718,12 @@ export function useChatSession<T>(selector: (s: ChatState) => T): T {
 // 라이브 스트림 리프 전용 — 활성 세션의 text 델타에만 재렌더.
 export function useLiveText(): string {
   return useChatStore((s) => s.sessions[s.activeKey].live.text)
+}
+
+// 서브에이전트(Task) 라이브 메타 — 진행 중 모델/경과시간/현재도구/도구수 표시용. 해당
+// toolUseId 엔트리가 갱신될 때만 재렌더(stored 참조 안정).
+export function useSubagentMeta(toolUseId: string): SubagentMetaState | undefined {
+  return useChatStore((s) => s.sessions[s.activeKey].subagentMeta[toolUseId])
 }
 
 export function useNewChatPending(key?: string): boolean {

@@ -5,7 +5,11 @@
 import type { IpcMainInvokeEvent, WebContents } from 'electron'
 import { randomUUID } from 'node:crypto'
 import { CHANNELS, type ApprovalResolution, type PermissionAction } from '../../../shared/ipc'
-import { CancelChatSchema, SendChatMessageSchema } from '../../../shared/protocol'
+import {
+  CancelChatSchema,
+  SendChatMessageSchema,
+  StopSubagentSchema
+} from '../../../shared/protocol'
 import { normalizeAttachments } from '../../files/attachments'
 import { appEnv } from '../../config/orca-config'
 import {
@@ -242,7 +246,8 @@ export function registerChatHandlers(deps: ChatDeps): void {
       assistantText: '',
       pendingAskAnswers: [],
       askPendingIds: [],
-      askResolved: new Map()
+      askResolved: new Map(),
+      subagentTaskIds: new Map()
     }
     if (parsed.data.sessionId) turns.startResume(parsed.data.sessionId, turn)
     else turns.startNew(event.sender, turn)
@@ -382,6 +387,10 @@ export function registerChatHandlers(deps: ChatDeps): void {
                 turn.askPendingIds.push(ev.toolRunId)
                 persistence.flushAskAnswers(turn, event.sender)
               }
+              // 서브에이전트(Task) task_id 매핑 — orca:chat:stopSubagent 가 toolUseId 로 찾는다.
+              if (ev.type === 'subagent.task' && ev.taskId) {
+                turn.subagentTaskIds.set(ev.toolUseId, ev.taskId)
+              }
             }
           } finally {
             ctx.concurrency.decrement(boundProjectId)
@@ -462,5 +471,25 @@ export function registerChatHandlers(deps: ChatDeps): void {
       sessionId: req.sessionId,
       reason: 'user_cancelled'
     })
+  })
+
+  // 서브에이전트(Task) 단위 중단 — turn 전체가 아니라 한 Agent 도구 호출만 멈춘다(turn 계속).
+  // toolUseId → task_id 를 찾아 SDK stopTask. SDK 가 settled(stopped) → subagent.task 로 UI 갱신.
+  // foreground 서브에이전트를 stopTask 가 직접 못 멈추면 backgroundTask 후 재시도(fallback).
+  handle(CHANNELS.chatStopSubagent, StopSubagentSchema, 'reject', async (req): Promise<void> => {
+    const turn = turns.getBySession(req.sessionId)
+    const taskId = turn?.subagentTaskIds.get(req.toolUseId)
+    if (!turn?.live || !taskId) return
+    try {
+      await turn.live.stopTask(taskId)
+    } catch {
+      // foreground 직접 중단 거부 가능 — 백그라운드 전환 후 재시도(실환경 동작 차이 흡수).
+      try {
+        await turn.live.backgroundTask(req.toolUseId)
+        await turn.live.stopTask(taskId)
+      } catch {
+        // 최선 노력 — 실패해도 turn 은 유지(사용자가 전체 취소로 폴백 가능).
+      }
+    }
   })
 }

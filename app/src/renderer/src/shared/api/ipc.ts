@@ -43,6 +43,8 @@ import type {
 export const chatApi = {
   send: (req: SendChatMessage): Promise<void> => window.orca.chat.send(req),
   cancel: (sessionId: string): Promise<void> => window.orca.chat.cancel(sessionId),
+  stopSubagent: (sessionId: string, toolUseId: string): Promise<void> =>
+    window.orca.chat.stopSubagent(sessionId, toolUseId),
   onEvent: (handler: (ev: NormalizedEvent) => void): (() => void) =>
     window.orca.chat.onEvent(handler)
 }

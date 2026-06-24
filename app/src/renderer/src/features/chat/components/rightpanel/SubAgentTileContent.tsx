@@ -148,34 +148,65 @@ export function SubAgentTileContent(): React.JSX.Element {
             )}
           </div>
           <div className="flex flex-col gap-g3">
-            {group.items.map((task) => (
-              <button
-                key={task.toolUseId}
-                type="button"
-                onClick={() => chatActions.selectSubagentTask(task.toolUseId)}
-                aria-label={`${task.description} 대화록 보기`}
-                className="group/subagent rounded-r6 bg-bg2 px-3 py-2.5 text-left transition-colors hover:bg-fill-uncontained-hover focus:outline-none hide-focus-ring ring-focus"
-              >
-                <div className="flex min-w-0 items-center gap-g3">
-                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-t6" />
-                  <span className="min-w-0 flex-1 truncate text-body font-semibold text-t9">
-                    {task.description}
-                  </span>
+            {group.items.map((task) => {
+              const open = (): void => chatActions.selectSubagentTask(task.toolUseId)
+              return (
+                // 카드 전체가 대화록 열기 트리거. 내부에 중단 버튼(중첩 버튼 불가)을 두기 위해
+                // <button> 대신 role="button" div 로 두고 키보드 동작을 유지한다.
+                <div
+                  key={task.toolUseId}
+                  role="button"
+                  tabIndex={0}
+                  onClick={open}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      open()
+                    }
+                  }}
+                  aria-label={`${task.description} 대화록 보기`}
+                  className="group/subagent cursor-pointer rounded-r6 bg-bg2 px-3 py-2.5 text-left transition-colors hover:bg-fill-uncontained-hover focus:outline-none hide-focus-ring ring-focus"
+                >
+                  <div className="flex min-w-0 items-center gap-g3">
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-t6" />
+                    <span className="min-w-0 flex-1 truncate text-body font-semibold text-t9">
+                      {task.description}
+                    </span>
+                  </div>
+                  <div className="mt-g1 pl-5 text-footnote text-ink3">
+                    {`에이전트${GAP}${STATUS_LABEL[task.status]}`}
+                    {task.durationLabel ? `${GAP}${task.durationLabel}` : ''}
+                  </div>
+                  <div className="mt-g1 flex items-center pl-5 text-footnote text-ink3">
+                    <span className="min-w-0 truncate">
+                      {task.tokenLabel ? `${task.tokenLabel}${GAP}` : ''}
+                      {task.toolCountLabel}
+                      {GAP}
+                      <span className="font-medium text-t7 group-hover/subagent:underline">
+                        대화록 보기
+                      </span>
+                    </span>
+                    {task.status === 'running' && (
+                      // 진행 중 서브에이전트 중단 — 네모·라운드·채움없음(stop 아이콘). 카드 열기와
+                      // 버블링 분리(stopPropagation). turn 전체가 아니라 이 Task 만 멈춘다.
+                      <Button
+                        iconOnly
+                        variant="uncontained"
+                        size="small"
+                        leadingIcon="stop"
+                        aria-label="중단"
+                        title="중단"
+                        className="ml-auto shrink-0"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          chatActions.stopSubagent(task.toolUseId)
+                        }}
+                      />
+                    )}
+                  </div>
                 </div>
-                <div className="mt-g1 pl-5 text-footnote text-ink3">
-                  {`에이전트${GAP}${STATUS_LABEL[task.status]}`}
-                  {task.durationLabel ? `${GAP}${task.durationLabel}` : ''}
-                </div>
-                <div className="mt-g1 pl-5 text-footnote text-ink3">
-                  {task.tokenLabel ? `${task.tokenLabel}${GAP}` : ''}
-                  {task.toolCountLabel}
-                  {GAP}
-                  <span className="font-medium text-t7 group-hover/subagent:underline">
-                    대화록 보기
-                  </span>
-                </div>
-              </button>
-            ))}
+              )
+            })}
           </div>
         </div>
       ))}

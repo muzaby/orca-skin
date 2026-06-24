@@ -83,7 +83,8 @@ export function partsToolCalls(parts: AppMessagePart[]): ToolCall[] {
         output: p.result,
         isError: p.isError,
         ...(p.durationMs !== undefined ? { durationMs: p.durationMs } : {}),
-        ...(p.parentToolRunId !== undefined ? { parentToolRunId: p.parentToolRunId } : {})
+        ...(p.parentToolRunId !== undefined ? { parentToolRunId: p.parentToolRunId } : {}),
+        ...(p.subagentMeta !== undefined ? { subagentMeta: p.subagentMeta } : {})
       })
     }
   }
@@ -113,7 +114,10 @@ export interface SubagentTaskSummary {
   toolCountLabel: string
   durationLabel: string | null
   tokenLabel: string | null
+  // 표시 모델 라벨(예: 'Haiku 4.5') — subagentMeta.model 매핑 우선, 없으면 agentLabel/subagent_type.
   agentLabel: string
+  // subagent_type(예: 'Explore') — 모델과 별개의 에이전트 종류. 상세 타이틀 보조 표기용.
+  subagentType: string | null
   // 진행 중일 때 마지막으로 실행 중인 child 도구명(예: 'Bash') — 단일 항목 메타 라인용.
   currentChildLabel: string | null
   call: ToolCall
@@ -151,7 +155,8 @@ function resultMap(parts: AppMessagePart[]): Map<string, NonNullable<ToolCall['r
         output: p.result,
         isError: p.isError,
         ...(p.durationMs !== undefined ? { durationMs: p.durationMs } : {}),
-        ...(p.parentToolRunId !== undefined ? { parentToolRunId: p.parentToolRunId } : {})
+        ...(p.parentToolRunId !== undefined ? { parentToolRunId: p.parentToolRunId } : {}),
+        ...(p.subagentMeta !== undefined ? { subagentMeta: p.subagentMeta } : {})
       })
     }
   }
@@ -199,16 +204,19 @@ export function subagentTasksFromMessages(messages: Message[]): SubagentTaskSumm
       isAgentTaskName(part.toolName)
     ) {
       const call = toolCallFromPart(part, resultByRun)
-      const childToolCount = childCounts.get(call.toolUseId) ?? 0
+      const meta = call.result?.subagentMeta
+      // 도구수·소요시간은 SDK 누산 메타(영속)를 우선, 없으면 child 파트 파생/result.durationMs.
+      const toolCount = meta?.toolUses ?? childCounts.get(call.toolUseId) ?? 0
       summaries.push({
         toolUseId: call.toolUseId,
         description: toolDescriptionFromInput(call.input) ?? call.name,
         status: deriveSubagentTaskStatus(call),
-        childToolCount,
-        toolCountLabel: `${childToolCount} 도구 사용`,
-        durationLabel: formatDurationLabel(call.result?.durationMs),
+        childToolCount: toolCount,
+        toolCountLabel: `${toolCount} 도구 사용`,
+        durationLabel: formatDurationLabel(meta?.durationMs ?? call.result?.durationMs),
         tokenLabel: tokenLabelFromResult(call.result?.output),
-        agentLabel: agentLabelFromCall(call),
+        agentLabel: agentModelFromCall(call),
+        subagentType: subagentTypeFromCall(call),
         currentChildLabel: currentChild.get(call.toolUseId) ?? null,
         call
       })
@@ -257,13 +265,46 @@ function tokenLabelFromResult(output: unknown): string | null {
   return tokens >= 1000 ? `${(tokens / 1000).toFixed(1)}k 토큰` : `${tokens} 토큰`
 }
 
-function agentLabelFromCall(call: ToolCall): string {
+// 표시 모델 라벨 — 실제 모델(subagentMeta.model)을 친근한 이름으로. 없으면 caller 가 준
+// agentLabel, 그것도 없으면 subagent_type('Explore' 등), 최후 '에이전트'.
+function agentModelFromCall(call: ToolCall): string {
+  const model = call.result?.subagentMeta?.model
+  if (model) return modelDisplayLabel(model)
   return (
     valueString(call.result?.output, 'agentLabel') ??
     valueString(call.input, 'agentLabel') ??
     valueString(call.input, 'subagent_type') ??
     '에이전트'
   )
+}
+
+function subagentTypeFromCall(call: ToolCall): string | null {
+  return valueString(call.input, 'subagent_type')
+}
+
+// 모델 id → 친근한 라벨. 예: 'claude-haiku-4-5-20251001'→'Haiku 4.5',
+// 'claude-3-5-haiku-20241022'→'Haiku 3.5', 'claude-sonnet-4-5'→'Sonnet 4.5', 'opus'→'Opus'.
+// 패밀리 미인식이면 원형 그대로(미지 모델 보존).
+export function modelDisplayLabel(modelId: string): string {
+  const family = /opus/i.test(modelId)
+    ? 'Opus'
+    : /sonnet/i.test(modelId)
+      ? 'Sonnet'
+      : /haiku/i.test(modelId)
+        ? 'Haiku'
+        : /fable/i.test(modelId)
+          ? 'Fable'
+          : null
+  if (!family) return modelId
+  // 끝의 날짜 스냅샷(YYYYMMDD)을 떼고, claude/패밀리 토큰을 제외한 숫자 토큰을 버전으로 본다.
+  const tokens = modelId
+    .toLowerCase()
+    .replace(/-?\d{8}$/, '')
+    .split('-')
+    .filter((t) => /^\d+$/.test(t))
+  if (tokens.length >= 2) return `${family} ${tokens[0]}.${tokens[1]}`
+  if (tokens.length === 1) return `${family} ${tokens[0]}`
+  return family
 }
 
 function toolDescriptionFromInput(input: unknown): string | null {
@@ -308,7 +349,8 @@ export function messageSegments(parts: AppMessagePart[]): MessageSegment[] {
         output: p.result,
         isError: p.isError,
         ...(p.durationMs !== undefined ? { durationMs: p.durationMs } : {}),
-        ...(p.parentToolRunId !== undefined ? { parentToolRunId: p.parentToolRunId } : {})
+        ...(p.parentToolRunId !== undefined ? { parentToolRunId: p.parentToolRunId } : {}),
+        ...(p.subagentMeta !== undefined ? { subagentMeta: p.subagentMeta } : {})
       })
     }
   }

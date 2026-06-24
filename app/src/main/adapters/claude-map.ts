@@ -11,6 +11,7 @@ import type { SDKMessage } from '@anthropic-ai/claude-agent-sdk'
 import type {
   NormalizedEvent,
   ProviderReportedTelemetry,
+  SubagentTaskMeta,
   TelemetryModelUsage
 } from '../../shared/ipc'
 import { makeClassifiedError } from '../runtime-errors/classifier'
@@ -32,6 +33,74 @@ export interface MapContext {
     cacheReadTokens?: number
     cacheCreationTokens?: number
   }
+  // 서브에이전트(Task) 누산 메타 — task_*/child assistant 에서 모은 모델·시간·도구수를 부모 Task
+  // tool_result(tool.call.completed) emit 시 실어 영속한다. toolUseId(= Agent tool_use id) 키.
+  subagentMeta?: Map<string, SubagentTaskMeta>
+}
+
+// ctx.subagentMeta 에 정의된 필드만 병합(누락은 기존값 보존). 부모 Task tool_result 영속용 누산.
+function accrueSubagentMeta(ctx: MapContext, toolUseId: string, patch: SubagentTaskMeta): void {
+  if (!ctx.subagentMeta) ctx.subagentMeta = new Map()
+  const prev = ctx.subagentMeta.get(toolUseId) ?? {}
+  const next: SubagentTaskMeta = { ...prev }
+  if (patch.model !== undefined) next.model = patch.model
+  if (patch.durationMs !== undefined) next.durationMs = patch.durationMs
+  if (patch.toolUses !== undefined) next.toolUses = patch.toolUses
+  ctx.subagentMeta.set(toolUseId, next)
+}
+
+// SDK system task_* 메시지(task_started/task_progress/task_notification) 한 건을 subagent.task
+// NormalizedEvent 로 정규화한다. tool_use_id(= 부모 Agent 도구) 없으면 표시/중단 키가 없어 드롭.
+// skip_transcript(ambient/housekeeping) 도 드롭. usage 누산은 ctx.subagentMeta 로 별도 영속.
+function mapTaskSystem(
+  msg: Record<string, unknown>,
+  subtype: string,
+  ctx: MapContext
+): NormalizedEvent[] {
+  const toolUseId = typeof msg.tool_use_id === 'string' ? msg.tool_use_id : ''
+  if (!toolUseId || msg.skip_transcript === true) return []
+  const taskId = typeof msg.task_id === 'string' ? msg.task_id : undefined
+  const subagentType = typeof msg.subagent_type === 'string' ? msg.subagent_type : undefined
+  const description = typeof msg.description === 'string' ? msg.description : undefined
+  const usage = (typeof msg.usage === 'object' && msg.usage !== null ? msg.usage : {}) as Record<
+    string,
+    unknown
+  >
+  const durationMs = num(usage.duration_ms)
+  const toolUses = num(usage.tool_uses)
+  const lastToolName = typeof msg.last_tool_name === 'string' ? msg.last_tool_name : undefined
+  const summary = typeof msg.summary === 'string' ? msg.summary : undefined
+  const status =
+    msg.status === 'completed' || msg.status === 'failed' || msg.status === 'stopped'
+      ? msg.status
+      : undefined
+
+  if (durationMs !== undefined || toolUses !== undefined) {
+    accrueSubagentMeta(ctx, toolUseId, { durationMs, toolUses })
+  }
+
+  const phase =
+    subtype === 'task_started'
+      ? 'started'
+      : subtype === 'task_notification'
+        ? 'settled'
+        : 'progress'
+  return [
+    {
+      type: 'subagent.task',
+      sessionId: ctx.sessionId,
+      toolUseId,
+      phase,
+      ...(taskId !== undefined ? { taskId } : {}),
+      ...(subagentType !== undefined ? { subagentType } : {}),
+      ...(description !== undefined ? { description } : {}),
+      ...(durationMs !== undefined ? { durationMs } : {}),
+      ...(toolUses !== undefined ? { toolUses } : {}),
+      ...(lastToolName !== undefined ? { lastToolName } : {}),
+      ...(status !== undefined ? { status } : {}),
+      ...(summary !== undefined ? { summary } : {})
+    }
+  ]
 }
 
 // 어댑터 예외 → error 분류/이벤트는 runtime-errors/claude-classifier.ts 로 이전됐다
@@ -70,6 +139,19 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
     ]
   }
 
+  // SDK system task_* (서브에이전트 라이브 메타) → subagent.task. forwardSubagentText 와 무관하게
+  // tool_use/tool_result 외 진행상황(시간·도구수·current tool·task_id)을 여기서만 얻는다.
+  if (msg.type === 'system') {
+    const subtype = (msg as { subtype?: string }).subtype
+    if (
+      subtype === 'task_started' ||
+      subtype === 'task_progress' ||
+      subtype === 'task_notification'
+    ) {
+      return mapTaskSystem(msg as unknown as Record<string, unknown>, subtype, ctx)
+    }
+  }
+
   // SDKPartialAssistantMessage → message.delta(text_delta) / message.reasoning.delta(thinking_delta)
   if (msg.type === 'stream_event') {
     const ev = (
@@ -105,11 +187,24 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
   if (msg.type === 'assistant') {
     const m = (
       msg as unknown as {
-        message?: { content?: unknown[]; usage?: Record<string, unknown> }
+        message?: { content?: unknown[]; usage?: Record<string, unknown>; model?: unknown }
       }
     ).message
     const content = m?.content ?? []
     const parentToolRunId = readParentToolRunId(msg)
+    // 서브에이전트 child assistant 면 실제 모델(message.model)을 캡처 → subagent.task 로 표시,
+    // ctx 누산으로 부모 tool_result 에 영속. 'Explore'(subagent_type) 대신 모델명을 보이게 한다.
+    const childEvents: NormalizedEvent[] = []
+    if (parentToolRunId !== undefined && typeof m?.model === 'string' && m.model !== '') {
+      accrueSubagentMeta(ctx, parentToolRunId, { model: m.model })
+      childEvents.push({
+        type: 'subagent.task',
+        sessionId: ctx.sessionId,
+        toolUseId: parentToolRunId,
+        phase: 'progress',
+        model: m.model
+      })
+    }
     // 마지막 assistant usage 스냅샷 갱신(컨텍스트 점유 = 이 턴 마지막 요청 입력). Anthropic 표준
     // shape(input_tokens/output_tokens/cache_read_input_tokens/cache_creation_input_tokens)을
     // num 가드로 좁혀 읽는다. 의미값이 하나라도 있을 때만 덮어쓴다.
@@ -124,7 +219,7 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
       })
       if (Object.keys(snapshot).length > 0) ctx.lastAssistantUsage = snapshot
     }
-    const events: NormalizedEvent[] = []
+    const events: NormalizedEvent[] = [...childEvents]
     for (const part of content) {
       if (typeof part !== 'object' || part === null) continue
       const p = part as Record<string, unknown>
@@ -178,13 +273,16 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
       if (p.type === 'tool_result') {
         const toolRunId = typeof p.tool_use_id === 'string' ? p.tool_use_id : ''
         if (!toolRunId) continue
+        // 부모 Task tool_result 면 누산한 서브에이전트 메타(모델·시간·도구수)를 실어 영속.
+        const meta = ctx.subagentMeta?.get(toolRunId)
         events.push({
           type: 'tool.call.completed',
           sessionId: ctx.sessionId,
           toolRunId,
           result: p.content,
           isError: p.is_error === true,
-          ...(parentToolRunId !== undefined ? { parentToolRunId } : {})
+          ...(parentToolRunId !== undefined ? { parentToolRunId } : {}),
+          ...(meta && Object.keys(meta).length > 0 ? { subagentMeta: meta } : {})
         })
       }
     }

@@ -56,6 +56,9 @@ export interface InflightTurn<W = unknown> {
   askPendingIds: string[]
   // 합성 완료된 id → answers. 실제 tool_result 가 뒤늦게 와도 clobber 하지 않도록 재주입용.
   askResolved: Map<string, { answers: Record<string, string | string[]>; response?: string }>
+  // 서브에이전트(Task) 단위 중단용 — Agent tool_use id → SDK task_id. subagent.task 이벤트가
+  // 흐를 때 채워지고, orca:chat:stopSubagent 가 toolUseId 로 task_id 를 찾아 stopTask 호출한다.
+  subagentTaskIds: Map<string, string>
 }
 
 export class TurnRegistry<W = unknown> {

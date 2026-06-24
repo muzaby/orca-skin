@@ -447,3 +447,141 @@ it('result 에러는 telemetry 와 error 이벤트를 함께 낸다', () => {
     error: { category: 'stream_error', message: 'bad request' }
   })
 })
+
+describe('claudeToNormalized — 서브에이전트(Task) 메타', () => {
+  it('system task_started → subagent.task(started) (tool_use_id 키)', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'task_started',
+        task_id: 'task-1',
+        tool_use_id: 'agent-1',
+        subagent_type: 'Explore',
+        description: '구조 탐색'
+      }),
+      ctx()
+    )
+    expect(out).toEqual([
+      {
+        type: 'subagent.task',
+        sessionId: 's1',
+        toolUseId: 'agent-1',
+        phase: 'started',
+        taskId: 'task-1',
+        subagentType: 'Explore',
+        description: '구조 탐색'
+      }
+    ])
+  })
+
+  it('system task_progress → subagent.task(progress) 에 duration/tool/last_tool 실린다', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'task_progress',
+        task_id: 'task-1',
+        tool_use_id: 'agent-1',
+        usage: { duration_ms: 5000, tool_uses: 3, total_tokens: 1 },
+        last_tool_name: 'Bash'
+      }),
+      ctx()
+    )
+    expect(out).toEqual([
+      {
+        type: 'subagent.task',
+        sessionId: 's1',
+        toolUseId: 'agent-1',
+        phase: 'progress',
+        taskId: 'task-1',
+        durationMs: 5000,
+        toolUses: 3,
+        lastToolName: 'Bash'
+      }
+    ])
+  })
+
+  it('tool_use_id 없는 task_* / skip_transcript 는 드롭([])', () => {
+    expect(
+      claudeToNormalized(sdk({ type: 'system', subtype: 'task_started', task_id: 't' }), ctx())
+    ).toEqual([])
+    expect(
+      claudeToNormalized(
+        sdk({
+          type: 'system',
+          subtype: 'task_started',
+          task_id: 't',
+          tool_use_id: 'a',
+          skip_transcript: true
+        }),
+        ctx()
+      )
+    ).toEqual([])
+  })
+
+  it('child assistant 의 message.model 을 subagent.task(progress) 로 캡처한다', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        parent_tool_use_id: 'agent-1',
+        message: { model: 'claude-haiku-4-5', content: [{ type: 'text', text: '답변' }] }
+      }),
+      ctx()
+    )
+    expect(out).toContainEqual({
+      type: 'subagent.task',
+      sessionId: 's1',
+      toolUseId: 'agent-1',
+      phase: 'progress',
+      model: 'claude-haiku-4-5'
+    })
+    // child 텍스트도 parentToolRunId 로 forward.
+    expect(out).toContainEqual({
+      type: 'message.completed',
+      sessionId: 's1',
+      message: { text: '답변' },
+      parentToolRunId: 'agent-1'
+    })
+  })
+
+  it('누산한 메타를 부모 Task tool_result(tool.call.completed)에 subagentMeta 로 영속한다', () => {
+    const c = ctx()
+    // 1) child assistant 모델 + 2) task_progress duration/tool 누산
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        parent_tool_use_id: 'agent-1',
+        message: { model: 'claude-haiku-4-5', content: [] }
+      }),
+      c
+    )
+    claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'task_notification',
+        task_id: 'task-1',
+        tool_use_id: 'agent-1',
+        status: 'completed',
+        usage: { duration_ms: 9000, tool_uses: 4, total_tokens: 1 }
+      }),
+      c
+    )
+    // 3) 부모 Task 의 tool_result → subagentMeta 부착
+    const out = claudeToNormalized(
+      sdk({
+        type: 'user',
+        message: { content: [{ type: 'tool_result', tool_use_id: 'agent-1', content: 'ok' }] }
+      }),
+      c
+    )
+    expect(out).toEqual([
+      {
+        type: 'tool.call.completed',
+        sessionId: 's1',
+        toolRunId: 'agent-1',
+        result: 'ok',
+        isError: false,
+        subagentMeta: { model: 'claude-haiku-4-5', durationMs: 9000, toolUses: 4 }
+      }
+    ])
+  })
+})
