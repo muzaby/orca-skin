@@ -62,6 +62,11 @@ export interface InflightTurn<W = unknown> {
   // tool.call.started ~ completed 사이의 열린 도구 실행(toolRunId → 부모 Task 표식). 중단/타임아웃/
   // 에러로 턴이 끊기면 합성 tool_result 로 정착시켜 "실행 중" 무한 렌더를 막는다(send.ts settleOpenToolRuns).
   openToolRuns: Map<string, { parentToolRunId?: string }>
+  // 부모 Task toolUseId → subagent_type(예: 'Explore'). subagent.task 이벤트에서 채워지고,
+  // stopSubagent 가 재호출 차단(blockedSubagents)에 쓸 타입을 찾는다.
+  subagentTypes: Map<string, string>
+  // 재호출 차단된 서브에이전트 타입 집합(가이드 §6-A). 사용자가 stop 한 타입을 담아 canUseTool 이 deny.
+  blockedSubagents: Set<string>
 }
 
 export class TurnRegistry<W = unknown> {

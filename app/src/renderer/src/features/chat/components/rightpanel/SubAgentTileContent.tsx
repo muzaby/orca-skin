@@ -148,17 +148,9 @@ export function SubAgentTileContent(): React.JSX.Element {
     <div className="min-h-0 flex-1 overflow-auto px-p4 py-p4">
       {groups.map((group, gi) => (
         <div key={group.status} className={gi > 0 ? 'mt-5' : ''}>
-          {/* 상태 그룹 헤더 — 상하 여백 확보(원본 이미지). 완료 그룹만 '지우기' 노출. */}
+          {/* 상태 그룹 헤더 — 상하 여백 확보(원본 이미지). */}
           <div className="mb-g3 mt-g1 flex items-center px-p2 text-footnote text-t6">
             <span>{STATUS_LABEL[group.status]}</span>
-            {group.status === 'completed' && (
-              <button
-                type="button"
-                className="ml-auto rounded-r4 px-1.5 py-0.5 text-t6 transition-colors hover:bg-fill-uncontained-hover hover:text-t8"
-              >
-                지우기
-              </button>
-            )}
           </div>
           <div className="flex flex-col gap-g3">
             {group.items.map((task) => {

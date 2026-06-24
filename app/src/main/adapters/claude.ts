@@ -61,10 +61,47 @@ const TOOL_DENY_MESSAGE = '사용자가 도구 실행을 거부했습니다.'
 //   deny(message 없음)=거부(중단).
 // - 위험 도구(isRiskyTool) → tool_approval. resolution 을 PermissionResult 로 직접 매핑.
 // - 안전 도구(또는 콜백 미주입) → allow passthrough(현행 무-권한-UI 동작 보존).
+// 서브에이전트 호출 도구 이름 — v2.x 에서 'Task'→'Agent' 로 바뀌어 둘 다 본다(가이드 §4).
+function isSubagentTool(toolName: string): boolean {
+  return toolName === 'Agent' || toolName === 'Task'
+}
+
+function subagentTypeOf(input: unknown): string | undefined {
+  const v = (input as { subagent_type?: unknown })?.subagent_type
+  return typeof v === 'string' && v.trim() !== '' ? v : undefined
+}
+
+// 중단된 서브에이전트 재호출 거부 사유(가이드 §6-A) — 메인이 우회 경로를 모색하도록 유도.
+const SUBAGENT_BLOCKED_MESSAGE =
+  '사용자가 이 작업을 취소했습니다. 해당 서브에이전트를 다시 호출하지 말고 다른 방식으로 진행하세요.'
+
+export interface CanUseToolOptions {
+  // 서브에이전트(Agent/Task) 호출에 run_in_background:true 를 주입해 백그라운드 task 로 띄운다 →
+  // stopTask 로 개별 중단 가능(가이드). 기본 off(ORCA_SUBAGENT_BACKGROUND) — 현행 foreground 보존.
+  backgroundSubagents?: boolean
+  // 중단된 서브에이전트 타입이면 재호출을 deny(가이드 §6-A). 미주입이면 차단 없음.
+  isSubagentBlocked?: (subagentType: string | undefined) => boolean
+}
+
 export function makeCanUseTool(
-  requestApproval?: (action: PermissionAction) => Promise<ApprovalResolution>
+  requestApproval?: (action: PermissionAction) => Promise<ApprovalResolution>,
+  opts: CanUseToolOptions = {}
 ): CanUseTool {
   return async (toolName, input): Promise<PermissionResult> => {
+    // 서브에이전트 호출 — 재호출 차단(deny) 우선, 아니면 백그라운드 주입(allow + run_in_background).
+    if (isSubagentTool(toolName)) {
+      const subagentType = subagentTypeOf(input)
+      if (opts.isSubagentBlocked?.(subagentType)) {
+        return { behavior: 'deny', message: SUBAGENT_BLOCKED_MESSAGE }
+      }
+      if (opts.backgroundSubagents) {
+        return {
+          behavior: 'allow',
+          updatedInput: { ...(input as Record<string, unknown>), run_in_background: true }
+        }
+      }
+      // 백그라운드 off — 기존 동작(allow passthrough)로 떨어진다.
+    }
     if (toolName === 'AskUserQuestion' && requestApproval) {
       const questions = Array.isArray((input as { questions?: unknown }).questions)
         ? (input as { questions: AskQuestion[] }).questions
@@ -213,6 +250,8 @@ export class ClaudeAdapter implements SessionAdapter {
       permissionMode,
       model,
       effort,
+      backgroundSubagents,
+      isSubagentBlocked,
       attachmentTexts = [],
       attachmentImages = []
     } = req
@@ -258,7 +297,14 @@ export class ClaudeAdapter implements SessionAdapter {
         // canUseTool — AskUserQuestion·ExitPlanMode·위험 도구를 requestApproval 로 게이트하고
         // 안전 도구는 allow passthrough. 콜백 미주입(opencode 등) 시 옵션 자체를 생략해 현행
         // 자동 통과 동작을 유지한다.
-        ...(requestApproval ? { canUseTool: makeCanUseTool(requestApproval) } : {}),
+        ...(requestApproval
+          ? {
+              canUseTool: makeCanUseTool(requestApproval, {
+                ...(backgroundSubagents ? { backgroundSubagents } : {}),
+                ...(isSubagentBlocked ? { isSubagentBlocked } : {})
+              })
+            }
+          : {}),
         // 권한 모드 (정규화 6종 → SDK PermissionMode). 부재 시 SDK 기본(default) 동작.
         ...(permissionMode ? { permissionMode: toClaudePermissionMode(permissionMode) } : {}),
         ...(model ? { model } : {}),

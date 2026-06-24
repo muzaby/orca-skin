@@ -4,7 +4,12 @@
 
 import type { IpcMainInvokeEvent, WebContents } from 'electron'
 import { randomUUID } from 'node:crypto'
-import { CHANNELS, type ApprovalResolution, type PermissionAction } from '../../../shared/ipc'
+import {
+  CHANNELS,
+  type ApprovalResolution,
+  type NormalizedEvent,
+  type PermissionAction
+} from '../../../shared/ipc'
 import {
   CancelChatSchema,
   SendChatMessageSchema,
@@ -109,6 +114,63 @@ function settleOpenToolRuns(
   turn.openToolRuns.clear()
 }
 
+// subagent.task settled(stopped/failed/completed) 수신 시 부모 Task tool_result 를 권위 결과로
+// 코어싱한다 — 백그라운드 모드에서 부모 결과는 즉시 "async_launched"(임시 성공)로 오고 진짜 종료는
+// 이 알림으로만 오기 때문. 동시에 stopped/failed 면 그 부모의 열린 child 도구도 aborted 로 정착해
+// "실행 중" 고착을 푼다. upsertToolResultPart 멱등이라 임시 결과를 덮어쓴다(가이드 정공법).
+function settleSubagentTask(
+  turn: InflightTurn<WebContents>,
+  persistence: TurnPersistence,
+  ev: Extract<NormalizedEvent, { type: 'subagent.task' }>
+): void {
+  const status = ev.status
+  if (status === undefined) return
+  const parentId = ev.toolUseId
+  const sessionId = turn.dbSessionId ?? ''
+  const meta =
+    ev.durationMs !== undefined || ev.toolUses !== undefined
+      ? {
+          subagentMeta: {
+            ...(ev.durationMs !== undefined ? { durationMs: ev.durationMs } : {}),
+            ...(ev.toolUses !== undefined ? { toolUses: ev.toolUses } : {})
+          }
+        }
+      : {}
+  const parentResult =
+    status === 'stopped'
+      ? { reason: 'aborted', message: '서브에이전트가 중단되었습니다.' }
+      : status === 'failed'
+        ? { reason: 'failed', message: ev.summary ?? '서브에이전트가 실패했습니다.' }
+        : { summary: ev.summary ?? '' }
+  const parentEv = {
+    type: 'tool.call.completed',
+    sessionId,
+    toolRunId: parentId,
+    result: parentResult,
+    isError: status !== 'completed',
+    ...meta
+  } as const
+  persistence.persist(turn, parentEv)
+  sendChatEvent(turn.owner, parentEv)
+  turn.openToolRuns.delete(parentId)
+  // 중지/실패면 부모의 열린 child 도구를 정착(완료면 child 는 자기 결과가 이미 도착했을 것).
+  if (status === 'completed') return
+  for (const [toolRunId, info] of [...turn.openToolRuns]) {
+    if (info.parentToolRunId !== parentId) continue
+    const childEv = {
+      type: 'tool.call.completed',
+      sessionId,
+      toolRunId,
+      result: { reason: 'aborted', message: '서브에이전트 중단으로 종료됨' },
+      isError: true,
+      parentToolRunId: parentId
+    } as const
+    persistence.persist(turn, childEv)
+    sendChatEvent(turn.owner, childEv)
+    turn.openToolRuns.delete(toolRunId)
+  }
+}
+
 // 턴 단위 provider/model 해석 (handoff 0010 → 0014) — payload providerKey 가 어댑터와
 // 일치하면 적용, 불일치/무효면 세션의 마지막 provider_key → 기본 provider(anthropic 우선) 폴백.
 // 원천은 sources/settings/<adapter>/ 트리(ProviderSettingsService)이며, settings 해석(blob)은
@@ -171,6 +233,10 @@ function buildTurnEnv(
 
 export function registerChatHandlers(deps: ChatDeps): void {
   const { ctx, turns, approvals, persistence, titles, permissionModes } = deps
+
+  // 서브에이전트 백그라운드화 게이트(가이드 — run_in_background 주입 + settled 알림 권위화 +
+  // stopTask 단독). 런타임 검증(Phase 1 dev 게이트) 전까지 기본 off 로 현행 foreground 동작 보존.
+  const backgroundSubagents = process.env.ORCA_SUBAGENT_BACKGROUND === '1'
 
   const handleChatSend = async (event: IpcMainInvokeEvent, raw: unknown): Promise<void> => {
     const parsed = SendChatMessageSchema.safeParse(raw)
@@ -277,7 +343,9 @@ export function registerChatHandlers(deps: ChatDeps): void {
       askPendingIds: [],
       askResolved: new Map(),
       subagentTaskIds: new Map(),
-      openToolRuns: new Map()
+      openToolRuns: new Map(),
+      subagentTypes: new Map(),
+      blockedSubagents: new Set()
     }
     if (parsed.data.sessionId) turns.startResume(parsed.data.sessionId, turn)
     else turns.startNew(event.sender, turn)
@@ -392,6 +460,9 @@ export function registerChatHandlers(deps: ChatDeps): void {
             requestApproval,
             permissionMode: parsed.data.permissionMode,
             effort: parsed.data.effort,
+            // 서브에이전트 백그라운드화(가이드) — ORCA_SUBAGENT_BACKGROUND 게이트. 기본 off=foreground.
+            backgroundSubagents,
+            isSubagentBlocked: (st) => st !== undefined && turn.blockedSubagents.has(st),
             attachmentTexts: normalizedAttachments.attachmentTexts,
             attachmentImages: normalizedAttachments.attachmentImages
           })
@@ -420,6 +491,15 @@ export function registerChatHandlers(deps: ChatDeps): void {
               // 서브에이전트(Task) task_id 매핑 — orca:chat:stopSubagent 가 toolUseId 로 찾는다.
               if (ev.type === 'subagent.task' && ev.taskId) {
                 turn.subagentTaskIds.set(ev.toolUseId, ev.taskId)
+              }
+              // subagent_type 매핑 — 재호출 차단(blockedSubagents)에 쓸 타입.
+              if (ev.type === 'subagent.task' && ev.subagentType) {
+                turn.subagentTypes.set(ev.toolUseId, ev.subagentType)
+              }
+              // 백그라운드 모드: settled 알림이 권위 종료 — 부모 Task tool_result 를 코어싱하고
+              // 열린 child 를 정착시킨다(임시 async_launched 성공을 덮어씀). 기본 off 면 무동작.
+              if (backgroundSubagents && ev.type === 'subagent.task' && ev.phase === 'settled') {
+                settleSubagentTask(turn, persistence, ev)
               }
               // 열린 도구 실행 추적 — 중단/타임아웃 시 합성 결과로 정착시킬 대상(settleOpenToolRuns).
               if (ev.type === 'tool.call.started') {
@@ -518,12 +598,38 @@ export function registerChatHandlers(deps: ChatDeps): void {
   })
 
   // 서브에이전트(Task) 단위 중단 — turn 전체가 아니라 한 Agent 도구 호출만 멈춘다(turn 계속).
-  // toolUseId → task_id 를 찾아 SDK stopTask. SDK 가 settled(stopped) → subagent.task 로 UI 갱신.
-  // foreground 서브에이전트를 stopTask 가 직접 못 멈추면 backgroundTask 후 재시도(fallback).
+  // 백그라운드 모드(가이드 정공법): stopTask 단독 + 재호출 차단 + 낙관적 정착(알림 지연 대비).
+  //   서브에이전트가 run_in_background 로 떠 있어 stopTask 가 진짜 동작하고, 결과 task_notification
+  //   (stopped)이 settleSubagentTask 를 재구동한다. backgroundTask 폴백 불필요(가이드 item 4 제거).
+  // foreground(기본): 기존 동작 — stopTask 실패 시 backgroundTask 후 재시도.
   handle(CHANNELS.chatStopSubagent, StopSubagentSchema, 'reject', async (req): Promise<void> => {
     const turn = turns.getBySession(req.sessionId)
-    const taskId = turn?.subagentTaskIds.get(req.toolUseId)
-    if (!turn?.live || !taskId) return
+    if (!turn) return
+    const taskId = turn.subagentTaskIds.get(req.toolUseId)
+
+    if (backgroundSubagents) {
+      // 재호출 차단(가이드 §6-A) — 이 서브에이전트 타입을 deny 셋에 추가.
+      const subagentType = turn.subagentTypes.get(req.toolUseId)
+      if (subagentType) turn.blockedSubagents.add(subagentType)
+      // 낙관적 정착 — UI 를 즉시 "중지됨"으로(실제 알림은 나중에 같은 결과로 재정착, 멱등).
+      settleSubagentTask(turn, persistence, {
+        type: 'subagent.task',
+        sessionId: turn.dbSessionId ?? '',
+        toolUseId: req.toolUseId,
+        phase: 'settled',
+        status: 'stopped'
+      })
+      if (turn.live && taskId) {
+        try {
+          await turn.live.stopTask(taskId)
+        } catch {
+          // best-effort — UI 는 이미 중지됨, 전체 턴 중단이 하드 폴백.
+        }
+      }
+      return
+    }
+
+    if (!turn.live || !taskId) return
     try {
       await turn.live.stopTask(taskId)
     } catch {
