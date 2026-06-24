@@ -118,20 +118,22 @@ describe('parts selectors', () => {
         ]
       }
     ])
+    // child message 의 파트는 parentToolRunId 가 벗겨져(undefined) 반환된다 — 그래야
+    // messageSegments/partsToolCalls 가 우측 패널 child 트랜스크립트에서 최상위 도구로 렌더한다.
     expect(childMessageForParentToolRunId(messages, 'parent-task')?.parts).toEqual([
       {
         type: 'tool_call',
         toolRunId: 'child-read',
         toolName: 'Read',
         args: { file_path: 'README.md' },
-        parentToolRunId: 'parent-task'
+        parentToolRunId: undefined
       },
       {
         type: 'tool_result',
         toolRunId: 'child-read',
         result: 'ok',
         isError: false,
-        parentToolRunId: 'parent-task'
+        parentToolRunId: undefined
       }
     ])
     expect(subagentTasksFromMessages(messages)).toMatchObject([

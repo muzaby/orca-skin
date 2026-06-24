@@ -9,6 +9,9 @@ interface RightPanelTileProps {
   children: ReactNode
   // 닫기 버튼 앞에 놓이는 타일별 액션(예: 계획 타일의 복사 버튼). registry 가 주입한다.
   headerActions?: ReactNode
+  // 타이틀 영역 전체를 대체하는 타일별 헤더 콘텐츠(예: 서브에이전트 타일의 뒤로가기+동적 제목).
+  // 미지정 시 기본 라벨 span 을 렌더한다. registry 가 주입한다.
+  headerContent?: ReactNode
   className?: string
 }
 
@@ -17,6 +20,7 @@ export function RightPanelTile({
   defaultLabel,
   children,
   headerActions,
+  headerContent,
   className = ''
 }: RightPanelTileProps): React.JSX.Element {
   const label = useChatSession((s) => s.rightPanelTileLabels[id] ?? defaultLabel)
@@ -31,9 +35,11 @@ export function RightPanelTile({
       data-context={id}
     >
       <div className="app-frame-tile-header flex items-center gap-2 border-b border-t5 px-3 py-2">
-        <span className="min-w-0 truncate font-serif text-[13px] font-semibold tracking-tight text-t9">
-          {label}
-        </span>
+        {headerContent ?? (
+          <span className="min-w-0 truncate font-serif text-[13px] font-semibold tracking-tight text-t9">
+            {label}
+          </span>
+        )}
         <div className="ml-auto flex items-center gap-g2">
           {headerActions}
           <Button

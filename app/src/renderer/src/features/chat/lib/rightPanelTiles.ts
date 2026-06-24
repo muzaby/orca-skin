@@ -1,6 +1,6 @@
 export const rightPanelTileDefinitions = [
   { id: 'plan', defaultLabel: '계획' },
-  { id: 'subagent', defaultLabel: '서브 에이전트' },
+  { id: 'subagent', defaultLabel: '백그라운드 작업' },
   { id: 'reserved1', defaultLabel: '예약 1' },
   { id: 'reserved2', defaultLabel: '예약 2' }
 ] as const

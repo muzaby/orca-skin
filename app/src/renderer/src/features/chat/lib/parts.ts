@@ -128,7 +128,10 @@ export function childMessageForParentToolRunId(
         (isToolCallPart(part) || isToolResultPart(part)) &&
         part.parentToolRunId === parentToolRunId
       ) {
-        parts.push(part)
+        // parentToolRunId 를 벗겨 child 트랜스크립트 안에서는 최상위 도구로 취급되게 한다 —
+        // messageSegments/partsToolCalls 는 parentToolRunId 가 있는 파트를 메인 트랜스크립트에서
+        // 제외(스킵)하므로, 벗기지 않으면 우측 패널 child 트랜스크립트가 비어 렌더된다.
+        parts.push({ ...part, parentToolRunId: undefined })
       }
     }
   }
