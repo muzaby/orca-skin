@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseAsk } from './ask'
+import { isAskResolved, parseAsk } from './ask'
 import type { ToolCall } from '../reducer/chatReducer'
 
 const call = (input: unknown, output?: unknown): ToolCall => ({
@@ -80,5 +80,29 @@ describe('parseAsk', () => {
       { header: '', question: '질문1', answer: '기타직접' },
       { header: '', question: '질문2', answer: 'A, B' }
     ])
+  })
+})
+
+describe('isAskResolved (트랜스크립트 버블 게이트)', () => {
+  const q = { questions: [{ header: 'h', question: 'Q?' }] }
+
+  it('답변 도착 전(결과 없음, 질문만)은 미해소', () => {
+    expect(isAskResolved(call(q))).toBe(false)
+  })
+
+  it('allow(답변 주입)는 해소', () => {
+    expect(isAskResolved(call(q, { answers: { 'Q?': 'Docker' } }))).toBe(true)
+  })
+
+  it('deny/skip(거부 tool_result, answers 없음)는 미해소 — call.result 가 있어도', () => {
+    // skip → SDK 거부 tool_result(content 문자열/배열)가 claude-map 으로 tool.call.completed
+    // 매핑돼 result 는 채워지지만 answers 가 없다. call.result 만으로 가드하면 빈 버블이 샌다.
+    const denied = call(q, 'The user chose not to answer.')
+    expect(denied.result).toBeDefined()
+    expect(isAskResolved(denied)).toBe(false)
+  })
+
+  it('response-only(직접 회신)는 해소', () => {
+    expect(isAskResolved(call(q, { answers: {}, response: '출력회신' }))).toBe(true)
   })
 })
