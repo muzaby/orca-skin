@@ -206,6 +206,60 @@ describe('chatStore — 멀티세션 키 라우팅 (handoff 0013)', () => {
     })
     expect(entry('s').session.error?.message).toBe('활성 백엔드 없음')
   })
+
+  // 비활성 세션 소유 권한 요청이 활성으로 새지 않는다(권한 이벤트 sessionId 누락 회귀).
+  // permission.requested 가 sessionId 를 실으면 receive 가 소유 엔트리로 라우팅하고,
+  // pendingAsks/pendingPlanReview 는 세션-단위라 활성 세션 카드/우측패널은 불변이다.
+  it('비활성 세션의 permission.requested(ask)는 그 엔트리 pendingAsks 로 가고 활성은 불변', () => {
+    useChatStore.setState((st) => ({
+      sessions: {
+        ...st.sessions,
+        bg: {
+          session: { ...initialChatState, sessionId: 'bg', inflight: true, turnStartedAt: 1 },
+          live: { text: '', reasoning: '' }
+        }
+      }
+    }))
+    ingestChatEvent({
+      type: 'permission.requested',
+      sessionId: 'bg',
+      approvalId: 'ask-1',
+      origin: 'agent',
+      action: {
+        kind: 'ask_question',
+        request: { requestId: 'ask-1', questions: [] }
+      }
+    })
+    expect(entry('bg').session.pendingAsks.map((a) => a.requestId)).toEqual(['ask-1'])
+    expect(entry('s').session.pendingAsks).toEqual([])
+    expect(useChatStore.getState().activeKey).toBe('s')
+  })
+
+  it('비활성 세션의 permission.requested(plan_review)는 그 엔트리 plan 상태로만 라우팅된다', () => {
+    useChatStore.setState((st) => ({
+      sessions: {
+        ...st.sessions,
+        bg: {
+          session: { ...initialChatState, sessionId: 'bg', inflight: true, turnStartedAt: 1 },
+          live: { text: '', reasoning: '' }
+        }
+      }
+    }))
+    ingestChatEvent({
+      type: 'permission.requested',
+      sessionId: 'bg',
+      approvalId: 'plan-1',
+      origin: 'agent',
+      action: {
+        kind: 'plan_review',
+        request: { requestId: 'plan-1', plan: '# 백그라운드 계획' }
+      }
+    })
+    expect(entry('bg').session.planContent).toBe('# 백그라운드 계획')
+    expect(entry('bg').session.pendingPlanReview?.requestId).toBe('plan-1')
+    expect(entry('s').session.planContent).toBeNull()
+    expect(entry('s').session.pendingPlanReview).toBeNull()
+  })
 })
 
 describe('chatStore — 0040 새-채팅 직렬 디스패치 게이트', () => {

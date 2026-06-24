@@ -21,6 +21,29 @@ describe('agentPermissionRequest', () => {
     expect(ev.origin).toBe('agent')
     expect(ev.action).toEqual({ kind: 'plan_review', request })
   })
+
+  // sessionId 계약 — renderer 가 활성 폴백 없이 소유 세션으로 라우팅하는 키.
+  it('sessionId 를 넘기면 이벤트에 싣는다', () => {
+    const request: AskQuestionRequest = { requestId: 'a1', questions: [] }
+    const ev = agentPermissionRequest('a1', { kind: 'ask_question', request }, 's-42')
+    expect(ev).toEqual({
+      type: 'permission.requested',
+      sessionId: 's-42',
+      approvalId: 'a1',
+      origin: 'agent',
+      action: { kind: 'ask_question', request }
+    })
+  })
+
+  it('sessionId 미전달 시 키를 생략한다(빈 문자열 금지 — 폴백 라우팅 유지)', () => {
+    const request: AskQuestionRequest = { requestId: 'a1', questions: [] }
+    expect('sessionId' in agentPermissionRequest('a1', { kind: 'ask_question', request })).toBe(
+      false
+    )
+    expect('sessionId' in agentPermissionRequest('a1', { kind: 'ask_question', request }, '')).toBe(
+      false
+    )
+  })
 })
 
 describe('classifyAppCommand (AppCommandPolicy)', () => {

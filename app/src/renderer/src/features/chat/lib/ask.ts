@@ -59,3 +59,12 @@ export function parseAsk(call: ToolCall): ParsedAsk {
     (typeof out?.response === 'string' ? out.response : null)
   return { items, response }
 }
+
+// 트랜스크립트 인라인 버블(AskExchange)을 그릴지 — "실제 답변/응답이 있는가" 로 판정한다.
+// call.result 존재로 판정하면 안 된다: deny/skip 경로도 SDK 가 거부 tool_result 를 흘리고
+// claude-map 이 tool.call.completed 로 매핑해 result 가 채워지므로(answers 없음), 그 경우
+// 빈-답변 질문 버블이 그대로 노출된다. 답변/응답 존재로 가드해야 미응답·거부 모두 숨는다.
+export function isAskResolved(call: ToolCall): boolean {
+  const { items, response } = parseAsk(call)
+  return items.some((i) => i.answer !== '') || response != null
+}

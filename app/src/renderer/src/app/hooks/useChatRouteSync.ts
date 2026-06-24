@@ -35,13 +35,23 @@ export function useChatRouteSync(): void {
   const urlProjectId = projectMatch?.params.projectId ?? null
 
   // 방향 1 — URL → State (URL/sessions 변화만 트리거, 상태는 imperative read)
+  //
+  // `/new` 리셋은 *전이*(다른 경로 → /new 진입)일 때만 발사한다. `sessions` dep 은
+  // metaTitle/세션목록 갱신으로 자주 바뀌는데, 첫 전송 직후 promote(recentsEpoch++ →
+  // sessionsActions.refresh)로 이 effect 가 `/new` 에 머문 채 재실행되면 막 승격된 세션을
+  // dirty 로 보고 newChat() 으로 wipe → 랜딩 플리커가 난다. 전이 가드로 그 우발적 재실행을
+  // 무시하고 방향 2(armed-ref)의 `/chat/<id>` navigate 에 맡긴다.
+  const prevPathnameRef = useRef<string | null>(null)
   useEffect(() => {
+    const enteredNew = onNew && prevPathnameRef.current !== pathname
+    prevPathnameRef.current = pathname
     const cur = getActiveChatSession()
     if (onNew) {
       // `/new` 는 깨끗한 새 대화. 직전에 프로젝트 랜딩에서 `pendingProjectId` 가
-      // 묶여 있던 경우도 함께 해제한다.
+      // 묶여 있던 경우도 함께 해제한다. 단 `/new` 로 진입한 순간에만 — 머무는 중의
+      // sessions 갱신/승격 재실행에서는 wipe 하지 않는다.
       const dirty = cur.sessionId != null || cur.pendingProjectId != null || cur.messages.length > 0
-      if (dirty) chatActions.newChat()
+      if (enteredNew && dirty) chatActions.newChat()
       return
     }
     if (urlSessionId != null) {
@@ -59,7 +69,7 @@ export function useChatRouteSync(): void {
       return
     }
     // chat 라우트(비채팅, 예: /projects, /agent 등) → no-op.
-  }, [onNew, urlSessionId, urlProjectId, sessions])
+  }, [onNew, urlSessionId, urlProjectId, sessions, pathname])
 
   // 방향 2 — State → URL (armed-ref)
   const sessionId = useChatSession((s) => s.sessionId)

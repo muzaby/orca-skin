@@ -295,7 +295,20 @@ export function registerChatHandlers(deps: ChatDeps): void {
           : action.kind === 'ask_question'
             ? { kind: 'ask_question', request: { ...action.request, requestId: approvalId } }
             : { kind: 'plan_review', request: { ...action.request, requestId: approvalId } }
-      sendChatEvent(wc, agentPermissionRequest(approvalId, outbound))
+      // permission.requested 에 소유 세션을 실어 renderer 가 activeKey 폴백 없이 정확한
+      // 세션 엔트리로 라우팅하게 한다. 불변식: 권한 요청은 session.updated(turn.dbSessionId
+      // set, persist.ts) 이후라 dbSessionId 가 채워져 있다. 깨지면(provider/adapter 변경 등)
+      // 조용한 오배선 대신 dev warn 으로 가시화 — 이벤트는 sessionId 없이 폴백 라우팅된다.
+      if (!turn.dbSessionId) {
+        console.warn(
+          '[chat] permission.requested without dbSessionId — falling back to activeKey',
+          {
+            approvalId,
+            kind: action.kind
+          }
+        )
+      }
+      sendChatEvent(wc, agentPermissionRequest(approvalId, outbound, turn.dbSessionId ?? undefined))
       const resolution = await approvals.register(approvalId, turn, controller.signal)
       sendChatEvent(wc, {
         type: 'permission.resolved',
