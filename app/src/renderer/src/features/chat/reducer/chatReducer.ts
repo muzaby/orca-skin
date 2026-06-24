@@ -26,7 +26,8 @@ export interface ToolCall {
   toolUseId: string
   name: string
   input: unknown
-  result?: { output: unknown; isError: boolean; durationMs?: number }
+  result?: { output: unknown; isError: boolean; durationMs?: number; parentToolRunId?: string }
+  parentToolRunId?: string
 }
 
 // 메시지 = 순서 보존 parts 목록(provider-runtime.md §7). text 는 lib/parts.ts 셀렉터로 합치고,
@@ -93,6 +94,8 @@ export interface ChatState {
   rightPanelColWidths: number[]
   // 우측 패널 열 내부의 상단 행 비율. 행 분리선 드래그로 조절, clamp 0.2–0.8.
   rightPanelRowSplits: number[]
+  // 우측 서브에이전트 타일에서 상세로 표시할 부모 Task toolRunId. null 이면 목록 view.
+  selectedSubagentTaskId: string | null
   // 우측 계획 타일에 표시할 마지막 계획 마크다운. 승인/거부 후에도 유지해 읽기전용으로
   // 계속 보여준다(= pendingPlanReview 와 수명 분리). 세션 전환/새 대화 시 비움.
   planContent: string | null
@@ -123,6 +126,7 @@ export const initialChatState: ChatState = {
   rightPanelTileLabels: {},
   rightPanelColWidths: [],
   rightPanelRowSplits: [],
+  selectedSubagentTaskId: null,
   planContent: null,
   pendingToolApproval: null
 }
@@ -168,6 +172,8 @@ export type ChatAction =
   | { type: 'SET_RIGHT_PANEL_TILE_ACTIVE'; id: RightPanelTileId; active: boolean }
   | { type: 'RENAME_RIGHT_PANEL_TILE'; id: RightPanelTileId; label: string }
   | { type: 'REMOVE_RIGHT_PANEL_TILE'; id: RightPanelTileId }
+  | { type: 'SELECT_SUBAGENT_TASK'; toolRunId: string | null }
+  | { type: 'OPEN_SUBAGENT_TASK'; toolRunId: string }
   | { type: 'SET_RIGHT_PANEL_COL_WIDTH'; col: number; width: number }
   | { type: 'SET_RIGHT_PANEL_ROW_SPLIT'; col: number; frac: number }
 
@@ -254,7 +260,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
               type: 'tool_call',
               toolRunId: ev.toolRunId,
               toolName: ev.toolName,
-              args: ev.args
+              args: ev.args,
+              ...(ev.parentToolRunId !== undefined ? { parentToolRunId: ev.parentToolRunId } : {})
             })
           }
 
@@ -267,7 +274,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
               toolRunId: ev.toolRunId,
               result: ev.result,
               isError: ev.isError,
-              ...(ev.durationMs !== undefined ? { durationMs: ev.durationMs } : {})
+              ...(ev.durationMs !== undefined ? { durationMs: ev.durationMs } : {}),
+              ...(ev.parentToolRunId !== undefined ? { parentToolRunId: ev.parentToolRunId } : {})
             })
           }
 
@@ -481,8 +489,23 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'REMOVE_RIGHT_PANEL_TILE': {
       const nextLabels = { ...state.rightPanelTileLabels }
       delete nextLabels[action.id]
-      return { ...removeTile(state, action.id), rightPanelTileLabels: nextLabels }
+      const removed = removeTile(state, action.id)
+      return {
+        ...removed,
+        rightPanelTileLabels: nextLabels,
+        ...(action.id === 'subagent' ? { selectedSubagentTaskId: null } : {})
+      }
     }
+
+    case 'SELECT_SUBAGENT_TASK':
+      return { ...state, selectedSubagentTaskId: action.toolRunId }
+
+    case 'OPEN_SUBAGENT_TASK':
+      return {
+        ...state,
+        selectedSubagentTaskId: action.toolRunId,
+        rightPanelTiles: addTileColumnMajor(state.rightPanelTiles, 'subagent')
+      }
 
     case 'SET_RIGHT_PANEL_COL_WIDTH': {
       if (action.col < 0) return state

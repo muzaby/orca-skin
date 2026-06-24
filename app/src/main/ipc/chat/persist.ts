@@ -139,7 +139,11 @@ export class TurnPersistence {
           messageId: id,
           type: 'tool_call',
           toolRunId: ev.toolRunId,
-          payloadJson: JSON.stringify({ toolName: ev.toolName, args: ev.args ?? null })
+          payloadJson: JSON.stringify({
+            toolName: ev.toolName,
+            args: ev.args ?? null,
+            ...(ev.parentToolRunId !== undefined ? { parentToolRunId: ev.parentToolRunId } : {})
+          })
         })
         break
       }
@@ -175,7 +179,8 @@ export class TurnPersistence {
           JSON.stringify({
             result: ev.result ?? null,
             isError: ev.isError,
-            ...(ev.durationMs !== undefined ? { durationMs: ev.durationMs } : {})
+            ...(ev.durationMs !== undefined ? { durationMs: ev.durationMs } : {}),
+            ...(ev.parentToolRunId !== undefined ? { parentToolRunId: ev.parentToolRunId } : {})
           })
         )
         break

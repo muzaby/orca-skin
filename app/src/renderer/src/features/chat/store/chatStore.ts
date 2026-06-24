@@ -595,6 +595,10 @@ export const chatActions = {
     dispatchActive({ type: 'RENAME_RIGHT_PANEL_TILE', id, label }),
   removeRightPanelTile: (id: RightPanelTileId): void =>
     dispatchActive({ type: 'REMOVE_RIGHT_PANEL_TILE', id }),
+  selectSubagentTask: (toolRunId: string | null): void =>
+    dispatchActive({ type: 'SELECT_SUBAGENT_TASK', toolRunId }),
+  openSubagentTask: (toolRunId: string): void =>
+    dispatchActive({ type: 'OPEN_SUBAGENT_TASK', toolRunId }),
   setRightPanelColWidth: (col: number, width: number): void =>
     dispatchActive({ type: 'SET_RIGHT_PANEL_COL_WIDTH', col, width }),
   setRightPanelRowSplit: (col: number, frac: number): void =>

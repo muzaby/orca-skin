@@ -2,7 +2,7 @@
 // view 로 투영한다(순수). text/reasoning 추출, tool_call↔tool_result 페어링, error 추출.
 
 import type { AppMessagePart, AttachmentView } from '../../../../../shared/ipc'
-import type { ToolCall } from '../reducer/chatReducer'
+import type { Message, ToolCall } from '../reducer/chatReducer'
 
 // text 파트들을 순서대로 이어붙인 본문(마크다운 소스).
 export function partsText(parts: AppMessagePart[]): string {
@@ -43,23 +43,133 @@ export function partsToolCalls(parts: AppMessagePart[]): ToolCall[] {
       resultByRun.set(p.toolRunId, {
         output: p.result,
         isError: p.isError,
-        ...(p.durationMs !== undefined ? { durationMs: p.durationMs } : {})
+        ...(p.durationMs !== undefined ? { durationMs: p.durationMs } : {}),
+        ...(p.parentToolRunId !== undefined ? { parentToolRunId: p.parentToolRunId } : {})
       })
     }
   }
   const calls: ToolCall[] = []
   for (const p of parts) {
-    if (p.type === 'tool_call') {
+    if (p.type === 'tool_call' && p.parentToolRunId === undefined) {
       const result = resultByRun.get(p.toolRunId)
       calls.push({
         toolUseId: p.toolRunId,
         name: p.toolName,
         input: p.args,
+        ...(p.parentToolRunId !== undefined ? { parentToolRunId: p.parentToolRunId } : {}),
         ...(result ? { result } : {})
       })
     }
   }
   return calls
+}
+
+export interface SubagentTaskSummary {
+  toolUseId: string
+  description: string
+  status: 'running' | 'completed' | 'failed'
+  childToolCount: number
+  call: ToolCall
+}
+
+function isToolCallPart(p: AppMessagePart): p is Extract<AppMessagePart, { type: 'tool_call' }> {
+  return p.type === 'tool_call'
+}
+
+function isToolResultPart(
+  p: AppMessagePart
+): p is Extract<AppMessagePart, { type: 'tool_result' }> {
+  return p.type === 'tool_result'
+}
+
+function toolCallFromPart(
+  p: Extract<AppMessagePart, { type: 'tool_call' }>,
+  resultByRun: Map<string, NonNullable<ToolCall['result']>>
+): ToolCall {
+  const result = resultByRun.get(p.toolRunId)
+  return {
+    toolUseId: p.toolRunId,
+    name: p.toolName,
+    input: p.args,
+    ...(p.parentToolRunId !== undefined ? { parentToolRunId: p.parentToolRunId } : {}),
+    ...(result ? { result } : {})
+  }
+}
+
+function resultMap(parts: AppMessagePart[]): Map<string, NonNullable<ToolCall['result']>> {
+  const resultByRun = new Map<string, NonNullable<ToolCall['result']>>()
+  for (const p of parts) {
+    if (isToolResultPart(p)) {
+      resultByRun.set(p.toolRunId, {
+        output: p.result,
+        isError: p.isError,
+        ...(p.durationMs !== undefined ? { durationMs: p.durationMs } : {}),
+        ...(p.parentToolRunId !== undefined ? { parentToolRunId: p.parentToolRunId } : {})
+      })
+    }
+  }
+  return resultByRun
+}
+
+export function childMessageForParentToolRunId(
+  messages: Message[],
+  parentToolRunId: string
+): Message | null {
+  const parts: AppMessagePart[] = []
+  for (const message of messages) {
+    for (const part of message.parts) {
+      if (
+        (isToolCallPart(part) || isToolResultPart(part)) &&
+        part.parentToolRunId === parentToolRunId
+      ) {
+        parts.push(part)
+      }
+    }
+  }
+  if (parts.length === 0) return null
+  return { role: 'assistant', createdAt: Date.now(), parts }
+}
+
+export function subagentTasksFromMessages(messages: Message[]): SubagentTaskSummary[] {
+  const allParts = messages.flatMap((m) => m.parts)
+  const resultByRun = resultMap(allParts)
+  const childCounts = new Map<string, number>()
+  for (const part of allParts) {
+    if (isToolCallPart(part) && part.parentToolRunId !== undefined) {
+      childCounts.set(part.parentToolRunId, (childCounts.get(part.parentToolRunId) ?? 0) + 1)
+    }
+  }
+  const summaries: SubagentTaskSummary[] = []
+  for (const part of allParts) {
+    if (
+      isToolCallPart(part) &&
+      part.parentToolRunId === undefined &&
+      isAgentTaskName(part.toolName)
+    ) {
+      const call = toolCallFromPart(part, resultByRun)
+      const status =
+        call.result?.isError === true ? 'failed' : call.result ? 'completed' : 'running'
+      summaries.push({
+        toolUseId: call.toolUseId,
+        description: toolDescriptionFromInput(call.input) ?? call.name,
+        status,
+        childToolCount: childCounts.get(call.toolUseId) ?? 0,
+        call
+      })
+    }
+  }
+  return summaries
+}
+
+export function isAgentTaskName(name: string): boolean {
+  return name === 'Task' || name === 'Agent'
+}
+
+function toolDescriptionFromInput(input: unknown): string | null {
+  if (typeof input !== 'object' || input === null) return null
+  const rec = input as Record<string, unknown>
+  const desc = rec.description
+  return typeof desc === 'string' && desc.trim() !== '' ? desc : null
 }
 
 // error 파트들의 payload(렌더는 간단 텍스트화).
@@ -96,7 +206,8 @@ export function messageSegments(parts: AppMessagePart[]): MessageSegment[] {
       resultByRun.set(p.toolRunId, {
         output: p.result,
         isError: p.isError,
-        ...(p.durationMs !== undefined ? { durationMs: p.durationMs } : {})
+        ...(p.durationMs !== undefined ? { durationMs: p.durationMs } : {}),
+        ...(p.parentToolRunId !== undefined ? { parentToolRunId: p.parentToolRunId } : {})
       })
     }
   }
@@ -119,11 +230,13 @@ export function messageSegments(parts: AppMessagePart[]): MessageSegment[] {
       if (current?.kind === 'reasoning') current.items.push(item)
       else segments.push((current = { kind: 'reasoning', items: [item] }))
     } else if (p.type === 'tool_call') {
+      if (p.parentToolRunId !== undefined) continue
       const result = resultByRun.get(p.toolRunId)
       const call: ToolCall = {
         toolUseId: p.toolRunId,
         name: p.toolName,
         input: p.args,
+        ...(p.parentToolRunId !== undefined ? { parentToolRunId: p.parentToolRunId } : {}),
         ...(result ? { result } : {})
       }
       if (p.toolName === 'AskUserQuestion') {

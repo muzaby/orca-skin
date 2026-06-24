@@ -34,7 +34,7 @@ async function collect(
 }
 
 describe('mock scenarios', () => {
-  it('정의된 시나리오 8종을 제공한다', () => {
+  it('정의된 시나리오 12종을 제공한다', () => {
     expect(Object.keys(SCENARIOS).sort()).toEqual(
       [
         'ask_question',
@@ -42,6 +42,10 @@ describe('mock scenarios', () => {
         'full',
         'plan_review',
         'reasoning',
+        'subagent_task',
+        'subagent_task_aborted',
+        'subagent_task_child',
+        'subagent_task_multi',
         'text_streaming',
         'tool_approval',
         'tool_calls'
@@ -141,6 +145,66 @@ describe('mock scenarios', () => {
     })
     expect(interrupted.approvals).toBe(1)
     expect(interrupted.events.some((ev) => ev.type === 'telemetry')).toBe(false)
+  })
+
+  it('subagent_task 는 Task 도구 호출과 완료 결과를 낸다', async () => {
+    const { events } = await collect(SCENARIOS.subagent_task)
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: 'tool.call.started',
+        toolRunId: 'mock-subagent-task-1',
+        toolName: 'Task',
+        args: expect.objectContaining({ subagent_type: 'explorer' })
+      })
+    )
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: 'tool.call.completed',
+        toolRunId: 'mock-subagent-task-1',
+        isError: false
+      })
+    )
+    expect(events.at(-1)).toMatchObject({ type: 'telemetry' })
+  })
+
+  it('subagent_task_child 는 parentToolRunId 로 child 도구를 연결한다', async () => {
+    const { events } = await collect(SCENARIOS.subagent_task_child)
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: 'tool.call.started',
+        toolRunId: 'mock-subagent-child-read',
+        parentToolRunId: 'mock-subagent-child-parent'
+      })
+    )
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: 'tool.call.completed',
+        toolRunId: 'mock-subagent-child-read',
+        parentToolRunId: 'mock-subagent-child-parent'
+      })
+    )
+  })
+
+  it('subagent_task_aborted 는 중단 상태용 isError 결과를 낸다', async () => {
+    const { events } = await collect(SCENARIOS.subagent_task_aborted)
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: 'tool.call.completed',
+        toolRunId: 'mock-subagent-aborted-parent',
+        isError: true
+      })
+    )
+  })
+
+  it('subagent_task_multi 는 복수 부모 Task 의 child 를 분리한다', async () => {
+    const { events } = await collect(SCENARIOS.subagent_task_multi)
+    const childStarts = events.filter(
+      (ev) => ev.type === 'tool.call.started' && ev.parentToolRunId !== undefined
+    )
+    expect(childStarts).toEqual([
+      expect.objectContaining({ parentToolRunId: 'mock-subagent-multi-a' }),
+      expect.objectContaining({ parentToolRunId: 'mock-subagent-multi-b' })
+    ])
   })
 
   it('error 시나리오는 retryable error 로 종료하고 telemetry 를 내지 않는다', async () => {
