@@ -59,6 +59,9 @@ export interface InflightTurn<W = unknown> {
   // 서브에이전트(Task) 단위 중단용 — Agent tool_use id → SDK task_id. subagent.task 이벤트가
   // 흐를 때 채워지고, orca:chat:stopSubagent 가 toolUseId 로 task_id 를 찾아 stopTask 호출한다.
   subagentTaskIds: Map<string, string>
+  // tool.call.started ~ completed 사이의 열린 도구 실행(toolRunId → 부모 Task 표식). 중단/타임아웃/
+  // 에러로 턴이 끊기면 합성 tool_result 로 정착시켜 "실행 중" 무한 렌더를 막는다(send.ts settleOpenToolRuns).
+  openToolRuns: Map<string, { parentToolRunId?: string }>
 }
 
 export class TurnRegistry<W = unknown> {

@@ -1,11 +1,13 @@
 import { Button } from '../../../../shared/ui/Button'
+import { StatusLine } from '../../../../shared/ui/StatusLine'
 import { AssistantMessage } from '../transcript/AssistantMessage'
 import {
   childMessageForParentToolRunId,
   subagentTasksFromMessages,
   type SubagentTaskStatus
 } from '../../lib/parts'
-import { chatActions, useChatSession } from '../../store/chatStore'
+import { formatTimeFull, formatTimeShort } from '../../format'
+import { chatActions, useChatSession, useSubagentMeta } from '../../store/chatStore'
 import type { ToolCall } from '../../reducer/chatReducer'
 
 const STATUS_LABEL: Record<SubagentTaskStatus, string> = {
@@ -83,6 +85,9 @@ export function SubAgentTileContent(): React.JSX.Element {
   const tasks = subagentTasksFromMessages(messages)
   const selected = selectedId ? tasks.find((task) => task.toolUseId === selectedId) : undefined
   const childMessage = selectedId ? childMessageForParentToolRunId(messages, selectedId) : null
+  // 진행 중 서브에이전트 상세에서 메인 transcript 와 동일한 프로세싱 표시(StatusLine)를 버블
+  // 아래에 띄우기 위한 경과 앵커 — 라이브 메타의 startedAtMs(첫 task 이벤트 수신 시각).
+  const selectedMeta = useSubagentMeta(selectedId ?? '')
 
   // 상세 — Task 프롬프트(요청사항)는 사용자 메시지 버블처럼 우측 정렬, 그 아래 child
   // 트랜스크립트를 메인 transcript 컴포넌트로 렌더. 뒤로가기/제목은 타일 헤더가 담당.
@@ -107,6 +112,11 @@ export function SubAgentTileContent(): React.JSX.Element {
           <div className="whitespace-pre-wrap text-[14px] leading-[1.7] text-ink">
             {answerFallback}
           </div>
+        )}
+        {/* 진행 중이면 메인 transcript 와 동일한 StatusLine 을 child 트랜스크립트 아래에 — 같은
+            컴포넌트·인자(turnStartedAt)로 재사용해 "처리 중" 아이콘/경과를 동일하게 노출. */}
+        {selected.status === 'running' && (
+          <StatusLine turnStartedAt={selectedMeta?.startedAtMs ?? null} />
         )}
         {!childMessage && !answerFallback && (
           <div className="rounded-r5 border border-t5 bg-bg2 p-4 text-footnote text-ink3">
@@ -142,7 +152,10 @@ export function SubAgentTileContent(): React.JSX.Element {
           <div className="mb-g3 mt-g1 flex items-center px-p2 text-footnote text-t6">
             <span>{STATUS_LABEL[group.status]}</span>
             {group.status === 'completed' && (
-              <button type="button" className="ml-auto text-t6 hover:text-t8">
+              <button
+                type="button"
+                className="ml-auto rounded-r4 px-1.5 py-0.5 text-t6 transition-colors hover:bg-fill-uncontained-hover hover:text-t8"
+              >
                 지우기
               </button>
             )}
@@ -176,6 +189,9 @@ export function SubAgentTileContent(): React.JSX.Element {
                   <div className="mt-g1 pl-5 text-footnote text-ink3">
                     {`에이전트${GAP}${STATUS_LABEL[task.status]}`}
                     {task.durationLabel ? `${GAP}${task.durationLabel}` : ''}
+                    <span title={formatTimeFull(task.createdAtMs)}>
+                      {`${GAP}${formatTimeShort(task.createdAtMs)}`}
+                    </span>
                   </div>
                   <div className="mt-g1 flex items-center pl-5 text-footnote text-ink3">
                     <span className="min-w-0 truncate">
@@ -189,6 +205,7 @@ export function SubAgentTileContent(): React.JSX.Element {
                     {task.status === 'running' && (
                       // 진행 중 서브에이전트 중단 — 네모·라운드·채움없음(stop 아이콘). 카드 열기와
                       // 버블링 분리(stopPropagation). turn 전체가 아니라 이 Task 만 멈춘다.
+                      // '대화록 보기' 바로 우측에 좌측정렬(ml-auto 로 끝까지 밀지 않음).
                       <Button
                         iconOnly
                         variant="uncontained"
@@ -196,7 +213,7 @@ export function SubAgentTileContent(): React.JSX.Element {
                         leadingIcon="stop"
                         aria-label="중단"
                         title="중단"
-                        className="ml-auto shrink-0"
+                        className="ml-g2 shrink-0"
                         onClick={(e) => {
                           e.stopPropagation()
                           chatActions.stopSubagent(task.toolUseId)

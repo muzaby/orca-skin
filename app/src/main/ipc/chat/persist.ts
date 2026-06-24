@@ -73,6 +73,9 @@ export class TurnPersistence {
         ...(a.response !== undefined ? { response: a.response } : {})
       }
       turn.askResolved.set(toolUseId, a)
+      // 답변이 채워진 Ask 는 더 이상 "열린 실행"이 아니다 — 중단 시 settleOpenToolRuns 가 abort
+      // 결과로 답변을 덮어쓰지 않도록 추적에서 제거한다(실제 tool_result 는 늦게 올 수도 있음).
+      turn.openToolRuns.delete(toolUseId)
       // AskUserQuestion 은 SDK tool_result 가 안 오므로 합성 — 현재 assistant 메시지에
       // tool_result 파트를 upsert(실제 tool_result 가 늦게 와도 같은 toolRunId 로 덮어쓴다).
       if (turn.currentAssistantMessageId != null) {

@@ -7,6 +7,7 @@ import {
   partsAttachments,
   childMessageForParentToolRunId,
   subagentTasksFromMessages,
+  isAbortedResult,
   messageSegments,
   modelDisplayLabel
 } from './parts'
@@ -277,6 +278,39 @@ describe('parts selectors', () => {
     expect(subagentTasksFromMessages(messages)).toMatchObject([
       { toolUseId: 'parent-task', description: '중단 작업', status: 'aborted' }
     ])
+  })
+
+  it('subagentTasksFromMessages 는 부모 Task 메시지의 createdAt 을 createdAtMs 로 투영한다', () => {
+    const messages = [
+      {
+        role: 'assistant' as const,
+        createdAt: 1_700_000_000_000,
+        parts: [
+          {
+            type: 'tool_call' as const,
+            toolRunId: 'parent-task',
+            toolName: 'Task',
+            args: { description: '시간 표시' }
+          }
+        ]
+      }
+    ]
+    expect(subagentTasksFromMessages(messages)).toMatchObject([
+      { toolUseId: 'parent-task', createdAtMs: 1_700_000_000_000, status: 'running' }
+    ])
+  })
+
+  it('isAbortedResult 는 abort 마커 결과만 true(일반 에러는 false)', () => {
+    expect(isAbortedResult({ output: { reason: 'aborted' }, isError: true })).toBe(true)
+    expect(isAbortedResult({ output: { reason: 'user_cancelled' }, isError: true })).toBe(true)
+    expect(isAbortedResult({ output: { message: '작업이 중단되었습니다.' }, isError: true })).toBe(
+      true
+    )
+    // 일반 도구 에러(abort 마커 없음) → false.
+    expect(isAbortedResult({ output: { message: 'command failed' }, isError: true })).toBe(false)
+    // 성공 결과·미도착(undefined) → false.
+    expect(isAbortedResult({ output: 'ok', isError: false })).toBe(false)
+    expect(isAbortedResult(undefined)).toBe(false)
   })
 
   it('modelDisplayLabel 은 모델 id 를 친근한 라벨로 매핑한다', () => {

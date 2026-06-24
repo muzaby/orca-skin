@@ -42,6 +42,10 @@ export const VERB_LABEL_ACTIVE: Record<VerbCategory, string> = {
   delegated: '실행 중'
 }
 
+// 동사 라벨 — 중단됨 (도구가 result 없이 진행 중이다가 턴 취소/타임아웃으로 정착된 경우).
+// 카테고리 무관 단일 라벨 — 완료(VERB_LABEL)도 진행(VERB_LABEL_ACTIVE)도 아닌 제3 상태.
+export const VERB_LABEL_ABORTED = '중단됨'
+
 // 단위 라벨 — planned 는 단위 없는 싱글톤 명사
 export const UNIT_LABEL: Record<VerbCategory, string | null> = {
   ran: '명령',

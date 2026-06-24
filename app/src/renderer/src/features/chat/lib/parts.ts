@@ -110,6 +110,8 @@ export interface SubagentTaskSummary {
   toolUseId: string
   description: string
   status: SubagentTaskStatus
+  // 부모 Task tool_call 이 속한 메시지의 createdAt(ms) — 백그라운드 작업 목록의 시간 표시용.
+  createdAtMs: number
   childToolCount: number
   toolCountLabel: string
   durationLabel: string | null
@@ -187,6 +189,16 @@ export function childMessageForParentToolRunId(
 export function subagentTasksFromMessages(messages: Message[]): SubagentTaskSummary[] {
   const allParts = messages.flatMap((m) => m.parts)
   const resultByRun = resultMap(allParts)
+  // 최상위 tool_call → 그 파트가 속한 메시지의 createdAt. flatMap 은 메시지 경계를 잃으므로
+  // 시간 표시를 위해 별도 순회로 toolRunId 별 createdAt 을 모은다(부모 Task 카드 시간 표시용).
+  const createdAtByRun = new Map<string, number>()
+  for (const message of messages) {
+    for (const part of message.parts) {
+      if (isToolCallPart(part) && part.parentToolRunId === undefined) {
+        createdAtByRun.set(part.toolRunId, message.createdAt)
+      }
+    }
+  }
   const childCounts = new Map<string, number>()
   // 부모 Task → 마지막으로 결과 미도착(진행 중)인 child 도구명. 단일 항목 '· Bash · N' 메타용.
   const currentChild = new Map<string, string>()
@@ -211,6 +223,7 @@ export function subagentTasksFromMessages(messages: Message[]): SubagentTaskSumm
         toolUseId: call.toolUseId,
         description: toolDescriptionFromInput(call.input) ?? call.name,
         status: deriveSubagentTaskStatus(call),
+        createdAtMs: createdAtByRun.get(call.toolUseId) ?? Date.now(),
         childToolCount: toolCount,
         toolCountLabel: `${toolCount} 도구 사용`,
         durationLabel: formatDurationLabel(meta?.durationMs ?? call.result?.durationMs),
@@ -229,15 +242,25 @@ export function isAgentTaskName(name: string): boolean {
   return name === 'Task' || name === 'Agent'
 }
 
+// 도구 결과가 중단/취소(에러이되 사용자/시스템 abort 마커를 가진) 인지. 전체 턴 취소·개별
+// 서브에이전트 stop·SDK stopTask 가 남기는 결과를 일반 실패와 구분한다(메인 카드 "중단됨" 라벨,
+// 서브에이전트 'aborted' 분류). 일반 도구 에러(isError 이나 abort 마커 없음)는 false.
+export function isAbortedResult(result: ToolCall['result']): boolean {
+  if (!result?.isError) return false
+  const reason = valueString(result.output, 'reason')?.toLowerCase() ?? ''
+  const message = valueString(result.output, 'message')?.toLowerCase() ?? ''
+  return (
+    reason.includes('abort') ||
+    reason.includes('cancel') ||
+    message.includes('abort') ||
+    message.includes('중단')
+  )
+}
+
 export function deriveSubagentTaskStatus(call: ToolCall): SubagentTaskStatus {
   if (!call.result) return 'running'
   if (!call.result.isError) return 'completed'
-  const output = call.result.output
-  const reason = valueString(output, 'reason')?.toLowerCase() ?? ''
-  const message = valueString(output, 'message')?.toLowerCase() ?? ''
-  return reason.includes('abort') || message.includes('abort') || message.includes('중단')
-    ? 'aborted'
-    : 'failed'
+  return isAbortedResult(call.result) ? 'aborted' : 'failed'
 }
 
 export function formatDurationLabel(durationMs: number | undefined): string | null {
