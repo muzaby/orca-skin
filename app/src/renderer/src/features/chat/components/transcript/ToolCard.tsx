@@ -11,7 +11,7 @@ import {
 import { stringify } from '../../format'
 import { toolRendererRegistry } from './registry'
 import type { ToolCall } from '../../reducer/chatReducer'
-import { AgentTaskCard } from './AgentTaskCard'
+import { chatActions } from '../../store/chatStore'
 
 const FILE_TOOLS = new Set(['Read', 'Write', 'Edit', 'MultiEdit'])
 
@@ -77,14 +77,15 @@ export const ToolCard = memo(function ToolCard({
   // 최초 오픈 후엔 본문을 계속 마운트 유지 → 닫힘도 grid-rows 전환으로 애니메이션.
   // 한 번도 안 연 카드는 본문 미마운트(shiki 등 선렌더 비용 회피).
   const [wasOpened, setWasOpened] = useState(false)
-  if (toolRendererRegistry.resolve(call).kind === 'agent_task') {
-    return <AgentTaskCard call={call} />
-  }
+  // Task(서브에이전트) 행은 다른 도구행과 동일한 디자인/DOM 을 갖되, 인라인 본문을 펼치지
+  // 않고 우측 백그라운드 패널에 child 트랜스크립트를 구성한다(사용자 결정).
+  const isAgentTask = toolRendererRegistry.resolve(call).kind === 'agent_task'
 
   const toggle = (): void => {
     setOpen((v) => !v)
     setWasOpened(true)
   }
+  const onActivate = isAgentTask ? () => chatActions.openSubagentTask(call.toolUseId) : toggle
   const done = call.result != null
   const isError = call.result?.isError === true
   const cat = toolVerbCategory(call.name)
@@ -98,12 +99,12 @@ export const ToolCard = memo(function ToolCard({
       <div
         role="button"
         tabIndex={0}
-        aria-expanded={open}
-        onClick={toggle}
+        aria-expanded={isAgentTask ? undefined : open}
+        onClick={onActivate}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
             e.preventDefault()
-            toggle()
+            onActivate()
           }
         }}
         className="group/tool flex max-w-full cursor-pointer items-center gap-g2 self-start text-left text-body text-t6 outline-none hide-focus-ring ring-focus"
@@ -123,42 +124,48 @@ export const ToolCard = memo(function ToolCard({
             {stat.removed > 0 && <span className="ml-1 text-extended-pink">-{stat.removed}</span>}
           </span>
         )}
-        <span aria-hidden className={`shrink-0 transition-transform ${open ? 'rotate-90' : ''}`}>
+        <span
+          aria-hidden
+          className={`shrink-0 transition-transform ${!isAgentTask && open ? 'rotate-90' : ''}`}
+        >
           <Icon name="chevR" size={12} />
         </span>
       </div>
-      {/* 펼침 본문 — grid-rows 0fr↔1fr 전환으로 height+opacity 애니메이션(JS scrollHeight 불요) */}
-      <div
-        className={`grid transition-[grid-template-rows,opacity] duration-200 ease-[cubic-bezier(0.215,0.61,0.355,1)] motion-reduce:transition-none ${
-          open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
-        }`}
-      >
-        <div className="min-h-0 overflow-hidden">
-          {(open || wasOpened) && (
-            <div
-              className={`group/toolbody mt-g2 overflow-hidden rounded-r4 border border-t5 font-mono text-footnote text-t9 ${
-                inGroup ? '' : 'bg-bg'
-              }`}
-            >
-              <div className="px-p5 py-p4">
-                {/* 본문 헤더(경로/도구명 + 우측 복사) — 모든 도구 공통, 복사버튼 항상 노출.
+      {/* 펼침 본문 — grid-rows 0fr↔1fr 전환(JS scrollHeight 불요). Task 는 인라인 본문 없이
+          우측 패널을 열므로 본문 자체를 렌더하지 않는다. */}
+      {!isAgentTask && (
+        <div
+          className={`grid transition-[grid-template-rows,opacity] duration-200 ease-[cubic-bezier(0.215,0.61,0.355,1)] motion-reduce:transition-none ${
+            open ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+          }`}
+        >
+          <div className="min-h-0 overflow-hidden">
+            {(open || wasOpened) && (
+              <div
+                className={`group/toolbody mt-g2 overflow-hidden rounded-r4 border border-t5 font-mono text-footnote text-t9 ${
+                  inGroup ? '' : 'bg-bg'
+                }`}
+              >
+                <div className="px-p5 py-p4">
+                  {/* 본문 헤더(경로/도구명 + 우측 복사) — 모든 도구 공통, 복사버튼 항상 노출.
                     ToolBody 내부의 중복 헤더(DiffBody 경로 줄/CodeBlock 언어 헤더)는 제거됨. */}
-                <div className="mb-g3 flex items-center gap-g3 font-sans text-caption text-t6">
-                  <span
-                    className={`min-w-0 truncate font-semibold ${isError ? 'text-bad' : 'text-t7'}`}
-                  >
-                    {headerLabel(call)}
-                  </span>
-                  <div className="ml-auto shrink-0">
-                    <CopyIconButton text={copyText(call)} title="복사" />
+                  <div className="mb-g3 flex items-center gap-g3 font-sans text-caption text-t6">
+                    <span
+                      className={`min-w-0 truncate font-semibold ${isError ? 'text-bad' : 'text-t7'}`}
+                    >
+                      {headerLabel(call)}
+                    </span>
+                    <div className="ml-auto shrink-0">
+                      <CopyIconButton text={copyText(call)} title="복사" />
+                    </div>
                   </div>
+                  <ToolBody call={call} />
                 </div>
-                <ToolBody call={call} />
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 })

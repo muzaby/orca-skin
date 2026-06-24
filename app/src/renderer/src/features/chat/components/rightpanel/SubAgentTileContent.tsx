@@ -1,5 +1,4 @@
 import { Button } from '../../../../shared/ui/Button'
-import { Markdown } from '../../../../shared/ui/markdown/Markdown'
 import { AssistantMessage } from '../transcript/AssistantMessage'
 import {
   childMessageForParentToolRunId,
@@ -15,6 +14,12 @@ const STATUS_LABEL: Record<SubagentTaskStatus, string> = {
   failed: '실패',
   aborted: '중지됨'
 }
+
+// 목록은 상태별 그룹(진행 중 → 완료 → 중지됨 → 실패)으로 묶는다. 빈 그룹은 렌더하지 않는다.
+const GROUP_ORDER: SubagentTaskStatus[] = ['running', 'completed', 'aborted', 'failed']
+
+// 메타 라인의 항목 구분 — 가시 간격 유지를 위해 nbsp 2칸(이미지 양식).
+const GAP = '  '
 
 function promptFromCall(call: ToolCall): string | null {
   const input = call.input
@@ -64,15 +69,17 @@ export function SubAgentTileContent(): React.JSX.Element {
   const selected = selectedId ? tasks.find((task) => task.toolUseId === selectedId) : undefined
   const childMessage = selectedId ? childMessageForParentToolRunId(messages, selectedId) : null
 
-  // 상세 — Task 프롬프트(있으면) + child 트랜스크립트를 메인 transcript 컴포넌트로 렌더.
-  // 뒤로가기/제목은 타일 헤더(SubAgentTileHeader)가 담당하므로 본문엔 헤더를 두지 않는다.
+  // 상세 — Task 프롬프트(요청사항)는 사용자 메시지 버블처럼 우측 정렬, 그 아래 child
+  // 트랜스크립트를 메인 transcript 컴포넌트로 렌더. 뒤로가기/제목은 타일 헤더가 담당.
   if (selected) {
     const prompt = promptFromCall(selected.call)
     return (
       <div className="min-h-0 flex-1 overflow-auto px-p5 py-p4">
         {prompt && (
-          <div className="mb-g4 text-body leading-[1.7] text-ink">
-            <Markdown source={prompt} />
+          <div className="mb-g4 flex justify-end">
+            <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl bg-bubble-user px-4 py-2.5 text-[14px] leading-[1.7] text-ink">
+              {prompt}
+            </div>
           </div>
         )}
         {childMessage ? (
@@ -86,7 +93,7 @@ export function SubAgentTileContent(): React.JSX.Element {
     )
   }
 
-  // 목록 — 백그라운드 작업 카드들(이미지 8). 제목은 타일 헤더가 표시한다.
+  // 목록 — 백그라운드 작업을 상태 그룹으로 묶어 카드로 표시한다(이미지 양식).
   if (tasks.length === 0) {
     return (
       <div className="flex min-h-0 flex-1 flex-col">
@@ -98,44 +105,56 @@ export function SubAgentTileContent(): React.JSX.Element {
     )
   }
 
+  const groups = GROUP_ORDER.map((status) => ({
+    status,
+    items: tasks.filter((task) => task.status === status)
+  })).filter((group) => group.items.length > 0)
+
   return (
-    <div className="min-h-0 flex-1 overflow-auto px-p5 py-p4">
-      <div className="mb-g3 flex items-center text-footnote text-t6">
-        <span>완료</span>
-        <button type="button" className="ml-auto text-t6 hover:text-t8">
-          지우기
-        </button>
-      </div>
-      <div className="flex flex-col gap-g3">
-        {tasks.map((task) => (
-          <button
-            key={task.toolUseId}
-            type="button"
-            onClick={() => chatActions.selectSubagentTask(task.toolUseId)}
-            aria-label={`${task.description} 대화록 보기`}
-            className="group/subagent rounded-r6 bg-bg2 px-p5 py-p4 text-left transition-colors hover:bg-fill-uncontained-hover focus:outline-none hide-focus-ring ring-focus"
-          >
-            <div className="flex min-w-0 items-center gap-g3">
-              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-t6" />
-              <span className="min-w-0 flex-1 truncate text-body font-semibold text-t9">
-                {task.description}
-              </span>
-            </div>
-            <div className="mt-g1 pl-5 text-footnote text-ink3">
-              에이전트&nbsp;&nbsp;{STATUS_LABEL[task.status]}
-              {task.durationLabel ? `\u00A0\u00A0${task.durationLabel}` : ''}
-            </div>
-            <div className="mt-g1 pl-5 text-footnote text-ink3">
-              {task.tokenLabel ? `${task.tokenLabel}\u00A0\u00A0` : ''}
-              {task.toolCountLabel}
-              {'\u00A0\u00A0'}
-              <span className="font-medium text-accent group-hover/subagent:underline">
-                대화록 보기
-              </span>
-            </div>
-          </button>
-        ))}
-      </div>
+    <div className="min-h-0 flex-1 overflow-auto px-p4 py-p4">
+      {groups.map((group, gi) => (
+        <div key={group.status} className={gi > 0 ? 'mt-5' : ''}>
+          {/* 상태 그룹 헤더 — 상하 여백 확보(원본 이미지). 완료 그룹만 '지우기' 노출. */}
+          <div className="mb-g3 mt-g1 flex items-center px-p2 text-footnote text-t6">
+            <span>{STATUS_LABEL[group.status]}</span>
+            {group.status === 'completed' && (
+              <button type="button" className="ml-auto text-t6 hover:text-t8">
+                지우기
+              </button>
+            )}
+          </div>
+          <div className="flex flex-col gap-g3">
+            {group.items.map((task) => (
+              <button
+                key={task.toolUseId}
+                type="button"
+                onClick={() => chatActions.selectSubagentTask(task.toolUseId)}
+                aria-label={`${task.description} 대화록 보기`}
+                className="group/subagent rounded-r6 bg-bg2 px-3 py-2.5 text-left transition-colors hover:bg-fill-uncontained-hover focus:outline-none hide-focus-ring ring-focus"
+              >
+                <div className="flex min-w-0 items-center gap-g3">
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-t6" />
+                  <span className="min-w-0 flex-1 truncate text-body font-semibold text-t9">
+                    {task.description}
+                  </span>
+                </div>
+                <div className="mt-g1 pl-5 text-footnote text-ink3">
+                  {`에이전트${GAP}${STATUS_LABEL[task.status]}`}
+                  {task.durationLabel ? `${GAP}${task.durationLabel}` : ''}
+                </div>
+                <div className="mt-g1 pl-5 text-footnote text-ink3">
+                  {task.tokenLabel ? `${task.tokenLabel}${GAP}` : ''}
+                  {task.toolCountLabel}
+                  {GAP}
+                  <span className="font-medium text-t7 group-hover/subagent:underline">
+                    대화록 보기
+                  </span>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
