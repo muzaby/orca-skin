@@ -81,3 +81,20 @@ export function createSubagentSettlementEvents({
 
   return events
 }
+
+export function coerceStoppedToolCompletion(
+  stoppedSubagents: ReadonlySet<string>,
+  ev: Extract<NormalizedEvent, { type: 'tool.call.completed' }>
+): Extract<NormalizedEvent, { type: 'tool.call.completed' }> {
+  if (
+    !stoppedSubagents.has(ev.toolRunId) &&
+    (ev.parentToolRunId === undefined || !stoppedSubagents.has(ev.parentToolRunId))
+  ) {
+    return ev
+  }
+  return {
+    ...ev,
+    result: { reason: 'aborted', message: '서브에이전트 중단으로 종료됨' },
+    isError: true
+  }
+}
