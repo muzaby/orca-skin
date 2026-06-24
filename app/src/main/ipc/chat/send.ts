@@ -36,7 +36,7 @@ import { handle, handlePlain } from '../registry'
 import type { ApprovalCoordinator } from './approvals'
 import type { TurnPersistence } from './persist'
 import type { TitleGenerator } from './title-generation'
-import { createSubagentSettlementEvents } from './subagent-settlement'
+import { coerceStoppedToolCompletion, createSubagentSettlementEvents } from './subagent-settlement'
 import type { InflightTurn, TurnRegistry } from './turn-registry'
 
 export const IDLE_TIMEOUT_MS = 120_000
@@ -133,6 +133,22 @@ function settleSubagentTask(
     sendChatEvent(turn.owner, out)
     turn.openToolRuns.delete(out.toolRunId)
   }
+}
+
+async function stopLiveSubagent(
+  turn: InflightTurn<WebContents>,
+  toolUseId: string,
+  taskId: string | undefined,
+  backgroundSubagents: boolean
+): Promise<void> {
+  if (!turn.live) return
+  // foreground Task 는 먼저 background control-request 로 루트 턴에서 분리해야 stopTask 가 실제
+  // 작업 취소로 이어진다. 이미 background 로 시작된 경우에는 불필요한 backgroundTask 를 건너뛴다.
+  if (!backgroundSubagents) {
+    await turn.live.backgroundTask(toolUseId).catch(() => false)
+  }
+  if (!taskId) return
+  await turn.live.stopTask(taskId).catch(() => undefined)
 }
 
 // 턴 단위 provider/model 해석 (handoff 0010 → 0014) — payload providerKey 가 어댑터와
@@ -435,7 +451,11 @@ export function registerChatHandlers(deps: ChatDeps): void {
           try {
             turn.live = live
             idle.reset()
-            for await (const ev of live.events) {
+            for await (const rawEv of live.events) {
+              const ev =
+                rawEv.type === 'tool.call.completed'
+                  ? coerceStoppedToolCompletion(turn.stoppedSubagents, rawEv)
+                  : rawEv
               eventsReceived += 1
               idle.reset()
               if (ev.type === 'telemetry' || ev.type === 'error' || ev.type === 'turn.aborted') {
@@ -456,6 +476,9 @@ export function registerChatHandlers(deps: ChatDeps): void {
               // 서브에이전트(Task) task_id 매핑 — orca:chat:stopSubagent 가 toolUseId 로 찾는다.
               if (ev.type === 'subagent.task' && ev.taskId) {
                 turn.subagentTaskIds.set(ev.toolUseId, ev.taskId)
+                if (turn.stoppedSubagents.has(ev.toolUseId)) {
+                  void stopLiveSubagent(turn, ev.toolUseId, ev.taskId, backgroundSubagents)
+                }
               }
               // subagent_type 매핑 — 재호출 차단(blockedSubagents)에 쓸 타입.
               if (ev.type === 'subagent.task' && ev.subagentType) {
@@ -586,18 +609,6 @@ export function registerChatHandlers(deps: ChatDeps): void {
       status: 'stopped'
     })
 
-    if (!turn.live || !taskId) return
-    try {
-      await turn.live.stopTask(taskId)
-    } catch {
-      // foreground 직접 중단 거부 가능 — 백그라운드 전환 후 재시도(실환경 동작 차이 흡수).
-      if (backgroundSubagents) return
-      try {
-        await turn.live.backgroundTask(req.toolUseId)
-        await turn.live.stopTask(taskId)
-      } catch {
-        // 최선 노력 — UI 는 이미 중단됨, turn 은 유지(사용자가 전체 취소로 폴백 가능).
-      }
-    }
+    await stopLiveSubagent(turn, req.toolUseId, taskId, backgroundSubagents)
   })
 }
