@@ -80,6 +80,35 @@ export function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
   })
 }
 
+// 턴이 정상 완료 없이 끊길 때(중단·타임아웃·에러) 아직 열려 있는 도구 실행을 합성 tool_result 로
+// 정착시킨다. 결과가 영영 안 오면 렌더가 "실행 중"(epitaxy-text-shine)으로 무한 렌더되고 부모
+// Task 도 "진행 중"으로 남으므로, abort 마커(reason)를 담은 tool.call.completed 를 방출+영속한다.
+// AskUserQuestion tool_result 합성(flushAskAnswers)과 동형의 보정 — toolRunId 멱등(upsert).
+function settleOpenToolRuns(
+  turn: InflightTurn<WebContents>,
+  persistence: TurnPersistence,
+  kind: 'aborted' | 'failed'
+): void {
+  if (turn.openToolRuns.size === 0) return
+  const result =
+    kind === 'aborted'
+      ? { reason: 'aborted', message: '사용자가 중단했습니다' }
+      : { reason: 'failed', message: '오류로 중단되었습니다' }
+  for (const [toolRunId, info] of turn.openToolRuns) {
+    const ev = {
+      type: 'tool.call.completed',
+      sessionId: turn.dbSessionId ?? '',
+      toolRunId,
+      result,
+      isError: true,
+      ...(info.parentToolRunId !== undefined ? { parentToolRunId: info.parentToolRunId } : {})
+    } as const
+    persistence.persist(turn, ev)
+    sendChatEvent(turn.owner, ev)
+  }
+  turn.openToolRuns.clear()
+}
+
 // 턴 단위 provider/model 해석 (handoff 0010 → 0014) — payload providerKey 가 어댑터와
 // 일치하면 적용, 불일치/무효면 세션의 마지막 provider_key → 기본 provider(anthropic 우선) 폴백.
 // 원천은 sources/settings/<adapter>/ 트리(ProviderSettingsService)이며, settings 해석(blob)은
@@ -247,7 +276,8 @@ export function registerChatHandlers(deps: ChatDeps): void {
       pendingAskAnswers: [],
       askPendingIds: [],
       askResolved: new Map(),
-      subagentTaskIds: new Map()
+      subagentTaskIds: new Map(),
+      openToolRuns: new Map()
     }
     if (parsed.data.sessionId) turns.startResume(parsed.data.sessionId, turn)
     else turns.startNew(event.sender, turn)
@@ -391,6 +421,15 @@ export function registerChatHandlers(deps: ChatDeps): void {
               if (ev.type === 'subagent.task' && ev.taskId) {
                 turn.subagentTaskIds.set(ev.toolUseId, ev.taskId)
               }
+              // 열린 도구 실행 추적 — 중단/타임아웃 시 합성 결과로 정착시킬 대상(settleOpenToolRuns).
+              if (ev.type === 'tool.call.started') {
+                turn.openToolRuns.set(
+                  ev.toolRunId,
+                  ev.parentToolRunId !== undefined ? { parentToolRunId: ev.parentToolRunId } : {}
+                )
+              } else if (ev.type === 'tool.call.completed') {
+                turn.openToolRuns.delete(ev.toolRunId)
+              }
             }
           } finally {
             ctx.concurrency.decrement(boundProjectId)
@@ -408,6 +447,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
           if (turn.cancelled && controller.signal.aborted) return
           if (turn.timedOut) {
             sawTerminal = true
+            settleOpenToolRuns(turn, persistence, 'aborted')
             sendChatEvent(event.sender, {
               type: 'error',
               ...(turn.dbSessionId ? { sessionId: turn.dbSessionId } : {}),
@@ -441,6 +481,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
           // sessionId 가 확정된 턴이면 부착 — renderer 멀티세션 store 가 정확한 엔트리로
           // 라우팅한다(없으면 활성 엔트리 폴백, handoff 0013).
           sawTerminal = true
+          settleOpenToolRuns(turn, persistence, 'failed')
           sendChatEvent(event.sender, {
             type: 'error',
             ...(turn.dbSessionId ? { sessionId: turn.dbSessionId } : {}),
@@ -466,6 +507,9 @@ export function registerChatHandlers(deps: ChatDeps): void {
     if (!turn) return
     turn.cancelled = true
     turn.controller.abort()
+    // 진행 중이던 도구(최상위 + 서브에이전트 child)를 중단 결과로 정착 — 안 하면 결과가
+    // 영영 안 와 "실행 중"으로 무한 렌더되고 부모 Task 가 "진행 중"으로 남는다. turn.aborted 전에.
+    settleOpenToolRuns(turn, persistence, 'aborted')
     sendChatEvent(turn.owner, {
       type: 'turn.aborted',
       sessionId: req.sessionId,

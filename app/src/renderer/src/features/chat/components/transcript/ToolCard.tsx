@@ -3,11 +3,13 @@ import { Icon } from '../../../../shared/ui/Icon'
 import { CopyIconButton } from '../../../../shared/ui/CopyIconButton'
 import {
   VERB_LABEL,
+  VERB_LABEL_ABORTED,
   VERB_LABEL_ACTIVE,
   toolDescription,
   toolDiffStat,
   toolVerbCategory
 } from '../../lib/toolMeta'
+import { isAbortedResult } from '../../lib/parts'
 import { stringify } from '../../format'
 import { toolRendererRegistry } from './registry'
 import type { ToolCall } from '../../reducer/chatReducer'
@@ -89,10 +91,12 @@ export const ToolCard = memo(function ToolCard({
   }
   const onActivate = toggle
   const done = call.result != null
+  const aborted = isAbortedResult(call.result)
   const isError = call.result?.isError === true
   const cat = toolVerbCategory(call.name)
-  // 진행 중이면 진행 시제(읽는 중…), 완료되면 완료 시제(읽음).
-  const verb = done ? VERB_LABEL[cat] : VERB_LABEL_ACTIVE[cat]
+  // 중단됨(턴 취소/타임아웃 정착) → 완료/진행 어느 시제도 아닌 "중단됨". 그 외엔 진행 중이면
+  // 진행 시제(읽는 중…), 완료되면 완료 시제(읽음).
+  const verb = aborted ? VERB_LABEL_ABORTED : done ? VERB_LABEL[cat] : VERB_LABEL_ACTIVE[cat]
   const description = toolDescription(call)
   const stat = toolDiffStat(call)
   return (
@@ -113,7 +117,13 @@ export const ToolCard = memo(function ToolCard({
       >
         <span
           className={`shrink-0 ${
-            isError ? 'text-bad' : done ? 'group-hover/tool:text-t9' : 'epitaxy-text-shine'
+            aborted
+              ? 'text-ink3'
+              : isError
+                ? 'text-bad'
+                : done
+                  ? 'group-hover/tool:text-t9'
+                  : 'epitaxy-text-shine'
           }`}
         >
           {verb}
