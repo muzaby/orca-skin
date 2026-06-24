@@ -67,6 +67,9 @@ export interface InflightTurn<W = unknown> {
   subagentTypes: Map<string, string>
   // 재호출 차단된 서브에이전트 타입 집합(가이드 §6-A). 사용자가 stop 한 타입을 담아 canUseTool 이 deny.
   blockedSubagents: Set<string>
+  // 사용자가 명시 중단한 부모 Agent/Task toolUseId. 이후 늦은 completed notification 이 와도
+  // 사용자 의도를 우선해 루트/전용 transcript 를 aborted 로 유지한다.
+  stoppedSubagents: Set<string>
 }
 
 export class TurnRegistry<W = unknown> {

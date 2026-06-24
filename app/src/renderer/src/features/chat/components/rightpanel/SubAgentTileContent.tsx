@@ -14,10 +14,10 @@ const STATUS_LABEL: Record<SubagentTaskStatus, string> = {
   running: '진행 중',
   completed: '완료',
   failed: '실패',
-  aborted: '중지됨'
+  aborted: '중단됨'
 }
 
-// 목록은 상태별 그룹(진행 중 → 완료 → 중지됨 → 실패)으로 묶는다. 빈 그룹은 렌더하지 않는다.
+// 목록은 상태별 그룹(진행 중 → 완료 → 중단됨 → 실패)으로 묶는다. 빈 그룹은 렌더하지 않는다.
 const GROUP_ORDER: SubagentTaskStatus[] = ['running', 'completed', 'aborted', 'failed']
 
 // 메타 라인의 항목 구분 — 가시 간격 유지를 위해 nbsp 2칸(이미지 양식).
