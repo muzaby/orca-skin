@@ -184,3 +184,48 @@ describe('makeCanUseTool — 위험 도구 게이트(tool_approval)', () => {
     expect(res).toEqual({ behavior: 'allow', updatedInput: input })
   })
 })
+
+describe('makeCanUseTool — 서브에이전트 백그라운드화 + 재호출 차단', () => {
+  const reqAllow = vi.fn<ReqApproval>().mockResolvedValue({ behavior: 'allow' })
+
+  it('backgroundSubagents on → Agent 호출에 run_in_background:true 주입', async () => {
+    const canUse = makeCanUseTool(reqAllow, { backgroundSubagents: true })
+    const res = await canUse('Agent', { subagent_type: 'Explore', prompt: 'x' }, ctx)
+    expect(res).toEqual({
+      behavior: 'allow',
+      updatedInput: { subagent_type: 'Explore', prompt: 'x', run_in_background: true }
+    })
+  })
+
+  it('구버전 도구명 Task 도 동일하게 주입', async () => {
+    const canUse = makeCanUseTool(reqAllow, { backgroundSubagents: true })
+    const res = await canUse('Task', { subagent_type: 'general' }, ctx)
+    expect(res).toMatchObject({ behavior: 'allow', updatedInput: { run_in_background: true } })
+  })
+
+  it('backgroundSubagents off(기본) → 주입 없이 passthrough', async () => {
+    const canUse = makeCanUseTool(reqAllow)
+    const input = { subagent_type: 'Explore' }
+    const res = await canUse('Agent', input, ctx)
+    expect(res).toEqual({ behavior: 'allow', updatedInput: input })
+  })
+
+  it('차단된 서브에이전트 타입은 deny(주입보다 우선)', async () => {
+    const canUse = makeCanUseTool(reqAllow, {
+      backgroundSubagents: true,
+      isSubagentBlocked: (st) => st === 'Explore'
+    })
+    const res = await canUse('Agent', { subagent_type: 'Explore' }, ctx)
+    expect(res.behavior).toBe('deny')
+    if (res.behavior === 'deny') expect(res.message).toMatch(/취소|다시 호출/)
+  })
+
+  it('차단되지 않은 타입은 정상 주입', async () => {
+    const canUse = makeCanUseTool(reqAllow, {
+      backgroundSubagents: true,
+      isSubagentBlocked: (st) => st === 'Explore'
+    })
+    const res = await canUse('Agent', { subagent_type: 'other' }, ctx)
+    expect(res).toMatchObject({ updatedInput: { run_in_background: true } })
+  })
+})

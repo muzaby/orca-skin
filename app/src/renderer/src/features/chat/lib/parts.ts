@@ -242,6 +242,18 @@ export function isAgentTaskName(name: string): boolean {
   return name === 'Task' || name === 'Agent'
 }
 
+// 부모 Task 결과가 "백그라운드로 시작됨"(async_launched) 인지 — run_in_background 로 띄운
+// 서브에이전트의 Agent tool_result 는 즉시 { status:'async_launched', agentId, … } 성공을
+// 반환하고(SDK AgentOutput), 진짜 종료(완료/실패/중지)는 나중에 task_notification 으로 온다.
+// 따라서 이 임시 결과는 "완료"가 아니라 "실행 중"으로 취급한다(settled 알림이 덮어쓸 때까지).
+export function isAsyncLaunchedResult(result: ToolCall['result']): boolean {
+  if (!result) return false
+  const o = result.output
+  return (
+    typeof o === 'object' && o !== null && (o as { status?: unknown }).status === 'async_launched'
+  )
+}
+
 // 도구 결과가 중단/취소(에러이되 사용자/시스템 abort 마커를 가진) 인지. 전체 턴 취소·개별
 // 서브에이전트 stop·SDK stopTask 가 남기는 결과를 일반 실패와 구분한다(메인 카드 "중단됨" 라벨,
 // 서브에이전트 'aborted' 분류). 일반 도구 에러(isError 이나 abort 마커 없음)는 false.
@@ -259,6 +271,8 @@ export function isAbortedResult(result: ToolCall['result']): boolean {
 
 export function deriveSubagentTaskStatus(call: ToolCall): SubagentTaskStatus {
   if (!call.result) return 'running'
+  // 백그라운드로 막 시작된 임시 결과는 진행 중 — settled 알림이 권위 결과로 덮어쓰기 전까지.
+  if (isAsyncLaunchedResult(call.result)) return 'running'
   if (!call.result.isError) return 'completed'
   return isAbortedResult(call.result) ? 'aborted' : 'failed'
 }

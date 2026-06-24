@@ -8,9 +8,12 @@ import {
   childMessageForParentToolRunId,
   subagentTasksFromMessages,
   isAbortedResult,
+  isAsyncLaunchedResult,
+  deriveSubagentTaskStatus,
   messageSegments,
   modelDisplayLabel
 } from './parts'
+import type { ToolCall } from '../reducer/chatReducer'
 import type { AppMessagePart } from '../../../../../shared/ipc'
 
 describe('parts selectors', () => {
@@ -298,6 +301,19 @@ describe('parts selectors', () => {
     expect(subagentTasksFromMessages(messages)).toMatchObject([
       { toolUseId: 'parent-task', createdAtMs: 1_700_000_000_000, status: 'running' }
     ])
+  })
+
+  it('isAsyncLaunchedResult 는 백그라운드 launched 결과만 true, deriveSubagentTaskStatus 는 running 으로 본다', () => {
+    const launched = {
+      output: { status: 'async_launched', agentId: 'agent-1', description: 'x', prompt: 'y' },
+      isError: false
+    }
+    expect(isAsyncLaunchedResult(launched)).toBe(true)
+    expect(isAsyncLaunchedResult({ output: { status: 'completed' }, isError: false })).toBe(false)
+    expect(isAsyncLaunchedResult(undefined)).toBe(false)
+    // 백그라운드로 막 시작된 부모 Task 는 '완료'가 아니라 '실행 중'.
+    const call: ToolCall = { toolUseId: 't', name: 'Task', input: {}, result: launched }
+    expect(deriveSubagentTaskStatus(call)).toBe('running')
   })
 
   it('isAbortedResult 는 abort 마커 결과만 true(일반 에러는 false)', () => {
