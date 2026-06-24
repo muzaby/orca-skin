@@ -27,7 +27,7 @@ export const VERB_LABEL: Record<VerbCategory, string> = {
   used: '사용함',
   planned: '제안된 계획',
   requested: '요청됨',
-  delegated: '위임됨'
+  delegated: '실행됨'
 }
 
 // 동사 라벨 — 진행 시제 (도구가 아직 result 없이 동작 중일 때)
@@ -39,7 +39,7 @@ export const VERB_LABEL_ACTIVE: Record<VerbCategory, string> = {
   used: '사용 중',
   planned: '계획 제안 중',
   requested: '질문 중',
-  delegated: '위임 중'
+  delegated: '실행 중'
 }
 
 // 단위 라벨 — planned 는 단위 없는 싱글톤 명사
@@ -51,7 +51,7 @@ export const UNIT_LABEL: Record<VerbCategory, string | null> = {
   used: '도구',
   planned: null,
   requested: '질문',
-  delegated: '작업'
+  delegated: '에이전트'
 }
 
 // 요약 조립 순서

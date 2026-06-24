@@ -269,9 +269,13 @@ function subagentTaskChildFragment(): MockStep[] {
     emit({
       type: 'tool.call.completed',
       toolRunId: 'mock-subagent-child-parent',
-      result: { summary: 'child transcript 수집 완료' },
+      result: {
+        summary: 'child transcript 수집 완료',
+        agentLabel: 'Haiku 4.5',
+        tokenCount: 20600
+      },
       isError: false,
-      durationMs: 180
+      durationMs: 92_000
     }),
     ...closing('child transcript 검토가 끝났습니다.')
   ]
@@ -309,9 +313,14 @@ function subagentTaskAbortedFragment(): MockStep[] {
     emit({
       type: 'tool.call.completed',
       toolRunId: 'mock-subagent-aborted-parent',
-      result: { message: '서브에이전트가 중단되었습니다.', reason: 'aborted' },
+      result: {
+        message: '서브에이전트가 중단되었습니다.',
+        reason: 'aborted',
+        agentLabel: 'Haiku 4.5',
+        tokenCount: 40000
+      },
       isError: true,
-      durationMs: 80
+      durationMs: 92_000
     })
   ]
 }
@@ -329,9 +338,9 @@ function subagentTaskMultiFragment(): MockStep[] {
     emit({
       type: 'tool.call.completed',
       toolRunId: 'mock-subagent-multi-a',
-      result: { summary: '문서 점검 완료' },
+      result: { summary: '문서 점검 완료', agentLabel: 'Haiku 4.5', tokenCount: 20600 },
       isError: false,
-      durationMs: 120
+      durationMs: 21_000
     }),
     emit({
       type: 'tool.call.started',
@@ -347,9 +356,9 @@ function subagentTaskMultiFragment(): MockStep[] {
     emit({
       type: 'tool.call.completed',
       toolRunId: 'mock-subagent-multi-b',
-      result: { summary: '테스트 점검 완료' },
+      result: { summary: '테스트 점검 완료', agentLabel: 'Haiku 4.5', tokenCount: 40000 },
       isError: false,
-      durationMs: 140
+      durationMs: 92_000
     }),
     ...closing('복수 서브에이전트 검토가 끝났습니다.')
   ]
