@@ -74,6 +74,7 @@ export const MOCK_SCENARIO_IDS = [
   'subagent_task_child',
   'subagent_task_aborted',
   'subagent_task_multi',
+  'subagent_task_running',
   'error',
   'full'
 ] as const
@@ -266,6 +267,8 @@ export type NormalizedEvent =
       type: 'message.completed'
       sessionId: string
       message: { text: string }
+      // 서브에이전트(Task) 안에서 발생한 텍스트면 부모 Task 의 toolRunId. 최상위 턴이면 생략.
+      parentToolRunId?: string
     }
   // 확장사고(extended thinking) 블록 — provider-runtime.md §7 reasoning part 의 출처.
   // signature 는 멀티턴 재전송 무결성용 opaque 값(해석 금지, 원형 보관).
@@ -667,8 +670,10 @@ export interface RenameSessionRequest {
 // claude 가 실제로 채우는 종류: text / reasoning / tool_call / tool_result / error.
 // file / diff / structured_output 은 모델 정의만 두고 OpenCode 어댑터 도입 시 채운다(seam).
 export type AppMessagePart =
-  | { type: 'text'; text: string }
-  | { type: 'reasoning'; text: string; signature?: string }
+  // parentToolRunId: 서브에이전트(Task) child 의 텍스트/사고면 부모 Task toolRunId. 최상위면 생략.
+  // 메인 트랜스크립트는 이 필드가 있는 파트를 제외하고, 우측 패널 child 트랜스크립트만 모은다.
+  | { type: 'text'; text: string; parentToolRunId?: string }
+  | { type: 'reasoning'; text: string; signature?: string; parentToolRunId?: string }
   | {
       type: 'tool_call'
       toolRunId: string

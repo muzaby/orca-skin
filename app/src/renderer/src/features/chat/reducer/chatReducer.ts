@@ -248,7 +248,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             retry: undefined,
             messages: appendAssistantPart(state.messages, {
               type: 'text',
-              text: ev.message.text
+              text: ev.message.text,
+              ...(ev.parentToolRunId !== undefined ? { parentToolRunId: ev.parentToolRunId } : {})
             })
           }
 

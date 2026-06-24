@@ -46,6 +46,7 @@ describe('mock scenarios', () => {
         'subagent_task_aborted',
         'subagent_task_child',
         'subagent_task_multi',
+        'subagent_task_running',
         'text_streaming',
         'tool_approval',
         'tool_calls'

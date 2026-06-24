@@ -11,7 +11,7 @@ import {
 import { stringify } from '../../format'
 import { toolRendererRegistry } from './registry'
 import type { ToolCall } from '../../reducer/chatReducer'
-import { chatActions } from '../../store/chatStore'
+import { AgentTaskRow } from './AgentTaskRow'
 
 const FILE_TOOLS = new Set(['Read', 'Write', 'Edit', 'MultiEdit'])
 
@@ -77,15 +77,17 @@ export const ToolCard = memo(function ToolCard({
   // 최초 오픈 후엔 본문을 계속 마운트 유지 → 닫힘도 grid-rows 전환으로 애니메이션.
   // 한 번도 안 연 카드는 본문 미마운트(shiki 등 선렌더 비용 회피).
   const [wasOpened, setWasOpened] = useState(false)
-  // Task(서브에이전트) 행은 다른 도구행과 동일한 디자인/DOM 을 갖되, 인라인 본문을 펼치지
-  // 않고 우측 백그라운드 패널에 child 트랜스크립트를 구성한다(사용자 결정).
+  // Task(서브에이전트) 행은 전용 AgentTaskRow 가 렌더한다 — 동일한 행 DOM/인터랙션(클릭 시
+  // 우측 백그라운드 패널)을 갖되 라벨을 참고 양식(에이전트 실행 중 …)으로 구성하고, child
+  // 메타(모델·도구·경과)를 store 에서 파생한다. 인라인 펼침 본문은 없다(사용자 결정).
   const isAgentTask = toolRendererRegistry.resolve(call).kind === 'agent_task'
+  if (isAgentTask) return <AgentTaskRow call={call} inGroup={inGroup} />
 
   const toggle = (): void => {
     setOpen((v) => !v)
     setWasOpened(true)
   }
-  const onActivate = isAgentTask ? () => chatActions.openSubagentTask(call.toolUseId) : toggle
+  const onActivate = toggle
   const done = call.result != null
   const isError = call.result?.isError === true
   const cat = toolVerbCategory(call.name)

@@ -7,6 +7,7 @@ import {
   toolGroupSegments,
   toolVerbCategory
 } from '../../lib/toolMeta'
+import { isAgentTaskName } from '../../lib/parts'
 import type { ToolCall } from '../../reducer/chatReducer'
 
 // 한 어시스턴트 턴의 toolCalls 를 묶는다. 도구가 1개면 그룹 헤더 없이 카드만, 2+ 일 때만
@@ -25,6 +26,10 @@ export const ToolGroup = memo(function ToolGroup({
   let pending: ToolCall | null = null
   for (const c of calls) if (c.result == null) pending = c
   const segments = toolGroupSegments(calls)
+  // 서브에이전트(Task) 그룹이 진행 중이면 헤더를 "실행 중 에이전트 N개" 로 — 개별 도구 서술 대신
+  // 진행 중 에이전트 수를 집계(참고 UI 양식). pending 이 Task 일 때만 적용.
+  const pendingIsAgent = pending != null && isAgentTaskName(pending.name)
+  const runningAgentCount = calls.filter((c) => isAgentTaskName(c.name) && c.result == null).length
   return (
     <div className="flex w-full flex-col gap-[var(--chat-item-gap)]">
       <button
@@ -37,8 +42,13 @@ export const ToolGroup = memo(function ToolGroup({
           className={`min-w-0 truncate group-hover/tool:text-t9 ${pending ? 'epitaxy-text-shine' : ''}`}
         >
           {pending ? (
-            // 진행 중 — 마지막 pending 도구 서술(진행 시제)
-            `${VERB_LABEL_ACTIVE[toolVerbCategory(pending.name)]} ${toolDescription(pending)}`
+            pendingIsAgent ? (
+              // 진행 중 서브에이전트 그룹 — 진행 중 에이전트 수 집계
+              `실행 중 에이전트 ${runningAgentCount}개`
+            ) : (
+              // 진행 중 — 마지막 pending 도구 서술(진행 시제)
+              `${VERB_LABEL_ACTIVE[toolVerbCategory(pending.name)]} ${toolDescription(pending)}`
+            )
           ) : (
             // 완료 — 동사별 카운트 요약. 동사(primary)와 카운트(secondary) span 분리.
             <>

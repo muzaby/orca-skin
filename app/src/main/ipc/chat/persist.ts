@@ -154,11 +154,18 @@ export class TurnPersistence {
           messageId: id,
           type: 'text',
           toolRunId: null,
-          payloadJson: JSON.stringify({ text: ev.message.text })
+          payloadJson: JSON.stringify({
+            text: ev.message.text,
+            ...(ev.parentToolRunId !== undefined ? { parentToolRunId: ev.parentToolRunId } : {})
+          })
         })
-        turn.assistantText += ev.message.text
-        this.db.updateMessageContent(id, turn.assistantText)
-        this.db.updateSessionPreview(turn.dbSessionId, previewOf(ev.message.text), now)
+        // 서브에이전트(Task) child 텍스트는 메인 메시지 content/preview 를 오염시키지 않는다 —
+        // 우측 패널 child 트랜스크립트 전용. assistantText 누적·세션 프리뷰 갱신은 최상위 텍스트만.
+        if (ev.parentToolRunId === undefined) {
+          turn.assistantText += ev.message.text
+          this.db.updateMessageContent(id, turn.assistantText)
+          this.db.updateSessionPreview(turn.dbSessionId, previewOf(ev.message.text), now)
+        }
         break
       }
       case 'tool.call.completed': {

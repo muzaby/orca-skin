@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { formatElapsed, useElapsed } from './elapsed'
 
 const SYMBOLS = ['✢', '✣', '✦', '✧', '★', '✶']
 
@@ -16,7 +17,6 @@ const VERBS = [
 ]
 
 const SYMBOL_INTERVAL_MS = 200
-const ELAPSED_INTERVAL_MS = 1000
 
 function approximateTokens(text: string): number {
   return Math.max(1, Math.round(text.length / 4))
@@ -25,20 +25,6 @@ function approximateTokens(text: string): number {
 function formatTokens(n: number): string {
   if (n < 1000) return `${n} tokens`
   return `${(n / 1000).toFixed(n < 10000 ? 1 : 0)}k tokens`
-}
-
-// 60s 이상: `Nm Ns`, 60m (3600s) 이상: `Nh Nm Ns`
-function formatElapsed(seconds: number): string {
-  if (seconds < 60) return `${seconds}s`
-  if (seconds < 3600) {
-    const m = Math.floor(seconds / 60)
-    const s = seconds % 60
-    return `${m}m ${s}s`
-  }
-  const h = Math.floor(seconds / 3600)
-  const m = Math.floor((seconds % 3600) / 60)
-  const s = seconds % 60
-  return `${h}h ${m}m ${s}s`
 }
 
 function pickVerb(): string {
@@ -67,18 +53,8 @@ export function StatusLine({
     void turnStartedAt
     return pickVerb()
   }, [turnStartedAt])
-  // now 는 1s 마다 setInterval 콜백에서 갱신 — effect body 안의 setState 가 아니라
-  // 콜백이므로 react-hooks/set-state-in-effect 통과. turnStartedAt 변경 시 lazy
-  // initializer 가 재실행되지 않으므로 effect 안에서도 한 번 동기화한다.
-  const [now, setNow] = useState<number>(() => turnStartedAt ?? 0)
-
-  useEffect(() => {
-    if (turnStartedAt == null) return
-    const t = setInterval(() => {
-      setNow(Date.now())
-    }, ELAPSED_INTERVAL_MS)
-    return () => clearInterval(t)
-  }, [turnStartedAt])
+  // 경과초 1s 틱은 공유 훅(useElapsed)으로 — 서브에이전트 진행 중 메타와 동일 메커니즘.
+  const elapsedSec = useElapsed(turnStartedAt)
 
   useEffect(() => {
     if (turnStartedAt == null) return
@@ -94,8 +70,6 @@ export function StatusLine({
   }, [outputApproxFromText])
 
   if (turnStartedAt == null) return null
-
-  const elapsedSec = Math.max(0, Math.floor((Math.max(now, turnStartedAt) - turnStartedAt) / 1000))
 
   const thoughtLabel =
     thinkingActive === true

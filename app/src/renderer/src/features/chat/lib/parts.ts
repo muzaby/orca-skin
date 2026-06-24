@@ -4,10 +4,49 @@
 import type { AppMessagePart, AttachmentView } from '../../../../../shared/ipc'
 import type { Message, ToolCall } from '../reducer/chatReducer'
 
-// text 파트들을 순서대로 이어붙인 본문(마크다운 소스).
+// 파트의 parentToolRunId(서브에이전트 child 표식) 조회 — 4종 파트가 옵션 필드로 가질 수 있다.
+function partParentToolRunId(p: AppMessagePart): string | undefined {
+  return 'parentToolRunId' in p ? p.parentToolRunId : undefined
+}
+
+// parentToolRunId 를 제거한 파트 사본 — child 트랜스크립트 안에서 최상위 파트로 취급되게 한다.
+// 타입 안전을 위해 종류별로 재구성한다(spread + parentToolRunId:undefined 는 union 초과속성 에러).
+function stripParentToolRunId(p: AppMessagePart): AppMessagePart {
+  switch (p.type) {
+    case 'text':
+      return { type: 'text', text: p.text }
+    case 'reasoning':
+      return {
+        type: 'reasoning',
+        text: p.text,
+        ...(p.signature !== undefined ? { signature: p.signature } : {})
+      }
+    case 'tool_call':
+      return {
+        type: 'tool_call',
+        toolRunId: p.toolRunId,
+        toolName: p.toolName,
+        args: p.args
+      }
+    case 'tool_result':
+      return {
+        type: 'tool_result',
+        toolRunId: p.toolRunId,
+        result: p.result,
+        isError: p.isError,
+        ...(p.durationMs !== undefined ? { durationMs: p.durationMs } : {})
+      }
+    default:
+      return p
+  }
+}
+
+// text 파트들을 순서대로 이어붙인 본문(마크다운 소스). 서브에이전트 child 텍스트는 제외
+// (메인 트랜스크립트/복사 대상이 아니라 우측 패널 child 트랜스크립트 전용).
 export function partsText(parts: AppMessagePart[]): string {
   let out = ''
-  for (const p of parts) if (p.type === 'text') out += p.text
+  for (const p of parts)
+    if (p.type === 'text' && partParentToolRunId(p) === undefined) out += p.text
   return out
 }
 
@@ -23,11 +62,11 @@ export interface ReasoningItem {
   signature?: string
 }
 
-// reasoning(확장사고) 블록들 — 순서 보존.
+// reasoning(확장사고) 블록들 — 순서 보존. 서브에이전트 child 사고는 제외(메인 비노출).
 export function partsReasoning(parts: AppMessagePart[]): ReasoningItem[] {
   const items: ReasoningItem[] = []
   for (const p of parts) {
-    if (p.type === 'reasoning') {
+    if (p.type === 'reasoning' && partParentToolRunId(p) === undefined) {
       items.push({ text: p.text, ...(p.signature !== undefined ? { signature: p.signature } : {}) })
     }
   }
@@ -75,6 +114,8 @@ export interface SubagentTaskSummary {
   durationLabel: string | null
   tokenLabel: string | null
   agentLabel: string
+  // 진행 중일 때 마지막으로 실행 중인 child 도구명(예: 'Bash') — 단일 항목 메타 라인용.
+  currentChildLabel: string | null
   call: ToolCall
 }
 
@@ -124,14 +165,13 @@ export function childMessageForParentToolRunId(
   const parts: AppMessagePart[] = []
   for (const message of messages) {
     for (const part of message.parts) {
-      if (
-        (isToolCallPart(part) || isToolResultPart(part)) &&
-        part.parentToolRunId === parentToolRunId
-      ) {
-        // parentToolRunId 를 벗겨 child 트랜스크립트 안에서는 최상위 도구로 취급되게 한다 —
-        // messageSegments/partsToolCalls 는 parentToolRunId 가 있는 파트를 메인 트랜스크립트에서
-        // 제외(스킵)하므로, 벗기지 않으면 우측 패널 child 트랜스크립트가 비어 렌더된다.
-        parts.push({ ...part, parentToolRunId: undefined })
+      // tool_call/tool_result 뿐 아니라 child 의 text/reasoning(서브에이전트 답변·사고)도 모은다 —
+      // 완료된 서브에이전트의 실제 답변 텍스트가 child 트랜스크립트에 순서대로 렌더되게 한다.
+      if (partParentToolRunId(part) === parentToolRunId) {
+        // parentToolRunId 를 벗겨 child 트랜스크립트 안에서는 최상위 파트로 취급되게 한다 —
+        // messageSegments/partsToolCalls/partsText 는 parentToolRunId 가 있는 파트를 메인
+        // 트랜스크립트에서 제외(스킵)하므로, 벗기지 않으면 우측 패널 child 가 비어 렌더된다.
+        parts.push(stripParentToolRunId(part))
       }
     }
   }
@@ -143,9 +183,12 @@ export function subagentTasksFromMessages(messages: Message[]): SubagentTaskSumm
   const allParts = messages.flatMap((m) => m.parts)
   const resultByRun = resultMap(allParts)
   const childCounts = new Map<string, number>()
+  // 부모 Task → 마지막으로 결과 미도착(진행 중)인 child 도구명. 단일 항목 '· Bash · N' 메타용.
+  const currentChild = new Map<string, string>()
   for (const part of allParts) {
     if (isToolCallPart(part) && part.parentToolRunId !== undefined) {
       childCounts.set(part.parentToolRunId, (childCounts.get(part.parentToolRunId) ?? 0) + 1)
+      if (!resultByRun.has(part.toolRunId)) currentChild.set(part.parentToolRunId, part.toolName)
     }
   }
   const summaries: SubagentTaskSummary[] = []
@@ -166,6 +209,7 @@ export function subagentTasksFromMessages(messages: Message[]): SubagentTaskSumm
         durationLabel: formatDurationLabel(call.result?.durationMs),
         tokenLabel: tokenLabelFromResult(call.result?.output),
         agentLabel: agentLabelFromCall(call),
+        currentChildLabel: currentChild.get(call.toolUseId) ?? null,
         call
       })
     }
@@ -274,6 +318,9 @@ export function messageSegments(parts: AppMessagePart[]): MessageSegment[] {
 
   for (const p of parts) {
     if (p.type === 'tool_result') continue // 맵으로 흡수
+    // 서브에이전트(Task) child 의 text/reasoning 은 메인 트랜스크립트에서 제외(우측 패널 전용).
+    if ((p.type === 'text' || p.type === 'reasoning') && partParentToolRunId(p) !== undefined)
+      continue
     if (p.type === 'text') {
       if (p.text === '') continue
       if (current?.kind === 'text') current.text += p.text

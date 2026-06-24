@@ -81,7 +81,8 @@ describe('claudeToNormalized', () => {
       {
         type: 'message.completed',
         sessionId: 's1',
-        message: { text: 'done' }
+        message: { text: 'done' },
+        parentToolRunId: 'parent-task-1'
       },
       {
         type: 'tool.call.started',
