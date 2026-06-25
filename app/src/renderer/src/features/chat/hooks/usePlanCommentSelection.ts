@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type RefObject } from 'react'
-import { anchorRectForRange, offsetsFromSelection } from '../lib/planCommentDom'
+import { offsetsFromSelection } from '../lib/planCommentDom'
 
 // 계획 본문 선택 → 코멘트 작성 draft. 화면 좌표(viewport)는 작성 팝오버 앵커에 쓴다.
 export interface PlanCommentDraft {
@@ -32,9 +32,10 @@ export function usePlanCommentSelection(
 
     // setState 는 모두 비동기(rAF) 콜백 안에서만 — effect 본문 동기 setState 회피.
     // 드래그가 컨테이너 밖에서 끝나도 document mouseup 에서 선택을 확정한다.
-    const onMouseUp = (): void => {
+    const onMouseUp = (e: MouseEvent): void => {
       if (!startedInContainer) return
       startedInContainer = false
+      const releaseRect = { top: e.clientY, left: e.clientX, bottom: e.clientY, right: e.clientX }
       requestAnimationFrame(() => {
         const sel = window.getSelection()
         if (!sel) return
@@ -45,7 +46,7 @@ export function usePlanCommentSelection(
         }
         setRawDraft({
           ...offsets,
-          rect: anchorRectForRange(sel.getRangeAt(0))
+          rect: releaseRect
         })
       })
     }
