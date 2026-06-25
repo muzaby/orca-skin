@@ -13,6 +13,7 @@ import type {
 } from '../../../../../shared/ipc'
 import type { NormalizedPermissionMode } from '../../../../../shared/permission-mode'
 import { contextTokens } from '../lib/telemetry'
+import { settleOrphanToolParts } from '../lib/parts'
 import type { RightPanelTileId } from '../lib/rightPanelTiles'
 import {
   addTileColumnMajor,
@@ -428,7 +429,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       const messages: Message[] = action.session.messages.map((m) => ({
         role: m.role,
         createdAt: m.createdAt,
-        parts: m.parts,
+        // 미완료(crash/quit)로 남은 메시지의 열린 도구는 'aborted' 로 정착해 "실행 중" 잔재를
+        // 막는다. 라이브 경로(RECV_EVENT)는 미경유 — incomplete 한정이라 스트리밍 무영향.
+        parts: m.incomplete ? settleOrphanToolParts(m.parts) : m.parts,
         ...(m.incomplete ? { incomplete: true } : {})
       }))
       return {

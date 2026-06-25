@@ -118,6 +118,13 @@ export class TurnRegistry<W = unknown> {
     }
   }
 
+  // 진행 중 모든 턴(세션 키 + pending owner 양쪽). 앱 종료 정리(IpcRouter.shutdown)가
+  // 순회해 열린 도구를 정착하고 controller 를 abort 한다. 같은 객체가 양쪽에 동시 존재하진 않음
+  // (promote 가 pending→session 으로 이동) — 중복 없음.
+  all(): InflightTurn<W>[] {
+    return [...this.bySession.values(), ...this.pendingByOwner.values()]
+  }
+
   // 진단/테스트용 — 현재 진행 중 턴 수.
   get size(): number {
     return this.bySession.size + this.pendingByOwner.size

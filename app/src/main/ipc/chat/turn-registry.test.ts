@@ -85,6 +85,24 @@ describe('TurnRegistry', () => {
     // 호출자(send)는 true 면 거부한다 — 레지스트리는 덮어쓰지 않을 책임이 호출자에 있음을 보장만.
   })
 
+  it('all() 은 세션 키 + pending owner 양쪽의 진행 턴을 모두 반환한다 (shutdown 순회)', () => {
+    const reg = new TurnRegistry<object>()
+    const a = fakeTurn()
+    const b = fakeTurn()
+    const pending = fakeTurn()
+    reg.startResume('s1', a)
+    reg.startResume('s2', b)
+    reg.startNew({}, pending)
+
+    const all = reg.all()
+    expect(all).toHaveLength(3)
+    expect(all).toEqual(expect.arrayContaining([a, b, pending]))
+
+    reg.finish(a)
+    expect(reg.all()).toEqual(expect.arrayContaining([b, pending]))
+    expect(reg.all()).toHaveLength(2)
+  })
+
   it('승격 전 실패한 pending 턴도 finish 가 값 동일성으로 정리한다', () => {
     const reg = new TurnRegistry<object>()
     const owner = {}

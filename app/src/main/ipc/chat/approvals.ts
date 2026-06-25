@@ -26,7 +26,8 @@ export class ApprovalCoordinator {
     return this.sessionAllowedTools.get(sessionId)?.has(toolName) ?? false
   }
 
-  // 승인을 등록하고 renderer 응답(또는 턴 abort = deny)까지 보류한다.
+  // 승인을 등록하고 renderer 응답(또는 턴 abort = deny)까지 보류한다. broker timeoutMs 는
+  // 의도적으로 안 쓴다(승인 중 auto-deny 금지) — 대신 send.ts 가 보류 동안 idle 타이머를 pause 한다.
   register(
     approvalId: string,
     turn: InflightTurn,
