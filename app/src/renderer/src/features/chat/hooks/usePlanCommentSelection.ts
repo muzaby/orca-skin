@@ -24,8 +24,17 @@ export function usePlanCommentSelection(
     const container = containerRef.current
     if (!container) return
 
+    let startedInContainer = false
+
+    const onMouseDown = (): void => {
+      startedInContainer = true
+    }
+
     // setState 는 모두 비동기(rAF) 콜백 안에서만 — effect 본문 동기 setState 회피.
+    // 드래그가 컨테이너 밖에서 끝나도 document mouseup 에서 선택을 확정한다.
     const onMouseUp = (): void => {
+      if (!startedInContainer) return
+      startedInContainer = false
       requestAnimationFrame(() => {
         const sel = window.getSelection()
         if (!sel) return
@@ -42,8 +51,12 @@ export function usePlanCommentSelection(
       })
     }
 
-    container.addEventListener('mouseup', onMouseUp)
-    return () => container.removeEventListener('mouseup', onMouseUp)
+    container.addEventListener('mousedown', onMouseDown)
+    document.addEventListener('mouseup', onMouseUp)
+    return () => {
+      container.removeEventListener('mousedown', onMouseDown)
+      document.removeEventListener('mouseup', onMouseUp)
+    }
   }, [containerRef, enabled])
 
   // 비활성(계획 검토 종료) 시에는 draft 를 노출하지 않는다(상태 클리어를 effect 동기 setState
