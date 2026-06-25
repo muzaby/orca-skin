@@ -52,7 +52,16 @@ export interface ChatDeps {
   permissionModes: PermissionModeController
 }
 
-export function createIdleTimer(turn: InflightTurn): { reset: () => void; clear: () => void } {
+export interface IdleTimer {
+  reset: () => void
+  clear: () => void
+  // pause/resume: 승인 카드처럼 "사용자를 기다리는" 동안 stall 오판을 막기 위해 멈췄다 재개한다.
+  // pause=타이머 해제(만료 안 함), resume=새 창으로 재무장(스트림 재개 시점 기준 IDLE_TIMEOUT_MS).
+  pause: () => void
+  resume: () => void
+}
+
+export function createIdleTimer(turn: InflightTurn): IdleTimer {
   let timer: ReturnType<typeof setTimeout> | null = null
   const clear = (): void => {
     if (timer) clearTimeout(timer)
@@ -65,7 +74,7 @@ export function createIdleTimer(turn: InflightTurn): { reset: () => void; clear:
       turn.controller.abort()
     }, IDLE_TIMEOUT_MS)
   }
-  return { reset, clear }
+  return { reset, clear, pause: clear, resume: reset }
 }
 
 export function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
@@ -90,7 +99,7 @@ export function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
 // 정착시킨다. 결과가 영영 안 오면 렌더가 "실행 중"(epitaxy-text-shine)으로 무한 렌더되고 부모
 // Task 도 "진행 중"으로 남으므로, abort 마커(reason)를 담은 tool.call.completed 를 방출+영속한다.
 // AskUserQuestion tool_result 합성(flushAskAnswers)과 동형의 보정 — toolRunId 멱등(upsert).
-function settleOpenToolRuns(
+export function settleOpenToolRuns(
   turn: InflightTurn<WebContents>,
   persistence: TurnPersistence,
   kind: 'aborted' | 'failed'
@@ -362,6 +371,19 @@ export function registerChatHandlers(deps: ChatDeps): void {
     // renderer 에 surface 하고 broker 가 응답(또는 turn abort)까지 Promise 를 보류한다.
     // tool_approval 은 "세션 동안 허용"으로 부여된 도구면 카드 없이 즉시 allow 한다.
     const wc = event.sender
+    // idle 타이머 인디렉션 — requestApproval(승인 보류 중 pause)과 attempt 루프가 같은 핸들을
+    // 공유한다. requestApproval 은 idle 생성(attempt 루프 안)보다 바깥 스코프라 직접 못 잡는다.
+    let activeIdle: IdleTimer | null = null
+    // 동시 보류 승인 수(서브에이전트 병렬 도구 승인 대비) — 0→1 에서 pause, 1→0 에서 resume.
+    let pendingApprovals = 0
+    // 렌더러(owner) 소멸 시 진행 턴 정리 — idle "완전 멈춤"으로 잃는 자가치유(무응답 abort)를
+    // 타이머가 아닌 이벤트로 대체한다(사람 판단엔 시간 제한 두지 않음 유지). 바깥 finally 에서 해제.
+    const onOwnerGone = (): void => {
+      turn.cancelled = true
+      controller.abort()
+    }
+    wc.once('destroyed', onOwnerGone)
+    wc.once('render-process-gone', onOwnerGone)
     const requestApproval = async (action: PermissionAction): Promise<ApprovalResolution> => {
       // 세션 자동 허용된 위험 도구는 카드 미surface — 즉시 통과.
       if (action.kind === 'tool_approval') {
@@ -393,7 +415,17 @@ export function registerChatHandlers(deps: ChatDeps): void {
         )
       }
       sendChatEvent(wc, agentPermissionRequest(approvalId, outbound, turn.dbSessionId ?? undefined))
-      const resolution = await approvals.register(approvalId, turn, controller.signal)
+      // 승인 보류 동안 idle 타이머를 멈춘다 — 사용자 판단 시간이 stall 로 오판돼 턴이 abort 되지
+      // 않게(broker 가 timeoutMs 를 의도적으로 안 쓰는 것과 동일 의도). 응답/거부/abort 후 재개.
+      pendingApprovals += 1
+      if (pendingApprovals === 1) activeIdle?.pause()
+      let resolution: ApprovalResolution
+      try {
+        resolution = await approvals.register(approvalId, turn, controller.signal)
+      } finally {
+        pendingApprovals -= 1
+        if (pendingApprovals === 0) activeIdle?.resume()
+      }
       sendChatEvent(wc, {
         type: 'permission.resolved',
         ...(turn.dbSessionId ? { sessionId: turn.dbSessionId } : {}),
@@ -427,6 +459,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
         let eventsReceived = 0
         let sawTerminal = false
         const idle = createIdleTimer(turn)
+        activeIdle = idle
         try {
           // sendMessage 가 query() 를 즉시 시작하므로 try 안에서 호출 — 동기 throw 도 동일 경로로 분류.
           const live = adapter.sendMessage({
@@ -563,9 +596,12 @@ export function registerChatHandlers(deps: ChatDeps): void {
           return
         } finally {
           idle.clear()
+          activeIdle = null
         }
       }
     } finally {
+      wc.removeListener('destroyed', onOwnerGone)
+      wc.removeListener('render-process-gone', onOwnerGone)
       turns.finish(turn)
     }
   }

@@ -33,7 +33,7 @@ import { registerProjectHandlers } from './handlers/project'
 import { registerMcpHandlers } from './handlers/mcp'
 import { registerEngineHandlers } from './handlers/engine'
 import { registerMiscHandlers } from './handlers/misc'
-import { registerChatHandlers } from './chat/send'
+import { registerChatHandlers, settleOpenToolRuns } from './chat/send'
 import { TurnRegistry } from './chat/turn-registry'
 import { ApprovalCoordinator } from './chat/approvals'
 import { TurnPersistence } from './chat/persist'
@@ -62,6 +62,10 @@ export class IpcRouter {
     contextUsageRatio: 0.3,
     wireLog: false
   }
+  // 앱 종료(will-quit) 정리용 참조 — register() 에서 채워진다. 종료 시 진행 중 턴의 열린 도구를
+  // 정착하고 controller 를 abort 한다(shutdown).
+  private turns?: TurnRegistry<Electron.WebContents>
+  private persistence?: TurnPersistence
 
   private skillRoots(): SkillScanRoot[] {
     return [
@@ -188,11 +192,29 @@ export class IpcRouter {
     void this.runtime.ensure()
   }
 
+  // 앱 종료 정리(index.ts will-quit → closeDb 직전 동기 호출). 진행 중 모든 턴의 열린 도구를
+  // 'aborted' 합성 tool_result 로 정착(persist)해 재시작 시 "실행 중" 잔재를 막고, controller 를
+  // abort 해 SDK 서브프로세스를 깨끗이 종료한다. persist 는 better-sqlite3 동기라 종료 시간 내
+  // 완료된다. start() 이전(register 미실행)이면 no-op.
+  shutdown(): void {
+    if (!this.turns || !this.persistence) return
+    for (const turn of this.turns.all()) {
+      try {
+        settleOpenToolRuns(turn, this.persistence, 'aborted')
+      } catch (e) {
+        console.warn('[shutdown] 턴 정리 실패:', e)
+      }
+      turn.controller.abort()
+    }
+  }
+
   private register(ctx: RouterContext): void {
     // chat 턴 파이프라인 조립 — 레지스트리(세션 키잉) · persist · 제목 생성 · 승인 조정.
-    const turns = new TurnRegistry<Electron.WebContents>()
+    const turns = (this.turns = new TurnRegistry<Electron.WebContents>())
     const titles = new TitleGenerator(ctx.db)
-    const persistence = new TurnPersistence(ctx.db, ctx.cost, (turn) => titles.maybeStart(turn))
+    const persistence = (this.persistence = new TurnPersistence(ctx.db, ctx.cost, (turn) =>
+      titles.maybeStart(turn)
+    ))
     const approvals = new ApprovalCoordinator()
     const permissionModes = new PermissionModeController()
     registerChatHandlers({ ctx, turns, approvals, persistence, titles, permissionModes })

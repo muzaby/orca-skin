@@ -104,6 +104,31 @@ export function partsToolCalls(parts: AppMessagePart[]): ToolCall[] {
   return calls
 }
 
+// 재시작/크래시로 미완료(DB complete=0 = Message.incomplete)로 남은 메시지의 열린 도구 보정 —
+// tool_result 가 없는 tool_call 마다 합성 aborted tool_result 를 붙여, 결과 미도착으로 인한
+// "실행 중" 무한 렌더를 끝낸다. 기존 isAbortedResult/deriveSubagentTaskStatus 가 abort 마커를
+// 인식해 "중단됨"으로 렌더하므로 별도 분기 불필요. 정상 종료(IpcRouter.shutdown)가 디스크에 이미
+// 결과를 적어두면 orphan 이 없어 no-op = 크래시(will-quit 미발생) 백스톱.
+//
+// **로드(하이드레이션) 경로 전용** — 라이브 스트리밍 메시지(아직 결과 안 온 도구가 정당)에는
+// 적용하지 않는다. LOAD_SESSION 에서 incomplete 메시지에만 호출한다(RECV_EVENT 라이브 경로 미경유).
+export function settleOrphanToolParts(parts: AppMessagePart[]): AppMessagePart[] {
+  const haveResult = new Set<string>()
+  for (const p of parts) if (p.type === 'tool_result') haveResult.add(p.toolRunId)
+  const synthesized: AppMessagePart[] = []
+  for (const p of parts) {
+    if (p.type !== 'tool_call' || haveResult.has(p.toolRunId)) continue
+    synthesized.push({
+      type: 'tool_result',
+      toolRunId: p.toolRunId,
+      result: { reason: 'aborted', message: '중단되었습니다' },
+      isError: true,
+      ...(p.parentToolRunId !== undefined ? { parentToolRunId: p.parentToolRunId } : {})
+    })
+  }
+  return synthesized.length === 0 ? parts : [...parts, ...synthesized]
+}
+
 export type SubagentTaskStatus = 'running' | 'completed' | 'failed' | 'aborted'
 
 export interface SubagentTaskSummary {

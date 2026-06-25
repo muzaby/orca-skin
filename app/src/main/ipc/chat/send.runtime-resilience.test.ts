@@ -38,6 +38,55 @@ describe('send runtime resilience helpers', () => {
     vi.useRealTimers()
   })
 
+  it('idle timer 는 pause 동안 무응답이 지나도 abort 하지 않는다 (승인 대기 보호)', () => {
+    vi.useFakeTimers()
+    const turn = fakeTurn()
+    const idle = createIdleTimer(turn)
+
+    idle.reset()
+    idle.pause()
+    vi.advanceTimersByTime(IDLE_TIMEOUT_MS * 2)
+
+    expect(turn.controller.signal.aborted).toBe(false)
+    idle.clear()
+    vi.useRealTimers()
+  })
+
+  it('idle timer 는 resume 후 다시 작동한다', () => {
+    vi.useFakeTimers()
+    const turn = fakeTurn()
+    const idle = createIdleTimer(turn)
+
+    idle.reset()
+    idle.pause()
+    vi.advanceTimersByTime(IDLE_TIMEOUT_MS * 2)
+    expect(turn.controller.signal.aborted).toBe(false)
+
+    idle.resume()
+    vi.advanceTimersByTime(IDLE_TIMEOUT_MS)
+    expect(turn.controller.signal.aborted).toBe(true)
+    idle.clear()
+    vi.useRealTimers()
+  })
+
+  it('idle timer 는 resume 이 새 만료 창을 연다 (이후 event reset 으로 연장 가능)', () => {
+    vi.useFakeTimers()
+    const turn = fakeTurn()
+    const idle = createIdleTimer(turn)
+
+    idle.reset()
+    idle.pause()
+    idle.resume()
+    vi.advanceTimersByTime(IDLE_TIMEOUT_MS - 1)
+    idle.reset()
+    vi.advanceTimersByTime(1)
+    expect(turn.controller.signal.aborted).toBe(false)
+    vi.advanceTimersByTime(IDLE_TIMEOUT_MS)
+    expect(turn.controller.signal.aborted).toBe(true)
+    idle.clear()
+    vi.useRealTimers()
+  })
+
   it('abortableDelay 는 retry backoff 중 abort 를 존중한다', async () => {
     vi.useFakeTimers()
     const controller = new AbortController()

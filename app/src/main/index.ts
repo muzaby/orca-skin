@@ -14,6 +14,9 @@ import type { SettingsStore } from './settings/store'
 // `npm run prepare-runtime` 이 main 번들 빌드 후 `electron . --prepare-runtime` 로 호출한다.
 const PREPARE_ONLY = process.argv.includes('--prepare-runtime')
 
+// will-quit(모듈 스코프)에서 종료 정리를 호출하기 위한 라우터 참조. whenReady 에서 채워진다.
+let routerRef: IpcRouter | null = null
+
 // 전역 미처리 예외 가드. Claude SDK 가 claude CLI 서브프로세스 stdin 으로 user 메시지를
 // 쓰다 실패하는 비동기 에러(예: 큰 이미지 첨부 전송 중 'write EOF at
 // WriteWrap.onWriteComplete')는 어댑터의 턴 try/catch 밖(SDK 소유 write 경로)이라 잡히지
@@ -157,6 +160,7 @@ app.whenReady().then(async () => {
 
   const router = new IpcRouter()
   await router.start()
+  routerRef = router
 
   createWindow(router.settings)
 
@@ -174,9 +178,11 @@ app.on('window-all-closed', () => {
   }
 })
 
-// 종료 직전 DB 커넥션 정리 — WAL 체크포인트가 마무리되도록 명시적으로 close 한다.
-// PREPARE_ONLY(헤드리스) 모드는 DB 를 열지 않으므로 무해한 no-op.
+// 종료 직전 정리 — ① 진행 중 턴의 열린 도구를 'aborted' 로 정착 + SDK abort(shutdown), 그 다음
+// ② DB close(WAL 체크포인트). 순서 중요: persist 가 closeDb 전에 끝나야 한다(둘 다 동기).
+// PREPARE_ONLY(헤드리스)는 router/DB 미생성이라 둘 다 무해한 no-op.
 app.on('will-quit', () => {
+  routerRef?.shutdown()
   closeDb()
 })
 
