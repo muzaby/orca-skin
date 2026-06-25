@@ -30,7 +30,7 @@ import type { SessionAdapter } from '../../adapters/types'
 import { agentPermissionRequest } from '../../runtime-events/permission-bridge'
 import type { PermissionModeController } from '../../runtime-events/permission-mode-controller'
 import { makeClassifiedError } from '../../runtime-errors/classifier'
-import { sendChatEvent, isWireLog, type RouterContext } from '../context'
+import { sendChatEvent, type RouterContext } from '../context'
 import { previewOf } from '../dto'
 import { handle, handlePlain } from '../registry'
 import type { ApprovalCoordinator } from './approvals'
@@ -55,19 +55,19 @@ export interface ChatDeps {
 export interface IdleTimer {
   reset: () => void
   clear: () => void
-  // pause/resume: 승인 카드처럼 "사용자를 기다리는" 동안 stall 오판을 막기 위해 멈췄다 재개한다.
-  // pause=타이머 해제 + paused 플래그 set, resume=플래그 해제 + 재무장.
-  pause: () => void
-  resume: () => void
+  // 승인 카드처럼 "사용자를 기다리는" 구간을 refcount 로 감싼다 — 반환된 release 를 finally 에서
+  // 호출. 첫 진입에서 타이머를 멈추고(이 동안 reset()도 no-op), 마지막 release 에서 재무장한다.
+  // 동시 N건(서브에이전트 병렬 승인)은 마지막 해소 시에만 재개되며, release 는 idempotent.
+  beginPause: () => () => void
 }
 
 export function createIdleTimer(turn: InflightTurn): IdleTimer {
   let timer: ReturnType<typeof setTimeout> | null = null
-  // 승인 보류 중이면 true — 이 동안 reset()은 no-op 이라 어떤 이벤트도 타이머를 재무장하지 못한다.
+  // 보류 중 승인 수. >0 이면 reset()은 no-op 이라 어떤 이벤트도 타이머를 재무장하지 못한다 —
   // 동시 서브에이전트의 child 이벤트(subagent.task/child tool.call/델타)도 이벤트 루프에서 매번
-  // idle.reset()을 호출하는데, paused 가드가 없으면 그 reset 이 pause(clear)한 타이머를 되살려
-  // 멈춤이 무력화된다(단건은 다른 이벤트가 없어 무사, 동시 N건만 파손 — 라운드4 근본원인).
-  let paused = false
+  // idle.reset()을 호출하는데, 이 가드가 없으면 그 reset 이 보류 중 멈춤을 되살려 무력화된다
+  // (단건은 다른 이벤트가 없어 무사, 동시 N건만 파손 — 라운드4 근본원인).
+  let pauseDepth = 0
   const clear = (): void => {
     if (timer) clearTimeout(timer)
     timer = null
@@ -79,20 +79,23 @@ export function createIdleTimer(turn: InflightTurn): IdleTimer {
       turn.controller.abort()
     }, IDLE_TIMEOUT_MS)
   }
-  // 이벤트마다 호출되는 정상 경로 — 단, paused 중에는 재무장하지 않는다(가드).
+  // 이벤트마다 호출되는 정상 경로 — 단, 보류 중(pauseDepth>0)에는 재무장하지 않는다(가드).
   const reset = (): void => {
-    if (paused) return
+    if (pauseDepth > 0) return
     arm()
   }
-  const pause = (): void => {
-    paused = true
-    clear()
+  const beginPause = (): (() => void) => {
+    pauseDepth += 1
+    if (pauseDepth === 1) clear()
+    let released = false
+    return () => {
+      if (released) return
+      released = true
+      pauseDepth -= 1
+      if (pauseDepth === 0) arm()
+    }
   }
-  const resume = (): void => {
-    paused = false
-    arm()
-  }
-  return { reset, clear, pause, resume }
+  return { reset, clear, beginPause }
 }
 
 export function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
@@ -391,9 +394,8 @@ export function registerChatHandlers(deps: ChatDeps): void {
     const wc = event.sender
     // idle 타이머 인디렉션 — requestApproval(승인 보류 중 pause)과 attempt 루프가 같은 핸들을
     // 공유한다. requestApproval 은 idle 생성(attempt 루프 안)보다 바깥 스코프라 직접 못 잡는다.
+    // 동시 보류(서브에이전트 병렬 승인)는 beginPause refcount 가 처리한다.
     let activeIdle: IdleTimer | null = null
-    // 동시 보류 승인 수(서브에이전트 병렬 도구 승인 대비) — 0→1 에서 pause, 1→0 에서 resume.
-    let pendingApprovals = 0
     // 렌더러(owner) 소멸 시 진행 턴 정리 — idle "완전 멈춤"으로 잃는 자가치유(무응답 abort)를
     // 타이머가 아닌 이벤트로 대체한다(사람 판단엔 시간 제한 두지 않음 유지). 바깥 finally 에서 해제.
     const onOwnerGone = (): void => {
@@ -436,19 +438,12 @@ export function registerChatHandlers(deps: ChatDeps): void {
         )
       }
       sendChatEvent(wc, agentPermissionRequest(approvalId, outbound, turn.dbSessionId ?? undefined))
-      if (isWireLog())
-        console.log(
-          `[approval] requested id=${approvalId} kind=${action.kind}` +
-            (action.kind === 'tool_approval' ? ` tool=${action.toolName}` : '') +
-            ` pending→${pendingApprovals + 1}`
-        )
       // 승인 보류 동안 idle 타이머를 멈춘다 — 사용자 판단 시간이 stall 로 오판돼 턴이 abort 되지
-      // 않게(broker 가 timeoutMs 를 의도적으로 안 쓰는 것과 동일 의도). 응답/거부/abort 후 재개.
-      pendingApprovals += 1
-      if (pendingApprovals === 1) activeIdle?.pause()
-      // broker 는 턴 signal + (있으면) SDK 권한요청 취소 signal 양쪽으로 해소된다. SDK 가 요청을
-      // 취소(control_cancel_request)하면 sdkSignal 이 abort → broker 가 deny 로 settle → 무한 await
-      // 방지 + pendingApprovals 정상 감소(idle resume). 턴 abort 도 그대로 동작.
+      // 않게(broker 가 timeoutMs 를 의도적으로 안 쓰는 것과 동일 의도). release 로 재개(동시 N건은
+      // refcount 라 마지막 해소 시에만). broker 는 턴 signal + (있으면) SDK 권한요청 취소 signal
+      // 양쪽으로 해소된다 — SDK 가 control_cancel_request 로 취소하면 sdkSignal abort → broker deny
+      // → 무한 await 방지. 턴 abort 도 그대로 동작.
+      const releaseIdle = activeIdle?.beginPause()
       const regSignal = sdkSignal
         ? AbortSignal.any([controller.signal, sdkSignal])
         : controller.signal
@@ -456,13 +451,8 @@ export function registerChatHandlers(deps: ChatDeps): void {
       try {
         resolution = await approvals.register(approvalId, turn, regSignal)
       } finally {
-        pendingApprovals -= 1
-        if (pendingApprovals === 0) activeIdle?.resume()
+        releaseIdle?.()
       }
-      if (isWireLog())
-        console.log(
-          `[approval] resolved id=${approvalId} behavior=${resolution.behavior} pending→${pendingApprovals}`
-        )
       sendChatEvent(wc, {
         type: 'permission.resolved',
         ...(turn.dbSessionId ? { sessionId: turn.dbSessionId } : {}),

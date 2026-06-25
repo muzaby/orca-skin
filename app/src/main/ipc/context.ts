@@ -59,11 +59,6 @@ export function setWireLog(on: boolean): void {
   wireLogEnabled = on
 }
 
-// 승인 라이프사이클 등 진단 로그도 같은 플래그로 게이트한다(프로덕션 무출력). DEV 토글 시에만 true.
-export function isWireLog(): boolean {
-  return wireLogEnabled
-}
-
 export function sendChatEvent(wc: WebContents, ev: NormalizedEvent): void {
   if (wireLogEnabled) console.log('[wire]', ev.type, ev)
   if (!wc.isDestroyed()) wc.send(CHANNELS.chatEvent, ev)
