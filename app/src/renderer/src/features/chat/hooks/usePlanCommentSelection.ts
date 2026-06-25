@@ -36,14 +36,21 @@ export function usePlanCommentSelection(
 
     let startedInContainer = false
 
-    const onMouseDown = (): void => {
+    // 팝오버(작성/편집)는 contentRef 내부 absolute DOM 으로 렌더되므로 컨테이너의 mousedown
+    // 에 잡힌다. 팝오버 내부 클릭까지 선택 시작으로 보면 textarea 포커스로 네이티브 selection 이
+    // collapse → draft 가 비워져 팝오버가 사라진다. floating 컨텍스트 내부는 선택 시작에서 제외.
+    const isInFloating = (target: EventTarget | null): boolean =>
+      (target as HTMLElement | null)?.closest('[data-context="floating"]') != null
+
+    const onMouseDown = (e: MouseEvent): void => {
+      if (isInFloating(e.target)) return
       startedInContainer = true
     }
 
     // setState 는 모두 비동기(rAF) 콜백 안에서만 — effect 본문 동기 setState 회피.
     // 드래그가 컨테이너 밖에서 끝나도 document mouseup 에서 선택을 확정한다.
     const onMouseUp = (e: MouseEvent): void => {
-      if (!startedInContainer) return
+      if (!startedInContainer || isInFloating(e.target)) return
       startedInContainer = false
       const cRect = container.getBoundingClientRect()
       const releaseX = e.clientX - cRect.left + container.scrollLeft

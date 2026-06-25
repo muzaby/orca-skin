@@ -252,7 +252,9 @@ function PlanApprovalBody(): React.JSX.Element | null {
               onRemove={chatActions.removePlanComment}
             />
           )}
-          <div className={`relative mb-1 rounded-r5 bg-white ${hasComments ? 'mt-2' : ''}`}>
+          <div
+            className={`relative mb-1 rounded-r5 border border-t5 bg-white focus-within:border-border-strong ${hasComments ? 'mt-2' : ''}`}
+          >
             <div
               aria-hidden
               className="min-h-[72px] max-h-56 w-full overflow-hidden whitespace-pre-wrap break-words px-3 py-1.5 text-footnote text-transparent"
