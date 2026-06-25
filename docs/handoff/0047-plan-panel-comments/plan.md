@@ -115,3 +115,15 @@
 | 블로커 | 없음 |
 | 설계 편차 | `segmentByComments`(plan 명시) 대신 DOM 오버레이(getClientRects) 채택 — 마크다운 DOM 위 밑줄을 React 비침습으로 그리고 클릭 가능하게. plain-text 세그먼트는 마크다운 구조를 보존 못해 부적합(dead code 회피로 미작성). |
 | 대상 커밋 | (push 후) |
+
+## [구현자 기입] 후속 버그 대응 — 2026-06-25
+
+| 항목 | 내용 |
+|---|---|
+| 사용자 피드백 | 계획 패널 본문 드래그 후 좌측 버튼을 떼도 코멘트 입력 팝오버가 뜨지 않고, 드래그 효과가 텍스트뿐 아니라 오른쪽 공백 영역까지 표시됨. |
+| 원인 | 선택 종료 감지가 본문 컨테이너 `mouseup` 에만 묶여 드래그 종료 지점/selection 확정 타이밍에 취약했고, 오버레이 rect 가 `Range.getClientRects()` 전체 line-box 를 그대로 사용해 줄 끝 공백 폭까지 배경을 칠할 수 있었음. |
+| 변경 파일 | `app/src/renderer/src/features/chat/hooks/usePlanCommentSelection.ts`, `app/src/renderer/src/features/chat/lib/planCommentDom.ts`, `docs/handoff/INDEX.md`, `docs/handoff/0047-plan-panel-comments/plan.md` |
+| 대응 | 드래그 시작은 본문 `mousedown`, 선택 확정은 `document mouseup` 으로 분리해 컨테이너 밖 release 도 처리. 하이라이트 rect 는 선택 Range 를 텍스트 노드별 부분 Range 로 재측정하고 whitespace-only/양끝 공백 조각을 제외해 실제 텍스트 폭에 맞춤. |
+| 실행 명령 | `npm run typecheck` / `npm run lint` / `npm test` / `npm rebuild better-sqlite3`(테스트 ABI 복구) |
+| 게이트 결과 | typecheck ✅ / lint ✅ / test 1차 ⚠️ better-sqlite3 Electron ABI(140) vs Node ABI(115) 불일치로 `queries.test.ts` 12건 실패 → `npm rebuild better-sqlite3` 후 test ✅ **538/538 passed** |
+| 블로커 | 없음 |
