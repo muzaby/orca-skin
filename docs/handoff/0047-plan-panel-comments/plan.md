@@ -164,6 +164,18 @@
 | 게이트 결과 | typecheck ✅ / lint ✅ / test 1차 ⚠️ better-sqlite3 Electron ABI(140) vs Node ABI(115) 불일치로 `queries.test.ts` 12건 실패 → `npm rebuild better-sqlite3` 후 test ✅ **538/538 passed** / diff check ✅ |
 | 블로커 | 없음 |
 
+## [구현자 기입] 후속 버그 대응 — 2026-06-25 (6차)
+
+| 항목 | 내용 |
+|---|---|
+| 사용자 피드백 | ① 계획 패널 팝오버가 첨부 Claude Code 웹 캡처(이미 등록된 코멘트 재클릭=edit 모드)와 디자인이 다름(quote 헤더 등 DOM 스타일 전반). ② `테스트` 플레이스홀더 잔존. ③ **팝오버 내부 클릭 시 팝오버가 사라짐.** ④ composer approval card 수정 textarea 의 테두리가 사라짐(4차 borderless 변경). |
+| 원인 | ③ 팝오버가 `contentRef` 내부 absolute DOM 이라 `usePlanCommentSelection` 의 컨테이너 `mousedown` 가 팝오버 자손 클릭에도 `startedInContainer=true` → document `mouseup` 시 textarea 포커스로 네이티브 selection 이 collapse → `offsetsFromSelection` null → `setRawDraft(null)` → draft 소멸. ② `placeholder="테스트"` 하드코딩. ① CC 웹 팝오버엔 quote 스니펫 헤더가 없음(현재는 존재). ④ 4차에서 래퍼를 `bg-white` borderless 로 변경하며 테두리 미복원. |
+| 변경 파일 | `app/src/renderer/src/features/chat/hooks/usePlanCommentSelection.ts`, `app/src/renderer/src/features/chat/components/rightpanel/PlanCommentPopover.tsx`, `app/src/renderer/src/features/chat/components/ApprovalCard.tsx`, `docs/handoff/INDEX.md`, `docs/handoff/0047-plan-panel-comments/plan.md` |
+| 대응 | ③ 선택 시작/종료 핸들러에서 `[data-context="floating"]`(팝오버) 내부 target 을 제외해 팝오버 클릭이 draft 를 비우지 않게 함. ② 플레이스홀더 `테스트`→`코멘트 추가…`(사용자 확정). ① quote 스니펫 시각 헤더 제거(접근성 컨텍스트로 dialog `aria-label` 에만 유지) + 팝오버를 textarea + 하단 버튼바(삭제 좌/검은 댓글↩ 우) 구조로 정리·패딩 보정. ④ approval 수정 입력 래퍼에 `border border-t5 … focus-within:border-border-strong` 복원(`AskUserQuestionCard` 패턴 정합), mirror/textarea 의 borderless 는 유지. |
+| 실행 명령 | `npm run typecheck` / `npm run lint` / `npm rebuild better-sqlite3 && npm test` |
+| 게이트 결과 | typecheck ✅ / lint ✅ / test ✅ **529 passed**(실패 2 suite `persist`·`send.runtime-resilience` 은 electron 바이너리 미설치 환경 제한=0033/0046 계열, 렌더러 전용 변경 무관·0 test 실패) |
+| 블로커 | 없음. ⚠️ 팝오버 픽셀 정합은 사용자 시각 검증 대기. |
+
 ## [구현자 기입] 후속 버그 대응 — 2026-06-25 (5차)
 
 | 항목 | 내용 |

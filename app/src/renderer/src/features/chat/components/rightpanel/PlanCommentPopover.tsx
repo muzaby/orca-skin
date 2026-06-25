@@ -110,24 +110,21 @@ export function PlanCommentPopover({
     <div
       ref={panelRef}
       role="dialog"
-      aria-label={mode === 'create' ? '코멘트 작성' : '코멘트 편집'}
-      className="absolute z-50 rounded-r6 border border-border bg-white shadow-[0_8px_24px_rgba(0,0,0,.16)]"
+      aria-label={`${mode === 'create' ? '코멘트 작성' : '코멘트 편집'}: ${quoteSnippet(quote, 120)}`}
+      className="absolute z-50 overflow-hidden rounded-r6 border border-border bg-white shadow-[0_8px_24px_rgba(0,0,0,.16)]"
       style={style}
       data-context="floating"
       data-behavior="dismissible"
     >
-      <div className="border-b border-border px-3 py-2 text-caption text-t6">
-        {quoteSnippet(quote, 120)}
-      </div>
       <textarea
         ref={textareaRef}
         value={body}
         onChange={(e) => setBody(e.target.value)}
         onKeyDown={onTextareaKeyDown}
         rows={1}
-        placeholder="테스트"
+        placeholder="코멘트 추가…"
         aria-label="코멘트 내용"
-        className="block max-h-48 min-h-12 w-full resize-none overflow-hidden border-0 bg-white px-3 py-2 text-footnote text-t9 outline-none ring-0 placeholder:text-t6 focus:ring-0"
+        className="block max-h-48 min-h-12 w-full resize-none overflow-hidden border-0 bg-white px-3 py-2.5 text-footnote text-t9 outline-none ring-0 placeholder:text-t6 focus:ring-0"
       />
       <div className="flex items-center justify-between border-t border-border px-3 py-2">
         {mode === 'edit' && onDelete ? (
