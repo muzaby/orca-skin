@@ -86,3 +86,41 @@ Test Files  2 failed | 68 passed (70)
 ## 결론 / 다음 단계
 
 - 상태: **PASS** → PHASES 표 승격. PR(draft) 생성. 런타임/GUI 항목은 사람 확인 대기.
+
+---
+
+## 라운드 2 검증 (PR #137 GUI 피드백 — 동시 도구 승인 큐화)
+
+| 항목 | 값 |
+|---|---|
+| 라운드 | 2 |
+| 상태 | PASS |
+| 범위 | 렌더러 전용(백엔드·IPC·DB 무변경) |
+
+### 파생 이슈 충족
+
+| # | 이슈 | 충족 | 증거 |
+|---|---|---|---|
+| D2 | 동시 도구 승인 덮어쓰기 소실 | ✅ | `chatReducer.ts` `pendingToolApprovals` 큐 append(permission.requested) + `RESOLVE_TOOL_APPROVAL{approvalId}` filter; `Composer.tsx` 스택 map 렌더; `chatReducer.tool.test.ts` "동시 3건 보존"·"approvalId별 제거" |
+| D1 | 서브에이전트 승인 후 inflight 고착 | ✅ | D2 의 downstream — 큐화로 모든 approvalId 가 UI 에 유지·개별 응답 → broker 전부 해소·`pendingApprovals`→0 으로 idle resume. (백엔드 동시성은 라운드1에서 이미 정확) |
+
+### 게이트
+
+```
+$ npm run typecheck   # node + web + test  → ✅
+$ npm run lint        # boundaries 0       → ✅
+$ npm test            # 509 passed (509 실행분)
+```
+
+- 2 failed suites(`persist`·`send.runtime-resilience`) = electron 바이너리 미설치 환경 제한(라운드1 동일, 변경 무관).
+- 신규 의존성 0, IPC 채널/DB 스키마/백엔드 무변경.
+
+### 검증 한계 (사람 GUI 대기)
+
+- ⓐ 서브에이전트 N개 동시 도구요청 → 카드 N개 스택, 개별 승인/거부 시 각 서브에이전트 진행·전부 처리 후 inflight 해제.
+- ⓑ 일부만 승인 후 나머지도 차례로 처리.
+- ⓒ 단일 도구 승인 회귀 없음.
+
+### 결론
+
+라운드 2 **PASS** — 동일 PR #137 에 push. D1/D2 코드 해소, 런타임/GUI 는 사람 확인 대기.

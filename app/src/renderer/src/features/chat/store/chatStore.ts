@@ -612,7 +612,7 @@ function rejectPlan(requestId: string): void {
 // 위험 도구 승인 — 허용(이번만) / 세션 동안 허용 / 거부(턴 계속, 중단 아님).
 function approveTool(approvalId: string): void {
   void permissionApi.respond({ approvalId, resolution: { behavior: 'allow' } })
-  dispatchActive({ type: 'RESOLVE_TOOL_APPROVAL' })
+  dispatchActive({ type: 'RESOLVE_TOOL_APPROVAL', approvalId })
 }
 
 function approveToolForSession(approvalId: string, toolName: string): void {
@@ -620,7 +620,7 @@ function approveToolForSession(approvalId: string, toolName: string): void {
     approvalId,
     resolution: { behavior: 'allow', updatedPermissions: [{ toolName, scope: 'session' }] }
   })
-  dispatchActive({ type: 'RESOLVE_TOOL_APPROVAL' })
+  dispatchActive({ type: 'RESOLVE_TOOL_APPROVAL', approvalId })
 }
 
 function denyTool(approvalId: string): void {
@@ -629,7 +629,7 @@ function denyTool(approvalId: string): void {
     approvalId,
     resolution: { behavior: 'deny', interrupt: false }
   })
-  dispatchActive({ type: 'RESOLVE_TOOL_APPROVAL' })
+  dispatchActive({ type: 'RESOLVE_TOOL_APPROVAL', approvalId })
 }
 
 // 안정 액션 묶음 — 모듈 상수라 컴포넌트가 deps/메모 걱정 없이 직접 import 하거나 props 로
