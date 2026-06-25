@@ -4,9 +4,9 @@ import { CopyIconButton } from '../../../../shared/ui/CopyIconButton'
 import { Markdown } from '../../../../shared/ui/markdown/Markdown'
 import { chatActions, useChatSession } from '../../store/chatStore'
 import { usePlanCommentSelection } from '../../hooks/usePlanCommentSelection'
-import { rangeFromOffsets } from '../../lib/planCommentDom'
+import { rangeFromOffsets, rectsForRange } from '../../lib/planCommentDom'
 import { PlanCommentOverlay } from './PlanCommentOverlay'
-import { PlanCommentPopover, type PopoverAnchorRect } from './PlanCommentPopover'
+import { PlanCommentPopover, type PopoverAnchorPoint } from './PlanCommentPopover'
 
 // 계획 타일 헤더 액션 — 본문이 아닌 타일 헤더(RightPanelTile)에서 렌더된다.
 // planContent 를 직접 구독하므로 RightPanelTile 은 타일별 액션을 모른 채 슬롯만 받는다.
@@ -25,7 +25,7 @@ export function PlanTileContent(): React.JSX.Element {
   // 마크다운 본문만 감싸는 컨테이너(힌트 제외) — 선택 오프셋·하이라이트 rect 기준.
   const contentRef = useRef<HTMLDivElement>(null)
   const { draft, clear } = usePlanCommentSelection(contentRef, enabled)
-  const [editAnchor, setEditAnchor] = useState<PopoverAnchorRect | null>(null)
+  const [editAnchor, setEditAnchor] = useState<PopoverAnchorPoint | null>(null)
 
   const activeComment = comments.find((c) => c.id === activeId) ?? null
 
@@ -40,8 +40,15 @@ export function PlanTileContent(): React.JSX.Element {
     if (!range) return
     range.startContainer.parentElement?.scrollIntoView({ block: 'nearest' })
     const id = requestAnimationFrame(() => {
-      const r = range.getBoundingClientRect()
-      setEditAnchor({ top: r.top, left: r.left, bottom: r.bottom, right: r.right })
+      const rects = rectsForRange(range, container)
+      const first = rects[0]
+      if (!first) return
+      setEditAnchor({
+        x: first.left + first.width / 2,
+        top: first.top,
+        bottom: first.top + first.height,
+        containerWidth: container.clientWidth
+      })
     })
     return () => cancelAnimationFrame(id)
   }, [activeComment])
@@ -99,36 +106,35 @@ export function PlanTileContent(): React.JSX.Element {
             contentKey={planContent}
             onSelect={(id) => chatActions.setActivePlanComment(id)}
           />
+          {draft ? (
+            <PlanCommentPopover
+              key="create"
+              anchor={draft.anchor}
+              quote={draft.quote}
+              mode="create"
+              onSave={onCreateSave}
+              onClose={clear}
+            />
+          ) : (
+            activeComment &&
+            editAnchor && (
+              <PlanCommentPopover
+                key={activeComment.id}
+                anchor={editAnchor}
+                quote={activeComment.quote}
+                mode="edit"
+                initialBody={activeComment.body}
+                onSave={(body) => {
+                  chatActions.updatePlanComment(activeComment.id, body)
+                  chatActions.setActivePlanComment(null)
+                }}
+                onDelete={() => chatActions.removePlanComment(activeComment.id)}
+                onClose={() => chatActions.setActivePlanComment(null)}
+              />
+            )
+          )}
         </div>
       </div>
-
-      {draft ? (
-        <PlanCommentPopover
-          key="create"
-          anchorRect={draft.rect}
-          quote={draft.quote}
-          mode="create"
-          onSave={onCreateSave}
-          onClose={clear}
-        />
-      ) : (
-        activeComment &&
-        editAnchor && (
-          <PlanCommentPopover
-            key={activeComment.id}
-            anchorRect={editAnchor}
-            quote={activeComment.quote}
-            mode="edit"
-            initialBody={activeComment.body}
-            onSave={(body) => {
-              chatActions.updatePlanComment(activeComment.id, body)
-              chatActions.setActivePlanComment(null)
-            }}
-            onDelete={() => chatActions.removePlanComment(activeComment.id)}
-            onClose={() => chatActions.setActivePlanComment(null)}
-          />
-        )
-      )}
     </div>
   )
 }

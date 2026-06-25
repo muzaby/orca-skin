@@ -1,13 +1,23 @@
 import { useCallback, useEffect, useState, type RefObject } from 'react'
-import { offsetsFromSelection } from '../lib/planCommentDom'
+import { offsetsFromSelection, rectsForRange } from '../lib/planCommentDom'
 
-// 계획 본문 선택 → 코멘트 작성 draft. 화면 좌표(viewport)는 작성 팝오버 앵커에 쓴다.
+export interface PlanCommentAnchor {
+  x: number
+  top: number
+  bottom: number
+  containerWidth: number
+}
+
+// 계획 본문 선택 → 코멘트 작성 draft. anchor 는 contentRef 컨테이너 기준 상대좌표다.
 export interface PlanCommentDraft {
   start: number
   end: number
   quote: string
-  // 선택 영역의 viewport rect — 팝오버 가상 앵커 위치.
-  rect: { top: number; left: number; bottom: number; right: number }
+  anchor: PlanCommentAnchor
+}
+
+function clamp(n: number, min: number, max: number): number {
+  return Math.min(Math.max(n, min), max)
 }
 
 // 컨테이너 안의 텍스트 선택을 감지해 draft 를 만든다. enabled(=계획 검토 중)가 아니면 비활성.
@@ -35,7 +45,9 @@ export function usePlanCommentSelection(
     const onMouseUp = (e: MouseEvent): void => {
       if (!startedInContainer) return
       startedInContainer = false
-      const releaseRect = { top: e.clientY, left: e.clientX, bottom: e.clientY, right: e.clientX }
+      const cRect = container.getBoundingClientRect()
+      const releaseX = e.clientX - cRect.left + container.scrollLeft
+      const releaseY = e.clientY - cRect.top + container.scrollTop
       requestAnimationFrame(() => {
         const sel = window.getSelection()
         if (!sel) return
@@ -44,9 +56,17 @@ export function usePlanCommentSelection(
           setRawDraft(null)
           return
         }
+        const rects = rectsForRange(sel.getRangeAt(0), container)
+        const top = rects.length > 0 ? Math.min(...rects.map((r) => r.top)) : releaseY
+        const bottom = rects.length > 0 ? Math.max(...rects.map((r) => r.top + r.height)) : releaseY
         setRawDraft({
           ...offsets,
-          rect: releaseRect
+          anchor: {
+            x: clamp(releaseX, 0, container.clientWidth),
+            top,
+            bottom,
+            containerWidth: container.clientWidth
+          }
         })
       })
     }

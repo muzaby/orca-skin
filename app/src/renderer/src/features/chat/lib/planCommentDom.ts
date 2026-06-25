@@ -18,13 +18,6 @@ export interface OverlayRect {
   height: number
 }
 
-export interface ViewportRect {
-  top: number
-  left: number
-  bottom: number
-  right: number
-}
-
 // 현재 Selection 을 컨테이너 textContent 기준 오프셋으로 변환. collapsed/공백/컨테이너 밖
 // 선택은 null.
 export function offsetsFromSelection(
@@ -122,21 +115,6 @@ function textNodeRectsForRange(range: Range): DOMRect[] {
     node = walker.nextNode() as Text | null
   }
   return rects
-}
-
-// Range 의 텍스트 조각 rect 들을 viewport 좌표로 반환한다. 브라우저의 range bounding rect 는
-// 마크다운 블록/라인 박스 폭을 포함해 앱 폭이 커질수록 가상 앵커 left/right 가 왜곡될 수 있으므로,
-// 팝오버 앵커도 오버레이와 같은 텍스트 노드별 rect 를 사용한다.
-export function viewportRectsForRange(range: Range): ViewportRect[] {
-  return textNodeRectsForRange(range)
-    .filter((r) => r.width > 0 && r.height > 0)
-    .map((r) => ({ top: r.top, left: r.left, bottom: r.bottom, right: r.right }))
-}
-
-export function anchorRectForRange(range: Range): ViewportRect {
-  const rects = viewportRectsForRange(range)
-  const anchor = rects.at(-1) ?? range.getBoundingClientRect()
-  return { top: anchor.top, left: anchor.left, bottom: anchor.bottom, right: anchor.right }
 }
 
 // Range 의 클라이언트 rect 들을 스크롤 컨테이너 콘텐츠 기준 좌표로 변환(절대배치 오버레이용).
