@@ -77,15 +77,26 @@ plan/DRAFT ─(Claude 작성 완료)→ plan/READY ─(다음=Codex)
 ### 2. 구현 (Codex)
 - `git pull` → `INDEX.md` 에서 자기 차례 확인 → `plan.md` + `docs/` 정독.
 - 구현 후 게이트 통과: `cd app && npm run lint && npm run typecheck && npm test`.
-- `plan.md` 의 "구현 보고/체크리스트" 섹션 기입 (변경 파일·실행 명령·게이트 결과·블로커).
+- `plan.md` 의 `[구현자 기입]` 섹션 기입 (변경 파일·실행 명령·게이트 결과·블로커).
 - `INDEX.md` 갱신: `impl/IMPL_DONE`, 다음=Claude, 대상 커밋 hash 기재.
 - commit `feat|fix|refactor(scope): …` (한국어) + **구현 커밋 trailer**(`Agent: codex`·`Status`·`Criteria-Met`·`Verified-By: pending` …) → `git push`.
 
+#### 구현 시 지침 (구현자 = Codex 기능 / Claude 비기능)
+
+> 구현자는 설계를 *그대로 받아쓰지 않는다*. 실무 관점에서 비판적으로 읽고, 설계가 놓친 것을 plan 에 되먹인다.
+
+- **설계 비판적 리뷰.** plan 을 실무 관점에서 검토해 현실성·구멍을 짚고 `[구현자 기입] 설계 리뷰` 에 동의/이견을 적는다(plan 섹션 인용).
+- **선조치 후보고.** 설계가 다루지 못한 잠재 문제는 `[구현자 기입] 놓친 잠재 문제 + 대응` 에 적고 **대응을 구현한 뒤 보고**한다. 단 **선조치 경계**를 지킨다:
+  - **선조치 가능(✅ 구현·보고)**: 구현 세부·놓친 엣지케이스·명백한 누락/버그.
+  - **선조치 불가(⚠️ 보고만·결정 필요)**: Open Question(PRD §11/TRD §15)·신규 의존성·제품 의도·인수 기준(설계) 변경 → 사용자/설계자 결정(기존 "단독 결정 금지" 와 동일 경계).
+
 ### 3. 검증 (Claude Code)
 - `git pull` → `_templates/verify.template.md` 를 `<NNNN-slug>/verify.md` 로 복사해 작성.
+- **구현자 코멘트 확인**(매트릭스 전 선행): plan 의 `[구현자 기입]` 설계 리뷰·놓친 잠재 문제·선조치(✅/⚠️)를 먼저 읽고 매트릭스/파생 이슈에 반영.
 - **요구사항 충족 매트릭스**(증거 첨부) + **검증 책임 분리표(사람/에이전트)** + 게이트 재실행 + 위생 검토 + PHASES 정합.
+- **검증 자기 리뷰**(무엇이 부족했나): 설계/구현/검증 각 단계의 미흡점을 결과 요약에 메타로 적는다.
 - **PASS**: `INDEX.md` `verify/PASS` → `docs/PHASES.md` 표 행 승격(PR#/커밋) → (사용자 요청 시) PR.
-- **FAIL**: verify "미충족 요구사항" 체크리스트 작성 → `INDEX.md` `verify/FAIL`, 다음=Codex, 라운드 +1.
+- **FAIL**: verify "미충족 요구사항" 체크리스트 작성 → **미해결 문제는 plan 에 "파생 이슈(Derived Issues)" 챕터를 신설**해 이관(구현자 코멘트 참조 또는 사용자 코멘트) → `INDEX.md` `verify/FAIL`, 다음=Codex, 라운드 +1 로 구현 턴 루프백.
 - commit `docs(handoff): <slug> 검증 (PASS|FAIL r<N>)` + **검증 커밋 trailer**(`Agent: claude`·`Status: verified`·`Verified-By: claude:pass|claude:fail`·`Next-Action` …) → `git push`.
 
 ## 충돌 최소화 (단일 브랜치)
@@ -94,7 +105,7 @@ plan/DRAFT ─(Claude 작성 완료)→ plan/READY ─(다음=Codex)
 
 - **Claude** → `docs/handoff/**` + `docs/PHASES.md` (문서)
 - **Codex** → `app/**` (코드)
-- `plan.md` 는 공유하지만 Codex 는 **"구현 보고/체크리스트" 섹션만** 추가한다 (섹션 분리로 충돌 회피).
+- `plan.md` 는 공유한다 — **설계자(Claude)는 상단**, **구현자는 `[구현자 기입]` 섹션만**, **검증자(Claude)는 하단 "파생 이슈" 챕터만** 추가한다 (섹션 분리로 충돌 회피).
 
 ## 검증 책임 분리 (사람 vs 에이전트)
 
