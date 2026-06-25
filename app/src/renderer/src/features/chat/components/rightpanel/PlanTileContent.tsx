@@ -95,6 +95,7 @@ export function PlanTileContent(): React.JSX.Element {
             containerRef={contentRef}
             comments={comments}
             activeId={activeId}
+            draft={draft ? { start: draft.start, end: draft.end } : null}
             contentKey={planContent}
             onSelect={(id) => chatActions.setActivePlanComment(id)}
           />
