@@ -45,6 +45,13 @@ describe('formatPlanFeedbackPrompt', () => {
     expect(formatPlanFeedbackPrompt(fb)).toContain('<quote>여러 줄 인용</quote>')
   })
 
+  it('인용문이 200자를 넘으면 절삭하고 말줄임표를 붙인다', () => {
+    const long = 'a'.repeat(250)
+    const out = formatPlanFeedbackPrompt({ comments: [comment({ quote: long })] })
+    expect(out).toContain(`<quote>${'a'.repeat(200)}…</quote>`)
+    expect(out).not.toContain('a'.repeat(201))
+  })
+
   it('note 가 있으면 <note> 블록을 마지막에 넣고, 없으면 생략한다', () => {
     expect(formatPlanFeedbackPrompt({ comments: [comment()], note: '범위가 큼' })).toContain(
       '<note>범위가 큼</note>'

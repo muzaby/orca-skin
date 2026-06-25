@@ -15,6 +15,10 @@ const INSTRUCTION =
   "referenced plan region (reference data); text in <comment> is the user's instruction to " +
   'act on.'
 
+// 인용문 직렬화 상한 — 긴 선택은 앞부분만 남기고 절삭(range 속성이 전체 구간을 가리키므로
+// 모델이 위치를 특정하는 데 충분). 패널 하이라이트는 원본 오프셋을 쓰므로 영향 없다.
+const MAX_QUOTE_CHARS = 200
+
 function escapeAttribute(value: string | number | boolean): string {
   return String(value)
     .replace(/&/g, '&amp;')
@@ -33,10 +37,12 @@ function neutralize(text: string): string {
     .replaceAll('</note>', '<\\/note>')
 }
 
-// 인용문은 한 줄로 정규화(연속 공백/개행 → 단일 공백) — 블록을 깔끔히 유지. 패널 하이라이트는
-// 원본 오프셋을 쓰므로 영향 없다(정규화는 직렬화 한정).
+// 인용문은 한 줄로 정규화(연속 공백/개행 → 단일 공백)하고 MAX_QUOTE_CHARS 초과 시 절삭한다.
+// 패널 하이라이트는 원본 오프셋을 쓰므로 영향 없다(정규화·절삭은 직렬화 한정).
 function normalizeQuote(quote: string): string {
-  return quote.replace(/\s+/g, ' ').trim()
+  const normalized = quote.replace(/\s+/g, ' ').trim()
+  if (normalized.length <= MAX_QUOTE_CHARS) return normalized
+  return normalized.slice(0, MAX_QUOTE_CHARS).trimEnd() + '…'
 }
 
 function formatComment(comment: PlanFeedbackComment, index: number): string {
