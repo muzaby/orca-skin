@@ -40,6 +40,7 @@
 이 저장소는 두 CLI 에이전트가 분업한다 — **Claude Code = 설계(plan)·검증(verify) 문서**, **Codex = 구현**. 두 에이전트는 *분리된 환경* 에서 **git 공유 브랜치를 메시지 버스 삼아** 통신한다 (라이브 채널 없음).
 
 - **구현 주체 분담**: *기능 구현* 은 Codex, **리팩토링·버그수정 등 비기능 작업은 Claude 가 핸드오프 문서(`<NNNN-slug>/plan.md`)를 만들어 직접 구현까지 수행**한다. 이때도 핸드오프 절차(plan → impl → verify)와 구현 커밋 trailer 형식은 동일하게 따른다.
+- **진입 트리거 (구현 요청 시 find-or-create)**: 사용자 요청이 *자료조사/질문/요약* 이 아니라 **구현·작업 요청**("구현해줘"·"고쳐줘"·"추가해줘"·리팩토링·버그수정 등)이면, `INDEX.md` 에서 해당 핸드오프를 **찾고, 없으면 마지막 일련번호 +1 로 새로 생성(`<NNNN-slug>/plan.md`, 설계 턴부터)**한다 — 구현 요청이라도 plan(설계)을 건너뛰지 않는다. 자료조사/질문은 핸드오프 없이 바로 답한다. (분류·절차 상세는 handoff/AGENTS.md.)
 - **착수 전 항상 [`docs/handoff/INDEX.md`](docs/handoff/INDEX.md) 를 먼저 읽는다** — "지금 누구 차례인가" 의 단일 진실원(디스패치 보드).
 - 흐름: Claude `plan.md`(READY) → Codex 구현 + 게이트 통과(`impl/IMPL_DONE`) → Claude `verify.md`(PASS/FAIL). FAIL 이면 verify 의 "미충족" 체크리스트로 Codex 재구현.
 - 규칙·상태 머신·템플릿 정본은 [`docs/handoff/AGENTS.md`](docs/handoff/AGENTS.md).
