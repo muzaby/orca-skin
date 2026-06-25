@@ -139,3 +139,15 @@
 | 실행 명령 | `npm run typecheck` / `npm run lint` / `npm test` / `npm rebuild better-sqlite3 && npm test` / `git diff --check` |
 | 게이트 결과 | typecheck ✅ / lint ✅ / test 1차 ⚠️ better-sqlite3 Electron ABI(140) vs Node ABI(115) 불일치로 `queries.test.ts` 12건 실패 → `npm rebuild better-sqlite3` 후 test ✅ **538/538 passed** / diff check ✅ |
 | 블로커 | 없음 |
+
+## [구현자 기입] 후속 버그 대응 — 2026-06-25 (3차)
+
+| 항목 | 내용 |
+|---|---|
+| 사용자 피드백 | 코멘트 입력 팝오버가 마우스 버튼을 뗀 드래그 영역 바로 위가 아니라 앱 오른쪽 끝에 붙음. 코멘트 추가 후 composer approval card 에서 `PlanCommentChips` 와 textarea 가 자동 활성화되어야 하며, 활성화 후 좌측 `거부`/`수락` 버튼은 제거되어야 함. |
+| 원인 | 팝오버 앵커를 선택 텍스트 rect 로 보정했지만 사용자 기대는 selection 끝 텍스트 rect 가 아니라 실제 `mouseup` 위치였음. 또한 코멘트 추가 상태는 composer 의 로컬 `reviseOpen` 과 분리되어 있어 칩/textarea 가 자동으로 펼쳐지지 않고 기존 승인/거부 액션이 계속 남았음. |
+| 변경 파일 | `app/src/renderer/src/features/chat/hooks/usePlanCommentSelection.ts`, `app/src/renderer/src/features/chat/components/rightpanel/PlanCommentPopover.tsx`, `app/src/renderer/src/features/chat/components/ApprovalCard.tsx`, `docs/handoff/INDEX.md`, `docs/handoff/0047-plan-panel-comments/plan.md` |
+| 대응 | document `mouseup` 의 `clientX/clientY` 를 0-size viewport 앵커로 저장하고 작성 팝오버 placement 를 `top` 으로 변경해 release 위치 바로 위에 열리게 함. composer 는 `hasComments` 를 수정 영역 활성 조건에 포함하고 textarea focus 를 rAF 로 보정. 코멘트 기반 활성 상태에서는 좌측 `거부`/`수락` 그룹을 숨기고 우측 `수정` 제출만 남김. |
+| 실행 명령 | `npm run typecheck` / `npm run lint` / `npm test` / `npm rebuild better-sqlite3 && npm test` / `git diff --check` |
+| 게이트 결과 | typecheck ✅ / lint ✅ / test 1차 ⚠️ better-sqlite3 Electron ABI(140) vs Node ABI(115) 불일치로 `queries.test.ts` 12건 실패 → `npm rebuild better-sqlite3` 후 test ✅ **538/538 passed** / diff check ✅ |
+| 블로커 | 없음 |

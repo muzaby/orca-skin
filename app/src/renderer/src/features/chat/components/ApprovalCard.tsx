@@ -1,4 +1,4 @@
-import { useState, type KeyboardEvent } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Button } from '../../../shared/ui/Button'
 import { YellowDot } from './transcript/YellowDot'
 import { chatActions, useChatSession } from '../store/chatStore'
@@ -167,10 +167,18 @@ function PlanApprovalBody(): React.JSX.Element | null {
   const comments = useChatSession((s) => s.planComments)
   const [feedback, setFeedback] = useState('')
   const [reviseOpen, setReviseOpen] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   const hasComments = comments.length > 0
-  // 수정 영역은 '수정' 버튼 클릭으로만 펼친다(코멘트 작성은 자동 펼치지 않고 버튼 배지만 토글).
-  const reviseExpanded = reviseOpen
+  // 코멘트가 추가되면 composer 수정 영역을 파생 활성화해 칩과 추가 textarea 를 즉시 노출한다.
+  const reviseExpanded = reviseOpen || hasComments
+  const commentFeedbackActive = hasComments
   const canRevise = feedback.trim() !== '' || hasComments
+
+  useEffect(() => {
+    if (!hasComments) return
+    const id = requestAnimationFrame(() => textareaRef.current?.focus())
+    return () => cancelAnimationFrame(id)
+  }, [hasComments])
 
   if (!review) return null
   const rid = review.requestId
@@ -245,6 +253,7 @@ function PlanApprovalBody(): React.JSX.Element | null {
             />
           )}
           <textarea
+            ref={textareaRef}
             value={feedback}
             onChange={(e) => setFeedback(e.target.value)}
             onKeyDown={onTextareaKeyDown}
@@ -256,30 +265,34 @@ function PlanApprovalBody(): React.JSX.Element | null {
         </div>
       </div>
 
-      <div className="mt-2.5 flex items-center justify-between gap-g3">
-        <div className="flex items-center gap-g3">
-          <Button variant="contained" onClick={() => rejectPlan(rid)} data-behavior="dismissible">
-            거부
-          </Button>
-          {reviseExpanded ? (
-            <Button variant="uncontained" onClick={() => approvePlan(rid)} kbd="Ctrl+Enter">
-              수락
+      <div
+        className={`mt-2.5 flex items-center gap-g3 ${commentFeedbackActive ? 'justify-end' : 'justify-between'}`}
+      >
+        {!commentFeedbackActive && (
+          <div className="flex items-center gap-g3">
+            <Button variant="contained" onClick={() => rejectPlan(rid)} data-behavior="dismissible">
+              거부
             </Button>
-          ) : (
-            <Button variant="uncontained" onClick={onReviseClick}>
-              {hasComments ? (
-                <>
-                  수정
-                  <span className="ml-1 rounded-full bg-rust/15 px-1.5 text-caption font-medium text-rust">
-                    {comments.length}
-                  </span>
-                </>
-              ) : (
-                '수정…'
-              )}
-            </Button>
-          )}
-        </div>
+            {reviseExpanded ? (
+              <Button variant="uncontained" onClick={() => approvePlan(rid)} kbd="Ctrl+Enter">
+                수락
+              </Button>
+            ) : (
+              <Button variant="uncontained" onClick={onReviseClick}>
+                {hasComments ? (
+                  <>
+                    수정
+                    <span className="ml-1 rounded-full bg-rust/15 px-1.5 text-caption font-medium text-rust">
+                      {comments.length}
+                    </span>
+                  </>
+                ) : (
+                  '수정…'
+                )}
+              </Button>
+            )}
+          </div>
+        )}
         {reviseExpanded ? (
           <Button
             variant="primary"
