@@ -66,7 +66,7 @@ export function PlanCommentPopover({
         open
         anchorRef={anchorRef}
         onClose={onClose}
-        placement="bottom"
+        placement="top"
         className="w-[280px] p-2"
       >
         <div className="flex flex-col gap-2">
