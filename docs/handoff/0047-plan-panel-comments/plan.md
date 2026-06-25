@@ -163,3 +163,15 @@
 | 실행 명령 | `npm run typecheck` / `npm run lint` / `npm test` / `npm rebuild better-sqlite3 && npm test` / `git diff --check` |
 | 게이트 결과 | typecheck ✅ / lint ✅ / test 1차 ⚠️ better-sqlite3 Electron ABI(140) vs Node ABI(115) 불일치로 `queries.test.ts` 12건 실패 → `npm rebuild better-sqlite3` 후 test ✅ **538/538 passed** / diff check ✅ |
 | 블로커 | 없음 |
+
+## [구현자 기입] 후속 버그 대응 — 2026-06-25 (5차)
+
+| 항목 | 내용 |
+|---|---|
+| 사용자 피드백 | 팝오버는 드래그 영역 하위 DOM 으로 구현하고, 기본은 드래그 영역 bottom 아래에 위치해야 함. 뷰포트를 넘어가면 드래그 영역 top 위(마이너스 방향)로 flip. 팝오버 코멘트 textarea 는 resize 제거 + 줄바꿈 시 아래로 grow. 첨부 이미지의 Claude Code 웹 계획 패널 코멘트 팝오버 디자인을 맞춤. |
+| 원인 | body portal/fixed 좌표계 Popover 를 계속 보정하면서 하이라이트(content-relative)와 팝오버(viewport) 좌표계가 분리되어 right panel/viewport clamp 문제가 반복됨. 팝오버 textarea 도 native fixed rows + resize 계열이라 Claude Code 웹과 다른 작성 UX였음. |
+| 변경 파일 | `app/src/renderer/src/features/chat/hooks/usePlanCommentSelection.ts`, `app/src/renderer/src/features/chat/components/rightpanel/PlanTileContent.tsx`, `app/src/renderer/src/features/chat/components/rightpanel/PlanCommentPopover.tsx`, `app/src/renderer/src/features/chat/lib/planCommentDom.ts`, `docs/handoff/INDEX.md`, `docs/handoff/0047-plan-panel-comments/plan.md` |
+| 대응 | draft/edit anchor 를 contentRef 상대좌표(`x/top/bottom/containerWidth`)로 전환하고, `PlanCommentPopover` 를 contentRef 내부 absolute DOM 으로 렌더. 기본 위치는 선택 rect bottom+gap, 측정 후 viewport 하단을 넘으면 top-gap 위로 flip. 팝오버 textarea 는 `resize-none` + scrollHeight 기반 auto-grow 로 줄바꿈 시 아래로 확장. Claude Code 웹 이미지에 맞춰 흰 패널/얇은 border/quote header/하단 삭제·검은 댓글 버튼 구조로 정리. 사용하지 않게 된 viewport anchor helper 제거. |
+| 실행 명령 | `npm run typecheck` / `npm run lint` / `npm test` / `npm rebuild better-sqlite3 && npm test` / `git diff --check` |
+| 게이트 결과 | typecheck ✅ / lint ✅ / test 1차 ⚠️ better-sqlite3 Electron ABI(140) vs Node ABI(115) 불일치로 `queries.test.ts` 12건 실패 → `npm rebuild better-sqlite3` 후 test ✅ **538/538 passed** / diff check ✅ |
+| 블로커 | 없음 |
