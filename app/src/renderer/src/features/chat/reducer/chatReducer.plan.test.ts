@@ -166,6 +166,43 @@ describe('chatReducer — 계획 검토(plan_review)', () => {
     expect(approved.permissionMode).toBe('accept_edits')
   })
 
+  it('계획 코멘트 추가/편집/삭제 + 활성 선택', () => {
+    const withPlan = chatReducer(initialChatState, recv(planEvent()))
+    const c = { id: 'c1', quote: 'b.py', start: 5, end: 9, body: '이름 바꿔줘', createdAt: 1 }
+    const added = chatReducer(withPlan, { type: 'ADD_PLAN_COMMENT', comment: c })
+    expect(added.planComments).toEqual([c])
+    // 추가 직후 편집 팝오버 자동 오픈 안 함(activeId=null)
+    expect(added.activePlanCommentId).toBeNull()
+
+    const selected = chatReducer(added, { type: 'SET_ACTIVE_PLAN_COMMENT', id: 'c1' })
+    expect(selected.activePlanCommentId).toBe('c1')
+
+    const edited = chatReducer(selected, {
+      type: 'UPDATE_PLAN_COMMENT',
+      id: 'c1',
+      body: '삭제해줘'
+    })
+    expect(edited.planComments[0].body).toBe('삭제해줘')
+
+    const removed = chatReducer(edited, { type: 'REMOVE_PLAN_COMMENT', id: 'c1' })
+    expect(removed.planComments).toEqual([])
+    // 활성 코멘트가 삭제되면 activeId 도 정리
+    expect(removed.activePlanCommentId).toBeNull()
+  })
+
+  it('RESOLVE_PLAN / NEW_CHAT 가 계획 코멘트를 비운다', () => {
+    const withPlan = chatReducer(initialChatState, recv(planEvent()))
+    const c = { id: 'c1', quote: 'b.py', start: 5, end: 9, body: '의견', createdAt: 1 }
+    const dirty = chatReducer(chatReducer(withPlan, { type: 'ADD_PLAN_COMMENT', comment: c }), {
+      type: 'SET_ACTIVE_PLAN_COMMENT',
+      id: 'c1'
+    })
+    const resolved = chatReducer(dirty, { type: 'RESOLVE_PLAN' })
+    expect(resolved.planComments).toEqual([])
+    expect(resolved.activePlanCommentId).toBeNull()
+    expect(chatReducer(dirty, { type: 'NEW_CHAT' }).planComments).toEqual([])
+  })
+
   it('CANCEL_CHAT / error / NEW_CHAT 가 카드를 비운다', () => {
     const withPlan = chatReducer(initialChatState, recv(planEvent()))
     expect(chatReducer(withPlan, { type: 'CANCEL_CHAT' }).pendingPlanReview).toBeNull()

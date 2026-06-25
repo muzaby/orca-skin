@@ -49,6 +49,31 @@ describe('PermissionRespondSchema — deny 분기', () => {
     })
     expect(r.success).toBe(true)
   })
+
+  it('planFeedback(코멘트 배열 + note) 를 허용', () => {
+    const r = PermissionRespondSchema.safeParse({
+      approvalId: 'a1',
+      resolution: {
+        behavior: 'deny',
+        planFeedback: {
+          comments: [{ id: 'c1', quote: '인용', start: 0, end: 5, body: '의견' }],
+          note: '메모'
+        }
+      }
+    })
+    expect(r.success).toBe(true)
+  })
+
+  it('planFeedback.comments 의 음수 오프셋을 거부', () => {
+    const r = PermissionRespondSchema.safeParse({
+      approvalId: 'a1',
+      resolution: {
+        behavior: 'deny',
+        planFeedback: { comments: [{ id: 'c1', quote: 'x', start: -1, end: 5, body: 'y' }] }
+      }
+    })
+    expect(r.success).toBe(false)
+  })
 })
 
 describe('PermissionRespondSchema — 무효 입력', () => {
