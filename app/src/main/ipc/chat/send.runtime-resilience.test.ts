@@ -52,6 +52,24 @@ describe('send runtime resilience helpers', () => {
     vi.useRealTimers()
   })
 
+  it('paused 중에는 reset()이 타이머를 재무장하지 않는다 (동시 서브에이전트 이벤트 방어)', () => {
+    vi.useFakeTimers()
+    const turn = fakeTurn()
+    const idle = createIdleTimer(turn)
+
+    idle.reset()
+    idle.pause()
+    // 다른 서브에이전트의 이벤트가 이벤트 루프에서 idle.reset()을 반복 호출하는 상황 시뮬레이션.
+    for (let i = 0; i < 5; i++) {
+      vi.advanceTimersByTime(IDLE_TIMEOUT_MS / 2)
+      idle.reset()
+    }
+    vi.advanceTimersByTime(IDLE_TIMEOUT_MS * 2)
+    expect(turn.controller.signal.aborted).toBe(false)
+    idle.clear()
+    vi.useRealTimers()
+  })
+
   it('idle timer 는 resume 후 다시 작동한다', () => {
     vi.useFakeTimers()
     const turn = fakeTurn()

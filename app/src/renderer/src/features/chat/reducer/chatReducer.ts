@@ -349,8 +349,20 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           }
 
         case 'permission.resolved':
-          // 해소 이벤트는 audit/telemetry 용 — 카드는 respond 시 로컬 RESOLVE_* 로 이미 닫힌다.
-          return { ...state, retry: undefined }
+          // 보통 카드는 사용자 respond 시 로컬 RESOLVE_* 로 이미 닫힌다(아래 filter 는 idempotent).
+          // 단 SDK 가 권한요청을 *취소*하면(사용자 클릭 없이) 이 이벤트만 오므로, approvalId 로
+          // 남은 카드(ask/plan/tool)를 정리해 "먹통 카드"가 남지 않게 한다.
+          return {
+            ...state,
+            retry: undefined,
+            pendingAsks: state.pendingAsks.filter((a) => a.requestId !== ev.approvalId),
+            pendingToolApprovals: state.pendingToolApprovals.filter(
+              (a) => a.approvalId !== ev.approvalId
+            ),
+            ...(state.pendingPlanReview?.requestId === ev.approvalId
+              ? { pendingPlanReview: null }
+              : {})
+          }
 
         case 'turn.aborted':
           return {

@@ -124,3 +124,31 @@ $ npm test            # 509 passed (509 실행분)
 ### 결론
 
 라운드 2 **PASS** — 동일 PR #137 에 push. D1/D2 코드 해소, 런타임/GUI 는 사람 확인 대기.
+
+---
+
+## 라운드 4 검증 (동시 서브에이전트 승인 — idle pause/reset 경쟁)
+
+| 항목 | 값 |
+|---|---|
+| 라운드 | 4 |
+| 상태 | PASS (코드/게이트), 사람 GUI 대기 |
+
+### 파생 이슈 충족
+| # | 이슈 | 충족 | 증거 |
+|---|---|---|---|
+| D3 | 동시 N 서브에이전트 승인 시 idle pause 무력화 → inflight 고착 | ✅ | `send.ts createIdleTimer` `paused` 플래그 — `reset()` paused 중 no-op(이벤트 루프·child 이벤트가 pause 무력화 못 함); `send.runtime-resilience.test.ts` "paused 중 reset 반복해도 미abort" |
+| (하드닝) | SDK 권한요청 취소 시 무한 await/먹통 카드 | ✅ | `claude.ts makeCanUseTool` `options.signal`→`requestApproval`→`AbortSignal.any`(send.ts)→broker; 렌더러 `permission.resolved`가 approvalId 로 카드 정리 |
+
+### 게이트
+typecheck ✅(node+web+test) / lint ✅(boundaries 0) / test **509/509 실행분**. 2 suites(`persist`·`send.runtime-resilience`) electron 미설치 환경 제한(신규 paused 테스트 포함 — typecheck 검증, electron 환경서 실행). canUseTool signal 테스트(7건)는 실행 green. 신규 의존성 0, IPC 채널 0.
+
+### 검증 한계 / 정직 노트
+pause-race 는 코드 확정 버그·단건성공/동시실패와 정합하나, 관측 증상(무한·무에러)과 100% 일치 확증은 GUI 런타임뿐. 진단 로그(`[approval]`, 0025 wireLog 게이트) 동봉 — 주 수정 후에도 재현되면 로그로 잔여 원인(SDK/CLI 동시 처리) 확정.
+
+### 사람 GUI 검증 대기
+- 서브에이전트 3개 동시 도구승인 → 2분+ 대기해도 turn abort/무한 없이 유지 → 각 승인 시 정상 진행·3건 모두 처리 후 inflight 해제. 단건 회귀 없음.
+- (그래도 실패 시) `npm run dev` + 디버그 wire 로그 ON → `[approval]` 라인 공유.
+
+### 결론
+라운드 4 PASS(코드/게이트) — PR #137 push. GUI 실기 확인 대기.

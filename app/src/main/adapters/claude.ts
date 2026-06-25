@@ -84,10 +84,13 @@ export interface CanUseToolOptions {
 }
 
 export function makeCanUseTool(
-  requestApproval?: (action: PermissionAction) => Promise<ApprovalResolution>,
+  requestApproval?: (action: PermissionAction, signal?: AbortSignal) => Promise<ApprovalResolution>,
   opts: CanUseToolOptions = {}
 ): CanUseTool {
-  return async (toolName, input): Promise<PermissionResult> => {
+  // options.signal: SDK 가 이 권한요청을 취소하면(control_cancel_request) abort 된다. requestApproval
+  // 로 전달해 broker 가 그 신호로도 해소되게 한다 — 무시하면 canUseTool 이 영영 await 에 걸린다.
+  return async (toolName, input, options): Promise<PermissionResult> => {
+    const signal = options?.signal
     // 서브에이전트 호출 — 재호출 차단(deny) 우선, 아니면 백그라운드 주입(allow + run_in_background).
     if (isSubagentTool(toolName)) {
       const subagentType = subagentTypeOf(input)
@@ -106,10 +109,13 @@ export function makeCanUseTool(
       const questions = Array.isArray((input as { questions?: unknown }).questions)
         ? (input as { questions: AskQuestion[] }).questions
         : []
-      const res = await requestApproval({
-        kind: 'ask_question',
-        request: { requestId: '', questions }
-      })
+      const res = await requestApproval(
+        {
+          kind: 'ask_question',
+          request: { requestId: '', questions }
+        },
+        signal
+      )
       if (res.behavior === 'deny') {
         return { behavior: 'deny', message: ASK_SKIP_MESSAGE }
       }
@@ -131,7 +137,10 @@ export function makeCanUseTool(
         typeof (input as { plan?: unknown }).plan === 'string'
           ? (input as { plan: string }).plan
           : ''
-      const res = await requestApproval({ kind: 'plan_review', request: { requestId: '', plan } })
+      const res = await requestApproval(
+        { kind: 'plan_review', request: { requestId: '', plan } },
+        signal
+      )
       if (res.behavior === 'allow') {
         return { behavior: 'allow', updatedInput: input }
       }
@@ -142,7 +151,7 @@ export function makeCanUseTool(
       return { behavior: 'deny', message: PLAN_REJECT_MESSAGE }
     }
     if (requestApproval && isRiskyTool(toolName)) {
-      const res = await requestApproval({ kind: 'tool_approval', toolName, input })
+      const res = await requestApproval({ kind: 'tool_approval', toolName, input }, signal)
       if (res.behavior === 'allow') {
         return {
           behavior: 'allow',

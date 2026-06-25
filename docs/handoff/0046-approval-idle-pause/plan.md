@@ -174,3 +174,25 @@
 ### 라운드 2 게이트 결과
 
 typecheck ✅(node+web+test) / lint ✅(boundaries 0) / test **509/509 실행분 green**(+1 동시 케이스). 2 suites(`persist`·`send.runtime-resilience`) electron 미설치 환경 제한(라운드1 동일). 신규 의존성 0, IPC/DB/백엔드 무변경.
+
+---
+
+## [검증자 기입] 파생 이슈 — 라운드 4 (동시 서브에이전트 승인: idle pause/reset 경쟁)
+
+| # | 이슈 | 출처 | 대응 | 상태 |
+|---|---|---|---|---|
+| D3 | 서브에이전트 1개=3분 대기 정상 / 3개 동시=2분 후 모두 inflight 고착(무한·무에러) | 사용자 GUI | idle pause/reset 경쟁(아래) 수정 + signal 존중 + 진단 로그 | 해결(주 수정) |
+
+### 라운드 4 근본원인 (사용자 지적, 코드 검증)
+`send.ts` 이벤트 루프는 **모든 이벤트마다 무조건 `idle.reset()`**. 서브에이전트 child 이벤트(`subagent.task`·child `tool.call.started`·델타)도 같은 루프·같은 `idle` 객체를 지난다. 라운드1 `pause=clear`(단순 해제)라 — 단건은 대기 중 다른 이벤트가 없어 pause 유지(정상), **동시 N건은 #1 승인 pause(clear) 직후 아직 안 멈춘 #2·#3 이벤트가 `idle.reset()`로 재무장 → pause 무력화**. 이벤트 루프 reset 과 승인 pause 가 같은 idle 객체를 두고 경쟁 = 단건성공/동시실패의 정확한 설명. (라운드2 큐화는 UI 덮어쓰기만 고쳐 무효.)
+
+### 라운드 4 변경
+- **(주) `createIdleTimer` `paused` 플래그**(`send.ts`): `reset()`은 paused 중 no-op. `pause`=paused set+clear, `resume`=paused clear+arm. 보류 승인이 1개라도 있으면(pendingApprovals>0→pause) 동시 서브에이전트 이벤트의 reset 이 전부 무시됨. stall guard(paused=false 시 매 이벤트 reset)는 유지.
+- **(하드닝) `options.signal` 존중**: `claude.ts makeCanUseTool`이 SDK 3번째 인자 signal 을 `requestApproval`로 전달 → `send.ts`가 턴 signal 과 `AbortSignal.any`로 합쳐 broker 에 등록 → SDK 권한요청 취소 시 broker deny 해소(무한 await 방지·pendingApprovals 정상 감소). 렌더러 `permission.resolved`가 approvalId 로 남은 카드 정리(취소 시 먹통 카드 제거). `TurnRequest.requestApproval` 시그니처에 optional signal 추가.
+- **(진단) `[approval]` 로그**(0025 `wireLog` 게이트, `context.isWireLog()`): requested/resolved/respond(엔트리 found·brokerSize)·pendingApprovals 전이. 프로덕션 무출력.
+
+### 라운드 4 게이트
+typecheck ✅(node+web+test)/lint ✅(boundaries 0)/test **509/509 실행분**. 2 suites(`persist`·`send.runtime-resilience`) electron 미설치 환경 제한(신규 paused 테스트 포함 — typecheck 검증, electron 환경서 실행). 신규 의존성 0, IPC 채널 0.
+
+### 정직 노트
+pause-race 는 코드로 확정된 실재 버그이고 단건/동시 패턴과 정합하나, 관측 증상(무한·무에러)과 100% 일치한다는 확증은 GUI 런타임뿐. 그래서 진단 로그를 함께 넣었다 — 주 수정으로도 재현되면 `[approval]` 로그로 잔여 원인(SDK/CLI 동시 처리) 확정.

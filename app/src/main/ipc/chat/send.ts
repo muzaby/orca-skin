@@ -30,7 +30,7 @@ import type { SessionAdapter } from '../../adapters/types'
 import { agentPermissionRequest } from '../../runtime-events/permission-bridge'
 import type { PermissionModeController } from '../../runtime-events/permission-mode-controller'
 import { makeClassifiedError } from '../../runtime-errors/classifier'
-import { sendChatEvent, type RouterContext } from '../context'
+import { sendChatEvent, isWireLog, type RouterContext } from '../context'
 import { previewOf } from '../dto'
 import { handle, handlePlain } from '../registry'
 import type { ApprovalCoordinator } from './approvals'
@@ -56,25 +56,43 @@ export interface IdleTimer {
   reset: () => void
   clear: () => void
   // pause/resume: 승인 카드처럼 "사용자를 기다리는" 동안 stall 오판을 막기 위해 멈췄다 재개한다.
-  // pause=타이머 해제(만료 안 함), resume=새 창으로 재무장(스트림 재개 시점 기준 IDLE_TIMEOUT_MS).
+  // pause=타이머 해제 + paused 플래그 set, resume=플래그 해제 + 재무장.
   pause: () => void
   resume: () => void
 }
 
 export function createIdleTimer(turn: InflightTurn): IdleTimer {
   let timer: ReturnType<typeof setTimeout> | null = null
+  // 승인 보류 중이면 true — 이 동안 reset()은 no-op 이라 어떤 이벤트도 타이머를 재무장하지 못한다.
+  // 동시 서브에이전트의 child 이벤트(subagent.task/child tool.call/델타)도 이벤트 루프에서 매번
+  // idle.reset()을 호출하는데, paused 가드가 없으면 그 reset 이 pause(clear)한 타이머를 되살려
+  // 멈춤이 무력화된다(단건은 다른 이벤트가 없어 무사, 동시 N건만 파손 — 라운드4 근본원인).
+  let paused = false
   const clear = (): void => {
     if (timer) clearTimeout(timer)
     timer = null
   }
-  const reset = (): void => {
+  const arm = (): void => {
     clear()
     timer = setTimeout(() => {
       turn.timedOut = true
       turn.controller.abort()
     }, IDLE_TIMEOUT_MS)
   }
-  return { reset, clear, pause: clear, resume: reset }
+  // 이벤트마다 호출되는 정상 경로 — 단, paused 중에는 재무장하지 않는다(가드).
+  const reset = (): void => {
+    if (paused) return
+    arm()
+  }
+  const pause = (): void => {
+    paused = true
+    clear()
+  }
+  const resume = (): void => {
+    paused = false
+    arm()
+  }
+  return { reset, clear, pause, resume }
 }
 
 export function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
@@ -384,7 +402,10 @@ export function registerChatHandlers(deps: ChatDeps): void {
     }
     wc.once('destroyed', onOwnerGone)
     wc.once('render-process-gone', onOwnerGone)
-    const requestApproval = async (action: PermissionAction): Promise<ApprovalResolution> => {
+    const requestApproval = async (
+      action: PermissionAction,
+      sdkSignal?: AbortSignal
+    ): Promise<ApprovalResolution> => {
       // 세션 자동 허용된 위험 도구는 카드 미surface — 즉시 통과.
       if (action.kind === 'tool_approval') {
         const sid = turn.dbSessionId
@@ -415,17 +436,33 @@ export function registerChatHandlers(deps: ChatDeps): void {
         )
       }
       sendChatEvent(wc, agentPermissionRequest(approvalId, outbound, turn.dbSessionId ?? undefined))
+      if (isWireLog())
+        console.log(
+          `[approval] requested id=${approvalId} kind=${action.kind}` +
+            (action.kind === 'tool_approval' ? ` tool=${action.toolName}` : '') +
+            ` pending→${pendingApprovals + 1}`
+        )
       // 승인 보류 동안 idle 타이머를 멈춘다 — 사용자 판단 시간이 stall 로 오판돼 턴이 abort 되지
       // 않게(broker 가 timeoutMs 를 의도적으로 안 쓰는 것과 동일 의도). 응답/거부/abort 후 재개.
       pendingApprovals += 1
       if (pendingApprovals === 1) activeIdle?.pause()
+      // broker 는 턴 signal + (있으면) SDK 권한요청 취소 signal 양쪽으로 해소된다. SDK 가 요청을
+      // 취소(control_cancel_request)하면 sdkSignal 이 abort → broker 가 deny 로 settle → 무한 await
+      // 방지 + pendingApprovals 정상 감소(idle resume). 턴 abort 도 그대로 동작.
+      const regSignal = sdkSignal
+        ? AbortSignal.any([controller.signal, sdkSignal])
+        : controller.signal
       let resolution: ApprovalResolution
       try {
-        resolution = await approvals.register(approvalId, turn, controller.signal)
+        resolution = await approvals.register(approvalId, turn, regSignal)
       } finally {
         pendingApprovals -= 1
         if (pendingApprovals === 0) activeIdle?.resume()
       }
+      if (isWireLog())
+        console.log(
+          `[approval] resolved id=${approvalId} behavior=${resolution.behavior} pending→${pendingApprovals}`
+        )
       sendChatEvent(wc, {
         type: 'permission.resolved',
         ...(turn.dbSessionId ? { sessionId: turn.dbSessionId } : {}),

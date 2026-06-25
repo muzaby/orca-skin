@@ -4,7 +4,7 @@ import type { AskQuestion, ApprovalResolution, PermissionAction } from '../../sh
 
 const ctx = { signal: new AbortController().signal } as never
 
-type ReqApproval = (action: PermissionAction) => Promise<ApprovalResolution>
+type ReqApproval = (action: PermissionAction, signal?: AbortSignal) => Promise<ApprovalResolution>
 
 const QUESTIONS: AskQuestion[] = [
   {
@@ -26,10 +26,13 @@ describe('makeCanUseTool — AskUserQuestion', () => {
     })
     const canUse = makeCanUseTool(requestApproval)
     const res = await canUse('AskUserQuestion', { questions: QUESTIONS }, ctx)
-    expect(requestApproval).toHaveBeenCalledWith({
-      kind: 'ask_question',
-      request: { requestId: '', questions: QUESTIONS }
-    })
+    expect(requestApproval).toHaveBeenCalledWith(
+      {
+        kind: 'ask_question',
+        request: { requestId: '', questions: QUESTIONS }
+      },
+      expect.any(AbortSignal)
+    )
     expect(res).toEqual({
       behavior: 'allow',
       updatedInput: {
@@ -64,10 +67,13 @@ describe('makeCanUseTool — AskUserQuestion', () => {
     const requestApproval = vi.fn<ReqApproval>().mockResolvedValue({ behavior: 'deny' })
     const canUse = makeCanUseTool(requestApproval)
     await canUse('AskUserQuestion', {}, ctx)
-    expect(requestApproval).toHaveBeenCalledWith({
-      kind: 'ask_question',
-      request: { requestId: '', questions: [] }
-    })
+    expect(requestApproval).toHaveBeenCalledWith(
+      {
+        kind: 'ask_question',
+        request: { requestId: '', questions: [] }
+      },
+      expect.any(AbortSignal)
+    )
   })
 
   it('requestApproval 미주입 시 AskUserQuestion 도 allow passthrough', async () => {
@@ -84,10 +90,13 @@ describe('makeCanUseTool — ExitPlanMode', () => {
     const canUse = makeCanUseTool(requestApproval)
     const input = { plan: '# 계획\n- b.py 생성', allowedPrompts: [{ tool: 'Bash', prompt: 'run' }] }
     const res = await canUse('ExitPlanMode', input, ctx)
-    expect(requestApproval).toHaveBeenCalledWith({
-      kind: 'plan_review',
-      request: { requestId: '', plan: '# 계획\n- b.py 생성' }
-    })
+    expect(requestApproval).toHaveBeenCalledWith(
+      {
+        kind: 'plan_review',
+        request: { requestId: '', plan: '# 계획\n- b.py 생성' }
+      },
+      expect.any(AbortSignal)
+    )
     expect(res).toEqual({ behavior: 'allow', updatedInput: input })
   })
 
@@ -117,10 +126,13 @@ describe('makeCanUseTool — ExitPlanMode', () => {
       .mockResolvedValue({ behavior: 'deny', interrupt: true })
     const canUse = makeCanUseTool(requestApproval)
     await canUse('ExitPlanMode', {}, ctx)
-    expect(requestApproval).toHaveBeenCalledWith({
-      kind: 'plan_review',
-      request: { requestId: '', plan: '' }
-    })
+    expect(requestApproval).toHaveBeenCalledWith(
+      {
+        kind: 'plan_review',
+        request: { requestId: '', plan: '' }
+      },
+      expect.any(AbortSignal)
+    )
   })
 
   it('requestApproval 미주입 시 ExitPlanMode 도 allow passthrough (하위호환)', async () => {
@@ -137,7 +149,10 @@ describe('makeCanUseTool — 위험 도구 게이트(tool_approval)', () => {
     const canUse = makeCanUseTool(requestApproval)
     const input = { command: 'ls -la' }
     const res = await canUse('Bash', input, ctx)
-    expect(requestApproval).toHaveBeenCalledWith({ kind: 'tool_approval', toolName: 'Bash', input })
+    expect(requestApproval).toHaveBeenCalledWith(
+      { kind: 'tool_approval', toolName: 'Bash', input },
+      expect.any(AbortSignal)
+    )
     expect(res).toEqual({ behavior: 'allow', updatedInput: input })
   })
 
