@@ -168,24 +168,37 @@ function PlanApprovalBody(): React.JSX.Element | null {
   const [feedback, setFeedback] = useState('')
   const [reviseOpen, setReviseOpen] = useState(false)
   const hasComments = comments.length > 0
-  // 코멘트가 있으면 메모 입력란을 항상 펼치고 바로 전송 가능(코멘트 자체가 피드백).
-  const reviseExpanded = reviseOpen || hasComments
+  // 수정 영역은 '수정' 버튼 클릭으로만 펼친다(코멘트 작성은 자동 펼치지 않고 버튼 배지만 토글).
+  const reviseExpanded = reviseOpen
   const canRevise = feedback.trim() !== '' || hasComments
 
   if (!review) return null
   const rid = review.requestId
+
+  const submitRevise = (): void => {
+    if (canRevise) revisePlanWithComments(rid, comments, feedback)
+  }
 
   const onReviseClick = (): void => {
     if (!reviseExpanded) {
       setReviseOpen(true)
       return
     }
-    if (canRevise) revisePlanWithComments(rid, comments, feedback)
+    submitRevise()
   }
 
   const openComment = (id: string): void => {
     setRightPanelTileActive('plan', true)
     chatActions.setActivePlanComment(id)
+  }
+
+  // 수정 textarea: Enter=전송, Shift+Enter=줄바꿈. 카드 레벨 Ctrl+Enter(수락)와 분리(stopPropagation).
+  const onTextareaKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>): void => {
+    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+      e.preventDefault()
+      e.stopPropagation()
+      submitRevise()
+    }
   }
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
@@ -218,30 +231,27 @@ function PlanApprovalBody(): React.JSX.Element | null {
         )}
       </div>
 
-      {hasComments && (
-        <PlanCommentChips
-          comments={comments}
-          onOpen={openComment}
-          onRemove={chatActions.removePlanComment}
-        />
-      )}
-
       <div
         className="mt-2 grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none"
         style={{ gridTemplateRows: reviseExpanded ? '1fr' : '0fr' }}
       >
         <div className="min-h-0 overflow-hidden">
+          {/* 작성한 코멘트는 textarea 위에 스택. */}
+          {hasComments && (
+            <PlanCommentChips
+              comments={comments}
+              onOpen={openComment}
+              onRemove={chatActions.removePlanComment}
+            />
+          )}
           <textarea
             value={feedback}
             onChange={(e) => setFeedback(e.target.value)}
-            placeholder={
-              hasComments
-                ? '추가 메모(선택)…'
-                : '수정 제안 내용을 입력하세요… (입력 후 ‘수정 요청 보내기’)'
-            }
+            onKeyDown={onTextareaKeyDown}
+            placeholder="더 추가할 내용이 있으신가요?"
             rows={3}
             aria-label="수정 제안 내용"
-            className="mb-1 w-full resize-y rounded-r5 border border-t5 bg-bg px-3 py-1.5 text-footnote text-t9 outline-none ring-focus placeholder:text-t6 focus:border-border-strong"
+            className={`mb-1 w-full resize-y rounded-r5 border border-t5 bg-bg px-3 py-1.5 text-footnote text-t9 outline-none ring-focus placeholder:text-t6 focus:border-border-strong ${hasComments ? 'mt-2' : ''}`}
           />
         </div>
       </div>
@@ -255,9 +265,21 @@ function PlanApprovalBody(): React.JSX.Element | null {
             variant="uncontained"
             onClick={onReviseClick}
             disabled={reviseExpanded && !canRevise}
+            kbd={reviseExpanded ? 'Enter' : undefined}
             title={reviseExpanded && !canRevise ? '수정 제안 내용을 먼저 입력하세요' : undefined}
           >
-            {reviseExpanded ? '수정 요청 보내기' : '수정…'}
+            {reviseExpanded ? (
+              '수정'
+            ) : hasComments ? (
+              <>
+                수정
+                <span className="ml-1 rounded-full bg-rust/15 px-1.5 text-caption font-medium text-rust">
+                  {comments.length}
+                </span>
+              </>
+            ) : (
+              '수정…'
+            )}
           </Button>
         </div>
         <Button
