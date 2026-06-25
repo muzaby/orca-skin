@@ -108,9 +108,11 @@ export interface ChatState {
   // 우측 계획 타일에 표시할 마지막 계획 마크다운. 승인/거부 후에도 유지해 읽기전용으로
   // 계속 보여준다(= pendingPlanReview 와 수명 분리). 세션 전환/새 대화 시 비움.
   planContent: string | null
-  // 위험 도구(Bash/Write/Edit 등) 실행 승인 게이트. permission.requested(tool_approval)
-  // 도착 시 세팅, 허용/세션허용/거부 응답 시 null. canUseTool 직렬화로 동시 1개.
-  pendingToolApproval: { approvalId: string; toolName: string; input: unknown } | null
+  // 위험 도구(Bash/Write/Edit 등) 실행 승인 게이트 큐. permission.requested(tool_approval)
+  // 도착마다 append, 응답(허용/세션허용/거부) 시 해당 approvalId 만 제거. 서브에이전트·병렬
+  // tool_use 는 canUseTool 을 동시 호출해 여러 승인이 겹칠 수 있으므로 큐로 모델링한다(단일
+  // 슬롯이면 직전 카드가 덮어써져 사라지고 해당 broker 보류가 영구 inflight 로 고착).
+  pendingToolApprovals: { approvalId: string; toolName: string; input: unknown }[]
 }
 
 export const initialChatState: ChatState = {
@@ -137,7 +139,7 @@ export const initialChatState: ChatState = {
   rightPanelRowSplits: [],
   selectedSubagentTaskId: null,
   planContent: null,
-  pendingToolApproval: null
+  pendingToolApprovals: []
 }
 
 // 우측 패널 열 폭/행 분할 clamp 범위.
@@ -175,7 +177,7 @@ export type ChatAction =
   // 계획 카드 응답(승인/수정/거부) 후 액션 게이트 제거(타일 내용은 유지).
   | { type: 'RESOLVE_PLAN' }
   // 위험 도구 승인 카드 응답(허용/세션허용/거부) 후 게이트 제거.
-  | { type: 'RESOLVE_TOOL_APPROVAL' }
+  | { type: 'RESOLVE_TOOL_APPROVAL'; approvalId: string }
   // 우측 패널 타일 활성 상태/라벨/레이아웃 조작.
   | { type: 'TOGGLE_RIGHT_PANEL_TILE'; id: RightPanelTileId }
   | { type: 'SET_RIGHT_PANEL_TILE_ACTIVE'; id: RightPanelTileId; active: boolean }
@@ -332,14 +334,18 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             }
           }
           // tool_approval — 위험 도구 실행 승인 게이트. approvalId 로 응답을 라우팅한다.
+          // 동시 요청(서브에이전트·병렬 tool_use)은 덮어쓰지 않고 큐에 append 한다.
           return {
             ...state,
             retry: undefined,
-            pendingToolApproval: {
-              approvalId: ev.approvalId,
-              toolName: ev.action.toolName,
-              input: ev.action.input
-            }
+            pendingToolApprovals: [
+              ...state.pendingToolApprovals,
+              {
+                approvalId: ev.approvalId,
+                toolName: ev.action.toolName,
+                input: ev.action.input
+              }
+            ]
           }
 
         case 'permission.resolved':
@@ -354,7 +360,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             retry: undefined,
             pendingAsks: [],
             pendingPlanReview: null,
-            pendingToolApproval: null
+            pendingToolApprovals: []
           }
 
         case 'error':
@@ -367,7 +373,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             retry: undefined,
             pendingAsks: [],
             pendingPlanReview: null,
-            pendingToolApproval: null
+            pendingToolApprovals: []
           }
       }
       return state
@@ -404,7 +410,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         retry: undefined,
         pendingAsks: [],
         pendingPlanReview: null,
-        pendingToolApproval: null
+        pendingToolApprovals: []
       }
 
     case 'CLEAR_ERROR':
@@ -477,8 +483,13 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return { ...state, pendingPlanReview: null }
 
     case 'RESOLVE_TOOL_APPROVAL':
-      // 위험 도구 승인 카드 응답 후 게이트 제거 → Composer 입력창 복귀.
-      return { ...state, pendingToolApproval: null }
+      // 위험 도구 승인 카드 응답 후 해당 approvalId 만 큐에서 제거(나머지 동시 요청은 유지).
+      return {
+        ...state,
+        pendingToolApprovals: state.pendingToolApprovals.filter(
+          (a) => a.approvalId !== action.approvalId
+        )
+      }
 
     case 'TOGGLE_RIGHT_PANEL_TILE':
       return columnsContain(state.rightPanelTiles, action.id)

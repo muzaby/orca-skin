@@ -4,20 +4,14 @@ import { YellowDot } from './transcript/YellowDot'
 import { chatActions, useChatSession } from '../store/chatStore'
 import { columnsContain } from '../lib/rightPanelLayout'
 
-// ApprovalCard — Composer 의 입력 패널을 *대체*하는 계획 승인 게이트(rendering.md §7.6).
-// permission.requested 의 action.kind 별로 분기한다:
-//   - plan_review   : ExitPlanMode 계획 승인(거부/수정…/수락). PlanApprovalBody.
-//   - tool_approval : 위험 도구(Bash/Write/Edit 등) 실행 승인은 입력 위 additive 카드
-//                     패턴이라 Composer 가 ToolApprovalBody 를 직접 배치한다.
-//   - ask_question  : 질문 카드는 입력 *위*에 additive 로 뜨는 별도 패턴(AskUserQuestionCard)이라
-//                     입력-대체형인 본 컴포넌트가 아니라 Composer 가 직접 배치한다.
+// ApprovalCard — Composer 의 입력 패널을 *대체*하는 **계획(plan_review)** 승인 게이트
+// (rendering.md §7.6). 입력 위 additive 패턴인 tool_approval/ask_question 은 Composer 가
+// 각각 ToolApprovalBody/AskUserQuestionCard 를 직접 배치한다(본 컴포넌트는 plan 전용).
 //
-// Composer 가 key={requestId/approvalId} 로 재마운트하므로 로컬 state 는 요청마다 리셋된다.
+// Composer 가 key={requestId} 로 재마운트하므로 로컬 state 는 요청마다 리셋된다.
 export function ApprovalCard(): React.JSX.Element | null {
   const hasPlanReview = useChatSession((s) => s.pendingPlanReview != null)
-  const hasToolApproval = useChatSession((s) => s.pendingToolApproval != null)
   if (hasPlanReview) return <PlanApprovalBody />
-  if (hasToolApproval) return <ToolApprovalBody />
   return null
 }
 
@@ -47,11 +41,19 @@ function toolDescription(input: unknown): string | null {
   return null
 }
 
-export function ToolApprovalBody(): React.JSX.Element | null {
+// 동시(서브에이전트·병렬) 도구 승인은 큐(pendingToolApprovals)로 모델링되어 Composer 가
+// 항목마다 본 컴포넌트를 스택으로 렌더한다 — 각 카드는 자신의 승인 항목을 prop 으로 받아
+// 자기 approvalId 로 응답한다.
+export function ToolApprovalBody({
+  approvalId,
+  toolName,
+  input
+}: {
+  approvalId: string
+  toolName: string
+  input: unknown
+}): React.JSX.Element {
   const { approveTool, approveToolForSession, denyTool } = chatActions
-  const pending = useChatSession((s) => s.pendingToolApproval)
-  if (!pending) return null
-  const { approvalId, toolName } = pending
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) {
@@ -60,8 +62,8 @@ export function ToolApprovalBody(): React.JSX.Element | null {
     }
   }
 
-  const summary = summarizeToolInput(pending.input)
-  const description = toolDescription(pending.input)
+  const summary = summarizeToolInput(input)
+  const description = toolDescription(input)
 
   return (
     <div

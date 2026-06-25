@@ -85,7 +85,7 @@ export function Composer({
   const effort = useChatSession((s) => s.effort)
   const pendingPlanReview = useChatSession((s) => s.pendingPlanReview)
   const projectId = useChatSession((s) => s.projectId ?? s.pendingProjectId)
-  const pendingToolApproval = useChatSession((s) => s.pendingToolApproval)
+  const pendingToolApprovals = useChatSession((s) => s.pendingToolApprovals)
   // 큐의 맨 앞 질문만 렌더(canUseTool 이 query 를 막아 보통 1개). 응답 시 다음 질문이 노출.
   const activeAsk = useChatSession((s) => s.pendingAsks[0])
   const modeButtonRef = useRef<HTMLButtonElement>(null)
@@ -287,7 +287,7 @@ export function Composer({
     })
   }
 
-  const toolApprovalPending = pendingToolApproval != null
+  const toolApprovalPending = pendingToolApprovals.length > 0
   const showCancelButton = inflight || toolApprovalPending
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>): void => {
@@ -416,7 +416,14 @@ export function Composer({
               onSkip={() => skipAsk(activeAsk.requestId)}
             />
           )}
-          {pendingToolApproval && <ToolApprovalBody key={pendingToolApproval.approvalId} />}
+          {pendingToolApprovals.map((p) => (
+            <ToolApprovalBody
+              key={p.approvalId}
+              approvalId={p.approvalId}
+              toolName={p.toolName}
+              input={p.input}
+            />
+          ))}
           {showConcurrencyNotice && (
             <Notice
               title="같은 프로젝트에서 다른 작업이 실행 중입니다."

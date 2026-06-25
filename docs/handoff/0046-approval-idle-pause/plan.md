@@ -147,3 +147,30 @@
 | 게이트 결과 | typecheck ✅(node+web+test) / lint ✅(boundaries 0) / test **508/508 실행분 green**; 2 suites(`persist`·`send.runtime-resilience`) import 차단 = **electron 바이너리 미설치(프록시 다운로드 중단) 환경 제한**(0033/0041~0044 동일 계열) — typecheck + 코드 1:1 로 갈음 |
 | 블로커 / 역질문 | 없음 |
 | 대상 커밋 | (push 후 기재) |
+
+---
+
+## [검증자 기입] 파생 이슈 (Derived Issues) — 라운드 2 (PR #137 GUI 피드백)
+
+라운드 1 PASS 후 사용자 GUI 검증에서 동시/서브에이전트 도구 승인 결함 2건 발견 → 같은 핸드오프 라운드 2 로 처리(렌더러 전용, 백엔드 무변경).
+
+| # | 이슈 | 출처 | 대응 방향 | 상태 |
+|---|---|---|---|---|
+| D1 | 서브에이전트 도구 승인을 2분+ 대기 후 승인해도 수행 미이어짐·inflight 고착 | 사용자 GUI #1 | D2 의 downstream — 동시 요청 덮어쓰기로 사라진 approvalId 가 broker 보류 유지 + `pendingApprovals`>0 로 idle 영구 pause | 해결(D2 수정으로) |
+| D2 | 동시(3개) 도구 승인 시 composer 패널스택 덮어쓰기로 직전 2개 소실 | 사용자 GUI #2 | `pendingToolApproval` 단일 슬롯 → `pendingToolApprovals` 큐(append) + 스택 렌더 + approvalId 별 제거 | 해결 |
+
+### 라운드 2 근본 원인
+
+`chatReducer.ts` `pendingToolApproval`(단일 슬롯, 주석 "canUseTool 직렬화로 동시 1개")가 서브에이전트·병렬 tool_use 의 **동시** `permission.requested(tool_approval)` 를 덮어썼다. 백엔드는 approvalId 별 개별 이벤트 + broker Map + `pendingApprovals` 카운터로 동시성이 이미 정확 → 누락은 렌더러 단일 슬롯뿐. 사라진 approvalId 는 broker 에 영구 보류되어 해당 서브에이전트 canUseTool 미반환(inflight) + 카운터>0 로 idle 영구 pause(=abort 도 안 됨). ask 는 이미 큐(`pendingAsks`)라 무사고였던 것과 대조.
+
+### 라운드 2 변경 (렌더러 전용)
+
+- `chatReducer.ts`: `pendingToolApproval: T|null` → `pendingToolApprovals: T[]`. tool_approval append, `RESOLVE_TOOL_APPROVAL{approvalId}` 가 해당 1개만 filter 제거, 리셋 경로 `[]`.
+- `chatStore.ts`: approve/approveForSession/deny 가 `RESOLVE_TOOL_APPROVAL{approvalId}` dispatch.
+- `ApprovalCard.tsx`: `ToolApprovalBody` prop 수신화(approvalId/toolName/input), `ApprovalCard` plan 전용(死 tool 분기 제거).
+- `Composer.tsx`: `pendingToolApprovals` 스택 렌더(map, key=approvalId) + `toolApprovalPending = length>0`.
+- 테스트 `chatReducer.tool.test.ts`: 단일→큐(동시 보존·approvalId별 제거·리셋) 6 케이스.
+
+### 라운드 2 게이트 결과
+
+typecheck ✅(node+web+test) / lint ✅(boundaries 0) / test **509/509 실행분 green**(+1 동시 케이스). 2 suites(`persist`·`send.runtime-resilience`) electron 미설치 환경 제한(라운드1 동일). 신규 의존성 0, IPC/DB/백엔드 무변경.
