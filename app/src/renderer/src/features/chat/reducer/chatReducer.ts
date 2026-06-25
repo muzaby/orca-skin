@@ -39,6 +39,18 @@ export interface ToolCall {
   parentToolRunId?: string
 }
 
+// 계획 패널 인라인 코멘트 1건(휘발성 — 세션 상태). quote=선택 본문 스냅샷, start/end=계획
+// 본문 textContent 기준 오프셋(하이라이트 매핑·문서 순서), body=사용자 의견. 전송 시 IPC
+// PlanFeedbackComment 로 변환(lib/planComments.ts toPlanFeedback).
+export interface PlanComment {
+  id: string
+  quote: string
+  start: number
+  end: number
+  body: string
+  createdAt: number
+}
+
 // 메시지 = 순서 보존 parts 목록(provider-runtime.md §7). text 는 lib/parts.ts 셀렉터로 합치고,
 // tool_call/tool_result 는 toolRunId 로 페어링해 렌더한다.
 export interface Message {
@@ -108,6 +120,12 @@ export interface ChatState {
   // 우측 계획 타일에 표시할 마지막 계획 마크다운. 승인/거부 후에도 유지해 읽기전용으로
   // 계속 보여준다(= pendingPlanReview 와 수명 분리). 세션 전환/새 대화 시 비움.
   planContent: string | null
+  // 계획 검토 중(pendingPlanReview) 사용자가 본문에 남긴 인라인 코멘트(휘발성). 계획 해소
+  // (RESOLVE_PLAN)·새 대화·세션 전환 시 비운다. revise 전송 시 구조화 태그로 직렬화된다.
+  planComments: PlanComment[]
+  // 패널↔composer 조정용 — 편집 대상 코멘트(패널이 해당 코멘트 팝오버를 열고 스크롤).
+  // selectedSubagentTaskId 와 동형의 UI 선택 상태.
+  activePlanCommentId: string | null
   // 위험 도구(Bash/Write/Edit 등) 실행 승인 게이트 큐. permission.requested(tool_approval)
   // 도착마다 append, 응답(허용/세션허용/거부) 시 해당 approvalId 만 제거. 서브에이전트·병렬
   // tool_use 는 canUseTool 을 동시 호출해 여러 승인이 겹칠 수 있으므로 큐로 모델링한다(단일
@@ -139,6 +157,8 @@ export const initialChatState: ChatState = {
   rightPanelRowSplits: [],
   selectedSubagentTaskId: null,
   planContent: null,
+  planComments: [],
+  activePlanCommentId: null,
   pendingToolApprovals: []
 }
 
@@ -176,6 +196,11 @@ export type ChatAction =
   | { type: 'SET_PERMISSION_MODE'; mode: NormalizedPermissionMode }
   // 계획 카드 응답(승인/수정/거부) 후 액션 게이트 제거(타일 내용은 유지).
   | { type: 'RESOLVE_PLAN' }
+  // 계획 패널 인라인 코멘트 추가/편집/삭제 + 편집 대상 선택.
+  | { type: 'ADD_PLAN_COMMENT'; comment: PlanComment }
+  | { type: 'UPDATE_PLAN_COMMENT'; id: string; body: string }
+  | { type: 'REMOVE_PLAN_COMMENT'; id: string }
+  | { type: 'SET_ACTIVE_PLAN_COMMENT'; id: string | null }
   // 위험 도구 승인 카드 응답(허용/세션허용/거부) 후 게이트 제거.
   | { type: 'RESOLVE_TOOL_APPROVAL'; approvalId: string }
   // 우측 패널 타일 활성 상태/라벨/레이아웃 조작.
@@ -491,8 +516,41 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return { ...state, effort: action.effort }
 
     case 'RESOLVE_PLAN':
-      // 액션 게이트만 닫는다 — planContent/계획 타일 활성 상태는 유지(검토 후 읽기전용 표시).
-      return { ...state, pendingPlanReview: null }
+      // 액션 게이트를 닫고 코멘트를 비운다(승인/수정/거부 후 코멘트 소비 완료) — planContent/
+      // 계획 타일 활성 상태는 유지(검토 후 읽기전용 표시).
+      return {
+        ...state,
+        pendingPlanReview: null,
+        planComments: [],
+        activePlanCommentId: null
+      }
+
+    case 'ADD_PLAN_COMMENT':
+      // 작성 직후 편집 팝오버를 자동으로 열지 않는다(작성 팝오버만 닫힘) — activeId 는 null 유지.
+      return {
+        ...state,
+        planComments: [...state.planComments, action.comment],
+        activePlanCommentId: null
+      }
+
+    case 'UPDATE_PLAN_COMMENT':
+      return {
+        ...state,
+        planComments: state.planComments.map((c) =>
+          c.id === action.id ? { ...c, body: action.body } : c
+        )
+      }
+
+    case 'REMOVE_PLAN_COMMENT':
+      return {
+        ...state,
+        planComments: state.planComments.filter((c) => c.id !== action.id),
+        activePlanCommentId:
+          state.activePlanCommentId === action.id ? null : state.activePlanCommentId
+      }
+
+    case 'SET_ACTIVE_PLAN_COMMENT':
+      return { ...state, activePlanCommentId: action.id }
 
     case 'RESOLVE_TOOL_APPROVAL':
       // 위험 도구 승인 카드 응답 후 해당 approvalId 만 큐에서 제거(나머지 동시 요청은 유지).

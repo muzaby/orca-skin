@@ -218,11 +218,29 @@ export interface PermissionUpdate {
   scope: 'session'
 }
 
+// 계획 검토(plan_review) revise 시 사용자가 본문에 남긴 인라인 코멘트 1건. quote=대상 본문
+// 스냅샷(직렬화·표시용), start/end=계획 본문 textContent 기준 오프셋(문서 순서 정렬용).
+export interface PlanFeedbackComment {
+  id: string
+  quote: string
+  start: number
+  end: number
+  body: string
+}
+
+// plan revise 의 구조화 피드백 — 코멘트 묶음 + 선택 메모(자유 입력). main 이 구조화 태그
+// (ORCA_PLAN_FEEDBACK)로 직렬화해 ExitPlanMode deny message 로 전달한다(prompts/plan-feedback.ts).
+export interface PlanFeedback {
+  comments: PlanFeedbackComment[]
+  note?: string
+}
+
 // 권한 해소의 2분기(4값 모델 폐기 — provider-runtime.md §3). claude PermissionResult 와 동형:
 // allow{updatedInput?} ↔ behavior:'allow', deny{message?,interrupt?} ↔ behavior:'deny'.
+// deny.planFeedback: 계획 revise 의 구조화 코멘트(있으면 main 이 message 대신 태그 직렬화).
 export type ApprovalResolution =
   | { behavior: 'allow'; updatedInput?: unknown; updatedPermissions?: PermissionUpdate[] }
-  | { behavior: 'deny'; message?: string; interrupt?: boolean }
+  | { behavior: 'deny'; message?: string; interrupt?: boolean; planFeedback?: PlanFeedback }
 
 // renderer → main 단일 권한 응답 (permissionRespond 채널). approvalId 로 보류 중인
 // 승인(InteractionBroker)을 라우팅하고, resolution 으로 해소한다.

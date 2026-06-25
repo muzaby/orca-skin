@@ -255,6 +255,22 @@ const PermissionUpdateSchema = z.object({
   scope: z.literal('session')
 })
 
+// 계획 revise 의 구조화 코멘트 — deny 분기에 옵셔널 동봉. main 이 ORCA_PLAN_FEEDBACK 태그로
+// 직렬화한다(prompts/plan-feedback.ts). quote/body 길이는 직렬화 측에서 정규화하므로 여기선
+// 형태만 검증한다.
+const PlanFeedbackCommentSchema = z.object({
+  id: z.string().min(1),
+  quote: z.string(),
+  start: z.number().int().nonnegative(),
+  end: z.number().int().nonnegative(),
+  body: z.string()
+})
+
+const PlanFeedbackSchema = z.object({
+  comments: z.array(PlanFeedbackCommentSchema),
+  note: z.string().optional()
+})
+
 const ApprovalResolutionSchema = z.discriminatedUnion('behavior', [
   z.object({
     behavior: z.literal('allow'),
@@ -264,7 +280,8 @@ const ApprovalResolutionSchema = z.discriminatedUnion('behavior', [
   z.object({
     behavior: z.literal('deny'),
     message: z.string().optional(),
-    interrupt: z.boolean().optional()
+    interrupt: z.boolean().optional(),
+    planFeedback: PlanFeedbackSchema.optional()
   })
 ])
 

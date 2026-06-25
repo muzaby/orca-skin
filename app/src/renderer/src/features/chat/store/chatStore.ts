@@ -3,8 +3,10 @@ import {
   chatReducer,
   initialChatState,
   type ChatAction,
-  type ChatState
+  type ChatState,
+  type PlanComment
 } from '../reducer/chatReducer'
+import { toPlanFeedback } from '../lib/planComments'
 import {
   chatApi,
   concurrencyApi,
@@ -599,6 +601,18 @@ function revisePlan(requestId: string, feedback: string): void {
   dispatchActive({ type: 'RESOLVE_PLAN' })
 }
 
+// 인라인 코멘트 묶음(+선택 메모)으로 계획 수정 요청. main 이 구조화 태그(ORCA_PLAN_FEEDBACK)로
+// 직렬화한다(prompts/plan-feedback.ts). 보낼 내용이 없으면 no-op.
+function revisePlanWithComments(requestId: string, comments: PlanComment[], note: string): void {
+  const feedback = toPlanFeedback(comments, note)
+  if (feedback.comments.length === 0 && feedback.note === undefined) return
+  void permissionApi.respond({
+    approvalId: requestId,
+    resolution: { behavior: 'deny', planFeedback: feedback }
+  })
+  dispatchActive({ type: 'RESOLVE_PLAN' })
+}
+
 function rejectPlan(requestId: string): void {
   // reject = deny + interrupt(main 이 turn abort). 카드 제거 + inflight 종료.
   void permissionApi.respond({
@@ -650,7 +664,15 @@ export const chatActions = {
   setEffort,
   approvePlan,
   revisePlan,
+  revisePlanWithComments,
   rejectPlan,
+  addPlanComment: (comment: PlanComment): void =>
+    dispatchActive({ type: 'ADD_PLAN_COMMENT', comment }),
+  updatePlanComment: (id: string, body: string): void =>
+    dispatchActive({ type: 'UPDATE_PLAN_COMMENT', id, body }),
+  removePlanComment: (id: string): void => dispatchActive({ type: 'REMOVE_PLAN_COMMENT', id }),
+  setActivePlanComment: (id: string | null): void =>
+    dispatchActive({ type: 'SET_ACTIVE_PLAN_COMMENT', id }),
   approveTool,
   approveToolForSession,
   denyTool,

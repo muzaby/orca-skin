@@ -23,6 +23,7 @@ import { claudeErrorClassifier, errorEvent } from '../runtime-errors/claude-clas
 import { createTurnInputStream, type TurnInputContent } from './streaming-input'
 import type { Base64ImageSource } from '@anthropic-ai/sdk/resources/messages'
 import { formatAttachmentPromptBlock } from '../prompts/attachment'
+import { formatPlanFeedbackPrompt } from '../prompts/plan-feedback'
 import type { CompleteRequest, LiveTurn, SessionAdapter } from './types'
 import type { TurnRequest } from '../extensions/types'
 import type { ExtractedAttachmentImage, ExtractedAttachmentText } from '../files/attachments'
@@ -144,7 +145,11 @@ export function makeCanUseTool(
       if (res.behavior === 'allow') {
         return { behavior: 'allow', updatedInput: input }
       }
-      // deny: message 있으면 수정 요청(revise), 없으면 거부(reject — turn abort 는 router 가 처리).
+      // deny: planFeedback(구조화 코멘트) 우선 — 자기서술 블록이라 '사용자 수정 요청:' 프리픽스
+      // 없이 직렬화. 없으면 message(단순 수정), 둘 다 없으면 거부(reject — turn abort 는 router).
+      if (res.planFeedback) {
+        return { behavior: 'deny', message: formatPlanFeedbackPrompt(res.planFeedback) }
+      }
       if (res.message) {
         return { behavior: 'deny', message: '사용자 수정 요청: ' + res.message }
       }
