@@ -9,9 +9,10 @@ interface PopoverProps {
   // 'top' (default) = anchor 위로 열림 (Composer 좌측 하단 버튼용 — 기존 동작).
   // 'bottom' = anchor 아래로 열림 (Header 햄버거 드롭다운용).
   placement?: 'top' | 'bottom'
-  // 'start' (default) = anchor 좌측 가장자리 기준(left). 'end' = anchor 우측 가장자리 기준(right)
-  // — 화면 우측에 붙은 버튼(예: SkillDetail 케밥)이 메뉴를 왼쪽으로 펼쳐 오버플로를 막는다.
-  align?: 'start' | 'end'
+  // 'start' (default) = anchor 좌측 가장자리 기준(left). 'center' = anchor 중앙 기준
+  // (0-size 마우스/커서 앵커는 패널 중앙을 좌표에 맞춤). 'end' = anchor 우측 가장자리
+  // 기준(right) — 화면 우측에 붙은 버튼(예: SkillDetail 케밥)이 메뉴를 왼쪽으로 펼쳐 오버플로를 막는다.
+  align?: 'start' | 'center' | 'end'
   className?: string
 }
 
@@ -53,11 +54,16 @@ export function Popover({
       Math.max(rect.left, EDGE_MARGIN),
       Math.max(EDGE_MARGIN, window.innerWidth - panelW - EDGE_MARGIN)
     )
+    const centerLeft = Math.min(
+      Math.max(rect.left + rect.width / 2 - panelW / 2, EDGE_MARGIN),
+      Math.max(EDGE_MARGIN, window.innerWidth - panelW - EDGE_MARGIN)
+    )
     const endRight = Math.min(
       Math.max(window.innerWidth - rect.right, EDGE_MARGIN),
       Math.max(EDGE_MARGIN, window.innerWidth - panelW - EDGE_MARGIN)
     )
-    const horizontal = align === 'end' ? { right: endRight } : { left: startLeft }
+    const horizontal =
+      align === 'end' ? { right: endRight } : { left: align === 'center' ? centerLeft : startLeft }
     const panelH = panelRef.current?.offsetHeight ?? 0
     const spaceAbove = rect.top
     const spaceBelow = window.innerHeight - rect.bottom
