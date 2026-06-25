@@ -151,3 +151,15 @@
 | 실행 명령 | `npm run typecheck` / `npm run lint` / `npm test` / `npm rebuild better-sqlite3 && npm test` / `git diff --check` |
 | 게이트 결과 | typecheck ✅ / lint ✅ / test 1차 ⚠️ better-sqlite3 Electron ABI(140) vs Node ABI(115) 불일치로 `queries.test.ts` 12건 실패 → `npm rebuild better-sqlite3` 후 test ✅ **538/538 passed** / diff check ✅ |
 | 블로커 | 없음 |
+
+## [구현자 기입] 후속 버그 대응 — 2026-06-25 (4차)
+
+| 항목 | 내용 |
+|---|---|
+| 사용자 피드백 | 작성 팝오버가 여전히 mouseup 지점 위가 아니라 앱 오른쪽 끝에 붙음. approval card 수정 textarea 는 resize/focus border 효과를 제거하고 흰 배경으로 바꾸며, 기본 composer `HighlightedTextarea` 처럼 텍스트가 길어질 때 채팅 영역이 위 방향으로 커져야 함. |
+| 원인 | mouseup 좌표는 저장했지만 공용 `Popover` 가 point anchor 를 `align=start` 로 해석해 패널 left edge 를 cursor x 에 맞췄고, 넓은 화면/오른쪽 release 에서 clamp 로 오른쪽 끝에 붙었음. approval card textarea 는 native `rows=3` + `resize-y` + focus border 스타일이라 auto-grow mirror 구조가 아니었음. |
+| 변경 파일 | `app/src/renderer/src/shared/ui/Popover.tsx`, `app/src/renderer/src/features/chat/components/rightpanel/PlanCommentPopover.tsx`, `app/src/renderer/src/features/chat/components/ApprovalCard.tsx`, `docs/handoff/INDEX.md`, `docs/handoff/0047-plan-panel-comments/plan.md` |
+| 대응 | `Popover` 에 `align="center"` 를 추가해 0-size point anchor 에서 `left = mouseX - panelW / 2` 로 배치하고 viewport clamp 만 최소 적용. `PlanCommentPopover` 는 center align 사용. approval card 수정 입력은 mirror div + absolute textarea 구조로 바꿔 `HighlightedTextarea` 와 같은 auto-grow 레이아웃을 적용하고, `resize-none`/borderless/focus border 제거/흰 배경으로 변경. |
+| 실행 명령 | `npm run typecheck` / `npm run lint` / `npm test` / `npm rebuild better-sqlite3 && npm test` / `git diff --check` |
+| 게이트 결과 | typecheck ✅ / lint ✅ / test 1차 ⚠️ better-sqlite3 Electron ABI(140) vs Node ABI(115) 불일치로 `queries.test.ts` 12건 실패 → `npm rebuild better-sqlite3` 후 test ✅ **538/538 passed** / diff check ✅ |
+| 블로커 | 없음 |

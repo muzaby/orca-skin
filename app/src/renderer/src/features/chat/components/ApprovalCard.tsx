@@ -252,16 +252,24 @@ function PlanApprovalBody(): React.JSX.Element | null {
               onRemove={chatActions.removePlanComment}
             />
           )}
-          <textarea
-            ref={textareaRef}
-            value={feedback}
-            onChange={(e) => setFeedback(e.target.value)}
-            onKeyDown={onTextareaKeyDown}
-            placeholder="더 추가할 내용이 있으신가요?"
-            rows={3}
-            aria-label="수정 제안 내용"
-            className={`mb-1 w-full resize-y rounded-r5 border border-t5 bg-bg px-3 py-1.5 text-footnote text-t9 outline-none ring-focus placeholder:text-t6 focus:border-border-strong ${hasComments ? 'mt-2' : ''}`}
-          />
+          <div className={`relative mb-1 rounded-r5 bg-white ${hasComments ? 'mt-2' : ''}`}>
+            <div
+              aria-hidden
+              className="min-h-[72px] max-h-56 w-full overflow-hidden whitespace-pre-wrap break-words px-3 py-1.5 text-footnote text-transparent"
+            >
+              {feedback === '' ? '더 추가할 내용이 있으신가요?' : feedback}
+              {feedback.endsWith('\n') ? '​' : ''}
+            </div>
+            <textarea
+              ref={textareaRef}
+              value={feedback}
+              onChange={(e) => setFeedback(e.target.value)}
+              onKeyDown={onTextareaKeyDown}
+              placeholder="더 추가할 내용이 있으신가요?"
+              aria-label="수정 제안 내용"
+              className="absolute inset-0 h-full max-h-56 w-full resize-none overflow-y-auto rounded-r5 border-0 bg-transparent px-3 py-1.5 text-footnote text-t9 outline-none ring-0 placeholder:text-t6 focus:border-transparent focus:ring-0"
+            />
+          </div>
         </div>
       </div>
 
