@@ -152,3 +152,8 @@ pause-race 는 코드 확정 버그·단건성공/동시실패와 정합하나, 
 
 ### 결론
 라운드 4 **PASS** (코드/게이트 + 사람 GUI 확인 완료). PR #137. 핸드오프 0046 전 라운드(1~4) 종료 — 머지 승인은 사용자 몫.
+
+---
+
+## 라운드 5 — /simplify 정리 (동작 보존)
+세션 변경분 품질 정리(behavior-preserving). ① idle pause 를 `IdleTimer.beginPause()` refcount 로 일원화 — `send.ts` 의 `pendingApprovals` 카운터 + `pause/resume` 이원 메서드 제거(동시 N건 동치). ② 라운드4 조사용 `[approval]` 진단 로그 + `context.isWireLog()` 제거(GUI 확정으로 소임 종료). 유지: `options.signal` 존중(정상 SDK 계약)·queue·owner-gone·Q1/Q2. 게이트 typecheck/lint ✅·test 509/509 실행분(refcount 테스트는 electron 환경서 실행, 여기선 typecheck 검증). 신규 의존성 0·IPC 0.
