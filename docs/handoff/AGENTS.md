@@ -63,6 +63,17 @@ plan/DRAFT ─(Claude 작성 완료)→ plan/READY ─(다음=Codex)
 - `INDEX.md` 행 추가: `plan/READY`, 다음=Codex. `docs/PHASES.md` "현재 작업 중" 은 보드 링크만 유지.
 - commit `docs(handoff): <slug> 설계` → `git push`.
 
+#### 설계 시 담아야 할 것 (단계별 지침)
+
+> 설계 품질의 단일 책임은 Claude 다. plan 은 *인수 기준* 만이 아니라 **의도 → 조사 → 설계 → 리스크** 흐름을 담는다. 아래는 plan.template.md 의 신규 섹션과 1:1 대응한다. (강제 장치 없음 — 관례 + 5단계 self-review 자가 점검.)
+
+- **0. 자료조사 먼저.** plan 작성 *전* 코드·문서·`chats/` 트랜스크립트를 조사한다. 결정 키워드("확정"/"A로 진행")가 의도의 진실(`chats/AGENTS.md`). 조사 결과는 plan `자료조사` 섹션에 **레퍼런스와 함께** 남긴다 — 내부 문서 `@docs/…`(절 번호 포함)·`@chats/…`, 코드 `파일:라인`, 외부는 **웹 URL** 또는 원문 미러 `@docs/spec/…`. **레퍼런스 없는 주장 금지**(추측은 리스크/Open Question 으로 분리). (새 state 아님 — 설계 턴의 첫 하위 단계.)
+- **1. 사용자 의도 분리.** 명시 요구 vs 추론 의도를 plan 에서 가른다. 추론은 추론이라고 표기한다("사용자 말 ↔ 내 해석").
+- **2. 의존 기술·전제 식별.** 구현이 기댈 SDK 옵션·모듈·라이브러리·전제를 적는다. **신규 의존성은 사용자 승인 대상**(단독 결정 금지, Open Question 연결).
+- **3. 파생 UX·엣지케이스 열거.** 요구에서 파생되는 상태/상호작용/엣지케이스(로딩·에러·빈상태·동시성/멀티세션·테마·접근성)를 미리 펼친다.
+- **4. 리스크·트레이드오프 검토.** 되돌리기 어려운 결정·완화책을 적고, Open Question(PRD §11 / TRD §15)은 사용자에게 묻는다.
+- **5. READY 전 self-review.** plan 의 "설계 self-review 체크리스트" 를 모두 ✅ 로 통과한 뒤에야 `plan/READY` 로 표기한다.
+
 ### 2. 구현 (Codex)
 - `git pull` → `INDEX.md` 에서 자기 차례 확인 → `plan.md` + `docs/` 정독.
 - 구현 후 게이트 통과: `cd app && npm run lint && npm run typecheck && npm test`.
