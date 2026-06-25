@@ -48,8 +48,16 @@ export function Popover({
     const el = anchorRef.current
     if (!el) return
     const rect = el.getBoundingClientRect()
-    const horizontal =
-      align === 'end' ? { right: window.innerWidth - rect.right } : { left: rect.left }
+    const panelW = panelRef.current?.offsetWidth ?? 0
+    const startLeft = Math.min(
+      Math.max(rect.left, EDGE_MARGIN),
+      Math.max(EDGE_MARGIN, window.innerWidth - panelW - EDGE_MARGIN)
+    )
+    const endRight = Math.min(
+      Math.max(window.innerWidth - rect.right, EDGE_MARGIN),
+      Math.max(EDGE_MARGIN, window.innerWidth - panelW - EDGE_MARGIN)
+    )
+    const horizontal = align === 'end' ? { right: endRight } : { left: startLeft }
     const panelH = panelRef.current?.offsetHeight ?? 0
     const spaceAbove = rect.top
     const spaceBelow = window.innerHeight - rect.bottom

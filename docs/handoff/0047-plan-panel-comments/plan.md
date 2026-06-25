@@ -127,3 +127,15 @@
 | 실행 명령 | `npm run typecheck` / `npm run lint` / `npm test` / `npm rebuild better-sqlite3`(테스트 ABI 복구) |
 | 게이트 결과 | typecheck ✅ / lint ✅ / test 1차 ⚠️ better-sqlite3 Electron ABI(140) vs Node ABI(115) 불일치로 `queries.test.ts` 12건 실패 → `npm rebuild better-sqlite3` 후 test ✅ **538/538 passed** |
 | 블로커 | 없음 |
+
+## [구현자 기입] 후속 버그 대응 — 2026-06-25 (2차)
+
+| 항목 | 내용 |
+|---|---|
+| 사용자 피드백 | 코멘트 입력 팝오버가 선택 텍스트 근처가 아니라 비정상적으로 큰 `left` 좌표에 생성되고, 앱 폭이 커질수록 위치 왜곡이 커짐. 추가로 composer 에서 `수정` 버튼을 펼친 뒤 `수락` 버튼 위치를 기존 `수정` 버튼 자리로 변경 요청. |
+| 원인 | 작성 팝오버 앵커는 하이라이트 보정 rect 가 아니라 `Range.getBoundingClientRect()` 전체 bounding box 를 사용하고 있었음. 이 값은 마크다운 블록/라인 박스 폭 영향을 받아 넓은 앱에서 선택 텍스트보다 훨씬 넓은 범위의 좌표를 줄 수 있음. 공용 `Popover` 도 수평 좌표를 viewport 안으로 clamp 하지 않아 비정상 앵커가 그대로 노출될 수 있었음. |
+| 변경 파일 | `app/src/renderer/src/features/chat/lib/planCommentDom.ts`, `app/src/renderer/src/features/chat/hooks/usePlanCommentSelection.ts`, `app/src/renderer/src/shared/ui/Popover.tsx`, `app/src/renderer/src/features/chat/components/ApprovalCard.tsx`, `docs/handoff/INDEX.md`, `docs/handoff/0047-plan-panel-comments/plan.md` |
+| 대응 | 팝오버 앵커를 텍스트 노드별 rect 기반 `anchorRectForRange` 로 변경해 실제 선택 텍스트 마지막 조각 근처에 생성되도록 보정. 공용 `Popover` 는 panel width 를 고려해 start/end 수평 좌표를 viewport edge margin 안으로 clamp. 계획 수정 영역이 펼쳐지면 `수락` 버튼을 기존 `수정` 버튼 위치(좌측 그룹)로 이동하고, 우측 primary 액션은 `수정` 제출 버튼으로 전환. |
+| 실행 명령 | `npm run typecheck` / `npm run lint` / `npm test` / `npm rebuild better-sqlite3 && npm test` / `git diff --check` |
+| 게이트 결과 | typecheck ✅ / lint ✅ / test 1차 ⚠️ better-sqlite3 Electron ABI(140) vs Node ABI(115) 불일치로 `queries.test.ts` 12건 실패 → `npm rebuild better-sqlite3` 후 test ✅ **538/538 passed** / diff check ✅ |
+| 블로커 | 없음 |

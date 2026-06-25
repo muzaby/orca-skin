@@ -261,35 +261,46 @@ function PlanApprovalBody(): React.JSX.Element | null {
           <Button variant="contained" onClick={() => rejectPlan(rid)} data-behavior="dismissible">
             거부
           </Button>
-          <Button
-            variant="uncontained"
-            onClick={onReviseClick}
-            disabled={reviseExpanded && !canRevise}
-            kbd={reviseExpanded ? 'Enter' : undefined}
-            title={reviseExpanded && !canRevise ? '수정 제안 내용을 먼저 입력하세요' : undefined}
-          >
-            {reviseExpanded ? (
-              '수정'
-            ) : hasComments ? (
-              <>
-                수정
-                <span className="ml-1 rounded-full bg-rust/15 px-1.5 text-caption font-medium text-rust">
-                  {comments.length}
-                </span>
-              </>
-            ) : (
-              '수정…'
-            )}
-          </Button>
+          {reviseExpanded ? (
+            <Button variant="uncontained" onClick={() => approvePlan(rid)} kbd="Ctrl+Enter">
+              수락
+            </Button>
+          ) : (
+            <Button variant="uncontained" onClick={onReviseClick}>
+              {hasComments ? (
+                <>
+                  수정
+                  <span className="ml-1 rounded-full bg-rust/15 px-1.5 text-caption font-medium text-rust">
+                    {comments.length}
+                  </span>
+                </>
+              ) : (
+                '수정…'
+              )}
+            </Button>
+          )}
         </div>
-        <Button
-          variant="primary"
-          onClick={() => approvePlan(rid)}
-          data-behavior="action:send"
-          kbd="Ctrl+Enter"
-        >
-          수락
-        </Button>
+        {reviseExpanded ? (
+          <Button
+            variant="primary"
+            onClick={onReviseClick}
+            disabled={!canRevise}
+            kbd="Enter"
+            title={!canRevise ? '수정 제안 내용을 먼저 입력하세요' : undefined}
+            data-behavior="action:send"
+          >
+            수정
+          </Button>
+        ) : (
+          <Button
+            variant="primary"
+            onClick={() => approvePlan(rid)}
+            data-behavior="action:send"
+            kbd="Ctrl+Enter"
+          >
+            수락
+          </Button>
+        )}
       </div>
     </div>
   )

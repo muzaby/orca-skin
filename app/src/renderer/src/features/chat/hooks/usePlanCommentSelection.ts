@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type RefObject } from 'react'
-import { offsetsFromSelection } from '../lib/planCommentDom'
+import { anchorRectForRange, offsetsFromSelection } from '../lib/planCommentDom'
 
 // 계획 본문 선택 → 코멘트 작성 draft. 화면 좌표(viewport)는 작성 팝오버 앵커에 쓴다.
 export interface PlanCommentDraft {
@@ -43,10 +43,9 @@ export function usePlanCommentSelection(
           setRawDraft(null)
           return
         }
-        const r = sel.getRangeAt(0).getBoundingClientRect()
         setRawDraft({
           ...offsets,
-          rect: { top: r.top, left: r.left, bottom: r.bottom, right: r.right }
+          rect: anchorRectForRange(sel.getRangeAt(0))
         })
       })
     }
