@@ -7,6 +7,9 @@ interface PlanCommentOverlayProps {
   containerRef: RefObject<HTMLElement | null>
   comments: PlanComment[]
   activeId: string | null
+  // 작성 중(미저장) 선택 구간 — 팝오버가 떠 있는 동안 시각 표시. 없으면 null.
+  // (textarea 포커스로 네이티브 선택이 collapse 돼도 이 오버레이가 구간을 유지한다.)
+  draft: { start: number; end: number } | null
   // 본문 마크다운(planContent) — 변경 시 rect 재계산 트리거.
   contentKey: string
   onSelect: (id: string) => void
@@ -23,15 +26,18 @@ export function PlanCommentOverlay({
   containerRef,
   comments,
   activeId,
+  draft,
   contentKey,
   onSelect
 }: PlanCommentOverlayProps): React.JSX.Element {
   const [rectsByComment, setRectsByComment] = useState<CommentRects[]>([])
+  const [draftRects, setDraftRects] = useState<OverlayRect[]>([])
 
   useLayoutEffect(() => {
     const container = containerRef.current
     if (!container) {
       setRectsByComment([])
+      setDraftRects([])
       return
     }
     const compute = (): void => {
@@ -41,13 +47,15 @@ export function PlanCommentOverlay({
           return { id: c.id, rects: range ? rectsForRange(range, container) : [] }
         })
       )
+      const draftRange = draft ? rangeFromOffsets(container, draft.start, draft.end) : null
+      setDraftRects(draftRange ? rectsForRange(draftRange, container) : [])
     }
     compute()
     // 폭 변화로 텍스트가 재배치되면 rect 도 갱신.
     const ro = new ResizeObserver(() => compute())
     ro.observe(container)
     return () => ro.disconnect()
-  }, [containerRef, comments, contentKey])
+  }, [containerRef, comments, draft, contentKey])
 
   return (
     <div className="pointer-events-none absolute inset-0" aria-hidden>
@@ -67,6 +75,14 @@ export function PlanCommentOverlay({
           />
         ))
       )}
+      {/* 미저장 선택 — 비클릭, 점선 밑줄 + 옅은 배경으로 커밋 코멘트와 구분. */}
+      {draftRects.map((r, i) => (
+        <span
+          key={`draft-${i}`}
+          className="absolute rounded-[2px] border-b-2 border-dashed border-rust/60 bg-rust/15"
+          style={{ top: r.top, left: r.left, width: r.width, height: r.height }}
+        />
+      ))}
     </div>
   )
 }
