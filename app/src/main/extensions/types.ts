@@ -51,7 +51,9 @@ export interface TurnRequest {
   // PermissionAction 으로 받아 ApprovalResolution(allow/deny 2분기)을 돌려준다. 어댑터가
   // 자기 SDK 의 권한 메커니즘(claude 는 canUseTool)으로 어댑트한다. router 가 broker
   // 에 바인딩해 주입하며, 미주입(opencode 등)이면 어댑터가 현행 자동 통과 동작을 유지.
-  requestApproval?: (action: PermissionAction) => Promise<ApprovalResolution>
+  // signal: 어댑터(SDK)가 이 권한요청을 취소할 때 신호. 주어지면 router 가 턴 signal 과 합쳐
+  // broker 에 묶어, SDK 취소 시 보류가 deny 로 깔끔히 해소되게 한다(canUseTool 무한 await 방지).
+  requestApproval?: (action: PermissionAction, signal?: AbortSignal) => Promise<ApprovalResolution>
   // 이 턴의 권한 모드 (정규화 6종 — Composer 모드 버튼). 어댑터가 toClaudePermissionMode 로
   // 자기 query 옵션(SDK PermissionMode)으로 어댑트. 확장 묶음이 아니라 query-레벨 제어라
   // env/askUser 처럼 TurnRequest 직속.

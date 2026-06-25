@@ -10,6 +10,7 @@ import { PermissionRespondSchema, SetPermissionModeSchema } from '../../../share
 import { toClaudePermissionMode } from '../../../shared/permission-mode'
 import { InteractionBroker } from '../../ask/broker'
 import type { PermissionModeController } from '../../runtime-events/permission-mode-controller'
+import { isWireLog } from '../context'
 import { handle } from '../registry'
 import type { InflightTurn, TurnRegistry } from './turn-registry'
 
@@ -47,6 +48,10 @@ export class ApprovalCoordinator {
   private respond({ approvalId, resolution }: PermissionRespond): void {
     // resolve 가 finally 정리를 킥하므로 턴 참조는 먼저 확보한다.
     const turn = this.turnsByApproval.get(approvalId)
+    if (isWireLog())
+      console.log(
+        `[approval] respond id=${approvalId} behavior=${resolution.behavior} found=${this.turnsByApproval.has(approvalId)} brokerSize=${this.broker.size}`
+      )
     this.broker.resolve(approvalId, resolution)
 
     if (resolution.behavior === 'allow' && resolution.updatedPermissions) {
