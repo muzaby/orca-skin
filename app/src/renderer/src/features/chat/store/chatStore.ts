@@ -614,13 +614,15 @@ function revisePlanWithComments(requestId: string, comments: PlanComment[], note
 }
 
 function rejectPlan(requestId: string): void {
-  // reject = deny + interrupt(main 이 turn abort). 카드 제거 + inflight 종료.
+  // reject = deny(중단 안내 메시지). interrupt 없이 보내야 deny 가 모델에 전달된다 —
+  // interrupt 는 approvals.respond 에서 broker.resolve(deny=마이크로태스크) 직후 동기 abort 라
+  // deny 가 SDK 까지 전파되기 전 쿼리를 죽여 PLAN_REJECT_MESSAGE 가 유실된다. clean deny 면
+  // 모델이 거부를 인지하고 짧게 응답한 뒤 턴이 자연 종료된다(skipAsk/denyTool 과 동일 패턴).
   void permissionApi.respond({
     approvalId: requestId,
-    resolution: { behavior: 'deny', interrupt: true }
+    resolution: { behavior: 'deny' }
   })
   dispatchActive({ type: 'RESOLVE_PLAN' })
-  dispatchActive({ type: 'CANCEL_CHAT' })
 }
 
 // 위험 도구 승인 — 허용(이번만) / 세션 동안 허용 / 거부(턴 계속, 중단 아님).

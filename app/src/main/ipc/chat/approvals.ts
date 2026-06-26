@@ -43,7 +43,9 @@ export class ApprovalCoordinator {
   // 회신. broker 가 보류 중이던 canUseTool Promise 를 해소해 query 가 재개된다. 두 가지 부수효과:
   //   ① allow + updatedPermissions(scope:session) → 해당 세션의 sessionAllowedTools 갱신
   //      (같은 세션 이후 턴에서 자동 허용).
-  //   ② deny + interrupt → 해당 턴 abort (plan reject 의 turn-abort 동작 보존).
+  //   ② deny + interrupt → 해당 턴 abort. protocol 의 optional 능력으로 보존하되, 현재 렌더러
+  //      경로는 사용하지 않는다(plan reject 는 interrupt 없는 clean deny — deny 가 모델에 전달되어
+  //      자연 종료되게 한다. interrupt 를 쓰면 동기 abort 가 deny 전파를 죽임).
   private respond({ approvalId, resolution }: PermissionRespond): void {
     // resolve 가 finally 정리를 킥하므로 턴 참조는 먼저 확보한다.
     const turn = this.turnsByApproval.get(approvalId)

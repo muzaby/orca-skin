@@ -12,6 +12,7 @@ import type { NormalizedEvent } from '../../../../../shared/ipc'
 let rafQueue: FrameRequestCallback[] = []
 let chatSend: ReturnType<typeof vi.fn>
 let settingsSet: ReturnType<typeof vi.fn>
+let permissionRespond: ReturnType<typeof vi.fn>
 vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback): number => {
   rafQueue.push(cb)
   return rafQueue.length
@@ -40,10 +41,12 @@ beforeEach(() => {
   rafQueue = []
   chatSend = vi.fn().mockResolvedValue(undefined)
   settingsSet = vi.fn().mockResolvedValue({})
+  permissionRespond = vi.fn().mockResolvedValue(undefined)
   vi.stubGlobal('window', {
     orca: {
       chat: { send: chatSend, cancel: vi.fn(), onEvent: vi.fn() },
-      settings: { set: settingsSet }
+      settings: { set: settingsSet },
+      permission: { respond: permissionRespond, setMode: vi.fn() }
     }
   })
   useChatStore.setState(
@@ -430,5 +433,39 @@ describe('chatStore — 0040 새-채팅 직렬 디스패치 게이트', () => {
     expect(st.pendingNewChatKey).toBe('draft:a')
     expect(st.sessions['draft:a']).toBeDefined()
     expect(st.recentsEpoch).toBe(0)
+  })
+})
+
+describe('chatStore — 계획 거부(rejectPlan)', () => {
+  beforeEach(() => {
+    useChatStore.setState((st) => ({
+      sessions: {
+        ...st.sessions,
+        s: {
+          ...st.sessions.s,
+          session: {
+            ...st.sessions.s.session,
+            pendingPlanReview: { requestId: 'rid', plan: '# 계획' }
+          }
+        }
+      }
+    }))
+  })
+
+  it('clean deny(interrupt 없음)로 응답해 deny 가 모델에 전달되게 한다', () => {
+    chatActions.rejectPlan('rid')
+    expect(permissionRespond).toHaveBeenCalledTimes(1)
+    expect(permissionRespond).toHaveBeenCalledWith({
+      approvalId: 'rid',
+      resolution: { behavior: 'deny' }
+    })
+  })
+
+  it('RESOLVE_PLAN 으로 카드를 닫되 inflight 는 유지(턴 자연 종료)', () => {
+    expect(entry().session.inflight).toBe(true)
+    chatActions.rejectPlan('rid')
+    // 카드/코멘트는 비우고, 턴은 abort 하지 않아 모델이 거부를 인지하고 응답할 수 있다.
+    expect(entry().session.pendingPlanReview).toBeNull()
+    expect(entry().session.inflight).toBe(true)
   })
 })
