@@ -8,7 +8,7 @@ import { Icon, type IconName } from './Icon'
  * span layered behind the label (`-z-[1]`). The body keeps `relative isolate`
  * so the span's negative z never escapes into sibling stacking contexts
  * (e.g. Popover/overlay). Colours resolve through theme tokens, so the
- * button re-themes with classic/dark/cool automatically.
+ * button re-themes with white/dark automatically.
  */
 
 export type ButtonVariant = 'uncontained' | 'contained' | 'primary'

@@ -19,7 +19,7 @@ interface EngineFormModalProps {
 
 type Step = 1 | 2 | 3
 
-// 빗금(준비 중) 배경 — 테마 border 토큰을 써 다크/쿨 테마에서도 자연스럽게 따라간다.
+// 빗금(준비 중) 배경 — 테마 border 토큰을 써 다크 테마에서도 자연스럽게 따라간다.
 const HATCH =
   'bg-[repeating-linear-gradient(45deg,transparent,transparent_5px,var(--color-border)_5px,var(--color-border)_6px)]'
 

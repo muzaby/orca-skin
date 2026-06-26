@@ -10,7 +10,7 @@ export interface Tweaks {
 }
 
 const DEFAULTS: Tweaks = {
-  theme: 'classic',
+  theme: 'white',
   density: 'normal',
   sidebarCollapsed: false,
   sidebarWidth: 248

@@ -78,7 +78,7 @@ new BrowserWindow({
 ## 스타일링
 
 - Tailwind v4 + **시맨틱 토큰 우선** (`bg-bg`, `text-ink`, `border-border`). raw hex 대신 토큰.
-- 새 토큰은 `styles/tokens.css` 의 `@theme` 에 추가하고 **세 테마 스코프(classic/dark/cool) 전부**에 대응값을 채운다.
+- 새 토큰은 `styles/tokens.css` 의 `@theme` 에 추가하고 **두 테마 스코프(white/dark) 전부**에 대응값을 채운다(white=루트 `@theme` 기본값, dark=`[data-theme='dark']`).
 - 인라인 `style` 은 동적 계산값에만 (드래그 좌표, `width %`, grid template 등). 정적 값은 Tailwind 클래스로.
 - **그룹 스코프 격리** (버그 방지 핵심): 자체 hover 를 가진 컴포넌트는 익명 `group` 대신 `group/<이름>` + `group-hover/<이름>:` 를 쓴다. 익명 `group-hover:` 는 상위 `.group` (예: `AssistantMessage`) 까지 매칭되어 형제 인스턴스가 함께 hover 되는 버그가 난다 (메시지 hover → 그 안 모든 코드블럭 카피버튼 동시 노출). 예: `CodeBlock` = `group/codeblock` (`features/chat/components/markdown/CodeBlock.tsx`), `SessionRow` = `group/session` (`features/sessions/components/SessionRow.tsx`).
 - DOM 마커 체계 (`app-frame-*` 구조 클래스 + `data-behavior`/`data-state`/`data-axis`/`data-context`/`data-platform`) → [`../docs/arch/frontend/dom-architecture.md`](../docs/arch/frontend/dom-architecture.md). 새 CSS 파일/규칙은 추가하지 않고 Tailwind 유틸(arbitrary value 포함) 로 표현한다.

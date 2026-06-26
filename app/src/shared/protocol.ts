@@ -305,7 +305,7 @@ const SIDEBAR_WIDTH_MAX = 480
 const SIDEBAR_WIDTH_DEFAULT = 248
 
 export const SettingsSchema = z.object({
-  theme: z.enum(['classic', 'dark', 'cool']).default('classic'),
+  theme: z.enum(['white', 'dark']).catch('white').default('white'),
   density: z.enum(['compact', 'normal', 'comfortable']).default('normal'),
   sidebarCollapsed: z.boolean().default(false),
   sidebarWidth: z
@@ -328,7 +328,7 @@ export const SettingsSchema = z.object({
 
 export const SettingsPatchSchema = z
   .object({
-    theme: z.enum(['classic', 'dark', 'cool']),
+    theme: z.enum(['white', 'dark']),
     density: z.enum(['compact', 'normal', 'comfortable']),
     sidebarCollapsed: z.boolean(),
     sidebarWidth: z.number().int().min(SIDEBAR_WIDTH_MIN).max(SIDEBAR_WIDTH_MAX),

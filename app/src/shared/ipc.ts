@@ -606,7 +606,7 @@ export interface InstallStatus {
 }
 
 // Settings (TRD §6.7 / §10 anchor "재시작 재개"). Phase 2+ 영속화 도입.
-export type ThemePref = 'classic' | 'dark' | 'cool'
+export type ThemePref = 'white' | 'dark'
 export type DensityPref = 'compact' | 'normal' | 'comfortable'
 
 export interface WindowBounds {

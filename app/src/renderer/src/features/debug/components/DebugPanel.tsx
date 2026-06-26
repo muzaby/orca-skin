@@ -62,9 +62,8 @@ export function DebugPanel(): React.JSX.Element {
         label="컬러 팔레트"
         value={t.theme}
         options={[
-          { value: 'classic', label: '클래식' },
-          { value: 'dark', label: '다크' },
-          { value: 'cool', label: '쿨' }
+          { value: 'white', label: '화이트' },
+          { value: 'dark', label: '다크' }
         ]}
         onChange={(v) => setTweak('theme', v)}
       />
