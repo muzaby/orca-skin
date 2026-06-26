@@ -1,16 +1,25 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react'
 import { Icon } from '../../../shared/ui/Icon'
-import { Button } from '../../../shared/ui/Button'
 import { Popover } from '../../../shared/ui/Popover'
-import { chatActions, useChatSession } from '../store/chatStore'
+import { chatActions, getActiveChatSession, useChatSession } from '../store/chatStore'
 import { partsText } from '../lib/parts'
 import type { ChatState } from '../reducer/chatReducer'
 import { defaultRightPanelTileLabel, type RightPanelTileId } from '../lib/rightPanelTiles'
 import { flattenColumns } from '../lib/rightPanelLayout'
 import { tileRegistry } from './rightpanel/tileRegistry'
 
-const ICON_BTN =
-  'grid h-7 w-7 cursor-default place-items-center rounded-r4 border-0 bg-transparent text-t6 outline-none hide-focus-ring ring-focus transition-colors hover:bg-fill-uncontained-hover hover:text-t7'
+// 타이틀바 아이콘 버튼 — 3-상태(idle/pressed/disabled)를 시맨틱 토큰으로 표현한다.
+// pressed 는 press 표면 토큰(t3), idle hover 는 중립 ink 오버레이. (구 Button 의 warm
+// fill-selected 대신 press 표면 토큰을 써 화이트/다크 모두에서 중립적으로 보이게 한다.)
+const ICON_BTN_BASE =
+  'grid h-7 w-7 place-items-center rounded-r4 border-0 outline-none hide-focus-ring ring-focus transition-colors'
+const ICON_BTN_IDLE =
+  'cursor-default bg-transparent text-t6 hover:bg-fill-uncontained-hover hover:text-t7'
+const ICON_BTN_PRESSED = 'cursor-default bg-t3 text-t8'
+// 비활성(준비 중) — 빗금 배경 + 클릭 차단. Sidebar 의 NAV_DISABLED_HATCH 와 동일한
+// 테마 border 토큰 기반 사선 패턴(신규 CSS 없이 arbitrary value).
+const ICON_BTN_DISABLED =
+  'cursor-not-allowed bg-transparent text-t5 [background-image:repeating-linear-gradient(45deg,transparent,transparent_4px,var(--color-border)_4px,var(--color-border)_5px)]'
 const MENU_ITEM =
   'flex w-full cursor-default items-center gap-2 rounded-r4 border-0 bg-transparent px-2.5 py-1.5 text-left text-footnote text-t8 outline-none hide-focus-ring ring-focus hover:bg-fill-uncontained-hover disabled:opacity-50'
 
@@ -33,8 +42,32 @@ export const ChatTitleBar = memo(function ChatTitleBar(): React.JSX.Element {
   const activeTiles = useMemo(() => flattenColumns(tileColumns), [tileColumns])
   const labels = useChatSession((s) => s.rightPanelTileLabels)
   const [open, setOpen] = useState(false)
+  const [copied, setCopied] = useState(false)
   const anchorRef = useRef<HTMLButtonElement>(null)
   const target = activeTiles.at(-1)
+  const panelActive = activeTiles.length > 0
+
+  // 전체 대화를 마크다운으로 직렬화해 클립보드에 복사한다. text 파트만 추출(partsText)하므로
+  // 도구 호출/첨부는 제외 — 사람이 읽을 대화 본문 위주.
+  const copyConversation = useCallback(async (): Promise<void> => {
+    const { messages } = getActiveChatSession()
+    const text = messages
+      .map((m) => {
+        const body = partsText(m.parts).trim()
+        if (!body) return ''
+        return `## ${m.role === 'user' ? '사용자' : 'Claude'}\n\n${body}`
+      })
+      .filter(Boolean)
+      .join('\n\n')
+    if (!text) return
+    try {
+      await navigator.clipboard.writeText(text)
+      setCopied(true)
+      window.setTimeout(() => setCopied(false), 1200)
+    } catch {
+      /* 클립보드 접근 거부 시 조용히 무시 */
+    }
+  }, [])
 
   const renameTarget = useCallback((): void => {
     if (!target) return
@@ -58,22 +91,32 @@ export const ChatTitleBar = memo(function ChatTitleBar(): React.JSX.Element {
         </div>
       </div>
       <div className="ml-auto flex gap-1">
-        <button className={ICON_BTN} title="검색">
+        <button
+          className={`${ICON_BTN_BASE} ${ICON_BTN_DISABLED}`}
+          disabled
+          title="검색 (준비 중)"
+          aria-label="검색 (준비 중)"
+        >
           <Icon name="search" size={14} />
         </button>
-        <button className={ICON_BTN} title="복사">
-          <Icon name="copy" size={14} />
+        <button
+          className={`${ICON_BTN_BASE} ${ICON_BTN_IDLE}`}
+          onClick={() => void copyConversation()}
+          title={copied ? '복사됨' : '전체 대화 복사'}
+          aria-label="전체 대화 복사"
+        >
+          <Icon name={copied ? 'check' : 'copy'} size={14} />
         </button>
-        <Button
+        <button
           ref={anchorRef}
-          iconOnly
-          size="small"
-          leadingIcon="kebab"
+          className={`${ICON_BTN_BASE} ${open || panelActive ? ICON_BTN_PRESSED : ICON_BTN_IDLE}`}
           onClick={() => setOpen((v) => !v)}
-          pressed={open || activeTiles.length > 0}
+          aria-pressed={open || panelActive}
           title="우측 패널 타일"
           aria-label="우측 패널 타일"
-        />
+        >
+          <Icon name="kebab" size={14} />
+        </button>
         <Popover
           open={open}
           anchorRef={anchorRef}

@@ -32,20 +32,14 @@ export const backendActions = {
   setInstallerOpen: (open: boolean): void => useBackendStore.setState({ installerOpen: open })
 }
 
-// 부팅 1회: 설치 상태 조회 + 미설치 시 인스톨러 최초 1회 자동 오픈(구 BackendProvider effect).
+// 부팅 1회: 설치 상태만 조회한다. 미설치 시 인스톨러 자동 오픈은 보류 —
+// 설치 마법사 기능이 완성되기 전까지 앱 진입 시 모달을 띄우지 않는다(사용자 지시).
+// setInstallerOpen 액션은 유지하므로 기능 완성 후 자동 오픈을 되살릴 수 있다.
 export function bootstrapBackend(): () => void {
   let alive = true
-  let autoOpened = false
   void backendApi.list().then((result) => {
     if (!alive) return
     setState({ list: result.backends, active: result.active ?? null, loading: false })
-    const cc = result.backends.find((b) => b.id === 'claude')
-    if (cc && !cc.installed && !autoOpened) {
-      autoOpened = true
-      queueMicrotask(() => {
-        if (alive) setState({ installerOpen: true })
-      })
-    }
   })
   return () => {
     alive = false
