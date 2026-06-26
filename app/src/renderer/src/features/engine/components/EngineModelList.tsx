@@ -21,7 +21,7 @@ export function EngineModelList({ models }: EngineModelListProps): React.JSX.Ele
             </span>
           )}
           {model.isDefault && (
-            <span className="rounded bg-rust-soft px-1.5 py-0.5 text-[10px] font-semibold text-rust">
+            <span className="rounded bg-t3 px-1.5 py-0.5 text-[10px] font-semibold text-t8">
               ✓ default
             </span>
           )}

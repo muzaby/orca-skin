@@ -52,8 +52,28 @@ $ npm rebuild better-sqlite3 && npx vitest run src/main/db/queries.test.ts → 1
 - 케밥의 "직전 디자인 토큰" 해석을 press 표면 `t3` 로 확정(추론) — 시각 톤은 사람 검증 필요.
 - InstallerDialog/BackendStatus 는 데드(임포트 0) 가 됐으나 feature index 익스포트로 보존 — 기능 완성 시 재배선 전제.
 
-## 사람 확인 대기
+## 사람 확인 대기 (r1)
 
 - 3 테마(화이트/다크) 시각 검증: 케밥 press 톤·검색 빗금·엔진/스킬 카드 표면.
 - 전체 대화 복사 실기(클립보드 내용·빈 대화 no-op).
 - PR 머지.
+
+---
+
+## 라운드 2 검증 (강조 상태 중립화 + Composer 아이콘)
+
+| # | 인수 기준 | 충족 | 증거 |
+|---|---|---|---|
+| 8 | 케밥 패널 활성만으로 강조 안 됨 | ✅ | `ChatTitleBar.tsx` `open ? ICON_BTN_PRESSED : ICON_BTN_IDLE`·`aria-pressed={open}`, `panelActive` 제거 |
+| 9 | Composer 전송=enter(↵)·중단=stop(투명 라운드) | ✅ | `Icon.tsx` 신규 `enter` 글리프, `Composer.tsx` `leadingIcon="enter"`(primary)·`"stop"`(uncontained), 둘 다 `rounded-full` |
+| 10 | 엔진 default 배지·다이얼로그 중립화·오류 bad·CTA rust | ✅ | `EngineModelList` 배지 `bg-t3 text-t8`; `EngineFormModal` CARD_SEL `border-border-strong bg-t3`·스텝퍼 `bg-ink/bg-t3`·선택됨 `text-t8`·focus `border-border-strong`·오류 `text-bad`/`bg-bad/10`·제출 `bg-rust`; `AgentEnvironmentView` 오류 `bg-bad/10 text-bad` |
+| 11 | 스킬 1depth·3depth 토글 중립화 | ✅ | `CustomizeRail` 활성 `bg-t3 text-t8`; `SkillDetail` 본문 토글 `text-t9`; `Toggle` on `bg-ink` |
+| 12 | 프로젝트 CTA 아이콘 raw #fff 제거 | ✅ | `ProjectsScreen` `<Icon name="plus" size={13} />`(color 제거, currentColor 상속) |
+| — | 게이트 | ✅ | lint/typecheck(node+web+test)/test **540/540**(Node ABI 재빌드 후 green), 레이어 경계 0, 신규 의존성 0, IPC/DB 무변경 |
+
+**검증 자기 리뷰(r2)**: '강조 상태 전반 중립화'는 사용자 결정으로 확정(Q2). rust 잔존 위치(주요 CTA·danger·drag-over)는 의도적 — 시각 톤 적합성은 사람 검증 영역. 토글 on=`bg-ink`(중립 트랙)의 명도 대비는 두 테마에서 사람 확인 필요.
+
+## 사람 확인 대기 (r2)
+
+- 3 테마 시각 검증: 케밥 무강조 / Composer 전송 ↵·중단 ⏹ / 엔진 default·다이얼로그·스텝퍼 / 스킬 1depth·토글 / 프로젝트 CTA.
+- 토글 on `bg-ink` 트랙 명도 대비 적정성.

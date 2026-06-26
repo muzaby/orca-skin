@@ -45,7 +45,6 @@ export const ChatTitleBar = memo(function ChatTitleBar(): React.JSX.Element {
   const [copied, setCopied] = useState(false)
   const anchorRef = useRef<HTMLButtonElement>(null)
   const target = activeTiles.at(-1)
-  const panelActive = activeTiles.length > 0
 
   // 전체 대화를 마크다운으로 직렬화해 클립보드에 복사한다. text 파트만 추출(partsText)하므로
   // 도구 호출/첨부는 제외 — 사람이 읽을 대화 본문 위주.
@@ -109,9 +108,9 @@ export const ChatTitleBar = memo(function ChatTitleBar(): React.JSX.Element {
         </button>
         <button
           ref={anchorRef}
-          className={`${ICON_BTN_BASE} ${open || panelActive ? ICON_BTN_PRESSED : ICON_BTN_IDLE}`}
+          className={`${ICON_BTN_BASE} ${open ? ICON_BTN_PRESSED : ICON_BTN_IDLE}`}
           onClick={() => setOpen((v) => !v)}
-          aria-pressed={open || panelActive}
+          aria-pressed={open}
           title="우측 패널 타일"
           aria-label="우측 패널 타일"
         >

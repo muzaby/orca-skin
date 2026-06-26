@@ -109,4 +109,32 @@
 | 실행 명령 | `npm run lint` / `typecheck` / `test` |
 | 게이트 결과 | lint ✅ / typecheck ✅(node+web+test) / test ✅ 540/540 (better-sqlite3 Node ABI 재빌드 후; 1차 12-red 는 `db/queries.test.ts` ABI 환경=0019 계열, 렌더러 변경 무관) |
 | 블로커 | 없음 |
+| 대상 커밋 | `18b91a2`(r1) |
+
+---
+
+## 라운드 2 — 강조 상태 중립화 + Composer 아이콘 (사용자 후속 5건)
+
+> r1 직후 사용자가 5개 영역에서 warm rust 강조 잔재를 추가 지적. 사용자 결정: **Q1** Composer 전송=Enter(↵)·중단=정지(⏹, 투명·라운드). **Q2** 강조 상태 전반 중립화(rust 는 주요 CTA·danger 만). **케밥** 패널 활성 시 강조 제거.
+
+### 표준 토큰 매핑
+- 선택/활성 표면 `bg-fill-selected`·`bg-rust-soft` → `bg-t3`; 텍스트 `text-rust` → `text-t8`; 선택 카드 테두리 `border-rust` → `border-border-strong`.
+- 스텝퍼 active `bg-rust text-white` → `bg-ink text-bg`; done `bg-rust-soft text-rust` → `bg-t3 text-t8`; connector → `bg-border-strong`.
+- 토글 on `bg-rust` → `bg-ink`; 본문 eye/code active `text-rust` → `text-t9`.
+- 오류 `bg-rust-soft text-rust`·`border-rust` → `bg-bad/10 text-bad`·`border-bad`(0038 정합).
+- 주요 CTA: rust 유지, raw `Icon color="#fff"` 제거(currentColor 상속).
+
+### 인수 기준 (r2)
+8. 케밥: 패널 활성만으로는 강조 안 됨(메뉴 열림 때만 `bg-t3`).
+9. Composer 전송=신규 `enter`(↵) 아이콘·중단=`stop`(투명 라운드 네모), 둘 다 원형·토큰.
+10. 엔진 'default' 배지·추가 다이얼로그 선택/스텝퍼/선택됨/focus 중립화, 오류=`bad`, 제출 CTA rust 유지.
+11. 스킬 1depth(`CustomizeRail`) 활성·3depth 본문 토글·공용 `Toggle` on 중립화.
+12. 프로젝트 CTA 아이콘 raw `#fff` 제거.
+
+### 구현 보고 (r2)
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `ChatTitleBar.tsx` · `Composer.tsx` · `shared/ui/Icon.tsx`(+enter) · `shared/ui/Toggle.tsx` · engine 3(`EngineModelList`/`EngineFormModal`/`AgentEnvironmentView`) · skills 2(`CustomizeRail`/`SkillDetail`) · projects 1(`ProjectsScreen`) — 총 9 |
+| 게이트 결과 | lint ✅ / typecheck ✅(node+web+test) / test ✅ **540/540**(Node ABI 재빌드 후) |
+| 블로커 | 없음 |
 | 대상 커밋 | (push 후 기재) |
