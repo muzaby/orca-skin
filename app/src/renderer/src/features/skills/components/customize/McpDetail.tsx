@@ -34,7 +34,7 @@ export function McpDetail({
           className={`ml-auto cursor-pointer rounded-r4 border px-3.5 py-1.5 text-[12.5px] font-medium ${
             server.enabled
               ? 'border-border bg-panel text-ink2 hover:bg-fill-uncontained-hover'
-              : 'border-0 bg-rust text-white hover:bg-fill-primary-hover'
+              : 'border-0 bg-ink text-bg hover:bg-t8'
           }`}
         >
           {server.enabled ? '비활성화' : '활성화'}

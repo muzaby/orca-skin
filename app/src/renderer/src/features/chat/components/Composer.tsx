@@ -487,7 +487,7 @@ export function Composer({
                 ) : (
                   <Button
                     iconOnly
-                    variant="primary"
+                    variant="uncontained"
                     leadingIcon="enter"
                     onClick={submit}
                     disabled={draft.trim() === ''}

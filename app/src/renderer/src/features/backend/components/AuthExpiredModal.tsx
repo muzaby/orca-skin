@@ -39,7 +39,7 @@ export function AuthExpiredModal({
           </button>
           <button
             onClick={onNewChat}
-            className="cursor-pointer rounded-md border-0 bg-rust px-3 py-1.5 text-[12.5px] text-white"
+            className="cursor-pointer rounded-md border-0 bg-ink px-3 py-1.5 text-[12.5px] text-bg"
           >
             새 대화
           </button>

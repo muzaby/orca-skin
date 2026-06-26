@@ -93,7 +93,7 @@ export function InstallerDialog({
           <button
             onClick={() => void start()}
             disabled={running}
-            className="cursor-pointer rounded-md border-0 bg-rust px-3 py-1.5 text-[12.5px] text-white disabled:opacity-50"
+            className="cursor-pointer rounded-md border-0 bg-ink px-3 py-1.5 text-[12.5px] text-bg disabled:opacity-50"
           >
             {running ? '설치 중…' : done && !error ? '완료' : '설치 시작'}
           </button>

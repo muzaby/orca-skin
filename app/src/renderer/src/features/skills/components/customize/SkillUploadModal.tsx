@@ -59,7 +59,7 @@ export function SkillUploadModal({
           e.target.value = ''
         }}
       />
-      {error && <div className="mt-2 text-[12px] text-rust">{error}</div>}
+      {error && <div className="mt-2 text-[12px] text-bad">{error}</div>}
       <div className="mt-4">
         <div className="mb-1.5 text-[12px] font-medium text-ink2">파일 요구사항</div>
         <ul className="list-disc space-y-1 pl-4 text-[12px] text-ink3">

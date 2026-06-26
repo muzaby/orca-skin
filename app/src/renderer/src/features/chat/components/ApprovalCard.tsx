@@ -231,7 +231,7 @@ function PlanApprovalBody(): React.JSX.Element | null {
           <button
             type="button"
             onClick={() => setRightPanelTileActive('plan', true)}
-            className="ml-auto cursor-default border-0 bg-transparent text-footnote font-medium text-rust outline-none hide-focus-ring ring-focus hover:underline"
+            className="ml-auto cursor-default border-0 bg-transparent text-footnote font-medium text-t8 outline-none hide-focus-ring ring-focus hover:underline"
           >
             플랜 열기
           </button>
@@ -252,7 +252,7 @@ function PlanApprovalBody(): React.JSX.Element | null {
             />
           )}
           <div
-            className={`relative mb-1 rounded-r5 border border-t5 bg-white focus-within:border-border-strong ${hasComments ? 'mt-2' : ''}`}
+            className={`relative mb-1 rounded-r5 border border-t5 bg-bg focus-within:border-border-strong ${hasComments ? 'mt-2' : ''}`}
           >
             <div
               aria-hidden

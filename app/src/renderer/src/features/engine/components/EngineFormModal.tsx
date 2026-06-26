@@ -145,7 +145,7 @@ export function EngineFormModal({
               type="button"
               disabled={!canSubmit}
               onClick={() => void submit()}
-              className="rounded-lg bg-rust px-4 py-2 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
+              className="rounded-lg bg-ink px-4 py-2 text-[13px] font-semibold text-bg disabled:cursor-not-allowed disabled:opacity-45"
             >
               {busy ? (editing ? '저장 중…' : '추가 중…') : editing ? '저장' : '추가하기'}
             </button>

@@ -92,7 +92,7 @@ export function CustomMcpModal({
         placeholder={PLACEHOLDER}
         className={`${MODAL_INPUT} resize-none font-mono text-[12px] leading-[1.55]`}
       />
-      {error && <div className="mt-2 text-[12px] text-rust">{error}</div>}
+      {error && <div className="mt-2 text-[12px] text-bad">{error}</div>}
       <div className="mt-5 flex justify-end gap-2">
         <ModalActions
           onCancel={close}

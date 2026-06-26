@@ -105,7 +105,7 @@ export function ModalActions({
         type="button"
         onClick={onConfirm}
         disabled={confirmDisabled}
-        className="cursor-pointer rounded-r4 border-0 bg-rust px-3.5 py-1.5 text-[12.5px] font-medium text-white hover:bg-fill-primary-hover disabled:cursor-not-allowed disabled:opacity-40"
+        className="cursor-pointer rounded-r4 border-0 bg-ink px-3.5 py-1.5 text-[12.5px] font-medium text-bg hover:bg-t8 disabled:cursor-not-allowed disabled:opacity-40"
       >
         {confirmLabel}
       </button>
