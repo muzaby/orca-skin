@@ -187,3 +187,15 @@
 | 실행 명령 | `npm run typecheck` / `npm run lint` / `npm test` / `npm rebuild better-sqlite3 && npm test` / `git diff --check` |
 | 게이트 결과 | typecheck ✅ / lint ✅ / test 1차 ⚠️ better-sqlite3 Electron ABI(140) vs Node ABI(115) 불일치로 `queries.test.ts` 12건 실패 → `npm rebuild better-sqlite3` 후 test ✅ **538/538 passed** / diff check ✅ |
 | 블로커 | 없음 |
+
+## [구현자 기입] 후속 버그 대응 — 2026-06-26 (7차)
+
+| 항목 | 내용 |
+|---|---|
+| 사용자 피드백 | ① composer 승인 카드에서 `수정` 버튼을 누르면 하단 좌측에 남는 `거부`/`수락` 버튼 제거. ② `거부` 버튼 클릭 시 deny 가 모델에 전달되지 않고 inflight(턴 abort) 반응만 발생 — 배선 단절 여부 분석·대응. |
+| 원인 | ② `rejectPlan`(`chatStore.ts`)이 `{behavior:'deny', interrupt:true}` + `CANCEL_CHAT` 을 보냄. main `ApprovalCoordinator.respond`(`approvals.ts`)가 `broker.resolve`(deny→**마이크로태스크**로 SDK canUseTool 반환) 직후 `turn.controller.abort()` 를 **동기** 실행 → deny 가 subprocess 까지 전파되기 전 쿼리를 teardown. 따라서 deny 는 배선돼 있으나 동시 interrupt 가 항상 레이스에서 이겨 `PLAN_REJECT_MESSAGE` 가 모델에 유실(계획 거부 한정 기능적 미존재). ① revise 펼침 시 좌측 그룹 게이트가 `!commentFeedbackActive`(=`!hasComments`)라 `수정` 클릭만으로는 좌측 `거부`/`수락` 이 그대로 남았음. |
+| 변경 파일 | `app/src/renderer/src/features/chat/store/chatStore.ts`, `app/src/renderer/src/features/chat/components/ApprovalCard.tsx`, `app/src/main/adapters/claude.ts`(주석), `app/src/main/ipc/chat/approvals.ts`(주석), `app/src/renderer/src/features/chat/store/chatStore.test.ts`, `docs/handoff/INDEX.md`, `docs/handoff/0047-plan-panel-comments/plan.md` |
+| 대응 | ② `rejectPlan` 을 clean deny(`{behavior:'deny'}`)+`RESOLVE_PLAN` 만으로 변경(`interrupt`/`CANCEL_CHAT` 제거). 모델이 `PLAN_REJECT_MESSAGE`("다른 계획이나 제안 없이 여기서 중단하세요")를 받고 짧게 응답한 뒤 턴이 자연 종료(skipAsk/denyTool 동일 패턴). 사용자 결정=**deny 전달 후 자연 종료**(AskUserQuestion). ① revise 액션바 좌측 그룹 게이트를 `!reviseExpanded` 로 바꿔 펼침(=`수정` 클릭 또는 코멘트 추가) 시 좌측 `거부`/`수락` 전체 제거, 우측 `수정` 제출만 유지. dead 분기(`reviseExpanded?수락:수정`)·미사용 `commentFeedbackActive` 정리. `claude.ts`/`approvals.ts` 의 "거부 시 turn abort" 주석을 현행에 맞춰 정정(approvals 의 `deny+interrupt` abort 분기는 protocol 능력으로 보존, 렌더러 미사용). `rejectPlan` 회귀 단위 테스트 2건(clean deny 응답·inflight 유지) 추가. |
+| 실행 명령 | `npm install`(electron 바이너리 download skip) / `npm run typecheck` / `npm run lint` / `npm rebuild better-sqlite3 && npm test` |
+| 게이트 결과 | typecheck ✅ / lint ✅ / test ✅ **531 passed**(신규 rejectPlan 2건 포함). 실패 2 suite `persist`·`send.runtime-resilience` 은 electron 바이너리 미설치 환경 제한(0033/0046 계열, 0 test·import 차단)으로 본 변경 무관. |
+| 블로커 | 없음. ⚠️ 거부 후 모델 응답·턴 자연 종료, `수정` 클릭 시 버튼 레이아웃은 사용자 시각 검증 대기. |

@@ -45,7 +45,8 @@ const requireFn = createRequire(import.meta.url)
 
 // AskUserQuestion 회피 안내 — skip(deny) 시 Claude 에 전달할 거부 메시지.
 const ASK_SKIP_MESSAGE = '사용자가 질문에 답하지 않고 건너뛰었습니다. 최선의 판단으로 진행하세요.'
-// 계획 거부 — 에이전트가 재제안·재작성하지 않고 멈추도록 지시(거부 시 router 가 turn abort 도 함).
+// 계획 거부 — 에이전트가 재제안·재작성하지 않고 멈추도록 지시. 거부는 clean deny(interrupt 없음)로
+// 보내 이 메시지가 모델에 전달되게 하고, 모델이 짧게 응답한 뒤 턴이 자연 종료되도록 한다.
 const PLAN_REJECT_MESSAGE =
   '사용자가 계획을 거부했습니다. 다른 계획이나 제안 없이 여기서 중단하세요.'
 // 일반 도구 거부 기본 사유 (resolution.message 부재 시).

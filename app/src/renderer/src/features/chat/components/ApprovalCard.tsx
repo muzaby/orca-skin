@@ -171,7 +171,6 @@ function PlanApprovalBody(): React.JSX.Element | null {
   const hasComments = comments.length > 0
   // 코멘트가 추가되면 composer 수정 영역을 파생 활성화해 칩과 추가 textarea 를 즉시 노출한다.
   const reviseExpanded = reviseOpen || hasComments
-  const commentFeedbackActive = hasComments
   const canRevise = feedback.trim() !== '' || hasComments
 
   useEffect(() => {
@@ -276,31 +275,18 @@ function PlanApprovalBody(): React.JSX.Element | null {
       </div>
 
       <div
-        className={`mt-2.5 flex items-center gap-g3 ${commentFeedbackActive ? 'justify-end' : 'justify-between'}`}
+        className={`mt-2.5 flex items-center gap-g3 ${reviseExpanded ? 'justify-end' : 'justify-between'}`}
       >
-        {!commentFeedbackActive && (
+        {/* revise 영역이 펼쳐지면(수정 클릭 또는 코멘트 추가) 좌측 거부/수락 그룹을 숨기고
+            우측 '수정' 제출만 남긴다. 접힌 기본 상태에서만 거부 + 수정 진입 버튼을 노출. */}
+        {!reviseExpanded && (
           <div className="flex items-center gap-g3">
             <Button variant="contained" onClick={() => rejectPlan(rid)} data-behavior="dismissible">
               거부
             </Button>
-            {reviseExpanded ? (
-              <Button variant="uncontained" onClick={() => approvePlan(rid)} kbd="Ctrl+Enter">
-                수락
-              </Button>
-            ) : (
-              <Button variant="uncontained" onClick={onReviseClick}>
-                {hasComments ? (
-                  <>
-                    수정
-                    <span className="ml-1 rounded-full bg-rust/15 px-1.5 text-caption font-medium text-rust">
-                      {comments.length}
-                    </span>
-                  </>
-                ) : (
-                  '수정…'
-                )}
-              </Button>
-            )}
+            <Button variant="uncontained" onClick={onReviseClick}>
+              수정…
+            </Button>
           </div>
         )}
         {reviseExpanded ? (
