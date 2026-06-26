@@ -16,7 +16,7 @@ const LANGUAGES = [
   'markdown'
 ] as const
 
-const THEMES = ['github-light', 'github-dark', 'one-light'] as const
+const THEMES = ['github-light', 'github-dark'] as const
 
 // 싱글톤 highlighter — 첫 코드 블록 마운트 시 로드, 이후 동기 호출.
 let highlighterPromise: Promise<Highlighter> | null = null
@@ -34,7 +34,6 @@ function pickTheme(): (typeof THEMES)[number] {
   if (typeof document === 'undefined') return 'github-light'
   const t = document.documentElement.dataset.theme
   if (t === 'dark') return 'github-dark'
-  if (t === 'cool') return 'one-light'
   return 'github-light'
 }
 

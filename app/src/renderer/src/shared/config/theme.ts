@@ -1,4 +1,4 @@
-export type ThemeId = 'classic' | 'dark' | 'cool'
+export type ThemeId = 'white' | 'dark'
 export type DensityId = 'compact' | 'normal' | 'comfortable'
 
 /** Root font-size driven density. `rem`-based Tailwind spacing cascades

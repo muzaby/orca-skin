@@ -3,23 +3,24 @@
    (e.g. `--color-ink` → `bg-ink`, `text-ink`, `border-ink`). */
 
 @theme {
-  /* Semantic tokens — default (classic) palette.
-     Values mirror the Claude Code (claude.ai) light theme: ivory surfaces,
-     near-black neutral ink, crail accent. */
-  --color-bg: #faf9f5;
-  --color-sidebar: #f5f4ed;
+  /* Semantic tokens — default (white) palette.
+     Values mirror the Claude Code (web) light theme: pure-white main surface,
+     neutral near-white sidebar/cards (no warm ivory cast), near-black neutral
+     ink, crail accent. */
+  --color-bg: #ffffff;
+  --color-sidebar: #f7f7f6;
   --color-panel: #ffffff;
   /* Secondary surface — subtle inset/card fill on top of bg (reasoning/structured
-     cards, agent-task surfaces, backend pill). Warmer than bg so bordered cards read. */
-  --color-bg2: #f0eee6;
-  --color-border: #e5e3d9;
-  --color-border-strong: #d2d0c5;
-  --color-ink: #141413;
-  --color-ink2: #6b6a65;
-  --color-ink3: #a3a19a;
+     cards, agent-task surfaces, backend pill). Slightly grey of bg so bordered cards read. */
+  --color-bg2: #f4f4f3;
+  --color-border: #ececeb;
+  --color-border-strong: #d8d8d5;
+  --color-ink: #1a1a18;
+  --color-ink2: #6b6b68;
+  --color-ink3: #9b9b97;
   --color-rust: #c96442;
   --color-rust-soft: #f1e3da;
-  --color-bubble-user: #f0eee6;
+  --color-bubble-user: #f4f4f3;
 
   /* Static accent palette — not themed */
   --color-cream-0: #faf9f5;
@@ -55,7 +56,7 @@
      Only the non-alias values (t3/t7/t8) carry per-theme overrides. */
   --color-t1: var(--color-panel); /* card / tool-block surface */
   --color-t2: var(--color-sidebar); /* hover surface */
-  --color-t3: #eae8df; /* press (active) surface — themed */
+  --color-t3: #e8e8e6; /* press (active) surface — themed */
   --color-t4: var(--color-rust-soft); /* strong / selected surface */
   --color-t5: var(--color-border); /* divider / border */
   --color-t6: var(--color-ink2); /* muted text (descriptions) */
@@ -171,25 +172,4 @@
   --color-t7: #c9c7bf;
   --color-t8: #e8e6de;
   --color-fill-primary-hover: #c26646;
-}
-
-[data-theme='cool'] {
-  --color-bg: #f8fafc;
-  --color-sidebar: #f1f5f9;
-  --color-panel: #ffffff;
-  --color-bg2: #eef2f7;
-  --color-border: #e2e8f0;
-  --color-border-strong: #cbd5e1;
-  --color-ink: #0f172a;
-  --color-ink2: #475569;
-  --color-ink3: #94a3b8;
-  --color-rust: #2563eb;
-  --color-rust-soft: #dbeafe;
-  --color-bubble-user: #f0eee6;
-
-  /* Epitaxy non-alias tones */
-  --color-t3: #e2e8f0;
-  --color-t7: #1e293b;
-  --color-t8: #0f172a;
-  --color-fill-primary-hover: #1d4ed8;
 }
