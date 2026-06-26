@@ -129,4 +129,4 @@
 | 실행 명령 | `npm run typecheck` · `npm run lint` · `npm test` |
 | 게이트 결과 | typecheck ✅(node+web+test) / lint ✅(boundaries 0) / test **531/531 실행분 green**(better-sqlite3 Node ABI 빌드 후). 2 suites(`persist`·`send.runtime-resilience`) electron 바이너리 미설치(프록시 다운로드 차단) 환경 제한 — import-time 실패, 본 변경 무관(0033/0041~0046 동일 계열) |
 | 블로커 / 역질문 | 없음 |
-| 대상 커밋 | (push 후 기재) |
+| 대상 커밋 | `8d79db8` |
