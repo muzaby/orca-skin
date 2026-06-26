@@ -105,7 +105,7 @@ function AddMcpServerModalOpen({
             className={FIELD_INPUT}
           />
           {name.trim() !== '' && !nameValid && (
-            <div className="mt-1 text-[11px] text-rust">영숫자 · _ · - 만 사용할 수 있습니다.</div>
+            <div className="mt-1 text-[11px] text-bad">영숫자 · _ · - 만 사용할 수 있습니다.</div>
           )}
         </label>
 
@@ -129,7 +129,7 @@ function AddMcpServerModalOpen({
                 type="button"
                 onClick={() => setTransport(tp)}
                 className={`cursor-pointer border-0 px-3 py-1.5 text-[12.5px] ${
-                  transport === tp ? 'bg-rust text-white' : 'bg-panel text-ink2'
+                  transport === tp ? 'bg-t3 text-t8' : 'bg-panel text-ink2'
                 }`}
               >
                 {tp === 'stdio' ? 'stdio (로컬 프로세스)' : 'HTTP (streamable)'}
@@ -230,7 +230,7 @@ function AddMcpServerModalOpen({
           <button
             onClick={() => void save()}
             disabled={!canSave}
-            className="cursor-pointer rounded-md border-0 bg-rust px-3 py-1.5 text-[12.5px] text-white disabled:cursor-not-allowed disabled:opacity-40"
+            className="cursor-pointer rounded-md border-0 bg-ink px-3 py-1.5 text-[12.5px] text-bg disabled:cursor-not-allowed disabled:opacity-40"
           >
             {editing ? '저장' : '추가'}
           </button>

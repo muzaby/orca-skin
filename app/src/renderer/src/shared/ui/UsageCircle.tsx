@@ -9,9 +9,17 @@ export interface UsageCircleProps {
   ratio: number
   size?: number
   title?: string
-  /** compaction 임박 등 경고 상태 — progress arc 를 경고색(warn 토큰)으로 칠한다. */
+  /** compaction 임박 등 경고 상태 — progress arc 를 강제로 위험색(bad)으로 칠한다. */
   warn?: boolean
   'aria-label'?: string
+}
+
+// progress arc 색 — 사용량에 따라 초록(여유)→노랑(주의)→빨강(임박). 임계는
+// Composer 의 conversationStatus(0.6/0.85)와 일치. warn prop 은 강제 위험색.
+function progressStroke(clamped: number, warn?: boolean): string {
+  if (warn || clamped >= 0.85) return 'var(--color-bad)'
+  if (clamped >= 0.6) return 'var(--color-warn)'
+  return 'var(--color-good)'
 }
 
 export function UsageCircle({
@@ -40,7 +48,7 @@ export function UsageCircle({
         fill="none"
         strokeWidth="2"
         strokeLinecap="round"
-        stroke={warn ? 'var(--color-warn)' : 'var(--color-accent)'}
+        stroke={progressStroke(clamped, warn)}
         strokeDasharray={CIRCUMFERENCE}
         strokeDashoffset={CIRCUMFERENCE * (1 - clamped)}
         className="transition-[stroke-dashoffset] duration-300"

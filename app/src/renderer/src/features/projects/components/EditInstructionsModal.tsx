@@ -83,7 +83,7 @@ function EditInstructionsModalOpen({
           <button
             onClick={() => void save()}
             disabled={busy}
-            className="cursor-pointer rounded-md border-0 bg-rust px-3 py-1.5 text-[12.5px] text-white disabled:cursor-not-allowed disabled:opacity-40"
+            className="cursor-pointer rounded-md border-0 bg-ink px-3 py-1.5 text-[12.5px] text-bg disabled:cursor-not-allowed disabled:opacity-40"
           >
             저장
           </button>

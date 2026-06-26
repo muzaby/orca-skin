@@ -268,9 +268,9 @@ export function AskUserQuestionCard({
                     <span
                       className={`mt-0.5 grid h-4 w-4 shrink-0 place-items-center border ${
                         q.multiSelect ? 'rounded-[4px]' : 'rounded-full'
-                      } ${selected ? 'border-rust bg-rust text-white' : 'border-border-strong'}`}
+                      } ${selected ? 'border-ink bg-ink text-bg' : 'border-border-strong'}`}
                     >
-                      {selected && <Icon name="check" size={11} color="#fff" />}
+                      {selected && <Icon name="check" size={11} />}
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block text-footnote font-medium text-t9">{opt.label}</span>

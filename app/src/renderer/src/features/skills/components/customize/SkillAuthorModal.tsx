@@ -49,7 +49,7 @@ export function SkillAuthorModal({
           className={`${MODAL_INPUT} font-mono`}
         />
         {name.trim() !== '' && !nameValid && (
-          <span className="mt-1 block text-[11px] text-rust">
+          <span className="mt-1 block text-[11px] text-bad">
             영숫자 · _ · - 만 사용할 수 있습니다.
           </span>
         )}
@@ -75,7 +75,7 @@ export function SkillAuthorModal({
           className={`${MODAL_INPUT} resize-none leading-[1.6]`}
         />
       </label>
-      {error && <div className="mt-2 text-[12px] text-rust">{error}</div>}
+      {error && <div className="mt-2 text-[12px] text-bad">{error}</div>}
       <div className="mt-5 flex justify-end gap-2">
         <ModalActions
           onCancel={close}

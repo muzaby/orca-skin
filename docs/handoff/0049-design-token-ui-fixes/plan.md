@@ -137,4 +137,26 @@
 | 변경 파일 | `ChatTitleBar.tsx` · `Composer.tsx` · `shared/ui/Icon.tsx`(+enter) · `shared/ui/Toggle.tsx` · engine 3(`EngineModelList`/`EngineFormModal`/`AgentEnvironmentView`) · skills 2(`CustomizeRail`/`SkillDetail`) · projects 1(`ProjectsScreen`) — 총 9 |
 | 게이트 결과 | lint ✅ / typecheck ✅(node+web+test) / test ✅ **540/540**(Node ABI 재빌드 후) |
 | 블로커 | 없음 |
+| 대상 커밋 | `f3faaa0`(r2) |
+
+---
+
+## 라운드 3 — Primary 버튼 잉크화 + 전송 투명 + 도넛 색 (사용자 후속)
+
+> 사용자 결정(Q): **primary 액션 버튼 = 중립 다크(잉크) 채움**(`bg-ink text-bg`) — r2 의 "rust=주요 CTA 유지"를 뒤집어 버튼에서 rust 완전 폐기(모노크롬). 전송 버튼은 **투명**. 도넛은 **초록→노랑→빨강**.
+
+### 인수 기준 (r3)
+13. `Button` primary 변형이 잉크 채움(`bg-ink`/`text-bg`)으로 — AskUserQuestion 제출/다음·도구카드 허용/수락/수정 일괄 적용.
+14. Composer 전송 버튼 배경 투명(`variant="uncontained"`), enter(↵)·원형 유지.
+15. AskUserQuestion 라디오 checked 잉크화 + raw `#fff` 제거.
+16. raw `bg-rust text-white` CTA(프로젝트/엔진/스킬MCP/백엔드 다이얼로그) → `bg-ink text-bg`; MCP transport 세그먼트 선택 → `bg-t3 text-t8`.
+17. ApprovalCard '플랜 열기' 중립화 + 수정 textarea `bg-white`→`bg-bg`; 스킬 모달 검증/에러 `text-rust`→`text-bad`(danger 삭제는 rust 유지).
+18. 도넛 progress = ratio<0.6 good(초록)·<0.85 warn(노랑)·≥0.85/warn bad(빨강).
+
+### 구현 보고 (r3)
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `shared/ui/{Button,Modal,UsageCircle}.tsx` · chat 3(`Composer`/`AskUserQuestionCard`/`ApprovalCard`) · projects 3(`ProjectsScreen`/`CreateProjectModal`/`EditInstructionsModal`) · engine 1(`EngineFormModal`) · skills 5(`AddMcpServerModal`/`customize/{McpDetail,SkillAuthorModal,CustomMcpModal,SkillUploadModal}`) · backend 2(`InstallerDialog`/`AuthExpiredModal`) — 총 17 |
+| 게이트 결과 | lint ✅ / typecheck ✅(node+web+test) / test ✅ **540/540**(Node ABI 재빌드 후) |
+| 비범위 | `CameraView`(captures=Future) rust 유지 · `AttachmentThumb` 삭제 배지 흰글자=정상(빨강 위) |
 | 대상 커밋 | (push 후 기재) |
