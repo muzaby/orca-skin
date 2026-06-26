@@ -160,7 +160,7 @@ export function SkillDetail({
             type="button"
             onClick={() => setPlain(false)}
             aria-label="마크다운"
-            className={`grid h-6 w-6 cursor-pointer place-items-center rounded-r3 border-0 bg-transparent ${plain ? 'text-ink3' : 'text-rust'}`}
+            className={`grid h-6 w-6 cursor-pointer place-items-center rounded-r3 border-0 bg-transparent ${plain ? 'text-ink3' : 'text-t9'}`}
           >
             <Icon name="eye" size={14} />
           </button>
@@ -168,7 +168,7 @@ export function SkillDetail({
             type="button"
             onClick={() => setPlain(true)}
             aria-label="plain text"
-            className={`grid h-6 w-6 cursor-pointer place-items-center rounded-r3 border-0 bg-transparent ${plain ? 'text-rust' : 'text-ink3'}`}
+            className={`grid h-6 w-6 cursor-pointer place-items-center rounded-r3 border-0 bg-transparent ${plain ? 'text-t9' : 'text-ink3'}`}
           >
             <Icon name="code" size={14} />
           </button>

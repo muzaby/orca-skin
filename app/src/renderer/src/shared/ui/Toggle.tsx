@@ -1,5 +1,6 @@
 // 온/오프 스위치 atom. SkillsMcpView 에 인라인이던 Toggle 을 공용으로 추출 —
-// 맞춤설정 화면의 스킬 활성 토글 · 상세 패널에서 공유한다. 토큰 기반(rust/border-strong).
+// 맞춤설정 화면의 스킬 활성 토글 · 상세 패널에서 공유한다. on 은 중립 ink 트랙
+// (warm rust 대신 — 강조 상태 중립화), off 는 border-strong.
 export function Toggle({
   on,
   onClick,
@@ -17,7 +18,7 @@ export function Toggle({
       aria-checked={on}
       aria-label={label}
       className={`relative h-[17px] w-[30px] flex-none cursor-pointer rounded-[9px] border-0 transition-colors ${
-        on ? 'bg-rust' : 'bg-border-strong'
+        on ? 'bg-ink' : 'bg-border-strong'
       }`}
     >
       <span

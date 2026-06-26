@@ -60,7 +60,7 @@ export function AgentEnvironmentView(): React.JSX.Element {
       </p>
 
       {(state.error || readError) && (
-        <div className="mb-3 rounded-lg bg-rust-soft px-3 py-2 text-[12px] text-rust">
+        <div className="mb-3 rounded-lg bg-bad/10 px-3 py-2 text-[12px] text-bad">
           {state.error ?? readError}
         </div>
       )}
