@@ -328,7 +328,7 @@ function SettingsStep({
           disabled={nameDisabled}
           onChange={(e) => onName(e.target.value)}
           placeholder="예: my-gateway"
-          className="rounded-lg border border-border bg-bg px-3 py-2 font-mono text-[13px] text-ink outline-none focus:border-rust disabled:cursor-not-allowed disabled:bg-cream-50 disabled:text-ink2"
+          className="rounded-lg border border-border bg-bg px-3 py-2 font-mono text-[13px] text-ink outline-none focus:border-rust disabled:cursor-not-allowed disabled:bg-bg2 disabled:text-ink2"
         />
         {nameDisabled ? (
           <span className="text-[11px] text-ink3">

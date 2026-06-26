@@ -191,7 +191,7 @@ export function SkillDetail({
         <p className="text-[13px] leading-[1.65] text-ink2">
           이 작업은 Orca 스킬 sources에서 다음 폴더를 제거합니다. 계속하려면 한 번 더 확인하세요.
         </p>
-        <pre className="mt-3 overflow-auto rounded-r4 bg-cream-50 p-3 font-mono text-[12px] text-ink2">
+        <pre className="mt-3 overflow-auto rounded-r4 bg-bg2 p-3 font-mono text-[12px] text-ink2">
           {skill.skillDir}
         </pre>
         <div className="mt-5 flex justify-end gap-2">

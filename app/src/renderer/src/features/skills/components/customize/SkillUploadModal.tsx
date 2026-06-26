@@ -41,7 +41,7 @@ export function SkillUploadModal({
         }}
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
-        className={`grid w-full cursor-pointer place-items-center gap-2.5 rounded-r5 border border-dashed px-4 py-10 text-center transition-colors ${dragging ? 'border-rust bg-rust-soft/40' : 'border-border-strong bg-bg hover:bg-cream-50'}`}
+        className={`grid w-full cursor-pointer place-items-center gap-2.5 rounded-r5 border border-dashed px-4 py-10 text-center transition-colors ${dragging ? 'border-rust bg-rust-soft/40' : 'border-border-strong bg-bg hover:bg-bg2'}`}
       >
         <span className="grid h-9 w-9 place-items-center rounded-r4 border border-border bg-panel text-ink3">
           <Icon name="upload" size={16} />

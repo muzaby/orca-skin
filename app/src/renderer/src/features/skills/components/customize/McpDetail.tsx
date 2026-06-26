@@ -16,7 +16,7 @@ export function McpDetail({
   return (
     <div className="min-w-0 flex-1 overflow-y-auto px-7 py-6">
       <div className="flex items-center gap-3">
-        <span className="grid h-9 w-9 flex-none place-items-center rounded-r4 bg-cream-50 text-ink2">
+        <span className="grid h-9 w-9 flex-none place-items-center rounded-r4 bg-bg2 text-ink2">
           <Icon name={server.transport === 'http' ? 'link' : 'cpu'} size={18} />
         </span>
         <div className="min-w-0">

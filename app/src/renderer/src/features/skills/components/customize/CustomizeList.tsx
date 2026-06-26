@@ -101,7 +101,7 @@ function McpRow({
       onClick={onClick}
       className={`flex w-full cursor-pointer items-center gap-2.5 rounded-r4 border-0 px-2.5 py-2 text-left transition-colors ${selected ? 'bg-fill-uncontained-active' : 'bg-transparent hover:bg-fill-uncontained-hover'}`}
     >
-      <span className="grid h-6 w-6 flex-none place-items-center rounded-r3 bg-cream-50 text-ink2">
+      <span className="grid h-6 w-6 flex-none place-items-center rounded-r3 bg-bg2 text-ink2">
         <Icon name={server.transport === 'http' ? 'link' : 'cpu'} size={13} />
       </span>
       <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink">{server.name}</span>

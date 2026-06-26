@@ -23,7 +23,7 @@ export function EngineCard({
             <span className="text-[14px] font-semibold text-ink">{agent.adapter}</span>
             <span className="text-[11px] text-ink3">{agent.provider ?? 'default'}</span>
             {!agent.supported && (
-              <span className="rounded-sm bg-cream-50 px-1.5 py-px text-[10px] font-semibold tracking-[0.04em] text-ink3">
+              <span className="rounded-sm bg-bg2 px-1.5 py-px text-[10px] font-semibold tracking-[0.04em] text-ink3">
                 미지원 adapter
               </span>
             )}
