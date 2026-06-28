@@ -14,7 +14,8 @@ import type {
   TurnUsageInsert,
   TurnUsageRow,
   UsageByBoundaries,
-  UsageSumRow
+  UsageSumRow,
+  DanglingToolCallRow
 } from './types'
 
 export class DbQueries {
@@ -29,6 +30,7 @@ export class DbQueries {
   private readonly markMessageCompleteStmt: Database.Statement
   private readonly appendPartStmt: Database.Statement
   private readonly updateToolResultPartStmt: Database.Statement
+  private readonly findDanglingToolCallsStmt: Database.Statement
   private readonly updateSessionPreviewStmt: Database.Statement
   private readonly updateSessionProviderKeyStmt: Database.Statement
   private readonly updateSessionTitleStmt: Database.Statement
@@ -121,7 +123,26 @@ export class DbQueries {
     this.updateToolResultPartStmt = db.prepare(`
       UPDATE message_parts
       SET payload_json = @payloadJson
-      WHERE tool_run_id = @toolRunId AND type = 'tool_result'
+      WHERE message_id = @messageId AND tool_run_id = @toolRunId AND type = 'tool_result'
+    `)
+    this.findDanglingToolCallsStmt = db.prepare(`
+      SELECT
+        m.id AS message_id,
+        m.session_id AS session_id,
+        call.tool_run_id AS tool_run_id,
+        call.payload_json AS payload_json
+      FROM message_parts call
+      JOIN messages m ON m.id = call.message_id
+      WHERE call.type = 'tool_call'
+        AND call.tool_run_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1
+          FROM message_parts result
+          WHERE result.message_id = call.message_id
+            AND result.tool_run_id = call.tool_run_id
+            AND result.type = 'tool_result'
+        )
+      ORDER BY m.id ASC, call.idx ASC
     `)
     this.updateSessionPreviewStmt = db.prepare(`
       UPDATE sessions
@@ -286,10 +307,14 @@ export class DbQueries {
   // tool_result 파트 upsert — 같은 toolRunId 가 있으면 갱신, 없으면 append. messageId 는
   // append 폴백에만 쓰인다(현재 assistant 메시지).
   upsertToolResultPart(messageId: number, toolRunId: string, payloadJson: string): void {
-    const info = this.updateToolResultPartStmt.run({ toolRunId, payloadJson })
+    const info = this.updateToolResultPartStmt.run({ messageId, toolRunId, payloadJson })
     if (info.changes === 0) {
       this.appendPart({ messageId, type: 'tool_result', toolRunId, payloadJson })
     }
+  }
+
+  findDanglingToolCalls(): DanglingToolCallRow[] {
+    return this.findDanglingToolCallsStmt.all() as DanglingToolCallRow[]
   }
 
   updateSessionPreview(id: string, preview: string, updatedAt: number): void {
