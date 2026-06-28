@@ -60,7 +60,7 @@
 > 엔지니어링 리뷰 8건을 검증 가능한 항목으로. verify 가 1:1 대조.
 
 1. **[리뷰 1] SessionRuntime 인터페이스 + OneShot 단일 구현.** 신규 `SessionRuntime` 이 세션 1개의 라이브 실행을 owns 하며 소비 인터페이스는 `send(): AsyncIterable<NormalizedEvent>` · `interrupt()` · `setMode()` · `push()`(P0 stub) · `close()`. P0 는 **OneShot(close-on-result) 단일 구현**만 제공. Persistent 구현체는 만들지 않는다.
-2. **[리뷰 1·⑳] 모드-무관 소비자 계약.** `send.ts`·`claude-map`·persist·PermissionBridge·telemetry 는 `NormalizedEvent` 만 소비하며 OneShot/Persistent 모드를 모른다 — close 정책이 유일한 모드 의존 계층. 단위 테스트가 "두 close 정책이 동일 NormalizedEvent 스트림 산출"을 검증(Persistent 는 stub 으로 mode-invariance 만).
+2. **[리뷰 1·⑳] 모드-무관 소비자 계약.** `send.ts`·`claude-map`·persist·PermissionBridge·telemetry 는 `SessionRuntime.send()` 의 `AsyncIterable<NormalizedEvent>` 만 소비하며 close 정책 타입을 **분기하지 않는다**. 검증은 *Persistent 구현이 아니라* 경량 **fake runtime**(동일 인터페이스, close 정책만 주입 가능)으로 한다 — Persistent 동작이 아니라 "소비자가 close 정책에 무지함"을 본다(보강 §4).
 3. **[리뷰 2] coarse 상태머신을 SessionRuntime 이 단일 소유.** `cold/live/busy/interrupting/error/closed` 전이를 SessionRuntime 이 owns, **비영속**(DB status 컬럼 없음, 부팅 시 cold 재구축). `InflightTurn` 의 `cancelled/timedOut/live` 가 이 상태의 *파생*으로 정리되어 별도 SSOT 가 없다.
 4. **[리뷰 3] StallTimer / IdleCloseTimer 명시 분리.** 기존 `IDLE_TIMEOUT_MS` 경로는 **StallTimer**(busy 중 무이벤트→turn abort)로 개칭. **IdleCloseTimer**(live-idle 핸들 회수)는 별도 타이머·소유·트리거로 정의(P0 는 인터페이스/stub, 구현은 P1). 한 'idle' 로 합치지 않는다.
 5. **[리뷰 5·⑪] resume/부팅 시 dangling tool 마감.** `tool_call` 은 있고 `tool_result` 가 없는 part 를 부팅·resume 진입 시 "interrupted"로 마감(`failInterruptedTools` 대응). 마감 안 하면 발생하는 "실행 중" 무한 렌더가 재현 테스트로 방어된다.
@@ -69,7 +69,7 @@
 8. **[리뷰 4·7·8] 문서 정합.** 설계서의 disallowedTools 표기는 "D1 보류(미구현)"로 통일됨(완료) — 코드 변경 시 이 상태를 유지(canUseTool 1단). `maxTurns` 세션-스코프 함의(persistent per-turn 캡)는 P1 설계노트로 남긴다. resume 실패는 현행대로 "이 대화는 이어할 수 없습니다" 에러 종료(cold-fallback=Future).
 9. **레이어 경계 0 / 게이트 통과.** 신규 `lifecycle/`·`orchestration/` 모듈은 L1 domain(SessionAdapter 주입, electron 비의존). `npm run lint`(boundaries 포함)·`typecheck`·`test` 통과, 신규 의존성 0.
 10. **[2026-06-28 결정] 앱-레벨 2축 모듈 구조.** 신규 모듈은 `session/` 하위가 아니라 최상위 **`lifecycle/`**(앱·프로세스·세션 생명주기) + **`orchestration/`**(애플리케이션 레벨 턴/세션 조율)로 신설. SessionRuntime 은 lifecycle 의 구성원. `concurrency-registry.ts`→`orchestration/concurrency.ts` 이전.
-11. **[2026-06-28 결정] uv Python runtime 폐기.** `src/main/runtime/` 와 그 배선(`index.ts`·`router.ts` ensure/status·`context.ts` 타입·`send.ts` getEnv 합류)·system prompt 정책(`policies/python-runtime.md`)·build(`fetch-uv`·`prepare-runtime`·extraResources)·IPC `runtime:status*` 채널을 제거. 게이트(lint/typecheck/test)가 미참조를 보증하고, `IPC_CONTRACT.md`·관련 AGENTS.md 문서를 정합화한다.
+11. **[2026-06-28 결정] uv Python runtime 폐기.** `src/main/runtime/` 와 그 배선(`index.ts`·`router.ts` `ensure()`·`context.ts` 타입·`send.ts` `getEnv()` 합류)·system prompt 정책(`policies/python-runtime.md` + `registry.ts`/`loader.ts` 항목)·build(`fetch-uv`·`prepare-runtime`·`electron-builder.yml` extraResources·`scripts/fetch-uv.mjs`)를 제거. **IPC 채널 변경 없음** — `orca:runtime:{status,prepare,statusEvent}` 3채널은 이미 2026-06-11 제거됨(`IPC_CONTRACT.md` §216). 게이트(lint/typecheck/test)가 미참조를 보증하고, `IPC_CONTRACT.md` §216(PythonRuntime 유지 서술)·`app/AGENTS.md`·`app/src/main/AGENTS.md`(runtime 모듈/빌드 스크립트 소개)를 정합화한다. (상세 체크리스트 보강 §5.)
 
 ## 범위 / 비범위
 
@@ -91,7 +91,7 @@
 
 **두 축을 앱-레벨 최상위 모듈로 신설한다** — 설계서의 두 렌즈(8계층 lifecycle / 7요소 orchestration)와 1:1. `lifecycle/` 은 앱·프로세스·세션 *생명주기*(부팅·감시·종료/복구)를 표현하고, `orchestration/` 은 *애플리케이션 레벨 턴/세션 조율*(워크플로 하네스 §1.5)을 표현한다. SessionRuntime 은 `session/` 같은 별도 부모가 아니라 **lifecycle 의 한 구성원**이다. 둘 다 L1 domain 으로, `SessionAdapter`(L2)를 *주입*받아 하향 의존을 깬다(dependency inversion) → electron 비의존·vitest 가능.
 
-**uv Python runtime 제거(Q2 결정: 0049 포함)**: `src/main/runtime/`(uv 격리 Python)은 코드상 하드코딩 Python MCP 의존이 없어 *번들 Python 을 쓰는 사용자에게만* 필요 → 폐기. 이로써 turn env 의 `getEnv()` 합류·`runtime:status` IPC·`policies/python-runtime.md` 정책·build(`fetch-uv`·`extraResources`)를 제거하고, 라이프사이클을 새 `lifecycle/` 가 온전히 차지한다.
+**uv Python runtime 제거(Q2 결정: 0049 포함)**: `src/main/runtime/`(uv 격리 Python)은 코드상 하드코딩 Python MCP 의존이 없어 *번들 Python 을 쓰는 사용자에게만* 필요 → 폐기. turn env 의 `getEnv()` 합류·`policies/python-runtime.md` 정책·build(`fetch-uv`·`extraResources`)를 제거한다. **IPC 채널은 무변경**(`orca:runtime:*` 는 2026-06-11 이미 제거, `IPC_CONTRACT.md` §216). 상세 잔재 체크리스트는 보강 §5.
 
 ```
 [현재] 라이프사이클이 ipc/chat + adapters 에 분산
@@ -108,7 +108,7 @@
   lifecycle/                       ★ 신규 — 앱·프로세스·세션 생명주기
     session-runtime.ts   ── SessionRuntime: 핸들 수명 + close 정책(OneShot) + coarse 상태 소유
     session-state.ts     ── 상태머신(cold/live/busy/interrupting/error/closed) 순수 전이
-    session-registry.ts  ── SessionRuntimeRegistry(← ipc/chat/turn-registry.ts 이전·개명, 축출 훅 예약)
+    session-registry.ts  ── SessionRuntimeRegistry: 세션-스코프 핸들+coarse 상태만(turn-registry.ts 를 *분할* — 개명 아님; god-object 는 turn-context 로). 축출 훅 예약
     timers.ts            ── StallTimer(← send.ts createIdleTimer 이전·개명) + IdleCloseTimer(stub)
     recovery.ts          ── dangling tool 마감(부팅·resume) + 부팅 시 전 세션 cold 재구축
     turn-context.ts      ── InflightTurn 의 *턴-로컬* 잔여(ask페어링·subagent·title)만 분리
@@ -143,7 +143,7 @@ SessionRuntime (세션 1개, 핸들 소유, 소비 인터페이스 모드-무관
    └ Persistent: (P1) 핸들 1개 보관 + push=generator push + idle/explicit close
 ```
 
-- close-on-result 판정(`if msg.type==='result'`)을 `claude.ts:335`(어댑터)에서 SessionRuntime(OneShot 정책)으로 **끌어올린다** — 어댑터는 LiveTurn 만 돌려주고 수명은 런타임이 정한다.
+- close-on-result 판정(`if msg.type==='result'`)을 `claude.ts:335`(어댑터)에서 SessionRuntime(OneShot 정책)으로 **끌어올린다**. ⚠ `input` 은 `claude.ts` 로컬 변수라 외부가 못 닫는다 → **`LiveTurn.close()` 명시 계약을 신설**(`adapters/types.ts`)해야 한다. 어댑터는 result 후 *자동 close 하지 않고*, 스트림 소진/취소 시 `events()` finally 의 멱등 close 와 SessionRuntime 의 `close()` 호출이 한 책임으로 수렴한다. 상세 계약은 보강 §3.
 - 상태 전이는 `session-state.ts` 순수 함수(`transition(state, event)`). SessionRuntime 이 NormalizedEvent/제어를 보고 호출. `InflightTurn.cancelled/timedOut/live` 는 `runtime.state` 파생 getter 로 대체(별도 SSOT 제거).
 
 ### C. 타이머 분리 (인수 4)
@@ -153,7 +153,7 @@ SessionRuntime (세션 1개, 핸들 소유, 소비 인터페이스 모드-무관
 
 ### D. dangling 복구 (인수 5)
 
-- `lifecycle/recovery.ts`: 부팅(`router.start`)·resume 진입 시 DB 에서 `tool_call` 있고 `tool_result` 없는 part 를 조회(`db/queries.ts` 신규/기존 쿼리)→`tool.call.completed`(reason:'interrupted') 합성·persist. `send.ts:settleOpenToolRuns` 의 *부팅판*. 멱등(upsert, `queries.ts:286` 패턴 재사용).
+- `lifecycle/recovery.ts`: 부팅(`router.start`)·resume 진입 시 DB 에서 dangling part(`type='tool_call'` 에 같은 `tool_run_id` 의 `type='tool_result'` 없음)를 조회→`tool.call.completed`(reason:'interrupted') 합성·persist. `send.ts:settleOpenToolRuns` 의 *부팅판*. ⚠ DB-only 복구라 조회가 **`message_id`(append 대상)·`tool_run_id`·부모/자식 transcript 판별 payload** 를 반드시 함께 반환해야 한다 — `upsertToolResultPart(messageId, toolRunId, payloadJson)` 가 append fallback 에 `message_id` 를 요구하기 때문(`queries.ts:288`, schema `0004_message_parts.sql`: message_id·idx·type·tool_run_id·payload_json). 신규 쿼리 명세는 보강 §2. 멱등(upsert).
 
 ### 재사용할 기존 함수·파일
 `adapters/claude.ts`(sendMessage)·`streaming-input.ts`(createTurnInputStream)·`turn-registry.ts`(→이전)·`send.ts`(createIdleTimer·settleOpenToolRuns→이전)·`db/queries.ts`(tool_result upsert)·`ipc/router.ts`(start/shutdown 배선).
@@ -185,7 +185,7 @@ SessionRuntime (세션 1개, 핸들 소유, 소비 인터페이스 모드-무관
 - 신규(orchestration): `app/src/main/orchestration/{concurrency,admission}.ts` + `*.test.ts`
 - 이전/개명: `ipc/chat/turn-registry.ts`→`lifecycle/session-registry.ts`(SessionRuntimeRegistry), `send.ts:createIdleTimer`→`lifecycle/timers.ts`(StallTimer), `ipc/chat/concurrency-registry.ts`→`orchestration/concurrency.ts`
 - 수정: `adapters/claude.ts`(close 정책 호출자 이동), `adapters/streaming-input.ts`(push 시그니처 예약), `ipc/chat/send.ts`(lifecycle+orchestration 소비자로 박리), `ipc/router.ts`(부팅 recovery 배선 + uv 배선 제거), `adapters/types.ts`(소비 타입), `db/queries.ts`(dangling 조회), `ipc/context.ts`(runtime 타입 제거)
-- **제거(uv)**: `src/main/runtime/`(PythonRuntime·env·paths·index), `prompts/policies/python-runtime.md` + `prompts/registry.ts`·`loader.ts` 항목, `index.ts`·`router.ts` 의 uv 배선·`runtime:statusEvent`, `package.json`(`predev:fetch-uv`·`prepare-runtime`)·`scripts/fetch-uv.mjs`·`electron-builder.yml` extraResources. IPC `runtime:status*` 채널 제거 → `IPC_CONTRACT.md` 갱신.
+- **제거(uv)**: `src/main/runtime/`(PythonRuntime·env·paths·index + `RuntimeStage`/`RuntimeStatus` 타입), `prompts/policies/python-runtime.md` + `prompts/registry.ts`·`loader.ts` 항목, `index.ts`·`router.ts`(`ensure()`·`status` on 핸들러)·`context.ts`(runtime 타입) 의 uv 배선, `send.ts:buildTurnEnv`/`getEnv()` 합류, `package.json`(`predev:fetch-uv`·`prepare-runtime`·`fetch-uv`)·`scripts/fetch-uv.mjs`·`electron-builder.yml` extraResources·`resources/bin`. **IPC 채널 무변경**(`orca:runtime:*` 이미 제거됨, 2026-06-11) — `IPC_CONTRACT.md` §216 의 "PythonRuntime 유지" 서술만 갱신.
 - 문서: `docs/arch/backend/provider-runtime.md`(lifecycle/orchestration·SessionRuntime·상태머신 1급화), `docs/IPC_CONTRACT.md`(runtime:status 채널 제거), `docs/PHASES.md`(uv 런타임 행 정리·현재 작업중→승격), `app/AGENTS.md`·`app/src/main/AGENTS.md`(runtime 모듈 언급 제거·신규 2모듈 추가)
 
 ## 참고 문서
@@ -210,6 +210,41 @@ SessionRuntime (세션 1개, 핸들 소유, 소비 인터페이스 모드-무관
 - [x] 의존 기술 — 기존 모듈 식별, 신규 의존성 0, uv 제거 영향·사용자 승인 명시.
 - [x] 파생 UX — 부팅 cold·크래시 복구·resume 실패·멀티세션 + uv 제거 시 Python MCP 폴백.
 - [x] 리스크 — 파일이동·god-object 분해·close 정책 이동·SSOT drift·스코프크리프·uv 제거 + 모듈명 Open Question 해소(2축 최상위).
+
+## 설계 보강 (구현 전 Codex 검토 반영, 2026-06-29)
+
+> Codex 가 구현 전 plan 을 비판적으로 검토(설계 리뷰 단계)해 6건의 모호성·범위 리스크를 지적. 아래는 그 반영. 인수 기준·§설계 의 인라인 수정과 짝.
+
+### 보강 1 — SessionRuntimeRegistry ↔ TurnContext 수명 분리 (개명 아님, 분할)
+`turn-registry.ts:InflightTurn` 은 핸들 레지스트리가 아니라 *턴-로컬 god-object*(`pendingUserText`·`pendingAttachmentViews`·`currentAssistantMessageId`·`assistantText`·`pendingAskAnswers`·`askPendingIds`·`askResolved`·`subagentTaskIds`·`openToolRuns`·`subagentTypes`·`blockedSubagents`·`stoppedSubagents`)다. "이전·개명"이 아니라 **두 수명으로 분할**한다:
+- **`lifecycle/session-registry.ts` (세션-스코프)**: `Map<sessionId, SessionRuntime>` — 핸들 + coarse 상태 + 축출 훅. *오직* 세션 수명.
+- **`lifecycle/turn-context.ts` (턴-스코프)**: 위 턴-로컬 필드 전부. SessionRuntime 이 턴마다 생성/폐기. 인수 3("상태머신 단일 소유, InflightTurn 파생")이 흐려지지 않게, 이 둘을 한 객체로 합치지 않는다.
+
+### 보강 2 — dangling recovery DB 쿼리 명세 (반쪽 복구 방지)
+신규 쿼리 `findDanglingToolCalls()` 반환 행 = `{ message_id:number, tool_run_id:string, session_id:string, payload_json:string }`. 조건: `mp.type='tool_call'` AND `NOT EXISTS (같은 message scope 에 mp2.tool_run_id=mp.tool_run_id AND mp2.type='tool_result')`. 복구는 각 행에 `upsertToolResultPart(message_id, tool_run_id, payloadJson)` — `message_id` 가 있어야 append fallback(`queries.ts:110-113` `MAX(idx)+1`) 이 동작한다. 부모/자식 transcript 판별이 필요하면 `payload_json`(parentToolRunId)에서 파생. **`tool_run_id` 만 찾는 update-only 복구는 금지**(append 누락 → 반쪽 복구).
+
+### 보강 3 — LiveTurn.close() 계약 (close 정책 이동 안전화)
+현재 `LiveTurn`(`adapters/types.ts:17-26`)에 `close()` 없음. close 정책을 런타임으로 올리려면:
+- `adapters/types.ts`: `LiveTurn` 에 `close(): void`(멱등) 추가. claude 어댑터는 내부 `input.close` 를 여기 위임.
+- 어댑터는 result 후 **자동 close 하지 않는다**(현 `claude.ts:335` 의 `if result input.close()` 제거). 대신 OneShot SessionRuntime 이 result 이벤트를 보고 `live.close()` 호출.
+- `events()` generator 의 finally(`claude.ts:347-351`) 멱등 close 는 *누수 백스톱*으로 유지(중복 호출 무해). **종료 권위 = SessionRuntime, 백스톱 = finally** 로 책임 명문화.
+
+### 보강 4 — mode-invariance 테스트 경계 (Persistent 미구현과 양립)
+인수 1(Persistent 구현 안 함)과 충돌 제거: P0 테스트는 *Persistent 동작*이 아니라 **소비자가 close 정책 타입에 무지함**을 검증한다. fixture = `FakeSessionRuntime`(동일 `send()` 인터페이스, close 정책을 생성자 파라미터로 받아 OneShot/가짜-persistent 두 모드 흉내). 테스트는 두 모드에서 `send.ts` 소비 결과(persist 호출·이벤트 순서)가 동일함만 본다. 실제 Persistent 클래스는 P1.
+
+### 보강 5 — uv 제거 잔재 체크리스트 (코드·문서·빌드, IPC 무변경)
+- 코드: `src/main/runtime/**` 삭제 · `index.ts`/`router.ts`(`ensure()`·`on('status')`·`runtime:statusEvent` 송출 잔재)/`context.ts`(`runtime` 필드·타입)/`send.ts`(`buildTurnEnv` 의 `getEnv()` 인자) 정리 · `src/shared/ipc.ts` 의 구 런타임 타입 이동 주석 제거.
+- 빌드: `package.json`(`predev`·`fetch-uv`·`prepare-runtime`) · `scripts/fetch-uv.mjs` · `electron-builder.yml` extraResources · `resources/bin`.
+- 문서: `app/AGENTS.md`(스택 표·빌드/실행 표의 uv 행)·`app/src/main/AGENTS.md`(L1 domain 목록의 `runtime`)·`docs/IPC_CONTRACT.md` §216(PythonRuntime 유지 서술 → 제거됨으로 갱신)·`docs/PHASES.md`(uv 런타임 행).
+- **IPC 채널: 무변경**(`orca:runtime:*` 3채널 이미 2026-06-11 제거). 새 채널 추가/삭제 없음.
+
+### 보강 6 — 단계별 커밋 경계 (회귀 국소화)
+한 커밋에 "리팩터+기능+런타임 제거"를 섞지 않는다. **구현 순서(각 단계 게이트 green 후 다음)**:
+1. **C1 lifecycle 추출(무동작 변화)**: `turn-registry`→`session-registry`+`turn-context` 분할, `createIdleTimer`→`timers.ts(StallTimer)`, `concurrency-registry`→`orchestration/concurrency`. 배럴 re-export 로 import 무회귀. send.ts 는 새 경로만 소비(로직 동일).
+2. **C2 SessionRuntime + 상태머신**: OneShot SessionRuntime 도입, `LiveTurn.close()` 계약(보강 3), close 정책 이동, 상태 SSOT 화(InflightTurn 플래그→파생). 모드-불변 테스트(보강 4).
+3. **C3 dangling recovery**: `recovery.ts` + `findDanglingToolCalls`(보강 2) + 부팅/resume 배선 + 재현 테스트.
+4. **C4 uv 폐기**: 보강 5 체크리스트 + 문서 정합.
+- 각 단계는 독립 리뷰 가능. C1 은 순수 이동(diff 큼·위험 낮음), C2 가 핵심 위험, C4 는 분리 가능(원하면 별도 PR). send.ts "박리"는 C1~C2 에 분산돼 한 번에 재작성하지 않는다.
 
 ---
 
