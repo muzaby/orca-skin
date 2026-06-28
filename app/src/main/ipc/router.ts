@@ -34,11 +34,12 @@ import { registerMcpHandlers } from './handlers/mcp'
 import { registerEngineHandlers } from './handlers/engine'
 import { registerMiscHandlers } from './handlers/misc'
 import { registerChatHandlers, settleOpenToolRuns } from './chat/send'
-import { TurnRegistry } from './chat/turn-registry'
+import { TurnRegistry } from '../lifecycle/turn-context'
 import { ApprovalCoordinator } from './chat/approvals'
 import { TurnPersistence } from './chat/persist'
 import { TitleGenerator } from './chat/title-generation'
-import { ConcurrencyRegistry } from './chat/concurrency-registry'
+import { ConcurrencyRegistry } from '../orchestration/concurrency'
+import { recoverDanglingToolCalls } from '../lifecycle/recovery'
 import { broadcastConcurrency } from './context'
 
 export class IpcRouter {
@@ -186,6 +187,7 @@ export class IpcRouter {
       mockAdapter: import.meta.env.DEV ? new MockAdapter(() => this.debugMock) : null
     }
     this.register(ctx)
+    recoverDanglingToolCalls(db)
 
     // Python 런타임 (uv 격리 인터프리터) 비동기 초기화. await 하지 않아 부팅을 막지
     // 않는다 — 진행 상태는 runtime:statusEvent 로 모든 webContents 에 스트리밍된다.

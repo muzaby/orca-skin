@@ -10,7 +10,7 @@ import type { CostTracker } from '../../cost/tracker'
 import { hasContextTokens } from '../../usage/usageMap'
 import { previewOf } from '../dto'
 import { sendChatEvent } from '../context'
-import type { InflightTurn } from './turn-registry'
+import type { InflightTurn } from '../../lifecycle/turn-context'
 
 export class TurnPersistence {
   constructor(
