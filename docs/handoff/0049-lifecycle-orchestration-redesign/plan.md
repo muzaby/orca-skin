@@ -69,11 +69,11 @@
 8. **[리뷰 4·7·8] 문서 정합.** 설계서의 disallowedTools 표기는 "D1 보류(미구현)"로 통일됨(완료) — 코드 변경 시 이 상태를 유지(canUseTool 1단). `maxTurns` 세션-스코프 함의(persistent per-turn 캡)는 P1 설계노트로 남긴다. resume 실패는 현행대로 "이 대화는 이어할 수 없습니다" 에러 종료(cold-fallback=Future).
 9. **레이어 경계 0 / 게이트 통과.** 신규 `lifecycle/`·`orchestration/` 모듈은 L1 domain(SessionAdapter 주입, electron 비의존). `npm run lint`(boundaries 포함)·`typecheck`·`test` 통과, 신규 의존성 0.
 10. **[2026-06-28 결정] 앱-레벨 2축 모듈 구조.** 신규 모듈은 `session/` 하위가 아니라 최상위 **`lifecycle/`**(앱·프로세스·세션 생명주기) + **`orchestration/`**(애플리케이션 레벨 턴/세션 조율)로 신설. SessionRuntime 은 lifecycle 의 구성원. `concurrency-registry.ts`→`orchestration/concurrency.ts` 이전.
-11. **[2026-06-28 결정] uv Python runtime 폐기.** `src/main/runtime/` 와 그 배선(`index.ts`·`router.ts` `ensure()`·`context.ts` 타입·`send.ts` `getEnv()` 합류)·system prompt 정책(`policies/python-runtime.md` + `registry.ts`/`loader.ts` 항목)·build(`fetch-uv`·`prepare-runtime`·`electron-builder.yml` extraResources·`scripts/fetch-uv.mjs`)를 제거. **IPC 채널 변경 없음** — `orca:runtime:{status,prepare,statusEvent}` 3채널은 이미 2026-06-11 제거됨(`IPC_CONTRACT.md` §216). 게이트(lint/typecheck/test)가 미참조를 보증하고, `IPC_CONTRACT.md` §216(PythonRuntime 유지 서술)·`app/AGENTS.md`·`app/src/main/AGENTS.md`(runtime 모듈/빌드 스크립트 소개)를 정합화한다. **⚠ 동반(보강 R2-4): `policies/python-runtime.md` 는 "`uv run python` 안내" 정책이자 현재 *유일한 정적 정책*이라 함께 제거 → `stableAppend` 빈 문자열·`ExtensionBuilder` 빈 정책 분기·`buildAppend.test.ts`/`loader.test.ts` 갱신.** 범위가 prompt 서브시스템까지 번지므로 **C4 별도 PR 권장**. (상세 체크리스트 보강 §5/R2-4.)
+11. **[2026-06-28 결정] uv Python runtime 폐기.** `src/main/runtime/` 와 그 배선(`index.ts`·`router.ts` `ensure()`·`context.ts` 타입·`send.ts` `getEnv()` 합류)·system prompt 정책(`policies/python-runtime.md` + `registry.ts`/`loader.ts` 항목)·build(`fetch-uv`·`prepare-runtime`·`electron-builder.yml` extraResources·`scripts/fetch-uv.mjs`)를 제거. **IPC 채널 변경 없음** — `orca:runtime:{status,prepare,statusEvent}` 3채널은 이미 2026-06-11 제거됨(`IPC_CONTRACT.md` §216). 게이트(lint/typecheck/test)가 미참조를 보증하고, `IPC_CONTRACT.md` §216(PythonRuntime 유지 서술)·`app/AGENTS.md`·`app/src/main/AGENTS.md`(runtime 모듈/빌드 스크립트 소개)를 정합화한다. **⚠ 동반(보강 R2-4): `policies/python-runtime.md` 는 "`uv run python` 안내" 정책이자 현재 *유일한 정적 정책*이라 함께 제거 → `stableAppend` 빈 문자열·`ExtensionBuilder` 빈 정책 분기·`buildAppend.test.ts`/`loader.test.ts` 갱신.** **uv 제거는 0049 범위에 *포함*(필수 완료)이며, 후속 handoff 아님** — 단 출시는 **PR-B(같은 0049 핸드오프의 2번째 PR)**로 분리(C1~C3=PR-A 머지 후). 즉 "별도 PR ≠ 별도 handoff/연기"(보강 R3-3). 구현 커밋 Criteria 는 PR-A·PR-B 각각 부분 충족으로 기재하되 0049 전체 인수에 11번 포함. (상세 체크리스트 보강 §5/R2-4.)
 
 ## 범위 / 비범위
 
-- **범위 (P0)**: 앱-레벨 2축 모듈(`lifecycle/`·`orchestration/`) 신설 + SessionRuntime 인터페이스 + OneShot 구현, 상태머신(단일 소유·비영속), TurnRegistry→SessionRuntimeRegistry·concurrency-registry→orchestration 재배치(+축출 훅 예약), StallTimer 개칭 + IdleCloseTimer 분리(인터페이스/stub), resume·부팅 dangling 마감, **uv Python runtime 폐기**(배선·정책·build·IPC 채널 제거), P0 테스트 4종, `send.ts` 를 lifecycle+orchestration 소비자로 박리. 파일트리 재배치(아래 §설계).
+- **범위 (P0)**: 앱-레벨 2축 모듈(`lifecycle/`·`orchestration/`) 신설 + SessionRuntime 인터페이스 + OneShot 구현, 상태머신(단일 소유·비영속), TurnRegistry→SessionRuntimeRegistry·concurrency-registry→orchestration 재배치(+축출 훅 예약), StallTimer 개칭 + IdleCloseTimer 분리(인터페이스/stub), resume·부팅 dangling 마감, **uv Python runtime 폐기**(배선·python-runtime 정책·build; **IPC 무변경** — runtime 채널 기제거), P0 테스트 4종, `send.ts` 를 lifecycle+orchestration 소비자로 박리. 파일트리 재배치(아래 §설계).
 - **비범위 (P1, 후속 핸드오프)**: Persistent 핸들 구현·cross-turn 수명·IdleCloseTimer 구현·핸들 cap+LRU·steer/queue UX·멀티세션 동시 라이브 핸들 정책·compaction 액션(`/compact`)·session handoff·maxTurns per-turn 캡·이벤트 ordering/seq·backpressure·렌더러 재연결·Windows 프로세스-트리 정리. (설계서 §5.5 P1 + §6-10)
 - **비범위 (Future)**: resume cold-fallback(DB 이력 재구성)·goal 영속 1급화·cross-session 멀티에이전트·deliberation·별도 평가 세션·OpenCode 어댑터. (설계서 §5.5 Future)
 
@@ -136,14 +136,15 @@ SessionRuntime (세션 1개, 핸들 소유, 소비 인터페이스 모드-무관
   상태: SessionState (cold|live|busy|interrupting|error|closed)  ← 단일 SSOT, 비영속
   send(content): AsyncIterable<NormalizedEvent>   ← 소비자가 보는 유일 표면
   interrupt() · setMode(mode) · setModel(m)        ← LiveTurn control 위임
+  stopTask(taskId) · backgroundTask(toolUseId)     ← 서브에이전트 제어 위임(보강 R3-1, 핸들 비노출)
   push(content)                                    ← P0 stub(throw/no-op), P1 Persistent 구현
-  close()                                          ← close 정책: OneShot=on-result
+  close()                                          ← close 정책: OneShot=정규화 terminal
    │
-   ├ OneShot 구현: adapter.sendMessage()로 LiveTurn 생성, result 도착 시 close (= 현재 claude.ts:335 로직 이전)
+   ├ OneShot 구현: adapter.sendMessage()로 LiveTurn 생성, **정규화 terminal 이벤트(telemetry|error|turn.aborted) 관측 시 live.close()** (보강 R3-2 — raw SDK result 비참조)
    └ Persistent: (P1) 핸들 1개 보관 + push=generator push + idle/explicit close
 ```
 
-- close-on-result 판정(`if msg.type==='result'`)을 `claude.ts:335`(어댑터)에서 SessionRuntime(OneShot 정책)으로 **끌어올린다**. ⚠ `input` 은 `claude.ts` 로컬 변수라 외부가 못 닫는다 → **`LiveTurn.close()` 명시 계약을 신설**(`adapters/types.ts`)해야 한다. 어댑터는 result 후 *자동 close 하지 않고*, 스트림 소진/취소 시 `events()` finally 의 멱등 close 와 SessionRuntime 의 `close()` 호출이 한 책임으로 수렴한다. 상세 계약은 보강 §3.
+- close 트리거를 **정규화 terminal 이벤트**(`telemetry`|`error`|`turn.aborted` — claude-map 이 SDK `result`→`telemetry` 로 매핑, `claude-map.ts:7`·send.ts:521)로 잡는다. SessionRuntime 은 raw SDK 메시지를 보지 않고(provider-중립 유지) 자기 `send()` 스트림의 terminal 을 보고 `live.close()` 호출. ⚠ `input` 은 `claude.ts` 로컬이라 외부가 못 닫으므로 **`LiveTurn.close()` 명시 계약 신설**(`adapters/types.ts`), 어댑터는 terminal 후 *자동 close 안 함*(`claude.ts:335` 제거), `events()` finally 멱등 close 는 백스톱. 상세는 보강 §3·R3-2.
 - 상태 전이는 `session-state.ts` 순수 함수(`transition(state, event)`). SessionRuntime 이 NormalizedEvent/제어를 보고 호출. `InflightTurn.cancelled/timedOut/live` 는 `runtime.state` 파생 getter 로 대체(별도 SSOT 제거).
 
 ### C. 타이머 분리 (인수 4)
@@ -153,7 +154,7 @@ SessionRuntime (세션 1개, 핸들 소유, 소비 인터페이스 모드-무관
 
 ### D. dangling 복구 (인수 5)
 
-- `lifecycle/recovery.ts`: 부팅(`router.start`)·resume 진입 시 DB 에서 dangling part(`type='tool_call'` 에 같은 `tool_run_id` 의 `type='tool_result'` 없음)를 조회→`tool.call.completed`(reason:'interrupted') 합성·persist. `send.ts:settleOpenToolRuns` 의 *부팅판*. ⚠ DB-only 복구라 조회가 **`message_id`(append 대상)·`tool_run_id`·부모/자식 transcript 판별 payload** 를 반드시 함께 반환해야 한다 — `upsertToolResultPart(messageId, toolRunId, payloadJson)` 가 append fallback 에 `message_id` 를 요구하기 때문(`queries.ts:288`, schema `0004_message_parts.sql`: message_id·idx·type·tool_run_id·payload_json). 신규 쿼리 명세는 보강 §2(라운드1). **추가(보강 R2-5): 같은 복구에서 orphaned incomplete assistant message(`complete=0`)도 `markComplete`(complete=1) 한다** — tool 만 닫고 메시지를 incomplete 로 두면 "도구 완료/응답 미완료" 혼합 상태가 된다. 멱등(upsert + markComplete).
+- `lifecycle/recovery.ts`: 부팅(`router.start`)·resume 진입 시 DB 에서 dangling part(`type='tool_call'` 에 같은 `tool_run_id` 의 `type='tool_result'` 없음)를 조회→`tool.call.completed`(reason:'interrupted') 합성·persist. `send.ts:settleOpenToolRuns` 의 *부팅판*. ⚠ DB-only 복구라 조회가 **`message_id`(append 대상)·`tool_run_id`·부모/자식 transcript 판별 payload** 를 반드시 함께 반환해야 한다 — `upsertToolResultPart(messageId, toolRunId, payloadJson)` 가 append fallback 에 `message_id` 를 요구하기 때문(`queries.ts:288`, schema `0004_message_parts.sql`: message_id·idx·type·tool_run_id·payload_json). 신규 쿼리 명세는 보강 §2(라운드1). **추가(보강 R2-5): 같은 복구에서 orphaned incomplete assistant message(`complete=0`)도 `markComplete`(complete=1) 한다** — tool 만 닫고 메시지를 incomplete 로 두면 "도구 완료/응답 미완료" 혼합 상태가 된다. 멱등(upsert + markComplete). **안전조건(보강 R3-4): recovery 는 *죽은 프로세스의 DB-only 복구* 전제로만 동작** — 대상 세션에 **라이브 SessionRuntime 이 없을 때만**(부팅 시 전 세션 cold = 자명; resume 시 해당 세션이 아직 미오픈) 실행하고, markComplete 는 row 단위가 아니라 **assistant message 단위**(해당 메시지의 모든 dangling tool 정착 후 그 message_id 1회)로 적용한다. 진행 가능한 live turn 의 메시지는 절대 닫지 않는다.
 
 ### 재사용할 기존 함수·파일
 `adapters/claude.ts`(sendMessage)·`streaming-input.ts`(createTurnInputStream)·`turn-registry.ts`(→이전)·`send.ts`(createIdleTimer·settleOpenToolRuns→이전)·`db/queries.ts`(tool_result upsert)·`ipc/router.ts`(start/shutdown 배선).
@@ -186,7 +187,7 @@ SessionRuntime (세션 1개, 핸들 소유, 소비 인터페이스 모드-무관
 - 이전/개명: `ipc/chat/turn-registry.ts`→`lifecycle/session-registry.ts`(SessionRuntimeRegistry), `send.ts:createIdleTimer`→`lifecycle/timers.ts`(StallTimer), `ipc/chat/concurrency-registry.ts`→`orchestration/concurrency.ts`
 - 수정: `adapters/claude.ts`(close 정책 호출자 이동), `adapters/streaming-input.ts`(push 시그니처 예약), `ipc/chat/send.ts`(lifecycle+orchestration 소비자로 박리), `ipc/router.ts`(부팅 recovery 배선 + uv 배선 제거), `adapters/types.ts`(소비 타입), `db/queries.ts`(dangling 조회), `ipc/context.ts`(runtime 타입 제거)
 - **제거(uv)**: `src/main/runtime/`(PythonRuntime·env·paths·index + `RuntimeStage`/`RuntimeStatus` 타입), `prompts/policies/python-runtime.md` + `prompts/registry.ts`·`loader.ts` 항목, `index.ts`·`router.ts`(`ensure()`·`status` on 핸들러)·`context.ts`(runtime 타입) 의 uv 배선, `send.ts:buildTurnEnv`/`getEnv()` 합류, `package.json`(`predev:fetch-uv`·`prepare-runtime`·`fetch-uv`)·`scripts/fetch-uv.mjs`·`electron-builder.yml` extraResources·`resources/bin`. **IPC 채널 무변경**(`orca:runtime:*` 이미 제거됨, 2026-06-11) — `IPC_CONTRACT.md` §216 의 "PythonRuntime 유지" 서술만 갱신.
-- 문서: `docs/arch/backend/provider-runtime.md`(lifecycle/orchestration·SessionRuntime·상태머신 1급화), `docs/IPC_CONTRACT.md`(runtime:status 채널 제거), `docs/PHASES.md`(uv 런타임 행 정리·현재 작업중→승격), `app/AGENTS.md`·`app/src/main/AGENTS.md`(runtime 모듈 언급 제거·신규 2모듈 추가)
+- 문서: `docs/arch/backend/provider-runtime.md`(lifecycle/orchestration·SessionRuntime·상태머신 1급화), `docs/IPC_CONTRACT.md` §216(PythonRuntime "유지" 서술→"제거됨" 갱신; **runtime IPC 채널은 이미 2026-06-11 제거, 추가 채널 변경 없음**), `docs/PHASES.md`(uv 런타임 행 정리·현재 작업중→승격), `app/AGENTS.md`·`app/src/main/AGENTS.md`(runtime 모듈 언급 제거·신규 2모듈 추가)
 
 ## 참고 문서
 
@@ -269,6 +270,20 @@ SessionRuntime (세션 1개, 핸들 소유, 소비 인터페이스 모드-무관
 
 #### 보강 R2-6 — SessionRuntimeRegistry 는 pending 새-채팅 승격 semantics 보존
 현 `TurnRegistry` 는 sessionId 미발급 새-채팅을 `pendingByOwner` 에 두고 `session.updated` 시 `promote(turn, sessionId)`(handoff 0040 — owner 동일성 가드로 resume 턴 오승격 방지). SessionRuntimeRegistry 는 `Map<sessionId, SessionRuntime>` *만이 아니라* **pendingByOwner + promote 도 유지**해야 한다(보강 1 의 session-registry 가 그대로 계승). 인수: `startNew`/`promote`/`finish` semantics 와 0040 가드 회귀 테스트 보존.
+
+### 라운드 3 — Codex 3차 자문 (4건)
+
+#### 보강 R3-1 — SessionRuntime 에 서브에이전트 제어 메서드 포함
+`send.ts:178,181`(`stopLiveSubagent`)이 `turn.live.backgroundTask(toolUseId)`·`turn.live.stopTask(taskId)` 를 직접 호출(`orca:chat:stopSubagent` 경로, send.ts:540·675). C2 에서 LiveTurn 소유권이 SessionRuntime 으로 올라가면 이 경로가 핸들에 닿을 수 없다 → **SessionRuntime 인터페이스에 `stopTask(taskId)`·`backgroundTask(toolUseId)` 추가**(LiveTurn 에 위임). 핸들을 다시 외부 노출하지 않아 "핸들 소유=SessionRuntime" 유지. §B 인터페이스 반영.
+
+#### 보강 R3-2 — close 트리거 = 정규화 terminal (raw result 비참조)
+SessionRuntime 은 어댑터 밖이라 SDK raw `result` 를 보면 안 된다(provider 결합). close 트리거 = `send()` 스트림의 **정규화 terminal `{telemetry, error, turn.aborted}`** (claude-map: `result→telemetry`, `claude-map.ts:7`; send.ts:521 동일 집합). terminal 관측 시 `live.close()`. 어댑터의 `claude.ts:335` 자동 close 는 제거, `events()` finally 는 백스톱. §B·보강 3 반영. (어댑터별 terminal 의미가 달라지면 claude-map 이 흡수 — 코어는 무지.)
+
+#### 보강 R3-3 — uv 제거 포함 여부 단일화 (별도 PR ≠ 연기)
+모순 표현 정정: uv 제거는 **0049 범위에 포함(필수)**, 단지 출시를 **PR-B(같은 핸드오프 2번째 PR)**로 분리한다. "별도 PR" 을 "후속 handoff/선택" 으로 오independent 읽지 않는다. 인수 11·범위·보강 R2-4 의 "권장"→"포함·PR-B 출시" 로 통일(IPC 무변경도 재확인). verify 는 PR-A·PR-B 누적으로 0049 인수 전체를 대조.
+
+#### 보강 R3-4 — dangling recovery 는 assistant message 단위 + 죽은 프로세스 전제
+row 단위가 아니라 **assistant message 단위**로 정착(한 메시지에 dangling tool_call 여럿/일부는 이미 tool_result 있음 — `NOT EXISTS` 로 미정착만 합성). markComplete 는 message_id 당 1회. **전제(쿼리 조건에 포함)**: *대상 세션에 라이브 SessionRuntime 이 없을 때만* 복구(부팅=전 세션 cold 자명, resume=해당 세션 미오픈). 진행 가능한 live turn 의 incomplete 메시지를 닫지 않는다. §D·보강 2 반영.
 
 ---
 
