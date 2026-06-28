@@ -67,11 +67,13 @@
 6. **[리뷰 5] P0 테스트 4종.** (a) 상태머신 전이 (b) resume/부팅 dangling 마감 (c) 모드-불변(2번) (d) **StallTimer 회귀**(busy 중 무이벤트→abort+"응답이 없어 턴을 중단했습니다" 보존) — 모두 electron 비의존 단위 테스트.
 7. **[리뷰 6] 핸들 cap 축출 훅 예약.** `SessionRuntimeRegistry` 인터페이스에 축출 훅(예: `evictIdle()` 또는 cap 파라미터)을 예약한다 — P0 는 미사용(비용 0), 구현(cap+LRU)은 P1.
 8. **[리뷰 4·7·8] 문서 정합.** 설계서의 disallowedTools 표기는 "D1 보류(미구현)"로 통일됨(완료) — 코드 변경 시 이 상태를 유지(canUseTool 1단). `maxTurns` 세션-스코프 함의(persistent per-turn 캡)는 P1 설계노트로 남긴다. resume 실패는 현행대로 "이 대화는 이어할 수 없습니다" 에러 종료(cold-fallback=Future).
-9. **레이어 경계 0 / 게이트 통과.** 신규 `session/` 모듈은 L1 domain(SessionAdapter 주입, electron 비의존). `npm run lint`(boundaries 포함)·`typecheck`·`test` 통과, 신규 의존성 0.
+9. **레이어 경계 0 / 게이트 통과.** 신규 `lifecycle/`·`orchestration/` 모듈은 L1 domain(SessionAdapter 주입, electron 비의존). `npm run lint`(boundaries 포함)·`typecheck`·`test` 통과, 신규 의존성 0.
+10. **[2026-06-28 결정] 앱-레벨 2축 모듈 구조.** 신규 모듈은 `session/` 하위가 아니라 최상위 **`lifecycle/`**(앱·프로세스·세션 생명주기) + **`orchestration/`**(애플리케이션 레벨 턴/세션 조율)로 신설. SessionRuntime 은 lifecycle 의 구성원. `concurrency-registry.ts`→`orchestration/concurrency.ts` 이전.
+11. **[2026-06-28 결정] uv Python runtime 폐기.** `src/main/runtime/` 와 그 배선(`index.ts`·`router.ts` ensure/status·`context.ts` 타입·`send.ts` getEnv 합류)·system prompt 정책(`policies/python-runtime.md`)·build(`fetch-uv`·`prepare-runtime`·extraResources)·IPC `runtime:status*` 채널을 제거. 게이트(lint/typecheck/test)가 미참조를 보증하고, `IPC_CONTRACT.md`·관련 AGENTS.md 문서를 정합화한다.
 
 ## 범위 / 비범위
 
-- **범위 (P0)**: SessionRuntime 인터페이스 + OneShot 구현, 상태머신(단일 소유·비영속), TurnRegistry→SessionRuntimeRegistry 재배치(+축출 훅 예약), StallTimer 개칭 + IdleCloseTimer 분리(인터페이스/stub), resume·부팅 dangling 마감, P0 테스트 4종, `send.ts` 를 SessionRuntime 소비자로 박리. 파일트리 재배치(아래 §설계).
+- **범위 (P0)**: 앱-레벨 2축 모듈(`lifecycle/`·`orchestration/`) 신설 + SessionRuntime 인터페이스 + OneShot 구현, 상태머신(단일 소유·비영속), TurnRegistry→SessionRuntimeRegistry·concurrency-registry→orchestration 재배치(+축출 훅 예약), StallTimer 개칭 + IdleCloseTimer 분리(인터페이스/stub), resume·부팅 dangling 마감, **uv Python runtime 폐기**(배선·정책·build·IPC 채널 제거), P0 테스트 4종, `send.ts` 를 lifecycle+orchestration 소비자로 박리. 파일트리 재배치(아래 §설계).
 - **비범위 (P1, 후속 핸드오프)**: Persistent 핸들 구현·cross-turn 수명·IdleCloseTimer 구현·핸들 cap+LRU·steer/queue UX·멀티세션 동시 라이브 핸들 정책·compaction 액션(`/compact`)·session handoff·maxTurns per-turn 캡·이벤트 ordering/seq·backpressure·렌더러 재연결·Windows 프로세스-트리 정리. (설계서 §5.5 P1 + §6-10)
 - **비범위 (Future)**: resume cold-fallback(DB 이력 재구성)·goal 영속 1급화·cross-session 멀티에이전트·deliberation·별도 평가 세션·OpenCode 어댑터. (설계서 §5.5 Future)
 
@@ -79,14 +81,17 @@
 
 - 기댈 기존 모듈: `SessionAdapter.sendMessage`→`LiveTurn`(`adapters/types.ts`), `createTurnInputStream`(`adapters/streaming-input.ts`), `TurnRegistry`/`InflightTurn`(`ipc/chat/turn-registry.ts`), `createIdleTimer`(`ipc/chat/send.ts`), `settleOpenToolRuns`(`send.ts`), DB queries(`db/queries.ts` dangling 조회·tool_result upsert).
 - SDK 전제(문서 검증됨): 스트리밍 입력 세션이 다중 메시지·interrupt·"Session stays alive" 지원(`streaming-vs-single-mode.md`). **P0 는 이 전제를 OneShot 으로만 사용**(post-result push 는 P1 에서 비로소 의존).
-- **신규 의존성**: 없음(예상). 새 npm 패키지 도입 금지 — 필요 시 ⚠️ 보고만.
-- 전제: 기존 391+ 테스트가 better-sqlite3 ABI 환경에서 일부 red 인 것은 변경 무관(handoff 0019 dual-ABI). 신규 단위 테스트는 electron 비의존이라 영향 없음.
+- **신규 의존성**: 없음(예상). 새 npm 패키지 도입 금지 — 필요 시 ⚠️ 보고만. (uv 폐기로 `scripts/fetch-uv.mjs`·`resources/bin` 의존이 *줄어든다*.)
+- **uv 제거 전제(인수 11)**: 코드에 하드코딩 Python MCP 참조 없음(확인). 번들 Python 을 쓰던 사용자는 시스템 Python 폴백 — 영향 사용자는 mcp.json 으로 직접 구성한 경우뿐. ⚠️ 제품 영향이라 사용자 결정 받음(이번 세션: "제거해도 좋다").
+- 전제: 기존 531 테스트가 better-sqlite3 ABI 환경에서 일부 red 인 것은 변경 무관(handoff 0019 dual-ABI). 신규 단위 테스트는 electron 비의존이라 영향 없음.
 
 ## 설계
 
 ### A. 파일트리 재배치 (모듈화)
 
-라이프사이클 책임을 **신규 L1 domain 모듈 `src/main/session/`** 로 응집한다. SessionRuntime 은 `SessionAdapter`(L2)를 *주입*받아 하향 의존을 깬다(dependency inversion) → L1 유지·electron 비의존·vitest 가능.
+**두 축을 앱-레벨 최상위 모듈로 신설한다** — 설계서의 두 렌즈(8계층 lifecycle / 7요소 orchestration)와 1:1. `lifecycle/` 은 앱·프로세스·세션 *생명주기*(부팅·감시·종료/복구)를 표현하고, `orchestration/` 은 *애플리케이션 레벨 턴/세션 조율*(워크플로 하네스 §1.5)을 표현한다. SessionRuntime 은 `session/` 같은 별도 부모가 아니라 **lifecycle 의 한 구성원**이다. 둘 다 L1 domain 으로, `SessionAdapter`(L2)를 *주입*받아 하향 의존을 깬다(dependency inversion) → electron 비의존·vitest 가능.
+
+**uv Python runtime 제거(Q2 결정: 0049 포함)**: `src/main/runtime/`(uv 격리 Python)은 코드상 하드코딩 Python MCP 의존이 없어 *번들 Python 을 쓰는 사용자에게만* 필요 → 폐기. 이로써 turn env 의 `getEnv()` 합류·`runtime:status` IPC·`policies/python-runtime.md` 정책·build(`fetch-uv`·`extraResources`)를 제거하고, 라이프사이클을 새 `lifecycle/` 가 온전히 차지한다.
 
 ```
 [현재] 라이프사이클이 ipc/chat + adapters 에 분산
@@ -99,26 +104,30 @@
     turn-registry.ts     ── TurnRegistry + InflightTurn(~25필드 god-object)
     concurrency-registry.ts
 
-[목표] 세션 라이프사이클을 src/main/session/ 로 응집 (L1 domain, 순수·주입식)
-  session/                         ★ 신규 모듈
+[목표] 두 축을 앱-레벨 최상위 모듈로 (둘 다 L1 domain, 순수·주입식)
+  lifecycle/                       ★ 신규 — 앱·프로세스·세션 생명주기
     session-runtime.ts   ── SessionRuntime: 핸들 수명 + close 정책(OneShot) + coarse 상태 소유
     session-state.ts     ── 상태머신(cold/live/busy/interrupting/error/closed) 순수 전이
-    session-registry.ts  ── SessionRuntimeRegistry(← turn-registry.ts 이전·개명, 축출 훅 예약)
+    session-registry.ts  ── SessionRuntimeRegistry(← ipc/chat/turn-registry.ts 이전·개명, 축출 훅 예약)
     timers.ts            ── StallTimer(← send.ts createIdleTimer 이전·개명) + IdleCloseTimer(stub)
-    recovery.ts          ── dangling tool 마감(부팅·resume), failInterruptedTools 대응
+    recovery.ts          ── dangling tool 마감(부팅·resume) + 부팅 시 전 세션 cold 재구축
     turn-context.ts      ── InflightTurn 의 *턴-로컬* 잔여(ask페어링·subagent·title)만 분리
     *.test.ts            ── P0 테스트 4종
+  orchestration/                   ★ 신규 — 애플리케이션 레벨 턴/세션 조율(워크플로 하네스 §1.5)
+    concurrency.ts       ── (← ipc/chat/concurrency-registry.ts 이전) 동시성 정책
+    admission.ts         ── steer/queue 입력 admission seam (P0 stub, P1 구현)
+    (turn-loop 정책)      ── 턴 시퀀싱 결정의 순수 부분(IPC 구동은 send.ts 에 잔존)
   adapters/
-    claude.ts            ── LiveTurn 반환은 유지, close 정책은 SessionRuntime 이 제어(close-on-result 호출자 이동)
+    claude.ts            ── LiveTurn 반환 유지, close 정책은 SessionRuntime 이 제어(close-on-result 호출자 이동)
     streaming-input.ts   ── push() 시그니처만 예약(P0 미사용), 구현은 P1
     types.ts             ── LiveTurn 유지 + (선택) SessionRuntime 소비 타입
   ipc/chat/
-    send.ts              ── SessionRuntime 소비자로 박리(상태/타이머/레지스트리 위임 → 더 얇게)
-    concurrency-registry.ts  ── 유지(프로젝트 턴 카운트)
+    send.ts              ── lifecycle+orchestration 소비자로 박리(상태/타이머/레지스트리/동시성 위임 → 더 얇게)
+  ✗ runtime/                       ── uv Python 런타임 폐기(Q2: 0049 포함). index/router/context/send 배선 제거
 ```
 
-- **레이어**: `session/` 은 L1 domain. `SessionAdapter` 를 생성자/팩토리 주입(컴포지션 루트 `ipc/router.ts`·`index.ts` 가 배선). `ipc/chat/send.ts`(L3)가 SessionRuntime 을 구동. boundaries: session→adapters 직접 의존 금지(주입으로 역전), session→shared·session 내부만.
-- **`boundaries/elements`**: `src/main/session` 은 기본 L1 domain 분류로 떨어짐(별도 등록 불필요) — `app/eslint.config.mjs` 확인.
+- **레이어**: `lifecycle/`·`orchestration/` 둘 다 L1 domain. `SessionAdapter` 는 컴포지션 루트(`ipc/router.ts`·`index.ts`)가 주입. `ipc/chat/send.ts`(L3)가 둘을 소비·구동. boundaries: lifecycle/orchestration→adapters 직접 의존 금지(주입 역전), →shared·동일/하위 레이어만. orchestration→lifecycle(L1 내부) 허용, 역방향 금지.
+- **`boundaries/elements`**: `src/main/lifecycle`·`src/main/orchestration` 은 기본 L1 domain 분류(별도 등록 불필요). 단 `src/main/runtime` 제거에 따라 elements 에 `runtime` 잔재가 있으면 정리 — `app/eslint.config.mjs` 확인.
 
 ### B. SessionRuntime (인수 1·2·3)
 
@@ -139,12 +148,12 @@ SessionRuntime (세션 1개, 핸들 소유, 소비 인터페이스 모드-무관
 
 ### C. 타이머 분리 (인수 4)
 
-- `send.ts:createIdleTimer`/`IDLE_TIMEOUT_MS` → `session/timers.ts` 의 **`StallTimer`**(busy 중 무이벤트 N초→`turn.controller.abort()`, 의미·동작 보존). beginPause refcount(승인 대기) 로직 그대로 이전.
+- `send.ts:createIdleTimer`/`IDLE_TIMEOUT_MS` → `lifecycle/timers.ts` 의 **`StallTimer`**(busy 중 무이벤트 N초→`turn.controller.abort()`, 의미·동작 보존). beginPause refcount(승인 대기) 로직 그대로 이전.
 - **`IdleCloseTimer`**: live-idle 중 N분→핸들 close 인터페이스만 정의(P0 stub, busy 중 미발동 가드는 상태머신이 보장 — ⑤). 구현 P1.
 
 ### D. dangling 복구 (인수 5)
 
-- `session/recovery.ts`: 부팅(`router.start`)·resume 진입 시 DB 에서 `tool_call` 있고 `tool_result` 없는 part 를 조회(`db/queries.ts` 신규/기존 쿼리)→`tool.call.completed`(reason:'interrupted') 합성·persist. `send.ts:settleOpenToolRuns` 의 *부팅판*. 멱등(upsert, `queries.ts:286` 패턴 재사용).
+- `lifecycle/recovery.ts`: 부팅(`router.start`)·resume 진입 시 DB 에서 `tool_call` 있고 `tool_result` 없는 part 를 조회(`db/queries.ts` 신규/기존 쿼리)→`tool.call.completed`(reason:'interrupted') 합성·persist. `send.ts:settleOpenToolRuns` 의 *부팅판*. 멱등(upsert, `queries.ts:286` 패턴 재사용).
 
 ### 재사용할 기존 함수·파일
 `adapters/claude.ts`(sendMessage)·`streaming-input.ts`(createTurnInputStream)·`turn-registry.ts`(→이전)·`send.ts`(createIdleTimer·settleOpenToolRuns→이전)·`db/queries.ts`(tool_result upsert)·`ipc/router.ts`(start/shutdown 배선).
@@ -166,15 +175,18 @@ SessionRuntime (세션 1개, 핸들 소유, 소비 인터페이스 모드-무관
 | 상태머신을 별도 SSOT 로 만들면 InflightTurn 과 drift | 인수 3: SessionRuntime 단일 소유, InflightTurn 플래그는 파생 getter(별도 저장 금지) |
 | Persistent 를 미리 만들고 싶은 유혹(스코프 크리프) | 인수 1: P0 는 OneShot 단일 구현, push()=stub. Persistent 는 P1 핸드오프 |
 
-- 되돌리기 어려운 결정: 모듈 경로(`src/main/session/`) 신설 — 다른 import 가 붙기 전에 확정. (대안: `ipc/chat/` 하위 유지 → 그러나 L1 순수성·재사용 위해 별도 모듈 권장.)
-- **단독 결정 금지(Open Question)**: 신규 모듈 디렉토리명(`session/` vs `session-runtime/` vs `lifecycle/`) — 구현 착수 전 사용자/설계자 확인 권장(`runtime/` 는 Python uv 런타임이라 충돌).
+- 되돌리기 어려운 결정: 최상위 모듈 경로(`src/main/lifecycle/`·`src/main/orchestration/`) 신설 + `src/main/runtime/`(uv) 폐기 — 다른 import 가 붙기 전에 확정.
+- ~~모듈 디렉토리명 Open Question~~ **✅ 결정(2026-06-28 사용자)**: `session/` 하위가 아니라 **앱-레벨 최상위 `lifecycle/` + `orchestration/`**(라이프사이클=앱/프로세스/세션 생명주기, 오케스트레이션=애플리케이션 레벨 조율). SessionRuntime 은 lifecycle 의 구성원. `runtime/`(uv) 폐기로 이름 충돌 해소.
+- 추가 리스크(uv 제거): 번들 Python MCP 를 쓰던 사용자는 시스템 Python 으로 폴백(없으면 해당 MCP 실패). 완화 — 코드상 하드코딩 Python MCP 없음 확인, system prompt 정책 제거로 모델 오안내 방지. 되돌림은 git revert(0049 단위).
 
 ## 영향 받는 파일
 
-- 신규: `app/src/main/session/{session-runtime,session-state,session-registry,timers,recovery,turn-context}.ts` + `*.test.ts`
-- 이전/개명: `ipc/chat/turn-registry.ts`→`session/session-registry.ts`(SessionRuntimeRegistry), `send.ts` 의 createIdleTimer→`session/timers.ts`(StallTimer)
-- 수정: `adapters/claude.ts`(close 정책 호출자 이동), `adapters/streaming-input.ts`(push 시그니처 예약), `ipc/chat/send.ts`(SessionRuntime 소비자로 박리), `ipc/router.ts`(부팅 시 recovery 배선), `adapters/types.ts`(소비 타입), `db/queries.ts`(dangling 조회)
-- 문서: `docs/arch/backend/provider-runtime.md`(SessionRuntime·상태머신 1급화 반영), `docs/PHASES.md`(현재 작업중→승격), `docs/IPC_CONTRACT.md`(채널 변경 시에만 — 예상 무변경)
+- 신규(lifecycle): `app/src/main/lifecycle/{session-runtime,session-state,session-registry,timers,recovery,turn-context}.ts` + `*.test.ts`
+- 신규(orchestration): `app/src/main/orchestration/{concurrency,admission}.ts` + `*.test.ts`
+- 이전/개명: `ipc/chat/turn-registry.ts`→`lifecycle/session-registry.ts`(SessionRuntimeRegistry), `send.ts:createIdleTimer`→`lifecycle/timers.ts`(StallTimer), `ipc/chat/concurrency-registry.ts`→`orchestration/concurrency.ts`
+- 수정: `adapters/claude.ts`(close 정책 호출자 이동), `adapters/streaming-input.ts`(push 시그니처 예약), `ipc/chat/send.ts`(lifecycle+orchestration 소비자로 박리), `ipc/router.ts`(부팅 recovery 배선 + uv 배선 제거), `adapters/types.ts`(소비 타입), `db/queries.ts`(dangling 조회), `ipc/context.ts`(runtime 타입 제거)
+- **제거(uv)**: `src/main/runtime/`(PythonRuntime·env·paths·index), `prompts/policies/python-runtime.md` + `prompts/registry.ts`·`loader.ts` 항목, `index.ts`·`router.ts` 의 uv 배선·`runtime:statusEvent`, `package.json`(`predev:fetch-uv`·`prepare-runtime`)·`scripts/fetch-uv.mjs`·`electron-builder.yml` extraResources. IPC `runtime:status*` 채널 제거 → `IPC_CONTRACT.md` 갱신.
+- 문서: `docs/arch/backend/provider-runtime.md`(lifecycle/orchestration·SessionRuntime·상태머신 1급화), `docs/IPC_CONTRACT.md`(runtime:status 채널 제거), `docs/PHASES.md`(uv 런타임 행 정리·현재 작업중→승격), `app/AGENTS.md`·`app/src/main/AGENTS.md`(runtime 모듈 언급 제거·신규 2모듈 추가)
 
 ## 참고 문서
 
@@ -188,16 +200,16 @@ SessionRuntime (세션 1개, 핸들 소유, 소비 인터페이스 모드-무관
 ## 게이트
 
 - 통과 필요: `cd app && npm run lint && npm run typecheck && npm test`.
-- 신규 테스트 요구(인수 6): `session/session-state.test.ts`(전이) · `session/recovery.test.ts`(dangling 마감) · `session/session-runtime.test.ts`(모드-불변 — OneShot vs Persistent-stub 동일 스트림) · `session/timers.test.ts`(StallTimer 회귀: busy 무이벤트→abort).
+- 신규 테스트 요구(인수 6): `lifecycle/session-state.test.ts`(전이) · `lifecycle/recovery.test.ts`(dangling 마감) · `lifecycle/session-runtime.test.ts`(모드-불변 — OneShot vs Persistent-stub 동일 스트림) · `lifecycle/timers.test.ts`(StallTimer 회귀: busy 무이벤트→abort).
 
 ## 설계 self-review 체크리스트 (READY 전)
 
 - [x] 사용자 의도 — 명시 요구(라이브 세션)·리뷰 8건 출처 인용, 추론은 추론 표기.
 - [x] 자료조사 — 모든 발견에 레퍼런스(`@docs/…`·`파일:라인`·SDK 원문) 부착.
-- [x] 인수 기준 — 9개 번호, 리뷰 8건에 근거, 검증 가능.
-- [x] 의존 기술 — 기존 모듈 식별, 신규 의존성 0 명시.
-- [x] 파생 UX — 부팅 cold·크래시 복구·resume 실패·멀티세션 펼침.
-- [x] 리스크 — 파일이동·god-object 분해·close 정책 이동·SSOT drift·스코프크리프 + 모듈명 Open Question 분리.
+- [x] 인수 기준 — 11개 번호(리뷰 8건 + 2축 모듈 구조 + uv 폐기), 검증 가능.
+- [x] 의존 기술 — 기존 모듈 식별, 신규 의존성 0, uv 제거 영향·사용자 승인 명시.
+- [x] 파생 UX — 부팅 cold·크래시 복구·resume 실패·멀티세션 + uv 제거 시 Python MCP 폴백.
+- [x] 리스크 — 파일이동·god-object 분해·close 정책 이동·SSOT drift·스코프크리프·uv 제거 + 모듈명 Open Question 해소(2축 최상위).
 
 ---
 
