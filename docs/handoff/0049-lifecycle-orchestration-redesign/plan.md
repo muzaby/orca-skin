@@ -247,7 +247,8 @@ SessionRuntime (세션 1개, 핸들 소유, 소비 인터페이스 모드-무관
 2. **C2 SessionRuntime + 상태머신**: OneShot SessionRuntime 도입, `LiveTurn.close()` 계약(보강 3), close 정책 이동, 상태 SSOT 화(InflightTurn 플래그→파생). 모드-불변 테스트(보강 4).
 3. **C3 dangling recovery**: `recovery.ts` + `findDanglingToolCalls`(보강 2) + 부팅/resume 배선 + 재현 테스트.
 4. **C4 uv 폐기**: 보강 5 체크리스트 + 문서 정합.
-- 각 단계는 독립 리뷰 가능. C1 은 순수 이동(diff 큼·위험 낮음), C2 가 핵심 위험, C4 는 분리 가능(원하면 별도 PR). send.ts "박리"는 C1~C2 에 분산돼 한 번에 재작성하지 않는다.
+- 각 단계는 독립 리뷰 가능. C1 은 순수 이동(diff 큼·위험 낮음), C2 가 핵심 위험. send.ts "박리"는 C1~C2 에 분산돼 한 번에 재작성하지 않는다.
+- **PR 경계 (2026-06-29 사용자 결정): 0049 는 한 핸드오프로 추적하되 2 PR 로 출시** — **PR-A = C1~C3**(구조 재설계: lifecycle/orchestration·SessionRuntime·recovery), **PR-B = C4**(uv 폐기 + python-runtime 정책 제거 cascade, R2-4). 구조와 기능/정책 제거를 분리해 리뷰·되돌림을 독립화. PR-A 머지 후 PR-B. INDEX 는 두 PR 의 대상 커밋을 모두 기재.
 
 ### 라운드 2 — Codex 2차 자문 (6건)
 
@@ -261,7 +262,7 @@ SessionRuntime (세션 1개, 핸들 소유, 소비 인터페이스 모드-무관
 `send.runtime-resilience.test.ts:2` 가 `./send` 에서 `createIdleTimer, IDLE_TIMEOUT_MS, abortableDelay, RETRY_BACKOFF_MS` 를 import. C1 에서 `createIdleTimer`·`IDLE_TIMEOUT_MS` 만 `lifecycle/timers.ts` 로 옮기되, **`send.ts` 가 `export { createIdleTimer, IDLE_TIMEOUT_MS } from '../../lifecycle/timers'` 로 re-export** 해 기존 import 경로를 유지(무회귀). `abortableDelay`·`RETRY_BACKOFF_MS` 는 retry 로직이라 **이동 안 함**(send.ts 잔류). C1 게이트 = 테스트 import 무수정 통과.
 
 #### 보강 R2-4 — uv 제거는 **유일 정적 정책(python-runtime) 제거**를 동반 (범위 확정)
-`prompts/policies/python-runtime.md` 는 모델에게 *"`uv run python` 을 쓰라"* 고 지시하는 정책이고(`registry.ts:30` — **현재 유일한 정적 정책**), `loader.ts:7,13`·`extensions/builder.ts:6,42` 의 `stableAppend` 가 이를 항상 시스템 프롬프트에 합류시킨다. **결정: uv 제거 = 이 정책도 제거**(uv 없는데 uv 안내는 거짓). 결과: `registry.ts` 정책 0개·`stableAppend` 빈 문자열 → `ExtensionBuilder` 가 instructions 만 append(빈 정책 분기). **테스트 갱신 필수**: `buildAppend.test.ts`·`loader.test.ts`·registry 관련. → uv 제거가 prompt 서브시스템까지 번지므로 **C4 를 별도 PR 로 분리 권장**(범위 격리). *대안*(원하면): 정책을 system-Python 안내로 *재작성*해 stableAppend 유지 — 단 "uv 폐기" 취지와 어긋나므로 비권장.
+`prompts/policies/python-runtime.md` 는 모델에게 *"`uv run python` 을 쓰라"* 고 지시하는 정책이고(`registry.ts:30` — **현재 유일한 정적 정책**), `loader.ts:7,13`·`extensions/builder.ts:6,42` 의 `stableAppend` 가 이를 항상 시스템 프롬프트에 합류시킨다. **결정: uv 제거 = 이 정책도 제거**(uv 없는데 uv 안내는 거짓). 결과: `registry.ts` 정책 0개·`stableAppend` 빈 문자열 → `ExtensionBuilder` 가 instructions 만 append(빈 정책 분기). **테스트 갱신 필수**: `buildAppend.test.ts`·`loader.test.ts`·registry 관련. → uv 제거가 prompt 서브시스템까지 번지므로 **C4 를 별도 PR(PR-B)로 분리**(2026-06-29 사용자 확정, 보강 6). *대안*(원하면): 정책을 system-Python 안내로 *재작성*해 stableAppend 유지 — 단 "uv 폐기" 취지와 어긋나므로 비권장.
 
 #### 보강 R2-5 — dangling recovery 는 incomplete assistant message 도 마감
 크래시/중단 시 assistant message 는 `complete=0` 으로 남는다(`persist.ts:57` 삽입, `queries.ts:106` `complete=1` 마감, schema `0009_message_complete.sql`). recovery 가 tool_result 만 닫고 메시지를 incomplete 로 두면 UI 가 "도구 완료/응답 미완료" 혼합 상태를 본다. **recovery 는 dangling tool 정착 + 해당 메시지 `markComplete`(complete=1) 를 함께** 수행한다(부팅 시 그 턴은 재개 불가 — 죽은 프로세스). §D 에 반영.
