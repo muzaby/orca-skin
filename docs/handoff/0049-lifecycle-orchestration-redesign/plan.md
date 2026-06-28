@@ -50,7 +50,8 @@
 | TurnRegistry = 세션 키잉, 세션당 1 inflight(= run-coordinator 경량판 이미 존재) | `app/src/main/ipc/chat/turn-registry.ts:75-109` |
 | InflightTurn god-object ~25필드(상태+ask페어링+subagent+title) | `app/src/main/ipc/chat/turn-registry.ts:15-72` |
 | IDLE_TIMEOUT_MS=120s 가 busy 중 무이벤트 시 turn abort(=StallTimer, 핸들회수 아님) | `app/src/main/ipc/chat/send.ts:42·75-81·580-590` |
-| dangling tool 정착은 in-process(settleOpenToolRuns)만, **부팅/resume 재조정 경로 없음** | `app/src/main/ipc/chat/send.ts:123-146` · `ipc/router.ts:199`(shutdown only) |
+| dangling tool 정착(main): in-process `settleOpenToolRuns` + 정상종료 `IpcRouter.shutdown` | `app/src/main/ipc/chat/send.ts:123-146` · `ipc/router.ts:199` |
+| **(Step0 보정) renderer 가 이미 로드-타임 복구**: `LOAD_SESSION` 에서 `m.incomplete`(DB complete=0) 메시지의 orphan tool 을 `settleOrphanToolParts` 로 `{reason:'aborted'}` 정착(표시). 크래시 백스톱이 *이미 존재* → 설계 ⑪의 "실행 중 무한렌더" 는 표시층에서 해결됨. 0049 DB recovery 의 한계효용 = DB 자기일관성 | `app/src/renderer/.../reducer/chatReducer.ts:471-477` · `lib/parts.ts:107-130` |
 | canUseTool 게이트 + RISKY_TOOLS 존재. `disallowedTools` 는 sendMessage options 에 미주입 | `app/src/main/runtime-events/permission-bridge.ts:14-25` · `adapters/claude.ts:292-328` |
 | main 레이어 DAG: L0 shared→L1 domain→L2 adapters→L3 ipc, 하향 의존만(boundaries 강제) | `app/src/main/AGENTS.md`(레이어 DAG) |
 | ConcurrencyRegistry = 프로젝트별 턴 카운트(UI용), 핸들 수 cap 아님 | `app/src/main/ipc/chat/concurrency-registry.ts` |
@@ -63,7 +64,7 @@
 2. **[리뷰 1·⑳] 모드-무관 소비자 계약.** `send.ts`·`claude-map`·persist·PermissionBridge·telemetry 는 `SessionRuntime.send()` 의 `AsyncIterable<NormalizedEvent>` 만 소비하며 close 정책 타입을 **분기하지 않는다**. 검증은 *Persistent 구현이 아니라* 경량 **fake runtime**(동일 인터페이스, close 정책만 주입 가능)으로 한다 — Persistent 동작이 아니라 "소비자가 close 정책에 무지함"을 본다(보강 §4).
 3. **[리뷰 2] coarse 상태머신을 SessionRuntime 이 단일 소유.** `cold/live/busy/interrupting/error/closed` 전이를 SessionRuntime 이 owns, **비영속**(DB status 컬럼 없음, 부팅 시 cold 재구축). `InflightTurn` 의 `cancelled/timedOut/live` 가 이 상태의 *파생*으로 정리되어 별도 SSOT 가 없다.
 4. **[리뷰 3] StallTimer / IdleCloseTimer 명시 분리.** 기존 `IDLE_TIMEOUT_MS` 경로는 **StallTimer**(busy 중 무이벤트→turn abort)로 개칭. **IdleCloseTimer**(live-idle 핸들 회수)는 별도 타이머·소유·트리거로 정의(P0 는 인터페이스/stub, 구현은 P1). 한 'idle' 로 합치지 않는다.
-5. **[리뷰 5·⑪] resume/부팅 시 dangling tool 마감.** `tool_call` 은 있고 `tool_result` 가 없는 part 를 부팅·resume 진입 시 "interrupted"로 마감(`failInterruptedTools` 대응). 마감 안 하면 발생하는 "실행 중" 무한 렌더가 재현 테스트로 방어된다.
+5. **[리뷰 5·⑪] resume/부팅 시 dangling tool 마감.** `tool_call` 은 있고 `tool_result` 가 없는 part 를 부팅·resume 진입 시 합성 tool_result(`{reason:'aborted'}` — 기존 settlement 와 통일, 보강 R4-5)로 **DB-only 마감**(보강 R4-4) + 그 assistant message `markComplete`. ⚠ "실행 중 무한렌더" 자체는 *이미* renderer `settleOrphanToolParts`(로드-타임)가 막고 있으므로(자료조사 Step0 보정), 이 인수의 실효 = **DB 자기일관성**(F2 결정). message-scoped upsert(R4-3)·죽은 프로세스 전제(R3-4) 준수. 재현 테스트로 방어.
 6. **[리뷰 5] P0 테스트 4종.** (a) 상태머신 전이 (b) resume/부팅 dangling 마감 (c) 모드-불변(2번) (d) **StallTimer 회귀**(busy 중 무이벤트→abort+"응답이 없어 턴을 중단했습니다" 보존) — 모두 electron 비의존 단위 테스트.
 7. **[리뷰 6] 핸들 cap 축출 훅 예약.** `SessionRuntimeRegistry` 인터페이스에 축출 훅(예: `evictIdle()` 또는 cap 파라미터)을 예약한다 — P0 는 미사용(비용 0), 구현(cap+LRU)은 P1.
 8. **[리뷰 4·7·8] 문서 정합.** 설계서의 disallowedTools 표기는 "D1 보류(미구현)"로 통일됨(완료) — 코드 변경 시 이 상태를 유지(canUseTool 1단). `maxTurns` 세션-스코프 함의(persistent per-turn 캡)는 P1 설계노트로 남긴다. resume 실패는 현행대로 "이 대화는 이어할 수 없습니다" 에러 종료(cold-fallback=Future).
@@ -146,6 +147,7 @@ SessionRuntime (세션 1개, 핸들 소유, 소비 인터페이스 모드-무관
 
 - close 트리거를 **정규화 terminal 이벤트**(`telemetry`|`error`|`turn.aborted` — claude-map 이 SDK `result`→`telemetry` 로 매핑, `claude-map.ts:7`·send.ts:521)로 잡는다. SessionRuntime 은 raw SDK 메시지를 보지 않고(provider-중립 유지) 자기 `send()` 스트림의 terminal 을 보고 `live.close()` 호출. ⚠ `input` 은 `claude.ts` 로컬이라 외부가 못 닫으므로 **`LiveTurn.close()` 명시 계약 신설**(`adapters/types.ts`), 어댑터는 terminal 후 *자동 close 안 함*(`claude.ts:335` 제거), `events()` finally 멱등 close 는 백스톱. 상세는 보강 §3·R3-2.
 - 상태 전이는 `session-state.ts` 순수 함수(`transition(state, event)`). SessionRuntime 이 NormalizedEvent/제어를 보고 호출. `InflightTurn.cancelled/timedOut/live` 는 `runtime.state` 파생 getter 로 대체(별도 SSOT 제거).
+- ⚠ **abort 원인 보존(보강 R4-2)**: coarse 상태(`interrupting`/`error`)만으론 send.ts 분기를 복원 못 한다 — `send.ts:579-580` 은 `turn.cancelled && aborted`(조용한 종료)와 `turn.timedOut`("응답이 없어 턴을 중단했습니다")를 *원인별로* 다르게 처리한다. 따라서 상태머신은 **abort cause(`user_cancelled` | `stall`(StallTimer) | `retry`)**를 함께 보유하고, 기존 `cancelled`/`timedOut` getter 가 이 cause 에서 파생되도록 한다. (AbortController.abort() 만으론 원인 구분 불가 — cause 를 명시 기록.)
 
 ### C. 타이머 분리 (인수 4)
 
@@ -154,7 +156,7 @@ SessionRuntime (세션 1개, 핸들 소유, 소비 인터페이스 모드-무관
 
 ### D. dangling 복구 (인수 5)
 
-- `lifecycle/recovery.ts`: 부팅(`router.start`)·resume 진입 시 DB 에서 dangling part(`type='tool_call'` 에 같은 `tool_run_id` 의 `type='tool_result'` 없음)를 조회→`tool.call.completed`(reason:'interrupted') 합성·persist. `send.ts:settleOpenToolRuns` 의 *부팅판*. ⚠ DB-only 복구라 조회가 **`message_id`(append 대상)·`tool_run_id`·부모/자식 transcript 판별 payload** 를 반드시 함께 반환해야 한다 — `upsertToolResultPart(messageId, toolRunId, payloadJson)` 가 append fallback 에 `message_id` 를 요구하기 때문(`queries.ts:288`, schema `0004_message_parts.sql`: message_id·idx·type·tool_run_id·payload_json). 신규 쿼리 명세는 보강 §2(라운드1). **추가(보강 R2-5): 같은 복구에서 orphaned incomplete assistant message(`complete=0`)도 `markComplete`(complete=1) 한다** — tool 만 닫고 메시지를 incomplete 로 두면 "도구 완료/응답 미완료" 혼합 상태가 된다. 멱등(upsert + markComplete). **안전조건(보강 R3-4): recovery 는 *죽은 프로세스의 DB-only 복구* 전제로만 동작** — 대상 세션에 **라이브 SessionRuntime 이 없을 때만**(부팅 시 전 세션 cold = 자명; resume 시 해당 세션이 아직 미오픈) 실행하고, markComplete 는 row 단위가 아니라 **assistant message 단위**(해당 메시지의 모든 dangling tool 정착 후 그 message_id 1회)로 적용한다. 진행 가능한 live turn 의 메시지는 절대 닫지 않는다.
+- `lifecycle/recovery.ts`: 부팅(`router.start`)·resume 진입 시 DB 에서 dangling part(`type='tool_call'` 에 같은 `tool_run_id` 의 `type='tool_result'` 없음)를 조회→합성 tool_result 를 **DB 에 직접 기록**. **reason vocabulary 는 기존 settlement 와 통일(보강 R4-5): `{ reason:'aborted', message:'중단되었습니다' }`** — renderer `settleOrphanToolParts`(parts.ts:124)·`settleOpenToolRuns`(send.ts:131)와 동일 표현이라야 DB-복구분과 표시-복구분이 일치(설계 ⑪의 `'interrupted'` 표기 폐기). **⚠ DB-only 경로(보강 R4-4)**: 부팅엔 owner WebContents·InflightTurn 이 없으므로 `settleOpenToolRuns`(sendChatEvent/InflightTurn 의존) 를 *재사용하지 않는다* — DB 에만 쓰고, renderer 실시간 송신은 안 한다(다음 `LOAD_SESSION` 이 재구성). ⚠ DB-only 복구라 조회가 **`message_id`(append 대상)·`tool_run_id`·부모/자식 transcript 판별 payload** 를 반드시 함께 반환해야 한다 — `upsertToolResultPart(messageId, toolRunId, payloadJson)` 가 append fallback 에 `message_id` 를 요구하기 때문(`queries.ts:288`, schema `0004_message_parts.sql`: message_id·idx·type·tool_run_id·payload_json). 신규 쿼리 명세는 보강 §2(라운드1). **추가(보강 R2-5): 같은 복구에서 orphaned incomplete assistant message(`complete=0`)도 `markComplete`(complete=1) 한다** — tool 만 닫고 메시지를 incomplete 로 두면 "도구 완료/응답 미완료" 혼합 상태가 된다. **⚠ tool_result 기록과 markComplete 는 *반드시 함께*(보강 R4-2 일관성): markComplete 만 하면(complete=1) renderer `LOAD_SESSION` 이 `m.incomplete` 게이트로 `settleOrphanToolParts` 를 skip 해 "실행 중" 무한렌더가 되살아난다(chatReducer.ts:477).** **message-scoped upsert(보강 R4-3)**: 기존 `updateToolResultPartStmt` 는 `WHERE tool_run_id=@toolRunId AND type='tool_result'`(message_id 미한정, `queries.ts:122-124`)라 DB 전수 복구에서 동일 tool_run_id 가 타 메시지에 있으면 엉뚱한 행을 갱신할 수 있다 → **`WHERE message_id=@mid AND tool_run_id=@trid AND type='tool_result'` 로 message-scoped upsert 변형을 신규 추가**해 recovery 가 그것을 쓴다. 멱등. **안전조건(보강 R3-4): recovery 는 *죽은 프로세스의 DB-only 복구* 전제로만 동작** — 대상 세션에 **라이브 SessionRuntime 이 없을 때만**(부팅 시 전 세션 cold = 자명; resume 시 해당 세션이 아직 미오픈) 실행하고, markComplete 는 row 단위가 아니라 **assistant message 단위**(해당 메시지의 모든 dangling tool 정착 후 그 message_id 1회)로 적용한다. 진행 가능한 live turn 의 메시지는 절대 닫지 않는다.
 
 ### 재사용할 기존 함수·파일
 `adapters/claude.ts`(sendMessage)·`streaming-input.ts`(createTurnInputStream)·`turn-registry.ts`(→이전)·`send.ts`(createIdleTimer·settleOpenToolRuns→이전)·`db/queries.ts`(tool_result upsert)·`ipc/router.ts`(start/shutdown 배선).
@@ -249,7 +251,8 @@ SessionRuntime (세션 1개, 핸들 소유, 소비 인터페이스 모드-무관
 3. **C3 dangling recovery**: `recovery.ts` + `findDanglingToolCalls`(보강 2) + 부팅/resume 배선 + 재현 테스트.
 4. **C4 uv 폐기**: 보강 5 체크리스트 + 문서 정합.
 - 각 단계는 독립 리뷰 가능. C1 은 순수 이동(diff 큼·위험 낮음), C2 가 핵심 위험. send.ts "박리"는 C1~C2 에 분산돼 한 번에 재작성하지 않는다.
-- **PR 경계 (2026-06-29 사용자 결정): 0049 는 한 핸드오프로 추적하되 2 PR 로 출시** — **PR-A = C1~C3**(구조 재설계: lifecycle/orchestration·SessionRuntime·recovery), **PR-B = C4**(uv 폐기 + python-runtime 정책 제거 cascade, R2-4). 구조와 기능/정책 제거를 분리해 리뷰·되돌림을 독립화. PR-A 머지 후 PR-B. INDEX 는 두 PR 의 대상 커밋을 모두 기재.
+- **PR 경계 (2026-06-29 사용자 결정): 0049 는 한 핸드오프로 추적하되 2 PR 로 출시** — **PR-A = C1~C3**(구조 재설계: lifecycle/orchestration·SessionRuntime·recovery), **PR-B = C4**(uv 폐기 + python-runtime 정책 제거 cascade, R2-4). 구조와 기능/정책 제거를 분리해 리뷰·되돌림을 독립화. PR-A 머지 후 PR-B.
+- **상태머신 전이(보강 R4-1, F1)**: 한 핸드오프 안에서 **순차 impl 라운드**로 모델링한다 — PR-A 구현→`impl/IMPL_DONE`(**Criteria-Met 10/11, Criteria-Pending: 인수 11**, 대상커밋=PR-A)→Claude `verify` **PASS(partial)**·`Next-Action: codex`→PR-B 구현→`impl/IMPL_DONE`(**11/11**, 대상커밋=PR-B)→`verify` **PASS(final)**. 기존 Criteria-Pending+라운드 메커니즘(0024 선례) 재사용, 새 인프라 불필요. **INDEX 대상커밋 칸**은 `PR-A: <hashA> / PR-B: <hashB>` 로 두 커밋 라벨 기재(1칸 내). PHASES 승격은 PR-B verify-final 후 1회.
 
 ### 라운드 2 — Codex 2차 자문 (6건)
 
@@ -284,6 +287,25 @@ SessionRuntime 은 어댑터 밖이라 SDK raw `result` 를 보면 안 된다(pr
 
 #### 보강 R3-4 — dangling recovery 는 assistant message 단위 + 죽은 프로세스 전제
 row 단위가 아니라 **assistant message 단위**로 정착(한 메시지에 dangling tool_call 여럿/일부는 이미 tool_result 있음 — `NOT EXISTS` 로 미정착만 합성). markComplete 는 message_id 당 1회. **전제(쿼리 조건에 포함)**: *대상 세션에 라이브 SessionRuntime 이 없을 때만* 복구(부팅=전 세션 cold 자명, resume=해당 세션 미오픈). 진행 가능한 live turn 의 incomplete 메시지를 닫지 않는다. §D·보강 2 반영.
+
+### 라운드 4 — Codex 4차 자문 (5건)
+
+> 사용자 결정 2건: **F1 = 한 핸드오프·순차 impl 라운드**(R4-1), **F2 = DB-only recovery 풀 구현 유지**(R4-3/4/5 적용). 그 외 R4-2 는 무조건 적용.
+
+#### 보강 R4-1 — PR-A/PR-B 상태 전이·INDEX 기록 (발견 1)
+한 핸드오프 안 순차 impl 라운드로 모델링: PR-A→IMPL_DONE(Criteria 10/11, Pending 인수11)→verify PASS-partial(Next-Action codex)→PR-B→IMPL_DONE 11/11→verify PASS-final. INDEX 대상커밋 칸=`PR-A:<hashA> / PR-B:<hashB>`. 기존 Criteria-Pending+라운드 메커니즘 재사용(0024 선례). 상세 §보강 6.
+
+#### 보강 R4-2 — 상태머신에 abort cause (발견 2)
+`send.ts:579-580` 의 `turn.cancelled`(조용한 종료) vs `turn.timedOut`("응답 없음" 에러) 분기는 *abort 원인*에 의존. coarse 상태만으론 복원 불가 → SessionRuntime 이 **abort cause(`user_cancelled`|`stall`|`retry`)**를 보유하고 `cancelled`/`timedOut` getter 가 거기서 파생. §B 반영.
+
+#### 보강 R4-3 — recovery 용 message-scoped tool_result upsert (발견 3)
+기존 `updateToolResultPartStmt` 는 `WHERE tool_run_id AND type='tool_result'`(message_id 미한정, `queries.ts:122-124`). DB 전수 복구에서 동일 tool_run_id 가 타 메시지에 있으면 오갱신 → **`WHERE message_id=@mid AND tool_run_id=@trid AND type='tool_result'` message-scoped 변형 신규 추가**, recovery 전용. §D 반영.
+
+#### 보강 R4-4 — recovery 는 DB-only 경로 (발견 4)
+`settleOpenToolRuns` 는 `InflightTurn`·`TurnPersistence`·`sendChatEvent(turn.owner)` 의존이라 부팅(owner·live turn 없음)에 *재사용 불가*. recovery 는 **DB 에만 write**(tool_result row + markComplete), renderer 실시간 송신 안 함. **이미 renderer `LOAD_SESSION`→`settleOrphanToolParts`(chatReducer.ts:471-477, parts.ts:107-130)가 표시-복구를 수행** → 설계 ⑪의 "실행 중 무한렌더" 는 표시층에서 해결됨(자료조사 Step0 보정 행). 0049 DB recovery 의 효용 = DB 자기일관성(F2 결정: 풀 구현 유지). 복구분과 표시분이 같은 `{reason:'aborted'}` 라 일관.
+
+#### 보강 R4-5 — reason vocabulary 통일 (발견 5)
+recovery tool_result = `{ reason:'aborted', message:'중단되었습니다' }` (renderer `settleOrphanToolParts` parts.ts:124 + main `settleOpenToolRuns` send.ts:131 과 동일). 설계 ⑪의 `'interrupted'` 표기 폐기 — renderer aborted 판정·기존 settlement 와 표현 일치. §D 반영.
 
 ---
 
