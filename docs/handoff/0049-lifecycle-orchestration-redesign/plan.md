@@ -118,7 +118,7 @@
     admission.ts         ── steer/queue 입력 admission seam (P0 stub, P1 구현)
     (turn-loop 정책)      ── 턴 시퀀싱 결정의 순수 부분(IPC 구동은 send.ts 에 잔존)
   adapters/
-    claude.ts            ── LiveTurn 반환 유지, close 정책은 SessionRuntime 이 제어(close-on-result 호출자 이동)
+    claude.ts            ── LiveTurn 반환 유지 + close() 계약 구현, 자동 close 제거(수명=SessionRuntime, terminal 기반 — R3-2)
     streaming-input.ts   ── push() 시그니처만 예약(P0 미사용), 구현은 P1
     types.ts             ── LiveTurn 유지 + (선택) SessionRuntime 소비 타입
   ipc/chat/
@@ -201,7 +201,7 @@ SessionRuntime (세션 1개, 핸들 소유, 소비 인터페이스 모드-무관
 ## 게이트
 
 - 통과 필요: `cd app && npm run lint && npm run typecheck && npm test`.
-- 신규 테스트 요구(인수 6): `lifecycle/session-state.test.ts`(전이) · `lifecycle/recovery.test.ts`(dangling 마감) · `lifecycle/session-runtime.test.ts`(모드-불변 — OneShot vs Persistent-stub 동일 스트림) · `lifecycle/timers.test.ts`(StallTimer 회귀: busy 무이벤트→abort).
+- 신규 테스트 요구(인수 6): `lifecycle/session-state.test.ts`(전이) · `lifecycle/recovery.test.ts`(dangling 마감) · `lifecycle/session-runtime.test.ts`(모드-불변 — **`FakeSessionRuntime` 으로 close 정책 2모드 주입, 동일 스트림** 검증; *Persistent 구현 아님* — 보강 4) · `lifecycle/timers.test.ts`(StallTimer 회귀: busy 무이벤트→abort).
 
 ## 설계 self-review 체크리스트 (READY 전)
 
@@ -229,22 +229,22 @@ SessionRuntime (세션 1개, 핸들 소유, 소비 인터페이스 모드-무관
 ### 보강 3 — LiveTurn.close() 계약 (close 정책 이동 안전화)
 현재 `LiveTurn`(`adapters/types.ts:17-26`)에 `close()` 없음. close 정책을 런타임으로 올리려면:
 - `adapters/types.ts`: `LiveTurn` 에 `close(): void`(멱등) 추가. claude 어댑터는 내부 `input.close` 를 여기 위임.
-- 어댑터는 result 후 **자동 close 하지 않는다**(현 `claude.ts:335` 의 `if result input.close()` 제거). 대신 OneShot SessionRuntime 이 result 이벤트를 보고 `live.close()` 호출.
+- 어댑터는 result 후 **자동 close 하지 않는다**(현 `claude.ts:335` 의 `if result input.close()` 제거). 대신 OneShot SessionRuntime 이 **정규화 terminal 이벤트(`telemetry`|`error`|`turn.aborted`)를 보고**(raw SDK result 아님 — R3-2 로 정밀화) `live.close()` 호출.
 - `events()` generator 의 finally(`claude.ts:347-351`) 멱등 close 는 *누수 백스톱*으로 유지(중복 호출 무해). **종료 권위 = SessionRuntime, 백스톱 = finally** 로 책임 명문화.
 - ⚠ `LiveTurn.close()` 추가는 **모든 어댑터 구현체**(claude·`mock.ts`·향후 opencode)에 동시 적용해야 typecheck green — 보강 R2-2.
 
 ### 보강 4 — mode-invariance 테스트 경계 (Persistent 미구현과 양립)
-인수 1(Persistent 구현 안 함)과 충돌 제거: P0 테스트는 *Persistent 동작*이 아니라 **소비자가 close 정책 타입에 무지함**을 검증한다. fixture = `FakeSessionRuntime`(동일 `send()` 인터페이스, close 정책을 생성자 파라미터로 받아 OneShot/가짜-persistent 두 모드 흉내). 테스트는 두 모드에서 `send.ts` 소비 결과(persist 호출·이벤트 순서)가 동일함만 본다. 실제 Persistent 클래스는 P1.
+인수 1(Persistent 구현 안 함)과 충돌 제거: P0 테스트는 *Persistent 동작*이 아니라 **소비자가 close 정책 타입에 무지함**을 검증한다. fixture = `FakeSessionRuntime`(동일 `send()` 인터페이스, close 정책을 생성자 파라미터로 받아 OneShot/가짜-persistent 두 모드 흉내). 테스트는 두 모드에서 `send.ts` 소비 결과(persist 호출·이벤트 순서)가 동일함만 본다. 실제 Persistent 클래스는 P1. ⚠ `FakeSessionRuntime` 은 SessionRuntime 의 *전체* 인터페이스(R3-1 의 `stopTask`/`backgroundTask` 포함)를 구현해야 타입 만족.
 
 ### 보강 5 — uv 제거 잔재 체크리스트 (코드·문서·빌드, IPC 무변경)
-- 코드: `src/main/runtime/**` 삭제 · `index.ts`/`router.ts`(`ensure()`·`on('status')`·`runtime:statusEvent` 송출 잔재)/`context.ts`(`runtime` 필드·타입)/`send.ts`(`buildTurnEnv` 의 `getEnv()` 인자) 정리 · `src/shared/ipc.ts` 의 구 런타임 타입 이동 주석 제거.
+- 코드: `src/main/runtime/**` 삭제 · `router.ts`(`ensure()` 킥 + `on('status')` **콘솔 로깅** 핸들러(:44-47) + `runtime:statusEvent` 언급 **stale 주석**(:191) — ⚠ IPC send 아님, 채널은 이미 제거됨)·`index.ts`·`context.ts`(`runtime` 필드·타입)·`send.ts`(`buildTurnEnv` 의 `getEnv()` 인자) 정리 · `src/shared/ipc.ts:871` 구 런타임 타입 주석 제거.
 - 빌드: `package.json`(`predev`·`fetch-uv`·`prepare-runtime`) · `scripts/fetch-uv.mjs` · `electron-builder.yml` extraResources · `resources/bin`.
 - 문서: `app/AGENTS.md`(스택 표·빌드/실행 표의 uv 행)·`app/src/main/AGENTS.md`(L1 domain 목록의 `runtime`)·`docs/IPC_CONTRACT.md` §216(PythonRuntime 유지 서술 → 제거됨으로 갱신)·`docs/PHASES.md`(uv 런타임 행).
 - **IPC 채널: 무변경**(`orca:runtime:*` 3채널 이미 2026-06-11 제거). 새 채널 추가/삭제 없음.
 
 ### 보강 6 — 단계별 커밋 경계 (회귀 국소화)
 한 커밋에 "리팩터+기능+런타임 제거"를 섞지 않는다. **구현 순서(각 단계 게이트 green 후 다음)**:
-1. **C1 lifecycle 추출(무동작 변화)**: `turn-registry`→`session-registry`+`turn-context` 분할, `createIdleTimer`→`timers.ts(StallTimer)`, `concurrency-registry`→`orchestration/concurrency`. 배럴 re-export 로 import 무회귀. send.ts 는 새 경로만 소비(로직 동일).
+1. **C1 lifecycle 추출(무동작 변화)**: `turn-registry`→`session-registry`+`turn-context` 분할, `createIdleTimer`→`timers.ts(StallTimer)`, `concurrency-registry`→`orchestration/concurrency`. **co-located 테스트도 함께 이동**: `turn-registry.test.ts`(분할)·`concurrency-registry.test.ts`(→orchestration) 은 파일과 같이 옮기면 됨. **단 `createIdleTimer`/`IDLE_TIMEOUT_MS` 는 *다른 파일*(`send.runtime-resilience.test.ts`)이 `./send` 에서 import 하므로 `send.ts` re-export 필수**(R2-3). send.ts 는 새 경로만 소비(로직 동일).
 2. **C2 SessionRuntime + 상태머신**: OneShot SessionRuntime 도입, `LiveTurn.close()` 계약(보강 3), close 정책 이동, 상태 SSOT 화(InflightTurn 플래그→파생). 모드-불변 테스트(보강 4).
 3. **C3 dangling recovery**: `recovery.ts` + `findDanglingToolCalls`(보강 2) + 부팅/resume 배선 + 재현 테스트.
 4. **C4 uv 폐기**: 보강 5 체크리스트 + 문서 정합.
