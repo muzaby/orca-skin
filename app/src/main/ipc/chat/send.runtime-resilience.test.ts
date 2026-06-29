@@ -1,10 +1,24 @@
 import { describe, expect, it, vi } from 'vitest'
 import { abortableDelay, createIdleTimer, IDLE_TIMEOUT_MS, RETRY_BACKOFF_MS } from './send'
-import type { InflightTurn } from './turn-registry'
+import type { InflightTurn } from '../../lifecycle/turn-context'
 
 function fakeTurn(): InflightTurn {
   const controller = new AbortController()
-  return { controller, timedOut: false, cancelled: false } as unknown as InflightTurn
+  const turn = {
+    controller,
+    abortCause: null,
+    abort(cause: 'user_cancelled' | 'stall' | 'retry') {
+      turn.abortCause = cause
+      controller.abort()
+    },
+    get timedOut() {
+      return turn.abortCause === 'stall'
+    },
+    get cancelled() {
+      return turn.abortCause === 'user_cancelled' || turn.abortCause === 'retry'
+    }
+  } as unknown as InflightTurn
+  return turn
 }
 
 describe('send runtime resilience helpers', () => {

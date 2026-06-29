@@ -331,8 +331,6 @@ export class ClaudeAdapter implements SessionAdapter {
       try {
         for await (const msg of handle) {
           yield* claudeToNormalized(msg, ctx)
-          // 턴 종료 신호 — result 도착 시 입력 스트림을 닫아 서브프로세스가 종료되게 한다.
-          if (msg.type === 'result') input.close()
         }
       } catch (err) {
         // 의도적 중단(턴 취소 / 계획 거부)은 에러가 아니므로 error 이벤트를 내지 않는다
@@ -360,7 +358,8 @@ export class ClaudeAdapter implements SessionAdapter {
       // 서브에이전트 단위 중단 — task_started/notification 의 task_id 로 stopTask.
       stopTask: (taskId) => handle.stopTask(taskId),
       // foreground 서브에이전트를 백그라운드로(필요 시 stopTask 전 fallback). tool_use id 로 단건.
-      backgroundTask: (toolUseId) => handle.backgroundTasks(toolUseId)
+      backgroundTask: (toolUseId) => handle.backgroundTasks(toolUseId),
+      close: () => input.close()
     }
   }
 }

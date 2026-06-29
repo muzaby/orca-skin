@@ -11,7 +11,7 @@ import { toClaudePermissionMode } from '../../../shared/permission-mode'
 import { InteractionBroker } from '../../ask/broker'
 import type { PermissionModeController } from '../../runtime-events/permission-mode-controller'
 import { handle } from '../registry'
-import type { InflightTurn, TurnRegistry } from './turn-registry'
+import type { InflightTurn, TurnRegistry } from '../../lifecycle/turn-context'
 
 export class ApprovalCoordinator {
   private readonly broker = new InteractionBroker<ApprovalResolution>()
@@ -63,7 +63,7 @@ export class ApprovalCoordinator {
     }
 
     if (resolution.behavior === 'deny' && resolution.interrupt) {
-      turn?.controller.abort()
+      turn?.abort('user_cancelled')
     }
   }
 
@@ -85,7 +85,7 @@ export class ApprovalCoordinator {
         const turn = turns.getBySession(sessionId)
         if (turn?.live) {
           try {
-            await turn.live.setPermissionMode(toClaudePermissionMode(mode))
+            await turn.live.setMode(toClaudePermissionMode(mode))
           } catch {
             // 라이브 전환 실패(핸들이 막 닫힘 등)는 무시 — controller 값이 다음 턴에 반영된다.
           }

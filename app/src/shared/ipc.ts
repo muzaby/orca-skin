@@ -868,5 +868,4 @@ export interface DeleteMcpServerRequest {
   id: string
 }
 
-// (구 RuntimeStage/RuntimeStatus 는 runtime IPC 채널 제거와 함께 src/main/runtime/ 으로 이동 —
-// 와이어 타입이 아니다. handoff 0012.)
+// 구 runtime IPC 와 RuntimeStage/RuntimeStatus 는 제거됐다 — 와이어 타입이 아니다. (handoff 0012/0049)

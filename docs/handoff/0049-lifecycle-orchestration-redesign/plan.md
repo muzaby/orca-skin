@@ -313,25 +313,35 @@ recovery tool_result = `{ reason:'aborted', message:'중단되었습니다' }` (
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- 동의 / 그대로 진행: …
-- 이견 / 우려: …
+- 동의 / 그대로 진행: PR-A(C1~C3) 범위로 lifecycle/orchestration 신설, SessionRuntime OneShot, StallTimer 분리, dangling recovery DB-only 구현을 진행했다.
+- 이견 / 우려: L1 `lifecycle/`이 L2 `adapters/` 타입을 직접 참조하면 boundaries 위반이므로 `RuntimeAdapterPort`/`RuntimeLiveTurn`/`TitleCompletionPort`를 L1 소유 포트로 추가해 의존을 역전했다. PR-A는 Criteria 10/11까지 구현하고 uv 폐기(인수 11)는 plan의 PR-B 라운드로 남긴다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 구현함 / ⚠️ 보고만·**결정 필요** | … |
+| 1 | `lifecycle` L1 모듈이 `adapters` L2 타입을 직접 import할 위험 | ✅ 구현함 — `session-runtime.ts`/`turn-context.ts`에 L1 포트 타입을 정의하고 L3 send/router가 실제 adapter를 주입 | main 레이어 DAG(domain→adapters 금지) |
+| 2 | 취소/타임아웃 terminal 이벤트가 항상 adapter stream에서 나오지 않는 경로 | ✅ 구현함 — `SessionStateSnapshot.abortCause`를 도입하고 `OneShotSessionRuntime`이 terminal/finally에서 상태와 close를 정리 | 기존 send.ts의 cancelled/timedOut 분기 보존 |
+| 3 | tool_result upsert가 `tool_run_id` 전역 갱신이라 recovery에서 오갱신 가능 | ✅ 구현함 — `DbQueries.upsertToolResultPart`를 message-scoped update로 변경하고 recovery도 message_id 기반으로 호출 | 보강 R4-3 |
+| 4 | 검증 전 리뷰에서 `InflightTurn.cancelled/timedOut`가 별도 mutable SSOT로 남아 Criteria #3 단일 소유자 조건을 위반한다고 지적 | ✅ 보강함 — `InflightTurn`은 `abortCause`와 `abort(cause)`만 저장하고 `cancelled`/`timedOut`은 getter로 파생되도록 전환 | Criteria #3 “별도 SSOT 없음” |
+| 5 | 검증 전 리뷰에서 `SessionRuntimeRegistry`의 P0 축출 훅 예약(Criteria #7)이 누락됐다고 지적 | ✅ 보강함 — `evictIdle(limit=0)` no-op 훅을 추가하고 현 P0에서는 기존 턴을 제거하지 않음을 테스트 | Criteria #7 P1 cap/LRU 확장 seam |
+| 6 | 검증 전 리뷰에서 Criteria #6c/#6d 테스트가 consumer/타이머 회귀를 직접 검증하지 못한다고 지적 | ✅ 보강함 — `FakeSessionRuntime` close 정책 2모드 consumer 테스트와 dedicated `lifecycle/timers.test.ts` StallTimer 회귀 테스트 추가 | Criteria #6c/#6d |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] …
+- [x] C1: `turn-registry`를 `lifecycle/turn-context.ts`로, concurrency를 `orchestration/concurrency.ts`로 재배치
+- [x] C1: `createIdleTimer`를 `lifecycle/timers.ts`의 `StallTimer`로 이동하고 send.ts re-export 유지
+- [x] C2: `LiveTurn.close()` 계약과 `OneShotSessionRuntime`/상태머신 도입
+- [x] C2: send.ts가 adapter `LiveTurn.events` 대신 `SessionRuntime.send()`를 소비하도록 전환
+- [x] C3: message-scoped dangling tool recovery + boot/resume DB-only 배선
+- [x] C4: uv Python runtime 폐기(PR-B 범위, 인수 11 충족)
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` |
-| 게이트 결과 | … |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | `app/src/main/lifecycle/*`, `app/src/main/orchestration/*`, `app/src/main/ipc/chat/send.ts`, `app/src/main/ipc/router.ts`, `app/src/main/adapters/*`, `app/src/main/db/*`, app AGENTS 문서 |
+| 실행 명령 | `cd app && npm run lint`, `cd app && npm run typecheck`, `cd app && npm test` (`npm rebuild better-sqlite3` 후 ABI 정합), `cd app && npm run build` |
+| 게이트 결과 | PR-A: lint/typecheck/test ✅. PR-B: lint/typecheck/test ✅(better-sqlite3 ABI 재빌드 후 546개). 검증 전 미충족 리뷰 대응 라운드: lint/typecheck/test/build ✅(better-sqlite3 ABI 재빌드 후 550개). |
+| 블로커 / 역질문 | 없음. PR-B에서 uv Python runtime 폐기까지 구현했고, 검증 전 지적된 Criteria #3/#7/#6c/#6d 보강까지 반영해 0049 Criteria 11/11 코드상 충족. |
+| 대상 커밋 | PR-A `8a6f9ac` / PR-B `HEAD(PR-B 구현 커밋)` |

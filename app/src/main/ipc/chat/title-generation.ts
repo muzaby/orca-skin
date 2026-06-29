@@ -2,11 +2,10 @@
 // 절단 제목을 in-place 교체한다. fire-and-forget, 실패는 warn 만(graceful degrade).
 
 import type { DbQueries } from '../../db'
-import type { SessionAdapter } from '../../adapters/types'
 import type { ResolvedProviderSettings } from '../../settings/provider-settings'
 import { normalizeTitle, shouldGenerateTitle, titlePrompt } from '../../title/title'
 import { broadcastSessionTitle } from '../context'
-import type { InflightTurn } from './turn-registry'
+import type { InflightTurn, TitleCompletionPort } from '../../lifecycle/turn-context'
 
 export class TitleGenerator {
   constructor(private readonly db: DbQueries) {}
@@ -40,7 +39,7 @@ export class TitleGenerator {
     sessionId: string
     firstUserText: string
     cwd: string
-    adapter: SessionAdapter
+    adapter: TitleCompletionPort
     providerSettings?: ResolvedProviderSettings
     env?: Record<string, string>
     model?: string
