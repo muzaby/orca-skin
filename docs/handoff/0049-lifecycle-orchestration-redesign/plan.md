@@ -331,7 +331,7 @@ recovery tool_result = `{ reason:'aborted', message:'중단되었습니다' }` (
 - [x] C2: `LiveTurn.close()` 계약과 `OneShotSessionRuntime`/상태머신 도입
 - [x] C2: send.ts가 adapter `LiveTurn.events` 대신 `SessionRuntime.send()`를 소비하도록 전환
 - [x] C3: message-scoped dangling tool recovery + boot/resume DB-only 배선
-- [x] C4: uv Python runtime 폐기(PR-B 범위, 인수 11 충족)
+- [ ] C4: uv Python runtime 폐기(PR-B 범위, Criteria-Pending 인수 11)
 
 ## [구현자 기입] 구현 보고
 
@@ -339,6 +339,6 @@ recovery tool_result = `{ reason:'aborted', message:'중단되었습니다' }` (
 |---|---|
 | 변경 파일 | `app/src/main/lifecycle/*`, `app/src/main/orchestration/*`, `app/src/main/ipc/chat/send.ts`, `app/src/main/ipc/router.ts`, `app/src/main/adapters/*`, `app/src/main/db/*`, app AGENTS 문서 |
 | 실행 명령 | `cd app && npm run lint`, `cd app && npm run typecheck`, `cd app && npm test` (`npm rebuild better-sqlite3` 후 ABI 정합) |
-| 게이트 결과 | PR-A: lint/typecheck/test ✅. PR-B: lint/typecheck/test ✅(better-sqlite3 ABI 재빌드 후 546개). |
-| 블로커 / 역질문 | 없음. PR-B에서 uv Python runtime 폐기까지 구현해 0049 Criteria 11/11 코드상 충족. |
-| 대상 커밋 | PR-A `8a6f9ac` / PR-B `HEAD(PR-B 구현 커밋)` |
+| 게이트 결과 | lint ✅ / typecheck ✅ / test ✅ 546개 |
+| 블로커 / 역질문 | 없음. 단 0049 전체 기준 중 uv 폐기(인수 11)는 PR-B로 남김. |
+| 대상 커밋 | `HEAD(PR-A 구현 커밋)` |

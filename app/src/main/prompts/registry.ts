@@ -1,7 +1,13 @@
 // 정책 레지스트리 — "어떤 정책 블록을, 어떤 순서로, 언제 켤지"의 메타데이터 단일 출처.
-// 본문(텍스트)은 policies/*.md 에 두고, 여기서는 id·파일경로·tier·주입조건만 선언한다.
-// 0049 PR-B 에서 uv Python runtime 정책을 제거해 현재 정적 정책은 0개다.
+// 본문(텍스트)은 policies/*.md 에 두고, 여기서는 id·파일경로·tier·주입조건만 선언한다
+// (가이드 5.4 — "텍스트가 아니라 언제 켤지만 선언"). 조립은 buildAppend, 로드는 loader 가 한다.
+//
+// 현재 Orca 정적 정책은 python-runtime 1개뿐이고 조건부 블록은 없다. PolicyBlock 의
+// tier:'conditional' + when 은 향후 블록(플랫폼/모드별)을 위한 메커니즘이며 buildAppend·테스트가
+// 이미 이 경로를 커버한다 (콘텐츠는 별도 결정 — handoff 0030 비범위).
 
+// 조건 평가 입력. startup-known 값만 담는다 (현재 platform). per-turn 조건(모드 등)이 필요한
+// 블록이 추가되면 그 시점에 ctx 를 per-turn 으로 확장하고 router 배선을 옮긴다.
 export interface BuildContext {
   /** 실행 플랫폼 — 조건부 블록 판별 입력 (process.platform). */
   platform: NodeJS.Platform
@@ -19,4 +25,7 @@ export interface PolicyBlock {
   when?: (ctx: BuildContext) => boolean
 }
 
-export const POLICY_REGISTRY: PolicyBlock[] = []
+// 배열 순서 = 조립 순서. 변동성 낮은 stable 을 앞에 둬 변동성 계층(가이드 7장)을 강제한다.
+export const POLICY_REGISTRY: PolicyBlock[] = [
+  { id: 'python-runtime', file: 'policies/python-runtime.md', tier: 'stable' }
+]

@@ -21,6 +21,7 @@ import {
   defaultModelFamily,
   defaultProvider,
   expandEnvRecord,
+  mergeEnvLayers,
   modelNameForFamily,
   resolveTitleModel,
   type ResolvedProviderSettings
@@ -201,15 +202,16 @@ async function resolveTurnProvider(
   }
 }
 
-// subprocess env 조립 — orca.json 앱 전역 env(${VAR} 확장)를 SDK subprocess env 로 전달.
-function buildTurnEnv(ctx: RouterContext): Record<string, string> | undefined {
+// subprocess env 조립 — uv 런타임 env 베이스 위에 orca.json 앱 전역 env(${VAR} 확장)를 병합.
+function buildTurnEnv(
+  ctx: RouterContext,
+  pyEnv: Record<string, string> | undefined
+): Record<string, string> | undefined {
   const { env: expanded, missing } = expandEnvRecord(appEnv(), ctx.mcp.resolver())
   if (missing.length > 0) {
     console.warn(`[orca-config] 미해결 환경변수로 일부 앱 env 키를 건너뜀: ${missing.join(', ')}`)
   }
-  return Object.keys(expanded).length > 0
-    ? ({ ...process.env, ...expanded } as Record<string, string>)
-    : undefined
+  return mergeEnvLayers(pyEnv, expanded)
 }
 
 export function registerChatHandlers(deps: ChatDeps): void {
@@ -275,8 +277,8 @@ export function registerChatHandlers(deps: ChatDeps): void {
       modelFamily: parsed.data.modelFamily ?? null
     })
 
-    // orca.json 앱 전역 env. Python 런타임 env(uv)는 0049 PR-B에서 제거됨.
-    const turnEnv = buildTurnEnv(ctx)
+    // Python 런타임 env (uv 격리) + orca.json 앱 전역 env. ready 전이면 앱 env 만 (없으면 SDK 기본).
+    const turnEnv = buildTurnEnv(ctx, ctx.runtime.getEnv() ?? undefined)
 
     const boundProjectId = parsed.data.sessionId
       ? (ctx.db.getSessionById(parsed.data.sessionId)?.project_id ?? null)
