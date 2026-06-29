@@ -168,6 +168,7 @@ export interface DanglingToolCallRow {
   session_id: string
   message_id: number
   tool_run_id: string
+  payload_json: string
 }
 
 export interface LoadedPartRow {

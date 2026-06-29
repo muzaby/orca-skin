@@ -213,7 +213,7 @@ interface McpServer {
 
 ### 2.11 Runtime — **제거됨 (handoff 0012)**
 
-구 `orca:runtime:{status,prepare,statusEvent}` 3채널은 renderer 소비처(과거 `features/runtime` RuntimeStatus 위젯)가 제거된 뒤 preload 에만 노출된 고아 채널이라 **2026-06-11 제거**됐다. `PythonRuntime`(uv 격리 인터프리터) 자체는 main 내부에 유지된다 — `IpcRouter.start()` 가 `ensure()` 를 비동기로 킥하고, `handleChatSend` 가 `getEnv()` 의 `UV_*`/`PATH` 를 SDK `query().options.env` 로 주입하며, 진행 상태는 dev 터미널 로깅으로 관찰한다. `RuntimeStage`/`RuntimeStatus` 타입은 `app/src/main/runtime/` 으로 이동(와이어 타입 아님). 런타임 UI 재도입 시 §6 변경 절차로 재추가한다.
+구 `orca:runtime:{status,prepare,statusEvent}` 3채널은 renderer 소비처(과거 `features/runtime` RuntimeStatus 위젯)가 제거된 뒤 preload 에만 노출된 고아 채널이라 **2026-06-11 제거**됐다. 0050 PR-B 에서 main 내부 `PythonRuntime`/uv 격리 인터프리터도 제거됐다. 현재 chat send 는 orca.json 앱 env 만 SDK `query().options.env` 로 병합한다. 런타임 UI/채널 재도입 시 §6 변경 절차로 새로 추가한다.
 
 ### 2.12 Cost (Phase 3++)
 

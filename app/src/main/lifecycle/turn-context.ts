@@ -5,8 +5,6 @@ import type { RuntimeLiveTurn, RuntimeTitleAdapter } from './ports'
 export interface TurnContext<W = unknown> {
   controller: AbortController
   owner: W
-  cancelled: boolean
-  timedOut: boolean
   live: RuntimeLiveTurn | null
   titleAdapter: RuntimeTitleAdapter
   titleSettings?: ResolvedProviderSettings

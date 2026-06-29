@@ -305,7 +305,7 @@ export class ClaudeAdapter implements SessionAdapter {
         // provider settings flag 주입 — settings(env 포함 인라인 JSON 문자열, flag 레이어).
         // settingSources 는 생략해 SDK 기본 user/project/local 소스를 상속하고, 이 settings 가
         // 그 위에 얹혀 ~/.claude/settings.json 을 덮어쓴다(env 포함 — handoff 0028).
-        // options.env(adaptEnv)에는 시스템(턴) env 만 — uv 런타임 + orca.json 앱 env.
+        // options.env(adaptEnv)에는 시스템(턴) env 만 — orca.json 앱 env.
         ...adaptSettings(req.providerSettings?.settings),
         ...adaptEnv(env),
         ...adaptHooks(extensions.hooks),

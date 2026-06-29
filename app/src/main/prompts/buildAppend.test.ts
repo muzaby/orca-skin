@@ -6,11 +6,10 @@ import type { BuildContext, PolicyBlock } from './registry'
 const ctx: BuildContext = { platform: 'linux' }
 
 describe('buildAppend — 실 레지스트리', () => {
-  it('python-runtime stable 블록을 단일 문자열로 반환한다', () => {
+  it('정적 정책 0개이면 빈 문자열을 반환한다', () => {
     const loaded = loadPolicies()
     const out = buildAppend(ctx, loaded)
-    expect(typeof out).toBe('string')
-    expect(out).toBe(loaded.get('python-runtime'))
+    expect(out).toBe('')
   })
 })
 

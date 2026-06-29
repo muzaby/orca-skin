@@ -12,6 +12,9 @@ export interface RuntimeLiveTurn {
   setModel(model?: string): Promise<void>
   stopTask(taskId: string): Promise<void>
   backgroundTask(toolUseId: string): Promise<boolean>
+  markAborted?(cause: 'user_cancelled' | 'stall' | 'retry'): void
+  readonly cancelled?: boolean
+  readonly timedOut?: boolean
 }
 
 export interface RuntimeCompleteRequest {

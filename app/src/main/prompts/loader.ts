@@ -2,16 +2,13 @@
 // 동형, db/migrate.ts 참조), registry 와의 정합을 검증한다. `?raw` 는 vitest 에서도 동일하게
 // 동작한다 (db/queries.test.ts 가 `.sql?raw` 사용).
 //
-// 본문은 `.trim()` 해 적재한다 — 구 PY_AGENT_RULES 가 `.trim()` 된 상수였으므로 바이트 동일 보존.
+// 본문은 `.trim()` 해 적재한다. 현재 실 registry 는 비어 있지만, 합성 테스트가 정합 검증을 고정한다.
 
-import pythonRuntime from './policies/python-runtime.md?raw'
 import { POLICY_REGISTRY, type PolicyBlock } from './registry'
 
 // id → 본문(`?raw`). 새 정책 추가 절차: (1) policies/*.md 생성 (2) registry 등재 (3) 여기 import.
 // 셋이 어긋나면 assemblePolicies 가 throw 한다 (드리프트 방지).
-const POLICY_SOURCES: Record<string, string> = {
-  'python-runtime': pythonRuntime
-}
+const POLICY_SOURCES: Record<string, string> = {}
 
 // 순수 코어 — registry 와 본문 맵의 정합을 검증하고 id→trim(본문) Map 을 만든다. 합성 입력으로
 // 누락/잉여 경로를 단위 테스트하기 위해 분리했다.

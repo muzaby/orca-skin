@@ -3,10 +3,9 @@
 // ${VAR} 확장)는 전적으로 어댑터 책임. router 에 흩어져 있던 지침 조회 + 정책 append join 을
 // 이리로 이주해 "이 확장 리소스는 어디서 조립하지?"를 단일 위치로 모은다 (설계검토 §9 1단계).
 //
-// stableAppend = prompts/buildAppend 가 startup 에 1회 조립한 정적 정책 본문(현재 python-runtime).
+// stableAppend = prompts/buildAppend 가 startup 에 1회 조립한 정적 정책 본문(현재는 정적 정책 0개).
 // 프로젝트 지침(DB)은 세션마다·매 턴 가변이라 여기서 매 턴 조회해 그 앞에 결합한다.
 //
-// env(uv 런타임)는 확장 묶음이 아니라 TurnRequest 직속이라 빌더를 우회한다 — router 가 직접 조립.
 
 import type { DbQueries } from '../db'
 import type { McpStore } from '../mcp/store'
@@ -35,19 +34,20 @@ export class ExtensionBuilder {
       if (p && p.instructions.trim() !== '') instructions = p.instructions
     }
 
-    // 정적 정책 본문(python-runtime 등)을 항상 시스템 프롬프트에 합류. 프로젝트 지침이 있으면 그
-    // 앞에 둔다(현행 순서 보존 — 가이드 7장 STABLE-first 티어링은 excludeDynamicSections:false 로
-    // cross-대화 캐시가 이미 깨져 순서가 무의미. 무회귀 위해 reorder 안 함. system-prompt.md 참조).
+    // 정적 정책 본문이 없으면 프로젝트 지침만 그대로 전달해 불필요한 빈 줄을 만들지 않는다.
+    const stableAppend = this.stableAppend.trim()
     const systemPromptAppend = instructions
-      ? `${instructions}\n\n${this.stableAppend}`
-      : this.stableAppend
+      ? stableAppend
+        ? `${instructions}\n\n${stableAppend}`
+        : instructions
+      : stableAppend
 
     return {
       // 미확장 정규형 — 어댑터가 자기 resolver 로 확장 후 어댑트.
       mcp: this.mcp.enabledConfig(),
       // 가시화 메타 (어댑트는 어댑터의 항상-on skills 경로가 구동).
       skills: this.skills(),
-      // 이번 PR 의 실런타임 경로는 비어 있음 → adaptHooks 가 {} → options.hooks 미주입.
+      // 현재 hooks 소스는 비어 있음 → adaptHooks 가 {} → options.hooks 미주입.
       hooks: { normalized: {} },
       systemPromptAppend
     }

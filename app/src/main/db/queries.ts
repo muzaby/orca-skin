@@ -136,7 +136,8 @@ export class DbQueries {
       SELECT DISTINCT
         m.session_id AS session_id,
         m.id AS message_id,
-        tc.tool_run_id AS tool_run_id
+        tc.tool_run_id AS tool_run_id,
+        tc.payload_json AS payload_json
       FROM messages m
       JOIN message_parts tc ON tc.message_id = m.id
       WHERE m.role = 'assistant'

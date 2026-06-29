@@ -8,7 +8,7 @@ export interface StallTimer {
   beginPause: () => () => void
 }
 
-export function createStallTimer(turn: Pick<TurnContext, 'timedOut' | 'controller'>): StallTimer {
+export function createStallTimer(turn: Pick<TurnContext, 'live' | 'controller'>): StallTimer {
   let timer: ReturnType<typeof setTimeout> | null = null
   let pauseDepth = 0
   const clear = (): void => {
@@ -18,7 +18,7 @@ export function createStallTimer(turn: Pick<TurnContext, 'timedOut' | 'controlle
   const arm = (): void => {
     clear()
     timer = setTimeout(() => {
-      turn.timedOut = true
+      turn.live?.markAborted?.('stall')
       turn.controller.abort()
     }, STALL_TIMEOUT_MS)
   }
