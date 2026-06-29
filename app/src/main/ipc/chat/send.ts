@@ -1,15 +1,12 @@
-// chat 턴 파이프라인 — orca:chat:send 의 이벤트 루프(어댑터 LiveTurn 소비 → persist →
-// sendChatEvent)와 orca:chat:cancel. 턴 상태는 TurnRegistry, 영속은 TurnPersistence,
-// 승인 왕복은 ApprovalCoordinator 에 위임하고 여기는 오케스트레이션만 담당한다.
+// chat 턴 파이프라인 진입(orca:chat:send / cancel / stopSubagent)의 컴포지션 루트(L3). 가로축
+// 구동(스트림 소비→reduce→persist∥forward + retry/settle/stall)은 TurnCoordinator(L1)가 1급으로
+// 소유하고(handoff 0052, 0051 §A), 여기서는 *셋업* 만 한다 — 검증·동시턴 가드·provider/env/첨부
+// 해석·dangling 복구·turn 생성·레지스트리 등록·승인 콜백(requestApproval) 배선. 턴 상태는
+// SessionRuntimeRegistry, 영속은 TurnPersistence, 승인 왕복은 ApprovalCoordinator 에 위임한다.
 
 import type { IpcMainInvokeEvent, WebContents } from 'electron'
 import { randomUUID } from 'node:crypto'
-import {
-  CHANNELS,
-  type ApprovalResolution,
-  type NormalizedEvent,
-  type PermissionAction
-} from '../../../shared/ipc'
+import { CHANNELS, type ApprovalResolution, type PermissionAction } from '../../../shared/ipc'
 import {
   CancelChatSchema,
   SendChatMessageSchema,
@@ -35,17 +32,24 @@ import { handle, handlePlain } from '../registry'
 import type { ApprovalCoordinator } from './approvals'
 import type { TurnPersistence } from './persist'
 import type { TitleGenerator } from './title-generation'
-import { coerceStoppedToolCompletion, createSubagentSettlementEvents } from './subagent-settlement'
 import { OneShotSessionRuntime } from '../../lifecycle/session-runtime'
-import type { RuntimeLiveTurn, RuntimeSessionAdapter } from '../../lifecycle/ports'
-import { createStallTimer, STALL_TIMEOUT_MS, type StallTimer } from '../../lifecycle/timers'
+import type { RuntimeSessionAdapter } from '../../lifecycle/ports'
+import { STALL_TIMEOUT_MS } from '../../lifecycle/timers'
 import { recoverDanglingToolCalls } from '../../lifecycle/recovery'
+import type { TurnRequest } from '../../extensions/types'
+import { TurnCoordinator } from '../../lifecycle/turn-coordinator'
+import {
+  settleOpenToolRuns as settleOpenToolRunsCore,
+  settleSubagentTask,
+  stopLiveSubagent
+} from '../../lifecycle/settle'
+import type { TurnEventSink } from '../../lifecycle/turn-sinks'
 import type { InflightTurn, TurnRegistry } from './turn-registry'
 
 export const IDLE_TIMEOUT_MS = STALL_TIMEOUT_MS
 export { createStallTimer as createIdleTimer } from '../../lifecycle/timers'
-export const MAX_RETRIES = 2
-export const RETRY_BACKOFF_MS = [1_000, 2_000] as const
+// retry 정책 정본은 TurnCoordinator(L1) — 기존 import 경로(./send) 호환을 위한 무회귀 re-export.
+export { MAX_RETRIES, RETRY_BACKOFF_MS, abortableDelay } from '../../lifecycle/turn-coordinator'
 
 export interface ChatDeps {
   ctx: RouterContext
@@ -56,96 +60,19 @@ export interface ChatDeps {
   permissionModes: PermissionModeController
 }
 
-export type IdleTimer = StallTimer
-export function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (signal.aborted) {
-      reject(new Error('Aborted'))
-      return
-    }
-    const timer = setTimeout(resolve, ms)
-    signal.addEventListener(
-      'abort',
-      () => {
-        clearTimeout(timer)
-        reject(new Error('Aborted'))
-      },
-      { once: true }
-    )
-  })
+// renderer forward sink — sendChatEvent 래핑. 코디네이터·정착(settle)·취소 핸들러가 공유한다.
+const chatForward: TurnEventSink<WebContents> = {
+  forward: (owner, ev) => sendChatEvent(owner, ev)
 }
 
-function isTurnCancelled(turn: { live: RuntimeLiveTurn | null }): boolean {
-  return turn.live?.cancelled === true
-}
-
-function isTurnTimedOut(turn: { live: RuntimeLiveTurn | null }): boolean {
-  return turn.live?.timedOut === true
-}
-
-// 턴이 정상 완료 없이 끊길 때(중단·타임아웃·에러) 아직 열려 있는 도구 실행을 합성 tool_result 로
-// 정착시킨다. 결과가 영영 안 오면 렌더가 "실행 중"(epitaxy-text-shine)으로 무한 렌더되고 부모
-// Task 도 "진행 중"으로 남으므로, abort 마커(reason)를 담은 tool.call.completed 를 방출+영속한다.
-// AskUserQuestion tool_result 합성(flushAskAnswers)과 동형의 보정 — toolRunId 멱등(upsert).
+// 턴 중단/실패 시 열린 도구를 합성 tool_result 로 정착시킨다. 정본은 lifecycle/settle.ts 이며,
+// 여기서는 renderer forward 를 묶은 무회귀 래퍼(앱 종료 정리 router.shutdown 가 3-arg 로 호출).
 export function settleOpenToolRuns(
   turn: InflightTurn<WebContents>,
   persistence: TurnPersistence,
   kind: 'aborted' | 'failed'
 ): void {
-  if (turn.openToolRuns.size === 0) return
-  const result =
-    kind === 'aborted'
-      ? { reason: 'aborted', message: '사용자가 중단했습니다' }
-      : { reason: 'failed', message: '오류로 중단되었습니다' }
-  for (const [toolRunId, info] of turn.openToolRuns) {
-    const ev = {
-      type: 'tool.call.completed',
-      sessionId: turn.dbSessionId ?? '',
-      toolRunId,
-      result,
-      isError: true,
-      ...(info.parentToolRunId !== undefined ? { parentToolRunId: info.parentToolRunId } : {})
-    } as const
-    persistence.persist(turn, ev)
-    sendChatEvent(turn.owner, ev)
-  }
-  turn.openToolRuns.clear()
-}
-
-// subagent.task settled(stopped/failed/completed) 수신 또는 사용자 중단 클릭 시 부모 Task 와
-// 해당 부모 아래 열린 child 도구를 transcript 권위 tool_result 로 정착한다. SDK stopTask 는 제어
-// 신호이고, 이 정착 이벤트들이 루트/전용 transcript 의 UI 상태 SSOT 다.
-function settleSubagentTask(
-  turn: InflightTurn<WebContents>,
-  persistence: TurnPersistence,
-  ev: Extract<NormalizedEvent, { type: 'subagent.task' }>
-): void {
-  const events = createSubagentSettlementEvents({
-    sessionId: turn.dbSessionId ?? ev.sessionId,
-    task: ev,
-    openToolRuns: turn.openToolRuns
-  })
-  for (const out of events) {
-    persistence.persist(turn, out)
-    sendChatEvent(turn.owner, out)
-    turn.openToolRuns.delete(out.toolRunId)
-  }
-}
-
-async function stopLiveSubagent(
-  turn: InflightTurn<WebContents>,
-  toolUseId: string,
-  taskId: string | undefined,
-  backgroundSubagents: boolean
-): Promise<void> {
-  if (!turn.live) return
-  // foreground Task 는 먼저 background control-request 로 루트 턴에서 분리해야 stopTask 가 실제
-  // 작업 취소로 이어진다. 이미 background 로 시작된 경우에는 불필요한 backgroundTask 를 건너뛴다.
-  if (!backgroundSubagents) {
-    await turn.live.backgroundTask(toolUseId).catch(() => false)
-  }
-  if (!taskId) return
-  await turn.live.stopTask(taskId).catch(() => undefined)
+  settleOpenToolRunsCore(turn, persistence, chatForward, kind)
 }
 
 // 턴 단위 provider/model 해석 (handoff 0010 → 0014) — payload providerKey 가 어댑터와
@@ -356,16 +283,8 @@ export function registerChatHandlers(deps: ChatDeps): void {
       parsed.data.sessionId ? null : parsed.data.projectId
     )
 
-    // 단일 권한 승인 위임 — 어댑터의 canUseTool 이 ask_question·plan_review·tool_approval 중
-    // 하나를 PermissionAction 으로 넘기면, approvalId 를 발급해 permission.requested 이벤트로
-    // renderer 에 surface 하고 broker 가 응답(또는 turn abort)까지 Promise 를 보류한다.
-    // tool_approval 은 "세션 동안 허용"으로 부여된 도구면 카드 없이 즉시 allow 한다.
     const runtime = new OneShotSessionRuntime(adapter)
     const wc = event.sender
-    // idle 타이머 인디렉션 — requestApproval(승인 보류 중 pause)과 attempt 루프가 같은 핸들을
-    // 공유한다. requestApproval 은 idle 생성(attempt 루프 안)보다 바깥 스코프라 직접 못 잡는다.
-    // 동시 보류(서브에이전트 병렬 승인)는 beginPause refcount 가 처리한다.
-    let activeIdle: IdleTimer | null = null
     // 렌더러(owner) 소멸 시 진행 턴 정리 — idle "완전 멈춤"으로 잃는 자가치유(무응답 abort)를
     // 타이머가 아닌 이벤트로 대체한다(사람 판단엔 시간 제한 두지 않음 유지). 바깥 finally 에서 해제.
     const onOwnerGone = (): void => {
@@ -374,6 +293,23 @@ export function registerChatHandlers(deps: ChatDeps): void {
     }
     wc.once('destroyed', onOwnerGone)
     wc.once('render-process-gone', onOwnerGone)
+
+    // 가로축 구동체 — 스트림 소비·reduce·persist∥forward·retry·settle·stall 을 소유한다.
+    const coordinator = new TurnCoordinator<WebContents>({
+      runtime,
+      persist: persistence,
+      forward: chatForward,
+      titles,
+      registry: turns,
+      classifyError: (err, phase) => adapter.classifyError(err, phase),
+      concurrency: ctx.concurrency,
+      backgroundSubagents
+    })
+
+    // 단일 권한 승인 위임 — 어댑터의 canUseTool 이 ask_question·plan_review·tool_approval 중
+    // 하나를 PermissionAction 으로 넘기면, approvalId 를 발급해 permission.requested 이벤트로
+    // renderer 에 surface 하고 broker 가 응답(또는 turn abort)까지 Promise 를 보류한다.
+    // tool_approval 은 "세션 동안 허용"으로 부여된 도구면 카드 없이 즉시 allow 한다.
     const requestApproval = async (
       action: PermissionAction,
       sdkSignal?: AbortSignal
@@ -408,12 +344,11 @@ export function registerChatHandlers(deps: ChatDeps): void {
         )
       }
       sendChatEvent(wc, agentPermissionRequest(approvalId, outbound, turn.dbSessionId ?? undefined))
-      // 승인 보류 동안 idle 타이머를 멈춘다 — 사용자 판단 시간이 stall 로 오판돼 턴이 abort 되지
-      // 않게(broker 가 timeoutMs 를 의도적으로 안 쓰는 것과 동일 의도). release 로 재개(동시 N건은
-      // refcount 라 마지막 해소 시에만). broker 는 턴 signal + (있으면) SDK 권한요청 취소 signal
-      // 양쪽으로 해소된다 — SDK 가 control_cancel_request 로 취소하면 sdkSignal abort → broker deny
-      // → 무한 await 방지. 턴 abort 도 그대로 동작.
-      const releaseIdle = activeIdle?.beginPause()
+      // 승인 보류 동안 stall 타이머를 멈춘다 — 사용자 판단 시간이 stall 로 오판돼 턴이 abort 되지
+      // 않게. release 로 재개(동시 N건은 refcount). broker 는 턴 signal + (있으면) SDK 권한요청
+      // 취소 signal 양쪽으로 해소된다 — SDK 가 control_cancel_request 로 취소하면 sdkSignal abort
+      // → broker deny → 무한 await 방지. 턴 abort 도 그대로 동작.
+      const releaseIdle = coordinator.beginApprovalPause()
       const regSignal = sdkSignal
         ? AbortSignal.any([controller.signal, sdkSignal])
         : controller.signal
@@ -451,152 +386,27 @@ export function registerChatHandlers(deps: ChatDeps): void {
       void permissionModes.setMode(parsed.data.sessionId, parsed.data.permissionMode)
     }
 
+    const request: TurnRequest = {
+      sessionId: parsed.data.sessionId,
+      text: parsed.data.text,
+      cwd: turn.cwd,
+      signal: controller.signal,
+      extensions,
+      env: turnEnv,
+      providerSettings: resolved.providerSettings,
+      model: resolved.model,
+      requestApproval,
+      permissionMode: parsed.data.permissionMode,
+      effort: parsed.data.effort,
+      // 서브에이전트 백그라운드화(가이드) — ORCA_SUBAGENT_BACKGROUND 게이트. 기본 off=foreground.
+      backgroundSubagents,
+      isSubagentBlocked: (st) => st !== undefined && turn.blockedSubagents.has(st),
+      attachmentTexts: normalizedAttachments.attachmentTexts,
+      attachmentImages: normalizedAttachments.attachmentImages
+    }
+
     try {
-      for (let attempt = 0; ; attempt += 1) {
-        let eventsReceived = 0
-        let sawTerminal = false
-        const idle = createStallTimer(turn)
-        activeIdle = idle
-        try {
-          // sendMessage 가 query() 를 즉시 시작하므로 try 안에서 호출 — 동기 throw 도 동일 경로로 분류.
-          turn.live = runtime
-          const events = runtime.send({
-            sessionId: parsed.data.sessionId,
-            text: parsed.data.text,
-            cwd: turn.cwd,
-            signal: controller.signal,
-            extensions,
-            env: turnEnv,
-            providerSettings: resolved.providerSettings,
-            model: resolved.model,
-            requestApproval,
-            permissionMode: parsed.data.permissionMode,
-            effort: parsed.data.effort,
-            // 서브에이전트 백그라운드화(가이드) — ORCA_SUBAGENT_BACKGROUND 게이트. 기본 off=foreground.
-            backgroundSubagents,
-            isSubagentBlocked: (st) => st !== undefined && turn.blockedSubagents.has(st),
-            attachmentTexts: normalizedAttachments.attachmentTexts,
-            attachmentImages: normalizedAttachments.attachmentImages
-          })
-          ctx.concurrency.increment(boundProjectId)
-          try {
-            turn.live = runtime
-            idle.reset()
-            for await (const rawEv of events) {
-              const ev =
-                rawEv.type === 'tool.call.completed'
-                  ? coerceStoppedToolCompletion(turn.stoppedSubagents, rawEv)
-                  : rawEv
-              eventsReceived += 1
-              idle.reset()
-              if (ev.type === 'telemetry' || ev.type === 'error' || ev.type === 'turn.aborted') {
-                sawTerminal = true
-              }
-              persistence.persist(turn, ev)
-              if (ev.type === 'session.updated') titles.maybeStart(turn)
-              sendChatEvent(event.sender, ev)
-              // sessionId 발급(session.updated) — 새-채팅 pending 턴을 sessionId 키로 승격.
-              if (ev.type === 'session.updated') {
-                turns.promote(turn, ev.sessionId)
-              }
-              // AskUserQuestion tool 호출이 도착하면 id 를 페어링 큐에 넣고 답변과 매칭 시도.
-              if (ev.type === 'tool.call.started' && ev.toolName === 'AskUserQuestion') {
-                turn.askPendingIds.push(ev.toolRunId)
-                persistence.flushAskAnswers(turn, event.sender)
-              }
-              // 서브에이전트(Task) task_id 매핑 — orca:chat:stopSubagent 가 toolUseId 로 찾는다.
-              if (ev.type === 'subagent.task' && ev.taskId) {
-                turn.subagentTaskIds.set(ev.toolUseId, ev.taskId)
-                if (turn.stoppedSubagents.has(ev.toolUseId)) {
-                  void stopLiveSubagent(turn, ev.toolUseId, ev.taskId, backgroundSubagents)
-                }
-              }
-              // subagent_type 매핑 — 재호출 차단(blockedSubagents)에 쓸 타입.
-              if (ev.type === 'subagent.task' && ev.subagentType) {
-                turn.subagentTypes.set(ev.toolUseId, ev.subagentType)
-              }
-              // task_notification settled 는 foreground/background 모두 권위 종료다. 부모 Agent/Task
-              // tool_result 와 열린 child 도구를 정착해 루트/전용 transcript 의 inflight 고착을 푼다.
-              if (ev.type === 'subagent.task' && ev.phase === 'settled') {
-                settleSubagentTask(
-                  turn,
-                  persistence,
-                  turn.stoppedSubagents.has(ev.toolUseId) ? { ...ev, status: 'stopped' } : ev
-                )
-              }
-              // 열린 도구 실행 추적 — 중단/타임아웃 시 합성 결과로 정착시킬 대상(settleOpenToolRuns).
-              if (ev.type === 'tool.call.started') {
-                turn.openToolRuns.set(
-                  ev.toolRunId,
-                  ev.parentToolRunId !== undefined ? { parentToolRunId: ev.parentToolRunId } : {}
-                )
-              } else if (ev.type === 'tool.call.completed') {
-                turn.openToolRuns.delete(ev.toolRunId)
-              }
-            }
-          } finally {
-            ctx.concurrency.decrement(boundProjectId)
-          }
-          if (!sawTerminal && !controller.signal.aborted) {
-            const ev = {
-              type: 'telemetry',
-              sessionId: turn.dbSessionId ?? parsed.data.sessionId ?? ''
-            } as const
-            persistence.persist(turn, ev)
-            sendChatEvent(event.sender, ev)
-          }
-          return
-        } catch (err) {
-          if (isTurnCancelled(turn) && controller.signal.aborted) return
-          if (isTurnTimedOut(turn)) {
-            sawTerminal = true
-            settleOpenToolRuns(turn, persistence, 'aborted')
-            sendChatEvent(event.sender, {
-              type: 'error',
-              ...(turn.dbSessionId ? { sessionId: turn.dbSessionId } : {}),
-              error: makeClassifiedError('stream_error', '응답이 없어 턴을 중단했습니다.', {
-                retryable: true
-              })
-            })
-            return
-          }
-          const error = adapter.classifyError(err, 'sendMessage')
-          if (
-            error.retryable &&
-            eventsReceived === 0 &&
-            attempt < MAX_RETRIES &&
-            !controller.signal.aborted
-          ) {
-            sendChatEvent(event.sender, {
-              type: 'turn.retrying',
-              ...(turn.dbSessionId ? { sessionId: turn.dbSessionId } : {}),
-              attempt: attempt + 1,
-              maxRetries: MAX_RETRIES,
-              error
-            })
-            try {
-              await abortableDelay(RETRY_BACKOFF_MS[attempt] ?? 2_000, controller.signal)
-            } catch {
-              return
-            }
-            continue
-          }
-          // sessionId 가 확정된 턴이면 부착 — renderer 멀티세션 store 가 정확한 엔트리로
-          // 라우팅한다(없으면 활성 엔트리 폴백, handoff 0013).
-          sawTerminal = true
-          settleOpenToolRuns(turn, persistence, 'failed')
-          sendChatEvent(event.sender, {
-            type: 'error',
-            ...(turn.dbSessionId ? { sessionId: turn.dbSessionId } : {}),
-            // 어댑터 소유 분류기(0016) — provider 는 어댑터가 자기 id 로 채운다. 표시용, 분기 미사용.
-            error
-          })
-          return
-        } finally {
-          idle.clear()
-          activeIdle = null
-        }
-      }
+      await coordinator.run(turn, request, { boundProjectId })
     } finally {
       wc.removeListener('destroyed', onOwnerGone)
       wc.removeListener('render-process-gone', onOwnerGone)
@@ -615,7 +425,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
     turn.controller.abort()
     // 진행 중이던 도구(최상위 + 서브에이전트 child)를 중단 결과로 정착 — 안 하면 결과가
     // 영영 안 와 "실행 중"으로 무한 렌더되고 부모 Task 가 "진행 중"으로 남는다. turn.aborted 전에.
-    settleOpenToolRuns(turn, persistence, 'aborted')
+    settleOpenToolRunsCore(turn, persistence, chatForward, 'aborted')
     sendChatEvent(turn.owner, {
       type: 'turn.aborted',
       sessionId: req.sessionId,
@@ -635,7 +445,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
     if (subagentType) turn.blockedSubagents.add(subagentType)
     turn.stoppedSubagents.add(req.toolUseId)
 
-    settleSubagentTask(turn, persistence, {
+    settleSubagentTask(turn, persistence, chatForward, {
       type: 'subagent.task',
       sessionId: turn.dbSessionId ?? req.sessionId,
       toolUseId: req.toolUseId,
@@ -643,6 +453,6 @@ export function registerChatHandlers(deps: ChatDeps): void {
       status: 'stopped'
     })
 
-    await stopLiveSubagent(turn, req.toolUseId, taskId, backgroundSubagents)
+    await stopLiveSubagent(turn.live, req.toolUseId, taskId, backgroundSubagents)
   })
 }
