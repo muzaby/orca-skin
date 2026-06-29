@@ -54,5 +54,3 @@ export class SessionRuntimeRegistry<W = unknown, T extends TurnContext<W> = Turn
     return this.bySession.size + this.pendingByOwner.size
   }
 }
-
-export { SessionRuntimeRegistry as TurnRegistry }

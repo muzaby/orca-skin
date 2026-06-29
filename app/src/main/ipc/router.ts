@@ -33,7 +33,7 @@ import { registerMcpHandlers } from './handlers/mcp'
 import { registerEngineHandlers } from './handlers/engine'
 import { registerMiscHandlers } from './handlers/misc'
 import { registerChatHandlers, settleOpenToolRuns } from './chat/send'
-import { TurnRegistry } from './chat/turn-registry'
+import { RuntimeSupervisor } from '../lifecycle/supervisor'
 import { ApprovalCoordinator } from './chat/approvals'
 import { TurnPersistence } from './chat/persist'
 import { TitleGenerator } from './chat/title-generation'
@@ -63,7 +63,7 @@ export class IpcRouter {
   }
   // 앱 종료(will-quit) 정리용 참조 — register() 에서 채워진다. 종료 시 진행 중 턴의 열린 도구를
   // 정착하고 controller 를 abort 한다(shutdown).
-  private turns?: TurnRegistry<Electron.WebContents>
+  private supervisor?: RuntimeSupervisor<Electron.WebContents>
   private persistence?: TurnPersistence
 
   private skillRoots(): SkillScanRoot[] {
@@ -195,8 +195,8 @@ export class IpcRouter {
   // abort 해 SDK 서브프로세스를 깨끗이 종료한다. persist 는 better-sqlite3 동기라 종료 시간 내
   // 완료된다. start() 이전(register 미실행)이면 no-op.
   shutdown(): void {
-    if (!this.turns || !this.persistence) return
-    for (const turn of this.turns.all()) {
+    if (!this.supervisor || !this.persistence) return
+    for (const turn of this.supervisor.all()) {
       try {
         settleOpenToolRuns(turn, this.persistence, 'aborted')
       } catch (e) {
@@ -208,15 +208,15 @@ export class IpcRouter {
 
   private register(ctx: RouterContext): void {
     // chat 턴 파이프라인 조립 — 레지스트리(세션 키잉) · persist · 제목 생성 · 승인 조정.
-    const turns = (this.turns = new TurnRegistry<Electron.WebContents>())
+    const supervisor = (this.supervisor = new RuntimeSupervisor<Electron.WebContents>())
     const titles = new TitleGenerator(ctx.db)
     const persistence = (this.persistence = new TurnPersistence(ctx.db, ctx.cost, (turn) =>
       titles.maybeStart(turn)
     ))
     const approvals = new ApprovalCoordinator()
     const permissionModes = new PermissionModeController()
-    registerChatHandlers({ ctx, turns, approvals, persistence, titles, permissionModes })
-    approvals.registerHandlers(turns, permissionModes)
+    registerChatHandlers({ ctx, supervisor, approvals, persistence, titles, permissionModes })
+    approvals.registerHandlers(supervisor, permissionModes)
 
     registerSessionHandlers(ctx)
     registerProjectHandlers(ctx)

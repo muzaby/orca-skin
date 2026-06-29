@@ -376,6 +376,8 @@ cap/LRU/idle-close/registry 가 *세는 유닛*은 **SessionRuntime**(자원)이
 
 교정점: ① **TurnCoordinator 1급화**(양축). ② **권한 = 재진입 콜백**(단계 아님). ③ **persist ∥ forward = 병렬 독립 sink**(순차 아님), **persist 는 renderer 비의존**. ④ "EventStore append" 과장 주의 — 델타는 비영속, **settled parts 만 commit**(리듀서 = Coordinator). ⑤ **dangling tool 마감은 P0(이미 구현, `{reason:'aborted'}`)**.
 
+> **코드 안착(handoff)**: TurnCoordinator = `lifecycle/turn-coordinator.ts`(handoff 0052). Runtime **Supervisor**(세로축 unit #3) = `lifecycle/supervisor.ts`(handoff 0053) — 현재는 **척추**(SessionRuntimeRegistry 소유 + 단일 멱등 `release`/`abortTurn`)만 안착했고 cap/LRU/IdleClose/Persistent 정책은 미구현(§A.5 P1 의 0054). SessionRuntime = `lifecycle/session-runtime.ts`(OneShot, 0050).
+
 ### A.4 Conversation Continuity / Knowledge Curation (Future 서비스 층)
 
 handoff·fork·DB reseed·대화 종료/archive 시 평가·요약 → **Orca 전용 knowledge artifact / KB entry**(특정 `memory.md` 파일 아님; SDK 로 생성하되 SDK context/SDK memory file 갱신 아님). 불변식:
@@ -389,8 +391,10 @@ handoff·fork·DB reseed·대화 종료/archive 시 평가·요약 → **Orca �
 | 단계 | 항목 |
 |---|---|
 | **P0 (0050 출시)** | 3엔티티 개념 분리 · OneShot SessionRuntime · 상태 SSOT · StallTimer 분리 · **dangling 마감(DB-only)** · PermissionBridge/canUseTool(승인 = P0 의 제약된 mid-turn 입력 채널) |
-| **P1** | TurnCoordinator 1급화 · Persistent runtime · steer/queue admission(일반 mid-turn 입력) · IdleCloseTimer 구현 · Supervisor cap/LRU · idempotent close 단일 경로(self-idle vs LRU eviction 합류) |
+| **P1** | ~~TurnCoordinator 1급화~~(✅ 0052) · ~~Runtime Supervisor 척추(소유자 추출 + idempotent close/abort 단일 경로)~~(✅ 0053) · Persistent runtime · steer/queue admission(일반 mid-turn 입력) · IdleCloseTimer 구현 · Supervisor cap/LRU(self-idle vs LRU eviction 합류) — 잔여는 **0054** |
 | **Future** | handoff/fork · DB-based reseed · internal evaluation session 기반 평가·요약 · knowledge artifact/KB entry · lineage 영속화 |
+
+> **P1 구현 현황**: 가로축 TurnCoordinator(0052) → 세로축 Runtime Supervisor 척추 + 단일 멱등 close/abort(0053) 까지 안착. **0054 후보** = Persistent runtime(결정 ⑳) · cap admission · LRU/idle eviction(`evictIdle` 실구현) · IdleCloseTimer · ConcurrencyRegistry 의 Supervisor 소유 이관 · steer/queue. idle/LRU/IdleClose 는 핸들이 idle 로 살아남는 **Persistent 가 전제**(OneShot 에선 死코드)라 0053 척추는 정책을 의도적으로 비웠다.
 
 ## 7. 부록 — 용어
 

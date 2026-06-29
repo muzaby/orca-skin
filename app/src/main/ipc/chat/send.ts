@@ -44,7 +44,8 @@ import {
   stopLiveSubagent
 } from '../../lifecycle/settle'
 import type { TurnEventSink } from '../../lifecycle/turn-sinks'
-import type { InflightTurn, TurnRegistry } from './turn-registry'
+import { RuntimeSupervisor, abortTurn } from '../../lifecycle/supervisor'
+import type { InflightTurn } from './turn-registry'
 
 export const IDLE_TIMEOUT_MS = STALL_TIMEOUT_MS
 export { createStallTimer as createIdleTimer } from '../../lifecycle/timers'
@@ -53,7 +54,7 @@ export { MAX_RETRIES, RETRY_BACKOFF_MS, abortableDelay } from '../../lifecycle/t
 
 export interface ChatDeps {
   ctx: RouterContext
-  turns: TurnRegistry<WebContents>
+  supervisor: RuntimeSupervisor<WebContents>
   approvals: ApprovalCoordinator
   persistence: TurnPersistence
   titles: TitleGenerator
@@ -133,7 +134,7 @@ function buildTurnEnv(ctx: RouterContext): Record<string, string> | undefined {
 }
 
 export function registerChatHandlers(deps: ChatDeps): void {
-  const { ctx, turns, approvals, persistence, titles, permissionModes } = deps
+  const { ctx, supervisor, approvals, persistence, titles, permissionModes } = deps
 
   // 서브에이전트 백그라운드화 게이트(가이드 — run_in_background 주입). 종료 정착은
   // task_notification/사용자 중단 공통 경로에서 foreground/background 모두 처리한다.
@@ -156,8 +157,8 @@ export function registerChatHandlers(deps: ChatDeps): void {
     // 동시 턴 가드 — 서로 다른 세션의 동시 턴은 허용하되, 같은 세션(또는 같은 창의 새-채팅
     // 슬롯)의 중복 send 는 거부한다. resume 컨텍스트가 꼬이는 것을 막는 보호선.
     const duplicate = parsed.data.sessionId
-      ? turns.hasSession(parsed.data.sessionId)
-      : turns.hasPending(event.sender)
+      ? supervisor.hasSession(parsed.data.sessionId)
+      : supervisor.hasPending(event.sender)
     if (duplicate) {
       sendChatEvent(event.sender, {
         type: 'error',
@@ -219,7 +220,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
     if (parsed.data.sessionId) {
       recoverDanglingToolCalls(ctx.db, {
         sessionId: parsed.data.sessionId,
-        isSessionLive: (sessionId) => turns.hasSession(sessionId)
+        isSessionLive: (sessionId) => supervisor.hasSession(sessionId)
       })
     }
 
@@ -254,8 +255,8 @@ export function registerChatHandlers(deps: ChatDeps): void {
       blockedSubagents: new Set(),
       stoppedSubagents: new Set()
     }
-    if (parsed.data.sessionId) turns.startResume(parsed.data.sessionId, turn)
-    else turns.startNew(event.sender, turn)
+    if (parsed.data.sessionId) supervisor.startResume(parsed.data.sessionId, turn)
+    else supervisor.startNew(event.sender, turn)
 
     // resume 경로: sessionId 가 들어왔다는 건 이전 init 으로 sessions row 가 이미
     // 존재한다는 의미. 다음 init 이벤트를 기다리지 않고 user 메시지를 즉시 기록.
@@ -287,6 +288,8 @@ export function registerChatHandlers(deps: ChatDeps): void {
     const wc = event.sender
     // 렌더러(owner) 소멸 시 진행 턴 정리 — idle "완전 멈춤"으로 잃는 자가치유(무응답 abort)를
     // 타이머가 아닌 이벤트로 대체한다(사람 판단엔 시간 제한 두지 않음 유지). 바깥 finally 에서 해제.
+    // 여기는 abortTurn(turn) 이 아니라 runtime 을 직접 mark 한다 — coordinator.run 이 turn.live=runtime
+    // 을 세우기 *전* 에 owner 가 사라질 수 있어, 그 창에서도 런타임 상태(cancelled)를 확실히 남긴다.
     const onOwnerGone = (): void => {
       runtime.markAborted('user_cancelled')
       controller.abort()
@@ -300,7 +303,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
       persist: persistence,
       forward: chatForward,
       titles,
-      registry: turns,
+      registry: supervisor,
       classifyError: (err, phase) => adapter.classifyError(err, phase),
       concurrency: ctx.concurrency,
       backgroundSubagents
@@ -410,7 +413,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
     } finally {
       wc.removeListener('destroyed', onOwnerGone)
       wc.removeListener('render-process-gone', onOwnerGone)
-      turns.finish(turn)
+      supervisor.release(turn)
     }
   }
 
@@ -419,10 +422,9 @@ export function registerChatHandlers(deps: ChatDeps): void {
   handlePlain(CHANNELS.chatSend, (raw, event) => handleChatSend(event, raw))
 
   handle(CHANNELS.chatCancel, CancelChatSchema, 'reject', (req): void => {
-    const turn = turns.getBySession(req.sessionId)
+    const turn = supervisor.getBySession(req.sessionId)
     if (!turn) return
-    turn.live?.markAborted?.('user_cancelled')
-    turn.controller.abort()
+    abortTurn(turn, 'user_cancelled')
     // 진행 중이던 도구(최상위 + 서브에이전트 child)를 중단 결과로 정착 — 안 하면 결과가
     // 영영 안 와 "실행 중"으로 무한 렌더되고 부모 Task 가 "진행 중"으로 남는다. turn.aborted 전에.
     settleOpenToolRunsCore(turn, persistence, chatForward, 'aborted')
@@ -438,7 +440,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
   // 도착하면 같은 toolUseId 로 권위 메타를 보강한다. stopTask 는 task_id 기반 제어 신호일 뿐
   // UI 상태 SSOT 는 합성 tool_result 다.
   handle(CHANNELS.chatStopSubagent, StopSubagentSchema, 'reject', async (req): Promise<void> => {
-    const turn = turns.getBySession(req.sessionId)
+    const turn = supervisor.getBySession(req.sessionId)
     if (!turn) return
     const taskId = turn.subagentTaskIds.get(req.toolUseId)
     const subagentType = turn.subagentTypes.get(req.toolUseId)

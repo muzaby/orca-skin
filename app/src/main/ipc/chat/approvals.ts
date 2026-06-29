@@ -11,7 +11,8 @@ import { toClaudePermissionMode } from '../../../shared/permission-mode'
 import { InteractionBroker } from '../../ask/broker'
 import type { PermissionModeController } from '../../runtime-events/permission-mode-controller'
 import { handle } from '../registry'
-import type { InflightTurn, TurnRegistry } from './turn-registry'
+import type { RuntimeSupervisor } from '../../lifecycle/supervisor'
+import type { InflightTurn } from './turn-registry'
 
 export class ApprovalCoordinator {
   private readonly broker = new InteractionBroker<ApprovalResolution>()
@@ -67,7 +68,10 @@ export class ApprovalCoordinator {
     }
   }
 
-  registerHandlers(turns: TurnRegistry<unknown>, permissionModes: PermissionModeController): void {
+  registerHandlers(
+    supervisor: RuntimeSupervisor<unknown>,
+    permissionModes: PermissionModeController
+  ): void {
     handle(CHANNELS.permissionRespond, PermissionRespondSchema, { fallback: undefined }, (req) =>
       this.respond(req)
     )
@@ -82,7 +86,7 @@ export class ApprovalCoordinator {
       async ({ sessionId, mode }): Promise<void> => {
         void permissionModes.setMode(sessionId, mode)
 
-        const turn = turns.getBySession(sessionId)
+        const turn = supervisor.getBySession(sessionId)
         if (turn?.live) {
           try {
             await turn.live.setPermissionMode(toClaudePermissionMode(mode))
