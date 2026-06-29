@@ -1,4 +1,4 @@
-# Plan — 0049-lifecycle-orchestration-redesign
+# Plan — 0050-lifecycle-orchestration-redesign
 
 > 정본 규칙은 [`../AGENTS.md`](../AGENTS.md) §1. 본 plan 은 라이프사이클·오케스트레이션 **구조 재설계**의 P0 구현 설계서다. 설계 정본은 [`@docs/etc/orca_lifecycle_orchestration_design_draft_ko.md`](../../etc/orca_lifecycle_orchestration_design_draft_ko.md)(엔지니어링 리뷰 8건 반영본), 본 문서는 그것을 *코드 작업 단위*로 번역한다.
 
@@ -6,7 +6,7 @@
 
 | 항목 | 값 |
 |---|---|
-| slug | `0049-lifecycle-orchestration-redesign` |
+| slug | `0050-lifecycle-orchestration-redesign` |
 | 작성자 | Claude Code |
 | 일자 | 2026-06-28 |
 | 매핑 | PHASES 행 / PR (impl 후) |
@@ -51,7 +51,7 @@
 | InflightTurn god-object ~25필드(상태+ask페어링+subagent+title) | `app/src/main/ipc/chat/turn-registry.ts:15-72` |
 | IDLE_TIMEOUT_MS=120s 가 busy 중 무이벤트 시 turn abort(=StallTimer, 핸들회수 아님) | `app/src/main/ipc/chat/send.ts:42·75-81·580-590` |
 | dangling tool 정착(main): in-process `settleOpenToolRuns` + 정상종료 `IpcRouter.shutdown` | `app/src/main/ipc/chat/send.ts:123-146` · `ipc/router.ts:199` |
-| **(Step0 보정) renderer 가 이미 로드-타임 복구**: `LOAD_SESSION` 에서 `m.incomplete`(DB complete=0) 메시지의 orphan tool 을 `settleOrphanToolParts` 로 `{reason:'aborted'}` 정착(표시). 크래시 백스톱이 *이미 존재* → 설계 ⑪의 "실행 중 무한렌더" 는 표시층에서 해결됨. 0049 DB recovery 의 한계효용 = DB 자기일관성 | `app/src/renderer/.../reducer/chatReducer.ts:471-477` · `lib/parts.ts:107-130` |
+| **(Step0 보정) renderer 가 이미 로드-타임 복구**: `LOAD_SESSION` 에서 `m.incomplete`(DB complete=0) 메시지의 orphan tool 을 `settleOrphanToolParts` 로 `{reason:'aborted'}` 정착(표시). 크래시 백스톱이 *이미 존재* → 설계 ⑪의 "실행 중 무한렌더" 는 표시층에서 해결됨. 0050 DB recovery 의 한계효용 = DB 자기일관성 | `app/src/renderer/.../reducer/chatReducer.ts:471-477` · `lib/parts.ts:107-130` |
 | canUseTool 게이트 + RISKY_TOOLS 존재. `disallowedTools` 는 sendMessage options 에 미주입 | `app/src/main/runtime-events/permission-bridge.ts:14-25` · `adapters/claude.ts:292-328` |
 | main 레이어 DAG: L0 shared→L1 domain→L2 adapters→L3 ipc, 하향 의존만(boundaries 강제) | `app/src/main/AGENTS.md`(레이어 DAG) |
 | ConcurrencyRegistry = 프로젝트별 턴 카운트(UI용), 핸들 수 cap 아님 | `app/src/main/ipc/chat/concurrency-registry.ts` |
@@ -70,7 +70,7 @@
 8. **[리뷰 4·7·8] 문서 정합.** 설계서의 disallowedTools 표기는 "D1 보류(미구현)"로 통일됨(완료) — 코드 변경 시 이 상태를 유지(canUseTool 1단). `maxTurns` 세션-스코프 함의(persistent per-turn 캡)는 P1 설계노트로 남긴다. resume 실패는 현행대로 "이 대화는 이어할 수 없습니다" 에러 종료(cold-fallback=Future).
 9. **레이어 경계 0 / 게이트 통과.** 신규 `lifecycle/`·`orchestration/` 모듈은 L1 domain(SessionAdapter 주입, electron 비의존). `npm run lint`(boundaries 포함)·`typecheck`·`test` 통과, 신규 의존성 0.
 10. **[2026-06-28 결정] 앱-레벨 2축 모듈 구조.** 신규 모듈은 `session/` 하위가 아니라 최상위 **`lifecycle/`**(앱·프로세스·세션 생명주기) + **`orchestration/`**(애플리케이션 레벨 턴/세션 조율)로 신설. SessionRuntime 은 lifecycle 의 구성원. `concurrency-registry.ts`→`orchestration/concurrency.ts` 이전.
-11. **[2026-06-28 결정] uv Python runtime 폐기.** `src/main/runtime/` 와 그 배선(`index.ts`·`router.ts` `ensure()`·`context.ts` 타입·`send.ts` `getEnv()` 합류)·system prompt 정책(`policies/python-runtime.md` + `registry.ts`/`loader.ts` 항목)·build(`fetch-uv`·`prepare-runtime`·`electron-builder.yml` extraResources·`scripts/fetch-uv.mjs`)를 제거. **IPC 채널 변경 없음** — `orca:runtime:{status,prepare,statusEvent}` 3채널은 이미 2026-06-11 제거됨(`IPC_CONTRACT.md` §216). 게이트(lint/typecheck/test)가 미참조를 보증하고, `IPC_CONTRACT.md` §216(PythonRuntime 유지 서술)·`app/AGENTS.md`·`app/src/main/AGENTS.md`(runtime 모듈/빌드 스크립트 소개)를 정합화한다. **⚠ 동반(보강 R2-4): `policies/python-runtime.md` 는 "`uv run python` 안내" 정책이자 현재 *유일한 정적 정책*이라 함께 제거 → `stableAppend` 빈 문자열·`ExtensionBuilder` 빈 정책 분기·`buildAppend.test.ts`/`loader.test.ts` 갱신.** **uv 제거는 0049 범위에 *포함*(필수 완료)이며, 후속 handoff 아님** — 단 출시는 **PR-B(같은 0049 핸드오프의 2번째 PR)**로 분리(C1~C3=PR-A 머지 후). 즉 "별도 PR ≠ 별도 handoff/연기"(보강 R3-3). 구현 커밋 Criteria 는 PR-A·PR-B 각각 부분 충족으로 기재하되 0049 전체 인수에 11번 포함. (상세 체크리스트 보강 §5/R2-4.)
+11. **[2026-06-28 결정] uv Python runtime 폐기.** `src/main/runtime/` 와 그 배선(`index.ts`·`router.ts` `ensure()`·`context.ts` 타입·`send.ts` `getEnv()` 합류)·system prompt 정책(`policies/python-runtime.md` + `registry.ts`/`loader.ts` 항목)·build(`fetch-uv`·`prepare-runtime`·`electron-builder.yml` extraResources·`scripts/fetch-uv.mjs`)를 제거. **IPC 채널 변경 없음** — `orca:runtime:{status,prepare,statusEvent}` 3채널은 이미 2026-06-11 제거됨(`IPC_CONTRACT.md` §216). 게이트(lint/typecheck/test)가 미참조를 보증하고, `IPC_CONTRACT.md` §216(PythonRuntime 유지 서술)·`app/AGENTS.md`·`app/src/main/AGENTS.md`(runtime 모듈/빌드 스크립트 소개)를 정합화한다. **⚠ 동반(보강 R2-4): `policies/python-runtime.md` 는 "`uv run python` 안내" 정책이자 현재 *유일한 정적 정책*이라 함께 제거 → `stableAppend` 빈 문자열·`ExtensionBuilder` 빈 정책 분기·`buildAppend.test.ts`/`loader.test.ts` 갱신.** **uv 제거는 0050 범위에 *포함*(필수 완료)이며, 후속 handoff 아님** — 단 출시는 **PR-B(같은 0050 핸드오프의 2번째 PR)**로 분리(C1~C3=PR-A 머지 후). 즉 "별도 PR ≠ 별도 handoff/연기"(보강 R3-3). 구현 커밋 Criteria 는 PR-A·PR-B 각각 부분 충족으로 기재하되 0050 전체 인수에 11번 포함. (상세 체크리스트 보강 §5/R2-4.)
 
 ## 범위 / 비범위
 
@@ -92,7 +92,7 @@
 
 **두 축을 앱-레벨 최상위 모듈로 신설한다** — 설계서의 두 렌즈(8계층 lifecycle / 7요소 orchestration)와 1:1. `lifecycle/` 은 앱·프로세스·세션 *생명주기*(부팅·감시·종료/복구)를 표현하고, `orchestration/` 은 *애플리케이션 레벨 턴/세션 조율*(워크플로 하네스 §1.5)을 표현한다. SessionRuntime 은 `session/` 같은 별도 부모가 아니라 **lifecycle 의 한 구성원**이다. 둘 다 L1 domain 으로, `SessionAdapter`(L2)를 *주입*받아 하향 의존을 깬다(dependency inversion) → electron 비의존·vitest 가능.
 
-**uv Python runtime 제거(Q2 결정: 0049 포함)**: `src/main/runtime/`(uv 격리 Python)은 코드상 하드코딩 Python MCP 의존이 없어 *번들 Python 을 쓰는 사용자에게만* 필요 → 폐기. turn env 의 `getEnv()` 합류·`policies/python-runtime.md` 정책·build(`fetch-uv`·`extraResources`)를 제거한다. **IPC 채널은 무변경**(`orca:runtime:*` 는 2026-06-11 이미 제거, `IPC_CONTRACT.md` §216). 상세 잔재 체크리스트는 보강 §5.
+**uv Python runtime 제거(Q2 결정: 0050 포함)**: `src/main/runtime/`(uv 격리 Python)은 코드상 하드코딩 Python MCP 의존이 없어 *번들 Python 을 쓰는 사용자에게만* 필요 → 폐기. turn env 의 `getEnv()` 합류·`policies/python-runtime.md` 정책·build(`fetch-uv`·`extraResources`)를 제거한다. **IPC 채널은 무변경**(`orca:runtime:*` 는 2026-06-11 이미 제거, `IPC_CONTRACT.md` §216). 상세 잔재 체크리스트는 보강 §5.
 
 ```
 [현재] 라이프사이클이 ipc/chat + adapters 에 분산
@@ -124,7 +124,7 @@
     types.ts             ── LiveTurn 유지 + (선택) SessionRuntime 소비 타입
   ipc/chat/
     send.ts              ── lifecycle+orchestration 소비자로 박리(상태/타이머/레지스트리/동시성 위임 → 더 얇게)
-  ✗ runtime/                       ── uv Python 런타임 폐기(Q2: 0049 포함). index/router/context/send 배선 제거
+  ✗ runtime/                       ── uv Python 런타임 폐기(Q2: 0050 포함). index/router/context/send 배선 제거
 ```
 
 - **레이어**: `lifecycle/`·`orchestration/` 둘 다 L1 domain. `SessionAdapter` 는 컴포지션 루트(`ipc/router.ts`·`index.ts`)가 주입. `ipc/chat/send.ts`(L3)가 둘을 소비·구동. boundaries: lifecycle/orchestration→adapters 직접 의존 금지(주입 역전), →shared·동일/하위 레이어만. orchestration→lifecycle(L1 내부) 허용, 역방향 금지.
@@ -180,7 +180,7 @@ SessionRuntime (세션 1개, 핸들 소유, 소비 인터페이스 모드-무관
 
 - 되돌리기 어려운 결정: 최상위 모듈 경로(`src/main/lifecycle/`·`src/main/orchestration/`) 신설 + `src/main/runtime/`(uv) 폐기 — 다른 import 가 붙기 전에 확정.
 - ~~모듈 디렉토리명 Open Question~~ **✅ 결정(2026-06-28 사용자)**: `session/` 하위가 아니라 **앱-레벨 최상위 `lifecycle/` + `orchestration/`**(라이프사이클=앱/프로세스/세션 생명주기, 오케스트레이션=애플리케이션 레벨 조율). SessionRuntime 은 lifecycle 의 구성원. `runtime/`(uv) 폐기로 이름 충돌 해소.
-- 추가 리스크(uv 제거): 번들 Python MCP 를 쓰던 사용자는 시스템 Python 으로 폴백(없으면 해당 MCP 실패). 완화 — 코드상 하드코딩 Python MCP 없음 확인, system prompt 정책 제거로 모델 오안내 방지. 되돌림은 git revert(0049 단위).
+- 추가 리스크(uv 제거): 번들 Python MCP 를 쓰던 사용자는 시스템 Python 으로 폴백(없으면 해당 MCP 실패). 완화 — 코드상 하드코딩 Python MCP 없음 확인, system prompt 정책 제거로 모델 오안내 방지. 되돌림은 git revert(0050 단위).
 
 ## 영향 받는 파일
 
@@ -251,7 +251,7 @@ SessionRuntime (세션 1개, 핸들 소유, 소비 인터페이스 모드-무관
 3. **C3 dangling recovery**: `recovery.ts` + `findDanglingToolCalls`(보강 2) + 부팅/resume 배선 + 재현 테스트.
 4. **C4 uv 폐기**: 보강 5 체크리스트 + 문서 정합.
 - 각 단계는 독립 리뷰 가능. C1 은 순수 이동(diff 큼·위험 낮음), C2 가 핵심 위험. send.ts "박리"는 C1~C2 에 분산돼 한 번에 재작성하지 않는다.
-- **PR 경계 (2026-06-29 사용자 결정): 0049 는 한 핸드오프로 추적하되 2 PR 로 출시** — **PR-A = C1~C3**(구조 재설계: lifecycle/orchestration·SessionRuntime·recovery), **PR-B = C4**(uv 폐기 + python-runtime 정책 제거 cascade, R2-4). 구조와 기능/정책 제거를 분리해 리뷰·되돌림을 독립화. PR-A 머지 후 PR-B.
+- **PR 경계 (2026-06-29 사용자 결정): 0050 는 한 핸드오프로 추적하되 2 PR 로 출시** — **PR-A = C1~C3**(구조 재설계: lifecycle/orchestration·SessionRuntime·recovery), **PR-B = C4**(uv 폐기 + python-runtime 정책 제거 cascade, R2-4). 구조와 기능/정책 제거를 분리해 리뷰·되돌림을 독립화. PR-A 머지 후 PR-B.
 - **상태머신 전이(보강 R4-1, F1)**: 한 핸드오프 안에서 **순차 impl 라운드**로 모델링한다 — PR-A 구현→`impl/IMPL_DONE`(**Criteria-Met 10/11, Criteria-Pending: 인수 11**, 대상커밋=PR-A)→Claude `verify` **PASS(partial)**·`Next-Action: codex`→PR-B 구현→`impl/IMPL_DONE`(**11/11**, 대상커밋=PR-B)→`verify` **PASS(final)**. 기존 Criteria-Pending+라운드 메커니즘(0024 선례) 재사용, 새 인프라 불필요. **INDEX 대상커밋 칸**은 `PR-A: <hashA> / PR-B: <hashB>` 로 두 커밋 라벨 기재(1칸 내). PHASES 승격은 PR-B verify-final 후 1회.
 
 ### 라운드 2 — Codex 2차 자문 (6건)
@@ -283,7 +283,7 @@ SessionRuntime (세션 1개, 핸들 소유, 소비 인터페이스 모드-무관
 SessionRuntime 은 어댑터 밖이라 SDK raw `result` 를 보면 안 된다(provider 결합). close 트리거 = `send()` 스트림의 **정규화 terminal `{telemetry, error, turn.aborted}`** (claude-map: `result→telemetry`, `claude-map.ts:7`; send.ts:521 동일 집합). terminal 관측 시 `live.close()`. 어댑터의 `claude.ts:335` 자동 close 는 제거, `events()` finally 는 백스톱. §B·보강 3 반영. (어댑터별 terminal 의미가 달라지면 claude-map 이 흡수 — 코어는 무지.)
 
 #### 보강 R3-3 — uv 제거 포함 여부 단일화 (별도 PR ≠ 연기)
-모순 표현 정정: uv 제거는 **0049 범위에 포함(필수)**, 단지 출시를 **PR-B(같은 핸드오프 2번째 PR)**로 분리한다. "별도 PR" 을 "후속 handoff/선택" 으로 오independent 읽지 않는다. 인수 11·범위·보강 R2-4 의 "권장"→"포함·PR-B 출시" 로 통일(IPC 무변경도 재확인). verify 는 PR-A·PR-B 누적으로 0049 인수 전체를 대조.
+모순 표현 정정: uv 제거는 **0050 범위에 포함(필수)**, 단지 출시를 **PR-B(같은 핸드오프 2번째 PR)**로 분리한다. "별도 PR" 을 "후속 handoff/선택" 으로 오independent 읽지 않는다. 인수 11·범위·보강 R2-4 의 "권장"→"포함·PR-B 출시" 로 통일(IPC 무변경도 재확인). verify 는 PR-A·PR-B 누적으로 0050 인수 전체를 대조.
 
 #### 보강 R3-4 — dangling recovery 는 assistant message 단위 + 죽은 프로세스 전제
 row 단위가 아니라 **assistant message 단위**로 정착(한 메시지에 dangling tool_call 여럿/일부는 이미 tool_result 있음 — `NOT EXISTS` 로 미정착만 합성). markComplete 는 message_id 당 1회. **전제(쿼리 조건에 포함)**: *대상 세션에 라이브 SessionRuntime 이 없을 때만* 복구(부팅=전 세션 cold 자명, resume=해당 세션 미오픈). 진행 가능한 live turn 의 incomplete 메시지를 닫지 않는다. §D·보강 2 반영.
@@ -302,7 +302,7 @@ row 단위가 아니라 **assistant message 단위**로 정착(한 메시지에 
 기존 `updateToolResultPartStmt` 는 `WHERE tool_run_id AND type='tool_result'`(message_id 미한정, `queries.ts:122-124`). DB 전수 복구에서 동일 tool_run_id 가 타 메시지에 있으면 오갱신 → **`WHERE message_id=@mid AND tool_run_id=@trid AND type='tool_result'` message-scoped 변형 신규 추가**, recovery 전용. §D 반영.
 
 #### 보강 R4-4 — recovery 는 DB-only 경로 (발견 4)
-`settleOpenToolRuns` 는 `InflightTurn`·`TurnPersistence`·`sendChatEvent(turn.owner)` 의존이라 부팅(owner·live turn 없음)에 *재사용 불가*. recovery 는 **DB 에만 write**(tool_result row + markComplete), renderer 실시간 송신 안 함. **이미 renderer `LOAD_SESSION`→`settleOrphanToolParts`(chatReducer.ts:471-477, parts.ts:107-130)가 표시-복구를 수행** → 설계 ⑪의 "실행 중 무한렌더" 는 표시층에서 해결됨(자료조사 Step0 보정 행). 0049 DB recovery 의 효용 = DB 자기일관성(F2 결정: 풀 구현 유지). 복구분과 표시분이 같은 `{reason:'aborted'}` 라 일관.
+`settleOpenToolRuns` 는 `InflightTurn`·`TurnPersistence`·`sendChatEvent(turn.owner)` 의존이라 부팅(owner·live turn 없음)에 *재사용 불가*. recovery 는 **DB 에만 write**(tool_result row + markComplete), renderer 실시간 송신 안 함. **이미 renderer `LOAD_SESSION`→`settleOrphanToolParts`(chatReducer.ts:471-477, parts.ts:107-130)가 표시-복구를 수행** → 설계 ⑪의 "실행 중 무한렌더" 는 표시층에서 해결됨(자료조사 Step0 보정 행). 0050 DB recovery 의 효용 = DB 자기일관성(F2 결정: 풀 구현 유지). 복구분과 표시분이 같은 `{reason:'aborted'}` 라 일관.
 
 #### 보강 R4-5 — reason vocabulary 통일 (발견 5)
 recovery tool_result = `{ reason:'aborted', message:'중단되었습니다' }` (renderer `settleOrphanToolParts` parts.ts:124 + main `settleOpenToolRuns` send.ts:131 과 동일). 설계 ⑪의 `'interrupted'` 표기 폐기 — renderer aborted 판정·기존 settlement 와 표현 일치. §D 반영.

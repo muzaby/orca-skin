@@ -10,7 +10,7 @@
 | 용어 | 정의 | 코드상 명칭 | 진실의 기준 |
 |---|---|---|---|
 | **Session (Orca Session)** | **대화 기록의 진실** — 앱/DB 기준의 대화 단위(메시지·이벤트·메타데이터·lineage). `sessionId` 로 식별, **DB row 가 SSOT**. 어댑터 외부 저장(jsonl)은 진실이 아니라 *SDK resume context*(아래)일 뿐이다. "새 대화" = 새 Orca Session. *실행 핸들*은 **SessionRuntime**, *SDK 실행 컨텍스트*는 **SDK resume context** — 아래 별도 표제어(세 개념을 한 단어로 뭉치지 않는다). | `sessionId: string`, `SessionRow`(`db/types.ts`), `ChatState.sessionId` | TRD §6.5 / `app/src/shared/ipc.ts` |
-| **SessionRuntime** | 하나의 Orca Session 을 *실행*하기 위한 **일시적 실행 핸들** — SDK `query()` 핸들 + subprocess + AbortController + coarse 상태(`cold/idle/busy/interrupting/error/closed`, 단일 SSOT·비영속). 휘발·유자원: 한 Orca Session 에 대해 open→idle-close→reopen 으로 여러 번 생성될 수 있다(Session : Runtime = 1:N). **cap/LRU/idle-close 가 *세는 유닛* = 자원·프로세스 라이프사이클의 단위**(오케스트레이션 아님). | `SessionRuntime`(`app/src/main/lifecycle/session-runtime.ts`) | `etc/orca_lifecycle_orchestration_design_draft_ko.md` §A / 0049·0050 |
+| **SessionRuntime** | 하나의 Orca Session 을 *실행*하기 위한 **일시적 실행 핸들** — SDK `query()` 핸들 + subprocess + AbortController + coarse 상태(`cold/idle/busy/interrupting/error/closed`, 단일 SSOT·비영속). 휘발·유자원: 한 Orca Session 에 대해 open→idle-close→reopen 으로 여러 번 생성될 수 있다(Session : Runtime = 1:N). **cap/LRU/idle-close 가 *세는 유닛* = 자원·프로세스 라이프사이클의 단위**(오케스트레이션 아님). | `SessionRuntime`(`app/src/main/lifecycle/session-runtime.ts`) | `etc/orca_lifecycle_orchestration_design_draft_ko.md` §A / 0050·0051 |
 | **SDK resume context** | Claude SDK 가 `query`/`resume` 에 쓰는 **외부 실행 binding**(jsonl). 모델이 실제 조건화되는 라이브 컨텍스트에 가깝지만 **compaction 으로 손실적**이라 Orca DB(전문)와 발산할 수 있고 없어질 수도 있다. **대화의 진실이 아니다**(진실 = Orca Session DB). resume 실패 시 DB 기반 이어가기는 무손실 복구가 아니라 *reseed/bootstrap*. | (SDK 소유, jsonl) | `etc/orca_lifecycle_orchestration_design_draft_ko.md` §A·결정 ⑰ |
 | **Message** | 세션 안의 단일 발화. `role: 'user' \| 'assistant'` + 본문 + (assistant 의 경우) 부착된 ToolCall 들. | `Message`, `ChatState.messages` | `app/src/renderer/src/state/chatReducer.ts` |
 | **NormalizedEvent** | 어댑터→Renderer 정규화 스트림(`orca:chat:event`)의 단위. provider 중립 discriminated union: `session.updated / message.delta / message.completed / tool.call.started / tool.call.completed / telemetry / error / permission.requested / permission.resolved`. 모든 이벤트가 `sessionId`·`provider`, tool 은 `toolRunId` 보유. claude 어댑터가 `claudeToNormalized`(`adapters/claude-map.ts`)로 SDK 메시지를 직접 정규화한다. (구 `ChatEvent` 는 제거됨.) | `NormalizedEvent` | `app/src/shared/ipc.ts` (provider-runtime.md §2 SSOT) |
@@ -59,7 +59,7 @@
 
 다음 용어는 이 프로젝트에서 **사용하지 않는다**. 의미가 모호하거나 다른 용어와 겹친다.
 
-> **'세션' 과부하 주의 (2026-06-29 정제, 0050):** "Session" 은 **Orca Session(대화 기록, 위 §1)** 만 가리킨다. SDK 측의 *실행 컨텍스트* 는 "SDK 세션" 이 아니라 **SDK resume context**(데이터/jsonl), *실행 핸들* 은 **SessionRuntime**(프로세스)로 부른다. "SDK 세션" 같은 표현은 셋을 뭉치므로 지양한다.
+> **'세션' 과부하 주의 (2026-06-29 정제, 0051):** "Session" 은 **Orca Session(대화 기록, 위 §1)** 만 가리킨다. SDK 측의 *실행 컨텍스트* 는 "SDK 세션" 이 아니라 **SDK resume context**(데이터/jsonl), *실행 핸들* 은 **SessionRuntime**(프로세스)로 부른다. "SDK 세션" 같은 표현은 셋을 뭉치므로 지양한다.
 
 - ❌ **"LLM Provider"** → **Backend** 또는 **SessionAdapter** 로 통일. Orca 는 LLM API 를 직접 호출하지 않고 외부 CLI/SDK 를 래핑한다.
 - ❌ **"Conversation"** → **Session** 으로 통일.

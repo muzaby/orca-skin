@@ -1,6 +1,6 @@
 # Orca 라이프사이클 · 오케스트레이션 설계 (드래프트)
 
-> **상태**: 📝 드래프트 — 핸드오프(`0049`) 정식화 *이전* 의 설계방향 초안. 확정 전. **엔지니어링 리뷰(2026-06-28, `/plan-eng-review`) 결정 8건 반영** — 표기 `[리뷰 N]`.
+> **상태**: 📝 드래프트 — 핸드오프(`0050`) 정식화 *이전* 의 설계방향 초안. 확정 전. **엔지니어링 리뷰(2026-06-28, `/plan-eng-review`) 결정 8건 반영** — 표기 `[리뷰 N]`.
 > **기준자(yardstick)**: [`lifecycle_management_ko.md`](./lifecycle_management_ko.md) (라이프사이클 8계층) · [`orchestration_report_ko.md`](./orchestration_report_ko.md) (오케스트레이션 7요소).
 > **real-world 레퍼런스**: [`study/opencode/`](./study/opencode/) · [`study/hermes-agent/`](./study/hermes-agent/).
 > **읽는 법**: 각 절은 **개념론(기준) → opencode 실제 → hermes 실제 → Orca 결정** 순. 표기 `[op]`/`[h]`/`→ Orca`.
@@ -296,7 +296,7 @@ SessionRuntime (핸들 소유 — 소비 인터페이스 모드-무관)
 | ⑪ | resume 시 dangling tool 마감(failInterruptedTools) | §7 |
 | ⑫ | 자동 재시작 없음 | §7 |
 | ⑬ | 자체 *멀티에이전트* delegate/Kanban/message-bus 비구현 | §8 |
-| ⑭ | 오케스트레이션 스코프 = **다중턴/세션 워크플로(handoff)만** — *세션 간 동시성*은 §2 자원/프로세스 라이프사이클로 귀속(cap/LRU/idle-close 가 세는 유닛 = SessionRuntime; §A 정제 2026-06-29). 출시 `orchestration/` 코드명은 유지(문서만 정제·분기 메모, 0050) | §1.5 §8 §A |
+| ⑭ | 오케스트레이션 스코프 = **다중턴/세션 워크플로(handoff)만** — *세션 간 동시성*은 §2 자원/프로세스 라이프사이클로 귀속(cap/LRU/idle-close 가 세는 유닛 = SessionRuntime; §A 정제 2026-06-29). 출시 `orchestration/` 코드명은 유지(문서만 정제·분기 메모, 0051) | §1.5 §8 §A |
 | ⑮ | goal/multi-day = session handoff (P1) | §6 |
 | ⑯ | (확장) 본대화 비오염 별도 평가 세션 seam | §6 |
 | ⑰ | 이중 저장 의도적 분리 (jsonl=SDK resume / sqlite=SSOT) | §3 |
@@ -331,9 +331,9 @@ SessionRuntime (핸들 소유 — 소비 인터페이스 모드-무관)
 
 ---
 
-## A. 용어·2축 정제 (라이브 세션 2026-06-29 — 0050)
+## A. 용어·2축 정제 (라이브 세션 2026-06-29 — 0051)
 
-> 본 절은 §1~§6 *위에 얹는* 정제다. 발단: "'세션'이 두 가지(Orca 가 관리하는 대화 vs SDK 가 관리하는 실행 컨텍스트)를 뭉쳐 가리킨다" → 용어를 가르면 결정 ⑭ 의 *동시성=오케스트레이션* 분류가 닫힌다. (핸드오프 정본 `docs/handoff/0050-lifecycle-taxonomy-refinement/`.)
+> 본 절은 §1~§6 *위에 얹는* 정제다. 발단: "'세션'이 두 가지(Orca 가 관리하는 대화 vs SDK 가 관리하는 실행 컨텍스트)를 뭉쳐 가리킨다" → 용어를 가르면 결정 ⑭ 의 *동시성=오케스트레이션* 분류가 닫힌다. (핸드오프 정본 `docs/handoff/0051-lifecycle-taxonomy-refinement/`.)
 
 ### A.1 엔티티 3분리 (포함관계)
 
@@ -354,7 +354,7 @@ cap/LRU/idle-close/registry 가 *세는 유닛*은 **SessionRuntime**(자원)이
 
 - **오케스트레이션에 남는 것** = "Orca Session 을 가로질러 *인과적으로 엮기*" = **handoff** 뿐(워크플로 하네스 §1.5). 자원/프로세스로 환원 안 되는 유일 층.
 - 판별식: **없으면 *리소스가 샌다* → 라이프사이클 / 없으면 *작업이 안 엮인다* → 오케스트레이션.**
-- **코드명 분기(0050 결정 2)**: 출시된 `app/src/main/orchestration/concurrency.ts` 모듈명은 *유지*하고 문서만 정제한다(코드 리네임은 별도 핸드오프). 즉 "코드 모듈 `orchestration/` ⊃ concurrency" 는 개념상 라이프사이클 자원관리다 — 이름과 개념의 분기를 본 절이 명시한다.
+- **코드명 분기(0051 결정 2)**: 출시된 `app/src/main/orchestration/concurrency.ts` 모듈명은 *유지*하고 문서만 정제한다(코드 리네임은 별도 핸드오프). 즉 "코드 모듈 `orchestration/` ⊃ concurrency" 는 개념상 라이프사이클 자원관리다 — 이름과 개념의 분기를 본 절이 명시한다.
 
 ### A.3 두 축 모델 — 세로(소유/라이프사이클) + 가로(턴 파이프라인)
 
@@ -388,7 +388,7 @@ handoff·fork·DB reseed·대화 종료/archive 시 평가·요약 → **Orca �
 
 | 단계 | 항목 |
 |---|---|
-| **P0 (0049 출시)** | 3엔티티 개념 분리 · OneShot SessionRuntime · 상태 SSOT · StallTimer 분리 · **dangling 마감(DB-only)** · PermissionBridge/canUseTool(승인 = P0 의 제약된 mid-turn 입력 채널) |
+| **P0 (0050 출시)** | 3엔티티 개념 분리 · OneShot SessionRuntime · 상태 SSOT · StallTimer 분리 · **dangling 마감(DB-only)** · PermissionBridge/canUseTool(승인 = P0 의 제약된 mid-turn 입력 채널) |
 | **P1** | TurnCoordinator 1급화 · Persistent runtime · steer/queue admission(일반 mid-turn 입력) · IdleCloseTimer 구현 · Supervisor cap/LRU · idempotent close 단일 경로(self-idle vs LRU eviction 합류) |
 | **Future** | handoff/fork · DB-based reseed · internal evaluation session 기반 평가·요약 · knowledge artifact/KB entry · lineage 영속화 |
 
