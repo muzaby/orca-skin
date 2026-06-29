@@ -186,10 +186,3 @@ export interface SearchHitRow {
   session_title: string | null
   snippet: string
 }
-
-export interface DanglingToolCallRow {
-  message_id: number
-  session_id: string
-  tool_run_id: string
-  payload_json: string
-}

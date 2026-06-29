@@ -35,9 +35,7 @@ shared/      → shared 내부만                  (범용 atom. 도메인 로�
 
 | 경로                          | 책임                                                                                          |
 | ----------------------------- | --------------------------------------------------------------------------------------------- |
-| `src/main/ipc/router.ts`      | IPC 라우팅 + zod 검증 + lifecycle/orchestration 조립                       |
-| `src/main/lifecycle/`         | 세션 런타임·상태머신·턴 컨텍스트·StallTimer·dangling recovery (handoff 0049 PR-A)              |
-| `src/main/orchestration/`     | 애플리케이션 레벨 턴/세션 조율 seam + concurrency registry (handoff 0049 PR-A)                 |
+| `src/main/ipc/router.ts`      | IPC 라우팅 + zod 검증 + `NormalizedEvent` → DB persist (turn-local 상태)                       |
 | `src/main/adapters/`          | claude 어댑터 — `claude.ts`(query) · `claude-map.ts`(SDK→`NormalizedEvent`) · `claude-adapt.ts`(outbound). opencode 는 future |
 | `src/main/db/`                | better-sqlite3 singleton + WAL + 마이그레이션 러너 + prepared statements                       |
 | `src/main/mcp/`               | 파일-백드 MCP 모델 (`mcp.json` + safeStorage 비밀 + 대칭 변환기 `toClaudeConfig`/`toOpencodeConfig`) |

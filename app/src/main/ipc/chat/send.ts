@@ -37,28 +37,9 @@ import type { ApprovalCoordinator } from './approvals'
 import type { TurnPersistence } from './persist'
 import type { TitleGenerator } from './title-generation'
 import { coerceStoppedToolCompletion, createSubagentSettlementEvents } from './subagent-settlement'
-import type { InflightTurn, TurnRegistry } from '../../lifecycle/turn-context'
-import { OneShotSessionRuntime } from '../../lifecycle/session-runtime'
-import { recoverDanglingToolCalls } from '../../lifecycle/recovery'
+import type { InflightTurn, TurnRegistry } from './turn-registry'
 
-import {
-  createIdleTimer,
-  createStallTimer,
-  IDLE_TIMEOUT_MS,
-  STALL_TIMEOUT_MS,
-  type IdleTimer,
-  type StallTimer
-} from '../../lifecycle/timers'
-
-export {
-  createIdleTimer,
-  createStallTimer,
-  IDLE_TIMEOUT_MS,
-  STALL_TIMEOUT_MS,
-  type IdleTimer,
-  type StallTimer
-}
-
+export const IDLE_TIMEOUT_MS = 120_000
 export const MAX_RETRIES = 2
 export const RETRY_BACKOFF_MS = [1_000, 2_000] as const
 
@@ -69,6 +50,52 @@ export interface ChatDeps {
   persistence: TurnPersistence
   titles: TitleGenerator
   permissionModes: PermissionModeController
+}
+
+export interface IdleTimer {
+  reset: () => void
+  clear: () => void
+  // 승인 카드처럼 "사용자를 기다리는" 구간을 refcount 로 감싼다 — 반환된 release 를 finally 에서
+  // 호출. 첫 진입에서 타이머를 멈추고(이 동안 reset()도 no-op), 마지막 release 에서 재무장한다.
+  // 동시 N건(서브에이전트 병렬 승인)은 마지막 해소 시에만 재개되며, release 는 idempotent.
+  beginPause: () => () => void
+}
+
+export function createIdleTimer(turn: InflightTurn): IdleTimer {
+  let timer: ReturnType<typeof setTimeout> | null = null
+  // 보류 중 승인 수. >0 이면 reset()은 no-op 이라 어떤 이벤트도 타이머를 재무장하지 못한다 —
+  // 동시 서브에이전트의 child 이벤트(subagent.task/child tool.call/델타)도 이벤트 루프에서 매번
+  // idle.reset()을 호출하는데, 이 가드가 없으면 그 reset 이 보류 중 멈춤을 되살려 무력화된다
+  // (단건은 다른 이벤트가 없어 무사, 동시 N건만 파손 — 라운드4 근본원인).
+  let pauseDepth = 0
+  const clear = (): void => {
+    if (timer) clearTimeout(timer)
+    timer = null
+  }
+  const arm = (): void => {
+    clear()
+    timer = setTimeout(() => {
+      turn.timedOut = true
+      turn.controller.abort()
+    }, IDLE_TIMEOUT_MS)
+  }
+  // 이벤트마다 호출되는 정상 경로 — 단, 보류 중(pauseDepth>0)에는 재무장하지 않는다(가드).
+  const reset = (): void => {
+    if (pauseDepth > 0) return
+    arm()
+  }
+  const beginPause = (): (() => void) => {
+    pauseDepth += 1
+    if (pauseDepth === 1) clear()
+    let released = false
+    return () => {
+      if (released) return
+      released = true
+      pauseDepth -= 1
+      if (pauseDepth === 0) arm()
+    }
+  }
+  return { reset, clear, beginPause }
 }
 
 export function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
@@ -251,10 +278,6 @@ export function registerChatHandlers(deps: ChatDeps): void {
         )
       })
       return
-    }
-
-    if (parsed.data.sessionId && !turns.hasSession(parsed.data.sessionId)) {
-      recoverDanglingToolCalls(ctx.db)
     }
 
     const adapter =
@@ -466,8 +489,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
         activeIdle = idle
         try {
           // sendMessage 가 query() 를 즉시 시작하므로 try 안에서 호출 — 동기 throw 도 동일 경로로 분류.
-          const live = new OneShotSessionRuntime(adapter)
-          const runtimeEvents = live.send({
+          const live = adapter.sendMessage({
             sessionId: parsed.data.sessionId,
             text: parsed.data.text,
             cwd: turn.cwd,
@@ -489,7 +511,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
           try {
             turn.live = live
             idle.reset()
-            for await (const rawEv of runtimeEvents) {
+            for await (const rawEv of live.events) {
               const ev =
                 rawEv.type === 'tool.call.completed'
                   ? coerceStoppedToolCompletion(turn.stoppedSubagents, rawEv)

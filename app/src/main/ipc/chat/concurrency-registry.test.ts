@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ConcurrencyRegistry } from './concurrency'
+import { ConcurrencyRegistry } from './concurrency-registry'
 
 describe('ConcurrencyRegistry', () => {
   it('tracks per-project counts and emits changes', () => {

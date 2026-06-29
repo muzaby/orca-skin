@@ -45,7 +45,7 @@ export interface RouterContext {
   // chat send · files list · session cwd 가 공유하는 단일 cwd. 프로젝트 미소속이면
   // projects/default, 소속이면 projects/<이름>-<프로젝트ID8> (DB 에서 이름 조회).
   getCwd(projectId?: string | null): string
-  concurrency: import('../orchestration/concurrency').ConcurrencyRegistry
+  concurrency: import('./chat/concurrency-registry').ConcurrencyRegistry
   debugMock: DebugMockState
   mockAdapter: MockAdapter | null
 }

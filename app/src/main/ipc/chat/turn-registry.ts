@@ -8,21 +8,9 @@
 // electron 비의존(순수 TS) — pending 키를 제네릭으로 두어 vitest 가 임의 객체로 검증한다.
 // 실사용은 W = WebContents.
 
-import type { AttachmentView, Backend } from '../../shared/ipc'
-import type { SessionRuntime } from './session-runtime'
-import type { ResolvedProviderSettings } from '../settings/provider-settings'
-
-export interface TitleCompletionPort {
-  readonly id: Backend
-  complete(req: {
-    prompt: string
-    model?: string
-    cwd?: string
-    signal?: AbortSignal
-    providerSettings?: ResolvedProviderSettings
-    env?: Record<string, string>
-  }): Promise<string>
-}
+import type { AttachmentView } from '../../../shared/ipc'
+import type { LiveTurn, SessionAdapter } from '../../adapters/types'
+import type { ResolvedProviderSettings } from '../../settings/provider-settings'
 
 export interface InflightTurn<W = unknown> {
   controller: AbortController
@@ -31,8 +19,8 @@ export interface InflightTurn<W = unknown> {
   timedOut: boolean
   // 이 턴의 라이브 핸들 (PR③). orca:permission:setMode 가 진행 중 턴이면 여기로 모드를 즉시
   // 전환한다(Query.setPermissionMode). sendMessage 직후 채워진다.
-  live: SessionRuntime | null
-  titleAdapter: TitleCompletionPort
+  live: LiveTurn | null
+  titleAdapter: SessionAdapter
   // 제목 생성 complete 가 본 턴과 같은 provider settings/env 를 쓰도록 보관 (handoff 0014).
   titleSettings?: ResolvedProviderSettings
   titleEnv?: Record<string, string>
@@ -84,7 +72,7 @@ export interface InflightTurn<W = unknown> {
   stoppedSubagents: Set<string>
 }
 
-export class SessionRuntimeRegistry<W = unknown> {
+export class TurnRegistry<W = unknown> {
   private readonly bySession = new Map<string, InflightTurn<W>>()
   private readonly pendingByOwner = new Map<W, InflightTurn<W>>()
 
@@ -142,5 +130,3 @@ export class SessionRuntimeRegistry<W = unknown> {
     return this.bySession.size + this.pendingByOwner.size
   }
 }
-
-export { SessionRuntimeRegistry as TurnRegistry }

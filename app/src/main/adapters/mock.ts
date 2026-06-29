@@ -54,8 +54,7 @@ export class MockAdapter implements SessionAdapter {
       setModel: async () => {},
       // mock 은 시나리오 스크립트가 subagent.task settled(stopped)를 직접 emit 해 중단을 시연한다.
       stopTask: async () => {},
-      backgroundTask: async () => false,
-      close: () => {}
+      backgroundTask: async () => false
     }
   }
 }

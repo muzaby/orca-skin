@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { abortableDelay, createIdleTimer, IDLE_TIMEOUT_MS, RETRY_BACKOFF_MS } from './send'
-import type { InflightTurn } from '../../lifecycle/turn-context'
+import type { InflightTurn } from './turn-registry'
 
 function fakeTurn(): InflightTurn {
   const controller = new AbortController()

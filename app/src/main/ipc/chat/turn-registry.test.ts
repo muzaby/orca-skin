@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { TurnRegistry, type InflightTurn } from './turn-context'
+import { TurnRegistry, type InflightTurn } from './turn-registry'
 
 // 레지스트리는 턴 객체 내부를 들여다보지 않으므로(키잉·동일성만) 최소 형태로 충분하다.
 // owner 가 InflightTurn<W> 의 필드라 TurnRegistry<object> 와 맞물리도록 object 로 파라미터화한다.
