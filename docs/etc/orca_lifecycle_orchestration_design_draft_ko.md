@@ -296,7 +296,7 @@ SessionRuntime (핸들 소유 — 소비 인터페이스 모드-무관)
 | ⑪ | resume 시 dangling tool 마감(failInterruptedTools) | §7 |
 | ⑫ | 자동 재시작 없음 | §7 |
 | ⑬ | 자체 *멀티에이전트* delegate/Kanban/message-bus 비구현 | §8 |
-| ⑭ | 오케스트레이션 스코프 = 세션 간 동시성 + 다중턴/세션 워크플로 하네스(§1.5) | §1.5 §8 |
+| ⑭ | 오케스트레이션 스코프 = **다중턴/세션 워크플로(handoff)만** — *세션 간 동시성*은 §2 자원/프로세스 라이프사이클로 귀속(cap/LRU/idle-close 가 세는 유닛 = SessionRuntime; §A 정제 2026-06-29). 출시 `orchestration/` 코드명은 유지(문서만 정제·분기 메모, 0050) | §1.5 §8 §A |
 | ⑮ | goal/multi-day = session handoff (P1) | §6 |
 | ⑯ | (확장) 본대화 비오염 별도 평가 세션 seam | §6 |
 | ⑰ | 이중 저장 의도적 분리 (jsonl=SDK resume / sqlite=SSOT) | §3 |
@@ -330,6 +330,67 @@ SessionRuntime (핸들 소유 — 소비 인터페이스 모드-무관)
 10. **외부 리뷰(codex) 잔여 P1 항목**: 이벤트 ordering/seq-id + dedupe(신뢰가능 recovery 전제) · backpressure 바운드 버퍼 · 렌더러 재연결(롱러닝 턴이 원 렌더러 생존 비의존 — 현 `onOwnerGone` 은 abort만) · Windows 프로세스-트리 정리 · interrupt 부분결과 마킹 보장 · `/compact` 가 control 채널인지 검증(아니면 "인프라로 위장한 제품 동작") · session handoff provenance/"context vs instruction" 구분.
 
 ---
+
+## A. 용어·2축 정제 (라이브 세션 2026-06-29 — 0050)
+
+> 본 절은 §1~§6 *위에 얹는* 정제다. 발단: "'세션'이 두 가지(Orca 가 관리하는 대화 vs SDK 가 관리하는 실행 컨텍스트)를 뭉쳐 가리킨다" → 용어를 가르면 결정 ⑭ 의 *동시성=오케스트레이션* 분류가 닫힌다. (핸드오프 정본 `docs/handoff/0050-lifecycle-taxonomy-refinement/`.)
+
+### A.1 엔티티 3분리 (포함관계)
+
+`Session` 한 단어가 세 개념을 뭉쳤다. 분리한다(정의는 `GLOSSARY.md` §1 정본):
+
+```
+Orca Session  ── 대화 기록의 진실(DB = 궁극 SSOT). 영속·무자원. CRUD 단위("새 대화").
+  └ SessionRuntime  ── Orca Session 실행용 일시적 핸들. 휘발·유자원(서브프로세스). 상태 SSOT.
+      └ SDK resume context  ── SDK query/resume 외부 binding(jsonl). 손실적·발산 가능. 진실 아님.
+```
+
+- **카디널리티**: Orca Session : SessionRuntime = **1:N**(open→idle-close→reopen). Session : SDK context 는 같은 id 를 공유하나 compaction 으로 *내용*이 발산(결정 ⑰).
+- **진실의 한정**: DB 는 *대화 기록*의 진실이다. *라이브 모델이 조건화하는 컨텍스트*의 진실은 **SDK resume context** 이며 Orca 가 무손실 재현하지 못한다 → resume 실패 시 DB 기반 이어가기는 **reseed/bootstrap(복구 아님)**.
+
+### A.2 결정 ⑭ 교정 — 동시성은 오케스트레이션이 아니다
+
+cap/LRU/idle-close/registry 가 *세는 유닛*은 **SessionRuntime**(자원)이지 Orca Session(무자원 DB 행)이 아니다. 따라서 "세션 간 동시성"은 **§2 리소스/프로세스 라이프사이클**이지 오케스트레이션이 아니다. §2(결정 ①②)와 §3 element3·결정 ⑭ 가 같은 레지스트리를 *이중 청구*하던 봉합선을 닫는다.
+
+- **오케스트레이션에 남는 것** = "Orca Session 을 가로질러 *인과적으로 엮기*" = **handoff** 뿐(워크플로 하네스 §1.5). 자원/프로세스로 환원 안 되는 유일 층.
+- 판별식: **없으면 *리소스가 샌다* → 라이프사이클 / 없으면 *작업이 안 엮인다* → 오케스트레이션.**
+- **코드명 분기(0050 결정 2)**: 출시된 `app/src/main/orchestration/concurrency.ts` 모듈명은 *유지*하고 문서만 정제한다(코드 리네임은 별도 핸드오프). 즉 "코드 모듈 `orchestration/` ⊃ concurrency" 는 개념상 라이프사이클 자원관리다 — 이름과 개념의 분기를 본 절이 명시한다.
+
+### A.3 두 축 모델 — 세로(소유/라이프사이클) + 가로(턴 파이프라인)
+
+§1~§5 는 *세로축*(누가 무엇을 소유)만 그렸다. 실제 가장 빈번한 경로는 *가로축*(턴 실행)이고, 이를 구동하는 **TurnCoordinator**(현 `InflightTurn`/`send.ts`)가 1급으로 빠져 있었다.
+
+**세로축(유닛)**: App Lifecycle(앱) · Session/Event Store(Orca Session) · Runtime **Supervisor**/Registry(SessionRuntime 집합: cap/LRU/busy 보호) · **TurnCoordinator**(턴) · SessionRuntime(단일 실행·상태 SSOT·timers·admission) · SDK Adapter(정규화·canUseTool bridge) · SDK(loop/tool/subagent/compaction, 위임).
+
+**가로축(파이프라인)** — 선형 사슬이 아니라 stream→reduce→2 sink + 권한 재진입:
+
+```
+입력 →admission →acquire →SessionRuntime.send →Adapter.query ─(SDK)─▶ event stream
+   → normalize(Adapter) → reduce(TurnCoordinator: 델타 누적, settled parts만 commit)
+        ├─▶ persist (Store, main-side · renderer 생존 무관)
+        └─▶ forward (renderer, best-effort fan-out)
+   ⟲ 권한: SDK canUseTool ──콜백 위로──▶ TurnCoordinator/PermissionBridge → renderer 승인 → 복귀
+            (파이프라인 "단계"가 아니라 query 를 멈춰 세우는 재진입 IoC)
+   terminal(result→telemetry): busy→idle 전이 + close 정책 트리거
+```
+
+교정점: ① **TurnCoordinator 1급화**(양축). ② **권한 = 재진입 콜백**(단계 아님). ③ **persist ∥ forward = 병렬 독립 sink**(순차 아님), **persist 는 renderer 비의존**. ④ "EventStore append" 과장 주의 — 델타는 비영속, **settled parts 만 commit**(리듀서 = Coordinator). ⑤ **dangling tool 마감은 P0(이미 구현, `{reason:'aborted'}`)**.
+
+### A.4 Conversation Continuity / Knowledge Curation (Future 서비스 층)
+
+handoff·fork·DB reseed·대화 종료/archive 시 평가·요약 → **Orca 전용 knowledge artifact / KB entry**(특정 `memory.md` 파일 아님; SDK 로 생성하되 SDK context/SDK memory file 갱신 아님). 불변식:
+
+- **Runtime close ≠ Conversation close** — IdleClose/LRU 가 핸들을 닫아도 대화는 안 끝난다. knowledge export 는 *conversation close/archive hook*(자원 close 아님).
+- **1 Orca Session : ≤1 user-facing SessionRuntime.** 평가·요약은 원 세션 visible runtime 을 오염시키지 않고 **별도 internal evaluation session**(ownerless system runtime, `runCompletion` 류 — 결정 ⑯ 별도 평가 세션)에서 실행. 이 평가 런타임의 **cap 회계 포함 여부는 P1 경계 결정**(Future 기능이나 P1 Supervisor 에 영향).
+- 구조적 위치 = 수동 storage 층이 아니라 **Store + Runtime 위 서비스/정책 층**(실행을 요구).
+
+### A.5 Staging (P0 출시분 / P1 / Future)
+
+| 단계 | 항목 |
+|---|---|
+| **P0 (0049 출시)** | 3엔티티 개념 분리 · OneShot SessionRuntime · 상태 SSOT · StallTimer 분리 · **dangling 마감(DB-only)** · PermissionBridge/canUseTool(승인 = P0 의 제약된 mid-turn 입력 채널) |
+| **P1** | TurnCoordinator 1급화 · Persistent runtime · steer/queue admission(일반 mid-turn 입력) · IdleCloseTimer 구현 · Supervisor cap/LRU · idempotent close 단일 경로(self-idle vs LRU eviction 합류) |
+| **Future** | handoff/fork · DB-based reseed · internal evaluation session 기반 평가·요약 · knowledge artifact/KB entry · lineage 영속화 |
 
 ## 7. 부록 — 용어
 
