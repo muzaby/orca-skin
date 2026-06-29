@@ -18,6 +18,11 @@
 | `PHASES.md` | **구현 페이즈 이력** — Phase 1 ~ 3++ 로드맵 표(범위·상태·PR/커밋) + Future Scope. `app/AGENTS.md` 에서 분리한 changelog 성격 문서. 완료 이력의 정본은 `git log`. | 과거에 무엇이 어떤 PR 로 들어왔는지 / 다음 Future Scope 가 무엇인지 확인할 때. |
 | `git-template.md` | **커밋 trailer 가이드** — Claude↔Codex 가 커밋 trailer(`Key: value`)로 통신하기 위한 필드 표·에이전트별 작성 규칙·예시·파싱 명령. 규칙 요약은 root `AGENTS.md` "커밋 프로토콜". | 커밋 메시지에 trailer 를 작성하거나 trailer 를 파싱해 협업 상태를 읽을 때. |
 | `etc/llm-chat-desktop-strategy.md` | Claude Code / opencode CLI 를 백엔드로 쓰는 Electron 채팅 데스크톱앱 설계 — Orca 엔진의 *전략적 근거 / 결정 출처* (TRD 가 이 문서를 소화한 결과) | TRD 의 결정 배경을 거슬러 확인하거나, TRD 가 다루지 않는 회색 지대 (예: 추가 백엔드, 대안 라이브러리) 를 검토할 때 |
+| `etc/orca_lifecycle_orchestration_design_draft_ko.md` | **라이프사이클·오케스트레이션 재설계 설계서** — 하네스 소유 스펙트럼(SDK=턴 하네스 / Orca=워크플로 하네스), SessionRuntime 단일 신규 구조물, 20개 결정 + **엔지니어링 리뷰(2026-06-28) 8건 반영**(`[리뷰 N]`). 핸드오프 `0049` 의 설계 정본. | 라이프사이클/오케스트레이션 구조를 재설계·구현할 때 가장 먼저 읽는 정본. `0049/plan.md` 의 1차 출처. |
+| `etc/lifecycle_management_ko.md` | **라이프사이클 일반론(기준자)** — LLM 채팅앱 8계층 모델(애플리케이션→리소스→세션→루프→도구/권한→상태/메모리→관측성→서브에이전트). 재설계의 yardstick. | 재설계 결정을 일반론 계층에 비추어 검증할 때. |
+| `etc/orchestration_report_ko.md` | **오케스트레이션 일반론(기준자)** — 7요소(리드/하네스·메시지버스·동시성·subagent격리·deliberation·메모리/handoff·권한/샌드박스) + OpenCode/Codex/Claude Code 대조. | 오케스트레이션 스코프(무엇을 만들고 무엇을 위임/연기)를 가를 때. |
+| `etc/study/opencode/` | **OpenCode real-world 분석 2편** — 라이프사이클(이벤트소싱 durable 런타임·run-coordinator) + 오케스트레이션(steer/queue admission·seq fencing). `file:line` 근거. | "남들은 하네스를 어떻게 직접 지었나"를 참조해 Orca 경량판을 가늠할 때. |
+| `etc/study/hermes-agent/` | **Hermes-agent real-world 분석 2편** — 라이프사이클(동기 루프+IterationBudget·ProcessRegistry) + 오케스트레이션(delegate_task·Kanban·ACP 멀티에이전트). | 멀티에이전트/예산/터미널백엔드 등 Orca 가 *비채택* 한 기능의 근거를 확인할 때. |
 | `etc/lightweight-llm-strategy.md` | 로컬 4B LLM 기반 이미지 센서 QA 시스템 설계 (Case 1: 로컬 전용 / Case 2: 외부 LLM 가능) | Skill 라우팅, JSON 단계 통신, self-consistency 등 4B 운영 패턴을 구현할 때 |
 | `claude-code-spec.md` | **`spec/claude/` 라우터** — Claude Code CLI/SDK *원문 미러* 로 가는 얇은 인덱스. 구 해설 미러의 Orca 합성분(권한 플래그↔`canUseTool`/`permissionMode` 매핑·SDK 채택 표)은 `arch/backend/provider-runtime.md`·`adapters.md` 로 이관됨. | Claude Code 원문(headless/cli-reference/agent-sdk)을 찾을 때. |
 | `spec/claude/` | **외부 공식 문서의 원문 한국어 미러** — `headless.md`, `cli-reference.md`. *편집 금지*, 통째로 덮어쓰기로만 갱신. `claude-code-spec.md` 가 인용·해설하는 *원본* | 원문이 무엇을 말하는지 *원형 그대로* 확인할 때. 디렉토리 정책은 `spec/AGENTS.md` 참조 |

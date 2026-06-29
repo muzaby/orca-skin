@@ -4,6 +4,8 @@
 > 최종 업데이트: 2026-06-04 (BACKEND_ARCHITECTURE.md 분해 — docs/ARCHITECTURE.md 인덱스 참조)
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [standardization.md](./standardization.md) (배포 계층 표준화 — *짝 문서*), [adapters.md](./adapters.md), [persistence.md](./persistence.md), [../frontend/rendering.md](../frontend/rendering.md), [../frontend/ux-domains.md](../frontend/ux-domains.md)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
+>
+> **가로축 구동체 (TurnCoordinator, 2026-06-29 정제 0051):** 본 문서의 `NormalizedEvent`·`PermissionBridge` 가 흐르는 *턴 실행 파이프라인*(stream → reduce → **persist ∥ forward** + 권한 재진입 콜백)을 구동하는 1급 컴포넌트는 **TurnCoordinator**(현 `InflightTurn`/`ipc/chat/send.ts`)다. 원칙: **DB 영속(persist)은 main-side·renderer 생존 무관**, renderer forwarding 은 별도 best-effort fan-out, 권한은 단계가 아니라 `canUseTool` 재진입 콜백이다. 개념 정본은 `etc/orca_lifecycle_orchestration_design_draft_ko.md` §A(용어 3분리 + 2축 모델).
 
 > **상태**: 📐 *설계 확정 · 구현 대기*. 본 절은 **인터페이스/설계만** 정의하며 현재 코드 동작을 바꾸지 않는다 (코드 변경 0). 여기 정의한 타입은 **정본(SSOT)** 이며, ../frontend/ 의 렌더링·UX 문서(rendering.md·ux-domains.md)은 이 타입들을 *참조만* 한다(중복 정의 금지).
 >
