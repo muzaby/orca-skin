@@ -1,15 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { TurnRegistry, type InflightTurn } from './turn-registry'
+import { SessionRuntimeRegistry } from './session-registry'
+import type { InflightTurn } from './turn-context'
 
-// 레지스트리는 턴 객체 내부를 들여다보지 않으므로(키잉·동일성만) 최소 형태로 충분하다.
-// owner 가 InflightTurn<W> 의 필드라 TurnRegistry<object> 와 맞물리도록 object 로 파라미터화한다.
 function fakeTurn(): InflightTurn<object> {
   return { controller: new AbortController(), owner: {} } as unknown as InflightTurn<object>
 }
 
-describe('TurnRegistry', () => {
+describe('SessionRuntimeRegistry', () => {
   it('resume 턴은 sessionId 로 키잉되고 finish 로 정리된다', () => {
-    const reg = new TurnRegistry<object>()
+    const reg = new SessionRuntimeRegistry<object>()
     const turn = fakeTurn()
     reg.startResume('s1', turn)
     expect(reg.hasSession('s1')).toBe(true)
@@ -20,7 +19,7 @@ describe('TurnRegistry', () => {
   })
 
   it('새-채팅 턴은 owner 슬롯에 보관되고 promote 로 sessionId 키로 승격된다', () => {
-    const reg = new TurnRegistry<object>()
+    const reg = new SessionRuntimeRegistry<object>()
     const owner = {}
     const turn = fakeTurn()
     reg.startNew(owner, turn)
@@ -34,7 +33,7 @@ describe('TurnRegistry', () => {
   })
 
   it('promote 는 pending 이 없으면 무해한 no-op (resume 턴의 session.updated)', () => {
-    const reg = new TurnRegistry<object>()
+    const reg = new SessionRuntimeRegistry<object>()
     const turn = fakeTurn()
     reg.startResume('s1', turn)
     reg.promote(turn, 's1')
@@ -43,7 +42,7 @@ describe('TurnRegistry', () => {
   })
 
   it('resume session.updated 는 같은 owner 의 새-채팅 pending 턴을 오승격하지 않는다', () => {
-    const reg = new TurnRegistry<object>()
+    const reg = new SessionRuntimeRegistry<object>()
     const owner = {}
     const pending = fakeTurn()
     pending.owner = owner
@@ -64,7 +63,7 @@ describe('TurnRegistry', () => {
   })
 
   it('서로 다른 세션의 동시 턴을 허용한다', () => {
-    const reg = new TurnRegistry<object>()
+    const reg = new SessionRuntimeRegistry<object>()
     const a = fakeTurn()
     const b = fakeTurn()
     reg.startResume('s1', a)
@@ -79,14 +78,13 @@ describe('TurnRegistry', () => {
   })
 
   it('같은 세션 중복은 hasSession 으로 가드 가능하다 (send 가드 시나리오)', () => {
-    const reg = new TurnRegistry<object>()
+    const reg = new SessionRuntimeRegistry<object>()
     reg.startResume('s1', fakeTurn())
     expect(reg.hasSession('s1')).toBe(true)
-    // 호출자(send)는 true 면 거부한다 — 레지스트리는 덮어쓰지 않을 책임이 호출자에 있음을 보장만.
   })
 
   it('all() 은 세션 키 + pending owner 양쪽의 진행 턴을 모두 반환한다 (shutdown 순회)', () => {
-    const reg = new TurnRegistry<object>()
+    const reg = new SessionRuntimeRegistry<object>()
     const a = fakeTurn()
     const b = fakeTurn()
     const pending = fakeTurn()
@@ -104,12 +102,17 @@ describe('TurnRegistry', () => {
   })
 
   it('승격 전 실패한 pending 턴도 finish 가 값 동일성으로 정리한다', () => {
-    const reg = new TurnRegistry<object>()
+    const reg = new SessionRuntimeRegistry<object>()
     const owner = {}
     const turn = fakeTurn()
     reg.startNew(owner, turn)
     reg.finish(turn)
     expect(reg.hasPending(owner)).toBe(false)
     expect(reg.size).toBe(0)
+  })
+
+  it('P0 에서 idle eviction hook 은 예약만 하고 no-op 이다', () => {
+    const reg = new SessionRuntimeRegistry<object>(1)
+    expect(reg.evictIdle()).toEqual([])
   })
 })

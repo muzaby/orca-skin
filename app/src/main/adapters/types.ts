@@ -16,6 +16,8 @@ export type { Backend, NormalizedEvent }
 // no-op 구현을 돌려줄 수 있다(다음-턴 모드로 폴백).
 export interface LiveTurn {
   events: AsyncIterable<NormalizedEvent>
+  // 멱등 cleanup 계약 — terminal 관측, consumer 조기 종료, abort path 에서 모두 안전해야 한다.
+  close(): void
   setPermissionMode(mode: ClaudePermissionMode): Promise<void>
   interrupt(): Promise<void>
   setModel(model?: string): Promise<void>

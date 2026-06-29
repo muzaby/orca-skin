@@ -327,12 +327,12 @@ export class ClaudeAdapter implements SessionAdapter {
       }
     })
 
+    const close = (): void => input.close()
+
     async function* events(): AsyncIterable<NormalizedEvent> {
       try {
         for await (const msg of handle) {
           yield* claudeToNormalized(msg, ctx)
-          // 턴 종료 신호 — result 도착 시 입력 스트림을 닫아 서브프로세스가 종료되게 한다.
-          if (msg.type === 'result') input.close()
         }
       } catch (err) {
         // 의도적 중단(턴 취소 / 계획 거부)은 에러가 아니므로 error 이벤트를 내지 않는다
@@ -346,13 +346,14 @@ export class ClaudeAdapter implements SessionAdapter {
         }
       } finally {
         // 어떤 경로로 끝나든 입력 스트림을 닫아(멱등) 핸들/서브프로세스 누수를 막는다.
-        input.close()
+        close()
         signal?.removeEventListener('abort', onAbort)
       }
     }
 
     return {
       events: events(),
+      close,
       // 라이브 control — 스트리밍 입력 모드라야 동작하는 SDK Query 메서드에 위임.
       setPermissionMode: (mode) => handle.setPermissionMode(mode),
       interrupt: () => handle.interrupt(),

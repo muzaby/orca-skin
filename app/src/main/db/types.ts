@@ -164,6 +164,12 @@ export interface MessagePartInsert {
 
 // loadParts 의 한 행 — message_parts 를 messages 와 조인해 메시지 메타(role/순서)를 함께 싣는다.
 // message_idx(메시지 순서) → part_idx(파트 순서)로 정렬해 세션 전체 파트를 재구성한다.
+export interface DanglingToolCallRow {
+  session_id: string
+  message_id: number
+  tool_run_id: string
+}
+
 export interface LoadedPartRow {
   message_id: number
   role: MessageRole

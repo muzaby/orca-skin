@@ -1,5 +1,6 @@
 import type Database from 'better-sqlite3'
 import type {
+  DanglingToolCallRow,
   LoadedPartRow,
   MessageInsert,
   MessagePartInsert,
@@ -29,6 +30,9 @@ export class DbQueries {
   private readonly markMessageCompleteStmt: Database.Statement
   private readonly appendPartStmt: Database.Statement
   private readonly updateToolResultPartStmt: Database.Statement
+  private readonly updateToolResultPartScopedStmt: Database.Statement
+  private readonly findDanglingToolCallsStmt: Database.Statement
+  private readonly findDanglingToolCallsBySessionStmt: Database.Statement
   private readonly updateSessionPreviewStmt: Database.Statement
   private readonly updateSessionProviderKeyStmt: Database.Statement
   private readonly updateSessionTitleStmt: Database.Statement
@@ -122,6 +126,38 @@ export class DbQueries {
       UPDATE message_parts
       SET payload_json = @payloadJson
       WHERE tool_run_id = @toolRunId AND type = 'tool_result'
+    `)
+    this.updateToolResultPartScopedStmt = db.prepare(`
+      UPDATE message_parts
+      SET payload_json = @payloadJson
+      WHERE message_id = @messageId AND tool_run_id = @toolRunId AND type = 'tool_result'
+    `)
+    const danglingToolCallsSql = `
+      SELECT DISTINCT
+        m.session_id AS session_id,
+        m.id AS message_id,
+        tc.tool_run_id AS tool_run_id
+      FROM messages m
+      JOIN message_parts tc ON tc.message_id = m.id
+      WHERE m.role = 'assistant'
+        AND m.complete = 0
+        AND tc.type = 'tool_call'
+        AND tc.tool_run_id IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1
+          FROM message_parts tr
+          WHERE tr.message_id = m.id
+            AND tr.type = 'tool_result'
+            AND tr.tool_run_id = tc.tool_run_id
+        )
+    `
+    this.findDanglingToolCallsStmt = db.prepare(
+      `${danglingToolCallsSql} ORDER BY m.id ASC, tc.idx ASC`
+    )
+    this.findDanglingToolCallsBySessionStmt = db.prepare(`
+      ${danglingToolCallsSql}
+        AND m.session_id = @sessionId
+      ORDER BY m.id ASC, tc.idx ASC
     `)
     this.updateSessionPreviewStmt = db.prepare(`
       UPDATE sessions
@@ -290,6 +326,20 @@ export class DbQueries {
     if (info.changes === 0) {
       this.appendPart({ messageId, type: 'tool_result', toolRunId, payloadJson })
     }
+  }
+
+  upsertToolResultPartScoped(messageId: number, toolRunId: string, payloadJson: string): void {
+    const info = this.updateToolResultPartScopedStmt.run({ messageId, toolRunId, payloadJson })
+    if (info.changes === 0) {
+      this.appendPart({ messageId, type: 'tool_result', toolRunId, payloadJson })
+    }
+  }
+
+  findDanglingToolCalls(sessionId?: string): DanglingToolCallRow[] {
+    const stmt = sessionId
+      ? this.findDanglingToolCallsBySessionStmt
+      : this.findDanglingToolCallsStmt
+    return stmt.all(sessionId ? { sessionId } : {}) as DanglingToolCallRow[]
   }
 
   updateSessionPreview(id: string, preview: string, updatedAt: number): void {

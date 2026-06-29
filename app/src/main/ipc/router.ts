@@ -38,7 +38,8 @@ import { TurnRegistry } from './chat/turn-registry'
 import { ApprovalCoordinator } from './chat/approvals'
 import { TurnPersistence } from './chat/persist'
 import { TitleGenerator } from './chat/title-generation'
-import { ConcurrencyRegistry } from './chat/concurrency-registry'
+import { ConcurrencyRegistry } from '../orchestration/concurrency'
+import { recoverDanglingToolCalls } from '../lifecycle/recovery'
 import { broadcastConcurrency } from './context'
 
 export class IpcRouter {
@@ -119,6 +120,10 @@ export class IpcRouter {
 
   async start(): Promise<void> {
     const db = initDb()
+    const recovered = recoverDanglingToolCalls(db)
+    if (recovered.toolResultsWritten > 0 && is.dev) {
+      console.log('[recovery] dangling tools settled:', recovered)
+    }
     // 비용 요약 IPC 송출 배선 — domain(CostTracker)은 electron 비의존, 송출은 여기(컴포지션 루트)서.
     const cost = new CostTracker(db, (summary) => {
       for (const wc of webContents.getAllWebContents()) {
