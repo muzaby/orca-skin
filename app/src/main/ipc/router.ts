@@ -204,6 +204,8 @@ export class IpcRouter {
       }
       turn.controller.abort()
     }
+    // idle 로 보존된 Persistent 핸들(진행 턴 아님) 일괄 close(0054). 게이트 OFF 면 풀이 비어 no-op.
+    this.supervisor.closeIdleRuntimes()
   }
 
   private register(ctx: RouterContext): void {

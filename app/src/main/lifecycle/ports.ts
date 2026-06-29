@@ -1,6 +1,7 @@
 import type { Backend, ClassifiedError, NormalizedEvent } from '../../shared/ipc'
 import type { ClaudePermissionMode } from '../../shared/permission-mode'
 import type { TurnRequest } from '../extensions/types'
+import type { SessionRuntimeState } from './session-state'
 
 // L1 lifecycle 포트. lifecycle 은 L2 adapters 를 import 하지 않고, 구조적으로 호환되는
 // turn-local live/title adapter surface 만 기록한다.
@@ -34,4 +35,13 @@ export interface RuntimeTitleAdapter {
 export interface RuntimeSessionAdapter extends RuntimeTitleAdapter {
   sendMessage(req: TurnRequest): RuntimeLiveTurn
   classifyError(error: unknown, phase: string): ClassifiedError
+}
+
+// Supervisor/RuntimePool 이 관리하는 SessionRuntime 표면 — 실행 핸들(RuntimeLiveTurn) 위에
+// 라이프사이클 거버넌스에 필요한 최소만 더한다: 현재 상태(보존 가능 판정용)와 close 정책(reusable).
+// SessionRuntime(session-runtime.ts)이 구조적으로 만족한다(0054).
+export interface ManagedRuntime extends RuntimeLiveTurn {
+  readonly state: SessionRuntimeState
+  readonly reusable: boolean
+  close(): void
 }

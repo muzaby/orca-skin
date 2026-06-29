@@ -32,7 +32,7 @@ import { handle, handlePlain } from '../registry'
 import type { ApprovalCoordinator } from './approvals'
 import type { TurnPersistence } from './persist'
 import type { TitleGenerator } from './title-generation'
-import { OneShotSessionRuntime } from '../../lifecycle/session-runtime'
+import { SessionRuntime } from '../../lifecycle/session-runtime'
 import type { RuntimeSessionAdapter } from '../../lifecycle/ports'
 import { STALL_TIMEOUT_MS } from '../../lifecycle/timers'
 import { recoverDanglingToolCalls } from '../../lifecycle/recovery'
@@ -139,6 +139,12 @@ export function registerChatHandlers(deps: ChatDeps): void {
   // 서브에이전트 백그라운드화 게이트(가이드 — run_in_background 주입). 종료 정착은
   // task_notification/사용자 중단 공통 경로에서 foreground/background 모두 처리한다.
   const backgroundSubagents = process.env.ORCA_SUBAGENT_BACKGROUND === '1'
+
+  // Persistent runtime 게이트(0054, decision ⑳) — 기본 OneShot 유지. ON 이면 같은 세션의 런타임
+  // 핸들이 턴을 넘어 idle 로 살아남아 재사용되고 IdleCloseTimer 로 회수된다(소유=Supervisor/RuntimePool).
+  // 출시 기본은 OneShot 이므로 게이트 OFF 에서 동작·이벤트·DB·UX 무변경.
+  const runtimeMode: 'oneshot' | 'persistent' =
+    process.env.ORCA_PERSISTENT_RUNTIME === '1' ? 'persistent' : 'oneshot'
 
   const handleChatSend = async (event: IpcMainInvokeEvent, raw: unknown): Promise<void> => {
     const parsed = SendChatMessageSchema.safeParse(raw)
@@ -284,7 +290,12 @@ export function registerChatHandlers(deps: ChatDeps): void {
       parsed.data.sessionId ? null : parsed.data.projectId
     )
 
-    const runtime = new OneShotSessionRuntime(adapter)
+    // Persistent 면 세션 키의 idle 핸들을 재사용, 아니면 fresh(OneShot 또는 신규 세션 first turn).
+    // 재사용 시 IdleCloseTimer 는 풀에서 take 시점에 정지된다. 반납은 finally 의 releaseRuntime.
+    const runtime = supervisor.acquireRuntime(
+      parsed.data.sessionId,
+      () => new SessionRuntime(adapter, runtimeMode)
+    )
     const wc = event.sender
     // 렌더러(owner) 소멸 시 진행 턴 정리 — idle "완전 멈춤"으로 잃는 자가치유(무응답 abort)를
     // 타이머가 아닌 이벤트로 대체한다(사람 판단엔 시간 제한 두지 않음 유지). 바깥 finally 에서 해제.
@@ -413,7 +424,10 @@ export function registerChatHandlers(deps: ChatDeps): void {
     } finally {
       wc.removeListener('destroyed', onOwnerGone)
       wc.removeListener('render-process-gone', onOwnerGone)
+      // turn 핸들 teardown(레지스트리 제거)과 runtime 수명은 분리한다 — Persistent 핸들은 정상
+      // 종료 시 turn.dbSessionId 키로 idle 보존되고, 그 외(에러·중단·OneShot)는 즉시 close.
       supervisor.release(turn)
+      supervisor.releaseRuntime(turn.dbSessionId, runtime)
     }
   }
 

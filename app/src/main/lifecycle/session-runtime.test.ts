@@ -4,7 +4,7 @@ import { makeClassifiedError } from '../runtime-errors/classifier'
 import type { TurnRequest } from '../extensions/types'
 import type { AbortCause } from './session-state'
 import type { RuntimeLiveTurn, RuntimeSessionAdapter } from './ports'
-import { OneShotSessionRuntime } from './session-runtime'
+import { OneShotSessionRuntime, SessionRuntime } from './session-runtime'
 
 function req(): TurnRequest {
   return {
@@ -72,6 +72,31 @@ describe('OneShotSessionRuntime', () => {
     await collect(runtime.send(req()))
     expect(calls).toBe(2)
     expect(runtime.state).toBe('live')
+  })
+})
+
+describe('SessionRuntime close 정책(0054)', () => {
+  it('기본 정책은 oneshot — reusable=false (OneShot alias 와 동일)', () => {
+    const oneshot = new SessionRuntime(adapter(live([])))
+    expect(oneshot.reusable).toBe(false)
+    expect(OneShotSessionRuntime).toBe(SessionRuntime)
+    expect(new OneShotSessionRuntime(adapter(live([]))).reusable).toBe(false)
+  })
+
+  it("persistent 정책은 reusable=true — terminal 후 state='live' 유지로 재사용 가능", async () => {
+    const runtime = new SessionRuntime(
+      adapter(live([{ type: 'telemetry', sessionId: 's1' }])),
+      'persistent'
+    )
+    expect(runtime.reusable).toBe(true)
+    await collect(runtime.send(req()))
+    expect(runtime.state).toBe('live')
+  })
+
+  it('close() 는 정책과 무관하게 상태를 closed 로 만든다', () => {
+    const runtime = new SessionRuntime(adapter(live([])), 'persistent')
+    runtime.close()
+    expect(runtime.state).toBe('closed')
   })
 })
 
