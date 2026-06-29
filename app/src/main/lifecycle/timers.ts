@@ -1,4 +1,5 @@
 import type { TurnContext } from './turn-context'
+import { abortTurn } from './supervisor'
 
 export const STALL_TIMEOUT_MS = 120_000
 
@@ -17,10 +18,7 @@ export function createStallTimer(turn: Pick<TurnContext, 'live' | 'controller'>)
   }
   const arm = (): void => {
     clear()
-    timer = setTimeout(() => {
-      turn.live?.markAborted?.('stall')
-      turn.controller.abort()
-    }, STALL_TIMEOUT_MS)
+    timer = setTimeout(() => abortTurn(turn, 'stall'), STALL_TIMEOUT_MS)
   }
   const reset = (): void => {
     if (pauseDepth > 0) return
