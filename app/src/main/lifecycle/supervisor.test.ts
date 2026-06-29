@@ -2,10 +2,27 @@ import { describe, expect, it, vi } from 'vitest'
 import { RuntimeSupervisor, abortTurn } from './supervisor'
 import { SessionRuntimeRegistry } from './session-registry'
 import type { InflightTurn } from './turn-context'
-import type { RuntimeLiveTurn } from './ports'
+import type { ManagedRuntime, RuntimeLiveTurn } from './ports'
+import type { SessionRuntimeState } from './session-state'
 
 function fakeTurn(live: RuntimeLiveTurn | null = null): InflightTurn<object> {
   return { controller: new AbortController(), owner: {}, live } as unknown as InflightTurn<object>
+}
+
+function fakeManaged(
+  state: SessionRuntimeState = 'live',
+  reusable = true
+): ManagedRuntime & { closed: number } {
+  const rt = {
+    closed: 0,
+    state,
+    reusable,
+    close(): void {
+      rt.closed += 1
+      rt.state = 'closed'
+    }
+  }
+  return rt as unknown as ManagedRuntime & { closed: number }
 }
 
 describe('abortTurn (단일 abort 프리미티브)', () => {
@@ -92,5 +109,64 @@ describe('RuntimeSupervisor', () => {
     const turn = fakeTurn()
     supervisor.startResume('s1', turn)
     expect(supervisor.size).toBe(1)
+  })
+})
+
+describe('RuntimeSupervisor 런타임 거버넌스(0054)', () => {
+  it('정상 종료한 reusable 핸들은 idle 보존되고 같은 세션 acquire 가 재사용한다', () => {
+    const supervisor = new RuntimeSupervisor<object>()
+    const rt = fakeManaged('live', true)
+    supervisor.releaseRuntime('s1', rt)
+    expect(rt.closed).toBe(0)
+
+    const sentinel = fakeManaged()
+    const got = supervisor.acquireRuntime('s1', () => sentinel)
+    expect(got).toBe(rt)
+    expect(got).not.toBe(sentinel)
+  })
+
+  it('풀에 없으면 acquireRuntime 은 factory 로 새 핸들을 만든다', () => {
+    const supervisor = new RuntimeSupervisor<object>()
+    const made = fakeManaged()
+    expect(supervisor.acquireRuntime('sX', () => made)).toBe(made)
+    expect(supervisor.acquireRuntime(null, () => made)).toBe(made)
+  })
+
+  it('비-reusable(OneShot) 핸들은 releaseRuntime 이 즉시 close 하고 재사용하지 않는다', () => {
+    const supervisor = new RuntimeSupervisor<object>()
+    const oneShot = fakeManaged('live', false)
+    supervisor.releaseRuntime('s2', oneShot)
+    expect(oneShot.closed).toBe(1)
+
+    const fresh = fakeManaged()
+    expect(supervisor.acquireRuntime('s2', () => fresh)).toBe(fresh)
+  })
+
+  it('비정상 종료(state!==live)한 reusable 핸들도 보존하지 않고 close 한다', () => {
+    const supervisor = new RuntimeSupervisor<object>()
+    const errored = fakeManaged('error', true)
+    supervisor.releaseRuntime('s3', errored)
+    expect(errored.closed).toBe(1)
+    const fresh = fakeManaged()
+    expect(supervisor.acquireRuntime('s3', () => fresh)).toBe(fresh)
+  })
+
+  it('sessionId 가 null 이면 reusable 라도 보존 못 하고 close', () => {
+    const supervisor = new RuntimeSupervisor<object>()
+    const rt = fakeManaged('live', true)
+    supervisor.releaseRuntime(null, rt)
+    expect(rt.closed).toBe(1)
+  })
+
+  it('closeIdleRuntimes 는 보존된 idle 핸들을 일괄 close 한다', () => {
+    const supervisor = new RuntimeSupervisor<object>()
+    const a = fakeManaged('live', true)
+    const b = fakeManaged('live', true)
+    supervisor.releaseRuntime('a', a)
+    supervisor.releaseRuntime('b', b)
+    supervisor.closeIdleRuntimes()
+    expect(a.closed).toBe(1)
+    expect(b.closed).toBe(1)
+    expect(supervisor.acquireRuntime('a', () => a)).toBe(a) // 풀 비었으므로 factory 반환
   })
 })
