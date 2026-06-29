@@ -41,7 +41,7 @@ export function SkillUploadModal({
         }}
         onDragLeave={() => setDragging(false)}
         onDrop={onDrop}
-        className={`grid w-full cursor-pointer place-items-center gap-2.5 rounded-r5 border border-dashed px-4 py-10 text-center transition-colors ${dragging ? 'border-rust bg-rust-soft/40' : 'border-border-strong bg-bg hover:bg-cream-50'}`}
+        className={`grid w-full cursor-pointer place-items-center gap-2.5 rounded-r5 border border-dashed px-4 py-10 text-center transition-colors ${dragging ? 'border-rust bg-rust-soft/40' : 'border-border-strong bg-bg hover:bg-bg2'}`}
       >
         <span className="grid h-9 w-9 place-items-center rounded-r4 border border-border bg-panel text-ink3">
           <Icon name="upload" size={16} />
@@ -59,7 +59,7 @@ export function SkillUploadModal({
           e.target.value = ''
         }}
       />
-      {error && <div className="mt-2 text-[12px] text-rust">{error}</div>}
+      {error && <div className="mt-2 text-[12px] text-bad">{error}</div>}
       <div className="mt-4">
         <div className="mb-1.5 text-[12px] font-medium text-ink2">파일 요구사항</div>
         <ul className="list-disc space-y-1 pl-4 text-[12px] text-ink3">

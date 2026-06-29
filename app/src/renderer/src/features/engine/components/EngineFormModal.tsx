@@ -25,7 +25,7 @@ const HATCH =
 
 const CARD_BASE = 'rounded-xl border px-4 py-3 text-left transition-colors'
 const CARD_IDLE = 'border-border bg-panel hover:border-border-strong hover:bg-sidebar'
-const CARD_SEL = 'border-rust bg-rust-soft'
+const CARD_SEL = 'border-border-strong bg-t3'
 
 export function EngineFormModal({
   mode,
@@ -145,7 +145,7 @@ export function EngineFormModal({
               type="button"
               disabled={!canSubmit}
               onClick={() => void submit()}
-              className="rounded-lg bg-rust px-4 py-2 text-[13px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-45"
+              className="rounded-lg bg-ink px-4 py-2 text-[13px] font-semibold text-bg disabled:cursor-not-allowed disabled:opacity-45"
             >
               {busy ? (editing ? '저장 중…' : '추가 중…') : editing ? '저장' : '추가하기'}
             </button>
@@ -171,11 +171,7 @@ function Stepper({ step }: { step: Step }): React.JSX.Element {
           <div key={n} className="flex flex-1 items-center gap-1.5">
             <span
               className={`grid h-5 w-5 place-items-center rounded-full text-[11px] font-semibold ${
-                active
-                  ? 'bg-rust text-white'
-                  : done
-                    ? 'bg-rust-soft text-rust'
-                    : 'bg-sidebar text-ink3'
+                active ? 'bg-ink text-bg' : done ? 'bg-t3 text-t8' : 'bg-sidebar text-ink3'
               }`}
             >
               {n}
@@ -184,7 +180,7 @@ function Stepper({ step }: { step: Step }): React.JSX.Element {
               {label}
             </span>
             {i < items.length - 1 && (
-              <span className={`h-px flex-1 ${done ? 'bg-rust-soft' : 'bg-border'}`} />
+              <span className={`h-px flex-1 ${done ? 'bg-border-strong' : 'bg-border'}`} />
             )}
           </div>
         )
@@ -234,7 +230,7 @@ function EngineStep({
             >
               <div className="flex items-center gap-2">
                 <span className="text-[14px] font-semibold text-ink">{eng.label}</span>
-                {isSel && <span className="text-[12px] font-semibold text-rust">선택됨</span>}
+                {isSel && <span className="text-[12px] font-semibold text-t8">선택됨</span>}
               </div>
               <div className="mt-0.5 text-[12px] text-ink2">{eng.desc}</div>
             </button>
@@ -328,14 +324,14 @@ function SettingsStep({
           disabled={nameDisabled}
           onChange={(e) => onName(e.target.value)}
           placeholder="예: my-gateway"
-          className="rounded-lg border border-border bg-bg px-3 py-2 font-mono text-[13px] text-ink outline-none focus:border-rust disabled:cursor-not-allowed disabled:bg-cream-50 disabled:text-ink2"
+          className="rounded-lg border border-border bg-bg px-3 py-2 font-mono text-[13px] text-ink outline-none focus:border-border-strong disabled:cursor-not-allowed disabled:bg-bg2 disabled:text-ink2"
         />
         {nameDisabled ? (
           <span className="text-[11px] text-ink3">
             선택한 공급자 이름으로 고정됩니다. 변경하려면 ‘직접 입력’을 고르세요.
           </span>
         ) : (
-          nameError && <span className="text-[11px] text-rust">{nameError}</span>
+          nameError && <span className="text-[11px] text-bad">{nameError}</span>
         )}
       </label>
 
@@ -345,13 +341,13 @@ function SettingsStep({
           value={settingsJson}
           onChange={(e) => onSettings(e.target.value)}
           spellCheck={false}
-          className={`min-h-[220px] resize-y rounded-xl border bg-bg p-3 font-mono text-[12px] leading-5 text-ink outline-none focus:border-rust ${
-            jsonError ? 'border-rust' : 'border-border'
+          className={`min-h-[220px] resize-y rounded-xl border bg-bg p-3 font-mono text-[12px] leading-5 text-ink outline-none focus:border-border-strong ${
+            jsonError ? 'border-bad' : 'border-border'
           }`}
         />
         {/* 실시간 JSON 검증 — 만족 시 초록, 불만족 시 빨강으로 즉시 표시 */}
         {jsonError ? (
-          <span className="text-[11.5px] font-medium text-rust">⚠ {jsonError}</span>
+          <span className="text-[11.5px] font-medium text-bad">⚠ {jsonError}</span>
         ) : (
           <span className="text-[11.5px] text-good">✓ JSON 형식이 올바릅니다.</span>
         )}
@@ -362,7 +358,7 @@ function SettingsStep({
       </label>
 
       {submitError && (
-        <div className="rounded-lg bg-rust-soft px-3 py-2 text-[12px] text-rust">{submitError}</div>
+        <div className="rounded-lg bg-bad/10 px-3 py-2 text-[12px] text-bad">{submitError}</div>
       )}
     </div>
   )

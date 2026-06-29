@@ -45,9 +45,9 @@ export function ProjectsScreen({
         </span>
         <button
           onClick={() => setCreateOpen(true)}
-          className="ml-auto inline-flex cursor-pointer items-center gap-1.5 rounded-lg border-0 bg-rust px-3.5 py-[7px] text-[12.5px] font-medium text-white"
+          className="ml-auto inline-flex cursor-pointer items-center gap-1.5 rounded-lg border-0 bg-ink px-3.5 py-[7px] text-[12.5px] font-medium text-bg"
         >
-          <Icon name="plus" size={13} color="#fff" /> 새 프로젝트
+          <Icon name="plus" size={13} /> 새 프로젝트
         </button>
       </div>
       <p className="mb-[22px] mt-1.5 text-[13.5px] text-ink2">
@@ -114,9 +114,9 @@ function EmptyState({ onCreate }: { onCreate: () => void }): React.JSX.Element {
       </div>
       <button
         onClick={onCreate}
-        className="mt-4 inline-flex cursor-pointer items-center gap-1.5 rounded-lg border-0 bg-rust px-3.5 py-[7px] text-[12.5px] font-medium text-white"
+        className="mt-4 inline-flex cursor-pointer items-center gap-1.5 rounded-lg border-0 bg-ink px-3.5 py-[7px] text-[12.5px] font-medium text-bg"
       >
-        <Icon name="plus" size={13} color="#fff" /> 첫 프로젝트 만들기
+        <Icon name="plus" size={13} /> 첫 프로젝트 만들기
       </button>
     </div>
   )

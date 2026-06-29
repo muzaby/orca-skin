@@ -476,7 +476,7 @@ export function Composer({
                   <Button
                     iconOnly
                     variant="uncontained"
-                    leadingIcon="pause"
+                    leadingIcon="stop"
                     onClick={cancel}
                     disabled={!canAbort}
                     title={canAbort ? '중단' : '이 백엔드는 중단을 지원하지 않습니다'}
@@ -487,8 +487,8 @@ export function Composer({
                 ) : (
                   <Button
                     iconOnly
-                    variant="primary"
-                    leadingIcon="send"
+                    variant="uncontained"
+                    leadingIcon="enter"
                     onClick={submit}
                     disabled={draft.trim() === ''}
                     title="전송 (Enter)"

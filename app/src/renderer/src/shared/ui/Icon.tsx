@@ -47,6 +47,7 @@ export type IconName =
   | 'upload'
   | 'pin'
   | 'stop'
+  | 'enter'
 
 const ICONS: Record<IconName, string> = {
   chat: 'M3 4h10a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-3 2.5V12H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z',
@@ -101,7 +102,9 @@ const ICONS: Record<IconName, string> = {
   // pin — 압정(thumbtack). 머리 캡 + 모인 몸통 + 바늘. stroke single-path 규약 유지.
   pin: 'M5.5 2h5M7 2v3L4.5 7.5h7L9 5V2M8 7.5V13',
   // stop — 둥근 사각형 외곽선(채움 없음, fill=none 기본). 서브에이전트 중단 버튼.
-  stop: 'M6 4h4a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'
+  stop: 'M6 4h4a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
+  // enter — Enter/return 키 기호(↵). 우측에서 내려와 좌측으로 꺾이는 화살표. 컴포저 전송 버튼.
+  enter: 'M13 4v4a1 1 0 0 1-1 1H4M7 6 4 9l3 3'
 }
 
 export interface IconProps {

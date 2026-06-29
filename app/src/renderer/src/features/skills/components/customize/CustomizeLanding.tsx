@@ -17,7 +17,7 @@ function ActionCard({
       onClick={onClick}
       className="flex w-full cursor-pointer items-center gap-3.5 rounded-r6 border border-border bg-panel px-5 py-4 text-left transition-colors hover:bg-fill-uncontained-hover"
     >
-      <span className="grid h-9 w-9 flex-none place-items-center rounded-r4 bg-cream-50 text-ink2">
+      <span className="grid h-9 w-9 flex-none place-items-center rounded-r4 bg-bg2 text-ink2">
         <Icon name={icon} size={17} />
       </span>
       <span className="min-w-0">

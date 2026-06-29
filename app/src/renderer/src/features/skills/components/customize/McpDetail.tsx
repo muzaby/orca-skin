@@ -16,7 +16,7 @@ export function McpDetail({
   return (
     <div className="min-w-0 flex-1 overflow-y-auto px-7 py-6">
       <div className="flex items-center gap-3">
-        <span className="grid h-9 w-9 flex-none place-items-center rounded-r4 bg-cream-50 text-ink2">
+        <span className="grid h-9 w-9 flex-none place-items-center rounded-r4 bg-bg2 text-ink2">
           <Icon name={server.transport === 'http' ? 'link' : 'cpu'} size={18} />
         </span>
         <div className="min-w-0">
@@ -34,7 +34,7 @@ export function McpDetail({
           className={`ml-auto cursor-pointer rounded-r4 border px-3.5 py-1.5 text-[12.5px] font-medium ${
             server.enabled
               ? 'border-border bg-panel text-ink2 hover:bg-fill-uncontained-hover'
-              : 'border-0 bg-rust text-white hover:bg-fill-primary-hover'
+              : 'border-0 bg-ink text-bg hover:bg-t8'
           }`}
         >
           {server.enabled ? '비활성화' : '활성화'}

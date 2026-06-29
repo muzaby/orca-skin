@@ -50,7 +50,8 @@ const PAD: Record<ButtonSize, { icon: string; text: string }> = {
 const TEXT: Record<ButtonVariant, string> = {
   uncontained: 'text-t6 enabled:group-hover/btn:text-t7',
   contained: 'text-t9',
-  primary: 'text-white'
+  // 모노크롬 통일 — primary = 반전 중립(잉크 위 bg-색 글리프), warm rust 폐기.
+  primary: 'text-bg'
 }
 
 function squishClass(variant: ButtonVariant, pressed: boolean): string {
@@ -59,7 +60,8 @@ function squishClass(variant: ButtonVariant, pressed: boolean): string {
   }
   switch (variant) {
     case 'primary':
-      return 'bg-accent group-hover/btn:bg-fill-primary-hover'
+      // 중립 다크(잉크) 채움 — 엔진 '다음' 버튼과 동일 톤. hover 는 살짝 밝은 t8.
+      return 'bg-ink group-hover/btn:bg-t8'
     case 'contained':
       return 'border border-t5 bg-fill-contained group-hover/btn:bg-fill-contained-hover'
     case 'uncontained':
