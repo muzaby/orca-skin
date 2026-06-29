@@ -26,7 +26,6 @@ import {
   resolveTitleModel,
   type ResolvedProviderSettings
 } from '../../settings/provider-settings'
-import type { SessionAdapter } from '../../adapters/types'
 import { agentPermissionRequest } from '../../runtime-events/permission-bridge'
 import type { PermissionModeController } from '../../runtime-events/permission-mode-controller'
 import { makeClassifiedError } from '../../runtime-errors/classifier'
@@ -37,9 +36,14 @@ import type { ApprovalCoordinator } from './approvals'
 import type { TurnPersistence } from './persist'
 import type { TitleGenerator } from './title-generation'
 import { coerceStoppedToolCompletion, createSubagentSettlementEvents } from './subagent-settlement'
+import { OneShotSessionRuntime } from '../../lifecycle/session-runtime'
+import type { RuntimeSessionAdapter } from '../../lifecycle/ports'
+import { createStallTimer, STALL_TIMEOUT_MS, type StallTimer } from '../../lifecycle/timers'
+import { recoverDanglingToolCalls } from '../../lifecycle/recovery'
 import type { InflightTurn, TurnRegistry } from './turn-registry'
 
-export const IDLE_TIMEOUT_MS = 120_000
+export const IDLE_TIMEOUT_MS = STALL_TIMEOUT_MS
+export { createStallTimer as createIdleTimer } from '../../lifecycle/timers'
 export const MAX_RETRIES = 2
 export const RETRY_BACKOFF_MS = [1_000, 2_000] as const
 
@@ -52,52 +56,7 @@ export interface ChatDeps {
   permissionModes: PermissionModeController
 }
 
-export interface IdleTimer {
-  reset: () => void
-  clear: () => void
-  // 승인 카드처럼 "사용자를 기다리는" 구간을 refcount 로 감싼다 — 반환된 release 를 finally 에서
-  // 호출. 첫 진입에서 타이머를 멈추고(이 동안 reset()도 no-op), 마지막 release 에서 재무장한다.
-  // 동시 N건(서브에이전트 병렬 승인)은 마지막 해소 시에만 재개되며, release 는 idempotent.
-  beginPause: () => () => void
-}
-
-export function createIdleTimer(turn: InflightTurn): IdleTimer {
-  let timer: ReturnType<typeof setTimeout> | null = null
-  // 보류 중 승인 수. >0 이면 reset()은 no-op 이라 어떤 이벤트도 타이머를 재무장하지 못한다 —
-  // 동시 서브에이전트의 child 이벤트(subagent.task/child tool.call/델타)도 이벤트 루프에서 매번
-  // idle.reset()을 호출하는데, 이 가드가 없으면 그 reset 이 보류 중 멈춤을 되살려 무력화된다
-  // (단건은 다른 이벤트가 없어 무사, 동시 N건만 파손 — 라운드4 근본원인).
-  let pauseDepth = 0
-  const clear = (): void => {
-    if (timer) clearTimeout(timer)
-    timer = null
-  }
-  const arm = (): void => {
-    clear()
-    timer = setTimeout(() => {
-      turn.timedOut = true
-      turn.controller.abort()
-    }, IDLE_TIMEOUT_MS)
-  }
-  // 이벤트마다 호출되는 정상 경로 — 단, 보류 중(pauseDepth>0)에는 재무장하지 않는다(가드).
-  const reset = (): void => {
-    if (pauseDepth > 0) return
-    arm()
-  }
-  const beginPause = (): (() => void) => {
-    pauseDepth += 1
-    if (pauseDepth === 1) clear()
-    let released = false
-    return () => {
-      if (released) return
-      released = true
-      pauseDepth -= 1
-      if (pauseDepth === 0) arm()
-    }
-  }
-  return { reset, clear, beginPause }
-}
-
+export type IdleTimer = StallTimer
 export function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
     if (signal.aborted) {
@@ -188,7 +147,7 @@ async function stopLiveSubagent(
 async function resolveTurnProvider(
   ctx: RouterContext,
   req: {
-    adapter: SessionAdapter
+    adapter: RuntimeSessionAdapter
     sessionId: string | null
     providerKey: string | null
     modelFamily: string | null
@@ -325,6 +284,13 @@ export function registerChatHandlers(deps: ChatDeps): void {
       return
     }
 
+    if (parsed.data.sessionId) {
+      recoverDanglingToolCalls(ctx.db, {
+        sessionId: parsed.data.sessionId,
+        isSessionLive: (sessionId) => turns.hasSession(sessionId)
+      })
+    }
+
     const controller = new AbortController()
     // resume 경로면 sessions row 에 이미 binding 된 projectId 가 있으므로 그쪽에서 조회.
     // 새 채팅 경로(sessionId=null)면 renderer 가 보낸 projectId 를 init 시점에 binding.
@@ -400,6 +366,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
     // 타이머가 아닌 이벤트로 대체한다(사람 판단엔 시간 제한 두지 않음 유지). 바깥 finally 에서 해제.
     const onOwnerGone = (): void => {
       turn.cancelled = true
+      if (turn.live instanceof OneShotSessionRuntime) turn.live.markAborted('user_cancelled')
       controller.abort()
     }
     wc.once('destroyed', onOwnerGone)
@@ -485,11 +452,12 @@ export function registerChatHandlers(deps: ChatDeps): void {
       for (let attempt = 0; ; attempt += 1) {
         let eventsReceived = 0
         let sawTerminal = false
-        const idle = createIdleTimer(turn)
+        const idle = createStallTimer(turn)
         activeIdle = idle
         try {
           // sendMessage 가 query() 를 즉시 시작하므로 try 안에서 호출 — 동기 throw 도 동일 경로로 분류.
-          const live = adapter.sendMessage({
+          const runtime = new OneShotSessionRuntime(adapter)
+          const events = runtime.send({
             sessionId: parsed.data.sessionId,
             text: parsed.data.text,
             cwd: turn.cwd,
@@ -509,9 +477,9 @@ export function registerChatHandlers(deps: ChatDeps): void {
           })
           ctx.concurrency.increment(boundProjectId)
           try {
-            turn.live = live
+            turn.live = runtime
             idle.reset()
-            for await (const rawEv of live.events) {
+            for await (const rawEv of events) {
               const ev =
                 rawEv.type === 'tool.call.completed'
                   ? coerceStoppedToolCompletion(turn.stoppedSubagents, rawEv)
@@ -641,6 +609,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
     const turn = turns.getBySession(req.sessionId)
     if (!turn) return
     turn.cancelled = true
+    if (turn.live instanceof OneShotSessionRuntime) turn.live.markAborted('user_cancelled')
     turn.controller.abort()
     // 진행 중이던 도구(최상위 + 서브에이전트 child)를 중단 결과로 정착 — 안 하면 결과가
     // 영영 안 와 "실행 중"으로 무한 렌더되고 부모 Task 가 "진행 중"으로 남는다. turn.aborted 전에.

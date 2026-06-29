@@ -49,6 +49,7 @@ export class MockAdapter implements SessionAdapter {
         signal,
         requestApproval: req.requestApproval
       }),
+      close: () => internal.abort(),
       setPermissionMode: async () => {},
       interrupt: async () => internal.abort(),
       setModel: async () => {},

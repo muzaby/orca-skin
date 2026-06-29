@@ -316,25 +316,35 @@ recovery tool_result = `{ reason:'aborted', message:'중단되었습니다' }` (
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- 동의 / 그대로 진행: …
-- 이견 / 우려: …
+- 동의 / 그대로 진행: PR-A/C2 가 동작·게이트상 충분히 진행됐으므로 **PR-A/C3 dangling recovery** 까지 이어서 구현했다. 부팅 시 전체 DB, resume 진입 시 해당 세션만 DB-only 복구를 수행한다.
+- 이견 / 우려: recovery 는 live runtime 의 진행 중 메시지를 닫으면 안 되므로, resume 경로에서는 `turns.hasSession(sessionId)` 로 live 세션을 skip 한다. DB 복구는 owner/WebContents 없이 동작해야 하므로 `settleOpenToolRuns` 를 재사용하지 않고 message-scoped DB write 로 별도 구현했다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 구현함 / ⚠️ 보고만·**결정 필요** | … |
+| 1 | 기존 `upsertToolResultPart` 는 `tool_run_id` 전역 update 라 DB 전수 복구에 부적합 | ✅ `upsertToolResultPartScoped(messageId, toolRunId, ...)` 추가 | 보강 R4-3 |
+| 2 | recovery 가 tool_result 만 쓰고 message 를 incomplete 로 두면 DB 상태가 혼합됨 | ✅ 메시지별 dangling tool 정착 후 `markMessageComplete` 1회 호출 | 보강 R2-5/R3-4 |
+| 3 | 부팅엔 WebContents/InflightTurn 이 없어 기존 settlement 재사용 불가 | ✅ `lifecycle/recovery.ts` 에 DB-only recovery 구현 | 보강 R4-4 |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] …
+- [x] C1 구조 추출 유지 (`session-registry`/`turn-context`/`timers`/`orchestration`)
+- [x] C2 `OneShotSessionRuntime` + 상태/abort cause + close 계약
+- [x] DB dangling tool_call 조회 쿼리 추가
+- [x] message-scoped tool_result upsert 추가
+- [x] DB-only `recoverDanglingToolCalls` 구현
+- [x] 부팅 recovery 배선
+- [x] resume 진입 recovery 배선(live session skip)
+- [x] recovery 단위 테스트 추가
+- [ ] C4 uv Python runtime 폐기
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` |
-| 게이트 결과 | … |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | `app/src/main/lifecycle/recovery.ts`, `app/src/main/db/{queries,types}.ts`, `app/src/main/ipc/{router,chat/send}.ts`, recovery tests |
+| 실행 명령 | `npm run lint`; `npm run typecheck`; `npm test`; `npx vitest run src/main/lifecycle src/main/orchestration src/main/ipc/chat/send.runtime-resilience.test.ts src/main/adapters/mock.test.ts src/main/adapters/streaming-input.test.ts` |
+| 게이트 결과 | lint ✅, typecheck ✅, scoped vitest 34/34 ✅. 전체 `npm test` 는 better-sqlite3 Node ABI mismatch 로 `db/queries.test.ts` 12건 실패(변경 무관 환경 제한), 나머지 537개 통과. |
+| 블로커 / 역질문 | C4 uv 제거가 PR-B 범위로 남음. |
+| 대상 커밋 | `56af4a8` |
