@@ -284,7 +284,7 @@ SessionRuntime (핸들 소유 — 소비 인터페이스 모드-무관)
 | # | 결정 | 계층 |
 |---|---|---|
 | ① | 세션-스코프 핸들 레지스트리(`SessionRuntimeRegistry`) | §2 |
-| ② | **IdleCloseTimer**(live-idle 핸들 회수) — StallTimer 와 분리(리뷰 3), **P1·Persistent 전용** | §2 |
+| ② | **IdleCloseTimer**(live-idle 핸들 회수) — StallTimer 와 분리(리뷰 3), **P1·Persistent 전용**. ✅ 실구현 0054(`lifecycle/timers.ts:createIdleCloseTimer`, RuntimePool 소유, 게이트 OFF=비발동) | §2 |
 | ③ | 분산/내구실행 비채택 | §2 |
 | ④ | 입력 admission `steer`/`queue` 도입 | §3 |
 | ⑤ | "활성 중 만료 금지" 불변식 | §3 |
@@ -376,7 +376,7 @@ cap/LRU/idle-close/registry 가 *세는 유닛*은 **SessionRuntime**(자원)이
 
 교정점: ① **TurnCoordinator 1급화**(양축). ② **권한 = 재진입 콜백**(단계 아님). ③ **persist ∥ forward = 병렬 독립 sink**(순차 아님), **persist 는 renderer 비의존**. ④ "EventStore append" 과장 주의 — 델타는 비영속, **settled parts 만 commit**(리듀서 = Coordinator). ⑤ **dangling tool 마감은 P0(이미 구현, `{reason:'aborted'}`)**.
 
-> **코드 안착(handoff)**: TurnCoordinator = `lifecycle/turn-coordinator.ts`(handoff 0052). Runtime **Supervisor**(세로축 unit #3) = `lifecycle/supervisor.ts`(handoff 0053) — 현재는 **척추**(SessionRuntimeRegistry 소유 + 단일 멱등 `release`/`abortTurn`)만 안착했고 cap/LRU/IdleClose/Persistent 정책은 미구현(§A.5 P1 의 0054). SessionRuntime = `lifecycle/session-runtime.ts`(OneShot, 0050).
+> **코드 안착(handoff)**: TurnCoordinator = `lifecycle/turn-coordinator.ts`(handoff 0052). Runtime **Supervisor**(세로축 unit #3) = `lifecycle/supervisor.ts`(handoff 0053 척추: SessionRuntimeRegistry 소유 + 단일 멱등 `release`/`abortTurn` — `abortTurn` 은 0054 에서 `lifecycle/abort.ts` 로 분리). 0054 가 그 위에 **Persistent 거버넌스**를 더했다: `lifecycle/runtime-pool.ts`(idle 핸들 보존/IdleCloseTimer 회수) + Supervisor `acquireRuntime`/`releaseRuntime`(turn teardown≠runtime close). **cap/LRU eviction · ConcurrencyRegistry 소유 이관은 0055 미구현**. SessionRuntime = `lifecycle/session-runtime.ts`(close-policy 파라미터: OneShot 기본 / Persistent 게이트, 0050→0054).
 
 ### A.4 Conversation Continuity / Knowledge Curation (Future 서비스 층)
 
@@ -391,10 +391,10 @@ handoff·fork·DB reseed·대화 종료/archive 시 평가·요약 → **Orca �
 | 단계 | 항목 |
 |---|---|
 | **P0 (0050 출시)** | 3엔티티 개념 분리 · OneShot SessionRuntime · 상태 SSOT · StallTimer 분리 · **dangling 마감(DB-only)** · PermissionBridge/canUseTool(승인 = P0 의 제약된 mid-turn 입력 채널) |
-| **P1** | ~~TurnCoordinator 1급화~~(✅ 0052) · ~~Runtime Supervisor 척추(소유자 추출 + idempotent close/abort 단일 경로)~~(✅ 0053) · Persistent runtime · steer/queue admission(일반 mid-turn 입력) · IdleCloseTimer 구현 · Supervisor cap/LRU(self-idle vs LRU eviction 합류) — 잔여는 **0054** |
+| **P1** | ~~TurnCoordinator 1급화~~(✅ 0052) · ~~Runtime Supervisor 척추(소유자 추출 + idempotent close/abort 단일 경로)~~(✅ 0053) · ~~Persistent runtime(close-policy 핸들) + IdleCloseTimer 실구현 + Supervisor 거버넌스(acquire/release, 게이트 OFF=OneShot)~~(✅ 0054) · steer/queue admission(일반 mid-turn 입력) · Supervisor cap/LRU(self-idle vs LRU eviction 합류) — 잔여는 **0055** |
 | **Future** | handoff/fork · DB-based reseed · internal evaluation session 기반 평가·요약 · knowledge artifact/KB entry · lineage 영속화 |
 
-> **P1 구현 현황**: 가로축 TurnCoordinator(0052) → 세로축 Runtime Supervisor 척추 + 단일 멱등 close/abort(0053) 까지 안착. **0054 후보** = Persistent runtime(결정 ⑳) · cap admission · LRU/idle eviction(`evictIdle` 실구현) · IdleCloseTimer · ConcurrencyRegistry 의 Supervisor 소유 이관 · steer/queue. idle/LRU/IdleClose 는 핸들이 idle 로 살아남는 **Persistent 가 전제**(OneShot 에선 死코드)라 0053 척추는 정책을 의도적으로 비웠다.
+> **P1 구현 현황**: 가로축 TurnCoordinator(0052) → 세로축 Runtime Supervisor 척추 + 단일 멱등 close/abort(0053) → **Persistent runtime(close-policy 파라미터, 결정 ⑳) + IdleCloseTimer 실구현 + RuntimePool/Supervisor 거버넌스(acquireRuntime/releaseRuntime, turn teardown≠runtime close)(0054)** 까지 안착. 0054 는 **게이트 뒤**(`ORCA_PERSISTENT_RUNTIME`, 기본 OneShot)라 출시 경로 동작 보존이고, "long-lived **핸들** + cross-turn 수명 + idle-close"까지다(서브프로세스 streaming-input 재사용은 steer/queue 와 함께 0055). **0055 잔여** = cap admission · LRU/idle eviction(`evictIdle` 실구현) · ConcurrencyRegistry 의 Supervisor 소유 이관 · steer/queue + true streaming-input. idle/LRU/cap 은 핸들이 idle 로 살아남는 **Persistent 가 전제**라 0053 척추가 정책을 비웠고, 0054 가 그 Persistent 핸들 + 시간경계(IdleClose)를 세웠다.
 
 ## 7. 부록 — 용어
 
