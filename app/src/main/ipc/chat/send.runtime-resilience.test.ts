@@ -4,7 +4,7 @@ import type { InflightTurn } from './turn-registry'
 
 function fakeTurn(): InflightTurn {
   const controller = new AbortController()
-  return { controller, timedOut: false, cancelled: false } as unknown as InflightTurn
+  return { controller, live: { markAborted: vi.fn() } } as unknown as InflightTurn
 }
 
 describe('send runtime resilience helpers', () => {
@@ -16,7 +16,7 @@ describe('send runtime resilience helpers', () => {
     idle.reset()
     vi.advanceTimersByTime(IDLE_TIMEOUT_MS)
 
-    expect(turn.timedOut).toBe(true)
+    expect(turn.live?.markAborted).toHaveBeenCalledWith('stall')
     expect(turn.controller.signal.aborted).toBe(true)
     idle.clear()
     vi.useRealTimers()

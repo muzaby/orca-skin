@@ -49,7 +49,7 @@ export interface SessionAdapter {
   // 세션 resume 과 무관한 단발 completion. 자동 제목 생성처럼 대화 컨텍스트를 오염시키면
   // 안 되는 보조 호출에만 쓴다. router 는 provider 별 저가 모델을 알지 않는다.
   complete(req: CompleteRequest): Promise<string>
-  // 한 턴 실행. 확장 리소스(mcp·skills·hooks·systemPrompt)는 req.extensions 로, uv 런타임 env 는
+  // 한 턴 실행. 확장 리소스(mcp·skills·hooks·systemPrompt)는 req.extensions 로, orca.json 앱 env 는
   // req.env 로 전달된다 — 위치 인자 증식(구 7개) 대신 단일 TurnRequest 로 통합 (설계검토 §9).
   // 라이브 핸들(LiveTurn)을 돌려준다 — `events` 가 provider 중립 NormalizedEvent 스트림(§2),
   // control 메서드는 턴 진행 중 권한 모드 라이브 전환 등에 쓰인다.

@@ -7,7 +7,12 @@ import {
 } from './recovery'
 
 function row(messageId: number, toolRunId: string, sessionId = 's1'): DanglingToolCallRow {
-  return { session_id: sessionId, message_id: messageId, tool_run_id: toolRunId }
+  return {
+    session_id: sessionId,
+    message_id: messageId,
+    tool_run_id: toolRunId,
+    payload_json: JSON.stringify({ name: 'Tool', input: {} })
+  }
 }
 
 describe('recoverDanglingToolCalls', () => {
