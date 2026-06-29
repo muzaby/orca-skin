@@ -8,19 +8,34 @@
 // electron 비의존(순수 TS) — pending 키를 제네릭으로 두어 vitest 가 임의 객체로 검증한다.
 // 실사용은 W = WebContents.
 
-import type { AttachmentView } from '../../../shared/ipc'
-import type { LiveTurn, SessionAdapter } from '../../adapters/types'
-import type { ResolvedProviderSettings } from '../../settings/provider-settings'
+import type { AttachmentView, Backend } from '../../shared/ipc'
+import type { SessionRuntime } from './session-runtime'
+import type { AbortCause } from './session-state'
+import type { ResolvedProviderSettings } from '../settings/provider-settings'
+
+export interface TitleCompletionPort {
+  readonly id: Backend
+  complete(req: {
+    prompt: string
+    model?: string
+    cwd?: string
+    signal?: AbortSignal
+    providerSettings?: ResolvedProviderSettings
+    env?: Record<string, string>
+  }): Promise<string>
+}
 
 export interface InflightTurn<W = unknown> {
   controller: AbortController
   owner: W
-  cancelled: boolean
-  timedOut: boolean
+  abortCause: AbortCause | null
+  readonly cancelled: boolean
+  readonly timedOut: boolean
+  abort(cause: AbortCause): void
   // 이 턴의 라이브 핸들 (PR③). orca:permission:setMode 가 진행 중 턴이면 여기로 모드를 즉시
   // 전환한다(Query.setPermissionMode). sendMessage 직후 채워진다.
-  live: LiveTurn | null
-  titleAdapter: SessionAdapter
+  live: SessionRuntime | null
+  titleAdapter: TitleCompletionPort
   // 제목 생성 complete 가 본 턴과 같은 provider settings/env 를 쓰도록 보관 (handoff 0014).
   titleSettings?: ResolvedProviderSettings
   titleEnv?: Record<string, string>
@@ -72,7 +87,31 @@ export interface InflightTurn<W = unknown> {
   stoppedSubagents: Set<string>
 }
 
-export class TurnRegistry<W = unknown> {
+export type InflightTurnInit<W = unknown> = Omit<
+  InflightTurn<W>,
+  'abortCause' | 'cancelled' | 'timedOut' | 'abort'
+>
+
+export function createInflightTurn<W = unknown>(init: InflightTurnInit<W>): InflightTurn<W> {
+  const turn = {
+    ...init,
+    abortCause: null as AbortCause | null,
+    abort(cause: AbortCause): void {
+      this.abortCause = cause
+      this.controller.abort()
+      void this.live?.interrupt(cause).catch(() => undefined)
+    },
+    get cancelled(): boolean {
+      return this.abortCause === 'user_cancelled' || this.abortCause === 'retry'
+    },
+    get timedOut(): boolean {
+      return this.abortCause === 'stall'
+    }
+  }
+  return turn
+}
+
+export class SessionRuntimeRegistry<W = unknown> {
   private readonly bySession = new Map<string, InflightTurn<W>>()
   private readonly pendingByOwner = new Map<W, InflightTurn<W>>()
 
@@ -118,6 +157,12 @@ export class TurnRegistry<W = unknown> {
     }
   }
 
+  // P0 에서는 cap 정책을 적용하지 않지만, P1 핸들 cap+LRU 구현이 붙을 축출 훅을 예약한다.
+  evictIdle(limit = 0): InflightTurn<W>[] {
+    void limit
+    return []
+  }
+
   // 진행 중 모든 턴(세션 키 + pending owner 양쪽). 앱 종료 정리(IpcRouter.shutdown)가
   // 순회해 열린 도구를 정착하고 controller 를 abort 한다. 같은 객체가 양쪽에 동시 존재하진 않음
   // (promote 가 pending→session 으로 이동) — 중복 없음.
@@ -130,3 +175,5 @@ export class TurnRegistry<W = unknown> {
     return this.bySession.size + this.pendingByOwner.size
   }
 }
+
+export { SessionRuntimeRegistry as TurnRegistry }

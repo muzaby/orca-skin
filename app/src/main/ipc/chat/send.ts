@@ -21,7 +21,6 @@ import {
   defaultModelFamily,
   defaultProvider,
   expandEnvRecord,
-  mergeEnvLayers,
   modelNameForFamily,
   resolveTitleModel,
   type ResolvedProviderSettings
@@ -37,11 +36,43 @@ import type { ApprovalCoordinator } from './approvals'
 import type { TurnPersistence } from './persist'
 import type { TitleGenerator } from './title-generation'
 import { coerceStoppedToolCompletion, createSubagentSettlementEvents } from './subagent-settlement'
-import type { InflightTurn, TurnRegistry } from './turn-registry'
+import {
+  createInflightTurn,
+  type InflightTurn,
+  type TurnRegistry
+} from '../../lifecycle/turn-context'
+import { OneShotSessionRuntime, type SessionRuntime } from '../../lifecycle/session-runtime'
+import { recoverDanglingToolCalls } from '../../lifecycle/recovery'
 
-export const IDLE_TIMEOUT_MS = 120_000
+import {
+  createIdleTimer,
+  createStallTimer,
+  IDLE_TIMEOUT_MS,
+  STALL_TIMEOUT_MS,
+  type IdleTimer,
+  type StallTimer
+} from '../../lifecycle/timers'
+
+export {
+  createIdleTimer,
+  createStallTimer,
+  IDLE_TIMEOUT_MS,
+  STALL_TIMEOUT_MS,
+  type IdleTimer,
+  type StallTimer
+}
+
 export const MAX_RETRIES = 2
 export const RETRY_BACKOFF_MS = [1_000, 2_000] as const
+
+export async function drainRuntimeEventsForTest(
+  runtime: Pick<SessionRuntime, 'send'>,
+  req: Parameters<SessionRuntime['send']>[0]
+): Promise<NormalizedEvent[]> {
+  const events: NormalizedEvent[] = []
+  for await (const ev of runtime.send(req)) events.push(ev)
+  return events
+}
 
 export interface ChatDeps {
   ctx: RouterContext
@@ -50,52 +81,6 @@ export interface ChatDeps {
   persistence: TurnPersistence
   titles: TitleGenerator
   permissionModes: PermissionModeController
-}
-
-export interface IdleTimer {
-  reset: () => void
-  clear: () => void
-  // 승인 카드처럼 "사용자를 기다리는" 구간을 refcount 로 감싼다 — 반환된 release 를 finally 에서
-  // 호출. 첫 진입에서 타이머를 멈추고(이 동안 reset()도 no-op), 마지막 release 에서 재무장한다.
-  // 동시 N건(서브에이전트 병렬 승인)은 마지막 해소 시에만 재개되며, release 는 idempotent.
-  beginPause: () => () => void
-}
-
-export function createIdleTimer(turn: InflightTurn): IdleTimer {
-  let timer: ReturnType<typeof setTimeout> | null = null
-  // 보류 중 승인 수. >0 이면 reset()은 no-op 이라 어떤 이벤트도 타이머를 재무장하지 못한다 —
-  // 동시 서브에이전트의 child 이벤트(subagent.task/child tool.call/델타)도 이벤트 루프에서 매번
-  // idle.reset()을 호출하는데, 이 가드가 없으면 그 reset 이 보류 중 멈춤을 되살려 무력화된다
-  // (단건은 다른 이벤트가 없어 무사, 동시 N건만 파손 — 라운드4 근본원인).
-  let pauseDepth = 0
-  const clear = (): void => {
-    if (timer) clearTimeout(timer)
-    timer = null
-  }
-  const arm = (): void => {
-    clear()
-    timer = setTimeout(() => {
-      turn.timedOut = true
-      turn.controller.abort()
-    }, IDLE_TIMEOUT_MS)
-  }
-  // 이벤트마다 호출되는 정상 경로 — 단, 보류 중(pauseDepth>0)에는 재무장하지 않는다(가드).
-  const reset = (): void => {
-    if (pauseDepth > 0) return
-    arm()
-  }
-  const beginPause = (): (() => void) => {
-    pauseDepth += 1
-    if (pauseDepth === 1) clear()
-    let released = false
-    return () => {
-      if (released) return
-      released = true
-      pauseDepth -= 1
-      if (pauseDepth === 0) arm()
-    }
-  }
-  return { reset, clear, beginPause }
 }
 
 export function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
@@ -229,16 +214,15 @@ async function resolveTurnProvider(
   }
 }
 
-// subprocess env 조립 — uv 런타임 env 베이스 위에 orca.json 앱 전역 env(${VAR} 확장)를 병합.
-function buildTurnEnv(
-  ctx: RouterContext,
-  pyEnv: Record<string, string> | undefined
-): Record<string, string> | undefined {
+// subprocess env 조립 — orca.json 앱 전역 env(${VAR} 확장)를 SDK subprocess env 로 전달.
+function buildTurnEnv(ctx: RouterContext): Record<string, string> | undefined {
   const { env: expanded, missing } = expandEnvRecord(appEnv(), ctx.mcp.resolver())
   if (missing.length > 0) {
     console.warn(`[orca-config] 미해결 환경변수로 일부 앱 env 키를 건너뜀: ${missing.join(', ')}`)
   }
-  return mergeEnvLayers(pyEnv, expanded)
+  return Object.keys(expanded).length > 0
+    ? ({ ...process.env, ...expanded } as Record<string, string>)
+    : undefined
 }
 
 export function registerChatHandlers(deps: ChatDeps): void {
@@ -280,6 +264,10 @@ export function registerChatHandlers(deps: ChatDeps): void {
       return
     }
 
+    if (parsed.data.sessionId && !turns.hasSession(parsed.data.sessionId)) {
+      recoverDanglingToolCalls(ctx.db)
+    }
+
     const adapter =
       ctx.mockAdapter && ctx.debugMock.enabled ? ctx.mockAdapter : ctx.registry.getActive()
     if (!adapter) {
@@ -300,8 +288,8 @@ export function registerChatHandlers(deps: ChatDeps): void {
       modelFamily: parsed.data.modelFamily ?? null
     })
 
-    // Python 런타임 env (uv 격리) + orca.json 앱 전역 env. ready 전이면 앱 env 만 (없으면 SDK 기본).
-    const turnEnv = buildTurnEnv(ctx, ctx.runtime.getEnv() ?? undefined)
+    // orca.json 앱 전역 env. Python 런타임 env(uv)는 0049 PR-B에서 제거됨.
+    const turnEnv = buildTurnEnv(ctx)
 
     const boundProjectId = parsed.data.sessionId
       ? (ctx.db.getSessionById(parsed.data.sessionId)?.project_id ?? null)
@@ -328,11 +316,9 @@ export function registerChatHandlers(deps: ChatDeps): void {
     const controller = new AbortController()
     // resume 경로면 sessions row 에 이미 binding 된 projectId 가 있으므로 그쪽에서 조회.
     // 새 채팅 경로(sessionId=null)면 renderer 가 보낸 projectId 를 init 시점에 binding.
-    const turn: InflightTurn<WebContents> = {
+    const turn: InflightTurn<WebContents> = createInflightTurn({
       controller,
       owner: event.sender,
-      cancelled: false,
-      timedOut: false,
       live: null,
       titleAdapter: adapter,
       titleSettings: resolved.providerSettings,
@@ -357,7 +343,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
       subagentTypes: new Map(),
       blockedSubagents: new Set(),
       stoppedSubagents: new Set()
-    }
+    })
     if (parsed.data.sessionId) turns.startResume(parsed.data.sessionId, turn)
     else turns.startNew(event.sender, turn)
 
@@ -399,8 +385,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
     // 렌더러(owner) 소멸 시 진행 턴 정리 — idle "완전 멈춤"으로 잃는 자가치유(무응답 abort)를
     // 타이머가 아닌 이벤트로 대체한다(사람 판단엔 시간 제한 두지 않음 유지). 바깥 finally 에서 해제.
     const onOwnerGone = (): void => {
-      turn.cancelled = true
-      controller.abort()
+      turn.abort('user_cancelled')
     }
     wc.once('destroyed', onOwnerGone)
     wc.once('render-process-gone', onOwnerGone)
@@ -489,7 +474,8 @@ export function registerChatHandlers(deps: ChatDeps): void {
         activeIdle = idle
         try {
           // sendMessage 가 query() 를 즉시 시작하므로 try 안에서 호출 — 동기 throw 도 동일 경로로 분류.
-          const live = adapter.sendMessage({
+          const live = new OneShotSessionRuntime(adapter)
+          const runtimeEvents = live.send({
             sessionId: parsed.data.sessionId,
             text: parsed.data.text,
             cwd: turn.cwd,
@@ -511,7 +497,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
           try {
             turn.live = live
             idle.reset()
-            for await (const rawEv of live.events) {
+            for await (const rawEv of runtimeEvents) {
               const ev =
                 rawEv.type === 'tool.call.completed'
                   ? coerceStoppedToolCompletion(turn.stoppedSubagents, rawEv)
@@ -640,8 +626,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
   handle(CHANNELS.chatCancel, CancelChatSchema, 'reject', (req): void => {
     const turn = turns.getBySession(req.sessionId)
     if (!turn) return
-    turn.cancelled = true
-    turn.controller.abort()
+    turn.abort('user_cancelled')
     // 진행 중이던 도구(최상위 + 서브에이전트 child)를 중단 결과로 정착 — 안 하면 결과가
     // 영영 안 와 "실행 중"으로 무한 렌더되고 부모 Task 가 "진행 중"으로 남는다. turn.aborted 전에.
     settleOpenToolRuns(turn, persistence, 'aborted')

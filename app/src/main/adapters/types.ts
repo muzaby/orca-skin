@@ -23,6 +23,8 @@ export interface LiveTurn {
   stopTask(taskId: string): Promise<void>
   // foreground 서브에이전트를 백그라운드로 — stopTask 가 foreground 를 거부할 때의 fallback 경로.
   backgroundTask(toolUseId: string): Promise<boolean>
+  // 입력 스트림/핸들 종료. 호출자는 SessionRuntime, 어댑터 finally 는 멱등 백스톱이다.
+  close(): void
 }
 
 export interface CompleteRequest {

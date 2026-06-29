@@ -19,7 +19,6 @@ import type { AdapterRegistry } from '../adapters/registry'
 import type { MockAdapter } from '../adapters/mock'
 import type { Installer } from '../installer'
 import type { CostTracker } from '../cost/tracker'
-import type { PythonRuntime } from '../runtime'
 import type { SecretStore } from '../config/secret-store'
 import type { ExtensionBuilder } from '../extensions/builder'
 import type { ProviderSettingsService } from '../settings/provider-settings'
@@ -31,7 +30,6 @@ export interface RouterContext {
   registry: AdapterRegistry
   installer: Installer
   cost: CostTracker
-  runtime: PythonRuntime
   secretStore: SecretStore
   extensions: ExtensionBuilder
   // provider settings 해석 서비스 (handoff 0014) — 열거(sources/settings 트리) + 해석 캐시.
@@ -45,7 +43,7 @@ export interface RouterContext {
   // chat send · files list · session cwd 가 공유하는 단일 cwd. 프로젝트 미소속이면
   // projects/default, 소속이면 projects/<이름>-<프로젝트ID8> (DB 에서 이름 조회).
   getCwd(projectId?: string | null): string
-  concurrency: import('./chat/concurrency-registry').ConcurrencyRegistry
+  concurrency: import('../orchestration/concurrency').ConcurrencyRegistry
   debugMock: DebugMockState
   mockAdapter: MockAdapter | null
 }

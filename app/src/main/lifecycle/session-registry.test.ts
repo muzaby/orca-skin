@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { TurnRegistry, type InflightTurn } from './turn-registry'
+import { TurnRegistry, type InflightTurn } from './turn-context'
 
 // 레지스트리는 턴 객체 내부를 들여다보지 않으므로(키잉·동일성만) 최소 형태로 충분하다.
 // owner 가 InflightTurn<W> 의 필드라 TurnRegistry<object> 와 맞물리도록 object 로 파라미터화한다.
@@ -111,5 +111,13 @@ describe('TurnRegistry', () => {
     reg.finish(turn)
     expect(reg.hasPending(owner)).toBe(false)
     expect(reg.size).toBe(0)
+  })
+
+  it('P0 축출 훅은 예약되어 있지만 아직 턴을 제거하지 않는다', () => {
+    const reg = new TurnRegistry<object>()
+    const turn = fakeTurn()
+    reg.startResume('s1', turn)
+    expect(reg.evictIdle(1)).toEqual([])
+    expect(reg.getBySession('s1')).toBe(turn)
   })
 })
