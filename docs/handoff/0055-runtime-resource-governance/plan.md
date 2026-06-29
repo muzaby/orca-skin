@@ -44,13 +44,14 @@
 
 ## 인수 기준 (Acceptance Criteria)
 
-1. **count 3종 disambiguation 문서화.** 코드(주석) + 본 plan 에서 cap 의 대상이 **SessionRuntime 인구(Pool idle + Supervisor active)** 임을 명시하고, ConcurrencyRegistry 의 프로젝트별 *턴* 경고게이트(0039·0056 소관)와 혼동하지 않도록 가른다. (§A ⑭ 근거.)
-2. **`EvictionPolicy` 추상화 + 기본 LRU.** 순수·주입형 정책으로 추출 — `(entries, capacity) → victims`. RuntimePool 메커니즘(저장/close)과 분리. 기본 구현 = LRU(가장 오래된 idle 우선, `idle.keys().next()` 프록시). 단위테스트 포함.
-3. **`RuntimeCapPolicy` 주입 + 기본 무제한(동작보존).** 런타임 획득(`acquireRuntime`)·idle 보존(`keepIdle`) 경로에 cap 판정 hook. cap 초과 시 동작은 정책 위임(기본=무제한 pass-through). **기본값에서 게이트 OFF/ON 모두 현 동작 보존**.
-4. **ConcurrencyRegistry 소유 Supervisor 이관 — 파일 미이동(결정 2 준수).** 소유/생성을 컴포지션 루트→Supervisor 로 옮기고 코디네이터엔 노출만. **`orchestration/concurrency.ts` 파일은 이동·리네임하지 않는다**(결정 2 = 코드 리네임 연기). plan·주석에 "소유 이관 ≠ 리네임" 명시. 소비(admission 판정)는 0056.
-5. **idempotent close 단일경로(self-idle vs LRU 이중 close 0).** LRU eviction 과 IdleCloseTimer self-reap 이 같은 런타임을 동시에 닫아도 close 가 1회만 효력. eviction=타이머 clear 후 단일 경로 close, timer 발화=map 선제거. 경쟁 회귀테스트 포함.
-6. **게이트 OFF 동작·이벤트·DB·UX 무변경 + lifecycle 게이트 green.** 기본 OneShot(게이트 OFF)에서 pool 미진입 → cap/eviction 무력 → 이벤트 시퀀스·DB parts·UX 0 변경. `cd app && npm run lint && npm run typecheck && npm test` 통과, 신규 테스트(eviction·cap·close 경쟁) green.
-7. **레이어 경계·순환 0.** boundaries(L1↔L3 하향만)·`import/no-cycle` 위반 0. Supervisor(L1)→`orchestration/concurrency`(L1) 동일레이어 import 가 순환을 만들지 않음 확인.
+1. **count 3종 disambiguation + 대상/축출 분리.** 코드(주석)+plan 에서 cap **count 대상 = SessionRuntime 인구(Supervisor active + Pool idle)**, **eviction victim = idle only** 임을 명시한다. `acquireRuntime` 가 active 턴을 닫도록 압력 주지 않는다 — active 초과는 0055 기본 무제한 pass-through(reject/queue 는 0056). ConcurrencyRegistry 의 프로젝트별 *턴* 경고게이트(0039·0056 소관)와 혼동 금지. (§A ⑭ 근거. QA #1.)
+2. **`EvictionPolicy` 순수 추상화(Map 비의존).** RuntimePool 이 snapshot 을 만들고 policy 는 **victim sessionId 키만** 반환하는 순수 함수. shape: `interface IdleRuntimeEntry<RT=ManagedRuntime>{ sessionId: string; runtime: RT }` · `interface EvictionPolicy<RT=ManagedRuntime>{ selectVictims(entries: readonly IdleRuntimeEntry<RT>[], capacity: number): string[] }`. 기본 구현 = LRU(가장 오래된 idle 우선; `idle` Map 삽입순 = "마지막 idle 진입 recency" 프록시 → snapshot 앞부터). EvictionPolicy 는 Map 자체를 모른다. 단위테스트 포함. (QA #4.)
+3. **`RuntimeCapPolicy` 주입 + union 축소 + 기본 무제한.** 0055 cap 정책 union = **`'accept' | 'evict-idle'` 만**(reject/queue 는 0056 으로 이관 — IPC 에러·normalized error·UX 가 0056 소관이라 0055 에서 throw 의미 확정 금지). 런타임 획득(`acquireRuntime`)·idle 보존(`keepIdle`) 경로에 cap hook. 기본 `UnlimitedRuntimeCapPolicy`(capacity 미결정 → 항상 `accept`) → **게이트 OFF/ON 모두 현 동작 보존**. (QA #5.)
+4. **ConcurrencyRegistry 단일 진실원 — 소유 Supervisor 이관(파일 미이동).** 소유/생성을 컴포지션 루트→Supervisor 로 옮기고 **`RuntimeSupervisor.concurrency` getter** 로 노출. `send.ts` 는 `ctx.concurrency`→`supervisor.concurrency` 로 주입, **`RouterContext.concurrency`(`@app/src/main/ipc/context.ts:46`) 제거**(이중 진실원 차단). **`orchestration/concurrency.ts` 파일은 이동·리네임하지 않는다**(결정 2 = 코드 리네임 연기) — 생성 위치만 정렬. 소비(admission 판정)는 0056. (QA #2.)
+5. **idempotent close 단일 helper — 기존 경로 전부 합류.** RuntimePool 의 모든 idle close 가 private `closeEntry(sessionId)` 하나로 수렴: `keepIdle` prev 교체(`@app/src/main/lifecycle/runtime-pool.ts:37`)·idle timer 콜백(:41)·`closeAll`(:60)·신규 evict. timer 콜백 = **Map 선제거 후 close**, LRU evict 와 거의 동시여도 2번째 호출 no-op. self-idle vs LRU 이중 close 0. 경쟁 회귀테스트 포함. (QA #3.)
+6. **population snapshot(테스트/디버그).** `RuntimeSupervisor.getRuntimePopulation(): { active: number; idle: number; total: number }` — count 3종 검증·주석 근거용 L1 소형 메서드(production 과노출 회피). (QA #6.)
+7. **게이트 OFF 동작·이벤트·DB·UX 무변경 + lifecycle 게이트 green.** 기본 OneShot(게이트 OFF)에서 pool 미진입 → cap/eviction 무력 → 이벤트 시퀀스·DB parts·UX 0 변경. `cd app && npm run lint && npm run typecheck && npm test` 통과, 신규 테스트(eviction·cap·close 경쟁·population) green.
+8. **레이어 경계·순환 0.** boundaries(L1↔L3 하향만)·`import/no-cycle` 위반 0. Supervisor(L1)→`orchestration/concurrency`(L1) 동일레이어 import 가 순환을 만들지 않음 확인.
 
 ## 범위 / 비범위
 
@@ -75,24 +76,33 @@ RuntimePool/Supervisor 는 **메커니즘**(저장·take/keepIdle/close·acquire
 
 | 정책 | 시그니처(개념) | 기본 구현 | 주입 위치 |
 |---|---|---|---|
-| `EvictionPolicy` | `selectVictims(entries: IdleEntry[], capacity): IdleEntry[]` | **LRU**(가장 오래된 idle 먼저; `idle` Map 삽입순 프록시) | `RuntimePool` 생성자(기본 LRU) |
-| `RuntimeCapPolicy` | `admit(ctx: { active, idle, capacity }): 'accept' \| 'evict' \| 'reject'` | **무제한**(`accept`) | `RuntimeSupervisor` 생성자/컴포지션 루트 |
+| `EvictionPolicy<RT>` | `selectVictims(entries: readonly IdleRuntimeEntry<RT>[], capacity: number): string[]`(victim sessionId 키만, Map 비의존) | **LRU**(가장 오래된 idle 먼저; snapshot 앞부터) | `RuntimePool` 생성자(기본 LRU) |
+| `RuntimeCapPolicy` | `admit(ctx: { active, idle, capacity }): 'accept' \| 'evict-idle'` | **`UnlimitedRuntimeCapPolicy`**(항상 `accept`) | `RuntimeSupervisor` 생성자/컴포지션 루트 |
 
-- `acquireRuntime`/`keepIdle` 경로에서 cap 정책에 질의 → `evict` 면 `EvictionPolicy` victim 들을 **단일 close 경로**로 닫고 진행, `reject` 면 호출측에 신호(기본은 발생 안 함). **기본값 조합(무제한+LRU 미발동) = 현 동작.**
-- victim close 와 IdleCloseTimer self-reap 의 **단일 close 경로**(F5): `RuntimePool` 내부 private `closeEntry(sessionId)`(타이머 clear → map delete → `runtime.close()` → `onReap`)로 양쪽이 수렴. timer 콜백·evict 모두 이 경로만 호출.
+- `acquireRuntime`/`keepIdle` 경로에서 cap 정책에 질의 → `evict-idle` 면 RuntimePool 이 `IdleRuntimeEntry[]` snapshot 을 만들어 `EvictionPolicy.selectVictims` 가 고른 키들을 **단일 close 경로**로 닫고 진행. **기본값 조합(무제한 → 항상 accept) = 현 동작.** `reject`/`queue` 는 0055 union 에 없음(0056 소관).
+- **단일 close helper(F5)**: `RuntimePool` private `closeEntry(sessionId)`(타이머 clear → map delete → `runtime.close()` → `onReap`)로 **기존 4경로 전부 수렴** — `keepIdle` prev 교체(:37)·idle timer 콜백(:41, Map 선제거 후 close)·`closeAll`(:60)·신규 evict. 거의 동시 호출이어도 2번째는 no-op.
 
-### count disambiguation (F1)
-- **cap 대상 = SessionRuntime 인구** = Supervisor active(턴 핸들) ∪ RuntimePool idle. 주로 idle 풀이 한도 압력의 진원(Persistent 누적).
+### count disambiguation (F1 + QA #1)
+- **cap count 대상 = SessionRuntime 인구** = Supervisor active(턴 핸들) ∪ RuntimePool idle. 주로 idle 풀이 한도 압력의 진원(Persistent 누적).
+- **eviction victim = idle only** — active 턴 핸들은 절대 축출 대상 아님(`acquireRuntime` 가 active 닫도록 압력 금지). active 초과는 0055 기본 무제한 pass-through, reject/queue 는 0056.
+- `RuntimeSupervisor.getRuntimePopulation()` 가 `{active, idle, total}` 을 노출(QA #6) — 테스트·주석 검증 근거.
 - ConcurrencyRegistry = 프로젝트별 *턴* 경고게이트(0039) → **소유만** Supervisor 로(아래), 소비(admission)는 0056. cap 카운트에 섞지 않는다.
 
-### ConcurrencyRegistry 소유 이관 (F3 — 파일 미이동)
-- 현재: 컴포지션 루트(`ipc/router.ts`)가 ConcurrencyRegistry 를 만들어 TurnCoordinator 에 직접 주입.
-- 변경: **Supervisor 가 보유**(생성 또는 주입받아 소유) + getter 로 코디네이터에 노출. 개념상 §A ⑭(동시성=자원 supervision)과 정렬.
-- **파일은 `orchestration/concurrency.ts` 그대로** — 결정 2(코드 리네임 연기) 위반 아님. Supervisor(L1)→orchestration(L1) import 는 동일레이어 허용.
+### ConcurrencyRegistry 단일 진실원 (F3 + QA #2 — 파일 미이동)
+- 현재(코드 확인): `@app/src/main/ipc/router.ts:139` 가 `new ConcurrencyRegistry`, `:186` 에서 `RouterContext.concurrency`(`@app/src/main/ipc/context.ts:46`)로 전달, `@app/src/main/ipc/chat/send.ts:319` 가 `ctx.concurrency` 를 TurnCoordinator 에 주입.
+- 변경: **Supervisor 가 보유** + `concurrency` getter 로 코디네이터에 노출. `send.ts` 는 `supervisor.concurrency` 주입, **`RouterContext.concurrency` 제거**(소유=Supervisor·사용=Context 이중 진실원 차단). 개념상 §A ⑭(동시성=자원 supervision)과 정렬.
+- **파일은 `orchestration/concurrency.ts` 그대로** — 결정 2(코드 리네임 연기) 위반 아님. Supervisor(L1)→orchestration(L1) import 는 동일레이어 허용. 생성 위치만 정렬.
 
-### 재사용할 기존 함수·파일
-- `@app/src/main/lifecycle/supervisor.ts`(acquireRuntime/releaseRuntime/release/closeIdleRuntimes·seam 주석) · `@app/src/main/lifecycle/runtime-pool.ts`(take/keepIdle/size/closeAll) · `@app/src/main/lifecycle/timers.ts`(IdleCloseTimer) · `@app/src/main/lifecycle/abort.ts` · `@app/src/main/orchestration/concurrency.ts`.
-- 레이어 경계: 신규 정책 파일은 L1 `lifecycle/`(예: `eviction-policy.ts`·cap 은 supervisor 내부 또는 별 모듈) — 하향 의존만, 매직넘버는 컴포지션 루트.
+### 재사용할 기존 함수·파일 + 권장 구조 (QA 요약)
+- 재사용: `@app/src/main/lifecycle/supervisor.ts`(acquireRuntime/releaseRuntime/release/closeIdleRuntimes·seam 주석) · `@app/src/main/lifecycle/runtime-pool.ts`(take/keepIdle/size/closeAll) · `@app/src/main/lifecycle/timers.ts`(IdleCloseTimer) · `@app/src/main/lifecycle/abort.ts` · `@app/src/main/orchestration/concurrency.ts`.
+- 권장 파일 구조:
+  - `lifecycle/eviction-policy.ts` — 순수 LRU victim 선택(Map 비의존, `IdleRuntimeEntry`/`EvictionPolicy` 타입 + LRU 구현 + 테스트).
+  - `lifecycle/runtime-cap-policy.ts`(또는 supervisor 내부 소형 타입) — `RuntimeCapPolicy` + 기본 `UnlimitedRuntimeCapPolicy`(capacity 수치 미결정).
+  - `lifecycle/runtime-pool.ts` — idle 저장 메커니즘 + `evictToCapacity()`/`evictVictims()` + 단일 close helper.
+  - `lifecycle/supervisor.ts` — active registry + idle pool 총괄 · cap hook · ConcurrencyRegistry 소유 · `getRuntimePopulation()`.
+  - `ipc/router.ts` — 컴포지션 루트 배선만(정책 주입·supervisor 생성).
+  - `ipc/chat/send.ts` — TurnCoordinator 에 `supervisor.concurrency` 전달(admission UX 결정 금지).
+- 레이어 경계: 신규 정책 파일은 L1 `lifecycle/` — 하향 의존만, 매직넘버는 컴포지션 루트.
 
 ## 파생 UX / 엣지케이스 (Derived UX & Edge Cases)
 
@@ -113,16 +123,17 @@ RuntimePool/Supervisor 는 **메커니즘**(저장·take/keepIdle/close·acquire
 - 되돌리기 어려운 결정: 없음(기본 무제한 → 동작보존, 정책은 후속 조정 가능).
 - **단독 결정 금지 항목(Open Question)** → 사용자에게:
   - **OQ1. cap 수치** (idle 풀/전체 SessionRuntime 한도 값). 0054 verify "cap 수치=open Q2" 연속.
-  - **OQ2. over-cap 정책**: evict-idle-first(권장) vs reject(획득 차단).
+  - ~~OQ2. over-cap 정책(evict-first vs reject)~~ → **해소(QA #5)**: 0055 는 **evict-idle 로 확정**, `reject`/`queue`(획득 차단·UX) 는 **0056 으로 이관**(scope 경계 정렬). 0055 cap union = `accept | evict-idle`.
   - **OQ3. 평가세션(ownerless system runtime)의 cap 회계 포함 여부** (§A P1 경계).
 
 ## 영향 받는 파일
 
-- `app/src/main/lifecycle/runtime-pool.ts`(EvictionPolicy 주입·단일 close 경로·evict)
-- `app/src/main/lifecycle/supervisor.ts`(RuntimeCapPolicy hook·ConcurrencyRegistry 소유)
-- 신규 `app/src/main/lifecycle/eviction-policy.ts`(+ `*.test.ts`) — 순수 LRU 정책
-- `app/src/main/ipc/router.ts`(컴포지션 루트 — 정책/registry 배선 이관)
-- 테스트: `runtime-pool.test.ts`·`supervisor.test.ts` 확장(cap·evict·close 경쟁)
+- `app/src/main/lifecycle/runtime-pool.ts`(snapshot·EvictionPolicy 주입·단일 close helper·evictToCapacity)
+- `app/src/main/lifecycle/supervisor.ts`(RuntimeCapPolicy hook·ConcurrencyRegistry 소유+getter·getRuntimePopulation)
+- 신규 `app/src/main/lifecycle/eviction-policy.ts`(+ `*.test.ts`) — 순수 LRU 정책(Map 비의존)
+- 신규 `app/src/main/lifecycle/runtime-cap-policy.ts`(또는 supervisor 내부 소형 타입) — 기본 `UnlimitedRuntimeCapPolicy`
+- `app/src/main/ipc/router.ts`(컴포지션 루트 — 정책/supervisor 배선)·`app/src/main/ipc/context.ts`(`RouterContext.concurrency` 제거)·`app/src/main/ipc/chat/send.ts`(`supervisor.concurrency` 주입)
+- 테스트: `runtime-pool.test.ts`·`supervisor.test.ts` 확장(cap·evict·close 경쟁·population)
 - (코드 변경 없음 항목) `orchestration/concurrency.ts` — **이동·리네임 금지**(소유 이관은 배선만)
 
 ## 참고 문서
@@ -163,11 +174,12 @@ RuntimePool/Supervisor 는 **메커니즘**(저장·take/keepIdle/close·acquire
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] count 3종 disambiguation 주석/문서
-- [ ] EvictionPolicy 추출 + LRU 기본 + 테스트
-- [ ] RuntimeCapPolicy hook + 무제한 기본
-- [ ] ConcurrencyRegistry 소유 Supervisor 이관(파일 미이동)
-- [ ] idempotent close 단일경로 + 경쟁 테스트
+- [ ] count 3종 disambiguation 주석/문서 (count=active+idle · victim=idle only)
+- [ ] EvictionPolicy 순수 추출(Map 비의존·victim 키 반환) + LRU 기본 + 테스트
+- [ ] RuntimeCapPolicy hook + 기본 Unlimited(union=accept|evict-idle)
+- [ ] ConcurrencyRegistry 소유 Supervisor 이관 + getter + `RouterContext.concurrency` 제거(파일 미이동)
+- [ ] idempotent close 단일 helper(기존 4경로 합류) + 경쟁 테스트
+- [ ] `getRuntimePopulation()` + population 테스트
 - [ ] 게이트 OFF 동작보존 확인
 
 ## [구현자 기입] 구현 보고
