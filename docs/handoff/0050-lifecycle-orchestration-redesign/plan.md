@@ -32,11 +32,14 @@
 
 이 작업은 그 단일 구조물을 추출하고, 흩어진 라이프사이클 책임을 그 아래로 재배치한다. **P0 는 OneShot 단일 구현 + 견고성**에 집중하고, Persistent(롱리브드 핸들)·steer/queue·핸들 cap 은 **P1 로 분리**한다(리뷰 1).
 
+> **§A 정제 브리지 (0051, 2026-06-29).** 설계서에 **§A(용어 3분리 + 2축 모델)** 가 추가됐다. 본 0050 의 인수/구조는 §A 와 **정합**하되, §A 알맹이는 대부분 **P1/Future** 다. 0050 P0 가 §A 에서 *반영해야 할 것*은 둘뿐: **(1) 용어** — 코드는 이미 `SessionRuntime`/`SessionRuntimeRegistry`(§A.1 3엔티티의 *런타임 / Orca Session* 명명과 일치), **(2) 개념 라벨** — 출시 `orchestration/` 모듈명은 유지하되 *개념상 자원 라이프사이클*임을 인지한다(§A.2 결정 ⑭ 교정·분기 메모 → 인수 10 주석). §A 의 **TurnCoordinator 1급화·Conversation Continuity·`orchestration/`→supervision 리네임은 0050 비범위**(P1/Future·별도 핸드오프)로, P0 에서 구현하지 않는다.
+
 ## 자료조사 (Research)
 
 | 발견 / 제약 | 레퍼런스 |
 |---|---|
-| 설계 정본 — 하네스 소유 스펙트럼, SessionRuntime, 20결정 + 리뷰 8건 | `@docs/etc/orca_lifecycle_orchestration_design_draft_ko.md`(§1·§5·§5.5) |
+| 설계 정본 — 하네스 소유 스펙트럼, SessionRuntime, 20결정 + 리뷰 8건 | `@docs/etc/orca_lifecycle_orchestration_design_draft_ko.md`(§1·§5·§5.5·**§A**) |
+| **§A 정제(0051)** — 용어 3분리(Orca Session / SessionRuntime / SDK resume context)·2축 모델·TurnCoordinator·결정 ⑭ 교정(동시성=라이프사이클) | `@docs/etc/orca_lifecycle_orchestration_design_draft_ko.md`(§A) · `docs/handoff/0051-lifecycle-taxonomy-refinement/plan.md` |
 | 라이프사이클 8계층 기준자 — 재설계가 충족/위임/연기를 판정하는 yardstick | `@docs/etc/lifecycle_management_ko.md`(§2~§8) |
 | 오케스트레이션 7요소 기준자 — Orca 스코프(세션/턴 오케스트레이션, 멀티에이전트 비채택) | `@docs/etc/orchestration_report_ko.md`(§3·§8) |
 | OpenCode real-world — run-coordinator(키당 1 drain·seq fencing)·steer/queue admission | `@docs/etc/study/opencode/opencode_orchestration_analysis_ko.md`(§2·§3) |
@@ -69,14 +72,14 @@
 7. **[리뷰 6] 핸들 cap 축출 훅 예약.** `SessionRuntimeRegistry` 인터페이스에 축출 훅(예: `evictIdle()` 또는 cap 파라미터)을 예약한다 — P0 는 미사용(비용 0), 구현(cap+LRU)은 P1.
 8. **[리뷰 4·7·8] 문서 정합.** 설계서의 disallowedTools 표기는 "D1 보류(미구현)"로 통일됨(완료) — 코드 변경 시 이 상태를 유지(canUseTool 1단). `maxTurns` 세션-스코프 함의(persistent per-turn 캡)는 P1 설계노트로 남긴다. resume 실패는 현행대로 "이 대화는 이어할 수 없습니다" 에러 종료(cold-fallback=Future).
 9. **레이어 경계 0 / 게이트 통과.** 신규 `lifecycle/`·`orchestration/` 모듈은 L1 domain(SessionAdapter 주입, electron 비의존). `npm run lint`(boundaries 포함)·`typecheck`·`test` 통과, 신규 의존성 0.
-10. **[2026-06-28 결정] 앱-레벨 2축 모듈 구조.** 신규 모듈은 `session/` 하위가 아니라 최상위 **`lifecycle/`**(앱·프로세스·세션 생명주기) + **`orchestration/`**(애플리케이션 레벨 턴/세션 조율)로 신설. SessionRuntime 은 lifecycle 의 구성원. `concurrency-registry.ts`→`orchestration/concurrency.ts` 이전.
+10. **[2026-06-28 결정] 앱-레벨 2축 모듈 구조.** 신규 모듈은 `session/` 하위가 아니라 최상위 **`lifecycle/`**(앱·프로세스·세션 생명주기) + **`orchestration/`**(애플리케이션 레벨 턴/세션 조율)로 신설. SessionRuntime 은 lifecycle 의 구성원. `concurrency-registry.ts`→`orchestration/concurrency.ts` 이전. **(§A.2 정합)** `orchestration/` 코드명은 유지하되 — *개념상* 이 동시성/registry 는 **자원·프로세스 라이프사이클(§2)** 이다(결정 ⑭ 교정). 코드명↔개념 분기는 의도(0051 결정 2)이며 리네임은 별도 핸드오프.
 11. **[2026-06-28 결정] uv Python runtime 폐기.** `src/main/runtime/` 와 그 배선(`index.ts`·`router.ts` `ensure()`·`context.ts` 타입·`send.ts` `getEnv()` 합류)·system prompt 정책(`policies/python-runtime.md` + `registry.ts`/`loader.ts` 항목)·build(`fetch-uv`·`prepare-runtime`·`electron-builder.yml` extraResources·`scripts/fetch-uv.mjs`)를 제거. **IPC 채널 변경 없음** — `orca:runtime:{status,prepare,statusEvent}` 3채널은 이미 2026-06-11 제거됨(`IPC_CONTRACT.md` §216). 게이트(lint/typecheck/test)가 미참조를 보증하고, `IPC_CONTRACT.md` §216(PythonRuntime 유지 서술)·`app/AGENTS.md`·`app/src/main/AGENTS.md`(runtime 모듈/빌드 스크립트 소개)를 정합화한다. **⚠ 동반(보강 R2-4): `policies/python-runtime.md` 는 "`uv run python` 안내" 정책이자 현재 *유일한 정적 정책*이라 함께 제거 → `stableAppend` 빈 문자열·`ExtensionBuilder` 빈 정책 분기·`buildAppend.test.ts`/`loader.test.ts` 갱신.** **uv 제거는 0050 범위에 *포함*(필수 완료)이며, 후속 handoff 아님** — 단 출시는 **PR-B(같은 0050 핸드오프의 2번째 PR)**로 분리(C1~C3=PR-A 머지 후). 즉 "별도 PR ≠ 별도 handoff/연기"(보강 R3-3). 구현 커밋 Criteria 는 PR-A·PR-B 각각 부분 충족으로 기재하되 0050 전체 인수에 11번 포함. (상세 체크리스트 보강 §5/R2-4.)
 
 ## 범위 / 비범위
 
 - **범위 (P0)**: 앱-레벨 2축 모듈(`lifecycle/`·`orchestration/`) 신설 + SessionRuntime 인터페이스 + OneShot 구현, 상태머신(단일 소유·비영속), TurnRegistry→SessionRuntimeRegistry·concurrency-registry→orchestration 재배치(+축출 훅 예약), StallTimer 개칭 + IdleCloseTimer 분리(인터페이스/stub), resume·부팅 dangling 마감, **uv Python runtime 폐기**(배선·python-runtime 정책·build; **IPC 무변경** — runtime 채널 기제거), P0 테스트 4종, `send.ts` 를 lifecycle+orchestration 소비자로 박리. 파일트리 재배치(아래 §설계).
-- **비범위 (P1, 후속 핸드오프)**: Persistent 핸들 구현·cross-turn 수명·IdleCloseTimer 구현·핸들 cap+LRU·steer/queue UX·멀티세션 동시 라이브 핸들 정책·compaction 액션(`/compact`)·session handoff·maxTurns per-turn 캡·이벤트 ordering/seq·backpressure·렌더러 재연결·Windows 프로세스-트리 정리. (설계서 §5.5 P1 + §6-10)
-- **비범위 (Future)**: resume cold-fallback(DB 이력 재구성)·goal 영속 1급화·cross-session 멀티에이전트·deliberation·별도 평가 세션·OpenCode 어댑터. (설계서 §5.5 Future)
+- **비범위 (P1, 후속 핸드오프)**: Persistent 핸들 구현·cross-turn 수명·IdleCloseTimer 구현·핸들 cap+LRU·steer/queue UX·멀티세션 동시 라이브 핸들 정책·compaction 액션(`/compact`)·session handoff·maxTurns per-turn 캡·이벤트 ordering/seq·backpressure·렌더러 재연결·Windows 프로세스-트리 정리·**TurnCoordinator 1급화**(§A.3 — 현 `InflightTurn`/`send.ts` 가 가로축 구동체, P1 에서 1급 컴포넌트화). (설계서 §5.5 P1 + §6-10 + §A.5)
+- **비범위 (Future)**: resume cold-fallback(DB 이력 재구성)·goal 영속 1급화·cross-session 멀티에이전트·deliberation·별도 평가 세션·OpenCode 어댑터·**Conversation Continuity / Knowledge Curation**(handoff·fork·DB reseed·대화 종료 평가→knowledge artifact, §A.4)·**`orchestration/`→supervision 코드 리네임**(0051 결정 2 분기 해소). (설계서 §5.5 Future + §A.4·§A.5)
 
 ## 의존 기술 / 전제 (Dependencies & Assumptions)
 
