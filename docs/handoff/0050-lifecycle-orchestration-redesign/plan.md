@@ -296,7 +296,7 @@ row 단위가 아니라 **assistant message 단위**로 정착(한 메시지에 
 > 사용자 결정 2건: **F1 = 한 핸드오프·순차 impl 라운드**(R4-1), **F2 = DB-only recovery 풀 구현 유지**(R4-3/4/5 적용). 그 외 R4-2 는 무조건 적용.
 
 #### 보강 R4-1 — PR-A/PR-B 상태 전이·INDEX 기록 (발견 1)
-한 핸드오프 안 순차 impl 라운드로 모델링: PR-A→IMPL_DONE(Criteria 10/11, Pending 인수11)→verify PASS-partial(Next-Action codex)→PR-B→IMPL_DONE 11/11→verify PASS-final. INDEX 대상커밋 칸=`PR-A:<hashA> / PR-B:<hashB>`. 기존 Criteria-Pending+라운드 메커니즘 재사용(0024 선례). 상세 §보강 6.
+한 핸드오프 안 순차 impl 라운드로 모델링: PR-A→IMPL_DONE(Criteria 10/11, Pending 인수11)→중간 검토 기록(최종 PASS 미사용)→PR-B→IMPL_DONE 11/11→verify PASS-final. INDEX 대상커밋 칸=`PR-A:<hashA> / PR-B:<hashB>`. 기존 Criteria-Pending+라운드 메커니즘 재사용(0024 선례). 상세 §보강 6.
 
 #### 보강 R4-2 — 상태머신에 abort cause (발견 2)
 `send.ts:579-580` 의 `turn.cancelled`(조용한 종료) vs `turn.timedOut`("응답 없음" 에러) 분기는 *abort 원인*에 의존. coarse 상태만으론 복원 불가 → SessionRuntime 이 **abort cause(`user_cancelled`|`stall`|`retry`)**를 보유하고 `cancelled`/`timedOut` getter 가 거기서 파생. §B 반영.
@@ -316,25 +316,37 @@ recovery tool_result = `{ reason:'aborted', message:'중단되었습니다' }` (
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- 동의 / 그대로 진행: …
-- 이견 / 우려: …
+- 동의 / 그대로 진행: PR-A/C2 의 구조는 유지하되, 기존 `turn.cancelled`/`turn.timedOut` mutable boolean 이 상태 SSOT 를 흐리던 문제를 runtime-derived getter 로 수습했다. 이어서 C3 dangling recovery 쿼리 명세(`payload_json` 포함)를 보강하고, PR-B/C4 uv runtime 제거까지 같은 핸드오프의 다음 구현 라운드로 완료했다.
+- 이견 / 우려: 기존 PR-A/C3 보고 커밋은 commit trailer 규약을 지키지 않았으므로 이번 구현 커밋부터 표준 trailer 로 상태를 복구한다. 과거 커밋 메시지는 history 에 남지만, INDEX/구현 보고의 대상 커밋은 이번 HEAD 로 정리한다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 구현함 / ⚠️ 보고만·**결정 필요** | … |
+| 1 | 기존 `upsertToolResultPart` 는 `tool_run_id` 전역 update 라 DB 전수 복구에 부적합 | ✅ `upsertToolResultPartScoped(messageId, toolRunId, ...)` 추가 | 보강 R4-3 |
+| 2 | recovery 가 tool_result 만 쓰고 message 를 incomplete 로 두면 DB 상태가 혼합됨 | ✅ 메시지별 dangling tool 정착 후 `markMessageComplete` 1회 호출 | 보강 R2-5/R3-4 |
+| 3 | 부팅엔 WebContents/InflightTurn 이 없어 기존 settlement 재사용 불가 | ✅ `lifecycle/recovery.ts` 에 DB-only recovery 구현 | 보강 R4-4 |
+| 4 | `turn.cancelled`/`turn.timedOut` 필드가 runtime 상태 SSOT 와 중복 | ✅ TurnContext boolean 제거, StallTimer/cancel 분기를 `RuntimeLiveTurn`의 abort cause getter로 파생 | 보강 R4-2 |
+| 5 | uv 제거 후에도 python-runtime prompt policy 가 남으면 모델 지시가 거짓이 됨 | ✅ `src/main/runtime/**`, uv scripts/resources 배선, `python-runtime.md`, loader/registry 항목 제거 | 보강 R2-4/R3-3 |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] …
+- [x] C1 구조 추출 유지 (`session-registry`/`turn-context`/`timers`/`orchestration`)
+- [x] C2 `OneShotSessionRuntime` + 상태/abort cause + close 계약
+- [x] DB dangling tool_call 조회 쿼리 추가
+- [x] message-scoped tool_result upsert 추가
+- [x] DB-only `recoverDanglingToolCalls` 구현
+- [x] 부팅 recovery 배선
+- [x] resume 진입 recovery 배선(live session skip)
+- [x] recovery 단위 테스트 추가
+- [x] C4 uv Python runtime 폐기
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` |
-| 게이트 결과 | … |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | `app/src/main/lifecycle/{session-runtime,timers,turn-context,recovery}.ts`, `app/src/main/db/{queries,types}.ts`, `app/src/main/ipc/{router,context,chat/send}.ts`, `app/src/main/prompts/**`, `app/src/main/extensions/builder.ts`, `app/src/main/runtime/**` 제거, uv build/script/docs 정리 |
+| 실행 명령 | `npm run lint`; `npm run typecheck`; `npx vitest run src/main/lifecycle src/main/orchestration src/main/ipc/chat/send.runtime-resilience.test.ts src/main/prompts src/main/extensions`; `npm test` |
+| 게이트 결과 | lint ✅, typecheck ✅, scoped vitest 54/54 ✅. 전체 `npm test` 는 better-sqlite3 Node ABI mismatch 로 `db/queries.test.ts` 12건 실패(환경 제한), 나머지 537개 통과. `git diff --check` ✅. |
+| 블로커 / 역질문 | 없음. C4 uv 제거까지 완료, 최종 verify 대기. |
+| 대상 커밋 | `HEAD` |

@@ -38,7 +38,7 @@ export interface TurnRequest {
   cwd: string
   signal?: AbortSignal
   extensions: TurnExtensions
-  // subprocess env (uv 런타임 + orca.json 앱 전역 env 병합 결과). 확장 묶음이 아니라 자식
+  // subprocess env (orca.json 앱 전역 env 병합 결과). 확장 묶음이 아니라 자식
   // 프로세스 env 주입이라 TurnRequest 직속 — router 호출처(ipc/chat/send.ts)에서 조립한다.
   env?: Record<string, string>
   // main(ProviderSettingsService)이 해석 완료한 provider settings blob (handoff 0014).

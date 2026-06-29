@@ -75,7 +75,7 @@ export function adaptSettings(settings?: ProviderSettings): object {
   return settings && Object.keys(settings).length > 0 ? { settings: JSON.stringify(settings) } : {}
 }
 
-// 시스템(턴) env 주입. 턴 env(uv 런타임 + orca.json 앱 env 병합 결과)를 options.env(subprocess
+// 시스템(턴) env 주입. 턴 env(orca.json 앱 env 병합 결과)를 options.env(subprocess
 // env)로 넘긴다. provider settings 의 env 는 settings flag(adaptSettings)로 흐르므로 여기서는
 // 시스템 env 만 다룬다(handoff 0028). 베이스가 없으면 옵션을 생략해 SDK 기본 env(process.env
 // 상속) 동작을 유지한다.

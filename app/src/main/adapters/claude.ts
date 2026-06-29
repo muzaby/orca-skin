@@ -305,7 +305,7 @@ export class ClaudeAdapter implements SessionAdapter {
         // provider settings flag 주입 — settings(env 포함 인라인 JSON 문자열, flag 레이어).
         // settingSources 는 생략해 SDK 기본 user/project/local 소스를 상속하고, 이 settings 가
         // 그 위에 얹혀 ~/.claude/settings.json 을 덮어쓴다(env 포함 — handoff 0028).
-        // options.env(adaptEnv)에는 시스템(턴) env 만 — uv 런타임 + orca.json 앱 env.
+        // options.env(adaptEnv)에는 시스템(턴) env 만 — orca.json 앱 env.
         ...adaptSettings(req.providerSettings?.settings),
         ...adaptEnv(env),
         ...adaptHooks(extensions.hooks),
@@ -327,12 +327,12 @@ export class ClaudeAdapter implements SessionAdapter {
       }
     })
 
+    const close = (): void => input.close()
+
     async function* events(): AsyncIterable<NormalizedEvent> {
       try {
         for await (const msg of handle) {
           yield* claudeToNormalized(msg, ctx)
-          // 턴 종료 신호 — result 도착 시 입력 스트림을 닫아 서브프로세스가 종료되게 한다.
-          if (msg.type === 'result') input.close()
         }
       } catch (err) {
         // 의도적 중단(턴 취소 / 계획 거부)은 에러가 아니므로 error 이벤트를 내지 않는다
@@ -346,13 +346,14 @@ export class ClaudeAdapter implements SessionAdapter {
         }
       } finally {
         // 어떤 경로로 끝나든 입력 스트림을 닫아(멱등) 핸들/서브프로세스 누수를 막는다.
-        input.close()
+        close()
         signal?.removeEventListener('abort', onAbort)
       }
     }
 
     return {
       events: events(),
+      close,
       // 라이브 control — 스트리밍 입력 모드라야 동작하는 SDK Query 메서드에 위임.
       setPermissionMode: (mode) => handle.setPermissionMode(mode),
       interrupt: () => handle.interrupt(),

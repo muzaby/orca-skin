@@ -23,7 +23,6 @@ import { loadClaudeProviderSettings } from '../adapters/claude-settings'
 import { scanSkills, type SkillScanRoot } from '../skills/scan'
 import { initDb } from '../db'
 import { CostTracker } from '../cost/tracker'
-import { PythonRuntime, type RuntimeStatus } from '../runtime'
 import { ExtensionBuilder } from '../extensions/builder'
 import { buildAppend, loadPolicies } from '../prompts'
 import { PermissionModeController } from '../runtime-events/permission-mode-controller'
@@ -38,7 +37,8 @@ import { TurnRegistry } from './chat/turn-registry'
 import { ApprovalCoordinator } from './chat/approvals'
 import { TurnPersistence } from './chat/persist'
 import { TitleGenerator } from './chat/title-generation'
-import { ConcurrencyRegistry } from './chat/concurrency-registry'
+import { ConcurrencyRegistry } from '../orchestration/concurrency'
+import { recoverDanglingToolCalls } from '../lifecycle/recovery'
 import { broadcastConcurrency } from './context'
 
 export class IpcRouter {
@@ -47,7 +47,6 @@ export class IpcRouter {
   // resolver 팩토리를 lazy arrow 로 넘긴다 — 호출은 턴 실행 시점이라 this.mcp 가 이미 할당돼 있다
   // (field-init 순서 무관). 비밀 확장은 어댑터의 어댑트 시점에만.
   private readonly registry = new AdapterRegistry(() => this.mcp.resolver())
-  readonly runtime = new PythonRuntime()
   // 부팅 시 1회 스캔하여 메모리에 캐시. fs.watch hot-reload 는 본 PR 범위 밖 (재시작).
   private skillsCache: SkillInfo[] = []
   // chat send 와 files list, session cwd 노출에서 모두 동일하게 사용하는 단일
@@ -119,6 +118,10 @@ export class IpcRouter {
 
   async start(): Promise<void> {
     const db = initDb()
+    const recovered = recoverDanglingToolCalls(db)
+    if (recovered.toolResultsWritten > 0 && is.dev) {
+      console.log('[recovery] dangling tools settled:', recovered)
+    }
     // 비용 요약 IPC 송출 배선 — domain(CostTracker)은 electron 비의존, 송출은 여기(컴포지션 루트)서.
     const cost = new CostTracker(db, (summary) => {
       for (const wc of webContents.getAllWebContents()) {
@@ -172,7 +175,6 @@ export class IpcRouter {
       registry: this.registry,
       installer: new Installer(this.registry),
       cost,
-      runtime: this.runtime,
       secretStore,
       extensions,
       providerSettings,
@@ -186,10 +188,6 @@ export class IpcRouter {
       mockAdapter: import.meta.env.DEV ? new MockAdapter(() => this.debugMock) : null
     }
     this.register(ctx)
-
-    // Python 런타임 (uv 격리 인터프리터) 비동기 초기화. await 하지 않아 부팅을 막지
-    // 않는다 — 진행 상태는 runtime:statusEvent 로 모든 webContents 에 스트리밍된다.
-    void this.runtime.ensure()
   }
 
   // 앱 종료 정리(index.ts will-quit → closeDb 직전 동기 호출). 진행 중 모든 턴의 열린 도구를
@@ -225,14 +223,5 @@ export class IpcRouter {
     registerMcpHandlers(ctx)
     registerEngineHandlers(ctx)
     registerMiscHandlers(ctx)
-
-    // 런타임 초기화 진행/에러는 dev 터미널 로깅으로 관찰한다 — 구 runtime IPC 3채널
-    // (status/prepare/statusEvent)은 renderer 소비처가 없어 제거됨(handoff 0012).
-    this.runtime.on('status', (st: RuntimeStatus) => {
-      if (is.dev) {
-        if (st.stage === 'error') console.error('[runtime] error:', st.error)
-        else console.log('[runtime]', st.stage, st.log ?? '')
-      }
-    })
   }
 }

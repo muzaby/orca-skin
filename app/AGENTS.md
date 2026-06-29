@@ -1,6 +1,6 @@
 # app/ — 코딩 에이전트용 가이드
 
-이 디렉토리는 **Orca v1 의 실제 구현체** (electron-vite + React/TypeScript) 가 사는 곳이다. 현재 단계는 **Phase 3++** — 로컬 SQLite SSOT + 세션 히스토리 + DOM Architecture + 4-layer Feature 아키텍처 + MCP/Skill 통합 + uv Python 런타임 + provider 표준화 리팩토링(부분). **전체 페이즈 이력은 [`../docs/PHASES.md`](../docs/PHASES.md)** 로 분리했다 (이 파일은 영속 작업 지침이지 changelog 가 아니다).
+이 디렉토리는 **Orca v1 의 실제 구현체** (electron-vite + React/TypeScript) 가 사는 곳이다. 현재 단계는 **Phase 3++** — 로컬 SQLite SSOT + 세션 히스토리 + DOM Architecture + 4-layer Feature 아키텍처 + MCP/Skill 통합 + provider 표준화 리팩토링(부분). **전체 페이즈 이력은 [`../docs/PHASES.md`](../docs/PHASES.md)** 로 분리했다 (이 파일은 영속 작업 지침이지 changelog 가 아니다).
 
 > **정본 우선.** 아키텍처 상세 — 모듈 트리·Provider 합성 순서·DOM 마커 체계·IPC 카탈로그·보안 근거 — 의 SSOT 는 `../docs/` 다. 본 문서는 **app 디렉토리에서 코드를 짤 때의 작업 규칙**만 담는다. 본문과 SSOT 가 어긋나면 `../docs/` 와 코드가 진실이다.
 
@@ -40,7 +40,6 @@ shared/      → shared 내부만                  (범용 atom. 도메인 로�
 | `src/main/db/`                | better-sqlite3 singleton + WAL + 마이그레이션 러너 + prepared statements                       |
 | `src/main/mcp/`               | 파일-백드 MCP 모델 (`mcp.json` + safeStorage 비밀 + 대칭 변환기 `toClaudeConfig`/`toOpencodeConfig`) |
 | `src/main/deploy/`            | `ExtensionDeployer` + `StandardConformance` (sources → `dist/<engine>/` 렌더)                  |
-| `src/main/runtime/`           | uv 격리 Python 런타임 (멱등 초기화 상태기계 + SDK env 주입)                                    |
 | `src/main/settings/store.ts`  | `electron-store` + zod                                                                         |
 | `src/shared/{ipc,protocol}.ts`| `CHANNELS` 상수 + 순수 TS 타입 / zod 스키마 (main 전용)                                        |
 
@@ -87,21 +86,18 @@ new BrowserWindow({
 
 - TRD §2 Stack 표 **밖**의 패키지 추가는 **사용자 승인 필수** + PR 설명에 _왜_ 명시.
 - 이미 채택 (도입 시점만 자유): React, react-markdown, shiki, electron-store, zod, vitest, playwright, Tailwind v4, better-sqlite3@12, react-router-dom v7. 템플릿 동봉(사전 승인): `@electron-toolkit/{utils,preload}`.
-- **uv 바이너리 동봉**: npm 이 아닌 빌드 산출물. `scripts/fetch-uv.mjs` → `resources/bin/<plat>-<arch>/`(gitignore) → electron-builder `extraResources`. Python 은 첫 실행 시 `uv python install 3.12`, 격리 위치 `<userData>/runtime`. 상세 → [`../docs/PHASES.md`](../docs/PHASES.md) (uv 런타임 행).
 - 미정 항목 (PRD §11 / TRD §15 — 단독 결정 금지): 마크다운 라이브러리 최종 결정 · 패키징/서명/자동업데이트 · 텔레메트리 · 라이센스 · 성능 SLA · 기본 백엔드.
 
 ## 빌드 / 실행
 
 | 스크립트                  | 동작                                                                                          |
 | ------------------------- | --------------------------------------------------------------------------------------------- |
-| `npm run dev`             | electron-vite dev (HMR). `predev` 가 `fetch-uv`(멱등) 선행 + 부팅 시 런타임 자동 `ensure()` (`[runtime] …` 로깅) |
+| `npm run dev`             | electron-vite dev (HMR). |
 | `npm run build`           | `tsc --noEmit && electron-vite build` → `out/`                                                 |
 | `npm run build:{win,mac,linux}` | electron-builder 플랫폼 배포 산출                                                        |
 | `npm run typecheck`       | `tsc --noEmit` (node + web tsconfig 분리)                                                      |
 | `npm run lint` / `format` | ESLint (boundaries 포함) / Prettier                                                            |
 | `npm test`                | `vitest run` — 순수 함수 단위 (electron 비의존). `test:watch` = watch                          |
-| `npm run fetch-uv`        | uv 바이너리 배치 (이미 있으면 스킵 — `--force`/`UV_FORCE` 강제)                                |
-| `npm run prepare-runtime` | GUI 없이 Python 런타임 헤드리스 사전 준비 (CI 워밍 / 사전 다운로드)                            |
 
 ## 에이전트 원칙 (app 고유)
 
