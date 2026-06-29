@@ -37,6 +37,7 @@
 | `RuntimeLiveTurn` + streaming-input(long-lived AsyncIterable) — steer(실행 중 턴에 메시지 주입)의 메커니즘 토대 | `@app/src/main/lifecycle/ports.ts`(RuntimeLiveTurn) · `@app/src/main/adapters/streaming-input.ts` |
 | Supervisor.getBySession 으로 in-flight 턴 조회 가능 → admission 진입에서 busy 판정 | `@app/src/main/lifecycle/supervisor.ts:48-54` |
 | 외부 사례: OpenCode steer/queue admission + seq fencing | `@docs/etc/study/opencode/`(오케스트레이션 편) |
+| **cap-driven `reject`/queue admission 은 0055 QA(#5)로 0056 에 통합** — 0055 cap union 은 `accept\|evict-idle` 로 좁혀졌고, 획득 차단(reject)·UX 는 본 핸드오프 소관(OQ1 이 이미 reject/queue 포함) | `@docs/handoff/0055-runtime-resource-governance/plan.md` AC3·OQ2(해소) |
 
 ## 인수 기준 (Acceptance Criteria)
 
