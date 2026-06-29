@@ -349,4 +349,4 @@ recovery tool_result = `{ reason:'aborted', message:'중단되었습니다' }` (
 | 실행 명령 | `npm run lint`; `npm run typecheck`; `npx vitest run src/main/lifecycle src/main/orchestration src/main/ipc/chat/send.runtime-resilience.test.ts src/main/prompts src/main/extensions`; `npm test` |
 | 게이트 결과 | lint ✅, typecheck ✅, scoped vitest 54/54 ✅. 전체 `npm test` 는 better-sqlite3 Node ABI mismatch 로 `db/queries.test.ts` 12건 실패(환경 제한), 나머지 537개 통과. `git diff --check` ✅. |
 | 블로커 / 역질문 | 없음. C4 uv 제거까지 완료, 최종 verify 대기. |
-| 대상 커밋 | `HEAD` |
+| 대상 커밋 | 구현 `d8ec70d`(C1~C4) + 갭보강 `0535be9`(인수 2·6c, Claude 검증 중 보강) |
