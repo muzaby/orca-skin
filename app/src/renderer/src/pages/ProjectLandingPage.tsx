@@ -1,6 +1,5 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { chatActions, Composer, useChatSession } from '../features/chat'
-import { CwdButton } from '../features/chat/components/CwdButton'
 import { useBackendCapabilities, useBackendLabel } from '../features/backend'
 import { formatApproxCost, useCostSummary } from '../features/cost'
 import {
@@ -26,7 +25,6 @@ export function ProjectLandingPage(): React.JSX.Element {
   const navigate = useNavigate()
   const sessionId = useChatSession((s) => s.sessionId)
   const inflight = useChatSession((s) => s.inflight)
-  const cwd = useChatSession((s) => s.cwd)
   const backendLabel = useBackendLabel()
   const capabilities = useBackendCapabilities()
   const summary = useCostSummary()
@@ -40,9 +38,6 @@ export function ProjectLandingPage(): React.JSX.Element {
       <div className="mx-auto grid w-full max-w-[1200px] min-w-0 flex-1 grid-cols-1 gap-y-6 px-6 py-8 xl:grid-cols-5 xl:gap-x-10">
         <main className="flex min-w-0 flex-col space-y-6 xl:col-span-3">
           <ProjectInfoHero projectId={projectId} />
-          <div className="flex">
-            <CwdButton cwd={cwd} sessionStarted={false} inflight={inflight} />
-          </div>
           <Composer backendLabel={backendLabel} canAbort={canAbort} costToday={costToday} flush />
           <ProjectSessionsPanel
             projectId={projectId}
