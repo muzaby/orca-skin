@@ -34,10 +34,10 @@ import { registerEngineHandlers } from './handlers/engine'
 import { registerMiscHandlers } from './handlers/misc'
 import { registerChatHandlers, settleOpenToolRuns } from './chat/send'
 import { RuntimeSupervisor } from '../lifecycle/supervisor'
+import { ConcurrencyRegistry } from '../orchestration/concurrency'
 import { ApprovalCoordinator } from './chat/approvals'
 import { TurnPersistence } from './chat/persist'
 import { TitleGenerator } from './chat/title-generation'
-import { ConcurrencyRegistry } from '../orchestration/concurrency'
 import { recoverDanglingToolCalls } from '../lifecycle/recovery'
 import { broadcastConcurrency } from './context'
 
@@ -136,9 +136,6 @@ export class IpcRouter {
     // 빌더는 db 인스턴스가 필요해 여기서 생성. skills 는 lazy getter 라 스캔
     // 완료 전에 만들어도 무방 — 턴 실행 시점에 최신 skillsCache 를 읽는다.
     const extensions = new ExtensionBuilder(db, this.mcp, () => this.skillsCache, stableAppend)
-    const concurrency = new ConcurrencyRegistry((projectId, count) =>
-      broadcastConcurrency({ projectId, count })
-    )
     await this.registry.refreshInstallState()
     this.defaultCwd = getWorkspacePath(null)
     await mkdir(this.defaultCwd, { recursive: true }).catch((e) =>
@@ -183,7 +180,6 @@ export class IpcRouter {
       syncExtensions: () => this.syncExtensions(),
       syncExtensionsForTurn: (cwd) => this.syncExtensionsForTurn(cwd),
       getCwd: (projectId) => getWorkspacePath(projectId ? db.getProject(projectId) : null),
-      concurrency,
       debugMock: this.debugMock,
       mockAdapter: import.meta.env.DEV ? new MockAdapter(() => this.debugMock) : null
     }
@@ -210,7 +206,11 @@ export class IpcRouter {
 
   private register(ctx: RouterContext): void {
     // chat 턴 파이프라인 조립 — 레지스트리(세션 키잉) · persist · 제목 생성 · 승인 조정.
-    const supervisor = (this.supervisor = new RuntimeSupervisor<Electron.WebContents>())
+    const supervisor = (this.supervisor = new RuntimeSupervisor<Electron.WebContents>({
+      concurrency: new ConcurrencyRegistry((projectId, count) =>
+        broadcastConcurrency({ projectId, count })
+      )
+    }))
     const titles = new TitleGenerator(ctx.db)
     const persistence = (this.persistence = new TurnPersistence(ctx.db, ctx.cost, (turn) =>
       titles.maybeStart(turn)
