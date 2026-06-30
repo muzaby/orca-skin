@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from 'react-router-dom'
-import { chatActions, Composer, useChatSession } from '../features/chat'
+import { chatActions, ChatTile, Composer, useChatSession } from '../features/chat'
 import { useBackendCapabilities, useBackendLabel } from '../features/backend'
 import { formatApproxCost, useCostSummary } from '../features/cost'
 import {
@@ -24,6 +24,8 @@ export function ProjectLandingPage(): React.JSX.Element {
   const { projectId = '' } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
   const sessionId = useChatSession((s) => s.sessionId)
+  const messages = useChatSession((s) => s.messages)
+  const loadingSession = useChatSession((s) => s.loadingSession)
   const inflight = useChatSession((s) => s.inflight)
   const backendLabel = useBackendLabel()
   const capabilities = useBackendCapabilities()
@@ -31,6 +33,11 @@ export function ProjectLandingPage(): React.JSX.Element {
   // 능력 서술자가 로드됐는데 sessionAbort 가 아니면 중단 게이팅(미로드면 현행 동작 유지).
   const canAbort = capabilities ? capabilities.cancellation.sessionAbort === true : true
   const costToday = summary ? formatApproxCost(summary.day.totalCostUsd) : undefined
+  const isEmpty = messages.length === 0 && !loadingSession
+
+  if (!isEmpty) {
+    return <ChatTile backendLabel={backendLabel} canAbort={canAbort} costToday={costToday} />
+  }
 
   return (
     <section className="flex min-w-0 flex-1 flex-col bg-bg">
@@ -38,7 +45,13 @@ export function ProjectLandingPage(): React.JSX.Element {
       <div className="mx-auto grid w-full max-w-[1200px] min-w-0 flex-1 grid-cols-1 gap-y-6 px-6 py-8 xl:grid-cols-5 xl:gap-x-10">
         <main className="flex min-w-0 flex-col space-y-6 xl:col-span-3">
           <ProjectInfoHero projectId={projectId} />
-          <Composer backendLabel={backendLabel} canAbort={canAbort} costToday={costToday} flush />
+          <Composer
+            backendLabel={backendLabel}
+            canAbort={canAbort}
+            costToday={costToday}
+            flush
+            showLandingCwdPanel
+          />
           <ProjectSessionsPanel
             projectId={projectId}
             currentSessionId={sessionId}

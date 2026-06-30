@@ -36,6 +36,7 @@ export function NewChatLandingPage(): React.JSX.Element {
             canAbort={canAbort}
             costToday={costToday}
             initialDraft={composerDraft}
+            showLandingCwdPanel
           />
         </div>
       </section>
