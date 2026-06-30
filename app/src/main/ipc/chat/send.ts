@@ -45,6 +45,11 @@ import {
 } from '../../lifecycle/settle'
 import type { TurnEventSink } from '../../lifecycle/turn-sinks'
 import { RuntimeSupervisor, abortTurn } from '../../lifecycle/supervisor'
+import type {
+  AdmissionController,
+  AdmissionContext,
+  AdmissionDecision
+} from '../../lifecycle/admission-controller'
 import type { InflightTurn } from './turn-registry'
 
 export const IDLE_TIMEOUT_MS = STALL_TIMEOUT_MS
@@ -59,6 +64,7 @@ export interface ChatDeps {
   persistence: TurnPersistence
   titles: TitleGenerator
   permissionModes: PermissionModeController
+  admission: AdmissionController<WebContents>
 }
 
 // renderer forward sink — sendChatEvent 래핑. 코디네이터·정착(settle)·취소 핸들러가 공유한다.
@@ -133,8 +139,54 @@ function buildTurnEnv(ctx: RouterContext): Record<string, string> | undefined {
   return mergeEnvLayers(undefined, expanded)
 }
 
+function createAdmissionContext(
+  sessionId: string | null,
+  owner: WebContents,
+  hasInflight: boolean
+): AdmissionContext<WebContents> {
+  return sessionId
+    ? { target: { kind: 'existing-session', sessionId }, hasInflight }
+    : { target: { kind: 'new-session-slot', owner }, hasInflight }
+}
+
+function enactAdmissionDecision(
+  owner: WebContents,
+  sessionId: string | null,
+  decision: AdmissionDecision
+): boolean {
+  switch (decision.kind) {
+    case 'accept':
+      return true
+    case 'reject':
+      sendChatEvent(owner, {
+        type: 'error',
+        ...(sessionId ? { sessionId } : {}),
+        error: makeClassifiedError(
+          'provider_connection_error',
+          '이미 진행 중인 턴이 있습니다. 완료 후 다시 시도하세요.',
+          { retryable: true }
+        )
+      })
+      return false
+    case 'queue':
+    case 'steer':
+      // 0056 framework-only: 기본 정책은 queue/steer 를 반환하지 않는다. 실제 재디스패치/스트림
+      // 주입 enactment 는 후속 handoff 에서 L3 책임으로 채운다.
+      sendChatEvent(owner, {
+        type: 'error',
+        ...(sessionId ? { sessionId } : {}),
+        error: makeClassifiedError(
+          'provider_connection_error',
+          '이미 진행 중인 턴이 있습니다. 완료 후 다시 시도하세요.',
+          { retryable: true }
+        )
+      })
+      return false
+  }
+}
+
 export function registerChatHandlers(deps: ChatDeps): void {
-  const { ctx, supervisor, approvals, persistence, titles, permissionModes } = deps
+  const { ctx, supervisor, approvals, persistence, titles, permissionModes, admission } = deps
 
   // 서브에이전트 백그라운드화 게이트(가이드 — run_in_background 주입). 종료 정착은
   // task_notification/사용자 중단 공통 경로에서 foreground/background 모두 처리한다.
@@ -160,23 +212,17 @@ export function registerChatHandlers(deps: ChatDeps): void {
       return
     }
 
-    // 동시 턴 가드 — 서로 다른 세션의 동시 턴은 허용하되, 같은 세션(또는 같은 창의 새-채팅
-    // 슬롯)의 중복 send 는 거부한다. resume 컨텍스트가 꼬이는 것을 막는 보호선.
-    const duplicate = parsed.data.sessionId
-      ? supervisor.hasSession(parsed.data.sessionId)
-      : supervisor.hasPending(event.sender)
-    if (duplicate) {
-      sendChatEvent(event.sender, {
-        type: 'error',
-        ...(parsed.data.sessionId ? { sessionId: parsed.data.sessionId } : {}),
-        error: makeClassifiedError(
-          'provider_connection_error',
-          '이미 진행 중인 턴이 있습니다. 완료 후 다시 시도하세요.',
-          { retryable: true }
-        )
-      })
-      return
-    }
+    // 동시 턴 admission — 서로 다른 세션의 동시 턴은 허용하되, 같은 세션(또는 같은 창의
+    // 새-채팅 슬롯)의 중복 send 는 AdmissionController 정책 결과를 L3 에서 enact 한다.
+    const admissionContext = createAdmissionContext(
+      parsed.data.sessionId,
+      event.sender,
+      parsed.data.sessionId
+        ? supervisor.hasSession(parsed.data.sessionId)
+        : supervisor.hasPending(event.sender)
+    )
+    const admissionDecision = admission.admit(admissionContext)
+    if (!enactAdmissionDecision(event.sender, parsed.data.sessionId, admissionDecision)) return
 
     const adapter =
       ctx.mockAdapter && ctx.debugMock.enabled ? ctx.mockAdapter : ctx.registry.getActive()
