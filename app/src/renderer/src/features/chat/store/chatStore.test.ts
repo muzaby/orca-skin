@@ -298,6 +298,26 @@ describe('chatStore — 0040 새-채팅 직렬 디스패치 게이트', () => {
     )
   })
 
+  it('pending cwd 는 첫 전송 payload 에 스냅샷되고 다음 새 대화는 default 로 리셋된다', () => {
+    mockDraftIds('a')
+    useChatStore.setState((s) => ({
+      sessions: {
+        ...s.sessions,
+        [NEW_CHAT_KEY]: {
+          ...s.sessions[NEW_CHAT_KEY],
+          session: { ...s.sessions[NEW_CHAT_KEY].session, cwd: '/repo/custom' }
+        }
+      }
+    }))
+
+    expect(chatActions.send('첫 번째')).toBe(true)
+
+    const st = useChatStore.getState()
+    expect(chatSend).toHaveBeenCalledWith(expect.objectContaining({ cwd: '/repo/custom' }))
+    expect(st.sessions['draft:a'].session.cwd).toBe('/repo/custom')
+    expect(st.sessions[NEW_CHAT_KEY].session.cwd).toBeNull()
+  })
+
   it('새-채팅 A 미승격 상태에서 B 전송은 화면 draft 로 보존하고 main dispatch 는 큐잉한다', () => {
     mockDraftIds('a', 'b')
     expect(chatActions.send('첫 번째')).toBe(true)

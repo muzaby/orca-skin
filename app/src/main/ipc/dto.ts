@@ -15,7 +15,8 @@ export function toSessionListItem(r: SessionListRow): SessionListItem {
     title: r.title,
     updatedAt: r.updated_at,
     preview: r.last_message_preview,
-    projectId: r.project_id
+    projectId: r.project_id,
+    cwd: r.cwd
   }
 }
 

@@ -467,7 +467,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       }
 
     // 사이드바에서 과거 대화를 선택했을 때 IPC 응답 (LoadedSession) 으로 state 를 통째로 교체.
-    // cwd 는 main 의 단일 default 가 진실이므로 보존한다.
+    // cwd 는 세션 영속값이 있으면 우선하고, 레거시 세션은 현재 baseline 을 보존한다.
     case 'LOAD_SESSION': {
       const messages: Message[] = action.session.messages.map((m) => ({
         role: m.role,
@@ -479,7 +479,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       }))
       return {
         ...initialChatState,
-        cwd: state.cwd,
+        cwd: action.session.cwd ?? state.cwd,
         sessionId: action.session.id,
         projectId: action.session.projectId ?? null,
         backend: action.session.backend,

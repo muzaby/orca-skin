@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { SendChatMessageSchema, SetPermissionModeSchema } from './protocol'
+import { OpenPathRequestSchema, SendChatMessageSchema, SetPermissionModeSchema } from './protocol'
 
 const base = { sessionId: null, projectId: null, text: 'hi' }
 
@@ -35,6 +35,21 @@ describe('SendChatMessageSchema — permissionMode (정규화 6종)', () => {
     for (const mode of ['acceptEdits', 'bypassPermissions', 'nope']) {
       expect(SendChatMessageSchema.safeParse({ ...base, permissionMode: mode }).success).toBe(false)
     }
+  })
+})
+
+describe('SendChatMessageSchema — cwd', () => {
+  it('새 세션 cwd payload 를 허용하고 빈 문자열은 거부한다', () => {
+    expect(SendChatMessageSchema.safeParse({ ...base, cwd: '/repo/orca' }).success).toBe(true)
+    expect(SendChatMessageSchema.safeParse({ ...base, cwd: null }).success).toBe(true)
+    expect(SendChatMessageSchema.safeParse({ ...base, cwd: '' }).success).toBe(false)
+  })
+})
+
+describe('OpenPathRequestSchema', () => {
+  it('열 경로를 검증한다', () => {
+    expect(OpenPathRequestSchema.safeParse({ path: '/repo/orca' }).success).toBe(true)
+    expect(OpenPathRequestSchema.safeParse({ path: '' }).success).toBe(false)
   })
 })
 

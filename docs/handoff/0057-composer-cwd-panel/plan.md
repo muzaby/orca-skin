@@ -147,28 +147,37 @@
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- 동의 / 그대로 진행: …
-- 이견 / 우려: …
+- 동의 / 그대로 진행: Composer 패널 삽입 위치, files IPC 분리, send payload 기반 세션 출생 cwd 고정, `sessions.cwd` 영속화 방향으로 구현했다. 사용자 후속 피드백에 따라 **프로젝트 랜딩도 `/new`와 동일 정책**(랜딩 baseline은 default, 선택 cwd는 해당 새 세션 출생 시 고정, 세션 진입 후에는 열기만)으로 포함했고, 추가 피드백에 따라 세션 페이지의 Composer 패널 스택 노출을 제거하고 타이틀 영역의 `[📁 basename] / <타이틀>` 형태로 이동했다.
+- 이견 / 우려: send payload만 확장하면 resume 세션에서 cwd가 default/project fallback으로 되돌아갈 수 있어, DB 컬럼(`sessions.cwd`)과 resume 해석 경로까지 같이 구현했다. 또한 pending cwd가 전역 `cwdCache`에 섞이면 새 대화 리셋 정책이 깨지므로 active 새-채팅 엔트리에만 저장하도록 분리했다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 구현함 / ⚠️ 보고만·**결정 필요** | … |
+| 1 | resume 세션 cwd 회귀 가능성 | ✅ 구현함 — `sessions.cwd` 마이그레이션/insert/select/load/resume 해석을 추가 | send payload 는 새 세션 출생 순간에만 유효하므로 DB SSOT 필요 |
+| 2 | pending cwd 전역 누수 가능성 | ✅ 구현함 — `cwdCache` 는 default baseline 으로 두고, 선택 cwd 는 active 새-채팅 엔트리만 갱신 | 새 대화/프로젝트 랜딩 모두 default baseline 으로 리셋 |
+| 3 | queued new chat 이 나중 cwd 를 읽을 위험 | ✅ 구현함 — `SendChatMessage.cwd` 에 전송 시점 cwd 스냅샷 포함 | `newChatQueue` payload 가 cwd 를 보존 |
+| 4 | `openPath` 실패 UX 미정 | ✅ 구현함 — IPC reject 를 renderer 에서 catch 후 console warning 처리, 사용자-facing Notice 는 추가하지 않음 | 제품 UX 변경은 범위 밖 |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] …
+- [x] 랜딩 cwd 버튼 및 세션 타이틀 영역 cwd 버튼 추가(Composer 패널 스택 노출 제거)
+- [x] `files:pickDirectory` / `files:openPath` IPC 추가
+- [x] `SendChatMessage.cwd` + zod 스키마 확장
+- [x] `sessions.cwd` 마이그레이션 및 DB query/type/load/resume 경로 반영
+- [x] 랜딩/프로젝트 랜딩 pending cwd 엔트리 상태와 새 대화 리셋 정책 구현
+- [x] basename 순수 함수 및 IPC/chatStore 테스트 추가
+- [x] `docs/IPC_CONTRACT.md` 갱신
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` |
-| 게이트 결과 | lint ✅ / typecheck ✅ / test ✅ (N passed) |
-| 블로커 / 역질문 | (없으면 "없음") |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | `app/src/renderer/src/features/chat/components/composer/DirectoryPanel.tsx`, `Composer.tsx`, `chatStore.ts`, `chatReducer.ts`, IPC/preload/api, main files/chat/session/db 경로, `app/src/shared/path-basename.ts`, tests, `docs/IPC_CONTRACT.md` |
+| 실행 명령 | `cd app && npm run lint`, `cd app && npm run typecheck`, `cd app && npm test` |
+| 게이트 결과 | lint ✅ / typecheck ✅ / test ✅ (606 passed). 최초 test 는 better-sqlite3 ABI 불일치로 실패 후 `npm rebuild better-sqlite3` 재실행으로 해소 |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `f6238d8` |
 
 ---
 
