@@ -59,6 +59,9 @@ interface ComposerProps {
   // 프로젝트 랜딩처럼 이미 컬럼이 폭을 제한하는 곳에서 hero/세션 목록과 좌우 라인을 맞춘다.
   // 채팅 뷰(ChatTile)는 transcript 와 폭을 공유해야 하므로 미전달(기본 ReadingColumn).
   flush?: boolean
+  // 랜딩 페이지가 직접 주입하는 cwd 패널. sessionId null 같은 내부 상태가 아니라
+  // page 컨텍스트로만 노출해 첫 전송 직후 ChatTile 전환 중에는 렌더하지 않는다.
+  showLandingCwdPanel?: boolean
 }
 
 // 채팅 입력 composer — textarea + chip 행 + send/cancel 버튼 + skills/file 자동완성.
@@ -73,12 +76,12 @@ export function Composer({
   onScrollToBottom,
   costToday,
   initialDraft,
-  flush
+  flush,
+  showLandingCwdPanel = false
 }: ComposerProps): React.JSX.Element {
   const { send, cancel, answerAsk, skipAsk, setPermissionMode, setModel, setEffort } = chatActions
   const inflight = useChatSession((s) => s.inflight)
   const cwd = useChatSession((s) => s.cwd)
-  const sessionId = useChatSession((s) => s.sessionId)
   const lastTelemetry = useChatSession((s) => s.lastTelemetry)
   const permissionMode = useChatSession((s) => s.permissionMode)
   const backend = useChatSession((s) => s.backend)
@@ -426,7 +429,7 @@ export function Composer({
               input={p.input}
             />
           ))}
-          {sessionId == null && (
+          {showLandingCwdPanel && (
             <div
               className="app-frame-composer-directory flex rounded-r7 border border-transparent bg-transparent px-1 py-1"
               data-surface="cwd-panel"
