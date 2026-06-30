@@ -7,6 +7,7 @@ import type { ChatState } from '../reducer/chatReducer'
 import { defaultRightPanelTileLabel, type RightPanelTileId } from '../lib/rightPanelTiles'
 import { flattenColumns } from '../lib/rightPanelLayout'
 import { tileRegistry } from './rightpanel/tileRegistry'
+import { CwdButton } from './CwdButton'
 
 // 타이틀바 아이콘 버튼 — 3-상태(idle/pressed/disabled)를 시맨틱 토큰으로 표현한다.
 // pressed 는 press 표면 토큰(t3), idle hover 는 중립 ink 오버레이. (구 Button 의 warm
@@ -36,6 +37,7 @@ function selectTitle(s: ChatState): string {
 // 스트리밍 커밋(messages 교체)에도 제목 문자열이 같으면 재렌더되지 않는다.
 export const ChatTitleBar = memo(function ChatTitleBar(): React.JSX.Element {
   const title = useChatSession(selectTitle)
+  const cwd = useChatSession((s) => s.cwd)
   // 열 구조(stable ref)를 구독하고 평탄 뷰는 메모로 파생 — selector 가 새 배열을 반환하면
   // zustand Object.is 비교가 매번 깨져 불필요 재렌더가 난다.
   const tileColumns = useChatSession((s) => s.rightPanelTiles)
@@ -84,8 +86,10 @@ export const ChatTitleBar = memo(function ChatTitleBar(): React.JSX.Element {
 
   return (
     <div className="app-frame-titlebar flex items-center gap-3 px-6 pb-2 pt-3">
-      <div className="min-w-0 flex-1">
-        <div className="overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-medium text-ink">
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <CwdButton cwd={cwd} sessionStarted className="shrink-0" />
+        <span className="shrink-0 text-t5">/</span>
+        <div className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-medium text-ink">
           {title}
         </div>
       </div>

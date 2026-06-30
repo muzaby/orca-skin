@@ -379,7 +379,8 @@ function send(
       modelFamily: cur.modelFamily,
       effort: cur.effort,
       attachments: [...attachments],
-      attachmentViews: [...attachmentViews]
+      attachmentViews: [...attachmentViews],
+      cwd: cur.cwd
     }
     let shouldDispatch = false
     setState((s) => {
@@ -434,10 +435,24 @@ function send(
       modelFamily: cur.modelFamily,
       effort: cur.effort,
       attachments,
-      attachmentViews
+      attachmentViews,
+      cwd: null
     })
     .catch((err) => console.error('[chat] send invoke rejected', err))
   return true
+}
+
+function setPendingCwd(cwd: string): void {
+  setState((s) => {
+    const entry = s.sessions[s.activeKey]
+    if (!entry || entry.session.sessionId != null) return s
+    return {
+      sessions: {
+        ...s.sessions,
+        [s.activeKey]: { ...entry, session: chatReducer(entry.session, { type: 'SET_CWD', cwd }) }
+      }
+    }
+  })
 }
 
 function cancel(): void {
@@ -654,6 +669,7 @@ export const chatActions = {
   send,
   cancel,
   newChat,
+  setPendingCwd,
   clearError: (): void => dispatchActive({ type: 'CLEAR_ERROR' }),
   loadSession,
   renameSession,
