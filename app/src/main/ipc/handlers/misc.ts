@@ -34,6 +34,7 @@ import {
   SUPPORTED_IMAGE_MIME_TYPES
 } from '../../files/attachments'
 import { listDir } from '../../files/scan'
+import { isWithinDir, projectsDir } from '../../config/paths'
 import { promises as fs } from 'node:fs'
 import { sendInstallStatus, setWireLog, type RouterContext } from '../context'
 import { handle, handlePlain } from '../registry'
@@ -162,7 +163,14 @@ export function registerMiscHandlers(ctx: RouterContext): void {
     return result.filePaths[0] ?? null
   })
 
+  // 임의 경로 오픈 벡터를 차단한다 — 렌더러가 보낸 경로를 무검증으로 shell.openPath 하지 않고
+  // (1) 실재 디렉토리(파일/실행파일 거부)이며 (2) projects 루트 하위이거나 실재 세션 cwd 인
+  // 경우에만 연다. 정상 호출은 세션 cwd(파생 폴더 또는 사용자가 고른 영속 cwd)뿐이다.
   handle(CHANNELS.filesOpenPath, OpenPathRequestSchema, 'reject', async (req): Promise<void> => {
+    const stat = await fs.stat(req.path).catch(() => null)
+    if (!stat?.isDirectory()) throw new Error('디렉토리만 열 수 있습니다.')
+    const allowed = isWithinDir(req.path, projectsDir()) || ctx.db.hasSessionWithCwd(req.path)
+    if (!allowed) throw new Error('허용되지 않은 경로입니다.')
     const error = await shell.openPath(req.path)
     if (error) throw new Error(error)
   })

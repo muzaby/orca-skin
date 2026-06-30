@@ -339,6 +339,36 @@ describe('DbQueries provider_key', () => {
   })
 })
 
+describe('DbQueries session cwd', () => {
+  it('insertSession 으로 cwd 를 영속하고 hasSessionWithCwd 로 화이트리스트한다', () => {
+    const db = dbWithMigrations()
+    const q = new DbQueries(db)
+
+    q.insertSession({
+      id: 's-cwd',
+      backend: 'claude',
+      title: null,
+      projectId: null,
+      createdAt: 10,
+      cwd: '/repo/orca'
+    })
+
+    expect(q.getSessionById('s-cwd')?.cwd).toBe('/repo/orca')
+    expect(q.hasSessionWithCwd('/repo/orca')).toBe(true)
+    expect(q.hasSessionWithCwd('/etc')).toBe(false)
+  })
+
+  it('cwd 미지정(레거시) 세션은 NULL 로 저장돼 화이트리스트에 걸리지 않는다', () => {
+    const db = dbWithMigrations()
+    insertSession(db, 'legacy-cwd')
+    const q = new DbQueries(db)
+
+    expect(q.getSessionById('legacy-cwd')?.cwd).toBeNull()
+    // NULL cwd 는 어떤 경로 조회로도 매치되지 않아야 한다.
+    expect(q.hasSessionWithCwd('')).toBe(false)
+  })
+})
+
 describe('DbQueries message complete', () => {
   it('assistant 메시지를 미완료로 만들고 완료 처리할 수 있다', () => {
     const db = dbWithMigrations()

@@ -46,7 +46,7 @@ export function CwdButton({
       title={title}
       className={`inline-flex h-7 max-w-full items-center gap-1.5 rounded-r4 border border-transparent bg-transparent px-p5 text-footnote text-t6 transition-colors hover:bg-fill-uncontained-hover hover:text-t7 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
     >
-      <span aria-hidden="true">📁</span>
+      <span aria-hidden="true">📂</span>
       <span className="min-w-0 truncate">{label}</span>
     </button>
   )
