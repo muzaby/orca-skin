@@ -13,6 +13,7 @@ import {
   type CreateProjectRequest,
   type FileEntry,
   type PickedAttachment,
+  type OpenPathRequest,
   type ReadAttachmentResult,
   type InstallStatus,
   type LoadedSession,
@@ -101,6 +102,9 @@ const orca = {
       ipcRenderer.invoke(CHANNELS.filesList, { cwd, relDir }),
     pickAttachments: (): Promise<PickedAttachment[]> =>
       ipcRenderer.invoke(CHANNELS.filesPickAttachments),
+    pickDirectory: (): Promise<string | null> => ipcRenderer.invoke(CHANNELS.filesPickDirectory),
+    openPath: (req: OpenPathRequest): Promise<void> =>
+      ipcRenderer.invoke(CHANNELS.filesOpenPath, req),
     readAttachment: (path: string): Promise<ReadAttachmentResult> =>
       ipcRenderer.invoke(CHANNELS.filesReadAttachment, { path }),
     pathForFile: (file: File): string => webUtils.getPathForFile(file)

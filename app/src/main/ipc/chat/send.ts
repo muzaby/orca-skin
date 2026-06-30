@@ -131,6 +131,18 @@ async function resolveTurnProvider(
 }
 
 // subprocess env 조립 — orca.json 앱 전역 env(${VAR} 확장)를 병합.
+
+function resolveTurnCwd(
+  ctx: RouterContext,
+  req: { sessionId: string | null; projectId: string | null; cwd?: string | null }
+): string {
+  if (req.sessionId) {
+    const meta = ctx.db.getSessionById(req.sessionId)
+    return meta?.cwd ?? ctx.getCwd(meta?.project_id ?? null)
+  }
+  return req.cwd ?? ctx.getCwd(req.projectId)
+}
+
 function buildTurnEnv(ctx: RouterContext): Record<string, string> | undefined {
   const { env: expanded, missing } = expandEnvRecord(appEnv(), ctx.mcp.resolver())
   if (missing.length > 0) {
@@ -247,8 +259,11 @@ export function registerChatHandlers(deps: ChatDeps): void {
     // orca.json 앱 전역 env(${VAR} 확장)만 SDK subprocess env 로 병합한다.
     const turnEnv = buildTurnEnv(ctx)
 
+    const sessionMeta = parsed.data.sessionId
+      ? ctx.db.getSessionById(parsed.data.sessionId)
+      : undefined
     const boundProjectId = parsed.data.sessionId
-      ? (ctx.db.getSessionById(parsed.data.sessionId)?.project_id ?? null)
+      ? (sessionMeta?.project_id ?? null)
       : parsed.data.projectId
 
     // 첨부 정규화(경로 추출·이미지 읽기·검증)는 턴 시작 전 단계라 아래 턴 try/catch 밖이다.
@@ -294,7 +309,11 @@ export function registerChatHandlers(deps: ChatDeps): void {
       dbSessionId: parsed.data.sessionId,
       pendingProjectId: parsed.data.sessionId ? null : parsed.data.projectId,
       isNewSession: parsed.data.sessionId == null,
-      cwd: ctx.getCwd(boundProjectId),
+      cwd: resolveTurnCwd(ctx, {
+        sessionId: parsed.data.sessionId,
+        projectId: boundProjectId,
+        cwd: parsed.data.cwd ?? null
+      }),
       titleGenerationStarted: false,
       currentAssistantMessageId: null,
       assistantText: '',

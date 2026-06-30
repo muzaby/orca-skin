@@ -110,7 +110,8 @@ export class TurnPersistence {
           title,
           projectId: turn.pendingProjectId,
           createdAt: now,
-          providerKey: turn.providerKey
+          providerKey: turn.providerKey,
+          cwd: turn.cwd
         })
         if (turn.pendingUserText) {
           this.persistUserMessage(sessionId, turn.pendingUserText, now, turn.pendingAttachmentViews)

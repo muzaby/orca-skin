@@ -16,6 +16,7 @@ import { AttachMenu } from './composer/AttachMenu'
 import { defaultSelection, modelKey, selectionLabel } from './composer/modelSelection'
 import { ConversationStatusLine } from './composer/ConversationStatusLine'
 import { AttachmentTray } from './composer/AttachmentTray'
+import { DirectoryPanel } from './composer/DirectoryPanel'
 import { Notice } from './Notice'
 import { StatusPopover } from './composer/StatusPopover'
 import { conversationStatusModel as conversationStatusModelFactory } from './composer/statusViewModel'
@@ -77,6 +78,7 @@ export function Composer({
   const { send, cancel, answerAsk, skipAsk, setPermissionMode, setModel, setEffort } = chatActions
   const inflight = useChatSession((s) => s.inflight)
   const cwd = useChatSession((s) => s.cwd)
+  const sessionId = useChatSession((s) => s.sessionId)
   const lastTelemetry = useChatSession((s) => s.lastTelemetry)
   const permissionMode = useChatSession((s) => s.permissionMode)
   const backend = useChatSession((s) => s.backend)
@@ -424,6 +426,7 @@ export function Composer({
               input={p.input}
             />
           ))}
+          <DirectoryPanel cwd={cwd} sessionStarted={sessionId != null} inflight={inflight} />
           {showConcurrencyNotice && (
             <Notice
               title="같은 프로젝트에서 다른 작업이 실행 중입니다."
