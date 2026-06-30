@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import {
   getWorkspacePath,
+  isWithinDir,
   projectsDir,
   safeProjectName,
   shortProjectId,
@@ -69,5 +70,22 @@ describe('getWorkspacePath', () => {
 
   it('projectsDir 는 ~/.config/orca/projects', () => {
     expect(projectsDir()).toBe(root)
+  })
+})
+
+describe('isWithinDir', () => {
+  it('하위 경로와 동일 경로는 true', () => {
+    expect(isWithinDir('/repo/orca/sub', '/repo/orca')).toBe(true)
+    expect(isWithinDir('/repo/orca', '/repo/orca')).toBe(true)
+  })
+
+  it('상위/형제/이탈(..) 경로는 false', () => {
+    expect(isWithinDir('/repo', '/repo/orca')).toBe(false)
+    expect(isWithinDir('/repo/other', '/repo/orca')).toBe(false)
+    expect(isWithinDir('/repo/orca/../../etc', '/repo/orca')).toBe(false)
+  })
+
+  it('정규화로 중복 슬래시·trailing 슬래시를 흡수한다', () => {
+    expect(isWithinDir('/repo/orca/sub/', '/repo//orca')).toBe(true)
   })
 })

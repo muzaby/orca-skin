@@ -19,7 +19,7 @@
 // sources/settings/<adapter>/<provider>/settings.json 을 해석해 query flag 로 주입한다.
 
 import { homedir } from 'node:os'
-import { join } from 'node:path'
+import { isAbsolute, join, relative, resolve } from 'node:path'
 import { mkdir } from 'node:fs/promises'
 import { mkdirSync } from 'node:fs'
 import type { Backend } from '../../shared/ipc'
@@ -47,6 +47,13 @@ export function sourcesSkillsDir(): string {
 // 모든 세션 cwd 의 단일 루트. default/ 와 프로젝트별 디렉토리가 여기 산다.
 export function projectsDir(): string {
   return join(orcaConfigDir(), 'projects')
+}
+
+// child 가 parent 내부(또는 동일)인지 — 정규화 후 상대경로가 '..' 로 빠져나가거나
+// 다른 절대경로면 false. files:openPath 경로 화이트리스트 등에 쓰는 순수 술어.
+export function isWithinDir(child: string, parent: string): boolean {
+  const rel = relative(resolve(parent), resolve(child))
+  return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel))
 }
 
 // 프로젝트명을 디렉토리 세그먼트로 안전화. 공백류→'_'(사용자 의도), 그 외 비안전 문자→'-',

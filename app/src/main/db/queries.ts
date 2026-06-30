@@ -54,6 +54,8 @@ export class DbQueries {
   private readonly updateProjectStmt: Database.Statement
   private readonly deleteProjectStmt: Database.Statement
   private readonly listSessionsByProjectStmt: Database.Statement
+  // files:openPath 경로 화이트리스트 — 임의 경로가 아닌 실재 세션 cwd 만 열도록 검증.
+  private readonly sessionCwdExistsStmt: Database.Statement
   // 매 chat:send 마다 1회 호출 — sessionId 에서 소속 프로젝트의 instructions 한 방에 조회.
   private readonly getProjectInstructionsForSessionStmt: Database.Statement
   // FTS5 검색 — messages_fts virtual table 을 messages + sessions 와 조인.
@@ -261,6 +263,9 @@ export class DbQueries {
       WHERE project_id = @projectId
       ORDER BY updated_at DESC
     `)
+    this.sessionCwdExistsStmt = db.prepare(`
+      SELECT 1 FROM sessions WHERE cwd = @cwd LIMIT 1
+    `)
     this.getProjectInstructionsForSessionStmt = db.prepare(`
       SELECT p.instructions AS instructions
       FROM projects p
@@ -298,6 +303,11 @@ export class DbQueries {
 
   getSessionById(id: string): SessionListRow | undefined {
     return this.getSessionByIdStmt.get({ id }) as SessionListRow | undefined
+  }
+
+  // 주어진 cwd 를 작업 디렉토리로 가진 세션이 존재하는지 — files:openPath 화이트리스트.
+  hasSessionWithCwd(cwd: string): boolean {
+    return this.sessionCwdExistsStmt.get({ cwd }) != null
   }
 
   loadParts(sessionId: string): LoadedPartRow[] {

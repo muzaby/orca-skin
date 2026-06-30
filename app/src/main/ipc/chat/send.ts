@@ -134,11 +134,11 @@ async function resolveTurnProvider(
 
 function resolveTurnCwd(
   ctx: RouterContext,
-  req: { sessionId: string | null; projectId: string | null; cwd?: string | null }
+  req: { sessionId: string | null; projectId: string | null; cwd?: string | null },
+  sessionMeta: { cwd: string | null; project_id: string | null } | undefined
 ): string {
   if (req.sessionId) {
-    const meta = ctx.db.getSessionById(req.sessionId)
-    return meta?.cwd ?? ctx.getCwd(meta?.project_id ?? null)
+    return sessionMeta?.cwd ?? ctx.getCwd(sessionMeta?.project_id ?? null)
   }
   return req.cwd ?? ctx.getCwd(req.projectId)
 }
@@ -309,11 +309,15 @@ export function registerChatHandlers(deps: ChatDeps): void {
       dbSessionId: parsed.data.sessionId,
       pendingProjectId: parsed.data.sessionId ? null : parsed.data.projectId,
       isNewSession: parsed.data.sessionId == null,
-      cwd: resolveTurnCwd(ctx, {
-        sessionId: parsed.data.sessionId,
-        projectId: boundProjectId,
-        cwd: parsed.data.cwd ?? null
-      }),
+      cwd: resolveTurnCwd(
+        ctx,
+        {
+          sessionId: parsed.data.sessionId,
+          projectId: boundProjectId,
+          cwd: parsed.data.cwd ?? null
+        },
+        sessionMeta
+      ),
       titleGenerationStarted: false,
       currentAssistantMessageId: null,
       assistantText: '',
