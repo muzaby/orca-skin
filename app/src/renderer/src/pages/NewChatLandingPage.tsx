@@ -1,5 +1,6 @@
 import { useLocation } from 'react-router-dom'
 import { ChatTile, Composer, useChatSession } from '../features/chat'
+import { CwdButton } from '../features/chat/components/CwdButton'
 import { useBackendCapabilities, useBackendLabel } from '../features/backend'
 import { formatApproxCost, useCostSummary } from '../features/cost'
 
@@ -11,6 +12,8 @@ import { formatApproxCost, useCostSummary } from '../features/cost'
 //   가 인계받는다.
 export function NewChatLandingPage(): React.JSX.Element {
   const isEmpty = useChatSession((s) => s.messages.length === 0 && !s.loadingSession)
+  const cwd = useChatSession((s) => s.cwd)
+  const inflight = useChatSession((s) => s.inflight)
   const backendLabel = useBackendLabel()
   const capabilities = useBackendCapabilities()
   const summary = useCostSummary()
@@ -28,6 +31,9 @@ export function NewChatLandingPage(): React.JSX.Element {
     return (
       <section className="flex min-h-0 min-w-0 flex-1 items-center justify-center bg-bg">
         <div className="w-full max-w-[720px]">
+          <div className="mb-2 flex justify-center">
+            <CwdButton cwd={cwd} sessionStarted={false} inflight={inflight} />
+          </div>
           <div className="mb-3 text-center font-serif text-[24px] font-semibold tracking-tight text-ink">
             무엇을 도와드릴까요?
           </div>

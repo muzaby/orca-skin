@@ -6,6 +6,7 @@ import {
   AuthorSkillSchema,
   DebugMockPatchSchema,
   ListFilesRequestSchema,
+  OpenPathRequestSchema,
   ReadAttachmentRequestSchema,
   SetSkillEnabledSchema,
   SkillTargetSchema,
@@ -150,6 +151,20 @@ export function registerMiscHandlers(ctx: RouterContext): void {
       picked.push({ path, ...meta, sourceKind: 'dialog' })
     }
     return picked
+  })
+
+  handlePlain(CHANNELS.filesPickDirectory, async (): Promise<string | null> => {
+    const result = await dialog.showOpenDialog({
+      defaultPath: ctx.getCwd(),
+      properties: ['openDirectory', 'createDirectory']
+    })
+    if (result.canceled || result.filePaths.length === 0) return null
+    return result.filePaths[0] ?? null
+  })
+
+  handle(CHANNELS.filesOpenPath, OpenPathRequestSchema, 'reject', async (req): Promise<void> => {
+    const error = await shell.openPath(req.path)
+    if (error) throw new Error(error)
   })
 
   handle(

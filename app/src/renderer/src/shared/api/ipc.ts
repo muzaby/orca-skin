@@ -11,6 +11,7 @@ import type {
   CreateProjectRequest,
   FileEntry,
   PickedAttachment,
+  OpenPathRequest,
   ReadAttachmentResult,
   InstallStatus,
   LoadedSession,
@@ -89,6 +90,8 @@ export const skillApi = {
 export const fileApi = {
   list: (cwd: string, relDir: string): Promise<FileEntry[]> => window.orca.files.list(cwd, relDir),
   pickAttachments: (): Promise<PickedAttachment[]> => window.orca.files.pickAttachments(),
+  pickDirectory: (): Promise<string | null> => window.orca.files.pickDirectory(),
+  openPath: (req: OpenPathRequest): Promise<void> => window.orca.files.openPath(req),
   readAttachment: (path: string): Promise<ReadAttachmentResult> =>
     window.orca.files.readAttachment(path),
   pathForFile: (file: File): string => window.orca.files.pathForFile(file)

@@ -61,7 +61,8 @@ export const SendChatMessageSchema = z.object({
   modelFamily: z.string().min(1).nullable().optional(),
   effort: EffortLevelSchema.optional(),
   attachments: z.array(ComposerAttachmentSchema).default([]),
-  attachmentViews: z.array(AttachmentViewSchema).default([])
+  attachmentViews: z.array(AttachmentViewSchema).default([]),
+  cwd: z.string().min(1).nullable().optional()
 })
 
 export const CancelChatSchema = z.object({ sessionId: z.string() })
@@ -93,6 +94,8 @@ export const ListFilesRequestSchema = z.object({
   cwd: z.string().min(1),
   relDir: z.string()
 })
+
+export const OpenPathRequestSchema = z.object({ path: z.string().min(1) })
 
 export const ReadAttachmentRequestSchema = z.object({ path: z.string().min(1) })
 
@@ -350,6 +353,7 @@ export type {
   SendChatMessage,
   ComposerAttachment,
   PickedAttachment,
+  OpenPathRequest,
   ReadAttachmentRequest,
   ReadAttachmentResult,
   ConcurrencyEvent,
