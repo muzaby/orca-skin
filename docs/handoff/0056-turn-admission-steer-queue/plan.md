@@ -162,34 +162,38 @@
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- 동의 / 그대로 진행: …
-- 이견 / 우려: …
+- 동의 / 그대로 진행: 0056 은 실제 steer/queue 를 만들기보다, 현재 `send.ts` 인라인 중복 턴 가드를 L1 결정기 + L3 enactment 로 분리하는 것이 핵심이다. 이 방향은 0051 §A 의 가로축(`admission → acquire → send`)과 app/main 레이어 DAG 에 부합한다.
+- 보강 적용: `AdmissionDecision` 은 후속 확장을 고려해 단순 문자열이 아니라 discriminated union 으로 구현했다. `RejectDuplicatePolicy` 는 reject reason 만 반환하고, renderer-facing `ClassifiedError` 생성은 L3 `send.ts` enactment 에 남겨 lifecycle policy 가 IPC/UX payload 에 과결합되지 않게 했다.
+- 이견 / 우려: `queue`/`steer` 는 union seam 으로만 존재하므로 dead seam 위험이 있다. 기본 정책이 해당 결정을 반환하지 않는 테스트와 `send.ts` 후속 포인터 주석으로 이번 범위의 미enact 불변식을 고정했다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ / ⚠️ | … |
+| 1 | 단순 문자열 decision 은 후속 queue/steer 에 필요한 메타데이터 확장 시 breaking change 를 유발할 수 있음 | ✅ `AdmissionDecision` 을 `{ kind: ... }` discriminated union 으로 구현 | 후속 정책 교체 시 switch 기반 exhaustive 확장 가능 |
+| 2 | L1 policy 가 `makeClassifiedError` 를 직접 만들면 lifecycle 이 renderer-facing error shape 에 결합됨 | ✅ policy 는 `reason: 'duplicate-turn'` 만 반환, 기존 에러 생성은 L3 enactment 에 유지 | AC4 enactment 분리 및 레이어 책임 보존 |
+| 3 | resume 세션 busy 와 새-채팅 pending busy 가 boolean 하나로 뭉개질 수 있음 | ✅ `AdmissionTarget` 을 `existing-session` / `new-session-slot` 으로 구분 | 기존 `hasSession` / `hasPending` 이중케이스 회귀 방지 |
+| 4 | `queue`/`steer` 예약 seam 이 실제 동작으로 새어 나올 수 있음 | ✅ 기본 정책 미반환 테스트 + L3 주석/fallback | 0056 framework-only 범위 보존 |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] AdmissionController(순수 결정·inflight 없으면 accept)
-- [ ] AdmissionPolicy + RejectDuplicatePolicy(163-179 1:1)
-- [ ] AdmissionDecision union(queue/steer 예약 seam·미enact)
-- [ ] send.ts 인라인 가드 제거 → 위임 + reject enact
-- [ ] router.ts 배선
-- [ ] admission-controller.test.ts(분기·이중케이스·미enact)
-- [ ] 게이트 green
+- [x] AdmissionController(순수 결정·inflight 없으면 accept)
+- [x] AdmissionPolicy + RejectDuplicatePolicy(163-179 1:1)
+- [x] AdmissionDecision union(queue/steer 예약 seam·미enact)
+- [x] send.ts 인라인 가드 제거 → 위임 + reject enact
+- [x] router.ts 배선
+- [x] admission-controller.test.ts(분기·이중케이스·미enact)
+- [x] 게이트 green
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| 게이트 결과 | … |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | `app/src/main/lifecycle/admission-policy.ts`, `app/src/main/lifecycle/admission-controller.ts`, `app/src/main/lifecycle/admission-controller.test.ts`, `app/src/main/ipc/chat/send.ts`, `app/src/main/ipc/router.ts`, `docs/handoff/0056-turn-admission-steer-queue/plan.md`, `docs/handoff/INDEX.md` |
+| 실행 명령 | `cd app && npm run lint`; `cd app && npm run typecheck`; `cd app && npm test`(초회 better-sqlite3 ABI mismatch); `cd app && npm rebuild better-sqlite3 && npm test` |
+| 게이트 결과 | lint/typecheck 통과, test 는 초회 better-sqlite3 ABI mismatch 후 Node ABI rebuild 뒤 601/601 통과 |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `d76d153` |
 
 ---
 

@@ -34,6 +34,7 @@ import { registerEngineHandlers } from './handlers/engine'
 import { registerMiscHandlers } from './handlers/misc'
 import { registerChatHandlers, settleOpenToolRuns } from './chat/send'
 import { RuntimeSupervisor } from '../lifecycle/supervisor'
+import { AdmissionController, RejectDuplicatePolicy } from '../lifecycle/admission-controller'
 import { ConcurrencyRegistry } from '../orchestration/concurrency'
 import { ApprovalCoordinator } from './chat/approvals'
 import { TurnPersistence } from './chat/persist'
@@ -217,7 +218,16 @@ export class IpcRouter {
     ))
     const approvals = new ApprovalCoordinator()
     const permissionModes = new PermissionModeController()
-    registerChatHandlers({ ctx, supervisor, approvals, persistence, titles, permissionModes })
+    const admission = new AdmissionController<Electron.WebContents>(new RejectDuplicatePolicy())
+    registerChatHandlers({
+      ctx,
+      supervisor,
+      approvals,
+      persistence,
+      titles,
+      permissionModes,
+      admission
+    })
     approvals.registerHandlers(supervisor, permissionModes)
 
     registerSessionHandlers(ctx)
