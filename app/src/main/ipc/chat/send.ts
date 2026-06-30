@@ -316,7 +316,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
       titles,
       registry: supervisor,
       classifyError: (err, phase) => adapter.classifyError(err, phase),
-      concurrency: ctx.concurrency,
+      concurrency: supervisor.concurrency,
       backgroundSubagents
     })
 

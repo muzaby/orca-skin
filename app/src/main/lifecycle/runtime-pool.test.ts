@@ -92,3 +92,51 @@ describe('RuntimePool (0054)', () => {
     expect(pool.size).toBe(0)
   })
 })
+
+describe('RuntimePool LRU/close governance (0055)', () => {
+  it('evictToCapacity 는 가장 오래된 idle 부터 단일 close 경로로 닫는다', () => {
+    const pool = new RuntimePool()
+    const a = fakeRuntime()
+    const b = fakeRuntime()
+    const c = fakeRuntime()
+    pool.keepIdle('a', a)
+    pool.keepIdle('b', b)
+    pool.keepIdle('c', c)
+
+    expect(pool.evictToCapacity(1)).toBe(2)
+    expect(a.closed).toBe(1)
+    expect(b.closed).toBe(1)
+    expect(c.closed).toBe(0)
+    expect(pool.size).toBe(1)
+  })
+
+  it('take 후 keepIdle 재진입은 LRU recency 를 갱신한다', () => {
+    const pool = new RuntimePool()
+    const a = fakeRuntime()
+    const b = fakeRuntime()
+    pool.keepIdle('a', a)
+    pool.keepIdle('b', b)
+    expect(pool.take('a')).toBe(a)
+    pool.keepIdle('a', a)
+
+    pool.evictToCapacity(1)
+    expect(b.closed).toBe(1)
+    expect(a.closed).toBe(0)
+  })
+
+  it('timer self-reap 과 LRU eviction 이 같은 키에 합류해도 close 는 1회다', () => {
+    vi.useFakeTimers()
+    const pool = new RuntimePool(1000)
+    const rt = fakeRuntime()
+    const onReap = vi.fn()
+    pool.keepIdle('a', rt, onReap)
+
+    expect(pool.evictToCapacity(0)).toBe(1)
+    vi.advanceTimersByTime(1000)
+
+    expect(rt.closed).toBe(1)
+    expect(onReap).toHaveBeenCalledTimes(1)
+    expect(pool.size).toBe(0)
+    vi.useRealTimers()
+  })
+})

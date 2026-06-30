@@ -163,34 +163,43 @@ RuntimePool/Supervisor 는 **메커니즘**(저장·take/keepIdle/close·acquire
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- 동의 / 그대로 진행: …
-- 이견 / 우려: …
+- 동의 / 그대로 진행:
+  - 0055 의 핵심 경계인 **count=Supervisor active + Pool idle**, **eviction victim=idle only** 를 코드 주석과 `getRuntimePopulation()` 으로 고정했다.
+  - `RuntimePool` 은 저장/close mechanism 으로 남기고, victim 선정은 `EvictionPolicy` 로 분리했다. policy 는 Map/Timer 를 직접 보지 않고 snapshot 과 capacity 만 받는다.
+  - `RuntimeCapPolicy` 기본값은 `UnlimitedRuntimeCapPolicy` 로 유지해 게이트 OFF/ON 기본 동작을 보존했다.
+  - `ConcurrencyRegistry` 는 `orchestration/concurrency.ts` 파일을 이동하지 않고 `RuntimeSupervisor` 소유 + getter 노출로만 이관했다.
+- 이견 / 우려:
+  - plan 의 `selectVictims(entries, capacity)` 에서 capacity 의미가 구현 중 모호해질 수 있어, 구현에서는 **idle target capacity** 로 명시했다. Supervisor 가 total cap 에서 active 를 빼 `RuntimePool.evictToCapacity(idleTargetCapacity)` 로 넘긴다.
+  - 기본 무제한만 두면 bounded 경로가 테스트 전용 ad-hoc 이 될 수 있어, `BoundedRuntimeCapPolicy` 를 L1 정책으로 함께 제공했다. 단 실제 기본 주입은 여전히 무제한이다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 구현함 / ⚠️ 보고만·결정 필요 | … |
+| 1 | `EvictionPolicy.capacity` 가 전체 cap 인지 idle cap 인지 모호하면 active 수가 섞여 과축출/부족축출 가능 | ✅ 구현함 — Supervisor 가 `idleTargetCapacity=max(0, capacity-active)` 로 변환하고, EvictionPolicy 는 idle target 만 받도록 주석/테스트 고정 | AC 1·2, QA #1 |
+| 2 | `RuntimePool.closeEntry` 단일화를 하려면 `onReap` 이 entry 에 저장되어야 함 | ✅ 구현함 — idle entry 에 `onReap` 포함, prev 교체/timer/closeAll/evict 전부 단일 helper 경유 | AC 5, QA #3 |
+| 3 | 기본 무제한 정책만 있으면 bounded cap seam 이 실제 주입 경로에서 검증되지 않음 | ✅ 구현함 — `BoundedRuntimeCapPolicy` 를 L1 정책으로 추가하고 supervisor 테스트에서 동일 constructor 경로로 검증 | AC 3 |
+| 4 | `closeAll()` 이 Map 순회 중 삭제하면 순회 누락 위험 | ✅ 구현함 — key snapshot 기반 `closeAll()` 로 변경 | AC 5 |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] count 3종 disambiguation 주석/문서 (count=active+idle · victim=idle only)
-- [ ] EvictionPolicy 순수 추출(Map 비의존·victim 키 반환) + LRU 기본 + 테스트
-- [ ] RuntimeCapPolicy hook + 기본 Unlimited(union=accept|evict-idle)
-- [ ] ConcurrencyRegistry 소유 Supervisor 이관 + getter + `RouterContext.concurrency` 제거(파일 미이동)
-- [ ] idempotent close 단일 helper(기존 4경로 합류) + 경쟁 테스트
-- [ ] `getRuntimePopulation()` + population 테스트
-- [ ] 게이트 OFF 동작보존 확인
+- [x] count 3종 disambiguation 주석/문서 (count=active+idle · victim=idle only)
+- [x] EvictionPolicy 순수 추출(Map 비의존·victim 키 반환) + LRU 기본 + 테스트
+- [x] RuntimeCapPolicy hook + 기본 Unlimited(union=accept|evict-idle)
+- [x] ConcurrencyRegistry 소유 Supervisor 이관 + getter + `RouterContext.concurrency` 제거(파일 미이동)
+- [x] idempotent close 단일 helper(기존 4경로 합류) + 경쟁 테스트
+- [x] `getRuntimePopulation()` + population 테스트
+- [x] 게이트 OFF 동작보존 확인
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` |
-| 게이트 결과 | … |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | `app/src/main/lifecycle/{eviction-policy,runtime-cap-policy,runtime-pool,supervisor}.ts`, 관련 테스트, `app/src/main/ipc/{router,context}.ts`, `app/src/main/ipc/chat/send.ts`, 본 plan 구현자 블록 |
+| 실행 명령 | `git pull --ff-only`(upstream 없음으로 실패), `npm run lint`, `npm run typecheck`, `npm test`, `npm rebuild better-sqlite3 && npm test` |
+| 게이트 결과 | lint ✅, typecheck ✅, 최초 test ⚠️ better-sqlite3 ABI 불일치 12건, rebuild 후 test ✅ 597/597 |
+| 블로커 / 역질문 | 없음. cap 수치·평가세션 cap 회계는 plan Open Question 유지. |
+| 대상 커밋 | `0baaea4` |
 
 ---
 

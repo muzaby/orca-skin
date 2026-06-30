@@ -53,7 +53,7 @@ describe('RuntimeSupervisor', () => {
   it('release 는 멱등 — 2회 호출돼도 registry.finish 효력은 1회뿐이다', () => {
     const registry = new SessionRuntimeRegistry<object>()
     const finishSpy = vi.spyOn(registry, 'finish')
-    const supervisor = new RuntimeSupervisor<object>(registry)
+    const supervisor = new RuntimeSupervisor<object>({ registry })
     const turn = fakeTurn()
 
     supervisor.startResume('s1', turn)
@@ -71,7 +71,7 @@ describe('RuntimeSupervisor', () => {
   it('서로 다른 턴의 release 는 각자 1회씩 finish 된다', () => {
     const registry = new SessionRuntimeRegistry<object>()
     const finishSpy = vi.spyOn(registry, 'finish')
-    const supervisor = new RuntimeSupervisor<object>(registry)
+    const supervisor = new RuntimeSupervisor<object>({ registry })
     const a = fakeTurn()
     const b = fakeTurn()
     supervisor.startResume('a', a)
@@ -168,5 +168,64 @@ describe('RuntimeSupervisor 런타임 거버넌스(0054)', () => {
     expect(a.closed).toBe(1)
     expect(b.closed).toBe(1)
     expect(supervisor.acquireRuntime('a', () => a)).toBe(a) // 풀 비었으므로 factory 반환
+  })
+})
+
+describe('RuntimeSupervisor resource governance (0055)', () => {
+  it('getRuntimePopulation 은 active + idle SessionRuntime 인구만 센다', () => {
+    const supervisor = new RuntimeSupervisor<object>()
+    const turn = fakeTurn()
+    supervisor.startResume('s1', turn)
+    const rt = fakeManaged('live', true)
+    supervisor.releaseRuntime('idle-1', rt)
+
+    expect(supervisor.getRuntimePopulation()).toEqual({ active: 1, idle: 1, total: 2 })
+  })
+
+  it('기본 cap 정책은 무제한이라 idle 을 축출하지 않는다', () => {
+    const supervisor = new RuntimeSupervisor<object>()
+    const a = fakeManaged('live', true)
+    const b = fakeManaged('live', true)
+    supervisor.releaseRuntime('a', a)
+    supervisor.releaseRuntime('b', b)
+
+    expect(supervisor.getRuntimePopulation()).toEqual({ active: 0, idle: 2, total: 2 })
+    expect(a.closed).toBe(0)
+    expect(b.closed).toBe(0)
+  })
+
+  it('bounded cap 은 active 를 닫지 않고 idle target capacity 까지만 LRU 축출한다', async () => {
+    const { BoundedRuntimeCapPolicy } = await import('./runtime-cap-policy')
+    const supervisor = new RuntimeSupervisor<object>({
+      capPolicy: new BoundedRuntimeCapPolicy(),
+      capacity: 2
+    })
+    supervisor.startResume('active', fakeTurn())
+    const oldest = fakeManaged('live', true)
+    const newest = fakeManaged('live', true)
+
+    supervisor.releaseRuntime('oldest', oldest)
+    supervisor.releaseRuntime('newest', newest)
+
+    expect(oldest.closed).toBe(1)
+    expect(newest.closed).toBe(0)
+    expect(supervisor.getRuntimePopulation()).toEqual({ active: 1, idle: 1, total: 2 })
+  })
+
+  it('ConcurrencyRegistry 는 Supervisor 가 소유하고 getter 로 노출한다', async () => {
+    const { ConcurrencyRegistry } = await import('../orchestration/concurrency')
+    const events: Array<[string, number]> = []
+    const concurrency = new ConcurrencyRegistry((projectId, count) =>
+      events.push([projectId, count])
+    )
+    const supervisor = new RuntimeSupervisor<object>({ concurrency })
+
+    supervisor.concurrency.increment('p1')
+    supervisor.concurrency.decrement('p1')
+
+    expect(events).toEqual([
+      ['p1', 1],
+      ['p1', 0]
+    ])
   })
 })

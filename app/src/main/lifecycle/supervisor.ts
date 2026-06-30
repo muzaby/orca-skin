@@ -6,32 +6,60 @@
 // 0054(Persistent governance): Persistent close 정책 핸들의 **cross-turn 재사용 + idle 보존/회수**를
 // 더한다(RuntimePool 합성). 핵심 분리 = **turn teardown(release) ≠ runtime close(releaseRuntime)**.
 // OneShot 은 매 턴 fresh·즉시 close(동작 보존), Persistent 만 풀에 idle 로 살아남아 IdleCloseTimer 로
-// 회수된다. **정책은 여전히 비움**: cap/LRU eviction·ConcurrencyRegistry 소유 이관은 0055 seam.
-//   · cap admission — startResume/startNew(또는 acquireRuntime) 진입에서 한도 초과 시 reject/queue.
-//   · idle/LRU eviction — RuntimePool.size 한도 + registry.evictIdle() 구동(현재 예약 no-op).
-//   · ConcurrencyRegistry 소유 이관(현재는 컴포지션 루트가 코디네이터에 직접 주입).
+// 회수된다.
+//
+// 0055(Resource governance): cap count 대상은 SessionRuntime population(active registry + idle pool)이고,
+// eviction victim 은 idle runtime only 다. active 턴 핸들을 닫아 cap 을 맞추지 않는다(reject/queue 는
+// 0056 admission 소관). ConcurrencyRegistry 는 파일명(orchestration/)을 유지하되 소유만 Supervisor 로
+// 이관해 resource supervision 의 단일 진실원에 둔다.
 
 import type { TurnContext } from './turn-context'
 import type { ManagedRuntime } from './ports'
 import { SessionRuntimeRegistry } from './session-registry'
 import { RuntimePool } from './runtime-pool'
+import { UnlimitedRuntimeCapPolicy, type RuntimeCapPolicy } from './runtime-cap-policy'
+import { ConcurrencyRegistry } from '../orchestration/concurrency'
 
 // 단일 abort 프리미티브 — 0054 에서 별도 모듈(./abort)로 분리(supervisor→runtime-pool→timers→
 // supervisor 순환 회피). 기존 import 경로(./supervisor) 호환을 위한 무회귀 re-export.
 export { abortTurn } from './abort'
 
+export interface RuntimePopulation {
+  active: number
+  idle: number
+  total: number
+}
+
+export interface RuntimeSupervisorOptions<W = unknown> {
+  registry?: SessionRuntimeRegistry<W>
+  pool?: RuntimePool
+  concurrency?: ConcurrencyRegistry
+  capPolicy?: RuntimeCapPolicy
+  capacity?: number | null
+}
+
 export class RuntimeSupervisor<W = unknown> {
-  // release 멱등 가드 — 같은 턴의 teardown 이 2회 이상 와도 1회만 효력. self-idle close 와 LRU
-  // eviction 이 같은 턴에 합류할 때(0055) 이중 정리를 막는 단일 지점.
+  // release 멱등 가드 — 같은 턴의 teardown 이 2회 이상 와도 1회만 효력.
   private readonly released = new WeakSet<TurnContext<W>>()
+  private readonly registry: SessionRuntimeRegistry<W>
+  private readonly pool: RuntimePool
+  private readonly concurrencyRegistry: ConcurrencyRegistry
+  private readonly capPolicy: RuntimeCapPolicy
+  private readonly capacity: number | null
 
-  constructor(
-    private readonly registry: SessionRuntimeRegistry<W> = new SessionRuntimeRegistry<W>(),
-    private readonly pool: RuntimePool = new RuntimePool()
-  ) {}
+  constructor(options: RuntimeSupervisorOptions<W> = {}) {
+    this.registry = options.registry ?? new SessionRuntimeRegistry<W>()
+    this.pool = options.pool ?? new RuntimePool()
+    this.concurrencyRegistry = options.concurrency ?? new ConcurrencyRegistry()
+    this.capPolicy = options.capPolicy ?? new UnlimitedRuntimeCapPolicy()
+    this.capacity = options.capacity ?? null
+  }
 
-  // 진입(admission) — resume/새-채팅 턴을 레지스트리에 등록. 0055 cap seam: 한도 초과 시 여기서
-  // reject/queue 한다(현재는 무제한 pass-through).
+  get concurrency(): ConcurrencyRegistry {
+    return this.concurrencyRegistry
+  }
+
+  // 진입(admission) — resume/새-채팅 턴을 레지스트리에 등록. active 초과 reject/queue 는 0056.
   startResume(sessionId: string, turn: TurnContext<W>): void {
     this.registry.startResume(sessionId, turn)
   }
@@ -66,6 +94,12 @@ export class RuntimeSupervisor<W = unknown> {
     return this.registry.size
   }
 
+  getRuntimePopulation(): RuntimePopulation {
+    const active = this.registry.size
+    const idle = this.pool.size
+    return { active, idle, total: active + idle }
+  }
+
   // 단일 멱등 teardown — 턴 핸들을 레지스트리에서 제거한다. 2회 이상 호출돼도 1회만 효력.
   // **runtime 의 수명은 건드리지 않는다**(releaseRuntime 이 close 정책으로 별도 판정) — turn 은
   // 매 턴 새로 생성되는 일시 핸들이고, Persistent runtime 은 턴을 넘어 살아남기 때문.
@@ -76,16 +110,19 @@ export class RuntimeSupervisor<W = unknown> {
   }
 
   // 런타임 인출 — Persistent idle 핸들이 세션 키로 풀에 있으면 재사용(타이머 정지)하고, 없으면
-  // factory()로 생성한다. OneShot(또는 신규 세션 first turn=sessionId null)은 항상 fresh.
+  // factory()로 생성한다. factory 전 cap hook 은 idle eviction 만 수행하고 active 는 닫지 않는다.
   acquireRuntime<RT extends ManagedRuntime>(sessionId: string | null, factory: () => RT): RT {
     const reused = this.pool.take(sessionId) as RT | undefined
-    return reused ?? factory()
+    if (reused) return reused
+    this.enforceCap()
+    return factory()
   }
 
   // 런타임 반납 — 정상 종료(state==='live')한 reusable 핸들만 idle 보존(IdleCloseTimer 무장).
   // 그 외(에러·중단·OneShot·sessionId 미확정)는 즉시 close. turn teardown(release)과 분리된 경로.
   releaseRuntime(sessionId: string | null, runtime: ManagedRuntime): void {
     if (runtime.reusable && runtime.state === 'live' && this.pool.keepIdle(sessionId, runtime)) {
+      this.enforceCap()
       return
     }
     runtime.close()
@@ -94,5 +131,13 @@ export class RuntimeSupervisor<W = unknown> {
   // 앱 종료 정리 — idle 보존 핸들 일괄 close(진행 턴 정리는 all()+abort 가 담당).
   closeIdleRuntimes(): void {
     this.pool.closeAll()
+  }
+
+  private enforceCap(): void {
+    const population = this.getRuntimePopulation()
+    if (this.capPolicy.admit({ ...population, capacity: this.capacity }) !== 'evict-idle') return
+    if (this.capacity === null) return
+    const idleTargetCapacity = Math.max(0, this.capacity - population.active)
+    this.pool.evictToCapacity(idleTargetCapacity)
   }
 }
