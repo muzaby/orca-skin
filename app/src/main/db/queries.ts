@@ -61,18 +61,18 @@ export class DbQueries {
 
   constructor(db: Database.Database) {
     this.insertSessionStmt = db.prepare(`
-      INSERT INTO sessions (id, backend, title, project_id, created_at, updated_at, last_message_preview, provider_key)
-      VALUES (@id, @backend, @title, @projectId, @createdAt, @createdAt, NULL, @providerKey)
+      INSERT INTO sessions (id, backend, title, project_id, created_at, updated_at, last_message_preview, provider_key, cwd)
+      VALUES (@id, @backend, @title, @projectId, @createdAt, @createdAt, NULL, @providerKey, @cwd)
       ON CONFLICT(id) DO NOTHING
     `)
     this.listSessionsStmt = db.prepare(`
-      SELECT id, backend, title, updated_at, last_message_preview, project_id, title_source, provider_key
+      SELECT id, backend, title, updated_at, last_message_preview, project_id, title_source, provider_key, cwd
       FROM sessions
       ORDER BY updated_at DESC
       LIMIT @limit
     `)
     this.getSessionByIdStmt = db.prepare(`
-      SELECT id, backend, title, updated_at, last_message_preview, project_id, title_source, provider_key
+      SELECT id, backend, title, updated_at, last_message_preview, project_id, title_source, provider_key, cwd
       FROM sessions
       WHERE id = @id
     `)
@@ -256,7 +256,7 @@ export class DbQueries {
     `)
     this.deleteProjectStmt = db.prepare(`DELETE FROM projects WHERE id = @id`)
     this.listSessionsByProjectStmt = db.prepare(`
-      SELECT id, backend, title, updated_at, last_message_preview, project_id, title_source, provider_key
+      SELECT id, backend, title, updated_at, last_message_preview, project_id, title_source, provider_key, cwd
       FROM sessions
       WHERE project_id = @projectId
       ORDER BY updated_at DESC
@@ -285,7 +285,11 @@ export class DbQueries {
   }
 
   insertSession(row: SessionInsert): void {
-    this.insertSessionStmt.run({ ...row, providerKey: row.providerKey ?? null })
+    this.insertSessionStmt.run({
+      ...row,
+      providerKey: row.providerKey ?? null,
+      cwd: row.cwd ?? null
+    })
   }
 
   listSessions(limit = 50): SessionListRow[] {

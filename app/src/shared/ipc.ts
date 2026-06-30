@@ -25,6 +25,8 @@ export const CHANNELS = {
   skillsRemove: 'orca:skills:remove',
   filesList: 'orca:files:list',
   filesPickAttachments: 'orca:files:pickAttachments',
+  filesPickDirectory: 'orca:files:pickDirectory',
+  filesOpenPath: 'orca:files:openPath',
   filesReadAttachment: 'orca:files:readAttachment',
   sessionCwd: 'orca:session:cwd',
   sessionList: 'orca:session:list',
@@ -501,6 +503,8 @@ export interface SendChatMessage {
   // 영속·렌더 전용 첨부 뷰(다운스케일 썸네일 포함). attachments 가 모델 주입용이라면 이쪽은
   // user 메시지에 attachment 파트로 남겨 트랜스크립트에 보이게 한다.
   attachmentViews?: AttachmentView[]
+  // 새 세션 출생 시 고정할 작업 디렉토리. sessionId != null resume 턴에서는 main 이 DB cwd 를 우선한다.
+  cwd?: string | null
 }
 
 // Composer 권한 모드 버튼이 노출하는 두 모드. SDK PermissionMode 의 부분집합 —
@@ -686,6 +690,10 @@ export interface FileEntry {
   isDirectory: boolean
 }
 
+export interface OpenPathRequest {
+  path: string
+}
+
 // 세션 카탈로그 (사이드바 "최근 대화") — Phase 3 로컬 DB SSOT.
 export interface SessionListItem {
   id: string
@@ -694,6 +702,7 @@ export interface SessionListItem {
   updatedAt: number
   preview: string | null
   projectId: string | null
+  cwd: string | null
 }
 
 export interface LoadSessionRequest {
@@ -768,6 +777,7 @@ export interface LoadedSession {
   // sessions.provider_key — 마지막 사용 provider 기록. null 은 레거시/미매칭 fallback.
   providerKey?: string | null
   projectId?: string | null
+  cwd?: string | null
 }
 
 // 프로젝트 (Phase 3+) — 대화 묶음 + 전용 시스템 프롬프트 (instructions).
