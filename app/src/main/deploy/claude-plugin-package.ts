@@ -2,14 +2,7 @@
 // dist/claude/plugins/orca/ 패키지로 변환한다. deployer 는 백업/검증/마커를 맡고, 이 모듈은
 // Claude plugin 레이아웃 세부(.claude-plugin, skills, agents, hooks, .mcp.json)만 소유한다.
 
-import {
-  chmodSync,
-  cpSync,
-  mkdirSync,
-  readdirSync,
-  writeFileSync,
-  type Dirent
-} from 'node:fs'
+import { chmodSync, cpSync, mkdirSync, readdirSync, writeFileSync, type Dirent } from 'node:fs'
 import { join } from 'node:path'
 import type { Backend, SkillInfo } from '../../shared/ipc'
 import type { ClaudeMcpConfig } from '../mcp/schema'
@@ -74,7 +67,11 @@ export function renderClaudePluginPackage(input: ClaudePluginPackageInput): stri
   mkdirSync(hooksDir, { recursive: true })
   copyOrcaSkills(input.skillRoots, skillsDir)
 
-  writeFileSync(join(manifestDir, 'plugin.json'), JSON.stringify(ORCA_PLUGIN_MANIFEST, null, 2), 'utf8')
+  writeFileSync(
+    join(manifestDir, 'plugin.json'),
+    JSON.stringify(ORCA_PLUGIN_MANIFEST, null, 2),
+    'utf8'
+  )
   const mcpPath = join(pluginRoot, '.mcp.json')
   writeFileSync(mcpPath, JSON.stringify({ mcpServers: input.mcpConfig }, null, 2), 'utf8')
   try {

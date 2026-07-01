@@ -39,13 +39,17 @@ describe('deploy', () => {
 
     expect(r.dryRun).toBe(false)
     expect(r.validation.ok).toBe(true)
-    expect(readFileSync(join(dist(), 'plugins', 'orca', 'skills', 'demo', 'SKILL.md'), 'utf8')).toBe(
-      '# demo'
-    )
+    expect(
+      readFileSync(join(dist(), 'plugins', 'orca', 'skills', 'demo', 'SKILL.md'), 'utf8')
+    ).toBe('# demo')
     expect(JSON.parse(readFileSync(join(dist(), 'plugins', 'orca', '.mcp.json'), 'utf8'))).toEqual({
       mcpServers: { gh: { command: '${GH_MCP}' } }
     })
-    expect(JSON.parse(readFileSync(join(dist(), 'plugins', 'orca', '.claude-plugin', 'plugin.json'), 'utf8'))).toEqual({
+    expect(
+      JSON.parse(
+        readFileSync(join(dist(), 'plugins', 'orca', '.claude-plugin', 'plugin.json'), 'utf8')
+      )
+    ).toEqual({
       name: 'orca',
       description: 'orca에서 구성된 skill 및 mcp',
       version: '1.0.0'
@@ -119,7 +123,9 @@ describe('deploy', () => {
     const r2 = deploy('claude', {}, root)
     expect(r2.backedUp).toBe(true)
     expect(existsSync(`${dist()}.bak`)).toBe(true)
-    expect(existsSync(join(`${dist()}.bak`, 'plugins', 'orca', 'skills', 'demo', 'SKILL.md'))).toBe(true)
+    expect(existsSync(join(`${dist()}.bak`, 'plugins', 'orca', 'skills', 'demo', 'SKILL.md'))).toBe(
+      true
+    )
   })
 
   it('Orca 스킬은 enabled 와 무관하게 plugin 에 포함하고(활성 제어는 런타임 options.skills) MCP 는 mcpConfig 로 필터된다', () => {
