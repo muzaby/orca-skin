@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { ConcurrencyRegistry } from './concurrency'
+import { ActiveTurnTracker } from './active-turn-tracker'
 
-describe('ConcurrencyRegistry', () => {
+describe('ActiveTurnTracker', () => {
   it('tracks per-project counts and emits changes', () => {
     const events: Array<[string, number]> = []
-    const registry = new ConcurrencyRegistry((projectId, count) => events.push([projectId, count]))
+    const registry = new ActiveTurnTracker((projectId, count) => events.push([projectId, count]))
 
     expect(registry.getCount('p1')).toBe(0)
     registry.increment('p1')

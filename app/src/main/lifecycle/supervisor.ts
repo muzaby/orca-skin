@@ -10,15 +10,16 @@
 //
 // 0055(Resource governance): cap count 대상은 SessionRuntime population(active registry + idle pool)이고,
 // eviction victim 은 idle runtime only 다. active 턴 핸들을 닫아 cap 을 맞추지 않는다(reject/queue 는
-// 0056 admission 소관). ConcurrencyRegistry 는 0061 에서 lifecycle 로 접혀 Supervisor 소유의
-// 프로젝트별 active turn 회계(런타임 cap count 와 별개) 단일 진실원이 됐다.
+// 0056 admission 소관). 프로젝트별 active turn 회계(런타임 cap count 와 별개)는 0061 에서 lifecycle 로
+// 접혀 Supervisor 소유의 단일 진실원이 됐고, 0061 verify 에서 기능을 드러내는 이름 ActiveTurnTracker 로
+// 정정했다(IPC/UX 경계 어휘 "concurrency"는 보존).
 
 import type { TurnContext } from './turn-context'
 import type { ManagedRuntime } from './ports'
 import { SessionRuntimeRegistry } from './session-registry'
 import { RuntimePool } from './runtime-pool'
 import { UnlimitedRuntimeCapPolicy, type RuntimeCapPolicy } from './runtime-cap-policy'
-import { ConcurrencyRegistry } from './concurrency'
+import { ActiveTurnTracker } from './active-turn-tracker'
 
 // 단일 abort 프리미티브 — 0054 에서 별도 모듈(./abort)로 분리(supervisor→runtime-pool→timers→
 // supervisor 순환 회피). 기존 import 경로(./supervisor) 호환을 위한 무회귀 re-export.
@@ -33,7 +34,7 @@ export interface RuntimePopulation {
 export interface RuntimeSupervisorOptions<W = unknown> {
   registry?: SessionRuntimeRegistry<W>
   pool?: RuntimePool
-  concurrency?: ConcurrencyRegistry
+  activeTurns?: ActiveTurnTracker
   capPolicy?: RuntimeCapPolicy
   capacity?: number | null
 }
@@ -43,20 +44,20 @@ export class RuntimeSupervisor<W = unknown> {
   private readonly released = new WeakSet<TurnContext<W>>()
   private readonly registry: SessionRuntimeRegistry<W>
   private readonly pool: RuntimePool
-  private readonly concurrencyRegistry: ConcurrencyRegistry
+  private readonly activeTurnTracker: ActiveTurnTracker
   private readonly capPolicy: RuntimeCapPolicy
   private readonly capacity: number | null
 
   constructor(options: RuntimeSupervisorOptions<W> = {}) {
     this.registry = options.registry ?? new SessionRuntimeRegistry<W>()
     this.pool = options.pool ?? new RuntimePool()
-    this.concurrencyRegistry = options.concurrency ?? new ConcurrencyRegistry()
+    this.activeTurnTracker = options.activeTurns ?? new ActiveTurnTracker()
     this.capPolicy = options.capPolicy ?? new UnlimitedRuntimeCapPolicy()
     this.capacity = options.capacity ?? null
   }
 
-  get concurrency(): ConcurrencyRegistry {
-    return this.concurrencyRegistry
+  get activeTurns(): ActiveTurnTracker {
+    return this.activeTurnTracker
   }
 
   // 진입(admission) — resume/새-채팅 턴을 레지스트리에 등록. active 초과 reject/queue 는 0056.

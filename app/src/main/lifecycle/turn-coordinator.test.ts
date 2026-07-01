@@ -82,7 +82,7 @@ function makeDeps(
     classifyError: vi.fn(
       () => ({ kind: 'stream_error', message: 'x', retryable: false }) as unknown as ClassifiedError
     ),
-    concurrency: { increment: vi.fn(), decrement: vi.fn() },
+    activeTurns: { increment: vi.fn(), decrement: vi.fn() },
     backgroundSubagents: false,
     ...overrides
   }
@@ -104,9 +104,9 @@ describe('TurnCoordinator.run — consume → reduce → persist ∥ forward', (
     // session.updated → 제목 트리거 + pending 턴 승격
     expect(deps.titles.maybeStart).toHaveBeenCalledTimes(1)
     expect(deps.registry.promote).toHaveBeenCalledWith(turn, 's1')
-    // concurrency 회계는 증가/감소 짝이 맞아야 한다
-    expect(deps.concurrency.increment).toHaveBeenCalledTimes(1)
-    expect(deps.concurrency.decrement).toHaveBeenCalledTimes(1)
+    // active turn 회계는 증가/감소 짝이 맞아야 한다
+    expect(deps.activeTurns.increment).toHaveBeenCalledTimes(1)
+    expect(deps.activeTurns.decrement).toHaveBeenCalledTimes(1)
   })
 
   it('terminal 없는 스트림은 합성 telemetry 로 마감한다', async () => {
@@ -315,8 +315,8 @@ describe('TurnCoordinator.run — retry', () => {
     expect(types).toContain('turn.retrying')
     expect(types).toContain('telemetry')
     expect(runtime.sendCount).toBe(2)
-    // 두 attempt 모두 concurrency 짝이 맞아야 한다(누수 없음)
-    expect(deps.concurrency.increment).toHaveBeenCalledTimes(2)
-    expect(deps.concurrency.decrement).toHaveBeenCalledTimes(2)
+    // 두 attempt 모두 active turn 짝이 맞아야 한다(누수 없음)
+    expect(deps.activeTurns.increment).toHaveBeenCalledTimes(2)
+    expect(deps.activeTurns.decrement).toHaveBeenCalledTimes(2)
   })
 })
