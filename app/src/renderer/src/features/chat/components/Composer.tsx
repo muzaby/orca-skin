@@ -55,6 +55,7 @@ interface ComposerProps {
   // 컴포저 초기 입력 시드 — Skills "채팅에서 사용해보기" 가 nav state → page 를 거쳐 주입한다.
   // 마운트/값 변경 시 1회 draft 에 채우고 포커스한다(사용자 입력 중에는 덮어쓰지 않음).
   initialDraft?: string
+  restoredDraft?: { id: number; text: string }
   // 리딩-거터/최대폭(ReadingColumn)을 제거해 컴포저를 부모 컬럼 폭에 꽉 채운다.
   // 프로젝트 랜딩처럼 이미 컬럼이 폭을 제한하는 곳에서 hero/세션 목록과 좌우 라인을 맞춘다.
   // 채팅 뷰(ChatTile)는 transcript 와 폭을 공유해야 하므로 미전달(기본 ReadingColumn).
@@ -76,10 +77,12 @@ export function Composer({
   onScrollToBottom,
   costToday,
   initialDraft,
+  restoredDraft,
   flush,
   showLandingCwdPanel = false
 }: ComposerProps): React.JSX.Element {
-  const { send, cancel, answerAsk, skipAsk, setPermissionMode, setModel, setEffort } = chatActions
+  const { send, steer, cancel, answerAsk, skipAsk, setPermissionMode, setModel, setEffort } =
+    chatActions
   const inflight = useChatSession((s) => s.inflight)
   const cwd = useChatSession((s) => s.cwd)
   const lastTelemetry = useChatSession((s) => s.lastTelemetry)
@@ -152,6 +155,17 @@ export function Composer({
       textareaRef.current?.setSelectionRange(initialDraft.length, initialDraft.length)
     })
   }, [initialDraft])
+
+  useEffect(() => {
+    if (!restoredDraft) return
+    queueMicrotask(() => {
+      setDraft(restoredDraft.text)
+      setCaret(restoredDraft.text.length)
+      const el = textareaRef.current?.element
+      el?.focus()
+      el?.setSelectionRange(restoredDraft.text.length, restoredDraft.text.length)
+    })
+  }, [restoredDraft])
 
   const autocomplete = useSkillAutocomplete(draft, caret, skills)
   const fileAutocomplete = useFileAutocomplete(draft, caret, cwd)
@@ -281,7 +295,13 @@ export function Composer({
   }
 
   const submit = (): void => {
-    if (draft.trim() === '' || inflight) return
+    if (draft.trim() === '') return
+    if (inflight) {
+      if (!steer(draft)) return
+      setDraft('')
+      setCaret(0)
+      return
+    }
     const text = draft
     const items = attachments
     void buildAttachmentViews(items).then((views) => {
@@ -293,7 +313,8 @@ export function Composer({
   }
 
   const toolApprovalPending = pendingToolApprovals.length > 0
-  const showCancelButton = inflight || toolApprovalPending
+  const feedbackMode = inflight && draft.trim() !== ''
+  const showCancelButton = !feedbackMode && (inflight || toolApprovalPending)
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>): void => {
     // 자동완성 open 시 키 우선 처리 — Enter/Tab/Arrow/Escape 는 picker 가 소비.
@@ -482,7 +503,11 @@ export function Composer({
                     onKeyDown={onKeyDown}
                     knownSkillNames={knownSkillNames}
                     validFilePaths={fileAutocomplete.validPaths}
-                    placeholder="Orca에게 메시지 보내기… (Enter 전송 / Shift+Enter 줄바꿈)"
+                    placeholder={
+                      inflight
+                        ? '피드백 보내기… (Enter 전송 / Shift+Enter 줄바꿈)'
+                        : 'Orca에게 메시지 보내기… (Enter 전송 / Shift+Enter 줄바꿈)'
+                    }
                     ariaLabel="메시지 입력"
                   />
                 </div>
@@ -505,9 +530,9 @@ export function Composer({
                     leadingIcon="enter"
                     onClick={submit}
                     disabled={draft.trim() === ''}
-                    title="전송 (Enter)"
-                    aria-label="전송"
-                    data-behavior="action:send"
+                    title={feedbackMode ? '피드백 보내기 (Enter)' : '전송 (Enter)'}
+                    aria-label={feedbackMode ? '피드백 보내기' : '전송'}
+                    data-behavior={feedbackMode ? 'action:send-feedback' : 'action:send'}
                     className="mb-1 shrink-0 rounded-full"
                   />
                 )}

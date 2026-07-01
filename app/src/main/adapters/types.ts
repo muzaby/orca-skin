@@ -20,6 +20,8 @@ export interface LiveTurn {
   close(): void
   setPermissionMode(mode: ClaudePermissionMode): Promise<void>
   interrupt(): Promise<void>
+  injectMessage?(text: string): Promise<void>
+  readonly canSteer?: boolean
   setModel(model?: string): Promise<void>
   // 서브에이전트(Task) 단위 중단 — SDK task_id 로 stopTask. 백엔드 미지원 시 no-op 가능.
   stopTask(taskId: string): Promise<void>

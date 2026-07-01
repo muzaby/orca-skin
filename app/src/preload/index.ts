@@ -21,6 +21,8 @@ import {
   type Project,
   type SearchHit,
   type SendChatMessage,
+  type SteerChatMessage,
+  type CancelSteer,
   type SessionListItem,
   type SessionTitleEvent,
   type Settings,
@@ -44,6 +46,9 @@ import {
 const orca = {
   chat: {
     send: (req: SendChatMessage): Promise<void> => ipcRenderer.invoke(CHANNELS.chatSend, req),
+    steer: (req: SteerChatMessage): Promise<void> => ipcRenderer.invoke(CHANNELS.chatSteer, req),
+    cancelSteer: (req: CancelSteer): Promise<void> =>
+      ipcRenderer.invoke(CHANNELS.chatSteerCancel, req),
     onEvent: (handler: (ev: NormalizedEvent) => void): (() => void) => {
       const listener = (_e: IpcRendererEvent, ev: NormalizedEvent): void => handler(ev)
       ipcRenderer.on(CHANNELS.chatEvent, listener)

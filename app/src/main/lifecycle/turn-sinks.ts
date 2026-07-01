@@ -16,6 +16,7 @@ import type { TurnContext } from './turn-context'
 // 영속 sink — DB 기록(가로축 좌측). renderer 비의존. L3 TurnPersistence 가 만족.
 export interface TurnPersistSink<W = unknown> {
   persist(turn: TurnContext<W>, ev: NormalizedEvent): void
+  persistSteerUserMessage?(turn: TurnContext<W>, text: string, createdAt: number): number | null
   // AskUserQuestion tool_result 합성도 영속 책임(persist.ts) — reduce 가 페어링 시 호출.
   flushAskAnswers(turn: TurnContext<W>, owner: W): void
 }

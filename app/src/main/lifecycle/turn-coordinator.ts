@@ -19,6 +19,7 @@ import { createStallTimer, type StallTimer } from './timers'
 import { coerceStoppedToolCompletion } from './subagent-settlement'
 import { settleOpenToolRuns, settleSubagentTask, stopLiveSubagent } from './settle'
 import type { TurnEventSink, TurnPersistSink, TurnTitleHook } from './turn-sinks'
+import type { SteerQueue } from './steer-queue'
 
 export const MAX_RETRIES = 2
 export const RETRY_BACKOFF_MS = [1_000, 2_000] as const
@@ -63,6 +64,7 @@ export interface TurnCoordinatorDeps<W> {
   classifyError: (err: unknown, phase: string) => ClassifiedError
   concurrency: ConcurrencyGate
   backgroundSubagents: boolean
+  steerQueue?: SteerQueue
 }
 
 export class TurnCoordinator<W = unknown> {
@@ -71,6 +73,30 @@ export class TurnCoordinator<W = unknown> {
   private activeStall: StallTimer | null = null
 
   constructor(private readonly deps: TurnCoordinatorDeps<W>) {}
+
+  cancelSteer(sessionId: string, id: string): boolean {
+    const item = this.deps.steerQueue?.cancel(sessionId, id)
+    return item != null
+  }
+
+  private consumeSteerForInput(turn: TurnContext<W>): string | undefined {
+    const sessionId = turn.dbSessionId
+    const { steerQueue, persist, forward } = this.deps
+    if (!sessionId || !steerQueue) return undefined
+    const flush = steerQueue.drainForFlush(sessionId)
+    if (!flush) return undefined
+    const messageId = persist.persistSteerUserMessage?.(turn, flush.text, Date.now())
+    if (messageId == null) return undefined
+    forward.forward(turn.owner, {
+      type: 'steer.flushed',
+      sessionId,
+      ids: flush.ids,
+      text: flush.text,
+      messageId,
+      createdAt: flush.createdAt
+    })
+    return flush.text
+  }
 
   // 승인 보류 동안 stall 타이머 멈춤 — 사용자 판단 시간이 stall 로 오판돼 턴이 abort 되지 않게.
   // release 로 재개(동시 N건은 refcount 라 마지막 해소 시에만). attempt 진행 전이면 no-op.
@@ -95,7 +121,12 @@ export class TurnCoordinator<W = unknown> {
       try {
         // send() 가 query() 를 즉시 시작하므로 try 안에서 호출 — 동기 throw 도 동일 경로로 분류.
         turn.live = runtime
-        const events = runtime.send(request)
+        const events = runtime.send({
+          ...request,
+          onInputConsumed: (text) => request.onInputConsumed?.(text),
+          consumeInjectedInput: () =>
+            request.consumeInjectedInput?.() ?? this.consumeSteerForInput(turn)
+        })
         concurrency.increment(boundProjectId)
         try {
           idle.reset()

@@ -276,7 +276,10 @@ export class ClaudeAdapter implements SessionAdapter {
     else signal?.addEventListener('abort', onAbort)
 
     // 턴-스코프 입력 스트림 — close() 까지 미종료(streaming-input.ts 가 불변식 격리).
-    const input = createTurnInputStream(buildTurnContent(text, attachmentTexts, attachmentImages))
+    const input = createTurnInputStream(buildTurnContent(text, attachmentTexts, attachmentImages), {
+      onConsume: ({ text }) => req.onInputConsumed?.(text),
+      nextInjectedInput: () => req.consumeInjectedInput?.()
+    })
 
     const handle = query({
       prompt: input.stream,
@@ -346,6 +349,8 @@ export class ClaudeAdapter implements SessionAdapter {
       // 라이브 control — 스트리밍 입력 모드라야 동작하는 SDK Query 메서드에 위임.
       setPermissionMode: (mode) => handle.setPermissionMode(mode),
       interrupt: () => handle.interrupt(),
+      injectMessage: async (text) => input.push(text),
+      canSteer: true,
       setModel: (model) => handle.setModel(model),
       // 서브에이전트 단위 중단 — task_started/notification 의 task_id 로 stopTask.
       stopTask: (taskId) => handle.stopTask(taskId),

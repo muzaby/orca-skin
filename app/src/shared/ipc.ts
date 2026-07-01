@@ -7,6 +7,8 @@ import type { NormalizedPermissionMode } from './permission-mode'
 // Phase 2 활성 채널 (preload 노출 대상). 미사용 채널은 의도적으로 누락.
 export const CHANNELS = {
   chatSend: 'orca:chat:send',
+  chatSteer: 'orca:chat:steer',
+  chatSteerCancel: 'orca:chat:steerCancel',
   chatEvent: 'orca:chat:event',
   chatCancel: 'orca:chat:cancel',
   chatStopSubagent: 'orca:chat:stopSubagent',
@@ -284,6 +286,16 @@ export type NormalizedEvent =
       patch: { model?: string; cwd?: string }
     }
   | { type: 'message.delta'; sessionId: string; delta: { text: string } }
+  | { type: 'steer.queued'; sessionId: string; id: string; text: string; createdAt: number }
+  | {
+      type: 'steer.flushed'
+      sessionId: string
+      ids: string[]
+      text: string
+      messageId: number
+      createdAt: number
+    }
+  | { type: 'steer.cancelled'; sessionId: string; id: string }
   | {
       type: 'message.completed'
       sessionId: string
@@ -514,6 +526,17 @@ export interface SendChatMessage {
 // 이고 이 2종은 그 부분집합이다(`plan`↔'plan', `acceptEdits`↔'accept_edits'). 6종 전체 UI 노출과
 // 라이브 전환은 PR③ 에서. 브리지: `fromUiPermissionMode()` (permission-mode.ts).
 export type PermissionMode = 'plan' | 'acceptEdits'
+
+export interface SteerChatMessage {
+  sessionId: string
+  text: string
+  clientRequestId?: string
+}
+
+export interface CancelSteer {
+  sessionId: string
+  id: string
+}
 
 export interface CancelChat {
   sessionId: string

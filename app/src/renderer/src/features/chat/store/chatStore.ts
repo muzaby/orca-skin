@@ -50,6 +50,12 @@ export interface LiveTurnState {
 // 서브에이전트(Task) 라이브 메타 — subagent.task 이벤트(SDK task_*/child model)로 누적되는
 // 진행 중 표시 값. reducer 미경유 transient(메인 transcript 파트 비오염), toolUseId 키.
 // 영속/재로드 복원은 부모 Task tool_result.subagentMeta 가 담당.
+export interface PendingSteerState {
+  id: string
+  text: string
+  createdAt: number
+}
+
 export interface SubagentMetaState {
   taskId?: string
   model?: string
@@ -66,6 +72,7 @@ export interface SessionEntry {
   session: ChatState
   live: LiveTurnState
   subagentMeta: Record<string, SubagentMetaState>
+  pendingSteer?: PendingSteerState[]
 }
 
 interface QueuedNewChat {
@@ -96,7 +103,8 @@ function freshEntry(projectId: string | null = null): SessionEntry {
   return {
     session: { ...initialChatState, cwd: cwdCache, pendingProjectId: projectId },
     live: EMPTY_LIVE,
-    subagentMeta: EMPTY_SUBAGENT_META
+    subagentMeta: EMPTY_SUBAGENT_META,
+    pendingSteer: []
   }
 }
 
@@ -148,6 +156,19 @@ function patchLive(key: string, patch: (live: LiveTurnState) => LiveTurnState): 
 
 function resetLive(key: string): void {
   patchLive(key, (live) => (live.text !== '' || live.reasoning !== '' ? EMPTY_LIVE : live))
+}
+
+function patchPendingSteer(
+  key: string,
+  patch: (pending: PendingSteerState[]) => PendingSteerState[]
+): void {
+  setState((s) => {
+    const entry = s.sessions[key]
+    if (!entry) return s
+    const next = patch(entry.pendingSteer ?? [])
+    if (entry.pendingSteer && next === entry.pendingSteer) return s
+    return { sessions: { ...s.sessions, [key]: { ...entry, pendingSteer: next } } }
+  })
 }
 
 // subagent.task 이벤트를 해당 엔트리의 transient subagentMeta[toolUseId] 에 병합한다 — 정의된
@@ -307,6 +328,25 @@ function receive(ev: NormalizedEvent): void {
       patchSubagentMeta(key, ev)
       return
 
+    case 'steer.queued':
+      patchPendingSteer(key, (pending) =>
+        pending.some((item) => item.id === ev.id)
+          ? pending.map((item) =>
+              item.id === ev.id ? { id: ev.id, text: ev.text, createdAt: ev.createdAt } : item
+            )
+          : [...pending, { id: ev.id, text: ev.text, createdAt: ev.createdAt }]
+      )
+      return
+
+    case 'steer.flushed':
+      patchPendingSteer(key, (pending) => pending.filter((item) => !ev.ids.includes(item.id)))
+      dispatchTo(key, { type: 'SEND_USER_MESSAGE', text: ev.text })
+      return
+
+    case 'steer.cancelled':
+      patchPendingSteer(key, (pending) => pending.filter((item) => item.id !== ev.id))
+      return
+
     case 'telemetry': {
       // message.completed 없이 턴이 끝난 경우 잔여 라이브 텍스트를 text 파트로 굳힌다.
       const leftover = getState().sessions[key]?.live.text ?? ''
@@ -453,6 +493,38 @@ function setPendingCwd(cwd: string): void {
       }
     }
   })
+}
+
+function steer(text: string): boolean {
+  const trimmed = text.trim()
+  const cur = getActiveChatSession()
+  if (trimmed === '' || !cur.inflight || !cur.sessionId) return false
+  const key = getState().activeKey
+  const id = crypto.randomUUID()
+  patchPendingSteer(key, (pending) => [...pending, { id, text: trimmed, createdAt: Date.now() }])
+  void chatApi
+    .steer({ sessionId: cur.sessionId, text: trimmed, clientRequestId: id })
+    .catch((err) => {
+      patchPendingSteer(key, (pending) => pending.filter((item) => item.id !== id))
+      console.error('[chat] steer invoke rejected', err)
+    })
+  return true
+}
+
+function cancelSteer(id: string): string | null {
+  const cur = getActiveChatSession()
+  if (!cur.sessionId) return null
+  const key = getState().activeKey
+  let text: string | null = null
+  patchPendingSteer(key, (pending) => {
+    const found = pending.find((item) => item.id === id)
+    text = found?.text ?? null
+    return pending.filter((item) => item.id !== id)
+  })
+  void chatApi
+    .cancelSteer({ sessionId: cur.sessionId, id })
+    .catch((err) => console.error('[chat] cancelSteer invoke rejected', err))
+  return text
 }
 
 function cancel(): void {
@@ -667,6 +739,8 @@ function denyTool(approvalId: string): void {
 // 전달할 수 있다(컴포넌트는 selector / action 만 사용, state.md §1.3).
 export const chatActions = {
   send,
+  steer,
+  cancelSteer,
   cancel,
   newChat,
   setPendingCwd,
@@ -758,6 +832,10 @@ export function useChatSession<T>(selector: (s: ChatState) => T): T {
 // 라이브 스트림 리프 전용 — 활성 세션의 text 델타에만 재렌더.
 export function useLiveText(): string {
   return useChatStore((s) => s.sessions[s.activeKey].live.text)
+}
+
+export function usePendingSteer(): PendingSteerState[] {
+  return useChatStore((s) => s.sessions[s.activeKey].pendingSteer ?? [])
 }
 
 // 서브에이전트(Task) 라이브 메타 — 진행 중 모델/경과시간/현재도구/도구수 표시용. 해당

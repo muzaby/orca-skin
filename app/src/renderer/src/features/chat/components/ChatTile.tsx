@@ -1,9 +1,10 @@
+import { useState } from 'react'
 import { ChatTitleBar } from './ChatTitleBar'
 import { TranscriptView } from './transcript/TranscriptView'
 import { Composer } from './Composer'
 import { RightPanel } from './rightpanel/RightPanel'
 import { useScrollAnchor } from '../hooks/useScrollAnchor'
-import { useChatSession } from '../store/chatStore'
+import { useChatSession, usePendingSteer } from '../store/chatStore'
 
 interface ChatTileProps {
   backendLabel: string
@@ -30,6 +31,8 @@ export function ChatTile({
   const inflight = useChatSession((s) => s.inflight)
   const loadingSession = useChatSession((s) => s.loadingSession)
   const error = useChatSession((s) => s.error)
+  const pendingSteer = usePendingSteer()
+  const [restoredDraft, setRestoredDraft] = useState<{ id: number; text: string } | undefined>()
   const { scrollRef, contentRef, onScroll, showJump, scrollToBottom, anchored } = useScrollAnchor({
     messages,
     sessionId,
@@ -55,6 +58,8 @@ export function ChatTile({
             <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-8 bg-gradient-to-b from-bg to-transparent" />
             <TranscriptView
               messages={messages}
+              pendingSteer={pendingSteer}
+              onRestoreSteerDraft={(text) => setRestoredDraft({ id: Date.now(), text })}
               inflight={inflight}
               loadingSession={loadingSession}
               error={error}
@@ -73,6 +78,7 @@ export function ChatTile({
             onScrollToBottom={scrollToBottom}
             costToday={costToday}
             initialDraft={initialDraft}
+            restoredDraft={restoredDraft}
           />
         </div>
 
