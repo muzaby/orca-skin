@@ -1,11 +1,9 @@
 // claude 어댑트 변환 — 백엔드 중립 Extension 조각을 claude query() 옵션 조각으로 변환하는 순수
 // 함수들. 인바운드(백엔드→중립)가 normalize 라면, 이쪽은 그 아웃바운드 짝(중립→백엔드)으로,
-// Ports & Adapters 의 어댑터 경계 변환이다 (mcp/convert.ts 의 toClaudeConfig 와 동급의 "백엔드 종속
-// 순수 변환기"). 각 함수는 `...spread` 로 합성될 옵션 조각(object)을 반환한다 — claude.ts 가
-// 이미 219줄이라 hook 래핑까지 합치면 CLAUDE.md 원칙 9 의 400줄 경고를 넘어 별 파일로 분리한다.
-//
-// 입력은 이미 ${VAR} 확장이 끝난 값을 받는다 (확장/복호화는 어댑트 시점에만 — claude.ts 가
-// toClaudeConfig 로 확장한 결과를 adaptMcp 에 넘긴다).
+// Ports & Adapters 의 어댑터 경계 변환이다. 각 함수는 `...spread` 로 합성될 옵션 조각(object)을
+// 반환한다 — claude.ts 가 이미 219줄이라 hook 래핑까지 합치면 CLAUDE.md 원칙 9 의 400줄 경고를
+// 넘어 별 파일로 분리한다. MCP 는 0058 이후 plugin .mcp.json 경로가 기본이며, adaptMcp 는
+// 레거시 options.mcpServers 안전화/제거 전까지 남겨둔다.
 
 import type {
   HookCallback,
@@ -18,6 +16,7 @@ import type {
   UserPromptSubmitHookSpecificOutput
 } from '@anthropic-ai/claude-agent-sdk'
 import type { ClaudeMcpConfig } from '../mcp/schema'
+import { adaptSkillNameForClaude } from '../deploy/claude-plugin-package'
 import type { SkillInfo } from '../../shared/ipc'
 import type { ProviderSettings } from '../settings/provider-settings'
 import {
@@ -29,9 +28,15 @@ import {
   type NormalizedHookSet
 } from '../extensions/hooks'
 
-// 활성 MCP 서버가 있을 때만 mcpServers + allowedTools 를 주입한다. allowedTools 는
-// `mcp__<name>__*` 와일드카드로 서버 전체 도구를 자동 허용 — Orca 엔 canUseTool 핸들러가 없어
-// (Phase 4 anchor) 미허용 시 도구 호출이 멈추기 때문. 빈 config 면 옵션 자체를 생략.
+// Claude Code plugin root를 SDK local plugin 옵션으로 변환한다. 상대 경로는 cwd 기준이라 세션 cwd
+// 변경과 얽힐 수 있으므로 호출자는 절대 경로를 넘긴다. 부재 시 옵션 자체를 생략한다.
+export function adaptPlugins(pluginRoot?: string | null): object {
+  if (!pluginRoot || pluginRoot.trim() === '') return {}
+  return { plugins: [{ type: 'local' as const, path: pluginRoot }] }
+}
+
+// 레거시 MCP 주입 경로. 기본 query 는 plugin .mcp.json 을 사용하므로 호출하지 않는다.
+// 추후 plugin 로딩 안전화가 완료되면 제거 대상이다.
 export function adaptMcp(config: ClaudeMcpConfig): object {
   const names = Object.keys(config)
   if (names.length === 0) return {}
@@ -46,14 +51,16 @@ export function adaptSystemPrompt(append?: string): object {
   return { systemPrompt: { type: 'preset' as const, preset: 'claude_code' as const, append } }
 }
 
-// Skill 은 SDK 기본 settingSources(user/project/local) 경로에서 **발견**되고(cwd/.claude/skills
-// = Orca 거울, ~/.claude/skills = 어댑터), SDK `options.skills`(string[]) 가 그중 **활성**만 필터한다
-// (context filter — 미나열 스킬은 세션에서 숨김). 활성 집합 = 활성화된 Orca 스킬 + 모든 어댑터
-// 스킬(어댑터 스킬은 토글 불가·항상 on). 토글은 파일이 아니라 이 목록으로 반영되므로 재싱크 불필요.
-// 알려진 스킬이 하나도 없으면(스캔 결과 0) 'all' 로 둬 스캔 누락이 스킬을 통째로 가리지 않게 한다.
+// Skill 은 plugin(sources/skills → dist/plugins/orca/skills) 과 adapter user path(~/.claude/skills) 에서
+// 발견되고, SDK `options.skills`(string[]) 가 그중 **활성**만 필터한다. plugin 스킬은
+// `plugin-name:skill-name` 네임스페이스를 사용해야 하므로 Orca 스킬만 `orca:` prefix 를 붙인다.
+// 어댑터 스킬은 토글 불가·항상 on 이며 기존 이름을 유지한다. 알려진 스킬이 하나도 없으면
+// 'all' 로 둬 스캔 누락이 스킬을 통째로 가리지 않게 한다.
 export function adaptSkills(skills: SkillInfo[]): object {
   if (skills.length === 0) return { skills: 'all' as const }
-  const active = skills.filter((s) => s.sourceKind !== 'orca' || s.enabled).map((s) => s.name)
+  const active = skills
+    .filter((s) => s.sourceKind !== 'orca' || s.enabled)
+    .map((s) => adaptSkillNameForClaude(s))
   return { skills: active }
 }
 

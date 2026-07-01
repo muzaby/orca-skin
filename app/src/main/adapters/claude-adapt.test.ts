@@ -4,6 +4,7 @@ import {
   adaptEnv,
   adaptHooks,
   adaptMcp,
+  adaptPlugins,
   adaptSettings,
   adaptSkills,
   adaptSystemPrompt,
@@ -12,6 +13,20 @@ import {
 } from './claude-adapt'
 import type { NormalizedHookHandler } from '../extensions/hooks'
 import type { SkillInfo } from '../../shared/ipc'
+
+
+describe('adaptPlugins', () => {
+  it('plugin root 부재 시 옵션 생략', () => {
+    expect(adaptPlugins(undefined)).toEqual({})
+    expect(adaptPlugins('')).toEqual({})
+  })
+
+  it('plugin root 가 있으면 local plugin 옵션을 만든다', () => {
+    expect(adaptPlugins('/dist/claude/plugins/orca')).toEqual({
+      plugins: [{ type: 'local', path: '/dist/claude/plugins/orca' }]
+    })
+  })
+})
 
 describe('adaptMcp', () => {
   it('빈 config 는 옵션 생략', () => {
@@ -68,7 +83,12 @@ describe('adaptSkills', () => {
       skill('b', 'orca', false),
       skill('native', 'adapter', true)
     ]
-    expect(adaptSkills(skills)).toEqual({ skills: ['a', 'native'] })
+    expect(adaptSkills(skills)).toEqual({ skills: ['orca:a', 'native'] })
+  })
+
+
+  it('이미 네임스페이스된 Orca 스킬은 중복 prefix 하지 않는다', () => {
+    expect(adaptSkills([skill('orca:ready', 'orca', true)])).toEqual({ skills: ['orca:ready'] })
   })
 })
 

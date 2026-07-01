@@ -10,18 +10,18 @@ export function registerMcpHandlers(ctx: RouterContext): void {
 
   handlePlain(CHANNELS.mcpAdd, (raw): McpServer => {
     const result = ctx.mcp.add(raw)
-    ctx.syncExtensions()
+    ctx.deployExtensions()
     return result
   })
 
   handlePlain(CHANNELS.mcpUpdate, (raw): McpServer | null => {
     const result = ctx.mcp.update(raw)
-    ctx.syncExtensions()
+    ctx.deployExtensions()
     return result
   })
 
   handle(CHANNELS.mcpDelete, DeleteMcpServerSchema, 'reject', (req): void => {
     ctx.mcp.remove(req.id)
-    ctx.syncExtensions()
+    ctx.deployExtensions()
   })
 }

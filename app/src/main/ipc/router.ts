@@ -12,11 +12,17 @@ import { MockAdapter } from '../adapters/mock'
 import { Installer } from '../installer'
 import { SettingsStore } from '../settings/store'
 import { McpStore } from '../mcp/store'
-import { ensureConfigDir, getWorkspacePath, sourcesSkillsDir } from '../config/paths'
+import {
+  distOrcaPluginDir,
+  ensureConfigDir,
+  getWorkspacePath,
+  sourcesSkillsDir
+} from '../config/paths'
 import { loadOrcaConfig } from '../config/orca-config'
 import { SecretStore } from '../config/secret-store'
 import { deploy } from '../deploy/deployer'
-import { syncWorkspaceExtensions } from '../deploy/workspace-sync'
+import { ExtensionDeploymentService } from '../deploy/extension-deployment-service'
+import { toClaudeConfig } from '../mcp/convert'
 import { scaffoldProviderSettings } from '../deploy/scaffold'
 import { ProviderSettingsService } from '../settings/provider-settings'
 import { loadClaudeProviderSettings } from '../adapters/claude-settings'
@@ -45,17 +51,14 @@ import { broadcastConcurrency } from './context'
 export class IpcRouter {
   readonly settings = new SettingsStore()
   readonly mcp = new McpStore(this.settings)
-  // resolver 팩토리를 lazy arrow 로 넘긴다 — 호출은 턴 실행 시점이라 this.mcp 가 이미 할당돼 있다
-  // (field-init 순서 무관). 비밀 확장은 어댑터의 어댑트 시점에만.
-  private readonly registry = new AdapterRegistry(() => this.mcp.resolver())
+  private readonly registry = new AdapterRegistry()
   // 부팅 시 1회 스캔하여 메모리에 캐시. fs.watch hot-reload 는 본 PR 범위 밖 (재시작).
   private skillsCache: SkillInfo[] = []
   // chat send 와 files list, session cwd 노출에서 모두 동일하게 사용하는 단일
   // cwd. 기본은 ~/.config/orca/workspace — 향후 사용자 선택 디렉토리로 확장 가능.
   private defaultCwd: string = ''
-  // 이미 dist→cwd 파일 싱크를 끝낸 cwd 집합. 턴 시작 시 cwd 단위로 1회만 싱크하기 위한 게이트.
-  // boot 1회가 아니라 cwd 단위로 추적해 향후 세션별 cwd 분리 시 각 cwd 첫 턴마다 싱크된다.
-  private readonly syncedCwds = new Set<string>()
+  // sources→dist plugin 배포 freshness 관리. boot/CRUD/턴 진입 전 최신화를 보장한다.
+  private deployment?: ExtensionDeploymentService
   private readonly debugMock: DebugMockState = {
     enabled: false,
     scenarioId: 'full',
@@ -92,29 +95,26 @@ export class IpcRouter {
     return this.skillsCache
   }
 
-  // 강제 싱크 — dist 재렌더 + 지정 cwd(기본 defaultCwd)로 overwrite-merge. boot·스킬 CRUD 가
-  // 호출한다. 싱크한 cwd 를 syncedCwds 에 기록해 이후 턴 게이트가 중복 싱크를 건너뛰게 한다.
-  private syncExtensions(cwd: string = this.defaultCwd): void {
-    try {
-      const r = deploy('claude', {
-        skillRoots: this.skillRoots(),
-        mcpConfig: this.mcp.enabledConfig()
-      })
-      if (!r.validation.ok) {
-        for (const err of r.validation.errors) console.warn('[deploy] 검증 경고:', err)
-      }
-      syncWorkspaceExtensions('claude', cwd)
-      this.syncedCwds.add(cwd)
-    } catch (e) {
-      console.warn('[sync] 확장 싱크 건너뜀:', e)
-    }
+  private createDeploymentService(): ExtensionDeploymentService {
+    return new ExtensionDeploymentService({
+      deploy: () => {
+        const { config, dropped } = toClaudeConfig(this.mcp.enabledConfig(), this.mcp.resolver())
+        for (const d of dropped) console.warn(`[mcp] 서버 '${d.name}' 를 건너뜀: ${d.reason}`)
+        return deploy('claude', {
+          skillRoots: this.skillRoots(),
+          mcpConfig: config
+        })
+      },
+      onWarning: (message) => console.warn(message)
+    })
   }
 
-  // 턴 시작 게이트 — 해당 cwd 가 이번 실행에서 아직 싱크되지 않았을 때만 1회 싱크한다.
-  // (세션별 cwd 분리 시 각 cwd 첫 턴에 싱크. 동일 cwd 공유면 사실상 부팅 후 첫 턴 1회.)
-  private syncExtensionsForTurn(cwd: string): void {
-    if (this.syncedCwds.has(cwd)) return
-    this.syncExtensions(cwd)
+  private deployExtensions(): void {
+    this.deployment?.deployNow()
+  }
+
+  private ensureExtensionsDeployedForTurn(): void {
+    this.deployment?.ensureDeployed()
   }
 
   async start(): Promise<void> {
@@ -136,7 +136,13 @@ export class IpcRouter {
     const stableAppend = buildAppend({ platform: process.platform }, loadPolicies())
     // 빌더는 db 인스턴스가 필요해 여기서 생성. skills 는 lazy getter 라 스캔
     // 완료 전에 만들어도 무방 — 턴 실행 시점에 최신 skillsCache 를 읽는다.
-    const extensions = new ExtensionBuilder(db, this.mcp, () => this.skillsCache, stableAppend)
+    const extensions = new ExtensionBuilder(
+      db,
+      this.mcp,
+      () => this.skillsCache,
+      stableAppend,
+      () => distOrcaPluginDir('claude')
+    )
     await this.registry.refreshInstallState()
     this.defaultCwd = getWorkspacePath(null)
     await mkdir(this.defaultCwd, { recursive: true }).catch((e) =>
@@ -159,9 +165,10 @@ export class IpcRouter {
     } catch (e) {
       console.warn('[boot] provider settings 스캐폴드 건너뜀:', e)
     }
-    // dist 렌더 + defaultCwd 싱크를 1회 수행(syncExtensions 가 deploy+sync+게이트 마킹을 묶는다).
-    // 첫 턴의 syncExtensionsForTurn 은 이로써 이미 마킹된 defaultCwd 를 건너뛴다.
-    this.syncExtensions()
+    // dist/claude/plugins/orca 렌더를 boot 1회 수행한다. CRUD 는 즉시 재배포, 턴 진입은
+    // ensureDeployed 로 실패/dirty 상태를 한 번 더 보장한다.
+    this.deployment = this.createDeploymentService()
+    this.deployExtensions()
     providerSettings.invalidateAll()
     // ClaudeAdapter 가 사용하는 cwd 와 동일한 값으로 스킬 스캔.
     await this.refreshSkills()
@@ -178,8 +185,8 @@ export class IpcRouter {
       providerSettings,
       getSkills: () => this.skillsCache,
       refreshSkills: () => this.refreshSkills(),
-      syncExtensions: () => this.syncExtensions(),
-      syncExtensionsForTurn: (cwd) => this.syncExtensionsForTurn(cwd),
+      deployExtensions: () => this.deployExtensions(),
+      ensureExtensionsDeployedForTurn: () => this.ensureExtensionsDeployedForTurn(),
       getCwd: (projectId) => getWorkspacePath(projectId ? db.getProject(projectId) : null),
       debugMock: this.debugMock,
       mockAdapter: import.meta.env.DEV ? new MockAdapter(() => this.debugMock) : null

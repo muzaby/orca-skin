@@ -33,22 +33,26 @@ function seedProviderSettings(provider: string, settings = '{"env":{}}'): void {
 const dist = (): string => join(root, 'dist', 'claude')
 
 describe('deploy', () => {
-  it('skills 와 mcp 를 SDK 표준 dist 거울로 렌더하고 engine-specific 자산은 배포하지 않는다', () => {
+  it('skills 와 mcp 를 Claude plugin 패키지로 렌더하고 구 dist 거울은 만들지 않는다', () => {
     seedSources('{"mcpServers":{"gh":{"command":"${GH_MCP}"}}}')
     const r = deploy('claude', {}, root)
 
     expect(r.dryRun).toBe(false)
     expect(r.validation.ok).toBe(true)
-    expect(readFileSync(join(dist(), '.claude', 'skills', 'demo', 'SKILL.md'), 'utf8')).toBe(
+    expect(readFileSync(join(dist(), 'plugins', 'orca', 'skills', 'demo', 'SKILL.md'), 'utf8')).toBe(
       '# demo'
     )
-    expect(JSON.parse(readFileSync(join(dist(), '.mcp.json'), 'utf8'))).toEqual({
+    expect(JSON.parse(readFileSync(join(dist(), 'plugins', 'orca', '.mcp.json'), 'utf8'))).toEqual({
       mcpServers: { gh: { command: '${GH_MCP}' } }
     })
-    expect(existsSync(join(dist(), 'plugin'))).toBe(false)
-    expect(existsSync(join(dist(), 'agents'))).toBe(false)
+    expect(JSON.parse(readFileSync(join(dist(), 'plugins', 'orca', '.claude-plugin', 'plugin.json'), 'utf8'))).toEqual({
+      name: 'orca',
+      description: 'orca에서 구성된 skill 및 mcp',
+      version: '1.0.0'
+    })
+    expect(existsSync(join(dist(), '.claude'))).toBe(false)
+    expect(existsSync(join(dist(), '.mcp.json'))).toBe(false)
     expect(existsSync(join(dist(), 'commands'))).toBe(false)
-    expect(existsSync(join(dist(), 'hooks'))).toBe(false)
     expect(existsSync(join(dist(), '.orca-deploy.json'))).toBe(true)
   })
 
@@ -88,7 +92,7 @@ describe('deploy', () => {
     mkdirSync(join(root, 'sources', 'settings', 'claude', 'vertex'), { recursive: true })
     const r = deploy('claude', {}, root)
     expect(r.validation.ok).toBe(true)
-    expect(r.actions.join(' ')).toContain('skip agents/commands/hooks/plugin/settings dist copy')
+    expect(r.actions.join(' ')).toContain('skip commands/settings dist copy')
     expect(existsSync(join(dist(), 'vertex'))).toBe(false)
   })
 
@@ -97,7 +101,7 @@ describe('deploy', () => {
     seedProviderSettings('anthropic')
     const r = deploy('claude', { dryRun: true }, root)
     expect(r.dryRun).toBe(true)
-    expect(r.actions.join(' ')).toContain('skip agents/commands/hooks/plugin/settings dist copy')
+    expect(r.actions.join(' ')).toContain('skip commands/settings dist copy')
     expect(existsSync(dist())).toBe(false)
   })
 
@@ -115,10 +119,10 @@ describe('deploy', () => {
     const r2 = deploy('claude', {}, root)
     expect(r2.backedUp).toBe(true)
     expect(existsSync(`${dist()}.bak`)).toBe(true)
-    expect(existsSync(join(`${dist()}.bak`, '.claude', 'skills', 'demo', 'SKILL.md'))).toBe(true)
+    expect(existsSync(join(`${dist()}.bak`, 'plugins', 'orca', 'skills', 'demo', 'SKILL.md'))).toBe(true)
   })
 
-  it('Orca 스킬은 enabled 와 무관하게 전량 dist 에 포함하고(활성 제어는 런타임 options.skills) MCP 는 mcpConfig 로 필터된다', () => {
+  it('Orca 스킬은 enabled 와 무관하게 plugin 에 포함하고(활성 제어는 런타임 options.skills) MCP 는 mcpConfig 로 필터된다', () => {
     seedSources('{"mcpServers":{"on":{"command":"npx"},"off":{"command":"node"}}}')
     writeFile(join(root, 'sources', 'skills', 'off', 'SKILL.md'), '# off')
 
@@ -126,9 +130,9 @@ describe('deploy', () => {
 
     expect(r.validation.ok).toBe(true)
     // 비활성 스킬도 파일은 복사된다 — 활성/비활성은 어댑터의 options.skills 필터가 담당.
-    expect(existsSync(join(dist(), '.claude', 'skills', 'demo', 'SKILL.md'))).toBe(true)
-    expect(existsSync(join(dist(), '.claude', 'skills', 'off', 'SKILL.md'))).toBe(true)
-    expect(JSON.parse(readFileSync(join(dist(), '.mcp.json'), 'utf8'))).toEqual({
+    expect(existsSync(join(dist(), 'plugins', 'orca', 'skills', 'demo', 'SKILL.md'))).toBe(true)
+    expect(existsSync(join(dist(), 'plugins', 'orca', 'skills', 'off', 'SKILL.md'))).toBe(true)
+    expect(JSON.parse(readFileSync(join(dist(), 'plugins', 'orca', '.mcp.json'), 'utf8'))).toEqual({
       mcpServers: { on: { command: 'npx' } }
     })
   })
@@ -159,15 +163,15 @@ describe('deploy', () => {
     )
 
     expect(r.validation.ok).toBe(true)
-    // Orca 스킬만 dist 거울에 포함, 어댑터 스킬은 제외.
-    expect(existsSync(join(dist(), '.claude', 'skills', 'demo', 'SKILL.md'))).toBe(true)
-    expect(existsSync(join(dist(), '.claude', 'skills', 'native', 'SKILL.md'))).toBe(false)
+    // Orca 스킬만 plugin 패키지에 포함, 어댑터 스킬은 제외.
+    expect(existsSync(join(dist(), 'plugins', 'orca', 'skills', 'demo', 'SKILL.md'))).toBe(true)
+    expect(existsSync(join(dist(), 'plugins', 'orca', 'skills', 'native', 'SKILL.md'))).toBe(false)
   })
 
   it('sources 하위가 비어도 빈 plugin 디렉토리를 만든다', () => {
     writeFile(join(root, 'sources', 'mcp', 'mcp.json'), '{"mcpServers":{}}')
     const r = deploy('claude', {}, root)
     expect(r.validation.ok).toBe(true)
-    expect(existsSync(join(dist(), '.claude', 'skills'))).toBe(true)
+    expect(existsSync(join(dist(), 'plugins', 'orca', 'skills'))).toBe(true)
   })
 })
