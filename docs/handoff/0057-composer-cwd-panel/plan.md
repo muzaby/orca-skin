@@ -185,4 +185,4 @@
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
-| D1 | … | 구현자 코멘트 §… / 사용자 / verify r<N> | … | open / 구현중 / 해결 |
+| D1 | 작업 폴더 변경 후 `@` 멘션 팝오버가 변경된 cwd 기준으로 리스트를 생성하지 않음(이전 폴더 항목 잔존) | 사용자 피드백(2026-07-01, verify PASS r1 이후) | `useFileAutocomplete` 의 `entriesByDir`/`validPaths` 캐시가 cwd-상대 dir 키만 써서 cwd 변경 시 재조회 안 함 → cwd 변경 시 캐시 폐기(렌더 중 이전-prop 비교 패턴). 상세는 `verify.md` 파생이슈 표. | **해결** (Claude 비기능, `useFileAutocomplete.ts` 단일, 게이트 602 passed) |

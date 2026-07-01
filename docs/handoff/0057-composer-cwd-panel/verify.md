@@ -104,3 +104,9 @@ $ cd app && npm test               → 602 passed (better-sqlite3 ABI 재빌드 
 - **알려진 한계(F1)**: 프로젝트 랜딩 미선택 라벨=`default`(실 출생 cwd=프로젝트 파생 폴더). 세션 시작 후 자동 보정. cwd 의미론 정합은 후속 핸드오프 분리(사용자 결정).
 - **사람 확인 대기**: 타이틀 `📂 basename / 제목`·랜딩 패널 시각 회귀, 이모지 톤(테마 3종), 실환경 openPath 동작, PR 머지.
 - INDEX `verify/PASS` + PHASES 승격.
+
+## 파생 이슈 (Derived Issues)
+
+| # | 이슈 | 출처 | 대응 | 상태 |
+|---|---|---|---|---|
+| **D1** | 작업 폴더 변경 후 Composer `@` 멘션 팝오버가 **변경된 cwd 기준으로 리스트를 생성하지 않음**(이전 폴더 항목 잔존) | 사용자 피드백(2026-07-01) — verify PASS(r1) 이후 | **근본원인**: `useFileAutocomplete` 의 `entriesByDir`/`validPaths` 캐시가 **cwd-상대 dir 키만** 써서, cwd 가 바뀌어도 상대 dir(예 `''`)가 같으면 `entriesByDir.has(dir)` 조기반환(`useFileAutocomplete.ts:83`)으로 재조회하지 않음. 0057 이 cwd 를 가변화하며 드러난 잠복 회귀. **수정**(Claude 비기능): cwd 변경 시 두 캐시를 렌더 중 "이전 prop 비교" 패턴으로 폐기(effect 아님 → `react-hooks/set-state-in-effect` 회피, stale 커밋 전 초기화). 단일 파일 `useFileAutocomplete.ts`. 게이트 typecheck/lint/test **602 passed** 회귀 0. 훅 테스트 인프라 미도입 → 시각 검증 갈음(`app/AGENTS.md §4`). | **해결 (커밋 `443552e`)** — 사람 확인 대기: `@` 멘션이 변경 폴더 기준 갱신되는지 시각 검증 |
