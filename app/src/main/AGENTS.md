@@ -20,12 +20,13 @@ L0 shared     →  L0 shared                                  (순수 타입/상
 | 레이어 | 디렉토리 | 책임 | 의존 허용 |
 |---|---|---|---|
 | **L0 shared** | `src/shared/` (`ipc.ts`·`protocol.ts`·`permission-mode.ts`) | 순수 타입·상수·zod 스키마. 런타임 의존 0. | shared |
-| **L1 domain/infra** | `src/main/{db,config,settings,usage,cost,mcp,runtime-errors,runtime-events,capabilities,extensions,deploy,skills,ask,files,title,lifecycle,orchestration}` | DB·설정·MCP·런타임·정규화 조각 등. 어댑터/IPC 비의존. | domain(동일 레이어) · shared |
+| **L1 domain/infra** | `src/main/{db,config,settings,usage,cost,mcp,runtime-errors,runtime-events,capabilities,extensions,deploy,skills,ask,files,title,lifecycle,prompts}` | DB·설정·MCP·런타임·정규화 조각 등. 어댑터/IPC 비의존. | domain(동일 레이어) · shared |
 | **L2 adapters** | `src/main/{adapters,installer}` | `SessionAdapter` 구현(claude·mock) + 어댑터 오케스트레이션(`installer` 는 `AdapterRegistry` 사용). | adapters · domain · shared |
 | **L3 ipc** | `src/main/ipc/**` (router·handlers·chat) | IPC 라우팅·zod 검증·턴 오케스트레이션·persist. 컴포지션 루트. | ipc · adapters · domain · shared |
 | **컴포지션 루트** | `src/main/index.ts` | 부팅 배선. 하위 전부 의존 허용(구체 엔진명 리터럴 허용 — 1회성 배선). | 전부 |
 
 > `boundaries/elements` 의 분류 순서는 specific→catch-all(`ipc`·`adapters`·`installer` 가 `src/main/*` 보다 먼저). 새 디렉토리는 기본적으로 L1 domain(`src/main/*`)으로 분류된다 — 어댑터/IPC 성격이면 elements 에 명시 추가.
+> `src/main/orchestration/` 는 0061 에서 제거됐다. Future handoff/fork/continuity 같은 진짜 오케스트레이션 모듈을 재도입할 때는 기본적으로 L1 domain 으로 두고, IPC 라우팅이나 어댑터 구현을 직접 담는 경우에만 boundaries elements 를 별도 조정한다.
 
 ## 두 가지 강제 규칙
 

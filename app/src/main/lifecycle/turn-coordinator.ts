@@ -49,7 +49,8 @@ export interface CoordinatorRuntime extends RuntimeLiveTurn {
   send(req: TurnRequest): AsyncIterable<NormalizedEvent>
 }
 
-// 동시 턴 자원 회계(프로젝트별) — orchestration ConcurrencyRegistry 가 만족.
+// 동시 턴 자원 회계(프로젝트별) — lifecycle ConcurrencyRegistry 가 만족.
+// RuntimeSupervisor 의 active+idle runtime cap count 와 섞지 않는다.
 export interface ConcurrencyGate {
   increment(projectId: string | null): void
   decrement(projectId: string | null): void

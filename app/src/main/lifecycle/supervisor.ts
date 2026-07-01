@@ -10,15 +10,15 @@
 //
 // 0055(Resource governance): cap count 대상은 SessionRuntime population(active registry + idle pool)이고,
 // eviction victim 은 idle runtime only 다. active 턴 핸들을 닫아 cap 을 맞추지 않는다(reject/queue 는
-// 0056 admission 소관). ConcurrencyRegistry 는 파일명(orchestration/)을 유지하되 소유만 Supervisor 로
-// 이관해 resource supervision 의 단일 진실원에 둔다.
+// 0056 admission 소관). ConcurrencyRegistry 는 0061 에서 lifecycle 로 접혀 Supervisor 소유의
+// 프로젝트별 active turn 회계(런타임 cap count 와 별개) 단일 진실원이 됐다.
 
 import type { TurnContext } from './turn-context'
 import type { ManagedRuntime } from './ports'
 import { SessionRuntimeRegistry } from './session-registry'
 import { RuntimePool } from './runtime-pool'
 import { UnlimitedRuntimeCapPolicy, type RuntimeCapPolicy } from './runtime-cap-policy'
-import { ConcurrencyRegistry } from '../orchestration/concurrency'
+import { ConcurrencyRegistry } from './concurrency'
 
 // 단일 abort 프리미티브 — 0054 에서 별도 모듈(./abort)로 분리(supervisor→runtime-pool→timers→
 // supervisor 순환 회피). 기존 import 경로(./supervisor) 호환을 위한 무회귀 re-export.

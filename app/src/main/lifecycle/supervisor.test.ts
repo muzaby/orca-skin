@@ -213,7 +213,7 @@ describe('RuntimeSupervisor resource governance (0055)', () => {
   })
 
   it('ConcurrencyRegistry 는 Supervisor 가 소유하고 getter 로 노출한다', async () => {
-    const { ConcurrencyRegistry } = await import('../orchestration/concurrency')
+    const { ConcurrencyRegistry } = await import('./concurrency')
     const events: Array<[string, number]> = []
     const concurrency = new ConcurrencyRegistry((projectId, count) =>
       events.push([projectId, count])
