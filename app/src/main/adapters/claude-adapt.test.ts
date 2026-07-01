@@ -1,4 +1,7 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import {
   makeClaudeHookCallback,
   adaptEnv,
@@ -14,16 +17,32 @@ import {
 import type { NormalizedHookHandler } from '../extensions/hooks'
 import type { SkillInfo } from '../../shared/ipc'
 
-
 describe('adaptPlugins', () => {
-  it('plugin root 부재 시 옵션 생략', () => {
+  let pluginRoot: string
+
+  beforeEach(() => {
+    pluginRoot = mkdtempSync(join(tmpdir(), 'orca-plugin-'))
+  })
+  afterEach(() => {
+    rmSync(pluginRoot, { recursive: true, force: true })
+  })
+
+  it('plugin root 부재(빈 값) 시 옵션 생략', () => {
     expect(adaptPlugins(undefined)).toEqual({})
     expect(adaptPlugins('')).toEqual({})
   })
 
-  it('plugin root 가 있으면 local plugin 옵션을 만든다', () => {
-    expect(adaptPlugins('/dist/claude/plugins/orca')).toEqual({
-      plugins: [{ type: 'local', path: '/dist/claude/plugins/orca' }]
+  it('매니페스트(.claude-plugin/plugin.json)가 없으면 옵션 생략 (deploy 실패/미실행 방어)', () => {
+    // 경로 문자열은 있으나 실제 플러그인 매니페스트가 없는 경우 — 존재하지 않는 local plugin
+    // 경로를 SDK 에 넘기지 않는다(AC#5·엣지케이스#2).
+    expect(adaptPlugins(pluginRoot)).toEqual({})
+  })
+
+  it('매니페스트가 존재하면 local plugin 옵션을 만든다', () => {
+    mkdirSync(join(pluginRoot, '.claude-plugin'), { recursive: true })
+    writeFileSync(join(pluginRoot, '.claude-plugin', 'plugin.json'), '{"name":"orca"}', 'utf8')
+    expect(adaptPlugins(pluginRoot)).toEqual({
+      plugins: [{ type: 'local', path: pluginRoot }]
     })
   })
 })
@@ -85,7 +104,6 @@ describe('adaptSkills', () => {
     ]
     expect(adaptSkills(skills)).toEqual({ skills: ['orca:a', 'native'] })
   })
-
 
   it('이미 네임스페이스된 Orca 스킬은 중복 prefix 하지 않는다', () => {
     expect(adaptSkills([skill('orca:ready', 'orca', true)])).toEqual({ skills: ['orca:ready'] })

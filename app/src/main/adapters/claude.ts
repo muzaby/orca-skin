@@ -175,8 +175,6 @@ export function makeCanUseTool(
 export class ClaudeAdapter implements SessionAdapter {
   readonly id = 'claude' as const
 
-  constructor() {}
-
   // 정적 능력 서술자 (claude-probe.ts 의 단일 출처를 반환 — drift 없음).
   describe(): ProviderDescriptor {
     return CLAUDE_DESCRIPTOR

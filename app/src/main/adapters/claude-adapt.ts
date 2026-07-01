@@ -15,6 +15,8 @@ import type {
   SyncHookJSONOutput,
   UserPromptSubmitHookSpecificOutput
 } from '@anthropic-ai/claude-agent-sdk'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 import type { ClaudeMcpConfig } from '../mcp/schema'
 import { adaptSkillNameForClaude } from '../deploy/claude-plugin-package'
 import type { SkillInfo } from '../../shared/ipc'
@@ -29,9 +31,12 @@ import {
 } from '../extensions/hooks'
 
 // Claude Code plugin root를 SDK local plugin 옵션으로 변환한다. 상대 경로는 cwd 기준이라 세션 cwd
-// 변경과 얽힐 수 있으므로 호출자는 절대 경로를 넘긴다. 부재 시 옵션 자체를 생략한다.
+// 변경과 얽힐 수 있으므로 호출자는 절대 경로를 넘긴다. 경로가 비어 있거나 실제 플러그인 매니페스트
+// (.claude-plugin/plugin.json)가 없으면 옵션 자체를 생략한다 — deploy 실패/미실행 시 SDK 에
+// 존재하지 않는 local plugin 경로를 넘겨 오류를 내는 대신 플러그인 없이 진행한다(설계 AC#5·엣지케이스#2).
 export function adaptPlugins(pluginRoot?: string | null): object {
   if (!pluginRoot || pluginRoot.trim() === '') return {}
+  if (!existsSync(join(pluginRoot, '.claude-plugin', 'plugin.json'))) return {}
   return { plugins: [{ type: 'local' as const, path: pluginRoot }] }
 }
 
