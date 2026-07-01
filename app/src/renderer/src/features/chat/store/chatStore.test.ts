@@ -489,3 +489,53 @@ describe('chatStore — 계획 거부(rejectPlan)', () => {
     expect(entry().session.inflight).toBe(true)
   })
 })
+
+describe('chatStore — steer feedback lifecycle', () => {
+  it('steer.flushed 는 assistant 완료 전 committed user message 로 승격하지 않는다', () => {
+    ingestChatEvent({
+      type: 'steer.queued',
+      sessionId: 's',
+      id: 'q1',
+      text: '추가 피드백',
+      createdAt: 10
+    })
+    expect(entry().session.messages).toHaveLength(0)
+    expect(useChatStore.getState().sessions.s.pendingSteer?.map((item) => item.id)).toEqual(['q1'])
+
+    ingestChatEvent({
+      type: 'steer.flushed',
+      sessionId: 's',
+      ids: ['q1'],
+      text: '추가 피드백',
+      messageId: 7,
+      createdAt: 10
+    })
+
+    expect(entry().session.messages).toHaveLength(0)
+    expect(useChatStore.getState().sessions.s.pendingSteer).toEqual([])
+    expect(useChatStore.getState().sessions.s.flushedSteer?.map((item) => item.text)).toEqual([
+      '추가 피드백'
+    ])
+  })
+
+  it('assistant message.completed 이후 flushed steer 를 assistant 뒤 user 메시지로 커밋한다', () => {
+    ingestChatEvent({
+      type: 'steer.flushed',
+      sessionId: 's',
+      ids: ['q1'],
+      text: '추가 피드백',
+      messageId: 7,
+      createdAt: 10
+    })
+    ingestChatEvent({
+      type: 'message.completed',
+      sessionId: 's',
+      message: { text: '답변' }
+    })
+
+    expect(entry().session.messages.map((m) => m.role)).toEqual(['assistant', 'user'])
+    expect(partsText(entry().session.messages[0].parts)).toBe('답변')
+    expect(partsText(entry().session.messages[1].parts)).toBe('추가 피드백')
+    expect(useChatStore.getState().sessions.s.flushedSteer).toEqual([])
+  })
+})
