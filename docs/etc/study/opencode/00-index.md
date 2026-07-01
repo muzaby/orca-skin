@@ -31,6 +31,7 @@ grep으로 찾아 해당 구간을 정독했으며, 어떤 파일에 집중했�
 | 10 | [10-context-window-tracking.md](10-context-window-tracking.md) | 컨텍스트 윈도우 추적·현황 모듈 단독 분석 · 임계 판정/트리거 · 클로드 호출 현황 환산 예시 |
 | 11 | [11-vision-and-modules.md](11-vision-and-modules.md) | 비전과 추구하는 바 요약 · 비전 축별 핵심 모듈 분류(A~E) |
 | 11a | [11a-robustness.md](11a-robustness.md) | (11장 보조) 견고성 심화 — 실패 모드별 전용 방어 + Effect 토대 |
+| 12 | [system_prompt_injection_analysis_ko.md](system_prompt_injection_analysis_ko.md) | 시스템 프롬프트 주입 전체 분석 — 주입 종류·조립/병합·포맷·캐시 breakpoint |
 
 ## 한 줄 요약
 
