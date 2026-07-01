@@ -7,6 +7,7 @@ import {
   type CoordinatorRuntime,
   type TurnCoordinatorDeps
 } from './turn-coordinator'
+import { SteerQueue } from './steer-queue'
 
 type W = string
 
@@ -159,6 +160,129 @@ describe('TurnCoordinator.run — consume → reduce → persist ∥ forward', (
     expect(typeof pauseHandle).toBe('function')
     // 종료 후에는 다시 비활성
     expect(coord.beginApprovalPause()).toBeUndefined()
+  })
+})
+
+describe('TurnCoordinator.run — steer flush 경계 (handoff 0060)', () => {
+  const toolStarted = (id: string, parent?: string): NormalizedEvent =>
+    ({
+      type: 'tool.call.started',
+      sessionId: 's1',
+      toolRunId: id,
+      toolName: 'Bash',
+      ...(parent !== undefined ? { parentToolRunId: parent } : {})
+    }) as unknown as NormalizedEvent
+  const toolCompleted = (id: string, parent?: string): NormalizedEvent =>
+    ({
+      type: 'tool.call.completed',
+      sessionId: 's1',
+      toolRunId: id,
+      result: 'ok',
+      isError: false,
+      ...(parent !== undefined ? { parentToolRunId: parent } : {})
+    }) as unknown as NormalizedEvent
+  const text = {
+    type: 'message.completed',
+    sessionId: 's1',
+    message: { text: 'x' }
+  } as unknown as NormalizedEvent
+
+  // steer 1건이 이미 큐에 있는 상태로 코디네이터를 돌리고, forward 된 이벤트 타입 순서를 돌려준다.
+  async function runWithPendingSteer(script: NormalizedEvent[]): Promise<{
+    types: string[]
+    persistSteer: ReturnType<typeof vi.fn>
+  }> {
+    const runtime = fakeRuntime([script])
+    const steerQueue = new SteerQueue()
+    steerQueue.enqueue('s1', 'my feedback')
+    const persistSteer = vi.fn(() => 42)
+    const deps = makeDeps(runtime, {
+      steerQueue,
+      persist: {
+        persist: vi.fn(),
+        flushAskAnswers: vi.fn(),
+        persistSteerUserMessage: persistSteer
+      } as unknown as TurnCoordinatorDeps<W>['persist']
+    })
+    const turn = makeTurn()
+    turn.dbSessionId = 's1'
+    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    const types = (deps.forward.forward as ReturnType<typeof vi.fn>).mock.calls.map(
+      (c) => (c[1] as NormalizedEvent).type
+    )
+    return { types, persistSteer }
+  }
+
+  it('최상위 tool.call.completed 취합 완료 시 flush 하며, 도구 직후 continuation 전에 커밋한다', async () => {
+    const { types, persistSteer } = await runWithPendingSteer([
+      sessionUpdated,
+      toolStarted('t1'),
+      toolCompleted('t1'),
+      text,
+      telemetry
+    ])
+    expect(persistSteer).toHaveBeenCalledTimes(1)
+    // 도구 취합(tool.call.completed) 직후, continuation 텍스트(message.completed) 이전에 flush.
+    const flushIdx = types.indexOf('steer.flushed')
+    expect(flushIdx).toBeGreaterThan(types.indexOf('tool.call.completed'))
+    expect(flushIdx).toBeLessThan(types.lastIndexOf('message.completed'))
+  })
+
+  it('서브에이전트 내부 도구(parentToolRunId) 완료는 부모 flush 경계가 아니다', async () => {
+    const { types, persistSteer } = await runWithPendingSteer([
+      sessionUpdated,
+      toolCompleted('child', 'parent-task'),
+      text,
+      telemetry
+    ])
+    // child 도구에서 flush 되지 않고 턴 종료(telemetry)까지 pending 유지 → steer.flushed 가 마지막.
+    expect(persistSteer).toHaveBeenCalledTimes(1)
+    expect(types.indexOf('steer.flushed')).toBe(types.length - 1)
+    expect(types.indexOf('steer.flushed')).toBeGreaterThan(types.indexOf('telemetry'))
+  })
+
+  it('병렬 최상위 도구는 전부 settle 된 뒤에만 flush 한다', async () => {
+    const { types, persistSteer } = await runWithPendingSteer([
+      sessionUpdated,
+      toolStarted('t1'),
+      toolStarted('t2'),
+      toolCompleted('t1'),
+      toolCompleted('t2'),
+      telemetry
+    ])
+    expect(persistSteer).toHaveBeenCalledTimes(1)
+    // 첫 완료(t1)에서는 t2 가 열려있어 flush 안 함 → 두 번째 완료(t2) 이후에 flush.
+    const flushIdx = types.indexOf('steer.flushed')
+    const completes = types.reduce<number[]>((acc, t, i) => {
+      if (t === 'tool.call.completed') acc.push(i)
+      return acc
+    }, [])
+    expect(flushIdx).toBeGreaterThan(completes[1])
+  })
+
+  it('도구 없는 텍스트-only 턴은 telemetry 경계에서 flush 한다', async () => {
+    const { types, persistSteer } = await runWithPendingSteer([sessionUpdated, text, telemetry])
+    expect(persistSteer).toHaveBeenCalledTimes(1)
+    expect(types.indexOf('steer.flushed')).toBeGreaterThan(types.indexOf('telemetry'))
+  })
+
+  it('pending steer 가 없으면 경계에서도 flush(persist) 하지 않는다', async () => {
+    const runtime = fakeRuntime([
+      [sessionUpdated, toolStarted('t1'), toolCompleted('t1'), telemetry]
+    ])
+    const persistSteer = vi.fn(() => 42)
+    const deps = makeDeps(runtime, {
+      steerQueue: new SteerQueue(),
+      persist: {
+        persist: vi.fn(),
+        flushAskAnswers: vi.fn(),
+        persistSteerUserMessage: persistSteer
+      } as unknown as TurnCoordinatorDeps<W>['persist']
+    })
+    const turn = makeTurn()
+    turn.dbSessionId = 's1'
+    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    expect(persistSteer).not.toHaveBeenCalled()
   })
 })
 

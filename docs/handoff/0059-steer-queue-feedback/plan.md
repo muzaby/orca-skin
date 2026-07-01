@@ -234,3 +234,7 @@
 | IPC/protocol | 무변경(`steer.flushed` shape 유지 — `messageId`/`ids` 는 렌더러 미사용이 되나 계약 보존) |
 | 게이트 | lint ✅ / typecheck(node+web+test) ✅ / test **611 passed**. 환경 제약: electron 미설치 2 suite(`persist`·`send.runtime-resilience`) import 불가(0050~0058 동일 계열); db 계열은 better-sqlite3 Node ABI 재빌드 후 green. |
 | 사람 확인 대기 | pending 폰트(연회색/기울임)·flush 후 위치·**앱 재시작 후 라이브와 동일 렌더**(D1 핵심)·hover 취소 재주입 시각검증. |
+
+| # | 이슈 | 출처 | 대응 방향 | 상태 |
+|---|---|---|---|---|
+| D2 | steer pending 이 **입력 즉시 flush** 됨(소비 전 커밋). 근본원인: flush 신호를 producer-pull(`onConsume`/`nextInjectedInput`)로 골랐으나 SDK 가 입력 AsyncIterable 을 eager drain → pull ≠ turn 경계. 실관찰(서브에이전트 위임 시 모든 응답 취합 시점 커밋)과 어긋남. | 사용자 버그리포트(2026-07-01) + opencode flush 스펙 대조 | flush 를 입력 push 에서 분리하고 TurnCoordinator 가 관찰하는 turn 경계(최상위 tool.call.completed 배치 settle / telemetry)에서 구동. **별도 핸드오프 `0060-steer-flush-boundary` 로 이관**(설계+구현+게이트). | resolved (Claude 직접 구현, 브랜치 `claude/steer-pending-flush-bug-cjgtld`, → `docs/handoff/0060-steer-flush-boundary/`) |

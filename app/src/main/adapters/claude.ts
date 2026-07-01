@@ -276,10 +276,9 @@ export class ClaudeAdapter implements SessionAdapter {
     else signal?.addEventListener('abort', onAbort)
 
     // 턴-스코프 입력 스트림 — close() 까지 미종료(streaming-input.ts 가 불변식 격리).
-    const input = createTurnInputStream(buildTurnContent(text, attachmentTexts, attachmentImages), {
-      onConsume: ({ text }) => req.onInputConsumed?.(text),
-      nextInjectedInput: () => req.consumeInjectedInput?.()
-    })
+    // push(injectMessage)는 stdin 으로 입력만 전달하고, steer flush 는 turn-coordinator 가
+    // turn 경계에서 별도로 구동한다(handoff 0060) — pull(=SDK eager drain) 은 flush 신호 아님.
+    const input = createTurnInputStream(buildTurnContent(text, attachmentTexts, attachmentImages))
 
     const handle = query({
       prompt: input.stream,

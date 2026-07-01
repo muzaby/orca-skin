@@ -79,6 +79,22 @@ export class TurnCoordinator<W = unknown> {
     return item != null
   }
 
+  // pending steer 를 flush 할 turn 경계인가. agent 가 큐된 입력을 자기 컨텍스트로 흡수하는
+  // 지점을 관찰로 근사한다(orca 는 SDK 서브프로세스에 agentic 루프를 위임하므로 turn head 를
+  // 직접 소유하지 않고 이벤트 스트림을 관찰만 한다 — handoff 0060).
+  //  - telemetry: 턴 종료(도구 없는 텍스트-only 턴의 경계).
+  //  - tool.call.completed(최상위): 도구/서브에이전트 취합 완료 = agent 가 continuation 직전.
+  //    서브에이전트 내부 도구(parentToolRunId 있음)는 부모 경계가 아니다(opencode §7.5 불투명성).
+  //    병렬 최상위 도구 배치는 전부 settle(최상위 open 잔여 0)된 뒤에만 경계로 본다(조기 flush 방지).
+  private isSteerFlushBoundary(turn: TurnContext<W>, ev: NormalizedEvent): boolean {
+    if (ev.type === 'telemetry') return true
+    if (ev.type !== 'tool.call.completed' || ev.parentToolRunId !== undefined) return false
+    for (const info of turn.openToolRuns.values()) {
+      if (info.parentToolRunId === undefined) return false
+    }
+    return true
+  }
+
   private consumeSteerForInput(turn: TurnContext<W>): string | undefined {
     const sessionId = turn.dbSessionId
     const { steerQueue, persist, forward } = this.deps
@@ -121,12 +137,7 @@ export class TurnCoordinator<W = unknown> {
       try {
         // send() 가 query() 를 즉시 시작하므로 try 안에서 호출 — 동기 throw 도 동일 경로로 분류.
         turn.live = runtime
-        const events = runtime.send({
-          ...request,
-          onInputConsumed: (text) => request.onInputConsumed?.(text),
-          consumeInjectedInput: () =>
-            request.consumeInjectedInput?.() ?? this.consumeSteerForInput(turn)
-        })
+        const events = runtime.send(request)
         concurrency.increment(boundProjectId)
         try {
           idle.reset()
@@ -184,6 +195,11 @@ export class TurnCoordinator<W = unknown> {
             } else if (ev.type === 'tool.call.completed') {
               turn.openToolRuns.delete(ev.toolRunId)
             }
+            // pending steer 를 agent 가 흡수하는 turn 경계에서만 flush 한다(handoff 0060).
+            // 입력 push(pull) 즉시가 아니라 최상위 도구/서브에이전트 취합 완료 또는 턴 종료에서.
+            // persist 이후(telemetry 는 usage messageId 링크·assistant 마감이 끝난 뒤) 실행해
+            // DB 정렬 [응답][steer user][continuation] 을 보존한다.
+            if (this.isSteerFlushBoundary(turn, ev)) this.consumeSteerForInput(turn)
           }
         } finally {
           concurrency.decrement(boundProjectId)
@@ -196,6 +212,8 @@ export class TurnCoordinator<W = unknown> {
           } as const
           persist.persist(turn, ev)
           forward.forward(turn.owner, ev)
+          // 도구·telemetry 경계를 못 본 채 스트림이 끝났어도 잔여 pending steer 는 flush(유실 방지).
+          this.consumeSteerForInput(turn)
         }
         return
       } catch (err) {
