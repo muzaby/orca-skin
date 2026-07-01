@@ -6,7 +6,7 @@ import { errorCategoryLabel } from '../../lib/errorLabels'
 import { exchangeEquals, type Exchange as ExchangeGroup } from '../../lib/turns'
 import { PendingSteerTurn } from './PendingSteerTurn'
 import type { ClassifiedError } from '../../../../../../shared/ipc'
-import type { FlushedSteerState, PendingSteerState } from '../../store/chatStore'
+import type { PendingSteerState } from '../../store/chatStore'
 
 interface ExchangeProps {
   exchange: ExchangeGroup
@@ -21,7 +21,6 @@ interface ExchangeProps {
   // 라이브 턴 에러 배너 — 예약공간 아래로 밀리지 않도록 마지막 교환 *내부* 끝에 렌더.
   error?: ClassifiedError
   pendingSteer?: PendingSteerState[]
-  flushedSteer?: FlushedSteerState[]
   onRestoreSteerDraft?: (text: string) => void
 }
 
@@ -32,7 +31,6 @@ export const Exchange = memo(
     pending,
     error,
     pendingSteer = [],
-    flushedSteer = [],
     onRestoreSteerDraft
   }: ExchangeProps): React.JSX.Element {
     const lastTurn = exchange.turns[exchange.turns.length - 1]
@@ -54,14 +52,8 @@ export const Exchange = memo(
           )
         )}
         {pending && <PendingAssistant />}
-        {(pendingSteer.length > 0 || flushedSteer.length > 0) && (
-          <PendingSteerTurn
-            items={[
-              ...pendingSteer.map((item) => ({ ...item, state: 'queued' as const })),
-              ...flushedSteer.map((item) => ({ ...item, state: 'flushed' as const }))
-            ]}
-            onRestoreDraft={onRestoreSteerDraft}
-          />
+        {pendingSteer.length > 0 && (
+          <PendingSteerTurn items={pendingSteer} onRestoreDraft={onRestoreSteerDraft} />
         )}
         {error && <TurnErrorBanner error={error} />}
       </div>
@@ -72,7 +64,6 @@ export const Exchange = memo(
     prev.pending === next.pending &&
     prev.error === next.error &&
     prev.pendingSteer === next.pendingSteer &&
-    prev.flushedSteer === next.flushedSteer &&
     exchangeEquals(prev.exchange, next.exchange)
 )
 

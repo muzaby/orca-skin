@@ -223,4 +223,14 @@
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
-| D1 | … | … | … | open |
+| D1 | steer 버블이 flush 시 정상 폰트(`flushedSteer` 오버레이)로 바뀌고, 재시작 시 위치가 달라짐(steer user row idx 가 어시스턴트 row 지연생성 타이밍에 좌우) — pending 은 항상 연회색/기울임·맨 아래여야 하고 flush 후엔 어시스턴트 응답 뒤 일반 메시지로 굳어야 함. | 사용자 버그리포트(2026-07-01) + AskUserQuestion 확정 동작 모델 | **flush=즉시 일반 커밋 user 메시지**로 전환(`flushedSteer` 개념 제거). renderer `steer.flushed`→`APPEND_COMMITTED_USER_MESSAGE`(직전 `message.completed` 뒤 FIFO), `appendAssistantPart` 가 이후 응답을 새 버블로 형성. main `persistSteerUserMessage` 가 flush 경계에서 진행 중 어시스턴트 메시지 `markMessageComplete`+reset → DB 정렬 `[응답-전][steer user][응답-후]` = 라이브·재로드 일치. pending 버블은 항상 `italic text-ink3`. | resolved (Claude 직접 구현, 브랜치 `claude/steer-message-rendering-j4c2bc`) |
+
+### D1 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | renderer: `store/chatStore.ts`·`components/transcript/{PendingSteerTurn,Exchange,TranscriptView}.tsx`·`components/ChatTile.tsx`·`store/chatStore.test.ts` / main: `ipc/chat/persist.ts` |
+| 핵심 변경 | ① `FlushedSteerState`/`flushedSteer`/`commitFlushedSteer`/`patchFlushedSteer`/`useFlushedSteer` 전면 제거 ② `steer.flushed`→즉시 `APPEND_COMMITTED_USER_MESSAGE` ③ `PendingSteerTurn` pending 전용(항상 `italic text-ink3`) ④ `persistSteerUserMessage` flush 경계 어시스턴트 메시지 마감·리셋 |
+| IPC/protocol | 무변경(`steer.flushed` shape 유지 — `messageId`/`ids` 는 렌더러 미사용이 되나 계약 보존) |
+| 게이트 | lint ✅ / typecheck(node+web+test) ✅ / test **611 passed**. 환경 제약: electron 미설치 2 suite(`persist`·`send.runtime-resilience`) import 불가(0050~0058 동일 계열); db 계열은 better-sqlite3 Node ABI 재빌드 후 green. |
+| 사람 확인 대기 | pending 폰트(연회색/기울임)·flush 후 위치·**앱 재시작 후 라이브와 동일 렌더**(D1 핵심)·hover 취소 재주입 시각검증. |

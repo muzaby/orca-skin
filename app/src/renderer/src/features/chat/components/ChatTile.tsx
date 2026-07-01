@@ -4,7 +4,7 @@ import { TranscriptView } from './transcript/TranscriptView'
 import { Composer } from './Composer'
 import { RightPanel } from './rightpanel/RightPanel'
 import { useScrollAnchor } from '../hooks/useScrollAnchor'
-import { useChatSession, useFlushedSteer, usePendingSteer } from '../store/chatStore'
+import { useChatSession, usePendingSteer } from '../store/chatStore'
 
 interface ChatTileProps {
   backendLabel: string
@@ -32,7 +32,6 @@ export function ChatTile({
   const loadingSession = useChatSession((s) => s.loadingSession)
   const error = useChatSession((s) => s.error)
   const pendingSteer = usePendingSteer()
-  const flushedSteer = useFlushedSteer()
   const [restoredDraft, setRestoredDraft] = useState<{ id: number; text: string } | undefined>()
   const { scrollRef, contentRef, onScroll, showJump, scrollToBottom, anchored } = useScrollAnchor({
     messages,
@@ -60,7 +59,6 @@ export function ChatTile({
             <TranscriptView
               messages={messages}
               pendingSteer={pendingSteer}
-              flushedSteer={flushedSteer}
               onRestoreSteerDraft={(text) => setRestoredDraft({ id: Date.now(), text })}
               inflight={inflight}
               loadingSession={loadingSession}
