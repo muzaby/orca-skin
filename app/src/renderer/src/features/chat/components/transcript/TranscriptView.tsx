@@ -2,14 +2,14 @@ import { memo, useMemo } from 'react'
 import { ReadingColumn } from '../../../../shared/ui/ReadingColumn'
 import { Exchange, TurnErrorBanner } from './Exchange'
 import { groupExchanges } from '../../lib/turns'
-import { PendingSteerTurn } from './PendingSteerTurn'
 import type { Message } from '../../reducer/chatReducer'
-import type { PendingSteerState } from '../../store/chatStore'
+import type { FlushedSteerState, PendingSteerState } from '../../store/chatStore'
 import type { ClassifiedError } from '../../../../../../shared/ipc'
 
 interface TranscriptViewProps {
   messages: Message[]
   pendingSteer: PendingSteerState[]
+  flushedSteer: FlushedSteerState[]
   onRestoreSteerDraft?: (text: string) => void
   inflight: boolean
   loadingSession: boolean
@@ -32,6 +32,7 @@ interface TranscriptViewProps {
 export const TranscriptView = memo(function TranscriptView({
   messages,
   pendingSteer,
+  flushedSteer,
   onRestoreSteerDraft,
   inflight,
   loadingSession,
@@ -74,13 +75,13 @@ export const TranscriptView = memo(function TranscriptView({
               reserve={isLast && anchored}
               pending={isLast && inflight}
               error={isLast ? error : undefined}
+              pendingSteer={isLast && inflight ? pendingSteer : undefined}
+              flushedSteer={isLast && inflight ? flushedSteer : undefined}
+              onRestoreSteerDraft={onRestoreSteerDraft}
             />
           )
         })}
         {/* 교환이 없는데 에러만 있는 엣지(전송 실패 직후 등) — 최상위 fallback. */}
-        {pendingSteer.length > 0 && (
-          <PendingSteerTurn items={pendingSteer} onRestoreDraft={onRestoreSteerDraft} />
-        )}
         {error && exchanges.length === 0 && <TurnErrorBanner error={error} />}
       </ReadingColumn>
     </div>

@@ -56,6 +56,14 @@ export interface PendingSteerState {
   createdAt: number
 }
 
+export interface FlushedSteerState {
+  id: string
+  ids: string[]
+  text: string
+  messageId: number
+  createdAt: number
+}
+
 export interface SubagentMetaState {
   taskId?: string
   model?: string
@@ -73,6 +81,7 @@ export interface SessionEntry {
   live: LiveTurnState
   subagentMeta: Record<string, SubagentMetaState>
   pendingSteer?: PendingSteerState[]
+  flushedSteer?: FlushedSteerState[]
 }
 
 interface QueuedNewChat {
@@ -93,6 +102,8 @@ export interface ChatStoreState {
 export const NEW_CHAT_KEY = '__new__'
 
 const EMPTY_LIVE: LiveTurnState = { text: '', reasoning: '' }
+const EMPTY_PENDING_STEER: PendingSteerState[] = []
+const EMPTY_FLUSHED_STEER: FlushedSteerState[] = []
 const EMPTY_SUBAGENT_META: Record<string, SubagentMetaState> = {}
 
 // main 의 단일 default cwd — 부트스트랩 1회 조회 캐시. 새 엔트리 생성 시 주입해
@@ -104,7 +115,8 @@ function freshEntry(projectId: string | null = null): SessionEntry {
     session: { ...initialChatState, cwd: cwdCache, pendingProjectId: projectId },
     live: EMPTY_LIVE,
     subagentMeta: EMPTY_SUBAGENT_META,
-    pendingSteer: []
+    pendingSteer: [],
+    flushedSteer: []
   }
 }
 
@@ -165,10 +177,38 @@ function patchPendingSteer(
   setState((s) => {
     const entry = s.sessions[key]
     if (!entry) return s
-    const next = patch(entry.pendingSteer ?? [])
-    if (entry.pendingSteer && next === entry.pendingSteer) return s
+    const prev = entry.pendingSteer ?? EMPTY_PENDING_STEER
+    const next = patch(prev)
+    if (next === prev) return s
     return { sessions: { ...s.sessions, [key]: { ...entry, pendingSteer: next } } }
   })
+}
+
+function patchFlushedSteer(
+  key: string,
+  patch: (flushed: FlushedSteerState[]) => FlushedSteerState[]
+): void {
+  setState((s) => {
+    const entry = s.sessions[key]
+    if (!entry) return s
+    const prev = entry.flushedSteer ?? EMPTY_FLUSHED_STEER
+    const next = patch(prev)
+    if (next === prev) return s
+    return { sessions: { ...s.sessions, [key]: { ...entry, flushedSteer: next } } }
+  })
+}
+
+function commitFlushedSteer(key: string): void {
+  const flushed = getState().sessions[key]?.flushedSteer ?? EMPTY_FLUSHED_STEER
+  if (flushed.length === 0) return
+  for (const item of flushed) {
+    dispatchTo(key, {
+      type: 'APPEND_COMMITTED_USER_MESSAGE',
+      text: item.text,
+      createdAt: item.createdAt
+    })
+  }
+  patchFlushedSteer(key, () => EMPTY_FLUSHED_STEER)
 }
 
 // subagent.task 이벤트를 해당 엔트리의 transient subagentMeta[toolUseId] 에 병합한다 — 정의된
@@ -310,8 +350,10 @@ function receive(ev: NormalizedEvent): void {
       // 서브에이전트(Task) child 텍스트(parentToolRunId)는 메인 스트리밍이 아니므로 메인
       // 라이브 프리뷰를 건드리지 않는다(우측 패널 child 트랜스크립트 전용).
       dispatchTo(key, { type: 'RECV_EVENT', event: ev })
-      if (ev.parentToolRunId === undefined)
+      if (ev.parentToolRunId === undefined) {
         patchLive(key, (live) => (live.text !== '' ? { ...live, text: '' } : live))
+        commitFlushedSteer(key)
+      }
       return
 
     case 'message.reasoning':
@@ -340,7 +382,16 @@ function receive(ev: NormalizedEvent): void {
 
     case 'steer.flushed':
       patchPendingSteer(key, (pending) => pending.filter((item) => !ev.ids.includes(item.id)))
-      dispatchTo(key, { type: 'SEND_USER_MESSAGE', text: ev.text })
+      patchFlushedSteer(key, (flushed) => [
+        ...flushed,
+        {
+          id: ev.ids[0] ?? String(ev.messageId),
+          ids: ev.ids,
+          text: ev.text,
+          messageId: ev.messageId,
+          createdAt: ev.createdAt
+        }
+      ])
       return
 
     case 'steer.cancelled':
@@ -351,6 +402,8 @@ function receive(ev: NormalizedEvent): void {
       // message.completed 없이 턴이 끝난 경우 잔여 라이브 텍스트를 text 파트로 굳힌다.
       const leftover = getState().sessions[key]?.live.text ?? ''
       if (leftover !== '') dispatchTo(key, { type: 'COMMIT_PENDING_TEXT', text: leftover })
+      commitFlushedSteer(key)
+      commitFlushedSteer(key)
       dispatchTo(key, { type: 'RECV_EVENT', event: ev })
       resetLive(key)
       if (!evSessionId) releaseNewChatGate(key)
@@ -358,6 +411,7 @@ function receive(ev: NormalizedEvent): void {
     }
 
     case 'turn.aborted':
+      commitFlushedSteer(key)
       dispatchTo(key, { type: 'RECV_EVENT', event: ev })
       resetLive(key)
       if (!evSessionId) releaseNewChatGate(key)
@@ -835,7 +889,11 @@ export function useLiveText(): string {
 }
 
 export function usePendingSteer(): PendingSteerState[] {
-  return useChatStore((s) => s.sessions[s.activeKey].pendingSteer ?? [])
+  return useChatStore((s) => s.sessions[s.activeKey].pendingSteer ?? EMPTY_PENDING_STEER)
+}
+
+export function useFlushedSteer(): FlushedSteerState[] {
+  return useChatStore((s) => s.sessions[s.activeKey].flushedSteer ?? EMPTY_FLUSHED_STEER)
 }
 
 // 서브에이전트(Task) 라이브 메타 — 진행 중 모델/경과시간/현재도구/도구수 표시용. 해당

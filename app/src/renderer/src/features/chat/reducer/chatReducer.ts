@@ -172,6 +172,7 @@ export const PANEL_DEFAULT_ROW_SPLIT = 0.5
 
 export type ChatAction =
   | { type: 'SEND_USER_MESSAGE'; text: string; attachmentViews?: AttachmentView[] }
+  | { type: 'APPEND_COMMITTED_USER_MESSAGE'; text: string; createdAt?: number }
   | {
       type: 'SET_MODEL'
       providerKey: string | null
@@ -244,6 +245,19 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         retry: undefined
       }
     }
+
+    case 'APPEND_COMMITTED_USER_MESSAGE':
+      return {
+        ...state,
+        messages: [
+          ...state.messages,
+          {
+            role: 'user',
+            createdAt: action.createdAt ?? Date.now(),
+            parts: [{ type: 'text', text: action.text }]
+          }
+        ]
+      }
 
     case 'RECV_EVENT': {
       const ev = action.event
