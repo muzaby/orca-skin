@@ -42,7 +42,7 @@ import { registerChatHandlers, settleOpenToolRuns } from './chat/send'
 import { RuntimeSupervisor } from '../lifecycle/supervisor'
 import { AdmissionController, RejectDuplicatePolicy } from '../lifecycle/admission-controller'
 import { SteerQueue } from '../lifecycle/steer-queue'
-import { ConcurrencyRegistry } from '../lifecycle/concurrency'
+import { ActiveTurnTracker } from '../lifecycle/active-turn-tracker'
 import { ApprovalCoordinator } from './chat/approvals'
 import { TurnPersistence } from './chat/persist'
 import { TitleGenerator } from './chat/title-generation'
@@ -216,7 +216,7 @@ export class IpcRouter {
   private register(ctx: RouterContext): void {
     // chat 턴 파이프라인 조립 — 레지스트리(세션 키잉) · persist · 제목 생성 · 승인 조정.
     const supervisor = (this.supervisor = new RuntimeSupervisor<Electron.WebContents>({
-      concurrency: new ConcurrencyRegistry((projectId, count) =>
+      activeTurns: new ActiveTurnTracker((projectId, count) =>
         broadcastConcurrency({ projectId, count })
       )
     }))

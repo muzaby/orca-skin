@@ -212,16 +212,14 @@ describe('RuntimeSupervisor resource governance (0055)', () => {
     expect(supervisor.getRuntimePopulation()).toEqual({ active: 1, idle: 1, total: 2 })
   })
 
-  it('ConcurrencyRegistry 는 Supervisor 가 소유하고 getter 로 노출한다', async () => {
-    const { ConcurrencyRegistry } = await import('./concurrency')
+  it('ActiveTurnTracker 는 Supervisor 가 소유하고 getter 로 노출한다', async () => {
+    const { ActiveTurnTracker } = await import('./active-turn-tracker')
     const events: Array<[string, number]> = []
-    const concurrency = new ConcurrencyRegistry((projectId, count) =>
-      events.push([projectId, count])
-    )
-    const supervisor = new RuntimeSupervisor<object>({ concurrency })
+    const activeTurns = new ActiveTurnTracker((projectId, count) => events.push([projectId, count]))
+    const supervisor = new RuntimeSupervisor<object>({ activeTurns })
 
-    supervisor.concurrency.increment('p1')
-    supervisor.concurrency.decrement('p1')
+    supervisor.activeTurns.increment('p1')
+    supervisor.activeTurns.decrement('p1')
 
     expect(events).toEqual([
       ['p1', 1],

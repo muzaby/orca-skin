@@ -49,9 +49,9 @@ export interface CoordinatorRuntime extends RuntimeLiveTurn {
   send(req: TurnRequest): AsyncIterable<NormalizedEvent>
 }
 
-// 동시 턴 자원 회계(프로젝트별) — lifecycle ConcurrencyRegistry 가 만족.
+// 프로젝트별 active turn 회계 포트 — lifecycle ActiveTurnTracker 가 만족.
 // RuntimeSupervisor 의 active+idle runtime cap count 와 섞지 않는다.
-export interface ConcurrencyGate {
+export interface ActiveTurnGate {
   increment(projectId: string | null): void
   decrement(projectId: string | null): void
 }
@@ -63,7 +63,7 @@ export interface TurnCoordinatorDeps<W> {
   titles: TurnTitleHook<W>
   registry: Pick<SessionRuntimeRegistry<W>, 'promote'>
   classifyError: (err: unknown, phase: string) => ClassifiedError
-  concurrency: ConcurrencyGate
+  activeTurns: ActiveTurnGate
   backgroundSubagents: boolean
   steerQueue?: SteerQueue
 }
@@ -126,7 +126,7 @@ export class TurnCoordinator<W = unknown> {
     request: TurnRequest,
     opts: { boundProjectId: string | null }
   ): Promise<void> {
-    const { runtime, persist, forward, titles, registry, classifyError, concurrency } = this.deps
+    const { runtime, persist, forward, titles, registry, classifyError, activeTurns } = this.deps
     const { backgroundSubagents } = this.deps
     const { boundProjectId } = opts
 
@@ -139,7 +139,7 @@ export class TurnCoordinator<W = unknown> {
         // send() 가 query() 를 즉시 시작하므로 try 안에서 호출 — 동기 throw 도 동일 경로로 분류.
         turn.live = runtime
         const events = runtime.send(request)
-        concurrency.increment(boundProjectId)
+        activeTurns.increment(boundProjectId)
         try {
           idle.reset()
           for await (const rawEv of events) {
@@ -203,7 +203,7 @@ export class TurnCoordinator<W = unknown> {
             if (this.isSteerFlushBoundary(turn, ev)) this.consumeSteerForInput(turn)
           }
         } finally {
-          concurrency.decrement(boundProjectId)
+          activeTurns.decrement(boundProjectId)
         }
         // 스트림이 terminal 없이 끝났고 abort 도 아니면 합성 telemetry 로 턴을 마감(영속+forward).
         if (!sawTerminal && !turn.controller.signal.aborted) {
