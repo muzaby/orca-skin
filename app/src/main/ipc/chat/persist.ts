@@ -49,6 +49,15 @@ export class TurnPersistence {
   persistSteerUserMessage(turn: InflightTurn, text: string, createdAt: number): number | null {
     const sessionId = turn.dbSessionId
     if (!sessionId) return null
+    // 소비 확정 = 응답 경계. 진행 중 어시스턴트 메시지(소비 전 응답)를 먼저 마감·리셋해 steer
+    // user row 가 그 뒤 idx 로 정렬되고, 이후 어시스턴트 파트는 ensureAssistantMessage 가 새
+    // 메시지(steer 뒤)로 만든다 → 재로드 정렬 [응답-전][steer user][응답-후] = 라이브와 동일.
+    // 마감을 안 하면 A 가 incomplete 로 남아 재로드 시 settleOrphanToolParts 를 타는 문제도 방지.
+    if (turn.currentAssistantMessageId != null) {
+      this.db.markMessageComplete(turn.currentAssistantMessageId)
+      turn.currentAssistantMessageId = null
+      turn.assistantText = ''
+    }
     const id = this.persistUserMessage(sessionId, text, createdAt)
     this.db.updateSessionPreview(sessionId, previewOf(text), createdAt)
     return id

@@ -491,7 +491,7 @@ describe('chatStore — 계획 거부(rejectPlan)', () => {
 })
 
 describe('chatStore — steer feedback lifecycle', () => {
-  it('steer.flushed 는 assistant 완료 전 committed user message 로 승격하지 않는다', () => {
+  it('steer.queued 는 pending 버블만 만들고 committed message 로 승격하지 않는다', () => {
     ingestChatEvent({
       type: 'steer.queued',
       sessionId: 's',
@@ -501,7 +501,16 @@ describe('chatStore — steer feedback lifecycle', () => {
     })
     expect(entry().session.messages).toHaveLength(0)
     expect(useChatStore.getState().sessions.s.pendingSteer?.map((item) => item.id)).toEqual(['q1'])
+  })
 
+  it('steer.flushed 는 즉시 일반 user 메시지로 커밋하고 pending 을 비운다', () => {
+    ingestChatEvent({
+      type: 'steer.queued',
+      sessionId: 's',
+      id: 'q1',
+      text: '추가 피드백',
+      createdAt: 10
+    })
     ingestChatEvent({
       type: 'steer.flushed',
       sessionId: 's',
@@ -511,14 +520,18 @@ describe('chatStore — steer feedback lifecycle', () => {
       createdAt: 10
     })
 
-    expect(entry().session.messages).toHaveLength(0)
+    expect(entry().session.messages.map((m) => m.role)).toEqual(['user'])
+    expect(partsText(entry().session.messages[0].parts)).toBe('추가 피드백')
     expect(useChatStore.getState().sessions.s.pendingSteer).toEqual([])
-    expect(useChatStore.getState().sessions.s.flushedSteer?.map((item) => item.text)).toEqual([
-      '추가 피드백'
-    ])
   })
 
-  it('assistant message.completed 이후 flushed steer 를 assistant 뒤 user 메시지로 커밋한다', () => {
+  it('응답-전 → flush → 응답-후 순서로 [assistant][user steer][assistant] 를 형성한다', () => {
+    // producer-pull 시맨틱: 소비 확정(steer.flushed)은 직전 응답 message.completed 뒤에 온다.
+    ingestChatEvent({
+      type: 'message.completed',
+      sessionId: 's',
+      message: { text: '응답-전' }
+    })
     ingestChatEvent({
       type: 'steer.flushed',
       sessionId: 's',
@@ -530,12 +543,13 @@ describe('chatStore — steer feedback lifecycle', () => {
     ingestChatEvent({
       type: 'message.completed',
       sessionId: 's',
-      message: { text: '답변' }
+      message: { text: '응답-후' }
     })
 
-    expect(entry().session.messages.map((m) => m.role)).toEqual(['assistant', 'user'])
-    expect(partsText(entry().session.messages[0].parts)).toBe('답변')
+    expect(entry().session.messages.map((m) => m.role)).toEqual(['assistant', 'user', 'assistant'])
+    expect(partsText(entry().session.messages[0].parts)).toBe('응답-전')
     expect(partsText(entry().session.messages[1].parts)).toBe('추가 피드백')
-    expect(useChatStore.getState().sessions.s.flushedSteer).toEqual([])
+    expect(partsText(entry().session.messages[2].parts)).toBe('응답-후')
+    expect(useChatStore.getState().sessions.s.pendingSteer).toEqual([])
   })
 })

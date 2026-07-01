@@ -3,13 +3,12 @@ import { ReadingColumn } from '../../../../shared/ui/ReadingColumn'
 import { Exchange, TurnErrorBanner } from './Exchange'
 import { groupExchanges } from '../../lib/turns'
 import type { Message } from '../../reducer/chatReducer'
-import type { FlushedSteerState, PendingSteerState } from '../../store/chatStore'
+import type { PendingSteerState } from '../../store/chatStore'
 import type { ClassifiedError } from '../../../../../../shared/ipc'
 
 interface TranscriptViewProps {
   messages: Message[]
   pendingSteer: PendingSteerState[]
-  flushedSteer: FlushedSteerState[]
   onRestoreSteerDraft?: (text: string) => void
   inflight: boolean
   loadingSession: boolean
@@ -32,7 +31,6 @@ interface TranscriptViewProps {
 export const TranscriptView = memo(function TranscriptView({
   messages,
   pendingSteer,
-  flushedSteer,
   onRestoreSteerDraft,
   inflight,
   loadingSession,
@@ -76,7 +74,6 @@ export const TranscriptView = memo(function TranscriptView({
               pending={isLast && inflight}
               error={isLast ? error : undefined}
               pendingSteer={isLast && inflight ? pendingSteer : undefined}
-              flushedSteer={isLast && inflight ? flushedSteer : undefined}
               onRestoreSteerDraft={onRestoreSteerDraft}
             />
           )
