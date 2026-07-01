@@ -296,7 +296,7 @@ SessionRuntime (핸들 소유 — 소비 인터페이스 모드-무관)
 | ⑪ | resume 시 dangling tool 마감(failInterruptedTools) | §7 |
 | ⑫ | 자동 재시작 없음 | §7 |
 | ⑬ | 자체 *멀티에이전트* delegate/Kanban/message-bus 비구현 | §8 |
-| ⑭ | 오케스트레이션 스코프 = **다중턴/세션 워크플로(handoff)만** — *세션 간 동시성*은 §2 자원/프로세스 라이프사이클로 귀속(cap/LRU/idle-close 가 세는 유닛 = SessionRuntime; §A 정제 2026-06-29). 출시 `orchestration/` 코드명은 유지(문서만 정제·분기 메모, 0051) | §1.5 §8 §A |
+| ⑭ | 오케스트레이션 스코프 = **다중턴/세션 워크플로(handoff)만** — *세션 간 동시성*은 §2 자원/프로세스 라이프사이클로 귀속(cap/LRU/idle-close 가 세는 유닛 = SessionRuntime; §A 정제 2026-06-29). 0051 의 출시 `orchestration/` 코드명 유지 결정은 0061 에서 `lifecycle/concurrency.ts` fold 로 해소했고, `orchestration/` 이름은 Future handoff/fork/continuity 서비스용으로 예약한다. | §1.5 §8 §A |
 | ⑮ | goal/multi-day = session handoff (P1) | §6 |
 | ⑯ | (확장) 본대화 비오염 별도 평가 세션 seam | §6 |
 | ⑰ | 이중 저장 의도적 분리 (jsonl=SDK resume / sqlite=SSOT) | §3 |
@@ -354,7 +354,7 @@ cap/LRU/idle-close/registry 가 *세는 유닛*은 **SessionRuntime**(자원)이
 
 - **오케스트레이션에 남는 것** = "Orca Session 을 가로질러 *인과적으로 엮기*" = **handoff** 뿐(워크플로 하네스 §1.5). 자원/프로세스로 환원 안 되는 유일 층.
 - 판별식: **없으면 *리소스가 샌다* → 라이프사이클 / 없으면 *작업이 안 엮인다* → 오케스트레이션.**
-- **코드명 분기(0051 결정 2)**: 출시된 `app/src/main/orchestration/concurrency.ts` 모듈명은 *유지*하고 문서만 정제한다(코드 리네임은 별도 핸드오프). 즉 "코드 모듈 `orchestration/` ⊃ concurrency" 는 개념상 라이프사이클 자원관리다 — 이름과 개념의 분기를 본 절이 명시한다.
+- **코드명 분기 해소(0061)**: 0051 결정 2 로 일시 유지하던 `orchestration/concurrency.ts` 는 `lifecycle/concurrency.ts` 로 접었다. `ConcurrencyRegistry` 는 프로젝트별 active turn 회계이며, runtime cap/LRU 가 세는 active+idle SessionRuntime population 과 섞지 않는다. `orchestration/` 이름은 현재 코드에 두지 않고, Future handoff/fork/continuity 같은 진짜 오케스트레이션 서비스가 착지할 때 재생성한다.
 
 ### A.3 두 축 모델 — 세로(소유/라이프사이클) + 가로(턴 파이프라인)
 
@@ -376,11 +376,11 @@ cap/LRU/idle-close/registry 가 *세는 유닛*은 **SessionRuntime**(자원)이
 
 교정점: ① **TurnCoordinator 1급화**(양축). ② **권한 = 재진입 콜백**(단계 아님). ③ **persist ∥ forward = 병렬 독립 sink**(순차 아님), **persist 는 renderer 비의존**. ④ "EventStore append" 과장 주의 — 델타는 비영속, **settled parts 만 commit**(리듀서 = Coordinator). ⑤ **dangling tool 마감은 P0(이미 구현, `{reason:'aborted'}`)**.
 
-> **코드 안착(handoff)**: TurnCoordinator = `lifecycle/turn-coordinator.ts`(handoff 0052). Runtime **Supervisor**(세로축 unit #3) = `lifecycle/supervisor.ts`(handoff 0053 척추: SessionRuntimeRegistry 소유 + 단일 멱등 `release`/`abortTurn` — `abortTurn` 은 0054 에서 `lifecycle/abort.ts` 로 분리). 0054 가 그 위에 **Persistent 거버넌스**를 더했다: `lifecycle/runtime-pool.ts`(idle 핸들 보존/IdleCloseTimer 회수) + Supervisor `acquireRuntime`/`releaseRuntime`(turn teardown≠runtime close). **cap/LRU eviction · ConcurrencyRegistry 소유 이관은 0055 미구현**. SessionRuntime = `lifecycle/session-runtime.ts`(close-policy 파라미터: OneShot 기본 / Persistent 게이트, 0050→0054).
+> **코드 안착(handoff)**: TurnCoordinator = `lifecycle/turn-coordinator.ts`(handoff 0052). Runtime **Supervisor**(세로축 unit #3) = `lifecycle/supervisor.ts`(handoff 0053 척추: SessionRuntimeRegistry 소유 + 단일 멱등 `release`/`abortTurn` — `abortTurn` 은 0054 에서 `lifecycle/abort.ts` 로 분리). 0054 가 그 위에 **Persistent 거버넌스**를 더했다: `lifecycle/runtime-pool.ts`(idle 핸들 보존/IdleCloseTimer 회수) + Supervisor `acquireRuntime`/`releaseRuntime`(turn teardown≠runtime close). 0055 가 cap/LRU eviction 정책 seam 과 `ConcurrencyRegistry` Supervisor 소유를 안착했고, 0061 이 프로젝트별 active turn 회계 모듈을 `lifecycle/concurrency.ts` 로 접어 이름 분기를 해소했다. SessionRuntime = `lifecycle/session-runtime.ts`(close-policy 파라미터: OneShot 기본 / Persistent 게이트, 0050→0054).
 
 ### A.4 Conversation Continuity / Knowledge Curation (Future 서비스 층)
 
-handoff·fork·DB reseed·대화 종료/archive 시 평가·요약 → **Orca 전용 knowledge artifact / KB entry**(특정 `memory.md` 파일 아님; SDK 로 생성하되 SDK context/SDK memory file 갱신 아님). 불변식:
+handoff·fork·DB reseed·대화 종료/archive 시 평가·요약 → **Orca 전용 knowledge artifact / KB entry**(특정 `memory.md` 파일 아님; SDK 로 생성하되 SDK context/SDK memory file 갱신 아님). 이 Future 서비스가 코드로 착지할 때 `src/main/orchestration/` 이름을 재생성한다. 불변식:
 
 - **Runtime close ≠ Conversation close** — IdleClose/LRU 가 핸들을 닫아도 대화는 안 끝난다. knowledge export 는 *conversation close/archive hook*(자원 close 아님).
 - **1 Orca Session : ≤1 user-facing SessionRuntime.** 평가·요약은 원 세션 visible runtime 을 오염시키지 않고 **별도 internal evaluation session**(ownerless system runtime, `runCompletion` 류 — 결정 ⑯ 별도 평가 세션)에서 실행. 이 평가 런타임의 **cap 회계 포함 여부는 P1 경계 결정**(Future 기능이나 P1 Supervisor 에 영향).
@@ -391,10 +391,10 @@ handoff·fork·DB reseed·대화 종료/archive 시 평가·요약 → **Orca �
 | 단계 | 항목 |
 |---|---|
 | **P0 (0050 출시)** | 3엔티티 개념 분리 · OneShot SessionRuntime · 상태 SSOT · StallTimer 분리 · **dangling 마감(DB-only)** · PermissionBridge/canUseTool(승인 = P0 의 제약된 mid-turn 입력 채널) |
-| **P1** | ~~TurnCoordinator 1급화~~(✅ 0052) · ~~Runtime Supervisor 척추(소유자 추출 + idempotent close/abort 단일 경로)~~(✅ 0053) · ~~Persistent runtime(close-policy 핸들) + IdleCloseTimer 실구현 + Supervisor 거버넌스(acquire/release, 게이트 OFF=OneShot)~~(✅ 0054) · steer/queue admission(일반 mid-turn 입력) · Supervisor cap/LRU(self-idle vs LRU eviction 합류) — 잔여는 **0055** |
+| **P1** | ~~TurnCoordinator 1급화~~(✅ 0052) · ~~Runtime Supervisor 척추(소유자 추출 + idempotent close/abort 단일 경로)~~(✅ 0053) · ~~Persistent runtime(close-policy 핸들) + IdleCloseTimer 실구현 + Supervisor 거버넌스(acquire/release, 게이트 OFF=OneShot)~~(✅ 0054) · ~~Supervisor cap/LRU(self-idle vs LRU eviction 합류) + ConcurrencyRegistry 소유 이관~~(✅ 0055) · ~~`orchestration/concurrency` 이름 분기 해소~~(✅ 0061) · steer/queue admission(일반 mid-turn 입력) |
 | **Future** | handoff/fork · DB-based reseed · internal evaluation session 기반 평가·요약 · knowledge artifact/KB entry · lineage 영속화 |
 
-> **P1 구현 현황**: 가로축 TurnCoordinator(0052) → 세로축 Runtime Supervisor 척추 + 단일 멱등 close/abort(0053) → **Persistent runtime(close-policy 파라미터, 결정 ⑳) + IdleCloseTimer 실구현 + RuntimePool/Supervisor 거버넌스(acquireRuntime/releaseRuntime, turn teardown≠runtime close)(0054)** 까지 안착. 0054 는 **게이트 뒤**(`ORCA_PERSISTENT_RUNTIME`, 기본 OneShot)라 출시 경로 동작 보존이고, "long-lived **핸들** + cross-turn 수명 + idle-close"까지다(서브프로세스 streaming-input 재사용은 steer/queue 와 함께 0055). **0055 잔여** = cap admission · LRU/idle eviction(`evictIdle` 실구현) · ConcurrencyRegistry 의 Supervisor 소유 이관 · steer/queue + true streaming-input. idle/LRU/cap 은 핸들이 idle 로 살아남는 **Persistent 가 전제**라 0053 척추가 정책을 비웠고, 0054 가 그 Persistent 핸들 + 시간경계(IdleClose)를 세웠다.
+> **P1 구현 현황**: 가로축 TurnCoordinator(0052) → 세로축 Runtime Supervisor 척추 + 단일 멱등 close/abort(0053) → **Persistent runtime(close-policy 파라미터, 결정 ⑳) + IdleCloseTimer 실구현 + RuntimePool/Supervisor 거버넌스(acquireRuntime/releaseRuntime, turn teardown≠runtime close)(0054)** → cap/LRU eviction 정책 seam + ConcurrencyRegistry Supervisor 소유 이관(0055) → `orchestration/concurrency` 이름 분기 해소(0061)까지 안착. 0054+ 는 **게이트 뒤**(`ORCA_PERSISTENT_RUNTIME`, 기본 OneShot)라 출시 경로 동작 보존이고, 남은 P1 은 steer/queue admission + true streaming-input 이다. idle/LRU/cap 은 핸들이 idle 로 살아남는 **Persistent 가 전제**라 0053 척추가 정책을 비웠고, 0054 가 그 Persistent 핸들 + 시간경계(IdleClose)를 세웠다.
 
 ## 7. 부록 — 용어
 
