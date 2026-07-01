@@ -1,5 +1,4 @@
 import type { Backend, ProviderDescriptor } from '../../shared/ipc'
-import type { Resolver } from '../mcp/expand'
 import type { SessionAdapter } from './types'
 import { ClaudeAdapter } from './claude'
 
@@ -14,10 +13,10 @@ export class AdapterRegistry {
   private active: Backend | null = null
   private installState = new Map<Backend, InstalledInfo>()
 
-  // resolver 팩토리를 어댑터 ctor 로 전달한다. 호출 시점(턴 실행)에 this.mcp 가 이미 할당돼 있도록
-  // IpcRouter 가 lazy arrow `() => this.mcp.resolver()` 를 넘긴다 (field-init 순서 무관).
-  constructor(makeResolver: () => Resolver) {
-    const claude = new ClaudeAdapter(makeResolver)
+  // MCP 는 0058 이후 plugin .mcp.json 으로 배포되어 로드된다. options.mcpServers 는 레거시로 남지만
+  // 기본 query 경로에서 호출하지 않는다.
+  constructor() {
+    const claude = new ClaudeAdapter()
     this.adapters.set(claude.id, claude)
     this.active = claude.id
   }

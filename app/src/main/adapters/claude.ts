@@ -27,13 +27,11 @@ import { formatPlanFeedbackPrompt } from '../prompts/plan-feedback'
 import type { CompleteRequest, LiveTurn, SessionAdapter } from './types'
 import type { TurnRequest } from '../extensions/types'
 import type { ExtractedAttachmentImage, ExtractedAttachmentText } from '../files/attachments'
-import type { Resolver } from '../mcp/expand'
-import { toClaudeConfig } from '../mcp/convert'
 import { isRiskyTool } from '../runtime-events/permission-bridge'
 import {
   adaptEnv,
   adaptHooks,
-  adaptMcp,
+  adaptPlugins,
   adaptSettings,
   adaptSkills,
   adaptSystemPrompt
@@ -177,9 +175,7 @@ export function makeCanUseTool(
 export class ClaudeAdapter implements SessionAdapter {
   readonly id = 'claude' as const
 
-  // resolver 팩토리를 주입받는다 (McpStore.resolver()). ${VAR} 확장/비밀 복호화는 어댑트
-  // 시점(sendMessage)에만 호출해 디스크/중간 구조에 평문이 남지 않게 한다.
-  constructor(private readonly makeResolver: () => Resolver) {}
+  constructor() {}
 
   // 정적 능력 서술자 (claude-probe.ts 의 단일 출처를 반환 — drift 없음).
   describe(): ProviderDescriptor {
@@ -230,6 +226,8 @@ export class ClaudeAdapter implements SessionAdapter {
       maxTurns: 1,
       tools: [],
       allowedTools: [],
+      // 제목 생성 complete 경로는 도구/스킬/MCP 가 필요 없는 1-shot 요약이다.
+      // plugin 로딩은 chat sendMessage 경로에만 적용한다.
       persistSession: false,
       ...adaptSettings(req.providerSettings?.settings),
       ...adaptEnv(req.env),
@@ -279,13 +277,6 @@ export class ClaudeAdapter implements SessionAdapter {
     if (signal?.aborted) abortController.abort()
     else signal?.addEventListener('abort', onAbort)
 
-    // ${VAR} 확장 + 비밀 복호화는 여기(어댑트 시점)에서만. 미확장 정규 소스를 받아
-    // resolver 로 확장 → Claude 타깃(ClaudeMcpConfig). 미해결 변수로 드롭된 서버는 경고 로깅.
-    const { config: mcpConfig, dropped } = toClaudeConfig(extensions.mcp, this.makeResolver())
-    for (const d of dropped) {
-      console.warn(`[mcp] 서버 '${d.name}' 를 건너뜀: ${d.reason}`)
-    }
-
     // 턴-스코프 입력 스트림 — close() 까지 미종료(streaming-input.ts 가 불변식 격리).
     const input = createTurnInputStream(buildTurnContent(text, attachmentTexts, attachmentImages))
 
@@ -300,7 +291,7 @@ export class ClaudeAdapter implements SessionAdapter {
         cwd,
         abortController,
         ...adaptSystemPrompt(extensions.systemPromptAppend),
-        ...adaptMcp(mcpConfig),
+        ...adaptPlugins(extensions.pluginRoot),
         ...adaptSkills(extensions.skills),
         // provider settings flag 주입 — settings(env 포함 인라인 JSON 문자열, flag 레이어).
         // settingSources 는 생략해 SDK 기본 user/project/local 소스를 상속하고, 이 settings 가

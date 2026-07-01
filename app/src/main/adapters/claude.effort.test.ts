@@ -39,7 +39,7 @@ const baseReq = (): TurnRequest => ({
 
 describe('ClaudeAdapter — effort', () => {
   it('TurnRequest.effort 를 SDK query options 로 전달한다', () => {
-    const adapter = new ClaudeAdapter(() => () => undefined)
+    const adapter = new ClaudeAdapter()
     adapter.sendMessage({ ...baseReq(), effort: 'xhigh' })
 
     expect(queryMock).toHaveBeenCalledTimes(1)

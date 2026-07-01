@@ -23,7 +23,7 @@
 | 명시 요구 | ② 재구성된 플러그인 폴더를 런타임에 로드하는 형태로 구현 변경. | 라이브 세션 요청 2항 |
 | 명시 요구 | ③ 기존 cwd 파일 싱크 기능 제거. | 라이브 세션 요청 3항 |
 | 명시 요구 | ④ `sources/` 의 skill·mcp 를 **세션 런타임 시작 전(`query()` 호출 전)** 에 dist 로 전개(deploy)하도록 보장. | 라이브 세션 추가 요청 |
-| 명시 결정 | MCP 처리 = 런타임 주입(`options.mcpServers`, 비밀 확장) 유지 + 플러그인엔 placeholder `.mcp.json`. | 라이브 세션 AskUserQuestion 응답 |
+| 명시 결정 | MCP 처리 = plugin `.mcp.json` 로 로드. `options.mcpServers` 는 레거시로 남기되 추후 안전화 시 제거 대상. | 사용자 피드백(구현 전 리뷰 후속) |
 | 추론 의도 | 플러그인 skill 은 SDK 가 `orca:<name>` 로 네임스페이스하므로 `options.skills` 필터도 그 형식으로 맞춰야 함(아래 조사 근거). *추론이 아니라 조사 근거지만, 요구엔 없던 파생 필수 변경이라 여기 표기.* | `skills.md:77` |
 
 ## Context (왜)
@@ -53,13 +53,13 @@ Orca 는 사람이 편집하는 `sources/`(skill·mcp SSOT)를 `dist/claude/` �
 
 1. `deploy('claude', …)` 가 `dist/claude/plugins/orca/.claude-plugin/plugin.json` 을 렌더한다 — 내용 `{ "name": "orca", "description": "orca에서 구성된 skill 및 mcp", "version": "1.0.0" }`.
 2. Orca skill 이 `dist/claude/plugins/orca/skills/<skill>/SKILL.md` 로 복사된다. 구 `dist/claude/.claude/skills/` 경로는 더 이상 생성되지 않는다.
-3. MCP placeholder 미러가 `dist/claude/plugins/orca/.mcp.json` 로 기록된다 — `${VAR}` placeholder 보존, 평문 비밀 0(기존 mcp 배포 규칙 유지 + 키 검증 유지).
+3. 활성 MCP 가 `dist/claude/plugins/orca/.mcp.json` 로 기록된다 — query 전 `${VAR}`/safeStorage 비밀을 확장한 Claude 타깃 설정이며 plugin loader 가 읽는 권위 소스다(키 검증 유지).
 4. `dist/claude/plugins/orca/agents/`·`dist/claude/plugins/orca/hooks/` 디렉토리가 생성된다(현재 소스 자산이 없어 비어 있음 — 기본 구조).
 5. 런타임 `query()` 옵션에 `plugins: [{ type: 'local', path: <plugins/orca 절대경로> }]` 가 주입된다(플러그인 루트가 존재할 때만; 부재 시 옵션 생략).
 6. `adaptSkills` 가 활성 Orca skill 을 `orca:<name>` 형식으로 `options.skills` 에 넣는다. 어댑터 skill(`~/.claude/skills`)은 bare `name` 유지. 스캔 0 이면 `'all'` 폴백 유지.
 7. dist→cwd 파일 싱크가 제거된다 — `workspace-sync.ts`(및 `syncWorkspaceExtensions`) 삭제, `syncedCwds`·cwd 복사 경로 제거. cwd 에 `.claude/skills`·`.mcp.json` 을 더 이상 쓰지 않는다.
 8. **sources→dist deploy 선행 보장**: `sources/skills`·`sources/mcp` 의 dist(플러그인) 전개가 매 `query()` 호출 **전에** 완료돼 있다 — boot 1회 deploy(모든 turn 선행) + skill/mcp CRUD 재-deploy + 턴 진입 멱등 가드. 플러그인 경로가 cwd 독립이므로 게이트는 cwd 단위가 아니라 실행(run) 단위.
-9. MCP 실제 주입 경로는 무변 — `options.mcpServers`(비밀 확장) + `allowedTools` 가 권위 소스. 플러그인 `.mcp.json` 은 구조적 미러일 뿐 런타임 MCP 를 구동하지 않는다(동작 회귀 0).
+9. MCP 실제 주입 경로는 plugin `.mcp.json` 이다. `options.mcpServers`/`adaptMcp` 는 레거시 안전화 전 제거 대상으로 남기되 기본 query 경로에서는 호출하지 않는다.
 10. 게이트 통과: `cd app && npm run lint && npm run typecheck && npm test`. 레이어 경계(boundaries)·`import/no-cycle` 위반 0. 신규 의존성 0.
 11. 문서 정합: `docs/arch/backend/standardization.md`(dist 레이아웃 §100-136·소유 모델 §109)·`docs/PHASES.md` 가 신 레이아웃(plugin)으로 갱신된다. IPC 채널 변경 없음(무 → `IPC_CONTRACT.md` 무변).
 
@@ -68,7 +68,7 @@ Orca 는 사람이 편집하는 `sources/`(skill·mcp SSOT)를 `dist/claude/` �
 - **범위**: dist 레이아웃 재구성(paths·deployer)·런타임 `options.plugins` 로드(claude-adapt·claude)·skill 네임스페이스 필터 수정·cwd 싱크 제거·deploy 선행 보장(router·send)·배포 테스트 갱신·관련 문서 정합.
 - **비범위**:
   - agents/hooks **자산 자체의 소스·변환 파이프라인**(현재 소스 없음 → 빈 디렉토리만; 실제 agents/hooks 배포는 후속 핸드오프).
-  - 플러그인 `.mcp.json` 을 유일 MCP 소스로 승격(사용자 결정으로 런타임 주입 유지 — placeholder 만).
+  - `options.mcpServers` 완전 삭제(사용자 결정: 레거시로 남기고 추후 안전화 시 제거).
   - `commands/`(레거시) 지원.
   - 다중 엔진(opencode) 플러그인 — `'claude'` 단일.
   - 마켓플레이스/원격 플러그인.
@@ -105,12 +105,12 @@ Orca 는 사람이 편집하는 `sources/`(skill·mcp SSOT)를 `dist/claude/` �
 | 리스크 / 트레이드오프 | 완화책 / 결정 |
 |---|---|
 | 플러그인 skill 네임스페이스(`orca:`) 미스매치 → skill 전량 숨김 | AC#6 명시 + `adaptSkills` 단위 테스트 + impl 이 init `slash_commands` 확인. |
-| 플러그인 `.mcp.json` 의 미확장 `${VAR}` 서버를 SDK 가 로드 시도 → 인증 실패 서버 등록/경고 | 런타임 `options.mcpServers`(확장본)가 권위 소스로 공존(현행 cwd 미러와 동일 패턴). placeholder 는 구조 완결용. **필요 시 impl 이 플러그인 `.mcp.json` 을 빈 `{"mcpServers":{}}` 로 낮출지 검토(⚠️ 보고만 — 사용자/설계 결정)**. |
+| plugin `.mcp.json` 에 확장된 MCP 비밀이 파일로 남음 | 사용자 승인된 trade-off. query 전 렌더하고 `chmod 0600` best-effort 적용, standardization 문서에 dist/.bak 평문 비밀 잔존 가능성을 기록. |
 | 문서(standardization.md)와 코드가 잠시 어긋남 | AC#11 로 같은 PR 에서 문서 동시 갱신. |
 | deploy 비원자성(backup-then-write) 중 크래시 | 기존 .bak 롤링·현행과 동일 위험도(신규 아님). |
 
 - 되돌리기 어려운 결정: dist 레이아웃 변경(구 `.claude/skills`·`.mcp.json` 경로 폐기). — 완화: paths 헬퍼 단일 출처라 되돌림도 국소적.
-- **단독 결정 금지 항목(Open Question)** → 사용자에게: 플러그인 `.mcp.json` 을 placeholder 로 둘지 vs 빈 오브젝트로 둘지(위 리스크 표) — 기본값 = placeholder(사용자 확정), impl 이 실측 후 이견 시 ⚠️ 보고.
+- **단독 결정 금지 항목(Open Question)**: 없음. MCP plugin 로드 및 `options.mcpServers` 레거시 유지 방침은 사용자 피드백으로 확정.
 
 ## 영향 받는 파일
 
@@ -145,7 +145,7 @@ Orca 는 사람이 편집하는 `sources/`(skill·mcp SSOT)를 `dist/claude/` �
 - [x] 인수 기준 — 11개 번호, 자료조사 근거, 검증 가능.
 - [x] 의존 기술 — SDK `Options.plugins` 식별, 신규 의존성 0 명시.
 - [x] 파생 UX — 빈 자산·루트 부재·네임스페이스·토글·cwd 잔재·동시성 엣지케이스 전개.
-- [x] 리스크 — 네임스페이스·placeholder MCP 트레이드오프 기재, Open Question(플러그인 `.mcp.json` 형태)은 사용자 결정으로 분리.
+- [x] 리스크 — 네임스페이스·plugin MCP 평문 dist trade-off, `options.mcpServers` 레거시 유지 방침을 분리.
 
 ---
 
@@ -153,28 +153,35 @@ Orca 는 사람이 편집하는 `sources/`(skill·mcp SSOT)를 `dist/claude/` �
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- 동의 / 그대로 진행: …
-- 이견 / 우려: …
+- 동의 / 그대로 진행: dist→cwd 싱크 제거, `plugins/orca` 레이아웃, `options.plugins` 주입, Orca skill `orca:<name>` 네임스페이스 적용 방향에 동의.
+- 이견 / 우려: 원 설계의 'MCP는 `options.mcpServers` 권위 + plugin `.mcp.json` placeholder' 는 사용자 추가 피드백과 충돌한다. 사용자 승인에 따라 skill/mcp/agents/hooks 모두 plugin loader 로 호출되도록 바꾸고, `options.mcpServers` 는 레거시 안전화 전 제거 대상으로 남긴다. 이 변경은 plugin `.mcp.json` 과 `.bak` 에 확장된 MCP 비밀이 잔존할 수 있는 보안 trade-off 를 동반한다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 구현함 / ⚠️ 보고만·**결정 필요** | … |
+| 1 | deployer 가 plugin 포맷·백업·검증·비밀 확장을 모두 떠안으면 백엔드 모듈화가 약해진다. | ✅ `claude-plugin-package.ts` 와 `ExtensionDeploymentService` 로 패키징/멱등 배포 책임을 분리했다. | 구현 전 수석엔지니어 리뷰 승인 |
+| 2 | MCP를 plugin `.mcp.json` 로 로드하면 dist 산출물에 평문 비밀이 남을 수 있다. | ✅ query 전 `toClaudeConfig` 로 확장한 활성 MCP 를 plugin `.mcp.json` 에 렌더하고, 문서에 보안 trade-off 를 기록했다. | 사용자 피드백: skill/mcp/agent 모두 plugin loader 호출 |
+| 3 | 제목 생성 complete 경로에 plugin 주입 여부가 불명확할 수 있다. | ✅ complete 는 도구/스킬/MCP 없는 1-shot 요약이라 plugin 미주입 주석을 남겼다. | `ClaudeAdapter.runCompletion` |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] …
+- [x] plugin 경로 헬퍼 추가 및 구 cwd 싱크 삭제
+- [x] Claude plugin package renderer 및 deployment service 추가
+- [x] `adaptPlugins` / Orca skill namespace 필터 추가
+- [x] query 경로를 plugin 중심으로 전환하고 `options.mcpServers` 호출 제거
+- [x] deployer/adapt 단위 테스트 갱신
+- [x] standardization/PHASES/INDEX 문서 정합
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` |
-| 게이트 결과 | lint … / typecheck … / test … |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | `app/src/main/config/paths.ts`, `app/src/main/deploy/*`, `app/src/main/adapters/*`, `app/src/main/extensions/*`, `app/src/main/ipc/*`, 테스트/문서 |
+| 실행 명령 | `cd app && npm run typecheck:node` / `cd app && npm install` / `cd app && npm ci --ignore-scripts --prefer-offline --no-audit --no-fund` |
+| 게이트 결과 | 환경 제한: 의존성 설치가 장시간 무응답으로 중단되어 typecheck 는 `electron-vite/node` 및 `@electron-toolkit/tsconfig` 미설치 오류 |
+| 블로커 / 역질문 | 없음. `options.mcpServers` 는 사용자 지시대로 레거시 제거 대상으로 유지 |
+| 대상 커밋 | `0d3d8fb` |
 
 ---
 

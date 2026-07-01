@@ -80,13 +80,13 @@ export function registerMiscHandlers(ctx: RouterContext): void {
 
   handle(CHANNELS.skillsAuthor, AuthorSkillSchema, 'reject', async (req): Promise<SkillInfo[]> => {
     await writeAuthoredSkill(req)
-    ctx.syncExtensions()
+    ctx.deployExtensions()
     return ctx.refreshSkills()
   })
 
   handle(CHANNELS.skillsUpload, UploadSkillSchema, 'reject', async (req): Promise<SkillInfo[]> => {
     await writeUploadedSkill(req)
-    ctx.syncExtensions()
+    ctx.deployExtensions()
     return ctx.refreshSkills()
   })
 
@@ -126,7 +126,7 @@ export function registerMiscHandlers(ctx: RouterContext): void {
     const skillEnabled = { ...current.skillEnabled }
     delete skillEnabled[skillEnabledKey(req.sourceId, req.name)]
     ctx.settings.patch({ skillEnabled })
-    ctx.syncExtensions()
+    ctx.deployExtensions()
     return ctx.refreshSkills()
   })
 

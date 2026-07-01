@@ -99,20 +99,23 @@ class OpenCodeEngine {
 │   └── settings/            # provider 별 settings (어댑터-네이티브 스키마, TRD §6.8)
 │       └── <adapter>/       #   디렉토리 이름 = provider (열거 SSOT)
 │           └── <provider>/settings.json  # 모델은 settings.json 파싱(claude-model-parser, 파생 캐시 없음)
-└── dist/<engine>/           # ExtensionDeployer 산출 = 설치 스테이징 (편집 금지)
-    ├── .claude/skills/      #   → 설치 대상 <cwd>/.claude/skills/ 로 복사될 SDK 표준 거울
-    └── .mcp.json            #   → 설치 대상 <cwd>/.mcp.json (${VAR} placeholder 보존)
+└── dist/<engine>/           # ExtensionDeployer 산출 = 런타임 plugin 패키지 (편집 금지)
+    └── plugins/orca/
+        ├── .claude-plugin/plugin.json  # name=orca, description/version 고정
+        ├── skills/                     # sources/skills projection (SDK plugin skill)
+        ├── agents/                     # 후속 자산용 빈 스캐폴드
+        ├── hooks/                      # 후속 자산용 빈 스캐폴드
+        └── .mcp.json                   # query 전 확장된 활성 MCP (Claude plugin loader 입력)
     # settings.json 은 dist 에 두지 않음 — query flag(options.settings)로 주입(아래)
-    # agents·commands·hooks·plugin 은 engine-specific → 배포 안 함(§2, 추후 plugin 지원)
 ```
 
-> **소유 모델 (자산 호환성 기준 SSOT 분리)**: 호환 자산(**skill·mcp·AGENTS.md** — 엔진 밖에서도 표준)은 **Orca 가 SSOT** 이고 각 엔진 dist 로 projection 한다. 비호환 자산(**agents·commands·hooks·plugin** — 엔진 고유)은 **각 엔진이 SSOT** 이며 Orca 는 관여하지 않는다(추후 claude plugin 지원으로 연기 — §2, adapters.md §3.1).
+> **소유 모델 (plugin 패키지 기준)**: Orca 가 관리하는 skill·mcp 는 `plugins/orca` 라는 단일 Claude Code plugin 패키지로 projection 한다. agents·hooks 는 구조만 스캐폴드하고 실제 자산 변환은 후속으로 남긴다. commands 는 레거시라 배포하지 않는다.
 >
-> **dist = 설치 스테이징**: `dist/<engine>/` 는 SDK 가 직접 읽는 곳이 아니라, 추후 구현될 "cwd 설치(복사)" 기능이 설치 대상으로 복사할 **SDK 표준 경로 거울**이다 — `skill → .claude/skills/`, `mcp → 루트 .mcp.json`(${VAR} placeholder 보존). 복사 후 SDK 기본 `project` 소스(`<cwd>/.claude`)가 이를 로드한다. **settings.json 은 거울의 예외** — 파일로 설치하지 않고 query flag(`options.settings` 인라인 JSON 문자열)로 주입한다(settingSources 와 직교·최우선 레이어, 상속한 `~/.claude/settings.json` 을 덮어씀, TRD §6.8). provider settings.json 은 `~/.claude/settings.json` 과 동일 취급이라 **env 를 포함한 채** verbatim 주입된다(handoff 0028 — 0015/0018 의 env↛argv 분리·branded 타입 폐기, argv 노출은 수용된 트레이드오프, security.md §1.4). `options.env` 에는 시스템(턴) env 만.
+> **dist = 런타임 plugin 패키지**: `dist/<engine>/plugins/orca` 는 SDK `options.plugins: [{type:'local', path}]` 가 직접 읽는 경로다. 더 이상 세션 cwd 로 `.claude/skills`·`.mcp.json` 을 복사하지 않는다. MCP 도 `options.mcpServers` 가 아니라 plugin `.mcp.json` 로 로드되도록 query 전 렌더한다. 단 `options.mcpServers` 변환 함수는 레거시 안전화 전까지 코드에 남겨 추후 제거 대상으로 관리한다. plugin `.mcp.json` 은 `${VAR}` 를 확장한 활성 MCP 설정을 담을 수 있으므로 dist/.bak 에 평문 비밀이 잔존할 수 있다. 원천은 여전히 `sources/mcp/mcp.json` + safeStorage 이며 dist 는 파생 산출물이다. **settings.json 은 plugin 패키지의 예외** — 파일로 설치하지 않고 query flag(`options.settings` 인라인 JSON 문자열)로 주입한다(settingSources 와 직교·최우선 레이어, 상속한 `~/.claude/settings.json` 을 덮어씀, TRD §6.8). provider settings.json 은 `~/.claude/settings.json` 과 동일 취급이라 **env 를 포함한 채** verbatim 주입된다(handoff 0028 — argv 노출은 수용된 트레이드오프, security.md §1.4). `options.env` 에는 시스템(턴) env 만.
 >
 > **격리 해제**: `query()` 호출에서 `settingSources` 옵션을 **생략**해 SDK 기본값(user+project+local 전부)으로 사용자 전역 `~/.claude` skill·설정을 상속한다. 그로 끌려오는 사용자 allow 규칙은 `disallowedTools` 옵션으로 확정 차단한다(SDK 권한 평가: hooks→deny/disallowed→ask→allow→canUseTool — disallowed 가 allow·canUseTool 보다 상위). **이는 handoff 0014/0015 가 채택한 `settingSources: []` 격리모드 결정을 폐기(supersede)한다** — 0014/0015 문서는 historical 기록으로 보존하고 supersession 만 본 절·TRD §6.8·PHASES 에 기재.
 >
-> **구현 상태 (0024 구현됨)**: 코드가 신 레이아웃으로 정렬됐다. `deploy/deployer.ts` 는 skill→`.claude/skills`·mcp→`.mcp.json` 만 배포하고, `claude-adapt.ts` 는 `plugins`·`settingSources` 를 주입하지 않는다. 단 `disallowedTools` 차단 목록은 D1 사용자 확정 전이라 보류했다.
+> **구현 상태 (0058 구현됨)**: 코드가 Claude plugin 레이아웃으로 정렬됐다. `deploy/deployer.ts` 는 `plugins/orca` 패키지를 렌더하고, `claude-adapt.ts` 는 `options.plugins` 와 `orca:<skill>` 필터를 주입한다. `options.mcpServers` 경로는 레거시로 남아 있으나 기본 query 경로에서는 호출하지 않는다.
 
 ### 5.2 ExtensionDeployer
 

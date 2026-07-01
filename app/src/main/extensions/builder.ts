@@ -17,7 +17,8 @@ export class ExtensionBuilder {
     private readonly db: DbQueries,
     private readonly mcp: McpStore,
     private readonly skills: () => SkillInfo[],
-    private readonly stableAppend: string
+    private readonly stableAppend: string,
+    private readonly pluginRoot?: () => string | undefined
   ) {}
 
   // sessionId 가 있으면 resume 경로(세션→프로젝트 지침 조회), 없으면 새 채팅(projectId 직접 조회).
@@ -42,9 +43,12 @@ export class ExtensionBuilder {
         : instructions
       : stableAppend
 
+    const pluginRoot = this.pluginRoot?.()
+
     return {
-      // 미확장 정규형 — 어댑터가 자기 resolver 로 확장 후 어댑트.
+      // 미확장 정규형 — Claude 는 plugin .mcp.json 렌더 경로로 소비한다.
       mcp: this.mcp.enabledConfig(),
+      ...(pluginRoot ? { pluginRoot } : {}),
       // 가시화 메타 (어댑트는 어댑터의 항상-on skills 경로가 구동).
       skills: this.skills(),
       // 현재 hooks 소스는 비어 있음 → adaptHooks 가 {} → options.hooks 미주입.
