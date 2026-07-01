@@ -4,9 +4,9 @@
 //
 // claude 축별 동작:
 //   instructions : AGENTS.md 는 런타임 systemPromptAppend 로 주입(ExtensionBuilder) → dist 파일 미생성(중립).
-//   skills : sources/skills → dist/<engine>/.claude/skills/ 로 **복사**(SDK 표준 경로 거울).
-//   mcp : sources/mcp/mcp.json → dist/<engine>/.mcp.json 으로 **복사**(${VAR} placeholder 보존) + 키 검증.
-//   agents/commands/hooks/plugin/settings : engine-specific 또는 flag 주입 자산이므로 dist 로 배포하지 않는다.
+//   skills : sources/skills → dist/<engine>/plugins/orca/skills 로 **복사**(Claude plugin 패키지).
+//   mcp : 활성 MCP 를 확장한 뒤 dist/<engine>/plugins/orca/.mcp.json 으로 **렌더** + 키 검증.
+//   agents/hooks : 빈 디렉토리 스캐폴드(후속 자산 수용). commands/settings 는 dist 로 배포하지 않는다.
 //
 // dist/<engine> 는 편집 대상이 아니다. 무단 덮어쓰기를 막기 위해 기록 전 항상 백업한다(.bak 1개 롤링).
 // 레이아웃은 paths.ts 의 sources*/dist* 헬퍼와 일치해야 한다 — 본 함수는 테스트 용이성을 위해 root 를
@@ -14,9 +14,7 @@
 
 import {
   existsSync,
-  mkdirSync,
   writeFileSync,
-  cpSync,
   rmSync,
   renameSync,
   readFileSync,
@@ -25,15 +23,16 @@ import {
 } from 'node:fs'
 import { join } from 'node:path'
 import type { Backend } from '../../shared/ipc'
-import type { OrcaMcpConfig } from '../mcp/schema'
+import type { ClaudeMcpConfig } from '../mcp/schema'
 import type { SkillScanRoot } from '../skills/scan'
 import { orcaConfigDir } from '../config/paths'
 import { PROVIDER_NAME_RE } from '../config/provider-key'
+import { renderClaudePluginPackage } from './claude-plugin-package'
 
 export interface DeployOptions {
   dryRun?: boolean
   skillRoots?: SkillScanRoot[]
-  mcpConfig?: OrcaMcpConfig
+  mcpConfig?: ClaudeMcpConfig
 }
 
 export interface DeployResult {
@@ -68,30 +67,6 @@ function validateMcp(mcpJson: string): { ok: boolean; errors: string[] } {
     errors.push('mcp.json 파싱 실패 — JSON 형식을 확인하세요.')
   }
   return { ok: errors.length === 0, errors }
-}
-
-// Orca 소스 스킬만 dist 로 복사한다 (어댑터/워크스페이스 루트 제외 — 어댑터 스킬은 SDK
-// settingSources:user 가 ~/.claude 에서 직접 탐색하므로 cwd 로 재설치하면 이중이 된다).
-// enabled 여부와 무관하게 전량 복사한다 — 활성/비활성 제어는 런타임 options.skills 필터가
-// 담당하므로(adaptSkills), 재활성 시 파일 재복사가 필요 없다.
-function copyOrcaSkills(roots: SkillScanRoot[], dest: string): void {
-  mkdirSync(dest, { recursive: true })
-  for (const root of roots) {
-    if (root.sourceKind !== 'orca') continue
-    let entries: Dirent[]
-    try {
-      entries = readdirSync(root.rootDir, { withFileTypes: true })
-    } catch {
-      continue
-    }
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue
-      cpSync(join(root.rootDir, entry.name), join(dest, entry.name), {
-        recursive: true,
-        force: true
-      })
-    }
-  }
 }
 
 // sources/settings/<engine>/ 의 provider 디렉토리 열거 + settings.json 검증. 이름 위반/JSON 파싱
@@ -136,9 +111,7 @@ export function deploy(
   const dryRun = !!opts.dryRun
   const sources = join(root, 'sources')
   const dist = join(root, 'dist', engine)
-  const skillsDest = join(dist, '.claude', 'skills')
   const mcpSrc = join(sources, 'mcp', 'mcp.json')
-  const mcpDest = join(dist, '.mcp.json')
   const actions: string[] = []
 
   const mcpValidation = validateMcp(mcpSrc)
@@ -153,9 +126,13 @@ export function deploy(
       `validate mcp keys (${validation.ok ? 'ok' : validation.errors.length + ' error(s)'})`
     )
     if (existsSync(dist)) actions.push(`backup ${dist} → ${dist}.bak`)
-    actions.push('copy skills → dist/.claude/skills')
-    actions.push(existsSync(mcpSrc) ? 'copy mcp → dist/.mcp.json' : 'skip mcp (missing source)')
-    actions.push('skip agents/commands/hooks/plugin/settings dist copy')
+    actions.push('render orca plugin → dist/plugins/orca')
+    actions.push(
+      existsSync(mcpSrc) || opts.mcpConfig
+        ? 'render mcp → plugins/orca/.mcp.json'
+        : 'render empty mcp → plugins/orca/.mcp.json'
+    )
+    actions.push('skip commands/settings dist copy')
     return { engine, dryRun, actions, backedUp: false, validation }
   }
 
@@ -174,8 +151,26 @@ export function deploy(
     }
   }
 
-  copyOrcaSkills(
-    opts.skillRoots ?? [
+  let mcpConfig: ClaudeMcpConfig = {}
+  if (opts.mcpConfig) {
+    mcpConfig = opts.mcpConfig
+    actions.push('render enabled mcp → plugins/orca/.mcp.json')
+  } else if (existsSync(mcpSrc)) {
+    try {
+      const parsed = JSON.parse(readFileSync(mcpSrc, 'utf8')) as { mcpServers?: ClaudeMcpConfig }
+      mcpConfig = parsed.mcpServers ?? {}
+      actions.push('copy mcp → plugins/orca/.mcp.json')
+    } catch {
+      actions.push('render empty mcp → plugins/orca/.mcp.json (invalid source)')
+    }
+  } else {
+    actions.push('render empty mcp → plugins/orca/.mcp.json')
+  }
+
+  renderClaudePluginPackage({
+    engine,
+    root,
+    skillRoots: opts.skillRoots ?? [
       {
         sourceId: 'orca',
         sourceLabel: 'Orca 스킬',
@@ -183,23 +178,10 @@ export function deploy(
         rootDir: join(sources, 'skills')
       }
     ],
-    skillsDest
-  )
-  actions.push('copy orca skills → dist/.claude/skills')
-
-  if (opts.mcpConfig) {
-    mkdirSync(dist, { recursive: true })
-    writeFileSync(mcpDest, JSON.stringify({ mcpServers: opts.mcpConfig }, null, 2), 'utf8')
-    actions.push('render enabled mcp → dist/.mcp.json')
-  } else if (existsSync(mcpSrc)) {
-    mkdirSync(dist, { recursive: true })
-    writeFileSync(mcpDest, readFileSync(mcpSrc, 'utf8'), 'utf8')
-    actions.push('copy mcp → dist/.mcp.json')
-  } else {
-    actions.push('skip mcp (missing source)')
-  }
-
-  actions.push('skip agents/commands/hooks/plugin/settings dist copy')
+    mcpConfig
+  })
+  actions.push('render orca plugin → dist/plugins/orca')
+  actions.push('skip commands/settings dist copy')
 
   // 배포 마커(드리프트 식별·디버깅용).
   writeFileSync(

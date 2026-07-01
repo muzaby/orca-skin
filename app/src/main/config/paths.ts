@@ -9,14 +9,14 @@
 //   │   ├── mcp/mcp.json                #   agents · commands · mcp/mcp.json · hooks/<engine> ·
 //   │   └── settings/<adapter>/         #   settings/<adapter>/<provider>/settings.json)
 //   ├── dist/<engine>/                  # deployer 산출 (읽기 전용)
-//   │   ├── .claude/skills/             #   SDK 표준 경로 거울(설치 스테이징)
-//   │   └── .mcp.json                   #   ${VAR} placeholder 보존 MCP 거울
-//   └── projects/                       # 세션 작업 디렉토리(cwd) 루트 — dist 확장이 여기로 싱크된다.
+//   │   └── plugins/orca/               #   Claude Code plugin(.claude-plugin, skills, agents, hooks, .mcp.json)
+//   └── projects/                       # 세션 작업 디렉토리(cwd) 루트 — 확장 파일을 복사하지 않는다.
 //       ├── default/                    #   비-프로젝트 / cwd 미지정 세션 공용 cwd
 //       └── <이름>-<프로젝트ID8>/        #   프로젝트 소속 세션 cwd (future: 절대경로 지정값으로 대체 가능)
 //
 // 본 파일은 *다른 모듈이 실제로 참조하는* 경로만 노출한다. 런타임 settings 는 dist 가 아니라
-// sources/settings/<adapter>/<provider>/settings.json 을 해석해 query flag 로 주입한다.
+// sources/settings/<adapter>/<provider>/settings.json 을 해석해 query flag 로 주입한다. MCP 는 query 전
+// 확장된 plugin .mcp.json 으로 렌더되므로 dist 산출물에 평문 비밀이 포함될 수 있다.
 
 import { homedir } from 'node:os'
 import { isAbsolute, join, relative, resolve } from 'node:path'
@@ -112,14 +112,25 @@ export function distDir(engine: Backend): string {
   return join(orcaConfigDir(), 'dist', engine)
 }
 
-// SDK 표준 skill 경로 거울(설치 스테이징).
-export function distSkillsDir(engine: Backend): string {
-  return join(distDir(engine), '.claude', 'skills')
+// Claude Code 플러그인 산출물 루트. SDK options.plugins 의 local path 는 이 디렉토리를 가리킨다.
+export function distPluginsDir(engine: Backend): string {
+  return join(distDir(engine), 'plugins')
 }
 
-// MCP 정규 소스의 dist 거울. ${VAR} placeholder 를 보존한다.
-export function distMcpJsonPath(engine: Backend): string {
-  return join(distDir(engine), '.mcp.json')
+export function distOrcaPluginDir(engine: Backend): string {
+  return join(distPluginsDir(engine), 'orca')
+}
+
+export function distOrcaPluginManifestPath(engine: Backend): string {
+  return join(distOrcaPluginDir(engine), '.claude-plugin', 'plugin.json')
+}
+
+export function distOrcaPluginSkillsDir(engine: Backend): string {
+  return join(distOrcaPluginDir(engine), 'skills')
+}
+
+export function distOrcaPluginMcpJsonPath(engine: Backend): string {
+  return join(distOrcaPluginDir(engine), '.mcp.json')
 }
 
 // 부팅 시 1회. mkdir -p 의미 (recursive). 이미 있으면 무시.

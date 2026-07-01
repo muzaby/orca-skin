@@ -348,9 +348,9 @@ export function registerChatHandlers(deps: ChatDeps): void {
       turn.pendingUserText = null
     }
 
-    // 파일 싱크는 이 cwd 가 이번 실행에서 처음 쓰일 때만 1회(overwrite-merge). 활성/비활성
-    // 토글은 파일이 아니라 런타임 options.skills 가 반영하므로 매 턴 재싱크가 불필요하다.
-    ctx.syncExtensionsForTurn(turn.cwd)
+    // plugin 배포는 query 호출 전 최신성을 멱등 보장한다. 활성/비활성 토글은
+    // 파일 삭제가 아니라 런타임 options.skills 필터로 반영한다.
+    ctx.ensureExtensionsDeployedForTurn()
 
     // 백엔드 중립 확장 리소스(지침+정적 정책 append · MCP · skills · hooks)를 빌더가 조립.
     // resume 면 projectId 는 세션 바인딩에서 조회되므로 null 을 넘긴다.

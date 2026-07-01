@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { AdapterRegistry } from './registry'
 
-const makeRegistry = (): AdapterRegistry => new AdapterRegistry(() => () => undefined)
+const makeRegistry = (): AdapterRegistry => new AdapterRegistry()
 
 describe('AdapterRegistry capability 서술', () => {
   it('describeActive() 는 활성 백엔드(claude)의 서술자를 반환', () => {

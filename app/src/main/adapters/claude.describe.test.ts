@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { ClaudeAdapter } from './claude'
 import { CLAUDE_DESCRIPTOR } from '../capabilities/claude-probe'
 
-const adapter = new ClaudeAdapter(() => () => undefined)
+const adapter = new ClaudeAdapter()
 
 describe('ClaudeAdapter.describe', () => {
   it('describe() 는 단일 출처 CLAUDE_DESCRIPTOR 를 반환(drift 없음)', () => {

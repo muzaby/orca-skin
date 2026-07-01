@@ -37,9 +37,9 @@ export interface RouterContext {
   // 부팅 1회 스캔 캐시 — 턴 실행 시점에 최신 값을 읽도록 getter 로 노출.
   getSkills(): SkillInfo[]
   refreshSkills(): Promise<SkillInfo[]>
-  syncExtensions(): void
-  // 턴 시작 게이트 — 해당 cwd 가 이번 실행에서 미싱크면 1회 dist→cwd 싱크(세션별 cwd 대비).
-  syncExtensionsForTurn(cwd: string): void
+  deployExtensions(): void
+  // 턴 시작 게이트 — query 호출 전 sources→dist plugin 배포 최신성을 멱등 보장한다.
+  ensureExtensionsDeployedForTurn(): void
   // chat send · files list · session cwd 가 공유하는 단일 cwd. 프로젝트 미소속이면
   // projects/default, 소속이면 projects/<이름>-<프로젝트ID8> (DB 에서 이름 조회).
   getCwd(projectId?: string | null): string
