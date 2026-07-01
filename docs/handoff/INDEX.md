@@ -116,4 +116,6 @@
 
 | `0059-steer-queue-feedback` | verify | IMPL_DONE | Claude | `7cefcbe` | 1 | 구현 완료 — explicit chat:steer IPC + SteerQueue + producer-pull flush + renderer 3상태 feedback UX. **파생 D1(resolved, Claude 직접 구현)**: steer 렌더/영속 버그 3건(flush 시 정상폰트化·재시작 위치 상이·pending 폰트) — `flushedSteer` 오버레이 개념 제거하고 `steer.flushed`=즉시 일반 커밋 user 메시지로 전환 + main flush 경계 어시스턴트 메시지 마감으로 DB↔라이브 정렬 일치. pending=항상 연회색/기울임. 게이트 lint/typecheck/test **611 passed**(electron 미설치 2 suite 제외). 상세=plan.md 파생이슈 D1. 사람 시각검증 대기. |
 
+| `0060-steer-flush-boundary` | verify | IMPL_DONE | Claude | (push 후) | 1 | 0059 후속 버그수정 (비기능 = Claude 직접 구현). steer pending 이 **입력 즉시 flush** 되던 문제 — 0059 가 flush 신호를 producer-pull(`onConsume`/`nextInjectedInput`)로 골랐으나 SDK 는 입력 AsyncIterable 을 eager drain 하므로 pull ≠ turn 경계였다. 수정: flush 를 입력 push 에서 분리(streaming-input `push`=리터럴 전달만, pull→drain 결합 제거)하고 TurnCoordinator 가 관찰하는 **turn 경계**(최상위 tool.call.completed 배치 settle=서브에이전트 취합 / telemetry)에서 `consumeSteerForInput` 구동. 서브에이전트 내부 도구는 부모 경계 아님(§7.5), 병렬 도구 전부 settle 후 flush. dead 배선(onInputConsumed/consumeInjectedInput) 제거. renderer/persist 무변경(호출 시점만 이동). 게이트 lint/typecheck/test **618 passed**(electron 미설치 2 suite 제외). 상세=plan.md. 사람 실측 대기(서브에이전트 위임 시 취합 시점 커밋 재현·user echo 타이밍). |
+
 > 새 작업: 기존 행 중 `max(번호)+1` 로 행을 추가하고 `<NNNN-slug>/plan.md` 를 생성한다.

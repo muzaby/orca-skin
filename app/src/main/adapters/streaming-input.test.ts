@@ -53,6 +53,33 @@ describe('createTurnInputStream', () => {
     const done = await it.next()
     expect(done.done).toBe(true)
   })
+
+  it('push(text) 는 리터럴 user 메시지를 SDK 로 전달한다(pull 이 flush 를 유발하지 않음)', async () => {
+    const { stream, push, close } = createTurnInputStream('first')
+    const it = stream[Symbol.asyncIterator]()
+    await it.next() // 초기 메시지
+
+    const pending = it.next()
+    push('steer feedback')
+    const second = await pending
+    expect(second.done).toBe(false)
+    expect(second.value).toMatchObject({
+      type: 'user',
+      parent_tool_use_id: null,
+      message: { role: 'user', content: 'steer feedback' }
+    })
+    close()
+  })
+
+  it('close() 이후 push 는 무시된다', async () => {
+    const { stream, push, close } = createTurnInputStream('x')
+    const it = stream[Symbol.asyncIterator]()
+    await it.next()
+    close()
+    push('too late')
+    const done = await it.next()
+    expect(done.done).toBe(true)
+  })
 })
 
 it('content block arrays are yielded without string coercion', async () => {
