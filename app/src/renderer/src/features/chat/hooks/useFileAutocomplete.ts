@@ -76,6 +76,16 @@ export function useFileAutocomplete(
   // `path` 형태로 저장.
   const [validPaths, setValidPaths] = useState<ReadonlySet<string>>(() => new Set())
 
+  // cwd 가 바뀌면 이전 폴더 기준 리스팅/검증 캐시를 폐기한다 — 상대 dir 키(예 '')가 같아도
+  // 새 cwd 로 재조회하게 한다. effect 가 아니라 렌더 중 "이전 prop 비교" 패턴으로 초기화해
+  // stale 응답이 커밋·표시되기 전에 비운다(랜딩 cwd 변경[0057]·세션 전환 등 모든 cwd 전이 커버).
+  const [cachedCwd, setCachedCwd] = useState(cwd)
+  if (cwd !== cachedCwd) {
+    setCachedCwd(cwd)
+    setEntriesByDir(new Map())
+    setValidPaths(new Set())
+  }
+
   // dirPath 가 바뀔 때마다 listing — cancelled 플래그로 stale 응답 무시.
   useEffect(() => {
     if (!cwd || !match) return
