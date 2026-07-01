@@ -58,6 +58,10 @@ export class SessionRuntime implements ManagedRuntime {
     return this.status.timedOut
   }
 
+  get canSteer(): boolean {
+    return this.live?.canSteer === true
+  }
+
   send(req: TurnRequest): AsyncIterable<NormalizedEvent> {
     return this.runAttempt(req)
   }
@@ -103,6 +107,10 @@ export class SessionRuntime implements ManagedRuntime {
   async interrupt(): Promise<void> {
     this.status.markInterrupting('user_cancelled')
     await this.live?.interrupt()
+  }
+
+  async injectMessage(text: string): Promise<void> {
+    await this.live?.injectMessage?.(text)
   }
 
   async setModel(model?: string): Promise<void> {

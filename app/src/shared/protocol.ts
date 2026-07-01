@@ -65,6 +65,17 @@ export const SendChatMessageSchema = z.object({
   cwd: z.string().min(1).nullable().optional()
 })
 
+export const SteerChatMessageSchema = z.object({
+  sessionId: z.string().min(1),
+  text: z.string().min(1),
+  clientRequestId: z.string().min(1).optional()
+})
+
+export const CancelSteerSchema = z.object({
+  sessionId: z.string().min(1),
+  id: z.string().min(1)
+})
+
 export const CancelChatSchema = z.object({ sessionId: z.string() })
 
 // 서브에이전트(Task) 단위 중단 (orca:chat:stopSubagent). toolUseId = 부모 Agent 도구 호출 id.
@@ -351,6 +362,8 @@ export type {
   ErrorCategory,
   ClassifiedError,
   SendChatMessage,
+  SteerChatMessage,
+  CancelSteer,
   ComposerAttachment,
   PickedAttachment,
   OpenPathRequest,

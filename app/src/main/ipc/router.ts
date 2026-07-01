@@ -41,6 +41,7 @@ import { registerMiscHandlers } from './handlers/misc'
 import { registerChatHandlers, settleOpenToolRuns } from './chat/send'
 import { RuntimeSupervisor } from '../lifecycle/supervisor'
 import { AdmissionController, RejectDuplicatePolicy } from '../lifecycle/admission-controller'
+import { SteerQueue } from '../lifecycle/steer-queue'
 import { ConcurrencyRegistry } from '../orchestration/concurrency'
 import { ApprovalCoordinator } from './chat/approvals'
 import { TurnPersistence } from './chat/persist'
@@ -226,6 +227,7 @@ export class IpcRouter {
     const approvals = new ApprovalCoordinator()
     const permissionModes = new PermissionModeController()
     const admission = new AdmissionController<Electron.WebContents>(new RejectDuplicatePolicy())
+    const steerQueue = new SteerQueue()
     registerChatHandlers({
       ctx,
       supervisor,
@@ -233,7 +235,8 @@ export class IpcRouter {
       persistence,
       titles,
       permissionModes,
-      admission
+      admission,
+      steerQueue
     })
     approvals.registerHandlers(supervisor, permissionModes)
 

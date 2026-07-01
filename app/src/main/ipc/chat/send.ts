@@ -9,7 +9,9 @@ import { randomUUID } from 'node:crypto'
 import { CHANNELS, type ApprovalResolution, type PermissionAction } from '../../../shared/ipc'
 import {
   CancelChatSchema,
+  CancelSteerSchema,
   SendChatMessageSchema,
+  SteerChatMessageSchema,
   StopSubagentSchema
 } from '../../../shared/protocol'
 import { normalizeAttachments } from '../../files/attachments'
@@ -45,6 +47,7 @@ import {
 } from '../../lifecycle/settle'
 import type { TurnEventSink } from '../../lifecycle/turn-sinks'
 import { RuntimeSupervisor, abortTurn } from '../../lifecycle/supervisor'
+import type { SteerQueue } from '../../lifecycle/steer-queue'
 import type {
   AdmissionController,
   AdmissionContext,
@@ -65,6 +68,7 @@ export interface ChatDeps {
   titles: TitleGenerator
   permissionModes: PermissionModeController
   admission: AdmissionController<WebContents>
+  steerQueue: SteerQueue
 }
 
 // renderer forward sink — sendChatEvent 래핑. 코디네이터·정착(settle)·취소 핸들러가 공유한다.
@@ -198,7 +202,16 @@ function enactAdmissionDecision(
 }
 
 export function registerChatHandlers(deps: ChatDeps): void {
-  const { ctx, supervisor, approvals, persistence, titles, permissionModes, admission } = deps
+  const {
+    ctx,
+    supervisor,
+    approvals,
+    persistence,
+    titles,
+    permissionModes,
+    admission,
+    steerQueue
+  } = deps
 
   // 서브에이전트 백그라운드화 게이트(가이드 — run_in_background 주입). 종료 정착은
   // task_notification/사용자 중단 공통 경로에서 foreground/background 모두 처리한다.
@@ -386,7 +399,8 @@ export function registerChatHandlers(deps: ChatDeps): void {
       registry: supervisor,
       classifyError: (err, phase) => adapter.classifyError(err, phase),
       concurrency: supervisor.concurrency,
-      backgroundSubagents
+      backgroundSubagents,
+      steerQueue
     })
 
     // 단일 권한 승인 위임 — 어댑터의 canUseTool 이 ask_question·plan_review·tool_approval 중
@@ -503,6 +517,42 @@ export function registerChatHandlers(deps: ChatDeps): void {
   // chatSend 는 검증 실패를 reject 가 아닌 error 이벤트로 회신하는 특례 — handlePlain 으로
   // 등록하고 핸들러 서두에서 직접 safeParse 한다.
   handlePlain(CHANNELS.chatSend, (raw, event) => handleChatSend(event, raw))
+
+  handle(
+    CHANNELS.chatSteer,
+    SteerChatMessageSchema,
+    'reject',
+    async (req, event): Promise<void> => {
+      const turn = supervisor.getBySession(req.sessionId)
+      if (!turn || !turn.live?.canSteer) {
+        sendChatEvent(event.sender, {
+          type: 'error',
+          sessionId: req.sessionId,
+          error: makeClassifiedError(
+            'capability_unsupported',
+            '이 백엔드는 피드백 끼어들기를 지원하지 않습니다.',
+            { retryable: false }
+          )
+        })
+        return
+      }
+      const item = steerQueue.enqueue(req.sessionId, req.text, Date.now(), req.clientRequestId)
+      sendChatEvent(event.sender, {
+        type: 'steer.queued',
+        sessionId: req.sessionId,
+        id: item.id,
+        text: item.text,
+        createdAt: item.createdAt
+      })
+      await turn.live.injectMessage?.(item.text)
+    }
+  )
+
+  handle(CHANNELS.chatSteerCancel, CancelSteerSchema, 'reject', (req, event): void => {
+    const removed = steerQueue.cancel(req.sessionId, req.id)
+    if (!removed) return
+    sendChatEvent(event.sender, { type: 'steer.cancelled', sessionId: req.sessionId, id: req.id })
+  })
 
   handle(CHANNELS.chatCancel, CancelChatSchema, 'reject', (req): void => {
     const turn = supervisor.getBySession(req.sessionId)

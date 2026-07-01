@@ -2,11 +2,15 @@ import { memo, useMemo } from 'react'
 import { ReadingColumn } from '../../../../shared/ui/ReadingColumn'
 import { Exchange, TurnErrorBanner } from './Exchange'
 import { groupExchanges } from '../../lib/turns'
+import { PendingSteerTurn } from './PendingSteerTurn'
 import type { Message } from '../../reducer/chatReducer'
+import type { PendingSteerState } from '../../store/chatStore'
 import type { ClassifiedError } from '../../../../../../shared/ipc'
 
 interface TranscriptViewProps {
   messages: Message[]
+  pendingSteer: PendingSteerState[]
+  onRestoreSteerDraft?: (text: string) => void
   inflight: boolean
   loadingSession: boolean
   error?: ClassifiedError
@@ -27,6 +31,8 @@ interface TranscriptViewProps {
 // 보정을 차단한다.
 export const TranscriptView = memo(function TranscriptView({
   messages,
+  pendingSteer,
+  onRestoreSteerDraft,
   inflight,
   loadingSession,
   error,
@@ -72,6 +78,9 @@ export const TranscriptView = memo(function TranscriptView({
           )
         })}
         {/* 교환이 없는데 에러만 있는 엣지(전송 실패 직후 등) — 최상위 fallback. */}
+        {pendingSteer.length > 0 && (
+          <PendingSteerTurn items={pendingSteer} onRestoreDraft={onRestoreSteerDraft} />
+        )}
         {error && exchanges.length === 0 && <TurnErrorBanner error={error} />}
       </ReadingColumn>
     </div>

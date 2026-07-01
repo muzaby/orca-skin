@@ -12,26 +12,53 @@ import type { MessageParam } from '@anthropic-ai/sdk/resources'
 
 export type TurnInputContent = MessageParam['content']
 
+export interface ConsumedTurnInput {
+  text: string
+  message: SDKUserMessage
+}
+
+export interface TurnInputStreamOptions {
+  // SDK 가 prompt AsyncIterable 을 pull 해 user 메시지를 실제 소비하는 순간 발화한다.
+  onConsume?: (input: ConsumedTurnInput) => void
+  nextInjectedInput?: () => string | undefined
+}
+
 export interface TurnInputStream {
   // query({ prompt }) 에 넘기는 입력 스트림.
   stream: AsyncIterable<SDKUserMessage>
+  // 진행 중 턴에 텍스트 피드백을 추가한다. text-only 로 제한해 병합 규칙을 단순화한다.
+  push(text: string): void
   // 턴 종료(=result 도착) 또는 abort 시 호출 — generator 를 return 시켜 세션을 닫는다. 멱등.
   close(): void
 }
 
+function userMessage(content: TurnInputContent): SDKUserMessage {
+  return { type: 'user', message: { role: 'user', content }, parent_tool_use_id: null }
+}
+
 // 이 턴의 user 메시지 1건을 내보내고 close() 까지 열려있는 입력 스트림을 만든다.
-export function createTurnInputStream(content: TurnInputContent): TurnInputStream {
+export function createTurnInputStream(
+  content: TurnInputContent,
+  options: TurnInputStreamOptions = {}
+): TurnInputStream {
   let closed = false
   let wake: (() => void) | null = null
-  const queue: SDKUserMessage[] = [
-    { type: 'user', message: { role: 'user', content }, parent_tool_use_id: null }
-  ]
+  const queue: Array<SDKUserMessage | (() => string | undefined)> = [userMessage(content)]
 
   async function* gen(): AsyncIterable<SDKUserMessage> {
     while (true) {
-      while (queue.length > 0) yield queue.shift()!
+      while (queue.length > 0) {
+        const queued = queue.shift()!
+        const next = typeof queued === 'function' ? queued() : queued
+        if (next === undefined) continue
+        const message = typeof next === 'string' ? userMessage(next) : next
+        if (typeof message.message.content === 'string') {
+          options.onConsume?.({ text: message.message.content, message })
+        }
+        yield message
+      }
       if (closed) return
-      // 다음 입력(현 턴엔 없음) 또는 close() 까지 대기. close() race 가드 포함.
+      // 다음 입력 또는 close() 까지 대기. close() race 가드 포함.
       await new Promise<void>((resolve) => {
         if (closed) {
           resolve()
@@ -44,6 +71,13 @@ export function createTurnInputStream(content: TurnInputContent): TurnInputStrea
 
   return {
     stream: gen(),
+    push(text: string): void {
+      if (closed) return
+      void text
+      queue.push(() => options.nextInjectedInput?.())
+      wake?.()
+      wake = null
+    },
     close(): void {
       closed = true
       wake?.()

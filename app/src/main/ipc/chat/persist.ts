@@ -27,7 +27,7 @@ export class TurnPersistence {
     text: string,
     createdAt: number,
     attachmentViews?: AttachmentView[]
-  ): void {
+  ): number {
     const id = this.db.appendMessage({ sessionId, role: 'user', content: text, createdAt })
     this.db.appendPart({
       messageId: id,
@@ -43,6 +43,15 @@ export class TurnPersistence {
         payloadJson: JSON.stringify({ attachments: attachmentViews })
       })
     }
+    return id
+  }
+
+  persistSteerUserMessage(turn: InflightTurn, text: string, createdAt: number): number | null {
+    const sessionId = turn.dbSessionId
+    if (!sessionId) return null
+    const id = this.persistUserMessage(sessionId, text, createdAt)
+    this.db.updateSessionPreview(sessionId, previewOf(text), createdAt)
+    return id
   }
 
   // 현재 assistant 메시지를 보장(없으면 빈 메시지 생성 + text 캐시 리셋)하고 id 를 반환한다.

@@ -70,4 +70,6 @@ export interface TurnRequest {
   isSubagentBlocked?: (subagentType: string | undefined) => boolean
   attachmentTexts?: ExtractedAttachmentText[]
   attachmentImages?: ExtractedAttachmentImage[]
+  onInputConsumed?: (text: string) => void
+  consumeInjectedInput?: () => string | undefined
 }

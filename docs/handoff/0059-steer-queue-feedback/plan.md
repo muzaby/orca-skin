@@ -181,38 +181,41 @@
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- 동의 / 그대로 진행: …
-- 이견 / 우려: …
+- 동의 / 그대로 진행: streaming-input producer pull 을 steer flush 의 권위 신호로 쓰고, pending 은 DB 미영속으로 두며 flush 시 단일 user row 로 굳히는 방향은 유지했다.
+- 이견 / 조정: `chat:send` 중복을 steer 로 암묵 전환하지 않고 신규 `chat:steer` explicit action path 로 분리했다. renderer 버튼은 사용자 피드백대로 단일 슬롯 3상태(보내기 / 중단 / 피드백 보내기) 토글로 구현했다.
+- 구조화: main 은 L1 `SteerQueue` 순수 버퍼 + L2 streaming input push + L3 IPC enactment 로 분리했고, renderer pending 은 committed reducer messages 가 아니라 store transient 로 보관해 DB/트랜스크립트 오염을 피했다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 구현함 / ⚠️ 보고만·결정 필요 | … |
+| 1 | pending optimistic ack 중복 | ✅ 구현함 | renderer 생성 id(`clientRequestId`)를 main `steer.queued.id`로 재사용해 중복 대신 replace 한다. |
+| 2 | feedbackMode 에서 중단 버튼 동시 노출 여부 | ✅ 구현함 | 사용자 피드백에 따라 단일 버튼 슬롯 3상태 토글로 구현했다. 입력을 지우면 stop 으로 복귀한다. |
+| 3 | pending renderer 오염 | ✅ 구현함 | `pendingSteer`는 `SessionEntry` transient 로 두고 committed `messages`에는 flush 이벤트 때만 반영한다. |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] streaming-input `push`/`onConsume`(단일 flush 병합)
-- [ ] 포트 `injectMessage`/`canSteer` + claude/mock 배선
-- [ ] `SteerQueue`(신규) + 단위 테스트
-- [ ] TurnCoordinator `steer`(onConsume→단일 persist∥forward)
+- [x] streaming-input `push`/`onConsume`(단일 flush 병합)
+- [x] 포트 `injectMessage`/`canSteer` + claude/mock 배선
+- [x] `SteerQueue`(신규) + 단위 테스트
+- [x] TurnCoordinator `steer`(onConsume→단일 persist∥forward)
 - [ ] `SteerQueuePolicy` + router 정책 스왑
-- [ ] enactAdmissionDecision steer/queue + `chat:steerCancel`
-- [ ] IPC 채널·이벤트 + IPC_CONTRACT §6
-- [ ] chatStore `pendingSteer`/`steer`/`cancelSteer`/`steer.*` 핸들러
-- [ ] Composer feedbackMode(placeholder·토글·툴팁·중단 유지)
-- [ ] pending 버블(폰트)·hover 취소·flush 전환
+- [x] explicit `chat:steer` enactment + `chat:steerCancel`
+- [x] IPC 채널·이벤트 + IPC_CONTRACT §6
+- [x] chatStore `pendingSteer`/`steer`/`cancelSteer`/`steer.*` 핸들러
+- [x] Composer feedbackMode(placeholder·토글·중단 복귀)
+- [x] pending 버블(폰트)·hover 취소·flush 전환
 - [ ] 게이트 green
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` |
-| 게이트 결과 | lint / typecheck / test (N passed) |
-| 블로커 / 역질문 | (없으면 "없음") |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | `app/src/main/adapters/streaming-input.ts`, `app/src/main/lifecycle/steer-queue.ts`, `app/src/main/lifecycle/turn-coordinator.ts`, `app/src/main/ipc/chat/send.ts`, `app/src/renderer/src/features/chat/store/chatStore.ts`, `app/src/renderer/src/features/chat/components/Composer.tsx`, `docs/IPC_CONTRACT.md` 등 |
+| 실행 명령 | `npm run lint` / `npm run typecheck` / `npm test` |
+| 게이트 결과 | lint PASS / typecheck PASS / test 617 passed |
+| 블로커 / 역질문 | 없음 — unsupported backend sequential queue fallback 은 explicit `chat:steer` 미지원 error 로 범위 축소 |
+| 대상 커밋 | `7cefcbe` |
 
 ---
 

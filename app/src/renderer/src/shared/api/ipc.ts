@@ -19,6 +19,8 @@ import type {
   Project,
   SearchHit,
   SendChatMessage,
+  SteerChatMessage,
+  CancelSteer,
   SessionListItem,
   SessionTitleEvent,
   Settings,
@@ -43,6 +45,8 @@ import type {
 
 export const chatApi = {
   send: (req: SendChatMessage): Promise<void> => window.orca.chat.send(req),
+  steer: (req: SteerChatMessage): Promise<void> => window.orca.chat.steer(req),
+  cancelSteer: (req: CancelSteer): Promise<void> => window.orca.chat.cancelSteer(req),
   cancel: (sessionId: string): Promise<void> => window.orca.chat.cancel(sessionId),
   stopSubagent: (sessionId: string, toolUseId: string): Promise<void> =>
     window.orca.chat.stopSubagent(sessionId, toolUseId),
