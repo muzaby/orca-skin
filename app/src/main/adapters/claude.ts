@@ -289,6 +289,14 @@ export class ClaudeAdapter implements SessionAdapter {
       options: {
         resume: sessionId ?? undefined,
         includePartialMessages: true,
+        // steer echo 의 전제 조건(0060 D5). CLI 는 mid-turn drain 한 큐 커맨드(steer)를
+        // `--replay-user-messages` 일 때만 user(isReplay: content=원문, uuid=source_uuid=orca
+        // batch uuid) 메시지로 output 스트림에 되돌린다 — 기본 off 라 echo 가 아예 안 와서
+        // D1 커밋 신호가 영영 발화하지 않았다(v0.3.143 바이너리 직렬화 게이트 실측:
+        // `replayUserMessages: h=!1` + `h && attachment.type==="queued_command"` 분기).
+        // SDK Options 에 1급 필드가 없어 extraArgs(값 null = bare flag)로 넘긴다.
+        // 부작용인 턴 첫 프롬프트 replay echo 는 coordinator 의 매칭 실패 무시로 흡수된다.
+        extraArgs: { 'replay-user-messages': null },
         // 서브에이전트(Task) child 의 text/thinking 블록도 forward 받는다 — 기본은 tool_use/
         // tool_result 만 와서 서브에이전트 답변이 우측 패널에 안 보였다(handoff 0044 피드백 2).
         forwardSubagentText: true,
