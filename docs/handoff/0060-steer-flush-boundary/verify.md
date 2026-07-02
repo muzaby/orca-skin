@@ -205,3 +205,29 @@ test      : Test Files 2 failed | 82 passed (84) / Tests 641 passed (641)
 
 - **파생 이슈 D3·D4: resolved (PASS)** — 인수 9/9 충족, 게이트 green(test 641), TurnCoordinator·renderer·IPC 무변경 확인. 0060 파생 이슈 D1~D4 전부 종결.
 - 사람 확인 대기: same-batch FIFO·위임 중 무flush·훅 등록 무회귀 실기(`npm run dev`+`[wire]`) · flushed 취소 거부→echo 복원 UX 시각검증 · PR 머지.
+
+---
+
+## 파생 이슈 검증 (r4 — D5 steer echo 미발화, 2026-07-02)
+
+> 대상: plan §파생 이슈 D5 — 사용자 버그리포트("steer 가 반영됐는데 버블 승격이 안 됨")의 원인 분석 + 수정 커밋 `f449c67`(Claude 직접 구현). 원인은 orca 매칭 로직이 아니라 **echo 자체가 CLI 직렬화 게이트(기본 off)에 막혀 한 번도 발화하지 않은 것** — D1~D4 의 커밋 사슬 전체가 전제부터 끊겨 있었다.
+
+### 해결 확인 매트릭스
+
+| # | 항목 | 충족 | 증거 |
+|---|---|---|---|
+| 1 | 원인 확정 — echo 는 `--replay-user-messages` 조건부 | ✅ | v0.3.143 동봉 바이너리 내장 JS 추출: `replayUserMessages: h = !1`(기본 false) + `else if (h && a.attachment.type==="queued_command") yield {type:"user", …}` + SDK 기본 spawn argv 에 플래그 부재(bridge 모드만 전달). plan §D5 구현 보고에 사슬 전문 |
+| 2 | 수정 — 플래그 상시 전달 | ✅ | `adapters/claude.ts` sendMessage options `extraArgs: {'replay-user-messages': null}`(sdk.mjs 직렬화: null→bare flag 실측). 회귀 고정 `claude.steer-replay.test.ts` |
+| 3 | 기존 매칭 설계 유효성 재확인 | ✅ | 활성 시 wire echo = `content: _H.prompt`(원문)·`uuid: _H.source_uuid`(=batch uuid)·`isReplay`·`parent_tool_use_id: null` — claude-map 필터 통과, uuid 1차 매칭 성립(text 폴백 불요화). §9 (a)/(e) 실측 대기 항목 동시 해소 |
+| 4 | 부수 효과(턴 첫 프롬프트 replay) 무해 | ✅ | echo 시점(첫 assistant/user 메시지 직전)에 flushed 큐는 항상 빈 상태(carryover 가 send 전에 drain) → 매칭 실패 무시. input.echo 는 renderer 미전달 — IPC·UX 무변경 |
+| 5 | 게이트 green | ✅ | lint/typecheck(3종) PASS, test **642 passed**(641+1). electron 2 suite 환경 제약 동일 |
+
+### 자기 리뷰 (r4)
+
+- r2/r3 검증의 구멍: 명세 §6.1 의 "echo [V]" 를 **무조건 발화**로 받아들였다 — 명세의 [V] 는 REPL(interactive) 계층 관찰이었고 SDK headless 경로의 직렬화 게이트는 별도였다. "실측 대기" 로 분류는 했으나 **차단 리스크(전제 실패 시 기능 전체 불능 + carryover 중복 전달)로 승격하지 않은 것**이 판단 오류. 외부 시스템의 조건부 방출은 "지연 관측" 이 아니라 "미방출" 일 수 있다는 교훈.
+- 이번 분석은 실기 재현이 불가능한 환경 제약을 동봉 바이너리 오프셋 추출로 우회 — 원인·수정·매칭 유효성까지 코드 레벨 [V]. 남는 것은 실기 E2E 1회(steer→flush→echo→버블 승격) 뿐.
+
+### 결론 (r4)
+
+- **파생 이슈 D5: resolved (PASS)** — 게이트 green(test 642). D1~D4 의 커밋 사슬이 이제 실기에서 발화 가능한 상태.
+- 사람 확인 대기(1순위): `npm run dev` 실기 — steer 입력→도구 경계 flush→echo→버블 승격 E2E + 턴 첫 프롬프트 replay 무해성. 이후 r3 잔여 항목 동일.

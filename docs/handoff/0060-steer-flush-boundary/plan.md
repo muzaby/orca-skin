@@ -89,6 +89,7 @@ flush 를 **입력 push 경로에서 분리**하고 **TurnCoordinator 이벤트 
 | D2 | High | **턴 종료 무조건 flush = 모델-미전달 메시지의 committed 영속.** 명세 C1/C7 의 "pending 은 CLI 큐 잔존→다음 턴 소비"는 장수 프로세스 전제인데, orca 는 턴-스코프 one-shot(result→`input.close()`→서브프로세스 종료=CLI 큐 소멸). 그런데 telemetry/synthetic 경계가 미소비 pending 까지 flush("유실 방지") → 모델이 영원히 못 본 텍스트가 committed 로 영속·표시. abort 후 잔여도 다음 턴 첫 경계에서 같은 허위 커밋. 0059 파생 UX "잔여 큐를 다음 턴으로 drain" 미구현 자리. | 명세 §3 C1[I]·C7[V/I]·§6.3("echo 없이 턴이 끝나면 queued 유지가 정답") | 턴 종료(telemetry/synthetic) flush 를 **소비분(echo 관측분)만**으로 축소 — 미소비 pending 은 큐 잔존·renderer pending 유지. 잔여분은 **다음 `chat:send`(같은 세션, idle)에서 이월**: steer row 를 새 user row 앞에 persist + 모델 프롬프트에 `\n\n` 병합, renderer 는 send 액션에서 로컬 커밋(낙관적 버블보다 앞서 append — main `steer.flushed` 미발신으로 중복 방지). | resolved (Claude 직접 구현 — 아래 구현 보고) |
 | D3 | Medium | **취소(steerCancel)의 비가역.** `chat:steer` 가 즉시 stdin push 하므로 취소 시점엔 이미 CLI 큐에 있음 — un-push API 없음(명세). 취소해도 모델은 그 텍스트를 경계에서 소비하는데 UI/DB 에는 기록이 없다(보이지 않는 조종). | 명세 §5(제거 API 부재) → **v3/v4 §7(훅 게이트)로 해법 제공** | **로컬 홀드 + PostToolBatch 게이트 flush 채택**(사용자 제공 명세 v3/v4 §7.3~7.4, 2026-07-02 확정): steer 를 stdin 에 즉시 넣지 않고 로컬 버퍼(held)에 보류(취소·수정 100%), PostToolBatch callback 훅(메인 루프 = `agent_id` 부재)에서 held 전체를 병합 단일 user 메시지(batch uuid·`priority:'next'`)로 주입. flush→echo sub-second 창의 취소는 **거부** — renderer 낙관 제거 → echo 커밋(`steer.flushed`)으로 버블 복원 = 이벤트 흐름만으로 정직 화해(전용 기전 0). 검토 대안 A2(시간 유예 창)+F(tombstone 화해)는 이벤트 게이트가 상위 호환이라 폐기. "stdin 주입 = 조작 권한 포기"(명세 §7.4) 결론 채택. | resolved (Claude 직접 구현 — 아래 구현 보고) |
 | D4 | Low | **다건 steer 병합 표시 불일치.** CLI 큐/모델 컨텍스트는 개별 user 메시지 N 개(명세 C9), orca DB/UI 는 `'\n\n'` 병합 1행(0059 요구 4 "단일 flush 버블"). | 명세 §3 C9 [V]·§6.2 | **게이트 병합 단일 주입으로 D3 과 동시 해소**(사용자 확정: "다건 steer 는 커밋 시 합쳐서 1건으로 표현"): PostToolBatch 게이트에서 held 전체를 **병합해 user 메시지 1건으로 주입** → 1버블이 배치 확률이 아니라 구조로 보장 + 모델 컨텍스트=트랜스크립트 1:1(구 F5 불일치도 소멸). 배치를 넘어 서로 다른 경계에서 소비된 건 사이엔 어시스턴트 응답이 끼므로 강제 병합하지 않는다(트랜스크립트 왜곡 방지). | resolved (D3 과 동시 구현 — 아래 구현 보고) |
+| D5 | High | **steer echo 미발화 — CLI replay 플래그 기본 off.** 실기에서 steer 가 모델에 반영됐는데도 버블 승격이 안 됨(사용자 버그리포트 2026-07-02). 원인: CLI 직렬화 계층은 drain 된 큐 커맨드(`queued_command` attachment)를 **`replayUserMessages` 가 참일 때만** user(isReplay) 메시지로 output 스트림에 yield 하는데(`h && attachment.type==="queued_command"` 게이트, `replayUserMessages: h = !1` 기본 false), SDK 의 기본 spawn argv 에 `--replay-user-messages` 가 없다(bridge 모드만 전달). 즉 **echo 가 구조적으로 한 번도 안 왔다** — D1 커밋 신호 영영 미발화 + D2 carryover 가 이미 소비된 steer 를 다음 턴에 중복 전달. | v0.3.143 리눅스 바이너리 내장 JS 직접 추출 실측(drain→`GM8` queued_command 생성→직렬화 게이트→`E7A` transport 생성자→`--replay-user-messages` argv). 명세 §6.1 의 "echo=항상 발화 [V]" 는 **플래그 조건부**로 정정 | `claude.ts` sendMessage options 에 `extraArgs: {'replay-user-messages': null}`(bare flag) 상시 전달. 활성 시 echo 는 **content=원문 그대로**(`_H.prompt` — kK4 래핑은 API 요청 측만)·**uuid=`source_uuid`=orca batch uuid 보존** 으로 실측 확인 — uuid 1차/text 폴백 매칭 모두 성립(§9 (a)·(e) 동시 해소). 부작용인 턴 첫 프롬프트 replay echo 는 coordinator 의 매칭 실패 무시(허위 커밋 구조적 불가)로 흡수 — carryover 가 send 전에 큐를 비우므로 오매칭 창 없음. | resolved (Claude 직접 구현 — 아래 구현 보고) |
 
 ### D1·D2 구현 보고 (Claude, 커밋 `90e49f5`)
 
@@ -145,9 +146,20 @@ orca 에 P2 pickup 이 없어 해당 없음.
 | 안전 열화 논증 | FIFO 부정 시 다음 경계 소비 or carryover — **이중 전달 구조적 불가**(CLI 가 drain 했다면 다음 API 요청 존재→echo→consumed; 못 했다면 모델 미전달→carryover 정당). C1(텍스트-only)은 게이트 미발화→carryover(현행 대비 개선 — one-shot 에서 stdin 사본이 죽던 것). 훅 상시 등록은 `hook_*` SDK 메시지가 claude-map fallthrough `[]` 라 이벤트/stall 무영향 |
 | 게이트 | lint PASS / typecheck(node+web+test) PASS / test **641 passed** (신규: steer-queue 상태모델 8케이스·makeSteerGateHook 4·mergeHooks 3). 환경 제약: electron 미설치 2 suite(`persist`·`send.runtime-resilience`) import 불가 — 0050~0060 동일 계열(electron 바이너리 다운로드 403) |
 
+### D5 구현 보고 (Claude, 커밋 `f449c67`)
+
+| 항목 | 내용 |
+|---|---|
+| 원인 분석 방법 | 이 환경은 중첩 claude 서브프로세스 실행 불가 → **동봉 CLI 바이너리(linux-x64, 233MB Bun 컴파일)의 내장 JS 를 오프셋 추출**로 판독. 사슬: mid-turn drain(`getCommandsByMaxPriority("next")` + `agentId===void 0` 메인 루프 필터) → `GM8`: 커맨드→`{type:"queued_command", prompt:원문, source_uuid:커맨드 uuid}` attachment → 직렬화 계층: `else if (h && a.attachment.type==="queued_command") yield {type:"user", content:_H.prompt, uuid:_H.source_uuid, isReplay:!0}` — **`h`=`replayUserMessages` 기본 `!1`** → transport 생성 `E7A(…, $.replayUserMessages, …)` ← argv `--replay-user-messages`(SDK 기본 spawn 미포함, bridge 모드 전용) |
+| 수정 | `adapters/claude.ts` sendMessage options 에 `extraArgs: {'replay-user-messages': null}` — sdk.mjs 의 extraArgs 직렬화(`null`→bare flag) 실측. `complete()`(제목 생성)는 steer 무관이라 미적용 |
+| 부수 효과 검토 | 플래그 활성 시 턴 첫 프롬프트도 isReplay user 로 replay 됨 → claude-map 이 `input.echo` 로 승격하지만 coordinator 매칭 실패 무시로 흡수(그 시점 flushed 큐는 항상 빈 상태 — carryover 가 send 전에 큐를 비움). renderer 미전달·IPC 무변경 |
+| 명세 정정 | 명세 §6.1 "drain 소비분은 user 메시지로 output 스트림에 yield [V]" 는 **`--replay-user-messages` 조건부**로 정정. §9 (a) uuid 보존·(e) 원문 보존은 플래그 활성 전제에서 [V] 로 승격 |
+| 게이트 | lint/typecheck(3종) PASS, test **642 passed**(신규 `claude.steer-replay.test.ts` — extraArgs 회귀 고정). electron 2 suite 환경 제약 동일 |
+
 ### 실측 대기 항목 (사람 확인)
 
-- echo 의 `uuid` 보존 여부(명세 §9 (a) [I]) — 미보존이어도 내용 폴백으로 동작하나, 보존 확인 시 폴백 의존 제거 가능. `npm run dev` + 디버그 `[wire]`.
+- ~~echo 의 `uuid` 보존 여부(명세 §9 (a) [I])~~ — **해소(D5 바이너리 실측)**: wire echo 는 `uuid: source_uuid`(=orca batch uuid) 보존. 단 `--replay-user-messages` 필요(D5).
+- ~~P1(attachment 경로) 주입분 echo 의 원문 보존(명세 §9 (e))~~ — **해소(D5 바이너리 실측)**: wire echo 의 content 는 원문 그대로(`_H.prompt`) — "The user sent a new message…" kK4 래핑은 모델용 API 요청 측에만 적용.
 - C1(텍스트-only 턴) 종료 시 미소비 큐가 CLI transcript 에 남는지(명세 §9 (c)) — 남지 않는다는 전제(D2 이월 설계 근거)를 실기로 확증.
-- C2(도구 중 steer)의 mid-turn echo 커밋 위치·C5(위임 중) task 취합 후 echo — 명세 §6.2 시퀀스 재현.
-- (D3/D4 구현 후) PostToolBatch 훅 대기 중 stdin write 의 same-batch 포함(명세 §9 (d)) · P1(attachment 경로) 주입분 echo 의 원문 보존(명세 §9 (e) — text 폴백 매칭 영향, uuid 1차라 완충) · 훅 등록만으로 steer 미사용 턴 무회귀 · 위임 중 서브에이전트 내부 배치에서 flush 안 됨(`agent_id` 필터).
+- C2(도구 중 steer)의 mid-turn echo 커밋 위치·C5(위임 중) task 취합 후 echo — 명세 §6.2 시퀀스 재현. **D5 수정 후 재실기 1순위** — steer 입력→도구 경계 flush→echo→버블 승격 전체 사슬.
+- PostToolBatch 훅 대기 중 stdin write 의 same-batch 포함(명세 §9 (d)) · 훅 등록만으로 steer 미사용 턴 무회귀 · 위임 중 서브에이전트 내부 배치에서 flush 안 됨(`agent_id` 필터) · replay 플래그 활성 후 턴 첫 프롬프트 replay echo 의 무해성(렌더러 표시 0) 확인.
