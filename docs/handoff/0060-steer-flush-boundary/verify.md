@@ -146,3 +146,62 @@ $ npx vitest run turn-coordinator.test steer-queue.test streaming-input.test cla
 
 - **파생 이슈 D1·D2: resolved** — 게이트 green(test 630). D3·D4 는 Open Question 유지.
 - 사람 확인 대기: echo uuid 보존·C1/C2/C5 실기 재현·carryover 통합 실측·D3/D4 결정·PR 머지.
+
+---
+
+## 파생 이슈 검증 (r3 — D3·D4 로컬 홀드 + PostToolBatch 게이트, 2026-07-02)
+
+> 대상: plan §파생 이슈 D3(취소 비가역)·D4(병합 표시) — 설계 확정(`917b613`) 후 구현 커밋 `8e5d3fd`(Claude 직접 구현). 구현 전 수석엔지니어 검토로 SDK 0.3.143 dts(tarball 직접 추출)를 대조해 설계 전제 3건을 실증하고 보완 5건(B1~B5)을 설계에 되먹였다 — plan §"D3·D4 구현 보고" 참조.
+
+### 해결 확인 매트릭스 (인수 기준 9건)
+
+| # | 인수 기준 | 충족 | 증거 |
+|---|---|---|---|
+| 1 | `chat:steer` 는 stdin 즉시 주입 없음(held) — `steer.queued` 만 발신 | ✅ | `ipc/chat/send.ts:556-568` — enqueue+이벤트만, `injectMessage` 호출 제거(핸들러 sync 화). `rg injectMessage app/src` 코드 0건 |
+| 2 | PostToolBatch 게이트에서 held 전체가 병합 단일 배치(batch uuid·priority next)로 주입 | ✅ | `steer-queue.ts:82`(`flushHeld` — 병합·uuid 발급·flushed 전이), `claude-adapt.ts:138`(`makeSteerGateHook` — take→push), `claude.ts:307-312`(배선), `streaming-input.ts` `steerMessage` priority 'next' 고정. 테스트 `steer-queue.test.ts` "flushHeld 는 held 전체를 병합 단일 배치로"·`claude-adapt.test.ts:260` "메인 루프에서 배치를 push" |
+| 3 | 서브에이전트 배치(`agent_id` 존재)에서 take/push 미호출 | ✅ | `claude-adapt.ts:144` `agent_id !== undefined → {}` (SDK dts: agent_id 는 서브에이전트 발화 시에만 존재). 테스트 "서브에이전트 발화에서는 take/push 를 호출하지 않는다" |
+| 4 | held 취소 성공 / flushed 취소 거부(무이벤트) → echo 커밋으로 버블 복원 | ✅ | `steer-queue.ts:66`(`cancel` — held 만 검색), `send.ts` `chatSteerCancel` 무변경(removed 없으면 `steer.cancelled` 미발신). renderer `chatStore.ts` `steer.flushed` 핸들러가 pending 유무 무관 append — 무변경으로 화해 성립. 테스트 "flushed 항목의 취소는 거부된다" |
+| 5 | echo(batch uuid 1차/text 폴백) → 배치 consumed → 첫 비-echo 에서 1행/1버블 커밋(D4) | ✅ | `steer-queue.ts:96`(`markConsumed` — 배치 매칭), `:122`(`drainConsumed` — 소비 배치 병합; 복수 배치 동시 회수=연속 echo=같은 drain 지점이라 병합이 D4 규칙과 정합). TurnCoordinator 무변경(시그니처 유지). 테스트 "markConsumed 는 batch uuid 1차"·"연속 echo 로 함께 소비된 복수 배치" + turn-coordinator 기존 echo 케이스 8건 무회귀 green |
+| 6 | 턴 종료 미소비분(held+미echo flushed)은 다음 send carryover 이월 | ✅ | `steer-queue.ts:141`(`drainForFlush` — 미소비 flushed+held 시간순 병합, 소비분 제외로 중복 전달 차단). send.ts carryover 경로 무변경. 테스트 "carryover 는 미소비 flushed 배치 + held 를 시간순 병합하고 소비분은 버린다" |
+| 7 | 게이트 훅 예외는 턴 미중단(fail-open) | ✅ | `claude-adapt.ts:147-149` try/catch → `{}` + warn. 테스트 "take/push 예외는 삼키고 {} 를 반환한다" (take throw·push throw 양쪽) |
+| 8 | `injectMessage` dead 배선 제거 + steer 미사용 턴 무회귀 | ✅ | `lifecycle/ports.ts`·`adapters/types.ts`·`lifecycle/session-runtime.ts`·`adapters/mock.ts`·`claude.ts` 반환 객체 전부 제거(`rg` 코드 0건, 주석 2건만). 훅 상시 등록의 무회귀 근거: `hook_*` SDK 메시지는 claude-map 말미 fallthrough `[]`(이벤트 0=stall/renderer 무영향), 빈 큐 게이트=take undefined→no-op |
+| 9 | 게이트 lint/typecheck/test green·경계·순환 0 | ✅ | §게이트(r3) — test **641 passed**·lint(boundaries·no-cycle)·typecheck 3종 PASS |
+
+### 게이트 재실행 (r3)
+
+```
+$ cd app && npm install --ignore-scripts && npm rebuild better-sqlite3   # electron 바이너리 403(프록시) 스킵
+$ npm run typecheck && npm run lint && npm test
+typecheck : PASS (node + web + test)
+lint      : PASS (eslint --cache --fix, 출력 0)
+test      : Test Files 2 failed | 82 passed (84) / Tests 641 passed (641)
+  - 실패 2 suite: persist.test.ts · send.runtime-resilience.test.ts
+    → electron 바이너리 미설치(프록시 403) import 실패 — 0050~0060 동일 환경 제약, 0 어서션 실패
+  - 신규: steer-queue 상태모델 8케이스 · makeSteerGateHook 4 · mergeHooks 3 (r2 630 → 641)
+```
+
+### 검증 책임 분리 (r3 증분)
+
+| 항목 | 에이전트(Claude) | 사람(사용자) | 결과 |
+|---|---|---|---|
+| D3/D4 코드 대조·게이트 | ✅ | — | 상기 매트릭스·641 green |
+| SDK 전제(PostToolBatch·agent_id·uuid/priority) | ✅ dts 직접 대조 | — | 3건 실증(plan 구현 보고) |
+| PostToolBatch 훅 대기 중 stdin write same-batch 포함(명세 §9(d)) | ✖ | ✅ | FIFO 논증상 성립·부정돼도 다음 경계 열화(이중 전달 불가 논증 완비) — 실기 1회 |
+| P1 경로 echo 원문 보존(§9(e) — text 폴백 영향) | ✖ | ✅ | batch uuid 1차 매칭이 완충 |
+| 위임 중 서브에이전트 배치 무flush·훅 등록 무회귀 실기 | ✖ | ✅ | `npm run dev` + `[wire]` |
+
+### 자기 리뷰 (r3)
+
+- 설계 단계: plan 의 "모듈 영향" 절이 유효했으나 SteerQueue 를 플래그 증식으로 두는 초안이었다 —
+  구현 전 검토(B1 컬렉션 분리)로 3상태 규칙을 구조화한 것이 취소 거부·중복 전달 차단의 실수 여지를
+  제거했다. 검토 없이 받아썼다면 flushed 취소가 flag 검사 누락으로 새는 버그 클래스가 남았을 것.
+- 구현 단계: 게이트 훅 fail-open(B2)·동적 sessionId(B3)는 설계 문서에 없던 실무 결함 예방 — 훅
+  예외가 SDK 훅 에러로 전파되는 경로는 단위 테스트로만 확증했고 실 CLI 의 훅 에러 처리 정책(턴
+  중단 여부)은 실측하지 않았다(fail-open 이므로 도달 불가 경로).
+- 검증 단계: same-batch FIFO(§9(d))는 논증+안전 열화로 수용했으나 실기 확증 전까지 "steer 가 한
+  경계 늦게 반영"되는 체감 지연 가능성은 남는다 — 사람 실측 항목으로 유지.
+
+### 결론 (r3)
+
+- **파생 이슈 D3·D4: resolved (PASS)** — 인수 9/9 충족, 게이트 green(test 641), TurnCoordinator·renderer·IPC 무변경 확인. 0060 파생 이슈 D1~D4 전부 종결.
+- 사람 확인 대기: same-batch FIFO·위임 중 무flush·훅 등록 무회귀 실기(`npm run dev`+`[wire]`) · flushed 취소 거부→echo 복원 UX 시각검증 · PR 머지.
