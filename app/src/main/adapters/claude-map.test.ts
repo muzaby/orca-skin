@@ -226,6 +226,62 @@ describe('claudeToNormalized', () => {
     ])
   })
 
+  it('user(텍스트 echo, 배열 content) → input.echo (uuid 보존)', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'user',
+        uuid: 'orca-steer-1',
+        message: { content: [{ type: 'text', text: 'steer feedback' }] }
+      }),
+      ctx()
+    )
+    expect(out).toEqual([
+      { type: 'input.echo', sessionId: 's1', text: 'steer feedback', uuid: 'orca-steer-1' }
+    ])
+  })
+
+  it('user(텍스트 echo, string content) → input.echo (uuid 없으면 생략)', () => {
+    const out = claudeToNormalized(
+      sdk({ type: 'user', message: { content: 'steer feedback' } }),
+      ctx()
+    )
+    expect(out).toEqual([{ type: 'input.echo', sessionId: 's1', text: 'steer feedback' }])
+  })
+
+  it('서브에이전트발 user 텍스트(parent_tool_use_id)는 input.echo 가 아니다', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'user',
+        parent_tool_use_id: 'task-1',
+        message: { content: [{ type: 'text', text: 'child text' }] }
+      }),
+      ctx()
+    )
+    expect(out).toEqual([])
+  })
+
+  it('tool_result 를 동반한 user 메시지는 input.echo 를 내지 않는다', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'user',
+        message: {
+          content: [
+            { type: 'tool_result', tool_use_id: 't1', content: 'ok', is_error: false },
+            { type: 'text', text: 'note' }
+          ]
+        }
+      }),
+      ctx()
+    )
+    expect(out.map((e) => e.type)).toEqual(['tool.call.completed'])
+  })
+
+  it('공백뿐인 user 텍스트는 이벤트를 내지 않는다', () => {
+    expect(claudeToNormalized(sdk({ type: 'user', message: { content: '  \n ' } }), ctx())).toEqual(
+      []
+    )
+  })
+
   it('result(usage) → telemetry', () => {
     const out = claudeToNormalized(
       sdk({ type: 'result', usage: { input_tokens: 10, output_tokens: 20 } }),

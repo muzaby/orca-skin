@@ -287,6 +287,10 @@ export type NormalizedEvent =
     }
   | { type: 'message.delta'; sessionId: string; delta: { text: string } }
   | { type: 'steer.queued'; sessionId: string; id: string; text: string; createdAt: number }
+  // main 내부 커밋 신호(renderer 미전달) — CLI 가 stdin 주입 입력을 흡수해 user 메시지로 echo 한
+  // 순간(SDKUserMessageReplay). TurnCoordinator 가 steer 소비 확정에만 쓰고 persist/forward 하지
+  // 않는다. uuid 는 주입 시 실은 orca id(echo 보존 미확정 — 미보존 시 text 매칭 폴백, 0060 D1).
+  | { type: 'input.echo'; sessionId: string; text: string; uuid?: string }
   | {
       type: 'steer.flushed'
       sessionId: string

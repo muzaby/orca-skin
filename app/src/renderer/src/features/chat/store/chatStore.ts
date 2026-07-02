@@ -343,9 +343,11 @@ function receive(ev: NormalizedEvent): void {
 
     case 'steer.flushed':
       // 소비 확정 = 즉시 일반 커밋 사용자 메시지로 굳힌다(연회색/기울임 pending → 정상 폰트).
-      // 직전 어시스턴트 message.completed 뒤(producer-pull FIFO)에 도착하므로 messages 는
-      // [어시스턴트 응답-전][steer user] 순이 되고, 이후 어시스턴트 파트는 appendAssistantPart
-      // 가 새 메시지(그 아래)로 형성한다. main 도 같은 경계에서 DB row 를 분리해 재로드 정합.
+      // main 은 CLI user echo(input.echo) 관측으로 소비를 판정하므로(0060 D1) 이 이벤트는
+      // 어시스턴트 응답-전 파트 뒤에 도착 — messages 는 [응답-전][steer user] 순이 되고, 이후
+      // 어시스턴트 파트는 appendAssistantPart 가 새 메시지(그 아래)로 형성한다. main 도 같은
+      // 시점에 DB row 를 분리해 재로드 정합. 턴 종료까지 echo 가 없던 잔여 pending 은 이 이벤트
+      // 없이 남고, 다음 send 시 로컬 커밋(carryover)으로 굳는다(0060 D2).
       patchPendingSteer(key, (pending) => pending.filter((item) => !ev.ids.includes(item.id)))
       dispatchTo(key, {
         type: 'APPEND_COMMITTED_USER_MESSAGE',
@@ -469,7 +471,20 @@ function send(
   }
 
   // 새 턴 시작 — 직전 턴의 잔여 라이브 버퍼 제거(구 SEND_USER_MESSAGE 의 pending 리셋).
-  resetLive(getState().activeKey)
+  const sendKey = getState().activeKey
+  resetLive(sendKey)
+  // 이전 턴에서 소비되지 못한 pending steer 로컬 커밋(0060 D2 carryover) — main 이 이 chat:send
+  // 처리에서 steer row 를 새 user row *앞에* 영속하고 프롬프트에 병합하므로(steer.flushed 미발신),
+  // renderer 도 같은 순서([steer][새 메시지])로 굳혀 라이브·재로드 정렬을 일치시킨다.
+  const carryover = getState().sessions[sendKey]?.pendingSteer ?? EMPTY_PENDING_STEER
+  if (carryover.length > 0) {
+    dispatchActive({
+      type: 'APPEND_COMMITTED_USER_MESSAGE',
+      text: carryover.map((item) => item.text).join('\n\n'),
+      createdAt: carryover[0].createdAt
+    })
+    patchPendingSteer(sendKey, () => EMPTY_PENDING_STEER)
+  }
   dispatchActive({ type: 'SEND_USER_MESSAGE', text: trimmed, attachmentViews })
   // 새 채팅 (sessionId=null) 첫 메시지일 때만 projectId 전달. resume 경로면 main 이
   // sessionId 로부터 직접 project_id 를 조회하므로 여기서는 null.

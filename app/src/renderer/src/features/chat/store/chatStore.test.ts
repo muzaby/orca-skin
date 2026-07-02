@@ -525,8 +525,37 @@ describe('chatStore — steer feedback lifecycle', () => {
     expect(useChatStore.getState().sessions.s.pendingSteer).toEqual([])
   })
 
+  it('idle 세션 send 는 잔여 pendingSteer 를 새 메시지보다 앞서 로컬 커밋한다(0060 D2 carryover)', () => {
+    useChatStore.setState((s) => ({
+      sessions: {
+        ...s.sessions,
+        s: {
+          ...s.sessions.s,
+          session: { ...s.sessions.s.session, inflight: false },
+          pendingSteer: [
+            { id: 'a', text: 'first', createdAt: 5 },
+            { id: 'b', text: 'second', createdAt: 6 }
+          ]
+        }
+      }
+    }))
+
+    expect(chatActions.send('새 메시지')).toBe(true)
+
+    const st = useChatStore.getState()
+    // main 은 이 send 에서 steer row 를 앞에 영속하고 steer.flushed 를 보내지 않는다 —
+    // renderer 로컬 커밋이 [steer 병합][새 메시지] 순서를 만든다(재로드 정렬과 일치).
+    expect(st.sessions.s.pendingSteer).toEqual([])
+    const msgs = st.sessions.s.session.messages
+    expect(msgs.map((m) => m.role)).toEqual(['user', 'user'])
+    expect(partsText(msgs[0].parts)).toBe('first\n\nsecond')
+    expect(partsText(msgs[1].parts)).toBe('새 메시지')
+    // 프롬프트 병합은 main 책임 — renderer payload 는 타이핑 텍스트 그대로.
+    expect(chatSend).toHaveBeenCalledWith(expect.objectContaining({ text: '새 메시지' }))
+  })
+
   it('응답-전 → flush → 응답-후 순서로 [assistant][user steer][assistant] 를 형성한다', () => {
-    // producer-pull 시맨틱: 소비 확정(steer.flushed)은 직전 응답 message.completed 뒤에 온다.
+    // echo 시맨틱(0060 D1): 소비 확정(steer.flushed)은 직전 응답 message.completed 뒤에 온다.
     ingestChatEvent({
       type: 'message.completed',
       sessionId: 's',

@@ -346,10 +346,26 @@ export function registerChatHandlers(deps: ChatDeps): void {
     if (parsed.data.sessionId) supervisor.startResume(parsed.data.sessionId, turn)
     else supervisor.startNew(event.sender, turn)
 
+    // 이전 턴에서 소비되지 못한 pending steer 이월(0060 D2) — 턴-스코프 서브프로세스는 종료
+    // 시 CLI 내부 큐가 소멸하므로, 잔여 pending 은 여기(같은 세션의 다음 턴)서 프롬프트에 병합해
+    // 모델에 전달하고 그 시점에 커밋한다. steer row 를 새 user row *앞에* 영속해 renderer 의
+    // send 시점 로컬 커밋(chatStore)과 정렬을 일치시킨다. steer.flushed 는 보내지 않는다 —
+    // renderer 가 이미 로컬 커밋해 중복 append 가 된다.
+    const steerCarryover = parsed.data.sessionId
+      ? steerQueue.drainForFlush(parsed.data.sessionId)
+      : undefined
+
     // resume 경로: sessionId 가 들어왔다는 건 이전 init 으로 sessions row 가 이미
     // 존재한다는 의미. 다음 init 이벤트를 기다리지 않고 user 메시지를 즉시 기록.
     if (parsed.data.sessionId) {
       const now = Date.now()
+      if (steerCarryover) {
+        persistence.persistUserMessage(
+          parsed.data.sessionId,
+          steerCarryover.text,
+          steerCarryover.createdAt
+        )
+      }
       persistence.persistUserMessage(
         parsed.data.sessionId,
         parsed.data.text,
@@ -485,7 +501,9 @@ export function registerChatHandlers(deps: ChatDeps): void {
 
     const request: TurnRequest = {
       sessionId: parsed.data.sessionId,
-      text: parsed.data.text,
+      // 이월된 steer 는 새 프롬프트 앞에 병합해 모델에 전달한다(D2) — DB 에는 위에서 별도 row 로
+      // 이미 영속됐다. 제목/프리뷰(turn.firstUserText 등)는 사용자가 타이핑한 텍스트만 쓴다.
+      text: steerCarryover ? `${steerCarryover.text}\n\n${parsed.data.text}` : parsed.data.text,
       cwd: turn.cwd,
       signal: controller.signal,
       extensions,
@@ -544,7 +562,9 @@ export function registerChatHandlers(deps: ChatDeps): void {
         text: item.text,
         createdAt: item.createdAt
       })
-      await turn.live.injectMessage?.(item.text)
+      // uuid(=item.id)를 함께 실어 CLI echo 와의 상관키로 쓴다 — 커밋 판정은 coordinator 가
+      // input.echo 관측으로 수행한다(0060 D1).
+      await turn.live.injectMessage?.(item.text, item.id)
     }
   )
 

@@ -276,8 +276,9 @@ export class ClaudeAdapter implements SessionAdapter {
     else signal?.addEventListener('abort', onAbort)
 
     // 턴-스코프 입력 스트림 — close() 까지 미종료(streaming-input.ts 가 불변식 격리).
-    // push(injectMessage)는 stdin 으로 입력만 전달하고, steer flush 는 turn-coordinator 가
-    // turn 경계에서 별도로 구동한다(handoff 0060) — pull(=SDK eager drain) 은 flush 신호 아님.
+    // push(injectMessage)는 stdin 으로 입력만 전달하고, steer 소비 확정은 CLI 가 흡수 후
+    // 되돌려주는 user echo(input.echo, claude-map)로 turn-coordinator 가 판정한다(0060 D1)
+    // — pull(=SDK eager drain)도 orca 관찰 경계도 flush 신호가 아니다.
     const input = createTurnInputStream(buildTurnContent(text, attachmentTexts, attachmentImages))
 
     const handle = query({
@@ -348,7 +349,7 @@ export class ClaudeAdapter implements SessionAdapter {
       // 라이브 control — 스트리밍 입력 모드라야 동작하는 SDK Query 메서드에 위임.
       setPermissionMode: (mode) => handle.setPermissionMode(mode),
       interrupt: () => handle.interrupt(),
-      injectMessage: async (text) => input.push(text),
+      injectMessage: async (text, uuid) => input.push(text, uuid),
       canSteer: true,
       setModel: (model) => handle.setModel(model),
       // 서브에이전트 단위 중단 — task_started/notification 의 task_id 로 stopTask.

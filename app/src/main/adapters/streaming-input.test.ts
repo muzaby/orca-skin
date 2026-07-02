@@ -66,8 +66,31 @@ describe('createTurnInputStream', () => {
     expect(second.value).toMatchObject({
       type: 'user',
       parent_tool_use_id: null,
+      message: { role: 'user', content: 'steer feedback' },
+      priority: 'next'
+    })
+    close()
+  })
+
+  it('push(text, uuid) 는 uuid(orca 상관키)와 priority next 를 함께 싣는다 (0060 D1)', async () => {
+    const { stream, push, close } = createTurnInputStream('first')
+    const it = stream[Symbol.asyncIterator]()
+    await it.next()
+
+    const pending = it.next()
+    push('steer feedback', 'orca-steer-0001')
+    const second = await pending
+    expect(second.value).toMatchObject({
+      type: 'user',
+      uuid: 'orca-steer-0001',
+      priority: 'next',
       message: { role: 'user', content: 'steer feedback' }
     })
+    // 초기 프롬프트에는 uuid/priority 를 싣지 않는다(주입 메시지 전용).
+    const { stream: s2 } = createTurnInputStream('plain')
+    const first = await s2[Symbol.asyncIterator]().next()
+    expect(first.value).not.toHaveProperty('priority')
+    expect(first.value).not.toHaveProperty('uuid')
     close()
   })
 
