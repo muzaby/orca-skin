@@ -34,7 +34,9 @@ import {
   adaptPlugins,
   adaptSettings,
   adaptSkills,
-  adaptSystemPrompt
+  adaptSystemPrompt,
+  makeSteerGateHook,
+  mergeHooks
 } from './claude-adapt'
 import { CLAUDE_DESCRIPTOR } from '../capabilities/claude-probe'
 import type { ProviderDescriptor } from '../../shared/ipc'
@@ -276,8 +278,9 @@ export class ClaudeAdapter implements SessionAdapter {
     else signal?.addEventListener('abort', onAbort)
 
     // 턴-스코프 입력 스트림 — close() 까지 미종료(streaming-input.ts 가 불변식 격리).
-    // push(injectMessage)는 stdin 으로 입력만 전달하고, steer 소비 확정은 CLI 가 흡수 후
-    // 되돌려주는 user echo(input.echo, claude-map)로 turn-coordinator 가 판정한다(0060 D1)
+    // steer 는 로컬 홀드(SteerQueue held) 후 PostToolBatch 게이트 훅이 takeSteerFlush 로 병합
+    // 배치를 회수해 input.push 로 주입한다(0060 D3·D4). 소비 확정은 CLI 가 흡수 후 되돌려주는
+    // user echo(input.echo, claude-map)로 turn-coordinator 가 판정한다(0060 D1)
     // — pull(=SDK eager drain)도 orca 관찰 경계도 flush 신호가 아니다.
     const input = createTurnInputStream(buildTurnContent(text, attachmentTexts, attachmentImages))
 
@@ -300,7 +303,13 @@ export class ClaudeAdapter implements SessionAdapter {
         // options.env(adaptEnv)에는 시스템(턴) env 만 — orca.json 앱 env.
         ...adaptSettings(req.providerSettings?.settings),
         ...adaptEnv(env),
-        ...adaptHooks(extensions.hooks),
+        // hooks = 중립 정규화 훅 + steer 게이트(PostToolBatch, 메인 루프 한정 flush) 조각 병합.
+        ...mergeHooks(
+          adaptHooks(extensions.hooks),
+          req.takeSteerFlush
+            ? makeSteerGateHook(req.takeSteerFlush, (t, u) => input.push(t, u))
+            : {}
+        ),
         // canUseTool — AskUserQuestion·ExitPlanMode·위험 도구를 requestApproval 로 게이트하고
         // 안전 도구는 allow passthrough. 콜백 미주입(opencode 등) 시 옵션 자체를 생략해 현행
         // 자동 통과 동작을 유지한다.
@@ -349,7 +358,7 @@ export class ClaudeAdapter implements SessionAdapter {
       // 라이브 control — 스트리밍 입력 모드라야 동작하는 SDK Query 메서드에 위임.
       setPermissionMode: (mode) => handle.setPermissionMode(mode),
       interrupt: () => handle.interrupt(),
-      injectMessage: async (text, uuid) => input.push(text, uuid),
+      // steer UX 수용 — 전달은 게이트 훅 flush(takeSteerFlush) 또는 다음 턴 carryover(D2)로.
       canSteer: true,
       setModel: (model) => handle.setModel(model),
       // 서브에이전트 단위 중단 — task_started/notification 의 task_id 로 stopTask.

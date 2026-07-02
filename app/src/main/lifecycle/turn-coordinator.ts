@@ -80,11 +80,11 @@ export class TurnCoordinator<W = unknown> {
     return item != null
   }
 
-  // user echo(input.echo) 관측 → 해당 pending steer 를 소비로 표시한다. echo 는 CLI 가 stdin
+  // user echo(input.echo) 관측 → 해당 steer 배치를 소비로 표시한다. echo 는 CLI 가 stdin
   // 주입 입력을 자기 컨텍스트로 흡수(drain)한 순간의 유일한 정밀 신호(명세 §6.1, handoff 0060
   // D1) — 0060 의 경계 관찰 근사(최상위 tool.call.completed settle/telemetry)를 대체한다.
-  // uuid(주입 시 실은 SteerQueue item id) 매칭 1차, echo 의 uuid 미보존 대비 text 폴백.
-  // 매칭 실패(초기 프롬프트 echo 등)는 무시 — 허위 커밋이 구조적으로 불가능하다.
+  // uuid(게이트 flush 시 실은 SteerQueue 배치 uuid, D3·D4) 매칭 1차, echo 의 uuid 미보존 대비
+  // 병합 텍스트 폴백. 매칭 실패(초기 프롬프트 echo 등)는 무시 — 허위 커밋이 구조적으로 불가능하다.
   private markSteerConsumed(turn: TurnContext<W>, ev: { uuid?: string; text: string }): void {
     const sessionId = turn.dbSessionId
     if (!sessionId) return

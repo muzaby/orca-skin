@@ -20,8 +20,8 @@ export interface LiveTurn {
   close(): void
   setPermissionMode(mode: ClaudePermissionMode): Promise<void>
   interrupt(): Promise<void>
-  // 진행 중 턴에 텍스트 피드백 주입. uuid 는 orca 상관키(SteerQueue item id) — CLI echo 매칭용.
-  injectMessage?(text: string, uuid?: string): Promise<void>
+  // steer UX 수용 여부 — 전달은 어댑터 게이트 훅(TurnRequest.takeSteerFlush) 또는 다음 턴
+  // carryover(0060 D2/D3). mid-turn stdin 직주입 경로(injectMessage)는 0060 D3 에서 제거됐다.
   readonly canSteer?: boolean
   setModel(model?: string): Promise<void>
   // 서브에이전트(Task) 단위 중단 — SDK task_id 로 stopTask. 백엔드 미지원 시 no-op 가능.

@@ -1,9 +1,11 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
   makeClaudeHookCallback,
+  makeSteerGateHook,
+  mergeHooks,
   adaptEnv,
   adaptHooks,
   adaptMcp,
@@ -252,5 +254,106 @@ describe('makeClaudeHookCallback', () => {
       { signal: new AbortController().signal }
     )
     expect(result).toEqual({})
+  })
+})
+
+describe('makeSteerGateHook (0060 D3·D4 — PostToolBatch 게이트 flush)', () => {
+  type GateCallback = (
+    input: never,
+    toolUseID: undefined,
+    options: { signal: AbortSignal }
+  ) => Promise<unknown>
+
+  function gateCallbackOf(fragment: object): GateCallback {
+    const matchers = (fragment as { hooks: { PostToolBatch: Array<{ hooks: GateCallback[] }> } })
+      .hooks.PostToolBatch
+    expect(matchers).toHaveLength(1)
+    return matchers[0].hooks[0]
+  }
+
+  const mainInput = { hook_event_name: 'PostToolBatch', session_id: 's', cwd: '/x' }
+  const batch = { uuid: 'batch-1', ids: ['a', 'b'], text: 'first\n\nsecond', createdAt: 1 }
+
+  it('메인 루프(agent_id 부재)에서 배치를 push 하고 {} 를 반환한다', async () => {
+    const take = vi.fn(() => batch)
+    const push = vi.fn()
+    const cb = gateCallbackOf(makeSteerGateHook(take, push))
+    expect(
+      await cb(mainInput as never, undefined, { signal: new AbortController().signal })
+    ).toEqual({})
+    expect(push).toHaveBeenCalledWith('first\n\nsecond', 'batch-1')
+  })
+
+  it('서브에이전트 발화(agent_id 존재)에서는 take/push 를 호출하지 않는다', async () => {
+    const take = vi.fn(() => batch)
+    const push = vi.fn()
+    const cb = gateCallbackOf(makeSteerGateHook(take, push))
+    const input = { ...mainInput, agent_id: 'sub-1' }
+    expect(await cb(input as never, undefined, { signal: new AbortController().signal })).toEqual(
+      {}
+    )
+    expect(take).not.toHaveBeenCalled()
+    expect(push).not.toHaveBeenCalled()
+  })
+
+  it('빈 큐(take → undefined)면 push 없이 {} (no-op 경계)', async () => {
+    const push = vi.fn()
+    const cb = gateCallbackOf(makeSteerGateHook(() => undefined, push))
+    expect(
+      await cb(mainInput as never, undefined, { signal: new AbortController().signal })
+    ).toEqual({})
+    expect(push).not.toHaveBeenCalled()
+  })
+
+  it('take/push 예외는 삼키고 {} 를 반환한다 (fail-open — 턴 본체 보호)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const throwingTake = gateCallbackOf(
+        makeSteerGateHook(() => {
+          throw new Error('boom')
+        }, vi.fn())
+      )
+      expect(
+        await throwingTake(mainInput as never, undefined, { signal: new AbortController().signal })
+      ).toEqual({})
+      const throwingPush = gateCallbackOf(
+        makeSteerGateHook(
+          () => batch,
+          () => {
+            throw new Error('closed')
+          }
+        )
+      )
+      expect(
+        await throwingPush(mainInput as never, undefined, { signal: new AbortController().signal })
+      ).toEqual({})
+    } finally {
+      warn.mockRestore()
+    }
+  })
+})
+
+describe('mergeHooks', () => {
+  const matcher = (): { hooks: unknown[] } => ({ hooks: [async () => ({})] })
+
+  it('hooks 조각이 하나도 없으면 {} (옵션 미주입 보존)', () => {
+    expect(mergeHooks({}, {})).toEqual({})
+  })
+
+  it('단일 조각은 그대로 통과한다', () => {
+    const a = { hooks: { PreToolUse: [matcher()] } }
+    expect(mergeHooks(a, {})).toEqual({ hooks: { PreToolUse: a.hooks.PreToolUse } })
+  })
+
+  it('서로 다른 이벤트는 보존, 같은 이벤트는 매처 배열 concat', () => {
+    const pre = matcher()
+    const batch1 = matcher()
+    const batch2 = matcher()
+    const merged = mergeHooks(
+      { hooks: { PreToolUse: [pre], PostToolBatch: [batch1] } },
+      { hooks: { PostToolBatch: [batch2] } }
+    ) as { hooks: Record<string, unknown[]> }
+    expect(merged.hooks.PreToolUse).toEqual([pre])
+    expect(merged.hooks.PostToolBatch).toEqual([batch1, batch2])
   })
 })

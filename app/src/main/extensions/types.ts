@@ -14,6 +14,7 @@ import type { ApprovalResolution, EffortLevel, PermissionAction, SkillInfo } fro
 import type { NormalizedPermissionMode } from '../../shared/permission-mode'
 import type { NormalizedHookSet } from './hooks'
 import type { ExtractedAttachmentImage, ExtractedAttachmentText } from '../files/attachments'
+import type { SteerFlushBatch } from '../lifecycle/steer-queue'
 
 // SKILL.md 스캔 메타 DTO 를 그대로 재사용 (step 2 — 자산 가시화).
 export type NormalizedSkillRef = SkillInfo
@@ -63,6 +64,11 @@ export interface TurnRequest {
   permissionMode?: NormalizedPermissionMode
   // Claude Code thinking effort. SDK Options.effort 로 per-turn 전달한다.
   effort?: EffortLevel
+  // 게이트 훅 시점에 로컬 홀드 steer 를 병합 단일 배치로 회수한다(0060 D3·D4). 어댑터가 자기
+  // 게이트(claude=PostToolBatch, 메인 루프 한정)에서 호출해 반환 배치를 자기 입력 채널로 주입
+  // — 미주입(steer 미지원 백엔드)/빈 큐면 undefined(주입 없음). requestApproval 과 대칭인
+  // 라이브-턴 제어 채널이라 TurnExtensions 가 아닌 TurnRequest 직속.
+  takeSteerFlush?: () => SteerFlushBatch | undefined
   // 서브에이전트를 백그라운드 task 로 띄울지(run_in_background 주입) — 개별 stopTask 중단 가능.
   // ipc/chat/send.ts 가 ORCA_SUBAGENT_BACKGROUND 로 결정해 실어 보낸다. 기본 off.
   backgroundSubagents?: boolean
