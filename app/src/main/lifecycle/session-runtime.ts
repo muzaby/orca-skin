@@ -109,8 +109,8 @@ export class SessionRuntime implements ManagedRuntime {
     await this.live?.interrupt()
   }
 
-  async injectMessage(text: string): Promise<void> {
-    await this.live?.injectMessage?.(text)
+  async injectMessage(text: string, uuid?: string): Promise<void> {
+    await this.live?.injectMessage?.(text, uuid)
   }
 
   async setModel(model?: string): Promise<void> {

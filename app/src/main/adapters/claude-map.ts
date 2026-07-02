@@ -271,15 +271,18 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
     return events
   }
 
-  // SDKUserMessage / SDKUserMessageReplay → tool.call.completed
+  // SDKUserMessage / SDKUserMessageReplay → tool.call.completed | input.echo
   if (msg.type === 'user') {
-    const content = (msg as unknown as { message?: { content?: unknown[] } }).message?.content ?? []
+    const rawContent = (msg as unknown as { message?: { content?: unknown } }).message?.content
+    const content = Array.isArray(rawContent) ? rawContent : []
     const parentToolRunId = readParentToolRunId(msg)
     const events: NormalizedEvent[] = []
+    let sawToolResult = false
     for (const part of content) {
       if (typeof part !== 'object' || part === null) continue
       const p = part as Record<string, unknown>
       if (p.type === 'tool_result') {
+        sawToolResult = true
         const toolRunId = typeof p.tool_use_id === 'string' ? p.tool_use_id : ''
         if (!toolRunId) continue
         // 부모 Task tool_result 면 누산한 서브에이전트 메타(모델·시간·도구수)를 실어 영속.
@@ -292,6 +295,34 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
           isError: p.is_error === true,
           ...(parentToolRunId !== undefined ? { parentToolRunId } : {}),
           ...(meta && Object.keys(meta).length > 0 ? { subagentMeta: meta } : {})
+        })
+      }
+    }
+    // 텍스트-only user echo → input.echo (main 내부 steer 커밋 신호, 0060 D1). CLI 가 stdin 주입
+    // 입력을 자기 컨텍스트로 흡수(drain)하면 그 메시지가 user 로 output 스트림에 되돌아온다 —
+    // 이것이 소비 확정의 유일한 정밀 신호(명세 §6.1). 서브에이전트발(parent_tool_use_id)과
+    // tool_result 동반 메시지는 제외한다. 매칭·커밋 판단은 turn-coordinator 소유.
+    if (!sawToolResult && parentToolRunId === undefined) {
+      const text =
+        typeof rawContent === 'string'
+          ? rawContent
+          : content
+              .filter(
+                (p): p is { type: 'text'; text: string } =>
+                  typeof p === 'object' &&
+                  p !== null &&
+                  (p as Record<string, unknown>).type === 'text' &&
+                  typeof (p as Record<string, unknown>).text === 'string'
+              )
+              .map((p) => p.text)
+              .join('\n')
+      if (text.trim() !== '') {
+        const uuid = (msg as unknown as { uuid?: unknown }).uuid
+        events.push({
+          type: 'input.echo',
+          sessionId: ctx.sessionId,
+          text,
+          ...(typeof uuid === 'string' ? { uuid } : {})
         })
       }
     }

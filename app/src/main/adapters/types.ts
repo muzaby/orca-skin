@@ -20,7 +20,8 @@ export interface LiveTurn {
   close(): void
   setPermissionMode(mode: ClaudePermissionMode): Promise<void>
   interrupt(): Promise<void>
-  injectMessage?(text: string): Promise<void>
+  // 진행 중 턴에 텍스트 피드백 주입. uuid 는 orca 상관키(SteerQueue item id) — CLI echo 매칭용.
+  injectMessage?(text: string, uuid?: string): Promise<void>
   readonly canSteer?: boolean
   setModel(model?: string): Promise<void>
   // 서브에이전트(Task) 단위 중단 — SDK task_id 로 stopTask. 백엔드 미지원 시 no-op 가능.

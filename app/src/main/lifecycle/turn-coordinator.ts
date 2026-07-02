@@ -80,30 +80,31 @@ export class TurnCoordinator<W = unknown> {
     return item != null
   }
 
-  // pending steer 를 flush 할 turn 경계인가. agent 가 큐된 입력을 자기 컨텍스트로 흡수하는
-  // 지점을 관찰로 근사한다(orca 는 SDK 서브프로세스에 agentic 루프를 위임하므로 turn head 를
-  // 직접 소유하지 않고 이벤트 스트림을 관찰만 한다 — handoff 0060).
-  //  - telemetry: 턴 종료(도구 없는 텍스트-only 턴의 경계).
-  //  - tool.call.completed(최상위): 도구/서브에이전트 취합 완료 = agent 가 continuation 직전.
-  //    서브에이전트 내부 도구(parentToolRunId 있음)는 부모 경계가 아니다(opencode §7.5 불투명성).
-  //    병렬 최상위 도구 배치는 전부 settle(최상위 open 잔여 0)된 뒤에만 경계로 본다(조기 flush 방지).
-  private isSteerFlushBoundary(turn: TurnContext<W>, ev: NormalizedEvent): boolean {
-    if (ev.type === 'telemetry') return true
-    if (ev.type !== 'tool.call.completed' || ev.parentToolRunId !== undefined) return false
-    for (const info of turn.openToolRuns.values()) {
-      if (info.parentToolRunId === undefined) return false
-    }
-    return true
+  // user echo(input.echo) 관측 → 해당 pending steer 를 소비로 표시한다. echo 는 CLI 가 stdin
+  // 주입 입력을 자기 컨텍스트로 흡수(drain)한 순간의 유일한 정밀 신호(명세 §6.1, handoff 0060
+  // D1) — 0060 의 경계 관찰 근사(최상위 tool.call.completed settle/telemetry)를 대체한다.
+  // uuid(주입 시 실은 SteerQueue item id) 매칭 1차, echo 의 uuid 미보존 대비 text 폴백.
+  // 매칭 실패(초기 프롬프트 echo 등)는 무시 — 허위 커밋이 구조적으로 불가능하다.
+  private markSteerConsumed(turn: TurnContext<W>, ev: { uuid?: string; text: string }): void {
+    const sessionId = turn.dbSessionId
+    if (!sessionId) return
+    this.deps.steerQueue?.markConsumed(sessionId, {
+      ...(ev.uuid !== undefined ? { uuid: ev.uuid } : {}),
+      text: ev.text
+    })
   }
 
-  private consumeSteerForInput(turn: TurnContext<W>): string | undefined {
+  // 소비 확정분만 병합 flush(persist∥forward). echo 배치가 끝난 지점에서 호출된다 — 미소비
+  // pending 은 남겨 턴 종료 후 다음 chat:send 이월(carryover)로 넘긴다(0060 D2: 모델이 못 본
+  // 텍스트를 committed 로 굳히지 않는다).
+  private flushConsumedSteer(turn: TurnContext<W>): void {
     const sessionId = turn.dbSessionId
     const { steerQueue, persist, forward } = this.deps
-    if (!sessionId || !steerQueue) return undefined
-    const flush = steerQueue.drainForFlush(sessionId)
-    if (!flush) return undefined
+    if (!sessionId || !steerQueue) return
+    const flush = steerQueue.drainConsumed(sessionId)
+    if (!flush) return
     const messageId = persist.persistSteerUserMessage?.(turn, flush.text, Date.now())
-    if (messageId == null) return undefined
+    if (messageId == null) return
     forward.forward(turn.owner, {
       type: 'steer.flushed',
       sessionId,
@@ -112,7 +113,6 @@ export class TurnCoordinator<W = unknown> {
       messageId,
       createdAt: flush.createdAt
     })
-    return flush.text
   }
 
   // 승인 보류 동안 stall 타이머 멈춤 — 사용자 판단 시간이 stall 로 오판돼 턴이 abort 되지 않게.
@@ -149,6 +149,18 @@ export class TurnCoordinator<W = unknown> {
                 : rawEv
             eventsReceived += 1
             idle.reset()
+            // input.echo — main 내부 steer 커밋 신호(renderer 미전달·미영속). 소비 표시만 하고
+            // 다음 이벤트로 넘어간다. echo 는 drain 배치 동안 연속으로 오므로(명세 §6.2), 실제
+            // flush 는 배치가 끝난 첫 비-echo 이벤트에서 일괄 수행된다(0059 요구 4 단일 버블 유지).
+            if (ev.type === 'input.echo') {
+              this.markSteerConsumed(turn, ev)
+              continue
+            }
+            // echo 배치 종료 지점 — 소비 확정분을 이 이벤트의 persist *전에* flush 해 DB 정렬
+            // [응답-전][steer user][응답-후] 를 보존한다(persistSteerUserMessage 가 진행 중
+            // assistant 를 마감·리셋). telemetry 만 예외로 persist 후 flush — usage messageId
+            // 링크·assistant 마감이 끝난 뒤여야 한다(0060).
+            if (ev.type !== 'telemetry') this.flushConsumedSteer(turn)
             if (ev.type === 'telemetry' || ev.type === 'error' || ev.type === 'turn.aborted') {
               sawTerminal = true
             }
@@ -196,11 +208,9 @@ export class TurnCoordinator<W = unknown> {
             } else if (ev.type === 'tool.call.completed') {
               turn.openToolRuns.delete(ev.toolRunId)
             }
-            // pending steer 를 agent 가 흡수하는 turn 경계에서만 flush 한다(handoff 0060).
-            // 입력 push(pull) 즉시가 아니라 최상위 도구/서브에이전트 취합 완료 또는 턴 종료에서.
-            // persist 이후(telemetry 는 usage messageId 링크·assistant 마감이 끝난 뒤) 실행해
-            // DB 정렬 [응답][steer user][continuation] 을 보존한다.
-            if (this.isSteerFlushBoundary(turn, ev)) this.consumeSteerForInput(turn)
+            // telemetry(턴 종료)는 persist 이후에 소비 확정분을 flush — usage messageId 링크와
+            // assistant 마감을 보존한다. 미소비 pending 은 여기서도 flush 하지 않는다(D2).
+            if (ev.type === 'telemetry') this.flushConsumedSteer(turn)
           }
         } finally {
           activeTurns.decrement(boundProjectId)
@@ -213,8 +223,9 @@ export class TurnCoordinator<W = unknown> {
           } as const
           persist.persist(turn, ev)
           forward.forward(turn.owner, ev)
-          // 도구·telemetry 경계를 못 본 채 스트림이 끝났어도 잔여 pending steer 는 flush(유실 방지).
-          this.consumeSteerForInput(turn)
+          // 스트림이 경계 없이 끝났어도 *소비 확정분* 은 flush 한다. 미소비 pending 은 큐에
+          // 남긴다 — 모델이 못 본 텍스트를 committed 로 굳히지 않고 다음 chat:send 로 이월(D2).
+          this.flushConsumedSteer(turn)
         }
         return
       } catch (err) {
