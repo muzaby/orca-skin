@@ -90,6 +90,16 @@ flush 를 **입력 push 경로에서 분리**하고 **TurnCoordinator 이벤트 
 | D3 | Medium | **취소(steerCancel)의 비가역.** `chat:steer` 가 즉시 stdin push 하므로 취소 시점엔 이미 CLI 큐에 있음 — un-push API 없음(명세). 취소해도 모델은 그 텍스트를 경계에서 소비하는데 UI/DB 에는 기록이 없다(보이지 않는 조종). | 명세 §5(제거 API 부재, `priority:"now"` abort 만 존재) | **Open Question — 사용자 결정**: (a) 취소 UX 제한/제거, (b) 주입을 orca 큐 보류로 지연(단, drain 타이밍 race 재유입 트레이드오프), (c) 취소돼도 "이미 전달됨" 표시. echo 전환 후엔 소비 시점이 보이므로 (c) 가 저비용. | open (결정 대기) |
 | D4 | Low | **다건 steer 병합 표시 불일치.** CLI 큐/모델 컨텍스트는 개별 user 메시지 N 개(명세 C9), orca DB/UI 는 `'\n\n'` 병합 1행(0059 요구 4 "단일 flush 버블"). echo 기반 커밋은 자연스럽게 개별 커밋과 결이 맞음. | 명세 §3 C9 [V]·§6.2 | **Open Question — 사용자 결정**: 병합 1버블 유지(현행, D1 구현은 소비분 병합 flush 로 유지) vs 개별 버블 전환(모델 컨텍스트와 1:1). | open (결정 대기) |
 
+### D1·D2 구현 보고 (Claude, 커밋 `90e49f5`)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | main: `adapters/{streaming-input,claude,claude-map,types}.ts`·`lifecycle/{steer-queue,turn-coordinator,ports,session-runtime}.ts`·`ipc/chat/send.ts`·`shared/ipc.ts` / renderer: `store/chatStore.ts` / docs: `IPC_CONTRACT.md` / tests: steer-queue·turn-coordinator·streaming-input·claude-map·chatStore |
+| D1 핵심 | ① `push(text, uuid)` — steer stdin 메시지에 `uuid`(SteerQueue item id)+`priority:'next'` 명시(SDK 0.3.143 타입 지원 확인, 범프 0) ② claude-map: tool_result 없음·`parent_tool_use_id:null`·텍스트 user 메시지 → **`input.echo`**(main 내부 variant, renderer 미전달) ③ TurnCoordinator: echo → `SteerQueue.markConsumed`(uuid 1차/text 폴백, 미매칭 무시=허위 커밋 구조적 불가) → **첫 비-echo 이벤트에서 소비분만 병합 flush**(persist 전 — DB 정렬 보존; telemetry 만 persist 후). `isSteerFlushBoundary` 경계 근사 제거 |
+| D2 핵심 | ① 턴 종료(telemetry/synthetic)에서 미소비 pending flush 제거 — 소비분만 커밋, 잔여는 큐 잔존(renderer pending 유지) ② 다음 `chat:send`(같은 세션·idle)에서 `drainForFlush` 이월: steer row 를 새 user row **앞에** persist + 모델 프롬프트 `\n\n` 병합, `steer.flushed` 미발신 ③ renderer send 액션이 pendingSteer 를 낙관적 버블보다 앞서 로컬 커밋(`APPEND_COMMITTED_USER_MESSAGE`) — 라이브·재로드 정렬 `[steer][새 메시지]` 일치 |
+| 게이트 | lint PASS / typecheck(node+web+test) PASS / test **630 passed** (신규: coordinator echo 8케이스·steer-queue markConsumed/drainConsumed·streaming-input uuid/priority·claude-map echo 5케이스·chatStore carryover). 환경 제약: electron 미설치 2 suite(`persist`·`send.runtime-resilience`) import 불가 — 0050~0060 동일 계열 |
+| 한계 | `chat:send` carryover 경로(send.ts)는 electron 의존이라 이 환경에서 단위 테스트 불가 — renderer 로컬 커밋·SteerQueue drain 은 각각 테스트로 커버, 통합은 사람 실측 |
+
 ### 실측 대기 항목 (D1/D2 구현 후 사람 확인)
 
 - echo 의 `uuid` 보존 여부(명세 §8 (a) [I]) — 미보존이어도 내용 폴백으로 동작하나, 보존 확인 시 폴백 의존 제거 가능. `npm run dev` + 디버그 `[wire]`.
