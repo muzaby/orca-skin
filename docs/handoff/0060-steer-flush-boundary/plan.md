@@ -87,8 +87,8 @@ flush 를 **입력 push 경로에서 분리**하고 **TurnCoordinator 이벤트 
 |---|---|---|---|---|---|
 | D1 | High | **커밋 신호가 관찰 근사(echo 미사용) → 허위 커밋 race + uuid/priority 미명시.** steer 가 CLI drain 직후 stdin 도착하면 orca 는 자기가 본 `tool.call.completed` 에서 커밋하지만 모델은 다음 경계에서야 소비 — DB 순서가 실제 모델 컨텍스트와 어긋남. `claude-map.ts` 는 echo(비-tool_result user 메시지)를 수신하면서 드롭 중. `userMessage()` 는 `uuid`/`priority` 미명시(SDK 0.3.143 타입 지원 확인됨 — 범프 불필요). | 명세 §6.1 [V](echo=유일 정밀 신호)·§7.1(uuid+priority 명시)·§8(uuid 보존은 [I] → 내용 폴백) | steer stdin 메시지에 `uuid`(SteerQueue item id)+`priority:'next'` 명시. `claude-map` 이 echo 를 `input.echo`(main 내부 NormalizedEvent)로 승격, TurnCoordinator 커밋 신호를 echo 매칭(uuid 1차/내용 폴백)으로 전환 — 소비 표시(markConsumed) 후 첫 비-echo 이벤트에서 소비분만 병합 flush(DB 정렬 보존). | resolved (Claude 직접 구현 — 아래 구현 보고) |
 | D2 | High | **턴 종료 무조건 flush = 모델-미전달 메시지의 committed 영속.** 명세 C1/C7 의 "pending 은 CLI 큐 잔존→다음 턴 소비"는 장수 프로세스 전제인데, orca 는 턴-스코프 one-shot(result→`input.close()`→서브프로세스 종료=CLI 큐 소멸). 그런데 telemetry/synthetic 경계가 미소비 pending 까지 flush("유실 방지") → 모델이 영원히 못 본 텍스트가 committed 로 영속·표시. abort 후 잔여도 다음 턴 첫 경계에서 같은 허위 커밋. 0059 파생 UX "잔여 큐를 다음 턴으로 drain" 미구현 자리. | 명세 §3 C1[I]·C7[V/I]·§6.3("echo 없이 턴이 끝나면 queued 유지가 정답") | 턴 종료(telemetry/synthetic) flush 를 **소비분(echo 관측분)만**으로 축소 — 미소비 pending 은 큐 잔존·renderer pending 유지. 잔여분은 **다음 `chat:send`(같은 세션, idle)에서 이월**: steer row 를 새 user row 앞에 persist + 모델 프롬프트에 `\n\n` 병합, renderer 는 send 액션에서 로컬 커밋(낙관적 버블보다 앞서 append — main `steer.flushed` 미발신으로 중복 방지). | resolved (Claude 직접 구현 — 아래 구현 보고) |
-| D3 | Medium | **취소(steerCancel)의 비가역.** `chat:steer` 가 즉시 stdin push 하므로 취소 시점엔 이미 CLI 큐에 있음 — un-push API 없음(명세). 취소해도 모델은 그 텍스트를 경계에서 소비하는데 UI/DB 에는 기록이 없다(보이지 않는 조종). | 명세 §5(제거 API 부재, `priority:"now"` abort 만 존재) | **Open Question — 사용자 결정**: (a) 취소 UX 제한/제거, (b) 주입을 orca 큐 보류로 지연(단, drain 타이밍 race 재유입 트레이드오프), (c) 취소돼도 "이미 전달됨" 표시. echo 전환 후엔 소비 시점이 보이므로 (c) 가 저비용. | open (결정 대기) |
-| D4 | Low | **다건 steer 병합 표시 불일치.** CLI 큐/모델 컨텍스트는 개별 user 메시지 N 개(명세 C9), orca DB/UI 는 `'\n\n'` 병합 1행(0059 요구 4 "단일 flush 버블"). echo 기반 커밋은 자연스럽게 개별 커밋과 결이 맞음. | 명세 §3 C9 [V]·§6.2 | **Open Question — 사용자 결정**: 병합 1버블 유지(현행, D1 구현은 소비분 병합 flush 로 유지) vs 개별 버블 전환(모델 컨텍스트와 1:1). | open (결정 대기) |
+| D3 | Medium | **취소(steerCancel)의 비가역.** `chat:steer` 가 즉시 stdin push 하므로 취소 시점엔 이미 CLI 큐에 있음 — un-push API 없음(명세). 취소해도 모델은 그 텍스트를 경계에서 소비하는데 UI/DB 에는 기록이 없다(보이지 않는 조종). | 명세 §5(제거 API 부재) → **v3/v4 §7(훅 게이트)로 해법 제공** | **로컬 홀드 + PostToolBatch 게이트 flush 채택**(사용자 제공 명세 v3/v4 §7.3~7.4, 2026-07-02 확정): steer 를 stdin 에 즉시 넣지 않고 로컬 버퍼(held)에 보류(취소·수정 100%), PostToolBatch callback 훅(메인 루프 = `agent_id` 부재)에서 held 전체를 병합 단일 user 메시지(batch uuid·`priority:'next'`)로 주입. flush→echo sub-second 창의 취소는 **거부** — renderer 낙관 제거 → echo 커밋(`steer.flushed`)으로 버블 복원 = 이벤트 흐름만으로 정직 화해(전용 기전 0). 검토 대안 A2(시간 유예 창)+F(tombstone 화해)는 이벤트 게이트가 상위 호환이라 폐기. "stdin 주입 = 조작 권한 포기"(명세 §7.4) 결론 채택. | **설계 확정** (Claude 구현 대기) |
+| D4 | Low | **다건 steer 병합 표시 불일치.** CLI 큐/모델 컨텍스트는 개별 user 메시지 N 개(명세 C9), orca DB/UI 는 `'\n\n'` 병합 1행(0059 요구 4 "단일 flush 버블"). | 명세 §3 C9 [V]·§6.2 | **게이트 병합 단일 주입으로 D3 과 동시 해소**(사용자 확정: "다건 steer 는 커밋 시 합쳐서 1건으로 표현"): PostToolBatch 게이트에서 held 전체를 **병합해 user 메시지 1건으로 주입** → 1버블이 배치 확률이 아니라 구조로 보장 + 모델 컨텍스트=트랜스크립트 1:1(구 F5 불일치도 소멸). 배치를 넘어 서로 다른 경계에서 소비된 건 사이엔 어시스턴트 응답이 끼므로 강제 병합하지 않는다(트랜스크립트 왜곡 방지). | **설계 확정** (D3 과 동시 구현) |
 
 ### D1·D2 구현 보고 (Claude, 커밋 `90e49f5`)
 
@@ -100,8 +100,39 @@ flush 를 **입력 push 경로에서 분리**하고 **TurnCoordinator 이벤트 
 | 게이트 | lint PASS / typecheck(node+web+test) PASS / test **630 passed** (신규: coordinator echo 8케이스·steer-queue markConsumed/drainConsumed·streaming-input uuid/priority·claude-map echo 5케이스·chatStore carryover). 환경 제약: electron 미설치 2 suite(`persist`·`send.runtime-resilience`) import 불가 — 0050~0060 동일 계열 |
 | 한계 | `chat:send` carryover 경로(send.ts)는 electron 의존이라 이 환경에서 단위 테스트 불가 — renderer 로컬 커밋·SteerQueue drain 은 각각 테스트로 커버, 통합은 사람 실측 |
 
-### 실측 대기 항목 (D1/D2 구현 후 사람 확인)
+### D3·D4 설계 확정 요지 (명세 v3/v4 검토, 2026-07-02)
 
-- echo 의 `uuid` 보존 여부(명세 §8 (a) [I]) — 미보존이어도 내용 폴백으로 동작하나, 보존 확인 시 폴백 의존 제거 가능. `npm run dev` + 디버그 `[wire]`.
-- C1(텍스트-only 턴) 종료 시 미소비 큐가 CLI transcript 에 남는지(명세 §8 (c)) — 남지 않는다는 전제(D2 이월 설계 근거)를 실기로 확증.
+사용자 제공 **명세 v3/v4**(§7 훅 기반 steer 조작 게이트)를 검토·채택. 핵심: "로컬에 최대한 오래 들고
+있다가 게이트 훅 시점에 최종본 주입"이 이 엔진에서 유일하게 완전한 취소 모델(§7.4). steer 항목 수명:
+
+```
+[held] 로컬 버퍼 — 취소·수정 100% (stdin 미주입)
+  → PostToolBatch 게이트(메인 루프): held 전체 병합 → 단일 user 메시지(batch uuid) push
+[flushed] CLI 큐 — 취소 거부(sub-second 창, 직후 drain·echo)
+  → echo 관측(D1 경로) → [committed] 병합 1버블. 턴 종료 잔여 → D2 carryover(항상 취소 가능)
+```
+
+**orca 실측 확증(구현 전제)**: ① SDK 0.3.143 이 `PostToolBatch` 지원(`HOOK_EVENTS`·dts "배치 전체
+해결 후 다음 모델 요청 전 1회" — 명세 §7.5 와 일치, 범프 0) ② callback 훅 파이프라인 기존재
+(`Options.hooks` + `adaptHooks`, `adapters/claude-adapt.ts:114`) ③ 메인 루프 판별자
+`BaseHookInput.agent_id`(서브에이전트 발화 시에만 존재 — dts 명시) ④ FIFO 강화: callback 훅 응답과
+steer push 가 같은 stdin FIFO 라 push 를 응답 전에 쓰면 CLI 가 반드시 먼저 읽음 → same-batch 포함이
+파이프 순서로 뒷받침(명세 §7.3 [I]의 orca 특수 강화; 실측 1회 권장, 부정돼도 다음 경계 열화로 안전).
+
+**orca 편차(명세 §7.5 권장안 대비)**: ① **Stop 게이트(C1) 비채택** — orca 는 턴-스코프 서브프로세스
+(result→close)라 Stop flush 는 같은 query 안 새 턴 시작 = 0054 one-shot 수명과 충돌; C1/턴 잔여는
+기존 D2 carryover 가 커버(로컬 홀드라 "죽은 stdin 사본" 개념 자체 소멸) ② **SubagentStop 게이트
+불요** — PostToolBatch 와 같은 경계에 합류(명세 자인), 단일 게이트로 단순화; UserPromptSubmit(P2)은
+orca 에 P2 pickup 이 없어 해당 없음.
+
+**모듈 영향(구현 범위)**: `steer-queue.ts`(`flushBatch`·flushed cancel 거부·batch uuid markConsumed) ·
+`extensions/types.ts`(`TurnRequest.takeSteerFlush` 콜백 — 의존 역전) · `claude-adapt.ts`
+(`makeSteerGateHook`·`mergeHooks`) · `claude.ts`(게이트 훅 배선) · `ipc/chat/send.ts`(`chat:steer` 의
+즉시 `injectMessage` 제거 + 콜백 조립). TurnCoordinator·renderer·IPC 채널/variant **무변경**.
+
+### 실측 대기 항목 (사람 확인)
+
+- echo 의 `uuid` 보존 여부(명세 §9 (a) [I]) — 미보존이어도 내용 폴백으로 동작하나, 보존 확인 시 폴백 의존 제거 가능. `npm run dev` + 디버그 `[wire]`.
+- C1(텍스트-only 턴) 종료 시 미소비 큐가 CLI transcript 에 남는지(명세 §9 (c)) — 남지 않는다는 전제(D2 이월 설계 근거)를 실기로 확증.
 - C2(도구 중 steer)의 mid-turn echo 커밋 위치·C5(위임 중) task 취합 후 echo — 명세 §6.2 시퀀스 재현.
+- (D3/D4 구현 후) PostToolBatch 훅 대기 중 stdin write 의 same-batch 포함(명세 §9 (d)) · P1(attachment 경로) 주입분 echo 의 원문 보존(명세 §9 (e) — text 폴백 매칭 영향, uuid 1차라 완충) · 훅 등록만으로 steer 미사용 턴 무회귀 · 위임 중 서브에이전트 내부 배치에서 flush 안 됨(`agent_id` 필터).
