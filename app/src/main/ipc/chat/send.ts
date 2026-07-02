@@ -513,6 +513,10 @@ export function registerChatHandlers(deps: ChatDeps): void {
       requestApproval,
       permissionMode: parsed.data.permissionMode,
       effort: parsed.data.effort,
+      // 게이트 훅(PostToolBatch) 시점에 로컬 홀드 steer 를 병합 단일 배치로 회수(0060 D3·D4).
+      // turn.dbSessionId 를 훅 발화 시점에 동적으로 읽는다 — 새 세션 턴은 session.updated
+      // 전까지 null(그동안 steer 자체가 불가능하므로 빈 회수가 옳다).
+      takeSteerFlush: () => (turn.dbSessionId ? steerQueue.flushHeld(turn.dbSessionId) : undefined),
       // 서브에이전트 백그라운드화(가이드) — ORCA_SUBAGENT_BACKGROUND 게이트. 기본 off=foreground.
       backgroundSubagents,
       isSubagentBlocked: (st) => st !== undefined && turn.blockedSubagents.has(st),
@@ -536,37 +540,32 @@ export function registerChatHandlers(deps: ChatDeps): void {
   // 등록하고 핸들러 서두에서 직접 safeParse 한다.
   handlePlain(CHANNELS.chatSend, (raw, event) => handleChatSend(event, raw))
 
-  handle(
-    CHANNELS.chatSteer,
-    SteerChatMessageSchema,
-    'reject',
-    async (req, event): Promise<void> => {
-      const turn = supervisor.getBySession(req.sessionId)
-      if (!turn || !turn.live?.canSteer) {
-        sendChatEvent(event.sender, {
-          type: 'error',
-          sessionId: req.sessionId,
-          error: makeClassifiedError(
-            'capability_unsupported',
-            '이 백엔드는 피드백 끼어들기를 지원하지 않습니다.',
-            { retryable: false }
-          )
-        })
-        return
-      }
-      const item = steerQueue.enqueue(req.sessionId, req.text, Date.now(), req.clientRequestId)
+  handle(CHANNELS.chatSteer, SteerChatMessageSchema, 'reject', (req, event): void => {
+    const turn = supervisor.getBySession(req.sessionId)
+    if (!turn || !turn.live?.canSteer) {
       sendChatEvent(event.sender, {
-        type: 'steer.queued',
+        type: 'error',
         sessionId: req.sessionId,
-        id: item.id,
-        text: item.text,
-        createdAt: item.createdAt
+        error: makeClassifiedError(
+          'capability_unsupported',
+          '이 백엔드는 피드백 끼어들기를 지원하지 않습니다.',
+          { retryable: false }
+        )
       })
-      // uuid(=item.id)를 함께 실어 CLI echo 와의 상관키로 쓴다 — 커밋 판정은 coordinator 가
-      // input.echo 관측으로 수행한다(0060 D1).
-      await turn.live.injectMessage?.(item.text, item.id)
+      return
     }
-  )
+    // 로컬 홀드(held)만 — stdin 즉시 주입하지 않는다(0060 D3: stdin 주입 = 조작 권한 포기).
+    // 주입은 어댑터의 게이트 훅이 takeSteerFlush 로 병합 배치를 회수해 수행하고, 커밋 판정은
+    // coordinator 가 input.echo(batch uuid) 관측으로 수행한다(0060 D1).
+    const item = steerQueue.enqueue(req.sessionId, req.text, Date.now(), req.clientRequestId)
+    sendChatEvent(event.sender, {
+      type: 'steer.queued',
+      sessionId: req.sessionId,
+      id: item.id,
+      text: item.text,
+      createdAt: item.createdAt
+    })
+  })
 
   handle(CHANNELS.chatSteerCancel, CancelSteerSchema, 'reject', (req, event): void => {
     const removed = steerQueue.cancel(req.sessionId, req.id)

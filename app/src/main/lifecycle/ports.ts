@@ -10,7 +10,8 @@ export interface RuntimeLiveTurn {
   close(): void
   setPermissionMode(mode: ClaudePermissionMode): Promise<void>
   interrupt(): Promise<void>
-  injectMessage?(text: string, uuid?: string): Promise<void>
+  // steer UX 수용 여부 — 전달은 어댑터 게이트 훅(TurnRequest.takeSteerFlush) 또는 다음 턴
+  // carryover(0060 D2/D3). mid-turn stdin 직주입 경로(injectMessage)는 0060 D3 에서 제거됐다.
   readonly canSteer?: boolean
   setModel(model?: string): Promise<void>
   stopTask(taskId: string): Promise<void>

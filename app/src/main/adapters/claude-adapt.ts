@@ -29,6 +29,7 @@ import {
   type NormalizedHookHandler,
   type NormalizedHookSet
 } from '../extensions/hooks'
+import type { SteerFlushBatch } from '../lifecycle/steer-queue'
 
 // Claude Code plugin root를 SDK local plugin 옵션으로 변환한다. 상대 경로는 cwd 기준이라 세션 cwd
 // 변경과 얽힐 수 있으므로 호출자는 절대 경로를 넘긴다. 경로가 비어 있거나 실제 플러그인 매니페스트
@@ -126,6 +127,45 @@ export function adaptHooks(set: NormalizedHookSet): object {
     ]
   }
   return { hooks }
+}
+
+// PostToolBatch 게이트 훅 조각 — 로컬 홀드된 steer 를 "다음 모델 요청 직전"(drain 직전 단일
+// 발화, 명세 §7.5)에 stdin 으로 flush 한다(0060 D3·D4). 규칙:
+//   - 메인 루프 한정: input.agent_id 는 서브에이전트 발화 시에만 존재(SDK dts) — 있으면 스킵.
+//   - push(스트림 stdin write)가 훅 응답 반환보다 선행 → 같은 stdin FIFO 라 CLI 가 훅 응답을
+//     읽기 전에 배치가 enqueue 된다(same-batch 포함, 명세 §7.3 — 부정돼도 다음 경계 열화로 안전).
+//   - fail-open: steer 는 부가기능 — 어떤 예외도 {} 로 삼켜 턴 본체를 보호한다.
+export function makeSteerGateHook(
+  take: () => SteerFlushBatch | undefined,
+  push: (text: string, uuid?: string) => void
+): object {
+  const callback: HookCallback = async (input) => {
+    try {
+      if ((input as { agent_id?: string }).agent_id !== undefined) return {}
+      const batch = take()
+      if (batch) push(batch.text, batch.uuid)
+    } catch (err) {
+      console.warn('[claude] steer gate hook 실패 — 이번 경계 flush 를 건너뜀', err)
+    }
+    return {}
+  }
+  return { hooks: { PostToolBatch: [{ hooks: [callback] }] } }
+}
+
+// options.hooks 조각 병합 — adaptHooks 산출과 게이트 조각처럼 `{hooks?: …}` 조각 여럿을
+// 이벤트별 매처 배열 concat 으로 합친다. 조각이 하나 이하로만 hooks 를 가지면 그대로 통과.
+export function mergeHooks(...fragments: object[]): object {
+  const merged: Partial<Record<HookEvent, HookCallbackMatcher[]>> = {}
+  let any = false
+  for (const fragment of fragments) {
+    const hooks = (fragment as { hooks?: Partial<Record<HookEvent, HookCallbackMatcher[]>> }).hooks
+    if (!hooks) continue
+    any = true
+    for (const [event, matchers] of Object.entries(hooks) as [HookEvent, HookCallbackMatcher[]][]) {
+      merged[event] = [...(merged[event] ?? []), ...matchers]
+    }
+  }
+  return any ? { hooks: merged } : {}
 }
 
 // claude snake_case Hook 입력의 좁힘 형태 (순수 매퍼 테스트가 가짜 payload 를 넘기기 쉽도록).
