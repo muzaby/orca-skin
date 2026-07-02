@@ -87,8 +87,8 @@ flush 를 **입력 push 경로에서 분리**하고 **TurnCoordinator 이벤트 
 |---|---|---|---|---|---|
 | D1 | High | **커밋 신호가 관찰 근사(echo 미사용) → 허위 커밋 race + uuid/priority 미명시.** steer 가 CLI drain 직후 stdin 도착하면 orca 는 자기가 본 `tool.call.completed` 에서 커밋하지만 모델은 다음 경계에서야 소비 — DB 순서가 실제 모델 컨텍스트와 어긋남. `claude-map.ts` 는 echo(비-tool_result user 메시지)를 수신하면서 드롭 중. `userMessage()` 는 `uuid`/`priority` 미명시(SDK 0.3.143 타입 지원 확인됨 — 범프 불필요). | 명세 §6.1 [V](echo=유일 정밀 신호)·§7.1(uuid+priority 명시)·§8(uuid 보존은 [I] → 내용 폴백) | steer stdin 메시지에 `uuid`(SteerQueue item id)+`priority:'next'` 명시. `claude-map` 이 echo 를 `input.echo`(main 내부 NormalizedEvent)로 승격, TurnCoordinator 커밋 신호를 echo 매칭(uuid 1차/내용 폴백)으로 전환 — 소비 표시(markConsumed) 후 첫 비-echo 이벤트에서 소비분만 병합 flush(DB 정렬 보존). | resolved (Claude 직접 구현 — 아래 구현 보고) |
 | D2 | High | **턴 종료 무조건 flush = 모델-미전달 메시지의 committed 영속.** 명세 C1/C7 의 "pending 은 CLI 큐 잔존→다음 턴 소비"는 장수 프로세스 전제인데, orca 는 턴-스코프 one-shot(result→`input.close()`→서브프로세스 종료=CLI 큐 소멸). 그런데 telemetry/synthetic 경계가 미소비 pending 까지 flush("유실 방지") → 모델이 영원히 못 본 텍스트가 committed 로 영속·표시. abort 후 잔여도 다음 턴 첫 경계에서 같은 허위 커밋. 0059 파생 UX "잔여 큐를 다음 턴으로 drain" 미구현 자리. | 명세 §3 C1[I]·C7[V/I]·§6.3("echo 없이 턴이 끝나면 queued 유지가 정답") | 턴 종료(telemetry/synthetic) flush 를 **소비분(echo 관측분)만**으로 축소 — 미소비 pending 은 큐 잔존·renderer pending 유지. 잔여분은 **다음 `chat:send`(같은 세션, idle)에서 이월**: steer row 를 새 user row 앞에 persist + 모델 프롬프트에 `\n\n` 병합, renderer 는 send 액션에서 로컬 커밋(낙관적 버블보다 앞서 append — main `steer.flushed` 미발신으로 중복 방지). | resolved (Claude 직접 구현 — 아래 구현 보고) |
-| D3 | Medium | **취소(steerCancel)의 비가역.** `chat:steer` 가 즉시 stdin push 하므로 취소 시점엔 이미 CLI 큐에 있음 — un-push API 없음(명세). 취소해도 모델은 그 텍스트를 경계에서 소비하는데 UI/DB 에는 기록이 없다(보이지 않는 조종). | 명세 §5(제거 API 부재) → **v3/v4 §7(훅 게이트)로 해법 제공** | **로컬 홀드 + PostToolBatch 게이트 flush 채택**(사용자 제공 명세 v3/v4 §7.3~7.4, 2026-07-02 확정): steer 를 stdin 에 즉시 넣지 않고 로컬 버퍼(held)에 보류(취소·수정 100%), PostToolBatch callback 훅(메인 루프 = `agent_id` 부재)에서 held 전체를 병합 단일 user 메시지(batch uuid·`priority:'next'`)로 주입. flush→echo sub-second 창의 취소는 **거부** — renderer 낙관 제거 → echo 커밋(`steer.flushed`)으로 버블 복원 = 이벤트 흐름만으로 정직 화해(전용 기전 0). 검토 대안 A2(시간 유예 창)+F(tombstone 화해)는 이벤트 게이트가 상위 호환이라 폐기. "stdin 주입 = 조작 권한 포기"(명세 §7.4) 결론 채택. | **설계 확정** (Claude 구현 대기) |
-| D4 | Low | **다건 steer 병합 표시 불일치.** CLI 큐/모델 컨텍스트는 개별 user 메시지 N 개(명세 C9), orca DB/UI 는 `'\n\n'` 병합 1행(0059 요구 4 "단일 flush 버블"). | 명세 §3 C9 [V]·§6.2 | **게이트 병합 단일 주입으로 D3 과 동시 해소**(사용자 확정: "다건 steer 는 커밋 시 합쳐서 1건으로 표현"): PostToolBatch 게이트에서 held 전체를 **병합해 user 메시지 1건으로 주입** → 1버블이 배치 확률이 아니라 구조로 보장 + 모델 컨텍스트=트랜스크립트 1:1(구 F5 불일치도 소멸). 배치를 넘어 서로 다른 경계에서 소비된 건 사이엔 어시스턴트 응답이 끼므로 강제 병합하지 않는다(트랜스크립트 왜곡 방지). | **설계 확정** (D3 과 동시 구현) |
+| D3 | Medium | **취소(steerCancel)의 비가역.** `chat:steer` 가 즉시 stdin push 하므로 취소 시점엔 이미 CLI 큐에 있음 — un-push API 없음(명세). 취소해도 모델은 그 텍스트를 경계에서 소비하는데 UI/DB 에는 기록이 없다(보이지 않는 조종). | 명세 §5(제거 API 부재) → **v3/v4 §7(훅 게이트)로 해법 제공** | **로컬 홀드 + PostToolBatch 게이트 flush 채택**(사용자 제공 명세 v3/v4 §7.3~7.4, 2026-07-02 확정): steer 를 stdin 에 즉시 넣지 않고 로컬 버퍼(held)에 보류(취소·수정 100%), PostToolBatch callback 훅(메인 루프 = `agent_id` 부재)에서 held 전체를 병합 단일 user 메시지(batch uuid·`priority:'next'`)로 주입. flush→echo sub-second 창의 취소는 **거부** — renderer 낙관 제거 → echo 커밋(`steer.flushed`)으로 버블 복원 = 이벤트 흐름만으로 정직 화해(전용 기전 0). 검토 대안 A2(시간 유예 창)+F(tombstone 화해)는 이벤트 게이트가 상위 호환이라 폐기. "stdin 주입 = 조작 권한 포기"(명세 §7.4) 결론 채택. | resolved (Claude 직접 구현 — 아래 구현 보고) |
+| D4 | Low | **다건 steer 병합 표시 불일치.** CLI 큐/모델 컨텍스트는 개별 user 메시지 N 개(명세 C9), orca DB/UI 는 `'\n\n'` 병합 1행(0059 요구 4 "단일 flush 버블"). | 명세 §3 C9 [V]·§6.2 | **게이트 병합 단일 주입으로 D3 과 동시 해소**(사용자 확정: "다건 steer 는 커밋 시 합쳐서 1건으로 표현"): PostToolBatch 게이트에서 held 전체를 **병합해 user 메시지 1건으로 주입** → 1버블이 배치 확률이 아니라 구조로 보장 + 모델 컨텍스트=트랜스크립트 1:1(구 F5 불일치도 소멸). 배치를 넘어 서로 다른 경계에서 소비된 건 사이엔 어시스턴트 응답이 끼므로 강제 병합하지 않는다(트랜스크립트 왜곡 방지). | resolved (D3 과 동시 구현 — 아래 구현 보고) |
 
 ### D1·D2 구현 보고 (Claude, 커밋 `90e49f5`)
 
@@ -129,6 +129,21 @@ orca 에 P2 pickup 이 없어 해당 없음.
 `extensions/types.ts`(`TurnRequest.takeSteerFlush` 콜백 — 의존 역전) · `claude-adapt.ts`
 (`makeSteerGateHook`·`mergeHooks`) · `claude.ts`(게이트 훅 배선) · `ipc/chat/send.ts`(`chat:steer` 의
 즉시 `injectMessage` 제거 + 콜백 조립). TurnCoordinator·renderer·IPC 채널/variant **무변경**.
+
+### D3·D4 구현 보고 (Claude, 커밋 `8e5d3fd`)
+
+> 구현 전 수석엔지니어 검토(2026-07-02): SDK 0.3.143 dts 를 tarball 로 직접 대조해 설계 전제 3건
+> ([`PostToolBatch`] "batch 전체 해결 후 다음 모델 요청 전 1회"·`agent_id` 서브에이전트 한정·
+> `SDKUserMessage.uuid/priority`) 전부 실증 — 설계 승인 + 보완 5건(B1~B5)을 반영해 구현.
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | main: `lifecycle/{steer-queue,ports,session-runtime}.ts`·`adapters/{claude,claude-adapt,streaming-input,types,mock}.ts`·`extensions/types.ts`·`ipc/chat/send.ts` / tests: steer-queue·claude-adapt·turn-coordinator |
+| D3 핵심 | ① SteerQueue 상태를 플래그 증식 대신 **컬렉션 분리**(B1): `held[]`(취소 100%) / `flushed FlushedBatch[]`(uuid·병합 텍스트 flush 시점 1회 보존·consumed) — 취소 거부·배치 매칭·carryover 포함이 구조로 보장 ② `chat:steer` = enqueue+`steer.queued` 만(즉시 injectMessage 제거) ③ `TurnRequest.takeSteerFlush` 콜백(의존 역전, requestApproval 대칭) — send.ts 가 `turn.dbSessionId` **동적 참조** 클로저로 조립(B3) ④ `claude-adapt.makeSteerGateHook(take, push)`: `agent_id` 부재(메인 루프)에서만 take→push, push 가 훅 응답 반환 선행(FIFO same-batch), **fail-open**(예외 → `{}` — 부가기능이 턴 본체를 못 죽임, B2) + `mergeHooks`(이벤트별 매처 concat) ⑤ flushed 취소 거부 = `cancel` 이 held 만 검색 → `steer.cancelled` 미발신 → echo 커밋(`steer.flushed`)이 renderer 낙관 제거를 복원(이벤트 흐름만으로 정직 화해 — renderer 무변경 확인) |
+| D4 핵심 | 게이트가 held 전체를 병합 단일 user 메시지(batch uuid)로 주입 → 1버블=1 모델 메시지 구조 보장. `drainConsumed` 는 소비 확정 **배치** 병합 — 복수 배치 동시 회수는 연속 echo(같은 drain 지점 소비)뿐이라 병합이 D4 규칙(어시스턴트 응답 낀 경계만 분리)과 정합. `markConsumed`/`drainConsumed`/`drainForFlush` 시그니처 유지 → **TurnCoordinator·renderer·IPC 무변경** |
+| dead 배선 | `injectMessage` 전면 제거(B4 — ports·adapters/types·session-runtime·mock·claude 반환 객체, 유일 호출자 소멸). `canSteer` 의미 주석 갱신(B5): "mid-turn stdin 주입 가능"→"steer UX 수용(게이트/carryover 전달)" |
+| 안전 열화 논증 | FIFO 부정 시 다음 경계 소비 or carryover — **이중 전달 구조적 불가**(CLI 가 drain 했다면 다음 API 요청 존재→echo→consumed; 못 했다면 모델 미전달→carryover 정당). C1(텍스트-only)은 게이트 미발화→carryover(현행 대비 개선 — one-shot 에서 stdin 사본이 죽던 것). 훅 상시 등록은 `hook_*` SDK 메시지가 claude-map fallthrough `[]` 라 이벤트/stall 무영향 |
+| 게이트 | lint PASS / typecheck(node+web+test) PASS / test **641 passed** (신규: steer-queue 상태모델 8케이스·makeSteerGateHook 4·mergeHooks 3). 환경 제약: electron 미설치 2 suite(`persist`·`send.runtime-resilience`) import 불가 — 0050~0060 동일 계열(electron 바이너리 다운로드 403) |
 
 ### 실측 대기 항목 (사람 확인)
 
