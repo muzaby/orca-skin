@@ -121,7 +121,9 @@ export class TurnPersistence {
         // claude 의 system/init — sessionId 발급 시점. sessions row 생성 + 대기 user 메시지 기록.
         const sessionId = ev.sessionId
         turn.dbSessionId = sessionId
-        const title = turn.pendingUserText ? previewOf(turn.pendingUserText, 60) : null
+        // continuity 는 마커 제목([분기]/[핸드오프] <원본>) 오버라이드, 그 외엔 첫 발화 preview.
+        const title =
+          turn.initialTitle ?? (turn.pendingUserText ? previewOf(turn.pendingUserText, 60) : null)
         this.db.insertSession({
           id: sessionId,
           // backend 출처는 이 턴이 잠긴 어댑터(0010 세션-어댑터 바인딩) — 리터럴 금지(0016).

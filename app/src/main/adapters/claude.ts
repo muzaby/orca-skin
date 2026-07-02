@@ -34,7 +34,8 @@ import {
   adaptPlugins,
   adaptSettings,
   adaptSkills,
-  adaptSystemPrompt
+  adaptSystemPrompt,
+  withPostCompactHook
 } from './claude-adapt'
 import { CLAUDE_DESCRIPTOR } from '../capabilities/claude-probe'
 import type { ProviderDescriptor } from '../../shared/ipc'
@@ -280,6 +281,11 @@ export class ClaudeAdapter implements SessionAdapter {
     // turn 경계에서 별도로 구동한다(handoff 0060) — pull(=SDK eager drain) 은 flush 신호 아님.
     const input = createTurnInputStream(buildTurnContent(text, attachmentTexts, attachmentImages))
 
+    // 압축 요약 surface (0062 r3) — PostCompact hook 이 전달한 compact_summary 를 assistant
+    // 메시지로 승격할 대기열. hook 콜백은 스트림 밖에서 도착하므로 events() 가 SDK 메시지
+    // 경계마다 드레인해 [compact 구분선 → 요약 메시지] 순서로 합류시킨다.
+    const compactSummaries: string[] = []
+
     const handle = query({
       prompt: input.stream,
       options: {
@@ -302,7 +308,10 @@ export class ClaudeAdapter implements SessionAdapter {
         // options.env(adaptEnv)에는 시스템(턴) env 만 — orca.json 앱 env.
         ...adaptSettings(req.providerSettings?.settings),
         ...adaptEnv(env),
-        ...adaptHooks(extensions.hooks),
+        // 사용자 hooks 조각 + 어댑터 내부 PostCompact(압축 요약 수집, manual 만) 병합.
+        ...withPostCompactHook(adaptHooks(extensions.hooks), (summary) =>
+          compactSummaries.push(summary)
+        ),
         // canUseTool — AskUserQuestion·ExitPlanMode·위험 도구를 requestApproval 로 게이트하고
         // 안전 도구는 allow passthrough. 콜백 미주입(opencode 등) 시 옵션 자체를 생략해 현행
         // 자동 통과 동작을 유지한다.
@@ -323,11 +332,27 @@ export class ClaudeAdapter implements SessionAdapter {
 
     const close = (): void => input.close()
 
+    // 대기 중인 압축 요약을 assistant 메시지 이벤트로 비운다 — persist(text 파트)와 렌더
+    // (마크다운 메시지)가 일반 message.completed 경로를 그대로 탄다.
+    function* drainCompactSummaries(): Iterable<NormalizedEvent> {
+      while (compactSummaries.length > 0) {
+        yield {
+          type: 'message.completed',
+          sessionId: ctx.sessionId,
+          message: { text: compactSummaries.shift()! }
+        }
+      }
+    }
+
     async function* events(): AsyncIterable<NormalizedEvent> {
       try {
         for await (const msg of handle) {
           yield* claudeToNormalized(msg, ctx)
+          // hook 은 다음 SDK 메시지(compact_boundary/result)보다 먼저 완료되므로 메시지 뒤
+          // 드레인이 [구분선 → 요약] 순서를 만든다.
+          yield* drainCompactSummaries()
         }
+        yield* drainCompactSummaries()
       } catch (err) {
         // 의도적 중단(턴 취소 / 계획 거부)은 에러가 아니므로 error 이벤트를 내지 않는다
         // (user_cancelled 로 분류되지만 emit 안 함 — 설계 결정 3).

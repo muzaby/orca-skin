@@ -646,28 +646,9 @@ export function Composer({
                     onClose={() => setTelemetryOpen(false)}
                     align="end"
                   >
+                    {/* 핸드오프 진입점은 StatusPopover(danger) 단일화 — 도넛 팝오버는
+                        텔레메트리 표시 전용(0062 r3, 사용자 피드백으로 r1 '상시 노출' 폐기). */}
                     <TelemetryPanel telemetry={lastTelemetry} />
-                    {/* 0062 handoff — 컨텍스트 도넛 Tier2 에 상시 노출. nearCompaction 이면
-                        primary 로 강조(경고 시 권장 액션). */}
-                    <div className="mt-2 border-t border-border pt-2">
-                      <Button
-                        variant={
-                          nearCompaction(
-                            contextTokens(lastTelemetry),
-                            contextWindowFor(lastTelemetry.model)
-                          )
-                            ? 'primary'
-                            : 'contained'
-                        }
-                        leadingIcon="fork"
-                        onClick={onHandoff}
-                        disabled={handoffDisabledReason != null}
-                        title={handoffDisabledReason ?? '요약본으로 새 세션에서 이어갑니다'}
-                        className="w-full"
-                      >
-                        핸드오프로 이어가기
-                      </Button>
-                    </div>
                   </Popover>
                 )}
               </span>

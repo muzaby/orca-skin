@@ -239,3 +239,15 @@ foundation(lineage DB + forkSession 어댑터 배선) → **fork**(draft 뷰 + d
 
 - 게이트: lint/typecheck(3종)/test **647 passed** green. 신규 테스트 2파일(+2건 statusViewModel 재작성).
 - 잔여 진단: 멈춤의 main-side 근본 원인(승격이 왜 어긋났는지)은 실기 wire 로그가 필요 — **재테스트 시 디버그 패널 "Wire 메시지" 토글(0025) 켜고 터미널 `[wire]` 시퀀스 확보 요청**. r2 견고화로 어긋나도 화면에 에러/진행이 표시된다.
+
+## [구현자 기입] r3 — 실기 피드백 4건 (2026-07-02, Claude)
+
+| # | 피드백 | 대응 |
+|---|---|---|
+| 1 | 텔레메트리 도넛 팝오버의 핸드오프 메뉴 제거 | 제거 — 핸드오프 진입점은 StatusPopover(danger) 단일화. **r1 인수 기준 8 의 "상시 노출" 폐기(사용자 피드백 supersede)**, `nearCompaction` 강조는 StatusPopover danger 가 담당. |
+| 2 | compact 시작 시 user 버블 + 어시스턴트 자리 inflight 애니메이션 | r2 에서 구현됨(`message.user` 에코 + PendingAssistant 빈 상태 폴백) — r3 코드 변경 없음, 재테스트 확인 항목. |
+| 3 | /compact 완료 후 결과 메시지 미출력 | **사용자 지정: PostCompact hook 활용**(hooks#postcompact). `withPostCompactHook`(claude-adapt) 이 사용자 hooks 조각과 병합된 어댑터 내부 PostCompact 콜백을 등록 — `compact_summary`(**manual 만**, auto 압축은 일반 턴 오염 방지 위해 제외)를 수집하고, `claude.ts events()` 가 SDK 메시지 경계마다 드레인해 **`message.completed`(assistant 메시지)로 승격** → 일반 persist(text 파트)·렌더(마크다운) 경로 재사용, [압축 구분선 → 요약 메시지] 순서. 단위 테스트 3건. |
+| 4 | 클릭 즉시 새 세션 정체성 + nav `[분기]/[핸드오프] <원본 제목>` | `turn.initialTitle`(persist insertSession 오버라이드) + `titleGenerationStarted=true`(자동 제목 0004 억제 — 마커 유지, rename 가능) + 렌더러 draft title 즉시 설정(헤더 반영). nav 등장 시점은 사용자 동의대로 기존 정책(세션 id 발급 → promote → recentsEpoch) 유지. 통합 테스트에 제목 검증 추가. |
+
+- 게이트: lint/typecheck(3종)/test **650 passed** green.
+- 사람 재테스트 체크: ① 핸드오프 클릭 → 즉시 `[핸드오프] <원본>` 헤더 + 에코 버블 + 애니메이션 ② 압축 완료 → 구분선 + **요약 assistant 메시지** ③ nav 에 마커 제목 행 ④ 도넛 팝오버에 핸드오프 없음. ①이 여전히 실패하면 wire log(`[wire]`) 시퀀스 공유.

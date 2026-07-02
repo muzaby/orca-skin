@@ -373,7 +373,8 @@ export function registerChatHandlers(deps: ChatDeps): void {
             },
             sessionMeta
           ),
-      titleGenerationStarted: false,
+      // continuity 는 초기 마커 제목([분기]/[핸드오프])을 유지 — 자동 제목 생성 억제.
+      titleGenerationStarted: continuitySource != null,
       currentAssistantMessageId: null,
       assistantText: '',
       pendingAskAnswers: [],
@@ -385,12 +386,18 @@ export function registerChatHandlers(deps: ChatDeps): void {
       blockedSubagents: new Set(),
       stoppedSubagents: new Set(),
       // 0062 continuity — persist(session.updated)가 lineage 영속 + fork display 복사에 쓴다.
+      // 초기 제목 = `[분기]/[핸드오프] <원본 제목>`(r3 피드백 — nav 최근 대화 식별). 원본
+      // 제목 부재 시 id 앞 8자 폴백. titleGenerationStarted=true 로 자동 제목(0004)을 억제해
+      // 마커 제목을 유지한다(사용자 rename 은 그대로 가능).
       ...(continuitySource
         ? {
             lineage: {
               parentSessionId: continuitySource,
               relation: parsed.data.handoffFrom ? ('handoff' as const) : ('fork' as const)
-            }
+            },
+            initialTitle: `${parsed.data.handoffFrom ? '[핸드오프]' : '[분기]'} ${
+              continuityMeta?.title?.trim() || continuitySource.slice(0, 8)
+            }`
           }
         : {}),
       // handoff 자동 메시지는 렌더러가 본문을 모른다 — coordinator 가 message.user 로 에코.

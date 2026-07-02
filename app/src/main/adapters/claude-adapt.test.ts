@@ -12,7 +12,8 @@ import {
   adaptSkills,
   adaptSystemPrompt,
   toClaudeHookOutput,
-  toContext
+  toContext,
+  withPostCompactHook
 } from './claude-adapt'
 import type { NormalizedHookHandler } from '../extensions/hooks'
 import type { SkillInfo } from '../../shared/ipc'
@@ -252,5 +253,47 @@ describe('makeClaudeHookCallback', () => {
       { signal: new AbortController().signal }
     )
     expect(result).toEqual({})
+  })
+})
+
+describe('withPostCompactHook (0062 r3)', () => {
+  const invoke = async (
+    onSummary: (s: string) => void,
+    input: Record<string, unknown>,
+    base: object = {}
+  ): Promise<void> => {
+    const { hooks } = withPostCompactHook(base, onSummary)
+    const matchers = hooks.PostCompact!
+    const cb = matchers[matchers.length - 1]!.hooks[0]!
+    await cb(input as never, undefined, { signal: new AbortController().signal })
+  }
+
+  it('manual 압축의 compact_summary 를 onSummary 로 전달한다', async () => {
+    const seen: string[] = []
+    await invoke((s) => seen.push(s), {
+      hook_event_name: 'PostCompact',
+      trigger: 'manual',
+      compact_summary: '① 배경… ② 목표…'
+    })
+    expect(seen).toEqual(['① 배경… ② 목표…'])
+  })
+
+  it('auto 압축·빈 요약은 무시한다 (일반 턴 transcript 비오염)', async () => {
+    const seen: string[] = []
+    await invoke((s) => seen.push(s), { trigger: 'auto', compact_summary: '요약' })
+    await invoke((s) => seen.push(s), { trigger: 'manual', compact_summary: '   ' })
+    await invoke((s) => seen.push(s), { trigger: 'manual' })
+    expect(seen).toEqual([])
+  })
+
+  it('사용자 hooks 조각을 보존한 채 PostCompact 를 병합한다', () => {
+    const userMatcher = { hooks: [] }
+    const merged = withPostCompactHook(
+      { hooks: { PreToolUse: [userMatcher], PostCompact: [userMatcher] } },
+      () => undefined
+    )
+    expect(merged.hooks.PreToolUse).toEqual([userMatcher])
+    expect(merged.hooks.PostCompact).toHaveLength(2)
+    expect(merged.hooks.PostCompact![0]).toBe(userMatcher)
   })
 })

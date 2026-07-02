@@ -72,9 +72,11 @@ function fakeRuntime(newSessionId: string): CoordinatorRuntime {
 function continuityTurn(
   text: string,
   lineage: { parentSessionId: string; relation: LineageRelation },
-  echoUserText?: string
+  echoUserText?: string,
+  initialTitle?: string
 ): InflightTurn {
   return {
+    ...(initialTitle !== undefined ? { initialTitle } : {}),
     controller: new AbortController(),
     owner: {},
     live: null,
@@ -133,12 +135,18 @@ describe('continuity 도착 파이프라인 (0062 r2)', () => {
     const db = makeDb()
     seedSource(db)
     const auto = buildHandoffMessage('원본 대화', 'src-session')
-    const turn = continuityTurn(auto, { parentSessionId: 'src-session', relation: 'handoff' }, auto)
+    const turn = continuityTurn(
+      auto,
+      { parentSessionId: 'src-session', relation: 'handoff' },
+      auto,
+      '[핸드오프] 원본 대화'
+    )
 
     const forwarded = await runTurn(db, turn, 'new-session')
 
-    // DB — 세션행 + 계보 + 자동 메시지(user)만(display 복사 없음).
+    // DB — 세션행(마커 초기 제목) + 계보 + 자동 메시지(user)만(display 복사 없음).
     expect(db.getSessionById('new-session')).toBeDefined()
+    expect(db.getSessionById('new-session')?.title).toBe('[핸드오프] 원본 대화')
     expect(db.getLineage('new-session')).toMatchObject({
       parent_session_id: 'src-session',
       relation: 'handoff'

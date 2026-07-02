@@ -128,6 +128,31 @@ export function adaptHooks(set: NormalizedHookSet): object {
   return { hooks }
 }
 
+// PostCompact 내부 hook 합성(0062 r3) — adaptHooks 결과(사용자 hooks 조각)에 어댑터 자체
+// PostCompact 콜백을 병합한다. SDK 는 압축이 만든 대화 요약을 `compact_summary` 로 전달하며
+// (hooks#postcompact), 어댑터는 이를 onSummary 로 올려 transcript 에 보이는 결과 메시지로
+// 승격한다. **manual 트리거만** — 자동 압축 요약이 일반 턴 transcript 를 오염시키지 않게.
+export function withPostCompactHook(
+  base: object,
+  onSummary: (summary: string) => void
+): { hooks: Partial<Record<HookEvent, HookCallbackMatcher[]>> } {
+  const baseHooks = (base as { hooks?: Partial<Record<HookEvent, HookCallbackMatcher[]>> }).hooks
+  const callback: HookCallback = async (input) => {
+    const i = input as { trigger?: unknown; compact_summary?: unknown }
+    if (i.trigger === 'manual' && typeof i.compact_summary === 'string') {
+      const summary = i.compact_summary.trim()
+      if (summary !== '') onSummary(summary)
+    }
+    return { continue: true }
+  }
+  return {
+    hooks: {
+      ...(baseHooks ?? {}),
+      PostCompact: [...(baseHooks?.PostCompact ?? []), { hooks: [callback] }]
+    }
+  }
+}
+
 // claude snake_case Hook 입력의 좁힘 형태 (순수 매퍼 테스트가 가짜 payload 를 넘기기 쉽도록).
 interface ClaudeHookInputLike {
   session_id?: string

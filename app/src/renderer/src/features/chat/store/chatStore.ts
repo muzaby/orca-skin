@@ -636,7 +636,8 @@ function startForkDraft(): boolean {
   const draft: SessionEntry = {
     session: {
       ...initialChatState,
-      title: src.title,
+      // 클릭 즉시 새 세션 정체성(r3) — main 의 DB 초기 제목과 같은 마커 형식.
+      title: `[분기] ${src.title?.trim() || src.sessionId.slice(0, 8)}`,
       cwd: src.cwd,
       pendingProjectId: src.projectId,
       projectId: src.projectId,
@@ -690,6 +691,8 @@ function startHandoff(): boolean {
   const draft: SessionEntry = {
     session: {
       ...initialChatState,
+      // 클릭 즉시 새 세션 정체성(r3) — main 의 DB 초기 제목과 같은 마커 형식.
+      title: `[핸드오프] ${src.title?.trim() || sourceSessionId.slice(0, 8)}`,
       cwd: src.cwd,
       pendingProjectId: src.projectId,
       projectId: src.projectId,
