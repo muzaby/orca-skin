@@ -76,3 +76,22 @@ flush 를 **입력 push 경로에서 분리**하고 **TurnCoordinator 이벤트 
 ## 오픈 퀘스천
 
 - 승인(권한) 이벤트를 tool.call.completed 와 별개 flush 경계로 둘지 — 기본은 tool.call.completed 로 커버(승인→도구 실행 후). 실측 후 필요 시 추가.
+
+---
+
+## [검증자 기입] 파생 이슈 (Derived Issues)
+
+> 출처: **0059~0060 후속 검토(2026-07-02)** — 사용자 제공 "Claude Code Pending 메시지 주입 시점 명세 v2"(CLI v2.1.198 바이너리 추출 검증, SDK 0.2.110/0.3.198 기준) 대조. 명세 §6 이 본 plan §"검증되지 않은 가정"의 user echo 신호를 [V] 로 확증(`SDKUserMessageReplay` — drain 시 소비된 큐 커맨드가 user 메시지로 output 스트림에 yield)함에 따라, 0060 이 "후속 하드닝"으로 남긴 자리를 파생 이슈로 승격한다. D1·D2 는 Claude 직접 구현(버그수정), D3·D4 는 Open Question(사용자 결정 대기).
+
+| # | 심각도 | 이슈 | 근거(명세 대조) | 대응 방향 | 상태 |
+|---|---|---|---|---|---|
+| D1 | High | **커밋 신호가 관찰 근사(echo 미사용) → 허위 커밋 race + uuid/priority 미명시.** steer 가 CLI drain 직후 stdin 도착하면 orca 는 자기가 본 `tool.call.completed` 에서 커밋하지만 모델은 다음 경계에서야 소비 — DB 순서가 실제 모델 컨텍스트와 어긋남. `claude-map.ts` 는 echo(비-tool_result user 메시지)를 수신하면서 드롭 중. `userMessage()` 는 `uuid`/`priority` 미명시(SDK 0.3.143 타입 지원 확인됨 — 범프 불필요). | 명세 §6.1 [V](echo=유일 정밀 신호)·§7.1(uuid+priority 명시)·§8(uuid 보존은 [I] → 내용 폴백) | steer stdin 메시지에 `uuid`(SteerQueue item id)+`priority:'next'` 명시. `claude-map` 이 echo 를 `input.echo`(main 내부 NormalizedEvent)로 승격, TurnCoordinator 커밋 신호를 echo 매칭(uuid 1차/내용 폴백)으로 전환 — 소비 표시(markConsumed) 후 첫 비-echo 이벤트에서 소비분만 병합 flush(DB 정렬 보존). | resolved (Claude 직접 구현 — 아래 구현 보고) |
+| D2 | High | **턴 종료 무조건 flush = 모델-미전달 메시지의 committed 영속.** 명세 C1/C7 의 "pending 은 CLI 큐 잔존→다음 턴 소비"는 장수 프로세스 전제인데, orca 는 턴-스코프 one-shot(result→`input.close()`→서브프로세스 종료=CLI 큐 소멸). 그런데 telemetry/synthetic 경계가 미소비 pending 까지 flush("유실 방지") → 모델이 영원히 못 본 텍스트가 committed 로 영속·표시. abort 후 잔여도 다음 턴 첫 경계에서 같은 허위 커밋. 0059 파생 UX "잔여 큐를 다음 턴으로 drain" 미구현 자리. | 명세 §3 C1[I]·C7[V/I]·§6.3("echo 없이 턴이 끝나면 queued 유지가 정답") | 턴 종료(telemetry/synthetic) flush 를 **소비분(echo 관측분)만**으로 축소 — 미소비 pending 은 큐 잔존·renderer pending 유지. 잔여분은 **다음 `chat:send`(같은 세션, idle)에서 이월**: steer row 를 새 user row 앞에 persist + 모델 프롬프트에 `\n\n` 병합, renderer 는 send 액션에서 로컬 커밋(낙관적 버블보다 앞서 append — main `steer.flushed` 미발신으로 중복 방지). | resolved (Claude 직접 구현 — 아래 구현 보고) |
+| D3 | Medium | **취소(steerCancel)의 비가역.** `chat:steer` 가 즉시 stdin push 하므로 취소 시점엔 이미 CLI 큐에 있음 — un-push API 없음(명세). 취소해도 모델은 그 텍스트를 경계에서 소비하는데 UI/DB 에는 기록이 없다(보이지 않는 조종). | 명세 §5(제거 API 부재, `priority:"now"` abort 만 존재) | **Open Question — 사용자 결정**: (a) 취소 UX 제한/제거, (b) 주입을 orca 큐 보류로 지연(단, drain 타이밍 race 재유입 트레이드오프), (c) 취소돼도 "이미 전달됨" 표시. echo 전환 후엔 소비 시점이 보이므로 (c) 가 저비용. | open (결정 대기) |
+| D4 | Low | **다건 steer 병합 표시 불일치.** CLI 큐/모델 컨텍스트는 개별 user 메시지 N 개(명세 C9), orca DB/UI 는 `'\n\n'` 병합 1행(0059 요구 4 "단일 flush 버블"). echo 기반 커밋은 자연스럽게 개별 커밋과 결이 맞음. | 명세 §3 C9 [V]·§6.2 | **Open Question — 사용자 결정**: 병합 1버블 유지(현행, D1 구현은 소비분 병합 flush 로 유지) vs 개별 버블 전환(모델 컨텍스트와 1:1). | open (결정 대기) |
+
+### 실측 대기 항목 (D1/D2 구현 후 사람 확인)
+
+- echo 의 `uuid` 보존 여부(명세 §8 (a) [I]) — 미보존이어도 내용 폴백으로 동작하나, 보존 확인 시 폴백 의존 제거 가능. `npm run dev` + 디버그 `[wire]`.
+- C1(텍스트-only 턴) 종료 시 미소비 큐가 CLI transcript 에 남는지(명세 §8 (c)) — 남지 않는다는 전제(D2 이월 설계 근거)를 실기로 확증.
+- C2(도구 중 steer)의 mid-turn echo 커밋 위치·C5(위임 중) task 취합 후 echo — 명세 §6.2 시퀀스 재현.
