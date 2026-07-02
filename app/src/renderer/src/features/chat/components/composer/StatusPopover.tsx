@@ -7,6 +7,9 @@ interface StatusPopoverProps {
   model: StatusLineModel
   onCompact?: () => void
   onNewChat: () => void
+  // 0062 handoff — 새 세션으로 대화 이어가기(즉시 물질화). 미주입 시 버튼 비노출.
+  onHandoff?: () => void
+  handoffDisabledReason?: string | null
 }
 
 const TONE_CLASS: Record<StatusLineModel['state'], string> = {
@@ -18,7 +21,9 @@ export function StatusPopover({
   id,
   model,
   onCompact,
-  onNewChat
+  onNewChat,
+  onHandoff,
+  handoffDisabledReason
 }: StatusPopoverProps): React.JSX.Element {
   const compactPrimary = model.recommend === 'compact'
   const newChatPrimary = model.recommend === 'newchat'
@@ -56,6 +61,18 @@ export function StatusPopover({
       </dl>
 
       <div className="flex flex-col gap-1.5">
+        {onHandoff && (
+          <Button
+            variant="contained"
+            leadingIcon="fork"
+            onClick={onHandoff}
+            disabled={handoffDisabledReason != null}
+            title={handoffDisabledReason ?? '요약본으로 새 세션에서 이어갑니다'}
+            className="w-full"
+          >
+            핸드오프로 이어가기
+          </Button>
+        )}
         {model.showCompact && model.labels.compactButton && (
           <Button
             variant={compactPrimary ? 'primary' : 'contained'}

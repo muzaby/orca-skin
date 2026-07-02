@@ -37,6 +37,10 @@ export interface TurnExtensions {
 // 한 턴 실행 요청. sendMessage 의 인자 증식(7개)을 단일 객체로 통합한다 (설계검토 §9 1단계).
 export interface TurnRequest {
   sessionId: string | null
+  // 0062 continuity — 이 턴이 분기 출발점으로 삼을 세션 id (fork/handoff 공통). sessionId
+  // (resume=이어쓰기)와 달리 원본은 불변이고 백엔드가 **새 session id 를 발급**한다
+  // (claude = query resume+forkSession). sessionId 는 null(새 세션 의미론 유지).
+  forkFrom?: string
   text: string
   cwd: string
   signal?: AbortSignal

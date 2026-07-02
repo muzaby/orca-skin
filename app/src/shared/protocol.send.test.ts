@@ -115,3 +115,40 @@ describe('SendChatMessageSchema — attachments', () => {
     ).toBe(true)
   })
 })
+
+describe('SendChatMessageSchema — forkFrom/handoffFrom (0062)', () => {
+  it('forkFrom 단독(새 세션 + text)을 허용한다', () => {
+    expect(SendChatMessageSchema.safeParse({ ...base, forkFrom: 'src-1' }).success).toBe(true)
+  })
+
+  it('handoffFrom 은 text 생략(빈 문자열)을 허용한다 — main 이 자동 메시지로 대체', () => {
+    expect(
+      SendChatMessageSchema.safeParse({ ...base, text: '', handoffFrom: 'src-1' }).success
+    ).toBe(true)
+  })
+
+  it('handoffFrom 없이 빈 text 는 거부한다(기존 min(1) 보존)', () => {
+    expect(SendChatMessageSchema.safeParse({ ...base, text: '' }).success).toBe(false)
+  })
+
+  it('forkFrom/handoffFrom 동시 지정은 거부한다(상호 배타)', () => {
+    expect(
+      SendChatMessageSchema.safeParse({ ...base, forkFrom: 'a', handoffFrom: 'b' }).success
+    ).toBe(false)
+  })
+
+  it('resume send(sessionId != null)와의 조합은 거부한다(새 세션 전용)', () => {
+    expect(
+      SendChatMessageSchema.safeParse({ ...base, sessionId: 's1', forkFrom: 'a' }).success
+    ).toBe(false)
+    expect(
+      SendChatMessageSchema.safeParse({ ...base, sessionId: 's1', text: '', handoffFrom: 'a' })
+        .success
+    ).toBe(false)
+  })
+
+  it('빈 문자열 forkFrom/handoffFrom 은 거부한다', () => {
+    expect(SendChatMessageSchema.safeParse({ ...base, forkFrom: '' }).success).toBe(false)
+    expect(SendChatMessageSchema.safeParse({ ...base, handoffFrom: '' }).success).toBe(false)
+  })
+})

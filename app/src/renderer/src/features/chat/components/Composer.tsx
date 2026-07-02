@@ -84,6 +84,11 @@ export function Composer({
   const { send, steer, cancel, answerAsk, skipAsk, setPermissionMode, setModel, setEffort } =
     chatActions
   const inflight = useChatSession((s) => s.inflight)
+  const sessionId = useChatSession((s) => s.sessionId)
+  // 0062 handoff 가드 — 사용자 턴 2회 미만 세션 제외(값이 바뀔 때만 재렌더).
+  const userTurnCount = useChatSession((s) =>
+    s.messages.reduce((n, m) => (m.role === 'user' ? n + 1 : n), 0)
+  )
   const cwd = useChatSession((s) => s.cwd)
   const lastTelemetry = useChatSession((s) => s.lastTelemetry)
   const permissionMode = useChatSession((s) => s.permissionMode)
@@ -218,6 +223,24 @@ export function Composer({
   const compactStub = (): void => {
     // TODO(후속 핸드오프): compact 실동작
     console.warn('compact action is not implemented yet')
+  }
+
+  // 0062 handoff — 가드 3종: 확정 세션(sessionId) · mid-turn 거부(inflight) · 사용자 턴 2회
+  // 미만 제외. 클릭 = 즉시 물질화(startHandoff, 재클릭은 activeKey 전환으로 자연 차단).
+  const handoffDisabledReason =
+    sessionId == null
+      ? '핸드오프할 세션이 없습니다'
+      : inflight
+        ? '응답 완료 후 시도하세요'
+        : userTurnCount < 2
+          ? '대화가 더 진행된 뒤 사용할 수 있습니다'
+          : null
+  const onHandoff = (): void => {
+    if (handoffDisabledReason != null) return
+    if (chatActions.startHandoff()) {
+      setConversationStatusOpen(false)
+      setTelemetryOpen(false)
+    }
   }
 
   // "+" 메뉴의 Skill 진입 — 입력란에 `/` 를 넣어 `/` 자동완성(SkillAutocomplete)을 연다.
@@ -429,6 +452,8 @@ export function Composer({
               model={conversationStatusModel}
               onCompact={compactStub}
               onNewChat={() => chatActions.newChat()}
+              onHandoff={onHandoff}
+              handoffDisabledReason={handoffDisabledReason}
             />
           </Popover>
         )}
@@ -622,6 +647,27 @@ export function Composer({
                     align="end"
                   >
                     <TelemetryPanel telemetry={lastTelemetry} />
+                    {/* 0062 handoff — 컨텍스트 도넛 Tier2 에 상시 노출. nearCompaction 이면
+                        primary 로 강조(경고 시 권장 액션). */}
+                    <div className="mt-2 border-t border-border pt-2">
+                      <Button
+                        variant={
+                          nearCompaction(
+                            contextTokens(lastTelemetry),
+                            contextWindowFor(lastTelemetry.model)
+                          )
+                            ? 'primary'
+                            : 'contained'
+                        }
+                        leadingIcon="fork"
+                        onClick={onHandoff}
+                        disabled={handoffDisabledReason != null}
+                        title={handoffDisabledReason ?? '요약본으로 새 세션에서 이어갑니다'}
+                        className="w-full"
+                      >
+                        핸드오프로 이어가기
+                      </Button>
+                    </div>
                   </Popover>
                 )}
               </span>

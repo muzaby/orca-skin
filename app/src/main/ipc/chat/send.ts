@@ -25,6 +25,7 @@ import {
   resolveTitleModel,
   type ResolvedProviderSettings
 } from '../../settings/provider-settings'
+import { buildHandoffMessage } from '../../orchestration/handoff'
 import { agentPermissionRequest } from '../../runtime-events/permission-bridge'
 import type { PermissionModeController } from '../../runtime-events/permission-mode-controller'
 import { makeClassifiedError } from '../../runtime-errors/classifier'
@@ -262,10 +263,43 @@ export function registerChatHandlers(deps: ChatDeps): void {
       return
     }
 
+    // 0062 continuity — fork/handoff 는 새 세션 send(sessionId=null)로 수렴하되 출발 세션의
+    // 메타(cwd·project·provider)를 계승한다. cwd 계승은 필수 — SDK 세션 파일이 cwd 인코딩
+    // 경로(~/.claude/projects/<encoded-cwd>/)에 저장돼 resume(forkSession) 탐색이 cwd 에 묶인다.
+    const continuitySource = parsed.data.forkFrom ?? parsed.data.handoffFrom
+    const continuityMeta = continuitySource ? ctx.db.getSessionById(continuitySource) : undefined
+    if (continuitySource) {
+      if (!continuityMeta) {
+        sendChatEvent(event.sender, {
+          type: 'error',
+          error: makeClassifiedError(
+            'schema_validation_error',
+            '분기할 원본 세션을 찾을 수 없습니다.',
+            { retryable: false }
+          )
+        })
+        return
+      }
+      // handoff 가드(mid-turn 거부) — 출발 세션 턴 진행 중엔 즉시 물질화를 거부한다(렌더러
+      // 비활성 가드의 main 측 이중 방어). fork 는 원본 불변이라 허용(plan 파생 UX).
+      if (parsed.data.handoffFrom && supervisor.hasSession(parsed.data.handoffFrom)) {
+        sendChatEvent(event.sender, {
+          type: 'error',
+          error: makeClassifiedError(
+            'provider_connection_error',
+            '원본 세션의 턴이 진행 중입니다. 완료 후 핸드오프하세요.',
+            { retryable: true }
+          )
+        })
+        return
+      }
+    }
+
     const resolved = await resolveTurnProvider(ctx, {
       adapter,
       sessionId: parsed.data.sessionId,
-      providerKey: parsed.data.providerKey ?? null,
+      // fork/handoff 는 출발 세션의 마지막 provider 를 계승한다(명시 선택이 우선).
+      providerKey: parsed.data.providerKey ?? continuityMeta?.provider_key ?? null,
       modelFamily: parsed.data.modelFamily ?? null
     })
 
@@ -277,7 +311,12 @@ export function registerChatHandlers(deps: ChatDeps): void {
       : undefined
     const boundProjectId = parsed.data.sessionId
       ? (sessionMeta?.project_id ?? null)
-      : parsed.data.projectId
+      : (continuityMeta?.project_id ?? parsed.data.projectId)
+
+    // handoff 는 main 이 자동 메시지를 조립해 text 를 대체한다(템플릿 단일 출처 = orchestration/).
+    const effectiveText = parsed.data.handoffFrom
+      ? buildHandoffMessage(continuityMeta?.title ?? null, parsed.data.handoffFrom)
+      : parsed.data.text
 
     // 첨부 정규화(경로 추출·이미지 읽기·검증)는 턴 시작 전 단계라 아래 턴 try/catch 밖이다.
     // 여기서 throw 하면(홈 밖 경로·unsupported·binary·fs 오류) invoke 가 거부돼 renderer 의
@@ -316,21 +355,24 @@ export function registerChatHandlers(deps: ChatDeps): void {
       titleEnv: turnEnv,
       titleModel: resolved.titleModel,
       providerKey: resolved.providerKey,
-      pendingUserText: parsed.data.text,
-      firstUserText: parsed.data.text,
+      pendingUserText: effectiveText,
+      firstUserText: effectiveText,
       pendingAttachmentViews: parsed.data.attachmentViews,
       dbSessionId: parsed.data.sessionId,
-      pendingProjectId: parsed.data.sessionId ? null : parsed.data.projectId,
+      pendingProjectId: parsed.data.sessionId ? null : boundProjectId,
       isNewSession: parsed.data.sessionId == null,
-      cwd: resolveTurnCwd(
-        ctx,
-        {
-          sessionId: parsed.data.sessionId,
-          projectId: boundProjectId,
-          cwd: parsed.data.cwd ?? null
-        },
-        sessionMeta
-      ),
+      // fork/handoff 는 출발 세션 cwd 를 계승한다(SDK 세션 파일 탐색이 cwd 에 묶임 — 위 주석).
+      cwd: continuityMeta
+        ? (continuityMeta.cwd ?? ctx.getCwd(continuityMeta.project_id))
+        : resolveTurnCwd(
+            ctx,
+            {
+              sessionId: parsed.data.sessionId,
+              projectId: boundProjectId,
+              cwd: parsed.data.cwd ?? null
+            },
+            sessionMeta
+          ),
       titleGenerationStarted: false,
       currentAssistantMessageId: null,
       assistantText: '',
@@ -341,7 +383,18 @@ export function registerChatHandlers(deps: ChatDeps): void {
       openToolRuns: new Map(),
       subagentTypes: new Map(),
       blockedSubagents: new Set(),
-      stoppedSubagents: new Set()
+      stoppedSubagents: new Set(),
+      // 0062 continuity — persist(session.updated)가 lineage 영속 + fork display 복사에 쓴다.
+      ...(continuitySource
+        ? {
+            lineage: {
+              parentSessionId: continuitySource,
+              relation: parsed.data.handoffFrom ? ('handoff' as const) : ('fork' as const)
+            }
+          }
+        : {}),
+      // handoff 자동 메시지는 렌더러가 본문을 모른다 — coordinator 가 message.user 로 에코.
+      ...(parsed.data.handoffFrom ? { echoUserText: effectiveText } : {})
     }
     if (parsed.data.sessionId) supervisor.startResume(parsed.data.sessionId, turn)
     else supervisor.startNew(event.sender, turn)
@@ -366,10 +419,11 @@ export function registerChatHandlers(deps: ChatDeps): void {
     ctx.ensureExtensionsDeployedForTurn()
 
     // 백엔드 중립 확장 리소스(지침+정적 정책 append · MCP · skills · hooks)를 빌더가 조립.
-    // resume 면 projectId 는 세션 바인딩에서 조회되므로 null 을 넘긴다.
+    // resume 면 projectId 는 세션 바인딩에서 조회되므로 null 을 넘긴다. fork/handoff 새 세션은
+    // 출발 세션에서 계승한 boundProjectId 를 쓴다.
     const extensions = ctx.extensions.build(
       parsed.data.sessionId,
-      parsed.data.sessionId ? null : parsed.data.projectId
+      parsed.data.sessionId ? null : boundProjectId
     )
 
     // Persistent 면 세션 키의 idle 핸들을 재사용, 아니면 fresh(OneShot 또는 신규 세션 first turn).
@@ -485,7 +539,9 @@ export function registerChatHandlers(deps: ChatDeps): void {
 
     const request: TurnRequest = {
       sessionId: parsed.data.sessionId,
-      text: parsed.data.text,
+      // 0062 continuity — 어댑터가 resume+forkSession 으로 어댑트해 새 session id 를 발급받는다.
+      ...(continuitySource ? { forkFrom: continuitySource } : {}),
+      text: effectiveText,
       cwd: turn.cwd,
       signal: controller.signal,
       extensions,

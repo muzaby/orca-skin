@@ -296,6 +296,17 @@ export type NormalizedEvent =
       createdAt: number
     }
   | { type: 'steer.cancelled'; sessionId: string; id: string }
+  // 커밋된 user 메시지 에코(0062) — main 이 본문을 조립해 렌더러가 내용을 모르는 발화
+  // (handoff /compact 자동 메시지)에만 발행한다. 일반 send 의 user 버블은 렌더러 낙관 렌더.
+  | { type: 'message.user'; sessionId: string; text: string; createdAt: number }
+  // SDK 네이티브 압축 완료(system/compact_boundary → 정규화, 0062). 도착 세션 transcript 에
+  // 압축 경계를 표시한다. preTokens = 압축 전 토큰 수(compact_metadata.pre_tokens).
+  | {
+      type: 'session.compacted'
+      sessionId: string
+      trigger?: 'manual' | 'auto'
+      preTokens?: number
+    }
   | {
       type: 'message.completed'
       sessionId: string
@@ -517,6 +528,13 @@ export interface SendChatMessage {
   attachmentViews?: AttachmentView[]
   // 새 세션 출생 시 고정할 작업 디렉토리. sessionId != null resume 턴에서는 main 이 DB cwd 를 우선한다.
   cwd?: string | null
+  // 0062 continuity — fork/handoff 물질화 트리거. 새 세션 send(sessionId=null)에서만 유효하며
+  // 상호 배타. main 은 출발 세션의 cwd/project/provider 를 계승하고 SDK forkSession 으로
+  // 새 session_id 를 발급받는다. forkFrom = 분기(도착 세션에 display 복사 + lineage 'fork').
+  // handoffFrom = 핸드오프(main 이 text 를 /compact 자동 메시지로 대체 + lineage 'handoff' —
+  // text 는 생략 가능, display 복사 없음).
+  forkFrom?: string
+  handoffFrom?: string
 }
 
 // Composer 권한 모드 버튼이 노출하는 두 모드. SDK PermissionMode 의 부분집합 —
@@ -780,6 +798,8 @@ export type AppMessagePart =
   | { type: 'error'; error: unknown }
   // 컴포저 첨부(user 턴) — 트랜스크립트 버블에 썸네일로 렌더하고 DB 에 영속한다.
   | { type: 'attachment'; attachments: AttachmentView[] }
+  // 압축 경계 마커(0062 handoff) — session.compacted 를 영속해 재로드 후에도 경계를 표시한다.
+  | { type: 'compact_boundary'; trigger?: 'manual' | 'auto'; preTokens?: number }
 
 // 로드된 세션 — Renderer 의 chatReducer state 와 1:1 대응. 메시지는 순서 보존 parts 로 표현.
 export interface LoadedMessage {

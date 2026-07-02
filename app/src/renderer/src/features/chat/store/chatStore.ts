@@ -358,6 +358,16 @@ function receive(ev: NormalizedEvent): void {
       patchPendingSteer(key, (pending) => pending.filter((item) => item.id !== ev.id))
       return
 
+    case 'message.user':
+      // main 조립 발화 에코(0062 handoff 자동 메시지) — 렌더러 낙관 렌더가 없는 user 발화를
+      // 커밋 메시지로 굳힌다(steer.flushed 와 동형).
+      dispatchTo(key, {
+        type: 'APPEND_COMMITTED_USER_MESSAGE',
+        text: ev.text,
+        createdAt: ev.createdAt
+      })
+      return
+
     case 'telemetry': {
       // message.completed 없이 턴이 끝난 경우 잔여 라이브 텍스트를 text 파트로 굳힌다.
       const leftover = getState().sessions[key]?.live.text ?? ''
@@ -431,7 +441,10 @@ function send(
       effort: cur.effort,
       attachments: [...attachments],
       attachmentViews: [...attachmentViews],
-      cwd: cur.cwd
+      cwd: cur.cwd,
+      // fork draft(0062) 첫 전송 = 물질화 트리거. main 이 SDK forkSession 으로 새 id 를
+      // 발급받고 display 복사 + lineage 를 남긴다.
+      ...(cur.forkFrom != null ? { forkFrom: cur.forkFrom } : {})
     }
     let shouldDispatch = false
     setState((s) => {
@@ -449,7 +462,9 @@ function send(
       const sessions = { ...s.sessions }
       delete sessions[activeKey]
       sessions[draftKey] = nextEntry
-      sessions[NEW_CHAT_KEY] = freshEntry(cur.pendingProjectId)
+      // 새-채팅 슬롯에서 보낸 경우에만 슬롯을 재생성한다 — fork draft(draft: 키) 전송이
+      // 기존 __new__ 슬롯(사용자의 모델/모드 선택)을 리셋하지 않게.
+      if (activeKey === NEW_CHAT_KEY) sessions[NEW_CHAT_KEY] = freshEntry(cur.pendingProjectId)
       if (s.pendingNewChatKey == null) {
         shouldDispatch = true
         return {
@@ -573,6 +588,123 @@ function newChat(projectId: string | null = null): void {
     activeKey: NEW_CHAT_KEY
   }))
   void settingsApi.set({ lastSessionId: null })
+  pruneUnsentContinuityDrafts()
+}
+
+// ── 0062 continuity — fork draft / handoff ──────────────────────────────────
+
+// 미전송 continuity draft(전송 전 이탈분) 정리 — 활성/전송 대기(pending·queue) 엔트리는 보존.
+// 취소 = no-op 불변식: draft 는 메모리 전용이라 삭제로 영속 흔적 0.
+function pruneUnsentContinuityDrafts(): void {
+  setState((s) => {
+    const stale = Object.entries(s.sessions).filter(
+      ([key, e]) =>
+        key !== s.activeKey &&
+        key !== s.pendingNewChatKey &&
+        !s.newChatQueue.some((q) => q.key === key) &&
+        e.session.sessionId == null &&
+        (e.session.forkFrom != null || e.session.handoffFrom != null)
+    )
+    if (stale.length === 0) return s
+    const sessions = { ...s.sessions }
+    for (const [key] of stale) delete sessions[key]
+    return { sessions }
+  })
+}
+
+// 분기(fork) draft 생성 — 활성(확정) 세션의 transcript 를 읽기전용 clone 으로 프리필한
+// draft 엔트리를 만들고 전환만 한다. DB·런타임·IPC 0(뷰만) — 물질화는 첫 보내기(send 의
+// forkFrom 분기)에서. 취소(이탈) 시 prune 으로 폐기된다.
+function startForkDraft(): boolean {
+  const s = getState()
+  const src = s.sessions[s.activeKey]?.session
+  if (!src?.sessionId || src.loadingSession) return false
+  pruneUnsentContinuityDrafts()
+  const draftKey = `draft:${crypto.randomUUID()}`
+  const draft: SessionEntry = {
+    session: {
+      ...initialChatState,
+      title: src.title,
+      cwd: src.cwd,
+      pendingProjectId: src.projectId,
+      projectId: src.projectId,
+      providerKey: src.providerKey,
+      modelFamily: src.modelFamily,
+      effort: src.effort,
+      permissionMode: src.permissionMode,
+      lastTelemetry: src.lastTelemetry,
+      messages: [...src.messages],
+      forkFrom: src.sessionId
+    },
+    live: EMPTY_LIVE,
+    subagentMeta: EMPTY_SUBAGENT_META,
+    pendingSteer: []
+  }
+  setState((st) => ({
+    sessions: { ...st.sessions, [draftKey]: draft },
+    activeKey: draftKey
+  }))
+  return true
+}
+
+// 핸드오프 — 클릭 = 즉시 물질화(사용자 정정, plan r2). 빈 draft 엔트리로 전환하고
+// handoffFrom send 를 즉시 발행한다(text 는 main 이 /compact 자동 메시지로 조립·대체).
+// 자동 메시지는 message.user 에코로, 압축 완료는 session.compacted 로 transcript 에 커밋된다.
+function startHandoff(): boolean {
+  const s = getState()
+  const src = s.sessions[s.activeKey]?.session
+  // 가드: 확정 세션 + 턴 비진행 + 사용자 턴 2회 이상(Composer 비활성 가드와 이중 방어).
+  if (!src?.sessionId || src.inflight || src.loadingSession) return false
+  if (src.messages.filter((m) => m.role === 'user').length < 2) return false
+  pruneUnsentContinuityDrafts()
+  const sourceSessionId = src.sessionId
+  const draftKey = `draft:${crypto.randomUUID()}`
+  const payload: SendChatMessage = {
+    sessionId: null,
+    projectId: src.projectId,
+    text: '',
+    permissionMode: src.permissionMode,
+    providerKey: src.providerKey,
+    modelFamily: src.modelFamily,
+    effort: src.effort,
+    attachments: [],
+    attachmentViews: [],
+    cwd: null,
+    handoffFrom: sourceSessionId
+  }
+  const draft: SessionEntry = {
+    session: {
+      ...initialChatState,
+      cwd: src.cwd,
+      pendingProjectId: src.projectId,
+      projectId: src.projectId,
+      providerKey: src.providerKey,
+      modelFamily: src.modelFamily,
+      effort: src.effort,
+      permissionMode: src.permissionMode,
+      inflight: true,
+      turnStartedAt: Date.now(),
+      handoffFrom: sourceSessionId
+    },
+    live: EMPTY_LIVE,
+    subagentMeta: EMPTY_SUBAGENT_META,
+    pendingSteer: []
+  }
+  let shouldDispatch = false
+  setState((st) => {
+    const sessions = { ...st.sessions, [draftKey]: draft }
+    if (st.pendingNewChatKey == null) {
+      shouldDispatch = true
+      return { sessions, activeKey: draftKey, pendingNewChatKey: draftKey }
+    }
+    return {
+      sessions,
+      activeKey: draftKey,
+      newChatQueue: [...st.newChatQueue, { key: draftKey, payload }]
+    }
+  })
+  if (shouldDispatch) sendNewChatPayload(payload)
+  return true
 }
 
 // 사이드바 항목 클릭 / 부팅 자동 복원 공통. 엔트리가 이미 있으면(본 적 있는 세션)
@@ -587,6 +719,7 @@ async function loadSession(sessionId: string, title: string | null = null): Prom
   if (existing && !existing.session.loadingSession) {
     setState({ activeKey: sessionId })
     void settingsApi.set({ lastSessionId: sessionId })
+    pruneUnsentContinuityDrafts()
     return
   }
 
@@ -603,6 +736,7 @@ async function loadSession(sessionId: string, title: string | null = null): Prom
     },
     activeKey: sessionId
   }))
+  pruneUnsentContinuityDrafts()
 
   try {
     const session = await sessionApi.load(sessionId)
@@ -754,6 +888,8 @@ export const chatActions = {
   cancelSteer,
   cancel,
   newChat,
+  startForkDraft,
+  startHandoff,
   setPendingCwd,
   clearError: (): void => dispatchActive({ type: 'CLEAR_ERROR' }),
   loadSession,

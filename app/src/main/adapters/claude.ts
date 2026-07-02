@@ -283,7 +283,10 @@ export class ClaudeAdapter implements SessionAdapter {
     const handle = query({
       prompt: input.stream,
       options: {
-        resume: sessionId ?? undefined,
+        // fork/handoff(0062) — forkFrom 세션의 이력 복사본으로 시작하되 SDK 가 새 session_id
+        // 를 발급한다(원본 불변). 새 id 는 init(session.updated)에서 ctx 로 흡수된다.
+        resume: req.forkFrom ?? sessionId ?? undefined,
+        ...(req.forkFrom !== undefined ? { forkSession: true } : {}),
         includePartialMessages: true,
         // 서브에이전트(Task) child 의 text/thinking 블록도 forward 받는다 — 기본은 tool_use/
         // tool_result 만 와서 서브에이전트 답변이 우측 패널에 안 보였다(handoff 0044 피드백 2).

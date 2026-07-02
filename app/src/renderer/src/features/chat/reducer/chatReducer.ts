@@ -131,6 +131,11 @@ export interface ChatState {
   // tool_use 는 canUseTool 을 동시 호출해 여러 승인이 겹칠 수 있으므로 큐로 모델링한다(단일
   // 슬롯이면 직전 카드가 덮어써져 사라지고 해당 broker 보류가 영구 inflight 로 고착).
   pendingToolApprovals: { approvalId: string; toolName: string; input: unknown }[]
+  // 0062 continuity — 이 뷰가 fork/handoff 로 파생된 세션(또는 미전송 draft)임을 표시.
+  // draft 단계(sessionId=null)에선 send 페이로드(forkFrom/handoffFrom) 소스이자 라우트 싱크
+  // 가드(원본 세션 재로드 방지) 마커. 발급 후에도 유지되다가 새 대화/세션 로드 시 리셋.
+  forkFrom: string | null
+  handoffFrom: string | null
 }
 
 export const initialChatState: ChatState = {
@@ -159,7 +164,9 @@ export const initialChatState: ChatState = {
   planContent: null,
   planComments: [],
   activePlanCommentId: null,
-  pendingToolApprovals: []
+  pendingToolApprovals: [],
+  forkFrom: null,
+  handoffFrom: null
 }
 
 // 우측 패널 열 폭/행 분할 clamp 범위.
@@ -334,6 +341,18 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           return {
             ...state,
             retry: { attempt: ev.attempt, max: ev.maxRetries, category: ev.error.category }
+          }
+
+        case 'session.compacted':
+          // SDK 네이티브 압축 완료(0062 handoff) — 경계 마커 파트로 커밋(재로드는 DB 파트 복원).
+          return {
+            ...state,
+            retry: undefined,
+            messages: appendAssistantPart(state.messages, {
+              type: 'compact_boundary',
+              ...(ev.trigger !== undefined ? { trigger: ev.trigger } : {}),
+              ...(ev.preTokens !== undefined ? { preTokens: ev.preTokens } : {})
+            })
           }
 
         case 'telemetry': {

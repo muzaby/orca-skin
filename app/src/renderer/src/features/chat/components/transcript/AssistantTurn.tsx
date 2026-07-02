@@ -32,7 +32,7 @@ export const AssistantTurn = memo(
           <AssistantMessage key={i} message={m} />
         ))}
         {!pending && (
-          <MessageMeta text={turnCopyText(turn)} createdAt={last.createdAt} align="left" />
+          <MessageMeta text={turnCopyText(turn)} createdAt={last.createdAt} align="left" forkable />
         )}
       </div>
     )

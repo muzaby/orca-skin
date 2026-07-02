@@ -179,3 +179,49 @@ foundation(lineage DB + forkSession 어댑터 배선) → **fork**(draft 뷰 + d
 - [x] 의존 기술 — SDK forkSession(`사용자 확인`)·`/compact`·기존 draft 흐름 식별, 신규 의존성 0 명시.
 - [x] 파생 UX — 진행 표시/실패/가드/취소(fork·handoff 분리)/동시성/fork 경계/테마·a11y/재진입 펼침.
 - [x] 리스크 — compact 미실측·draft 뷰 상태·즉시 실행 오클릭·fork 정밀도·부분 실패·id 정합 + Open Question(점분기·출발 세션 표시) 분리.
+
+---
+
+> **[구현자 기입]** 이하는 구현 턴에서 채운다. 구현 주체 = **Claude** (plan 상 Codex 였으나 사용자가 라이브 세션(2026-07-02)에서 Claude 직접 구현을 지시 — 핸드오프 절차·trailer 규약은 동일하게 준수).
+
+## [구현자 기입] 설계 리뷰 (비판적)
+
+- **동의 / 그대로 진행**: rebind(fork + SDK `/compact`) 채택(§Context) — 자체 요약 파이프라인 전체가 SDK 기능 2개로 대체되어 유지보수 표면적이 최소다. 신규 invoke 채널 0(§C) · lazy 물질화 재사용(§C) 도 그대로 — 렌더러 `promotePendingNewChat`(chatStore.ts:234)의 draft re-key + activeKey 자동 전환이 이미 있어 "새 세션 전환" UX 는 신규 코드가 거의 없었다.
+- **이견 1 — `TurnRequest.fork?: boolean` → `forkFrom?: string` 로 변경(§C 조정)**: boolean 이면 resume 대상(소스 id)을 `sessionId` 에 실어야 해서 send.ts 의 resume 분기(즉시 persistUserMessage·admission `hasSession`)가 오염된다. `sessionId=null`(새 세션 의미론 유지) + `forkFrom` 별도 필드가 기존 새-채팅 경로(admission `hasPending`·lazy insert·promote)를 무변경으로 재사용한다. 어댑터는 `resume: forkFrom ?? sessionId` + `forkSession: !!forkFrom`(`claude.ts:286`).
+- **이견 2 — 자동 메시지 렌더러 표시 = `message.user` 에코 variant(§기준 7 "구현자 재량" 지점)**: user 메시지 에코 이벤트가 없고(일반 send 는 낙관 렌더) invoke ack 회신은 타이밍 불안정 → coordinator 가 `session.updated` promote 직후 1회 forward 하는 `message.user` variant 신설(steer.flushed 의 `APPEND_COMMITTED_USER_MESSAGE` 리듀서 재사용). 템플릿 단일 출처 = main(orchestration/handoff.ts) 유지.
+- **이견 3 — "StatusPopover 상시 노출"(기준 8)의 실배선**: StatusPopover 는 warn/danger 에서만 존재한다(statusViewModel 이 safe→null, 0006 설계). "상시" 를 위해 **컨텍스트 도넛 Tier2 팝오버(TelemetryPanel Popover) 하단에 핸드오프 액션을 추가**(도넛 = 세션 수명 동안 표시)하고, StatusPopover(warn/danger)에도 같은 액션을 추가했다. `nearCompaction` 시 도넛 팝오버 버튼이 primary 로 강조된다.
+- **우려(보류) — compact 요약 텍스트의 가시성 미보장(§리스크 1 연장)**: `/compact` 후 요약이 assistant 메시지로 스트리밍되는지 스펙이 명시하지 않는다. 방어: 오면 `message.completed` 로 자연 표시, 안 오면 compact 마커만 표시(어느 쪽이든 무결). 실기 확인은 verify 사람 검증으로 이관.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
+
+| # | 놓친 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | **cwd 계승 누락** — SDK 세션 파일은 `~/.claude/projects/<encoded-cwd>/` 에 저장돼 `resume`(forkSession) 탐색이 **cwd 에 묶인다**. 새-채팅 기본 cwd 로 fork 하면 소스 세션을 못 찾는다. | ✅ 구현함 — fork/handoff 는 출발 세션의 cwd·project·provider 를 main 이 계승(`send.ts` continuityMeta). | `@docs/spec/claude/agent-sdk/sessions.md`(Tip: 일치하지 않는 cwd) |
+| 2 | **라우트 싱크가 fork draft 를 즉시 되돌림** — `/chat/<원본>` URL 에서 draft(sessionId=null)로 전환하면 `useChatRouteSync` 방향 1 이 원본을 재로드해 draft 를 덮는다. | ✅ 구현함 — draft 가드(forkFrom/handoffFrom 마커 시 skip) + 방향 2 arming 확장(마커 세션 승격 시 `/chat/<새 id>` 이동). | `useChatRouteSync.ts` |
+| 3 | **wire 실측 불가** — 이 원격 환경이 중첩 claude 서브프로세스를 SIGKILL(스크립트 실측 실패). | ✅ 사용자 승인 하 방어 구현 — SDK **타이핑**(`sdk.d.ts` `SDKCompactBoundaryMessage`·`Options.forkSession`)으로 shape 확정(스펙 문서보다 강한 근거). 실기 시퀀스 확인은 verify 사람 검증 항목. | 사용자 결정(2026-07-02) |
+| 4 | fork draft 전송이 새-채팅 슬롯(`__new__`)의 사용자 선택(모델/모드)을 리셋 | ✅ 구현함 — `__new__` 재생성은 activeKey 가 새-채팅 슬롯일 때만. | `chatStore.ts send()` |
+| 5 | 기존 테스트가 compact_boundary **드롭**을 잠금(`claude-map.test.ts` "미사용 SDK 메시지") | ✅ 구현함 — 0062 가 의도적으로 바꾸는 동작이라 예시 subtype 을 `status` 로 교체. | 인수 기준 6 |
+| 6 | **handoff 자동-title** — 도착 세션 title 이 자동 메시지 preview(`/compact [핸드오프]…`)로 초기화됨. 자동 제목 생성(0004)이 첫 턴 후 덮지만 그 사이 사이드바에 노출. | ⚠️ 보고만 — 표시 정책(예: `핸드오프: {원본 title}` 초기값)은 UX 결정. v1 은 기존 경로 유지. | 파생 UX §세션 재진입 |
+| 7 | **compact 요약 가시성**(설계 리뷰 "우려" 참조) — 요약이 세션 파일에만 남고 스트림에 안 실릴 가능성. | ⚠️ 보고만 — 방어 구현 완료, 실기 판단 후 필요 시 후속(요약 파트 하이드레이션). | §리스크 1 |
+
+## [구현자 기입] 구현 체크리스트
+
+- [x] 기준 1 — `orchestration/{fork,handoff}.ts` L1 신설(순수 로직만·배선은 L3), 백엔드 리터럴 0, boundaries/no-cycle 통과
+- [x] 기준 2 — `buildHandoffMessage` 순수 함수 + 단위 테스트 4(보간·폴백·`/compact [핸드오프]` 접두 불변·구조 지시)
+- [x] 기준 3 — `0011_session_lineage.sql` + `insertLineage`(멱등)/`getLineage`/`copyMessagesToSession`(트랜잭션·idx 보존) + 회귀 테스트 4
+- [x] 기준 4 — fork: MessageMeta 분기 아이콘(호버) → `startForkDraft`(DOM draft 뷰만·소스 transcript 읽기전용 프리필) → 첫 보내기 `forkFrom` 물질화(SDK 새 id → lazy 세션행+display 복사+lineage) · 미전송 draft prune(영속 0)
+- [x] 기준 5 — handoff: `startHandoff` 클릭=즉시 물질화(자동 메시지 main 조립·display 복사 없음·lineage 'handoff') + `message.user` 에코 + 세션 자동 전환
+- [x] 기준 6 — `system/compact_boundary` → `session.compacted` variant + `compact_boundary` 파트 영속 + `CompactBoundaryMarker` 구분선 렌더 (방어 구현 — 사용자 승인)
+- [x] 기준 7 — `SendChatMessage.forkFrom/handoffFrom` + zod(상호배타·새 세션 전용·handoff text 생략) + `TurnRequest.forkFrom` → `claude.ts` forkSession. 신규 invoke 채널 0(총 40 유지)
+- [x] 기준 8 — 핸드오프 액션: 도넛 Tier2 팝오버 상시 + StatusPopover(warn/danger) + `nearCompaction` 강조. 가드 3종(mid-turn 비활성/main 이중 방어 · 사용자 턴 2회 미만 · 재클릭 무시)
+- [x] 기준 9 — 불변식 문서화(코드 주석) + 게이트 green
+
+## [구현자 기입] 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | **신규**: `orchestration/{fork,handoff}.ts(+test)` · `db/migrations/0011_session_lineage.sql` · `adapters/claude.fork.test.ts` · `transcript/CompactBoundaryMarker.tsx` / **수정(main)**: `db/{migrate,queries,types}.ts` · `extensions/types.ts` · `adapters/{claude,claude-map}.ts` · `lifecycle/{turn-context,turn-coordinator}.ts` · `ipc/chat/{send,persist}.ts` / **수정(shared)**: `ipc.ts` · `protocol.ts` / **수정(렌더러)**: `chatStore.ts` · `chatReducer.ts` · `lib/parts.ts` · `Composer.tsx` · `composer/StatusPopover.tsx` · `transcript/{AssistantMessage,AssistantTurn,MessageMeta}.tsx` · `app/hooks/useChatRouteSync.ts` · `shared/ui/Icon.tsx` |
+| 실행 명령 | `cd app && npm run lint && npm run typecheck && npm test` |
+| 게이트 결과 | lint ✅ / typecheck(node·web·test) ✅ / test ✅ **87 files · 645 passed** (원격 환경 특이사항: electron 바이너리 다운로드 403 → `path.txt` 스텁으로 모듈 로드 우회, 테스트는 electron API 를 mock 하므로 무영향 — base 커밋에서도 동일 실패 확인) |
+| 블로커 / 역질문 | 없음. ⚠️ 2건(위 표 #6 title 초기값 · #7 요약 가시성)은 verify/사용자 판단 대기 |
+| 대상 커밋 | (커밋 후 기재 — INDEX.md 참조) |

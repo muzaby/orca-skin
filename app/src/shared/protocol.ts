@@ -52,18 +52,37 @@ const NormalizedPermissionModeSchema = z.enum([
   'auto_classified'
 ])
 
-export const SendChatMessageSchema = z.object({
-  sessionId: z.string().nullable(),
-  projectId: z.string().nullable(),
-  text: z.string().min(1),
-  permissionMode: NormalizedPermissionModeSchema.optional(),
-  providerKey: z.string().min(1).nullable().optional(),
-  modelFamily: z.string().min(1).nullable().optional(),
-  effort: EffortLevelSchema.optional(),
-  attachments: z.array(ComposerAttachmentSchema).default([]),
-  attachmentViews: z.array(AttachmentViewSchema).default([]),
-  cwd: z.string().min(1).nullable().optional()
-})
+export const SendChatMessageSchema = z
+  .object({
+    sessionId: z.string().nullable(),
+    projectId: z.string().nullable(),
+    // handoffFrom 이 있으면 main 이 자동 메시지로 대체하므로 빈 문자열을 허용한다(아래 refine).
+    text: z.string(),
+    permissionMode: NormalizedPermissionModeSchema.optional(),
+    providerKey: z.string().min(1).nullable().optional(),
+    modelFamily: z.string().min(1).nullable().optional(),
+    effort: EffortLevelSchema.optional(),
+    attachments: z.array(ComposerAttachmentSchema).default([]),
+    attachmentViews: z.array(AttachmentViewSchema).default([]),
+    cwd: z.string().min(1).nullable().optional(),
+    // 0062 continuity — 상호 배타·새 세션 전용(아래 refine).
+    forkFrom: z.string().min(1).optional(),
+    handoffFrom: z.string().min(1).optional()
+  })
+  .superRefine((v, ctx) => {
+    if (v.forkFrom !== undefined && v.handoffFrom !== undefined) {
+      ctx.addIssue({ code: 'custom', message: 'forkFrom/handoffFrom 은 상호 배타다' })
+    }
+    if ((v.forkFrom !== undefined || v.handoffFrom !== undefined) && v.sessionId !== null) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'fork/handoff 는 새 세션 send(sessionId=null) 전용이다'
+      })
+    }
+    if (v.handoffFrom === undefined && v.text.length < 1) {
+      ctx.addIssue({ code: 'custom', message: 'text 는 비어 있을 수 없다' })
+    }
+  })
 
 export const SteerChatMessageSchema = z.object({
   sessionId: z.string().min(1),

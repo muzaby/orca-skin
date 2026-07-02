@@ -48,6 +48,7 @@ export type IconName =
   | 'pin'
   | 'stop'
   | 'enter'
+  | 'fork'
 
 const ICONS: Record<IconName, string> = {
   chat: 'M3 4h10a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-3 2.5V12H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z',
@@ -104,7 +105,9 @@ const ICONS: Record<IconName, string> = {
   // stop — 둥근 사각형 외곽선(채움 없음, fill=none 기본). 서브에이전트 중단 버튼.
   stop: 'M6 4h4a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z',
   // enter — Enter/return 키 기호(↵). 우측에서 내려와 좌측으로 꺾이는 화살표. 컴포저 전송 버튼.
-  enter: 'M13 4v4a1 1 0 0 1-1 1H4M7 6 4 9l3 3'
+  enter: 'M13 4v4a1 1 0 0 1-1 1H4M7 6 4 9l3 3',
+  // fork — git-branch(분기). 세로 줄기 + 아래 노드 + 위 우측 노드에서 줄기로 합류하는 곡선.
+  fork: 'M4 2v8M4 10a2 2 0 1 0 0 4 2 2 0 1 0 0-4M12 2a2 2 0 1 0 0 4 2 2 0 1 0 0-4M12 6a6 6 0 0 1-6 6'
 }
 
 export interface IconProps {

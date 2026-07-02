@@ -56,6 +56,9 @@ export function useChatRouteSync(): void {
     }
     if (urlSessionId != null) {
       if (cur.sessionId === urlSessionId && !cur.loadingSession) return
+      // 0062 continuity — /chat/<원본> URL 에 머문 채 fork/handoff draft 가 활성인 상태.
+      // 원본 세션 재로드로 draft 를 덮지 않는다(승격 시 방향 2 가 /chat/<새 id> 로 이동).
+      if (cur.sessionId == null && (cur.forkFrom != null || cur.handoffFrom != null)) return
       const meta = sessions.find((s) => s.id === urlSessionId)
       const metaTitle = meta?.title?.trim() || meta?.preview?.trim() || null
       void chatActions.loadSession(urlSessionId, metaTitle)
@@ -73,9 +76,13 @@ export function useChatRouteSync(): void {
 
   // 방향 2 — State → URL (armed-ref)
   const sessionId = useChatSession((s) => s.sessionId)
+  // 0062 continuity — fork/handoff 파생 뷰 마커. draft(sessionId=null)에서 arm 되고 SDK
+  // 새 id 승격(null → non-null) 시 /chat/<새 id> 로 이동한다(/chat/<원본> 경로에서도).
+  // 마커는 승격 후에도 state 에 남아 이 effect 의 upgradable 이 전이 프레임까지 유지된다.
+  const continuityMarker = useChatSession((s) => s.forkFrom != null || s.handoffFrom != null)
   const armedRef = useRef(false)
   useEffect(() => {
-    const upgradable = onNew || urlProjectId != null
+    const upgradable = onNew || urlProjectId != null || continuityMarker
     if (!upgradable) {
       armedRef.current = false
       return
@@ -90,5 +97,5 @@ export function useChatRouteSync(): void {
       armedRef.current = false
       navigate(`/chat/${sessionId}`, { replace: true })
     }
-  }, [onNew, urlProjectId, sessionId, navigate])
+  }, [onNew, urlProjectId, continuityMarker, sessionId, navigate])
 }

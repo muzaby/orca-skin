@@ -8,6 +8,7 @@ import type { AttachmentView, NormalizedEvent } from '../../../shared/ipc'
 import type { DbQueries } from '../../db'
 import type { CostTracker } from '../../cost/tracker'
 import { hasContextTokens } from '../../usage/usageMap'
+import { materializeContinuityArrival } from '../../orchestration/fork'
 import { previewOf } from '../dto'
 import { sendChatEvent } from '../context'
 import type { InflightTurn } from './turn-registry'
@@ -131,6 +132,17 @@ export class TurnPersistence {
           providerKey: turn.providerKey,
           cwd: turn.cwd
         })
+        // 0062 continuity — fork/handoff 도착 물질화(lineage + fork 만 display 복사).
+        // fork 복사가 원본 idx 를 보존하므로 아래 user 발화 영속(MAX(idx)+1)보다 먼저 실행해
+        // 새 발화가 복사 이력 뒤로 정렬되게 한다.
+        if (turn.lineage) {
+          materializeContinuityArrival(this.db, {
+            childSessionId: sessionId,
+            parentSessionId: turn.lineage.parentSessionId,
+            relation: turn.lineage.relation,
+            createdAt: now
+          })
+        }
         if (turn.pendingUserText) {
           this.persistUserMessage(sessionId, turn.pendingUserText, now, turn.pendingAttachmentViews)
           this.db.updateSessionPreview(sessionId, previewOf(turn.pendingUserText), now)
@@ -224,6 +236,21 @@ export class TurnPersistence {
           type: 'error',
           toolRunId: null,
           payloadJson: JSON.stringify({ error: ev.error })
+        })
+        break
+      }
+      case 'session.compacted': {
+        // SDK 네이티브 압축 완료 경계(0062) — 재로드 후에도 표시되도록 파트로 영속한다.
+        if (!turn.dbSessionId) break
+        const id = this.ensureAssistantMessage(turn, turn.dbSessionId)
+        this.db.appendPart({
+          messageId: id,
+          type: 'compact_boundary',
+          toolRunId: null,
+          payloadJson: JSON.stringify({
+            ...(ev.trigger !== undefined ? { trigger: ev.trigger } : {}),
+            ...(ev.preTokens !== undefined ? { preTokens: ev.preTokens } : {})
+          })
         })
         break
       }

@@ -429,9 +429,8 @@ describe('claudeToNormalized', () => {
   })
 
   it('미사용 SDK 메시지 → []', () => {
-    expect(claudeToNormalized(sdk({ type: 'system', subtype: 'compact_boundary' }), ctx())).toEqual(
-      []
-    )
+    // compact_boundary 는 0062 에서 session.compacted 로 정규화됨 — 미사용 예시는 status.
+    expect(claudeToNormalized(sdk({ type: 'system', subtype: 'status' }), ctx())).toEqual([])
   })
 })
 
@@ -620,5 +619,32 @@ describe('claudeToNormalized — 서브에이전트(Task) 메타', () => {
         subagentMeta: { model: 'claude-haiku-4-5', durationMs: 9000, toolUses: 4 }
       }
     ])
+  })
+})
+
+describe('claudeToNormalized — compact_boundary (0062)', () => {
+  it('system/compact_boundary → session.compacted (trigger·preTokens 정규화)', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'compact_boundary',
+        compact_metadata: { trigger: 'manual', pre_tokens: 155_000 }
+      }),
+      ctx()
+    )
+    expect(out).toEqual([
+      { type: 'session.compacted', sessionId: 's1', trigger: 'manual', preTokens: 155_000 }
+    ])
+  })
+
+  it('메타 필드가 없거나 미지 값이면 optional 을 생략한다(방어)', () => {
+    const out = claudeToNormalized(
+      sdk({ type: 'system', subtype: 'compact_boundary', compact_metadata: { trigger: '??' } }),
+      ctx()
+    )
+    expect(out).toEqual([{ type: 'session.compacted', sessionId: 's1' }])
+    expect(claudeToNormalized(sdk({ type: 'system', subtype: 'compact_boundary' }), ctx())).toEqual(
+      [{ type: 'session.compacted', sessionId: 's1' }]
+    )
   })
 })

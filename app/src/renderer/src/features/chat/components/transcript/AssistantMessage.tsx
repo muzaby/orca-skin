@@ -5,6 +5,7 @@ import { AskExchange } from './AskExchange'
 import { ReasoningBlock } from './ReasoningBlock'
 import { ErrorCard } from './ErrorCard'
 import { StructuredOutputCard } from './StructuredOutputCard'
+import { CompactBoundaryMarker } from './CompactBoundaryMarker'
 import { messageSegments, reconcileSegments, type MessageSegment } from '../../lib/parts'
 import type { Message } from '../../reducer/chatReducer'
 
@@ -47,6 +48,8 @@ export const AssistantMessage = memo(function AssistantMessage({
             return <Markdown key={i} source={seg.text} />
           case 'error':
             return <ErrorCard key={i} error={seg.error} />
+          case 'compact':
+            return <CompactBoundaryMarker key={i} trigger={seg.trigger} preTokens={seg.preTokens} />
         }
       })}
       {message.incomplete && (

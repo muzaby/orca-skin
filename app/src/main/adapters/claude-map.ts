@@ -159,6 +159,23 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
     ) {
       return mapTaskSystem(msg as unknown as Record<string, unknown>, subtype, ctx)
     }
+    // SDKCompactBoundaryMessage → session.compacted (0062 handoff). SDK 네이티브 /compact
+    // 압축 완료 경계 — 도착 세션 transcript 의 압축 표시를 구동한다(구 Phase 3 드롭 해제).
+    if (subtype === 'compact_boundary') {
+      const meta = (
+        msg as unknown as { compact_metadata?: { trigger?: unknown; pre_tokens?: unknown } }
+      ).compact_metadata
+      const preTokens = num(meta?.pre_tokens)
+      const trigger = meta?.trigger
+      return [
+        {
+          type: 'session.compacted',
+          sessionId: ctx.sessionId,
+          ...(trigger === 'manual' || trigger === 'auto' ? { trigger } : {}),
+          ...(preTokens !== undefined ? { preTokens } : {})
+        }
+      ]
+    }
   }
 
   // SDKPartialAssistantMessage → message.delta(text_delta) / message.reasoning.delta(thinking_delta)
@@ -364,8 +381,8 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
     return out
   }
 
-  // 그 외 SDK 메시지 (compact_boundary, plugin_install, task_*, permission_denied,
-  // rate_limit_event, status, api_retry, hook_*, auth_status 등) 는 Phase 3 미사용.
+  // 그 외 SDK 메시지 (plugin_install, permission_denied, rate_limit_event, status,
+  // api_retry, hook_*, auth_status 등) 는 미사용. (compact_boundary 는 0062 에서 정규화됨.)
   return []
 }
 
