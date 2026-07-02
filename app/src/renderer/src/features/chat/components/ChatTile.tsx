@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { ChatTitleBar } from './ChatTitleBar'
+import { LineageBanner } from './transcript/LineageBanner'
 import { TranscriptView } from './transcript/TranscriptView'
 import { Composer } from './Composer'
 import { RightPanel } from './rightpanel/RightPanel'
@@ -50,6 +51,9 @@ export function ChatTile({
           data-behavior="resizable"
         >
           <ChatTitleBar />
+
+          {/* 0062 continuity — fork/handoff 파생 세션의 출처 안내(원본 링크). 비파생이면 null. */}
+          <LineageBanner />
 
           {/* transcript 상·하단 soft fade — 타이틀 아래/컴포저 위 경계에서 스크롤되는
               내용이 배경색(from-bg)으로 흐려진다. pointer-events-none 으로 스크롤·선택·

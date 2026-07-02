@@ -18,6 +18,8 @@ interface ExchangeProps {
   reserve: boolean
   // 이 교환의 턴이 아직 진행 중(스트리밍) — 마지막 assistant 턴 메타 숨김 + 라이브 리프 표시.
   pending: boolean
+  // 마지막 교환인가 — 분기(fork) 아이콘을 이 교환의 마지막 assistant 턴에만 노출(0062 r2).
+  forkable?: boolean
   // 라이브 턴 에러 배너 — 예약공간 아래로 밀리지 않도록 마지막 교환 *내부* 끝에 렌더.
   error?: ClassifiedError
   pendingSteer?: PendingSteerState[]
@@ -29,6 +31,7 @@ export const Exchange = memo(
     exchange,
     reserve,
     pending,
+    forkable = false,
     error,
     pendingSteer = [],
     onRestoreSteerDraft
@@ -48,6 +51,8 @@ export const Exchange = memo(
               turn={turn}
               // 진행 중 교환의 마지막 assistant 턴만 메타 숨김(턴 종료 시 노출).
               pending={pending && turn === lastTurn}
+              // 분기 아이콘 = 마지막 교환의 마지막 assistant 턴에서만(r2 피드백).
+              forkable={forkable && turn === lastTurn}
             />
           )
         )}
@@ -62,6 +67,7 @@ export const Exchange = memo(
   (prev, next) =>
     prev.reserve === next.reserve &&
     prev.pending === next.pending &&
+    prev.forkable === next.forkable &&
     prev.error === next.error &&
     prev.pendingSteer === next.pendingSteer &&
     exchangeEquals(prev.exchange, next.exchange)

@@ -220,9 +220,10 @@ export function Composer({
     setConversationStatusOpen((v) => !v)
   }
 
-  const compactStub = (): void => {
-    // TODO(후속 핸드오프): compact 실동작
-    console.warn('compact action is not implemented yet')
+  // warn 단계 권장 액션(0062 r2, 사용자 확정) — 현재 세션에 `/compact` 를 사용자 턴으로
+  // 전송한다. SDK 네이티브 압축이 돌고 완료 시 session.compacted → 압축 경계 구분선 표시.
+  const onCompact = (): void => {
+    if (chatActions.send('/compact')) setConversationStatusOpen(false)
   }
 
   // 0062 handoff — 가드 3종: 확정 세션(sessionId) · mid-turn 거부(inflight) · 사용자 턴 2회
@@ -450,8 +451,7 @@ export function Composer({
             <StatusPopover
               id={conversationStatusPopoverId}
               model={conversationStatusModel}
-              onCompact={compactStub}
-              onNewChat={() => chatActions.newChat()}
+              onCompact={onCompact}
               onHandoff={onHandoff}
               handoffDisabledReason={handoffDisabledReason}
             />

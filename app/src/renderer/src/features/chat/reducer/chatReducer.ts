@@ -134,8 +134,11 @@ export interface ChatState {
   // 0062 continuity — 이 뷰가 fork/handoff 로 파생된 세션(또는 미전송 draft)임을 표시.
   // draft 단계(sessionId=null)에선 send 페이로드(forkFrom/handoffFrom) 소스이자 라우트 싱크
   // 가드(원본 세션 재로드 방지) 마커. 발급 후에도 유지되다가 새 대화/세션 로드 시 리셋.
+  // 재로드 세션은 LOAD_SESSION 이 LoadedSession.lineage 로 복원한다(출처 배너, r2).
   forkFrom: string | null
   handoffFrom: string | null
+  // 출처 배너 표시용 부모 세션 제목 스냅샷(없으면 id 표시로 폴백).
+  lineageParentTitle: string | null
 }
 
 export const initialChatState: ChatState = {
@@ -166,7 +169,8 @@ export const initialChatState: ChatState = {
   activePlanCommentId: null,
   pendingToolApprovals: [],
   forkFrom: null,
-  handoffFrom: null
+  handoffFrom: null,
+  lineageParentTitle: null
 }
 
 // 우측 패널 열 폭/행 분할 clamp 범위.
@@ -520,7 +524,19 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         providerKey: action.session.providerKey ?? null,
         messages,
         // 컨텍스트 도넛/패널을 세션 수명 동안 유지 — turn_usage 최신 행에서 복원.
-        ...(action.session.lastTelemetry ? { lastTelemetry: action.session.lastTelemetry } : {})
+        ...(action.session.lastTelemetry ? { lastTelemetry: action.session.lastTelemetry } : {}),
+        // 0062 continuity — 파생 세션의 출처 배너 복원(fork/handoff 마커 + 부모 제목).
+        ...(action.session.lineage
+          ? action.session.lineage.relation === 'fork'
+            ? {
+                forkFrom: action.session.lineage.parentSessionId,
+                lineageParentTitle: action.session.lineage.parentTitle
+              }
+            : {
+                handoffFrom: action.session.lineage.parentSessionId,
+                lineageParentTitle: action.session.lineage.parentTitle
+              }
+          : {})
       }
     }
 

@@ -821,6 +821,9 @@ export interface LoadedSession {
   providerKey?: string | null
   projectId?: string | null
   cwd?: string | null
+  // 0062 continuity — 이 세션이 fork/handoff 로 파생된 경우의 부모 관계(session_lineage).
+  // 렌더러가 출처 배너("원본 열기" 링크)를 복원하는 데 쓴다. parentTitle 은 표시용 스냅샷.
+  lineage?: { parentSessionId: string; relation: 'fork' | 'handoff'; parentTitle: string | null }
 }
 
 // 프로젝트 (Phase 3+) — 대화 묶음 + 전용 시스템 프롬프트 (instructions).

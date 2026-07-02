@@ -225,3 +225,17 @@ foundation(lineage DB + forkSession 어댑터 배선) → **fork**(draft 뷰 + d
 | 게이트 결과 | lint ✅ / typecheck(node·web·test) ✅ / test ✅ **87 files · 645 passed** (원격 환경 특이사항: electron 바이너리 다운로드 403 → `path.txt` 스텁으로 모듈 로드 우회, 테스트는 electron API 를 mock 하므로 무영향 — base 커밋에서도 동일 실패 확인) |
 | 블로커 / 역질문 | 없음. ⚠️ 2건(위 표 #6 title 초기값 · #7 요약 가시성)은 verify/사용자 판단 대기 |
 | 대상 커밋 | `68ea320` (PR #182) |
+
+## [구현자 기입] r2 — 실기 피드백 4건 반영 (2026-07-02, Claude)
+
+사용자 실기 테스트 피드백과 대응:
+
+| # | 피드백 | 진단 | 대응 |
+|---|---|---|---|
+| 1 | StatusPopover 액션 중복(compact 스텁·새 대화·핸드오프) | 문안 겹침 + 미구현 스텁 | **사용자 확정 반영**: "정리하고 새 대화 시작" 제거, warn=현재 세션에 `/compact` 사용자 턴 전송(스텁 실구현 — `chatActions.send('/compact')`, 기존 compact_boundary 정규화가 구분선 표시), danger=핸드오프 단일 권장 액션. `statusCopy/statusViewModel/StatusPopover` 재구성(`action: 'compact' \| 'handoff'`). |
+| 2 | 핸드오프 클릭 시 멈춤·user 버블 미표시·**다른 세션 이동 불가** | ① r1 라우트 가드가 목적지 불문 모든 `/chat/:id` 로드 차단(확정) ② 렌더러 `receive()` 가 entry 없는 sessionId 이벤트를 **폐기** — 승격이 어긋나면 에코·에러·telemetry 전부 소실(빈 화면+고착, "user 버블도 안 보임" 증상과 일치) ③ 빈 draft 는 exchange 가 없어 `PendingAssistant` 미렌더(애니메이션 공백) ④ `startHandoff` 의 조용한 큐 대기 | ① 가드를 `urlSessionId === draft 소스` 로 한정 ② entry 없는 sessionId 이벤트를 pending draft 로 **폴백 라우팅**(+터미널 시 게이트 해제) ③ `inflight && exchanges===0` 이면 `PendingAssistant` 렌더 ④ 큐 대신 거부. **통합 테스트 신설**(`send.continuity.test.ts` — 실 DB+persist+coordinator 로 [session.updated→message.user→telemetry] 순서·lineage·복사 잠금). |
+| 3 | fork 아이콘은 마지막 어시스턴트 턴에서만 | — | `TranscriptView(isLast)→Exchange(forkable)→AssistantTurn(마지막 턴)` 전파, memo 비교자 갱신. |
+| 4 | 핸드오프 도착 세션에 원본 링크 안내 | — | `LineageBanner` 신설(타이틀바 아래): "이 세션은 '<원본>'에서 핸드오프로 이어졌습니다/분기되었습니다 — 원본 열기"(navigate). 라이브=draft 스냅샷, 재로드=`LoadedSession.lineage`(sessionLoad 가 `getLineage`+부모 title 포함, IPC_CONTRACT 동기화). |
+
+- 게이트: lint/typecheck(3종)/test **647 passed** green. 신규 테스트 2파일(+2건 statusViewModel 재작성).
+- 잔여 진단: 멈춤의 main-side 근본 원인(승격이 왜 어긋났는지)은 실기 wire 로그가 필요 — **재테스트 시 디버그 패널 "Wire 메시지" 토글(0025) 켜고 터미널 `[wire]` 시퀀스 확보 요청**. r2 견고화로 어긋나도 화면에 에러/진행이 표시된다.

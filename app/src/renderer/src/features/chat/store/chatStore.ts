@@ -290,8 +290,19 @@ function receive(ev: NormalizedEvent): void {
   }
 
   let key: string | null = null
+  // sessionId 이벤트가 pending draft 로 폴백 라우팅됐는가 — 터미널 이벤트 시 게이트 해제용.
+  let pendingFallback = false
   if (evSessionId && getState().sessions[evSessionId]) key = evSessionId
-  else if (!evSessionId) {
+  else if (evSessionId) {
+    // entry 없는 sessionId — 폐기 전에 pending new-chat draft 로 폴백 라우팅(r2 견고화).
+    // 승격(promote)이 어긋나거나 늦어도 그 턴의 에코(message.user)·에러·telemetry 가
+    // draft 에 보이게 한다. pending draft 조차 없으면 삭제된 세션의 늦은 이벤트로 보고 폐기.
+    const pendingKey = getState().pendingNewChatKey
+    if (pendingKey && getState().sessions[pendingKey]?.session.sessionId == null) {
+      key = pendingKey
+      pendingFallback = true
+    }
+  } else {
     key = isTerminalWithoutSession(ev)
       ? (getState().pendingNewChatKey ?? getState().activeKey)
       : getState().activeKey
@@ -374,21 +385,22 @@ function receive(ev: NormalizedEvent): void {
       if (leftover !== '') dispatchTo(key, { type: 'COMMIT_PENDING_TEXT', text: leftover })
       dispatchTo(key, { type: 'RECV_EVENT', event: ev })
       resetLive(key)
-      if (!evSessionId) releaseNewChatGate(key)
+      if (!evSessionId || pendingFallback) releaseNewChatGate(key)
       return
     }
 
     case 'turn.aborted':
       dispatchTo(key, { type: 'RECV_EVENT', event: ev })
       resetLive(key)
-      if (!evSessionId) releaseNewChatGate(key)
+      if (!evSessionId || pendingFallback) releaseNewChatGate(key)
       return
 
     case 'error':
       // 턴 중단 — 미완 라이브 프리뷰는 커밋하지 않고 버린다(기존 동작 동형).
+      // 폴백 라우팅(승격 실패)으로 끝난 턴도 새-채팅 게이트를 해제한다(r2).
       dispatchTo(key, { type: 'RECV_EVENT', event: ev })
       resetLive(key)
-      if (!evSessionId) releaseNewChatGate(key)
+      if (!evSessionId || pendingFallback) releaseNewChatGate(key)
       return
 
     case 'session.updated':
@@ -634,7 +646,8 @@ function startForkDraft(): boolean {
       permissionMode: src.permissionMode,
       lastTelemetry: src.lastTelemetry,
       messages: [...src.messages],
-      forkFrom: src.sessionId
+      forkFrom: src.sessionId,
+      lineageParentTitle: src.title
     },
     live: EMPTY_LIVE,
     subagentMeta: EMPTY_SUBAGENT_META,
@@ -656,6 +669,8 @@ function startHandoff(): boolean {
   // 가드: 확정 세션 + 턴 비진행 + 사용자 턴 2회 이상(Composer 비활성 가드와 이중 방어).
   if (!src?.sessionId || src.inflight || src.loadingSession) return false
   if (src.messages.filter((m) => m.role === 'user').length < 2) return false
+  // 다른 새-채팅 전송이 pending 이면 조용한 큐 대기 대신 거부 — silent stuck 방지(r2).
+  if (s.pendingNewChatKey != null) return false
   pruneUnsentContinuityDrafts()
   const sourceSessionId = src.sessionId
   const draftKey = `draft:${crypto.randomUUID()}`
@@ -684,26 +699,19 @@ function startHandoff(): boolean {
       permissionMode: src.permissionMode,
       inflight: true,
       turnStartedAt: Date.now(),
-      handoffFrom: sourceSessionId
+      handoffFrom: sourceSessionId,
+      lineageParentTitle: src.title
     },
     live: EMPTY_LIVE,
     subagentMeta: EMPTY_SUBAGENT_META,
     pendingSteer: []
   }
-  let shouldDispatch = false
-  setState((st) => {
-    const sessions = { ...st.sessions, [draftKey]: draft }
-    if (st.pendingNewChatKey == null) {
-      shouldDispatch = true
-      return { sessions, activeKey: draftKey, pendingNewChatKey: draftKey }
-    }
-    return {
-      sessions,
-      activeKey: draftKey,
-      newChatQueue: [...st.newChatQueue, { key: draftKey, payload }]
-    }
-  })
-  if (shouldDispatch) sendNewChatPayload(payload)
+  setState((st) => ({
+    sessions: { ...st.sessions, [draftKey]: draft },
+    activeKey: draftKey,
+    pendingNewChatKey: draftKey
+  }))
+  sendNewChatPayload(payload)
   return true
 }
 

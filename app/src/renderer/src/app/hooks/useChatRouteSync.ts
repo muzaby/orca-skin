@@ -57,8 +57,10 @@ export function useChatRouteSync(): void {
     if (urlSessionId != null) {
       if (cur.sessionId === urlSessionId && !cur.loadingSession) return
       // 0062 continuity — /chat/<원본> URL 에 머문 채 fork/handoff draft 가 활성인 상태.
-      // 원본 세션 재로드로 draft 를 덮지 않는다(승격 시 방향 2 가 /chat/<새 id> 로 이동).
-      if (cur.sessionId == null && (cur.forkFrom != null || cur.handoffFrom != null)) return
+      // **URL 이 draft 의 소스 세션을 가리킬 때만** 재로드를 막는다(승격 시 방향 2 가
+      // /chat/<새 id> 로 이동). 다른 세션으로의 이동(urlSessionId ≠ 소스)은 정상 로드 —
+      // r1 의 무조건 가드가 사이드바 세션 전환까지 차단하던 버그 수정(r2).
+      if (cur.sessionId == null && urlSessionId === (cur.forkFrom ?? cur.handoffFrom)) return
       const meta = sessions.find((s) => s.id === urlSessionId)
       const metaTitle = meta?.title?.trim() || meta?.preview?.trim() || null
       void chatActions.loadSession(urlSessionId, metaTitle)

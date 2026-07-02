@@ -56,6 +56,18 @@ export function registerSessionHandlers(ctx: RouterContext): void {
       const usage = ctx.db.getLatestTurnUsage(req.sessionId)
       const lastTelemetry = usage ? usageRowToTelemetry(usage.turn, usage.modelUsage) : undefined
 
+      // 0062 continuity — fork/handoff 파생 세션이면 부모 관계를 실어 출처 배너를 복원한다.
+      // 부모가 이미 삭제됐으면 lineage 행도 CASCADE 로 사라져 자연히 미포함된다.
+      const lineageRow = ctx.db.getLineage(req.sessionId)
+      const lineage =
+        lineageRow && (lineageRow.relation === 'fork' || lineageRow.relation === 'handoff')
+          ? {
+              parentSessionId: lineageRow.parent_session_id,
+              relation: lineageRow.relation,
+              parentTitle: ctx.db.getSessionById(lineageRow.parent_session_id)?.title ?? null
+            }
+          : undefined
+
       return {
         id: meta.id,
         backend: meta.backend,
@@ -64,7 +76,8 @@ export function registerSessionHandlers(ctx: RouterContext): void {
         providerKey: meta.provider_key,
         projectId: meta.project_id,
         cwd: meta.cwd ?? ctx.getCwd(meta.project_id),
-        ...(lastTelemetry ? { lastTelemetry } : {})
+        ...(lastTelemetry ? { lastTelemetry } : {}),
+        ...(lineage ? { lineage } : {})
       }
     }
   )
