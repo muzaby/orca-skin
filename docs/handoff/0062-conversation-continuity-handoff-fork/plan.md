@@ -224,4 +224,4 @@ foundation(lineage DB + forkSession 어댑터 배선) → **fork**(draft 뷰 + d
 | 실행 명령 | `cd app && npm run lint && npm run typecheck && npm test` |
 | 게이트 결과 | lint ✅ / typecheck(node·web·test) ✅ / test ✅ **87 files · 645 passed** (원격 환경 특이사항: electron 바이너리 다운로드 403 → `path.txt` 스텁으로 모듈 로드 우회, 테스트는 electron API 를 mock 하므로 무영향 — base 커밋에서도 동일 실패 확인) |
 | 블로커 / 역질문 | 없음. ⚠️ 2건(위 표 #6 title 초기값 · #7 요약 가시성)은 verify/사용자 판단 대기 |
-| 대상 커밋 | (커밋 후 기재 — INDEX.md 참조) |
+| 대상 커밋 | `68ea320` (PR #182) |
