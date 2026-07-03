@@ -6,7 +6,7 @@ import type {
   ProviderDescriptor
 } from '../../shared/ipc'
 import type { TurnRequest } from './turn'
-import { CLAUDE_DESCRIPTOR } from '../capabilities/claude-probe'
+import { CLAUDE_DESCRIPTOR } from './descriptor'
 import { claudeErrorClassifier } from '../runtime-errors/claude-classifier'
 import type { LiveTurn, SessionAdapter } from './types'
 import { runScenario, SCENARIOS } from './mock-scenarios'

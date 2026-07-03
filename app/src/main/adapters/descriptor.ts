@@ -14,7 +14,7 @@
 //  리포에 버전관리된 spec 문서로 확정 가능하다. OpenCode 축만 여전히 미설치라 그쪽 미정 필드는
 //  [미확인-opencode] 로 보존한다. provider-runtime.md §13 참조.)
 
-import type { CapabilityProbe, ProviderDescriptor } from './types'
+import type { ProviderDescriptor } from '../../shared/ipc'
 
 // claude 가 *지원하는* 능력의 단일 출처. SessionAdapter.describe() 도 이 const 를 반환해
 // 서술자가 두 곳에서 어긋나지 않게 한다(drift 없는 단일 출처).
@@ -55,13 +55,5 @@ export const CLAUDE_DESCRIPTOR: ProviderDescriptor = {
     sessionAbort: true, // AbortController.abort() [검증-런타임]
     denyInterrupt: true, // PermissionResultDeny.interrupt [검증-런타임]
     abortSignal: true // canUseTool 에 전달되는 abort signal [검증-런타임]
-  }
-}
-
-// 정적 probe — discover() 는 인터페이스 호환(async)을 위해 Promise 로 const 를 감싼다.
-export const claudeCapabilityProbe: CapabilityProbe = {
-  provider: 'claude',
-  discover(): Promise<ProviderDescriptor> {
-    return Promise.resolve(CLAUDE_DESCRIPTOR)
   }
 }
