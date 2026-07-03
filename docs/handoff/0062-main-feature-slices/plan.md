@@ -138,8 +138,42 @@
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
+- 동의/진행: 버스 도입을 디렉토리 이동과 **분리**한 순서(설계 §1)는 옳았다 — 동작 전환(버스)만 담은 커밋이 격리돼 bisect·검증이 쉬웠다.
+- 정정한 설계 구멍(구현 중 발견):
+  - **합성 error 는 버스를 타면 안 된다.** `turn-coordinator.ts` 의 retry-소진/timeout 합성 `error`·`turn.retrying` 은 현행에서 **forward-only(영속 안 함)**다. history 구독자가 무조건 persist 하므로 이들을 `turn.event` 로 보내면 없던 error 파트가 영속된다 → 이 이벤트들은 `forward` sink 직접 호출을 유지했다. 코디네이터가 `bus`(단일 팬아웃) + `persist`/`forward`(버스 미경유 경로)를 **동시에** 갖는 이유다.
+  - **title 은 session.updated + telemetry 두 지점에서 트리거된다.** 현행은 코디네이터가 session.updated 에, `persist.onTurnEnd` 가 telemetry 에 각각 `maybeStart` 를 걸었다. 버스 title 구독자를 두 이벤트 모두에 반응하게 해 동작을 보존했다(실 구현 `maybeStart` 의 `titleGenerationStarted` 가드가 2번째 호출을 no-op).
+
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
+
+| # | 놓친 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | usage 적재가 history 의 `currentAssistantMessageId` reset 전에 실행돼야 함 | ✅ 버스 등록 순서 usage→history 고정 + 순서 회귀 테스트(`turn-coordinator.test.ts` "순서 계약") | `persist.ts:230-278` reset 위치 |
+| 2 | settle emit 이 critical(history) throw 를 종료/정리 중 전파하면 정착 루프가 끊김 | ✅ settle 전용 fault-isolated emit(try/catch) — 현행 shutdown try/catch 와 동형. **경미한 동작 변화**: persist throw 시 이전엔 run() 밖으로 전파, 이제 격리+warn(더 안전) | `turn-coordinator.ts settleEmit`, `router.ts shutdown` |
+| 3 | `prompts/` 정적 정책 체인(빈 POLICY_REGISTRY)은 미사용이나 `system-prompt.md`·handoff 0030 이 문서화한 확장 메커니즘 | ⚠️ **보고만** — 순수 데드코드가 아니라 문서화된 결정. 제거하려면 `system-prompt.md` 동시 갱신 필요 → 구조 재배치 단계에서 doc 과 함께 처리(단독 제거 보류) | `docs/arch/backend/system-prompt.md §5.4` |
 
 ## [구현자 기입] 구현 체크리스트
 
+**완료 (커밋됨, 게이트 green):**
+- [x] `infra/bus` TypedBus(자체 구현, 신규 의존 0) + 단위 테스트(등록순/critical/격리) — 현재 위치 `src/main/bus/`(구조 이동 단계에서 `infra/bus` 로).
+- [x] usage 적재를 `TurnPersistence` 에서 `usage/subscriber.ts` 로 분리, title 구독자화, coordinator·settle 을 `bus.emit('turn.event')` 로 전환. bootstrap(router.register) 구독 순서 usage→history→title→relay 고정.
+- [x] 순서 회귀 테스트([usage→history→title→relay], session.updated 순서 보존).
+- [x] 미사용 제거 1차: `OneShotSessionRuntime` 별칭, opencode 변환(`toOpencodeConfig`·`OpencodeMcp*`), `RevertManager`.
+
+**남은 작업 (후속 impl 라운드 — 구조 재배치가 본체):**
+- [ ] 디렉토리 재배치: `src/main/{app,contracts,adapters,features,infra}` (설계 "타깃 구조"). 상대 import 경로 갱신이 파일별 depth 차이로 커 wave 단위(infra 잎 → adapters 포트 → features 슬라이스 → app) 진행 권장.
+- [ ] `send.ts` 분해(chat.ipc+turn-setup), `router.ts`→`app/bootstrap.ts`, RouterContext 해체, handlers/* → feature ipc, installer 인라인.
+- [ ] 잔여 미사용: `prompts` 정책 체인(+`system-prompt.md` 동시 갱신)·`capabilities` probe(`CapabilityProbe`·`claudeCapabilityProbe`)·무회귀 배럴(`turn-registry`·`subagent-settlement`)·`lifecycle/ports.ts` Runtime* 중복·`InflightTurn`→`TurnContext` 단일화.
+- [ ] eslint boundaries 신 elements(설계 §eslint) + `src/main/AGENTS.md`·`app/AGENTS.md` 재작성.
+- [ ] 네이밍(설계 "주요 rename"): `IpcRouter`→`bootstrap`·`TurnPersistence`→`HistoryWriter`·`CostTracker`→`UsageTracker`·`InteractionBroker`→`ApprovalBroker` 등.
+
 ## [구현자 기입] 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 진척 | **부분 구현.** 인수 2·3·4·12 충족(버스 파이프라인), 9 부분(미사용 1차). 구조 재배치(1·6·7·8·11·16 등)는 후속 라운드. |
+| 변경 파일(버스) | `bus/index.ts`(신규)·`bus/index.test.ts`·`lifecycle/bus-events.ts`(신규)·`usage/subscriber.ts`(신규)·`ipc/chat/persist.ts`·`lifecycle/{settle,turn-coordinator}.ts`·`ipc/chat/send.ts`·`ipc/router.ts` + 테스트 4종 |
+| 변경 파일(제거) | `lifecycle/session-runtime.ts`·`mcp/{convert,schema}.ts`·`capabilities/revert-manager.ts`(삭제) + 테스트 |
+| 실행 명령 | `npm run lint` / `typecheck` / `test` |
+| 게이트 결과 | lint ✅ / typecheck(node+web+test) ✅ / test ✅ (650 passed, electron path 스텁 후) |
+| 커밋 | 설계 `f7cfe4d` · 버스 `6a98ab1` · 제거 `c9e8e6e` |
+| 블로커/역질문 | 없음. 구조 재배치는 대규모 기계적 이동이라 별도 impl 라운드로 이어감(설계·본 체크리스트가 continuation 지점). |
