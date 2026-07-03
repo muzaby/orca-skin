@@ -1,4 +1,4 @@
-import type { SessionTitleSource } from '../infra/db/types'
+import type { SessionTitleSource } from '../../infra/db/types'
 
 export const MAX_AUTO_TITLE_LENGTH = 60
 
