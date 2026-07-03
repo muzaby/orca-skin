@@ -5,7 +5,7 @@
 import { chmodSync, cpSync, mkdirSync, readdirSync, writeFileSync, type Dirent } from 'node:fs'
 import { join } from 'node:path'
 import type { Backend, SkillInfo } from '../../shared/ipc'
-import type { ClaudeMcpConfig } from '../mcp/schema'
+import type { ClaudeMcpConfig } from '../adapters/mcp-config'
 import type { SkillScanRoot } from '../skills/scan'
 
 export const ORCA_PLUGIN_NAME = 'orca'

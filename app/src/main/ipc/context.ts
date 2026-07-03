@@ -14,7 +14,7 @@ import {
 } from '../../shared/ipc'
 import type { DbQueries } from '../infra/db'
 import type { SettingsStore } from '../infra/settings-store'
-import type { McpStore } from '../mcp/store'
+import type { McpStore } from '../features/extensions/mcp/store'
 import type { AdapterRegistry } from '../adapters/registry'
 import type { MockAdapter } from '../adapters/mock'
 import type { Installer } from '../installer'

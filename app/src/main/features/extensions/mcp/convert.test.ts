@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { toClaudeConfig } from './convert'
-import type { Resolver } from '../infra/vars'
-import type { OrcaMcpConfig } from './schema'
+import type { Resolver } from '../../../infra/vars'
+import type { OrcaMcpConfig } from '../../../adapters/mcp-config'
 
 const resolver =
   (map: Record<string, string> = {}): Resolver =>

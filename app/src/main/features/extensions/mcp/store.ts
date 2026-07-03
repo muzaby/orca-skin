@@ -13,14 +13,14 @@ import {
   type CreateMcpServerRequest,
   type McpServer,
   type UpdateMcpServerRequest
-} from '../../shared/protocol'
-import type { SettingsStore } from '../infra/settings-store'
-import { readMcpFile, writeMcpFile } from '../infra/config/mcp-file'
-import { SecretStore } from '../infra/config/secret-store'
-import type { Resolver } from '../infra/vars'
-import { VAR_RE } from '../infra/vars'
+} from '../../../../shared/protocol'
+import type { SettingsStore } from '../../../infra/settings-store'
+import { readMcpFile, writeMcpFile } from './file'
+import { SecretStore } from '../../../infra/config/secret-store'
+import type { Resolver } from '../../../infra/vars'
+import { VAR_RE } from '../../../infra/vars'
 import { makeResolver } from './resolver'
-import type { ClaudeMcp, OrcaMcpConfig } from './schema'
+import type { ClaudeMcp, OrcaMcpConfig } from '../../../adapters/mcp-config'
 
 // VAR_RE(global) 의 비-global 사본 — .exec 는 lastIndex 를 진행시키지 않아 무상태로 재사용 가능.
 const VAR_NAME_RE = new RegExp(VAR_RE.source)

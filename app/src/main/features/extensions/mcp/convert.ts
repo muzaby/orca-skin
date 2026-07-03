@@ -5,8 +5,9 @@
 // 변환기(toClaudeConfig)로 존재시킨다 — 어댑터 경계에서 값이 ClaudeMcpConfig 라는 이름으로
 // 다뤄지는 지점이자, 향후 소스 스키마가 Claude 형식에서 갈라질 때 차이를 흡수할 자리.
 
-import { expandEnv, type Resolver } from '../infra/vars'
-import type { OrcaMcpConfig, ClaudeMcpConfig } from './schema'
+import { expandEnv } from './expand'
+import type { Resolver } from '../../../infra/vars'
+import type { OrcaMcpConfig, ClaudeMcpConfig } from '../../../adapters/mcp-config'
 
 export interface ConvertResult<C> {
   config: C

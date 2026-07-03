@@ -17,7 +17,7 @@ import { AdapterRegistry } from '../adapters/registry'
 import { MockAdapter } from '../adapters/mock'
 import { Installer } from '../installer'
 import { SettingsStore } from '../infra/settings-store'
-import { McpStore } from '../mcp/store'
+import { McpStore } from '../features/extensions/mcp/store'
 import {
   distOrcaPluginDir,
   ensureConfigDir,
@@ -28,7 +28,7 @@ import { loadOrcaConfig } from '../infra/config/orca-config'
 import { SecretStore } from '../infra/config/secret-store'
 import { deploy } from '../deploy/deployer'
 import { ExtensionDeploymentService } from '../deploy/extension-deployment-service'
-import { toClaudeConfig } from '../mcp/convert'
+import { toClaudeConfig } from '../features/extensions/mcp/convert'
 import { scaffoldProviderSettings } from '../deploy/scaffold'
 import { ProviderSettingsService } from '../settings/provider-settings'
 import { loadClaudeProviderSettings } from '../adapters/claude-settings'
