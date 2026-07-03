@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { expandEnv, expandVars, type Resolver } from './expand'
+import { expandEnv, expandVars, type Resolver } from '../infra/vars'
 import type { OrcaMcpConfig } from './schema'
 
 const resolver =

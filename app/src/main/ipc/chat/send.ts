@@ -27,7 +27,7 @@ import {
 } from '../../settings/provider-settings'
 import { agentPermissionRequest } from '../../runtime-events/permission-bridge'
 import type { PermissionModeController } from '../../runtime-events/permission-mode-controller'
-import { makeClassifiedError } from '../../runtime-errors/classifier'
+import { makeClassifiedError } from '../../infra/errors'
 import { sendChatEvent, type RouterContext } from '../context'
 import { previewOf } from '../dto'
 import { handle, handlePlain } from '../registry'

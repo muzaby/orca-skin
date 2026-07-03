@@ -9,7 +9,7 @@
 // 순수 함수 → vitest 대상.
 
 import type { ClassifiedError, NormalizedEvent } from '../../shared/ipc'
-import { makeClassifiedError, type ErrorClassifier } from './classifier'
+import { makeClassifiedError, type ErrorClassifier } from '../infra/errors'
 
 const AUTH_PATTERNS = [/\b401\b/, /\bunauthori[sz]ed\b/i, /\bOAuth\b/i, /\bexpired\b/i]
 // 자식 프로세스(claude 바이너리) spawn 실패 — 연결 불가로 취급(재시도 가치 있음).

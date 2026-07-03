@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { NormalizedEvent } from '../../shared/ipc'
-import { makeClassifiedError } from '../runtime-errors/classifier'
+import { makeClassifiedError } from '../infra/errors'
 import type { TurnRequest } from '../extensions/types'
 import type { AbortCause } from './session-state'
 import type { RuntimeLiveTurn, RuntimeSessionAdapter } from './ports'

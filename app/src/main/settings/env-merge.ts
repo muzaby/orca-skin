@@ -1,8 +1,8 @@
 // env 유틸 (handoff 0017 D2 분해 — 구 provider-settings.ts 의 "env 유틸" 책임, 그 전엔
 // adapters/claude-env.ts). 어댑터-중립 — ${VAR} 확장 + subprocess env 레이어 병합.
 
-import type { Resolver } from '../mcp/expand'
-import { expandVars } from '../mcp/expand'
+import type { Resolver } from '../infra/vars'
+import { expandVars } from '../infra/vars'
 
 // env 레코드의 각 값에서 ${VAR} 확장. 미해결 변수가 있는 키는 **드롭** + missing 으로 보고
 // (조용한 빈 문자열 치환 금지 — mcp/expand.ts 와 동일 정책).
