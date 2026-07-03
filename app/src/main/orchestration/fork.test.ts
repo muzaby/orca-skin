@@ -63,17 +63,19 @@ describe('materializeContinuityArrival', () => {
     })
 
     const parts = q.loadParts('child')
+    // 복사 이력 + '분기된 지점' 마커(r5) — 마커는 복사분 바로 뒤(새 발화보다 앞).
     expect(parts.map((p) => [p.role, p.type])).toEqual([
       ['user', 'text'],
       ['assistant', 'text'],
-      ['assistant', 'tool_call']
+      ['assistant', 'tool_call'],
+      ['assistant', 'fork_boundary']
     ])
     expect(parts[2].tool_run_id).toBe('tr1')
-    // 원본 idx 보존 → 이후 새 발화(appendMessage MAX+1)는 복사 이력 뒤에 온다.
+    // 원본 idx 보존 → 이후 새 발화(appendMessage MAX+1)는 복사 이력·마커 뒤에 온다.
     const next = q.appendMessage({ sessionId: 'child', role: 'user', content: '새', createdAt: 4 })
     q.appendPart({ messageId: next, type: 'text', toolRunId: null, payloadJson: '{"text":"새"}' })
     const after = q.loadParts('child')
-    expect(after[after.length - 1].message_idx).toBe(2)
+    expect(after[after.length - 1].message_idx).toBe(3)
 
     expect(q.getLineage('child')).toMatchObject({
       child_session_id: 'child',
@@ -134,7 +136,7 @@ describe('materializeContinuityArrival', () => {
     })
     q.deleteSession('parent')
     expect(q.getLineage('child')).toBeUndefined()
-    // 자식 복사분은 독립 세션이라 살아남는다.
-    expect(q.loadParts('child')).toHaveLength(3)
+    // 자식 복사분(+분기 마커)은 독립 세션이라 살아남는다.
+    expect(q.loadParts('child')).toHaveLength(4)
   })
 })

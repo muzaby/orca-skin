@@ -18,7 +18,24 @@ export interface ContinuityArrival {
 
 export function materializeContinuityArrival(db: DbQueries, arrival: ContinuityArrival): void {
   if (arrival.relation === 'fork') {
-    db.copyMessagesToSession(arrival.parentSessionId, arrival.childSessionId)
+    const copied = db.copyMessagesToSession(arrival.parentSessionId, arrival.childSessionId)
+    // '분기된 지점' 구분선(r5 피드백 3) — 복사된 원본 이력과 이후 새 대화 사이에 마커 파트를
+    // 영속한다(compact_boundary 와 동형). 복사 직후 MAX(idx)+1 이라 새 user 발화보다 앞선다.
+    // 렌더러 fork draft 프리필(chatStore.startForkDraft)도 같은 위치에 합성 — 라이브/재로드 일치.
+    if (copied > 0) {
+      const markerId = db.appendMessage({
+        sessionId: arrival.childSessionId,
+        role: 'assistant',
+        content: '',
+        createdAt: arrival.createdAt
+      })
+      db.appendPart({
+        messageId: markerId,
+        type: 'fork_boundary',
+        toolRunId: null,
+        payloadJson: '{}'
+      })
+    }
   }
   db.insertLineage({
     childSessionId: arrival.childSessionId,

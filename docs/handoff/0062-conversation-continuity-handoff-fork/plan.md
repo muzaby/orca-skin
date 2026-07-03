@@ -266,3 +266,14 @@ foundation(lineage DB + forkSession 어댑터 배선) → **fork**(draft 뷰 + d
 - 게이트: lint/typecheck(3종)/test **659 passed** (88 파일, +9) green.
 - Open Question(사용자): 핸드오프 템플릿 축약 여부(피드백 1 — 기본 압축 프롬프트가 구조를 강제하므로 ①~⑤ 지시는 사실상 중복. 축약하면 토큰 절약, 유지해도 무해).
 - 사람 재테스트 체크: ① 핸드오프 클릭 → user 버블 먼저 + 아래 inflight 애니메이션 → 완료 시 그 자리에 **XML 없는 요약** ② fork 클릭 → nav 에 `[분기] <원본>` 행 즉시 표시(이탈해도 유지·행 삭제 가능) ③ 다른 세션 갔다가 draft 행 클릭 → draft 복귀.
+
+## [구현자 기입] r5 — 실기 피드백 3건 (2026-07-03, Claude)
+
+| # | 피드백 | 진단 / 대응 |
+|---|---|---|
+| 1 | compact 답변 완료 후 텔레메트리 도넛 미갱신 — 컨텍스트 경고가 압축 후에도 유지 | **압축 턴의 telemetry 가 압축 *전* 값을 실어 나감.** result.usage(와 경계 이전 assistant 스냅샷)의 컨텍스트 3종은 전체 이력이 실린 *요약 요청 입력*이라, 그대로 renderer `lastTelemetry` 를 덮어 도넛/경고가 압축 전 상태에 고착됐다(재로드도 turn_usage 최신 행이 같은 값). 수정(`claude-map.ts`): ① `compact_boundary` 에서 `ctx.compacted=true` + 경계 이전 `lastAssistantUsage` 스냅샷 무효화 ② result 시 경계 이후 실측 usage 가 없으면(manual `/compact`·핸드오프 도착) 컨텍스트 점유를 **요약 크기(출력 토큰)로 근사**(`inputTokens := outputTokens`, cache 2종 제거) — 다음 실제 턴이 실측으로 바로잡는다. 경계 이후 assistant usage 가 오면(auto 압축 후 턴 계속) 실측 스냅샷 우선. 비용·modelUsage 는 턴 누적 유지(원장 무손실) → persist `hasContextTokens` 게이트도 통과해 재로드 도넛까지 정합. 렌더러/IPC 변경 0. 단위 테스트 2건. **한계(graceful)**: outputTokens 미제공 시 컨텍스트 3종 전부 제거 → 도넛은 직전 값 유지(경고 지속) — 실기에서 result.usage.output_tokens 는 상시 제공되므로 실질 영향 없음. |
+| 2 | fork/handoff 세션 창의 '원본 열기' 링크가 곧바로 동작 안 함 | **draft(파생 뷰) 위에서는 URL 이 이미 `/chat/<부모>`.** `navigate` 가 no-op 이고(같은 경로), 라우트 싱크 방향 1 의 draft 가드(`urlSessionId === draft 소스` skip)도 부모 재로드를 차단 — 물질화 후에야 동작하던 이유. 수정(`LineageBanner.tsx`): 사이드바 부모 행 클릭(r4 `useSessionHandlers`)과 동형으로 **draft 활성이면 `chatActions.loadSession(부모)` store 전환을 직접 수행** 후 navigate. draft 는 nav 행으로 생존(r4 정책 유지). |
+| 3 | fork 세션에도 compact 구분선처럼 **'분기된 지점' +라인** 표시(핸드오프는 현행 유지) | **`fork_boundary` 파트 신설(compact_boundary 동형).** main: `materializeContinuityArrival` 이 fork display 복사 직후(새 발화 전 idx) 마커 메시지+파트를 영속 → 재로드 표시. 렌더러: `startForkDraft` 프리필 끝에 같은 마커를 합성(라이브 draft 도 즉시 표시, 위치 일치) + `messageSegments` `{kind:'fork'}` + `ForkBoundaryMarker`(구분선 "분기된 지점", fork 아이콘). handoff 는 display 복사가 없어 마커 미생성(현행 유지). 신규 이벤트/IPC 채널 0 · DB 스키마 변경 0(파트 type 은 자유 텍스트 컬럼). 테스트: fork/continuity 잠금 갱신 + segments/draft 프리필 3건. |
+
+- 게이트: lint/typecheck(3종)/test **662 passed** (88 파일, +3) green. (환경: electron 바이너리 403 → r4 와 동일한 `path.txt` 스텁 우회, better-sqlite3 Node ABI 재빌드 — 0019 계열, 변경 무관.)
+- 사람 재테스트 체크: ① 컨텍스트 가득 찬 세션에서 `/compact`(StatusPopover) 완료 → 도넛이 요약 크기 수준으로 즉시 하락 + 경고 해제, 재로드 후에도 유지 ② fork/handoff 직후 draft 상태에서 '원본 열기' 클릭 → 즉시 원본 전환(draft 는 nav 행 생존) ③ fork draft·물질화 후·재로드 모두 복사 이력 끝에 '분기된 지점' 구분선, 핸드오프 세션은 기존 그대로(압축 구분선만).

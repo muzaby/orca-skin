@@ -690,7 +690,21 @@ function startForkDraft(): boolean {
       effort: src.effort,
       permissionMode: src.permissionMode,
       lastTelemetry: src.lastTelemetry,
-      messages: [...src.messages],
+      // 프리필 원본 이력 끝에 '분기된 지점' 구분선을 합성한다(r5 피드백 3) — 물질화 시
+      // main(materializeContinuityArrival)이 같은 위치에 fork_boundary 파트를 영속하므로
+      // 라이브 draft 와 재로드 표시가 일치한다.
+      messages: [
+        ...src.messages,
+        ...(src.messages.length > 0
+          ? [
+              {
+                role: 'assistant' as const,
+                createdAt: Date.now(),
+                parts: [{ type: 'fork_boundary' as const }]
+              }
+            ]
+          : [])
+      ],
       forkFrom: src.sessionId,
       lineageParentTitle: src.title
     },

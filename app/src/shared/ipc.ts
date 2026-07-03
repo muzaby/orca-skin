@@ -802,6 +802,10 @@ export type AppMessagePart =
   | { type: 'attachment'; attachments: AttachmentView[] }
   // 압축 경계 마커(0062 handoff) — session.compacted 를 영속해 재로드 후에도 경계를 표시한다.
   | { type: 'compact_boundary'; trigger?: 'manual' | 'auto'; preTokens?: number }
+  // 분기 경계 마커(0062 r5) — fork 물질화 시 복사된 원본 이력과 새 대화 사이에 main 이
+  // 영속한다('분기된 지점' 구분선). 렌더러 fork draft 프리필도 같은 위치에 합성해 라이브와
+  // 재로드 표시가 일치한다. handoff 는 display 복사가 없어 이 파트를 만들지 않는다.
+  | { type: 'fork_boundary' }
 
 // 로드된 세션 — Renderer 의 chatReducer state 와 1:1 대응. 메시지는 순서 보존 parts 로 표현.
 export interface LoadedMessage {

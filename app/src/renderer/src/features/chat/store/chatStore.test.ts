@@ -579,6 +579,10 @@ describe('chatStore — 0062 r4 continuity draft nav', () => {
     const firstKey = useChatStore.getState().activeKey
     expect(firstKey).toMatch(/^draft:/)
     expect(useChatStore.getState().sessions[firstKey].session.title).toBe('[분기] 원본 세션')
+    // 프리필 이력 끝에 '분기된 지점' 구분선 합성(r5) — 물질화 영속분(fork_boundary)과 위치 일치.
+    const draftMsgs = useChatStore.getState().sessions[firstKey].session.messages
+    expect(draftMsgs).toHaveLength(3)
+    expect(draftMsgs[2].parts).toEqual([{ type: 'fork_boundary' }])
 
     // 부모로 돌아가 다시 fork — 이전 미전송 draft 는 교체 정리된다(중복 nav 행 방지).
     useChatStore.setState({ activeKey: 's' })

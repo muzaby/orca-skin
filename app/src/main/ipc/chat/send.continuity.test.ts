@@ -169,13 +169,14 @@ describe('continuity 도착 파이프라인 (0062 r2)', () => {
 
     expect(db.getLineage('fork-session')).toMatchObject({ relation: 'fork' })
     const parts = db.loadParts('fork-session')
-    // 복사된 [user, assistant] 이력 + 새 user 발화가 그 뒤에.
+    // 복사된 [user, assistant] 이력 + '분기된 지점' 마커(r5) + 새 user 발화가 그 뒤에.
     expect(parts.map((p) => [p.role, p.type])).toEqual([
       ['user', 'text'],
       ['assistant', 'text'],
+      ['assistant', 'fork_boundary'],
       ['user', 'text']
     ])
-    expect(parts[2].message_idx).toBeGreaterThan(parts[1].message_idx)
+    expect(parts[3].message_idx).toBeGreaterThan(parts[2].message_idx)
     // 원본 무변경.
     expect(db.loadParts('src-session')).toHaveLength(2)
 

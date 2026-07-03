@@ -20,6 +20,7 @@ export type MessagePartType =
   | 'error'
   | 'attachment'
   | 'compact_boundary'
+  | 'fork_boundary'
 
 export interface SessionRow {
   id: string

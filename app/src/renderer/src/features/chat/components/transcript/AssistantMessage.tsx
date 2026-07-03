@@ -6,6 +6,7 @@ import { ReasoningBlock } from './ReasoningBlock'
 import { ErrorCard } from './ErrorCard'
 import { StructuredOutputCard } from './StructuredOutputCard'
 import { CompactBoundaryMarker } from './CompactBoundaryMarker'
+import { ForkBoundaryMarker } from './ForkBoundaryMarker'
 import { messageSegments, reconcileSegments, type MessageSegment } from '../../lib/parts'
 import type { Message } from '../../reducer/chatReducer'
 
@@ -50,6 +51,8 @@ export const AssistantMessage = memo(function AssistantMessage({
             return <ErrorCard key={i} error={seg.error} />
           case 'compact':
             return <CompactBoundaryMarker key={i} trigger={seg.trigger} preTokens={seg.preTokens} />
+          case 'fork':
+            return <ForkBoundaryMarker key={i} />
         }
       })}
       {message.incomplete && (
