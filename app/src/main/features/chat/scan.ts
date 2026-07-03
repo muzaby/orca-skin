@@ -3,7 +3,7 @@
 
 import { promises as fs } from 'node:fs'
 import { resolve, sep } from 'node:path'
-import type { FileEntry } from '../../shared/ipc'
+import type { FileEntry } from '../../../shared/ipc'
 
 // path traversal 방어: resolve 결과가 cwd 의 prefix 가 아니면 거부.
 // `path.sep` 으로 끝나는 비교 prefix 를 사용해 `/foo` 와 `/foobar` 혼동을 막는다.

@@ -10,11 +10,38 @@
 
 import type { ResolvedProviderSettings } from '../settings/provider-settings'
 import type { OrcaMcpConfig } from './mcp-config'
-import type { ApprovalResolution, EffortLevel, PermissionAction, SkillInfo } from '../../shared/ipc'
+import type {
+  ApprovalResolution,
+  AttachmentSourceKind,
+  EffortLevel,
+  PermissionAction,
+  SkillInfo
+} from '../../shared/ipc'
 import type { NormalizedPermissionMode } from '../../shared/permission-mode'
 import type { NormalizedHookSet } from '../extensions/hooks'
-import type { ExtractedAttachmentImage, ExtractedAttachmentText } from '../files/attachments'
 import type { SteerFlushBatch } from '../lifecycle/steer-queue'
+
+// 첨부 추출 결과 — 어댑터가 turn content 로 굽는 입력 계약(구 files/attachments 정의를 포트로 이관).
+export interface ExtractedAttachmentText {
+  id: string
+  name: string
+  mimeType: string
+  sizeBytes?: number
+  text: string
+  charsOriginal: number
+  charsIncluded: number
+  truncated: boolean
+  sourceKind: AttachmentSourceKind
+}
+
+export interface ExtractedAttachmentImage {
+  id: string
+  name: string
+  mimeType: string
+  sizeBytes?: number
+  data: string
+  sourceKind: AttachmentSourceKind
+}
 
 // SKILL.md 스캔 메타 DTO 를 그대로 재사용 (step 2 — 자산 가시화).
 export type NormalizedSkillRef = SkillInfo

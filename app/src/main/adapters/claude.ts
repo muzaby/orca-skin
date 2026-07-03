@@ -26,7 +26,7 @@ import { formatAttachmentPromptBlock } from '../prompts/attachment'
 import { formatPlanFeedbackPrompt } from '../prompts/plan-feedback'
 import type { CompleteRequest, LiveTurn, SessionAdapter } from './types'
 import type { TurnRequest } from './turn'
-import type { ExtractedAttachmentImage, ExtractedAttachmentText } from '../files/attachments'
+import type { ExtractedAttachmentImage, ExtractedAttachmentText } from './turn'
 import { isRiskyTool } from './risky-tools'
 import {
   adaptEnv,

@@ -36,8 +36,8 @@ import {
   fileMeta,
   assertAllowedAttachmentPath,
   SUPPORTED_IMAGE_MIME_TYPES
-} from '../../files/attachments'
-import { listDir } from '../../files/scan'
+} from '../../features/chat/attachments'
+import { listDir } from '../../features/chat/scan'
 import { isWithinDir, projectsDir } from '../../infra/config/paths'
 import { promises as fs } from 'node:fs'
 import { sendInstallStatus, setWireLog, type RouterContext } from '../context'

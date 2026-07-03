@@ -14,7 +14,7 @@ import {
   SteerChatMessageSchema,
   StopSubagentSchema
 } from '../../../shared/protocol'
-import { normalizeAttachments } from '../../files/attachments'
+import { normalizeAttachments } from '../../features/chat/attachments'
 import { appEnv } from '../../infra/config/orca-config'
 import {
   defaultModelFamily,
