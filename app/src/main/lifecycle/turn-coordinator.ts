@@ -11,7 +11,7 @@
 
 import type { ClassifiedError, NormalizedEvent } from '../../shared/ipc'
 import type { TurnRequest } from '../extensions/types'
-import { makeClassifiedError } from '../runtime-errors/classifier'
+import { makeClassifiedError } from '../infra/errors'
 import type { TurnContext } from './turn-context'
 import type { RuntimeLiveTurn } from './ports'
 import type { SessionRuntimeRegistry } from './session-registry'

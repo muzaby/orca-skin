@@ -7,7 +7,7 @@ import icon from '../../resources/icon.png?asset'
 import { IpcRouter } from './ipc/router'
 import { closeDb } from './infra/db'
 import { CHANNELS } from '../shared/ipc'
-import type { SettingsStore } from './settings/store'
+import type { SettingsStore } from './infra/settings-store'
 
 // will-quit(모듈 스코프)에서 종료 정리를 호출하기 위한 라우터 참조. whenReady 에서 채워진다.
 let routerRef: IpcRouter | null = null

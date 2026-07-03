@@ -16,7 +16,7 @@ import type { InflightTurn } from '../lifecycle/turn-context'
 import { AdapterRegistry } from '../adapters/registry'
 import { MockAdapter } from '../adapters/mock'
 import { Installer } from '../installer'
-import { SettingsStore } from '../settings/store'
+import { SettingsStore } from '../infra/settings-store'
 import { McpStore } from '../mcp/store'
 import {
   distOrcaPluginDir,

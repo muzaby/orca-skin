@@ -14,7 +14,7 @@ import type {
   SubagentTaskMeta,
   TelemetryModelUsage
 } from '../../shared/ipc'
-import { makeClassifiedError } from '../runtime-errors/classifier'
+import { makeClassifiedError } from '../infra/errors'
 import { errorEvent } from '../runtime-errors/claude-classifier'
 
 // 매퍼 컨텍스트 — sessionId 는 턴 동안 system/init(=session.updated)에서 갱신된다

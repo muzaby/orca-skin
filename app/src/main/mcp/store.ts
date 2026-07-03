@@ -14,11 +14,11 @@ import {
   type McpServer,
   type UpdateMcpServerRequest
 } from '../../shared/protocol'
-import type { SettingsStore } from '../settings/store'
+import type { SettingsStore } from '../infra/settings-store'
 import { readMcpFile, writeMcpFile } from '../infra/config/mcp-file'
 import { SecretStore } from '../infra/config/secret-store'
-import type { Resolver } from './expand'
-import { VAR_RE } from './expand'
+import type { Resolver } from '../infra/vars'
+import { VAR_RE } from '../infra/vars'
 import { makeResolver } from './resolver'
 import type { ClaudeMcp, OrcaMcpConfig } from './schema'
 

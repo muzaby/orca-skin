@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { claudeErrorClassifier, errorEvent } from './claude-classifier'
-import { sanitizeCause, makeClassifiedError } from './classifier'
+import { sanitizeCause, makeClassifiedError } from '../infra/errors'
 
 const ctx = { provider: 'claude' as const, phase: 'sendMessage' }
 

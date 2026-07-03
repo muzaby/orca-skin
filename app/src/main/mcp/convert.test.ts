@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { toClaudeConfig } from './convert'
-import type { Resolver } from './expand'
+import type { Resolver } from '../infra/vars'
 import type { OrcaMcpConfig } from './schema'
 
 const resolver =

@@ -5,7 +5,7 @@
 // 미해결 변수가 하나라도 있으면 해당 **서버 전체를 드롭** + 사유 기록한다. 조용한 빈 문자열
 // 치환은 금지(비밀 누락을 숨기면 디버깅 불가 + 인증 없는 요청이 새어나감).
 
-import type { OrcaMcpConfig, ClaudeMcp } from './schema'
+import type { OrcaMcpConfig, ClaudeMcp } from '../mcp/schema'
 
 export type Resolver = (name: string) => string | undefined
 
