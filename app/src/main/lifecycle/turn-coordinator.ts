@@ -18,7 +18,8 @@ import type { SessionRuntimeRegistry } from './session-registry'
 import { createStallTimer, type StallTimer } from './timers'
 import { coerceStoppedToolCompletion } from './subagent-settlement'
 import { settleOpenToolRuns, settleSubagentTask, stopLiveSubagent } from './settle'
-import type { TurnEventSink, TurnPersistSink, TurnTitleHook } from './turn-sinks'
+import type { TurnEventSink, TurnPersistSink } from './turn-sinks'
+import type { MainBus, TurnEmit } from './bus-events'
 import type { SteerQueue } from './steer-queue'
 
 export const MAX_RETRIES = 2
@@ -58,9 +59,12 @@ export interface ActiveTurnGate {
 
 export interface TurnCoordinatorDeps<W> {
   runtime: CoordinatorRuntime
+  // 스트리밍/합성 이벤트의 단일 팬아웃 — usage 집계·history 영속·renderer 중계 구독자가 등록순 소비.
+  bus: MainBus<W>
+  // persist/forward 는 버스를 타지 않는 경로에만 직접 쓴다: steer flush·Ask 답변 합성(persist),
+  // 합성 error·turn.retrying·steer.flushed(forward, 영속 안 함).
   persist: TurnPersistSink<W>
   forward: TurnEventSink<W>
-  titles: TurnTitleHook<W>
   registry: Pick<SessionRuntimeRegistry<W>, 'promote'>
   classifyError: (err: unknown, phase: string) => ClassifiedError
   activeTurns: ActiveTurnGate
@@ -74,6 +78,22 @@ export class TurnCoordinator<W = unknown> {
   private activeStall: StallTimer | null = null
 
   constructor(private readonly deps: TurnCoordinatorDeps<W>) {}
+
+  // 스트리밍/합성 이벤트를 turn.event 버스로 방출한다. critical 구독자(usage·history) throw 는
+  // 그대로 전파돼 턴 실패(catch → settle → error)로 이어진다 — persist 실패=턴 실패 현행 보존.
+  private emit(turn: TurnContext<W>, ev: NormalizedEvent): void {
+    this.deps.bus.emit('turn.event', { turn, ev })
+  }
+
+  // settle(중단/실패 정착) 경로용 fault-isolated emit — 이미 에러 처리/종료 정리 중이라
+  // 구독자 throw 를 격리해 정착 루프가 끊기지 않게 한다(shutdown 의 try/catch 와 동형).
+  private readonly settleEmit: TurnEmit<W> = (turn, ev) => {
+    try {
+      this.emit(turn, ev)
+    } catch (err) {
+      console.warn('[settle] turn.event 방출 실패(격리):', err)
+    }
+  }
 
   cancelSteer(sessionId: string, id: string): boolean {
     const item = this.deps.steerQueue?.cancel(sessionId, id)
@@ -126,7 +146,7 @@ export class TurnCoordinator<W = unknown> {
     request: TurnRequest,
     opts: { boundProjectId: string | null }
   ): Promise<void> {
-    const { runtime, persist, forward, titles, registry, classifyError, activeTurns } = this.deps
+    const { runtime, persist, forward, registry, classifyError, activeTurns } = this.deps
     const { backgroundSubagents } = this.deps
     const { boundProjectId } = opts
 
@@ -164,11 +184,11 @@ export class TurnCoordinator<W = unknown> {
             if (ev.type === 'telemetry' || ev.type === 'error' || ev.type === 'turn.aborted') {
               sawTerminal = true
             }
-            // persist ∥ forward — 두 sink 는 병렬 독립. persist 가 먼저(main-side·renderer 비의존),
-            // session.updated 면 그 사이에 제목 생성 트리거, forward 후 새-채팅 pending 턴 승격.
-            persist.persist(turn, ev)
-            if (ev.type === 'session.updated') titles.maybeStart(turn)
-            forward.forward(turn.owner, ev)
+            // 단일 팬아웃 — 버스가 등록순(usage→history→title→relay)으로 동기 소비한다. usage 가
+            // history 의 reset 전에 messageId 를 읽고, title 이 relay 전에 트리거되는 순서 불변식은
+            // bootstrap 의 등록 순서가 소유한다. promote 는 emit 반환 후(=relay 후) 실행 — 동기
+            // emit 이라 "forward 후 새-채팅 pending 턴 승격" 순서가 자동 보존된다.
+            this.emit(turn, ev)
             if (ev.type === 'session.updated') {
               registry.promote(turn, ev.sessionId)
             }
@@ -194,8 +214,7 @@ export class TurnCoordinator<W = unknown> {
             if (ev.type === 'subagent.task' && ev.phase === 'settled') {
               settleSubagentTask(
                 turn,
-                persist,
-                forward,
+                this.settleEmit,
                 turn.stoppedSubagents.has(ev.toolUseId) ? { ...ev, status: 'stopped' } : ev
               )
             }
@@ -215,14 +234,13 @@ export class TurnCoordinator<W = unknown> {
         } finally {
           activeTurns.decrement(boundProjectId)
         }
-        // 스트림이 terminal 없이 끝났고 abort 도 아니면 합성 telemetry 로 턴을 마감(영속+forward).
+        // 스트림이 terminal 없이 끝났고 abort 도 아니면 합성 telemetry 로 턴을 마감(버스 팬아웃).
         if (!sawTerminal && !turn.controller.signal.aborted) {
           const ev = {
             type: 'telemetry',
             sessionId: turn.dbSessionId ?? request.sessionId ?? ''
           } as const
-          persist.persist(turn, ev)
-          forward.forward(turn.owner, ev)
+          this.emit(turn, ev)
           // 스트림이 경계 없이 끝났어도 *소비 확정분* 은 flush 한다. 미소비 pending 은 큐에
           // 남긴다 — 모델이 못 본 텍스트를 committed 로 굳히지 않고 다음 chat:send 로 이월(D2).
           this.flushConsumedSteer(turn)
@@ -232,7 +250,7 @@ export class TurnCoordinator<W = unknown> {
         if (runtime.cancelled === true && turn.controller.signal.aborted) return
         if (runtime.timedOut === true) {
           sawTerminal = true
-          settleOpenToolRuns(turn, persist, forward, 'aborted')
+          settleOpenToolRuns(turn, this.settleEmit, 'aborted')
           forward.forward(turn.owner, {
             type: 'error',
             ...(turn.dbSessionId ? { sessionId: turn.dbSessionId } : {}),
@@ -265,7 +283,7 @@ export class TurnCoordinator<W = unknown> {
         }
         // 어댑터 소유 분류기(0016) — provider 는 어댑터가 자기 id 로 채운다. 표시용, 분기 미사용.
         sawTerminal = true
-        settleOpenToolRuns(turn, persist, forward, 'failed')
+        settleOpenToolRuns(turn, this.settleEmit, 'failed')
         forward.forward(turn.owner, {
           type: 'error',
           ...(turn.dbSessionId ? { sessionId: turn.dbSessionId } : {}),

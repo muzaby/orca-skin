@@ -6,7 +6,13 @@ import { mkdir } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { is } from '@electron-toolkit/utils'
-import { CHANNELS, type DebugMockState, type SkillInfo } from '../../shared/ipc'
+import {
+  CHANNELS,
+  type DebugMockState,
+  type NormalizedEvent,
+  type SkillInfo
+} from '../../shared/ipc'
+import type { InflightTurn } from '../lifecycle/turn-context'
 import { AdapterRegistry } from '../adapters/registry'
 import { MockAdapter } from '../adapters/mock'
 import { Installer } from '../installer'
@@ -38,16 +44,20 @@ import { registerProjectHandlers } from './handlers/project'
 import { registerMcpHandlers } from './handlers/mcp'
 import { registerEngineHandlers } from './handlers/engine'
 import { registerMiscHandlers } from './handlers/misc'
-import { registerChatHandlers, settleOpenToolRuns } from './chat/send'
+import { registerChatHandlers } from './chat/send'
 import { RuntimeSupervisor } from '../lifecycle/supervisor'
 import { AdmissionController, RejectDuplicatePolicy } from '../lifecycle/admission-controller'
 import { SteerQueue } from '../lifecycle/steer-queue'
 import { ActiveTurnTracker } from '../lifecycle/active-turn-tracker'
+import { TypedBus } from '../bus'
+import type { MainBus, OrcaBusEvents } from '../lifecycle/bus-events'
+import { settleOpenToolRuns } from '../lifecycle/settle'
+import { recordTurnUsage } from '../usage/subscriber'
 import { ApprovalCoordinator } from './chat/approvals'
 import { TurnPersistence } from './chat/persist'
 import { TitleGenerator } from './chat/title-generation'
 import { recoverDanglingToolCalls } from '../lifecycle/recovery'
-import { broadcastConcurrency } from './context'
+import { broadcastConcurrency, sendChatEvent } from './context'
 
 export class IpcRouter {
   readonly settings = new SettingsStore()
@@ -69,7 +79,7 @@ export class IpcRouter {
   // 앱 종료(will-quit) 정리용 참조 — register() 에서 채워진다. 종료 시 진행 중 턴의 열린 도구를
   // 정착하고 controller 를 abort 한다(shutdown).
   private supervisor?: RuntimeSupervisor<Electron.WebContents>
-  private persistence?: TurnPersistence
+  private bus?: MainBus<Electron.WebContents>
 
   private skillRoots(): SkillScanRoot[] {
     return [
@@ -200,13 +210,18 @@ export class IpcRouter {
   // abort 해 SDK 서브프로세스를 깨끗이 종료한다. persist 는 better-sqlite3 동기라 종료 시간 내
   // 완료된다. start() 이전(register 미실행)이면 no-op.
   shutdown(): void {
-    if (!this.supervisor || !this.persistence) return
-    for (const turn of this.supervisor.all()) {
+    if (!this.supervisor || !this.bus) return
+    const bus = this.bus
+    // 열린 도구를 'aborted' 합성 tool_result 로 정착 → turn.event 버스로 방출(history 구독자가 영속).
+    const emit = (turn: InflightTurn<Electron.WebContents>, ev: NormalizedEvent): void => {
       try {
-        settleOpenToolRuns(turn, this.persistence, 'aborted')
+        bus.emit('turn.event', { turn, ev })
       } catch (e) {
-        console.warn('[shutdown] 턴 정리 실패:', e)
+        console.warn('[shutdown] turn.event 방출 실패:', e)
       }
+    }
+    for (const turn of this.supervisor.all()) {
+      settleOpenToolRuns(turn, emit, 'aborted')
       turn.controller.abort()
     }
     // idle 로 보존된 Persistent 핸들(진행 턴 아님) 일괄 close(0054). 게이트 OFF 면 풀이 비어 no-op.
@@ -220,10 +235,26 @@ export class IpcRouter {
         broadcastConcurrency({ projectId, count })
       )
     }))
+    // turn.event 단일 파이프라인(스펙 §4.2). **구독 순서 = SSOT**: usage(집계) → history(영속) →
+    // title(제목) → relay(renderer 중계). usage 가 history 의 currentAssistantMessageId reset *전* 에
+    // 그 messageId 를 읽고, title 이 relay 전에 트리거되는 순서 불변식을 이 등록 순서 한 곳이 소유한다.
+    // usage·history 는 critical(throw=턴 실패 전파), title·relay 는 격리(실패가 파이프라인을 안 죽임).
+    const bus = (this.bus = new TypedBus<OrcaBusEvents<Electron.WebContents>>())
     const titles = new TitleGenerator(ctx.db)
-    const persistence = (this.persistence = new TurnPersistence(ctx.db, ctx.cost, (turn) =>
-      titles.maybeStart(turn)
-    ))
+    const persistence = new TurnPersistence(ctx.db)
+    bus.on(
+      'turn.event',
+      ({ turn, ev }) => {
+        if (ev.type === 'telemetry') recordTurnUsage(ctx.db, ctx.cost, turn, ev)
+      },
+      { critical: true }
+    )
+    bus.on('turn.event', ({ turn, ev }) => persistence.persist(turn, ev), { critical: true })
+    bus.on('turn.event', ({ turn, ev }) => {
+      if (ev.type === 'session.updated' || ev.type === 'telemetry') titles.maybeStart(turn)
+    })
+    bus.on('turn.event', ({ turn, ev }) => sendChatEvent(turn.owner, ev))
+
     const approvals = new ApprovalCoordinator()
     const permissionModes = new PermissionModeController()
     const admission = new AdmissionController<Electron.WebContents>(new RejectDuplicatePolicy())
@@ -231,9 +262,9 @@ export class IpcRouter {
     registerChatHandlers({
       ctx,
       supervisor,
+      bus,
       approvals,
       persistence,
-      titles,
       permissionModes,
       admission,
       steerQueue

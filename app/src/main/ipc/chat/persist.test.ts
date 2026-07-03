@@ -1,7 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { TurnPersistence } from './persist'
 import type { DbQueries } from '../../db'
-import type { CostTracker } from '../../cost/tracker'
 import type { AttachmentView } from '../../../shared/ipc'
 
 // persistUserMessage 만 검증 — appendMessage/appendPart 만 모의한다.
@@ -13,8 +12,7 @@ function makePersistence(): {
   const appendMessage = vi.fn(() => 7)
   const appendPart = vi.fn(() => 0)
   const db = { appendMessage, appendPart } as unknown as DbQueries
-  const cost = {} as CostTracker
-  const persistence = new TurnPersistence(db, cost, () => undefined)
+  const persistence = new TurnPersistence(db)
   return { persistence, appendMessage, appendPart }
 }
 
