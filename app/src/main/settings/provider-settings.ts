@@ -15,7 +15,7 @@
 
 import { statSync } from 'node:fs'
 import { join } from 'node:path'
-import { orcaConfigDir } from '../config/paths'
+import { orcaConfigDir } from '../infra/config/paths'
 import { listAdapters, listProviders, type ProviderEntry } from './provider-registry'
 
 // ── 배럴 re-export (0017 분해 — 기존 import 경로 무회귀) ──────────────────────────────────

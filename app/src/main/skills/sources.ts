@@ -1,6 +1,6 @@
 import { promises as fs } from 'node:fs'
 import { basename, extname, join } from 'node:path'
-import { sourcesSkillsDir } from '../config/paths'
+import { sourcesSkillsDir } from '../infra/config/paths'
 
 function sanitizeSkillName(name: string): string {
   return name

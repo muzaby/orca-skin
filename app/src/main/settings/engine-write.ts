@@ -1,8 +1,8 @@
 import { existsSync, mkdirSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
-import { providerKeyOf, parseProviderKey, PROVIDER_NAME_RE } from '../config/provider-key'
-import { orcaConfigDir } from '../config/paths'
-import { writeJsonAtomic } from '../config/json-file'
+import { providerKeyOf, parseProviderKey, PROVIDER_NAME_RE } from '../infra/config/provider-key'
+import { orcaConfigDir } from '../infra/config/paths'
+import { writeJsonAtomic } from '../infra/config/json-file'
 
 const SUPPORTED_ENGINE = 'claude'
 

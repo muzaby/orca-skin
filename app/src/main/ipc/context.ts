@@ -19,7 +19,7 @@ import type { AdapterRegistry } from '../adapters/registry'
 import type { MockAdapter } from '../adapters/mock'
 import type { Installer } from '../installer'
 import type { CostTracker } from '../cost/tracker'
-import type { SecretStore } from '../config/secret-store'
+import type { SecretStore } from '../infra/config/secret-store'
 import type { ExtensionBuilder } from '../extensions/builder'
 import type { ProviderSettingsService } from '../settings/provider-settings'
 

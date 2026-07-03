@@ -15,8 +15,8 @@ import {
   type UpdateMcpServerRequest
 } from '../../shared/protocol'
 import type { SettingsStore } from '../settings/store'
-import { readMcpFile, writeMcpFile } from '../config/mcp-file'
-import { SecretStore } from '../config/secret-store'
+import { readMcpFile, writeMcpFile } from '../infra/config/mcp-file'
+import { SecretStore } from '../infra/config/secret-store'
 import type { Resolver } from './expand'
 import { VAR_RE } from './expand'
 import { makeResolver } from './resolver'
