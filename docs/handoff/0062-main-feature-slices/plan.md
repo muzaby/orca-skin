@@ -153,27 +153,29 @@
 
 ## [구현자 기입] 구현 체크리스트
 
-**완료 (커밋됨, 게이트 green):**
-- [x] `infra/bus` TypedBus(자체 구현, 신규 의존 0) + 단위 테스트(등록순/critical/격리) — 현재 위치 `src/main/bus/`(구조 이동 단계에서 `infra/bus` 로).
-- [x] usage 적재를 `TurnPersistence` 에서 `usage/subscriber.ts` 로 분리, title 구독자화, coordinator·settle 을 `bus.emit('turn.event')` 로 전환. bootstrap(router.register) 구독 순서 usage→history→title→relay 고정.
-- [x] 순서 회귀 테스트([usage→history→title→relay], session.updated 순서 보존).
-- [x] 미사용 제거 1차: `OneShotSessionRuntime` 별칭, opencode 변환(`toOpencodeConfig`·`OpencodeMcp*`), `RevertManager`.
+**완료 (커밋됨, 게이트 green — 매 wave 후 lint/typecheck/test 650 passed):**
+- [x] **버스**: `infra/bus` TypedBus(자체 구현, 신규 의존 0) + 단위 테스트(등록순/critical/격리). usage 적재를 `TurnPersistence`→`features/usage/subscriber.ts` 분리, title 구독자화, coordinator·settle 을 `bus.emit('turn.event')` 로. bootstrap 구독 순서 usage→history→title→relay 고정 + 순서 회귀 테스트.
+- [x] **미사용 1차**: `OneShotSessionRuntime` 별칭, opencode 변환(`toOpencodeConfig`·`OpencodeMcp*`), `RevertManager`.
+- [x] **재배치 wave A(infra)**: `db`·`bus`·`config`→`infra/`, `runtime-errors/classifier`→`infra/errors`, `mcp/expand`→`infra/vars`, `settings/store`→`infra/settings-store`. `infra/` 잎 계층 완성.
+- [x] **재배치 wave B(첫 features)**: `cost`+`usage`→`features/usage`(스펙 §5.2 통합, `usageMap`→`usage-map`), `ask`+`runtime-events`→`features/approvals`.
 
-**남은 작업 (후속 impl 라운드 — 구조 재배치가 본체):**
-- [ ] 디렉토리 재배치: `src/main/{app,contracts,adapters,features,infra}` (설계 "타깃 구조"). 상대 import 경로 갱신이 파일별 depth 차이로 커 wave 단위(infra 잎 → adapters 포트 → features 슬라이스 → app) 진행 권장.
-- [ ] `send.ts` 분해(chat.ipc+turn-setup), `router.ts`→`app/bootstrap.ts`, RouterContext 해체, handlers/* → feature ipc, installer 인라인.
-- [ ] 잔여 미사용: `prompts` 정책 체인(+`system-prompt.md` 동시 갱신)·`capabilities` probe(`CapabilityProbe`·`claudeCapabilityProbe`)·무회귀 배럴(`turn-registry`·`subagent-settlement`)·`lifecycle/ports.ts` Runtime* 중복·`InflightTurn`→`TurnContext` 단일화.
-- [ ] eslint boundaries 신 elements(설계 §eslint) + `src/main/AGENTS.md`·`app/AGENTS.md` 재작성.
-- [ ] 네이밍(설계 "주요 rename"): `IpcRouter`→`bootstrap`·`TurnPersistence`→`HistoryWriter`·`CostTracker`→`UsageTracker`·`InteractionBroker`→`ApprovalBroker` 등.
+**남은 작업 (다음 impl 라운드 — 순서대로):**
+- [ ] **★ 어댑터 포트 타입 추출(다음 라운드의 본체·나머지 재배치의 잠금 해제 지점)**: `adapters/claude` 가 domain 8곳(extensions·settings·mcp·files·lifecycle·prompts·deploy·capabilities)의 타입을 소비한다. 이를 adapters 포트로 끌어올려야 extensions/mcp/deploy/files 를 features 로 옮길 때 adapters→features 역방향이 안 생긴다. 이동 대상: `TurnRequest`·`TurnExtensions`·`NormalizedSkillRef`(extensions/types)·`NormalizedHookSet`(extensions/hooks 타입)·`SteerFlushBatch`(lifecycle/steer-queue 타입)·`Extracted*`(files/attachments) → `adapters/turn.ts`; `ResolvedProviderSettings`·`ProviderSettings`·`ProviderSettingsLoader` → `adapters/types.ts`; `OrcaMcpConfig`·`ClaudeMcpConfig`+zod → `adapters/mcp-config.ts`; `isRiskyTool`·`RISKY_TOOLS`(features/approvals/permission-bridge) → `adapters/risky-tools.ts`. 각 타입 소비처(어댑터 + 원 domain) 일괄 갱신(≈40~60 edit) — typecheck 가 전수 검출.
+- [ ] **나머지 features 재배치**(포트 추출 후): `extensions`+`deploy`+`skills`+`mcp(store/file/resolver/convert)`→`features/extensions`, `files`+`title`→`features/chat`, `settings(나머지)`+`provider-key`+`scaffold`→`features/providers`.
+- [ ] **adapters/claude·mock 정리**: claude 특화 파일(claude-classifier→error-classifier·claude-probe→descriptor·claude-plugin-package→plugin-package·claude-model-parser→model-parser·prompts/attachment·plan-feedback)→`adapters/claude/`, mock→`adapters/mock/`.
+- [ ] **contracts/**: `TurnContext`(lifecycle/turn-context, `InflightTurn` 별칭 제거)→`contracts/turn.ts`, `lifecycle/bus-events`→`contracts/bus-events.ts`.
+- [ ] **lifecycle 분해**: →`features/sessions`(supervisor·registry·pool·runtime·state·admission·eviction·cap-policy·active-turn-tracker·abort) + `features/chat`(turn-coordinator·steer-queue·settle·subagent-settlement·timers·recovery). `lifecycle/ports.ts` Runtime* 중복 해체(→ SessionAdapter 직접 참조).
+- [ ] **ipc 분해 + app**: `ipc/chat`→`features/{chat,history,approvals}`, `send.ts` 분해(chat.ipc+turn-setup), handlers/*→feature ipc, `ipc/registry`→`infra/ipc/handle`, `ipc/context`→`infra/ipc/send`+RouterContext 해체, `router.ts`→`app/bootstrap.ts`, `index.ts`→`app/{window,shutdown}`+슬림화, installer 인라인.
+- [ ] **잔여 미사용**: `prompts` 정책 체인(+`system-prompt.md` 동시 갱신)·`capabilities/{types,claude-probe probe}`·무회귀 배럴(`ipc/chat/turn-registry`·`subagent-settlement`).
+- [ ] **eslint + AGENTS + 네이밍**: boundaries 신 elements(설계 §eslint) + `src/main/AGENTS.md`·`app/AGENTS.md` 재작성 + 네이밍(`IpcRouter`→`bootstrap`·`TurnPersistence`→`HistoryWriter`·`CostTracker`→`UsageTracker`·`InteractionBroker`→`ApprovalBroker`).
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 진척 | **부분 구현.** 인수 2·3·4·12 충족(버스 파이프라인), 9 부분(미사용 1차). 구조 재배치(1·6·7·8·11·16 등)는 후속 라운드. |
-| 변경 파일(버스) | `bus/index.ts`(신규)·`bus/index.test.ts`·`lifecycle/bus-events.ts`(신규)·`usage/subscriber.ts`(신규)·`ipc/chat/persist.ts`·`lifecycle/{settle,turn-coordinator}.ts`·`ipc/chat/send.ts`·`ipc/router.ts` + 테스트 4종 |
-| 변경 파일(제거) | `lifecycle/session-runtime.ts`·`mcp/{convert,schema}.ts`·`capabilities/revert-manager.ts`(삭제) + 테스트 |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` |
+| 진척 | **부분 구현(진행 중).** 인수 2·3·4·12 충족(버스), 9 부분(미사용 1차). 재배치: `infra/` 계층 완성 + `features/{usage,approvals}`. 남은 본체=어댑터 포트 추출→나머지 features→contracts→lifecycle/ipc 분해→app→eslint/AGENTS/네이밍(위 체크리스트 순서). |
+| 재배치 현황 | 완료: `src/main/infra/{bus,db,config,errors.ts,vars.ts,settings-store.ts}`·`features/{usage,approvals}`. 미이동: adapters·capabilities·deploy·extensions·files·installer·ipc·lifecycle·mcp·prompts·runtime-errors·settings·skills·title. |
+| 실행 명령 | `npm run lint` / `typecheck` / `test` (매 wave 후) |
 | 게이트 결과 | lint ✅ / typecheck(node+web+test) ✅ / test ✅ (650 passed, electron path 스텁 후) |
-| 커밋 | 설계 `f7cfe4d` · 버스 `6a98ab1` · 제거 `c9e8e6e` |
-| 블로커/역질문 | 없음. 구조 재배치는 대규모 기계적 이동이라 별도 impl 라운드로 이어감(설계·본 체크리스트가 continuation 지점). |
+| 커밋 | 설계 `f7cfe4d` · 버스 `6a98ab1` · 제거 `c9e8e6e` · 보고 `aad5109` · waveA `495c777`(db/bus·config·infra단일) · waveB `c6fbcb5`(usage·approvals) |
+| 블로커/역질문 | 없음. 다음 라운드 진입점=**어댑터 포트 타입 추출**(체크리스트 ★). 그게 나머지 features 재배치의 잠금 해제 지점. |
