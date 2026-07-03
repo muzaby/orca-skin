@@ -2,7 +2,7 @@ import { promises as fs } from 'node:fs'
 import { basename, extname, parse, resolve } from 'node:path'
 import { homedir, platform } from 'node:os'
 import type { ComposerAttachment } from '../../../shared/ipc'
-import { SUPPORTED_IMAGE_MEDIA_TYPES } from '../../capabilities/image'
+import { SUPPORTED_IMAGE_MEDIA_TYPES } from './image'
 import type { ExtractedAttachmentText, ExtractedAttachmentImage } from '../../adapters/turn'
 
 export const MAX_FILE_CONTEXT_CHARS = 24_000

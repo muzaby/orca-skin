@@ -1,14 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { CLAUDE_DESCRIPTOR, claudeCapabilityProbe } from './claude-probe'
+import { CLAUDE_DESCRIPTOR } from './descriptor'
 
-describe('claude capability probe', () => {
+describe('CLAUDE_DESCRIPTOR', () => {
   it('provider id 는 claude', () => {
     expect(CLAUDE_DESCRIPTOR.provider).toBe('claude')
-    expect(claudeCapabilityProbe.provider).toBe('claude')
-  })
-
-  it('discover() 는 정적 서술자를 반환', async () => {
-    await expect(claudeCapabilityProbe.discover()).resolves.toBe(CLAUDE_DESCRIPTOR)
   })
 
   it('지원 라이프사이클 기능은 true (continue/resume/abort/init/delete/update)', () => {

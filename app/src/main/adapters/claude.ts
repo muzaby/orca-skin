@@ -38,7 +38,7 @@ import {
   makeSteerGateHook,
   mergeHooks
 } from './claude-adapt'
-import { CLAUDE_DESCRIPTOR } from '../capabilities/claude-probe'
+import { CLAUDE_DESCRIPTOR } from './descriptor'
 import type { ProviderDescriptor } from '../../shared/ipc'
 
 const requireFn = createRequire(import.meta.url)

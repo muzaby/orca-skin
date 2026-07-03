@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { ClaudeAdapter } from './claude'
-import { CLAUDE_DESCRIPTOR } from '../capabilities/claude-probe'
+import { CLAUDE_DESCRIPTOR } from './descriptor'
 
 const adapter = new ClaudeAdapter()
 
