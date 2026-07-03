@@ -159,7 +159,11 @@
 - [x] **재배치 wave A(infra)**: `db`·`bus`·`config`→`infra/`, `runtime-errors/classifier`→`infra/errors`, `mcp/expand`→`infra/vars`, `settings/store`→`infra/settings-store`. `infra/` 잎 계층 완성.
 - [x] **재배치 wave B(첫 features)**: `cost`+`usage`→`features/usage`(스펙 §5.2 통합, `usageMap`→`usage-map`), `ask`+`runtime-events`→`features/approvals`.
 - [x] **eslint 전환 스캐폴드**: 목표 elements(app·adapters·adapter-impl·features(capture)·contracts·infra·shared) 도입 + 전환용 `legacy` catch-all. `features→adapters` 허용 → 포트 추출+features 이동을 wave 로 쪼갤 수 있게 함(원자 커밋 회피). `shared` 격리 유지. **최종 단계에서 legacy 제거+엄격화**.
-- [x] **포트 추출 진행**: `isRiskyTool`→`adapters/risky-tools`; `mcp/schema`→`adapters/mcp-config`(OrcaMcpConfig·ClaudeMcpConfig) + `mcp/{store,convert,resolver}`·`config/mcp-file`→`features/extensions/mcp`(+`infra/vars` 중립 분리, mcp 의존 `expandEnv`→`features/extensions/mcp/expand`); `skills`→`features/extensions/skills`.
+- [x] **포트 추출 + features 이동 진행(wave A~C7)**:
+  - `adapters/` 포트: `risky-tools`(isRiskyTool)·`mcp-config`(OrcaMcpConfig·ClaudeMcpConfig)·`turn`(TurnRequest·TurnExtensions·NormalizedSkillRef·Extracted*)·`provider-config`(ResolvedProviderSettings·ProviderSettings·ProviderSettingsLoader)·`descriptor`(CLAUDE_DESCRIPTOR). **adapters 잔여 legacy 의존 = NormalizedHookSet(extensions/hooks)·SteerFlushBatch(lifecycle/steer-queue) 둘뿐** — 각 dir 이동 시 정리.
+  - `features/`: `usage`·`approvals`·`extensions/{mcp,skills}`·`chat/{attachments,scan,title,image}`.
+  - 소멸된 dir: `cost`·`usage`·`ask`·`runtime-events`·`mcp`·`skills`·`files`·`title`·`capabilities`(전부 재배치/제거 완료).
+  - 미사용 추가 제거: `claudeCapabilityProbe`·`CapabilityProbe`·`capabilities/types`.
 
 **남은 작업 (다음 impl 라운드 — 순서대로):**
 - [x] `isRiskyTool`→`adapters/risky-tools`, `OrcaMcpConfig`/`ClaudeMcpConfig`→`adapters/mcp-config`(커밋됨). **전환 eslint 덕에 원자 커밋 불필요 — wave 로 진행 가능**해졌다(당초 우려했던 40~60 edit 통짜가 아니라 dir 단위).
@@ -177,7 +181,7 @@
 | 항목 | 내용 |
 |---|---|
 | 진척 | **부분 구현(진행 중).** 인수 2·3·4·12 충족(버스), 9 부분(미사용 1차). 재배치: `infra/` 계층 완성 + `features/{usage,approvals}`. 남은 본체=어댑터 포트 추출→나머지 features→contracts→lifecycle/ipc 분해→app→eslint/AGENTS/네이밍(위 체크리스트 순서). |
-| 재배치 현황 | 완료: `infra/{bus,db,config,errors,vars,settings-store}`·`adapters/{risky-tools,mcp-config}`(포트)·`features/{usage,approvals,extensions/{mcp,skills}}`. 미이동: adapters(claude/mock 정리)·capabilities·deploy·extensions(builder/hooks/types)·files·installer·ipc·lifecycle·prompts·runtime-errors(claude-classifier)·settings·title. |
+| 재배치 현황 | 완료: `infra/{bus,db,config,errors,vars,settings-store}`·`adapters/{risky-tools,mcp-config,turn,provider-config,descriptor}`(포트)·`features/{usage,approvals,extensions/{mcp,skills},chat/{attachments,scan,title,image}}`. **미이동(남은 dir)**: `settings`(→features/providers, 포트 추출 완료라 dir 이동만)·`extensions/{builder,hooks}`(hooks→adapters/hooks 필요)·`deploy`(→features/extensions + claude-plugin-package→adapters/claude)·`runtime-errors/claude-classifier`(→adapters/claude)·`installer`(→providers ipc 인라인)·`prompts`(대부분 데드+claude전용)·`lifecycle`(→features/{sessions,chat} 분해)·`ipc`(→features/{chat,history,approvals}+app/bootstrap+infra/ipc). |
 | 실행 명령 | `npm run lint` / `typecheck` / `test` (매 wave 후 green) |
 | 게이트 결과 | lint ✅ / typecheck(node+web+test) ✅ / test ✅ (650 passed, electron path 스텁 후) |
 | 커밋 | 설계 `f7cfe4d`·버스 `6a98ab1`·제거 `c9e8e6e`·waveA `495c777`·waveB `c6fbcb5`·risky-tools `2be7858`·전환eslint+mcp `d41c8f8`(직전 4커밋: eslint전환·mcp·skills 포함) |
