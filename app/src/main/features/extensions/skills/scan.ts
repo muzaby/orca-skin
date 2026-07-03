@@ -4,7 +4,7 @@
 
 import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
-import type { SkillInfo } from '../../shared/ipc'
+import type { SkillInfo } from '../../../../shared/ipc'
 
 export interface SkillScanRoot {
   sourceId: string

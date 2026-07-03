@@ -24,7 +24,7 @@ import {
 import { join } from 'node:path'
 import type { Backend } from '../../shared/ipc'
 import type { ClaudeMcpConfig } from '../adapters/mcp-config'
-import type { SkillScanRoot } from '../skills/scan'
+import type { SkillScanRoot } from '../features/extensions/skills/scan'
 import { orcaConfigDir } from '../infra/config/paths'
 import { PROVIDER_NAME_RE } from '../infra/config/provider-key'
 import { renderClaudePluginPackage } from './claude-plugin-package'

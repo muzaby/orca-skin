@@ -26,8 +26,12 @@ import {
 } from '../../../shared/protocol'
 import { dialog, shell } from 'electron'
 import { toAgentEnvironments } from '../../settings/provider-settings'
-import { removeOrcaSkillDir, writeAuthoredSkill, writeUploadedSkill } from '../../skills/sources'
-import { skillEnabledKey } from '../../skills/scan'
+import {
+  removeOrcaSkillDir,
+  writeAuthoredSkill,
+  writeUploadedSkill
+} from '../../features/extensions/skills/sources'
+import { skillEnabledKey } from '../../features/extensions/skills/scan'
 import {
   fileMeta,
   assertAllowedAttachmentPath,
