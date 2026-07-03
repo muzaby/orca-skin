@@ -4,7 +4,7 @@
 import type { DbQueries } from '../../infra/db'
 import type { RuntimeTitleAdapter } from '../../lifecycle/ports'
 import type { ResolvedProviderSettings } from '../../settings/provider-settings'
-import { normalizeTitle, shouldGenerateTitle, titlePrompt } from '../../title/title'
+import { normalizeTitle, shouldGenerateTitle, titlePrompt } from '../../features/chat/title'
 import { broadcastSessionTitle } from '../context'
 import type { InflightTurn } from './turn-registry'
 
