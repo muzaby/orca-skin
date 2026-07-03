@@ -20,7 +20,7 @@ import type { MockAdapter } from '../adapters/mock'
 import type { Installer } from '../installer'
 import type { CostTracker } from '../features/usage/tracker'
 import type { SecretStore } from '../infra/config/secret-store'
-import type { ExtensionBuilder } from '../extensions/builder'
+import type { ExtensionBuilder } from '../features/extensions/builder'
 import type { ProviderSettingsService } from '../features/providers/provider-settings'
 
 export interface RouterContext {

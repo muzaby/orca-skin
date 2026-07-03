@@ -18,7 +18,7 @@ import type {
   SkillInfo
 } from '../../shared/ipc'
 import type { NormalizedPermissionMode } from '../../shared/permission-mode'
-import type { NormalizedHookSet } from '../extensions/hooks'
+import type { NormalizedHookSet } from './hooks'
 import type { SteerFlushBatch } from '../lifecycle/steer-queue'
 
 // 첨부 추출 결과 — 어댑터가 turn content 로 굽는 입력 계약(구 files/attachments 정의를 포트로 이관).
