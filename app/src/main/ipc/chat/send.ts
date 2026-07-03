@@ -15,7 +15,7 @@ import {
   StopSubagentSchema
 } from '../../../shared/protocol'
 import { normalizeAttachments } from '../../files/attachments'
-import { appEnv } from '../../config/orca-config'
+import { appEnv } from '../../infra/config/orca-config'
 import {
   defaultModelFamily,
   defaultProvider,

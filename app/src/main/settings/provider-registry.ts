@@ -4,8 +4,8 @@
 
 import { readdirSync, readFileSync, type Dirent } from 'node:fs'
 import { join } from 'node:path'
-import { orcaConfigDir } from '../config/paths'
-import { providerKeyOf, PROVIDER_NAME_RE } from '../config/provider-key'
+import { orcaConfigDir } from '../infra/config/paths'
+import { providerKeyOf, PROVIDER_NAME_RE } from '../infra/config/provider-key'
 import { parseClaudeModels, type ParsedModel } from './claude-model-parser'
 
 // 열거된 provider 1건 (디렉토리 = SSOT, 모델은 settings.json 파싱 결과).

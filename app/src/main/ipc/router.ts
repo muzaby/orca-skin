@@ -23,9 +23,9 @@ import {
   ensureConfigDir,
   getWorkspacePath,
   sourcesSkillsDir
-} from '../config/paths'
-import { loadOrcaConfig } from '../config/orca-config'
-import { SecretStore } from '../config/secret-store'
+} from '../infra/config/paths'
+import { loadOrcaConfig } from '../infra/config/orca-config'
+import { SecretStore } from '../infra/config/secret-store'
 import { deploy } from '../deploy/deployer'
 import { ExtensionDeploymentService } from '../deploy/extension-deployment-service'
 import { toClaudeConfig } from '../mcp/convert'

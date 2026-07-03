@@ -34,7 +34,7 @@ import {
   SUPPORTED_IMAGE_MIME_TYPES
 } from '../../files/attachments'
 import { listDir } from '../../files/scan'
-import { isWithinDir, projectsDir } from '../../config/paths'
+import { isWithinDir, projectsDir } from '../../infra/config/paths'
 import { promises as fs } from 'node:fs'
 import { sendInstallStatus, setWireLog, type RouterContext } from '../context'
 import { handle, handlePlain } from '../registry'

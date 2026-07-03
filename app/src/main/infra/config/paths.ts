@@ -22,7 +22,7 @@ import { homedir } from 'node:os'
 import { isAbsolute, join, relative, resolve } from 'node:path'
 import { mkdir } from 'node:fs/promises'
 import { mkdirSync } from 'node:fs'
-import type { Backend } from '../../shared/ipc'
+import type { Backend } from '../../../shared/ipc'
 
 // 모든 OS 동일하게 ~/.config/orca (제안서 §환경구성). Windows 에서도 homedir() 하위로 통일.
 export function orcaConfigDir(): string {

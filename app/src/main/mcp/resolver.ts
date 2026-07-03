@@ -2,7 +2,7 @@
 // expand.ts 의 순수 Resolver 타입에 electron/secret 의존을 주입하는 얇은 어댑터.
 
 import type { Resolver } from './expand'
-import type { SecretStore } from '../config/secret-store'
+import type { SecretStore } from '../infra/config/secret-store'
 
 export function makeResolver(secrets: SecretStore): Resolver {
   return (name: string) => secrets.get(name) ?? process.env[name]
