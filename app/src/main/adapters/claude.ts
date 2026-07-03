@@ -27,7 +27,7 @@ import { formatPlanFeedbackPrompt } from '../prompts/plan-feedback'
 import type { CompleteRequest, LiveTurn, SessionAdapter } from './types'
 import type { TurnRequest } from '../extensions/types'
 import type { ExtractedAttachmentImage, ExtractedAttachmentText } from '../files/attachments'
-import { isRiskyTool } from '../features/approvals/permission-bridge'
+import { isRiskyTool } from './risky-tools'
 import {
   adaptEnv,
   adaptHooks,
