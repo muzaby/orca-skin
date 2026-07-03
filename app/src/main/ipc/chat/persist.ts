@@ -6,19 +6,14 @@
 import type { WebContents } from 'electron'
 import type { AttachmentView, NormalizedEvent } from '../../../shared/ipc'
 import type { DbQueries } from '../../db'
-import type { CostTracker } from '../../cost/tracker'
-import { hasContextTokens } from '../../usage/usageMap'
 import { previewOf } from '../dto'
 import { sendChatEvent } from '../context'
 import type { InflightTurn } from './turn-registry'
 
+// 턴 영속(history) — 사용량 집계(usage/subscriber)·제목 생성(TitleGenerator)은 별개 버스 구독자로
+// 분리됐다(0062). 여기 telemetry 처리는 assistant 메시지 마감 + 다음 턴 대비 reset 만 담당한다.
 export class TurnPersistence {
-  constructor(
-    private readonly db: DbQueries,
-    private readonly cost: CostTracker,
-    // telemetry(턴 종료) 시점 후처리 — 제목 자동 생성 트리거(TitleGenerator.maybeStart).
-    private readonly onTurnEnd: (turn: InflightTurn) => void
-  ) {}
+  constructor(private readonly db: DbQueries) {}
 
   // user 메시지 1건을 messages row + text 파트로 영속한다(content 는 FTS5 캐시).
   // 첨부가 있으면 text 파트 뒤에 attachment 파트(트랜스크립트 썸네일 영속분)를 덧붙인다.
@@ -228,51 +223,12 @@ export class TurnPersistence {
         break
       }
       case 'telemetry': {
-        // 턴 종료 — 사용량 부모/자식 행을 turn_usage 원장에 적재. 시간 집계 + 세션 최신 행에서
-        // 컨텍스트 도넛/패널 복원의 원천. usage 없거나 컨텍스트 0(/context 등 로컬 슬래시
-        // 명령 — 모델 미호출)이면 스킵 — 빈 행이 최신 행으로 도넛을 0으로 덮지 않게.
-        const u = ev.usage
-        if (turn.dbSessionId && u && hasContextTokens(u)) {
-          const turnUsageId = this.db.insertTurnUsage({
-            sessionId: turn.dbSessionId,
-            messageId: turn.currentAssistantMessageId,
-            createdAt: now,
-            inputTokens: u.inputTokens ?? null,
-            outputTokens: u.outputTokens ?? null,
-            cacheCreationInputTokens: u.cacheCreationTokens ?? null,
-            cacheReadInputTokens: u.cacheReadTokens ?? null,
-            totalCostUsd: u.costUsd ?? null
-          })
-          const modelEntries = Object.entries(u.modelUsage ?? {})
-          if (modelEntries.length > 0) {
-            for (const [model, mu] of modelEntries) {
-              this.db.insertTurnModelUsage({
-                turnUsageId,
-                model,
-                inputTokens: mu.inputTokens ?? null,
-                outputTokens: mu.outputTokens ?? null,
-                cacheCreationInputTokens: mu.cacheCreationTokens ?? null,
-                cacheReadInputTokens: mu.cacheReadTokens ?? null,
-                costUsd: mu.costUsd ?? null
-              })
-            }
-          } else if (u.model) {
-            this.db.insertTurnModelUsage({
-              turnUsageId,
-              model: u.model,
-              inputTokens: u.inputTokens ?? null,
-              outputTokens: u.outputTokens ?? null,
-              cacheCreationInputTokens: u.cacheCreationTokens ?? null,
-              cacheReadInputTokens: u.cacheReadTokens ?? null,
-              costUsd: u.costUsd ?? null
-            })
-          }
-          this.cost.recordAndBroadcast()
-        }
+        // 턴 종료 — 진행 중 assistant 메시지를 마감하고 다음 턴 대비 reset 한다. 사용량 적재(turn_usage
+        // 원장)·비용 방출은 usage 구독자가, 제목 생성은 title 구독자가 버스에서 먼저 소비한다(0062).
+        // 등록 순서(usage→history)가 usage 의 currentAssistantMessageId 링크를 이 reset 전에 보장한다.
         if (turn.currentAssistantMessageId != null) {
           this.db.markMessageComplete(turn.currentAssistantMessageId)
         }
-        this.onTurnEnd(turn)
         // 다음 assistant 파트는 새 메시지에 묶이도록 reset.
         turn.currentAssistantMessageId = null
         turn.assistantText = ''

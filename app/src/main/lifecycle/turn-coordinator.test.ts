@@ -7,6 +7,8 @@ import {
   type CoordinatorRuntime,
   type TurnCoordinatorDeps
 } from './turn-coordinator'
+import { TypedBus } from '../bus'
+import type { OrcaBusEvents } from './bus-events'
 import { SteerQueue } from './steer-queue'
 
 type W = string
@@ -69,15 +71,32 @@ function fakeRuntime(
   } as unknown as CoordinatorRuntime & { sendCount: number }
 }
 
+// bootstrap(router.register)과 동일한 순서로 turn.event 버스에 구독자를 배선한 deps 를 만든다:
+// usage → history(persist) → title → relay(forward). 코디네이터는 이 버스로 emit 하므로, 스파이는
+// 구독을 통해 호출된다 — 팬아웃 순서 불변식까지 함께 검증된다(order 로그). persist/forward 는
+// 버스를 안 타는 경로(steer·Ask·합성 error)를 위해 deps 에도 남는다(production 과 동일 인스턴스).
+type CoordDeps = TurnCoordinatorDeps<W> & {
+  titles: { maybeStart: ReturnType<typeof vi.fn> }
+  usage: ReturnType<typeof vi.fn>
+  order: string[]
+}
+
 function makeDeps(
   runtime: CoordinatorRuntime,
   overrides: Partial<TurnCoordinatorDeps<W>> = {}
-): TurnCoordinatorDeps<W> {
-  return {
+): CoordDeps {
+  const order: string[] = []
+  const usage = vi.fn(() => order.push('usage'))
+  const titles = {
+    maybeStart: vi.fn<(turn: TurnContext<W>) => void>(() => {
+      order.push('title')
+    })
+  }
+  const base: TurnCoordinatorDeps<W> = {
     runtime,
-    persist: { persist: vi.fn(), flushAskAnswers: vi.fn() },
-    forward: { forward: vi.fn() },
-    titles: { maybeStart: vi.fn() },
+    bus: new TypedBus<OrcaBusEvents<W>>(),
+    persist: { persist: vi.fn(() => order.push('history')), flushAskAnswers: vi.fn() },
+    forward: { forward: vi.fn(() => order.push('relay')) },
     registry: { promote: vi.fn() },
     classifyError: vi.fn(
       () => ({ kind: 'stream_error', message: 'x', retryable: false }) as unknown as ClassifiedError
@@ -86,6 +105,19 @@ function makeDeps(
     backgroundSubagents: false,
     ...overrides
   }
+  base.bus.on(
+    'turn.event',
+    ({ ev }) => {
+      if (ev.type === 'telemetry') usage()
+    },
+    { critical: true }
+  )
+  base.bus.on('turn.event', ({ turn, ev }) => base.persist.persist(turn, ev), { critical: true })
+  base.bus.on('turn.event', ({ turn, ev }) => {
+    if (ev.type === 'session.updated' || ev.type === 'telemetry') titles.maybeStart(turn)
+  })
+  base.bus.on('turn.event', ({ turn, ev }) => base.forward.forward(turn.owner, ev))
+  return { ...base, titles, usage, order }
 }
 
 const sessionUpdated = { type: 'session.updated', sessionId: 's1' } as unknown as NormalizedEvent
@@ -101,12 +133,24 @@ describe('TurnCoordinator.run — consume → reduce → persist ∥ forward', (
 
     expect(deps.persist.persist).toHaveBeenCalledTimes(2)
     expect(deps.forward.forward).toHaveBeenCalledTimes(2)
-    // session.updated → 제목 트리거 + pending 턴 승격
-    expect(deps.titles.maybeStart).toHaveBeenCalledTimes(1)
+    // 제목 트리거는 session.updated 와 telemetry 모두에서(title 구독자) — 2회. 실 구현 maybeStart 는
+    // titleGenerationStarted 가드로 2번째를 no-op 하지만 스파이는 호출 횟수만 센다.
+    expect(deps.titles.maybeStart).toHaveBeenCalledTimes(2)
     expect(deps.registry.promote).toHaveBeenCalledWith(turn, 's1')
     // active turn 회계는 증가/감소 짝이 맞아야 한다
     expect(deps.activeTurns.increment).toHaveBeenCalledTimes(1)
     expect(deps.activeTurns.decrement).toHaveBeenCalledTimes(1)
+  })
+
+  it('telemetry 팬아웃은 usage→history→title→relay 등록 순서로 소비된다(순서 계약)', async () => {
+    const runtime = fakeRuntime([[telemetry]])
+    const deps = makeDeps(runtime)
+
+    await new TurnCoordinator(deps).run(makeTurn(), REQUEST, { boundProjectId: null })
+
+    // usage 가 history 의 currentAssistantMessageId reset 전에, title 이 relay 전에 실행된다는
+    // 불변식은 bootstrap 의 버스 등록 순서가 소유한다(동기·등록순 emit).
+    expect(deps.order).toEqual(['usage', 'history', 'title', 'relay'])
   })
 
   it('terminal 없는 스트림은 합성 telemetry 로 마감한다', async () => {

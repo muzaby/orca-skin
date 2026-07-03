@@ -33,18 +33,14 @@ import { previewOf } from '../dto'
 import { handle, handlePlain } from '../registry'
 import type { ApprovalCoordinator } from './approvals'
 import type { TurnPersistence } from './persist'
-import type { TitleGenerator } from './title-generation'
 import { SessionRuntime } from '../../lifecycle/session-runtime'
 import type { RuntimeSessionAdapter } from '../../lifecycle/ports'
 import { STALL_TIMEOUT_MS } from '../../lifecycle/timers'
 import { recoverDanglingToolCalls } from '../../lifecycle/recovery'
 import type { TurnRequest } from '../../extensions/types'
 import { TurnCoordinator } from '../../lifecycle/turn-coordinator'
-import {
-  settleOpenToolRuns as settleOpenToolRunsCore,
-  settleSubagentTask,
-  stopLiveSubagent
-} from '../../lifecycle/settle'
+import { settleOpenToolRuns, settleSubagentTask, stopLiveSubagent } from '../../lifecycle/settle'
+import type { MainBus, TurnEmit } from '../../lifecycle/bus-events'
 import type { TurnEventSink } from '../../lifecycle/turn-sinks'
 import { RuntimeSupervisor, abortTurn } from '../../lifecycle/supervisor'
 import type { SteerQueue } from '../../lifecycle/steer-queue'
@@ -63,27 +59,18 @@ export { MAX_RETRIES, RETRY_BACKOFF_MS, abortableDelay } from '../../lifecycle/t
 export interface ChatDeps {
   ctx: RouterContext
   supervisor: RuntimeSupervisor<WebContents>
+  bus: MainBus<WebContents>
   approvals: ApprovalCoordinator
   persistence: TurnPersistence
-  titles: TitleGenerator
   permissionModes: PermissionModeController
   admission: AdmissionController<WebContents>
   steerQueue: SteerQueue
 }
 
-// renderer forward sink — sendChatEvent 래핑. 코디네이터·정착(settle)·취소 핸들러가 공유한다.
+// renderer forward sink — sendChatEvent 래핑. 코디네이터가 버스를 타지 않는 forward-only 이벤트
+// (합성 error·turn.retrying·steer.flushed)에 쓴다.
 const chatForward: TurnEventSink<WebContents> = {
   forward: (owner, ev) => sendChatEvent(owner, ev)
-}
-
-// 턴 중단/실패 시 열린 도구를 합성 tool_result 로 정착시킨다. 정본은 lifecycle/settle.ts 이며,
-// 여기서는 renderer forward 를 묶은 무회귀 래퍼(앱 종료 정리 router.shutdown 가 3-arg 로 호출).
-export function settleOpenToolRuns(
-  turn: InflightTurn<WebContents>,
-  persistence: TurnPersistence,
-  kind: 'aborted' | 'failed'
-): void {
-  settleOpenToolRunsCore(turn, persistence, chatForward, kind)
 }
 
 // 턴 단위 provider/model 해석 (handoff 0010 → 0014) — payload providerKey 가 어댑터와
@@ -202,16 +189,18 @@ function enactAdmissionDecision(
 }
 
 export function registerChatHandlers(deps: ChatDeps): void {
-  const {
-    ctx,
-    supervisor,
-    approvals,
-    persistence,
-    titles,
-    permissionModes,
-    admission,
-    steerQueue
-  } = deps
+  const { ctx, supervisor, bus, approvals, persistence, permissionModes, admission, steerQueue } =
+    deps
+
+  // settle(취소·서브에이전트 중단) 정착 이벤트를 turn.event 버스로 방출 — 스트리밍과 동일 파이프라인.
+  // fault-isolated: 정리 중 구독자 throw 가 핸들러를 깨지 않게 격리한다.
+  const emitTurn: TurnEmit<WebContents> = (turn, ev) => {
+    try {
+      bus.emit('turn.event', { turn, ev })
+    } catch (err) {
+      console.warn('[chat] turn.event 방출 실패(격리):', err)
+    }
+  }
 
   // 서브에이전트 백그라운드화 게이트(가이드 — run_in_background 주입). 종료 정착은
   // task_notification/사용자 중단 공통 경로에서 foreground/background 모두 처리한다.
@@ -409,9 +398,9 @@ export function registerChatHandlers(deps: ChatDeps): void {
     // 가로축 구동체 — 스트림 소비·reduce·persist∥forward·retry·settle·stall 을 소유한다.
     const coordinator = new TurnCoordinator<WebContents>({
       runtime,
+      bus,
       persist: persistence,
       forward: chatForward,
-      titles,
       registry: supervisor,
       classifyError: (err, phase) => adapter.classifyError(err, phase),
       activeTurns: supervisor.activeTurns,
@@ -579,7 +568,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
     abortTurn(turn, 'user_cancelled')
     // 진행 중이던 도구(최상위 + 서브에이전트 child)를 중단 결과로 정착 — 안 하면 결과가
     // 영영 안 와 "실행 중"으로 무한 렌더되고 부모 Task 가 "진행 중"으로 남는다. turn.aborted 전에.
-    settleOpenToolRunsCore(turn, persistence, chatForward, 'aborted')
+    settleOpenToolRuns(turn, emitTurn, 'aborted')
     sendChatEvent(turn.owner, {
       type: 'turn.aborted',
       sessionId: req.sessionId,
@@ -599,7 +588,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
     if (subagentType) turn.blockedSubagents.add(subagentType)
     turn.stoppedSubagents.add(req.toolUseId)
 
-    settleSubagentTask(turn, persistence, chatForward, {
+    settleSubagentTask(turn, emitTurn, {
       type: 'subagent.task',
       sessionId: turn.dbSessionId ?? req.sessionId,
       toolUseId: req.toolUseId,

@@ -1,19 +1,9 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { NormalizedEvent } from '../../shared/ipc'
 import type { TurnContext } from './turn-context'
-import type { TurnEventSink, TurnPersistSink } from './turn-sinks'
 import { settleOpenToolRuns, settleSubagentTask, stopLiveSubagent } from './settle'
 
 type W = string
-
-function spySinks(): {
-  persist: TurnPersistSink<W> & { persist: ReturnType<typeof vi.fn> }
-  forward: TurnEventSink<W> & { forward: ReturnType<typeof vi.fn> }
-} {
-  const persist = { persist: vi.fn(), flushAskAnswers: vi.fn() }
-  const forward = { forward: vi.fn() }
-  return { persist, forward }
-}
 
 function turnWith(openToolRuns: Map<string, { parentToolRunId?: string }>): TurnContext<W> {
   return {
@@ -24,8 +14,8 @@ function turnWith(openToolRuns: Map<string, { parentToolRunId?: string }>): Turn
 }
 
 describe('settleOpenToolRuns', () => {
-  it('열린 도구를 aborted tool_result 로 persist∥forward 후 비운다', () => {
-    const { persist, forward } = spySinks()
+  it('열린 도구를 aborted tool_result 로 turn.event 방출 후 비운다', () => {
+    const emit = vi.fn()
     const turn = turnWith(
       new Map([
         ['t1', {}],
@@ -33,34 +23,30 @@ describe('settleOpenToolRuns', () => {
       ])
     )
 
-    settleOpenToolRuns(turn, persist, forward, 'aborted')
+    settleOpenToolRuns(turn, emit, 'aborted')
 
-    expect(persist.persist).toHaveBeenCalledTimes(2)
-    expect(forward.forward).toHaveBeenCalledTimes(2)
-    const ev = persist.persist.mock.calls[0][1] as Extract<
-      NormalizedEvent,
-      { type: 'tool.call.completed' }
-    >
+    expect(emit).toHaveBeenCalledTimes(2)
+    // emit(turn, ev) — 두 번째 인자가 이벤트.
+    const ev = emit.mock.calls[0][1] as Extract<NormalizedEvent, { type: 'tool.call.completed' }>
     expect(ev.type).toBe('tool.call.completed')
     expect(ev.isError).toBe(true)
     expect((ev.result as { reason: string }).reason).toBe('aborted')
     // parentToolRunId 보존
-    const ev2 = persist.persist.mock.calls[1][1] as { parentToolRunId?: string }
+    const ev2 = emit.mock.calls[1][1] as { parentToolRunId?: string }
     expect(ev2.parentToolRunId).toBe('p')
     expect(turn.openToolRuns.size).toBe(0)
   })
 
   it('열린 도구가 없으면 no-op', () => {
-    const { persist, forward } = spySinks()
-    settleOpenToolRuns(turnWith(new Map()), persist, forward, 'failed')
-    expect(persist.persist).not.toHaveBeenCalled()
-    expect(forward.forward).not.toHaveBeenCalled()
+    const emit = vi.fn()
+    settleOpenToolRuns(turnWith(new Map()), emit, 'failed')
+    expect(emit).not.toHaveBeenCalled()
   })
 })
 
 describe('settleSubagentTask', () => {
   it('stopped 부모와 그 아래 열린 child 를 정착하고 openToolRuns 에서 제거한다', () => {
-    const { persist, forward } = spySinks()
+    const emit = vi.fn()
     const turn = turnWith(
       new Map([
         ['parent', {}],
@@ -76,11 +62,10 @@ describe('settleSubagentTask', () => {
       status: 'stopped'
     } as Extract<NormalizedEvent, { type: 'subagent.task' }>
 
-    settleSubagentTask(turn, persist, forward, ev)
+    settleSubagentTask(turn, emit, ev)
 
-    // 부모 + child 정착(둘 다 persist∥forward), other 는 부모가 아니므로 유지.
-    expect(persist.persist).toHaveBeenCalledTimes(2)
-    expect(forward.forward).toHaveBeenCalledTimes(2)
+    // 부모 + child 정착(둘 다 turn.event 방출), other 는 부모가 아니므로 유지.
+    expect(emit).toHaveBeenCalledTimes(2)
     expect(turn.openToolRuns.has('parent')).toBe(false)
     expect(turn.openToolRuns.has('child')).toBe(false)
     expect(turn.openToolRuns.has('other')).toBe(true)

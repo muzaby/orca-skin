@@ -6,16 +6,17 @@
 
 import type { NormalizedEvent } from '../../shared/ipc'
 import type { TurnContext } from './turn-context'
-import type { TurnEventSink, TurnPersistSink } from './turn-sinks'
+import type { TurnEmit } from './bus-events'
 import { createSubagentSettlementEvents } from './subagent-settlement'
 import type { RuntimeLiveTurn } from './ports'
 
 // 턴 중단/실패 시 아직 열린 도구 실행을 abort/failed 마커 tool_result 로 정착시킨다.
 // AskUserQuestion tool_result 합성(flushAskAnswers)과 동형의 보정 — toolRunId 멱등(upsert).
+// 합성 이벤트는 turn.event 버스로 방출된다(history 영속 ∥ renderer 중계) — 스트리밍 이벤트와 동일
+// 파이프라인. emit 의 fault-isolation(등록순·critical)은 버스가 소유하고, settle 은 순서만 보존한다.
 export function settleOpenToolRuns<W>(
   turn: TurnContext<W>,
-  persist: TurnPersistSink<W>,
-  forward: TurnEventSink<W>,
+  emit: TurnEmit<W>,
   kind: 'aborted' | 'failed'
 ): void {
   if (turn.openToolRuns.size === 0) return
@@ -32,8 +33,7 @@ export function settleOpenToolRuns<W>(
       isError: true,
       ...(info.parentToolRunId !== undefined ? { parentToolRunId: info.parentToolRunId } : {})
     } as const
-    persist.persist(turn, ev)
-    forward.forward(turn.owner, ev)
+    emit(turn, ev)
   }
   turn.openToolRuns.clear()
 }
@@ -43,8 +43,7 @@ export function settleOpenToolRuns<W>(
 // 신호이고, 이 정착 이벤트들이 루트/전용 transcript 의 UI 상태 SSOT 다.
 export function settleSubagentTask<W>(
   turn: TurnContext<W>,
-  persist: TurnPersistSink<W>,
-  forward: TurnEventSink<W>,
+  emit: TurnEmit<W>,
   ev: Extract<NormalizedEvent, { type: 'subagent.task' }>
 ): void {
   const events = createSubagentSettlementEvents({
@@ -53,8 +52,7 @@ export function settleSubagentTask<W>(
     openToolRuns: turn.openToolRuns
   })
   for (const out of events) {
-    persist.persist(turn, out)
-    forward.forward(turn.owner, out)
+    emit(turn, out)
     turn.openToolRuns.delete(out.toolRunId)
   }
 }
