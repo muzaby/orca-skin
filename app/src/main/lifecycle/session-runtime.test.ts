@@ -4,7 +4,7 @@ import { makeClassifiedError } from '../runtime-errors/classifier'
 import type { TurnRequest } from '../extensions/types'
 import type { AbortCause } from './session-state'
 import type { RuntimeLiveTurn, RuntimeSessionAdapter } from './ports'
-import { OneShotSessionRuntime, SessionRuntime } from './session-runtime'
+import { SessionRuntime } from './session-runtime'
 
 function req(): TurnRequest {
   return {
@@ -44,10 +44,10 @@ async function collect<T>(iterable: AsyncIterable<T>): Promise<T[]> {
   return out
 }
 
-describe('OneShotSessionRuntime', () => {
+describe('SessionRuntime', () => {
   it('closes the live turn when a terminal event is observed', async () => {
     const close = vi.fn()
-    const runtime = new OneShotSessionRuntime(
+    const runtime = new SessionRuntime(
       adapter(live([{ type: 'telemetry', sessionId: 's1' }], close))
     )
     await collect(runtime.send(req()))
@@ -57,7 +57,7 @@ describe('OneShotSessionRuntime', () => {
 
   it('keeps retry ownership outside by allowing another send after an empty failed attempt', async () => {
     let calls = 0
-    const runtime = new OneShotSessionRuntime({
+    const runtime = new SessionRuntime({
       id: 'claude',
       complete: async () => '',
       sendMessage: () => {
@@ -76,11 +76,9 @@ describe('OneShotSessionRuntime', () => {
 })
 
 describe('SessionRuntime close 정책(0054)', () => {
-  it('기본 정책은 oneshot — reusable=false (OneShot alias 와 동일)', () => {
+  it('기본 정책은 oneshot — reusable=false', () => {
     const oneshot = new SessionRuntime(adapter(live([])))
     expect(oneshot.reusable).toBe(false)
-    expect(OneShotSessionRuntime).toBe(SessionRuntime)
-    expect(new OneShotSessionRuntime(adapter(live([]))).reusable).toBe(false)
   })
 
   it("persistent 정책은 reusable=true — terminal 후 state='live' 유지로 재사용 가능", async () => {
@@ -119,7 +117,7 @@ class FakeSessionRuntime implements RuntimeLiveTurn {
     private readonly policy: ClosePolicy
   ) {}
 
-  // 소비자 표면 — OneShotSessionRuntime.send() 와 동일 시그니처.
+  // 소비자 표면 — SessionRuntime.send() 와 동일 시그니처.
   async *send(): AsyncIterable<NormalizedEvent> {
     try {
       for (const ev of this.script) {
