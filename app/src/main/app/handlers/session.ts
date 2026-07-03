@@ -12,8 +12,8 @@ import {
 } from '../../../shared/protocol'
 import { usageRowToTelemetry } from '../../features/usage/usage-map'
 import type { RouterContext } from '../context'
-import { partFromRow, toSessionListItem } from '../dto'
-import { handle, handlePlain } from '../registry'
+import { partFromRow, toSessionListItem } from '../../infra/ipc/dto'
+import { handle, handlePlain } from '../../infra/ipc/handle'
 
 export function registerSessionHandlers(ctx: RouterContext): void {
   // Renderer 가 세션 init 이벤트 전에도 cwd 를 알 수 있도록 노출. chat send 와

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { TurnPersistence } from './persist'
+import { TurnPersistence } from './writer'
 import type { DbQueries } from '../../infra/db'
 import type { AttachmentView } from '../../../shared/ipc'
 

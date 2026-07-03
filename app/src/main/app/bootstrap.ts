@@ -1,5 +1,6 @@
-// IpcRouter — main 측 컴포지션 루트. 의존성 생성 + 부팅 시퀀스 + 핸들러 등록 위임만 담당한다.
-// 도메인 핸들러는 ipc/handlers/, chat 턴 파이프라인은 ipc/chat/ 참조 (handoff 0011 분해).
+// IpcRouter — main 측 컴포지션 루트(app 레이어). 의존성 생성 + 부팅 시퀀스 + 핸들러 등록 위임만
+// 담당한다. 도메인 핸들러는 app/handlers/, chat 턴 셋업은 app/chat-turn.ts, 턴 파이프라인 협력자는
+// features/{chat,history,approvals,sessions,usage} 참조 (handoff 0062 수직 슬라이스 재구성).
 
 import { webContents } from 'electron'
 import { mkdir } from 'node:fs/promises'
@@ -15,7 +16,7 @@ import {
 import type { InflightTurn } from '../contracts/turn'
 import { AdapterRegistry } from '../adapters/registry'
 import { MockAdapter } from '../adapters/mock'
-import { Installer } from '../installer'
+import { Installer } from '../adapters/installer'
 import { SettingsStore } from '../infra/settings-store'
 import { McpStore } from '../features/extensions/mcp/store'
 import {
@@ -44,7 +45,7 @@ import { registerProjectHandlers } from './handlers/project'
 import { registerMcpHandlers } from './handlers/mcp'
 import { registerEngineHandlers } from './handlers/engine'
 import { registerMiscHandlers } from './handlers/misc'
-import { registerChatHandlers } from './chat/send'
+import { registerChatHandlers } from './chat-turn'
 import { RuntimeSupervisor } from '../features/sessions/supervisor'
 import {
   AdmissionController,
@@ -56,11 +57,11 @@ import { TypedBus } from '../infra/bus'
 import type { MainBus, OrcaBusEvents } from '../contracts/bus-events'
 import { settleOpenToolRuns } from '../features/chat/settle'
 import { recordTurnUsage } from '../features/usage/subscriber'
-import { ApprovalCoordinator } from './chat/approvals'
-import { TurnPersistence } from './chat/persist'
-import { TitleGenerator } from './chat/title-generation'
+import { ApprovalCoordinator } from '../features/approvals/coordinator'
+import { TurnPersistence } from '../features/history/writer'
+import { TitleGenerator } from '../features/chat/title-generation'
 import { recoverDanglingToolCalls } from '../features/chat/recovery'
-import { broadcastConcurrency, sendChatEvent } from './context'
+import { broadcastConcurrency, sendChatEvent } from '../infra/ipc/send'
 
 export class IpcRouter {
   readonly settings = new SettingsStore()

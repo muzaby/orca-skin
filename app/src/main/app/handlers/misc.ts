@@ -40,8 +40,9 @@ import {
 import { listDir } from '../../features/chat/scan'
 import { isWithinDir, projectsDir } from '../../infra/config/paths'
 import { promises as fs } from 'node:fs'
-import { sendInstallStatus, setWireLog, type RouterContext } from '../context'
-import { handle, handlePlain } from '../registry'
+import type { RouterContext } from '../context'
+import { sendInstallStatus, setWireLog } from '../../infra/ipc/send'
+import { handle, handlePlain } from '../../infra/ipc/handle'
 
 function findSkill(ctx: RouterContext, sourceId: string, name: string): SkillInfo {
   const skill = ctx.getSkills().find((s) => s.sourceId === sourceId && s.name === name)

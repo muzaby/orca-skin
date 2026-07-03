@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { partFromRow } from './dto'
-import type { LoadedPartRow } from '../infra/db/types'
+import type { LoadedPartRow } from '../db/types'
 
 const row = (over: Partial<LoadedPartRow>): LoadedPartRow => ({
   message_id: 1,

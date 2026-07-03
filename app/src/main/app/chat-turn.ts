@@ -6,16 +6,16 @@
 
 import type { IpcMainInvokeEvent, WebContents } from 'electron'
 import { randomUUID } from 'node:crypto'
-import { CHANNELS, type ApprovalResolution, type PermissionAction } from '../../../shared/ipc'
+import { CHANNELS, type ApprovalResolution, type PermissionAction } from '../../shared/ipc'
 import {
   CancelChatSchema,
   CancelSteerSchema,
   SendChatMessageSchema,
   SteerChatMessageSchema,
   StopSubagentSchema
-} from '../../../shared/protocol'
-import { normalizeAttachments } from '../../features/chat/attachments'
-import { appEnv } from '../../infra/config/orca-config'
+} from '../../shared/protocol'
+import { normalizeAttachments } from '../features/chat/attachments'
+import { appEnv } from '../infra/config/orca-config'
 import {
   defaultModelFamily,
   defaultProvider,
@@ -24,41 +24,38 @@ import {
   modelNameForFamily,
   resolveTitleModel,
   type ResolvedProviderSettings
-} from '../../features/providers/provider-settings'
-import { agentPermissionRequest } from '../../features/approvals/permission-bridge'
-import type { PermissionModeController } from '../../features/approvals/permission-mode-controller'
-import { makeClassifiedError } from '../../infra/errors'
-import { sendChatEvent, type RouterContext } from '../context'
-import { previewOf } from '../dto'
-import { handle, handlePlain } from '../registry'
-import type { ApprovalCoordinator } from './approvals'
-import type { TurnPersistence } from './persist'
-import { SessionRuntime } from '../../features/sessions/session-runtime'
-import type { RuntimeSessionAdapter } from '../../contracts/ports'
-import { STALL_TIMEOUT_MS } from '../../features/chat/timers'
-import { recoverDanglingToolCalls } from '../../features/chat/recovery'
-import type { TurnRequest } from '../../adapters/turn'
-import { TurnCoordinator } from '../../features/chat/turn-coordinator'
-import {
-  settleOpenToolRuns,
-  settleSubagentTask,
-  stopLiveSubagent
-} from '../../features/chat/settle'
-import type { MainBus, TurnEmit } from '../../contracts/bus-events'
-import type { TurnEventSink } from '../../features/chat/turn-sinks'
-import { RuntimeSupervisor, abortTurn } from '../../features/sessions/supervisor'
-import type { SteerQueue } from '../../features/chat/steer-queue'
+} from '../features/providers/provider-settings'
+import { agentPermissionRequest } from '../features/approvals/permission-bridge'
+import type { PermissionModeController } from '../features/approvals/permission-mode-controller'
+import { makeClassifiedError } from '../infra/errors'
+import type { RouterContext } from './context'
+import { sendChatEvent } from '../infra/ipc/send'
+import { previewOf } from '../infra/ipc/dto'
+import { handle, handlePlain } from '../infra/ipc/handle'
+import type { ApprovalCoordinator } from '../features/approvals/coordinator'
+import type { TurnPersistence } from '../features/history/writer'
+import { SessionRuntime } from '../features/sessions/session-runtime'
+import type { RuntimeSessionAdapter } from '../contracts/ports'
+import { STALL_TIMEOUT_MS } from '../features/chat/timers'
+import { recoverDanglingToolCalls } from '../features/chat/recovery'
+import type { TurnRequest } from '../adapters/turn'
+import { TurnCoordinator } from '../features/chat/turn-coordinator'
+import { settleOpenToolRuns, settleSubagentTask, stopLiveSubagent } from '../features/chat/settle'
+import type { MainBus, TurnEmit } from '../contracts/bus-events'
+import type { TurnEventSink } from '../features/chat/turn-sinks'
+import { RuntimeSupervisor, abortTurn } from '../features/sessions/supervisor'
+import type { SteerQueue } from '../features/chat/steer-queue'
 import type {
   AdmissionController,
   AdmissionContext,
   AdmissionDecision
-} from '../../features/sessions/admission-controller'
-import type { InflightTurn } from './turn-registry'
+} from '../features/sessions/admission-controller'
+import type { InflightTurn } from '../contracts/turn'
 
 export const IDLE_TIMEOUT_MS = STALL_TIMEOUT_MS
-export { createStallTimer as createIdleTimer } from '../../features/chat/timers'
+export { createStallTimer as createIdleTimer } from '../features/chat/timers'
 // retry 정책 정본은 TurnCoordinator(L1) — 기존 import 경로(./send) 호환을 위한 무회귀 re-export.
-export { MAX_RETRIES, RETRY_BACKOFF_MS, abortableDelay } from '../../features/chat/turn-coordinator'
+export { MAX_RETRIES, RETRY_BACKOFF_MS, abortableDelay } from '../features/chat/turn-coordinator'
 
 export interface ChatDeps {
   ctx: RouterContext
