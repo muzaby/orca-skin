@@ -4,11 +4,10 @@
 
 import { chmodSync, cpSync, mkdirSync, readdirSync, writeFileSync, type Dirent } from 'node:fs'
 import { join } from 'node:path'
-import type { Backend, SkillInfo } from '../../shared/ipc'
-import type { ClaudeMcpConfig } from '../adapters/mcp-config'
-import type { SkillScanRoot } from '../features/extensions/skills/scan'
-
-export const ORCA_PLUGIN_NAME = 'orca'
+import type { Backend } from '../../../shared/ipc'
+import { ORCA_PLUGIN_NAME } from '../../adapters/claude-plugin'
+import type { ClaudeMcpConfig } from '../../adapters/mcp-config'
+import type { SkillScanRoot } from './skills/scan'
 
 export const ORCA_PLUGIN_MANIFEST = {
   name: ORCA_PLUGIN_NAME,
@@ -25,14 +24,6 @@ export interface ClaudePluginPackageInput {
 
 export function orcaPluginRoot(root: string, engine: Backend): string {
   return join(root, 'dist', engine, 'plugins', ORCA_PLUGIN_NAME)
-}
-
-export function namespaceOrcaSkill(name: string): string {
-  return name.startsWith(`${ORCA_PLUGIN_NAME}:`) ? name : `${ORCA_PLUGIN_NAME}:${name}`
-}
-
-export function adaptSkillNameForClaude(skill: SkillInfo): string {
-  return skill.sourceKind === 'orca' ? namespaceOrcaSkill(skill.name) : skill.name
 }
 
 function copyOrcaSkills(roots: SkillScanRoot[], dest: string): void {
