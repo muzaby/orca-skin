@@ -158,10 +158,12 @@
 - [x] **미사용 1차**: `OneShotSessionRuntime` 별칭, opencode 변환(`toOpencodeConfig`·`OpencodeMcp*`), `RevertManager`.
 - [x] **재배치 wave A(infra)**: `db`·`bus`·`config`→`infra/`, `runtime-errors/classifier`→`infra/errors`, `mcp/expand`→`infra/vars`, `settings/store`→`infra/settings-store`. `infra/` 잎 계층 완성.
 - [x] **재배치 wave B(첫 features)**: `cost`+`usage`→`features/usage`(스펙 §5.2 통합, `usageMap`→`usage-map`), `ask`+`runtime-events`→`features/approvals`.
+- [x] **eslint 전환 스캐폴드**: 목표 elements(app·adapters·adapter-impl·features(capture)·contracts·infra·shared) 도입 + 전환용 `legacy` catch-all. `features→adapters` 허용 → 포트 추출+features 이동을 wave 로 쪼갤 수 있게 함(원자 커밋 회피). `shared` 격리 유지. **최종 단계에서 legacy 제거+엄격화**.
+- [x] **포트 추출 진행**: `isRiskyTool`→`adapters/risky-tools`; `mcp/schema`→`adapters/mcp-config`(OrcaMcpConfig·ClaudeMcpConfig) + `mcp/{store,convert,resolver}`·`config/mcp-file`→`features/extensions/mcp`(+`infra/vars` 중립 분리, mcp 의존 `expandEnv`→`features/extensions/mcp/expand`); `skills`→`features/extensions/skills`.
 
 **남은 작업 (다음 impl 라운드 — 순서대로):**
-- [x] `isRiskyTool`·`RISKY_TOOLS` → `adapters/risky-tools.ts`(포트 추출 1, 커밋됨). 어댑터만 소비하던 유일한 케이스라 단독 추출 가능했다.
-- [ ] **★ 어댑터 포트 타입 추출 — 나머지(반드시 features 이동과 *원자적*으로)**: `adapters/claude` 가 domain 7곳(extensions·settings·mcp·files·lifecycle·prompts·deploy·capabilities)의 타입을 소비한다. **중요 제약(구현 중 발견)**: 현 eslint 가 이미 `domain→adapters` 를 금지한다(risky-tools 추출 때 확인). 따라서 `OrcaMcpConfig`·`TurnRequest` 등을 adapters 로 올리는 즉시 그 *domain 소비처*(mcp/convert·config/mcp-file·extensions/builder 등)가 `domain→adapters` 위반이 된다 → **타입을 adapters 로 올리는 것과 그 소비 domain 을 features 로 내리는 것을 같은 커밋에서** 해야 한다. 게다가 `extensions/types`(TurnRequest)가 `ResolvedProviderSettings`(settings)·`OrcaMcpConfig`(mcp)·`SteerFlushBatch`(lifecycle)·`Extracted*`(files)·`NormalizedHookSet`(hooks)를 참조하므로 이들이 **한 덩어리로 캐스케이드**한다. 이동 대상: 위 타입들 → `adapters/{turn,types,mcp-config}.ts`; 동시에 mcp/extensions/files/settings 구현부 → features. 단일 대형 원자 커밋(≈40~60 edit, typecheck 가 전수 검출). **이 단위가 나머지(contracts·lifecycle/ipc 분해·app·eslint 신 elements)의 잠금 해제 지점.**
+- [x] `isRiskyTool`→`adapters/risky-tools`, `OrcaMcpConfig`/`ClaudeMcpConfig`→`adapters/mcp-config`(커밋됨). **전환 eslint 덕에 원자 커밋 불필요 — wave 로 진행 가능**해졌다(당초 우려했던 40~60 edit 통짜가 아니라 dir 단위).
+- [ ] **남은 포트 추출(각 dir 이동과 함께, wave 단위)**: adapters 가 소비하는 나머지 타입/impl — `TurnRequest`·`TurnExtensions`·`NormalizedSkillRef`(extensions/types, 순수 타입 → `adapters/turn.ts`) · `NormalizedHookSet`+`resolveHookDecisions`(extensions/hooks — **claude-adapt 가 impl `resolveHookDecisions` 도 소비** → 훅 계약은 `adapters/hooks.ts` 로) · `ResolvedProviderSettings`·`ProviderSettings`·`ProviderSettingsLoader`(settings/provider-settings → `adapters/types.ts`) · `Extracted*`(files/attachments → `adapters/turn.ts`) · `SteerFlushBatch`(lifecycle/steer-queue 타입 → `adapters/turn.ts`) · `adaptSkillNameForClaude`·claude-plugin-package(deploy → `adapters/claude/`) · CLAUDE_DESCRIPTOR(capabilities/claude-probe → `adapters/claude/descriptor`) · attachment/plan-feedback prompt(prompts → `adapters/claude/`) · claude-classifier(runtime-errors → `adapters/claude/error-classifier`). **패턴**: 각 dir 별로 (a) adapter-소비 타입/impl 을 adapters 로 추출 (b) 나머지 impl 을 features 로 이동 (c) typecheck+lint(전환 eslint)로 검증. `mcp`·`skills` wave 가 이 패턴의 검증된 예시.
 - [ ] **나머지 features 재배치**(포트 추출 후): `extensions`+`deploy`+`skills`+`mcp(store/file/resolver/convert)`→`features/extensions`, `files`+`title`→`features/chat`, `settings(나머지)`+`provider-key`+`scaffold`→`features/providers`.
 - [ ] **adapters/claude·mock 정리**: claude 특화 파일(claude-classifier→error-classifier·claude-probe→descriptor·claude-plugin-package→plugin-package·claude-model-parser→model-parser·prompts/attachment·plan-feedback)→`adapters/claude/`, mock→`adapters/mock/`.
 - [ ] **contracts/**: `TurnContext`(lifecycle/turn-context, `InflightTurn` 별칭 제거)→`contracts/turn.ts`, `lifecycle/bus-events`→`contracts/bus-events.ts`.
@@ -175,8 +177,8 @@
 | 항목 | 내용 |
 |---|---|
 | 진척 | **부분 구현(진행 중).** 인수 2·3·4·12 충족(버스), 9 부분(미사용 1차). 재배치: `infra/` 계층 완성 + `features/{usage,approvals}`. 남은 본체=어댑터 포트 추출→나머지 features→contracts→lifecycle/ipc 분해→app→eslint/AGENTS/네이밍(위 체크리스트 순서). |
-| 재배치 현황 | 완료: `src/main/infra/{bus,db,config,errors.ts,vars.ts,settings-store.ts}`·`features/{usage,approvals}`. 미이동: adapters·capabilities·deploy·extensions·files·installer·ipc·lifecycle·mcp·prompts·runtime-errors·settings·skills·title. |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` (매 wave 후) |
+| 재배치 현황 | 완료: `infra/{bus,db,config,errors,vars,settings-store}`·`adapters/{risky-tools,mcp-config}`(포트)·`features/{usage,approvals,extensions/{mcp,skills}}`. 미이동: adapters(claude/mock 정리)·capabilities·deploy·extensions(builder/hooks/types)·files·installer·ipc·lifecycle·prompts·runtime-errors(claude-classifier)·settings·title. |
+| 실행 명령 | `npm run lint` / `typecheck` / `test` (매 wave 후 green) |
 | 게이트 결과 | lint ✅ / typecheck(node+web+test) ✅ / test ✅ (650 passed, electron path 스텁 후) |
-| 커밋 | 설계 `f7cfe4d` · 버스 `6a98ab1` · 제거 `c9e8e6e` · 보고 `aad5109` · waveA `495c777`(db/bus·config·infra단일) · waveB `c6fbcb5`(usage·approvals) |
-| 블로커/역질문 | 없음. 다음 라운드 진입점=**어댑터 포트 타입 추출**(체크리스트 ★). 그게 나머지 features 재배치의 잠금 해제 지점. |
+| 커밋 | 설계 `f7cfe4d`·버스 `6a98ab1`·제거 `c9e8e6e`·waveA `495c777`·waveB `c6fbcb5`·risky-tools `2be7858`·전환eslint+mcp `d41c8f8`(직전 4커밋: eslint전환·mcp·skills 포함) |
+| 블로커/역질문 | 없음. **전환 eslint 스캐폴드로 나머지가 wave 단위로 진행 가능**(당초 원자 커밋 우려 해소). 다음=extensions/settings/files/deploy 각각 "포트 추출+features 이동" wave(mcp/skills 가 검증된 패턴). |
