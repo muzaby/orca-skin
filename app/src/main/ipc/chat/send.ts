@@ -24,7 +24,7 @@ import {
   modelNameForFamily,
   resolveTitleModel,
   type ResolvedProviderSettings
-} from '../../settings/provider-settings'
+} from '../../features/providers/provider-settings'
 import { agentPermissionRequest } from '../../features/approvals/permission-bridge'
 import type { PermissionModeController } from '../../features/approvals/permission-mode-controller'
 import { makeClassifiedError } from '../../infra/errors'
