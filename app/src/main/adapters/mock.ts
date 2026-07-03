@@ -5,7 +5,7 @@ import type {
   InstallStatus,
   ProviderDescriptor
 } from '../../shared/ipc'
-import type { TurnRequest } from '../extensions/types'
+import type { TurnRequest } from './turn'
 import { CLAUDE_DESCRIPTOR } from '../capabilities/claude-probe'
 import { claudeErrorClassifier } from '../runtime-errors/claude-classifier'
 import type { LiveTurn, SessionAdapter } from './types'

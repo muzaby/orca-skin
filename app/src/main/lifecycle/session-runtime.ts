@@ -1,6 +1,6 @@
 import type { NormalizedEvent } from '../../shared/ipc'
 import type { ClaudePermissionMode } from '../../shared/permission-mode'
-import type { TurnRequest } from '../extensions/types'
+import type { TurnRequest } from '../adapters/turn'
 import type { ManagedRuntime, RuntimeLiveTurn, RuntimeSessionAdapter } from './ports'
 import { SessionRuntimeStatus, type AbortCause, type SessionRuntimeState } from './session-state'
 

@@ -10,7 +10,7 @@
 import type { DbQueries } from '../infra/db'
 import type { McpStore } from '../features/extensions/mcp/store'
 import type { SkillInfo } from '../../shared/ipc'
-import type { TurnExtensions } from './types'
+import type { TurnExtensions } from '../adapters/turn'
 
 export class ExtensionBuilder {
   constructor(

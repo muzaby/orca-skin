@@ -24,7 +24,7 @@ vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
 }))
 
 import { ClaudeAdapter } from './claude'
-import type { TurnRequest } from '../extensions/types'
+import type { TurnRequest } from './turn'
 
 const baseReq = (): TurnRequest => ({
   sessionId: null,

@@ -1,6 +1,6 @@
 import type { Backend, ClassifiedError, NormalizedEvent } from '../../shared/ipc'
 import type { ClaudePermissionMode } from '../../shared/permission-mode'
-import type { TurnRequest } from '../extensions/types'
+import type { TurnRequest } from '../adapters/turn'
 import type { SessionRuntimeState } from './session-state'
 
 // L1 lifecycle 포트. lifecycle 은 L2 adapters 를 import 하지 않고, 구조적으로 호환되는

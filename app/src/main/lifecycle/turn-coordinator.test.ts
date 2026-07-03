@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { ClassifiedError, NormalizedEvent } from '../../shared/ipc'
-import type { TurnRequest } from '../extensions/types'
+import type { TurnRequest } from '../adapters/turn'
 import type { TurnContext } from './turn-context'
 import {
   TurnCoordinator,
