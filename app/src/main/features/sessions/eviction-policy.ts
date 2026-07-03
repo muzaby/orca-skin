@@ -1,4 +1,4 @@
-import type { ManagedRuntime } from './ports'
+import type { ManagedRuntime } from '../../contracts/ports'
 
 // IdleRuntimeEntry 는 RuntimePool 이 만든 snapshot 의 한 행이다. policy 는 Map/Timer 를 모르고,
 // victim sessionId 키만 돌려준다(0055: mechanism ↔ policy 분리).

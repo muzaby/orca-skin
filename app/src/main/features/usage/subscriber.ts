@@ -9,7 +9,7 @@
 import type { NormalizedEvent } from '../../../shared/ipc'
 import type { DbQueries } from '../../infra/db'
 import type { CostTracker } from './tracker'
-import type { TurnContext } from '../../lifecycle/turn-context'
+import type { TurnContext } from '../../contracts/turn'
 import { hasContextTokens } from './usage-map'
 
 // usage 없거나 컨텍스트 0(/context 등 로컬 슬래시 명령 — 모델 미호출)이면 스킵한다 — 빈 행이 최신

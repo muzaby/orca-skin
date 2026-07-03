@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { DanglingToolCallRow } from '../infra/db/types'
+import type { DanglingToolCallRow } from '../../infra/db/types'
 import {
   ABORTED_TOOL_RESULT_PAYLOAD,
   groupDanglingToolCallsByMessage,

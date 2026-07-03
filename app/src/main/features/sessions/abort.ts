@@ -1,5 +1,5 @@
-import type { TurnContext } from './turn-context'
-import type { AbortCause } from './session-state'
+import type { TurnContext } from '../../contracts/turn'
+import type { AbortCause } from '../../contracts/session-state'
 
 // 단일 abort 프리미티브 — 진행 턴을 멈춘다: 라이브 핸들에 중단 원인을 표시(markAborted)하고
 // AbortController 를 끊어 SDK 스트림/서브프로세스를 종료시킨다(0053). chatCancel 핸들러

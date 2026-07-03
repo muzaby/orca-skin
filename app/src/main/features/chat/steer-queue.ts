@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type { SteerFlush, SteerFlushBatch } from '../adapters/turn'
+import type { SteerFlush, SteerFlushBatch } from '../../adapters/turn'
 
 export interface SteerQueueItem {
   id: string

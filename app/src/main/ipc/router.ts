@@ -12,7 +12,7 @@ import {
   type NormalizedEvent,
   type SkillInfo
 } from '../../shared/ipc'
-import type { InflightTurn } from '../lifecycle/turn-context'
+import type { InflightTurn } from '../contracts/turn'
 import { AdapterRegistry } from '../adapters/registry'
 import { MockAdapter } from '../adapters/mock'
 import { Installer } from '../installer'
@@ -45,18 +45,21 @@ import { registerMcpHandlers } from './handlers/mcp'
 import { registerEngineHandlers } from './handlers/engine'
 import { registerMiscHandlers } from './handlers/misc'
 import { registerChatHandlers } from './chat/send'
-import { RuntimeSupervisor } from '../lifecycle/supervisor'
-import { AdmissionController, RejectDuplicatePolicy } from '../lifecycle/admission-controller'
-import { SteerQueue } from '../lifecycle/steer-queue'
-import { ActiveTurnTracker } from '../lifecycle/active-turn-tracker'
+import { RuntimeSupervisor } from '../features/sessions/supervisor'
+import {
+  AdmissionController,
+  RejectDuplicatePolicy
+} from '../features/sessions/admission-controller'
+import { SteerQueue } from '../features/chat/steer-queue'
+import { ActiveTurnTracker } from '../features/sessions/active-turn-tracker'
 import { TypedBus } from '../infra/bus'
-import type { MainBus, OrcaBusEvents } from '../lifecycle/bus-events'
-import { settleOpenToolRuns } from '../lifecycle/settle'
+import type { MainBus, OrcaBusEvents } from '../contracts/bus-events'
+import { settleOpenToolRuns } from '../features/chat/settle'
 import { recordTurnUsage } from '../features/usage/subscriber'
 import { ApprovalCoordinator } from './chat/approvals'
 import { TurnPersistence } from './chat/persist'
 import { TitleGenerator } from './chat/title-generation'
-import { recoverDanglingToolCalls } from '../lifecycle/recovery'
+import { recoverDanglingToolCalls } from '../features/chat/recovery'
 import { broadcastConcurrency, sendChatEvent } from './context'
 
 export class IpcRouter {

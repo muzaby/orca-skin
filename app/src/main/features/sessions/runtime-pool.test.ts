@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import { RuntimePool } from './runtime-pool'
-import type { ManagedRuntime } from './ports'
-import type { SessionRuntimeState } from './session-state'
+import type { ManagedRuntime } from '../../contracts/ports'
+import type { SessionRuntimeState } from '../../contracts/session-state'
 
 // 풀이 의존하는 것은 ManagedRuntime 의 close()/state 뿐 — 나머지 RuntimeLiveTurn 표면은 미사용.
 function fakeRuntime(state: SessionRuntimeState = 'live'): ManagedRuntime & { closed: number } {

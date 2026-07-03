@@ -33,28 +33,32 @@ import { previewOf } from '../dto'
 import { handle, handlePlain } from '../registry'
 import type { ApprovalCoordinator } from './approvals'
 import type { TurnPersistence } from './persist'
-import { SessionRuntime } from '../../lifecycle/session-runtime'
-import type { RuntimeSessionAdapter } from '../../lifecycle/ports'
-import { STALL_TIMEOUT_MS } from '../../lifecycle/timers'
-import { recoverDanglingToolCalls } from '../../lifecycle/recovery'
+import { SessionRuntime } from '../../features/sessions/session-runtime'
+import type { RuntimeSessionAdapter } from '../../contracts/ports'
+import { STALL_TIMEOUT_MS } from '../../features/chat/timers'
+import { recoverDanglingToolCalls } from '../../features/chat/recovery'
 import type { TurnRequest } from '../../adapters/turn'
-import { TurnCoordinator } from '../../lifecycle/turn-coordinator'
-import { settleOpenToolRuns, settleSubagentTask, stopLiveSubagent } from '../../lifecycle/settle'
-import type { MainBus, TurnEmit } from '../../lifecycle/bus-events'
-import type { TurnEventSink } from '../../lifecycle/turn-sinks'
-import { RuntimeSupervisor, abortTurn } from '../../lifecycle/supervisor'
-import type { SteerQueue } from '../../lifecycle/steer-queue'
+import { TurnCoordinator } from '../../features/chat/turn-coordinator'
+import {
+  settleOpenToolRuns,
+  settleSubagentTask,
+  stopLiveSubagent
+} from '../../features/chat/settle'
+import type { MainBus, TurnEmit } from '../../contracts/bus-events'
+import type { TurnEventSink } from '../../features/chat/turn-sinks'
+import { RuntimeSupervisor, abortTurn } from '../../features/sessions/supervisor'
+import type { SteerQueue } from '../../features/chat/steer-queue'
 import type {
   AdmissionController,
   AdmissionContext,
   AdmissionDecision
-} from '../../lifecycle/admission-controller'
+} from '../../features/sessions/admission-controller'
 import type { InflightTurn } from './turn-registry'
 
 export const IDLE_TIMEOUT_MS = STALL_TIMEOUT_MS
-export { createStallTimer as createIdleTimer } from '../../lifecycle/timers'
+export { createStallTimer as createIdleTimer } from '../../features/chat/timers'
 // retry 정책 정본은 TurnCoordinator(L1) — 기존 import 경로(./send) 호환을 위한 무회귀 re-export.
-export { MAX_RETRIES, RETRY_BACKOFF_MS, abortableDelay } from '../../lifecycle/turn-coordinator'
+export { MAX_RETRIES, RETRY_BACKOFF_MS, abortableDelay } from '../../features/chat/turn-coordinator'
 
 export interface ChatDeps {
   ctx: RouterContext

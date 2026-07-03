@@ -1,14 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import type { ClassifiedError, NormalizedEvent } from '../../shared/ipc'
-import type { TurnRequest } from '../adapters/turn'
-import type { TurnContext } from './turn-context'
+import type { ClassifiedError, NormalizedEvent } from '../../../shared/ipc'
+import type { TurnRequest } from '../../adapters/turn'
+import type { TurnContext } from '../../contracts/turn'
 import {
   TurnCoordinator,
   type CoordinatorRuntime,
   type TurnCoordinatorDeps
 } from './turn-coordinator'
-import { TypedBus } from '../infra/bus'
-import type { OrcaBusEvents } from './bus-events'
+import { TypedBus } from '../../infra/bus'
+import type { OrcaBusEvents } from '../../contracts/bus-events'
 import { SteerQueue } from './steer-queue'
 
 type W = string

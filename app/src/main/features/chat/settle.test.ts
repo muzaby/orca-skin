@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
-import type { NormalizedEvent } from '../../shared/ipc'
-import type { TurnContext } from './turn-context'
+import type { NormalizedEvent } from '../../../shared/ipc'
+import type { TurnContext } from '../../contracts/turn'
 import { settleOpenToolRuns, settleSubagentTask, stopLiveSubagent } from './settle'
 
 type W = string

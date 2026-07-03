@@ -1,4 +1,4 @@
-import type { TurnContext } from './turn-context'
+import type { TurnContext } from '../../contracts/turn'
 
 export class SessionRuntimeRegistry<W = unknown, T extends TurnContext<W> = TurnContext<W>> {
   private readonly bySession = new Map<string, T>()

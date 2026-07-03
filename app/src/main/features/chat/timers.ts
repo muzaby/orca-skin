@@ -1,5 +1,5 @@
-import type { TurnContext } from './turn-context'
-import { abortTurn } from './abort'
+import type { TurnContext } from '../../contracts/turn'
+import { abortTurn } from '../sessions/abort'
 
 export const STALL_TIMEOUT_MS = 120_000
 

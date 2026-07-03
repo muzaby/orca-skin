@@ -4,9 +4,9 @@ export type {
   OpenToolRunInfo,
   OpenToolRunEntries,
   SubagentSettlementInput
-} from '../../lifecycle/subagent-settlement'
+} from '../../features/chat/subagent-settlement'
 export {
   subagentParentResult,
   createSubagentSettlementEvents,
   coerceStoppedToolCompletion
-} from '../../lifecycle/subagent-settlement'
+} from '../../features/chat/subagent-settlement'

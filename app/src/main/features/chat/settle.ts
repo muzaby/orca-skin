@@ -4,11 +4,11 @@
 // 있었으나 TurnCoordinator(reduce 단계)와 cancel/stopSubagent 핸들러·앱 종료 정리(router)가
 // 공유하므로 L1 로 내리고 persist/forward 를 주입받는 순수 함수로 만든다(0052).
 
-import type { NormalizedEvent } from '../../shared/ipc'
-import type { TurnContext } from './turn-context'
-import type { TurnEmit } from './bus-events'
+import type { NormalizedEvent } from '../../../shared/ipc'
+import type { TurnContext } from '../../contracts/turn'
+import type { TurnEmit } from '../../contracts/bus-events'
 import { createSubagentSettlementEvents } from './subagent-settlement'
-import type { RuntimeLiveTurn } from './ports'
+import type { RuntimeLiveTurn } from '../../contracts/ports'
 
 // 턴 중단/실패 시 아직 열린 도구 실행을 abort/failed 마커 tool_result 로 정착시킨다.
 // AskUserQuestion tool_result 합성(flushAskAnswers)과 동형의 보정 — toolRunId 멱등(upsert).
