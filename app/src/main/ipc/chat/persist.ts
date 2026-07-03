@@ -5,7 +5,7 @@
 
 import type { WebContents } from 'electron'
 import type { AttachmentView, NormalizedEvent } from '../../../shared/ipc'
-import type { DbQueries } from '../../db'
+import type { DbQueries } from '../../infra/db'
 import { previewOf } from '../dto'
 import { sendChatEvent } from '../context'
 import type { InflightTurn } from './turn-registry'

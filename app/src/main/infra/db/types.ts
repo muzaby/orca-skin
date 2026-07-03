@@ -2,7 +2,7 @@
 // rest of main code consumes (camelCase). Kept narrow on purpose — wide row
 // types would leak into renderer via IPC and force a second mapping anyway.
 
-import type { Backend } from '../../shared/ipc'
+import type { Backend } from '../../../shared/ipc'
 
 export type MessageRole = 'user' | 'assistant'
 export type SessionTitleSource = 'auto' | 'user'

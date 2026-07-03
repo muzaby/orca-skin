@@ -7,7 +7,7 @@ import {
   type CoordinatorRuntime,
   type TurnCoordinatorDeps
 } from './turn-coordinator'
-import { TypedBus } from '../bus'
+import { TypedBus } from '../infra/bus'
 import type { OrcaBusEvents } from './bus-events'
 import { SteerQueue } from './steer-queue'
 

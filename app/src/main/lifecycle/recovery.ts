@@ -1,5 +1,5 @@
-import type { DbQueries } from '../db'
-import type { DanglingToolCallRow } from '../db/types'
+import type { DbQueries } from '../infra/db'
+import type { DanglingToolCallRow } from '../infra/db/types'
 
 export const ABORTED_TOOL_RESULT_PAYLOAD = JSON.stringify({
   result: { reason: 'aborted', message: '중단되었습니다' },
