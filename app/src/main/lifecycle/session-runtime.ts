@@ -121,8 +121,3 @@ export class SessionRuntime implements ManagedRuntime {
     return (await this.live?.backgroundTask(toolUseId)) ?? false
   }
 }
-
-// 무회귀 alias — 기존 import 경로(OneShotSessionRuntime)를 유지한다. closePolicy 기본값이 'oneshot'
-// 이므로 `new OneShotSessionRuntime(adapter)` 는 종전과 동일한 단발 핸들이다(0054 호환).
-export const OneShotSessionRuntime = SessionRuntime
-export type OneShotSessionRuntime = SessionRuntime

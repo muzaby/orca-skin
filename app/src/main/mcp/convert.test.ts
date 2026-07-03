@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { toClaudeConfig, toOpencodeConfig } from './convert'
+import { toClaudeConfig } from './convert'
 import type { Resolver } from './expand'
 import type { OrcaMcpConfig } from './schema'
 
@@ -46,46 +46,5 @@ describe('toClaudeConfig', () => {
 
   it('빈 소스는 빈 config', () => {
     expect(toClaudeConfig({}, resolver())).toEqual({ config: {}, dropped: [] })
-  })
-})
-
-describe('toOpencodeConfig', () => {
-  it('stdio → local (command 배열) 매핑', () => {
-    const src: OrcaMcpConfig = {
-      gh: { command: 'gh-mcp', args: ['serve'], env: { TOKEN: '${T}' } }
-    }
-    const { config, dropped } = toOpencodeConfig(src, resolver({ T: 'sec' }))
-    expect(dropped).toEqual([])
-    expect(config.gh).toEqual({
-      type: 'local',
-      command: ['gh-mcp', 'serve'],
-      environment: { TOKEN: 'sec' },
-      enabled: true
-    })
-  })
-
-  it('http/sse → remote 매핑', () => {
-    const src: OrcaMcpConfig = {
-      api: { type: 'http', url: 'https://x', headers: { A: '${K}' } },
-      ev: { type: 'sse', url: 'https://sse' }
-    }
-    const { config } = toOpencodeConfig(src, resolver({ K: 'v' }))
-    expect(config.api).toEqual({
-      type: 'remote',
-      url: 'https://x',
-      headers: { A: 'v' },
-      enabled: true
-    })
-    expect(config.ev).toEqual({ type: 'remote', url: 'https://sse', enabled: true })
-  })
-
-  it('미해결 변수는 dropped, 빈 소스는 빈 config', () => {
-    expect(toOpencodeConfig({}, resolver())).toEqual({ config: {}, dropped: [] })
-    const { config, dropped } = toOpencodeConfig(
-      { bad: { command: 'c', env: { T: '${X}' } } },
-      resolver()
-    )
-    expect(config).toEqual({})
-    expect(dropped[0].name).toBe('bad')
   })
 })
