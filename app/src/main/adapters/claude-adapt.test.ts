@@ -16,7 +16,7 @@ import {
   toClaudeHookOutput,
   toContext
 } from './claude-adapt'
-import type { NormalizedHookHandler } from '../extensions/hooks'
+import type { NormalizedHookHandler } from './hooks'
 import type { SkillInfo } from '../../shared/ipc'
 
 describe('adaptPlugins', () => {
