@@ -10,7 +10,7 @@
 // Orca 의 canUseTool 게이트가 담당 — env 와 무관, TRD §6.8).
 
 import { existsSync, readFileSync } from 'node:fs'
-import type { ProviderSettingsLoader } from '../settings/provider-settings'
+import type { ProviderSettingsLoader } from './provider-config'
 
 // CLI 가 repo-커밋 파일의 escalating 모드에 적용하는 trust 필터와 동등한 목록
 // (sdk.d.ts resolveSettings remarks). flat 폴백 경로에서 수동 적용한다.

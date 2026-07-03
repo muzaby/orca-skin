@@ -6,7 +6,7 @@ import type {
 } from '../../shared/ipc'
 import type { ClaudePermissionMode } from '../../shared/permission-mode'
 import type { TurnRequest } from './turn'
-import type { ResolvedProviderSettings } from '../settings/provider-settings'
+import type { ResolvedProviderSettings } from './provider-config'
 
 export type { Backend, NormalizedEvent }
 

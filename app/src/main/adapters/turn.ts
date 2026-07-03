@@ -8,7 +8,7 @@
 // 불변식: 여기 담기는 mcp 는 **미확장**(${VAR} 플레이스홀더 보유). 비밀 확장/복호화는 어댑터의
 // 어댑트 시점에만 일어나며 이 구조체에는 절대 평문이 들어오지 않는다.
 
-import type { ResolvedProviderSettings } from '../settings/provider-settings'
+import type { ResolvedProviderSettings } from './provider-config'
 import type { OrcaMcpConfig } from './mcp-config'
 import type {
   ApprovalResolution,
