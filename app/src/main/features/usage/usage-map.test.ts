@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { usageRowToTelemetry, hasContextTokens } from './usageMap'
-import type { TurnModelUsageRow, TurnUsageRow } from '../infra/db/types'
+import { usageRowToTelemetry, hasContextTokens } from './usage-map'
+import type { TurnModelUsageRow, TurnUsageRow } from '../../infra/db/types'
 
 const turn = (over: Partial<TurnUsageRow>): TurnUsageRow => ({
   id: 1,
