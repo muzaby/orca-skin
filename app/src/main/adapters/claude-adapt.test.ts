@@ -13,6 +13,7 @@ import {
   adaptSystemPrompt,
   toClaudeHookOutput,
   toContext,
+  extractCompactSummary,
   withPostCompactHook
 } from './claude-adapt'
 import type { NormalizedHookHandler } from '../extensions/hooks'
@@ -286,6 +287,17 @@ describe('withPostCompactHook (0062 r3)', () => {
     expect(seen).toEqual([])
   })
 
+  it('<analysis>/<summary> 원문에서 summary 내용만 승격한다 (r4 피드백 3)', async () => {
+    const seen: string[] = []
+    await invoke((s) => seen.push(s), {
+      hook_event_name: 'PostCompact',
+      trigger: 'manual',
+      compact_summary:
+        '<analysis>\n생각 과정…\n</analysis>\n<summary>\n1. 배경: …\n2. 목표: …\n</summary>'
+    })
+    expect(seen).toEqual(['1. 배경: …\n2. 목표: …'])
+  })
+
   it('사용자 hooks 조각을 보존한 채 PostCompact 를 병합한다', () => {
     const userMatcher = { hooks: [] }
     const merged = withPostCompactHook(
@@ -295,5 +307,22 @@ describe('withPostCompactHook (0062 r3)', () => {
     expect(merged.hooks.PreToolUse).toEqual([userMatcher])
     expect(merged.hooks.PostCompact).toHaveLength(2)
     expect(merged.hooks.PostCompact![0]).toBe(userMatcher)
+  })
+})
+
+describe('extractCompactSummary (0062 r4)', () => {
+  it('summary 태그 내용만 추출한다', () => {
+    expect(extractCompactSummary('<analysis>사고</analysis>\n<summary>요약 본문</summary>')).toBe(
+      '요약 본문'
+    )
+  })
+
+  it('summary 태그가 없으면 analysis 블럭·잔여 태그를 제거한 본문으로 폴백한다', () => {
+    expect(extractCompactSummary('<analysis>사고</analysis>\n남은 본문')).toBe('남은 본문')
+    expect(extractCompactSummary('태그 없는 요약')).toBe('태그 없는 요약')
+  })
+
+  it('summary 내용이 여러 줄이어도 앞뒤 공백만 정리한다', () => {
+    expect(extractCompactSummary('<summary>\n1. A\n\n2. B\n</summary>')).toBe('1. A\n\n2. B')
   })
 })

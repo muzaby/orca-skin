@@ -1,4 +1,6 @@
+import { useMemo } from 'react'
 import { create } from 'zustand'
+import { useShallow } from 'zustand/react/shallow'
 import {
   chatReducer,
   initialChatState,
@@ -303,9 +305,13 @@ function receive(ev: NormalizedEvent): void {
       pendingFallback = true
     }
   } else {
-    key = isTerminalWithoutSession(ev)
-      ? (getState().pendingNewChatKey ?? getState().activeKey)
-      : getState().activeKey
+    // sessionId 없는 message.user = 핸드오프 자동 메시지 조기 에코(0062 r4, 턴 시작 전 발행).
+    // startHandoff 가 방금 세운 pendingNewChatKey(draft)로 라우팅해야 사용자가 그 사이 다른
+    // 세션으로 이동해도 에코가 활성 화면을 오염하지 않는다(터미널 이벤트 폴백과 동형).
+    key =
+      isTerminalWithoutSession(ev) || ev.type === 'message.user'
+        ? (getState().pendingNewChatKey ?? getState().activeKey)
+        : getState().activeKey
   }
   if (!key) return // 미지 세션의 늦은 이벤트 — 폐기
 
@@ -600,14 +606,51 @@ function newChat(projectId: string | null = null): void {
     activeKey: NEW_CHAT_KEY
   }))
   void settingsApi.set({ lastSessionId: null })
-  pruneUnsentContinuityDrafts()
 }
 
 // ── 0062 continuity — fork draft / handoff ──────────────────────────────────
 
-// 미전송 continuity draft(전송 전 이탈분) 정리 — 활성/전송 대기(pending·queue) 엔트리는 보존.
-// 취소 = no-op 불변식: draft 는 메모리 전용이라 삭제로 영속 흔적 0.
-function pruneUnsentContinuityDrafts(): void {
+const isContinuityDraft = (e: SessionEntry): boolean =>
+  e.session.sessionId == null && (e.session.forkFrom != null || e.session.handoffFrom != null)
+
+// nav(최근 대화)에서 draft 행을 클릭해 활성화한다(0062 r4). 반환값 = 부모 세션 id —
+// 호출자(app 셸)가 /chat/<부모> 로 navigate 해 라우트 싱크의 draft 가드(소스-URL 한정)와
+// 정합을 맞춘다. draft 가 아니거나 없으면 null.
+function activateContinuityDraft(key: string): string | null {
+  const s = getState()
+  const e = s.sessions[key]
+  if (!e || !isContinuityDraft(e)) return null
+  if (s.activeKey !== key) setState({ activeKey: key })
+  return e.session.forkFrom ?? e.session.handoffFrom
+}
+
+// nav 행 삭제 = draft 폐기(메모리 전용 — 영속 흔적 0). 전송 진행/대기(pending·queue) 중이면
+// 승격 게이트가 꼬이므로 거부한다. 활성 draft 였다면 부모 세션 엔트리로 복귀한다 —
+// draft 는 /chat/<부모> URL 위에 얹힌 파생 뷰라 URL 은 이미 부모를 가리킨다(라우트 불변).
+function discardContinuityDraft(key: string): boolean {
+  const s = getState()
+  const e = s.sessions[key]
+  if (!e || !isContinuityDraft(e)) return false
+  if (s.pendingNewChatKey === key || s.newChatQueue.some((q) => q.key === key)) return false
+  const parent = e.session.forkFrom ?? e.session.handoffFrom
+  setState((st) => {
+    const rest = { ...st.sessions }
+    delete rest[key]
+    if (st.activeKey !== key) return { sessions: rest }
+    if (parent && rest[parent]) return { sessions: rest, activeKey: parent }
+    return {
+      sessions: { ...rest, [NEW_CHAT_KEY]: rest[NEW_CHAT_KEY] ?? freshEntry() },
+      activeKey: NEW_CHAT_KEY
+    }
+  })
+  return true
+}
+
+// 같은 부모의 미전송 draft 를 새 draft 생성 전에 정리한다(중복 nav 행 방지) — 활성/전송
+// 대기(pending·queue) 엔트리는 보존. r4 부터 draft 는 다른 세션으로 이탈해도 nav 행으로
+// 살아남고(fork 클릭 = nav 즉시 추가), 폐기는 명시 삭제(discard) 또는 같은 부모 재생성
+// 교체로만 일어난다. 취소 = no-op 불변식은 유지 — draft 는 메모리 전용이라 영속 흔적 0.
+function pruneUnsentContinuityDrafts(parentSessionId: string): void {
   setState((s) => {
     const stale = Object.entries(s.sessions).filter(
       ([key, e]) =>
@@ -615,7 +658,7 @@ function pruneUnsentContinuityDrafts(): void {
         key !== s.pendingNewChatKey &&
         !s.newChatQueue.some((q) => q.key === key) &&
         e.session.sessionId == null &&
-        (e.session.forkFrom != null || e.session.handoffFrom != null)
+        (e.session.forkFrom === parentSessionId || e.session.handoffFrom === parentSessionId)
     )
     if (stale.length === 0) return s
     const sessions = { ...s.sessions }
@@ -626,12 +669,13 @@ function pruneUnsentContinuityDrafts(): void {
 
 // 분기(fork) draft 생성 — 활성(확정) 세션의 transcript 를 읽기전용 clone 으로 프리필한
 // draft 엔트리를 만들고 전환만 한다. DB·런타임·IPC 0(뷰만) — 물질화는 첫 보내기(send 의
-// forkFrom 분기)에서. 취소(이탈) 시 prune 으로 폐기된다.
+// forkFrom 분기)에서. 생성 즉시 nav '최근 대화' 에 draft 행으로 노출된다(r4) — 이탈해도
+// 살아남고, 같은 부모의 이전 미전송 draft 는 여기서 교체 정리된다.
 function startForkDraft(): boolean {
   const s = getState()
   const src = s.sessions[s.activeKey]?.session
   if (!src?.sessionId || src.loadingSession) return false
-  pruneUnsentContinuityDrafts()
+  pruneUnsentContinuityDrafts(src.sessionId)
   const draftKey = `draft:${crypto.randomUUID()}`
   const draft: SessionEntry = {
     session: {
@@ -672,7 +716,7 @@ function startHandoff(): boolean {
   if (src.messages.filter((m) => m.role === 'user').length < 2) return false
   // 다른 새-채팅 전송이 pending 이면 조용한 큐 대기 대신 거부 — silent stuck 방지(r2).
   if (s.pendingNewChatKey != null) return false
-  pruneUnsentContinuityDrafts()
+  pruneUnsentContinuityDrafts(src.sessionId)
   const sourceSessionId = src.sessionId
   const draftKey = `draft:${crypto.randomUUID()}`
   const payload: SendChatMessage = {
@@ -730,7 +774,6 @@ async function loadSession(sessionId: string, title: string | null = null): Prom
   if (existing && !existing.session.loadingSession) {
     setState({ activeKey: sessionId })
     void settingsApi.set({ lastSessionId: sessionId })
-    pruneUnsentContinuityDrafts()
     return
   }
 
@@ -747,7 +790,6 @@ async function loadSession(sessionId: string, title: string | null = null): Prom
     },
     activeKey: sessionId
   }))
-  pruneUnsentContinuityDrafts()
 
   try {
     const session = await sessionApi.load(sessionId)
@@ -901,6 +943,8 @@ export const chatActions = {
   newChat,
   startForkDraft,
   startHandoff,
+  activateContinuityDraft,
+  discardContinuityDraft,
   setPendingCwd,
   clearError: (): void => dispatchActive({ type: 'CLEAR_ERROR' }),
   loadSession,
@@ -1000,6 +1044,57 @@ export function usePendingSteer(): PendingSteerState[] {
 // toolUseId 엔트리가 갱신될 때만 재렌더(stored 참조 안정).
 export function useSubagentMeta(toolUseId: string): SubagentMetaState | undefined {
   return useChatStore((s) => s.sessions[s.activeKey].subagentMeta[toolUseId])
+}
+
+// nav '최근 대화' 에 즉시 노출할 continuity draft 행(0062 r4 — fork 클릭 = nav 즉시 추가).
+// sessions 는 델타 프레임마다 identity 가 바뀌므로, 행을 원시 문자열로 인코딩해 useShallow 로
+// draft 집합이 실제로 변할 때만 재렌더한다(제목/프로젝트 변경 포함). 최신 draft 가 위로.
+export interface ContinuityDraftRow {
+  key: string
+  title: string | null
+  projectId: string | null
+  parentSessionId: string
+}
+
+export function useContinuityDraftRows(): ContinuityDraftRow[] {
+  const encoded = useChatStore(
+    useShallow((s) =>
+      Object.entries(s.sessions)
+        .filter(([, e]) => isContinuityDraft(e))
+        .map(([key, e]) =>
+          [
+            key,
+            e.session.title ?? '',
+            e.session.projectId ?? '',
+            e.session.forkFrom ?? e.session.handoffFrom ?? ''
+          ].join('\u0000')
+        )
+    )
+  )
+  return useMemo(
+    () =>
+      encoded
+        .map((row) => {
+          const [key, title, projectId, parentSessionId] = row.split('\u0000')
+          return {
+            key,
+            title: title || null,
+            projectId: projectId || null,
+            parentSessionId
+          }
+        })
+        .reverse(),
+    [encoded]
+  )
+}
+
+// 활성 엔트리가 continuity draft 면 그 키 — nav 활성 강조가 URL(부모 세션) 행이 아니라
+// draft 행에 붙도록 셸이 참조한다.
+export function useActiveContinuityDraftKey(): string | null {
+  return useChatStore((s) => {
+    const e = s.sessions[s.activeKey]
+    return e && isContinuityDraft(e) ? s.activeKey : null
+  })
 }
 
 export function useNewChatPending(key?: string): boolean {

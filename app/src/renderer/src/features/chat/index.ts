@@ -8,5 +8,8 @@ export {
   chatActions,
   getActiveChatSession,
   useChatRecentsEpoch,
-  useChatSession
+  useChatSession,
+  useContinuityDraftRows,
+  useActiveContinuityDraftKey,
+  type ContinuityDraftRow
 } from './store/chatStore'

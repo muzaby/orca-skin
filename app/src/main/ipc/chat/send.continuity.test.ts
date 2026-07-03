@@ -1,7 +1,8 @@
 // 0062 r2 — fork/handoff 도착 파이프라인 통합 테스트. 실 in-memory DB + 실 TurnPersistence 를
-// TurnCoordinator 에 물려, 어댑터가 init(새 id)→telemetry 를 흘릴 때 ① sessions 행 + lineage
-// 영속(fork 는 display 복사까지) ② forward 순서 [session.updated → message.user(에코) → …] 가
-// 보장됨을 잠근다 — 실기에서 "세션은 생기는데 렌더러에 아무것도 안 보이는" 회귀 방지.
+// TurnCoordinator 에 물려, 어댑터가 init(새 id)→telemetry 를 흘릴 때 sessions 행 + lineage
+// 영속(fork 는 display 복사까지)이 보장됨을 잠근다 — 실기에서 "세션은 생기는데 렌더러에
+// 아무것도 안 보이는" 회귀 방지. (r4: 자동 메시지 에코는 coordinator 의 session.updated
+// 시점이 아니라 send 수리 직후로 이동 — 에코 순서 잠금은 렌더러 chatStore.test 가 담당.)
 import Database from 'better-sqlite3'
 import { describe, expect, it, vi } from 'vitest'
 import migration0001 from '../../db/migrations/0001_initial.sql?raw'
@@ -72,7 +73,6 @@ function fakeRuntime(newSessionId: string): CoordinatorRuntime {
 function continuityTurn(
   text: string,
   lineage: { parentSessionId: string; relation: LineageRelation },
-  echoUserText?: string,
   initialTitle?: string
 ): InflightTurn {
   return {
@@ -100,8 +100,7 @@ function continuityTurn(
     subagentTypes: new Map(),
     blockedSubagents: new Set(),
     stoppedSubagents: new Set(),
-    lineage,
-    ...(echoUserText !== undefined ? { echoUserText } : {})
+    lineage
   } as unknown as InflightTurn
 }
 
@@ -131,14 +130,13 @@ async function runTurn(
 }
 
 describe('continuity 도착 파이프라인 (0062 r2)', () => {
-  it('handoff — sessions 행 + lineage(handoff, 복사 없음) 영속, forward 는 [session.updated → message.user 에코 → telemetry]', async () => {
+  it('handoff — sessions 행 + lineage(handoff, 복사 없음) 영속, 에코는 coordinator 미발행(r4 — send 시점 조기 에코)', async () => {
     const db = makeDb()
     seedSource(db)
     const auto = buildHandoffMessage('원본 대화', 'src-session')
     const turn = continuityTurn(
       auto,
       { parentSessionId: 'src-session', relation: 'handoff' },
-      auto,
       '[핸드오프] 원본 대화'
     )
 
@@ -155,11 +153,8 @@ describe('continuity 도착 파이프라인 (0062 r2)', () => {
     expect(parts.map((p) => [p.role, p.type])).toEqual([['user', 'text']])
     expect(JSON.parse(parts[0].payload_json).text).toBe(auto)
 
-    // forward 순서 — 렌더러 승격 → 자동 메시지 에코 → 턴 종료.
-    expect(forwarded.map((e) => e.type)).toEqual(['session.updated', 'message.user', 'telemetry'])
-    const echo = forwarded[1] as Extract<NormalizedEvent, { type: 'message.user' }>
-    expect(echo.sessionId).toBe('new-session')
-    expect(echo.text).toBe(auto)
+    // forward — 에코는 send 수리 직후(턴 밖)로 이동했으므로 coordinator 는 발행하지 않는다.
+    expect(forwarded.map((e) => e.type)).toEqual(['session.updated', 'telemetry'])
   })
 
   it('fork — display 복사 + lineage(fork), 새 발화는 복사 이력 뒤 idx, 에코 없음', async () => {

@@ -36,9 +36,6 @@ export interface TurnContext<W = unknown> {
   // 새 세션행의 초기 제목 오버라이드 — continuity 는 `[분기]/[핸드오프] <원본 제목>` 을 쓰고
   // 자동 제목 생성(0004)을 억제해 마커를 유지한다(titleGenerationStarted=true 와 짝).
   initialTitle?: string
-  // 핸드오프 자동 메시지(main 조립 발화) — coordinator 가 세션 확정(promote) 직후
-  // message.user 로 1회 forward 해 렌더러 transcript 에 커밋한다.
-  echoUserText?: string
 }
 
 export type InflightTurn<W = unknown> = TurnContext<W>

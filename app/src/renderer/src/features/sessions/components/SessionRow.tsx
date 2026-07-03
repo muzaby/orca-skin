@@ -16,6 +16,9 @@ export interface SessionRowProps {
   onSelect?: (sessionId: string) => void
   onDelete?: (sessionId: string) => void
   onRename?: (sessionId: string, title: string) => void
+  // continuity draft(미물질화, 0062 r4) 행은 rename 불가 — 마커 제목이 main 의 initialTitle
+  // 에서 오므로 draft 단계 rename 은 물질화 시 덮여 유실된다. 메뉴에서 항목을 숨긴다.
+  renameable?: boolean
 }
 
 export function SessionRow({
@@ -24,7 +27,8 @@ export function SessionRow({
   projectName,
   onSelect,
   onDelete,
-  onRename
+  onRename,
+  renameable = true
 }: SessionRowProps): React.JSX.Element {
   const [menuOpen, setMenuOpen] = useState(false)
   const [renaming, setRenaming] = useState(false)
@@ -100,18 +104,20 @@ export function SessionRow({
       </button>
       <Popover open={menuOpen} anchorRef={kebabRef} onClose={() => setMenuOpen(false)}>
         <div role="menu" className="flex w-[140px] flex-col py-1">
-          <button
-            type="button"
-            role="menuitem"
-            onClick={(e) => {
-              e.stopPropagation()
-              startRename()
-            }}
-            className="flex cursor-pointer items-center gap-2 border-0 bg-transparent px-2.5 py-1.5 text-left text-[12.5px] text-ink hover:bg-sidebar"
-          >
-            <Icon name="edit" size={12} />
-            <span>이름 변경</span>
-          </button>
+          {renameable && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={(e) => {
+                e.stopPropagation()
+                startRename()
+              }}
+              className="flex cursor-pointer items-center gap-2 border-0 bg-transparent px-2.5 py-1.5 text-left text-[12.5px] text-ink hover:bg-sidebar"
+            >
+              <Icon name="edit" size={12} />
+              <span>이름 변경</span>
+            </button>
+          )}
           <button
             type="button"
             role="menuitem"

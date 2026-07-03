@@ -318,6 +318,20 @@ export function registerChatHandlers(deps: ChatDeps): void {
       ? buildHandoffMessage(continuityMeta?.title ?? null, parsed.data.handoffFrom)
       : parsed.data.text
 
+    // 핸드오프 자동 메시지 에코(0062 r4) — 렌더러가 본문을 모르는 main 조립 발화를 **턴 시작
+    // 전에** 커밋한다. r2/r3 은 session.updated(SDK init) 시점에 에코했는데, 실기에서 init 이
+    // compact 이벤트들보다 늦게 도착하면 요약(message.completed 폴백 라우팅)이 먼저 붙고 user
+    // 버블이 그 뒤에 렌더되는 역순이 났다(r4 피드백 2). sessionId 미발급 시점이므로 이벤트에
+    // sessionId 가 없고, 렌더러 receive() 가 pendingNewChatKey(=핸드오프 draft)로 라우팅한다 —
+    // SDK 이벤트 순서와 무관하게 [user 버블 → inflight → 압축 요약] 순서가 보장된다.
+    if (parsed.data.handoffFrom) {
+      sendChatEvent(event.sender, {
+        type: 'message.user',
+        text: effectiveText,
+        createdAt: Date.now()
+      })
+    }
+
     // 첨부 정규화(경로 추출·이미지 읽기·검증)는 턴 시작 전 단계라 아래 턴 try/catch 밖이다.
     // 여기서 throw 하면(홈 밖 경로·unsupported·binary·fs 오류) invoke 가 거부돼 renderer 의
     // fire-and-forget send 가 콘솔 rejection 으로만 남는다 → 정규 chat:error 로 surface 한다.
@@ -399,9 +413,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
               continuityMeta?.title?.trim() || continuitySource.slice(0, 8)
             }`
           }
-        : {}),
-      // handoff 자동 메시지는 렌더러가 본문을 모른다 — coordinator 가 message.user 로 에코.
-      ...(parsed.data.handoffFrom ? { echoUserText: effectiveText } : {})
+        : {})
     }
     if (parsed.data.sessionId) supervisor.startResume(parsed.data.sessionId, turn)
     else supervisor.startNew(event.sender, turn)

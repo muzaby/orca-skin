@@ -298,7 +298,9 @@ export type NormalizedEvent =
   | { type: 'steer.cancelled'; sessionId: string; id: string }
   // 커밋된 user 메시지 에코(0062) — main 이 본문을 조립해 렌더러가 내용을 모르는 발화
   // (handoff /compact 자동 메시지)에만 발행한다. 일반 send 의 user 버블은 렌더러 낙관 렌더.
-  | { type: 'message.user'; sessionId: string; text: string; createdAt: number }
+  // r4: 턴 시작 *전*(send 수리 직후) 발행되므로 sessionId 가 없다 — 렌더러는 pending
+  // draft(pendingNewChatKey)로 라우팅해 user 버블이 항상 압축 결과보다 먼저 커밋된다.
+  | { type: 'message.user'; sessionId?: string; text: string; createdAt: number }
   // SDK 네이티브 압축 완료(system/compact_boundary → 정규화, 0062). 도착 세션 transcript 에
   // 압축 경계를 표시한다. preTokens = 압축 전 토큰 수(compact_metadata.pre_tokens).
   | {

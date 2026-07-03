@@ -157,20 +157,9 @@ export class TurnCoordinator<W = unknown> {
             persist.persist(turn, ev)
             if (ev.type === 'session.updated') titles.maybeStart(turn)
             forward.forward(turn.owner, ev)
-            if (ev.type === 'session.updated') {
-              registry.promote(turn, ev.sessionId)
-              // 핸드오프 자동 메시지 에코(0062) — main 조립 발화는 렌더러에 낙관 렌더가 없어
-              // 세션 확정 직후 1회 forward 한다(promote 후라 sessionId 키 라우팅이 안전).
-              if (turn.echoUserText !== undefined) {
-                forward.forward(turn.owner, {
-                  type: 'message.user',
-                  sessionId: ev.sessionId,
-                  text: turn.echoUserText,
-                  createdAt: Date.now()
-                })
-                turn.echoUserText = undefined
-              }
-            }
+            // 핸드오프 자동 메시지 에코는 send 수리 직후(턴 시작 전)로 이동했다(0062 r4) —
+            // SDK init 지연 시 압축 요약이 에코보다 먼저 렌더되는 역순을 구조적으로 차단.
+            if (ev.type === 'session.updated') registry.promote(turn, ev.sessionId)
             // AskUserQuestion tool 호출 도착 → id 페어링 큐 적재 + 답변 매칭 시도(answers 는 SDK
             // 가 스트림으로 안 돌려주므로 합성). tool_use id 가 답변보다 먼저 올 수도 있다.
             if (ev.type === 'tool.call.started' && ev.toolName === 'AskUserQuestion') {

@@ -251,3 +251,18 @@ foundation(lineage DB + forkSession 어댑터 배선) → **fork**(draft 뷰 + d
 
 - 게이트: lint/typecheck(3종)/test **650 passed** green.
 - 사람 재테스트 체크: ① 핸드오프 클릭 → 즉시 `[핸드오프] <원본>` 헤더 + 에코 버블 + 애니메이션 ② 압축 완료 → 구분선 + **요약 assistant 메시지** ③ nav 에 마커 제목 행 ④ 도넛 팝오버에 핸드오프 없음. ①이 여전히 실패하면 wire log(`[wire]`) 시퀀스 공유.
+
+## [구현자 기입] r4 — 실기 피드백 4건 (2026-07-03, Claude)
+
+> 이번 라운드는 CLI 번들 실측(원격 환경이 중첩 claude 실행을 차단해 실행 대신 **번들 문자열 분석** — `@anthropic-ai/claude-agent-sdk-linux-x64/claude` v0.3.143)으로 compact 내부 동작을 확정하고 반영했다.
+
+| # | 피드백 | 진단 / 대응 |
+|---|---|---|
+| 1 | `/compact <지시문>` 이 빈 지시문과 결과가 비슷 — 작동하는지 의문 | **작동한다 — 단 加算(additive)이지 대체가 아니다(조사 결론, 코드 변경 없음).** CLI 번들 실측: `/compact` 명령의 `argumentHint` 가 `<optional custom summarization instructions>` 이고, 인자는 압축 프롬프트 말미에 `Additional Instructions:\n<인자>` 로 덧붙는다. 그런데 기본 압축 프롬프트가 **9개 섹션 구조(Primary Request/Key Concepts/Files/Errors/…) + `<analysis>`/`<summary>` 출력 형식을 강제**하므로, 우리 템플릿의 ①~⑤ 구조 요구는 기본 구조에 흡수돼 겉모습이 비슷해진다. verbatim 보존 지시(파일경로·에러 등)는 기본 프롬프트에도 이미 유사 조항이 있다. 템플릿(사용자 승인 문안)은 유지 — 구조 지시를 줄이고 도메인 컨텍스트(핸드오프 사실·원본 제목)만 남기는 축약은 사용자 결정 대상(Open Question 으로 등재). |
+| 2 | user 버블이 compact 요약 **뒤에** 출력 — [user → inflight → 요약] 순서여야 함 | **에코 발행 시점을 SDK 이벤트 의존에서 분리.** r2/r3 은 coordinator 가 `session.updated`(init) 때 에코했는데, 실기에서 init 이 compact 이벤트보다 늦으면 요약이 pending draft 폴백 라우팅으로 먼저 붙고 에코가 뒤에 붙는 역순이 재현된다(r2 "승격 어긋남" 관측과 동일 계열). 수정: ① `send.ts` 가 수리 직후(턴 시작 전) `message.user`(sessionId 없음) 를 발행 — 렌더러 `receive()` 가 `pendingNewChatKey`(핸드오프 draft)로 라우팅해 **항상 첫 메시지로 커밋** ② coordinator 의 `session.updated` 에코 제거(`TurnContext.echoUserText` 폐기) ③ `claude.ts` 요약 드레인을 `ctx.sessionId` 확정 전엔 보류(미확정 sessionId 로 나가면 persist 가 드롭해 재로드 유실) ④ `NormalizedEvent.message.user.sessionId` optional + IPC_CONTRACT §3 갱신. 잠금: `chatStore.test.ts` 에코 순서 2건(병리적 init 지연 순서 포함) + `send.continuity.test.ts` 개정. |
+| 3 | compact 출력에 `<analysis/><summary/>` XML 이 그대로 노출 — summary 만 표시 | CLI 실측: PostCompact hook 의 `compact_summary` 는 압축 응답 **원문 전체**(`<analysis>`+`<summary>`)다. 신규 순수 함수 `extractCompactSummary`(claude-adapt) — `<summary>` 내용만 추출, 태그 부재 시 analysis 블럭·잔여 태그 제거 폴백 — 를 `withPostCompactHook` 에 배선. 단위 테스트 4건. |
+| 4 | fork 시 좌측 nav 에 orca 세션이 바로 추가돼야 함 | **continuity draft 를 nav '최근 대화' 에 즉시 노출.** DB 물질화는 SDK init id 발급에 묶여 있어(전제: Orca id = SDK id) 클릭 시점 DB 행 생성은 불가 — 대신 렌더러 draft 행을 DB 목록 위에 얹는다: `useContinuityDraftRows`/`useActiveContinuityDraftKey`(chat store, useShallow 인코딩 구독) → 셸(`useSessionHandlers`/`useSidebarSlots`)이 구조적 타입(`DraftSessionRow`)으로 매핑해 `SessionList` 에 주입(4-layer 경계 보존). 물질화(promote) 시 draft 행이 DB 행으로 자연 교체된다. **파생 정책 변경**: draft 가 nav 행이 된 이상 이탈-즉시-폐기(r1 파생 UX)는 행이 사라지는 착시를 낳아 폐기 — draft 는 이탈에도 생존하고, 폐기는 행 삭제(`discardContinuityDraft`, 활성이면 부모 복귀·pending 중 거부) 또는 같은 부모 재-fork 교체(`prune(parentId)`)로만. 취소=no-op(영속 흔적 0) 불변식은 유지. draft 행은 rename 불가(`SessionRow.renameable` — 마커 제목이 main `initialTitle` 소유라 draft rename 은 물질화 시 유실). 부모 행 클릭으로 draft 탈출(`loadSession` 직접 전환) 배선. 테스트 3건. |
+
+- 게이트: lint/typecheck(3종)/test **659 passed** (88 파일, +9) green.
+- Open Question(사용자): 핸드오프 템플릿 축약 여부(피드백 1 — 기본 압축 프롬프트가 구조를 강제하므로 ①~⑤ 지시는 사실상 중복. 축약하면 토큰 절약, 유지해도 무해).
+- 사람 재테스트 체크: ① 핸드오프 클릭 → user 버블 먼저 + 아래 inflight 애니메이션 → 완료 시 그 자리에 **XML 없는 요약** ② fork 클릭 → nav 에 `[분기] <원본>` 행 즉시 표시(이탈해도 유지·행 삭제 가능) ③ 다른 세션 갔다가 draft 행 클릭 → draft 복귀.

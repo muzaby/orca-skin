@@ -333,8 +333,12 @@ export class ClaudeAdapter implements SessionAdapter {
     const close = (): void => input.close()
 
     // 대기 중인 압축 요약을 assistant 메시지 이벤트로 비운다 — persist(text 파트)와 렌더
-    // (마크다운 메시지)가 일반 message.completed 경로를 그대로 탄다.
-    function* drainCompactSummaries(): Iterable<NormalizedEvent> {
+    // (마크다운 메시지)가 일반 message.completed 경로를 그대로 탄다. 새 세션(fork/handoff)에서
+    // init 이 늦으면 ctx.sessionId 가 아직 '' — 그 동안은 보류한다(sessionId 없는 이벤트는
+    // persist 가 드롭해 재로드에서 요약이 유실된다, 0062 r4). 스트림 종료 시엔 최종 드레인이
+    // 표시만이라도 살리도록 무조건 비운다.
+    function* drainCompactSummaries(force = false): Iterable<NormalizedEvent> {
+      if (ctx.sessionId === '' && !force) return
       while (compactSummaries.length > 0) {
         yield {
           type: 'message.completed',
@@ -352,7 +356,7 @@ export class ClaudeAdapter implements SessionAdapter {
           // 드레인이 [구분선 → 요약] 순서를 만든다.
           yield* drainCompactSummaries()
         }
-        yield* drainCompactSummaries()
+        yield* drainCompactSummaries(true)
       } catch (err) {
         // 의도적 중단(턴 취소 / 계획 거부)은 에러가 아니므로 error 이벤트를 내지 않는다
         // (user_cancelled 로 분류되지만 emit 안 함 — 설계 결정 3).

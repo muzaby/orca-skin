@@ -22,6 +22,10 @@ export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
         onSelect={handlers.handleSelectSession}
         onDelete={handlers.handleDeleteSession}
         onRename={handlers.handleRenameSession}
+        drafts={handlers.draftSessions}
+        activeDraftKey={handlers.activeDraftKey}
+        onSelectDraft={handlers.handleSelectDraft}
+        onDeleteDraft={handlers.handleDeleteDraft}
       />
     ),
     [
@@ -29,7 +33,11 @@ export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
       handlers.projectNameById,
       handlers.handleSelectSession,
       handlers.handleDeleteSession,
-      handlers.handleRenameSession
+      handlers.handleRenameSession,
+      handlers.draftSessions,
+      handlers.activeDraftKey,
+      handlers.handleSelectDraft,
+      handlers.handleDeleteDraft
     ]
   )
   return { sessionsSlot, footerSlot }
