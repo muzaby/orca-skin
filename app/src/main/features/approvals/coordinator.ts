@@ -10,9 +10,9 @@ import { PermissionRespondSchema, SetPermissionModeSchema } from '../../../share
 import { toClaudePermissionMode } from '../../../shared/permission-mode'
 import { InteractionBroker } from '../../features/approvals/broker'
 import type { PermissionModeController } from '../../features/approvals/permission-mode-controller'
-import { handle } from '../registry'
+import { handle } from '../../infra/ipc/handle'
 import type { RuntimeSupervisor } from '../../features/sessions/supervisor'
-import type { InflightTurn } from './turn-registry'
+import type { InflightTurn } from '../../contracts/turn'
 
 export class ApprovalCoordinator {
   private readonly broker = new InteractionBroker<ApprovalResolution>()

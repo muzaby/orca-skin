@@ -5,8 +5,8 @@ import type { DbQueries } from '../../infra/db'
 import type { RuntimeTitleAdapter } from '../../contracts/ports'
 import type { ResolvedProviderSettings } from '../../features/providers/provider-settings'
 import { normalizeTitle, shouldGenerateTitle, titlePrompt } from '../../features/chat/title'
-import { broadcastSessionTitle } from '../context'
-import type { InflightTurn } from './turn-registry'
+import { broadcastSessionTitle } from '../../infra/ipc/send'
+import type { InflightTurn } from '../../contracts/turn'
 
 export class TitleGenerator {
   constructor(private readonly db: DbQueries) {}

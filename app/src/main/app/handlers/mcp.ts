@@ -3,7 +3,7 @@
 
 import { CHANNELS, DeleteMcpServerSchema, type McpServer } from '../../../shared/protocol'
 import type { RouterContext } from '../context'
-import { handle, handlePlain } from '../registry'
+import { handle, handlePlain } from '../../infra/ipc/handle'
 
 export function registerMcpHandlers(ctx: RouterContext): void {
   handlePlain(CHANNELS.mcpList, (): McpServer[] => ctx.mcp.list())

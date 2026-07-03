@@ -1,7 +1,7 @@
 // IPC 응답 DTO 변환 — DB row → 와이어 타입. 핸들러 도메인 모듈들이 공유하는 순수 함수만 둔다.
 
-import type { AppMessagePart, Project, SessionListItem } from '../../shared/protocol'
-import type { LoadedPartRow, ProjectRow, SessionListRow } from '../infra/db/types'
+import type { AppMessagePart, Project, SessionListItem } from '../../../shared/protocol'
+import type { LoadedPartRow, ProjectRow, SessionListRow } from '../db/types'
 
 export function previewOf(text: string, max = 80): string {
   const collapsed = text.replace(/\s+/g, ' ').trim()

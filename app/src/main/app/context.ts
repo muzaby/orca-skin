@@ -1,23 +1,14 @@
 // RouterContext — IPC 핸들러 도메인 모듈들이 공유하는 main 측 의존성 묶음.
-// IpcRouter(컴포지션 루트)가 부팅 시 1회 조립해 각 register* 함수에 주입한다.
-// 핸들러가 라우터 클래스 필드를 직접 만지지 않게 하는 단일 경계.
+// 컴포지션 루트(bootstrap.ts)가 부팅 시 1회 조립해 각 register* 함수에 주입한다.
+// 핸들러가 부팅 배선 클래스 필드를 직접 만지지 않게 하는 단일 경계.
 
-import { webContents, type WebContents } from 'electron'
-import {
-  CHANNELS,
-  type DebugMockState,
-  type InstallStatus,
-  type NormalizedEvent,
-  type ConcurrencyEvent,
-  type SessionTitleEvent,
-  type SkillInfo
-} from '../../shared/ipc'
+import type { DebugMockState, SkillInfo } from '../../shared/ipc'
 import type { DbQueries } from '../infra/db'
 import type { SettingsStore } from '../infra/settings-store'
 import type { McpStore } from '../features/extensions/mcp/store'
 import type { AdapterRegistry } from '../adapters/registry'
 import type { MockAdapter } from '../adapters/mock'
-import type { Installer } from '../installer'
+import type { Installer } from '../adapters/installer'
 import type { CostTracker } from '../features/usage/tracker'
 import type { SecretStore } from '../infra/config/secret-store'
 import type { ExtensionBuilder } from '../features/extensions/builder'
@@ -45,34 +36,4 @@ export interface RouterContext {
   getCwd(projectId?: string | null): string
   debugMock: DebugMockState
   mockAdapter: MockAdapter | null
-}
-
-// 디버그 패널의 "Wire 메시지" 토글 상태(dev 전용). sendChatEvent 는 자유 함수라
-// ctx 접근이 없어 모듈 스코프 플래그로 둔다 — debugSetMock 핸들러가 동기화한다.
-// 기본 false + 토글 핸들러가 DEV 전용이라 프로덕션 경로는 항상 무출력.
-let wireLogEnabled = false
-
-export function setWireLog(on: boolean): void {
-  wireLogEnabled = on
-}
-
-export function sendChatEvent(wc: WebContents, ev: NormalizedEvent): void {
-  if (wireLogEnabled) console.log('[wire]', ev.type, ev)
-  if (!wc.isDestroyed()) wc.send(CHANNELS.chatEvent, ev)
-}
-
-export function broadcastConcurrency(ev: ConcurrencyEvent): void {
-  for (const wc of webContents.getAllWebContents()) {
-    if (!wc.isDestroyed()) wc.send(CHANNELS.concurrencyEvent, ev)
-  }
-}
-
-export function sendInstallStatus(wc: WebContents, st: InstallStatus): void {
-  if (!wc.isDestroyed()) wc.send(CHANNELS.installStatus, st)
-}
-
-export function broadcastSessionTitle(ev: SessionTitleEvent): void {
-  for (const wc of webContents.getAllWebContents()) {
-    if (!wc.isDestroyed()) wc.send(CHANNELS.sessionTitleEvent, ev)
-  }
 }

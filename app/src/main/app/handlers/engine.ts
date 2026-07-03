@@ -15,7 +15,7 @@ import {
   updateProviderSettings
 } from '../../features/providers/engine-write'
 import type { RouterContext } from '../context'
-import { handle } from '../registry'
+import { handle } from '../../infra/ipc/handle'
 
 function refreshProviderSettings(ctx: RouterContext): void {
   try {

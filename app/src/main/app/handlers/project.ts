@@ -12,8 +12,8 @@ import {
   type SessionListItem
 } from '../../../shared/protocol'
 import type { RouterContext } from '../context'
-import { toProject, toSessionListItem } from '../dto'
-import { handle, handlePlain } from '../registry'
+import { toProject, toSessionListItem } from '../../infra/ipc/dto'
+import { handle, handlePlain } from '../../infra/ipc/handle'
 
 export function registerProjectHandlers(ctx: RouterContext): void {
   handlePlain(CHANNELS.projectList, (): Project[] => ctx.db.listProjects().map(toProject))
