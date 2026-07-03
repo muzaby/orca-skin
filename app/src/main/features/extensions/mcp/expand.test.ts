@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { expandEnv, expandVars, type Resolver } from '../infra/vars'
-import type { OrcaMcpConfig } from './schema'
+import { expandEnv } from './expand'
+import { expandVars, type Resolver } from '../../../infra/vars'
+import type { OrcaMcpConfig } from '../../../adapters/mcp-config'
 
 const resolver =
   (map: Record<string, string>): Resolver =>

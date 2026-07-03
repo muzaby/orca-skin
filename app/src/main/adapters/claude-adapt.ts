@@ -17,7 +17,7 @@ import type {
 } from '@anthropic-ai/claude-agent-sdk'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import type { ClaudeMcpConfig } from '../mcp/schema'
+import type { ClaudeMcpConfig } from './mcp-config'
 import { adaptSkillNameForClaude } from '../deploy/claude-plugin-package'
 import type { SkillInfo } from '../../shared/ipc'
 import type { ProviderSettings } from '../settings/provider-settings'

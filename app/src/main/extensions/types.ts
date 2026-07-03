@@ -9,7 +9,7 @@
 // 어댑트 시점에만 일어나며 이 구조체에는 절대 평문이 들어오지 않는다.
 
 import type { ResolvedProviderSettings } from '../settings/provider-settings'
-import type { OrcaMcpConfig } from '../mcp/schema'
+import type { OrcaMcpConfig } from '../adapters/mcp-config'
 import type { ApprovalResolution, EffortLevel, PermissionAction, SkillInfo } from '../../shared/ipc'
 import type { NormalizedPermissionMode } from '../../shared/permission-mode'
 import type { NormalizedHookSet } from './hooks'

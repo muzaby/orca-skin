@@ -3,9 +3,9 @@
 
 import { readFileSync } from 'node:fs'
 import { z } from 'zod'
-import { mcpJsonPath } from './paths'
-import { writeJsonAtomic } from './json-file'
-import { OrcaMcpConfigSchema, type OrcaMcpConfig } from '../../mcp/schema'
+import { mcpJsonPath } from '../../../infra/config/paths'
+import { writeJsonAtomic } from '../../../infra/config/json-file'
+import { OrcaMcpConfigSchema, type OrcaMcpConfig } from '../../../adapters/mcp-config'
 
 const McpFileSchema = z.object({
   mcpServers: OrcaMcpConfigSchema.default({})
