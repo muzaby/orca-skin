@@ -19,7 +19,7 @@ import type {
 } from '../../shared/ipc'
 import { toClaudePermissionMode } from '../../shared/permission-mode'
 import { claudeToNormalized, type MapContext } from './claude-map'
-import { claudeErrorClassifier, errorEvent } from '../runtime-errors/claude-classifier'
+import { claudeErrorClassifier, errorEvent } from './error-classifier'
 import { createTurnInputStream, type TurnInputContent } from './streaming-input'
 import type { Base64ImageSource } from '@anthropic-ai/sdk/resources/messages'
 import { formatAttachmentPromptBlock } from '../prompts/attachment'

@@ -15,7 +15,7 @@ import type {
   TelemetryModelUsage
 } from '../../shared/ipc'
 import { makeClassifiedError } from '../infra/errors'
-import { errorEvent } from '../runtime-errors/claude-classifier'
+import { errorEvent } from './error-classifier'
 
 // 매퍼 컨텍스트 — sessionId 는 턴 동안 system/init(=session.updated)에서 갱신된다
 // (resume 면 초기값이 그 id). cwd 는 session.updated.patch 에 실린다. 코어 중립(0016)으로
