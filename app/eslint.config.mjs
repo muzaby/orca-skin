@@ -92,33 +92,33 @@ export default defineConfig(
       ]
     }
   },
-  // Main 프로세스 레이어 경계 강제 (handoff 0017) — 하향 의존만 허용, 상위 참조 금지.
-  // DAG: L0 shared → L1 domain → L2 adapters → L3 ipc (정본 가이드: src/main/AGENTS.md).
-  // renderer 블록과 동형(eslint-plugin-boundaries) + import/no-cycle 로 같은-레이어 순환까지 차단
-  // (0011 config↔mcp 순환 클래스 재발 방지 — boundaries 는 레이어 방향만 보므로 보강).
+  // Main 프로세스 레이어 경계 강제 (handoff 0062 재구성 — 아키텍처 스펙).
+  // 목표 DAG: shared → infra → adapters(ports&adapters) → features(수직 슬라이스) → app(컴포지션 루트).
+  // contracts = main 내부 타입 계약(구현 0). **전환 중(0062 진행)**: 아직 안 옮긴 디렉토리는 `legacy`
+  // catch-all 로 분류하고 관용 규칙을 둔다 — 재배치 완료 후 legacy 제거 + 엄격화(체크리스트 마지막 단계).
+  // import/no-cycle 로 같은-레이어 순환까지 차단(0011 config↔mcp 재발 방지).
   {
     files: ['src/main/**/*.ts', 'src/shared/**/*.ts'],
     plugins: { boundaries: eslintPluginBoundaries, import: eslintPluginImport },
     settings: {
       'boundaries/root-path': '.',
-      // import/no-cycle 가 의존 .ts 파일을 파싱해 역-에지를 따라가려면 TS 파서를 등록해야 한다
-      // (없으면 그래프가 얕아져 순환을 못 잡는다 — flat config 알려진 이슈).
       'import/parsers': { '@typescript-eslint/parser': ['.ts', '.tsx'] },
       'import/resolver': {
         node: { extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'] }
       },
       'boundaries/include': ['src/main/**/*', 'src/shared/**/*'],
+      // 순서 = specific → catch-all.
       'boundaries/elements': [
-        // 컴포지션 루트 — src/main 직속 entry 파일(index.ts). 하위 전부 의존 허용.
         { type: 'main-root', pattern: 'src/main/*.ts', mode: 'file' },
-        // L3 ipc — 라우터·핸들러·chat 오케스트레이션. 누구도 ipc 를 의존하지 않는다.
-        { type: 'ipc', pattern: 'src/main/ipc', mode: 'folder' },
-        // L2 adapters — SessionAdapter 구현 + 어댑터 오케스트레이션(installer = registry 사용).
+        { type: 'app', pattern: 'src/main/app', mode: 'folder' },
+        // 어댑터 구현체(claude·mock) — engine 별 격리. 루트 adapters 는 ports/registry.
+        { type: 'adapter-impl', pattern: 'src/main/adapters/*', mode: 'folder', capture: ['engine'] },
         { type: 'adapters', pattern: 'src/main/adapters', mode: 'folder' },
-        { type: 'adapters', pattern: 'src/main/installer', mode: 'folder' },
-        // L1 domain/infra — 그 외 src/main 하위 전부(db·config·settings·mcp·runtime·…).
-        { type: 'domain', pattern: 'src/main/*', mode: 'folder' },
-        // L0 shared — 순수 타입/상수/스키마. 내부(shared)만 의존.
+        { type: 'features', pattern: 'src/main/features/*', mode: 'folder', capture: ['feature'] },
+        { type: 'contracts', pattern: 'src/main/contracts', mode: 'folder' },
+        { type: 'infra', pattern: 'src/main/infra', mode: 'folder' },
+        // 전환용 catch-all — 아직 재배치 안 된 디렉토리(ipc·lifecycle·mcp·extensions·settings·…).
+        { type: 'legacy', pattern: 'src/main/*', mode: 'folder' },
         { type: 'shared', pattern: 'src/shared', mode: 'folder' }
       ]
     },
@@ -130,13 +130,60 @@ export default defineConfig(
           default: 'disallow',
           rules: [
             {
-              from: { type: 'main-root' },
-              allow: { to: { type: ['main-root', 'ipc', 'adapters', 'domain', 'shared'] } }
+              from: ['main-root'],
+              allow: [
+                'main-root',
+                'app',
+                'adapters',
+                'adapter-impl',
+                'features',
+                'contracts',
+                'infra',
+                'legacy',
+                'shared'
+              ]
             },
-            { from: { type: 'ipc' }, allow: { to: { type: ['ipc', 'adapters', 'domain', 'shared'] } } },
-            { from: { type: 'adapters' }, allow: { to: { type: ['adapters', 'domain', 'shared'] } } },
-            { from: { type: 'domain' }, allow: { to: { type: ['domain', 'shared'] } } },
-            { from: { type: 'shared' }, allow: { to: { type: 'shared' } } }
+            {
+              from: ['app'],
+              allow: [
+                'app',
+                'main-root',
+                'adapters',
+                'adapter-impl',
+                'features',
+                'contracts',
+                'infra',
+                'legacy',
+                'shared'
+              ]
+            },
+            // adapters ports → 구현체·infra·shared (+ 전환 중 legacy 임시 허용).
+            { from: ['adapters'], allow: ['adapters', 'adapter-impl', 'infra', 'shared', 'legacy'] },
+            {
+              from: ['adapter-impl'],
+              allow: ['adapter-impl', 'adapters', 'infra', 'shared', 'legacy']
+            },
+            // features → 포트·계약·infra·shared (+ 전환 중 features 교차·legacy 임시 허용).
+            {
+              from: ['features'],
+              allow: ['features', 'contracts', 'adapters', 'adapter-impl', 'infra', 'shared', 'legacy']
+            },
+            { from: ['contracts'], allow: ['contracts', 'adapters', 'infra', 'shared', 'legacy'] },
+            { from: ['infra'], allow: ['infra', 'shared', 'legacy'] },
+            // legacy(전환) → 사실상 전부(재배치가 끝나면 이 요소 자체가 사라진다).
+            {
+              from: ['legacy'],
+              allow: [
+                'legacy',
+                'adapters',
+                'adapter-impl',
+                'features',
+                'contracts',
+                'infra',
+                'shared'
+              ]
+            },
+            { from: ['shared'], allow: ['shared'] }
           ]
         }
       ]
