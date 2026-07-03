@@ -1,21 +1,11 @@
 import { randomUUID } from 'node:crypto'
+import type { SteerFlush, SteerFlushBatch } from '../adapters/turn'
 
 export interface SteerQueueItem {
   id: string
   sessionId: string
   text: string
   createdAt: number
-}
-
-export interface SteerFlush {
-  ids: string[]
-  text: string
-  createdAt: number
-}
-
-// stdin 으로 주입된 병합 배치 — uuid 는 echo 상관키(주입 user 메시지의 uuid 로 실린다).
-export interface SteerFlushBatch extends SteerFlush {
-  uuid: string
 }
 
 // held 에서 flush 로 넘어간 배치. 병합 텍스트는 flush 시점에 1회 계산·보존한다 — echo 의

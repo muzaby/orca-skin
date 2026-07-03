@@ -29,7 +29,7 @@ import {
   type NormalizedHookHandler,
   type NormalizedHookSet
 } from './hooks'
-import type { SteerFlushBatch } from '../lifecycle/steer-queue'
+import type { SteerFlushBatch } from './turn'
 
 // Claude Code plugin root를 SDK local plugin 옵션으로 변환한다. 상대 경로는 cwd 기준이라 세션 cwd
 // 변경과 얽힐 수 있으므로 호출자는 절대 경로를 넘긴다. 경로가 비어 있거나 실제 플러그인 매니페스트

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatAttachmentPromptBlock, type AttachmentPromptBlockInput } from './attachment'
+import { formatAttachmentPromptBlock, type AttachmentPromptBlockInput } from './attachment-prompt'
 
 const baseInput = (
   overrides: Partial<AttachmentPromptBlockInput> = {}
