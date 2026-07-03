@@ -19,7 +19,18 @@ import type {
 } from '../../shared/ipc'
 import type { NormalizedPermissionMode } from '../../shared/permission-mode'
 import type { NormalizedHookSet } from './hooks'
-import type { SteerFlushBatch } from '../lifecycle/steer-queue'
+
+// steer flush 배치 계약 — 어댑터가 게이트 훅에서 회수(takeSteerFlush)해 자기 입력 채널로 주입한다.
+// 구현(SteerQueue)은 features/chat 이지만 계약 타입은 어댑터 포트에 둔다.
+export interface SteerFlush {
+  ids: string[]
+  text: string
+  createdAt: number
+}
+export interface SteerFlushBatch extends SteerFlush {
+  // stdin 주입 병합 배치의 uuid — echo 상관키(주입 user 메시지의 uuid).
+  uuid: string
+}
 
 // 첨부 추출 결과 — 어댑터가 turn content 로 굽는 입력 계약(구 files/attachments 정의를 포트로 이관).
 export interface ExtractedAttachmentText {
