@@ -10,7 +10,7 @@ import {
   type LoadedSession,
   type SessionListItem
 } from '../../../shared/protocol'
-import { usageRowToTelemetry } from '../../usage/usageMap'
+import { usageRowToTelemetry } from '../../features/usage/usage-map'
 import type { RouterContext } from '../context'
 import { partFromRow, toSessionListItem } from '../dto'
 import { handle, handlePlain } from '../registry'
