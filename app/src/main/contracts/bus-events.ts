@@ -8,7 +8,7 @@
 
 import type { NormalizedEvent } from '../../shared/ipc'
 import type { TypedBus } from '../infra/bus'
-import type { TurnContext } from './turn-context'
+import type { TurnContext } from './turn'
 
 export interface OrcaBusEvents<W = unknown> {
   // 어댑터 스트림 + 합성(telemetry·settle) 이벤트의 단일 팬아웃 지점.

@@ -9,17 +9,17 @@
 // concrete 를 배선한다. 0050 까지 ipc/chat/send.ts:handleChatSend 에 인라인이던 가로축을 동작
 // 보존(behavior-preserving)으로 추출했다 — 0051 §A staging P1, handoff 0052.
 
-import type { ClassifiedError, NormalizedEvent } from '../../shared/ipc'
-import type { TurnRequest } from '../adapters/turn'
-import { makeClassifiedError } from '../infra/errors'
-import type { TurnContext } from './turn-context'
-import type { RuntimeLiveTurn } from './ports'
-import type { SessionRuntimeRegistry } from './session-registry'
+import type { ClassifiedError, NormalizedEvent } from '../../../shared/ipc'
+import type { TurnRequest } from '../../adapters/turn'
+import { makeClassifiedError } from '../../infra/errors'
+import type { TurnContext } from '../../contracts/turn'
+import type { RuntimeLiveTurn } from '../../contracts/ports'
+import type { SessionRuntimeRegistry } from '../sessions/session-registry'
 import { createStallTimer, type StallTimer } from './timers'
 import { coerceStoppedToolCompletion } from './subagent-settlement'
 import { settleOpenToolRuns, settleSubagentTask, stopLiveSubagent } from './settle'
 import type { TurnEventSink, TurnPersistSink } from './turn-sinks'
-import type { MainBus, TurnEmit } from './bus-events'
+import type { MainBus, TurnEmit } from '../../contracts/bus-events'
 import type { SteerQueue } from './steer-queue'
 
 export const MAX_RETRIES = 2

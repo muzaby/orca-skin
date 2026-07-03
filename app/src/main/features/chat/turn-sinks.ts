@@ -10,8 +10,8 @@
 // 에 TurnContext 를 들이면 import/no-cycle 이 차단한다. sink 들은 TurnContext 를 참조하므로
 // 사이클 없는 별도 모듈에 둔다.
 
-import type { NormalizedEvent } from '../../shared/ipc'
-import type { TurnContext } from './turn-context'
+import type { NormalizedEvent } from '../../../shared/ipc'
+import type { TurnContext } from '../../contracts/turn'
 
 // 영속 sink — DB 기록(가로축 좌측). renderer 비의존. L3 TurnPersistence 가 만족.
 export interface TurnPersistSink<W = unknown> {

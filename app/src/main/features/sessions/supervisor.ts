@@ -14,8 +14,8 @@
 // 접혀 Supervisor 소유의 단일 진실원이 됐고, 0061 verify 에서 기능을 드러내는 이름 ActiveTurnTracker 로
 // 정정했다(IPC/UX 경계 어휘 "concurrency"는 보존).
 
-import type { TurnContext } from './turn-context'
-import type { ManagedRuntime } from './ports'
+import type { TurnContext } from '../../contracts/turn'
+import type { ManagedRuntime } from '../../contracts/ports'
 import { SessionRuntimeRegistry } from './session-registry'
 import { RuntimePool } from './runtime-pool'
 import { UnlimitedRuntimeCapPolicy, type RuntimeCapPolicy } from './runtime-cap-policy'

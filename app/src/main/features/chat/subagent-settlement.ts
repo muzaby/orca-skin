@@ -3,7 +3,7 @@
 // lifecycle 로 내린다 — L1 은 L3(ipc)를 import 할 수 없기 때문. 기존 import 경로는 ipc/chat
 // 의 배럴 re-export 로 무회귀 유지.
 
-import type { NormalizedEvent } from '../../shared/ipc'
+import type { NormalizedEvent } from '../../../shared/ipc'
 
 export type OpenToolRunInfo = { parentToolRunId?: string }
 export type OpenToolRunEntries = Iterable<[string, OpenToolRunInfo]>

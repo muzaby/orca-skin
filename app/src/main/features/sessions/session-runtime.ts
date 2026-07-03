@@ -1,8 +1,12 @@
-import type { NormalizedEvent } from '../../shared/ipc'
-import type { ClaudePermissionMode } from '../../shared/permission-mode'
-import type { TurnRequest } from '../adapters/turn'
-import type { ManagedRuntime, RuntimeLiveTurn, RuntimeSessionAdapter } from './ports'
-import { SessionRuntimeStatus, type AbortCause, type SessionRuntimeState } from './session-state'
+import type { NormalizedEvent } from '../../../shared/ipc'
+import type { ClaudePermissionMode } from '../../../shared/permission-mode'
+import type { TurnRequest } from '../../adapters/turn'
+import type { ManagedRuntime, RuntimeLiveTurn, RuntimeSessionAdapter } from '../../contracts/ports'
+import {
+  SessionRuntimeStatus,
+  type AbortCause,
+  type SessionRuntimeState
+} from '../../contracts/session-state'
 
 // close 정책 2종(decision ⑳) — streaming-input 메커니즘은 1개(아래 runAttempt)이고 close 정책만
 // 파라미터화한다. oneshot = 턴 종료 시 핸들 폐기(매 턴 fresh), persistent = 턴을 넘어 idle 로 살아남아

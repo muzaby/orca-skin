@@ -2,7 +2,7 @@
 // 절단 제목을 in-place 교체한다. fire-and-forget, 실패는 warn 만(graceful degrade).
 
 import type { DbQueries } from '../../infra/db'
-import type { RuntimeTitleAdapter } from '../../lifecycle/ports'
+import type { RuntimeTitleAdapter } from '../../contracts/ports'
 import type { ResolvedProviderSettings } from '../../features/providers/provider-settings'
 import { normalizeTitle, shouldGenerateTitle, titlePrompt } from '../../features/chat/title'
 import { broadcastSessionTitle } from '../context'

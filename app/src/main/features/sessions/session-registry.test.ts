@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { SessionRuntimeRegistry } from './session-registry'
-import type { InflightTurn } from './turn-context'
+import type { InflightTurn } from '../../contracts/turn'
 
 function fakeTurn(): InflightTurn<object> {
   return { controller: new AbortController(), owner: {} } as unknown as InflightTurn<object>

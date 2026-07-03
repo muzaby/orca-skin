@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import { RuntimeSupervisor, abortTurn } from './supervisor'
 import { SessionRuntimeRegistry } from './session-registry'
-import type { InflightTurn } from './turn-context'
-import type { ManagedRuntime, RuntimeLiveTurn } from './ports'
-import type { SessionRuntimeState } from './session-state'
+import type { InflightTurn } from '../../contracts/turn'
+import type { ManagedRuntime, RuntimeLiveTurn } from '../../contracts/ports'
+import type { SessionRuntimeState } from '../../contracts/session-state'
 
 function fakeTurn(live: RuntimeLiveTurn | null = null): InflightTurn<object> {
   return { controller: new AbortController(), owner: {}, live } as unknown as InflightTurn<object>
