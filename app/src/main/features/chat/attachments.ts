@@ -1,32 +1,12 @@
 import { promises as fs } from 'node:fs'
 import { basename, extname, parse, resolve } from 'node:path'
 import { homedir, platform } from 'node:os'
-import type { AttachmentSourceKind, ComposerAttachment } from '../../shared/ipc'
-import { SUPPORTED_IMAGE_MEDIA_TYPES } from '../capabilities/image'
+import type { ComposerAttachment } from '../../../shared/ipc'
+import { SUPPORTED_IMAGE_MEDIA_TYPES } from '../../capabilities/image'
+import type { ExtractedAttachmentText, ExtractedAttachmentImage } from '../../adapters/turn'
 
 export const MAX_FILE_CONTEXT_CHARS = 24_000
 export const SUPPORTED_IMAGE_MIME_TYPES = new Set<string>(SUPPORTED_IMAGE_MEDIA_TYPES)
-
-export interface ExtractedAttachmentText {
-  id: string
-  name: string
-  mimeType: string
-  sizeBytes?: number
-  text: string
-  charsOriginal: number
-  charsIncluded: number
-  truncated: boolean
-  sourceKind: AttachmentSourceKind
-}
-
-export interface ExtractedAttachmentImage {
-  id: string
-  name: string
-  mimeType: string
-  sizeBytes?: number
-  data: string
-  sourceKind: AttachmentSourceKind
-}
 
 export interface AttachmentExtractor {
   supports(ext: string): boolean

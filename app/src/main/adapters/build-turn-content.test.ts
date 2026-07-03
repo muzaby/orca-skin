@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { buildTurnContent } from './claude'
-import type { ExtractedAttachmentImage, ExtractedAttachmentText } from '../files/attachments'
+import type { ExtractedAttachmentImage, ExtractedAttachmentText } from './turn'
 
 const textAtt = (overrides: Partial<ExtractedAttachmentText> = {}): ExtractedAttachmentText => ({
   id: 'att_text',
