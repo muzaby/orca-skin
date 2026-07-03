@@ -35,27 +35,15 @@ export {
 } from './provider-registry'
 export { expandEnvRecord, mergeEnvLayers } from './env-merge'
 
-// 어댑터-네이티브 provider settings — Claude 의 경우 `~/.claude/settings.json` 과 동일 스키마다.
-// env(auth key 등)를 포함할 수 있으며, 그대로 options.settings flag 레이어로 주입되어 사용자
-// 전역 `~/.claude/settings.json` 을 덮어쓴다 (handoff 0028 — env↛argv 분리 폐기). settings 는
-// dist 에 배포되지 않고 sources 파일만 읽으므로 디스크 평문은 늘지 않는다.
-export type ProviderSettings = Record<string, unknown>
-
-// 해석 완료된 provider settings — TurnRequest/CompleteRequest 로 어댑터에 전달되는 불투명 blob.
-// 어댑터-네이티브 스키마(env 포함)를 그대로 담는다; 어댑터는 자기 query 옵션(claude=options.settings
-// 인라인 JSON)에 꽂기만 한다 (handoff 0014; 0028 로 env↛argv split 폐기).
-export interface ResolvedProviderSettings {
-  providerKey: string
-  provider: string
-  settings: ProviderSettings
-}
-
-// 어댑터 종속 해석기 — 컴포지션 루트(ipc/router.ts)가 어댑터별로 주입한다. sources 파일을 읽어
-// 어댑터-네이티브 settings 를 verbatim 으로 돌려준다 (claude=~/.claude/settings.json 동일 취급).
-export type ProviderSettingsLoader = (args: {
-  // sources/settings/<adapter>/<provider>/settings.json
-  sourcesSettingsFile: string
-}) => Promise<{ settings: ProviderSettings }>
+// 계약 타입(ProviderSettings·ResolvedProviderSettings·ProviderSettingsLoader)은 어댑터 포트
+// (`adapters/provider-config.ts`)로 이관됐다 — 어댑터가 도메인/feature 를 import 하지 않도록.
+// 기존 import 경로 무회귀를 위해 여기서 re-export 하고, 서비스 내부용으로도 import 한다.
+import type {
+  ProviderSettings,
+  ResolvedProviderSettings,
+  ProviderSettingsLoader
+} from '../adapters/provider-config'
+export type { ProviderSettings, ResolvedProviderSettings, ProviderSettingsLoader }
 
 interface CacheEntry {
   settings: ProviderSettings

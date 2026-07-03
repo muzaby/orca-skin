@@ -20,7 +20,7 @@ import { join } from 'node:path'
 import type { ClaudeMcpConfig } from './mcp-config'
 import { adaptSkillNameForClaude } from '../deploy/claude-plugin-package'
 import type { SkillInfo } from '../../shared/ipc'
-import type { ProviderSettings } from '../settings/provider-settings'
+import type { ProviderSettings } from './provider-config'
 import {
   resolveHookDecisions,
   type NormalizedHookContext,
