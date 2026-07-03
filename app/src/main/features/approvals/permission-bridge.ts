@@ -6,7 +6,7 @@
 //   ② AppCommandPolicy — 앱이 합성한 명령(slash command 등)의 3분기 분류(현재 seam).
 // 둘 다 electron 비의존 순수 함수라 단위 테스트 대상.
 
-import type { NormalizedEvent, PermissionAction } from '../../shared/ipc'
+import type { NormalizedEvent, PermissionAction } from '../../../shared/ipc'
 
 // 위험 도구 게이트 화이트리스트(provider-runtime.md §3). 상태를 변경하는 도구만 승인 카드로
 // surface 하고, 안전 도구(Read/Glob/Grep 등)는 자동 통과한다(Claude Code 웹/CLI 기본 패턴과

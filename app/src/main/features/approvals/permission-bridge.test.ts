@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { agentPermissionRequest, classifyAppCommand, isRiskyTool } from './permission-bridge'
-import type { AskQuestionRequest, PlanReviewRequest } from '../../shared/ipc'
+import type { AskQuestionRequest, PlanReviewRequest } from '../../../shared/ipc'
 
 describe('agentPermissionRequest', () => {
   it('ask_question 액션을 permission.requested(origin:agent)로 합성', () => {

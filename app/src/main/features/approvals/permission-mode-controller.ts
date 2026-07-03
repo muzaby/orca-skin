@@ -8,7 +8,7 @@
 // Vitest 로만 운동되는 seam 이다. router/adapter 와이어링과 라이브 `Query.setPermissionMode`
 // 위임은 PR③(스트리밍 입력 전환)에서 덧댄다 — RevertManager(§5) 가 머지된 선례와 동일 패턴.
 
-import type { NormalizedPermissionMode } from '../../shared/permission-mode'
+import type { NormalizedPermissionMode } from '../../../shared/permission-mode'
 
 export class PermissionModeController {
   // 키 = sessionId, 값 = 그 세션의 현재 권한 모드. 프로세스 메모리에만 보존(영속 안 함) —

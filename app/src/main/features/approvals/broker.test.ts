@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { InteractionBroker, type PendingApprovalState } from './broker'
-import type { AskResult } from '../../shared/ipc'
+import type { AskResult } from '../../../shared/ipc'
 
 const SKIP: AskResult = { type: 'skipped' }
 
