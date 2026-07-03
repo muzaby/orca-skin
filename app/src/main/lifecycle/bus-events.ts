@@ -7,7 +7,7 @@
 // 여기 정의를 타입 인자로 주입한다. TurnContext 를 참조하므로 turn-context 와 같은 레이어에 둔다.
 
 import type { NormalizedEvent } from '../../shared/ipc'
-import type { TypedBus } from '../bus'
+import type { TypedBus } from '../infra/bus'
 import type { TurnContext } from './turn-context'
 
 export interface OrcaBusEvents<W = unknown> {

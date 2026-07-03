@@ -1,7 +1,7 @@
 // 세션 자동 제목 생성 (handoff 0004) — 새 세션 첫 턴 종료 후 저가 모델 1-shot 으로 요약해
 // 절단 제목을 in-place 교체한다. fire-and-forget, 실패는 warn 만(graceful degrade).
 
-import type { DbQueries } from '../../db'
+import type { DbQueries } from '../../infra/db'
 import type { RuntimeTitleAdapter } from '../../lifecycle/ports'
 import type { ResolvedProviderSettings } from '../../settings/provider-settings'
 import { normalizeTitle, shouldGenerateTitle, titlePrompt } from '../../title/title'

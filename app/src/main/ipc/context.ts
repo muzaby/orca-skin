@@ -12,7 +12,7 @@ import {
   type SessionTitleEvent,
   type SkillInfo
 } from '../../shared/ipc'
-import type { DbQueries } from '../db'
+import type { DbQueries } from '../infra/db'
 import type { SettingsStore } from '../settings/store'
 import type { McpStore } from '../mcp/store'
 import type { AdapterRegistry } from '../adapters/registry'

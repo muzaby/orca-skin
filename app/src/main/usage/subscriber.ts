@@ -7,7 +7,7 @@
 // 보장하며, 두 구독자 모두 critical(throw=턴 실패 전파)이다.
 
 import type { NormalizedEvent } from '../../shared/ipc'
-import type { DbQueries } from '../db'
+import type { DbQueries } from '../infra/db'
 import type { CostTracker } from '../cost/tracker'
 import type { TurnContext } from '../lifecycle/turn-context'
 import { hasContextTokens } from './usageMap'

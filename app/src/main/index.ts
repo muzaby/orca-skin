@@ -5,7 +5,7 @@ import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
 import { IpcRouter } from './ipc/router'
-import { closeDb } from './db'
+import { closeDb } from './infra/db'
 import { CHANNELS } from '../shared/ipc'
 import type { SettingsStore } from './settings/store'
 

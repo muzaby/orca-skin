@@ -1,6 +1,6 @@
 import type { CostPeriodSummary, CostSummary } from '../../shared/ipc'
-import type { DbQueries } from '../db'
-import type { UsageSumRow } from '../db/types'
+import type { DbQueries } from '../infra/db'
+import type { UsageSumRow } from '../infra/db/types'
 import { boundaries } from './boundaries'
 
 export class CostTracker {

@@ -7,7 +7,7 @@
 // 프로젝트 지침(DB)은 세션마다·매 턴 가변이라 여기서 매 턴 조회해 그 앞에 결합한다.
 //
 
-import type { DbQueries } from '../db'
+import type { DbQueries } from '../infra/db'
 import type { McpStore } from '../mcp/store'
 import type { SkillInfo } from '../../shared/ipc'
 import type { TurnExtensions } from './types'

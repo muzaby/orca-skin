@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { TurnPersistence } from './persist'
-import type { DbQueries } from '../../db'
+import type { DbQueries } from '../../infra/db'
 import type { AttachmentView } from '../../../shared/ipc'
 
 // persistUserMessage 만 검증 — appendMessage/appendPart 만 모의한다.
