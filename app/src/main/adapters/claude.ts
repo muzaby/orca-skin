@@ -25,7 +25,7 @@ import type { Base64ImageSource } from '@anthropic-ai/sdk/resources/messages'
 import { formatAttachmentPromptBlock } from '../prompts/attachment'
 import { formatPlanFeedbackPrompt } from '../prompts/plan-feedback'
 import type { CompleteRequest, LiveTurn, SessionAdapter } from './types'
-import type { TurnRequest } from '../extensions/types'
+import type { TurnRequest } from './turn'
 import type { ExtractedAttachmentImage, ExtractedAttachmentText } from '../files/attachments'
 import { isRiskyTool } from './risky-tools'
 import {

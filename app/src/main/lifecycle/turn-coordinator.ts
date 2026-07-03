@@ -10,7 +10,7 @@
 // 보존(behavior-preserving)으로 추출했다 — 0051 §A staging P1, handoff 0052.
 
 import type { ClassifiedError, NormalizedEvent } from '../../shared/ipc'
-import type { TurnRequest } from '../extensions/types'
+import type { TurnRequest } from '../adapters/turn'
 import { makeClassifiedError } from '../infra/errors'
 import type { TurnContext } from './turn-context'
 import type { RuntimeLiveTurn } from './ports'
