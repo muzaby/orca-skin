@@ -8,9 +8,9 @@
 
 import { existsSync, mkdirSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
-import type { Backend } from '../../shared/ipc'
-import { orcaConfigDir } from '../infra/config/paths'
-import { writeJsonAtomic } from '../infra/config/json-file'
+import type { Backend } from '../../../shared/ipc'
+import { orcaConfigDir } from '../../infra/config/paths'
+import { writeJsonAtomic } from '../../infra/config/json-file'
 
 const DEFAULT_PROVIDER = 'anthropic'
 

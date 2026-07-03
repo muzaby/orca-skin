@@ -18,7 +18,7 @@ import type {
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import type { ClaudeMcpConfig } from './mcp-config'
-import { adaptSkillNameForClaude } from '../deploy/claude-plugin-package'
+import { adaptSkillNameForClaude } from './claude-plugin'
 import type { SkillInfo } from '../../shared/ipc'
 import type { ProviderSettings } from './provider-config'
 import {

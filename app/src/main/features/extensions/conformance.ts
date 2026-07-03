@@ -4,7 +4,7 @@
 // 출처 신뢰 원칙: [검증]=현재 코드/SDK 1차 출처 확인, [미확인]=구현 전 SDK 타입 확정 필요.
 // 두 SDK 미설치라 일부 항목은 [미확인].
 
-import type { Backend } from '../../shared/ipc'
+import type { Backend } from '../../../shared/ipc'
 
 export interface StandardConformance {
   instructions: {

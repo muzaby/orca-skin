@@ -7,7 +7,7 @@ import {
   type EngineReadResult,
   type EngineWriteResult
 } from '../../../shared/protocol'
-import { deploy } from '../../deploy/deployer'
+import { deploy } from '../../features/extensions/deployer'
 import {
   addProviderSettings,
   deleteProviderSettings,
