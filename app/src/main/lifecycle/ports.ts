@@ -26,7 +26,7 @@ export interface RuntimeCompleteRequest {
   model?: string
   cwd?: string
   signal?: AbortSignal
-  providerSettings?: import('../settings/provider-settings').ResolvedProviderSettings
+  providerSettings?: import('../features/providers/provider-settings').ResolvedProviderSettings
   env?: Record<string, string>
 }
 

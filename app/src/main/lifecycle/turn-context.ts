@@ -1,5 +1,5 @@
 import type { AttachmentView } from '../../shared/ipc'
-import type { ResolvedProviderSettings } from '../settings/provider-settings'
+import type { ResolvedProviderSettings } from '../features/providers/provider-settings'
 import type { RuntimeLiveTurn, RuntimeTitleAdapter } from './ports'
 
 export interface TurnContext<W = unknown> {

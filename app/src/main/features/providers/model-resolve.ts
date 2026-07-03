@@ -3,7 +3,7 @@
 // 로 파싱해 얻는다(provider-registry.listProviders). 본 모듈은 alias→name 해석과 orca:agent:list
 // 페이로드 변환을 담당한다. 순수 함수 — vitest 대상.
 
-import type { AgentEnvironment, AgentModelView } from '../../shared/ipc'
+import type { AgentEnvironment, AgentModelView } from '../../../shared/ipc'
 import type { ParsedModel } from './claude-model-parser'
 
 export type { ParsedModel } from './claude-model-parser'

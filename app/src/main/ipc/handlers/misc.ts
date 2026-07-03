@@ -25,7 +25,7 @@ import {
   type SkillInfo
 } from '../../../shared/protocol'
 import { dialog, shell } from 'electron'
-import { toAgentEnvironments } from '../../settings/provider-settings'
+import { toAgentEnvironments } from '../../features/providers/provider-settings'
 import {
   removeOrcaSkillDir,
   writeAuthoredSkill,
