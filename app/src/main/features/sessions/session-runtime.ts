@@ -1,7 +1,8 @@
 import type { NormalizedEvent } from '../../../shared/ipc'
 import type { ClaudePermissionMode } from '../../../shared/permission-mode'
 import type { TurnRequest } from '../../adapters/turn'
-import type { ManagedRuntime, RuntimeLiveTurn, RuntimeSessionAdapter } from '../../contracts/ports'
+import type { LiveTurn } from '../../adapters/types'
+import type { ManagedRuntime, RuntimeSessionAdapter } from '../../contracts/ports'
 import {
   SessionRuntimeStatus,
   type AbortCause,
@@ -29,7 +30,7 @@ function isTerminal(ev: NormalizedEvent): boolean {
 // 배선을 모른다 — 소유는 풀).
 export class SessionRuntime implements ManagedRuntime {
   private readonly status = new SessionRuntimeStatus()
-  private live: RuntimeLiveTurn | null = null
+  private live: LiveTurn | null = null
 
   constructor(
     private readonly adapter: RuntimeSessionAdapter,
