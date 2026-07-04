@@ -3,7 +3,7 @@ import type { DbQueries } from '../../infra/db'
 import type { UsageSumRow } from '../../infra/db/types'
 import { boundaries } from './boundaries'
 
-export class CostTracker {
+export class UsageTracker {
   private summary: CostSummary = emptySummary()
 
   // broadcast 는 컴포지션 루트(ipc/router.ts)가 주입한다 — IPC 송출 배선을 분리해 domain(L1)을

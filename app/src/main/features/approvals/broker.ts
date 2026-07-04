@@ -1,4 +1,4 @@
-// InteractionBroker — SDK 의 canUseTool 콜백(main)과 renderer UI 를 잇는 Promise 다리.
+// ApprovalBroker — SDK 의 canUseTool 콜백(main)과 renderer UI 를 잇는 Promise 다리.
 // canUseTool 은 반환할 때까지 query() 실행을 일시 중지하므로, 상호작용(질문/계획 검토)을
 // renderer 로 surface 한 뒤 사용자의 응답이 도착할 때까지 Promise 를 보류한다.
 //
@@ -31,7 +31,7 @@ interface Pending<T> {
   onSettle?: (state: PendingApprovalState) => void
 }
 
-export class InteractionBroker<T> {
+export class ApprovalBroker<T> {
   private readonly pending = new Map<string, Pending<T>>()
 
   // 상호작용을 등록하고 사용자의 응답을 기다리는 Promise 를 반환한다. signal 이 abort 되면

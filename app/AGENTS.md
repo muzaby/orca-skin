@@ -29,18 +29,17 @@ shared/      → shared 내부만                  (범용 atom. 도메인 로�
 
 전체 디렉토리 트리 · 슬롯별 책임 · App.tsx Provider 합성 순서는 [`../docs/arch/frontend/layers.md`](../docs/arch/frontend/layers.md) 가 정본이다 (여기 사본을 두면 드리프트한다). cross-feature 데이터가 필요하면 역방향/타-feature import 대신 **pages/ 또는 app/ 에서 props 로 전달**한다.
 
-**main 레이어 경계** — main 프로세스도 렌더러처럼 하향 의존만 허용한다(L0 shared→L1 domain→L2 adapters→L3 ipc). `eslint-plugin-boundaries` + `import/no-cycle` 로 강제(`eslint.config.mjs` 의 `src/main/**` 블록). 레이어 매핑·작업 규칙 정본은 [`src/main/AGENTS.md`](src/main/AGENTS.md) (handoff 0017).
+**main 레이어 경계** — main 프로세스는 **feature 수직 슬라이스 + adapters 한정 ports&adapters + 얇은 infra + app composition root** 로 구성된다(handoff 0062). 하향 의존만 + feature 끼리 교차 import 금지를 `eslint-plugin-boundaries`(v6) + `import/no-cycle` 로 강제(`eslint.config.mjs` 의 `src/main/**` 블록). 레이어·슬라이스 매핑·작업 규칙 정본은 [`src/main/AGENTS.md`](src/main/AGENTS.md).
 
 **main / preload 핵심 경로** (채널 전수·계약은 [`../docs/IPC_CONTRACT.md`](../docs/IPC_CONTRACT.md)):
 
 | 경로                          | 책임                                                                                          |
 | ----------------------------- | --------------------------------------------------------------------------------------------- |
-| `src/main/ipc/router.ts`      | IPC 라우팅 + zod 검증 + `NormalizedEvent` → DB persist (turn-local 상태)                       |
-| `src/main/adapters/`          | claude 어댑터 — `claude.ts`(query) · `claude-map.ts`(SDK→`NormalizedEvent`) · `claude-adapt.ts`(outbound). opencode 는 future |
-| `src/main/db/`                | better-sqlite3 singleton + WAL + 마이그레이션 러너 + prepared statements                       |
-| `src/main/mcp/`               | 파일-백드 MCP 모델 (`mcp.json` + safeStorage 비밀 + 대칭 변환기 `toClaudeConfig`/`toOpencodeConfig`) |
-| `src/main/deploy/`            | `ExtensionDeployer` + `StandardConformance` (sources → `dist/<engine>/` 렌더)                  |
-| `src/main/settings/store.ts`  | `electron-store` + zod                                                                         |
+| `src/main/app/`               | 컴포지션 루트 — `bootstrap.ts`(부팅 배선·버스 구독 순서) · `chat-turn.ts`(턴 셋업) · `handlers/*`(도메인 IPC) · `context.ts`(RouterContext) |
+| `src/main/adapters/`          | claude 어댑터 — `claude.ts`(query) · `claude-map.ts`(SDK→`NormalizedEvent`) · `claude-adapt.ts`(outbound) + 포트(`types`·`turn`·`provider-config`…). mock 은 dev, opencode 는 future |
+| `src/main/features/`          | 수직 슬라이스 — `chat`(턴 오케스트레이션) · `sessions`(런타임 거버넌스) · `approvals` · `usage` · `history`(persist) · `providers` · `extensions`(MCP·skill·deploy) |
+| `src/main/contracts/`         | 공유 타입 계약 — `turn`(`TurnContext`) · `bus-events` · `ports` · `session-state`               |
+| `src/main/infra/`             | 얇은 인프라 — `db`(better-sqlite3+WAL+마이그레이션) · `bus`(TypedBus) · `config`(orca.json·secret) · `ipc`(handle/send/dto) · `settings-store` |
 | `src/shared/{ipc,protocol}.ts`| `CHANNELS` 상수 + 순수 TS 타입 / zod 스키마 (main 전용)                                        |
 
 > 레이아웃에서 벗어나려면 사용자에게 먼저 확인하고, TRD §1.2 와 코드를 동시에 갱신한다.

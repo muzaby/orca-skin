@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
 import { abortTurn } from './abort'
-import type { InflightTurn } from '../../contracts/turn'
+import type { TurnContext } from '../../contracts/turn'
 import type { RuntimeLiveTurn } from '../../contracts/ports'
 
-function fakeTurn(live: RuntimeLiveTurn | null = null): InflightTurn<object> {
-  return { controller: new AbortController(), owner: {}, live } as unknown as InflightTurn<object>
+function fakeTurn(live: RuntimeLiveTurn | null = null): TurnContext<object> {
+  return { controller: new AbortController(), owner: {}, live } as unknown as TurnContext<object>
 }
 
 describe('abortTurn (단일 abort 프리미티브)', () => {

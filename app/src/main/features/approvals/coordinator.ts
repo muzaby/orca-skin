@@ -1,5 +1,5 @@
 // 권한 승인 조정자 — canUseTool(AskUserQuestion / ExitPlanMode / 위험 도구) ↔ renderer 응답을
-// 잇는 InteractionBroker 와 그 부수 상태("세션 동안 허용" 도구 집합, approvalId→턴 매핑)를
+// 잇는 ApprovalBroker 와 그 부수 상태("세션 동안 허용" 도구 집합, approvalId→턴 매핑)를
 // 소유한다. permissionRespond / permissionSetMode 핸들러도 여기서 등록한다.
 //
 // 구 모델은 부수효과 대상 턴을 event.sender(WebContents) 로 찾았다 — 턴 레지스트리의
@@ -8,25 +8,25 @@
 import { CHANNELS, type ApprovalResolution, type PermissionRespond } from '../../../shared/ipc'
 import { PermissionRespondSchema, SetPermissionModeSchema } from '../../../shared/protocol'
 import { toClaudePermissionMode } from '../../../shared/permission-mode'
-import { InteractionBroker } from '../../features/approvals/broker'
+import { ApprovalBroker } from '../../features/approvals/broker'
 import type { PermissionModeController } from '../../features/approvals/permission-mode-controller'
 import { handle } from '../../infra/ipc/handle'
-import type { InflightTurn } from '../../contracts/turn'
+import type { TurnContext } from '../../contracts/turn'
 
 // 세션 조회 포트 — 라이브 전환 시 진행 중 턴을 찾는 데만 필요. 구조적 타입으로 features/sessions
 // 직접 참조를 끊는다(수직 슬라이스 경계, 0062). RuntimeSupervisor 가 구조적으로 만족한다.
 interface SessionLookup {
-  getBySession(sessionId: string): InflightTurn<unknown> | undefined
+  getBySession(sessionId: string): TurnContext<unknown> | undefined
 }
 
 export class ApprovalCoordinator {
-  private readonly broker = new InteractionBroker<ApprovalResolution>()
+  private readonly broker = new ApprovalBroker<ApprovalResolution>()
   // "세션 동안 허용"으로 부여된 도구 — 같은 세션의 이후 턴에서 카드 없이 자동 허용. 키 =
   // dbSessionId, 값 = 허용된 toolName 집합. 프로세스 메모리에만 보존(영속 안 함).
   private readonly sessionAllowedTools = new Map<string, Set<string>>()
   // 보류 중 승인의 출처 턴 — permissionRespond 의 부수효과(세션 허용 부여·deny+interrupt
   // abort)가 정확한 턴을 향하게 한다. broker settle 시 정리.
-  private readonly turnsByApproval = new Map<string, InflightTurn>()
+  private readonly turnsByApproval = new Map<string, TurnContext>()
 
   isSessionAllowed(sessionId: string, toolName: string): boolean {
     return this.sessionAllowedTools.get(sessionId)?.has(toolName) ?? false
@@ -36,7 +36,7 @@ export class ApprovalCoordinator {
   // 의도적으로 안 쓴다(승인 중 auto-deny 금지) — 대신 send.ts 가 보류 동안 idle 타이머를 pause 한다.
   register(
     approvalId: string,
-    turn: InflightTurn,
+    turn: TurnContext,
     signal: AbortSignal
   ): Promise<ApprovalResolution> {
     this.turnsByApproval.set(approvalId, turn)

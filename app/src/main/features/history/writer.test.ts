@@ -1,18 +1,18 @@
 import { describe, expect, it, vi } from 'vitest'
-import { TurnPersistence } from './writer'
+import { HistoryWriter } from './writer'
 import type { DbQueries } from '../../infra/db'
 import type { AttachmentView } from '../../../shared/ipc'
 
 // persistUserMessage 만 검증 — appendMessage/appendPart 만 모의한다.
 function makePersistence(): {
-  persistence: TurnPersistence
+  persistence: HistoryWriter
   appendMessage: ReturnType<typeof vi.fn>
   appendPart: ReturnType<typeof vi.fn>
 } {
   const appendMessage = vi.fn(() => 7)
   const appendPart = vi.fn(() => 0)
   const db = { appendMessage, appendPart } as unknown as DbQueries
-  const persistence = new TurnPersistence(db)
+  const persistence = new HistoryWriter(db)
   return { persistence, appendMessage, appendPart }
 }
 
@@ -30,7 +30,7 @@ const fileView: AttachmentView = {
   kind: 'file'
 }
 
-describe('TurnPersistence.persistUserMessage — 첨부 영속', () => {
+describe('HistoryWriter.persistUserMessage — 첨부 영속', () => {
   it('첨부가 있으면 text 파트 + attachment 파트를 같은 메시지에 append 한다', () => {
     const { persistence, appendMessage, appendPart } = makePersistence()
     persistence.persistUserMessage('s1', '이거 봐', 100, [imageView, fileView])

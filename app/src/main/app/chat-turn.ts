@@ -2,7 +2,7 @@
 // 구동(스트림 소비→reduce→persist∥forward + retry/settle/stall)은 TurnCoordinator(L1)가 1급으로
 // 소유하고(handoff 0052, 0051 §A), 여기서는 *셋업* 만 한다 — 검증·동시턴 가드·provider/env/첨부
 // 해석·dangling 복구·turn 생성·레지스트리 등록·승인 콜백(requestApproval) 배선. 턴 상태는
-// SessionRuntimeRegistry, 영속은 TurnPersistence, 승인 왕복은 ApprovalCoordinator 에 위임한다.
+// SessionRuntimeRegistry, 영속은 HistoryWriter, 승인 왕복은 ApprovalCoordinator 에 위임한다.
 
 import type { IpcMainInvokeEvent, WebContents } from 'electron'
 import { randomUUID } from 'node:crypto'
@@ -33,7 +33,7 @@ import { sendChatEvent } from '../infra/ipc/send'
 import { previewOf } from '../infra/ipc/dto'
 import { handle, handlePlain } from '../infra/ipc/handle'
 import type { ApprovalCoordinator } from '../features/approvals/coordinator'
-import type { TurnPersistence } from '../features/history/writer'
+import type { HistoryWriter } from '../features/history/writer'
 import { SessionRuntime } from '../features/sessions/session-runtime'
 import type { RuntimeSessionAdapter } from '../contracts/ports'
 import { STALL_TIMEOUT_MS } from '../features/chat/timers'
@@ -51,7 +51,7 @@ import type {
   AdmissionContext,
   AdmissionDecision
 } from '../features/sessions/admission-controller'
-import type { InflightTurn } from '../contracts/turn'
+import type { TurnContext } from '../contracts/turn'
 
 export const IDLE_TIMEOUT_MS = STALL_TIMEOUT_MS
 export { createStallTimer as createIdleTimer } from '../features/chat/timers'
@@ -63,7 +63,7 @@ export interface ChatDeps {
   supervisor: RuntimeSupervisor<WebContents>
   bus: MainBus<WebContents>
   approvals: ApprovalCoordinator
-  persistence: TurnPersistence
+  persistence: HistoryWriter
   permissionModes: PermissionModeController
   admission: AdmissionController<WebContents>
   steerQueue: SteerQueue
@@ -298,7 +298,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
     const controller = new AbortController()
     // resume 경로면 sessions row 에 이미 binding 된 projectId 가 있으므로 그쪽에서 조회.
     // 새 채팅 경로(sessionId=null)면 renderer 가 보낸 projectId 를 init 시점에 binding.
-    const turn: InflightTurn<WebContents> = {
+    const turn: TurnContext<WebContents> = {
       controller,
       owner: event.sender,
       live: null,
