@@ -9,7 +9,7 @@ import {
 } from './turn-coordinator'
 import { TypedBus } from '../../infra/bus'
 import type { OrcaBusEvents } from '../../contracts/bus-events'
-import { SteerQueue } from './steer-queue'
+import { PendingMessageQueue } from './pending-message-queue'
 
 type W = string
 
@@ -247,17 +247,17 @@ describe('TurnCoordinator.run — steer 커밋 (user echo 기반, handoff 0060 D
   ): Promise<{
     types: string[]
     persistSteer: ReturnType<typeof vi.fn>
-    steerQueue: SteerQueue
+    pendingMessages: PendingMessageQueue
   }> {
     const runtime = fakeRuntime([script])
-    const steerQueue = new SteerQueue()
+    const pendingMessages = new PendingMessageQueue()
     for (const item of items) {
-      steerQueue.enqueue('s1', item.text, Date.now(), item.id)
-      steerQueue.flushHeld('s1', item.id)
+      pendingMessages.enqueue('s1', item.text, Date.now(), item.id)
+      pendingMessages.flushHeld('s1', item.id)
     }
     const persistSteer = vi.fn(() => 42)
     const deps = makeDeps(runtime, {
-      steerQueue,
+      pendingMessages,
       persist: {
         persist: vi.fn(),
         flushAskAnswers: vi.fn(),
@@ -270,11 +270,11 @@ describe('TurnCoordinator.run — steer 커밋 (user echo 기반, handoff 0060 D
     const types = (deps.forward.forward as ReturnType<typeof vi.fn>).mock.calls.map(
       (c) => (c[1] as NormalizedEvent).type
     )
-    return { types, persistSteer, steerQueue }
+    return { types, persistSteer, pendingMessages }
   }
 
   it('echo(uuid 매칭) 후 첫 비-echo 이벤트에서 flush 하고, echo 자체는 forward 되지 않는다', async () => {
-    const { types, persistSteer, steerQueue } = await runSteer([
+    const { types, persistSteer, pendingMessages } = await runSteer([
       sessionUpdated,
       toolStarted('t1'),
       toolCompleted('t1'),
@@ -288,11 +288,11 @@ describe('TurnCoordinator.run — steer 커밋 (user echo 기반, handoff 0060 D
     const flushIdx = types.indexOf('steer.flushed')
     expect(flushIdx).toBeGreaterThan(types.indexOf('tool.call.completed'))
     expect(flushIdx).toBeLessThan(types.lastIndexOf('message.completed'))
-    expect(steerQueue.drainForFlush('s1')).toBeUndefined()
+    expect(pendingMessages.drainAll('s1')).toBeUndefined()
   })
 
   it('echo 없이는 최상위 도구 경계·telemetry 에서도 flush 하지 않는다 — pending 잔존(다음 send 이월)', async () => {
-    const { types, persistSteer, steerQueue } = await runSteer([
+    const { types, persistSteer, pendingMessages } = await runSteer([
       sessionUpdated,
       toolStarted('t1'),
       toolCompleted('t1'),
@@ -302,22 +302,22 @@ describe('TurnCoordinator.run — steer 커밋 (user echo 기반, handoff 0060 D
     expect(persistSteer).not.toHaveBeenCalled()
     expect(types).not.toContain('steer.flushed')
     // 미소비 flushed 배치는 carryover(다음 send 이월) 대상으로 잔존한다.
-    expect(steerQueue.drainForFlush('s1')?.ids).toEqual(['steer-1'])
+    expect(pendingMessages.drainAll('s1')?.ids).toEqual(['steer-1'])
   })
 
   it('echo 의 uuid 가 미보존이면 text 완전일치로 폴백 매칭한다', async () => {
-    const { persistSteer, steerQueue } = await runSteer([
+    const { persistSteer, pendingMessages } = await runSteer([
       sessionUpdated,
       echo('my feedback'),
       text,
       telemetry
     ])
     expect(persistSteer).toHaveBeenCalledTimes(1)
-    expect(steerQueue.drainForFlush('s1')).toBeUndefined()
+    expect(pendingMessages.drainAll('s1')).toBeUndefined()
   })
 
   it('다건 pending 중 echo 된 항목만 flush 하고 나머지는 잔존한다', async () => {
-    const { persistSteer, steerQueue } = await runSteer(
+    const { persistSteer, pendingMessages } = await runSteer(
       [sessionUpdated, echo('first', 'a'), text, telemetry],
       [
         { id: 'a', text: 'first' },
@@ -326,11 +326,11 @@ describe('TurnCoordinator.run — steer 커밋 (user echo 기반, handoff 0060 D
     )
     expect(persistSteer).toHaveBeenCalledTimes(1)
     expect(persistSteer.mock.calls[0][1]).toBe('first')
-    expect(steerQueue.drainForFlush('s1')?.ids).toEqual(['b'])
+    expect(pendingMessages.drainAll('s1')?.ids).toEqual(['b'])
   })
 
   it('연속 echo 배치는 다음 비-echo 이벤트에서 단일 병합 flush 된다', async () => {
-    const { persistSteer, steerQueue } = await runSteer(
+    const { persistSteer, pendingMessages } = await runSteer(
       [sessionUpdated, echo('first', 'a'), echo('second', 'b'), text, telemetry],
       [
         { id: 'a', text: 'first' },
@@ -339,7 +339,7 @@ describe('TurnCoordinator.run — steer 커밋 (user echo 기반, handoff 0060 D
     )
     expect(persistSteer).toHaveBeenCalledTimes(1)
     expect(persistSteer.mock.calls[0][1]).toBe('first\n\nsecond')
-    expect(steerQueue.drainForFlush('s1')).toBeUndefined()
+    expect(pendingMessages.drainAll('s1')).toBeUndefined()
   })
 
   it('echo 직후 스트림이 telemetry 로 끝나면 telemetry persist 후 flush 된다', async () => {
@@ -353,13 +353,13 @@ describe('TurnCoordinator.run — steer 커밋 (user echo 기반, handoff 0060 D
   })
 
   it('매칭되지 않는 echo(초기 프롬프트 등)는 무시한다', async () => {
-    const { persistSteer, steerQueue } = await runSteer([
+    const { persistSteer, pendingMessages } = await runSteer([
       sessionUpdated,
       echo('unrelated prompt text'),
       telemetry
     ])
     expect(persistSteer).not.toHaveBeenCalled()
-    expect(steerQueue.drainForFlush('s1')?.ids).toEqual(['steer-1'])
+    expect(pendingMessages.drainAll('s1')?.ids).toEqual(['steer-1'])
   })
 
   it('pending steer 가 없으면 echo/경계에서도 flush(persist) 하지 않는다', async () => {
@@ -368,7 +368,7 @@ describe('TurnCoordinator.run — steer 커밋 (user echo 기반, handoff 0060 D
     ])
     const persistSteer = vi.fn(() => 42)
     const deps = makeDeps(runtime, {
-      steerQueue: new SteerQueue(),
+      pendingMessages: new PendingMessageQueue(),
       persist: {
         persist: vi.fn(),
         flushAskAnswers: vi.fn(),

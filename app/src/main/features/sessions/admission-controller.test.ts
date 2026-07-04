@@ -45,7 +45,7 @@ describe('AdmissionController', () => {
     ).toEqual({ kind: 'reject', reason: 'duplicate-turn' })
   })
 
-  it('RejectDuplicatePolicy 는 queue/steer 를 반환하지 않는다 (framework-only seam)', () => {
+  it('RejectDuplicatePolicy 는 accept/reject 이분 판정이다', () => {
     const policy = new RejectDuplicatePolicy()
     const decisions = [
       policy.decide({ target: { kind: 'existing-session', sessionId: 's1' }, hasInflight: false }),
@@ -54,8 +54,5 @@ describe('AdmissionController', () => {
     ]
 
     expect(decisions.map((decision) => decision.kind)).toEqual(['accept', 'reject', 'reject'])
-    expect(
-      decisions.some((decision) => decision.kind === 'queue' || decision.kind === 'steer')
-    ).toBe(false)
   })
 })

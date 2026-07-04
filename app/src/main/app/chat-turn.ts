@@ -46,7 +46,7 @@ import type { MainBus, TurnEmit } from '../contracts/bus-events'
 import type { TurnEventSink } from '../features/chat/turn-sinks'
 import { RuntimeSupervisor } from '../features/sessions/supervisor'
 import { abortTurn } from '../features/chat/abort'
-import type { SteerQueue } from '../features/chat/steer-queue'
+import type { PendingMessageQueue } from '../features/chat/pending-message-queue'
 import type {
   AdmissionController,
   AdmissionContext,
@@ -67,7 +67,7 @@ export interface ChatDeps {
   persistence: HistoryWriter
   permissionModes: PermissionModeController
   admission: AdmissionController<WebContents>
-  steerQueue: SteerQueue
+  pendingMessages: PendingMessageQueue
 }
 
 // renderer forward sink — sendChatEvent 래핑. 코디네이터가 버스를 타지 않는 forward-only 이벤트
@@ -160,40 +160,32 @@ function enactAdmissionDecision(
   sessionId: string | null,
   decision: AdmissionDecision
 ): boolean {
-  switch (decision.kind) {
-    case 'accept':
-      return true
-    case 'reject':
-      sendChatEvent(owner, {
-        type: 'error',
-        ...(sessionId ? { sessionId } : {}),
-        error: makeClassifiedError(
-          'provider_connection_error',
-          '이미 진행 중인 턴이 있습니다. 완료 후 다시 시도하세요.',
-          { retryable: true }
-        )
-      })
-      return false
-    case 'queue':
-    case 'steer':
-      // 0056 framework-only: 기본 정책은 queue/steer 를 반환하지 않는다. 실제 재디스패치/스트림
-      // 주입 enactment 는 후속 handoff 에서 L3 책임으로 채운다.
-      sendChatEvent(owner, {
-        type: 'error',
-        ...(sessionId ? { sessionId } : {}),
-        error: makeClassifiedError(
-          'provider_connection_error',
-          '이미 진행 중인 턴이 있습니다. 완료 후 다시 시도하세요.',
-          { retryable: true }
-        )
-      })
-      return false
-  }
+  if (decision.kind === 'accept') return true
+  // reject — 진행 중 턴에 대한 사용자 입력은 renderer 가 chat:steer(pending message queue 예약)
+  // 로 보내므로, 여기 도달하는 중복 chat:send 는 race 뿐이다(0056 → 0066 단순화).
+  sendChatEvent(owner, {
+    type: 'error',
+    ...(sessionId ? { sessionId } : {}),
+    error: makeClassifiedError(
+      'provider_connection_error',
+      '이미 진행 중인 턴이 있습니다. 완료 후 다시 시도하세요.',
+      { retryable: true }
+    )
+  })
+  return false
 }
 
 export function registerChatHandlers(deps: ChatDeps): void {
-  const { ctx, supervisor, bus, approvals, persistence, permissionModes, admission, steerQueue } =
-    deps
+  const {
+    ctx,
+    supervisor,
+    bus,
+    approvals,
+    persistence,
+    permissionModes,
+    admission,
+    pendingMessages
+  } = deps
 
   // settle(취소·서브에이전트 중단) 정착 이벤트를 turn.event 버스로 방출 — 스트리밍과 동일 파이프라인.
   // fault-isolated: 정리 중 구독자 throw 가 핸들러를 깨지 않게 격리한다.
@@ -409,13 +401,14 @@ export function registerChatHandlers(deps: ChatDeps): void {
     if (parsed.data.sessionId) supervisor.startResume(parsed.data.sessionId, turn)
     else supervisor.startNew(event.sender, turn)
 
-    // 이전 턴에서 소비되지 못한 pending steer 이월(0060 D2) — 턴-스코프 서브프로세스는 종료
-    // 시 CLI 내부 큐가 소멸하므로, 잔여 pending 은 여기(같은 세션의 다음 턴)서 프롬프트에 병합해
-    // 모델에 전달하고 그 시점에 커밋한다. steer row 를 새 user row *앞에* 영속해 renderer 의
-    // send 시점 로컬 커밋(chatStore)과 정렬을 일치시킨다. steer.flushed 는 보내지 않는다 —
-    // renderer 가 이미 로컬 커밋해 중복 append 가 된다.
+    // 사용자 턴 진입 = pending message queue 의 즉시 커밋 경로(0066). 이전 턴에서 소비되지
+    // 못한 pending 이월(0060 D2) — 턴-스코프 서브프로세스는 종료 시 CLI 내부 큐가 소멸하므로,
+    // 잔여 pending 은 여기(같은 세션의 다음 턴)서 프롬프트에 병합해 모델에 전달하고 그 시점에
+    // 커밋한다. 이월 row 를 새 user row *앞에* 영속해 renderer 의 send 시점 로컬 커밋(chatStore)
+    // 과 정렬을 일치시킨다. steer.flushed 는 보내지 않는다 — renderer 가 이미 로컬 커밋해
+    // 중복 append 가 된다.
     const steerCarryover = parsed.data.sessionId
-      ? steerQueue.drainForFlush(parsed.data.sessionId)
+      ? pendingMessages.drainAll(parsed.data.sessionId)
       : undefined
 
     // resume 경로: sessionId 가 들어왔다는 건 이전 init 으로 sessions row 가 이미
@@ -480,7 +473,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
       classifyError: (err, phase) => adapter.classifyError(err, phase),
       activeTurns: supervisor.activeTurns,
       backgroundSubagents,
-      steerQueue
+      pendingMessages
     })
 
     // 단일 권한 승인 위임 — 어댑터의 canUseTool 이 ask_question·plan_review·tool_approval 중
@@ -584,7 +577,8 @@ export function registerChatHandlers(deps: ChatDeps): void {
       // 게이트 훅(PostToolBatch) 시점에 로컬 홀드 steer 를 병합 단일 배치로 회수(0060 D3·D4).
       // turn.dbSessionId 를 훅 발화 시점에 동적으로 읽는다 — 새 세션 턴은 session.updated
       // 전까지 null(그동안 steer 자체가 불가능하므로 빈 회수가 옳다).
-      takeSteerFlush: () => (turn.dbSessionId ? steerQueue.flushHeld(turn.dbSessionId) : undefined),
+      takeSteerFlush: () =>
+        turn.dbSessionId ? pendingMessages.flushHeld(turn.dbSessionId) : undefined,
       // 서브에이전트 백그라운드화(가이드) — ORCA_SUBAGENT_BACKGROUND 게이트. 기본 off=foreground.
       backgroundSubagents,
       isSubagentBlocked: (st) => st !== undefined && turn.blockedSubagents.has(st),
@@ -622,10 +616,11 @@ export function registerChatHandlers(deps: ChatDeps): void {
       })
       return
     }
-    // 로컬 홀드(held)만 — stdin 즉시 주입하지 않는다(0060 D3: stdin 주입 = 조작 권한 포기).
-    // 주입은 어댑터의 게이트 훅이 takeSteerFlush 로 병합 배치를 회수해 수행하고, 커밋 판정은
-    // coordinator 가 input.echo(batch uuid) 관측으로 수행한다(0060 D1).
-    const item = steerQueue.enqueue(req.sessionId, req.text, Date.now(), req.clientRequestId)
+    // 어시스턴트 턴 = pending message queue 의 예약(held) 경로(0066) — stdin 즉시 주입하지
+    // 않는다(0060 D3: stdin 주입 = 조작 권한 포기). 주입은 어댑터의 게이트 훅이 takeSteerFlush
+    // 로 병합 배치를 회수해 수행하고, 커밋 판정은 coordinator 가 input.echo(batch uuid) 관측으로
+    // 수행한다(0060 D1). held 인 동안만 취소 가능(chat:steerCancel).
+    const item = pendingMessages.enqueue(req.sessionId, req.text, Date.now(), req.clientRequestId)
     sendChatEvent(event.sender, {
       type: 'steer.queued',
       sessionId: req.sessionId,
@@ -636,7 +631,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
   })
 
   handle(CHANNELS.chatSteerCancel, CancelSteerSchema, 'reject', (req, event): void => {
-    const removed = steerQueue.cancel(req.sessionId, req.id)
+    const removed = pendingMessages.cancel(req.sessionId, req.id)
     if (!removed) return
     sendChatEvent(event.sender, { type: 'steer.cancelled', sessionId: req.sessionId, id: req.id })
   })

@@ -49,7 +49,7 @@ import {
   AdmissionController,
   RejectDuplicatePolicy
 } from '../features/sessions/admission-controller'
-import { SteerQueue } from '../features/chat/steer-queue'
+import { PendingMessageQueue } from '../features/chat/pending-message-queue'
 import { ActiveTurnTracker } from '../features/sessions/active-turn-tracker'
 import { TypedBus } from '../infra/bus'
 import type { MainBus, OrcaBusEvents } from '../contracts/bus-events'
@@ -260,7 +260,7 @@ export class Bootstrap {
     const approvals = new ApprovalCoordinator()
     const permissionModes = new PermissionModeController()
     const admission = new AdmissionController<Electron.WebContents>(new RejectDuplicatePolicy())
-    const steerQueue = new SteerQueue()
+    const pendingMessages = new PendingMessageQueue()
     registerChatHandlers({
       ctx,
       supervisor,
@@ -269,7 +269,7 @@ export class Bootstrap {
       persistence,
       permissionModes,
       admission,
-      steerQueue
+      pendingMessages
     })
     approvals.registerHandlers(supervisor, permissionModes)
 

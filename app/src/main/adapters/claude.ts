@@ -279,7 +279,7 @@ export class ClaudeAdapter implements SessionAdapter {
     else signal?.addEventListener('abort', onAbort)
 
     // 턴-스코프 입력 스트림 — close() 까지 미종료(streaming-input.ts 가 불변식 격리).
-    // steer 는 로컬 홀드(SteerQueue held) 후 PostToolBatch 게이트 훅이 takeSteerFlush 로 병합
+    // steer 는 로컬 홀드(PendingMessageQueue held) 후 PostToolBatch 게이트 훅이 takeSteerFlush 로 병합
     // 배치를 회수해 input.push 로 주입한다(0060 D3·D4). 소비 확정은 CLI 가 흡수 후 되돌려주는
     // user echo(input.echo, claude-map)로 turn-coordinator 가 판정한다(0060 D1)
     // — pull(=SDK eager drain)도 orca 관찰 경계도 flush 신호가 아니다.

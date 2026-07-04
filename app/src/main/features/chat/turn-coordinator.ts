@@ -19,7 +19,7 @@ import { coerceStoppedToolCompletion } from './subagent-settlement'
 import { settleOpenToolRuns, settleSubagentTask, stopLiveSubagent } from './settle'
 import type { TurnEventSink, TurnPersistSink } from './turn-sinks'
 import type { MainBus, TurnEmit } from '../../contracts/bus-events'
-import type { SteerQueue } from './steer-queue'
+import type { PendingMessageQueue } from './pending-message-queue'
 
 export const MAX_RETRIES = 2
 export const RETRY_BACKOFF_MS = [1_000, 2_000] as const
@@ -70,7 +70,7 @@ export interface TurnCoordinatorDeps<W> {
   classifyError: (err: unknown, phase: string) => ClassifiedError
   activeTurns: ActiveTurnGate
   backgroundSubagents: boolean
-  steerQueue?: SteerQueue
+  pendingMessages?: PendingMessageQueue
 }
 
 export class TurnCoordinator<W = unknown> {
@@ -97,19 +97,19 @@ export class TurnCoordinator<W = unknown> {
   }
 
   cancelSteer(sessionId: string, id: string): boolean {
-    const item = this.deps.steerQueue?.cancel(sessionId, id)
+    const item = this.deps.pendingMessages?.cancel(sessionId, id)
     return item != null
   }
 
   // user echo(input.echo) 관측 → 해당 steer 배치를 소비로 표시한다. echo 는 CLI 가 stdin
   // 주입 입력을 자기 컨텍스트로 흡수(drain)한 순간의 유일한 정밀 신호(명세 §6.1, handoff 0060
   // D1) — 0060 의 경계 관찰 근사(최상위 tool.call.completed settle/telemetry)를 대체한다.
-  // uuid(게이트 flush 시 실은 SteerQueue 배치 uuid, D3·D4) 매칭 1차, echo 의 uuid 미보존 대비
+  // uuid(게이트 flush 시 실은 pending queue 배치 uuid, D3·D4) 매칭 1차, echo 의 uuid 미보존 대비
   // 병합 텍스트 폴백. 매칭 실패(초기 프롬프트 echo 등)는 무시 — 허위 커밋이 구조적으로 불가능하다.
   private markSteerConsumed(turn: TurnContext<W>, ev: { uuid?: string; text: string }): void {
     const sessionId = turn.dbSessionId
     if (!sessionId) return
-    this.deps.steerQueue?.markConsumed(sessionId, {
+    this.deps.pendingMessages?.markConsumed(sessionId, {
       ...(ev.uuid !== undefined ? { uuid: ev.uuid } : {}),
       text: ev.text
     })
@@ -120,9 +120,9 @@ export class TurnCoordinator<W = unknown> {
   // 텍스트를 committed 로 굳히지 않는다).
   private flushConsumedSteer(turn: TurnContext<W>): void {
     const sessionId = turn.dbSessionId
-    const { steerQueue, persist, forward } = this.deps
-    if (!sessionId || !steerQueue) return
-    const flush = steerQueue.drainConsumed(sessionId)
+    const { pendingMessages, persist, forward } = this.deps
+    if (!sessionId || !pendingMessages) return
+    const flush = pendingMessages.drainConsumed(sessionId)
     if (!flush) return
     const messageId = persist.persistSteerUserMessage?.(turn, flush.text, Date.now())
     if (messageId == null) return

@@ -21,7 +21,7 @@ import type { NormalizedPermissionMode } from '../../shared/permission-mode'
 import type { NormalizedHookSet } from './hooks'
 
 // steer flush 배치 계약 — 어댑터가 게이트 훅에서 회수(takeSteerFlush)해 자기 입력 채널로 주입한다.
-// 구현(SteerQueue)은 features/chat 이지만 계약 타입은 어댑터 포트에 둔다.
+// 구현(PendingMessageQueue)은 features/chat 이지만 계약 타입은 어댑터 포트에 둔다.
 export interface SteerFlush {
   ids: string[]
   text: string

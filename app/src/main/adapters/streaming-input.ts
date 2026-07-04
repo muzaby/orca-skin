@@ -20,7 +20,7 @@ export interface TurnInputStream {
   // 주의: push 는 SDK 서브프로세스 stdin 으로 입력을 흘려보낼 뿐 — pending steer 의 UI/영속
   // flush 는 이 pull 이 아니라 CLI 가 소비 후 되돌려주는 user echo(input.echo)로 확정한다
   // (handoff 0060 D1). SDK 는 이 AsyncIterable 을 eager 하게 drain 하므로 pull ≠ turn 경계다.
-  // uuid 는 orca 가 부여하는 상관키(SteerQueue 배치 uuid) — echo 매칭의 1차 키로 쓴다.
+  // uuid 는 orca 가 부여하는 상관키(PendingMessageQueue 배치 uuid) — echo 매칭의 1차 키로 쓴다.
   push(text: string, uuid?: string): void
   // 턴 종료(=result 도착) 또는 abort 시 호출 — generator 를 return 시켜 세션을 닫는다. 멱등.
   close(): void
