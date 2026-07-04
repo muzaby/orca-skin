@@ -11,8 +11,13 @@ import { toClaudePermissionMode } from '../../../shared/permission-mode'
 import { InteractionBroker } from '../../features/approvals/broker'
 import type { PermissionModeController } from '../../features/approvals/permission-mode-controller'
 import { handle } from '../../infra/ipc/handle'
-import type { RuntimeSupervisor } from '../../features/sessions/supervisor'
 import type { InflightTurn } from '../../contracts/turn'
+
+// 세션 조회 포트 — 라이브 전환 시 진행 중 턴을 찾는 데만 필요. 구조적 타입으로 features/sessions
+// 직접 참조를 끊는다(수직 슬라이스 경계, 0062). RuntimeSupervisor 가 구조적으로 만족한다.
+interface SessionLookup {
+  getBySession(sessionId: string): InflightTurn<unknown> | undefined
+}
 
 export class ApprovalCoordinator {
   private readonly broker = new InteractionBroker<ApprovalResolution>()
@@ -68,10 +73,7 @@ export class ApprovalCoordinator {
     }
   }
 
-  registerHandlers(
-    supervisor: RuntimeSupervisor<unknown>,
-    permissionModes: PermissionModeController
-  ): void {
+  registerHandlers(supervisor: SessionLookup, permissionModes: PermissionModeController): void {
     handle(CHANNELS.permissionRespond, PermissionRespondSchema, { fallback: undefined }, (req) =>
       this.respond(req)
     )

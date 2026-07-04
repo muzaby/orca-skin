@@ -43,7 +43,8 @@ import { TurnCoordinator } from '../features/chat/turn-coordinator'
 import { settleOpenToolRuns, settleSubagentTask, stopLiveSubagent } from '../features/chat/settle'
 import type { MainBus, TurnEmit } from '../contracts/bus-events'
 import type { TurnEventSink } from '../features/chat/turn-sinks'
-import { RuntimeSupervisor, abortTurn } from '../features/sessions/supervisor'
+import { RuntimeSupervisor } from '../features/sessions/supervisor'
+import { abortTurn } from '../features/chat/abort'
 import type { SteerQueue } from '../features/chat/steer-queue'
 import type {
   AdmissionController,

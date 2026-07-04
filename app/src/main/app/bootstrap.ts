@@ -37,7 +37,6 @@ import { scanSkills, type SkillScanRoot } from '../features/extensions/skills/sc
 import { initDb } from '../infra/db'
 import { CostTracker } from '../features/usage/tracker'
 import { ExtensionBuilder } from '../features/extensions/builder'
-import { buildAppend, loadPolicies } from '../prompts'
 import { PermissionModeController } from '../features/approvals/permission-mode-controller'
 import type { RouterContext } from './context'
 import { registerSessionHandlers } from './handlers/session'
@@ -145,17 +144,13 @@ export class IpcRouter {
       }
     })
     cost.recompute()
-    // 정적 정책 본문(prompts/)을 startup 1회 조립. 조건은 startup-known 값(platform)만 — 조건부
-    // 블록이 per-turn ctx 를 요구하면 그 시점에 빌더로 옮긴다. DB 프로젝트 지침은 빌더가 매 턴
-    // 조회하므로(무캐시) 지침 편집 즉시 반영 불변.
-    const stableAppend = buildAppend({ platform: process.platform }, loadPolicies())
-    // 빌더는 db 인스턴스가 필요해 여기서 생성. skills 는 lazy getter 라 스캔
-    // 완료 전에 만들어도 무방 — 턴 실행 시점에 최신 skillsCache 를 읽는다.
+    // 빌더는 db 인스턴스가 필요해 여기서 생성. skills 는 lazy getter 라 스캔 완료 전에 만들어도
+    // 무방 — 턴 실행 시점에 최신 skillsCache 를 읽는다. DB 프로젝트 지침은 빌더가 매 턴 조회하므로
+    // (무캐시) 지침 편집이 같은 세션 다음 메시지부터 즉시 반영된다.
     const extensions = new ExtensionBuilder(
       db,
       this.mcp,
       () => this.skillsCache,
-      stableAppend,
       () => distOrcaPluginDir('claude')
     )
     await this.registry.refreshInstallState()

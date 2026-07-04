@@ -93,10 +93,10 @@ export default defineConfig(
     }
   },
   // Main 프로세스 레이어 경계 강제 (handoff 0062 재구성 — 아키텍처 스펙).
-  // 목표 DAG: shared → infra → adapters(ports&adapters) → features(수직 슬라이스) → app(컴포지션 루트).
-  // contracts = main 내부 타입 계약(구현 0). **전환 중(0062 진행)**: 아직 안 옮긴 디렉토리는 `legacy`
-  // catch-all 로 분류하고 관용 규칙을 둔다 — 재배치 완료 후 legacy 제거 + 엄격화(체크리스트 마지막 단계).
-  // import/no-cycle 로 같은-레이어 순환까지 차단(0011 config↔mcp 재발 방지).
+  // DAG: shared → infra → adapters(ports&adapters) → contracts(타입 계약) → features(수직 슬라이스) → app(컴포지션 루트).
+  // 핵심 규칙: **features 는 같은 feature + contracts/adapters/infra/shared 만** — feature↔feature 교차 차단.
+  // contracts = main 내부 타입 계약(TurnContext·bus-events·ports·session-state, 구현 최소). import/no-cycle 로
+  // 같은-레이어 순환까지 차단(0011 config↔mcp 재발 방지).
   {
     files: ['src/main/**/*.ts', 'src/shared/**/*.ts'],
     plugins: { boundaries: eslintPluginBoundaries, import: eslintPluginImport },
@@ -107,18 +107,16 @@ export default defineConfig(
         node: { extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'] }
       },
       'boundaries/include': ['src/main/**/*', 'src/shared/**/*'],
-      // 순서 = specific → catch-all.
+      // 순서 = specific → catch-all (adapter-impl 가 adapters 보다 먼저).
       'boundaries/elements': [
         { type: 'main-root', pattern: 'src/main/*.ts', mode: 'file' },
         { type: 'app', pattern: 'src/main/app', mode: 'folder' },
-        // 어댑터 구현체(claude·mock) — engine 별 격리. 루트 adapters 는 ports/registry.
+        // 어댑터 구현체(claude·mock 서브폴더) — engine 별 격리. 루트 adapters 는 ports/registry.
         { type: 'adapter-impl', pattern: 'src/main/adapters/*', mode: 'folder', capture: ['engine'] },
         { type: 'adapters', pattern: 'src/main/adapters', mode: 'folder' },
         { type: 'features', pattern: 'src/main/features/*', mode: 'folder', capture: ['feature'] },
         { type: 'contracts', pattern: 'src/main/contracts', mode: 'folder' },
         { type: 'infra', pattern: 'src/main/infra', mode: 'folder' },
-        // 전환용 catch-all — 아직 재배치 안 된 디렉토리(ipc·lifecycle·mcp·extensions·settings·…).
-        { type: 'legacy', pattern: 'src/main/*', mode: 'folder' },
         { type: 'shared', pattern: 'src/shared', mode: 'folder' }
       ]
     },
@@ -129,61 +127,38 @@ export default defineConfig(
         {
           default: 'disallow',
           rules: [
+            // 컴포지션 루트(index.ts·app/) → 전부 (구체 엔진명 리터럴 허용, 1회성 배선).
             {
-              from: ['main-root'],
-              allow: [
-                'main-root',
-                'app',
-                'adapters',
-                'adapter-impl',
-                'features',
-                'contracts',
-                'infra',
-                'legacy',
-                'shared'
-              ]
+              from: { type: 'main-root' },
+              allow: {
+                to: {
+                  type: ['main-root', 'app', 'adapters', 'adapter-impl', 'features', 'contracts', 'infra', 'shared']
+                }
+              }
             },
             {
-              from: ['app'],
-              allow: [
-                'app',
-                'main-root',
-                'adapters',
-                'adapter-impl',
-                'features',
-                'contracts',
-                'infra',
-                'legacy',
-                'shared'
-              ]
+              from: { type: 'app' },
+              allow: {
+                to: {
+                  type: ['app', 'main-root', 'adapters', 'adapter-impl', 'features', 'contracts', 'infra', 'shared']
+                }
+              }
             },
-            // adapters ports → 구현체·infra·shared (+ 전환 중 legacy 임시 허용).
-            { from: ['adapters'], allow: ['adapters', 'adapter-impl', 'infra', 'shared', 'legacy'] },
+            // adapters(ports&adapters) → 구현체·infra·shared.
+            { from: { type: 'adapters' }, allow: { to: { type: ['adapters', 'adapter-impl', 'infra', 'shared'] } } },
+            { from: { type: 'adapter-impl' }, allow: { to: { type: ['adapter-impl', 'adapters', 'infra', 'shared'] } } },
+            // features → **같은 feature 만** (교차 차단) + contracts/adapters/infra/shared.
             {
-              from: ['adapter-impl'],
-              allow: ['adapter-impl', 'adapters', 'infra', 'shared', 'legacy']
+              from: { type: 'features' },
+              allow: { to: { type: 'features', captured: { feature: '{{from.feature}}' } } }
             },
-            // features → 포트·계약·infra·shared (+ 전환 중 features 교차·legacy 임시 허용).
             {
-              from: ['features'],
-              allow: ['features', 'contracts', 'adapters', 'adapter-impl', 'infra', 'shared', 'legacy']
+              from: { type: 'features' },
+              allow: { to: { type: ['contracts', 'adapters', 'adapter-impl', 'infra', 'shared'] } }
             },
-            { from: ['contracts'], allow: ['contracts', 'adapters', 'infra', 'shared', 'legacy'] },
-            { from: ['infra'], allow: ['infra', 'shared', 'legacy'] },
-            // legacy(전환) → 사실상 전부(재배치가 끝나면 이 요소 자체가 사라진다).
-            {
-              from: ['legacy'],
-              allow: [
-                'legacy',
-                'adapters',
-                'adapter-impl',
-                'features',
-                'contracts',
-                'infra',
-                'shared'
-              ]
-            },
-            { from: ['shared'], allow: ['shared'] }
+            { from: { type: 'contracts' }, allow: { to: { type: ['contracts', 'adapters', 'infra', 'shared'] } } },
+            { from: { type: 'infra' }, allow: { to: { type: ['infra', 'shared'] } } },
+            { from: { type: 'shared' }, allow: { to: { type: 'shared' } } }
           ]
         }
       ]
