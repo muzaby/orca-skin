@@ -173,8 +173,10 @@
 - [x] **contracts/** (C13): `TurnContext`→`contracts/turn.ts`, `bus-events`·`ports`·`session-state`→`contracts/`. provider-settings 참조는 `adapters/provider-config` 포트로 상향(features 역참조 제거). **보류**: `InflightTurn` 별칭 제거·`ports` Runtime\* 중복 해체(→ SessionAdapter 직접)는 네이밍/엄격화 최종 wave 로.
 - [x] **lifecycle 분해** (C13): →`features/sessions`(supervisor·registry·pool·runtime·admission·eviction·cap-policy·active-turn-tracker·abort) + `features/chat`(turn-coordinator·steer-queue·settle·subagent-settlement·timers·recovery·turn-sinks). 전환 eslint(features↔features 허용)에 기대 원자 커밋 회피, 게이트 649 green.
 - [x] **ipc 분해 + app** (C14): `ipc/chat/{persist→features/history/writer,approvals→features/approvals/coordinator,title-generation→features/chat}`, `send.ts`→`app/chat-turn.ts`(셋업 컴포지션은 app 유지), handlers/*→`app/handlers/`, `ipc/registry`→`infra/ipc/handle`, `ipc/context`→`infra/ipc/send`(push 헬퍼)+`app/context`(RouterContext), `router.ts`→`app/bootstrap.ts`, `installer`→`adapters/installer.ts`, 무회귀 배럴(turn-registry·subagent-settlement) 제거, `index.ts`→`app/bootstrap` 참조. **보류**: `send.ts` 세부 분해(turn-setup)·RouterContext 완전 해체(per-feature ipc)는 최종 wave(features→app 차단 전까지 app 컴포지션 유지).
-- [ ] **잔여 미사용**: `prompts` 정책 체인(+`system-prompt.md` 동시 갱신)·`capabilities/{types,claude-probe probe}`·무회귀 배럴(`ipc/chat/turn-registry`·`subagent-settlement`).
-- [ ] **eslint + AGENTS + 네이밍**: boundaries 신 elements(설계 §eslint) + `src/main/AGENTS.md`·`app/AGENTS.md` 재작성 + 네이밍(`IpcRouter`→`bootstrap`·`TurnPersistence`→`HistoryWriter`·`CostTracker`→`UsageTracker`·`InteractionBroker`→`ApprovalBroker`).
+- [x] **잔여 미사용 제거** (C15): `prompts` 정책 체인 전체(빈 `POLICY_REGISTRY`·`buildAppend`·`loadPolicies`·`getPlatformHint`, `ExtensionBuilder.stableAppend` 파라미터까지) 제거 — 무회귀 배럴은 C14 에서 제거됨. `capabilities` 는 이미 이전 wave 에서 제거(코멘트 잔재만).
+- [x] **feature 경계 엄격화** (C15): boundaries 신 elements(legacy 제거·v6 object) + feature 교차 5건 해소(abort+stall→chat / idle-close→sessions 분리, title→provider-config 포트·registry/supervisor 구조적 포트). 위반 샘플로 error 확인.
+- [x] **네이밍 + AGENTS** (C16): `IpcRouter`→`Bootstrap`·`TurnPersistence`→`HistoryWriter`·`CostTracker`→`UsageTracker`·`InteractionBroker`→`ApprovalBroker`·`InflightTurn` 별칭 제거 + `Installer` 인라인 + `src/main/AGENTS.md` 재작성·`app/AGENTS.md` 표 갱신.
+- [ ] **이연(비-AC, 후속)**: `contracts/ports.ts` 의 `Runtime*` 표면(`RuntimeLiveTurn`/`RuntimeSessionAdapter` 등)과 adapters `LiveTurn`/`SessionAdapter` 의 구조적 중복 통합 — 16개 인수 어디에도 없고 의미적 타입 변경 리스크가 있어 별도 후속으로 분리. RouterContext 완전 per-feature 해체도 불필요(features→app 참조 0 — app 컴포지션 유지가 정상).
 
 ## [구현자 기입] 구현 보고
 
