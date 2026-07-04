@@ -84,12 +84,14 @@
 
 ### 설계 리뷰
 
-(Claude 직접 구현 — 구현 중 발견 사항은 아래에)
+- 설계대로 구현. AC6(경계 무변경)은 커밋 대상 11파일이 전부 `src/main/**` 임으로 구조적으로 보장.
 
 ### 놓친 잠재 문제 + 대응
 
-- (기입 예정)
+- ✅ Windows Git Bash `sed` 가 한글 패턴 2건 치환 실패 → ASCII 토큰(`SteerQueue`)만으로 재치환 후 `rg` 0건 재검.
+- ✅ 워킹트리 대량 `M` 은 CRLF 노이즈(`--ignore-cr-at-eol` 실변경 0) — 커밋 대상을 명시 경로로 한정해 오염 방지.
 
 ### 변경 파일 / 게이트 결과
 
-- (기입 예정)
+- 변경: `pending-message-queue.{ts,test.ts}`(구 steer-queue rename) · `turn-coordinator.{ts,test.ts}` · `chat-turn.ts` · `bootstrap.ts` · `admission-policy.ts` · `admission-controller.test.ts` · adapters 주석 3건(`claude.ts`·`streaming-input.ts`·`turn.ts`).
+- 게이트: lint ✅ · typecheck(node+web+test) ✅ · test **678 passed (90 files)** ✅. 신규 의존성 0.
