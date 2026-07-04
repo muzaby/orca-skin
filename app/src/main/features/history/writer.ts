@@ -8,11 +8,11 @@ import type { AttachmentView, NormalizedEvent } from '../../../shared/ipc'
 import type { DbQueries } from '../../infra/db'
 import { previewOf } from '../../infra/ipc/dto'
 import { sendChatEvent } from '../../infra/ipc/send'
-import type { InflightTurn } from '../../contracts/turn'
+import type { TurnContext } from '../../contracts/turn'
 
 // 턴 영속(history) — 사용량 집계(usage/subscriber)·제목 생성(TitleGenerator)은 별개 버스 구독자로
 // 분리됐다(0062). 여기 telemetry 처리는 assistant 메시지 마감 + 다음 턴 대비 reset 만 담당한다.
-export class TurnPersistence {
+export class HistoryWriter {
   constructor(private readonly db: DbQueries) {}
 
   // user 메시지 1건을 messages row + text 파트로 영속한다(content 는 FTS5 캐시).
@@ -41,7 +41,7 @@ export class TurnPersistence {
     return id
   }
 
-  persistSteerUserMessage(turn: InflightTurn, text: string, createdAt: number): number | null {
+  persistSteerUserMessage(turn: TurnContext, text: string, createdAt: number): number | null {
     const sessionId = turn.dbSessionId
     if (!sessionId) return null
     // 소비 확정 = 응답 경계. 진행 중 어시스턴트 메시지(소비 전 응답)를 먼저 마감·리셋해 steer
@@ -60,7 +60,7 @@ export class TurnPersistence {
 
   // 현재 assistant 메시지를 보장(없으면 빈 메시지 생성 + text 캐시 리셋)하고 id 를 반환한다.
   // 한 턴의 reasoning/text/tool_*/error 파트를 같은 메시지에 순서대로 묶기 위한 진입점.
-  private ensureAssistantMessage(turn: InflightTurn, sessionId: string): number {
+  private ensureAssistantMessage(turn: TurnContext, sessionId: string): number {
     if (turn.currentAssistantMessageId == null) {
       turn.currentAssistantMessageId = this.db.appendMessage({
         sessionId,
@@ -77,7 +77,7 @@ export class TurnPersistence {
   // AskUserQuestion 답변과 tool_use id 를 페어링해 tool_result 를 합성한다(SDK 가 answers 를
   // 안 돌려주므로). 페어가 생길 때마다 DB 저장 + renderer 로 tool_result ChatEvent 전송 →
   // 카드가 결과를 받아 '질문 중'→'요청됨' 으로 전이하고 AskExchange 가 답변 버블을 렌더한다.
-  flushAskAnswers(turn: InflightTurn, wc: WebContents): void {
+  flushAskAnswers(turn: TurnContext, wc: WebContents): void {
     while (turn.pendingAskAnswers.length > 0 && turn.askPendingIds.length > 0) {
       const toolUseId = turn.askPendingIds.shift()!
       const a = turn.pendingAskAnswers.shift()!
@@ -108,7 +108,7 @@ export class TurnPersistence {
     }
   }
 
-  persist(turn: InflightTurn, ev: NormalizedEvent): void {
+  persist(turn: TurnContext, ev: NormalizedEvent): void {
     const now = Date.now()
     switch (ev.type) {
       case 'session.updated': {

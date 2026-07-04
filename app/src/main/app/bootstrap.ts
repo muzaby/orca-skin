@@ -1,4 +1,4 @@
-// IpcRouter — main 측 컴포지션 루트(app 레이어). 의존성 생성 + 부팅 시퀀스 + 핸들러 등록 위임만
+// Bootstrap — main 측 컴포지션 루트(app 레이어). 의존성 생성 + 부팅 시퀀스 + 핸들러 등록 위임만
 // 담당한다. 도메인 핸들러는 app/handlers/, chat 턴 셋업은 app/chat-turn.ts, 턴 파이프라인 협력자는
 // features/{chat,history,approvals,sessions,usage} 참조 (handoff 0062 수직 슬라이스 재구성).
 
@@ -13,10 +13,9 @@ import {
   type NormalizedEvent,
   type SkillInfo
 } from '../../shared/ipc'
-import type { InflightTurn } from '../contracts/turn'
+import type { TurnContext } from '../contracts/turn'
 import { AdapterRegistry } from '../adapters/registry'
 import { MockAdapter } from '../adapters/mock'
-import { Installer } from '../adapters/installer'
 import { SettingsStore } from '../infra/settings-store'
 import { McpStore } from '../features/extensions/mcp/store'
 import {
@@ -35,7 +34,7 @@ import { ProviderSettingsService } from '../features/providers/provider-settings
 import { loadClaudeProviderSettings } from '../adapters/claude-settings'
 import { scanSkills, type SkillScanRoot } from '../features/extensions/skills/scan'
 import { initDb } from '../infra/db'
-import { CostTracker } from '../features/usage/tracker'
+import { UsageTracker } from '../features/usage/tracker'
 import { ExtensionBuilder } from '../features/extensions/builder'
 import { PermissionModeController } from '../features/approvals/permission-mode-controller'
 import type { RouterContext } from './context'
@@ -57,12 +56,12 @@ import type { MainBus, OrcaBusEvents } from '../contracts/bus-events'
 import { settleOpenToolRuns } from '../features/chat/settle'
 import { recordTurnUsage } from '../features/usage/subscriber'
 import { ApprovalCoordinator } from '../features/approvals/coordinator'
-import { TurnPersistence } from '../features/history/writer'
+import { HistoryWriter } from '../features/history/writer'
 import { TitleGenerator } from '../features/chat/title-generation'
 import { recoverDanglingToolCalls } from '../features/chat/recovery'
 import { broadcastConcurrency, sendChatEvent } from '../infra/ipc/send'
 
-export class IpcRouter {
+export class Bootstrap {
   readonly settings = new SettingsStore()
   readonly mcp = new McpStore(this.settings)
   private readonly registry = new AdapterRegistry()
@@ -137,8 +136,8 @@ export class IpcRouter {
     if (recovered.toolResultsWritten > 0 && is.dev) {
       console.log('[recovery] dangling tools settled:', recovered)
     }
-    // 비용 요약 IPC 송출 배선 — domain(CostTracker)은 electron 비의존, 송출은 여기(컴포지션 루트)서.
-    const cost = new CostTracker(db, (summary) => {
+    // 비용 요약 IPC 송출 배선 — domain(UsageTracker)은 electron 비의존, 송출은 여기(컴포지션 루트)서.
+    const cost = new UsageTracker(db, (summary) => {
       for (const wc of webContents.getAllWebContents()) {
         if (!wc.isDestroyed()) wc.send(CHANNELS.costSummaryEvent, summary)
       }
@@ -188,7 +187,6 @@ export class IpcRouter {
       settings: this.settings,
       mcp: this.mcp,
       registry: this.registry,
-      installer: new Installer(this.registry),
       cost,
       secretStore,
       extensions,
@@ -212,7 +210,7 @@ export class IpcRouter {
     if (!this.supervisor || !this.bus) return
     const bus = this.bus
     // 열린 도구를 'aborted' 합성 tool_result 로 정착 → turn.event 버스로 방출(history 구독자가 영속).
-    const emit = (turn: InflightTurn<Electron.WebContents>, ev: NormalizedEvent): void => {
+    const emit = (turn: TurnContext<Electron.WebContents>, ev: NormalizedEvent): void => {
       try {
         bus.emit('turn.event', { turn, ev })
       } catch (e) {
@@ -240,7 +238,7 @@ export class IpcRouter {
     // usage·history 는 critical(throw=턴 실패 전파), title·relay 는 격리(실패가 파이프라인을 안 죽임).
     const bus = (this.bus = new TypedBus<OrcaBusEvents<Electron.WebContents>>())
     const titles = new TitleGenerator(ctx.db)
-    const persistence = new TurnPersistence(ctx.db)
+    const persistence = new HistoryWriter(ctx.db)
     bus.on(
       'turn.event',
       ({ turn, ev }) => {

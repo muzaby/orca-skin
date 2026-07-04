@@ -1,6 +1,6 @@
 // PermissionBridge 헬퍼 — provider 중립 권한 요청/정책 (provider-runtime.md §3).
 //
-// 권한 요청의 보류·해소(approvalId ↔ Promise)는 ask/broker.ts 의 InteractionBroker 가 이미
+// 권한 요청의 보류·해소(approvalId ↔ Promise)는 ask/broker.ts 의 ApprovalBroker 가 이미
 // 담당한다(approvalId 로 키잉되는 PendingApprovalStateMachine). 본 파일은 그 위의 두 순수 조각:
 //   ① agentPermissionRequest — AskUserQuestion·ExitPlanMode·일반 도구를 단일 permission.requested 로 합성.
 //   ② AppCommandPolicy — 앱이 합성한 명령(slash command 등)의 3분기 분류(현재 seam).

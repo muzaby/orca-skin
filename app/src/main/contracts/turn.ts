@@ -30,5 +30,3 @@ export interface TurnContext<W = unknown> {
   blockedSubagents: Set<string>
   stoppedSubagents: Set<string>
 }
-
-export type InflightTurn<W = unknown> = TurnContext<W>

@@ -4,13 +4,13 @@ import { existsSync } from 'fs'
 import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { IpcRouter } from './app/bootstrap'
+import { Bootstrap } from './app/bootstrap'
 import { closeDb } from './infra/db'
 import { CHANNELS } from '../shared/ipc'
 import type { SettingsStore } from './infra/settings-store'
 
 // will-quit(모듈 스코프)에서 종료 정리를 호출하기 위한 라우터 참조. whenReady 에서 채워진다.
-let routerRef: IpcRouter | null = null
+let routerRef: Bootstrap | null = null
 
 // 전역 미처리 예외 가드. Claude SDK 가 claude CLI 서브프로세스 stdin 으로 user 메시지를
 // 쓰다 실패하는 비동기 에러(예: 큰 이미지 첨부 전송 중 'write EOF at
@@ -141,7 +141,7 @@ app.whenReady().then(async () => {
   // 윈도우 생성 이전에 app:// 핸들러를 부착해 renderer 로딩이 바로 받쳐지도록.
   registerAppProtocol()
 
-  const router = new IpcRouter()
+  const router = new Bootstrap()
   await router.start()
   routerRef = router
 

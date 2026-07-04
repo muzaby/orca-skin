@@ -70,10 +70,22 @@ export function registerMiscHandlers(ctx: RouterContext): void {
     return toAgentEnvironments(entries, supported)
   })
 
+  // 백엔드 설치 — 어댑터의 install() 스트림을 renderer 로 중계하고 완료 후 설치 상태를 갱신한다.
+  // (구 설치 래퍼 클래스는 24LoC 였어 여기 인라인 — handoff 0062.)
   handle(CHANNELS.installStart, StartInstallSchema, 'reject', async (req, event): Promise<void> => {
-    for await (const st of ctx.installer.start(req.backend)) {
+    const adapter = ctx.registry.get(req.backend)
+    if (!adapter) {
+      sendInstallStatus(event.sender, {
+        step: 'failed',
+        error: `Unknown backend: ${req.backend}`,
+        done: true
+      })
+      return
+    }
+    for await (const st of adapter.install()) {
       sendInstallStatus(event.sender, st)
     }
+    await ctx.registry.refreshInstallState()
   })
 
   handlePlain(CHANNELS.settingsGet, (): Settings => ctx.settings.getAll())

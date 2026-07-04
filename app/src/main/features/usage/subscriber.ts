@@ -1,5 +1,5 @@
 // 사용량 집계 구독자(아키텍처 스펙 §4.2·§5.2) — turn.event 버스의 telemetry 를 소비해 사용량
-// 부모/자식 행을 turn_usage 원장에 적재하고 비용 요약을 재계산·방출한다. 0062 이전엔 TurnPersistence
+// 부모/자식 행을 turn_usage 원장에 적재하고 비용 요약을 재계산·방출한다. 0062 이전엔 HistoryWriter
 // (history) 안에 있었으나, "컨텍스트+비용 추적"은 history 영속과 별개 소비자이므로 버스 구독으로 분리.
 //
 // **순서 계약(critical)**: history 영속이 `turn.currentAssistantMessageId` 를 reset 하기 *전* 에
@@ -8,7 +8,7 @@
 
 import type { NormalizedEvent } from '../../../shared/ipc'
 import type { DbQueries } from '../../infra/db'
-import type { CostTracker } from './tracker'
+import type { UsageTracker } from './tracker'
 import type { TurnContext } from '../../contracts/turn'
 import { hasContextTokens } from './usage-map'
 
@@ -16,7 +16,7 @@ import { hasContextTokens } from './usage-map'
 // 행으로 컨텍스트 도넛을 0 으로 덮지 않게.
 export function recordTurnUsage(
   db: DbQueries,
-  cost: CostTracker,
+  cost: UsageTracker,
   turn: TurnContext,
   ev: Extract<NormalizedEvent, { type: 'telemetry' }>
 ): void {

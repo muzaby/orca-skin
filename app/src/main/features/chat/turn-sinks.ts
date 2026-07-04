@@ -1,7 +1,7 @@
 // TurnCoordinator(L1 가로축 구동체, 0052)의 협력자 인터페이스. §A 의 "persist ∥ forward 는
 // 병렬 독립 sink" + "persist 는 main-side·renderer 비의존" 을 타입으로 고정한다.
 //
-// 의존 역전(src/main/AGENTS.md): 코디네이터는 L1 이므로 L3 구체 클래스(TurnPersistence·
+// 의존 역전(src/main/AGENTS.md): 코디네이터는 L1 이므로 L3 구체 클래스(HistoryWriter·
 // TitleGenerator·sendChatEvent)를 import 하지 못한다. 대신 아래 구조적 인터페이스만 받고,
 // 컴포지션 루트(ipc/chat/send.ts)가 concrete 를 배선한다. 기존 L3 클래스들은 *무변경* 으로
 // 이 인터페이스를 구조적으로 만족한다.
@@ -13,7 +13,7 @@
 import type { NormalizedEvent } from '../../../shared/ipc'
 import type { TurnContext } from '../../contracts/turn'
 
-// 영속 sink — DB 기록(가로축 좌측). renderer 비의존. L3 TurnPersistence 가 만족.
+// 영속 sink — DB 기록(가로축 좌측). renderer 비의존. L3 HistoryWriter 가 만족.
 export interface TurnPersistSink<W = unknown> {
   persist(turn: TurnContext<W>, ev: NormalizedEvent): void
   persistSteerUserMessage?(turn: TurnContext<W>, text: string, createdAt: number): number | null

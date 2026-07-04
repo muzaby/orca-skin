@@ -6,12 +6,12 @@ import type { RuntimeTitleAdapter } from '../../contracts/ports'
 import type { ResolvedProviderSettings } from '../../adapters/provider-config'
 import { normalizeTitle, shouldGenerateTitle, titlePrompt } from '../../features/chat/title'
 import { broadcastSessionTitle } from '../../infra/ipc/send'
-import type { InflightTurn } from '../../contracts/turn'
+import type { TurnContext } from '../../contracts/turn'
 
 export class TitleGenerator {
   constructor(private readonly db: DbQueries) {}
 
-  maybeStart(turn: InflightTurn): void {
+  maybeStart(turn: TurnContext): void {
     const titleSource = turn.dbSessionId ? this.db.getTitleSource(turn.dbSessionId) : null
     if (
       !shouldGenerateTitle({
