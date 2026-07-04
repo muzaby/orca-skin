@@ -744,6 +744,37 @@ describe('claudeToNormalized — compact_boundary (0064)', () => {
     expect(ev.usage?.outputTokens).toBe(3000)
   })
 
+  it('순수 /compact 턴(실측 wire) — result.usage 전부 0, 요약 크기는 modelUsage 출력 합으로 폴백한다 (0065)', () => {
+    // 실측(2026-07-04): 순수 /compact 턴의 result.usage 는 전부 0 으로 오고 요약 요청 사용량은
+    // modelUsage 에만 계상된다. 0 인 채면 원장(hasContextTokens)·renderer(contextTokens>0)
+    // 게이트가 모두 스킵해 도넛이 압축 전 값에 고착된다 — r5 가 놓친 실기 결함.
+    const c = ctx()
+    claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'compact_boundary',
+        compact_metadata: { trigger: 'manual', pre_tokens: 15_339 }
+      }),
+      c
+    )
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        total_cost_usd: 0.019,
+        usage: { input_tokens: 0, output_tokens: 0 },
+        modelUsage: {
+          'claude-sonnet-4-6': { costUSD: 0.019, inputTokens: 4, outputTokens: 350 }
+        }
+      }),
+      c
+    )
+    const ev = out[0] as { usage?: Record<string, number> }
+    expect(ev.usage?.inputTokens).toBe(350)
+    expect(ev.usage?.cacheReadTokens).toBeUndefined()
+    expect(ev.usage?.cacheCreationTokens).toBeUndefined()
+    expect(ev.usage?.costUsd).toBe(0.019)
+  })
+
   it('경계 이후 assistant usage 가 오면(auto 압축 후 턴 계속) 실측 스냅샷이 우선한다', () => {
     const c = ctx()
     claudeToNormalized(sdk({ type: 'system', subtype: 'compact_boundary' }), c)

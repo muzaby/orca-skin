@@ -2,13 +2,14 @@ import { SessionRow } from './SessionRow'
 import { useSessionsState } from '../store/sessionsStore'
 import type { SessionListItem } from '../../../../../shared/ipc'
 
-// continuity draft(fork/handoff, 미물질화) nav 행(0064 r4). chat feature 의
-// ContinuityDraftRow 와 구조적으로 호환 — cross-feature import 대신 셸(app/)이 매핑해
-// props 로 내린다(4-layer 경계).
+// 미물질화 draft nav 행(0064 r4 fork/handoff + 0065 활성 '새 대화'). chat feature 의
+// DraftRow 와 구조적으로 호환 — cross-feature import 대신 셸(app/)이 매핑해 props 로
+// 내린다(4-layer 경계). '새 대화' 행은 deletable=false(삭제 개념 없음 — kebab 숨김).
 export interface DraftSessionRow {
   key: string
   title: string | null
   projectId: string | null
+  deletable: boolean
 }
 
 interface SessionListProps {
@@ -53,7 +54,7 @@ export function SessionList({
           isActive={d.key === activeDraftKey}
           projectName={d.projectId ? (projectNameById.get(d.projectId) ?? null) : null}
           onSelect={onSelectDraft}
-          onDelete={onDeleteDraft}
+          {...(d.deletable ? { onDelete: onDeleteDraft } : {})}
           renameable={false}
         />
       ))}

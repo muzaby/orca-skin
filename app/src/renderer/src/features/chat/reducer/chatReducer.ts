@@ -349,9 +349,13 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
 
         case 'session.compacted':
           // SDK 네이티브 압축 완료(0064 handoff) — 경계 마커 파트로 커밋(재로드는 DB 파트 복원).
+          // 압축 전 이력 기준의 lastTelemetry 는 경계에서 무효 — 지워서 도넛/경고가 압축 전
+          // 값에 고착되지 않게 한다(0065). 이어지는 telemetry(요약 크기 근사 또는 경계 이후
+          // 실측)가 다시 채우고, 못 채우는 엣지에서는 '미측정'(도넛 비표시)이 정직한 상태다.
           return {
             ...state,
             retry: undefined,
+            lastTelemetry: undefined,
             messages: appendAssistantPart(state.messages, {
               type: 'compact_boundary',
               ...(ev.trigger !== undefined ? { trigger: ev.trigger } : {}),

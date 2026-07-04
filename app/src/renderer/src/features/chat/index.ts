@@ -9,7 +9,7 @@ export {
   getActiveChatSession,
   useChatRecentsEpoch,
   useChatSession,
-  useContinuityDraftRows,
-  useActiveContinuityDraftKey,
-  type ContinuityDraftRow
+  useDraftSessionRows,
+  useActiveDraftKey,
+  type DraftRow
 } from './store/chatStore'

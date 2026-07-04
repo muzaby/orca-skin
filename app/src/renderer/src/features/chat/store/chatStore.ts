@@ -682,6 +682,23 @@ function pruneUnsentContinuityDrafts(parentSessionId: string): void {
   })
 }
 
+// fork/handoff draft 공통 시드 — 원본 세션의 정체성·설정 메타 승계 + 마커 제목(0065 dedup).
+// 제목은 main 의 DB 초기 제목(initialTitle)과 같은 형식이어야 물질화 후 표시가 이어진다.
+function continuityDraftSession(src: ChatState, marker: '분기' | '핸드오프'): ChatState {
+  return {
+    ...initialChatState,
+    title: `[${marker}] ${src.title?.trim() || src.sessionId!.slice(0, 8)}`,
+    cwd: src.cwd,
+    pendingProjectId: src.projectId,
+    projectId: src.projectId,
+    providerKey: src.providerKey,
+    modelFamily: src.modelFamily,
+    effort: src.effort,
+    permissionMode: src.permissionMode,
+    lineageParentTitle: src.title
+  }
+}
+
 // 분기(fork) draft 생성 — 활성(확정) 세션의 transcript 를 읽기전용 clone 으로 프리필한
 // draft 엔트리를 만들고 전환만 한다. DB·런타임·IPC 0(뷰만) — 물질화는 첫 보내기(send 의
 // forkFrom 분기)에서. 생성 즉시 nav '최근 대화' 에 draft 행으로 노출된다(r4) — 이탈해도
@@ -694,16 +711,8 @@ function startForkDraft(): boolean {
   const draftKey = `draft:${crypto.randomUUID()}`
   const draft: SessionEntry = {
     session: {
-      ...initialChatState,
-      // 클릭 즉시 새 세션 정체성(r3) — main 의 DB 초기 제목과 같은 마커 형식.
-      title: `[분기] ${src.title?.trim() || src.sessionId.slice(0, 8)}`,
-      cwd: src.cwd,
-      pendingProjectId: src.projectId,
-      projectId: src.projectId,
-      providerKey: src.providerKey,
-      modelFamily: src.modelFamily,
-      effort: src.effort,
-      permissionMode: src.permissionMode,
+      ...continuityDraftSession(src, '분기'),
+      // fork 는 원본 컨텍스트를 그대로 갖고 시작하므로 도넛(lastTelemetry)도 승계한다.
       lastTelemetry: src.lastTelemetry,
       // 프리필 원본 이력 끝에 '분기된 지점' 구분선을 합성한다(r5 피드백 3) — 물질화 시
       // main(materializeContinuityArrival)이 같은 위치에 fork_boundary 파트를 영속하므로
@@ -720,8 +729,7 @@ function startForkDraft(): boolean {
             ]
           : [])
       ],
-      forkFrom: src.sessionId,
-      lineageParentTitle: src.title
+      forkFrom: src.sessionId
     },
     live: EMPTY_LIVE,
     subagentMeta: EMPTY_SUBAGENT_META,
@@ -763,20 +771,10 @@ function startHandoff(): boolean {
   }
   const draft: SessionEntry = {
     session: {
-      ...initialChatState,
-      // 클릭 즉시 새 세션 정체성(r3) — main 의 DB 초기 제목과 같은 마커 형식.
-      title: `[핸드오프] ${src.title?.trim() || sourceSessionId.slice(0, 8)}`,
-      cwd: src.cwd,
-      pendingProjectId: src.projectId,
-      projectId: src.projectId,
-      providerKey: src.providerKey,
-      modelFamily: src.modelFamily,
-      effort: src.effort,
-      permissionMode: src.permissionMode,
+      ...continuityDraftSession(src, '핸드오프'),
       inflight: true,
       turnStartedAt: Date.now(),
-      handoffFrom: sourceSessionId,
-      lineageParentTitle: src.title
+      handoffFrom: sourceSessionId
     },
     live: EMPTY_LIVE,
     subagentMeta: EMPTY_SUBAGENT_META,
@@ -1075,20 +1073,25 @@ export function useSubagentMeta(toolUseId: string): SubagentMetaState | undefine
   return useChatStore((s) => s.sessions[s.activeKey].subagentMeta[toolUseId])
 }
 
-// nav '최근 대화' 에 즉시 노출할 continuity draft 행(0064 r4 — fork 클릭 = nav 즉시 추가).
+// nav '최근 대화' 에 즉시 노출할 draft 행(0064 r4 fork/handoff → 0065 '새 대화' 통일).
+// continuity draft 는 존재하는 동안 항상(생존 라이프사이클), '새 대화' 슬롯은 **활성일 때만**
+// 최상단에 노출된다 — 빈 새 대화는 보존할 상태가 없어 이탈 생존 행은 유령 행이 된다. 제목
+// null 은 SessionRow 의 '새 대화' 폴백을 재사용하고, parentSessionId=null 이 새-대화 행 판별자.
 // sessions 는 델타 프레임마다 identity 가 바뀌므로, 행을 원시 문자열로 인코딩해 useShallow 로
 // draft 집합이 실제로 변할 때만 재렌더한다(제목/프로젝트 변경 포함). 최신 draft 가 위로.
-export interface ContinuityDraftRow {
+const DRAFT_ROW_SEP = String.fromCharCode(0)
+
+export interface DraftRow {
   key: string
   title: string | null
   projectId: string | null
-  parentSessionId: string
+  parentSessionId: string | null
 }
 
-export function useContinuityDraftRows(): ContinuityDraftRow[] {
+export function useDraftSessionRows(): DraftRow[] {
   const encoded = useChatStore(
-    useShallow((s) =>
-      Object.entries(s.sessions)
+    useShallow((s) => {
+      const rows = Object.entries(s.sessions)
         .filter(([, e]) => isContinuityDraft(e))
         .map(([key, e]) =>
           [
@@ -1096,31 +1099,36 @@ export function useContinuityDraftRows(): ContinuityDraftRow[] {
             e.session.title ?? '',
             e.session.projectId ?? '',
             e.session.forkFrom ?? e.session.handoffFrom ?? ''
-          ].join('\u0000')
+          ].join(DRAFT_ROW_SEP)
         )
-    )
+        .reverse()
+      if (s.activeKey === NEW_CHAT_KEY) {
+        const cur = s.sessions[NEW_CHAT_KEY].session
+        rows.unshift([NEW_CHAT_KEY, '', cur.pendingProjectId ?? '', ''].join(DRAFT_ROW_SEP))
+      }
+      return rows
+    })
   )
   return useMemo(
     () =>
-      encoded
-        .map((row) => {
-          const [key, title, projectId, parentSessionId] = row.split('\u0000')
-          return {
-            key,
-            title: title || null,
-            projectId: projectId || null,
-            parentSessionId
-          }
-        })
-        .reverse(),
+      encoded.map((row) => {
+        const [key, title, projectId, parentSessionId] = row.split(DRAFT_ROW_SEP)
+        return {
+          key,
+          title: title || null,
+          projectId: projectId || null,
+          parentSessionId: parentSessionId || null
+        }
+      }),
     [encoded]
   )
 }
 
-// 활성 엔트리가 continuity draft 면 그 키 — nav 활성 강조가 URL(부모 세션) 행이 아니라
-// draft 행에 붙도록 셸이 참조한다.
-export function useActiveContinuityDraftKey(): string | null {
+// 활성 엔트리가 draft 행(continuity draft 또는 '새 대화' 슬롯)이면 그 키 — nav 활성 강조가
+// URL(부모 세션) 행이 아니라 draft 행에 붙도록 셸이 참조한다.
+export function useActiveDraftKey(): string | null {
   return useChatStore((s) => {
+    if (s.activeKey === NEW_CHAT_KEY) return NEW_CHAT_KEY
     const e = s.sessions[s.activeKey]
     return e && isContinuityDraft(e) ? s.activeKey : null
   })

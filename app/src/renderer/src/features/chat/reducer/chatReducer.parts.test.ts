@@ -219,6 +219,22 @@ describe('chatReducer — AppMessagePart 모델', () => {
     expect(s.lastTelemetry?.inputTokens).toBe(8000)
   })
 
+  it('session.compacted 는 압축 전 lastTelemetry 를 지운다 — 도넛 고착 방지 (0065)', () => {
+    let s = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'q1' })
+    s = apply(s, [
+      { type: 'telemetry', sessionId: 's', usage: { inputTokens: 100, cacheReadTokens: 150_000 } }
+    ])
+    expect(s.lastTelemetry?.cacheReadTokens).toBe(150_000)
+
+    // /compact 턴 — 경계에서 압축 전 값 무효화. 이어지는 telemetry(요약 크기 근사)가 다시 채운다.
+    s = chatReducer(s, { type: 'SEND_USER_MESSAGE', text: '/compact' })
+    s = apply(s, [{ type: 'session.compacted', sessionId: 's', trigger: 'manual' }])
+    expect(s.lastTelemetry).toBeUndefined()
+    s = apply(s, [{ type: 'telemetry', sessionId: 's', usage: { inputTokens: 350 } }])
+    expect(s.lastTelemetry?.inputTokens).toBe(350)
+    expect(s.lastTelemetry?.cacheReadTokens).toBeUndefined()
+  })
+
   it('NEW_CHAT 은 telemetry 상태를 리셋한다', () => {
     let s = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'q' })
     s = apply(s, [

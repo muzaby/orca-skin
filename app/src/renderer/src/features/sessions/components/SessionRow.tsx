@@ -37,6 +37,10 @@ export function SessionRow({
   const baseLabel = (session.title?.trim() || session.preview?.trim() || '새 대화').slice(0, 60)
   const label = projectName ? `${projectName} / ${baseLabel}` : baseLabel
 
+  // 메뉴 항목이 하나도 없으면(이름변경 불가 + 삭제 핸들러 없음 — 활성 '새 대화' draft 행)
+  // kebab 자체를 렌더하지 않는다(0065).
+  const hasMenu = renameable || onDelete != null
+
   const startRename = (): void => {
     setMenuOpen(false)
     setRenaming(true)
@@ -85,54 +89,60 @@ export function SessionRow({
       <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
         {label}
       </span>
-      <button
-        ref={kebabRef}
-        type="button"
-        onClick={(e) => {
-          e.stopPropagation()
-          setMenuOpen((v) => !v)
-        }}
-        className={`h-5 w-5 cursor-pointer place-items-center rounded border-0 bg-transparent text-ink3 hover:text-ink ${
-          menuOpen ? 'grid' : 'hidden group-hover/session:grid'
-        }`}
-        title="더 보기"
-        aria-label="세션 메뉴"
-        aria-haspopup="menu"
-        aria-expanded={menuOpen}
-      >
-        <Icon name="kebab" size={14} />
-      </button>
-      <Popover open={menuOpen} anchorRef={kebabRef} onClose={() => setMenuOpen(false)}>
-        <div role="menu" className="flex w-[140px] flex-col py-1">
-          {renameable && (
-            <button
-              type="button"
-              role="menuitem"
-              onClick={(e) => {
-                e.stopPropagation()
-                startRename()
-              }}
-              className="flex cursor-pointer items-center gap-2 border-0 bg-transparent px-2.5 py-1.5 text-left text-[12.5px] text-ink hover:bg-sidebar"
-            >
-              <Icon name="edit" size={12} />
-              <span>이름 변경</span>
-            </button>
-          )}
+      {hasMenu && (
+        <>
           <button
+            ref={kebabRef}
             type="button"
-            role="menuitem"
             onClick={(e) => {
               e.stopPropagation()
-              setMenuOpen(false)
-              onDelete?.(session.id)
+              setMenuOpen((v) => !v)
             }}
-            className="flex cursor-pointer items-center gap-2 border-0 bg-transparent px-2.5 py-1.5 text-left text-[12.5px] text-rust hover:bg-rust-soft"
+            className={`h-5 w-5 cursor-pointer place-items-center rounded border-0 bg-transparent text-ink3 hover:text-ink ${
+              menuOpen ? 'grid' : 'hidden group-hover/session:grid'
+            }`}
+            title="더 보기"
+            aria-label="세션 메뉴"
+            aria-haspopup="menu"
+            aria-expanded={menuOpen}
           >
-            <Icon name="trash" size={12} />
-            <span>삭제</span>
+            <Icon name="kebab" size={14} />
           </button>
-        </div>
-      </Popover>
+          <Popover open={menuOpen} anchorRef={kebabRef} onClose={() => setMenuOpen(false)}>
+            <div role="menu" className="flex w-[140px] flex-col py-1">
+              {renameable && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    startRename()
+                  }}
+                  className="flex cursor-pointer items-center gap-2 border-0 bg-transparent px-2.5 py-1.5 text-left text-[12.5px] text-ink hover:bg-sidebar"
+                >
+                  <Icon name="edit" size={12} />
+                  <span>이름 변경</span>
+                </button>
+              )}
+              {onDelete != null && (
+                <button
+                  type="button"
+                  role="menuitem"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setMenuOpen(false)
+                    onDelete(session.id)
+                  }}
+                  className="flex cursor-pointer items-center gap-2 border-0 bg-transparent px-2.5 py-1.5 text-left text-[12.5px] text-rust hover:bg-rust-soft"
+                >
+                  <Icon name="trash" size={12} />
+                  <span>삭제</span>
+                </button>
+              )}
+            </div>
+          </Popover>
+        </>
+      )}
     </div>
   )
 }

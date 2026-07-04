@@ -402,9 +402,17 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
       // 내보내면 도넛/경고가 압축 전 값에 고착된다. 압축 후 라이브 컨텍스트 ≈ 요약(출력
       // 토큰)이므로 그 값으로 근사한다 — 다음 실제 턴의 telemetry 가 실측으로 바로잡는다.
       // costUsd·durationMs·modelUsage 는 턴 누적이 맞아 유지(비용 원장 무손실).
+      //
+      // 실측(2026-07-04, 0065): 순수 /compact 턴의 result.usage 는 **전부 0** — 요약 요청
+      // 사용량은 modelUsage 에만 계상된다(비용은 total_cost_usd 에 반영). 따라서 요약 크기는
+      // modelUsage 출력 토큰 합으로 폴백한다. 0 인 채 내보내면 main 원장(hasContextTokens)과
+      // renderer(contextTokens>0) 게이트가 모두 스킵해 도넛이 압축 전 값에 고착된다(r5 결함).
       delete telemetry.cacheReadTokens
       delete telemetry.cacheCreationTokens
-      if (telemetry.outputTokens !== undefined) telemetry.inputTokens = telemetry.outputTokens
+      const summaryTokens =
+        telemetry.outputTokens ||
+        Object.values(telemetry.modelUsage ?? {}).reduce((n, mu) => n + (mu.outputTokens ?? 0), 0)
+      if (summaryTokens > 0) telemetry.inputTokens = summaryTokens
       else delete telemetry.inputTokens
     }
     const out: NormalizedEvent[] = [

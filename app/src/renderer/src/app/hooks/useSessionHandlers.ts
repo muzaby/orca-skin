@@ -2,9 +2,9 @@ import { useCallback, useMemo } from 'react'
 import { matchPath, useLocation, useNavigate } from 'react-router-dom'
 import {
   chatActions,
-  useActiveContinuityDraftKey,
-  useContinuityDraftRows,
-  type ContinuityDraftRow
+  useActiveDraftKey,
+  useDraftSessionRows,
+  type DraftRow
 } from '../../features/chat'
 import { sessionsActions, type DraftSessionRow } from '../../features/sessions'
 import { useProjectsState } from '../../features/projects'
@@ -15,8 +15,8 @@ export interface SessionHandlers {
   handleSelectSession: (id: string) => void
   handleDeleteSession: (id: string) => void
   handleRenameSession: (id: string, title: string) => void
-  // 0064 r4 — 미물질화 continuity draft(fork/handoff) nav 행. chat store 파생 값을
-  // sessions feature 의 구조적 타입으로 매핑해 내린다(cross-feature 는 셸이 wiring).
+  // 0064 r4 / 0065 — 미물질화 draft(fork/handoff + 활성 '새 대화') nav 행. chat store 파생
+  // 값을 sessions feature 의 구조적 타입으로 매핑해 내린다(cross-feature 는 셸이 wiring).
   draftSessions: DraftSessionRow[]
   activeDraftKey: string | null
   handleSelectDraft: (key: string) => void
@@ -31,8 +31,13 @@ export function useSessionHandlers(): SessionHandlers {
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const projects = useProjectsState((s) => s.list)
-  const draftRows = useContinuityDraftRows()
-  const activeDraftKey = useActiveContinuityDraftKey()
+  const draftRows = useDraftSessionRows()
+  const activeDraftKey = useActiveDraftKey()
+  // 활성 draft 가 continuity(부모 有)인지 — '새 대화' 슬롯(부모 無)은 일반 라우팅으로 충분해
+  // 부모-URL 우회(loadSession 직접 전환)를 태우지 않는다.
+  const continuityDraftActive =
+    activeDraftKey != null &&
+    draftRows.some((d) => d.key === activeDraftKey && d.parentSessionId != null)
 
   // 사이드바 활성 세션의 진실은 URL — `/chat/:sessionId` 에 있을 때만 해당 행이 활성.
   // ChatContext.state.sessionId 는 캐시/IPC 용도로 다른 라우트에서도 유지되므로 UI
@@ -55,10 +60,12 @@ export function useSessionHandlers(): SessionHandlers {
 
   const draftSessions = useMemo<DraftSessionRow[]>(
     () =>
-      draftRows.map((d: ContinuityDraftRow) => ({
+      draftRows.map((d: DraftRow) => ({
         key: d.key,
         title: d.title,
-        projectId: d.projectId
+        projectId: d.projectId,
+        // '새 대화' 행(부모 無)은 활성일 때만 존재해 삭제 개념이 없다 — kebab 자체를 숨긴다.
+        deletable: d.parentSessionId != null
       })),
     [draftRows]
   )
@@ -66,12 +73,12 @@ export function useSessionHandlers(): SessionHandlers {
   const handleSelectSession = useCallback(
     (id: string): void => {
       // 메타 title 의 즉시 적용은 useChatRouteSync 가 sessions list 에서 직접 읽음.
-      // 활성 draft 는 /chat/<부모> 위의 파생 뷰라, 부모 행 클릭 시 URL 이 안 바뀌어 라우트
-      // 싱크가 못 깨어난다 — store 전환(loadSession)을 직접 수행해 draft 에서 빠져나온다.
-      if (activeDraftKey != null) void chatActions.loadSession(id)
+      // 활성 continuity draft 는 /chat/<부모> 위의 파생 뷰라, 부모 행 클릭 시 URL 이 안 바뀌어
+      // 라우트 싱크가 못 깨어난다 — store 전환(loadSession)을 직접 수행해 draft 에서 빠져나온다.
+      if (continuityDraftActive) void chatActions.loadSession(id)
       navigate(`/chat/${id}`)
     },
-    [navigate, activeDraftKey]
+    [navigate, continuityDraftActive]
   )
 
   const handleDeleteSession = useCallback(
