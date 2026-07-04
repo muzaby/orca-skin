@@ -47,4 +47,4 @@
 | 변경 파일 | `contracts/ports.ts`(51→34 LoC) · `features/sessions/session-runtime.ts`(live 타입) |
 | 게이트 | lint ✅ / typecheck ✅ / test **640** ✅ / build ✅ |
 | 발견/대응 | `RuntimeSessionAdapter = SessionAdapter`(전체) 로 잡았다가 `session-runtime.test` mock(4-메서드)이 `describe/isInstalled/install` 누락으로 typecheck 실패 → **narrower port** 임이 드러나 `Pick<…4종>` 로 정정. 인수 3(Interface Segregation)이 이 검출로 확증됨. |
-| 커밋 | (아래 커밋 hash) |
+| 커밋 | `b57e7ae` |
