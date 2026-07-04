@@ -1074,12 +1074,17 @@ export function useSubagentMeta(toolUseId: string): SubagentMetaState | undefine
 }
 
 // nav '최근 대화' 에 즉시 노출할 draft 행(0064 r4 fork/handoff → 0065 '새 대화' 통일).
-// continuity draft 는 존재하는 동안 항상(생존 라이프사이클), '새 대화' 슬롯은 **활성일 때만**
-// 최상단에 노출된다 — 빈 새 대화는 보존할 상태가 없어 이탈 생존 행은 유령 행이 된다. 제목
-// null 은 SessionRow 의 '새 대화' 폴백을 재사용하고, parentSessionId=null 이 새-대화 행 판별자.
+// continuity draft 는 존재하는 동안 항상(생존 라이프사이클), '새 대화' 슬롯은 **첫 전송
+// 순간부터**(r2 사용자 피드백 — 클릭/진입만으로는 노출하지 않는다) 세션 id 승격까지의 창에
+// 최상단 노출된다 — 승격 시 pendingNewChatKey 해제와 함께 DB 행으로 자연 교체. 제목 null 은
+// SessionRow 의 '새 대화' 폴백을 재사용하고, parentSessionId=null 이 새-대화 행 판별자.
 // sessions 는 델타 프레임마다 identity 가 바뀌므로, 행을 원시 문자열로 인코딩해 useShallow 로
 // draft 집합이 실제로 변할 때만 재렌더한다(제목/프로젝트 변경 포함). 최신 draft 가 위로.
 const DRAFT_ROW_SEP = String.fromCharCode(0)
+
+// '새 대화' 슬롯이 nav 행으로 보일 조건 — 전송돼 세션 id 발급을 기다리는 중(pending/queue).
+const isNewChatRowVisible = (s: ChatStoreState): boolean =>
+  s.pendingNewChatKey === NEW_CHAT_KEY || s.newChatQueue.some((q) => q.key === NEW_CHAT_KEY)
 
 export interface DraftRow {
   key: string
@@ -1102,7 +1107,7 @@ export function useDraftSessionRows(): DraftRow[] {
           ].join(DRAFT_ROW_SEP)
         )
         .reverse()
-      if (s.activeKey === NEW_CHAT_KEY) {
+      if (isNewChatRowVisible(s)) {
         const cur = s.sessions[NEW_CHAT_KEY].session
         rows.unshift([NEW_CHAT_KEY, '', cur.pendingProjectId ?? '', ''].join(DRAFT_ROW_SEP))
       }
@@ -1124,11 +1129,11 @@ export function useDraftSessionRows(): DraftRow[] {
   )
 }
 
-// 활성 엔트리가 draft 행(continuity draft 또는 '새 대화' 슬롯)이면 그 키 — nav 활성 강조가
-// URL(부모 세션) 행이 아니라 draft 행에 붙도록 셸이 참조한다.
+// 활성 엔트리가 draft 행(continuity draft 또는 전송 중 '새 대화' 슬롯)이면 그 키 — nav 활성
+// 강조가 URL(부모 세션) 행이 아니라 draft 행에 붙도록 셸이 참조한다.
 export function useActiveDraftKey(): string | null {
   return useChatStore((s) => {
-    if (s.activeKey === NEW_CHAT_KEY) return NEW_CHAT_KEY
+    if (s.activeKey === NEW_CHAT_KEY) return isNewChatRowVisible(s) ? NEW_CHAT_KEY : null
     const e = s.sessions[s.activeKey]
     return e && isContinuityDraft(e) ? s.activeKey : null
   })

@@ -36,3 +36,10 @@
 
 - **PASS** — 사용자 보고 결함(도넛 고착)의 근본 원인을 실측으로 확정(*compact 턴 result.usage=0, 사용량은 modelUsage 에만*)하고 수정·확증했다. r5 가 방어 구현(원격 환경 제약)으로 놓친 것을 로컬 실측이 잡음 — **continuity 계열의 잔여 검증은 로컬 실기가 기본 경로**(교훈).
 - 사람 확인 대기: 핸드오프 실기 1회(도착 세션 도넛)·StatusPopover warn 경로 /compact 실기.
+
+## r2 (2026-07-04) — 피드백 반영 검증
+
+- 인수(피드백1): '새 대화' 행 = 전송~승격 창에만 노출(`isNewChatRowVisible`) — 진입만으로 미노출, 승격 시 DB 행 교체. 스토어 게이트 단순 조건이라 코드 대조로 갈음(훅 렌더 테스트 인프라 부재 — 저장소 관례상 시각 검증).
+- 인수(피드백2): postTokens 전파 5단(claude-map→writer→chatReducer→parts→CompactBoundaryMarker) + 도넛 근사 1순위 `post_tokens` 교체. `claude-map.test.ts` 정규화·우선순위 2건 green.
+- 게이트: lint/typecheck green · 관련 4파일 106 passed · 전체는 ABI 환경 실패 20건 제외 658 passed(사용자 지시로 무시).
+- 사람 확인: 실 /compact 1회로 post_tokens 실제 제공 여부(SDK optional — 미제공이면 요약 크기 폴백이 동작) + 구분선 "pre → post" 표기.

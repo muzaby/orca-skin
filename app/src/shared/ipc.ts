@@ -306,12 +306,15 @@ export type NormalizedEvent =
   // draft(pendingNewChatKey)로 라우팅해 user 버블이 항상 압축 결과보다 먼저 커밋된다.
   | { type: 'message.user'; sessionId?: string; text: string; createdAt: number }
   // SDK 네이티브 압축 완료(system/compact_boundary → 정규화, 0064). 도착 세션 transcript 에
-  // 압축 경계를 표시한다. preTokens = 압축 전 토큰 수(compact_metadata.pre_tokens).
+  // 압축 경계를 표시한다. preTokens/postTokens = 압축 전/후 토큰 수(compact_metadata 의
+  // pre_tokens/post_tokens — post 는 SDK optional). postTokens 는 압축 후 컨텍스트 실측이라
+  // 구분선 "pre → post" 표기와 도넛 근사(0065 r2)의 1순위 참조다.
   | {
       type: 'session.compacted'
       sessionId: string
       trigger?: 'manual' | 'auto'
       preTokens?: number
+      postTokens?: number
     }
   | {
       type: 'message.completed'
@@ -805,7 +808,12 @@ export type AppMessagePart =
   // 컴포저 첨부(user 턴) — 트랜스크립트 버블에 썸네일로 렌더하고 DB 에 영속한다.
   | { type: 'attachment'; attachments: AttachmentView[] }
   // 압축 경계 마커(0064 handoff) — session.compacted 를 영속해 재로드 후에도 경계를 표시한다.
-  | { type: 'compact_boundary'; trigger?: 'manual' | 'auto'; preTokens?: number }
+  | {
+      type: 'compact_boundary'
+      trigger?: 'manual' | 'auto'
+      preTokens?: number
+      postTokens?: number
+    }
   // 분기 경계 마커(0064 r5) — fork 물질화 시 복사된 원본 이력과 새 대화 사이에 main 이
   // 영속한다('분기된 지점' 구분선). 렌더러 fork draft 프리필도 같은 위치에 합성해 라이브와
   // 재로드 표시가 일치한다. handoff 는 display 복사가 없어 이 파트를 만들지 않는다.

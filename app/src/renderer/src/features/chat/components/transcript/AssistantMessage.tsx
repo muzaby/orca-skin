@@ -50,7 +50,14 @@ export const AssistantMessage = memo(function AssistantMessage({
           case 'error':
             return <ErrorCard key={i} error={seg.error} />
           case 'compact':
-            return <CompactBoundaryMarker key={i} trigger={seg.trigger} preTokens={seg.preTokens} />
+            return (
+              <CompactBoundaryMarker
+                key={i}
+                trigger={seg.trigger}
+                preTokens={seg.preTokens}
+                postTokens={seg.postTokens}
+              />
+            )
           case 'fork':
             return <ForkBoundaryMarker key={i} />
         }

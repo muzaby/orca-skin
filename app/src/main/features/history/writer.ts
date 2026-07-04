@@ -259,7 +259,8 @@ export class HistoryWriter {
           toolRunId: null,
           payloadJson: JSON.stringify({
             ...(ev.trigger !== undefined ? { trigger: ev.trigger } : {}),
-            ...(ev.preTokens !== undefined ? { preTokens: ev.preTokens } : {})
+            ...(ev.preTokens !== undefined ? { preTokens: ev.preTokens } : {}),
+            ...(ev.postTokens !== undefined ? { postTokens: ev.postTokens } : {})
           })
         })
         break

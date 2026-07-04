@@ -679,17 +679,23 @@ describe('claudeToNormalized — 서브에이전트(Task) 메타', () => {
 })
 
 describe('claudeToNormalized — compact_boundary (0064)', () => {
-  it('system/compact_boundary → session.compacted (trigger·preTokens 정규화)', () => {
+  it('system/compact_boundary → session.compacted (trigger·preTokens·postTokens 정규화)', () => {
     const out = claudeToNormalized(
       sdk({
         type: 'system',
         subtype: 'compact_boundary',
-        compact_metadata: { trigger: 'manual', pre_tokens: 155_000 }
+        compact_metadata: { trigger: 'manual', pre_tokens: 155_000, post_tokens: 9_000 }
       }),
       ctx()
     )
     expect(out).toEqual([
-      { type: 'session.compacted', sessionId: 's1', trigger: 'manual', preTokens: 155_000 }
+      {
+        type: 'session.compacted',
+        sessionId: 's1',
+        trigger: 'manual',
+        preTokens: 155_000,
+        postTokens: 9_000
+      }
     ])
   })
 
@@ -773,6 +779,28 @@ describe('claudeToNormalized — compact_boundary (0064)', () => {
     expect(ev.usage?.cacheReadTokens).toBeUndefined()
     expect(ev.usage?.cacheCreationTokens).toBeUndefined()
     expect(ev.usage?.costUsd).toBe(0.019)
+  })
+
+  it('compact_metadata.post_tokens 가 있으면 요약 크기 근사보다 우선한다 (0065 r2 — 압축 후 실측)', () => {
+    const c = ctx()
+    claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'compact_boundary',
+        compact_metadata: { trigger: 'manual', pre_tokens: 155_000, post_tokens: 9_000 }
+      }),
+      c
+    )
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        usage: { input_tokens: 0, output_tokens: 0 },
+        modelUsage: { 'claude-sonnet-4-6': { outputTokens: 350 } }
+      }),
+      c
+    )
+    const ev = out[0] as { usage?: Record<string, number> }
+    expect(ev.usage?.inputTokens).toBe(9_000)
   })
 
   it('경계 이후 assistant usage 가 오면(auto 압축 후 턴 계속) 실측 스냅샷이 우선한다', () => {

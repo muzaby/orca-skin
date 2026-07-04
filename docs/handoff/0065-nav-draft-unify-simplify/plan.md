@@ -44,3 +44,12 @@
 | 실기 확인 | CDP(9223)+wireLog 실측 — 결함 재현(도넛 8% 고착) → 수정 후 8%→1% 하락·재로드 정합. '새 대화' 행: /new 진입 즉시 최상단 활성·kebab 없음·이탈 시 소멸·mock 전송 물질화 시 DB 행 교체. fork draft: nav 즉시 행·분기된 지점 구분선(role=separator)·'원본 열기' 즉시 전환·draft 행 생존. 테스트 세션 2건 삭제(정리). |
 | 게이트 | lint ✅ / typecheck(node·web·test) ✅ / test **677 passed(90파일)** (신규 2) |
 | 단순화 검토 | 적용: draft 시드 dedup·훅 이름 정직화·SessionRow 메뉴 조건. 유지(제거 아님 판단): `ContinuityArrivalHook`(경계 강제)·fork_boundary 이중 합성(라이브/재로드 일치)·행 문자열 인코딩(useShallow 안정화 — zustand 제약). 핸드오프 템플릿 축약은 OQ 유지(사용자 승인 문안). |
+
+## [구현자 기입] r2 — 사용자 피드백 2건 (2026-07-04)
+
+| # | 피드백 | 대응 |
+|---|---|---|
+| 1 | '새 대화' nav 행은 클릭/진입이 아니라 **composer 전송 즉시** 노출(핸드오프/fork 는 현행 유지) | 노출 조건을 `activeKey===NEW_CHAT_KEY`(활성) → **`isNewChatRowVisible`**(`pendingNewChatKey===NEW_CHAT_KEY \|\| newChatQueue 대기`) 로 교체 — 전송 순간부터 세션 id 승격까지의 창에만 행이 존재하고, 승격 시 DB 행으로 자연 교체. continuity draft 라이프사이클은 무변경. |
+| 2 | `compact_metadata.post_tokens`(SDK optional) 활용 — 구분선에 "얼마→얼마" 표기 + 도넛 참조 검토 | **도넛 참조 답변**: r1 수정 후 compact 턴 도넛은 modelUsage 출력 합(요약 크기) *근사* 를 참조 중이었다 — post_tokens 는 압축 후 컨텍스트 *실측* 이므로 1순위로 교체(`ctx.compactPostTokens ?? 요약 크기 폴백`). **구분선**: `session.compacted`/`compact_boundary` 파트에 postTokens 전파(claude-map→writer→reducer→parts→마커), 표기 `이전 대화 압축됨 · 15.3k → 9k 토큰`(pre/post 둘 다 있을 때, k 단위 소수 1자리). IPC_CONTRACT §3 갱신. 테스트: claude-map 2건(정규화·우선순위). |
+
+- 게이트: lint/typecheck(3종) green, 관련 스위트 106 passed. **전체 test 는 better-sqlite3 ABI 이슈로 DB 스위트 20건 환경 실패 — 사용자 지시로 무시**(0019 계열, 코드 무관·658 passed).

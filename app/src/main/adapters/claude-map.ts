@@ -37,6 +37,9 @@ export interface MapContext {
   // 요약 요청 입력)는 더 이상 라이브 컨텍스트가 아니므로, 경계에서 스냅샷을 무효화하고 result
   // telemetry 의 컨텍스트 점유를 압축 후 값으로 근사하는 데 쓴다(0064 r5 피드백 1).
   compacted?: boolean
+  // compact_metadata.post_tokens(SDK optional) — 압축 후 컨텍스트 토큰 실측. 있으면 result
+  // telemetry 근사의 1순위 참조(0065 r2 — 요약 크기 폴백보다 정확).
+  compactPostTokens?: number
   // 서브에이전트(Task) 누산 메타 — task_*/child assistant 에서 모은 모델·시간·도구수를 부모 Task
   // tool_result(tool.call.completed) emit 시 실어 영속한다. toolUseId(= Agent tool_use id) 키.
   subagentMeta?: Map<string, SubagentTaskMeta>
@@ -167,21 +170,26 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
     // 압축 완료 경계 — 도착 세션 transcript 의 압축 표시를 구동한다(구 Phase 3 드롭 해제).
     if (subtype === 'compact_boundary') {
       const meta = (
-        msg as unknown as { compact_metadata?: { trigger?: unknown; pre_tokens?: unknown } }
+        msg as unknown as {
+          compact_metadata?: { trigger?: unknown; pre_tokens?: unknown; post_tokens?: unknown }
+        }
       ).compact_metadata
       const preTokens = num(meta?.pre_tokens)
+      const postTokens = num(meta?.post_tokens)
       const trigger = meta?.trigger
       // 경계 이전 assistant usage 스냅샷(압축 *전* 전체 이력 입력)을 무효화한다 — 압축 후에도
       // 이 값이 result telemetry 를 덮으면 도넛/경고가 압축 전 상태에 고착된다(r5 피드백 1).
       // 경계 이후 assistant 가 또 오면(auto 압축 후 턴 계속) 실측 스냅샷이 새로 잡힌다.
       ctx.compacted = true
+      if (postTokens !== undefined) ctx.compactPostTokens = postTokens
       delete ctx.lastAssistantUsage
       return [
         {
           type: 'session.compacted',
           sessionId: ctx.sessionId,
           ...(trigger === 'manual' || trigger === 'auto' ? { trigger } : {}),
-          ...(preTokens !== undefined ? { preTokens } : {})
+          ...(preTokens !== undefined ? { preTokens } : {}),
+          ...(postTokens !== undefined ? { postTokens } : {})
         }
       ]
     }
@@ -404,15 +412,17 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
       // costUsd·durationMs·modelUsage 는 턴 누적이 맞아 유지(비용 원장 무손실).
       //
       // 실측(2026-07-04, 0065): 순수 /compact 턴의 result.usage 는 **전부 0** — 요약 요청
-      // 사용량은 modelUsage 에만 계상된다(비용은 total_cost_usd 에 반영). 따라서 요약 크기는
-      // modelUsage 출력 토큰 합으로 폴백한다. 0 인 채 내보내면 main 원장(hasContextTokens)과
-      // renderer(contextTokens>0) 게이트가 모두 스킵해 도넛이 압축 전 값에 고착된다(r5 결함).
+      // 사용량은 modelUsage 에만 계상된다(비용은 total_cost_usd 에 반영). 0 인 채 내보내면
+      // main 원장(hasContextTokens)과 renderer(contextTokens>0) 게이트가 모두 스킵해 도넛이
+      // 압축 전 값에 고착된다(r5 결함). 참조 우선순위(0065 r2): ① compact_metadata.post_tokens
+      // (압축 후 컨텍스트 실측 — SDK optional) ② 요약 크기(modelUsage 출력 토큰 합) 근사.
       delete telemetry.cacheReadTokens
       delete telemetry.cacheCreationTokens
       const summaryTokens =
         telemetry.outputTokens ||
         Object.values(telemetry.modelUsage ?? {}).reduce((n, mu) => n + (mu.outputTokens ?? 0), 0)
-      if (summaryTokens > 0) telemetry.inputTokens = summaryTokens
+      const postContextTokens = ctx.compactPostTokens ?? (summaryTokens > 0 ? summaryTokens : 0)
+      if (postContextTokens > 0) telemetry.inputTokens = postContextTokens
       else delete telemetry.inputTokens
     }
     const out: NormalizedEvent[] = [

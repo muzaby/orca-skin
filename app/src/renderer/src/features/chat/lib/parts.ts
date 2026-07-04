@@ -399,7 +399,7 @@ export type MessageSegment =
   | { kind: 'text'; text: string } // 연속 text 이어붙임 → 1 Markdown
   | { kind: 'structured'; value: unknown } // 개별 카드
   | { kind: 'error'; error: unknown } // 개별 카드
-  | { kind: 'compact'; trigger?: 'manual' | 'auto'; preTokens?: number } // 압축 경계 구분선(0064)
+  | { kind: 'compact'; trigger?: 'manual' | 'auto'; preTokens?: number; postTokens?: number } // 압축 경계 구분선(0064, post=0065 r2)
   | { kind: 'fork' } // 분기 경계 구분선(0064 r5) — 복사된 원본 이력과 새 대화 사이
 
 // parts 를 순회하며 순서 보존 세그먼트 배열로 투영한다(순수). tool_result 는 toolRunId 로
@@ -465,7 +465,8 @@ export function messageSegments(parts: AppMessagePart[]): MessageSegment[] {
         (current = {
           kind: 'compact',
           ...(p.trigger !== undefined ? { trigger: p.trigger } : {}),
-          ...(p.preTokens !== undefined ? { preTokens: p.preTokens } : {})
+          ...(p.preTokens !== undefined ? { preTokens: p.preTokens } : {}),
+          ...(p.postTokens !== undefined ? { postTokens: p.postTokens } : {})
         })
       )
     } else if (p.type === 'fork_boundary') {
@@ -540,7 +541,8 @@ function reconcileSegment(prev: MessageSegment, next: MessageSegment): MessageSe
     case 'compact':
       return prev.kind === 'compact' &&
         prev.trigger === next.trigger &&
-        prev.preTokens === next.preTokens
+        prev.preTokens === next.preTokens &&
+        prev.postTokens === next.postTokens
         ? prev
         : next
     case 'fork':

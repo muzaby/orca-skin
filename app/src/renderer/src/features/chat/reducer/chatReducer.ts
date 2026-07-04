@@ -359,7 +359,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             messages: appendAssistantPart(state.messages, {
               type: 'compact_boundary',
               ...(ev.trigger !== undefined ? { trigger: ev.trigger } : {}),
-              ...(ev.preTokens !== undefined ? { preTokens: ev.preTokens } : {})
+              ...(ev.preTokens !== undefined ? { preTokens: ev.preTokens } : {}),
+              ...(ev.postTokens !== undefined ? { postTokens: ev.postTokens } : {})
             })
           }
 
