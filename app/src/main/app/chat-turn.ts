@@ -25,6 +25,7 @@ import {
   resolveTitleModel,
   type ResolvedProviderSettings
 } from '../features/providers/provider-settings'
+import { buildHandoffMessage } from '../features/orchestration/handoff'
 import { agentPermissionRequest } from '../features/approvals/permission-bridge'
 import type { PermissionModeController } from '../features/approvals/permission-mode-controller'
 import { makeClassifiedError } from '../infra/errors'
@@ -253,10 +254,43 @@ export function registerChatHandlers(deps: ChatDeps): void {
       return
     }
 
+    // 0064 continuity — fork/handoff 는 새 세션 send(sessionId=null)로 수렴하되 출발 세션의
+    // 메타(cwd·project·provider)를 계승한다. cwd 계승은 필수 — SDK 세션 파일이 cwd 인코딩
+    // 경로(~/.claude/projects/<encoded-cwd>/)에 저장돼 resume(forkSession) 탐색이 cwd 에 묶인다.
+    const continuitySource = parsed.data.forkFrom ?? parsed.data.handoffFrom
+    const continuityMeta = continuitySource ? ctx.db.getSessionById(continuitySource) : undefined
+    if (continuitySource) {
+      if (!continuityMeta) {
+        sendChatEvent(event.sender, {
+          type: 'error',
+          error: makeClassifiedError(
+            'schema_validation_error',
+            '분기할 원본 세션을 찾을 수 없습니다.',
+            { retryable: false }
+          )
+        })
+        return
+      }
+      // handoff 가드(mid-turn 거부) — 출발 세션 턴 진행 중엔 즉시 물질화를 거부한다(렌더러
+      // 비활성 가드의 main 측 이중 방어). fork 는 원본 불변이라 허용(plan 파생 UX).
+      if (parsed.data.handoffFrom && supervisor.hasSession(parsed.data.handoffFrom)) {
+        sendChatEvent(event.sender, {
+          type: 'error',
+          error: makeClassifiedError(
+            'provider_connection_error',
+            '원본 세션의 턴이 진행 중입니다. 완료 후 핸드오프하세요.',
+            { retryable: true }
+          )
+        })
+        return
+      }
+    }
+
     const resolved = await resolveTurnProvider(ctx, {
       adapter,
       sessionId: parsed.data.sessionId,
-      providerKey: parsed.data.providerKey ?? null,
+      // fork/handoff 는 출발 세션의 마지막 provider 를 계승한다(명시 선택이 우선).
+      providerKey: parsed.data.providerKey ?? continuityMeta?.provider_key ?? null,
       modelFamily: parsed.data.modelFamily ?? null
     })
 
@@ -268,7 +302,26 @@ export function registerChatHandlers(deps: ChatDeps): void {
       : undefined
     const boundProjectId = parsed.data.sessionId
       ? (sessionMeta?.project_id ?? null)
-      : parsed.data.projectId
+      : (continuityMeta?.project_id ?? parsed.data.projectId)
+
+    // handoff 는 main 이 자동 메시지를 조립해 text 를 대체한다(템플릿 단일 출처 = orchestration/).
+    const effectiveText = parsed.data.handoffFrom
+      ? buildHandoffMessage(continuityMeta?.title ?? null, parsed.data.handoffFrom)
+      : parsed.data.text
+
+    // 핸드오프 자동 메시지 에코(0064 r4) — 렌더러가 본문을 모르는 main 조립 발화를 **턴 시작
+    // 전에** 커밋한다. r2/r3 은 session.updated(SDK init) 시점에 에코했는데, 실기에서 init 이
+    // compact 이벤트들보다 늦게 도착하면 요약(message.completed 폴백 라우팅)이 먼저 붙고 user
+    // 버블이 그 뒤에 렌더되는 역순이 났다(r4 피드백 2). sessionId 미발급 시점이므로 이벤트에
+    // sessionId 가 없고, 렌더러 receive() 가 pendingNewChatKey(=핸드오프 draft)로 라우팅한다 —
+    // SDK 이벤트 순서와 무관하게 [user 버블 → inflight → 압축 요약] 순서가 보장된다.
+    if (parsed.data.handoffFrom) {
+      sendChatEvent(event.sender, {
+        type: 'message.user',
+        text: effectiveText,
+        createdAt: Date.now()
+      })
+    }
 
     // 첨부 정규화(경로 추출·이미지 읽기·검증)는 턴 시작 전 단계라 아래 턴 try/catch 밖이다.
     // 여기서 throw 하면(홈 밖 경로·unsupported·binary·fs 오류) invoke 가 거부돼 renderer 의
@@ -307,22 +360,26 @@ export function registerChatHandlers(deps: ChatDeps): void {
       titleEnv: turnEnv,
       titleModel: resolved.titleModel,
       providerKey: resolved.providerKey,
-      pendingUserText: parsed.data.text,
-      firstUserText: parsed.data.text,
+      pendingUserText: effectiveText,
+      firstUserText: effectiveText,
       pendingAttachmentViews: parsed.data.attachmentViews,
       dbSessionId: parsed.data.sessionId,
-      pendingProjectId: parsed.data.sessionId ? null : parsed.data.projectId,
+      pendingProjectId: parsed.data.sessionId ? null : boundProjectId,
       isNewSession: parsed.data.sessionId == null,
-      cwd: resolveTurnCwd(
-        ctx,
-        {
-          sessionId: parsed.data.sessionId,
-          projectId: boundProjectId,
-          cwd: parsed.data.cwd ?? null
-        },
-        sessionMeta
-      ),
-      titleGenerationStarted: false,
+      // fork/handoff 는 출발 세션 cwd 를 계승한다(SDK 세션 파일 탐색이 cwd 에 묶임 — 위 주석).
+      cwd: continuityMeta
+        ? (continuityMeta.cwd ?? ctx.getCwd(continuityMeta.project_id))
+        : resolveTurnCwd(
+            ctx,
+            {
+              sessionId: parsed.data.sessionId,
+              projectId: boundProjectId,
+              cwd: parsed.data.cwd ?? null
+            },
+            sessionMeta
+          ),
+      // continuity 는 초기 마커 제목([분기]/[핸드오프])을 유지 — 자동 제목 생성 억제.
+      titleGenerationStarted: continuitySource != null,
       currentAssistantMessageId: null,
       assistantText: '',
       pendingAskAnswers: [],
@@ -332,7 +389,22 @@ export function registerChatHandlers(deps: ChatDeps): void {
       openToolRuns: new Map(),
       subagentTypes: new Map(),
       blockedSubagents: new Set(),
-      stoppedSubagents: new Set()
+      stoppedSubagents: new Set(),
+      // 0064 continuity — persist(session.updated)가 lineage 영속 + fork display 복사에 쓴다.
+      // 초기 제목 = `[분기]/[핸드오프] <원본 제목>`(r3 피드백 — nav 최근 대화 식별). 원본
+      // 제목 부재 시 id 앞 8자 폴백. titleGenerationStarted=true 로 자동 제목(0004)을 억제해
+      // 마커 제목을 유지한다(사용자 rename 은 그대로 가능).
+      ...(continuitySource
+        ? {
+            lineage: {
+              parentSessionId: continuitySource,
+              relation: parsed.data.handoffFrom ? ('handoff' as const) : ('fork' as const)
+            },
+            initialTitle: `${parsed.data.handoffFrom ? '[핸드오프]' : '[분기]'} ${
+              continuityMeta?.title?.trim() || continuitySource.slice(0, 8)
+            }`
+          }
+        : {})
     }
     if (parsed.data.sessionId) supervisor.startResume(parsed.data.sessionId, turn)
     else supervisor.startNew(event.sender, turn)
@@ -373,10 +445,11 @@ export function registerChatHandlers(deps: ChatDeps): void {
     ctx.ensureExtensionsDeployedForTurn()
 
     // 백엔드 중립 확장 리소스(지침+정적 정책 append · MCP · skills · hooks)를 빌더가 조립.
-    // resume 면 projectId 는 세션 바인딩에서 조회되므로 null 을 넘긴다.
+    // resume 면 projectId 는 세션 바인딩에서 조회되므로 null 을 넘긴다. fork/handoff 새 세션은
+    // 출발 세션에서 계승한 boundProjectId 를 쓴다.
     const extensions = ctx.extensions.build(
       parsed.data.sessionId,
-      parsed.data.sessionId ? null : parsed.data.projectId
+      parsed.data.sessionId ? null : boundProjectId
     )
 
     // Persistent 면 세션 키의 idle 핸들을 재사용, 아니면 fresh(OneShot 또는 신규 세션 first turn).
@@ -492,9 +565,13 @@ export function registerChatHandlers(deps: ChatDeps): void {
 
     const request: TurnRequest = {
       sessionId: parsed.data.sessionId,
+      // 0064 continuity — 어댑터가 resume+forkSession 으로 어댑트해 새 session id 를 발급받는다.
+      ...(continuitySource ? { forkFrom: continuitySource } : {}),
       // 이월된 steer 는 새 프롬프트 앞에 병합해 모델에 전달한다(D2) — DB 에는 위에서 별도 row 로
       // 이미 영속됐다. 제목/프리뷰(turn.firstUserText 등)는 사용자가 타이핑한 텍스트만 쓴다.
-      text: steerCarryover ? `${steerCarryover.text}\n\n${parsed.data.text}` : parsed.data.text,
+      // steer 이월(resume 경로)과 continuity(새 세션 경로)는 상호배타 — steerCarryover 는
+      // sessionId 있는 턴에서만 존재하고, effectiveText 는 그 경로에서 parsed.data.text 와 같다.
+      text: steerCarryover ? `${steerCarryover.text}\n\n${effectiveText}` : effectiveText,
       cwd: turn.cwd,
       signal: controller.signal,
       extensions,

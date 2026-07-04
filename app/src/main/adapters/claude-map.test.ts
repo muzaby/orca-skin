@@ -485,9 +485,8 @@ describe('claudeToNormalized', () => {
   })
 
   it('미사용 SDK 메시지 → []', () => {
-    expect(claudeToNormalized(sdk({ type: 'system', subtype: 'compact_boundary' }), ctx())).toEqual(
-      []
-    )
+    // compact_boundary 는 0064 에서 session.compacted 로 정규화됨 — 미사용 예시는 status.
+    expect(claudeToNormalized(sdk({ type: 'system', subtype: 'status' }), ctx())).toEqual([])
   })
 })
 
@@ -676,5 +675,95 @@ describe('claudeToNormalized — 서브에이전트(Task) 메타', () => {
         subagentMeta: { model: 'claude-haiku-4-5', durationMs: 9000, toolUses: 4 }
       }
     ])
+  })
+})
+
+describe('claudeToNormalized — compact_boundary (0064)', () => {
+  it('system/compact_boundary → session.compacted (trigger·preTokens 정규화)', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'compact_boundary',
+        compact_metadata: { trigger: 'manual', pre_tokens: 155_000 }
+      }),
+      ctx()
+    )
+    expect(out).toEqual([
+      { type: 'session.compacted', sessionId: 's1', trigger: 'manual', preTokens: 155_000 }
+    ])
+  })
+
+  it('메타 필드가 없거나 미지 값이면 optional 을 생략한다(방어)', () => {
+    const out = claudeToNormalized(
+      sdk({ type: 'system', subtype: 'compact_boundary', compact_metadata: { trigger: '??' } }),
+      ctx()
+    )
+    expect(out).toEqual([{ type: 'session.compacted', sessionId: 's1' }])
+    expect(claudeToNormalized(sdk({ type: 'system', subtype: 'compact_boundary' }), ctx())).toEqual(
+      [{ type: 'session.compacted', sessionId: 's1' }]
+    )
+  })
+
+  it('압축 턴 result — 경계 이전 스냅샷을 무효화하고 컨텍스트를 요약 크기(출력)로 근사한다 (r5)', () => {
+    const c = ctx()
+    // 경계 *이전* 요약 요청 usage — 압축 전 전체 이력이 실린 입력(155k 컨텍스트 상당).
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          content: [{ type: 'text', text: 'summary...' }],
+          usage: { input_tokens: 1200, output_tokens: 3000, cache_read_input_tokens: 150_000 }
+        }
+      }),
+      c
+    )
+    claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'compact_boundary',
+        compact_metadata: { trigger: 'manual', pre_tokens: 155_000 }
+      }),
+      c
+    )
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        total_cost_usd: 0.4,
+        usage: { input_tokens: 1200, output_tokens: 3000, cache_read_input_tokens: 150_000 }
+      }),
+      c
+    )
+    const ev = out[0] as { usage?: Record<string, number> }
+    // 컨텍스트 점유 = 압축 후 근사(출력 토큰 = 요약 크기). 압축 전 값(150k)에 고착 금지 —
+    // 도넛/경고가 압축 완료 직후 해제되게 한다.
+    expect(ev.usage?.inputTokens).toBe(3000)
+    expect(ev.usage?.cacheReadTokens).toBeUndefined()
+    expect(ev.usage?.cacheCreationTokens).toBeUndefined()
+    // 비용·출력은 턴 누적 유지(원장 무손실).
+    expect(ev.usage?.costUsd).toBe(0.4)
+    expect(ev.usage?.outputTokens).toBe(3000)
+  })
+
+  it('경계 이후 assistant usage 가 오면(auto 압축 후 턴 계속) 실측 스냅샷이 우선한다', () => {
+    const c = ctx()
+    claudeToNormalized(sdk({ type: 'system', subtype: 'compact_boundary' }), c)
+    // 압축 후 이어진 요청 — 작아진 실측 컨텍스트.
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          content: [{ type: 'text', text: 'continue' }],
+          usage: { input_tokens: 80, output_tokens: 20, cache_read_input_tokens: 9000 }
+        }
+      }),
+      c
+    )
+    const out = claudeToNormalized(
+      sdk({ type: 'result', usage: { input_tokens: 160_000, cache_read_input_tokens: 200_000 } }),
+      c
+    )
+    const ev = out[0] as { usage?: Record<string, number> }
+    expect(ev.usage?.inputTokens).toBe(80)
+    expect(ev.usage?.cacheReadTokens).toBe(9000)
   })
 })

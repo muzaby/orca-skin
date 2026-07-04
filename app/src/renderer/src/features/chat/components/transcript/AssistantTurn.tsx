@@ -8,6 +8,8 @@ interface AssistantTurnProps {
   turn: Turn
   // 이 턴이 아직 진행 중(스트리밍)이면 메타를 숨긴다 — "답변이 모두 종료됐을 때 하나의 턴".
   pending?: boolean
+  // 분기(fork) 아이콘 노출 — transcript 의 마지막 assistant 턴에서만 true(0064 r2).
+  forkable?: boolean
 }
 
 // 에이전트 턴 — 텍스트↔툴콜로 쪼개진 여러 assistant 메시지의 본문을 스택하고,
@@ -17,7 +19,7 @@ interface AssistantTurnProps {
 // memo(turnEquals ∧ pending): 스트리밍 중 변하지 않는 과거 턴의 재렌더(마크다운 재파싱
 // 포함)를 차단한다 (0007-transcript-render-memo).
 export const AssistantTurn = memo(
-  function AssistantTurn({ turn, pending }: AssistantTurnProps): React.JSX.Element {
+  function AssistantTurn({ turn, pending, forkable }: AssistantTurnProps): React.JSX.Element {
     const last = turn.messages[turn.messages.length - 1]
     // 도구를 실행한 agentic 턴이면 좌측 yellow dot 마커.
     const agentic = turn.messages.some((m) => m.parts.some((p) => p.type === 'tool_call'))
@@ -32,10 +34,18 @@ export const AssistantTurn = memo(
           <AssistantMessage key={i} message={m} />
         ))}
         {!pending && (
-          <MessageMeta text={turnCopyText(turn)} createdAt={last.createdAt} align="left" />
+          <MessageMeta
+            text={turnCopyText(turn)}
+            createdAt={last.createdAt}
+            align="left"
+            forkable={forkable}
+          />
         )}
       </div>
     )
   },
-  (prev, next) => prev.pending === next.pending && turnEquals(prev.turn, next.turn)
+  (prev, next) =>
+    prev.pending === next.pending &&
+    prev.forkable === next.forkable &&
+    turnEquals(prev.turn, next.turn)
 )

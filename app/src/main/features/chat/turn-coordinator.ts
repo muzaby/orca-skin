@@ -189,6 +189,8 @@ export class TurnCoordinator<W = unknown> {
             // history 의 reset 전에 messageId 를 읽고, title 이 relay 전에 트리거되는 순서 불변식은
             // bootstrap 의 등록 순서가 소유한다. promote 는 emit 반환 후(=relay 후) 실행 — 동기
             // emit 이라 "forward 후 새-채팅 pending 턴 승격" 순서가 자동 보존된다.
+            // 핸드오프 자동 메시지 에코는 send 수리 직후(턴 시작 전)에 처리한다(0064 r4) —
+            // SDK init 지연 시 압축 요약이 에코보다 먼저 렌더되는 역순을 구조적으로 차단.
             this.emit(turn, ev)
             if (ev.type === 'session.updated') {
               registry.promote(turn, ev.sessionId)

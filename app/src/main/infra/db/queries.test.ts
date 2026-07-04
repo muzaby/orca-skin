@@ -10,6 +10,7 @@ import migration0007 from './migrations/0007_title_source.sql?raw'
 import migration0008 from './migrations/0008_provider_key.sql?raw'
 import migration0009 from './migrations/0009_message_complete.sql?raw'
 import migration0010 from './migrations/0010_session_cwd.sql?raw'
+import migration0011 from './migrations/0011_session_lineage.sql?raw'
 import { DbQueries } from './queries'
 
 function dbWithMigrations(): Database.Database {
@@ -25,6 +26,7 @@ function dbWithMigrations(): Database.Database {
   db.exec(migration0008)
   db.exec(migration0009)
   db.exec(migration0010)
+  db.exec(migration0011)
   return db
 }
 

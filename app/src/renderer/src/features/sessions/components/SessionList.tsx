@@ -1,5 +1,15 @@
 import { SessionRow } from './SessionRow'
 import { useSessionsState } from '../store/sessionsStore'
+import type { SessionListItem } from '../../../../../shared/ipc'
+
+// continuity draft(fork/handoff, 미물질화) nav 행(0064 r4). chat feature 의
+// ContinuityDraftRow 와 구조적으로 호환 — cross-feature import 대신 셸(app/)이 매핑해
+// props 로 내린다(4-layer 경계).
+export interface DraftSessionRow {
+  key: string
+  title: string | null
+  projectId: string | null
+}
 
 interface SessionListProps {
   // ChatContext, ProjectsContext 는 cross-feature 이므로 app/AppLayout 가 wiring.
@@ -8,6 +18,11 @@ interface SessionListProps {
   onSelect: (id: string) => void
   onDelete: (id: string) => void
   onRename: (id: string, title: string) => void
+  // 미물질화 continuity draft 행 — DB 목록 위에 얹는다(fork 클릭 = nav 즉시 추가, 0064 r4).
+  drafts?: DraftSessionRow[]
+  activeDraftKey?: string | null
+  onSelectDraft?: (key: string) => void
+  onDeleteDraft?: (key: string) => void
 }
 
 // Sidebar 의 '최근 대화' 슬롯에 주입되는 세션 목록. SessionsContext 는 자기 feature
@@ -17,16 +32,31 @@ export function SessionList({
   projectNameById,
   onSelect,
   onDelete,
-  onRename
+  onRename,
+  drafts = [],
+  activeDraftKey = null,
+  onSelectDraft,
+  onDeleteDraft
 }: SessionListProps): React.JSX.Element {
   const list = useSessionsState((s) => s.list)
 
-  if (list.length === 0) {
+  if (list.length === 0 && drafts.length === 0) {
     return <div className="px-1.5 text-[11.5px] text-ink3">아직 저장된 대화가 없습니다.</div>
   }
 
   return (
     <>
+      {drafts.map((d) => (
+        <SessionRow
+          key={d.key}
+          session={draftAsListItem(d)}
+          isActive={d.key === activeDraftKey}
+          projectName={d.projectId ? (projectNameById.get(d.projectId) ?? null) : null}
+          onSelect={onSelectDraft}
+          onDelete={onDeleteDraft}
+          renameable={false}
+        />
+      ))}
       {list.map((s) => (
         <SessionRow
           key={s.id}
@@ -40,4 +70,17 @@ export function SessionList({
       ))}
     </>
   )
+}
+
+// SessionRow 재사용을 위한 최소 합성 — draft 는 DB 행이 아니므로 메타는 채우지 않는다.
+function draftAsListItem(d: DraftSessionRow): SessionListItem {
+  return {
+    id: d.key,
+    backend: 'claude',
+    title: d.title,
+    updatedAt: 0,
+    preview: null,
+    projectId: d.projectId,
+    cwd: null
+  }
 }

@@ -57,6 +57,7 @@ import { settleOpenToolRuns } from '../features/chat/settle'
 import { recordTurnUsage } from '../features/usage/subscriber'
 import { ApprovalCoordinator } from '../features/approvals/coordinator'
 import { HistoryWriter } from '../features/history/writer'
+import { materializeContinuityArrival } from '../features/orchestration/fork'
 import { TitleGenerator } from '../features/chat/title-generation'
 import { recoverDanglingToolCalls } from '../features/chat/recovery'
 import { broadcastConcurrency, sendChatEvent } from '../infra/ipc/send'
@@ -238,7 +239,11 @@ export class Bootstrap {
     // usage·history 는 critical(throw=턴 실패 전파), title·relay 는 격리(실패가 파이프라인을 안 죽임).
     const bus = (this.bus = new TypedBus<OrcaBusEvents<Electron.WebContents>>())
     const titles = new TitleGenerator(ctx.db)
-    const persistence = new HistoryWriter(ctx.db)
+    // continuity 도착 물질화(0064 fork/handoff)는 orchestration 슬라이스 구현을 여기서 주입
+    // — history↔orchestration 교차 import 차단.
+    const persistence = new HistoryWriter(ctx.db, (arrival) =>
+      materializeContinuityArrival(ctx.db, arrival)
+    )
     bus.on(
       'turn.event',
       ({ turn, ev }) => {

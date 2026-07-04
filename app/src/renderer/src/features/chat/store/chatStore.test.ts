@@ -456,6 +456,184 @@ describe('chatStore — 0040 새-채팅 직렬 디스패치 게이트', () => {
   })
 })
 
+describe('chatStore — 0064 r4 핸드오프 에코 순서', () => {
+  const userMsg = (
+    text: string,
+    createdAt: number
+  ): (typeof initialChatState)['messages'][number] => ({
+    role: 'user',
+    createdAt,
+    parts: [{ type: 'text', text }]
+  })
+  const assistantMsg = (
+    text: string,
+    createdAt: number
+  ): (typeof initialChatState)['messages'][number] => ({
+    role: 'assistant',
+    createdAt,
+    parts: [{ type: 'text', text }]
+  })
+
+  it('조기 에코(sessionId 없는 message.user)가 pending draft 에 커밋되고 압축 요약보다 앞선다', () => {
+    // 확정 세션 s(사용자 턴 2회, 턴 비진행) — startHandoff 가드 통과 상태.
+    useChatStore.setState((st) => ({
+      sessions: {
+        ...st.sessions,
+        s: {
+          ...st.sessions.s,
+          session: {
+            ...st.sessions.s.session,
+            inflight: false,
+            turnStartedAt: null,
+            messages: [userMsg('q1', 1), assistantMsg('a1', 2), userMsg('q2', 3)]
+          }
+        }
+      }
+    }))
+
+    expect(chatActions.startHandoff()).toBe(true)
+    const draftKey = useChatStore.getState().pendingNewChatKey!
+    expect(draftKey).toMatch(/^draft:/)
+    expect(chatSend).toHaveBeenCalledWith(expect.objectContaining({ handoffFrom: 's' }))
+
+    // main 은 send 수리 직후(턴 시작 전, sessionId 미발급) 에코를 발행한다(r4).
+    ingestChatEvent({
+      type: 'message.user',
+      text: '/compact [핸드오프] 자동 메시지',
+      createdAt: 10
+    })
+    expect(partsText(entry(draftKey).session.messages[0].parts)).toBe(
+      '/compact [핸드오프] 자동 메시지'
+    )
+
+    // 이후 SDK 이벤트가 어떤 순서로 오든 user 버블이 항상 요약보다 앞이다.
+    ingestChatEvent({ type: 'session.updated', sessionId: 'ho', patch: {} })
+    ingestChatEvent({ type: 'session.compacted', sessionId: 'ho', trigger: 'manual' })
+    ingestChatEvent({ type: 'message.completed', sessionId: 'ho', message: { text: '압축 요약' } })
+    ingestChatEvent({ type: 'telemetry', sessionId: 'ho' })
+
+    const msgs = entry('ho').session.messages
+    expect(msgs.map((m) => m.role)).toEqual(['user', 'assistant'])
+    expect(partsText(msgs[0].parts)).toBe('/compact [핸드오프] 자동 메시지')
+    expect(msgs[1].parts.map((p) => p.type)).toEqual(['compact_boundary', 'text'])
+    expect(entry('ho').session.inflight).toBe(false)
+  })
+
+  it('승격이 늦어 요약이 폴백 라우팅돼도 draft 안에서 [user 에코 → 요약] 순서가 유지된다', () => {
+    useChatStore.setState((st) => ({
+      sessions: {
+        ...st.sessions,
+        s: {
+          ...st.sessions.s,
+          session: {
+            ...st.sessions.s.session,
+            inflight: false,
+            turnStartedAt: null,
+            messages: [userMsg('q1', 1), assistantMsg('a1', 2), userMsg('q2', 3)]
+          }
+        }
+      }
+    }))
+    chatActions.startHandoff()
+    const draftKey = useChatStore.getState().pendingNewChatKey!
+
+    ingestChatEvent({ type: 'message.user', text: '/compact 에코', createdAt: 10 })
+    // init(session.updated) 이 오기 전에 요약이 먼저 도착하는 병리적 순서 — entry 없는
+    // sessionId 라 pending draft 로 폴백 라우팅되지만 에코 뒤에 붙는다.
+    ingestChatEvent({ type: 'message.completed', sessionId: 'late', message: { text: '요약' } })
+    ingestChatEvent({ type: 'session.updated', sessionId: 'late', patch: {} })
+
+    const msgs = entry('late').session.messages
+    expect(msgs.map((m) => m.role)).toEqual(['user', 'assistant'])
+    expect(partsText(msgs[0].parts)).toBe('/compact 에코')
+    expect(partsText(msgs[1].parts)).toBe('요약')
+    expect(useChatStore.getState().sessions[draftKey]).toBeUndefined()
+  })
+})
+
+describe('chatStore — 0064 r4 continuity draft nav', () => {
+  const seedForkableSource = (): void => {
+    useChatStore.setState((st) => ({
+      sessions: {
+        ...st.sessions,
+        s: {
+          ...st.sessions.s,
+          session: {
+            ...st.sessions.s.session,
+            inflight: false,
+            turnStartedAt: null,
+            title: '원본 세션',
+            messages: [
+              { role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'q' }] },
+              { role: 'assistant', createdAt: 2, parts: [{ type: 'text', text: 'a' }] }
+            ]
+          }
+        }
+      }
+    }))
+  }
+
+  it('startForkDraft 는 draft 를 즉시 만들고, 같은 부모의 이전 미전송 draft 를 교체한다', () => {
+    seedForkableSource()
+    expect(chatActions.startForkDraft()).toBe(true)
+    const firstKey = useChatStore.getState().activeKey
+    expect(firstKey).toMatch(/^draft:/)
+    expect(useChatStore.getState().sessions[firstKey].session.title).toBe('[분기] 원본 세션')
+    // 프리필 이력 끝에 '분기된 지점' 구분선 합성(r5) — 물질화 영속분(fork_boundary)과 위치 일치.
+    const draftMsgs = useChatStore.getState().sessions[firstKey].session.messages
+    expect(draftMsgs).toHaveLength(3)
+    expect(draftMsgs[2].parts).toEqual([{ type: 'fork_boundary' }])
+
+    // 부모로 돌아가 다시 fork — 이전 미전송 draft 는 교체 정리된다(중복 nav 행 방지).
+    useChatStore.setState({ activeKey: 's' })
+    expect(chatActions.startForkDraft()).toBe(true)
+    const secondKey = useChatStore.getState().activeKey
+    expect(secondKey).not.toBe(firstKey)
+    expect(useChatStore.getState().sessions[firstKey]).toBeUndefined()
+    expect(useChatStore.getState().sessions[secondKey]).toBeDefined()
+  })
+
+  it('다른 세션으로 이탈해도 draft 는 살아남고(nav 행 유지), activate 로 복귀한다', () => {
+    seedForkableSource()
+    chatActions.startForkDraft()
+    const draftKey = useChatStore.getState().activeKey
+
+    // 다른 확정 세션으로 전환(구 r2 는 여기서 prune — r4 부터 보존).
+    void chatActions.loadSession('s')
+    expect(useChatStore.getState().activeKey).toBe('s')
+    expect(useChatStore.getState().sessions[draftKey]).toBeDefined()
+
+    expect(chatActions.activateContinuityDraft(draftKey)).toBe('s')
+    expect(useChatStore.getState().activeKey).toBe(draftKey)
+  })
+
+  it('discardContinuityDraft — 활성 draft 삭제 시 부모 엔트리로 복귀, pending 중엔 거부', () => {
+    seedForkableSource()
+    chatActions.startForkDraft()
+    const draftKey = useChatStore.getState().activeKey
+
+    expect(chatActions.discardContinuityDraft(draftKey)).toBe(true)
+    expect(useChatStore.getState().sessions[draftKey]).toBeUndefined()
+    expect(useChatStore.getState().activeKey).toBe('s')
+
+    // 전송 진행(pending) 중인 handoff draft 는 삭제 거부 — 승격 게이트 보호.
+    seedForkableSource()
+    useChatStore.setState((st) => ({
+      sessions: {
+        ...st.sessions,
+        'draft:pending': {
+          session: { ...initialChatState, handoffFrom: 's', inflight: true, turnStartedAt: 1 },
+          live: { text: '', reasoning: '' },
+          subagentMeta: {}
+        }
+      },
+      pendingNewChatKey: 'draft:pending'
+    }))
+    expect(chatActions.discardContinuityDraft('draft:pending')).toBe(false)
+    expect(useChatStore.getState().sessions['draft:pending']).toBeDefined()
+  })
+})
+
 describe('chatStore — 계획 거부(rejectPlan)', () => {
   beforeEach(() => {
     useChatStore.setState((st) => ({

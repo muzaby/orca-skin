@@ -380,7 +380,11 @@ cap/LRU/idle-close/registry 가 *세는 유닛*은 **SessionRuntime**(자원)이
 
 ### A.4 Conversation Continuity / Knowledge Curation (Future 서비스 층)
 
-handoff·fork·DB reseed·대화 종료/archive 시 평가·요약 → **Orca 전용 knowledge artifact / KB entry**(특정 `memory.md` 파일 아님; SDK 로 생성하되 SDK context/SDK memory file 갱신 아님). 이 Future 서비스가 코드로 착지할 때 `src/main/orchestration/` 이름을 재생성한다. 불변식:
+handoff·fork·DB reseed·대화 종료/archive 시 평가·요약 → **Orca 전용 knowledge artifact / KB entry**(특정 `memory.md` 파일 아님; SDK 로 생성하되 SDK context/SDK memory file 갱신 아님). 이 Future 서비스가 코드로 착지할 때 `src/main/orchestration/` 이름을 재생성한다.
+
+> **코드 안착(handoff 0064)**: 첫 서비스 = **fork/handoff + lineage 영속화**가 `src/main/features/orchestration/{fork,handoff}.ts` 로 착지했다. handoff 는 **rebind 방식**(SDK forkSession 으로 전체 맥락 전달 + 도착 세션 첫 프롬프트 `/compact` 자동 메시지 — 요약 주체 = 도착 세션, 엔진 = SDK 네이티브 compaction)이라 아래 "별도 internal evaluation session" 은 handoff 용도로는 불요해졌다(archive 평가 등 후속 continuity 에서 필요 시 재도입 — 0064 plan §r2 폐기 요소). lineage = `session_lineage`(마이그레이션 0011). DB reseed·knowledge artifact 는 여전히 Future.
+
+불변식:
 
 - **Runtime close ≠ Conversation close** — IdleClose/LRU 가 핸들을 닫아도 대화는 안 끝난다. knowledge export 는 *conversation close/archive hook*(자원 close 아님).
 - **1 Orca Session : ≤1 user-facing SessionRuntime.** 평가·요약은 원 세션 visible runtime 을 오염시키지 않고 **별도 internal evaluation session**(ownerless system runtime, `runCompletion` 류 — 결정 ⑯ 별도 평가 세션)에서 실행. 이 평가 런타임의 **cap 회계 포함 여부는 P1 경계 결정**(Future 기능이나 P1 Supervisor 에 영향).
@@ -392,7 +396,7 @@ handoff·fork·DB reseed·대화 종료/archive 시 평가·요약 → **Orca �
 |---|---|
 | **P0 (0050 출시)** | 3엔티티 개념 분리 · OneShot SessionRuntime · 상태 SSOT · StallTimer 분리 · **dangling 마감(DB-only)** · PermissionBridge/canUseTool(승인 = P0 의 제약된 mid-turn 입력 채널) |
 | **P1** | ~~TurnCoordinator 1급화~~(✅ 0052) · ~~Runtime Supervisor 척추(소유자 추출 + idempotent close/abort 단일 경로)~~(✅ 0053) · ~~Persistent runtime(close-policy 핸들) + IdleCloseTimer 실구현 + Supervisor 거버넌스(acquire/release, 게이트 OFF=OneShot)~~(✅ 0054) · ~~Supervisor cap/LRU(self-idle vs LRU eviction 합류) + ConcurrencyRegistry 소유 이관~~(✅ 0055) · ~~`orchestration/concurrency` 이름 분기 해소~~(✅ 0061) · steer/queue admission(일반 mid-turn 입력) |
-| **Future** | handoff/fork · DB-based reseed · internal evaluation session 기반 평가·요약 · knowledge artifact/KB entry · lineage 영속화 |
+| **Future** | ~~handoff/fork~~(✅ 0064 — rebind 방식) · DB-based reseed · internal evaluation session 기반 평가·요약 · knowledge artifact/KB entry · ~~lineage 영속화~~(✅ 0064) |
 
 > **P1 구현 현황**: 가로축 TurnCoordinator(0052) → 세로축 Runtime Supervisor 척추 + 단일 멱등 close/abort(0053) → **Persistent runtime(close-policy 파라미터, 결정 ⑳) + IdleCloseTimer 실구현 + RuntimePool/Supervisor 거버넌스(acquireRuntime/releaseRuntime, turn teardown≠runtime close)(0054)** → cap/LRU eviction 정책 seam + ConcurrencyRegistry Supervisor 소유 이관(0055) → `orchestration/concurrency` 이름 분기 해소(0061)까지 안착. 0054+ 는 **게이트 뒤**(`ORCA_PERSISTENT_RUNTIME`, 기본 OneShot)라 출시 경로 동작 보존이고, 남은 P1 은 steer/queue admission + true streaming-input 이다. idle/LRU/cap 은 핸들이 idle 로 살아남는 **Persistent 가 전제**라 0053 척추가 정책을 비웠고, 0054 가 그 Persistent 핸들 + 시간경계(IdleClose)를 세웠다.
 

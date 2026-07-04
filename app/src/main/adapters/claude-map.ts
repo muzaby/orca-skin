@@ -33,6 +33,10 @@ export interface MapContext {
     cacheReadTokens?: number
     cacheCreationTokens?: number
   }
+  // 이 턴에서 compact_boundary(네이티브 압축)를 지났는가 — 경계 이전의 usage(전체 이력이 실린
+  // 요약 요청 입력)는 더 이상 라이브 컨텍스트가 아니므로, 경계에서 스냅샷을 무효화하고 result
+  // telemetry 의 컨텍스트 점유를 압축 후 값으로 근사하는 데 쓴다(0064 r5 피드백 1).
+  compacted?: boolean
   // 서브에이전트(Task) 누산 메타 — task_*/child assistant 에서 모은 모델·시간·도구수를 부모 Task
   // tool_result(tool.call.completed) emit 시 실어 영속한다. toolUseId(= Agent tool_use id) 키.
   subagentMeta?: Map<string, SubagentTaskMeta>
@@ -158,6 +162,28 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
       subtype === 'task_notification'
     ) {
       return mapTaskSystem(msg as unknown as Record<string, unknown>, subtype, ctx)
+    }
+    // SDKCompactBoundaryMessage → session.compacted (0064 handoff). SDK 네이티브 /compact
+    // 압축 완료 경계 — 도착 세션 transcript 의 압축 표시를 구동한다(구 Phase 3 드롭 해제).
+    if (subtype === 'compact_boundary') {
+      const meta = (
+        msg as unknown as { compact_metadata?: { trigger?: unknown; pre_tokens?: unknown } }
+      ).compact_metadata
+      const preTokens = num(meta?.pre_tokens)
+      const trigger = meta?.trigger
+      // 경계 이전 assistant usage 스냅샷(압축 *전* 전체 이력 입력)을 무효화한다 — 압축 후에도
+      // 이 값이 result telemetry 를 덮으면 도넛/경고가 압축 전 상태에 고착된다(r5 피드백 1).
+      // 경계 이후 assistant 가 또 오면(auto 압축 후 턴 계속) 실측 스냅샷이 새로 잡힌다.
+      ctx.compacted = true
+      delete ctx.lastAssistantUsage
+      return [
+        {
+          type: 'session.compacted',
+          sessionId: ctx.sessionId,
+          ...(trigger === 'manual' || trigger === 'auto' ? { trigger } : {}),
+          ...(preTokens !== undefined ? { preTokens } : {})
+        }
+      ]
     }
   }
 
@@ -370,6 +396,16 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
       if (snap.cacheReadTokens !== undefined) telemetry.cacheReadTokens = snap.cacheReadTokens
       if (snap.cacheCreationTokens !== undefined)
         telemetry.cacheCreationTokens = snap.cacheCreationTokens
+    } else if (telemetry && ctx.compacted) {
+      // 압축 턴(manual /compact·핸드오프 도착)인데 경계 이후 실측 usage 가 없는 경우 —
+      // result.usage 의 컨텍스트 3종은 압축 *전* 전체 이력이 실린 요약 요청 입력이라 그대로
+      // 내보내면 도넛/경고가 압축 전 값에 고착된다. 압축 후 라이브 컨텍스트 ≈ 요약(출력
+      // 토큰)이므로 그 값으로 근사한다 — 다음 실제 턴의 telemetry 가 실측으로 바로잡는다.
+      // costUsd·durationMs·modelUsage 는 턴 누적이 맞아 유지(비용 원장 무손실).
+      delete telemetry.cacheReadTokens
+      delete telemetry.cacheCreationTokens
+      if (telemetry.outputTokens !== undefined) telemetry.inputTokens = telemetry.outputTokens
+      else delete telemetry.inputTokens
     }
     const out: NormalizedEvent[] = [
       {
@@ -395,8 +431,8 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
     return out
   }
 
-  // 그 외 SDK 메시지 (compact_boundary, plugin_install, task_*, permission_denied,
-  // rate_limit_event, status, api_retry, hook_*, auth_status 등) 는 Phase 3 미사용.
+  // 그 외 SDK 메시지 (plugin_install, permission_denied, rate_limit_event, status,
+  // api_retry, hook_*, auth_status 등) 는 미사용. (compact_boundary 는 0064 에서 정규화됨.)
   return []
 }
 

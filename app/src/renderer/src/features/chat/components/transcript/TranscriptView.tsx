@@ -1,6 +1,7 @@
 import { memo, useMemo } from 'react'
 import { ReadingColumn } from '../../../../shared/ui/ReadingColumn'
 import { Exchange, TurnErrorBanner } from './Exchange'
+import { PendingAssistant } from './PendingAssistant'
 import { groupExchanges } from '../../lib/turns'
 import type { Message } from '../../reducer/chatReducer'
 import type { PendingSteerState } from '../../store/chatStore'
@@ -43,7 +44,7 @@ export const TranscriptView = memo(function TranscriptView({
   // 델타 프레임(messages 참조 불변)에서 Exchange/Turn 객체 identity 를 고정 — memo 된
   // 컴포넌트가 props 비교만으로 재렌더를 건너뛴다 (0007-transcript-render-memo 계승).
   const exchanges = useMemo(() => groupExchanges(messages), [messages])
-  const isEmpty = messages.length === 0 && !loadingSession
+  const isEmpty = messages.length === 0 && !loadingSession && !inflight
 
   return (
     <div
@@ -72,12 +73,17 @@ export const TranscriptView = memo(function TranscriptView({
               exchange={exchange}
               reserve={isLast && anchored}
               pending={isLast && inflight}
+              // 분기(fork) 아이콘은 transcript 의 마지막 어시스턴트 턴에서만(r2 피드백).
+              forkable={isLast}
               error={isLast ? error : undefined}
               pendingSteer={isLast && inflight ? pendingSteer : undefined}
               onRestoreSteerDraft={onRestoreSteerDraft}
             />
           )
         })}
+        {/* 교환이 없는데 턴이 진행 중(핸드오프 직후 init 대기 등, r2) — 라이브 인디케이터로
+            빈 화면을 막는다. 교환이 생기면 마지막 Exchange 내부 PendingAssistant 로 넘어간다. */}
+        {inflight && exchanges.length === 0 && <PendingAssistant />}
         {/* 교환이 없는데 에러만 있는 엣지(전송 실패 직후 등) — 최상위 fallback. */}
         {error && exchanges.length === 0 && <TurnErrorBanner error={error} />}
       </ReadingColumn>

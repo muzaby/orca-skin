@@ -36,7 +36,8 @@ import {
   adaptSkills,
   adaptSystemPrompt,
   makeSteerGateHook,
-  mergeHooks
+  mergeHooks,
+  withPostCompactHook
 } from './claude-adapt'
 import { CLAUDE_DESCRIPTOR } from './descriptor'
 import type { ProviderDescriptor } from '../../shared/ipc'
@@ -284,10 +285,18 @@ export class ClaudeAdapter implements SessionAdapter {
     // — pull(=SDK eager drain)도 orca 관찰 경계도 flush 신호가 아니다.
     const input = createTurnInputStream(buildTurnContent(text, attachmentTexts, attachmentImages))
 
+    // 압축 요약 surface (0064 r3) — PostCompact hook 이 전달한 compact_summary 를 assistant
+    // 메시지로 승격할 대기열. hook 콜백은 스트림 밖에서 도착하므로 events() 가 SDK 메시지
+    // 경계마다 드레인해 [compact 구분선 → 요약 메시지] 순서로 합류시킨다.
+    const compactSummaries: string[] = []
+
     const handle = query({
       prompt: input.stream,
       options: {
-        resume: sessionId ?? undefined,
+        // fork/handoff(0064) — forkFrom 세션의 이력 복사본으로 시작하되 SDK 가 새 session_id
+        // 를 발급한다(원본 불변). 새 id 는 init(session.updated)에서 ctx 로 흡수된다.
+        resume: req.forkFrom ?? sessionId ?? undefined,
+        ...(req.forkFrom !== undefined ? { forkSession: true } : {}),
         includePartialMessages: true,
         // steer echo 의 전제 조건(0060 D5). CLI 는 mid-turn drain 한 큐 커맨드(steer)를
         // `--replay-user-messages` 일 때만 user(isReplay: content=원문, uuid=source_uuid=orca
@@ -311,12 +320,16 @@ export class ClaudeAdapter implements SessionAdapter {
         // options.env(adaptEnv)에는 시스템(턴) env 만 — orca.json 앱 env.
         ...adaptSettings(req.providerSettings?.settings),
         ...adaptEnv(env),
-        // hooks = 중립 정규화 훅 + steer 게이트(PostToolBatch, 메인 루프 한정 flush) 조각 병합.
-        ...mergeHooks(
-          adaptHooks(extensions.hooks),
-          req.takeSteerFlush
-            ? makeSteerGateHook(req.takeSteerFlush, (t, u) => input.push(t, u))
-            : {}
+        // hooks = 중립 정규화 훅 + steer 게이트(PostToolBatch, 메인 루프 한정 flush) 병합 위에
+        // 어댑터 내부 PostCompact(압축 요약 수집, manual 만·0064) 를 덧씌운다.
+        ...withPostCompactHook(
+          mergeHooks(
+            adaptHooks(extensions.hooks),
+            req.takeSteerFlush
+              ? makeSteerGateHook(req.takeSteerFlush, (t, u) => input.push(t, u))
+              : {}
+          ),
+          (summary) => compactSummaries.push(summary)
         ),
         // canUseTool — AskUserQuestion·ExitPlanMode·위험 도구를 requestApproval 로 게이트하고
         // 안전 도구는 allow passthrough. 콜백 미주입(opencode 등) 시 옵션 자체를 생략해 현행
@@ -338,11 +351,31 @@ export class ClaudeAdapter implements SessionAdapter {
 
     const close = (): void => input.close()
 
+    // 대기 중인 압축 요약을 assistant 메시지 이벤트로 비운다 — persist(text 파트)와 렌더
+    // (마크다운 메시지)가 일반 message.completed 경로를 그대로 탄다. 새 세션(fork/handoff)에서
+    // init 이 늦으면 ctx.sessionId 가 아직 '' — 그 동안은 보류한다(sessionId 없는 이벤트는
+    // persist 가 드롭해 재로드에서 요약이 유실된다, 0064 r4). 스트림 종료 시엔 최종 드레인이
+    // 표시만이라도 살리도록 무조건 비운다.
+    function* drainCompactSummaries(force = false): Iterable<NormalizedEvent> {
+      if (ctx.sessionId === '' && !force) return
+      while (compactSummaries.length > 0) {
+        yield {
+          type: 'message.completed',
+          sessionId: ctx.sessionId,
+          message: { text: compactSummaries.shift()! }
+        }
+      }
+    }
+
     async function* events(): AsyncIterable<NormalizedEvent> {
       try {
         for await (const msg of handle) {
           yield* claudeToNormalized(msg, ctx)
+          // hook 은 다음 SDK 메시지(compact_boundary/result)보다 먼저 완료되므로 메시지 뒤
+          // 드레인이 [구분선 → 요약] 순서를 만든다.
+          yield* drainCompactSummaries()
         }
+        yield* drainCompactSummaries(true)
       } catch (err) {
         // 의도적 중단(턴 취소 / 계획 거부)은 에러가 아니므로 error 이벤트를 내지 않는다
         // (user_cancelled 로 분류되지만 emit 안 함 — 설계 결정 3).

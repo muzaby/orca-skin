@@ -84,6 +84,11 @@ export function Composer({
   const { send, steer, cancel, answerAsk, skipAsk, setPermissionMode, setModel, setEffort } =
     chatActions
   const inflight = useChatSession((s) => s.inflight)
+  const sessionId = useChatSession((s) => s.sessionId)
+  // 0064 handoff 가드 — 사용자 턴 2회 미만 세션 제외(값이 바뀔 때만 재렌더).
+  const userTurnCount = useChatSession((s) =>
+    s.messages.reduce((n, m) => (m.role === 'user' ? n + 1 : n), 0)
+  )
   const cwd = useChatSession((s) => s.cwd)
   const lastTelemetry = useChatSession((s) => s.lastTelemetry)
   const permissionMode = useChatSession((s) => s.permissionMode)
@@ -215,9 +220,28 @@ export function Composer({
     setConversationStatusOpen((v) => !v)
   }
 
-  const compactStub = (): void => {
-    // TODO(후속 핸드오프): compact 실동작
-    console.warn('compact action is not implemented yet')
+  // warn 단계 권장 액션(0064 r2, 사용자 확정) — 현재 세션에 `/compact` 를 사용자 턴으로
+  // 전송한다. SDK 네이티브 압축이 돌고 완료 시 session.compacted → 압축 경계 구분선 표시.
+  const onCompact = (): void => {
+    if (chatActions.send('/compact')) setConversationStatusOpen(false)
+  }
+
+  // 0064 handoff — 가드 3종: 확정 세션(sessionId) · mid-turn 거부(inflight) · 사용자 턴 2회
+  // 미만 제외. 클릭 = 즉시 물질화(startHandoff, 재클릭은 activeKey 전환으로 자연 차단).
+  const handoffDisabledReason =
+    sessionId == null
+      ? '핸드오프할 세션이 없습니다'
+      : inflight
+        ? '응답 완료 후 시도하세요'
+        : userTurnCount < 2
+          ? '대화가 더 진행된 뒤 사용할 수 있습니다'
+          : null
+  const onHandoff = (): void => {
+    if (handoffDisabledReason != null) return
+    if (chatActions.startHandoff()) {
+      setConversationStatusOpen(false)
+      setTelemetryOpen(false)
+    }
   }
 
   // "+" 메뉴의 Skill 진입 — 입력란에 `/` 를 넣어 `/` 자동완성(SkillAutocomplete)을 연다.
@@ -427,8 +451,9 @@ export function Composer({
             <StatusPopover
               id={conversationStatusPopoverId}
               model={conversationStatusModel}
-              onCompact={compactStub}
-              onNewChat={() => chatActions.newChat()}
+              onCompact={onCompact}
+              onHandoff={onHandoff}
+              handoffDisabledReason={handoffDisabledReason}
             />
           </Popover>
         )}
@@ -621,6 +646,8 @@ export function Composer({
                     onClose={() => setTelemetryOpen(false)}
                     align="end"
                   >
+                    {/* 핸드오프 진입점은 StatusPopover(danger) 단일화 — 도넛 팝오버는
+                        텔레메트리 표시 전용(0064 r3, 사용자 피드백으로 r1 '상시 노출' 폐기). */}
                     <TelemetryPanel telemetry={lastTelemetry} />
                   </Popover>
                 )}

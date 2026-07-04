@@ -14,7 +14,9 @@ import {
   adaptSkills,
   adaptSystemPrompt,
   toClaudeHookOutput,
-  toContext
+  toContext,
+  extractCompactSummary,
+  withPostCompactHook
 } from './claude-adapt'
 import type { NormalizedHookHandler } from './hooks'
 import type { SkillInfo } from '../../shared/ipc'
@@ -355,5 +357,75 @@ describe('mergeHooks', () => {
     ) as { hooks: Record<string, unknown[]> }
     expect(merged.hooks.PreToolUse).toEqual([pre])
     expect(merged.hooks.PostToolBatch).toEqual([batch1, batch2])
+  })
+})
+
+describe('withPostCompactHook (0064 r3)', () => {
+  const invoke = async (
+    onSummary: (s: string) => void,
+    input: Record<string, unknown>,
+    base: object = {}
+  ): Promise<void> => {
+    const { hooks } = withPostCompactHook(base, onSummary)
+    const matchers = hooks.PostCompact!
+    const cb = matchers[matchers.length - 1]!.hooks[0]!
+    await cb(input as never, undefined, { signal: new AbortController().signal })
+  }
+
+  it('manual 압축의 compact_summary 를 onSummary 로 전달한다', async () => {
+    const seen: string[] = []
+    await invoke((s) => seen.push(s), {
+      hook_event_name: 'PostCompact',
+      trigger: 'manual',
+      compact_summary: '① 배경… ② 목표…'
+    })
+    expect(seen).toEqual(['① 배경… ② 목표…'])
+  })
+
+  it('auto 압축·빈 요약은 무시한다 (일반 턴 transcript 비오염)', async () => {
+    const seen: string[] = []
+    await invoke((s) => seen.push(s), { trigger: 'auto', compact_summary: '요약' })
+    await invoke((s) => seen.push(s), { trigger: 'manual', compact_summary: '   ' })
+    await invoke((s) => seen.push(s), { trigger: 'manual' })
+    expect(seen).toEqual([])
+  })
+
+  it('<analysis>/<summary> 원문에서 summary 내용만 승격한다 (r4 피드백 3)', async () => {
+    const seen: string[] = []
+    await invoke((s) => seen.push(s), {
+      hook_event_name: 'PostCompact',
+      trigger: 'manual',
+      compact_summary:
+        '<analysis>\n생각 과정…\n</analysis>\n<summary>\n1. 배경: …\n2. 목표: …\n</summary>'
+    })
+    expect(seen).toEqual(['1. 배경: …\n2. 목표: …'])
+  })
+
+  it('사용자 hooks 조각을 보존한 채 PostCompact 를 병합한다', () => {
+    const userMatcher = { hooks: [] }
+    const merged = withPostCompactHook(
+      { hooks: { PreToolUse: [userMatcher], PostCompact: [userMatcher] } },
+      () => undefined
+    )
+    expect(merged.hooks.PreToolUse).toEqual([userMatcher])
+    expect(merged.hooks.PostCompact).toHaveLength(2)
+    expect(merged.hooks.PostCompact![0]).toBe(userMatcher)
+  })
+})
+
+describe('extractCompactSummary (0064 r4)', () => {
+  it('summary 태그 내용만 추출한다', () => {
+    expect(extractCompactSummary('<analysis>사고</analysis>\n<summary>요약 본문</summary>')).toBe(
+      '요약 본문'
+    )
+  })
+
+  it('summary 태그가 없으면 analysis 블럭·잔여 태그를 제거한 본문으로 폴백한다', () => {
+    expect(extractCompactSummary('<analysis>사고</analysis>\n남은 본문')).toBe('남은 본문')
+    expect(extractCompactSummary('태그 없는 요약')).toBe('태그 없는 요약')
+  })
+
+  it('summary 내용이 여러 줄이어도 앞뒤 공백만 정리한다', () => {
+    expect(extractCompactSummary('<summary>\n1. A\n\n2. B\n</summary>')).toBe('1. A\n\n2. B')
   })
 })

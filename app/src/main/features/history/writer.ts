@@ -6,14 +6,28 @@
 import type { WebContents } from 'electron'
 import type { AttachmentView, NormalizedEvent } from '../../../shared/ipc'
 import type { DbQueries } from '../../infra/db'
+import type { LineageRelation } from '../../infra/db/types'
 import { previewOf } from '../../infra/ipc/dto'
 import { sendChatEvent } from '../../infra/ipc/send'
 import type { TurnContext } from '../../contracts/turn'
 
+// 0064 continuity — fork/handoff 도착 물질화 훅(구조적 포트). 구현은 features/orchestration
+// 의 materializeContinuityArrival 이고 컴포지션 루트(app/bootstrap)가 주입한다 — feature
+// 교차 import 금지 해소책 (b)/(c).
+export type ContinuityArrivalHook = (arrival: {
+  childSessionId: string
+  parentSessionId: string
+  relation: LineageRelation
+  createdAt: number
+}) => void
+
 // 턴 영속(history) — 사용량 집계(usage/subscriber)·제목 생성(TitleGenerator)은 별개 버스 구독자로
 // 분리됐다(0062). 여기 telemetry 처리는 assistant 메시지 마감 + 다음 턴 대비 reset 만 담당한다.
 export class HistoryWriter {
-  constructor(private readonly db: DbQueries) {}
+  constructor(
+    private readonly db: DbQueries,
+    private readonly onContinuityArrival?: ContinuityArrivalHook
+  ) {}
 
   // user 메시지 1건을 messages row + text 파트로 영속한다(content 는 FTS5 캐시).
   // 첨부가 있으면 text 파트 뒤에 attachment 파트(트랜스크립트 썸네일 영속분)를 덧붙인다.
@@ -115,7 +129,9 @@ export class HistoryWriter {
         // claude 의 system/init — sessionId 발급 시점. sessions row 생성 + 대기 user 메시지 기록.
         const sessionId = ev.sessionId
         turn.dbSessionId = sessionId
-        const title = turn.pendingUserText ? previewOf(turn.pendingUserText, 60) : null
+        // continuity 는 마커 제목([분기]/[핸드오프] <원본>) 오버라이드, 그 외엔 첫 발화 preview.
+        const title =
+          turn.initialTitle ?? (turn.pendingUserText ? previewOf(turn.pendingUserText, 60) : null)
         this.db.insertSession({
           id: sessionId,
           // backend 출처는 이 턴이 잠긴 어댑터(0010 세션-어댑터 바인딩) — 리터럴 금지(0016).
@@ -126,6 +142,17 @@ export class HistoryWriter {
           providerKey: turn.providerKey,
           cwd: turn.cwd
         })
+        // 0064 continuity — fork/handoff 도착 물질화(lineage + fork 만 display 복사).
+        // fork 복사가 원본 idx 를 보존하므로 아래 user 발화 영속(MAX(idx)+1)보다 먼저 실행해
+        // 새 발화가 복사 이력 뒤로 정렬되게 한다.
+        if (turn.lineage) {
+          this.onContinuityArrival?.({
+            childSessionId: sessionId,
+            parentSessionId: turn.lineage.parentSessionId,
+            relation: turn.lineage.relation,
+            createdAt: now
+          })
+        }
         if (turn.pendingUserText) {
           this.persistUserMessage(sessionId, turn.pendingUserText, now, turn.pendingAttachmentViews)
           this.db.updateSessionPreview(sessionId, previewOf(turn.pendingUserText), now)
@@ -219,6 +246,21 @@ export class HistoryWriter {
           type: 'error',
           toolRunId: null,
           payloadJson: JSON.stringify({ error: ev.error })
+        })
+        break
+      }
+      case 'session.compacted': {
+        // SDK 네이티브 압축 완료 경계(0064) — 재로드 후에도 표시되도록 파트로 영속한다.
+        if (!turn.dbSessionId) break
+        const id = this.ensureAssistantMessage(turn, turn.dbSessionId)
+        this.db.appendPart({
+          messageId: id,
+          type: 'compact_boundary',
+          toolRunId: null,
+          payloadJson: JSON.stringify({
+            ...(ev.trigger !== undefined ? { trigger: ev.trigger } : {}),
+            ...(ev.preTokens !== undefined ? { preTokens: ev.preTokens } : {})
+          })
         })
         break
       }

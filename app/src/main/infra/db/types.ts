@@ -19,6 +19,8 @@ export type MessagePartType =
   | 'structured_output'
   | 'error'
   | 'attachment'
+  | 'compact_boundary'
+  | 'fork_boundary'
 
 export interface SessionRow {
   id: string
@@ -137,6 +139,26 @@ export interface MessagePartRow {
   type: MessagePartType
   tool_run_id: string | null
   payload_json: string
+}
+
+// 0064 continuity — fork/handoff 로 파생된 세션의 부모 관계 (session_lineage).
+export type LineageRelation = 'fork' | 'handoff'
+
+export interface SessionLineageInsert {
+  childSessionId: string
+  parentSessionId: string
+  relation: LineageRelation
+  // 점-분기(특정 메시지 절단) 후속용 — v1 전체 분기는 null.
+  forkPointMessageIdx: number | null
+  createdAt: number
+}
+
+export interface SessionLineageRow {
+  child_session_id: string
+  parent_session_id: string
+  relation: LineageRelation
+  fork_point_message_idx: number | null
+  created_at: number
 }
 
 export interface SessionInsert {

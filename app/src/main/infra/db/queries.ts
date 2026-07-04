@@ -8,6 +8,8 @@ import type {
   ProjectRow,
   SearchHitRow,
   SessionInsert,
+  SessionLineageInsert,
+  SessionLineageRow,
   SessionListRow,
   SessionTitleSource,
   TurnModelUsageInsert,
@@ -60,6 +62,13 @@ export class DbQueries {
   private readonly getProjectInstructionsForSessionStmt: Database.Statement
   // FTS5 검색 — messages_fts virtual table 을 messages + sessions 와 조인.
   private readonly searchMessagesStmt: Database.Statement
+  // 0064 continuity — 세션 계보(fork/handoff 부모 관계) + fork display 복사.
+  private readonly insertLineageStmt: Database.Statement
+  private readonly getLineageStmt: Database.Statement
+  private readonly listMessagesBySessionStmt: Database.Statement
+  private readonly insertMessageCopyStmt: Database.Statement
+  private readonly copyPartsToMessageStmt: Database.Statement
+  private readonly copyMessagesTx: Database.Transaction<(src: string, dst: string) => number>
 
   constructor(db: Database.Database) {
     this.insertSessionStmt = db.prepare(`
@@ -287,6 +296,61 @@ export class DbQueries {
       ORDER BY rank
       LIMIT @limit
     `)
+    // 계보 insert 는 insertSession 과 같은 멱등 규약(첫 턴 재시도에 안전).
+    this.insertLineageStmt = db.prepare(`
+      INSERT INTO session_lineage
+        (child_session_id, parent_session_id, relation, fork_point_message_idx, created_at)
+      VALUES (@childSessionId, @parentSessionId, @relation, @forkPointMessageIdx, @createdAt)
+      ON CONFLICT(child_session_id) DO NOTHING
+    `)
+    this.getLineageStmt = db.prepare(`
+      SELECT child_session_id, parent_session_id, relation, fork_point_message_idx, created_at
+      FROM session_lineage
+      WHERE child_session_id = @childSessionId
+    `)
+    this.listMessagesBySessionStmt = db.prepare(`
+      SELECT id, role, content, created_at, complete, idx
+      FROM messages
+      WHERE session_id = @sessionId
+      ORDER BY idx ASC
+    `)
+    // fork display 복사 — 원본 idx 를 그대로 보존해 이후 appendMessage 의 MAX(idx)+1 이
+    // 복사분 뒤로 정렬되게 한다(도착 세션의 첫 user 발화가 이력 뒤에 온다).
+    this.insertMessageCopyStmt = db.prepare(`
+      INSERT INTO messages (session_id, role, content, created_at, complete, idx)
+      VALUES (@sessionId, @role, @content, @createdAt, @complete, @idx)
+    `)
+    this.copyPartsToMessageStmt = db.prepare(`
+      INSERT INTO message_parts (message_id, idx, type, tool_run_id, payload_json)
+      SELECT @dstMessageId, idx, type, tool_run_id, payload_json
+      FROM message_parts
+      WHERE message_id = @srcMessageId
+    `)
+    this.copyMessagesTx = db.transaction((src: string, dst: string): number => {
+      const rows = this.listMessagesBySessionStmt.all({ sessionId: src }) as Array<{
+        id: number
+        role: string
+        content: string
+        created_at: number
+        complete: 0 | 1
+        idx: number
+      }>
+      for (const m of rows) {
+        const info = this.insertMessageCopyStmt.run({
+          sessionId: dst,
+          role: m.role,
+          content: m.content,
+          createdAt: m.created_at,
+          complete: m.complete,
+          idx: m.idx
+        })
+        this.copyPartsToMessageStmt.run({
+          dstMessageId: Number(info.lastInsertRowid),
+          srcMessageId: m.id
+        })
+      }
+      return rows.length
+    })
   }
 
   insertSession(row: SessionInsert): void {
@@ -469,6 +533,20 @@ export class DbQueries {
       | { instructions: string }
       | undefined
     return row?.instructions ?? null
+  }
+
+  insertLineage(row: SessionLineageInsert): void {
+    this.insertLineageStmt.run(row)
+  }
+
+  getLineage(childSessionId: string): SessionLineageRow | undefined {
+    return this.getLineageStmt.get({ childSessionId }) as SessionLineageRow | undefined
+  }
+
+  // 소스 세션의 messages+parts 전체를 대상 세션으로 복사한다(fork display, 트랜잭션).
+  // 대상 세션행이 먼저 존재해야 한다(FK). 반환값 = 복사한 메시지 수.
+  copyMessagesToSession(srcSessionId: string, dstSessionId: string): number {
+    return this.copyMessagesTx(srcSessionId, dstSessionId)
   }
 
   // 사용자 입력어를 FTS5 MATCH 표현식으로 안전하게 변환 후 검색.

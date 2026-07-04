@@ -168,6 +168,46 @@ export function mergeHooks(...fragments: object[]): object {
   return any ? { hooks: merged } : {}
 }
 
+// compact_summary 원문에서 표시용 요약만 추출한다(0064 r4 피드백 3). CLI 의 압축 프롬프트는
+// 응답을 `<analysis>…</analysis>` + `<summary>…</summary>` 두 블럭으로 강제하고, PostCompact
+// hook 의 compact_summary 는 그 **원문 전체**를 싣는다(CLI 번들 실측 — PMH(compactSummary=E),
+// E = 요약 응답 텍스트 전문). transcript 에는 summary 내용만 보여야 하므로 여기서 좁힌다.
+// summary 태그가 없으면(포맷 미준수 응답) analysis 블럭·잔여 태그만 제거한 본문으로 폴백.
+export function extractCompactSummary(raw: string): string {
+  const m = /<summary>([\s\S]*?)<\/summary>/i.exec(raw)
+  if (m) return m[1].trim()
+  return raw
+    .replace(/<analysis>[\s\S]*?<\/analysis>/gi, '')
+    .replace(/<\/?(?:analysis|summary)>/gi, '')
+    .trim()
+}
+
+// PostCompact 내부 hook 합성(0064 r3) — adaptHooks 결과(사용자 hooks 조각)에 어댑터 자체
+// PostCompact 콜백을 병합한다. SDK 는 압축이 만든 대화 요약을 `compact_summary` 로 전달하며
+// (hooks#postcompact), 어댑터는 이를 onSummary 로 올려 transcript 에 보이는 결과 메시지로
+// 승격한다. **manual 트리거만** — 자동 압축 요약이 일반 턴 transcript 를 오염시키지 않게.
+// onSummary 에는 extractCompactSummary 로 좁힌 표시용 본문만 넘긴다(XML 블럭 제외, r4).
+export function withPostCompactHook(
+  base: object,
+  onSummary: (summary: string) => void
+): { hooks: Partial<Record<HookEvent, HookCallbackMatcher[]>> } {
+  const baseHooks = (base as { hooks?: Partial<Record<HookEvent, HookCallbackMatcher[]>> }).hooks
+  const callback: HookCallback = async (input) => {
+    const i = input as { trigger?: unknown; compact_summary?: unknown }
+    if (i.trigger === 'manual' && typeof i.compact_summary === 'string') {
+      const summary = extractCompactSummary(i.compact_summary)
+      if (summary !== '') onSummary(summary)
+    }
+    return { continue: true }
+  }
+  return {
+    hooks: {
+      ...(baseHooks ?? {}),
+      PostCompact: [...(baseHooks?.PostCompact ?? []), { hooks: [callback] }]
+    }
+  }
+}
+
 // claude snake_case Hook 입력의 좁힘 형태 (순수 매퍼 테스트가 가짜 payload 를 넘기기 쉽도록).
 interface ClaudeHookInputLike {
   session_id?: string

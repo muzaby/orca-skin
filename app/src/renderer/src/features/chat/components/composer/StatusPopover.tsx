@@ -5,8 +5,10 @@ import type { StatusLineModel } from './statusViewModel'
 interface StatusPopoverProps {
   id: string
   model: StatusLineModel
-  onCompact?: () => void
-  onNewChat: () => void
+  // 0064 r2 — 단계별 단일 권장 액션: warn=현재 세션 /compact 전송, danger=핸드오프.
+  onCompact: () => void
+  onHandoff: () => void
+  handoffDisabledReason?: string | null
 }
 
 const TONE_CLASS: Record<StatusLineModel['state'], string> = {
@@ -18,10 +20,10 @@ export function StatusPopover({
   id,
   model,
   onCompact,
-  onNewChat
+  onHandoff,
+  handoffDisabledReason
 }: StatusPopoverProps): React.JSX.Element {
-  const compactPrimary = model.recommend === 'compact'
-  const newChatPrimary = model.recommend === 'newchat'
+  const isHandoff = model.action === 'handoff'
 
   return (
     <div id={id} role="none" className="flex w-[320px] flex-col gap-3 p-3">
@@ -55,26 +57,20 @@ export function StatusPopover({
         )}
       </dl>
 
-      <div className="flex flex-col gap-1.5">
-        {model.showCompact && model.labels.compactButton && (
-          <Button
-            variant={compactPrimary ? 'primary' : 'contained'}
-            leadingIcon="sparkle"
-            onClick={onCompact}
-            className="w-full"
-          >
-            {model.labels.compactButton}
-          </Button>
-        )}
-        <Button
-          variant={newChatPrimary ? 'primary' : 'contained'}
-          leadingIcon="plus"
-          onClick={onNewChat}
-          className="w-full"
-        >
-          {model.labels.newChatButton}
-        </Button>
-      </div>
+      <Button
+        variant="primary"
+        leadingIcon={isHandoff ? 'fork' : 'sparkle'}
+        onClick={isHandoff ? onHandoff : onCompact}
+        disabled={isHandoff && handoffDisabledReason != null}
+        title={
+          isHandoff
+            ? (handoffDisabledReason ?? '요약본으로 새 세션에서 이어갑니다')
+            : '현재 세션의 대화 기록을 압축합니다'
+        }
+        className="w-full"
+      >
+        {model.labels.actionButton}
+      </Button>
 
       <p className="border-t border-border pt-2 text-[11px] leading-relaxed text-ink3">
         {model.labels.disclaimer}

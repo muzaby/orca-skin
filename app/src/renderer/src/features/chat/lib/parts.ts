@@ -399,6 +399,8 @@ export type MessageSegment =
   | { kind: 'text'; text: string } // 연속 text 이어붙임 → 1 Markdown
   | { kind: 'structured'; value: unknown } // 개별 카드
   | { kind: 'error'; error: unknown } // 개별 카드
+  | { kind: 'compact'; trigger?: 'manual' | 'auto'; preTokens?: number } // 압축 경계 구분선(0064)
+  | { kind: 'fork' } // 분기 경계 구분선(0064 r5) — 복사된 원본 이력과 새 대화 사이
 
 // parts 를 순회하며 순서 보존 세그먼트 배열로 투영한다(순수). tool_result 는 toolRunId 로
 // 선구축한 맵에서 페어링되며(partsToolCalls 와 동일 규칙) 순회 중에는 흡수(스킵)한다.
@@ -458,6 +460,16 @@ export function messageSegments(parts: AppMessagePart[]): MessageSegment[] {
       segments.push((current = { kind: 'structured', value: p.value }))
     } else if (p.type === 'error') {
       segments.push((current = { kind: 'error', error: p.error }))
+    } else if (p.type === 'compact_boundary') {
+      segments.push(
+        (current = {
+          kind: 'compact',
+          ...(p.trigger !== undefined ? { trigger: p.trigger } : {}),
+          ...(p.preTokens !== undefined ? { preTokens: p.preTokens } : {})
+        })
+      )
+    } else if (p.type === 'fork_boundary') {
+      segments.push((current = { kind: 'fork' }))
     }
   }
 
@@ -525,6 +537,15 @@ function reconcileSegment(prev: MessageSegment, next: MessageSegment): MessageSe
       return prev.kind === 'structured' && prev.value === next.value ? prev : next
     case 'error':
       return prev.kind === 'error' && prev.error === next.error ? prev : next
+    case 'compact':
+      return prev.kind === 'compact' &&
+        prev.trigger === next.trigger &&
+        prev.preTokens === next.preTokens
+        ? prev
+        : next
+    case 'fork':
+      // 필드 없는 마커 — kind 일치(첫 가드)면 항상 이전 identity 재사용.
+      return prev
   }
 }
 

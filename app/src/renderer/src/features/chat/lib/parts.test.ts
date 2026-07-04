@@ -428,4 +428,17 @@ describe('messageSegments', () => {
     ]
     expect(messageSegments(parts)).toEqual([{ kind: 'text', text: 'hello' }])
   })
+
+  it('compact_boundary / fork_boundary 는 구분선 세그먼트로 투영한다 (0064)', () => {
+    const parts: AppMessagePart[] = [
+      { type: 'compact_boundary', trigger: 'manual', preTokens: 155_000 },
+      { type: 'fork_boundary' },
+      { type: 'text', text: '이후 대화' }
+    ]
+    expect(messageSegments(parts)).toEqual([
+      { kind: 'compact', trigger: 'manual', preTokens: 155_000 },
+      { kind: 'fork' },
+      { kind: 'text', text: '이후 대화' }
+    ])
+  })
 })

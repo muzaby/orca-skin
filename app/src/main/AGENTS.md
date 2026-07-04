@@ -25,10 +25,11 @@ shared     →  shared                                   (순수 타입/상수/z
 | **infra** | `src/main/infra/` (`bus`·`db`·`config`·`ipc`·`errors`·`vars`·`settings-store`) | DB 싱글턴·TypedBus·orca.json/secret·IPC 프리미티브(`ipc/handle`·`ipc/send`·`ipc/dto`)·에러 정규화. feature/어댑터 비의존. | infra · shared |
 | **adapters** | `src/main/adapters/` | `SessionAdapter` 포트(`types`·`turn`·`provider-config`·`mcp-config`·`hooks`·`risky-tools`·`descriptor`) + 구현(claude·mock) + 어댑터 오케스트레이션. | adapters · adapter-impl · infra · shared |
 | **contracts** | `src/main/contracts/` (`turn`·`bus-events`·`ports`·`session-state`) | 여러 feature 가 공유하는 **턴/버스/런타임 타입 계약**. `TurnContext`·`OrcaBusEvents`·`RuntimeLiveTurn` 등. 구현 최소. | contracts · adapters · infra · shared |
-| **features** | `src/main/features/<slice>/` (`chat`·`sessions`·`approvals`·`usage`·`history`·`providers`·`extensions`) | 수직 슬라이스 — 턴 오케스트레이션·세션 런타임 거버넌스·승인·사용량·영속·provider·확장. | **같은 slice** · contracts · adapters · infra · shared |
+| **features** | `src/main/features/<slice>/` (`chat`·`sessions`·`approvals`·`usage`·`history`·`providers`·`extensions`·`orchestration`) | 수직 슬라이스 — 턴 오케스트레이션·세션 런타임 거버넌스·승인·사용량·영속·provider·확장·대화 연속성(fork/handoff). | **같은 slice** · contracts · adapters · infra · shared |
 | **app (컴포지션 루트)** | `src/main/app/` (`bootstrap`·`chat-turn`·`context`·`handlers/`) + `src/main/index.ts` | 부팅 배선(`Bootstrap`)·턴 셋업(`registerChatHandlers`)·도메인 핸들러 등록·`RouterContext` 조립·window/shutdown. 구체 엔진명 리터럴 허용(1회성 배선). | 전부 |
 
 > `boundaries/elements` 분류 순서는 specific→catch-all(`adapter-impl` 이 `adapters` 보다 먼저). `src/main` 최상위는 `{app, contracts, adapters, features, infra}` + `index.ts`·`env.d.ts` 만 — 새 디렉토리는 이 중 하나에 속하게 둔다(어디에도 안 맞으면 boundaries "no element" error).
+> `features/orchestration/` = Conversation Continuity(0051 §A.4) 첫 서비스(fork/handoff) — **순수 로직만**(handoff 자동 메시지 템플릿 `buildHandoffMessage` · 도착 물질화 `materializeContinuityArrival`). 실행 배선(어댑터 `forkSession` 호출·send/persist 훅)은 컴포지션 루트(`app/chat-turn`·`app/handlers/session`)와 `features/history` 가 소유한다.
 
 ## feature 수직 슬라이스 (핵심 규칙)
 

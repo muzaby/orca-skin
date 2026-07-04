@@ -300,6 +300,19 @@ export type NormalizedEvent =
       createdAt: number
     }
   | { type: 'steer.cancelled'; sessionId: string; id: string }
+  // 커밋된 user 메시지 에코(0064) — main 이 본문을 조립해 렌더러가 내용을 모르는 발화
+  // (handoff /compact 자동 메시지)에만 발행한다. 일반 send 의 user 버블은 렌더러 낙관 렌더.
+  // r4: 턴 시작 *전*(send 수리 직후) 발행되므로 sessionId 가 없다 — 렌더러는 pending
+  // draft(pendingNewChatKey)로 라우팅해 user 버블이 항상 압축 결과보다 먼저 커밋된다.
+  | { type: 'message.user'; sessionId?: string; text: string; createdAt: number }
+  // SDK 네이티브 압축 완료(system/compact_boundary → 정규화, 0064). 도착 세션 transcript 에
+  // 압축 경계를 표시한다. preTokens = 압축 전 토큰 수(compact_metadata.pre_tokens).
+  | {
+      type: 'session.compacted'
+      sessionId: string
+      trigger?: 'manual' | 'auto'
+      preTokens?: number
+    }
   | {
       type: 'message.completed'
       sessionId: string
@@ -521,6 +534,13 @@ export interface SendChatMessage {
   attachmentViews?: AttachmentView[]
   // 새 세션 출생 시 고정할 작업 디렉토리. sessionId != null resume 턴에서는 main 이 DB cwd 를 우선한다.
   cwd?: string | null
+  // 0064 continuity — fork/handoff 물질화 트리거. 새 세션 send(sessionId=null)에서만 유효하며
+  // 상호 배타. main 은 출발 세션의 cwd/project/provider 를 계승하고 SDK forkSession 으로
+  // 새 session_id 를 발급받는다. forkFrom = 분기(도착 세션에 display 복사 + lineage 'fork').
+  // handoffFrom = 핸드오프(main 이 text 를 /compact 자동 메시지로 대체 + lineage 'handoff' —
+  // text 는 생략 가능, display 복사 없음).
+  forkFrom?: string
+  handoffFrom?: string
 }
 
 // Composer 권한 모드 버튼이 노출하는 두 모드. SDK PermissionMode 의 부분집합 —
@@ -784,6 +804,12 @@ export type AppMessagePart =
   | { type: 'error'; error: unknown }
   // 컴포저 첨부(user 턴) — 트랜스크립트 버블에 썸네일로 렌더하고 DB 에 영속한다.
   | { type: 'attachment'; attachments: AttachmentView[] }
+  // 압축 경계 마커(0064 handoff) — session.compacted 를 영속해 재로드 후에도 경계를 표시한다.
+  | { type: 'compact_boundary'; trigger?: 'manual' | 'auto'; preTokens?: number }
+  // 분기 경계 마커(0064 r5) — fork 물질화 시 복사된 원본 이력과 새 대화 사이에 main 이
+  // 영속한다('분기된 지점' 구분선). 렌더러 fork draft 프리필도 같은 위치에 합성해 라이브와
+  // 재로드 표시가 일치한다. handoff 는 display 복사가 없어 이 파트를 만들지 않는다.
+  | { type: 'fork_boundary' }
 
 // 로드된 세션 — Renderer 의 chatReducer state 와 1:1 대응. 메시지는 순서 보존 parts 로 표현.
 export interface LoadedMessage {
@@ -805,6 +831,9 @@ export interface LoadedSession {
   providerKey?: string | null
   projectId?: string | null
   cwd?: string | null
+  // 0064 continuity — 이 세션이 fork/handoff 로 파생된 경우의 부모 관계(session_lineage).
+  // 렌더러가 출처 배너("원본 열기" 링크)를 복원하는 데 쓴다. parentTitle 은 표시용 스냅샷.
+  lineage?: { parentSessionId: string; relation: 'fork' | 'handoff'; parentTitle: string | null }
 }
 
 // 프로젝트 (Phase 3+) — 대화 묶음 + 전용 시스템 프롬프트 (instructions).
