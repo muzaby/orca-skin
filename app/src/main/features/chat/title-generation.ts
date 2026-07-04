@@ -3,7 +3,7 @@
 
 import type { DbQueries } from '../../infra/db'
 import type { RuntimeTitleAdapter } from '../../contracts/ports'
-import type { ResolvedProviderSettings } from '../../features/providers/provider-settings'
+import type { ResolvedProviderSettings } from '../../adapters/provider-config'
 import { normalizeTitle, shouldGenerateTitle, titlePrompt } from '../../features/chat/title'
 import { broadcastSessionTitle } from '../../infra/ipc/send'
 import type { InflightTurn } from '../../contracts/turn'

@@ -7,7 +7,11 @@
 // 0055: cap/LRU 정책은 EvictionPolicy 로 추출했다. 이 풀은 Map 삽입순을 idle LRU 의 SSOT 로
 // 사용한다(앞 = 가장 오래전에 idle 진입, take 후 keepIdle 재진입 = recency refresh).
 
-import { createIdleCloseTimer, IDLE_CLOSE_TIMEOUT_MS, type IdleCloseTimer } from '../chat/timers'
+import {
+  createIdleCloseTimer,
+  IDLE_CLOSE_TIMEOUT_MS,
+  type IdleCloseTimer
+} from './idle-close-timer'
 import type { ManagedRuntime } from '../../contracts/ports'
 import { LruEvictionPolicy, type EvictionPolicy, type IdleRuntimeEntry } from './eviction-policy'
 

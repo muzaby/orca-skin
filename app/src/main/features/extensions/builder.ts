@@ -1,10 +1,10 @@
 // ExtensionBuilder — Extension 계층 조립기. 정규 소스(DB 지침 · McpStore · 스킬 스캔)를 읽어 백엔드
 // 중립 TurnExtensions 로 조립한다. 어댑터/백엔드를 전혀 모른다 — 어댑트(claude 타깃 변환·
-// ${VAR} 확장)는 전적으로 어댑터 책임. router 에 흩어져 있던 지침 조회 + 정책 append join 을
-// 이리로 이주해 "이 확장 리소스는 어디서 조립하지?"를 단일 위치로 모은다 (설계검토 §9 1단계).
+// ${VAR} 확장)는 전적으로 어댑터 책임. router 에 흩어져 있던 지침 조회를 이리로 이주해
+// "이 확장 리소스는 어디서 조립하지?"를 단일 위치로 모은다 (설계검토 §9 1단계).
 //
-// stableAppend = prompts/buildAppend 가 startup 에 1회 조립한 정적 정책 본문(현재는 정적 정책 0개).
-// 프로젝트 지침(DB)은 세션마다·매 턴 가변이라 여기서 매 턴 조회해 그 앞에 결합한다.
+// systemPromptAppend = 프로젝트 지침(DB). 세션마다·매 턴 가변이라 여기서 매 턴 조회한다.
+// (정적 정책 append 체인 prompts/ 는 handoff 0062 에서 제거 — 빈 레지스트리 데드코드였다.)
 //
 
 import type { DbQueries } from '../../infra/db'
@@ -17,7 +17,6 @@ export class ExtensionBuilder {
     private readonly db: DbQueries,
     private readonly mcp: McpStore,
     private readonly skills: () => SkillInfo[],
-    private readonly stableAppend: string,
     private readonly pluginRoot?: () => string | undefined
   ) {}
 
@@ -35,13 +34,8 @@ export class ExtensionBuilder {
       if (p && p.instructions.trim() !== '') instructions = p.instructions
     }
 
-    // 정적 정책 본문이 없으면 프로젝트 지침만 그대로 전달해 불필요한 빈 줄을 만들지 않는다.
-    const stableAppend = this.stableAppend.trim()
-    const systemPromptAppend = instructions
-      ? stableAppend
-        ? `${instructions}\n\n${stableAppend}`
-        : instructions
-      : stableAppend
+    // 시스템 프롬프트 append = 프로젝트 지침(있으면). 정적 정책 append 체인은 제거됐다(0062).
+    const systemPromptAppend = instructions ?? ''
 
     const pluginRoot = this.pluginRoot?.()
 

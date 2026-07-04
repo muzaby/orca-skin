@@ -14,7 +14,6 @@ import type { TurnRequest } from '../../adapters/turn'
 import { makeClassifiedError } from '../../infra/errors'
 import type { TurnContext } from '../../contracts/turn'
 import type { RuntimeLiveTurn } from '../../contracts/ports'
-import type { SessionRuntimeRegistry } from '../sessions/session-registry'
 import { createStallTimer, type StallTimer } from './timers'
 import { coerceStoppedToolCompletion } from './subagent-settlement'
 import { settleOpenToolRuns, settleSubagentTask, stopLiveSubagent } from './settle'
@@ -65,7 +64,9 @@ export interface TurnCoordinatorDeps<W> {
   // 합성 error·turn.retrying·steer.flushed(forward, 영속 안 함).
   persist: TurnPersistSink<W>
   forward: TurnEventSink<W>
-  registry: Pick<SessionRuntimeRegistry<W>, 'promote'>
+  // 세션 승격 포트 — 새 세션 첫 턴의 pending→bySession 전환만 필요(전체 레지스트리 아님).
+  // 구조적 타입으로 features/sessions 직접 참조를 끊는다(수직 슬라이스 경계, 0062).
+  registry: { promote(turn: TurnContext<W>, sessionId: string): void }
   classifyError: (err: unknown, phase: string) => ClassifiedError
   activeTurns: ActiveTurnGate
   backgroundSubagents: boolean
