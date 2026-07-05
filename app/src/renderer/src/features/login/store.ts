@@ -14,6 +14,10 @@ interface LoginStoreState {
   hydrated: boolean
   bypass: boolean
   authenticated: boolean
+  // SSO 로그인 시 전달받는 사용자 이메일. 현재 runSso 는 항상 실패하므로 null 로 유지되며,
+  // 실제 SSO 배선 시 attemptSso 성공 분기에서 채워진다. 사이드바 사용자 버튼은
+  // bypass(=developer) 가 아닐 때 이 값을 표기한다.
+  email: string | null
   status: LoginStatus
   errorMessage: string | null
 }
@@ -22,6 +26,7 @@ export const useLoginStore = create<LoginStoreState>()(() => ({
   hydrated: false,
   bypass: false,
   authenticated: false,
+  email: null,
   status: 'idle',
   errorMessage: null
 }))
@@ -51,8 +56,8 @@ export const loginActions = {
     if (getState().status === 'inflight') return
     setState({ status: 'inflight', errorMessage: null })
     try {
-      await runSso()
-      setState({ authenticated: true, status: 'idle' })
+      const { email } = await runSso()
+      setState({ authenticated: true, email, status: 'idle' })
       navigate('/new')
     } catch {
       setState({ status: 'error', errorMessage: '로그인에 실패했습니다. 다시 시도해 주세요.' })

@@ -24,6 +24,7 @@ import type {
   SessionTitleEvent,
   Settings,
   SettingsPatch,
+  NotifyShow,
   SkillInfo,
   AuthorSkillRequest,
   UploadSkillRequest,
@@ -76,6 +77,10 @@ export const installApi = {
 export const settingsApi = {
   get: (): Promise<Settings> => window.orca.settings.get(),
   set: (patch: SettingsPatch): Promise<Settings> => window.orca.settings.set(patch)
+}
+
+export const notifyApi = {
+  show: (req: NotifyShow): Promise<void> => window.orca.notify.show(req)
 }
 
 export const skillApi = {

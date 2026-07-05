@@ -6,6 +6,7 @@ import {
   AuthorSkillSchema,
   DebugMockPatchSchema,
   ListFilesRequestSchema,
+  NotifyShowSchema,
   OpenPathRequestSchema,
   ReadAttachmentRequestSchema,
   SetSkillEnabledSchema,
@@ -24,7 +25,7 @@ import {
   type Settings,
   type SkillInfo
 } from '../../../shared/protocol'
-import { dialog, shell } from 'electron'
+import { BrowserWindow, Notification, dialog, shell } from 'electron'
 import { toAgentEnvironments } from '../../features/providers/provider-settings'
 import {
   removeOrcaSkillDir,
@@ -228,6 +229,16 @@ export function registerMiscHandlers(ctx: RouterContext): void {
   )
 
   handlePlain(CHANNELS.costSummary, (): CostSummary => ctx.cost.getSummary())
+
+  // 응답완료 등 OS 네이티브 알림. 렌더러는 토글(notifyOnComplete)만 확인해 요청하고,
+  // "창 비활성일 때만" 게이트는 여기(main)가 담당한다(포커스 판정의 authoritative 출처).
+  handle(CHANNELS.notifyShow, NotifyShowSchema, 'reject', (req, event): void => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (win?.isFocused()) return
+    if (Notification.isSupported()) {
+      new Notification({ title: req.title, body: req.body }).show()
+    }
+  })
 
   if (import.meta.env.DEV) {
     setWireLog(ctx.debugMock.wireLog)

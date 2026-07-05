@@ -20,7 +20,7 @@
   - 특례: `chat:send` 는 실패를 `error` 이벤트로 회신(§2.1). 입력이 없거나 store 내부 zod 가 검증하는 채널(settings set · mcp add/update)은 `handlePlain`.
 - 출력(main→renderer send) 무검증: `NormalizedEvent` 등의 형상 보증은 어댑터 정규화(`claude-map.ts`)가 담당 — 의도된 설계.
 
-## 2. 채널 카탈로그 (총 53 채널)
+## 2. 채널 카탈로그 (총 54 채널)
 
 도메인별 분포: `chat` 5 (`send` · `event` · `cancel` · `stopSubagent` · `steerCancel`) · `backend` 1 · `agent` 1 · `engine` 4 · `install` 2 · `settings` 2 · `skills` 7 · `files` 5 · `session` 6 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `cost` 2 · `concurrency` 1 · `permission` 2 (`respond` · `setMode`) · `debug` 2 (dev 전용 — `getMock` · `setMock`).
 
@@ -88,6 +88,9 @@ interface Settings {
   mcpMeta: Record<string, { description: string }>; // MCP Orca 전용 메타 (mcp.json 순정 유지)
   skillEnabled: Record<string, boolean>; // Skill on/off (키=sourceId/name). 부재 ⇒ true
   ssoBypass: boolean; // SSO 로그인 게이트 우회 (디버그 패널 토글). true ⇒ 앱 시작 시 로그인 건너뜀. default false
+  accountInstructions: string; // 설정 모달 '계정 지침' textarea. 영속화만 — system prompt 배선은 추후. default ''
+  appFont: "sans" | "serif" | "mono"; // 앱 전체 폰트 (설정 모달). --font-app 에 매핑. default 'sans'
+  notifyOnComplete: boolean; // 응답완료 알림 토글. on ⇒ 턴 완료 시(창 비활성 한정) OS 알림. default false
 }
 ```
 
@@ -252,6 +255,12 @@ interface CostSummary {
 | 채널                       | 방향       | 페이로드                                      | 응답 | 설명                                                                 |
 | -------------------------- | ---------- | --------------------------------------------- | ---- | -------------------------------------------------------------------- |
 | `orca:concurrency:event`   | M→R (send) | `ConcurrencyEvent` = `{ projectId; count }`   | —    | 같은 projectId에서 실행 중인 query 수를 브로드캐스트한다. Composer는 자기 inflight를 차감해 경고 표시 여부를 판정한다. |
+
+### 2.12-c Notify
+
+| 채널               | 방향         | 페이로드                              | 응답            | 설명                                                                                                                                                              |
+| ------------------ | ------------ | ------------------------------------- | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `orca:notify:show` | R→M (invoke) | `NotifyShow` = `{ title; body }`      | `Promise<void>` | OS 네이티브 알림(응답완료 등). main 이 요청 창의 포커스 여부로 표시를 게이트한다(**창 비활성일 때만**). 렌더러는 설정 토글 `notifyOnComplete` 만 확인해 요청한다. |
 
 ### 2.13 Debug (dev 전용 — MockAdapter 하네스)
 

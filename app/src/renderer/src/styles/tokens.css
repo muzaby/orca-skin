@@ -145,6 +145,9 @@
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   --font-serif: 'Source Serif 4', 'Source Serif Pro', 'Tiempos Headline', Georgia, serif;
   --font-mono: ui-monospace, 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace;
+  /* 앱 전체 폰트 — 설정 모달의 '폰트' 드롭다운이 TweakProvider 를 통해 이 var 를
+     --font-sans/serif/mono 중 하나로 덮어쓴다(기본 = sans). */
+  --font-app: var(--font-sans);
 }
 
 /* Theme variants — override the semantic tokens. Tailwind utilities like

@@ -360,7 +360,13 @@ export const SettingsSchema = z.object({
   // 담으므로 Claude 스키마에 없는 필드는 여기(앱 설정)에 둔다. 키 = 서버 name.
   mcpMeta: z.record(z.string(), z.object({ description: z.string().default('') })).default({}),
   skillEnabled: z.record(z.string(), z.boolean()).default({}),
-  ssoBypass: z.boolean().default(false)
+  ssoBypass: z.boolean().default(false),
+  // 계정 지침 — 설정 모달 '프로필' 그룹의 textarea. system prompt 배선은 추후, 지금은 영속화만.
+  accountInstructions: z.string().default(''),
+  // 앱 전체 폰트. tokens.css 의 --font-{sans,serif,mono} var 에 매핑(TweakProvider 가 --font-app 적용).
+  appFont: z.enum(['sans', 'serif', 'mono']).default('sans'),
+  // 응답완료 알림 토글. on 이면 턴 완료 시(창 비활성 한정) OS 네이티브 알림 표시.
+  notifyOnComplete: z.boolean().default(false)
 })
 
 export const SettingsPatchSchema = z
@@ -375,9 +381,18 @@ export const SettingsPatchSchema = z
     mcpEnabled: z.record(z.string(), z.boolean()),
     mcpMeta: z.record(z.string(), z.object({ description: z.string().default('') })),
     skillEnabled: z.record(z.string(), z.boolean()),
-    ssoBypass: z.boolean()
+    ssoBypass: z.boolean(),
+    accountInstructions: z.string(),
+    appFont: z.enum(['sans', 'serif', 'mono']),
+    notifyOnComplete: z.boolean()
   })
   .partial()
+
+// 응답완료 등 OS 네이티브 알림 요청(renderer → main). main 이 창 포커스 여부로 표시를 게이트한다.
+export const NotifyShowSchema = z.object({
+  title: z.string(),
+  body: z.string()
+})
 
 // 타입 + CHANNELS 단일 출처 (preload / renderer 호환)
 export { CHANNELS } from './ipc'
@@ -407,6 +422,7 @@ export type {
   InstallStatus,
   Settings,
   SettingsPatch,
+  NotifyShow,
   SkillInfo,
   AuthorSkillRequest,
   UploadSkillRequest,
