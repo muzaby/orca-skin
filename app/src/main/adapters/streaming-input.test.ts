@@ -6,7 +6,7 @@ const flush = (): Promise<void> => new Promise((r) => setTimeout(r, 0))
 
 describe('createSessionInputStream', () => {
   it('initial 이 주어지면 스폰 프롬프트로 먼저 yield 한다 (uuid 상관키 포함)', async () => {
-    const { stream } = createSessionInputStream({ content: 'hello', uuid: 'orca-prompt-1' })
+    const { stream } = createSessionInputStream([{ content: 'hello', uuid: 'orca-prompt-1' }])
     const it = stream[Symbol.asyncIterator]()
     const first = await it.next()
     expect(first.done).toBe(false)
@@ -20,7 +20,7 @@ describe('createSessionInputStream', () => {
   })
 
   it('initial 없이 열 수 있다 — 첫 push 가 첫 메시지가 된다', async () => {
-    const { stream, push, close } = createSessionInputStream()
+    const { stream, push, close } = createSessionInputStream([])
     const it = stream[Symbol.asyncIterator]()
     const pending = it.next()
     push('first')
@@ -30,7 +30,7 @@ describe('createSessionInputStream', () => {
   })
 
   it('close() 전에는 종료하지 않는다 (generator 미종료 불변식 — 세션 수명)', async () => {
-    const { stream, close } = createSessionInputStream({ content: 'hi' })
+    const { stream, close } = createSessionInputStream([{ content: 'hi' }])
     const it = stream[Symbol.asyncIterator]()
     await it.next() // 초기 메시지 소비
 
@@ -48,7 +48,7 @@ describe('createSessionInputStream', () => {
   })
 
   it('이미 메시지를 다 소비한 뒤 close() 하면 즉시 종료한다', async () => {
-    const { stream, close } = createSessionInputStream({ content: 'x' })
+    const { stream, close } = createSessionInputStream([{ content: 'x' }])
     const it = stream[Symbol.asyncIterator]()
     await it.next()
     close()
@@ -57,7 +57,7 @@ describe('createSessionInputStream', () => {
   })
 
   it('close() 는 멱등이다', async () => {
-    const { stream, close } = createSessionInputStream({ content: 'x' })
+    const { stream, close } = createSessionInputStream([{ content: 'x' }])
     const it = stream[Symbol.asyncIterator]()
     await it.next()
     close()
@@ -67,7 +67,7 @@ describe('createSessionInputStream', () => {
   })
 
   it('push(text) 는 리터럴 user 메시지를 SDK 로 전달한다(pull 이 flush 를 유발하지 않음)', async () => {
-    const { stream, push, close } = createSessionInputStream({ content: 'first' })
+    const { stream, push, close } = createSessionInputStream([{ content: 'first' }])
     const it = stream[Symbol.asyncIterator]()
     await it.next() // 초기 메시지
 
@@ -85,7 +85,7 @@ describe('createSessionInputStream', () => {
   })
 
   it('push(content, uuid) 는 uuid(orca 상관키)와 priority next 를 함께 싣는다 (0060 D1)', async () => {
-    const { stream, push, close } = createSessionInputStream({ content: 'first' })
+    const { stream, push, close } = createSessionInputStream([{ content: 'first' }])
     const it = stream[Symbol.asyncIterator]()
     await it.next()
 
@@ -107,7 +107,7 @@ describe('createSessionInputStream', () => {
   })
 
   it('close() 이후 push 는 무시된다', async () => {
-    const { stream, push, close } = createSessionInputStream({ content: 'x' })
+    const { stream, push, close } = createSessionInputStream([{ content: 'x' }])
     const it = stream[Symbol.asyncIterator]()
     await it.next()
     close()
@@ -118,7 +118,7 @@ describe('createSessionInputStream', () => {
 
   it('content 블록 배열(구조 페이로드)은 문자열 강제 없이 그대로 yield 된다', async () => {
     const content = [{ type: 'text' as const, text: 'hello block' }]
-    const { stream, push, close } = createSessionInputStream({ content })
+    const { stream, push, close } = createSessionInputStream([{ content }])
     const it = stream[Symbol.asyncIterator]()
     const first = await it.next()
     expect(first.done).toBe(false)

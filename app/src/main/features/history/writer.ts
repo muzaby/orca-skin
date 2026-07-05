@@ -55,20 +55,26 @@ export class HistoryWriter {
     return id
   }
 
-  persistSteerUserMessage(turn: TurnContext, text: string, createdAt: number): number | null {
+  // 사용자 메시지 커밋(0067 AC6) — **echo 관측 시점의 단일 영속 경로**. 턴 프롬프트·프렐류드
+  // (이월)·steer 게이트 배치가 전부 여기로 커밋된다(구 persistSteerUserMessage 일반화).
+  // 소비 확정 = 응답 경계. 진행 중 어시스턴트 메시지(소비 전 응답)를 먼저 마감·리셋해 user row
+  // 가 그 뒤 idx 로 정렬되고, 이후 어시스턴트 파트는 ensureAssistantMessage 가 새 메시지로
+  // 만든다 → 재로드 정렬 [응답-전][user][응답-후] = 라이브와 동일. preview/provider_key 갱신도
+  // 커밋 시점 소유(0067 — send 시점 선영속 제거).
+  commitUserMessage(
+    turn: TurnContext,
+    batch: { text: string; createdAt: number; attachmentViews?: AttachmentView[] }
+  ): number | null {
     const sessionId = turn.dbSessionId
     if (!sessionId) return null
-    // 소비 확정 = 응답 경계. 진행 중 어시스턴트 메시지(소비 전 응답)를 먼저 마감·리셋해 steer
-    // user row 가 그 뒤 idx 로 정렬되고, 이후 어시스턴트 파트는 ensureAssistantMessage 가 새
-    // 메시지(steer 뒤)로 만든다 → 재로드 정렬 [응답-전][steer user][응답-후] = 라이브와 동일.
-    // 마감을 안 하면 A 가 incomplete 로 남아 재로드 시 settleOrphanToolParts 를 타는 문제도 방지.
     if (turn.currentAssistantMessageId != null) {
       this.db.markMessageComplete(turn.currentAssistantMessageId)
       turn.currentAssistantMessageId = null
       turn.assistantText = ''
     }
-    const id = this.persistUserMessage(sessionId, text, createdAt)
-    this.db.updateSessionPreview(sessionId, previewOf(text), createdAt)
+    const id = this.persistUserMessage(sessionId, batch.text, batch.createdAt, batch.attachmentViews)
+    this.db.updateSessionPreview(sessionId, previewOf(batch.text), batch.createdAt)
+    this.db.updateSessionProviderKey(sessionId, turn.providerKey, batch.createdAt)
     return id
   }
 
@@ -153,8 +159,9 @@ export class HistoryWriter {
             createdAt: now
           })
         }
+        // 0067 AC6: user row 영속은 echo 커밋(commitUserMessage) 단일 경로 — 여기서는 세션
+        // 메타(preview/provider_key/title)만 선반영해 nav 표시를 즉시 세운다.
         if (turn.pendingUserText) {
-          this.persistUserMessage(sessionId, turn.pendingUserText, now, turn.pendingAttachmentViews)
           this.db.updateSessionPreview(sessionId, previewOf(turn.pendingUserText), now)
           this.db.updateSessionProviderKey(sessionId, turn.providerKey, now)
           if (title) this.db.updateSessionTitle(sessionId, title)

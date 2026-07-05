@@ -7,7 +7,7 @@ import type { NormalizedPermissionMode } from './permission-mode'
 // Phase 2 활성 채널 (preload 노출 대상). 미사용 채널은 의도적으로 누락.
 export const CHANNELS = {
   chatSend: 'orca:chat:send',
-  chatSteer: 'orca:chat:steer',
+  // 0067 AC5: 구 chat:steer 는 chat:send 로 흡수(main 이 busy=예약/idle=즉시를 판정).
   chatSteerCancel: 'orca:chat:steerCancel',
   chatEvent: 'orca:chat:event',
   chatCancel: 'orca:chat:cancel',
@@ -286,25 +286,33 @@ export type NormalizedEvent =
       patch: { model?: string; cwd?: string }
     }
   | { type: 'message.delta'; sessionId: string; delta: { text: string } }
-  | { type: 'steer.queued'; sessionId: string; id: string; text: string; createdAt: number }
+  // pending message queue 간접 관찰 3종(0067 — 구 steer.* 일반화). 모든 사용자 프롬프트가
+  // queued(pending 버블) → committed(echo 커밋, 정식 버블 승격) 로 흐르고, cancelled 는 held
+  // 취소(단건 hover / 중단 버튼 전량 — renderer 가 잔존 항목 텍스트를 draft 로 복원).
+  // 새 세션 send 는 sessionId 미확정이라 optional — renderer 는 clientKey/pendingNewChatKey 로
+  // 라우팅한다.
+  | {
+      type: 'message.queued'
+      sessionId?: string
+      id: string
+      text: string
+      attachmentViews?: AttachmentView[]
+      createdAt: number
+    }
   // main 내부 커밋 신호(renderer 미전달) — CLI 가 stdin 주입 입력을 흡수해 user 메시지로 echo 한
-  // 순간(SDKUserMessageReplay). TurnCoordinator 가 steer 소비 확정에만 쓰고 persist/forward 하지
-  // 않는다. uuid 는 주입 시 실은 orca id(echo 보존 미확정 — 미보존 시 text 매칭 폴백, 0060 D1).
+  // 순간(SDKUserMessageReplay). TurnCoordinator 가 pending 소비 확정에만 쓰고 persist/forward
+  // 하지 않는다. uuid = 주입 배치 uuid(미보존 시 text 매칭 폴백, 0060 D1).
   | { type: 'input.echo'; sessionId: string; text: string; uuid?: string }
   | {
-      type: 'steer.flushed'
+      type: 'message.committed'
       sessionId: string
       ids: string[]
       text: string
+      attachmentViews?: AttachmentView[]
       messageId: number
       createdAt: number
     }
-  | { type: 'steer.cancelled'; sessionId: string; id: string }
-  // 커밋된 user 메시지 에코(0064) — main 이 본문을 조립해 렌더러가 내용을 모르는 발화
-  // (handoff /compact 자동 메시지)에만 발행한다. 일반 send 의 user 버블은 렌더러 낙관 렌더.
-  // r4: 턴 시작 *전*(send 수리 직후) 발행되므로 sessionId 가 없다 — 렌더러는 pending
-  // draft(pendingNewChatKey)로 라우팅해 user 버블이 항상 압축 결과보다 먼저 커밋된다.
-  | { type: 'message.user'; sessionId?: string; text: string; createdAt: number }
+  | { type: 'message.cancelled'; sessionId: string; ids: string[] }
   // SDK 네이티브 압축 완료(system/compact_boundary → 정규화, 0064). 도착 세션 transcript 에
   // 압축 경계를 표시한다. preTokens/postTokens = 압축 전/후 토큰 수(compact_metadata 의
   // pre_tokens/post_tokens — post 는 SDK optional). postTokens 는 압축 후 컨텍스트 실측이라
@@ -544,6 +552,12 @@ export interface SendChatMessage {
   // text 는 생략 가능, display 복사 없음).
   forkFrom?: string
   handoffFrom?: string
+  // 0067 AC9 — renderer draft 키(UUID). 새 세션의 큐/라우팅 키로 쓰이고 init 에서 실 id 로
+  // remap 된다. 절대 영속 금지.
+  clientKey?: string
+  // 0067 AC5 — 이 메시지의 pending queue 아이템 id(renderer 생성 UUID). 낙관 pending 버블과
+  // main 큐·echo 커밋을 잇는 상관키. busy 세션 send(예약)와 idle send(즉시 flush) 공통.
+  clientRequestId?: string
 }
 
 // Composer 권한 모드 버튼이 노출하는 두 모드. SDK PermissionMode 의 부분집합 —
@@ -553,12 +567,6 @@ export interface SendChatMessage {
 // 이고 이 2종은 그 부분집합이다(`plan`↔'plan', `acceptEdits`↔'accept_edits'). 6종 전체 UI 노출과
 // 라이브 전환은 PR③ 에서. 브리지: `fromUiPermissionMode()` (permission-mode.ts).
 export type PermissionMode = 'plan' | 'acceptEdits'
-
-export interface SteerChatMessage {
-  sessionId: string
-  text: string
-  clientRequestId?: string
-}
 
 export interface CancelSteer {
   sessionId: string

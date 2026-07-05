@@ -283,10 +283,20 @@ export class ClaudeAdapter implements SessionAdapter {
     // 배치를 회수해 input.push 로 주입한다(0060 D3·D4). 소비 확정은 CLI 가 흡수 후 되돌려주는
     // user echo(input.echo, claude-map)로 turn-coordinator 가 판정한다(0060 D1)
     // — pull(=SDK eager drain)도 orca 관찰 경계도 flush 신호가 아니다.
-    const input = createSessionInputStream({
-      content: buildTurnContent(text, attachmentTexts, attachmentImages),
-      ...(req.promptUuid !== undefined ? { uuid: req.promptUuid } : {})
-    })
+    // 스폰 초기 입력 = 프렐류드(채널 사망 후 이월 배치 — 각자 uuid 로 개별 echo→커밋) 다음에
+    // 본 프롬프트. CLI 는 턴 시작에 전부 coalesce 해 개별 user 메시지로 소비한다(명세 C9).
+    const batchContent = (b: {
+      text: string
+      attachmentTexts?: typeof attachmentTexts
+      attachmentImages?: typeof attachmentImages
+    }): TurnInputContent => buildTurnContent(b.text, b.attachmentTexts ?? [], b.attachmentImages ?? [])
+    const input = createSessionInputStream([
+      ...(req.preludes ?? []).map((b) => ({ content: batchContent(b), uuid: b.uuid })),
+      {
+        content: buildTurnContent(text, attachmentTexts, attachmentImages),
+        ...(req.promptUuid !== undefined ? { uuid: req.promptUuid } : {})
+      }
+    ])
 
     // 압축 요약 surface (0064 r3) — PostCompact hook 이 전달한 compact_summary 를 assistant
     // 메시지로 승격할 대기열. hook 콜백은 스트림 밖에서 도착하므로 events() 가 SDK 메시지
@@ -329,7 +339,9 @@ export class ClaudeAdapter implements SessionAdapter {
           mergeHooks(
             adaptHooks(extensions.hooks),
             req.takeSteerFlush
-              ? makeSteerGateHook(req.takeSteerFlush, (t, u) => input.push(t, u))
+              ? makeSteerGateHook(req.takeSteerFlush, (batch) =>
+                  input.push(batchContent(batch), batch.uuid)
+                )
               : {}
           ),
           (summary) => compactSummaries.push(summary)

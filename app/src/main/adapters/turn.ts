@@ -13,6 +13,7 @@ import type { OrcaMcpConfig } from './mcp-config'
 import type {
   ApprovalResolution,
   AttachmentSourceKind,
+  AttachmentView,
   EffortLevel,
   PermissionAction,
   SkillInfo
@@ -20,15 +21,21 @@ import type {
 import type { NormalizedPermissionMode } from '../../shared/permission-mode'
 import type { NormalizedHookSet } from './hooks'
 
-// steer flush 배치 계약 — 어댑터가 게이트 훅에서 회수(takeSteerFlush)해 자기 입력 채널로 주입한다.
+// pending message flush 배치 계약 — 어댑터가 게이트 훅에서 회수(takeSteerFlush)하거나 턴
+// 프롬프트/프렐류드(0067)로 받아 자기 입력 채널로 주입한다. 구조 페이로드(0067 AC5): 첨부
+// 추출분은 어댑터가 content 블록으로 굽고, attachmentViews 는 커밋 시 표시/영속용으로 흐른다.
 // 구현(PendingMessageQueue)은 features/chat 이지만 계약 타입은 어댑터 포트에 둔다.
 export interface SteerFlush {
   ids: string[]
   text: string
   createdAt: number
+  attachmentTexts?: ExtractedAttachmentText[]
+  attachmentImages?: ExtractedAttachmentImage[]
+  attachmentViews?: AttachmentView[]
 }
 export interface SteerFlushBatch extends SteerFlush {
-  // stdin 주입 병합 배치의 uuid — echo 상관키(주입 user 메시지의 uuid).
+  // stdin 주입 배치의 uuid — echo 상관키(주입 user 메시지의 uuid). 게이트 병합 배치는 신규
+  // uuid, 턴 프롬프트/프렐류드 아이템 단위 배치는 item id 를 그대로 쓴다(renderer 정합).
   uuid: string
 }
 
@@ -133,4 +140,7 @@ export interface TurnRequest {
   attachmentImages?: ExtractedAttachmentImage[]
   // 스폰 턴 프롬프트의 echo 상관키(0067 AC6) — TurnContinuation.promptUuid 와 대칭.
   promptUuid?: string
+  // 스폰 시 본 프롬프트 *앞에* 선적재할 이월 배치(0067 — 채널 사망 후 잔여 pending 재전달).
+  // 각 배치는 자기 uuid 의 개별 user 메시지로 주입돼 개별 echo→커밋된다(버블 구조 보존).
+  preludes?: SteerFlushBatch[]
 }

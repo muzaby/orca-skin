@@ -1,58 +1,74 @@
 import { randomUUID } from 'node:crypto'
+import type { AttachmentView } from '../../../shared/ipc'
 import type { SteerFlush, SteerFlushBatch } from '../../adapters/turn'
+import type { ExtractedAttachmentImage, ExtractedAttachmentText } from '../../adapters/turn'
 
-export interface PendingMessage {
+// 큐 아이템 페이로드 — 구조 페이로드(0067 AC5): 텍스트 + 추출 첨부(어댑터가 content 블록으로
+// 굽는 입력) + 표시용 첨부 뷰(커밋 시 renderer/DB 로 흐른다).
+export interface PendingMessagePayload {
+  text: string
+  attachmentTexts?: ExtractedAttachmentText[]
+  attachmentImages?: ExtractedAttachmentImage[]
+  attachmentViews?: AttachmentView[]
+}
+
+export interface PendingMessage extends PendingMessagePayload {
   id: string
   sessionId: string
-  text: string
   createdAt: number
 }
 
 // held 에서 flush 로 넘어간 배치. 병합 텍스트는 flush 시점에 1회 계산·보존한다 — echo 의
-// text 폴백 매칭과 steer.flushed 커밋이 같은 원본을 봐 재계산 드리프트가 없다.
+// text 폴백 매칭과 message.committed 커밋이 같은 원본을 봐 재계산 드리프트가 없다.
 interface FlushedBatch extends SteerFlushBatch {
-  // CLI 가 이 배치를 흡수(user echo 관측)했는가 — 커밋(flush) 대상 판정 플래그(0060 D1).
+  // CLI 가 이 배치를 흡수(user echo 관측)했는가 — 커밋 대상 판정 플래그(0060 D1).
   consumed: boolean
 }
 
-function mergeBatch(items: PendingMessage[], uuid: string): SteerFlushBatch {
+function toBatch(items: PendingMessage[], uuid: string): SteerFlushBatch {
+  const attachmentTexts = items.flatMap((item) => item.attachmentTexts ?? [])
+  const attachmentImages = items.flatMap((item) => item.attachmentImages ?? [])
+  const attachmentViews = items.flatMap((item) => item.attachmentViews ?? [])
   return {
     uuid,
     ids: items.map((item) => item.id),
     text: items.map((item) => item.text).join('\n\n'),
-    createdAt: items[0].createdAt
+    createdAt: items[0].createdAt,
+    ...(attachmentTexts.length > 0 ? { attachmentTexts } : {}),
+    ...(attachmentImages.length > 0 ? { attachmentImages } : {}),
+    ...(attachmentViews.length > 0 ? { attachmentViews } : {})
   }
 }
 
-// 세션별 pending message queue — 사용자발 메시지가 커밋(DB 영속) 전에 머무는 단일 스테이징
-// 통로(0066). 일반 메시지와 steer 메시지가 같은 통로를 지나며, 세션 상태가 경로를 가른다:
+// 세션별 pending message queue — **모든 사용자 프롬프트**가 커밋(DB 영속) 전에 지나는 단일
+// 스테이징 통로(0066 → 0067 완전 일원화). 세션 상태가 주입 경로를 가른다:
 //
-//   사용자 턴(세션 idle) — 일반 메시지는 머물 이유가 없어 즉시 커밋된다. 이월 pending 이
-//     있으면 chat:send 가 drainAll 로 먼저 회수·커밋(새 user row 앞 영속 + 프롬프트 병합)한다.
-//   어시스턴트 턴(inflight) — chat:steer 메시지는 예약(held)으로 대기한다. 항목 수명
-//     (0060 D1·D3·D4):
+//   사용자 턴(세션 idle) — chat:send 가 enqueue 직후 flushItem 으로 아이템 단위 배치를 떠서
+//     턴 프롬프트로 주입한다(스폰 초기 메시지 또는 pushTurn). 채널이 죽어 있었다면
+//     takeForRespawn 이 잔여(미소비 flushed 재주입 + held)를 프렐류드 배치로 앞세운다.
+//   어시스턴트 턴(inflight) — chat:send 는 예약(held)만 한다. 항목 수명(0060 D1·D3·D4):
 //     [held]     enqueue 직후. stdin 미주입 — 취소·수정 100% 가능.
-//     [flushed]  게이트 훅(PostToolBatch, flushHeld)에서 held 전체가 병합 단일 배치(batch
-//                uuid)로 stdin 주입됨. 취소 불가(un-push API 부재) — cancel 은 held 만 본다.
-//     [consumed] CLI 가 배치를 흡수해 user echo 로 되돌린 상태(markConsumed) — drainConsumed
-//                가 커밋 대상으로 회수한다. 미소비 잔여(held + 미echo flushed)는 턴을 넘어
-//                살아남아 다음 chat:send 이월(D2, drainAll)로 커밋된다.
+//     [flushed]  게이트 훅(PostToolBatch, flushHeld 병합 단일 배치) 또는 턴 프롬프트
+//                (flushItem/takeForRespawn, 아이템 단위)로 stdin 주입됨. 취소 불가.
+//     [consumed] CLI 가 배치를 흡수해 user echo 로 되돌린 상태(markConsumed) —
+//                drainConsumedBatches 가 배치 단위로 커밋 대상 회수.
 //
-// renderer 는 큐를 간접 관찰한다 — steer.queued/flushed/cancelled 이벤트가 pendingSteer
-// 상태를 이끌고, 취소는 held 창 안에서만 성립한다. text-only 이며 DB 영속은 커밋 시점에만.
+// 커밋은 echo 단일 경로(0067 AC6) — 훅(PostToolBatch/UserPromptSubmit)은 주입 제어 계층이지
+// 커밋 신호가 아니다. renderer 는 message.queued/committed/cancelled 로 큐를 간접 관찰하고,
+// 취소(cancel/cancelAllHeld)는 held 창 안에서만 성립한다.
 export class PendingMessageQueue {
   private readonly heldBySession = new Map<string, PendingMessage[]>()
   private readonly flushedBySession = new Map<string, FlushedBatch[]>()
 
   enqueue(
     sessionId: string,
-    text: string,
+    payload: PendingMessagePayload,
     now = Date.now(),
     id: string = randomUUID()
   ): PendingMessage {
-    const trimmed = text.trim()
-    if (trimmed === '') throw new Error('empty steer text')
-    const item: PendingMessage = { id, sessionId, text: trimmed, createdAt: now }
+    const trimmed = payload.text.trim()
+    if (trimmed === '') throw new Error('empty pending message text')
+    const item: PendingMessage = { ...payload, id, sessionId, text: trimmed, createdAt: now }
     const items = this.heldBySession.get(sessionId) ?? []
     items.push(item)
     this.heldBySession.set(sessionId, items)
@@ -60,7 +76,7 @@ export class PendingMessageQueue {
   }
 
   // held 항목만 취소 가능 — flushed(stdin 주입 완료) 항목은 undefined(거부). 거부 시 호출자는
-  // steer.cancelled 를 발신하지 않고, 이후 echo 커밋(steer.flushed)이 버블을 복원한다(D3).
+  // message.cancelled 를 발신하지 않고, 이후 echo 커밋이 버블을 복원한다(D3 정직 화해).
   cancel(sessionId: string, id: string): PendingMessage | undefined {
     const items = this.heldBySession.get(sessionId)
     if (!items) return undefined
@@ -71,8 +87,34 @@ export class PendingMessageQueue {
     return removed
   }
 
+  // 중단 버튼(0067 확정 5) — held 전량 취소. 반환 항목들의 텍스트를 renderer 가 composer draft
+  // 로 복원한다. flushed 분은 대상 아님(un-push 불가).
+  cancelAllHeld(sessionId: string): PendingMessage[] {
+    const items = this.heldBySession.get(sessionId) ?? []
+    this.heldBySession.delete(sessionId)
+    return items
+  }
+
   pending(sessionId: string): PendingMessage[] {
     return [...(this.heldBySession.get(sessionId) ?? [])]
+  }
+
+  // 세션 키 재바인딩(0067 AC9) — 새 세션은 clientKey(draft UUID)로 적재됐다가 init 에서 실
+  // session id 로 갈아탄다(coordinator 가 session.updated 에서 호출).
+  rekey(oldKey: string, newKey: string): void {
+    if (oldKey === newKey) return
+    const held = this.heldBySession.get(oldKey)
+    if (held) {
+      this.heldBySession.delete(oldKey)
+      const target = this.heldBySession.get(newKey) ?? []
+      this.heldBySession.set(newKey, [...target, ...held])
+    }
+    const flushed = this.flushedBySession.get(oldKey)
+    if (flushed) {
+      this.flushedBySession.delete(oldKey)
+      const target = this.flushedBySession.get(newKey) ?? []
+      this.flushedBySession.set(newKey, [...target, ...flushed])
+    }
   }
 
   // 게이트 훅(PostToolBatch) 시점 — held 전체를 병합 단일 배치로 넘기고 flushed 로 전이한다.
@@ -81,16 +123,46 @@ export class PendingMessageQueue {
     const items = this.heldBySession.get(sessionId)
     if (!items || items.length === 0) return undefined
     this.heldBySession.delete(sessionId)
-    const batch = mergeBatch(items, uuid)
-    const batches = this.flushedBySession.get(sessionId) ?? []
-    batches.push({ ...batch, consumed: false })
-    this.flushedBySession.set(sessionId, batches)
+    const batch = toBatch(items, uuid)
+    this.registerFlushed(sessionId, batch)
     return batch
   }
 
+  // 턴 프롬프트 flush(0067 AC5) — 지정 아이템 1개를 자기 배치(uuid=item id)로 전이한다. 사용자
+  // 턴의 일반 메시지는 병합 없이 자기 버블/row 로 커밋돼야 하므로 게이트 병합과 경로를 나눈다.
+  flushItem(sessionId: string, id: string): SteerFlushBatch | undefined {
+    const item = this.cancel(sessionId, id) // held 에서 제거(재사용 — 검증 동일)
+    if (!item) return undefined
+    const batch = toBatch([item], item.id)
+    this.registerFlushed(sessionId, batch)
+    return batch
+  }
+
+  // 채널 사망 후 스폰 직전(0067) — 이월 잔여를 프렐류드 배치 목록으로 회수한다: 미소비 flushed
+  // (모델이 못 본 stdin 사본 — 서브프로세스 종료로 CLI 큐 소멸)는 **재주입**(배치 그대로, uuid
+  // 보존 = renderer pending id 정합), held 는 아이템 단위 배치로 전이. createdAt 순.
+  takeForRespawn(sessionId: string): SteerFlushBatch[] {
+    // 소비 확정 잔존분(경계 유실 — drain 전에 채널 사망)은 폐기한다: 이미 커밋됐거나 커밋
+    // 판정이 유실된 배치를 재전달하면 모델 이중 전달이 된다(구 drainForFlush 규칙 계승).
+    const unconsumed = (this.flushedBySession.get(sessionId) ?? []).filter(
+      (batch) => !batch.consumed
+    )
+    const held = this.heldBySession.get(sessionId) ?? []
+    this.heldBySession.delete(sessionId)
+    const next: FlushedBatch[] = [...unconsumed]
+    const heldBatches = held.map((item) => {
+      const batch: FlushedBatch = { ...toBatch([item], item.id), consumed: false }
+      next.push(batch)
+      return batch as SteerFlushBatch
+    })
+    if (next.length > 0) this.flushedBySession.set(sessionId, next)
+    else this.flushedBySession.delete(sessionId)
+    return [...unconsumed, ...heldBatches].sort((a, b) => a.createdAt - b.createdAt)
+  }
+
   // user echo 관측 → 해당 배치를 소비로 표시한다. batch uuid 매칭 1차, echo 의 uuid 미보존
-  // 대비 병합 텍스트 완전일치 폴백(FIFO — 가장 오래된 미소비 배치). 매칭 실패(초기 프롬프트
-  // echo 등)는 undefined — 호출자는 무시한다.
+  // 대비 병합 텍스트 완전일치 폴백(FIFO — 가장 오래된 미소비 배치). 매칭 실패(무관 echo)는
+  // undefined — 호출자는 무시한다.
   markConsumed(
     sessionId: string,
     match: { uuid?: string; text?: string }
@@ -110,44 +182,26 @@ export class PendingMessageQueue {
     return batch
   }
 
-  // 소비 확정 배치만 병합 drain — echo 배치가 끝난 지점(첫 비-echo 이벤트/턴 종료)에서 커밋에
-  // 쓴다. 복수 배치가 함께 회수되는 경우는 연속 echo(같은 drain 지점 소비)뿐이므로 병합이 옳다
-  // (D4: 어시스턴트 응답이 낀 경계만 분리). 미소비 배치는 남긴다(D2).
-  drainConsumed(sessionId: string): SteerFlush | undefined {
+  // 소비 확정 배치를 **배치 단위로** drain — echo 배치가 끝난 지점(첫 비-echo 이벤트/턴 종료)
+  // 에서 각 배치가 자기 user row/버블로 커밋된다(0067: 턴 프롬프트·프렐류드는 아이템 단위
+  // 배치라 병합하면 버블 구조가 깨진다 — 병합은 게이트 flushHeld 가 이미 수행한 단위 그대로).
+  // 미소비 배치는 남긴다(D2).
+  drainConsumedBatches(sessionId: string): SteerFlushBatch[] {
     const batches = this.flushedBySession.get(sessionId)
-    if (!batches) return undefined
+    if (!batches) return []
     const consumed = batches.filter((batch) => batch.consumed)
-    if (consumed.length === 0) return undefined
+    if (consumed.length === 0) return []
     const remaining = batches.filter((batch) => !batch.consumed)
     if (remaining.length === 0) this.flushedBySession.delete(sessionId)
     else this.flushedBySession.set(sessionId, remaining)
-    return {
-      ids: consumed.flatMap((batch) => batch.ids),
-      text: consumed.map((batch) => batch.text).join('\n\n'),
-      createdAt: consumed[0].createdAt
-    }
+    return consumed
   }
 
-  // 전량 drain — idle 세션의 다음 chat:send 이월(carryover, D2) 전용. 미소비 flushed 배치
-  // (모델이 못 본 stdin 사본 — 턴-스코프 서브프로세스 종료로 CLI 큐가 소멸)와 held 전부를
-  // createdAt 순으로 병합해 비운다. 소비 확정분은 이미 drainConsumed 로 커밋됐어야 하나,
-  // 남아 있다면(경계 유실) 중복 전달을 막기 위해 제외하고 버린다.
-  drainAll(sessionId: string): SteerFlush | undefined {
-    const held = this.heldBySession.get(sessionId) ?? []
-    const unconsumed = (this.flushedBySession.get(sessionId) ?? []).filter(
-      (batch) => !batch.consumed
-    )
-    this.heldBySession.delete(sessionId)
-    this.flushedBySession.delete(sessionId)
-    const parts: { ids: string[]; text: string; createdAt: number }[] = [
-      ...unconsumed,
-      ...held.map((item) => ({ ids: [item.id], text: item.text, createdAt: item.createdAt }))
-    ].sort((a, b) => a.createdAt - b.createdAt)
-    if (parts.length === 0) return undefined
-    return {
-      ids: parts.flatMap((part) => part.ids),
-      text: parts.map((part) => part.text).join('\n\n'),
-      createdAt: parts[0].createdAt
-    }
+  private registerFlushed(sessionId: string, batch: SteerFlushBatch): void {
+    const batches = this.flushedBySession.get(sessionId) ?? []
+    batches.push({ ...batch, consumed: false })
+    this.flushedBySession.set(sessionId, batches)
   }
 }
+
+export type { SteerFlush, SteerFlushBatch }

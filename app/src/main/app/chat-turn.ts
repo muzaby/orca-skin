@@ -6,12 +6,16 @@
 
 import type { IpcMainInvokeEvent, WebContents } from 'electron'
 import { randomUUID } from 'node:crypto'
-import { CHANNELS, type ApprovalResolution, type PermissionAction } from '../../shared/ipc'
+import {
+  CHANNELS,
+  type ApprovalResolution,
+  type AttachmentView,
+  type PermissionAction
+} from '../../shared/ipc'
 import {
   CancelChatSchema,
   CancelSteerSchema,
   SendChatMessageSchema,
-  SteerChatMessageSchema,
   StopSubagentSchema
 } from '../../shared/protocol'
 import { normalizeAttachments } from '../features/chat/attachments'
@@ -31,7 +35,6 @@ import type { PermissionModeController } from '../features/approvals/permission-
 import { makeClassifiedError } from '../infra/errors'
 import type { RouterContext } from './context'
 import { sendChatEvent } from '../infra/ipc/send'
-import { previewOf } from '../infra/ipc/dto'
 import { handle, handlePlain } from '../infra/ipc/handle'
 import type { ApprovalCoordinator } from '../features/approvals/coordinator'
 import type { HistoryWriter } from '../features/history/writer'
@@ -39,7 +42,7 @@ import { SessionRuntime } from '../features/sessions/session-runtime'
 import type { RuntimeSessionAdapter } from '../contracts/ports'
 import { STALL_TIMEOUT_MS } from '../features/chat/timers'
 import { recoverDanglingToolCalls } from '../features/chat/recovery'
-import type { TurnRequest } from '../adapters/turn'
+import type { SteerFlushBatch, TurnRequest } from '../adapters/turn'
 import { TurnCoordinator } from '../features/chat/turn-coordinator'
 import { settleOpenToolRuns, settleSubagentTask, stopLiveSubagent } from '../features/chat/settle'
 import type { MainBus, TurnEmit } from '../contracts/bus-events'
@@ -47,11 +50,6 @@ import type { TurnEventSink } from '../features/chat/turn-sinks'
 import { RuntimeSupervisor } from '../features/sessions/supervisor'
 import { abortTurn } from '../features/chat/abort'
 import type { PendingMessageQueue } from '../features/chat/pending-message-queue'
-import type {
-  AdmissionController,
-  AdmissionContext,
-  AdmissionDecision
-} from '../features/sessions/admission-controller'
 import type { TurnContext } from '../contracts/turn'
 
 export const IDLE_TIMEOUT_MS = STALL_TIMEOUT_MS
@@ -66,7 +64,6 @@ export interface ChatDeps {
   approvals: ApprovalCoordinator
   persistence: HistoryWriter
   permissionModes: PermissionModeController
-  admission: AdmissionController<WebContents>
   pendingMessages: PendingMessageQueue
 }
 
@@ -145,47 +142,12 @@ function buildTurnEnv(ctx: RouterContext): Record<string, string> | undefined {
   return mergeEnvLayers(undefined, expanded)
 }
 
-function createAdmissionContext(
-  sessionId: string | null,
-  owner: WebContents,
-  hasInflight: boolean
-): AdmissionContext<WebContents> {
-  return sessionId
-    ? { target: { kind: 'existing-session', sessionId }, hasInflight }
-    : { target: { kind: 'new-session-slot', owner }, hasInflight }
-}
-
-function enactAdmissionDecision(
-  owner: WebContents,
-  sessionId: string | null,
-  decision: AdmissionDecision
-): boolean {
-  if (decision.kind === 'accept') return true
-  // reject — 진행 중 턴에 대한 사용자 입력은 renderer 가 chat:steer(pending message queue 예약)
-  // 로 보내므로, 여기 도달하는 중복 chat:send 는 race 뿐이다(0056 → 0066 단순화).
-  sendChatEvent(owner, {
-    type: 'error',
-    ...(sessionId ? { sessionId } : {}),
-    error: makeClassifiedError(
-      'provider_connection_error',
-      '이미 진행 중인 턴이 있습니다. 완료 후 다시 시도하세요.',
-      { retryable: true }
-    )
-  })
-  return false
-}
+// 0067 AC10: AdmissionController(0056 framework) 폐기 — busy 세션 send 는 reject 가 아니라
+// pending queue 예약(held)이 정답이 됐다. 유일하게 남은 가드는 새-채팅 슬롯의 중복 send race
+// 뿐이라 핸들러 서두에 인라인한다.
 
 export function registerChatHandlers(deps: ChatDeps): void {
-  const {
-    ctx,
-    supervisor,
-    bus,
-    approvals,
-    persistence,
-    permissionModes,
-    admission,
-    pendingMessages
-  } = deps
+  const { ctx, supervisor, bus, approvals, persistence, permissionModes, pendingMessages } = deps
 
   // settle(취소·서브에이전트 중단) 정착 이벤트를 turn.event 버스로 방출 — 스트리밍과 동일 파이프라인.
   // fault-isolated: 정리 중 구독자 throw 가 핸들러를 깨지 않게 격리한다.
@@ -204,6 +166,68 @@ export function registerChatHandlers(deps: ChatDeps): void {
   // 0067: 장수명 세션 채널이 기본 — 게이트 env(ORCA_PERSISTENT_RUNTIME) 폐기(사용자 확정
   // "long-lived 직행"). pushTurn 미지원 어댑터(mock)는 SessionRuntime 이 턴-스코프로 폴백한다.
 
+  // busy 세션의 send 를 pending queue 예약(held)으로 수용한다(0067 AC5 — 구 chat:steer 본체).
+  // 구조 페이로드: 첨부도 추출해 함께 적재 — 게이트 flush 시 content 블록으로 주입된다.
+  const reserveOnBusySession = async (
+    event: IpcMainInvokeEvent,
+    sessionId: string,
+    data: {
+      text: string
+      attachments?: Parameters<typeof normalizeAttachments>[0]
+      attachmentViews?: AttachmentView[]
+      clientRequestId?: string
+    }
+  ): Promise<void> => {
+    const turn = supervisor.getBySession(sessionId)
+    if (!turn?.live?.canSteer) {
+      sendChatEvent(event.sender, {
+        type: 'error',
+        sessionId,
+        error: makeClassifiedError(
+          'capability_unsupported',
+          '이 백엔드는 피드백 끼어들기를 지원하지 않습니다.',
+          { retryable: false }
+        )
+      })
+      return
+    }
+    let na: Awaited<ReturnType<typeof normalizeAttachments>>
+    try {
+      na = await normalizeAttachments(data.attachments ?? [])
+    } catch (err) {
+      sendChatEvent(event.sender, {
+        type: 'error',
+        sessionId,
+        error: makeClassifiedError('schema_validation_error', '첨부 파일을 처리할 수 없습니다.', {
+          retryable: false,
+          cause: err
+        })
+      })
+      return
+    }
+    const item = pendingMessages.enqueue(
+      sessionId,
+      {
+        text: data.text,
+        ...(na.attachmentTexts.length > 0 ? { attachmentTexts: na.attachmentTexts } : {}),
+        ...(na.attachmentImages.length > 0 ? { attachmentImages: na.attachmentImages } : {}),
+        ...(data.attachmentViews && data.attachmentViews.length > 0
+          ? { attachmentViews: data.attachmentViews }
+          : {})
+      },
+      Date.now(),
+      data.clientRequestId
+    )
+    sendChatEvent(event.sender, {
+      type: 'message.queued',
+      sessionId,
+      id: item.id,
+      text: item.text,
+      ...(item.attachmentViews ? { attachmentViews: item.attachmentViews } : {}),
+      createdAt: item.createdAt
+    })
+  }
+
   const handleChatSend = async (event: IpcMainInvokeEvent, raw: unknown): Promise<void> => {
     const parsed = SendChatMessageSchema.safeParse(raw)
     if (!parsed.success) {
@@ -219,16 +243,25 @@ export function registerChatHandlers(deps: ChatDeps): void {
     }
 
     // 동시 턴 admission — 서로 다른 세션의 동시 턴은 허용하되, 같은 세션(또는 같은 창의
-    // 새-채팅 슬롯)의 중복 send 는 AdmissionController 정책 결과를 L3 에서 enact 한다.
-    const admissionContext = createAdmissionContext(
-      parsed.data.sessionId,
-      event.sender,
-      parsed.data.sessionId
-        ? supervisor.hasSession(parsed.data.sessionId)
-        : supervisor.hasPending(event.sender)
-    )
-    const admissionDecision = admission.admit(admissionContext)
-    if (!enactAdmissionDecision(event.sender, parsed.data.sessionId, admissionDecision)) return
+    // busy 세션 send = 예약(held) — 구 chat:steer 채널 흡수(0067 AC5). 진행 턴이 있으면 큐에
+    // 적재만 하고 반환한다. 주입은 게이트 훅(PostToolBatch)·턴 종료 자동 연속이, 커밋은 echo 가
+    // 소유한다. 취소는 held 창 안에서 chat:steerCancel/중단 버튼.
+    if (parsed.data.sessionId && supervisor.hasSession(parsed.data.sessionId)) {
+      await reserveOnBusySession(event, parsed.data.sessionId, parsed.data)
+      return
+    }
+    // 새-채팅 슬롯 중복 send race 가드 — 0056 admission 의 유일 잔존 케이스(0067 AC10 인라인).
+    if (!parsed.data.sessionId && supervisor.hasPending(event.sender)) {
+      sendChatEvent(event.sender, {
+        type: 'error',
+        error: makeClassifiedError(
+          'provider_connection_error',
+          '이미 진행 중인 턴이 있습니다. 완료 후 다시 시도하세요.',
+          { retryable: true }
+        )
+      })
+      return
+    }
 
     const adapter =
       ctx.mockAdapter && ctx.debugMock.enabled ? ctx.mockAdapter : ctx.registry.getActive()
@@ -297,20 +330,6 @@ export function registerChatHandlers(deps: ChatDeps): void {
     const effectiveText = parsed.data.handoffFrom
       ? buildHandoffMessage(continuityMeta?.title ?? null, parsed.data.handoffFrom)
       : parsed.data.text
-
-    // 핸드오프 자동 메시지 에코(0064 r4) — 렌더러가 본문을 모르는 main 조립 발화를 **턴 시작
-    // 전에** 커밋한다. r2/r3 은 session.updated(SDK init) 시점에 에코했는데, 실기에서 init 이
-    // compact 이벤트들보다 늦게 도착하면 요약(message.completed 폴백 라우팅)이 먼저 붙고 user
-    // 버블이 그 뒤에 렌더되는 역순이 났다(r4 피드백 2). sessionId 미발급 시점이므로 이벤트에
-    // sessionId 가 없고, 렌더러 receive() 가 pendingNewChatKey(=핸드오프 draft)로 라우팅한다 —
-    // SDK 이벤트 순서와 무관하게 [user 버블 → inflight → 압축 요약] 순서가 보장된다.
-    if (parsed.data.handoffFrom) {
-      sendChatEvent(event.sender, {
-        type: 'message.user',
-        text: effectiveText,
-        createdAt: Date.now()
-      })
-    }
 
     // 첨부 정규화(경로 추출·이미지 읽기·검증)는 턴 시작 전 단계라 아래 턴 try/catch 밖이다.
     // 여기서 throw 하면(홈 밖 경로·unsupported·binary·fs 오류) invoke 가 거부돼 renderer 의
@@ -393,7 +412,9 @@ export function registerChatHandlers(deps: ChatDeps): void {
               continuityMeta?.title?.trim() || continuitySource.slice(0, 8)
             }`
           }
-        : {})
+        : {}),
+      // 0067 AC9 — 세션 id 확정 전 큐 키. coordinator 가 session.updated 에서 실 id 로 rekey.
+      queueKey: parsed.data.sessionId ?? parsed.data.clientKey ?? randomUUID()
     }
     if (parsed.data.sessionId) supervisor.startResume(parsed.data.sessionId, turn)
     else supervisor.startNew(event.sender, turn)
@@ -405,37 +426,46 @@ export function registerChatHandlers(deps: ChatDeps): void {
       () => new SessionRuntime(adapter)
     )
 
-    // 이월(carryover, 0060 D2)은 **채널이 죽었을 때만** — 턴-스코프/사망 채널은 CLI 내부 큐가
-    // 서브프로세스와 함께 소멸했으므로 미소비 pending(미echo flushed + held)을 여기서 프롬프트에
-    // 병합해 전달·커밋한다. 채널 생존 시엔 드레인하지 않는다(0067): flushed 분은 CLI 큐에
-    // 살아있어 다음 턴 P2 픽업→echo 커밋으로, held 분은 이번 턴 게이트 flush 로 이어진다 —
-    // 여기서 드레인하면 모델에 이중 전달된다.
-    const steerCarryover =
-      parsed.data.sessionId && !runtime.channelAlive
-        ? pendingMessages.drainAll(parsed.data.sessionId)
-        : undefined
-
-    // resume 경로: sessionId 가 들어왔다는 건 이전 init 으로 sessions row 가 이미
-    // 존재한다는 의미. 다음 init 이벤트를 기다리지 않고 user 메시지를 즉시 기록.
-    if (parsed.data.sessionId) {
-      const now = Date.now()
-      if (steerCarryover) {
-        persistence.persistUserMessage(
-          parsed.data.sessionId,
-          steerCarryover.text,
-          steerCarryover.createdAt
-        )
-      }
-      persistence.persistUserMessage(
-        parsed.data.sessionId,
-        parsed.data.text,
-        now,
-        parsed.data.attachmentViews
-      )
-      ctx.db.updateSessionPreview(parsed.data.sessionId, previewOf(parsed.data.text), now)
-      ctx.db.updateSessionProviderKey(parsed.data.sessionId, turn.providerKey, now)
-      turn.pendingUserText = null
-    }
+    // ── 큐 경유(0067 AC5·AC6): 모든 프롬프트는 pending queue 에 적재 후 상태별로 주입된다 ──
+    // ① 프렐류드: 채널 사망 이월 — 미소비 flushed(CLI 큐 소멸분) 재전달 + held 를 아이템 단위
+    //    배치로 회수해 본 프롬프트 *앞에* 개별 user 메시지로 선적재한다(개별 echo→개별 커밋 =
+    //    버블 구조 보존). 채널 생존 시엔 회수하지 않는다 — flushed 분은 CLI 큐에 살아있어 다음
+    //    턴 P2 픽업으로, held 분은 이번 턴 게이트 flush 로 이어진다(드레인하면 이중 전달).
+    const queueKey = turn.queueKey!
+    const preludes: SteerFlushBatch[] = runtime.channelAlive
+      ? []
+      : pendingMessages.takeForRespawn(queueKey)
+    // ② 본 프롬프트: enqueue → 즉시 아이템 배치 flush(사용자 턴 = 즉시 주입). 커밋(user row
+    //    영속·preview/provider_key·renderer 승격)은 echo 관측 단일 경로(coordinator)가 소유 —
+    //    send 시점 선영속은 폐기됐다(0067 AC6).
+    const queuedItem = pendingMessages.enqueue(
+      queueKey,
+      {
+        text: effectiveText,
+        ...(normalizedAttachments.attachmentTexts.length > 0
+          ? { attachmentTexts: normalizedAttachments.attachmentTexts }
+          : {}),
+        ...(normalizedAttachments.attachmentImages.length > 0
+          ? { attachmentImages: normalizedAttachments.attachmentImages }
+          : {}),
+        ...(parsed.data.attachmentViews.length > 0
+          ? { attachmentViews: parsed.data.attachmentViews }
+          : {})
+      },
+      Date.now(),
+      parsed.data.clientRequestId
+    )
+    // pending-first 렌더(0067 AC8) — renderer 낙관 항목과 id 로 합류(upsert). 새 세션은
+    // sessionId 미확정이라 생략 → renderer 가 clientKey/pendingNewChatKey 로 라우팅.
+    sendChatEvent(event.sender, {
+      type: 'message.queued',
+      ...(parsed.data.sessionId ? { sessionId: parsed.data.sessionId } : {}),
+      id: queuedItem.id,
+      text: queuedItem.text,
+      ...(queuedItem.attachmentViews ? { attachmentViews: queuedItem.attachmentViews } : {}),
+      createdAt: queuedItem.createdAt
+    })
+    const mainBatch = pendingMessages.flushItem(queueKey, queuedItem.id)!
 
     // plugin 배포는 query 호출 전 최신성을 멱등 보장한다. 활성/비활성 토글은
     // 파일 삭제가 아니라 런타임 options.skills 필터로 반영한다.
@@ -474,6 +504,11 @@ export function registerChatHandlers(deps: ChatDeps): void {
       pendingMessages
     })
 
+    // 자동 연속 턴(0067 AC7)이 같은 채널에서 후속 TurnContext 로 이어지므로, 승인·게이트 콜백은
+    // 고정 turn 이 아니라 **현재 활성 턴**을 읽는다(세션-레벨 인디렉션 — SessionRuntime delegate
+    // 와 같은 이유).
+    let activeTurn: TurnContext<WebContents> = turn
+
     // 단일 권한 승인 위임 — 어댑터의 canUseTool 이 ask_question·plan_review·tool_approval 중
     // 하나를 PermissionAction 으로 넘기면, approvalId 를 발급해 permission.requested 이벤트로
     // renderer 에 surface 하고 broker 가 응답(또는 turn abort)까지 Promise 를 보류한다.
@@ -482,6 +517,8 @@ export function registerChatHandlers(deps: ChatDeps): void {
       action: PermissionAction,
       sdkSignal?: AbortSignal
     ): Promise<ApprovalResolution> => {
+      const turn = activeTurn
+      const controller = turn.controller
       // 세션 자동 허용된 위험 도구는 카드 미surface — 즉시 통과.
       if (action.kind === 'tool_approval') {
         const sid = turn.dbSessionId
@@ -558,11 +595,12 @@ export function registerChatHandlers(deps: ChatDeps): void {
       sessionId: parsed.data.sessionId,
       // 0064 continuity — 어댑터가 resume+forkSession 으로 어댑트해 새 session id 를 발급받는다.
       ...(continuitySource ? { forkFrom: continuitySource } : {}),
-      // 이월된 steer 는 새 프롬프트 앞에 병합해 모델에 전달한다(D2) — DB 에는 위에서 별도 row 로
-      // 이미 영속됐다. 제목/프리뷰(turn.firstUserText 등)는 사용자가 타이핑한 텍스트만 쓴다.
-      // steer 이월(resume 경로)과 continuity(새 세션 경로)는 상호배타 — steerCarryover 는
-      // sessionId 있는 턴에서만 존재하고, effectiveText 는 그 경로에서 parsed.data.text 와 같다.
-      text: steerCarryover ? `${steerCarryover.text}\n\n${effectiveText}` : effectiveText,
+      // 본 프롬프트 = 큐에서 방금 flush 한 아이템 배치(0067 AC5). promptUuid=item id 가 echo
+      // 상관키가 돼 커밋(user row 영속·renderer 승격)이 echo 관측 단일 경로로 흐른다(AC6).
+      text: mainBatch.text,
+      promptUuid: mainBatch.uuid,
+      // 채널 사망 이월(프렐류드) — 본 프롬프트 앞에 개별 user 메시지로 선적재(위 ① 주석).
+      ...(preludes.length > 0 ? { preludes } : {}),
       cwd: turn.cwd,
       signal: controller.signal,
       extensions,
@@ -572,69 +610,128 @@ export function registerChatHandlers(deps: ChatDeps): void {
       requestApproval,
       permissionMode: parsed.data.permissionMode,
       effort: parsed.data.effort,
-      // 게이트 훅(PostToolBatch) 시점에 로컬 홀드 steer 를 병합 단일 배치로 회수(0060 D3·D4).
-      // turn.dbSessionId 를 훅 발화 시점에 동적으로 읽는다 — 새 세션 턴은 session.updated
-      // 전까지 null(그동안 steer 자체가 불가능하므로 빈 회수가 옳다).
+      // 게이트 훅(PostToolBatch) 시점에 로컬 홀드 pending 을 병합 단일 배치로 회수(0060 D3·D4).
+      // 활성 턴의 dbSessionId 를 훅 발화 시점에 동적으로 읽는다 — 새 세션 턴은 session.updated
+      // 전까지 null(그동안 예약 자체가 불가능하므로 빈 회수가 옳다).
       takeSteerFlush: () =>
-        turn.dbSessionId ? pendingMessages.flushHeld(turn.dbSessionId) : undefined,
+        activeTurn.dbSessionId ? pendingMessages.flushHeld(activeTurn.dbSessionId) : undefined,
       // 서브에이전트 백그라운드화(가이드) — ORCA_SUBAGENT_BACKGROUND 게이트. 기본 off=foreground.
       backgroundSubagents,
-      isSubagentBlocked: (st) => st !== undefined && turn.blockedSubagents.has(st),
+      isSubagentBlocked: (st) => st !== undefined && activeTurn.blockedSubagents.has(st),
       attachmentTexts: normalizedAttachments.attachmentTexts,
       attachmentImages: normalizedAttachments.attachmentImages
     }
 
     try {
       await coordinator.run(turn, request, { boundProjectId })
+      // 자동 연속 턴(0067 AC7) — 턴 종료 시 held 잔여(어시스턴트 턴 중 예약됐으나 게이트를 못
+      // 만난 메시지)를 즉시 다음 턴으로 잇는다. 사용자 개입 없음. 명시 취소(controller abort)
+      // 시에는 발동하지 않는다 — 중단 버튼이 held 를 이미 drain(draft 복원)했다.
+      while (!activeTurn.controller.signal.aborted && activeTurn.dbSessionId) {
+        const sessionId = activeTurn.dbSessionId
+        if (pendingMessages.pending(sessionId).length === 0) break
+        let contPreludes: SteerFlushBatch[] = []
+        let batch: SteerFlushBatch | undefined
+        if (runtime.channelAlive) {
+          // 채널 생존 — held 병합 단일 배치(D4 1버블)를 pushTurn 프롬프트로.
+          batch = pendingMessages.flushHeld(sessionId)
+        } else {
+          // 채널 사망 — respawn 이월 전체를 회수해 마지막을 본 프롬프트, 앞을 프렐류드로.
+          const leftovers = pendingMessages.takeForRespawn(sessionId)
+          batch = leftovers.pop()
+          contPreludes = leftovers
+        }
+        if (!batch) break
+        const contTurn = makeContinuationTurn(activeTurn)
+        supervisor.startResume(sessionId, contTurn)
+        activeTurn = contTurn
+        const contRequest: TurnRequest = {
+          ...request,
+          sessionId,
+          text: batch.text,
+          promptUuid: batch.uuid,
+          signal: contTurn.controller.signal,
+          attachmentTexts: batch.attachmentTexts ?? [],
+          attachmentImages: batch.attachmentImages ?? [],
+          ...(contPreludes.length > 0 ? { preludes: contPreludes } : {})
+        }
+        // 연속 턴은 fork/프렐류드(원 요청분)를 계승하지 않는다 — 재분기·이중 전달 방지.
+        delete contRequest.forkFrom
+        if (contPreludes.length === 0) delete contRequest.preludes
+        try {
+          await coordinator.run(contTurn, contRequest, { boundProjectId })
+        } finally {
+          supervisor.release(contTurn)
+        }
+      }
     } finally {
       wc.removeListener('destroyed', onOwnerGone)
       wc.removeListener('render-process-gone', onOwnerGone)
       // turn 핸들 teardown(레지스트리 제거)과 runtime 수명은 분리한다 — Persistent 핸들은 정상
-      // 종료 시 turn.dbSessionId 키로 idle 보존되고, 그 외(에러·중단·OneShot)는 즉시 close.
+      // 종료 시 세션 키로 idle 보존되고, 그 외(에러·OneShot)는 즉시 close.
       supervisor.release(turn)
-      supervisor.releaseRuntime(turn.dbSessionId, runtime)
+      supervisor.releaseRuntime(activeTurn.dbSessionId ?? turn.dbSessionId, runtime)
     }
   }
+
+  // 자동 연속 턴의 TurnContext — 직전 턴의 세션/메타를 계승하고 턴-로컬 상태만 초기화한다.
+  const makeContinuationTurn = (prev: TurnContext<WebContents>): TurnContext<WebContents> => ({
+    controller: new AbortController(),
+    owner: prev.owner,
+    live: null,
+    titleAdapter: prev.titleAdapter,
+    titleSettings: prev.titleSettings,
+    titleEnv: prev.titleEnv,
+    titleModel: prev.titleModel,
+    providerKey: prev.providerKey,
+    pendingUserText: null,
+    firstUserText: prev.firstUserText,
+    pendingAttachmentViews: [],
+    dbSessionId: prev.dbSessionId,
+    pendingProjectId: null,
+    isNewSession: false,
+    cwd: prev.cwd,
+    titleGenerationStarted: prev.titleGenerationStarted,
+    currentAssistantMessageId: null,
+    assistantText: '',
+    pendingAskAnswers: [],
+    askPendingIds: [],
+    askResolved: new Map(),
+    subagentTaskIds: new Map(),
+    openToolRuns: new Map(),
+    subagentTypes: new Map(),
+    blockedSubagents: new Set(prev.blockedSubagents),
+    stoppedSubagents: new Set()
+  })
 
   // chatSend 는 검증 실패를 reject 가 아닌 error 이벤트로 회신하는 특례 — handlePlain 으로
   // 등록하고 핸들러 서두에서 직접 safeParse 한다.
   handlePlain(CHANNELS.chatSend, (raw, event) => handleChatSend(event, raw))
 
-  handle(CHANNELS.chatSteer, SteerChatMessageSchema, 'reject', (req, event): void => {
-    const turn = supervisor.getBySession(req.sessionId)
-    if (!turn || !turn.live?.canSteer) {
-      sendChatEvent(event.sender, {
-        type: 'error',
-        sessionId: req.sessionId,
-        error: makeClassifiedError(
-          'capability_unsupported',
-          '이 백엔드는 피드백 끼어들기를 지원하지 않습니다.',
-          { retryable: false }
-        )
-      })
-      return
-    }
-    // 어시스턴트 턴 = pending message queue 의 예약(held) 경로(0066) — stdin 즉시 주입하지
-    // 않는다(0060 D3: stdin 주입 = 조작 권한 포기). 주입은 어댑터의 게이트 훅이 takeSteerFlush
-    // 로 병합 배치를 회수해 수행하고, 커밋 판정은 coordinator 가 input.echo(batch uuid) 관측으로
-    // 수행한다(0060 D1). held 인 동안만 취소 가능(chat:steerCancel).
-    const item = pendingMessages.enqueue(req.sessionId, req.text, Date.now(), req.clientRequestId)
-    sendChatEvent(event.sender, {
-      type: 'steer.queued',
-      sessionId: req.sessionId,
-      id: item.id,
-      text: item.text,
-      createdAt: item.createdAt
-    })
-  })
-
+  // held 단건 취소(pending 버블 hover) — flushed(주입 완료) 항목은 거부(무이벤트), 이후 echo
+  // 커밋이 버블을 복원한다(D3 정직 화해). 구 chat:steer 채널은 chat:send 로 흡수됐다(0067 AC5).
   handle(CHANNELS.chatSteerCancel, CancelSteerSchema, 'reject', (req, event): void => {
     const removed = pendingMessages.cancel(req.sessionId, req.id)
     if (!removed) return
-    sendChatEvent(event.sender, { type: 'steer.cancelled', sessionId: req.sessionId, id: req.id })
+    sendChatEvent(event.sender, {
+      type: 'message.cancelled',
+      sessionId: req.sessionId,
+      ids: [req.id]
+    })
   })
 
-  handle(CHANNELS.chatCancel, CancelChatSchema, 'reject', (req): void => {
+  handle(CHANNELS.chatCancel, CancelChatSchema, 'reject', (req, event): void => {
+    // 중단 버튼 = 턴 interrupt + held 전량 취소(0067 확정 5). renderer 는 message.cancelled 의
+    // 잔존 항목 텍스트를 composer draft 로 복원한다(편집 가능). flushed 분은 회수 불가(D3) —
+    // 소비되면 echo 커밋으로 정직 화해. controller abort 가 자동 연속 루프도 차단한다.
+    const removed = pendingMessages.cancelAllHeld(req.sessionId)
+    if (removed.length > 0) {
+      sendChatEvent(event.sender, {
+        type: 'message.cancelled',
+        sessionId: req.sessionId,
+        ids: removed.map((item) => item.id)
+      })
+    }
     const turn = supervisor.getBySession(req.sessionId)
     if (!turn) return
     abortTurn(turn, 'user_cancelled')

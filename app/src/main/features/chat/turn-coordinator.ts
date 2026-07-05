@@ -115,25 +115,31 @@ export class TurnCoordinator<W = unknown> {
     })
   }
 
-  // 소비 확정분만 병합 flush(persist∥forward). echo 배치가 끝난 지점에서 호출된다 — 미소비
-  // pending 은 남겨 턴 종료 후 다음 chat:send 이월(carryover)로 넘긴다(0060 D2: 모델이 못 본
-  // 텍스트를 committed 로 굳히지 않는다).
-  private flushConsumedSteer(turn: TurnContext<W>): void {
+  // 소비 확정 배치를 배치 단위로 커밋(persist∥forward) — echo 배치가 끝난 지점에서 호출된다.
+  // 턴 프롬프트·프렐류드·steer 게이트 배치가 전부 이 단일 경로로 user row 영속 + renderer
+  // 승격(message.committed)된다(0067 AC6). 미소비 pending 은 남긴다(D2: 모델이 못 본 텍스트를
+  // committed 로 굳히지 않는다).
+  private commitConsumed(turn: TurnContext<W>): void {
     const sessionId = turn.dbSessionId
     const { pendingMessages, persist, forward } = this.deps
     if (!sessionId || !pendingMessages) return
-    const flush = pendingMessages.drainConsumed(sessionId)
-    if (!flush) return
-    const messageId = persist.persistSteerUserMessage?.(turn, flush.text, Date.now())
-    if (messageId == null) return
-    forward.forward(turn.owner, {
-      type: 'steer.flushed',
-      sessionId,
-      ids: flush.ids,
-      text: flush.text,
-      messageId,
-      createdAt: flush.createdAt
-    })
+    for (const batch of pendingMessages.drainConsumedBatches(sessionId)) {
+      const messageId = persist.commitUserMessage?.(turn, {
+        text: batch.text,
+        createdAt: batch.createdAt,
+        ...(batch.attachmentViews ? { attachmentViews: batch.attachmentViews } : {})
+      })
+      if (messageId == null) continue
+      forward.forward(turn.owner, {
+        type: 'message.committed',
+        sessionId,
+        ids: batch.ids,
+        text: batch.text,
+        ...(batch.attachmentViews ? { attachmentViews: batch.attachmentViews } : {}),
+        messageId,
+        createdAt: batch.createdAt
+      })
+    }
   }
 
   // 승인 보류 동안 stall 타이머 멈춤 — 사용자 판단 시간이 stall 로 오판돼 턴이 abort 되지 않게.
@@ -181,7 +187,7 @@ export class TurnCoordinator<W = unknown> {
             // [응답-전][steer user][응답-후] 를 보존한다(persistSteerUserMessage 가 진행 중
             // assistant 를 마감·리셋). telemetry 만 예외로 persist 후 flush — usage messageId
             // 링크·assistant 마감이 끝난 뒤여야 한다(0060).
-            if (ev.type !== 'telemetry') this.flushConsumedSteer(turn)
+            if (ev.type !== 'telemetry') this.commitConsumed(turn)
             if (ev.type === 'telemetry' || ev.type === 'error' || ev.type === 'turn.aborted') {
               sawTerminal = true
             }
@@ -193,6 +199,11 @@ export class TurnCoordinator<W = unknown> {
             // SDK init 지연 시 압축 요약이 에코보다 먼저 렌더되는 역순을 구조적으로 차단.
             this.emit(turn, ev)
             if (ev.type === 'session.updated') {
+              // 세션 id 확정 — 새 세션의 pending queue 키(clientKey)를 실 id 로 재바인딩해
+              // 이후 echo 매칭(markSteerConsumed = dbSessionId 키)이 성립하게 한다(0067 AC9).
+              if (turn.queueKey && turn.queueKey !== ev.sessionId) {
+                this.deps.pendingMessages?.rekey(turn.queueKey, ev.sessionId)
+              }
               registry.promote(turn, ev.sessionId)
             }
             // AskUserQuestion tool 호출 도착 → id 페어링 큐 적재 + 답변 매칭 시도(answers 는 SDK
@@ -232,7 +243,7 @@ export class TurnCoordinator<W = unknown> {
             }
             // telemetry(턴 종료)는 persist 이후에 소비 확정분을 flush — usage messageId 링크와
             // assistant 마감을 보존한다. 미소비 pending 은 여기서도 flush 하지 않는다(D2).
-            if (ev.type === 'telemetry') this.flushConsumedSteer(turn)
+            if (ev.type === 'telemetry') this.commitConsumed(turn)
           }
         } finally {
           activeTurns.decrement(boundProjectId)
@@ -246,7 +257,7 @@ export class TurnCoordinator<W = unknown> {
           this.emit(turn, ev)
           // 스트림이 경계 없이 끝났어도 *소비 확정분* 은 flush 한다. 미소비 pending 은 큐에
           // 남긴다 — 모델이 못 본 텍스트를 committed 로 굳히지 않고 다음 chat:send 로 이월(D2).
-          this.flushConsumedSteer(turn)
+          this.commitConsumed(turn)
         }
         return
       } catch (err) {

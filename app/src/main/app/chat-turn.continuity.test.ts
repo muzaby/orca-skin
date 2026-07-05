@@ -24,6 +24,7 @@ import { TypedBus } from '../infra/bus'
 import type { OrcaBusEvents } from '../contracts/bus-events'
 import type { TurnContext } from '../contracts/turn'
 import { TurnCoordinator, type CoordinatorRuntime } from '../features/chat/turn-coordinator'
+import { PendingMessageQueue } from '../features/chat/pending-message-queue'
 import { HistoryWriter } from '../features/history/writer'
 import { buildHandoffMessage } from '../features/orchestration/handoff'
 import { materializeContinuityArrival } from '../features/orchestration/fork'
@@ -57,8 +58,8 @@ function seedSource(q: DbQueries, id = 'src-session'): void {
   q.appendPart({ messageId: a, type: 'text', toolRunId: null, payloadJson: '{"text":"답"}' })
 }
 
-// 어댑터 대역 — init(새 id) → telemetry 를 흘리는 최소 런타임.
-function fakeRuntime(newSessionId: string): CoordinatorRuntime {
+// 어댑터 대역 — init(새 id) → 프롬프트 echo(0067 커밋 신호) → telemetry 를 흘리는 최소 런타임.
+function fakeRuntime(newSessionId: string, echo: { text: string; uuid: string }): CoordinatorRuntime {
   return {
     send: () =>
       (async function* (): AsyncIterable<NormalizedEvent> {
@@ -67,6 +68,7 @@ function fakeRuntime(newSessionId: string): CoordinatorRuntime {
           sessionId: newSessionId,
           patch: { cwd: '/w' }
         }
+        yield { type: 'input.echo', sessionId: newSessionId, text: echo.text, uuid: echo.uuid }
         yield { type: 'telemetry', sessionId: newSessionId }
       })(),
     close: () => undefined
@@ -103,7 +105,9 @@ function continuityTurn(
     subagentTypes: new Map(),
     blockedSubagents: new Set(),
     stoppedSubagents: new Set(),
-    lineage
+    lineage,
+    // 0067 AC9 — 새 세션 큐 키(clientKey). session.updated 에서 실 id 로 rekey 된다.
+    queueKey: 'draft-key'
   } as unknown as TurnContext
 }
 
@@ -118,8 +122,12 @@ async function runTurn(
   const bus = new TypedBus<OrcaBusEvents<unknown>>()
   bus.on('turn.event', ({ turn: t, ev }) => persistence.persist(t, ev), { critical: true })
   bus.on('turn.event', ({ ev }) => forwarded.push(ev))
+  // 0067: 프롬프트도 큐 경유 — enqueue→flushItem 후 echo(uuid=item id) 관측으로 커밋된다.
+  const pendingMessages = new PendingMessageQueue()
+  pendingMessages.enqueue('draft-key', { text: turn.firstUserText }, 1, 'prompt-item')
+  pendingMessages.flushItem('draft-key', 'prompt-item')
   const coordinator = new TurnCoordinator({
-    runtime: fakeRuntime(newSessionId),
+    runtime: fakeRuntime(newSessionId, { text: turn.firstUserText, uuid: 'prompt-item' }),
     bus,
     persist: persistence,
     forward: { forward: (_owner, ev) => forwarded.push(ev) },
@@ -128,7 +136,8 @@ async function runTurn(
       throw err
     },
     activeTurns: { increment: vi.fn(), decrement: vi.fn() },
-    backgroundSubagents: false
+    backgroundSubagents: false,
+    pendingMessages
   })
   await coordinator.run(turn, { sessionId: null, text: '', cwd: '/w' } as never, {
     boundProjectId: null
@@ -160,8 +169,12 @@ describe('continuity 도착 파이프라인 (0064 r2)', () => {
     expect(parts.map((p) => [p.role, p.type])).toEqual([['user', 'text']])
     expect(JSON.parse(parts[0].payload_json).text).toBe(auto)
 
-    // forward — 에코는 send 수리 직후(턴 밖)로 이동했으므로 coordinator 는 발행하지 않는다.
-    expect(forwarded.map((e) => e.type)).toEqual(['session.updated', 'telemetry'])
+    // forward — user 커밋은 echo 관측 단일 경로(0067 AC6): telemetry persist 후 message.committed.
+    expect(forwarded.map((e) => e.type)).toEqual([
+      'session.updated',
+      'telemetry',
+      'message.committed'
+    ])
   })
 
   it('fork — display 복사 + lineage(fork), 새 발화는 복사 이력 뒤 idx, 에코 없음', async () => {
@@ -187,6 +200,10 @@ describe('continuity 도착 파이프라인 (0064 r2)', () => {
     // 원본 무변경.
     expect(db.loadParts('src-session')).toHaveLength(2)
 
-    expect(forwarded.map((e) => e.type)).toEqual(['session.updated', 'telemetry'])
+    expect(forwarded.map((e) => e.type)).toEqual([
+      'session.updated',
+      'telemetry',
+      'message.committed'
+    ])
   })
 })

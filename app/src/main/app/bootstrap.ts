@@ -46,10 +46,6 @@ import { registerMiscHandlers } from './handlers/misc'
 import { registerChatHandlers } from './chat-turn'
 import { RuntimeSupervisor } from '../features/sessions/supervisor'
 import { BoundedRuntimeCapPolicy } from '../features/sessions/runtime-cap-policy'
-import {
-  AdmissionController,
-  RejectDuplicatePolicy
-} from '../features/sessions/admission-controller'
 import { PendingMessageQueue } from '../features/chat/pending-message-queue'
 import { ActiveTurnTracker } from '../features/sessions/active-turn-tracker'
 import { TypedBus } from '../infra/bus'
@@ -264,7 +260,7 @@ export class Bootstrap {
 
     const approvals = new ApprovalCoordinator()
     const permissionModes = new PermissionModeController()
-    const admission = new AdmissionController<Electron.WebContents>(new RejectDuplicatePolicy())
+    // 0067 AC10: AdmissionController 폐기 — busy send = pending queue 예약(chat-turn 소유).
     const pendingMessages = new PendingMessageQueue()
     registerChatHandlers({
       ctx,
@@ -273,7 +269,6 @@ export class Bootstrap {
       approvals,
       persistence,
       permissionModes,
-      admission,
       pendingMessages
     })
     approvals.registerHandlers(supervisor, permissionModes)

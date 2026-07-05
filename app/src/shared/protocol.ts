@@ -67,7 +67,13 @@ export const SendChatMessageSchema = z
     cwd: z.string().min(1).nullable().optional(),
     // 0064 continuity — 상호 배타·새 세션 전용(아래 refine).
     forkFrom: z.string().min(1).optional(),
-    handoffFrom: z.string().min(1).optional()
+    handoffFrom: z.string().min(1).optional(),
+    // 0067 AC9 — renderer draft 키(UUID). 새 세션(sessionId=null)의 큐/라우팅 키로 쓰이고
+    // init(session.updated)에서 실 session id 로 remap 된다. 절대 영속되지 않는다.
+    clientKey: z.string().min(1).optional(),
+    // 0067 AC5 — 이 메시지의 pending queue 아이템 id(renderer 생성 UUID). renderer 낙관
+    // pending 버블과 main 큐 아이템·echo 커밋을 잇는 상관키.
+    clientRequestId: z.string().min(1).optional()
   })
   .superRefine((v, ctx) => {
     if (v.forkFrom !== undefined && v.handoffFrom !== undefined) {
@@ -84,11 +90,8 @@ export const SendChatMessageSchema = z
     }
   })
 
-export const SteerChatMessageSchema = z.object({
-  sessionId: z.string().min(1),
-  text: z.string().min(1),
-  clientRequestId: z.string().min(1).optional()
-})
+// 0067 AC5: 구 chat:steer 채널은 chat:send 로 흡수 — busy 세션 send 를 main 이 예약(held)으로
+// 판정한다. SteerChatMessageSchema 는 폐기.
 
 export const CancelSteerSchema = z.object({
   sessionId: z.string().min(1),
@@ -381,7 +384,6 @@ export type {
   ErrorCategory,
   ClassifiedError,
   SendChatMessage,
-  SteerChatMessage,
   CancelSteer,
   ComposerAttachment,
   PickedAttachment,

@@ -36,4 +36,7 @@ export interface TurnContext<W = unknown> {
   // 새 세션행의 초기 제목 오버라이드 — continuity 는 `[분기]/[핸드오프] <원본 제목>` 을 쓰고
   // 자동 제목 생성(0004)을 억제해 마커를 유지한다(titleGenerationStarted=true 와 짝).
   initialTitle?: string
+  // 0067 AC9 — 세션 id 확정 전 pending queue 키(renderer clientKey). session.updated 에서
+  // coordinator 가 실 id 로 rekey 한다. 절대 영속 금지.
+  queueKey?: string
 }

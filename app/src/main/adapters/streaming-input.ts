@@ -41,16 +41,14 @@ function pendingUserMessage(content: TurnInputContent, uuid?: string): SDKUserMe
   }
 }
 
-// close() 까지 열려있는 세션 입력 스트림을 만든다. initial 이 주어지면 스폰 프롬프트로 선적재.
-export function createSessionInputStream(initial?: {
-  content: TurnInputContent
-  uuid?: string
-}): SessionInputStream {
+// close() 까지 열려있는 세션 입력 스트림을 만든다. initial 배열은 스폰 선적재분 — [프렐류드
+// (이월 배치)..., 본 프롬프트] 순서로 각자 개별 user 메시지가 된다(0067).
+export function createSessionInputStream(
+  initial: Array<{ content: TurnInputContent; uuid?: string }> = []
+): SessionInputStream {
   let closed = false
   let wake: (() => void) | null = null
-  const queue: SDKUserMessage[] = initial
-    ? [pendingUserMessage(initial.content, initial.uuid)]
-    : []
+  const queue: SDKUserMessage[] = initial.map((m) => pendingUserMessage(m.content, m.uuid))
 
   async function* gen(): AsyncIterable<SDKUserMessage> {
     while (true) {

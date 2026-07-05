@@ -137,13 +137,14 @@ export function adaptHooks(set: NormalizedHookSet): object {
 //   - fail-open: steer 는 부가기능 — 어떤 예외도 {} 로 삼켜 턴 본체를 보호한다.
 export function makeSteerGateHook(
   take: () => SteerFlushBatch | undefined,
-  push: (text: string, uuid?: string) => void
+  push: (batch: SteerFlushBatch) => void
 ): object {
   const callback: HookCallback = async (input) => {
     try {
       if ((input as { agent_id?: string }).agent_id !== undefined) return {}
       const batch = take()
-      if (batch) push(batch.text, batch.uuid)
+      // 구조 페이로드(0067) — content 조립(첨부 블록 포함)은 호출자(claude.ts)의 push 가 소유.
+      if (batch) push(batch)
     } catch (err) {
       console.warn('[claude] steer gate hook 실패 — 이번 경계 flush 를 건너뜀', err)
     }

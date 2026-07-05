@@ -283,7 +283,8 @@ describe('makeSteerGateHook (0060 D3·D4 — PostToolBatch 게이트 flush)', ()
     expect(
       await cb(mainInput as never, undefined, { signal: new AbortController().signal })
     ).toEqual({})
-    expect(push).toHaveBeenCalledWith('first\n\nsecond', 'batch-1')
+    // 구조 페이로드(0067) — content 조립은 호출자(claude.ts) 몫이라 배치 그대로 넘긴다.
+    expect(push).toHaveBeenCalledWith(batch)
   })
 
   it('서브에이전트 발화(agent_id 존재)에서는 take/push 를 호출하지 않는다', async () => {
