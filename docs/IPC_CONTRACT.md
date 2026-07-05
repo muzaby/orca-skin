@@ -87,6 +87,7 @@ interface Settings {
   mcpEnabled: Record<string, boolean>; // MCP 서버 on/off (키=name). 부재 ⇒ true
   mcpMeta: Record<string, { description: string }>; // MCP Orca 전용 메타 (mcp.json 순정 유지)
   skillEnabled: Record<string, boolean>; // Skill on/off (키=sourceId/name). 부재 ⇒ true
+  ssoBypass: boolean; // SSO 로그인 게이트 우회 (디버그 패널 토글). true ⇒ 앱 시작 시 로그인 건너뜀. default false
 }
 ```
 
