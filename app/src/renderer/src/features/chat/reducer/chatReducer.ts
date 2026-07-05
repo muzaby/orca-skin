@@ -58,6 +58,9 @@ export interface Message {
   createdAt: number
   parts: AppMessagePart[]
   incomplete?: boolean
+  // 턴-시작 사용자 메시지의 낙관 커밋 ↔ main 이벤트(queued/committed) 합류 키(0068) —
+  // 값 = clientRequestId(= 큐 아이템 id = echo 배치 ids[0]). 라이브 뷰 전용, DB 미영속.
+  clientId?: string
 }
 
 export interface ChatState {
@@ -182,16 +185,21 @@ export const PANEL_MAX_ROW_SPLIT = 0.8
 export const PANEL_DEFAULT_ROW_SPLIT = 0.5
 
 export type ChatAction =
-  // 턴 시작 전이(0067 pending-first) — user 버블은 붙이지 않는다: 메시지는 pending 항목
-  // (store pendingSteer)으로 시작해 echo 커밋(APPEND_COMMITTED_USER_MESSAGE)으로 승격된다.
+  // 턴 시작 전이 — user 버블은 붙이지 않는다(버블은 낙관 커밋 또는 echo 커밋이 별도로).
   // 자동 연속 턴(send 없는 턴)도 store 가 활동 이벤트에서 같은 액션으로 전이시킨다.
   | { type: 'BEGIN_TURN' }
+  // 사용자 메시지 커밋 버블. 턴-시작 send 는 낙관 커밋(clientId=clientRequestId, 0068)으로
+  // 즉시 붙고, steer 예약·핸드오프 자동 메시지는 echo 커밋(message.committed)으로 붙는다 —
+  // clientId 멱등 가드가 두 경로의 이중 append 를 차단한다.
   | {
       type: 'APPEND_COMMITTED_USER_MESSAGE'
       text: string
       createdAt?: number
       attachmentViews?: AttachmentView[]
+      clientId?: string
     }
+  // 낙관 커밋 롤백(0068) — send invoke 자체가 거부됐을 때만(큐 미적재 = echo 도 안 옴).
+  | { type: 'DROP_UNCOMMITTED_USER'; clientId: string }
   | {
       type: 'SET_MODEL'
       providerKey: string | null
@@ -260,6 +268,14 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       }
 
     case 'APPEND_COMMITTED_USER_MESSAGE': {
+      // 멱등(0068) — 같은 clientId 의 user 버블이 이미 있으면 no-op: 낙관 커밋 후 도착하는
+      // message.committed(echo)가 이중 버블을 만들지 않는다.
+      if (
+        action.clientId !== undefined &&
+        state.messages.some((m) => m.role === 'user' && m.clientId === action.clientId)
+      ) {
+        return state
+      }
       const userParts: AppMessagePart[] = [{ type: 'text', text: action.text }]
       if (action.attachmentViews && action.attachmentViews.length > 0) {
         userParts.push({ type: 'attachment', attachments: action.attachmentViews })
@@ -271,11 +287,20 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           {
             role: 'user',
             createdAt: action.createdAt ?? Date.now(),
-            parts: userParts
+            parts: userParts,
+            ...(action.clientId !== undefined ? { clientId: action.clientId } : {})
           }
         ]
       }
     }
+
+    case 'DROP_UNCOMMITTED_USER':
+      return {
+        ...state,
+        messages: state.messages.filter(
+          (m) => !(m.role === 'user' && m.clientId === action.clientId)
+        )
+      }
 
     case 'RECV_EVENT': {
       const ev = action.event

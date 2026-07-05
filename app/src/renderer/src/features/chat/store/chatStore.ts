@@ -210,6 +210,14 @@ function patchSubagentMeta(
   })
 }
 
+// 턴-시작 낙관 커밋(0068) 합류 판정 — 해당 세션의 messages 에 같은 clientId 의 user 버블이
+// 이미 있으면 main 의 queued/committed 이벤트는 표시를 중복 생성하지 않는다.
+function hasCommittedClientId(key: string, id: string): boolean {
+  const entry = getState().sessions[key]
+  if (!entry) return false
+  return entry.session.messages.some((m) => m.role === 'user' && m.clientId === id)
+}
+
 function isTerminalWithoutSession(ev: NormalizedEvent): boolean {
   if ('sessionId' in ev && ev.sessionId) return false
   return ev.type === 'error' || ev.type === 'turn.aborted' || ev.type === 'telemetry'
@@ -366,8 +374,10 @@ function receive(ev: NormalizedEvent): void {
       return
 
     case 'message.queued':
-      // pending-first(0067 AC8) — renderer 낙관 항목과 id(clientRequestId)로 합류(upsert).
-      // 핸드오프 자동 메시지처럼 renderer 가 본문을 모르는 발화도 이 경로로 pending 버블이 선다.
+      // steer 예약·핸드오프 자동 메시지의 pending 버블(0067 AC8) — id(clientRequestId)로
+      // 낙관 항목과 합류(upsert). 턴-시작 send 는 이미 낙관 커밋 버블(0068)이므로 skip —
+      // pending 이중 표시를 만들지 않는다.
+      if (hasCommittedClientId(key, ev.id)) return
       patchPendingSteer(key, (pending) =>
         pending.some((item) => item.id === ev.id)
           ? pending.map((item) =>
@@ -378,15 +388,17 @@ function receive(ev: NormalizedEvent): void {
       return
 
     case 'message.committed':
-      // 소비 확정(echo 관측) = 즉시 일반 커밋 사용자 메시지로 승격(연회색/기울임 → 정상 폰트).
-      // main 은 CLI user echo(input.echo) 관측으로만 커밋을 판정하므로(0060 D1·0067 AC6) 이
-      // 이벤트가 도착한 시점의 DB row 순서와 라이브 정렬이 일치한다. echo 없이 남은 pending 은
-      // 큐(held/CLI 큐)에 살아있는 진행 상태 그대로다 — 자동 연속 턴이나 respawn 재전달로 커밋된다.
+      // 소비 확정(echo 관측) — pending 항목(steer 등)은 일반 커밋 사용자 메시지로 승격하고,
+      // 턴-시작 낙관 커밋 분(0068)은 clientId 멱등(reducer 가드 + ids 스킵)으로 화해만 한다.
+      // echo 없이 남은 pending 은 큐(held/CLI 큐)에 살아있는 진행 상태 그대로다 — 자동 연속
+      // 턴이나 respawn 재전달로 커밋된다.
       patchPendingSteer(key, (pending) => pending.filter((item) => !ev.ids.includes(item.id)))
+      if (ev.ids.some((id) => hasCommittedClientId(key, id))) return
       dispatchTo(key, {
         type: 'APPEND_COMMITTED_USER_MESSAGE',
         text: ev.text,
         createdAt: ev.createdAt,
+        clientId: ev.ids[0],
         ...(ev.attachmentViews ? { attachmentViews: ev.attachmentViews } : {})
       })
       return
@@ -463,9 +475,11 @@ export function ingestChatEvent(ev: NormalizedEvent): void {
   coalescer.push(ev)
 }
 
-// 단일 send(0067 AC5·AC8) — busy/idle 을 renderer 가 가르지 않는다: 모든 메시지가 pending
-// 항목(연회색/기울임)으로 시작하고, main 이 예약(held)/즉시 flush 를 판정하며, 승격은 echo
-// 커밋(message.committed) 단일 신호다. 구 steer() 별도 경로·send 시점 로컬 커밋은 폐기.
+// 단일 send(0067 AC5 → 0068 표시 계약 수정) — 예약(held)/즉시 flush 판정은 여전히 main
+// 소관이지만, *표시* 는 턴 상태로 가른다: 턴을 여는 메시지(idle·새 세션)는 **낙관 커밋**
+// (정식 버블 즉시, clientId 로 echo 커밋과 멱등 합류), busy 예약(steer)만 pending 항목
+// (연회색/기울임)으로 시작해 echo 커밋이 승격한다. 0067 의 전면 pending-first 는 랜딩 전환
+// 지연·답변 중 위치 점프를 만들어 폐기(0068 버그 리포트).
 function send(
   text: string,
   attachments: ComposerAttachment[] = [],
@@ -505,13 +519,16 @@ function send(
       if (!entry || entry.session.sessionId != null) return s
       const nextEntry: SessionEntry = {
         ...entry,
-        session: chatReducer(entry.session, { type: 'BEGIN_TURN' }),
+        // 낙관 커밋(0068) — 첫 메시지가 즉시 정식 버블로 서고 랜딩→transcript 전환을
+        // 트리거한다. echo 커밋(message.committed)은 clientId 멱등으로 합류만 한다.
+        session: chatReducer(chatReducer(entry.session, { type: 'BEGIN_TURN' }), {
+          type: 'APPEND_COMMITTED_USER_MESSAGE',
+          text: trimmed,
+          clientId: requestId,
+          ...(attachmentViews.length > 0 ? { attachmentViews: [...attachmentViews] } : {})
+        }),
         live: EMPTY_LIVE,
-        // pending-first — 커밋 버블이 아니라 pending 항목으로 시작(echo 커밋이 승격).
-        pendingSteer: [
-          ...(entry.pendingSteer ?? EMPTY_PENDING_STEER),
-          { id: requestId, text: trimmed, createdAt: Date.now() }
-        ]
+        pendingSteer: entry.pendingSteer ?? []
       }
       const sessions = { ...s.sessions }
       delete sessions[activeKey]
@@ -541,17 +558,26 @@ function send(
   const requestId = crypto.randomUUID()
   const busy = cur.inflight
   if (!busy) {
-    // 새 턴 시작 — 직전 턴의 잔여 라이브 버퍼 제거 + inflight 전이. busy(예약) send 는 진행
-    // 중 턴의 라이브 상태를 건드리지 않는다.
+    // 턴을 여는 send — 잔여 라이브 버퍼 제거 + inflight 전이 + **낙관 커밋**(0068): 정식
+    // user 버블이 즉시 서서 다음 어시스턴트 스트림이 올바른 턴 경계 아래로 흐른다. echo
+    // 커밋(message.committed)은 clientId 멱등으로 화해만 한다.
     resetLive(sendKey)
     dispatchActive({ type: 'BEGIN_TURN' })
+    dispatchActive({
+      type: 'APPEND_COMMITTED_USER_MESSAGE',
+      text: trimmed,
+      clientId: requestId,
+      ...(attachmentViews.length > 0 ? { attachmentViews: [...attachmentViews] } : {})
+    })
+  } else {
+    // busy 예약(steer) — pending 항목(연회색/기울임)으로 시작, 진행 중 턴 상태는 불변.
+    patchPendingSteer(sendKey, (pending) => [
+      ...pending,
+      { id: requestId, text: trimmed, createdAt: Date.now() }
+    ])
   }
-  patchPendingSteer(sendKey, (pending) => [
-    ...pending,
-    { id: requestId, text: trimmed, createdAt: Date.now() }
-  ])
   // fire-and-forget — 정상 턴 에러는 main 이 chat:error 이벤트로 surface 한다. invoke 자체가
-  // 거부되면 pending 항목을 되물려 유령 버블을 막는다.
+  // 거부되면(큐 미적재 = echo 없음) 낙관 버블/pending 항목을 되물려 유령 버블을 막는다.
   void chatApi
     .send({
       sessionId: cur.sessionId,
@@ -567,7 +593,11 @@ function send(
       clientRequestId: requestId
     })
     .catch((err) => {
-      patchPendingSteer(sendKey, (pending) => pending.filter((item) => item.id !== requestId))
+      if (busy) {
+        patchPendingSteer(sendKey, (pending) => pending.filter((item) => item.id !== requestId))
+      } else {
+        dispatchTo(sendKey, { type: 'DROP_UNCOMMITTED_USER', clientId: requestId })
+      }
       console.error('[chat] send invoke rejected', err)
     })
   return true

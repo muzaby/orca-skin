@@ -11,17 +11,13 @@ import {
   type SessionTitleEvent
 } from '../../../shared/ipc'
 
-// 디버그 패널의 "Wire 메시지" 토글 상태(dev 전용). sendChatEvent 는 자유 함수라
-// ctx 접근이 없어 모듈 스코프 플래그로 둔다 — debugSetMock 핸들러가 동기화한다.
-// 기본 false + 토글 핸들러가 DEV 전용이라 프로덕션 경로는 항상 무출력.
-let wireLogEnabled = false
+import { wireLog } from './wire-log'
 
-export function setWireLog(on: boolean): void {
-  wireLogEnabled = on
-}
+// wire 플래그 정본은 wire-log.ts(electron 비의존, 0068) — 기존 import 경로 무회귀 re-export.
+export { setWireLog } from './wire-log'
 
 export function sendChatEvent(wc: WebContents, ev: NormalizedEvent): void {
-  if (wireLogEnabled) console.log('[wire]', ev.type, ev)
+  wireLog(ev.type, ev)
   if (!wc.isDestroyed()) wc.send(CHANNELS.chatEvent, ev)
 }
 

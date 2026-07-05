@@ -136,27 +136,30 @@
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-(구현 턴에서 기입)
+- 동의 / 그대로 진행: 설계 전 항목. 멱등 가드를 reducer(1차)+store(queued skip) 이중으로 두는 구조가 재로드·프렐류드 엣지에서 특히 유효했다.
+- 이견 없음. 단 `message.committed` 의 append skip 은 store 레벨 `ev.ids.some(hasCommittedClientId)` 로도 한 번 더 걸렀다 — reducer 멱등만으로 충분하지만 병합 배치(ids 복수)의 의미를 store 가 소유하는 편이 읽기 좋다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
+| 1 | 테스트 시드 엔트리에 `pendingSteer` 필드가 없어 `undefined ≠ []` 단언 실패 | ✅ 단언을 `?? []` 로 정규화 | `chatStore.test.ts` 신규 멱등 테스트 |
+| 2 | `infra/ipc/send.ts` 가 electron 런타임 import 라 coordinator(순수 vitest)가 직접 import 불가 | ✅ 설계대로 `wire-log.ts` 분리 + `send.ts` 무회귀 re-export — coordinator 테스트 전부 green 으로 확증 | `send.ts:5` |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] W1 chatReducer — clientId·멱등·DROP_UNCOMMITTED_USER
-- [ ] W1 chatStore — send 낙관 커밋·queued/committed 합류·롤백
-- [ ] W1 NewChatLandingPage — !inflight 게이트
-- [ ] W2 wire-log 분리 + echo/훅 tap
-- [ ] 테스트 갱신 + 게이트 4종
+- [x] W1 chatReducer — clientId·멱등·DROP_UNCOMMITTED_USER
+- [x] W1 chatStore — send 낙관 커밋·queued/committed 합류·롤백
+- [x] W1 NewChatLandingPage — !inflight 게이트
+- [x] W2 wire-log 분리 + echo/훅 tap
+- [x] 테스트 갱신 + 게이트 4종
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | (기입 예정) |
-| 실행 명령 | `npm run lint` / `typecheck` / `npx vitest run` / `build` |
-| 게이트 결과 | (기입 예정) |
-| 블로커 / 역질문 | (기입 예정) |
-| 대상 커밋 | (기입 예정) |
+| 변경 파일 | `chatReducer.ts` · `chatStore.ts`(+test) · `NewChatLandingPage.tsx` · `infra/ipc/wire-log.ts`(신설) · `infra/ipc/send.ts` · `features/chat/turn-coordinator.ts` · `adapters/claude-adapt.ts` · `adapters/claude.ts` |
+| 실행 명령 | `npm run lint` / `npm run typecheck` / `npx vitest run` / `npm run build` |
+| 게이트 결과 | lint ✅ 0 / typecheck ✅ 3종 0 / test ✅ **687/687 (88파일)** (better-sqlite3 Node ABI 재빌드 후) / build ✅ exit 0 |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | 구현 커밋 (본 파일과 동일 커밋) |

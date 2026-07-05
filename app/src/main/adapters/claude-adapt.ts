@@ -30,6 +30,7 @@ import {
   type NormalizedHookSet
 } from './hooks'
 import type { SteerFlushBatch } from './turn'
+import { wireLog } from '../infra/ipc/wire-log'
 
 // Claude Code plugin root를 SDK local plugin 옵션으로 변환한다. 상대 경로는 cwd 기준이라 세션 cwd
 // 변경과 얽힐 수 있으므로 호출자는 절대 경로를 넘긴다. 경로가 비어 있거나 실제 플러그인 매니페스트
@@ -151,6 +152,34 @@ export function makeSteerGateHook(
     return {}
   }
   return { hooks: { PostToolBatch: [{ hooks: [callback] }] } }
+}
+
+// 훅 wire tap(0068 AC7) — 실측 판정용 관측 전용 훅: ① UserPromptSubmit 이 스트리밍 push
+// 프롬프트에도 발화하는가(발화 여부·payload 필드 목록 — uuid 유무가 커밋 상관키 성립 조건)
+// ② 훅 발화 ↔ input.echo ↔ 어시스턴트 스트림의 실제 순서. 게이트 훅과 별도 매처(mergeHooks
+// concat)로 관측만 하고 항상 {} — 판정/주입 무개입. wireLog off 면 no-op(프로덕션 무출력).
+export function makeHookWireTap(): object {
+  const tap =
+    (event: string): HookCallback =>
+    async (input) => {
+      try {
+        const raw = input as Record<string, unknown>
+        wireLog(`hook.${event}`, {
+          sessionId: raw.session_id,
+          ...(typeof raw.prompt === 'string' ? { prompt: raw.prompt.slice(0, 80) } : {}),
+          keys: Object.keys(raw)
+        })
+      } catch {
+        // 관측 전용 — 어떤 예외도 턴 본체에 영향 없음.
+      }
+      return {}
+    }
+  return {
+    hooks: {
+      UserPromptSubmit: [{ hooks: [tap('UserPromptSubmit')] }],
+      PostToolBatch: [{ hooks: [tap('PostToolBatch')] }]
+    }
+  }
 }
 
 // options.hooks 조각 병합 — adaptHooks 산출과 게이트 조각처럼 `{hooks?: …}` 조각 여럿을

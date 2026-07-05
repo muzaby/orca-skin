@@ -12,6 +12,7 @@
 import type { ClassifiedError, NormalizedEvent } from '../../../shared/ipc'
 import type { TurnRequest } from '../../adapters/turn'
 import { makeClassifiedError } from '../../infra/errors'
+import { wireLog } from '../../infra/ipc/wire-log'
 import type { TurnContext } from '../../contracts/turn'
 import type { RuntimeLiveTurn } from '../../contracts/ports'
 import { createStallTimer, type StallTimer } from './timers'
@@ -180,6 +181,9 @@ export class TurnCoordinator<W = unknown> {
             // 다음 이벤트로 넘어간다. echo 는 drain 배치 동안 연속으로 오므로(명세 §6.2), 실제
             // flush 는 배치가 끝난 첫 비-echo 이벤트에서 일괄 수행된다(0059 요구 4 단일 버블 유지).
             if (ev.type === 'input.echo') {
+              // input.echo 는 renderer 미전달이라 sendChatEvent 의 [wire] 로그에 안 잡힌다 —
+              // echo↔어시스턴트 스트림 순서 실측(0068 AC7)을 위해 여기서 직접 남긴다.
+              wireLog('input.echo', { uuid: ev.uuid, text: ev.text.slice(0, 80) })
               this.markSteerConsumed(turn, ev)
               continue
             }

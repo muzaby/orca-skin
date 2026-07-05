@@ -35,6 +35,7 @@ import {
   adaptSettings,
   adaptSkills,
   adaptSystemPrompt,
+  makeHookWireTap,
   makeSteerGateHook,
   mergeHooks,
   withPostCompactHook
@@ -343,7 +344,9 @@ export class ClaudeAdapter implements SessionAdapter {
               ? makeSteerGateHook(req.takeSteerFlush, (batch) =>
                   input.push(batchContent(batch), batch.uuid)
                 )
-              : {}
+              : {},
+            // 관측 전용 wire tap(0068) — UserPromptSubmit 발화 여부·echo 순서 실측.
+            makeHookWireTap()
           ),
           (summary) => compactSummaries.push(summary)
         ),

@@ -341,9 +341,11 @@ describe('chatStore — 0040 새-채팅 직렬 디스패치 게이트', () => {
     expect(chatSend).toHaveBeenLastCalledWith(expect.objectContaining({ text: '첫 번째' }))
     expect(st.pendingNewChatKey).toBe('draft:a')
     expect(st.newChatQueue.map((item) => item.key)).toEqual(['draft:b'])
-    // pending-first(0067) — 커밋 버블이 아니라 pending 항목으로 시작(echo 커밋이 승격).
-    expect(st.sessions['draft:a'].pendingSteer?.map((i) => i.text)).toEqual(['첫 번째'])
-    expect(st.sessions['draft:b'].pendingSteer?.map((i) => i.text)).toEqual(['두 번째'])
+    // 턴-시작 낙관 커밋(0068) — 첫 메시지는 즉시 정식 user 버블(pending 항목 아님).
+    expect(partsText(st.sessions['draft:a'].session.messages[0].parts)).toBe('첫 번째')
+    expect(partsText(st.sessions['draft:b'].session.messages[0].parts)).toBe('두 번째')
+    expect(st.sessions['draft:a'].pendingSteer).toEqual([])
+    expect(st.sessions['draft:b'].pendingSteer).toEqual([])
     expect(st.activeKey).toBe('draft:b')
   })
 
@@ -387,11 +389,10 @@ describe('chatStore — 0040 새-채팅 직렬 디스패치 게이트', () => {
     expect(chatSend).toHaveBeenCalledTimes(3)
     expect(st.pendingNewChatKey).toBeNull()
     expect(st.newChatQueue).toEqual([])
-    expect(['s-a', 's-b', 's-c'].map((key) => st.sessions[key].pendingSteer?.[0].text)).toEqual([
-      'A',
-      'B',
-      'C'
-    ])
+    // 낙관 커밋 버블(0068)이 승격된 엔트리를 따라간다(엔트리 객체 동일성 보존).
+    expect(
+      ['s-a', 's-b', 's-c'].map((key) => partsText(st.sessions[key].session.messages[0].parts))
+    ).toEqual(['A', 'B', 'C'])
   })
 
   it('init 전 sessionId 없는 error 는 pending draft 에 라우팅하고 큐를 진행한다', () => {
@@ -738,7 +739,7 @@ describe('chatStore — pending message lifecycle (0067)', () => {
     expect(useChatStore.getState().sessions.s.pendingSteer).toEqual([])
   })
 
-  it('idle 세션 send 는 pending-first — 로컬 커밋 없이 pending 항목이 추가된다(0067)', () => {
+  it('idle 세션 send 는 낙관 커밋 — 정식 user 버블 즉시 + 이월 pending 은 그대로(0068)', () => {
     useChatStore.setState((s) => ({
       sessions: {
         ...s.sessions,
@@ -756,14 +757,69 @@ describe('chatStore — pending message lifecycle (0067)', () => {
     expect(chatActions.send('새 메시지')).toBe(true)
 
     const st = useChatStore.getState()
-    // 이월 잔여도 로컬 커밋하지 않는다 — main 프렐류드 재전달의 echo 커밋(message.committed)
-    // 이 유일한 승격 경로다(0067 AC6). send 는 pending 항목 추가 + BEGIN_TURN 만.
-    expect(st.sessions.s.pendingSteer?.map((i) => i.text)).toEqual(['first', 'second', '새 메시지'])
-    expect(st.sessions.s.session.messages).toEqual([])
+    // 턴을 여는 메시지는 즉시 정식 버블(clientId=clientRequestId). 이월 잔여(held/CLI 큐
+    // 생존분)는 pending 유지 — echo 커밋(message.committed)이 유일한 승격 경로(0067 AC6).
+    expect(st.sessions.s.pendingSteer?.map((i) => i.text)).toEqual(['first', 'second'])
+    expect(st.sessions.s.session.messages.map((m) => m.role)).toEqual(['user'])
+    expect(partsText(st.sessions.s.session.messages[0].parts)).toBe('새 메시지')
     expect(st.sessions.s.session.inflight).toBe(true)
     expect(chatSend).toHaveBeenCalledWith(
       expect.objectContaining({ text: '새 메시지', clientRequestId: expect.any(String) })
     )
+    expect(st.sessions.s.session.messages[0].clientId).toBe(
+      (chatSend.mock.calls[0][0] as { clientRequestId: string }).clientRequestId
+    )
+  })
+
+  it('낙관 커밋 뒤 도착한 message.queued/committed 는 멱등 — 이중 버블·pending 없음(0068)', () => {
+    useChatStore.setState((s) => ({
+      sessions: {
+        ...s.sessions,
+        s: { ...s.sessions.s, session: { ...s.sessions.s.session, inflight: false } }
+      }
+    }))
+    chatActions.send('낙관 메시지')
+    const clientId = (chatSend.mock.calls[0][0] as { clientRequestId: string }).clientRequestId
+
+    // main 의 pending 등록(id=clientRequestId) — 낙관 커밋 분은 pending 버블을 만들지 않는다.
+    ingestChatEvent({
+      type: 'message.queued',
+      sessionId: 's',
+      id: clientId,
+      text: '낙관 메시지',
+      createdAt: 10
+    })
+    expect(useChatStore.getState().sessions.s.pendingSteer ?? []).toEqual([])
+
+    // echo 커밋 — clientId 합류로 중복 append 없이 화해만 한다.
+    ingestChatEvent({
+      type: 'message.committed',
+      sessionId: 's',
+      ids: [clientId],
+      text: '낙관 메시지',
+      messageId: 3,
+      createdAt: 10
+    })
+    const msgs = entry().session.messages
+    expect(msgs.filter((m) => m.role === 'user')).toHaveLength(1)
+    expect(partsText(msgs[0].parts)).toBe('낙관 메시지')
+  })
+
+  it('idle send 의 invoke 거부는 낙관 커밋 버블을 롤백한다(0068)', async () => {
+    chatSend.mockRejectedValueOnce(new Error('ipc down'))
+    useChatStore.setState((s) => ({
+      sessions: {
+        ...s.sessions,
+        s: { ...s.sessions.s, session: { ...s.sessions.s.session, inflight: false } }
+      }
+    }))
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    chatActions.send('실패할 메시지')
+    expect(entry().session.messages).toHaveLength(1)
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(entry().session.messages).toEqual([])
   })
 
   it('busy 세션 send 는 예약 — 진행 중 턴 상태를 건드리지 않고 pending 만 추가한다', () => {

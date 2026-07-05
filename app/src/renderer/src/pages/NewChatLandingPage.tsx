@@ -10,7 +10,9 @@ import { formatApproxCost, useCostSummary } from '../features/cost'
 //   `useChatRouteSync` Direction 2 가 URL 을 `/chat/<id>` 로 replace 하여 ChatPage
 //   가 인계받는다.
 export function NewChatLandingPage(): React.JSX.Element {
-  const isEmpty = useChatSession((s) => s.messages.length === 0 && !s.loadingSession)
+  // 첫 send 의 낙관 커밋(0068)이 messages 를 즉시 채워 같은 렌더 사이클에 ChatTile 로
+  // 전환된다. !inflight 는 이중 방어 — 어떤 경로로든 턴이 시작되면 랜딩에 갇히지 않는다.
+  const isEmpty = useChatSession((s) => s.messages.length === 0 && !s.loadingSession && !s.inflight)
   const backendLabel = useBackendLabel()
   const capabilities = useBackendCapabilities()
   const summary = useCostSummary()
