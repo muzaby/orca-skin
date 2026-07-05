@@ -1,9 +1,10 @@
-// 턴-스코프 스트리밍 입력 (provider-runtime.md §3, PR③ 옵션 A).
+// 세션-스코프 스트리밍 입력 (provider-runtime.md §3, 0067 장수명 채널).
 //
-// claude SDK 의 control 메서드(setPermissionMode/interrupt/setModel)는 "스트리밍 입력 모드"
-// (prompt 가 AsyncIterable)에서만 열린다. 한 턴 동안만 Query 핸들을 살리기 위해, 이 턴의 user
-// 메시지 1건을 yield 하고 **close() 까지 종료하지 않는** 입력 스트림을 만든다 — generator 가
-// return 되면 SDK 세션이 닫히므로(서브프로세스 종료), 턴 진행 중에는 살아있어야 한다.
+// claude SDK 의 control 메서드(setPermissionMode/interrupt/setModel)와 다중 턴 입력은 "스트리밍
+// 입력 모드"(prompt 가 AsyncIterable)에서만 열린다. 0067 이전에는 이 스트림이 턴-스코프(result
+// 도착 시 close)였으나, 이제 **세션 수명** 동안 열려 후속 턴 프롬프트와 steer 를 같은 채널로
+// push 한다 — generator 가 return 되면 SDK 세션이 닫히므로(서브프로세스 종료), close() 는 세션
+// 폐기(LRU 축출·프로그램 종료·respawn 경계·에러)에서만 호출된다.
 //
 // 순수 모듈(electron 비의존) — generator 미종료 불변식의 단일 격리 지점이라 Vitest 로 운동한다.
 
@@ -12,39 +13,44 @@ import type { MessageParam } from '@anthropic-ai/sdk/resources'
 
 export type TurnInputContent = MessageParam['content']
 
-export interface TurnInputStream {
+export interface SessionInputStream {
   // query({ prompt }) 에 넘기는 입력 스트림.
   stream: AsyncIterable<SDKUserMessage>
-  // 진행 중 턴에 텍스트 피드백을 추가한다. text-only 로 제한해 병합 규칙을 단순화한다.
-  // 호출자는 게이트 훅(makeSteerGateHook — PostToolBatch 시점의 병합 배치 flush, 0060 D3·D4).
-  // 주의: push 는 SDK 서브프로세스 stdin 으로 입력을 흘려보낼 뿐 — pending steer 의 UI/영속
-  // flush 는 이 pull 이 아니라 CLI 가 소비 후 되돌려주는 user echo(input.echo)로 확정한다
-  // (handoff 0060 D1). SDK 는 이 AsyncIterable 을 eager 하게 drain 하므로 pull ≠ turn 경계다.
-  // uuid 는 orca 가 부여하는 상관키(PendingMessageQueue 배치 uuid) — echo 매칭의 1차 키로 쓴다.
-  push(text: string, uuid?: string): void
-  // 턴 종료(=result 도착) 또는 abort 시 호출 — generator 를 return 시켜 세션을 닫는다. 멱등.
+  // 사용자 메시지 1건(턴 프롬프트 또는 steer 배치)을 채널에 추가한다. content 는 텍스트 또는
+  // content 블록 배열(이미지 포함 — 큐 구조 페이로드, 0067 AC5).
+  // 주의: push 는 SDK 서브프로세스 stdin 으로 입력을 흘려보낼 뿐 — UI/영속 커밋은 CLI 가 소비
+  // 후 되돌려주는 user echo(input.echo)로 확정한다(0060 D1·0067 AC6). SDK 는 이 AsyncIterable
+  // 을 eager 하게 drain 하므로 pull ≠ 소비다.
+  // uuid 는 orca 가 부여하는 상관키(PendingMessageQueue 아이템/배치 uuid) — echo 매칭 1차 키.
+  push(content: TurnInputContent, uuid?: string): void
+  // 세션 폐기 시 호출 — generator 를 return 시켜 서브프로세스를 닫는다. 멱등.
   close(): void
 }
 
-function userMessage(content: TurnInputContent): SDKUserMessage {
-  return { type: 'user', message: { role: 'user', content }, parent_tool_use_id: null }
-}
-
-// steer 주입 메시지 — uuid(orca 상관키) + priority 'next'(도구 경계 drain 클래스)를 명시한다.
-// priority 기본값도 'next' 지만 CLI 버전에 따른 드리프트를 막기 위해 고정으로 싣는다(0060 D1).
-function steerMessage(text: string, uuid?: string): SDKUserMessage {
+// 주입 user 메시지 — uuid(orca 상관키) + priority 'next'(도구 경계 drain 클래스)를 명시한다.
+// priority 기본값도 'next' 지만 CLI 버전 드리프트를 막기 위해 고정으로 싣는다(0060 D1). idle
+// 채널에서는 다음 턴 프롬프트로(P2 픽업), busy 채널에서는 도구 경계에서(P1 drain) 소비된다 —
+// 분기는 CLI 몫(0067 설계: 주입 로직은 SDK 역할).
+function pendingUserMessage(content: TurnInputContent, uuid?: string): SDKUserMessage {
   return {
-    ...userMessage(text),
+    type: 'user',
+    message: { role: 'user', content },
+    parent_tool_use_id: null,
     priority: 'next',
     ...(uuid !== undefined ? { uuid: uuid as SDKUserMessage['uuid'] } : {})
   }
 }
 
-// 이 턴의 user 메시지 1건을 내보내고 close() 까지 열려있는 입력 스트림을 만든다.
-export function createTurnInputStream(content: TurnInputContent): TurnInputStream {
+// close() 까지 열려있는 세션 입력 스트림을 만든다. initial 이 주어지면 스폰 프롬프트로 선적재.
+export function createSessionInputStream(initial?: {
+  content: TurnInputContent
+  uuid?: string
+}): SessionInputStream {
   let closed = false
   let wake: (() => void) | null = null
-  const queue: SDKUserMessage[] = [userMessage(content)]
+  const queue: SDKUserMessage[] = initial
+    ? [pendingUserMessage(initial.content, initial.uuid)]
+    : []
 
   async function* gen(): AsyncIterable<SDKUserMessage> {
     while (true) {
@@ -65,9 +71,9 @@ export function createTurnInputStream(content: TurnInputContent): TurnInputStrea
 
   return {
     stream: gen(),
-    push(text: string, uuid?: string): void {
+    push(content: TurnInputContent, uuid?: string): void {
       if (closed) return
-      queue.push(steerMessage(text, uuid))
+      queue.push(pendingUserMessage(content, uuid))
       wake?.()
       wake = null
     },

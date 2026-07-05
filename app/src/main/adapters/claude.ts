@@ -20,7 +20,7 @@ import type {
 import { toClaudePermissionMode } from '../../shared/permission-mode'
 import { claudeToNormalized, type MapContext } from './claude-map'
 import { claudeErrorClassifier, errorEvent } from './error-classifier'
-import { createTurnInputStream, type TurnInputContent } from './streaming-input'
+import { createSessionInputStream, type TurnInputContent } from './streaming-input'
 import type { Base64ImageSource } from '@anthropic-ai/sdk/resources/messages'
 import { formatAttachmentPromptBlock } from './attachment-prompt'
 import { formatPlanFeedbackPrompt } from './plan-feedback'
@@ -248,10 +248,10 @@ export class ClaudeAdapter implements SessionAdapter {
     }
   }
 
-  // 한 턴을 **스트리밍 입력 모드**로 실행한다(PR③ 옵션 A). prompt 를 string 이 아니라 이 턴의
-  // 메시지 1건을 내보내고 result 도착까지 열려있는 AsyncIterable 로 넘겨, 턴 진행 중 반환된 Query
-  // 핸들에서 setPermissionMode/interrupt/setModel 이 열리게 한다. result 도착(또는 abort) 시 입력
-  // 스트림을 닫아 서브프로세스를 종료 → 다음 턴은 또 resume 로 새로(세션 모델 변화 0).
+  // **장수명 세션 채널**을 연다(0067 — 구 PR③ 옵션 A 의 턴-스코프 폐기). prompt 를 세션 수명
+  // 동안 열려있는 AsyncIterable 로 넘겨, result 후에도 서브프로세스가 살아남아 후속 턴을
+  // `pushTurn`(라이브 setter + content push)으로 이어받는다. 스트림 절단(1 프레임=1 턴)은
+  // SessionRuntime 몫이고, 입력 close 는 세션 폐기(LRU 축출·종료·respawn 경계·에러)에서만.
   sendMessage(req: TurnRequest): LiveTurn {
     const {
       sessionId,
@@ -278,12 +278,15 @@ export class ClaudeAdapter implements SessionAdapter {
     if (signal?.aborted) abortController.abort()
     else signal?.addEventListener('abort', onAbort)
 
-    // 턴-스코프 입력 스트림 — close() 까지 미종료(streaming-input.ts 가 불변식 격리).
+    // 세션-스코프 입력 스트림 — close() 까지 미종료(streaming-input.ts 가 불변식 격리).
     // steer 는 로컬 홀드(PendingMessageQueue held) 후 PostToolBatch 게이트 훅이 takeSteerFlush 로 병합
     // 배치를 회수해 input.push 로 주입한다(0060 D3·D4). 소비 확정은 CLI 가 흡수 후 되돌려주는
     // user echo(input.echo, claude-map)로 turn-coordinator 가 판정한다(0060 D1)
     // — pull(=SDK eager drain)도 orca 관찰 경계도 flush 신호가 아니다.
-    const input = createTurnInputStream(buildTurnContent(text, attachmentTexts, attachmentImages))
+    const input = createSessionInputStream({
+      content: buildTurnContent(text, attachmentTexts, attachmentImages),
+      ...(req.promptUuid !== undefined ? { uuid: req.promptUuid } : {})
+    })
 
     // 압축 요약 surface (0064 r3) — PostCompact hook 이 전달한 compact_summary 를 assistant
     // 메시지로 승격할 대기열. hook 콜백은 스트림 밖에서 도착하므로 events() 가 SDK 메시지
@@ -396,6 +399,20 @@ export class ClaudeAdapter implements SessionAdapter {
     return {
       events: events(),
       close,
+      // 장수명 채널(0067) — 후속 턴을 같은 서브프로세스에 이어붙인다. 라이브 setter 적용 후
+      // content 를 push(P2 픽업 또는 P1 게이트 drain — 분기는 CLI). effort/providerSettings/
+      // extensions 변경은 respawn 경계(호출자 소관). setter 실패는 push 전에 던져져 호출자
+      // (SessionRuntime frame)가 스폰 폴백/에러 처리한다.
+      pushTurn: async (next) => {
+        if (next.model !== undefined) await handle.setModel(next.model)
+        if (next.permissionMode !== undefined) {
+          await handle.setPermissionMode(toClaudePermissionMode(next.permissionMode))
+        }
+        input.push(
+          buildTurnContent(next.text, next.attachmentTexts ?? [], next.attachmentImages ?? []),
+          next.promptUuid
+        )
+      },
       // 라이브 control — 스트리밍 입력 모드라야 동작하는 SDK Query 메서드에 위임.
       setPermissionMode: (mode) => handle.setPermissionMode(mode),
       interrupt: () => handle.interrupt(),

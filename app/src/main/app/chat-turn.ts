@@ -201,11 +201,8 @@ export function registerChatHandlers(deps: ChatDeps): void {
   // task_notification/사용자 중단 공통 경로에서 foreground/background 모두 처리한다.
   const backgroundSubagents = process.env.ORCA_SUBAGENT_BACKGROUND === '1'
 
-  // Persistent runtime 게이트(0054, decision ⑳) — 기본 OneShot 유지. ON 이면 같은 세션의 런타임
-  // 핸들이 턴을 넘어 idle 로 살아남아 재사용되고 IdleCloseTimer 로 회수된다(소유=Supervisor/RuntimePool).
-  // 출시 기본은 OneShot 이므로 게이트 OFF 에서 동작·이벤트·DB·UX 무변경.
-  const runtimeMode: 'oneshot' | 'persistent' =
-    process.env.ORCA_PERSISTENT_RUNTIME === '1' ? 'persistent' : 'oneshot'
+  // 0067: 장수명 세션 채널이 기본 — 게이트 env(ORCA_PERSISTENT_RUNTIME) 폐기(사용자 확정
+  // "long-lived 직행"). pushTurn 미지원 어댑터(mock)는 SessionRuntime 이 턴-스코프로 폴백한다.
 
   const handleChatSend = async (event: IpcMainInvokeEvent, raw: unknown): Promise<void> => {
     const parsed = SendChatMessageSchema.safeParse(raw)
@@ -401,15 +398,22 @@ export function registerChatHandlers(deps: ChatDeps): void {
     if (parsed.data.sessionId) supervisor.startResume(parsed.data.sessionId, turn)
     else supervisor.startNew(event.sender, turn)
 
-    // 사용자 턴 진입 = pending message queue 의 즉시 커밋 경로(0066). 이전 턴에서 소비되지
-    // 못한 pending 이월(0060 D2) — 턴-스코프 서브프로세스는 종료 시 CLI 내부 큐가 소멸하므로,
-    // 잔여 pending 은 여기(같은 세션의 다음 턴)서 프롬프트에 병합해 모델에 전달하고 그 시점에
-    // 커밋한다. 이월 row 를 새 user row *앞에* 영속해 renderer 의 send 시점 로컬 커밋(chatStore)
-    // 과 정렬을 일치시킨다. steer.flushed 는 보내지 않는다 — renderer 가 이미 로컬 커밋해
-    // 중복 append 가 된다.
-    const steerCarryover = parsed.data.sessionId
-      ? pendingMessages.drainAll(parsed.data.sessionId)
-      : undefined
+    // Persistent 채널이 세션 키의 idle 핸들로 살아있으면 재사용, 아니면 fresh(0067 — pushTurn
+    // 미지원 어댑터는 SessionRuntime 이 턴-스코프 폴백). 반납은 finally 의 releaseRuntime.
+    const runtime = supervisor.acquireRuntime(
+      parsed.data.sessionId,
+      () => new SessionRuntime(adapter)
+    )
+
+    // 이월(carryover, 0060 D2)은 **채널이 죽었을 때만** — 턴-스코프/사망 채널은 CLI 내부 큐가
+    // 서브프로세스와 함께 소멸했으므로 미소비 pending(미echo flushed + held)을 여기서 프롬프트에
+    // 병합해 전달·커밋한다. 채널 생존 시엔 드레인하지 않는다(0067): flushed 분은 CLI 큐에
+    // 살아있어 다음 턴 P2 픽업→echo 커밋으로, held 분은 이번 턴 게이트 flush 로 이어진다 —
+    // 여기서 드레인하면 모델에 이중 전달된다.
+    const steerCarryover =
+      parsed.data.sessionId && !runtime.channelAlive
+        ? pendingMessages.drainAll(parsed.data.sessionId)
+        : undefined
 
     // resume 경로: sessionId 가 들어왔다는 건 이전 init 으로 sessions row 가 이미
     // 존재한다는 의미. 다음 init 이벤트를 기다리지 않고 user 메시지를 즉시 기록.
@@ -445,12 +449,6 @@ export function registerChatHandlers(deps: ChatDeps): void {
       parsed.data.sessionId ? null : boundProjectId
     )
 
-    // Persistent 면 세션 키의 idle 핸들을 재사용, 아니면 fresh(OneShot 또는 신규 세션 first turn).
-    // 재사용 시 IdleCloseTimer 는 풀에서 take 시점에 정지된다. 반납은 finally 의 releaseRuntime.
-    const runtime = supervisor.acquireRuntime(
-      parsed.data.sessionId,
-      () => new SessionRuntime(adapter, runtimeMode)
-    )
     const wc = event.sender
     // 렌더러(owner) 소멸 시 진행 턴 정리 — idle "완전 멈춤"으로 잃는 자가치유(무응답 abort)를
     // 타이머가 아닌 이벤트로 대체한다(사람 판단엔 시간 제한 두지 않음 유지). 바깥 finally 에서 해제.

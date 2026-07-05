@@ -73,6 +73,19 @@ export interface TurnExtensions {
   systemPromptAppend?: string
 }
 
+// 장수명 채널(0067)에 이어붙이는 후속 턴 계약 — 어댑터가 라이브 setter(model/permissionMode) 적용
+// 후 content 를 조립해 자기 입력 채널로 push 한다. effort/providerSettings/extensions 등 스폰-바인딩
+// 옵션은 여기 없다(변경 시 respawn 경계 — 0067 설계).
+export interface TurnContinuation {
+  text: string
+  attachmentTexts?: ExtractedAttachmentText[]
+  attachmentImages?: ExtractedAttachmentImage[]
+  // 이 턴 프롬프트의 echo 상관키(pending queue 아이템/배치 uuid) — 커밋 판정(0067 AC6).
+  promptUuid?: string
+  model?: string
+  permissionMode?: NormalizedPermissionMode
+}
+
 // 한 턴 실행 요청. sendMessage 의 인자 증식(7개)을 단일 객체로 통합한다 (설계검토 §9 1단계).
 export interface TurnRequest {
   sessionId: string | null
@@ -118,4 +131,6 @@ export interface TurnRequest {
   isSubagentBlocked?: (subagentType: string | undefined) => boolean
   attachmentTexts?: ExtractedAttachmentText[]
   attachmentImages?: ExtractedAttachmentImage[]
+  // 스폰 턴 프롬프트의 echo 상관키(0067 AC6) — TurnContinuation.promptUuid 와 대칭.
+  promptUuid?: string
 }

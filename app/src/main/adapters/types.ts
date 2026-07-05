@@ -5,19 +5,23 @@ import type {
   ProviderDescriptor
 } from '../../shared/ipc'
 import type { ClaudePermissionMode } from '../../shared/permission-mode'
-import type { TurnRequest } from './turn'
+import type { TurnContinuation, TurnRequest } from './turn'
 import type { ResolvedProviderSettings } from './provider-config'
 
 export type { Backend, NormalizedEvent }
 
-// 한 턴의 라이브 핸들 (provider-runtime.md §3, PR③ 옵션 A). 턴 진행 중에만 유효하다 —
-// `events` 소비가 끝나면 핸들이 닫힌다. control 3종은 스트리밍 입력 모드에서만 동작하는 SDK
-// Query 메서드(setPermissionMode/interrupt/setModel)에 위임된다. 라이브 미지원 백엔드는
-// no-op 구현을 돌려줄 수 있다(다음-턴 모드로 폴백).
+// 라이브 핸들 (provider-runtime.md §3). 0067 부터 두 수명 모델을 겸한다: `pushTurn` 을 구현한
+// 어댑터(claude)는 **장수명 세션 채널** — result 후에도 입력이 열려 있어 후속 턴을 이어붙이고,
+// `events` 는 close() 까지 다중 턴을 흘린다(프레임 절단은 SessionRuntime). `pushTurn` 미구현
+// 어댑터(mock)는 턴-스코프 — `events` 소비가 끝나면 핸들이 닫힌다(현행 보존). control 메서드는
+// 스트리밍 입력 모드에서만 동작하는 SDK Query 메서드에 위임된다.
 export interface LiveTurn {
   events: AsyncIterable<NormalizedEvent>
   // 멱등 cleanup 계약 — terminal 관측, consumer 조기 종료, abort path 에서 모두 안전해야 한다.
   close(): void
+  // 장수명 채널 전용(0067) — 라이브 setter 적용 후 후속 턴 프롬프트를 입력 채널에 push 한다.
+  // 미구현이면 SessionRuntime 이 턴-스코프 경로(매 턴 spawn)로 폴백한다.
+  pushTurn?(next: TurnContinuation): Promise<void>
   setPermissionMode(mode: ClaudePermissionMode): Promise<void>
   interrupt(): Promise<void>
   // steer UX 수용 여부 — 전달은 어댑터 게이트 훅(TurnRequest.takeSteerFlush) 또는 다음 턴

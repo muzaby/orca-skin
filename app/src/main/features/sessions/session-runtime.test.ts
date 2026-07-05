@@ -75,26 +75,202 @@ describe('SessionRuntime', () => {
   })
 })
 
-describe('SessionRuntime close 정책(0054)', () => {
-  it('기본 정책은 oneshot — reusable=false', () => {
-    const oneshot = new SessionRuntime(adapter(live([])))
+describe('SessionRuntime close 정책(0054 → 0067)', () => {
+  it('기본 정책은 persistent — reusable=true (0067 long-lived 직행)', () => {
+    const runtime = new SessionRuntime(adapter(live([])))
+    expect(runtime.reusable).toBe(true)
+  })
+
+  it('oneshot 정책은 reusable=false', () => {
+    const oneshot = new SessionRuntime(adapter(live([])), 'oneshot')
     expect(oneshot.reusable).toBe(false)
   })
 
-  it("persistent 정책은 reusable=true — terminal 후 state='live' 유지로 재사용 가능", async () => {
-    const runtime = new SessionRuntime(
-      adapter(live([{ type: 'telemetry', sessionId: 's1' }])),
-      'persistent'
-    )
-    expect(runtime.reusable).toBe(true)
+  it("persistent + pushTurn 미지원(mock)은 턴-스코프 폴백 — terminal 후 state='live'", async () => {
+    const runtime = new SessionRuntime(adapter(live([{ type: 'telemetry', sessionId: 's1' }])))
     await collect(runtime.send(req()))
     expect(runtime.state).toBe('live')
+    expect(runtime.channelAlive).toBe(false)
   })
 
   it('close() 는 정책과 무관하게 상태를 closed 로 만든다', () => {
-    const runtime = new SessionRuntime(adapter(live([])), 'persistent')
+    const runtime = new SessionRuntime(adapter(live([])))
     runtime.close()
     expect(runtime.state).toBe('closed')
+  })
+})
+
+// 0067 장수명 채널 — pushTurn 지원 어댑터(claude)의 프레임 demux. 채널을 외부에서 구동할 수
+// 있는 fake live 로 spawn 1회·프레임 절단·interrupt 취소·unframed 버퍼를 본다.
+function channelLive(): {
+  liveTurn: RuntimeLiveTurn
+  emit: (ev: NormalizedEvent) => void
+  close: ReturnType<typeof vi.fn>
+  pushed: Array<{ text: string; promptUuid?: string }>
+  interrupted: ReturnType<typeof vi.fn>
+} {
+  const queue: NormalizedEvent[] = []
+  let wake: (() => void) | null = null
+  let closed = false
+  const close = vi.fn(() => {
+    closed = true
+    wake?.()
+    wake = null
+  })
+  const pushed: Array<{ text: string; promptUuid?: string }> = []
+  const interrupted = vi.fn()
+  const liveTurn: RuntimeLiveTurn = {
+    events: (async function* () {
+      while (true) {
+        while (queue.length > 0) yield queue.shift()!
+        if (closed) return
+        await new Promise<void>((resolve) => {
+          if (closed || queue.length > 0) resolve()
+          else wake = resolve
+        })
+      }
+    })(),
+    close,
+    pushTurn: async (next) => {
+      pushed.push({ text: next.text, ...(next.promptUuid ? { promptUuid: next.promptUuid } : {}) })
+    },
+    setPermissionMode: async () => {},
+    interrupt: async () => {
+      interrupted()
+    },
+    setModel: async () => {},
+    stopTask: async () => {},
+    backgroundTask: async () => false
+  }
+  return {
+    liveTurn,
+    emit: (ev) => {
+      queue.push(ev)
+      wake?.()
+      wake = null
+    },
+    close,
+    pushed,
+    interrupted
+  }
+}
+
+const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 0))
+
+describe('SessionRuntime 장수명 채널(0067)', () => {
+  it('terminal 에서 프레임만 닫고 채널(live)은 유지한다', async () => {
+    const ch = channelLive()
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+    const frame = collect(runtime.send(req()))
+    ch.emit({ type: 'session.updated', sessionId: 's1' })
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    const events = await frame
+    expect(events.map((e) => e.type)).toEqual(['session.updated', 'telemetry'])
+    expect(ch.close).not.toHaveBeenCalled()
+    expect(runtime.channelAlive).toBe(true)
+    expect(runtime.state).toBe('live')
+  })
+
+  it('후속 send 는 pushTurn 으로 이어붙인다 — 새 spawn 없이 두 번째 프레임 소비', async () => {
+    const ch = channelLive()
+    let spawns = 0
+    const runtime = new SessionRuntime({
+      id: 'claude',
+      complete: async () => '',
+      sendMessage: () => {
+        spawns += 1
+        return ch.liveTurn
+      },
+      classifyError: (err) => makeClassifiedError('stream_error', String(err), { retryable: true })
+    })
+    const f1 = collect(runtime.send(req()))
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await f1
+
+    const f2 = collect(runtime.send({ ...req(), text: 'second', promptUuid: 'u2' }))
+    await tick()
+    expect(ch.pushed).toEqual([{ text: 'second', promptUuid: 'u2' }])
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    const events2 = await f2
+    expect(events2.map((e) => e.type)).toEqual(['telemetry'])
+    expect(spawns).toBe(1)
+  })
+
+  it('markAborted(취소)=interrupt — 턴만 멈추고 채널 생존, 잔여는 terminal 까지 드랍', async () => {
+    const ch = channelLive()
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+    const f1 = collect(runtime.send(req()))
+    ch.emit({ type: 'session.updated', sessionId: 's1' })
+    await tick()
+    runtime.markAborted('user_cancelled')
+    const events = await f1
+    expect(events.map((e) => e.type)).toEqual(['session.updated'])
+    expect(ch.interrupted).toHaveBeenCalled()
+    expect(ch.close).not.toHaveBeenCalled()
+    expect(runtime.cancelled).toBe(true)
+    // 중단된 턴의 잔여 이벤트는 드랍되고, terminal 에서 채널이 유휴 복귀한다.
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await tick()
+    expect(runtime.state).toBe('live')
+    expect(runtime.channelAlive).toBe(true)
+  })
+
+  it('프레임 밖 이벤트는 버퍼+콜백으로 노출되고 다음 프레임 앞에 합류한다', async () => {
+    const ch = channelLive()
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+    const f1 = collect(runtime.send(req()))
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await f1
+
+    const seen: string[] = []
+    runtime.onUnframedEvent((ev) => seen.push(ev.type))
+    // CLI 자동 픽업 턴 개시 시뮬레이트 — 프레임 없는 상태의 이벤트.
+    ch.emit({ type: 'session.updated', sessionId: 's1' })
+    await tick()
+    expect(seen).toEqual(['session.updated'])
+
+    const f2 = collect(runtime.send({ ...req(), text: 'next' }))
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    const events2 = await f2
+    // 백로그(session.updated)가 새 프레임 앞에 합류한다.
+    expect(events2.map((e) => e.type)).toEqual(['session.updated', 'telemetry'])
+  })
+
+  it('close() 는 채널을 내리고 closed — 이후 send 어댑터 spawn 은 호출자 몫', async () => {
+    const ch = channelLive()
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+    const f1 = collect(runtime.send(req()))
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await f1
+    runtime.close()
+    expect(ch.close).toHaveBeenCalled()
+    expect(runtime.state).toBe('closed')
+    expect(runtime.channelAlive).toBe(false)
+  })
+
+  it('채널 스트림이 에러로 죽으면 활성 프레임에 전파되고 다음 send 는 respawn 한다', async () => {
+    const ch = channelLive()
+    let spawns = 0
+    const second = channelLive()
+    const runtime = new SessionRuntime({
+      id: 'claude',
+      complete: async () => '',
+      sendMessage: () => {
+        spawns += 1
+        return spawns === 1 ? ch.liveTurn : second.liveTurn
+      },
+      classifyError: (err) => makeClassifiedError('stream_error', String(err), { retryable: true })
+    })
+    const f1 = collect(runtime.send(req()))
+    // 스트림 자체를 죽인다 — pump 가 프레임에 fail 을 전파한다.
+    ch.close()
+    await expect(f1).resolves.toEqual([]) // close→iterator 종료(에러 아님): 프레임 end
+    expect(runtime.channelAlive).toBe(false)
+    // 다음 send 는 respawn(콜드 패스).
+    const f2 = collect(runtime.send(req()))
+    second.emit({ type: 'telemetry', sessionId: 's1' })
+    await f2
+    expect(spawns).toBe(2)
   })
 })
 
