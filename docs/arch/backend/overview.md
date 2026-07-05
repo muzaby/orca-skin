@@ -1,8 +1,8 @@
 # Backend Architecture — Overview (범위·스택·프로세스)
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-06-04 (BACKEND_ARCHITECTURE.md 분해 — docs/ARCHITECTURE.md 인덱스 참조)
-> 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [adapters.md](./adapters.md), [provider-runtime.md](./provider-runtime.md), [standardization.md](./standardization.md), [persistence.md](./persistence.md), [security.md](./security.md), [runtime-ipc.md](./runtime-ipc.md), [terms.md](./terms.md) (사람용 용어 해설)
+> 최종 업데이트: 2026-07-05 (handoff 0071 — §3 프로세스 구조를 0062 main 재편으로 정합)
+> 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [adapters.md](./adapters.md), [provider-runtime.md](./provider-runtime.md), [standardization.md](./standardization.md), [persistence.md](./persistence.md), [security.md](./security.md), [runtime-ipc.md](./runtime-ipc.md), [terms.md](./terms.md) (사람용 용어 해설), [`app/src/main/AGENTS.md`](../../../app/src/main/AGENTS.md) (레이어 DAG 정본)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 
 ## 1. 이 문서의 범위
@@ -48,72 +48,47 @@
 
 ## 3. 프로세스 구조
 
+main 은 **feature 수직 슬라이스 + adapters 한정 ports&adapters + 얇은 infra + app 컴포지션 루트**(handoff 0062)로 구성된다. 하향 의존만 + feature 교차 import 금지를 `eslint-plugin-boundaries` + `import/no-cycle` 로 강제한다. **레이어 DAG·슬라이스 매핑·작업 규칙의 정본은 [`app/src/main/AGENTS.md`](../../../app/src/main/AGENTS.md)** — 아래는 슬라이스 대표 모듈만(드리프트 방지, 사본 아님).
+
 ```
 Electron App
-├── Main Process (src/main/)
-│   ├── index.ts                # 부트: IpcRouter → BrowserWindow → 라이프사이클 + will-quit 시 closeDb()
-│   ├── ipc/                    # (handoff 0011 분해 — router 는 컴포지션 루트만)
-│   │   ├── router.ts           # 의존성 생성 + 부팅 시퀀스 + 핸들러 등록 위임 (~140줄)
-│   │   ├── registry.ts         # handle/handlePlain — invoke 등록 + safeParse + 실패 정책(reject|fallback) 단일 경로
-│   │   ├── context.ts          # RouterContext(핸들러 공유 의존성 주입 경계) + send/broadcast 헬퍼
-│   │   ├── dto.ts              # DB row → 와이어 DTO 순수 변환 (previewOf/toSessionListItem/…)
-│   │   ├── handlers/
-│   │   │   ├── session.ts      # sessionCwd/List/Load/Delete/Rename
-│   │   │   ├── project.ts      # projectList/Create/Update/Delete/ListSessions
-│   │   │   ├── mcp.ts          # mcpList/Add/Update/Delete (검증·영속은 McpStore)
-│   │   │   └── misc.ts         # backend/agent/install/settings/skills/files/search/cost/debug(dev)
-│   │   └── chat/               # chat 턴 파이프라인
-│   │       ├── send.ts         # chatSend 이벤트 루프(어댑터 LiveTurn 소비→persist→sendChatEvent) + chatCancel
-│   │       ├── turn-registry.ts# InflightTurn 상태 — Map<sessionId, …> + 새-채팅 pending 슬롯(창당 1) → session.updated 시 승격. 서로 다른 세션의 동시 턴 허용(멀티세션 토대), 같은 세션 중복 send 거부.
-│   │       ├── persist.ts      # NormalizedEvent → DB parts (provider-runtime.md §7) + flushAskAnswers
-│   │       ├── approvals.ts    # ApprovalCoordinator — InteractionBroker + sessionAllowedTools + approvalId→턴 매핑, permissionRespond/setMode 핸들러
-│   │       └── title-generation.ts # 세션 자동 제목 (handoff 0004)
-│   ├── adapters/
-│   │   ├── types.ts            # SessionAdapter / LiveTurn / TurnRequest 공통 타입
-│   │   ├── registry.ts         # AdapterRegistry — claude-code 단일 등록
-│   │   ├── claude-code.ts      # ClaudeCodeAdapter — SDK query() (턴-스코프 스트리밍 입력)
+├── Main Process (src/main/) — 5-슬라이스 (하향 의존만, handoff 0062)
+│   ├── index.ts                # 부트 진입 — Bootstrap.start() → BrowserWindow → will-quit(shutdown→closeDb)
+│   ├── app/                    # 컴포지션 루트 (전 레이어 의존 허용 — 유일)
+│   │   ├── bootstrap.ts        # 의존성 생성 + 부팅 시퀀스 + 버스 구독 순서 SSOT + 핸들러 등록 위임
+│   │   ├── chat-turn.ts        # 턴 셋업 — chat:send 배선(pending queue·supervisor·coordinator 연결)
+│   │   ├── context.ts          # RouterContext (핸들러 공유 의존성)
+│   │   └── handlers/           # 도메인 IPC — session · project · mcp · engine · misc
+│   ├── features/               # 수직 슬라이스 (교차 import 금지)
+│   │   ├── chat/               # 턴 오케스트레이션 — turn-coordinator · pending-message-queue · settle · timers · title
+│   │   ├── sessions/           # 런타임 거버넌스 — supervisor · session-runtime · runtime-pool · eviction/cap-policy · active-turn-tracker
+│   │   ├── approvals/          # ApprovalCoordinator(도구 승인 broker) · permission-mode-controller
+│   │   ├── usage/              # UsageTracker — turn_usage 집계(일/주/월 SUM)
+│   │   ├── history/            # HistoryWriter — NormalizedEvent → DB parts 영속
+│   │   ├── providers/          # provider/engine 설정·모델 해석
+│   │   ├── extensions/         # ExtensionBuilder(지침·MCP·skill 조립) + deployer · conformance · mcp/ · skills/
+│   │   └── orchestration/      # Conversation Continuity(fork/handoff) 순수 로직 (handoff 0051 §A.4)
+│   ├── adapters/               # SessionAdapter 포트 & 구현 (구체 provider 리터럴 격리)
+│   │   ├── types.ts·turn.ts·provider-config.ts·mcp-config.ts·hooks.ts·descriptor.ts  # 포트
+│   │   ├── claude.ts           # ClaudeAdapter — SDK query() (장수명 채널 pushTurn)
 │   │   ├── claude-map.ts       # SDKMessage → NormalizedEvent 정규화 (순수)
-│   │   ├── claude-adapt.ts     # TurnExtensions → claude query() 옵션 순수 변환
-│   │   ├── claude-env.ts       # orca.json agent → CLAUDE_CODE_USE_* / ANTHROPIC_* env 매핑
-│   │   ├── streaming-input.ts  # 턴-스코프 AsyncIterable 입력 (라이브 모드 전환용 핸들 생존)
-│   │   └── mock.ts             # MockAdapter (dev 디버그 패널 하네스, DEV 전용)
-│   ├── extensions/             # per-turn 확장 묶음 (지침·MCP·skills·hooks) 조립
-│   │   ├── types.ts            # TurnExtensions / Normalized* 타입
-│   │   ├── hooks.ts            # NormalizedHookSet 평가기
-│   │   └── builder.ts          # ExtensionBuilder — DB/McpStore/Skills 읽어 TurnExtensions 조립
-│   ├── capabilities/           # 능력 탐지 (ProviderDescriptor — provider-runtime.md §4)
-│   ├── config/
-│   │   ├── paths.ts            # ~/.config/orca 경로 상수 (sources/ · dist/<engine>/ · orca.json)
-│   │   ├── orca-file.ts        # orca.json zod 스키마 + 관용 파싱 + atomic 생성
-│   │   ├── orca-config.ts      # 부팅 1회 로드 싱글톤 (loadOrcaConfig/getOrcaConfig/agentFor)
-│   │   ├── provider-key.ts     # `${adapter}-${provider}` 합성 키·agent 선택·모델 해석
-│   │   ├── mcp-file.ts         # mcp.json atomic write (temp+rename)
-│   │   ├── crypto.ts           # safeStorage encrypt/decrypt 헬퍼 (구 mcp/crypto.ts)
-│   │   └── secret-store.ts     # 비밀 저장소 (env-var 이름 키잉, safeStorage 암호문)
-│   ├── db/
-│   │   ├── index.ts            # DB 초기화/종료 (better-sqlite3 singleton). WAL + foreign_keys.
-│   │   ├── migrate.ts          # 마이그레이션 실행기 (_migrations 추적, 순번 자동 실행)
-│   │   ├── queries.ts          # 모든 prepared statement (sessions/messages/parts/projects/FTS5/turn_usage)
-│   │   ├── types.ts            # DB 행 타입
-│   │   └── migrations/         # 0001_initial … 0008_session_provider_key
-│   ├── mcp/
-│   │   ├── schema.ts           # OrcaMcpConfig (순정 Claude mcpServers 스키마)
-│   │   ├── store.ts            # McpStore — mcp.json + secret-store + settings(mcpEnabled/mcpMeta) 조율
-│   │   ├── convert.ts          # toClaudeConfig / toOpencodeConfig 순수 변환 (동형 시그니처)
-│   │   ├── expand.ts           # ${VAR} 플레이스홀더 확장
-│   │   └── resolver.ts         # safeStorage → process.env 2단계 해소. 미해결 변수 → 서버 드롭.
-│   ├── deploy/                 # ExtensionDeployer + StandardConformance (sources → dist/<engine>)
-│   ├── runtime/                # uv 격리 Python 런타임 (PythonRuntime/env/paths)
-│   ├── runtime-events/         # permission-bridge · permission-mode-controller
-│   ├── runtime-errors/         # ErrorClassifier (classifier + claude-classifier)
-│   ├── ask/broker.ts           # InteractionBroker — canUseTool ↔ renderer 응답 Promise 다리
-│   ├── cost/                   # CostTracker (일/주/월 SUM) + boundaries
-│   ├── usage/usageMap.ts       # turn_usage row → telemetry 정규화
-│   ├── title/title.ts          # 자동 제목 순수 함수 (shouldGenerateTitle/normalizeTitle)
-│   ├── installer/index.ts      # 4줄 래퍼 — adapter.install() 의 AsyncIterable yield
-│   ├── settings/store.ts       # electron-store 영속화 (persistence.md §1.2)
-│   ├── files/scan.ts           # 파일 자동완성 디렉토리 스캔
-│   └── skills/scan.ts          # skills 부팅 1회 스캔
+│   │   ├── claude-adapt.ts     # TurnExtensions → query() 옵션 순수 변환
+│   │   ├── claude-settings.ts·claude-plugin.ts  # settings/플러그인 합성
+│   │   ├── streaming-input.ts  # 턴-스코프 AsyncIterable 입력
+│   │   ├── error-classifier.ts # claude 에러 분류
+│   │   └── mock.ts             # MockAdapter (DEV 디버그 하네스)
+│   ├── contracts/              # 여러 feature 공유 타입 계약 (구현 최소)
+│   │   ├── turn.ts             # TurnContext
+│   │   ├── bus-events.ts       # OrcaBusEvents — turn.event 단일 이벤트 맵
+│   │   ├── ports.ts            # ManagedRuntime · RuntimeSessionAdapter 등 구조적 포트
+│   │   └── session-state.ts    # SessionRuntimeState 머신 (cold/live/busy/interrupting/error/closed)
+│   └── infra/                  # 얇은 인프라 (feature/어댑터 비의존)
+│       ├── ipc/                # handle(safeParse+실패정책) · send(push 헬퍼·wire-log) · dto
+│       ├── bus/                # TypedBus
+│       ├── db/                 # better-sqlite3 싱글턴 + migrate + queries (WAL + foreign_keys)
+│       ├── config/             # orca-config · secret-store · paths · crypto · mcp-file
+│       ├── errors/             # 에러 정규화 (ErrorCategory)
+│       └── settings-store.ts   # electron-store 영속화 (persistence.md §1.2)
 │
 ├── Preload (src/preload/index.ts)
 │   └── contextBridge.exposeInMainWorld('orca', api) — window.orca 노출 (IPC_CONTRACT §2)
@@ -121,32 +96,32 @@ Electron App
 └── Renderer (src/renderer/) → ../frontend/ 참조
 ```
 
-### 3.1 부트 시퀀스 (`src/main/index.ts`)
+### 3.1 부트 시퀀스 (`src/main/index.ts` → `app/bootstrap.ts`)
 
 ```
 1. app.whenReady() → registerAppProtocol()  # app:// 커스텀 스킴 핸들러
-2. router = new IpcRouter()                 # SettingsStore / McpStore / AdapterRegistry / PythonRuntime field-init
-3. router.start()
-   a. initDb()                              # better-sqlite3 초기화 + 마이그레이션 자동 실행
-   b. CostTracker.recompute()               # 부팅 1회 일/주/월 합산
-   c. ExtensionBuilder 생성
+2. bootstrap = new Bootstrap()              # SettingsStore / McpStore / AdapterRegistry field-init
+3. bootstrap.start()
+   a. initDb() + recoverDanglingToolCalls   # better-sqlite3 초기화 + 마이그레이션 + 재시작 잔재 정착
+   b. new UsageTracker(db, …) → recompute() # 부팅 1회 일/주/월 합산 + 비용 요약 push 배선
+   c. new ExtensionBuilder(db, mcp, …)      # DB/McpStore/Skills 읽어 TurnExtensions 조립기
    d. ensureConfigDir() → loadOrcaConfig()  # ~/.config/orca 보장 + orca.json 부팅 1회 로드
-   e. deploy('claude-code')                 # sources → dist/<engine> 렌더 + conformance 검증
-   f. scanSkills(cwd)                       # 스킬 부팅 1회 스캔 → 메모리 캐시
-   g. register(ctx)                         # RouterContext 조립 → chat 파이프라인 + 도메인 핸들러 등록 (채널 카탈로그는 IPC_CONTRACT.md)
-   h. runtime.ensure() 비동기 킥             # 진행/에러는 dev 터미널 로깅 (runtime IPC 채널 제거 — handoff 0012)
-4. createWindow(router.settings)            # BrowserWindow + webPreferences 명시
-   ├─ contextIsolation: true
-   ├─ nodeIntegration: false
-   ├─ sandbox: true
+   e. scaffoldProviderSettings('claude')    # sources/settings/claude 최초 1회 스캐폴드
+   f. deployExtensions()                    # sources → dist/<engine> 렌더 (ExtensionDeploymentService)
+   g. refreshSkills()                       # 스킬 부팅 1회 스캔(orca + ~/.claude/skills) → 메모리 캐시
+   h. register(ctx):                        # RouterContext 조립
+        - RuntimeSupervisor(cap 5 · BoundedRuntimeCapPolicy · ActiveTurnTracker→concurrency push)
+        - TypedBus 구독 순서 SSOT: usage → history → title → relay(sendChatEvent)  (§runtime-ipc §2.4)
+        - PendingMessageQueue · ApprovalCoordinator · PermissionModeController
+        - registerChatHandlers + session/project/mcp/engine/misc 핸들러 등록
+4. createWindow(bootstrap.settings)         # BrowserWindow + webPreferences 명시
+   ├─ contextIsolation: true / nodeIntegration: false / sandbox: true
    └─ preload: '../preload/index.js'
 5. windowBounds 복구 + mainWindow.on('close') → settings.patch({ windowBounds })
-6. app.on('will-quit') → closeDb()          # WAL 정리
+6. app.on('will-quit') → bootstrap.shutdown() → closeDb()  # 열린 도구 정착·abort·idle 런타임 close·WAL 정리
 ```
 
-> 레거시 1회성 이전(구 평면 레이아웃→sources/ · 구 orca-mcp 스토어→mcp.json)은 정식 배포 전
-> 정리 결정(2026-06-11, handoff 0011)으로 제거됐다 — 구 레이아웃 dev 환경은 `~/.config/orca`
-> 재생성으로 해결.
+> 부팅 각 단계 실패는 부팅을 막지 않는다(채팅/세션 기능은 config/deploy 와 독립). 레거시 1회성 이전(구 평면 레이아웃·구 orca-mcp 스토어)은 정식 배포 전 정리(handoff 0011)로 제거 — 구 dev 환경은 `~/.config/orca` 재생성으로 해결.
 
 ### 3.2 모듈 간 import 규약
 
@@ -162,30 +137,29 @@ Electron App
 | 영역 | Phase | 상태 | 비고 |
 |---|---|---|---|
 | BrowserWindow + 보안 옵션 명시 | Phase 1 | ✅ 완료 | `main/index.ts` |
-| IpcRouter (컴포지션 루트) + 도메인 핸들러 분해 | Phase 3++ | ✅ 완료 | `ipc/router.ts` + `ipc/handlers/` + `ipc/chat/` (채널 카탈로그는 IPC_CONTRACT §2) |
-| 모든 invoke 의 zod 검증 | Phase 2 | ✅ 완료 | `shared/protocol.ts` |
+| 컴포지션 루트(Bootstrap) + 5-슬라이스 재편 | Phase 3++ | ✅ 완료 | `app/bootstrap.ts` + `app/handlers/` + `features/*` (handoff 0062, 채널 카탈로그는 IPC_CONTRACT §2) |
+| 모든 invoke 의 zod 검증 | Phase 2 | ✅ 완료 | `infra/ipc/handle.ts` 헬퍼 + `shared/protocol.ts` |
 | SessionAdapter 인터페이스 | Phase 2 | ✅ 완료 | `adapters/types.ts` |
-| ClaudeCodeAdapter (SDK `query()`) | Phase 3 | ✅ 완료 | CLI spawn 폐기 (2026-05-18) |
+| ClaudeAdapter (SDK `query()` · 장수명 채널 pushTurn) | Phase 3 | ✅ 완료 | `adapters/claude.ts` (구 claude-code.ts). CLI spawn 폐기 (2026-05-18) |
 | `claude-adapt.ts` (TurnExtensions → claude 옵션 변환) | Phase 3++ | ✅ 완료 | adaptMcp / adaptSystemPrompt / adaptSkills / adaptHooks |
-| `extensions/` ExtensionBuilder | Phase 3++ | ✅ 완료 | DB/McpStore/Skills 읽어 TurnExtensions 조립 (구 CapabilityBuilder — Extension 개명) |
-| InflightTurn 상태 머신 (TurnRegistry — sessionId 키잉) | Phase 3 | ✅ 완료 | `ipc/chat/turn-registry.ts` — 새 채팅 pending 슬롯 → init(session.updated) 시 sessionId 키 승격. 서로 다른 세션 동시 턴 허용 |
+| ExtensionBuilder | Phase 3++ | ✅ 완료 | `features/extensions/builder.ts` — DB/McpStore/Skills 읽어 TurnExtensions 조립 (구 CapabilityBuilder) |
+| SessionRuntime + RuntimeSupervisor (세션별 런타임 거버넌스) | Phase 4 | ✅ 완료 | `features/sessions/` — 장수명 세션 채널(프레임) · idle 풀 LRU cap 5 · 세션별 pending message queue(`features/chat/`). runtime-ipc.md §1 |
 | OpencodeAdapter | Future | ❌ 미구현 | PRD OQ7 |
-| AdapterRegistry | Phase 2 | ✅ 완료 | claude-code 단일 등록 |
+| AdapterRegistry | Phase 2 | ✅ 완료 | claude 단일 등록 |
 | Installer (래퍼) | Phase 2 | ✅ 완료 | 4줄 — 어댑터의 `install()` yield |
-| electron-store (9 키) | Phase 3++ | ✅ 완료 | `settings/store.ts` — sidebarWidth / mcpEnabled / mcpMeta 추가 |
-| Skills 스캔 (`~/.claude/skills` + cwd) | Phase 2 | ✅ 완료 | claude-code 전용 — 어댑터별 분리는 Future |
-| ExtensionDeployer (`deploy/`) | Phase 3++ | ✅ 완료 | sources → `dist/<engine>/` 렌더 (구 plugin-bundle 흡수, 표준화 스테이지 A) |
+| electron-store | Phase 3++ | ✅ 완료 | `infra/settings-store.ts` — sidebarWidth / mcpEnabled / mcpMeta / skillEnabled |
+| Skills 스캔 (`~/.claude/skills` + orca) | Phase 2 | ✅ 완료 | `features/extensions/skills/scan.ts` — 어댑터별 분리는 Future |
+| ExtensionDeployer | Phase 3++ | ✅ 완료 | `features/extensions/deployer.ts` — sources → `dist/<engine>/` 렌더 (표준화 스테이지 A) |
 | 인증 만료 감지 (`auth.expired`) | Phase 2 | ✅ 완료 | UI 에 AuthExpiredModal 노출 |
-| 로컬 DB (sessions / messages / projects / tool_calls) | Phase 3 | ✅ 완료 | better-sqlite3 + 3 마이그레이션. `db/` 디렉토리. |
+| 로컬 DB (sessions / messages / parts / projects) | Phase 3 | ✅ 완료 | better-sqlite3 + 마이그레이션 11종(`0001_initial`…`0011_session_lineage`). `infra/db/`. |
 | FTS5 전문 검색 (`messages_fts`) | Phase 3++ | ✅ 완료 | `0003_messages_fts.sql` + `orca:search:messages` IPC |
-| MCP 서버 CRUD + safeStorage 인증 비밀 | Phase 3++ | ✅ 완료 | `mcp/store.ts` + `config/secret-store.ts`. 파일-백드 모델. |
-| Python uv 런타임 (`runtime/`) | Phase 3++ | ✅ 완료 | PythonRuntime.ensure() — main 내부 전용 (구 `orca:runtime:*` 3채널은 renderer 소비처 부재로 제거, handoff 0012) |
+| MCP 서버 CRUD + safeStorage 인증 비밀 | Phase 3++ | ✅ 완료 | `features/extensions/mcp/store.ts` + `infra/config/secret-store.ts`. 파일-백드 모델. |
 | Artifacts 디렉토리 (큰 산출물) | Future | ❌ 미구현 | persistence.md §1.4 |
 | 자동 업데이트 | Future | ❌ 미구현 | PRD OQ3 |
 | 로깅 라이브러리 | TBD | ❌ 미구현 | electron-log 후보 |
 | `options.permissionMode` (도구 권한) | Phase 4 | ❌ 미구현 | PRD OQ9 |
 | `options.hooks` 완전 구현 (도구 감사 외부 핸들러) | Phase 4 | ❌ 미구현 | 현재 인프로세스 OrcaHookSet 은 구현됨 |
-| 멀티세션 | Phase 4 | 🟡 main 측 토대 완료 (handoff 0011 — TurnRegistry sessionId 키잉, 동시 세션 턴 허용) | renderer 외피는 ../frontend/state.md §2 와 함께 |
+| 멀티세션 + 장수명 세션 채널 | Phase 4 | ✅ main 런타임 완료 (handoff 0011·0051·0067) | 세션별 SessionRuntime + 동시 턴 + 장수명 채널(프레임)·idle 풀 LRU. runtime-ipc.md §1. renderer 외피는 ../frontend/state.md §2 |
 | Zustand persist 전략 (renderer store ↔ 로컬 DB / electron-store) | Phase 4 | ❌ 미정 OQ | ../frontend/state.md §1.4.6 |
 | i18n (`src/shared/i18n/ko.ts`) | Future | ❌ 미구현 | 현재 인라인 한국어 |
 | **Provider Runtime Model (정규화 계층)** | Future | 📐 설계 확정 / 구현 대기 | §12 — NormalizedEvent · PermissionBridge · AppCommandPolicy · SessionCapability · RevertManager · ErrorClassifier · Telemetry · AuthStore · AuditLog. SDK 타입 확정(provider-runtime.md §13) 후 착수 |

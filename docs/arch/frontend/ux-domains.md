@@ -140,7 +140,7 @@ Main 이 `AbortSignal` 을 SDK `query()` 에 전파 → 현재 inflight 만 중�
 
 ### 3.4 채널 전체 목록
 
-[IPC_CONTRACT.md](./IPC_CONTRACT.md) §2 참조. 현재 **총 31 채널** (정확 수치는 IPC_CONTRACT 가 SSOT — chat 3 · backend 1 · install 2 · settings 2 · skills 1 · files 1 · session 5 · project 5 · window 3 · search 1 · mcp 4 · runtime 3).
+[IPC_CONTRACT.md](../../IPC_CONTRACT.md) §2 참조 — **정확 수치는 IPC_CONTRACT 가 SSOT** (현재 총 53 채널 · 17 도메인). 본 문서는 총계를 재서술하지 않는다(드리프트 방지).
 
 ---
 

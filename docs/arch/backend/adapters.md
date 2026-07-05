@@ -1,4 +1,4 @@
-# Backend Architecture — Adapters (어댑터·CapabilityBuilder·파일/리소스·Hook 정규화)
+# Backend Architecture — Adapters (어댑터·ExtensionBuilder·파일/리소스·Hook 정규화)
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
 > 최종 업데이트: 2026-06-04 (BACKEND_ARCHITECTURE.md 분해 — docs/ARCHITECTURE.md 인덱스 참조)
@@ -38,7 +38,7 @@ export interface SessionAdapter {
 
 ### 1.3 ClaudeCodeAdapter 호출 패턴
 
-`claude-adapt.ts` 의 순수 변환 함수들이 `OrcaCapabilities` → claude `query()` 옵션 조각(object)으로 변환하며, `...spread` 로 합성된다.
+`claude-adapt.ts` 의 순수 변환 함수들이 `TurnExtensions`(§1.4) → claude `query()` 옵션 조각(object)으로 변환하며, `...spread` 로 합성된다.
 
 ```typescript
 import { query } from '@anthropic-ai/claude-agent-sdk'
@@ -67,14 +67,17 @@ async function* sendMessage(sessionId, text, cwd, caps, resolvedMcp, signal) {
 
 `adaptMcp` 는 활성 서버가 없으면 옵션 자체를 빈 객체로 반환(생략). `allowedTools` 는 `mcp__<name>__*` 와일드카드로 서버 전체 도구 자동 허용 — `canUseTool` 미도입(Phase 4 anchor) 환경에서 도구 호출 차단 방지. **신 설계(0024 구현됨 / disallowedTools 보류)**: `adaptSettings` 는 `settingSources` 옵션을 주입하지 않아 SDK 기본 소스(user/project/local)가 활성화되며(격리 해제 — handoff 0014/0015 폐기), Orca 가 막아야 할 도구는 `disallowedTools` 로 차단한다(해석은 `adapters/claude-settings.ts` 의 `loadClaudeProviderSettings` — SDK `resolveSettings` + `filterEscalatingDefaultMode` + env `${VAR}` 확장·secret 주입, 캐시는 `settings/provider-settings.ts`). `claude-adapt.ts` 는 0024에서 `settingSources`·`plugins` 주입 제거까지 정렬됐다. `disallowedTools` 는 D1 사용자 결정 전이라 보류.
 
-### 1.4 CapabilityBuilder (백엔드 중립 보조기능 조립)
+### 1.4 ExtensionBuilder (백엔드 중립 확장 조립)
 
-`capabilities/builder.ts` 의 `CapabilityBuilder` 는 DB / McpStore / Skills 를 읽어 **백엔드 중립** `OrcaCapabilities` 를 조립한다. 어댑터를 전혀 모른다 — 어댑트(claude 타깃 변환 + `${VAR}` 확장)는 `claude-adapt.ts` 와 `mcp/resolver.ts` 의 책임.
+> 구 `CapabilityBuilder`/`OrcaCapabilities` 개명(handoff 0062) — 현재 이름은 `ExtensionBuilder`/`TurnExtensions`.
+
+`features/extensions/builder.ts` 의 `ExtensionBuilder` 는 DB / McpStore / Skills 를 읽어 **백엔드 중립** `TurnExtensions` 를 조립한다. 어댑터를 전혀 모른다 — 어댑트(claude 타깃 변환 + `${VAR}` 확장)는 `claude-adapt.ts` 와 `mcp/resolver.ts` 의 책임.
 
 ```typescript
-interface OrcaCapabilities {
+// 정확한 필드 SSOT 는 `adapters/turn.ts` 의 TurnExtensions
+interface TurnExtensions {
   mcpConfig: OrcaMcpConfig          // 확장 전 정규 소스 (${VAR} 미확장)
-  systemPromptAppend?: string       // 프로젝트 지침 + 정적 정책 append(prompts/) 합성
+  systemPromptAppend?: string       // 프로젝트 지침 (DB)
   skills: SkillInfo[]               // 가시화 메타 (어댑트는 항상-on)
   hooks: OrcaHookSet                // before-tool / after-tool / prompt-submit 핸들러 집합
 }
@@ -83,9 +86,7 @@ interface OrcaCapabilities {
 `build(sessionId, projectId)` 동작:
 - resume 경로 (`sessionId !== null`): 세션 바인딩으로 프로젝트 지침 조회
 - 새 채팅 경로 (`sessionId === null`): `projectId` 로 직접 조회
-- `systemPromptAppend` = (프로젝트 지침 있으면 그 뒤에) 정적 정책 append 항상 합류. 정책 본문은
-  `app/src/main/prompts/`(`policies/python-runtime.md` 등)에서 `buildAppend` 가 startup 1회 조립 —
-  관리 구조·Open Questions 는 [system-prompt.md](./system-prompt.md) 정본 (handoff 0030)
+- `systemPromptAppend` = 프로젝트 지침(DB, 있으면). **정적 정책 append 체인(구 `app/src/main/prompts/`)은 handoff 0062 에서 제거**(빈 레지스트리 데드코드) — 관리 구조 논의는 [system-prompt.md](./system-prompt.md) 참조(historical)
 - 매 턴 DB 1회 조회 — 캐시 없음 (지침 편집이 다음 메시지부터 즉시 반영)
 
 ### 1.5 SDKMessage → ChatEvent 정규화
@@ -208,7 +209,7 @@ opencode 등 다중 어댑터 환경 대비:
 
 ## 3. 자산 변환 매트릭스 + Hook 정규화 모델
 
-> 구 `ADAPTER_DESIGN_REVIEW.md` §5·§6 흡수 (2026-06-04). 어댑터 *위* Tier A capability 계층의 자산 변환 + hook 정규화 설계 근거. 2계층 개요는 §1.4(CapabilityBuilder) 참조. 본 모델의 권한 결정(allow/deny/ask)은 [provider-runtime.md §3](./provider-runtime.md) 의 `ApprovalResolution` 2분기와 합류 검토 대상이다.
+> 구 `ADAPTER_DESIGN_REVIEW.md` §5·§6 흡수 (2026-06-04). 어댑터 *위* Tier A capability 계층의 자산 변환 + hook 정규화 설계 근거. 2계층 개요는 §1.4(ExtensionBuilder) 참조. 본 모델의 권한 결정(allow/deny/ask)은 [provider-runtime.md §3](./provider-runtime.md) 의 `ApprovalResolution` 2분기와 합류 검토 대상이다.
 
 ### 3.1 자산별 변환기 매트릭스
 

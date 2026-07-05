@@ -209,7 +209,7 @@ Discriminated union. 어댑터가 CLI/SDK의 다양한 형식을 이 하나의 �
 | `result` | `{ usage?: { inputTokens: number; outputTokens: number; }; }` | 어댑터 | 턴 완료, `inflight = false` |
 | `error` | `{ code: string; message: string; recoverable: boolean; }` | 어댑터 (언제든) | 에러 토스트 + 선택적 복구 UI |
 
-> **(Phase 4 anchor)** 멀티 세션 (§10) 도입 시 모든 변형에 `sessionId: string` 필드 추가 예정. 현재는 `init` 만 보유 — 단일 inflight 모델에서는 sessionId 식별 불요. main↔renderer IPC 는 Electron 의 ordered+lossless 보장을 그대로 활용 (별도 메시지큐 미도입). 상세는 [arch/frontend/state.md](arch/frontend/state.md) §2.
+> **(멀티세션 — 구현됨)** 구 "단일 inflight" 모델은 폐기됐다. 멀티세션(세션별 SessionRuntime + 세션별 pending message queue)이 main 런타임에 구현됐고(handoff 0011·0051·0067), 이벤트는 `sessionId` 로 라우팅된다(renderer `chatStore` 가 비활성 세션을 백그라운드 누적). main↔renderer IPC 는 Electron 의 ordered+lossless 보장을 활용한다. 동시성·프레임·큐 모델의 정본은 [arch/backend/runtime-ipc.md](arch/backend/runtime-ipc.md) §1, renderer 측은 [arch/frontend/state.md](arch/frontend/state.md) §2.
 
 > **(OQ10)** `tool_use.name` / `tool_use.input` 표준화 정책 미정 — PRD §11 OQ10 진실 원천. Phase 3 단일 백엔드 운영에서는 raw 전달 (분기 의미 없음). opencode 어댑터 활성화 PR 에서 결정.
 
