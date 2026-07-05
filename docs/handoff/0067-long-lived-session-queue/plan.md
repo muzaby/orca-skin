@@ -80,6 +80,22 @@
 
 ## [구현자 기입]
 
-### 설계 리뷰 / 놓친 잠재 문제 + 대응 / 변경 파일 / 게이트 결과
+### 설계 리뷰
 
-- (구현 중 기입)
+- 설계 골격대로 W1~W5 순 착지. "1 프레임=1 턴" 보존 전략이 유효 — TurnCoordinator/HistoryWriter/UsageTracker 시그니처 무변으로 관통했다.
+
+### 놓친 잠재 문제 + 대응 (✅ 선조치)
+
+- ✅ **취소 신호 분리**: 턴 AbortController 를 어댑터에 넘기면 turn-1 취소가 채널을 죽인다 → `wrapRequest` 가 신호를 **채널 신호**로 치환하고, 프로세스 제어는 `markAborted` 가 소유(채널=interrupt·프레임 마감+draining, 턴-스코프=채널 abort — mock 취소 의미 보존).
+- ✅ **draining 중 send 는 respawn**: interrupt 잔여 드레인과 새 턴 이벤트의 소속을 구분할 수 없어 채널을 teardown 후 resume 스폰(안전 열화).
+- ✅ **releaseRuntime 이 'interrupting' 도 보존** — 취소 직후 반납 시점에 드레인이 미완이라 'live' 만 보존하면 AC3(취소 후 채널 재사용)이 깨진다.
+- ✅ **takeForRespawn 의 소비 확정 잔존분 폐기** — 신규 큐 테스트가 이중 커밋 후보를 적발, 구 drainForFlush 의 폐기 규칙 계승.
+- ✅ **중단 draft 복원의 이중 복원 방지** — 복원을 main `message.cancelled`(held 만) 이벤트 기반으로: flushed 항목은 ids 에 없어 draft 로 새지 않고 echo 커밋으로 화해. hover 단건은 낙관 제거가 선행돼 자연 no-op.
+- ⚠️ **CLI 자동 픽업(C7/C8 잔존분) 자동 프레임 오픈 미배선** — unframed 버퍼+`onUnframedEvent` 콜백까지만(이벤트는 다음 프레임 앞 합류로 무유실). 근거: 해당 CLI 동작은 [I](미실측)이고, orca 가 flush 를 항상 소유하므로 발생 창이 좁다. wire 실측에서 확인되면 후속 라운드에서 자동 TurnContext 오픈 배선.
+
+### 변경 파일 / 게이트 결과
+
+- main: `adapters/{streaming-input,claude,claude-adapt,turn,types}` · `features/sessions/{session-runtime,supervisor,runtime-pool,runtime-cap-policy}`(admission 3종·idle-close-timer 삭제) · `features/chat/{pending-message-queue,turn-coordinator,turn-sinks,abort}` · `features/history/writer` · `contracts/turn` · `app/{chat-turn,bootstrap}`.
+- 계약: `shared/{ipc,protocol}`(chatSteer 채널 삭제 54→53·`message.queued/committed/cancelled`·`clientKey/clientRequestId`) · `preload`.
+- renderer: `chatStore`(pending-first·단일 send·draftRestore) · `chatReducer`(BEGIN_TURN·커밋 첨부) · `Composer`(steer 분기 삭제) · `ChatTile`(draft 복원 합류) · `TranscriptView`(유휴 pending 표시·빈 transcript pending) · `PendingSteerTurn`(일반화 주석).
+- 게이트: lint 0 · typecheck 3종 0 · vitest **685 passed (88파일)** · electron-vite build green. 신규 의존성 0.

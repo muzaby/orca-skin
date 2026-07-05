@@ -50,7 +50,7 @@ usage(집계) → history(영속) → title(제목) → relay(renderer 중계)
 
 - `usage`·`history` 는 **critical**(throw = 턴 실패 전파), `title`·`relay` 는 **격리**(구독자 throw 가 파이프라인을 안 죽임).
 - 순서 근거: usage 가 history 의 `currentAssistantMessageId` reset *전* 에 그 id 를 읽고, title 이 relay 전에 트리거돼야 한다. 순서 회귀 테스트가 `features/chat/turn-coordinator.test.ts` 에 고정돼 있다.
-- 버스를 타면 안 되는 forward-only 이벤트(합성 error·turn.retrying·steer.flushed)는 coordinator 가 `forward` sink 직접 호출을 유지한다(history 가 무조건 persist 하므로 없던 파트 영속 방지).
+- 버스를 타면 안 되는 forward-only 이벤트(합성 error·turn.retrying·message.committed)는 coordinator 가 `forward` sink 직접 호출을 유지한다(history 가 무조건 persist 하므로 없던 파트 영속 방지 — user 커밋은 `commitUserMessage` 단일 경로, 0067).
 
 ## 두 가지 강제 규칙
 
