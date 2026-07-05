@@ -45,6 +45,7 @@ import { registerEngineHandlers } from './handlers/engine'
 import { registerMiscHandlers } from './handlers/misc'
 import { registerChatHandlers } from './chat-turn'
 import { RuntimeSupervisor } from '../features/sessions/supervisor'
+import { BoundedRuntimeCapPolicy } from '../features/sessions/runtime-cap-policy'
 import {
   AdmissionController,
   RejectDuplicatePolicy
@@ -231,7 +232,11 @@ export class Bootstrap {
     const supervisor = (this.supervisor = new RuntimeSupervisor<Electron.WebContents>({
       activeTurns: new ActiveTurnTracker((projectId, count) =>
         broadcastConcurrency({ projectId, count })
-      )
+      ),
+      // 0067: 장수명 채널 거버넌스 — 동시 생존 런타임 cap 5(사용자 확정), 초과 시 idle LRU 축출.
+      // 세션 수명 = 프로그램 종료(shutdown→closeIdleRuntimes) or 이 축출뿐(IdleCloseTimer 폐기).
+      capPolicy: new BoundedRuntimeCapPolicy(),
+      capacity: 5
     }))
     // turn.event 단일 파이프라인(스펙 §4.2). **구독 순서 = SSOT**: usage(집계) → history(영속) →
     // title(제목) → relay(renderer 중계). usage 가 history 의 currentAssistantMessageId reset *전* 에

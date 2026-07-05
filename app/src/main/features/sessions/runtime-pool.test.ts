@@ -17,10 +17,9 @@ function fakeRuntime(state: SessionRuntimeState = 'live'): ManagedRuntime & { cl
   return rt as unknown as ManagedRuntime & { closed: number }
 }
 
-describe('RuntimePool (0054)', () => {
-  it('keepIdle 보존 후 같은 세션 키로 take 하면 동일 핸들을 돌려주고 타이머는 발동하지 않는다', () => {
-    vi.useFakeTimers()
-    const pool = new RuntimePool(1000)
+describe('RuntimePool (0054 → 0067)', () => {
+  it('keepIdle 보존 후 같은 세션 키로 take 하면 동일 핸들을 돌려준다', () => {
+    const pool = new RuntimePool()
     const rt = fakeRuntime()
     expect(pool.keepIdle('s1', rt)).toBe(true)
     expect(pool.size).toBe(1)
@@ -28,23 +27,19 @@ describe('RuntimePool (0054)', () => {
     const got = pool.take('s1')
     expect(got).toBe(rt)
     expect(pool.size).toBe(0)
-    // take 가 타이머를 정지했으므로 만료 시각이 지나도 close/reap 없음.
-    vi.advanceTimersByTime(5000)
     expect(rt.closed).toBe(0)
-    vi.useRealTimers()
   })
 
-  it('idle 만료 시 runtime.close() + drop + onReap 콜백', () => {
+  it('idle 은 시간 경과로 회수되지 않는다 (0067 — IdleCloseTimer 폐기, 수명=종료/LRU)', () => {
     vi.useFakeTimers()
-    const pool = new RuntimePool(1000)
+    const pool = new RuntimePool()
     const onReap = vi.fn()
     const rt = fakeRuntime()
     pool.keepIdle('s1', rt, onReap)
-    vi.advanceTimersByTime(1000)
-    expect(rt.closed).toBe(1)
-    expect(onReap).toHaveBeenCalledTimes(1)
-    expect(pool.size).toBe(0)
-    expect(pool.take('s1')).toBeUndefined()
+    vi.advanceTimersByTime(3_600_000)
+    expect(rt.closed).toBe(0)
+    expect(onReap).not.toHaveBeenCalled()
+    expect(pool.size).toBe(1)
     vi.useRealTimers()
   })
 
@@ -124,19 +119,16 @@ describe('RuntimePool LRU/close governance (0055)', () => {
     expect(a.closed).toBe(0)
   })
 
-  it('timer self-reap 과 LRU eviction 이 같은 키에 합류해도 close 는 1회다', () => {
-    vi.useFakeTimers()
-    const pool = new RuntimePool(1000)
+  it('LRU eviction 은 close + onReap 을 정확히 1회 수행한다', () => {
+    const pool = new RuntimePool()
     const rt = fakeRuntime()
     const onReap = vi.fn()
     pool.keepIdle('a', rt, onReap)
 
     expect(pool.evictToCapacity(0)).toBe(1)
-    vi.advanceTimersByTime(1000)
 
     expect(rt.closed).toBe(1)
     expect(onReap).toHaveBeenCalledTimes(1)
     expect(pool.size).toBe(0)
-    vi.useRealTimers()
   })
 })

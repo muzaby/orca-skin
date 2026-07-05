@@ -5,8 +5,8 @@
 //
 // 0054(Persistent governance): Persistent close 정책 핸들의 **cross-turn 재사용 + idle 보존/회수**를
 // 더한다(RuntimePool 합성). 핵심 분리 = **turn teardown(release) ≠ runtime close(releaseRuntime)**.
-// OneShot 은 매 턴 fresh·즉시 close(동작 보존), Persistent 만 풀에 idle 로 살아남아 IdleCloseTimer 로
-// 회수된다.
+// 0067: 세션 수명 = 프로그램 종료 or LRU 축출만(IdleCloseTimer 폐기) — idle 핸들은 cap 초과 시
+// LRU eviction 으로만 회수된다(기본 cap 5, bootstrap 주입).
 //
 // 0055(Resource governance): cap count 대상은 SessionRuntime population(active registry + idle pool)이고,
 // eviction victim 은 idle runtime only 다. active 턴 핸들을 닫아 cap 을 맞추지 않는다(reject/queue 는
@@ -118,10 +118,15 @@ export class RuntimeSupervisor<W = unknown> {
     return factory()
   }
 
-  // 런타임 반납 — 정상 종료(state==='live')한 reusable 핸들만 idle 보존(IdleCloseTimer 무장).
-  // 그 외(에러·중단·OneShot·sessionId 미확정)는 즉시 close. turn teardown(release)과 분리된 경로.
+  // 런타임 반납 — reusable 핸들의 idle 보존. 'live'(정상 종료)에 더해 'interrupting'(취소 직후 —
+  // interrupt 잔여 드레인이 배경에서 terminal 로 live 복귀, 0067 AC3 "취소 후 같은 채널 재사용")도
+  // 보존한다. 그 외(에러·OneShot·sessionId 미확정)는 즉시 close. turn teardown(release)과 분리.
   releaseRuntime(sessionId: string | null, runtime: ManagedRuntime): void {
-    if (runtime.reusable && runtime.state === 'live' && this.pool.keepIdle(sessionId, runtime)) {
+    if (
+      runtime.reusable &&
+      (runtime.state === 'live' || runtime.state === 'interrupting') &&
+      this.pool.keepIdle(sessionId, runtime)
+    ) {
       this.enforceCap()
       return
     }
