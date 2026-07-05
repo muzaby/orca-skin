@@ -14,10 +14,17 @@ export function LoginView(): React.JSX.Element {
 
   return (
     <div className="flex w-full max-w-[360px] flex-col items-center gap-7 px-6">
+      <h1 className="flex flex-col items-center gap-1 text-center leading-none">
+        <span className="text-5xl font-bold tracking-tight text-ink">Orca</span>
+        <span className="text-sm font-semibold uppercase tracking-[0.25em]">
+          <span className="text-ink2">with </span>
+          <span className="text-accent">Claude Code</span>
+        </span>
+      </h1>
       <img
         src={orca}
         alt="Orca"
-        className="h-40 w-40 select-none object-contain"
+        className="h-56 w-56 select-none object-contain"
         draggable={false}
       />
       <div className="w-full rounded-r6 border border-border bg-panel p-6 shadow-xl">
