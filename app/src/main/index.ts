@@ -4,6 +4,7 @@ import { existsSync } from 'fs'
 import { pathToFileURL } from 'url'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
+import iconIco from '../../resources/icon.ico?asset'
 import { Bootstrap } from './app/bootstrap'
 import { closeDb } from './infra/db'
 import { CHANNELS } from '../shared/ipc'
@@ -76,7 +77,15 @@ function createWindow(settings: SettingsStore): void {
     ...(process.platform === 'darwin'
       ? { titleBarStyle: 'hidden' as const, trafficLightPosition: { x: 12, y: 10 } }
       : {}),
-    ...(process.platform === 'linux' ? { icon } : {}),
+    // 실행 중 창/작업표시줄 아이콘. Windows 는 다해상도 투명 .ico, Linux 는 png.
+    // dev 에서 electron.exe 기본(시스템) 아이콘을 대체한다. packaged .exe 파일 아이콘은
+    // electron-builder 가 build/icon.ico 로 별도 설정하는 별개 경로. macOS dock 은
+    // 앱 번들 아이콘을 따르므로(BrowserWindow.icon 무효) 미설정.
+    ...(process.platform === 'win32'
+      ? { icon: iconIco }
+      : process.platform === 'linux'
+        ? { icon }
+        : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
