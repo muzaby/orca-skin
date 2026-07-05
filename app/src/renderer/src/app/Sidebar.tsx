@@ -1,6 +1,7 @@
 import { memo, useCallback, useRef, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { Icon, type IconName } from '../shared/ui/Icon'
+import { OrcaLogo } from '../shared/ui/OrcaLogo'
 import { useTweakContext } from '../shared/theme'
 import { useDragResize } from '../shared/hooks/useDragResize'
 
@@ -132,9 +133,7 @@ function SidebarImpl({ sessionsSlot, footerSlot }: SidebarProps): React.JSX.Elem
       >
         <div className="app-frame-sidebar-body flex min-h-0 flex-1 flex-col">
           <div className="app-frame-sidebar-brand flex items-center gap-2 px-3 pb-1.5 pt-2.5">
-            <span className="text-[18px] leading-none" aria-hidden>
-              🐋
-            </span>
+            <OrcaLogo className="h-[18px] w-auto flex-none text-ink" />
             <span className="font-serif text-[16px] font-semibold tracking-tight text-ink">
               Orca
             </span>
