@@ -692,6 +692,8 @@ export interface Settings {
   mcpMeta: Record<string, { description: string }>
   // Skill enabled on/off (키 = sourceId/name). 부재 ⇒ enabled=true.
   skillEnabled: Record<string, boolean>
+  // SSO 로그인 게이트 우회. true 면 앱 시작 시 로그인 화면을 건너뛴다(디버그 패널에서 토글).
+  ssoBypass: boolean
 }
 
 export type SettingsPatch = Partial<Settings>

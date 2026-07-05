@@ -359,7 +359,8 @@ export const SettingsSchema = z.object({
   // Orca 전용 per-server 메타(description). mcp.json 은 순정 Claude mcpServers 스키마만
   // 담으므로 Claude 스키마에 없는 필드는 여기(앱 설정)에 둔다. 키 = 서버 name.
   mcpMeta: z.record(z.string(), z.object({ description: z.string().default('') })).default({}),
-  skillEnabled: z.record(z.string(), z.boolean()).default({})
+  skillEnabled: z.record(z.string(), z.boolean()).default({}),
+  ssoBypass: z.boolean().default(false)
 })
 
 export const SettingsPatchSchema = z
@@ -373,7 +374,8 @@ export const SettingsPatchSchema = z
     windowBounds: WindowBoundsSchema.nullable(),
     mcpEnabled: z.record(z.string(), z.boolean()),
     mcpMeta: z.record(z.string(), z.object({ description: z.string().default('') })),
-    skillEnabled: z.record(z.string(), z.boolean())
+    skillEnabled: z.record(z.string(), z.boolean()),
+    ssoBypass: z.boolean()
   })
   .partial()
 

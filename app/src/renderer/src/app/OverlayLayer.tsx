@@ -1,6 +1,7 @@
 import { backendActions, useInstallerOpen } from '../features/backend'
 import { chatActions, useChatSession } from '../features/chat'
 import { DebugPanel } from '../features/debug'
+import { SsoDebugSection } from '../features/login'
 import { InstallerDialog, AuthExpiredModal } from '../features/backend'
 import { SearchModal } from './SearchModal'
 
@@ -52,7 +53,9 @@ export function OverlayLayer({ searchOpen, onCloseSearch }: OverlayLayerProps): 
         {searchOpen && <SearchModal onClose={onCloseSearch} />}
       </div>
       <div id="app-frame-debug" className="pointer-events-none z-30" data-context="debug">
-        <div className="pointer-events-auto">{import.meta.env.DEV && <DebugPanel />}</div>
+        <div className="pointer-events-auto">
+          {import.meta.env.DEV && <DebugPanel ssoSection={<SsoDebugSection />} />}
+        </div>
       </div>
     </>
   )
