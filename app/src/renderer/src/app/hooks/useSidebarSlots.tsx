@@ -1,5 +1,6 @@
 import { useMemo, type ReactNode } from 'react'
 import { SessionList } from '../../features/sessions'
+import { SidebarUserButton } from '../SidebarUserButton'
 import type { SessionHandlers } from './useSessionHandlers'
 
 export interface SidebarSlots {
@@ -11,9 +12,9 @@ export interface SidebarSlots {
 // 해야 한다. AppLayout 이 chat.state.inflight 토글 등으로 리렌더돼도 slot identity 가
 // 유지되어 Sidebar 가 skip 된다.
 export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
-  // footer BackendStatus 는 보류 — 설치/백엔드 상태 기능이 완성되기 전까지 노출하지 않는다
-  // (사용자 지시). footerSlot 이 비면 Sidebar 가 footer 컨테이너 자체를 렌더하지 않는다.
-  const footerSlot = null
+  // footer = 사용자 버튼(이메일/developer + 팝오버 메뉴 + 설정 모달). 안정 identity 로
+  // 두어 Sidebar memo 를 유지한다(자체 상태는 컴포넌트 내부 useState 로 격리).
+  const footerSlot = useMemo(() => <SidebarUserButton />, [])
   const sessionsSlot = useMemo(
     () => (
       <SessionList

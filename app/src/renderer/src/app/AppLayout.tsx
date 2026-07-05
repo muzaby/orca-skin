@@ -7,6 +7,7 @@ import { OverlayLayer } from './OverlayLayer'
 import { AppRouter } from './router'
 import { useChatRouteSync } from './hooks/useChatRouteSync'
 import { useChatSessionsSync } from './hooks/useChatSessionsSync'
+import { useCompletionNotifier } from './hooks/useCompletionNotifier'
 import { useSessionHandlers } from './hooks/useSessionHandlers'
 import { useSidebarSlots } from './hooks/useSidebarSlots'
 
@@ -20,6 +21,7 @@ export function AppLayout(): React.JSX.Element {
 
   useChatRouteSync()
   useChatSessionsSync()
+  useCompletionNotifier()
   const handlers = useSessionHandlers()
   const slots = useSidebarSlots(handlers)
 
@@ -31,7 +33,7 @@ export function AppLayout(): React.JSX.Element {
 
   return (
     <div
-      className="app-frame-root flex h-full w-full flex-col overflow-hidden bg-bg font-sans text-[13px] leading-[1.45] text-ink"
+      className="app-frame-root flex h-full w-full flex-col overflow-hidden bg-bg [font-family:var(--font-app)] text-[13px] leading-[1.45] text-ink"
       data-screen-label={`Orca · ${info.label}`}
     >
       <Header onOpenSearch={openSearch} />

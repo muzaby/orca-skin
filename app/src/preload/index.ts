@@ -26,6 +26,7 @@ import {
   type SessionTitleEvent,
   type Settings,
   type SettingsPatch,
+  type NotifyShow,
   type SkillInfo,
   type AuthorSkillRequest,
   type UploadSkillRequest,
@@ -184,6 +185,10 @@ const orca = {
     getMock: (): Promise<DebugMockState> => ipcRenderer.invoke(CHANNELS.debugGetMock),
     setMock: (patch: Partial<DebugMockState>): Promise<DebugMockState> =>
       ipcRenderer.invoke(CHANNELS.debugSetMock, patch)
+  },
+  // OS 네이티브 알림(응답완료 등). main 이 창 포커스 여부로 표시를 게이트한다.
+  notify: {
+    show: (req: NotifyShow): Promise<void> => ipcRenderer.invoke(CHANNELS.notifyShow, req)
   },
   // 데스크톱 플랫폼 식별자. renderer 의 `<html data-platform>` 에 부착되고,
   // WinControls 가 macOS 에서 null 을 반환하는 분기 등에 사용.

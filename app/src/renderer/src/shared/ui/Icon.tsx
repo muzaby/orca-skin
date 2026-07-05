@@ -49,6 +49,8 @@ export type IconName =
   | 'stop'
   | 'enter'
   | 'fork'
+  | 'sun'
+  | 'moon'
 
 const ICONS: Record<IconName, string> = {
   chat: 'M3 4h10a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H7l-3 2.5V12H3a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1z',
@@ -107,7 +109,11 @@ const ICONS: Record<IconName, string> = {
   // enter — Enter/return 키 기호(↵). 우측에서 내려와 좌측으로 꺾이는 화살표. 컴포저 전송 버튼.
   enter: 'M13 4v4a1 1 0 0 1-1 1H4M7 6 4 9l3 3',
   // fork — git-branch(분기). 세로 줄기 + 아래 노드 + 위 우측 노드에서 줄기로 합류하는 곡선.
-  fork: 'M4 2v8M4 10a2 2 0 1 0 0 4 2 2 0 1 0 0-4M12 2a2 2 0 1 0 0 4 2 2 0 1 0 0-4M12 6a6 6 0 0 1-6 6'
+  fork: 'M4 2v8M4 10a2 2 0 1 0 0 4 2 2 0 1 0 0-4M12 2a2 2 0 1 0 0 4 2 2 0 1 0 0-4M12 6a6 6 0 0 1-6 6',
+  // sun — 화이트(라이트) 테마 아이콘. 중앙 원 + 8방향 광선.
+  sun: 'M8 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6M8 1v2M8 13v2M3 3l1.4 1.4M11.6 11.6L13 13M1 8h2M13 8h2M3 13l1.4-1.4M11.6 4.4L13 3',
+  // moon — 다크 테마 아이콘. 초승달(단일 path 크레센트).
+  moon: 'M13 9.6A5.5 5.5 0 1 1 6.4 3 4.5 4.5 0 0 0 13 9.6z'
 }
 
 export interface IconProps {

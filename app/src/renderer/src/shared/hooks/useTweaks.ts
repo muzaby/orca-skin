@@ -2,18 +2,26 @@ import { useCallback, useEffect, useState } from 'react'
 import type { ThemeId, DensityId } from '../config/theme'
 import { settingsApi } from '../api/ipc'
 
+export type AppFontId = 'sans' | 'serif' | 'mono'
+
 export interface Tweaks {
   theme: ThemeId
   density: DensityId
   sidebarCollapsed: boolean
   sidebarWidth: number
+  // 앱 전체 폰트(설정 모달). TweakProvider 가 --font-app var 로 적용.
+  appFont: AppFontId
+  // 응답완료 알림 토글. 완료 감지 훅(useCompletionNotifier)이 이 값을 읽어 알림 요청.
+  notifyOnComplete: boolean
 }
 
 const DEFAULTS: Tweaks = {
   theme: 'white',
   density: 'normal',
   sidebarCollapsed: false,
-  sidebarWidth: 248
+  sidebarWidth: 248,
+  appFont: 'sans',
+  notifyOnComplete: false
 }
 
 // settings 영속화와 양방향 바인딩되는 Tweaks 훅.
@@ -30,7 +38,9 @@ export function useTweaks(): [Tweaks, <K extends keyof Tweaks>(key: K, val: Twea
         theme: s.theme,
         density: s.density,
         sidebarCollapsed: s.sidebarCollapsed,
-        sidebarWidth: s.sidebarWidth
+        sidebarWidth: s.sidebarWidth,
+        appFont: s.appFont,
+        notifyOnComplete: s.notifyOnComplete
       })
     })
     return () => {

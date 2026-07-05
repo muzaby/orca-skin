@@ -63,7 +63,8 @@ export const CHANNELS = {
   engineAdd: 'orca:engine:add',
   engineUpdate: 'orca:engine:update',
   engineDelete: 'orca:engine:delete',
-  engineRead: 'orca:engine:read'
+  engineRead: 'orca:engine:read',
+  notifyShow: 'orca:notify:show'
 } as const
 
 // dev 전용 MockAdapter 시나리오. ProviderId/Backend 에 mock 을 추가하지 않고 claude 로
@@ -694,9 +695,21 @@ export interface Settings {
   skillEnabled: Record<string, boolean>
   // SSO 로그인 게이트 우회. true 면 앱 시작 시 로그인 화면을 건너뛴다(디버그 패널에서 토글).
   ssoBypass: boolean
+  // 계정 지침(설정 모달 프로필 그룹). 영속화만 — system prompt 배선은 추후.
+  accountInstructions: string
+  // 앱 전체 폰트. --font-{sans,serif,mono} 에 매핑.
+  appFont: 'sans' | 'serif' | 'mono'
+  // 응답완료 알림 토글.
+  notifyOnComplete: boolean
 }
 
 export type SettingsPatch = Partial<Settings>
+
+// OS 네이티브 알림 요청(renderer → main). 런타임 검증은 protocol.ts NotifyShowSchema.
+export interface NotifyShow {
+  title: string
+  body: string
+}
 
 // 스킬 카탈로그 — main 이 ~/.claude/skills/ 와 <cwd>/.claude/skills/ 의 SKILL.md
 // frontmatter 를 부팅 시 스캔한 결과. 슬래시 명령 자동완성 UI 용.

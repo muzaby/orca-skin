@@ -7,10 +7,15 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+// SSO 인증 결과 — 성공 시 사용자 이메일을 넘긴다(사이드바 사용자 버튼 표기용).
+export interface SsoResult {
+  email: string
+}
+
 // 항상 실패. inflight 애니메이션이 보이도록 실제 네트워크 왕복을 흉내낸 지연 후 throw.
-export async function runSso(): Promise<void> {
+export async function runSso(): Promise<SsoResult> {
   await delay(SSO_LATENCY_MS)
-  // TODO(sso): 실제 SSO 인증 로직으로 교체. 성공 시 resolve, 실패 시 throw.
+  // TODO(sso): 실제 SSO 인증 로직으로 교체. 성공 시 { email } resolve, 실패 시 throw.
   throw new Error('SSO not implemented')
 }
 
