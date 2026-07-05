@@ -3,6 +3,7 @@ import { useTweakContext } from '../../../shared/theme'
 import { settingsApi } from '../../../shared/api/ipc'
 import { Toggle } from '../../../shared/ui/Toggle'
 import { Icon } from '../../../shared/ui/Icon'
+import { AutoGrowTextarea } from '../../../shared/ui/AutoGrowTextarea'
 import type { ThemeId } from '../../../shared/config/theme'
 import type { AppFontId } from '../../../shared/hooks/useTweaks'
 import { SettingsGroup, SettingsRow } from './parts'
@@ -54,15 +55,22 @@ export function GeneralTab(): React.JSX.Element {
           description="모든 대화에 적용되는 지침입니다. 저장 후 영속되며, 시스템 프롬프트 배선은 추후 제공됩니다."
           stacked
         >
-          <textarea
+          <AutoGrowTextarea
             value={draft}
-            onChange={(e) => setDraft(e.target.value)}
+            onChange={setDraft}
             placeholder={ACCOUNT_PLACEHOLDER}
-            rows={3}
-            className="w-full resize-y rounded-r4 border border-border bg-bg px-3 py-2 text-[13px] leading-snug text-ink outline-none placeholder:text-ink3 focus:border-border-strong"
+            ariaLabel="계정 지침"
+            className="min-h-[76px] max-h-56"
           />
           {dirty && (
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDraft(saved)}
+                className="cursor-pointer rounded-r4 border border-border bg-transparent px-3.5 py-1.5 text-[12.5px] font-medium text-ink hover:bg-fill-uncontained-hover"
+              >
+                취소
+              </button>
               <button
                 type="button"
                 onClick={onSave}

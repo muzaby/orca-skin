@@ -4,16 +4,11 @@ import { Icon } from '../shared/ui/Icon'
 import { useLoginStore } from '../features/login'
 import { SettingsModal } from '../features/settings'
 
-// 언어 서브메뉴 목록 — 참조 디자인(이미지1)의 언어들을 나열하되 한국어만 활성/체크,
-// 나머지는 비활성(inert) 표기. (실제 배선은 한국어 1개.)
+// 언어 서브메뉴 목록 — 영어(비활성/inert)와 한국어(활성/체크)만 노출.
+// (실제 배선은 한국어 1개.)
 const LANGUAGES: { label: string; active: boolean }[] = [
   { label: 'English (United States)', active: false },
-  { label: 'Français (France)', active: false },
-  { label: 'Deutsch (Deutschland)', active: false },
-  { label: '日本語 (日本)', active: false },
-  { label: '한국어 (대한민국)', active: true },
-  { label: 'Português (Brasil)', active: false },
-  { label: 'Español (España)', active: false }
+  { label: '한국어 (대한민국)', active: true }
 ]
 
 const MENU_ITEM =
@@ -82,40 +77,48 @@ export function SidebarUserButton(): React.JSX.Element {
           <span>설정</span>
         </button>
 
-        {/* 언어 — 클릭 시 인라인 서브메뉴 확장 */}
-        <button
-          type="button"
-          role="menuitem"
-          aria-expanded={langOpen}
-          onClick={() => setLangOpen((v) => !v)}
-          className={MENU_ITEM}
-        >
-          <Icon name="chat" size={14} />
-          <span className="flex-1">언어</span>
-          <Icon name={langOpen ? 'chevD' : 'chevR'} size={13} />
-        </button>
-        {langOpen && (
-          <div className="mt-0.5 flex flex-col border-t border-border pt-0.5">
-            {LANGUAGES.map((lang) => (
-              <button
-                key={lang.label}
-                type="button"
-                role="menuitemradio"
-                aria-checked={lang.active}
-                disabled={!lang.active}
-                onClick={lang.active ? closeMenu : undefined}
-                className={`flex w-full items-center gap-2 rounded-md border-0 bg-transparent py-1.5 pl-8 pr-2.5 text-left text-[12.5px] ${
-                  lang.active
-                    ? 'cursor-pointer text-ink hover:bg-sidebar'
-                    : 'cursor-not-allowed text-ink3'
-                }`}
-              >
-                <span className="flex-1">{lang.label}</span>
-                {lang.active && <Icon name="check" size={13} />}
-              </button>
-            ))}
-          </div>
-        )}
+        {/* 언어 — 클릭 시 우측으로 확장되는 플라이아웃 팝오버(서브메뉴).
+            부모 팝오버 패널 내부에 absolute left-full 로 두어 부모 dismiss 트리에
+            함께 묶는다(패널 밖 클릭만 닫힘). */}
+        <div className="relative">
+          <button
+            type="button"
+            role="menuitem"
+            aria-haspopup="menu"
+            aria-expanded={langOpen}
+            onClick={() => setLangOpen((v) => !v)}
+            className={`${MENU_ITEM} ${langOpen ? 'bg-sidebar text-ink' : ''}`}
+          >
+            <Icon name="chat" size={14} />
+            <span className="flex-1">언어</span>
+            <Icon name="chevR" size={13} />
+          </button>
+          {langOpen && (
+            <div
+              role="menu"
+              className="absolute bottom-0 left-full z-10 ml-1 flex min-w-[200px] flex-col rounded-lg border border-border bg-panel p-1 shadow-lg"
+            >
+              {LANGUAGES.map((lang) => (
+                <button
+                  key={lang.label}
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={lang.active}
+                  disabled={!lang.active}
+                  onClick={lang.active ? closeMenu : undefined}
+                  className={`flex w-full items-center gap-2 rounded-md border-0 bg-transparent px-2.5 py-1.5 text-left text-[12.5px] ${
+                    lang.active
+                      ? 'cursor-pointer text-ink hover:bg-sidebar'
+                      : 'cursor-not-allowed text-ink3'
+                  }`}
+                >
+                  <span className="flex-1">{lang.label}</span>
+                  {lang.active && <Icon name="check" size={13} />}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </Popover>
 
       <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
