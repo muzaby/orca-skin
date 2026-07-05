@@ -25,6 +25,18 @@ import type { PendingMessageQueue } from './pending-message-queue'
 export const MAX_RETRIES = 2
 export const RETRY_BACKOFF_MS = [1_000, 2_000] as const
 
+// "응답이 시작됐다" 판정 집합(0069) — 턴-시작 배치(프렐류드+프롬프트)의 소비 앵커. 델타
+// (transient)도 포함한다: 소비 *증거* 는 영속 여부와 무관하고, 커밋은 어차피 같은 이벤트의
+// persist 직전(commitConsumed)에 돈다. 서브에이전트 child 출력은 부모 tool.call.started
+// (집합 포함)보다 늦으므로 앵커 누락이 없다.
+const MODEL_OUTPUT_EVENTS = new Set<string>([
+  'message.delta',
+  'message.reasoning.delta',
+  'message.reasoning',
+  'message.completed',
+  'tool.call.started'
+])
+
 // retry backoff 대기 — 턴 abort 시 즉시 reject 해 무의미한 대기를 끊는다.
 export function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -158,6 +170,19 @@ export class TurnCoordinator<W = unknown> {
     const { backgroundSubagents } = this.deps
     const { boundProjectId } = opts
 
+    // 턴-시작 배치(프렐류드+프롬프트)는 **응답 시작 = 소비 증거**(0069, 사용자 확정) — 모델이
+    // 출력을 냈다는 것은 턴을 연 입력을 이미 봤다는 뜻이다(CLI 는 턴 시작에 프렐류드+프롬프트를
+    // coalesce 소비, 명세 C9). echo 를 기다리지 않으므로 user row 가 항상 첫 영속 어시스턴트
+    // 파트보다 먼저 커밋된다(도구-first 턴의 재로드 정렬 창 소멸 — 0068 실측: echo 는 모델 출력
+    // 시작 이후 도착). steer(mid-turn 게이트 flush)는 응답 진행이 소비 증거가 못 되므로(D2)
+    // echo 가 유일한 신호로 유지된다. 늦게 도착하는 턴-시작 echo 는 consumed 배치 매칭 실패로
+    // 무해(markConsumed 는 미소비만 매칭).
+    const turnOpenUuids = [
+      ...(request.preludes?.map((batch) => batch.uuid) ?? []),
+      ...(request.promptUuid !== undefined ? [request.promptUuid] : [])
+    ]
+    let turnOpenConsumed = turnOpenUuids.length === 0
+
     for (let attempt = 0; ; attempt += 1) {
       let eventsReceived = 0
       let sawTerminal = false
@@ -186,6 +211,14 @@ export class TurnCoordinator<W = unknown> {
               wireLog('input.echo', { uuid: ev.uuid, text: ev.text.slice(0, 80) })
               this.markSteerConsumed(turn, ev)
               continue
+            }
+            // 턴-시작 배치 소비 판정(0069) — 첫 모델 출력 관측 시 프렐류드+프롬프트를 일괄
+            // 소비 표시한다. 바로 아래 commitConsumed 가 같은 이벤트의 persist 전에 커밋한다.
+            if (!turnOpenConsumed && turn.dbSessionId && MODEL_OUTPUT_EVENTS.has(ev.type)) {
+              for (const uuid of turnOpenUuids) {
+                this.deps.pendingMessages?.markConsumed(turn.dbSessionId, { uuid })
+              }
+              turnOpenConsumed = true
             }
             // echo 배치 종료 지점 — 소비 확정분을 이 이벤트의 persist *전에* flush 해 DB 정렬
             // [응답-전][steer user][응답-후] 를 보존한다(persistSteerUserMessage 가 진행 중

@@ -138,9 +138,11 @@ export interface TurnRequest {
   isSubagentBlocked?: (subagentType: string | undefined) => boolean
   attachmentTexts?: ExtractedAttachmentText[]
   attachmentImages?: ExtractedAttachmentImage[]
-  // 스폰 턴 프롬프트의 echo 상관키(0067 AC6) — TurnContinuation.promptUuid 와 대칭.
+  // 스폰 턴 프롬프트의 소비 상관키(0067 AC6) — TurnContinuation.promptUuid 와 대칭.
+  // 소비 확정 앵커는 응답 시작(첫 모델 출력, 0069 — echo 불요, coordinator 소유).
   promptUuid?: string
   // 스폰 시 본 프롬프트 *앞에* 선적재할 이월 배치(0067 — 채널 사망 후 잔여 pending 재전달).
-  // 각 배치는 자기 uuid 의 개별 user 메시지로 주입돼 개별 echo→커밋된다(버블 구조 보존).
+  // 각 배치는 자기 uuid 의 개별 user 메시지로 주입되고, 프롬프트와 함께 응답 시작에서
+  // 개별 배치로 커밋된다(버블 구조 보존, 0069).
   preludes?: SteerFlushBatch[]
 }

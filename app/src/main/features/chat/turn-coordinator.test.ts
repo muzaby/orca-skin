@@ -385,6 +385,123 @@ describe('TurnCoordinator.run — steer 커밋 (user echo 기반, handoff 0060 D
   })
 })
 
+describe('TurnCoordinator.run — 턴-시작 배치 소비 (응답 시작 증거, 0069)', () => {
+  const output = {
+    type: 'message.completed',
+    sessionId: 's1',
+    message: { text: 'answer' }
+  } as unknown as NormalizedEvent
+  const toolFirst = {
+    type: 'tool.call.started',
+    sessionId: 's1',
+    toolRunId: 't1',
+    toolName: 'Bash'
+  } as unknown as NormalizedEvent
+  const echo = (t: string, uuid: string): NormalizedEvent =>
+    ({ type: 'input.echo', sessionId: 's1', text: t, uuid }) as unknown as NormalizedEvent
+
+  // 턴 프롬프트(uuid=p1, flushItem)와 선택적 프렐류드/steer 배치를 큐에 세팅하고 코디네이터를
+  // 돌린다 — request 에 promptUuid(+preludes)를 실어 chat-turn 배선을 시뮬레이트한다.
+  async function runTurnOpen(
+    script: NormalizedEvent[],
+    opts: { preludeIds?: string[]; steerIds?: string[] } = {}
+  ): Promise<{
+    types: string[]
+    commitUser: ReturnType<typeof vi.fn>
+    pendingMessages: PendingMessageQueue
+  }> {
+    const runtime = fakeRuntime([script])
+    const pendingMessages = new PendingMessageQueue()
+    const preludes = (opts.preludeIds ?? []).map((id) => {
+      pendingMessages.enqueue('s1', { text: `carry-${id}` }, Date.now(), id)
+      return pendingMessages.flushItem('s1', id)!
+    })
+    pendingMessages.enqueue('s1', { text: 'hello' }, Date.now(), 'p1')
+    const mainBatch = pendingMessages.flushItem('s1', 'p1')!
+    for (const id of opts.steerIds ?? []) {
+      pendingMessages.enqueue('s1', { text: `steer-${id}` }, Date.now(), id)
+      pendingMessages.flushHeld('s1', id)
+    }
+    const commitUser = vi.fn(() => 42)
+    const deps = makeDeps(runtime, {
+      pendingMessages,
+      persist: {
+        persist: vi.fn(),
+        flushAskAnswers: vi.fn(),
+        commitUserMessage: commitUser
+      } as unknown as TurnCoordinatorDeps<W>['persist']
+    })
+    const turn = makeTurn()
+    turn.dbSessionId = 's1'
+    const request = {
+      sessionId: 's1',
+      text: mainBatch.text,
+      promptUuid: mainBatch.uuid,
+      ...(preludes.length > 0 ? { preludes } : {})
+    } as unknown as TurnRequest
+    await new TurnCoordinator(deps).run(turn, request, { boundProjectId: null })
+    const types = (deps.forward.forward as ReturnType<typeof vi.fn>).mock.calls.map(
+      (c) => (c[1] as NormalizedEvent).type
+    )
+    return { types, commitUser, pendingMessages }
+  }
+
+  it('echo 없이 첫 모델 출력에서 턴 프롬프트가 커밋된다 — 출력 이벤트 forward 이전', async () => {
+    const { types, commitUser, pendingMessages } = await runTurnOpen([
+      sessionUpdated,
+      output,
+      telemetry
+    ])
+    expect(commitUser).toHaveBeenCalledTimes(1)
+    expect((commitUser.mock.calls[0][1] as { text: string }).text).toBe('hello')
+    expect(types.indexOf('message.committed')).toBeLessThan(types.indexOf('message.completed'))
+    expect(pendingMessages.takeForRespawn('s1')).toEqual([])
+  })
+
+  it('도구-first 턴 — tool.call.started 앵커로 user row 가 도구 파트보다 먼저 커밋된다', async () => {
+    const { types, commitUser } = await runTurnOpen([sessionUpdated, toolFirst, telemetry])
+    expect(commitUser).toHaveBeenCalledTimes(1)
+    expect(types.indexOf('message.committed')).toBeLessThan(types.indexOf('tool.call.started'))
+  })
+
+  it('모델 출력이 없으면 소비하지 않는다 — respawn 이월 잔존(D2)', async () => {
+    const { commitUser, pendingMessages } = await runTurnOpen([sessionUpdated, telemetry])
+    expect(commitUser).not.toHaveBeenCalled()
+    expect(pendingMessages.takeForRespawn('s1').flatMap((b) => b.ids)).toEqual(['p1'])
+  })
+
+  it('늦은 턴-시작 echo 는 무해 — 이중 커밋 없음', async () => {
+    const { commitUser } = await runTurnOpen([
+      sessionUpdated,
+      output,
+      echo('hello', 'p1'),
+      telemetry
+    ])
+    expect(commitUser).toHaveBeenCalledTimes(1)
+  })
+
+  it('프렐류드 배치도 첫 출력에서 프롬프트와 함께 개별 배치로 커밋된다', async () => {
+    const { commitUser, pendingMessages } = await runTurnOpen([sessionUpdated, output, telemetry], {
+      preludeIds: ['c1', 'c2']
+    })
+    expect(commitUser).toHaveBeenCalledTimes(3)
+    expect(commitUser.mock.calls.map((c) => (c[1] as { text: string }).text)).toEqual([
+      'carry-c1',
+      'carry-c2',
+      'hello'
+    ])
+    expect(pendingMessages.takeForRespawn('s1')).toEqual([])
+  })
+
+  it('mid-turn 게이트 flush(steer)는 모델 출력로 소비되지 않는다 — echo 만(D2 보존)', async () => {
+    const { commitUser, pendingMessages } = await runTurnOpen([sessionUpdated, output, telemetry], {
+      steerIds: ['sA']
+    })
+    expect(commitUser).toHaveBeenCalledTimes(1) // 턴 프롬프트만
+    expect(pendingMessages.takeForRespawn('s1').flatMap((b) => b.ids)).toEqual(['sA'])
+  })
+})
+
 describe('TurnCoordinator.run — retry', () => {
   beforeEach(() => vi.useFakeTimers())
   afterEach(() => vi.useRealTimers())

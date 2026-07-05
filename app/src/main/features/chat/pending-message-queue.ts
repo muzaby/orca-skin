@@ -50,12 +50,17 @@ function toBatch(items: PendingMessage[], uuid: string): SteerFlushBatch {
 //     [held]     enqueue 직후. stdin 미주입 — 취소·수정 100% 가능.
 //     [flushed]  게이트 훅(PostToolBatch, flushHeld 병합 단일 배치) 또는 턴 프롬프트
 //                (flushItem/takeForRespawn, 아이템 단위)로 stdin 주입됨. 취소 불가.
-//     [consumed] CLI 가 배치를 흡수해 user echo 로 되돌린 상태(markConsumed) —
+//     [consumed] 소비 확정(markConsumed) — 신호는 배치 성격에 따라 둘(0069):
+//                · 턴-시작 배치(프롬프트·프렐류드) = 프레임의 **첫 모델 출력**(응답 시작이
+//                  곧 소비 증거 — coordinator MODEL_OUTPUT_EVENTS 앵커, echo 불요)
+//                · steer 배치(mid-turn 게이트 flush) = CLI **user echo**(uuid 매칭 — 응답
+//                  진행은 소비 증거가 못 되므로(D2) echo 가 유일한 정밀 신호)
 //                drainConsumedBatches 가 배치 단위로 커밋 대상 회수.
 //
-// 커밋은 echo 단일 경로(0067 AC6) — 훅(PostToolBatch/UserPromptSubmit)은 주입 제어 계층이지
-// 커밋 신호가 아니다. renderer 는 message.queued/committed/cancelled 로 큐를 간접 관찰하고,
-// 취소(cancel/cancelAllHeld)는 held 창 안에서만 성립한다.
+// 훅(PostToolBatch/UserPromptSubmit)은 주입 제어 계층이지 커밋 신호가 아니다(0068 실측 —
+// UserPromptSubmit 은 uuid 부재+init 이전 발화라 상관 불가). renderer 는 message.queued/
+// committed/cancelled 로 큐를 간접 관찰하고, 취소(cancel/cancelAllHeld)는 held 창 안에서만
+// 성립한다.
 export class PendingMessageQueue {
   private readonly heldBySession = new Map<string, PendingMessage[]>()
   private readonly flushedBySession = new Map<string, FlushedBatch[]>()
