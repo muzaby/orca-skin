@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest'
-import { chatReducer, initialChatState } from './chatReducer'
+import { chatReducer, initialChatState, type ChatState } from './chatReducer'
+
+// 0067 pending-first — 구 SEND_USER_MESSAGE 의 테스트 등가물(BEGIN_TURN + echo 커밋 승격).
+const sendUser = (s: ChatState, text: string): ChatState =>
+  chatReducer(chatReducer(s, { type: 'BEGIN_TURN' }), {
+    type: 'APPEND_COMMITTED_USER_MESSAGE',
+    text
+  })
 
 describe('chatReducer — 권한 모드', () => {
   it('기본값은 plan', () => {
@@ -21,12 +28,12 @@ describe('chatReducer — 권한 모드', () => {
     expect(fresh.permissionMode).toBe('plan')
   })
 
-  it('SEND_USER_MESSAGE 는 현재 모드를 유지', () => {
+  it('턴 시작(BEGIN_TURN)·커밋은 현재 모드를 유지', () => {
     const edited = chatReducer(initialChatState, {
       type: 'SET_PERMISSION_MODE',
       mode: 'accept_edits'
     })
-    const sent = chatReducer(edited, { type: 'SEND_USER_MESSAGE', text: 'hi' })
+    const sent = sendUser(edited, 'hi')
     expect(sent.permissionMode).toBe('accept_edits')
   })
 })

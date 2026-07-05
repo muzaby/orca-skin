@@ -44,7 +44,12 @@ beforeEach(() => {
   permissionRespond = vi.fn().mockResolvedValue(undefined)
   vi.stubGlobal('window', {
     orca: {
-      chat: { send: chatSend, cancel: vi.fn(), onEvent: vi.fn() },
+      chat: {
+        send: chatSend,
+        cancel: vi.fn(),
+        cancelSteer: vi.fn().mockResolvedValue(undefined),
+        onEvent: vi.fn()
+      },
       settings: { set: settingsSet },
       permission: { respond: permissionRespond, setMode: vi.fn() }
     }
@@ -62,7 +67,8 @@ beforeEach(() => {
       pendingNewChatKey: null,
       newChatQueue: [],
       recentsEpoch: 0,
-      concurrencyByProjectId: {}
+      concurrencyByProjectId: {},
+      draftRestore: null
     },
     true
   )
@@ -272,10 +278,15 @@ describe('chatStore — 멀티세션 키 라우팅 (handoff 0013)', () => {
 
 describe('chatStore — 0040 새-채팅 직렬 디스패치 게이트', () => {
   function mockDraftIds(...ids: string[]): void {
-    let i = 0
-    vi.spyOn(crypto, 'randomUUID').mockImplementation(
-      () => (ids[i++] ?? `id-${i}`) as `${string}-${string}-${string}-${string}-${string}`
-    )
+    // 0067: 새-채팅 send() 는 UUID 를 [draftKey, clientRequestId] 순서로 2회 소비한다 —
+    // 짝수 번째 호출(draftKey)에만 지정 id 를 먹여 'draft:a' 류 기대값을 유지한다.
+    let call = 0
+    vi.spyOn(crypto, 'randomUUID').mockImplementation(() => {
+      const isDraftKey = call % 2 === 0
+      const id = isDraftKey ? (ids[call / 2] ?? `id-${call}`) : `req-${call}`
+      call += 1
+      return id as `${string}-${string}-${string}-${string}-${string}`
+    })
   }
 
   beforeEach(() => {
@@ -292,7 +303,8 @@ describe('chatStore — 0040 새-채팅 직렬 디스패치 게이트', () => {
         pendingNewChatKey: null,
         newChatQueue: [],
         recentsEpoch: 0,
-        concurrencyByProjectId: {}
+        concurrencyByProjectId: {},
+        draftRestore: null
       },
       true
     )
@@ -329,8 +341,9 @@ describe('chatStore — 0040 새-채팅 직렬 디스패치 게이트', () => {
     expect(chatSend).toHaveBeenLastCalledWith(expect.objectContaining({ text: '첫 번째' }))
     expect(st.pendingNewChatKey).toBe('draft:a')
     expect(st.newChatQueue.map((item) => item.key)).toEqual(['draft:b'])
-    expect(partsText(st.sessions['draft:a'].session.messages[0].parts)).toBe('첫 번째')
-    expect(partsText(st.sessions['draft:b'].session.messages[0].parts)).toBe('두 번째')
+    // pending-first(0067) — 커밋 버블이 아니라 pending 항목으로 시작(echo 커밋이 승격).
+    expect(st.sessions['draft:a'].pendingSteer?.map((i) => i.text)).toEqual(['첫 번째'])
+    expect(st.sessions['draft:b'].pendingSteer?.map((i) => i.text)).toEqual(['두 번째'])
     expect(st.activeKey).toBe('draft:b')
   })
 
@@ -374,9 +387,11 @@ describe('chatStore — 0040 새-채팅 직렬 디스패치 게이트', () => {
     expect(chatSend).toHaveBeenCalledTimes(3)
     expect(st.pendingNewChatKey).toBeNull()
     expect(st.newChatQueue).toEqual([])
-    expect(
-      ['s-a', 's-b', 's-c'].map((key) => partsText(st.sessions[key].session.messages[0].parts))
-    ).toEqual(['A', 'B', 'C'])
+    expect(['s-a', 's-b', 's-c'].map((key) => st.sessions[key].pendingSteer?.[0].text)).toEqual([
+      'A',
+      'B',
+      'C'
+    ])
   })
 
   it('init 전 sessionId 없는 error 는 pending draft 에 라우팅하고 큐를 진행한다', () => {
@@ -474,7 +489,7 @@ describe('chatStore — 0064 r4 핸드오프 에코 순서', () => {
     parts: [{ type: 'text', text }]
   })
 
-  it('조기 에코(sessionId 없는 message.user)가 pending draft 에 커밋되고 압축 요약보다 앞선다', () => {
+  it('자동 메시지가 pending(message.queued)으로 서고 echo 커밋(committed)이 요약보다 앞선다', () => {
     // 확정 세션 s(사용자 턴 2회, 턴 비진행) — startHandoff 가드 통과 상태.
     useChatStore.setState((st) => ({
       sessions: {
@@ -494,20 +509,31 @@ describe('chatStore — 0064 r4 핸드오프 에코 순서', () => {
     expect(chatActions.startHandoff()).toBe(true)
     const draftKey = useChatStore.getState().pendingNewChatKey!
     expect(draftKey).toMatch(/^draft:/)
-    expect(chatSend).toHaveBeenCalledWith(expect.objectContaining({ handoffFrom: 's' }))
+    expect(chatSend).toHaveBeenCalledWith(
+      expect.objectContaining({ handoffFrom: 's', clientKey: draftKey })
+    )
 
-    // main 은 send 수리 직후(턴 시작 전, sessionId 미발급) 에코를 발행한다(r4).
+    // main 은 enqueue 직후(턴 시작 전, sessionId 미발급) pending 등록을 발행한다(0067).
     ingestChatEvent({
-      type: 'message.user',
+      type: 'message.queued',
+      id: 'auto-1',
       text: '/compact [핸드오프] 자동 메시지',
       createdAt: 10
     })
-    expect(partsText(entry(draftKey).session.messages[0].parts)).toBe(
+    expect(useChatStore.getState().sessions[draftKey].pendingSteer?.map((i) => i.text)).toEqual([
       '/compact [핸드오프] 자동 메시지'
-    )
+    ])
 
-    // 이후 SDK 이벤트가 어떤 순서로 오든 user 버블이 항상 요약보다 앞이다.
+    // 스트림 순서: init → echo 커밋(committed, main 이 요약 전에 발신) → 압축 경계 → 요약.
     ingestChatEvent({ type: 'session.updated', sessionId: 'ho', patch: {} })
+    ingestChatEvent({
+      type: 'message.committed',
+      sessionId: 'ho',
+      ids: ['auto-1'],
+      text: '/compact [핸드오프] 자동 메시지',
+      messageId: 1,
+      createdAt: 10
+    })
     ingestChatEvent({ type: 'session.compacted', sessionId: 'ho', trigger: 'manual' })
     ingestChatEvent({ type: 'message.completed', sessionId: 'ho', message: { text: '압축 요약' } })
     ingestChatEvent({ type: 'telemetry', sessionId: 'ho' })
@@ -517,9 +543,10 @@ describe('chatStore — 0064 r4 핸드오프 에코 순서', () => {
     expect(partsText(msgs[0].parts)).toBe('/compact [핸드오프] 자동 메시지')
     expect(msgs[1].parts.map((p) => p.type)).toEqual(['compact_boundary', 'text'])
     expect(entry('ho').session.inflight).toBe(false)
+    expect(useChatStore.getState().sessions.ho.pendingSteer).toEqual([])
   })
 
-  it('승격이 늦어 요약이 폴백 라우팅돼도 draft 안에서 [user 에코 → 요약] 순서가 유지된다', () => {
+  it('승격이 늦어 committed/요약이 폴백 라우팅돼도 draft 안에서 [user → 요약] 순서가 유지된다', () => {
     useChatStore.setState((st) => ({
       sessions: {
         ...st.sessions,
@@ -537,9 +564,17 @@ describe('chatStore — 0064 r4 핸드오프 에코 순서', () => {
     chatActions.startHandoff()
     const draftKey = useChatStore.getState().pendingNewChatKey!
 
-    ingestChatEvent({ type: 'message.user', text: '/compact 에코', createdAt: 10 })
-    // init(session.updated) 이 오기 전에 요약이 먼저 도착하는 병리적 순서 — entry 없는
-    // sessionId 라 pending draft 로 폴백 라우팅되지만 에코 뒤에 붙는다.
+    ingestChatEvent({ type: 'message.queued', id: 'auto-1', text: '/compact 에코', createdAt: 10 })
+    // init(session.updated) 전에 committed/요약이 먼저 도착하는 병리적 순서 — entry 없는
+    // sessionId 라 pending draft 로 폴백 라우팅되지만 [user → 요약] 순서는 보존된다.
+    ingestChatEvent({
+      type: 'message.committed',
+      sessionId: 'late',
+      ids: ['auto-1'],
+      text: '/compact 에코',
+      messageId: 1,
+      createdAt: 10
+    })
     ingestChatEvent({ type: 'message.completed', sessionId: 'late', message: { text: '요약' } })
     ingestChatEvent({ type: 'session.updated', sessionId: 'late', patch: {} })
 
@@ -668,10 +703,10 @@ describe('chatStore — 계획 거부(rejectPlan)', () => {
   })
 })
 
-describe('chatStore — steer feedback lifecycle', () => {
-  it('steer.queued 는 pending 버블만 만들고 committed message 로 승격하지 않는다', () => {
+describe('chatStore — pending message lifecycle (0067)', () => {
+  it('message.queued 는 pending 버블만 만들고 committed message 로 승격하지 않는다', () => {
     ingestChatEvent({
-      type: 'steer.queued',
+      type: 'message.queued',
       sessionId: 's',
       id: 'q1',
       text: '추가 피드백',
@@ -681,16 +716,16 @@ describe('chatStore — steer feedback lifecycle', () => {
     expect(useChatStore.getState().sessions.s.pendingSteer?.map((item) => item.id)).toEqual(['q1'])
   })
 
-  it('steer.flushed 는 즉시 일반 user 메시지로 커밋하고 pending 을 비운다', () => {
+  it('message.committed(echo 커밋)는 일반 user 메시지로 승격하고 pending 을 비운다', () => {
     ingestChatEvent({
-      type: 'steer.queued',
+      type: 'message.queued',
       sessionId: 's',
       id: 'q1',
       text: '추가 피드백',
       createdAt: 10
     })
     ingestChatEvent({
-      type: 'steer.flushed',
+      type: 'message.committed',
       sessionId: 's',
       ids: ['q1'],
       text: '추가 피드백',
@@ -703,7 +738,7 @@ describe('chatStore — steer feedback lifecycle', () => {
     expect(useChatStore.getState().sessions.s.pendingSteer).toEqual([])
   })
 
-  it('idle 세션 send 는 잔여 pendingSteer 를 새 메시지보다 앞서 로컬 커밋한다(0060 D2 carryover)', () => {
+  it('idle 세션 send 는 pending-first — 로컬 커밋 없이 pending 항목이 추가된다(0067)', () => {
     useChatStore.setState((s) => ({
       sessions: {
         ...s.sessions,
@@ -721,26 +756,64 @@ describe('chatStore — steer feedback lifecycle', () => {
     expect(chatActions.send('새 메시지')).toBe(true)
 
     const st = useChatStore.getState()
-    // main 은 이 send 에서 steer row 를 앞에 영속하고 steer.flushed 를 보내지 않는다 —
-    // renderer 로컬 커밋이 [steer 병합][새 메시지] 순서를 만든다(재로드 정렬과 일치).
-    expect(st.sessions.s.pendingSteer).toEqual([])
-    const msgs = st.sessions.s.session.messages
-    expect(msgs.map((m) => m.role)).toEqual(['user', 'user'])
-    expect(partsText(msgs[0].parts)).toBe('first\n\nsecond')
-    expect(partsText(msgs[1].parts)).toBe('새 메시지')
-    // 프롬프트 병합은 main 책임 — renderer payload 는 타이핑 텍스트 그대로.
-    expect(chatSend).toHaveBeenCalledWith(expect.objectContaining({ text: '새 메시지' }))
+    // 이월 잔여도 로컬 커밋하지 않는다 — main 프렐류드 재전달의 echo 커밋(message.committed)
+    // 이 유일한 승격 경로다(0067 AC6). send 는 pending 항목 추가 + BEGIN_TURN 만.
+    expect(st.sessions.s.pendingSteer?.map((i) => i.text)).toEqual(['first', 'second', '새 메시지'])
+    expect(st.sessions.s.session.messages).toEqual([])
+    expect(st.sessions.s.session.inflight).toBe(true)
+    expect(chatSend).toHaveBeenCalledWith(
+      expect.objectContaining({ text: '새 메시지', clientRequestId: expect.any(String) })
+    )
   })
 
-  it('응답-전 → flush → 응답-후 순서로 [assistant][user steer][assistant] 를 형성한다', () => {
-    // echo 시맨틱(0060 D1): 소비 확정(steer.flushed)은 직전 응답 message.completed 뒤에 온다.
+  it('busy 세션 send 는 예약 — 진행 중 턴 상태를 건드리지 않고 pending 만 추가한다', () => {
+    const liveBefore = { text: '스트리밍 중', reasoning: '' }
+    useChatStore.setState((s) => ({
+      sessions: { ...s.sessions, s: { ...s.sessions.s, live: liveBefore } }
+    }))
+    expect(chatActions.send('끼어들기')).toBe(true)
+    const st = useChatStore.getState()
+    expect(st.sessions.s.pendingSteer?.map((i) => i.text)).toEqual(['끼어들기'])
+    expect(st.sessions.s.live).toBe(liveBefore) // resetLive 미발동
+    expect(st.sessions.s.session.inflight).toBe(true)
+  })
+
+  it('message.cancelled(중단 버튼)는 잔존 pending 을 제거하고 draftRestore 로 텍스트를 복원한다', () => {
+    ingestChatEvent({
+      type: 'message.queued',
+      sessionId: 's',
+      id: 'q1',
+      text: '남은 피드백',
+      createdAt: 10
+    })
+    ingestChatEvent({ type: 'message.cancelled', sessionId: 's', ids: ['q1'] })
+    const st = useChatStore.getState()
+    expect(st.sessions.s.pendingSteer).toEqual([])
+    expect(st.draftRestore).toMatchObject({ key: 's', text: '남은 피드백' })
+  })
+
+  it('hover 단건 취소 후 도착한 message.cancelled 는 no-op(draft 이중 복원 없음)', () => {
+    ingestChatEvent({
+      type: 'message.queued',
+      sessionId: 's',
+      id: 'q1',
+      text: '취소할 피드백',
+      createdAt: 10
+    })
+    chatActions.cancelSteer('q1') // 낙관 제거 + 로컬 복원(반환값)
+    ingestChatEvent({ type: 'message.cancelled', sessionId: 's', ids: ['q1'] })
+    expect(useChatStore.getState().draftRestore).toBeNull()
+  })
+
+  it('응답-전 → 커밋 → 응답-후 순서로 [assistant][user][assistant] 를 형성한다', () => {
+    // echo 시맨틱(0060 D1): 소비 확정(message.committed)은 직전 응답 message.completed 뒤에 온다.
     ingestChatEvent({
       type: 'message.completed',
       sessionId: 's',
       message: { text: '응답-전' }
     })
     ingestChatEvent({
-      type: 'steer.flushed',
+      type: 'message.committed',
       sessionId: 's',
       ids: ['q1'],
       text: '추가 피드백',
@@ -758,5 +831,18 @@ describe('chatStore — steer feedback lifecycle', () => {
     expect(partsText(entry().session.messages[1].parts)).toBe('추가 피드백')
     expect(partsText(entry().session.messages[2].parts)).toBe('응답-후')
     expect(useChatStore.getState().sessions.s.pendingSteer).toEqual([])
+  })
+
+  it('자동 연속 턴 — send 없이 활동 이벤트가 오면 inflight 로 전이한다(AC7)', () => {
+    useChatStore.setState((s) => ({
+      sessions: {
+        ...s.sessions,
+        s: { ...s.sessions.s, session: { ...s.sessions.s.session, inflight: false } }
+      }
+    }))
+    ingestChatEvent({ type: 'message.completed', sessionId: 's', message: { text: '연속 응답' } })
+    expect(entry().session.inflight).toBe(true)
+    ingestChatEvent({ type: 'telemetry', sessionId: 's' })
+    expect(entry().session.inflight).toBe(false)
   })
 })

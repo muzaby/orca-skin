@@ -213,24 +213,21 @@ export class SessionRuntime implements ManagedRuntime {
     }
   }
 
-  private consumeFrame(frame: Frame): AsyncIterable<NormalizedEvent> {
-    // consumer 조기 이탈(coordinator return/throw) 시 채널은 유지하되 이 턴 잔여를 draining 으로
-    // 넘긴다 — 다음 terminal 까지 드랍(routeEvent). 에러 시 상태 전이는 pump(finishPump)가 아니라
-    // 소비 측에서 판정한다(cancelled/timedOut 우선).
-    const self = this
-    return (async function* () {
-      try {
-        yield* frame.iterate()
-      } catch (err) {
-        if (!self.cancelled && !self.timedOut) self.status.markError(null)
-        throw err
-      } finally {
-        if (self.frame === frame) {
-          self.frame = null
-          self.draining = true
-        }
+  // consumer 조기 이탈(coordinator return/throw) 시 채널은 유지하되 이 턴 잔여를 draining 으로
+  // 넘긴다 — 다음 terminal 까지 드랍(routeEvent). 에러 시 상태 전이는 pump(finishPump)가 아니라
+  // 소비 측에서 판정한다(cancelled/timedOut 우선).
+  private async *consumeFrame(frame: Frame): AsyncIterable<NormalizedEvent> {
+    try {
+      yield* frame.iterate()
+    } catch (err) {
+      if (!this.cancelled && !this.timedOut) this.status.markError(null)
+      throw err
+    } finally {
+      if (this.frame === frame) {
+        this.frame = null
+        this.draining = true
       }
-    })()
+    }
   }
 
   private openFrame(): Frame {

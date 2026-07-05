@@ -182,8 +182,16 @@ export const PANEL_MAX_ROW_SPLIT = 0.8
 export const PANEL_DEFAULT_ROW_SPLIT = 0.5
 
 export type ChatAction =
-  | { type: 'SEND_USER_MESSAGE'; text: string; attachmentViews?: AttachmentView[] }
-  | { type: 'APPEND_COMMITTED_USER_MESSAGE'; text: string; createdAt?: number }
+  // 턴 시작 전이(0067 pending-first) — user 버블은 붙이지 않는다: 메시지는 pending 항목
+  // (store pendingSteer)으로 시작해 echo 커밋(APPEND_COMMITTED_USER_MESSAGE)으로 승격된다.
+  // 자동 연속 턴(send 없는 턴)도 store 가 활동 이벤트에서 같은 액션으로 전이시킨다.
+  | { type: 'BEGIN_TURN' }
+  | {
+      type: 'APPEND_COMMITTED_USER_MESSAGE'
+      text: string
+      createdAt?: number
+      attachmentViews?: AttachmentView[]
+    }
   | {
       type: 'SET_MODEL'
       providerKey: string | null
@@ -240,14 +248,9 @@ function appendAssistantPart(messages: Message[], part: AppMessagePart): Message
 
 export function chatReducer(state: ChatState, action: ChatAction): ChatState {
   switch (action.type) {
-    case 'SEND_USER_MESSAGE': {
-      const userParts: AppMessagePart[] = [{ type: 'text', text: action.text }]
-      if (action.attachmentViews && action.attachmentViews.length > 0) {
-        userParts.push({ type: 'attachment', attachments: action.attachmentViews })
-      }
+    case 'BEGIN_TURN':
       return {
         ...state,
-        messages: [...state.messages, { role: 'user', createdAt: Date.now(), parts: userParts }],
         sendCount: state.sendCount + 1,
         inflight: true,
         turnStartedAt: Date.now(),
@@ -255,9 +258,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         error: undefined,
         retry: undefined
       }
-    }
 
-    case 'APPEND_COMMITTED_USER_MESSAGE':
+    case 'APPEND_COMMITTED_USER_MESSAGE': {
+      const userParts: AppMessagePart[] = [{ type: 'text', text: action.text }]
+      if (action.attachmentViews && action.attachmentViews.length > 0) {
+        userParts.push({ type: 'attachment', attachments: action.attachmentViews })
+      }
       return {
         ...state,
         messages: [
@@ -265,10 +271,11 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           {
             role: 'user',
             createdAt: action.createdAt ?? Date.now(),
-            parts: [{ type: 'text', text: action.text }]
+            parts: userParts
           }
         ]
       }
+    }
 
     case 'RECV_EVENT': {
       const ev = action.event

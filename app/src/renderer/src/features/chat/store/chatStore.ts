@@ -89,6 +89,9 @@ export interface ChatStoreState {
   newChatQueue: QueuedNewChat[]
   recentsEpoch: number
   concurrencyByProjectId: Record<string, number>
+  // 중단 버튼의 held 전량 취소(0067 확정 5) — main 의 message.cancelled 에서 잔존 항목 텍스트를
+  // 모아 여기 실으면 ChatTile 이 구독해 Composer draft 로 복원한다(편집 가능). seq 로 중복 소비 방지.
+  draftRestore: { key: string; seq: number; text: string } | null
 }
 
 // 새-채팅(아직 sessionId 미발급) 엔트리의 예약 키. 창당 1개 — main 의 pending 슬롯과 대칭.
@@ -117,7 +120,8 @@ export const useChatStore = create<ChatStoreState>()(() => ({
   pendingNewChatKey: null,
   newChatQueue: [],
   recentsEpoch: 0,
-  concurrencyByProjectId: {}
+  concurrencyByProjectId: {},
+  draftRestore: null
 }))
 
 const { setState, getState } = useChatStore
@@ -305,15 +309,28 @@ function receive(ev: NormalizedEvent): void {
       pendingFallback = true
     }
   } else {
-    // sessionId 없는 message.user = 핸드오프 자동 메시지 조기 에코(0064 r4, 턴 시작 전 발행).
-    // startHandoff 가 방금 세운 pendingNewChatKey(draft)로 라우팅해야 사용자가 그 사이 다른
-    // 세션으로 이동해도 에코가 활성 화면을 오염하지 않는다(터미널 이벤트 폴백과 동형).
+    // sessionId 없는 message.queued = 새 세션 send 의 pending 등록(0067 — 핸드오프 자동 메시지
+    // 포함, 턴 시작 전 발행). startHandoff/send 가 방금 세운 pendingNewChatKey(draft)로
+    // 라우팅해야 사용자가 그 사이 다른 세션으로 이동해도 활성 화면을 오염하지 않는다.
     key =
-      isTerminalWithoutSession(ev) || ev.type === 'message.user'
+      isTerminalWithoutSession(ev) || ev.type === 'message.queued'
         ? (getState().pendingNewChatKey ?? getState().activeKey)
         : getState().activeKey
   }
   if (!key) return // 미지 세션의 늦은 이벤트 — 폐기
+
+  // 자동 연속 턴(0067 AC7) — renderer 의 send 없이 main 이 시작한 턴도 활동 이벤트가 오면
+  // inflight 로 전이해 도넛/중단 버튼/스크롤 앵커가 정상 동작하게 한다.
+  if (
+    (ev.type === 'message.delta' ||
+      ev.type === 'message.reasoning.delta' ||
+      ev.type === 'message.completed' ||
+      ev.type === 'message.reasoning' ||
+      ev.type === 'tool.call.started') &&
+    getState().sessions[key]?.session.inflight === false
+  ) {
+    dispatchTo(key, { type: 'BEGIN_TURN' })
+  }
 
   switch (ev.type) {
     case 'message.delta':
@@ -348,7 +365,9 @@ function receive(ev: NormalizedEvent): void {
       patchSubagentMeta(key, ev)
       return
 
-    case 'steer.queued':
+    case 'message.queued':
+      // pending-first(0067 AC8) — renderer 낙관 항목과 id(clientRequestId)로 합류(upsert).
+      // 핸드오프 자동 메시지처럼 renderer 가 본문을 모르는 발화도 이 경로로 pending 버블이 선다.
       patchPendingSteer(key, (pending) =>
         pending.some((item) => item.id === ev.id)
           ? pending.map((item) =>
@@ -358,34 +377,39 @@ function receive(ev: NormalizedEvent): void {
       )
       return
 
-    case 'steer.flushed':
-      // 소비 확정 = 즉시 일반 커밋 사용자 메시지로 굳힌다(연회색/기울임 pending → 정상 폰트).
-      // main 은 CLI user echo(input.echo) 관측으로 소비를 판정하므로(0060 D1) 이 이벤트는
-      // 어시스턴트 응답-전 파트 뒤에 도착 — messages 는 [응답-전][steer user] 순이 되고, 이후
-      // 어시스턴트 파트는 appendAssistantPart 가 새 메시지(그 아래)로 형성한다. main 도 같은
-      // 시점에 DB row 를 분리해 재로드 정합. 턴 종료까지 echo 가 없던 잔여 pending 은 이 이벤트
-      // 없이 남고, 다음 send 시 로컬 커밋(carryover)으로 굳는다(0060 D2).
+    case 'message.committed':
+      // 소비 확정(echo 관측) = 즉시 일반 커밋 사용자 메시지로 승격(연회색/기울임 → 정상 폰트).
+      // main 은 CLI user echo(input.echo) 관측으로만 커밋을 판정하므로(0060 D1·0067 AC6) 이
+      // 이벤트가 도착한 시점의 DB row 순서와 라이브 정렬이 일치한다. echo 없이 남은 pending 은
+      // 큐(held/CLI 큐)에 살아있는 진행 상태 그대로다 — 자동 연속 턴이나 respawn 재전달로 커밋된다.
       patchPendingSteer(key, (pending) => pending.filter((item) => !ev.ids.includes(item.id)))
       dispatchTo(key, {
         type: 'APPEND_COMMITTED_USER_MESSAGE',
         text: ev.text,
-        createdAt: ev.createdAt
+        createdAt: ev.createdAt,
+        ...(ev.attachmentViews ? { attachmentViews: ev.attachmentViews } : {})
       })
       return
 
-    case 'steer.cancelled':
-      patchPendingSteer(key, (pending) => pending.filter((item) => item.id !== ev.id))
+    case 'message.cancelled': {
+      // held 취소 동기화. 아직 pending 에 남아있는 항목(=중단 버튼 전량 취소)의 텍스트는
+      // composer draft 로 복원한다(0067 확정 5 — 편집 가능). hover 단건 취소는 renderer 가
+      // 이미 낙관 제거+복원했으므로 잔존 항목이 없어 자연히 no-op 이 된다.
+      const present = (getState().sessions[key]?.pendingSteer ?? []).filter((item) =>
+        ev.ids.includes(item.id)
+      )
+      patchPendingSteer(key, (pending) => pending.filter((item) => !ev.ids.includes(item.id)))
+      if (present.length > 0) {
+        setState({
+          draftRestore: {
+            key,
+            seq: Date.now(),
+            text: present.map((item) => item.text).join('\n\n')
+          }
+        })
+      }
       return
-
-    case 'message.user':
-      // main 조립 발화 에코(0064 handoff 자동 메시지) — 렌더러 낙관 렌더가 없는 user 발화를
-      // 커밋 메시지로 굳힌다(steer.flushed 와 동형).
-      dispatchTo(key, {
-        type: 'APPEND_COMMITTED_USER_MESSAGE',
-        text: ev.text,
-        createdAt: ev.createdAt
-      })
-      return
+    }
 
     case 'telemetry': {
       // message.completed 없이 턴이 끝난 경우 잔여 라이브 텍스트를 text 파트로 굳힌다.
@@ -439,6 +463,9 @@ export function ingestChatEvent(ev: NormalizedEvent): void {
   coalescer.push(ev)
 }
 
+// 단일 send(0067 AC5·AC8) — busy/idle 을 renderer 가 가르지 않는다: 모든 메시지가 pending
+// 항목(연회색/기울임)으로 시작하고, main 이 예약(held)/즉시 flush 를 판정하며, 승격은 echo
+// 커밋(message.committed) 단일 신호다. 구 steer() 별도 경로·send 시점 로컬 커밋은 폐기.
 function send(
   text: string,
   attachments: ComposerAttachment[] = [],
@@ -446,11 +473,14 @@ function send(
 ): boolean {
   const trimmed = text.trim()
   const cur = getActiveChatSession()
-  if (trimmed === '' || cur.inflight) return false
+  if (trimmed === '') return false
 
   if (cur.sessionId == null) {
+    // 새 세션 첫 턴 진행 중(id 미발급)엔 예약 큐 키가 없다 — main 가드와 대칭으로 거부.
+    if (cur.inflight) return false
     const activeKey = getState().activeKey
     const draftKey = `draft:${crypto.randomUUID()}`
+    const requestId = crypto.randomUUID()
     const payload: SendChatMessage = {
       sessionId: null,
       projectId: cur.pendingProjectId,
@@ -462,6 +492,9 @@ function send(
       attachments: [...attachments],
       attachmentViews: [...attachmentViews],
       cwd: cur.cwd,
+      // 0067 AC9 — draft 키를 main 의 세션-이전 큐 키로 전달(init 에서 실 id 로 rekey).
+      clientKey: draftKey,
+      clientRequestId: requestId,
       // fork draft(0064) 첫 전송 = 물질화 트리거. main 이 SDK forkSession 으로 새 id 를
       // 발급받고 display 복사 + lineage 를 남긴다.
       ...(cur.forkFrom != null ? { forkFrom: cur.forkFrom } : {})
@@ -472,12 +505,13 @@ function send(
       if (!entry || entry.session.sessionId != null) return s
       const nextEntry: SessionEntry = {
         ...entry,
-        session: chatReducer(entry.session, {
-          type: 'SEND_USER_MESSAGE',
-          text: trimmed,
-          attachmentViews
-        }),
-        live: EMPTY_LIVE
+        session: chatReducer(entry.session, { type: 'BEGIN_TURN' }),
+        live: EMPTY_LIVE,
+        // pending-first — 커밋 버블이 아니라 pending 항목으로 시작(echo 커밋이 승격).
+        pendingSteer: [
+          ...(entry.pendingSteer ?? EMPTY_PENDING_STEER),
+          { id: requestId, text: trimmed, createdAt: Date.now() }
+        ]
       }
       const sessions = { ...s.sessions }
       delete sessions[activeKey]
@@ -503,31 +537,25 @@ function send(
     return true
   }
 
-  // 새 턴 시작 — 직전 턴의 잔여 라이브 버퍼 제거(구 SEND_USER_MESSAGE 의 pending 리셋).
   const sendKey = getState().activeKey
-  resetLive(sendKey)
-  // 이전 턴에서 소비되지 못한 pending steer 로컬 커밋(0060 D2 carryover) — main 이 이 chat:send
-  // 처리에서 steer row 를 새 user row *앞에* 영속하고 프롬프트에 병합하므로(steer.flushed 미발신),
-  // renderer 도 같은 순서([steer][새 메시지])로 굳혀 라이브·재로드 정렬을 일치시킨다.
-  const carryover = getState().sessions[sendKey]?.pendingSteer ?? EMPTY_PENDING_STEER
-  if (carryover.length > 0) {
-    dispatchActive({
-      type: 'APPEND_COMMITTED_USER_MESSAGE',
-      text: carryover.map((item) => item.text).join('\n\n'),
-      createdAt: carryover[0].createdAt
-    })
-    patchPendingSteer(sendKey, () => EMPTY_PENDING_STEER)
+  const requestId = crypto.randomUUID()
+  const busy = cur.inflight
+  if (!busy) {
+    // 새 턴 시작 — 직전 턴의 잔여 라이브 버퍼 제거 + inflight 전이. busy(예약) send 는 진행
+    // 중 턴의 라이브 상태를 건드리지 않는다.
+    resetLive(sendKey)
+    dispatchActive({ type: 'BEGIN_TURN' })
   }
-  dispatchActive({ type: 'SEND_USER_MESSAGE', text: trimmed, attachmentViews })
-  // 새 채팅 (sessionId=null) 첫 메시지일 때만 projectId 전달. resume 경로면 main 이
-  // sessionId 로부터 직접 project_id 를 조회하므로 여기서는 null.
+  patchPendingSteer(sendKey, (pending) => [
+    ...pending,
+    { id: requestId, text: trimmed, createdAt: Date.now() }
+  ])
   // fire-and-forget — 정상 턴 에러는 main 이 chat:error 이벤트로 surface 한다. invoke 자체가
-  // 거부되는 경우(pre-turn throw)는 main 에서 chat:error 로 변환하지만, 누락 방지 방어선으로
-  // 여기서도 거부를 삼켜 unhandled rejection 콘솔 노이즈를 막는다.
+  // 거부되면 pending 항목을 되물려 유령 버블을 막는다.
   void chatApi
     .send({
       sessionId: cur.sessionId,
-      projectId: cur.sessionId ? null : cur.pendingProjectId,
+      projectId: null,
       text: trimmed,
       permissionMode: cur.permissionMode,
       providerKey: cur.providerKey,
@@ -535,9 +563,13 @@ function send(
       effort: cur.effort,
       attachments,
       attachmentViews,
-      cwd: null
+      cwd: null,
+      clientRequestId: requestId
     })
-    .catch((err) => console.error('[chat] send invoke rejected', err))
+    .catch((err) => {
+      patchPendingSteer(sendKey, (pending) => pending.filter((item) => item.id !== requestId))
+      console.error('[chat] send invoke rejected', err)
+    })
   return true
 }
 
@@ -554,21 +586,7 @@ function setPendingCwd(cwd: string): void {
   })
 }
 
-function steer(text: string): boolean {
-  const trimmed = text.trim()
-  const cur = getActiveChatSession()
-  if (trimmed === '' || !cur.inflight || !cur.sessionId) return false
-  const key = getState().activeKey
-  const id = crypto.randomUUID()
-  patchPendingSteer(key, (pending) => [...pending, { id, text: trimmed, createdAt: Date.now() }])
-  void chatApi
-    .steer({ sessionId: cur.sessionId, text: trimmed, clientRequestId: id })
-    .catch((err) => {
-      patchPendingSteer(key, (pending) => pending.filter((item) => item.id !== id))
-      console.error('[chat] steer invoke rejected', err)
-    })
-  return true
-}
+// 구 steer() 는 send() 로 흡수(0067 AC5) — busy/idle 판정은 main 소관, renderer 는 단일 send.
 
 function cancelSteer(id: string): string | null {
   const cur = getActiveChatSession()
@@ -744,7 +762,8 @@ function startForkDraft(): boolean {
 
 // 핸드오프 — 클릭 = 즉시 물질화(사용자 정정, plan r2). 빈 draft 엔트리로 전환하고
 // handoffFrom send 를 즉시 발행한다(text 는 main 이 /compact 자동 메시지로 조립·대체).
-// 자동 메시지는 message.user 에코로, 압축 완료는 session.compacted 로 transcript 에 커밋된다.
+// 자동 메시지는 message.queued(pending)→echo 커밋(message.committed)으로, 압축 완료는
+// session.compacted 로 transcript 에 커밋된다(0067).
 function startHandoff(): boolean {
   const s = getState()
   const src = s.sessions[s.activeKey]?.session
@@ -767,7 +786,9 @@ function startHandoff(): boolean {
     attachments: [],
     attachmentViews: [],
     cwd: null,
-    handoffFrom: sourceSessionId
+    handoffFrom: sourceSessionId,
+    // 0067 AC9 — draft 키 = 세션-이전 큐 키(자동 메시지의 pending 등록·echo 커밋 매칭).
+    clientKey: draftKey
   }
   const draft: SessionEntry = {
     session: {
@@ -964,7 +985,6 @@ function denyTool(approvalId: string): void {
 // 전달할 수 있다(컴포넌트는 selector / action 만 사용, state.md §1.3).
 export const chatActions = {
   send,
-  steer,
   cancelSteer,
   cancel,
   newChat,

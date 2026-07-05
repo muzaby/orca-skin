@@ -81,8 +81,7 @@ export function Composer({
   flush,
   showLandingCwdPanel = false
 }: ComposerProps): React.JSX.Element {
-  const { send, steer, cancel, answerAsk, skipAsk, setPermissionMode, setModel, setEffort } =
-    chatActions
+  const { send, cancel, answerAsk, skipAsk, setPermissionMode, setModel, setEffort } = chatActions
   const inflight = useChatSession((s) => s.inflight)
   const sessionId = useChatSession((s) => s.sessionId)
   // 0064 handoff 가드 — 사용자 턴 2회 미만 세션 제외(값이 바뀔 때만 재렌더).
@@ -318,14 +317,10 @@ export function Composer({
     })
   }
 
+  // 단일 send(0067) — busy/idle 판정은 main 소관: 진행 중이면 예약(held, pending 버블),
+  // 유휴면 즉시 flush. renderer 는 분기하지 않는다.
   const submit = (): void => {
     if (draft.trim() === '') return
-    if (inflight) {
-      if (!steer(draft)) return
-      setDraft('')
-      setCaret(0)
-      return
-    }
     const text = draft
     const items = attachments
     void buildAttachmentViews(items).then((views) => {

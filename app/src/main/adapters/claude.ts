@@ -289,7 +289,8 @@ export class ClaudeAdapter implements SessionAdapter {
       text: string
       attachmentTexts?: typeof attachmentTexts
       attachmentImages?: typeof attachmentImages
-    }): TurnInputContent => buildTurnContent(b.text, b.attachmentTexts ?? [], b.attachmentImages ?? [])
+    }): TurnInputContent =>
+      buildTurnContent(b.text, b.attachmentTexts ?? [], b.attachmentImages ?? [])
     const input = createSessionInputStream([
       ...(req.preludes ?? []).map((b) => ({ content: batchContent(b), uuid: b.uuid })),
       {

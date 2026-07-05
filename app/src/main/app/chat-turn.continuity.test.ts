@@ -59,7 +59,10 @@ function seedSource(q: DbQueries, id = 'src-session'): void {
 }
 
 // 어댑터 대역 — init(새 id) → 프롬프트 echo(0067 커밋 신호) → telemetry 를 흘리는 최소 런타임.
-function fakeRuntime(newSessionId: string, echo: { text: string; uuid: string }): CoordinatorRuntime {
+function fakeRuntime(
+  newSessionId: string,
+  echo: { text: string; uuid: string }
+): CoordinatorRuntime {
   return {
     send: () =>
       (async function* (): AsyncIterable<NormalizedEvent> {

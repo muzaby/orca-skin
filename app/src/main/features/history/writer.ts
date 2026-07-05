@@ -72,7 +72,12 @@ export class HistoryWriter {
       turn.currentAssistantMessageId = null
       turn.assistantText = ''
     }
-    const id = this.persistUserMessage(sessionId, batch.text, batch.createdAt, batch.attachmentViews)
+    const id = this.persistUserMessage(
+      sessionId,
+      batch.text,
+      batch.createdAt,
+      batch.attachmentViews
+    )
     this.db.updateSessionPreview(sessionId, previewOf(batch.text), batch.createdAt)
     this.db.updateSessionProviderKey(sessionId, turn.providerKey, batch.createdAt)
     return id

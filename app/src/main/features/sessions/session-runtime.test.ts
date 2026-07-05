@@ -162,7 +162,7 @@ describe('SessionRuntime 장수명 채널(0067)', () => {
     const ch = channelLive()
     const runtime = new SessionRuntime(adapter(ch.liveTurn))
     const frame = collect(runtime.send(req()))
-    ch.emit({ type: 'session.updated', sessionId: 's1' })
+    ch.emit({ type: 'session.updated', sessionId: 's1', patch: {} })
     ch.emit({ type: 'telemetry', sessionId: 's1' })
     const events = await frame
     expect(events.map((e) => e.type)).toEqual(['session.updated', 'telemetry'])
@@ -200,7 +200,7 @@ describe('SessionRuntime 장수명 채널(0067)', () => {
     const ch = channelLive()
     const runtime = new SessionRuntime(adapter(ch.liveTurn))
     const f1 = collect(runtime.send(req()))
-    ch.emit({ type: 'session.updated', sessionId: 's1' })
+    ch.emit({ type: 'session.updated', sessionId: 's1', patch: {} })
     await tick()
     runtime.markAborted('user_cancelled')
     const events = await f1
@@ -225,7 +225,7 @@ describe('SessionRuntime 장수명 채널(0067)', () => {
     const seen: string[] = []
     runtime.onUnframedEvent((ev) => seen.push(ev.type))
     // CLI 자동 픽업 턴 개시 시뮬레이트 — 프레임 없는 상태의 이벤트.
-    ch.emit({ type: 'session.updated', sessionId: 's1' })
+    ch.emit({ type: 'session.updated', sessionId: 's1', patch: {} })
     await tick()
     expect(seen).toEqual(['session.updated'])
 
@@ -263,7 +263,7 @@ describe('SessionRuntime 장수명 채널(0067)', () => {
     })
     const f1 = collect(runtime.send(req()))
     // 스트림 자체를 죽인다 — pump 가 프레임에 fail 을 전파한다.
-    ch.close()
+    ch.liveTurn.close()
     await expect(f1).resolves.toEqual([]) // close→iterator 종료(에러 아님): 프레임 end
     expect(runtime.channelAlive).toBe(false)
     // 다음 send 는 respawn(콜드 패스).

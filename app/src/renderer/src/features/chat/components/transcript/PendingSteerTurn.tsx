@@ -6,8 +6,9 @@ interface PendingSteerTurnProps {
   onRestoreDraft?: (text: string) => void
 }
 
-// 소비 전(pending) steer 버블 — 항상 연회색/기울임으로 트랜스크립트 맨 아래에 렌더한다.
-// 소비 확정(flush) 시 store 가 일반 커밋 사용자 메시지로 전환하므로 여기엔 pending 만 온다.
+// 미커밋(pending) 사용자 메시지 버블(0067 pending-first) — 일반 send·steer 예약 모두 이
+// 연회색/기울임 버블로 시작해, echo 커밋(message.committed) 시 store 가 일반 커밋 사용자
+// 메시지로 승격한다. held 인 동안 hover 취소(단건 draft 복원) 가능.
 export const PendingSteerTurn = memo(function PendingSteerTurn({
   items,
   onRestoreDraft

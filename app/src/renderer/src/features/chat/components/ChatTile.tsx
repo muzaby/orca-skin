@@ -5,7 +5,7 @@ import { TranscriptView } from './transcript/TranscriptView'
 import { Composer } from './Composer'
 import { RightPanel } from './rightpanel/RightPanel'
 import { useScrollAnchor } from '../hooks/useScrollAnchor'
-import { useChatSession, usePendingSteer } from '../store/chatStore'
+import { useChatSession, useChatStore, usePendingSteer } from '../store/chatStore'
 
 interface ChatTileProps {
   backendLabel: string
@@ -34,6 +34,18 @@ export function ChatTile({
   const error = useChatSession((s) => s.error)
   const pendingSteer = usePendingSteer()
   const [restoredDraft, setRestoredDraft] = useState<{ id: number; text: string } | undefined>()
+  // 중단 버튼 held 전량 취소(0067 확정 5) — store 의 draftRestore 신호를 파생값으로 합류해
+  // Composer 입력에 편집 가능한 텍스트로 복원한다(활성 세션 것만, 최신 id 우선 — effect 불요).
+  const draftRestore = useChatStore((s) => s.draftRestore)
+  const activeKey = useChatStore((s) => s.activeKey)
+  const storeRestore =
+    draftRestore && draftRestore.key === activeKey
+      ? { id: draftRestore.seq, text: draftRestore.text }
+      : undefined
+  const effectiveRestore =
+    storeRestore && (!restoredDraft || storeRestore.id >= restoredDraft.id)
+      ? storeRestore
+      : restoredDraft
   const { scrollRef, contentRef, onScroll, showJump, scrollToBottom, anchored } = useScrollAnchor({
     messages,
     sessionId,
@@ -82,7 +94,7 @@ export function ChatTile({
             onScrollToBottom={scrollToBottom}
             costToday={costToday}
             initialDraft={initialDraft}
-            restoredDraft={restoredDraft}
+            restoredDraft={effectiveRestore}
           />
         </div>
 

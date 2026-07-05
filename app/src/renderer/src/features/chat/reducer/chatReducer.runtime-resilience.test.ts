@@ -1,12 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import type { LoadedSession, NormalizedEvent } from '../../../../../shared/ipc'
-import { type ChatAction, chatReducer, initialChatState } from './chatReducer'
+import { type ChatAction, type ChatState, chatReducer, initialChatState } from './chatReducer'
 
 const recv = (event: NormalizedEvent): ChatAction => ({ type: 'RECV_EVENT', event })
 
+// 0067 pending-first — 구 SEND_USER_MESSAGE 의 테스트 등가물(BEGIN_TURN + echo 커밋 승격).
+const sendUser = (s: ChatState, text: string): ChatState =>
+  chatReducer(chatReducer(s, { type: 'BEGIN_TURN' }), {
+    type: 'APPEND_COMMITTED_USER_MESSAGE',
+    text
+  })
+
 describe('chatReducer runtime resilience', () => {
   it('turn.aborted 는 에러 없이 inflight 와 승인 게이트를 종료한다', () => {
-    const started = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'hi' })
+    const started = sendUser(initialChatState, 'hi')
     const next = chatReducer(
       {
         ...started,
@@ -47,7 +54,7 @@ describe('chatReducer runtime resilience', () => {
 })
 
 it('turn.retrying 은 inflight 를 유지하며 retry 표시 상태를 세팅하고 다음 이벤트에서 지운다', () => {
-  const started = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'hi' })
+  const started = sendUser(initialChatState, 'hi')
   const retrying = chatReducer(
     started,
     recv({

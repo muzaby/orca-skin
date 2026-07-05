@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { chatReducer, initialChatState, type ChatState } from './chatReducer'
 import { partsText, partsReasoning, partsToolCalls, partsAttachments } from '../lib/parts'
-import type { NormalizedEvent, LoadedSession } from '../../../../../shared/ipc'
+import type { AttachmentView, NormalizedEvent, LoadedSession } from '../../../../../shared/ipc'
 
 const recv = (ev: NormalizedEvent): { type: 'RECV_EVENT'; event: NormalizedEvent } => ({
   type: 'RECV_EVENT',
@@ -10,26 +10,33 @@ const recv = (ev: NormalizedEvent): { type: 'RECV_EVENT'; event: NormalizedEvent
 const apply = (s: ChatState, evs: NormalizedEvent[]): ChatState =>
   evs.reduce((acc, ev) => chatReducer(acc, recv(ev)), s)
 
+// 0067 pending-first — 구 SEND_USER_MESSAGE(턴 시작+user 버블)의 테스트 등가물:
+// BEGIN_TURN(턴 전이) + APPEND_COMMITTED_USER_MESSAGE(echo 커밋 승격).
+const sendUser = (s: ChatState, text: string, attachmentViews?: AttachmentView[]): ChatState =>
+  chatReducer(chatReducer(s, { type: 'BEGIN_TURN' }), {
+    type: 'APPEND_COMMITTED_USER_MESSAGE',
+    text,
+    ...(attachmentViews ? { attachmentViews } : {})
+  })
+
 describe('chatReducer — AppMessagePart 모델', () => {
-  it('SEND_USER_MESSAGE 의 attachmentViews 가 user 메시지에 attachment 파트로 들어간다', () => {
-    const s = chatReducer(initialChatState, {
-      type: 'SEND_USER_MESSAGE',
-      text: '이거 봐',
-      attachmentViews: [{ id: 'a1', name: 'pic.png', mimeType: 'image/png', kind: 'image' }]
-    })
+  it('커밋 user 메시지의 attachmentViews 가 attachment 파트로 들어간다 (0067 echo 커밋)', () => {
+    const s = sendUser(initialChatState, '이거 봐', [
+      { id: 'a1', name: 'pic.png', mimeType: 'image/png', kind: 'image' }
+    ])
     const last = s.messages[s.messages.length - 1]
     expect(partsText(last.parts)).toBe('이거 봐')
     expect(partsAttachments(last.parts).map((a) => a.id)).toEqual(['a1'])
   })
 
   it('attachmentViews 가 없으면 attachment 파트가 생기지 않는다', () => {
-    const s = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'plain' })
+    const s = sendUser(initialChatState, 'plain')
     const last = s.messages[s.messages.length - 1]
     expect(partsAttachments(last.parts)).toEqual([])
   })
 
   it('한 턴의 reasoning/tool/text 가 같은 assistant 메시지에 순서대로 누적된다', () => {
-    const start = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: '안녕' })
+    const start = sendUser(initialChatState, '안녕')
     const s = apply(start, [
       {
         type: 'message.reasoning',
@@ -75,7 +82,7 @@ describe('chatReducer — AppMessagePart 모델', () => {
   })
 
   it('다음 user 메시지 후의 assistant 파트는 새 메시지에 묶인다', () => {
-    let s = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'q1' })
+    let s = sendUser(initialChatState, 'q1')
     s = apply(s, [
       {
         type: 'message.completed',
@@ -83,7 +90,7 @@ describe('chatReducer — AppMessagePart 모델', () => {
         message: { text: 'a1' }
       }
     ])
-    s = chatReducer(s, { type: 'SEND_USER_MESSAGE', text: 'q2' })
+    s = sendUser(s, 'q2')
     s = apply(s, [
       {
         type: 'message.completed',
@@ -96,7 +103,7 @@ describe('chatReducer — AppMessagePart 모델', () => {
   })
 
   it('스트리밍 델타 2종은 reducer 무변경(no-op) — 라이브 버퍼는 chatStore live 슬라이스 소관', () => {
-    const start = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'q' })
+    const start = sendUser(initialChatState, 'q')
     const s = apply(start, [
       { type: 'message.delta', sessionId: 's', delta: { text: 'hel' } },
       {
@@ -110,7 +117,7 @@ describe('chatReducer — AppMessagePart 모델', () => {
   })
 
   it('message.completed 가 완성본을 text 파트로 커밋한다', () => {
-    let s = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'q' })
+    let s = sendUser(initialChatState, 'q')
     s = apply(s, [
       {
         type: 'message.completed',
@@ -122,7 +129,7 @@ describe('chatReducer — AppMessagePart 모델', () => {
   })
 
   it('message.reasoning 완성 블록이 영속 reasoning 파트로 커밋된다', () => {
-    let s = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'q' })
+    let s = sendUser(initialChatState, 'q')
     s = apply(s, [
       {
         type: 'message.reasoning',
@@ -135,7 +142,7 @@ describe('chatReducer — AppMessagePart 모델', () => {
   })
 
   it('COMMIT_PENDING_TEXT 가 잔여 라이브 텍스트를 text 파트로 굳히고, 빈 텍스트는 no-op', () => {
-    let s = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'q' })
+    let s = sendUser(initialChatState, 'q')
     const noop = chatReducer(s, { type: 'COMMIT_PENDING_TEXT', text: '' })
     expect(noop).toBe(s)
     s = chatReducer(s, { type: 'COMMIT_PENDING_TEXT', text: '잘린 답변' })
@@ -144,17 +151,17 @@ describe('chatReducer — AppMessagePart 모델', () => {
     expect(partsText(s.messages[1].parts)).toBe('잘린 답변')
   })
 
-  it('SEND_USER_MESSAGE 가 sendCount 를 단조 증가시키고 NEW_CHAT 이 리셋한다', () => {
-    let s = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'q1' })
+  it('BEGIN_TURN 이 sendCount 를 단조 증가시키고 NEW_CHAT 이 리셋한다', () => {
+    let s = sendUser(initialChatState, 'q1')
     expect(s.sendCount).toBe(1)
-    s = chatReducer(s, { type: 'SEND_USER_MESSAGE', text: 'q2' })
+    s = sendUser(s, 'q2')
     expect(s.sendCount).toBe(2)
     s = chatReducer(s, { type: 'NEW_CHAT' })
     expect(s.sendCount).toBe(0)
   })
 
   it('telemetry 가 lastTelemetry 를 저장하고 SEND 가 유지·교체한다', () => {
-    let s = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'q1' })
+    let s = sendUser(initialChatState, 'q1')
     s = apply(s, [
       {
         type: 'telemetry',
@@ -175,11 +182,11 @@ describe('chatReducer — AppMessagePart 모델', () => {
     })
 
     // SEND 는 lastTelemetry 를 비우지 않는다 — 컨텍스트 도넛이 턴 진행 중에도 유지.
-    const afterSend = chatReducer(s, { type: 'SEND_USER_MESSAGE', text: 'mid' })
+    const afterSend = sendUser(s, 'mid')
     expect(afterSend.lastTelemetry?.inputTokens).toBe(100)
 
     // 두 번째 턴 — lastTelemetry 교체
-    s = chatReducer(s, { type: 'SEND_USER_MESSAGE', text: 'q2' })
+    s = sendUser(s, 'q2')
     s = apply(s, [
       {
         type: 'telemetry',
@@ -191,7 +198,7 @@ describe('chatReducer — AppMessagePart 모델', () => {
   })
 
   it('컨텍스트 0인 telemetry(/context 등)는 lastTelemetry 를 덮지 않고 턴만 종료한다', () => {
-    let s = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'q1' })
+    let s = sendUser(initialChatState, 'q1')
     s = apply(s, [
       {
         type: 'telemetry',
@@ -202,32 +209,32 @@ describe('chatReducer — AppMessagePart 모델', () => {
     expect(s.lastTelemetry?.inputTokens).toBe(5000)
 
     // 빈 컨텍스트 턴 — usage 가 출력만/없음 → 직전 도넛 값 보존, 단 inflight 은 false 로.
-    s = chatReducer(s, { type: 'SEND_USER_MESSAGE', text: '/context' })
+    s = sendUser(s, '/context')
     s = apply(s, [{ type: 'telemetry', sessionId: 's', usage: { outputTokens: 10 } }])
     expect(s.lastTelemetry?.inputTokens).toBe(5000)
     expect(s.lastTelemetry?.cacheReadTokens).toBe(12000)
     expect(s.inflight).toBe(false)
 
     // usage 자체가 없는 telemetry 도 보존(회귀 가드).
-    s = chatReducer(s, { type: 'SEND_USER_MESSAGE', text: '/help' })
+    s = sendUser(s, '/help')
     s = apply(s, [{ type: 'telemetry', sessionId: 's' }])
     expect(s.lastTelemetry?.inputTokens).toBe(5000)
 
     // 컨텍스트 있는 턴은 정상 교체.
-    s = chatReducer(s, { type: 'SEND_USER_MESSAGE', text: 'q2' })
+    s = sendUser(s, 'q2')
     s = apply(s, [{ type: 'telemetry', sessionId: 's', usage: { inputTokens: 8000 } }])
     expect(s.lastTelemetry?.inputTokens).toBe(8000)
   })
 
   it('session.compacted 는 압축 전 lastTelemetry 를 지운다 — 도넛 고착 방지 (0065)', () => {
-    let s = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'q1' })
+    let s = sendUser(initialChatState, 'q1')
     s = apply(s, [
       { type: 'telemetry', sessionId: 's', usage: { inputTokens: 100, cacheReadTokens: 150_000 } }
     ])
     expect(s.lastTelemetry?.cacheReadTokens).toBe(150_000)
 
     // /compact 턴 — 경계에서 압축 전 값 무효화. 이어지는 telemetry(요약 크기 근사)가 다시 채운다.
-    s = chatReducer(s, { type: 'SEND_USER_MESSAGE', text: '/compact' })
+    s = sendUser(s, '/compact')
     s = apply(s, [{ type: 'session.compacted', sessionId: 's', trigger: 'manual' }])
     expect(s.lastTelemetry).toBeUndefined()
     s = apply(s, [{ type: 'telemetry', sessionId: 's', usage: { inputTokens: 350 } }])
@@ -236,7 +243,7 @@ describe('chatReducer — AppMessagePart 모델', () => {
   })
 
   it('NEW_CHAT 은 telemetry 상태를 리셋한다', () => {
-    let s = chatReducer(initialChatState, { type: 'SEND_USER_MESSAGE', text: 'q' })
+    let s = sendUser(initialChatState, 'q')
     s = apply(s, [
       {
         type: 'telemetry',
