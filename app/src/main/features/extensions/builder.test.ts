@@ -70,7 +70,8 @@ describe('ExtensionBuilder.systemPromptAppend', () => {
     expect(systemPromptAppend).toContain('Preferred language: 한국어')
     expect(systemPromptAppend).toContain('Account instructions: 간결하게')
     expect(systemPromptAppend).toContain('Active project: 센서 QA')
-    // 순서: 헤더가 먼저, 프로젝트 지침 본문이 그 뒤.
+    // 프로젝트 지침은 '# Project' 섹션 안에 'Project instructions:' 로 포맷화되어 편입.
+    expect(systemPromptAppend).toContain('Project instructions:\n항상 근거를 붙여라')
     expect(systemPromptAppend!.indexOf('# Project')).toBeLessThan(
       systemPromptAppend!.indexOf('항상 근거를 붙여라')
     )

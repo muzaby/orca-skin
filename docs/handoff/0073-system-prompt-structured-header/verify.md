@@ -50,3 +50,27 @@ append **내용**만 확장. `accountInstructions` 미배선("추후") 해소 + 
 - 설계: 실행환경 재주입 회피(preset 동적섹션 존치)를 명시해 중복 방지 — 적절.
 - 구현: electron 바이너리 미설치로 실 GUI 턴은 미검증. 대신 실 sqlite 조립 스모크(`builder.test.ts`)로
   end-to-end 조립·순서·쿼리를 커버해 정적 검증 한계를 보완. 실 GUI 육안 확인은 사람 몫으로 분리.
+
+---
+
+## 라운드 2 — `# Project` 섹션에 프로젝트 지침 포맷화 편입 (PASS)
+
+**사용자 후속 요청**: 프로젝트 name 과 **지침을 `# Project` 섹션 안에 함께 포맷화**하고, 프로젝트가
+없으면 둘 다 제외. (라운드 1 은 지침을 헤더 밖에서 `[header, instructions].join('\n\n')` 로 뒤에
+라벨 없이 이어붙였음.)
+
+- **변경**: `buildSystemHeader` 에 `projectInstructions?` 추가 → `# Project` 를 `Active project: <name>`
+  + (지침 있으면) `Project instructions:\n<본문>` 로 조립. `projectName` 부재면 섹션 통째(지침 포함) 생략.
+  `builder.ts` 는 지침을 헤더로 이관하고 `systemPromptAppend = 헤더 단일 문자열`(별도 join 제거).
+- **포맷**:
+  ```
+  # Project
+  Active project: <name>
+  Project instructions:
+  <지침 본문>
+  ```
+- **게이트**: typecheck 3종 ✅ · lint(경계 0) ✅ · `vitest` extensions **41/41**(system-header 7 케이스로
+  확장: name+지침/ name만/ 프로젝트 부재 시 지침 무시/ 3-필드 trim/ 지침 공백 생략) + queries 포함 **55/55**.
+- **문서**: `system-prompt.md` §2A.1 포맷 블록·§2A.2 표(`# Project` 지침 행)·§1·§3(`append=헤더`) 정합.
+- **경계**: 순수 함수 확장 + 빌더 조립만 변경, 레이어 경계·IPC·의존성 무변경. 인수 기준 1·4·5 재확인 PASS.
+- 사람 확인 대기(불변): 실 `npm run dev` 로 `# Project` 안 name+지침 육안 확인.
