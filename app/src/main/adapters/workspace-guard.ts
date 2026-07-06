@@ -22,14 +22,21 @@ import { isWithinDir, orcaConfigDir } from '../infra/config/paths'
 const WRITE_TOOLS = ['Write', 'Edit']
 const READ_TOOLS = ['Read', 'Glob', 'Grep']
 
-// read 는 허용하되 write 는 막을 예외 루트(skills/plugins/런타임). skill/plugin **로딩**은 CLI 내부라
-// 훅이 안 보지만, node/python skill **실행**(Bash)·번들 파일 read 는 모델 툴 호출이라 훅이 본다 →
-// 그 read 를 허용하려면 이 루트가 필요하다(요구사항: node/python skill 실행 예외).
+// read **와 write** 를 모두 허용하는 예외 루트. `~/.claude` 는 plan 모드 산출물·skill 설치가 쓰기를
+// 요구할 수 있어(예: `~/.claude/skills/<name>` 설치, plan 아티팩트 기록) write 까지 연다(사용자 결정
+// 0075 r2). 가이드(0074 §3.2)의 기본 read-only 스탠스에서 Orca 가 의도적으로 넓힌 지점 — 편차로 문서화.
+export function writeExceptionRoots(): string[] {
+  return [path.join(homedir(), '.claude')].map((p) => path.resolve(p))
+}
+
+// read 는 허용하되 write 는 막을 예외 루트(런타임·plugin/skill 소스). skill/plugin **로딩**은 CLI
+// 내부라 훅이 안 보지만, node/python skill **실행**(Bash)·번들 파일 read 는 모델 툴 호출이라 훅이
+// 본다 → 그 read 를 허용하려면 이 루트가 필요하다(요구사항: node/python skill 실행 예외).
 export function readOnlyExceptionRoots(): string[] {
-  const home = homedir()
   return [
-    path.join(home, '.claude'), // plugin/skill 제공
-    orcaConfigDir(), // ~/.config/orca — plugin/skill 제공 (dist·sources)
+    // ~/.config/orca — plugin/skill 제공(dist·sources). read-only 지만 세션 cwd(projects/<…>)는
+    // writeRoots 라 write 허용된다(예외의 예외).
+    orcaConfigDir(),
     // node/python 등 런타임(실행 특성상 read 불가피). 패키지 앱에서 process.execPath 는 앱 바이너리라
     // 근사치다 — 정상 명령이 절대 interpreter 경로를 쓰다 오차단되면 verify 에서 최소 추가한다.
     path.dirname(process.execPath)
@@ -49,8 +56,10 @@ export function resolveGuardRoots(
 ): GuardRoots {
   const ws = path.resolve(workspaceRoot)
   const extra = additionalDirs.map((d) => path.resolve(d))
-  const writeRoots = [ws, ...extra] // write 허용 = cwd + additionalDirectories
-  const readRoots = [...writeRoots, ...readOnlyExceptionRoots()] // read 허용 = write + 예외
+  // write 허용 = cwd + additionalDirectories + write 예외(~/.claude)
+  const writeRoots = [ws, ...extra, ...writeExceptionRoots()]
+  // read 허용 = write + read-only 예외(~/.config/orca·런타임)
+  const readRoots = [...writeRoots, ...readOnlyExceptionRoots()]
   return { ws, writeRoots, readRoots }
 }
 
@@ -87,9 +96,9 @@ export function screenBashCommand(
 }
 
 // 툴 1건의 경로 접근을 판정한다. 반환 `null` = pass-through(안·예외·비파일툴), 문자열 = deny 사유.
-// **write 불변식**: WRITE_TOOLS 는 writeRoots 만 참조한다 — read-only 예외 루트를 보지 않으므로 세션
-// cwd(`~/.config/orca/projects/<…>`)는 `~/.config/orca`(read 예외)의 하위여도 writeRoots 라 write 가
-// 허용되고, `~/.config/orca/sources` 등 cwd 밖은 write 차단된다.
+// **write 불변식**: WRITE_TOOLS 는 writeRoots(cwd + additionalDirs + `~/.claude`)만 참조한다 —
+// read-only 예외(`~/.config/orca`·런타임)는 보지 않는다. 그래서 세션 cwd(`~/.config/orca/projects/<…>`)
+// 와 `~/.claude` 는 write 허용되고, `~/.config/orca/sources` 등은 write 차단된다.
 export function guardToolAccess(
   toolName: string,
   toolInput: Record<string, unknown>,

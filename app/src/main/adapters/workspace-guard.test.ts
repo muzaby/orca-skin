@@ -33,10 +33,14 @@ describe('guardToolAccess — write 계열(writeRoots 만 참조)', () => {
     expect(guardToolAccess('Write', { file_path: OUTSIDE }, roots)).not.toBeNull()
   })
 
-  it('read 예외(~/.claude)라도 Write 는 차단 — writeRoots 에 없다', () => {
-    const p = path.join(homedir(), '.claude', 'settings.json')
-    expect(guardToolAccess('Write', { file_path: p }, roots)).not.toBeNull()
-    expect(guardToolAccess('Edit', { file_path: CLAUDE_FILE }, roots)).not.toBeNull()
+  it('~/.claude 는 Write 허용(plan 산출물·skill 설치) — writeRoots 예외', () => {
+    const p = path.join(homedir(), '.claude', 'skills', 'new-skill', 'SKILL.md')
+    expect(guardToolAccess('Write', { file_path: p }, roots)).toBeNull()
+    expect(guardToolAccess('Edit', { file_path: CLAUDE_FILE }, roots)).toBeNull()
+  })
+
+  it('~/.config/orca 는 read-only — cwd 밖(sources) Write 는 여전히 차단', () => {
+    expect(guardToolAccess('Write', { file_path: ORCA_SOURCES }, roots)).not.toBeNull()
   })
 
   it('예외의 예외: 세션 cwd 하위는 ~/.config/orca 밑이어도 Write 허용, sources 는 차단', () => {

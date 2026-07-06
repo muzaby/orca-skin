@@ -9,8 +9,8 @@
 | slug | `0075-workspace-isolation-perms` |
 | 검증자 | Claude Code |
 | 일자 | 2026-07-06 |
-| 대상 커밋 | `389cbe1` |
-| 라운드 | 1 |
+| 대상 커밋 | `389cbe1` (r1) · r2 amend(`~/.claude` write 예외) |
+| 라운드 | 1 (+r2 amend) |
 | 상태 | PASS |
 
 ## 구현자 코멘트 확인 (매트릭스 전 선행)
@@ -27,7 +27,7 @@
 |---|---|---|---|
 | 1 | sendMessage 옵션에 PreToolUse 가드 배선, 밖 경로 Read/Write/Edit/Glob/Grep/Bash deny | ✅ | `claude.ts` mergeHooks 에 `makeWorkspaceGuardHook(cwd, additionalDirectories)` 추가 / test "밖 절대경로 Write·Read·Grep deny"·"밖 절대경로·상위 탈출 deny" |
 | 2 | 안·예외는 `allow` 아닌 pass-through(`{}`) — 승인 카드·permissionMode 흐름 유지 | ✅ | `workspace-guard.ts:151-153`(deny 아니면 `{}`), 콜백에 `allow` 미사용 / test "안 경로는 pass-through({}) — allow 아님". `makeCanUseTool` 무변경(가드는 앞 계층) |
-| 3 | read 예외 read허용/write차단, **단 세션 cwd 는 write 허용** | ✅ | test "예외의 예외: 세션 cwd 하위는 ~/.config/orca 밑이어도 Write 허용, sources 는 차단"·"read 예외(~/.claude)라도 Write 는 차단"·"read 예외 경로는 Read 허용" |
+| 3 | 예외 2분(r2): `~/.claude`=write 예외, `~/.config/orca`·런타임=read-only, 세션 cwd=write 허용 | ✅ | `workspace-guard.ts` `writeExceptionRoots()`=`~/.claude` → writeRoots. test "~/.claude 는 Write 허용(plan 산출물·skill 설치)"·"~/.config/orca 는 read-only — cwd 밖(sources) Write 차단"·"예외의 예외: 세션 cwd 하위 Write 허용"·"read 예외 경로는 Read 허용" |
 | 4 | additionalDirectories 기본 `[]`, 옵션·훅 단일 배열 공유 | ✅ | `claude.ts` `const additionalDirectories: string[] = []` → 옵션 `additionalDirectories,` + 훅 인자 동일 참조 / test "additionalDirectories 확장" |
 | 5 | 모드 독립 — permissionMode 강제·dontAsk 도입 없음 | ✅ | permissionMode 배선 무변경(`claude.ts` 기존 `...(permissionMode ? …)` 유지), `dontAsk` 문자열 미도입(grep 0). 훅이 평가 1순위(W1) |
 | 6 | 순수 로직 단위 테스트 + 게이트 통과 | ✅ | `workspace-guard.test.ts` 22/22 (guardToolAccess·screenBashCommand·resolveGuardRoots·makeWorkspaceGuardHook). 게이트 아래 |
@@ -53,7 +53,7 @@
 $ npm run typecheck        # tsc node/web/test 3종 → 통과
 $ npm run lint             # eslint --cache --fix ./src → 경계 위반 0 (prettier 정렬만)
 $ npx vitest run src/main/adapters/workspace-guard.test.ts
-  Test Files 1 passed (1) / Tests 22 passed (22)
+  Test Files 1 passed (1) / Tests 23 passed (23)   # r2: ~/.claude write 예외 케이스 +1
 $ npx vitest run           # 전체
   Test Files 6 failed | 85 passed (91)
   Tests     21 failed | 694 passed (715)
@@ -79,3 +79,4 @@ $ npx vitest run           # 전체
 ## 결론 / 다음 단계
 
 - 상태: **PASS** → PHASES 승격 완료. 다음 = 사람 검증(모드별 실 격리·skill 실행) + (요청 시) PR. Open Question 없음.
+- **r2 amend**: 사용자 정정으로 `~/.claude` 를 read-only 예외 → **write 예외**로 이동(`writeExceptionRoots()` 분리) — plan 모드 산출물·skill 설치(`~/.claude/skills/<name>`)가 쓰기를 요구하기 때문. `~/.config/orca`(cwd 제외)·런타임은 read-only 유지. 게이트 재통과(typecheck·lint·23/23). 가이드(0074 §3.2) 기본 read-only 스탠스에서의 Orca 편차로 코드 주석·본 verify 에 기록.
