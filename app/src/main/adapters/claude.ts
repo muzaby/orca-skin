@@ -40,6 +40,7 @@ import {
   withPostCompactHook
 } from './claude-adapt'
 import { CLAUDE_DESCRIPTOR } from './descriptor'
+import { makeWorkspaceGuardHook } from './workspace-guard'
 import type { ProviderDescriptor } from '../../shared/ipc'
 
 const requireFn = createRequire(import.meta.url)
@@ -304,6 +305,10 @@ export class ClaudeAdapter implements SessionAdapter {
     // 경계마다 드레인해 [compact 구분선 → 요약 메시지] 순서로 합류시킨다.
     const compactSummaries: string[] = []
 
+    // Workspace 격리(0075) — 작업 폴더(cwd) 밖 r/w 를 PreToolUse 가드 훅으로 막는다. additionalDirectories
+    // 는 옵션과 훅이 **같은 배열**을 공유해 드리프트를 막는다(가이드 §5). 추후 주입 전까지 비움([]).
+    const additionalDirectories: string[] = []
+
     const handle = query({
       prompt: input.stream,
       options: {
@@ -324,6 +329,8 @@ export class ClaudeAdapter implements SessionAdapter {
         // tool_result 만 와서 서브에이전트 답변이 우측 패널에 안 보였다(handoff 0044 피드백 2).
         forwardSubagentText: true,
         cwd,
+        // 작업 폴더 밖 파일툴 write 스코프를 넓히지 않도록 SDK 내장 스코프에도 동일 배열을 반영(가드 훅과 짝).
+        additionalDirectories,
         abortController,
         ...adaptSystemPrompt(extensions.systemPromptAppend),
         ...adaptPlugins(extensions.pluginRoot),
@@ -339,6 +346,9 @@ export class ClaudeAdapter implements SessionAdapter {
         ...withPostCompactHook(
           mergeHooks(
             adaptHooks(extensions.hooks),
+            // 격리 가드(PreToolUse) — 모든 툴·모든 모드보다 먼저 밖 경로를 자른다(0075). 안·예외는
+            // pass-through 라 아래 canUseTool/permissionMode 흐름은 그대로 유지된다.
+            makeWorkspaceGuardHook(cwd, additionalDirectories),
             req.takeSteerFlush
               ? makeSteerGateHook(req.takeSteerFlush, (batch) =>
                   input.push(batchContent(batch), batch.uuid)
