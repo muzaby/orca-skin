@@ -76,7 +76,8 @@ export interface TurnExtensions {
   skills: NormalizedSkillRef[]
   // 정규화된 Hook 핸들러 집합 (§6). 이번 PR 의 실런타임 경로는 {normalized:{}} 라 옵션 미주입.
   hooks: NormalizedHookSet
-  // SDK 기본 시스템 프롬프트 뒤에 append 할 중립 텍스트 (프로젝트 지침 + 정적 정책 본문, prompts/).
+  // SDK 기본 시스템 프롬프트 뒤에 append 할 중립 텍스트 (구조화 헤더 # Orca/# User/# Project +
+  // 프로젝트 지침 본문 — ExtensionBuilder 가 system-header 로 조립).
   systemPromptAppend?: string
 }
 

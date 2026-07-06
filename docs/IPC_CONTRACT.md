@@ -88,7 +88,8 @@ interface Settings {
   mcpMeta: Record<string, { description: string }>; // MCP Orca 전용 메타 (mcp.json 순정 유지)
   skillEnabled: Record<string, boolean>; // Skill on/off (키=sourceId/name). 부재 ⇒ true
   ssoBypass: boolean; // SSO 로그인 게이트 우회 (디버그 패널 토글). true ⇒ 앱 시작 시 로그인 건너뜀. default false
-  accountInstructions: string; // 설정 모달 '계정 지침' textarea. 영속화만 — system prompt 배선은 추후. default ''
+  language: string; // 선호 언어 (언어 플라이아웃 선택값). 시스템 프롬프트 '# User' 헤더로 매 턴 주입. default '한국어'
+  accountInstructions: string; // 설정 모달 '계정 지침' textarea. 시스템 프롬프트 '# User' 헤더로 매 턴 주입. default ''
   appFont: "sans" | "serif" | "mono"; // 앱 전체 폰트 (설정 모달). --font-app 에 매핑. default 'sans'
   notifyOnComplete: boolean; // 응답완료 알림 토글. on ⇒ 턴 완료 시(창 비활성 한정) OS 알림. default false
 }

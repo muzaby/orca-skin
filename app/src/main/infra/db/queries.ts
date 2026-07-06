@@ -58,8 +58,8 @@ export class DbQueries {
   private readonly listSessionsByProjectStmt: Database.Statement
   // files:openPath 경로 화이트리스트 — 임의 경로가 아닌 실재 세션 cwd 만 열도록 검증.
   private readonly sessionCwdExistsStmt: Database.Statement
-  // 매 chat:send 마다 1회 호출 — sessionId 에서 소속 프로젝트의 instructions 한 방에 조회.
-  private readonly getProjectInstructionsForSessionStmt: Database.Statement
+  // 매 chat:send 마다 1회 호출 — sessionId 에서 소속 프로젝트의 name+instructions 한 방에 조회.
+  private readonly getProjectContextForSessionStmt: Database.Statement
   // FTS5 검색 — messages_fts virtual table 을 messages + sessions 와 조인.
   private readonly searchMessagesStmt: Database.Statement
   // 0064 continuity — 세션 계보(fork/handoff 부모 관계) + fork display 복사.
@@ -275,8 +275,8 @@ export class DbQueries {
     this.sessionCwdExistsStmt = db.prepare(`
       SELECT 1 FROM sessions WHERE cwd = @cwd LIMIT 1
     `)
-    this.getProjectInstructionsForSessionStmt = db.prepare(`
-      SELECT p.instructions AS instructions
+    this.getProjectContextForSessionStmt = db.prepare(`
+      SELECT p.name AS name, p.instructions AS instructions
       FROM projects p
       JOIN sessions s ON s.project_id = p.id
       WHERE s.id = @sessionId
@@ -528,11 +528,11 @@ export class DbQueries {
     return this.listSessionsByProjectStmt.all({ projectId }) as SessionListRow[]
   }
 
-  getProjectInstructionsForSession(sessionId: string): string | null {
-    const row = this.getProjectInstructionsForSessionStmt.get({ sessionId }) as
-      | { instructions: string }
+  getProjectContextForSession(sessionId: string): { name: string; instructions: string } | null {
+    const row = this.getProjectContextForSessionStmt.get({ sessionId }) as
+      | { name: string; instructions: string }
       | undefined
-    return row?.instructions ?? null
+    return row ?? null
   }
 
   insertLineage(row: SessionLineageInsert): void {

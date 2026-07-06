@@ -2,7 +2,7 @@
 // 담당한다. 도메인 핸들러는 app/handlers/, chat 턴 셋업은 app/chat-turn.ts, 턴 파이프라인 협력자는
 // features/{chat,history,approvals,sessions,usage} 참조 (handoff 0062 수직 슬라이스 재구성).
 
-import { webContents } from 'electron'
+import { app, webContents } from 'electron'
 import { mkdir } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
@@ -148,6 +148,8 @@ export class Bootstrap {
       db,
       this.mcp,
       () => this.skillsCache,
+      () => this.settings.getAll(),
+      app.getVersion(),
       () => distOrcaPluginDir('claude')
     )
     await this.registry.refreshInstallState()
