@@ -89,7 +89,7 @@ export function SidebarUserButton(): React.JSX.Element {
             onClick={() => setLangOpen((v) => !v)}
             className={`${MENU_ITEM} ${langOpen ? 'bg-sidebar text-ink' : ''}`}
           >
-            <Icon name="chat" size={14} />
+            <Icon name="globe" size={14} />
             <span className="flex-1">언어</span>
             <Icon name="chevR" size={13} />
           </button>

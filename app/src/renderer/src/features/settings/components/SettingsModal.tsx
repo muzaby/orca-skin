@@ -8,7 +8,7 @@ type TabId = 'general' | 'usage'
 
 const TABS: { id: TabId; label: string; icon: IconName }[] = [
   { id: 'general', label: '일반', icon: 'settings' },
-  { id: 'usage', label: '사용량', icon: 'bolt' }
+  { id: 'usage', label: '사용량', icon: 'chart' }
 ]
 
 interface SettingsModalProps {

@@ -40,7 +40,7 @@ export function CustomizeLanding({
       <div className="w-full max-w-[620px]">
         <div className="mb-8 flex flex-col items-center text-center">
           <span className="mb-4 grid h-16 w-16 place-items-center text-ink2">
-            <Icon name="briefcase" size={48} stroke={1.2} />
+            <Icon name="briefcase" size={48} />
           </span>
           <h1 className="m-0 font-serif text-[26px] font-semibold text-ink">맞춤설정</h1>
           <p className="mt-2 max-w-[440px] text-[13.5px] leading-[1.6] text-ink2">
