@@ -17,7 +17,7 @@
 | 항목 | Orca 구현 | 근거 |
 |---|---|---|
 | `claude_code` preset + `append` | `adaptSystemPrompt()` 가 `{type:'preset', preset:'claude_code', append}` 반환 | `app/src/main/adapters/claude-adapt.ts` |
-| `append` 는 **단일 문자열** | 빌더가 `헤더\n\n지침` 단일 string 조립(다중 블록 4-블록 버그 회피) | `app/src/main/features/extensions/builder.ts` |
+| `append` 는 **단일 문자열** | 빌더가 구조화 헤더(지침 포함) 단일 string 조립(다중 블록 4-블록 버그 회피) | `app/src/main/features/extensions/builder.ts` |
 | 매 턴 `query()` + `resume` | per-turn 새 `query({resume})`, streaming-input 으로 턴 격리 | `app/src/main/adapters/claude.ts` |
 | `excludeDynamicSections` 생략(=false) | 미사용 → cwd/플랫폼/메모리 경로 동적섹션을 시스템 프롬프트에 유지 | grep 0건 |
 | 출력 스타일 미사용 | 정책은 전부 `append` 로 주입 | — |
@@ -25,7 +25,7 @@
 > 즉 **주입 메커니즘은 변경 대상이 아니다** (preset+append 그대로). 변한 것은 *append 의 내용*뿐이다:
 > handoff 0030 이 정책 텍스트 관리 구조(§2, 아래)를 도입했고, **handoff 0062 가 그 `prompts/` 정적
 > 정책 체인을 데드코드로 제거**했으며(빈 레지스트리), **handoff 0073 이 그 자리에 구조화 헤더(§2A)를
-> 도입**했다. 현재 append = `구조화 헤더 \n\n 프로젝트 지침`.
+> 도입**했다. 현재 append = `구조화 헤더`(프로젝트 지침은 `# Project` 섹션 안에 포맷화되어 편입).
 
 ## 2A. 구조화 시스템 프롬프트 헤더 (`features/extensions/system-header.ts`, handoff 0073)
 
@@ -47,6 +47,8 @@ Account instructions: <settings.accountInstructions>
 
 # Project
 Active project: <프로젝트 name>
+Project instructions:
+<프로젝트 지침 본문>
 ```
 
 ### 2A.2 소스·조립
@@ -57,10 +59,12 @@ Active project: <프로젝트 name>
 | `# User` | Preferred language | `settings.language`(default `한국어`) | 값 있을 때 |
 | `# User` | Account instructions | `settings.accountInstructions` | trim 후 비지 않을 때 |
 | `# Project` | Active project | 프로젝트 `name`(세션 바인딩 / 새 채팅 projectId) | 프로젝트 소속 시 |
+| `# Project` | Project instructions | 프로젝트 `instructions`(DB) | 프로젝트 소속 + 지침 trim 후 비지 않을 때 |
 
 - **순수 함수 `buildSystemHeader(input): string`** — 존재하는 섹션만 `'\n\n'` join, **단일 문자열**
-  반환(4블록 버그 회피). 빈/공백 필드는 줄 생략. `ExtensionBuilder` 가 `[header, instructions]` 를
-  `'\n\n'` 로 잇는다(헤더 먼저).
+  반환(4블록 버그 회피). 빈/공백 필드는 줄/섹션 생략. **프로젝트 name·지침은 `# Project` 섹션 안에
+  함께 포맷화**되며, `name` 부재(프로젝트 없음)면 섹션 통째(지침 포함) 생략. 지침은 다줄 가능이라
+  `Project instructions:` 라벨 줄 + 다음 줄부터 본문. 헤더는 `# Orca` 상시라 `append = 헤더`(빈 문자열 불가).
 - **실행환경 재주입 안 함**: cwd/platform/date/도구목록은 preset 동적섹션(`excludeDynamicSections:false`)이
   이미 주입 → 헤더는 preset 이 주지 못하는 Orca framing(GUI/markdown 표면)만 얹는다.
 - 근거 코드: `features/extensions/system-header.ts`(+`.test.ts`)·`builder.ts`(조립)·`app/bootstrap.ts`(version/settings 주입).
@@ -117,7 +121,8 @@ app/src/main/prompts/
 | CONTEXT — cwd/작업공간 | 실행 환경 | preset 동적 섹션 (SDK 자동, `excludeDynamicSections:false`) |
 | VOLATILE | 날짜·메모리 스냅샷 | **현재 없음** (§4 참조) |
 
-> **순서**: 빌더는 `헤더\n\n지침` 순으로 둔다(헤더가 앞, 변동성 낮은 Orca→User→Project 순 조립).
+> **순서**: append = 구조화 헤더 단일 문자열(변동성 낮은 Orca→User→Project 순 조립, 프로젝트 지침은
+> `# Project` 섹션 안).
 > 가이드 7장 STABLE-first 와 정합하나, `excludeDynamicSections:false` 로 cross-대화 캐시가 preset
 > 동적섹션에서 이미 깨지므로 append 내부 순서는 캐시상 무의미하다. 세션 내(resume) 헤더는
 > version/언어/계정/프로젝트가 안 바뀌면 턴 간 byte-stable. 계정 지침·프로젝트 지침 편집은 **무캐시**라

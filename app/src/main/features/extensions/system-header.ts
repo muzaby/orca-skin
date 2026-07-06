@@ -19,6 +19,9 @@ export interface SystemHeaderInput {
   accountInstructions?: string
   // 활성 프로젝트 이름. 세션이 프로젝트에 속할 때만. trim 후 비면 '# Project' 섹션 생략.
   projectName?: string
+  // 활성 프로젝트 지침(DB). projectName 이 있고 trim 후 비지 않을 때만 'Project instructions:' 로
+  // 편입. projectName 이 없으면(프로젝트 없음) 지침도 함께 제외한다.
+  projectInstructions?: string
 }
 
 const ORCA_IDENTITY =
@@ -41,9 +44,15 @@ export function buildSystemHeader(input: SystemHeaderInput): string {
   if (accountInstructions) userLines.push(`Account instructions: ${accountInstructions}`)
   if (userLines.length > 0) sections.push(`# User\n${userLines.join('\n')}`)
 
-  // # Project — 활성 프로젝트 이름 (있을 때만).
+  // # Project — 활성 프로젝트 이름 + 지침 (프로젝트 있을 때만). projectName 부재 = 프로젝트 없음
+  // → 섹션 통째 생략(지침도 함께). 지침은 다줄 가능이라 라벨 줄 + 다음 줄부터 본문.
   const projectName = input.projectName?.trim()
-  if (projectName) sections.push(`# Project\nActive project: ${projectName}`)
+  if (projectName) {
+    const projectLines = [`Active project: ${projectName}`]
+    const projectInstructions = input.projectInstructions?.trim()
+    if (projectInstructions) projectLines.push(`Project instructions:\n${projectInstructions}`)
+    sections.push(`# Project\n${projectLines.join('\n')}`)
+  }
 
   return sections.join('\n\n')
 }

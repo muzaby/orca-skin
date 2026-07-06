@@ -3,9 +3,9 @@
 // ${VAR} 확장)는 전적으로 어댑터 책임. router 에 흩어져 있던 지침 조회를 이리로 이주해
 // "이 확장 리소스는 어디서 조립하지?"를 단일 위치로 모은다 (설계검토 §9 1단계).
 //
-// systemPromptAppend = 구조화 헤더(# Orca/# User/# Project) + 프로젝트 지침(DB). 세션마다·매 턴
-// 가변이라 여기서 매 턴 조회·재조립한다. 헤더는 buildSystemHeader(순수)가 조립하고, 빌더가 그 뒤에
-// 프로젝트 지침 본문을 이어붙인다. (정적 정책 append 체인 prompts/ 는 handoff 0062 에서 제거.)
+// systemPromptAppend = 구조화 헤더(# Orca/# User/# Project). 프로젝트 name·지침은 '# Project'
+// 섹션 안에 함께 포맷화된다(라운드 2). 세션마다·매 턴 가변이라 여기서 매 턴 조회·재조립한다. 헤더는
+// buildSystemHeader(순수)가 조립한다. (정적 정책 append 체인 prompts/ 는 handoff 0062 에서 제거.)
 //
 
 import type { DbQueries } from '../../infra/db'
@@ -45,20 +45,17 @@ export class ExtensionBuilder {
       }
     }
 
-    // 구조화 헤더(사용자 정보 + 실행환경 구성) 조립. 매 턴 최신 settings 를 읽는다.
+    // 구조화 헤더(사용자 정보 + 실행환경 구성) 조립. 매 턴 최신 settings 를 읽는다. 프로젝트 지침은
+    // 헤더의 '# Project' 섹션 안에 name 과 함께 포맷화되어 편입된다(라운드 2). 헤더는 '# Orca' 상시라
+    // 빈 문자열이 될 수 없으므로 append = 헤더 단일 문자열이다.
     const s = this.settings()
-    const header = buildSystemHeader({
+    const systemPromptAppend = buildSystemHeader({
       orcaVersion: this.orcaVersion,
       language: s.language,
       accountInstructions: s.accountInstructions,
-      projectName
+      projectName,
+      projectInstructions: instructions
     })
-
-    // 시스템 프롬프트 append = 헤더 + 프로젝트 지침 본문. 헤더가 먼저, 그 뒤 지침(있으면).
-    // 단일 문자열 불변식 — 빈 조각은 제외하고 '\n\n' 로 잇는다.
-    const systemPromptAppend = [header, instructions]
-      .filter((part): part is string => !!part && part.trim() !== '')
-      .join('\n\n')
 
     const pluginRoot = this.pluginRoot?.()
 
