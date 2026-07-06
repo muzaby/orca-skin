@@ -234,6 +234,12 @@ export function makeWorkspaceGuardHook(
 
 ### 3.5 Bash 경로 스크리닝 (핵심 한계 지점)
 
+> **SUPERSEDED (Orca 구현 0075 r3)**: 아래 정적 스크리닝은 실전 검증에서 실효가 없어(eval·변수치환
+> `$HOME`·파이프·base64 우회를 못 잡고 URL `//host`·literal `~/.claude` 를 오차단) **Orca 구현에서 제거**했다.
+> 대신 Bash 격리는 시스템 프롬프트 도구-사용 정책(`# Tools` — 파일 작업을 전용 툴로 라우팅 + Bash 를
+> workspace 스코프로 유도, opencode `anthropic.txt` 참고)으로 옮겼다. 즉 **구조 파일툴(Read/Write/Edit/
+> Glob/Grep)=훅으로 코드 강제, Bash=프롬프트로 유도**(코드 강제 불가). 본 §3.5 는 일반 참고로 보존한다.
+
 Bash 는 임의 문자열이라 완벽한 정적 판별이 불가능하다. 전략은 **"절대경로 화이트리스트 + 상위 탈출 차단"** best-effort 다.
 
 ```typescript

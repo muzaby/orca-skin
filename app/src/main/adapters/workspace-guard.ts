@@ -63,42 +63,15 @@ export function resolveGuardRoots(
   return { ws, writeRoots, readRoots }
 }
 
-// Bash 명령 정적 스크리닝(가이드 §3.5, best-effort). "절대경로 화이트리스트 + 상위 탈출 차단". Bash 는
-// 임의 문자열이라 read/write 의도를 못 가르므로 readRoots 기준으로만 판정한다. **한계**: eval·변수치환
-// ($HOME)·파이프·base64 우회는 잡지 못한다 — Bash 를 허용하는 한 정적 격리는 불완전하다(OS 샌드박스
-// 대체 아님). URL 처럼 `//` 로 시작하는 토큰도 절대경로로 오인해 차단할 수 있다(false-positive 수용).
-export function screenBashCommand(
-  cmd: string,
-  ws: string,
-  readRoots: string[]
-): { block: boolean; reason: string } {
-  // 1) 절대경로 토큰이 readRoots 밖이면 차단.
-  const absPaths = cmd.match(/(?<![\w-])\/[^\s"'`|;&><]+/g) ?? []
-  for (const raw of absPaths) {
-    const p = path.resolve(raw)
-    if (!readRoots.some((r) => isWithinDir(p, r))) {
-      return { block: true, reason: `Bash 절대경로 접근 차단: ${p}` }
-    }
-  }
-  // 2) 상위 탈출(../) — cwd 기준 resolve 후 검사.
-  const relTokens = cmd.match(/(?<![\w-])\.\.\/[^\s"'`|;&><]*/g) ?? []
-  for (const raw of relTokens) {
-    const p = path.resolve(ws, raw)
-    if (!readRoots.some((r) => isWithinDir(p, r))) {
-      return { block: true, reason: `Bash 상위경로 탈출 차단: ${p}` }
-    }
-  }
-  // 3) 홈/시스템 확장 차단(~/.claude·~/.config/orca 예외).
-  if (/(^|\s)(~[^/\s]|~\/(?!\.claude|\.config\/orca))/.test(cmd)) {
-    return { block: true, reason: 'Bash 홈 디렉터리 확장 차단' }
-  }
-  return { block: false, reason: '' }
-}
-
 // 툴 1건의 경로 접근을 판정한다. 반환 `null` = pass-through(안·예외·비파일툴), 문자열 = deny 사유.
 // **write 불변식**: WRITE_TOOLS 는 writeRoots(cwd + additionalDirs + `~/.claude`)만 참조한다 —
 // read-only 예외(`~/.config/orca`·런타임)는 보지 않는다. 그래서 세션 cwd(`~/.config/orca/projects/<…>`)
 // 와 `~/.claude` 는 write 허용되고, `~/.config/orca/sources` 등은 write 차단된다.
+//
+// **Bash 는 판정하지 않는다(0075 후속)**: 명령 문자열 정적 스크리닝은 eval·변수치환($HOME)·파이프·
+// base64 우회를 못 잡고 URL(`//host`)·literal `~/.claude` 를 오차단해 실효가 없었다 — 제거했다.
+// 대신 시스템 프롬프트의 도구-사용 정책(`# Tools`, opencode 참고)이 파일 작업을 **전용 툴(Read/Write/
+// Edit — 이 가드가 실제로 강제)** 로 라우팅하고 Bash 를 workspace 안으로 스코프하도록 유도한다.
 export function guardToolAccess(
   toolName: string,
   toolInput: Record<string, unknown>,
@@ -125,13 +98,7 @@ export function guardToolAccess(
     return `허용되지 않은 경로 read 차단: ${p}`
   }
 
-  if (toolName === 'Bash') {
-    const cmd = typeof toolInput.command === 'string' ? toolInput.command : ''
-    const verdict = screenBashCommand(cmd, roots.ws, roots.readRoots)
-    return verdict.block ? verdict.reason : null
-  }
-
-  // 그 외(TodoWrite·AskUserQuestion·ExitPlanMode 등) = 파일 접근 아님 → 보류.
+  // 그 외(Bash·TodoWrite·AskUserQuestion·ExitPlanMode 등) = 구조 파일툴 아님 → 보류(정책이 유도).
   return null
 }
 
