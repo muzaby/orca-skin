@@ -20,6 +20,7 @@
 | 명시 요구 | `~/.claude`(plugin/skill)·`~/.config/orca/`(plugin) 및 node/python skill **실행**에 필요한 경로의 **read 허용**(예외). read 없이도 동작하면 무시 가능. | 라이브 세션 요청 |
 | 명시 요구 | `options.additionalDirectories` 는 추후 지정 주입 전까지 **기본 비움**(`[]`). | 라이브 세션 요청 |
 | 명시 정정 | read 예외의 예외 — `~/.config/orca/projects/<...>`(세션 cwd)는 **write 가능**해야 한다(cwd 대상이므로). | 라이브 세션 정정 |
+| 명시 정정(r2) | `~/.claude` 는 **write 도 허용**하라 — plan 모드 산출물·skill 설치 요구가 올 수 있음. | 라이브 세션 정정(r2) |
 | 명시 결정(AskUserQuestion) | 격리 강도 = **경로 격리만**. `disallowedTools`(sudo/curl/wget) 미도입 — 네트워크/명령은 기존 canUseTool 승인 카드 담당. | 이번 세션 AskUserQuestion 응답 "경로 격리만 (권장)" |
 | 명시 결정(AskUserQuestion) | read 예외를 **처음부터 포함**(test-first 최소권한 아님). | 이번 세션 AskUserQuestion 응답 "처음부터 포함 (권장)" |
 | 추론 의도 | 격리 계층 = **PreToolUse 훅**(모드-독립), 안·예외는 `allow` 아닌 **pass-through** — 74 가이드의 설계 결론을 그대로 코드화. | 내 해석 — 74 가이드(§1·§3.1)에서 파생(§설계) |
@@ -58,7 +59,7 @@
 
 1. `sendMessage`(`claude.ts`)의 `query()` 옵션에 **PreToolUse 워크스페이스 가드 훅**이 배선되어, cwd+`additionalDirectories`+read예외 **밖** 경로를 노린 `Read/Write/Edit/Glob/Grep/Bash` 를 `deny` 한다.
 2. 작업 폴더 **안**·read 예외 경로는 훅이 **pass-through(`{}`)** 를 반환한다(`allow` 아님) — 기존 `makeCanUseTool` 승인 카드·`permissionMode`(plan/acceptEdits) 흐름이 그대로 도달·동작한다.
-3. read 예외(`~/.claude`·`~/.config/orca`·node/python 런타임)는 **read 허용, write 차단**이다. **단 세션 cwd(`~/.config/orca/projects/<...>`)는 write 허용** — write 판정은 `writeRoots`(=cwd+additionalDirs)만 참조하므로 read-only 예외가 cwd 쓰기를 막지 않는다.
+3. 예외 경로는 write 허용 여부로 2분한다(r2). **write 예외**: `~/.claude`(plan 산출물·skill 설치 — read+write 허용). **read-only 예외**: `~/.config/orca`·node/python 런타임(read 허용, write 차단). **단 세션 cwd(`~/.config/orca/projects/<...>`)는 write 허용** — write 판정은 `writeRoots`(=cwd+additionalDirs+`~/.claude`)만 참조하므로 read-only 예외가 cwd·`~/.claude` 쓰기를 막지 않는다.
 4. `additionalDirectories` 기본 `[]`, **옵션과 훅이 단일 배열을 공유**(드리프트 0)하고 향후 주입 지점이 코드에 명시된다.
 5. 격리는 **모드 독립**(훅이 평가 1순위) — `permissionMode` 를 강제하지 않고 `dontAsk` 를 도입하지 않는다.
 6. 순수 로직(경로 판정·툴별 경로 추출·Bash 스크리닝)에 **단위 테스트**를 붙이고 게이트(lint/typecheck/test)를 통과한다.
@@ -82,12 +83,12 @@
 `makeSteerGateHook`(claude-adapt.ts:138)와 동형 — `{ hooks: { PreToolUse: [{ hooks: [callback] }] } }` 반환.
 
 - `export function makeWorkspaceGuardHook(workspaceRoot: string, additionalDirs?: string[]): object`
-  - `writeRoots = [workspaceRoot, ...additionalDirs]`(resolve). `readRoots = [...writeRoots, ...readOnlyExceptionRoots()]`.
+  - `writeRoots = [workspaceRoot, ...additionalDirs, ...writeExceptionRoots()]`(resolve; write 예외=`~/.claude`, r2). `readRoots = [...writeRoots, ...readOnlyExceptionRoots()]`(read-only 예외=`~/.config/orca`·런타임).
   - `callback: HookCallback` — `deny` = `{hookSpecificOutput:{hookEventName:'PreToolUse',permissionDecision:'deny',permissionDecisionReason}}`, 통과 = `{}`.
   - WRITE(`Write`,`Edit`) → `file_path` 를 **writeRoots 만** 검사. READ(`Read`,`Glob`,`Grep`) → `file_path`/`path` 를 readRoots 검사(경로 생략 시 pass). `Bash` → `screenBashCommand`. 그 외 → pass-through.
 - **write 판정 불변식**: WRITE 분기는 read-only 예외를 절대 참조하지 않음 → cwd(`~/.config/orca/projects/...`) 하위 write 허용, `~/.config/orca/sources` write 차단(AC3).
 - 순수 헬퍼 named export: `screenBashCommand(cmd, ws, readRoots)`·`readOnlyExceptionRoots()`·경로 추출 — 단위 테스트 대상.
-- 재사용: `isWithinDir`·`orcaConfigDir`(paths.ts). read 예외 = `~/.claude`·`orcaConfigDir()`·`dirname(process.execPath)`(런타임).
+- 재사용: `isWithinDir`·`orcaConfigDir`(paths.ts). 예외 = write:`~/.claude`(r2) · read-only:`orcaConfigDir()`·`dirname(process.execPath)`(런타임).
 - Bash 스크리닝 = 가이드 §3.5 그대로(절대경로 토큰·`../` 탈출·홈 확장, `~/.claude`·`~/.config/orca` 예외). best-effort 한계 주석 명시.
 
 ### 배선 `app/src/main/adapters/claude.ts` `sendMessage`
@@ -170,7 +171,7 @@
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | `app/src/main/adapters/workspace-guard.ts`(신규 156줄) · `workspace-guard.test.ts`(신규 22 케이스) · `claude.ts`(import 1 + 옵션 `additionalDirectories` + `mergeHooks` 가드 인자) |
+| 변경 파일 | `app/src/main/adapters/workspace-guard.ts`(신규; r2 에서 `writeExceptionRoots()` 분리) · `workspace-guard.test.ts`(신규 23 케이스) · `claude.ts`(import 1 + 옵션 `additionalDirectories` + `mergeHooks` 가드 인자) |
 | 실행 명령 | `npm run typecheck` / `npm run lint` / `npx vitest run` |
 | 게이트 결과 | typecheck ✅(node·web·test 3종) / lint ✅(경계 위반 0, prettier 정렬만) / test: `workspace-guard.test.ts` **22/22** + 전체 **694 passed** / 21 failed(**전부 better-sqlite3 bindings 미빌드·electron 미설치 환경 제한 — `--ignore-scripts` 설치, 본 변경 무관**, 0007 이후 누적 계열) |
 | 블로커 / 역질문 | 없음 |
