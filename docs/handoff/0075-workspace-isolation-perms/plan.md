@@ -149,27 +149,29 @@
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- (구현 시 기입)
+- 동의 / 그대로 진행: 격리를 `makeSteerGateHook` 과 동형인 어댑터 내부 훅 조각으로 두고 `mergeHooks` 로 합성하는 배치가, 기존 훅 인프라(§C2)를 그대로 재사용하면서 permissionMode·canUseTool 을 건드리지 않는 최소 침습 지점이었다. `isWithinDir`/`orcaConfigDir` 재사용으로 신규 술어 0.
+- 이견 / 우려: 없음. 단 §리스크의 Bash 정적 스크리닝 한계는 코드 주석·verify 에서 명시적으로 경고해야 오용을 막는다(반영함). SDK 타입(`Options.additionalDirectories`·`PreToolUseHookSpecificOutput`)을 d.ts 로 실검증(1168·2028행)해 배선 전 필드명을 확정했다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| (구현 시 기입) | | | |
+| 1 | Bash 절대경로 정규식이 URL(`//host`)·literal `~/.claude` 를 오차단할 수 있음(rule1 이 rule3 예외보다 먼저 발화) | ✅ 코드 주석 + verify 한계로 명시. 구조 파일툴(Read/Write/Edit)은 절대경로 정상 판정이라 skill 실행은 절대경로 경유(§전제)로 통과 — Bash literal `~` 는 best-effort 한계로 수용 | 가이드 §3.5 한계 계승 |
+| 2 | `guardToolAccess` 를 순수 함수로 분리 안 하면 콜백만 테스트 가능해 커버리지 약함 | ✅ 구현함 — `guardToolAccess`·`screenBashCommand`·`resolveGuardRoots`·`readOnlyExceptionRoots` 를 named export 로 분리해 순수 단위 테스트 | 요구6 |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] `workspace-guard.ts` + 순수 헬퍼 named export
-- [ ] `workspace-guard.test.ts`
-- [ ] `claude.ts` 배선(import + mergeHooks + additionalDirectories)
-- [ ] 게이트 통과
+- [x] `workspace-guard.ts` + 순수 헬퍼 named export (`makeWorkspaceGuardHook`·`guardToolAccess`·`screenBashCommand`·`resolveGuardRoots`·`readOnlyExceptionRoots`)
+- [x] `workspace-guard.test.ts` (22 케이스)
+- [x] `claude.ts` 배선(import + `mergeHooks` 인자 + `additionalDirectories` 옵션, 동일 배열 공유)
+- [x] 게이트 통과 (lint/typecheck/test)
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | (구현 시 기입) |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` |
-| 게이트 결과 | (구현 시 기입) |
-| 블로커 / 역질문 | |
-| 대상 커밋 | |
+| 변경 파일 | `app/src/main/adapters/workspace-guard.ts`(신규 156줄) · `workspace-guard.test.ts`(신규 22 케이스) · `claude.ts`(import 1 + 옵션 `additionalDirectories` + `mergeHooks` 가드 인자) |
+| 실행 명령 | `npm run typecheck` / `npm run lint` / `npx vitest run` |
+| 게이트 결과 | typecheck ✅(node·web·test 3종) / lint ✅(경계 위반 0, prettier 정렬만) / test: `workspace-guard.test.ts` **22/22** + 전체 **694 passed** / 21 failed(**전부 better-sqlite3 bindings 미빌드·electron 미설치 환경 제한 — `--ignore-scripts` 설치, 본 변경 무관**, 0007 이후 누적 계열) |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | (impl 커밋 — INDEX 기재) |
