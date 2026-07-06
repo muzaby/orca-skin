@@ -17,14 +17,58 @@
 | 항목 | Orca 구현 | 근거 |
 |---|---|---|
 | `claude_code` preset + `append` | `adaptSystemPrompt()` 가 `{type:'preset', preset:'claude_code', append}` 반환 | `app/src/main/adapters/claude-adapt.ts` |
-| `append` 는 **단일 문자열** | 빌더가 `지침\n\n정책` 단일 string 조립(다중 블록 4-블록 버그 회피) | `app/src/main/extensions/builder.ts` |
+| `append` 는 **단일 문자열** | 빌더가 `헤더\n\n지침` 단일 string 조립(다중 블록 4-블록 버그 회피) | `app/src/main/features/extensions/builder.ts` |
 | 매 턴 `query()` + `resume` | per-turn 새 `query({resume})`, streaming-input 으로 턴 격리 | `app/src/main/adapters/claude.ts` |
 | `excludeDynamicSections` 생략(=false) | 미사용 → cwd/플랫폼/메모리 경로 동적섹션을 시스템 프롬프트에 유지 | grep 0건 |
 | 출력 스타일 미사용 | 정책은 전부 `append` 로 주입 | — |
 
-> 즉 **주입 메커니즘은 변경 대상이 아니다.** 이번(0030) 변경은 §2 의 *정책 텍스트 관리 구조* 뿐이다.
+> 즉 **주입 메커니즘은 변경 대상이 아니다** (preset+append 그대로). 변한 것은 *append 의 내용*뿐이다:
+> handoff 0030 이 정책 텍스트 관리 구조(§2, 아래)를 도입했고, **handoff 0062 가 그 `prompts/` 정적
+> 정책 체인을 데드코드로 제거**했으며(빈 레지스트리), **handoff 0073 이 그 자리에 구조화 헤더(§2A)를
+> 도입**했다. 현재 append = `구조화 헤더 \n\n 프로젝트 지침`.
 
-## 2. 정책 문자열 관리 구조 (`app/src/main/prompts/`, handoff 0030)
+## 2A. 구조화 시스템 프롬프트 헤더 (`features/extensions/system-header.ts`, handoff 0073)
+
+**현행 append 조립의 정본.** 사용자 정보 + 실행환경 구성을 `# Orca / # User / # Project` 마크다운
+섹션으로 구조화해 프로젝트 지침 **앞**에 붙인다. study/opencode·hermes 의 "정체성/실행환경 framing 을
+프롬프트 앞에 구조화" 교훈을 Orca 경량판으로 적용한 것.
+
+### 2A.1 포맷
+
+```
+# Orca
+You are running inside Orca — a Windows desktop app for engineers and AI beginners,
+not a terminal CLI. Responses render as rich markdown in a GUI transcript.
+Orca version: <app.getVersion()>
+
+# User
+Preferred language: <settings.language>
+Account instructions: <settings.accountInstructions>
+
+# Project
+Active project: <프로젝트 name>
+```
+
+### 2A.2 소스·조립
+
+| 섹션 | 필드 | 소스 | 조건 |
+|---|---|---|---|
+| `# Orca` | 정체성 framing + version | 상수 + `app.getVersion()`(bootstrap 주입) | 항상 |
+| `# User` | Preferred language | `settings.language`(default `한국어`) | 값 있을 때 |
+| `# User` | Account instructions | `settings.accountInstructions` | trim 후 비지 않을 때 |
+| `# Project` | Active project | 프로젝트 `name`(세션 바인딩 / 새 채팅 projectId) | 프로젝트 소속 시 |
+
+- **순수 함수 `buildSystemHeader(input): string`** — 존재하는 섹션만 `'\n\n'` join, **단일 문자열**
+  반환(4블록 버그 회피). 빈/공백 필드는 줄 생략. `ExtensionBuilder` 가 `[header, instructions]` 를
+  `'\n\n'` 로 잇는다(헤더 먼저).
+- **실행환경 재주입 안 함**: cwd/platform/date/도구목록은 preset 동적섹션(`excludeDynamicSections:false`)이
+  이미 주입 → 헤더는 preset 이 주지 못하는 Orca framing(GUI/markdown 표면)만 얹는다.
+- 근거 코드: `features/extensions/system-header.ts`(+`.test.ts`)·`builder.ts`(조립)·`app/bootstrap.ts`(version/settings 주입).
+
+## 2. 정책 문자열 관리 구조 (`app/src/main/prompts/`, handoff 0030) — **폐기(0062)**
+
+> **HISTORICAL.** 아래 `prompts/` 정적 정책 체인은 handoff 0062 에서 빈 레지스트리 데드코드로
+> **제거됐다**. 현행 append 조립은 §2A 헤더다. 본 절은 이력 보존용.
 
 가이드 5장(정책 문자열 관리)을 Orca main 레이어에 맞춰 도입했다. **관리는 여러 조각, 주입은 한 덩어리**.
 
@@ -68,14 +112,16 @@ app/src/main/prompts/
 
 | tier | 내용 | Orca 위치 |
 |---|---|---|
-| STABLE | 정적 정책 본문(python-runtime 등) | `systemPrompt.append` 의 정책 부분 (`prompts/buildAppend`) |
-| CONTEXT — 커스텀 지시 | 프로젝트 지침(DB) | `append` 에 결합 (빌더가 매 턴 조회, **무캐시**) |
+| STABLE | Orca 정체성 framing + version | `# Orca` 헤더 (`system-header.ts`, version=프로세스 고정) |
+| CONTEXT — 커스텀 지시 | 선호 언어·계정 지침·프로젝트 지침(DB/설정) | `# User`·`# Project` 헤더 + 지침 본문 (빌더가 매 턴 조회, **무캐시**) |
 | CONTEXT — cwd/작업공간 | 실행 환경 | preset 동적 섹션 (SDK 자동, `excludeDynamicSections:false`) |
 | VOLATILE | 날짜·메모리 스냅샷 | **현재 없음** (§4 참조) |
 
-> **순서 주의**: 빌더는 `지침\n\n정책` 순으로 둔다(지침이 앞). 가이드 7장은 STABLE-first 를
-> 권하지만 `excludeDynamicSections:false` 로 cross-대화 캐시가 preset 동적섹션에서 이미 깨지므로
-> append 내부 순서는 캐시상 무의미하다. 무회귀를 위해 현행 순서를 보존한다.
+> **순서**: 빌더는 `헤더\n\n지침` 순으로 둔다(헤더가 앞, 변동성 낮은 Orca→User→Project 순 조립).
+> 가이드 7장 STABLE-first 와 정합하나, `excludeDynamicSections:false` 로 cross-대화 캐시가 preset
+> 동적섹션에서 이미 깨지므로 append 내부 순서는 캐시상 무의미하다. 세션 내(resume) 헤더는
+> version/언어/계정/프로젝트가 안 바뀌면 턴 간 byte-stable. 계정 지침·프로젝트 지침 편집은 **무캐시**라
+> 같은 세션 다음 메시지부터 즉시 반영된다.
 
 ## 4. 전제 차이 (가이드가 Orca 와 다른 부분)
 
@@ -85,7 +131,7 @@ app/src/main/prompts/
 |---|---|
 | 3장 "대화마다 고유 cwd" | 현재 cwd = `app.getPath('home')` **고정**(`ipc/router.ts`). per-session cwd 는 Future Scope. `excludeDynamicSections:false` 결정은 유효하나 근거는 "동적섹션 유지" 자체이지 per-session cwd 가 아님 |
 | 6장 VOLATILE = 날짜·**메모리 스냅샷** → 첫 user 메시지 | Orca 에 **메모리 기능 없음**. 날짜는 preset 동적섹션이 이미 주입. 현재 격리할 volatile preamble 자체가 없음 → 미구현(기능 도입 시 재검토) |
-| 5.3 `src/agent/systemPrompt/` 경로 | Orca 엔 미존재. main L0–L3 DAG 에 맞춰 `app/src/main/prompts/`(L1)로 매핑 |
+| 5.3 `src/agent/systemPrompt/` 경로 | Orca 엔 미존재. main feature 슬라이스에 맞춰 `features/extensions/system-header.ts`(빌더 동일 slice)로 매핑 |
 
 ## 5. Open Questions — 재검토 대상 (가이드 ↔ Orca 확정결정 충돌)
 

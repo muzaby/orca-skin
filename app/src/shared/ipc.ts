@@ -695,7 +695,9 @@ export interface Settings {
   skillEnabled: Record<string, boolean>
   // SSO 로그인 게이트 우회. true 면 앱 시작 시 로그인 화면을 건너뛴다(디버그 패널에서 토글).
   ssoBypass: boolean
-  // 계정 지침(설정 모달 프로필 그룹). 영속화만 — system prompt 배선은 추후.
+  // 선호 언어(언어 플라이아웃 선택값). 시스템 프롬프트 '# User' 헤더로 매 턴 주입.
+  language: string
+  // 계정 지침(설정 모달 프로필 그룹). 시스템 프롬프트 '# User' 헤더로 매 턴 주입.
   accountInstructions: string
   // 앱 전체 폰트. --font-{sans,serif,mono} 에 매핑.
   appFont: 'sans' | 'serif' | 'mono'

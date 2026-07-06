@@ -361,7 +361,11 @@ export const SettingsSchema = z.object({
   mcpMeta: z.record(z.string(), z.object({ description: z.string().default('') })).default({}),
   skillEnabled: z.record(z.string(), z.boolean()).default({}),
   ssoBypass: z.boolean().default(false),
-  // 계정 지침 — 설정 모달 '프로필' 그룹의 textarea. system prompt 배선은 추후, 지금은 영속화만.
+  // 선호 언어 — 사용자 버튼 언어 플라이아웃의 선택값. 시스템 프롬프트 '# User' 헤더의
+  // Preferred language 로 매 턴 주입된다(ExtensionBuilder). 현재 UI 는 한국어만 선택 가능.
+  language: z.string().default('한국어'),
+  // 계정 지침 — 설정 모달 '프로필' 그룹의 textarea. 시스템 프롬프트 '# User' 헤더의
+  // Account instructions 로 매 턴 주입된다(ExtensionBuilder).
   accountInstructions: z.string().default(''),
   // 앱 전체 폰트. tokens.css 의 --font-{sans,serif,mono} var 에 매핑(TweakProvider 가 --font-app 적용).
   appFont: z.enum(['sans', 'serif', 'mono']).default('sans'),
@@ -382,6 +386,7 @@ export const SettingsPatchSchema = z
     mcpMeta: z.record(z.string(), z.object({ description: z.string().default('') })),
     skillEnabled: z.record(z.string(), z.boolean()),
     ssoBypass: z.boolean(),
+    language: z.string(),
     accountInstructions: z.string(),
     appFont: z.enum(['sans', 'serif', 'mono']),
     notifyOnComplete: z.boolean()
