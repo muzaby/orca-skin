@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildSystemHeader } from './system-header'
+import { buildSystemHeader, TOOLS_SECTION } from './system-header'
 
 describe('buildSystemHeader', () => {
   it('전 필드 존재 시 Orca/User/Project 3섹션을 순서대로 조립하고 지침을 # Project 안에 넣는다', () => {
@@ -14,18 +14,30 @@ describe('buildSystemHeader', () => {
       [
         '# Orca',
         'You are running inside Orca — a Windows desktop app for engineers and AI beginners, not a terminal CLI. Responses render as rich markdown in a GUI transcript.',
-        'Orca version: 1.0.0',
-        '',
-        '# User',
-        'Preferred language: 한국어',
-        'Account instructions: 항상 존댓말을 쓴다',
-        '',
-        '# Project',
-        'Active project: 센서 QA',
-        'Project instructions:',
-        '항상 근거를 붙여라'
-      ].join('\n')
+        'Orca version: 1.0.0'
+      ].join('\n') +
+        '\n\n' +
+        TOOLS_SECTION +
+        '\n\n' +
+        ['# User', 'Preferred language: 한국어', 'Account instructions: 항상 존댓말을 쓴다'].join(
+          '\n'
+        ) +
+        '\n\n' +
+        [
+          '# Project',
+          'Active project: 센서 QA',
+          'Project instructions:',
+          '항상 근거를 붙여라'
+        ].join('\n')
     )
+  })
+
+  it('# Tools 정책 섹션을 항상 포함하고 Bash·전용툴 규칙을 담는다', () => {
+    const out = buildSystemHeader({ orcaVersion: '1.0.0' })
+    expect(out).toContain('# Tools')
+    expect(out).toContain('Prefer dedicated file tools over shell commands')
+    expect(out).toContain('Reserve the Bash tool')
+    expect(out).toContain('Work only inside the current working directory')
   })
 
   it('projectName 만 있으면 Active project 만(Project instructions 라벨 없음)', () => {
@@ -48,7 +60,9 @@ describe('buildSystemHeader', () => {
     expect(out).toBe(
       '# Orca\n' +
         'You are running inside Orca — a Windows desktop app for engineers and AI beginners, not a terminal CLI. Responses render as rich markdown in a GUI transcript.\n' +
-        'Orca version: 2.3.1'
+        'Orca version: 2.3.1' +
+        '\n\n' +
+        TOOLS_SECTION
     )
     expect(out).not.toContain('# User')
     expect(out).not.toContain('# Project')

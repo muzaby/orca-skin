@@ -41,6 +41,11 @@ You are running inside Orca — a Windows desktop app for engineers and AI begin
 not a terminal CLI. Responses render as rich markdown in a GUI transcript.
 Orca version: <app.getVersion()>
 
+# Tools
+Prefer dedicated file tools over shell commands (Read/Edit/Write, not cat/sed/echo);
+reserve Bash for real shell needs. Work only inside the workspace — file tools are
+restricted to it; Bash is not path-restricted, so keep every command scoped yourself.
+
 # User
 Preferred language: <settings.language>
 Account instructions: <settings.accountInstructions>
@@ -56,6 +61,7 @@ Project instructions:
 | 섹션 | 필드 | 소스 | 조건 |
 |---|---|---|---|
 | `# Orca` | 정체성 framing + version | 상수 + `app.getVersion()`(bootstrap 주입) | 항상 |
+| `# Tools` | 도구-사용 정책(전용툴 우선 + workspace 스코프) | 상수 `TOOLS_SECTION`(opencode `anthropic.txt` 적용, handoff 0075 r3) | 항상 |
 | `# User` | Preferred language | `settings.language`(default `한국어`) | 값 있을 때 |
 | `# User` | Account instructions | `settings.accountInstructions` | trim 후 비지 않을 때 |
 | `# Project` | Active project | 프로젝트 `name`(세션 바인딩 / 새 채팅 projectId) | 프로젝트 소속 시 |

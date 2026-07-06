@@ -9,8 +9,8 @@
 | slug | `0075-workspace-isolation-perms` |
 | 검증자 | Claude Code |
 | 일자 | 2026-07-06 |
-| 대상 커밋 | `389cbe1` (r1) · r2 amend(`~/.claude` write 예외) |
-| 라운드 | 1 (+r2 amend) |
+| 대상 커밋 | `389cbe1` (r1) · r2(`~/.claude` write 예외) · r3(Bash 스크린 제거 + `# Tools` 정책) |
+| 라운드 | 1 (+r2·r3 amend) |
 | 상태 | PASS |
 
 ## 구현자 코멘트 확인 (매트릭스 전 선행)
@@ -30,7 +30,9 @@
 | 3 | 예외 2분(r2): `~/.claude`=write 예외, `~/.config/orca`·런타임=read-only, 세션 cwd=write 허용 | ✅ | `workspace-guard.ts` `writeExceptionRoots()`=`~/.claude` → writeRoots. test "~/.claude 는 Write 허용(plan 산출물·skill 설치)"·"~/.config/orca 는 read-only — cwd 밖(sources) Write 차단"·"예외의 예외: 세션 cwd 하위 Write 허용"·"read 예외 경로는 Read 허용" |
 | 4 | additionalDirectories 기본 `[]`, 옵션·훅 단일 배열 공유 | ✅ | `claude.ts` `const additionalDirectories: string[] = []` → 옵션 `additionalDirectories,` + 훅 인자 동일 참조 / test "additionalDirectories 확장" |
 | 5 | 모드 독립 — permissionMode 강제·dontAsk 도입 없음 | ✅ | permissionMode 배선 무변경(`claude.ts` 기존 `...(permissionMode ? …)` 유지), `dontAsk` 문자열 미도입(grep 0). 훅이 평가 1순위(W1) |
-| 6 | 순수 로직 단위 테스트 + 게이트 통과 | ✅ | `workspace-guard.test.ts` 22/22 (guardToolAccess·screenBashCommand·resolveGuardRoots·makeWorkspaceGuardHook). 게이트 아래 |
+| 6 | 순수 로직 단위 테스트 + 게이트 통과 | ✅ | `workspace-guard.test.ts`(guardToolAccess·resolveGuardRoots·makeWorkspaceGuardHook; r3 에서 screenBashCommand 테스트 제거) + `system-header.test.ts` 8. 게이트 아래 |
+| 9 (r3) | `screenBashCommand` 제거·Bash pass-through | ✅ | `workspace-guard.ts` Bash 분기 삭제 / test "Bash 는 명령 내용과 무관하게 pass-through"(밖 경로 명령도 가드 미차단) |
+| 10 (r3) | opencode 참고 `# Tools` 정책 추가(전용툴 라우팅 + Bash workspace 스코프) | ✅ | `system-header.ts` `TOOLS_SECTION`(buildSystemHeader 항상 포함) / test "# Tools 정책 섹션을 항상 포함하고 Bash·전용툴 규칙을 담는다" |
 | 7 | runCompletion 은 도구 0 이라 가드 미적용 명시 | ✅ | `workspace-guard.ts:1-11` + plan §설계 "미변경" 에 근거(claude.ts:229 `allowedTools:[]`) |
 | 8 | 74 가이드 참조 + 구현 편차 문서화 | ✅ | `workspace-guard.ts` 주석이 가이드 정본 링크·`isWithinDir` 재사용·Bash §3.5 한계·runCompletion 제외 명시 |
 
@@ -79,4 +81,5 @@ $ npx vitest run           # 전체
 ## 결론 / 다음 단계
 
 - 상태: **PASS** → PHASES 승격 완료. 다음 = 사람 검증(모드별 실 격리·skill 실행) + (요청 시) PR. Open Question 없음.
-- **r2 amend**: 사용자 정정으로 `~/.claude` 를 read-only 예외 → **write 예외**로 이동(`writeExceptionRoots()` 분리) — plan 모드 산출물·skill 설치(`~/.claude/skills/<name>`)가 쓰기를 요구하기 때문. `~/.config/orca`(cwd 제외)·런타임은 read-only 유지. 게이트 재통과(typecheck·lint·23/23). 가이드(0074 §3.2) 기본 read-only 스탠스에서의 Orca 편차로 코드 주석·본 verify 에 기록.
+- **r2 amend**: 사용자 정정으로 `~/.claude` 를 read-only 예외 → **write 예외**로 이동(`writeExceptionRoots()` 분리) — plan 모드 산출물·skill 설치(`~/.claude/skills/<name>`)가 쓰기를 요구하기 때문. `~/.config/orca`(cwd 제외)·런타임은 read-only 유지. 가이드(0074 §3.2) 기본 read-only 스탠스에서의 Orca 편차로 코드 주석·본 verify 에 기록.
+- **r3 amend**: (1) `screenBashCommand` **제거** — 정적 파싱이 eval·$HOME·파이프·base64 우회를 못 잡고 URL·literal `~` 를 오차단해 실효가 없었다(사용자 판단). Bash 는 이제 가드 pass-through. (2) opencode `anthropic.txt` "Tool usage policy" 를 Orca 격리에 맞춰 `# Tools` 시스템 프롬프트 섹션(`system-header.ts TOOLS_SECTION`)으로 추가 — 파일 작업을 전용 툴(가드가 강제)로 라우팅 + Bash 를 workspace 안으로 스코프하도록 유도. **격리 모델 갱신**: 구조 파일툴(Read/Write/Edit/Glob/Grep)=코드로 강제(가드 훅), Bash=프롬프트로 유도(코드 강제 불가 — 정직히 명시). 게이트 재통과(typecheck·lint·workspace-guard+system-header 테스트 green). 0074 가이드 §3.5 Bash 스크리닝은 supersede(가이드에 노트).

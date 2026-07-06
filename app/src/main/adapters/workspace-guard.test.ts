@@ -4,7 +4,6 @@ import path from 'node:path'
 import {
   resolveGuardRoots,
   guardToolAccess,
-  screenBashCommand,
   makeWorkspaceGuardHook,
   type GuardRoots
 } from './workspace-guard'
@@ -78,18 +77,14 @@ describe('guardToolAccess — read 계열(readRoots 참조)', () => {
   })
 })
 
-describe('guardToolAccess — Bash / 비파일 툴', () => {
-  it('workspace 안·PATH 명령은 통과', () => {
+describe('guardToolAccess — Bash / 비파일 툴 (가드 판정 대상 아님)', () => {
+  // Bash 정적 스크리닝은 제거됨(실효 없음) — Bash 는 가드에서 pass-through 하고 시스템 프롬프트
+  // 도구-사용 정책이 workspace 스코프를 유도한다. 밖 경로 명령도 가드는 막지 않는다(정책 소관).
+  it('Bash 는 명령 내용과 무관하게 pass-through', () => {
     expect(guardToolAccess('Bash', { command: 'ls -la' }, roots)).toBeNull()
     expect(guardToolAccess('Bash', { command: 'npm test' }, roots)).toBeNull()
-    expect(
-      guardToolAccess('Bash', { command: `cat ${path.join(WS, 'pkg.json')}` }, roots)
-    ).toBeNull()
-  })
-
-  it('밖 절대경로·상위 탈출은 deny', () => {
-    expect(guardToolAccess('Bash', { command: 'cat /etc/hosts' }, roots)).not.toBeNull()
-    expect(guardToolAccess('Bash', { command: 'cat ../../secret' }, roots)).not.toBeNull()
+    expect(guardToolAccess('Bash', { command: 'cat /etc/hosts' }, roots)).toBeNull()
+    expect(guardToolAccess('Bash', { command: 'cat ../../secret' }, roots)).toBeNull()
   })
 
   it('파일 접근이 아닌 툴은 pass-through', () => {
@@ -107,21 +102,6 @@ describe('additionalDirectories 확장', () => {
     expect(guardToolAccess('Read', { file_path: path.join(extra, 'x.txt') }, r)).toBeNull()
     // 확장 배열을 안 준 roots 에서는 여전히 차단.
     expect(guardToolAccess('Write', { file_path: path.join(extra, 'x.txt') }, roots)).not.toBeNull()
-  })
-})
-
-describe('screenBashCommand', () => {
-  it('workspace 안 절대경로는 통과', () => {
-    expect(screenBashCommand(`cat ${path.join(WS, 'a')}`, WS, roots.readRoots).block).toBe(false)
-  })
-  it('밖 절대경로는 차단', () => {
-    expect(screenBashCommand('cat /etc/hosts', WS, roots.readRoots).block).toBe(true)
-  })
-  it('상위 탈출은 차단', () => {
-    expect(screenBashCommand('cp ../../x .', WS, roots.readRoots).block).toBe(true)
-  })
-  it('홈 확장은 차단, ~/.claude·~/.config/orca 는 예외', () => {
-    expect(screenBashCommand('cat ~/secret', WS, roots.readRoots).block).toBe(true)
   })
 })
 

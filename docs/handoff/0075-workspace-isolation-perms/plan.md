@@ -21,6 +21,8 @@
 | 명시 요구 | `options.additionalDirectories` 는 추후 지정 주입 전까지 **기본 비움**(`[]`). | 라이브 세션 요청 |
 | 명시 정정 | read 예외의 예외 — `~/.config/orca/projects/<...>`(세션 cwd)는 **write 가능**해야 한다(cwd 대상이므로). | 라이브 세션 정정 |
 | 명시 정정(r2) | `~/.claude` 는 **write 도 허용**하라 — plan 모드 산출물·skill 설치 요구가 올 수 있음. | 라이브 세션 정정(r2) |
+| 명시 요구(r3) | Bash 커맨드 스크린(`screenBashCommand`)은 실효가 없으니 **제거**하라. | 라이브 세션 요청(r3) |
+| 명시 요구(r3) | opencode 도구-사용 정책을 참고해 Orca 환경에 맞춰 **추가**하라(특히 Bash). 기존 핸드오프 연장선. | 라이브 세션 요청(r3) + `github.com/anomalyco/opencode …/prompt/anthropic.txt` |
 | 명시 결정(AskUserQuestion) | 격리 강도 = **경로 격리만**. `disallowedTools`(sudo/curl/wget) 미도입 — 네트워크/명령은 기존 canUseTool 승인 카드 담당. | 이번 세션 AskUserQuestion 응답 "경로 격리만 (권장)" |
 | 명시 결정(AskUserQuestion) | read 예외를 **처음부터 포함**(test-first 최소권한 아님). | 이번 세션 AskUserQuestion 응답 "처음부터 포함 (권장)" |
 | 추론 의도 | 격리 계층 = **PreToolUse 훅**(모드-독립), 안·예외는 `allow` 아닌 **pass-through** — 74 가이드의 설계 결론을 그대로 코드화. | 내 해석 — 74 가이드(§1·§3.1)에서 파생(§설계) |
@@ -62,9 +64,11 @@
 3. 예외 경로는 write 허용 여부로 2분한다(r2). **write 예외**: `~/.claude`(plan 산출물·skill 설치 — read+write 허용). **read-only 예외**: `~/.config/orca`·node/python 런타임(read 허용, write 차단). **단 세션 cwd(`~/.config/orca/projects/<...>`)는 write 허용** — write 판정은 `writeRoots`(=cwd+additionalDirs+`~/.claude`)만 참조하므로 read-only 예외가 cwd·`~/.claude` 쓰기를 막지 않는다.
 4. `additionalDirectories` 기본 `[]`, **옵션과 훅이 단일 배열을 공유**(드리프트 0)하고 향후 주입 지점이 코드에 명시된다.
 5. 격리는 **모드 독립**(훅이 평가 1순위) — `permissionMode` 를 강제하지 않고 `dontAsk` 를 도입하지 않는다.
-6. 순수 로직(경로 판정·툴별 경로 추출·Bash 스크리닝)에 **단위 테스트**를 붙이고 게이트(lint/typecheck/test)를 통과한다.
+6. 순수 로직(경로 판정·툴별 경로 추출)에 **단위 테스트**를 붙이고 게이트(lint/typecheck/test)를 통과한다.
 7. `runCompletion`(제목 생성) 경로는 도구가 없어 가드 미적용 — 이유를 주석/plan 에 명시.
 8. 74 가이드를 참조하되 구현 편차(`isWithinDir` 재사용·`runCompletion` 제외)를 문서화한다.
+9. (r3) `screenBashCommand` 를 제거하고 Bash 는 가드에서 pass-through 한다 — 정적 스크리닝은 eval·$HOME·파이프·base64 우회 불가 + URL/`~` 오차단으로 실효 없음.
+10. (r3) opencode 도구-사용 정책을 Orca 격리 환경에 맞춰 시스템 프롬프트 `# Tools` 섹션(`system-header.ts`)으로 추가한다 — ① 파일 작업을 전용 툴(Read/Write/Edit — 가드가 강제)로 라우팅, ② Bash 는 workspace 안으로 스코프하도록 유도(Bash 격리의 유일 레버).
 
 ## 범위 / 비범위
 
@@ -97,6 +101,10 @@
    - `mergeHooks(adaptHooks(...), makeWorkspaceGuardHook(cwd, additionalDirectories), steerGate|{})`.
    - 옵션에 `additionalDirectories,` 주입(동일 배열 — §4).
 
+### r3 — Bash 스크리닝 제거 + 도구-사용 정책
+- `workspace-guard.ts` 의 `screenBashCommand` **제거**. `guardToolAccess` 의 `Bash` 분기 삭제 → Bash 는 pass-through(가드는 구조 파일툴 Read/Write/Edit/Glob/Grep 만 강제). 정적 파싱은 실효가 없어(우회·오차단) 코드 격리 레버로 부적합.
+- 대신 시스템 프롬프트 `# Tools` 섹션을 `features/extensions/system-header.ts` 의 `buildSystemHeader` 에 상수(`TOOLS_SECTION`)로 추가(항상 포함, `# Orca` 뒤). opencode `anthropic.txt` "Tool usage policy" 를 Orca 격리에 맞춰 적용: (a) 파일 작업은 전용 툴로(cat/sed/echo 금지) → 가드가 강제하는 경로로 유도, (b) Bash 는 경로 격리 불가라 "workspace 안으로 스코프하라"를 명시. 주입 메커니즘 무변경(preset+append, system-prompt.md §2A).
+
 ### 미변경
 `runCompletion`(도구 없음)·`makeCanUseTool`·permissionMode 흐름·TurnRequest 스키마.
 
@@ -119,9 +127,11 @@
 
 ## 영향 받는 파일
 
-- `app/src/main/adapters/workspace-guard.ts` (신규 — 가드 훅 + 순수 헬퍼)
+- `app/src/main/adapters/workspace-guard.ts` (신규 — 가드 훅 + 순수 헬퍼; r3 에서 `screenBashCommand` 제거)
 - `app/src/main/adapters/workspace-guard.test.ts` (신규 — 단위 테스트)
 - `app/src/main/adapters/claude.ts` (배선 — import + mergeHooks 인자 + additionalDirectories)
+- `app/src/main/features/extensions/system-header.ts` (r3 — `# Tools` 정책 `TOOLS_SECTION` 추가) + `system-header.test.ts`
+- `docs/arch/backend/system-prompt.md`(r3 — §2A `# Tools` 문서화) · `docs/guides/workspace-isolation-permissions.md`(r3 — §3.5 Bash 스크리닝 supersede 노트)
 - `docs/handoff/INDEX.md` (본 행) · `docs/handoff/0075-workspace-isolation-perms/{plan,verify}.md`
 
 ## 참고 문서
@@ -171,7 +181,7 @@
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | `app/src/main/adapters/workspace-guard.ts`(신규; r2 에서 `writeExceptionRoots()` 분리) · `workspace-guard.test.ts`(신규 23 케이스) · `claude.ts`(import 1 + 옵션 `additionalDirectories` + `mergeHooks` 가드 인자) |
+| 변경 파일 | `app/src/main/adapters/workspace-guard.ts`(신규; r2 `writeExceptionRoots()` 분리; r3 `screenBashCommand` 제거·Bash 분기 삭제) · `workspace-guard.test.ts` · `claude.ts`(배선) · **(r3)** `features/extensions/system-header.ts`(`TOOLS_SECTION` 추가) + `system-header.test.ts` |
 | 실행 명령 | `npm run typecheck` / `npm run lint` / `npx vitest run` |
 | 게이트 결과 | typecheck ✅(node·web·test 3종) / lint ✅(경계 위반 0, prettier 정렬만) / test: `workspace-guard.test.ts` **22/22** + 전체 **694 passed** / 21 failed(**전부 better-sqlite3 bindings 미빌드·electron 미설치 환경 제한 — `--ignore-scripts` 설치, 본 변경 무관**, 0007 이후 누적 계열) |
 | 블로커 / 역질문 | 없음 |
