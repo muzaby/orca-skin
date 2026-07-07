@@ -28,18 +28,7 @@ export class BootReportRecorder {
       this.pushStep({ id, options, startedAt, status: 'ok' })
       return result
     } catch (error) {
-      const message = formatError(error)
-      this.pushStep({
-        id,
-        options,
-        startedAt,
-        status: options.critical ? 'failed' : 'warning',
-        message
-      })
-      if (options.critical) throw error
-      this.warnings.push(`${id}: ${message}`)
-      console.warn(`[boot] ${id} 경고:`, error)
-      return undefined as T
+      return this.recordFailure(id, options, startedAt, error)
     }
   }
 
@@ -50,31 +39,24 @@ export class BootReportRecorder {
       this.pushStep({ id, options, startedAt, status: 'ok' })
       return result
     } catch (error) {
-      const message = formatError(error)
-      this.pushStep({
-        id,
-        options,
-        startedAt,
-        status: options.critical ? 'failed' : 'warning',
-        message
-      })
-      if (options.critical) throw error
-      this.warnings.push(`${id}: ${message}`)
-      console.warn(`[boot] ${id} 경고:`, error)
-      return undefined as T
+      return this.recordFailure(id, options, startedAt, error)
     }
   }
 
-  warn(id: string, message: string, label?: string): void {
-    const startedAt = now()
-    this.warnings.push(`${id}: ${message}`)
+  // step/stepSync 공통 실패 경로: 리포트에 기록하고, critical 이면 rethrow, 아니면 warning 으로 degrade.
+  private recordFailure<T>(id: string, options: StepOptions, startedAt: number, error: unknown): T {
+    const message = formatError(error)
     this.pushStep({
       id,
-      options: { critical: false, label },
+      options,
       startedAt,
-      status: 'warning',
+      status: options.critical ? 'failed' : 'warning',
       message
     })
+    if (options.critical) throw error
+    this.warnings.push(`${id}: ${message}`)
+    console.warn(`[boot] ${id} 경고:`, error)
+    return undefined as T
   }
 
   finish(): void {

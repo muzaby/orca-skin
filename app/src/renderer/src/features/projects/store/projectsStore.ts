@@ -28,35 +28,26 @@ export async function initProjects(): Promise<void> {
   }
 }
 
-async function refresh(): Promise<void> {
-  await initProjects()
-}
-
 async function createProject(name: string, instructions: string): Promise<Project> {
   const created = await projectApi.create({ name, instructions })
-  await refresh()
+  await initProjects()
   return created
 }
 
 async function update(id: string, patch: { name?: string; instructions?: string }): Promise<void> {
   await projectApi.update({ id, ...patch })
-  await refresh()
+  await initProjects()
 }
 
 async function remove(id: string): Promise<void> {
   await projectApi.delete(id)
-  await refresh()
+  await initProjects()
 }
 
-export const projectsActions = { refresh, create: createProject, update, remove }
+export const projectsActions = { refresh: initProjects, create: createProject, update, remove }
 
 export function subscribeProjects(): () => void {
   return () => undefined
-}
-
-export function bootstrapProjects(): () => void {
-  void initProjects().catch(() => undefined)
-  return subscribeProjects()
 }
 
 export function useProjectsState<T>(selector: (s: ProjectsStoreState) => T): T {

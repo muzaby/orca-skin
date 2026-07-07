@@ -28,10 +28,8 @@ describe('boot steps', () => {
     const d = deps({ getLastSessionId: vi.fn().mockResolvedValue('s-1') })
     const events: string[] = []
 
-    const result = await runBootSteps(
-      createBootSteps(d),
-      (event) => events.push(`${event.id}:${event.status}`),
-      d
+    const result = await runBootSteps(createBootSteps(d), (event) =>
+      events.push(`${event.id}:${event.status}`)
     )
 
     expect(result.landingTarget).toBe('/chat/s-1')
@@ -43,10 +41,8 @@ describe('boot steps', () => {
     const d = deps({ getBootReport: vi.fn().mockRejectedValue(new Error('report unavailable')) })
     const events: string[] = []
 
-    const result = await runBootSteps(
-      createBootSteps(d),
-      (event) => events.push(`${event.id}:${event.status}`),
-      d
+    const result = await runBootSteps(createBootSteps(d), (event) =>
+      events.push(`${event.id}:${event.status}`)
     )
 
     expect(result.landingTarget).toBe('/new')
@@ -57,7 +53,7 @@ describe('boot steps', () => {
     const getLastSessionId = vi.fn().mockResolvedValue('s-1')
     const d = deps({ getLastSessionId })
 
-    await runBootSteps(createBootSteps(d), () => undefined, d)
+    await runBootSteps(createBootSteps(d), () => undefined)
 
     expect(getLastSessionId).toHaveBeenCalledTimes(1)
   })
@@ -66,13 +62,12 @@ describe('boot steps', () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     const d = deps()
     const events: string[] = []
-    const steps = createBootSteps(d, {
+
+    await runBootSteps(createBootSteps(d), (event) => events.push(`${event.id}:${event.status}`), {
       warningAfterMs: -1,
       mandatoryTimeoutMs: 10_000,
       optionalTimeoutMs: 10_000
     })
-
-    await runBootSteps(steps, (event) => events.push(`${event.id}:${event.status}`), d)
 
     expect(events).not.toContain('landing-target:warning')
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('[boot] landing-target slow'))
@@ -82,10 +77,8 @@ describe('boot steps', () => {
     const d = deps({ initBackend: vi.fn().mockRejectedValue(new Error('backend unavailable')) })
     const events: string[] = []
 
-    const result = await runBootSteps(
-      createBootSteps(d),
-      (event) => events.push(`${event.id}:${event.status}`),
-      d
+    const result = await runBootSteps(createBootSteps(d), (event) =>
+      events.push(`${event.id}:${event.status}`)
     )
 
     expect(result.landingTarget).toBe('/new')
@@ -97,7 +90,7 @@ describe('boot steps', () => {
     const events: string[] = []
 
     await expect(
-      runBootSteps(createBootSteps(d), (event) => events.push(`${event.id}:${event.status}`), d)
+      runBootSteps(createBootSteps(d), (event) => events.push(`${event.id}:${event.status}`))
     ).rejects.toThrow('settings down')
 
     expect(events).toContain('landing-target:failed')
