@@ -43,7 +43,9 @@ import { registerProjectHandlers } from './handlers/project'
 import { registerMcpHandlers } from './handlers/mcp'
 import { registerEngineHandlers } from './handlers/engine'
 import { registerMiscHandlers } from './handlers/misc'
+import { registerBootHandlers } from './handlers/boot'
 import { registerChatHandlers } from './chat-turn'
+import { createBootReportRecorder } from './boot-report'
 import { RuntimeSupervisor } from '../features/sessions/supervisor'
 import { BoundedRuntimeCapPolicy } from '../features/sessions/runtime-cap-policy'
 import { PendingMessageQueue } from '../features/chat/pending-message-queue'
@@ -60,6 +62,7 @@ import { recoverDanglingToolCalls } from '../features/chat/recovery'
 import { broadcastConcurrency, sendChatEvent } from '../infra/ipc/send'
 
 export class Bootstrap {
+  private readonly bootReport = createBootReportRecorder()
   readonly settings = new SettingsStore()
   readonly mcp = new McpStore(this.settings)
   private readonly registry = new AdapterRegistry()
@@ -129,8 +132,14 @@ export class Bootstrap {
   }
 
   async start(): Promise<void> {
-    const db = initDb()
-    const recovered = recoverDanglingToolCalls(db)
+    const db = this.bootReport.stepSync('db-init', { critical: true, label: 'DB 초기화' }, () =>
+      initDb()
+    )
+    const recovered = this.bootReport.stepSync(
+      'chat-recovery',
+      { critical: true, label: '미완료 도구 호출 복구' },
+      () => recoverDanglingToolCalls(db)
+    )
     if (recovered.toolResultsWritten > 0 && is.dev) {
       console.log('[recovery] dangling tools settled:', recovered)
     }
@@ -140,7 +149,9 @@ export class Bootstrap {
         if (!wc.isDestroyed()) wc.send(CHANNELS.costSummaryEvent, summary)
       }
     })
-    cost.recompute()
+    this.bootReport.stepSync('cost-recompute', { critical: true, label: '비용 요약 재계산' }, () =>
+      cost.recompute()
+    )
     // 빌더는 db 인스턴스가 필요해 여기서 생성. skills 는 lazy getter 라 스캔 완료 전에 만들어도
     // 무방 — 턴 실행 시점에 최신 skillsCache 를 읽는다. DB 프로젝트 지침은 빌더가 매 턴 조회하므로
     // (무캐시) 지침 편집이 같은 세션 다음 메시지부터 즉시 반영된다.
@@ -152,35 +163,48 @@ export class Bootstrap {
       app.getVersion(),
       () => distOrcaPluginDir('claude')
     )
-    await this.registry.refreshInstallState()
+    await this.bootReport.step(
+      'adapter-registry',
+      { critical: true, label: '어댑터 설치 상태 갱신' },
+      () => this.registry.refreshInstallState()
+    )
     this.defaultCwd = getWorkspacePath(null)
-    await mkdir(this.defaultCwd, { recursive: true }).catch((e) =>
-      console.warn('[boot] workspace 생성 실패:', e)
+    await this.bootReport.step('workspace', { critical: false, label: '기본 작업공간 보장' }, () =>
+      mkdir(this.defaultCwd, { recursive: true })
     )
     // ~/.config/orca 보장 → orca.json 로드 → provider settings 스캐폴드(최초 1회) →
     // dist/<engine> 배포(ExtensionDeployer) → settings 해석 캐시 무효화.
     // 어느 단계 실패도 부팅을 막지 않는다(채팅/세션 기능은 독립).
-    await ensureConfigDir().catch((e) => console.warn('[boot] ensureConfigDir 실패:', e))
-    try {
+    await this.bootReport.step(
+      'config-dir',
+      { critical: false, label: 'Orca 설정 디렉터리 보장' },
+      () => ensureConfigDir()
+    )
+    this.bootReport.stepSync('orca-config', { critical: false, label: 'orca.json 로드' }, () =>
       loadOrcaConfig()
-    } catch (e) {
-      console.warn('[boot] orca.json 로드 건너뜀:', e)
-    }
+    )
     const secretStore = new SecretStore()
     const providerSettings = new ProviderSettingsService({ claude: loadClaudeProviderSettings })
-    try {
-      const s = scaffoldProviderSettings('claude')
-      for (const path of s.created) console.log('[scaffold] 생성:', path)
-    } catch (e) {
-      console.warn('[boot] provider settings 스캐폴드 건너뜀:', e)
-    }
+    this.bootReport.stepSync(
+      'provider-scaffold',
+      { critical: false, label: 'provider settings 스캐폴드' },
+      () => {
+        const s = scaffoldProviderSettings('claude')
+        for (const path of s.created) console.log('[scaffold] 생성:', path)
+      }
+    )
     // dist/claude/plugins/orca 렌더를 boot 1회 수행한다. CRUD 는 즉시 재배포, 턴 진입은
     // ensureDeployed 로 실패/dirty 상태를 한 번 더 보장한다.
     this.deployment = this.createDeploymentService()
-    this.deployExtensions()
+    this.bootReport.stepSync('extension-deploy', { critical: false, label: '확장 배포' }, () =>
+      this.deployExtensions()
+    )
     providerSettings.invalidateAll()
     // ClaudeAdapter 가 사용하는 cwd 와 동일한 값으로 스킬 스캔.
-    await this.refreshSkills()
+    await this.bootReport.step('skill-scan', { critical: false, label: '스킬 스캔' }, () =>
+      this.refreshSkills()
+    )
+    this.bootReport.finish()
 
     const ctx: RouterContext = {
       db,
@@ -196,6 +220,7 @@ export class Bootstrap {
       deployExtensions: () => this.deployExtensions(),
       ensureExtensionsDeployedForTurn: () => this.ensureExtensionsDeployedForTurn(),
       getCwd: (projectId) => getWorkspacePath(projectId ? db.getProject(projectId) : null),
+      getBootReport: () => this.bootReport.getReport(),
       debugMock: this.debugMock,
       mockAdapter: import.meta.env.DEV ? new MockAdapter(() => this.debugMock) : null
     }
@@ -279,6 +304,7 @@ export class Bootstrap {
     registerProjectHandlers(ctx)
     registerMcpHandlers(ctx)
     registerEngineHandlers(ctx)
+    registerBootHandlers(ctx)
     registerMiscHandlers(ctx)
   }
 }

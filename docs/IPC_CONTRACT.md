@@ -20,9 +20,9 @@
   - 특례: `chat:send` 는 실패를 `error` 이벤트로 회신(§2.1). 입력이 없거나 store 내부 zod 가 검증하는 채널(settings set · mcp add/update)은 `handlePlain`.
 - 출력(main→renderer send) 무검증: `NormalizedEvent` 등의 형상 보증은 어댑터 정규화(`claude-map.ts`)가 담당 — 의도된 설계.
 
-## 2. 채널 카탈로그 (총 54 채널)
+## 2. 채널 카탈로그 (총 55 채널)
 
-도메인별 분포: `chat` 5 (`send` · `event` · `cancel` · `stopSubagent` · `steerCancel`) · `backend` 1 · `agent` 1 · `engine` 4 · `install` 2 · `settings` 2 · `skills` 7 · `files` 5 · `session` 6 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `cost` 2 · `concurrency` 1 · `permission` 2 (`respond` · `setMode`) · `debug` 2 (dev 전용 — `getMock` · `setMock`).
+도메인별 분포: `chat` 5 (`send` · `event` · `cancel` · `stopSubagent` · `steerCancel`) · `boot` 1 (`report`) · `backend` 1 · `agent` 1 · `engine` 4 · `install` 2 · `settings` 2 · `skills` 7 · `files` 5 · `session` 6 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `cost` 2 · `concurrency` 1 · `permission` 2 (`respond` · `setMode`) · `debug` 2 (dev 전용 — `getMock` · `setMock`).
 
 `app/src/shared/ipc.ts` 의 `CHANNELS` 상수와 1:1 일치. **단, `debug` 2채널은 `import.meta.env.DEV` 일 때만 `ipcMain.handle` 로 등록된다** (CHANNELS 상수 문자열은 상존하나 prod 핸들러 미등록 — §2.13 참조).
 
@@ -35,6 +35,14 @@
 | `orca:chat:event`  | M→R (send)   | —                                                                                                                                                                                                                                   | `ChatEvent` (반복)    | 어댑터 정규화 스트림. variant 정의는 §3 참조.                                                                                                                                                                                                                                                                                        |
 | `orca:chat:cancel` | R→M (invoke) | `CancelChat` = `{ sessionId: string }`                                                                                                                                                                                              | `Promise<void>`       | 진행 중 요청 취소 (`AbortSignal` 전파).                                                                                                                                                                                                                                                                                              |
 | `orca:chat:stopSubagent` | R→M (invoke) | `StopSubagent` = `{ sessionId: string; toolUseId: string }`                                                                                                                                                            | `Promise<void>`       | 서브에이전트(Task) **단위** 중단(턴 전체 취소 아님). main 이 `toolUseId`→SDK `task_id`(subagent.task 이벤트에서 누적)를 찾아 `query.stopTask(taskId)` 호출(foreground 거부 시 `backgroundTasks(toolUseId)` 후 재시도). UI 전이는 SDK 의 `task_notification status:'stopped'` → `subagent.task(settled)` 로. |
+
+### 2.1-b Boot
+
+| 채널 | 방향 | 페이로드 | 응답 | 설명 |
+| --- | --- | --- | --- | --- |
+| `orca:boot:report` | R→M (invoke) | — | `BootReport` = `{ startedAt; finishedAt; durationMs; status:'ok'\|'warning'\|'failed'; steps: BootReportStep[]; warnings: string[] }` | main `Bootstrap.start()` 가 BrowserWindow/renderer 이전에 완료한 부트 결과의 **완료 리포트 스냅샷**을 조회한다. 실시간 진행률/event 채널이 아니며, renderer boot 에서는 non-mandatory diagnostic 단계로만 조회한다. 조회 실패나 `warning` status 는 앱 진입을 막지 않고 degrade/console warning 으로 남긴다. |
+
+`BootReportStep` = `{ id; label?; status:'ok'\|'warning'\|'failed'; critical; startedAt; finishedAt; durationMs; message? }`. `critical:false` 단계의 실패는 `warning` 으로 기록되며 main 부트를 막지 않는다. `critical:true` 단계의 실패는 main 부트 실패로 전파되므로 일반적으로 renderer 가 리포트를 조회할 수 없다.
 
 ### 2.2 Backend
 
@@ -350,7 +358,7 @@ LLM API 없이 renderer 의 스트리밍·사고 블록·도구 카드·권한 �
 
 1. `app/src/shared/ipc.ts` — 채널 상수 + 타입 정의 추가/변경. `NormalizedEvent`/`AppMessagePart` 필드 변경도 이 단계에 포함
 2. `app/src/shared/protocol.ts` — zod 스키마 추가 (요청 검증 필요 시)
-3. `app/src/main/ipc/handlers/<domain>.ts`(또는 chat 계열이면 `ipc/chat/`) — `registry.ts` 의 `handle(channel, schema, invalid, fn)` 로 등록(실패 정책 명시). 새 도메인이면 파일 신설 후 `ipc/router.ts` 의 `register()` 에서 호출
+3. `app/src/main/app/handlers/<domain>.ts`(또는 chat 계열이면 `app/chat-turn.ts`) — `handle(channel, schema, invalid, fn)` 또는 `handlePlain` 으로 등록(실패 정책 명시). 새 도메인이면 파일 신설 후 `Bootstrap.register()` 에서 호출
 4. `app/src/preload/index.ts` — `window.orca.<domain>.<action>` 노출 추가
 5. Renderer 사용처 (`app/src/renderer/src/shared/api/ipc.ts`, feature provider/hook 또는 컴포넌트)
 6. **이 문서 §2 의 표 갱신** (도메인 추가 시 §2.x 신설, 총 채널 수/도메인별 분포도 동시 갱신)

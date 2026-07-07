@@ -12,6 +12,7 @@ export const CHANNELS = {
   chatEvent: 'orca:chat:event',
   chatCancel: 'orca:chat:cancel',
   chatStopSubagent: 'orca:chat:stopSubagent',
+  bootReport: 'orca:boot:report',
   backendList: 'orca:backend:list',
   agentList: 'orca:agent:list',
   installStart: 'orca:install:start',
@@ -66,6 +67,28 @@ export const CHANNELS = {
   engineRead: 'orca:engine:read',
   notifyShow: 'orca:notify:show'
 } as const
+
+export type BootReportStatus = 'ok' | 'warning' | 'failed'
+
+export interface BootReportStep {
+  id: string
+  label?: string
+  status: BootReportStatus
+  critical: boolean
+  startedAt: number
+  finishedAt: number
+  durationMs: number
+  message?: string
+}
+
+export interface BootReport {
+  startedAt: number
+  finishedAt: number
+  durationMs: number
+  status: BootReportStatus
+  steps: BootReportStep[]
+  warnings: string[]
+}
 
 // dev 전용 MockAdapter 시나리오. ProviderId/Backend 에 mock 을 추가하지 않고 claude 로
 // 위장해 실제 라우터·영속화·renderer reducer 경로를 그대로 검증한다.
