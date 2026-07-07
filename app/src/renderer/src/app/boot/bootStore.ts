@@ -1,5 +1,12 @@
 import { create } from 'zustand'
-import { createBootSteps, runBootSteps, type BootStepEvent, type BootStepId } from './steps'
+import {
+  createBootSteps,
+  runBootSteps,
+  formatError,
+  type BootStep,
+  type BootStepEvent,
+  type BootStepId
+} from './steps'
 
 export type BootPhase = 'idle' | 'running' | 'ready' | 'failed'
 export type BootStepStatus = 'pending' | 'running' | 'ok' | 'failed' | 'degraded'
@@ -18,8 +25,10 @@ interface BootStoreState {
   errorMessage: string | null
 }
 
-const initialSteps = (): BootStepState[] =>
-  createBootSteps().map((step) => ({ id: step.id, status: 'pending' }))
+const pendingRows = (steps: BootStep[]): BootStepState[] =>
+  steps.map((step) => ({ id: step.id, status: 'pending' }))
+
+const initialSteps = (): BootStepState[] => pendingRows(createBootSteps())
 
 export const useBootStore = create<BootStoreState>()(() => ({
   phase: 'idle',
@@ -28,19 +37,15 @@ export const useBootStore = create<BootStoreState>()(() => ({
   errorMessage: null
 }))
 
-function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
-}
-
 function applyStepEvent(event: BootStepEvent): void {
   useBootStore.setState((state) => ({
     steps: state.steps.map((step) =>
       step.id === event.id
         ? {
             ...step,
-            status: event.status === 'degraded' ? 'degraded' : event.status,
+            status: event.status,
             durationMs: event.durationMs,
-            error: event.error ? errorMessage(event.error) : undefined
+            error: event.error ? formatError(event.error) : undefined
           }
         : step
     )
@@ -52,15 +57,16 @@ export const bootActions = {
     const phase = useBootStore.getState().phase
     if (phase === 'running' || phase === 'ready') return
 
+    const steps = createBootSteps()
     useBootStore.setState({
       phase: 'running',
-      steps: initialSteps(),
+      steps: pendingRows(steps),
       landingTarget: null,
       errorMessage: null
     })
 
     try {
-      const result = await runBootSteps(createBootSteps(), applyStepEvent)
+      const result = await runBootSteps(steps, applyStepEvent)
       useBootStore.setState({
         phase: 'ready',
         landingTarget: result.landingTarget,
@@ -70,7 +76,7 @@ export const bootActions = {
       useBootStore.setState({
         phase: 'failed',
         landingTarget: null,
-        errorMessage: errorMessage(error)
+        errorMessage: formatError(error)
       })
     }
   },

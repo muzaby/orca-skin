@@ -3,14 +3,15 @@ import { bootActions, useBootStore } from './bootStore'
 
 vi.mock('./steps', () => ({
   createBootSteps: vi.fn(() => [
-    { id: 'landing-target', mandatory: true, timeoutMs: 10, run: vi.fn() },
-    { id: 'backend', mandatory: false, timeoutMs: 10, run: vi.fn() }
+    { id: 'landing-target', mandatory: true, run: vi.fn() },
+    { id: 'backend', mandatory: false, run: vi.fn() }
   ]),
   runBootSteps: vi.fn(async (_steps, onEvent) => {
     onEvent({ id: 'landing-target', status: 'running' })
     onEvent({ id: 'landing-target', status: 'ok', durationMs: 1 })
     return { landingTarget: '/new' }
-  })
+  }),
+  formatError: (error: unknown) => (error instanceof Error ? error.message : String(error))
 }))
 
 describe('bootStore', () => {

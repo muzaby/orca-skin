@@ -20,11 +20,6 @@ export function subscribeCost(): () => void {
   return costApi.onSummary((next) => useCostStore.setState({ summary: next }))
 }
 
-export function bootstrapCost(): () => void {
-  void initCost().catch(() => undefined)
-  return subscribeCost()
-}
-
 export function useCostSummary(): CostSummary | null {
   return useCostStore((s) => s.summary)
 }
