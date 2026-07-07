@@ -21,12 +21,15 @@ export const BOOT_TIMING_POLICY: BootTimingPolicy = {
   optionalTimeoutMs: 10_000
 }
 
+export interface BootRunResult {
+  landingTarget: string
+}
+
 export interface BootStep {
   id: BootStepId
   mandatory: boolean
-  timeoutMs: number
-  warningAfterMs: number
-  run: () => Promise<void>
+  // 단계가 랜딩 타겟 등 결과 조각을 만들면 반환한다 — 러너가 순서대로 병합한다.
+  run: () => Promise<Partial<BootRunResult> | void>
 }
 
 export interface BootStepEvent {
@@ -45,10 +48,6 @@ export interface BootDependencies {
   initCost: () => Promise<void>
 }
 
-export interface BootRunResult {
-  landingTarget: string
-}
-
 export const defaultBootDependencies: BootDependencies = {
   getBootReport: () => bootApi.report(),
   getLastSessionId: async () => {
@@ -61,60 +60,36 @@ export const defaultBootDependencies: BootDependencies = {
   initCost
 }
 
-function stepTimeout(mandatory: boolean, policy: BootTimingPolicy): number {
-  return mandatory ? policy.mandatoryTimeoutMs : policy.optionalTimeoutMs
-}
-
-export function createBootSteps(
-  deps: BootDependencies = defaultBootDependencies,
-  policy: BootTimingPolicy = BOOT_TIMING_POLICY
-): BootStep[] {
-  const optionalTimeoutMs = stepTimeout(false, policy)
-  const mandatoryTimeoutMs = stepTimeout(true, policy)
+export function createBootSteps(deps: BootDependencies = defaultBootDependencies): BootStep[] {
   return [
     {
       id: 'main-report',
       mandatory: false,
-      timeoutMs: optionalTimeoutMs,
-      warningAfterMs: policy.warningAfterMs,
       run: async () => {
+        // 완료된 main 부트 리포트 스냅샷을 그대로 소비한다 — 요약(status/warnings)은 리포트가 이미 계산했다.
         const report = await deps.getBootReport()
-        const warningCount = report.steps.filter((step) => step.status !== 'ok').length
-        if (report.status !== 'ok' || warningCount > 0) {
+        if (report.status !== 'ok') {
           console.warn(
-            `[boot] main report ${report.status} (${report.durationMs ?? 0}ms, warnings=${warningCount})`
+            `[boot] main report ${report.status} (${report.durationMs}ms, warnings=${report.warnings.length})`
           )
         } else {
-          console.log(`[boot] main report ok (${report.durationMs ?? 0}ms)`)
+          console.log(`[boot] main report ok (${report.durationMs}ms)`)
         }
       }
     },
     {
       id: 'landing-target',
       mandatory: true,
-      timeoutMs: mandatoryTimeoutMs,
-      warningAfterMs: policy.warningAfterMs,
-      run: async () => undefined
+      run: async () => {
+        const lastSessionId = await deps.getLastSessionId()
+        return { landingTarget: lastSessionId ? `/chat/${lastSessionId}` : '/new' }
+      }
     },
-    {
-      id: 'backend',
-      mandatory: false,
-      timeoutMs: optionalTimeoutMs,
-      warningAfterMs: policy.warningAfterMs,
-      run: deps.initBackend
-    },
-    {
-      id: 'sessions',
-      mandatory: false,
-      timeoutMs: optionalTimeoutMs,
-      warningAfterMs: policy.warningAfterMs,
-      run: deps.initSessions
-    },
+    { id: 'backend', mandatory: false, run: deps.initBackend },
+    { id: 'sessions', mandatory: false, run: deps.initSessions },
     {
       id: 'projects-cost',
       mandatory: false,
-      timeoutMs: optionalTimeoutMs,
-      warningAfterMs: policy.warningAfterMs,
       run: async () => {
         const settled = await Promise.allSettled([deps.initProjects(), deps.initCost()])
         const rejected = settled.find((result) => result.status === 'rejected')
@@ -124,7 +99,7 @@ export function createBootSteps(
   ]
 }
 
-function formatError(error: unknown): string {
+export function formatError(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
 
@@ -140,33 +115,30 @@ async function withTimeout<T>(promise: Promise<T>, ms: number, stepId: BootStepI
   }
 }
 
-function warnIfSlow(step: BootStep, durationMs: number): void {
-  if (durationMs <= step.warningAfterMs) return
-  console.warn(`[boot] ${step.id} slow (${durationMs}ms > ${step.warningAfterMs}ms) — SLA warning`)
-}
-
 export async function runBootSteps(
   steps: BootStep[] = createBootSteps(),
   onEvent: (event: BootStepEvent) => void = () => undefined,
-  deps: BootDependencies = defaultBootDependencies
+  policy: BootTimingPolicy = BOOT_TIMING_POLICY
 ): Promise<BootRunResult> {
-  let lastSessionId: string | null = null
+  const result: Partial<BootRunResult> = {}
 
   for (const step of steps) {
     const startedAt = performance.now()
+    const timeoutMs = step.mandatory ? policy.mandatoryTimeoutMs : policy.optionalTimeoutMs
     onEvent({ id: step.id, status: 'running' })
     console.log(`[boot] ${step.id} running`)
 
     try {
-      if (step.id === 'landing-target') {
-        lastSessionId = await withTimeout(deps.getLastSessionId(), step.timeoutMs, step.id)
-      } else {
-        await withTimeout(step.run(), step.timeoutMs, step.id)
-      }
+      const partial = await withTimeout(step.run(), timeoutMs, step.id)
+      if (partial) Object.assign(result, partial)
       const durationMs = Math.round(performance.now() - startedAt)
       onEvent({ id: step.id, status: 'ok', durationMs })
       console.log(`[boot] ${step.id} ok (${durationMs}ms)`)
-      warnIfSlow(step, durationMs)
+      if (durationMs > policy.warningAfterMs) {
+        console.warn(
+          `[boot] ${step.id} slow (${durationMs}ms > ${policy.warningAfterMs}ms) — SLA warning`
+        )
+      }
     } catch (error) {
       const durationMs = Math.round(performance.now() - startedAt)
       onEvent({ id: step.id, status: step.mandatory ? 'failed' : 'degraded', durationMs, error })
@@ -179,5 +151,5 @@ export async function runBootSteps(
     }
   }
 
-  return { landingTarget: lastSessionId ? `/chat/${lastSessionId}` : '/new' }
+  return { landingTarget: result.landingTarget ?? '/new' }
 }

@@ -28,35 +28,26 @@ export async function initSessions(): Promise<void> {
   }
 }
 
-async function refresh(): Promise<void> {
-  await initSessions()
-}
-
 async function remove(sessionId: string): Promise<void> {
   await sessionApi.delete(sessionId)
-  await refresh()
+  await initSessions()
 }
 
 async function rename(sessionId: string, title: string): Promise<void> {
   await sessionApi.rename(sessionId, title)
-  await refresh()
+  await initSessions()
 }
 
-export const sessionsActions = { refresh, remove, rename }
+export const sessionsActions = { refresh: initSessions, remove, rename }
 
 // 자동 제목 이벤트 구독(행 in-place 패치 — 전체 refresh 없이).
+// 부팅 1회 조회는 initSessions(부트 오케스트레이터가 await), Provider 는 subscribeSessions 만 붙인다.
 export function subscribeSessions(): () => void {
   return sessionApi.onTitle((ev) => {
     setState((s) => ({
       list: s.list.map((item) => (item.id === ev.sessionId ? { ...item, title: ev.title } : item))
     }))
   })
-}
-
-// 하위호환용 묶음. 새 부트 오케스트레이터는 initSessions 를 await 하고, Provider 는 subscribeSessions 만 붙인다.
-export function bootstrapSessions(): () => void {
-  void initSessions().catch(() => undefined)
-  return subscribeSessions()
 }
 
 export function useSessionsState<T>(selector: (s: SessionsStoreState) => T): T {

@@ -6,7 +6,9 @@ describe('BootReportRecorder', () => {
     const recorder = createBootReportRecorder()
 
     recorder.stepSync('db-init', { critical: true }, () => 'ok')
-    recorder.warn('config', 'fallback used')
+    recorder.stepSync('config', { critical: false }, () => {
+      throw new Error('fallback used')
+    })
     recorder.finish()
 
     const first = recorder.getReport()

@@ -32,25 +32,17 @@ export async function initBackend(): Promise<void> {
   }
 }
 
-async function refresh(): Promise<void> {
-  await initBackend()
-}
-
 export const backendActions = {
-  refresh,
+  refresh: initBackend,
   setInstallerOpen: (open: boolean): void => useBackendStore.setState({ installerOpen: open })
 }
 
-// 부팅 1회: 설치 상태만 조회한다. 미설치 시 인스톨러 자동 오픈은 보류 —
-// 설치 마법사 기능이 완성되기 전까지 앱 진입 시 모달을 띄우지 않는다(사용자 지시).
-// setInstallerOpen 액션은 유지하므로 기능 완성 후 자동 오픈을 되살릴 수 있다.
+// 부팅 1회: 설치 상태만 조회한다(initBackend, 부트 오케스트레이터가 await). 미설치 시 인스톨러
+// 자동 오픈은 보류 — 설치 마법사 기능이 완성되기 전까지 앱 진입 시 모달을 띄우지 않는다(사용자 지시).
+// setInstallerOpen 액션은 유지하므로 기능 완성 후 자동 오픈을 되살릴 수 있다. Provider 는
+// subscribeBackend 만 붙인다(현재 구독 없음 — 이벤트 소스가 생기면 여기 배선).
 export function subscribeBackend(): () => void {
   return () => undefined
-}
-
-export function bootstrapBackend(): () => void {
-  void initBackend().catch(() => undefined)
-  return subscribeBackend()
 }
 
 // ── selector 훅 ──────────────────────────────────────────────────────────────
