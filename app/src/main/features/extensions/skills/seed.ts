@@ -1,17 +1,15 @@
 import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, statSync } from 'node:fs'
-import { isAbsolute, join, relative, resolve } from 'node:path'
+import { join } from 'node:path'
 import { writeJsonAtomic } from '../../../infra/config/json-file'
+import { isWithinDir } from '../../../infra/config/paths'
+import { PROVIDER_NAME_RE } from '../../../infra/config/provider-key'
 
 const MANIFEST = 'manifest.json'
 const MARKER = '.orca-builtin.json'
-const SAFE_NAME = /^[A-Za-z0-9_-]+$/
+// skill 디렉토리명 = 안전한 경로 세그먼트만(traversal 방어). provider/MCP 키와 동일 SSOT 제약.
+const SAFE_NAME = PROVIDER_NAME_RE
 
-interface BuiltinManifest {
-  version: string
-  skills: string[]
-}
-
-interface BuiltinMarker {
+interface BuiltinSkillSet {
   version: string
   skills: string[]
 }
@@ -41,35 +39,20 @@ function validSkillNames(value: unknown): string[] | null {
   return names
 }
 
-function readJson(path: string): unknown | null {
+// manifest(builtinDir) 와 marker(skillsDir) 는 동형 스키마(`{version, skills[]}`)라 단일 리더로 파싱한다.
+// 파일 부재/JSON 손상/스키마 불일치는 모두 null → 호출자가 안전측(no-op / marker 없음)으로 처리한다.
+function readBuiltinJson(path: string): BuiltinSkillSet | null {
+  let parsed: unknown
   try {
-    return JSON.parse(readFileSync(path, 'utf8'))
+    parsed = JSON.parse(readFileSync(path, 'utf8'))
   } catch {
     return null
   }
-}
-
-function readManifest(builtinDir: string): BuiltinManifest | null {
-  const parsed = readJson(join(builtinDir, MANIFEST))
   if (!isRecord(parsed)) return null
   if (typeof parsed.version !== 'string' || parsed.version.trim() === '') return null
   const skills = validSkillNames(parsed.skills)
   if (skills === null) return null
   return { version: parsed.version, skills }
-}
-
-function readMarker(skillsDir: string): BuiltinMarker | null {
-  const parsed = readJson(join(skillsDir, MARKER))
-  if (!isRecord(parsed)) return null
-  if (typeof parsed.version !== 'string' || parsed.version.trim() === '') return null
-  const skills = validSkillNames(parsed.skills)
-  if (skills === null) return null
-  return { version: parsed.version, skills }
-}
-
-function isWithinDir(child: string, parent: string): boolean {
-  const rel = relative(resolve(parent), resolve(child))
-  return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel))
 }
 
 function isDirectory(path: string): boolean {
@@ -87,10 +70,10 @@ function safeSkillPath(root: string, name: string): string | null {
 }
 
 export function seedBuiltinSkills(builtinDir: string, skillsDir: string): SeedResult {
-  const manifest = readManifest(builtinDir)
+  const manifest = readBuiltinJson(join(builtinDir, MANIFEST))
   if (!manifest) return { seeded: [], pruned: [], skipped: true, version: null }
 
-  const marker = readMarker(skillsDir)
+  const marker = readBuiltinJson(join(skillsDir, MARKER))
   if (marker?.version === manifest.version) {
     return { seeded: [], pruned: [], skipped: true, version: manifest.version }
   }
@@ -98,7 +81,6 @@ export function seedBuiltinSkills(builtinDir: string, skillsDir: string): SeedRe
   mkdirSync(skillsDir, { recursive: true })
 
   const seeded: string[] = []
-  const managedSkills: string[] = []
   for (const name of manifest.skills) {
     const src = safeSkillPath(builtinDir, name)
     const dest = safeSkillPath(skillsDir, name)
@@ -106,10 +88,9 @@ export function seedBuiltinSkills(builtinDir: string, skillsDir: string): SeedRe
     rmSync(dest, { recursive: true, force: true })
     cpSync(src, dest, { recursive: true, force: true })
     seeded.push(name)
-    managedSkills.push(name)
   }
 
-  const current = new Set(managedSkills)
+  const current = new Set(seeded)
   const pruned: string[] = []
   for (const name of marker?.skills ?? []) {
     if (current.has(name)) continue
@@ -121,7 +102,7 @@ export function seedBuiltinSkills(builtinDir: string, skillsDir: string): SeedRe
 
   writeJsonAtomic(join(skillsDir, MARKER), {
     version: manifest.version,
-    skills: managedSkills,
+    skills: seeded,
     at: Date.now()
   })
 
