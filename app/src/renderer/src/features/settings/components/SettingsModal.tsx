@@ -1,42 +1,46 @@
-import { useEffect, useState } from 'react'
+import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Icon, type IconName } from '../../../shared/ui/Icon'
+import type { UsageLimitsView } from '../../../../../shared/usage/limits'
 import { GeneralTab } from './GeneralTab'
 import { UsageTab } from './UsageTab'
+import { useSettingsModalStore, type SettingsTabId } from '../store/settingsModalStore'
 
-type TabId = 'general' | 'usage'
-
-const TABS: { id: TabId; label: string; icon: IconName }[] = [
+const TABS: { id: SettingsTabId; label: string; icon: IconName }[] = [
   { id: 'general', label: '일반', icon: 'settings' },
   { id: 'usage', label: '사용량', icon: 'chart' }
 ]
 
 interface SettingsModalProps {
-  open: boolean
-  onClose: () => void
+  // 사용량 한도 뷰모델 — 컴포지션 루트(SidebarUserButton)가 실사용 SSOT(costStore)+월 한도로
+  // 파생(computeUsageLimits)해 주입. 도넛과 동일 함수 참조 — settings 가 재계산하지 않는다.
+  usageLimits: UsageLimitsView | null
 }
 
 // 설정 모달 — 배경을 어둡게 하고 중앙에 2-pane(좌: 일반/사용량 탭 레일, 우: 내용) 패널을
-// 띄운다. Modal 프리미티브 대신 자체 포털(백드롭+Esc+백드롭클릭 닫기 = Modal.tsx 패턴)로
-// 2-pane 레이아웃을 담는다. 닫힘=언마운트(탭/편집 상태 리셋 + 계정 지침 재로드).
-export function SettingsModal({ open, onClose }: SettingsModalProps): React.JSX.Element | null {
-  const [tab, setTab] = useState<TabId>('general')
+// 띄운다. 열림/탭 상태는 전역 스토어(settingsModalStore)가 보유해 도넛 `>` 등 다른 트리거가
+// 특정 탭으로 열 수 있다. 닫힘=null 렌더(내용 상태는 각 탭이 언마운트 시 리셋).
+export function SettingsModal({ usageLimits }: SettingsModalProps): React.JSX.Element | null {
+  const open = useSettingsModalStore((s) => s.open)
+  const tab = useSettingsModalStore((s) => s.tab)
+  const setTab = useSettingsModalStore((s) => s.setTab)
+  const hide = useSettingsModalStore((s) => s.hide)
 
   useEffect(() => {
     if (!open) return
     const onKeyDown = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') hide()
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [open, onClose])
+  }, [open, hide])
 
   if (!open) return null
 
   return createPortal(
     <div
       className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4"
-      onClick={onClose}
+      onClick={hide}
       data-context="overlay"
     >
       <div
@@ -74,14 +78,14 @@ export function SettingsModal({ open, onClose }: SettingsModalProps): React.JSX.
         <div className="relative flex min-w-0 flex-1 flex-col">
           <button
             type="button"
-            onClick={onClose}
+            onClick={hide}
             aria-label="닫기"
             className="absolute right-3 top-3 z-10 grid h-7 w-7 cursor-pointer place-items-center rounded-r4 border-0 bg-transparent text-ink3 hover:bg-fill-uncontained-hover hover:text-ink2"
           >
             <Icon name="x" size={15} />
           </button>
           <div className="min-h-0 flex-1 overflow-y-auto px-7 py-6">
-            {tab === 'general' ? <GeneralTab /> : <UsageTab />}
+            {tab === 'general' ? <GeneralTab /> : <UsageTab usageLimits={usageLimits} />}
           </div>
         </div>
       </div>

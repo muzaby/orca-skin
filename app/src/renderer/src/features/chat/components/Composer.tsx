@@ -24,7 +24,8 @@ import { MODE_LABELS } from './composer/modes'
 import type { ConversationStatus } from './composer/statusCopy'
 import { AskUserQuestionCard } from './AskUserQuestionCard'
 import { ApprovalCard, ToolApprovalBody } from './ApprovalCard'
-import { TelemetryPanel } from './TelemetryPanel'
+import { UsagePanel } from './UsagePanel'
+import type { UsageLimitsView } from '../../../../../shared/usage/limits'
 import {
   chatActions,
   useChatSession,
@@ -52,6 +53,10 @@ interface ComposerProps {
   onScrollToBottom?: () => void
   // cross-feature 비용 summary 는 page/app 계층에서 문자열로 포맷해 주입한다.
   costToday?: string
+  // 사용량 한도 뷰모델(도넛 팝오버). page 가 실사용 SSOT(costStore)+월 한도로 공용 파생해 주입.
+  usageLimits?: UsageLimitsView | null
+  // 도넛 `사용량 한도 >` — 설정 '사용량' 탭 열기(page 가 settingsModalStore 로 배선).
+  onOpenUsageSettings?: () => void
   // 컴포저 초기 입력 시드 — Skills "채팅에서 사용해보기" 가 nav state → page 를 거쳐 주입한다.
   // 마운트/값 변경 시 1회 draft 에 채우고 포커스한다(사용자 입력 중에는 덮어쓰지 않음).
   initialDraft?: string
@@ -76,6 +81,8 @@ export function Composer({
   showScrollToBottom,
   onScrollToBottom,
   costToday,
+  usageLimits,
+  onOpenUsageSettings,
   initialDraft,
   restoredDraft,
   flush,
@@ -641,9 +648,17 @@ export function Composer({
                     onClose={() => setTelemetryOpen(false)}
                     align="end"
                   >
-                    {/* 핸드오프 진입점은 StatusPopover(danger) 단일화 — 도넛 팝오버는
-                        텔레메트리 표시 전용(0064 r3, 사용자 피드백으로 r1 '상시 노출' 폐기). */}
-                    <TelemetryPanel telemetry={lastTelemetry} />
+                    {/* 컨텍스트(프로그레스바) + 사용량 한도(주간/월간). 실사용은 여기서
+                        계산하지 않고 주입된 usageLimits(공용 파생)를 참조만. 핸드오프 진입점은
+                        StatusPopover(danger) 로 단일화(0064 r3). */}
+                    <UsagePanel
+                      telemetry={lastTelemetry}
+                      usageLimits={usageLimits ?? null}
+                      onOpenUsageSettings={() => {
+                        setTelemetryOpen(false)
+                        onOpenUsageSettings?.()
+                      }}
+                    />
                   </Popover>
                 )}
               </span>

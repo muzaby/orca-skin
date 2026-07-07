@@ -13,6 +13,8 @@ export interface Tweaks {
   appFont: AppFontId
   // 응답완료 알림 토글. 완료 감지 훅(useCompletionNotifier)이 이 값을 읽어 알림 요청.
   notifyOnComplete: boolean
+  // 월간 지출 한도(USD). 사용량 한도 바(도넛·설정)의 기준. null=무제한.
+  spendingLimitUsd: number | null
 }
 
 const DEFAULTS: Tweaks = {
@@ -21,7 +23,8 @@ const DEFAULTS: Tweaks = {
   sidebarCollapsed: false,
   sidebarWidth: 248,
   appFont: 'sans',
-  notifyOnComplete: false
+  notifyOnComplete: false,
+  spendingLimitUsd: 90
 }
 
 // settings 영속화와 양방향 바인딩되는 Tweaks 훅.
@@ -40,7 +43,8 @@ export function useTweaks(): [Tweaks, <K extends keyof Tweaks>(key: K, val: Twea
         sidebarCollapsed: s.sidebarCollapsed,
         sidebarWidth: s.sidebarWidth,
         appFont: s.appFont,
-        notifyOnComplete: s.notifyOnComplete
+        notifyOnComplete: s.notifyOnComplete,
+        spendingLimitUsd: s.spendingLimitUsd
       })
     })
     return () => {

@@ -1,7 +1,8 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { chatActions, ChatTile, Composer, useChatSession } from '../features/chat'
 import { useBackendCapabilities, useBackendLabel } from '../features/backend'
-import { formatApproxCost, useCostSummary } from '../features/cost'
+import { formatApproxCost, useCostSummary, useUsageLimits } from '../features/cost'
+import { useOpenSettings } from '../features/settings'
 import {
   ProjectInfoHero,
   ProjectInstructionsSidebar,
@@ -33,10 +34,21 @@ export function ProjectLandingPage(): React.JSX.Element {
   // 능력 서술자가 로드됐는데 sessionAbort 가 아니면 중단 게이팅(미로드면 현행 동작 유지).
   const canAbort = capabilities ? capabilities.cancellation.sessionAbort === true : true
   const costToday = summary ? formatApproxCost(summary.day.totalCostUsd) : undefined
+  const usageLimits = useUsageLimits()
+  const openSettings = useOpenSettings()
+  const onOpenUsageSettings = (): void => openSettings('usage')
   const isEmpty = messages.length === 0 && !loadingSession
 
   if (!isEmpty) {
-    return <ChatTile backendLabel={backendLabel} canAbort={canAbort} costToday={costToday} />
+    return (
+      <ChatTile
+        backendLabel={backendLabel}
+        canAbort={canAbort}
+        costToday={costToday}
+        usageLimits={usageLimits}
+        onOpenUsageSettings={onOpenUsageSettings}
+      />
+    )
   }
 
   return (
@@ -49,6 +61,8 @@ export function ProjectLandingPage(): React.JSX.Element {
             backendLabel={backendLabel}
             canAbort={canAbort}
             costToday={costToday}
+            usageLimits={usageLimits}
+            onOpenUsageSettings={onOpenUsageSettings}
             flush
             showLandingCwdPanel
           />
