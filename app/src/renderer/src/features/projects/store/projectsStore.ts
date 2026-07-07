@@ -18,9 +18,18 @@ export const useProjectsStore = create<ProjectsStoreState>()(() => ({
 
 const { setState } = useProjectsStore
 
+export async function initProjects(): Promise<void> {
+  try {
+    const items = await projectApi.list()
+    setState({ list: items, loading: false })
+  } catch (error) {
+    setState({ loading: false })
+    throw error
+  }
+}
+
 async function refresh(): Promise<void> {
-  const items = await projectApi.list()
-  setState({ list: items, loading: false })
+  await initProjects()
 }
 
 async function createProject(name: string, instructions: string): Promise<Project> {
@@ -41,19 +50,13 @@ async function remove(id: string): Promise<void> {
 
 export const projectsActions = { refresh, create: createProject, update, remove }
 
+export function subscribeProjects(): () => void {
+  return () => undefined
+}
+
 export function bootstrapProjects(): () => void {
-  let alive = true
-  projectApi
-    .list()
-    .then((items) => {
-      if (alive) setState({ list: items, loading: false })
-    })
-    .catch(() => {
-      if (alive) setState({ loading: false })
-    })
-  return () => {
-    alive = false
-  }
+  void initProjects().catch(() => undefined)
+  return subscribeProjects()
 }
 
 export function useProjectsState<T>(selector: (s: ProjectsStoreState) => T): T {

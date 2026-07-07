@@ -18,9 +18,18 @@ export const useSessionsStore = create<SessionsStoreState>()(() => ({
 
 const { setState } = useSessionsStore
 
+export async function initSessions(): Promise<void> {
+  try {
+    const items = await sessionApi.list()
+    setState({ list: items, loading: false })
+  } catch (error) {
+    setState({ loading: false })
+    throw error
+  }
+}
+
 async function refresh(): Promise<void> {
-  const items = await sessionApi.list()
-  setState({ list: items, loading: false })
+  await initSessions()
 }
 
 async function remove(sessionId: string): Promise<void> {
@@ -35,26 +44,19 @@ async function rename(sessionId: string, title: string): Promise<void> {
 
 export const sessionsActions = { refresh, remove, rename }
 
-// 부팅 1회 조회 + 자동 제목 이벤트 구독(행 in-place 패치 — 전체 refresh 없이).
-export function bootstrapSessions(): () => void {
-  let alive = true
-  sessionApi
-    .list()
-    .then((items) => {
-      if (alive) setState({ list: items, loading: false })
-    })
-    .catch(() => {
-      if (alive) setState({ loading: false })
-    })
-  const unsubscribeTitle = sessionApi.onTitle((ev) => {
+// 자동 제목 이벤트 구독(행 in-place 패치 — 전체 refresh 없이).
+export function subscribeSessions(): () => void {
+  return sessionApi.onTitle((ev) => {
     setState((s) => ({
       list: s.list.map((item) => (item.id === ev.sessionId ? { ...item, title: ev.title } : item))
     }))
   })
-  return () => {
-    alive = false
-    unsubscribeTitle()
-  }
+}
+
+// 하위호환용 묶음. 새 부트 오케스트레이터는 initSessions 를 await 하고, Provider 는 subscribeSessions 만 붙인다.
+export function bootstrapSessions(): () => void {
+  void initSessions().catch(() => undefined)
+  return subscribeSessions()
 }
 
 export function useSessionsState<T>(selector: (s: SessionsStoreState) => T): T {

@@ -22,9 +22,18 @@ export const useBackendStore = create<BackendStoreState>()(() => ({
 
 const { setState } = useBackendStore
 
+export async function initBackend(): Promise<void> {
+  try {
+    const result = await backendApi.list()
+    setState({ list: result.backends, active: result.active ?? null, loading: false })
+  } catch (error) {
+    setState({ loading: false })
+    throw error
+  }
+}
+
 async function refresh(): Promise<void> {
-  const result = await backendApi.list()
-  setState({ list: result.backends, active: result.active ?? null, loading: false })
+  await initBackend()
 }
 
 export const backendActions = {
@@ -35,15 +44,13 @@ export const backendActions = {
 // 부팅 1회: 설치 상태만 조회한다. 미설치 시 인스톨러 자동 오픈은 보류 —
 // 설치 마법사 기능이 완성되기 전까지 앱 진입 시 모달을 띄우지 않는다(사용자 지시).
 // setInstallerOpen 액션은 유지하므로 기능 완성 후 자동 오픈을 되살릴 수 있다.
+export function subscribeBackend(): () => void {
+  return () => undefined
+}
+
 export function bootstrapBackend(): () => void {
-  let alive = true
-  void backendApi.list().then((result) => {
-    if (!alive) return
-    setState({ list: result.backends, active: result.active ?? null, loading: false })
-  })
-  return () => {
-    alive = false
-  }
+  void initBackend().catch(() => undefined)
+  return subscribeBackend()
 }
 
 // ── selector 훅 ──────────────────────────────────────────────────────────────

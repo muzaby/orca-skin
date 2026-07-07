@@ -1,5 +1,6 @@
 import type {
   PermissionRespond,
+  BootReport,
   SetPermissionMode,
   Backend,
   BackendListResult,
@@ -51,6 +52,10 @@ export const chatApi = {
     window.orca.chat.stopSubagent(sessionId, toolUseId),
   onEvent: (handler: (ev: NormalizedEvent) => void): (() => void) =>
     window.orca.chat.onEvent(handler)
+}
+
+export const bootApi = {
+  report: (): Promise<BootReport> => window.orca.boot.report()
 }
 
 export const backendApi = {
