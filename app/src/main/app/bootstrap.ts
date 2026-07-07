@@ -33,6 +33,7 @@ import { scaffoldProviderSettings } from '../features/extensions/scaffold'
 import { ProviderSettingsService } from '../features/providers/provider-settings'
 import { loadClaudeProviderSettings } from '../adapters/claude-settings'
 import { scanSkills, type SkillScanRoot } from '../features/extensions/skills/scan'
+import { seedBuiltinSkills } from '../features/extensions/skills/seed'
 import { initDb } from '../infra/db'
 import { UsageTracker } from '../features/usage/tracker'
 import { ExtensionBuilder } from '../features/extensions/builder'
@@ -60,6 +61,7 @@ import { materializeContinuityArrival } from '../features/orchestration/fork'
 import { TitleGenerator } from '../features/chat/title-generation'
 import { recoverDanglingToolCalls } from '../features/chat/recovery'
 import { broadcastConcurrency, sendChatEvent } from '../infra/ipc/send'
+import { resolveBuiltinSkillsDir } from './builtin-resources'
 
 export class Bootstrap {
   private readonly bootReport = createBootReportRecorder()
@@ -83,6 +85,14 @@ export class Bootstrap {
   // 정착하고 controller 를 abort 한다(shutdown).
   private supervisor?: RuntimeSupervisor<Electron.WebContents>
   private bus?: MainBus<Electron.WebContents>
+
+  private builtinSkillsDir(): string {
+    return resolveBuiltinSkillsDir({
+      isPackaged: app.isPackaged,
+      resourcesPath: process.resourcesPath,
+      appPath: app.getAppPath()
+    })
+  }
 
   private skillRoots(): SkillScanRoot[] {
     return [
@@ -182,6 +192,15 @@ export class Bootstrap {
     )
     this.bootReport.stepSync('orca-config', { critical: false, label: 'orca.json 로드' }, () =>
       loadOrcaConfig()
+    )
+    this.bootReport.stepSync(
+      'builtin-skill-seed',
+      { critical: false, label: '기본 스킬 seed' },
+      () => {
+        const result = seedBuiltinSkills(this.builtinSkillsDir(), sourcesSkillsDir())
+        for (const name of result.seeded) console.log('[seed] builtin skill:', name)
+        for (const name of result.pruned) console.log('[seed] prune builtin skill:', name)
+      }
     )
     const secretStore = new SecretStore()
     const providerSettings = new ProviderSettingsService({ claude: loadClaudeProviderSettings })
