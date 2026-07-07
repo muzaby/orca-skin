@@ -253,33 +253,36 @@ extraResources:
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- 동의 / 그대로 진행: …
-- 이견 / 우려: …
+- 동의 / 그대로 진행: seed 모듈은 `features/extensions/skills` 의 순수 파일 작업으로 두고, Electron 의존 경로 해석은 app 컴포지션 루트에 격리한다. 부팅 순서는 plan 대로 `config-dir`/`orca-config` 이후, `extension-deploy` 이전에 둬 같은 부팅에서 dist 배포와 skill-scan 이 이어지게 한다.
+- 이견 / 우려: marker(`.orca-builtin.json`)는 사용자 편집 가능한 `sources/skills` 아래 파일이므로 신뢰 입력으로 볼 수 없다. prune 대상 계산에서 marker skill 이름도 manifest 와 동일하게 검증하고, 실제 복사된 builtin 만 marker 에 기록하도록 구현을 강화했다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 구현함 / ⚠️ 보고만·결정 필요 | … |
+| 1 | marker 의 `skills` 값이 사용자 편집 가능하므로 `../x` 같은 값이 prune 에 섞이면 `skillsDir` 밖 삭제 위험이 있다. | ✅ 구현함 — marker skill 이름도 `SAFE_NAME` 검증을 통과한 값만 사용하고, `resolve`/`relative` 기반 containment 확인을 prune/copy 경로 생성에 적용. 테스트로 marker traversal 값을 고정. | seed marker 는 `~/.config/orca/sources/skills` 하위 사용자 영역 파일. 삭제는 방어적으로 처리해야 함. |
+| 2 | manifest `version` 손상(누락/비문자열) 시 업데이트 판단 키가 불명확하다. | ✅ 구현함 — manifest/marker 모두 런타임 schema 검증(`version` non-empty string, `skills` string array)을 통과하지 못하면 manifest 는 no-op, marker 는 없음으로 간주. | TypeScript interface 는 런타임 JSON 검증이 아니므로 AC7 을 version 까지 확장. |
+| 3 | manifest 에 이름은 있지만 실제 bundled 디렉토리가 없는 skill 을 marker 에 기록하면 이후 사용자 디렉토리 prune 오인이 가능하다. | ✅ 구현함 — 실제 소스 디렉토리가 존재하고 복사에 성공한 skill 만 marker `skills` 에 기록. | marker 는 app-managed builtin 목록의 근거이므로 실제 관리 대상만 저장해야 함. |
+| 4 | dev/packaged builtin 리소스 경로가 `app.getAppPath()`/`process.resourcesPath` 에 묶여 있어 회귀 확인이 어렵다. | ✅ 구현함 — `resolveBuiltinSkillsDir()` 순수 helper 로 분리하고 dev/packaged 단위 테스트 추가. | Electron API 호출은 app 레이어에 두되 경로 계산 자체는 testable seam 으로 분리. |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] `manifest.json` (`{version:"1.0.0", skills:[]}`)
-- [ ] `seed.ts` (`seedBuiltinSkills`)
-- [ ] `seed.test.ts` (AC3~7)
-- [ ] `bootstrap.ts` (`builtinSkillsDir()` + `builtin-skill-seed` 스텝)
-- [ ] `electron-builder.yml` (`extraResources` + `!resources/builtin/**`)
-- [ ] 게이트 lint/typecheck/test
+- [x] `manifest.json` (`{version:"1.0.0", skills:[]}`)
+- [x] `seed.ts` (`seedBuiltinSkills`)
+- [x] `seed.test.ts` (AC3~7 + marker traversal/빈 파이프라인/누락 source 보강)
+- [x] `bootstrap.ts` (`builtinSkillsDir()` + `builtin-skill-seed` 스텝)
+- [x] `electron-builder.yml` (`extraResources` + `!resources/builtin/**`)
+- [x] 게이트 lint/typecheck/test
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` |
-| 게이트 결과 | lint / typecheck / test (N passed) |
-| 블로커 / 역질문 | (없으면 "없음") |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | `app/resources/builtin/skills/manifest.json`, `app/src/main/features/extensions/skills/seed.ts`, `app/src/main/features/extensions/skills/seed.test.ts`, `app/src/main/app/builtin-resources.ts`, `app/src/main/app/builtin-resources.test.ts`, `app/src/main/app/bootstrap.ts`, `app/electron-builder.yml`, `docs/handoff/INDEX.md`, 본 plan |
+| 실행 명령 | `npm run lint` / `npm run typecheck` / `npm test -- src/main/features/extensions/skills/seed.test.ts src/main/app/builtin-resources.test.ts` / `npm test` / `npm run build:unpack` |
+| 게이트 결과 | lint ✅ / typecheck ✅ / targeted test 10 passed ✅ / full test 744 passed ✅ (`npm rebuild better-sqlite3` 후) / build:unpack ⚠️ electron zip 다운로드 403 으로 packaging 단계 실패(build 자체는 통과) |
+| 블로커 / 역질문 | 없음. 단, packaged resource 산출물 실물 확인은 electron-builder 다운로드 403 환경 제한으로 로컬/CI 재확인 필요. |
+| 대상 커밋 | 구현 커밋 참조 |
 
 ---
 
