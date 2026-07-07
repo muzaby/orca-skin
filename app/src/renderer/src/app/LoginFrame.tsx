@@ -12,7 +12,13 @@ const NO_DRAG_STYLE: CSSProperties = { WebkitAppRegion: 'no-drag' } as CSSProper
 // 로그인 게이트가 활성일 때 AppLayout 을 대체하는 풀-프레임 셸. 사이드바/일반 헤더 없이
 // 슬림 타이틀바(드래그 영역 + 햄버거 + WinControls)만 두고, 본문 중앙에 LoginView 를 둔다.
 // 디버그 패널도 함께 렌더 — 항상-실패 SSO 에 갇히지 않고 bypass 를 켤 수 있게 한다.
-export function LoginFrame(): React.JSX.Element {
+export function LoginFrame({
+  bootError = null,
+  onRetryBoot
+}: {
+  bootError?: string | null
+  onRetryBoot?: () => void
+}): React.JSX.Element {
   const macOsPadLeft = getPlatform() === 'darwin' ? 'pl-[80px]' : 'pl-[14px]'
   return (
     <div
@@ -44,8 +50,24 @@ export function LoginFrame(): React.JSX.Element {
           <WinControls />
         </div>
       </header>
-      <main className="flex min-h-0 flex-1 items-center justify-center bg-bg">
-        <LoginView />
+      <main className="flex min-h-0 flex-1 items-center justify-center bg-bg px-6">
+        <div className="flex w-full max-w-[360px] flex-col gap-4">
+          {bootError && (
+            <div
+              role="alert"
+              className="rounded-r4 border border-bad/30 bg-bad/10 p-3 text-center text-[12.5px] text-bad"
+            >
+              <p className="mb-2 font-semibold">앱 준비 중 문제가 발생했습니다.</p>
+              <p className="mb-3 break-words text-ink2">{bootError}</p>
+              {onRetryBoot && (
+                <Button variant="contained" size="small" onClick={onRetryBoot}>
+                  부트 다시 시도
+                </Button>
+              )}
+            </div>
+          )}
+          <LoginView />
+        </div>
       </main>
       {import.meta.env.DEV && <DebugPanel ssoSection={<SsoDebugSection />} />}
     </div>

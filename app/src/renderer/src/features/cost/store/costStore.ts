@@ -11,16 +11,18 @@ interface CostStoreState {
 
 export const useCostStore = create<CostStoreState>()(() => ({ summary: null }))
 
+export async function initCost(): Promise<void> {
+  const next = await costApi.summary()
+  useCostStore.setState({ summary: next })
+}
+
+export function subscribeCost(): () => void {
+  return costApi.onSummary((next) => useCostStore.setState({ summary: next }))
+}
+
 export function bootstrapCost(): () => void {
-  let alive = true
-  void costApi.summary().then((next) => {
-    if (alive) useCostStore.setState({ summary: next })
-  })
-  const unsubscribe = costApi.onSummary((next) => useCostStore.setState({ summary: next }))
-  return () => {
-    alive = false
-    unsubscribe()
-  }
+  void initCost().catch(() => undefined)
+  return subscribeCost()
 }
 
 export function useCostSummary(): CostSummary | null {

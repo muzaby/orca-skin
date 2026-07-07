@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
 import {
   CHANNELS,
+  type BootReport,
   type PermissionRespond,
   type SetPermissionMode,
   type Backend,
@@ -44,6 +45,9 @@ import {
 // Phase 2 노출 표면 — renderer 가 실제 사용하는 6개 채널만.
 // 추가 채널 (backend.select, settings.*) 은 사용처 도입 시점에 다시 등록.
 const orca = {
+  boot: {
+    report: (): Promise<BootReport> => ipcRenderer.invoke(CHANNELS.bootReport)
+  },
   chat: {
     send: (req: SendChatMessage): Promise<void> => ipcRenderer.invoke(CHANNELS.chatSend, req),
     cancelSteer: (req: CancelSteer): Promise<void> =>

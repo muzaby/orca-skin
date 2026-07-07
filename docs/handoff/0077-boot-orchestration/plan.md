@@ -160,28 +160,50 @@
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- 동의 / 그대로 진행: …
-- 이견 / 우려: …
+- 동의 / 그대로 진행: 로그인 게이트 통과 후 랜딩 전 `BootScreen` 을 보여 주고, renderer 셸 레이어에서 feature 초기화 단계를 순차/병렬 실행하는 방향에 동의한다. `app/` → `features/` 하향 호출이라 레이어 경계에도 맞다.
+- 이견 / 우려: plan 의 단계 1이 `bypass` 하이드레이션과 `lastSessionId` 조회를 섞고 있었으나, `bypass` 는 로그인 게이트 자체를 판단하기 위한 선행 조건이라 부트 내부 단계가 될 수 없다. 구현에서는 `RootGate` 의 기존 `loginActions.hydrateBypass()` 를 유지하고, 부트 단계는 `lastSessionId` 기반 랜딩 타겟 결정부터 시작했다.
+- 후속 결정 반영: main `BootReport` IPC 는 BrowserWindow 생성 전 이미 완료된 main 부트의 과거 리포트 조회로 정의했다. 실시간 진행률이 아니라 완료 리포트 스냅샷이며, renderer boot 에서는 non-mandatory diagnostic 단계로만 조회한다.
+- 이견 / 우려: 세션 목록 로드를 mandatory 로 두면 목록 조회 장애가 `/new` 진입까지 막는다. 앱 진입 자체가 불가능한 단계만 mandatory 로 두는 최소 필수 원칙에 따라 `sessions` 는 non-mandatory degrade 로 구현했다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 구현함 / ⚠️ 보고만·**결정 필요** | … |
+| 1 | `LoginFrame` 으로만 복귀하면 SSO 실패와 부트 실패가 구분되지 않고 재시도 트리거가 불명확하다. | ✅ 구현함 — `LoginFrame` 에 `bootError` / `onRetryBoot` prop 을 추가하고, SSO 오류와 별도 배너·"부트 다시 시도" 버튼을 렌더한다. | RootGate 가 failed phase 에서 동일 로그인 셸을 재사용하므로 실패 원인별 UX 분리가 필요하다. |
+| 2 | provider 의 기존 `bootstrap*()` 가 fetch 와 subscription 을 한 함수에 묶어, 오케스트레이터 await 시 이중 fetch 또는 구독 수명 혼선이 생긴다. | ✅ 구현함 — `init*(): Promise<void>` 와 `subscribe*(): () => void` 로 분리하고, Provider 는 subscription 만 attach 한다. 기존 `bootstrap*()` 는 하위호환 래퍼로 유지했다. | plan 의 핵심 제약(`bootstrap*()` 완료 promise 부재) 해소. |
+| 3 | `BootRedirector` 가 계속 `settingsApi.get()` 을 직접 호출하면 부트 단계의 랜딩 타겟 조회와 중복 IPC/짧은 blank 가 발생한다. | ✅ 구현함 — `bootStore.landingTarget` 을 SSOT 로 두고 `BootRedirector` 는 해당 값만 소비한다. | 랜딩 전 게이팅의 책임을 bootStore 로 일원화. |
+| 4 | 단계 promise 가 hang 되면 BootScreen 이 무한 표시될 수 있고, SLA warning 과 timeout 정책이 한 숫자로 섞일 수 있다. | ✅ 후속 구현함 — `BOOT_TIMING_POLICY` 로 3초 warning / 10초 mandatory failure / 10초 optional degrade 를 분리했다. warning 은 UI 에 노출하지 않고 console diagnostic 으로만 남긴다. | 사용자 2.b 결정 및 plan 리스크 "BootScreen hang" 완화. |
+| 5 | 단계별 진행은 UI 비노출 결정이지만, 순수 spinner 만 있으면 접근성 상태명이 부족하다. | ✅ 구현함 — 화면에는 spinner 만 보이고 `role="status"`, `aria-busy`, `sr-only` 고정 문구를 추가했다. | 사용자 결정(단계 UI 비노출)과 접근성 요구 동시 충족. |
+| 6 | main `BootReport` 포함 여부는 선택 스코프이며 이번 구현에 포함하면 신규 IPC/문서 갱신이 필요하다. | ✅ 후속 구현함 — `orca:boot:report` 를 완료 리포트 스냅샷 IPC 로 추가하고, `BootReportRecorder`/전용 handler/preload/renderer diagnostic step/IPC_CONTRACT 를 함께 갱신했다. | 사용자 1.a/3.a 결정 반영. |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] …
+- [x] `app/boot` 하위에 `bootStore`, `steps`, `BootScreen` 추가
+- [x] `RootGate` 에 로그인 통과 후 부트 phase 게이트 추가
+- [x] `LoginFrame` 에 부트 실패 전용 에러/재시도 UI 추가
+- [x] `BootRedirector` 를 bootStore landingTarget 소비자로 단순화
+- [x] backend/sessions/projects/cost store 의 `init*` / `subscribe*` 분리
+- [x] provider 는 subscription attach 만 수행하도록 변경
+- [x] boot steps / bootStore 단위 테스트 추가
+- [x] main `BootReport` IPC 는 후속 구현에서 완료 리포트 스냅샷으로 추가(`orca:boot:report`)
+- [x] 3초 warning / 10초 timeout SLA 정책을 named constant 로 분리
+- [x] BootReport 조회는 renderer boot non-mandatory diagnostic 단계로 추가
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` |
-| 게이트 결과 | lint ✅ / typecheck ✅ / test ✅ (N passed) |
-| 블로커 / 역질문 | (없으면 "없음") |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | `app/src/renderer/src/app/boot/{bootStore,steps,BootScreen}.ts(x)` 신규, `RootGate`/`LoginFrame`/`BootRedirector` 수정, backend/sessions/projects/cost provider+store 수정, boot 단위 테스트 추가. 후속: `BootReportRecorder`, `orca:boot:report` IPC, preload/renderer boot API, SLA timing policy, IPC_CONTRACT 갱신 |
+| 실행 명령 | `npm run lint` / `npm run typecheck` / `npm test` / `npx vitest run src/renderer/src/app/boot/steps.test.ts src/renderer/src/app/boot/bootStore.test.ts src/main/app/boot-report.test.ts` |
+| 게이트 결과 | lint ✅ / typecheck ✅ / targeted boot/report tests ✅ 11 passed / test ✅ 734 passed (`better-sqlite3` Node ABI 재빌드 후 green) |
+| 블로커 / 역질문 | 없음. main `BootReport` 는 완료 리포트로, 시작 SLA 는 3초 warning / 10초 timeout 정책으로 반영함. |
+| 대상 커밋 | `HEAD` |
+
+### [구현자 기입] 다음 구현 목록
+
+- 0077 범위 내 남은 코드 구현은 없음.
+- 사람 확인: `npm run dev` 실기에서 BootScreen 단계 비노출, console `[boot]` warning/report 로그, 부트 실패 재시도 UX 확인.
+- 후속 후보: main 부트 리포트를 Debug Panel 에 노출할지 여부는 별도 제품 UX 결정으로 분리.
 
 ---
 

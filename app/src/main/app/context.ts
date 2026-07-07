@@ -2,7 +2,7 @@
 // 컴포지션 루트(bootstrap.ts)가 부팅 시 1회 조립해 각 register* 함수에 주입한다.
 // 핸들러가 부팅 배선 클래스 필드를 직접 만지지 않게 하는 단일 경계.
 
-import type { DebugMockState, SkillInfo } from '../../shared/ipc'
+import type { BootReport, DebugMockState, SkillInfo } from '../../shared/ipc'
 import type { DbQueries } from '../infra/db'
 import type { SettingsStore } from '../infra/settings-store'
 import type { McpStore } from '../features/extensions/mcp/store'
@@ -32,6 +32,9 @@ export interface RouterContext {
   // chat send · files list · session cwd 가 공유하는 단일 cwd. 프로젝트 미소속이면
   // projects/default, 소속이면 projects/<이름>-<프로젝트ID8> (DB 에서 이름 조회).
   getCwd(projectId?: string | null): string
+  // main bootstrap 은 BrowserWindow/renderer 이전에 완료된다. renderer 에는 진행률이 아니라
+  // 완료된 diagnostic snapshot 만 노출한다.
+  getBootReport(): BootReport
   debugMock: DebugMockState
   mockAdapter: MockAdapter | null
 }
