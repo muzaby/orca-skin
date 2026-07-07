@@ -6,12 +6,16 @@ import { Composer } from './Composer'
 import { RightPanel } from './rightpanel/RightPanel'
 import { useScrollAnchor } from '../hooks/useScrollAnchor'
 import { useChatSession, useChatStore, usePendingSteer } from '../store/chatStore'
+import type { UsageLimitsView } from '../../../../../shared/usage/limits'
 
 interface ChatTileProps {
   backendLabel: string
   // 활성 백엔드의 중단 지원 여부(§15). page → ChatView 를 거쳐 Composer 로 전달.
   canAbort: boolean
   costToday?: string
+  // 사용량 한도 뷰모델·설정 이동 콜백 — page → ChatView 를 거쳐 Composer 도넛 팝오버로.
+  usageLimits?: UsageLimitsView | null
+  onOpenUsageSettings?: () => void
   // 컴포저 초기 입력 시드(Skills "채팅에서 사용해보기"). page 가 nav state 로 주입.
   initialDraft?: string
 }
@@ -24,6 +28,8 @@ export function ChatTile({
   backendLabel,
   canAbort,
   costToday,
+  usageLimits,
+  onOpenUsageSettings,
   initialDraft
 }: ChatTileProps): React.JSX.Element {
   const messages = useChatSession((s) => s.messages)
@@ -93,6 +99,8 @@ export function ChatTile({
             showScrollToBottom={showJump}
             onScrollToBottom={scrollToBottom}
             costToday={costToday}
+            usageLimits={usageLimits}
+            onOpenUsageSettings={onOpenUsageSettings}
             initialDraft={initialDraft}
             restoredDraft={effectiveRestore}
           />

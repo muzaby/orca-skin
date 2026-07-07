@@ -92,7 +92,7 @@ export interface ChatState {
   // 동안 true. ChatPane 이 인디케이터를 표시한다.
   loadingSession: boolean
   turnStartedAt: number | null
-  // 마지막 턴의 provider-reported 통계(model·토큰·캐시 분해). 컨텍스트 도넛 + TelemetryPanel(입력·
+  // 마지막 턴의 provider-reported 통계(model·토큰·캐시 분해). 컨텍스트 도넛 + UsagePanel(입력·
   // 캐시·윈도우·사용%)의 소스. 턴 종료(telemetry) 시 세팅, 세션 로드 시 turn_usage 최신 행에서
   // 복원, 새 대화에서만 비움. SEND 는 비우지 않아 턴 진행 중에도 도넛이 유지된다.
   // 비용/지연은 패널에서 빠졌고 비용은 turn_usage 원장(집계)이 SSOT 라 state 에 두지 않는다.

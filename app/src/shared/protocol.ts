@@ -370,7 +370,10 @@ export const SettingsSchema = z.object({
   // 앱 전체 폰트. tokens.css 의 --font-{sans,serif,mono} var 에 매핑(TweakProvider 가 --font-app 적용).
   appFont: z.enum(['sans', 'serif', 'mono']).default('sans'),
   // 응답완료 알림 토글. on 이면 턴 완료 시(창 비활성 한정) OS 네이티브 알림 표시.
-  notifyOnComplete: z.boolean().default(false)
+  notifyOnComplete: z.boolean().default(false),
+  // 월간 지출 한도(USD). 사용량 한도 프로그레스바(도넛·설정)의 기준. null=무제한.
+  // 사용량 자체는 계산하지 않는다 — 실사용 SSOT(UsageTracker/costStore)와 이 한도로 파생만.
+  spendingLimitUsd: z.number().positive().nullable().default(90)
 })
 
 export const SettingsPatchSchema = z
@@ -389,7 +392,8 @@ export const SettingsPatchSchema = z
     language: z.string(),
     accountInstructions: z.string(),
     appFont: z.enum(['sans', 'serif', 'mono']),
-    notifyOnComplete: z.boolean()
+    notifyOnComplete: z.boolean(),
+    spendingLimitUsd: z.number().positive().nullable()
   })
   .partial()
 

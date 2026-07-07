@@ -2,7 +2,8 @@ import { useRef, useState } from 'react'
 import { Popover } from '../shared/ui/Popover'
 import { Icon } from '../shared/ui/Icon'
 import { useLoginStore } from '../features/login'
-import { SettingsModal } from '../features/settings'
+import { SettingsModal, useSettingsModalStore } from '../features/settings'
+import { useUsageLimits } from '../features/cost'
 
 // 언어 서브메뉴 목록 — 영어(비활성/inert)와 한국어(활성/체크)만 노출.
 // (실제 배선은 한국어 1개.)
@@ -25,7 +26,9 @@ export function SidebarUserButton(): React.JSX.Element {
   const anchorRef = useRef<HTMLButtonElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
-  const [settingsOpen, setSettingsOpen] = useState(false)
+  const showSettings = useSettingsModalStore((s) => s.show)
+  // 사용량 한도 파생 — 도넛 팝오버와 동일 훅(공용 computeUsageLimits)을 참조(설정은 재계산 안 함).
+  const usageLimits = useUsageLimits()
 
   const closeMenu = (): void => {
     setMenuOpen(false)
@@ -69,7 +72,7 @@ export function SidebarUserButton(): React.JSX.Element {
           role="menuitem"
           onClick={() => {
             closeMenu()
-            setSettingsOpen(true)
+            showSettings('general')
           }}
           className={MENU_ITEM}
         >
@@ -121,7 +124,7 @@ export function SidebarUserButton(): React.JSX.Element {
         </div>
       </Popover>
 
-      <SettingsModal open={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <SettingsModal usageLimits={usageLimits} />
     </>
   )
 }

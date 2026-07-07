@@ -726,6 +726,8 @@ export interface Settings {
   appFont: 'sans' | 'serif' | 'mono'
   // 응답완료 알림 토글.
   notifyOnComplete: boolean
+  // 월간 지출 한도(USD). 사용량 한도 바(도넛·설정)의 기준. null=무제한.
+  spendingLimitUsd: number | null
 }
 
 export type SettingsPatch = Partial<Settings>
@@ -880,7 +882,7 @@ export interface LoadedSession {
   backend: Backend
   title: string | null
   messages: LoadedMessage[]
-  // 세션 마지막 턴의 provider-reported 통계 — 컨텍스트 도넛/TelemetryPanel 을 세션 수명 동안
+  // 세션 마지막 턴의 provider-reported 통계 — 컨텍스트 도넛/UsagePanel 을 세션 수명 동안
   // 복원(turn_usage 최신 행에서 재구성). 비용 집계는 원장 SUM 으로 별도(추후 usage 화면).
   lastTelemetry?: ProviderReportedTelemetry
   // sessions.provider_key — 마지막 사용 provider 기록. null 은 레거시/미매칭 fallback.
