@@ -29,15 +29,26 @@ shared/      → shared 내부만                  (범용 atom. 도메인 로�
 
 전체 디렉토리 트리 · 슬롯별 책임 · App.tsx Provider 합성 순서는 [`../docs/arch/frontend/layers.md`](../docs/arch/frontend/layers.md) 가 정본이다 (여기 사본을 두면 드리프트한다). cross-feature 데이터가 필요하면 역방향/타-feature import 대신 **pages/ 또는 app/ 에서 props 로 전달**한다.
 
-**main 레이어 경계** — main 프로세스는 **feature 수직 슬라이스 + adapters 한정 ports&adapters + 얇은 infra + app composition root** 로 구성된다(handoff 0062). 하향 의존만 + feature 끼리 교차 import 금지를 `eslint-plugin-boundaries`(v6) + `import/no-cycle` 로 강제(`eslint.config.mjs` 의 `src/main/**` 블록). 레이어·슬라이스 매핑·작업 규칙 정본은 [`src/main/AGENTS.md`](src/main/AGENTS.md).
+**main 레이어 경계** — main 프로세스는 **feature 수직 슬라이스 + adapters 한정 ports&adapters + 얇은 infra + app composition root** 로 구성된다(handoff 0062, ports 정리 0063). DAG 는 하향 한 방향만:
+
+```
+app        → 전부                                        (컴포지션 루트 — 부팅 배선·핸들러 등록·턴 셋업)
+features/<X>/ → 같은 feature · contracts · adapters · infra · shared  (수직 슬라이스 — 교차 feature 차단)
+contracts  → contracts · adapters · infra · shared       (턴/버스/런타임 타입 계약)
+adapters   → adapters · adapter-impl · infra · shared     (SessionAdapter 포트 & 구현)
+infra      → infra · shared                              (DB·bus·config·ipc 헬퍼)
+shared     → shared 내부만                               (순수 타입/상수/zod, 런타임 의존 0)
+```
+
+하향 의존만 + feature 끼리 교차 import 금지를 `eslint-plugin-boundaries`(v6) + `import/no-cycle` 로 강제(`eslint.config.mjs` 의 `src/main/**`·`src/shared/**` 블록). 레이어·슬라이스 매핑·작업 규칙 정본은 [`src/main/AGENTS.md`](src/main/AGENTS.md).
 
 **main / preload 핵심 경로** (채널 전수·계약은 [`../docs/IPC_CONTRACT.md`](../docs/IPC_CONTRACT.md)):
 
 | 경로                          | 책임                                                                                          |
 | ----------------------------- | --------------------------------------------------------------------------------------------- |
-| `src/main/app/`               | 컴포지션 루트 — `bootstrap.ts`(부팅 배선·버스 구독 순서) · `chat-turn.ts`(턴 셋업) · `handlers/*`(도메인 IPC) · `context.ts`(RouterContext) |
+| `src/main/app/`               | 컴포지션 루트 — `bootstrap.ts`(부팅 배선·버스 구독 순서) · `chat-turn.ts`(턴 셋업) · `handlers/*`(도메인 IPC) · `context.ts`(RouterContext) · `boot-report.ts`(부팅 진단, 0077) |
 | `src/main/adapters/`          | claude 어댑터 — `claude.ts`(query) · `claude-map.ts`(SDK→`NormalizedEvent`) · `claude-adapt.ts`(outbound) + 포트(`types`·`turn`·`provider-config`…). mock 은 dev, opencode 는 future |
-| `src/main/features/`          | 수직 슬라이스 — `chat`(턴 오케스트레이션) · `sessions`(런타임 거버넌스) · `approvals` · `usage` · `history`(persist) · `providers` · `extensions`(MCP·skill·deploy) |
+| `src/main/features/`          | 수직 슬라이스 (8) — `chat`(턴 오케스트레이션) · `sessions`(런타임 거버넌스) · `approvals` · `usage` · `history`(persist) · `providers` · `extensions`(MCP·skill·deploy) · `orchestration`(대화 연속성 fork/handoff, 순수 로직) |
 | `src/main/contracts/`         | 공유 타입 계약 — `turn`(`TurnContext`) · `bus-events` · `ports` · `session-state`               |
 | `src/main/infra/`             | 얇은 인프라 — `db`(better-sqlite3+WAL+마이그레이션) · `bus`(TypedBus) · `config`(orca.json·secret) · `ipc`(handle/send/dto) · `settings-store` |
 | `src/shared/{ipc,protocol}.ts`| `CHANNELS` 상수 + 순수 TS 타입 / zod 스키마 (main 전용)                                        |
