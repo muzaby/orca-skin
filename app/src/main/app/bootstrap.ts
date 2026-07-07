@@ -9,6 +9,9 @@ import { join } from 'node:path'
 import { is } from '@electron-toolkit/utils'
 import {
   CHANNELS,
+  type BootReport,
+  type BootReportStep,
+  type BootReportStatus,
   type DebugMockState,
   type NormalizedEvent,
   type SkillInfo
@@ -33,7 +36,7 @@ import { scaffoldProviderSettings } from '../features/extensions/scaffold'
 import { ProviderSettingsService } from '../features/providers/provider-settings'
 import { loadClaudeProviderSettings } from '../adapters/claude-settings'
 import { scanSkills, type SkillScanRoot } from '../features/extensions/skills/scan'
-import { initDb } from '../infra/db'
+import { initDb, type DbQueries } from '../infra/db'
 import { UsageTracker } from '../features/usage/tracker'
 import { ExtensionBuilder } from '../features/extensions/builder'
 import { PermissionModeController } from '../features/approvals/permission-mode-controller'
@@ -80,6 +83,80 @@ export class Bootstrap {
   // 정착하고 controller 를 abort 한다(shutdown).
   private supervisor?: RuntimeSupervisor<Electron.WebContents>
   private bus?: MainBus<Electron.WebContents>
+  private readonly bootReport: BootReport = {
+    startedAt: new Date().toISOString(),
+    finishedAt: null,
+    durationMs: null,
+    status: 'running',
+    steps: [],
+    warnings: []
+  }
+
+  private readonly bootStartedAtMs = Date.now()
+
+  getBootReport(): BootReport {
+    return {
+      ...this.bootReport,
+      steps: this.bootReport.steps.map((step) => ({ ...step })),
+      warnings: [...this.bootReport.warnings]
+    }
+  }
+
+  private finishBootReport(status: BootReportStatus): void {
+    const now = Date.now()
+    this.bootReport.finishedAt = new Date(now).toISOString()
+    this.bootReport.durationMs = now - this.bootStartedAtMs
+    this.bootReport.status = status
+  }
+
+  private recordBootWarning(message: string): void {
+    this.bootReport.warnings.push(message)
+  }
+
+  private async recordBootStep<T>(
+    id: string,
+    label: string,
+    run: () => T | Promise<T>,
+    options: { continueOnError?: boolean } = {}
+  ): Promise<T | undefined> {
+    const startedAtMs = Date.now()
+    const startedAt = new Date(startedAtMs).toISOString()
+    const warningCountBefore = this.bootReport.warnings.length
+    try {
+      const result = await run()
+      const finishedAtMs = Date.now()
+      const warnings = this.bootReport.warnings.slice(warningCountBefore)
+      const step: BootReportStep = {
+        id,
+        label,
+        startedAt,
+        finishedAt: new Date(finishedAtMs).toISOString(),
+        durationMs: finishedAtMs - startedAtMs,
+        status: warnings.length > 0 ? 'warning' : 'ok',
+        ...(warnings.length > 0 ? { warning: warnings.join('\n') } : {})
+      }
+      this.bootReport.steps.push(step)
+      return result
+    } catch (error) {
+      const finishedAtMs = Date.now()
+      const message = error instanceof Error ? error.message : String(error)
+      this.bootReport.steps.push({
+        id,
+        label,
+        startedAt,
+        finishedAt: new Date(finishedAtMs).toISOString(),
+        durationMs: finishedAtMs - startedAtMs,
+        status: options.continueOnError ? 'warning' : 'failed',
+        ...(options.continueOnError ? { warning: message } : { error: message })
+      })
+      if (options.continueOnError) {
+        this.recordBootWarning(message)
+        console.warn(`[boot] ${label} 경고:`, error)
+        return undefined
+      }
+      throw error
+    }
+  }
 
   private skillRoots(): SkillScanRoot[] {
     return [
@@ -99,10 +176,7 @@ export class Bootstrap {
   }
 
   private async refreshSkills(): Promise<SkillInfo[]> {
-    this.skillsCache = await scanSkills(
-      this.skillRoots(),
-      this.settings.getAll().skillEnabled
-    ).catch(() => [])
+    this.skillsCache = await scanSkills(this.skillRoots(), this.settings.getAll().skillEnabled)
     return this.skillsCache
   }
 
@@ -116,7 +190,10 @@ export class Bootstrap {
           mcpConfig: config
         })
       },
-      onWarning: (message) => console.warn(message)
+      onWarning: (message) => {
+        this.recordBootWarning(message)
+        console.warn(message)
+      }
     })
   }
 
@@ -129,77 +206,105 @@ export class Bootstrap {
   }
 
   async start(): Promise<void> {
-    const db = initDb()
-    const recovered = recoverDanglingToolCalls(db)
-    if (recovered.toolResultsWritten > 0 && is.dev) {
-      console.log('[recovery] dangling tools settled:', recovered)
+    let db: DbQueries
+    try {
+      db = (await this.recordBootStep('db', 'DB 초기화', () => initDb())) as DbQueries
+    } catch (error) {
+      this.finishBootReport('failed')
+      throw error
     }
-    // 비용 요약 IPC 송출 배선 — domain(UsageTracker)은 electron 비의존, 송출은 여기(컴포지션 루트)서.
-    const cost = new UsageTracker(db, (summary) => {
-      for (const wc of webContents.getAllWebContents()) {
-        if (!wc.isDestroyed()) wc.send(CHANNELS.costSummaryEvent, summary)
+    try {
+      const recovered = recoverDanglingToolCalls(db)
+      if (recovered.toolResultsWritten > 0 && is.dev) {
+        console.log('[recovery] dangling tools settled:', recovered)
       }
-    })
-    cost.recompute()
-    // 빌더는 db 인스턴스가 필요해 여기서 생성. skills 는 lazy getter 라 스캔 완료 전에 만들어도
-    // 무방 — 턴 실행 시점에 최신 skillsCache 를 읽는다. DB 프로젝트 지침은 빌더가 매 턴 조회하므로
-    // (무캐시) 지침 편집이 같은 세션 다음 메시지부터 즉시 반영된다.
-    const extensions = new ExtensionBuilder(
-      db,
-      this.mcp,
-      () => this.skillsCache,
-      () => this.settings.getAll(),
-      app.getVersion(),
-      () => distOrcaPluginDir('claude')
-    )
-    await this.registry.refreshInstallState()
-    this.defaultCwd = getWorkspacePath(null)
-    await mkdir(this.defaultCwd, { recursive: true }).catch((e) =>
-      console.warn('[boot] workspace 생성 실패:', e)
-    )
-    // ~/.config/orca 보장 → orca.json 로드 → provider settings 스캐폴드(최초 1회) →
-    // dist/<engine> 배포(ExtensionDeployer) → settings 해석 캐시 무효화.
-    // 어느 단계 실패도 부팅을 막지 않는다(채팅/세션 기능은 독립).
-    await ensureConfigDir().catch((e) => console.warn('[boot] ensureConfigDir 실패:', e))
-    try {
-      loadOrcaConfig()
-    } catch (e) {
-      console.warn('[boot] orca.json 로드 건너뜀:', e)
-    }
-    const secretStore = new SecretStore()
-    const providerSettings = new ProviderSettingsService({ claude: loadClaudeProviderSettings })
-    try {
-      const s = scaffoldProviderSettings('claude')
-      for (const path of s.created) console.log('[scaffold] 생성:', path)
-    } catch (e) {
-      console.warn('[boot] provider settings 스캐폴드 건너뜀:', e)
-    }
-    // dist/claude/plugins/orca 렌더를 boot 1회 수행한다. CRUD 는 즉시 재배포, 턴 진입은
-    // ensureDeployed 로 실패/dirty 상태를 한 번 더 보장한다.
-    this.deployment = this.createDeploymentService()
-    this.deployExtensions()
-    providerSettings.invalidateAll()
-    // ClaudeAdapter 가 사용하는 cwd 와 동일한 값으로 스킬 스캔.
-    await this.refreshSkills()
+      // 비용 요약 IPC 송출 배선 — domain(UsageTracker)은 electron 비의존, 송출은 여기(컴포지션 루트)서.
+      const cost = new UsageTracker(db, (summary) => {
+        for (const wc of webContents.getAllWebContents()) {
+          if (!wc.isDestroyed()) wc.send(CHANNELS.costSummaryEvent, summary)
+        }
+      })
+      cost.recompute()
+      // 빌더는 db 인스턴스가 필요해 여기서 생성. skills 는 lazy getter 라 스캔 완료 전에 만들어도
+      // 무방 — 턴 실행 시점에 최신 skillsCache 를 읽는다. DB 프로젝트 지침은 빌더가 매 턴 조회하므로
+      // (무캐시) 지침 편집이 같은 세션 다음 메시지부터 즉시 반영된다.
+      const extensions = new ExtensionBuilder(
+        db,
+        this.mcp,
+        () => this.skillsCache,
+        () => this.settings.getAll(),
+        app.getVersion(),
+        () => distOrcaPluginDir('claude')
+      )
+      await this.recordBootStep('registry-refresh', 'registry refresh', () =>
+        this.registry.refreshInstallState()
+      )
+      await this.recordBootStep(
+        'workspace-config',
+        'workspace/config',
+        async () => {
+          this.defaultCwd = getWorkspacePath(null)
+          await mkdir(this.defaultCwd, { recursive: true })
+          await ensureConfigDir()
+          loadOrcaConfig()
+        },
+        { continueOnError: true }
+      )
+      // ~/.config/orca 보장 → orca.json 로드 → provider settings 스캐폴드(최초 1회) →
+      // dist/<engine> 배포(ExtensionDeployer) → settings 해석 캐시 무효화.
+      // 어느 단계 실패도 부팅을 막지 않는다(채팅/세션 기능은 독립).
+      const secretStore = new SecretStore()
+      const providerSettings = new ProviderSettingsService({ claude: loadClaudeProviderSettings })
+      await this.recordBootStep(
+        'provider-scaffold',
+        'provider scaffold',
+        () => {
+          const s = scaffoldProviderSettings('claude')
+          for (const path of s.created) console.log('[scaffold] 생성:', path)
+        },
+        { continueOnError: true }
+      )
+      // dist/claude/plugins/orca 렌더를 boot 1회 수행한다. CRUD 는 즉시 재배포, 턴 진입은
+      // ensureDeployed 로 실패/dirty 상태를 한 번 더 보장한다.
+      this.deployment = this.createDeploymentService()
+      await this.recordBootStep(
+        'extension-deploy',
+        'extension deploy',
+        () => this.deployExtensions(),
+        {
+          continueOnError: true
+        }
+      )
+      providerSettings.invalidateAll()
+      // ClaudeAdapter 가 사용하는 cwd 와 동일한 값으로 스킬 스캔.
+      await this.recordBootStep('skill-scan', 'skill scan', () => this.refreshSkills(), {
+        continueOnError: true
+      })
 
-    const ctx: RouterContext = {
-      db,
-      settings: this.settings,
-      mcp: this.mcp,
-      registry: this.registry,
-      cost,
-      secretStore,
-      extensions,
-      providerSettings,
-      getSkills: () => this.skillsCache,
-      refreshSkills: () => this.refreshSkills(),
-      deployExtensions: () => this.deployExtensions(),
-      ensureExtensionsDeployedForTurn: () => this.ensureExtensionsDeployedForTurn(),
-      getCwd: (projectId) => getWorkspacePath(projectId ? db.getProject(projectId) : null),
-      debugMock: this.debugMock,
-      mockAdapter: import.meta.env.DEV ? new MockAdapter(() => this.debugMock) : null
+      const ctx: RouterContext = {
+        db,
+        settings: this.settings,
+        mcp: this.mcp,
+        registry: this.registry,
+        cost,
+        secretStore,
+        extensions,
+        providerSettings,
+        getSkills: () => this.skillsCache,
+        refreshSkills: () => this.refreshSkills(),
+        deployExtensions: () => this.deployExtensions(),
+        ensureExtensionsDeployedForTurn: () => this.ensureExtensionsDeployedForTurn(),
+        getCwd: (projectId) => getWorkspacePath(projectId ? db.getProject(projectId) : null),
+        debugMock: this.debugMock,
+        mockAdapter: import.meta.env.DEV ? new MockAdapter(() => this.debugMock) : null,
+        getBootReport: () => this.getBootReport()
+      }
+      this.register(ctx)
+      this.finishBootReport(this.bootReport.warnings.length > 0 ? 'warning' : 'ok')
+    } catch (error) {
+      this.finishBootReport('failed')
+      throw error
     }
-    this.register(ctx)
   }
 
   // 앱 종료 정리(index.ts will-quit → closeDb 직전 동기 호출). 진행 중 모든 턴의 열린 도구를

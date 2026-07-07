@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
 import {
   CHANNELS,
+  type BootReport,
   type PermissionRespond,
   type SetPermissionMode,
   type Backend,
@@ -60,6 +61,9 @@ const orca = {
   },
   backend: {
     list: (): Promise<BackendListResult> => ipcRenderer.invoke(CHANNELS.backendList)
+  },
+  boot: {
+    getReport: (): Promise<BootReport> => ipcRenderer.invoke(CHANNELS.bootReport)
   },
   agent: {
     list: (): Promise<AgentEnvironment[]> => ipcRenderer.invoke(CHANNELS.agentList)

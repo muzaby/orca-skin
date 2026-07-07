@@ -160,28 +160,32 @@
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- 동의 / 그대로 진행: …
-- 이견 / 우려: …
+- 동의 / 그대로 진행: 사용자 요청은 기존 선택 스코프였던 main `BootReport` + `orca:boot:report` 조회 IPC 를 우선 구현하는 것으로 해석했다. 진행률/event 채널이 아니라 완료 리포트 조회로만 노출한다.
+- 이견 / 우려: 원 설계의 전체 렌더러 부트 오케스트레이터(`BootScreen`, provider bootstrap 이관)는 이번 사용자 요청 범위를 벗어나 구현하지 않았다. 따라서 0077 전체 인수 기준 기준으로는 부분 구현이다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 구현함 / ⚠️ 보고만·**결정 필요** | … |
+| 1 | main 부트 리포트 조회는 `Bootstrap.start()` 완료 이후 renderer 가 읽는 진단 값이어야 하므로, 실시간 진행률/이벤트 채널을 만들면 사용자 의도와 충돌한다. | ✅ 구현함 — invoke 조회 채널만 추가하고 renderer helper 는 console diagnostic 으로만 보관한다. | 사용자 요청: ‘진행률’이 아니라 ‘완료된 main 부트 결과’, ‘실시간 event 채널이 아님’. |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] …
+- [x] `Bootstrap.start()` 내부 단계별 완료/경고/실패 기록 수집
+- [x] `BootReport` 타입과 `orca:boot:report` invoke 채널 추가
+- [x] preload `window.orca.boot.getReport()` 노출
+- [x] renderer `app/boot/steps.ts` 에 완료 리포트 diagnostic 조회 helper 추가(UI 단계 표시 없음)
+- [x] `docs/IPC_CONTRACT.md` 에 완료 리포트 조회/비-event 채널 명시
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` |
-| 게이트 결과 | lint ✅ / typecheck ✅ / test ✅ (N passed) |
-| 블로커 / 역질문 | (없으면 "없음") |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | `app/src/main/app/bootstrap.ts`, `app/src/main/app/context.ts`, `app/src/main/app/handlers/misc.ts`, `app/src/preload/index.ts`, `app/src/shared/ipc.ts`, `app/src/shared/protocol.ts`, `app/src/renderer/src/app/boot/steps.ts`, `docs/IPC_CONTRACT.md` |
+| 실행 명령 | `cd app && npm run lint`; `cd app && npm run typecheck`; `cd app && npm test` |
+| 게이트 결과 | lint ✅ / typecheck ✅ / test ⚠️ 700/723 passed, 23 failed due to better-sqlite3 ABI mismatch (NODE_MODULE_VERSION 140 vs 115; unchanged environment limitation) |
+| 블로커 / 역질문 | 전체 0077 렌더러 부트 오케스트레이터는 미구현. 이번 요청 범위(main 완료 리포트 조회) 기준 블로커 없음. |
+| 대상 커밋 | `a3b1bb5` |
 
 ---
 

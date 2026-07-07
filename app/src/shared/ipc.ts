@@ -13,6 +13,7 @@ export const CHANNELS = {
   chatCancel: 'orca:chat:cancel',
   chatStopSubagent: 'orca:chat:stopSubagent',
   backendList: 'orca:backend:list',
+  bootReport: 'orca:boot:report',
   agentList: 'orca:agent:list',
   installStart: 'orca:install:start',
   installStatus: 'orca:install:status',
@@ -93,6 +94,30 @@ export interface DebugMockState {
   contextUsageRatio: number
   // dev 전용 — main 의 outbound wire message(NormalizedEvent) 를 터미널에 덤프할지.
   wireLog: boolean
+}
+
+export type BootReportStatus = 'running' | 'ok' | 'warning' | 'failed'
+
+export type BootStepStatus = 'ok' | 'warning' | 'failed'
+
+export interface BootReportStep {
+  id: string
+  label: string
+  startedAt: string
+  finishedAt: string
+  durationMs: number
+  status: BootStepStatus
+  warning?: string
+  error?: string
+}
+
+export interface BootReport {
+  startedAt: string
+  finishedAt: string | null
+  durationMs: number | null
+  status: BootReportStatus
+  steps: BootReportStep[]
+  warnings: string[]
 }
 
 export interface CostPeriodSummary {

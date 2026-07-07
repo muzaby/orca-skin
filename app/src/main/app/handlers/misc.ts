@@ -16,6 +16,7 @@ import {
   StartInstallSchema,
   type AgentEnvironment,
   type BackendListResult,
+  type BootReport,
   type CostSummary,
   type DebugMockState,
   type FileEntry,
@@ -52,6 +53,8 @@ function findSkill(ctx: RouterContext, sourceId: string, name: string): SkillInf
 }
 
 export function registerMiscHandlers(ctx: RouterContext): void {
+  handlePlain(CHANNELS.bootReport, (): BootReport => ctx.getBootReport())
+
   handlePlain(CHANNELS.backendList, (): BackendListResult => {
     // 능력 서술자를 computed-on-the-fly 로 각 엔트리에 부착(DB 미관여 — §4). capabilities 는
     // 백엔드의 함수(세션별 데이터 아님)라 영속하지 않고 매 응답에 다시 계산해 붙인다.

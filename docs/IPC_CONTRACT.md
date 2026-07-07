@@ -8,7 +8,7 @@
 ## 1. 명명 규칙
 
 - 형식: `orca:<domain>:<action>` — 소문자 + 콜론 구분
-- 도메인 (17개): `chat`, `backend`, `agent`, `engine`, `install`, `settings`, `skills`, `files`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `concurrency`, `permission`, `debug`(dev 전용)
+- 도메인 (18개): `chat`, `backend`, `boot`, `agent`, `engine`, `install`, `settings`, `skills`, `files`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `concurrency`, `permission`, `debug`(dev 전용)
 - 방향:
   - Renderer → Main 요청: `ipcMain.handle` + `ipcRenderer.invoke` (Promise 반환)
   - Main → Renderer 이벤트: `webContents.send` + `ipcRenderer.on` (단방향 push)
@@ -20,9 +20,9 @@
   - 특례: `chat:send` 는 실패를 `error` 이벤트로 회신(§2.1). 입력이 없거나 store 내부 zod 가 검증하는 채널(settings set · mcp add/update)은 `handlePlain`.
 - 출력(main→renderer send) 무검증: `NormalizedEvent` 등의 형상 보증은 어댑터 정규화(`claude-map.ts`)가 담당 — 의도된 설계.
 
-## 2. 채널 카탈로그 (총 54 채널)
+## 2. 채널 카탈로그 (총 55 채널)
 
-도메인별 분포: `chat` 5 (`send` · `event` · `cancel` · `stopSubagent` · `steerCancel`) · `backend` 1 · `agent` 1 · `engine` 4 · `install` 2 · `settings` 2 · `skills` 7 · `files` 5 · `session` 6 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `cost` 2 · `concurrency` 1 · `permission` 2 (`respond` · `setMode`) · `debug` 2 (dev 전용 — `getMock` · `setMock`).
+도메인별 분포: `chat` 5 (`send` · `event` · `cancel` · `stopSubagent` · `steerCancel`) · `backend` 1 · `boot` 1 · `agent` 1 · `engine` 4 · `install` 2 · `settings` 2 · `skills` 7 · `files` 5 · `session` 6 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `cost` 2 · `concurrency` 1 · `permission` 2 (`respond` · `setMode`) · `debug` 2 (dev 전용 — `getMock` · `setMock`).
 
 `app/src/shared/ipc.ts` 의 `CHANNELS` 상수와 1:1 일치. **단, `debug` 2채널은 `import.meta.env.DEV` 일 때만 `ipcMain.handle` 로 등록된다** (CHANNELS 상수 문자열은 상존하나 prod 핸들러 미등록 — §2.13 참조).
 
@@ -43,6 +43,12 @@
 | `orca:backend:list` | R→M (invoke) | —        | `BackendListResult` = `{ backends: { id: Backend; installed: boolean; version?: string; capabilities?: ProviderDescriptor }[]; active?: Backend }` | 등록된 어댑터의 설치 상태 + 활성 백엔드 + 능력 서술자(`capabilities`, computed-on-the-fly — provider-runtime.md §4/§15). 신규 채널 아님(기존 페이로드 비파괴 확장). |
 
 > **예약 (현재 미노출)**: `orca:backend:select` — 단일 백엔드 (`claude`) 라 호출자가 없어 preload 에서 의도적으로 제외. opencode 어댑터 활성화 PR 에서 재노출.
+
+### 2.2-a Boot
+
+| 채널 | 방향 | 페이로드 | 응답 | 설명 |
+| --- | --- | --- | --- | --- |
+| `orca:boot:report` | R→M (invoke) | — | `BootReport` = `{ startedAt; finishedAt; durationMs; status; steps[]; warnings[] }` | **main bootstrap 완료 리포트 조회**. `Bootstrap.start()` 가 이미 수집한 DB 초기화, registry refresh, workspace/config, provider scaffold, extension deploy, skill scan 등의 완료·경고·실패 기록을 반환한다. 진행률 UI 용 실시간 event 채널이 아니며, renderer 는 완료 진단(console/diagnostic state)으로만 보관한다. |
 
 ### 2.2-b Agent (handoff 0010)
 
