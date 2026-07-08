@@ -78,6 +78,9 @@ function SidebarImpl({ sessionsSlot, footerSlot }: SidebarProps): React.JSX.Elem
         data-behavior="collapsible resizable"
         data-state="collapsed"
       >
+        <div className="app-frame-sidebar-brand mb-2 grid h-9 w-9 place-items-center" aria-hidden>
+          <OrcaLogo className="h-[18px] w-auto text-ink" />
+        </div>
         <div className="app-frame-sidebar-body flex flex-col items-center gap-1">
           {NAV.map((it) => {
             const isActive = it.isActive(pathname)

@@ -17,10 +17,10 @@ const ICON_BTN_BASE =
 const ICON_BTN_IDLE =
   'cursor-default bg-transparent text-t6 hover:bg-fill-uncontained-hover hover:text-t7'
 const ICON_BTN_PRESSED = 'cursor-default bg-t3 text-t8'
-// 비활성(준비 중) — 빗금 배경 + 클릭 차단. Sidebar 의 NAV_DISABLED_HATCH 와 동일한
-// 테마 border 토큰 기반 사선 패턴(신규 CSS 없이 arbitrary value).
 const MENU_ITEM =
   'flex w-full cursor-default items-center gap-2 rounded-r4 border-0 bg-transparent px-2.5 py-1.5 text-left text-footnote text-t8 outline-none hide-focus-ring ring-focus hover:bg-fill-uncontained-hover disabled:opacity-50'
+const DANGER_MENU_ITEM =
+  'flex w-full cursor-default items-center gap-2 rounded-r4 border-0 bg-transparent px-2.5 py-1.5 text-left text-footnote text-rust outline-none hide-focus-ring ring-focus hover:bg-rust-soft disabled:opacity-50'
 
 // 사이드바 메타 (state.title) 가 즉시 채워지므로 사용자가 세션을 선택한 순간부터
 // 헤더에 정확한 제목 표시. 메타가 없는 부팅 자동 복원 1회만 첫 user 메시지에서 fallback.
@@ -34,14 +34,23 @@ function selectTitle(s: ChatState): string {
 // 채팅 타일 titlebar — 제목 + 우측 액션. selector 가 primitive 를 반환하므로
 // 스트리밍 커밋(messages 교체)에도 제목 문자열이 같으면 재렌더되지 않는다.
 interface ChatTitleBarProps {
+  projectId?: string | null
   projectName?: string | null
+  onOpenProject?: (projectId: string) => void
+  onDeleteSession?: (sessionId: string) => void
+  onRenameSession?: (sessionId: string, title: string) => void
 }
 
 export const ChatTitleBar = memo(function ChatTitleBar({
-  projectName
+  projectId,
+  projectName,
+  onOpenProject,
+  onDeleteSession,
+  onRenameSession
 }: ChatTitleBarProps): React.JSX.Element {
   const title = useChatSession(selectTitle)
   const cwd = useChatSession((s) => s.cwd)
+  const sessionId = useChatSession((s) => s.sessionId)
   // 열 구조(stable ref)를 구독하고 평탄 뷰는 메모로 파생 — selector 가 새 배열을 반환하면
   // zustand Object.is 비교가 매번 깨져 불필요 재렌더가 난다.
   const tileColumns = useChatSession((s) => s.rightPanelTiles)
@@ -54,7 +63,8 @@ export const ChatTitleBar = memo(function ChatTitleBar({
     () => tileRegistry.filter((tile) => tile.id !== 'reserved1' && tile.id !== 'reserved2'),
     []
   )
-  const displayTitle = projectName ? `${projectName} / ${title}` : title
+  const canRenameSession = sessionId != null && onRenameSession != null
+  const canDeleteSession = sessionId != null && onDeleteSession != null
 
   // 전체 대화를 마크다운으로 직렬화해 클립보드에 복사한다. text 파트만 추출(partsText)하므로
   // 도구 호출/첨부는 제외 — 사람이 읽을 대화 본문 위주.
@@ -81,11 +91,21 @@ export const ChatTitleBar = memo(function ChatTitleBar({
   return (
     <div className="app-frame-titlebar flex items-center gap-3 px-6 pb-2 pt-3">
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        <CwdButton cwd={cwd} sessionStarted className="shrink-0" />
-        <span className="shrink-0 text-t5">/</span>
+        {projectId && projectName && onOpenProject ? (
+          <button
+            type="button"
+            className="min-w-0 shrink-0 overflow-hidden text-ellipsis whitespace-nowrap rounded-r4 border-0 bg-transparent px-p5 py-1 text-footnote font-medium text-t7 transition-colors hover:bg-fill-uncontained-hover hover:text-t9"
+            onClick={() => onOpenProject(projectId)}
+            title={projectName}
+          >
+            {projectName}
+          </button>
+        ) : null}
+        {projectId && projectName ? <span className="shrink-0 text-t5">/</span> : null}
         <div className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-medium text-ink">
-          {displayTitle}
+          {title}
         </div>
+        <CwdButton cwd={cwd} sessionStarted className="shrink-0" />
       </div>
       <div className="ml-auto flex gap-1">
         <button
@@ -134,6 +154,33 @@ export const ChatTitleBar = memo(function ChatTitleBar({
               </button>
             )
           })}
+          <div className="my-1 h-px bg-border" />
+          <button
+            type="button"
+            className={MENU_ITEM}
+            onClick={() => {
+              if (!sessionId || !onRenameSession) return
+              setOpen(false)
+              const next = window.prompt('대화 이름 변경', title)
+              const trimmed = next?.trim()
+              if (trimmed) onRenameSession(sessionId, trimmed)
+            }}
+            disabled={!canRenameSession}
+          >
+            <Icon name="edit" size={13} /> 이름 변경
+          </button>
+          <button
+            type="button"
+            className={DANGER_MENU_ITEM}
+            onClick={() => {
+              if (!sessionId || !onDeleteSession) return
+              setOpen(false)
+              onDeleteSession(sessionId)
+            }}
+            disabled={!canDeleteSession}
+          >
+            <Icon name="trash" size={13} /> 삭제
+          </button>
         </Popover>
       </div>
     </div>

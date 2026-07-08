@@ -1,4 +1,5 @@
-import { memo, useRef, useState, type CSSProperties } from 'react'
+import { memo, useEffect, useRef, useState, type CSSProperties } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { WinControls } from './WinControls'
 import { Icon } from '../shared/ui/Icon'
@@ -28,7 +29,7 @@ export const Header = memo(function Header({ onOpenSearch }: HeaderProps): React
   const navigate = useNavigate()
   const { t, setTweak } = useTweakContext()
   const [menuOpen, setMenuOpen] = useState(false)
-  const [menuView, setMenuView] = useState<'main' | 'version'>('main')
+  const [versionOpen, setVersionOpen] = useState(false)
   const menuAnchorRef = useRef<HTMLButtonElement>(null)
 
   return (
@@ -99,46 +100,76 @@ export const Header = memo(function Header({ onOpenSearch }: HeaderProps): React
       <Popover
         open={menuOpen}
         anchorRef={menuAnchorRef}
-        onClose={() => {
-          setMenuOpen(false)
-          setMenuView('main')
-        }}
+        onClose={() => setMenuOpen(false)}
         placement="bottom"
         className="min-w-[160px]"
       >
-        {menuView === 'version' ? (
-          <div className="flex min-w-[180px] flex-col items-center gap-2 px-4 py-4 text-center">
-            <OrcaLogo className="h-8 w-auto text-ink" />
-            <div className="font-serif text-[16px] font-semibold tracking-tight text-ink">Orca</div>
-            <div className="text-[12px] text-ink2">v{__APP_VERSION__}</div>
-          </div>
-        ) : (
-          <>
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => setMenuView('version')}
-              className="flex w-full cursor-pointer items-center gap-2 rounded-md border-0 bg-transparent px-2.5 py-1.5 text-left text-[12.5px] text-ink hover:bg-sidebar"
-            >
-              <Icon name="doc" size={14} />
-              <span>버전</span>
-            </button>
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setMenuOpen(false)
-                setMenuView('main')
-                void windowApi.close()
-              }}
-              className="flex w-full cursor-pointer items-center gap-2 rounded-md border-0 bg-transparent px-2.5 py-1.5 text-left text-[12.5px] text-ink hover:bg-sidebar"
-            >
-              <Icon name="power" size={14} />
-              <span>종료</span>
-            </button>
-          </>
-        )}
+        <button
+          type="button"
+          role="menuitem"
+          onClick={() => {
+            setMenuOpen(false)
+            setVersionOpen(true)
+          }}
+          className="flex w-full cursor-pointer items-center gap-2 rounded-md border-0 bg-transparent px-2.5 py-1.5 text-left text-[12.5px] text-ink hover:bg-sidebar"
+        >
+          <Icon name="doc" size={14} />
+          <span>버전</span>
+        </button>
+        <button
+          type="button"
+          role="menuitem"
+          onClick={() => {
+            setMenuOpen(false)
+            void windowApi.close()
+          }}
+          className="flex w-full cursor-pointer items-center gap-2 rounded-md border-0 bg-transparent px-2.5 py-1.5 text-left text-[12.5px] text-ink hover:bg-sidebar"
+        >
+          <Icon name="power" size={14} />
+          <span>종료</span>
+        </button>
       </Popover>
+      <HeaderVersionModal open={versionOpen} onClose={() => setVersionOpen(false)} />
     </header>
   )
 })
+
+function HeaderVersionModal({
+  open,
+  onClose
+}: {
+  open: boolean
+  onClose: () => void
+}): React.JSX.Element | null {
+  useEffect(() => {
+    if (!open) return
+    const onKeyDown = (event: KeyboardEvent): void => {
+      if (event.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [open, onClose])
+
+  if (!open) return null
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4 backdrop-blur-sm"
+      data-context="overlay"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Orca 버전"
+        className="flex w-[280px] max-w-[92vw] flex-col items-center gap-3 rounded-r6 border border-border bg-panel px-8 py-7 text-center shadow-xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <OrcaLogo className="h-10 w-auto text-ink" />
+        <div className="font-serif text-[18px] font-semibold tracking-tight text-ink">Orca</div>
+        <div className="text-[12.5px] text-ink2">v{__APP_VERSION__}</div>
+      </div>
+    </div>,
+    document.body
+  )
+}
