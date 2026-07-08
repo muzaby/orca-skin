@@ -9,31 +9,32 @@ import {
   type Settings,
   type SettingsPatch
 } from '../../shared/protocol'
+import { migrateRawSettings } from './settings-migration'
 
 type Raw = Record<string, unknown>
 
-function readSafe(raw: Raw): Settings {
-  const parsed = SettingsSchema.safeParse(raw)
-  if (parsed.success) return parsed.data
-  // 일부 키만 깨졌어도 default 가 채워지도록 빈 객체로 fallback.
-  return SettingsSchema.parse({})
-}
-
 export class SettingsStore {
+  constructor(private readonly currentAppVersion = 'unknown') {}
   private readonly store = new Store<Raw>({
     name: 'orca-settings',
     defaults: SettingsSchema.parse({}) as Raw
   })
 
+  private migrate(): Settings {
+    const migrated = migrateRawSettings(this.store.store, this.currentAppVersion)
+    this.store.store = migrated.raw
+    return migrated.settings
+  }
+
   getAll(): Settings {
-    return readSafe(this.store.store)
+    return this.migrate()
   }
 
   patch(input: unknown): Settings {
     const patch: SettingsPatch = SettingsPatchSchema.parse(input)
     const current = this.getAll()
     const next = SettingsSchema.parse({ ...current, ...patch })
-    this.store.store = next as Raw
+    this.store.store = migrateRawSettings(next as Raw, this.currentAppVersion).raw
     return next
   }
 }
