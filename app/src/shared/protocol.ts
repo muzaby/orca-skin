@@ -192,6 +192,17 @@ export const SearchMessagesRequestSchema = z.object({
   limit: z.number().int().positive().max(100).optional()
 })
 
+// provider별 사용량 조회/한도 설정 (0080 항목 4). providerKeys 는 renderer 가 아는 agent key
+// 목록(agent:list 파생). limitUsd 양수 또는 null(무제한). 상한 100 은 UI 가 다룰 provider 보호선.
+export const ProviderSummariesRequestSchema = z.object({
+  providerKeys: z.array(z.string().min(1)).max(100)
+})
+
+export const SetProviderLimitSchema = z.object({
+  providerKey: z.string().min(1),
+  limitUsd: z.number().positive().nullable()
+})
+
 // MCP 서버 설정 (전역). name 은 mcpServers record 의 key 가 되므로 SDK/CLI 가 허용하는
 // 식별자 문자만 (도구 이름 `mcp__<name>__<tool>` 의 일부로 들어간다). transport 별 필수
 // 필드를 superRefine 으로 검증한다. auth 는 평문 입력 — main 이 safeStorage 로 암호화 저장.
@@ -423,6 +434,7 @@ export type {
   AgentModelView,
   CostPeriodSummary,
   CostSummary,
+  ProviderUsageEntry,
   SessionCapabilities,
   RevertCapabilities,
   CancellationCapability,

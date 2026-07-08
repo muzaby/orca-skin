@@ -20,9 +20,9 @@
   - 특례: `chat:send` 는 실패를 `error` 이벤트로 회신(§2.1). 입력이 없거나 store 내부 zod 가 검증하는 채널(settings set · mcp add/update)은 `handlePlain`.
 - 출력(main→renderer send) 무검증: `NormalizedEvent` 등의 형상 보증은 어댑터 정규화(`claude-map.ts`)가 담당 — 의도된 설계.
 
-## 2. 채널 카탈로그 (총 55 채널)
+## 2. 채널 카탈로그 (총 57 채널)
 
-도메인별 분포: `chat` 5 (`send` · `event` · `cancel` · `stopSubagent` · `steerCancel`) · `boot` 1 (`report`) · `backend` 1 · `agent` 1 · `engine` 4 · `install` 2 · `settings` 2 · `skills` 7 · `files` 5 · `session` 6 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `cost` 2 · `concurrency` 1 · `permission` 2 (`respond` · `setMode`) · `debug` 2 (dev 전용 — `getMock` · `setMock`).
+도메인별 분포: `chat` 5 (`send` · `event` · `cancel` · `stopSubagent` · `steerCancel`) · `boot` 1 (`report`) · `backend` 1 · `agent` 1 · `engine` 4 · `install` 2 · `settings` 2 · `skills` 7 · `files` 5 · `session` 6 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `cost` 4 · `concurrency` 1 · `permission` 2 (`respond` · `setMode`) · `debug` 2 (dev 전용 — `getMock` · `setMock`).
 
 `app/src/shared/ipc.ts` 의 `CHANNELS` 상수와 1:1 일치. **단, `debug` 2채널은 `import.meta.env.DEV` 일 때만 `ipcMain.handle` 로 등록된다** (CHANNELS 상수 문자열은 상존하나 prod 핸들러 미등록 — §2.13 참조).
 
@@ -233,12 +233,14 @@ interface McpServer {
 
 ### 2.12 Cost (Phase 3++)
 
-일/주/월 비용·토큰 누적 summary. Main 의 `CostTracker` 가 `turn_usage.created_at` 기준 SQL `SUM` 으로 재계산하고, Renderer 는 표시 UI 없이 읽기전용 Context 미러만 유지한다.
+일/주/월 비용·토큰 누적 summary. Main 의 `CostTracker` 가 `turn_usage.created_at` 기준 SQL `SUM` 으로 재계산하고, Renderer 는 costStore 미러 + 설정 사용량 UI 에서 참조한다. provider별(0080) 은 `turn_usage ⨝ sessions.provider_key` 로 귀속·집계하고, provider별 월 한도는 `provider_limits` 테이블에 영속한다.
 
-| 채널                     | 방향         | 페이로드      | 응답          | 설명                                                                                                   |
-| ------------------------ | ------------ | ------------- | ------------- | ------------------------------------------------------------------------------------------------------ |
-| `orca:cost:summary`      | R→M (invoke) | —             | `CostSummary` | 현재 캐시된 일/주/월 비용·토큰 누적값 1회 조회. 앱 부팅 시 main 이 1회 `recompute()` 한 값을 반환한다. |
-| `orca:cost:summaryEvent` | M→R (send)   | `CostSummary` | —             | telemetry 저장 직후 `CostTracker.recordAndBroadcast()` 가 모든 창에 push 하는 summary 갱신 이벤트.     |
+| 채널                            | 방향         | 페이로드                                | 응답                   | 설명                                                                                                                       |
+| ------------------------------- | ------------ | --------------------------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `orca:cost:summary`             | R→M (invoke) | —                                       | `CostSummary`          | 조회 시 `recompute()` 로 최신 일/주/월 비용·토큰 누적값을 반환한다(설정 사용량 동기화 버튼이 최신값을 받도록, 0080 항목 2). |
+| `orca:cost:summaryEvent`        | M→R (send)   | `CostSummary`                           | —                      | telemetry 저장 직후 `CostTracker.recordAndBroadcast()` 가 모든 창에 push 하는 summary 갱신 이벤트.                          |
+| `orca:cost:providerSummaries`   | R→M (invoke) | `{ providerKeys: string[] }`            | `ProviderUsageEntry[]` | provider key 마다 실사용 summary + 월 한도를 묶어 반환(0080 항목 4). 미설정 한도는 null.                                    |
+| `orca:cost:setProviderLimit`    | R→M (invoke) | `{ providerKey: string; limitUsd: number \| null }` | `ProviderUsageEntry`   | provider별 월 한도를 upsert 하고 갱신된 엔트리를 반환한다(즉시 반영).                                                       |
 
 `CostSummary` 타입 (`app/src/shared/ipc.ts`):
 
@@ -255,6 +257,12 @@ interface CostSummary {
   week: CostPeriodSummary;
   month: CostPeriodSummary;
   updatedAt: number;
+}
+// provider별 사용량(0080 항목 4) — providerKey(=agent key)별 실사용 summary + 월 한도.
+interface ProviderUsageEntry {
+  providerKey: string;
+  summary: CostSummary;
+  limitUsd: number | null;
 }
 ```
 

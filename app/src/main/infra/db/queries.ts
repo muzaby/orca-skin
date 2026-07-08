@@ -46,6 +46,10 @@ export class DbQueries {
   private readonly getLatestTurnUsageStmt: Database.Statement
   private readonly listTurnModelUsageStmt: Database.Statement
   private readonly sumUsageByBoundariesStmt: Database.Statement
+  // provider별(0080) — turn_usage ⨝ sessions(provider_key)로 provider 한정 집계 + 한도 원장.
+  private readonly sumUsageByBoundariesForProviderStmt: Database.Statement
+  private readonly getProviderLimitStmt: Database.Statement
+  private readonly setProviderLimitStmt: Database.Statement
   // 사용자가 명시적으로 rename — 기존 title 이 있어도 덮어쓴다.
   // updateSessionTitleStmt 는 첫 init 시점 채우기 용도 (WHERE title IS NULL).
   private readonly renameSessionStmt: Database.Statement
@@ -236,6 +240,38 @@ export class DbQueries {
         COALESCE(SUM(total_cost_usd), 0) AS month_total_cost_usd
       FROM turn_usage
       WHERE created_at >= @monthStart
+    `)
+    // provider 한정 집계 — sumUsageByBoundaries 동형이나 sessions.provider_key 로 조인·필터한다.
+    // session 삭제 시 turn_usage.session_id 가 NULL 이 되므로 INNER JOIN 이 그 행을 자연히 제외한다.
+    this.sumUsageByBoundariesForProviderStmt = db.prepare(`
+      SELECT
+        COALESCE(SUM(CASE WHEN tu.created_at >= @dayStart THEN tu.input_tokens END), 0) AS day_input_tokens,
+        COALESCE(SUM(CASE WHEN tu.created_at >= @dayStart THEN tu.output_tokens END), 0) AS day_output_tokens,
+        COALESCE(SUM(CASE WHEN tu.created_at >= @dayStart THEN tu.cache_creation_input_tokens END), 0) AS day_cache_creation_input_tokens,
+        COALESCE(SUM(CASE WHEN tu.created_at >= @dayStart THEN tu.cache_read_input_tokens END), 0) AS day_cache_read_input_tokens,
+        COALESCE(SUM(CASE WHEN tu.created_at >= @dayStart THEN tu.total_cost_usd END), 0) AS day_total_cost_usd,
+        COALESCE(SUM(CASE WHEN tu.created_at >= @weekStart THEN tu.input_tokens END), 0) AS week_input_tokens,
+        COALESCE(SUM(CASE WHEN tu.created_at >= @weekStart THEN tu.output_tokens END), 0) AS week_output_tokens,
+        COALESCE(SUM(CASE WHEN tu.created_at >= @weekStart THEN tu.cache_creation_input_tokens END), 0) AS week_cache_creation_input_tokens,
+        COALESCE(SUM(CASE WHEN tu.created_at >= @weekStart THEN tu.cache_read_input_tokens END), 0) AS week_cache_read_input_tokens,
+        COALESCE(SUM(CASE WHEN tu.created_at >= @weekStart THEN tu.total_cost_usd END), 0) AS week_total_cost_usd,
+        COALESCE(SUM(tu.input_tokens), 0) AS month_input_tokens,
+        COALESCE(SUM(tu.output_tokens), 0) AS month_output_tokens,
+        COALESCE(SUM(tu.cache_creation_input_tokens), 0) AS month_cache_creation_input_tokens,
+        COALESCE(SUM(tu.cache_read_input_tokens), 0) AS month_cache_read_input_tokens,
+        COALESCE(SUM(tu.total_cost_usd), 0) AS month_total_cost_usd
+      FROM turn_usage tu
+      JOIN sessions s ON s.id = tu.session_id
+      WHERE tu.created_at >= @monthStart AND s.provider_key = @providerKey
+    `)
+    this.getProviderLimitStmt = db.prepare(`
+      SELECT limit_usd FROM provider_limits WHERE provider_key = @providerKey
+    `)
+    // upsert — 같은 provider_key 재설정 시 limit_usd/updated_at 갱신.
+    this.setProviderLimitStmt = db.prepare(`
+      INSERT INTO provider_limits (provider_key, limit_usd, updated_at)
+      VALUES (@providerKey, @limitUsd, @updatedAt)
+      ON CONFLICT(provider_key) DO UPDATE SET limit_usd = @limitUsd, updated_at = @updatedAt
     `)
     this.renameSessionStmt = db.prepare(`
       UPDATE sessions
@@ -481,6 +517,37 @@ export class DbQueries {
       total_cost_usd: r[`${prefix}_total_cost_usd`]
     })
     return { day: period('day'), week: period('week'), month: period('month') }
+  }
+
+  // provider 한정 집계(0080) — sumUsageByBoundaries 와 같은 형태를 provider_key 로 필터해 반환.
+  sumUsageByBoundariesForProvider(
+    providerKey: string,
+    b: { dayStart: number; weekStart: number; monthStart: number }
+  ): UsageByBoundaries {
+    const r = this.sumUsageByBoundariesForProviderStmt.get({ ...b, providerKey }) as Record<
+      string,
+      number
+    >
+    const period = (prefix: 'day' | 'week' | 'month'): UsageSumRow => ({
+      input_tokens: r[`${prefix}_input_tokens`],
+      output_tokens: r[`${prefix}_output_tokens`],
+      cache_creation_input_tokens: r[`${prefix}_cache_creation_input_tokens`],
+      cache_read_input_tokens: r[`${prefix}_cache_read_input_tokens`],
+      total_cost_usd: r[`${prefix}_total_cost_usd`]
+    })
+    return { day: period('day'), week: period('week'), month: period('month') }
+  }
+
+  // provider별 월 한도 조회 — 행 부재/NULL 이면 null(무제한 또는 미설정).
+  getProviderLimit(providerKey: string): number | null {
+    const row = this.getProviderLimitStmt.get({ providerKey }) as
+      | { limit_usd: number | null }
+      | undefined
+    return row?.limit_usd ?? null
+  }
+
+  setProviderLimit(providerKey: string, limitUsd: number | null, updatedAt: number): void {
+    this.setProviderLimitStmt.run({ providerKey, limitUsd, updatedAt })
   }
 
   renameSession(id: string, title: string, updatedAt: number): void {

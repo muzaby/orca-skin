@@ -45,6 +45,18 @@ export class UsageTracker {
   getSummary(): CostSummary {
     return this.summary
   }
+
+  // provider 한정 summary(0080) — 전역 집계와 달리 캐시하지 않고 요청 시 DB 를 스캔한다
+  // (설정 사용량 provider 서브탭 조회 시점에만 필요). 형태는 전역 CostSummary 와 동일.
+  providerSummary(providerKey: string, now = Date.now()): CostSummary {
+    const sums = this.db.sumUsageByBoundariesForProvider(providerKey, boundaries(now))
+    return {
+      day: toPeriod(sums.day),
+      week: toPeriod(sums.week),
+      month: toPeriod(sums.month),
+      updatedAt: now
+    }
+  }
 }
 
 function toPeriod(row: UsageSumRow): CostPeriodSummary {

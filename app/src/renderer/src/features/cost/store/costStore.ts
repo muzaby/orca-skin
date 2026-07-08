@@ -1,5 +1,6 @@
 // Zustand cost store — 구 CostProvider(Context)의 전환(handoff 0013).
 // main CostTracker 의 일/주/월 summary 읽기전용 미러. 부팅 1회 조회 + summaryEvent 구독.
+// lastUpdatedAt = 로컬이 값을 마지막으로 수신/조회한 시각(설정 사용량 동기화 표시용, 0080).
 
 import { create } from 'zustand'
 import type { CostSummary } from '../../../../../shared/ipc'
@@ -7,17 +8,38 @@ import { costApi } from '../../../shared/api/ipc'
 
 interface CostStoreState {
   summary: CostSummary | null
+  lastUpdatedAt: number | null
+  refreshing: boolean
 }
 
-export const useCostStore = create<CostStoreState>()(() => ({ summary: null }))
+export const useCostStore = create<CostStoreState>()(() => ({
+  summary: null,
+  lastUpdatedAt: null,
+  refreshing: false
+}))
 
 export async function initCost(): Promise<void> {
   const next = await costApi.summary()
-  useCostStore.setState({ summary: next })
+  useCostStore.setState({ summary: next, lastUpdatedAt: Date.now() })
 }
 
 export function subscribeCost(): () => void {
-  return costApi.onSummary((next) => useCostStore.setState({ summary: next }))
+  return costApi.onSummary((next) =>
+    useCostStore.setState({ summary: next, lastUpdatedAt: Date.now() })
+  )
+}
+
+// 수동 새로고침(설정 사용량 동기화 버튼) — main 을 다시 조회(recompute)하고 inflight 플래그를
+// 세운다. 중복 클릭은 무시(이미 refreshing 이면 skip).
+export async function refreshCost(): Promise<void> {
+  if (useCostStore.getState().refreshing) return
+  useCostStore.setState({ refreshing: true })
+  try {
+    const next = await costApi.summary()
+    useCostStore.setState({ summary: next, lastUpdatedAt: Date.now() })
+  } finally {
+    useCostStore.setState({ refreshing: false })
+  }
 }
 
 export function useCostSummary(): CostSummary | null {

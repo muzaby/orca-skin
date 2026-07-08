@@ -50,16 +50,19 @@ export function UsagePanel({
         <>
           <div className="border-t border-border" />
 
-          {/* 사용량 한도 헤더 — 우측 `>` 로 설정 사용량 이동 */}
-          <button
-            type="button"
-            onClick={onOpenUsageSettings}
-            className="group/limits -mx-1 flex items-center justify-between gap-2 rounded-r4 px-1 py-0.5 text-left hover:bg-fill-uncontained-hover"
-            aria-label="사용량 한도 설정 열기"
-          >
+          {/* 사용량 한도 헤더 — 라벨은 정적 텍스트, 우측 `>` 버튼만 설정 사용량으로 이동
+              (사용자 피드백 0080: 클릭 영역을 `>` 로 한정). */}
+          <div className="flex items-center justify-between gap-2">
             <span className="text-caption font-medium text-t6">사용량 한도</span>
-            <Icon name="chevR" size={13} />
-          </button>
+            <button
+              type="button"
+              onClick={onOpenUsageSettings}
+              className="grid h-5 w-5 place-items-center rounded-r4 text-ink hover:bg-fill-uncontained-hover"
+              aria-label="사용량 한도 설정 열기"
+            >
+              <Icon name="chevR" size={13} />
+            </button>
+          </div>
 
           <LimitRow label="주간" bar={usageLimits.week} />
           <LimitRow label="월간" bar={usageLimits.month} />

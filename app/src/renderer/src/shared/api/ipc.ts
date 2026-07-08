@@ -6,6 +6,7 @@ import type {
   BackendListResult,
   AgentEnvironment,
   CostSummary,
+  ProviderUsageEntry,
   ConcurrencyEvent,
   NormalizedEvent,
   CreateMcpServerRequest,
@@ -148,7 +149,11 @@ export const searchApi = {
 export const costApi = {
   summary: (): Promise<CostSummary> => window.orca.cost.summary(),
   onSummary: (handler: (summary: CostSummary) => void): (() => void) =>
-    window.orca.cost.onSummary(handler)
+    window.orca.cost.onSummary(handler),
+  providerSummaries: (providerKeys: string[]): Promise<ProviderUsageEntry[]> =>
+    window.orca.cost.providerSummaries(providerKeys),
+  setProviderLimit: (providerKey: string, limitUsd: number | null): Promise<ProviderUsageEntry> =>
+    window.orca.cost.setProviderLimit(providerKey, limitUsd)
 }
 
 export const permissionApi = {

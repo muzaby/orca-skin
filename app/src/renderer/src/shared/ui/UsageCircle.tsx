@@ -14,12 +14,12 @@ export interface UsageCircleProps {
   'aria-label'?: string
 }
 
-// progress arc 색 — 사용량에 따라 초록(여유)→노랑(주의)→빨강(임박). 임계는
+// progress arc 색 — 사용량에 따라 파랑(여유)→노랑(주의)→빨강(임박). 임계는
 // Composer 의 conversationStatus(0.6/0.85)와 일치. warn prop 은 강제 위험색.
 function progressStroke(clamped: number, warn?: boolean): string {
   if (warn || clamped >= 0.85) return 'var(--color-bad)'
   if (clamped >= 0.6) return 'var(--color-warn)'
-  return 'var(--color-good)'
+  return 'var(--color-indigo)'
 }
 
 export function UsageCircle({

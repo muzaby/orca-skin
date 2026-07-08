@@ -3,7 +3,17 @@
 
 import { create } from 'zustand'
 
-export type SettingsTabId = 'general' | 'usage'
+// 'usage' = 전역(전체) 사용량 탭. `provider:<key>` = provider별 사용량 서브탭(0080 항목 4).
+export type SettingsTabId = 'general' | 'usage' | `provider:${string}`
+
+// provider 서브탭 id ↔ providerKey 변환 헬퍼.
+export function providerTabId(key: string): SettingsTabId {
+  return `provider:${key}`
+}
+
+export function providerKeyFromTab(tab: SettingsTabId): string | null {
+  return tab.startsWith('provider:') ? tab.slice('provider:'.length) : null
+}
 
 interface SettingsModalState {
   open: boolean
