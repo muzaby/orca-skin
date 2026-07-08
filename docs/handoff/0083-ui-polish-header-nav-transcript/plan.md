@@ -4,31 +4,31 @@
 
 ## 메타
 
-| 항목 | 값 |
-|---|---|
-| slug | `0083-ui-polish-header-nav-transcript` |
-| 작성자 | Claude Code |
-| 일자 | 2026-07-08 |
-| 구현 주체 | Codex |
-| 매핑 | PHASES (완료 시 승격) / PR (요청 시) |
-| 상태 | DRAFT → **READY** |
+| 항목      | 값                                     |
+| --------- | -------------------------------------- |
+| slug      | `0083-ui-polish-header-nav-transcript` |
+| 작성자    | Claude Code                            |
+| 일자      | 2026-07-08                             |
+| 구현 주체 | Codex                                  |
+| 매핑      | PHASES (완료 시 승격) / PR (요청 시)   |
+| 상태      | DRAFT → **READY**                      |
 
 ## 사용자 의도 / 요구 출처 (Intent & Provenance)
 
-| 구분 | 내용 | 출처 |
-|---|---|---|
-| 명시 요구 | 앱 헤더: 좌측 햄버거 버튼에 버전 항목 추가. 클릭 시 브랜드 로고와 앱 버전만 표시. | 라이브 세션 요청 |
-| 명시 요구 | 앱 헤더/사이드바: 사이드바 접힘 버튼 활성 상태와 접힌 nav 항목 클릭 상태가 빨갛게 보이는 문제를 앱 디자인 토큰(nav 클릭 토큰 기준)과 맞춘다. | 라이브 세션 요청 |
-| 명시 요구 | nav: 자동화 항목 버튼 제거(숨김, Future Scope). | 라이브 세션 요청 |
-| 명시 요구 | transcript: 타이틀 포맷을 `<프로젝트> / <title>` 로 수정하되 기존 버튼/이모지는 유지. | 라이브 세션 요청 |
-| 명시 요구 | transcript: 메시지 버블에서 1개 단어가 길어 width 를 넘으면 truncate 되어 `...` 으로 표시. | 라이브 세션 요청 |
-| 명시 요구 | transcript: 타이틀 우측 돋보기 버튼 제거(숨김, Future Scope). 케밥 버튼의 이름변경/삭제 배선은 nav 최근대화 항목 케밥 기능으로 제공하는 기능으로 정리. | 라이브 세션 요청 |
-| 명시 요구 | transcript: 타이틀 우측 케밥 버튼에서 `예약 1`, `예약 2` 버튼 제거(숨김, Future Scope). | 라이브 세션 요청 |
-| 명시 요구 | transcript: yellowdot 렌더링 및 코드 제거. | 라이브 세션 요청 |
-| 명시 요구 | composer: agent 모드 설명이 불명확하며, `묻지 않음` 설명이 `권한 우회`와 차이가 없으므로 명확히 수정. | 라이브 세션 요청 |
-| 명시 요구 | composer: textarea placeholder 를 수정. 단, 요청 문장이 값 없이 끊겼으므로 구현자는 코드 변경 전 사용자에게 정확한 문구를 확인해야 한다. | 라이브 세션 요청 |
-| 명시 요구 | 프로젝트 페이지: 프로젝트 항목 클릭 시 우측 파일 첨부 영역을 전체 빗금 표시(bg)로 표시. | 라이브 세션 요청 |
-| 추론 의도 | 사용자는 미구현/Future Scope 항목이 클릭 가능한 것처럼 보이거나 빨간 강조로 보이는 것을 줄이고, 현재 제공 가능한 핵심 동작만 남기려 한다. (*추론*) | 위 명시 요구 전반(숨김·토큰 불일치·퓨처스코프 반복) |
+| 구분      | 내용                                                                                                                                                   | 출처                                                |
+| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------- |
+| 명시 요구 | 앱 헤더: 좌측 햄버거 버튼에 버전 항목 추가. 클릭 시 브랜드 로고와 앱 버전만 표시.                                                                      | 라이브 세션 요청                                    |
+| 명시 요구 | 앱 헤더/사이드바: 사이드바 접힘 버튼 활성 상태와 접힌 nav 항목 클릭 상태가 빨갛게 보이는 문제를 앱 디자인 토큰(nav 클릭 토큰 기준)과 맞춘다.           | 라이브 세션 요청                                    |
+| 명시 요구 | nav: 자동화 항목 버튼 제거(숨김, Future Scope).                                                                                                        | 라이브 세션 요청                                    |
+| 명시 요구 | transcript: 타이틀 포맷을 `<프로젝트> / <title>` 로 수정하되 기존 버튼/이모지는 유지.                                                                  | 라이브 세션 요청                                    |
+| 명시 요구 | transcript: 메시지 버블에서 1개 단어가 길어 width 를 넘으면 truncate 되어 `...` 으로 표시.                                                             | 라이브 세션 요청                                    |
+| 명시 요구 | transcript: 타이틀 우측 돋보기 버튼 제거(숨김, Future Scope). 케밥 버튼의 이름변경/삭제 배선은 nav 최근대화 항목 케밥 기능으로 제공하는 기능으로 정리. | 라이브 세션 요청                                    |
+| 명시 요구 | transcript: 타이틀 우측 케밥 버튼에서 `예약 1`, `예약 2` 버튼 제거(숨김, Future Scope).                                                                | 라이브 세션 요청                                    |
+| 명시 요구 | transcript: yellowdot 렌더링 및 코드 제거.                                                                                                             | 라이브 세션 요청                                    |
+| 명시 요구 | composer: agent 모드 설명이 불명확하며, `묻지 않음` 설명이 `권한 우회`와 차이가 없으므로 명확히 수정.                                                  | 라이브 세션 요청                                    |
+| 명시 요구 | composer: textarea placeholder 를 수정. 단, 요청 문장이 값 없이 끊겼으므로 구현자는 코드 변경 전 사용자에게 정확한 문구를 확인해야 한다.               | 라이브 세션 요청                                    |
+| 명시 요구 | 프로젝트 페이지: 프로젝트 항목 클릭 시 우측 파일 첨부 영역을 전체 빗금 표시(bg)로 표시.                                                                | 라이브 세션 요청                                    |
+| 추론 의도 | 사용자는 미구현/Future Scope 항목이 클릭 가능한 것처럼 보이거나 빨간 강조로 보이는 것을 줄이고, 현재 제공 가능한 핵심 동작만 남기려 한다. (_추론_)     | 위 명시 요구 전반(숨김·토큰 불일치·퓨처스코프 반복) |
 
 ## Context (왜)
 
@@ -36,22 +36,22 @@
 
 ## 자료조사 (Research)
 
-| 발견 / 제약 | 레퍼런스 |
-|---|---|
-| 헤더 햄버거 메뉴는 현재 `Header` 의 `Popover` 안에 `종료` 하나만 렌더한다. 앱 버전은 `app/package.json` 의 `version: 1.0.0` 에 존재한다. | `app/src/renderer/src/app/Header.tsx:49-116`, `app/package.json:121-123` |
-| 헤더의 사이드바 접힘 버튼은 shared `Button` 에 `pressed={t.sidebarCollapsed}` 를 넘긴다. 빨간 active 원인은 `Button` pressed variant 또는 관련 토큰일 가능성이 크므로 nav active 토큰(`bg-fill-uncontained-active text-t9`) 기준으로 맞춰야 한다. | `app/src/renderer/src/app/Header.tsx:59-66`, `app/src/renderer/src/app/Sidebar.tsx:153-158` |
-| 접힌 사이드바 nav active 는 `bg-fill-selected text-rust` 를 사용해 빨간 계열로 보인다. 펼친 nav active 는 `bg-fill-uncontained-active font-medium text-t9` 이며 사용자가 말한 nav 클릭 디자인 토큰으로 볼 수 있다. | `app/src/renderer/src/app/Sidebar.tsx:96-112`, `app/src/renderer/src/app/Sidebar.tsx:153-158` |
-| 사이드바 `NAV` 에 `자동화` 항목이 disabled 상태로 남아 있다. 도메인 문서는 routines 가 placeholder/Future Scope 라고 설명한다. | `app/src/renderer/src/app/Sidebar.tsx:19-30`, `docs/arch/frontend/ux-domains.md:137-149` |
-| 최근 대화 행(`SessionRow`)은 이미 `<projectName> / <baseLabel>` 라벨 포맷과 케밥 메뉴의 이름 변경/삭제를 제공한다. | `app/src/renderer/src/features/sessions/components/SessionRow.tsx:37-42`, `app/src/renderer/src/features/sessions/components/SessionRow.tsx:111-141` |
-| transcript titlebar 는 현재 `CwdButton / title` 포맷, 우측 검색 disabled 버튼, 전체 대화 복사 버튼, 우측 패널 타일 케밥 메뉴(타일 표시 + 이름 변경/삭제)를 렌더한다. | `app/src/renderer/src/features/chat/components/ChatTitleBar.tsx:87-158` |
-| 사용자 메시지 버블은 `max-w-[80%] whitespace-pre-wrap` 만 있어 긴 단일 토큰이 줄바꿈/ellipsis 없이 버블 밖으로 넘칠 수 있다. | `app/src/renderer/src/features/chat/components/transcript/UserMessage.tsx:190-193` |
-| pending 사용자 버블과 AskExchange/SubAgent user bubble 도 유사한 긴 텍스트 오버플로 위험이 있다. 구현자는 “메시지 버블” 범위를 사용자 버블 계열로 넓혀 점검해야 한다. | `app/src/renderer/src/features/chat/components/transcript/PendingSteerTurn.tsx:9-33`, `app/src/renderer/src/features/chat/components/transcript/AskExchange.tsx:22`, `app/src/renderer/src/features/chat/components/rightpanel/SubAgentTileContent.tsx:105` |
-| yellow dot 은 `AssistantTurn` 이 tool_call 포함 턴에 `YellowDot` 를 렌더하고, 별도 파일 `YellowDot.tsx` 가 존재한다. | `app/src/renderer/src/features/chat/components/transcript/AssistantTurn.tsx:198-229`, `app/src/renderer/src/features/chat/components/transcript/YellowDot.tsx:1-11` |
-| composer 권한 모드 설명에서 `묻지 않음`은 “모든 도구를 확인 없이 실행(승인 게이트 해제)”, `권한 우회`는 “모든 권한 검사 건너뜀”으로 서로 구분이 흐리다. | `app/src/renderer/src/features/chat/components/composer/modes.ts:38-50` |
-| composer textarea placeholder 는 현재 inflight/idle 로 나뉘어 `피드백 보내기…`, `Orca에게 메시지 보내기…` 를 표시한다. 사용자 요청에는 새 문구가 비어 있어 Open Question 이다. | `app/src/renderer/src/features/chat/components/Composer.tsx:533-537` |
-| 프로젝트 랜딩 우측 파일 카드가 점선 드롭존만 표시한다. 사용자는 프로젝트 항목 클릭 후 우측 파일 첨부 영역 전체 bg 를 빗금 표시하기 원한다. | `app/src/renderer/src/features/projects/components/ProjectFilesCard.tsx:4-15`, `app/src/renderer/src/features/projects/components/SidebarCard.tsx:38-54` |
-| 프로젝트 목록의 카드 클릭은 `/projects/:id` 로 이동한다. | `app/src/renderer/src/features/projects/components/ProjectsScreen.tsx:63`, `app/src/renderer/src/features/projects/components/ProjectsView.tsx:11-14` |
-| DOM/UX 문서는 사이드바 nav 에 자동화를 노출한다고 되어 있어, 자동화 숨김 구현 시 문서도 함께 동기화해야 한다. | `docs/arch/frontend/dom-architecture.md:44-45`, `docs/arch/frontend/ux-domains.md:137-149` |
+| 발견 / 제약                                                                                                                                                                                                                                       | 레퍼런스                                                                                                                                                                                                                                                    |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 헤더 햄버거 메뉴는 현재 `Header` 의 `Popover` 안에 `종료` 하나만 렌더한다. 앱 버전은 `app/package.json` 의 `version: 1.0.0` 에 존재한다.                                                                                                          | `app/src/renderer/src/app/Header.tsx:49-116`, `app/package.json:121-123`                                                                                                                                                                                    |
+| 헤더의 사이드바 접힘 버튼은 shared `Button` 에 `pressed={t.sidebarCollapsed}` 를 넘긴다. 빨간 active 원인은 `Button` pressed variant 또는 관련 토큰일 가능성이 크므로 nav active 토큰(`bg-fill-uncontained-active text-t9`) 기준으로 맞춰야 한다. | `app/src/renderer/src/app/Header.tsx:59-66`, `app/src/renderer/src/app/Sidebar.tsx:153-158`                                                                                                                                                                 |
+| 접힌 사이드바 nav active 는 `bg-fill-selected text-rust` 를 사용해 빨간 계열로 보인다. 펼친 nav active 는 `bg-fill-uncontained-active font-medium text-t9` 이며 사용자가 말한 nav 클릭 디자인 토큰으로 볼 수 있다.                                | `app/src/renderer/src/app/Sidebar.tsx:96-112`, `app/src/renderer/src/app/Sidebar.tsx:153-158`                                                                                                                                                               |
+| 사이드바 `NAV` 에 `자동화` 항목이 disabled 상태로 남아 있다. 도메인 문서는 routines 가 placeholder/Future Scope 라고 설명한다.                                                                                                                    | `app/src/renderer/src/app/Sidebar.tsx:19-30`, `docs/arch/frontend/ux-domains.md:137-149`                                                                                                                                                                    |
+| 최근 대화 행(`SessionRow`)은 이미 `<projectName> / <baseLabel>` 라벨 포맷과 케밥 메뉴의 이름 변경/삭제를 제공한다.                                                                                                                                | `app/src/renderer/src/features/sessions/components/SessionRow.tsx:37-42`, `app/src/renderer/src/features/sessions/components/SessionRow.tsx:111-141`                                                                                                        |
+| transcript titlebar 는 현재 `CwdButton / title` 포맷, 우측 검색 disabled 버튼, 전체 대화 복사 버튼, 우측 패널 타일 케밥 메뉴(타일 표시 + 이름 변경/삭제)를 렌더한다.                                                                              | `app/src/renderer/src/features/chat/components/ChatTitleBar.tsx:87-158`                                                                                                                                                                                     |
+| 사용자 메시지 버블은 `max-w-[80%] whitespace-pre-wrap` 만 있어 긴 단일 토큰이 줄바꿈/ellipsis 없이 버블 밖으로 넘칠 수 있다.                                                                                                                      | `app/src/renderer/src/features/chat/components/transcript/UserMessage.tsx:190-193`                                                                                                                                                                          |
+| pending 사용자 버블과 AskExchange/SubAgent user bubble 도 유사한 긴 텍스트 오버플로 위험이 있다. 구현자는 “메시지 버블” 범위를 사용자 버블 계열로 넓혀 점검해야 한다.                                                                             | `app/src/renderer/src/features/chat/components/transcript/PendingSteerTurn.tsx:9-33`, `app/src/renderer/src/features/chat/components/transcript/AskExchange.tsx:22`, `app/src/renderer/src/features/chat/components/rightpanel/SubAgentTileContent.tsx:105` |
+| yellow dot 은 `AssistantTurn` 이 tool_call 포함 턴에 `YellowDot` 를 렌더하고, 별도 파일 `YellowDot.tsx` 가 존재한다.                                                                                                                              | `app/src/renderer/src/features/chat/components/transcript/AssistantTurn.tsx:198-229`, `app/src/renderer/src/features/chat/components/transcript/YellowDot.tsx:1-11`                                                                                         |
+| composer 권한 모드 설명에서 `묻지 않음`은 “모든 도구를 확인 없이 실행(승인 게이트 해제)”, `권한 우회`는 “모든 권한 검사 건너뜀”으로 서로 구분이 흐리다.                                                                                           | `app/src/renderer/src/features/chat/components/composer/modes.ts:38-50`                                                                                                                                                                                     |
+| composer textarea placeholder 는 현재 inflight/idle 로 나뉘어 `피드백 보내기…`, `Orca에게 메시지 보내기…` 를 표시한다. 사용자 요청에는 새 문구가 비어 있어 Open Question 이다.                                                                    | `app/src/renderer/src/features/chat/components/Composer.tsx:533-537`                                                                                                                                                                                        |
+| 프로젝트 랜딩 우측 파일 카드가 점선 드롭존만 표시한다. 사용자는 프로젝트 항목 클릭 후 우측 파일 첨부 영역 전체 bg 를 빗금 표시하기 원한다.                                                                                                        | `app/src/renderer/src/features/projects/components/ProjectFilesCard.tsx:4-15`, `app/src/renderer/src/features/projects/components/SidebarCard.tsx:38-54`                                                                                                    |
+| 프로젝트 목록의 카드 클릭은 `/projects/:id` 로 이동한다.                                                                                                                                                                                          | `app/src/renderer/src/features/projects/components/ProjectsScreen.tsx:63`, `app/src/renderer/src/features/projects/components/ProjectsView.tsx:11-14`                                                                                                       |
+| DOM/UX 문서는 사이드바 nav 에 자동화를 노출한다고 되어 있어, 자동화 숨김 구현 시 문서도 함께 동기화해야 한다.                                                                                                                                     | `docs/arch/frontend/dom-architecture.md:44-45`, `docs/arch/frontend/ux-domains.md:137-149`                                                                                                                                                                  |
 
 ## 인수 기준 (Acceptance Criteria)
 
@@ -129,12 +129,12 @@
 
 ## 리스크 / 트레이드오프 (Risks & Trade-offs)
 
-| 리스크 / 트레이드오프 | 완화책 / 결정 |
-|---|---|
-| `Button` pressed 스타일을 전역 수정하면 다른 pressed 버튼 시각이 바뀔 수 있음 | 우선 shared Button 의 의도된 semantic token 불일치인지 확인. 위험하면 Header 접힘 버튼 전용 override 로 제한 |
-| `truncate` 는 다중 라인 메시지를 한 줄로 만들 수 있음 | 긴 단일 토큰만 ellipsis 하도록 구현하거나, 변경 범위를 사용자 버블에 한정하고 시각 확인 결과를 보고 |
-| ChatTitleBar 가 project store 를 직접 import 하면 feature 교차 import 위반 가능 | app/page 계층 prop 주입 또는 chat store 내 이미 존재하는 session meta 활용. boundaries lint 로 검증 |
-| textarea placeholder 값 미정 | Open Question 으로 분리. 미응답 시 변경하지 않거나 blocked 보고 |
+| 리스크 / 트레이드오프                                                           | 완화책 / 결정                                                                                                |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `Button` pressed 스타일을 전역 수정하면 다른 pressed 버튼 시각이 바뀔 수 있음   | 우선 shared Button 의 의도된 semantic token 불일치인지 확인. 위험하면 Header 접힘 버튼 전용 override 로 제한 |
+| `truncate` 는 다중 라인 메시지를 한 줄로 만들 수 있음                           | 긴 단일 토큰만 ellipsis 하도록 구현하거나, 변경 범위를 사용자 버블에 한정하고 시각 확인 결과를 보고          |
+| ChatTitleBar 가 project store 를 직접 import 하면 feature 교차 import 위반 가능 | app/page 계층 prop 주입 또는 chat store 내 이미 존재하는 session meta 활용. boundaries lint 로 검증          |
+| textarea placeholder 값 미정                                                    | Open Question 으로 분리. 미응답 시 변경하지 않거나 blocked 보고                                              |
 
 - 되돌리기 어려운 결정: 없음(UI 문구/노출 변경).
 - **단독 결정 금지 항목(Open Question)**: composer textarea placeholder 최종 문구.
@@ -189,10 +189,10 @@
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
-| # | 놓친 문제 | 대응 | 근거 |
-|---|---|---|---|
-| 1 | `YellowDot` 은 `AssistantTurn` 외 `ApprovalCard` 에도 남아 있어 파일 삭제 시 빌드가 깨질 수 있었다. | `AssistantTurn` 과 `ApprovalCard` 의 import/렌더를 함께 제거하고 파일을 삭제했다. | `rg -n "YellowDot" app/src/renderer/src` 0건 |
-| 2 | 메시지 버블 오버플로 정책이 여러 컴포넌트에 중복될 수 있었다. | `UserBubbleText` 공통 컴포넌트로 `whitespace-pre-wrap` + `overflow-wrap:anywhere` + `break-words` 를 모듈화해 일반/pending/AskExchange/SubAgent user bubble 에 적용했다. | 사용자 지시: 공통 기능 모듈화 |
+| #   | 놓친 문제                                                                                           | 대응                                                                                                                                                                     | 근거                                         |
+| --- | --------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------- |
+| 1   | `YellowDot` 은 `AssistantTurn` 외 `ApprovalCard` 에도 남아 있어 파일 삭제 시 빌드가 깨질 수 있었다. | `AssistantTurn` 과 `ApprovalCard` 의 import/렌더를 함께 제거하고 파일을 삭제했다.                                                                                        | `rg -n "YellowDot" app/src/renderer/src` 0건 |
+| 2   | 메시지 버블 오버플로 정책이 여러 컴포넌트에 중복될 수 있었다.                                       | `UserBubbleText` 공통 컴포넌트로 `whitespace-pre-wrap` + `overflow-wrap:anywhere` + `break-words` 를 모듈화해 일반/pending/AskExchange/SubAgent user bubble 에 적용했다. | 사용자 지시: 공통 기능 모듈화                |
 
 ## [구현자 기입] 구현 체크리스트
 
@@ -208,18 +208,25 @@
 
 ## [구현자 기입] 구현 보고
 
-| 항목 | 내용 |
-|---|---|
-| 변경 파일 | `app/electron.vite.config.ts`, `app/src/renderer/src/env.d.ts`, `app/src/renderer/src/app/Header.tsx`, `app/src/renderer/src/app/Sidebar.tsx`, `app/src/renderer/src/shared/ui/Button.tsx`, `app/src/renderer/src/features/chat/components/{ChatTitleBar,ChatTile,ChatView,Composer,ApprovalCard,UserBubbleText}.tsx`, transcript/rightpanel user bubble 컴포넌트, `modes.ts`, `ProjectFilesCard.tsx`, `SidebarCard.tsx`, `pages/{ChatPage,ProjectLandingPage}.tsx`, frontend docs |
-| 실행 명령 | `cd app && npm run format -- --write ...`, `cd app && npm run typecheck`, `cd app && npm run lint`, `cd app && npm test`, `cd app && npm rebuild better-sqlite3`, `rg -n "YellowDot" app/src/renderer/src` |
-| 게이트 결과 | `npm run lint` ✅, `npm run typecheck` ✅, `npm test` ✅ (초회는 better-sqlite3 native module NODE_MODULE_VERSION 불일치로 실패했으나 `npm rebuild better-sqlite3` 후 100 files / 764 tests passed) |
-| 블로커 / 역질문 | 없음. 사용자 확정에 따라 idle placeholder 는 `스킬을 보려면 /를 입력하세요.`, inflight placeholder 는 기존 피드백 문구 유지. |
-| 대상 커밋 | 구현 커밋 참조 |
+| 항목            | 내용                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 변경 파일       | `app/electron.vite.config.ts`, `app/src/renderer/src/env.d.ts`, `app/src/renderer/src/app/Header.tsx`, `app/src/renderer/src/app/Sidebar.tsx`, `app/src/renderer/src/shared/ui/Button.tsx`, `app/src/renderer/src/features/chat/components/{ChatTitleBar,ChatTile,ChatView,Composer,ApprovalCard,UserBubbleText}.tsx`, transcript/rightpanel user bubble 컴포넌트, `modes.ts`, `ProjectFilesCard.tsx`, `SidebarCard.tsx`, `pages/{ChatPage,ProjectLandingPage}.tsx`, frontend docs |
+| 실행 명령       | `cd app && npm run format -- --write ...`, `cd app && npm run typecheck`, `cd app && npm run lint`, `cd app && npm test`, `cd app && npm rebuild better-sqlite3`, `rg -n "YellowDot" app/src/renderer/src`                                                                                                                                                                                                                                                                         |
+| 게이트 결과     | `npm run lint` ✅, `npm run typecheck` ✅, `npm test` ✅ (r2에서도 초회는 better-sqlite3 native module NODE_MODULE_VERSION 불일치로 실패했으나 `npm rebuild better-sqlite3` 후 100 files / 764 tests passed)                                                                                                                                                                                                                                                                       |
+| 블로커 / 역질문 | 없음. 사용자 확정에 따라 idle placeholder 는 `스킬을 보려면 /를 입력하세요.`, inflight placeholder 는 기존 피드백 문구 유지.                                                                                                                                                                                                                                                                                                                                                       |
+| 대상 커밋       | 구현 커밋 참조                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 
 ---
 
+### 사용자 피드백 후속 반영 (Codex r2)
+
+- 헤더 버전 뷰는 햄버거 팝오버 내부 전환이 아니라 중앙 모달로 띄우고, `bg-black/40` + `backdrop-blur-sm` 배경 흐림을 적용했다.
+- transcript titlebar 는 프로젝트명을 버튼으로 렌더해 해당 프로젝트로 이동하게 하고, 제목 뒤에 기존 `CwdButton` 을 배치해 폴더 이모지를 유지했다.
+- transcript 케밥에는 이름 변경/삭제를 복구하되, page 계층에서 `chatActions` + `sessionsActions` 를 함께 호출해 최근 대화 행과 같은 세션 메타 갱신 경로를 사용했다.
+- 접힌 sidebar 에도 Orca brand logo 를 유지했다.
+
 ## [검증자 기입] 파생 이슈 (Derived Issues)
 
-| # | 이슈 | 출처 | 대응 방향 | 상태 |
-|---|---|---|---|---|
-| D1 |  |  |  |  |
+| #   | 이슈 | 출처 | 대응 방향 | 상태 |
+| --- | ---- | ---- | --------- | ---- |
+| D1  |      |      |           |      |

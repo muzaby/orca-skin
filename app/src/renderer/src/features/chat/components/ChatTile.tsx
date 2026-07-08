@@ -19,7 +19,11 @@ interface ChatTileProps {
   onOpenUsageSettings?: (providerKey?: string) => void
   // 컴포저 초기 입력 시드(Skills "채팅에서 사용해보기"). page 가 nav state 로 주입.
   initialDraft?: string
+  projectId?: string | null
   projectName?: string | null
+  onOpenProject?: (projectId: string) => void
+  onDeleteSession?: (sessionId: string) => void
+  onRenameSession?: (sessionId: string, title: string) => void
 }
 
 // 채팅 타일 셸 — 레이아웃 조립(타이틀바·transcript·컴포저·우측 계획 타일 도킹)과
@@ -33,7 +37,11 @@ export function ChatTile({
   usageLimits,
   onOpenUsageSettings,
   initialDraft,
-  projectName
+  projectId,
+  projectName,
+  onOpenProject,
+  onDeleteSession,
+  onRenameSession
 }: ChatTileProps): React.JSX.Element {
   const messages = useChatSession((s) => s.messages)
   const sessionId = useChatSession((s) => s.sessionId)
@@ -71,7 +79,13 @@ export function ChatTile({
           className="app-frame-tile flex min-w-0 flex-1 flex-col overflow-hidden bg-bg"
           data-behavior="resizable"
         >
-          <ChatTitleBar projectName={projectName} />
+          <ChatTitleBar
+            projectId={projectId}
+            projectName={projectName}
+            onOpenProject={onOpenProject}
+            onDeleteSession={onDeleteSession}
+            onRenameSession={onRenameSession}
+          />
 
           {/* 0064 continuity — fork/handoff 파생 세션의 출처 안내(원본 링크). 비파생이면 null. */}
           <LineageBanner />
