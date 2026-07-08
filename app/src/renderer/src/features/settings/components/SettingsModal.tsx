@@ -1,10 +1,9 @@
 import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Icon, type IconName } from '../../../shared/ui/Icon'
-import type { UsageLimitsView } from '../../../../../shared/usage/limits'
 import type { AgentEnvironment, ProviderUsageEntry } from '../../../../../shared/ipc'
 import { GeneralTab } from './GeneralTab'
-import { UsageTab, type CostRefreshView } from './UsageTab'
+import { UsageTab } from './UsageTab'
 import { ProviderUsageTab } from './ProviderUsageTab'
 import { providerLabel } from '../lib/usageFormat'
 import {
@@ -30,23 +29,16 @@ export interface ProviderUsageController {
 }
 
 interface SettingsModalProps {
-  // 사용량 한도 뷰모델 — 컴포지션 루트(SidebarUserButton)가 실사용 SSOT(costStore)+월 한도로
-  // 파생(computeUsageLimits)해 주입. 도넛과 동일 함수 참조 — settings 가 재계산하지 않는다.
-  usageLimits: UsageLimitsView | null
-  // 동기화(마지막 업데이트 + 새로고침, 0080 항목 2) — app 레이어가 costStore 에서 주입.
-  costRefresh: CostRefreshView
   // provider별 사용량 컨트롤러(0080 항목 4) — nav 서브항목 + provider 서브탭 데이터/저장.
+  // 전역 '사용량' 탭은 /cost 플레이스홀더로 축소돼(0081) 더는 usageLimits/costRefresh 를
+  // 받지 않는다. 도넛/컴포저의 usageLimits 는 별도 경로(page→Composer)로 무관.
   providerUsage: ProviderUsageController
 }
 
 // 설정 모달 — 배경을 어둡게 하고 중앙에 2-pane(좌: 일반/사용량 탭 레일, 우: 내용) 패널을
 // 띄운다. 열림/탭 상태는 전역 스토어(settingsModalStore)가 보유해 도넛 `>` 등 다른 트리거가
 // 특정 탭으로 열 수 있다. 닫힘=null 렌더(내용 상태는 각 탭이 언마운트 시 리셋).
-export function SettingsModal({
-  usageLimits,
-  costRefresh,
-  providerUsage
-}: SettingsModalProps): React.JSX.Element | null {
+export function SettingsModal({ providerUsage }: SettingsModalProps): React.JSX.Element | null {
   const open = useSettingsModalStore((s) => s.open)
   const tab = useSettingsModalStore((s) => s.tab)
   const setTab = useSettingsModalStore((s) => s.setTab)
@@ -136,7 +128,7 @@ export function SettingsModal({
           </button>
           <div className="min-h-0 flex-1 overflow-y-auto px-7 py-6">
             {tab === 'general' && <GeneralTab />}
-            {tab === 'usage' && <UsageTab usageLimits={usageLimits} costRefresh={costRefresh} />}
+            {tab === 'usage' && <UsageTab />}
             {activeProvider && (
               <ProviderUsageTab
                 provider={activeProvider}
