@@ -1,10 +1,10 @@
-import { memo, useEffect, useRef, useState, type CSSProperties } from 'react'
-import { createPortal } from 'react-dom'
+import { memo, useRef, useState, type CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { WinControls } from './WinControls'
 import { Icon } from '../shared/ui/Icon'
 import { Button } from '../shared/ui/Button'
 import { Popover } from '../shared/ui/Popover'
+import { Modal } from '../shared/ui/Modal'
 import { OrcaLogo } from '../shared/ui/OrcaLogo'
 import { useTweakContext } from '../shared/theme'
 import { getPlatform, windowApi } from '../shared/api/ipc'
@@ -141,35 +141,17 @@ function HeaderVersionModal({
   open: boolean
   onClose: () => void
 }): React.JSX.Element | null {
-  useEffect(() => {
-    if (!open) return
-    const onKeyDown = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [open, onClose])
-
-  if (!open) return null
-
-  return createPortal(
-    <div
-      className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4 backdrop-blur-sm"
-      data-context="overlay"
-      onClick={onClose}
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      blurBackdrop
+      ariaLabel="Orca 버전"
+      panelClassName="flex w-[280px] max-w-[92vw] flex-col items-center gap-3 rounded-r6 border border-border bg-panel px-8 py-7 text-center shadow-xl"
     >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label="Orca 버전"
-        className="flex w-[280px] max-w-[92vw] flex-col items-center gap-3 rounded-r6 border border-border bg-panel px-8 py-7 text-center shadow-xl"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <OrcaLogo className="h-10 w-auto text-ink" />
-        <div className="font-serif text-[18px] font-semibold tracking-tight text-ink">Orca</div>
-        <div className="text-[12.5px] text-ink2">v{__APP_VERSION__}</div>
-      </div>
-    </div>,
-    document.body
+      <OrcaLogo className="h-10 w-auto text-ink" />
+      <div className="font-serif text-[18px] font-semibold tracking-tight text-ink">Orca</div>
+      <div className="text-[12.5px] text-ink2">v{__APP_VERSION__}</div>
+    </Modal>
   )
 }

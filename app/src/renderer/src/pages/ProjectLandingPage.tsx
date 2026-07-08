@@ -9,7 +9,8 @@ import {
   ProjectLandingHeader,
   useProjectsState
 } from '../features/projects'
-import { ProjectSessionsPanel, sessionsActions } from '../features/sessions'
+import { ProjectSessionsPanel } from '../features/sessions'
+import { useSessionActions } from './useSessionActions'
 
 // page = "어떤 Feature 를 배치할지" 결정 (조립만). 채팅 라이프사이클(랜딩 reset
 // / 첫 턴 후 URL upgrade) 은 셸의 `useChatRouteSync` 가 담당하므로 여기서는 별도
@@ -44,6 +45,10 @@ export function ProjectLandingPage(): React.JSX.Element {
   const projectName = useProjectsState((s) =>
     projectId ? (s.list.find((project) => project.id === projectId)?.name ?? null) : null
   )
+  const sessionActions = useSessionActions({
+    deleteFallbackProjectId: projectId,
+    redirectAfterActiveDelete: `/projects/${projectId}`
+  })
   const isEmpty = messages.length === 0 && !loadingSession
 
   if (!isEmpty) {
@@ -56,17 +61,7 @@ export function ProjectLandingPage(): React.JSX.Element {
         onOpenUsageSettings={onOpenUsageSettings}
         projectId={projectId}
         projectName={projectName}
-        onOpenProject={(id) => navigate(`/projects/${id}`)}
-        onDeleteSession={(id) => {
-          const wasActive = sessionId === id
-          chatActions.handleSessionDeleted(id, projectId)
-          void sessionsActions.remove(id)
-          if (wasActive) navigate(`/projects/${projectId}`, { replace: true })
-        }}
-        onRenameSession={(id, title) => {
-          void chatActions.renameSession(id, title)
-          void sessionsActions.rename(id, title)
-        }}
+        {...sessionActions}
       />
     )
   }
