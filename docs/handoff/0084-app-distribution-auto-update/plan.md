@@ -155,28 +155,38 @@ Orca 는 아직 어떤 배포/업데이트 경로도 없다. `electron-builder.y
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- 동의 / 그대로 진행: …
-- 이견 / 우려: …
+- 동의 / 그대로 진행: 이름 기반 마이그레이션 유지, user_version 비도입, updater/UI/IPC 는 0085 로 분리하는 범위는 그대로 유지했다.
+- 반영한 승인 사항: 수석엔지니어 리뷰에서 승인된 5건을 구현에 반영했다. (1) `.backup()` Promise 경로 대신 현재 동기 부팅 경로와 맞는 `VACUUM INTO` 기반 백업을 사용한다. (2) `settingsVersion`/`lastAppVersion` 은 renderer patch 계약에 추가하지 않고 settings store 내부 메타데이터로만 기록한다. (3) 재시작 게이트의 DB write 조건은 실제 관측 가능한 backup/migration section 카운터 seam 으로 결선한다. (4) WAL 백업 테스트는 파일 존재가 아니라 `integrity_check`·WAL 데이터 포함·마이그레이션 전 `_migrations` 상태를 검증한다. (5) migration 이름/순서 회귀 테스트를 추가한다.
+- 이견 / 우려: 일반 동기 DB transaction 은 JS event loop 특성상 updater predicate 가 중간 관측하기 어렵다. 0084 에서는 백업/마이그레이션 section 을 `activeDbWriteCount` 로 관측 가능하게 결선했고, 모든 write API 광역 instrumentation 은 후속 범위로 남긴다. 파일 인덱싱 subsystem 은 현재 없으므로 `isIndexing=false` seam 만 두었다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 구현함 / ⚠️ 보고만·**결정 필요** | … |
+| 1 | `better-sqlite3 .backup()` 를 동기 `applyMigrations` 에 그대로 넣으면 await 누락 또는 부팅 async 전환이 필요함 | ✅ 구현함 — `VACUUM INTO` 동기 백업으로 선택, 완료 후에만 migration 적용 | `applyMigrations`/`initDb` 동기 경로 유지 |
+| 2 | settings 마이그레이션 메타데이터가 `SettingsPatchSchema` 에 들어가면 renderer 가 조작 가능 | ✅ 구현함 — `settings-migration.ts` 내부 raw metadata 로만 기록, 공개 `Settings`/patch 에 미노출 | 사용자 상태 보존 + 운영 메타 분리 |
+| 3 | `DB write 트랜잭션 중` 은 현재 sync write 구조에서 일반적으로 관측 불가 | ✅ 구현함 — backup/migration section callback 을 `Bootstrap.activeDbWriteCount` 에 결선, 광역 write tracking 은 후속 | 실운영에서 관측 가능한 seam 우선 |
+| 4 | WAL 백업 테스트가 파일 존재만 보면 불완전 백업을 놓침 | ✅ 구현함 — backup DB open + `integrity_check` + WAL row + 적용 전 `_migrations` 검증 | 복구 가능성 중심 테스트 |
+| 5 | unknown migration guard 만으로 기존 migration 수정/순서 변경을 잡지 못함 | ✅ 구현함 — `MIGRATION_NAMES` export + 이름/순서 고정 테스트 추가 | 머지된 migration 불변성 보강 |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] …
+- [x] DB 다운그레이드 가드(`DB_SCHEMA_TOO_NEW`) 추가
+- [x] migration 적용 전 WAL-safe `VACUUM INTO` 백업 + 디스크 여유 선검사 추가
+- [x] 오래된 partial schema → 최신 일괄 전진 회귀 테스트 추가
+- [x] settings raw migration + `settingsVersion`/`lastAppVersion` 내부 메타데이터 기록
+- [x] `canRestartForUpdate` 순수 함수 + `Bootstrap.restartGateState()` seam 추가
+- [x] 신규 테스트 15개 추가 및 전체 게이트 실행
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` |
-| 게이트 결과 | lint ✅ / typecheck ✅ / test ✅ (N passed) |
-| 블로커 / 역질문 | (없으면 "없음") |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | `app/src/main/infra/db/migrate.ts`, `app/src/main/infra/db/index.ts`, `app/src/main/infra/db/migrate.test.ts`, `app/src/main/infra/settings-store.ts`, `app/src/main/infra/settings-migration.ts`, `app/src/main/infra/settings-migration.test.ts`, `app/src/shared/update-restart.ts`, `app/src/shared/update-restart.test.ts`, `app/src/main/app/bootstrap.ts`, `docs/handoff/0084-app-distribution-auto-update/plan.md`, `docs/handoff/INDEX.md` |
+| 실행 명령 | `npm rebuild better-sqlite3` / `npm test -- src/main/infra/db/migrate.test.ts src/main/infra/settings-migration.test.ts src/shared/update-restart.test.ts` / `npm run typecheck` / `npm run lint` / `npm test` |
+| 게이트 결과 | targeted test ✅ (15 passed) / typecheck ✅ / lint ✅ / full test ✅ (779 passed) |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `fbee41a` |
 
 ---
 

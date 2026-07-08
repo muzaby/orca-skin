@@ -13,6 +13,7 @@ import {
   type NormalizedEvent,
   type SkillInfo
 } from '../../shared/ipc'
+import type { RestartGateState } from '../../shared/update-restart'
 import type { TurnContext } from '../contracts/turn'
 import { AdapterRegistry } from '../adapters/registry'
 import { MockAdapter } from '../adapters/mock'
@@ -65,7 +66,7 @@ import { resolveBuiltinSkillsDir } from './builtin-resources'
 
 export class Bootstrap {
   private readonly bootReport = createBootReportRecorder()
-  readonly settings = new SettingsStore()
+  readonly settings = new SettingsStore(app.getVersion())
   readonly mcp = new McpStore(this.settings)
   private readonly registry = new AdapterRegistry()
   // 부팅 시 1회 스캔하여 메모리에 캐시. fs.watch hot-reload 는 본 PR 범위 밖 (재시작).
@@ -85,6 +86,8 @@ export class Bootstrap {
   // 정착하고 controller 를 abort 한다(shutdown).
   private supervisor?: RuntimeSupervisor<Electron.WebContents>
   private bus?: MainBus<Electron.WebContents>
+  private activeDbWriteCount = 0
+  private isIndexing = false
 
   private builtinSkillsDir(): string {
     return resolveBuiltinSkillsDir({
@@ -143,7 +146,14 @@ export class Bootstrap {
 
   async start(): Promise<void> {
     const db = this.bootReport.stepSync('db-init', { critical: true, label: 'DB 초기화' }, () =>
-      initDb()
+      initDb({
+        onBackupStart: () => {
+          this.activeDbWriteCount += 1
+        },
+        onBackupEnd: () => {
+          this.activeDbWriteCount = Math.max(0, this.activeDbWriteCount - 1)
+        }
+      })
     )
     const recovered = this.bootReport.stepSync(
       'chat-recovery',
@@ -244,6 +254,16 @@ export class Bootstrap {
       mockAdapter: import.meta.env.DEV ? new MockAdapter(() => this.debugMock) : null
     }
     this.register(ctx)
+  }
+
+  restartGateState(): RestartGateState {
+    const turns = this.supervisor?.all() ?? []
+    return {
+      isGenerating: turns.length > 0,
+      activeToolCallCount: turns.reduce((sum, turn) => sum + turn.openToolRuns.size, 0),
+      activeDbWriteCount: this.activeDbWriteCount,
+      isIndexing: this.isIndexing
+    }
   }
 
   // 앱 종료 정리(index.ts will-quit → closeDb 직전 동기 호출). 진행 중 모든 턴의 열린 도구를
