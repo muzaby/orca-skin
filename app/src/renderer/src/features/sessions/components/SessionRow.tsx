@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import { Icon } from '../../../shared/ui/Icon'
 import { Popover } from '../../../shared/ui/Popover'
 import { RenameInput } from '../../../shared/ui/RenameInput'
+import { openConfirmDialog } from '../../../shared/ui/confirmDialogStore'
 import type { SessionListItem } from '../../../../../shared/ipc'
 
 // 한 시점에 한 행만 메뉴 / rename 모드. 각 행이 로컬 state 를 갖고 자기 popover 를
@@ -138,7 +139,13 @@ export function SessionRow({
                   onClick={(e) => {
                     e.stopPropagation()
                     setMenuOpen(false)
-                    onDelete(session.id)
+                    openConfirmDialog({
+                      title: '대화 삭제',
+                      message: '이 대화를 삭제하시겠습니까?',
+                      confirmLabel: '삭제',
+                      danger: true,
+                      onConfirm: () => onDelete(session.id)
+                    })
                   }}
                   className="flex cursor-pointer items-center gap-2 border-0 bg-transparent px-2.5 py-1.5 text-left text-[12.5px] text-rust hover:bg-rust-soft"
                 >

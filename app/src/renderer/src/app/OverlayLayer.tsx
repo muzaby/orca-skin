@@ -3,6 +3,7 @@ import { chatActions, useChatSession } from '../features/chat'
 import { DebugPanel } from '../features/debug'
 import { SsoDebugSection } from '../features/login'
 import { InstallerDialog, AuthExpiredModal } from '../features/backend'
+import { ConfirmDialogHost } from '../shared/ui/ConfirmDialogHost'
 import { SearchModal } from './SearchModal'
 
 interface OverlayLayerProps {
@@ -51,6 +52,7 @@ export function OverlayLayer({ searchOpen, onCloseSearch }: OverlayLayerProps): 
           onDismiss={chatActions.clearError}
         />
         {searchOpen && <SearchModal onClose={onCloseSearch} />}
+        <ConfirmDialogHost />
       </div>
       <div id="app-frame-debug" className="pointer-events-none z-30" data-context="debug">
         <div className="pointer-events-auto">
