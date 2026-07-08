@@ -1,3 +1,5 @@
+import { existsSync, mkdirSync, statSync, statfsSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import type Database from 'better-sqlite3'
 import migration0001 from './migrations/0001_initial.sql?raw'
 import migration0002 from './migrations/0002_projects.sql?raw'
@@ -32,6 +34,34 @@ const MIGRATIONS: Migration[] = [
   { name: '0012_provider_limits', sql: migration0012 }
 ]
 
+export const MIGRATION_NAMES = MIGRATIONS.map((m) => m.name)
+export const DB_SCHEMA_TOO_NEW = 'DB_SCHEMA_TOO_NEW'
+
+export class DbSchemaTooNewError extends Error {
+  readonly code = DB_SCHEMA_TOO_NEW
+  readonly unknownMigrations: string[]
+
+  constructor(unknownMigrations: string[]) {
+    super(`DB schema is newer than this app understands: ${unknownMigrations.join(', ')}`)
+    this.name = 'DbSchemaTooNewError'
+    this.unknownMigrations = unknownMigrations
+  }
+}
+
+export interface MigrationBackupOptions {
+  databasePath: string
+  backupDir?: string
+  appVersion: string
+  now?: () => Date
+  minFreeBytes?: number
+}
+
+export interface ApplyMigrationsOptions {
+  backup?: MigrationBackupOptions
+  onBackupStart?: () => void
+  onBackupEnd?: () => void
+}
+
 const META_TABLE = `
   CREATE TABLE IF NOT EXISTS _migrations (
     name TEXT PRIMARY KEY,
@@ -39,14 +69,79 @@ const META_TABLE = `
   )
 `
 
-export function applyMigrations(db: Database.Database): void {
+function timestampForFilename(date: Date): string {
+  return date.toISOString().replace(/[:.]/g, '-')
+}
+
+function safeVersion(version: string): string {
+  return version.replace(/[^0-9A-Za-z._-]/g, '_')
+}
+
+function sqlString(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`
+}
+
+function fileSizeIfExists(path: string): number {
+  return existsSync(path) ? statSync(path).size : 0
+}
+
+function requiredFreeBytes(databasePath: string, configured?: number): number {
+  if (configured !== undefined) return configured
+  const current =
+    fileSizeIfExists(databasePath) +
+    fileSizeIfExists(`${databasePath}-wal`) +
+    fileSizeIfExists(`${databasePath}-shm`)
+  return Math.max(current * 2, 1024 * 1024)
+}
+
+function assertEnoughFreeSpace(targetDir: string, requiredBytes: number): void {
+  const statfs = statfsSync(statSync(targetDir).isDirectory() ? targetDir : dirname(targetDir))
+  const freeBytes = Number(statfs.bavail) * Number(statfs.bsize)
+  if (freeBytes < requiredBytes) {
+    throw new Error(
+      `Not enough free disk space for DB migration backup: required=${requiredBytes}, available=${freeBytes}`
+    )
+  }
+}
+
+export function createMigrationBackup(
+  db: Database.Database,
+  options: MigrationBackupOptions
+): string {
+  const backupDir = options.backupDir ?? dirname(options.databasePath)
+  mkdirSync(backupDir, { recursive: true })
+  assertEnoughFreeSpace(backupDir, requiredFreeBytes(options.databasePath, options.minFreeBytes))
+  const backupPath = join(
+    backupDir,
+    `orca.db.backup.before-${safeVersion(options.appVersion)}.${timestampForFilename(
+      options.now?.() ?? new Date()
+    )}`
+  )
+  db.exec(`VACUUM INTO ${sqlString(backupPath)}`)
+  return backupPath
+}
+
+export function applyMigrations(db: Database.Database, options: ApplyMigrationsOptions = {}): void {
   db.exec(META_TABLE)
   const applied = new Set(
     (db.prepare('SELECT name FROM _migrations').all() as { name: string }[]).map((r) => r.name)
   )
+  const known = new Set(MIGRATION_NAMES)
+  const unknown = [...applied].filter((name) => !known.has(name)).sort()
+  if (unknown.length > 0) throw new DbSchemaTooNewError(unknown)
+
+  const pending = MIGRATIONS.filter((m) => !applied.has(m.name))
+  if (pending.length > 0 && options.backup) {
+    options.onBackupStart?.()
+    try {
+      createMigrationBackup(db, options.backup)
+    } finally {
+      options.onBackupEnd?.()
+    }
+  }
+
   const record = db.prepare('INSERT INTO _migrations (name, applied_at) VALUES (?, ?)')
-  for (const m of MIGRATIONS) {
-    if (applied.has(m.name)) continue
+  for (const m of pending) {
     const apply = db.transaction(() => {
       db.exec(m.sql)
       record.run(m.name, Date.now())
