@@ -52,6 +52,9 @@ export const CHANNELS = {
   mcpDelete: 'orca:mcp:delete',
   costSummary: 'orca:cost:summary',
   costSummaryEvent: 'orca:cost:summaryEvent',
+  // provider별 사용량 조회 / 한도 설정 (0080 항목 4).
+  costProviderSummaries: 'orca:cost:providerSummaries',
+  costSetProviderLimit: 'orca:cost:setProviderLimit',
   concurrencyEvent: 'orca:concurrency:event',
   // 권한 응답 단일 채널 — ask/plan/tool 세 종류의 승인 응답이 모두 이 채널로 흐른다
   // (askRespond/planRespond 2채널 통합). 응답 = { approvalId, resolution: ApprovalResolution }.
@@ -131,6 +134,14 @@ export interface CostSummary {
   week: CostPeriodSummary
   month: CostPeriodSummary
   updatedAt: number
+}
+
+// provider별 사용량 엔트리(0080 항목 4) — providerKey(=agent key)별 실사용 summary + 월 한도.
+// summary 는 turn_usage ⨝ sessions(provider_key)로 파생, limitUsd 는 provider_limits 원장.
+export interface ProviderUsageEntry {
+  providerKey: string
+  summary: CostSummary
+  limitUsd: number | null
 }
 
 export interface SessionTitleEvent {

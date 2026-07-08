@@ -8,7 +8,9 @@ import {
   ListFilesRequestSchema,
   NotifyShowSchema,
   OpenPathRequestSchema,
+  ProviderSummariesRequestSchema,
   ReadAttachmentRequestSchema,
+  SetProviderLimitSchema,
   SetSkillEnabledSchema,
   SkillTargetSchema,
   SearchMessagesRequestSchema,
@@ -17,6 +19,7 @@ import {
   type AgentEnvironment,
   type BackendListResult,
   type CostSummary,
+  type ProviderUsageEntry,
   type DebugMockState,
   type FileEntry,
   type PickedAttachment,
@@ -228,7 +231,38 @@ export function registerMiscHandlers(ctx: RouterContext): void {
     }
   )
 
-  handlePlain(CHANNELS.costSummary, (): CostSummary => ctx.cost.getSummary())
+  // 조회 시 DB 를 다시 스캔한다(recompute) — 설정 사용량의 수동 새로고침(동기화 버튼, 0080)이
+  // 최신 값을 받도록. 단순 캐시 반환이 아니라 최신 집계를 반환한다(비용 단일 쿼리).
+  handlePlain(CHANNELS.costSummary, (): CostSummary => ctx.cost.recompute())
+
+  // provider별 사용량(0080 항목 4) — renderer 가 전달한 provider key 마다 실사용 summary(turn_usage
+  // ⨝ sessions.provider_key)와 월 한도(provider_limits)를 묶어 반환. 미설정 한도는 null.
+  handle(
+    CHANNELS.costProviderSummaries,
+    ProviderSummariesRequestSchema,
+    { fallback: [] as ProviderUsageEntry[] },
+    (req): ProviderUsageEntry[] =>
+      req.providerKeys.map((providerKey) => ({
+        providerKey,
+        summary: ctx.cost.providerSummary(providerKey),
+        limitUsd: ctx.db.getProviderLimit(providerKey)
+      }))
+  )
+
+  // provider별 월 한도 설정 — 저장 후 갱신된 엔트리를 되돌려준다(즉시 반영).
+  handle(
+    CHANNELS.costSetProviderLimit,
+    SetProviderLimitSchema,
+    'reject',
+    (req): ProviderUsageEntry => {
+      ctx.db.setProviderLimit(req.providerKey, req.limitUsd, Date.now())
+      return {
+        providerKey: req.providerKey,
+        summary: ctx.cost.providerSummary(req.providerKey),
+        limitUsd: ctx.db.getProviderLimit(req.providerKey)
+      }
+    }
+  )
 
   // 응답완료 등 OS 네이티브 알림. 렌더러는 토글(notifyOnComplete)만 확인해 요청하고,
   // "창 비활성일 때만" 게이트는 여기(main)가 담당한다(포커스 판정의 authoritative 출처).

@@ -2,29 +2,57 @@ import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import { Icon, type IconName } from '../../../shared/ui/Icon'
 import type { UsageLimitsView } from '../../../../../shared/usage/limits'
+import type { AgentEnvironment, ProviderUsageEntry } from '../../../../../shared/ipc'
 import { GeneralTab } from './GeneralTab'
-import { UsageTab } from './UsageTab'
-import { useSettingsModalStore, type SettingsTabId } from '../store/settingsModalStore'
+import { UsageTab, type CostRefreshView } from './UsageTab'
+import { ProviderUsageTab } from './ProviderUsageTab'
+import { providerLabel } from '../lib/usageFormat'
+import {
+  useSettingsModalStore,
+  providerTabId,
+  providerKeyFromTab,
+  type SettingsTabId
+} from '../store/settingsModalStore'
 
 const TABS: { id: SettingsTabId; label: string; icon: IconName }[] = [
   { id: 'general', label: '일반', icon: 'settings' },
   { id: 'usage', label: '사용량', icon: 'chart' }
 ]
 
+// provider별 사용량 컨트롤러(0080 항목 4). 정의는 features/cost 의 useProviderUsage 이지만,
+// 교차-feature import 회피를 위해 settings 가 구조적으로 동일한 형태를 선언(app 레이어가 주입).
+export interface ProviderUsageController {
+  providers: AgentEnvironment[]
+  entryFor: (key: string) => ProviderUsageEntry | undefined
+  refreshing: boolean
+  refresh: () => void
+  setLimit: (key: string, limitUsd: number | null) => Promise<void>
+}
+
 interface SettingsModalProps {
   // 사용량 한도 뷰모델 — 컴포지션 루트(SidebarUserButton)가 실사용 SSOT(costStore)+월 한도로
   // 파생(computeUsageLimits)해 주입. 도넛과 동일 함수 참조 — settings 가 재계산하지 않는다.
   usageLimits: UsageLimitsView | null
+  // 동기화(마지막 업데이트 + 새로고침, 0080 항목 2) — app 레이어가 costStore 에서 주입.
+  costRefresh: CostRefreshView
+  // provider별 사용량 컨트롤러(0080 항목 4) — nav 서브항목 + provider 서브탭 데이터/저장.
+  providerUsage: ProviderUsageController
 }
 
 // 설정 모달 — 배경을 어둡게 하고 중앙에 2-pane(좌: 일반/사용량 탭 레일, 우: 내용) 패널을
 // 띄운다. 열림/탭 상태는 전역 스토어(settingsModalStore)가 보유해 도넛 `>` 등 다른 트리거가
 // 특정 탭으로 열 수 있다. 닫힘=null 렌더(내용 상태는 각 탭이 언마운트 시 리셋).
-export function SettingsModal({ usageLimits }: SettingsModalProps): React.JSX.Element | null {
+export function SettingsModal({
+  usageLimits,
+  costRefresh,
+  providerUsage
+}: SettingsModalProps): React.JSX.Element | null {
   const open = useSettingsModalStore((s) => s.open)
   const tab = useSettingsModalStore((s) => s.tab)
   const setTab = useSettingsModalStore((s) => s.setTab)
   const hide = useSettingsModalStore((s) => s.hide)
+  const activeProviderKey = providerKeyFromTab(tab)
+  const activeProvider = providerUsage.providers.find((p) => p.key === activeProviderKey)
 
   useEffect(() => {
     if (!open) return
@@ -56,20 +84,42 @@ export function SettingsModal({ usageLimits }: SettingsModalProps): React.JSX.El
           {TABS.map((it) => {
             const active = tab === it.id
             return (
-              <button
-                key={it.id}
-                type="button"
-                onClick={() => setTab(it.id)}
-                aria-current={active ? 'page' : undefined}
-                className={`flex w-full cursor-pointer items-center gap-2.5 rounded-r4 border-0 px-2.5 py-1.5 text-left text-[13px] transition-colors ${
-                  active
-                    ? 'bg-fill-uncontained-active font-medium text-t9'
-                    : 'bg-transparent text-t7 hover:bg-fill-uncontained-hover hover:text-t9'
-                }`}
-              >
-                <Icon name={it.icon} size={15} />
-                <span>{it.label}</span>
-              </button>
+              <div key={it.id}>
+                <button
+                  type="button"
+                  onClick={() => setTab(it.id)}
+                  aria-current={active ? 'page' : undefined}
+                  className={`flex w-full cursor-pointer items-center gap-2.5 rounded-r4 border-0 px-2.5 py-1.5 text-left text-[13px] transition-colors ${
+                    active
+                      ? 'bg-fill-uncontained-active font-medium text-t9'
+                      : 'bg-transparent text-t7 hover:bg-fill-uncontained-hover hover:text-t9'
+                  }`}
+                >
+                  <Icon name={it.icon} size={15} />
+                  <span>{it.label}</span>
+                </button>
+                {/* 사용량 하위: 구성된 provider 서브항목(0080 항목 4). 각자의 한도/설정. */}
+                {it.id === 'usage' &&
+                  providerUsage.providers.map((p) => {
+                    const pid = providerTabId(p.key)
+                    const pactive = tab === pid
+                    return (
+                      <button
+                        key={p.key}
+                        type="button"
+                        onClick={() => setTab(pid)}
+                        aria-current={pactive ? 'page' : undefined}
+                        className={`mt-0.5 flex w-full cursor-pointer items-center gap-2 rounded-r4 border-0 py-1 pl-9 pr-2.5 text-left text-[12.5px] transition-colors ${
+                          pactive
+                            ? 'bg-fill-uncontained-active font-medium text-t9'
+                            : 'bg-transparent text-t6 hover:bg-fill-uncontained-hover hover:text-t9'
+                        }`}
+                      >
+                        <span className="min-w-0 truncate">{providerLabel(p)}</span>
+                      </button>
+                    )
+                  })}
+              </div>
             )
           })}
         </nav>
@@ -85,7 +135,21 @@ export function SettingsModal({ usageLimits }: SettingsModalProps): React.JSX.El
             <Icon name="x" size={15} />
           </button>
           <div className="min-h-0 flex-1 overflow-y-auto px-7 py-6">
-            {tab === 'general' ? <GeneralTab /> : <UsageTab usageLimits={usageLimits} />}
+            {tab === 'general' && <GeneralTab />}
+            {tab === 'usage' && <UsageTab usageLimits={usageLimits} costRefresh={costRefresh} />}
+            {activeProvider && (
+              <ProviderUsageTab
+                provider={activeProvider}
+                entry={providerUsage.entryFor(activeProvider.key)}
+                refreshing={providerUsage.refreshing}
+                onRefresh={providerUsage.refresh}
+                onSetLimit={(v) => providerUsage.setLimit(activeProvider.key, v)}
+              />
+            )}
+            {/* provider 탭인데 해당 provider 가 목록에 없으면(삭제됨) 안내. */}
+            {activeProviderKey != null && !activeProvider && (
+              <p className="text-[12.5px] text-ink3">provider 를 찾을 수 없습니다.</p>
+            )}
           </div>
         </div>
       </div>

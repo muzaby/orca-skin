@@ -8,6 +8,7 @@ import {
   type BackendListResult,
   type AgentEnvironment,
   type CostSummary,
+  type ProviderUsageEntry,
   type ConcurrencyEvent,
   type NormalizedEvent,
   type CreateMcpServerRequest,
@@ -167,7 +168,11 @@ const orca = {
       const listener = (_e: IpcRendererEvent, summary: CostSummary): void => handler(summary)
       ipcRenderer.on(CHANNELS.costSummaryEvent, listener)
       return () => ipcRenderer.off(CHANNELS.costSummaryEvent, listener)
-    }
+    },
+    providerSummaries: (providerKeys: string[]): Promise<ProviderUsageEntry[]> =>
+      ipcRenderer.invoke(CHANNELS.costProviderSummaries, { providerKeys }),
+    setProviderLimit: (providerKey: string, limitUsd: number | null): Promise<ProviderUsageEntry> =>
+      ipcRenderer.invoke(CHANNELS.costSetProviderLimit, { providerKey, limitUsd })
   },
   concurrency: {
     onEvent: (handler: (ev: ConcurrencyEvent) => void): (() => void) => {

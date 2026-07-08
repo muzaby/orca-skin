@@ -139,6 +139,7 @@ export interface IconProps {
   size?: number
   color?: string
   style?: CSSProperties
+  className?: string
 }
 
 // Material Symbols 는 채움(fill) 기반이므로 stroke 대신 fill 로 tint 한다. `color`
@@ -147,12 +148,20 @@ export function Icon({
   name,
   size = 16,
   color = 'currentColor',
-  style
+  style,
+  className
 }: IconProps): React.JSX.Element | null {
   const d = ICONS[name]
   if (!d) return null
   return (
-    <svg width={size} height={size} viewBox="0 -960 960 960" fill={color} style={style}>
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 -960 960 960"
+      fill={color}
+      style={style}
+      className={className}
+    >
       <path d={d} />
     </svg>
   )

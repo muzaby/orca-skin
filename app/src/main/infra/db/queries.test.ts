@@ -11,6 +11,7 @@ import migration0008 from './migrations/0008_provider_key.sql?raw'
 import migration0009 from './migrations/0009_message_complete.sql?raw'
 import migration0010 from './migrations/0010_session_cwd.sql?raw'
 import migration0011 from './migrations/0011_session_lineage.sql?raw'
+import migration0012 from './migrations/0012_provider_limits.sql?raw'
 import { DbQueries } from './queries'
 
 function dbWithMigrations(): Database.Database {
@@ -27,6 +28,7 @@ function dbWithMigrations(): Database.Database {
   db.exec(migration0009)
   db.exec(migration0010)
   db.exec(migration0011)
+  db.exec(migration0012)
   return db
 }
 
@@ -423,5 +425,109 @@ describe('DbQueries attachment 파트 영속 왕복', () => {
     expect(rows.map((r) => r.type)).toEqual(['text', 'attachment'])
     // 영속 왕복 — attachment 파트가 payload_json 으로 보존된다(파트 복원은 dto.test 가 검증).
     expect(JSON.parse(rows[1].payload_json)).toEqual({ attachments })
+  })
+})
+
+describe('DbQueries provider usage + limits (0080)', () => {
+  function insertSessionWithProvider(
+    db: Database.Database,
+    id: string,
+    providerKey: string | null
+  ): void {
+    db.prepare(
+      `INSERT INTO sessions (id, backend, title, project_id, created_at, updated_at, last_message_preview, provider_key)
+       VALUES (?, 'claude', NULL, NULL, 1, 1, NULL, ?)`
+    ).run(id, providerKey)
+  }
+
+  it('sumUsageByBoundariesForProvider 는 provider_key 로 turn_usage 를 귀속·집계한다', () => {
+    const db = dbWithMigrations()
+    insertSessionWithProvider(db, 'sa', 'claude')
+    insertSessionWithProvider(db, 'sb', 'claude-bedrock')
+    const q = new DbQueries(db)
+    q.insertTurnUsage({
+      sessionId: 'sa',
+      messageId: null,
+      createdAt: 20,
+      inputTokens: 3,
+      outputTokens: 1,
+      cacheCreationInputTokens: null,
+      cacheReadInputTokens: null,
+      totalCostUsd: 0.5
+    })
+    q.insertTurnUsage({
+      sessionId: 'sb',
+      messageId: null,
+      createdAt: 20,
+      inputTokens: 10,
+      outputTokens: 4,
+      cacheCreationInputTokens: null,
+      cacheReadInputTokens: null,
+      totalCostUsd: 2.0
+    })
+
+    const claude = q.sumUsageByBoundariesForProvider('claude', {
+      dayStart: 0,
+      weekStart: 0,
+      monthStart: 0
+    })
+    expect(claude.month.total_cost_usd).toBe(0.5)
+    expect(claude.month.input_tokens).toBe(3)
+
+    const bedrock = q.sumUsageByBoundariesForProvider('claude-bedrock', {
+      dayStart: 0,
+      weekStart: 0,
+      monthStart: 0
+    })
+    expect(bedrock.month.total_cost_usd).toBe(2.0)
+
+    // 알려지지 않은 provider 는 전 구간 0.
+    const none = q.sumUsageByBoundariesForProvider('claude-missing', {
+      dayStart: 0,
+      weekStart: 0,
+      monthStart: 0
+    })
+    expect(none.month.total_cost_usd).toBe(0)
+    expect(none.month.input_tokens).toBe(0)
+  })
+
+  it('provider_key NULL 세션의 사용량은 어떤 provider 에도 귀속되지 않는다', () => {
+    const db = dbWithMigrations()
+    insertSessionWithProvider(db, 'snull', null)
+    const q = new DbQueries(db)
+    q.insertTurnUsage({
+      sessionId: 'snull',
+      messageId: null,
+      createdAt: 20,
+      inputTokens: 5,
+      outputTokens: 5,
+      cacheCreationInputTokens: null,
+      cacheReadInputTokens: null,
+      totalCostUsd: 1.0
+    })
+    const sums = q.sumUsageByBoundariesForProvider('claude', {
+      dayStart: 0,
+      weekStart: 0,
+      monthStart: 0
+    })
+    expect(sums.month.total_cost_usd).toBe(0)
+  })
+
+  it('getProviderLimit/setProviderLimit 는 upsert 로 마지막 한도를 보존한다', () => {
+    const db = dbWithMigrations()
+    const q = new DbQueries(db)
+    // 미설정이면 null.
+    expect(q.getProviderLimit('claude')).toBeNull()
+
+    q.setProviderLimit('claude', 90, 100)
+    expect(q.getProviderLimit('claude')).toBe(90)
+
+    // 재설정(upsert) — 덮어쓴다.
+    q.setProviderLimit('claude', 120, 200)
+    expect(q.getProviderLimit('claude')).toBe(120)
+
+    // 무제한(null) 명시 저장 — 행은 있으나 limit_usd 는 NULL → getter null.
+    q.setProviderLimit('claude', null, 300)
+    expect(q.getProviderLimit('claude')).toBeNull()
   })
 })

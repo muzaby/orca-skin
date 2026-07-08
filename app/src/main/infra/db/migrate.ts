@@ -10,6 +10,7 @@ import migration0008 from './migrations/0008_provider_key.sql?raw'
 import migration0009 from './migrations/0009_message_complete.sql?raw'
 import migration0010 from './migrations/0010_session_cwd.sql?raw'
 import migration0011 from './migrations/0011_session_lineage.sql?raw'
+import migration0012 from './migrations/0012_provider_limits.sql?raw'
 
 interface Migration {
   name: string
@@ -27,7 +28,8 @@ const MIGRATIONS: Migration[] = [
   { name: '0008_provider_key', sql: migration0008 },
   { name: '0009_message_complete', sql: migration0009 },
   { name: '0010_session_cwd', sql: migration0010 },
-  { name: '0011_session_lineage', sql: migration0011 }
+  { name: '0011_session_lineage', sql: migration0011 },
+  { name: '0012_provider_limits', sql: migration0012 }
 ]
 
 const META_TABLE = `
