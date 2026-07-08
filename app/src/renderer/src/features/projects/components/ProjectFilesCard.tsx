@@ -1,3 +1,4 @@
+import { DISABLED_HATCH_CLASS } from '../../../shared/ui/mock'
 import { SidebarCard } from './SidebarCard'
 import { FileDropIllustration } from './FileDropIllustration'
 
@@ -8,7 +9,7 @@ export function ProjectFilesCard(): React.JSX.Element {
     <SidebarCard
       title="파일"
       addTitle="파일 추가 (준비 중)"
-      bodyClassName="rounded-r5 [background-image:repeating-linear-gradient(45deg,transparent,transparent_4px,var(--color-border)_4px,var(--color-border)_5px)]"
+      bodyClassName={`rounded-r5 ${DISABLED_HATCH_CLASS}`}
     >
       <div className="flex flex-col items-center gap-2.5 rounded-r5 border border-dashed border-border bg-panel/70 px-4 py-7 text-center text-ink3">
         <FileDropIllustration />

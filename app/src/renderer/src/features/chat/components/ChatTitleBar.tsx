@@ -24,6 +24,12 @@ const MENU_ITEM =
 const DANGER_MENU_ITEM =
   'flex w-full cursor-default items-center gap-2 rounded-r4 border-0 bg-transparent px-2.5 py-1.5 text-left text-footnote text-rust outline-none hide-focus-ring ring-focus hover:bg-rust-soft disabled:opacity-50'
 
+// 예약 타일(reserved1/2)은 Future Scope — 메뉴에서 숨긴다. tileRegistry 는 모듈 상수라
+// 결과가 불변이므로 모듈 로드 시 1회만 계산한다(인스턴스별 useMemo 불필요).
+const VISIBLE_TILE_REGISTRY = tileRegistry.filter(
+  (tile) => tile.id !== 'reserved1' && tile.id !== 'reserved2'
+)
+
 // 사이드바 메타 (state.title) 가 즉시 채워지므로 사용자가 세션을 선택한 순간부터
 // 헤더에 정확한 제목 표시. 메타가 없는 부팅 자동 복원 1회만 첫 user 메시지에서 fallback.
 function selectTitle(s: ChatState): string {
@@ -62,10 +68,6 @@ export const ChatTitleBar = memo(function ChatTitleBar({
   const [copied, setCopied] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const anchorRef = useRef<HTMLButtonElement>(null)
-  const visibleTileRegistry = useMemo(
-    () => tileRegistry.filter((tile) => tile.id !== 'reserved1' && tile.id !== 'reserved2'),
-    []
-  )
   const canRenameSession = sessionId != null && onRenameSession != null
   const canDeleteSession = sessionId != null && onDeleteSession != null
 
@@ -106,17 +108,19 @@ export const ChatTitleBar = memo(function ChatTitleBar({
   return (
     <div className="app-frame-titlebar flex items-center gap-3 px-6 pb-2 pt-3">
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        {projectId && projectName && onOpenProject ? (
-          <button
-            type="button"
-            className="min-w-0 shrink-0 overflow-hidden text-ellipsis whitespace-nowrap rounded-r4 border-0 bg-transparent px-p5 py-1 text-footnote font-medium text-t7 transition-colors hover:bg-fill-uncontained-hover hover:text-t9"
-            onClick={() => onOpenProject(projectId)}
-            title={projectName}
-          >
-            {projectName}
-          </button>
-        ) : null}
-        {projectId && projectName ? <span className="shrink-0 text-t5">/</span> : null}
+        {projectId && projectName && onOpenProject && (
+          <>
+            <button
+              type="button"
+              className="min-w-0 shrink-0 overflow-hidden text-ellipsis whitespace-nowrap rounded-r4 border-0 bg-transparent px-p5 py-1 text-footnote font-medium text-t7 transition-colors hover:bg-fill-uncontained-hover hover:text-t9"
+              onClick={() => onOpenProject(projectId)}
+              title={projectName}
+            >
+              {projectName}
+            </button>
+            <span className="shrink-0 text-t5">/</span>
+          </>
+        )}
         {renaming ? (
           <RenameInput
             initial={title}
@@ -160,7 +164,7 @@ export const ChatTitleBar = memo(function ChatTitleBar({
           className="min-w-[200px]"
         >
           <div className="px-2 py-1 text-[11px] font-medium text-t6">타일 표시</div>
-          {visibleTileRegistry.map((tile) => {
+          {VISIBLE_TILE_REGISTRY.map((tile) => {
             const active = activeTiles.includes(tile.id)
             return (
               <button
@@ -184,7 +188,6 @@ export const ChatTitleBar = memo(function ChatTitleBar({
             type="button"
             className={MENU_ITEM}
             onClick={() => {
-              if (!sessionId || !onRenameSession) return
               setOpen(false)
               setRenaming(true)
             }}
