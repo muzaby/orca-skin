@@ -74,14 +74,17 @@ function SidebarImpl({ sessionsSlot, footerSlot }: SidebarProps): React.JSX.Elem
     // 접힌 상태에서는 NAV 만 아이콘으로 표시. 도메인 슬롯은 노출하지 않는다.
     return (
       <aside
-        className="app-frame-sidebar effect-primary-elevated relative my-2 ml-2 flex w-14 flex-none flex-col items-center gap-1 rounded-r6 border border-border bg-sidebar py-3"
+        className="app-frame-sidebar effect-primary-elevated relative my-2 ml-2 flex w-14 flex-none flex-col rounded-r6 border border-border bg-sidebar"
         data-behavior="collapsible resizable"
         data-state="collapsed"
       >
-        <div className="app-frame-sidebar-brand mb-2 grid h-9 w-9 place-items-center" aria-hidden>
+        <div
+          className="app-frame-sidebar-brand flex items-center justify-center px-3 pb-1.5 pt-2.5"
+          aria-hidden
+        >
           <OrcaLogo className="h-[18px] w-auto text-ink" />
         </div>
-        <div className="app-frame-sidebar-body flex flex-col items-center gap-1">
+        <nav className="app-frame-sidebar-nav flex flex-col px-1.5 py-1">
           {NAV.map((it) => {
             const isActive = it.isActive(pathname)
             return (
@@ -90,17 +93,17 @@ function SidebarImpl({ sessionsSlot, footerSlot }: SidebarProps): React.JSX.Elem
                 onClick={() => navigate(it.path)}
                 aria-label={it.l}
                 aria-current={isActive ? 'page' : undefined}
-                className={`grid h-9 w-9 place-items-center rounded-r5 border-0 outline-none hide-focus-ring ring-focus transition-colors ${
+                className={`flex items-center justify-center rounded-r4 border-0 px-2.5 py-1.5 outline-none hide-focus-ring ring-focus transition-colors ${
                   isActive
                     ? 'cursor-default bg-fill-uncontained-active text-t9'
                     : 'cursor-default bg-transparent text-t6 hover:bg-fill-uncontained-hover hover:text-t7'
                 }`}
               >
-                <Icon name={it.i} size={17} />
+                <Icon name={it.i} size={14} />
               </button>
             )
           })}
-        </div>
+        </nav>
       </aside>
     )
   }
