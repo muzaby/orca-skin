@@ -1,6 +1,7 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react'
 import { Icon } from '../../../shared/ui/Icon'
 import { Popover } from '../../../shared/ui/Popover'
+import { RenameInput } from '../../../shared/ui/RenameInput'
 import { chatActions, getActiveChatSession, useChatSession } from '../store/chatStore'
 import { partsText } from '../lib/parts'
 import type { ChatState } from '../reducer/chatReducer'
@@ -58,6 +59,7 @@ export const ChatTitleBar = memo(function ChatTitleBar({
   const labels = useChatSession((s) => s.rightPanelTileLabels)
   const [open, setOpen] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [renaming, setRenaming] = useState(false)
   const anchorRef = useRef<HTMLButtonElement>(null)
   const visibleTileRegistry = useMemo(
     () => tileRegistry.filter((tile) => tile.id !== 'reserved1' && tile.id !== 'reserved2'),
@@ -65,6 +67,18 @@ export const ChatTitleBar = memo(function ChatTitleBar({
   )
   const canRenameSession = sessionId != null && onRenameSession != null
   const canDeleteSession = sessionId != null && onDeleteSession != null
+
+  // 인라인 편집 커밋 — 빈 값/기존 제목과 동일하면 무시. onRenameSession 이 chat store 와
+  // sessions store 를 함께 갱신하므로 헤더와 사이드바 '최근 대화' 라벨이 동시에 반영된다.
+  const commitRename = useCallback(
+    (next: string): void => {
+      setRenaming(false)
+      const trimmed = next.trim()
+      if (trimmed === '' || trimmed === title) return
+      if (sessionId && onRenameSession) onRenameSession(sessionId, trimmed)
+    },
+    [sessionId, onRenameSession, title]
+  )
 
   // 전체 대화를 마크다운으로 직렬화해 클립보드에 복사한다. text 파트만 추출(partsText)하므로
   // 도구 호출/첨부는 제외 — 사람이 읽을 대화 본문 위주.
@@ -102,9 +116,19 @@ export const ChatTitleBar = memo(function ChatTitleBar({
           </button>
         ) : null}
         {projectId && projectName ? <span className="shrink-0 text-t5">/</span> : null}
-        <div className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-medium text-ink">
-          {title}
-        </div>
+        {renaming ? (
+          <RenameInput
+            initial={title}
+            onCommit={commitRename}
+            onCancel={() => setRenaming(false)}
+            ariaLabel="대화 제목 편집"
+            className="min-w-0 flex-1 rounded-r4 border border-border-strong bg-panel px-1.5 py-0.5 text-[13px] font-medium text-ink outline-none"
+          />
+        ) : (
+          <div className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-medium text-ink">
+            {title}
+          </div>
+        )}
         <CwdButton cwd={cwd} sessionStarted className="shrink-0" />
       </div>
       <div className="ml-auto flex gap-1">
@@ -161,9 +185,7 @@ export const ChatTitleBar = memo(function ChatTitleBar({
             onClick={() => {
               if (!sessionId || !onRenameSession) return
               setOpen(false)
-              const next = window.prompt('대화 이름 변경', title)
-              const trimmed = next?.trim()
-              if (trimmed) onRenameSession(sessionId, trimmed)
+              setRenaming(true)
             }}
             disabled={!canRenameSession}
           >

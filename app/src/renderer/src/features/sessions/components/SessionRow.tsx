@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useRef, useState } from 'react'
 import { Icon } from '../../../shared/ui/Icon'
 import { Popover } from '../../../shared/ui/Popover'
+import { RenameInput } from '../../../shared/ui/RenameInput'
 import type { SessionListItem } from '../../../../../shared/ipc'
 
 // 한 시점에 한 행만 메뉴 / rename 모드. 각 행이 로컬 state 를 갖고 자기 popover 를
@@ -69,7 +70,13 @@ export function SessionRow({
         data-behavior="interactive renaming"
         data-session-id={session.id}
       >
-        <RenameInput initial={baseLabel} onCommit={commitRename} onCancel={cancelRename} />
+        <RenameInput
+          initial={baseLabel}
+          onCommit={commitRename}
+          onCancel={cancelRename}
+          maxLength={120}
+          ariaLabel="세션 제목 편집"
+        />
       </div>
     )
   }
@@ -144,48 +151,5 @@ export function SessionRow({
         </>
       )}
     </div>
-  )
-}
-
-// 인플레이스 rename input — Enter 저장 / Esc 취소 / blur 저장.
-interface RenameInputProps {
-  initial: string
-  onCommit: (value: string) => void
-  onCancel: () => void
-}
-
-function RenameInput({ initial, onCommit, onCancel }: RenameInputProps): React.JSX.Element {
-  const [value, setValue] = useState(initial)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  useEffect(() => {
-    const el = inputRef.current
-    if (!el) return
-    el.focus()
-    el.select()
-  }, [])
-
-  const onKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
-    if (e.key === 'Enter' && !e.nativeEvent.isComposing) {
-      e.preventDefault()
-      onCommit(value)
-    } else if (e.key === 'Escape') {
-      e.preventDefault()
-      onCancel()
-    }
-  }
-
-  return (
-    <input
-      ref={inputRef}
-      value={value}
-      onChange={(e) => setValue(e.target.value)}
-      onKeyDown={onKeyDown}
-      onBlur={() => onCommit(value)}
-      onClick={(e) => e.stopPropagation()}
-      maxLength={120}
-      className="w-full rounded border border-border-strong bg-panel px-1.5 py-0.5 text-[12px] text-ink outline-none"
-      aria-label="세션 제목 편집"
-    />
   )
 }
