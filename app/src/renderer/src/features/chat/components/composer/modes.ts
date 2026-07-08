@@ -39,14 +39,14 @@ export const MODE_OPTIONS: {
     mode: 'dont_ask',
     label: '묻지 않음',
     icon: 'bolt',
-    description: '모든 도구를 확인 없이 실행합니다 (승인 게이트 해제).',
+    description: 'Orca 승인 질문을 만들지 않고 기본 자동 진행 정책을 따릅니다.',
     risky: true
   },
   {
     mode: 'bypass',
     label: '권한 우회',
     icon: 'alert',
-    description: '모든 권한 검사를 건너뜁니다 — 매우 위험.',
+    description: '샌드박스/승인 권한 검사를 최대한 건너뜁니다 — 매우 위험.',
     risky: true
   }
 ]

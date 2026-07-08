@@ -184,36 +184,37 @@
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- 동의 / 그대로 진행: (구현 턴에서 기입)
-- 이견 / 우려: (구현 턴에서 기입)
+- 동의 / 그대로 진행: Header/Sidebar/titlebar/composer/project card 정리는 기존 레이어 경계 안에서 처리 가능하다고 판단해 진행했다. 버전 문자열은 새 IPC 없이 Vite define 으로 주입했고, projectName 은 features/chat 이 projects 를 import 하지 않도록 page 계층에서 prop 으로 내렸다.
+- 이견 / 우려: 사용자 추가 결정에 따라 AC8 의 ellipsis 는 본문 손실이 있는 truncate 대신 ChatGPT 류 메시지 버블 정책인 줄바꿈 보존 + 긴 단일 토큰 강제 줄바꿈으로 구현했다. 예약 타일은 완전 제거가 아니라 titlebar 메뉴 숨김만 적용했다. composer placeholder 는 idle 문구만 `스킬을 보려면 /를 입력하세요.` 로 바꾸고 inflight 피드백 문구는 유지했다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | (구현 턴에서 기입) |  |  |
+| 1 | `YellowDot` 은 `AssistantTurn` 외 `ApprovalCard` 에도 남아 있어 파일 삭제 시 빌드가 깨질 수 있었다. | `AssistantTurn` 과 `ApprovalCard` 의 import/렌더를 함께 제거하고 파일을 삭제했다. | `rg -n "YellowDot" app/src/renderer/src` 0건 |
+| 2 | 메시지 버블 오버플로 정책이 여러 컴포넌트에 중복될 수 있었다. | `UserBubbleText` 공통 컴포넌트로 `whitespace-pre-wrap` + `overflow-wrap:anywhere` + `break-words` 를 모듈화해 일반/pending/AskExchange/SubAgent user bubble 에 적용했다. | 사용자 지시: 공통 기능 모듈화 |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] 헤더 버전 뷰 및 버전 상수 주입
-- [ ] 접힘 버튼/접힌 nav active 토큰 교정
-- [ ] 자동화 nav 숨김 + 문서 sync
-- [ ] transcript titlebar 포맷/검색/케밥 정리
-- [ ] 긴 단일 토큰 메시지 버블 ellipsis
-- [ ] YellowDot 제거
-- [ ] composer 모드 설명 수정 및 placeholder Open Question 처리
-- [ ] 프로젝트 파일 카드 전체 빗금 bg
-- [ ] 게이트 실행 및 보고
+- [x] 헤더 버전 뷰 및 버전 상수 주입
+- [x] 접힘 버튼/접힌 nav active 토큰 교정
+- [x] 자동화 nav 숨김 + 문서 sync
+- [x] transcript titlebar 포맷/검색/케밥 정리
+- [x] 긴 단일 토큰 메시지 버블 ellipsis
+- [x] YellowDot 제거
+- [x] composer 모드 설명 수정 및 placeholder Open Question 처리
+- [x] 프로젝트 파일 카드 전체 빗금 bg
+- [x] 게이트 실행 및 보고
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | (구현 턴에서 기입) |
-| 실행 명령 | `npm run lint` / `npm run typecheck` / `npm test` |
-| 게이트 결과 | (구현 턴에서 기입) |
-| 블로커 / 역질문 | composer textarea placeholder 문구 확인 필요 |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | `app/electron.vite.config.ts`, `app/src/renderer/src/env.d.ts`, `app/src/renderer/src/app/Header.tsx`, `app/src/renderer/src/app/Sidebar.tsx`, `app/src/renderer/src/shared/ui/Button.tsx`, `app/src/renderer/src/features/chat/components/{ChatTitleBar,ChatTile,ChatView,Composer,ApprovalCard,UserBubbleText}.tsx`, transcript/rightpanel user bubble 컴포넌트, `modes.ts`, `ProjectFilesCard.tsx`, `SidebarCard.tsx`, `pages/{ChatPage,ProjectLandingPage}.tsx`, frontend docs |
+| 실행 명령 | `cd app && npm run format -- --write ...`, `cd app && npm run typecheck`, `cd app && npm run lint`, `cd app && npm test`, `cd app && npm rebuild better-sqlite3`, `rg -n "YellowDot" app/src/renderer/src` |
+| 게이트 결과 | `npm run lint` ✅, `npm run typecheck` ✅, `npm test` ✅ (초회는 better-sqlite3 native module NODE_MODULE_VERSION 불일치로 실패했으나 `npm rebuild better-sqlite3` 후 100 files / 764 tests passed) |
+| 블로커 / 역질문 | 없음. 사용자 확정에 따라 idle placeholder 는 `스킬을 보려면 /를 입력하세요.`, inflight placeholder 는 기존 피드백 문구 유지. |
+| 대상 커밋 | 구현 커밋 참조 |
 
 ---
 

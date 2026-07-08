@@ -1,8 +1,14 @@
+import { readFileSync } from 'fs'
 import { resolve } from 'path'
 import { defineConfig } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import type { Plugin } from 'vite'
+
+const packageJson = JSON.parse(
+  readFileSync(new URL('./package.json', import.meta.url), 'utf8')
+) as { version: string }
+const appVersion = packageJson.version
 
 // electron-vite 의 renderer preset 은 production 빌드에서 `base` 를 `./` 로 강제 설정
 // (file:// 로딩 호환용). app:// 커스텀 스킴 + BrowserRouter 조합에서는 deep URL 진입 시
@@ -22,6 +28,9 @@ export default defineConfig({
   main: {},
   preload: {},
   renderer: {
+    define: {
+      __APP_VERSION__: JSON.stringify(appVersion)
+    },
     resolve: {
       alias: {
         '@renderer': resolve('src/renderer/src')

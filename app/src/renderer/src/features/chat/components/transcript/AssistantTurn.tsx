@@ -1,7 +1,6 @@
 import { memo } from 'react'
 import { AssistantMessage } from './AssistantMessage'
 import { MessageMeta } from './MessageMeta'
-import { YellowDot } from './YellowDot'
 import { turnCopyText, turnEquals, type Turn } from '../../lib/turns'
 
 interface AssistantTurnProps {
@@ -21,15 +20,8 @@ interface AssistantTurnProps {
 export const AssistantTurn = memo(
   function AssistantTurn({ turn, pending, forkable }: AssistantTurnProps): React.JSX.Element {
     const last = turn.messages[turn.messages.length - 1]
-    // 도구를 실행한 agentic 턴이면 좌측 yellow dot 마커.
-    const agentic = turn.messages.some((m) => m.parts.some((p) => p.type === 'tool_call'))
     return (
       <div className="group/msg relative flex flex-col gap-[var(--chat-item-gap)]">
-        {agentic && (
-          <span className="absolute left-[-21px] top-0">
-            <YellowDot />
-          </span>
-        )}
         {turn.messages.map((m, i) => (
           <AssistantMessage key={i} message={m} />
         ))}

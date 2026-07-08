@@ -10,6 +10,7 @@ interface ChatViewProps {
   usageLimits?: UsageLimitsView | null
   // providerKey = 도넛에서 현재 선택된 provider(있으면 그 서브탭으로, 없으면 전역 사용량 탭).
   onOpenUsageSettings?: (providerKey?: string) => void
+  projectName?: string | null
 }
 
 // 채팅 상태는 ChatTile 내부가 chatStore selector 로 직접 구독한다 — 여기는 cross-feature
@@ -19,7 +20,8 @@ export function ChatView({
   canAbort,
   costToday,
   usageLimits,
-  onOpenUsageSettings
+  onOpenUsageSettings,
+  projectName
 }: ChatViewProps): React.JSX.Element {
   return (
     <ChatTile
@@ -28,6 +30,7 @@ export function ChatView({
       costToday={costToday}
       usageLimits={usageLimits}
       onOpenUsageSettings={onOpenUsageSettings}
+      projectName={projectName}
     />
   )
 }

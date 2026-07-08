@@ -12,28 +12,14 @@ interface NavItem {
   // pathname prefix 매칭으로 active 판정. `/projects` 와 `/projects/:id` 모두 활성,
   // `/new` 와 `/chat/:sessionId` 모두 활성 — `isActive(pathname)` 가 그 차이를 흡수.
   isActive: (pathname: string) => boolean
-  // 미구현 화면 — 클릭 비활성 + 빗금 배경으로 "준비 중" 을 표시한다.
-  disabled?: boolean
 }
 
 const NAV: NavItem[] = [
   { i: 'plus', l: '새 대화', path: '/new', isActive: (p) => p === '/new' },
   { i: 'folder', l: '프로젝트', path: '/projects', isActive: (p) => p.startsWith('/projects') },
   { i: 'cpu', l: '엔진 & 모델', path: '/agent', isActive: (p) => p.startsWith('/agent') },
-  {
-    i: 'clock',
-    l: '자동화',
-    path: '/routines',
-    isActive: (p) => p.startsWith('/routines'),
-    disabled: true
-  },
   { i: 'layers', l: 'Skills & MCP', path: '/skills', isActive: (p) => p.startsWith('/skills') }
 ]
-
-// 비활성(미구현) nav 항목의 빗금 배경 — 신규 CSS 없이 시맨틱 토큰(--color-border)
-// 기반 사선 패턴. 확장·접힘 양쪽 버튼에 공통 적용한다.
-const NAV_DISABLED_HATCH =
-  '[background-image:repeating-linear-gradient(45deg,transparent,transparent_4px,var(--color-border)_4px,var(--color-border)_5px)]'
 
 // Claude Code 사이드바의 "Recents" 헤더 — sans 소문자 그대로, 연한 잉크.
 const SECTION_HEAD = 'px-3 pb-1 pt-4 text-caption font-medium text-ink3'
@@ -98,17 +84,13 @@ function SidebarImpl({ sessionsSlot, footerSlot }: SidebarProps): React.JSX.Elem
             return (
               <button
                 key={it.path}
-                onClick={it.disabled ? undefined : () => navigate(it.path)}
-                disabled={it.disabled}
+                onClick={() => navigate(it.path)}
                 aria-label={it.l}
                 aria-current={isActive ? 'page' : undefined}
-                aria-disabled={it.disabled || undefined}
                 className={`grid h-9 w-9 place-items-center rounded-r5 border-0 outline-none hide-focus-ring ring-focus transition-colors ${
-                  it.disabled
-                    ? `cursor-not-allowed bg-transparent text-t5 ${NAV_DISABLED_HATCH}`
-                    : isActive
-                      ? 'cursor-default bg-fill-selected text-rust'
-                      : 'cursor-default bg-transparent text-t6 hover:bg-fill-uncontained-hover hover:text-t7'
+                  isActive
+                    ? 'cursor-default bg-fill-uncontained-active text-t9'
+                    : 'cursor-default bg-transparent text-t6 hover:bg-fill-uncontained-hover hover:text-t7'
                 }`}
               >
                 <Icon name={it.i} size={17} />
@@ -146,16 +128,12 @@ function SidebarImpl({ sessionsSlot, footerSlot }: SidebarProps): React.JSX.Elem
                 <button
                   key={it.path}
                   type="button"
-                  onClick={it.disabled ? undefined : () => navigate(it.path)}
-                  disabled={it.disabled}
+                  onClick={() => navigate(it.path)}
                   aria-current={isActive ? 'page' : undefined}
-                  aria-disabled={it.disabled || undefined}
                   className={`flex w-full items-center gap-g4 rounded-r4 border-0 px-2.5 py-1.5 text-left text-footnote outline-none hide-focus-ring ring-focus transition-colors ${
-                    it.disabled
-                      ? `cursor-not-allowed bg-transparent text-t5 ${NAV_DISABLED_HATCH}`
-                      : isActive
-                        ? 'cursor-default bg-fill-uncontained-active font-medium text-t9'
-                        : 'cursor-default bg-transparent text-t7 hover:bg-fill-uncontained-hover hover:text-t9'
+                    isActive
+                      ? 'cursor-default bg-fill-uncontained-active font-medium text-t9'
+                      : 'cursor-default bg-transparent text-t7 hover:bg-fill-uncontained-hover hover:text-t9'
                   }`}
                 >
                   <Icon name={it.i} size={14} />
