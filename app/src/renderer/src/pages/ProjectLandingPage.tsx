@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom'
 import { chatActions, ChatTile, Composer, useChatSession } from '../features/chat'
 import { useBackendCapabilities, useBackendLabel } from '../features/backend'
-import { formatApproxCost, useCostSummary, useUsageLimits } from '../features/cost'
+import { formatApproxCost, useCostSummary, useProviderUsageLimits } from '../features/cost'
 import { useOpenSettings, providerTabId } from '../features/settings'
 import {
   ProjectInfoHero,
@@ -34,7 +34,9 @@ export function ProjectLandingPage(): React.JSX.Element {
   // 능력 서술자가 로드됐는데 sessionAbort 가 아니면 중단 게이팅(미로드면 현행 동작 유지).
   const canAbort = capabilities ? capabilities.cancellation.sessionAbort === true : true
   const costToday = summary ? formatApproxCost(summary.day.totalCostUsd) : undefined
-  const usageLimits = useUsageLimits()
+  // 도넛 사용량 한도를 현재 세션 provider 기준으로(모델 선택 반영, 0082). providerKey 없으면 전역.
+  const providerKey = useChatSession((s) => s.providerKey)
+  const usageLimits = useProviderUsageLimits(providerKey)
   const openSettings = useOpenSettings()
   const onOpenUsageSettings = (key?: string): void =>
     openSettings(key ? providerTabId(key) : 'usage')
