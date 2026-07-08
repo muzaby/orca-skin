@@ -1,5 +1,6 @@
 import { partsAttachments, partsText } from '../../lib/parts'
 import { AttachmentThumb } from '../composer/AttachmentThumb'
+import { UserBubbleText } from '../UserBubbleText'
 import type { Message } from '../../reducer/chatReducer'
 
 interface UserMessageProps {
@@ -26,9 +27,12 @@ export function UserMessage({ message }: UserMessageProps): React.JSX.Element {
         </div>
       )}
       {text && (
-        <div className="max-w-[80%] whitespace-pre-wrap rounded-r6 bg-bubble-user px-p7 py-p5 text-body text-ink">
+        <UserBubbleText
+          className="max-w-[80%] rounded-r6 bg-bubble-user px-p7 py-p5 text-body text-ink"
+          title={text}
+        >
           {text}
-        </div>
+        </UserBubbleText>
       )}
     </div>
   )

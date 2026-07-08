@@ -1,6 +1,7 @@
 import { Button } from '../../../../shared/ui/Button'
 import { StatusLine } from '../../../../shared/ui/StatusLine'
 import { AssistantMessage } from '../transcript/AssistantMessage'
+import { UserBubbleText } from '../UserBubbleText'
 import {
   childMessageForParentToolRunId,
   subagentTasksFromMessages,
@@ -102,9 +103,12 @@ export function SubAgentTileContent(): React.JSX.Element {
       <div className="flex min-h-0 flex-1 flex-col gap-[var(--chat-turn-gap)] overflow-auto px-p5 py-p4">
         {prompt && (
           <div className="flex justify-end">
-            <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl bg-bubble-user px-4 py-2.5 text-[14px] leading-[1.7] text-ink">
+            <UserBubbleText
+              className="max-w-[85%] rounded-2xl bg-bubble-user px-4 py-2.5 text-[14px] leading-[1.7] text-ink"
+              title={prompt}
+            >
               {prompt}
-            </div>
+            </UserBubbleText>
           </div>
         )}
         {childMessage && <AssistantMessage message={childMessage} />}

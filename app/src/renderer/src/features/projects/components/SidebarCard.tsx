@@ -6,6 +6,7 @@ interface SidebarCardProps {
   onAdd?: () => void
   addTitle: string
   children: React.ReactNode
+  bodyClassName?: string
 }
 
 // 우측 패널 카드 셸 — 테두리+라운드 chrome + 헤더(serif 타이틀 + "+" 버튼). 본문은 children.
@@ -14,7 +15,8 @@ export function SidebarCard({
   title,
   onAdd,
   addTitle,
-  children
+  children,
+  bodyClassName = ''
 }: SidebarCardProps): React.JSX.Element {
   const disabled = onAdd === undefined
   return (
@@ -34,7 +36,7 @@ export function SidebarCard({
           <Icon name="plus" size={14} />
         </button>
       </div>
-      {children}
+      <div className={bodyClassName}>{children}</div>
     </section>
   )
 }

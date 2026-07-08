@@ -1,5 +1,6 @@
 import { memo } from 'react'
 import { chatActions, type PendingSteerState } from '../../store/chatStore'
+import { UserBubbleText } from '../UserBubbleText'
 
 interface PendingSteerTurnProps {
   items: PendingSteerState[]
@@ -28,12 +29,13 @@ export const PendingSteerTurn = memo(function PendingSteerTurn({
           >
             취소
           </button>
-          <div
+          <UserBubbleText
             data-state="pending-steer"
-            className="whitespace-pre-wrap rounded-r6 bg-bubble-user px-p7 py-p5 text-body italic text-ink3"
+            className="rounded-r6 bg-bubble-user px-p7 py-p5 text-body italic text-ink3"
+            title={item.text}
           >
             {item.text}
-          </div>
+          </UserBubbleText>
         </div>
       ))}
     </div>

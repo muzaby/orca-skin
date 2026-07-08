@@ -533,7 +533,7 @@ export function Composer({
                     placeholder={
                       inflight
                         ? '피드백 보내기… (Enter 전송 / Shift+Enter 줄바꿈)'
-                        : 'Orca에게 메시지 보내기… (Enter 전송 / Shift+Enter 줄바꿈)'
+                        : '스킬을 보려면 /를 입력하세요.'
                     }
                     ariaLabel="메시지 입력"
                   />

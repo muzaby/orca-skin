@@ -6,7 +6,8 @@ import { useOpenSettings, providerTabId } from '../features/settings'
 import {
   ProjectInfoHero,
   ProjectInstructionsSidebar,
-  ProjectLandingHeader
+  ProjectLandingHeader,
+  useProjectsState
 } from '../features/projects'
 import { ProjectSessionsPanel } from '../features/sessions'
 
@@ -40,6 +41,9 @@ export function ProjectLandingPage(): React.JSX.Element {
   const openSettings = useOpenSettings()
   const onOpenUsageSettings = (key?: string): void =>
     openSettings(key ? providerTabId(key) : 'usage')
+  const projectName = useProjectsState((s) =>
+    projectId ? (s.list.find((project) => project.id === projectId)?.name ?? null) : null
+  )
   const isEmpty = messages.length === 0 && !loadingSession
 
   if (!isEmpty) {
@@ -50,6 +54,7 @@ export function ProjectLandingPage(): React.JSX.Element {
         costToday={costToday}
         usageLimits={usageLimits}
         onOpenUsageSettings={onOpenUsageSettings}
+        projectName={projectName}
       />
     )
   }

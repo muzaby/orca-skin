@@ -4,6 +4,7 @@ import { WinControls } from './WinControls'
 import { Icon } from '../shared/ui/Icon'
 import { Button } from '../shared/ui/Button'
 import { Popover } from '../shared/ui/Popover'
+import { OrcaLogo } from '../shared/ui/OrcaLogo'
 import { useTweakContext } from '../shared/theme'
 import { getPlatform, windowApi } from '../shared/api/ipc'
 
@@ -27,6 +28,7 @@ export const Header = memo(function Header({ onOpenSearch }: HeaderProps): React
   const navigate = useNavigate()
   const { t, setTweak } = useTweakContext()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [menuView, setMenuView] = useState<'main' | 'version'>('main')
   const menuAnchorRef = useRef<HTMLButtonElement>(null)
 
   return (
@@ -97,22 +99,45 @@ export const Header = memo(function Header({ onOpenSearch }: HeaderProps): React
       <Popover
         open={menuOpen}
         anchorRef={menuAnchorRef}
-        onClose={() => setMenuOpen(false)}
+        onClose={() => {
+          setMenuOpen(false)
+          setMenuView('main')
+        }}
         placement="bottom"
         className="min-w-[160px]"
       >
-        <button
-          type="button"
-          role="menuitem"
-          onClick={() => {
-            setMenuOpen(false)
-            void windowApi.close()
-          }}
-          className="flex w-full cursor-pointer items-center gap-2 rounded-md border-0 bg-transparent px-2.5 py-1.5 text-left text-[12.5px] text-ink hover:bg-sidebar"
-        >
-          <Icon name="power" size={14} />
-          <span>종료</span>
-        </button>
+        {menuView === 'version' ? (
+          <div className="flex min-w-[180px] flex-col items-center gap-2 px-4 py-4 text-center">
+            <OrcaLogo className="h-8 w-auto text-ink" />
+            <div className="font-serif text-[16px] font-semibold tracking-tight text-ink">Orca</div>
+            <div className="text-[12px] text-ink2">v{__APP_VERSION__}</div>
+          </div>
+        ) : (
+          <>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => setMenuView('version')}
+              className="flex w-full cursor-pointer items-center gap-2 rounded-md border-0 bg-transparent px-2.5 py-1.5 text-left text-[12.5px] text-ink hover:bg-sidebar"
+            >
+              <Icon name="doc" size={14} />
+              <span>버전</span>
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setMenuOpen(false)
+                setMenuView('main')
+                void windowApi.close()
+              }}
+              className="flex w-full cursor-pointer items-center gap-2 rounded-md border-0 bg-transparent px-2.5 py-1.5 text-left text-[12.5px] text-ink hover:bg-sidebar"
+            >
+              <Icon name="power" size={14} />
+              <span>종료</span>
+            </button>
+          </>
+        )}
       </Popover>
     </header>
   )
