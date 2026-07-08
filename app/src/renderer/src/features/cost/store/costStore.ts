@@ -9,13 +9,11 @@ import { costApi } from '../../../shared/api/ipc'
 interface CostStoreState {
   summary: CostSummary | null
   lastUpdatedAt: number | null
-  refreshing: boolean
 }
 
 export const useCostStore = create<CostStoreState>()(() => ({
   summary: null,
-  lastUpdatedAt: null,
-  refreshing: false
+  lastUpdatedAt: null
 }))
 
 export async function initCost(): Promise<void> {
@@ -27,19 +25,6 @@ export function subscribeCost(): () => void {
   return costApi.onSummary((next) =>
     useCostStore.setState({ summary: next, lastUpdatedAt: Date.now() })
   )
-}
-
-// 수동 새로고침(설정 사용량 동기화 버튼) — main 을 다시 조회(recompute)하고 inflight 플래그를
-// 세운다. 중복 클릭은 무시(이미 refreshing 이면 skip).
-export async function refreshCost(): Promise<void> {
-  if (useCostStore.getState().refreshing) return
-  useCostStore.setState({ refreshing: true })
-  try {
-    const next = await costApi.summary()
-    useCostStore.setState({ summary: next, lastUpdatedAt: Date.now() })
-  } finally {
-    useCostStore.setState({ refreshing: false })
-  }
 }
 
 export function useCostSummary(): CostSummary | null {

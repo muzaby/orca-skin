@@ -8,7 +8,7 @@ export interface PeriodBoundaries {
   monthStart: number
 }
 
-function toDate(now: number | Date): Date {
+export function toDate(now: number | Date): Date {
   return typeof now === 'number' ? new Date(now) : new Date(now.getTime())
 }
 

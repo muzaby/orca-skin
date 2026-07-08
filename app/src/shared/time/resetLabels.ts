@@ -2,11 +2,9 @@
 // 주간: 다음 월요일 00:00 · 월간: 다음 달 1일. 요일은 실제 날짜에서 파생한다.
 // 예: 주간 "(월) 오전 0:00에 재설정" · 월간 "(토) 8월 1일에 재설정".
 
-const WEEKDAY_KO = ['일', '월', '화', '수', '목', '금', '토'] as const
+import { toDate } from './clock'
 
-function toDate(now: number | Date): Date {
-  return typeof now === 'number' ? new Date(now) : new Date(now.getTime())
-}
+const WEEKDAY_KO = ['일', '월', '화', '수', '목', '금', '토'] as const
 
 // 다음 월요일 00:00 에 재설정. (오늘이 월요일이어도 이번 주기가 아닌 다음 월요일.)
 export function weekResetLabel(now: number | Date = Date.now()): string {
