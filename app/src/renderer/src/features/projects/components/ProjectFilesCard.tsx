@@ -5,8 +5,12 @@ import { FileDropIllustration } from './FileDropIllustration'
 // 이라 헤더 "+" 버튼은 onAdd 미전달로 비활성(시각만).
 export function ProjectFilesCard(): React.JSX.Element {
   return (
-    <SidebarCard title="파일" addTitle="파일 추가 (준비 중)">
-      <div className="flex flex-col items-center gap-2.5 rounded-r5 border border-dashed border-border px-4 py-7 text-center text-ink3">
+    <SidebarCard
+      title="파일"
+      addTitle="파일 추가 (준비 중)"
+      bodyClassName="rounded-r5 [background-image:repeating-linear-gradient(45deg,transparent,transparent_4px,var(--color-border)_4px,var(--color-border)_5px)]"
+    >
+      <div className="flex flex-col items-center gap-2.5 rounded-r5 border border-dashed border-border bg-panel/70 px-4 py-7 text-center text-ink3">
         <FileDropIllustration />
         <div className="text-[11.5px] leading-[1.55]">
           이 프로젝트에서 참조할 PDF, 문서, 폴더 또는 기타 텍스트를 추가하세요.

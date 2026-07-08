@@ -2,6 +2,7 @@ import { ChatView, useChatSession } from '../features/chat'
 import { useBackendCapabilities, useBackendLabel } from '../features/backend'
 import { formatApproxCost, useCostSummary, useProviderUsageLimits } from '../features/cost'
 import { useOpenSettings, providerTabId } from '../features/settings'
+import { useProjectsState } from '../features/projects'
 
 // page = "어떤 Feature 를 배치할지" 결정 (조립만). 여기서는 ChatView 1개 배치 +
 // BackendContext 의 backendLabel / canAbort 를 props 로 wiring (cross-feature 결정 5번).
@@ -14,6 +15,10 @@ export function ChatPage(): React.JSX.Element {
   const costToday = summary ? formatApproxCost(summary.day.totalCostUsd) : undefined
   // 도넛 사용량 한도를 현재 세션 provider 기준으로(모델 선택 반영, 0082). providerKey 없으면 전역.
   const providerKey = useChatSession((s) => s.providerKey)
+  const projectId = useChatSession((s) => s.projectId ?? s.pendingProjectId)
+  const projectName = useProjectsState((s) =>
+    projectId ? (s.list.find((project) => project.id === projectId)?.name ?? null) : null
+  )
   const usageLimits = useProviderUsageLimits(providerKey)
   const openSettings = useOpenSettings()
   return (
@@ -23,6 +28,7 @@ export function ChatPage(): React.JSX.Element {
       costToday={costToday}
       usageLimits={usageLimits}
       onOpenUsageSettings={(key) => openSettings(key ? providerTabId(key) : 'usage')}
+      projectName={projectName}
     />
   )
 }

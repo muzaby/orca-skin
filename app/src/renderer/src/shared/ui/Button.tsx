@@ -56,7 +56,7 @@ const TEXT: Record<ButtonVariant, string> = {
 
 function squishClass(variant: ButtonVariant, pressed: boolean): string {
   if (pressed) {
-    return 'bg-fill-selected group-hover/btn:bg-fill-selected'
+    return 'bg-fill-uncontained-active group-hover/btn:bg-fill-uncontained-active'
   }
   switch (variant) {
     case 'primary':
@@ -93,6 +93,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   const s = SIZE[size]
   const pad = iconOnly ? PAD[size].icon : PAD[size].text
   const isDisabled = disabled || busy
+  const toneClass = pressed && variant === 'uncontained' ? 'text-t9' : TEXT[variant]
 
   return (
     <button
@@ -102,7 +103,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       aria-pressed={pressed || undefined}
       aria-expanded={dropdown ? expanded : undefined}
       aria-busy={busy || undefined}
-      className={`group/btn relative isolate inline-flex select-none items-center justify-center whitespace-nowrap border-0 bg-transparent ${s.box} ${s.text} ${s.radius} ${pad} ${TEXT[variant]} cursor-default outline-none hide-focus-ring ring-focus transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${iconOnly ? 'aspect-square' : ''} ${className}`}
+      className={`group/btn relative isolate inline-flex select-none items-center justify-center whitespace-nowrap border-0 bg-transparent ${s.box} ${s.text} ${s.radius} ${pad} ${toneClass} cursor-default outline-none hide-focus-ring ring-focus transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${iconOnly ? 'aspect-square' : ''} ${className}`}
       {...rest}
     >
       <span

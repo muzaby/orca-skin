@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Button } from '../../../shared/ui/Button'
-import { YellowDot } from './transcript/YellowDot'
 import { chatActions, useChatSession } from '../store/chatStore'
 import { columnsContain } from '../lib/rightPanelLayout'
 import { quoteSnippet } from '../lib/planComments'
@@ -77,7 +76,6 @@ export function ToolApprovalBody({
       onKeyDown={onKeyDown}
     >
       <div className="flex items-center gap-g3">
-        <YellowDot />
         <span className="text-footnote font-medium text-t9">
           Claude가 {toolName} 실행 권한을 요청합니다
         </span>
@@ -225,7 +223,6 @@ function PlanApprovalBody(): React.JSX.Element | null {
       onKeyDown={onKeyDown}
     >
       <div className="flex items-center gap-g3">
-        <YellowDot />
         <span className="text-footnote font-medium text-t9">Claude가 계획을 제안했습니다</span>
         {!planTileOpen && (
           <button

@@ -11,14 +11,14 @@
 
 ### 1.1 속성 체계 — 역할 분리
 
-| 속성 | 역할 | 예시 |
-|---|---|---|
-| `class="app-frame-*"` | 구조 식별 — *이게 뭐다* | `app-frame-sidebar`, `app-frame-tile`, `app-frame-composer-input` |
-| `class="<tailwind>"` | 스타일링 — *이렇게 생겼다* | `flex flex-col w-56 bg-sidebar` |
-| `data-behavior="..."` | JS 행동 — *이걸 할 수 있다* | `drag-region`, `no-drag`, `resizable`, `collapsible`, `virtualizable`, `interactive`, `focus-trap`, `dismissible`, `action:{name}` |
-| `data-state="..."` | 현재 상태 — *지금 이 상태다* | `expanded`/`collapsed`, `visible`/`hidden` |
-| `data-axis`, `data-context` | 메타 설정 — *이런 조건이다* | `vertical`/`horizontal`, `sidebar`/`tile`/`modal`/`overlay`/`debug` |
-| `data-theme`, `data-platform` | 루트 환경 — `<html>` 에만 | `classic`/`dark`/`cool`, `darwin`/`win32`/`linux` |
+| 속성                          | 역할                         | 예시                                                                                                                               |
+| ----------------------------- | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| `class="app-frame-*"`         | 구조 식별 — _이게 뭐다_      | `app-frame-sidebar`, `app-frame-tile`, `app-frame-composer-input`                                                                  |
+| `class="<tailwind>"`          | 스타일링 — _이렇게 생겼다_   | `flex flex-col w-56 bg-sidebar`                                                                                                    |
+| `data-behavior="..."`         | JS 행동 — _이걸 할 수 있다_  | `drag-region`, `no-drag`, `resizable`, `collapsible`, `virtualizable`, `interactive`, `focus-trap`, `dismissible`, `action:{name}` |
+| `data-state="..."`            | 현재 상태 — _지금 이 상태다_ | `expanded`/`collapsed`, `visible`/`hidden`                                                                                         |
+| `data-axis`, `data-context`   | 메타 설정 — _이런 조건이다_  | `vertical`/`horizontal`, `sidebar`/`tile`/`modal`/`overlay`/`debug`                                                                |
+| `data-theme`, `data-platform` | 루트 환경 — `<html>` 에만    | `classic`/`dark`/`cool`, `darwin`/`win32`/`linux`                                                                                  |
 
 **원칙**: 두 속성은 **공존**한다. `app-frame-*` 클래스는 마커이며 시각 스타일은 같은 element 의 Tailwind 유틸이 계속 진실. 마커 부여로 인한 시각 회귀는 없어야 한다.
 
@@ -42,7 +42,7 @@ html[data-theme][data-platform]
             │   │   [data-state="expanded|collapsed"]
             │   │   ├── .app-frame-sidebar-body
             │   │   │   ├── .app-frame-sidebar-brand    (🐋 + "Orca" 브랜드 로고)
-            │   │   │   ├── nav.app-frame-sidebar-nav   (4-항목: 새 대화 · 프로젝트 · 자동화 · Skills & MCP)
+            │   │   │   ├── nav.app-frame-sidebar-nav   (4-항목: 새 대화 · 프로젝트 · 엔진 & 모델 · Skills & MCP; 자동화는 Future Scope 로 nav 미노출)
             │   │   │   ├── .app-frame-sidebar-sessions
             │   │   │   └── .app-frame-sidebar-footer
             │   │   └── .app-frame-resize-handle          (aside 자식 — collapse 시 함께 사라짐)
@@ -84,10 +84,10 @@ inline 클래스 `[-webkit-app-region:drag]` 대신 `style={{ WebkitAppRegion: '
 
 resize-handle 은 `aside` 형제가 아니라 **자식**으로 둔다.
 
-| 위치 | 이름 | 이유 |
-|---|---|---|
-| aside 내부 | `app-frame-resize-handle` | sidebar 에 소속된 조작 장치. collapse 시 함께 사라진다. |
-| tile 사이 | `app-frame-tile-separator` | 독립적인 두 tile 사이의 분리선. **구현됨** — plan 모드 검토용 우측 계획 타일(`PlanTile`)을 채팅 tile 과 분할. `useDragResize({ invert: true })` 로 우측 도킹 폭 조절(280–640px). |
+| 위치       | 이름                       | 이유                                                                                                                                                                             |
+| ---------- | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| aside 내부 | `app-frame-resize-handle`  | sidebar 에 소속된 조작 장치. collapse 시 함께 사라진다.                                                                                                                          |
+| tile 사이  | `app-frame-tile-separator` | 독립적인 두 tile 사이의 분리선. **구현됨** — plan 모드 검토용 우측 계획 타일(`PlanTile`)을 채팅 tile 과 분할. `useDragResize({ invert: true })` 로 우측 도킹 폭 조절(280–640px). |
 
 같은 역할이지만 소속 관계가 다르므로 이름을 구분한다.
 
@@ -95,54 +95,54 @@ resize-handle 은 `aside` 형제가 아니라 **자식**으로 둔다.
 
 `#app-frame-overlay` 는 **modal backdrop 전용**이며, modal 활성 시에만 떠올라야 한다. visibility 토글은 **z 부호 반전**으로 한다.
 
-| 슬롯 | 평소 z | modal 활성 시 z | 역할 | children |
-|---|---|---|---|---|
-| `#app-frame-overlay` | `-10` | `10` | backdrop (`bg-black/40 backdrop-blur-sm`). 평소엔 body 뒤로 깔려 보이지도 클릭도 안 됨. | 없음 — 순수 layer |
-| `#app-frame-modal` | `-20` | `20` | focus-trap 컨테이너. 두 모달은 동시에 열리지 않으므로 conditional render 로 1개만 노출. | `<InstallerDialog>` 또는 `<AuthExpiredModal>` |
-| `#app-frame-debug` | `30` (상시) | `30` (상시) | TweaksPanel 등 개발 보조 floating UI. modal 상태와 무관. wrapper `pointer-events-none` + 자식 `pointer-events-auto`. | `<TweaksPanel>` 등 |
+| 슬롯                 | 평소 z      | modal 활성 시 z | 역할                                                                                                                 | children                                      |
+| -------------------- | ----------- | --------------- | -------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
+| `#app-frame-overlay` | `-10`       | `10`            | backdrop (`bg-black/40 backdrop-blur-sm`). 평소엔 body 뒤로 깔려 보이지도 클릭도 안 됨.                              | 없음 — 순수 layer                             |
+| `#app-frame-modal`   | `-20`       | `20`            | focus-trap 컨테이너. 두 모달은 동시에 열리지 않으므로 conditional render 로 1개만 노출.                              | `<InstallerDialog>` 또는 `<AuthExpiredModal>` |
+| `#app-frame-debug`   | `30` (상시) | `30` (상시)     | TweaksPanel 등 개발 보조 floating UI. modal 상태와 무관. wrapper `pointer-events-none` + 자식 `pointer-events-auto`. | `<TweaksPanel>` 등                            |
 
 규칙:
+
 - overlay 와 modal 의 z 부호는 **항상 동시에** 반전 (modal 발생 ↔ 부재).
 - `data-state="visible|hidden"` 마커는 보존하되, **실제 visibility 는 z 가 결정**.
 - DOM 은 항상 마운트된 상태 — z 부호 반전만으로 토글.
 - backdrop 시각 (blur + dim) 은 overlay element 의 stable 스타일 — z 가 음수일 때는 어차피 안 보이므로 별도 토글 불요.
 - modal 컴포넌트들은 자체 `fixed inset-0 bg-black/40` backdrop 을 갖지 않는다 — backdrop 은 `#app-frame-overlay` 가 단독으로 담당. panel 만 `grid place-items-center` 로 중앙 배치.
 
-### 1.6 data-* 마커 카탈로그 (현재 사용)
+### 1.6 data-\* 마커 카탈로그 (현재 사용)
 
-| 위치 | 속성 | 값 |
-|---|---|---|
-| `<html>` | `data-theme` / `data-platform` | `classic\|dark\|cool` / `darwin\|win32\|linux` |
-| header drag-layer | `data-behavior` | `drag-region` |
-| header content-layer · 좌 · 우 | `data-behavior` | `no-drag` |
-| WinControls 각 버튼 | `data-behavior` | `action:window-minimize\|window-maximize\|window-close` |
-| `aside.app-frame-sidebar` | `data-behavior` / `data-state` | `collapsible resizable` / `expanded\|collapsed` |
-| `.app-frame-resize-handle` | `data-behavior` / `data-axis` / `data-context` / `data-state` | `resizable` / `vertical` / `sidebar` / `visible\|hidden` |
-| `.app-frame-tile` | `data-behavior` | `resizable` |
-| `.app-frame-transcript` | `data-behavior` | `virtualizable` |
-| `.app-frame-composer-repo` | `data-behavior` | `dismissible` |
-| `.app-frame-composer-input` | `data-behavior` | `interactive` |
-| 스크롤 하단 버튼 (있을 때) | `data-behavior` | `action:scroll-bottom` |
-| composer send/cancel 버튼 | `data-behavior` | `action:send` / `action:cancel-turn` |
-| `.app-frame-session-row` | `data-context` / `data-state` / `data-behavior` | `session` / `active\|inactive` / `interactive selectable\|interactive renaming` |
-| `.app-frame-floating` (Popover / SkillAutocomplete / FileAutocomplete) | `data-context` / `data-behavior` | `floating` / `dismissible` |
-| `.app-frame-search-modal` (SearchModal 패널) | `data-context` / `data-behavior` | `modal` / `focus-trap` |
-| `#app-frame-overlay` | `data-state` / `data-context` | `visible\|hidden` / `overlay` |
-| `#app-frame-modal` | `data-behavior` / `data-state` / `data-context` | `focus-trap blocks-interaction` / `visible\|hidden` / `modal` |
-| `#app-frame-debug` | `data-context` | `debug` |
+| 위치                                                                   | 속성                                                          | 값                                                                              |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `<html>`                                                               | `data-theme` / `data-platform`                                | `classic\|dark\|cool` / `darwin\|win32\|linux`                                  |
+| header drag-layer                                                      | `data-behavior`                                               | `drag-region`                                                                   |
+| header content-layer · 좌 · 우                                         | `data-behavior`                                               | `no-drag`                                                                       |
+| WinControls 각 버튼                                                    | `data-behavior`                                               | `action:window-minimize\|window-maximize\|window-close`                         |
+| `aside.app-frame-sidebar`                                              | `data-behavior` / `data-state`                                | `collapsible resizable` / `expanded\|collapsed`                                 |
+| `.app-frame-resize-handle`                                             | `data-behavior` / `data-axis` / `data-context` / `data-state` | `resizable` / `vertical` / `sidebar` / `visible\|hidden`                        |
+| `.app-frame-tile`                                                      | `data-behavior`                                               | `resizable`                                                                     |
+| `.app-frame-transcript`                                                | `data-behavior`                                               | `virtualizable`                                                                 |
+| `.app-frame-composer-repo`                                             | `data-behavior`                                               | `dismissible`                                                                   |
+| `.app-frame-composer-input`                                            | `data-behavior`                                               | `interactive`                                                                   |
+| 스크롤 하단 버튼 (있을 때)                                             | `data-behavior`                                               | `action:scroll-bottom`                                                          |
+| composer send/cancel 버튼                                              | `data-behavior`                                               | `action:send` / `action:cancel-turn`                                            |
+| `.app-frame-session-row`                                               | `data-context` / `data-state` / `data-behavior`               | `session` / `active\|inactive` / `interactive selectable\|interactive renaming` |
+| `.app-frame-floating` (Popover / SkillAutocomplete / FileAutocomplete) | `data-context` / `data-behavior`                              | `floating` / `dismissible`                                                      |
+| `.app-frame-search-modal` (SearchModal 패널)                           | `data-context` / `data-behavior`                              | `modal` / `focus-trap`                                                          |
+| `#app-frame-overlay`                                                   | `data-state` / `data-context`                                 | `visible\|hidden` / `overlay`                                                   |
+| `#app-frame-modal`                                                     | `data-behavior` / `data-state` / `data-context`               | `focus-trap blocks-interaction` / `visible\|hidden` / `modal`                   |
+| `#app-frame-debug`                                                     | `data-context`                                                | `debug`                                                                         |
 
 ### 1.7 마커 전용 원칙
 
 새 클래스/속성은 **기존 Tailwind 유틸과 공존**한다. 기존 유틸을 교체하지 않는다. 새 CSS 파일/규칙은 추가하지 않는다 (grid 1×1 z-stack 도 Tailwind arbitrary value `grid-cols-1 grid-rows-1 [&>*]:[grid-area:1/1]` 로). 시각 회귀 0 을 목표.
 
 새 컴포넌트 추가 시:
+
 1. 가이드라인의 트리 위치에 맞는 `app-frame-*` 클래스 부여.
 2. 인터랙션이 있으면 `data-behavior` / `data-state` 도 함께.
 3. 시각 스타일은 Tailwind 유틸로 — 마커가 스타일을 대신하지 않는다.
 
 ---
-
-
 
 ## Mock UI marker (0010)
 

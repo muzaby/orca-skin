@@ -9,15 +9,15 @@
 
 ### 1.1 키보드 단축키
 
-| 단축키 | 동작 | 구현 위치 |
-|---|---|---|
-| `/` | Composer 에서 Skill 자동완성 dropdown 트리거 | `SkillAutocomplete.tsx` |
-| `@` | Composer 에서 파일 경로 자동완성 트리거 | `FileAutocomplete.tsx` |
-| ↑ / ↓ | 자동완성 dropdown 내 navigate | 동일 |
-| Tab / Enter | 자동완성 항목 선택 | 동일 |
-| Esc | 자동완성 dismiss / 스트리밍 취소 | TBD (스트리밍 취소는 명시적 키 미정) |
-| Enter | 메시지 전송 | `features/chat/components/ChatTile.tsx` Composer |
-| Shift + Enter | 줄바꿈 | 동일 |
+| 단축키        | 동작                                         | 구현 위치                                        |
+| ------------- | -------------------------------------------- | ------------------------------------------------ |
+| `/`           | Composer 에서 Skill 자동완성 dropdown 트리거 | `SkillAutocomplete.tsx`                          |
+| `@`           | Composer 에서 파일 경로 자동완성 트리거      | `FileAutocomplete.tsx`                           |
+| ↑ / ↓         | 자동완성 dropdown 내 navigate                | 동일                                             |
+| Tab / Enter   | 자동완성 항목 선택                           | 동일                                             |
+| Esc           | 자동완성 dismiss / 스트리밍 취소             | TBD (스트리밍 취소는 명시적 키 미정)             |
+| Enter         | 메시지 전송                                  | `features/chat/components/ChatTile.tsx` Composer |
+| Shift + Enter | 줄바꿈                                       | 동일                                             |
 
 > 그 외 단축키 (Cmd/Ctrl+N 새 대화 등) 는 **현재 미구현**. PRD §11 OQ 추가 후보.
 
@@ -33,14 +33,14 @@
 
 ### 1.3 로딩 / 에러 / 네트워크 상태
 
-| 상태 | UI 표시 | 위치 |
-|---|---|---|
-| 요청 대기 | StatusLine "Thinking... (Ns · ~Mtokens)" | `shared/ui/StatusLine.tsx` |
-| 스트리밍 중 | StatusLine + 응답 메시지에 누적 텍스트 | `features/chat/components/ChatTile.tsx` |
-| 에러 (`recoverable: true`) | 메시지 영역에 에러 카드 | `features/chat/reducer/chatReducer.ts` 의 `state.error` |
-| 에러 (`auth.expired`) | AuthExpiredModal (`claude /login` 안내) — `#app-frame-modal` 슬롯, backdrop 은 `#app-frame-overlay` 가 담당 (dom-architecture.md.5) | `features/backend/components/AuthExpiredModal.tsx` |
-| CLI 설치 진행 | InstallerDialog (라인별 로그 + 수동 명령 복사) — 동일하게 `#app-frame-modal` + `#app-frame-overlay` backdrop | `features/backend/components/InstallerDialog.tsx` |
-| 네트워크 단절 | TBD (전역 배너 미구현) | — |
+| 상태                       | UI 표시                                                                                                                             | 위치                                                    |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
+| 요청 대기                  | StatusLine "Thinking... (Ns · ~Mtokens)"                                                                                            | `shared/ui/StatusLine.tsx`                              |
+| 스트리밍 중                | StatusLine + 응답 메시지에 누적 텍스트                                                                                              | `features/chat/components/ChatTile.tsx`                 |
+| 에러 (`recoverable: true`) | 메시지 영역에 에러 카드                                                                                                             | `features/chat/reducer/chatReducer.ts` 의 `state.error` |
+| 에러 (`auth.expired`)      | AuthExpiredModal (`claude /login` 안내) — `#app-frame-modal` 슬롯, backdrop 은 `#app-frame-overlay` 가 담당 (dom-architecture.md.5) | `features/backend/components/AuthExpiredModal.tsx`      |
+| CLI 설치 진행              | InstallerDialog (라인별 로그 + 수동 명령 복사) — 동일하게 `#app-frame-modal` + `#app-frame-overlay` backdrop                        | `features/backend/components/InstallerDialog.tsx`       |
+| 네트워크 단절              | TBD (전역 배너 미구현)                                                                                                              | —                                                       |
 
 ### 1.4 접근성
 
@@ -72,24 +72,23 @@
 
 ---
 
-
 ## 2. 도메인 카탈로그 (Orca 고유)
 
 `shared/navigation/routes.ts` 의 path 카탈로그 + Tweaks 패널을 화면 단위로 정리.
 
-| ID / 컴포넌트 | 화면 라벨 | breadcrumb | Sidebar nav | Phase 상태 | 비고 |
-|---|---|---|---|---|---|
-| `chat` (`features/chat/components/ChatTile.tsx`) | 01 채팅 | (없음) | ✅ '새 대화' | **✅ Phase 1·2 활성** | 실 IPC 연결됨. Composer 자동완성·ToolCard·Markdown·CodeBlock 모두 구현. |
-| `projects` (`features/projects/components/ProjectsScreen.tsx`) | 02 프로젝트 | 프로젝트 | ✅ '프로젝트' | **✅ Phase 3 활성** | 카드 그리드 + 생성 다이얼로그. ProjectDetail 은 `pages/ProjectLandingPage.tsx` 단일 파일. |
-| `routines` (placeholder, 라우트 미정의) | 자동화 | — | ✅ '자동화' | **⏳ Phase 3++ 신설** | nav 항목만 추가, 라우트는 미정의 — `router.tsx` catch-all 이 `/new` 로 흡수. 후속 PR 에서 `pages/RoutinesPage.tsx` + 라우트 등록. |
-| `engine` (`features/engine/components/EngineView.tsx`) | 03 엔진 & 모델 | 설정 · 엔진 & 모델 | ❌ (URL 직접 진입) | 🚧 Phase 1 mockup | nav 에서 빠짐 (Phase 3++ 재구성). 라우트 `/engine` 는 살아 있음. |
-| `skills` (`features/skills/components/SkillsMcpView.tsx`) | 04 Skills / MCP | 설정 · Skills & MCP | ✅ 'Skills & MCP' | **✅ Phase 3++ MCP 활성** | nav 4번째 항목으로 노출. **MCP 섹션 실 연동** (`useMcpServers` + `orca:mcp:*` + `AddMcpServerModal` 추가/편집/토글/삭제, 전역 적용). Skills(좌측)·권한 섹션은 여전히 mockup. |
-| (Tweaks Panel) `shared/ui/TweaksPanel.tsx` | (플로팅 패널 — `#app-frame-debug` 슬롯) | — | — | **✅ Phase 2+ 영속** | theme / density / sidebarCollapsed / sidebarWidth — electron-store 동기화. |
-| (SearchModal) `app/SearchModal.tsx` | (모달 — `#app-frame-modal` 슬롯) | — | — | **✅ Phase 3++ 활성** | FTS5 대화 검색. Header 검색 버튼 → `searchOpen` lift → OverlayLayer conditional mount. |
+| ID / 컴포넌트                                                  | 화면 라벨                               | breadcrumb          | Sidebar nav                   | Phase 상태                | 비고                                                                                                                                                                         |
+| -------------------------------------------------------------- | --------------------------------------- | ------------------- | ----------------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `chat` (`features/chat/components/ChatTile.tsx`)               | 01 채팅                                 | (없음)              | ✅ '새 대화'                  | **✅ Phase 1·2 활성**     | 실 IPC 연결됨. Composer 자동완성·ToolCard·Markdown·CodeBlock 모두 구현.                                                                                                      |
+| `projects` (`features/projects/components/ProjectsScreen.tsx`) | 02 프로젝트                             | 프로젝트            | ✅ '프로젝트'                 | **✅ Phase 3 활성**       | 카드 그리드 + 생성 다이얼로그. ProjectDetail 은 `pages/ProjectLandingPage.tsx` 단일 파일.                                                                                    |
+| `routines` (placeholder, 라우트 미정의)                        | 자동화                                  | —                   | ❌ (Future Scope, nav 미노출) | **⏳ Future Scope**       | 라우트는 미정의 — `router.tsx` catch-all 이 `/new` 로 흡수. 후속 PR 에서 `pages/RoutinesPage.tsx` + 라우트 등록 시 nav 복귀 가능.                                            |
+| `engine` (`features/engine/components/EngineView.tsx`)         | 03 엔진 & 모델                          | 설정 · 엔진 & 모델  | ✅ '엔진 & 모델'              | 🚧 Phase 1 mockup         | nav 항목으로 노출. 라우트 `/agent` 는 엔진/모델 설정 화면을 표시한다.                                                                                                        |
+| `skills` (`features/skills/components/SkillsMcpView.tsx`)      | 04 Skills / MCP                         | 설정 · Skills & MCP | ✅ 'Skills & MCP'             | **✅ Phase 3++ MCP 활성** | nav 4번째 항목으로 노출. **MCP 섹션 실 연동** (`useMcpServers` + `orca:mcp:*` + `AddMcpServerModal` 추가/편집/토글/삭제, 전역 적용). Skills(좌측)·권한 섹션은 여전히 mockup. |
+| (Tweaks Panel) `shared/ui/TweaksPanel.tsx`                     | (플로팅 패널 — `#app-frame-debug` 슬롯) | —                   | —                             | **✅ Phase 2+ 영속**      | theme / density / sidebarCollapsed / sidebarWidth — electron-store 동기화.                                                                                                   |
+| (SearchModal) `app/SearchModal.tsx`                            | (모달 — `#app-frame-modal` 슬롯)        | —                   | —                             | **✅ Phase 3++ 활성**     | FTS5 대화 검색. Header 검색 버튼 → `searchOpen` lift → OverlayLayer conditional mount.                                                                                       |
 
 > **CameraView** 와 **CapturesView** 는 `features/camera/` · `features/captures/` 에 존재하지만 도메인 카탈로그에서 제외 (GLOSSARY §3 사용자 결정). Sidebar nav 에도 없음.
 >
-> **Sidebar nav 재구성 (Phase 3++)**: nav 노출은 4-항목 (새 대화·프로젝트·자동화·Skills & MCP). engine/captures 는 *라우트가 살아 있으나 nav 미노출* — URL 직접 진입 또는 향후 nav 복귀 가능. (skills 는 MCP 지원 도입과 함께 nav 복귀.)
+> **Sidebar nav 재구성 (Phase 3++)**: nav 노출은 4-항목 (새 대화·프로젝트·엔진 & 모델·Skills & MCP). 자동화/captures 는 _Future Scope 로 nav 미노출_ — URL 직접 진입 또는 향후 nav 복귀 가능. (skills 는 MCP 지원 도입과 함께 nav 복귀.)
 
 ### 2.1 Future Scope 도메인의 IPC 연결 시점
 
@@ -98,7 +97,6 @@
 - **SkillsMcp — MCP 서버**: ✅ Phase 3++ 구현 완료 — `orca:mcp:*` CRUD + `McpStore`(safeStorage) + `handleChatSend` 가 `query().options.mcpServers`+`allowedTools` 주입 (전역). 권한 섹션 + Skills 좌측 토글 + `options.permissionMode`/`canUseTool` 는 Phase 4+ (PRD OQ9 미정).
 
 ---
-
 
 ## 3. IPC 호출 (Renderer → Main)
 
@@ -114,15 +112,15 @@
 `useChat()` 의 패턴 (`features/chat/hooks/useChat.ts` — `shared/api/ipc.ts` 의 `chatApi.onEvent` 경유):
 
 ```typescript
-import { chatApi } from '../../../shared/api/ipc'
+import { chatApi } from "../../../shared/api/ipc";
 
 useEffect(() => {
   // 1회 구독
   const unsubscribe = chatApi.onEvent((ev) => {
-    dispatch({ type: 'RECV_EVENT', payload: ev })
-  })
-  return unsubscribe  // cleanup 필수
-}, [])
+    dispatch({ type: "RECV_EVENT", payload: ev });
+  });
+  return unsubscribe; // cleanup 필수
+}, []);
 ```
 
 - main→renderer 의 `orca:chat:event` 채널은 ordered + lossless (Electron `webContents.send` 가 V8 microtask queue 위에서 보장).
@@ -132,8 +130,8 @@ useEffect(() => {
 ### 3.3 취소
 
 ```typescript
-import { chatApi } from '../../../shared/api/ipc'
-chatApi.cancel(sessionId)  // → window.orca.chat.cancel(sessionId) → ipcRenderer.invoke('orca:chat:cancel', ...)
+import { chatApi } from "../../../shared/api/ipc";
+chatApi.cancel(sessionId); // → window.orca.chat.cancel(sessionId) → ipcRenderer.invoke('orca:chat:cancel', ...)
 ```
 
 Main 이 `AbortSignal` 을 SDK `query()` 에 전파 → 현재 inflight 만 중단. 진행 중이던 도구 호출은 SDK 가 정리.
@@ -143,8 +141,6 @@ Main 이 `AbortSignal` 을 SDK `query()` 에 전파 → 현재 inflight 만 중�
 [IPC_CONTRACT.md](../../IPC_CONTRACT.md) §2 참조 — **정확 수치는 IPC_CONTRACT 가 SSOT** (현재 총 53 채널 · 17 도메인). 본 문서는 총계를 재서술하지 않는다(드리프트 방지).
 
 ---
-
-
 
 ## Agent/model UX (0010)
 
