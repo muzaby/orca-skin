@@ -37,7 +37,7 @@
   --color-line: #e5e3d9;
   --color-line-strong: #d2d0c5;
   --color-moss: #6c7a3f;
-  --color-indigo: #4a5b8c;
+  --color-indigo: #2a78d6; /* 사용량/컨텍스트 진행바 파랑 (Meter·UsageCircle low tone, 0081) */
   --color-rose: #b85a6e;
   --color-amber: #c79431;
   --color-paper: #ffffff;

@@ -3,7 +3,7 @@ import { Popover } from '../shared/ui/Popover'
 import { Icon } from '../shared/ui/Icon'
 import { useLoginStore } from '../features/login'
 import { SettingsModal, useSettingsModalStore } from '../features/settings'
-import { useUsageLimits, useCostRefresh, useProviderUsage } from '../features/cost'
+import { useProviderUsage } from '../features/cost'
 
 // 언어 서브메뉴 목록 — 영어(비활성/inert)와 한국어(활성/체크)만 노출.
 // (실제 배선은 한국어 1개.)
@@ -27,11 +27,9 @@ export function SidebarUserButton(): React.JSX.Element {
   const [menuOpen, setMenuOpen] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
   const showSettings = useSettingsModalStore((s) => s.show)
-  // 사용량 한도 파생 — 도넛 팝오버와 동일 훅(공용 computeUsageLimits)을 참조(설정은 재계산 안 함).
-  const usageLimits = useUsageLimits()
-  // 설정 사용량 동기화(0080 항목 2) + provider별 사용량(항목 4) — 교차-feature 회피 위해
-  // app 레이어가 features/cost 훅을 호출해 features/settings 모달에 props 로 주입한다.
-  const costRefresh = useCostRefresh()
+  // provider별 사용량(0080 항목 4) — 교차-feature 회피 위해 app 레이어가 features/cost 훅을
+  // 호출해 features/settings 모달에 props 로 주입한다. 전역 사용량 탭은 /cost 플레이스홀더로
+  // 축소돼(0081) usageLimits/costRefresh 주입은 불필요(도넛 경로는 page 가 별도 주입).
   const providerUsage = useProviderUsage()
 
   const closeMenu = (): void => {
@@ -128,15 +126,7 @@ export function SidebarUserButton(): React.JSX.Element {
         </div>
       </Popover>
 
-      <SettingsModal
-        usageLimits={usageLimits}
-        costRefresh={{
-          label: costRefresh.label,
-          refreshing: costRefresh.refreshing,
-          onRefresh: costRefresh.refresh
-        }}
-        providerUsage={providerUsage}
-      />
+      <SettingsModal providerUsage={providerUsage} />
     </>
   )
 }

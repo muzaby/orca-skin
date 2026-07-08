@@ -2,7 +2,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { chatActions, ChatTile, Composer, useChatSession } from '../features/chat'
 import { useBackendCapabilities, useBackendLabel } from '../features/backend'
 import { formatApproxCost, useCostSummary, useUsageLimits } from '../features/cost'
-import { useOpenSettings } from '../features/settings'
+import { useOpenSettings, providerTabId } from '../features/settings'
 import {
   ProjectInfoHero,
   ProjectInstructionsSidebar,
@@ -36,7 +36,8 @@ export function ProjectLandingPage(): React.JSX.Element {
   const costToday = summary ? formatApproxCost(summary.day.totalCostUsd) : undefined
   const usageLimits = useUsageLimits()
   const openSettings = useOpenSettings()
-  const onOpenUsageSettings = (): void => openSettings('usage')
+  const onOpenUsageSettings = (key?: string): void =>
+    openSettings(key ? providerTabId(key) : 'usage')
   const isEmpty = messages.length === 0 && !loadingSession
 
   if (!isEmpty) {

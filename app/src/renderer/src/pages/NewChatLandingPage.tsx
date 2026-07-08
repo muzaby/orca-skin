@@ -2,7 +2,7 @@ import { useLocation } from 'react-router-dom'
 import { ChatTile, Composer, useChatSession } from '../features/chat'
 import { useBackendCapabilities, useBackendLabel } from '../features/backend'
 import { formatApproxCost, useCostSummary, useUsageLimits } from '../features/cost'
-import { useOpenSettings } from '../features/settings'
+import { useOpenSettings, providerTabId } from '../features/settings'
 
 // `/new` 라우트의 랜딩 페이지.
 // - 메시지가 아예 없을 때: 빈 화면 중앙에 Composer 만 노출 (ChatGPT 스타일).
@@ -22,7 +22,8 @@ export function NewChatLandingPage(): React.JSX.Element {
   const costToday = summary ? formatApproxCost(summary.day.totalCostUsd) : undefined
   const usageLimits = useUsageLimits()
   const openSettings = useOpenSettings()
-  const onOpenUsageSettings = (): void => openSettings('usage')
+  const onOpenUsageSettings = (key?: string): void =>
+    openSettings(key ? providerTabId(key) : 'usage')
   // Skills 페이지의 "채팅에서 사용해보기" 가 nav state 로 전달한 컴포저 프리필(`/<스킬명> `).
   const location = useLocation()
   const composerDraft =

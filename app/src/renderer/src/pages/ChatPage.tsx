@@ -1,7 +1,7 @@
 import { ChatView } from '../features/chat'
 import { useBackendCapabilities, useBackendLabel } from '../features/backend'
 import { formatApproxCost, useCostSummary, useUsageLimits } from '../features/cost'
-import { useOpenSettings } from '../features/settings'
+import { useOpenSettings, providerTabId } from '../features/settings'
 
 // page = "어떤 Feature 를 배치할지" 결정 (조립만). 여기서는 ChatView 1개 배치 +
 // BackendContext 의 backendLabel / canAbort 를 props 로 wiring (cross-feature 결정 5번).
@@ -20,7 +20,7 @@ export function ChatPage(): React.JSX.Element {
       canAbort={canAbort}
       costToday={costToday}
       usageLimits={usageLimits}
-      onOpenUsageSettings={() => openSettings('usage')}
+      onOpenUsageSettings={(key) => openSettings(key ? providerTabId(key) : 'usage')}
     />
   )
 }

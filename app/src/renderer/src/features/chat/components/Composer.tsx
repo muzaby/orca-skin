@@ -55,8 +55,8 @@ interface ComposerProps {
   costToday?: string
   // 사용량 한도 뷰모델(도넛 팝오버). page 가 실사용 SSOT(costStore)+월 한도로 공용 파생해 주입.
   usageLimits?: UsageLimitsView | null
-  // 도넛 `사용량 한도 >` — 설정 '사용량' 탭 열기(page 가 settingsModalStore 로 배선).
-  onOpenUsageSettings?: () => void
+  // 도넛 `사용량 한도 >` — 현재 세션 provider 서브탭 열기(providerKey 전달, page 가 배선).
+  onOpenUsageSettings?: (providerKey?: string) => void
   // 컴포저 초기 입력 시드 — Skills "채팅에서 사용해보기" 가 nav state → page 를 거쳐 주입한다.
   // 마운트/값 변경 시 1회 draft 에 채우고 포커스한다(사용자 입력 중에는 덮어쓰지 않음).
   initialDraft?: string
@@ -656,7 +656,7 @@ export function Composer({
                       usageLimits={usageLimits ?? null}
                       onOpenUsageSettings={() => {
                         setTelemetryOpen(false)
-                        onOpenUsageSettings?.()
+                        onOpenUsageSettings?.(providerKey ?? undefined)
                       }}
                     />
                   </Popover>

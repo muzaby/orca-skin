@@ -8,7 +8,8 @@ interface ChatViewProps {
   canAbort: boolean
   costToday?: string
   usageLimits?: UsageLimitsView | null
-  onOpenUsageSettings?: () => void
+  // providerKey = 도넛에서 현재 선택된 provider(있으면 그 서브탭으로, 없으면 전역 사용량 탭).
+  onOpenUsageSettings?: (providerKey?: string) => void
 }
 
 // 채팅 상태는 ChatTile 내부가 chatStore selector 로 직접 구독한다 — 여기는 cross-feature

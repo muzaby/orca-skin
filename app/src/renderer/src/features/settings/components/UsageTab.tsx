@@ -1,14 +1,9 @@
-// 설정 모달 '사용량' 탭(전역/전체) — 실사용 SSOT(costStore)+월 한도로 파생한 주간/월간 한도
-// 바(computeUsageLimits 결과를 prop 으로 주입받아 참조만)와, "월간 사용 한도" 1-depth 조정 뷰.
-// 사용량은 여기서 계산하지 않는다. 동기화 버튼(0080 항목 2)은 costRefresh 로 주입받는다.
+// 설정 모달 '사용량' 탭(전역) — 사용량 한도 바/한도 설정은 provider 하위 탭(ProviderUsageTab)
+// 으로 이관됐다(0081). 이 전역 탭은 Claude Code `/cost` 유사 요약(총비용·토큰·모델별 내역)의
+// 자리로, 현재는 안내문구 + "추후 구현" 표시만 둔다(실집계 미구현).
+// SyncRow/CostRefreshView 는 provider 서브탭이 재사용하므로 여기 정의를 유지한다.
 
-import { useState } from 'react'
-import { useTweakContext } from '../../../shared/theme'
-import type { UsageLimitsView } from '../../../../../shared/usage/limits'
 import { Icon } from '../../../shared/ui/Icon'
-import { SettingsGroup } from './parts'
-import { LimitBarsSection, LimitEditor } from './UsageLimitViews'
-import { fmtUsd } from '../lib/usageFormat'
 
 export interface CostRefreshView {
   label: string | null
@@ -16,7 +11,7 @@ export interface CostRefreshView {
   onRefresh: () => void
 }
 
-// "마지막 업데이트: <라벨> <새로고침 버튼(inflight spin)>" (0080 항목 2). 사용량 한도 하단에 둔다.
+// "마지막 업데이트: <라벨> <새로고침 버튼(inflight spin)>" (0080). provider 서브탭이 재사용.
 export function SyncRow({ label, refreshing, onRefresh }: CostRefreshView): React.JSX.Element {
   return (
     <div className="flex items-center gap-2 text-[12px] text-ink3">
@@ -34,58 +29,26 @@ export function SyncRow({ label, refreshing, onRefresh }: CostRefreshView): Reac
   )
 }
 
-export function UsageTab({
-  usageLimits,
-  costRefresh
-}: {
-  usageLimits: UsageLimitsView | null
-  costRefresh: CostRefreshView
-}): React.JSX.Element {
-  const { t, setTweak } = useTweakContext()
-  const [view, setView] = useState<'root' | 'limit'>('root')
-
-  if (view === 'limit') {
-    return (
-      <LimitEditor
-        title="월간 지출 한도 설정"
-        limit={t.spendingLimitUsd}
-        onSave={(v) => {
-          setTweak('spendingLimitUsd', v)
-          setView('root')
-        }}
-        onBack={() => setView('root')}
-      />
-    )
-  }
-
+// 전역 사용량 요약 — /cost 유사 기능 예고 + 추후 구현 안내(0081).
+export function UsageTab(): React.JSX.Element {
   return (
-    <div className="flex flex-col gap-8">
-      <SettingsGroup title="사용량 한도">
-        <div className="flex flex-col gap-4">
-          <LimitBarsSection usageLimits={usageLimits} />
-          <SyncRow {...costRefresh} />
-        </div>
-      </SettingsGroup>
+    <div className="flex flex-col gap-5">
+      <div>
+        <h3 className="text-[15px] font-semibold text-ink">사용량 요약</h3>
+        <p className="mt-1.5 text-[13px] leading-relaxed text-ink2">
+          Claude Code 의 <span className="font-mono text-[12px] text-ink">/cost</span> 처럼 총 사용
+          비용, 토큰 사용량(입력·출력·캐시), 모델별 내역을 한눈에 볼 수 있는 요약을 제공할
+          예정입니다.
+        </p>
+      </div>
 
-      <section>
-        <h3 className="mb-3 text-[15px] font-semibold text-ink">한도 설정</h3>
-        <button
-          type="button"
-          onClick={() => setView('limit')}
-          className="flex w-full items-center justify-between gap-4 rounded-r4 border border-border bg-transparent px-3 py-2.5 text-left transition-colors hover:bg-fill-uncontained-hover"
-        >
-          <div className="min-w-0">
-            <div className="text-[13px] text-ink">월간 사용 한도</div>
-            <div className="mt-0.5 text-[12px] text-ink3">한 달 지출 한도를 설정합니다</div>
-          </div>
-          <div className="flex flex-none items-center gap-2">
-            <span className="text-[12.5px] tabular-nums text-ink2">
-              {t.spendingLimitUsd == null ? '무제한' : fmtUsd(t.spendingLimitUsd)}
-            </span>
-            <Icon name="chevR" size={14} />
-          </div>
-        </button>
-      </section>
+      <div className="flex flex-col items-center gap-1.5 rounded-r4 border border-dashed border-border px-4 py-8 text-center">
+        <Icon name="chart" size={20} className="text-ink3" />
+        <div className="text-[13px] font-medium text-ink2">추후 구현 예정</div>
+        <p className="text-[12px] text-ink3">
+          provider별 사용량 한도와 지출 한도 설정은 좌측 하위 항목에서 확인할 수 있습니다.
+        </p>
+      </div>
     </div>
   )
 }

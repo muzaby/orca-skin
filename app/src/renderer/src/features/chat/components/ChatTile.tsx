@@ -15,7 +15,8 @@ interface ChatTileProps {
   costToday?: string
   // 사용량 한도 뷰모델·설정 이동 콜백 — page → ChatView 를 거쳐 Composer 도넛 팝오버로.
   usageLimits?: UsageLimitsView | null
-  onOpenUsageSettings?: () => void
+  // providerKey = 도넛에서 현재 선택된 provider(있으면 그 서브탭으로, 없으면 전역 사용량 탭).
+  onOpenUsageSettings?: (providerKey?: string) => void
   // 컴포저 초기 입력 시드(Skills "채팅에서 사용해보기"). page 가 nav state 로 주입.
   initialDraft?: string
 }
