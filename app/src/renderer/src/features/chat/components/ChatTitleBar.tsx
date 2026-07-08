@@ -2,6 +2,7 @@ import { memo, useCallback, useMemo, useRef, useState } from 'react'
 import { Icon } from '../../../shared/ui/Icon'
 import { Popover } from '../../../shared/ui/Popover'
 import { RenameInput } from '../../../shared/ui/RenameInput'
+import { openConfirmDialog } from '../../../shared/ui/confirmDialogStore'
 import { chatActions, getActiveChatSession, useChatSession } from '../store/chatStore'
 import { partsText } from '../lib/parts'
 import type { ChatState } from '../reducer/chatReducer'
@@ -197,7 +198,13 @@ export const ChatTitleBar = memo(function ChatTitleBar({
             onClick={() => {
               if (!sessionId || !onDeleteSession) return
               setOpen(false)
-              onDeleteSession(sessionId)
+              openConfirmDialog({
+                title: '대화 삭제',
+                message: '이 대화를 삭제하시겠습니까?',
+                confirmLabel: '삭제',
+                danger: true,
+                onConfirm: () => onDeleteSession(sessionId)
+              })
             }}
             disabled={!canDeleteSession}
           >
