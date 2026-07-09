@@ -138,3 +138,34 @@
 ---
 
 > **[구현자 기입]** 이하는 구현 턴에서 채운다 (비기능 = Claude 직접 구현).
+
+## [구현자 기입] 설계 리뷰 (비판적)
+
+- 동의 / 그대로 진행: 설계 전반(워크플로 2종 분리·fail-fast 순서·draft 수동 게이트·스크립트 하우스 패턴·신규 의존성 0). `npm run build:win -- --publish …` 인자 전달과 ABI 훅 보존은 npm 문서·로컬 확인으로 재검증했다.
+- 이견 / 우려: 설계 §설계의 `npm test = vitest run && node --test scripts/` 는 **Node 22.22 에서 디렉토리 인자를 test entry 로 잘못 해석**해 실패한다(로컬 재현: `Cannot find module .../scripts`). glob 패턴 `node --test "scripts/*.test.mjs"` 로 조정 — node 러너가 자체 확장하므로 Windows cmd(글롭 비확장)에서도 동작. 설계 의도(스크립트 테스트 자동 포함)는 유지.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
+
+| # | 놓친 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | `node --test <dir>` 가 Node 22.22 에서 실패 (설계는 `scripts/` 디렉토리 인자 가정) | ✅ 구현함 — `"scripts/*.test.mjs"` 인용 glob 으로 변경 | 로컬 재현 + `node --test` glob 지원 (Node 21+) |
+| 2 | latest.yml 의 `size` 가 문자열로 파싱되어 숫자 비교 시 불일치 가능 | ✅ 구현함 — `Number(entry.size) !== actualSize` 로 정규화 비교 | `validate-dist.mjs` · 테스트 고정 |
+| 3 | 본 컨테이너에서 `npm ci` 의 electron postinstall 이 403 으로 실패 (알려진 환경 제약, 0019/0085 동일) | ✅ 대응 — `ELECTRON_SKIP_BINARY_DOWNLOAD=1` 로 의존성 설치 후 게이트 실행. CI(windows-latest)에는 영향 없음(egress 정상) | npm 로그 · INDEX 0019/0085 비고 |
+
+## [구현자 기입] 구현 체크리스트
+
+- [x] `app/package.json` version 0.1.0 + lock 동기화 + test 스크립트 glob 화
+- [x] `.github/workflows/ci.yml` · `.github/workflows/release.yml` (js-yaml 파스 확인)
+- [x] 스크립트 3종 + `node --test` 테스트 3종 (24 tests)
+- [x] `docs/guides/release-operations.md` (절차·수동 체크리스트·롤백·unsigned·트러블슈팅)
+- [x] 게이트 실행 (아래 보고)
+
+## [구현자 기입] 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `app/package.json` · `app/package-lock.json` · `.github/workflows/{ci,release}.yml`(신규) · `app/scripts/validate-release-version.{mjs,test.mjs}` · `app/scripts/check-migrations-appendonly.{mjs,test.mjs}` · `app/scripts/validate-dist.{mjs,test.mjs}`(신규 6) · `docs/guides/release-operations.md`(신규) |
+| 실행 명령 | `npm run lint` / `npm run typecheck` / `npm test` / `node --test "scripts/*.test.mjs"` / CLI 스모크(`validate-release-version` 일치·불일치, `check-migrations-appendonly` 실저장소 12개 sync ok + 첫 릴리스 스킵) |
+| 게이트 결과 | lint ✅ / typecheck 3종 ✅ / test: vitest **773/773 passed** + node --test **24/24 passed** (vitest 3개 스위트는 electron 바이너리 403 환경 제약으로 로드 실패 — 0019/0085 와 동일 계열, 본 변경 무관·`src` 마이그레이션/업데이트 테스트는 전부 green) |
+| 블로커 / 역질문 | 없음. 단 release.yml `workflow_dispatch` dry-run 과 실 NSIS 빌드는 main 머지 후에만 실기 가능(설계 §검증 방법 그대로) |
+| 대상 커밋 | (커밋 B hash — 커밋 후 INDEX 에 기재) |
