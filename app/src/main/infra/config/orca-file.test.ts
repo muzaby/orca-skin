@@ -41,6 +41,43 @@ describe('parseOrcaFile', () => {
     expect(config).toEqual({ version: 1 })
   })
 
+  it('update 설정을 파싱한다', () => {
+    expect(
+      parseOrcaFile(
+        JSON.stringify({
+          version: 1,
+          update: { provider: 'github', owner: 'company', repo: 'orca', channel: 'latest' }
+        })
+      ).config.update
+    ).toEqual({ provider: 'github', owner: 'company', repo: 'orca', channel: 'latest' })
+
+    expect(
+      parseOrcaFile(
+        JSON.stringify({
+          version: 1,
+          update: { provider: 'generic', url: 'https://updates.example.com/orca/latest' }
+        })
+      ).config.update
+    ).toEqual({ provider: 'generic', url: 'https://updates.example.com/orca/latest' })
+
+    expect(
+      parseOrcaFile(JSON.stringify({ version: 1, update: { enabled: false } })).config.update
+    ).toEqual({
+      enabled: false
+    })
+  })
+
+  it('잘못된 update 설정은 최상위 스키마 위반으로 기본값 처리한다', () => {
+    expect(
+      parseOrcaFile(JSON.stringify({ version: 1, update: { provider: 'generic', url: 'not-url' } }))
+        .warnings[0]
+    ).toContain('최상위 스키마 위반')
+    expect(
+      parseOrcaFile(JSON.stringify({ version: 1, update: { provider: 'github', owner: 'x' } }))
+        .config
+    ).toEqual({ version: 1 })
+  })
+
   it('JSON 손상 시 기본값으로 동작한다', () => {
     const { config, warnings } = parseOrcaFile('{ bad json')
     expect(config).toEqual({ version: 1 })

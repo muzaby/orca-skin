@@ -8,7 +8,7 @@
 ## 1. 명명 규칙
 
 - 형식: `orca:<domain>:<action>` — 소문자 + 콜론 구분
-- 도메인 (17개): `chat`, `backend`, `agent`, `engine`, `install`, `settings`, `skills`, `files`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `concurrency`, `permission`, `debug`(dev 전용)
+- 도메인 (18개): `chat`, `backend`, `agent`, `engine`, `install`, `update`, `settings`, `skills`, `files`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `concurrency`, `permission`, `debug`(dev 전용)
 - 방향:
   - Renderer → Main 요청: `ipcMain.handle` + `ipcRenderer.invoke` (Promise 반환)
   - Main → Renderer 이벤트: `webContents.send` + `ipcRenderer.on` (단방향 push)
@@ -20,9 +20,9 @@
   - 특례: `chat:send` 는 실패를 `error` 이벤트로 회신(§2.1). 입력이 없거나 store 내부 zod 가 검증하는 채널(settings set · mcp add/update)은 `handlePlain`.
 - 출력(main→renderer send) 무검증: `NormalizedEvent` 등의 형상 보증은 어댑터 정규화(`claude-map.ts`)가 담당 — 의도된 설계.
 
-## 2. 채널 카탈로그 (총 57 채널)
+## 2. 채널 카탈로그 (총 63 채널)
 
-도메인별 분포: `chat` 5 (`send` · `event` · `cancel` · `stopSubagent` · `steerCancel`) · `boot` 1 (`report`) · `backend` 1 · `agent` 1 · `engine` 4 · `install` 2 · `settings` 2 · `skills` 7 · `files` 5 · `session` 6 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `cost` 4 · `concurrency` 1 · `permission` 2 (`respond` · `setMode`) · `debug` 2 (dev 전용 — `getMock` · `setMock`).
+도메인별 분포: `chat` 5 (`send` · `event` · `cancel` · `stopSubagent` · `steerCancel`) · `boot` 1 (`report`) · `backend` 1 · `agent` 1 · `engine` 4 · `install` 2 · `update` 6 · `settings` 2 · `skills` 7 · `files` 5 · `session` 6 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `cost` 4 · `concurrency` 1 · `permission` 2 (`respond` · `setMode`) · `debug` 2 (dev 전용 — `getMock` · `setMock`).
 
 `app/src/shared/ipc.ts` 의 `CHANNELS` 상수와 1:1 일치. **단, `debug` 2채널은 `import.meta.env.DEV` 일 때만 `ipcMain.handle` 로 등록된다** (CHANNELS 상수 문자열은 상존하나 prod 핸들러 미등록 — §2.13 참조).
 
@@ -73,6 +73,20 @@
 | --------------------- | ------------ | --------------------------------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `orca:install:start`  | R→M (invoke) | `StartInstall` = `{ backend: Backend }` | `Promise<void>` (ack)                                                                                 | 백엔드 설치 시작. 진행 상태는 `orca:install:status` 스트림. **현재 claude 는 SDK `optionalDependencies` 가 binary 를 자동 해소** 하므로 즉시 `done: true` 반환. |
 | `orca:install:status` | M→R (send)   | —                                       | `InstallStatus` = `{ step: string; progress?: number; log?: string; error?: string; done?: boolean }` | 설치 라인별 진행 이벤트.                                                                                                                                        |
+
+
+### 2.3-b Update
+
+| 채널 | 방향 | 페이로드 | 응답/스트림 | 설명 |
+| --- | --- | --- | --- | --- |
+| `orca:update:state` | R→M (invoke) | — | `UpdateState` | main updater 상태 캐시 스냅샷. renderer Provider mount 시 event 유실을 복구하기 위해 조회한다. |
+| `orca:update:check` | R→M (invoke) | — | `UpdateCheckResult` | 사용자 명시 재확인. 시작 자동 확인과 달리 실패 시 error state를 반환한다. |
+| `orca:update:download` | R→M (invoke) | — | `UpdateCheckResult` | `available` 상태에서 사용자 버튼으로 다운로드를 시작한다. `autoDownload=false`라 앱 시작 확인은 다운로드를 자동 시작하지 않는다. |
+| `orca:update:quitAndInstall` | R→M (invoke) | — | `UpdateInstallResult` | 다운로드 완료 후 사용자 명시 액션으로만 호출한다. main은 restart gate를 재확인하고 install lock 설정 후 idle runtime을 close한 뒤 `quitAndInstall(false, true)`를 호출한다. |
+| `orca:update:stateEvent` | M→R (send) | `UpdateState` | — | updater event와 restart gate 변화 상태를 모든 창에 push한다. |
+| `orca:update:progressEvent` | M→R (send) | `UpdateProgress` | — | 다운로드 진행률 DTO를 push한다. |
+
+`UpdateState.status` = `idle | checking | available | downloading | ready | installing | error`. 일반 앱 종료/창 닫기/OS shutdown은 업데이트 자동 설치 경로가 아니며, 설치는 update dialog의 사용자 명시 액션으로만 진입한다.
 
 ### 2.4 Settings
 

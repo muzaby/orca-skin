@@ -46,6 +46,8 @@ import { registerMcpHandlers } from './handlers/mcp'
 import { registerEngineHandlers } from './handlers/engine'
 import { registerMiscHandlers } from './handlers/misc'
 import { registerBootHandlers } from './handlers/boot'
+import { registerUpdateHandlers } from './handlers/update'
+import { createNoopUpdater, loadElectronAutoUpdater, UpdateController } from './updater'
 import { registerChatHandlers } from './chat-turn'
 import { createBootReportRecorder } from './boot-report'
 import { RuntimeSupervisor } from '../features/sessions/supervisor'
@@ -88,6 +90,7 @@ export class Bootstrap {
   private bus?: MainBus<Electron.WebContents>
   private activeDbWriteCount = 0
   private isIndexing = false
+  private updates: UpdateController | null = null
 
   private builtinSkillsDir(): string {
     return resolveBuiltinSkillsDir({
@@ -251,7 +254,8 @@ export class Bootstrap {
       getCwd: (projectId) => getWorkspacePath(projectId ? db.getProject(projectId) : null),
       getBootReport: () => this.bootReport.getReport(),
       debugMock: this.debugMock,
-      mockAdapter: import.meta.env.DEV ? new MockAdapter(() => this.debugMock) : null
+      mockAdapter: import.meta.env.DEV ? new MockAdapter(() => this.debugMock) : null,
+      updates: this.createUpdateController()
     }
     this.register(ctx)
   }
@@ -264,6 +268,33 @@ export class Bootstrap {
       activeDbWriteCount: this.activeDbWriteCount,
       isIndexing: this.isIndexing
     }
+  }
+
+  prepareForUpdateInstall(): void {
+    this.supervisor?.closeIdleRuntimes()
+  }
+
+  updateStateChanged(): void {
+    this.updates?.refreshGate()
+  }
+
+  isUpdateInstallPending(): boolean {
+    return this.updates?.isInstallPending() ?? false
+  }
+
+  async checkForUpdatesOnStartup(): Promise<void> {
+    await this.updates?.check(true)
+  }
+
+  private createUpdateController(): UpdateController {
+    if (this.updates) return this.updates
+    const updater = loadElectronAutoUpdater() ?? createNoopUpdater()
+    this.updates = new UpdateController({
+      updater,
+      restartGateState: () => this.restartGateState(),
+      prepareForUpdateInstall: () => this.prepareForUpdateInstall()
+    })
+    return this.updates
   }
 
   // 앱 종료 정리(index.ts will-quit → closeDb 직전 동기 호출). 진행 중 모든 턴의 열린 도구를
@@ -292,9 +323,10 @@ export class Bootstrap {
   private register(ctx: RouterContext): void {
     // chat 턴 파이프라인 조립 — 레지스트리(세션 키잉) · persist · 제목 생성 · 승인 조정.
     const supervisor = (this.supervisor = new RuntimeSupervisor<Electron.WebContents>({
-      activeTurns: new ActiveTurnTracker((projectId, count) =>
+      activeTurns: new ActiveTurnTracker((projectId, count) => {
         broadcastConcurrency({ projectId, count })
-      ),
+        this.updateStateChanged()
+      }),
       // 0067: 장수명 채널 거버넌스 — 동시 생존 런타임 cap 5(사용자 확정), 초과 시 idle LRU 축출.
       // 세션 수명 = 프로그램 종료(shutdown→closeIdleRuntimes) or 이 축출뿐(IdleCloseTimer 폐기).
       capPolicy: new BoundedRuntimeCapPolicy(),
@@ -335,7 +367,8 @@ export class Bootstrap {
       approvals,
       persistence,
       permissionModes,
-      pendingMessages
+      pendingMessages,
+      isUpdateInstallPending: () => this.isUpdateInstallPending()
     })
     approvals.registerHandlers(supervisor, permissionModes)
 
@@ -344,6 +377,7 @@ export class Bootstrap {
     registerMcpHandlers(ctx)
     registerEngineHandlers(ctx)
     registerBootHandlers(ctx)
+    registerUpdateHandlers(ctx)
     registerMiscHandlers(ctx)
   }
 }

@@ -68,8 +68,51 @@ export const CHANNELS = {
   engineUpdate: 'orca:engine:update',
   engineDelete: 'orca:engine:delete',
   engineRead: 'orca:engine:read',
-  notifyShow: 'orca:notify:show'
+  notifyShow: 'orca:notify:show',
+  updateState: 'orca:update:state',
+  updateCheck: 'orca:update:check',
+  updateDownload: 'orca:update:download',
+  updateQuitAndInstall: 'orca:update:quitAndInstall',
+  updateStateEvent: 'orca:update:stateEvent',
+  updateProgressEvent: 'orca:update:progressEvent'
 } as const
+
+export type UpdateStateStatus =
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'downloading'
+  | 'ready'
+  | 'installing'
+  | 'error'
+export interface UpdateProgress {
+  percent: number
+  transferred?: number
+  total?: number
+  bytesPerSecond?: number
+}
+export interface UpdateState {
+  status: UpdateStateStatus
+  currentVersion: string
+  availableVersion?: string
+  releaseNotes?: string | null
+  progress?: UpdateProgress
+  canInstall: boolean
+  installBlockReason?: string
+  error?: string
+  lastError?: string
+  checkedAt?: number
+}
+export interface UpdateCheckResult {
+  ok: boolean
+  state: UpdateState
+  reason?: 'feed-not-configured' | 'check-failed' | 'not-available' | 'download-failed'
+}
+export interface UpdateInstallResult {
+  ok: boolean
+  reason?: 'not-ready' | 'not-idle' | 'internal-error'
+  message?: string
+}
 
 export type BootReportStatus = 'ok' | 'warning' | 'failed'
 
