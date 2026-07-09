@@ -29,9 +29,15 @@ const SCENARIO_LABELS: Record<MockScenarioId, string> = {
 
 const SCENARIO_OPTIONS = MOCK_SCENARIO_IDS.map((id) => ({ value: id, label: SCENARIO_LABELS[id] }))
 
-// ssoSection: app 레이어가 주입하는 "SSO 로그인" 그룹(features/login). features 교차
-// import 를 피하려고 슬롯 prop 으로 받는다(없으면 미표시).
-export function DebugPanel({ ssoSection }: { ssoSection?: ReactNode }): React.JSX.Element {
+// ssoSection/updateSection: app 레이어가 주입하는 그룹(features/login·features/update).
+// features 교차 import 를 피하려고 슬롯 prop 으로 받는다(없으면 미표시).
+export function DebugPanel({
+  ssoSection,
+  updateSection
+}: {
+  ssoSection?: ReactNode
+  updateSection?: ReactNode
+}): React.JSX.Element {
   const { t, setTweak } = useTweakContext()
   const { state, setMock } = useDebugMock()
 
@@ -86,6 +92,7 @@ export function DebugPanel({ ssoSection }: { ssoSection?: ReactNode }): React.JS
         value={t.sidebarCollapsed}
         onChange={(v) => setTweak('sidebarCollapsed', v)}
       />
+      {updateSection}
       {ssoSection}
     </FloatingPanel>
   )

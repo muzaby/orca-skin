@@ -5,7 +5,7 @@ import { SsoDebugSection } from '../features/login'
 import { InstallerDialog, AuthExpiredModal } from '../features/backend'
 import { ConfirmDialogHost } from '../shared/ui/ConfirmDialogHost'
 import { SearchModal } from './SearchModal'
-import { UpdateDialog, useUpdateDialogOpen } from '../features/update'
+import { UpdateDebugSection, UpdateDialog, useUpdateDialogOpen } from '../features/update'
 
 interface OverlayLayerProps {
   searchOpen: boolean
@@ -59,7 +59,9 @@ export function OverlayLayer({ searchOpen, onCloseSearch }: OverlayLayerProps): 
       </div>
       <div id="app-frame-debug" className="pointer-events-none z-30" data-context="debug">
         <div className="pointer-events-auto">
-          {import.meta.env.DEV && <DebugPanel ssoSection={<SsoDebugSection />} />}
+          {import.meta.env.DEV && (
+            <DebugPanel ssoSection={<SsoDebugSection />} updateSection={<UpdateDebugSection />} />
+          )}
         </div>
       </div>
     </>

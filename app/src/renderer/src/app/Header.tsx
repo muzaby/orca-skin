@@ -94,15 +94,27 @@ export const Header = memo(function Header({ onOpenSearch }: HeaderProps): React
           onClick={() => navigate(1)}
         />
         {showUpdateButton && (
-          <Button
-            iconOnly
-            size="small"
-            leadingIcon="download"
-            aria-label="업데이트"
-            pressed={updateState.status === 'ready'}
-            busy={updateState.status === 'downloading' || updateState.status === 'installing'}
-            onClick={updateActions.openDialog}
-          />
+          <span className="relative flex">
+            <Button
+              iconOnly
+              size="small"
+              leadingIcon="download"
+              aria-label="업데이트"
+              pressed={updateState.status === 'ready'}
+              busy={updateState.status === 'downloading' || updateState.status === 'installing'}
+              onClick={updateActions.openDialog}
+            />
+            {/* 업데이트 있음 표시 — 우측 상단 파란 동그라미(--color-indigo 재사용). */}
+            {updateState.status === 'available' && (
+              <svg
+                aria-hidden
+                viewBox="0 0 8 8"
+                className="pointer-events-none absolute -right-0.5 -top-0.5 h-2 w-2 text-indigo"
+              >
+                <circle cx="4" cy="4" r="4" fill="currentColor" />
+              </svg>
+            )}
+          </span>
         )}
       </div>
       <div className="app-frame-header-center relative z-[1] flex-1" aria-hidden />
