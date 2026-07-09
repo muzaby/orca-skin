@@ -155,6 +155,7 @@ app.whenReady().then(async () => {
   routerRef = router
 
   createWindow(router.settings)
+  void router.checkForUpdatesOnStartup()
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow(router.settings)

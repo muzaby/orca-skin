@@ -40,7 +40,11 @@ import {
   type CreateEngineRequest,
   type UpdateEngineRequest,
   type EngineReadResult,
-  type EngineWriteResult
+  type EngineWriteResult,
+  type UpdateState,
+  type UpdateProgress,
+  type UpdateCheckResult,
+  type UpdateInstallResult
 } from '../shared/ipc'
 
 // Phase 2 노출 표면 — renderer 가 실제 사용하는 6개 채널만.
@@ -198,6 +202,23 @@ const orca = {
   // OS 네이티브 알림(응답완료 등). main 이 창 포커스 여부로 표시를 게이트한다.
   notify: {
     show: (req: NotifyShow): Promise<void> => ipcRenderer.invoke(CHANNELS.notifyShow, req)
+  },
+  update: {
+    state: (): Promise<UpdateState> => ipcRenderer.invoke(CHANNELS.updateState),
+    check: (): Promise<UpdateCheckResult> => ipcRenderer.invoke(CHANNELS.updateCheck),
+    download: (): Promise<UpdateCheckResult> => ipcRenderer.invoke(CHANNELS.updateDownload),
+    quitAndInstall: (): Promise<UpdateInstallResult> =>
+      ipcRenderer.invoke(CHANNELS.updateQuitAndInstall),
+    onState: (handler: (state: UpdateState) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, state: UpdateState): void => handler(state)
+      ipcRenderer.on(CHANNELS.updateStateEvent, listener)
+      return () => ipcRenderer.off(CHANNELS.updateStateEvent, listener)
+    },
+    onProgress: (handler: (progress: UpdateProgress) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, progress: UpdateProgress): void => handler(progress)
+      ipcRenderer.on(CHANNELS.updateProgressEvent, listener)
+      return () => ipcRenderer.off(CHANNELS.updateProgressEvent, listener)
+    }
   },
   // 데스크톱 플랫폼 식별자. renderer 의 `<html data-platform>` 에 부착되고,
   // WinControls 가 macOS 에서 null 을 반환하는 분기 등에 사용.

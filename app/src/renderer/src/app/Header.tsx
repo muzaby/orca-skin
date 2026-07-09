@@ -8,6 +8,7 @@ import { Modal } from '../shared/ui/Modal'
 import { OrcaLogo } from '../shared/ui/OrcaLogo'
 import { useTweakContext } from '../shared/theme'
 import { getPlatform, windowApi } from '../shared/api/ipc'
+import { updateActions, useUpdateState } from '../features/update'
 
 // React 의 CSSProperties 에는 WebkitAppRegion 이 없어 명시 캐스팅.
 const DRAG_STYLE: CSSProperties = { WebkitAppRegion: 'drag' } as CSSProperties
@@ -31,6 +32,10 @@ export const Header = memo(function Header({ onOpenSearch }: HeaderProps): React
   const [menuOpen, setMenuOpen] = useState(false)
   const [versionOpen, setVersionOpen] = useState(false)
   const menuAnchorRef = useRef<HTMLButtonElement>(null)
+  const updateState = useUpdateState()
+  const showUpdateButton = ['available', 'downloading', 'ready', 'installing'].includes(
+    updateState.status
+  )
 
   return (
     <header
@@ -88,6 +93,17 @@ export const Header = memo(function Header({ onOpenSearch }: HeaderProps): React
           aria-label="앞으로 가기"
           onClick={() => navigate(1)}
         />
+        {showUpdateButton && (
+          <Button
+            iconOnly
+            size="small"
+            leadingIcon="download"
+            aria-label="업데이트"
+            pressed={updateState.status === 'ready'}
+            busy={updateState.status === 'downloading' || updateState.status === 'installing'}
+            onClick={updateActions.openDialog}
+          />
+        )}
       </div>
       <div className="app-frame-header-center relative z-[1] flex-1" aria-hidden />
       <div

@@ -9,16 +9,51 @@ import { z } from 'zod'
 import { orcaJsonPath } from './paths'
 import { writeJsonAtomic } from './json-file'
 
+const DisabledUpdateConfigSchema = z.object({
+  enabled: z.literal(false),
+  provider: z.enum(['github', 'generic']).optional(),
+  owner: z.string().min(1).optional(),
+  repo: z.string().min(1).optional(),
+  url: z.string().url().optional(),
+  channel: z.string().min(1).optional()
+})
+
+const GithubUpdateConfigSchema = z.object({
+  enabled: z.boolean().optional(),
+  provider: z.literal('github'),
+  owner: z.string().min(1),
+  repo: z.string().min(1),
+  channel: z.string().min(1).optional()
+})
+
+const GenericUpdateConfigSchema = z.object({
+  enabled: z.boolean().optional(),
+  provider: z.literal('generic'),
+  url: z.string().url(),
+  channel: z.string().min(1).optional()
+})
+
+const UpdateConfigSchema = z.union([
+  DisabledUpdateConfigSchema,
+  GithubUpdateConfigSchema,
+  GenericUpdateConfigSchema
+])
+
 const OrcaConfigTopSchema = z.object({
   version: z.literal(1),
-  env: z.record(z.string(), z.string()).optional()
+  env: z.record(z.string(), z.string()).optional(),
+  update: UpdateConfigSchema.optional()
 })
+
+export type UpdateConfig = z.infer<typeof UpdateConfigSchema>
 
 export interface OrcaConfig {
   version: 1
   // 앱 전역 env (${VAR} 플레이스홀더 허용 — 확장은 소비 시점). 모든 어댑터 subprocess 에
   // 공통 베이스로 병합된다. provider 별 env 는 settings.json 의 env 블록이 담당.
   env?: Record<string, string>
+  // 자동 업데이트 feed override. token/API key 는 저장하지 않는다.
+  update?: UpdateConfig
 }
 
 export interface ParseOrcaFileResult {
@@ -62,7 +97,11 @@ export function parseOrcaFile(raw: string): ParseOrcaFileResult {
     )
   }
   return {
-    config: { version: 1, ...(top.data.env ? { env: top.data.env } : {}) },
+    config: {
+      version: 1,
+      ...(top.data.env ? { env: top.data.env } : {}),
+      ...(top.data.update ? { update: top.data.update } : {})
+    },
     warnings
   }
 }

@@ -12,6 +12,7 @@ import type { UsageTracker } from '../features/usage/tracker'
 import type { SecretStore } from '../infra/config/secret-store'
 import type { ExtensionBuilder } from '../features/extensions/builder'
 import type { ProviderSettingsService } from '../features/providers/provider-settings'
+import type { UpdateController } from './updater'
 
 export interface RouterContext {
   db: DbQueries
@@ -37,4 +38,5 @@ export interface RouterContext {
   getBootReport(): BootReport
   debugMock: DebugMockState
   mockAdapter: MockAdapter | null
+  updates: UpdateController
 }
