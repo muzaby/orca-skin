@@ -157,3 +157,6 @@ sketch
 # End of https://www.toptal.com/developers/gitignore/api/react,node
 # uv 바이너리 (Python 런타임 동봉) — scripts/fetch-uv.mjs 로 빌드 전 생성, 커밋하지 않음
 resources/bin/
+
+# better-sqlite3 ABI 보장 마커 — scripts/ensure-sqlite-abi.mjs 가 로컬 node/electron ABI 상태를 기록
+node_modules/.cache/orca/

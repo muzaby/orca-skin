@@ -102,12 +102,14 @@ new BrowserWindow({
 
 | 스크립트                  | 동작                                                                                          |
 | ------------------------- | --------------------------------------------------------------------------------------------- |
-| `npm run dev`             | electron-vite dev (HMR). |
-| `npm run build`           | `tsc --noEmit && electron-vite build` → `out/`                                                 |
+| `npm run dev`             | `predev` 에서 better-sqlite3 Electron ABI 보장 후 electron-vite dev (HMR). |
+| `npm run build`           | `prebuild` 에서 better-sqlite3 Electron ABI 보장 후 `tsc --noEmit && electron-vite build` → `out/` |
 | `npm run build:{win,mac,linux}` | electron-builder 플랫폼 배포 산출                                                        |
 | `npm run typecheck`       | `tsc --noEmit` (node + web tsconfig 분리)                                                      |
 | `npm run lint` / `format` | ESLint (boundaries 포함) / Prettier                                                            |
-| `npm test`                | `vitest run` — 순수 함수 단위 (electron 비의존). `test:watch` = watch                          |
+| `npm test`                | `pretest` 에서 better-sqlite3 Node ABI 보장 후 `vitest run` + ABI 보장 스크립트 단위 테스트. `test:watch` = watch |
+
+> `better-sqlite3` 네이티브 모듈은 Electron 런타임 ABI 와 plain Node/Vitest ABI 를 동시에 만족할 수 없다. `scripts/ensure-sqlite-abi.mjs` 가 `pretest`(Node)·`predev`/`prebuild`/`postinstall`(Electron) 진입점에서 현재 target ABI 를 멱등 보장한다. 수동 `npm rebuild better-sqlite3` 를 게이트 통과 절차로 요구하지 않는다.
 
 ## 에이전트 원칙 (app 고유)
 
