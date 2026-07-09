@@ -1,0 +1,86 @@
+# internal-release — v* 태그 push 시 unsigned NSIS installer 를 빌드해 GitHub Releases
+# **draft** 에 게시한다 (installer + latest.yml + blockmap). draft 를 Publish 하는 순간이
+# 사용자 배포 시점이다 — electron-updater 는 published release 만 피드로 본다.
+# workflow_dispatch 는 항상 dry-run: 게시 없이 빌드 + 검증 + workflow artifact 업로드만.
+#
+# 서명 없음(사내용): 코드 서명 설정/CSC_* env 를 의도적으로 두지 않는다. 다운로드 무결성은
+# latest.yml 의 sha512(electron-updater 가 다운로드 시 강제)로 보장하며, validate-dist.mjs
+# 가 빌드 시점에 이를 대조한다. 운영 절차는 docs/guides/release-operations.md 참조.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.ref }}
+
+jobs:
+  release:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # append-only 가드가 직전 v* 태그와 diff 하기 위해 전체 이력 + 태그 필요
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      # npm ci 전에 fail-fast (두 스크립트 모두 의존성 0)
+      - name: Validate version (tag == package.json)
+        run: node scripts/validate-release-version.mjs "${{ github.ref_type == 'tag' && github.ref_name || '' }}"
+
+      - name: Migration guard (sync + append-only)
+        run: node scripts/check-migrations-appendonly.mjs "${{ github.ref_type == 'tag' && github.ref_name || '' }}"
+
+      # postinstall 이 better-sqlite3 를 electron ABI 로 보장한다
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # pretest 가 node ABI 로 전환 — DB 마이그레이션 테스트(migrate.test.ts) 포함
+      - name: Test
+        run: npm test
+
+      # prebuild 가 electron ABI 로 복귀시킨다. npm run 인자는 스크립트 끝의
+      # electron-builder --win 에 붙는다 — npx electron-builder 직접 호출은 ABI 훅 우회라 금지.
+      - name: Build + publish draft release (tag only)
+        if: github.ref_type == 'tag'
+        run: npm run build:win -- --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build only (dry run)
+        if: github.ref_type != 'tag'
+        run: npm run build:win -- --publish never
+
+      - name: Validate dist artifacts (latest.yml / sha512 / blockmap)
+        run: node scripts/validate-dist.mjs "${{ github.ref_type == 'tag' && github.ref_name || '' }}"
+
+      # 게시 여부와 무관하게 산출물을 보존한다 — 롤백 스태시 겸 dry-run 결과 확인용
+      - uses: actions/upload-artifact@v4
+        with:
+          name: orca-win-${{ github.ref_name }}
+          path: |
+            app/dist/*-setup.exe
+            app/dist/*-setup.exe.blockmap
+            app/dist/latest.yml
+          if-no-files-found: error

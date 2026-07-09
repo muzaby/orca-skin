@@ -1,0 +1,57 @@
+# 상시 게이트 — 저장소 게이트 정본(cd app && npm run lint && npm run typecheck && npm test)을
+# 배포 타깃과 같은 windows 러너에서 실행한다 (better-sqlite3 Windows prebuild +
+# ensure-sqlite-abi.mjs 의 win32 분기 실기). docs 위주 커밋이 많아 paths 필터를 둔다.
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'app/**'
+      - '.github/workflows/**'
+  pull_request:
+    paths:
+      - 'app/**'
+      - '.github/workflows/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # 마이그레이션 append-only 가드가 직전 v* 태그와 diff 하기 위해 전체 이력 필요
+          fetch-depth: 0
+          fetch-tags: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      # postinstall 이 better-sqlite3 를 electron ABI 로 보장한다
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Migration guard (sync + append-only)
+        run: node scripts/check-migrations-appendonly.mjs
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # pretest 가 better-sqlite3 를 node ABI 로 전환한다 (migrate.test.ts 포함)
+      - name: Test
+        run: npm test
