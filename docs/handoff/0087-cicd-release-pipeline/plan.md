@@ -168,4 +168,4 @@
 | 실행 명령 | `npm run lint` / `npm run typecheck` / `npm test` / `node --test "scripts/*.test.mjs"` / CLI 스모크(`validate-release-version` 일치·불일치, `check-migrations-appendonly` 실저장소 12개 sync ok + 첫 릴리스 스킵) |
 | 게이트 결과 | lint ✅ / typecheck 3종 ✅ / test: vitest **773/773 passed** + node --test **24/24 passed** (vitest 3개 스위트는 electron 바이너리 403 환경 제약으로 로드 실패 — 0019/0085 와 동일 계열, 본 변경 무관·`src` 마이그레이션/업데이트 테스트는 전부 green) |
 | 블로커 / 역질문 | 없음. 단 release.yml `workflow_dispatch` dry-run 과 실 NSIS 빌드는 main 머지 후에만 실기 가능(설계 §검증 방법 그대로) |
-| 대상 커밋 | (커밋 B hash — 커밋 후 INDEX 에 기재) |
+| 대상 커밋 | `fb72b1e` |
