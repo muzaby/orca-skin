@@ -214,4 +214,4 @@
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
-| D1 | … | 구현자 코멘트 §… / 사용자 / verify r<N> | … | open / 구현중 / 해결 |
+| D1 | AC9 신규 테스트 열거 2/3 미충족 — (a) `updateStore` 순수 전이 단위 테스트, (b) 설치 게이트 분기(`computeUpdateInstallGate` idle↔비-idle · `UpdateController.quitAndInstall` not-ready/not-idle/이중 재확인) 단위 테스트. `canRestartForUpdate` 는 0084 로 커버되나 0085 가 얹은 이중 게이트 재확인·installPending 락 분기는 무테스트(안전 크리티컬). | verify r1 §매트릭스 AC9 / §자기리뷰 | 게이트 판정부를 electron 비의존 순수 모듈로 분리하는 seam 선행 후 단위 테스트 추가(후속 라운드 또는 Claude 비기능 직접). | **open** |
