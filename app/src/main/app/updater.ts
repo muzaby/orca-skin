@@ -108,8 +108,8 @@ export class UpdateController {
     return this.installPending
   }
   refreshGate(): void {
-    const gate = computeUpdateInstallGate(this.deps.restartGateState())
-    this.patch({ canInstall: gate.canInstall, installBlockReason: gate.reason })
+    // patch() 가 게이트를 재계산·반영·broadcast 하므로 빈 패치면 충분(중복 계산 제거).
+    this.patch({})
   }
   async check(startup: boolean): Promise<UpdateCheckResult> {
     if (this.disabled || !app.isPackaged) {

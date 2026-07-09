@@ -23,10 +23,15 @@ export function sendChatEvent(wc: WebContents, ev: NormalizedEvent): void {
   if (!wc.isDestroyed()) wc.send(CHANNELS.chatEvent, ev)
 }
 
-export function broadcastConcurrency(ev: ConcurrencyEvent): void {
+// owner 무관 전-창 팬아웃 — 살아있는 webContents 전부에 push.
+function broadcast(channel: string, payload: unknown): void {
   for (const wc of webContents.getAllWebContents()) {
-    if (!wc.isDestroyed()) wc.send(CHANNELS.concurrencyEvent, ev)
+    if (!wc.isDestroyed()) wc.send(channel, payload)
   }
+}
+
+export function broadcastConcurrency(ev: ConcurrencyEvent): void {
+  broadcast(CHANNELS.concurrencyEvent, ev)
 }
 
 export function sendInstallStatus(wc: WebContents, st: InstallStatus): void {
@@ -34,19 +39,13 @@ export function sendInstallStatus(wc: WebContents, st: InstallStatus): void {
 }
 
 export function broadcastSessionTitle(ev: SessionTitleEvent): void {
-  for (const wc of webContents.getAllWebContents()) {
-    if (!wc.isDestroyed()) wc.send(CHANNELS.sessionTitleEvent, ev)
-  }
+  broadcast(CHANNELS.sessionTitleEvent, ev)
 }
 
 export function broadcastUpdateState(state: UpdateState): void {
-  for (const wc of webContents.getAllWebContents()) {
-    if (!wc.isDestroyed()) wc.send(CHANNELS.updateStateEvent, state)
-  }
+  broadcast(CHANNELS.updateStateEvent, state)
 }
 
 export function broadcastUpdateProgress(progress: UpdateProgress): void {
-  for (const wc of webContents.getAllWebContents()) {
-    if (!wc.isDestroyed()) wc.send(CHANNELS.updateProgressEvent, progress)
-  }
+  broadcast(CHANNELS.updateProgressEvent, progress)
 }
