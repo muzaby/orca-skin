@@ -5,6 +5,7 @@ import { SsoDebugSection } from '../features/login'
 import { InstallerDialog, AuthExpiredModal } from '../features/backend'
 import { ConfirmDialogHost } from '../shared/ui/ConfirmDialogHost'
 import { SearchModal } from './SearchModal'
+import { UpdateDialog, useUpdateDialogOpen } from '../features/update'
 
 interface OverlayLayerProps {
   searchOpen: boolean
@@ -20,7 +21,8 @@ interface OverlayLayerProps {
 export function OverlayLayer({ searchOpen, onCloseSearch }: OverlayLayerProps): React.JSX.Element {
   const installerOpen = useInstallerOpen()
   const authExpired = useChatSession((s) => s.error?.category === 'auth_error')
-  const modalActive = installerOpen || authExpired || searchOpen
+  const updateOpen = useUpdateDialogOpen()
+  const modalActive = installerOpen || authExpired || searchOpen || updateOpen
 
   return (
     <>
@@ -52,6 +54,7 @@ export function OverlayLayer({ searchOpen, onCloseSearch }: OverlayLayerProps): 
           onDismiss={chatActions.clearError}
         />
         {searchOpen && <SearchModal onClose={onCloseSearch} />}
+        <UpdateDialog open={updateOpen} />
         <ConfirmDialogHost />
       </div>
       <div id="app-frame-debug" className="pointer-events-none z-30" data-context="debug">

@@ -151,28 +151,62 @@
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- 동의 / 그대로 진행: …
-- 이견 / 우려: …
+- 동의 / 그대로 진행:
+  - 앱 시작 후 silent update check.
+  - main update state cache + renderer snapshot invoke.
+  - update IPC / preload / renderer updateApi / store/provider 패턴.
+  - Header 조건부 update affordance.
+  - OverlayLayer blocking update dialog.
+  - `canRestartForUpdate(restartGateState())` 기반 idle-gated install.
+- 사용자 확정 정책 반영으로 원 설계에서 조정:
+  - 원 plan의 `autoInstallOnAppQuit` 기본 유지 방향은 superseded 되었다. 구현은 `autoInstallOnAppQuit=false`로 고정했다.
+  - 다운로드는 사용자 명시 액션으로만 수행하므로 `autoDownload=false`를 유지했다.
+  - 원 plan의 generic placeholder 기본 feed 방향은 superseded 되었다. 기본 publish feed는 GitHub Releases `muzaby/orca-skin`으로 둔다.
+  - 일반 앱 종료/창 닫기/OS shutdown에서는 업데이트를 자동 설치하지 않는다.
+  - 설치는 update modal에서 사용자가 명시적으로 `updateQuitAndInstall`을 호출한 경우에만 시작한다.
+  - 사내/폐쇄망 배포는 `orca.json.update`의 provider/owner/repo/url/enabled/channel override로 처리한다.
+  - 모달 구현은 Orca 디자인 토큰(`bg-panel`, `bg-bg`, `text-ink`, `border-border`, `rounded-r*`)을 준수하고 ESC/backdrop close를 제공하지 않는 update 전용 blocking shell로 구현했다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 구현함 / ⚠️ 보고만·**결정 필요** | … |
+| 1 | `autoInstallOnAppQuit` 기본값이 idle gate를 우회할 수 있음 | ✅ `autoInstallOnAppQuit=false` 명시 | 사용자 결정: 앱 종료 시 자동 설치 미제공 |
+| 2 | startup update event가 renderer subscription 전에 유실될 수 있음 | ✅ main state cache + `updateState` snapshot invoke | init sync 필요 |
+| 3 | `canInstall`이 session 상태 변화 후 stale일 수 있음 | ✅ active turn count 변화 시 `refreshGate()` broadcast | dialog live 반영 |
+| 4 | gate 통과 후 신규 chat turn race | ✅ install lock + chat admission 초입 거부 + quit 직전 gate 재확인 | AC7 race guard |
+| 5 | provider별 releaseNotes/progress DTO 불안정 | ✅ renderer-safe DTO로 정규화 | IPC 안정성 |
+| 6 | public 개인 repo와 사내 org repo가 다름 | ✅ `orca.json.update.owner/repo` override | 폐쇄망/사내 운영 |
+| 7 | GitHub 접근 불가 폐쇄망 | ✅ `provider:'generic'` + internal HTTPS mirror 지원 | 운영 유연성 |
+| 8 | 기존 shared Modal은 ESC/backdrop close가 기본이라 blocking update UX와 충돌 | ✅ update 전용 dialog shell 구현 | 사용자 지시: modal 외 조작 금지 |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] …
+- [x] electron-updater dependency 추가
+- [x] electron-builder GitHub publish 기본값 설정
+- [x] orca.json update override schema 추가
+- [x] main UpdateController 추가
+- [x] autoDownload=false, autoInstallOnAppQuit=false
+- [x] update state cache + broadcast 구현
+- [x] update IPC handlers 구현
+- [x] preload window.orca.update 구현
+- [x] renderer updateApi 구현
+- [x] features/update store/provider/dialog 구현
+- [x] Header update button 조건부 표시
+- [x] OverlayLayer에 UpdateDialog 합성
+- [x] install lock + chat admission guard
+- [x] docs/IPC_CONTRACT.md 갱신
+- [x] zod schema 및 tests 추가
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` |
-| 게이트 결과 | lint ✅ / typecheck ✅ / test ✅ (N passed) |
-| 블로커 / 역질문 | (없으면 "없음") |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | package/builder, main updater/IPC/config/chat admission, shared IPC/protocol, preload, renderer update feature/Header/OverlayLayer/App, IPC contract, handoff plan |
+| 실행 명령 | `npm install electron-updater@^6.6.2` / `npm run lint` / `npm run typecheck` / targeted tests |
+| 게이트 결과 | 구현 턴 최종 보고 참조 |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `<commit after implementation>` |
 
 ---
 

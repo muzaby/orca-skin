@@ -65,6 +65,7 @@ export interface ChatDeps {
   persistence: HistoryWriter
   permissionModes: PermissionModeController
   pendingMessages: PendingMessageQueue
+  isUpdateInstallPending: () => boolean
 }
 
 // renderer forward sink — sendChatEvent 래핑. 코디네이터가 버스를 타지 않는 forward-only 이벤트
@@ -147,7 +148,16 @@ function buildTurnEnv(ctx: RouterContext): Record<string, string> | undefined {
 // 뿐이라 핸들러 서두에 인라인한다.
 
 export function registerChatHandlers(deps: ChatDeps): void {
-  const { ctx, supervisor, bus, approvals, persistence, permissionModes, pendingMessages } = deps
+  const {
+    ctx,
+    supervisor,
+    bus,
+    approvals,
+    persistence,
+    permissionModes,
+    pendingMessages,
+    isUpdateInstallPending
+  } = deps
 
   // settle(취소·서브에이전트 중단) 정착 이벤트를 turn.event 버스로 방출 — 스트리밍과 동일 파이프라인.
   // fault-isolated: 정리 중 구독자 throw 가 핸들러를 깨지 않게 격리한다.
@@ -238,6 +248,18 @@ export function registerChatHandlers(deps: ChatDeps): void {
         error: makeClassifiedError('schema_validation_error', 'invalid chat:send payload', {
           retryable: false
         })
+      })
+      return
+    }
+
+    if (isUpdateInstallPending()) {
+      sendChatEvent(event.sender, {
+        type: 'error',
+        error: makeClassifiedError(
+          'capability_unsupported',
+          '업데이트 설치가 시작되어 새 작업을 시작할 수 없습니다.',
+          { retryable: false }
+        )
       })
       return
     }

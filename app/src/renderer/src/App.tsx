@@ -5,6 +5,7 @@ import { SessionsProvider } from './features/sessions'
 import { ProjectsProvider } from './features/projects'
 import { ChatProvider } from './features/chat'
 import { CostProvider } from './features/cost'
+import { UpdateProvider } from './features/update'
 import { RootGate } from './app/RootGate'
 
 function App(): React.JSX.Element {
@@ -15,9 +16,11 @@ function App(): React.JSX.Element {
           <SessionsProvider>
             <ProjectsProvider>
               <CostProvider>
-                <ChatProvider>
-                  <RootGate />
-                </ChatProvider>
+                <UpdateProvider>
+                  <ChatProvider>
+                    <RootGate />
+                  </ChatProvider>
+                </UpdateProvider>
               </CostProvider>
             </ProjectsProvider>
           </SessionsProvider>

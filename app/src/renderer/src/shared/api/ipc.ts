@@ -38,7 +38,11 @@ import type {
   CreateEngineRequest,
   UpdateEngineRequest,
   EngineReadResult,
-  EngineWriteResult
+  EngineWriteResult,
+  UpdateState,
+  UpdateProgress,
+  UpdateCheckResult,
+  UpdateInstallResult
 } from '../../../../shared/ipc'
 
 // renderer 의 모든 IPC 호출 진입점. window.orca.* 의 얇은 typed 패스-스루로,
@@ -159,6 +163,17 @@ export const costApi = {
 export const permissionApi = {
   respond: (req: PermissionRespond): Promise<void> => window.orca.permission.respond(req),
   setMode: (req: SetPermissionMode): Promise<void> => window.orca.permission.setMode(req)
+}
+
+export const updateApi = {
+  state: (): Promise<UpdateState> => window.orca.update.state(),
+  check: (): Promise<UpdateCheckResult> => window.orca.update.check(),
+  download: (): Promise<UpdateCheckResult> => window.orca.update.download(),
+  quitAndInstall: (): Promise<UpdateInstallResult> => window.orca.update.quitAndInstall(),
+  onState: (handler: (state: UpdateState) => void): (() => void) =>
+    window.orca.update.onState(handler),
+  onProgress: (handler: (progress: UpdateProgress) => void): (() => void) =>
+    window.orca.update.onProgress(handler)
 }
 
 export const debugApi = {

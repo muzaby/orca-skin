@@ -8,7 +8,9 @@ import {
   type ConcurrencyEvent,
   type InstallStatus,
   type NormalizedEvent,
-  type SessionTitleEvent
+  type SessionTitleEvent,
+  type UpdateProgress,
+  type UpdateState
 } from '../../../shared/ipc'
 
 import { wireLog } from './wire-log'
@@ -34,5 +36,17 @@ export function sendInstallStatus(wc: WebContents, st: InstallStatus): void {
 export function broadcastSessionTitle(ev: SessionTitleEvent): void {
   for (const wc of webContents.getAllWebContents()) {
     if (!wc.isDestroyed()) wc.send(CHANNELS.sessionTitleEvent, ev)
+  }
+}
+
+export function broadcastUpdateState(state: UpdateState): void {
+  for (const wc of webContents.getAllWebContents()) {
+    if (!wc.isDestroyed()) wc.send(CHANNELS.updateStateEvent, state)
+  }
+}
+
+export function broadcastUpdateProgress(progress: UpdateProgress): void {
+  for (const wc of webContents.getAllWebContents()) {
+    if (!wc.isDestroyed()) wc.send(CHANNELS.updateProgressEvent, progress)
   }
 }
