@@ -45,6 +45,13 @@ export default defineConfig(
       ]
     }
   },
+
+  {
+    files: ['scripts/**/*.mjs'],
+    rules: {
+      '@typescript-eslint/explicit-function-return-type': 'off'
+    }
+  },
   // Renderer 4-layer 경계 강제 — app → pages → features → shared, features 간 cross-import 금지.
   // CLAUDE.md "Cross-feature 의존 결정 트리" 1번 (feature 간 import 금지) 을 lint 레벨로 보장.
   {

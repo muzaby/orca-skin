@@ -100,18 +100,35 @@ Electron 의 V8 module version 과 플레인 Node 의 그것은 본질적으로 
 
 ## [구현 기입] 구현 체크리스트
 
-- [ ] `scripts/ensure-sqlite-abi.mjs` 멱등 보장(node/electron) + `--check`
-- [ ] `package.json` pretest/predev/prebuild 배선 + postinstall 정합
-- [ ] 보장 스크립트 단위/스모크 테스트
-- [ ] `.gitignore` 마커
-- [ ] `app/AGENTS.md` · `docs/PHASES.md` 동기화
+- [x] `scripts/ensure-sqlite-abi.mjs` 멱등 보장(node/electron) + `--check`
+- [x] `package.json` pretest/predev/prebuild 배선 + postinstall 정합
+- [x] 보장 스크립트 단위/스모크 테스트
+- [x] `.gitignore` 마커
+- [x] `app/AGENTS.md` 동기화
+- [ ] `docs/PHASES.md` 승격 — verify/PASS 단계에서 대상 커밋 확정 후 반영
 
 ## [구현 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` / `build` |
-| 게이트 결과 | lint … / typecheck … / test … / build … |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | `app/package.json`, `app/scripts/ensure-sqlite-abi.mjs`, `app/scripts/ensure-sqlite-abi.test.mjs`, `app/eslint.config.mjs`, `app/.gitignore`, `app/AGENTS.md`, `docs/handoff/0019-test-abi-green/plan.md`, `docs/handoff/INDEX.md` |
+| 실행 명령 | `npm run lint`; `npm run typecheck`; `npm test`; `npm run build`; `npm test`(build 직후 역방향 스모크) |
+| 게이트 결과 | lint 통과; typecheck(node/web/test) 통과; test 784/784 + ABI 스크립트 node:test 6/6 통과; build 통과; build 직후 test 가 Electron ABI → Node ABI 로 재빌드 후 784/784 + 6/6 통과 |
+| 블로커 / 역질문 | 없음. `docs/PHASES.md` 승격은 handoff 규칙상 verify/PASS 시점에 대상 커밋과 함께 반영하는 것이 안전하므로 구현 커밋에서는 보류. |
+| 대상 커밋 | `본 구현 커밋` |
+
+
+## [구현자 기입] 설계 리뷰
+
+- **동의**: dual-ABI 자체를 제거하려 하지 않고, `npm test` 는 Node ABI, `npm run dev`/`npm run build`/`postinstall` 은 Electron ABI 로 각 진입점이 자기 ABI 를 보장한다는 방향이 맞다.
+- **현재 커밋 기준 보정**: 초기 plan 의 `377/377` 숫자는 stale 이다. 현재 HEAD 기준 게이트는 `vitest` 784 tests + ABI 스크립트 `node:test` 6 tests 로 확인했다.
+- **실무 보강**: Electron fast path 를 단순 target marker 가 아니라 `electron`/`better-sqlite3` 버전, Node ABI, lockfile hash 를 포함한 fingerprint 로 구현했다. 단순 마커만 신뢰하면 의존성 변경 뒤 stale binary 를 놓칠 수 있기 때문이다.
+- **실무 보강**: `build:mac` 이 기존에는 `npm run build` 를 우회했으므로, 플랫폼 빌드 경로를 공통 `build` 로 정렬했다. 그렇지 않으면 `prebuild` ABI 보장과 typecheck 를 mac 패키징만 우회한다.
+- **실무 보강**: 핵심 구현이 `scripts/*.mjs` 로 이동했으므로 lint 대상도 `./scripts` 로 확장하고, ESM 스크립트용 ESLint override 를 추가했다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응
+
+- ✅ **`require('better-sqlite3')` 만으로는 ABI mismatch 를 검출하지 못함**: 실제 native binding 은 `new Database()` 시점에 로드된다. `defaultLoadBetterSqlite` 는 별도 Node 프로세스에서 `new Database(':memory:')` 후 close 하는 probe 로 구현했다. 같은 프로세스에서 실패 후 rebuild 를 하면 Node native module 캐시 때문에 재검증이 오염될 수 있어 별도 프로세스를 사용했다.
+- ✅ **`--check` 사이드이펙트 위험**: check 모드는 rebuild 를 절대 수행하지 않고 non-zero 판정만 반환하도록 분리했다.
+- ✅ **단위 테스트가 실제 rebuild 를 실행하는 flake 위험**: `runner`/`loadBetterSqlite` 주입 seam 으로 fake runner 테스트를 구성해 단위 테스트는 외부 native rebuild 를 수행하지 않는다.
+- ✅ **테스트 직후 dev/build 역방향 footgun**: `prebuild`/`predev`/`postinstall` 이 Electron ABI 를 보장하고, `pretest` 가 다시 Node ABI 를 보장하므로 `test → build` 와 `build → test` 순서를 모두 확인했다.
