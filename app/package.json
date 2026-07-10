@@ -1,10 +1,10 @@
 {
   "name": "orca",
   "version": "0.1.0",
-  "description": "An Electron application with React and TypeScript",
+  "description": "Orca — desktop LLM chat app for verification engineers",
   "main": "./out/main/index.js",
-  "author": "example.com",
-  "homepage": "https://electron-vite.org",
+  "author": "muzaby",
+  "homepage": "https://github.com/muzaby/orca-skin",
   "scripts": {
     "format": "prettier --write ./src",
     "lint": "eslint --cache --fix ./src ./scripts",

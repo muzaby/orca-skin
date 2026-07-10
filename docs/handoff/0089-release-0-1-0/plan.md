@@ -43,7 +43,7 @@ Orca 첫 공식 릴리즈. 릴리즈 파이프라인(0087/0088)은 완성됐으�
 
 ## 인수 기준 (Acceptance Criteria)
 
-1. 배포(prod) 빌드에서 로그인 게이트가 비활성화된다 — 로그인 화면 없이 부트 → 앱 진입. 근거 플래그는 `import.meta.env.DEV` 기반 단일 상수(`LOGIN_GATE_ENABLED`)로 `features/login` 에 둔다.
+1. 배포(prod) 빌드에서 로그인 게이트가 비활성화된다 — 로그인 화면 없이 부트 → 앱 진입. 가드는 `import.meta.env.DEV` 를 **사용처(RootGate·LoginFrame)에서 직접** 쓴다. *(설계 수정 r1 — 원안은 `features/login/gate.ts` 의 단일 상수 `LOGIN_GATE_ENABLED` 였으나, 모듈 경계를 넘는 상수는 Rollup 이 폴드하지 못해 `LoginView`(SSO 카드+오르카 PNG)가 prod 번들에 잔존함을 build+grep 으로 확인 → 기존 `OverlayLayer.tsx:62` 관용구와 동일하게 인라인 가드로 변경. 구현자 기입 #1 참조.)*
 2. dev(`npm run dev`) 동작은 무변경 — 로그인 게이트·SSO 스텁·디버그 패널·bypass 토글이 기존 그대로 존재하고 조작 가능하다 (게이트 조건식이 DEV 에서 기존 `bypass || authenticated` 와 동치).
 3. prod 에서 부트 실패 시 `LoginFrame` 에러 배너+재시도는 유지되되, 동작 불가능한 SSO 로그인 카드(`LoginView`)는 렌더되지 않는다.
 4. 디버그 패널은 prod 번들에서 계속 제거 상태다 (기존 가드 회귀 없음 — prod 번들 grep 으로 확인).
@@ -65,9 +65,10 @@ Orca 첫 공식 릴리즈. 릴리즈 파이프라인(0087/0088)은 완성됐으�
 
 ## 설계
 
-- `features/login/gate.ts` 신규: `export const LOGIN_GATE_ENABLED = import.meta.env.DEV` — 게이트 존재 여부의 단일 스위치. 배럴(`features/login/index.ts`) 에서 export.
-- `app/RootGate.tsx`: `passed = !LOGIN_GATE_ENABLED || bypass || authenticated` 로 부트 effect·렌더 분기 2곳 치환. `bootPhase === 'failed'` 분기는 유지.
-- `app/LoginFrame.tsx`: `<LoginView />` 를 `LOGIN_GATE_ENABLED` 일 때만 렌더 (prod 부트 실패 화면에서 SSO 카드 미노출).
+*(설계 수정 r1: `gate.ts` 단일 상수 → 사용처 인라인 `import.meta.env.DEV` 가드 — 인수 기준 1 의 수정 사유 참조. 게이트 스위치의 단일성은 두 사용처의 `handoff 0089` 주석으로 추적한다.)*
+
+- `app/RootGate.tsx`: `gatePassed = !import.meta.env.DEV || bypass || authenticated` 로 부트 effect·렌더 분기 2곳 치환. `bootPhase === 'failed'` 분기는 유지.
+- `app/LoginFrame.tsx`: `<LoginView />` 를 `import.meta.env.DEV` 일 때만 렌더 (prod 부트 실패 화면에서 SSO 카드 미노출 + 번들 정적 제거).
 - 레이어 경계: `app` → `features/login` 하향 import (기존과 동일 방향), 교차 feature 없음.
 - 재사용: 기존 `import.meta.env.DEV` 관용구, `LoginFrame` 에러 배너, 릴리즈 스크립트/워크플로우 무변경.
 
@@ -92,8 +93,6 @@ Orca 첫 공식 릴리즈. 릴리즈 파이프라인(0087/0088)은 완성됐으�
 
 ## 영향 받는 파일
 
-- `app/src/renderer/src/features/login/gate.ts` (신규)
-- `app/src/renderer/src/features/login/index.ts`
 - `app/src/renderer/src/app/RootGate.tsx`
 - `app/src/renderer/src/app/LoginFrame.tsx`
 - `app/package.json` (메타데이터만)
@@ -124,29 +123,30 @@ Orca 첫 공식 릴리즈. 릴리즈 파이프라인(0087/0088)은 완성됐으�
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- 동의 / 그대로 진행: 설계 그대로 구현. `LOGIN_GATE_ENABLED` 단일 상수가 게이트 유무의 유일 스위치이며, dev 조건식 동치성(DEV=true 면 `!true || …` = 기존 `bypass || authenticated`)을 코드에서 확인.
-- 이견 / 우려: 없음.
+- 동의 / 그대로 진행: 게이트 스킵 방향·dev 무변경·메타데이터 정리는 설계대로. dev 조건식 동치성(DEV=true 면 `!true || …` = 기존 `bypass || authenticated`)을 코드에서 확인.
+- 이견 / 우려: 원안의 `gate.ts` 단일 상수는 **prod dead-code 제거가 안 된다** — 1차 구현 후 build+grep 에서 `SSO로 로그인` 문자열(=LoginView)이 번들에 잔존함을 확인. Vite define 치환은 모듈 단위이고 Rollup 은 모듈 경계를 넘는 상수를 폴드하지 않는다. → 설계 수정 r1(인라인 가드)로 해소, AC1 에 소급 기록.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | (기입 예정) | | |
+| 1 | 모듈 경계 상수(`LOGIN_GATE_ENABLED`)로는 `LoginView` 가 prod 번들에 dead code 로 잔존(SSO 카드 + 오르카 PNG) | ✅ 사용처 인라인 `import.meta.env.DEV` 가드로 변경(설계 수정 r1), 재빌드 grep 으로 `SSO로 로그인`·`로그인 우회` 0건 확인 | 1차 빌드 grep 히트 → 수정 후 0건 |
+| 2 | `loginActions.attemptSso`/`runSso` 스텁 문자열(`SSO not implemented`·`로그인에 실패했습니다`)은 prod 번들에 잔존 — store 객체 속성이라 tree-shaking 불가 | ⚠️ 보고만 — 호출 UI(LoginView)가 prod 에 없어 도달 불가. 실 SSO 배선 시 자연 해소 | 번들 grep 1건씩, RootGate 는 `hydrateBypass` 만 호출 |
+| 3 | `updateStore.ts` 의 더미 업데이트 mock 문자열이 prod 번들에 잔존 (0086 기존 상태) | ⚠️ 보고만 — 토글 UI(`UpdateDebugSection`)는 DEV 제거라 도달 불가, 본 핸드오프 비범위 | 번들 grep 2건, `dummyMode` 진입점 = 디버그 패널 전용 |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] `gate.ts` 신규 + 배럴 export
-- [ ] `RootGate.tsx` 판정 2곳
-- [ ] `LoginFrame.tsx` LoginView 가드
-- [ ] `package.json` 메타데이터
-- [ ] 게이트 4종 + prod 번들 grep
+- [x] `RootGate.tsx` 판정 2곳 (인라인 DEV 가드)
+- [x] `LoginFrame.tsx` LoginView 가드
+- [x] `package.json` 메타데이터
+- [x] 게이트 4종 + prod 번들 grep
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | (기입 예정) |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` / `build` |
-| 게이트 결과 | (기입 예정) |
-| 블로커 / 역질문 | (기입 예정) |
-| 대상 커밋 | (기입 예정) |
+| 변경 파일 | `app/src/renderer/src/app/RootGate.tsx` · `app/src/renderer/src/app/LoginFrame.tsx` · `app/package.json` |
+| 실행 명령 | `npm run lint` / `npm run typecheck` / `npm test`(vitest+node --test) / `electron-vite build` + 번들 grep |
+| 게이트 결과 | lint ✅ 0 / typecheck 3종 ✅ / vitest **773/773 passed**(3 suite 로드 실패=electron 바이너리 403 환경 제한·0019/0083 계열·본 변경 무관) / node --test **24/24** / build ✅ / 번들 grep: `SSO로 로그인`·`로그인 우회`·`Wire 메시지` 0건, main `orca:debug` 0건 |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | (구현 커밋 hash — 커밋 후 verify.md 에 기재) |
