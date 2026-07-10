@@ -9,26 +9,44 @@ Orca 의 사내용 릴리스 절차 정본. 파이프라인 구성은 핸드오�
 | 배포 채널 | GitHub Releases (`muzaby/orca-skin`, public) — **draft = 수동 배포 게이트** |
 | 산출물 | `orca-<ver>-setup.exe` (NSIS installer) + `latest.yml` + `.blockmap` |
 | 릴리스 CI | [`.github/workflows/release.yml`](../../.github/workflows/release.yml) — `v*` 태그 push 트리거, `windows-latest` |
-| 상시 게이트 | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) — main push / PR (`app/**` 변경 시) |
+| 상시 게이트 | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) — main push (`app/**` 변경 시) + 수동 실행(`workflow_dispatch`) |
 | 버전 진실원 | `app/package.json` `version` (렌더러 `__APP_VERSION__` · main `app.getVersion()` 모두 파생) |
 | 서명 | **없음** (사내용) — 무결성은 HTTPS + `latest.yml` sha512 로 보장 (아래 §unsigned) |
 | 업데이트 클라이언트 | electron-updater (0085 배선: `autoDownload=false` · idle-gated 설치 · published release 만 감지) |
 
 ## 릴리스 절차
 
-1. **버전 bump**: `app/package.json` 의 `version` 을 올리고 `npm install --package-lock-only` 로 lock 동기화. 커밋 → main 반영(머지).
-2. **태그 push**:
+1. **버전 bump**: 워킹트리를 clean 상태로 만든 뒤(먼저 다른 변경을 커밋), `app/` 에서 bump 스크립트 실행:
    ```bash
-   git checkout main && git pull
-   git tag v0.1.0        # package.json version 과 정확히 일치해야 함
-   git push origin v0.1.0
+   cd app
+   npm run release:minor    # = npm version minor: package.json + package-lock.json bump + "chore(release): vX.Y.Z" 커밋 + vX.Y.Z 태그를 원샷 생성
    ```
-3. **CI 자동 수행** (release.yml): 버전 검증(태그↔package.json) → 마이그레이션 가드(동기화+append-only) → lint/typecheck/test → NSIS 빌드 → **draft release 게시** → 산출물 검증(sha512 대조) → workflow artifact 업로드.
+   - `release:patch` / `release:minor` / `release:major` 중 §버전 정책에 맞게 고른다. 태그 접두 `v` 는 release.yml 의 `v*` 트리거·`validate-release-version.mjs` 와 정합하며, package.json↔태그 일치가 자동 보장된다.
+   - `npm version` 은 clean 트리를 요구한다(안전 가드) — dirty 면 실패하니 다른 변경을 먼저 커밋한다.
+2. **push** (main 커밋 + 태그 함께):
+   ```bash
+   git push origin main --follow-tags
+   ```
+3. **CI 자동 수행** (release.yml, `v*` 태그 push 로 발동): 버전 검증(태그↔package.json) → 마이그레이션 가드(동기화+append-only) → lint/typecheck/test → NSIS 빌드 → **draft release 게시** → 산출물 검증(sha512 대조) → workflow artifact 업로드.
 4. **draft 확인**: GitHub Releases 의 draft 에 자산 3종(`orca-<ver>-setup.exe`, `latest.yml`, `.blockmap`)이 있는지 확인.
 5. **수동 시나리오 테스트** (아래 체크리스트) 수행.
 6. **draft 를 Publish** — 이 순간부터 기존 설치본의 electron-updater 가 새 버전을 감지한다.
 
 > **dry-run**: Actions 탭에서 release.yml 을 `workflow_dispatch` 로 수동 실행하면 게시 없이 빌드+검증만 수행하고 결과를 workflow artifact 로 남긴다 (파이프라인 자체 점검용).
+
+## 버전 정책 (SemVer, pre-1.0)
+
+`orca` 는 **0.1.0 에서 시작**한다. 1.0.0 GA 전까지 0.x 규약을 따른다:
+
+| bump | 명령 | 예 | 언제 |
+|---|---|---|---|
+| patch | `npm run release:patch` | 0.1.0 → 0.1.1 | 버그·핫픽스 |
+| minor | `npm run release:minor` | 0.1.0 → 0.2.0 | 기능·주목할 변경 (0.x 에서는 파괴적 변경도 minor 로 흡수) |
+| major | `npm run release:major` | 0.x → 1.0.0 | 안정(GA) 마일스톤에서만 |
+
+- **단조 증가만** — 다운그레이드 배포 금지. electron-updater `allowDowngrade` 기본 false + DB `DB_SCHEMA_TOO_NEW` 가드로 구버전은 새 스키마 위에서 기동 거부된다(롤백은 §롤백 절차).
+- 새 DB 마이그레이션(`NNNN_*.sql` 추가)을 포함한 릴리스는 **최소 patch** 를 올린다.
+- 삭제·재작업한 버전 번호는 재사용하지 않고 다음 번호로 전진한다.
 
 ## 업데이트 시나리오 수동 체크리스트
 

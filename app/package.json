@@ -24,7 +24,10 @@
     "typecheck:test": "tsc --noEmit -p tsconfig.test.json",
     "pretest": "node scripts/ensure-sqlite-abi.mjs node",
     "predev": "node scripts/ensure-sqlite-abi.mjs electron",
-    "prebuild": "node scripts/ensure-sqlite-abi.mjs electron"
+    "prebuild": "node scripts/ensure-sqlite-abi.mjs electron",
+    "release:patch": "npm version patch -m \"chore(release): v%s\"",
+    "release:minor": "npm version minor -m \"chore(release): v%s\"",
+    "release:major": "npm version major -m \"chore(release): v%s\""
   },
   "dependencies": {
     "@anthropic-ai/claude-agent-sdk": "latest",
