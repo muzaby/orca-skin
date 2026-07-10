@@ -170,4 +170,6 @@
 
 | `0089-release-0-1-0` | verify | PASS | — | `3495770` | 1 | **검증 PASS(r1, 코드 범위) — 인수 6/6 + AC7(릴리즈 실행)=PR 머지 후 후속, 게이트 lint 0·typecheck 3종 0·vitest 773/773·node --test 24/24·electron-vite build ✅(3 suite=electron 바이너리 403 환경 제한·무관), 레이어 경계 0, 신규 의존성/IPC 0.** v0.1.0 첫 Windows 릴리즈 (비기능 = Claude 직접 plan→impl→verify). 요구 2건: ① 배포 빌드 디버그 패널 제거 — 기존 `import.meta.env.DEV` 가드로 이미 충족(코드 변경 0) ② SSO 로그인 disable — SSO 항상-실패 스텁 + bypass 토글이 디버그 패널 전용이라 prod 데드락 → **배포 빌드에서 로그인 게이트 스킵**(사용자 확정, dev 는 게이트·디버그 패널·bypass 토글 무변경). 가드는 사용처 인라인 `import.meta.env.DEV`(RootGate 판정 2곳 + LoginFrame LoginView) — 설계 수정 r1: 모듈 경계 상수는 Rollup 미폴드로 LoginView 가 prod 번들 잔존(빌드 grep 실측) → 인라인 전환 후 `SSO로 로그인`·`로그인 우회` 0건. 추가: `package.json` 템플릿 메타데이터(description/author/homepage) 정리(사용자 확정, app/AGENTS.md 원칙 6). 릴리즈 실행: 버전 0.1.0 유지(bump 없음) → PR 머지 후 머지 커밋 `v0.1.0` 태그 push → release.yml → draft 자산 3종 확인, **Publish=사용자**. 상세=`0089-release-0-1-0/plan.md`. |
 
+| `0090-engine-modal-single-step` | plan | READY | Claude | — | 1 | 엔진 추가 모달 단일 화면 재설계(1·2 depth 제거, 공급자 드롭다운, `~/.claude/settings.json` 불러오기 IPC 배선) + 최초 부팅 시딩을 `~/.claude` env 판별(anthropic/bedrock/vertex/custom) 기반으로. 사용자 확정: Claude 직접 구현(plan→impl→verify)·드롭다운 기본값 anthropic. 상세=`0090-engine-modal-single-step/plan.md`. |
+
 > 새 작업: 기존 행 중 `max(번호)+1` 로 행을 추가하고 `<NNNN-slug>/plan.md` 를 생성한다.
