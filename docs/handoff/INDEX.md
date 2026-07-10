@@ -176,4 +176,6 @@
 
 | `0092-main-simplify-cleanup` | verify | PASS | — | `2681732` | 1 | **검증 PASS(r1) — 인수 16/16, 게이트 lint 0·typecheck 3종 0·vitest 801 passed + node --test 24/24(2 suite=electron 바이너리 403 환경 제한·베이스라인 동일 실패 확인·무관 — 기존 3 suite 가 resilience 테스트 electron 비의존화로 2 로 감소), 레이어 경계 0, 신규 의존성 0, IPC 무변경.** `/simplify @app/src/main` 결과 정리(비기능 = Claude 직접 plan→impl→verify). 4관점 리뷰 18건 중 15건 적용: 재사용 3(`errorMessage`→infra/errors·`isRecord`→shared/obj·`readJsonFile`→infra/config, 사본 3~5중 통합) + 데드코드 6(`onUnframedEvent`·`adaptMcp`·`abortCause` getter·`RuntimePool.onReap`·chat-turn 무회귀 re-export 5종·dist 경로 헬퍼 3종) + 단순화 1(`freshTurnLocalState` 팩토리) + 효율 5(**`SettingsStore` write-on-read 제거**(read 마다 zod 마이그레이션+동기 디스크 쓰기 → lazy 1회+patch 시)·`McpStore` getAll 호이스트·mcp.json 파스 캐시·스킬 스캔 병렬화·adapters 메모이즈, 신규 캐시 테스트 5건). 3건 스킵(AskUserQuestion 리터럴·provider-registry Claude 파서·slugify — 설계 변경 수반, plan §비범위·verify §결론, ①②는 후속 핸드오프 후보). 사람 확인 대기: 실행 중 settings/mcp.json 외부 편집 미반영 2건(verify §사람 확인 대기)·PR 머지. |
 
+| `0093-frontend-simplify-cleanup` | plan | READY | Claude | — | 1 | `/simplify @app/src/shared @app/src/preload @app/src/renderer` 결과 정리 (비기능 = Claude 직접 plan→impl→verify, 0092 의 프론트엔드 대응편). 4관점 리뷰 발견 dedup 후 13건 적용 / 5건 스킵 예정 — 상세 `0093-frontend-simplify-cleanup/plan.md`. |
+
 > 새 작업: 기존 행 중 `max(번호)+1` 로 행을 추가하고 `<NNNN-slug>/plan.md` 를 생성한다.
