@@ -32,7 +32,7 @@ import { ExtensionDeploymentService } from '../features/extensions/extension-dep
 import { toClaudeConfig } from '../features/extensions/mcp/convert'
 import { scaffoldProviderSettings } from '../features/extensions/scaffold'
 import { ProviderSettingsService } from '../features/providers/provider-settings'
-import { loadClaudeProviderSettings } from '../adapters/claude-settings'
+import { loadClaudeProviderSettings, readUserClaudeSettings } from '../adapters/claude-settings'
 import { scanSkills, type SkillScanRoot } from '../features/extensions/skills/scan'
 import { seedBuiltinSkills } from '../features/extensions/skills/seed'
 import { initDb } from '../infra/db'
@@ -221,7 +221,13 @@ export class Bootstrap {
       'provider-scaffold',
       { critical: false, label: 'provider settings 스캐폴드' },
       () => {
-        const s = scaffoldProviderSettings('claude')
+        // 첫 시작(빈 상태)이면 사용자 전역 ~/.claude/settings.json 을 시드로 쓴다 (0090).
+        const userSettings = readUserClaudeSettings()
+        const s = scaffoldProviderSettings(
+          'claude',
+          undefined,
+          userSettings.exists ? userSettings.settingsJson : null
+        )
         for (const path of s.created) console.log('[scaffold] 생성:', path)
       }
     )

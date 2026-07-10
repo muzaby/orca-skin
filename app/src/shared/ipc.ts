@@ -68,6 +68,8 @@ export const CHANNELS = {
   engineUpdate: 'orca:engine:update',
   engineDelete: 'orca:engine:delete',
   engineRead: 'orca:engine:read',
+  // 사용자 전역 ~/.claude/settings.json 원문 조회 — 모달의 settings.json 자동완성용.
+  engineImportUserSettings: 'orca:engine:importUserSettings',
   notifyShow: 'orca:notify:show',
   updateState: 'orca:update:state',
   updateCheck: 'orca:update:check',
@@ -243,6 +245,13 @@ export interface EngineWriteResult {
   key: string
   engine: 'claude'
   provider: string
+}
+
+// ~/.claude/settings.json 원문 조회 결과 — 파일 부재/읽기 실패면 exists=false.
+// 내용 검증은 하지 않는다(렌더러 실시간 JSON 검증이 담당).
+export interface EngineUserSettingsResult {
+  exists: boolean
+  settingsJson: string
 }
 
 // 에러 분류 (provider-runtime.md §6 정본). 와이어 error 이벤트는 8 category + retryable 로

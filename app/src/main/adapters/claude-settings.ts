@@ -10,6 +10,9 @@
 // Orca 의 canUseTool 게이트가 담당 — env 와 무관, TRD §6.8).
 
 import { existsSync, readFileSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { join } from 'node:path'
+import type { EngineUserSettingsResult } from '../../shared/ipc'
 import type { ProviderSettingsLoader } from './provider-config'
 
 // CLI 가 repo-커밋 파일의 escalating 모드에 적용하는 trust 필터와 동등한 목록
@@ -44,6 +47,34 @@ function stripEscalatingDefaultMode(settings: SettingsObject): SettingsObject {
     return { ...settings, permissions: rest }
   }
   return settings
+}
+
+// 사용자 전역 ~/.claude/settings.json 원문. 검증 없이 raw 로 돌려준다 — 소비처(모달의
+// 실시간 JSON 검증, 스캐폴드의 파싱 폴백)가 각자 유효성을 판정한다. path 주입은 테스트용.
+export function readUserClaudeSettings(
+  path: string = join(homedir(), '.claude', 'settings.json')
+): EngineUserSettingsResult {
+  try {
+    return { exists: true, settingsJson: readFileSync(path, 'utf8') }
+  } catch {
+    return { exists: false, settingsJson: '' }
+  }
+}
+
+export type ClaudeProviderKind = 'anthropic' | 'bedrock' | 'vertex' | 'custom'
+
+// settings.json 의 env 블록으로 provider 종류를 판별한다 (TRD §6.8 레시피 표와 정합):
+// CLAUDE_CODE_USE_BEDROCK → bedrock, CLAUDE_CODE_USE_VERTEX → vertex,
+// ANTHROPIC_BASE_URL(게이트웨이) → custom, 그 외 → anthropic.
+export function classifyClaudeEnv(settings: SettingsObject): ClaudeProviderKind {
+  const env = settings.env
+  if (typeof env !== 'object' || env === null || Array.isArray(env)) return 'anthropic'
+  const rec = env as SettingsObject
+  const truthy = (v: unknown): boolean => v !== undefined && v !== null && v !== '' && v !== '0'
+  if (truthy(rec.CLAUDE_CODE_USE_BEDROCK)) return 'bedrock'
+  if (truthy(rec.CLAUDE_CODE_USE_VERTEX)) return 'vertex'
+  if (truthy(rec.ANTHROPIC_BASE_URL)) return 'custom'
+  return 'anthropic'
 }
 
 export const loadClaudeProviderSettings: ProviderSettingsLoader = async ({

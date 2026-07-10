@@ -7,7 +7,11 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { loadClaudeProviderSettings } from './claude-settings'
+import {
+  classifyClaudeEnv,
+  loadClaudeProviderSettings,
+  readUserClaudeSettings
+} from './claude-settings'
 
 let root: string
 
@@ -72,5 +76,62 @@ describe('loadClaudeProviderSettings — sources flat read (verbatim)', () => {
     expect(await loadClaudeProviderSettings(args())).toEqual({
       settings: { env: { ANTHROPIC_API_KEY: 'plain-key', BASE: '${VAR}' }, model: 'm' }
     })
+  })
+})
+
+describe('readUserClaudeSettings — 사용자 전역 settings.json 원문 (0090)', () => {
+  it('존재하면 raw 원문을 exists:true 로 돌려준다 (검증 없음 — 손상 JSON 도 원문 그대로)', () => {
+    const path = join(root, '.claude', 'settings.json')
+    writeFile(path, '{ "env": { "A": "1" } }')
+    expect(readUserClaudeSettings(path)).toEqual({
+      exists: true,
+      settingsJson: '{ "env": { "A": "1" } }'
+    })
+    writeFile(path, '{broken')
+    expect(readUserClaudeSettings(path)).toEqual({ exists: true, settingsJson: '{broken' })
+  })
+
+  it('부재/읽기 실패는 exists:false + 빈 문자열', () => {
+    expect(readUserClaudeSettings(join(root, 'nope', 'settings.json'))).toEqual({
+      exists: false,
+      settingsJson: ''
+    })
+  })
+})
+
+describe('classifyClaudeEnv — env 기반 provider 판별 (0090, TRD §6.8)', () => {
+  it('CLAUDE_CODE_USE_BEDROCK → bedrock', () => {
+    expect(classifyClaudeEnv({ env: { CLAUDE_CODE_USE_BEDROCK: '1' } })).toBe('bedrock')
+  })
+
+  it('CLAUDE_CODE_USE_VERTEX → vertex', () => {
+    expect(classifyClaudeEnv({ env: { CLAUDE_CODE_USE_VERTEX: '1' } })).toBe('vertex')
+  })
+
+  it('ANTHROPIC_BASE_URL → custom (게이트웨이)', () => {
+    expect(classifyClaudeEnv({ env: { ANTHROPIC_BASE_URL: 'https://gw.example.com' } })).toBe(
+      'custom'
+    )
+  })
+
+  it('그 외 / env 부재·비객체 → anthropic', () => {
+    expect(classifyClaudeEnv({ env: { ANTHROPIC_API_KEY: 'k' } })).toBe('anthropic')
+    expect(classifyClaudeEnv({})).toBe('anthropic')
+    expect(classifyClaudeEnv({ env: 'not-an-object' })).toBe('anthropic')
+    expect(classifyClaudeEnv({ env: ['a'] })).toBe('anthropic')
+  })
+
+  it("비활성 값('0'/''/null)은 판별 신호로 치지 않는다", () => {
+    expect(classifyClaudeEnv({ env: { CLAUDE_CODE_USE_BEDROCK: '0' } })).toBe('anthropic')
+    expect(classifyClaudeEnv({ env: { CLAUDE_CODE_USE_VERTEX: '' } })).toBe('anthropic')
+    expect(classifyClaudeEnv({ env: { ANTHROPIC_BASE_URL: null } })).toBe('anthropic')
+  })
+
+  it('bedrock 이 vertex/custom 보다 우선한다 (레시피 표 순서)', () => {
+    expect(
+      classifyClaudeEnv({
+        env: { CLAUDE_CODE_USE_BEDROCK: '1', CLAUDE_CODE_USE_VERTEX: '1', ANTHROPIC_BASE_URL: 'x' }
+      })
+    ).toBe('bedrock')
   })
 })

@@ -40,6 +40,7 @@ import {
   type CreateEngineRequest,
   type UpdateEngineRequest,
   type EngineReadResult,
+  type EngineUserSettingsResult,
   type EngineWriteResult,
   type UpdateState,
   type UpdateProgress,
@@ -80,7 +81,9 @@ const orca = {
       ipcRenderer.invoke(CHANNELS.engineUpdate, req),
     delete: (key: string): Promise<void> => ipcRenderer.invoke(CHANNELS.engineDelete, { key }),
     read: (key: string): Promise<EngineReadResult> =>
-      ipcRenderer.invoke(CHANNELS.engineRead, { key })
+      ipcRenderer.invoke(CHANNELS.engineRead, { key }),
+    importUserSettings: (): Promise<EngineUserSettingsResult> =>
+      ipcRenderer.invoke(CHANNELS.engineImportUserSettings)
   },
   install: {
     start: (backend: Backend): Promise<void> =>
