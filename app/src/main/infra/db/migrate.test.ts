@@ -28,7 +28,8 @@ const EXPECTED_MIGRATIONS = [
   '0009_message_complete',
   '0010_session_cwd',
   '0011_session_lineage',
-  '0012_provider_limits'
+  '0012_provider_limits',
+  '0013_schedules'
 ]
 
 const APPLIED_SQL = [
@@ -103,7 +104,7 @@ describe('DB migrations hardening', () => {
     const rows = db.prepare('SELECT name FROM _migrations ORDER BY name').pluck().all()
     expect(rows).toEqual(EXPECTED_MIGRATIONS)
     expect(
-      db.prepare(`SELECT name FROM sqlite_master WHERE name = 'provider_limits'`).get()
+      db.prepare(`SELECT name FROM sqlite_master WHERE name = 'schedule_runs'`).get()
     ).toBeTruthy()
     db.close()
   })

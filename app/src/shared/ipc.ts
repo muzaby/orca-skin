@@ -765,6 +765,15 @@ export interface WindowBounds {
   height: number
 }
 
+export interface SchedulerUsageRecomputeSettings {
+  enabled: boolean
+  cron: string
+}
+
+export interface SchedulerSettings {
+  usageRecompute: SchedulerUsageRecomputeSettings
+}
+
 export interface Settings {
   theme: ThemePref
   density: DensityPref
@@ -791,9 +800,15 @@ export interface Settings {
   notifyOnComplete: boolean
   // 월간 지출 한도(USD). 사용량 한도 바(도넛·설정)의 기준. null=무제한.
   spendingLimitUsd: number | null
+  // 앱 실행 중 주기적 작업 설정. schedule_runs 는 실행 이력이고 이 설정이 재시작 복원 SSOT.
+  scheduler: SchedulerSettings
 }
 
-export type SettingsPatch = Partial<Settings>
+export type SettingsPatch = Omit<Partial<Settings>, 'scheduler'> & {
+  scheduler?: {
+    usageRecompute?: Partial<SchedulerUsageRecomputeSettings>
+  }
+}
 
 // OS 네이티브 알림 요청(renderer → main). 런타임 검증은 protocol.ts NotifyShowSchema.
 export interface NotifyShow {

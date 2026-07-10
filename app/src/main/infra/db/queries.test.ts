@@ -12,6 +12,7 @@ import migration0009 from './migrations/0009_message_complete.sql?raw'
 import migration0010 from './migrations/0010_session_cwd.sql?raw'
 import migration0011 from './migrations/0011_session_lineage.sql?raw'
 import migration0012 from './migrations/0012_provider_limits.sql?raw'
+import migration0013 from './migrations/0013_schedules.sql?raw'
 import { DbQueries } from './queries'
 
 function dbWithMigrations(): Database.Database {
@@ -29,6 +30,7 @@ function dbWithMigrations(): Database.Database {
   db.exec(migration0010)
   db.exec(migration0011)
   db.exec(migration0012)
+  db.exec(migration0013)
   return db
 }
 
@@ -529,5 +531,26 @@ describe('DbQueries provider usage + limits (0080)', () => {
     // 무제한(null) 명시 저장 — 행은 있으나 limit_usd 는 NULL → getter null.
     q.setProviderLimit('claude', null, 300)
     expect(q.getProviderLimit('claude')).toBeNull()
+  })
+})
+
+describe('schedule_runs', () => {
+  it('records scheduler run lifecycle in one row', () => {
+    const db = dbWithMigrations()
+    const q = new DbQueries(db)
+
+    const id = q.insertScheduleRunStarted({ jobKey: 'usage-recompute', startedAt: 100 })
+    q.finishScheduleRun({ id, finishedAt: 120, status: 'success', error: null })
+
+    expect(q.listScheduleRuns('usage-recompute', 10)).toEqual([
+      {
+        id,
+        job_key: 'usage-recompute',
+        started_at: 100,
+        finished_at: 120,
+        status: 'success',
+        error: null
+      }
+    ])
   })
 })

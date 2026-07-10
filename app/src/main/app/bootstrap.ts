@@ -37,6 +37,7 @@ import { scanSkills, type SkillScanRoot } from '../features/extensions/skills/sc
 import { seedBuiltinSkills } from '../features/extensions/skills/seed'
 import { initDb } from '../infra/db'
 import { UsageTracker } from '../features/usage/tracker'
+import { DbRunRecorder, Scheduler } from '../features/scheduler'
 import { ExtensionBuilder } from '../features/extensions/builder'
 import { PermissionModeController } from '../features/approvals/permission-mode-controller'
 import type { RouterContext } from './context'
@@ -91,6 +92,7 @@ export class Bootstrap {
   private activeDbWriteCount = 0
   private isIndexing = false
   private updates: UpdateController | null = null
+  private scheduler?: Scheduler
 
   private builtinSkillsDir(): string {
     return resolveBuiltinSkillsDir({
@@ -178,6 +180,16 @@ export class Bootstrap {
     // 빌더는 db 인스턴스가 필요해 여기서 생성. skills 는 lazy getter 라 스캔 완료 전에 만들어도
     // 무방 — 턴 실행 시점에 최신 skillsCache 를 읽는다. DB 프로젝트 지침은 빌더가 매 턴 조회하므로
     // (무캐시) 지침 편집이 같은 세션 다음 메시지부터 즉시 반영된다.
+    const scheduler = (this.scheduler = new Scheduler(new DbRunRecorder(db)))
+    scheduler.register('usage-recompute', () => {
+      cost.recordAndBroadcast()
+    })
+    try {
+      scheduler.applySettings(this.settings.getAll().scheduler)
+    } catch (e) {
+      console.warn('[scheduler] 설정 적용 실패, 주기 작업을 비활성 상태로 시작:', e)
+    }
+
     const extensions = new ExtensionBuilder(
       db,
       this.mcp,
@@ -261,7 +273,8 @@ export class Bootstrap {
       getBootReport: () => this.bootReport.getReport(),
       debugMock: this.debugMock,
       mockAdapter: import.meta.env.DEV ? new MockAdapter(() => this.debugMock) : null,
-      updates: this.createUpdateController()
+      updates: this.createUpdateController(),
+      scheduler
     }
     this.register(ctx)
   }
@@ -308,6 +321,7 @@ export class Bootstrap {
   // abort 해 SDK 서브프로세스를 깨끗이 종료한다. persist 는 better-sqlite3 동기라 종료 시간 내
   // 완료된다. start() 이전(register 미실행)이면 no-op.
   shutdown(): void {
+    this.scheduler?.stopAll()
     if (!this.supervisor || !this.bus) return
     const bus = this.bus
     // 열린 도구를 'aborted' 합성 tool_result 로 정착 → turn.event 버스로 방출(history 구독자가 영속).

@@ -16,6 +16,12 @@ const FONT_OPTIONS: { value: AppFontId; label: string }[] = [
   { value: 'mono', label: '모노 (JetBrains Mono)' }
 ]
 
+const USAGE_RECOMPUTE_PRESETS = [
+  { value: '0 */1 * * *', label: '매시간' },
+  { value: '*/30 * * * *', label: '30분마다' },
+  { value: '0 9 * * *', label: '매일 오전 9시' }
+]
+
 const THEME_OPTIONS: { value: ThemeId; label: string; icon: 'sun' | 'moon' }[] = [
   { value: 'white', label: '화이트', icon: 'sun' },
   { value: 'dark', label: '다크', icon: 'moon' }
@@ -120,6 +126,71 @@ export function GeneralTab(): React.JSX.Element {
               </option>
             ))}
           </select>
+        </SettingsRow>
+      </SettingsGroup>
+
+      <SettingsGroup title="주기적 실행">
+        <SettingsRow
+          label="사용량 새로고침"
+          description="앱이 실행 중일 때만 저장된 주기에 따라 사용량 집계를 다시 계산합니다."
+        >
+          <Toggle
+            on={t.scheduler.usageRecompute.enabled}
+            onClick={() =>
+              setTweak('scheduler', {
+                ...t.scheduler,
+                usageRecompute: {
+                  ...t.scheduler.usageRecompute,
+                  enabled: !t.scheduler.usageRecompute.enabled
+                }
+              })
+            }
+            label="주기적 사용량 새로고침"
+          />
+        </SettingsRow>
+
+        <SettingsRow label="새로고침 주기" description="cron 표현식 또는 기본 프리셋을 선택하세요.">
+          <div className="flex flex-col gap-2">
+            <select
+              value={
+                USAGE_RECOMPUTE_PRESETS.some((p) => p.value === t.scheduler.usageRecompute.cron)
+                  ? t.scheduler.usageRecompute.cron
+                  : 'custom'
+              }
+              onChange={(e) => {
+                if (e.target.value === 'custom') return
+                setTweak('scheduler', {
+                  ...t.scheduler,
+                  usageRecompute: { ...t.scheduler.usageRecompute, cron: e.target.value }
+                })
+              }}
+              className="cursor-pointer rounded-r4 border border-border bg-bg px-2.5 py-1.5 text-[12.5px] text-ink outline-none focus:border-border-strong"
+            >
+              {USAGE_RECOMPUTE_PRESETS.map((preset) => (
+                <option key={preset.value} value={preset.value}>
+                  {preset.label}
+                </option>
+              ))}
+              <option value="custom">직접 입력</option>
+            </select>
+            <input
+              key={t.scheduler.usageRecompute.cron}
+              defaultValue={t.scheduler.usageRecompute.cron}
+              onBlur={(e) => {
+                const next = e.currentTarget.value.trim()
+                if (!next || next === t.scheduler.usageRecompute.cron) return
+                setTweak('scheduler', {
+                  ...t.scheduler,
+                  usageRecompute: { ...t.scheduler.usageRecompute, cron: next }
+                })
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') e.currentTarget.blur()
+              }}
+              aria-label="사용량 새로고침 cron"
+              className="w-48 rounded-r4 border border-border bg-bg px-2.5 py-1.5 font-mono text-[12.5px] text-ink outline-none focus:border-border-strong"
+            />
+          </div>
         </SettingsRow>
       </SettingsGroup>
 
