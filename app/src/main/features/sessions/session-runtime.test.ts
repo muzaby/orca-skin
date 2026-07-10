@@ -215,19 +215,16 @@ describe('SessionRuntime 장수명 채널(0067)', () => {
     expect(runtime.channelAlive).toBe(true)
   })
 
-  it('프레임 밖 이벤트는 버퍼+콜백으로 노출되고 다음 프레임 앞에 합류한다', async () => {
+  it('프레임 밖 이벤트는 버퍼에 쌓였다가 다음 프레임 앞에 합류한다', async () => {
     const ch = channelLive()
     const runtime = new SessionRuntime(adapter(ch.liveTurn))
     const f1 = collect(runtime.send(req()))
     ch.emit({ type: 'telemetry', sessionId: 's1' })
     await f1
 
-    const seen: string[] = []
-    runtime.onUnframedEvent((ev) => seen.push(ev.type))
     // CLI 자동 픽업 턴 개시 시뮬레이트 — 프레임 없는 상태의 이벤트.
     ch.emit({ type: 'session.updated', sessionId: 's1', patch: {} })
     await tick()
-    expect(seen).toEqual(['session.updated'])
 
     const f2 = collect(runtime.send({ ...req(), text: 'next' }))
     ch.emit({ type: 'telemetry', sessionId: 's1' })

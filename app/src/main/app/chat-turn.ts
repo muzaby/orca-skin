@@ -40,7 +40,6 @@ import type { ApprovalCoordinator } from '../features/approvals/coordinator'
 import type { HistoryWriter } from '../features/history/writer'
 import { SessionRuntime } from '../features/sessions/session-runtime'
 import type { RuntimeSessionAdapter } from '../contracts/ports'
-import { STALL_TIMEOUT_MS } from '../features/chat/timers'
 import { recoverDanglingToolCalls } from '../features/chat/recovery'
 import type { SteerFlushBatch, TurnRequest } from '../adapters/turn'
 import { TurnCoordinator } from '../features/chat/turn-coordinator'
@@ -51,11 +50,6 @@ import { RuntimeSupervisor } from '../features/sessions/supervisor'
 import { abortTurn } from '../features/chat/abort'
 import type { PendingMessageQueue } from '../features/chat/pending-message-queue'
 import type { TurnContext } from '../contracts/turn'
-
-export const IDLE_TIMEOUT_MS = STALL_TIMEOUT_MS
-export { createStallTimer as createIdleTimer } from '../features/chat/timers'
-// retry 정책 정본은 TurnCoordinator(L1) — 기존 import 경로(./send) 호환을 위한 무회귀 re-export.
-export { MAX_RETRIES, RETRY_BACKOFF_MS, abortableDelay } from '../features/chat/turn-coordinator'
 
 export interface ChatDeps {
   ctx: RouterContext
@@ -72,6 +66,36 @@ export interface ChatDeps {
 // (합성 error·turn.retrying·steer.flushed)에 쓴다.
 const chatForward: TurnEventSink<WebContents> = {
   forward: (owner, ev) => sendChatEvent(owner, ev)
+}
+
+// 매 턴 리셋되는 턴-로컬 상태의 단일 초기값 — 신규 턴(handleChatSend)과 자동 연속 턴
+// (makeContinuationTurn)이 공유한다. TurnContext 에 턴-로컬 필드를 추가하면 여기에만 더한다
+// (턴 간 계승/차이가 있는 blockedSubagents·pendingAttachmentViews 는 각 호출부가 명시).
+function freshTurnLocalState(): Pick<
+  TurnContext<WebContents>,
+  | 'live'
+  | 'currentAssistantMessageId'
+  | 'assistantText'
+  | 'pendingAskAnswers'
+  | 'askPendingIds'
+  | 'askResolved'
+  | 'subagentTaskIds'
+  | 'openToolRuns'
+  | 'subagentTypes'
+  | 'stoppedSubagents'
+> {
+  return {
+    live: null,
+    currentAssistantMessageId: null,
+    assistantText: '',
+    pendingAskAnswers: [],
+    askPendingIds: [],
+    askResolved: new Map(),
+    subagentTaskIds: new Map(),
+    openToolRuns: new Map(),
+    subagentTypes: new Map(),
+    stoppedSubagents: new Set()
+  }
 }
 
 // 턴 단위 provider/model 해석 (handoff 0010 → 0014) — payload providerKey 가 어댑터와
@@ -382,9 +406,9 @@ export function registerChatHandlers(deps: ChatDeps): void {
     // resume 경로면 sessions row 에 이미 binding 된 projectId 가 있으므로 그쪽에서 조회.
     // 새 채팅 경로(sessionId=null)면 renderer 가 보낸 projectId 를 init 시점에 binding.
     const turn: TurnContext<WebContents> = {
+      ...freshTurnLocalState(),
       controller,
       owner: event.sender,
-      live: null,
       titleAdapter: adapter,
       titleSettings: resolved.providerSettings,
       titleEnv: turnEnv,
@@ -410,16 +434,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
           ),
       // continuity 는 초기 마커 제목([분기]/[핸드오프])을 유지 — 자동 제목 생성 억제.
       titleGenerationStarted: continuitySource != null,
-      currentAssistantMessageId: null,
-      assistantText: '',
-      pendingAskAnswers: [],
-      askPendingIds: [],
-      askResolved: new Map(),
-      subagentTaskIds: new Map(),
-      openToolRuns: new Map(),
-      subagentTypes: new Map(),
       blockedSubagents: new Set(),
-      stoppedSubagents: new Set(),
       // 0064 continuity — persist(session.updated)가 lineage 영속 + fork display 복사에 쓴다.
       // 초기 제목 = `[분기]/[핸드오프] <원본 제목>`(r3 피드백 — nav 최근 대화 식별). 원본
       // 제목 부재 시 id 앞 8자 폴백. titleGenerationStarted=true 로 자동 제목(0004)을 억제해
@@ -698,9 +713,9 @@ export function registerChatHandlers(deps: ChatDeps): void {
 
   // 자동 연속 턴의 TurnContext — 직전 턴의 세션/메타를 계승하고 턴-로컬 상태만 초기화한다.
   const makeContinuationTurn = (prev: TurnContext<WebContents>): TurnContext<WebContents> => ({
+    ...freshTurnLocalState(),
     controller: new AbortController(),
     owner: prev.owner,
-    live: null,
     titleAdapter: prev.titleAdapter,
     titleSettings: prev.titleSettings,
     titleEnv: prev.titleEnv,
@@ -714,16 +729,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
     isNewSession: false,
     cwd: prev.cwd,
     titleGenerationStarted: prev.titleGenerationStarted,
-    currentAssistantMessageId: null,
-    assistantText: '',
-    pendingAskAnswers: [],
-    askPendingIds: [],
-    askResolved: new Map(),
-    subagentTaskIds: new Map(),
-    openToolRuns: new Map(),
-    subagentTypes: new Map(),
-    blockedSubagents: new Set(prev.blockedSubagents),
-    stoppedSubagents: new Set()
+    blockedSubagents: new Set(prev.blockedSubagents)
   })
 
   // chatSend 는 검증 실패를 reject 가 아닌 error 이벤트로 회신하는 특례 — handlePlain 으로

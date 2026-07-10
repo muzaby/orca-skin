@@ -1,4 +1,5 @@
 import type { BootReport, BootReportStep, BootReportStatus } from '../../shared/ipc'
+import { errorMessage } from '../infra/errors'
 
 type MaybePromise<T> = T | Promise<T>
 
@@ -9,10 +10,6 @@ interface StepOptions {
 
 function now(): number {
   return Date.now()
-}
-
-function formatError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
 }
 
 export class BootReportRecorder {
@@ -45,7 +42,7 @@ export class BootReportRecorder {
 
   // step/stepSync 공통 실패 경로: 리포트에 기록하고, critical 이면 rethrow, 아니면 warning 으로 degrade.
   private recordFailure<T>(id: string, options: StepOptions, startedAt: number, error: unknown): T {
-    const message = formatError(error)
+    const message = errorMessage(error)
     this.pushStep({
       id,
       options,

@@ -1,6 +1,7 @@
-import { cpSync, existsSync, mkdirSync, readFileSync, rmSync, statSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, rmSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { writeJsonAtomic } from '../../../infra/config/json-file'
+import { isRecord } from '../../../../shared/obj'
+import { readJsonFile, writeJsonAtomic } from '../../../infra/config/json-file'
 import { isWithinDir } from '../../../infra/config/paths'
 import { PROVIDER_NAME_RE } from '../../../infra/config/provider-key'
 
@@ -21,10 +22,6 @@ export interface SeedResult {
   version: string | null
 }
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
-}
-
 function validSkillNames(value: unknown): string[] | null {
   if (!Array.isArray(value)) return null
   const names: string[] = []
@@ -42,12 +39,7 @@ function validSkillNames(value: unknown): string[] | null {
 // manifest(builtinDir) 와 marker(skillsDir) 는 동형 스키마(`{version, skills[]}`)라 단일 리더로 파싱한다.
 // 파일 부재/JSON 손상/스키마 불일치는 모두 null → 호출자가 안전측(no-op / marker 없음)으로 처리한다.
 function readBuiltinJson(path: string): BuiltinSkillSet | null {
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(readFileSync(path, 'utf8'))
-  } catch {
-    return null
-  }
+  const parsed = readJsonFile(path)
   if (!isRecord(parsed)) return null
   if (typeof parsed.version !== 'string' || parsed.version.trim() === '') return null
   const skills = validSkillNames(parsed.skills)

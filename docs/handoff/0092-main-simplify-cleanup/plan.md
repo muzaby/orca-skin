@@ -150,27 +150,33 @@
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- (Claude 직접 구현 — 구현 턴에서 기입)
+- 동의 / 그대로 진행: 15건 전부 설계대로 구현. AC3 의 "시맨틱 동일 사이트만 채택" 원칙이 실사 결과 중요했다 — 후보 6곳 중 3곳만 채택(아래 보고).
+- 이견 / 우려: 없음. AC5(adaptMcp)의 헤더 코멘트("레거시 제거 전까지 남겨둔다")는 제거 조건 성립으로 판단(플러그인 `.mcp.json` 경로가 0058 이후 기본이고 프로덕션 소비자 0).
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
+| 1 | AC3 후보 중 `claude-settings.ts flatRead`·`provider-registry.ts modelsForProvider`·`orca-file.ts parseOrcaFile` 은 실패 원인별 경고/원문 문자열 입력이라 시맨틱 불일치 | ✅ 채택 제외(3곳: `skills/seed.ts`·`deployer.ts` 2곳만 채택), 헬퍼 주석에 제외 기준 명시 | plan §인수기준 3 의 제외 조항 |
+| 2 | AC5·AC12 부수: `deployer.ts` mcp 소스가 JSON 원시값(비객체)일 때 기존엔 `.mcpServers` 접근 예외로 'invalid source' 폴백 — `isRecord` 가드로 동일 폴백을 명시화(액션 문자열만 미세 차이 가능) | ✅ 구현함 (동작 등가·명시적) | `deployer.ts` deploy() |
+| 3 | AC8 부수 효과: `chat-turn.runtime-resilience.test.ts` 가 electron 의존(`chat-turn.ts`) import 를 벗어나 **본 환경(electron 바이너리 403)에서도 로드·실행 가능**해짐 — 기존 "3 suite 환경 제한"이 2 suite 로 감소 | ✅ 확인(7/7 green) | 게이트 결과 |
+| 4 | AC11: `patch()` 반환값이 기존 `next`(merge 결과) → `migrated.settings` 로 변경 — 유효 Settings 에 대해 `migrateRawSettings` 는 내용 동일(schema parse 재통과)이라 등가 | ✅ 구현함 (등가 확인) | `settings-migration.ts:32-41` |
+| 5 | AC13: 캐시 원본 오염 방지를 위해 `read()` 가 shallow copy 반환(호출부가 엔트리 추가/삭제 후 write 하는 기존 패턴 유지) | ✅ 구현함 | `mcp/store.ts read()` |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] A1~A3 재사용 통합
-- [ ] B4~B9 데드 코드 제거
-- [ ] C10 턴 상태 팩토리
-- [ ] D11~D15 효율
-- [ ] 게이트 3종 green
+- [x] A1~A3 재사용 통합
+- [x] B4~B9 데드 코드 제거
+- [x] C10 턴 상태 팩토리
+- [x] D11~D15 효율
+- [x] 게이트 3종 green
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | (기입 예정) |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` |
-| 게이트 결과 | (기입 예정) |
-| 블로커 / 역질문 | (기입 예정) |
-| 대상 커밋 | (기입 예정) |
+| 변경 파일 | 신설 2(`infra/settings-store.test.ts`·`extensions/mcp/store.test.ts`), 수정 24 — `infra/{errors,settings-store}.ts`·`infra/config/{json-file,paths}.ts`·`shared/obj.ts`·`app/{boot-report,updater,chat-turn}.ts`(+resilience test)·`adapters/{error-classifier,claude-settings,claude-adapt}.ts`(+test)·`features/scheduler/scheduler.ts`·`features/extensions/{scaffold,deployer}.ts`·`extensions/skills/{seed,scan}.ts`·`extensions/mcp/store.ts`·`features/providers/{provider-registry,provider-settings}.ts`·`features/sessions/{session-runtime,runtime-pool}.ts`(+tests)·`contracts/session-state.ts` |
+| 실행 명령 | `npm run lint` / `npm run typecheck` / `npm test` |
+| 게이트 결과 | lint ✅ 0 / typecheck ✅ 3종 0 / test ✅ vitest **801 passed** + node --test **24/24** (2 suite=`chat-turn.continuity`·`history/writer` 는 electron 바이너리 403 환경 제한 — 무변경 베이스라인에서도 동일 실패 확인, 0019/0087/0091 동일 계열. 기존 3 suite 제한이 AC8 로 2 로 감소) |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | 본 구현 커밋 (hash 는 INDEX.md·verify.md 에 기재) |

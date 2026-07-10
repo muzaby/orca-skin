@@ -4,6 +4,7 @@
 //   ① ErrorClassifier 인터페이스 — provider 별 classifier(claude-classifier.ts 등)가 구현.
 //   ② makeClassifiedError — category→기본 retryable 매핑을 적용해 ClassifiedError 를 합성.
 //   ③ sanitizeCause — Error 인스턴스/함수를 IPC(structuredClone) 안전값으로 평탄화.
+//   ④ errorMessage — 임의 예외를 사람 읽는 한 줄 메시지로.
 // SDK/electron 비의존 순수 함수 → vitest 대상.
 
 import type { ClassifiedError, ErrorCategory, ProviderId } from '../../shared/ipc'
@@ -18,6 +19,10 @@ export interface ClassifyContext {
 
 export interface ErrorClassifier {
   classify(error: unknown, ctx: ClassifyContext): ClassifiedError
+}
+
+export function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err)
 }
 
 // category 별 기본 retryable. 연결/스트림 계열은 일시적 장애일 수 있어 재시도 가치가 있다.

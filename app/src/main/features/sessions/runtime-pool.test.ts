@@ -33,12 +33,10 @@ describe('RuntimePool (0054 → 0067)', () => {
   it('idle 은 시간 경과로 회수되지 않는다 (0067 — IdleCloseTimer 폐기, 수명=종료/LRU)', () => {
     vi.useFakeTimers()
     const pool = new RuntimePool()
-    const onReap = vi.fn()
     const rt = fakeRuntime()
-    pool.keepIdle('s1', rt, onReap)
+    pool.keepIdle('s1', rt)
     vi.advanceTimersByTime(3_600_000)
     expect(rt.closed).toBe(0)
-    expect(onReap).not.toHaveBeenCalled()
     expect(pool.size).toBe(1)
     vi.useRealTimers()
   })
@@ -119,16 +117,14 @@ describe('RuntimePool LRU/close governance (0055)', () => {
     expect(a.closed).toBe(0)
   })
 
-  it('LRU eviction 은 close + onReap 을 정확히 1회 수행한다', () => {
+  it('LRU eviction 은 close 를 정확히 1회 수행한다', () => {
     const pool = new RuntimePool()
     const rt = fakeRuntime()
-    const onReap = vi.fn()
-    pool.keepIdle('a', rt, onReap)
+    pool.keepIdle('a', rt)
 
     expect(pool.evictToCapacity(0)).toBe(1)
 
     expect(rt.closed).toBe(1)
-    expect(onReap).toHaveBeenCalledTimes(1)
     expect(pool.size).toBe(0)
   })
 })

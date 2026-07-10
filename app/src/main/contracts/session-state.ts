@@ -9,10 +9,6 @@ export class SessionRuntimeStatus {
     return this.currentState
   }
 
-  get abortCause(): AbortCause {
-    return this.currentAbortCause
-  }
-
   get cancelled(): boolean {
     return this.currentAbortCause === 'user_cancelled'
   }

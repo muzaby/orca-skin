@@ -13,6 +13,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { EngineUserSettingsResult } from '../../shared/ipc'
+import { isRecord } from '../../shared/obj'
 import type { ProviderSettingsLoader } from './provider-config'
 
 // CLI 가 repo-커밋 파일의 escalating 모드에 적용하는 trust 필터와 동등한 목록
@@ -25,8 +26,8 @@ function flatRead(path: string): SettingsObject | undefined {
   if (!existsSync(path)) return undefined
   try {
     const parsed = JSON.parse(readFileSync(path, 'utf8')) as unknown
-    if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
-      return parsed as SettingsObject
+    if (isRecord(parsed)) {
+      return parsed
     }
   } catch (err) {
     console.warn(`[claude-settings] settings.json 파싱 실패 — 무시: ${path}`, err)
@@ -68,8 +69,8 @@ export type ClaudeProviderKind = 'anthropic' | 'bedrock' | 'vertex' | 'custom'
 // ANTHROPIC_BASE_URL(게이트웨이) → custom, 그 외 → anthropic.
 export function classifyClaudeEnv(settings: SettingsObject): ClaudeProviderKind {
   const env = settings.env
-  if (typeof env !== 'object' || env === null || Array.isArray(env)) return 'anthropic'
-  const rec = env as SettingsObject
+  if (!isRecord(env)) return 'anthropic'
+  const rec = env
   const truthy = (v: unknown): boolean => v !== undefined && v !== null && v !== '' && v !== '0'
   if (truthy(rec.CLAUDE_CODE_USE_BEDROCK)) return 'bedrock'
   if (truthy(rec.CLAUDE_CODE_USE_VERTEX)) return 'vertex'
