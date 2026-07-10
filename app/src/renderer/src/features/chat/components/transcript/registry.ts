@@ -7,6 +7,8 @@
 // 매칭 로직(resolve)은 순수 함수라 단위 테스트 대상. Body 는 JSX 를 반환하는 컴포넌트 참조.
 
 import type { ToolCall } from '../../reducer/chatReducer'
+import { FILE_EDIT_TOOLS } from '../../lib/toolMeta'
+import { isAgentTaskName } from '../../lib/parts'
 import { BashBody } from './tool-bodies/BashBody'
 import { DiffBody } from './tool-bodies/DiffBody'
 import { FileBody } from './tool-bodies/FileBody'
@@ -59,8 +61,6 @@ export class ToolRendererRegistry {
   }
 }
 
-const FILE_EDIT_TOOLS = new Set(['Write', 'Edit', 'MultiEdit'])
-
 // 기본 레지스트리 — 현행 ToolCard switch 와 동치. fallback=generic(KeyValueBody).
 export const toolRendererRegistry = new ToolRendererRegistry({
   kind: 'generic',
@@ -76,7 +76,7 @@ export const toolRendererRegistry = new ToolRendererRegistry({
   .register({ kind: 'file_preview', match: (c) => c.name === 'Read', Body: FileBody })
   .register({
     kind: 'agent_task',
-    match: (c) => c.name === 'Task' || c.name === 'Agent',
+    match: (c) => isAgentTaskName(c.name),
     Body: AgentTaskBody
   })
   .register({ kind: 'ask', match: (c) => c.name === 'AskUserQuestion', Body: AskBody })

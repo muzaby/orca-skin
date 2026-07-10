@@ -51,11 +51,8 @@ export const MODE_OPTIONS: {
   }
 ]
 
-export const MODE_LABELS: Record<NormalizedPermissionMode, string> = {
-  plan: '계획',
-  default: '기본',
-  accept_edits: '편집 수락',
-  auto_classified: '자동 분류',
-  dont_ask: '묻지 않음',
-  bypass: '권한 우회'
-}
+// MODE_OPTIONS 의 label 파생 — 라벨의 단일 진실원은 MODE_OPTIONS.
+export const MODE_LABELS = Object.fromEntries(MODE_OPTIONS.map((o) => [o.mode, o.label])) as Record<
+  NormalizedPermissionMode,
+  string
+>

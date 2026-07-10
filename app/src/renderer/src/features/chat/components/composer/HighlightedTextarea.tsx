@@ -1,6 +1,7 @@
 import {
   forwardRef,
   useImperativeHandle,
+  useMemo,
   useRef,
   type ChangeEvent,
   type KeyboardEvent,
@@ -138,7 +139,11 @@ export const HighlightedTextarea = forwardRef<HighlightedTextareaHandle, Highlig
       onCaretChange?.(e.currentTarget.selectionStart)
     }
 
-    const segments = tokenize(value, knownSkillNames ?? EMPTY_SET, validFilePaths ?? EMPTY_SET)
+    // Composer 는 draft 와 무관한 상태(caret·메뉴 등)로도 재렌더되므로 토크나이즈는 메모.
+    const segments = useMemo(
+      () => tokenize(value, knownSkillNames ?? EMPTY_SET, validFilePaths ?? EMPTY_SET),
+      [value, knownSkillNames, validFilePaths]
+    )
     // textarea 의 trailing newline 은 추가 빈 줄을 만들기 위해 mirror 끝에 ZWSP 추가.
     const trailingPad = value.endsWith('\n') ? '​' : ''
 

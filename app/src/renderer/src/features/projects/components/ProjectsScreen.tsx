@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Icon } from '../../../shared/ui/Icon'
 import { CreateProjectModal } from './CreateProjectModal'
+import { relativeTimeLabel } from '../../../../../shared/time/relative'
 import type { Project } from '../../../../../shared/ipc'
 
 interface ProjectsScreenProps {
@@ -11,14 +12,10 @@ interface ProjectsScreenProps {
 }
 
 // "방금", "12분 전", "3시간 전", "어제", "4일 전", "5월 13일" 형식.
+// 하루 미만 구간은 shared relativeTimeLabel 사다리를 그대로 쓰고, 어제/날짜 tail 만 로컬.
 function formatRelative(updatedAt: number): string {
-  const diff = Date.now() - updatedAt
-  const min = Math.floor(diff / 60_000)
-  if (min < 1) return '방금'
-  if (min < 60) return `${min}분 전`
-  const hr = Math.floor(min / 60)
-  if (hr < 24) return `${hr}시간 전`
-  const day = Math.floor(hr / 24)
+  const day = Math.floor((Date.now() - updatedAt) / 86_400_000)
+  if (day < 1) return relativeTimeLabel(updatedAt)
   if (day === 1) return '어제'
   if (day < 7) return `${day}일 전`
   return new Intl.DateTimeFormat('ko-KR', { month: 'long', day: 'numeric' }).format(

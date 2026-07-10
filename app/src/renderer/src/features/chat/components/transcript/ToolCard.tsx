@@ -2,6 +2,7 @@ import { memo, useState } from 'react'
 import { Icon } from '../../../../shared/ui/Icon'
 import { CopyIconButton } from '../../../../shared/ui/CopyIconButton'
 import {
+  FILE_TOOLS,
   VERB_LABEL,
   VERB_LABEL_ABORTED,
   VERB_LABEL_ACTIVE,
@@ -14,8 +15,6 @@ import { stringify } from '../../format'
 import { toolRendererRegistry } from './registry'
 import type { ToolCall } from '../../reducer/chatReducer'
 import { AgentTaskRow } from './AgentTaskRow'
-
-const FILE_TOOLS = new Set(['Read', 'Write', 'Edit', 'MultiEdit'])
 
 // result.output 을 문자열로.
 function resultOutput(call: ToolCall): string {

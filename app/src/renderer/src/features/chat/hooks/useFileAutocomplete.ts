@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FileEntry } from '../../../../../shared/ipc'
 import { fileApi } from '../../../shared/api/ipc'
+import { useTokenAutocompleteState } from './useTokenAutocompleteState'
 
 // caret 직전의 `@<partial>` 매칭. 두 형태 모두 지원:
 // - quoted (미닫힘 포함): `@"foo bar/` — 공백 포함 경로 진행 중
@@ -46,10 +47,6 @@ export function useFileAutocomplete(
   caret: number,
   cwd: string | null
 ): UseFileAutocomplete {
-  const [rawActiveIndex, setRawActiveIndex] = useState(0)
-  // Escape 로 닫은 시점의 partial. partial 이 다시 바뀌면 자동 재오픈.
-  const [dismissedAt, setDismissedAt] = useState<string | null>(null)
-
   const match = useMemo(() => {
     const before = text.slice(0, caret)
     // quoted 우선 — `@"abc def` 까지 입력된 경우 plain 매치가 `@` 빈 부분만 잡지
@@ -133,8 +130,11 @@ export function useFileAutocomplete(
   }, [entriesByDir, match])
 
   const partial = match?.partial ?? null
-  const dismissed = dismissedAt !== null && dismissedAt === partial
-  const activeIndex = rawActiveIndex >= suggestions.length ? 0 : rawActiveIndex
+  // 활성 인덱스 보정 + Escape 해제/재오픈은 공유 상태 머신(useTokenAutocompleteState).
+  const { activeIndex, setActiveIndex, dismissed, close } = useTokenAutocompleteState(
+    partial,
+    suggestions.length
+  )
   // suggestions 가 비어도 picker 가 보이도록 — 로딩/빈 결과 안내를 노출하기 위함.
   const open = cwd !== null && match !== null && !dismissed
   // 첫 응답 전(또는 dirPath 변경 후 재조회 중) 이면 loading. 빈 응답이 도착하면
@@ -149,11 +149,11 @@ export function useFileAutocomplete(
     dirPath: match?.dirPath ?? '',
     suggestions,
     activeIndex,
-    setActiveIndex: setRawActiveIndex,
+    setActiveIndex,
     tokenStart: match?.tokenStart ?? -1,
     quoted: match?.quoted ?? false,
     hasClosingQuote,
     validPaths,
-    close: (): void => setDismissedAt(partial)
+    close
   }
 }

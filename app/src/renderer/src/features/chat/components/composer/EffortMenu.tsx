@@ -2,6 +2,7 @@ import { Icon } from '../../../../shared/ui/Icon'
 import type { EffortLevel } from '../../../../../../shared/ipc'
 
 import { EFFORT_LABELS } from './effort'
+import { MENU_ITEM } from './menuItem'
 
 const EFFORT_DESCRIPTIONS: Record<EffortLevel, string> = {
   low: '빠른 응답을 우선합니다.',
@@ -12,8 +13,6 @@ const EFFORT_DESCRIPTIONS: Record<EffortLevel, string> = {
 }
 
 const EFFORT_OPTIONS: EffortLevel[] = ['low', 'medium', 'high', 'xhigh', 'max']
-const MENU_ITEM =
-  'flex w-full cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-left hover:bg-sidebar'
 
 interface EffortMenuProps {
   effort: EffortLevel

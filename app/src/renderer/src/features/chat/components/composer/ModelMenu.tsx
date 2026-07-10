@@ -2,9 +2,7 @@ import { Icon } from '../../../../shared/ui/Icon'
 import type { AgentEnvironment } from '../../../../../../shared/ipc'
 
 import { modelKey, type ModelSelection } from './modelSelection'
-
-const MENU_ITEM =
-  'flex w-full cursor-pointer items-start gap-2 rounded px-2 py-1.5 text-left hover:bg-sidebar'
+import { MENU_ITEM } from './menuItem'
 
 interface ModelMenuProps {
   agents: AgentEnvironment[]

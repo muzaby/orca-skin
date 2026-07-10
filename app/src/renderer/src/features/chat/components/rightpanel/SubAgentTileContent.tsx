@@ -1,5 +1,6 @@
+import { useMemo } from 'react'
 import { Button } from '../../../../shared/ui/Button'
-import { StatusLine } from '../../../../shared/ui/StatusLine'
+import { StatusLine } from '../StatusLine'
 import { AssistantMessage } from '../transcript/AssistantMessage'
 import { UserBubbleText } from '../UserBubbleText'
 import {
@@ -53,9 +54,14 @@ function answerTextFromCall(call: ToolCall): string | null {
 export function SubAgentTileHeader(): React.JSX.Element {
   const messages = useChatSession((s) => s.messages)
   const selectedId = useChatSession((s) => s.selectedSubagentTaskId)
-  const selected = selectedId
-    ? subagentTasksFromMessages(messages).find((task) => task.toolUseId === selectedId)
-    : undefined
+  // O(전체 parts) 파생이라 메모 — messages identity 는 커밋 이벤트에만 바뀐다 (AgentTaskRow 동일).
+  const selected = useMemo(
+    () =>
+      selectedId
+        ? subagentTasksFromMessages(messages).find((task) => task.toolUseId === selectedId)
+        : undefined,
+    [messages, selectedId]
+  )
 
   if (selected) {
     return (
@@ -83,7 +89,8 @@ export function SubAgentTileHeader(): React.JSX.Element {
 export function SubAgentTileContent(): React.JSX.Element {
   const messages = useChatSession((s) => s.messages)
   const selectedId = useChatSession((s) => s.selectedSubagentTaskId)
-  const tasks = subagentTasksFromMessages(messages)
+  // O(전체 parts) 파생이라 메모 — StatusLine 1s 틱 등 무관 재렌더마다 재계산하지 않는다.
+  const tasks = useMemo(() => subagentTasksFromMessages(messages), [messages])
   const selected = selectedId ? tasks.find((task) => task.toolUseId === selectedId) : undefined
   const childMessage = selectedId ? childMessageForParentToolRunId(messages, selectedId) : null
   // 진행 중 서브에이전트 상세에서 메인 transcript 와 동일한 프로세싱 표시(StatusLine)를 버블
