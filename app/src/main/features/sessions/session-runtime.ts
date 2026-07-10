@@ -74,8 +74,9 @@ class Frame {
 // SessionRuntime: send() 1회 = 턴 프레임 1개(retry 정책은 TurnCoordinator 소유 — 프레임 에러 시
 // send() 재호출 = respawn+resume 콜드 패스). 0067: persistent + pushTurn 어댑터는 **단일 채널
 // pump** 가 어댑터 스트림을 계속 소비하며 프레임(1 프레임=1 턴)으로 절단한다 — terminal 에서
-// 프레임만 닫고 채널(live)은 유지. 프레임 밖 도착 이벤트(CLI 자동 픽업 턴)는 unframed 버퍼 +
-// onUnframedEvent 콜백으로 노출한다(자동 연속 턴 오픈 배선은 chat-turn).
+// 프레임만 닫고 채널(live)은 유지. 프레임 밖 도착 이벤트(CLI 자동 픽업 턴)는 unframed 버퍼에
+// 쌓였다가 다음 openFrame() 이 프레임 안으로 흘린다(자동 연속 턴 오픈은 chat-turn 의
+// pendingMessages 폴링이 담당).
 export class SessionRuntime implements ManagedRuntime {
   private readonly status = new SessionRuntimeStatus()
   private live: LiveTurn | null = null
@@ -88,7 +89,6 @@ export class SessionRuntime implements ManagedRuntime {
   // 중 send 가 오면 이벤트 소속을 구분할 수 없으므로 채널을 teardown 하고 respawn 한다(안전 열화).
   private draining = false
   private unframed: NormalizedEvent[] = []
-  private onUnframedCb: ((ev: NormalizedEvent) => void) | null = null
   // 현재 턴의 콜백 위임 — 채널 spawn 시 바인딩되는 requestApproval/takeSteerFlush 가 턴을 넘어
   // 재사용되므로, 어댑터에는 고정 래퍼를 주고 실제 콜백은 매 send 마다 여기로 갈아끼운다(0067 W1).
   private delegate: {
@@ -120,10 +120,6 @@ export class SessionRuntime implements ManagedRuntime {
     return this.status.state
   }
 
-  get abortCause(): AbortCause {
-    return this.status.abortCause
-  }
-
   get cancelled(): boolean {
     return this.status.cancelled
   }
@@ -134,11 +130,6 @@ export class SessionRuntime implements ManagedRuntime {
 
   get canSteer(): boolean {
     return this.live?.canSteer === true
-  }
-
-  // 프레임 밖 이벤트(CLI 자동 픽업 턴 개시) 알림 구독 — 자동 연속 프레임 오픈 트리거(0067 W3).
-  onUnframedEvent(cb: ((ev: NormalizedEvent) => void) | null): void {
-    this.onUnframedCb = cb
   }
 
   send(req: TurnRequest): AsyncIterable<NormalizedEvent> {
@@ -278,7 +269,6 @@ export class SessionRuntime implements ManagedRuntime {
     }
     // 프레임 밖 — CLI 가 자기 큐 잔존분을 자동 픽업해 시작한 턴(0067 W3 에서 자동 프레임 오픈).
     this.unframed.push(ev)
-    this.onUnframedCb?.(ev)
   }
 
   // 채널 스트림 종료(정상=입력 close/서브프로세스 종료, 예외=스트림 에러) — 활성 프레임을 마감

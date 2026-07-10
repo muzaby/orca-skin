@@ -9,3 +9,8 @@ export function ifPresent<K extends string, V>(
 ): Record<K, V> | Record<string, never> {
   return value != null ? ({ [key]: value } as Record<K, V>) : {}
 }
+
+// 배열 아닌 plain object 가드 — JSON 파싱 결과를 좁힐 때 `!Array.isArray` 를 빼먹기 쉬워 SSOT 로 둔다.
+export function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}

@@ -11,13 +11,8 @@
 import type { ManagedRuntime } from '../../contracts/ports'
 import { LruEvictionPolicy, type EvictionPolicy, type IdleRuntimeEntry } from './eviction-policy'
 
-interface RuntimePoolEntry<RT extends ManagedRuntime> {
-  runtime: RT
-  onReap: () => void
-}
-
 export class RuntimePool<RT extends ManagedRuntime = ManagedRuntime> {
-  private readonly idle = new Map<string, RuntimePoolEntry<RT>>()
+  private readonly idle = new Map<string, RT>()
 
   constructor(private readonly evictionPolicy: EvictionPolicy<RT> = new LruEvictionPolicy<RT>()) {}
 
@@ -25,19 +20,19 @@ export class RuntimePool<RT extends ManagedRuntime = ManagedRuntime> {
   // (신규 세션 first turn = sessionId null) 보관 중 핸들이 이미 closed 면 정리 후 undefined.
   take(sessionId: string | null): RT | undefined {
     if (!sessionId) return undefined
-    const entry = this.idle.get(sessionId)
-    if (!entry) return undefined
+    const runtime = this.idle.get(sessionId)
+    if (!runtime) return undefined
     this.idle.delete(sessionId)
-    if (entry.runtime.state === 'closed') return undefined
-    return entry.runtime
+    if (runtime.state === 'closed') return undefined
+    return runtime
   }
 
   // 턴 종료 후 idle 보존 — sessionId 가 없으면 보존 불가(false → 호출측이 close). 같은 키에
   // 이전 핸들이 남아 있으면 정리. 회수는 LRU eviction(evictToCapacity)과 closeAll 뿐(0067).
-  keepIdle(sessionId: string | null, runtime: RT, onReap: () => void = () => {}): boolean {
+  keepIdle(sessionId: string | null, runtime: RT): boolean {
     if (!sessionId) return false
     if (this.idle.has(sessionId)) this.closeEntry(sessionId)
-    this.idle.set(sessionId, { runtime, onReap })
+    this.idle.set(sessionId, runtime)
     return true
   }
 
@@ -67,17 +62,16 @@ export class RuntimePool<RT extends ManagedRuntime = ManagedRuntime> {
   }
 
   private snapshot(): IdleRuntimeEntry<RT>[] {
-    return Array.from(this.idle.entries(), ([sessionId, { runtime }]) => ({ sessionId, runtime }))
+    return Array.from(this.idle.entries(), ([sessionId, runtime]) => ({ sessionId, runtime }))
   }
 
   // 모든 idle close 경로(prev 교체·closeAll·LRU eviction)의 단일 멱등 helper.
   // Map 선제거 후 close 하므로 경합 시 두 번째 호출은 no-op.
   private closeEntry(sessionId: string): boolean {
-    const entry = this.idle.get(sessionId)
-    if (!entry) return false
+    const runtime = this.idle.get(sessionId)
+    if (!runtime) return false
     this.idle.delete(sessionId)
-    entry.runtime.close()
-    entry.onReap()
+    runtime.close()
     return true
   }
 }

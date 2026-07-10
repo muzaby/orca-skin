@@ -12,6 +12,7 @@ import {
   UpdateMcpServerSchema,
   type CreateMcpServerRequest,
   type McpServer,
+  type Settings,
   type UpdateMcpServerRequest
 } from '../../../../shared/protocol'
 import type { SettingsStore } from '../../../infra/settings-store'
@@ -44,21 +45,26 @@ function synthVar(name: string): string {
 
 export class McpStore {
   private readonly secrets = new SecretStore()
+  // mcp.json 파스 캐시 — 이 스토어가 유일한 런타임 read/write 주체(bootstrap 싱글턴)라
+  // write() 가 단일 무효화 지점이다. 매 턴(enabledConfig) 디스크 재파싱을 없앤다(0092).
+  private cache: OrcaMcpConfig | null = null
 
   constructor(private readonly settings: SettingsStore) {}
 
   private read(): OrcaMcpConfig {
-    return readMcpFile().mcpServers
+    this.cache ??= readMcpFile().mcpServers
+    // 호출부가 항목을 추가/삭제 후 write() 하므로 캐시 원본 오염을 막는 shallow copy 를 준다.
+    return { ...this.cache }
   }
 
   private write(servers: OrcaMcpConfig): void {
     writeMcpFile({ mcpServers: servers })
+    this.cache = servers
   }
 
-  private toDto(name: string, server: ClaudeMcp): McpServer {
+  private toDto(name: string, server: ClaudeMcp, s: Settings): McpServer {
     const isHttp = 'url' in server
     const authEnvKey = authVarOf(server)
-    const s = this.settings.getAll()
     return {
       id: name,
       name,
@@ -75,7 +81,8 @@ export class McpStore {
 
   list(): McpServer[] {
     const servers = this.read()
-    return Object.entries(servers).map(([name, server]) => this.toDto(name, server))
+    const s = this.settings.getAll()
+    return Object.entries(servers).map(([name, server]) => this.toDto(name, server, s))
   }
 
   // 정규 소스 항목 + 비밀 사이드 이펙트를 함께 구성한다.
@@ -148,11 +155,11 @@ export class McpStore {
     servers[data.name] = source
     this.write(servers)
     const s = this.settings.getAll()
-    this.settings.patch({
+    const patched = this.settings.patch({
       mcpEnabled: { ...s.mcpEnabled, [data.name]: data.enabled ?? true },
       mcpMeta: { ...s.mcpMeta, [data.name]: { description: data.description ?? '' } }
     })
-    return this.toDto(data.name, source)
+    return this.toDto(data.name, source, patched)
   }
 
   update(input: unknown): McpServer | null {
@@ -203,9 +210,9 @@ export class McpStore {
     }
     enabled[nextName] = data.enabled ?? wasEnabled
     meta[nextName] = { description: data.description ?? prevDesc }
-    this.settings.patch({ mcpEnabled: enabled, mcpMeta: meta })
+    const patched = this.settings.patch({ mcpEnabled: enabled, mcpMeta: meta })
 
-    return this.toDto(nextName, source)
+    return this.toDto(nextName, source, patched)
   }
 
   remove(id: string): void {

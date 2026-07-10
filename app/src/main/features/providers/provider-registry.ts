@@ -4,6 +4,7 @@
 
 import { readdirSync, readFileSync, type Dirent } from 'node:fs'
 import { join } from 'node:path'
+import { isRecord } from '../../../shared/obj'
 import { orcaConfigDir } from '../../infra/config/paths'
 import { providerKeyOf, PROVIDER_NAME_RE } from '../../infra/config/provider-key'
 import { parseClaudeModels, type ParsedModel } from './claude-model-parser'
@@ -32,11 +33,11 @@ function modelsForProvider(settingsFile: string): ParsedModel[] {
     console.warn(`[provider-settings] settings.json 파싱 실패 — 기본 모델로 열거: ${settingsFile}`)
     return parseClaudeModels({})
   }
-  if (typeof json !== 'object' || json === null || Array.isArray(json)) {
+  if (!isRecord(json)) {
     console.warn(`[provider-settings] settings.json 최상위는 객체여야 합니다 — 기본 모델로 열거`)
     return parseClaudeModels({})
   }
-  return parseClaudeModels(json as { model?: unknown; env?: unknown })
+  return parseClaudeModels(json)
 }
 
 // sources/settings/ 의 어댑터 디렉토리 열거 — agent:list 가 미지원 어댑터(supported:false)도

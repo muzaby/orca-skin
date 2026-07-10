@@ -23,8 +23,10 @@ import {
 } from 'node:fs'
 import { join } from 'node:path'
 import type { Backend } from '../../../shared/ipc'
+import { isRecord } from '../../../shared/obj'
 import type { ClaudeMcpConfig } from '../../adapters/mcp-config'
 import type { SkillScanRoot } from './skills/scan'
+import { readJsonFile } from '../../infra/config/json-file'
 import { orcaConfigDir } from '../../infra/config/paths'
 import { PROVIDER_NAME_RE } from '../../infra/config/provider-key'
 import { renderClaudePluginPackage } from './claude-plugin-package'
@@ -90,13 +92,9 @@ function scanProviderSettings(settingsRoot: string): {
       continue
     }
     const settingsPath = join(settingsRoot, entry.name, 'settings.json')
-    if (existsSync(settingsPath)) {
-      try {
-        JSON.parse(readFileSync(settingsPath, 'utf8'))
-      } catch {
-        errors.push(`settings/${entry.name}/settings.json 파싱 실패 — JSON 형식을 확인하세요.`)
-        continue
-      }
+    if (existsSync(settingsPath) && readJsonFile(settingsPath) === undefined) {
+      errors.push(`settings/${entry.name}/settings.json 파싱 실패 — JSON 형식을 확인하세요.`)
+      continue
     }
     providers.push(entry.name)
   }
@@ -156,11 +154,11 @@ export function deploy(
     mcpConfig = opts.mcpConfig
     actions.push('render enabled mcp → plugins/orca/.mcp.json')
   } else if (existsSync(mcpSrc)) {
-    try {
-      const parsed = JSON.parse(readFileSync(mcpSrc, 'utf8')) as { mcpServers?: ClaudeMcpConfig }
-      mcpConfig = parsed.mcpServers ?? {}
+    const parsed = readJsonFile(mcpSrc)
+    if (isRecord(parsed)) {
+      mcpConfig = (parsed.mcpServers as ClaudeMcpConfig | undefined) ?? {}
       actions.push('copy mcp → plugins/orca/.mcp.json')
-    } catch {
+    } else {
       actions.push('render empty mcp → plugins/orca/.mcp.json (invalid source)')
     }
   } else {

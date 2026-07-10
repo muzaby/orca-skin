@@ -9,6 +9,7 @@ import type {
 } from '../../shared/ipc'
 import { getOrcaConfig } from '../infra/config/orca-config'
 import { broadcastUpdateProgress, broadcastUpdateState } from '../infra/ipc/send'
+import { errorMessage } from '../infra/errors'
 
 const INSTALL_BLOCK_REASON = '작업이 진행 중입니다 — 끝난 뒤 다시 시도하세요.'
 
@@ -33,9 +34,6 @@ export function computeUpdateInstallGate(state: RestartGateState): {
   return canRestartForUpdate(state)
     ? { canInstall: true }
     : { canInstall: false, reason: INSTALL_BLOCK_REASON }
-}
-function asErrorMessage(err: unknown): string {
-  return err instanceof Error ? err.message : String(err)
 }
 function clampPercent(value: unknown): number {
   const n = typeof value === 'number' && Number.isFinite(value) ? value : 0
@@ -127,7 +125,7 @@ export class UpdateController {
         state: this.getState()
       }
     } catch (err) {
-      const message = asErrorMessage(err)
+      const message = errorMessage(err)
       console.warn('[update] check failed:', err)
       this.patch(
         startup
@@ -146,7 +144,7 @@ export class UpdateController {
       await this.deps.updater.downloadUpdate()
       return { ok: true, state: this.getState() }
     } catch (err) {
-      const message = asErrorMessage(err)
+      const message = errorMessage(err)
       this.patch({ status: 'error', error: message, lastError: message })
       return { ok: false, reason: 'download-failed', state: this.getState() }
     }
@@ -173,7 +171,7 @@ export class UpdateController {
       return { ok: true }
     } catch (err) {
       this.installPending = false
-      const message = asErrorMessage(err)
+      const message = errorMessage(err)
       this.patch({ status: 'error', error: message, lastError: message })
       return { ok: false, reason: 'internal-error', message }
     }
@@ -227,7 +225,7 @@ export class UpdateController {
       })
     )
     this.deps.updater.on('error', (err) => {
-      const message = asErrorMessage(err)
+      const message = errorMessage(err)
       this.patch({ status: 'error', error: message, lastError: message })
     })
   }

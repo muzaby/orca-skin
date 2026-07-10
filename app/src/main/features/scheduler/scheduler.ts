@@ -1,5 +1,6 @@
 import { Cron } from 'croner'
 import type { Settings } from '../../../shared/protocol'
+import { errorMessage } from '../../infra/errors'
 import { assertValidCron } from './cron-validate'
 import type { JobAction, JobKey, RunRecorder, ScheduleSpec } from './types'
 
@@ -94,8 +95,4 @@ export class Scheduler {
   private assertNotDisposed(): void {
     if (this.disposed) throw new Error('Scheduler is disposed')
   }
-}
-
-function errorMessage(e: unknown): string {
-  return e instanceof Error ? e.message : String(e)
 }

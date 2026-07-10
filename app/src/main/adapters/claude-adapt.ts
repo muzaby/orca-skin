@@ -2,8 +2,7 @@
 // 함수들. 인바운드(백엔드→중립)가 normalize 라면, 이쪽은 그 아웃바운드 짝(중립→백엔드)으로,
 // Ports & Adapters 의 어댑터 경계 변환이다. 각 함수는 `...spread` 로 합성될 옵션 조각(object)을
 // 반환한다 — claude.ts 가 이미 219줄이라 hook 래핑까지 합치면 CLAUDE.md 원칙 9 의 400줄 경고를
-// 넘어 별 파일로 분리한다. MCP 는 0058 이후 plugin .mcp.json 경로가 기본이며, adaptMcp 는
-// 레거시 options.mcpServers 안전화/제거 전까지 남겨둔다.
+// 넘어 별 파일로 분리한다. MCP 는 0058 이후 plugin .mcp.json 경로가 기본이다.
 
 import type {
   HookCallback,
@@ -17,7 +16,6 @@ import type {
 } from '@anthropic-ai/claude-agent-sdk'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import type { ClaudeMcpConfig } from './mcp-config'
 import { adaptSkillNameForClaude } from './claude-plugin'
 import type { SkillInfo } from '../../shared/ipc'
 import type { ProviderSettings } from './provider-config'
@@ -39,14 +37,6 @@ export function adaptPlugins(pluginRoot?: string | null): object {
   if (!pluginRoot || pluginRoot.trim() === '') return {}
   if (!existsSync(join(pluginRoot, '.claude-plugin', 'plugin.json'))) return {}
   return { plugins: [{ type: 'local' as const, path: pluginRoot }] }
-}
-
-// 레거시 MCP 주입 경로. 기본 query 는 plugin .mcp.json 을 사용하므로 호출하지 않는다.
-// 추후 plugin 로딩 안전화가 완료되면 제거 대상이다.
-export function adaptMcp(config: ClaudeMcpConfig): object {
-  const names = Object.keys(config)
-  if (names.length === 0) return {}
-  return { mcpServers: config, allowedTools: names.map((n) => `mcp__${n}__*`) }
 }
 
 // claude_code preset + append. preset 으로 claude 의 기본 시스템 프롬프트(작업 디렉토리,

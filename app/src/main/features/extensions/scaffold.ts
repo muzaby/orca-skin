@@ -11,6 +11,7 @@
 import { existsSync, mkdirSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Backend } from '../../../shared/ipc'
+import { isRecord } from '../../../shared/obj'
 import { classifyClaudeEnv } from '../../adapters/claude-settings'
 import { orcaConfigDir } from '../../infra/config/paths'
 import { writeJsonAtomic } from '../../infra/config/json-file'
@@ -41,9 +42,8 @@ function resolveSeed(userSettingsJson?: string | null): Seed {
   if (userSettingsJson) {
     try {
       const parsed: unknown = JSON.parse(userSettingsJson)
-      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
-        const settings = parsed as Record<string, unknown>
-        return { provider: classifyClaudeEnv(settings), settings }
+      if (isRecord(parsed)) {
+        return { provider: classifyClaudeEnv(parsed), settings: parsed }
       }
     } catch {
       // 파싱 실패 — 아래 기본 템플릿으로 폴백

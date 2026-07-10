@@ -117,20 +117,10 @@ export function distPluginsDir(engine: Backend): string {
   return join(distDir(engine), 'plugins')
 }
 
+// 플러그인 내부 레이아웃(.claude-plugin/plugin.json·skills·.mcp.json)의 소유자는
+// features/extensions/claude-plugin-package.ts — 여기서는 루트 디렉토리까지만 제공한다.
 export function distOrcaPluginDir(engine: Backend): string {
   return join(distPluginsDir(engine), 'orca')
-}
-
-export function distOrcaPluginManifestPath(engine: Backend): string {
-  return join(distOrcaPluginDir(engine), '.claude-plugin', 'plugin.json')
-}
-
-export function distOrcaPluginSkillsDir(engine: Backend): string {
-  return join(distOrcaPluginDir(engine), 'skills')
-}
-
-export function distOrcaPluginMcpJsonPath(engine: Backend): string {
-  return join(distOrcaPluginDir(engine), '.mcp.json')
 }
 
 // 부팅 시 1회. mkdir -p 의미 (recursive). 이미 있으면 무시.

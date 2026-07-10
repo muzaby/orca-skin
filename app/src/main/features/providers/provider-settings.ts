@@ -57,6 +57,8 @@ export class ProviderSettingsService {
   // 를 반복하지 않는다. provider 트리를 바꾸는 앱 경로(engine add/update/delete·deploy)가
   // invalidateAll() 로 비우므로 resolve() 의 mtime 캐시와 동일 수명 정책을 따른다.
   private readonly listCache = new Map<string, ProviderEntry[]>()
+  // 어댑터 디렉토리 열거 캐시 — listCache 와 동일 수명(invalidateAll 에서 함께 해제).
+  private adaptersCache: string[] | null = null
 
   constructor(
     private readonly loaders: Record<string, ProviderSettingsLoader>,
@@ -64,7 +66,8 @@ export class ProviderSettingsService {
   ) {}
 
   adapters(): string[] {
-    return listAdapters(this.root)
+    this.adaptersCache ??= listAdapters(this.root)
+    return this.adaptersCache
   }
 
   list(adapter: string): ProviderEntry[] {
@@ -79,6 +82,7 @@ export class ProviderSettingsService {
   invalidateAll(): void {
     this.cache.clear()
     this.listCache.clear()
+    this.adaptersCache = null
   }
 
   // entry 의 settings 를 해석해 blob 으로 반환. 로더 미등록 어댑터(미래 opencode 전 단계)는

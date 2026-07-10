@@ -8,7 +8,6 @@ import {
   mergeHooks,
   adaptEnv,
   adaptHooks,
-  adaptMcp,
   adaptPlugins,
   adaptSettings,
   adaptSkills,
@@ -48,24 +47,6 @@ describe('adaptPlugins', () => {
     expect(adaptPlugins(pluginRoot)).toEqual({
       plugins: [{ type: 'local', path: pluginRoot }]
     })
-  })
-})
-
-describe('adaptMcp', () => {
-  it('빈 config 는 옵션 생략', () => {
-    expect(adaptMcp({})).toEqual({})
-  })
-
-  it('서버가 있으면 mcpServers + allowedTools(`mcp__<name>__*`)', () => {
-    const out = adaptMcp({
-      gh: { command: 'gh-mcp' },
-      api: { type: 'http', url: 'https://x' }
-    }) as { mcpServers: object; allowedTools: string[] }
-    expect(out.mcpServers).toEqual({
-      gh: { command: 'gh-mcp' },
-      api: { type: 'http', url: 'https://x' }
-    })
-    expect(out.allowedTools).toEqual(['mcp__gh__*', 'mcp__api__*'])
   })
 })
 

@@ -9,7 +9,7 @@
 // 순수 함수 → vitest 대상.
 
 import type { ClassifiedError, NormalizedEvent } from '../../shared/ipc'
-import { makeClassifiedError, type ErrorClassifier } from '../infra/errors'
+import { errorMessage, makeClassifiedError, type ErrorClassifier } from '../infra/errors'
 
 const AUTH_PATTERNS = [/\b401\b/, /\bunauthori[sz]ed\b/i, /\bOAuth\b/i, /\bexpired\b/i]
 // 자식 프로세스(claude 바이너리) spawn 실패 — 연결 불가로 취급(재시도 가치 있음).
@@ -23,7 +23,7 @@ const AUTH_MESSAGE = 'Claude Code 인증이 만료되었습니다.'
 
 export const claudeErrorClassifier: ErrorClassifier = {
   classify(error, ctx): ClassifiedError {
-    const message = error instanceof Error ? error.message : String(error)
+    const message = errorMessage(error)
     const name = error instanceof Error ? error.name : ''
     const haystack = `${name} ${message}`
 

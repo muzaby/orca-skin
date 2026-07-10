@@ -49,48 +49,60 @@ export function skillEnabledKey(sourceId: string, name: string): string {
   return `${sourceId}/${name}`
 }
 
+// 스킬 디렉토리별 read/stat 을 병렬 수행한다(부팅 skill-scan 스텝 지연 축소, 0092). 반환 순서는
+// readdir 항목 순서를 보존한다 — 같은 root 안에서 frontmatter name 이 충돌하면 뒤 항목이 이긴다
+// (기존 순차 스캔과 동일한 dedup 규칙).
 async function scanRoot(
   root: SkillScanRoot,
   enabled: Record<string, boolean>
 ): Promise<SkillInfo[]> {
   const entries = await fs.readdir(root.rootDir, { withFileTypes: true }).catch(() => [])
-  const skills: SkillInfo[] = []
-  for (const dir of entries) {
-    if (!dir.isDirectory()) continue
-    const skillDir = join(root.rootDir, dir.name)
-    const skillPath = join(skillDir, 'SKILL.md')
-    const text = await fs.readFile(skillPath, 'utf8').catch(() => null)
-    if (text === null) continue
-    const meta = parseFrontmatter(text)
-    const name = meta.name ?? dir.name
-    const stat = await fs.stat(skillPath).catch(() => null)
-    skills.push({
-      name,
-      description: meta.description ?? '',
-      ...(meta['argument-hint'] ? { argumentHint: meta['argument-hint'] } : {}),
-      sourceId: root.sourceId,
-      sourceLabel: root.sourceLabel,
-      enabled:
-        root.sourceKind === 'orca' ? (enabled[skillEnabledKey(root.sourceId, name)] ?? true) : true,
-      body: bodyWithoutFrontmatter(text),
-      sourceKind: root.sourceKind,
-      canToggle: root.sourceKind === 'orca',
-      canRemove: root.sourceKind === 'orca',
-      skillPath,
-      skillDir,
-      ...(stat ? { updatedAt: stat.mtimeMs, createdAt: stat.birthtimeMs } : {})
-    })
-  }
-  return skills
+  const skills = await Promise.all(
+    entries
+      .filter((dir) => dir.isDirectory())
+      .map(async (dir): Promise<SkillInfo | null> => {
+        const skillDir = join(root.rootDir, dir.name)
+        const skillPath = join(skillDir, 'SKILL.md')
+        const [text, stat] = await Promise.all([
+          fs.readFile(skillPath, 'utf8').catch(() => null),
+          fs.stat(skillPath).catch(() => null)
+        ])
+        if (text === null) return null
+        const meta = parseFrontmatter(text)
+        const name = meta.name ?? dir.name
+        return {
+          name,
+          description: meta.description ?? '',
+          ...(meta['argument-hint'] ? { argumentHint: meta['argument-hint'] } : {}),
+          sourceId: root.sourceId,
+          sourceLabel: root.sourceLabel,
+          enabled:
+            root.sourceKind === 'orca'
+              ? (enabled[skillEnabledKey(root.sourceId, name)] ?? true)
+              : true,
+          body: bodyWithoutFrontmatter(text),
+          sourceKind: root.sourceKind,
+          canToggle: root.sourceKind === 'orca',
+          canRemove: root.sourceKind === 'orca',
+          skillPath,
+          skillDir,
+          ...(stat ? { updatedAt: stat.mtimeMs, createdAt: stat.birthtimeMs } : {})
+        }
+      })
+  )
+  return skills.filter((s): s is SkillInfo => s !== null)
 }
 
 export async function scanSkills(
   roots: SkillScanRoot[],
   enabled: Record<string, boolean> = {}
 ): Promise<SkillInfo[]> {
+  // root 간에도 병렬 스캔하되, dedup(byKey.set)은 roots 순서대로 적용해 "뒤 root 가 이긴다"
+  // 규칙을 보존한다.
+  const perRoot = await Promise.all(roots.map((root) => scanRoot(root, enabled)))
   const byKey = new Map<string, SkillInfo>()
-  for (const root of roots) {
-    for (const s of await scanRoot(root, enabled)) byKey.set(skillEnabledKey(s.sourceId, s.name), s)
+  for (const skills of perRoot) {
+    for (const s of skills) byKey.set(skillEnabledKey(s.sourceId, s.name), s)
   }
   return [...byKey.values()].sort(
     (a, b) => a.sourceLabel.localeCompare(b.sourceLabel) || a.name.localeCompare(b.name)
