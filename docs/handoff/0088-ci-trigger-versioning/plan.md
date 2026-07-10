@@ -132,4 +132,4 @@
 | 실행 명령 | `npm run lint` / `npm run typecheck` / `npm test` / `node --test "scripts/*.test.mjs"` / js-yaml 파스 |
 | 게이트 결과 | lint ✅ / typecheck 3종 ✅ / test: vitest **773/773 passed** + node --test **24/24** (3 suite=electron 바이너리 403 환경 제약, 0087/0019/0085 동일 계열·본 변경 무관) |
 | 블로커 / 역질문 | 없음. 실 버전 bump/태그(=실 릴리스)는 사용자 몫 — `npm run release:*` 로 도구는 준비됨 |
-| 대상 커밋 | (커밋 B hash — 커밋 후 INDEX 기재) |
+| 대상 커밋 | `412c2bc` |
