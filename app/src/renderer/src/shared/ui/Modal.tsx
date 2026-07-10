@@ -101,6 +101,7 @@ export function ModalActions({
   confirmLabel,
   cancelLabel = '취소',
   confirmDisabled = false,
+  cancelDisabled = false,
   danger = false
 }: {
   onCancel: () => void
@@ -108,6 +109,8 @@ export function ModalActions({
   confirmLabel: string
   cancelLabel?: string
   confirmDisabled?: boolean
+  // 저장 진행(busy) 중 취소 차단용.
+  cancelDisabled?: boolean
   danger?: boolean
 }): React.JSX.Element {
   const confirmTone = danger ? 'bg-rust hover:brightness-110' : 'bg-ink hover:bg-t8'
@@ -116,7 +119,8 @@ export function ModalActions({
       <button
         type="button"
         onClick={onCancel}
-        className="cursor-pointer rounded-r4 border border-border bg-panel px-3.5 py-1.5 text-[12.5px] text-ink2 hover:bg-fill-uncontained-hover"
+        disabled={cancelDisabled}
+        className="cursor-pointer rounded-r4 border border-border bg-panel px-3.5 py-1.5 text-[12.5px] text-ink2 hover:bg-fill-uncontained-hover disabled:cursor-not-allowed disabled:opacity-40"
       >
         {cancelLabel}
       </button>

@@ -7,6 +7,13 @@
 
 import type { ToolCall } from '../reducer/chatReducer'
 import { diffLines as jsDiffLines } from 'diff'
+import { basenameForDisplay } from '../../../../../shared/path-basename'
+import { isAgentTaskName } from './parts'
+
+// 파일 도구 이름 집합 — 편집(diff 렌더 대상)과 읽기 포함(파일경로 헤더 대상)의 단일 진실원.
+// 새 편집형 도구는 여기에만 추가하면 registry(diff)·ToolCard(헤더/복사)가 함께 따라온다.
+export const FILE_EDIT_TOOLS: ReadonlySet<string> = new Set(['Write', 'Edit', 'MultiEdit'])
+export const FILE_TOOLS: ReadonlySet<string> = new Set(['Read', ...FILE_EDIT_TOOLS])
 
 export type VerbCategory =
   | 'ran'
@@ -72,6 +79,7 @@ const CATEGORY_ORDER: VerbCategory[] = [
 
 // 도구 이름 → 카테고리 (전략 문서 §3 관찰 매핑)
 export function toolVerbCategory(name: string): VerbCategory {
+  if (isAgentTaskName(name)) return 'delegated'
   switch (name) {
     case 'Bash':
     case 'PowerShell':
@@ -87,19 +95,10 @@ export function toolVerbCategory(name: string): VerbCategory {
       return 'planned'
     case 'AskUserQuestion':
       return 'requested'
-    case 'Task':
-    case 'Agent':
-      return 'delegated'
     default:
-      // Glob / Grep / WebFetch / WebSearch / Task* / mcp__* / 그 외
+      // Glob / Grep / WebFetch / WebSearch / mcp__* / 그 외
       return 'used'
   }
-}
-
-// file_path 의 마지막 세그먼트 (`/`·`\` 양쪽 지원)
-function basename(path: string): string {
-  const segs = path.split(/[/\\]/).filter(Boolean)
-  return segs.length > 0 ? segs[segs.length - 1] : path
 }
 
 function asRecord(input: unknown): Record<string, unknown> | null {
@@ -138,7 +137,7 @@ export function toolDescription(call: ToolCall): string {
     case 'MultiEdit':
     case 'Read': {
       const fp = stringField(rec, 'file_path')
-      if (fp) return basename(fp)
+      if (fp) return basenameForDisplay(fp, fp) // 세그먼트가 없으면(루트 등) 경로 원문 유지
       break
     }
     case 'Bash':

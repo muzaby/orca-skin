@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
+  FILE_EDIT_TOOLS,
+  FILE_TOOLS,
   VERB_LABEL,
   VERB_LABEL_ACTIVE,
   summarizeToolGroup,
@@ -35,6 +37,20 @@ describe('toolVerbCategory', () => {
     expect(toolVerbCategory('Read')).toBe('read')
     expect(toolVerbCategory('Glob')).toBe('used')
     expect(toolVerbCategory('mcp__server__tool')).toBe('used')
+  })
+
+  it('서브에이전트 도구(Task/Agent — isAgentTaskName)는 delegated', () => {
+    expect(toolVerbCategory('Task')).toBe('delegated')
+    expect(toolVerbCategory('Agent')).toBe('delegated')
+  })
+})
+
+describe('FILE_TOOLS / FILE_EDIT_TOOLS', () => {
+  it('FILE_TOOLS 는 편집 도구 집합 + Read 로 파생된다 (단일 진실원)', () => {
+    expect([...FILE_EDIT_TOOLS].sort()).toEqual(['Edit', 'MultiEdit', 'Write'])
+    for (const t of FILE_EDIT_TOOLS) expect(FILE_TOOLS.has(t)).toBe(true)
+    expect(FILE_TOOLS.has('Read')).toBe(true)
+    expect(FILE_TOOLS.size).toBe(FILE_EDIT_TOOLS.size + 1)
   })
 })
 

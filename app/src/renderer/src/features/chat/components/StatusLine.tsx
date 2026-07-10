@@ -1,5 +1,8 @@
+// 어시스턴트 턴 진행 표시(스트리밍 인디케이터) — 소비자가 chat 전용(transcript ·
+// 서브에이전트 타일)이라 shared/ui 가 아닌 chat feature 에 둔다. 경과 틱은 범용
+// useElapsed(shared/ui/elapsed)를 공유한다.
 import { useEffect, useMemo, useState } from 'react'
-import { formatElapsed, useElapsed } from './elapsed'
+import { formatElapsed, useElapsed } from '../../../shared/ui/elapsed'
 
 const SYMBOLS = ['✢', '✣', '✦', '✧', '★', '✶']
 

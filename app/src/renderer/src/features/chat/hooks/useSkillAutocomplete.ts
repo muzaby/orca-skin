@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import type { SkillInfo } from '../../../../../shared/ipc'
+import { useTokenAutocompleteState } from './useTokenAutocompleteState'
 
 // caret 직전 부분 토큰: 줄 시작/공백 다음의 `/` 와 그 뒤 (소문자/숫자/하이픈/콜론) 0+.
 // 캡처 그룹 1 = `/` 다음의 partial (빈 문자열 허용 — `/` 만 입력한 직후 picker open).
@@ -22,10 +23,6 @@ export function useSkillAutocomplete(
   caret: number,
   skills: SkillInfo[]
 ): UseSkillAutocomplete {
-  const [rawActiveIndex, setRawActiveIndex] = useState(0)
-  // Escape 로 닫은 시점의 partial. partial 이 다시 바뀌면 자동 재오픈 (render 중 비교).
-  const [dismissedAt, setDismissedAt] = useState<string | null>(null)
-
   const match = useMemo(() => {
     const before = text.slice(0, caret)
     const m = before.match(PARTIAL_RE)
@@ -42,9 +39,11 @@ export function useSkillAutocomplete(
   }, [skills, match])
 
   const partial = match?.partial ?? null
-  const dismissed = dismissedAt !== null && dismissedAt === partial
-  // 후보 길이를 벗어난 activeIndex 는 render 중 0 으로 보정.
-  const activeIndex = rawActiveIndex >= suggestions.length ? 0 : rawActiveIndex
+  // 활성 인덱스 보정 + Escape 해제/재오픈은 공유 상태 머신(useTokenAutocompleteState).
+  const { activeIndex, setActiveIndex, dismissed, close } = useTokenAutocompleteState(
+    partial,
+    suggestions.length
+  )
   const open = match !== null && suggestions.length > 0 && !dismissed
 
   return {
@@ -52,8 +51,8 @@ export function useSkillAutocomplete(
     query: match?.partial ?? '',
     suggestions,
     activeIndex,
-    setActiveIndex: setRawActiveIndex,
+    setActiveIndex,
     tokenStart: match?.tokenStart ?? -1,
-    close: (): void => setDismissedAt(partial)
+    close
   }
 }

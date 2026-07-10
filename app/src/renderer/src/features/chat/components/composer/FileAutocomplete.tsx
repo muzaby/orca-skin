@@ -1,5 +1,5 @@
-import { useLayoutEffect, useRef, useState, type RefObject } from 'react'
-import { createPortal } from 'react-dom'
+import type { RefObject } from 'react'
+import { AnchoredDropdown } from './AnchoredDropdown'
 import { Icon } from '../../../../shared/ui/Icon'
 import type { FileEntry } from '../../../../../../shared/ipc'
 
@@ -16,7 +16,7 @@ interface FileAutocompleteProps {
   onPick: (entry: FileEntry) => void
 }
 
-// `@` 트리거 파일 경로 picker — SkillAutocomplete 와 동일한 anchor-기준 정렬.
+// `@` 트리거 파일 경로 picker — 포지셔닝/portal 셸은 AnchoredDropdown 공유.
 // 한 단계씩 디렉토리 진입 방식이라 헤더에 현재 위치를 표시한다.
 export function FileAutocomplete({
   open,
@@ -28,33 +28,14 @@ export function FileAutocomplete({
   onHover,
   onPick
 }: FileAutocompleteProps): React.JSX.Element | null {
-  const panelRef = useRef<HTMLDivElement>(null)
-  const [pos, setPos] = useState<{ left: number; bottom: number } | null>(null)
-
-  useLayoutEffect(() => {
-    if (!open) return
-    const el = anchorRef.current
-    if (!el) return
-    const rect = el.getBoundingClientRect()
-    setPos({
-      left: rect.left,
-      bottom: window.innerHeight - rect.top + 6
-    })
-  }, [open, anchorRef, suggestions.length])
-
-  if (!open || !pos) return null
-
   const headerLabel = dirPath === '' ? './' : `./${dirPath}/`
 
-  return createPortal(
-    <div
-      ref={panelRef}
-      role="listbox"
-      aria-label="파일 경로 자동완성"
-      className="app-frame-floating fixed z-50 min-w-[280px] max-w-[420px] overflow-hidden rounded-lg border border-border bg-panel p-1 shadow-lg"
-      style={{ left: pos.left, bottom: pos.bottom }}
-      data-context="floating"
-      data-behavior="dismissible"
+  return (
+    <AnchoredDropdown
+      open={open}
+      anchorRef={anchorRef}
+      itemCount={suggestions.length}
+      ariaLabel="파일 경로 자동완성"
     >
       <div className="border-b border-border px-2 py-1 font-mono text-[10.5px] text-ink3">
         {headerLabel}
@@ -97,7 +78,6 @@ export function FileAutocomplete({
           })
         )}
       </div>
-    </div>,
-    document.body
+    </AnchoredDropdown>
   )
 }
