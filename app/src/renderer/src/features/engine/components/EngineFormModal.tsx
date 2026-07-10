@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { engineApi } from '../../../shared/api/ipc'
+import { Icon } from '../../../shared/ui/Icon'
+import { Popover } from '../../../shared/ui/Popover'
 import {
-  ENGINE_OPTIONS,
+  DEFAULT_PROVIDER_ID,
   PROVIDER_OPTIONS,
   providerOption,
   validateProviderName,
@@ -17,16 +20,9 @@ interface EngineFormModalProps {
   onSubmit: (payload: { provider: string; settingsJson: string }) => Promise<void>
 }
 
-type Step = 1 | 2 | 3
-
-// 빗금(준비 중) 배경 — 테마 border 토큰을 써 다크 테마에서도 자연스럽게 따라간다.
-const HATCH =
-  'bg-[repeating-linear-gradient(45deg,transparent,transparent_5px,var(--color-border)_5px,var(--color-border)_6px)]'
-
-const CARD_BASE = 'rounded-xl border px-4 py-3 text-left transition-colors'
-const CARD_IDLE = 'border-border bg-panel hover:border-border-strong hover:bg-sidebar'
-const CARD_SEL = 'border-border-strong bg-t3'
-
+// 단일 화면 폼 (handoff 0090) — adapter 는 claude 하나뿐이라 엔진/공급자 선택 단계를
+// 없앴다. 공급자는 드롭다운, adapter 는 claude 칩 고정 표기. 닫기는 취소 버튼 · 백드롭
+// 클릭 · Esc 세 경로.
 export function EngineFormModal({
   mode,
   provider: editProvider = '',
@@ -36,26 +32,66 @@ export function EngineFormModal({
   onSubmit
 }: EngineFormModalProps): React.JSX.Element {
   const editing = mode === 'edit'
-  const [step, setStep] = useState<Step>(editing ? 3 : 1)
-  const [engineId, setEngineId] = useState('claude')
-  const [providerId, setProviderId] = useState(editing ? 'custom' : '')
-  const [providerName, setProviderName] = useState(editProvider)
-  const [settingsJson, setSettingsJson] = useState(initialSettingsJson)
+  const [providerId, setProviderId] = useState(editing ? 'custom' : DEFAULT_PROVIDER_ID)
+  const [providerName, setProviderName] = useState(editing ? editProvider : DEFAULT_PROVIDER_ID)
+  const [settingsJson, setSettingsJson] = useState(
+    editing ? initialSettingsJson : (providerOption(DEFAULT_PROVIDER_ID)?.template ?? '{}')
+  )
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [importBusy, setImportBusy] = useState(false)
+  const [importError, setImportError] = useState<string | null>(null)
+  const menuAnchorRef = useRef<HTMLButtonElement>(null)
+  const nameRef = useRef<HTMLInputElement>(null)
 
   const isCustom = editing || providerOption(providerId)?.custom === true
   const jsonCheck = useMemo(() => validateSettingsJson(settingsJson), [settingsJson])
   const nameCheck = useMemo(() => validateProviderName(providerName), [providerName])
   const canSubmit = jsonCheck.ok && nameCheck.ok && !busy
 
-  // 2단계에서 공급자를 고르면 해당 템플릿으로 3단계를 채우고 이름 기본값도 맞춘다.
+  const selectedOption = providerOption(providerId)
+
+  // 닫기 버튼이 없으므로 Esc 로 닫는다. 드롭다운이 열려 있으면 Popover 의 Esc 가
+  // 메뉴만 닫도록 모달 닫기는 건너뛴다.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape' && !menuOpen) onClose()
+    }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [menuOpen, onClose])
+
+  useEffect(() => {
+    if (isCustom) queueMicrotask(() => nameRef.current?.focus())
+  }, [isCustom])
+
+  // 공급자를 고르면 해당 템플릿으로 settings.json 을 채우고 이름 기본값도 맞춘다.
   const pickProvider = (id: string): void => {
     const opt = providerOption(id)
     if (!opt) return
     setProviderId(id)
     setSettingsJson(opt.template)
     setProviderName(opt.custom ? '' : id)
-    setStep(3)
+    setImportError(null)
+    setMenuOpen(false)
+  }
+
+  // ~/.claude/settings.json 원문을 불러와 본문을 채운다 (자동완성).
+  const importUserSettings = async (): Promise<void> => {
+    setImportError(null)
+    setImportBusy(true)
+    try {
+      const result = await engineApi.importUserSettings()
+      if (!result.exists) {
+        setImportError('~/.claude/settings.json 을 찾을 수 없어요.')
+        return
+      }
+      setSettingsJson(result.settingsJson)
+    } catch {
+      setImportError('~/.claude/settings.json 을 불러오지 못했어요.')
+    } finally {
+      setImportBusy(false)
+    }
   }
 
   const submit = async (): Promise<void> => {
@@ -67,10 +103,6 @@ export function EngineFormModal({
       setSubmitError(e instanceof Error ? e.message : '저장에 실패했어요.')
     }
   }
-
-  const providerLabel = editing
-    ? providerName || editProvider
-    : (providerOption(providerId)?.label ?? providerId)
 
   return (
     <div
@@ -85,281 +117,154 @@ export function EngineFormModal({
         aria-modal="true"
         aria-label={editing ? '엔진 설정 편집' : '엔진 추가'}
       >
-        <div className="border-b border-border px-6 pb-3 pt-4">
-          <div className="flex items-center gap-2">
-            {step > 1 && !editing && (
+        <div className="border-b border-border px-6 pb-3.5 pt-4">
+          <h2 className="m-0 text-[16px] font-semibold text-ink">
+            {editing ? '엔진 설정 편집' : '엔진 추가'}
+          </h2>
+        </div>
+
+        <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-6 py-5">
+          {/* adapter 는 claude 고정 — 편집 모드에선 고정된 provider 도 함께 표기 */}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-ink2">
+            <span className="rounded-md bg-sidebar px-2 py-0.5 font-medium text-ink">claude</span>
+            {editing && (
+              <>
+                <span className="text-ink3">/</span>
+                <span className="rounded-md bg-sidebar px-2 py-0.5 font-medium text-ink">
+                  {providerName || editProvider}
+                </span>
+              </>
+            )}
+          </div>
+
+          {!editing && (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[12px] font-medium text-ink2">공급자</span>
+              <button
+                ref={menuAnchorRef}
+                type="button"
+                onClick={() => setMenuOpen((v) => !v)}
+                aria-haspopup="menu"
+                aria-expanded={menuOpen}
+                className="flex items-center justify-between gap-2 rounded-lg border border-border bg-bg px-3 py-2 text-left text-[13px] text-ink outline-none hover:border-border-strong focus:border-border-strong"
+              >
+                <span className="flex items-baseline gap-2">
+                  <span className="font-medium">{selectedOption?.label ?? providerId}</span>
+                  {selectedOption && (
+                    <span className="text-[11.5px] text-ink3">{selectedOption.desc}</span>
+                  )}
+                </span>
+                <Icon name={menuOpen ? 'chevU' : 'chevD'} size={14} color="var(--color-ink3)" />
+              </button>
+              <Popover
+                open={menuOpen}
+                anchorRef={menuAnchorRef}
+                onClose={() => setMenuOpen(false)}
+                placement="bottom"
+                className="min-w-[300px]"
+              >
+                {PROVIDER_OPTIONS.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    role="menuitem"
+                    onClick={() => pickProvider(p.id)}
+                    className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left hover:bg-fill-uncontained-hover"
+                  >
+                    <span className="flex-1">
+                      <span className="block text-[13px] font-medium text-ink">{p.label}</span>
+                      <span className="block text-[11.5px] leading-snug text-ink2">{p.desc}</span>
+                    </span>
+                    {p.id === providerId && (
+                      <Icon name="check" size={14} color="var(--color-ink)" />
+                    )}
+                  </button>
+                ))}
+              </Popover>
+            </div>
+          )}
+
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[12px] font-medium text-ink2">Provider 이름</span>
+            <input
+              ref={nameRef}
+              value={providerName}
+              disabled={!isCustom}
+              onChange={(e) => setProviderName(e.target.value)}
+              placeholder="예: my-gateway"
+              className="rounded-lg border border-border bg-bg px-3 py-2 font-mono text-[13px] text-ink outline-none focus:border-border-strong disabled:cursor-not-allowed disabled:bg-bg2 disabled:text-ink2"
+            />
+            {!isCustom ? (
+              <span className="text-[11px] text-ink3">
+                선택한 공급자 이름으로 고정됩니다. 변경하려면 ‘직접 입력’을 고르세요.
+              </span>
+            ) : (
+              providerName.trim() !== '' &&
+              !nameCheck.ok && <span className="text-[11px] text-bad">{nameCheck.error}</span>
+            )}
+          </label>
+
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[12px] font-medium text-ink2">settings.json</span>
               <button
                 type="button"
-                onClick={() => setStep((s) => (s - 1) as Step)}
-                className="-ml-1 rounded-md px-2 py-1 text-[13px] font-medium text-ink2 hover:bg-sidebar hover:text-ink"
+                onClick={() => void importUserSettings()}
+                disabled={importBusy}
+                title="~/.claude/settings.json 의 내용으로 본문을 채웁니다."
+                className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[11.5px] font-medium text-ink2 hover:bg-sidebar hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
               >
-                ← 이전
+                <Icon name="fileOpen" size={13} />
+                {importBusy ? '불러오는 중…' : '~/.claude/settings.json 불러오기'}
               </button>
-            )}
-            <h2 className="m-0 text-[16px] font-semibold text-ink">
-              {editing ? '엔진 설정 편집' : '엔진 추가'}
-            </h2>
-            <button
-              type="button"
-              onClick={onClose}
-              className="ml-auto rounded-md px-2 py-1 text-[13px] text-ink3 hover:bg-sidebar hover:text-ink"
-              aria-label="닫기"
-            >
-              닫기
-            </button>
-          </div>
-          {!editing && <Stepper step={step} />}
-        </div>
-
-        <div className="flex-1 overflow-y-auto px-6 py-5">
-          {step === 1 && (
-            <EngineStep engineId={engineId} onPick={setEngineId} onNext={() => setStep(2)} />
-          )}
-          {step === 2 && <ProviderStep selectedId={providerId} onPick={pickProvider} />}
-          {step === 3 && (
-            <SettingsStep
-              engineId={engineId}
-              providerLabel={providerLabel}
-              providerName={providerName}
-              nameDisabled={!isCustom}
-              nameError={providerName.trim() !== '' && !nameCheck.ok ? nameCheck.error : undefined}
-              onName={setProviderName}
-              settingsJson={settingsJson}
-              onSettings={setSettingsJson}
-              jsonError={jsonCheck.ok ? undefined : jsonCheck.error}
-              submitError={submitError}
-            />
-          )}
-        </div>
-
-        {step === 3 && (
-          <div className="flex justify-end gap-2 border-t border-border px-6 py-3.5">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-lg px-3.5 py-2 text-[13px] font-medium text-ink2 hover:bg-sidebar"
-            >
-              취소
-            </button>
-            <button
-              type="button"
-              disabled={!canSubmit}
-              onClick={() => void submit()}
-              className="rounded-lg bg-ink px-4 py-2 text-[13px] font-semibold text-bg disabled:cursor-not-allowed disabled:opacity-45"
-            >
-              {busy ? (editing ? '저장 중…' : '추가 중…') : editing ? '저장' : '추가하기'}
-            </button>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function Stepper({ step }: { step: Step }): React.JSX.Element {
-  const items: Array<[Step, string]> = [
-    [1, '엔진'],
-    [2, '공급자'],
-    [3, '설정']
-  ]
-  return (
-    <div className="mt-3 flex items-center gap-1.5">
-      {items.map(([n, label], i) => {
-        const active = step === n
-        const done = step > n
-        return (
-          <div key={n} className="flex flex-1 items-center gap-1.5">
-            <span
-              className={`grid h-5 w-5 place-items-center rounded-full text-[11px] font-semibold ${
-                active ? 'bg-ink text-bg' : done ? 'bg-t3 text-t8' : 'bg-sidebar text-ink3'
+            </div>
+            <textarea
+              value={settingsJson}
+              onChange={(e) => setSettingsJson(e.target.value)}
+              spellCheck={false}
+              aria-label="settings.json"
+              className={`min-h-[220px] resize-y rounded-xl border bg-bg p-3 font-mono text-[12px] leading-5 text-ink outline-none focus:border-border-strong ${
+                jsonCheck.ok ? 'border-border' : 'border-bad'
               }`}
-            >
-              {n}
-            </span>
-            <span className={`text-[12px] ${active ? 'font-semibold text-ink' : 'text-ink3'}`}>
-              {label}
-            </span>
-            {i < items.length - 1 && (
-              <span className={`h-px flex-1 ${done ? 'bg-border-strong' : 'bg-border'}`} />
+            />
+            {/* 실시간 JSON 검증 — 만족 시 초록, 불만족 시 빨강으로 즉시 표시 */}
+            {jsonCheck.ok ? (
+              <span className="text-[11.5px] text-good">✓ JSON 형식이 올바릅니다.</span>
+            ) : (
+              <span className="text-[11.5px] font-medium text-bad">⚠ {jsonCheck.error}</span>
             )}
+            {importError && (
+              <span className="text-[11.5px] font-medium text-bad">⚠ {importError}</span>
+            )}
+            <span className="text-[11px] text-ink3">
+              <code>env</code> 블록에 API 키·리전 등을 넣습니다. 비밀은 <code>{'${VAR}'}</code>{' '}
+              플레이스홀더로 두는 것을 권장합니다.
+            </span>
           </div>
-        )
-      })}
-    </div>
-  )
-}
 
-function EngineStep({
-  engineId,
-  onPick,
-  onNext
-}: {
-  engineId: string
-  onPick: (id: string) => void
-  onNext: () => void
-}): React.JSX.Element {
-  return (
-    <div className="flex flex-col gap-3">
-      <p className="m-0 text-[13px] text-ink2">사용할 엔진(adapter)을 선택하세요.</p>
-      <div className="flex flex-col gap-2">
-        {ENGINE_OPTIONS.map((eng) => {
-          if (!eng.enabled) {
-            return (
-              <div
-                key={eng.id}
-                className={`relative overflow-hidden rounded-xl border border-dashed border-border-strong px-4 py-3 ${HATCH}`}
-                aria-disabled
-              >
-                <div className="flex items-center gap-2">
-                  <span className="text-[14px] font-semibold text-ink3">{eng.label}</span>
-                  <span className="rounded-full bg-panel px-2 py-px text-[10px] font-semibold text-ink3">
-                    준비 중
-                  </span>
-                </div>
-                <div className="mt-0.5 text-[12px] text-ink3">{eng.desc}</div>
-              </div>
-            )
-          }
-          const isSel = engineId === eng.id
-          return (
-            <button
-              key={eng.id}
-              type="button"
-              onClick={() => onPick(eng.id)}
-              className={`${CARD_BASE} ${isSel ? CARD_SEL : CARD_IDLE}`}
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-[14px] font-semibold text-ink">{eng.label}</span>
-                {isSel && <span className="text-[12px] font-semibold text-t8">선택됨</span>}
-              </div>
-              <div className="mt-0.5 text-[12px] text-ink2">{eng.desc}</div>
-            </button>
-          )
-        })}
+          {submitError && (
+            <div className="rounded-lg bg-bad/10 px-3 py-2 text-[12px] text-bad">{submitError}</div>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-2 border-t border-border px-6 py-3.5">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg px-3.5 py-2 text-[13px] font-medium text-ink2 hover:bg-sidebar"
+          >
+            취소
+          </button>
+          <button
+            type="button"
+            disabled={!canSubmit}
+            onClick={() => void submit()}
+            className="rounded-lg bg-ink px-4 py-2 text-[13px] font-semibold text-bg disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            {busy ? (editing ? '저장 중…' : '추가 중…') : editing ? '저장' : '추가하기'}
+          </button>
+        </div>
       </div>
-      <button
-        type="button"
-        onClick={onNext}
-        className="mt-1 self-end rounded-lg bg-ink px-4 py-2 text-[13px] font-semibold text-bg"
-      >
-        다음
-      </button>
-    </div>
-  )
-}
-
-function ProviderStep({
-  selectedId,
-  onPick
-}: {
-  selectedId: string
-  onPick: (id: string) => void
-}): React.JSX.Element {
-  return (
-    <div className="flex flex-col gap-3">
-      <p className="m-0 text-[13px] text-ink2">Claude 를 어떤 공급자(provider)로 호출할까요?</p>
-      <div className="grid grid-cols-2 gap-2">
-        {PROVIDER_OPTIONS.map((p) => {
-          const isSel = selectedId === p.id
-          return (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => onPick(p.id)}
-              className={`${CARD_BASE} ${isSel ? CARD_SEL : CARD_IDLE} px-3.5`}
-            >
-              <div className="text-[13.5px] font-semibold text-ink">{p.label}</div>
-              <div className="mt-0.5 text-[11.5px] leading-snug text-ink2">{p.desc}</div>
-            </button>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-function SettingsStep({
-  engineId,
-  providerLabel,
-  providerName,
-  nameDisabled,
-  nameError,
-  onName,
-  settingsJson,
-  onSettings,
-  jsonError,
-  submitError
-}: {
-  engineId: string
-  providerLabel: string
-  providerName: string
-  nameDisabled: boolean
-  nameError?: string
-  onName: (v: string) => void
-  settingsJson: string
-  onSettings: (v: string) => void
-  jsonError?: string
-  submitError: string | null
-}): React.JSX.Element {
-  const nameRef = useRef<HTMLInputElement>(null)
-  useEffect(() => {
-    if (!nameDisabled) queueMicrotask(() => nameRef.current?.focus())
-  }, [nameDisabled])
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-ink2">
-        <span className="rounded-md bg-sidebar px-2 py-0.5 font-medium text-ink">{engineId}</span>
-        <span className="text-ink3">/</span>
-        <span className="rounded-md bg-sidebar px-2 py-0.5 font-medium text-ink">
-          {providerLabel}
-        </span>
-      </div>
-
-      <label className="flex flex-col gap-1.5">
-        <span className="text-[12px] font-medium text-ink2">Provider 이름</span>
-        <input
-          ref={nameRef}
-          value={providerName}
-          disabled={nameDisabled}
-          onChange={(e) => onName(e.target.value)}
-          placeholder="예: my-gateway"
-          className="rounded-lg border border-border bg-bg px-3 py-2 font-mono text-[13px] text-ink outline-none focus:border-border-strong disabled:cursor-not-allowed disabled:bg-bg2 disabled:text-ink2"
-        />
-        {nameDisabled ? (
-          <span className="text-[11px] text-ink3">
-            선택한 공급자 이름으로 고정됩니다. 변경하려면 ‘직접 입력’을 고르세요.
-          </span>
-        ) : (
-          nameError && <span className="text-[11px] text-bad">{nameError}</span>
-        )}
-      </label>
-
-      <label className="flex flex-col gap-1.5">
-        <span className="text-[12px] font-medium text-ink2">settings.json</span>
-        <textarea
-          value={settingsJson}
-          onChange={(e) => onSettings(e.target.value)}
-          spellCheck={false}
-          className={`min-h-[220px] resize-y rounded-xl border bg-bg p-3 font-mono text-[12px] leading-5 text-ink outline-none focus:border-border-strong ${
-            jsonError ? 'border-bad' : 'border-border'
-          }`}
-        />
-        {/* 실시간 JSON 검증 — 만족 시 초록, 불만족 시 빨강으로 즉시 표시 */}
-        {jsonError ? (
-          <span className="text-[11.5px] font-medium text-bad">⚠ {jsonError}</span>
-        ) : (
-          <span className="text-[11.5px] text-good">✓ JSON 형식이 올바릅니다.</span>
-        )}
-        <span className="text-[11px] text-ink3">
-          <code>env</code> 블록에 API 키·리전 등을 넣습니다. 비밀은 <code>{'${VAR}'}</code>{' '}
-          플레이스홀더로 두는 것을 권장합니다.
-        </span>
-      </label>
-
-      {submitError && (
-        <div className="rounded-lg bg-bad/10 px-3 py-2 text-[12px] text-bad">{submitError}</div>
-      )}
     </div>
   )
 }

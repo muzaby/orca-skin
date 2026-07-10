@@ -526,6 +526,7 @@ export type {
   ReadEngineRequest,
   EngineReadResult,
   EngineWriteResult,
+  EngineUserSettingsResult,
   UpdateState,
   UpdateProgress,
   UpdateCheckResult,

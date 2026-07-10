@@ -1,25 +1,8 @@
-// 엔진 추가 마법사가 쓰는 카탈로그 + settings.json 실시간 검증 (순수 모듈).
-// engine(adapter) → provider → settings 3단계의 선택지/템플릿을 한 곳에 모은다.
-// provider env 템플릿은 TRD §6.8 레시피 표와 정합. 검증 규칙은 backend engine-write.ts
-// (PROVIDER_NAME_RE · readSettingsObject) 와 같은 제약을 renderer 에서 미리 비춘다.
-
-export interface EngineOption {
-  id: string
-  label: string
-  desc: string
-  enabled: boolean
-}
-
-// 1단계 — 엔진(adapter). claude 만 활성, opencode 는 빗금 목업.
-export const ENGINE_OPTIONS: EngineOption[] = [
-  {
-    id: 'claude',
-    label: 'Claude Code',
-    desc: 'Anthropic 공식 CLI · Agent SDK',
-    enabled: true
-  },
-  { id: 'opencode', label: 'OpenCode', desc: 'sst.dev · 다중 모델 (준비 중)', enabled: false }
-]
+// 엔진 추가 모달(단일 화면)이 쓰는 카탈로그 + settings.json 실시간 검증 (순수 모듈).
+// adapter 는 claude 고정(handoff 0090 — 엔진 선택 단계 제거)이며, 공급자 드롭다운의
+// 선택지/템플릿을 한 곳에 모은다. provider env 템플릿은 TRD §6.8 레시피 표와 정합.
+// 검증 규칙은 backend engine-write.ts (PROVIDER_NAME_RE · readSettingsObject) 와
+// 같은 제약을 renderer 에서 미리 비춘다.
 
 export interface ProviderOption {
   id: string
@@ -33,39 +16,42 @@ function tpl(value: unknown): string {
   return JSON.stringify(value, null, 2)
 }
 
-// 2단계 — 공급자(provider). 각 항목은 3단계에서 채워질 settings.json 템플릿을 갖는다.
+// 공급자(provider) 드롭다운 선택지. 각 항목은 선택 시 채워질 settings.json 템플릿을 갖는다.
 export const PROVIDER_OPTIONS: ProviderOption[] = [
   {
     id: 'anthropic',
     label: 'Anthropic',
-    desc: 'api.anthropic.com · OAuth 또는 API 키',
+    desc: 'api.anthropic.com 기본',
     custom: false,
     template: tpl({ env: {} })
   },
   {
     id: 'bedrock',
     label: 'Amazon Bedrock',
-    desc: 'AWS 자격증명으로 Claude 호출',
+    desc: 'AWS 자격증명',
     custom: false,
     template: tpl({ env: { CLAUDE_CODE_USE_BEDROCK: '1', AWS_REGION: 'us-west-2' } })
   },
   {
     id: 'vertex',
     label: 'Google Vertex AI',
-    desc: 'GCP 프로젝트로 Claude 호출',
+    desc: 'GCP 프로젝트',
     custom: false,
     template: tpl({ env: { CLAUDE_CODE_USE_VERTEX: '1', CLOUD_ML_REGION: 'us-east5' } })
   },
   {
     id: 'custom',
     label: '직접 입력',
-    desc: '게이트웨이 등 사용자 정의 provider',
+    desc: '게이트웨이 등 직접 설정',
     custom: true,
     template: tpl({
       env: { ANTHROPIC_BASE_URL: 'https://gw.example.com', ANTHROPIC_AUTH_TOKEN: '${GW_TOKEN}' }
     })
   }
 ]
+
+// add 모드 초기 선택 — 가장 흔한 케이스(anthropic)로 모달 오픈 즉시 유효한 폼을 만든다.
+export const DEFAULT_PROVIDER_ID = 'anthropic'
 
 export function providerOption(id: string): ProviderOption | undefined {
   return PROVIDER_OPTIONS.find((p) => p.id === id)

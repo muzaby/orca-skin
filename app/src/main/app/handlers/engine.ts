@@ -5,8 +5,10 @@ import {
   ReadEngineSchema,
   UpdateEngineSchema,
   type EngineReadResult,
+  type EngineUserSettingsResult,
   type EngineWriteResult
 } from '../../../shared/protocol'
+import { readUserClaudeSettings } from '../../adapters/claude-settings'
 import { deploy } from '../../features/extensions/deployer'
 import {
   addProviderSettings,
@@ -15,7 +17,7 @@ import {
   updateProviderSettings
 } from '../../features/providers/engine-write'
 import type { RouterContext } from '../context'
-import { handle } from '../../infra/ipc/handle'
+import { handle, handlePlain } from '../../infra/ipc/handle'
 
 function refreshProviderSettings(ctx: RouterContext): void {
   try {
@@ -49,4 +51,10 @@ export function registerEngineHandlers(ctx: RouterContext): void {
   handle(CHANNELS.engineRead, ReadEngineSchema, 'reject', (req): EngineReadResult => {
     return readProviderSettings(req.key)
   })
+
+  // 사용자 전역 ~/.claude/settings.json 원문 — 모달 자동완성용 (무입력 read, 부재=exists:false).
+  handlePlain(
+    CHANNELS.engineImportUserSettings,
+    (): EngineUserSettingsResult => readUserClaudeSettings()
+  )
 }

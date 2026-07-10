@@ -38,6 +38,7 @@ import type {
   CreateEngineRequest,
   UpdateEngineRequest,
   EngineReadResult,
+  EngineUserSettingsResult,
   EngineWriteResult,
   UpdateState,
   UpdateProgress,
@@ -75,7 +76,9 @@ export const engineApi = {
   add: (req: CreateEngineRequest): Promise<EngineWriteResult> => window.orca.engine.add(req),
   update: (req: UpdateEngineRequest): Promise<EngineWriteResult> => window.orca.engine.update(req),
   delete: (key: string): Promise<void> => window.orca.engine.delete(key),
-  read: (key: string): Promise<EngineReadResult> => window.orca.engine.read(key)
+  read: (key: string): Promise<EngineReadResult> => window.orca.engine.read(key),
+  importUserSettings: (): Promise<EngineUserSettingsResult> =>
+    window.orca.engine.importUserSettings()
 }
 
 export const installApi = {

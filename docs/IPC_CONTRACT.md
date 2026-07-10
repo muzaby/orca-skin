@@ -20,9 +20,9 @@
   - 특례: `chat:send` 는 실패를 `error` 이벤트로 회신(§2.1). 입력이 없거나 store 내부 zod 가 검증하는 채널(settings set · mcp add/update)은 `handlePlain`.
 - 출력(main→renderer send) 무검증: `NormalizedEvent` 등의 형상 보증은 어댑터 정규화(`claude-map.ts`)가 담당 — 의도된 설계.
 
-## 2. 채널 카탈로그 (총 63 채널)
+## 2. 채널 카탈로그 (총 64 채널)
 
-도메인별 분포: `chat` 5 (`send` · `event` · `cancel` · `stopSubagent` · `steerCancel`) · `boot` 1 (`report`) · `backend` 1 · `agent` 1 · `engine` 4 · `install` 2 · `update` 6 · `settings` 2 · `skills` 7 · `files` 5 · `session` 6 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `cost` 4 · `concurrency` 1 · `permission` 2 (`respond` · `setMode`) · `debug` 2 (dev 전용 — `getMock` · `setMock`).
+도메인별 분포: `chat` 5 (`send` · `event` · `cancel` · `stopSubagent` · `steerCancel`) · `boot` 1 (`report`) · `backend` 1 · `agent` 1 · `engine` 5 · `install` 2 · `update` 6 · `settings` 2 · `skills` 7 · `files` 5 · `session` 6 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `cost` 4 · `concurrency` 1 · `permission` 2 (`respond` · `setMode`) · `debug` 2 (dev 전용 — `getMock` · `setMock`).
 
 `app/src/shared/ipc.ts` 의 `CHANNELS` 상수와 1:1 일치. **단, `debug` 2채널은 `import.meta.env.DEV` 일 때만 `ipcMain.handle` 로 등록된다** (CHANNELS 상수 문자열은 상존하나 prod 핸들러 미등록 — §2.13 참조).
 
@@ -66,6 +66,7 @@
 | `orca:engine:update` | R→M (invoke) | `UpdateEngineRequest` = `{ key: string; settingsJson: string }`                        | `EngineWriteResult`                                                      | 기존 provider 의 raw settings.json 을 원자적으로 교체한다. provider rename 은 비범위(삭제+추가).                                                                            |
 | `orca:engine:delete` | R→M (invoke) | `DeleteEngineRequest` = `{ key: string }`                                              | `Promise<void>`                                                          | provider 디렉토리를 제거한다.                                                                                                                                               |
 | `orca:engine:read`   | R→M (invoke) | `ReadEngineRequest` = `{ key: string }`                                                | `EngineReadResult` = `{ key; engine: 'claude'; provider; settingsJson }` | 편집 모달 프리필용 raw settings.json 읽기.                                                                                                                                  |
+| `orca:engine:importUserSettings` (handoff 0090) | R→M (invoke) | 없음 (`handlePlain`)                                                                    | `EngineUserSettingsResult` = `{ exists: boolean; settingsJson: string }` | 사용자 전역 `~/.claude/settings.json` 원문 읽기 — 엔진 추가/편집 모달의 settings.json 자동완성용. 부재/읽기 실패 = `exists:false` (무해 read). 내용 검증은 렌더러 실시간 JSON 검증이 담당. |
 
 ### 2.3 Install
 

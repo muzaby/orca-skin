@@ -133,27 +133,31 @@
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- (구현 턴에서 기입)
+- 동의 / 그대로 진행: 설계 전반. 단일 화면 전환·IPC 배선 지점·시딩 삽입 지점(스캐폴드 빈 상태 1회 조건) 모두 코드 실측과 일치했다.
+- 이견 / 우려: 설계 §설계의 "판별 함수는 adapters" 는 유지하되, `classifyClaudeEnv` 의 truthy 판정에서 `'0'`/`''`/`null` 을 비활성 값으로 취급하도록 구체화했다 (`CLAUDE_CODE_USE_BEDROCK: '0'` 이 bedrock 으로 오판되는 것을 방지). 테스트로 고정.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
+| 1 | Esc 닫기와 드롭다운 Popover 의 자체 Esc 핸들러가 겹치면 Esc 한 번에 메뉴+모달이 동시에 닫힘 | ✅ 구현함 — 모달 Esc 핸들러가 `menuOpen` 이면 건너뛰어 메뉴만 닫힘(다음 Esc 가 모달) | UX 명백 누락, 선조치 경계 내 |
+| 2 | settings.json 라벨을 `<label>` 로 감싼 채 내부에 불러오기 버튼을 두면 중첩 인터랙티브 요소가 됨 | ✅ 구현함 — 해당 블록을 `<div>` 로 전환, textarea 에 `aria-label` 부여 | a11y/HTML 유효성 |
+| 3 | `SETTINGS_TEMPLATE` 를 `writeJsonAtomic` 에 그대로 넘기던 기존 구조에서 사용자 원문 시딩 시 재직렬화됨 — 원문 포매팅(주석 불가 JSON이므로 키/값은 보존)은 pretty-print 로 정규화됨 | ✅ 수용 — `writeJsonAtomic` 경유가 스캐폴드 규약(원자적 쓰기). 키/값 verbatim 은 테스트로 보장 | `infra/config/json-file.ts` 재사용 |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] IPC 배선 (shared → adapters → handlers → preload → renderer api)
-- [ ] EngineFormModal 단일 화면 재작성 + 드롭다운 + 불러오기 버튼
-- [ ] providerCatalog 정리 + Icon fileOpen
-- [ ] scaffold 시딩 + bootstrap 배선
-- [ ] 테스트 + IPC_CONTRACT 갱신
+- [x] IPC 배선 (shared → adapters → handlers → preload → renderer api)
+- [x] EngineFormModal 단일 화면 재작성 + 드롭다운 + 불러오기 버튼
+- [x] providerCatalog 정리 + Icon fileOpen
+- [x] scaffold 시딩 + bootstrap 배선
+- [x] 테스트 + IPC_CONTRACT 갱신
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | (기입 예정) |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` |
-| 게이트 결과 | (기입 예정) |
-| 블로커 / 역질문 | (기입 예정) |
-| 대상 커밋 | (기입 예정) |
+| 변경 파일 | `app/src/shared/{ipc,protocol}.ts` · `app/src/main/adapters/claude-settings.{ts,test.ts}` · `app/src/main/app/handlers/engine.ts` · `app/src/main/app/bootstrap.ts` · `app/src/main/features/extensions/scaffold.{ts,test.ts}` · `app/src/preload/index.ts` · `app/src/renderer/src/shared/api/ipc.ts` · `app/src/renderer/src/shared/ui/Icon.tsx` · `app/src/renderer/src/features/engine/components/EngineFormModal.tsx` · `app/src/renderer/src/features/engine/lib/providerCatalog.ts` · `docs/IPC_CONTRACT.md` · `docs/AGENTS.md`(채널 수 정합화) |
+| 실행 명령 | `npm run lint` / `npm run typecheck` / `npm test` |
+| 게이트 결과 | lint ✅ 0 / typecheck 3종 ✅ 0 / vitest **786 passed** (3 suite fail = electron 바이너리 403 환경 제한 · 0084~0089 계열 동일 · 코드 무관) + node --test 24/24 ✅ |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | (구현 커밋 — 본 문서와 같은 커밋) |
