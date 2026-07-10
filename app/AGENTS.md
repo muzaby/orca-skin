@@ -14,6 +14,7 @@
 | TypeScript | 5.x (strict, target ES2022)                                  |
 | 스타일   | Tailwind CSS v4 (`@tailwindcss/vite`, CSS-first `@theme`)      |
 | DB       | better-sqlite3@^12 (`<userData>/orca.db`, WAL)                 |
+| 스케줄링 | croner (`main` 프로세스 in-app cron, 앱 실행 중만 발화) |
 | 라우팅   | react-router-dom v7 (`app://` 커스텀 스킴 + BrowserRouter)     |
 
 ## 모듈 레이아웃
@@ -95,7 +96,7 @@ new BrowserWindow({
 ## 의존성 정책
 
 - TRD §2 Stack 표 **밖**의 패키지 추가는 **사용자 승인 필수** + PR 설명에 _왜_ 명시.
-- 이미 채택 (도입 시점만 자유): React, react-markdown, shiki, electron-store, zod, vitest, playwright, Tailwind v4, better-sqlite3@12, react-router-dom v7. 템플릿 동봉(사전 승인): `@electron-toolkit/{utils,preload}`.
+- 이미 채택 (도입 시점만 자유): React, react-markdown, shiki, electron-store, zod, vitest, playwright, Tailwind v4, better-sqlite3@12, react-router-dom v7, croner. 템플릿 동봉(사전 승인): `@electron-toolkit/{utils,preload}`.
 - 미정 항목 (PRD §11 / TRD §15 — 단독 결정 금지): 마크다운 라이브러리 최종 결정 · 패키징/서명/자동업데이트 · 텔레메트리 · 라이센스 · 성능 SLA · 기본 백엔드.
 
 ## 빌드 / 실행

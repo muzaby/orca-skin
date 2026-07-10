@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import type { SchedulerSettings } from '../../../../shared/ipc'
 import type { ThemeId, DensityId } from '../config/theme'
 import { settingsApi } from '../api/ipc'
 
@@ -15,6 +16,7 @@ export interface Tweaks {
   notifyOnComplete: boolean
   // 월간 지출 한도(USD). 사용량 한도 바(도넛·설정)의 기준. null=무제한.
   spendingLimitUsd: number | null
+  scheduler: SchedulerSettings
 }
 
 const DEFAULTS: Tweaks = {
@@ -24,7 +26,8 @@ const DEFAULTS: Tweaks = {
   sidebarWidth: 248,
   appFont: 'sans',
   notifyOnComplete: false,
-  spendingLimitUsd: 90
+  spendingLimitUsd: 90,
+  scheduler: { usageRecompute: { enabled: false, cron: '0 */1 * * *' } }
 }
 
 // settings 영속화와 양방향 바인딩되는 Tweaks 훅.
@@ -44,7 +47,8 @@ export function useTweaks(): [Tweaks, <K extends keyof Tweaks>(key: K, val: Twea
         sidebarWidth: s.sidebarWidth,
         appFont: s.appFont,
         notifyOnComplete: s.notifyOnComplete,
-        spendingLimitUsd: s.spendingLimitUsd
+        spendingLimitUsd: s.spendingLimitUsd,
+        scheduler: s.scheduler
       })
     })
     return () => {
@@ -53,8 +57,14 @@ export function useTweaks(): [Tweaks, <K extends keyof Tweaks>(key: K, val: Twea
   }, [])
 
   const setTweak = useCallback(<K extends keyof Tweaks>(key: K, val: Tweaks[K]) => {
-    setTweaks((prev) => ({ ...prev, [key]: val }))
-    void settingsApi.set({ [key]: val } as Partial<Tweaks>)
+    let previous: Tweaks | null = null
+    setTweaks((prev) => {
+      previous = prev
+      return { ...prev, [key]: val }
+    })
+    void settingsApi.set({ [key]: val } as Partial<Tweaks>).catch(() => {
+      if (previous) setTweaks(previous)
+    })
   }, [])
 
   return [tweaks, setTweak]

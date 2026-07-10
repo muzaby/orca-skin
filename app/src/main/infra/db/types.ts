@@ -107,6 +107,29 @@ export interface UsageByBoundaries {
   month: UsageSumRow
 }
 
+export type ScheduleRunStatus = 'running' | 'success' | 'error' | 'skipped'
+
+export interface ScheduleRunRow {
+  id: number
+  job_key: string
+  started_at: number
+  finished_at: number | null
+  status: ScheduleRunStatus
+  error: string | null
+}
+
+export interface ScheduleRunStartedInsert {
+  jobKey: string
+  startedAt: number
+}
+
+export interface ScheduleRunFinish {
+  id: number
+  finishedAt: number
+  status: Exclude<ScheduleRunStatus, 'running'>
+  error: string | null
+}
+
 export interface ProjectRow {
   id: string
   name: string

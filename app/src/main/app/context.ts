@@ -12,6 +12,7 @@ import type { UsageTracker } from '../features/usage/tracker'
 import type { SecretStore } from '../infra/config/secret-store'
 import type { ExtensionBuilder } from '../features/extensions/builder'
 import type { ProviderSettingsService } from '../features/providers/provider-settings'
+import type { Scheduler } from '../features/scheduler'
 import type { UpdateController } from './updater'
 
 export interface RouterContext {
@@ -39,4 +40,5 @@ export interface RouterContext {
   debugMock: DebugMockState
   mockAdapter: MockAdapter | null
   updates: UpdateController
+  scheduler: Scheduler
 }

@@ -95,7 +95,11 @@ export function registerMiscHandlers(ctx: RouterContext): void {
   handlePlain(CHANNELS.settingsGet, (): Settings => ctx.settings.getAll())
 
   // 검증은 SettingsStore.patch 내부 zod(SettingsPatchSchema)가 담당.
-  handlePlain(CHANNELS.settingsSet, (raw): Settings => ctx.settings.patch(raw))
+  handlePlain(CHANNELS.settingsSet, (raw): Settings => {
+    const next = ctx.settings.patch(raw)
+    ctx.scheduler.applySettings(next.scheduler)
+    return next
+  })
 
   handlePlain(CHANNELS.skillsList, (): SkillInfo[] => ctx.getSkills())
 

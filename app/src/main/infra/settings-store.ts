@@ -10,6 +10,7 @@ import {
   type SettingsPatch
 } from '../../shared/protocol'
 import { migrateRawSettings } from './settings-migration'
+import { assertValidCron } from './cron'
 
 type Raw = Record<string, unknown>
 
@@ -33,8 +34,28 @@ export class SettingsStore {
   patch(input: unknown): Settings {
     const patch: SettingsPatch = SettingsPatchSchema.parse(input)
     const current = this.getAll()
-    const next = SettingsSchema.parse({ ...current, ...patch })
-    this.store.store = migrateRawSettings(next as Raw, this.currentAppVersion).raw
+    const next = mergeSettings(current, patch)
+    assertValidCron(next.scheduler.usageRecompute.cron)
+    this.store.store = migrateRawSettings(next as unknown as Raw, this.currentAppVersion).raw
     return next
   }
+}
+
+function mergeSettings(current: Settings, patch: SettingsPatch): Settings {
+  return SettingsSchema.parse({
+    ...current,
+    ...patch,
+    scheduler: patch.scheduler
+      ? {
+          ...current.scheduler,
+          ...patch.scheduler,
+          usageRecompute: patch.scheduler.usageRecompute
+            ? {
+                ...current.scheduler.usageRecompute,
+                ...patch.scheduler.usageRecompute
+              }
+            : current.scheduler.usageRecompute
+        }
+      : current.scheduler
+  })
 }
