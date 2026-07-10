@@ -1,15 +1,12 @@
 # 상시 게이트 — 저장소 게이트 정본(cd app && npm run lint && npm run typecheck && npm test)을
 # 배포 타깃과 같은 windows 러너에서 실행한다 (better-sqlite3 Windows prebuild +
 # ensure-sqlite-abi.mjs 의 win32 분기 실기). docs 위주 커밋이 많아 paths 필터를 둔다.
+# 트리거는 main push 자동 실행 + 수동 버튼만 둔다 — 브랜치/PR 단계 CI 는 로컬 게이트로 대체한다.
 name: CI
 
 on:
   push:
     branches: [main]
-    paths:
-      - 'app/**'
-      - '.github/workflows/**'
-  pull_request:
     paths:
       - 'app/**'
       - '.github/workflows/**'

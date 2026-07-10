@@ -104,3 +104,32 @@
 ---
 
 > **[구현자 기입]** 이하는 구현 턴에서 채운다 (비기능 = Claude 직접 구현).
+
+## [구현자 기입] 설계 리뷰 (비판적)
+
+- 동의 / 그대로 진행: 설계 전부(트리거 축소·`release:*` 도입·문서 갱신). `js-yaml` 파스로 `on:` 에 `pull_request` 부재를, 스크립트 문자열이 `npm version <bump> -m "chore(release): v%s"` 임을 재확인.
+- 이견 / 우려: 없음. `release:*` 는 `npm version` 위임이라 자동 테스트 부적합(실행=실 태그 생성)이므로 게이트는 문자열 육안 확인으로 갈음 — 설계 §게이트와 동일.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
+
+| # | 놓친 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | ci.yml 상단 코멘트가 트리거 변경을 반영 못함 | ✅ 구현함 — "main push 자동 실행 + 수동 버튼만, 브랜치/PR 은 로컬 게이트로 대체" 한 줄 추가 | `.github/workflows/ci.yml` 헤더 |
+| 2 | release-operations.md `git push` 가 태그를 안 밀 수 있음(수동 태그→`--follow-tags` 로 전환) | ✅ 구현함 — `git push origin main --follow-tags` 로 main 커밋+태그 동시 push 명시 | 문서 §릴리스 절차 2단계 |
+
+## [구현자 기입] 구현 체크리스트
+
+- [x] `ci.yml` `pull_request` 제거 + 코멘트 정리 (js-yaml 파스 OK, `on:`=push/workflow_dispatch)
+- [x] `app/package.json` `release:patch|minor|major` 도입, version 0.1.0 유지
+- [x] `release-operations.md` 절차(release:* + `--follow-tags`) + 게이트 행 + §버전 정책(SemVer pre-1.0)
+- [x] 게이트 실행 (아래 보고)
+
+## [구현자 기입] 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `.github/workflows/ci.yml` · `app/package.json` · `docs/guides/release-operations.md` |
+| 실행 명령 | `npm run lint` / `npm run typecheck` / `npm test` / `node --test "scripts/*.test.mjs"` / js-yaml 파스 |
+| 게이트 결과 | lint ✅ / typecheck 3종 ✅ / test: vitest **773/773 passed** + node --test **24/24** (3 suite=electron 바이너리 403 환경 제약, 0087/0019/0085 동일 계열·본 변경 무관) |
+| 블로커 / 역질문 | 없음. 실 버전 bump/태그(=실 릴리스)는 사용자 몫 — `npm run release:*` 로 도구는 준비됨 |
+| 대상 커밋 | (커밋 B hash — 커밋 후 INDEX 기재) |
