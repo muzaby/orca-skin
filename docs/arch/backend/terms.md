@@ -34,7 +34,7 @@
 
 | 이름 | 쉬운 설명 | 정본 |
 |---|---|---|
-| **Database** | 로컬 SQLite(better-sqlite3). 세션·메시지·tool_calls·projects 테이블이 진실의 기준. | [persistence.md §1](./persistence.md) |
+| **Database** | 로컬 SQLite(better-sqlite3). 세션·메시지·message_parts·projects 테이블이 진실의 기준. | [persistence.md §1](./persistence.md) |
 | **FTS5** | 메시지 전문검색용 가상 테이블(`messages_fts`). SearchModal 이 이걸 쿼리한다. | [persistence.md §1](./persistence.md) |
 | **Migrations** | 스키마를 버전 단위로 올리는 SQL 파일들. 부팅 시 자동 적용. | [persistence.md §1](./persistence.md) |
 | **SettingsStore** | electron-store 래퍼. 테마·사이드바·마지막 세션·창 위치 등 가벼운 설정 저장. | [GLOSSARY §1 (Tweaks)](../../GLOSSARY.md#1-도메인-용어) |
@@ -47,7 +47,7 @@
 | **Skill** | `SKILL.md` 로 정의된 슬래시 명령(`/이름`). 입력창에서 호출. | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
 | **McpStore** | MCP 서버 추가/삭제/목록 관리. 설정 + 비밀값 저장을 묶어 다룬다. | [security.md §1](./security.md) |
 | **Secret Store** | Electron safeStorage(OS 키체인) 래퍼. API 키 등 비밀을 평문 없이 암호화 저장. | [GLOSSARY §1 (Credential)](../../GLOSSARY.md#1-도메인-용어) |
-| **Skills Scan** | `~/.claude/skills/` 와 프로젝트 `.claude/skills/` 를 훑어 SKILL.md frontmatter 를 읽는 스캐너. | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
+| **Skills Scan** | Orca `sources/skills/` 와 `~/.claude/skills/` 를 훑어 SKILL.md frontmatter 를 읽는 스캐너. | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
 
 ## 5. Python 런타임
 

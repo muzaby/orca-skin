@@ -47,11 +47,11 @@ shared     → shared 내부만                               (순수 타입/상
 
 | 경로                          | 책임                                                                                          |
 | ----------------------------- | --------------------------------------------------------------------------------------------- |
-| `src/main/app/`               | 컴포지션 루트 — `bootstrap.ts`(부팅 배선·버스 구독 순서) · `chat-turn.ts`(턴 셋업) · `handlers/*`(도메인 IPC) · `context.ts`(RouterContext) · `boot-report.ts`(부팅 진단, 0077) |
+| `src/main/app/`               | 컴포지션 루트 — `bootstrap.ts`(부팅 배선·버스 구독 순서) · `chat-turn.ts`(턴 셋업) · `handlers/*`(도메인 IPC — `update`·`engine` 포함) · `context.ts`(RouterContext) · `boot-report.ts`(부팅 진단, 0077) · `updater.ts`(electron-updater 자동 업데이트, 0084~0086) · `builtin-resources.ts`(번들 스킬 리소스 해석, 0078) |
 | `src/main/adapters/`          | claude 어댑터 — `claude.ts`(query) · `claude-map.ts`(SDK→`NormalizedEvent`) · `claude-adapt.ts`(outbound) + 포트(`types`·`turn`·`provider-config`…). mock 은 dev, opencode 는 future |
-| `src/main/features/`          | 수직 슬라이스 (8) — `chat`(턴 오케스트레이션) · `sessions`(런타임 거버넌스) · `approvals` · `usage` · `history`(persist) · `providers` · `extensions`(MCP·skill·deploy) · `orchestration`(대화 연속성 fork/handoff, 순수 로직) |
+| `src/main/features/`          | 수직 슬라이스 (9) — `chat`(턴 오케스트레이션) · `sessions`(런타임 거버넌스) · `approvals` · `usage` · `history`(persist) · `providers` · `extensions`(MCP·skill·deploy·seed) · `orchestration`(대화 연속성 fork/handoff, 순수 로직) · `scheduler`(croner 주기 실행, 0091) |
 | `src/main/contracts/`         | 공유 타입 계약 — `turn`(`TurnContext`) · `bus-events` · `ports` · `session-state`               |
-| `src/main/infra/`             | 얇은 인프라 — `db`(better-sqlite3+WAL+마이그레이션) · `bus`(TypedBus) · `config`(orca.json·secret) · `ipc`(handle/send/dto) · `settings-store` |
+| `src/main/infra/`             | 얇은 인프라 — `db`(better-sqlite3+WAL+마이그레이션) · `bus`(TypedBus) · `config`(orca.json·secret) · `ipc`(handle/send/dto) · `settings-store`(+`settings-migration`) · `cron`(croner 래퍼) · `errors` · `vars` |
 | `src/shared/{ipc,protocol}.ts`| `CHANNELS` 상수 + 순수 TS 타입 / zod 스키마 (main 전용)                                        |
 
 > 레이아웃에서 벗어나려면 사용자에게 먼저 확인하고, TRD §1.2 와 코드를 동시에 갱신한다.
@@ -90,27 +90,44 @@ new BrowserWindow({
 - Tailwind v4 + **시맨틱 토큰 우선** (`bg-bg`, `text-ink`, `border-border`). raw hex 대신 토큰.
 - 새 토큰은 `styles/tokens.css` 의 `@theme` 에 추가하고 **두 테마 스코프(white/dark) 전부**에 대응값을 채운다(white=루트 `@theme` 기본값, dark=`[data-theme='dark']`).
 - 인라인 `style` 은 동적 계산값에만 (드래그 좌표, `width %`, grid template 등). 정적 값은 Tailwind 클래스로.
-- **그룹 스코프 격리** (버그 방지 핵심): 자체 hover 를 가진 컴포넌트는 익명 `group` 대신 `group/<이름>` + `group-hover/<이름>:` 를 쓴다. 익명 `group-hover:` 는 상위 `.group` (예: `AssistantMessage`) 까지 매칭되어 형제 인스턴스가 함께 hover 되는 버그가 난다 (메시지 hover → 그 안 모든 코드블럭 카피버튼 동시 노출). 예: `CodeBlock` = `group/codeblock` (`features/chat/components/markdown/CodeBlock.tsx`), `SessionRow` = `group/session` (`features/sessions/components/SessionRow.tsx`).
+- **그룹 스코프 격리** (버그 방지 핵심): 자체 hover 를 가진 컴포넌트는 익명 `group` 대신 `group/<이름>` + `group-hover/<이름>:` 를 쓴다. 익명 `group-hover:` 는 상위 `.group` (예: `AssistantMessage`) 까지 매칭되어 형제 인스턴스가 함께 hover 되는 버그가 난다 (메시지 hover → 그 안 모든 코드블럭 카피버튼 동시 노출). 예: `CodeBlock` = `group/codeblock` (`shared/ui/markdown/CodeBlock.tsx`), `SessionRow` = `group/session` (`features/sessions/components/SessionRow.tsx`).
 - DOM 마커 체계 (`app-frame-*` 구조 클래스 + `data-behavior`/`data-state`/`data-axis`/`data-context`/`data-platform`) → [`../docs/arch/frontend/dom-architecture.md`](../docs/arch/frontend/dom-architecture.md). 새 CSS 파일/규칙은 추가하지 않고 Tailwind 유틸(arbitrary value 포함) 로 표현한다.
 
 ## 의존성 정책
 
 - TRD §2 Stack 표 **밖**의 패키지 추가는 **사용자 승인 필수** + PR 설명에 _왜_ 명시.
-- 이미 채택 (도입 시점만 자유): React, react-markdown, shiki, electron-store, zod, vitest, playwright, Tailwind v4, better-sqlite3@12, react-router-dom v7, croner. 템플릿 동봉(사전 승인): `@electron-toolkit/{utils,preload}`.
-- 미정 항목 (PRD §11 / TRD §15 — 단독 결정 금지): 마크다운 라이브러리 최종 결정 · 패키징/서명/자동업데이트 · 텔레메트리 · 라이센스 · 성능 SLA · 기본 백엔드.
+- 이미 채택 (도입 시점만 자유): React, react-markdown(+remark-gfm), shiki, electron-store, zod, zustand@5, vitest, Tailwind v4, better-sqlite3@12, react-router-dom v7, croner, electron-updater@6, diff. 템플릿 동봉(사전 승인): `@electron-toolkit/{utils,preload}`. (playwright 는 TRD 채택 목록에 있으나 아직 미설치 — 도입 시 devDependency 추가.)
+- 미정 항목 (PRD §11 / TRD §15 — 단독 결정 금지): 마크다운 라이브러리 최종 결정 · 코드 서명(현재 unsigned NSIS) · 텔레메트리 · 라이센스 · 성능 SLA · 기본 백엔드. (패키징=electron-builder NSIS·자동 업데이트=electron-updater 는 0084~0089 로 채택 완료.)
 
 ## 빌드 / 실행
 
 | 스크립트                  | 동작                                                                                          |
 | ------------------------- | --------------------------------------------------------------------------------------------- |
 | `npm run dev`             | `predev` 에서 better-sqlite3 Electron ABI 보장 후 electron-vite dev (HMR). |
-| `npm run build`           | `prebuild` 에서 better-sqlite3 Electron ABI 보장 후 `tsc --noEmit && electron-vite build` → `out/` |
+| `npm run build`           | `prebuild` 에서 better-sqlite3 Electron ABI 보장 후 `npm run typecheck && electron-vite build` → `out/` |
 | `npm run build:{win,mac,linux}` | electron-builder 플랫폼 배포 산출                                                        |
-| `npm run typecheck`       | `tsc --noEmit` (node + web tsconfig 분리)                                                      |
-| `npm run lint` / `format` | ESLint (boundaries 포함) / Prettier                                                            |
-| `npm test`                | `pretest` 에서 better-sqlite3 Node ABI 보장 후 `vitest run` + ABI 보장 스크립트 단위 테스트. `test:watch` = watch |
+| `npm run typecheck`       | `tsc --noEmit` 3분할 — `typecheck:node`(tsconfig.node) + `typecheck:web`(tsconfig.web) + `typecheck:test`(tsconfig.test — main 테스트 타입) |
+| `npm run lint` / `format` | ESLint (boundaries 포함, `./src` + `./scripts`) / Prettier                                     |
+| `npm test`                | `pretest` 에서 better-sqlite3 Node ABI 보장 후 `vitest run` + `node --test "scripts/*.test.mjs"`(스크립트 4종 단위 테스트). `test:watch` = watch |
+| `npm run release:{patch,minor,major}` | `npm version <bump>` — package.json+lock bump·커밋·`v*` 태그 원샷 (release.yml 트리거, 0088) |
 
 > `better-sqlite3` 네이티브 모듈은 Electron 런타임 ABI 와 plain Node/Vitest ABI 를 동시에 만족할 수 없다. `scripts/ensure-sqlite-abi.mjs` 가 `pretest`(Node)·`predev`/`prebuild`/`postinstall`(Electron) 진입점에서 현재 target ABI 를 멱등 보장한다. 수동 `npm rebuild better-sqlite3` 를 게이트 통과 절차로 요구하지 않는다.
+
+`scripts/` 에는 ABI 보장 외 릴리스 위생 스크립트 3종이 있다 (각각 `*.test.mjs` 동반, `npm test` 가 자동 실행):
+
+- `check-migrations-appendonly.mjs` — 머지된 마이그레이션 파일 수정 금지(아래 DB 정책)를 **기계 강제** (CI·release 게이트).
+- `validate-release-version.mjs` — `v*` 태그 ↔ `package.json` 버전 일치 검증 (release.yml fail-fast).
+- `validate-dist.mjs` — 릴리스 산출물(installer/latest.yml/blockmap) sha512 재계산 검증.
+
+## CI / 릴리스 (0087~0089)
+
+| 워크플로우 | 트리거 | 동작 |
+| --- | --- | --- |
+| `.github/workflows/ci.yml` | `main` push (paths `app/**`) + 수동 dispatch | windows-latest · Node 22 — `npm ci` → 마이그레이션 append-only 가드 → lint → typecheck → test. 브랜치 CI 없음(로컬 게이트로 대체, 0088) |
+| `.github/workflows/release.yml` | `v*` 태그 push (수동 dispatch = 항상 dry-run) | 버전 검증(fail-fast) → 게이트 → NSIS `build:win` → **draft** GitHub Release 게시(installer·latest.yml·blockmap) → sha512 검증 |
+
+- 릴리스 절차·수동 체크리스트·롤백 정본은 [`../docs/guides/release-operations.md`](../docs/guides/release-operations.md).
+- 현재 채널: Windows unsigned NSIS + GitHub Releases (draft = 수동 배포 게이트). 인앱 자동 업데이트는 electron-updater (`src/main/app/updater.ts`, 0084~0086).
 
 ## 에이전트 원칙 (app 고유)
 
@@ -121,4 +138,4 @@ new BrowserWindow({
 3. **스타일은 Tailwind + 시맨틱 토큰**, **Electron 보안 옵션은 항상 명시**(위 블록), **새 의존성은 사용자 확인**.
 4. **테스트 동반.** 어댑터 정규화 · reducer · IPC 스키마 · 순수 변환기는 단위 테스트와 함께 작성 (UI 는 시각 검증으로 갈음).
 5. **단일 파일 분해 가이드.** `.tsx`/`.ts` 는 하나의 응집된 책임을 지킨다. (1) 한 파일에 **5개 이상 React 컴포넌트** 가 모이고 그중 일부가 다른 레이어/슬롯에 속할 수 있거나, (2) **400줄 초과** 면 분해를 검토한다. 단일 컴포넌트의 응집 구현(예: `HighlightedTextarea`, `chatReducer`)은 예외. 분해 시 새 파일은 **해당 레이어·feature 디렉토리**(`features/<X>/components|hooks/` · `shared/ui/`)에 둬 4-layer 경계를 보존한다. 수치(5개·400줄)는 *경고 트리거* 이지 절대 규칙이 아니다 — 리뷰에서 "왜 한 파일에 두었는가" 설명을 요구하는 시그널.
-6. **`package.json` 메타데이터는 템플릿 기본값.** 도메인 PR 에서 `name`/`productName`/`description`/`author` + `electron-builder.yml` 갱신.
+6. **`package.json` 메타데이터는 실값이다** (0089 에서 정리 — name=`orca`·description·author·homepage). **버전은 수동 편집하지 않는다** — `npm run release:{patch,minor,major}` 가 bump·커밋·태그를 원샷 처리한다 (SemVer pre-1.0 정책은 `../docs/guides/release-operations.md`).

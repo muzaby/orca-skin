@@ -1,7 +1,7 @@
 # Frontend Architecture — State Management (상태관리·Zustand·멀티세션)
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-06-04 (FRONTEND_ARCHITECTURE.md 분해 — docs/ARCHITECTURE.md 인덱스 참조)
+> 최종 업데이트: 2026-07-10 (handoff 0094 — §1.1 표에 update/settings-modal/agent store(0079~0086) 행 추가)
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [../backend/provider-runtime.md](../backend/provider-runtime.md), [rendering.md](./rendering.md)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 
@@ -16,13 +16,16 @@
 |---|---|---|---|
 | 채팅 세션 상태 (커밋) | `features/chat/store/chatStore.ts` 의 `sessions[key].session` — 변경은 순수 `chatReducer` 경유(스토어가 키 라우팅) | **Phase 3 부터**: 로컬 SQLite 영속화 (../backend/persistence.md). 메모리 캐시 + DB SSOT 병행. | sessionId, messages, inflight, permissionMode |
 | 채팅 스트리밍 라이브 버퍼 | `chatStore` 의 엔트리별 `live` 슬라이스 (transient — 턴 종료 시 리셋, 비활성 엔트리도 백그라운드 누적) | — | live.text(구 pendingDelta), live.reasoning |
-| Tweaks (theme/density/sidebar) | `shared/hooks/useTweaks` + electron-store | ✅ `orca:settings:get` / `set` | theme, density, sidebarCollapsed, **sidebarWidth** (180–480, default 248 — Phase 3+) |
+| Tweaks (theme/density/sidebar/한도) | `shared/hooks/useTweaks` + electron-store | ✅ `orca:settings:get` / `set` | theme, density, sidebarCollapsed, **sidebarWidth** (180–480, default 248 — Phase 3+), **spendingLimitUsd**(0079) |
 | 백엔드 설치 상태 | `features/backend/store/backendStore`(Zustand, 0013) | — | list, active, installerOpen |
-| 세션/프로젝트/비용 목록 | `features/{sessions,projects,cost}/store/*Store`(Zustand, 0013) | — | list, loading / summary |
+| 세션/프로젝트/비용 목록 | `features/{sessions,projects,cost}/store/*Store`(Zustand, 0013) | — | list, loading / summary. cost store 는 `lastUpdatedAt`/`refreshing`/`refreshCost`(수동 새로고침) + provider별 요약(0080~0082) 포함 |
+| 업데이트 상태 | `features/update/store/updateStore`(Zustand, 0085/0086) | — | state(UpdateState), dialogOpen, actionError, dummyMode(dev) |
+| 설정 모달 상태 | `features/settings/store/settingsModalStore`(Zustand, 0079~0081) | — | open, tab(`'general' \| 'usage' \| 'provider:<key>'` — 도넛 `>` → provider 탭 라우팅) |
 | Skills 카탈로그 | `shared/hooks/useSkills` useState 캐시 | — | SkillInfo[] (부팅 1회 스캔) |
+| Agents/provider 목록 | `shared/stores/agentStore`(Zustand, 0021) | — | agents, refresh — EngineCard·Composer/ModelMenu 싱크 |
 | 자동완성 상태 | `useSkillAutocomplete / useFileAutocomplete` 의 useMemo + useState | — | open, query, activeIndex |
 | 입력창 텍스트 | 컴포넌트 로컬 `useState` | — | Composer 의 draft text |
-| UI 인터랙션 (hover/focus/모달) | 컴포넌트 로컬 `useState` | — | TweaksPanel 펼침 여부 |
+| UI 인터랙션 (hover/focus/모달) | 컴포넌트 로컬 `useState` | — | DebugPanel 펼침 여부 |
 
 ### 1.2 chat store 구조 (실제 정의 요약)
 

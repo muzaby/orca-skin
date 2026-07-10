@@ -1,7 +1,7 @@
 # Architecture — 인덱스
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-06-04 (BACKEND/FRONTEND_ARCHITECTURE.md 분해 → `arch/{backend,frontend}/` + 본 인덱스 신설)
+> 최종 업데이트: 2026-07-10 (handoff 0094 — rendering.md 행 설명 UsagePanel 반영. 2026-06-04 에 BACKEND/FRONTEND_ARCHITECTURE.md 분해 → `arch/{backend,frontend}/` + 본 인덱스 신설)
 > 성격: **목차/라우터만** — 실제 내용은 `arch/*` 가 소유. 여기서는 *어디로 가야 하는지* 만 안내한다.
 > 관련 SSOT: [IPC_CONTRACT.md](./IPC_CONTRACT.md) (채널) · [GLOSSARY.md](./GLOSSARY.md) (용어) · [PRD.md](./PRD.md) · [TRD.md](./TRD.md)
 
@@ -32,7 +32,7 @@
 | [layers.md](./arch/frontend/layers.md) | 4-layer(app/pages/features/shared)·디렉토리 책임·ESLint boundaries·App Shell 조립 |
 | [dom-architecture.md](./arch/frontend/dom-architecture.md) | `app-frame-*` 마커 체계·`data-*` 속성·z-stack·custom titlebar |
 | [state.md](./arch/frontend/state.md) | 상태 관리·Zustand 전환 결정·멀티세션 anchor |
-| [rendering.md](./arch/frontend/rendering.md) | 렌더링 전략·**ToolRendererRegistry**·StructuredOutput·Streaming lifecycle·TelemetryPanel |
+| [rendering.md](./arch/frontend/rendering.md) | 렌더링 전략·**ToolRendererRegistry**·StructuredOutput·Streaming lifecycle·UsagePanel(사용량 도넛/한도) |
 | [ux-domains.md](./arch/frontend/ux-domains.md) | UX 패턴·**ApprovalCard 일반화**·도메인 카탈로그·IPC 호출 |
 | [terms.md](./arch/frontend/terms.md) | **사람용 용어 해설** — 프론트엔드 요소 이름을 쉬운 한국어로(정의는 GLOSSARY/arch 정본 링크). AI 정본 아님 |
 

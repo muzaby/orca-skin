@@ -56,17 +56,17 @@
 
 | 이름 | 쉬운 설명 | 정본 |
 |---|---|---|
-| **ChatState** | 현재 대화의 상태 묶음 (sessionId·messages·pendingDelta·inflight). | [state.md §1](./state.md) |
+| **ChatState** | 현재 대화의 상태 묶음 (sessionId·messages·inflight — chatStore 의 `sessions[key].session`). | [state.md §1](./state.md) |
 | **useChat / chatReducer** | 채팅 상태를 바꾸는 훅 + 순수 reducer (메시지 전송·이벤트 수신·새 대화 등). | [state.md §1](./state.md) |
-| **Delta** | 답변이 스트리밍될 때 도착하는 *부분 텍스트 조각*. `pendingDelta` 에 누적되다 완성되면 메시지로 확정. | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
+| **Delta** | 답변이 스트리밍될 때 도착하는 *부분 텍스트 조각*. chatStore 의 `live.text`(구 pendingDelta)에 누적되다 완성되면 메시지로 확정. | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
 | **Tweaks** | 사용자 환경 설정 (테마·밀도·사이드바). electron-store 로 저장. | [GLOSSARY §1](../../GLOSSARY.md#1-도메인-용어) |
 
 ## 6. 화면 카탈로그 (Screen)
 
 | 이름 | 쉬운 설명 | 정본 |
 |---|---|---|
-| **Screen** | Tile 의 *내용물* 인 도메인 화면. 파일은 `*Screen.tsx`, 카탈로그는 `screens/registry.ts`. | [GLOSSARY §2](../../GLOSSARY.md#2-아키텍처-용어) |
-| **라우트 화면** | `/chat`(대화) · `/new`(새 대화) · `/projects`(프로젝트) · `/engine`(엔진/모델 설정) · `/skills`(Skills & MCP). | [ux-domains.md §3](./ux-domains.md) |
+| **Screen** | Tile 의 *내용물* 인 도메인 화면(개념). 구 `screens/` 디렉토리·`registry.ts` 는 PR #29 로 해체 — 지금은 `pages/*Page.tsx` 가 `features/<domain>/` 뷰를 조립한다. | [GLOSSARY §2](../../GLOSSARY.md#2-아키텍처-용어) |
+| **라우트 화면** | `/chat`(대화) · `/new`(새 대화) · `/projects`(프로젝트) · `/agent`(엔진/모델 설정) · `/skills`(Skills & MCP). | [ux-domains.md §3](./ux-domains.md) |
 | **SearchModal** | 헤더 검색 버튼으로 여는 대화 전문검색(FTS5) 모달. | [ux-domains.md §3](./ux-domains.md) |
 | **AuthExpiredModal / InstallerDialog** | 인증 만료 안내 모달 / CLI 설치 진행 로그 다이얼로그. | [ux-domains.md §1](./ux-domains.md) |
 

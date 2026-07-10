@@ -1,7 +1,7 @@
 # Frontend Architecture — Rendering (렌더링·ToolRendererRegistry·streaming)
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-06-04 (FRONTEND_ARCHITECTURE.md 분해 — docs/ARCHITECTURE.md 인덱스 참조)
+> 최종 업데이트: 2026-07-10 (handoff 0094 — §1.9 UsagePanel(0079~0082)·라이브 reasoning StreamingMarkdown(0093) 동기화)
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [../backend/provider-runtime.md](../backend/provider-runtime.md), [ux-domains.md](./ux-domains.md)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 
@@ -15,7 +15,7 @@
 
 ### 1.2 스트리밍 렌더링 최적화 (0008 재설계)
 
-- **델타 경로는 reducer 를 우회한다.** `features/chat/lib/eventCoalescer.ts` 가 델타(message.delta·message.reasoning.delta)를 rAF 한 틱마다 모아 `chatStore.receive` 로 비우고(비-델타는 버퍼 선-flush 로 순서 보존, §1.7 Option B), receive 는 델타를 Zustand `live` 슬라이스(`{text, reasoning}`)에만 누적한다 — 커밋 슬라이스(`session`) identity 불변. 결과: **델타 프레임의 재렌더는 live 를 구독하는 라이브 리프뿐** — text 델타 → `LiveText`(+`LiveStatus` 토큰 근사), reasoning 델타 → `LiveReasoning`. transcript(커밋 메시지)·Composer·셸·호스트는 깨어나지 않는다(state.md §1.4).
+- **델타 경로는 reducer 를 우회한다.** `features/chat/lib/eventCoalescer.ts` 가 델타(message.delta·message.reasoning.delta)를 rAF 한 틱마다 모아 `chatStore.receive` 로 비우고(비-델타는 버퍼 선-flush 로 순서 보존, §1.7 Option B), receive 는 델타를 Zustand `live` 슬라이스(`{text, reasoning}`)에만 누적한다 — 커밋 슬라이스(`session`) identity 불변. 결과: **델타 프레임의 재렌더는 live 를 구독하는 라이브 리프뿐** — text 델타 → `LiveText`(+`LiveStatus` 토큰 근사), reasoning 델타 → `LiveReasoning`(`ReasoningBlock streaming` → `StreamingMarkdown` 경유 — 델타 프레임당 전문 재파스 없이 꼬리만 재파스, 0093). transcript(커밋 메시지)·Composer·셸·호스트는 깨어나지 않는다(state.md §1.4).
 - **라이브 마크다운은 꼬리 블록만 재파스** — `StreamingMarkdown` 이 누적 소스를 `lib/markdownBlocks.ts` 의 `splitStableBlocks` 로 "확정 블록들 + 꼬리"로 분할, 확정 블록은 memo 된 `<Markdown>`(string shallow)으로 고정하고 꼬리만 매 델타 unified 재파스한다(프레임당 O(전문)→O(꼬리)). 분할 경계는 보수적(펜스/loose list/들여쓰기 코드 비분할, 완결 줄 뒤만 확정 = append-stable). 코드 블록 하이라이팅(shiki)은 ToolCard 첫 오픈까지 지연(비용 회피).
 - **커밋 경로는 카드 단위로 격리** — `message.completed`(완성본 text 파트 커밋)·`tool.call.*` 는 reducer 커밋으로 마지막 message identity 만 교체하고, `AssistantMessage` 가 `reconcileSegments`(lib/parts.ts) 로 직전 렌더와 대조해 내용 미변경 세그먼트/ToolCall view 의 identity 를 재사용한다 → memo 된 `ToolGroup`/`ToolCard`/`ReasoningBlock`/`Markdown` 이 shallow 로 bail — **tool.call.completed 1건 = 결과가 도착한 ToolCard 1개 재렌더**. `message.completed` 없이 끝난 턴의 잔여 live.text 는 telemetry 시점에 `COMMIT_PENDING_TEXT` 폴백으로 굳힌다(error/cancel 은 폐기 — 기존 동작 동형).
 
@@ -23,10 +23,10 @@
 
 | 항목 | 구현 |
 |---|---|
-| Markdown 렌더러 | `features/chat/components/markdown/Markdown.tsx` — react-markdown + remarkGfm. h1~h4, p, a, ul/ol, blockquote, table, code 각각 커스터마이즈. |
+| Markdown 렌더러 | `shared/ui/markdown/Markdown.tsx` — react-markdown + remarkGfm. h1~h4, p, a, ul/ol, blockquote, table, code 각각 커스터마이즈. (`features/chat/components/markdown/` 에는 `StreamingMarkdown` 만 잔류) |
 | 이미지 정책 | **data-uri 만 허용** (보안). 외부 URL 차단. |
 | 링크 정책 | 외부 링크 클릭은 `shell.openExternal` 경유 (Main 측에서 처리). target=_blank rel=noopener noreferrer 표시. |
-| 코드 블록 | `features/chat/components/markdown/CodeBlock.tsx` — shiki 싱글톤 비동기 로드. 지원 언어 11종 (typescript / tsx / javascript / jsx / python / bash / json / yaml / html / css / markdown). 테마 3종 (github-light / github-dark / one-light). |
+| 코드 블록 | `shared/ui/markdown/CodeBlock.tsx` — shiki 싱글톤 비동기 로드. 지원 언어 11종 (typescript / tsx / javascript / jsx / python / bash / json / yaml / html / css / markdown). shiki 테마 3종 (github-light / github-dark / one-light — 앱 테마 2종(white/dark)과 별개). |
 | 테마 추적 | `document.documentElement.dataset.theme` 의 MutationObserver. data-theme 변경 시 코드 블록 자동 재렌더링. |
 | 로딩 fallback | shiki 로드 전엔 plain `<pre>` 표시. 로드 완료 후 HTML replace. |
 | 복사 버튼 | named group (`group/codeblock` + `group-hover/codeblock:opacity-100`) 으로 hover 범위 자기 자신으로 한정. (`app/AGENTS.md` 의 named group 규칙 참조.) |
@@ -84,13 +84,13 @@ interface ToolRendererRegistry { register(r: ToolRenderer): void; resolve(input:
 | `AgentTaskCard` / `SessionGraphCard` / `ContextInjectionCard` | subagent / `children`·`fork`·`revert` / `noReply` | 🔴 seam (OpenCode 전용) |
 | `StructuredOutputCard`(`structured_output`) | `format:json_schema` 결과 | ⏳ 최소 구현(`StructuredOutputCard` — value→pretty JSON. claude 미와이어라 소스 없음) — §1.7 |
 | `ErrorCard`(`error`) | error 파트 | ✅ `ErrorCard`(트랜스크립트 인라인) + `state.error` 배너(라이브 턴) |
-| `TelemetryPanel`(`telemetry`) | usage·cost·latency | ✅ `TelemetryPanel`(cost·model·latency·토큰 분해) — Composer usage 도넛 트리거 Popover, §1.9 |
+| `UsagePanel`(`telemetry`) | usage·한도 | ✅ `UsagePanel`(구 TelemetryPanel — 컨텍스트 프로그레스바 + 주간/월간 한도 바, 0079~0082) — Composer usage 도넛 트리거 Popover, §1.9 |
 
 ### 1.7 StructuredOutput 렌더링 (설계 확정 / 구현 대기)
 
 **① 설명.** OpenCode `session.prompt({ format: { type:'json_schema', schema, retryCount? } })` 와 실패 시 `result.data.info.error`(`StructuredOutputError`)를 UI 상태로 정규화 `[검증]`. Claude 측 형식은 `[미확인]`(../backend/provider-runtime.md §13) — 동일 상태로 흡수 가능한지 구현 전 확인.
 
-**③ 현재 코드 갭.** structured_output 은 최소 구현(`StructuredOutputCard`, claude 소스 없음 — §1.6). reasoning 은 **라이브 스트리밍 구현됨** — `message.reasoning.delta`(claude `thinking_delta`) → `pendingReasoning` → `PendingAssistant` 가 펼친 `ReasoningBlock` 프리뷰로 표시, 완성 시 `message.reasoning` 이 영속 reasoning 파트(접이식)로 대체. 런타임이 `thinking_delta` 를 안 흘리면 완성 블록만 표시(graceful).
+**③ 현재 코드 갭.** structured_output 은 최소 구현(`StructuredOutputCard`, claude 소스 없음 — §1.6). reasoning 은 **라이브 스트리밍 구현됨** — `message.reasoning.delta`(claude `thinking_delta`) → live 슬라이스 `live.reasoning` 누적 → `PendingAssistant` 의 `LiveReasoning` 이 펼친 `ReasoningBlock`(`streaming` prop → `StreamingMarkdown`, 0093) 프리뷰로 표시, 완성 시 `message.reasoning` 이 영속 reasoning 파트(접이식)로 대체. 런타임이 `thinking_delta` 를 안 흘리면 완성 블록만 표시(graceful).
 
 **④ 인터페이스.**
 
@@ -130,7 +130,7 @@ interface ReconnectPolicy { maxRetries: number; backoffMs: (attempt: number) => 
 
 **① 설명.** Composer 풋터 usage 도넛 = **마지막 턴 컨텍스트 비율**. 클릭 시 패널에 컨텍스트 4항목.
 
-**② 구현.** 도넛/패널은 **`state.lastTelemetry` 단일 소스로 구동**한다(`pendingInputTokens` 폐기). 컨텍스트 사용량 토큰 = `contextTokens = input + cacheRead + cacheCreation`(**출력 제외**, `features/chat/lib/telemetry.ts`) = **`/context` 상단 분자와 같은 정의**(전체 컨텍스트 점유). 도넛 비율 = `contextTokens / contextWindowFor(model)`. 윈도우는 **기본 200k, 모델명에 `'1m'` 포함 시 1M**(`features/chat/lib/contextWindow.ts` — 정적 맵/env 불필요). `TelemetryPanel.tsx` 는 `/context` 와 같은 프레이밍: 주 표시 **`사용 중  used / window (pct%)`**(예: `35.7k / 200k (18%)`) + 분해 행 **신규 입력(비캐시)**=`inputTokens` · **캐시 읽기**=`cacheReadTokens` · **캐시 생성**=`cacheCreationTokens`(>0 일 때만) (+ 임박 시 경고). `inputTokens` 단독은 캐시 제외 신규 입력이라 resume+캐싱 환경에선 작다(≈1) — 라벨로 컨텍스트 크기와 구분. `state.lastTelemetry` 없으면 미표시.
+**② 구현.** 도넛/패널은 **`state.lastTelemetry` 단일 소스로 구동**한다(`pendingInputTokens` 폐기). 컨텍스트 사용량 토큰 = `contextTokens = input + cacheRead + cacheCreation`(**출력 제외**, `features/chat/lib/telemetry.ts`) = **`/context` 상단 분자와 같은 정의**(전체 컨텍스트 점유). 도넛 비율 = `contextTokens / contextWindowFor(model)`. 윈도우는 **기본 200k, 모델명에 `'1m'` 포함 시 1M**(`features/chat/lib/contextWindow.ts` — 정적 맵/env 불필요). 패널 컴포넌트는 **`UsagePanel.tsx`**(0079 에서 `TelemetryPanel.tsx` 대체): **컨텍스트 창 프로그레스바(`Meter`, `used / window (pct%)`) + 구분선 + 주간/월간 사용량 한도 바 + 우측 `>` 버튼(설정 사용량 탭 이동)**. 구 신규입력/캐시읽기/캐시생성 분해 행은 제거됐다(0079 AC4). 한도 바는 실사용 SSOT(costStore)와 월 한도(`spendingLimitUsd`·provider 한도)를 `computeUsageLimits`(`src/shared/usage/limits.ts` — 공용 파생 SSOT)로 파생만 한다. `state.lastTelemetry` 없으면 컨텍스트 섹션 미표시, cost summary 미도착이면 한도 섹션 숨김.
 
 - **컨텍스트 입력 = 마지막 assistant 스냅샷 (`/context` 근사 교정)**: 도넛/패널의 컨텍스트 입력 3종(input·cacheRead·cacheCreation)은 **그 턴 *마지막* assistant 메시지의 `usage`** 다(턴 누적 아님). 매퍼(`claude-map.ts`)가 `result.usage`(멀티스텝에서 단계별 입력이 합산돼 과대 집계) 대신 `ctx.lastAssistantUsage` 로 덮어 `/context` 상단 %("모델이 마지막으로 본 입력 / 윈도우")와 같은 정의로 근사한다. **스냅샷에 있는 필드만 덮는다** — 없는 필드는 `result.usage` 값을 보존한다(스냅샷이 `input` 만 주고 `cache_read` 를 안 줄 때 `delete` 하면 `contextTokens` 가 input(≈1)으로 붕괴 → 도넛 0~1%; field-merge 로 방지). **비용(`costUsd`)·지연·`numTurns`·`modelUsage`·`model` 은 result 누적값 유지**(비용은 턴 전체 합이 맞음). `/context` 와 100% 일치는 불가(클라이언트가 모든 입력 구성요소를 보지 못함) — *근사*가 목표.
 - **컨텍스트 0 턴은 도넛 소스 미갱신 (`/context` 등 로컬 슬래시 명령)**: `/context`·`/help` 등은 모델을 호출하지 않아 컨텍스트(=비용)가 없는 빈 telemetry 를 만든다. 이 빈 값이 직전 도넛을 0 으로 덮지 않게 두 지점에서 가드: ① **라이브** — reducer `telemetry` case 가 `contextTokens(telemetry) > 0` 일 때만 `lastTelemetry` 교체(턴 종료 `inflight:false` 등은 그대로). ② **복원** — main `router.ts` 가 `hasContextTokens(usage)`(`usage/usageMap.ts`) 일 때만 `usage_events` 적재 → 빈 행이 최신 행으로 복원돼 0 으로 덮는 일 방지(`getLatestUsage` 단순 최신행 쿼리 유지).
