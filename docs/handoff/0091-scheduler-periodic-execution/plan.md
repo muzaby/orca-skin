@@ -141,23 +141,43 @@ Orca 에는 주기 실행 기반 시설이 없다. 사용자가 원하는 첫 �
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
+- 동의: 스케줄러를 `features/scheduler` 순수 엔진으로 두고, 사용량 recompute action 을 `app/bootstrap.ts` 에서 주입해 feature 교차 import 를 피하는 방향은 main 레이어 규칙과 맞다.
+- 보완: cron 검증을 `shared/protocol.ts` zod refine 에서 직접 `croner` 로 수행하면 renderer/preload 공유 스키마가 런타임 의존성을 끌어올 수 있어 main 전용 `infra/cron.ts` 로 분리했다.
+- 보완: `SettingsStore.patch()` 의 기존 shallow merge 는 nested `scheduler.usageRecompute` 부분 패치와 맞지 않아 scheduler 하위만 명시 deep-merge 하도록 구현했다.
+- 보완: `schedule_runs` 는 insert/list 만으로는 started→finished 단일 실행 lifecycle 을 표현하기 어려워 `insertScheduleRunStarted` + `finishScheduleRun` + `listScheduleRuns` 로 나눴다.
+- 보완: `Bootstrap.shutdown()` 의 supervisor/bus early return 과 무관하게 scheduler dispose 가 먼저 실행되도록 했다.
+
+
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 구현함 / ⚠️ 보고만·**결정 필요** | … |
+| 1 | `shared/protocol.ts` 에서 croner 검증을 직접 수행하면 renderer 번들에 main-only 스케줄링 의존성이 섞일 수 있음 | ✅ 구현함 — `infra/cron.ts` main 전용 검증으로 분리 | preload 는 zod-free `shared/ipc.ts` 를 쓰고, 스케줄러는 main 기능 |
+| 2 | nested scheduler 설정이 기존 shallow merge 로 cron/enabled 를 유실할 수 있음 | ✅ 구현함 — `SettingsStore.patch()` 에 scheduler 전용 deep merge 추가 | `settingsSet({ scheduler: { usageRecompute: { enabled }}})` 보존 |
+| 3 | 실행 이력 insert-only 로는 한 실행의 started/finished/status 를 안정적으로 표현하기 어려움 | ✅ 구현함 — started insert + finish update API/테이블 schema 적용 | `schedule_runs` 관측성 |
+| 4 | shutdown early return 이 scheduler stop 을 누락할 수 있음 | ✅ 구현함 — `scheduler.stopAll()` 을 supervisor/bus 검사보다 먼저 호출 | closeDb 이전 dispose 불변식 |
+| 5 | croner protect skip 은 관측 이력을 남기지 않을 수 있음 | ✅ 구현함 — 내부 running set 으로 겹침 tick 을 `skipped` 이력으로 기록 | 운영 디버깅 |
 
 ## [구현자 기입] 구현 체크리스트
+
+- [x] `croner` 의존성 추가 및 스택 문서 반영.
+- [x] `features/scheduler` 엔진/recorder/cron 검증/테스트 추가.
+- [x] `0013_schedules.sql` 마이그레이션과 `DbQueries` schedule run lifecycle API 추가.
+- [x] `SettingsSchema`/`SettingsPatchSchema`/`SettingsStore` nested scheduler 설정 추가.
+- [x] `Bootstrap` 생성·주입·설정 적용·shutdown dispose 배선.
+- [x] Tweaks 일반 탭에 주기적 사용량 새로고침 토글/프리셋/cron 입력 추가.
+- [x] lint/typecheck/test 게이트 통과.
+
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` |
-| 게이트 결과 | lint / typecheck / test |
-| 블로커 / 역질문 | (없으면 "없음") |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | `app/src/main/features/scheduler/**`, `app/src/main/infra/cron.ts`, `app/src/main/infra/db/migrations/0013_schedules.sql`, `app/src/main/infra/db/{migrate,queries,types}.ts`, `app/src/main/app/{bootstrap,context}.ts`, `app/src/main/app/handlers/misc.ts`, `app/src/shared/{ipc,protocol}.ts`, renderer Tweaks/settings UI, tests, `package*.json`, `app/AGENTS.md`, `docs/TRD.md` |
+| 실행 명령 | `cd app && npm run lint && npm run typecheck`; `cd app && npm test` |
+| 게이트 결과 | lint PASS / typecheck PASS / test PASS (105 files, 802 vitest + 24 node script tests) |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `cf76574` |
 
 ---
 

@@ -381,6 +381,25 @@ const WindowBoundsSchema = z.object({
 const SIDEBAR_WIDTH_MIN = 180
 const SIDEBAR_WIDTH_MAX = 480
 const SIDEBAR_WIDTH_DEFAULT = 248
+const DEFAULT_USAGE_RECOMPUTE_CRON = '0 */1 * * *'
+
+const SchedulerUsageRecomputeSettingsBaseSchema = z.object({
+  enabled: z.boolean(),
+  cron: z.string().trim().min(1)
+})
+
+const SchedulerUsageRecomputeSettingsSchema = SchedulerUsageRecomputeSettingsBaseSchema.default({
+  enabled: false,
+  cron: DEFAULT_USAGE_RECOMPUTE_CRON
+})
+
+const SchedulerSettingsSchema = z
+  .object({
+    usageRecompute: SchedulerUsageRecomputeSettingsSchema
+  })
+  .default({ usageRecompute: { enabled: false, cron: DEFAULT_USAGE_RECOMPUTE_CRON } })
+
+export const DEFAULT_SCHEDULER_SETTINGS = SchedulerSettingsSchema.parse({})
 
 export const SettingsSchema = z.object({
   theme: z.enum(['white', 'dark']).catch('white').default('white'),
@@ -415,7 +434,8 @@ export const SettingsSchema = z.object({
   notifyOnComplete: z.boolean().default(false),
   // 월간 지출 한도(USD). 사용량 한도 프로그레스바(도넛·설정)의 기준. null=무제한.
   // 사용량 자체는 계산하지 않는다 — 실사용 SSOT(UsageTracker/costStore)와 이 한도로 파생만.
-  spendingLimitUsd: z.number().positive().nullable().default(90)
+  spendingLimitUsd: z.number().positive().nullable().default(90),
+  scheduler: SchedulerSettingsSchema
 })
 
 export const SettingsPatchSchema = z
@@ -435,7 +455,10 @@ export const SettingsPatchSchema = z
     accountInstructions: z.string(),
     appFont: z.enum(['sans', 'serif', 'mono']),
     notifyOnComplete: z.boolean(),
-    spendingLimitUsd: z.number().positive().nullable()
+    spendingLimitUsd: z.number().positive().nullable(),
+    scheduler: z.object({
+      usageRecompute: SchedulerUsageRecomputeSettingsBaseSchema.partial().optional()
+    })
   })
   .partial()
 
@@ -472,6 +495,8 @@ export type {
   ProviderDescriptor,
   StartInstall,
   InstallStatus,
+  SchedulerSettings,
+  SchedulerUsageRecomputeSettings,
   Settings,
   SettingsPatch,
   NotifyShow,

@@ -6,6 +6,9 @@ import type {
   MessagePartInsert,
   ProjectInsert,
   ProjectRow,
+  ScheduleRunFinish,
+  ScheduleRunRow,
+  ScheduleRunStartedInsert,
   SearchHitRow,
   SessionInsert,
   SessionLineageInsert,
@@ -21,6 +24,7 @@ import type {
 } from './types'
 
 export class DbQueries {
+  private readonly db: Database.Database
   private readonly insertSessionStmt: Database.Statement
   private readonly listSessionsStmt: Database.Statement
   // 단건 메타 조회 — resolveTurnAgent(매 chat:send)·sessionLoad 가 사용. listSessions 전체
@@ -48,6 +52,9 @@ export class DbQueries {
   private readonly sumUsageByBoundariesStmt: Database.Statement
   // provider별(0080) — turn_usage ⨝ sessions(provider_key)로 provider 한정 집계 + 한도 원장.
   private readonly sumUsageByBoundariesForProviderStmt: Database.Statement
+  private insertScheduleRunStartedStmt?: Database.Statement
+  private finishScheduleRunStmt?: Database.Statement
+  private listScheduleRunsStmt?: Database.Statement
   private readonly getProviderLimitStmt: Database.Statement
   private readonly setProviderLimitStmt: Database.Statement
   // 사용자가 명시적으로 rename — 기존 title 이 있어도 덮어쓴다.
@@ -75,6 +82,7 @@ export class DbQueries {
   private readonly copyMessagesTx: Database.Transaction<(src: string, dst: string) => number>
 
   constructor(db: Database.Database) {
+    this.db = db
     this.insertSessionStmt = db.prepare(`
       INSERT INTO sessions (id, backend, title, project_id, created_at, updated_at, last_message_preview, provider_key, cwd)
       VALUES (@id, @backend, @title, @projectId, @createdAt, @createdAt, NULL, @providerKey, @cwd)
@@ -536,6 +544,47 @@ export class DbQueries {
       total_cost_usd: r[`${prefix}_total_cost_usd`]
     })
     return { day: period('day'), week: period('week'), month: period('month') }
+  }
+
+  insertScheduleRunStarted(row: ScheduleRunStartedInsert): number {
+    const info = this.scheduleStartStmt().run(row)
+    return Number(info.lastInsertRowid)
+  }
+
+  finishScheduleRun(row: ScheduleRunFinish): void {
+    this.scheduleFinishStmt().run(row)
+  }
+
+  listScheduleRuns(jobKey: string, limit = 20): ScheduleRunRow[] {
+    return this.scheduleListStmt().all({ jobKey, limit }) as ScheduleRunRow[]
+  }
+
+  private scheduleStartStmt(): Database.Statement {
+    this.insertScheduleRunStartedStmt ??= this.db.prepare(`
+      INSERT INTO schedule_runs (job_key, started_at, finished_at, status, error)
+      VALUES (@jobKey, @startedAt, NULL, 'running', NULL)
+    `)
+    return this.insertScheduleRunStartedStmt
+  }
+
+  private scheduleFinishStmt(): Database.Statement {
+    this.finishScheduleRunStmt ??= this.db.prepare(`
+      UPDATE schedule_runs
+      SET finished_at = @finishedAt, status = @status, error = @error
+      WHERE id = @id
+    `)
+    return this.finishScheduleRunStmt
+  }
+
+  private scheduleListStmt(): Database.Statement {
+    this.listScheduleRunsStmt ??= this.db.prepare(`
+      SELECT id, job_key, started_at, finished_at, status, error
+      FROM schedule_runs
+      WHERE job_key = @jobKey
+      ORDER BY started_at DESC, id DESC
+      LIMIT @limit
+    `)
+    return this.listScheduleRunsStmt
   }
 
   // provider별 월 한도 조회 — 행 부재/NULL 이면 null(무제한 또는 미설정).
