@@ -1,7 +1,7 @@
 # Frontend Architecture — UX & Domains (UX 패턴·ApprovalCard·도메인·IPC 호출)
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-06-04 (FRONTEND_ARCHITECTURE.md 분해 — docs/ARCHITECTURE.md 인덱스 참조)
+> 최종 업데이트: 2026-07-10 (handoff 0094 — 도메인 카탈로그 개명·신규 UX(0083/0085)·채널 총계 동기화)
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [rendering.md](./rendering.md), [../backend/provider-runtime.md](../backend/provider-runtime.md), [../../IPC_CONTRACT.md](../../IPC_CONTRACT.md)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 
@@ -35,17 +35,28 @@
 
 | 상태                       | UI 표시                                                                                                                             | 위치                                                    |
 | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------- |
-| 요청 대기                  | StatusLine "Thinking... (Ns · ~Mtokens)"                                                                                            | `shared/ui/StatusLine.tsx`                              |
+| 요청 대기                  | StatusLine "Thinking... (Ns · ~Mtokens)"                                                                                            | `features/chat/components/StatusLine.tsx` (0093 에서 shared/ui 로부터 이동) |
 | 스트리밍 중                | StatusLine + 응답 메시지에 누적 텍스트                                                                                              | `features/chat/components/ChatTile.tsx`                 |
 | 에러 (`recoverable: true`) | 메시지 영역에 에러 카드                                                                                                             | `features/chat/reducer/chatReducer.ts` 의 `state.error` |
 | 에러 (`auth.expired`)      | AuthExpiredModal (`claude /login` 안내) — `#app-frame-modal` 슬롯, backdrop 은 `#app-frame-overlay` 가 담당 (dom-architecture.md.5) | `features/backend/components/AuthExpiredModal.tsx`      |
 | CLI 설치 진행              | InstallerDialog (라인별 로그 + 수동 명령 복사) — 동일하게 `#app-frame-modal` + `#app-frame-overlay` backdrop                        | `features/backend/components/InstallerDialog.tsx`       |
 | 네트워크 단절              | TBD (전역 배너 미구현)                                                                                                              | —                                                       |
 
+### 1.3-b 신규 UX (0083 / 0085~0086 / 0090)
+
+| UX | 동작 | 위치 |
+| --- | --- | --- |
+| Transcript titlebar | `<프로젝트> / <제목>` 표기 + 폴더 아이콘 + **인라인 rename**(`RenameInput`) | `features/chat/components/ChatTitleBar.tsx` (0083) |
+| 대화 삭제 확인 | 전역 확인 다이얼로그 — `confirm()` 호출 → `#app-frame-modal` 슬롯에 렌더 | `shared/ui/ConfirmDialogHost.tsx` + `confirmDialogStore.ts` (0083) |
+| 헤더 버전 모달 | 햄버거 메뉴 `버전` 항목 → 앱 버전/메타 모달 | `app/Header.tsx` 의 `HeaderVersionModal` (0083) |
+| 인앱 업데이트 | 업데이트 가용 시 헤더 버튼 + 파란 뱃지 → `UpdateDialog`(다운로드/재시작 사용자 게이트). dev 는 디버그 패널 더미 토글 | `features/update/` (0085/0086) |
+| 사용량 한도 | Composer 도넛 클릭 → `UsagePanel`(rendering.md §1.9) → `>` 로 설정 사용량 탭(provider 탭 포함) 이동, 월간 한도 편집 | `features/chat/components/UsagePanel.tsx` + `features/settings/` (0079~0082) |
+| 엔진 추가 모달 | 단일 화면(마법사 폐기) — provider 드롭다운 + `~/.claude/settings.json` 불러오기(`orca:engine:importUserSettings`) | `features/engine/components/EngineFormModal.tsx` (0090) |
+
 ### 1.4 접근성
 
-- 모든 인터랙티브 요소 키보드 접근 가능 (Composer / Sidebar / TweaksPanel)
-- 다크/라이트/쿨 3 테마 — `data-theme` 속성 기반
+- 모든 인터랙티브 요소 키보드 접근 가능 (Composer / Sidebar / DebugPanel)
+- white/dark 2 테마 — `data-theme` 속성 기반
 - ARIA 레이블 / 스크린리더 지원: 현재 부분 적용 (TBD — 체계적 audit 필요)
 
 ### 1.5 Sidebar Resize (Phase 3+)
@@ -81,9 +92,9 @@
 | `chat` (`features/chat/components/ChatTile.tsx`)               | 01 채팅                                 | (없음)              | ✅ '새 대화'                  | **✅ Phase 1·2 활성**     | 실 IPC 연결됨. Composer 자동완성·ToolCard·Markdown·CodeBlock 모두 구현.                                                                                                      |
 | `projects` (`features/projects/components/ProjectsScreen.tsx`) | 02 프로젝트                             | 프로젝트            | ✅ '프로젝트'                 | **✅ Phase 3 활성**       | 카드 그리드 + 생성 다이얼로그. ProjectDetail 은 `pages/ProjectLandingPage.tsx` 단일 파일.                                                                                    |
 | `routines` (placeholder, 라우트 미정의)                        | 자동화                                  | —                   | ❌ (Future Scope, nav 미노출) | **⏳ Future Scope**       | 라우트는 미정의 — `router.tsx` catch-all 이 `/new` 로 흡수. 후속 PR 에서 `pages/RoutinesPage.tsx` + 라우트 등록 시 nav 복귀 가능.                                            |
-| `engine` (`features/engine/components/EngineView.tsx`)         | 03 엔진 & 모델                          | 설정 · 엔진 & 모델  | ✅ '엔진 & 모델'              | 🚧 Phase 1 mockup         | nav 항목으로 노출. 라우트 `/agent` 는 엔진/모델 설정 화면을 표시한다.                                                                                                        |
-| `skills` (`features/skills/components/SkillsMcpView.tsx`)      | 04 Skills / MCP                         | 설정 · Skills & MCP | ✅ 'Skills & MCP'             | **✅ Phase 3++ MCP 활성** | nav 4번째 항목으로 노출. **MCP 섹션 실 연동** (`useMcpServers` + `orca:mcp:*` + `AddMcpServerModal` 추가/편집/토글/삭제, 전역 적용). Skills(좌측)·권한 섹션은 여전히 mockup. |
-| (Tweaks Panel) `shared/ui/TweaksPanel.tsx`                     | (플로팅 패널 — `#app-frame-debug` 슬롯) | —                   | —                             | **✅ Phase 2+ 영속**      | theme / density / sidebarCollapsed / sidebarWidth — electron-store 동기화.                                                                                                   |
+| `engine` (`features/engine/components/AgentEnvironmentView.tsx`, 구 EngineView) | 03 엔진 & 모델                          | 설정 · 엔진 & 모델  | ✅ '엔진 & 모델'              | **✅ Phase 4 CRUD 활성 (0021·0090)** | nav 항목으로 노출. 라우트 `/agent`. provider CRUD(`EngineFormModal` — 단일 화면 모달 + `~/.claude/settings.json` 불러오기, 0090) + `EngineCard`/`EngineModelList`.            |
+| `skills` (`features/skills/components/customize/SkillsCustomizeView.tsx`, 구 SkillsMcpView) | 04 Skills / MCP                         | 설정 · Skills & MCP | ✅ 'Skills & MCP'             | **✅ Phase 3++ MCP 활성** | nav 4번째 항목으로 노출. **MCP 섹션 실 연동** (`orca:mcp:*` + `AddMcpServerModal` 추가/편집/토글/삭제, 전역 적용) + customize rail/list/detail 재구성.                        |
+| (Debug Panel) `features/debug/components/DebugPanel.tsx`       | (플로팅 패널 — `#app-frame-debug` 슬롯, dev 전용) | —                   | —                             | **✅ Phase 2+ 영속**      | theme / density / sidebarCollapsed / sidebarWidth 등 Tweaks 컨트롤 흡수(구 shared/ui/TweaksPanel 부재) — electron-store 동기화. 더미 업데이트·wire log·SSO bypass 토글 포함. |
 | (SearchModal) `app/SearchModal.tsx`                            | (모달 — `#app-frame-modal` 슬롯)        | —                   | —                             | **✅ Phase 3++ 활성**     | FTS5 대화 검색. Header 검색 버튼 → `searchOpen` lift → OverlayLayer conditional mount.                                                                                       |
 
 > **CameraView** 와 **CapturesView** 는 `features/camera/` · `features/captures/` 에 존재하지만 도메인 카탈로그에서 제외 (GLOSSARY §3 사용자 결정). Sidebar nav 에도 없음.
@@ -138,7 +149,7 @@ Main 이 `AbortSignal` 을 SDK `query()` 에 전파 → 현재 inflight 만 중�
 
 ### 3.4 채널 전체 목록
 
-[IPC_CONTRACT.md](../../IPC_CONTRACT.md) §2 참조 — **정확 수치는 IPC_CONTRACT 가 SSOT** (현재 총 53 채널 · 17 도메인). 본 문서는 총계를 재서술하지 않는다(드리프트 방지).
+[IPC_CONTRACT.md](../../IPC_CONTRACT.md) §2 참조 — **정확 수치는 IPC_CONTRACT 가 SSOT** (현재 총 64 채널 — update 6·boot 1·engine 5(`importUserSettings` 포함, 0090)·cost 4 등). 본 문서는 총계를 재서술하지 않는다(드리프트 방지).
 
 ---
 

@@ -1,7 +1,7 @@
 # Backend Architecture — Overview (범위·스택·프로세스)
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-07-05 (handoff 0071 — §3 프로세스 구조를 0062 main 재편으로 정합)
+> 최종 업데이트: 2026-07-10 (handoff 0094 — 0078~0093 동기화: scheduler 슬라이스·자동 업데이트·skills 시딩·boot-report 계측 반영)
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [adapters.md](./adapters.md), [provider-runtime.md](./provider-runtime.md), [standardization.md](./standardization.md), [persistence.md](./persistence.md), [security.md](./security.md), [runtime-ipc.md](./runtime-ipc.md), [terms.md](./terms.md) (사람용 용어 해설), [`app/src/main/AGENTS.md`](../../../app/src/main/AGENTS.md) (레이어 DAG 정본)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 
@@ -38,7 +38,8 @@
 | 로컬 DB | **better-sqlite3** | ^12.x | ✅ Phase 3 도입 완료. 동기 API, Electron 호환. 직접 마이그레이션 (`db/migrations/`). WAL + foreign_keys pragma. |
 | HTTP 클라이언트 | (SDK 내부) | — | 별도 채택 없음 |
 | 보안 저장 (자격증명) | Electron safeStorage | (Electron 내장) | ✅ Phase 3++ 도입 완료 (MCP 인증 비밀 첫 실사용). OS keychain — macOS Keychain / Windows DPAPI / Linux libsecret. `config/secret-store.ts` 래퍼. |
-| 자동 업데이트 | **미선정** (PRD OQ3) | — | electron-updater 채택 미확정 |
+| 자동 업데이트 | **electron-updater** | ^6.x | ✅ 채택·구현 완료 (0084~0086). `app/updater.ts` UpdateController — autoDownload=false·사용자 게이트. runtime-ipc.md §3.1 |
+| 스케줄링 | croner | ^10.x | ✅ 채택 (0091). `infra/cron.ts` 래퍼 + `features/scheduler/` — main in-app cron, 앱 실행 중만 발화 |
 | 로깅 | TBD | — | 라이브러리 미선정 |
 | 패키저 | electron-builder | — | `electron-builder.yml` |
 | 유틸 | @electron-toolkit/utils | ^4.0.0 | 경로 / dev 모드 감지 |
@@ -58,16 +59,20 @@ Electron App
 │   │   ├── bootstrap.ts        # 의존성 생성 + 부팅 시퀀스 + 버스 구독 순서 SSOT + 핸들러 등록 위임
 │   │   ├── chat-turn.ts        # 턴 셋업 — chat:send 배선(pending queue·supervisor·coordinator 연결)
 │   │   ├── context.ts          # RouterContext (핸들러 공유 의존성)
-│   │   └── handlers/           # 도메인 IPC — session · project · mcp · engine · misc
+│   │   ├── boot-report.ts      # 부팅 진단 계측 (0077) — 각 부팅 단계 step 래핑 · orca:boot:report
+│   │   ├── builtin-resources.ts # 번들 스킬 리소스 해석 (0078)
+│   │   ├── updater.ts          # UpdateController — electron-updater 자동 업데이트 (0084~0086)
+│   │   └── handlers/           # 도메인 IPC — session · project · mcp · engine · misc · boot · update
 │   ├── features/               # 수직 슬라이스 (교차 import 금지)
 │   │   ├── chat/               # 턴 오케스트레이션 — turn-coordinator · pending-message-queue · settle · timers · title
 │   │   ├── sessions/           # 런타임 거버넌스 — supervisor · session-runtime · runtime-pool · eviction/cap-policy · active-turn-tracker
 │   │   ├── approvals/          # ApprovalCoordinator(도구 승인 broker) · permission-mode-controller
-│   │   ├── usage/              # UsageTracker — turn_usage 집계(일/주/월 SUM)
+│   │   ├── usage/              # UsageTracker — turn_usage 집계(일/주/월 SUM) + provider별 한도(0080~0082)
 │   │   ├── history/            # HistoryWriter — NormalizedEvent → DB parts 영속
 │   │   ├── providers/          # provider/engine 설정·모델 해석
-│   │   ├── extensions/         # ExtensionBuilder(지침·MCP·skill 조립) + deployer · conformance · mcp/ · skills/
-│   │   └── orchestration/      # Conversation Continuity(fork/handoff) 순수 로직 (handoff 0051 §A.4)
+│   │   ├── extensions/         # ExtensionBuilder(지침·MCP·skill 조립) + deployer · conformance · mcp/ · skills/(scan·seed)
+│   │   ├── orchestration/      # Conversation Continuity(fork/handoff) 순수 로직 (handoff 0051 §A.4)
+│   │   └── scheduler/          # 주기 실행 엔진 (croner, 0091) — register/protect/nextRun/stopAll + schedule_runs 기록
 │   ├── adapters/               # SessionAdapter 포트 & 구현 (구체 provider 리터럴 격리)
 │   │   ├── types.ts·turn.ts·provider-config.ts·mcp-config.ts·hooks.ts·descriptor.ts  # 포트
 │   │   ├── claude.ts           # ClaudeAdapter — SDK query() (장수명 채널 pushTurn)
@@ -87,8 +92,9 @@ Electron App
 │       ├── bus/                # TypedBus
 │       ├── db/                 # better-sqlite3 싱글턴 + migrate + queries (WAL + foreign_keys)
 │       ├── config/             # orca-config · secret-store · paths · crypto · mcp-file
-│       ├── errors/             # 에러 정규화 (ErrorCategory)
-│       └── settings-store.ts   # electron-store 영속화 (persistence.md §1.2)
+│       ├── errors.ts           # 에러 정규화 (ErrorCategory) + errorMessage 헬퍼 (0092)
+│       ├── cron.ts             # croner 래퍼 (scheduler 의 타이머 프리미티브, 0091)
+│       └── settings-store.ts   # electron-store 영속화 (+settings-migration.ts, persistence.md §1.2)
 │
 ├── Preload (src/preload/index.ts)
 │   └── contextBridge.exposeInMainWorld('orca', api) — window.orca 노출 (IPC_CONTRACT §2)
@@ -98,30 +104,39 @@ Electron App
 
 ### 3.1 부트 시퀀스 (`src/main/index.ts` → `app/bootstrap.ts`)
 
+각 단계는 `boot-report.ts` 의 `step`/`stepSync` 로 래핑돼 성공/실패·소요가 계측된다(0077, `orca:boot:report` 로 renderer 조회). `critical: true` 단계 실패만 부팅을 막는다.
+
 ```
 1. app.whenReady() → registerAppProtocol()  # app:// 커스텀 스킴 핸들러
 2. bootstrap = new Bootstrap()              # SettingsStore / McpStore / AdapterRegistry field-init
-3. bootstrap.start()
-   a. initDb() + recoverDanglingToolCalls   # better-sqlite3 초기화 + 마이그레이션 + 재시작 잔재 정착
-   b. new UsageTracker(db, …) → recompute() # 부팅 1회 일/주/월 합산 + 비용 요약 push 배선
-   c. new ExtensionBuilder(db, mcp, …)      # DB/McpStore/Skills 읽어 TurnExtensions 조립기
-   d. ensureConfigDir() → loadOrcaConfig()  # ~/.config/orca 보장 + orca.json 부팅 1회 로드
-   e. scaffoldProviderSettings('claude')    # sources/settings/claude 최초 1회 스캐폴드
-   f. deployExtensions()                    # sources → dist/<engine> 렌더 (ExtensionDeploymentService)
-   g. refreshSkills()                       # 스킬 부팅 1회 스캔(orca + ~/.claude/skills) → 메모리 캐시
-   h. register(ctx):                        # RouterContext 조립
+3. bootstrap.start()                        # 각 단계 = bootReport.step* 래핑
+   a. db-init (critical)                    # initDb — better-sqlite3 초기화 + 마이그레이션(0001~0013) + 재시작 잔재 정착
+   b. cost-recompute (critical)             # new UsageTracker(db, …) → 부팅 1회 일/주/월 합산 + 비용 요약 push 배선
+   c. new Scheduler(DbRunRecorder)          # 'usage-recompute' job 등록(action = cost.recordAndBroadcast 주입)
+      → scheduler.applySettings(settings.scheduler)  # croner 스케줄 시작 (0091, 실패 시 비활성 시작)
+   d. new ExtensionBuilder(db, mcp, …)      # DB/McpStore/Skills 읽어 TurnExtensions 조립기
+   e. adapter-registry (critical)           # 어댑터 설치 상태 갱신
+   f. workspace                             # 기본 작업공간(~/.config/orca/workspace) mkdir
+   g. config-dir → orca-config              # ~/.config/orca 보장 + orca.json 부팅 1회 로드
+   h. builtin-skill-seed                    # seedBuiltinSkills — 번들 스킬 → sources/skills 시딩 (0078, manifest/marker 버전 게이트)
+   i. provider-scaffold                     # 최초 1회 — readUserClaudeSettings() 로 ~/.claude/settings.json env 판별
+                                            # (classifyClaudeEnv) 후 provider verbatim 시딩, 부재 시 anthropic 템플릿 (0090)
+   j. extension-deploy                      # sources → dist/<engine> 렌더 (ExtensionDeploymentService)
+   k. skill-scan                            # 스킬 부팅 1회 스캔(orca sources/skills + ~/.claude/skills) → Bootstrap.skillsCache
+   l. register(ctx):                        # RouterContext 조립
         - RuntimeSupervisor(cap 5 · BoundedRuntimeCapPolicy · ActiveTurnTracker→concurrency push)
         - TypedBus 구독 순서 SSOT: usage → history → title → relay(sendChatEvent)  (§runtime-ipc §2.4)
         - PendingMessageQueue · ApprovalCoordinator · PermissionModeController
-        - registerChatHandlers + session/project/mcp/engine/misc 핸들러 등록
+        - updates: UpdateController (app/updater.ts — electron-updater, 0084~0086)
+        - registerChatHandlers + session/project/mcp/engine/boot/update/misc 핸들러 등록
 4. createWindow(bootstrap.settings)         # BrowserWindow + webPreferences 명시
    ├─ contextIsolation: true / nodeIntegration: false / sandbox: true
    └─ preload: '../preload/index.js'
 5. windowBounds 복구 + mainWindow.on('close') → settings.patch({ windowBounds })
-6. app.on('will-quit') → bootstrap.shutdown() → closeDb()  # 열린 도구 정착·abort·idle 런타임 close·WAL 정리
+6. app.on('will-quit') → bootstrap.shutdown() → closeDb()  # 열린 도구 정착·abort·idle 런타임 close·Scheduler.stopAll·WAL 정리
 ```
 
-> 부팅 각 단계 실패는 부팅을 막지 않는다(채팅/세션 기능은 config/deploy 와 독립). 레거시 1회성 이전(구 평면 레이아웃·구 orca-mcp 스토어)은 정식 배포 전 정리(handoff 0011)로 제거 — 구 dev 환경은 `~/.config/orca` 재생성으로 해결.
+> critical 이 아닌 단계 실패는 부팅을 막지 않는다(채팅/세션 기능은 config/deploy 와 독립). 레거시 1회성 이전(구 평면 레이아웃·구 orca-mcp 스토어)은 정식 배포 전 정리(handoff 0011)로 제거 — 구 dev 환경은 `~/.config/orca` 재생성으로 해결.
 
 ### 3.2 모듈 간 import 규약
 
@@ -147,15 +162,19 @@ Electron App
 | OpencodeAdapter | Future | ❌ 미구현 | PRD OQ7 |
 | AdapterRegistry | Phase 2 | ✅ 완료 | claude 단일 등록 |
 | Installer (래퍼) | Phase 2 | ✅ 완료 | 4줄 — 어댑터의 `install()` yield |
-| electron-store | Phase 3++ | ✅ 완료 | `infra/settings-store.ts` — sidebarWidth / mcpEnabled / mcpMeta / skillEnabled |
-| Skills 스캔 (`~/.claude/skills` + orca) | Phase 2 | ✅ 완료 | `features/extensions/skills/scan.ts` — 어댑터별 분리는 Future |
+| electron-store | Phase 3++ | ✅ 완료 | `infra/settings-store.ts` — 16 키 (카탈로그는 persistence.md §1.2 / IPC_CONTRACT §2.4) |
+| Skills 스캔 (orca `sources/skills` + `~/.claude/skills`) | Phase 2 | ✅ 완료 | `features/extensions/skills/scan.ts` — `<cwd>/.claude/skills` 루트는 제거됨. 캐시는 `Bootstrap.skillsCache` |
+| Skills 번들 시딩 (부트 1회) | Phase 4 | ✅ 완료 (0078) | `features/extensions/skills/seed.ts` + `app/builtin-resources.ts` — manifest/marker 버전 게이트 |
 | ExtensionDeployer | Phase 3++ | ✅ 완료 | `features/extensions/deployer.ts` — sources → `dist/<engine>/` 렌더 (표준화 스테이지 A) |
 | 인증 만료 감지 (`auth.expired`) | Phase 2 | ✅ 완료 | UI 에 AuthExpiredModal 노출 |
-| 로컬 DB (sessions / messages / parts / projects) | Phase 3 | ✅ 완료 | better-sqlite3 + 마이그레이션 11종(`0001_initial`…`0011_session_lineage`). `infra/db/`. |
+| 로컬 DB (sessions / messages / parts / projects) | Phase 3 | ✅ 완료 | better-sqlite3 + 마이그레이션 13종(`0001_initial`…`0013_schedules`). `infra/db/`. |
 | FTS5 전문 검색 (`messages_fts`) | Phase 3++ | ✅ 완료 | `0003_messages_fts.sql` + `orca:search:messages` IPC |
 | MCP 서버 CRUD + safeStorage 인증 비밀 | Phase 3++ | ✅ 완료 | `features/extensions/mcp/store.ts` + `infra/config/secret-store.ts`. 파일-백드 모델. |
 | Artifacts 디렉토리 (큰 산출물) | Future | ❌ 미구현 | persistence.md §1.4 |
-| 자동 업데이트 | Future | ❌ 미구현 | PRD OQ3 |
+| 자동 업데이트 (electron-updater) | Phase 4 | ✅ 완료 (0084~0086) | `app/updater.ts` UpdateController + `handlers/update.ts`(update 6채널) + `shared/update-restart.ts` 재시작 게이트. runtime-ipc.md §3.1 |
+| 스케줄러 (주기 실행) | Phase 4 | ✅ 완료 (0091) | `features/scheduler/` (croner) — 첫 소비처 = 주기 사용량 recompute. `schedule_runs` 실행 이력(`0013`) |
+| provider별 사용량 한도 | Phase 4 | ✅ 완료 (0079~0082) | `provider_limits`(`0012`) + `cost:providerSummaries`/`cost:setProviderLimit` |
+| CI/CD 릴리스 파이프라인 (v0.1.0) | Phase 4 | ✅ 완료 (0087~0089) | `.github/workflows/{ci,release}.yml` — Windows unsigned NSIS + GitHub Releases draft. 배포 빌드는 로그인 게이트 스킵(0089). 정본 `docs/guides/release-operations.md` |
 | 로깅 라이브러리 | TBD | ❌ 미구현 | electron-log 후보 |
 | `options.permissionMode` (도구 권한) | Phase 4 | ❌ 미구현 | PRD OQ9 |
 | `options.hooks` 완전 구현 (도구 감사 외부 핸들러) | Phase 4 | ❌ 미구현 | 현재 인프로세스 OrcaHookSet 은 구현됨 |

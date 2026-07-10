@@ -1,7 +1,7 @@
 # Frontend Architecture — Layers & App Shell (4-layer·디렉토리·boundaries)
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-06-04 (FRONTEND_ARCHITECTURE.md 분해 — docs/ARCHITECTURE.md 인덱스 참조)
+> 최종 업데이트: 2026-07-10 (handoff 0094 — §1-1 트리를 0078~0093 코드(features 13 도메인·shared/ui 확장)로 동기화)
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [overview.md](./overview.md), [dom-architecture.md](./dom-architecture.md), [state.md](./state.md)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 
@@ -9,23 +9,28 @@
 
 ### 1-1. 현재 상태 (코드 기준)
 
-`app/src/renderer/src/` 의 실제 트리 (PR #29 적용 완료 — 2026-05-27 검증). 4-layer (`app/` · `pages/` · `features/` · `shared/`) 가 ESLint boundaries v6 로 강제됨.
+`app/src/renderer/src/` 의 실제 트리 (PR #29 적용, 0078~0093 반영 — 2026-07-10 검증). 4-layer (`app/` · `pages/` · `features/` · `shared/`) 가 ESLint boundaries v6 로 강제됨.
 
 ```
 src/renderer/
 ├── index.html                       # React 마운트 + CSP + Google Fonts link
 └── src/
     ├── main.tsx                     # React entrypoint (createRoot) + 글로벌 CSS import
-    ├── App.tsx                      # Provider 합성 루트 (Tweak → Navigation → Backend → Sessions → Projects → Chat)
+    ├── App.tsx                      # Provider 합성 루트 (Tweak → Backend → Sessions → Projects → Cost → Update → Chat, bootstrap-only Provider + RootGate)
     ├── env.d.ts                     # Vite 클라이언트 타입
     │
     ├── app/                         ✅ 셸 — 고정 골격. cross-feature wiring 권한.
     │   ├── AppLayout.tsx            # Header + Sidebar (슬롯) + main + OverlayLayer 조립. 본체는 wiring hook 호출 + JSX 만
-    │   ├── Header.tsx               # `app-frame-header` — 브랜드 + breadcrumb + WinControls + drag 2-layer
-    │   ├── Sidebar.tsx              # `app-frame-sidebar` — NAV + collapsible/resizable + 3개 슬롯 (newChat/sessions/footer). React.memo + 도메인 특정 설정값 (SIDEBAR_MIN/MAX/DEFAULT_WIDTH) 유지
-    │   ├── OverlayLayer.tsx         # `#app-frame-overlay` + `#app-frame-modal` + `#app-frame-debug` 3슬롯 통합 (`#app-frame-debug` 는 dev 전용 `features/debug` DebugPanel 호스트)
+    │   ├── Header.tsx               # `app-frame-header` — 브랜드 + breadcrumb + WinControls + drag 2-layer + 조건부 업데이트 버튼/파란 뱃지(0085/0086) + 햄버거 메뉴(버전 → HeaderVersionModal, 0083)
+    │   ├── Sidebar.tsx              # `app-frame-sidebar` — NAV 4-항목(새 대화·프로젝트·엔진&모델·Skills&MCP, 0083) + collapsible/resizable + 슬롯 (sessions/footer). React.memo + 도메인 특정 설정값 (SIDEBAR_MIN/MAX/DEFAULT_WIDTH) 유지
+    │   ├── SidebarUserButton.tsx    # 사이드바 하단 사용자 버튼 (언어 플라이아웃 포함)
+    │   ├── OverlayLayer.tsx         # `#app-frame-overlay` + `#app-frame-modal` + `#app-frame-debug` 3슬롯 통합 — SearchModal·ConfirmDialogHost·UpdateDialog(0085)·(dev) DebugPanel+UpdateDebugSection 호스트
+    │   ├── SearchModal.tsx          # FTS5 전문 검색 모달
+    │   ├── RootGate.tsx             # 로그인 게이트 판정 — dev 만 LoginFrame, 배포 빌드는 스킵(0089)
+    │   ├── LoginFrame.tsx           # (dev 전용) features/login LoginView 호스트
+    │   ├── boot/                    # BootScreen + bootStore + steps (부팅 오케스트레이션, 0077)
     │   ├── WinControls.tsx          # minimize/maximize/close IPC. macOS → null
-    │   ├── router.tsx               # `<Routes>` — URL path → Page (which). `/`=BootRedirector · `/new`=NewChatLandingPage · `/chat`→/new · `/chat/:sessionId`=ChatPage · `/projects` · `/projects/:projectId` · `/engine` · `/skills` · `/captures` · `*`→/new
+    │   ├── router.tsx               # `<Routes>` — URL path → Page (which). `/`=BootRedirector · `/new`=NewChatLandingPage · `/chat`→/new · `/chat/:sessionId`=ChatPage · `/projects` · `/projects/:projectId` · `/agent` · `/skills` · `/captures` · `*`→/new
     │   ├── BootRedirector.tsx       # `/` 라우트 element — settings.lastSessionId → `/chat/<id>` 또는 `/new` replace
     │   └── hooks/                   # cross-feature wiring (셸 내부 전용)
     │       ├── useChatRouteSync.ts      # URL ↔ ChatState 동기화 (방향 1: `/new` · `/chat/:id` · `/projects/:id` 모두 처리, 방향 2: armed-ref 패턴 — sessionId null→non-null 전이 시 `/chat/<id>` replace)
@@ -33,38 +38,50 @@ src/renderer/
     │       ├── useSessionHandlers.ts    # navigate(`/chat/<id>`)/chat/sessions 핸들러 합성 + projectNameById. currentSessionId = URL matchPath('/chat/:sessionId') 로 도출 (ChatContext.state 아님 — 활성 하이라이트 SSOT = URL).
     │       └── useSidebarSlots.tsx      # Sidebar React.memo 효과 위한 slot ReactNode 안정화
     │
-    ├── pages/                       ✅ 조립 전용 — Context 읽기 + features 배치. 비즈니스 로직 0.
+    ├── pages/                       ✅ 조립 전용 — store 읽기 + features 배치. 비즈니스 로직 0.
     │   ├── NewChatLandingPage.tsx   # `/new` — empty 시 중앙 Composer (랜딩), 메시지 있으면 ChatTile
-    │   ├── ChatPage.tsx             # `/chat/:sessionId` — useBackendContext → ChatView.backendLabel wiring
+    │   ├── ChatPage.tsx             # `/chat/:sessionId` — backend store → ChatView.backendLabel wiring
     │   ├── ProjectsPage.tsx         # ProjectsView 단순 배치
     │   ├── ProjectLandingPage.tsx   # 프로젝트 채팅 랜딩 (ChatTile + ProjectSessionsPanel + ProjectInstructionsSidebar). 랜딩 라이프사이클은 셸의 useChatRouteSync 가 담당
-    │   ├── EnginePage.tsx
+    │   ├── AgentPage.tsx            # `/agent` — 엔진&모델 설정 (features/engine AgentEnvironmentView 배치, 구 EnginePage)
     │   ├── SkillsPage.tsx
-    │   └── CapturesPage.tsx
+    │   ├── CapturesPage.tsx
+    │   └── useSessionActions.ts     # 페이지 공용 세션 액션 (rename/삭제 확인 다이얼로그 배선, 0083)
     │
-    ├── features/                    ✅ 도메인 모듈 — 자기 레이어 내부만 의존. cross-feature import 금지.
+    ├── features/                    ✅ 도메인 모듈 (13) — 자기 레이어 내부만 의존. cross-feature import 금지.
     │   ├── backend/                 # BackendProvider, useBackend, BackendStatus, InstallerDialog, AuthExpiredModal
-    │   ├── chat/                    # ChatProvider, useChat, useSkillAutocomplete, useFileAutocomplete,
-    │   │                            #   chatReducer, ChatTile, Composer, ChatView, NewChatButton, composer/, transcript/, markdown/, format.ts
-    │   ├── sessions/                # SessionsProvider, useSessions, useProjectSessions, SessionList, SessionRow, ProjectSessionsPanel
-    │   ├── projects/                # ProjectsProvider, useProjects, ProjectsView/Screen, ProjectLandingHeader,
+    │   ├── chat/                    # ChatProvider, chat store(Zustand)+chatReducer, useSkillAutocomplete, useFileAutocomplete,
+    │   │                            #   ChatTile, ChatTitleBar(프로젝트/제목+인라인 rename, 0083), Composer, ChatView, PlanTile,
+    │   │                            #   ApprovalCard, AskUserQuestionCard, StatusLine(0093 에서 shared/ui 로부터 이동),
+    │   │                            #   UsagePanel(사용량 도넛 팝오버, 0079~0082), UserBubbleText(0083),
+    │   │                            #   composer/, transcript/, markdown/(StreamingMarkdown), rightpanel/, format.ts
+    │   ├── sessions/                # SessionsProvider, sessions store, useProjectSessions, SessionList, SessionRow, ProjectSessionsPanel
+    │   ├── projects/                # ProjectsProvider, projects store, ProjectsView, ProjectLandingHeader,
     │   │                            #   ProjectInstructionsSidebar, CreateProjectModal, EditInstructionsModal
-    │   ├── skills/                  # useSkillsMcp, SkillsMcpView
+    │   ├── cost/                    # CostProvider, cost store (일/주/월·provider별 사용량 미러, refreshCost) — 0079~0082
+    │   ├── settings/                # SettingsModal + 탭(General/Usage/ProviderUsage) + settingsModalStore (0079~0082)
+    │   ├── update/                  # UpdateProvider, updateStore(dummyMode 포함), UpdateDialog, UpdateDebugSection — 인앱 업데이트 UX (0085/0086)
+    │   ├── login/                   # (dev 게이트) LoginView, sso.ts(항상-실패 스텁), store — 배포 빌드 미포함 (0089)
+    │   ├── skills/                  # useSkillsMcp, SkillsCustomizeView + customize/ (rail·list·detail·모달들), AddMcpServerModal
+    │   ├── engine/                  # AgentEnvironmentView(구 EngineView), EngineFormModal(단일 화면, 0090), EngineCard, EngineModelList
     │   ├── camera/                  # CameraView
-    │   ├── engine/                  # EngineView
     │   ├── captures/                # CapturesView
-    │   └── debug/                   # (dev 전용) DebugPanel, useDebugMock — MockAdapter 하네스 UI. OverlayLayer 가 `import.meta.env.DEV` 게이트로 마운트
+    │   └── debug/                   # (dev 전용) DebugPanel(Tweaks 컨트롤 흡수), useDebugMock — MockAdapter 하네스 UI. OverlayLayer 가 `import.meta.env.DEV` 게이트로 마운트
     │
     ├── shared/                      ✅ 범용 — 도메인 로직 0. 모든 레이어 의존 가능.
     │   ├── navigation/              # routes.ts (path 패턴 + 라벨 + breadcrumb 카탈로그 — AppLayout matchPath 소스)
     │   ├── theme/                   # TweakProvider, useTweakContext
-    │   ├── hooks/                   # useTweaks (theme/density), useSkills (orca:skills:list), useDragResize (1D 드래그→숫자 일반 메커니즘)
-    │   ├── api/ipc.ts               # `window.orca.*` 타입드 래퍼 — chatApi/backendApi/installApi/settingsApi/skillApi/fileApi/sessionApi/projectApi/windowApi/debugApi(dev 전용)
+    │   ├── hooks/                   # useTweaks (theme/density), useSkills (orca:skills:list), useAgents (engine/provider 목록), useDragResize (1D 드래그→숫자 일반 메커니즘)
+    │   ├── stores/                  # agentStore (engine/provider 공유 store — 카드·Composer/ModelMenu 싱크)
+    │   ├── api/ipc.ts               # `window.orca.*` 타입드 래퍼 — chatApi/backendApi/installApi/settingsApi/skillApi/fileApi/sessionApi/projectApi/windowApi/costApi/updateApi/debugApi(dev 전용)
     │   ├── config/theme.ts          # ThemeId / DensityId 타입 + DENSITY_FONT
-    │   └── ui/                      # Icon, Avatar, Status, Dot, Popover, CopyIconButton, StatusLine, FloatingPanel(+ PanelSection/Toggle/Radio/Select/Slider atom), BayerPattern, Histogram
+    │   └── ui/                      # Icon, Avatar, Status, Popover, CopyIconButton, FloatingPanel(+ PanelSection/Toggle/Radio/Select/Slider atom),
+    │                                #   Modal(공용 모달 셸, 0093 일반화), ConfirmDialogHost+confirmDialogStore(삭제 확인, 0083), RenameInput(0083),
+    │                                #   Meter·UsageCircle·usageTone(사용량 시각화, 0079/0080), AutoGrowTextarea, ReadingColumn, OrcaLogo, Button, Toggle,
+    │                                #   markdown/(Markdown·CodeBlock — features/chat 에는 StreamingMarkdown 만 잔류), elapsed, mock, BayerPattern, Histogram
     │
     └── styles/                      ✅
-        ├── tokens.css               # Tailwind @theme + [data-theme] 스코프
+        ├── tokens.css               # Tailwind @theme + [data-theme] 스코프 (white 루트 기본값 + dark)
         └── app.css                  # @import tailwindcss + @layer base + @utility kbd
 ```
 
@@ -87,7 +104,7 @@ src/renderer/
 | `frame/composer/` (전체) | `features/chat/components/composer/` |
 | `frame/sidebar/SessionRow.tsx` | `features/sessions/components/SessionRow.tsx` |
 | `frame/modal/InstallerDialog.tsx` · `AuthExpiredModal.tsx` | `features/backend/components/` |
-| `frame/debug/TweaksPanel.tsx` | `shared/ui/TweaksPanel.tsx` |
+| `frame/debug/TweaksPanel.tsx` | `shared/ui/TweaksPanel.tsx` (이후 dev 전용 `features/debug/components/DebugPanel.tsx` 로 흡수 — 현재 TweaksPanel 파일 부재) |
 | `frame/debug/useTweaks.ts` | `shared/hooks/useTweaks.ts` |
 | `frame/theme.ts` | `shared/config/theme.ts` |
 
@@ -139,7 +156,7 @@ src/renderer/
 4. **도메인-무관 UI 원자 (presentational only)?** → `shared/ui/`
 5. **도메인-무관 hook?** → `shared/hooks/`
 6. **앱 셸 레이아웃 (라우팅 시 재마운트 없는 고정 컴포넌트)?** → `app/` 직속
-7. **CSS 변수 추가?** → `styles/tokens.css` 의 `@theme` + 세 테마 스코프 모두
+7. **CSS 변수 추가?** → `styles/tokens.css` 의 `@theme` + 두 테마 스코프(white/dark) 모두
 
 > 분해 가이드 (`app/AGENTS.md` 원칙 9): 한 파일이 (a) 5+ 컴포넌트를 담거나 (b) 400줄을 넘으면 분해 검토. 새 파일은 위 결정 흐름에 따라 배치.
 

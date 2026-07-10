@@ -123,27 +123,34 @@ N/A (문서 전용). 단, 문서 간 상호 참조(ARCHITECTURE 인덱스 설명
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- 동의 / 그대로 진행: (구현 턴에서 기입)
+- 동의 / 그대로 진행: 설계의 파일별 수정 목록을 그대로 수행. 문서 §구조 보존 원칙(anchor 유지)도 준수 — 신설은 기존 § 내부 소절(runtime-ipc §3.1-b, ux-domains §1.3-b, security §1.7)로만.
+- 이견 / 정정 2건 (구현 중 코드 실측으로 교정):
+  - **settings 키 수는 16이 아니라 17** (`SettingsSchema` 실측: theme~notifyOnComplete 15 + `spendingLimitUsd` + `scheduler`). 문서에는 17로 기재 — 인수 기준의 "16 키" 표기는 조사 오차.
+  - `settingsModalStore` 는 `providerTabId` 필드가 아니라 `tab: 'general'|'usage'|'provider:<key>'` 유니온 — state.md 에 실측값으로 기재.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
+| 1 | `app/AGENTS.md` 의 group-scope 예시가 `features/chat/components/markdown/CodeBlock.tsx` 를 인용 — 실제는 `shared/ui/markdown/CodeBlock.tsx` | ✅ 함께 정정 (설계 목록엔 없었으나 명백한 경로 오기) | `ls shared/ui/markdown` |
+| 2 | `docs/IPC_CONTRACT.md` §2.4 의 `Settings` 타입 블록이 stale — `theme: "classic"\|"dark"\|"cool"`(실제 white/dark), `spendingLimitUsd`·`scheduler` 키 누락 | ⚠️ 보고만 — **본 핸드오프 비범위**(IPC_CONTRACT 는 사용자 요청 밖 + SSOT 는 별도 변경 절차 §6). 후속 처리 결정 필요 | `protocol.ts:404-439` ↔ IPC_CONTRACT §2.4 |
+| 3 | frontend overview §2 상태 관리 행이 "React Context + useReducer, Zustand 전환 예정"으로 0008/0013 이전 상태 | ✅ 스택 표도 Zustand v5 완료로 정정 (설계는 §3 상태표만 언급) | `App.tsx`·state.md §1 |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] AC1~2 AGENTS.md 2종
-- [ ] AC3~7 arch/backend 6종
-- [ ] AC8~10 arch/frontend 7종
-- [ ] AC11 ARCHITECTURE.md
-- [ ] AC12 경로 실존 대조
+- [x] AC1~2 AGENTS.md 2종
+- [x] AC3~7 arch/backend 6종 (overview·persistence·runtime-ipc·adapters·security·terms; system-prompt 무수정)
+- [x] AC8~10 arch/frontend 7종 (layers·rendering·ux-domains·overview·state·dom-architecture·terms)
+- [x] AC11 ARCHITECTURE.md
+- [x] AC12 경로 실존 대조 (인용 경로 55건 일괄 `[ -e ]` 검사 — MISSING 0)
+- [x] AC13 CLAUDE.md stub·spec/·IPC_CONTRACT·GLOSSARY 무변경 (`git diff --stat` 확인)
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | (기입 예정) |
-| 실행 명령 | 경로 대조 grep/ls |
-| 게이트 결과 | N/A (문서) |
-| 블로커 / 역질문 | |
-| 대상 커밋 | |
+| 변경 파일 | 16개 — `app/AGENTS.md`·`app/src/main/AGENTS.md`·`docs/ARCHITECTURE.md`·`docs/arch/backend/{overview,persistence,runtime-ipc,adapters,security,terms}.md`·`docs/arch/frontend/{overview,layers,rendering,ux-domains,state,dom-architecture,terms}.md` (+255/-146) |
+| 실행 명령 | 경로 대조 55건 `[ -e ]` 스캔 · 수치 대조(`ls migrations`=13 · main features=9 · renderer features=13 · SettingsSchema 키=17) · 위생 grep(비밀/이메일 0) |
+| 게이트 결과 | N/A (문서 전용 — `app/src` 무변경) |
+| 블로커 / 역질문 | 없음. 잠재 문제 #2(IPC_CONTRACT §2.4 stale)는 사용자 결정 대기 |
+| 대상 커밋 | (구현 커밋 hash — 커밋 후 INDEX 에 기재) |

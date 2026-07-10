@@ -1,7 +1,7 @@
 # Frontend Architecture — DOM Architecture (마커 체계·z-stack·titlebar)
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-06-04 (FRONTEND_ARCHITECTURE.md 분해 — docs/ARCHITECTURE.md 인덱스 참조)
+> 최종 업데이트: 2026-07-10 (handoff 0094 — 테마 2종·modal/debug 슬롯 children 동기화)
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [layers.md](./layers.md), [ux-domains.md](./ux-domains.md)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 
@@ -18,7 +18,7 @@
 | `data-behavior="..."`         | JS 행동 — _이걸 할 수 있다_  | `drag-region`, `no-drag`, `resizable`, `collapsible`, `virtualizable`, `interactive`, `focus-trap`, `dismissible`, `action:{name}` |
 | `data-state="..."`            | 현재 상태 — _지금 이 상태다_ | `expanded`/`collapsed`, `visible`/`hidden`                                                                                         |
 | `data-axis`, `data-context`   | 메타 설정 — _이런 조건이다_  | `vertical`/`horizontal`, `sidebar`/`tile`/`modal`/`overlay`/`debug`                                                                |
-| `data-theme`, `data-platform` | 루트 환경 — `<html>` 에만    | `classic`/`dark`/`cool`, `darwin`/`win32`/`linux`                                                                                  |
+| `data-theme`, `data-platform` | 루트 환경 — `<html>` 에만    | `white`/`dark`, `darwin`/`win32`/`linux`                                                                                  |
 
 **원칙**: 두 속성은 **공존**한다. `app-frame-*` 클래스는 마커이며 시각 스타일은 같은 element 의 Tailwind 유틸이 계속 진실. 마커 부여로 인한 시각 회귀는 없어야 한다.
 
@@ -58,8 +58,8 @@ html[data-theme][data-platform]
             │                       └── .app-frame-composer-repo  [data-behavior="dismissible"]
             │
             ├── #app-frame-overlay   z=-10 ↔ 10           (modal backdrop: blur + dim + pointer block)
-            ├── #app-frame-modal     z=-20 ↔ 20           (focus-trap 컨테이너 — InstallerDialog · AuthExpiredModal · SearchModal)
-            └── #app-frame-debug     z=30                 (TweaksPanel 등 개발 보조 floating UI)
+            ├── #app-frame-modal     z=-20 ↔ 20           (focus-trap 컨테이너 — InstallerDialog · AuthExpiredModal · SearchModal · UpdateDialog · ConfirmDialogHost)
+            └── #app-frame-debug     z=30                 (DebugPanel 등 개발 보조 floating UI)
 ```
 
 footer 는 두지 않음 — Orca 는 정보 분산 배치 (모델/사용량 → composer 하단, 브랜치/상태 → titlebar, 계정 → sidebar footer).
@@ -98,8 +98,8 @@ resize-handle 은 `aside` 형제가 아니라 **자식**으로 둔다.
 | 슬롯                 | 평소 z      | modal 활성 시 z | 역할                                                                                                                 | children                                      |
 | -------------------- | ----------- | --------------- | -------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
 | `#app-frame-overlay` | `-10`       | `10`            | backdrop (`bg-black/40 backdrop-blur-sm`). 평소엔 body 뒤로 깔려 보이지도 클릭도 안 됨.                              | 없음 — 순수 layer                             |
-| `#app-frame-modal`   | `-20`       | `20`            | focus-trap 컨테이너. 두 모달은 동시에 열리지 않으므로 conditional render 로 1개만 노출.                              | `<InstallerDialog>` 또는 `<AuthExpiredModal>` |
-| `#app-frame-debug`   | `30` (상시) | `30` (상시)     | TweaksPanel 등 개발 보조 floating UI. modal 상태와 무관. wrapper `pointer-events-none` + 자식 `pointer-events-auto`. | `<TweaksPanel>` 등                            |
+| `#app-frame-modal`   | `-20`       | `20`            | focus-trap 컨테이너. 모달들은 동시에 열리지 않으므로 conditional render 로 1개만 노출.                              | `<InstallerDialog>` · `<AuthExpiredModal>` · `<SearchModal>` · `<UpdateDialog>`(0085) · `<ConfirmDialogHost>`(0083) |
+| `#app-frame-debug`   | `30` (상시) | `30` (상시)     | DebugPanel 등 개발 보조 floating UI. modal 상태와 무관. wrapper `pointer-events-none` + 자식 `pointer-events-auto`. | `<DebugPanel>`(dev 전용, Tweaks 컨트롤 포함) 등 |
 
 규칙:
 
@@ -113,7 +113,7 @@ resize-handle 은 `aside` 형제가 아니라 **자식**으로 둔다.
 
 | 위치                                                                   | 속성                                                          | 값                                                                              |
 | ---------------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `<html>`                                                               | `data-theme` / `data-platform`                                | `classic\|dark\|cool` / `darwin\|win32\|linux`                                  |
+| `<html>`                                                               | `data-theme` / `data-platform`                                | `white\|dark` / `darwin\|win32\|linux`                                  |
 | header drag-layer                                                      | `data-behavior`                                               | `drag-region`                                                                   |
 | header content-layer · 좌 · 우                                         | `data-behavior`                                               | `no-drag`                                                                       |
 | WinControls 각 버튼                                                    | `data-behavior`                                               | `action:window-minimize\|window-maximize\|window-close`                         |

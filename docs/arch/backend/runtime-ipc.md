@@ -1,7 +1,7 @@
 # Backend Architecture — Runtime & IPC (동시성·IPC 핸들러·시스템 통합)
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-07-05 (handoff 0071 — 0062 main 재편 + 0066~0070 런타임 재작업 정합)
+> 최종 업데이트: 2026-07-10 (handoff 0094 — 자동 업데이트 구현·scheduler·채널 총계 64 동기화)
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [overview.md](./overview.md) §3(프로세스 구조), [provider-runtime.md](./provider-runtime.md), [../../IPC_CONTRACT.md](../../IPC_CONTRACT.md), [`app/src/main/AGENTS.md`](../../../app/src/main/AGENTS.md) (레이어 DAG·버스 파이프라인)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 
@@ -91,7 +91,7 @@ handle(CHANNELS.chatSend, SendChatMessageSchema, /* 실패=error 이벤트 */, a
 })
 ```
 
-- **채널 총계는 [IPC_CONTRACT.md](../../IPC_CONTRACT.md) §2 가 SSOT** — 현재 **총 53 채널 · 17 도메인**(`chat`·`backend`·`agent`·`engine`·`install`·`settings`·`skills`·`files`·`session`·`project`·`window`·`search`·`mcp`·`cost`·`concurrency`·`permission`·`debug`(dev)). **본 문서는 총계를 재서술하지 않는다**(드리프트 방지 — 변경 시 SSOT 1곳만 갱신). `chat` 도메인 5채널(`send`·`event`·`cancel`·`stopSubagent`·`steerCancel`).
+- **채널 총계는 [IPC_CONTRACT.md](../../IPC_CONTRACT.md) §2 가 SSOT** — 현재 **총 64 채널**(도메인: `chat`·`boot`·`backend`·`agent`·`engine`·`install`·`update`·`settings`·`skills`·`files`·`session`·`project`·`window`·`search`·`mcp`·`cost`·`concurrency`·`permission`·`debug`(dev)). **본 문서는 총계를 재서술하지 않는다**(드리프트 방지 — 변경 시 SSOT 1곳만 갱신). `chat` 도메인 5채널(`send`·`event`·`cancel`·`stopSubagent`·`steerCancel`).
 - 채널 상수는 `app/src/shared/ipc.ts` 의 `CHANNELS`(문자열 리터럴 직접 사용 금지). `debug` 2채널은 `import.meta.env.DEV` 에서만 `ipcMain.handle` 등록.
 
 ### 2.2 명명 규칙
@@ -119,10 +119,19 @@ usage(집계) → history(영속) → title(제목) → relay(renderer 중계)
 
 ## 3. 시스템 통합
 
-### 3.1 자동 업데이트
+### 3.1 자동 업데이트 (✅ 구현 완료 — 0084~0086)
 
-- **PRD OQ3 미정** — electron-updater 채택 미확정.
-- 빌드 채널 (stable / beta) / 업데이트 확인 주기 / 사용자 확인 정책 모두 TBD.
+- **electron-updater 채택** (`app/updater.ts` 의 `UpdateController`). 피드 = GitHub Releases(`latest.yml`/blockmap, 릴리스 파이프라인은 `docs/guides/release-operations.md`).
+- 정책: **`autoDownload=false`** — 다운로드·설치 모두 사용자 명시 액션으로만 진입(다운로드 → `quitAndInstall`). 앱 시작 시 1회 자동 체크(`checkForUpdatesOnStartup`), 상태/진행은 `update` 도메인 6채널로 브로드캐스트(`UpdateState.status = idle|checking|available|downloading|ready|installing|error`, IPC_CONTRACT §2 참조).
+- **재시작 게이트**: `shared/update-restart.ts` 가 진행 중 턴/세션 상태로 설치 가능 여부를 재계산(0086 에서 브로드캐스트 중복·게이트 재계산 정리). 설치 진입 시 `prepareForUpdateInstall` 이 idle 런타임을 close.
+- dev 검증용 더미 업데이트 토글이 디버그 패널에 있다(0086 — 헤더 파란 뱃지 포함, prod 미노출).
+- 빌드 채널(stable/beta) 분리·코드 서명은 미정(현재 unsigned NSIS — security.md §1.7).
+
+### 3.1-b 스케줄러 (주기 실행 — 0091)
+
+- `features/scheduler/`(croner, `infra/cron.ts` 래퍼) — job 등록(`register`)·겹침 방지(`protect`)·다음 실행(`nextRun`)·실행 이력(`schedule_runs`, persistence.md §1.3).
+- 첫 소비처: **주기 사용량 recompute** — 컴포지션 루트가 action(`cost.recordAndBroadcast`)을 주입, `SettingsSchema.scheduler.usageRecompute{enabled,cron}` 로 제어(신규 IPC 0 — 기존 `settings:set` 경로).
+- `shutdown()` 은 `closeDb` 앞에 `Scheduler.stopAll()` (`disposed` 가드).
 
 ### 3.2 로깅
 

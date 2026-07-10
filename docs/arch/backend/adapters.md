@@ -1,7 +1,7 @@
 # Backend Architecture — Adapters (어댑터·ExtensionBuilder·파일/리소스·Hook 정규화)
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-06-04 (BACKEND_ARCHITECTURE.md 분해 — docs/ARCHITECTURE.md 인덱스 참조)
+> 최종 업데이트: 2026-07-10 (handoff 0094 — 0062 개명 경로 정정·skills 스캔/시딩(0078) 동기화)
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [provider-runtime.md](./provider-runtime.md), [overview.md](./overview.md), [adapter-design 흡수], [../../claude-code-spec.md](../../claude-code-spec.md)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 
@@ -31,7 +31,7 @@ export interface SessionAdapter {
 
 | Backend | 어댑터 파일 | 구현 방식 | 상태 |
 |---|---|---|---|
-| `claude-code` | `adapters/claude-code.ts` | `@anthropic-ai/claude-agent-sdk` 의 `query()` 함수 직접 호출 | ✅ Phase 3 채택 (CLI spawn 폐기) |
+| `claude-code` | `adapters/claude.ts` (+`claude-map.ts` 정규화, 구 claude-code.ts) | `@anthropic-ai/claude-agent-sdk` 의 `query()` 함수 직접 호출 | ✅ Phase 3 채택 (CLI spawn 폐기) |
 | `opencode` | (없음) | — | ⏳ Future (PRD OQ7) |
 
 `AdapterRegistry` (`adapters/registry.ts`) 는 현재 `claude-code` 단일 어댑터만 등록. 활성 백엔드는 부팅 시 자동 결정 (`this.active = claudeCode.id`).
@@ -91,7 +91,7 @@ interface TurnExtensions {
 
 ### 1.5 SDKMessage → ChatEvent 정규화
 
-`adapters/claude-code.ts` 의 `normalize()` 함수 (줄 30-124):
+`adapters/claude-map.ts` 의 정규화 (구 claude-code.ts `normalize()` — 순수 함수로 분리):
 
 | SDKMessage | → ChatEvent |
 |---|---|
@@ -118,7 +118,7 @@ SDK 가 throw 하는 에러 메시지/코드에서 `401` / `OAuth` / `expired` �
 | `options.resume: sessionId` | ✅ | Phase 3 | `--resume` 직접 대응 |
 | `options.includePartialMessages: true` | ✅ | Phase 3 | delta 스트리밍 |
 | `options.cwd` | ✅ | Phase 3 | spawn `{ cwd }` 대체 |
-| `result.total_cost_usd` / `usage` / `modelUsage` / `duration_ms` | ✅ | Phase 3++ | `ProviderReportedTelemetry` 로 정규화(cost·model·캐시 토큰·duration·numTurns) → TelemetryPanel (provider-runtime.md §8) |
+| `result.total_cost_usd` / `usage` / `modelUsage` / `duration_ms` | ✅ | Phase 3++ | `ProviderReportedTelemetry` 로 정규화(cost·model·캐시 토큰·duration·numTurns) → UsagePanel (provider-runtime.md §8) |
 | `options.permissionMode` / `canUseTool` | ⏳ | Phase 4 (OQ9) | 도구 권한 정책 미정 |
 | `options.hooks` (PreToolUse / PostToolUse / Stop) | ⏳ | Phase 4 | 도구 호출 감사 |
 | `createSdkMcpServer` + `tool()` | ⏳ | Phase 4+ | in-process MCP 서버(별건) |
@@ -139,7 +139,7 @@ opencode 등 다중 어댑터 환경 대비:
 
 | 책임 | 현재 (claude-code 전용) | Future 인터페이스 |
 |---|---|---|
-| Skills 스캔 경로 | `skills/scan.ts` 에 `~/.claude/skills/` + `<cwd>/.claude/skills/` 하드코딩 | `SessionAdapter.getSkillPaths(cwd): string[]` 인터페이스로 책임 이관 — §2 참조 |
+| Skills 스캔 경로 | `Bootstrap.skillRoots()` 에 orca `sources/skills` + `~/.claude/skills` 하드코딩 (`features/extensions/skills/scan.ts` 는 루트 주입식) | `SessionAdapter.getSkillPaths(cwd): string[]` 인터페이스로 책임 이관 — §2 참조 |
 | 자격증명 키 이름 | 없음 (SDK 가 `~/.claude` 자동 사용) | 각 어댑터가 `getCredentialKeys(): string[]` 등으로 base URL / API key 키 이름 정의 — security.md 참조 |
 | 외부 세션 저장소 → Orca DB 동기화 | 없음 (현재 SDK 의 jsonl 을 직접 읽지 않음) | `listSessions / loadSession` 옵셔널 메서드로 외부 jsonl/SQLite 등을 Orca 로컬 DB 로 단방향 동기화 — persistence.md 참조 |
 | 설치 / binary 해소 | SDK `optionalDependencies` 가 자동 처리 → `install()` 즉시 `done: true` 반환 | opencode 등은 별도 install 스크립트 필요 |
@@ -162,17 +162,19 @@ opencode 등 다중 어댑터 환경 대비:
 
 ### 2.1 Skills 스캔 (현재)
 
-`app/src/main/skills/scan.ts`:
+`app/src/main/features/extensions/skills/scan.ts` (루트는 `Bootstrap.skillRoots()` 가 주입):
 
 | 항목 | 값 |
 |---|---|
-| 스캔 경로 | `~/.claude/skills/<name>/SKILL.md` + `<cwd>/.claude/skills/<name>/SKILL.md` |
+| 스캔 루트 | `sources/skills/<name>/SKILL.md` (sourceId=`orca`) + `~/.claude/skills/<name>/SKILL.md` (sourceId=`adapter:claude`). **`<cwd>/.claude/skills` 루트는 제거됨** |
 | 파서 | frontmatter 정규식 (`^---\s*\n...\n---`) |
 | 인식 키 | `name`, `description`, `argument-hint` |
-| 캐싱 | 부팅 시 1회 스캔 → `skillsCache` (`router.ts`) |
+| 캐싱 | 부팅 시 1회 스캔 → `Bootstrap.skillsCache` |
 | 핫리로드 | ❌ 없음 (재시작 필요) |
 
-> **⚠️ 현재 경로는 claude-code 어댑터 전용** (`~/.claude/...` 은 Claude Code 의 표준 경로). 다른 어댑터 (opencode 등) 도 지원하면 스캔 경로 분리 필요 — 사용자 결정.
+> **⚠️ `~/.claude/skills` 루트는 claude-code 어댑터 전용** (Claude Code 의 표준 경로). 다른 어댑터 (opencode 등) 도 지원하면 스캔 경로 분리 필요 — 사용자 결정.
+
+**번들 스킬 시딩 (0078)**: 부팅 시퀀스의 `builtin-skill-seed` 단계에서 `skills/seed.ts` 의 `seedBuiltinSkills(builtinDir, sourcesSkillsDir)` 가 앱에 번들된 스킬을 `sources/skills/` 로 1회 시딩한다. `app/builtin-resources.ts` 가 dev/패키지 빌드의 번들 경로를 해석하고, manifest/marker 버전 게이트로 이미 시딩된(또는 사용자가 수정한) 스킬을 덮어쓰지 않는다.
 
 **Skill/MCP 머티리얼라이즈** (0024 구현됨 / disallowedTools 보류, standardization.md §5.1/§5.2):
 - ExtensionDeployer 가 호환 자산을 SDK 표준 경로 거울로 배포 = 설치 스테이징: skill → `dist/<engine>/.claude/skills/`, mcp → `dist/<engine>/.mcp.json`(${VAR} 보존). 추후 "cwd 설치(복사)" 기능이 설치 대상으로 복사한다.
@@ -182,12 +184,12 @@ opencode 등 다중 어댑터 환경 대비:
 
 ### 2.2 어댑터별 Skills 경로 분리 (Future 채택 결정)
 
-- 현재 `skills/scan.ts` 의 하드코딩을 `SessionAdapter.getSkillPaths(cwd): string[]` 인터페이스로 책임 이관.
+- 현재 `Bootstrap.skillRoots()` 의 하드코딩을 `SessionAdapter.getSkillPaths(cwd): string[]` 인터페이스로 책임 이관.
 - 어댑터별 스캔 경로 예시 (도입 시):
 
 | Backend | 예상 경로 |
 |---|---|
-| `claude-code` | `~/.claude/skills/` + `<cwd>/.claude/skills/` (현재) |
+| `claude-code` | `~/.claude/skills/` (현재 — orca `sources/skills` 와 병행) |
 | `opencode` | `~/.config/opencode/skills/` (TBD — opencode 공식 경로 확인 필요) |
 
 - IPC `orca:skills:list` 의 응답은 활성 어댑터의 경로만 반영 (또는 모든 등록된 어댑터의 경로 통합 — 결정 필요).
@@ -310,7 +312,7 @@ const protectEnv: OrcaHookHandler = (ctx) =>
 
 #### 3.2.5 코드 현실: claude-side in-process `OrcaHookSet` (교차-tool 표준 아님)
 
-> **코드 진실**: `OrcaHookSet` 은 이미 구현·테스트된 코드다 — `capabilities/hooks.ts`(`OrcaHookSet`/`OrcaHookEvent`), `adapters/claude-adapt.ts`(`adaptHooks()` + `ORCA_TO_CLAUDE_EVENT`), `claude-adapt.test.ts`, `capabilities/builder.ts`(현재 `hooks: { normalized: {} }` — 빈 핸들러). 이는 **claude 어댑터가 SDK `query().options.hooks` 로 넘기는 in-process 콜백**의 형태이며, **교차-엔진(claude+opencode) 정규화 표준이 아니다**. §3.2 정정에 따라 `normalized` 는 *앱이 주입하는 claude 전용 in-process hook* 의 컨테이너로 재해석하고, `backendSpecific` 슬롯이 엔진별 분리(§2 채택)의 코드 표현이다. opencode 의 hook 은 `backendSpecific.opencode`(네이티브 플러그인 모듈 경로)로 분리되며 `normalized` 로 합치지 않는다.
+> **코드 진실**: `OrcaHookSet` 은 이미 구현·테스트된 코드다 — `adapters/hooks.ts`(`OrcaHookSet`/`OrcaHookEvent`, 구 capabilities/hooks.ts), `adapters/claude-adapt.ts`(`adaptHooks()` + `ORCA_TO_CLAUDE_EVENT`), `claude-adapt.test.ts`, `features/extensions/builder.ts`(구 capabilities/builder.ts — 현재 `hooks: { normalized: {} }` — 빈 핸들러). 이는 **claude 어댑터가 SDK `query().options.hooks` 로 넘기는 in-process 콜백**의 형태이며, **교차-엔진(claude+opencode) 정규화 표준이 아니다**. §3.2 정정에 따라 `normalized` 는 *앱이 주입하는 claude 전용 in-process hook* 의 컨테이너로 재해석하고, `backendSpecific` 슬롯이 엔진별 분리(§2 채택)의 코드 표현이다. opencode 의 hook 은 `backendSpecific.opencode`(네이티브 플러그인 모듈 경로)로 분리되며 `normalized` 로 합치지 않는다.
 
 ```ts
 interface OrcaHookSet {
