@@ -1,6 +1,7 @@
 import { useCallback, useState } from 'react'
 import { matchPath, useLocation } from 'react-router-dom'
 import { DEFAULT_ROUTE_INFO, ROUTES, type RouteInfo } from '../shared/navigation'
+import { useI18n } from '../shared/i18n'
 import { Header } from './Header'
 import { Sidebar } from './Sidebar'
 import { OverlayLayer } from './OverlayLayer'
@@ -17,6 +18,7 @@ import { useSidebarSlots } from './hooks/useSidebarSlots'
 // app/hooks/ 의 hook 으로 위임 — AppLayout 본체는 조립만 한다.
 export function AppLayout(): React.JSX.Element {
   const { pathname } = useLocation()
+  const { tr } = useI18n()
   const info = matchRouteInfo(pathname)
 
   useChatRouteSync()
@@ -34,7 +36,7 @@ export function AppLayout(): React.JSX.Element {
   return (
     <div
       className="app-frame-root flex h-full w-full flex-col overflow-hidden bg-bg [font-family:var(--font-app)] text-[13px] leading-[1.45] text-ink"
-      data-screen-label={`Orca · ${info.label}`}
+      data-screen-label={`Orca · ${tr(info.labelKey)}`}
     >
       <Header onOpenSearch={openSearch} />
       <div className="app-frame-grid relative grid min-h-0 flex-1 grid-cols-1 grid-rows-1 [&>*]:[grid-area:1/1]">

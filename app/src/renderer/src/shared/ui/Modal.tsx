@@ -1,6 +1,7 @@
 import { useEffect, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { Icon } from './Icon'
+import { useI18n } from '../i18n'
 
 const DEFAULT_PANEL =
   'max-h-[88vh] w-full max-w-[92vw] overflow-y-auto rounded-r6 border border-border bg-panel p-5 shadow-xl'
@@ -40,6 +41,7 @@ export function Modal({
   panelClassName,
   ariaLabel
 }: ModalProps): React.JSX.Element | null {
+  const { tr } = useI18n()
   useEffect(() => {
     if (!open) return
     const onKeyDown = (e: KeyboardEvent): void => {
@@ -72,7 +74,7 @@ export function Modal({
             <button
               type="button"
               onClick={onClose}
-              aria-label="닫기"
+              aria-label={tr('common.close')}
               className="ml-auto grid h-7 w-7 cursor-pointer place-items-center rounded-r4 border-0 bg-transparent text-ink3 hover:bg-fill-uncontained-hover hover:text-ink2"
             >
               <Icon name="x" size={15} />
@@ -99,7 +101,7 @@ export function ModalActions({
   onCancel,
   onConfirm,
   confirmLabel,
-  cancelLabel = '취소',
+  cancelLabel,
   confirmDisabled = false,
   cancelDisabled = false,
   danger = false
@@ -113,6 +115,7 @@ export function ModalActions({
   cancelDisabled?: boolean
   danger?: boolean
 }): React.JSX.Element {
+  const { tr } = useI18n()
   const confirmTone = danger ? 'bg-rust hover:brightness-110' : 'bg-ink hover:bg-t8'
   return (
     <>
@@ -122,7 +125,7 @@ export function ModalActions({
         disabled={cancelDisabled}
         className="cursor-pointer rounded-r4 border border-border bg-panel px-3.5 py-1.5 text-[12.5px] text-ink2 hover:bg-fill-uncontained-hover disabled:cursor-not-allowed disabled:opacity-40"
       >
-        {cancelLabel}
+        {cancelLabel ?? tr('common.cancel')}
       </button>
       <button
         type="button"

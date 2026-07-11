@@ -3,6 +3,7 @@ import { Icon } from '../../../shared/ui/Icon'
 import { Popover } from '../../../shared/ui/Popover'
 import { RenameInput } from '../../../shared/ui/RenameInput'
 import { openConfirmDialog } from '../../../shared/ui/confirmDialogStore'
+import { useI18n } from '../../../shared/i18n'
 import type { SessionListItem } from '../../../../../shared/ipc'
 
 // 한 시점에 한 행만 메뉴 / rename 모드. 각 행이 로컬 state 를 갖고 자기 popover 를
@@ -32,11 +33,16 @@ export function SessionRow({
   onRename,
   renameable = true
 }: SessionRowProps): React.JSX.Element {
+  const { tr } = useI18n()
   const [menuOpen, setMenuOpen] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const kebabRef = useRef<HTMLButtonElement>(null)
 
-  const baseLabel = (session.title?.trim() || session.preview?.trim() || '새 대화').slice(0, 60)
+  const baseLabel = (
+    session.title?.trim() ||
+    session.preview?.trim() ||
+    tr('common.newChat')
+  ).slice(0, 60)
   const label = projectName ? `${projectName} / ${baseLabel}` : baseLabel
 
   // 메뉴 항목이 하나도 없으면(이름변경 불가 + 삭제 핸들러 없음 — 활성 '새 대화' draft 행)
@@ -76,7 +82,7 @@ export function SessionRow({
           onCommit={commitRename}
           onCancel={cancelRename}
           maxLength={120}
-          ariaLabel="세션 제목 편집"
+          ariaLabel={tr('sessions.renameAria')}
         />
       </div>
     )
@@ -109,8 +115,8 @@ export function SessionRow({
             className={`h-5 w-5 cursor-pointer place-items-center rounded border-0 bg-transparent text-ink3 hover:text-ink ${
               menuOpen ? 'grid' : 'hidden group-hover/session:grid'
             }`}
-            title="더 보기"
-            aria-label="세션 메뉴"
+            title={tr('common.more')}
+            aria-label={tr('sessions.menuAria')}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
           >
@@ -129,7 +135,7 @@ export function SessionRow({
                   className="flex cursor-pointer items-center gap-2 border-0 bg-transparent px-2.5 py-1.5 text-left text-[12.5px] text-ink hover:bg-sidebar"
                 >
                   <Icon name="edit" size={12} />
-                  <span>이름 변경</span>
+                  <span>{tr('common.rename')}</span>
                 </button>
               )}
               {onDelete != null && (
@@ -140,9 +146,9 @@ export function SessionRow({
                     e.stopPropagation()
                     setMenuOpen(false)
                     openConfirmDialog({
-                      title: '대화 삭제',
-                      message: '이 대화를 삭제하시겠습니까?',
-                      confirmLabel: '삭제',
+                      title: tr('sessions.deleteDialogTitle'),
+                      message: tr('sessions.deleteDialogMessage'),
+                      confirmLabel: tr('common.delete'),
                       danger: true,
                       onConfirm: () => onDelete(session.id)
                     })
@@ -150,7 +156,7 @@ export function SessionRow({
                   className="flex cursor-pointer items-center gap-2 border-0 bg-transparent px-2.5 py-1.5 text-left text-[12.5px] text-rust hover:bg-rust-soft"
                 >
                   <Icon name="trash" size={12} />
-                  <span>삭제</span>
+                  <span>{tr('common.delete')}</span>
                 </button>
               )}
             </div>

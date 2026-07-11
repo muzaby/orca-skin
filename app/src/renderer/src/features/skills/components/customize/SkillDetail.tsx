@@ -16,8 +16,8 @@ function Meta({ label, value }: { label: string; value: string }): React.JSX.Ele
   )
 }
 
-function formatDate(ms: number | undefined, locale: UiLocale): string {
-  if (!ms) return locale === 'ko' ? '알 수 없음' : 'Unknown'
+function formatDate(ms: number | undefined, locale: UiLocale, unknownLabel: string): string {
+  if (!ms) return unknownLabel
   return formatDateMedium(ms, locale)
 }
 
@@ -68,7 +68,7 @@ export function SkillDetail({
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [removing, setRemoving] = useState(false)
   const menuRef = useRef<HTMLButtonElement>(null)
-  const { locale } = useI18n()
+  const { tr, locale } = useI18n()
   const body = skill.body?.trim() || '본문이 없습니다.'
 
   const remove = async (): Promise<void> => {
@@ -146,7 +146,10 @@ export function SkillDetail({
       </Popover>
 
       <div className="mt-4 grid grid-cols-1 gap-4 border-b border-border pb-4 sm:grid-cols-2">
-        <Meta label="마지막 업데이트" value={formatDate(skill.createdAt, locale)} />
+        <Meta
+          label="마지막 업데이트"
+          value={formatDate(skill.createdAt, locale, tr('common.unknown'))}
+        />
       </div>
 
       <div className="mt-4">

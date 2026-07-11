@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { createHighlighter, type Highlighter } from 'shiki'
 import { CopyIconButton } from '../CopyIconButton'
+import { useI18n } from '../../i18n'
 
 const LANGUAGES = [
   'typescript',
@@ -71,6 +72,7 @@ export function CodeBlock({
   embedded,
   showHeader = true
 }: CodeBlockProps): React.JSX.Element {
+  const { tr } = useI18n()
   const theme = useThemeId()
   const safeLang = lang && isLang(lang) ? lang : 'text'
   const [hl, setHl] = useState<{
@@ -106,7 +108,7 @@ export function CodeBlock({
     <div className="flex items-center justify-between border-b border-t5 bg-t1 px-3 py-1 text-caption text-t6">
       <span className="font-mono lowercase">{langLabel}</span>
       <div className="opacity-0 transition-opacity duration-150 ease-[cubic-bezier(0.215,0.61,0.355,1)] motion-reduce:transition-none group-hover/codeblock:opacity-100 focus-within:opacity-100">
-        <CopyIconButton text={code} title="코드 복사" />
+        <CopyIconButton text={code} title={tr('common.copyCode')} />
       </div>
     </div>
   )

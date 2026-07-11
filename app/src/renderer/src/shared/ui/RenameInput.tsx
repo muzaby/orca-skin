@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
+import { useI18n } from '../i18n'
 
 // 인플레이스 rename input — Enter 저장 / Esc 취소 / blur 저장. 마운트 시 autofocus +
 // 전체 선택. IME 조합 중 Enter 는 확정 키이므로 커밋하지 않는다(`isComposing` 가드).
@@ -18,9 +19,10 @@ export function RenameInput({
   onCommit,
   onCancel,
   className,
-  ariaLabel = '제목 편집',
+  ariaLabel,
   maxLength = 120
 }: RenameInputProps): React.JSX.Element {
+  const { tr } = useI18n()
   const [value, setValue] = useState(initial)
   const inputRef = useRef<HTMLInputElement>(null)
 
@@ -54,7 +56,7 @@ export function RenameInput({
         className ??
         'w-full rounded border border-border-strong bg-panel px-1.5 py-0.5 text-[12px] text-ink outline-none'
       }
-      aria-label={ariaLabel}
+      aria-label={ariaLabel ?? tr('common.editTitle')}
     />
   )
 }
