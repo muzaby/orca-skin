@@ -3,6 +3,7 @@ import { Icon } from '../../../shared/ui/Icon'
 import { Popover } from '../../../shared/ui/Popover'
 import { RenameInput } from '../../../shared/ui/RenameInput'
 import { openConfirmDialog } from '../../../shared/ui/confirmDialogStore'
+import { useI18n } from '../../../shared/i18n'
 import { chatActions, getActiveChatSession, useChatSession } from '../store/chatStore'
 import { partsText } from '../lib/parts'
 import type { ChatState } from '../reducer/chatReducer'
@@ -32,11 +33,12 @@ const VISIBLE_TILE_REGISTRY = tileRegistry.filter(
 
 // 사이드바 메타 (state.title) 가 즉시 채워지므로 사용자가 세션을 선택한 순간부터
 // 헤더에 정확한 제목 표시. 메타가 없는 부팅 자동 복원 1회만 첫 user 메시지에서 fallback.
+// selector 는 i18n 밖(순수) — 빈 문자열 sentinel 을 돌려주고 렌더에서 tr() 폴백을 채운다.
 function selectTitle(s: ChatState): string {
   const meta = s.title?.trim()
   if (meta) return meta
   const u = s.messages.find((m) => m.role === 'user')
-  return (u && partsText(u.parts).slice(0, 60)) || '새 대화'
+  return (u && partsText(u.parts).slice(0, 60)) || ''
 }
 
 // 채팅 타일 titlebar — 제목 + 우측 액션. selector 가 primitive 를 반환하므로
@@ -56,7 +58,8 @@ export const ChatTitleBar = memo(function ChatTitleBar({
   onDeleteSession,
   onRenameSession
 }: ChatTitleBarProps): React.JSX.Element {
-  const title = useChatSession(selectTitle)
+  const { tr } = useI18n()
+  const title = useChatSession(selectTitle) || tr('common.newChat')
   const cwd = useChatSession((s) => s.cwd)
   const sessionId = useChatSession((s) => s.sessionId)
   // 열 구조(stable ref)를 구독하고 평탄 뷰는 메모로 파생 — selector 가 새 배열을 반환하면
@@ -91,7 +94,7 @@ export const ChatTitleBar = memo(function ChatTitleBar({
       .map((m) => {
         const body = partsText(m.parts).trim()
         if (!body) return ''
-        return `## ${m.role === 'user' ? '사용자' : 'Claude'}\n\n${body}`
+        return `## ${m.role === 'user' ? tr('chat.titleBar.roleUser') : 'Claude'}\n\n${body}`
       })
       .filter(Boolean)
       .join('\n\n')
@@ -103,7 +106,7 @@ export const ChatTitleBar = memo(function ChatTitleBar({
     } catch {
       /* 클립보드 접근 거부 시 조용히 무시 */
     }
-  }, [])
+  }, [tr])
 
   return (
     <div className="app-frame-titlebar flex items-center gap-3 px-6 pb-2 pt-3">
@@ -126,7 +129,7 @@ export const ChatTitleBar = memo(function ChatTitleBar({
             initial={title}
             onCommit={commitRename}
             onCancel={() => setRenaming(false)}
-            ariaLabel="대화 제목 편집"
+            ariaLabel={tr('chat.titleBar.renameAria')}
             className="min-w-0 flex-1 rounded-r4 border border-border-strong bg-panel px-1.5 py-0.5 text-[13px] font-medium text-ink outline-none"
           />
         ) : (
@@ -140,8 +143,8 @@ export const ChatTitleBar = memo(function ChatTitleBar({
         <button
           className={`${ICON_BTN_BASE} ${ICON_BTN_IDLE}`}
           onClick={() => void copyConversation()}
-          title={copied ? '복사됨' : '전체 대화 복사'}
-          aria-label="전체 대화 복사"
+          title={copied ? tr('common.copied') : tr('chat.titleBar.copyAll')}
+          aria-label={tr('chat.titleBar.copyAll')}
         >
           <Icon name={copied ? 'check' : 'copy'} size={14} />
         </button>
@@ -150,8 +153,8 @@ export const ChatTitleBar = memo(function ChatTitleBar({
           className={`${ICON_BTN_BASE} ${open ? ICON_BTN_PRESSED : ICON_BTN_IDLE}`}
           onClick={() => setOpen((v) => !v)}
           aria-pressed={open}
-          title="우측 패널 타일"
-          aria-label="우측 패널 타일"
+          title={tr('chat.titleBar.tilesButton')}
+          aria-label={tr('chat.titleBar.tilesButton')}
         >
           <Icon name="kebab" size={14} />
         </button>
@@ -163,7 +166,9 @@ export const ChatTitleBar = memo(function ChatTitleBar({
           align="end"
           className="min-w-[200px]"
         >
-          <div className="px-2 py-1 text-[11px] font-medium text-t6">타일 표시</div>
+          <div className="px-2 py-1 text-[11px] font-medium text-t6">
+            {tr('chat.titleBar.tilesHeader')}
+          </div>
           {VISIBLE_TILE_REGISTRY.map((tile) => {
             const active = activeTiles.includes(tile.id)
             return (
@@ -193,7 +198,7 @@ export const ChatTitleBar = memo(function ChatTitleBar({
             }}
             disabled={!canRenameSession}
           >
-            <Icon name="edit" size={13} /> 이름 변경
+            <Icon name="edit" size={13} /> {tr('common.rename')}
           </button>
           <button
             type="button"
@@ -202,16 +207,16 @@ export const ChatTitleBar = memo(function ChatTitleBar({
               if (!sessionId || !onDeleteSession) return
               setOpen(false)
               openConfirmDialog({
-                title: '대화 삭제',
-                message: '이 대화를 삭제하시겠습니까?',
-                confirmLabel: '삭제',
+                title: tr('sessions.deleteDialogTitle'),
+                message: tr('sessions.deleteDialogMessage'),
+                confirmLabel: tr('common.delete'),
                 danger: true,
                 onConfirm: () => onDeleteSession(sessionId)
               })
             }}
             disabled={!canDeleteSession}
           >
-            <Icon name="trash" size={13} /> 삭제
+            <Icon name="trash" size={13} /> {tr('common.delete')}
           </button>
         </Popover>
       </div>

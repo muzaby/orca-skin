@@ -8,7 +8,49 @@ export const ko = {
     save: '저장',
     close: '닫기',
     unlimited: '무제한',
-    unknown: '알 수 없음'
+    unknown: '알 수 없음',
+    confirm: '확인',
+    delete: '삭제',
+    rename: '이름 변경',
+    more: '더 보기',
+    copied: '복사됨',
+    copyMessage: '메시지 복사',
+    copyCode: '코드 복사',
+    editTitle: '제목 편집',
+    newChat: '새 대화'
+  },
+  nav: {
+    chat: '01 채팅',
+    projects: '02 프로젝트',
+    projectsBreadcrumb: '프로젝트',
+    engine: '03 엔진 & 모델',
+    engineBreadcrumb: '설정 · 엔진 & 모델',
+    skills: '04 Skills / MCP',
+    skillsBreadcrumb: '설정 · Skills & MCP',
+    captures: '05 캡처 히스토리',
+    capturesBreadcrumb: '캡처 히스토리'
+  },
+  search: {
+    placeholder: '대화 내용 검색…',
+    inputAria: '대화 검색',
+    typeToSearch: '검색어를 입력하세요',
+    noMatches: '일치하는 메시지가 없습니다',
+    noTitle: '제목 없음'
+  },
+  sessions: {
+    deleteDialogTitle: '대화 삭제',
+    deleteDialogMessage: '이 대화를 삭제하시겠습니까?',
+    menuAria: '세션 메뉴',
+    renameAria: '세션 제목 편집'
+  },
+  chat: {
+    titleBar: {
+      renameAria: '대화 제목 편집',
+      copyAll: '전체 대화 복사',
+      tilesButton: '우측 패널 타일',
+      tilesHeader: '타일 표시',
+      roleUser: '사용자'
+    }
   },
   sidebar: {
     nav: {

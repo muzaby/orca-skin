@@ -17,7 +17,12 @@ const T = Date.UTC(2026, 6, 15, 3, 30)
 // ko 시각(hour12 dayPeriod '오전/오후' vs 'AM/PM')은 ICU/CLDR 버전에 따라 글리프가 달라
 // 리터럴 고정이 브리틀하다 — 같은 옵션의 Intl 참조 출력과 비교해 "우리 함수가 로케일·타임존·
 // 프리셋을 올바르게 전달했는가"(로직)만 검증한다. en-US 는 안정적이라 리터럴 유지.
-function ref(locale: string, timeZone: string, opts: Intl.DateTimeFormatOptions, ms: number): string {
+function ref(
+  locale: string,
+  timeZone: string,
+  opts: Intl.DateTimeFormatOptions,
+  ms: number
+): string {
   return new Intl.DateTimeFormat(locale, { ...opts, timeZone }).format(ms)
 }
 const KO_TIME: Intl.DateTimeFormatOptions = { hour: 'numeric', minute: '2-digit', hour12: true }

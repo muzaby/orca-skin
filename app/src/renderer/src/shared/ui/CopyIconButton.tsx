@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Button } from './Button'
+import { useI18n } from '../i18n'
 
 export interface CopyIconButtonProps {
   text: string
@@ -10,11 +11,9 @@ export interface CopyIconButtonProps {
 
 // Epitaxy 복사 버튼 — Button(iconOnly/uncontained/small) 위에 구현해 btn-squish 배경
 // 레이어 + relative isolate + ring-focus + fill-uncontained hover/active 토큰을 그대로 획득.
-export function CopyIconButton({
-  text,
-  title = '메시지 복사',
-  className
-}: CopyIconButtonProps): React.JSX.Element {
+export function CopyIconButton({ text, title, className }: CopyIconButtonProps): React.JSX.Element {
+  const { tr } = useI18n()
+  const label = title ?? tr('common.copyMessage')
   const [copied, setCopied] = useState(false)
   const onClick = async (): Promise<void> => {
     try {
@@ -32,8 +31,8 @@ export function CopyIconButton({
       size="small"
       leadingIcon={copied ? 'check' : 'copy'}
       onClick={onClick}
-      title={copied ? '복사됨' : title}
-      aria-label={title}
+      title={copied ? tr('common.copied') : label}
+      aria-label={label}
       className={className}
     />
   )

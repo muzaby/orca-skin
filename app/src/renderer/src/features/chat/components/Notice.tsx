@@ -1,4 +1,5 @@
 import { Icon, type IconName } from '../../../shared/ui/Icon'
+import { useI18n } from '../../../shared/i18n'
 
 interface NoticeProps {
   title?: string
@@ -15,6 +16,7 @@ export function Notice({
   icon = 'alert',
   onClose
 }: NoticeProps): React.JSX.Element {
+  const { tr } = useI18n()
   return (
     <div className="flex items-start gap-2 rounded-r6 border border-border bg-sidebar px-3 py-2 text-[12px] leading-relaxed text-ink">
       <Icon name={icon} size={14} />
@@ -26,7 +28,7 @@ export function Notice({
         <button
           type="button"
           onClick={onClose}
-          aria-label="닫기"
+          aria-label={tr('common.close')}
           className="ml-auto -mt-0.5 grid h-6 w-6 shrink-0 cursor-pointer place-items-center rounded-r4 border-0 bg-transparent text-ink3 hover:bg-fill-uncontained-hover hover:text-ink2"
         >
           <Icon name="x" size={14} />

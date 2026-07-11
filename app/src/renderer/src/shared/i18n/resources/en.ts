@@ -9,7 +9,49 @@ export const en: typeof ko = {
     save: 'Save',
     close: 'Close',
     unlimited: 'Unlimited',
-    unknown: 'Unknown'
+    unknown: 'Unknown',
+    confirm: 'Confirm',
+    delete: 'Delete',
+    rename: 'Rename',
+    more: 'More',
+    copied: 'Copied',
+    copyMessage: 'Copy message',
+    copyCode: 'Copy code',
+    editTitle: 'Edit title',
+    newChat: 'New chat'
+  },
+  nav: {
+    chat: '01 Chat',
+    projects: '02 Projects',
+    projectsBreadcrumb: 'Projects',
+    engine: '03 Engine & Models',
+    engineBreadcrumb: 'Settings · Engine & Models',
+    skills: '04 Skills / MCP',
+    skillsBreadcrumb: 'Settings · Skills & MCP',
+    captures: '05 Capture History',
+    capturesBreadcrumb: 'Capture History'
+  },
+  search: {
+    placeholder: 'Search conversations…',
+    inputAria: 'Search conversations',
+    typeToSearch: 'Type to search',
+    noMatches: 'No matching messages',
+    noTitle: 'Untitled'
+  },
+  sessions: {
+    deleteDialogTitle: 'Delete conversation',
+    deleteDialogMessage: 'Delete this conversation?',
+    menuAria: 'Session menu',
+    renameAria: 'Edit session title'
+  },
+  chat: {
+    titleBar: {
+      renameAria: 'Edit conversation title',
+      copyAll: 'Copy entire conversation',
+      tilesButton: 'Right panel tiles',
+      tilesHeader: 'Show tiles',
+      roleUser: 'User'
+    }
   },
   sidebar: {
     nav: {

@@ -10,6 +10,7 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { Icon } from '../shared/ui/Icon'
 import { searchApi } from '../shared/api/ipc'
+import { useI18n } from '../shared/i18n'
 import type { SearchHit } from '../../../shared/ipc'
 
 interface SearchModalProps {
@@ -24,6 +25,7 @@ const LIMIT = 30
 // debounce 후 main 의 FTS5 IPC 로 전달. 인플라이트 request id 시퀀스 비교로 stale
 // 응답을 폐기 — 빠르게 타이핑해도 마지막 응답만 반영.
 export function SearchModal({ onClose }: SearchModalProps): React.JSX.Element {
+  const { tr } = useI18n()
   const [query, setQuery] = useState('')
   const [hits, setHits] = useState<SearchHit[] | null>(null)
   const [selectedIdx, setSelectedIdx] = useState(0)
@@ -109,9 +111,9 @@ export function SearchModal({ onClose }: SearchModalProps): React.JSX.Element {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onInputKey}
-            placeholder="대화 내용 검색…"
+            placeholder={tr('search.placeholder')}
             autoFocus
-            aria-label="대화 검색"
+            aria-label={tr('search.inputAria')}
             aria-controls="search-modal-results"
             aria-activedescendant={
               showResults && hits && hits.length > 0 ? `search-hit-${selectedIdx}` : undefined
@@ -120,7 +122,7 @@ export function SearchModal({ onClose }: SearchModalProps): React.JSX.Element {
           />
           <button
             type="button"
-            aria-label="닫기"
+            aria-label={tr('common.close')}
             onClick={onClose}
             className="grid h-6 w-6 cursor-pointer place-items-center rounded border-0 bg-transparent text-ink2 hover:bg-sidebar"
           >
@@ -152,14 +154,17 @@ function SearchResults({
   onSelect,
   onChoose
 }: SearchResultsProps): React.JSX.Element {
+  const { tr } = useI18n()
   if (hits === null) {
-    return <div className="px-3 py-6 text-center text-[12.5px] text-ink3">검색어를 입력하세요</div>
+    return (
+      <div className="px-3 py-6 text-center text-[12.5px] text-ink3">
+        {tr('search.typeToSearch')}
+      </div>
+    )
   }
   if (hits.length === 0) {
     return (
-      <div className="px-3 py-6 text-center text-[12.5px] text-ink3">
-        일치하는 메시지가 없습니다
-      </div>
+      <div className="px-3 py-6 text-center text-[12.5px] text-ink3">{tr('search.noMatches')}</div>
     )
   }
   return (
@@ -183,7 +188,7 @@ function SearchResults({
               <span className="truncate text-[13px] text-ink">{renderSnippet(hit.snippet)}</span>
             </span>
             <span className="flex-none text-xs text-ink3">
-              {(hit.sessionTitle ?? '제목 없음') + ' · ' + formatHitTime(hit.createdAt)}
+              {(hit.sessionTitle ?? tr('search.noTitle')) + ' · ' + formatHitTime(hit.createdAt)}
             </span>
           </button>
         ))}
