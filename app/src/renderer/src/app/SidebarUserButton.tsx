@@ -1,15 +1,17 @@
 import { useRef, useState } from 'react'
 import { Popover } from '../shared/ui/Popover'
 import { Icon } from '../shared/ui/Icon'
+import { useTweakContext } from '../shared/theme'
+import { useI18n, type UiLocale } from '../shared/i18n'
 import { useLoginStore } from '../features/login'
 import { SettingsModal, useSettingsModalStore } from '../features/settings'
 import { useProviderUsage } from '../features/cost'
 
-// 언어 서브메뉴 목록 — 영어(비활성/inert)와 한국어(활성/체크)만 노출.
-// (실제 배선은 한국어 1개.)
-const LANGUAGES: { label: string; active: boolean }[] = [
-  { label: 'English (United States)', active: false },
-  { label: '한국어 (대한민국)', active: true }
+// 언어 서브메뉴 목록 — UI 표시 언어(settings.uiLocale) 스위처(0096).
+// 언어 이름은 해당 언어 자체 표기라 번역하지 않는다.
+const LANGUAGES: { value: UiLocale; label: string }[] = [
+  { value: 'en', label: 'English (United States)' },
+  { value: 'ko', label: '한국어 (대한민국)' }
 ]
 
 const MENU_ITEM =
@@ -27,6 +29,8 @@ export function SidebarUserButton(): React.JSX.Element {
   const [menuOpen, setMenuOpen] = useState(false)
   const [langOpen, setLangOpen] = useState(false)
   const showSettings = useSettingsModalStore((s) => s.show)
+  const { t, setTweak } = useTweakContext()
+  const { tr } = useI18n()
   // provider별 사용량(0080 항목 4) — 교차-feature 회피 위해 app 레이어가 features/cost 훅을
   // 호출해 features/settings 모달에 props 로 주입한다. 전역 사용량 탭은 /cost 플레이스홀더로
   // 축소돼(0081) usageLimits/costRefresh 주입은 불필요(도넛 경로는 page 가 별도 주입).
@@ -79,7 +83,7 @@ export function SidebarUserButton(): React.JSX.Element {
           className={MENU_ITEM}
         >
           <Icon name="settings" size={14} />
-          <span>설정</span>
+          <span>{tr('userMenu.settings')}</span>
         </button>
 
         {/* 언어 — 클릭 시 우측으로 확장되는 플라이아웃 팝오버(서브메뉴).
@@ -95,7 +99,7 @@ export function SidebarUserButton(): React.JSX.Element {
             className={`${MENU_ITEM} ${langOpen ? 'bg-sidebar text-ink' : ''}`}
           >
             <Icon name="globe" size={14} />
-            <span className="flex-1">언어</span>
+            <span className="flex-1">{tr('userMenu.language')}</span>
             <Icon name="chevR" size={13} />
           </button>
           {langOpen && (
@@ -103,24 +107,29 @@ export function SidebarUserButton(): React.JSX.Element {
               role="menu"
               className="absolute bottom-0 left-full z-10 ml-1 flex min-w-[200px] flex-col rounded-lg border border-border bg-panel p-1 shadow-lg"
             >
-              {LANGUAGES.map((lang) => (
-                <button
-                  key={lang.label}
-                  type="button"
-                  role="menuitemradio"
-                  aria-checked={lang.active}
-                  disabled={!lang.active}
-                  onClick={lang.active ? closeMenu : undefined}
-                  className={`flex w-full items-center gap-2 rounded-md border-0 bg-transparent px-2.5 py-1.5 text-left text-[12.5px] ${
-                    lang.active
-                      ? 'cursor-pointer text-ink hover:bg-sidebar'
-                      : 'cursor-not-allowed text-ink3'
-                  }`}
-                >
-                  <span className="flex-1">{lang.label}</span>
-                  {lang.active && <Icon name="check" size={13} />}
-                </button>
-              ))}
+              {/* 그룹 헤더 — LLM 응답 언어(settings.language)와 구분: 이 스위처는 UI 표시 언어. */}
+              <div className="px-2.5 py-1.5 text-[11.5px] text-ink3">
+                {tr('userMenu.displayLanguage')}
+              </div>
+              {LANGUAGES.map((lang) => {
+                const active = t.uiLocale === lang.value
+                return (
+                  <button
+                    key={lang.value}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={active}
+                    onClick={() => {
+                      setTweak('uiLocale', lang.value)
+                      closeMenu()
+                    }}
+                    className="flex w-full cursor-pointer items-center gap-2 rounded-md border-0 bg-transparent px-2.5 py-1.5 text-left text-[12.5px] text-ink hover:bg-sidebar"
+                  >
+                    <span className="flex-1">{lang.label}</span>
+                    {active && <Icon name="check" size={13} />}
+                  </button>
+                )
+              })}
             </div>
           )}
         </div>

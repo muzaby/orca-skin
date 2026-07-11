@@ -7,6 +7,7 @@ import { Popover } from '../shared/ui/Popover'
 import { Modal } from '../shared/ui/Modal'
 import { OrcaLogo } from '../shared/ui/OrcaLogo'
 import { useTweakContext } from '../shared/theme'
+import { useI18n } from '../shared/i18n'
 import { getPlatform, windowApi } from '../shared/api/ipc'
 import { updateActions, useUpdateState } from '../features/update'
 
@@ -29,6 +30,7 @@ export const Header = memo(function Header({ onOpenSearch }: HeaderProps): React
   const macOsPadLeft = isDarwin() ? 'pl-[80px]' : 'pl-[14px]'
   const navigate = useNavigate()
   const { t, setTweak } = useTweakContext()
+  const { tr } = useI18n()
   const [menuOpen, setMenuOpen] = useState(false)
   const [versionOpen, setVersionOpen] = useState(false)
   const menuAnchorRef = useRef<HTMLButtonElement>(null)
@@ -59,7 +61,7 @@ export const Header = memo(function Header({ onOpenSearch }: HeaderProps): React
           iconOnly
           size="small"
           leadingIcon="menu"
-          aria-label="시스템 메뉴"
+          aria-label={tr('header.systemMenu')}
           aria-haspopup="menu"
           aria-expanded={menuOpen}
           onClick={() => setMenuOpen((v) => !v)}
@@ -68,7 +70,7 @@ export const Header = memo(function Header({ onOpenSearch }: HeaderProps): React
           iconOnly
           size="small"
           leadingIcon="panelL"
-          aria-label="사이드바 접기"
+          aria-label={tr('header.collapseSidebar')}
           pressed={t.sidebarCollapsed}
           onClick={() => setTweak('sidebarCollapsed', !t.sidebarCollapsed)}
         />
@@ -76,21 +78,21 @@ export const Header = memo(function Header({ onOpenSearch }: HeaderProps): React
           iconOnly
           size="small"
           leadingIcon="search"
-          aria-label="검색"
+          aria-label={tr('header.search')}
           onClick={onOpenSearch}
         />
         <Button
           iconOnly
           size="small"
           leadingIcon="arrowL"
-          aria-label="뒤로 가기"
+          aria-label={tr('header.back')}
           onClick={() => navigate(-1)}
         />
         <Button
           iconOnly
           size="small"
           leadingIcon="arrowR"
-          aria-label="앞으로 가기"
+          aria-label={tr('header.forward')}
           onClick={() => navigate(1)}
         />
         {showUpdateButton && (
@@ -99,7 +101,7 @@ export const Header = memo(function Header({ onOpenSearch }: HeaderProps): React
               iconOnly
               size="small"
               leadingIcon="download"
-              aria-label="업데이트"
+              aria-label={tr('header.update')}
               pressed={updateState.status === 'ready'}
               busy={updateState.status === 'downloading' || updateState.status === 'installing'}
               onClick={updateActions.openDialog}
@@ -142,7 +144,7 @@ export const Header = memo(function Header({ onOpenSearch }: HeaderProps): React
           className="flex w-full cursor-pointer items-center gap-2 rounded-md border-0 bg-transparent px-2.5 py-1.5 text-left text-[12.5px] text-ink hover:bg-sidebar"
         >
           <Icon name="doc" size={14} />
-          <span>버전</span>
+          <span>{tr('header.version')}</span>
         </button>
         <button
           type="button"
@@ -154,7 +156,7 @@ export const Header = memo(function Header({ onOpenSearch }: HeaderProps): React
           className="flex w-full cursor-pointer items-center gap-2 rounded-md border-0 bg-transparent px-2.5 py-1.5 text-left text-[12.5px] text-ink hover:bg-sidebar"
         >
           <Icon name="power" size={14} />
-          <span>종료</span>
+          <span>{tr('header.quit')}</span>
         </button>
       </Popover>
       <HeaderVersionModal open={versionOpen} onClose={() => setVersionOpen(false)} />
@@ -169,12 +171,13 @@ function HeaderVersionModal({
   open: boolean
   onClose: () => void
 }): React.JSX.Element | null {
+  const { tr } = useI18n()
   return (
     <Modal
       open={open}
       onClose={onClose}
       blurBackdrop
-      ariaLabel="Orca 버전"
+      ariaLabel={tr('header.versionModalAria')}
       panelClassName="flex w-[280px] max-w-[92vw] flex-col items-center gap-3 rounded-r6 border border-border bg-panel px-8 py-7 text-center shadow-xl"
     >
       <OrcaLogo className="h-10 w-auto text-ink" />

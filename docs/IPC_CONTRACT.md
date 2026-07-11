@@ -2,7 +2,7 @@
 
 > 이 문서는 Main ↔ Renderer 간 IPC 채널의 **단일 진실 공급원 (SSOT)** 이다.
 > 채널을 추가/변경할 때는 코드와 이 문서를 함께 갱신한다.
-> 최종 업데이트: 2026-07-11 (handoff 0095 — §2.4 Settings 17 키·notify 도메인 분포 정합·§2.13 wireLog. 채널 자체는 0090 engine:importUserSettings 이 마지막 추가)
+> 최종 업데이트: 2026-07-11 (handoff 0096 — §2.4 Settings 18 키: `uiLocale` 추가. 채널 자체는 0090 engine:importUserSettings 이 마지막 추가)
 > 관련 문서: [ARCHITECTURE.md](ARCHITECTURE.md), [ARCHITECTURE.md](ARCHITECTURE.md), [GLOSSARY.md](./GLOSSARY.md), [TRD.md](./TRD.md) §5
 
 ## 1. 명명 규칙
@@ -111,7 +111,8 @@ interface Settings {
   mcpMeta: Record<string, { description: string }>; // MCP Orca 전용 메타 (mcp.json 순정 유지)
   skillEnabled: Record<string, boolean>; // Skill on/off (키=sourceId/name). 부재 ⇒ true
   ssoBypass: boolean; // SSO 로그인 게이트 우회 (디버그 패널 토글). true ⇒ 앱 시작 시 로그인 건너뜀. default false
-  language: string; // 선호 언어 (언어 플라이아웃 선택값). 시스템 프롬프트 '# User' 헤더로 매 턴 주입. default '한국어'
+  language: string; // 선호 언어 (LLM 응답 언어). 시스템 프롬프트 '# User' 헤더로 매 턴 주입. uiLocale 과 별개. default '한국어'
+  uiLocale: "ko" | "en"; // UI 표시 언어 (앱 크롬 로케일, 0096) — 렌더러 i18n(ko/en) + 날짜/시간 포맷 로케일. default 'ko'
   accountInstructions: string; // 설정 모달 '계정 지침' textarea. 시스템 프롬프트 '# User' 헤더로 매 턴 주입. default ''
   appFont: "sans" | "serif" | "mono"; // 앱 전체 폰트 (설정 모달). --font-app 에 매핑. default 'sans'
   notifyOnComplete: boolean; // 응답완료 알림 토글. on ⇒ 턴 완료 시(창 비활성 한정) OS 알림. default false

@@ -43,7 +43,7 @@ PRD §6.1 의 F1~F10 을 *수용 기준* 으로 구체화한다.
 | F7 | **CLI 설치 자동화** | Installer (IPC `orca:install:*`) | 둘 다 미설치 → 다이얼로그 (npm / curl 선택) → child_process 실행 → 라인 단위 status 스트림 → 완료/실패 표시 | §6.1 |
 | F8 | **설치 실패 폴백** | Installer | 자동 실패 → 수동 명령 전체 텍스트 UI에 표시 + 복사 버튼. Node.js 미설치 (Windows: choco, macOS: brew 안내), npm 글로벌 권한 부족 (sudo / npm config 안내) | §6.1 |
 | F9 | **인증 만료 처리** | ClaudeAdapter, Auth modal | Claude Code OAuth 401 감지 (stdout/stderr `"401"` / `"expired"` 패턴) → `error / auth.expired` 이벤트 → UI 모달 "`claude /login` 을 터미널에서 실행 후 새 대화" | §6.1 |
-| F10 | **Tweaks 패널** | DebugPanel(dev 전용, 구 TweaksPanel), useTweaks | 테마 선택 (**white/dark 2종** — 구 Classic/Dark/Cool 3종에서 축소) + 밀도 + 사이드바 접기 토글 → `data-theme` 속성 갱신 → Tailwind `@theme` 토큰 스코프 cascade → 전 화면 반영. 선택값은 `electron-store` 영속(§6.7 — 17 키 중 일부). 트리 remount 불요 (CSS 변수 재설정으로 충분) | §6.1 |
+| F10 | **Tweaks 패널** | DebugPanel(dev 전용, 구 TweaksPanel), useTweaks | 테마 선택 (**white/dark 2종** — 구 Classic/Dark/Cool 3종에서 축소) + 밀도 + 사이드바 접기 토글 → `data-theme` 속성 갱신 → Tailwind `@theme` 토큰 스코프 cascade → 전 화면 반영. 선택값은 `electron-store` 영속(§6.7 — 18 키 중 일부). 트리 remount 불요 (CSS 변수 재설정으로 충분) | §6.1 |
 
 **Phase 4 에서 추가 구현된 기능** (F1~F10 이후 — 인수 기준 상세는 각 handoff plan/verify 가 정본):
 
@@ -96,7 +96,7 @@ electron-vite 환경 기준. 표 밖 의존성 추가 시 **사용자 승인 필
 | 앱 내 스케줄링 | croner | latest | **확정 (0091)** | main 프로세스 in-app cron. 앱 실행 중에만 발화하며, 첫 소비처는 사용량 recompute. |
 | 라우팅 (Renderer) | react-router-dom | ^7 | 확정 | `app://` 커스텀 스킴 + BrowserRouter. [arch/frontend/overview.md](arch/frontend/overview.md) §2 |
 | diff 렌더링 | diff | ^9 | 확정 | 도구 카드의 파일 편집 diff 표시 |
-| 영속화 (설정) | `electron-store` | ^8 | **확정 (완료)** | **17 키** (theme·density·sidebar*·lastBackend·lastSessionId·windowBounds·mcp*·skillEnabled·ssoBypass·language·accountInstructions·appFont·notifyOnComplete·spendingLimitUsd·scheduler). §6.7 참조 |
+| 영속화 (설정) | `electron-store` | ^8 | **확정 (완료)** | **18 키** (theme·density·sidebar*·lastBackend·lastSessionId·windowBounds·mcp*·skillEnabled·ssoBypass·language·uiLocale·accountInstructions·appFont·notifyOnComplete·spendingLimitUsd·scheduler). §6.7 참조 |
 | 자동 업데이트 | `electron-updater` | ^6 | **확정 (0084~0086)** | `app/updater.ts` UpdateController — autoDownload=false·사용자 게이트. [arch/backend/runtime-ipc.md](arch/backend/runtime-ipc.md) §3.1 |
 | 로컬 DB (Phase 3+) | better-sqlite3 (Phase 3 MVP raw) / Drizzle 후보 (Phase 4 재검토) | — | **채택 (Phase 3+)** | 메시지·세션 메타 SSOT. 어댑터 외부 저장 (jsonl 등) 은 단방향 동기화 소스로 격하. 마이그레이션 `src/main/db/migrations/NNN_<name>.sql`. **Phase 3 MVP: raw better-sqlite3 + prepared statements (쿼리 6 개 내외, ORM 가치 작음). Drizzle 은 Phase 4 멀티 세션·artifact·권한·통계 도입 시 재검토 (2026-05-20).** 상세 [arch/backend/persistence.md](arch/backend/persistence.md) |
 | 자격증명 | Electron `safeStorage` (OS keychain) | — | **부분 구현** | MCP 인증 비밀 = secret-store(`orca-secrets`) 구현 완료. 어댑터별 base URL/API key 저장은 Future. [arch/backend/security.md](arch/backend/security.md) §1.4 |
@@ -317,7 +317,7 @@ interface ChatState {
 
 ### 6.7 Settings 키 카탈로그
 
-`electron-store` 로 영속화 완료 — **17 키**. zod 정본은 `app/src/shared/protocol.ts` 의 `SettingsSchema`, 타입 카탈로그는 `IPC_CONTRACT.md` §2.4 와 1:1 (키별 상세는 [arch/backend/persistence.md](arch/backend/persistence.md) §1.2).
+`electron-store` 로 영속화 완료 — **18 키** (0096: `uiLocale` 추가). zod 정본은 `app/src/shared/protocol.ts` 의 `SettingsSchema`, 타입 카탈로그는 `IPC_CONTRACT.md` §2.4 와 1:1 (키별 상세는 [arch/backend/persistence.md](arch/backend/persistence.md) §1.2).
 
 | 키 | 타입 | 설명 |
 |---|---|---|

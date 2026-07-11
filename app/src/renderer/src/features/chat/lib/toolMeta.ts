@@ -25,7 +25,8 @@ export type VerbCategory =
   | 'requested'
   | 'delegated'
 
-// 동사 라벨 — 완료 시제 (인라인 한국어, shared/i18n/ko.ts 는 future scope)
+// 동사 라벨 — 완료 시제 (인라인 한국어. i18n 인프라는 0096 으로 도입됨 —
+// shared/i18n 카탈로그로의 이관은 채팅 화면 문자열 마이그레이션 후속 핸드오프 몫)
 export const VERB_LABEL: Record<VerbCategory, string> = {
   ran: '실행됨',
   created: '업데이트됨',

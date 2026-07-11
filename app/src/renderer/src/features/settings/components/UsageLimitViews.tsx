@@ -5,9 +5,11 @@ import { useState } from 'react'
 import type { UsageLimitsView, UsageLimitBar } from '../../../../../shared/usage/limits'
 import { Icon } from '../../../shared/ui/Icon'
 import { Meter } from '../../../shared/ui/Meter'
+import { useI18n } from '../../../shared/i18n'
 import { fmtUsd } from '../lib/usageFormat'
 
 function LimitBarRow({ label, bar }: { label: string; bar: UsageLimitBar }): React.JSX.Element {
+  const { tr } = useI18n()
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-baseline justify-between gap-4">
@@ -17,7 +19,9 @@ function LimitBarRow({ label, bar }: { label: string; bar: UsageLimitBar }): Rea
         </div>
         <div className="flex-none text-right">
           <div className="text-[12.5px] text-ink2">
-            {bar.unlimited ? '무제한' : `${Math.round(bar.pct * 100)}% 사용됨`}
+            {bar.unlimited
+              ? tr('common.unlimited')
+              : tr('usage.pctUsed', { pct: Math.round(bar.pct * 100) })}
           </div>
           <div className="mt-0.5 text-[11.5px] tabular-nums text-ink3">
             {fmtUsd(bar.used)}
@@ -36,13 +40,14 @@ export function LimitBarsSection({
 }: {
   usageLimits: UsageLimitsView | null
 }): React.JSX.Element {
+  const { tr } = useI18n()
   if (!usageLimits) {
-    return <p className="text-[12.5px] text-ink3">사용량 정보를 불러오는 중입니다…</p>
+    return <p className="text-[12.5px] text-ink3">{tr('usage.loading')}</p>
   }
   return (
     <div className="flex flex-col gap-5">
-      <LimitBarRow label="주간" bar={usageLimits.week} />
-      <LimitBarRow label="월간" bar={usageLimits.month} />
+      <LimitBarRow label={tr('usage.weekly')} bar={usageLimits.week} />
+      <LimitBarRow label={tr('usage.monthly')} bar={usageLimits.month} />
     </div>
   )
 }
@@ -59,6 +64,7 @@ export function LimitEditor({
   onSave: (v: number | null) => void
   onBack: () => void
 }): React.JSX.Element {
+  const { tr } = useI18n()
   const [draft, setDraft] = useState(limit == null ? '' : String(limit))
   const parsed = Number(draft)
   const valid = draft.trim() !== '' && Number.isFinite(parsed) && parsed > 0
@@ -71,12 +77,12 @@ export function LimitEditor({
         className="flex items-center gap-1.5 self-start rounded-r4 bg-transparent px-1 py-0.5 text-[13px] text-ink2 hover:text-ink"
       >
         <Icon name="arrowL" size={15} />
-        <span>사용량</span>
+        <span>{tr('usage.backToUsage')}</span>
       </button>
 
       <div>
         <h3 className="text-[16px] font-semibold text-ink">{title}</h3>
-        <p className="mt-1.5 text-[13px] text-ink2">월별 지출 한도를 설정하세요.</p>
+        <p className="mt-1.5 text-[13px] text-ink2">{tr('usage.setLimitDesc')}</p>
       </div>
 
       <label className="flex items-center gap-2 rounded-r4 border border-border bg-bg px-3 py-2.5 focus-within:border-border-strong">
@@ -87,11 +93,11 @@ export function LimitEditor({
           value={draft}
           onChange={(e) => setDraft(e.target.value.replace(/[^0-9.]/g, ''))}
           placeholder="90"
-          aria-label="월간 지출 한도 (USD)"
+          aria-label={tr('usage.limitInputAria')}
           className="min-w-0 flex-1 border-0 bg-transparent text-[14px] tabular-nums text-ink outline-none placeholder:text-ink3"
         />
       </label>
-      <p className="text-[12px] text-ink3">이 지출 한도는 즉시 적용됩니다.</p>
+      <p className="text-[12px] text-ink3">{tr('usage.appliesImmediately')}</p>
 
       <div className="flex justify-end gap-2">
         <button
@@ -99,7 +105,7 @@ export function LimitEditor({
           onClick={() => onSave(null)}
           className="cursor-pointer rounded-r4 border border-border bg-transparent px-3.5 py-1.5 text-[12.5px] font-medium text-ink hover:bg-fill-uncontained-hover"
         >
-          무제한으로 설정
+          {tr('usage.setUnlimited')}
         </button>
         <button
           type="button"
@@ -107,7 +113,7 @@ export function LimitEditor({
           onClick={() => onSave(parsed)}
           className="cursor-pointer rounded-r4 border-0 bg-ink px-3.5 py-1.5 text-[12.5px] font-medium text-bg hover:bg-t8 disabled:cursor-not-allowed disabled:opacity-40"
         >
-          지출 한도 설정
+          {tr('usage.setLimit')}
         </button>
       </div>
     </div>

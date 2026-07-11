@@ -5,6 +5,7 @@ import { Markdown } from '../../../../shared/ui/markdown/Markdown'
 import { Modal, ModalActions } from '../../../../shared/ui/Modal'
 import { Popover } from '../../../../shared/ui/Popover'
 import { Toggle } from '../../../../shared/ui/Toggle'
+import { formatDateMedium, useI18n, type UiLocale } from '../../../../shared/i18n'
 
 function Meta({ label, value }: { label: string; value: string }): React.JSX.Element {
   return (
@@ -15,9 +16,9 @@ function Meta({ label, value }: { label: string; value: string }): React.JSX.Ele
   )
 }
 
-function formatDate(ms?: number): string {
-  if (!ms) return '알 수 없음'
-  return new Intl.DateTimeFormat('ko-KR', { dateStyle: 'medium' }).format(new Date(ms))
+function formatDate(ms: number | undefined, locale: UiLocale): string {
+  if (!ms) return locale === 'ko' ? '알 수 없음' : 'Unknown'
+  return formatDateMedium(ms, locale)
 }
 
 function MenuRow({
@@ -67,6 +68,7 @@ export function SkillDetail({
   const [confirmOpen, setConfirmOpen] = useState(false)
   const [removing, setRemoving] = useState(false)
   const menuRef = useRef<HTMLButtonElement>(null)
+  const { locale } = useI18n()
   const body = skill.body?.trim() || '본문이 없습니다.'
 
   const remove = async (): Promise<void> => {
@@ -144,7 +146,7 @@ export function SkillDetail({
       </Popover>
 
       <div className="mt-4 grid grid-cols-1 gap-4 border-b border-border pb-4 sm:grid-cols-2">
-        <Meta label="마지막 업데이트" value={formatDate(skill.createdAt)} />
+        <Meta label="마지막 업데이트" value={formatDate(skill.createdAt, locale)} />
       </div>
 
       <div className="mt-4">

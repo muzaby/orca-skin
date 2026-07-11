@@ -790,8 +790,10 @@ export interface Settings {
   skillEnabled: Record<string, boolean>
   // SSO 로그인 게이트 우회. true 면 앱 시작 시 로그인 화면을 건너뛴다(디버그 패널에서 토글).
   ssoBypass: boolean
-  // 선호 언어(언어 플라이아웃 선택값). 시스템 프롬프트 '# User' 헤더로 매 턴 주입.
+  // 선호 언어(LLM 응답 언어). 시스템 프롬프트 '# User' 헤더로 매 턴 주입. uiLocale 과 별개.
   language: string
+  // UI 표시 언어(앱 크롬 로케일, 0096) — 렌더러 i18n(ko/en) + 날짜/시간 포맷 로케일.
+  uiLocale: 'ko' | 'en'
   // 계정 지침(설정 모달 프로필 그룹). 시스템 프롬프트 '# User' 헤더로 매 턴 주입.
   accountInstructions: string
   // 앱 전체 폰트. --font-{sans,serif,mono} 에 매핑.

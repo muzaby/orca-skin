@@ -6,6 +6,7 @@
 import type { CostSummary } from '../ipc'
 import { monthDaysLeft, weekDaysLeft } from '../time/clock'
 import { monthResetLabel, weekResetLabel } from '../time/resetLabels'
+import type { TimeLocale } from '../time/relative'
 
 export interface UsageLimitBar {
   used: number // USD, 해당 기간 실사용
@@ -34,12 +35,13 @@ function clamp01(x: number): number {
 export function computeUsageLimits(
   summary: CostSummary,
   limitUsd: number | null,
-  now: number | Date = Date.now()
+  now: number | Date = Date.now(),
+  locale: TimeLocale = 'ko'
 ): UsageLimitsView {
   const mUsed = summary.month.totalCostUsd
   const wUsed = summary.week.totalCostUsd
-  const weekReset = weekResetLabel(now)
-  const monthReset = monthResetLabel(now)
+  const weekReset = weekResetLabel(now, locale)
+  const monthReset = monthResetLabel(now, locale)
 
   // 무제한(한도 미설정) — 예산·퍼센트 없이 사용액만 노출.
   if (limitUsd == null || limitUsd <= 0) {

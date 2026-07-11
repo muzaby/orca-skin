@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react'
 import { Icon } from '../../../shared/ui/Icon'
 import { Popover } from '../../../shared/ui/Popover'
+import { formatDateLong, useI18n } from '../../../shared/i18n'
 import { useProjectsState } from '../store/projectsStore'
 
 interface ProjectInfoHeroProps {
@@ -20,16 +21,13 @@ export function ProjectInfoHero({ projectId }: ProjectInfoHeroProps): React.JSX.
   const project = list.find((p) => p.id === projectId) ?? null
   const [menuOpen, setMenuOpen] = useState(false)
   const kebabRef = useRef<HTMLButtonElement>(null)
+  const { locale } = useI18n()
 
   if (!project) {
     return <div className="h-[60px]" aria-hidden />
   }
 
-  const updatedLabel = new Date(project.updatedAt).toLocaleDateString('ko-KR', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  })
+  const updatedLabel = formatDateLong(project.updatedAt, locale)
 
   return (
     <section aria-labelledby="project-hero-title">

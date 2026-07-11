@@ -1,7 +1,7 @@
 # Backend Architecture — Persistence (2계층·DB·FTS)
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-07-10 (handoff 0094 — 마이그레이션 13종·settings 17 키·경로 정정 동기화)
+> 최종 업데이트: 2026-07-11 (handoff 0096 — settings 18 키: `uiLocale` 추가)
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [overview.md](./overview.md), [adapters.md](./adapters.md), [provider-runtime.md](./provider-runtime.md)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 
@@ -11,13 +11,13 @@
 
 | 항목 | 위치 | 상태 |
 |---|---|---|
-| **electron-store** (`infra/settings-store.ts`) | `~/Library/Application Support/orca-settings/...` (OS별 userData) | ✅ 완료 (17 키 — §1.2) |
+| **electron-store** (`infra/settings-store.ts`) | `~/Library/Application Support/orca-settings/...` (OS별 userData) | ✅ 완료 (18 키 — §1.2) |
 | **로컬 SQLite DB** (`db/`) | `<userData>/orca.db` (better-sqlite3, WAL + foreign_keys) | ✅ Phase 3 완료 |
 | **FTS5 전문 검색** | `messages_fts` 가상 테이블 (3 트리거로 `messages` 와 동기 유지) | ✅ Phase 3++ 완료 |
 | **MCP 인증 비밀** | `orca-secrets` (electron-store) + safeStorage 암호화 | ✅ Phase 3++ 완료 |
 | **첨부 / 산출물 디렉토리** | — | ❌ 미구현 (Future) |
 
-### 1.2 electron-store 의 17 키 카탈로그
+### 1.2 electron-store 의 18 키 카탈로그
 
 `app/src/main/infra/settings-store.ts` + `src/shared/protocol.ts` 의 `SettingsSchema` (zod 가 SSOT):
 
@@ -34,7 +34,8 @@
 | `mcpMeta` | `Record<string, { description: string }>` | `{}` | MCP Orca 전용 메타 (순정 Claude 스키마 오염 방지). |
 | `skillEnabled` | `Record<string, boolean>` | `{}` | Skill on/off (키=sourceId/name, 부재⇒true). |
 | `ssoBypass` | `boolean` | `false` | SSO 로그인 게이트 우회 (디버그 패널 토글, security.md §1.7). |
-| `language` | `string` | `'한국어'` | 선호 언어 — 시스템 프롬프트 `# User` 헤더로 매 턴 주입. |
+| `language` | `string` | `'한국어'` | 선호 언어(LLM 응답 언어) — 시스템 프롬프트 `# User` 헤더로 매 턴 주입. `uiLocale` 과 별개. |
+| `uiLocale` | `'ko' \| 'en'` | `'ko'` | UI 표시 언어(앱 크롬 로케일, 0096) — 렌더러 i18n 카탈로그 + 날짜/시간 포맷 로케일. 타임존은 설정 아님(항상 OS 로컬). |
 | `accountInstructions` | `string` | `''` | 계정 지침 — 시스템 프롬프트 `# User` 헤더로 매 턴 주입. |
 | `appFont` | `'sans' \| 'serif' \| 'mono'` | `'sans'` | 앱 전체 폰트 (`--font-app` 매핑). |
 | `notifyOnComplete` | `boolean` | `false` | 턴 완료 시(창 비활성 한정) OS 네이티브 알림. |

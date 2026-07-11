@@ -60,4 +60,13 @@ describe('computeUsageLimits', () => {
     const v = computeUsageLimits(summary(0, 0, 120), 90, JUL_15_WED)
     expect(v.week.pct).toBe(0)
   })
+
+  it("locale='en' — 수치 동일, 재설정 라벨만 영어(0096)", () => {
+    const ko = computeUsageLimits(summary(0, 8, 30), 90, JUL_15_WED)
+    const en = computeUsageLimits(summary(0, 8, 30), 90, JUL_15_WED, 'en')
+    expect(en.week.pct).toBe(ko.week.pct)
+    expect(en.month.pct).toBe(ko.month.pct)
+    expect(en.month.resetLabel).toBe('Resets (Sat) Aug 1')
+    expect(en.week.resetLabel).toBe('Resets (Mon) at 12:00 AM')
+  })
 })
