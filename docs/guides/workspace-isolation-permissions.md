@@ -124,12 +124,14 @@ for await (const message of query({ prompt: userPrompt, options })) {
 | 경로 | read | write |
 |---|---|---|
 | workspace (작업 폴더) + `additionalDirectories` | 허용 | 허용 |
-| `~/.claude` — plugin/skill 제공 | 허용 | 차단 |
-| `~/.config/orca/` — plugin 제공 | 허용 | 차단 |
+| `~/.claude` — plugin/skill 제공 | 허용 | 차단 *(가이드 기본값 — Orca 구현은 **허용**, 아래 편차 노트)* |
+| `~/.config/orca/` — plugin 제공 | 허용 | 차단 (단, 세션 cwd 가 이 하위면 cwd 는 writeRoots — 예외의 예외) |
 | node/python skill 런타임 경로 (실행 특성상 read 불가피) | 허용 | 차단 |
 | 그 외 모든 경로 | 차단 | 차단 |
 
 > **최소권한 우선.** 먼저 read 예외 **없이** 돌려보고 skill/plugin 로딩이 깨질 때만 최소 경로를 추가한다. SDK 가 plugin/skill 을 내부적으로 로드해 read 권한이 불필요하면 이 예외들은 넣지 않는다(요구사항의 "무시해도 좋다").
+>
+> **Orca 구현 편차 (0075 r2, 사용자 결정)**: 실제 구현(`app/src/main/adapters/workspace-guard.ts` `writeExceptionRoots`)은 `~/.claude` 를 **write 허용**으로 넓혔다 — plan 모드 산출물 기록·`~/.claude/skills/<name>` 스킬 설치가 쓰기를 요구하기 때문. 본 표의 read-only 스탠스는 일반 방법론 기본값으로 보존한다.
 
 ### 3.3 툴별 경로 추출
 
@@ -218,12 +220,11 @@ export function makeWorkspaceGuardHook(
       return deny(`허용되지 않은 경로 read 차단: ${p}`);
     }
 
-    // --- Bash: 명령 문자열 정적 판별 (best-effort, §3.5) ---
+    // --- Bash: 정적 스크리닝은 SUPERSEDED (§3.5 — Orca 0075 r3 에서 제거) ---
+    // Bash 격리는 코드 강제가 아니라 시스템 프롬프트 도구-사용 정책으로 유도한다.
+    // (구 스케치: screenBashCommand(cmd, WS, readRoots) 판별 후 deny — §3.5 역사 보존 참조)
     if (tool_name === "Bash") {
-      const cmd = (tool_input.command as string) ?? "";
-      const verdict = screenBashCommand(cmd, WS, readRoots);
-      if (verdict.block) return deny(verdict.reason);
-      return passThrough(); // 안 → 위험도구라면 canUseTool 승인 카드로 진입
+      return passThrough(); // 위험도구라면 canUseTool 승인 카드로 진입
     }
 
     // 그 외 툴 (TodoWrite·AskUserQuestion·ExitPlanMode 등) = 파일 접근 아님 → 보류
@@ -341,9 +342,9 @@ disallowedTools: [
 - [ ] workspace 내 파일 Read/Write → 허용 (모드별 흐름: default=승인 카드, acceptEdits=자동, plan=라우팅)
 - [ ] `/etc/passwd` Read → 차단
 - [ ] workspace 밖 절대경로 Write → 차단
-- [ ] `Bash: cat /etc/hosts` → 차단
-- [ ] `Bash: cat ../../secret` → 차단
-- [ ] `~/.claude` 하위 Read → 허용, Write → 차단
+- [ ] `Bash: cat /etc/hosts` → (Orca 구현) 코드 차단 아님 — 프롬프트 유도 + 승인 카드 (§3.5 SUPERSEDED)
+- [ ] `Bash: cat ../../secret` → 동상
+- [ ] `~/.claude` 하위 Read → 허용, Write → 가이드 기본 차단 / **Orca 구현 허용** (§3.2 편차 노트)
 - [ ] `~/.config/orca` 하위 Read → 허용
 - [ ] **`AskUserQuestion` → 사용자에게 질문이 뜬다 (자동 거부되지 않음)**
 - [ ] **`ExitPlanMode` / `plan` 모드 → 계획 제출 후 정상 진행 (자동 거부되지 않음)**

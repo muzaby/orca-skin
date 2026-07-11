@@ -36,7 +36,7 @@ Handoff: docs/handoff/<NNNN-slug>/
 
 ### 함정 — trailer 블록 내부 빈 줄 금지
 
-`git interpret-trailers` 는 **마지막 연속 문단만** trailer 로 인식한다. 블록 중간에 빈 줄이 들어가면 그 위의 키들이 **다른 문단으로 끊겨 누락된다.** `Co-Authored-By`·하니스가 붙이는 세션 URL 도 **같은 블록**에 둬야 한다 — 빈 줄로 떼면 앞의 `Agent`/`Handoff` 가 파싱에서 사라진다.
+`git interpret-trailers` 는 **마지막 연속 문단만** trailer 로 인식한다. 블록 중간에 빈 줄이 들어가면 그 위의 키들이 **다른 문단으로 끊겨 누락된다.** 하니스가 붙이는 `Co-Authored-By`·`Claude-Session` 도 **같은 블록**에 둬야 한다 — 빈 줄로 떼면 앞의 `Agent`/`Handoff` 가 파싱에서 사라진다.
 
 ```
 # ✗ 나쁨 — 빈 줄이 Agent/Handoff 를 끊는다
@@ -44,11 +44,13 @@ Agent: claude
 Handoff: docs/handoff/0019-test-abi-green/
 
 Co-Authored-By: ...        ← interpret-trailers 는 이 블록만 본다
+Claude-Session: https://claude.ai/code/session_...
 
 # ✓ 좋음 — 한 연속 블록
 Agent: claude
 Handoff: docs/handoff/0019-test-abi-green/
 Co-Authored-By: ...
+Claude-Session: https://claude.ai/code/session_...
 ```
 
 ## 필드 표
@@ -144,4 +146,4 @@ git log --format='%H %(trailers:key=Next-Action,valueonly)' | grep ' codex$'
 
 - **강제 아님.** 위 "강제 장치 없음" 참조 — 형식은 규칙 준수에 의존한다.
 - **본문은 짧게, 깊이는 위임.** 산문 본문은 사람용 2~3줄(왜·맥락). substance(파일·기준 상세·증거)는 본문이 아니라 `Handoff:` 가 가리키는 `plan.md`/`verify.md`/diff 에 둔다 — 중복은 드리프트를 부른다.
-- **세션 URL trailer.** 일부 하니스가 Claude 커밋 끝에 `https://claude.ai/code/session_…` 를 자동으로 붙인다. 이는 `Key: value` 형식이 아니므로 위 8키 파싱 대상이 아니다(같은 블록에 정보용으로 공존 — 위 "함정" 의 빈 줄 규칙은 이때도 적용). 파싱은 정의된 8키만 대상으로 한다.
+- **하니스가 붙이는 trailer (`Co-Authored-By`·`Claude-Session`).** Claude 커밋 끝에 하니스가 `Co-Authored-By: Claude … <noreply@anthropic.com>` 와 `Claude-Session: https://claude.ai/code/session_…` 를 자동으로 붙인다. 둘 다 **정식 `Key: value` trailer 라 `git interpret-trailers` 가 파싱한다** — 협업 프로토콜 파싱은 **정의된 8키 화이트리스트만** 대상으로 하고 이 둘은 무시한다(정보용). 같은 블록에 공존해야 하며 위 "함정" 의 빈 줄 규칙이 이때도 적용된다. (구 서술 "URL 은 Key: value 형식이 아니다" 는 하니스 형식 변화로 폐기 — 현행은 `Claude-Session:` 키 형식.)

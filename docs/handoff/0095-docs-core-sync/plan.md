@@ -114,31 +114,38 @@ N/A (문서 전용). 단 SSOT 간 수치(64 채널·20 도메인·17 키)가 IPC
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- (구현 턴에서 기입)
+- 동의 / 그대로 진행: 감사 목록대로 수행. PRD 는 해소 표기만(의도 변경 0), IPC_CONTRACT 는 § 구조 보존.
+- 이견 / 보정 2건:
+  - **guides/workspace `~/.claude` write**: 코드(`workspace-guard.ts:25-27`)가 스스로 "가이드의 read-only 기본값에서 Orca 가 의도적으로 넓힌 **편차**"라고 문서화하고 있어, 가이드 표를 뒤집지 않고 **편차 노트**로 병기했다(일반 방법론 문서 성격 보존).
+  - **PHASES 신규 행의 대상 커밋**: INDEX 기재 해시(`119132f` 등)는 본 클론에서 미해석 — 기존 행들(9805bc4·fb72b1e 등)도 동일하게 미해석임을 확인, **INDEX 기재 해시를 그대로 쓰는 기존 관례**(위생 노트 ① — 환경별 해시 편차)를 따랐다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
+| 1 | GLOSSARY §2 의 `capabilities/{claude-probe,revert-manager}.ts`·`extensions/{builder,types}.ts` 경로가 0062 재편 이전 — RevertManager seam 파일은 아예 제거되고 `RevertCapabilities` DTO 만 잔존 | ✅ 경로 현행화 + "설계 어휘 / seam 제거·DTO 잔존" 으로 정정 | `grep -rln RevertManager` = 주석 1건 · `adapters/descriptor.ts:21` |
+| 2 | GLOSSARY §2 Frame/Screen 행이 PR #29 이전 디렉토리(`frame/`·`screens/registry.ts`) 잔존 (frontend terms.md 0094 정정과 동계열) | ✅ 함께 정정 | `ls app/src/renderer/src` |
+| 3 | TRD §4 Python 런타임 행·PRD §9 Python 런타임 ✅ 행이 "채택/구현"으로 잔존 — 서브시스템은 0050 PR-B 에서 제거됨 | ✅ "제거됨" 으로 정정 (감사 범위 밖이었으나 GLOSSARY 정리와 동일 사실) | IPC_CONTRACT §2.11 주석 |
+| 4 | 루트 `AGENTS.md` 커밋 프로토콜의 "`Criteria-*` = 구현 커밋(Codex)만" 이 git-template 의 일반화("구현 에이전트" — Claude 비기능 포함)와 불일치 | ⚠️ 보고만 — 루트 AGENTS.md 는 본 요청 범위 밖(`docs/` 한정) | git-template.md 필드 표 · 0092~0095 실커밋 |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] AC1 IPC_CONTRACT (D1)
-- [ ] AC2 GLOSSARY
-- [ ] AC3 TRD
-- [ ] AC4 PRD
-- [ ] AC5 PHASES
-- [ ] AC6~8 git-template·claude-code-spec·guides/workspace
-- [ ] AC9 docs/AGENTS.md
-- [ ] AC10 D1 마감
-- [ ] AC11 대조 검사
+- [x] AC1 IPC_CONTRACT (D1)
+- [x] AC2 GLOSSARY
+- [x] AC3 TRD
+- [x] AC4 PRD
+- [x] AC5 PHASES (0090/0092/0093/0094 승격 + 0086 생략 판단 기록)
+- [x] AC6~8 git-template·claude-code-spec·guides/workspace (release-operations 무수정)
+- [x] AC9 docs/AGENTS.md
+- [x] AC10 D1 마감 (verify 턴에서 0094/verify.md 갱신)
+- [x] AC11 대조 검사 (분포 합계 64·17 키·잔존 stale grep 0·인용 경로 실존)
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | |
-| 실행 명령 | |
-| 게이트 결과 | N/A (문서) |
-| 블로커 / 역질문 | |
-| 대상 커밋 | |
+| 변경 파일 | 9개 — `IPC_CONTRACT`·`GLOSSARY`·`TRD`·`PRD`·`PHASES`·`git-template`·`claude-code-spec`·`AGENTS`(docs)·`guides/workspace-isolation-permissions` (+165/-123) |
+| 실행 명령 | 분포 합계 python 검산(=64)·`SettingsSchema` 17 키 실측·잔존 stale grep(classic/cool·11 채널·총 36 = 0)·인용 경로 `[ -e ]` 검사·위생 grep 0 |
+| 게이트 결과 | N/A (문서 전용 — `app/**`·`docs/spec/**`·`docs/etc/**` 무변경) |
+| 블로커 / 역질문 | 없음. 잠재 문제 #4(루트 AGENTS.md 문구)는 사용자 결정 대기 |
+| 대상 커밋 | (구현 커밋 hash — 커밋 후 INDEX 기재) |

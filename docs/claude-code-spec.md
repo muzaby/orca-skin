@@ -238,7 +238,7 @@ claude -p "Apply the lint fixes" --permission-mode acceptEdits
 
 ### 5.6 Orca 채택 (OQ9)
 
-⏳ **Open Question (PRD §11 OQ9)** — Phase 1 MVP 의 도구 권한 정책 미정. 후보:
+⏳ **Open Question (PRD §11 OQ9 — 부분 진전)** — 도구 승인 오버레이(`canUseTool` RISKY_TOOLS 게이트, handoff 0022)와 workspace guard(PreToolUse hook·permissionMode, handoff 0075)는 **구현됨**. 미정으로 남은 것은 *기본 정책값*(사전승인 범위·`acceptEdits` 기본 여부). 원 후보(역사 보존):
 1. **무지정** (현재) — 모든 도구 호출에 사용자 권한 프롬프트. UX 마찰 큼.
 2. `--allowedTools "Read,Edit,Bash"` 등 *읽기·기본 편집* 만 사전 승인.
 3. `--permission-mode acceptEdits` 로 편집 자동 승인, 네트워크/임의 Bash 는 프롬프트.
@@ -405,11 +405,11 @@ Phase 3 가 사용하는 기능은 *최소* — `query()` + `options.includePart
 | 세션 이름 | `--name` / `-n` 미사용 — Phase 3 (세션 목록) anchor |
 | 세션 저장 비활성화 | `--no-session-persistence` 미사용 — *시크릿 모드* anchor |
 | 베어 모드 | 미사용 (`~/.claude` 환경 활용) |
-| 도구 권한 | **OQ9 미정** — 후보: 미지정 / Read+Edit+Bash 사전승인 / `acceptEdits`. 권한 우회(`--dangerously-skip-permissions`) 는 미사용 확정 |
+| 도구 권한 | **OQ9 부분 진전** — 승인 오버레이(0022)·workspace guard(0075) 구현, 기본 정책값만 미정. 권한 우회(`--dangerously-skip-permissions`) 는 미사용 확정 |
 | 시스템 프롬프트 | 미사용 (Skills 단계 재검토) — `--system-prompt`, `--system-prompt-file`, `--append-*` 모두 |
 | 구조화 출력 | 미사용 (`--json-schema`) |
-| 모델 선택 | `--model` 미사용 — 사용자 `~/.claude` 설정 우선 |
-| 노력 수준 | `--effort` 미사용 — 사용자 설정 우선 |
+| 모델 선택 | ✅ **채택 (0010)** — SDK `options.model` per-turn 전달 (Composer ModelMenu, `SendChatMessage.modelFamily`). 미지정 시 사용자 `~/.claude` 설정 폴백 |
+| 노력 수준 | ✅ **채택 (0020)** — SDK `options.effort`(low~max, 기본 high) per-turn 전달 (EffortMenu) |
 | 디버그 출력 | `--debug` / `--debug-file` — Phase 1 미사용, 개발자 빌드에서 옵션화 anchor |
 | 턴/비용 제한 | `--max-turns` / `--max-budget-usd` — Phase 1 미사용, Phase 3 *Skills 안전장치* 후보 |
 | 작업 디렉토리 | `--add-dir` 미사용 — spawn 의 `cwd` 만 사용 |
@@ -492,8 +492,8 @@ Phase 3 가 사용하는 기능은 *최소* — `query()` + `options.includePart
 | `--json-schema` | 자유 텍스트 챗 | §9 |
 | `--dangerously-skip-permissions`, `--allow-dangerously-skip-permissions` | 안전 마진 | §5.5 |
 | `--no-session-persistence` | 영속화 가치 (재개 시 컨텍스트 복원) | §7.5 |
-| `--add-dir` | spawn `cwd` 만 사용 | §11 |
-| `--model`, `--effort` | 사용자 `~/.claude` 설정 존중 | §11 |
+| `--add-dir` | spawn `cwd` 만 사용 (SDK `additionalDirectories` 는 workspace guard 0075 에서 별도 채택) | §11 |
+| ~~`--model`, `--effort`~~ | **채택으로 전환** (0010/0020 — SDK options per-turn). 본 행은 역사 보존 | §11 |
 | stdin 파이프 입력 | UI 가 입력 채널, `-p` 인자만 사용 | §8 |
 
 ### 14.4 ◯ Orca 무관 (CLI 자체 운영)
