@@ -44,6 +44,30 @@ export const en: typeof ko = {
     menuAria: 'Session menu',
     renameAria: 'Edit session title'
   },
+  errors: {
+    category: {
+      provider_connection_error: 'Backend connection error',
+      auth_error: 'Authentication error',
+      permission_denied: 'Permission denied',
+      tool_execution_error: 'Tool execution error',
+      stream_error: 'Stream error',
+      capability_unsupported: 'Unsupported capability',
+      schema_validation_error: 'Input validation error',
+      user_cancelled: 'Cancelled by user'
+    },
+    turnError: 'Error: {{category}}',
+    retryable: 'Retryable',
+    transientHint: 'This may be a transient error. Try sending again.',
+    retrying: 'Retry {{attempt}}/{{max}}',
+    loginFailed: 'Login failed. Please try again.',
+    updateDownloadFailed: 'Could not start the update download.',
+    updateInstallFailed: 'Could not start the update installation.',
+    agentListFailed: 'Failed to load the agent list',
+    engineMutationFailed: 'Engine operation failed'
+  },
+  notify: {
+    completeBody: 'The response is complete.'
+  },
   chat: {
     titleBar: {
       renameAria: 'Edit conversation title',

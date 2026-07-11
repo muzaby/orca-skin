@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { UpdateProgress, UpdateState } from '../../../../../shared/ipc'
 import { updateApi } from '../../../shared/api/ipc'
+import type { UiMessage } from '../../../shared/i18n'
 
 const initialState: UpdateState = {
   status: 'idle',
@@ -11,7 +12,8 @@ const initialState: UpdateState = {
 interface UpdateStoreState {
   state: UpdateState
   dialogOpen: boolean
-  actionError: string | null
+  // 카탈로그 키(폴백) 또는 백엔드/예외 원문 — 렌더(UpdateDialog)에서 uiMessageText 로 해석.
+  actionError: UiMessage | null
   // dev 전용 더미 업데이트 스위치. true 면 헤더 버튼/뱃지를 실제 서버 없이 재현하고
   // download/quitAndInstall 이 실 IPC 대신 mock 흐름으로 분기한다. status 파생 UI(헤더
   // 버튼·파란 뱃지)는 dummyMode 를 직접 보지 않고 state.status 만 본다(실·더미 동일).
@@ -23,8 +25,8 @@ export const useUpdateStore = create<UpdateStoreState>()(() => ({
   actionError: null,
   dummyMode: false
 }))
-function messageFromError(err: unknown): string {
-  return err instanceof Error ? err.message : String(err)
+function messageFromError(err: unknown): UiMessage {
+  return { raw: err instanceof Error ? err.message : String(err) }
 }
 
 // ── dev 더미 업데이트 mock (실제 electron-updater 미개입) ──────────────────
@@ -76,7 +78,7 @@ export const updateActions = {
       const result = await updateApi.check()
       useUpdateStore.setState({
         state: result.state,
-        actionError: result.ok ? null : (result.state.error ?? null)
+        actionError: result.ok || !result.state.error ? null : { raw: result.state.error }
       })
     } catch (err) {
       useUpdateStore.setState({ actionError: messageFromError(err) })
@@ -111,7 +113,9 @@ export const updateActions = {
         state: result.state,
         actionError: result.ok
           ? null
-          : (result.state.error ?? '업데이트 다운로드를 시작할 수 없습니다.')
+          : result.state.error
+            ? { raw: result.state.error }
+            : { key: 'errors.updateDownloadFailed' }
       })
     } catch (err) {
       useUpdateStore.setState({ actionError: messageFromError(err) })
@@ -135,7 +139,9 @@ export const updateActions = {
       const result = await updateApi.quitAndInstall()
       if (!result.ok)
         useUpdateStore.setState({
-          actionError: result.message ?? '업데이트 설치를 시작할 수 없습니다.'
+          actionError: result.message
+            ? { raw: result.message }
+            : { key: 'errors.updateInstallFailed' }
         })
     } catch (err) {
       useUpdateStore.setState({ actionError: messageFromError(err) })
@@ -175,7 +181,7 @@ export function useUpdateState(): UpdateState {
 export function useUpdateDialogOpen(): boolean {
   return useUpdateStore((s) => s.dialogOpen)
 }
-export function useUpdateActionError(): string | null {
+export function useUpdateActionError(): UiMessage | null {
   return useUpdateStore((s) => s.actionError)
 }
 export function useUpdateDummy(): boolean {

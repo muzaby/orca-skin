@@ -5,11 +5,13 @@ import type {
   UpdateEngineRequest
 } from '../../../../../shared/ipc'
 import { engineApi } from '../../../shared/api/ipc'
+import type { UiMessage } from '../../../shared/i18n'
 import { refreshAgents, useAgentStore } from '../../../shared/stores/agentStore'
 
 export interface EngineMutationState {
   busy: boolean
-  error: string | null
+  // 카탈로그 키(폴백) 또는 예외 원문 — 렌더에서 uiMessageText 로 해석한다.
+  error: UiMessage | null
 }
 
 export function useEngines(): {
@@ -32,7 +34,8 @@ export function useEngines(): {
       await refreshAgents()
       setState({ busy: false, error: null })
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'engine 작업에 실패했습니다'
+      const message: UiMessage =
+        error instanceof Error ? { raw: error.message } : { key: 'errors.engineMutationFailed' }
       setState({ busy: false, error: message })
       throw error
     }
