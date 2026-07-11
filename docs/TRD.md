@@ -4,7 +4,7 @@
 
 | 항목 | 값 |
 |---|---|
-| 문서 버전 | v1 (MVP 구현 사양) |
+| 문서 버전 | v1 (MVP 구현 사양) — 최종 동기화 2026-07-11 (handoff 0095: §2 F11+·§4/§6.7 17 키·§5 64 채널·§9 CI/CD·§10 해소 anchor) |
 | 입력 | `docs/PRD.md` (MVP §6, §7, §11), `docs/etc/llm-chat-desktop-strategy.md` |
 | 출력 대상 | 코드 작성 에이전트 / 구현자 |
 | 범위 | Phase 1 MVP 본문. Phase 2~4 / Future Scope = §10 anchor only |
@@ -43,7 +43,17 @@ PRD §6.1 의 F1~F10 을 *수용 기준* 으로 구체화한다.
 | F7 | **CLI 설치 자동화** | Installer (IPC `orca:install:*`) | 둘 다 미설치 → 다이얼로그 (npm / curl 선택) → child_process 실행 → 라인 단위 status 스트림 → 완료/실패 표시 | §6.1 |
 | F8 | **설치 실패 폴백** | Installer | 자동 실패 → 수동 명령 전체 텍스트 UI에 표시 + 복사 버튼. Node.js 미설치 (Windows: choco, macOS: brew 안내), npm 글로벌 권한 부족 (sudo / npm config 안내) | §6.1 |
 | F9 | **인증 만료 처리** | ClaudeAdapter, Auth modal | Claude Code OAuth 401 감지 (stdout/stderr `"401"` / `"expired"` 패턴) → `error / auth.expired` 이벤트 → UI 모달 "`claude /login` 을 터미널에서 실행 후 새 대화" | §6.1 |
-| F10 | **Tweaks 패널** | TweaksPanel, useTweaks | 테마 선택 (Classic/Dark/Cool) + 밀도 슬라이더 (11.5/13/14.5px) + 사이드바 접기 토글 → `data-theme` 속성 + root `font-size` 동적 갱신 → Tailwind `@theme` 토큰 스코프 cascade → 전 화면 반영. 선택값은 Phase 1에서 메모리만 (Phase 2+ `electron-store` 로 영속화). 트리 remount 불요 (CSS 변수 재설정으로 충분). Phase 2+ 에서 ThemeProvider 로 영속화 연동 검토 | §6.1 |
+| F10 | **Tweaks 패널** | DebugPanel(dev 전용, 구 TweaksPanel), useTweaks | 테마 선택 (**white/dark 2종** — 구 Classic/Dark/Cool 3종에서 축소) + 밀도 + 사이드바 접기 토글 → `data-theme` 속성 갱신 → Tailwind `@theme` 토큰 스코프 cascade → 전 화면 반영. 선택값은 `electron-store` 영속(§6.7 — 17 키 중 일부). 트리 remount 불요 (CSS 변수 재설정으로 충분) | §6.1 |
+
+**Phase 4 에서 추가 구현된 기능** (F1~F10 이후 — 인수 기준 상세는 각 handoff plan/verify 가 정본):
+
+| ID | 요구사항 | 구현 책임 모듈 | 요약 | 출처 |
+|---|---|---|---|---|
+| F11 | **자동 업데이트** | `app/updater.ts`(UpdateController) + `features/update/` | electron-updater — 시작 시 1회 체크, `autoDownload=false`(다운로드·설치 = 사용자 명시 액션), 재시작 게이트(`shared/update-restart.ts`), update 6채널 브로드캐스트 | 0084~0086 |
+| F12 | **사용량 한도** | `features/usage`(main) + UsagePanel·설정 탭(renderer) | 월간 `spendingLimitUsd` + provider별 한도(`provider_limits`), 실사용 SSOT 에서 `computeUsageLimits` 파생, 도넛 팝오버 = 컨텍스트바+주간/월간 한도 바 | 0079~0082 |
+| F13 | **주기 실행 (스케줄러)** | `features/scheduler/`(croner) | job 등록·겹침 방지·`schedule_runs` 이력. 첫 소비처 = 주기 사용량 recompute(설정 `scheduler.usageRecompute`) | 0091 |
+| F14 | **번들 스킬 시딩** | `features/extensions/skills/seed.ts` + `builtin-resources.ts` | 부팅 1회 번들 스킬 → `sources/skills` 시딩, manifest/marker 버전 게이트로 사용자 수정 보호 | 0078 |
+| F15 | **CI/CD 릴리스** | `.github/workflows/{ci,release}.yml` + `scripts/validate-*` | main push 게이트 + `v*` 태그 → unsigned NSIS → GitHub Releases draft(수동 Publish). §9 참조 | 0087~0089 |
 
 **비고**: 모듈 경로·정확한 IPC 채널·컴포넌트 트리는 [ARCHITECTURE.md](ARCHITECTURE.md) / `IPC_CONTRACT.md` 참조. 위 표는 *기능 정의* 에만 집중.
 
@@ -70,13 +80,13 @@ electron-vite 환경 기준. 표 밖 의존성 추가 시 **사용자 승인 필
 
 | 계층 | 채택 | 버전·옵션 | 확정 여부 | 비고 |
 |---|---|---|---|---|
-| 데스크톱 셸 | Electron | ^39 (스캐폴드 기준) | 미정 OQ3 | 패키징/서명/auto-update |
+| 데스크톱 셸 | Electron | ^39 (스캐폴드 기준) | 확정 (~~OQ3~~ 대부분 해소, 0084~0089) | 패키징 = electron-builder NSIS·자동 업데이트 = electron-updater 확정. 잔여 = 코드 서명/공증 |
 | 빌드 아키텍처 | electron-vite | ^5 | 확정 | main/preload/renderer 3 sub-config |
 | 번들러 | Vite | ^7 | 확정 | electron-vite가 sub-config 통합 |
 | 언어 | TypeScript | strict, `target: ES2022` | 확정 | 타입 안정성 |
 | UI 프레임워크 | React | ^19 | 확정 (~~OQ1~~ 해소, 2026-05-20) | React Hooks + Context/reducer |
-| 상태 관리 (Renderer) | Zustand — **chat 스코프 선행 도입 (0008, 사용자 결정 2026-06-11)** + 순수 `chatReducer` 래핑 | `zustand@^5` | 확정 (Phase 4 전환 채택 → chat 선행) | 단일 chat store = `session`(커밋, 순수 reducer 경유) + `live`(스트리밍 transient) 슬라이스. selector 구독으로 델타 프레임 재렌더를 라이브 리프에 한정, 외부 dispatch(코얼레서 → `receive(ev)`)는 React 트리 밖. **멀티세션 외피(`sessions: Record<sessionId, SessionState>`)·전역 슬라이스(Tweaks/Backend/Skills) 흡수는 Phase 4 유지.** 상세 [arch/frontend/state.md](arch/frontend/state.md) §1.4 |
-| 스타일링 | Tailwind CSS | **^4** (`@tailwindcss/vite` 플러그인, CSS-first `@theme`) | 확정 (Phase 1 완료) | utility-first. `styles/tokens.css` 의 `@theme` 블록으로 시맨틱 디자인 토큰 정의 (`--color-{bg,sidebar,ink,...}`). `[data-theme]` 스코프로 Classic/Dark/Cool 전환. Tweaks 패널과 연동. 자세한 정책은 `app/AGENTS.md` "스타일링 정책" 참조 |
+| 상태 관리 (Renderer) | Zustand — **전환 완료 (0008 chat 선행 + 0013 전면)** + 순수 `chatReducer` 래핑 | `zustand@^5` | 확정 (완료) | chat store = `sessions: Record<sessionId, { session, live }>` 멀티세션 외피 + `activeKey`. Backend/Sessions/Projects/Cost Context 도 feature별 store 로 흡수(Provider 는 bootstrap-only). selector 구독으로 델타 프레임 재렌더를 라이브 리프에 한정. 상세 [arch/frontend/state.md](arch/frontend/state.md) §1 |
+| 스타일링 | Tailwind CSS | **^4** (`@tailwindcss/vite` 플러그인, CSS-first `@theme`) | 확정 (Phase 1 완료) | utility-first. `styles/tokens.css` 의 `@theme` 블록으로 시맨틱 디자인 토큰 정의 (`--color-{bg,sidebar,ink,...}`). `[data-theme]` 스코프로 **white/dark 2테마** 전환. 자세한 정책은 `app/AGENTS.md` "스타일링 정책" 참조 |
 | 마크다운 렌더링 | react-markdown + remark-gfm + shiki | `^9` / `^4` / `^1` | 확정 (Phase A `feat-pretty-ui` 도입) | GFM (표·체크박스) + 코드 블록 syntax highlighting. shiki 번들은 11개 언어 (ts/js/tsx/jsx/python/bash/json/yaml/html/css/markdown) 로 제한 |
 | LLM 백엔드 SDK (Claude) | `@anthropic-ai/claude-agent-sdk` | latest | 확정 (Phase 3 채택, 2026-05-18) | TypeScript SDK. 진입점 `query({ prompt, options })`. 플랫폼별 native binary 는 `optionalDependencies` 자동 처리. 최소 요구 Node.js 18+. API 명세 SSOT 는 `docs/spec/claude/agent-sdk/typescript.md` |
 | HTTP (opencode) | `@opencode-ai/sdk` | latest | 확정 | 공식 SDK 사용 |
@@ -84,13 +94,16 @@ electron-vite 환경 기준. 표 밖 의존성 추가 시 **사용자 승인 필
 | IPC 보안 | `@electron-toolkit/preload` + contextBridge | ^3 | 확정 | preload 화이트리스트 |
 | 입력 검증 | zod | latest | 확정 | IPC 메시지 + SDK / SSE 응답 파싱 |
 | 앱 내 스케줄링 | croner | latest | **확정 (0091)** | main 프로세스 in-app cron. 앱 실행 중에만 발화하며, 첫 소비처는 사용량 recompute. |
-| 영속화 (Phase 2+) | `electron-store` | — | **확정 (Phase 2+ 완료)** | 6 키 — `theme` / `density` / `sidebarCollapsed` / `lastBackend` / `lastSessionId` / `windowBounds`. §6.7 참조 |
+| 라우팅 (Renderer) | react-router-dom | ^7 | 확정 | `app://` 커스텀 스킴 + BrowserRouter. [arch/frontend/overview.md](arch/frontend/overview.md) §2 |
+| diff 렌더링 | diff | ^9 | 확정 | 도구 카드의 파일 편집 diff 표시 |
+| 영속화 (설정) | `electron-store` | ^8 | **확정 (완료)** | **17 키** (theme·density·sidebar*·lastBackend·lastSessionId·windowBounds·mcp*·skillEnabled·ssoBypass·language·accountInstructions·appFont·notifyOnComplete·spendingLimitUsd·scheduler). §6.7 참조 |
+| 자동 업데이트 | `electron-updater` | ^6 | **확정 (0084~0086)** | `app/updater.ts` UpdateController — autoDownload=false·사용자 게이트. [arch/backend/runtime-ipc.md](arch/backend/runtime-ipc.md) §3.1 |
 | 로컬 DB (Phase 3+) | better-sqlite3 (Phase 3 MVP raw) / Drizzle 후보 (Phase 4 재검토) | — | **채택 (Phase 3+)** | 메시지·세션 메타 SSOT. 어댑터 외부 저장 (jsonl 등) 은 단방향 동기화 소스로 격하. 마이그레이션 `src/main/db/migrations/NNN_<name>.sql`. **Phase 3 MVP: raw better-sqlite3 + prepared statements (쿼리 6 개 내외, ORM 가치 작음). Drizzle 은 Phase 4 멀티 세션·artifact·권한·통계 도입 시 재검토 (2026-05-20).** 상세 [arch/backend/persistence.md](arch/backend/persistence.md) |
-| 자격증명 (Phase 3+) | Electron `safeStorage` (OS keychain) | — | **채택 (Phase 3+)** | 어댑터별 base URL + API key 암호화 저장. [arch/backend/security.md](arch/backend/security.md) §1.4 |
-| Python 런타임 (Phase 3++) | `uv` (동봉 바이너리) + python-build-standalone (첫 실행 다운로드) | uv latest / Python 3.12 | **채택 (Phase 3++)** | agent 의 Python 도구 실행용 격리 환경. `<userData>/runtime` 의 uv venv + 인터프리터. 시스템 비오염. 인터프리터 확보 4-A(github 다운로드) 기본, operator 가 `UV_PYTHON_INSTALL_MIRROR`/`UV_DEFAULT_INDEX` 지정 시 그 값으로 수렴. SDK `query().options.env` 로 `UV_*`/`PATH` 주입. uv 바이너리는 빌드 전 `scripts/fetch-uv.mjs` 로 `resources/bin/` 배치 + `extraResources` 동봉 |
-| 패키징 | electron-builder | ^26 | 미정 OQ3 | signing/notarization/auto-update. **uv 바이너리 `extraResources` 동봉. macOS 는 동봉 바이너리 codesign/notarize 대상 포함 필요** |
-| 테스트 (단위) | Vitest | latest | 확정 | 어댑터·reducer·IPC zod·installer |
-| 테스트 (E2E) | Playwright | latest | 확정 | Electron 지원 |
+| 자격증명 | Electron `safeStorage` (OS keychain) | — | **부분 구현** | MCP 인증 비밀 = secret-store(`orca-secrets`) 구현 완료. 어댑터별 base URL/API key 저장은 Future. [arch/backend/security.md](arch/backend/security.md) §1.4 |
+| Python 런타임 | ~~uv + python-build-standalone~~ | — | **제거됨 (0050 PR-B)** | 구 `<userData>/runtime` 격리 Python 환경·runtime IPC 채널은 main 에서 삭제. uv 사용 규약 정책 append(`prompts/policies/python-runtime.md`)만 잔존 |
+| 패키징 | electron-builder | ^26 | **확정 (0087~0089)** | Windows **unsigned NSIS** + GitHub Releases **draft**(수동 Publish 게이트). 잔여 = 코드 서명/공증(macOS 포함). 정본 `docs/guides/release-operations.md` |
+| 테스트 (단위) | Vitest | latest | 확정 | 어댑터·reducer·IPC zod·scheduler·usage·updater 등 (+`node --test` 스크립트 스위트 4종) |
+| 테스트 (E2E) | Playwright | latest | **미도입** | TRD 채택 목록에 있었으나 devDependency 미설치 — 도입 시 사용자 승인 + 설치. §11 참조 |
 
 **정책**: 위 표 외의 패키지 (예: date-fns, lodash, redux 등) 도입 시 먼저 사용자 확인. (`zustand` 는 채택 완료 — chat 스코프 선행 도입(0008), 전역 확장은 Phase 4.)
 
@@ -108,12 +121,12 @@ electron-vite 환경 기준. 표 밖 의존성 추가 시 **사용자 승인 필
 
 > **SSOT 는 [`IPC_CONTRACT.md`](./IPC_CONTRACT.md) §2** — 본 표는 TRD 의 가독성용 미러. 충돌 시 IPC_CONTRACT 우선. 채널 변경 절차는 IPC_CONTRACT §6 참조.
 
-Phase 2 활성 **11 채널** — 7 도메인 (chat / backend / install / settings / skills / files / session). preload + main 양쪽에 등록.
+현재 **총 64 채널 · 20 도메인** (SSOT = IPC_CONTRACT §2). 아래 표는 **Phase 2 코어 도메인**(chat / backend / install / settings / skills / files)의 역사적 미러만 유지한다 — 이후 추가된 도메인(session·project·window·search·mcp·engine·agent·update·cost·boot·concurrency·permission·notify·debug)은 재서술하지 않는다(드리프트 방지).
 
 | 채널 | 방향 | 요청 페이로드 (TS) | 응답·스트림 | zod 스키마 |
 |---|---|---|---|---|
 | `orca:chat:send` | R→M (invoke) | `SendChatMessage` = `{ sessionId: string \| null; text: string }` | `Promise<void>` (ack). 응답은 `orca:chat:event` 스트림 | SendChatMessage |
-| `orca:chat:event` | M→R (send) | — | `ChatEvent` (반복) | ChatEvent union |
+| `orca:chat:event` | M→R (send) | — | `NormalizedEvent` (반복) | NormalizedEvent union (IPC_CONTRACT §3) |
 | `orca:chat:cancel` | R→M (invoke) | `CancelChat` = `{ sessionId: string }` | `Promise<void>` — `AbortSignal` 전파 | CancelChat |
 | `orca:backend:list` | R→M (invoke) | — | `BackendListResult` = `{ backends: { id: Backend; installed: boolean; version?: string }[]; active?: Backend }` | (검증 생략) |
 | `orca:install:start` | R→M (invoke) | `StartInstall` = `{ backend: Backend }` | `Promise<void>` (ack). 진행은 `orca:install:status` 스트림. 현재 claude 는 SDK `optionalDependencies` 자동 해소 → 즉시 `done: true` | StartInstall |
@@ -134,16 +147,16 @@ Phase 2 범위 밖 (예약 — 도입 시점에 재등록):
 | `orca:credentials:set` / `:hasKey` | **Phase 3+** | safeStorage 자격증명 ([arch/backend/security.md](arch/backend/security.md) §1.4) |
 | `orca:skills:reload` | **Future** | 핫리로드 도입 시 |
 
-> **Phase 3+ 이후 추가 도메인** (본 표는 Phase 2 미러라 누락 — SSOT 는 IPC_CONTRACT §2): `session` 5 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · ~~`runtime` 3~~ (구 Python uv 런타임 채널 — renderer 소비처 부재로 제거, handoff 0012 · IPC_CONTRACT §2.11). 현행 전수는 IPC_CONTRACT §2 (총 36).
+> **Phase 3+ 이후 추가 도메인** (본 표는 Phase 2 미러라 누락 — SSOT 는 IPC_CONTRACT §2): `session` 6 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `engine` 5 · `agent` 1 · `update` 6 · `cost` 4 · `boot` 1 · `concurrency` 1 · `permission` 2 · `notify` 1 · `debug` 2(dev) · ~~`runtime` 3~~ (구 Python uv 런타임 채널 — renderer 소비처 부재로 제거, handoff 0012 · IPC_CONTRACT §2.11). 현행 전수는 IPC_CONTRACT §2 (**총 64**).
 
 ### 5.3 `window.orca` API (Preload 화이트리스트)
 
 ```typescript
-// src/preload/index.ts 에서 노출 (Phase 2 활성 11 채널 표면)
+// src/preload/index.ts 에서 노출 (Phase 2 코어 표면 발췌 — 전수는 IPC_CONTRACT §2)
 interface OrcaApi {
   chat: {
     send(req: { sessionId: string | null; text: string }): Promise<void>;
-    onEvent(handler: (ev: ChatEvent) => void): () => void;  // unsubscribe 함수 반환
+    onEvent(handler: (ev: NormalizedEvent) => void): () => void;  // unsubscribe 함수 반환
     cancel(sessionId: string): Promise<void>;
   };
   backend: {
@@ -181,7 +194,7 @@ Renderer 코드는 `window.orca.*` 만으로 통신 (ipcRenderer 직접 접근 �
 
 ### 5.4 스트림 종료 신호
 
-- `orca:chat:event` 스트림: `ChatEvent { type: 'result' | 'error' }` 도착 시 **턴 종료** → Renderer가 `inflight` 플래그 해제.
+- `orca:chat:event` 스트림: `NormalizedEvent` 의 `telemetry`(구 `result`) 또는 `error` 도착 시 **턴 종료** → Renderer가 `inflight` 플래그 해제.
 - `orca:install:status` 스트림: `{ step: 'complete' | 'failed' }` 도착 시 설치 프로세스 종료.
 
 ---
@@ -304,16 +317,24 @@ interface ChatState {
 
 ### 6.7 Settings 키 카탈로그
 
-Phase 2+ 에서 `electron-store` 로 영속화 완료. `IPC_CONTRACT.md` §2.4 의 `Settings` 타입과 1:1.
+`electron-store` 로 영속화 완료 — **17 키**. zod 정본은 `app/src/shared/protocol.ts` 의 `SettingsSchema`, 타입 카탈로그는 `IPC_CONTRACT.md` §2.4 와 1:1 (키별 상세는 [arch/backend/persistence.md](arch/backend/persistence.md) §1.2).
 
 | 키 | 타입 | 설명 |
 |---|---|---|
-| `theme` | `'classic' \| 'dark' \| 'cool'` | 테마 선택 (lowercase 표준) |
-| `density` | `'compact' \| 'normal' \| 'comfortable'` | 밀도 — 내부 매핑 11.5 / 13 / 14.5 px |
-| `sidebarCollapsed` | `boolean` | 사이드바 접음 상태 |
+| `theme` | `'white' \| 'dark'` | 테마 선택 (2종 — lowercase 표준) |
+| `density` | `'compact' \| 'normal' \| 'comfortable'` | 밀도 |
+| `sidebarCollapsed` / `sidebarWidth` | `boolean` / `number` | 사이드바 접음/너비 (180–480) |
 | `lastBackend` | `Backend \| null` | 마지막 사용 백엔드 (OQ7) |
 | `lastSessionId` | `string \| null` | 재개용 마지막 세션 ID |
-| `windowBounds` | `{ x: number; y: number; width: number; height: number } \| null` | 마지막 윈도우 위치/크기 — 재시작 시 복원 |
+| `windowBounds` | `{ x; y; width; height } \| null` | 마지막 윈도우 위치/크기 — 재시작 시 복원 |
+| `mcpEnabled` / `mcpMeta` | `Record<…>` | MCP 서버 on/off + Orca 전용 메타 (mcp.json 정의와 분리) |
+| `skillEnabled` | `Record<string, boolean>` | Skill on/off (부재⇒true) |
+| `ssoBypass` | `boolean` | SSO 로그인 게이트 우회 (디버그 토글) |
+| `language` / `accountInstructions` | `string` | 시스템 프롬프트 `# User` 헤더로 매 턴 주입 |
+| `appFont` | `'sans' \| 'serif' \| 'mono'` | 앱 전체 폰트 |
+| `notifyOnComplete` | `boolean` | 턴 완료 시 OS 알림 (창 비활성 한정) |
+| `spendingLimitUsd` | `number \| null` | 월간 지출 한도(USD) — null=무제한, 기본 90 (0079) |
+| `scheduler` | `{ usageRecompute: { enabled; cron } }` | 주기 실행 설정 (0091) |
 
 ---
 
@@ -537,22 +558,24 @@ for await (const ev of client.session.send({ id, text, stream: true })) {
 | 스크립트 | 목적 | 상세 |
 |---|---|---|
 | `npm run dev` | 개발 서버 (HMR) | Renderer Vite HMR + Main/Preload watch + electron 실행 |
-| `npm run build` | 프로덕션 빌드 | 3-config 병렬 번들 + 타입체크 |
+| `npm run build` | 프로덕션 빌드 | `typecheck` 후 3-config 번들 (`prebuild` 가 better-sqlite3 Electron ABI 보장) |
 | `npm run start` | 빌드 결과 미리보기 | electron-vite preview 모드 |
 | `npm run build:win` | Windows .exe 패키징 | electron-builder NSIS |
 | `npm run build:mac` | macOS .dmg 패키징 | electron-builder DMG + 서명 |
 | `npm run build:linux` | Linux AppImage 패키징 | electron-builder AppImage |
-| `npm run typecheck` | TypeScript 검증 | `tsconfig.node.json` + `tsconfig.web.json` 분리 검증 |
-| `npm run lint` | ESLint | `eslint.config.mjs` |
+| `npm run typecheck` | TypeScript 검증 | 3분할 — `tsconfig.node.json` + `tsconfig.web.json` + `tsconfig.test.json` |
+| `npm run lint` | ESLint | `eslint.config.mjs` (`./src` + `./scripts`) |
 | `npm run format` | Prettier | `.prettierrc.yaml` |
+| `npm test` | 단위 테스트 | `pretest` Node ABI 보장 → `vitest run` + `node --test "scripts/*.test.mjs"` |
+| `npm run release:{patch,minor,major}` | 릴리스 bump | `npm version <bump>` — 커밋 + `v*` 태그 원샷 (0088). 버전 수동 편집 금지 |
 
-### 9.2 패키져: electron-builder
+### 9.2 패키져 · CI/CD (0087~0089 구성)
 
-- 설정 파일: `electron-builder.yml` (template 기본)
-- Windows: **x64 NSIS installer** (1차 타깃)
-- macOS: DMG (arm64 + x64), notarization (OQ3)
-- Linux: AppImage + deb/rpm
-- **Code signing / 자동 업데이트 = OQ3** 미정 사항 (§10 anchor)
+- 설정 파일: `electron-builder.yml`. Windows: **x64 unsigned NSIS installer** (1차 타깃, SmartScreen 경고 수용).
+- macOS: DMG (arm64 + x64), notarization 미도입 / Linux: AppImage — 둘 다 후순위.
+- **CI** (`.github/workflows/ci.yml`): `main` push(paths `app/**`) — 마이그레이션 append-only 가드 → lint → typecheck → test (windows-latest·Node 22).
+- **릴리스** (`.github/workflows/release.yml`): `v*` 태그 → 버전 검증(`validate-release-version.mjs`) → 게이트 → `build:win` → **draft** GitHub Release(installer·latest.yml·blockmap) → sha512 검증(`validate-dist.mjs`). Publish = 수동 게이트. 절차 정본 `docs/guides/release-operations.md`.
+- 잔여 OQ3: **코드 서명 / macOS 공증 / staged rollout** (§10 anchor).
 
 ### 9.3 환경변수
 
@@ -568,8 +591,8 @@ for await (const ev of client.session.send({ id, text, stream: true })) {
 Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후).
 
 - **(anchor) 시스템 트레이** — UI/Main 진입점 미지정. Phase 2+ 검토.
-- **(anchor) electron-updater + GitHub Releases** — OQ3 패키징·배포 전략에서 함께 결정.
-- **(anchor) Auto-update 채널** — OQ3.
+- ~~(anchor) electron-updater + GitHub Releases~~ — **구현 완료 (0084~0089, §9.2)**. 잔여 = 코드 서명/공증/staged rollout.
+- ~~(anchor) Auto-update 채널~~ — stable 단일 채널로 출발 (beta 채널 분리는 Future).
 - **(anchor) 하드웨어 어댑터 (BoardAdapter)** — USB/카메라 제어. `src/main/adapters/board.ts` 예약, 네이티브 모듈 (`orca-board.node`, libusb) Phase 2~3.
 - **(anchor) opencode 어댑터** — Phase 1 에서는 미구현. §7.2 의 사양 (서버 라이프사이클, SDK 호출, SSE 매핑) 그대로 살아있으나 코드는 인터페이스 후크만 남아있다. claude 단독 운영이 안정화되면 도입. **단, MCP 설정 변환기 `toOpencodeConfig` 는 MCP&Skill 통합 레이어에서 *순수 함수 + 단위 테스트만* 선구현됨** (어댑터·라이프사이클·백엔드 선택은 여전히 미구현, `Backend`=`'claude'` 유지). `toClaudeConfig` 와 **동형 대칭 변환기**(동일 시그니처, `Record<string, <Backend>Mcp>` 반환).
 - **(anchor) OpenAI Compatible 백엔드** — `SessionAdapter` 인터페이스 재활용 가능. 3번째 어댑터 구현체 추가.
@@ -578,14 +601,14 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 - **(anchor) ChatEvent sessionId 확장** — Phase 4 멀티 세션 진입 시 모든 변형(`assistant_delta` / `assistant_message` / `tool_use` / `tool_result` / `result` / `error`)에 `sessionId` 필드 추가. main↔renderer IPC 는 Electron 의 ordered+lossless 보장을 그대로 활용 (별도 메시지큐 미도입). 상세 anchor 는 [arch/frontend/state.md](arch/frontend/state.md) §2.
 - **(구현됨) MCP & Skill 통합 레이어** — 정규 소스 = `~/.config/orca/mcp.json`(순정 Claude `mcpServers` 스키마 + `${VAR}`, 평문 비밀 0). 비밀은 secret-store(safeStorage, env-var 이름 키잉), enabled/description 은 settings. `${VAR}` resolver = safeStorage→process.env(미해결 시 서버 드롭). **양 백엔드 대칭 변환기**(`toClaudeConfig`/`toOpencodeConfig`, 순수). **확장 정규 레이어**: `~/.config/orca` 디렉토리 자체를 Claude 로컬 플러그인으로 머티리얼라이즈(`.claude-plugin/plugin.json` + 정규 소스 `skills/`·`agents/`·`commands/`) → query() 에 `plugins:[{local, path: ~/.config/orca}]`+`skills:'all'`. Skill 은 양 백엔드 공통(opencode `.claude/skills` 네이티브), Hook/full-plugin 은 백엔드 종속이라 정규화 제외. 레거시 `orca-mcp` 1회 마이그레이션. **(재정의 — 0024 코드 정렬됨 / disallowedTools 보류)** skill 로드는 plugin 컨테이너 폐기 후 `settingSources` 경로로, mcp 는 `dist/<engine>/.mcp.json` 거울로 정렬되고 agents·commands·hooks·plugin 은 engine-specific 으로 연기된다(standardization.md §5.1, adapters.md §3.1). 상세 [arch/backend/security.md](arch/backend/security.md) §1.4.
 - **(anchor) Captures / Projects 확장** — PRD §9 Future Scope. 별도 IPC 도메인 + 모듈 추가.
-- **(anchor) 멀티 세션 / 과거 대화 목록** — Phase 3+. 인터페이스 `SessionAdapter.listSessions?()` / `loadSession?()` 이미 예약. Sidebar 세션 리스트 UI는 Phase 4.
-- **(anchor) 재시작 재개** — Phase 2. Settings.store 의 `lastSessionId` 키 추가, 앱 부트 시 복원.
-- **(anchor) Zustand 전환 (Phase 4 진입 PR 묶음)** — 단일 root + `sessions: Record<sessionId, SessionState>` 슬라이스. 외부 dispatch (`getState().recv(ev)`) — React 트리 외부에서 호출 가능. **Phase 3 사전 마이그레이션 금지**. 상세 [arch/frontend/state.md](arch/frontend/state.md) §1.4.
-- **(anchor) 로컬 DB (Phase 3+)** — 메시지·세션 메타데이터 SSOT. 마이그레이션 `src/main/db/migrations/NNN_<name>.sql` (병합 후 절대 수정 금지). 라이브러리 미정 (better-sqlite3 / Drizzle 후보). 상세 [arch/backend/persistence.md](arch/backend/persistence.md).
+- ~~(anchor) 멀티 세션 / 과거 대화 목록~~ — **구현 완료** (세션별 SessionRuntime + 사이드바 세션 목록 + FTS 검색 — runtime-ipc.md §1). 동시 스트리밍 *UX*(배지·탭)만 잔여.
+- ~~(anchor) 재시작 재개~~ — **구현 완료** (`lastSessionId` 부트 복원 — BootRedirector).
+- ~~(anchor) Zustand 전환~~ — **구현 완료 (0008/0013)** — feature별 store + chat `sessions: Record` 외피 + 외부 dispatch(`receive(ev)`). 상세 [arch/frontend/state.md](arch/frontend/state.md) §1.
+- ~~(anchor) 로컬 DB (Phase 3+)~~ — **구현 완료** (better-sqlite3, 마이그레이션 13종 `infra/db/migrations/0001~0013`, DB=SSOT). 상세 [arch/backend/persistence.md](arch/backend/persistence.md).
 - **(anchor) Artifact FS 저장 (Phase 3+)** — `<userData>/artifacts/<sessionId>/<uuid>.<ext>`. DB 에는 경로·해시·크기만. 클라우드 동기화 없음 (export/import 만). `GLOSSARY.md` "Artifact" / [arch/backend/persistence.md](arch/backend/persistence.md).
-- **(anchor) safeStorage 자격증명 (Phase 3+)** — 어댑터별 base URL + API key 를 Electron `safeStorage` (OS keychain) 로 암호화 저장. [arch/backend/security.md](arch/backend/security.md) §1.4.
-- **(anchor) 추가 IPC 도메인 (Phase 3+/Future)** — `message:*` / `session:list/load/delete` / `credentials:set/hasKey` / `skills:reload`. `IPC_CONTRACT.md` §2.8 예약 표 참조.
-- **PRD §11 OQ1~OQ8** — 미정 항목. 여기서 결정하지 않음. 결정값 도착 시 본 문서 갱신.
+- **(anchor) safeStorage 자격증명** — MCP 인증 비밀은 **구현 완료**(secret-store). 어댑터별 base URL + API key 저장은 잔여. [arch/backend/security.md](arch/backend/security.md) §1.4.
+- ~~(anchor) 추가 IPC 도메인 (Phase 3+/Future)~~ — `session`·`project`·`search`·`mcp`·`cost`·`update` 등 대부분 도입 완료(현행 64 채널 — IPC_CONTRACT §2). 잔여 예약은 IPC_CONTRACT §2.14.
+- **PRD §11 OQ** — 미정 항목은 여기서 결정하지 않음. 결정값 도착 시 본 문서 갱신. (OQ1 React 19·OQ3 패키징/자동업데이트는 해소 — PRD §11 표기 참조.)
 
 ---
 
@@ -593,11 +616,12 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 
 ### 단위 테스트 (Vitest)
 
-- **어댑터**: ChatEvent 정규화 (SDKMessage→ChatEvent, SSE→ChatEvent), 에러 감지 (auth.expired 패턴, SDK throw 처리)
-- **Reducer**: 모든 액션 (SEND_USER_MESSAGE, RECV_EVENT, NEW_CHAT, CANCEL_CHAT) → 상태 전이 정확성
-- **IPC 검증**: zod 스키마 (SendChatMessage, ChatEvent, InstallStatus 등)
-- **Installer**: 의존성 점검 (curl), opencode 설치 명령 조합
-- **(구현됨) MCP 변환 파이프라인**: `expandEnv`(${VAR} 정의/미정의 드롭·다중 변수·빈 소스) + `toClaudeConfig`(구조 항등·sse 보존)/`toOpencodeConfig`(stdio→local·http/sse→remote)·dropped 전파·빈 소스 — `src/main/mcp/{expand,convert}.test.ts`, 14 케이스. electron 비의존 순수 함수. `npm test` = `vitest run`. store/secret-store 등 electron 결합 모듈은 런타임 수동 검증([arch/backend/security.md](arch/backend/security.md) §1.4 불변식).
+- **어댑터**: `NormalizedEvent` 정규화 (`claude-map.ts` — SDKMessage→NormalizedEvent), 에러 감지 (auth.expired 패턴, SDK throw 처리)
+- **Reducer**: `chatReducer` 액션별 상태 전이 정확성 (parts/ask/permission 계열 스위트)
+- **IPC 검증**: zod 스키마 (SendChatMessage, Settings, InstallStatus 등 — `protocol.*.test.ts`)
+- **런타임/기능 슬라이스**: scheduler(cron 검증·겹침 방지)·usage(집계/한도 파생)·updater(재시작 게이트)·boot-report 등 — 각 슬라이스 동거 `*.test.ts`
+- **(구현됨) MCP 변환 파이프라인**: `expandEnv`(${VAR} 정의/미정의 드롭·다중 변수·빈 소스) + `toClaudeConfig`(구조 항등·sse 보존)/`toOpencodeConfig`(stdio→local·http/sse→remote)·dropped 전파·빈 소스 — `features/extensions/mcp/{expand,convert}.test.ts`. electron 비의존 순수 함수.
+- **스크립트 스위트** (`node --test "scripts/*.test.mjs"`, `npm test` 가 자동 실행): ensure-sqlite-abi · check-migrations-appendonly · validate-dist · validate-release-version.
 
 ### 통합 테스트
 
@@ -605,11 +629,15 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 - Mock opencode 서버 (SSE 스트림 시뮬레이션)
 - IpcRouter ↔ Adapter 흐름 (메시지 → 어댑터 → 정규화 → IPC 송신 검증)
 
-### E2E 테스트 (Playwright on Electron)
+### E2E 테스트 (Playwright on Electron — **미도입**)
+
+Playwright 는 아직 devDependency 로 설치되지 않았다(§4). 도입 시 아래 시나리오가 1차 후보:
 
 - 신규 대화 생성 → 메시지 입력 → 스트리밍 표시 → 완료
 - 대화 1개 축적 후 새 대화 → sessionId 리셋 확인
 - 설치 실패 시 수동 명령 표시 (mock CLI 설치 미지원)
+
+현재 GUI 검증은 dev 디버그 하네스(MockAdapter 시나리오 13종 — IPC_CONTRACT §2.13) + 사람 수동 체크리스트로 갈음한다.
 
 ### 매뉴얼 체크리스트 (QA)
 

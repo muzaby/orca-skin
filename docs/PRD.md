@@ -5,7 +5,7 @@
 | 항목 | 값 |
 |---|---|
 | 제품명 (코드네임) | **Orca** |
-| 문서 버전 | v1 (MVP 정의) |
+| 문서 버전 | v1 (MVP 정의) — 최종 동기화 2026-07-11 (handoff 0095: OQ1/OQ3/OQ8 해소 표기·§7/§8/§9 구현 완료분 반영. 의도 변경 없음) |
 | 1차 소스 | `docs/etc/llm-chat-desktop-strategy.md` |
 | 2차 소스 | `project/` 프로토타입 (Variation A · "Claude Desktop classic"), `chats/chat1.md` |
 | 작성 의도 | 무엇을 만들고 무엇을 만들지 *않는지* 를 합의된 결정에 한해 정리. 새 결정은 만들지 않으며, 미정 항목은 §11 Open Questions 로 모은다. |
@@ -85,7 +85,7 @@ v1 의 기능 표면은 P2 만으로도 충분히 커버 가능하다. P1 의 �
 | F7 | **CLI 설치 자동화** | 둘 다 미설치 시 다이얼로그 → `npm install -g @anthropic-ai/claude-code` / `curl -fsSL https://opencode.ai/install \| bash` 를 사용자가 선택해 시도. |
 | F8 | **설치 실패 폴백** | 자동 설치 실패 시 수동 명령을 화면에 표시. Node.js 미설치 / 글로벌 npm 권한 부족 케이스 OS 별 안내. |
 | F9 | **인증 만료 처리** | Claude Code OAuth 토큰 만료(401) 감지 시 사용자에게 `claude /login` 안내. (전략 §6.5) |
-| F10 | **Tweaks 패널** | 테마 팔레트(Classic/Dark/Cool), 밀도(조밀/보통/넓게), 사이드바 접기. CSS 커스텀 프로퍼티로 적용. (프로토타입에 정의됨.) |
+| F10 | **Tweaks 패널** | 테마 팔레트(원안 Classic/Dark/Cool — **구현은 white/dark 2종으로 축소**), 밀도(조밀/보통/넓게), 사이드바 접기. CSS 커스텀 프로퍼티로 적용. |
 
 ### 6.2 Non-functional Requirements
 
@@ -109,13 +109,13 @@ v1 의 기능 표면은 P2 만으로도 충분히 커버 가능하다. P1 의 �
 | 데스크톱 셸 | **Electron** | Anthropic Claude Desktop 도 동일 채택 |
 | 빌드/스캐폴딩 | **`@quick-start/electron` (react-ts 템플릿)** | electron-vite (Vite 기반) |
 | 언어 | **TypeScript** | CLI JSON 메시지 타입 안정성 |
-| UI 프레임워크 | **React 권장** (확정 §11 OQ) | 메시지 스트리밍·마크다운 렌더링에 적합 |
+| UI 프레임워크 | **React ^19 확정** (§11 OQ1 해소) | 메시지 스트리밍·마크다운 렌더링에 적합 |
 | 마크다운 렌더링 | **react-markdown + remark-gfm + shiki** 확정 (§11 OQ2, Phase A) | LLM 응답 렌더링. GFM + 코드 블록 syntax highlighting (11개 언어) |
 | 스타일링 | **Tailwind CSS** | TRD §4 채택. 디자인 토큰은 §10 CSS 커스텀 프로퍼티 그대로, 컴포넌트 클래스만 Tailwind 유틸리티 |
 | LLM 백엔드 SDK (Claude) | **`@anthropic-ai/claude-agent-sdk`** (Phase 3 채택, 2026-05-18) | 진입점 `query()`, 세션 재개 `options.resume`, 토큰 스트리밍 `options.includePartialMessages`. TRD §4·§7.1, [`claude-code-spec.md §10`](./claude-code-spec.md) |
-| 상태 관리 (Renderer) | **Phase 1·2**: React Context + useReducer. **Phase 4 채택**: Zustand (단일 root + `sessions` 슬라이스) | Phase 3 사전 마이그레이션 금지 — Phase 4 진입 PR 묶음에서 한 번에 전환. 외부 dispatch (`getState().recv(ev)`) 사용. 상세 [arch/frontend/state.md](arch/frontend/state.md) §1.4 |
-| 영속화 | **Phase 2+ 완료**: `electron-store` (6 키 — Tweaks · `lastBackend` · `lastSessionId` · `windowBounds`). **Phase 3+ 채택**: 로컬 DB (better-sqlite3 / Drizzle 미정) + `<userData>/artifacts/` FS | 메시지·세션 메타 SSOT 이전. 상세 [arch/backend/persistence.md](arch/backend/persistence.md) |
-| 자격증명 | **현재**: SDK 가 `~/.claude` 자동 사용. **Phase 3+ 채택**: Electron safeStorage (OS keychain) 로 어댑터별 base URL + API key 암호화 | [arch/backend/security.md](arch/backend/security.md) §1.4 |
+| 상태 관리 (Renderer) | **Zustand 전환 완료** (0008 chat 선행 + 0013 전면 — feature별 store + chat `sessions: Record` 외피) | 순수 `chatReducer` 유지 + store 가 키 라우팅. 외부 dispatch (`receive(ev)`). 상세 [arch/frontend/state.md](arch/frontend/state.md) §1 |
+| 영속화 | **구현 완료**: `electron-store` (17 키 — TRD §6.7) + 로컬 DB better-sqlite3 (마이그레이션 13종, 메시지·세션 SSOT). **잔여**: `<userData>/artifacts/` FS (Artifact) | 상세 [arch/backend/persistence.md](arch/backend/persistence.md) |
+| 자격증명 | **현재**: SDK 가 `~/.claude` 자동 사용 + MCP 인증 비밀은 safeStorage secret-store **구현 완료**. **잔여**: 어댑터별 base URL + API key 저장 | [arch/backend/security.md](arch/backend/security.md) §1.4 |
 
 ### 7.2 CLI 연결 패턴 (전략 §3)
 
@@ -126,6 +126,8 @@ v1 의 기능 표면은 P2 만으로도 충분히 커버 가능하다. P1 의 �
 | 3. 세션 파일 동기화 | CLI 세션 파일 읽기 | △ Phase 3 보조 (과거 목록) |
 
 ### 7.3 SessionAdapter (전략 §8.2)
+
+> **구현 노트 (0016)**: 아래 `ChatEvent` 는 전략 소화 당시의 스케치다 — 실제 와이어 타입은 provider 중립 **`NormalizedEvent`** 로 정규화됐다(변이 카탈로그 = IPC_CONTRACT §3). 본 블록은 역사 보존.
 
 ```typescript
 export type Backend = 'claude-code' | 'opencode';
@@ -191,10 +193,10 @@ Renderer (UI) → Electron IPC → `SessionAdapter` → `ClaudeCodeAdapter` 또�
 
 | 단계 | 기능 | 구현 위치 |
 |---|---|---|
-| **Phase 1 (MVP)** | 단일 활성 대화 컨텍스트 유지 | `sessionId` 메모리 변수 1개 |
-| Phase 2 | 앱 재시작 후 마지막 대화 재개 | `electron-store` 로 `sessionId` 영속화 |
-| Phase 3 | 사이드바에 과거 대화 목록 + 로컬 영속성 도입 | 로컬 DB (`<userData>/orca.db`) 가 메시지·세션 메타 SSOT. 어댑터 외부 저장 (jsonl 등) 은 단방향 동기화 소스 (`SessionAdapter.listSessions?()` / `loadSession?()`). Artifact 는 FS (`<userData>/artifacts/`). 자격증명 safeStorage. 상세 [arch/backend/persistence.md](arch/backend/persistence.md)·§8.4 |
-| Phase 4 | 멀티 세션 전환 모드 + **Zustand 상태 관리 전환** | 활성 세션 전환 UI + 단일 root + `sessions: Record<sessionId, SessionState>` 슬라이스 (Phase 3 사전 마이그레이션 금지, Phase 4 진입 PR 묶음에서 한 번에). 상세 [arch/frontend/state.md](arch/frontend/state.md) §1.4 |
+| **Phase 1 (MVP)** ✅ | 단일 활성 대화 컨텍스트 유지 | `sessionId` 메모리 변수 1개 |
+| Phase 2 ✅ | 앱 재시작 후 마지막 대화 재개 | `electron-store` 로 `sessionId` 영속화 |
+| Phase 3 ✅ | 사이드바에 과거 대화 목록 + 로컬 영속성 도입 | 로컬 DB (`<userData>/orca.db`) 가 메시지·세션 메타 SSOT (마이그레이션 13종). Artifact FS 는 잔여. 상세 [arch/backend/persistence.md](arch/backend/persistence.md) |
+| Phase 4 (진행 중) | 멀티 세션 전환 모드 + **Zustand 상태 관리 전환** | **런타임·상태 전환은 완료** (세션별 SessionRuntime + chat `sessions: Record` 외피, 0008~0013·0051~0069) — 동시 스트리밍 *UX*(배지·탭)가 잔여. 진행 이력 정본 [PHASES.md](PHASES.md), 상태 상세 [arch/frontend/state.md](arch/frontend/state.md) §1 |
 
 ---
 
@@ -204,18 +206,18 @@ Renderer (UI) → Electron IPC → `SessionAdapter` → `ClaudeCodeAdapter` 또�
 
 | 영역 | 무엇 | 프로토타입 참조 |
 |---|---|---|
-| **Projects** | 프로젝트 단위 워크스페이스, 엔진/모델/스킬 스코프, 활성 프로젝트 표시 | `project/variations/v1-screens.jsx` (Projects 카드 그리드), 프로토타입 사이드바 "프로젝트" 섹션 |
-| **Engine & Model 레지스트리** | 멀티 엔진 (Claude Code / opencode / 로컬 llama.cpp / 커스텀 OpenAI 호환) 상태 + 모델 선택, 세션 중 모델 스위치 (`⌘⇧M`) | `project/variations/v1-screens.jsx` (Engine & Model 패널) |
-| **Skills** | 도메인 스킬 카탈로그 (bayer-analysis, mtf-sfr, capture-batch, flat-field, color-checker), 토글 활성화 | `project/variations/v1-screens.jsx` (Skills/MCP 좌측) |
-| **MCP 서버** | MCP 서버 등록·연결 상태·도구 수, 권한 패널 (보드 제어, 워크스페이스 FS, 네트워크) | 동 우측 |
+| **Projects** ✅ 구현 | 프로젝트 단위 워크스페이스(지침·cwd 스코프), CRUD 5채널 + 카드 그리드 + 랜딩 | `project/variations/v1-screens.jsx` (Projects 카드 그리드) — 구현 IPC_CONTRACT §2.7-b |
+| **Engine & Model 레지스트리** ✅ 구현 (claude 축) | 모델 선택·턴 단위 스위치(0010) + provider CRUD·`/agent` 화면(0021·0090). 멀티 엔진(opencode/llama.cpp/OpenAI 호환)은 잔여 | `project/variations/v1-screens.jsx` (Engine & Model 패널) |
+| **Skills** ✅ 부분 구현 | 스킬 카탈로그(스캔·토글·업로드 UI) + 번들 시딩(0078). 도메인 스킬(bayer-analysis, mtf-sfr 등) 자체는 잔여 | `project/variations/v1-screens.jsx` (Skills/MCP 좌측) |
+| **MCP 서버** ✅ 구현 | MCP 서버 등록/토글/삭제 + safeStorage 인증 + 세션 주입. 세분화된 권한 패널은 잔여 | 동 우측 — 구현 IPC_CONTRACT §2.10 |
 | **Captures** | 캡처 리스트(248개) → 상세(Bayer 뷰어 + AI 분석 + 품질 메트릭 + 채널 히스토그램 + EXIF) | `project/variations/v1-screens.jsx` (Captures 분할 페인) |
 | **하드웨어 통합** | 카메라 라이브뷰 (Bayer/RGB/R/G1/G2/B 탭), 노출/아날로그 게인/디지털 게인 슬라이더, 캡처+시퀀스 버튼, 보드 연결 상태 (`COM7 · OV-9282`), 라이브 텔레메트리 (FPS, 온도) | `project/electron/index.html`, `project/variations/v1-shell.jsx` (V1CameraPane) |
 | **Bayer 디버그 모드** | R/G1/G2/B 채널 분리 + RGB 디코딩 뷰 (row-noise, 채널 imbalance 분석용) | 동 |
 | **품질 메트릭** | SNR, ΔG1−G2, Sharpness, DR, ΔE, MTF50 (tone: ok/warn/bad) | 동 |
 | **로컬 워크스페이스** | `~/orca/projects/{name}/captures/`, `skills/`, `.mcp.json`, `sessions.db` | 프로토타입 도메인 단서 |
-| **Python 런타임 (내장)** ✅ 구현 (Phase 3++) | agent 의 Python 코드 실행/패키지 설치를 위한 **uv 기반 격리 환경** (`<userData>/runtime` venv + 인터프리터 3.12). 시스템 Python 비의존·비오염. 인터프리터 첫 실행 다운로드(4-A), operator env 로 사내 미러/인덱스 지정 가능. SDK `query().options.env` 주입 + agent 규약(`uv run`/`uv pip`). | TRD §2·§5, IPC_CONTRACT §2.11, `app/src/main/runtime/` |
+| **Python 런타임 (내장)** ❌ 제거됨 (0050 PR-B) | 구 uv 기반 격리 환경(`<userData>/runtime`)은 구현됐다가 **제거**됐다 — runtime IPC 채널·main 서브시스템 삭제. uv 사용 규약 정책 append 만 잔존. 재도입 여부는 미정 | IPC_CONTRACT §2.11 주석, `arch/backend/system-prompt.md` |
 
-§9 항목들은 *언제* 구현할지 본 문서에서 약속하지 않는다 (✅ 표시 항목은 이미 구현됨).
+§9 항목들은 *언제* 구현할지 본 문서에서 약속하지 않는다 (✅ 표시 항목은 이미 구현됨). 사용량 한도 UI(0079~0082)·자동 업데이트(0084~0086)는 §9 목록 밖에서 구현됐다 — TRD §2 F11+ 참조.
 
 ---
 
@@ -238,7 +240,7 @@ Renderer (UI) → Electron IPC → `SessionAdapter` → `ClaudeCodeAdapter` 또�
 | `rust` | `#c96442` | 액센트 (Claude 브랜드) |
 | `rustSoft` | `#f4dcc9` | 액센트 배경 |
 
-다른 팔레트(Dark, Cool) 는 Tweaks 패널에서 선택. CSS 커스텀 프로퍼티 오버라이드.
+구현된 테마는 **white(위 Classic 팔레트 계승, 루트 기본값) / dark 2종** — 원안의 Cool 은 미채택. CSS 커스텀 프로퍼티 오버라이드.
 
 ### 10.2 Typography
 
@@ -252,7 +254,7 @@ Renderer (UI) → Electron IPC → `SessionAdapter` → `ClaudeCodeAdapter` 또�
 
 | 컨트롤 | 영향 |
 |---|---|
-| 테마 팔레트 (Classic/Dark/Cool) | `<html data-theme="classic\|dark\|cool">` 속성 갱신 → `tokens.css` 의 `[data-theme]` 스코프가 Tailwind `@theme` 토큰 변수를 override. 트리 remount 불요. |
+| 테마 팔레트 (white/dark) | `<html data-theme="white\|dark">` 속성 갱신 → `tokens.css` 의 `[data-theme]` 스코프가 Tailwind `@theme` 토큰 변수를 override. 트리 remount 불요. (원안 3종 → 구현 2종) |
 | 밀도 (조밀/보통/넓게) | 베이스 `font-size` 11.5 / 13 / 14.5px. em/rem 의존 spacing 이 함께 변한다. |
 | 사이드바 접기 | 사이드바 너비 248 ↔ 56 px 토글. |
 
@@ -264,15 +266,15 @@ Renderer (UI) → Electron IPC → `SessionAdapter` → `ClaudeCodeAdapter` 또�
 
 | # | 질문 | 비고 |
 |---|---|---|
-| OQ1 | UI 프레임워크는 React 로 확정하는가? 버전(18/19)? | 전략은 "권장" 수준. |
+| ~~OQ1~~ | ~~UI 프레임워크는 React 로 확정하는가? 버전(18/19)?~~ | **확정** (2026-05-20): React ^19. TRD §4 갱신. |
 | ~~OQ2~~ | ~~마크다운/하이라이트 라이브러리는 react-markdown + shiki 로 확정?~~ | **확정** (2026-05-14, Phase A `feat-pretty-ui`): react-markdown@^9 + remark-gfm@^4 + shiki@^1. TRD §2 갱신. |
-| OQ3 | 패키징/배포 (electron-builder target, macOS notarization, Windows code signing, 자동 업데이트 채널)? | 전략 비커버. |
+| ~~OQ3~~ | ~~패키징/배포 (electron-builder target, macOS notarization, Windows code signing, 자동 업데이트 채널)?~~ | **대부분 확정** (0084~0089): Windows **unsigned NSIS** + GitHub Releases **draft**(수동 Publish) + electron-updater(stable 단일 채널, autoDownload=false) + CI/CD(`ci.yml`/`release.yml`). **잔여**: Windows code signing · macOS notarization · staged rollout. 정본 `docs/guides/release-operations.md` / TRD §9.2. |
 | OQ4 | 텔레메트리/에러 리포팅 정책? 옵트인? | 전략 비커버. |
 | OQ5 | 라이센스 (오픈/상용)? | 전략 비커버. |
 | OQ6 | 시작 시간 / 첫 토큰 지연 SLA 수치? | N5 와 연결. |
 | OQ7 | 두 CLI 가 모두 설치된 경우 기본 백엔드 선택 정책 (사용자 명시 / 마지막 사용 / Claude Code 우선)? | F6 보강. **Phase 1·2 는 claude-code 단일 백엔드 결정 (TRD 머리말 2026-05-13) 으로 자동 해소** — opencode 어댑터 활성화 시점에 재검토. 현재 `lastBackend` 는 `electron-store` 에 영속 (TRD §6.7). |
-| OQ8 | "새 대화" 시 직전 세션을 Phase 3 목록에 어떻게 노출할지? | Phase 2/3 진입 시 결정. |
-| OQ9 | Claude 도구 권한 정책 — SDK `options.permissionMode` / `options.canUseTool` 콜백 / `options.disallowedTools` 의 MVP 기본값? | [`claude-code-spec.md`](./claude-code-spec.md) §5 참조 (CLI 표현 `--allowedTools` / `--permission-mode` / `--bare` 와 1:1 대응). 후보: 미지정 / Read+Edit+Bash 사전승인 / `acceptEdits` / 모델 분류 `auto`. **Phase 4 채택 보류** ([arch/backend/adapters.md](arch/backend/adapters.md) §1.7). |
+| ~~OQ8~~ | ~~"새 대화" 시 직전 세션을 Phase 3 목록에 어떻게 노출할지?~~ | **해소** (Phase 3): 사이드바 "최근 대화" 세션 목록 + FTS 검색으로 직전 세션 상시 노출 — 별도 정책 불요. |
+| OQ9 | Claude 도구 권한 정책 — SDK `options.permissionMode` / `options.canUseTool` 콜백 / `options.disallowedTools` 의 MVP **기본값**? | [`claude-code-spec.md`](./claude-code-spec.md) §5 참조. **부분 진전**: 도구 승인 오버레이(`canUseTool` RISKY_TOOLS 게이트, 0022) + workspace guard(PreToolUse hook·permissionMode, 0075) 구현됨. **기본 정책값(사전승인 범위·`acceptEdits` 기본 여부)은 여전히 미정** ([arch/backend/adapters.md](arch/backend/adapters.md) §1.7). |
 | OQ10 | 어댑터 `tool_use.name` / `tool_use.input` 정규화 정책 — claude vs opencode 도구명 차이 해소? | 후보: (a) raw 그대로 전달 + Renderer 가 도구명 매핑 (b) 어댑터에서 공통 vocabulary (`read`/`write`/`shell`/`edit`/`grep`) 정규화 + raw 는 메타 (c) raw + Renderer 아이콘 패턴 매칭. Phase 3 단일 백엔드 운영에서는 의미 없음 — opencode 어댑터 활성화 PR 에서 결정. TRD §10 anchor. |
 
 ---
@@ -284,7 +286,7 @@ Renderer (UI) → Electron IPC → `SessionAdapter` → `ClaudeCodeAdapter` 또�
 | `docs/etc/llm-chat-desktop-strategy.md` | 백엔드 / 어댑터 / 세션 / 설치 (§§2–11 핵심 입력) |
 | `docs/ARCHITECTURE.md` | Renderer 구조·상태 관리 (Zustand 채택 §4.4)·도메인 화면 카탈로그 |
 | `docs/ARCHITECTURE.md` | Main 구조·SessionAdapter §4·영속성 §6 (로컬 DB + FS)·자격증명 §8.4 |
-| `docs/IPC_CONTRACT.md` | Main ↔ Renderer 채널 SSOT (11 채널, ChatEvent variant, ErrorCode) |
+| `docs/IPC_CONTRACT.md` | Main ↔ Renderer 채널 SSOT (총 64 채널, NormalizedEvent variant, ErrorCategory) |
 | `docs/GLOSSARY.md` | 용어 단일 출처 (Session / Backend / SessionAdapter / Artifact / Credential 등, 사용 금지 어휘) |
 | `docs/claude-code-spec.md` | Claude Code CLI 공식 스펙 미러 (§7.2~7.4, OQ9 의 참조점) |
 | `chats/chat1.md` | 디자인 의도 트랜스크립트 (§4 페르소나, §10 디자인 톤) |

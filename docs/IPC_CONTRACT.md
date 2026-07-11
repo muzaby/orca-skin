@@ -2,13 +2,13 @@
 
 > 이 문서는 Main ↔ Renderer 간 IPC 채널의 **단일 진실 공급원 (SSOT)** 이다.
 > 채널을 추가/변경할 때는 코드와 이 문서를 함께 갱신한다.
-> 최종 업데이트: 2026-06-23 (handoff 0039 — composer attachments/concurrency)
+> 최종 업데이트: 2026-07-11 (handoff 0095 — §2.4 Settings 17 키·notify 도메인 분포 정합·§2.13 wireLog. 채널 자체는 0090 engine:importUserSettings 이 마지막 추가)
 > 관련 문서: [ARCHITECTURE.md](ARCHITECTURE.md), [ARCHITECTURE.md](ARCHITECTURE.md), [GLOSSARY.md](./GLOSSARY.md), [TRD.md](./TRD.md) §5
 
 ## 1. 명명 규칙
 
 - 형식: `orca:<domain>:<action>` — 소문자 + 콜론 구분
-- 도메인 (18개): `chat`, `backend`, `agent`, `engine`, `install`, `update`, `settings`, `skills`, `files`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `concurrency`, `permission`, `debug`(dev 전용)
+- 도메인 (20개): `chat`, `boot`, `backend`, `agent`, `engine`, `install`, `update`, `settings`, `skills`, `files`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `concurrency`, `permission`, `notify`, `debug`(dev 전용)
 - 방향:
   - Renderer → Main 요청: `ipcMain.handle` + `ipcRenderer.invoke` (Promise 반환)
   - Main → Renderer 이벤트: `webContents.send` + `ipcRenderer.on` (단방향 push)
@@ -22,7 +22,7 @@
 
 ## 2. 채널 카탈로그 (총 64 채널)
 
-도메인별 분포: `chat` 5 (`send` · `event` · `cancel` · `stopSubagent` · `steerCancel`) · `boot` 1 (`report`) · `backend` 1 · `agent` 1 · `engine` 5 · `install` 2 · `update` 6 · `settings` 2 · `skills` 7 · `files` 5 · `session` 6 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `cost` 4 · `concurrency` 1 · `permission` 2 (`respond` · `setMode`) · `debug` 2 (dev 전용 — `getMock` · `setMock`).
+도메인별 분포: `chat` 5 (`send` · `event` · `cancel` · `stopSubagent` · `steerCancel`) · `boot` 1 (`report`) · `backend` 1 · `agent` 1 · `engine` 5 · `install` 2 · `update` 6 · `settings` 2 · `skills` 7 · `files` 5 · `session` 6 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `cost` 4 · `concurrency` 1 · `permission` 2 (`respond` · `setMode`) · `notify` 1 (`show` — §2.12-c) · `debug` 2 (dev 전용 — `getMock` · `setMock`) = **64**.
 
 `app/src/shared/ipc.ts` 의 `CHANNELS` 상수와 1:1 일치. **단, `debug` 2채널은 `import.meta.env.DEV` 일 때만 `ipcMain.handle` 로 등록된다** (CHANNELS 상수 문자열은 상존하나 prod 핸들러 미등록 — §2.13 참조).
 
@@ -32,7 +32,7 @@
 | ------------------ | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `orca:chat:send`   | R→M (invoke) | `SendChatMessage` = `{ sessionId: string \| null; projectId: string \| null; text: string; permissionMode?; providerKey?: string \| null; modelFamily?: string \| null; effort?: 'low' \| 'medium' \| 'high' \| 'xhigh' \| 'max'; attachments?: ComposerAttachment[]; attachmentViews?: AttachmentView[]; cwd?: string \| null; forkFrom?: string; handoffFrom?: string; clientKey?: string; clientRequestId?: string }` | `Promise<void>` (ack) | **모든 사용자 프롬프트의 단일 입구(0067)** — 메시지는 세션별 pending message queue 에 적재된 뒤 main 이 세션 상태로 주입을 판정한다: **유휴(idle)** 면 즉시 아이템 배치로 flush(스폰 초기 프롬프트 또는 장수명 채널 `pushTurn`), **진행 중(busy)** 이면 예약(held — 구 `chat:steer` 흡수, `capability_unsupported` 는 steer 미지원 백엔드). 커밋(user row 영속·preview·renderer 승격)은 **echo 관측 단일 경로**(`message.committed`) — send 시점 선영속은 없다. `clientRequestId` = pending 아이템 id(낙관 버블·echo 커밋 상관키), `clientKey` = 새 세션의 세션-이전 큐/라우팅 키(draft UUID — init 에서 실 id 로 rekey, 절대 영속 금지). `effort` 는 SDK `Options.effort` per-turn(스폰 시에만 — 변경은 respawn 경계). 첨부 2종·cwd·fork/handoff 의미는 종전과 동일(0064). 새-채팅 슬롯의 중복 send race 만 `error` 로 거부 — **같은 세션의 busy send 는 거부가 아니라 예약이다**. |
 | `orca:chat:steerCancel` | R→M (invoke) | `CancelSteer` = `{ sessionId: string; id: string }` | `Promise<void>` | held(주입 전) pending 메시지 1건을 취소한다 — 응답으로 `message.cancelled(ids:[id])` 가 나간다. 이미 flush(stdin 주입)된 항목은 거부(무이벤트)되고 이후 echo 커밋이 버블을 복원한다(D3 정직 화해). renderer hover 취소는 낙관 제거+draft 복원. |
-| `orca:chat:event`  | M→R (send)   | —                                                                                                                                                                                                                                   | `ChatEvent` (반복)    | 어댑터 정규화 스트림. variant 정의는 §3 참조.                                                                                                                                                                                                                                                                                        |
+| `orca:chat:event`  | M→R (send)   | —                                                                                                                                                                                                                                   | `NormalizedEvent` (반복) | 어댑터 정규화 스트림. variant 정의는 §3 참조.                                                                                                                                                                                                                                                                                        |
 | `orca:chat:cancel` | R→M (invoke) | `CancelChat` = `{ sessionId: string }`                                                                                                                                                                                              | `Promise<void>`       | 진행 중 요청 취소 (`AbortSignal` 전파).                                                                                                                                                                                                                                                                                              |
 | `orca:chat:stopSubagent` | R→M (invoke) | `StopSubagent` = `{ sessionId: string; toolUseId: string }`                                                                                                                                                            | `Promise<void>`       | 서브에이전트(Task) **단위** 중단(턴 전체 취소 아님). main 이 `toolUseId`→SDK `task_id`(subagent.task 이벤트에서 누적)를 찾아 `query.stopTask(taskId)` 호출(foreground 거부 시 `backgroundTasks(toolUseId)` 후 재시도). UI 전이는 SDK 의 `task_notification status:'stopped'` → `subagent.task(settled)` 로. |
 
@@ -94,13 +94,13 @@
 | 채널                | 방향         | 페이로드                              | 응답       | 설명                                     |
 | ------------------- | ------------ | ------------------------------------- | ---------- | ---------------------------------------- |
 | `orca:settings:get` | R→M (invoke) | —                                     | `Settings` | electron-store 의 전체 설정 객체.        |
-| `orca:settings:set` | R→M (invoke) | `SettingsPatch` = `Partial<Settings>` | `Settings` | 부분 패치 후 병합·검증된 전체 객체 반환. |
+| `orca:settings:set` | R→M (invoke) | `SettingsPatch` = `Omit<Partial<Settings>, 'scheduler'> & { scheduler?: { usageRecompute?: Partial<…> } }` (scheduler 는 중첩 partial) | `Settings` | 부분 패치 후 병합·검증된 전체 객체 반환. |
 
 `Settings` 타입 (`app/src/shared/ipc.ts`):
 
 ```typescript
 interface Settings {
-  theme: "classic" | "dark" | "cool";
+  theme: "white" | "dark";
   density: "compact" | "normal" | "comfortable";
   sidebarCollapsed: boolean;
   sidebarWidth: number; // 180–480, default 248 (Phase 3+ 도입)
@@ -115,6 +115,8 @@ interface Settings {
   accountInstructions: string; // 설정 모달 '계정 지침' textarea. 시스템 프롬프트 '# User' 헤더로 매 턴 주입. default ''
   appFont: "sans" | "serif" | "mono"; // 앱 전체 폰트 (설정 모달). --font-app 에 매핑. default 'sans'
   notifyOnComplete: boolean; // 응답완료 알림 토글. on ⇒ 턴 완료 시(창 비활성 한정) OS 알림. default false
+  spendingLimitUsd: number | null; // 월간 지출 한도(USD) — 사용량 한도 바의 기준. null=무제한. default 90 (0079)
+  scheduler: { usageRecompute: { enabled: boolean; cron: string } }; // 주기 실행 설정 — 사용량 recompute job (0091). default enabled=false
 }
 ```
 
@@ -302,8 +304,8 @@ LLM API 없이 renderer 의 스트리밍·사고 블록·도구 카드·권한 �
 
 | 채널                 | 방향         | 페이로드                                                                                       | 응답                                                                                             | 설명                                                                                                                           |
 | -------------------- | ------------ | ---------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| `orca:debug:getMock` | R→M (invoke) | —                                                                                              | `DebugMockState` = `{ enabled: boolean; scenarioId: MockScenarioId; contextUsageRatio: number }` | 현재 mock 상태 1회 조회 (패널 마운트 시 동기화).                                                                               |
-| `orca:debug:setMock` | R→M (invoke) | `Partial<DebugMockState>` (`DebugMockPatchSchema` — 세 필드 optional, `contextUsageRatio` 0~1) | `DebugMockState`                                                                                 | mock 상태 부분 패치 후 병합된 전체 반환. `enabled` 토글 시 `handleChatSend` 의 어댑터 선택이 MockAdapter ↔ 활성 어댑터로 분기. |
+| `orca:debug:getMock` | R→M (invoke) | —                                                                                              | `DebugMockState` = `{ enabled: boolean; scenarioId: MockScenarioId; contextUsageRatio: number; wireLog: boolean }` | 현재 mock 상태 1회 조회 (패널 마운트 시 동기화). `wireLog`(0025) = `NormalizedEvent` 터미널 출력 토글.                          |
+| `orca:debug:setMock` | R→M (invoke) | `Partial<DebugMockState>` (`DebugMockPatchSchema` — 네 필드 optional, `contextUsageRatio` 0~1) | `DebugMockState`                                                                                 | mock 상태 부분 패치 후 병합된 전체 반환. `enabled` 토글 시 `handleChatSend` 의 어댑터 선택이 MockAdapter ↔ 활성 어댑터로 분기. |
 
 `MockScenarioId` 13종 (`app/src/shared/ipc.ts` `MOCK_SCENARIO_IDS`): `text_streaming` · `reasoning` · `tool_calls` · `tool_approval` · `ask_question` · `plan_review` · `subagent_task` · `subagent_task_child` · `subagent_task_aborted` · `subagent_task_multi` · `subagent_task_running` · `error` · `full`. `full` 은 text/reasoning/tool_calls/tool_approval/ask_question/plan_review 를 순차 재생한 뒤 도구호출→error 점프로 종료한다(권한 2종은 approval 스텝이 라우터를 경유해 합성). 시나리오 telemetry 는 `costUsd: 0`·`model: 'mock-sonnet'`, 컨텍스트 토큰 합 = `round(contextUsageRatio × 200_000)` 로 도넛/`nearCompaction` 경고를 구동.
 
