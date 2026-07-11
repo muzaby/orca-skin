@@ -158,4 +158,4 @@
 | 실행 명령 | `npm run lint` / `npm run typecheck` / `npm test` / `node --test scripts/*.test.mjs` |
 | 게이트 결과 | lint ✅(0) / typecheck 3종 ✅ / test ✅ 818/818 passed + scripts 24/24 (2 suite fail = electron 바이너리 403 환경 제한 — 0092~0095 와 동일 베이스라인: `chat-turn.continuity`·`history/writer`, 코드 무관) |
 | 블로커 / 역질문 | 없음 |
-| 대상 커밋 | (커밋 후 기입) |
+| 대상 커밋 | `bdecef8` |
