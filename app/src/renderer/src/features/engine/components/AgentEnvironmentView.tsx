@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import type { AgentEnvironment } from '../../../../../shared/ipc'
 import { Icon } from '../../../shared/ui/Icon'
+import { uiMessageText, useI18n } from '../../../shared/i18n'
 import { EngineCard } from './EngineCard'
 import { EngineFormModal } from './EngineFormModal'
 import { useEngines } from '../hooks/useEngines'
@@ -11,6 +12,7 @@ type ModalState =
   | null
 
 export function AgentEnvironmentView(): React.JSX.Element {
+  const { tr } = useI18n()
   const { agents, state, refresh, add, update, remove, read } = useEngines()
   const [modal, setModal] = useState<ModalState>(null)
   const [loadingKey, setLoadingKey] = useState<string | null>(null)
@@ -61,7 +63,7 @@ export function AgentEnvironmentView(): React.JSX.Element {
 
       {(state.error || readError) && (
         <div className="mb-3 rounded-lg bg-bad/10 px-3 py-2 text-[12px] text-bad">
-          {state.error ?? readError}
+          {state.error ? uiMessageText(tr, state.error) : readError}
         </div>
       )}
 

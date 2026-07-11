@@ -43,6 +43,30 @@ export const ko = {
     menuAria: '세션 메뉴',
     renameAria: '세션 제목 편집'
   },
+  errors: {
+    category: {
+      provider_connection_error: '백엔드 연결 오류',
+      auth_error: '인증 오류',
+      permission_denied: '권한 거부',
+      tool_execution_error: '도구 실행 오류',
+      stream_error: '스트림 오류',
+      capability_unsupported: '지원하지 않는 기능',
+      schema_validation_error: '입력 검증 오류',
+      user_cancelled: '사용자 취소'
+    },
+    turnError: '에러: {{category}}',
+    retryable: '재시도 가능',
+    transientHint: '일시적 오류일 수 있습니다. 다시 보내보세요.',
+    retrying: '재시도 {{attempt}}/{{max}}',
+    loginFailed: '로그인에 실패했습니다. 다시 시도해 주세요.',
+    updateDownloadFailed: '업데이트 다운로드를 시작할 수 없습니다.',
+    updateInstallFailed: '업데이트 설치를 시작할 수 없습니다.',
+    agentListFailed: 'agent 목록을 불러오지 못했습니다',
+    engineMutationFailed: 'engine 작업에 실패했습니다'
+  },
+  notify: {
+    completeBody: '응답이 완료되었습니다.'
+  },
   chat: {
     titleBar: {
       renameAria: '대화 제목 편집',

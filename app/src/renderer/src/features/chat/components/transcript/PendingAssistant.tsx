@@ -2,7 +2,8 @@ import { StreamingMarkdown } from '../markdown/StreamingMarkdown'
 import { ReasoningBlock } from './ReasoningBlock'
 import { StatusLine } from '../StatusLine'
 import { useChatSession, useLiveReasoning, useLiveText } from '../../store/chatStore'
-import { errorCategoryLabel } from '../../lib/errorLabels'
+import { useI18n } from '../../../../shared/i18n'
+import { errorCategoryKey } from '../../lib/errorLabels'
 
 // 진행 중 턴의 라이브 표면 — 셸은 정적이고, 스트림 종류별 리프가 store 의 live 슬라이스를
 // 직접 구독해 델타 프레임의 재렌더를 자기 자신으로 한정한다 (0008):
@@ -39,11 +40,14 @@ function LiveStatus(): React.JSX.Element {
 }
 
 function RetryStatus(): React.JSX.Element | null {
+  const { tr } = useI18n()
   const retry = useChatSession((s) => s.retry)
   if (!retry) return null
+  const categoryKey = errorCategoryKey(retry.category)
   return (
     <div className="text-caption font-medium text-bad">
-      재시도 {retry.attempt}/{retry.max} · {errorCategoryLabel(retry.category)}
+      {tr('errors.retrying', { attempt: retry.attempt, max: retry.max })} ·{' '}
+      {categoryKey ? tr(categoryKey) : retry.category}
     </div>
   )
 }

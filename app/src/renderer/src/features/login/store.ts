@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { NavigateFunction } from 'react-router-dom'
 import { settingsApi } from '../../shared/api/ipc'
+import type { UiMessage } from '../../shared/i18n'
 import { runSso } from './sso'
 
 // SSO 로그인 게이트의 런타임 상태. `authenticated` 는 인메모리(영속 안 함) —
@@ -19,7 +20,8 @@ interface LoginStoreState {
   // bypass(=developer) 가 아닐 때 이 값을 표기한다.
   email: string | null
   status: LoginStatus
-  errorMessage: string | null
+  // 카탈로그 키(폴백) 또는 백엔드 원문 — 렌더(LoginView)에서 uiMessageText 로 해석한다.
+  errorMessage: UiMessage | null
 }
 
 export const useLoginStore = create<LoginStoreState>()(() => ({
@@ -60,7 +62,7 @@ export const loginActions = {
       setState({ authenticated: true, email, status: 'idle' })
       navigate('/new')
     } catch {
-      setState({ status: 'error', errorMessage: '로그인에 실패했습니다. 다시 시도해 주세요.' })
+      setState({ status: 'error', errorMessage: { key: 'errors.loginFailed' } })
     }
   },
 

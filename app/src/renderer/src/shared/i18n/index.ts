@@ -2,7 +2,7 @@
 // main.tsx 가 createRoot 전에 side-effect import 해 첫 렌더부터 t() 가 동작한다.
 // 언어 전환은 TweakProvider 가 settings.uiLocale 변경 시 i18n.changeLanguage 로 반영.
 
-import i18next, { type TFunction } from 'i18next'
+import i18next, { type ParseKeys, type TFunction } from 'i18next'
 import { initReactI18next, useTranslation } from 'react-i18next'
 import { ko } from './resources/ko'
 import { en } from './resources/en'
@@ -38,4 +38,17 @@ export {
 export function useI18n(): { tr: TFunction; locale: UiLocale } {
   const { t, i18n } = useTranslation()
   return { tr: t, locale: i18n.resolvedLanguage === 'en' ? 'en' : 'ko' }
+}
+
+// 카탈로그 키 타입 — 모듈 상수 라벨맵(Record<…, MessageKey>)이 키만 담고 렌더에서
+// tr() 해석하는 0096 stale-방지 패턴에 쓴다(잘못된 키 = 컴파일 에러).
+export type MessageKey = ParseKeys
+
+// store 가 만든 에러/안내처럼 "카탈로그 키(폴백)" 와 "백엔드 원문(그대로 노출)" 이 한
+// 자리에 흐를 때 쓰는 판별 유니온. 키는 렌더에서 tr() 해석되므로 언어 전환 시 표시 중인
+// 문구도 함께 갱신되고, 원문은 번역 시도 없이 통과한다(0097 D6).
+export type UiMessage = { key: MessageKey } | { raw: string }
+
+export function uiMessageText(tr: TFunction, msg: UiMessage): string {
+  return 'key' in msg ? tr(msg.key) : msg.raw
 }

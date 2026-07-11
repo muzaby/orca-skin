@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../../../shared/ui/Button'
+import { uiMessageText, useI18n } from '../../../shared/i18n'
 import { loginActions, useLoginStore } from '../store'
 import orca from '../assets/orca-login.png'
 
@@ -8,6 +9,7 @@ import orca from '../assets/orca-login.png'
 // 이며, 실패 시 버튼 위에 빨간 메시지, 수행 중에는 버튼이 inflight(스피너+"로그인 중")로 바뀐다.
 export function LoginView(): React.JSX.Element {
   const navigate = useNavigate()
+  const { tr } = useI18n()
   const status = useLoginStore((s) => s.status)
   const errorMessage = useLoginStore((s) => s.errorMessage)
   const inflight = status === 'inflight'
@@ -30,7 +32,7 @@ export function LoginView(): React.JSX.Element {
       <div className="w-full rounded-r6 border border-border bg-panel p-6 shadow-xl">
         {status === 'error' && errorMessage && (
           <p role="alert" className="mb-3 text-center text-[12.5px] text-bad">
-            {errorMessage}
+            {uiMessageText(tr, errorMessage)}
           </p>
         )}
         <Button

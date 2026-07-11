@@ -1,4 +1,5 @@
 import { Icon } from '../../../shared/ui/Icon'
+import { uiMessageText, useI18n } from '../../../shared/i18n'
 import { updateActions, useUpdateActionError, useUpdateState } from '../store/updateStore'
 
 const STATUS_LABEL: Record<string, string> = {
@@ -18,6 +19,7 @@ function primaryLabel(status: string): string {
 }
 
 export function UpdateDialog({ open }: { open: boolean }): React.JSX.Element | null {
+  const { tr } = useI18n()
   const state = useUpdateState()
   const actionError = useUpdateActionError()
   const busy = state.status === 'downloading' || state.status === 'installing'
@@ -109,7 +111,7 @@ export function UpdateDialog({ open }: { open: boolean }): React.JSX.Element | n
         )}
         {(state.error || actionError) && (
           <div className="mt-4 rounded-r5 border border-border bg-bg p-3 text-[12.5px] text-ink2">
-            {actionError ?? state.error}
+            {actionError ? uiMessageText(tr, actionError) : state.error}
           </div>
         )}
         <div className="mt-5 flex justify-end gap-2">

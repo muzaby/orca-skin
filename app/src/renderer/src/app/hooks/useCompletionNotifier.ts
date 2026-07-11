@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { useChatSession } from '../../features/chat'
 import { useTweakContext } from '../../shared/theme'
+import { useI18n } from '../../shared/i18n'
 import { notifyApi } from '../../shared/api/ipc'
 
 // 응답완료 알림 트리거(app 레이어). 활성 세션의 inflight 가 **같은 세션에서 true→false**
@@ -9,6 +10,7 @@ import { notifyApi } from '../../shared/api/ipc'
 // main(notifyShow 핸들러)이 담당하므로 여기서는 토글(notifyOnComplete)만 확인한다.
 export function useCompletionNotifier(): void {
   const { t } = useTweakContext()
+  const { tr } = useI18n()
   const inflight = useChatSession((s) => s.inflight)
   const sessionId = useChatSession((s) => s.sessionId)
   const prev = useRef<{ sessionId: string | null; inflight: boolean }>({ sessionId, inflight })
@@ -17,7 +19,7 @@ export function useCompletionNotifier(): void {
     const before = prev.current
     prev.current = { sessionId, inflight }
     if (before.sessionId === sessionId && before.inflight && !inflight && t.notifyOnComplete) {
-      void notifyApi.show({ title: 'Orca', body: '응답이 완료되었습니다.' })
+      void notifyApi.show({ title: 'Orca', body: tr('notify.completeBody') })
     }
-  }, [inflight, sessionId, t.notifyOnComplete])
+  }, [inflight, sessionId, t.notifyOnComplete, tr])
 }
