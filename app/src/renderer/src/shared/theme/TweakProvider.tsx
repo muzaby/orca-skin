@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, type ReactNode } from 'react'
 import { useTweaks, type Tweaks, type AppFontId } from '../hooks/useTweaks'
 import { DENSITY_FONT } from '../config/theme'
 import { getPlatform } from '../api/ipc'
+import { i18n } from '../i18n'
 
 // 앱 폰트 선택 → tokens.css 의 폰트 스택 var 매핑. --font-app 을 이 값으로 덮어써
 // AppLayout 루트의 [font-family:var(--font-app)] 가 전체 트리에 적용된다.
@@ -32,6 +33,12 @@ export function TweakProvider({ children }: { children: ReactNode }): React.JSX.
   useEffect(() => {
     document.documentElement.style.setProperty('--font-app', FONT_STACK[t.appFont])
   }, [t.appFont])
+
+  // UI 표시 언어(0096) — i18next 언어 전환 + <html lang> 동기화. theme 적용과 동일 패턴.
+  useEffect(() => {
+    void i18n.changeLanguage(t.uiLocale)
+    document.documentElement.lang = t.uiLocale
+  }, [t.uiLocale])
 
   // html[data-platform] 부착 — preload 가 sync 노출하므로 mount 직후 1회.
   useEffect(() => {

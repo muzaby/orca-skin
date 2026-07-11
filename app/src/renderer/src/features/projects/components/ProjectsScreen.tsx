@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Icon } from '../../../shared/ui/Icon'
 import { CreateProjectModal } from './CreateProjectModal'
-import { relativeTimeLabel } from '../../../../../shared/time/relative'
+import { formatRelativeDay, useI18n } from '../../../shared/i18n'
 import type { Project } from '../../../../../shared/ipc'
 
 interface ProjectsScreenProps {
@@ -9,18 +9,6 @@ interface ProjectsScreenProps {
   loading: boolean
   onOpenProject: (id: string) => void
   onCreate: (name: string, instructions: string) => Promise<void>
-}
-
-// "방금", "12분 전", "3시간 전", "어제", "4일 전", "5월 13일" 형식.
-// 하루 미만 구간은 shared relativeTimeLabel 사다리를 그대로 쓰고, 어제/날짜 tail 만 로컬.
-function formatRelative(updatedAt: number): string {
-  const day = Math.floor((Date.now() - updatedAt) / 86_400_000)
-  if (day < 1) return relativeTimeLabel(updatedAt)
-  if (day === 1) return '어제'
-  if (day < 7) return `${day}일 전`
-  return new Intl.DateTimeFormat('ko-KR', { month: 'long', day: 'numeric' }).format(
-    new Date(updatedAt)
-  )
 }
 
 export function ProjectsScreen({
@@ -78,6 +66,8 @@ interface ProjectCardProps {
 
 function ProjectCard({ project, onOpen }: ProjectCardProps): React.JSX.Element {
   const instructionsPreview = project.instructions.trim()
+  // "방금"→"어제"→"N일 전"→"5월 13일" 사다리 — 로케일·OS 타임존 명시 공용 포맷터(0096).
+  const { locale } = useI18n()
   return (
     <button
       type="button"
@@ -92,7 +82,7 @@ function ProjectCard({ project, onOpen }: ProjectCardProps): React.JSX.Element {
         {instructionsPreview || <span className="italic text-ink3">지침 없음</span>}
       </div>
       <div className="flex items-center border-t border-border pt-2.5 text-[11.5px] text-ink3">
-        <span className="ml-auto">{formatRelative(project.updatedAt)}</span>
+        <span className="ml-auto">{formatRelativeDay(project.updatedAt, locale)}</span>
       </div>
     </button>
   )

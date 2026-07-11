@@ -7,6 +7,12 @@ import {
 } from './settings-migration'
 
 describe('settings migration', () => {
+  it('uiLocale — 부재는 ko 기본값, 유효값(en)은 보존, 불량값은 ko 로 복구(0096)', () => {
+    expect(migrateRawSettings({}, '1.100.0').settings.uiLocale).toBe('ko')
+    expect(migrateRawSettings({ uiLocale: 'en' }, '1.100.0').settings.uiLocale).toBe('en')
+    expect(migrateRawSettings({ uiLocale: 'fr' }, '1.100.0').settings.uiLocale).toBe('ko')
+  })
+
   it('유효한 기존 설정을 보존하고 내부 버전 메타데이터를 기록한다', () => {
     const migrated = migrateRawSettings(
       {

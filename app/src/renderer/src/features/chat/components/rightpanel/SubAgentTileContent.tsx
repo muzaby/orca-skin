@@ -8,7 +8,7 @@ import {
   subagentTasksFromMessages,
   type SubagentTaskStatus
 } from '../../lib/parts'
-import { formatTimeFull, formatTimeShort } from '../../format'
+import { formatTimeFull, formatTimeShort, useI18n } from '../../../../shared/i18n'
 import { chatActions, useChatSession, useSubagentMeta } from '../../store/chatStore'
 import type { ToolCall } from '../../reducer/chatReducer'
 
@@ -89,6 +89,7 @@ export function SubAgentTileHeader(): React.JSX.Element {
 export function SubAgentTileContent(): React.JSX.Element {
   const messages = useChatSession((s) => s.messages)
   const selectedId = useChatSession((s) => s.selectedSubagentTaskId)
+  const { locale } = useI18n()
   // O(전체 parts) 파생이라 메모 — StatusLine 1s 틱 등 무관 재렌더마다 재계산하지 않는다.
   const tasks = useMemo(() => subagentTasksFromMessages(messages), [messages])
   const selected = selectedId ? tasks.find((task) => task.toolUseId === selectedId) : undefined
@@ -192,8 +193,8 @@ export function SubAgentTileContent(): React.JSX.Element {
                   <div className="mt-g1 pl-5 text-footnote text-ink3">
                     {`에이전트${GAP}${STATUS_LABEL[task.status]}`}
                     {task.durationLabel ? `${GAP}${task.durationLabel}` : ''}
-                    <span title={formatTimeFull(task.createdAtMs)}>
-                      {`${GAP}${formatTimeShort(task.createdAtMs)}`}
+                    <span title={formatTimeFull(task.createdAtMs, locale)}>
+                      {`${GAP}${formatTimeShort(task.createdAtMs, locale)}`}
                     </span>
                   </div>
                   <div className="mt-g1 flex items-center pl-5 text-footnote text-ink3">

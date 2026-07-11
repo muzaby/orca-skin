@@ -1,5 +1,6 @@
 import { Icon, type IconName } from '../../../shared/ui/Icon'
 import { Modal } from '../../../shared/ui/Modal'
+import { useI18n } from '../../../shared/i18n'
 import type { AgentEnvironment, ProviderUsageEntry } from '../../../../../shared/ipc'
 import { GeneralTab } from './GeneralTab'
 import { UsageTab } from './UsageTab'
@@ -12,10 +13,11 @@ import {
   type SettingsTabId
 } from '../store/settingsModalStore'
 
-const TABS: { id: SettingsTabId; label: string; icon: IconName }[] = [
-  { id: 'general', label: '일반', icon: 'settings' },
-  { id: 'usage', label: '사용량', icon: 'chart' }
-]
+// 라벨은 언어 전환 시 stale 해지지 않도록 키만 상수로 두고 렌더에서 t() 해석.
+const TABS = [
+  { id: 'general', labelKey: 'settings.tabs.general', icon: 'settings' },
+  { id: 'usage', labelKey: 'settings.tabs.usage', icon: 'chart' }
+] as const satisfies readonly { id: SettingsTabId; labelKey: string; icon: IconName }[]
 
 // provider별 사용량 컨트롤러(0080 항목 4). 정의는 features/cost 의 useProviderUsage 이지만,
 // 교차-feature import 회피를 위해 settings 가 구조적으로 동일한 형태를 선언(app 레이어가 주입).
@@ -43,6 +45,7 @@ export function SettingsModal({ providerUsage }: SettingsModalProps): React.JSX.
   const tab = useSettingsModalStore((s) => s.tab)
   const setTab = useSettingsModalStore((s) => s.setTab)
   const hide = useSettingsModalStore((s) => s.hide)
+  const { tr } = useI18n()
   const activeProviderKey = providerKeyFromTab(tab)
   const activeProvider = providerUsage.providers.find((p) => p.key === activeProviderKey)
 
@@ -50,12 +53,14 @@ export function SettingsModal({ providerUsage }: SettingsModalProps): React.JSX.
     <Modal
       open={open}
       onClose={hide}
-      ariaLabel="설정"
+      ariaLabel={tr('settings.title')}
       panelClassName="flex h-[600px] max-h-[85vh] w-[860px] max-w-[92vw] overflow-hidden rounded-r6 border border-border bg-panel shadow-xl"
     >
       {/* 좌: 탭 레일 */}
       <nav className="flex w-[210px] flex-none flex-col gap-1 border-r border-border bg-sidebar p-3">
-        <div className="px-2 pb-2 pt-1 font-serif text-[15px] font-semibold text-ink">설정</div>
+        <div className="px-2 pb-2 pt-1 font-serif text-[15px] font-semibold text-ink">
+          {tr('settings.title')}
+        </div>
         {TABS.map((it) => {
           const active = tab === it.id
           return (
@@ -71,7 +76,7 @@ export function SettingsModal({ providerUsage }: SettingsModalProps): React.JSX.
                 }`}
               >
                 <Icon name={it.icon} size={15} />
-                <span>{it.label}</span>
+                <span>{tr(it.labelKey)}</span>
               </button>
               {/* 사용량 하위: 구성된 provider 서브항목(0080 항목 4). 각자의 한도/설정. */}
               {it.id === 'usage' &&
@@ -104,7 +109,7 @@ export function SettingsModal({ providerUsage }: SettingsModalProps): React.JSX.
         <button
           type="button"
           onClick={hide}
-          aria-label="닫기"
+          aria-label={tr('common.close')}
           className="absolute right-3 top-3 z-10 grid h-7 w-7 cursor-pointer place-items-center rounded-r4 border-0 bg-transparent text-ink3 hover:bg-fill-uncontained-hover hover:text-ink2"
         >
           <Icon name="x" size={15} />
@@ -123,7 +128,7 @@ export function SettingsModal({ providerUsage }: SettingsModalProps): React.JSX.
           )}
           {/* provider 탭인데 해당 provider 가 목록에 없으면(삭제됨) 안내. */}
           {activeProviderKey != null && !activeProvider && (
-            <p className="text-[12.5px] text-ink3">provider 를 찾을 수 없습니다.</p>
+            <p className="text-[12.5px] text-ink3">{tr('settings.providerNotFound')}</p>
           )}
         </div>
       </div>

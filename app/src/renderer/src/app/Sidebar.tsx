@@ -3,23 +3,38 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { Icon, type IconName } from '../shared/ui/Icon'
 import { OrcaLogo } from '../shared/ui/OrcaLogo'
 import { useTweakContext } from '../shared/theme'
+import { useI18n } from '../shared/i18n'
 import { useDragResize } from '../shared/hooks/useDragResize'
 
-interface NavItem {
+// NAV 라벨은 언어 전환 시 stale 해지지 않도록 키만 상수로 두고 렌더에서 t() 해석(0096).
+// pathname prefix 매칭으로 active 판정. `/projects` 와 `/projects/:id` 모두 활성,
+// `/new` 와 `/chat/:sessionId` 모두 활성 — `isActive(pathname)` 가 그 차이를 흡수.
+const NAV = [
+  { i: 'plus', l: 'sidebar.nav.newChat', path: '/new', isActive: (p: string) => p === '/new' },
+  {
+    i: 'folder',
+    l: 'sidebar.nav.projects',
+    path: '/projects',
+    isActive: (p: string) => p.startsWith('/projects')
+  },
+  {
+    i: 'cpu',
+    l: 'sidebar.nav.engine',
+    path: '/agent',
+    isActive: (p: string) => p.startsWith('/agent')
+  },
+  {
+    i: 'layers',
+    l: 'sidebar.nav.skills',
+    path: '/skills',
+    isActive: (p: string) => p.startsWith('/skills')
+  }
+] as const satisfies readonly {
   i: IconName
   l: string
   path: string
-  // pathname prefix 매칭으로 active 판정. `/projects` 와 `/projects/:id` 모두 활성,
-  // `/new` 와 `/chat/:sessionId` 모두 활성 — `isActive(pathname)` 가 그 차이를 흡수.
   isActive: (pathname: string) => boolean
-}
-
-const NAV: NavItem[] = [
-  { i: 'plus', l: '새 대화', path: '/new', isActive: (p) => p === '/new' },
-  { i: 'folder', l: '프로젝트', path: '/projects', isActive: (p) => p.startsWith('/projects') },
-  { i: 'cpu', l: '엔진 & 모델', path: '/agent', isActive: (p) => p.startsWith('/agent') },
-  { i: 'layers', l: 'Skills & MCP', path: '/skills', isActive: (p) => p.startsWith('/skills') }
-]
+}[]
 
 // Claude Code 사이드바의 "Recents" 헤더 — sans 소문자 그대로, 연한 잉크.
 const SECTION_HEAD = 'px-3 pb-1 pt-4 text-caption font-medium text-ink3'
@@ -48,6 +63,7 @@ function SidebarImpl({ sessionsSlot, footerSlot }: SidebarProps): React.JSX.Elem
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const { t, setTweak } = useTweakContext()
+  const { tr } = useI18n()
 
   const collapsed = t.sidebarCollapsed
   const width = t.sidebarWidth
@@ -91,7 +107,7 @@ function SidebarImpl({ sessionsSlot, footerSlot }: SidebarProps): React.JSX.Elem
               <button
                 key={it.path}
                 onClick={() => navigate(it.path)}
-                aria-label={it.l}
+                aria-label={tr(it.l)}
                 aria-current={isActive ? 'page' : undefined}
                 className={`flex items-center justify-center rounded-r4 border-0 px-2.5 py-1.5 outline-none hide-focus-ring ring-focus transition-colors ${
                   isActive
@@ -143,13 +159,13 @@ function SidebarImpl({ sessionsSlot, footerSlot }: SidebarProps): React.JSX.Elem
                   }`}
                 >
                   <Icon name={it.i} size={14} />
-                  <span>{it.l}</span>
+                  <span>{tr(it.l)}</span>
                 </button>
               )
             })}
           </nav>
 
-          <div className={SECTION_HEAD}>최근 대화</div>
+          <div className={SECTION_HEAD}>{tr('sidebar.recents')}</div>
           <div className="app-frame-sidebar-sessions flex-1 overflow-y-auto px-1.5 pt-1">
             {sessionsSlot}
           </div>
@@ -172,7 +188,7 @@ function SidebarImpl({ sessionsSlot, footerSlot }: SidebarProps): React.JSX.Elem
         data-context="sidebar"
         data-state="visible"
         onMouseDown={startResize}
-        aria-label="Resize sidebar"
+        aria-label={tr('sidebar.resizeAria')}
       >
         <span
           aria-hidden

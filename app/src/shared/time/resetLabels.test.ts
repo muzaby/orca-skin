@@ -16,4 +16,9 @@ describe('resetLabels', () => {
       `(${['일', '월', '화', '수', '목', '금', '토'][new Date(2027, 0, 1).getDay()]}) 1월 1일에 재설정`
     )
   })
+
+  it("locale='en' — 같은 경계, 영어 문구", () => {
+    expect(weekResetLabel(new Date(2026, 6, 8), 'en')).toBe('Resets (Mon) at 12:00 AM')
+    expect(monthResetLabel(new Date(2026, 6, 20), 'en')).toBe('Resets (Sat) Aug 1')
+  })
 })

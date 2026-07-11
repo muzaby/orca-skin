@@ -114,7 +114,7 @@ v1 의 기능 표면은 P2 만으로도 충분히 커버 가능하다. P1 의 �
 | 스타일링 | **Tailwind CSS** | TRD §4 채택. 디자인 토큰은 §10 CSS 커스텀 프로퍼티 그대로, 컴포넌트 클래스만 Tailwind 유틸리티 |
 | LLM 백엔드 SDK (Claude) | **`@anthropic-ai/claude-agent-sdk`** (Phase 3 채택, 2026-05-18) | 진입점 `query()`, 세션 재개 `options.resume`, 토큰 스트리밍 `options.includePartialMessages`. TRD §4·§7.1, [`claude-code-spec.md §10`](./claude-code-spec.md) |
 | 상태 관리 (Renderer) | **Zustand 전환 완료** (0008 chat 선행 + 0013 전면 — feature별 store + chat `sessions: Record` 외피) | 순수 `chatReducer` 유지 + store 가 키 라우팅. 외부 dispatch (`receive(ev)`). 상세 [arch/frontend/state.md](arch/frontend/state.md) §1 |
-| 영속화 | **구현 완료**: `electron-store` (17 키 — TRD §6.7) + 로컬 DB better-sqlite3 (마이그레이션 13종, 메시지·세션 SSOT). **잔여**: `<userData>/artifacts/` FS (Artifact) | 상세 [arch/backend/persistence.md](arch/backend/persistence.md) |
+| 영속화 | **구현 완료**: `electron-store` (18 키 — TRD §6.7) + 로컬 DB better-sqlite3 (마이그레이션 13종, 메시지·세션 SSOT). **잔여**: `<userData>/artifacts/` FS (Artifact) | 상세 [arch/backend/persistence.md](arch/backend/persistence.md) |
 | 자격증명 | **현재**: SDK 가 `~/.claude` 자동 사용 + MCP 인증 비밀은 safeStorage secret-store **구현 완료**. **잔여**: 어댑터별 base URL + API key 저장 | [arch/backend/security.md](arch/backend/security.md) §1.4 |
 
 ### 7.2 CLI 연결 패턴 (전략 §3)

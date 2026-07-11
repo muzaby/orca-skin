@@ -2,6 +2,7 @@ import type { ProviderReportedTelemetry } from '../../../../../shared/ipc'
 import type { UsageLimitsView, UsageLimitBar } from '../../../../../shared/usage/limits'
 import { Icon } from '../../../shared/ui/Icon'
 import { Meter } from '../../../shared/ui/Meter'
+import { useI18n } from '../../../shared/i18n'
 import { contextTokens } from '../lib/telemetry'
 import { contextWindowFor, nearCompaction } from '../lib/contextWindow'
 
@@ -31,13 +32,14 @@ export function UsagePanel({
   const ratio = used / window
   const pct = Math.round(ratio * 100)
   const warn = nearCompaction(used, window)
+  const { tr } = useI18n()
 
   return (
     <div className="flex w-[280px] flex-col gap-2.5 p-3" data-context="usage-panel">
       {/* 컨텍스트 창 */}
       <div className="flex flex-col gap-1.5">
         <div className="flex items-baseline justify-between gap-3">
-          <span className="text-caption text-t6">컨텍스트 창</span>
+          <span className="text-caption text-t6">{tr('usage.contextWindow')}</span>
           <span className="text-caption tabular-nums text-ink2">
             {fmtTokens(used)}/{fmtTokens(window)}
             <span className="ml-1.5 text-ink">{pct}%</span>
@@ -53,19 +55,19 @@ export function UsagePanel({
           {/* 사용량 한도 헤더 — 라벨은 정적 텍스트, 우측 `>` 버튼만 설정 사용량으로 이동
               (사용자 피드백 0080: 클릭 영역을 `>` 로 한정). */}
           <div className="flex items-center justify-between gap-2">
-            <span className="text-caption font-medium text-t6">사용량 한도</span>
+            <span className="text-caption font-medium text-t6">{tr('usage.usageLimit')}</span>
             <button
               type="button"
               onClick={onOpenUsageSettings}
               className="grid h-5 w-5 place-items-center rounded-r4 text-ink hover:bg-fill-uncontained-hover"
-              aria-label="사용량 한도 설정 열기"
+              aria-label={tr('usage.openUsageSettingsAria')}
             >
               <Icon name="chevR" size={13} />
             </button>
           </div>
 
-          <LimitRow label="주간" bar={usageLimits.week} />
-          <LimitRow label="월간" bar={usageLimits.month} />
+          <LimitRow label={tr('usage.weekly')} bar={usageLimits.week} />
+          <LimitRow label={tr('usage.monthly')} bar={usageLimits.month} />
         </>
       )}
     </div>
@@ -73,6 +75,7 @@ export function UsagePanel({
 }
 
 function LimitRow({ label, bar }: { label: string; bar: UsageLimitBar }): React.JSX.Element {
+  const { tr } = useI18n()
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-baseline justify-between gap-2">
@@ -81,7 +84,7 @@ function LimitRow({ label, bar }: { label: string; bar: UsageLimitBar }): React.
           {bar.resetLabel}
         </span>
         <span className="flex-none text-caption tabular-nums text-ink">
-          {bar.unlimited ? '무제한' : `${Math.round(bar.pct * 100)}%`}
+          {bar.unlimited ? tr('common.unlimited') : `${Math.round(bar.pct * 100)}%`}
         </span>
       </div>
       <Meter ratio={bar.unlimited ? 0 : bar.pct} tone={bar.unlimited ? 'muted' : undefined} />

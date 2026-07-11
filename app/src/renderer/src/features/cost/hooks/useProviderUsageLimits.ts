@@ -7,6 +7,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { ProviderUsageEntry } from '../../../../../shared/ipc'
 import { computeUsageLimits, type UsageLimitsView } from '../../../../../shared/usage/limits'
 import { costApi } from '../../../shared/api/ipc'
+import { useI18n } from '../../../shared/i18n'
 import { useUsageLimits } from './useUsageLimits'
 import { useCostStore } from '../store/costStore'
 
@@ -14,6 +15,7 @@ export function useProviderUsageLimits(
   providerKey: string | null | undefined
 ): UsageLimitsView | null {
   const global = useUsageLimits()
+  const { locale } = useI18n()
   // 턴 종료 등으로 전역 summary 가 갱신된 시각 — provider 엔트리 재조회 트리거.
   const lastUpdatedAt = useCostStore((s) => s.lastUpdatedAt)
   const [entry, setEntry] = useState<ProviderUsageEntry | null>(null)
@@ -33,8 +35,8 @@ export function useProviderUsageLimits(
   return useMemo(() => {
     // providerKey 전환 직후 조회 대기 중엔 이전 provider 엔트리를 쓰지 않고 전역으로 폴백.
     if (providerKey && entry && entry.providerKey === providerKey) {
-      return computeUsageLimits(entry.summary, entry.limitUsd)
+      return computeUsageLimits(entry.summary, entry.limitUsd, undefined, locale)
     }
     return global
-  }, [providerKey, entry, global])
+  }, [providerKey, entry, global, locale])
 }

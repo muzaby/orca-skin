@@ -27,4 +27,14 @@ describe('relativeTimeLabel', () => {
     expect(relativeTimeLabel(now - 24 * 60 * 60_000, now)).toBe('1일 전')
     expect(relativeTimeLabel(now - 3 * 24 * 60 * 60_000, now)).toBe('3일 전')
   })
+
+  it("locale='en' — 영어 라벨 + 단복수", () => {
+    expect(relativeTimeLabel(now, now, 'en')).toBe('just now')
+    expect(relativeTimeLabel(now - 60_000, now, 'en')).toBe('1 minute ago')
+    expect(relativeTimeLabel(now - 5 * 60_000, now, 'en')).toBe('5 minutes ago')
+    expect(relativeTimeLabel(now - 60 * 60_000, now, 'en')).toBe('1 hour ago')
+    expect(relativeTimeLabel(now - 23 * 60 * 60_000, now, 'en')).toBe('23 hours ago')
+    expect(relativeTimeLabel(now - 24 * 60 * 60_000, now, 'en')).toBe('1 day ago')
+    expect(relativeTimeLabel(now - 3 * 24 * 60 * 60_000, now, 'en')).toBe('3 days ago')
+  })
 })

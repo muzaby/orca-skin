@@ -1,6 +1,6 @@
 import { Button } from '../../../../shared/ui/Button'
 import { CopyIconButton } from '../../../../shared/ui/CopyIconButton'
-import { formatTimeFull, formatTimeShort } from '../../format'
+import { formatTimeFull, formatTimeShort, useI18n } from '../../../../shared/i18n'
 import { chatActions, useChatSession } from '../../store/chatStore'
 
 interface MessageMetaProps {
@@ -19,6 +19,7 @@ export function MessageMeta({
 }: MessageMetaProps): React.JSX.Element {
   // fork 는 확정 세션에서만 — 미전송 draft/새 채팅(sessionId=null)이나 로딩 중엔 숨긴다.
   const canFork = useChatSession((s) => s.sessionId != null && !s.loadingSession)
+  const { locale } = useI18n()
   return (
     <div
       className={`mt-1 flex items-center gap-1 text-t6 opacity-0 transition-opacity duration-200 group-hover/msg:opacity-100 focus-within:opacity-100 ${
@@ -37,8 +38,11 @@ export function MessageMeta({
           aria-label="여기서 분기"
         />
       )}
-      <span className="font-mono text-caption tabular-nums" title={formatTimeFull(createdAt)}>
-        {formatTimeShort(createdAt)}
+      <span
+        className="font-mono text-caption tabular-nums"
+        title={formatTimeFull(createdAt, locale)}
+      >
+        {formatTimeShort(createdAt, locale)}
       </span>
     </div>
   )

@@ -422,9 +422,12 @@ export const SettingsSchema = z.object({
   mcpMeta: z.record(z.string(), z.object({ description: z.string().default('') })).default({}),
   skillEnabled: z.record(z.string(), z.boolean()).default({}),
   ssoBypass: z.boolean().default(false),
-  // 선호 언어 — 사용자 버튼 언어 플라이아웃의 선택값. 시스템 프롬프트 '# User' 헤더의
-  // Preferred language 로 매 턴 주입된다(ExtensionBuilder). 현재 UI 는 한국어만 선택 가능.
+  // 선호 언어 — LLM 응답 언어. 시스템 프롬프트 '# User' 헤더의 Preferred language 로
+  // 매 턴 주입된다(ExtensionBuilder). UI 표시 언어(uiLocale)와 별개 개념.
   language: z.string().default('한국어'),
+  // UI 표시 언어(앱 크롬 로케일, 0096) — 렌더러 i18n 카탈로그(ko/en)와 날짜/시간 포맷
+  // 로케일을 결정한다. 타임존은 설정이 아니다 — 항상 OS 로컬 타임존을 따른다.
+  uiLocale: z.enum(['ko', 'en']).catch('ko').default('ko'),
   // 계정 지침 — 설정 모달 '프로필' 그룹의 textarea. 시스템 프롬프트 '# User' 헤더의
   // Account instructions 로 매 턴 주입된다(ExtensionBuilder).
   accountInstructions: z.string().default(''),
@@ -452,6 +455,7 @@ export const SettingsPatchSchema = z
     skillEnabled: z.record(z.string(), z.boolean()),
     ssoBypass: z.boolean(),
     language: z.string(),
+    uiLocale: z.enum(['ko', 'en']),
     accountInstructions: z.string(),
     appFont: z.enum(['sans', 'serif', 'mono']),
     notifyOnComplete: z.boolean(),
