@@ -93,4 +93,4 @@ $ git log -1 --format=%B | git interpret-trailers --parse                 # → 
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
-| D1 | `docs/IPC_CONTRACT.md` §2.4 `Settings` 타입 블록 stale — `theme: "classic"\|"dark"\|"cool"`(실제 `white\|dark`), `spendingLimitUsd`·`scheduler` 키 누락 | 구현자 코멘트 #2 / verify r1 | IPC_CONTRACT 는 SSOT + §6 변경 절차 대상이라 본 핸드오프 비범위 — 사용자 승인 시 소규모 후속(트리비얼 카브아웃 또는 신규 핸드오프)으로 §2.4 블록만 현행화 | open |
+| D1 | `docs/IPC_CONTRACT.md` §2.4 `Settings` 타입 블록 stale — `theme: "classic"\|"dark"\|"cool"`(실제 `white\|dark`), `spendingLimitUsd`·`scheduler` 키 누락 | 구현자 코멘트 #2 / verify r1 | IPC_CONTRACT 는 SSOT + §6 변경 절차 대상이라 본 핸드오프 비범위 — 사용자 승인 시 소규모 후속으로 §2.4 블록만 현행화 | **해결 (0095)** — 사용자가 docs/ 코어 동기화를 요청해 `0095-docs-core-sync` 가 §2.4(17 키·white/dark·SettingsPatch shape) + notify 도메인 분포 정합까지 현행화 |
