@@ -11,6 +11,7 @@ import migration0008 from '../../infra/db/migrations/0008_provider_key.sql?raw'
 import migration0009 from '../../infra/db/migrations/0009_message_complete.sql?raw'
 import migration0010 from '../../infra/db/migrations/0010_session_cwd.sql?raw'
 import migration0011 from '../../infra/db/migrations/0011_session_lineage.sql?raw'
+import migration0014 from '../../infra/db/migrations/0014_provider_usage_report_cache.sql?raw'
 import migration0012 from '../../infra/db/migrations/0012_provider_limits.sql?raw'
 import { DbQueries } from '../../infra/db/queries'
 import { ExtensionBuilder } from './builder'
@@ -41,7 +42,8 @@ function seedDb(): DbQueries {
     migration0009,
     migration0010,
     migration0011,
-    migration0012
+    migration0012,
+    migration0014
   ])
     db.exec(sql)
   return new DbQueries(db)

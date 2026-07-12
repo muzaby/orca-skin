@@ -199,24 +199,28 @@ Orca 는 provider 를 파일시스템 디렉토리 트리로만 정의하고(동
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- 동의 / 그대로 진행: …
-- 이견 / 우려: …
+- 동의 / 그대로 진행: 정적 provider를 코드 정의로 두고, 부팅 시 `sources/settings/<adapter>/<provider>/settings.json`을 materialize해 기존 디렉터리 SSOT 열거를 유지하는 방향으로 구현했다. 외부 API는 correction이 아니라 authoritative `ExternalUsageReport`로 명명했고, API 제공 해상도(`quota`/`totals`/`byModel`)가 환경마다 다른 점을 optional section으로 수용했다.
+- 이견 / 우려: 원 plan의 `Correction*` 네이밍과 `summary.month.totalCostUsd` override는 제품 의미와 맞지 않아 변경했다. `ProviderUsageEntry.summary`는 Orca 내부 `turn_usage` 기준으로 유지하고, 도넛/설정 provider 서브탭의 한도·잔량 계산에는 `effectiveLimit`만 사용한다. 또한 `app/src/main/static-providers` 최상위 디렉터리는 boundary 위반 가능성이 있어 `features/providers/static` + `contracts/usage-report` + `features/usage` 조합으로 배치했다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 구현함 / ⚠️ 보고만·**결정 필요** | … |
+| 1 | `app/src/main/static-providers` 신규 최상위 디렉터리 boundary 리스크 | ✅ 구현함 — 정적 provider materializer는 `features/providers/static`, usage report 계약은 `contracts/usage-report`, fetch/cache 서비스는 `features/usage`에 배치 | main DAG·feature 교차 import 금지 준수 |
+| 2 | `Correction` 네이밍이 API authoritative 의미를 훼손 | ✅ 구현함 — `ExternalUsageProvider`/`fetchUsageReport`/`ExternalUsageReport`/`UsageReportConfig`/`provider_usage_report_cache`로 명명 | 사용자 확정: API가 진실이며 제공 해상도만 다름 |
+| 3 | 외부 값으로 로컬 `summary`를 덮어쓰면 도넛·provider 서브탭 표시 의미가 왜곡 | ✅ 구현함 — `summary`는 로컬 유지, `effectiveLimit`에 외부 `quota.usedUsd/limitUsd/remainingUsd`를 반영 | 사용자 확정: 집계 표시는 현재 유지, 한도·잔량만 보정 |
+| 4 | 정적 provider가 `sources/settings`에 없으면 기존 registry/UI에 노출되지 않음 | ✅ 구현함 — bedrock/vertex/custom 기본 `settings.json`을 부팅 시 존재 보장하되 정상 사용자 편집은 덮어쓰지 않음 | 기존 provider registry의 디렉터리 SSOT 유지 |
+| 5 | `npm test`의 quoted glob이 현재 Node 실행 환경에서 scripts 테스트를 찾지 못함 | ✅ 구현함 — package script를 `node --test scripts/*.test.mjs`로 조정 | 게이트가 실제 스크립트 테스트 24개를 실행하도록 수정 |
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` |
-| 게이트 결과 | lint ✅ / typecheck ✅ / test ✅ (N passed) |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | `app/src/shared/ipc.ts`, `app/src/shared/protocol.ts`, `app/src/main/contracts/usage-report.ts`, `app/src/main/features/providers/static/index.ts`, `app/src/main/features/usage/{external-usage,external-usage-service,http-usage-report}.ts`, `app/src/main/infra/db/migrations/0014_provider_usage_report_cache.sql`, `app/src/main/infra/db/{migrate,queries,types}.ts`, `app/src/main/app/{bootstrap,context,handlers/misc}.ts`, `app/src/preload/index.ts`, renderer cost/settings hooks, 관련 테스트, `docs/IPC_CONTRACT.md`, `app/package.json` |
+| 실행 명령 | `npm run lint` / `npm run typecheck` / `npm test` |
+| 게이트 결과 | lint ✅ / typecheck ✅ / test ✅ (Vitest 826 + node:test 24 passed) |
+| 블로커 / 역질문 | 없음. 실 bedrock/vertex/custom API endpoint·인증·응답 매핑은 비범위라 정적 provider settings materialize와 report framework만 제공. |
+| 대상 커밋 | `HEAD` |
 
 ---
 

@@ -251,13 +251,14 @@ interface McpServer {
 
 ### 2.12 Cost (Phase 3++)
 
-일/주/월 비용·토큰 누적 summary. Main 의 `CostTracker` 가 `turn_usage.created_at` 기준 SQL `SUM` 으로 재계산하고, Renderer 는 costStore 미러 + 설정 사용량 UI 에서 참조한다. provider별(0080) 은 `turn_usage ⨝ sessions.provider_key` 로 귀속·집계하고, provider별 월 한도는 `provider_limits` 테이블에 영속한다.
+일/주/월 비용·토큰 누적 summary. Main 의 `CostTracker` 가 `turn_usage.created_at` 기준 SQL `SUM` 으로 재계산하고, Renderer 는 costStore 미러 + 설정 사용량 UI 에서 참조한다. provider별(0080) 은 `turn_usage ⨝ sessions.provider_key` 로 귀속·집계하고, provider별 월 한도는 `provider_limits` 테이블에 영속한다. 0098부터 provider/gateway API가 제공하는 authoritative usage report는 `provider_usage_report_cache`에 최신값만 저장하며, 로컬 `summary`를 덮어쓰지 않고 도넛·provider 서브탭의 한도/잔량 계산용 `effectiveLimit`에만 반영한다.
 
 | 채널                            | 방향         | 페이로드                                | 응답                   | 설명                                                                                                                       |
 | ------------------------------- | ------------ | --------------------------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | `orca:cost:summary`             | R→M (invoke) | —                                       | `CostSummary`          | 조회 시 `recompute()` 로 최신 일/주/월 비용·토큰 누적값을 반환한다(설정 사용량 동기화 버튼이 최신값을 받도록, 0080 항목 2). |
 | `orca:cost:summaryEvent`        | M→R (send)   | `CostSummary`                           | —                      | telemetry 저장 직후 `CostTracker.recordAndBroadcast()` 가 모든 창에 push 하는 summary 갱신 이벤트.                          |
-| `orca:cost:providerSummaries`   | R→M (invoke) | `{ providerKeys: string[] }`            | `ProviderUsageEntry[]` | provider key 마다 실사용 summary + 월 한도를 묶어 반환(0080 항목 4). 미설정 한도는 null.                                    |
+| `orca:cost:providerSummaries`   | R→M (invoke) | `{ providerKeys: string[] }`            | `ProviderUsageEntry[]` | provider key 마다 로컬 summary + 적용 한도 + 외부 API report 파생 `effectiveLimit`을 묶어 반환한다.                         |
+| `orca:cost:refreshProviderUsageReport` | R→M (invoke) | `{ providerKey: string }` | `ProviderUsageEntry` | 정적 provider 모듈의 external usage provider/config를 호출해 authoritative report를 fetch·영속하고 갱신 엔트리를 반환한다. 실패/미지원 시 마지막 cache 또는 로컬 한도로 폴백한다. |
 | `orca:cost:setProviderLimit`    | R→M (invoke) | `{ providerKey: string; limitUsd: number \| null }` | `ProviderUsageEntry`   | provider별 월 한도를 upsert 하고 갱신된 엔트리를 반환한다(즉시 반영).                                                       |
 
 `CostSummary` 타입 (`app/src/shared/ipc.ts`):
@@ -276,11 +277,36 @@ interface CostSummary {
   month: CostPeriodSummary;
   updatedAt: number;
 }
-// provider별 사용량(0080 항목 4) — providerKey(=agent key)별 실사용 summary + 월 한도.
+interface UsageQuota {
+  limitUsd?: number | null;
+  usedUsd?: number;
+  remainingUsd?: number | null;
+}
+interface ExternalUsageReport {
+  providerKey: string;
+  fetchedAt: number;
+  asOf?: number;
+  source: 'external';
+  scope?: 'provider-account' | 'organization' | 'workspace' | 'project' | 'user' | 'unknown';
+  quota?: UsageQuota;
+  totals?: Partial<CostPeriodSummary & { costUsd: number }>;
+  byModel?: { model: string; totals: Partial<CostPeriodSummary & { costUsd: number }> }[];
+}
+interface EffectiveUsageLimitView {
+  source: 'local' | 'external';
+  usedUsd: number;
+  limitUsd: number | null;
+  remainingUsd: number | null;
+  fetchedAt?: number;
+  asOf?: number;
+  stale?: boolean;
+}
 interface ProviderUsageEntry {
   providerKey: string;
-  summary: CostSummary;
-  limitUsd: number | null;
+  summary: CostSummary; // Orca 내부 turn_usage 기준, 외부 report로 덮어쓰지 않음
+  limitUsd: number | null; // 적용 한도(외부 report quota.limitUsd 우선, 없으면 provider_limits)
+  externalReport?: ExternalUsageReport;
+  effectiveLimit: EffectiveUsageLimitView; // 도넛/provider 서브탭 한도·잔량 계산 입력
 }
 ```
 
