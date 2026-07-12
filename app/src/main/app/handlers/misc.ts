@@ -9,6 +9,7 @@ import {
   NotifyShowSchema,
   OpenPathRequestSchema,
   ProviderSummariesRequestSchema,
+  RefreshProviderUsageReportSchema,
   ReadAttachmentRequestSchema,
   SetProviderLimitSchema,
   SetSkillEnabledSchema,
@@ -246,11 +247,27 @@ export function registerMiscHandlers(ctx: RouterContext): void {
     ProviderSummariesRequestSchema,
     { fallback: [] as ProviderUsageEntry[] },
     (req): ProviderUsageEntry[] =>
-      req.providerKeys.map((providerKey) => ({
-        providerKey,
-        summary: ctx.cost.providerSummary(providerKey),
-        limitUsd: ctx.db.getProviderLimit(providerKey)
-      }))
+      req.providerKeys.map((providerKey) =>
+        ctx.externalUsage.entry(
+          providerKey,
+          ctx.cost.providerSummary(providerKey),
+          ctx.db.getProviderLimit(providerKey)
+        )
+      )
+  )
+
+  handle(
+    CHANNELS.costRefreshProviderUsageReport,
+    RefreshProviderUsageReportSchema,
+    'reject',
+    async (req): Promise<ProviderUsageEntry> => {
+      await ctx.externalUsage.refresh(req.providerKey)
+      return ctx.externalUsage.entry(
+        req.providerKey,
+        ctx.cost.providerSummary(req.providerKey),
+        ctx.db.getProviderLimit(req.providerKey)
+      )
+    }
   )
 
   // provider별 월 한도 설정 — 저장 후 갱신된 엔트리를 되돌려준다(즉시 반영).
@@ -260,11 +277,11 @@ export function registerMiscHandlers(ctx: RouterContext): void {
     'reject',
     (req): ProviderUsageEntry => {
       ctx.db.setProviderLimit(req.providerKey, req.limitUsd, Date.now())
-      return {
-        providerKey: req.providerKey,
-        summary: ctx.cost.providerSummary(req.providerKey),
-        limitUsd: ctx.db.getProviderLimit(req.providerKey)
-      }
+      return ctx.externalUsage.entry(
+        req.providerKey,
+        ctx.cost.providerSummary(req.providerKey),
+        ctx.db.getProviderLimit(req.providerKey)
+      )
     }
   )
 

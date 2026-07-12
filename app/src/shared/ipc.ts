@@ -54,6 +54,7 @@ export const CHANNELS = {
   costSummaryEvent: 'orca:cost:summaryEvent',
   // provider별 사용량 조회 / 한도 설정 (0080 항목 4).
   costProviderSummaries: 'orca:cost:providerSummaries',
+  costRefreshProviderUsageReport: 'orca:cost:refreshProviderUsageReport',
   costSetProviderLimit: 'orca:cost:setProviderLimit',
   concurrencyEvent: 'orca:concurrency:event',
   // 권한 응답 단일 채널 — ask/plan/tool 세 종류의 승인 응답이 모두 이 채널로 흐른다
@@ -183,10 +184,78 @@ export interface CostSummary {
 
 // provider별 사용량 엔트리(0080 항목 4) — providerKey(=agent key)별 실사용 summary + 월 한도.
 // summary 는 turn_usage ⨝ sessions(provider_key)로 파생, limitUsd 는 provider_limits 원장.
+export type UsageReportScope =
+  | 'provider-account'
+  | 'organization'
+  | 'workspace'
+  | 'project'
+  | 'user'
+  | 'unknown'
+
+export interface UsageTotals {
+  costUsd?: number
+  inputTokens?: number
+  outputTokens?: number
+  cacheCreationInputTokens?: number
+  cacheReadInputTokens?: number
+}
+
+export interface UsageQuota {
+  limitUsd?: number | null
+  usedUsd?: number
+  remainingUsd?: number | null
+  resetAt?: number
+  period?: 'month' | 'week' | 'day' | 'rolling'
+}
+
+export interface UsageByModel {
+  model: string
+  totals: UsageTotals
+}
+
+export interface ExternalUsageReport {
+  providerKey: string
+  fetchedAt: number
+  asOf?: number
+  source: 'external'
+  scope?: UsageReportScope
+  quota?: UsageQuota
+  totals?: UsageTotals
+  byModel?: UsageByModel[]
+}
+
+export interface UsageReportConfig {
+  endpoint: string
+  method?: 'GET' | 'POST'
+  headers?: Record<string, string>
+  body?: unknown
+  timeoutMs?: number
+  scope?: UsageReportScope
+  map: {
+    quotaLimitUsd?: string
+    quotaUsedUsd?: string
+    quotaRemainingUsd?: string
+    totalCostUsd?: string
+    asOf?: string
+  }
+}
+
+export interface EffectiveUsageLimitView {
+  source: 'local' | 'external'
+  usedUsd: number
+  limitUsd: number | null
+  remainingUsd: number | null
+  fetchedAt?: number
+  asOf?: number
+  stale?: boolean
+}
+
 export interface ProviderUsageEntry {
   providerKey: string
   summary: CostSummary
   limitUsd: number | null
+  externalReport?: ExternalUsageReport
+  effectiveLimit: EffectiveUsageLimitView
 }
 
 export interface SessionTitleEvent {

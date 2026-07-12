@@ -29,7 +29,8 @@ const EXPECTED_MIGRATIONS = [
   '0010_session_cwd',
   '0011_session_lineage',
   '0012_provider_limits',
-  '0013_schedules'
+  '0013_schedules',
+  '0014_provider_usage_report_cache'
 ]
 
 const APPLIED_SQL = [

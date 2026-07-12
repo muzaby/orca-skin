@@ -2,7 +2,7 @@
 // 자기 월 한도 설정. 데이터/저장 콜백은 app 레이어가 주입한 ProviderUsageController 에서 온다.
 
 import { useState } from 'react'
-import type { AgentEnvironment, ProviderUsageEntry } from '../../../../../shared/ipc'
+import type { AgentEnvironment, CostSummary, ProviderUsageEntry } from '../../../../../shared/ipc'
 import { computeUsageLimits } from '../../../../../shared/usage/limits'
 import { relativeTimeLabel } from '../../../../../shared/time/relative'
 import { SettingsGroup } from './parts'
@@ -11,6 +11,15 @@ import { useI18n } from '../../../shared/i18n'
 import { LimitBarsSection, LimitEditor } from './UsageLimitViews'
 import { SyncRow } from './UsageTab'
 import { fmtUsd, providerLabel } from '../lib/usageFormat'
+
+function summaryForLimit(entry: ProviderUsageEntry): CostSummary {
+  return entry.effectiveLimit.source === 'external'
+    ? {
+        ...entry.summary,
+        month: { ...entry.summary.month, totalCostUsd: entry.effectiveLimit.usedUsd }
+      }
+    : entry.summary
+}
 
 export function ProviderUsageTab({
   provider,
@@ -28,9 +37,9 @@ export function ProviderUsageTab({
   const [view, setView] = useState<'root' | 'limit'>('root')
   const { tr, locale } = useI18n()
   const usageLimits = entry
-    ? computeUsageLimits(entry.summary, entry.limitUsd, undefined, locale)
+    ? computeUsageLimits(summaryForLimit(entry), entry.effectiveLimit.limitUsd, undefined, locale)
     : null
-  const limitUsd = entry?.limitUsd ?? null
+  const limitUsd = entry?.effectiveLimit.limitUsd ?? entry?.limitUsd ?? null
 
   if (view === 'limit') {
     return (
@@ -57,7 +66,13 @@ export function ProviderUsageTab({
         <div className="flex flex-col gap-4">
           <LimitBarsSection usageLimits={usageLimits} />
           <SyncRow
-            label={entry ? relativeTimeLabel(entry.summary.updatedAt, undefined, locale) : null}
+            label={
+              entry?.effectiveLimit.fetchedAt
+                ? relativeTimeLabel(entry.effectiveLimit.fetchedAt, undefined, locale)
+                : entry
+                  ? relativeTimeLabel(entry.summary.updatedAt, undefined, locale)
+                  : null
+            }
             refreshing={refreshing}
             onRefresh={onRefresh}
           />

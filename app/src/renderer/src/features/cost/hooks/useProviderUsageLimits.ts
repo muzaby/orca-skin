@@ -4,12 +4,21 @@
 // (useUsageLimits)로 폴백해 기존 동작을 보존한다. costStore 갱신(턴 종료) 시 재조회해 최신 반영.
 
 import { useEffect, useMemo, useState } from 'react'
-import type { ProviderUsageEntry } from '../../../../../shared/ipc'
+import type { CostSummary, ProviderUsageEntry } from '../../../../../shared/ipc'
 import { computeUsageLimits, type UsageLimitsView } from '../../../../../shared/usage/limits'
 import { costApi } from '../../../shared/api/ipc'
 import { useI18n } from '../../../shared/i18n'
 import { useUsageLimits } from './useUsageLimits'
 import { useCostStore } from '../store/costStore'
+
+function summaryForLimit(entry: ProviderUsageEntry): CostSummary {
+  return entry.effectiveLimit.source === 'external'
+    ? {
+        ...entry.summary,
+        month: { ...entry.summary.month, totalCostUsd: entry.effectiveLimit.usedUsd }
+      }
+    : entry.summary
+}
 
 export function useProviderUsageLimits(
   providerKey: string | null | undefined
@@ -35,7 +44,12 @@ export function useProviderUsageLimits(
   return useMemo(() => {
     // providerKey 전환 직후 조회 대기 중엔 이전 provider 엔트리를 쓰지 않고 전역으로 폴백.
     if (providerKey && entry && entry.providerKey === providerKey) {
-      return computeUsageLimits(entry.summary, entry.limitUsd, undefined, locale)
+      return computeUsageLimits(
+        summaryForLimit(entry),
+        entry.effectiveLimit.limitUsd,
+        undefined,
+        locale
+      )
     }
     return global
   }, [providerKey, entry, global, locale])

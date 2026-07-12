@@ -159,6 +159,8 @@ export const costApi = {
     window.orca.cost.onSummary(handler),
   providerSummaries: (providerKeys: string[]): Promise<ProviderUsageEntry[]> =>
     window.orca.cost.providerSummaries(providerKeys),
+  refreshProviderUsageReport: (providerKey: string): Promise<ProviderUsageEntry> =>
+    window.orca.cost.refreshProviderUsageReport(providerKey),
   setProviderLimit: (providerKey: string, limitUsd: number | null): Promise<ProviderUsageEntry> =>
     window.orca.cost.setProviderLimit(providerKey, limitUsd)
 }

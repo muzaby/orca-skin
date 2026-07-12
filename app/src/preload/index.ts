@@ -178,6 +178,8 @@ const orca = {
     },
     providerSummaries: (providerKeys: string[]): Promise<ProviderUsageEntry[]> =>
       ipcRenderer.invoke(CHANNELS.costProviderSummaries, { providerKeys }),
+    refreshProviderUsageReport: (providerKey: string): Promise<ProviderUsageEntry> =>
+      ipcRenderer.invoke(CHANNELS.costRefreshProviderUsageReport, { providerKey }),
     setProviderLimit: (providerKey: string, limitUsd: number | null): Promise<ProviderUsageEntry> =>
       ipcRenderer.invoke(CHANNELS.costSetProviderLimit, { providerKey, limitUsd })
   },

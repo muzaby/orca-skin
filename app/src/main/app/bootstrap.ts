@@ -32,6 +32,11 @@ import { ExtensionDeploymentService } from '../features/extensions/extension-dep
 import { toClaudeConfig } from '../features/extensions/mcp/convert'
 import { scaffoldProviderSettings } from '../features/extensions/scaffold'
 import { ProviderSettingsService } from '../features/providers/provider-settings'
+import {
+  STATIC_USAGE_PROVIDERS,
+  materializeStaticProviderSettings
+} from '../features/providers/static'
+import { ExternalUsageService } from '../features/usage/external-usage-service'
 import { loadClaudeProviderSettings, readUserClaudeSettings } from '../adapters/claude-settings'
 import { scanSkills, type SkillScanRoot } from '../features/extensions/skills/scan'
 import { seedBuiltinSkills } from '../features/extensions/skills/seed'
@@ -241,6 +246,8 @@ export class Bootstrap {
           userSettings.exists ? userSettings.settingsJson : null
         )
         for (const path of s.created) console.log('[scaffold] 생성:', path)
+        const staticProviders = materializeStaticProviderSettings()
+        for (const path of staticProviders.created) console.log('[static-provider] 생성:', path)
       }
     )
     // dist/claude/plugins/orca 렌더를 boot 1회 수행한다. CRUD 는 즉시 재배포, 턴 진입은
@@ -250,6 +257,18 @@ export class Bootstrap {
       this.deployExtensions()
     )
     providerSettings.invalidateAll()
+    const externalUsage = new ExternalUsageService({
+      db,
+      secretStore,
+      providers: STATIC_USAGE_PROVIDERS
+    })
+    scheduler.register('provider-usage-report-refresh', async () => {
+      const providerKeys = providerSettings
+        .adapters()
+        .flatMap((adapter) => providerSettings.list(adapter).map((entry) => entry.key))
+      await externalUsage.refreshAll(providerKeys)
+    })
+    scheduler.schedule('provider-usage-report-refresh', { enabled: true, cron: '*/5 * * * *' })
     // ClaudeAdapter 가 사용하는 cwd 와 동일한 값으로 스킬 스캔.
     await this.bootReport.step('skill-scan', { critical: false, label: '스킬 스캔' }, () =>
       this.refreshSkills()
@@ -274,7 +293,8 @@ export class Bootstrap {
       debugMock: this.debugMock,
       mockAdapter: import.meta.env.DEV ? new MockAdapter(() => this.debugMock) : null,
       updates: this.createUpdateController(),
-      scheduler
+      scheduler,
+      externalUsage
     }
     this.register(ctx)
   }

@@ -46,18 +46,26 @@ export function useProviderUsage(): ProviderUsageController {
     return () => {
       cancelled = true
     }
-  }, [fetchEntries])
+  }, [fetchEntries, keys])
 
   const refresh = useCallback(() => {
     void (async () => {
       setRefreshing(true)
       try {
-        setEntries(await fetchEntries())
+        const providerKeys = keys ? keys.split(' ') : []
+        if (providerKeys.length > 0) {
+          const refreshed = await Promise.all(
+            providerKeys.map((key) => costApi.refreshProviderUsageReport(key))
+          )
+          setEntries(Object.fromEntries(refreshed.map((e) => [e.providerKey, e])))
+        } else {
+          setEntries(await fetchEntries())
+        }
       } finally {
         setRefreshing(false)
       }
     })()
-  }, [fetchEntries])
+  }, [fetchEntries, keys])
 
   const setLimit = useCallback(async (key: string, limitUsd: number | null): Promise<void> => {
     const updated = await costApi.setProviderLimit(key, limitUsd)

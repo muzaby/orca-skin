@@ -11,7 +11,7 @@
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "npm run typecheck:node && npm run typecheck:web && npm run typecheck:test",
-    "test": "vitest run && node --test \"scripts/*.test.mjs\"",
+    "test": "vitest run && node --test scripts/*.test.mjs",
     "test:watch": "vitest",
     "start": "electron-vite preview",
     "dev": "electron-vite dev",
