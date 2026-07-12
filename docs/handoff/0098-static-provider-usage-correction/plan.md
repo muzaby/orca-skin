@@ -228,4 +228,7 @@ Orca 는 provider 를 파일시스템 디렉토리 트리로만 정의하고(동
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
-| D1 | … | … | … | open |
+| D1 | **예시 다단계 인증 훅 모듈 부재** — `STATIC_USAGE_PROVIDERS` 3항 모두 `usage{}` 미정의, `hook.ts` 템플릿 없음. §4 `secret.set` 이 `void`(비-Promise)라 write-back await 불가 | verify r1 §3·§4 (`static/index.ts:9`, `contracts/usage-report.ts:7`) | OAuth client-credentials/bearer 캐시 예시 훅 1건 추가(store TTL 캐시·secret read/write·signal 취소 시연) + `secret.set` → `Promise<void>` 정렬. 실 endpoint 는 config 주입 지점만 | open |
+| D2 | **§11 요구 신규 테스트 부재** — generic fetcher 매핑(`http-usage-report`)·실 DB 영속 upsert/read·IPC zod 스키마 테스트 0. 병합은 external override 1케이스만 | verify r1 §5·§8·§11 (`http-usage-report.ts` 테스트 grep 0, `external-usage-service.test.ts:17` fake db) | (a) `http-usage-report` 매핑/expand/timeout/null 테스트 (b) `queries.test.ts` 실 upsert/get 왕복 (c) `RefreshProviderUsageReportSchema`·entry 확장 zod (d) `effectiveLimitFromReport` null 폴백·stale 케이스 | open |
+| D3 | **"코어 무편집" 회귀 테스트 부재** — 레지스트리 순회가 배럴만 의존함을 고정하는 테스트 없음 | verify r1 §2 (plan 게이트 line 185) | 배럴 배열 확장 시 서비스가 순회만으로 인식하는 회귀 테스트 추가 | open |
+| D4 | **stale/offline 배지 미렌더 + 30s 틱 부재** — `ProviderUsageTab` 에 `stale`/`source` 배지 없음(현재 fetchedAt 상대시각만). 자동 30s 틱 없음(스케줄러 5분만) | verify r1 §9·§6 (`ProviderUsageTab.tsx` grep `stale`=0) | `effectiveLimit.stale`/외부 미보고 기반 배지 + i18n ko/en 렌더. 탭 오픈 중 30s 틱 새로고침 검토 | open |
