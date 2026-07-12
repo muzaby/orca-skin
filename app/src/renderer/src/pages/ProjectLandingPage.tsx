@@ -10,6 +10,7 @@ import {
   useProjectsState
 } from '../features/projects'
 import { ProjectSessionsPanel } from '../features/sessions'
+import { useI18n } from '../shared/i18n'
 import { useSessionActions } from './useSessionActions'
 
 // page = "어떤 Feature 를 배치할지" 결정 (조립만). 채팅 라이프사이클(랜딩 reset
@@ -24,6 +25,7 @@ import { useSessionActions } from './useSessionActions'
 // 으로 묶이고, 창이 1200px 를 넘으면 패널 간 간격이 아니라 좌우 바깥 여백이 커진다.
 // xl 미만(< 1280px)에서는 단일 컬럼 자연 스택. 구조 구분선(헤더 하단·패널 사이)은 없음.
 export function ProjectLandingPage(): React.JSX.Element {
+  const { tr } = useI18n()
   const { projectId = '' } = useParams<{ projectId: string }>()
   const navigate = useNavigate()
   const sessionId = useChatSession((s) => s.sessionId)
@@ -35,7 +37,7 @@ export function ProjectLandingPage(): React.JSX.Element {
   const summary = useCostSummary()
   // 능력 서술자가 로드됐는데 sessionAbort 가 아니면 중단 게이팅(미로드면 현행 동작 유지).
   const canAbort = capabilities ? capabilities.cancellation.sessionAbort === true : true
-  const costToday = summary ? formatApproxCost(summary.day.totalCostUsd) : undefined
+  const costToday = summary ? formatApproxCost(tr, summary.day.totalCostUsd) : undefined
   // 도넛 사용량 한도를 현재 세션 provider 기준으로(모델 선택 반영, 0082). providerKey 없으면 전역.
   const providerKey = useChatSession((s) => s.providerKey)
   const usageLimits = useProviderUsageLimits(providerKey)

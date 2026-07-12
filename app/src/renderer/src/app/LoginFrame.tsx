@@ -2,6 +2,7 @@ import type { CSSProperties } from 'react'
 import { WinControls } from './WinControls'
 import { Button } from '../shared/ui/Button'
 import { getPlatform } from '../shared/api/ipc'
+import { useI18n } from '../shared/i18n'
 import { LoginView, SsoDebugSection } from '../features/login'
 import { DebugPanel } from '../features/debug'
 
@@ -21,11 +22,12 @@ export function LoginFrame({
   bootError?: string | null
   onRetryBoot?: () => void
 }): React.JSX.Element {
+  const { tr } = useI18n()
   const macOsPadLeft = getPlatform() === 'darwin' ? 'pl-[80px]' : 'pl-[14px]'
   return (
     <div
       className="app-frame-root flex h-full w-full flex-col overflow-hidden bg-bg font-sans text-[13px] leading-[1.45] text-ink"
-      data-screen-label="Orca · 로그인"
+      data-screen-label={`Orca · ${tr('login.title')}`}
     >
       <header
         className={`app-frame-header relative flex h-9 flex-none select-none items-center bg-bg ${macOsPadLeft} pr-[10px]`}
@@ -41,7 +43,7 @@ export function LoginFrame({
           style={NO_DRAG_STYLE}
           data-behavior="no-drag"
         >
-          <Button iconOnly size="small" leadingIcon="menu" aria-label="메뉴" />
+          <Button iconOnly size="small" leadingIcon="menu" aria-label={tr('common.menu')} />
         </div>
         <div className="relative z-[1] flex-1" aria-hidden />
         <div
@@ -59,11 +61,11 @@ export function LoginFrame({
               role="alert"
               className="rounded-r4 border border-bad/30 bg-bad/10 p-3 text-center text-[12.5px] text-bad"
             >
-              <p className="mb-2 font-semibold">앱 준비 중 문제가 발생했습니다.</p>
+              <p className="mb-2 font-semibold">{tr('boot.errorTitle')}</p>
               <p className="mb-3 break-words text-ink2">{bootError}</p>
               {onRetryBoot && (
                 <Button variant="contained" size="small" onClick={onRetryBoot}>
-                  부트 다시 시도
+                  {tr('boot.retry')}
                 </Button>
               )}
             </div>

@@ -41,6 +41,9 @@ export const ko = {
   landing: {
     newChatGreeting: '무엇을 도와드릴까요?'
   },
+  markdown: {
+    imagePlaceholder: '[이미지: {{label}}]'
+  },
   nav: {
     chat: '01 채팅',
     projects: '02 프로젝트',
