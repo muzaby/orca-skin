@@ -27,7 +27,20 @@ export const en: typeof ko = {
     count: '{{count}}',
     loading: 'Loading…',
     description: 'Description',
-    noDescription: 'No description.'
+    noDescription: 'No description.',
+    menu: 'Menu'
+  },
+  boot: {
+    label: 'Booting',
+    preparingSr: 'Preparing the app',
+    errorTitle: 'A problem occurred while preparing the app.',
+    retry: 'Retry boot'
+  },
+  cost: {
+    approx: '~${{usd}}'
+  },
+  landing: {
+    newChatGreeting: 'How can I help you?'
   },
   nav: {
     chat: '01 Chat',
@@ -191,6 +204,151 @@ export const en: typeof ko = {
       backAria: 'Back to all projects',
       all: 'All projects'
     }
+  },
+  engine: {
+    title: 'Engine & Models',
+    subtitle: 'Provider settings environment',
+    addEngine: 'Add engine',
+    blurb:
+      'The Composer model menu is built from the provider settings in <c>~/.config/orca/sources/settings</c>. After editing, the model menu refreshes without restarting the app.',
+    emptyState: 'No providers registered. Use the Add engine button to create a claude provider.',
+    deleteConfirm: 'Delete provider {{name}}?',
+    readSettingsFailed: 'Failed to load the settings.',
+    sdkDefaultModel: 'SDK default',
+    provider: {
+      anthropic: { label: 'Anthropic', desc: 'api.anthropic.com default' },
+      bedrock: { label: 'Amazon Bedrock', desc: 'AWS credentials' },
+      vertex: { label: 'Google Vertex AI', desc: 'GCP project' },
+      custom: { label: 'Custom', desc: 'Manual setup, e.g. gateways' }
+    },
+    validation: {
+      nameRequired: 'Enter a provider name.',
+      nameFormat: 'Only letters, digits, _ and - are allowed.',
+      jsonRequired: 'Enter the settings.json content.',
+      jsonSyntaxAt: 'Invalid JSON — malformed around line {{line}}, character {{col}}.',
+      jsonSyntax: 'Invalid JSON — {{reason}}',
+      jsonSyntaxUnknown: 'Invalid JSON — unknown error',
+      topLevelObject: 'The top level must be an object { … }.'
+    },
+    form: {
+      titleEdit: 'Edit engine settings',
+      titleAdd: 'Add engine',
+      provider: 'Provider',
+      providerName: 'Provider name',
+      namePlaceholder: 'e.g. my-gateway',
+      nameFixedHint: 'Fixed to the selected provider name. Choose ‘Custom’ to change it.',
+      importTitle: 'Fills the body with the contents of ~/.claude/settings.json.',
+      importButton: 'Import ~/.claude/settings.json',
+      importNotFound: 'Could not find ~/.claude/settings.json.',
+      importFailed: 'Failed to load ~/.claude/settings.json.',
+      saveFailed: 'Failed to save.',
+      jsonValid: '✓ Valid JSON.',
+      envHint:
+        'Put API keys, regions, etc. in the <c>env</c> block. Keeping secrets as <c>{{varToken}}</c> placeholders is recommended.',
+      saving: 'Saving…',
+      adding: 'Adding…',
+      addAction: 'Add'
+    }
+  },
+  backend: {
+    installed: 'Installed',
+    notInstalled: 'Install required',
+    supportedTitle: 'Supported features: {{list}}',
+    capability: {
+      continue: 'Continue',
+      resume: 'Resume',
+      fork: 'Fork',
+      abort: 'Abort',
+      structuredOutput: 'Structured output'
+    },
+    installer: {
+      title: 'Install Claude Code',
+      cliRequired: 'The Claude Code CLI is required to use chat.',
+      preparing: 'Preparing…',
+      installing: 'Installing…',
+      done: 'Done',
+      start: 'Start installation',
+      failedPrefix: 'Installation failed:',
+      copyCommand: 'Copy command'
+    },
+    authExpired: {
+      title: 'Claude Code authentication expired',
+      body: 'Run the command below in a terminal, then start a new conversation.'
+    }
+  },
+  update: {
+    dialogTitle: 'Orca update',
+    status: {
+      idle: 'Waiting for update',
+      checking: 'Checking for updates…',
+      available: 'A new update is ready.',
+      downloading: 'Downloading update…',
+      ready: 'Download complete. Restart to install.',
+      installing: 'Starting update installation…',
+      error: 'Update error.'
+    },
+    statusFallback: 'Checking update status.',
+    currentVersion: 'Current version',
+    newVersion: 'New version',
+    checkingShort: 'Checking',
+    progress: 'Download progress',
+    releaseNotes: 'Release notes',
+    installBlockedFallback: 'A task is in progress — try again once it finishes.',
+    later: 'Later',
+    action: {
+      ready: 'Restart to update',
+      downloading: 'Downloading…',
+      installing: 'Starting installation…',
+      update: 'Update'
+    },
+    debug: { section: 'Update', dummy: 'Dummy update' }
+  },
+  debug: {
+    title: 'Debug',
+    mockMode: 'Mock mode',
+    scenario: 'Scenario',
+    contextUsage: 'Context usage',
+    wireLog: 'Wire messages',
+    themeSection: 'Theme',
+    palette: 'Color palette',
+    layoutSection: 'Layout',
+    density: 'Density',
+    densityCompact: 'Compact',
+    densityNormal: 'Normal',
+    densityComfortable: 'Comfortable',
+    scenarios: {
+      text_streaming: 'Text streaming',
+      reasoning: 'Reasoning block',
+      tool_calls: 'Tool calls',
+      tool_approval: 'Tool approval',
+      ask_question: 'User question',
+      plan_review: 'Plan review',
+      subagent_task: 'Subagent',
+      subagent_task_child: 'Subagent child',
+      subagent_task_aborted: 'Subagent aborted',
+      subagent_task_multi: 'Multiple subagents',
+      subagent_task_running: 'Subagent running',
+      error: 'Error',
+      full: 'Full'
+    }
+  },
+  login: {
+    title: 'Login',
+    ssoSection: 'SSO login',
+    bypass: 'Login bypass',
+    devButton: 'SSO dev button',
+    loggingIn: 'Signing in',
+    ssoButton: 'Sign in with SSO'
+  },
+  camera: {
+    title: 'Hardware control',
+    exposure: 'Exposure',
+    analogGain: 'Analog gain',
+    digitalGain: 'Digital gain',
+    qualityMetrics: 'Quality metrics',
+    capture: 'Capture',
+    sequence: 'Sequence',
+    futureScopeTitle: 'Out of v1 scope — Future Scope (PRD §9)'
   },
   errors: {
     category: {

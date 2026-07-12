@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { InstallStatus } from '../../../../../shared/ipc'
 import { installApi } from '../../../shared/api/ipc'
+import { useI18n } from '../../../shared/i18n'
 
 interface InstallerDialogProps {
   open: boolean
@@ -13,6 +14,7 @@ export function InstallerDialog({
   onClose,
   onComplete
 }: InstallerDialogProps): React.JSX.Element | null {
+  const { tr } = useI18n()
   const [log, setLog] = useState<string>('')
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -59,10 +61,10 @@ export function InstallerDialog({
   return (
     <div className="grid h-full w-full place-items-center">
       <div className="w-[520px] max-w-[90vw] rounded-xl border border-border bg-panel p-5 shadow-xl">
-        <div className="mb-2 font-serif text-[16px] font-semibold text-ink">Claude Code 설치</div>
-        <div className="mb-3 text-[12.5px] text-ink2">
-          채팅을 사용하려면 Claude Code CLI 가 필요합니다.
+        <div className="mb-2 font-serif text-[16px] font-semibold text-ink">
+          {tr('backend.installer.title')}
         </div>
+        <div className="mb-3 text-[12.5px] text-ink2">{tr('backend.installer.cliRequired')}</div>
         <div className="mb-3 rounded-md border border-border bg-bg px-2.5 py-1.5 font-mono text-[12px] text-ink">
           {manualCmd}
         </div>
@@ -70,16 +72,16 @@ export function InstallerDialog({
           ref={logRef}
           className="mb-3 max-h-[200px] overflow-auto rounded-md border border-border bg-bg p-2 font-mono text-[11.5px] text-ink2"
         >
-          {log || '준비 중…'}
+          {log || tr('backend.installer.preparing')}
         </pre>
         {error && (
           <div className="mb-3 rounded-md border border-rust bg-rust-soft px-2.5 py-1.5 text-[12px] text-ink">
-            설치 실패: {error}
+            {tr('backend.installer.failedPrefix')} {error}
             <button
               onClick={() => void navigator.clipboard.writeText(manualCmd)}
               className="ml-2 cursor-pointer rounded border border-border bg-panel px-2 py-0.5 text-[11px] text-ink2"
             >
-              명령 복사
+              {tr('backend.installer.copyCommand')}
             </button>
           </div>
         )}
@@ -88,14 +90,18 @@ export function InstallerDialog({
             onClick={onClose}
             className="cursor-pointer rounded-md border border-border bg-panel px-3 py-1.5 text-[12.5px] text-ink2"
           >
-            닫기
+            {tr('common.close')}
           </button>
           <button
             onClick={() => void start()}
             disabled={running}
             className="cursor-pointer rounded-md border-0 bg-ink px-3 py-1.5 text-[12.5px] text-bg disabled:opacity-50"
           >
-            {running ? '설치 중…' : done && !error ? '완료' : '설치 시작'}
+            {running
+              ? tr('backend.installer.installing')
+              : done && !error
+                ? tr('backend.installer.done')
+                : tr('backend.installer.start')}
           </button>
         </div>
       </div>
