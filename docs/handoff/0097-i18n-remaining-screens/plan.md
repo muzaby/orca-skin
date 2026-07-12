@@ -139,30 +139,37 @@
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- (구현 턴에서 기입)
+- **동의 / 그대로 진행**: D1(키맵+렌더 해석 표준)·D2(plural 구조화)·D3(마커 불변)·D6(store 키 저장)·D7(datetime 예외)·D8(화이트리스트) 전부 설계대로 구현. typed t() 의 plural 접미 해석(설계 §리스크)은 C3 초입 typecheck 로 **가능 확인** — 폴백 헬퍼 불필요.
+- **이견/보완 1 — lineage/EditInstructions 문장 분해**: 설계는 "표시 문구만 카탈로그 이관"이라 했지만, 라벨 강조 span 이 문장 중간에 끼는 문장(LineageBanner·EditInstructionsModal·engine.blurb/envHint)은 before/after 키 분해 시 `resources.test` 의 **빈 값 금지**와 충돌한다(en after=''). react-i18next `Trans` + 카탈로그 태그(`<hl>`/`<mono>`/`<c>`)로 해결 — 신규 라이브러리 아님(기존 react-i18next).
+- **이견/보완 2 — UiMessage 판별 유니온**: 설계 D6 의 "키 저장"을 일반화하기 위해 `shared/i18n` 에 `MessageKey`/`UiMessage`/`uiMessageText` 를 신설했다(백엔드 원문 raw 통과와 카탈로그 키 폴백이 한 필드에 흐르는 store 4곳: login/update/agent/useEngines).
+- **커밋 매핑 미세 이탈**: UpdateDialog aria '닫기'는 C1 이 아니라 C6(파일 전체 이관 시점)에서, SkillDetail 본문 일부는 C5 에서 처리 — 최종 상태는 설계와 동일.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| — | (구현 턴에서 기입) | | |
+| 1 | `CustomizeList` 의 MCP 그룹 open 상태 키가 한글 라벨 문자열이라 초기 open 맵('active'/'inactive')과 **불일치하던 기존 버그** + 언어 전환 시 상태 리셋 위험 | ✅ 그룹을 `{id,label,items}` 구조로 바꿔 open 상태를 id 로 키잉 | `skills/components/customize/CustomizeList.tsx` |
+| 2 | `ToolGroup` 진행 헤더의 `실행 중 에이전트 N개`, `parts.ts` 의 duration/token 라벨 등 조립 문자열의 en 복수형 | ✅ ko 도 `_one/_other` 쌍으로 정의(typeof ko 패리티 유지) + `formatDurationLabel/formatTokenLabel(tr, …)` 헬퍼 | `toolMeta.ts` · `resources/{ko,en}.ts` |
+| 3 | `Markdown.tsx` 차단 이미지 플레이스홀더 `[이미지: …]` — 인벤토리 미포착 | ✅ `markdown.imagePlaceholder` 키 + `BlockedImagePlaceholder` 컴포넌트 분리 | `shared/ui/markdown/Markdown.tsx` |
+| 4 | `SidebarUserButton` 의 `'한국어 (대한민국)'` 언어 자기표기 | ⚠️ 보고만 — 언어명은 자기 언어로 표기하는 0096 관례 유지(번역 비대상). 이견 시 사용자 결정 | `app/SidebarUserButton.tsx:14` |
+| 5 | en 사용자에게 `[분기]/[핸드오프]` 제목 마커·backend 원문 에러가 한글/원문으로 잔존 | ⚠️ 보고만 — D3/D8 설계 확정 사항(main locale 인지 필요, 후속) | 설계 §D3·§범위/비범위 |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] C1 common 확장 + 기존 키 재사용 + nav/search
-- [ ] C2 errors + notify + store 폴백
-- [ ] C3 chat.toolMeta + chat.transcript
-- [ ] C4 chat.composer + status + rightpanel + approval/ask
-- [ ] C5 skills + projects
-- [ ] C6 engine + backend/update + debug + camera/login
-- [ ] C7 랜딩/부트 + 잔여 sweep (grep 전수 대조)
+- [x] C1 common 확장 + 기존 키 재사용 + nav/search (`899bb45`)
+- [x] C2 errors + notify + store 폴백 (`dd6c626`)
+- [x] C3 chat.toolMeta + chat.transcript (`67d8170`)
+- [x] C4 chat.composer + status + rightpanel + approval/ask (`3f419fd`)
+- [x] C5 skills + projects (`1febece`)
+- [x] C6 engine + backend/update + debug + camera/login (`57a92d0`)
+- [x] C7 랜딩/부트 + 잔여 sweep (grep 전수 대조) (`d61867c`)
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | (구현 후 기입) |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` |
-| 게이트 결과 | (구현 후 기입) |
-| 블로커 / 역질문 | (구현 후 기입) |
-| 대상 커밋 | (구현 후 기입) |
+| 변경 파일 | 카탈로그 2(ko/en, ~70→400+ 리프 키) · renderer 컴포넌트/모듈 ~80 파일 · 수정 테스트 5(toolMeta·parts·statusViewModel·modes·providerCatalog) · `shared/i18n/index.ts`(MessageKey/UiMessage) |
+| 실행 명령 | `cd app && npm run lint && npm run typecheck && npm test` (각 커밋마다) |
+| 게이트 결과 | lint ✅ 0 / typecheck 3종 ✅ 0 / vitest **821/821**(+3: toolMeta 키맵·구조) / scripts 24/24 ✅ — 실패 2 suite 는 electron 바이너리 403 환경 제한(0092~0096 동일 베이스라인) |
+| 블로커 / 역질문 | 없음 (⚠️ 2건은 위 표 — 결정 불요 항목) |
+| 대상 커밋 | `899bb45`~`d61867c` (C1~C7, 7 커밋) |
