@@ -147,9 +147,9 @@ describe('parts selectors', () => {
         description: 'child 분석',
         status: 'completed',
         childToolCount: 1,
-        toolCountLabel: '1 도구 사용',
-        durationLabel: '1분 32초',
-        tokenLabel: '20.6k 토큰',
+        // 라벨이 아닌 원시값 — 포맷(단위·언어)은 렌더가 tr 로 수행한다(0097).
+        durationMs: 92_000,
+        tokenCount: 20_600,
         agentLabel: 'Haiku 4.5'
       }
     ])
@@ -251,8 +251,7 @@ describe('parts selectors', () => {
         subagentType: 'Explore',
         // 도구수·소요시간은 subagentMeta 우선(childCounts/result.durationMs 무시).
         childToolCount: 7,
-        toolCountLabel: '7 도구 사용',
-        durationLabel: '1분 32초'
+        durationMs: 92_000
       }
     ])
   })

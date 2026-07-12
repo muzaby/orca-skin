@@ -14,10 +14,13 @@ export const ko = {
     rename: '이름 변경',
     more: '더 보기',
     copied: '복사됨',
+    copy: '복사',
     copyMessage: '메시지 복사',
     copyCode: '코드 복사',
     editTitle: '제목 편집',
-    newChat: '새 대화'
+    newChat: '새 대화',
+    running: '실행 중',
+    stop: '중단'
   },
   nav: {
     chat: '01 채팅',
@@ -74,6 +77,89 @@ export const ko = {
       tilesButton: '우측 패널 타일',
       tilesHeader: '타일 표시',
       roleUser: '사용자'
+    },
+    transcript: {
+      loading: '대화 불러오는 중…',
+      emptyPrompt: 'Claude Code 에 첫 메시지를 보내보세요.',
+      lineageFork: '이 세션은 <hl>‘{{label}}’</hl>에서 분기되었습니다',
+      lineageHandoff: '이 세션은 <hl>‘{{label}}’</hl>에서 핸드오프로 이어졌습니다',
+      openParent: '원본 열기',
+      openParentTitle: '원본 세션 열기',
+      forkBoundary: '분기된 지점',
+      compactAuto: '자동 압축됨',
+      compactManual: '이전 대화 압축됨',
+      compactTokensRange: '{{pre}} → {{post}} 토큰',
+      compactTokensCompressed: '{{pre}} 토큰 압축',
+      forkHere: '여기서 분기'
+    },
+    toolMeta: {
+      verb: {
+        ran: '실행됨',
+        created: '업데이트됨',
+        edited: '수정됨',
+        read: '읽음',
+        used: '사용함',
+        planned: '제안된 계획',
+        requested: '요청됨',
+        delegated: '실행됨'
+      },
+      verbActive: {
+        ran: '실행 중',
+        created: '업데이트 중',
+        edited: '수정 중',
+        read: '읽는 중',
+        used: '사용 중',
+        planned: '계획 제안 중',
+        requested: '질문 중',
+        delegated: '실행 중'
+      },
+      aborted: '중단됨',
+      planDescription: '제안된 계획',
+      unit: {
+        command_one: '명령 {{count}}개',
+        command_other: '명령 {{count}}개',
+        file_one: '파일 {{count}}개',
+        file_other: '파일 {{count}}개',
+        tool_one: '도구 {{count}}개',
+        tool_other: '도구 {{count}}개',
+        question_one: '질문 {{count}}개',
+        question_other: '질문 {{count}}개',
+        agent_one: '에이전트 {{count}}개',
+        agent_other: '에이전트 {{count}}개'
+      },
+      runningAgents_one: '실행 중 에이전트 {{count}}개',
+      runningAgents_other: '실행 중 에이전트 {{count}}개',
+      toolUses_one: '{{count}} 도구 사용',
+      toolUses_other: '{{count}} 도구 사용',
+      durationSec: '{{s}}초',
+      durationMinSec: '{{m}}분 {{s}}초',
+      tokens: '{{n}} 토큰',
+      tokensK: '{{n}}k 토큰',
+      agentFallback: '에이전트',
+      agentStatus: {
+        running: '에이전트 실행 중',
+        completed: '에이전트 완료',
+        aborted: '에이전트 중단됨',
+        failed: '에이전트 실패'
+      },
+      subagentHeading: '서브에이전트',
+      subagentTypeLine: '유형: {{type}}',
+      openSubagentPanel: '서브에이전트 패널 열기'
+    },
+    subagentTile: {
+      status: {
+        running: '진행 중',
+        completed: '완료',
+        failed: '실패',
+        aborted: '중단됨'
+      },
+      backToList: '목록으로',
+      headerTitle: '백그라운드 작업',
+      noChildActivity: '이 작업에 기록된 하위 활동이 없습니다.',
+      emptyTitle: '백그라운드 작업이 없습니다',
+      emptyDesc: 'Task 도구 호출이 감지되면 여기에 표시됩니다.',
+      openTranscriptAria: '{{description}} 대화록 보기',
+      viewTranscript: '대화록 보기'
     }
   },
   sidebar: {

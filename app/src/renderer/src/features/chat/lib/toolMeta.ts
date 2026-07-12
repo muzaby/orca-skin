@@ -5,9 +5,11 @@
 // 백엔드 중립: 입력은 중립 ToolCall(name/input/result) 뿐 — claude 전용 의존 없음.
 // 미지 도구명은 'used' 로 폴백하므로 타 SDK 의 낯선 도구도 합리적으로 렌더된다.
 
+import type { TFunction } from 'i18next'
 import type { ToolCall } from '../reducer/chatReducer'
 import { diffLines as jsDiffLines } from 'diff'
 import { basenameForDisplay } from '../../../../../shared/path-basename'
+import type { MessageKey } from '../../../shared/i18n'
 import { isAgentTaskName } from './parts'
 
 // 파일 도구 이름 집합 — 편집(diff 렌더 대상)과 읽기 포함(파일경로 헤더 대상)의 단일 진실원.
@@ -25,45 +27,46 @@ export type VerbCategory =
   | 'requested'
   | 'delegated'
 
-// 동사 라벨 — 완료 시제 (인라인 한국어. i18n 인프라는 0096 으로 도입됨 —
-// shared/i18n 카탈로그로의 이관은 채팅 화면 문자열 마이그레이션 후속 핸드오프 몫)
-export const VERB_LABEL: Record<VerbCategory, string> = {
-  ran: '실행됨',
-  created: '업데이트됨',
-  edited: '수정됨',
-  read: '읽음',
-  used: '사용함',
-  planned: '제안된 계획',
-  requested: '요청됨',
-  delegated: '실행됨'
+// 동사 키 — 완료 시제. 라벨 문자열이 아니라 카탈로그 키만 두고 렌더에서 tr() 해석한다
+// (0096 stale-방지 패턴 — 언어 전환 시 라이브 갱신, 0097).
+export const VERB_KEY: Record<VerbCategory, MessageKey> = {
+  ran: 'chat.toolMeta.verb.ran',
+  created: 'chat.toolMeta.verb.created',
+  edited: 'chat.toolMeta.verb.edited',
+  read: 'chat.toolMeta.verb.read',
+  used: 'chat.toolMeta.verb.used',
+  planned: 'chat.toolMeta.verb.planned',
+  requested: 'chat.toolMeta.verb.requested',
+  delegated: 'chat.toolMeta.verb.delegated'
 }
 
-// 동사 라벨 — 진행 시제 (도구가 아직 result 없이 동작 중일 때)
-export const VERB_LABEL_ACTIVE: Record<VerbCategory, string> = {
-  ran: '실행 중',
-  created: '업데이트 중',
-  edited: '수정 중',
-  read: '읽는 중',
-  used: '사용 중',
-  planned: '계획 제안 중',
-  requested: '질문 중',
-  delegated: '실행 중'
+// 동사 키 — 진행 시제 (도구가 아직 result 없이 동작 중일 때)
+export const VERB_KEY_ACTIVE: Record<VerbCategory, MessageKey> = {
+  ran: 'chat.toolMeta.verbActive.ran',
+  created: 'chat.toolMeta.verbActive.created',
+  edited: 'chat.toolMeta.verbActive.edited',
+  read: 'chat.toolMeta.verbActive.read',
+  used: 'chat.toolMeta.verbActive.used',
+  planned: 'chat.toolMeta.verbActive.planned',
+  requested: 'chat.toolMeta.verbActive.requested',
+  delegated: 'chat.toolMeta.verbActive.delegated'
 }
 
-// 동사 라벨 — 중단됨 (도구가 result 없이 진행 중이다가 턴 취소/타임아웃으로 정착된 경우).
-// 카테고리 무관 단일 라벨 — 완료(VERB_LABEL)도 진행(VERB_LABEL_ACTIVE)도 아닌 제3 상태.
-export const VERB_LABEL_ABORTED = '중단됨'
+// 동사 키 — 중단됨 (도구가 result 없이 진행 중이다가 턴 취소/타임아웃으로 정착된 경우).
+// 카테고리 무관 단일 라벨 — 완료(VERB_KEY)도 진행(VERB_KEY_ACTIVE)도 아닌 제3 상태.
+export const VERB_KEY_ABORTED: MessageKey = 'chat.toolMeta.aborted'
 
-// 단위 라벨 — planned 는 단위 없는 싱글톤 명사
-export const UNIT_LABEL: Record<VerbCategory, string | null> = {
-  ran: '명령',
-  created: '파일',
-  edited: '파일',
-  read: '파일',
-  used: '도구',
+// 단위+카운트 키 — planned 는 단위 없는 싱글톤 명사(null). 값은 i18next plural
+// (`_one`/`_other`) 카탈로그의 베이스 키 — 렌더에서 tr(key, { count }) 로 해석한다.
+export const UNIT_KEY: Record<VerbCategory, MessageKey | null> = {
+  ran: 'chat.toolMeta.unit.command',
+  created: 'chat.toolMeta.unit.file',
+  edited: 'chat.toolMeta.unit.file',
+  read: 'chat.toolMeta.unit.file',
+  used: 'chat.toolMeta.unit.tool',
   planned: null,
-  requested: '질문',
-  delegated: '에이전트'
+  requested: 'chat.toolMeta.unit.question',
+  delegated: 'chat.toolMeta.unit.agent'
 }
 
 // 요약 조립 순서
@@ -119,8 +122,10 @@ function askHeader(rec: Record<string, unknown> | null): string | null {
   return stringField(first, 'header') ?? stringField(first, 'question')
 }
 
-// 친화적 서술: input.description 우선 → 도구별 fallback → call.name
-export function toolDescription(call: ToolCall): string {
+// 친화적 서술: input.description 우선 → 도구별 fallback → call.name.
+// planLabel: ExitPlanMode 의 표시 라벨 — 렌더 호출부가 tr('chat.toolMeta.planDescription')
+// 을 주입한다(이 모듈은 순수 유지). 미주입 시 도구 이름 폴백.
+export function toolDescription(call: ToolCall, planLabel?: string): string {
   const rec = asRecord(call.input)
 
   // 1) description 파라미터를 갖는 도구(Bash/PowerShell, Task 등)는 raw input 에 그대로 존재
@@ -130,7 +135,7 @@ export function toolDescription(call: ToolCall): string {
   // 2) 도구별 fallback
   switch (call.name) {
     case 'ExitPlanMode':
-      return '제안된 계획'
+      return planLabel ?? call.name
     case 'AskUserQuestion':
       return askHeader(rec) ?? 'AskUserQuestion'
     case 'Write':
@@ -215,14 +220,11 @@ export function toolDiffStat(call: ToolCall): { added: number; removed: number }
 }
 
 // 그룹 요약 세그먼트 — 카테고리별 카운트 + 에러 여부(렌더에서 동사를 빨강 처리).
+// 라벨 조립은 렌더 몫: 동사 = tr(VERB_KEY[category]), 카운트 = tr(UNIT_KEY[category], { count: n })
+// (planned 는 UNIT_KEY null — 카운트 없이 명사 라벨만).
 export interface ToolGroupSegment {
   category: VerbCategory
-  /** 합쳐진 라벨 ("실행됨 명령 2개") — 문자열 요약용. */
-  text: string
-  /** 동사 라벨만 ("실행됨") — 헤더 span 분리 렌더용. */
-  verb: string
-  /** 단위+카운트만 ("명령 2개") — 단위 없는 카테고리(planned)는 null. */
-  count: string | null
+  n: number
   hasError: boolean
 }
 
@@ -239,19 +241,29 @@ export function toolGroupSegments(calls: ToolCall[]): ToolGroupSegment[] {
   for (const cat of CATEGORY_ORDER) {
     const n = counts.get(cat)
     if (!n) continue
-    const unit = UNIT_LABEL[cat]
-    // 단위 없는 카테고리(planned)는 카운트 없이 명사 라벨만
-    const verb = VERB_LABEL[cat]
-    const count = unit == null ? null : `${unit} ${n}개`
-    const text = count == null ? verb : `${verb} ${count}`
-    segments.push({ category: cat, text, verb, count, hasError: errors.get(cat) === true })
+    segments.push({ category: cat, n, hasError: errors.get(cat) === true })
   }
   return segments
 }
 
-// 그룹 요약 문자열 (세그먼트 join). 진행 중이 아닌 완료 그룹용.
-export function summarizeToolGroup(calls: ToolCall[]): string {
-  return toolGroupSegments(calls)
-    .map((s) => s.text)
-    .join(', ')
+// 소요시간 라벨 — parts 의 원시 durationMs 를 렌더에서 tr 로 포맷한다(1초 미만은 1초로 올림).
+export function formatDurationLabel(
+  tr: TFunction,
+  durationMs: number | null | undefined
+): string | null {
+  if (durationMs == null) return null
+  const seconds = Math.max(1, Math.round(durationMs / 1000))
+  if (seconds < 60) return tr('chat.toolMeta.durationSec', { s: seconds })
+  return tr('chat.toolMeta.durationMinSec', { m: Math.floor(seconds / 60), s: seconds % 60 })
+}
+
+// 토큰 라벨 — parts 의 원시 tokenCount 를 렌더에서 tr 로 포맷한다(1000 이상은 k 단위).
+export function formatTokenLabel(
+  tr: TFunction,
+  tokenCount: number | null | undefined
+): string | null {
+  if (tokenCount == null) return null
+  return tokenCount >= 1000
+    ? tr('chat.toolMeta.tokensK', { n: (tokenCount / 1000).toFixed(1) })
+    : tr('chat.toolMeta.tokens', { n: tokenCount })
 }

@@ -1,5 +1,6 @@
 import { memo, useMemo } from 'react'
 import { ReadingColumn } from '../../../../shared/ui/ReadingColumn'
+import { useI18n } from '../../../../shared/i18n'
 import { Exchange, TurnErrorBanner } from './Exchange'
 import { PendingAssistant } from './PendingAssistant'
 import { PendingSteerTurn } from './PendingSteerTurn'
@@ -42,6 +43,7 @@ export const TranscriptView = memo(function TranscriptView({
   contentRef,
   onScroll
 }: TranscriptViewProps): React.JSX.Element {
+  const { tr } = useI18n()
   // 델타 프레임(messages 참조 불변)에서 Exchange/Turn 객체 identity 를 고정 — memo 된
   // 컴포넌트가 props 비교만으로 재렌더를 건너뛴다 (0007-transcript-render-memo 계승).
   const exchanges = useMemo(() => groupExchanges(messages), [messages])
@@ -60,11 +62,13 @@ export const TranscriptView = memo(function TranscriptView({
         className="flex min-h-full flex-col gap-[var(--chat-turn-gap)]"
       >
         {loadingSession && (
-          <div className="m-auto text-center text-[13px] text-ink3">대화 불러오는 중…</div>
+          <div className="m-auto text-center text-[13px] text-ink3">
+            {tr('chat.transcript.loading')}
+          </div>
         )}
         {isEmpty && (
           <div className="m-auto text-center text-[13px] text-ink3">
-            Claude Code 에 첫 메시지를 보내보세요.
+            {tr('chat.transcript.emptyPrompt')}
           </div>
         )}
         {exchanges.map((exchange, i) => {

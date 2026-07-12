@@ -1,5 +1,7 @@
 import { useNavigate } from 'react-router-dom'
+import { Trans } from 'react-i18next'
 import { Icon } from '../../../../shared/ui/Icon'
+import { useI18n } from '../../../../shared/i18n'
 import { chatActions, useChatSession } from '../../store/chatStore'
 
 // 0064 continuity 출처 배너(r2) — fork/handoff 로 파생된 세션 상단에 원본 세션 링크를
@@ -13,6 +15,7 @@ export function LineageBanner(): React.JSX.Element | null {
   // navigate 만으로는 라우트 싱크가 깨어나지 않는다(소스-URL 가드, r5 피드백 2).
   const isDraft = useChatSession((s) => s.sessionId == null)
   const navigate = useNavigate()
+  const { tr } = useI18n()
 
   const parentId = forkFrom ?? handoffFrom
   if (!parentId) return null
@@ -26,20 +29,24 @@ export function LineageBanner(): React.JSX.Element | null {
   }
 
   const label = parentTitle?.trim() || parentId.slice(0, 8)
-  const relationLabel = handoffFrom ? '핸드오프로 이어졌습니다' : '분기되었습니다'
   return (
     <div className="flex items-center gap-2 border-b border-border bg-bg2/60 px-4 py-1.5 text-[12px] text-ink3">
       <Icon name="fork" size={12} />
       <span className="min-w-0 truncate">
-        이 세션은 <span className="text-ink2">&lsquo;{label}&rsquo;</span>에서 {relationLabel}
+        {/* 카탈로그 값의 <hl> 태그가 원본 제목 강조 span 으로 치환된다(따옴표 포함). */}
+        <Trans
+          i18nKey={handoffFrom ? 'chat.transcript.lineageHandoff' : 'chat.transcript.lineageFork'}
+          values={{ label }}
+          components={{ hl: <span className="text-ink2" /> }}
+        />
       </span>
       <button
         type="button"
         onClick={openParent}
         className="ml-auto shrink-0 rounded-sm text-accent outline-none hide-focus-ring ring-focus hover:underline focus-visible:ring-1"
-        title="원본 세션 열기"
+        title={tr('chat.transcript.openParentTitle')}
       >
-        원본 열기
+        {tr('chat.transcript.openParent')}
       </button>
     </div>
   )

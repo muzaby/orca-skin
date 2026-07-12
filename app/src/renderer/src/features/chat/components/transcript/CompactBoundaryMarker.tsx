@@ -1,5 +1,6 @@
 import { memo } from 'react'
 import { Icon } from '../../../../shared/ui/Icon'
+import { useI18n } from '../../../../shared/i18n'
 
 interface CompactBoundaryMarkerProps {
   trigger?: 'manual' | 'auto'
@@ -22,13 +23,17 @@ export const CompactBoundaryMarker = memo(function CompactBoundaryMarker({
   preTokens,
   postTokens
 }: CompactBoundaryMarkerProps): React.JSX.Element {
+  const { tr } = useI18n()
   const tokenLabel =
     preTokens !== undefined && postTokens !== undefined
-      ? ` · ${formatTokens(preTokens)} → ${formatTokens(postTokens)} 토큰`
+      ? ` · ${tr('chat.transcript.compactTokensRange', {
+          pre: formatTokens(preTokens),
+          post: formatTokens(postTokens)
+        })}`
       : preTokens !== undefined
-        ? ` · ${formatTokens(preTokens)} 토큰 압축`
+        ? ` · ${tr('chat.transcript.compactTokensCompressed', { pre: formatTokens(preTokens) })}`
         : ''
-  const label = `${trigger === 'auto' ? '자동 압축됨' : '이전 대화 압축됨'}${tokenLabel}`
+  const label = `${tr(trigger === 'auto' ? 'chat.transcript.compactAuto' : 'chat.transcript.compactManual')}${tokenLabel}`
   return (
     <div className="my-1 flex items-center gap-2 text-ink3" role="separator" aria-label={label}>
       <span className="h-px flex-1 bg-border" aria-hidden />

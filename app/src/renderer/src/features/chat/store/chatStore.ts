@@ -730,12 +730,20 @@ function pruneUnsentContinuityDrafts(parentSessionId: string): void {
   })
 }
 
+// 제목 마커 — **영속 데이터라 i18n 비대상**(0097 D3). main 이 같은 형식을 DB 초기 제목으로
+// 독립 생성하므로(src/main/app/chat-turn.ts 의 initialTitle) draft↔물질화가 문자열 단위로
+// 일치해야 한다. locale 별 마커는 이 계약을 깨므로 도입하지 않는다(en 카탈로그와 무관).
+const CONTINUITY_TITLE_MARKER: Record<'fork' | 'handoff', string> = {
+  fork: '분기',
+  handoff: '핸드오프'
+}
+
 // fork/handoff draft 공통 시드 — 원본 세션의 정체성·설정 메타 승계 + 마커 제목(0065 dedup).
 // 제목은 main 의 DB 초기 제목(initialTitle)과 같은 형식이어야 물질화 후 표시가 이어진다.
-function continuityDraftSession(src: ChatState, marker: '분기' | '핸드오프'): ChatState {
+function continuityDraftSession(src: ChatState, kind: 'fork' | 'handoff'): ChatState {
   return {
     ...initialChatState,
-    title: `[${marker}] ${src.title?.trim() || src.sessionId!.slice(0, 8)}`,
+    title: `[${CONTINUITY_TITLE_MARKER[kind]}] ${src.title?.trim() || src.sessionId!.slice(0, 8)}`,
     cwd: src.cwd,
     pendingProjectId: src.projectId,
     projectId: src.projectId,
@@ -759,7 +767,7 @@ function startForkDraft(): boolean {
   const draftKey = `draft:${crypto.randomUUID()}`
   const draft: SessionEntry = {
     session: {
-      ...continuityDraftSession(src, '분기'),
+      ...continuityDraftSession(src, 'fork'),
       // fork 는 원본 컨텍스트를 그대로 갖고 시작하므로 도넛(lastTelemetry)도 승계한다.
       lastTelemetry: src.lastTelemetry,
       // 프리필 원본 이력 끝에 '분기된 지점' 구분선을 합성한다(r5 피드백 3) — 물질화 시
@@ -822,7 +830,7 @@ function startHandoff(): boolean {
   }
   const draft: SessionEntry = {
     session: {
-      ...continuityDraftSession(src, '핸드오프'),
+      ...continuityDraftSession(src, 'handoff'),
       inflight: true,
       turnStartedAt: Date.now(),
       handoffFrom: sourceSessionId

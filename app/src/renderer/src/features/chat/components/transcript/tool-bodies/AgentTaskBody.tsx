@@ -1,4 +1,5 @@
 import { Button } from '../../../../../shared/ui/Button'
+import { useI18n } from '../../../../../shared/i18n'
 import { chatActions } from '../../../store/chatStore'
 import { stringify } from '../../../format'
 import type { ToolCall } from '../../../reducer/chatReducer'
@@ -13,6 +14,7 @@ function stringField(rec: Record<string, unknown>, key: string): string | null {
 }
 
 export function AgentTaskBody({ call }: { call: ToolCall }): React.JSX.Element {
+  const { tr } = useI18n()
   const input = asRecord(call.input)
   const subagentType =
     stringField(input, 'subagent_type') ?? stringField(input, 'agent') ?? 'default'
@@ -21,8 +23,12 @@ export function AgentTaskBody({ call }: { call: ToolCall }): React.JSX.Element {
   return (
     <div className="flex flex-col gap-g3 font-sans text-body text-ink">
       <div className="rounded-r4 border border-t5 bg-bg2 px-3 py-2">
-        <div className="text-caption font-semibold text-t7">서브에이전트</div>
-        <div className="mt-1 text-footnote text-ink3">유형: {subagentType}</div>
+        <div className="text-caption font-semibold text-t7">
+          {tr('chat.toolMeta.subagentHeading')}
+        </div>
+        <div className="mt-1 text-footnote text-ink3">
+          {tr('chat.toolMeta.subagentTypeLine', { type: subagentType })}
+        </div>
         {prompt && <div className="mt-2 line-clamp-3 text-footnote text-t7">{prompt}</div>}
       </div>
       {result !== undefined && (
@@ -32,7 +38,7 @@ export function AgentTaskBody({ call }: { call: ToolCall }): React.JSX.Element {
       )}
       <div>
         <Button size="small" onClick={() => chatActions.openSubagentTask(call.toolUseId)}>
-          서브에이전트 패널 열기
+          {tr('chat.toolMeta.openSubagentPanel')}
         </Button>
       </div>
     </div>
