@@ -161,6 +161,161 @@ export const en: typeof ko = {
       emptyDesc: 'Task tool calls will appear here when detected.',
       openTranscriptAria: 'View transcript for {{description}}',
       viewTranscript: 'View transcript'
+    },
+    composer: {
+      modes: {
+        plan: {
+          label: 'Plan',
+          desc: 'Read-only — explores and analyzes code, planning only (no edits).'
+        },
+        default: {
+          label: 'Default',
+          desc: 'Standard behavior — asks for confirmation on risky actions as they come up.'
+        },
+        accept_edits: {
+          label: 'Accept edits',
+          desc: 'Automatically accepts file edits (applied without confirmation).'
+        },
+        auto_classified: {
+          label: 'Auto-classified',
+          desc: 'The model classifies risk and auto-approves safe actions.'
+        },
+        dont_ask: {
+          label: "Don't ask",
+          desc: 'Skips Orca approval prompts and follows the default auto-proceed policy.'
+        },
+        bypass: {
+          label: 'Bypass permissions',
+          desc: 'Skips sandbox/approval permission checks as much as possible — very risky.'
+        },
+        riskyConfirm: 'All approval gates will be disabled. Click once more to confirm.'
+      },
+      effort: {
+        low: { label: 'Low', desc: 'Prioritizes fast responses.' },
+        medium: { label: 'Medium', desc: 'Balances speed and thinking depth.' },
+        high: { label: 'High', desc: 'Default. Works with sufficient thinking depth.' },
+        xhigh: { label: 'Very high', desc: 'Thinks more deeply for complex tasks.' },
+        max: { label: 'Max', desc: 'Uses the deepest thinking budget.' }
+      },
+      handoffNoSession: 'No session to hand off',
+      handoffWaitTurn: 'Try again after the response completes',
+      handoffNeedMoreTurns: 'Available after the conversation progresses further',
+      scrollToBottom: 'Scroll to bottom',
+      concurrencyNoticeTitle: 'Another task is running in the same project.',
+      concurrencyNoticeBody:
+        'File conflicts are possible. Orca does not block the task; whether to run concurrently is up to you.',
+      queuedNoticeTitle: 'Waiting for connection.',
+      queuedNoticeBody:
+        'This message will be sent in order as soon as the previous new chat session is ready.',
+      backendTitle: 'Backend: {{label}}',
+      placeholderFeedback: 'Send feedback… (Enter to send / Shift+Enter for newline)',
+      placeholderIdle: 'Type / to see skills.',
+      inputAria: 'Message input',
+      abortUnsupported: 'This backend does not support aborting',
+      sendFeedback: 'Send feedback',
+      sendFeedbackEnter: 'Send feedback (Enter)',
+      send: 'Send',
+      sendEnter: 'Send (Enter)',
+      permissionModeTitle: 'Permission mode',
+      attachMenuTitle: 'More menu',
+      modelSelectTitle: 'Select model',
+      modelFallback: 'Model',
+      effortTitle: 'Effort',
+      contextTitle: 'Context ~{{used}}k / {{window}}k tokens · view usage',
+      contextLimitNear: 'context limit approaching',
+      contextUsageAria: 'Context usage: {{pct}}%',
+      attach: 'Attach',
+      attachRemoveAria: 'Remove attachment {{name}}',
+      fileAutocompleteAria: 'File path autocomplete',
+      loadingShort: 'Loading…',
+      noMatches: 'No matching items',
+      skillAutocompleteAria: 'Skill autocomplete',
+      noModels: 'No models available.',
+      sdkDefaultModel: 'SDK default',
+      cwdOpenAria: 'Open working folder',
+      cwdSelectAria: 'Select working folder'
+    },
+    status: {
+      warn: {
+        pill: 'This conversation is getting long',
+        detail: 'Details',
+        title: 'The conversation is getting long',
+        description: 'You can keep going, but a light cleanup will make it flow more smoothly.',
+        length: 'On the long side',
+        usage: 'A bit above average',
+        actionButton: 'Summarize the conversation',
+        disclaimer: 'These figures are estimates and may differ slightly from reality.'
+      },
+      danger: {
+        pill: 'This conversation is very long — cleanup needed',
+        detail: 'Details',
+        title: 'The conversation is very long',
+        description:
+          'It is better to move to a new session (handoff) that inherits a summary. Everything so far will be kept.',
+        length: 'Very long',
+        usage: 'On the high side',
+        actionButton: 'Continue via handoff',
+        disclaimer: 'These figures are estimates and may differ slightly from reality.'
+      },
+      lengthLabel: 'Conversation length',
+      usageTodayLabel: "Today's usage",
+      costTodayLabel: "Today's cost",
+      handoffHint: 'Continue in a new session with a summary',
+      compactHint: 'Compacts the current session history'
+    },
+    approval: {
+      toolAria: 'Tool execution approval',
+      toolRequest: 'Claude is requesting permission to run {{tool}}',
+      deny: 'Deny',
+      allowSessionTitle: 'Auto-allow the same tool for this session',
+      allowSession: 'Allow for session',
+      allow: 'Allow',
+      planAria: 'Plan approval',
+      planProposed: 'Claude proposed a plan',
+      openPlan: 'Open plan',
+      commentEditTitle: 'Edit comment',
+      commentDelete: 'Delete comment',
+      revisePlaceholder: 'Anything to add?',
+      reviseInputAria: 'Revision suggestion',
+      reviseFirst: 'Enter your revision suggestion first',
+      reviseOpen: 'Revise…',
+      revise: 'Revise',
+      accept: 'Accept'
+    },
+    ask: {
+      aria: 'Clarifying question',
+      multiSelect: 'Multiple selections allowed',
+      prevQuestion: 'Previous question',
+      nextQuestion: 'Next question',
+      skip: 'Skip',
+      otherPlaceholder: 'Other — type your own…',
+      otherInputAria: '{{header}} other free-form input',
+      submit: 'Submit',
+      next: 'Next'
+    },
+    rightpanel: {
+      tiles: {
+        plan: 'Plan',
+        subagent: 'Background tasks',
+        reserved1: 'Reserved 1',
+        reserved2: 'Reserved 2'
+      },
+      closeTile: 'Close {{label}}',
+      panelResizeAria: 'Resize right panel',
+      rowResizeAria: 'Resize panel row',
+      colResizeAria: 'Resize panel column',
+      planCopy: 'Copy plan',
+      planEmptyTitle: 'No plan yet',
+      planEmptyDesc: 'It will appear here as Claude explores and builds a plan.',
+      planSelectHint: 'Select text to leave feedback for Claude',
+      reservedTitle: 'Reserved tile',
+      reservedDesc: 'This area is reserved for an upcoming auxiliary panel feature.',
+      commentViewAria: 'View comment',
+      commentCreateAria: 'Write comment: {{quote}}',
+      commentEditAria: 'Edit comment: {{quote}}',
+      commentPlaceholder: 'Add a comment…',
+      commentInputAria: 'Comment content',
+      commentSubmit: 'Comment'
     }
   },
   sidebar: {

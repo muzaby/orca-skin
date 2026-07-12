@@ -4,6 +4,7 @@ import { chatActions, useChatSession } from '../store/chatStore'
 import { columnsContain } from '../lib/rightPanelLayout'
 import { quoteSnippet } from '../lib/planComments'
 import type { PlanComment } from '../reducer/chatReducer'
+import { useI18n } from '../../../shared/i18n'
 
 // ApprovalCard — Composer 의 입력 패널을 *대체*하는 **계획(plan_review)** 승인 게이트
 // (rendering.md §7.6). 입력 위 additive 패턴인 tool_approval/ask_question 은 Composer 가
@@ -54,6 +55,7 @@ export function ToolApprovalBody({
   toolName: string
   input: unknown
 }): React.JSX.Element {
+  const { tr } = useI18n()
   const { approveTool, approveToolForSession, denyTool } = chatActions
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
@@ -72,12 +74,12 @@ export function ToolApprovalBody({
       data-surface="prompt"
       data-behavior="interactive"
       role="group"
-      aria-label="도구 실행 승인"
+      aria-label={tr('chat.approval.toolAria')}
       onKeyDown={onKeyDown}
     >
       <div className="flex items-center gap-g3">
         <span className="text-footnote font-medium text-t9">
-          Claude가 {toolName} 실행 권한을 요청합니다
+          {tr('chat.approval.toolRequest', { tool: toolName })}
         </span>
       </div>
 
@@ -93,22 +95,22 @@ export function ToolApprovalBody({
           onClick={() => denyTool(approvalId)}
           data-behavior="dismissible"
         >
-          거부
+          {tr('chat.approval.deny')}
         </Button>
         <div className="flex items-center gap-g3">
           <Button
             variant="uncontained"
             onClick={() => approveToolForSession(approvalId, toolName)}
-            title="이 세션 동안 같은 도구를 자동 허용"
+            title={tr('chat.approval.allowSessionTitle')}
           >
-            세션 동안 허용
+            {tr('chat.approval.allowSession')}
           </Button>
           <Button
             variant="primary"
             onClick={() => approveTool(approvalId)}
             data-behavior="action:send"
           >
-            허용
+            {tr('chat.approval.allow')}
           </Button>
         </div>
       </div>
@@ -127,6 +129,7 @@ function PlanCommentChips({
   onOpen: (id: string) => void
   onRemove: (id: string) => void
 }): React.JSX.Element {
+  const { tr } = useI18n()
   return (
     <div className="mt-2 flex flex-col gap-1">
       {comments.map((c) => (
@@ -138,7 +141,7 @@ function PlanCommentChips({
             type="button"
             onClick={() => onOpen(c.id)}
             className="min-w-0 flex-1 cursor-default text-left outline-none hide-focus-ring ring-focus"
-            title="코멘트 편집"
+            title={tr('chat.approval.commentEditTitle')}
           >
             <div className="truncate text-caption text-t6">“{quoteSnippet(c.quote, 48)}”</div>
             <div className="truncate text-footnote text-t9">{c.body}</div>
@@ -148,8 +151,8 @@ function PlanCommentChips({
             size="small"
             leadingIcon="x"
             onClick={() => onRemove(c.id)}
-            title="코멘트 삭제"
-            aria-label="코멘트 삭제"
+            title={tr('chat.approval.commentDelete')}
+            aria-label={tr('chat.approval.commentDelete')}
             className="shrink-0 opacity-0 group-hover/plancomment:opacity-100"
           />
         </div>
@@ -159,6 +162,7 @@ function PlanCommentChips({
 }
 
 function PlanApprovalBody(): React.JSX.Element | null {
+  const { tr } = useI18n()
   const { approvePlan, revisePlanWithComments, rejectPlan, setRightPanelTileActive } = chatActions
   const review = useChatSession((s) => s.pendingPlanReview)
   const planTileOpen = useChatSession((s) => columnsContain(s.rightPanelTiles, 'plan'))
@@ -219,18 +223,20 @@ function PlanApprovalBody(): React.JSX.Element | null {
       data-surface="prompt"
       data-behavior="interactive"
       role="group"
-      aria-label="계획 승인"
+      aria-label={tr('chat.approval.planAria')}
       onKeyDown={onKeyDown}
     >
       <div className="flex items-center gap-g3">
-        <span className="text-footnote font-medium text-t9">Claude가 계획을 제안했습니다</span>
+        <span className="text-footnote font-medium text-t9">
+          {tr('chat.approval.planProposed')}
+        </span>
         {!planTileOpen && (
           <button
             type="button"
             onClick={() => setRightPanelTileActive('plan', true)}
             className="ml-auto cursor-default border-0 bg-transparent text-footnote font-medium text-t8 outline-none hide-focus-ring ring-focus hover:underline"
           >
-            플랜 열기
+            {tr('chat.approval.openPlan')}
           </button>
         )}
       </div>
@@ -255,7 +261,7 @@ function PlanApprovalBody(): React.JSX.Element | null {
               aria-hidden
               className="min-h-[72px] max-h-56 w-full overflow-hidden whitespace-pre-wrap break-words px-3 py-1.5 text-footnote text-transparent"
             >
-              {feedback === '' ? '더 추가할 내용이 있으신가요?' : feedback}
+              {feedback === '' ? tr('chat.approval.revisePlaceholder') : feedback}
               {feedback.endsWith('\n') ? '​' : ''}
             </div>
             <textarea
@@ -263,8 +269,8 @@ function PlanApprovalBody(): React.JSX.Element | null {
               value={feedback}
               onChange={(e) => setFeedback(e.target.value)}
               onKeyDown={onTextareaKeyDown}
-              placeholder="더 추가할 내용이 있으신가요?"
-              aria-label="수정 제안 내용"
+              placeholder={tr('chat.approval.revisePlaceholder')}
+              aria-label={tr('chat.approval.reviseInputAria')}
               className="absolute inset-0 h-full max-h-56 w-full resize-none overflow-y-auto rounded-r5 border-0 bg-transparent px-3 py-1.5 text-footnote text-t9 outline-none ring-0 placeholder:text-t6 focus:border-transparent focus:ring-0"
             />
           </div>
@@ -279,10 +285,10 @@ function PlanApprovalBody(): React.JSX.Element | null {
         {!reviseExpanded && (
           <div className="flex items-center gap-g3">
             <Button variant="contained" onClick={() => rejectPlan(rid)} data-behavior="dismissible">
-              거부
+              {tr('chat.approval.deny')}
             </Button>
             <Button variant="uncontained" onClick={onReviseClick}>
-              수정…
+              {tr('chat.approval.reviseOpen')}
             </Button>
           </div>
         )}
@@ -292,10 +298,10 @@ function PlanApprovalBody(): React.JSX.Element | null {
             onClick={onReviseClick}
             disabled={!canRevise}
             kbd="Enter"
-            title={!canRevise ? '수정 제안 내용을 먼저 입력하세요' : undefined}
+            title={!canRevise ? tr('chat.approval.reviseFirst') : undefined}
             data-behavior="action:send"
           >
-            수정
+            {tr('chat.approval.revise')}
           </Button>
         ) : (
           <Button
@@ -304,7 +310,7 @@ function PlanApprovalBody(): React.JSX.Element | null {
             data-behavior="action:send"
             kbd="Ctrl+Enter"
           >
-            수락
+            {tr('chat.approval.accept')}
           </Button>
         )}
       </div>

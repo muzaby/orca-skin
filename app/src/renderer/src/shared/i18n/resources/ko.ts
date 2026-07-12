@@ -160,6 +160,157 @@ export const ko = {
       emptyDesc: 'Task 도구 호출이 감지되면 여기에 표시됩니다.',
       openTranscriptAria: '{{description}} 대화록 보기',
       viewTranscript: '대화록 보기'
+    },
+    composer: {
+      modes: {
+        plan: {
+          label: '계획',
+          desc: '읽기 전용 — 코드를 탐색·분석하고 계획만 세웁니다 (편집 없음).'
+        },
+        default: { label: '기본', desc: '표준 동작 — 위험한 작업은 그때그때 확인을 요청합니다.' },
+        accept_edits: {
+          label: '편집 수락',
+          desc: '파일 편집을 자동으로 수락합니다 (확인 없이 적용).'
+        },
+        auto_classified: {
+          label: '자동 분류',
+          desc: '모델이 위험도를 분류해 안전한 작업을 자동 승인합니다.'
+        },
+        dont_ask: {
+          label: '묻지 않음',
+          desc: 'Orca 승인 질문을 만들지 않고 기본 자동 진행 정책을 따릅니다.'
+        },
+        bypass: {
+          label: '권한 우회',
+          desc: '샌드박스/승인 권한 검사를 최대한 건너뜁니다 — 매우 위험.'
+        },
+        riskyConfirm: '모든 승인 게이트가 해제됩니다. 한 번 더 눌러 확인하세요.'
+      },
+      effort: {
+        low: { label: '낮음', desc: '빠른 응답을 우선합니다.' },
+        medium: { label: '중간', desc: '속도와 사고 깊이를 균형 있게 사용합니다.' },
+        high: { label: '높음', desc: '기본값. 충분한 사고 깊이로 작업합니다.' },
+        xhigh: { label: '매우 높음', desc: '복잡한 작업에 더 깊게 사고합니다.' },
+        max: { label: '최대', desc: '가장 깊은 사고 예산을 사용합니다.' }
+      },
+      handoffNoSession: '핸드오프할 세션이 없습니다',
+      handoffWaitTurn: '응답 완료 후 시도하세요',
+      handoffNeedMoreTurns: '대화가 더 진행된 뒤 사용할 수 있습니다',
+      scrollToBottom: '맨 아래로',
+      concurrencyNoticeTitle: '같은 프로젝트에서 다른 작업이 실행 중입니다.',
+      concurrencyNoticeBody:
+        '파일 충돌 가능성이 있습니다. Orca는 작업을 차단하지 않으며, 동시 실행 여부는 사용자가 판단합니다.',
+      queuedNoticeTitle: '연결 대기 중입니다.',
+      queuedNoticeBody: '이전 새 대화의 세션이 준비되는 대로 이 메시지를 순서대로 전송합니다.',
+      backendTitle: '백엔드: {{label}}',
+      placeholderFeedback: '피드백 보내기… (Enter 전송 / Shift+Enter 줄바꿈)',
+      placeholderIdle: '스킬을 보려면 /를 입력하세요.',
+      inputAria: '메시지 입력',
+      abortUnsupported: '이 백엔드는 중단을 지원하지 않습니다',
+      sendFeedback: '피드백 보내기',
+      sendFeedbackEnter: '피드백 보내기 (Enter)',
+      send: '전송',
+      sendEnter: '전송 (Enter)',
+      permissionModeTitle: '권한 모드',
+      attachMenuTitle: '추가 메뉴',
+      modelSelectTitle: '모델 선택',
+      modelFallback: '모델',
+      effortTitle: '작업량',
+      contextTitle: '컨텍스트 ~{{used}}k / {{window}}k 토큰 · 사용량 보기',
+      contextLimitNear: '컨텍스트 한계 임박',
+      contextUsageAria: '컨텍스트 사용량: {{pct}}%',
+      attach: '첨부',
+      attachRemoveAria: '{{name}} 첨부 제거',
+      fileAutocompleteAria: '파일 경로 자동완성',
+      loadingShort: '로딩 중…',
+      noMatches: '일치하는 항목 없음',
+      skillAutocompleteAria: '스킬 자동완성',
+      noModels: '사용 가능한 모델이 없습니다.',
+      sdkDefaultModel: 'SDK 기본',
+      cwdOpenAria: '작업 폴더 열기',
+      cwdSelectAria: '작업 폴더 선택'
+    },
+    status: {
+      warn: {
+        pill: '대화가 꽤 길어졌어요',
+        detail: '자세히',
+        title: '대화가 길어지고 있어요',
+        description: '이대로 계속해도 되지만, 가볍게 정리하면 더 매끄럽게 이어갈 수 있어요.',
+        length: '긴 편이에요',
+        usage: '보통보다 조금 많아요',
+        actionButton: '대화 가볍게 요약하기',
+        disclaimer: '표시된 내용은 예상치예요. 실제와 조금 다를 수 있어요.'
+      },
+      danger: {
+        pill: '대화가 아주 길어졌어요 — 정리가 필요해요',
+        detail: '자세히',
+        title: '대화가 아주 길어요',
+        description:
+          '요약본을 이어받는 새 세션(핸드오프)으로 넘어가는 편이 좋아요. 지금까지 내용은 그대로 남아요.',
+        length: '아주 길어요',
+        usage: '많은 편이에요',
+        actionButton: '핸드오프로 이어가기',
+        disclaimer: '표시된 내용은 예상치예요. 실제와 조금 다를 수 있어요.'
+      },
+      lengthLabel: '대화 길이',
+      usageTodayLabel: '오늘 사용량',
+      costTodayLabel: '오늘 비용',
+      handoffHint: '요약본으로 새 세션에서 이어갑니다',
+      compactHint: '현재 세션의 대화 기록을 압축합니다'
+    },
+    approval: {
+      toolAria: '도구 실행 승인',
+      toolRequest: 'Claude가 {{tool}} 실행 권한을 요청합니다',
+      deny: '거부',
+      allowSessionTitle: '이 세션 동안 같은 도구를 자동 허용',
+      allowSession: '세션 동안 허용',
+      allow: '허용',
+      planAria: '계획 승인',
+      planProposed: 'Claude가 계획을 제안했습니다',
+      openPlan: '플랜 열기',
+      commentEditTitle: '코멘트 편집',
+      commentDelete: '코멘트 삭제',
+      revisePlaceholder: '더 추가할 내용이 있으신가요?',
+      reviseInputAria: '수정 제안 내용',
+      reviseFirst: '수정 제안 내용을 먼저 입력하세요',
+      reviseOpen: '수정…',
+      revise: '수정',
+      accept: '수락'
+    },
+    ask: {
+      aria: '명확화 질문',
+      multiSelect: '여러 개 선택 가능',
+      prevQuestion: '이전 질문',
+      nextQuestion: '다음 질문',
+      skip: '건너뛰기',
+      otherPlaceholder: '기타 — 직접 입력…',
+      otherInputAria: '{{header}} 기타 직접 입력',
+      submit: '제출',
+      next: '다음'
+    },
+    rightpanel: {
+      tiles: {
+        plan: '계획',
+        subagent: '백그라운드 작업',
+        reserved1: '예약 1',
+        reserved2: '예약 2'
+      },
+      closeTile: '{{label}} 닫기',
+      panelResizeAria: '우측 패널 크기 조절',
+      rowResizeAria: '패널 행 크기 조절',
+      colResizeAria: '패널 열 크기 조절',
+      planCopy: '플랜 복사',
+      planEmptyTitle: '아직 플랜이 없습니다',
+      planEmptyDesc: 'Claude 가 탐색하며 계획을 세우면 여기에 표시됩니다.',
+      planSelectHint: '텍스트를 선택해 Claude에게 의견을 남기세요',
+      reservedTitle: '예약된 타일입니다',
+      reservedDesc: '이 영역은 다음 보조 패널 기능을 위해 비워두었습니다.',
+      commentViewAria: '코멘트 보기',
+      commentCreateAria: '코멘트 작성: {{quote}}',
+      commentEditAria: '코멘트 편집: {{quote}}',
+      commentPlaceholder: '코멘트 추가…',
+      commentInputAria: '코멘트 내용',
+      commentSubmit: '댓글'
     }
   },
   sidebar: {

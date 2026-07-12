@@ -1,16 +1,9 @@
 import { Icon } from '../../../../shared/ui/Icon'
+import { useI18n } from '../../../../shared/i18n'
 import type { EffortLevel } from '../../../../../../shared/ipc'
 
-import { EFFORT_LABELS } from './effort'
+import { EFFORT_DESC_KEYS, EFFORT_LABEL_KEYS } from './effort'
 import { MENU_ITEM } from './menuItem'
-
-const EFFORT_DESCRIPTIONS: Record<EffortLevel, string> = {
-  low: '빠른 응답을 우선합니다.',
-  medium: '속도와 사고 깊이를 균형 있게 사용합니다.',
-  high: '기본값. 충분한 사고 깊이로 작업합니다.',
-  xhigh: '복잡한 작업에 더 깊게 사고합니다.',
-  max: '가장 깊은 사고 예산을 사용합니다.'
-}
 
 const EFFORT_OPTIONS: EffortLevel[] = ['low', 'medium', 'high', 'xhigh', 'max']
 
@@ -20,6 +13,7 @@ interface EffortMenuProps {
 }
 
 export function EffortMenu({ effort, onPick }: EffortMenuProps): React.JSX.Element {
+  const { tr } = useI18n()
   return (
     <div role="none" className="flex w-[240px] flex-col">
       {EFFORT_OPTIONS.map((level) => {
@@ -35,11 +29,11 @@ export function EffortMenu({ effort, onPick }: EffortMenuProps): React.JSX.Eleme
           >
             <span className="min-w-0 flex-1">
               <span className="flex items-center gap-1.5 text-[13px] font-medium text-ink">
-                {EFFORT_LABELS[level]}
+                {tr(EFFORT_LABEL_KEYS[level])}
                 {active && <Icon name="check" size={12} />}
               </span>
               <span className="mt-0.5 block text-[11.5px] leading-snug text-ink2">
-                {EFFORT_DESCRIPTIONS[level]}
+                {tr(EFFORT_DESC_KEYS[level])}
               </span>
             </span>
           </button>

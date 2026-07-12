@@ -184,7 +184,7 @@ export const ChatTitleBar = memo(function ChatTitleBar({
                 aria-checked={active}
               >
                 <Icon name={active ? 'check' : 'plus'} size={13} />
-                <span>{labels[tile.id as RightPanelTileId] ?? tile.defaultLabel}</span>
+                <span>{labels[tile.id as RightPanelTileId] ?? tr(tile.defaultLabelKey)}</span>
               </button>
             )
           })}

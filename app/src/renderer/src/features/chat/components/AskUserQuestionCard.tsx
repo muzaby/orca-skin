@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type KeyboardEvent } from 'react'
 import { Icon } from '../../../shared/ui/Icon'
 import { Button } from '../../../shared/ui/Button'
 import type { AskQuestionRequest } from '../../../../../shared/ipc'
+import { useI18n } from '../../../shared/i18n'
 
 interface AskUserQuestionCardProps {
   ask: AskQuestionRequest
@@ -31,6 +32,7 @@ export function AskUserQuestionCard({
   onSubmit,
   onSkip
 }: AskUserQuestionCardProps): React.JSX.Element {
+  const { tr } = useI18n()
   const { questions } = ask
   // 질문별 선택 라벨 배열(단일=최대 1) + 기타 자유입력 텍스트.
   const [picks, setPicks] = useState<string[][]>(() => questions.map(() => []))
@@ -191,7 +193,7 @@ export function AskUserQuestionCard({
       data-ask-user-input
       data-behavior="interactive"
       role="group"
-      aria-label="명확화 질문"
+      aria-label={tr('chat.ask.aria')}
       onKeyDown={onRootKeyDown}
     >
       {(() => {
@@ -207,7 +209,9 @@ export function AskUserQuestionCard({
                   <span className="rounded bg-t3 px-1.5 py-0.5 text-caption font-semibold tabular-nums text-t7">
                     {multiQuestion ? `${current + 1}/${questions.length}` : q.header}
                   </span>
-                  {q.multiSelect && <span className="text-caption text-t6">여러 개 선택 가능</span>}
+                  {q.multiSelect && (
+                    <span className="text-caption text-t6">{tr('chat.ask.multiSelect')}</span>
+                  )}
                 </div>
                 <div className="text-[13.5px] font-medium text-t9">{q.question}</div>
               </div>
@@ -219,7 +223,7 @@ export function AskUserQuestionCard({
                     leadingIcon="arrowL"
                     onClick={goPrev}
                     disabled={current === 0}
-                    aria-label="이전 질문"
+                    aria-label={tr('chat.ask.prevQuestion')}
                   />
                   <Button
                     iconOnly
@@ -227,7 +231,7 @@ export function AskUserQuestionCard({
                     leadingIcon="arrowR"
                     onClick={goNext}
                     disabled={current === last}
-                    aria-label="다음 질문"
+                    aria-label={tr('chat.ask.nextQuestion')}
                   />
                 </>
               )}
@@ -236,7 +240,7 @@ export function AskUserQuestionCard({
                 size="small"
                 leadingIcon="x"
                 onClick={onSkip}
-                aria-label="건너뛰기"
+                aria-label={tr('chat.ask.skip')}
               />
             </div>
             <div
@@ -290,9 +294,9 @@ export function AskUserQuestionCard({
             <textarea
               value={other[qIdx]}
               onChange={(e) => changeOther(qIdx, e.target.value, q.multiSelect)}
-              placeholder="기타 — 직접 입력…"
+              placeholder={tr('chat.ask.otherPlaceholder')}
               rows={1}
-              aria-label={`${q.header} 기타 직접 입력`}
+              aria-label={tr('chat.ask.otherInputAria', { header: q.header })}
               className="mt-1.5 w-full resize-y rounded-r4 border border-t5 bg-t1 px-3 py-1.5 text-footnote text-t9 outline-none ring-focus placeholder:text-t6 focus:border-border-strong"
               style={
                 { fieldSizing: 'content', maxHeight: 'calc(4lh + 0.75rem)' } as React.CSSProperties
@@ -304,7 +308,7 @@ export function AskUserQuestionCard({
 
       <div className="mt-3 flex items-center justify-end gap-g4">
         <Button variant="uncontained" onClick={onSkip} data-behavior="dismissible">
-          건너뛰기
+          {tr('chat.ask.skip')}
         </Button>
         <Button
           variant="primary"
@@ -313,7 +317,7 @@ export function AskUserQuestionCard({
           data-behavior="action:send"
           kbd="Enter"
         >
-          {isLast ? '제출' : '다음'}
+          {isLast ? tr('chat.ask.submit') : tr('chat.ask.next')}
         </Button>
       </div>
     </div>

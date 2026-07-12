@@ -7,15 +7,18 @@ import { usePlanCommentSelection } from '../../hooks/usePlanCommentSelection'
 import { rangeFromOffsets, rectsForRange } from '../../lib/planCommentDom'
 import { PlanCommentOverlay } from './PlanCommentOverlay'
 import { PlanCommentPopover, type PopoverAnchorPoint } from './PlanCommentPopover'
+import { useI18n } from '../../../../shared/i18n'
 
 // 계획 타일 헤더 액션 — 본문이 아닌 타일 헤더(RightPanelTile)에서 렌더된다.
 // planContent 를 직접 구독하므로 RightPanelTile 은 타일별 액션을 모른 채 슬롯만 받는다.
 export function PlanTileHeaderActions(): React.JSX.Element {
+  const { tr } = useI18n()
   const planContent = useChatSession((s) => s.planContent)
-  return <CopyIconButton text={planContent ?? ''} title="플랜 복사" />
+  return <CopyIconButton text={planContent ?? ''} title={tr('chat.rightpanel.planCopy')} />
 }
 
 export function PlanTileContent(): React.JSX.Element {
+  const { tr } = useI18n()
   const planContent = useChatSession((s) => s.planContent)
   // 계획 검토 중일 때만 드래그→코멘트 활성(전송 가능한 상태와 일치).
   const enabled = useChatSession((s) => s.pendingPlanReview != null)
@@ -77,10 +80,10 @@ export function PlanTileContent(): React.JSX.Element {
       >
         <div className="m-auto flex max-w-[240px] flex-col items-center gap-g3 text-center text-t6">
           <Icon name="board" size={28} style={{ color: 'var(--color-t6)' }} />
-          <p className="text-footnote font-medium text-t6">아직 플랜이 없습니다</p>
-          <p className="text-caption text-ink3">
-            Claude 가 탐색하며 계획을 세우면 여기에 표시됩니다.
+          <p className="text-footnote font-medium text-t6">
+            {tr('chat.rightpanel.planEmptyTitle')}
           </p>
+          <p className="text-caption text-ink3">{tr('chat.rightpanel.planEmptyDesc')}</p>
         </div>
       </div>
     )
@@ -94,7 +97,7 @@ export function PlanTileContent(): React.JSX.Element {
       <div className="mx-auto w-full max-w-[68ch] text-[13px] text-ink">
         <div className="mb-[var(--chat-item-gap)] flex items-center gap-g3 text-caption text-t6">
           <Icon name="doc" size={13} />
-          <span>텍스트를 선택해 Claude에게 의견을 남기세요</span>
+          <span>{tr('chat.rightpanel.planSelectHint')}</span>
         </div>
         <div ref={contentRef} className="relative">
           <Markdown source={planContent} />

@@ -21,6 +21,7 @@ import { deriveRightPanelLayout } from '../../lib/rightPanelLayout'
 import { tileById } from './tileRegistry'
 import { RightPanelTile } from './RightPanelTile'
 import { useColumnSlideOnReflow } from '../../hooks/useColumnSlideOnReflow'
+import { useI18n } from '../../../../shared/i18n'
 
 const SEPARATOR_CAPSULE =
   'absolute left-1/2 top-1/2 rounded-full bg-border-strong opacity-0 transition-opacity duration-150 group-hover/sep:opacity-100 group-active/sep:opacity-100 group-active/sep:bg-ink3'
@@ -90,6 +91,7 @@ function RowSeparator({
   col: number
   columnRef: RefObject<HTMLDivElement | null>
 }): React.JSX.Element {
+  const { tr } = useI18n()
   const heightRef = useRef(1)
   const getOrigin = useCallback((): number => {
     const rect = columnRef.current?.getBoundingClientRect()
@@ -118,7 +120,7 @@ function RowSeparator({
       data-context="tile"
       data-state="visible"
       onMouseDown={startResize}
-      aria-label="패널 행 크기 조절"
+      aria-label={tr('chat.rightpanel.rowResizeAria')}
     >
       <span
         aria-hidden
@@ -185,7 +187,7 @@ function RightPanelColumn({
       >
         <RightPanelTile
           id={id}
-          defaultLabel={tile.defaultLabel}
+          defaultLabelKey={tile.defaultLabelKey}
           headerActions={HeaderActions ? <HeaderActions /> : undefined}
           headerContent={HeaderContent ? <HeaderContent /> : undefined}
         >
@@ -207,6 +209,7 @@ function RightPanelColumn({
 }
 
 export function RightPanel({ className = '' }: { className?: string }): React.JSX.Element | null {
+  const { tr } = useI18n()
   const activeTiles = useChatSession((s) => s.rightPanelTiles)
   const widths = useChatSession((s) => s.rightPanelColWidths)
   const splits = useChatSession((s) => s.rightPanelRowSplits)
@@ -225,7 +228,7 @@ export function RightPanel({ className = '' }: { className?: string }): React.JS
       <ColumnResizeSeparator
         colIndex={0}
         columnRightOf={columnRightOf}
-        label="우측 패널 크기 조절"
+        label={tr('chat.rightpanel.panelResizeAria')}
       />
       <div className={`my-2 mr-2 flex min-h-0 shrink-0 ${className}`}>
         {layout.columns.map((column, index) => (
@@ -234,7 +237,7 @@ export function RightPanel({ className = '' }: { className?: string }): React.JS
               <ColumnResizeSeparator
                 colIndex={index}
                 columnRightOf={columnRightOf}
-                label="패널 열 크기 조절"
+                label={tr('chat.rightpanel.colResizeAria')}
                 widthClass="w-2"
               />
             )}

@@ -1,5 +1,6 @@
 import { forwardRef } from 'react'
 import { Icon } from '../../../../shared/ui/Icon'
+import { useI18n } from '../../../../shared/i18n'
 import type { StatusLineModel } from './statusViewModel'
 
 interface ConversationStatusLineProps {
@@ -16,6 +17,7 @@ const TONE_CLASS: Record<StatusLineModel['state'], string> = {
 
 export const ConversationStatusLine = forwardRef<HTMLButtonElement, ConversationStatusLineProps>(
   function ConversationStatusLine({ model, open, onToggle, popoverId }, ref) {
+    const { tr } = useI18n()
     if (!model) return null
 
     return (
@@ -30,9 +32,9 @@ export const ConversationStatusLine = forwardRef<HTMLButtonElement, Conversation
         data-behavior="action:toggle-conversation-status"
       >
         <span className="flex h-2 w-2 rounded-full bg-current ring-4 ring-current/15" aria-hidden />
-        <span className="text-ink">{model.labels.pill}</span>
+        <span className="text-ink">{tr(model.labelKeys.pill)}</span>
         <span className="flex items-center gap-0.5 text-current">
-          {model.labels.detail}
+          {tr(model.labelKeys.detail)}
           <Icon name="chevU" size={11} />
         </span>
       </button>

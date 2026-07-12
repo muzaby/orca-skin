@@ -2,10 +2,11 @@ import { useCallback, type ReactNode } from 'react'
 import { Button } from '../../../../shared/ui/Button'
 import { chatActions, useChatSession } from '../../store/chatStore'
 import type { RightPanelTileId } from '../../lib/rightPanelTiles'
+import { useI18n, type MessageKey } from '../../../../shared/i18n'
 
 interface RightPanelTileProps {
   id: RightPanelTileId
-  defaultLabel: string
+  defaultLabelKey: MessageKey
   children: ReactNode
   // 닫기 버튼 앞에 놓이는 타일별 액션(예: 계획 타일의 복사 버튼). registry 가 주입한다.
   headerActions?: ReactNode
@@ -17,13 +18,14 @@ interface RightPanelTileProps {
 
 export function RightPanelTile({
   id,
-  defaultLabel,
+  defaultLabelKey,
   children,
   headerActions,
   headerContent,
   className = ''
 }: RightPanelTileProps): React.JSX.Element {
-  const label = useChatSession((s) => s.rightPanelTileLabels[id] ?? defaultLabel)
+  const { tr } = useI18n()
+  const label = useChatSession((s) => s.rightPanelTileLabels[id]) ?? tr(defaultLabelKey)
 
   const remove = useCallback((): void => {
     chatActions.removeRightPanelTile(id)
@@ -47,8 +49,8 @@ export function RightPanelTile({
             size="small"
             leadingIcon="x"
             onClick={remove}
-            title={`${label} 닫기`}
-            aria-label={`${label} 닫기`}
+            title={tr('chat.rightpanel.closeTile', { label })}
+            aria-label={tr('chat.rightpanel.closeTile', { label })}
           />
         </div>
       </div>

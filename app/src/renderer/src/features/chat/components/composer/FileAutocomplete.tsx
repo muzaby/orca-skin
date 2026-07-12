@@ -2,6 +2,7 @@ import type { RefObject } from 'react'
 import { AnchoredDropdown } from './AnchoredDropdown'
 import { Icon } from '../../../../shared/ui/Icon'
 import type { FileEntry } from '../../../../../../shared/ipc'
+import { useI18n } from '../../../../shared/i18n'
 
 interface FileAutocompleteProps {
   open: boolean
@@ -28,6 +29,7 @@ export function FileAutocomplete({
   onHover,
   onPick
 }: FileAutocompleteProps): React.JSX.Element | null {
+  const { tr } = useI18n()
   const headerLabel = dirPath === '' ? './' : `./${dirPath}/`
 
   return (
@@ -35,7 +37,7 @@ export function FileAutocomplete({
       open={open}
       anchorRef={anchorRef}
       itemCount={suggestions.length}
-      ariaLabel="파일 경로 자동완성"
+      ariaLabel={tr('chat.composer.fileAutocompleteAria')}
     >
       <div className="border-b border-border px-2 py-1 font-mono text-[10.5px] text-ink3">
         {headerLabel}
@@ -46,10 +48,10 @@ export function FileAutocomplete({
             <span className="inline-flex animate-spin">
               <Icon name="refresh" size={12} />
             </span>
-            <span>로딩 중…</span>
+            <span>{tr('chat.composer.loadingShort')}</span>
           </div>
         ) : suggestions.length === 0 ? (
-          <div className="px-2 py-2 text-[12.5px] text-ink3">일치하는 항목 없음</div>
+          <div className="px-2 py-2 text-[12.5px] text-ink3">{tr('chat.composer.noMatches')}</div>
         ) : (
           suggestions.map((e, i) => {
             const active = i === activeIndex
