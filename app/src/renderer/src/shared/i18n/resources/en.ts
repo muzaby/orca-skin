@@ -21,7 +21,13 @@ export const en: typeof ko = {
     editTitle: 'Edit title',
     newChat: 'New chat',
     running: 'Running',
-    stop: 'Stop'
+    stop: 'Stop',
+    add: 'Add',
+    create: 'Create',
+    count: '{{count}}',
+    loading: 'Loading…',
+    description: 'Description',
+    noDescription: 'No description.'
   },
   nav: {
     chat: '01 Chat',
@@ -45,7 +51,146 @@ export const en: typeof ko = {
     deleteDialogTitle: 'Delete conversation',
     deleteDialogMessage: 'Delete this conversation?',
     menuAria: 'Session menu',
-    renameAria: 'Edit session title'
+    renameAria: 'Edit session title',
+    empty: 'No saved conversations yet.'
+  },
+  skills: {
+    listTitle: 'Skills',
+    rail: { skills: 'Skills', mcp: 'MCP' },
+    landing: {
+      title: 'Customize',
+      subtitle: 'Skills and MCP shape how Orca works with you.',
+      mcpCardTitle: 'Connect MCP',
+      mcpCardDesc: 'Let Orca read and write with the tools you already use.',
+      skillCardTitle: 'Create a new skill',
+      skillCardDesc: 'Teach Orca your processes, team norms, and expertise.'
+    },
+    list: {
+      searchAria: 'Search',
+      addAria: 'Add',
+      off: 'Off',
+      activeMcp: 'Active MCP',
+      inactiveMcp: 'Inactive MCP'
+    },
+    view: { selectItem: 'Select an item.' },
+    detail: {
+      toggleAria: 'Enable {{name}}',
+      tryInChat: 'Try in chat',
+      openDefaultApp: 'Open in default app',
+      showInFolder: 'Show in folder',
+      remove: 'Remove',
+      removing: 'Removing…',
+      lastUpdated: 'Last updated',
+      noBody: 'No body content.',
+      markdownAria: 'Markdown',
+      removeTitle: 'Remove skill',
+      removeConfirmBody:
+        'This removes the following folder from Orca skill sources. Confirm once more to continue.'
+    },
+    addMenu: {
+      browse: 'Browse skills',
+      create: 'Create skill',
+      author: 'Write skill instructions',
+      upload: 'Upload skill'
+    },
+    author: {
+      title: 'Write skill instructions',
+      name: 'Skill name',
+      desc: 'Description',
+      descPlaceholder: 'Generates a weekly status report from recent work.',
+      instructions: 'Instructions',
+      instructionsPlaceholder:
+        'Summarize recent work into three sections: outcomes, blockers, and next steps...',
+      saving: 'Saving…',
+      failed: 'Failed to create the skill.'
+    },
+    upload: {
+      title: 'Upload skill',
+      dropHint: 'Drag and drop, or click to upload',
+      requirements: 'File requirements',
+      reqLine1: 'A .md or .skill file containing YAML frontmatter and skill instructions',
+      reqLine2: 'The uploaded file is saved as SKILL.md in Orca skill sources',
+      failed: 'Failed to upload the skill.'
+    },
+    customMcp: {
+      title: 'Add MCP server',
+      pasteHint: 'Paste a single MCP server JSON entry to merge it into Orca sources mcp.json.',
+      adding: 'Adding…',
+      failed: 'Failed to add the MCP server.',
+      jsonObject: 'Enter a JSON object.',
+      singleEntry: 'Enter exactly one MCP server entry.',
+      nameFormat: 'Server names may only contain letters, digits, _ and -.',
+      invalidConfig: 'The server configuration is invalid.'
+    },
+    mcpDetail: {
+      active: 'Active',
+      inactive: 'Inactive',
+      enable: 'Enable',
+      disable: 'Disable',
+      configSummary: 'Configuration summary'
+    },
+    addServer: {
+      titleAdd: 'Add MCP server',
+      titleEdit: 'Edit MCP server',
+      name: 'Name',
+      namePlaceholder: 'e.g. github',
+      nameFormatError: 'Only letters, digits, _ and - are allowed.',
+      descOptional: 'Description (optional)',
+      descPlaceholder: 'What tools this server provides',
+      transport: 'Transport',
+      stdioOption: 'stdio (local process)',
+      httpOption: 'HTTP (streamable)',
+      command: 'Command',
+      commandPlaceholder: 'e.g. npx · python · node',
+      args: 'Arguments (one per line)',
+      authEnvName: 'Auth environment variable name (optional)',
+      authEnvPlaceholder: 'e.g. GITHUB_TOKEN',
+      authEnvPlaceholderHttp: 'e.g. API_TOKEN — leave empty to auto-generate',
+      authKeyOptional: 'Auth key (optional)',
+      authTokenOptional: 'Auth token (optional)',
+      keepEmptyToPreserve: 'Leave empty to keep unchanged',
+      encryptedNote: 'Stored securely with encryption'
+    }
+  },
+  projects: {
+    title: 'Projects',
+    newProject: 'New project',
+    blurb:
+      'Projects group conversations into categories and automatically inject your system instructions into every new conversation in the project.',
+    noInstructions: 'No instructions',
+    emptyTitle: 'No projects yet',
+    emptyDesc:
+      'Create a project to keep related conversations in one place, with your instructions automatically applied to every new conversation.',
+    createFirst: 'Create your first project',
+    create: {
+      title: 'New project',
+      name: 'Name',
+      namePlaceholder: 'e.g. cam-validation-v3',
+      instructionsOptional: 'Instructions (optional)',
+      instructionsPlaceholder:
+        "Instructions that tailor Claude's responses to this project. e.g. Respond in Korean; use TypeScript for code examples."
+    },
+    editInstructions: {
+      title: 'Edit instructions',
+      body: 'Appended as a system prompt to every new message in <mono>{{name}}</mono>.',
+      placeholder:
+        'e.g. Respond in Korean; use TypeScript for code examples. Keep a concise validation-engineer tone.'
+    },
+    hero: {
+      pin: 'Pin',
+      pinAria: 'Pin project',
+      menuAria: 'Project menu',
+      editDetails: 'Edit details',
+      updated: 'Updated'
+    },
+    filesCard: { title: 'Files', addTitle: 'Add file (coming soon)' },
+    instructionsCard: { title: 'Instructions', editTitle: 'Edit instructions' },
+    sessionsPanel: { title: 'Conversations in this project' },
+    landingHeader: {
+      navAria: 'Project navigation',
+      backAria: 'Back to all projects',
+      all: 'All projects'
+    }
   },
   errors: {
     category: {

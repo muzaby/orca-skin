@@ -1,4 +1,5 @@
 import { SidebarCard } from './SidebarCard'
+import { useI18n } from '../../../shared/i18n'
 
 interface ProjectInstructionsCardProps {
   instructions: string
@@ -11,8 +12,13 @@ export function ProjectInstructionsCard({
   instructions,
   onEdit
 }: ProjectInstructionsCardProps): React.JSX.Element {
+  const { tr } = useI18n()
   return (
-    <SidebarCard title="지침" onAdd={onEdit} addTitle="지침 편집">
+    <SidebarCard
+      title={tr('projects.instructionsCard.title')}
+      onAdd={onEdit}
+      addTitle={tr('projects.instructionsCard.editTitle')}
+    >
       {instructions.trim() ? (
         <div className="line-clamp-3 whitespace-pre-wrap break-words font-sans text-[12px] leading-[1.6] text-ink2">
           {instructions}

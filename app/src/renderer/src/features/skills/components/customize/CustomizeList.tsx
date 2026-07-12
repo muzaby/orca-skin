@@ -3,6 +3,7 @@ import type { McpServer, SkillInfo } from '../../../../../../shared/ipc'
 import { Icon } from '../../../../shared/ui/Icon'
 import { Dot } from '../../../../shared/ui/Status'
 import type { CustomizeTab } from './CustomizeRail'
+import { useI18n } from '../../../../shared/i18n'
 
 function ListHeader({
   title,
@@ -13,13 +14,14 @@ function ListHeader({
   addRef: RefObject<HTMLButtonElement | null>
   onAdd: () => void
 }): React.JSX.Element {
+  const { tr } = useI18n()
   return (
     <div className="flex items-center gap-1.5 px-3.5 pb-2 pt-3.5">
       <span className="font-serif text-[16px] font-semibold text-ink">{title}</span>
       <div className="ml-auto flex items-center gap-0.5">
         <button
           type="button"
-          aria-label="검색"
+          aria-label={tr('skills.list.searchAria')}
           className="grid h-7 w-7 cursor-pointer place-items-center rounded-r4 border-0 bg-transparent text-ink3 hover:bg-fill-uncontained-hover hover:text-ink2"
         >
           <Icon name="search" size={14} />
@@ -28,7 +30,7 @@ function ListHeader({
           ref={addRef}
           type="button"
           onClick={onAdd}
-          aria-label="추가"
+          aria-label={tr('skills.list.addAria')}
           className="grid h-7 w-7 cursor-pointer place-items-center rounded-r4 border-0 bg-transparent text-ink3 hover:bg-fill-uncontained-hover hover:text-ink2"
         >
           <Icon name="plus" size={15} />
@@ -70,6 +72,7 @@ function SkillRow({
   selected: boolean
   onClick: () => void
 }): React.JSX.Element {
+  const { tr } = useI18n()
   return (
     <button
       type="button"
@@ -81,7 +84,9 @@ function SkillRow({
       >
         {s.name}
       </span>
-      {s.canToggle && !s.enabled && <span className="ml-auto text-[10.5px] text-ink3">꺼짐</span>}
+      {s.canToggle && !s.enabled && (
+        <span className="ml-auto text-[10.5px] text-ink3">{tr('skills.list.off')}</span>
+      )}
     </button>
   )
 }
@@ -127,6 +132,7 @@ export function CustomizeList({
   addRef: RefObject<HTMLButtonElement | null>
   onAdd: () => void
 }): React.JSX.Element {
+  const { tr } = useI18n()
   const [open, setOpen] = useState<Record<string, boolean>>({
     'Orca 스킬': true,
     active: true,
@@ -138,13 +144,25 @@ export function CustomizeList({
       map.set(skill.sourceLabel, [...(map.get(skill.sourceLabel) ?? []), skill])
     return [...map.entries()]
   }, [skills])
-  const mcpGroups: [string, McpServer[]][] = [
-    ['활성 MCP', mcpServers.filter((s) => s.enabled)],
-    ['비활성 MCP', mcpServers.filter((s) => !s.enabled)]
+  const mcpGroups: { id: string; label: string; items: McpServer[] }[] = [
+    {
+      id: 'active',
+      label: tr('skills.list.activeMcp'),
+      items: mcpServers.filter((s) => s.enabled)
+    },
+    {
+      id: 'inactive',
+      label: tr('skills.list.inactiveMcp'),
+      items: mcpServers.filter((s) => !s.enabled)
+    }
   ]
   return (
     <div className="flex w-[280px] flex-none flex-col overflow-y-auto border-r border-border">
-      <ListHeader title={tab === 'skills' ? '스킬' : 'MCP'} addRef={addRef} onAdd={onAdd} />
+      <ListHeader
+        title={tab === 'skills' ? tr('skills.listTitle') : tr('skills.rail.mcp')}
+        addRef={addRef}
+        onAdd={onAdd}
+      />
       <div className="px-1.5 pb-3">
         {tab === 'skills'
           ? skillGroups.map(([label, items]) => (
@@ -165,15 +183,15 @@ export function CustomizeList({
                   ))}
               </div>
             ))
-          : mcpGroups.map(([label, items]) =>
+          : mcpGroups.map(({ id, label, items }) =>
               items.length === 0 ? null : (
-                <div key={label}>
+                <div key={id}>
                   <GroupHead
                     label={label}
-                    open={open[label] ?? true}
-                    onToggle={() => setOpen((p) => ({ ...p, [label]: !(p[label] ?? true) }))}
+                    open={open[id] ?? true}
+                    onToggle={() => setOpen((p) => ({ ...p, [id]: !(p[id] ?? true) }))}
                   />
-                  {(open[label] ?? true) &&
+                  {(open[id] ?? true) &&
                     items.map((s) => (
                       <McpRow
                         key={s.id}

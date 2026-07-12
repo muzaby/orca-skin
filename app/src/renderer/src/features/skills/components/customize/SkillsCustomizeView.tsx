@@ -11,12 +11,14 @@ import { SkillUploadModal } from './SkillUploadModal'
 import { CustomMcpModal } from './CustomMcpModal'
 import { useCustomizeSkills } from '../../hooks/useCustomizeSkills'
 import { useMcpServers } from '../../hooks/useMcpServers'
+import { useI18n } from '../../../../shared/i18n'
 
 function skillKey(sourceId: string, name: string): string {
   return `${sourceId}/${name}`
 }
 
 export function SkillsCustomizeView(): React.JSX.Element {
+  const { tr } = useI18n()
   const [tab, setTab] = useState<CustomizeTab | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const navigate = useNavigate()
@@ -114,7 +116,7 @@ export function SkillsCustomizeView(): React.JSX.Element {
             />
           ) : (
             <div className="grid flex-1 place-items-center text-[13px] text-ink3">
-              {skills.loading || mcp.loading ? '불러오는 중…' : '항목을 선택하세요.'}
+              {skills.loading || mcp.loading ? tr('common.loading') : tr('skills.view.selectItem')}
             </div>
           )}
         </>

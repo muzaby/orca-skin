@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Modal, ModalActions, MODAL_INPUT } from '../../../shared/ui/Modal'
+import { Trans } from 'react-i18next'
+import { useI18n } from '../../../shared/i18n'
 
 interface EditInstructionsModalProps {
   open: boolean
@@ -31,6 +33,7 @@ function EditInstructionsModalOpen({
   onClose,
   onSave
 }: Omit<EditInstructionsModalProps, 'open'>): React.JSX.Element {
+  const { tr } = useI18n()
   const [value, setValue] = useState(initial)
   const [busy, setBusy] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -53,21 +56,25 @@ function EditInstructionsModalOpen({
   return (
     <Modal
       open
-      title="지침 편집"
+      title={tr('projects.editInstructions.title')}
       onClose={onClose}
       footer={
         <ModalActions
           onCancel={onClose}
           onConfirm={() => void save()}
-          confirmLabel="저장"
+          confirmLabel={tr('common.save')}
           confirmDisabled={busy}
           cancelDisabled={busy}
         />
       }
     >
       <div className="mb-3 text-[12px] text-ink3">
-        <span className="font-mono">{projectName}</span> 의 모든 새 메시지에 시스템 프롬프트로
-        덧붙여집니다.
+        {/* 카탈로그 값의 <mono> 태그가 프로젝트명 mono span 으로 치환된다. */}
+        <Trans
+          i18nKey="projects.editInstructions.body"
+          values={{ name: projectName }}
+          components={{ mono: <span className="font-mono" /> }}
+        />
       </div>
 
       <textarea
@@ -76,7 +83,7 @@ function EditInstructionsModalOpen({
         onChange={(e) => setValue(e.target.value)}
         maxLength={8000}
         rows={12}
-        placeholder="예: 모든 응답을 한국어로, 코드 예시는 TypeScript 로. 검증 엔지니어 톤으로 간결하게."
+        placeholder={tr('projects.editInstructions.placeholder')}
         className={`${MODAL_INPUT} resize-none leading-[1.6]`}
       />
       <div className="mt-1 text-right text-[10.5px] text-ink3">{value.length} / 8000</div>

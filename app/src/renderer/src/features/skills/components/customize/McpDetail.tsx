@@ -1,6 +1,7 @@
 import { Icon } from '../../../../shared/ui/Icon'
 import { Dot } from '../../../../shared/ui/Status'
 import type { McpServer } from '../../../../../../shared/ipc'
+import { useI18n } from '../../../../shared/i18n'
 
 export function McpDetail({
   server,
@@ -9,6 +10,7 @@ export function McpDetail({
   server: McpServer
   onToggle: () => void
 }): React.JSX.Element {
+  const { tr } = useI18n()
   const summary =
     server.transport === 'http'
       ? server.url
@@ -25,7 +27,9 @@ export function McpDetail({
             <span className="font-mono uppercase">{server.transport}</span>
             <span>·</span>
             <Dot tone={server.enabled ? 'green' : 'slate'} />
-            <span>{server.enabled ? '활성' : '비활성'}</span>
+            <span>
+              {server.enabled ? tr('skills.mcpDetail.active') : tr('skills.mcpDetail.inactive')}
+            </span>
           </div>
         </div>
         <button
@@ -37,14 +41,14 @@ export function McpDetail({
               : 'border-0 bg-ink text-bg hover:bg-t8'
           }`}
         >
-          {server.enabled ? '비활성화' : '활성화'}
+          {server.enabled ? tr('skills.mcpDetail.disable') : tr('skills.mcpDetail.enable')}
         </button>
       </div>
       <p className="mt-4 text-[13.5px] leading-[1.65] text-ink2">
-        {server.description || summary || '설명이 없습니다.'}
+        {server.description || summary || tr('common.noDescription')}
       </p>
       <div className="mt-5 rounded-r5 border border-border bg-panel p-4 text-[12.5px]">
-        <div className="mb-2 text-[11.5px] text-ink3">설정 요약</div>
+        <div className="mb-2 text-[11.5px] text-ink3">{tr('skills.mcpDetail.configSummary')}</div>
         <pre className="m-0 whitespace-pre-wrap break-all font-mono text-ink2">
           {JSON.stringify(
             server.transport === 'http'

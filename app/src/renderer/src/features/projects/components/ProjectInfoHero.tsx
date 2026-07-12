@@ -21,7 +21,7 @@ export function ProjectInfoHero({ projectId }: ProjectInfoHeroProps): React.JSX.
   const project = list.find((p) => p.id === projectId) ?? null
   const [menuOpen, setMenuOpen] = useState(false)
   const kebabRef = useRef<HTMLButtonElement>(null)
-  const { locale } = useI18n()
+  const { tr, locale } = useI18n()
 
   if (!project) {
     return <div className="h-[60px]" aria-hidden />
@@ -39,7 +39,11 @@ export function ProjectInfoHero({ projectId }: ProjectInfoHeroProps): React.JSX.
           {project.name}
         </h1>
         <div className="ml-auto flex shrink-0 items-center gap-0.5">
-          <button className={ACTION_BTN} title="고정" aria-label="프로젝트 고정">
+          <button
+            className={ACTION_BTN}
+            title={tr('projects.hero.pin')}
+            aria-label={tr('projects.hero.pinAria')}
+          >
             <Icon name="pin" size={15} />
           </button>
           <button
@@ -47,8 +51,8 @@ export function ProjectInfoHero({ projectId }: ProjectInfoHeroProps): React.JSX.
             type="button"
             onClick={() => setMenuOpen((v) => !v)}
             className={ACTION_BTN}
-            title="더 보기"
-            aria-label="프로젝트 메뉴"
+            title={tr('common.more')}
+            aria-label={tr('projects.hero.menuAria')}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
           >
@@ -69,7 +73,7 @@ export function ProjectInfoHero({ projectId }: ProjectInfoHeroProps): React.JSX.
                 className={`${MENU_ITEM} text-ink hover:bg-fill-uncontained-hover`}
               >
                 <Icon name="edit" size={13} />
-                <span>세부사항 수정</span>
+                <span>{tr('projects.hero.editDetails')}</span>
               </button>
               <button
                 type="button"
@@ -78,7 +82,7 @@ export function ProjectInfoHero({ projectId }: ProjectInfoHeroProps): React.JSX.
                 className={`${MENU_ITEM} text-rust hover:bg-rust-soft`}
               >
                 <Icon name="trash" size={13} />
-                <span>삭제</span>
+                <span>{tr('common.delete')}</span>
               </button>
             </div>
           </Popover>
@@ -90,7 +94,8 @@ export function ProjectInfoHero({ projectId }: ProjectInfoHeroProps): React.JSX.
         </p>
       ) : null}
       <div className="mt-2 text-[11.5px] text-ink3">
-        업데이트 <time dateTime={new Date(project.updatedAt).toISOString()}>{updatedLabel}</time>
+        {tr('projects.hero.updated')}{' '}
+        <time dateTime={new Date(project.updatedAt).toISOString()}>{updatedLabel}</time>
       </div>
     </section>
   )

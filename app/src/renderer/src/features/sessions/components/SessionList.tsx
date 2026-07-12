@@ -1,6 +1,7 @@
 import { SessionRow } from './SessionRow'
 import { useSessionsState } from '../store/sessionsStore'
 import type { SessionListItem } from '../../../../../shared/ipc'
+import { useI18n } from '../../../shared/i18n'
 
 // 미물질화 draft nav 행(0064 r4 fork/handoff + 0065 활성 '새 대화'). chat feature 의
 // DraftRow 와 구조적으로 호환 — cross-feature import 대신 셸(app/)이 매핑해 props 로
@@ -39,10 +40,11 @@ export function SessionList({
   onSelectDraft,
   onDeleteDraft
 }: SessionListProps): React.JSX.Element {
+  const { tr } = useI18n()
   const list = useSessionsState((s) => s.list)
 
   if (list.length === 0 && drafts.length === 0) {
-    return <div className="px-1.5 text-[11.5px] text-ink3">아직 저장된 대화가 없습니다.</div>
+    return <div className="px-1.5 text-[11.5px] text-ink3">{tr('sessions.empty')}</div>
   }
 
   return (

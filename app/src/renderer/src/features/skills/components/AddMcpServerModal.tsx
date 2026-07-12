@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Modal, ModalActions, MODAL_INPUT, MODAL_LABEL } from '../../../shared/ui/Modal'
 import type { McpServer, McpTransport } from '../../../../../shared/ipc'
+import { useI18n } from '../../../shared/i18n'
 
 // 모달이 부모에 전달하는 폼 값. auth 는 undefined 면 미변경(수정 시 기존 비밀 유지),
 // '' 면 비밀 제거, 그 외 문자열이면 새 비밀로 교체.
@@ -35,6 +36,7 @@ function AddMcpServerModalOpen({
   onClose,
   onSave
 }: AddMcpServerModalProps): React.JSX.Element {
+  const { tr } = useI18n()
   const editing = initial != null
   const [name, setName] = useState(initial?.name ?? '')
   const [description, setDescription] = useState(initial?.description ?? '')
@@ -84,46 +86,46 @@ function AddMcpServerModalOpen({
   return (
     <Modal
       open
-      title={editing ? 'MCP 서버 편집' : 'MCP 서버 추가'}
+      title={editing ? tr('skills.addServer.titleEdit') : tr('skills.addServer.titleAdd')}
       onClose={onClose}
       footer={
         <ModalActions
           onCancel={onClose}
           onConfirm={() => void save()}
-          confirmLabel={editing ? '저장' : '추가'}
+          confirmLabel={editing ? tr('common.save') : tr('common.add')}
           confirmDisabled={!canSave}
           cancelDisabled={busy}
         />
       }
     >
       <label className="mb-3 block">
-        <div className={MODAL_LABEL}>이름</div>
+        <div className={MODAL_LABEL}>{tr('skills.addServer.name')}</div>
         <input
           ref={nameRef}
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={64}
-          placeholder="예: github"
+          placeholder={tr('skills.addServer.namePlaceholder')}
           className={MODAL_INPUT}
         />
         {name.trim() !== '' && !nameValid && (
-          <div className="mt-1 text-[11px] text-bad">영숫자 · _ · - 만 사용할 수 있습니다.</div>
+          <div className="mt-1 text-[11px] text-bad">{tr('skills.addServer.nameFormatError')}</div>
         )}
       </label>
 
       <label className="mb-3 block">
-        <div className={MODAL_LABEL}>설명 (선택)</div>
+        <div className={MODAL_LABEL}>{tr('skills.addServer.descOptional')}</div>
         <input
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           maxLength={500}
-          placeholder="이 서버가 제공하는 도구 설명"
+          placeholder={tr('skills.addServer.descPlaceholder')}
           className={MODAL_INPUT}
         />
       </label>
 
       <div className="mb-3">
-        <div className={MODAL_LABEL}>전송 방식</div>
+        <div className={MODAL_LABEL}>{tr('skills.addServer.transport')}</div>
         <div className="inline-flex overflow-hidden rounded-md border border-border">
           {(['stdio', 'http'] as const).map((tp) => (
             <button
@@ -134,7 +136,9 @@ function AddMcpServerModalOpen({
                 transport === tp ? 'bg-t3 text-t8' : 'bg-panel text-ink2'
               }`}
             >
-              {tp === 'stdio' ? 'stdio (로컬 프로세스)' : 'HTTP (streamable)'}
+              {tp === 'stdio'
+                ? tr('skills.addServer.stdioOption')
+                : tr('skills.addServer.httpOption')}
             </button>
           ))}
         </div>
@@ -143,17 +147,17 @@ function AddMcpServerModalOpen({
       {transport === 'stdio' ? (
         <>
           <label className="mb-3 block">
-            <div className={MODAL_LABEL}>명령어 (command)</div>
+            <div className={MODAL_LABEL}>{tr('skills.addServer.command')}</div>
             <input
               value={command}
               onChange={(e) => setCommand(e.target.value)}
               maxLength={500}
-              placeholder="예: npx · python · node"
+              placeholder={tr('skills.addServer.commandPlaceholder')}
               className={`${MODAL_INPUT} font-mono`}
             />
           </label>
           <label className="mb-3 block">
-            <div className={MODAL_LABEL}>인자 (args, 한 줄에 하나)</div>
+            <div className={MODAL_LABEL}>{tr('skills.addServer.args')}</div>
             <textarea
               value={argsText}
               onChange={(e) => setArgsText(e.target.value)}
@@ -163,12 +167,12 @@ function AddMcpServerModalOpen({
             />
           </label>
           <label className="mb-3 block">
-            <div className={MODAL_LABEL}>인증 환경변수 이름 (선택)</div>
+            <div className={MODAL_LABEL}>{tr('skills.addServer.authEnvName')}</div>
             <input
               value={authEnvKey}
               onChange={(e) => setAuthEnvKey(e.target.value)}
               maxLength={128}
-              placeholder="예: GITHUB_TOKEN"
+              placeholder={tr('skills.addServer.authEnvPlaceholder')}
               className={`${MODAL_INPUT} font-mono`}
             />
           </label>
@@ -186,12 +190,12 @@ function AddMcpServerModalOpen({
             />
           </label>
           <label className="mb-3 block">
-            <div className={MODAL_LABEL}>인증 환경변수 이름 (선택)</div>
+            <div className={MODAL_LABEL}>{tr('skills.addServer.authEnvName')}</div>
             <input
               value={authEnvKey}
               onChange={(e) => setAuthEnvKey(e.target.value)}
               maxLength={128}
-              placeholder="예: API_TOKEN — 비워 두면 자동 생성"
+              placeholder={tr('skills.addServer.authEnvPlaceholderHttp')}
               className={`${MODAL_INPUT} font-mono`}
             />
           </label>
@@ -200,7 +204,9 @@ function AddMcpServerModalOpen({
 
       <label className="block">
         <div className={MODAL_LABEL}>
-          {transport === 'stdio' ? '인증키 (선택)' : '인증 토큰 (선택)'}
+          {transport === 'stdio'
+            ? tr('skills.addServer.authKeyOptional')
+            : tr('skills.addServer.authTokenOptional')}
         </div>
         <input
           type="password"
@@ -209,8 +215,8 @@ function AddMcpServerModalOpen({
           maxLength={4000}
           placeholder={
             editing && initial?.hasAuth
-              ? '변경하지 않으려면 비워 두세요'
-              : '안전하게 암호화 저장됩니다'
+              ? tr('skills.addServer.keepEmptyToPreserve')
+              : tr('skills.addServer.encryptedNote')
           }
           className={`${MODAL_INPUT} font-mono`}
         />
