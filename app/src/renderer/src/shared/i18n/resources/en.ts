@@ -42,6 +42,9 @@ export const en: typeof ko = {
   landing: {
     newChatGreeting: 'How can I help you?'
   },
+  markdown: {
+    imagePlaceholder: '[Image: {{label}}]'
+  },
   nav: {
     chat: '01 Chat',
     projects: '02 Projects',

@@ -2,6 +2,18 @@ import { memo } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { CodeBlock } from './CodeBlock'
+import { useI18n } from '../../i18n'
+
+// 차단된 외부 이미지 플레이스홀더 — components 맵 항목은 react-markdown 이 컴포넌트로
+// 렌더하므로 훅 사용이 가능하지만, 명시적 함수 컴포넌트로 분리해 의도를 드러낸다(0097).
+function BlockedImagePlaceholder({ label }: { label: string }): React.JSX.Element {
+  const { tr } = useI18n()
+  return (
+    <span className="text-[12px] italic text-ink3">
+      {tr('markdown.imagePlaceholder', { label })}
+    </span>
+  )
+}
 
 const COMPONENTS: Components = {
   h1: ({ children }) => (
@@ -54,7 +66,7 @@ const COMPONENTS: Components = {
     // 외부 URL 차단 (TRD §1.3). data-uri 만 허용.
     const safe = typeof src === 'string' && src.startsWith('data:')
     if (!safe) {
-      return <span className="text-[12px] italic text-ink3">[이미지: {alt || src || '?'}]</span>
+      return <BlockedImagePlaceholder label={alt || (typeof src === 'string' ? src : '') || '?'} />
     }
     return <img src={src} alt={alt} className="my-2 max-w-full rounded" />
   },

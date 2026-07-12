@@ -3,6 +3,7 @@ import { ChatTile, Composer, useChatSession } from '../features/chat'
 import { useBackendCapabilities, useBackendLabel } from '../features/backend'
 import { formatApproxCost, useCostSummary, useProviderUsageLimits } from '../features/cost'
 import { useOpenSettings, providerTabId } from '../features/settings'
+import { useI18n } from '../shared/i18n'
 
 // `/new` 라우트의 랜딩 페이지.
 // - 메시지가 아예 없을 때: 빈 화면 중앙에 Composer 만 노출 (ChatGPT 스타일).
@@ -11,6 +12,7 @@ import { useOpenSettings, providerTabId } from '../features/settings'
 //   `useChatRouteSync` Direction 2 가 URL 을 `/chat/<id>` 로 replace 하여 ChatPage
 //   가 인계받는다.
 export function NewChatLandingPage(): React.JSX.Element {
+  const { tr } = useI18n()
   // 첫 send 의 낙관 커밋(0068)이 messages 를 즉시 채워 같은 렌더 사이클에 ChatTile 로
   // 전환된다. !inflight 는 이중 방어 — 어떤 경로로든 턴이 시작되면 랜딩에 갇히지 않는다.
   const isEmpty = useChatSession((s) => s.messages.length === 0 && !s.loadingSession && !s.inflight)
@@ -19,7 +21,7 @@ export function NewChatLandingPage(): React.JSX.Element {
   const summary = useCostSummary()
   // 능력 서술자가 로드됐는데 sessionAbort 가 아니면 중단 게이팅(미로드면 현행 동작 유지).
   const canAbort = capabilities ? capabilities.cancellation.sessionAbort === true : true
-  const costToday = summary ? formatApproxCost(summary.day.totalCostUsd) : undefined
+  const costToday = summary ? formatApproxCost(tr, summary.day.totalCostUsd) : undefined
   // 도넛 사용량 한도를 현재 세션 provider 기준으로(모델 선택 반영, 0082). providerKey 없으면 전역.
   const providerKey = useChatSession((s) => s.providerKey)
   const usageLimits = useProviderUsageLimits(providerKey)
@@ -38,7 +40,7 @@ export function NewChatLandingPage(): React.JSX.Element {
       <section className="flex min-h-0 min-w-0 flex-1 items-center justify-center bg-bg">
         <div className="w-full max-w-[720px]">
           <div className="mb-3 text-center font-serif text-[24px] font-semibold tracking-tight text-ink">
-            무엇을 도와드릴까요?
+            {tr('landing.newChatGreeting')}
           </div>
           <Composer
             backendLabel={backendLabel}
