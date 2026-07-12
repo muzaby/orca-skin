@@ -3,6 +3,7 @@ import { basenameForDisplay } from '../../../../../shared/path-basename'
 import { fileApi } from '../../../shared/api/ipc'
 import { Icon } from '../../../shared/ui/Icon'
 import { chatActions } from '../store/chatStore'
+import { useI18n } from '../../../shared/i18n'
 
 interface CwdButtonProps {
   cwd: string | null
@@ -17,6 +18,7 @@ export function CwdButton({
   inflight = false,
   className = ''
 }: CwdButtonProps): React.JSX.Element {
+  const { tr } = useI18n()
   const [busy, setBusy] = useState(false)
   const label = basenameForDisplay(cwd)
   const title = cwd ?? label
@@ -43,7 +45,9 @@ export function CwdButton({
       type="button"
       onClick={() => void handleClick()}
       disabled={busy || (!sessionStarted && inflight) || (sessionStarted && !cwd)}
-      aria-label={sessionStarted ? '작업 폴더 열기' : '작업 폴더 선택'}
+      aria-label={
+        sessionStarted ? tr('chat.composer.cwdOpenAria') : tr('chat.composer.cwdSelectAria')
+      }
       title={title}
       className={`inline-flex h-7 max-w-full items-center gap-1.5 rounded-r4 border border-transparent bg-transparent px-p5 text-footnote text-t6 transition-colors hover:bg-fill-uncontained-hover hover:text-t7 focus:outline-none focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
     >

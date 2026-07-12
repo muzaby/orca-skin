@@ -1,4 +1,5 @@
 import { Icon } from '../../../../shared/ui/Icon'
+import { useI18n } from '../../../../shared/i18n'
 
 interface AttachmentThumbProps {
   name: string
@@ -22,6 +23,7 @@ export function AttachmentThumb({
   previewUrl,
   onRemove
 }: AttachmentThumbProps): React.JSX.Element {
+  const { tr } = useI18n()
   return (
     // 바깥 wrapper 는 overflow 를 자르지 않는다 — 안쪽 시각 박스만 클립해, 박스 밖으로 나간
     // 닫기 버튼(우상단)이 hover 시 잘리지 않게 한다.
@@ -40,7 +42,7 @@ export function AttachmentThumb({
           type="button"
           onClick={onRemove}
           className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-bad text-white opacity-0 shadow-sm transition group-hover/attachment:opacity-100 hover:brightness-110"
-          aria-label={`${name} 첨부 제거`}
+          aria-label={tr('chat.composer.attachRemoveAria', { name })}
         >
           <Icon name="x" size={10} />
         </button>

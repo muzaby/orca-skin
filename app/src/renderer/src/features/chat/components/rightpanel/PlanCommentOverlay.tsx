@@ -1,6 +1,7 @@
 import { useLayoutEffect, useState, type RefObject } from 'react'
 import { rangeFromOffsets, rectsForRange, type OverlayRect } from '../../lib/planCommentDom'
 import type { PlanComment } from '../../reducer/chatReducer'
+import { useI18n } from '../../../../shared/i18n'
 
 interface PlanCommentOverlayProps {
   // 마크다운 본문만 감싸는 relative 컨테이너(힌트 제외) — 오프셋·rect 기준.
@@ -30,6 +31,7 @@ export function PlanCommentOverlay({
   contentKey,
   onSelect
 }: PlanCommentOverlayProps): React.JSX.Element {
+  const { tr } = useI18n()
   const [rectsByComment, setRectsByComment] = useState<CommentRects[]>([])
   const [draftRects, setDraftRects] = useState<OverlayRect[]>([])
 
@@ -71,7 +73,7 @@ export function PlanCommentOverlay({
                 : 'border-rust/50 bg-rust/10 hover:bg-rust/20'
             }`}
             style={{ top: r.top, left: r.left, width: r.width, height: r.height }}
-            aria-label="코멘트 보기"
+            aria-label={tr('chat.rightpanel.commentViewAria')}
           />
         ))
       )}

@@ -8,6 +8,7 @@ import {
 } from 'react'
 import { Icon } from '../../../../shared/ui/Icon'
 import { quoteSnippet } from '../../lib/planComments'
+import { useI18n } from '../../../../shared/i18n'
 
 export interface PopoverAnchorPoint {
   x: number
@@ -45,6 +46,7 @@ export function PlanCommentPopover({
   onDelete,
   onClose
 }: PlanCommentPopoverProps): React.JSX.Element {
+  const { tr } = useI18n()
   const panelRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const [body, setBody] = useState(initialBody)
@@ -110,7 +112,10 @@ export function PlanCommentPopover({
     <div
       ref={panelRef}
       role="dialog"
-      aria-label={`${mode === 'create' ? '코멘트 작성' : '코멘트 편집'}: ${quoteSnippet(quote, 120)}`}
+      aria-label={tr(
+        mode === 'create' ? 'chat.rightpanel.commentCreateAria' : 'chat.rightpanel.commentEditAria',
+        { quote: quoteSnippet(quote, 120) }
+      )}
       className="absolute z-50 overflow-hidden rounded-r6 border border-border bg-white shadow-[0_8px_24px_rgba(0,0,0,.16)]"
       style={style}
       data-context="floating"
@@ -122,8 +127,8 @@ export function PlanCommentPopover({
         onChange={(e) => setBody(e.target.value)}
         onKeyDown={onTextareaKeyDown}
         rows={1}
-        placeholder="코멘트 추가…"
-        aria-label="코멘트 내용"
+        placeholder={tr('chat.rightpanel.commentPlaceholder')}
+        aria-label={tr('chat.rightpanel.commentInputAria')}
         className="block max-h-48 min-h-12 w-full resize-none overflow-hidden border-0 bg-white px-3 py-2.5 text-footnote text-t9 outline-none ring-0 placeholder:text-t6 focus:ring-0"
       />
       <div className="flex items-center justify-between border-t border-border px-3 py-2">
@@ -134,7 +139,7 @@ export function PlanCommentPopover({
             className="inline-flex cursor-default items-center gap-1 rounded-r4 border-0 bg-transparent px-1 py-0.5 text-footnote text-t7 outline-none hover:text-t9"
           >
             <Icon name="trash" size={15} />
-            삭제
+            {tr('common.delete')}
           </button>
         ) : (
           <span />
@@ -145,7 +150,7 @@ export function PlanCommentPopover({
           disabled={!canSave}
           className="inline-flex cursor-default items-center gap-1 rounded-r5 border-0 bg-ink px-3 py-1.5 text-footnote font-medium text-bg outline-none disabled:opacity-40"
         >
-          댓글
+          {tr('chat.rightpanel.commentSubmit')}
           <span className="text-caption opacity-70">↩</span>
         </button>
       </div>

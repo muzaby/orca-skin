@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Icon } from '../../../../shared/ui/Icon'
+import { useI18n } from '../../../../shared/i18n'
 import type { NormalizedPermissionMode } from '../../../../../../shared/permission-mode'
 import { MODE_OPTIONS } from './modes'
 import { MENU_ITEM } from './menuItem'
@@ -13,6 +14,7 @@ interface ModeMenuProps {
 // 위험 모드(bypass/dont_ask — 승인 게이트 무력화)는 2-스텝 확인으로 가드: 첫 클릭은 경고를 띄우고,
 // 같은 항목의 '확인'을 눌러야 실제 전환된다 (보안 베이스라인).
 export function ModeMenu({ mode, onPick }: ModeMenuProps): React.JSX.Element {
+  const { tr } = useI18n()
   const [armed, setArmed] = useState<NormalizedPermissionMode | null>(null)
 
   return (
@@ -40,16 +42,16 @@ export function ModeMenu({ mode, onPick }: ModeMenuProps): React.JSX.Element {
             <Icon name={opt.icon} size={13} />
             <span className="min-w-0 flex-1">
               <span className="flex items-center gap-1.5 text-[13px] font-medium text-ink">
-                {opt.label}
+                {tr(opt.labelKey)}
                 {active && <Icon name="check" size={12} />}
                 {opt.risky && <Icon name="alert" size={11} />}
               </span>
               <span className="mt-0.5 block text-[11.5px] leading-snug text-ink2">
-                {opt.description}
+                {tr(opt.descKey)}
               </span>
               {isArmed && (
                 <span className="mt-1 block text-[11.5px] font-medium leading-snug text-[var(--color-danger,#dc2626)]">
-                  모든 승인 게이트가 해제됩니다. 한 번 더 눌러 확인하세요.
+                  {tr('chat.composer.modes.riskyConfirm')}
                 </span>
               )}
             </span>

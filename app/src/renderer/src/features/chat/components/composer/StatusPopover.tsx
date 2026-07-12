@@ -1,5 +1,6 @@
 import { Button } from '../../../../shared/ui/Button'
 import { Icon } from '../../../../shared/ui/Icon'
+import { useI18n } from '../../../../shared/i18n'
 import type { StatusLineModel } from './statusViewModel'
 
 interface StatusPopoverProps {
@@ -23,6 +24,7 @@ export function StatusPopover({
   onHandoff,
   handoffDisabledReason
 }: StatusPopoverProps): React.JSX.Element {
+  const { tr } = useI18n()
   const isHandoff = model.action === 'handoff'
 
   return (
@@ -35,24 +37,26 @@ export function StatusPopover({
           <Icon name="alert" size={14} />
         </span>
         <div className="min-w-0">
-          <div className="text-[13px] font-semibold text-ink">{model.labels.title}</div>
-          <p className="mt-1 text-[12px] leading-relaxed text-ink2">{model.labels.description}</p>
+          <div className="text-[13px] font-semibold text-ink">{tr(model.labelKeys.title)}</div>
+          <p className="mt-1 text-[12px] leading-relaxed text-ink2">
+            {tr(model.labelKeys.description)}
+          </p>
         </div>
       </div>
 
       <dl className="grid gap-1.5 rounded-r4 border border-border bg-bg/70 p-2 text-[12px]">
         <div className="flex items-center justify-between gap-3">
-          <dt className="text-ink3">대화 길이</dt>
-          <dd className="font-medium text-ink">{model.labels.length}</dd>
+          <dt className="text-ink3">{tr('chat.status.lengthLabel')}</dt>
+          <dd className="font-medium text-ink">{tr(model.labelKeys.length)}</dd>
         </div>
         <div className="flex items-center justify-between gap-3">
-          <dt className="text-ink3">오늘 사용량</dt>
-          <dd className="font-medium text-ink">{model.labels.usage}</dd>
+          <dt className="text-ink3">{tr('chat.status.usageTodayLabel')}</dt>
+          <dd className="font-medium text-ink">{tr(model.labelKeys.usage)}</dd>
         </div>
-        {model.labels.costToday && (
+        {model.costToday && (
           <div className="flex items-center justify-between gap-3">
-            <dt className="text-ink3">오늘 비용</dt>
-            <dd className="font-medium text-ink">{model.labels.costToday}</dd>
+            <dt className="text-ink3">{tr('chat.status.costTodayLabel')}</dt>
+            <dd className="font-medium text-ink">{model.costToday}</dd>
           </div>
         )}
       </dl>
@@ -64,16 +68,16 @@ export function StatusPopover({
         disabled={isHandoff && handoffDisabledReason != null}
         title={
           isHandoff
-            ? (handoffDisabledReason ?? '요약본으로 새 세션에서 이어갑니다')
-            : '현재 세션의 대화 기록을 압축합니다'
+            ? (handoffDisabledReason ?? tr('chat.status.handoffHint'))
+            : tr('chat.status.compactHint')
         }
         className="w-full"
       >
-        {model.labels.actionButton}
+        {tr(model.labelKeys.actionButton)}
       </Button>
 
       <p className="border-t border-border pt-2 text-[11px] leading-relaxed text-ink3">
-        {model.labels.disclaimer}
+        {tr(model.labelKeys.disclaimer)}
       </p>
     </div>
   )

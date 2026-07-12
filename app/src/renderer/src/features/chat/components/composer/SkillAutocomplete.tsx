@@ -1,6 +1,7 @@
 import type { RefObject } from 'react'
 import { AnchoredDropdown } from './AnchoredDropdown'
 import type { SkillInfo } from '../../../../../../shared/ipc'
+import { useI18n } from '../../../../shared/i18n'
 
 interface SkillAutocompleteProps {
   open: boolean
@@ -21,12 +22,13 @@ export function SkillAutocomplete({
   onHover,
   onPick
 }: SkillAutocompleteProps): React.JSX.Element | null {
+  const { tr } = useI18n()
   return (
     <AnchoredDropdown
       open={open}
       anchorRef={anchorRef}
       itemCount={suggestions.length}
-      ariaLabel="스킬 자동완성"
+      ariaLabel={tr('chat.composer.skillAutocompleteAria')}
     >
       <div className="max-h-[280px] overflow-y-auto">
         {suggestions.map((s, i) => {

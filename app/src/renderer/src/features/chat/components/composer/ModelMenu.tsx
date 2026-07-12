@@ -3,6 +3,7 @@ import type { AgentEnvironment } from '../../../../../../shared/ipc'
 
 import { modelKey, type ModelSelection } from './modelSelection'
 import { MENU_ITEM } from './menuItem'
+import { useI18n } from '../../../../shared/i18n'
 
 interface ModelMenuProps {
   agents: AgentEnvironment[]
@@ -17,12 +18,15 @@ export function ModelMenu({
   selection,
   onPick
 }: ModelMenuProps): React.JSX.Element {
+  const { tr } = useI18n()
   const visible = agents.filter(
     (agent) => agent.supported && (!sessionBackend || agent.adapter === sessionBackend)
   )
   if (visible.length === 0) {
     return (
-      <div className="w-[260px] px-3 py-2 text-[12px] text-ink3">사용 가능한 모델이 없습니다.</div>
+      <div className="w-[260px] px-3 py-2 text-[12px] text-ink3">
+        {tr('chat.composer.noModels')}
+      </div>
     )
   }
   return (
@@ -55,7 +59,7 @@ export function ModelMenu({
                     {active && <Icon name="check" size={12} />}
                   </span>
                   <span className="mt-0.5 block truncate font-mono text-[11px] text-ink3">
-                    {model.model ?? 'SDK 기본'}
+                    {model.model ?? tr('chat.composer.sdkDefaultModel')}
                   </span>
                 </span>
               </button>

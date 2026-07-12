@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { Button } from '../../../shared/ui/Button'
 import { Icon } from '../../../shared/ui/Icon'
+import { useI18n } from '../../../shared/i18n'
 import { UsageCircle } from '../../../shared/ui/UsageCircle'
 import { Popover } from '../../../shared/ui/Popover'
 import { ReadingColumn } from '../../../shared/ui/ReadingColumn'
@@ -11,7 +12,7 @@ import { ComposerChip } from './composer/ComposerChip'
 import { ModeMenu } from './composer/ModeMenu'
 import { ModelMenu } from './composer/ModelMenu'
 import { EffortMenu } from './composer/EffortMenu'
-import { EFFORT_LABELS } from './composer/effort'
+import { EFFORT_LABEL_KEYS } from './composer/effort'
 import { AttachMenu } from './composer/AttachMenu'
 import { defaultSelection, modelKey, selectionLabel } from './composer/modelSelection'
 import { ConversationStatusLine } from './composer/ConversationStatusLine'
@@ -20,7 +21,7 @@ import { CwdButton } from './CwdButton'
 import { Notice } from './Notice'
 import { StatusPopover } from './composer/StatusPopover'
 import { conversationStatusModel as conversationStatusModelFactory } from './composer/statusViewModel'
-import { MODE_LABELS } from './composer/modes'
+import { MODE_LABEL_KEYS } from './composer/modes'
 import type { ConversationStatus } from './composer/statusCopy'
 import { AskUserQuestionCard } from './AskUserQuestionCard'
 import { ApprovalCard, ToolApprovalBody } from './ApprovalCard'
@@ -88,6 +89,7 @@ export function Composer({
   flush,
   showLandingCwdPanel = false
 }: ComposerProps): React.JSX.Element {
+  const { tr } = useI18n()
   const { send, cancel, answerAsk, skipAsk, setPermissionMode, setModel, setEffort } = chatActions
   const inflight = useChatSession((s) => s.inflight)
   const sessionId = useChatSession((s) => s.sessionId)
@@ -236,11 +238,11 @@ export function Composer({
   // 미만 제외. 클릭 = 즉시 물질화(startHandoff, 재클릭은 activeKey 전환으로 자연 차단).
   const handoffDisabledReason =
     sessionId == null
-      ? '핸드오프할 세션이 없습니다'
+      ? tr('chat.composer.handoffNoSession')
       : inflight
-        ? '응답 완료 후 시도하세요'
+        ? tr('chat.composer.handoffWaitTurn')
         : userTurnCount < 2
-          ? '대화가 더 진행된 뒤 사용할 수 있습니다'
+          ? tr('chat.composer.handoffNeedMoreTurns')
           : null
   const onHandoff = (): void => {
     if (handoffDisabledReason != null) return
@@ -426,8 +428,8 @@ export function Composer({
         <button
           type="button"
           onClick={onScrollToBottom}
-          aria-label="맨 아래로"
-          title="맨 아래로"
+          aria-label={tr('chat.composer.scrollToBottom')}
+          title={tr('chat.composer.scrollToBottom')}
           data-behavior="action:scroll-to-bottom"
           className="absolute bottom-full left-1/2 mb-2 grid h-8 w-8 -translate-x-1/2 place-items-center rounded-full border border-border bg-surface-primary-elevated text-ink2 effect-primary-elevated transition-colors hover:bg-fill-uncontained-hover hover:text-ink"
         >
@@ -488,16 +490,15 @@ export function Composer({
           )}
           {showConcurrencyNotice && (
             <Notice
-              title="같은 프로젝트에서 다른 작업이 실행 중입니다."
+              title={tr('chat.composer.concurrencyNoticeTitle')}
               onClose={() => setConcurrencyDismissed(true)}
             >
-              파일 충돌 가능성이 있습니다. Orca는 작업을 차단하지 않으며, 동시 실행 여부는 사용자가
-              판단합니다.
+              {tr('chat.composer.concurrencyNoticeBody')}
             </Notice>
           )}
           {newChatPending && (
-            <Notice title="연결 대기 중입니다." icon="sparkle">
-              이전 새 대화의 세션이 준비되는 대로 이 메시지를 순서대로 전송합니다.
+            <Notice title={tr('chat.composer.queuedNoticeTitle')} icon="sparkle">
+              {tr('chat.composer.queuedNoticeBody')}
             </Notice>
           )}
           {pendingPlanReview ? (
@@ -509,7 +510,7 @@ export function Composer({
               }`}
               data-surface="prompt"
               data-state={draggingAttachment ? 'drag-over' : undefined}
-              title={`백엔드: ${backendLabel}`}
+              title={tr('chat.composer.backendTitle', { label: backendLabel })}
             >
               <AttachmentTray
                 attachments={attachments}
@@ -532,10 +533,10 @@ export function Composer({
                     validFilePaths={fileAutocomplete.validPaths}
                     placeholder={
                       inflight
-                        ? '피드백 보내기… (Enter 전송 / Shift+Enter 줄바꿈)'
-                        : '스킬을 보려면 /를 입력하세요.'
+                        ? tr('chat.composer.placeholderFeedback')
+                        : tr('chat.composer.placeholderIdle')
                     }
-                    ariaLabel="메시지 입력"
+                    ariaLabel={tr('chat.composer.inputAria')}
                   />
                 </div>
                 {showCancelButton ? (
@@ -545,8 +546,8 @@ export function Composer({
                     leadingIcon="stop"
                     onClick={cancel}
                     disabled={!canAbort}
-                    title={canAbort ? '중단' : '이 백엔드는 중단을 지원하지 않습니다'}
-                    aria-label="중단"
+                    title={canAbort ? tr('common.stop') : tr('chat.composer.abortUnsupported')}
+                    aria-label={tr('common.stop')}
                     data-behavior="action:cancel-turn"
                     className="mb-1 shrink-0 rounded-full"
                   />
@@ -557,8 +558,14 @@ export function Composer({
                     leadingIcon="enter"
                     onClick={submit}
                     disabled={draft.trim() === ''}
-                    title={feedbackMode ? '피드백 보내기 (Enter)' : '전송 (Enter)'}
-                    aria-label={feedbackMode ? '피드백 보내기' : '전송'}
+                    title={
+                      feedbackMode
+                        ? tr('chat.composer.sendFeedbackEnter')
+                        : tr('chat.composer.sendEnter')
+                    }
+                    aria-label={
+                      feedbackMode ? tr('chat.composer.sendFeedback') : tr('chat.composer.send')
+                    }
                     data-behavior={feedbackMode ? 'action:send-feedback' : 'action:send'}
                     className="mb-1 shrink-0 rounded-full"
                   />
@@ -578,11 +585,11 @@ export function Composer({
               >
                 <ComposerChip
                   ref={modeButtonRef}
-                  label={MODE_LABELS[permissionMode]}
+                  label={tr(MODE_LABEL_KEYS[permissionMode])}
                   onClick={() => setModeMenuOpen((v) => !v)}
                   ariaHasPopup
                   ariaExpanded={modeMenuOpen}
-                  title="권한 모드"
+                  title={tr('chat.composer.permissionModeTitle')}
                 />
                 <ComposerChip
                   ref={attachButtonRef}
@@ -590,27 +597,27 @@ export function Composer({
                   onClick={() => setAttachMenuOpen((v) => !v)}
                   ariaHasPopup
                   ariaExpanded={attachMenuOpen}
-                  title="추가 메뉴"
+                  title={tr('chat.composer.attachMenuTitle')}
                 />
               </div>
               <span className="ml-auto flex items-center gap-g4">
                 {agents.some((agent) => agent.supported) && (
                   <ComposerChip
                     ref={modelButtonRef}
-                    label={selectionLabel(selectedModel)}
+                    label={selectionLabel(selectedModel) ?? tr('chat.composer.modelFallback')}
                     onClick={() => setModelMenuOpen((v) => !v)}
                     ariaHasPopup
                     ariaExpanded={modelMenuOpen}
-                    title="모델 선택"
+                    title={tr('chat.composer.modelSelectTitle')}
                   />
                 )}
                 <ComposerChip
                   ref={effortButtonRef}
-                  label={EFFORT_LABELS[effort]}
+                  label={tr(EFFORT_LABEL_KEYS[effort])}
                   onClick={() => setEffortMenuOpen((v) => !v)}
                   ariaHasPopup
                   ariaExpanded={effortMenuOpen}
-                  title="작업량"
+                  title={tr('chat.composer.effortTitle')}
                 />
                 {lastTelemetry &&
                   (() => {
@@ -628,15 +635,16 @@ export function Composer({
                         className="flex items-center rounded-sm focus:outline-none focus-visible:ring-1 focus-visible:ring-accent"
                         aria-haspopup="menu"
                         aria-expanded={telemetryOpen}
-                        title={`컨텍스트 ~${Math.round(tokens / 1000)}k / ${window / 1000}k 토큰 · 사용량 보기${
-                          warn ? ' · 컨텍스트 한계 임박' : ''
-                        }`}
+                        title={`${tr('chat.composer.contextTitle', {
+                          used: Math.round(tokens / 1000),
+                          window: window / 1000
+                        })}${warn ? ` · ${tr('chat.composer.contextLimitNear')}` : ''}`}
                         data-behavior="action:toggle-telemetry"
                       >
                         <UsageCircle
                           ratio={tokens / window}
                           warn={warn}
-                          aria-label={`컨텍스트 사용량: ${pct}%`}
+                          aria-label={tr('chat.composer.contextUsageAria', { pct })}
                         />
                       </button>
                     )
