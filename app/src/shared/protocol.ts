@@ -229,6 +229,10 @@ export const ProviderSummariesRequestSchema = z.object({
   providerKeys: z.array(z.string().min(1)).max(100)
 })
 
+export const RefreshProviderUsageReportSchema = z.object({
+  providerKey: z.string().min(1)
+})
+
 export const SetProviderLimitSchema = z.object({
   providerKey: z.string().min(1),
   limitUsd: z.number().positive().nullable()

@@ -13,6 +13,7 @@ import migration0010 from './migrations/0010_session_cwd.sql?raw'
 import migration0011 from './migrations/0011_session_lineage.sql?raw'
 import migration0012 from './migrations/0012_provider_limits.sql?raw'
 import migration0013 from './migrations/0013_schedules.sql?raw'
+import migration0014 from './migrations/0014_provider_usage_report_cache.sql?raw'
 import { DbQueries } from './queries'
 
 function dbWithMigrations(): Database.Database {
@@ -31,6 +32,7 @@ function dbWithMigrations(): Database.Database {
   db.exec(migration0011)
   db.exec(migration0012)
   db.exec(migration0013)
+  db.exec(migration0014)
   return db
 }
 

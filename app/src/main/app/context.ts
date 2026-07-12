@@ -13,6 +13,7 @@ import type { SecretStore } from '../infra/config/secret-store'
 import type { ExtensionBuilder } from '../features/extensions/builder'
 import type { ProviderSettingsService } from '../features/providers/provider-settings'
 import type { Scheduler } from '../features/scheduler'
+import type { ExternalUsageService } from '../features/usage/external-usage-service'
 import type { UpdateController } from './updater'
 
 export interface RouterContext {
@@ -41,4 +42,5 @@ export interface RouterContext {
   mockAdapter: MockAdapter | null
   updates: UpdateController
   scheduler: Scheduler
+  externalUsage: ExternalUsageService
 }
