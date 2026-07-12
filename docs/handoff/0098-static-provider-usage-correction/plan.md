@@ -17,8 +17,9 @@
 
 1. **일반 시나리오, provider-불특정**: Bedrock/vertex/custom 은 모두 같은 형태(월 한도 + 이달 사용량 제공)의 **한 가지 일반 시나리오**다. 코어는 특정 provider 이름을 절대 하드코딩하지 않는다.
 2. **플러그인 통합**: 정적 provider 추가 = **자체 완결 모듈(config + 선택적 hook) 파일 구성만**. 기존 코어(서비스·스케줄러·IPC·핸들러·tracker·enumeration)는 **손대지 않는다**(1회 프레임워크 배선 후 per-provider 편집 0).
-3. **config-우선, hook 은 escape hatch**: 대부분은 **선언적 `CorrectionConfig`(엔드포인트 + 응답 필드 매핑)** 만으로 동작. 비정형 API 만 `hook.ts`(imperative `fetchCorrection`)로 대체.
-4. 동적 provider 는 as-is. 외부값 override + 오프라인 스탤니스(마지막 보정값 영속).
+3. **hook 이 1급 확장 단위, config 는 옵션 sugar**: 실사례의 보정은 단순 fetch 가 아니라 **인증(OAuth client-credentials·AWS STS AssumeRole+SigV4·refresh) → 집계 API 호출 → 매핑**의 다단계다. 이 "어떻게" 전 과정은 `hook.ts`(imperative `fetchCorrection`) 임의 async 코드가 소유한다. 선언적 `CorrectionConfig` 는 **무인증 단순 케이스용 옵션**일 뿐 기본 경로가 아니다.
+4. **프레임워크는 경계만 소유**: 프레임워크가 아는 것은 훅 결과 `snapshot | null` 과 그 이후(영속·오프라인·override)뿐. 인증 단계·401 재인증·페이지네이션·서명은 **절대 모델링하지 않는다**(핸들 불가한 세부를 훅에 위임). 대신 훅이 실제 인증을 돌릴 수 있도록 **`CorrectionContext` 계약을 충분히** 준다(§B).
+5. 동적 provider 는 as-is. 외부값 override + 오프라인 스탤니스(마지막 보정값 영속).
 
 ## 사용자 의도 / 요구 출처 (Intent & Provenance)
 
@@ -57,14 +58,15 @@ Orca 는 provider 를 파일시스템 디렉토리 트리로만 정의하고(동
 
 1. **정적 provider 모듈 규약**: 정적 provider 1건 = 자체 완결 모듈 `{ config, hook? }`. 코어는 provider 이름을 하드코딩하지 않고 레지스트리를 순회한다.
 2. **플러그인 통합(코어 무편집)**: 새 정적 provider 추가 = **모듈 파일 구성 + 배럴 1줄**(또는 glob 자동수집). 서비스·스케줄러·IPC·핸들러·tracker·enumeration **편집 0**임을 문서·테스트로 보인다.
-3. **선언적 config-우선**: `CorrectionConfig`(엔드포인트·인증 ref·응답 필드 매핑 `limitUsd/usedUsd/asOf`·타임아웃·주기)만으로 **hook 코드 없이** 보정이 동작한다(공통 HTTP 시나리오 = bedrock/vertex/custom 동형).
-4. **hook escape hatch**: 비정형 API 는 모듈이 `hook.ts`(`UsageCorrectionProvider.fetchCorrection(ctx) → UsageCorrectionSnapshot|null`)를 export 해 config 자동 생성기를 대체한다.
-5. **주기 새로고침 → 훅 실행**: 설정>사용량><정적 provider> 새로고침(수동 버튼 + 30s 틱)이 main 보정 fetch 를 트리거해 해당 모듈의 훅/generic-fetcher 를 호출한다.
-6. **외부값 override**: 스냅샷이 있으면 월 사용량=`usedUsd`, 한도=`limitUsd` 로 덮어써 `computeUsageLimits` 에 전달.
-7. **영속(오프라인)**: 성공 fetch → DB upsert. 실패/오프라인 → 마지막 영속 스냅샷 사용(stale). 영속값 없을 때만 로컬 폴백.
-8. **스탤니스 표시**: `source(local|external)` + `fetchedAt` 기반 "마지막 동기화: <상대시각>" + 오프라인 배지.
-9. **스케줄러 백그라운드 갱신**: 설정 화면이 닫혀도 레지스트리의 모든 정적 provider 를 주기 fetch·영속(오프라인 최신성). 컴포지션 루트가 액션 주입, 레지스트리 순회는 provider-불특정.
-10. **동적 provider 불변** + **경계·게이트·계약**: 동적 provider 경로 무회귀 · main DAG 위반 0 · 신규 의존성 0 · `IPC_CONTRACT.md` 동시 갱신 · 게이트 green + 신규 단위 테스트(generic fetcher 매핑·병합·영속·스키마).
+3. **hook 이 기본 확장 단위**: 모듈이 `hook.ts`(`UsageCorrectionProvider.fetchCorrection(ctx) → UsageCorrectionSnapshot|null`)를 export 하면 **인증(다단계)·집계 호출·매핑 전 과정을 임의 async 코드로** 수행한다. 프레임워크는 결과 `snapshot|null` 만 소비한다.
+4. **CorrectionContext 충분성**: `ctx` 는 실 인증 흐름을 지원한다 — `{ providerKey, fetch, signal(프레임워크 소유 타임아웃/취소), secret(read+write), env, settings(provider settings.json), store(provider-scoped KV·토큰 TTL 캐시), logger, clock }`. 훅은 매 틱 재인증 없이(store) 스케줄러를 wedge 하지 않고(signal) 동작한다.
+5. **선언적 config 는 옵션 sugar**: 무인증 단순 케이스는 `CorrectionConfig`(엔드포인트·응답 JSON path 매핑)만으로 hook 코드 없이 동작(기본 경로 아님).
+6. **주기 새로고침 → 훅 실행**: 설정>사용량><정적 provider> 새로고침(수동 버튼 + 30s 틱)이 main 보정 fetch 를 트리거해 해당 모듈의 훅/generic-fetcher 를 호출한다.
+7. **외부값 override**: 스냅샷이 있으면 월 사용량=`usedUsd`, 한도=`limitUsd` 로 덮어써 `computeUsageLimits` 에 전달.
+8. **영속(오프라인)**: 성공 fetch → DB upsert. 실패/오프라인 → 마지막 영속 스냅샷 사용(stale). 영속값 없을 때만 로컬 폴백.
+9. **스탤니스 표시**: `source(local|external)` + `fetchedAt` 기반 "마지막 동기화: <상대시각>" + 오프라인 배지.
+10. **스케줄러 백그라운드 갱신**: 설정 화면이 닫혀도 레지스트리의 모든 정적 provider 를 주기 fetch·영속(오프라인 최신성). 컴포지션 루트가 액션 주입, 레지스트리 순회는 provider-불특정. **훅은 프레임워크 소유 `signal` 로 타임아웃**되어 인증 지연이 스케줄러/종료를 wedge 하지 않는다.
+11. **동적 provider 불변** + **경계·게이트·계약**: 동적 provider 경로 무회귀 · main DAG 위반 0 · 신규 의존성 0 · `IPC_CONTRACT.md` 동시 갱신 · 게이트 green + 신규 단위 테스트(generic fetcher 매핑·병합·영속·스키마 · **다단계 인증 훅 예시: store 토큰 캐시 재사용·signal 타임아웃·secret write-back**).
 
 ## 범위 / 비범위
 
@@ -94,18 +96,32 @@ Orca 는 provider 를 파일시스템 디렉토리 트리로만 정의하고(동
           body?: unknown
           map: { limitUsd?: string; usedUsd: string; asOf?: string }  // 응답 JSON path
           timeoutMs?: number }
-      | { kind: 'custom' }   // hook.ts 가 담당
+      | { kind: 'custom' }   // hook.ts 가 담당 — 인증 있는 실 provider 의 기본값
     refreshCron?: string     // 스케줄러 주기(기본값 상속)
   }
   ```
-- `hook.ts`(선택) — `kind:'custom'` 일 때만. `export const correction: UsageCorrectionProvider`.
+- `hook.ts` — `kind:'custom'` 모듈의 본체. `export const correction: UsageCorrectionProvider`. **인증(다단계)+집계 호출+매핑을 임의 async 코드로** 수행(§D). 실 bedrock/vertex/custom 은 대개 이 경로.
 - `index.ts` — `export default { config, hook? }`.
 
 배럴 `static-providers/index.ts` 가 모듈을 `STATIC_PROVIDERS[]` 로 모은다 — **추가 = 새 폴더 + 배럴 1줄**(또는 electron-vite `import.meta.glob` 로 0줄 자동수집; 안정성 위해 배럴 1차·glob 옵션).
 
 ### B. 1회 프레임워크 배선 (per-provider 편집 없음, provider-불특정)
 
-- `contracts/usage-correction.ts` — `UsageCorrectionProvider` · `UsageCorrectionSnapshot { limitUsd?, usedUsd, asOf }` · `CorrectionContext { providerKey, fetch, secret, env, clock }`.
+- `contracts/usage-correction.ts` — `UsageCorrectionProvider` · `UsageCorrectionSnapshot { limitUsd?, usedUsd, asOf }` · `CorrectionContext`(실 인증 흐름 지원):
+  ```ts
+  interface CorrectionContext {
+    providerKey: string
+    fetch: typeof fetch                 // 임의 HTTP(다단계 인증·집계 호출)
+    signal: AbortSignal                 // 프레임워크 소유 타임아웃/취소 — 인증 지연이 스케줄러 wedge 방지
+    secret: { get(k): Promise<string|null>; set(k, v): Promise<void> }  // safeStorage — 회전 refresh token write-back
+    env: Record<string, string>         // provider env (AWS 자격증명·region 등)
+    settings: Record<string, unknown>   // provider settings.json (base URL·region)
+    store: { get(k): unknown; set(k, v): void }  // provider-scoped KV — 토큰 TTL 캐시(매 틱 재인증 방지)
+    logger: (msg, meta?) => void        // 진단
+    clock: () => number
+  }
+  ```
+  프레임워크는 이 계약만 제공하고 **인증 로직 자체는 훅 소유**다(OAuth client-credentials·STS AssumeRole+SigV4·401 재인증·페이지네이션 = 훅 내부).
 - `features/usage/http-correction.ts` — `createHttpCorrection(config)`: 선언적 config → `UsageCorrectionProvider`. `${SECRET:}`/`${ENV:}` 확장 · JSON path 매핑 · 타임아웃 · 에러=null. **bedrock/vertex/custom 공통 경로**(provider별 코드 0).
 - `features/usage/correction-service.ts` — `ProviderCorrectionService`(레지스트리 주입): providerKey → (hook ?? createHttpCorrection(config)) 호출 → 성공 upsert·병합 / 실패 영속 폴백(stale) / 없으면 로컬. 순수 `applyProviderCorrection(local, snapshot|null, fetchedAt)` 분리(단위 테스트). provider별 in-flight 가드.
 - `infra/db` — `0014_provider_usage_correction.sql`(`provider_key PK, limit_usd, used_usd, as_of, fetched_at, source`) + `get/upsertProviderCorrection` prepared stmt.
@@ -119,6 +135,16 @@ Orca 는 provider 를 파일시스템 디렉토리 트리로만 정의하고(동
 - `ProviderUsageTab` — external 이면 외부 used/limit 바 + `SyncRow`("마지막 동기화: <상대시각>", `relativeTimeLabel`) + `stale` 배지. `useProviderUsage` refresh → `cost:refreshProviderCorrection`. 도넛 `useProviderUsageLimits` 자동 일관. i18n ko/en.
 
 > **불변식**: A(모듈)만 provider별로 늘어난다. B/C 는 provider-불특정 1회 코드. enumeration(`provider-registry.ts`)·엔진 CRUD·tracker 는 무편집(동적 as-is). 정적 provider 는 correction 을 provider **key 로 바인딩**만 하므로 열거 로직 불변.
+
+### D. 인증·다단계 호출 (hook 이 소유, 프레임워크 비관여)
+
+실 보정 훅은 단순 fetch 가 아니다 — 대표 패턴:
+- **OAuth2 client-credentials**: `store` 에 access token+만료 캐시 → 만료 전 재사용, 만료 시 토큰 엔드포인트 재발급. client id/secret 은 `secret.get`.
+- **AWS(STS AssumeRole + SigV4)**: `env` 의 base 자격증명으로 STS 임시 크레덴셜 취득(`store` 캐시) → Cost Explorer/Bedrock usage 호출을 SigV4 서명. (서명 유틸은 훅 내부 구현 or 선택적 공용 헬퍼.)
+- **refresh-token 회전**: 응답의 새 refresh token 을 `secret.set` 으로 write-back.
+- **401 재인증·페이지네이션·다중 호출**: 훅이 루프/재시도로 처리 후 최종 `snapshot` 반환.
+
+프레임워크가 보장하는 것: `signal` 로 전체 훅 호출에 타임아웃(인증 왕복 포함) → 오프라인/지연 시 `null` 로 귀결되어 **영속/stale 경로**로 안전 폴백. **개방 결정(설계자→사용자)**: 공용 인증 헬퍼(bearer 캐시·client-credentials·SigV4 서명) 유틸을 코어에 제공할지 vs 각 훅이 자체 구현할지 — 기본은 훅 자체 구현(코어 표면 최소), 반복 3회 시 헬퍼 승격(rule of three).
 
 ## 파생 UX / 엣지케이스 (Derived UX & Edge Cases)
 
@@ -134,6 +160,9 @@ Orca 는 provider 를 파일시스템 디렉토리 트리로만 정의하고(동
 |---|---|
 | 실 API 계약 미확정(bedrock/vertex/custom) | 선언적 `CorrectionConfig` + 예시 모듈. 실 endpoint/map/secret 은 사용자 config 주입(비범위). |
 | main 네트워크 I/O 안정성 | out-of-band·짧은 타임아웃·throw 격리(턴 무영향)·실패=영속/stale. |
+| 매 틱 재인증(STS/OAuth 왕복 비용·rate limit) | `ctx.store` provider-scoped 토큰 TTL 캐시 — 훅이 만료 전 재사용. |
+| 인증 지연이 스케줄러/앱 종료 wedge | `ctx.signal`(프레임워크 소유 타임아웃) 이 전체 훅 호출 취소 → `null` 폴백. `shutdown` 시 abort. |
+| 다단계 인증을 코어가 모델링하려는 유혹 | 코어는 `snapshot|null` 경계만 소유. 인증 로직은 훅 소유(§D) — 코어 확장 금지. |
 | 자격증명 노출 | `${SECRET:}`=safeStorage secret-store, argv/평문 금지(branded env 불변식). |
 | override 로 로컬 추정 은폐 | `source`+stale 배지로 출처 투명. 로컬 폴백은 영속값 부재 시만. |
 | 마이그레이션 되돌리기 어려움 | append-only 신규 파일(0014). |
@@ -153,7 +182,7 @@ Orca 는 provider 를 파일시스템 디렉토리 트리로만 정의하고(동
 ## 게이트
 
 - 통과 필요: `cd app && npm run lint && npm run typecheck && npm test`.
-- 신규 테스트: generic HTTP correction 매핑(`${SECRET/ENV}`·JSON path·타임아웃·에러=null) · `applyProviderCorrection`(override·null 폴백·stale) · 영속 upsert/read · 마이그레이션 append-only/점프 안전 · IPC zod(entry 확장·refresh 채널) · **"새 모듈 추가로 코어 무편집" 회귀**(레지스트리 순회가 배럴만 의존).
+- 신규 테스트: generic HTTP correction 매핑(`${SECRET/ENV}`·JSON path·타임아웃·에러=null) · **다단계 인증 훅 예시**(store 토큰 캐시 hit/miss·만료 재발급·signal 타임아웃→null·secret write-back) · `applyProviderCorrection`(override·null 폴백·stale) · 영속 upsert/read · 마이그레이션 append-only/점프 안전 · IPC zod(entry 확장·refresh 채널) · **"새 모듈 추가로 코어 무편집" 회귀**(레지스트리 순회가 배럴만 의존).
 
 ## 설계 self-review 체크리스트 (READY 전)
 
