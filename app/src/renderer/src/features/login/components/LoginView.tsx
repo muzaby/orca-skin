@@ -45,10 +45,10 @@ export function LoginView(): React.JSX.Element {
           {inflight ? (
             <span className="inline-flex items-center gap-2">
               <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-bg/40 border-t-bg" />
-              로그인 중
+              {tr('login.loggingIn')}
             </span>
           ) : (
-            'SSO로 로그인'
+            tr('login.ssoButton')
           )}
         </Button>
       </div>

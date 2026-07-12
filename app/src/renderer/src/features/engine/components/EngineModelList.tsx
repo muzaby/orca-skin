@@ -1,10 +1,12 @@
 import type { AgentModelView } from '../../../../../shared/ipc'
+import { useI18n } from '../../../shared/i18n'
 
 interface EngineModelListProps {
   models: AgentModelView[]
 }
 
 export function EngineModelList({ models }: EngineModelListProps): React.JSX.Element {
+  const { tr } = useI18n()
   return (
     <div className="relative mt-3 flex flex-col gap-1.5">
       {models.map((model) => (
@@ -13,7 +15,7 @@ export function EngineModelList({ models }: EngineModelListProps): React.JSX.Ele
             {model.alias}
           </span>
           <span className="min-w-0 flex-1 truncate font-mono text-[12.5px] font-semibold text-ink">
-            {model.model ?? 'SDK 기본'}
+            {model.model ?? tr('engine.sdkDefaultModel')}
           </span>
           {model.oneMillionContext && (
             <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold text-ink3 ring-1 ring-border">

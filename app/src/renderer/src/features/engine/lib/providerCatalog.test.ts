@@ -8,19 +8,24 @@ import {
 
 describe('validateSettingsJson', () => {
   it('빈 입력은 거부', () => {
-    expect(validateSettingsJson('   ').ok).toBe(false)
+    const r = validateSettingsJson('   ')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorKey).toBe('engine.validation.jsonRequired')
   })
 
-  it('파싱 실패는 사유와 함께 거부', () => {
+  it('파싱 실패는 사유 키(줄/열 params)와 함께 거부', () => {
     const r = validateSettingsJson('{ "env": }')
     expect(r.ok).toBe(false)
-    expect(r.error).toContain('JSON')
+    // 위치 검출 여부에 따라 jsonSyntaxAt(줄/열 params) 또는 jsonSyntax(원문 통과).
+    if (!r.ok) expect(r.errorKey).toMatch(/^engine\.validation\.jsonSyntax/)
   })
 
   it('비객체 최상위(배열/원시값)는 거부', () => {
-    expect(validateSettingsJson('[]').ok).toBe(false)
-    expect(validateSettingsJson('42').ok).toBe(false)
-    expect(validateSettingsJson('null').ok).toBe(false)
+    for (const text of ['[]', '42', 'null']) {
+      const r = validateSettingsJson(text)
+      expect(r.ok).toBe(false)
+      if (!r.ok) expect(r.errorKey).toBe('engine.validation.topLevelObject')
+    }
   })
 
   it('객체 최상위는 통과', () => {
@@ -30,7 +35,9 @@ describe('validateSettingsJson', () => {
 
 describe('validateProviderName', () => {
   it('빈 값 거부', () => {
-    expect(validateProviderName('').ok).toBe(false)
+    const r = validateProviderName('')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.errorKey).toBe('engine.validation.nameRequired')
   })
 
   it('허용 문자만 통과', () => {

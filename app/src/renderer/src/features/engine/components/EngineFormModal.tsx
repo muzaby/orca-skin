@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { engineApi } from '../../../shared/api/ipc'
 import { Icon } from '../../../shared/ui/Icon'
 import { Popover } from '../../../shared/ui/Popover'
+import { Trans } from 'react-i18next'
+import { useI18n } from '../../../shared/i18n'
 import {
   DEFAULT_PROVIDER_ID,
   PROVIDER_OPTIONS,
@@ -31,6 +33,7 @@ export function EngineFormModal({
   onClose,
   onSubmit
 }: EngineFormModalProps): React.JSX.Element {
+  const { tr } = useI18n()
   const editing = mode === 'edit'
   const [providerId, setProviderId] = useState(editing ? 'custom' : DEFAULT_PROVIDER_ID)
   const [providerName, setProviderName] = useState(editing ? editProvider : DEFAULT_PROVIDER_ID)
@@ -83,12 +86,12 @@ export function EngineFormModal({
     try {
       const result = await engineApi.importUserSettings()
       if (!result.exists) {
-        setImportError('~/.claude/settings.json 을 찾을 수 없어요.')
+        setImportError(tr('engine.form.importNotFound'))
         return
       }
       setSettingsJson(result.settingsJson)
     } catch {
-      setImportError('~/.claude/settings.json 을 불러오지 못했어요.')
+      setImportError(tr('engine.form.importFailed'))
     } finally {
       setImportBusy(false)
     }
@@ -100,7 +103,7 @@ export function EngineFormModal({
     try {
       await onSubmit({ provider: providerName.trim(), settingsJson })
     } catch (e) {
-      setSubmitError(e instanceof Error ? e.message : '저장에 실패했어요.')
+      setSubmitError(e instanceof Error ? e.message : tr('engine.form.saveFailed'))
     }
   }
 
@@ -115,11 +118,11 @@ export function EngineFormModal({
         onClick={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-label={editing ? '엔진 설정 편집' : '엔진 추가'}
+        aria-label={editing ? tr('engine.form.titleEdit') : tr('engine.form.titleAdd')}
       >
         <div className="border-b border-border px-6 pb-3.5 pt-4">
           <h2 className="m-0 text-[16px] font-semibold text-ink">
-            {editing ? '엔진 설정 편집' : '엔진 추가'}
+            {editing ? tr('engine.form.titleEdit') : tr('engine.form.titleAdd')}
           </h2>
         </div>
 
@@ -139,7 +142,9 @@ export function EngineFormModal({
 
           {!editing && (
             <div className="flex flex-col gap-1.5">
-              <span className="text-[12px] font-medium text-ink2">공급자</span>
+              <span className="text-[12px] font-medium text-ink2">
+                {tr('engine.form.provider')}
+              </span>
               <button
                 ref={menuAnchorRef}
                 type="button"
@@ -149,9 +154,11 @@ export function EngineFormModal({
                 className="flex items-center justify-between gap-2 rounded-lg border border-border bg-bg px-3 py-2 text-left text-[13px] text-ink outline-none hover:border-border-strong focus:border-border-strong"
               >
                 <span className="flex items-baseline gap-2">
-                  <span className="font-medium">{selectedOption?.label ?? providerId}</span>
+                  <span className="font-medium">
+                    {selectedOption ? tr(selectedOption.labelKey) : providerId}
+                  </span>
                   {selectedOption && (
-                    <span className="text-[11.5px] text-ink3">{selectedOption.desc}</span>
+                    <span className="text-[11.5px] text-ink3">{tr(selectedOption.descKey)}</span>
                   )}
                 </span>
                 <Icon name={menuOpen ? 'chevU' : 'chevD'} size={14} color="var(--color-ink3)" />
@@ -172,8 +179,12 @@ export function EngineFormModal({
                     className="flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left hover:bg-fill-uncontained-hover"
                   >
                     <span className="flex-1">
-                      <span className="block text-[13px] font-medium text-ink">{p.label}</span>
-                      <span className="block text-[11.5px] leading-snug text-ink2">{p.desc}</span>
+                      <span className="block text-[13px] font-medium text-ink">
+                        {tr(p.labelKey)}
+                      </span>
+                      <span className="block text-[11.5px] leading-snug text-ink2">
+                        {tr(p.descKey)}
+                      </span>
                     </span>
                     {p.id === providerId && (
                       <Icon name="check" size={14} color="var(--color-ink)" />
@@ -185,22 +196,24 @@ export function EngineFormModal({
           )}
 
           <label className="flex flex-col gap-1.5">
-            <span className="text-[12px] font-medium text-ink2">Provider 이름</span>
+            <span className="text-[12px] font-medium text-ink2">
+              {tr('engine.form.providerName')}
+            </span>
             <input
               ref={nameRef}
               value={providerName}
               disabled={!isCustom}
               onChange={(e) => setProviderName(e.target.value)}
-              placeholder="예: my-gateway"
+              placeholder={tr('engine.form.namePlaceholder')}
               className="rounded-lg border border-border bg-bg px-3 py-2 font-mono text-[13px] text-ink outline-none focus:border-border-strong disabled:cursor-not-allowed disabled:bg-bg2 disabled:text-ink2"
             />
             {!isCustom ? (
-              <span className="text-[11px] text-ink3">
-                선택한 공급자 이름으로 고정됩니다. 변경하려면 ‘직접 입력’을 고르세요.
-              </span>
+              <span className="text-[11px] text-ink3">{tr('engine.form.nameFixedHint')}</span>
             ) : (
               providerName.trim() !== '' &&
-              !nameCheck.ok && <span className="text-[11px] text-bad">{nameCheck.error}</span>
+              !nameCheck.ok && (
+                <span className="text-[11px] text-bad">{tr(nameCheck.errorKey)}</span>
+              )
             )}
           </label>
 
@@ -211,11 +224,11 @@ export function EngineFormModal({
                 type="button"
                 onClick={() => void importUserSettings()}
                 disabled={importBusy}
-                title="~/.claude/settings.json 의 내용으로 본문을 채웁니다."
+                title={tr('engine.form.importTitle')}
                 className="flex items-center gap-1.5 rounded-md px-2 py-1 text-[11.5px] font-medium text-ink2 hover:bg-sidebar hover:text-ink disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <Icon name="fileOpen" size={13} />
-                {importBusy ? '불러오는 중…' : '~/.claude/settings.json 불러오기'}
+                {importBusy ? tr('common.loading') : tr('engine.form.importButton')}
               </button>
             </div>
             <textarea
@@ -229,16 +242,22 @@ export function EngineFormModal({
             />
             {/* 실시간 JSON 검증 — 만족 시 초록, 불만족 시 빨강으로 즉시 표시 */}
             {jsonCheck.ok ? (
-              <span className="text-[11.5px] text-good">✓ JSON 형식이 올바릅니다.</span>
+              <span className="text-[11.5px] text-good">{tr('engine.form.jsonValid')}</span>
             ) : (
-              <span className="text-[11.5px] font-medium text-bad">⚠ {jsonCheck.error}</span>
+              <span className="text-[11.5px] font-medium text-bad">
+                ⚠ {tr(jsonCheck.errorKey, jsonCheck.params)}
+              </span>
             )}
             {importError && (
               <span className="text-[11.5px] font-medium text-bad">⚠ {importError}</span>
             )}
             <span className="text-[11px] text-ink3">
-              <code>env</code> 블록에 API 키·리전 등을 넣습니다. 비밀은 <code>{'${VAR}'}</code>{' '}
-              플레이스홀더로 두는 것을 권장합니다.
+              {/* 카탈로그 값의 <c> 태그가 code 요소로 치환된다. */}
+              <Trans
+                i18nKey="engine.form.envHint"
+                values={{ varToken: '${VAR}' }}
+                components={{ c: <code /> }}
+              />
             </span>
           </div>
 
@@ -253,7 +272,7 @@ export function EngineFormModal({
             onClick={onClose}
             className="rounded-lg px-3.5 py-2 text-[13px] font-medium text-ink2 hover:bg-sidebar"
           >
-            취소
+            {tr('common.cancel')}
           </button>
           <button
             type="button"
@@ -261,7 +280,13 @@ export function EngineFormModal({
             onClick={() => void submit()}
             className="rounded-lg bg-ink px-4 py-2 text-[13px] font-semibold text-bg disabled:cursor-not-allowed disabled:opacity-45"
           >
-            {busy ? (editing ? '저장 중…' : '추가 중…') : editing ? '저장' : '추가하기'}
+            {busy
+              ? editing
+                ? tr('engine.form.saving')
+                : tr('engine.form.adding')
+              : editing
+                ? tr('common.save')
+                : tr('engine.form.addAction')}
           </button>
         </div>
       </div>

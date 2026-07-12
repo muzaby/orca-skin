@@ -2,6 +2,7 @@ import { Icon } from '../../../shared/ui/Icon'
 import { Dot } from '../../../shared/ui/Status'
 import { BayerPattern } from '../../../shared/ui/BayerPattern'
 import { Histogram } from '../../../shared/ui/Histogram'
+import { useI18n } from '../../../shared/i18n'
 
 interface SliderProps {
   label: string
@@ -65,6 +66,7 @@ export function Metric({ label, value, unit, tone = 'ok' }: MetricProps): React.
 }
 
 export function CameraView(): React.JSX.Element {
+  const { tr } = useI18n()
   const tabs: [string, boolean][] = [
     ['RGB', true],
     ['Bayer', false],
@@ -77,7 +79,7 @@ export function CameraView(): React.JSX.Element {
     <section className="my-2 mr-2 flex w-[480px] flex-none flex-col overflow-hidden rounded-r6 border border-border bg-sidebar">
       <div className="flex items-center gap-2 border-b border-border px-4 pb-2 pt-3">
         <Icon name="cam" size={15} />
-        <span className="font-serif text-[14px] font-semibold text-ink">하드웨어 제어</span>
+        <span className="font-serif text-[14px] font-semibold text-ink">{tr('camera.title')}</span>
         <span className="ml-auto inline-flex items-center gap-1.5 text-[11px] text-ink2">
           <Dot tone="green" /> COM7 · OV-9282
         </span>
@@ -124,14 +126,14 @@ export function CameraView(): React.JSX.Element {
       </div>
 
       <div className="flex flex-col gap-3 px-4 pb-2.5 pt-3.5">
-        <Slider label="노출 (Exposure)" unit="ms" value={50.0} min={1} max={120} pct={42} />
-        <Slider label="아날로그 게인" unit="×" value={4.0} min={1} max={16} pct={26} />
-        <Slider label="디지털 게인" unit="dB" value={0.0} min={0} max={24} pct={0} />
+        <Slider label={tr('camera.exposure')} unit="ms" value={50.0} min={1} max={120} pct={42} />
+        <Slider label={tr('camera.analogGain')} unit="×" value={4.0} min={1} max={16} pct={26} />
+        <Slider label={tr('camera.digitalGain')} unit="dB" value={0.0} min={0} max={24} pct={0} />
       </div>
 
       <div className="px-4 pb-2 pt-1">
         <div className="mb-1.5 text-[11.5px] font-semibold uppercase tracking-[0.05em] text-ink2">
-          품질 메트릭
+          {tr('camera.qualityMetrics')}
         </div>
         <div className="grid grid-cols-2 gap-1.5">
           <Metric label="SNR" value="32.7" unit="dB" tone="warn" />
@@ -145,23 +147,23 @@ export function CameraView(): React.JSX.Element {
         <button
           type="button"
           disabled
-          title="v1 비대상 — Future Scope (PRD §9)"
+          title={tr('camera.futureScopeTitle')}
           className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border-0 bg-rust py-[9px] font-semibold text-white disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <Icon name="capture" size={14} color="#fff" /> 캡처
+          <Icon name="capture" size={14} color="#fff" /> {tr('camera.capture')}
         </button>
         <button
           type="button"
           disabled
-          title="v1 비대상 — Future Scope (PRD §9)"
+          title={tr('camera.futureScopeTitle')}
           className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-panel py-[9px] font-medium text-ink disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <Icon name="layers" size={14} /> 시퀀스
+          <Icon name="layers" size={14} /> {tr('camera.sequence')}
         </button>
         <button
           type="button"
           disabled
-          title="v1 비대상 — Future Scope (PRD §9)"
+          title={tr('camera.futureScopeTitle')}
           className="grid w-9 place-items-center rounded-lg border border-border bg-panel py-[9px] text-ink2 disabled:cursor-not-allowed disabled:opacity-50"
         >
           <Icon name="history" size={14} />

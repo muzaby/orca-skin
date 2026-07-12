@@ -10,24 +10,24 @@ import {
   PanelToggle
 } from '../../../shared/ui/FloatingPanel'
 import { useDebugMock } from '../hooks/useDebugMock'
+import { useI18n, type MessageKey } from '../../../shared/i18n'
 
-const SCENARIO_LABELS: Record<MockScenarioId, string> = {
-  text_streaming: '텍스트 스트리밍',
-  reasoning: '추론 블록',
-  tool_calls: '도구 호출',
-  tool_approval: '도구 승인',
-  ask_question: '사용자 질문',
-  plan_review: '계획 검토',
-  subagent_task: '서브에이전트',
-  subagent_task_child: '서브에이전트 child',
-  subagent_task_aborted: '서브에이전트 중단',
-  subagent_task_multi: '서브에이전트 복수',
-  subagent_task_running: '서브에이전트 진행 중',
-  error: '에러',
-  full: '전체'
+// 시나리오 라벨은 카탈로그 키만 두고 렌더에서 tr() 해석한다(0096 패턴, 0097).
+const SCENARIO_LABEL_KEYS: Record<MockScenarioId, MessageKey> = {
+  text_streaming: 'debug.scenarios.text_streaming',
+  reasoning: 'debug.scenarios.reasoning',
+  tool_calls: 'debug.scenarios.tool_calls',
+  tool_approval: 'debug.scenarios.tool_approval',
+  ask_question: 'debug.scenarios.ask_question',
+  plan_review: 'debug.scenarios.plan_review',
+  subagent_task: 'debug.scenarios.subagent_task',
+  subagent_task_child: 'debug.scenarios.subagent_task_child',
+  subagent_task_aborted: 'debug.scenarios.subagent_task_aborted',
+  subagent_task_multi: 'debug.scenarios.subagent_task_multi',
+  subagent_task_running: 'debug.scenarios.subagent_task_running',
+  error: 'debug.scenarios.error',
+  full: 'debug.scenarios.full'
 }
-
-const SCENARIO_OPTIONS = MOCK_SCENARIO_IDS.map((id) => ({ value: id, label: SCENARIO_LABELS[id] }))
 
 // ssoSection/updateSection: app 레이어가 주입하는 그룹(features/login·features/update).
 // features 교차 import 를 피하려고 슬롯 prop 으로 받는다(없으면 미표시).
@@ -39,56 +39,61 @@ export function DebugPanel({
   updateSection?: ReactNode
 }): React.JSX.Element {
   const { t, setTweak } = useTweakContext()
+  const { tr } = useI18n()
   const { state, setMock } = useDebugMock()
+  const scenarioOptions = MOCK_SCENARIO_IDS.map((id) => ({
+    value: id,
+    label: tr(SCENARIO_LABEL_KEYS[id])
+  }))
 
   return (
-    <FloatingPanel title="디버그">
+    <FloatingPanel title={tr('debug.title')}>
       <PanelSection label="Mock" />
       <PanelToggle
-        label="Mock 모드"
+        label={tr('debug.mockMode')}
         value={state.enabled}
         onChange={(enabled) => setMock({ enabled })}
       />
       <PanelSelect
-        label="시나리오"
+        label={tr('debug.scenario')}
         value={state.scenarioId}
-        options={SCENARIO_OPTIONS}
+        options={scenarioOptions}
         onChange={(scenarioId) => setMock({ scenarioId })}
       />
       <PanelSlider
-        label="컨텍스트 사용량"
+        label={tr('debug.contextUsage')}
         value={Math.round(state.contextUsageRatio * 100)}
         onChange={(value) => setMock({ contextUsageRatio: value / 100 })}
       />
       <PanelToggle
-        label="Wire 메시지"
+        label={tr('debug.wireLog')}
         value={state.wireLog}
         onChange={(wireLog) => setMock({ wireLog })}
       />
 
-      <PanelSection label="테마" />
+      <PanelSection label={tr('debug.themeSection')} />
       <PanelRadio
-        label="컬러 팔레트"
+        label={tr('debug.palette')}
         value={t.theme}
         options={[
-          { value: 'white', label: '화이트' },
-          { value: 'dark', label: '다크' }
+          { value: 'white', label: tr('settings.general.themeWhite') },
+          { value: 'dark', label: tr('settings.general.themeDark') }
         ]}
         onChange={(v) => setTweak('theme', v)}
       />
-      <PanelSection label="레이아웃" />
+      <PanelSection label={tr('debug.layoutSection')} />
       <PanelRadio
-        label="밀도"
+        label={tr('debug.density')}
         value={t.density}
         options={[
-          { value: 'compact', label: '조밀' },
-          { value: 'normal', label: '보통' },
-          { value: 'comfortable', label: '넓게' }
+          { value: 'compact', label: tr('debug.densityCompact') },
+          { value: 'normal', label: tr('debug.densityNormal') },
+          { value: 'comfortable', label: tr('debug.densityComfortable') }
         ]}
         onChange={(v) => setTweak('density', v)}
       />
       <PanelToggle
-        label="사이드바 접기"
+        label={tr('header.collapseSidebar')}
         value={t.sidebarCollapsed}
         onChange={(v) => setTweak('sidebarCollapsed', v)}
       />

@@ -26,7 +26,20 @@ export const ko = {
     count: '{{count}}개',
     loading: '불러오는 중…',
     description: '설명',
-    noDescription: '설명이 없습니다.'
+    noDescription: '설명이 없습니다.',
+    menu: '메뉴'
+  },
+  boot: {
+    label: '부팅',
+    preparingSr: '앱을 준비 중입니다',
+    errorTitle: '앱 준비 중 문제가 발생했습니다.',
+    retry: '부트 다시 시도'
+  },
+  cost: {
+    approx: '약 ${{usd}}'
+  },
+  landing: {
+    newChatGreeting: '무엇을 도와드릴까요?'
   },
   nav: {
     chat: '01 채팅',
@@ -190,6 +203,152 @@ export const ko = {
       backAria: '모든 프로젝트로 돌아가기',
       all: '모든 프로젝트'
     }
+  },
+  engine: {
+    title: '엔진 & 모델',
+    subtitle: 'provider settings 환경',
+    addEngine: '엔진 추가',
+    blurb:
+      '<c>~/.config/orca/sources/settings</c> 의 provider settings 를 기반으로 Composer 모델 메뉴가 구성됩니다. 편집 후 앱 재시작 없이 모델 메뉴가 갱신됩니다.',
+    emptyState: '등록된 provider 가 없습니다. 엔진 추가 버튼으로 claude provider 를 생성하세요.',
+    deleteConfirm: '{{name}} provider 를 삭제할까요?',
+    readSettingsFailed: '설정을 불러오지 못했어요.',
+    sdkDefaultModel: 'SDK 기본',
+    provider: {
+      anthropic: { label: 'Anthropic', desc: 'api.anthropic.com 기본' },
+      bedrock: { label: 'Amazon Bedrock', desc: 'AWS 자격증명' },
+      vertex: { label: 'Google Vertex AI', desc: 'GCP 프로젝트' },
+      custom: { label: '직접 입력', desc: '게이트웨이 등 직접 설정' }
+    },
+    validation: {
+      nameRequired: 'provider 이름을 입력하세요.',
+      nameFormat: '영문 · 숫자 · _ · - 만 사용할 수 있습니다.',
+      jsonRequired: 'settings.json 내용을 입력하세요.',
+      jsonSyntaxAt:
+        'JSON 형식이 올바르지 않아요 — {{line}}번째 줄, {{col}}번째 글자 부근에서 형식이 어긋났어요.',
+      jsonSyntax: 'JSON 형식이 올바르지 않아요 — {{reason}}',
+      jsonSyntaxUnknown: 'JSON 형식이 올바르지 않아요 — 알 수 없는 오류',
+      topLevelObject: '최상위는 객체 { … } 형태여야 해요.'
+    },
+    form: {
+      titleEdit: '엔진 설정 편집',
+      titleAdd: '엔진 추가',
+      provider: '공급자',
+      providerName: 'Provider 이름',
+      namePlaceholder: '예: my-gateway',
+      nameFixedHint: '선택한 공급자 이름으로 고정됩니다. 변경하려면 ‘직접 입력’을 고르세요.',
+      importTitle: '~/.claude/settings.json 의 내용으로 본문을 채웁니다.',
+      importButton: '~/.claude/settings.json 불러오기',
+      importNotFound: '~/.claude/settings.json 을 찾을 수 없어요.',
+      importFailed: '~/.claude/settings.json 을 불러오지 못했어요.',
+      saveFailed: '저장에 실패했어요.',
+      jsonValid: '✓ JSON 형식이 올바릅니다.',
+      envHint:
+        '<c>env</c> 블록에 API 키·리전 등을 넣습니다. 비밀은 <c>{{varToken}}</c> 플레이스홀더로 두는 것을 권장합니다.',
+      saving: '저장 중…',
+      adding: '추가 중…',
+      addAction: '추가하기'
+    }
+  },
+  backend: {
+    installed: '설치됨',
+    notInstalled: '설치 필요',
+    supportedTitle: '지원 기능: {{list}}',
+    capability: {
+      continue: '이어가기',
+      resume: '재개',
+      fork: '분기',
+      abort: '중단',
+      structuredOutput: '구조화 출력'
+    },
+    installer: {
+      title: 'Claude Code 설치',
+      cliRequired: '채팅을 사용하려면 Claude Code CLI 가 필요합니다.',
+      preparing: '준비 중…',
+      installing: '설치 중…',
+      done: '완료',
+      start: '설치 시작',
+      failedPrefix: '설치 실패:',
+      copyCommand: '명령 복사'
+    },
+    authExpired: {
+      title: 'Claude Code 인증 만료',
+      body: '터미널에서 아래 명령을 실행한 뒤 새 대화를 시작하세요.'
+    }
+  },
+  update: {
+    dialogTitle: 'Orca 업데이트',
+    status: {
+      idle: '업데이트 대기 중',
+      checking: '업데이트 확인 중…',
+      available: '새 업데이트가 준비되었습니다.',
+      downloading: '업데이트 다운로드 중…',
+      ready: '다운로드 완료. 재시작하면 설치됩니다.',
+      installing: '업데이트 설치를 시작합니다…',
+      error: '업데이트 오류.'
+    },
+    statusFallback: '업데이트 상태를 확인합니다.',
+    currentVersion: '현재 버전',
+    newVersion: '새 버전',
+    checkingShort: '확인 중',
+    progress: '다운로드 진행률',
+    releaseNotes: '릴리스 노트',
+    installBlockedFallback: '작업이 진행 중입니다 — 끝난 뒤 다시 시도하세요.',
+    later: '나중에',
+    action: {
+      ready: '업데이트 후 재시작',
+      downloading: '다운로드 중…',
+      installing: '설치 시작 중…',
+      update: '업데이트'
+    },
+    debug: { section: '업데이트', dummy: '더미 업데이트' }
+  },
+  debug: {
+    title: '디버그',
+    mockMode: 'Mock 모드',
+    scenario: '시나리오',
+    contextUsage: '컨텍스트 사용량',
+    wireLog: 'Wire 메시지',
+    themeSection: '테마',
+    palette: '컬러 팔레트',
+    layoutSection: '레이아웃',
+    density: '밀도',
+    densityCompact: '조밀',
+    densityNormal: '보통',
+    densityComfortable: '넓게',
+    scenarios: {
+      text_streaming: '텍스트 스트리밍',
+      reasoning: '추론 블록',
+      tool_calls: '도구 호출',
+      tool_approval: '도구 승인',
+      ask_question: '사용자 질문',
+      plan_review: '계획 검토',
+      subagent_task: '서브에이전트',
+      subagent_task_child: '서브에이전트 child',
+      subagent_task_aborted: '서브에이전트 중단',
+      subagent_task_multi: '서브에이전트 복수',
+      subagent_task_running: '서브에이전트 진행 중',
+      error: '에러',
+      full: '전체'
+    }
+  },
+  login: {
+    title: '로그인',
+    ssoSection: 'SSO 로그인',
+    bypass: '로그인 우회(bypass)',
+    devButton: 'SSO 개발 버튼',
+    loggingIn: '로그인 중',
+    ssoButton: 'SSO로 로그인'
+  },
+  camera: {
+    title: '하드웨어 제어',
+    exposure: '노출 (Exposure)',
+    analogGain: '아날로그 게인',
+    digitalGain: '디지털 게인',
+    qualityMetrics: '품질 메트릭',
+    capture: '캡처',
+    sequence: '시퀀스',
+    futureScopeTitle: 'v1 비대상 — Future Scope (PRD §9)'
   },
   errors: {
     category: {
