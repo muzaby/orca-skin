@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Modal, ModalActions, MODAL_INPUT } from '../../../../shared/ui/Modal'
 import type { CreateMcpServerRequest } from '../../../../../../shared/ipc'
+import type { TFunction } from 'i18next'
+import { useI18n } from '../../../../shared/i18n'
 
 const PLACEHOLDER = `{
   "my-server": {
@@ -10,10 +12,11 @@ const PLACEHOLDER = `{
   }
 }`
 
-function parseInput(text: string): CreateMcpServerRequest {
+// 검증 메시지는 호출 시점 tr 해석(일회성 imperative — 0097 D1 예외).
+function parseInput(text: string, tr: TFunction): CreateMcpServerRequest {
   const parsed = JSON.parse(text) as unknown
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-    throw new Error('JSON 객체를 입력하세요.')
+    throw new Error(tr('skills.customMcp.jsonObject'))
   }
   const obj = parsed as Record<string, unknown>
   const servers =
@@ -21,11 +24,11 @@ function parseInput(text: string): CreateMcpServerRequest {
       ? (obj.mcpServers as Record<string, unknown>)
       : obj
   const entries = Object.entries(servers)
-  if (entries.length !== 1) throw new Error('MCP 서버 항목은 한 개만 입력하세요.')
+  if (entries.length !== 1) throw new Error(tr('skills.customMcp.singleEntry'))
   const [name, raw] = entries[0]
-  if (!/^[A-Za-z0-9_-]+$/.test(name)) throw new Error('서버 이름은 영숫자 · _ · - 만 허용됩니다.')
+  if (!/^[A-Za-z0-9_-]+$/.test(name)) throw new Error(tr('skills.customMcp.nameFormat'))
   if (typeof raw !== 'object' || raw === null || Array.isArray(raw))
-    throw new Error('서버 설정이 올바르지 않습니다.')
+    throw new Error(tr('skills.customMcp.invalidConfig'))
   const entry = raw as Record<string, unknown>
   if (entry.type === 'http' || entry.type === 'sse' || 'url' in entry) {
     const url = typeof entry.url === 'string' ? entry.url : ''
@@ -58,6 +61,7 @@ export function CustomMcpModal({
   onAdd: (req: CreateMcpServerRequest) => Promise<void>
 }): React.JSX.Element {
   const [text, setText] = useState('')
+  const { tr } = useI18n()
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
@@ -72,18 +76,18 @@ export function CustomMcpModal({
     try {
       setSaving(true)
       setError(null)
-      await onAdd(parseInput(text))
+      await onAdd(parseInput(text, tr))
       close()
     } catch (e) {
       setSaving(false)
-      setError(e instanceof Error ? e.message : 'MCP 추가에 실패했습니다.')
+      setError(e instanceof Error ? e.message : tr('skills.customMcp.failed'))
     }
   }
 
   return (
-    <Modal open={open} title="MCP 서버 추가" onClose={close} width={640}>
+    <Modal open={open} title={tr('skills.customMcp.title')} onClose={close} width={640}>
       <p className="mb-3 text-[12.5px] leading-[1.6] text-ink2">
-        단일 MCP 서버 JSON 항목을 붙여넣으면 Orca sources mcp.json에 병합합니다.
+        {tr('skills.customMcp.pasteHint')}
       </p>
       <textarea
         value={text}
@@ -97,7 +101,7 @@ export function CustomMcpModal({
         <ModalActions
           onCancel={close}
           onConfirm={() => void add()}
-          confirmLabel={saving ? '추가 중…' : '추가'}
+          confirmLabel={saving ? tr('skills.customMcp.adding') : tr('common.add')}
           confirmDisabled={saving || text.trim() === ''}
         />
       </div>

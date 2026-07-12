@@ -1,4 +1,5 @@
 import { Icon, type IconName } from '../../../../shared/ui/Icon'
+import { useI18n } from '../../../../shared/i18n'
 
 function ActionCard({
   icon,
@@ -35,6 +36,7 @@ export function CustomizeLanding({
   onConnect: () => void
   onCreateSkill: () => void
 }): React.JSX.Element {
+  const { tr } = useI18n()
   return (
     <div className="flex min-w-0 flex-1 flex-col items-center overflow-y-auto px-6 py-12">
       <div className="w-full max-w-[620px]">
@@ -42,22 +44,24 @@ export function CustomizeLanding({
           <span className="mb-4 grid h-16 w-16 place-items-center text-ink2">
             <Icon name="briefcase" size={48} />
           </span>
-          <h1 className="m-0 font-serif text-[26px] font-semibold text-ink">맞춤설정</h1>
+          <h1 className="m-0 font-serif text-[26px] font-semibold text-ink">
+            {tr('skills.landing.title')}
+          </h1>
           <p className="mt-2 max-w-[440px] text-[13.5px] leading-[1.6] text-ink2">
-            스킬과 MCP는 Orca가 사용자와 함께 작업하는 방식을 결정합니다.
+            {tr('skills.landing.subtitle')}
           </p>
         </div>
         <div className="flex flex-col gap-3">
           <ActionCard
             icon="link"
-            title="MCP 연결"
-            desc="Orca가 이미 사용 중인 도구를 읽고 쓸 수 있도록 허용하세요."
+            title={tr('skills.landing.mcpCardTitle')}
+            desc={tr('skills.landing.mcpCardDesc')}
             onClick={onConnect}
           />
           <ActionCard
             icon="sparkle"
-            title="새 스킬 만들기"
-            desc="Orca에게 프로세스, 팀 규범, 전문 지식을 가르치세요."
+            title={tr('skills.landing.skillCardTitle')}
+            desc={tr('skills.landing.skillCardDesc')}
             onClick={onCreateSkill}
           />
         </div>

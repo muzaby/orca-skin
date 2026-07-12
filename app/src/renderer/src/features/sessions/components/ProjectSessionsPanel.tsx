@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { SessionRow } from './SessionRow'
 import { useProjectSessions } from '../hooks/useProjectSessions'
+import { useI18n } from '../../../shared/i18n'
 
 interface ProjectSessionsPanelProps {
   projectId: string
@@ -24,6 +25,7 @@ export function ProjectSessionsPanel({
   onSessionDeleting,
   onSessionRenamed
 }: ProjectSessionsPanelProps): React.JSX.Element {
+  const { tr } = useI18n()
   const sessions = useProjectSessions(projectId)
 
   // chat 턴 종료 시 새 세션이 추가됐을 가능성 → refresh.
@@ -35,9 +37,13 @@ export function ProjectSessionsPanel({
   return (
     <section className="flex flex-col">
       <div className="mb-2 flex items-baseline gap-2 px-1">
-        <div className="font-serif text-[13px] font-semibold text-ink">이 프로젝트의 대화</div>
+        <div className="font-serif text-[13px] font-semibold text-ink">
+          {tr('projects.sessionsPanel.title')}
+        </div>
         <div className="text-[11px] text-ink3">
-          {sessions.loading ? '불러오는 중…' : `${sessions.list.length}개`}
+          {sessions.loading
+            ? tr('common.loading')
+            : tr('common.count', { count: sessions.list.length })}
         </div>
       </div>
       <div className="flex flex-col">

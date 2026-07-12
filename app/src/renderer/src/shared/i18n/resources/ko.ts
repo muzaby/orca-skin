@@ -20,7 +20,13 @@ export const ko = {
     editTitle: '제목 편집',
     newChat: '새 대화',
     running: '실행 중',
-    stop: '중단'
+    stop: '중단',
+    add: '추가',
+    create: '만들기',
+    count: '{{count}}개',
+    loading: '불러오는 중…',
+    description: '설명',
+    noDescription: '설명이 없습니다.'
   },
   nav: {
     chat: '01 채팅',
@@ -44,7 +50,146 @@ export const ko = {
     deleteDialogTitle: '대화 삭제',
     deleteDialogMessage: '이 대화를 삭제하시겠습니까?',
     menuAria: '세션 메뉴',
-    renameAria: '세션 제목 편집'
+    renameAria: '세션 제목 편집',
+    empty: '아직 저장된 대화가 없습니다.'
+  },
+  skills: {
+    listTitle: '스킬',
+    rail: { skills: '스킬', mcp: 'MCP' },
+    landing: {
+      title: '맞춤설정',
+      subtitle: '스킬과 MCP는 Orca가 사용자와 함께 작업하는 방식을 결정합니다.',
+      mcpCardTitle: 'MCP 연결',
+      mcpCardDesc: 'Orca가 이미 사용 중인 도구를 읽고 쓸 수 있도록 허용하세요.',
+      skillCardTitle: '새 스킬 만들기',
+      skillCardDesc: 'Orca에게 프로세스, 팀 규범, 전문 지식을 가르치세요.'
+    },
+    list: {
+      searchAria: '검색',
+      addAria: '추가',
+      off: '꺼짐',
+      activeMcp: '활성 MCP',
+      inactiveMcp: '비활성 MCP'
+    },
+    view: { selectItem: '항목을 선택하세요.' },
+    detail: {
+      toggleAria: '{{name}} 활성화',
+      tryInChat: '채팅에서 사용해보기',
+      openDefaultApp: '기본 앱에서 보기',
+      showInFolder: '폴더에서 보기',
+      remove: '제거',
+      removing: '제거 중…',
+      lastUpdated: '마지막 업데이트',
+      noBody: '본문이 없습니다.',
+      markdownAria: '마크다운',
+      removeTitle: '스킬 제거',
+      removeConfirmBody:
+        '이 작업은 Orca 스킬 sources에서 다음 폴더를 제거합니다. 계속하려면 한 번 더 확인하세요.'
+    },
+    addMenu: {
+      browse: '스킬 둘러보기',
+      create: '스킬 만들기',
+      author: '스킬 지침 작성',
+      upload: '스킬 업로드'
+    },
+    author: {
+      title: '스킬 지침 작성',
+      name: '스킬 이름',
+      desc: '설명',
+      descPlaceholder: '최근 작업에서 주간 현황 보고서를 생성합니다.',
+      instructions: '지침',
+      instructionsPlaceholder:
+        '최근 작업을 성과, 장애 요인, 다음 단계의 세 섹션으로 요약해 주세요...',
+      saving: '저장 중…',
+      failed: '스킬 생성에 실패했습니다.'
+    },
+    upload: {
+      title: '스킬 업로드',
+      dropHint: '드래그 앤 드롭하거나 클릭하여 업로드',
+      requirements: '파일 요구사항',
+      reqLine1: '.md 또는 .skill 파일에 YAML frontmatter와 스킬 지침을 포함합니다',
+      reqLine2: '업로드한 파일은 Orca 스킬 sources에 SKILL.md로 저장됩니다',
+      failed: '스킬 업로드에 실패했습니다.'
+    },
+    customMcp: {
+      title: 'MCP 서버 추가',
+      pasteHint: '단일 MCP 서버 JSON 항목을 붙여넣으면 Orca sources mcp.json에 병합합니다.',
+      adding: '추가 중…',
+      failed: 'MCP 추가에 실패했습니다.',
+      jsonObject: 'JSON 객체를 입력하세요.',
+      singleEntry: 'MCP 서버 항목은 한 개만 입력하세요.',
+      nameFormat: '서버 이름은 영숫자 · _ · - 만 허용됩니다.',
+      invalidConfig: '서버 설정이 올바르지 않습니다.'
+    },
+    mcpDetail: {
+      active: '활성',
+      inactive: '비활성',
+      enable: '활성화',
+      disable: '비활성화',
+      configSummary: '설정 요약'
+    },
+    addServer: {
+      titleAdd: 'MCP 서버 추가',
+      titleEdit: 'MCP 서버 편집',
+      name: '이름',
+      namePlaceholder: '예: github',
+      nameFormatError: '영숫자 · _ · - 만 사용할 수 있습니다.',
+      descOptional: '설명 (선택)',
+      descPlaceholder: '이 서버가 제공하는 도구 설명',
+      transport: '전송 방식',
+      stdioOption: 'stdio (로컬 프로세스)',
+      httpOption: 'HTTP (streamable)',
+      command: '명령어 (command)',
+      commandPlaceholder: '예: npx · python · node',
+      args: '인자 (args, 한 줄에 하나)',
+      authEnvName: '인증 환경변수 이름 (선택)',
+      authEnvPlaceholder: '예: GITHUB_TOKEN',
+      authEnvPlaceholderHttp: '예: API_TOKEN — 비워 두면 자동 생성',
+      authKeyOptional: '인증키 (선택)',
+      authTokenOptional: '인증 토큰 (선택)',
+      keepEmptyToPreserve: '변경하지 않으려면 비워 두세요',
+      encryptedNote: '안전하게 암호화 저장됩니다'
+    }
+  },
+  projects: {
+    title: '프로젝트',
+    newProject: '새 프로젝트',
+    blurb:
+      '프로젝트는 대화를 카테고리로 묶고, 지정한 시스템 지침을 해당 프로젝트의 모든 새 대화에 자동 주입합니다.',
+    noInstructions: '지침 없음',
+    emptyTitle: '아직 프로젝트가 없어요',
+    emptyDesc:
+      '프로젝트를 만들면 관련된 대화를 한곳에 모으고, 지정한 지침이 모든 새 대화에 자동으로 적용됩니다.',
+    createFirst: '첫 프로젝트 만들기',
+    create: {
+      title: '새 프로젝트',
+      name: '이름',
+      namePlaceholder: '예: cam-validation-v3',
+      instructionsOptional: '지침 (선택)',
+      instructionsPlaceholder:
+        'Claude 의 응답을 이 프로젝트에 맞게 조정하는 지침. 예: 모든 응답을 한국어로, 코드 예시는 TypeScript 로.'
+    },
+    editInstructions: {
+      title: '지침 편집',
+      body: '<mono>{{name}}</mono> 의 모든 새 메시지에 시스템 프롬프트로 덧붙여집니다.',
+      placeholder:
+        '예: 모든 응답을 한국어로, 코드 예시는 TypeScript 로. 검증 엔지니어 톤으로 간결하게.'
+    },
+    hero: {
+      pin: '고정',
+      pinAria: '프로젝트 고정',
+      menuAria: '프로젝트 메뉴',
+      editDetails: '세부사항 수정',
+      updated: '업데이트'
+    },
+    filesCard: { title: '파일', addTitle: '파일 추가 (준비 중)' },
+    instructionsCard: { title: '지침', editTitle: '지침 편집' },
+    sessionsPanel: { title: '이 프로젝트의 대화' },
+    landingHeader: {
+      navAria: '프로젝트 탐색',
+      backAria: '모든 프로젝트로 돌아가기',
+      all: '모든 프로젝트'
+    }
   },
   errors: {
     category: {

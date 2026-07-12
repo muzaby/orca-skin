@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Modal, ModalActions, MODAL_INPUT, MODAL_LABEL } from '../../../shared/ui/Modal'
+import { useI18n } from '../../../shared/i18n'
 
 interface CreateProjectModalProps {
   open: boolean
@@ -19,6 +20,7 @@ function CreateProjectModalOpen({
   onClose,
   onCreate
 }: Omit<CreateProjectModalProps, 'open'>): React.JSX.Element {
+  const { tr } = useI18n()
   const [name, setName] = useState('')
   const [instructions, setInstructions] = useState('')
   const [busy, setBusy] = useState(false)
@@ -44,21 +46,21 @@ function CreateProjectModalOpen({
   return (
     <Modal
       open
-      title="새 프로젝트"
+      title={tr('projects.create.title')}
       onClose={onClose}
       width={520}
       footer={
         <ModalActions
           onCancel={onClose}
           onConfirm={() => void save()}
-          confirmLabel="만들기"
+          confirmLabel={tr('common.create')}
           confirmDisabled={!canSave}
           cancelDisabled={busy}
         />
       }
     >
       <label className="mb-3 block">
-        <div className={MODAL_LABEL}>이름</div>
+        <div className={MODAL_LABEL}>{tr('projects.create.name')}</div>
         <input
           ref={nameRef}
           value={name}
@@ -70,19 +72,19 @@ function CreateProjectModalOpen({
             }
           }}
           maxLength={120}
-          placeholder="예: cam-validation-v3"
+          placeholder={tr('projects.create.namePlaceholder')}
           className={MODAL_INPUT}
         />
       </label>
 
       <label className="block">
-        <div className={MODAL_LABEL}>지침 (선택)</div>
+        <div className={MODAL_LABEL}>{tr('projects.create.instructionsOptional')}</div>
         <textarea
           value={instructions}
           onChange={(e) => setInstructions(e.target.value)}
           maxLength={8000}
           rows={6}
-          placeholder="Claude 의 응답을 이 프로젝트에 맞게 조정하는 지침. 예: 모든 응답을 한국어로, 코드 예시는 TypeScript 로."
+          placeholder={tr('projects.create.instructionsPlaceholder')}
           className={`${MODAL_INPUT} resize-none leading-[1.6]`}
         />
         <div className="mt-1 text-right text-[10.5px] text-ink3">{instructions.length} / 8000</div>

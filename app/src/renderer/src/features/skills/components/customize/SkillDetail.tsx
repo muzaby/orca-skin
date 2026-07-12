@@ -69,7 +69,7 @@ export function SkillDetail({
   const [removing, setRemoving] = useState(false)
   const menuRef = useRef<HTMLButtonElement>(null)
   const { tr, locale } = useI18n()
-  const body = skill.body?.trim() || '본문이 없습니다.'
+  const body = skill.body?.trim() || tr('skills.detail.noBody')
 
   const remove = async (): Promise<void> => {
     setRemoving(true)
@@ -87,12 +87,16 @@ export function SkillDetail({
         <h2 className="m-0 font-serif text-[22px] font-semibold text-ink">{skill.name}</h2>
         <div className="ml-auto flex items-center gap-2">
           {skill.canToggle && (
-            <Toggle on={skill.enabled} onClick={onToggle} label={`${skill.name} 활성화`} />
+            <Toggle
+              on={skill.enabled}
+              onClick={onToggle}
+              label={tr('skills.detail.toggleAria', { name: skill.name })}
+            />
           )}
           <button
             ref={menuRef}
             type="button"
-            aria-label="더 보기"
+            aria-label={tr('common.more')}
             onClick={() => setMenuOpen((v) => !v)}
             className="grid h-7 w-7 cursor-pointer place-items-center rounded-r4 border-0 bg-transparent text-ink3 hover:bg-fill-uncontained-hover hover:text-ink2"
           >
@@ -111,7 +115,7 @@ export function SkillDetail({
       >
         <MenuRow
           icon="chat"
-          label="채팅에서 사용해보기"
+          label={tr('skills.detail.tryInChat')}
           onClick={() => {
             setMenuOpen(false)
             onTryInChat()
@@ -119,7 +123,7 @@ export function SkillDetail({
         />
         <MenuRow
           icon="doc"
-          label="기본 앱에서 보기"
+          label={tr('skills.detail.openDefaultApp')}
           onClick={() => {
             setMenuOpen(false)
             onOpenDefault()
@@ -127,7 +131,7 @@ export function SkillDetail({
         />
         <MenuRow
           icon="folder"
-          label="폴더에서 보기"
+          label={tr('skills.detail.showInFolder')}
           onClick={() => {
             setMenuOpen(false)
             onShowInFolder()
@@ -135,7 +139,7 @@ export function SkillDetail({
         />
         <MenuRow
           icon="trash"
-          label="제거"
+          label={tr('skills.detail.remove')}
           danger
           disabled={!skill.canRemove}
           onClick={() => {
@@ -147,15 +151,15 @@ export function SkillDetail({
 
       <div className="mt-4 grid grid-cols-1 gap-4 border-b border-border pb-4 sm:grid-cols-2">
         <Meta
-          label="마지막 업데이트"
+          label={tr('skills.detail.lastUpdated')}
           value={formatDate(skill.createdAt, locale, tr('common.unknown'))}
         />
       </div>
 
       <div className="mt-4">
-        <div className="mb-1 text-[11.5px] text-ink3">설명</div>
+        <div className="mb-1 text-[11.5px] text-ink3">{tr('common.description')}</div>
         <p className="m-0 text-[13.5px] leading-[1.65] text-ink2">
-          {skill.description || '설명이 없습니다.'}
+          {skill.description || tr('common.noDescription')}
         </p>
       </div>
 
@@ -164,7 +168,7 @@ export function SkillDetail({
           <button
             type="button"
             onClick={() => setPlain(false)}
-            aria-label="마크다운"
+            aria-label={tr('skills.detail.markdownAria')}
             className={`grid h-6 w-6 cursor-pointer place-items-center rounded-r3 border-0 bg-transparent ${plain ? 'text-ink3' : 'text-t9'}`}
           >
             <Icon name="eye" size={14} />
@@ -192,9 +196,14 @@ export function SkillDetail({
         </div>
       </div>
 
-      <Modal open={confirmOpen} title="스킬 제거" onClose={() => setConfirmOpen(false)} width={560}>
+      <Modal
+        open={confirmOpen}
+        title={tr('skills.detail.removeTitle')}
+        onClose={() => setConfirmOpen(false)}
+        width={560}
+      >
         <p className="text-[13px] leading-[1.65] text-ink2">
-          이 작업은 Orca 스킬 sources에서 다음 폴더를 제거합니다. 계속하려면 한 번 더 확인하세요.
+          {tr('skills.detail.removeConfirmBody')}
         </p>
         <pre className="mt-3 overflow-auto rounded-r4 bg-bg2 p-3 font-mono text-[12px] text-ink2">
           {skill.skillDir}
@@ -203,7 +212,7 @@ export function SkillDetail({
           <ModalActions
             onCancel={() => setConfirmOpen(false)}
             onConfirm={() => void remove()}
-            confirmLabel={removing ? '제거 중…' : '제거'}
+            confirmLabel={removing ? tr('skills.detail.removing') : tr('skills.detail.remove')}
             confirmDisabled={removing}
           />
         </div>

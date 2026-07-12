@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Modal, ModalActions, MODAL_LABEL, MODAL_INPUT } from '../../../../shared/ui/Modal'
 import type { AuthorSkillRequest } from '../../../../../../shared/ipc'
+import { useI18n } from '../../../../shared/i18n'
 
 export function SkillAuthorModal({
   open,
@@ -11,6 +12,7 @@ export function SkillAuthorModal({
   onClose: () => void
   onCreate: (req: AuthorSkillRequest) => Promise<void>
 }): React.JSX.Element {
+  const { tr } = useI18n()
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [body, setBody] = useState('')
@@ -34,13 +36,13 @@ export function SkillAuthorModal({
       close()
     } catch (e) {
       setSaving(false)
-      setError(e instanceof Error ? e.message : '스킬 생성에 실패했습니다.')
+      setError(e instanceof Error ? e.message : tr('skills.author.failed'))
     }
   }
   return (
-    <Modal open={open} title="스킬 지침 작성" onClose={close} width={640}>
+    <Modal open={open} title={tr('skills.author.title')} onClose={close} width={640}>
       <label className="mb-4 block">
-        <span className={MODAL_LABEL}>스킬 이름</span>
+        <span className={MODAL_LABEL}>{tr('skills.author.name')}</span>
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -55,23 +57,23 @@ export function SkillAuthorModal({
         )}
       </label>
       <label className="mb-4 block">
-        <span className={MODAL_LABEL}>설명</span>
+        <span className={MODAL_LABEL}>{tr('common.description')}</span>
         <textarea
           value={description}
           onChange={(e) => setDescription(e.target.value)}
           rows={3}
           maxLength={500}
-          placeholder="최근 작업에서 주간 현황 보고서를 생성합니다."
+          placeholder={tr('skills.author.descPlaceholder')}
           className={`${MODAL_INPUT} resize-none leading-[1.6]`}
         />
       </label>
       <label className="block">
-        <span className={MODAL_LABEL}>지침</span>
+        <span className={MODAL_LABEL}>{tr('skills.author.instructions')}</span>
         <textarea
           value={body}
           onChange={(e) => setBody(e.target.value)}
           rows={9}
-          placeholder="최근 작업을 성과, 장애 요인, 다음 단계의 세 섹션으로 요약해 주세요..."
+          placeholder={tr('skills.author.instructionsPlaceholder')}
           className={`${MODAL_INPUT} resize-none leading-[1.6]`}
         />
       </label>
@@ -80,7 +82,7 @@ export function SkillAuthorModal({
         <ModalActions
           onCancel={close}
           onConfirm={() => void create()}
-          confirmLabel={saving ? '저장 중…' : '만들기'}
+          confirmLabel={saving ? tr('skills.author.saving') : tr('common.create')}
           confirmDisabled={!canCreate}
         />
       </div>

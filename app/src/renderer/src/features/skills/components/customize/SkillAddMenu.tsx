@@ -1,6 +1,7 @@
 import { useState, type RefObject } from 'react'
 import { Popover } from '../../../../shared/ui/Popover'
 import { Icon, type IconName } from '../../../../shared/ui/Icon'
+import { useI18n } from '../../../../shared/i18n'
 
 function MenuRow({
   icon,
@@ -41,15 +42,16 @@ export function SkillAddMenu({
   onUpload: () => void
 }): React.JSX.Element | null {
   const [subOpen, setSubOpen] = useState(false)
+  const { tr } = useI18n()
   return (
     <Popover open={open} anchorRef={anchorRef} onClose={onClose} placement="bottom">
-      <MenuRow icon="board" label="스킬 둘러보기" onClick={onClose} />
+      <MenuRow icon="board" label={tr('skills.addMenu.browse')} onClick={onClose} />
       <div
         className="relative"
         onMouseEnter={() => setSubOpen(true)}
         onMouseLeave={() => setSubOpen(false)}
       >
-        <MenuRow icon="plus" label="스킬 만들기" trailing="chevR" />
+        <MenuRow icon="plus" label={tr('skills.addMenu.create')} trailing="chevR" />
         {subOpen && (
           <div
             role="menu"
@@ -57,7 +59,7 @@ export function SkillAddMenu({
           >
             <MenuRow
               icon="doc"
-              label="스킬 지침 작성"
+              label={tr('skills.addMenu.author')}
               onClick={() => {
                 onClose()
                 onAuthor()
@@ -65,7 +67,7 @@ export function SkillAddMenu({
             />
             <MenuRow
               icon="upload"
-              label="스킬 업로드"
+              label={tr('skills.addMenu.upload')}
               onClick={() => {
                 onClose()
                 onUpload()
