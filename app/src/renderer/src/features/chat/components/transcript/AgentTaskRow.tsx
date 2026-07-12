@@ -1,21 +1,22 @@
 import { useMemo } from 'react'
 import { Icon } from '../../../../shared/ui/Icon'
 import { formatElapsed, useElapsed } from '../../../../shared/ui/elapsed'
+import { useI18n, type MessageKey } from '../../../../shared/i18n'
 import {
   modelDisplayLabel,
   subagentTasksFromMessages,
   type SubagentTaskStatus
 } from '../../lib/parts'
-import { toolDescription } from '../../lib/toolMeta'
+import { formatDurationLabel, toolDescription } from '../../lib/toolMeta'
 import { chatActions, useChatSession, useSubagentMeta } from '../../store/chatStore'
 import type { ToolCall } from '../../reducer/chatReducer'
 
-// 서브에이전트(Task) 행의 상태별 접두 동사. 진행 중만 shimmer.
-const PREFIX: Record<SubagentTaskStatus, string> = {
-  running: '에이전트 실행 중',
-  completed: '에이전트 완료',
-  aborted: '에이전트 중단됨',
-  failed: '에이전트 실패'
+// 서브에이전트(Task) 행의 상태별 접두 동사 키 — 렌더에서 tr() 해석(0096 패턴). 진행 중만 shimmer.
+const PREFIX_KEY: Record<SubagentTaskStatus, MessageKey> = {
+  running: 'chat.toolMeta.agentStatus.running',
+  completed: 'chat.toolMeta.agentStatus.completed',
+  aborted: 'chat.toolMeta.agentStatus.aborted',
+  failed: 'chat.toolMeta.agentStatus.failed'
 }
 
 // 서브에이전트 Task 전용 행 — 일반 ToolCard 와 동일한 행 DOM/인터랙션(클릭 시 우측 패널)을
@@ -33,6 +34,7 @@ export function AgentTaskRow({
   call: ToolCall
   inGroup?: boolean
 }): React.JSX.Element {
+  const { tr } = useI18n()
   const messages = useChatSession((s) => s.messages)
   const summary = useMemo(
     () => subagentTasksFromMessages(messages).find((t) => t.toolUseId === call.toolUseId),
@@ -48,7 +50,9 @@ export function AgentTaskRow({
   const elapsedSec = useElapsed(running ? (live?.startedAtMs ?? null) : null)
 
   // 모델: 라이브 메타 모델 → summary(영속/subagent_type) → 폴백.
-  const model = live?.model ? modelDisplayLabel(live.model) : (summary?.agentLabel ?? '에이전트')
+  const model = live?.model
+    ? modelDisplayLabel(live.model)
+    : (summary?.agentLabel ?? tr('chat.toolMeta.agentFallback'))
   const title = summary?.description ?? toolDescription(call)
   const isBad = status === 'failed'
   const currentTool = live?.lastToolName ?? summary?.currentChildLabel ?? '…'
@@ -63,7 +67,8 @@ export function AgentTaskRow({
   } else if (running) {
     detail = `${model} ${title}${elapsed}`
   } else {
-    const duration = summary?.durationLabel ? ` ${summary.durationLabel}` : ''
+    const durationLabel = formatDurationLabel(tr, summary?.durationMs)
+    const duration = durationLabel ? ` ${durationLabel}` : ''
     detail = `${model} ${title}${duration}`
   }
 
@@ -87,9 +92,9 @@ export function AgentTaskRow({
           isBad ? 'text-bad' : running ? 'epitaxy-text-shine' : 'group-hover/tool:text-t9'
         }`}
       >
-        {PREFIX[status]}
+        {tr(PREFIX_KEY[status])}
       </span>
-      {running && <span className="sr-only">실행 중</span>}
+      {running && <span className="sr-only">{tr('common.running')}</span>}
       <span className="min-w-0 truncate group-hover/tool:text-t9">{detail}</span>
       <span aria-hidden className="shrink-0">
         <Icon name="chevR" size={12} />

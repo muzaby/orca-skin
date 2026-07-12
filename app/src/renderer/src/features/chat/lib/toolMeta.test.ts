@@ -2,15 +2,41 @@ import { describe, it, expect } from 'vitest'
 import {
   FILE_EDIT_TOOLS,
   FILE_TOOLS,
-  VERB_LABEL,
-  VERB_LABEL_ACTIVE,
-  summarizeToolGroup,
+  UNIT_KEY,
+  VERB_KEY,
+  VERB_KEY_ABORTED,
+  VERB_KEY_ACTIVE,
+  formatDurationLabel,
+  formatTokenLabel,
   toolDescription,
   toolDiffStat,
   toolGroupSegments,
-  toolVerbCategory
+  toolVerbCategory,
+  type VerbCategory
 } from './toolMeta'
+import { ko } from '../../../shared/i18n/resources/ko'
 import type { ToolCall } from '../reducer/chatReducer'
+
+// ko 카탈로그에서 dot-path 리프를 해석한다 — 키맵 완전성 검증용(i18next 미기동, 순수 조회).
+function koLeaf(path: string): string | undefined {
+  const value = path
+    .split('.')
+    .reduce<unknown>(
+      (acc, key) =>
+        typeof acc === 'object' && acc !== null ? (acc as Record<string, unknown>)[key] : undefined,
+      ko
+    )
+  return typeof value === 'string' ? value : undefined
+}
+
+// 보간만 흉내내는 미니 tr — plural 없는 키(duration/tokens) 포맷 테스트용.
+function fakeTr(key: string, params?: Record<string, unknown>): string {
+  let value = koLeaf(key) ?? key
+  for (const [k, v] of Object.entries(params ?? {})) {
+    value = value.replaceAll(`{{${k}}}`, String(v))
+  }
+  return value
+}
 
 const call = (name: string, input: unknown, done = true): ToolCall => ({
   toolUseId: `${name}-${Math.random()}`,
@@ -72,8 +98,12 @@ describe('toolDescription', () => {
     expect(toolDescription(call('Grep', { pattern: 'TODO' }))).toBe('TODO')
   })
 
-  it('ExitPlanMode 는 명사 라벨', () => {
-    expect(toolDescription(call('ExitPlanMode', { plan: '...' }))).toBe('제안된 계획')
+  it('ExitPlanMode 는 렌더 호출부가 주입한 planLabel(카탈로그 해석 결과)', () => {
+    expect(toolDescription(call('ExitPlanMode', { plan: '...' }), '제안된 계획')).toBe(
+      '제안된 계획'
+    )
+    // planLabel 미주입(비 렌더 컨텍스트)이면 도구 이름 폴백.
+    expect(toolDescription(call('ExitPlanMode', { plan: '...' }))).toBe('ExitPlanMode')
   })
 
   it('AskUserQuestion 은 첫 질문 header', () => {
@@ -128,23 +158,49 @@ describe('toolDiffStat', () => {
   })
 })
 
-describe('VERB_LABEL / VERB_LABEL_ACTIVE', () => {
-  it('완료 시제와 진행 시제가 모든 카테고리에 정의됨', () => {
-    const cats = ['ran', 'created', 'edited', 'read', 'used', 'planned', 'requested'] as const
+describe('VERB_KEY / VERB_KEY_ACTIVE / UNIT_KEY (키맵 완전성)', () => {
+  const cats: VerbCategory[] = [
+    'ran',
+    'created',
+    'edited',
+    'read',
+    'used',
+    'planned',
+    'requested',
+    'delegated'
+  ]
+
+  it('모든 카테고리의 완료/진행 키가 ko 카탈로그에서 해석되고 서로 다르다', () => {
     for (const c of cats) {
-      expect(VERB_LABEL[c]).toBeTruthy()
-      expect(VERB_LABEL_ACTIVE[c]).toBeTruthy()
-      expect(VERB_LABEL_ACTIVE[c]).not.toBe(VERB_LABEL[c])
+      const done = koLeaf(VERB_KEY[c])
+      const active = koLeaf(VERB_KEY_ACTIVE[c])
+      expect(done, `verb.${c}`).toBeTruthy()
+      expect(active, `verbActive.${c}`).toBeTruthy()
+      expect(active).not.toBe(done)
     }
-    expect(VERB_LABEL.ran).toBe('실행됨')
-    expect(VERB_LABEL_ACTIVE.ran).toBe('실행 중')
+    expect(koLeaf(VERB_KEY_ABORTED)).toBe('중단됨')
   })
 
-  it('Claude Code 어휘 라벨', () => {
-    expect(VERB_LABEL.created).toBe('업데이트됨')
-    expect(VERB_LABEL.edited).toBe('수정됨')
-    expect(VERB_LABEL.read).toBe('읽음')
-    expect(VERB_LABEL_ACTIVE.read).toBe('읽는 중')
+  it('ko 표시 결과는 마이그레이션 전과 동일하다 (Claude Code 어휘)', () => {
+    expect(koLeaf(VERB_KEY.ran)).toBe('실행됨')
+    expect(koLeaf(VERB_KEY_ACTIVE.ran)).toBe('실행 중')
+    expect(koLeaf(VERB_KEY.created)).toBe('업데이트됨')
+    expect(koLeaf(VERB_KEY.edited)).toBe('수정됨')
+    expect(koLeaf(VERB_KEY.read)).toBe('읽음')
+    expect(koLeaf(VERB_KEY_ACTIVE.read)).toBe('읽는 중')
+  })
+
+  it('단위 plural 키(_other)가 ko 카탈로그에 존재한다 — planned 만 단위 없음', () => {
+    for (const c of cats) {
+      const unitKey = UNIT_KEY[c]
+      if (c === 'planned') {
+        expect(unitKey).toBeNull()
+        continue
+      }
+      expect(unitKey, `unit.${c}`).toBeTruthy()
+      expect(koLeaf(`${unitKey}_other`), `${unitKey}_other`).toContain('{{count}}')
+    }
+    expect(koLeaf(`${UNIT_KEY.ran}_other`)).toBe('명령 {{count}}개')
   })
 })
 
@@ -159,10 +215,8 @@ describe('toolGroupSegments', () => {
     expect(ran?.hasError).toBe(true)
     expect(created?.hasError).toBe(false)
   })
-})
 
-describe('summarizeToolGroup', () => {
-  it('카테고리별 카운트를 정해진 순서로 조립한다', () => {
+  it('카테고리별 카운트를 정해진 순서의 구조화 세그먼트로 반환한다', () => {
     const calls = [
       call('Bash', { command: 'a' }),
       call('Bash', { command: 'b' }),
@@ -171,16 +225,32 @@ describe('summarizeToolGroup', () => {
       call('Write', { file_path: 'y' }),
       call('Write', { file_path: 'z' })
     ]
-    expect(summarizeToolGroup(calls)).toBe('실행됨 명령 3개, 업데이트됨 파일 3개')
+    expect(toolGroupSegments(calls)).toEqual([
+      { category: 'ran', n: 3, hasError: false },
+      { category: 'created', n: 3, hasError: false }
+    ])
   })
 
-  it('Read 는 read 카테고리, Glob 등은 used 도구', () => {
+  it('Read 는 read 카테고리, Glob 등은 used', () => {
     expect(
-      summarizeToolGroup([call('Read', { file_path: 'a' }), call('Glob', { pattern: 'b' })])
-    ).toBe('읽음 파일 1개, 사용함 도구 1개')
+      toolGroupSegments([call('Read', { file_path: 'a' }), call('Glob', { pattern: 'b' })])
+    ).toEqual([
+      { category: 'read', n: 1, hasError: false },
+      { category: 'used', n: 1, hasError: false }
+    ])
+  })
+})
+
+describe('formatDurationLabel / formatTokenLabel', () => {
+  it('소요시간 — 60초 미만은 초, 이상은 분+초 (ko 카탈로그 값 기준)', () => {
+    expect(formatDurationLabel(fakeTr as never, 3_000)).toBe('3초')
+    expect(formatDurationLabel(fakeTr as never, 92_000)).toBe('1분 32초')
+    expect(formatDurationLabel(fakeTr as never, null)).toBeNull()
   })
 
-  it('planned 싱글톤은 카운트 없이 명사 라벨만', () => {
-    expect(summarizeToolGroup([call('ExitPlanMode', { plan: '...' })])).toBe('제안된 계획')
+  it('토큰 — 1000 이상은 k 단위 소수 1자리', () => {
+    expect(formatTokenLabel(fakeTr as never, 20_600)).toBe('20.6k 토큰')
+    expect(formatTokenLabel(fakeTr as never, 512)).toBe('512 토큰')
+    expect(formatTokenLabel(fakeTr as never, null)).toBeNull()
   })
 })

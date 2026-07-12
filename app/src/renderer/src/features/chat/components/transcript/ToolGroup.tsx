@@ -1,8 +1,11 @@
 import { memo, useState } from 'react'
 import { Icon } from '../../../../shared/ui/Icon'
+import { useI18n } from '../../../../shared/i18n'
 import { ToolCard } from './ToolCard'
 import {
-  VERB_LABEL_ACTIVE,
+  UNIT_KEY,
+  VERB_KEY,
+  VERB_KEY_ACTIVE,
   toolDescription,
   toolGroupSegments,
   toolVerbCategory
@@ -19,6 +22,7 @@ export const ToolGroup = memo(function ToolGroup({
 }: {
   calls: ToolCall[]
 }): React.JSX.Element | null {
+  const { tr } = useI18n()
   const [open, setOpen] = useState(true)
   // 단일 도구: 그룹 헤더 없이 카드만(카드 자체가 border/bg 보유).
   if (calls.length <= 1) return calls[0] ? <ToolCard call={calls[0]} /> : null
@@ -44,21 +48,29 @@ export const ToolGroup = memo(function ToolGroup({
           {pending ? (
             pendingIsAgent ? (
               // 진행 중 서브에이전트 그룹 — 진행 중 에이전트 수 집계
-              `실행 중 에이전트 ${runningAgentCount}개`
+              tr('chat.toolMeta.runningAgents', { count: runningAgentCount })
             ) : (
               // 진행 중 — 마지막 pending 도구 서술(진행 시제)
-              `${VERB_LABEL_ACTIVE[toolVerbCategory(pending.name)]} ${toolDescription(pending)}`
+              `${tr(VERB_KEY_ACTIVE[toolVerbCategory(pending.name)])} ${toolDescription(
+                pending,
+                tr('chat.toolMeta.planDescription')
+              )}`
             )
           ) : (
             // 완료 — 동사별 카운트 요약. 동사(primary)와 카운트(secondary) span 분리.
             <>
-              {segments.map((seg, i) => (
-                <span key={seg.category} className={seg.hasError ? 'text-bad' : undefined}>
-                  {i > 0 && ', '}
-                  <span className={seg.hasError ? undefined : 'text-t9'}>{seg.verb}</span>
-                  {seg.count && <span className="text-t6"> {seg.count}</span>}
-                </span>
-              ))}
+              {segments.map((seg, i) => {
+                const unitKey = UNIT_KEY[seg.category]
+                return (
+                  <span key={seg.category} className={seg.hasError ? 'text-bad' : undefined}>
+                    {i > 0 && ', '}
+                    <span className={seg.hasError ? undefined : 'text-t9'}>
+                      {tr(VERB_KEY[seg.category])}
+                    </span>
+                    {unitKey && <span className="text-t6"> {tr(unitKey, { count: seg.n })}</span>}
+                  </span>
+                )
+              })}
             </>
           )}
         </span>

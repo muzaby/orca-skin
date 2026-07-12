@@ -8,15 +8,17 @@ import {
   subagentTasksFromMessages,
   type SubagentTaskStatus
 } from '../../lib/parts'
-import { formatTimeFull, formatTimeShort, useI18n } from '../../../../shared/i18n'
+import { formatDurationLabel, formatTokenLabel } from '../../lib/toolMeta'
+import { formatTimeFull, formatTimeShort, useI18n, type MessageKey } from '../../../../shared/i18n'
 import { chatActions, useChatSession, useSubagentMeta } from '../../store/chatStore'
 import type { ToolCall } from '../../reducer/chatReducer'
 
-const STATUS_LABEL: Record<SubagentTaskStatus, string> = {
-  running: '진행 중',
-  completed: '완료',
-  failed: '실패',
-  aborted: '중단됨'
+// 상태 라벨 키 — 렌더에서 tr() 해석(0096 stale-방지 패턴).
+const STATUS_KEY: Record<SubagentTaskStatus, MessageKey> = {
+  running: 'chat.subagentTile.status.running',
+  completed: 'chat.subagentTile.status.completed',
+  failed: 'chat.subagentTile.status.failed',
+  aborted: 'chat.subagentTile.status.aborted'
 }
 
 // 목록은 상태별 그룹(진행 중 → 완료 → 중단됨 → 실패)으로 묶는다. 빈 그룹은 렌더하지 않는다.
@@ -52,6 +54,7 @@ function answerTextFromCall(call: ToolCall): string | null {
 // 타일 헤더 콘텐츠 — 상세(Task 선택)면 뒤로가기 + Task 제목, 목록이면 '백그라운드 작업'.
 // RightPanelTile 의 기본 라벨 span 을 대체한다(tileRegistry 주입). 제목 폰트/톤은 기본 라벨과 일치.
 export function SubAgentTileHeader(): React.JSX.Element {
+  const { tr } = useI18n()
   const messages = useChatSession((s) => s.messages)
   const selectedId = useChatSession((s) => s.selectedSubagentTaskId)
   // O(전체 parts) 파생이라 메모 — messages identity 는 커밋 이벤트에만 바뀐다 (AgentTaskRow 동일).
@@ -71,7 +74,7 @@ export function SubAgentTileHeader(): React.JSX.Element {
           size="small"
           leadingIcon="arrowL"
           onClick={() => chatActions.selectSubagentTask(null)}
-          aria-label="목록으로"
+          aria-label={tr('chat.subagentTile.backToList')}
         />
         <span className="min-w-0 truncate font-serif text-[13px] font-semibold tracking-tight text-t9">
           {selected.description}
@@ -81,7 +84,7 @@ export function SubAgentTileHeader(): React.JSX.Element {
   }
   return (
     <span className="min-w-0 truncate font-serif text-[13px] font-semibold tracking-tight text-t9">
-      백그라운드 작업
+      {tr('chat.subagentTile.headerTitle')}
     </span>
   )
 }
@@ -89,7 +92,7 @@ export function SubAgentTileHeader(): React.JSX.Element {
 export function SubAgentTileContent(): React.JSX.Element {
   const messages = useChatSession((s) => s.messages)
   const selectedId = useChatSession((s) => s.selectedSubagentTaskId)
-  const { locale } = useI18n()
+  const { tr, locale } = useI18n()
   // O(전체 parts) 파생이라 메모 — StatusLine 1s 틱 등 무관 재렌더마다 재계산하지 않는다.
   const tasks = useMemo(() => subagentTasksFromMessages(messages), [messages])
   const selected = selectedId ? tasks.find((task) => task.toolUseId === selectedId) : undefined
@@ -132,7 +135,7 @@ export function SubAgentTileContent(): React.JSX.Element {
         )}
         {!childMessage && !answerFallback && (
           <div className="rounded-r5 border border-t5 bg-bg2 p-4 text-footnote text-ink3">
-            이 작업에 기록된 하위 활동이 없습니다.
+            {tr('chat.subagentTile.noChildActivity')}
           </div>
         )}
       </div>
@@ -144,8 +147,8 @@ export function SubAgentTileContent(): React.JSX.Element {
     return (
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="m-auto flex max-w-[240px] flex-col items-center gap-g3 px-4 text-center">
-          <p className="text-footnote font-medium text-t6">백그라운드 작업이 없습니다</p>
-          <p className="text-caption text-ink3">Task 도구 호출이 감지되면 여기에 표시됩니다.</p>
+          <p className="text-footnote font-medium text-t6">{tr('chat.subagentTile.emptyTitle')}</p>
+          <p className="text-caption text-ink3">{tr('chat.subagentTile.emptyDesc')}</p>
         </div>
       </div>
     )
@@ -162,7 +165,7 @@ export function SubAgentTileContent(): React.JSX.Element {
         <div key={group.status} className={gi > 0 ? 'mt-5' : ''}>
           {/* 상태 그룹 헤더 — 상하 여백 확보(원본 이미지). */}
           <div className="mb-g3 mt-g1 flex items-center px-p2 text-footnote text-t6">
-            <span>{STATUS_LABEL[group.status]}</span>
+            <span>{tr(STATUS_KEY[group.status])}</span>
           </div>
           <div className="flex flex-col gap-g3">
             {group.items.map((task) => {
@@ -181,7 +184,9 @@ export function SubAgentTileContent(): React.JSX.Element {
                       open()
                     }
                   }}
-                  aria-label={`${task.description} 대화록 보기`}
+                  aria-label={tr('chat.subagentTile.openTranscriptAria', {
+                    description: task.description
+                  })}
                   className="group/subagent cursor-pointer rounded-r6 bg-bg2 px-3 py-2.5 text-left transition-colors hover:bg-fill-uncontained-hover focus:outline-none hide-focus-ring ring-focus"
                 >
                   <div className="flex min-w-0 items-center gap-g3">
@@ -191,19 +196,23 @@ export function SubAgentTileContent(): React.JSX.Element {
                     </span>
                   </div>
                   <div className="mt-g1 pl-5 text-footnote text-ink3">
-                    {`에이전트${GAP}${STATUS_LABEL[task.status]}`}
-                    {task.durationLabel ? `${GAP}${task.durationLabel}` : ''}
+                    {`${tr('chat.toolMeta.agentFallback')}${GAP}${tr(STATUS_KEY[task.status])}`}
+                    {formatDurationLabel(tr, task.durationMs)
+                      ? `${GAP}${formatDurationLabel(tr, task.durationMs)}`
+                      : ''}
                     <span title={formatTimeFull(task.createdAtMs, locale)}>
                       {`${GAP}${formatTimeShort(task.createdAtMs, locale)}`}
                     </span>
                   </div>
                   <div className="mt-g1 flex items-center pl-5 text-footnote text-ink3">
                     <span className="min-w-0 truncate">
-                      {task.tokenLabel ? `${task.tokenLabel}${GAP}` : ''}
-                      {task.toolCountLabel}
+                      {formatTokenLabel(tr, task.tokenCount)
+                        ? `${formatTokenLabel(tr, task.tokenCount)}${GAP}`
+                        : ''}
+                      {tr('chat.toolMeta.toolUses', { count: task.childToolCount })}
                       {GAP}
                       <span className="font-medium text-t7 group-hover/subagent:underline">
-                        대화록 보기
+                        {tr('chat.subagentTile.viewTranscript')}
                       </span>
                     </span>
                     {task.status === 'running' && (
@@ -215,8 +224,8 @@ export function SubAgentTileContent(): React.JSX.Element {
                         variant="uncontained"
                         size="small"
                         leadingIcon="stop"
-                        aria-label="중단"
-                        title="중단"
+                        aria-label={tr('common.stop')}
+                        title={tr('common.stop')}
                         className="ml-g2 shrink-0"
                         onClick={(e) => {
                           e.stopPropagation()

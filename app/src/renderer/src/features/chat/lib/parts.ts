@@ -138,11 +138,13 @@ export interface SubagentTaskSummary {
   // 부모 Task tool_call 이 속한 메시지의 createdAt(ms) — 백그라운드 작업 목록의 시간 표시용.
   createdAtMs: number
   childToolCount: number
-  toolCountLabel: string
-  durationLabel: string | null
-  tokenLabel: string | null
-  // 표시 모델 라벨(예: 'Haiku 4.5') — subagentMeta.model 매핑 우선, 없으면 agentLabel/subagent_type.
-  agentLabel: string
+  // 소요시간/토큰 — 라벨이 아닌 원시값. 포맷(단위·언어)은 렌더가 tr 로 수행한다
+  // (toolMeta.formatDurationLabel/formatTokenLabel, 0097).
+  durationMs: number | null
+  tokenCount: number | null
+  // 표시 모델 라벨(예: 'Haiku 4.5') — subagentMeta.model 매핑 우선, 없으면 agentLabel/
+  // subagent_type. 아무것도 없으면 null — '에이전트' 폴백 라벨은 렌더가 tr 로 채운다.
+  agentLabel: string | null
   // subagent_type(예: 'Explore') — 모델과 별개의 에이전트 종류. 상세 타이틀 보조 표기용.
   subagentType: string | null
   // 진행 중일 때 마지막으로 실행 중인 child 도구명(예: 'Bash') — 단일 항목 메타 라인용.
@@ -250,9 +252,8 @@ export function subagentTasksFromMessages(messages: Message[]): SubagentTaskSumm
         status: deriveSubagentTaskStatus(call),
         createdAtMs: createdAtByRun.get(call.toolUseId) ?? Date.now(),
         childToolCount: toolCount,
-        toolCountLabel: `${toolCount} 도구 사용`,
-        durationLabel: formatDurationLabel(meta?.durationMs ?? call.result?.durationMs),
-        tokenLabel: tokenLabelFromResult(call.result?.output),
+        durationMs: meta?.durationMs ?? call.result?.durationMs ?? null,
+        tokenCount: tokenCountFromResult(call.result?.output),
         agentLabel: agentModelFromCall(call),
         subagentType: subagentTypeFromCall(call),
         currentChildLabel: currentChild.get(call.toolUseId) ?? null,
@@ -302,13 +303,6 @@ export function deriveSubagentTaskStatus(call: ToolCall): SubagentTaskStatus {
   return isAbortedResult(call.result) ? 'aborted' : 'failed'
 }
 
-export function formatDurationLabel(durationMs: number | undefined): string | null {
-  if (durationMs === undefined) return null
-  const seconds = Math.max(1, Math.round(durationMs / 1000))
-  if (seconds < 60) return `${seconds}초`
-  return `${Math.floor(seconds / 60)}분 ${seconds % 60}초`
-}
-
 function valueString(input: unknown, key: string): string | null {
   if (typeof input !== 'object' || input === null) return null
   const value = (input as Record<string, unknown>)[key]
@@ -321,22 +315,20 @@ function valueNumber(input: unknown, key: string): number | null {
   return typeof value === 'number' && Number.isFinite(value) ? value : null
 }
 
-function tokenLabelFromResult(output: unknown): string | null {
-  const tokens = valueNumber(output, 'tokenCount') ?? valueNumber(output, 'tokens')
-  if (tokens === null) return null
-  return tokens >= 1000 ? `${(tokens / 1000).toFixed(1)}k 토큰` : `${tokens} 토큰`
+function tokenCountFromResult(output: unknown): number | null {
+  return valueNumber(output, 'tokenCount') ?? valueNumber(output, 'tokens')
 }
 
 // 표시 모델 라벨 — 실제 모델(subagentMeta.model)을 친근한 이름으로. 없으면 caller 가 준
-// agentLabel, 그것도 없으면 subagent_type('Explore' 등), 최후 '에이전트'.
-function agentModelFromCall(call: ToolCall): string {
+// agentLabel, 그것도 없으면 subagent_type('Explore' 등). 최후 폴백('에이전트')은 렌더가
+// tr('chat.toolMeta.agentFallback') 로 채운다 — null 반환.
+function agentModelFromCall(call: ToolCall): string | null {
   const model = call.result?.subagentMeta?.model
   if (model) return modelDisplayLabel(model)
   return (
     valueString(call.result?.output, 'agentLabel') ??
     valueString(call.input, 'agentLabel') ??
-    valueString(call.input, 'subagent_type') ??
-    '에이전트'
+    valueString(call.input, 'subagent_type')
   )
 }
 

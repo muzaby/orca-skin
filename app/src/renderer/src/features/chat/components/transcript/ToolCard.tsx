@@ -1,11 +1,12 @@
 import { memo, useState } from 'react'
 import { Icon } from '../../../../shared/ui/Icon'
 import { CopyIconButton } from '../../../../shared/ui/CopyIconButton'
+import { useI18n } from '../../../../shared/i18n'
 import {
   FILE_TOOLS,
-  VERB_LABEL,
-  VERB_LABEL_ABORTED,
-  VERB_LABEL_ACTIVE,
+  VERB_KEY,
+  VERB_KEY_ABORTED,
+  VERB_KEY_ACTIVE,
   toolDescription,
   toolDiffStat,
   toolVerbCategory
@@ -74,6 +75,7 @@ export const ToolCard = memo(function ToolCard({
   call: ToolCall
   inGroup?: boolean
 }): React.JSX.Element {
+  const { tr } = useI18n()
   const [open, setOpen] = useState(false)
   // 최초 오픈 후엔 본문을 계속 마운트 유지 → 닫힘도 grid-rows 전환으로 애니메이션.
   // 한 번도 안 연 카드는 본문 미마운트(shiki 등 선렌더 비용 회피).
@@ -95,8 +97,8 @@ export const ToolCard = memo(function ToolCard({
   const cat = toolVerbCategory(call.name)
   // 중단됨(턴 취소/타임아웃 정착) → 완료/진행 어느 시제도 아닌 "중단됨". 그 외엔 진행 중이면
   // 진행 시제(읽는 중…), 완료되면 완료 시제(읽음).
-  const verb = aborted ? VERB_LABEL_ABORTED : done ? VERB_LABEL[cat] : VERB_LABEL_ACTIVE[cat]
-  const description = toolDescription(call)
+  const verb = tr(aborted ? VERB_KEY_ABORTED : done ? VERB_KEY[cat] : VERB_KEY_ACTIVE[cat])
+  const description = toolDescription(call, tr('chat.toolMeta.planDescription'))
   const stat = toolDiffStat(call)
   return (
     <div className="flex w-full flex-col">
@@ -127,7 +129,7 @@ export const ToolCard = memo(function ToolCard({
         >
           {verb}
         </span>
-        {!done && <span className="sr-only">실행 중</span>}
+        {!done && <span className="sr-only">{tr('common.running')}</span>}
         <span className="min-w-0 truncate group-hover/tool:text-t9">{description}</span>
         {stat && (stat.added > 0 || stat.removed > 0) && (
           <span className="shrink-0 font-mono text-caption tabular-nums">
@@ -167,7 +169,7 @@ export const ToolCard = memo(function ToolCard({
                       {headerLabel(call)}
                     </span>
                     <div className="ml-auto shrink-0">
-                      <CopyIconButton text={copyText(call)} title="복사" />
+                      <CopyIconButton text={copyText(call)} title={tr('common.copy')} />
                     </div>
                   </div>
                   <ToolBody call={call} />

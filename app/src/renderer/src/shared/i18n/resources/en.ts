@@ -15,10 +15,13 @@ export const en: typeof ko = {
     rename: 'Rename',
     more: 'More',
     copied: 'Copied',
+    copy: 'Copy',
     copyMessage: 'Copy message',
     copyCode: 'Copy code',
     editTitle: 'Edit title',
-    newChat: 'New chat'
+    newChat: 'New chat',
+    running: 'Running',
+    stop: 'Stop'
   },
   nav: {
     chat: '01 Chat',
@@ -75,6 +78,89 @@ export const en: typeof ko = {
       tilesButton: 'Right panel tiles',
       tilesHeader: 'Show tiles',
       roleUser: 'User'
+    },
+    transcript: {
+      loading: 'Loading conversation…',
+      emptyPrompt: 'Send your first message to Claude Code.',
+      lineageFork: 'This session was forked from <hl>‘{{label}}’</hl>',
+      lineageHandoff: 'This session was handed off from <hl>‘{{label}}’</hl>',
+      openParent: 'Open original',
+      openParentTitle: 'Open the original session',
+      forkBoundary: 'Forked here',
+      compactAuto: 'Auto-compacted',
+      compactManual: 'Previous conversation compacted',
+      compactTokensRange: '{{pre}} → {{post}} tokens',
+      compactTokensCompressed: '{{pre}} tokens compacted',
+      forkHere: 'Fork from here'
+    },
+    toolMeta: {
+      verb: {
+        ran: 'Ran',
+        created: 'Updated',
+        edited: 'Edited',
+        read: 'Read',
+        used: 'Used',
+        planned: 'Proposed plan',
+        requested: 'Requested',
+        delegated: 'Ran'
+      },
+      verbActive: {
+        ran: 'Running',
+        created: 'Updating',
+        edited: 'Editing',
+        read: 'Reading',
+        used: 'Using',
+        planned: 'Proposing a plan',
+        requested: 'Asking',
+        delegated: 'Running'
+      },
+      aborted: 'Aborted',
+      planDescription: 'Proposed plan',
+      unit: {
+        command_one: '{{count}} command',
+        command_other: '{{count}} commands',
+        file_one: '{{count}} file',
+        file_other: '{{count}} files',
+        tool_one: '{{count}} tool',
+        tool_other: '{{count}} tools',
+        question_one: '{{count}} question',
+        question_other: '{{count}} questions',
+        agent_one: '{{count}} agent',
+        agent_other: '{{count}} agents'
+      },
+      runningAgents_one: '{{count}} agent running',
+      runningAgents_other: '{{count}} agents running',
+      toolUses_one: '{{count}} tool use',
+      toolUses_other: '{{count}} tool uses',
+      durationSec: '{{s}}s',
+      durationMinSec: '{{m}}m {{s}}s',
+      tokens: '{{n}} tokens',
+      tokensK: '{{n}}k tokens',
+      agentFallback: 'Agent',
+      agentStatus: {
+        running: 'Agent running',
+        completed: 'Agent completed',
+        aborted: 'Agent aborted',
+        failed: 'Agent failed'
+      },
+      subagentHeading: 'Subagent',
+      subagentTypeLine: 'Type: {{type}}',
+      openSubagentPanel: 'Open subagent panel'
+    },
+    subagentTile: {
+      status: {
+        running: 'In progress',
+        completed: 'Completed',
+        failed: 'Failed',
+        aborted: 'Aborted'
+      },
+      backToList: 'Back to list',
+      headerTitle: 'Background tasks',
+      noChildActivity: 'No child activity recorded for this task.',
+      emptyTitle: 'No background tasks',
+      emptyDesc: 'Task tool calls will appear here when detected.',
+      openTranscriptAria: 'View transcript for {{description}}',
+      viewTranscript: 'View transcript'
     }
   },
   sidebar: {
