@@ -130,9 +130,9 @@ Orca 는 provider 를 파일시스템 디렉토리 트리로만 정의하고(동
 
 ### C. IPC / Renderer
 
-- 신규 invoke `cost:refreshProviderCorrection(providerKey)` — SyncRow/30s 틱이 호출(훅 트리거+영속).
+- 신규 invoke `cost:refreshProviderCorrection(providerKey)` — SyncRow 수동 새로고침과 5분 스케줄러가 호출(훅 트리거+영속).
 - `costProviderSummaries` 의 `ProviderUsageEntry` 확장: `source: 'local'|'external'`, `asOf?`, `fetchedAt?`, `stale?`(읽기는 저렴하게 마지막 병합 뷰, fetch 는 refresh 채널 분리). `docs/IPC_CONTRACT.md` 동시 갱신(§6).
-- `ProviderUsageTab` — external 이면 외부 used/limit 바 + `SyncRow`("마지막 동기화: <상대시각>", `relativeTimeLabel`) + `stale` 배지. `useProviderUsage` refresh → `cost:refreshProviderCorrection`. 도넛 `useProviderUsageLimits` 자동 일관. i18n ko/en.
+- `ProviderUsageTab` — external 이면 외부 used/limit 바 + `SyncRow`("마지막 동기화: <상대시각>", `relativeTimeLabel`). `stale`/offline 배지는 후속 핸드오프에서 진행한다(2026-07-13 사용자 결정). `useProviderUsage` refresh → `cost:refreshProviderCorrection`. 도넛 `useProviderUsageLimits` 자동 일관.
 
 > **불변식**: A(모듈)만 provider별로 늘어난다. B/C 는 provider-불특정 1회 코드. enumeration(`provider-registry.ts`)·엔진 CRUD·tracker 는 무편집(동적 as-is). 정적 provider 는 correction 을 provider **key 로 바인딩**만 하므로 열거 로직 불변.
 
@@ -148,7 +148,7 @@ Orca 는 provider 를 파일시스템 디렉토리 트리로만 정의하고(동
 
 ## 파생 UX / 엣지케이스 (Derived UX & Edge Cases)
 
-- **오프라인**: fetch 실패 → 마지막 영속값 + stale 배지. 영속값 없음 → 로컬 폴백(현행) + "외부 집계 대기".
+- **오프라인**: fetch 실패 → 마지막 영속값을 재사용한다. stale/offline UI 배지는 후속 핸드오프에서 진행한다(2026-07-13 사용자 결정). 영속값 없음 → 로컬 폴백(현행).
 - **동시성**: refresh 중복 가드(`refreshing`, 0080 SyncRow 선례) + service provider별 in-flight(스케줄러↔UI 겹침).
 - **한도 null**: 외부 미보고(`limitUsd=null`) → 무제한 표기(`common.unlimited`), 사용량만.
 - **`asOf`(외부 기준) vs `fetchedAt`(수신) 분리** — 상대시각은 `fetchedAt`.
@@ -164,7 +164,7 @@ Orca 는 provider 를 파일시스템 디렉토리 트리로만 정의하고(동
 | 인증 지연이 스케줄러/앱 종료 wedge | `ctx.signal`(프레임워크 소유 타임아웃) 이 전체 훅 호출 취소 → `null` 폴백. `shutdown` 시 abort. |
 | 다단계 인증을 코어가 모델링하려는 유혹 | 코어는 `snapshot|null` 경계만 소유. 인증 로직은 훅 소유(§D) — 코어 확장 금지. |
 | 자격증명 노출 | `${SECRET:}`=safeStorage secret-store, argv/평문 금지(branded env 불변식). |
-| override 로 로컬 추정 은폐 | `source`+stale 배지로 출처 투명. 로컬 폴백은 영속값 부재 시만. |
+| override 로 로컬 추정 은폐 | 데이터 모델에는 `source`/`stale` 를 보존한다. stale/offline UI 표시는 후속 핸드오프로 분리(2026-07-13 사용자 결정). 로컬 폴백은 영속값 부재 시만. |
 | 마이그레이션 되돌리기 어려움 | append-only 신규 파일(0014). |
 | glob 자동수집 번들 리스크 | 배럴 1차(명시), glob 은 옵션. |
 
@@ -182,7 +182,7 @@ Orca 는 provider 를 파일시스템 디렉토리 트리로만 정의하고(동
 ## 게이트
 
 - 통과 필요: `cd app && npm run lint && npm run typecheck && npm test`.
-- 신규 테스트: generic HTTP correction 매핑(`${SECRET/ENV}`·JSON path·타임아웃·에러=null) · **다단계 인증 훅 예시**(store 토큰 캐시 hit/miss·만료 재발급·signal 타임아웃→null·secret write-back) · `applyProviderCorrection`(override·null 폴백·stale) · 영속 upsert/read · 마이그레이션 append-only/점프 안전 · IPC zod(entry 확장·refresh 채널) · **"새 모듈 추가로 코어 무편집" 회귀**(레지스트리 순회가 배럴만 의존).
+- 신규 테스트(r2 조정): provider hook 내부 인증 흐름은 포맷화하지 않고 **경로/계약 경계**만 검증한다(2026-07-13 사용자 결정). generic HTTP usage config 매핑(`${SECRET/ENV}`·JSON path·에러=null), hook 호출 ctx 전달·report 영속·null→캐시 폴백, 영속 upsert/read, IPC refresh zod, **"새 모듈 추가로 코어 무편집" 회귀**(레지스트리 순회가 배럴만 의존). stale/offline UI 는 후속 핸드오프로 제외.
 
 ## 설계 self-review 체크리스트 (READY 전)
 
@@ -228,7 +228,22 @@ Orca 는 provider 를 파일시스템 디렉토리 트리로만 정의하고(동
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
-| D1 | **예시 다단계 인증 훅 모듈 부재** — `STATIC_USAGE_PROVIDERS` 3항 모두 `usage{}` 미정의, `hook.ts` 템플릿 없음. §4 `secret.set` 이 `void`(비-Promise)라 write-back await 불가 | verify r1 §3·§4 (`static/index.ts:9`, `contracts/usage-report.ts:7`) | OAuth client-credentials/bearer 캐시 예시 훅 1건 추가(store TTL 캐시·secret read/write·signal 취소 시연) + `secret.set` → `Promise<void>` 정렬. 실 endpoint 는 config 주입 지점만 | open |
-| D2 | **§11 요구 신규 테스트 부재** — generic fetcher 매핑(`http-usage-report`)·실 DB 영속 upsert/read·IPC zod 스키마 테스트 0. 병합은 external override 1케이스만 | verify r1 §5·§8·§11 (`http-usage-report.ts` 테스트 grep 0, `external-usage-service.test.ts:17` fake db) | (a) `http-usage-report` 매핑/expand/timeout/null 테스트 (b) `queries.test.ts` 실 upsert/get 왕복 (c) `RefreshProviderUsageReportSchema`·entry 확장 zod (d) `effectiveLimitFromReport` null 폴백·stale 케이스 | open |
-| D3 | **"코어 무편집" 회귀 테스트 부재** — 레지스트리 순회가 배럴만 의존함을 고정하는 테스트 없음 | verify r1 §2 (plan 게이트 line 185) | 배럴 배열 확장 시 서비스가 순회만으로 인식하는 회귀 테스트 추가 | open |
-| D4 | **stale/offline 배지 미렌더 + 30s 틱 부재** — `ProviderUsageTab` 에 `stale`/`source` 배지 없음(현재 fetchedAt 상대시각만). 자동 30s 틱 없음(스케줄러 5분만) | verify r1 §9·§6 (`ProviderUsageTab.tsx` grep `stale`=0) | `effectiveLimit.stale`/외부 미보고 기반 배지 + i18n ko/en 렌더. 탭 오픈 중 30s 틱 새로고침 검토 | open |
+| D1 | **hook 경로/계약 경계 명확화 필요** — r1은 다단계 인증 예시 훅 부재를 지적했으나, 2026-07-13 사용자 결정으로 hook 내부 인증/매핑 세부는 포맷화하지 않는다. | verify r1 §3·§4 + 사용자 후속 결정 | `features/providers/static/index.ts` 에 provider-local settings/usage hook 추가 표면과 코어 무분기 원칙을 문서화하고, 테스트는 hook 내부가 아니라 ctx 전달·report 영속·null 폴백만 검증한다. `secret.set` Promise화는 후속 contract polish 로 보류. | r2 addressed |
+| D2 | **§11 요구 신규 테스트 부재** — generic fetcher 매핑(`http-usage-report`)·실 DB 영속 upsert/read·IPC zod 스키마 테스트 0. 병합은 external override 1케이스만 | verify r1 §5·§8·§11 (`http-usage-report.ts` 테스트 grep 0, `external-usage-service.test.ts:17` fake db) | (a) `http-usage-report` 매핑/expand/null 테스트 (b) `queries.test.ts` 실 upsert/get 왕복 (c) `RefreshProviderUsageReportSchema` zod (d) hook null→캐시 stale 폴백 테스트 | r2 addressed |
+| D3 | **"코어 무편집" 회귀 테스트 부재** — 레지스트리 순회가 배럴만 의존함을 고정하는 테스트 없음 | verify r1 §2 (plan 게이트 line 185) | 배럴 배열 확장 시 서비스가 순회만으로 인식하는 회귀 테스트 추가 | r2 addressed |
+| D4 | **stale/offline 배지 미렌더 + 30s 틱 부재** — r1 지적. | verify r1 §9·§6 + 사용자 후속 결정 | 2026-07-13 사용자 결정: 자동 새로고침은 5분 스케줄러 유지(30s 틱 미도입), stale/offline UI 는 후속 핸드오프에서 진행. | deferred |
+
+
+## [구현자 기입] r2 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 사용자 결정 반영 | 자동 새로고침은 5분 스케줄러 유지, stale/offline UI 는 후속 핸드오프로 제외. Config 는 provider 설정을 겨냥한 것으로 보고 hook 내부 인증/매핑 세부는 포맷화하지 않음. |
+| 설계 비판적 조정 | r1의 “다단계 인증 예시 hook” 요구는 hook 세부 표준화로 과확대될 수 있어 경로/계약 문서화 + 최소 contract 테스트로 축소했다. |
+| 변경 파일 | `features/providers/static/index.ts`(hook 경로/코어 무분기 규약 주석), `features/usage/{external-usage-service.test,http-usage-report.test}.ts`, `infra/db/queries.test.ts`, `shared/protocol.send.test.ts`, handoff 문서/INDEX |
+| 테스트 보강 | hook ctx 전달·report 영속·null→캐시 stale 폴백·provider-agnostic registry 순회, HTTP config placeholder/JSON path/null, 실제 DB upsert/read, refresh IPC zod |
+| 제외 | `ProviderUsageTab` stale/offline 배지, 30초 틱, hook 내부 OAuth/STS/SigV4 예제, `secret.set` Promise 계약 변경 |
+| 실행 명령 | `npm run lint` / `npm run typecheck` / `npm test` |
+| 게이트 결과 | lint ✅ / typecheck ✅ / test ✅ (Vitest 833 + node:test 24 passed) |
+| 대상 커밋 | `HEAD` |
+| 블로커 / 역질문 | 없음 |
