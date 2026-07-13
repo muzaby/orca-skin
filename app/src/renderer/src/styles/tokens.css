@@ -38,6 +38,9 @@
   --color-line-strong: #d2d0c5;
   --color-moss: #6c7a3f;
   --color-indigo: #2a78d6; /* 사용량/컨텍스트 진행바 파랑 (Meter·UsageCircle low tone, 0081) */
+  --color-toggle-on: #2a78d6; /* 설정/디버그 컨트롤 on 상태 파랑 (0099) */
+  --color-selected: #1f68bd; /* 설정/디버그 선택 텍스트·보더 */
+  --color-selected-soft: #e7f0fb; /* 설정/디버그 선택 배경 */
   --color-rose: #b85a6e;
   --color-amber: #c79431;
   --color-paper: #ffffff;
@@ -77,6 +80,23 @@
   --color-fill-uncontained-active: color-mix(in srgb, var(--color-ink) 14%, transparent);
   --color-fill-selected: var(--color-rust-soft);
   --color-fill-busy: var(--color-sidebar);
+
+  /* Floating debug panel tokens (component raw color values live here). */
+  --color-floating-panel-bg: color-mix(in srgb, var(--color-cream-0) 78%, transparent);
+  --color-floating-panel-text: var(--color-ink-900);
+  --color-floating-panel-muted: color-mix(in srgb, var(--color-ink-900) 55%, transparent);
+  --color-floating-panel-label: color-mix(in srgb, var(--color-ink-900) 45%, transparent);
+  --color-floating-panel-control: color-mix(in srgb, var(--color-ink-900) 4%, transparent);
+  --color-floating-panel-control-hover: color-mix(in srgb, var(--color-ink-900) 8%, transparent);
+  --color-floating-panel-border: color-mix(in srgb, var(--color-ink-900) 10%, transparent);
+  --color-floating-panel-toggle-off: color-mix(in srgb, var(--color-ink-900) 15%, transparent);
+  --color-floating-panel-radio-bg: color-mix(in srgb, var(--color-ink-900) 6%, transparent);
+  --color-floating-panel-thumb: color-mix(in srgb, var(--color-panel) 90%, transparent);
+  --shadow-floating-panel:
+    inset 0 1px 0 color-mix(in srgb, var(--color-panel) 50%, transparent),
+    0 12px 40px color-mix(in srgb, black 18%, transparent);
+  --shadow-floating-panel-closed: 0 8px 24px color-mix(in srgb, black 18%, transparent);
+  --shadow-floating-control: 0 1px 2px color-mix(in srgb, black 18%, transparent);
 
   /* Extended accents (agentic marker + diff) */
   --color-extended-yellow: var(--color-amber);
@@ -175,4 +195,7 @@
   --color-t7: #c9c7bf;
   --color-t8: #e8e6de;
   --color-fill-primary-hover: #c26646;
+  --color-toggle-on: #64a8ff;
+  --color-selected: #8ec1ff;
+  --color-selected-soft: #183451;
 }

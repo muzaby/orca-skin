@@ -675,18 +675,6 @@ export const en: typeof ko = {
       fontMono: 'Mono (JetBrains Mono)',
       language: 'Language',
       languageDesc: 'Display language for the app UI and date formatting',
-      scheduling: 'Periodic tasks',
-      usageRecompute: 'Usage refresh',
-      usageRecomputeDesc:
-        'Recomputes usage aggregates on the saved schedule, only while the app is running.',
-      usageRecomputeToggle: 'Periodic usage refresh',
-      refreshInterval: 'Refresh interval',
-      refreshIntervalDesc: 'Choose a cron expression or a preset.',
-      presetHourly: 'Every hour',
-      preset30m: 'Every 30 minutes',
-      presetDaily9: 'Daily at 9 AM',
-      presetCustom: 'Custom',
-      cronAria: 'Usage refresh cron',
       notifications: 'Notifications',
       notifyComplete: 'Response complete',
       notifyCompleteDesc:
@@ -700,7 +688,19 @@ export const en: typeof ko = {
         ', a summary of total cost, token usage (input/output/cache), and per-model breakdown is planned.',
       comingSoon: 'Coming soon',
       comingSoonDesc:
-        'Per-provider usage and spending limits are available in the sub-items on the left.'
+        'Per-provider usage and spending limits are available in the sub-items on the left.',
+      scheduling: 'Periodic tasks',
+      usageRecompute: 'Usage refresh',
+      usageRecomputeDesc:
+        'Recomputes usage aggregates on the saved schedule, only while the app is running.',
+      usageRecomputeToggle: 'Periodic usage refresh',
+      refreshInterval: 'Refresh interval',
+      refreshIntervalDesc: 'Choose a cron expression or a preset.',
+      presetHourly: 'Every hour',
+      preset30m: 'Every 30 minutes',
+      presetDaily9: 'Daily at 9 AM',
+      presetCustom: 'Custom',
+      cronAria: 'Usage refresh cron'
     }
   },
   usage: {
