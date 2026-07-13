@@ -534,6 +534,70 @@ describe('DbQueries provider usage + limits (0080)', () => {
     q.setProviderLimit('claude', null, 300)
     expect(q.getProviderLimit('claude')).toBeNull()
   })
+
+  it('provider_usage_report_cache 는 실제 마이그레이션+쿼리로 upsert/read 를 왕복한다', () => {
+    const db = dbWithMigrations()
+    const q = new DbQueries(db)
+
+    expect(q.getProviderUsageReport('claude-bedrock')).toBeNull()
+
+    q.upsertProviderUsageReport({
+      providerKey: 'claude-bedrock',
+      reportJson: JSON.stringify({
+        providerKey: 'claude-bedrock',
+        fetchedAt: 100,
+        source: 'external',
+        quota: { usedUsd: 70, limitUsd: 100, remainingUsd: 30 }
+      }),
+      fetchedAt: 100,
+      asOf: 90,
+      quotaLimitUsd: 100,
+      quotaUsedUsd: 70,
+      quotaRemainingUsd: 30,
+      updatedAt: 101
+    })
+
+    expect(q.getProviderUsageReport('claude-bedrock')).toMatchObject({
+      provider_key: 'claude-bedrock',
+      fetched_at: 100,
+      as_of: 90,
+      quota_limit_usd: 100,
+      quota_used_usd: 70,
+      quota_remaining_usd: 30,
+      updated_at: 101
+    })
+
+    q.upsertProviderUsageReport({
+      providerKey: 'claude-bedrock',
+      reportJson: JSON.stringify({
+        providerKey: 'claude-bedrock',
+        fetchedAt: 200,
+        source: 'external',
+        quota: { usedUsd: 80, limitUsd: 120, remainingUsd: 40 }
+      }),
+      fetchedAt: 200,
+      asOf: null,
+      quotaLimitUsd: 120,
+      quotaUsedUsd: 80,
+      quotaRemainingUsd: 40,
+      updatedAt: 201
+    })
+
+    const updated = q.getProviderUsageReport('claude-bedrock')
+    expect(updated).toMatchObject({
+      provider_key: 'claude-bedrock',
+      fetched_at: 200,
+      as_of: null,
+      quota_limit_usd: 120,
+      quota_used_usd: 80,
+      quota_remaining_usd: 40,
+      updated_at: 201
+    })
+    expect(JSON.parse(updated?.report_json ?? '{}')).toMatchObject({
+      providerKey: 'claude-bedrock',
+      quota: { usedUsd: 80, limitUsd: 120, remainingUsd: 40 }
+    })
+  })
 })
 
 describe('schedule_runs', () => {
