@@ -2,14 +2,19 @@
 // ↔ 표시(대상 타임존 보정) 분리, "같은 날" 판정이 타임존 기준으로 계산되는지(DST 포함).
 
 import { describe, expect, it } from 'vitest'
+// 카탈로그 키(time.*)를 쓰는 포맷터를 위해 i18next 를 side-effect 초기화(0100).
+import './index'
 import {
   formatDateLong,
   formatDateMedium,
   formatMonthDay,
   formatRelativeDay,
+  formatRelativeTime,
+  formatResetLabel,
   formatTimeFull,
   formatTimeShort
 } from './datetime'
+import { nextMonthReset, nextWeekReset } from '../../../../shared/time/reset'
 
 // 2026-07-15T03:30:00Z — 서울(UTC+9) 12:30 수요일, 뉴욕(UTC-4, EDT) 7/14 23:30 화요일.
 const T = Date.UTC(2026, 6, 15, 3, 30)
@@ -87,6 +92,47 @@ describe('전체/날짜 포맷 — 로케일·타임존 명시', () => {
     expect(formatDateLong(T, 'en', { timeZone: 'Asia/Seoul' })).toBe('July 15, 2026')
     expect(formatDateMedium(T, 'ko', { timeZone: 'Asia/Seoul' })).toBe('2026. 7. 15.')
     expect(formatDateMedium(T, 'en', { timeZone: 'Asia/Seoul' })).toBe('Jul 15, 2026')
+  })
+})
+
+describe('formatRelativeTime — 카탈로그 문장화(구 relativeTimeLabel 문자열 승계, 0100)', () => {
+  const now = 1_000_000_000_000
+
+  it('ko — 방금/분/시간/일', () => {
+    expect(formatRelativeTime(now, 'ko', { now })).toBe('방금')
+    expect(formatRelativeTime(now + 5_000, 'ko', { now })).toBe('방금')
+    expect(formatRelativeTime(now - 60_000, 'ko', { now })).toBe('1분 전')
+    expect(formatRelativeTime(now - 59 * 60_000, 'ko', { now })).toBe('59분 전')
+    expect(formatRelativeTime(now - 60 * 60_000, 'ko', { now })).toBe('1시간 전')
+    expect(formatRelativeTime(now - 23 * 60 * 60_000, 'ko', { now })).toBe('23시간 전')
+    expect(formatRelativeTime(now - 24 * 60 * 60_000, 'ko', { now })).toBe('1일 전')
+    expect(formatRelativeTime(now - 3 * 24 * 60 * 60_000, 'ko', { now })).toBe('3일 전')
+  })
+
+  it('en — 단복수', () => {
+    expect(formatRelativeTime(now, 'en', { now })).toBe('just now')
+    expect(formatRelativeTime(now - 60_000, 'en', { now })).toBe('1 minute ago')
+    expect(formatRelativeTime(now - 5 * 60_000, 'en', { now })).toBe('5 minutes ago')
+    expect(formatRelativeTime(now - 60 * 60_000, 'en', { now })).toBe('1 hour ago')
+    expect(formatRelativeTime(now - 23 * 60 * 60_000, 'en', { now })).toBe('23 hours ago')
+    expect(formatRelativeTime(now - 24 * 60 * 60_000, 'en', { now })).toBe('1 day ago')
+    expect(formatRelativeTime(now - 3 * 24 * 60 * 60_000, 'en', { now })).toBe('3 days ago')
+  })
+})
+
+describe('formatResetLabel — 카탈로그 + Intl 요일/월·일(구 resetLabels 문자열 승계, 0100)', () => {
+  // 재설정 시각은 shared 가 로컬타임으로 계산하고 포맷도 동일 로컬타임(기본 systemTimeZone)
+  // 으로 하므로 어느 TZ 에서 실행해도 결정론적이다.
+  it('주간 — 항상 다음 월요일 00:00', () => {
+    const resetAt = nextWeekReset(new Date(2026, 6, 8)).getTime() // 수요일 기준 → 7/13(월)
+    expect(formatResetLabel('week', resetAt, 'ko')).toBe('(월) 오전 0:00에 재설정')
+    expect(formatResetLabel('week', resetAt, 'en')).toBe('Resets (Mon) at 12:00 AM')
+  })
+
+  it('월간 — 다음 달 1일 + 실제 요일', () => {
+    const resetAt = nextMonthReset(new Date(2026, 6, 20)).getTime() // → 8/1(토)
+    expect(formatResetLabel('month', resetAt, 'ko')).toBe('(토) 8월 1일에 재설정')
+    expect(formatResetLabel('month', resetAt, 'en')).toBe('Resets (Sat) Aug 1')
   })
 })
 

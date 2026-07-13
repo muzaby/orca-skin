@@ -2,7 +2,7 @@ import type { ProviderReportedTelemetry } from '../../../../../shared/ipc'
 import type { UsageLimitsView, UsageLimitBar } from '../../../../../shared/usage/limits'
 import { Icon } from '../../../shared/ui/Icon'
 import { Meter } from '../../../shared/ui/Meter'
-import { useI18n } from '../../../shared/i18n'
+import { formatResetLabel, useI18n } from '../../../shared/i18n'
 import { contextTokens } from '../lib/telemetry'
 import { contextWindowFor, nearCompaction } from '../lib/contextWindow'
 
@@ -75,13 +75,13 @@ export function UsagePanel({
 }
 
 function LimitRow({ label, bar }: { label: string; bar: UsageLimitBar }): React.JSX.Element {
-  const { tr } = useI18n()
+  const { tr, locale } = useI18n()
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-baseline justify-between gap-2">
         <span className="text-caption text-ink">{label}</span>
         <span className="min-w-0 flex-1 truncate text-right text-[11px] text-t6">
-          {bar.resetLabel}
+          {formatResetLabel(bar.period, bar.resetAt, locale)}
         </span>
         <span className="flex-none text-caption tabular-nums text-ink">
           {bar.unlimited ? tr('common.unlimited') : `${Math.round(bar.pct * 100)}%`}

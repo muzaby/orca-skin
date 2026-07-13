@@ -703,6 +703,18 @@ export const en: typeof ko = {
       cronAria: 'Usage refresh cron'
     }
   },
+  time: {
+    justNow: 'just now',
+    minutesAgo_one: '{{count}} minute ago',
+    minutesAgo_other: '{{count}} minutes ago',
+    hoursAgo_one: '{{count}} hour ago',
+    hoursAgo_other: '{{count}} hours ago',
+    daysAgo_one: '{{count}} day ago',
+    daysAgo_other: '{{count}} days ago',
+    yesterday: 'yesterday',
+    resetsWeek: 'Resets ({{weekday}}) at 12:00 AM',
+    resetsMonth: 'Resets ({{weekday}}) {{date}}'
+  },
   usage: {
     weekly: 'Weekly',
     monthly: 'Monthly',

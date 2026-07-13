@@ -36,17 +36,6 @@ export function effectiveLimitFromReport(
     : { source: 'local', usedUsd: summary.month.totalCostUsd, limitUsd, remainingUsd }
 }
 
-export function summaryForEffectiveLimit(
-  summary: CostSummary,
-  effective: EffectiveUsageLimit | undefined
-): CostSummary {
-  if (!effective || effective.source !== 'external') return summary
-  return {
-    ...summary,
-    month: { ...summary.month, totalCostUsd: effective.usedUsd }
-  }
-}
-
 export function createSecretFacade(
   secretStore: SecretStore,
   providerKey: string

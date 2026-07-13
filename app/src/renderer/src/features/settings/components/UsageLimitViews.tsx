@@ -5,17 +5,19 @@ import { useState } from 'react'
 import type { UsageLimitsView, UsageLimitBar } from '../../../../../shared/usage/limits'
 import { Icon } from '../../../shared/ui/Icon'
 import { Meter } from '../../../shared/ui/Meter'
-import { useI18n } from '../../../shared/i18n'
+import { formatResetLabel, useI18n } from '../../../shared/i18n'
 import { fmtUsd } from '../lib/usageFormat'
 
 function LimitBarRow({ label, bar }: { label: string; bar: UsageLimitBar }): React.JSX.Element {
-  const { tr } = useI18n()
+  const { tr, locale } = useI18n()
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-baseline justify-between gap-4">
         <div className="min-w-0">
           <div className="text-[13px] text-ink">{label}</div>
-          <div className="mt-0.5 text-[12px] text-ink3">{bar.resetLabel}</div>
+          <div className="mt-0.5 text-[12px] text-ink3">
+            {formatResetLabel(bar.period, bar.resetAt, locale)}
+          </div>
         </div>
         <div className="flex-none text-right">
           <div className="text-[12.5px] text-ink2">

@@ -697,6 +697,18 @@ export const ko = {
       cronAria: '사용량 새로고침 cron'
     }
   },
+  time: {
+    justNow: '방금',
+    minutesAgo_one: '{{count}}분 전',
+    minutesAgo_other: '{{count}}분 전',
+    hoursAgo_one: '{{count}}시간 전',
+    hoursAgo_other: '{{count}}시간 전',
+    daysAgo_one: '{{count}}일 전',
+    daysAgo_other: '{{count}}일 전',
+    yesterday: '어제',
+    resetsWeek: '({{weekday}}) 오전 0:00에 재설정',
+    resetsMonth: '({{weekday}}) {{date}}에 재설정'
+  },
   usage: {
     weekly: '주간',
     monthly: '월간',
