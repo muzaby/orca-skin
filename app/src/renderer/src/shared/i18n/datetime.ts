@@ -5,9 +5,10 @@
 // 로케일은 UI 언어(ko/en) → BCP-47 매핑. 컴포넌트는 useI18n().locale 로 전달해
 // 언어 전환 시 리렌더에 편승한다.
 
-import { relativeTimeLabel, type TimeLocale } from '../../../../shared/time/relative'
+import i18next from 'i18next'
+import { relativeTime } from '../../../../shared/time/relative'
 
-export type UiLocale = TimeLocale
+export type UiLocale = 'ko' | 'en'
 
 const BCP47: Record<UiLocale, string> = { ko: 'ko-KR', en: 'en-US' }
 
@@ -15,6 +16,8 @@ const BCP47: Record<UiLocale, string> = { ko: 'ko-KR', en: 'en-US' }
 const PRESETS = {
   time: { hour: 'numeric', minute: '2-digit', hour12: true },
   monthDay: { month: 'long', day: 'numeric' },
+  monthDayShort: { month: 'short', day: 'numeric' },
+  weekdayShort: { weekday: 'short' },
   full: {
     year: 'numeric',
     month: 'numeric',
@@ -98,13 +101,45 @@ export function formatDateMedium(ms: number, locale: UiLocale, opts: DateTimeOpt
   return getFormat(locale, opts.timeZone ?? systemTimeZone(), 'dateMedium').format(ms)
 }
 
+// 상대 시각 문장 — shared relativeTime(데이터)을 카탈로그 복수형 키로 문장화(0100).
+// lng 를 명시해 훅 밖에서도 고정 로케일로 해석한다(언어 전환 리렌더는 호출 컴포넌트가
+// useI18n().locale 로 편승 — 기존 패턴 동일).
+export function formatRelativeTime(ms: number, locale: UiLocale, opts: DateTimeOpts = {}): string {
+  const rel = relativeTime(ms, opts.now ?? Date.now())
+  switch (rel.unit) {
+    case 'now':
+      return i18next.t('time.justNow', { lng: locale })
+    case 'minute':
+      return i18next.t('time.minutesAgo', { count: rel.value, lng: locale })
+    case 'hour':
+      return i18next.t('time.hoursAgo', { count: rel.value, lng: locale })
+    case 'day':
+      return i18next.t('time.daysAgo', { count: rel.value, lng: locale })
+  }
+}
+
+// 재설정 문장 — shared 가 계산한 resetAt(다음 월요일 00:00 / 다음 달 1일)을 카탈로그 키 +
+// Intl 요일/월·일 이름으로 문장화(0100). 주간은 요일만, 월간은 요일+월·일을 보간한다.
+export function formatResetLabel(
+  period: 'week' | 'month',
+  resetAt: number,
+  locale: UiLocale,
+  opts: DateTimeOpts = {}
+): string {
+  const tz = opts.timeZone ?? systemTimeZone()
+  const weekday = getFormat(locale, tz, 'weekdayShort').format(resetAt)
+  if (period === 'week') return i18next.t('time.resetsWeek', { weekday, lng: locale })
+  const date = getFormat(locale, tz, 'monthDayShort').format(resetAt)
+  return i18next.t('time.resetsMonth', { weekday, date, lng: locale })
+}
+
 // "방금"→"어제"→"N일 전"→날짜 사다리 (구 ProjectsScreen.formatRelative 승계).
-// 하루 미만은 shared relativeTimeLabel, 어제/일 단위는 인라인, 7일 이상은 월·일 표기.
+// 하루 미만은 formatRelativeTime, 어제/일 단위는 카탈로그 키, 7일 이상은 월·일 표기.
 export function formatRelativeDay(ms: number, locale: UiLocale, opts: DateTimeOpts = {}): string {
   const now = opts.now ?? Date.now()
   const day = Math.floor((now - ms) / 86_400_000)
-  if (day < 1) return relativeTimeLabel(ms, now, locale)
-  if (day === 1) return locale === 'ko' ? '어제' : 'yesterday'
-  if (day < 7) return locale === 'ko' ? `${day}일 전` : `${day} days ago`
+  if (day < 1) return formatRelativeTime(ms, locale, opts)
+  if (day === 1) return i18next.t('time.yesterday', { lng: locale })
+  if (day < 7) return i18next.t('time.daysAgo', { count: day, lng: locale })
   return formatMonthDay(ms, locale, opts)
 }

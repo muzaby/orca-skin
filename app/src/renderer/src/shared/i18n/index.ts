@@ -25,10 +25,11 @@ export type { UiLocale, DateTimeOpts } from './datetime'
 export {
   formatTimeShort,
   formatTimeFull,
-  formatMonthDay,
   formatDateLong,
   formatDateMedium,
   formatRelativeDay,
+  formatRelativeTime,
+  formatResetLabel,
   systemTimeZone
 } from './datetime'
 

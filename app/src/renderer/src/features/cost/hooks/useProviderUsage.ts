@@ -1,6 +1,6 @@
 // provider별 사용량 컨트롤러(설정 사용량 서브항목, 0080 항목 4). 구성된 provider(agent key)를
 // shared agentStore 에서 얻고, key 마다 실사용 summary + 월 한도를 main 에서 조회한다. 각 provider
-// 서브탭이 computeUsageLimits(entry.summary, entry.limitUsd)로 자기 한도 바를 그린다.
+// 서브탭이 computeProviderUsageLimits(entry)로 자기 한도 바를 그린다.
 
 import { useCallback, useEffect, useState } from 'react'
 import type { AgentEnvironment, ProviderUsageEntry } from '../../../../../shared/ipc'

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { CostPeriodSummary, CostSummary } from '../ipc'
-import { computeUsageLimits } from './limits'
+import type { CostPeriodSummary, CostSummary, ProviderUsageEntry } from '../ipc'
+import { computeProviderUsageLimits, computeUsageLimits } from './limits'
 
 function period(totalCostUsd: number): CostPeriodSummary {
   return {
@@ -28,8 +28,9 @@ describe('computeUsageLimits', () => {
     expect(v.week.pct).toBeLessThan(0.32)
     expect(v.month.budget).toBe(90)
     expect(v.month.unlimited).toBe(false)
-    expect(v.month.resetLabel).toBe('(토) 8월 1일에 재설정')
-    expect(v.week.resetLabel).toBe('(월) 오전 0:00에 재설정')
+    // 재설정 시각은 데이터(epoch)로만 노출 — 문장화는 renderer i18n(0100).
+    expect(v.month).toMatchObject({ period: 'month', resetAt: new Date(2026, 7, 1).getTime() })
+    expect(v.week).toMatchObject({ period: 'week', resetAt: new Date(2026, 6, 20).getTime() })
   })
 
   it('무제한(null) — 예산·퍼센트 없이 사용액만', () => {
@@ -61,12 +62,25 @@ describe('computeUsageLimits', () => {
     expect(v.week.pct).toBe(0)
   })
 
-  it("locale='en' — 수치 동일, 재설정 라벨만 영어(0096)", () => {
-    const ko = computeUsageLimits(summary(0, 8, 30), 90, JUL_15_WED)
-    const en = computeUsageLimits(summary(0, 8, 30), 90, JUL_15_WED, 'en')
-    expect(en.week.pct).toBe(ko.week.pct)
-    expect(en.month.pct).toBe(ko.month.pct)
-    expect(en.month.resetLabel).toBe('Resets (Sat) Aug 1')
-    expect(en.week.resetLabel).toBe('Resets (Mon) at 12:00 AM')
+  it('computeProviderUsageLimits — external report 면 월 사용액을 usedUsd 로 치환(0100)', () => {
+    const entry = (effectiveLimit: ProviderUsageEntry['effectiveLimit']): ProviderUsageEntry => ({
+      providerKey: 'claude-anthropic',
+      summary: summary(0, 8, 30),
+      limitUsd: 90,
+      effectiveLimit
+    })
+    const external = computeProviderUsageLimits(
+      entry({ source: 'external', usedUsd: 45, limitUsd: 90, remainingUsd: 45 }),
+      JUL_15_WED
+    )
+    expect(external.month.used).toBe(45)
+    expect(external.month.pct).toBeCloseTo(45 / 90, 5)
+
+    const local = computeProviderUsageLimits(
+      entry({ source: 'local', usedUsd: 30, limitUsd: 90, remainingUsd: 60 }),
+      JUL_15_WED
+    )
+    expect(local.month.used).toBe(30)
+    expect(local).toEqual(computeUsageLimits(summary(0, 8, 30), 90, JUL_15_WED))
   })
 })

@@ -124,18 +124,31 @@
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-(구현 턴에서 기입)
+- 동의 / 그대로 진행: 설계 §F1~F4 전부. Intl `weekday:'short'`·`month:'short'+day:'numeric'` 출력이 구 인라인 테이블과 바이트 동일함을 node 실측으로 선확인("월"/"Mon"/"토"/"Sat"/"8월 1일"/"Aug 1") 후 진행.
+- 이견 / 조정 1건: 설계 "실행 순서"는 C1/C2 **2 커밋**을 제시했으나, 두 묶음이 같은 파일(`limits.ts`·`limits.test.ts`·`ProviderUsageTab.tsx`·`useProviderUsageLimits.ts`·`i18n/index.ts`)을 겹쳐 편집해 hunk 분리가 오류 유발적 — **단일 구현 커밋으로 통합**(커밋 구획은 구현 세부 = 선조치 경계 내).
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
-(구현 턴에서 기입)
+| # | 놓친 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 설계가 `resetLabels.ts` 를 "시각 계산만으로 축소"라 했으나 파일명이 Labels 인 채 Date 반환은 오독 유발 | ✅ `reset.ts`(`nextWeekReset`/`nextMonthReset`)로 리네임, 테스트 동반 이동 | 구현 세부(파일명), 심볼·동작 무변경 |
+| 2 | `formatRelativeTime`/`formatResetLabel`/`formatRelativeDay` 가 i18next 카탈로그를 쓰므로 `datetime.test.ts` 단독 실행 시 i18next 미초기화 | ✅ 테스트에 `import './index'` side-effect 초기화 1줄 추가 (main.tsx 와 동일 경로) | 구현 세부(테스트 하네스) |
+| 3 | `UsageLimitBar` 에 `resetAt` 만 두면 소비 컴포넌트(주간/월간 공용 Row)가 어떤 문장 골격인지 알 수 없음 | ✅ `period: 'week' \| 'month'` 판별 필드 동반 추가 — `formatResetLabel(bar.period, bar.resetAt, locale)` 단일 호출 | 설계 §F2-3 의 뷰모델 변경 범위 내 |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] C1 — F1(`computeProviderUsageLimits` 통합 + 사본/데드 삭제) + F4(barrel export 정리)
-- [ ] C2 — F2(shared/time 데이터화 + 카탈로그 이관) + F3(SyncRow 삼항 축약)
-- [ ] 게이트 + 관련 스위트 개별 green
+- [x] F1 — `computeProviderUsageLimits` 통합 + 렌더러 사본 2·main 데드 export 삭제 + `?? limitUsd` 폴백 제거
+- [x] F4 — `formatMonthDay` barrel export 제거
+- [x] F2 — shared/time 데이터화(`relativeTime`·`reset.ts`) + `UsageLimitBar.resetAt/period` + 카탈로그 `time.*`(ko/en) + renderer 포맷터 3종
+- [x] F3 — SyncRow 삼항 → `fetchedAt ?? updatedAt` 단일 호출
+- [x] 게이트 + 관련 스위트 개별 green
 
 ## [구현자 기입] 구현 보고
 
-(구현 턴에서 기입)
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `shared/time/{relative,reset}.ts`(+tests, `resetLabels.*` 삭제) · `shared/usage/limits.ts`(+test) · `renderer .../i18n/{datetime.ts,datetime.test.ts,index.ts,resources/{ko,en}.ts}` · `ProviderUsageTab.tsx` · `UsageLimitViews.tsx` · `UsagePanel.tsx` · cost hooks 3종 · `main/features/usage/external-usage.ts` |
+| 실행 명령 | `npm run lint` / `npm run typecheck` / `npx vitest run` / `node --test scripts/*.test.mjs` |
+| 게이트 결과 | lint ✅ 0 / typecheck 3종 ✅ 0 / vitest 804 passed·32 failed(=0098/0099 동일 better-sqlite3 네이티브 ABI 베이스라인 6파일, 격리 재실행으로 동일 집합 확인) / 관련 스위트(time·usage·i18n) 32/32 ✅ / scripts 24/24 ✅ |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | (커밋 후 INDEX 에 기재) |
