@@ -2,7 +2,7 @@
 
 Electron **main 프로세스**(SDK 호출·IPC·DB·보안이 모이는 곳)의 모듈 구조 규칙. renderer 4-layer 처럼 **하향 의존만 허용**하고, 추가로 **feature 수직 슬라이스끼리 교차 import 를 금지**한다 — `eslint-plugin-boundaries` + `import/no-cycle` 로 빌드 시 강제(`app/eslint.config.mjs` 의 `src/main/**`·`src/shared/**` 블록). 위반은 `npm run lint` error. (구조 재편 정본: handoff 0062 — 아키텍처 스펙 "feature 수직 슬라이스 + adapters 한정 ports&adapters + 얇은 infra + app composition root".)
 
-> 정본 우선: 채널 계약은 [`../../../docs/IPC_CONTRACT.md`](../../../docs/IPC_CONTRACT.md), 범용 정규화 계층은 [`../../../docs/arch/backend/provider-runtime.md`](../../../docs/arch/backend/provider-runtime.md). 본 문서는 *레이어·슬라이스 방향* 규칙만 담는다.
+> 정본 우선: 채널 계약은 [`../../../docs/IPC_CONTRACT.md`](../../../docs/IPC_CONTRACT.md), 범용 정규화 계층은 [`../../../docs/arch/backend/provider-runtime.md`](../../../docs/arch/backend/provider-runtime.md). 본 문서는 _레이어·슬라이스 방향_ 규칙만 담는다.
 
 ## 레이어 DAG (하향 의존만)
 
@@ -19,14 +19,14 @@ shared     →  shared                                   (순수 타입/상수/z
 
 ## 레이어 ↔ 디렉토리 매핑
 
-| 레이어 | 디렉토리 | 책임 | 의존 허용 |
-|---|---|---|---|
-| **shared** | `src/shared/` (`ipc.ts`·`protocol.ts`·`permission-mode.ts`·`update-restart.ts`·`obj.ts`·`path-basename.ts`·`usage/`·`time/`) | 순수 타입·상수·zod 스키마 + 순수 유틸(사용량 한도 파생 `usage/limits.ts`·업데이트 재시작 게이트 `update-restart.ts`). 런타임 의존 0. | shared |
-| **infra** | `src/main/infra/` (`bus`·`db`·`config`·`ipc`·`errors`·`vars`·`settings-store`·`settings-migration`·`cron`) | DB 싱글턴·TypedBus·orca.json/secret·IPC 프리미티브(`ipc/handle`·`ipc/send`·`ipc/dto`)·에러 정규화·croner 래퍼(`cron.ts`). feature/어댑터 비의존. | infra · shared |
-| **adapters** | `src/main/adapters/` | `SessionAdapter` 포트(`types`·`turn`·`provider-config`·`mcp-config`·`hooks`·`risky-tools`·`descriptor`) + 구현(`claude.ts`·`mock.ts` — flat 파일, 엔진별 하위 폴더 아님) + 어댑터 오케스트레이션 + `claude-settings.ts`(`~/.claude/settings.json` 읽기, 0090). | adapters · adapter-impl · infra · shared |
-| **contracts** | `src/main/contracts/` (`turn`·`bus-events`·`ports`·`session-state`) | 여러 feature 가 공유하는 **턴/버스/런타임 타입 계약**. `TurnContext`·`OrcaBusEvents`·`RuntimeLiveTurn` 등. 구현 최소. | contracts · adapters · infra · shared |
-| **features** | `src/main/features/<slice>/` (`chat`·`sessions`·`approvals`·`usage`·`history`·`providers`·`extensions`·`orchestration`·`scheduler`) | 수직 슬라이스 — 턴 오케스트레이션·세션 런타임 거버넌스·승인·사용량·영속·provider·확장(MCP·skill·deploy·번들 시딩)·대화 연속성(fork/handoff)·주기 실행(croner, 0091). | **같은 slice** · contracts · adapters · infra · shared |
-| **app (컴포지션 루트)** | `src/main/app/` (`bootstrap`·`chat-turn`·`context`·`boot-report`·`builtin-resources`·`updater`·`handlers/{boot,engine,mcp,misc,project,session,update}`) + `src/main/index.ts` | 부팅 배선(`Bootstrap`)·턴 셋업(`registerChatHandlers`)·도메인 핸들러 등록·`RouterContext` 조립·window/shutdown·자동 업데이트(`updater.ts`, electron-updater 0084~0086)·부팅 진단(`boot-report.ts`, 0077)·번들 리소스 해석(`builtin-resources.ts`, 0078). 구체 엔진명 리터럴 허용(1회성 배선). | 전부 |
+| 레이어                  | 디렉토리                                                                                                                                                                       | 책임                                                                                                                                                                                                                                                                                          | 의존 허용                                              |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| **shared**              | `src/shared/` (`ipc.ts`·`protocol.ts`·`permission-mode.ts`·`update-restart.ts`·`obj.ts`·`path-basename.ts`·`usage/`·`time/`)                                                   | 순수 타입·상수·zod 스키마 + 순수 유틸(사용량 한도 파생 `usage/limits.ts`·업데이트 재시작 게이트 `update-restart.ts`). 런타임 의존 0.                                                                                                                                                          | shared                                                 |
+| **infra**               | `src/main/infra/` (`bus`·`db`·`config`·`ipc`·`errors`·`vars`·`settings-store`·`settings-migration`·`cron`)                                                                     | DB 싱글턴·TypedBus·orca.json/secret·IPC 프리미티브(`ipc/handle`·`ipc/send`·`ipc/dto`)·에러 정규화·croner 래퍼(`cron.ts`). feature/어댑터 비의존.                                                                                                                                              | infra · shared                                         |
+| **adapters**            | `src/main/adapters/`                                                                                                                                                           | `SessionAdapter` 포트(`types`·`turn`·`provider-config`·`mcp-config`·`hooks`·`risky-tools`·`descriptor`) + 구현(`claude.ts`·`mock.ts` — flat 파일, 엔진별 하위 폴더 아님) + 어댑터 오케스트레이션 + `claude-settings.ts`(`~/.claude/settings.json` 읽기, 0090).                                | adapters · adapter-impl · infra · shared               |
+| **contracts**           | `src/main/contracts/` (`turn`·`bus-events`·`ports`·`session-state`)                                                                                                            | 여러 feature 가 공유하는 **턴/버스/런타임 타입 계약**. `TurnContext`·`OrcaBusEvents`·`RuntimeLiveTurn` 등. 구현 최소.                                                                                                                                                                         | contracts · adapters · infra · shared                  |
+| **features**            | `src/main/features/<slice>/` (`chat`·`sessions`·`approvals`·`usage`·`history`·`providers`·`extensions`·`orchestration`·`scheduler`)                                            | 수직 슬라이스 — 턴 오케스트레이션·세션 런타임 거버넌스·승인·사용량·영속·provider(정적 사용량 provider 는 `features/providers/static/modules/` opt-in 레지스트리)·확장(MCP·skill·deploy·번들 시딩)·대화 연속성(fork/handoff)·주기 실행(croner, 0091).                                          | **같은 slice** · contracts · adapters · infra · shared |
+| **app (컴포지션 루트)** | `src/main/app/` (`bootstrap`·`chat-turn`·`context`·`boot-report`·`builtin-resources`·`updater`·`handlers/{boot,engine,mcp,misc,project,session,update}`) + `src/main/index.ts` | 부팅 배선(`Bootstrap`)·턴 셋업(`registerChatHandlers`)·도메인 핸들러 등록·`RouterContext` 조립·window/shutdown·자동 업데이트(`updater.ts`, electron-updater 0084~0086)·부팅 진단(`boot-report.ts`, 0077)·번들 리소스 해석(`builtin-resources.ts`, 0078). 구체 엔진명 리터럴 허용(1회성 배선). | 전부                                                   |
 
 > `boundaries/elements` 분류 순서는 specific→catch-all(`adapter-impl` 이 `adapters` 보다 먼저). `src/main` 최상위는 `{app, contracts, adapters, features, infra}` + `index.ts`·`env.d.ts` 만 — 새 디렉토리는 이 중 하나에 속하게 둔다(어디에도 안 맞으면 boundaries "no element" error). 현재 `adapters/` 는 flat 파일 구조라 `adapter-impl`(folder capture) 요소에 매칭되는 대상이 없다 — 엔진별 하위 폴더가 생기면 다시 활성화되는 예비 규칙.
 > `features/orchestration/` = Conversation Continuity(0051 §A.4) 첫 서비스(fork/handoff) — **순수 로직만**(handoff 자동 메시지 템플릿 `buildHandoffMessage` · 도착 물질화 `materializeContinuityArrival`). 실행 배선(어댑터 `forkSession` 호출·send/persist 훅)은 컴포지션 루트(`app/chat-turn`·`app/handlers/session`)와 `features/history` 가 소유한다.
@@ -35,8 +35,8 @@ shared     →  shared                                   (순수 타입/상수/z
 
 - **slice 끼리 직접 import 금지.** `features/chat` 가 `features/sessions` 를 import 하면 lint error.
 - **교차가 필요할 때 3가지 해소책**:
-  1. 공유 *타입* → `contracts/` 로 승격(예: `TurnContext`·`OrcaBusEvents`).
-  2. 구조적 *포트* 로 결합 절단 — 소비 측이 필요한 메서드만 인라인 인터페이스로 받는다(예: chat coordinator 의 `registry: { promote(...) }`, approvals 의 `SessionLookup`). 구현 클래스가 구조적으로 만족한다.
+  1. 공유 _타입_ → `contracts/` 로 승격(예: `TurnContext`·`OrcaBusEvents`).
+  2. 구조적 _포트_ 로 결합 절단 — 소비 측이 필요한 메서드만 인라인 인터페이스로 받는다(예: chat coordinator 의 `registry: { promote(...) }`, approvals 의 `SessionLookup`). 구현 클래스가 구조적으로 만족한다.
   3. 컴포지션 루트(app) 가 concrete 를 **주입**한다(예: `TurnCoordinator` deps).
 - 같은 slice 내부는 상대경로(`./x`)로, contracts/adapters/infra/shared 는 `../../contracts/x` 식으로 참조한다.
 
@@ -49,7 +49,7 @@ usage(집계) → history(영속) → title(제목) → relay(renderer 중계)
 ```
 
 - `usage`·`history` 는 **critical**(throw = 턴 실패 전파), `title`·`relay` 는 **격리**(구독자 throw 가 파이프라인을 안 죽임).
-- 순서 근거: usage 가 history 의 `currentAssistantMessageId` reset *전* 에 그 id 를 읽고, title 이 relay 전에 트리거돼야 한다. 순서 회귀 테스트가 `features/chat/turn-coordinator.test.ts` 에 고정돼 있다.
+- 순서 근거: usage 가 history 의 `currentAssistantMessageId` reset _전_ 에 그 id 를 읽고, title 이 relay 전에 트리거돼야 한다. 순서 회귀 테스트가 `features/chat/turn-coordinator.test.ts` 에 고정돼 있다.
 - 버스를 타면 안 되는 forward-only 이벤트(합성 error·turn.retrying·message.committed)는 coordinator 가 `forward` sink 직접 호출을 유지한다(history 가 무조건 persist 하므로 없던 파트 영속 방지 — user 커밋은 `commitUserMessage` 단일 경로, 0067).
 - **주기 실행 경로(0091)**: `features/scheduler`(croner) 는 job action 을 직접 구현하지 않는다 — 컴포지션 루트(`app/bootstrap.ts`)가 action(현재 사용량 recompute→broadcast)을 주입해 교차 feature 를 회피한다. `shutdown()` 은 `closeDb` 앞에 `Scheduler.stopAll()`.
 
@@ -61,6 +61,6 @@ usage(집계) → history(영속) → title(제목) → relay(renderer 중계)
 ## 작업 규칙
 
 - **상위/교차를 참조하고 싶으면 의존을 뒤집어라.** 콜백/구조적 포트/주입으로 방향을 하향·슬라이스-내부로 유지한다(위 3가지 해소책).
-- **구체 provider/engine 리터럴**(`'claude'` 등)은 `adapters`·`features/extensions`(배포 레지스트리)·컴포지션 루트(`app/bootstrap.ts`·`index.ts`) 안에만. 코어·오케스트레이션은 백엔드 중립(handoff 0016).
+- **구체 provider/engine 리터럴**(`'claude'` 등)은 `adapters`·`features/extensions`(배포 레지스트리)·`features/providers/static/modules/`(정적 사용량 provider opt-in 레지스트리)·컴포지션 루트(`app/bootstrap.ts`·`index.ts`) 안에만. 코어·오케스트레이션은 백엔드 중립(handoff 0016).
 - **네이밍**: 컴포지션 루트=`Bootstrap`, 영속=`HistoryWriter`(features/history), 사용량=`UsageTracker`(features/usage), 승인 broker=`ApprovalBroker`(features/approvals), 턴 상태=`TurnContext`(contracts). `SessionAdapter`·`NormalizedEvent`·`adapters/` 이름은 유지(사용자 확정).
 - 모듈이 4책임 이상으로 비대해지면 slice 내부에서 응집 단위로 분해한다. 외부 import 가 많으면 배럴 re-export 로 무회귀 분해.

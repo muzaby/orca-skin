@@ -12,8 +12,8 @@ export interface FloatingPanelProps {
 
 const PANEL_CLASS =
   'fixed z-[2147483646] flex max-h-[calc(100vh-32px)] w-[280px] flex-col overflow-hidden ' +
-  'rounded-[14px] border-[0.5px] border-white/60 bg-[rgba(250,249,247,0.78)] ' +
-  'text-[#29261b] shadow-[0_1px_0_rgba(255,255,255,.5)_inset,0_12px_40px_rgba(0,0,0,.18)] ' +
+  'rounded-[14px] border-[0.5px] border-white/60 bg-floating-panel-bg ' +
+  'text-floating-panel-text shadow-[var(--shadow-floating-panel)] ' +
   '[backdrop-filter:blur(24px)_saturate(160%)] [-webkit-backdrop-filter:blur(24px)_saturate(160%)] ' +
   'font-sans text-[11.5px] leading-[1.4]'
 
@@ -52,7 +52,7 @@ export function FloatingPanel({ title, children }: FloatingPanelProps): React.JS
     return (
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-4 right-4 z-[2147483646] cursor-pointer rounded-full border-[0.5px] border-white/60 bg-[rgba(250,249,247,0.78)] px-3 py-1.5 font-mono text-[11px] text-[#29261b] shadow-[0_8px_24px_rgba(0,0,0,.18)] [backdrop-filter:blur(24px)_saturate(160%)]"
+        className="fixed bottom-4 right-4 z-[2147483646] cursor-pointer rounded-full border-[0.5px] border-white/60 bg-floating-panel-bg px-3 py-1.5 font-mono text-[11px] text-floating-panel-text shadow-[var(--shadow-floating-panel-closed)] [backdrop-filter:blur(24px)_saturate(160%)]"
       >
         {title}
       </button>
@@ -67,7 +67,7 @@ export function FloatingPanel({ title, children }: FloatingPanelProps): React.JS
       >
         <b className="text-[12px] font-semibold tracking-[0.01em]">{title}</b>
         <button
-          className="h-[22px] w-[22px] cursor-default appearance-none rounded-md border-0 bg-transparent text-[13px] leading-none text-[rgba(41,38,27,0.55)] hover:bg-black/[0.06] hover:text-[#29261b]"
+          className="h-[22px] w-[22px] cursor-default appearance-none rounded-md border-0 bg-transparent text-[13px] leading-none text-floating-panel-muted hover:bg-floating-panel-control-hover hover:text-floating-panel-text"
           aria-label="Close tweaks"
           onMouseDown={(e) => e.stopPropagation()}
           onClick={() => setOpen(false)}
@@ -75,7 +75,7 @@ export function FloatingPanel({ title, children }: FloatingPanelProps): React.JS
           ✕
         </button>
       </div>
-      <div className="flex min-h-0 flex-col gap-2.5 overflow-y-auto overflow-x-hidden px-3.5 pb-3.5 pt-0.5 [scrollbar-color:rgba(0,0,0,.15)_transparent] [scrollbar-width:thin]">
+      <div className="flex min-h-0 flex-col gap-2.5 overflow-y-auto overflow-x-hidden px-3.5 pb-3.5 pt-0.5 [scrollbar-color:var(--color-floating-panel-toggle-off)_transparent] [scrollbar-width:thin]">
         {children}
       </div>
     </div>
@@ -84,7 +84,7 @@ export function FloatingPanel({ title, children }: FloatingPanelProps): React.JS
 
 export function PanelSection({ label }: { label: string }): React.JSX.Element {
   return (
-    <div className="pt-2.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-[rgba(41,38,27,0.45)] first:pt-0">
+    <div className="pt-2.5 text-[10px] font-semibold uppercase tracking-[0.06em] text-floating-panel-label first:pt-0">
       {label}
     </div>
   )
@@ -101,7 +101,7 @@ export function PanelButton({
     <button
       type="button"
       onClick={onClick}
-      className="cursor-default rounded-md border-[0.5px] border-black/10 bg-black/[0.04] px-2.5 py-1.5 text-left font-medium text-[rgba(41,38,27,0.72)] transition-colors hover:bg-black/[0.08]"
+      className="cursor-default rounded-md border-[0.5px] border-floating-panel-border bg-floating-panel-control px-2.5 py-1.5 text-left font-medium text-floating-panel-text transition-colors hover:bg-floating-panel-control-hover"
     >
       {label}
     </button>
@@ -119,7 +119,7 @@ export function PanelToggle({
 }): React.JSX.Element {
   return (
     <div className="flex flex-row items-center justify-between gap-2.5">
-      <div className="flex items-baseline justify-between text-[rgba(41,38,27,0.72)]">
+      <div className="flex items-baseline justify-between text-floating-panel-text">
         <span className="font-medium">{label}</span>
       </div>
       <button
@@ -128,11 +128,11 @@ export function PanelToggle({
         aria-checked={value}
         onClick={() => onChange(!value)}
         className={`relative h-[18px] w-8 cursor-default rounded-full border-0 p-0 transition-colors duration-150 ${
-          value ? 'bg-[#34c759]' : 'bg-black/15'
+          value ? 'bg-toggle-on' : 'bg-floating-panel-toggle-off'
         }`}
       >
         <i
-          className={`absolute left-0.5 top-0.5 h-[14px] w-[14px] rounded-full bg-white shadow-[0_1px_2px_rgba(0,0,0,.25)] transition-transform duration-150 ${
+          className={`absolute left-0.5 top-0.5 h-[14px] w-[14px] rounded-full bg-white shadow-[var(--shadow-floating-control)] transition-transform duration-150 ${
             value ? 'translate-x-[14px]' : 'translate-x-0'
           }`}
         />
@@ -159,12 +159,15 @@ export function PanelRadio<V extends string>({
   const n = options.length
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="flex items-baseline justify-between text-[rgba(41,38,27,0.72)]">
+      <div className="flex items-baseline justify-between text-floating-panel-text">
         <span className="font-medium">{label}</span>
       </div>
-      <div className="relative flex select-none rounded-lg bg-black/[0.06] p-0.5" role="radiogroup">
+      <div
+        className="relative flex select-none rounded-lg bg-floating-panel-radio-bg p-0.5"
+        role="radiogroup"
+      >
         <div
-          className="absolute bottom-0.5 top-0.5 rounded-md bg-white/90 shadow-[0_1px_2px_rgba(0,0,0,.12)] transition-[left,width] duration-150 ease-[cubic-bezier(.3,.7,.4,1)]"
+          className="absolute bottom-0.5 top-0.5 rounded-md bg-selected-soft shadow-[var(--shadow-floating-control)] transition-[left,width] duration-150 ease-[cubic-bezier(.3,.7,.4,1)]"
           style={{
             left: `calc(2px + ${idx} * (100% - 4px) / ${n})`,
             width: `calc((100% - 4px) / ${n})`
@@ -200,13 +203,13 @@ export function PanelSelect<V extends string>({
 }): React.JSX.Element {
   return (
     <label className="mb-3 block">
-      <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.12em] text-[#7a7464]">
+      <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.12em] text-floating-panel-label">
         {label}
       </span>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value as V)}
-        className="w-full cursor-pointer rounded-lg border border-black/10 bg-white/55 px-2.5 py-1.5 text-[11px] font-medium text-[#29261b] outline-none transition focus:border-[#8f7d5a]"
+        className="w-full cursor-pointer rounded-lg border border-floating-panel-border bg-floating-panel-thumb px-2.5 py-1.5 text-[11px] font-medium text-floating-panel-text outline-none transition focus:border-selected"
       >
         {options.map((o) => (
           <option key={o.value} value={o.value}>
@@ -235,9 +238,9 @@ export function PanelSlider({
 }): React.JSX.Element {
   return (
     <label className="mb-3 block">
-      <span className="mb-1 flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.12em] text-[#7a7464]">
+      <span className="mb-1 flex items-center justify-between text-[10px] font-semibold uppercase tracking-[0.12em] text-floating-panel-label">
         <span>{label}</span>
-        <span className="font-mono text-[#29261b]">{Math.round(value)}%</span>
+        <span className="font-mono text-floating-panel-text">{Math.round(value)}%</span>
       </span>
       <input
         type="range"
@@ -246,7 +249,7 @@ export function PanelSlider({
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="w-full accent-[#8f7d5a]"
+        className="w-full accent-selected"
       />
     </label>
   )

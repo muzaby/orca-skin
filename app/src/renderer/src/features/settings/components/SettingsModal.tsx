@@ -71,7 +71,7 @@ export function SettingsModal({ providerUsage }: SettingsModalProps): React.JSX.
                 aria-current={active ? 'page' : undefined}
                 className={`flex w-full cursor-pointer items-center gap-2.5 rounded-r4 border-0 px-2.5 py-1.5 text-left text-[13px] transition-colors ${
                   active
-                    ? 'bg-fill-uncontained-active font-medium text-t9'
+                    ? 'bg-selected-soft font-medium text-selected'
                     : 'bg-transparent text-t7 hover:bg-fill-uncontained-hover hover:text-t9'
                 }`}
               >
@@ -91,7 +91,7 @@ export function SettingsModal({ providerUsage }: SettingsModalProps): React.JSX.
                       aria-current={pactive ? 'page' : undefined}
                       className={`mt-0.5 flex w-full cursor-pointer items-center gap-2 rounded-r4 border-0 py-1 pl-9 pr-2.5 text-left text-[12.5px] transition-colors ${
                         pactive
-                          ? 'bg-fill-uncontained-active font-medium text-t9'
+                          ? 'bg-selected-soft font-medium text-selected'
                           : 'bg-transparent text-t6 hover:bg-fill-uncontained-hover hover:text-t9'
                       }`}
                     >

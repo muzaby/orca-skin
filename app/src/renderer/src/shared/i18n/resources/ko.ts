@@ -671,17 +671,6 @@ export const ko = {
       fontMono: '모노 (JetBrains Mono)',
       language: '언어',
       languageDesc: '앱 UI 와 날짜 표기에 적용되는 표시 언어',
-      scheduling: '주기적 실행',
-      usageRecompute: '사용량 새로고침',
-      usageRecomputeDesc: '앱이 실행 중일 때만 저장된 주기에 따라 사용량 집계를 다시 계산합니다.',
-      usageRecomputeToggle: '주기적 사용량 새로고침',
-      refreshInterval: '새로고침 주기',
-      refreshIntervalDesc: 'cron 표현식 또는 기본 프리셋을 선택하세요.',
-      presetHourly: '매시간',
-      preset30m: '30분마다',
-      presetDaily9: '매일 오전 9시',
-      presetCustom: '직접 입력',
-      cronAria: '사용량 새로고침 cron',
       notifications: '알림',
       notifyComplete: '응답 완료',
       notifyCompleteDesc: 'Agent가 응답을 완료하면 알림을 받습니다. (앱 창이 비활성일 때만 표시)',
@@ -694,7 +683,18 @@ export const ko = {
         ' 처럼 총 사용 비용, 토큰 사용량(입력·출력·캐시), 모델별 내역을 한눈에 볼 수 있는 요약을 제공할 예정입니다.',
       comingSoon: '추후 구현 예정',
       comingSoonDesc:
-        'provider별 사용량 한도와 지출 한도 설정은 좌측 하위 항목에서 확인할 수 있습니다.'
+        'provider별 사용량 한도와 지출 한도 설정은 좌측 하위 항목에서 확인할 수 있습니다.',
+      scheduling: '주기적 실행',
+      usageRecompute: '사용량 새로고침',
+      usageRecomputeDesc: '앱이 실행 중일 때만 저장된 주기에 따라 사용량 집계를 다시 계산합니다.',
+      usageRecomputeToggle: '주기적 사용량 새로고침',
+      refreshInterval: '새로고침 주기',
+      refreshIntervalDesc: 'cron 표현식 또는 기본 프리셋을 선택하세요.',
+      presetHourly: '매시간',
+      preset30m: '30분마다',
+      presetDaily9: '매일 오전 9시',
+      presetCustom: '직접 입력',
+      cronAria: '사용량 새로고침 cron'
     }
   },
   usage: {

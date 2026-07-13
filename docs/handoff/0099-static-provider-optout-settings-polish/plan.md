@@ -10,8 +10,8 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-07-13 |
 | 매핑 | PHASES 행 / PR (구현 후) |
-| 상태 | READY |
-| 구현 주체 | **Claude** (비기능 — 기본 주입 제거·UI 이동·게이트 fix·테마) |
+| 상태 | IMPL_DONE |
+| 구현 주체 | **Codex** (사용자 요청으로 구현 — 기본 주입 제거·UI 이동·게이트 fix·테마) |
 
 ## 사용자 의도 / 요구 출처 (Intent & Provenance)
 
@@ -159,3 +159,39 @@ cron 입력을 `직접 입력` 시에만 열며, 설정 모달·디버그 패널
 ---
 
 > **[구현자 기입]** 이하는 구현 턴(Claude 비기능)에서 채운다.
+
+## [구현자 기입] 설계 리뷰
+
+> 사용자 요청에 따라 Codex 가 구현했다.
+
+- **동의**: 사용자 요구의 핵심은 정적 provider 기본 주입 제거, 주기적 실행 UI 의 사용량 탭 이동, 설정/디버그 선택 상태의 blue token 통일로 해석했다. 0098 프레임워크(`ExternalUsageService`·scheduler·IPC)는 provider-agnostic 형태를 유지했다.
+- **core 무편집 해석**: "핵심 코드 무편집"은 `ExternalUsageService`·scheduler·IPC·tracker·provider enumeration·materializer 에 provider-name branch 를 추가하지 않는다는 의미로 구현했다. 실제 opt-in 활성화 지점은 배포 레지스트리 성격의 `features/providers/static/modules/index.ts` 한 곳이다.
+- **기존 사용자 영향**: 기존 `sources/settings/claude/{bedrock,vertex,custom}/settings.json` 파일은 삭제하지 않는다. 다만 기본 레지스트리에서 세 provider 가 빠졌으므로 모듈을 다시 opt-in 등록하기 전까지 외부 usage refresh 는 비활성이다.
+- **raw color grep 범위**: 컴포넌트 파일의 raw hex/rgb 를 제거하고 색상값은 `tokens.css` 로 수렴했다. `tokens.css` 자체의 token value hex 는 허용되는 디자인 토큰 정의로 보았다.
+- **공용 Toggle 영향**: `Toggle` atom 의 on 상태를 `bg-toggle-on` 으로 바꿨다. 설정 외 사용처(Skill detail)도 같은 공용 on/off semantics 로 보아 blue on 상태를 적용했다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응
+
+- ✅ **cron custom 선택 UX**: plan 의 단순 `isPreset = presets.some(cron)` 만 적용하면 preset 상태에서 `직접 입력` 선택 후 input 이 계속 disabled 될 수 있었다. `usageSchedule` view-model 과 `customSelected` UI state 를 추가해 custom 선택 즉시 input 이 활성화되도록 선조치했다.
+- ✅ **비활성 예시 템플릿 typecheck**: `_example` 모듈은 TypeScript 로 typecheck 되되 `modules/index.ts` 에서 import 하지 않아 기본 부팅/번들 활성 경로에 들어가지 않는다. config-sugar 예시는 실제 `UsageReportConfig` 타입에 맞춰 컴파일 가능하게 유지했다.
+- ✅ **scheduler no-op 관계**: static provider 5분 refresh scheduler 는 기존대로 유지했다. 기본 provider registry 가 0개이므로 refresh 대상은 0개이며, 이번 UI 의 `주기적 실행`은 기존 usage recompute tweak 이동만 담당한다.
+
+## [구현자 기입] 변경 파일
+
+- `app/src/main/features/providers/static/index.ts` — 기본 provider 목록을 opt-in registry 로 위임하고 기본 활성 0으로 전환.
+- `app/src/main/features/providers/static/modules/{index.ts,_example/index.ts}` — opt-in registry 와 비활성 예시 템플릿 추가.
+- `app/src/main/features/providers/static/index.test.ts` — 기본 0·settings 미생성·명시 모듈 materialize 회귀 테스트 추가.
+- `app/src/renderer/src/features/settings/components/{GeneralTab,UsageTab,SettingsModal}.tsx` — 스케줄링 UI 이동, custom cron 활성 UX, blue 선택 상태 적용.
+- `app/src/renderer/src/features/settings/lib/usageSchedule.{ts,test.ts}` — cron select/input view-model 및 회귀 테스트 추가.
+- `app/src/renderer/src/shared/i18n/resources/{ko,en}.ts` — 스케줄링 i18n 키를 `settings.usage.*` 로 이동.
+- `app/src/renderer/src/styles/tokens.css`, `app/src/renderer/src/shared/ui/{Toggle,FloatingPanel}.tsx` — blue control tokens 및 FloatingPanel tokenization.
+- `app/src/main/AGENTS.md`, `docs/arch/backend/standardization.md` — 정적 usage provider opt-in 확장 규칙 문서화.
+- `docs/handoff/INDEX.md` — 구현 완료 상태로 갱신.
+
+## [구현자 기입] 실행 명령 / 게이트 결과
+
+- ✅ `cd app && npm run format`
+- ✅ `cd app && npm run lint`
+- ✅ `cd app && npm run typecheck`
+- ✅ `cd app && npm test` — Vitest 838/838, node:test scripts 24/24.
+- ⚠️ `test -n "$DISPLAY"` — headless/non-interactive 환경에 DISPLAY 가 없어 Electron UI screenshot 은 캡처하지 못함.
