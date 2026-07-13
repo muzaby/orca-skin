@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useTweakContext } from '../../../shared/theme'
 import { settingsApi } from '../../../shared/api/ipc'
-import { Toggle } from '../../../shared/ui/Toggle'
 import { Icon } from '../../../shared/ui/Icon'
+import { Toggle } from '../../../shared/ui/Toggle'
 import { AutoGrowTextarea } from '../../../shared/ui/AutoGrowTextarea'
 import { useI18n, type UiLocale } from '../../../shared/i18n'
 import type { ThemeId } from '../../../shared/config/theme'
@@ -15,12 +15,6 @@ const FONT_OPTIONS = [
   { value: 'serif', labelKey: 'settings.general.fontSerif' },
   { value: 'mono', labelKey: 'settings.general.fontMono' }
 ] as const satisfies readonly { value: AppFontId; labelKey: string }[]
-
-const USAGE_RECOMPUTE_PRESETS = [
-  { value: '0 */1 * * *', labelKey: 'settings.general.presetHourly' },
-  { value: '*/30 * * * *', labelKey: 'settings.general.preset30m' },
-  { value: '0 9 * * *', labelKey: 'settings.general.presetDaily9' }
-] as const
 
 const THEME_OPTIONS = [
   { value: 'white', labelKey: 'settings.general.themeWhite', icon: 'sun' },
@@ -112,7 +106,7 @@ export function GeneralTab(): React.JSX.Element {
                   onClick={() => setTweak('theme', opt.value)}
                   className={`flex cursor-pointer items-center gap-1.5 rounded-r4 border-0 px-2.5 py-1 text-[12.5px] transition-colors ${
                     active
-                      ? 'bg-fill-selected text-ink'
+                      ? 'bg-selected-soft text-selected'
                       : 'bg-transparent text-ink3 hover:bg-fill-uncontained-hover hover:text-ink2'
                   }`}
                 >
@@ -156,74 +150,6 @@ export function GeneralTab(): React.JSX.Element {
               </option>
             ))}
           </select>
-        </SettingsRow>
-      </SettingsGroup>
-
-      <SettingsGroup title={tr('settings.general.scheduling')}>
-        <SettingsRow
-          label={tr('settings.general.usageRecompute')}
-          description={tr('settings.general.usageRecomputeDesc')}
-        >
-          <Toggle
-            on={t.scheduler.usageRecompute.enabled}
-            onClick={() =>
-              setTweak('scheduler', {
-                ...t.scheduler,
-                usageRecompute: {
-                  ...t.scheduler.usageRecompute,
-                  enabled: !t.scheduler.usageRecompute.enabled
-                }
-              })
-            }
-            label={tr('settings.general.usageRecomputeToggle')}
-          />
-        </SettingsRow>
-
-        <SettingsRow
-          label={tr('settings.general.refreshInterval')}
-          description={tr('settings.general.refreshIntervalDesc')}
-        >
-          <div className="flex flex-col gap-2">
-            <select
-              value={
-                USAGE_RECOMPUTE_PRESETS.some((p) => p.value === t.scheduler.usageRecompute.cron)
-                  ? t.scheduler.usageRecompute.cron
-                  : 'custom'
-              }
-              onChange={(e) => {
-                if (e.target.value === 'custom') return
-                setTweak('scheduler', {
-                  ...t.scheduler,
-                  usageRecompute: { ...t.scheduler.usageRecompute, cron: e.target.value }
-                })
-              }}
-              className="cursor-pointer rounded-r4 border border-border bg-bg px-2.5 py-1.5 text-[12.5px] text-ink outline-none focus:border-border-strong"
-            >
-              {USAGE_RECOMPUTE_PRESETS.map((preset) => (
-                <option key={preset.value} value={preset.value}>
-                  {tr(preset.labelKey)}
-                </option>
-              ))}
-              <option value="custom">{tr('settings.general.presetCustom')}</option>
-            </select>
-            <input
-              key={t.scheduler.usageRecompute.cron}
-              defaultValue={t.scheduler.usageRecompute.cron}
-              onBlur={(e) => {
-                const next = e.currentTarget.value.trim()
-                if (!next || next === t.scheduler.usageRecompute.cron) return
-                setTweak('scheduler', {
-                  ...t.scheduler,
-                  usageRecompute: { ...t.scheduler.usageRecompute, cron: next }
-                })
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') e.currentTarget.blur()
-              }}
-              aria-label={tr('settings.general.cronAria')}
-              className="w-48 rounded-r4 border border-border bg-bg px-2.5 py-1.5 font-mono text-[12.5px] text-ink outline-none focus:border-border-strong"
-            />
-          </div>
         </SettingsRow>
       </SettingsGroup>
 
