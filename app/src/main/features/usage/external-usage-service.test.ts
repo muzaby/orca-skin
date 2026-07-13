@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { ExternalUsageService } from './external-usage-service'
 import type { ExternalUsageProvider, StaticUsageProviderModule } from '../../contracts/usage-report'
-import type { CostSummary } from '../../../shared/ipc'
+import type { CostSummary, ExternalUsageReport } from '../../../shared/ipc'
 
 function summary(month = 10): CostSummary {
   const period = {
@@ -24,6 +24,15 @@ function db(): {
     upsertProviderUsageReport: (next: { reportJson: string }) => {
       row = { report_json: next.reportJson }
     }
+  }
+}
+
+function report(providerKey: string, fetchedAt: number, usedUsd: number): ExternalUsageReport {
+  return {
+    providerKey,
+    fetchedAt,
+    source: 'external',
+    quota: { usedUsd, limitUsd: 100, remainingUsd: 100 - usedUsd }
   }
 }
 
@@ -62,5 +71,143 @@ describe('ExternalUsageService', () => {
       limitUsd: 100,
       remainingUsd: 20
     })
+  })
+
+  it('calls provider-owned usage hook with framework context and persists its report', async () => {
+    const backingDb = db()
+    const fetchImpl = vi.fn()
+    const provider: ExternalUsageProvider = {
+      async fetchUsageReport(ctx) {
+        expect(ctx.providerKey).toBe('claude-enterprise')
+        expect(ctx.fetch).toBe(fetchImpl)
+        expect(ctx.signal).toBeInstanceOf(AbortSignal)
+        expect(ctx.env).toBe(process.env)
+        expect(ctx.settings).toEqual({ env: { USAGE_ENDPOINT: 'https://usage.example' } })
+        expect(ctx.clock()).toBe(200)
+
+        ctx.store.set('token', { value: 'cached', expiresAt: 300 })
+        expect(ctx.store.get('token')).toEqual({ value: 'cached', expiresAt: 300 })
+
+        ctx.secret.set('refresh-token', 'next-token')
+        expect(ctx.secret.get('refresh-token')).toBe('next-token')
+        ctx.logger('hook invoked', { providerKey: ctx.providerKey })
+
+        return report(ctx.providerKey, ctx.clock(), 40)
+      }
+    }
+    const secrets = new Map<string, string>()
+    const logger = vi.fn()
+    const service = new ExternalUsageService({
+      db: backingDb as never,
+      secretStore: {
+        get: (key: string) => secrets.get(key),
+        set: (key: string, value: string) => {
+          secrets.set(key, value)
+        }
+      } as never,
+      providers: [
+        {
+          adapter: 'claude',
+          provider: 'enterprise',
+          defaultSettings: { env: { USAGE_ENDPOINT: 'https://usage.example' } },
+          usage: { provider }
+        }
+      ],
+      fetchImpl: fetchImpl as never,
+      clock: () => 200,
+      logger
+    })
+
+    await expect(service.refresh('claude-enterprise')).resolves.toMatchObject({
+      providerKey: 'claude-enterprise',
+      quota: { usedUsd: 40 }
+    })
+    expect(backingDb.getProviderUsageReport()?.report_json).toContain('"usedUsd":40')
+    expect(secrets.get('provider:claude-enterprise:refresh-token')).toBe('next-token')
+    expect(logger).toHaveBeenCalledWith('hook invoked', { providerKey: 'claude-enterprise' })
+  })
+
+  it('falls back to cached report when hook returns null', async () => {
+    const backingDb = db()
+    const service = new ExternalUsageService({
+      db: backingDb as never,
+      secretStore: { get: () => undefined, set: () => undefined } as never,
+      providers: [
+        {
+          adapter: 'claude',
+          provider: 'cached',
+          defaultSettings: {},
+          usage: {
+            provider: {
+              async fetchUsageReport() {
+                return report('claude-cached', 100, 70)
+              }
+            }
+          }
+        }
+      ],
+      clock: () => 100
+    })
+    await service.refresh('claude-cached')
+
+    const fallbackService = new ExternalUsageService({
+      db: backingDb as never,
+      secretStore: { get: () => undefined, set: () => undefined } as never,
+      providers: [
+        {
+          adapter: 'claude',
+          provider: 'cached',
+          defaultSettings: {},
+          usage: {
+            provider: {
+              async fetchUsageReport() {
+                return null
+              }
+            }
+          }
+        }
+      ],
+      clock: () => 200
+    })
+
+    await expect(fallbackService.refresh('claude-cached')).resolves.toMatchObject({
+      providerKey: 'claude-cached',
+      quota: { usedUsd: 70 }
+    })
+    expect(fallbackService.entry('claude-cached', summary(10), 50).effectiveLimit).toMatchObject({
+      source: 'external',
+      usedUsd: 70,
+      stale: true
+    })
+  })
+
+  it('treats static provider modules as provider-agnostic registry entries', async () => {
+    const calls: string[] = []
+    const modules: StaticUsageProviderModule[] = ['alpha', 'beta'].map((provider) => ({
+      adapter: 'claude',
+      provider,
+      defaultSettings: {},
+      usage: {
+        provider: {
+          async fetchUsageReport(ctx) {
+            calls.push(ctx.providerKey)
+            return report(ctx.providerKey, 100, ctx.providerKey === 'claude-alpha' ? 1 : 2)
+          }
+        }
+      }
+    }))
+    const service = new ExternalUsageService({
+      db: db() as never,
+      secretStore: { get: () => undefined, set: () => undefined } as never,
+      providers: modules,
+      clock: () => 100
+    })
+
+    expect(service.hasProvider('claude-alpha')).toBe(true)
+    expect(service.hasProvider('claude-beta')).toBe(true)
+    expect(service.hasProvider('claude-bedrock')).toBe(false)
+
+    await service.refreshAll()
+    expect(calls.sort()).toEqual(['claude-alpha', 'claude-beta'])
   })
 })
