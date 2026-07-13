@@ -151,4 +151,4 @@
 | 실행 명령 | `npm run lint` / `npm run typecheck` / `npx vitest run` / `node --test scripts/*.test.mjs` |
 | 게이트 결과 | lint ✅ 0 / typecheck 3종 ✅ 0 / vitest 804 passed·32 failed(=0098/0099 동일 better-sqlite3 네이티브 ABI 베이스라인 6파일, 격리 재실행으로 동일 집합 확인) / 관련 스위트(time·usage·i18n) 32/32 ✅ / scripts 24/24 ✅ |
 | 블로커 / 역질문 | 없음 |
-| 대상 커밋 | (커밋 후 INDEX 에 기재) |
+| 대상 커밋 | `ac12ebd` |
