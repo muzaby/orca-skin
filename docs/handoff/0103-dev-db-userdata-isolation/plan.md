@@ -127,3 +127,18 @@ dev(`npm run dev`)와 prod가 동일한 `<userData>/orca.db`를 공유한다. `u
 | 게이트 결과 | lint 0 errors(경고 1=0102 TanStack 수용) ✅ · typecheck 3종 0 ✅ · vitest 810/842(32 red=better-sqlite3 네이티브 ABI egress-403 환경 제한, 6파일 전부 DB 로드·본 변경 무관·0099/0100 동일 베이스라인) · `paths.test.ts` 14/14 green ✅ |
 | 블로커 / 역질문 | 없음. 인수 #2(prod dead-code)·plan 검증 #2/#3(dev 실행·build 산출)은 electron 바이너리 403 로 이 환경에서 실기 불가 → 네트워크 완전환경/사람 실기 대기(0019·0102 선례). `import.meta.env.DEV` 정적 치환은 vite 보장. |
 | 대상 커밋 | `9640438` |
+
+## [구현자 기입] 후속 문서 작업 — better-sqlite3 ABI 제약 환경 게이트 가이드
+
+> 사용자 요청(후속): "sqlite abi 이슈로 테스트 실패가 계속 발생하는데 테스트 환경을 맞추면 실행파일
+> 생성에서 실패한다 — `app/AGENTS.md` 에 에이전트가 실패하지 않도록 가이드하라." 0103 이 다룬
+> dev-db/테스트-환경 주제에 인접하므로 본 핸드오프의 후속 문서 작업으로 편입.
+
+- **문제**: Node ABI(vitest) ↔ Electron ABI(dev/build) 상호배타 + 에이전트 환경 electron egress 403.
+  에이전트가 (a) DB 로드 스위트 실패를 자기 회귀로 오인 보고, (b) ABI 를 앞뒤로 뒤집으며 green 을
+  쫓다 "테스트 맞추면 build 실패" 순환에 빠짐.
+- **변경**: `app/AGENTS.md` §빌드/실행 의 단일 ABI 노트를 소제목 블록으로 확장 —
+  실패 서명 목록 + DO/DON'T(설치는 `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci`·게이트는 lint/typecheck/
+  순수 vitest·DB 스위트 실패는 baseline 분리 보고·ABI 뒤집기 금지·electron 로딩/build 검증은 CI/사람 몫).
+- **근거**: `scripts/ensure-sqlite-abi.mjs:25-37`·`package.json` scripts·본 세션 재현 서명·0019/0099/0100/0102 선례.
+- **게이트**: 문서 변경(코드 무관). 실패 서명 문자열은 실제 관측값과 1:1 대조.
