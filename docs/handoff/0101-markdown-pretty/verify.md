@@ -64,3 +64,54 @@ $ npx vitest run src/renderer → 29 files, 243/243 passed
 ## 결론 / 다음 단계
 
 - 상태: **PASS**. 사람 시각 검증 대기(비차단). 다음: 0102-transcript-virtualization 구현.
+
+---
+
+# Verify — 라운드 2 (언어 없는 펜스 코드블록 인라인 오분류 수정)
+
+| 항목 | 값 |
+|---|---|
+| 검증자 | Claude Code |
+| 일자 | 2026-07-14 |
+| 대상 커밋 | (impl 커밋) |
+| 라운드 | 2 |
+| 상태 | PASS |
+
+## 구현자 코멘트 확인
+
+| 코멘트 | 판단 |
+|---|---|
+| 블로커 없음 | 타당 |
+| DB 스위트 ABI-403 미로드 | 타당 — 순수 UI/헬퍼, DB 무관 (0101 r1·0098~0102 동일 베이스라인) |
+
+## 요구사항 충족 매트릭스 (라운드 2)
+
+| # | 인수 기준 | 충족 | 증거 |
+|---|---|---|---|
+| 6 | 언어 없는 다중행 펜스 → CodeBlock(블록) | ✅ | `isCodeBlock.ts`(개행 신호) → `Markdown.tsx:110-121` `code` 가 `!isCodeBlock` 아닐 때 `<CodeBlock>` 반환 · 테스트 "언어 없는 다중행 펜스 → true"(`isCodeBlock.test.ts`) |
+| 7 | 언어 펜스·인라인·들여쓰기 판정 정확(회귀 0) | ✅ | 테스트 5-케이스(언어 펜스·다중행·단일행 블록·인라인·빈문자열) · renderer 248/248 green |
+| 8 | 판정 순수 함수 분리 + 단위 테스트 | ✅ | `shared/ui/markdown/isCodeBlock.ts` + `isCodeBlock.test.ts`(5 케이스) |
+| 9 | 인라인 코드 배경 = border 컬러(`bg-panel`→`bg-border`) | ✅ | `Markdown.tsx:113` `border border-border bg-border` (동일 `--color-border` 토큰, 양 테마 자동) |
+| 10 | 신규 의존성 0 · 게이트 통과 | ✅ | package.json 무변경 · lint 0 · typecheck 3종 0 · renderer 248/248 |
+
+## 게이트 재실행 (라운드 2)
+
+```
+$ npm run lint            → exit 0 (경고 1 = 0102 TanStack, 무관)
+$ npm run typecheck       → exit 0 (node/web/test 3종)
+$ npx vitest run src/renderer → 30 files, 248/248 passed (+5 isCodeBlock)
+```
+
+## 검증 책임 분리 (라운드 2)
+
+| 항목 | 에이전트 | 사람 | 결과 |
+|---|---|---|---|
+| 게이트 lint/typecheck/test | ✅ | — | 0 / 0 / 248/248 |
+| 인수 6~10 ↔ 코드 대조 | ✅ | 이견 시 중재 | 5/5 |
+| 판정 로직 회귀(순수 테스트) | ✅ | — | 5 케이스 green |
+| UI 시각 검증(트리 블록·인라인 배경 톤·테마 2종) | ✖ | ✅ | **사람 확인 대기** |
+| PR 머지 | ✖ | ✅ | 대기 |
+
+## 결론
+
+- 라운드 2 상태: **PASS**. 인수 6~10 기계 판정 충족. 사람 시각 검증(언어 없는 트리 펜스가 코드블록으로 렌더 · 인라인 코드 배경 border 톤 · white/dark)은 비차단 대기.

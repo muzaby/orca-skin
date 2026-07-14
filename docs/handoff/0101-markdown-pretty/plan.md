@@ -120,3 +120,35 @@ cdesktop 벤치마킹에서, Orca transcript는 코드블록 미감(shiki)·스�
 | 블로커 / 역질문 | 없음 |
 
 > 시각 검증(테마 2종·태스크리스트·정렬표·취소선·h5/h6 육안)은 사람 확인 대기(책임 분리표).
+
+---
+
+## 파생 이슈 (Derived Issues) — 라운드 2 (Claude, 비기능)
+
+> 라운드 1(PASS) 이후 사용자 리포트로 드러난 **같은 파일(`Markdown.tsx`)·같은 주제** 의 잔여 버그. 0101 이 비범위로 둔 `code`/`pre` 경로다. 사용자 지시("101 핸드오프를 이어서 작업하라")로 라운드 2 재개.
+
+### 증상
+
+언어 헤더 없이 ` ``` ` 펜스로 트리 구조 등을 출력하면, 코드블록이 아니라 **작은 인라인 코드("단일 백틱 문자")** 로 렌더된다.
+
+### 원인
+
+`Markdown.tsx` 의 `code` 컴포넌트가 `const inline = !className` 로 인라인을 판정했다. `react-markdown@^9` 는 `inline` prop 을 제거했고, **언어 없는 펜스**·4칸 들여쓰기 코드블록은 `<code>` 에 `language-*` 클래스가 붙지 않아 `!className===true` → 인라인 오분류. `pre` 오버라이드(`<>{children}</>`)가 블록 래퍼를 벗기므로 블록 외형 복원 경로도 없었다.
+
+### 라운드 2 인수 기준
+
+6. 언어 없는 다중행 ` ``` ` 펜스(트리 구조)가 **CodeBlock(블록)** 으로 렌더된다(인라인 아님).
+7. 언어 있는 펜스·인라인 코드(` `x` `)·4칸 들여쓰기 블록의 판정이 정확하다(회귀 없음).
+8. 판정 로직이 순수 함수(`isCodeBlock`)로 분리되고 단위 테스트로 고정된다.
+9. **인라인 코드 배경을 border 컬러에 맞춘다**(사용자 추가 요구): `bg-panel` → `bg-border`(테두리·배경 동일 `--color-border` 토큰, 양 테마 자동 대응).
+10. 신규 의존성 0. `cd app && npm run lint && npm run typecheck && npx vitest run src/renderer` 통과.
+
+### 라운드 2 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `shared/ui/markdown/Markdown.tsx`(`code` 판정 교체 + 인라인 `bg-border`) · `shared/ui/markdown/isCodeBlock.ts`(신규 순수 헬퍼) · `shared/ui/markdown/isCodeBlock.test.ts`(신규 단위 테스트) |
+| 설계 | `isCodeBlock(className, text) = Boolean(className) || text.includes('\n')` — 인라인 코드는 개행 불포함(CommonMark), 블록 코드는 언어 유무와 무관하게 후행/내부 개행 보유 |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `npx vitest run src/renderer` |
+| 게이트 결과 | lint ✅ 0 errors(경고 1=0102 TanStack, 무관) · typecheck 3종 ✅ 0 · renderer **248/248**(30 files, +5 isCodeBlock) ✅ (DB 스위트는 ABI-403 베이스라인 미로드) |
+| 블로커 | 없음 |
