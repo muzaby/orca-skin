@@ -126,4 +126,4 @@ dev(`npm run dev`)와 prod가 동일한 `<userData>/orca.db`를 공유한다. `u
 | 실행 명령 | `npm run lint` / `typecheck` / `vitest run` |
 | 게이트 결과 | lint 0 errors(경고 1=0102 TanStack 수용) ✅ · typecheck 3종 0 ✅ · vitest 810/842(32 red=better-sqlite3 네이티브 ABI egress-403 환경 제한, 6파일 전부 DB 로드·본 변경 무관·0099/0100 동일 베이스라인) · `paths.test.ts` 14/14 green ✅ |
 | 블로커 / 역질문 | 없음. 인수 #2(prod dead-code)·plan 검증 #2/#3(dev 실행·build 산출)은 electron 바이너리 403 로 이 환경에서 실기 불가 → 네트워크 완전환경/사람 실기 대기(0019·0102 선례). `import.meta.env.DEV` 정적 치환은 vite 보장. |
-| 대상 커밋 | (push 후 기입) |
+| 대상 커밋 | `9640438` |
