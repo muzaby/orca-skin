@@ -53,8 +53,8 @@ export const TranscriptView = memo(function TranscriptView({
   // "virtualized head + unvirtualized tail" (0102) — 마지막(스트리밍) 교환은 비가상 tail 로
   // 렌더해 0008 예약공간 앵커(min-h-[50cqh]) + useScrollAnchor 계약을 보존하고, 과거 확정
   // 교환들(head)만 가상화해 화면 밖 shiki/DOM 상주 비용을 시야로 제한한다.
-  const head = useMemo(() => (exchanges.length > 0 ? exchanges.slice(0, -1) : []), [exchanges])
-  const tail = exchanges.length > 0 ? exchanges[exchanges.length - 1] : undefined
+  const head = useMemo(() => exchanges.slice(0, -1), [exchanges])
+  const tail = exchanges.at(-1)
   const virtualizer = useTranscriptVirtualizer(head, scrollRef)
   const virtualItems = virtualizer.getVirtualItems()
   const totalSize = virtualizer.getTotalSize()
