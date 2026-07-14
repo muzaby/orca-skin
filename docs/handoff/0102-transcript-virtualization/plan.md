@@ -118,3 +118,24 @@
 - [x] 의존 기술 — 신규 의존성 승인 상태·문서 갱신 대상 명시.
 - [x] 파생 UX — 빈세션/전환/shiki/스크롤/검색 트레이드오프 펼침.
 - [x] 리스크 — 0008 회귀를 최우선 리스크로, tail 비가상화 완화책·롤백 조건 명시.
+
+---
+
+## [구현자 기입] 구현 보고 (Claude, 비기능)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 신규 `hooks/useTranscriptVirtualizer.ts` · 수정 `components/transcript/TranscriptView.tsx` · `package.json`(+`@tanstack/react-virtual@^3.14.6`) · 문서 `docs/TRD.md §2`·`app/AGENTS.md` |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `npx vitest run src/renderer` |
+| 게이트 결과 | lint ✅ exit 0(경고 1 = `react-hooks/incompatible-library`: TanStack Virtual↔React Compiler 알려진 상호작용, 컴파일 스킵일 뿐 오류 아님) · typecheck 3종 ✅ 0 · renderer 243/243 ✅ |
+| 구현 요약 | `exchanges`를 head(`slice(0,-1)`)/tail(마지막)로 분할. head 만 `useVirtualizer`(count=head.length, key=startIndex, overscan 6, estimate 240px, measureElement)로 스페이서+absolute 배치. tail 은 비가상 렌더로 `reserve`/`pending`/`forkable`/`error`/`pendingSteer` 유지 → 0008 앵커 보존. head 항목 간 간격은 flex gap 대신 `pb-[var(--chat-turn-gap)]`(측정 높이 포함). |
+| 블로커 / 역질문 | **런타임 검증 불가** — 이 환경은 electron 바이너리 egress 403(0019 verify 동일 제약)으로 `npm run dev`/`build` 실행 불가. 인수 1~5(언마운트·앵커·스크롤 복원·점프버튼·성능 실측)는 사람 실기 확인 필요. |
+| 대상 커밋 | `621b5f2` |
+
+## [구현자 기입] 놓친 잠재 문제 + 대응
+
+| # | 놓친 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 가상화 도입으로 스크롤/자동추종 프레임에 `TranscriptView`가 깨어남(0007/0008 가정 변화) | ✅ head/tail 의 `<Exchange>`가 memo(`exchangeEquals`)라 대부분 bail — 재계산은 virtualItems 창으로 한정. 상단 doc 주석 갱신 | `TranscriptView.tsx:27-34` |
+| 2 | head 항목 absolute 배치로 flex gap 미적용 → 간격 소실 | ✅ 각 항목 `pb-[var(--chat-turn-gap)]`(측정 포함)로 균일 간격 | `TranscriptView.tsx:97-105` |
+| 3 | 초기 로드/성장 시 바닥 정렬 드리프트 | ⚠️ 보고만 — TanStack 기본 `shouldAdjustScrollPositionOnItemSizeChange`(뷰포트 위 아이템 보정)에 의존. 실제 무점프는 사람 실기 확인(인수 2) | 설계 §리스크 R1/R4 |
