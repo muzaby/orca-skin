@@ -106,3 +106,17 @@ cdesktop 벤치마킹에서, Orca transcript는 코드블록 미감(shiki)·스�
 - [x] 의존 기술 — 신규 의존성 0 명시.
 - [x] 파생 UX — 테마/체크박스 읽기전용/중첩/a11y 펼침.
 - [x] 리스크 — 오적용·스타일 유입 완화책, Open Question 없음.
+
+---
+
+## [구현자 기입] 구현 보고 (Claude, 비기능)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `app/src/renderer/src/shared/ui/markdown/Markdown.tsx` (유일) |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `npx vitest run src/renderer` |
+| 게이트 결과 | lint ✅ 0 · typecheck 3종 ✅ 0 · renderer 243/243 ✅ (better-sqlite3 DB 테스트는 환경 ABI-403 베이스라인이라 미실행 — 본 변경 무관·순수 UI) |
+| 구현 요약 | `h5`/`h6`(12.5/12px 톤 연장)·`del`(취소선)·`input[checkbox]`(disabled readOnly, accent-rust)·`li`(task-list-item → list-none)·`th/td`(style 전달로 GFM 정렬 보존) 추가. 신규 의존성 0, CodeBlock/StreamingMarkdown 무변경. |
+| 블로커 / 역질문 | 없음 |
+
+> 시각 검증(테마 2종·태스크리스트·정렬표·취소선·h5/h6 육안)은 사람 확인 대기(책임 분리표).
