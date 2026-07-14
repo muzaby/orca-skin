@@ -110,9 +110,9 @@ const COMPONENTS: Components = {
     const { children, className } = props as { children?: React.ReactNode; className?: string }
     const text = String(children ?? '')
     if (!isCodeBlock(className, text)) {
-      // 인라인 코드 — 배경을 border 토큰에 맞춰 채운 칩(테두리·배경 동일 `--color-border`).
+      // 인라인 코드 — 테두리·배경을 사용자 메시지 버블 배경(`--color-bubble-user`)으로 통일.
       return (
-        <code className="rounded border border-border bg-border px-1 py-[1px] font-mono text-[12px] text-ink">
+        <code className="rounded border border-bubble-user bg-bubble-user px-1 py-[1px] font-mono text-[12px] text-ink">
           {children}
         </code>
       )

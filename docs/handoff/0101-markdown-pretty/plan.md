@@ -140,7 +140,7 @@ cdesktop 벤치마킹에서, Orca transcript는 코드블록 미감(shiki)·스�
 6. 언어 없는 다중행 ` ``` ` 펜스(트리 구조)가 **CodeBlock(블록)** 으로 렌더된다(인라인 아님).
 7. 언어 있는 펜스·인라인 코드(` `x` `)·4칸 들여쓰기 블록의 판정이 정확하다(회귀 없음).
 8. 판정 로직이 순수 함수(`isCodeBlock`)로 분리되고 단위 테스트로 고정된다.
-9. **인라인 코드 배경을 border 컬러에 맞춘다**(사용자 추가 요구): `bg-panel` → `bg-border`(테두리·배경 동일 `--color-border` 토큰, 양 테마 자동 대응).
+9. **인라인 코드 테두리·배경을 사용자 메시지 버블 배경으로 통일**(사용자 추가 요구): `bg-panel`+`border-border` → `bg-bubble-user`+`border-bubble-user`(`--color-bubble-user` 토큰, 양 테마 자동 대응).
 10. 신규 의존성 0. `cd app && npm run lint && npm run typecheck && npx vitest run src/renderer` 통과.
 11. **언어 헤더가 없는 코드블록은 헤더 라벨을 `text` 로 표기**(사용자 추가 요구): `CodeBlock` 라벨 폴백 `(lang ?? '')` → `lang || 'text'`(언어 식별자 라벨이므로 로케일 무관 원문 유지, 기존 `typescript`/`json` 라벨 관례와 동일). 명시 언어는 그대로 표기.
 

@@ -91,7 +91,7 @@ $ npx vitest run src/renderer → 29 files, 243/243 passed
 | 6 | 언어 없는 다중행 펜스 → CodeBlock(블록) | ✅ | `isCodeBlock.ts`(개행 신호) → `Markdown.tsx:110-121` `code` 가 `!isCodeBlock` 아닐 때 `<CodeBlock>` 반환 · 테스트 "언어 없는 다중행 펜스 → true"(`isCodeBlock.test.ts`) |
 | 7 | 언어 펜스·인라인·들여쓰기 판정 정확(회귀 0) | ✅ | 테스트 5-케이스(언어 펜스·다중행·단일행 블록·인라인·빈문자열) · renderer 248/248 green |
 | 8 | 판정 순수 함수 분리 + 단위 테스트 | ✅ | `shared/ui/markdown/isCodeBlock.ts` + `isCodeBlock.test.ts`(5 케이스) |
-| 9 | 인라인 코드 배경 = border 컬러(`bg-panel`→`bg-border`) | ✅ | `Markdown.tsx:113` `border border-border bg-border` (동일 `--color-border` 토큰, 양 테마 자동) |
+| 9 | 인라인 코드 테두리·배경 = 사용자 버블 배경 | ✅ | `Markdown.tsx:113` `border border-bubble-user bg-bubble-user` (`--color-bubble-user` 토큰, 양 테마 자동) |
 | 10 | 신규 의존성 0 · 게이트 통과 | ✅ | package.json 무변경 · lint 0 · typecheck 3종 0 · renderer 248/248 |
 | 11 | 언어 없는 코드블록 헤더 라벨 `text` | ✅ | `CodeBlock.tsx:106` `safeLang !== 'text' ? safeLang : lang || 'text'` (명시 언어는 유지, 미지정만 `text`) |
 
