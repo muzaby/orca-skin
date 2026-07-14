@@ -7,8 +7,18 @@ import icon from '../../resources/icon.png?asset'
 import iconIco from '../../resources/icon.ico?asset'
 import { Bootstrap } from './app/bootstrap'
 import { closeDb } from './infra/db'
+import { devUserDataDir } from './infra/config/paths'
 import { CHANNELS } from '../shared/ipc'
 import type { SettingsStore } from './infra/settings-store'
+
+// dev(`npm run dev`) 데이터를 실제 설치본과 격리한다. userData 는 app.getName()(dev·prod 모두 `orca`)
+// 에서 파생돼 같은 폴더로 해석되므로, dev 에서만 sibling `orca-dev` 로 리디렉션한다. 이후 DB·WAL·
+// 마이그레이션 백업·secret-store 가 모두 이 폴더 아래로 격리된다(하위 코드는 getPath('userData') 만 참조).
+// app.setPath('userData') 는 app.whenReady() *이전* 에 호출돼야 하므로 이 모듈 스코프에 둔다. prod
+// 번들에선 import.meta.env.DEV 상수 치환으로 이 블록이 dead-code 제거된다.
+if (import.meta.env.DEV) {
+  app.setPath('userData', devUserDataDir(app.getPath('appData')))
+}
 
 // will-quit(모듈 스코프)에서 종료 정리를 호출하기 위한 라우터 참조. whenReady 에서 채워진다.
 let routerRef: Bootstrap | null = null

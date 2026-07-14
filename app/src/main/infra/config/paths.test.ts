@@ -2,6 +2,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import {
+  devUserDataDir,
   getWorkspacePath,
   isWithinDir,
   projectsDir,
@@ -70,6 +71,12 @@ describe('getWorkspacePath', () => {
 
   it('projectsDir 는 ~/.config/orca/projects', () => {
     expect(projectsDir()).toBe(root)
+  })
+})
+
+describe('devUserDataDir', () => {
+  it('appData 하위 sibling `orca-dev` 를 반환한다', () => {
+    expect(devUserDataDir(join('/x', 'AppData'))).toBe(join('/x', 'AppData', 'orca-dev'))
   })
 })
 

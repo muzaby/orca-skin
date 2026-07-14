@@ -29,6 +29,15 @@ export function orcaConfigDir(): string {
   return join(homedir(), '.config', 'orca')
 }
 
+// dev(`npm run dev`) 전용 userData 디렉토리 — prod `<appData>/orca` 와 sibling `<appData>/orca-dev`.
+// userData 는 Electron 이 app.getName()(dev·prod 모두 `orca`)에서 파생하므로 기본값은 dev·prod 가
+// 같은 폴더를 공유한다. dev 에서만 여기로 리디렉션해 DB·WAL·마이그레이션 백업·secret-store 를 통째로
+// 격리한다(개발 중 마이그레이션/데이터 변경이 실제 설치본을 오염시키지 않도록). 호출은 index.ts 가
+// import.meta.env.DEV 게이트로 감싸 prod 번들에서 dead-code 제거되게 한다.
+export function devUserDataDir(appDataDir: string): string {
+  return join(appDataDir, 'orca-dev')
+}
+
 // 정규 소스 루트(사람 편집 SSOT).
 export function sourcesDir(): string {
   return join(orcaConfigDir(), 'sources')
