@@ -79,7 +79,7 @@ new BrowserWindow({
 ## DB · 캐시 정책 (app 고유)
 
 - `better-sqlite3@^12` raw + prepared statements. 12.x 메이저 = Electron 39 V8 ABI 호환 (11.x 비호환, Windows prebuild 포함). ORM 미도입 — Drizzle 재검토는 Phase 4.
-- **DB 위치** `<userData>/orca.db` (`app.getPath('userData')` 단일 출처). 부팅 PRAGMA `journal_mode=WAL` + `foreign_keys=ON`.
+- **DB 위치** `<userData>/orca.db` (`app.getPath('userData')` 단일 출처). 부팅 PRAGMA `journal_mode=WAL` + `foreign_keys=ON`. **dev/prod 데이터 격리**: `import.meta.env.DEV`(정확히 `npm run dev`)면 `index.ts` 가 부팅 전 `userData` 를 sibling `orca-dev` 로 리디렉션한다(`devUserDataDir`, `infra/config/paths.ts`) — DB·WAL·마이그레이션 백업·secret-store 가 실제 설치본과 통째로 분리된다. prod 번들에선 dead-code 제거.
 - **마이그레이션** `NNNN_<name>.sql` (4자리 zero-pad). **머지된 마이그레이션 파일은 절대 수정 금지** — 변경은 새 파일로. SQL 은 vite `?raw` 로 main 번들에 인라인. 상태는 `_migrations(name PK, applied_at)` 메타.
 - **SSOT 는 DB.** claude `resume` 은 컨텍스트 유지용일 뿐 메시지 출처는 DB. 삭제는 hard delete (CASCADE).
 - **메모리 캐시**: `chatStore` 의 `sessions: Record<sessionId, …>` 외피가 캐시 역할 흡수(handoff 0013) — 본 적 있는 세션 재진입은 IPC 없이 `activeKey` 전환. 무효화는 삭제 시 `invalidateSessionCache(id)`(엔트리 drop). 크기 제한 없음 (LRU cap 은 Future Scope).
