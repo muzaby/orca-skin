@@ -111,7 +111,23 @@ new BrowserWindow({
 | `npm test`                | `pretest` 에서 better-sqlite3 Node ABI 보장 후 `vitest run` + `node --test "scripts/*.test.mjs"`(스크립트 4종 단위 테스트). `test:watch` = watch |
 | `npm run release:{patch,minor,major}` | `npm version <bump>` — package.json+lock bump·커밋·`v*` 태그 원샷 (release.yml 트리거, 0088) |
 
-> `better-sqlite3` 네이티브 모듈은 Electron 런타임 ABI 와 plain Node/Vitest ABI 를 동시에 만족할 수 없다. `scripts/ensure-sqlite-abi.mjs` 가 `pretest`(Node)·`predev`/`prebuild`/`postinstall`(Electron) 진입점에서 현재 target ABI 를 멱등 보장한다. 수동 `npm rebuild better-sqlite3` 를 게이트 통과 절차로 요구하지 않는다.
+### better-sqlite3 ABI · 제약 환경 게이트 가이드 (에이전트 필독)
+
+`better-sqlite3` 네이티브 모듈은 **Electron 런타임 ABI** 와 **plain Node/Vitest ABI** 를 동시에 만족할 수 없다(한 번에 하나). `scripts/ensure-sqlite-abi.mjs` 가 `pretest`(Node = `npm rebuild better-sqlite3`)·`predev`/`prebuild`/`postinstall`(Electron = `electron-builder install-app-deps`) 진입점에서 현재 target ABI 를 멱등 보장한다. 수동 `npm rebuild better-sqlite3` 를 게이트 통과 절차로 요구하지 않는다.
+
+**제약 환경(egress 차단) 주의 — 에이전트가 헛발질하기 쉬운 지점.** 에이전트 실행 환경은 electron 바이너리·헤더 다운로드가 **403 으로 차단**되곤 한다. 그러면 `postinstall`/`predev`/`prebuild`(Electron ABI)이 실패해 `npm ci`/`npm test`/`npm run build` 가 exit 1 을 낸다. 그럼에도 **node_modules 는 설치되어 lint·typecheck·순수(비-DB) vitest 는 정상 동작**하고, `better_sqlite3.node` 바인딩만 미빌드라 **DB 로드 스위트만** 실패한다.
+
+- **이건 환경 제약이지 코드 회귀가 아니다.** 아래 서명이 보이면 그렇게 판정한다:
+  - electron install `Response code 403 (Forbidden)` · `node-gyp failed to rebuild 'better-sqlite3'` · `[sqlite-abi] ensure failed for electron`
+  - vitest `Could not locate the bindings file … better_sqlite3.node` · `Cannot find module 'electron/package.json'`(설치 전 pretest)
+  - 실패 스위트는 DB 를 인스턴스화하는 것들뿐이다 — `infra/db/{queries,migrate}.test.ts`, `features/history/writer`, `features/orchestration/fork`, `features/chat/recovery`, `app/chat-turn.continuity` 등(현재 6파일). 나머지 800+ 는 green.
+- **DO ✅**
+  - 설치: electron 바이너리 다운로드를 건너뛰고(`ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci`) postinstall(Electron ABI) 실패는 무시한 채 node_modules 를 그대로 쓴다. 필요하면 `npm rebuild better-sqlite3`(Node ABI, 소스 컴파일 — node 헤더가 로컬에 있으면 성공)로 DB 스위트까지 green 을 시도한다.
+  - 게이트 판정: `npm run lint` + `npm run typecheck` + `vitest run`(또는 `./node_modules/.bin/vitest run`)의 **순수 스위트**로 한다. DB 로드 스위트 실패는 **알려진 베이스라인으로 분리 보고**한다 — 예: "N red = better-sqlite3 ABI egress 차단, 전부 DB 로드, 변경 무관".
+  - `dev`/`build`/`electron-builder`/DB 런타임 실기를 요구하는 인수기준은 "네트워크 완전환경 / 사람 실기 대기"로 명시한다(0019·0102 선례). 실제 CI(`.github/workflows/ci.yml`, windows-latest)는 egress 가 열려 정상 rebuild 되므로 **최종 판정은 CI/사람 몫**이다.
+- **DON'T ❌**
+  - ABI 를 Node↔Electron 앞뒤로 뒤집으며 green 을 쫓지 마라 — 차단 환경에선 Electron ABI 자체가 불가하므로 테스트를 Node ABI 로 맞추면 이번엔 `dev`/`build` 가 깨지는 순환에 빠진다. 차단 환경에서 electron 로딩·빌드 검증은 **여기서 불가능**함을 받아들인다.
+  - DB 로드 스위트의 bindings 실패를 자기 변경의 회귀로 보고하지 마라(코드 무관).
 
 `scripts/` 에는 ABI 보장 외 릴리스 위생 스크립트 3종이 있다 (각각 `*.test.mjs` 동반, `npm test` 가 자동 실행):
 
