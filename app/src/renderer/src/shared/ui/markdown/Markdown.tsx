@@ -28,6 +28,14 @@ const COMPONENTS: Components = {
   h4: ({ children }) => (
     <h4 className="mt-3 mb-1 text-[13.5px] font-semibold text-ink">{children}</h4>
   ),
+  h5: ({ children }) => (
+    <h5 className="mt-2.5 mb-1 text-[12.5px] font-semibold text-ink">{children}</h5>
+  ),
+  h6: ({ children }) => (
+    <h6 className="mt-2.5 mb-1 text-[12px] font-medium uppercase tracking-wide text-ink2">
+      {children}
+    </h6>
+  ),
   p: ({ children }) => <p className="my-2 first:mt-0 last:mb-0">{children}</p>,
   a: ({ href, children }) => (
     <a
@@ -43,12 +51,33 @@ const COMPONENTS: Components = {
   ol: ({ children }) => (
     <ol className="my-2 list-decimal pl-5 [&_ul]:my-1 [&_ol]:my-1">{children}</ol>
   ),
-  li: ({ children }) => <li className="my-0.5">{children}</li>,
+  li: ({ children, className }) => {
+    // remark-gfm 은 태스크리스트 항목에 `task-list-item` 클래스를 붙인다 —
+    // disc/decimal 마커를 지우고 체크박스가 텍스트 앞에 오게 정렬한다.
+    const isTask = typeof className === 'string' && className.includes('task-list-item')
+    return <li className={isTask ? 'my-0.5 list-none -ml-4' : 'my-0.5'}>{children}</li>
+  },
   blockquote: ({ children }) => (
     <blockquote className="my-2 border-l-2 border-border-strong pl-3 text-ink2">
       {children}
     </blockquote>
   ),
+  del: ({ children }) => <del className="text-ink3 line-through">{children}</del>,
+  // GFM 태스크리스트 체크박스 — 읽기 전용(대화 표시용, 토글 없음). checked+disabled 로
+  // React 의 uncontrolled 경고를 피한다.
+  input: (props) => {
+    const { type, checked } = props as { type?: string; checked?: boolean }
+    if (type !== 'checkbox') return null
+    return (
+      <input
+        type="checkbox"
+        checked={!!checked}
+        disabled
+        readOnly
+        className="mr-1.5 translate-y-[1px] align-middle accent-rust"
+      />
+    )
+  },
   hr: () => <hr className="my-3 border-border" />,
   table: ({ children }) => (
     <div className="my-2 overflow-x-auto">
@@ -56,12 +85,18 @@ const COMPONENTS: Components = {
     </div>
   ),
   thead: ({ children }) => <thead className="border-b border-border-strong">{children}</thead>,
-  th: ({ children }) => (
-    <th className="border-b border-border px-2 py-1 text-left font-semibold text-ink">
+  // style 전달 — remark-gfm 이 컬럼 정렬(`:---:`)을 `text-align` 인라인 스타일로 넣는다.
+  // 인라인 style 이 기본 `text-left` 클래스를 이긴다(미지정 컬럼은 좌측 유지).
+  th: ({ children, style }) => (
+    <th style={style} className="border-b border-border px-2 py-1 text-left font-semibold text-ink">
       {children}
     </th>
   ),
-  td: ({ children }) => <td className="border-b border-border px-2 py-1 text-ink">{children}</td>,
+  td: ({ children, style }) => (
+    <td style={style} className="border-b border-border px-2 py-1 text-ink">
+      {children}
+    </td>
+  ),
   img: ({ src, alt }) => {
     // 외부 URL 차단 (TRD §1.3). data-uri 만 허용.
     const safe = typeof src === 'string' && src.startsWith('data:')
