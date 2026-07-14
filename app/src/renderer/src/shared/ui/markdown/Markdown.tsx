@@ -2,6 +2,7 @@ import { memo } from 'react'
 import ReactMarkdown, { type Components } from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { CodeBlock } from './CodeBlock'
+import { isCodeBlock } from './isCodeBlock'
 import { useI18n } from '../../i18n'
 
 // 차단된 외부 이미지 플레이스홀더 — components 맵 항목은 react-markdown 이 컴포넌트로
@@ -107,17 +108,17 @@ const COMPONENTS: Components = {
   },
   code: (props) => {
     const { children, className } = props as { children?: React.ReactNode; className?: string }
-    const inline = !className
-    if (inline) {
+    const text = String(children ?? '')
+    if (!isCodeBlock(className, text)) {
+      // 인라인 코드 — 배경을 border 토큰에 맞춰 채운 칩(테두리·배경 동일 `--color-border`).
       return (
-        <code className="rounded border border-border bg-panel px-1 py-[1px] font-mono text-[12px] text-ink">
+        <code className="rounded border border-border bg-border px-1 py-[1px] font-mono text-[12px] text-ink">
           {children}
         </code>
       )
     }
     const lang = (className ?? '').replace(/^language-/, '').trim() || undefined
-    const text = String(children ?? '').replace(/\n$/, '')
-    return <CodeBlock code={text} lang={lang} />
+    return <CodeBlock code={text.replace(/\n$/, '')} lang={lang} />
   },
   pre: ({ children }) => <>{children}</>
 }
