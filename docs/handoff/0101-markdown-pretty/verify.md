@@ -93,6 +93,7 @@ $ npx vitest run src/renderer → 29 files, 243/243 passed
 | 8 | 판정 순수 함수 분리 + 단위 테스트 | ✅ | `shared/ui/markdown/isCodeBlock.ts` + `isCodeBlock.test.ts`(5 케이스) |
 | 9 | 인라인 코드 배경 = border 컬러(`bg-panel`→`bg-border`) | ✅ | `Markdown.tsx:113` `border border-border bg-border` (동일 `--color-border` 토큰, 양 테마 자동) |
 | 10 | 신규 의존성 0 · 게이트 통과 | ✅ | package.json 무변경 · lint 0 · typecheck 3종 0 · renderer 248/248 |
+| 11 | 언어 없는 코드블록 헤더 라벨 `text` | ✅ | `CodeBlock.tsx:106` `safeLang !== 'text' ? safeLang : lang || 'text'` (명시 언어는 유지, 미지정만 `text`) |
 
 ## 게이트 재실행 (라운드 2)
 
@@ -114,4 +115,4 @@ $ npx vitest run src/renderer → 30 files, 248/248 passed (+5 isCodeBlock)
 
 ## 결론
 
-- 라운드 2 상태: **PASS**. 인수 6~10 기계 판정 충족. 사람 시각 검증(언어 없는 트리 펜스가 코드블록으로 렌더 · 인라인 코드 배경 border 톤 · white/dark)은 비차단 대기.
+- 라운드 2 상태: **PASS**. 인수 6~11 기계 판정 충족. 사람 시각 검증(언어 없는 트리 펜스가 코드블록으로 렌더 · 인라인 코드 배경 border 톤 · 헤더 `text` 라벨 · white/dark)은 비차단 대기.

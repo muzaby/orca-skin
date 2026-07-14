@@ -142,12 +142,13 @@ cdesktop 벤치마킹에서, Orca transcript는 코드블록 미감(shiki)·스�
 8. 판정 로직이 순수 함수(`isCodeBlock`)로 분리되고 단위 테스트로 고정된다.
 9. **인라인 코드 배경을 border 컬러에 맞춘다**(사용자 추가 요구): `bg-panel` → `bg-border`(테두리·배경 동일 `--color-border` 토큰, 양 테마 자동 대응).
 10. 신규 의존성 0. `cd app && npm run lint && npm run typecheck && npx vitest run src/renderer` 통과.
+11. **언어 헤더가 없는 코드블록은 헤더 라벨을 `text` 로 표기**(사용자 추가 요구): `CodeBlock` 라벨 폴백 `(lang ?? '')` → `lang || 'text'`(언어 식별자 라벨이므로 로케일 무관 원문 유지, 기존 `typescript`/`json` 라벨 관례와 동일). 명시 언어는 그대로 표기.
 
 ### 라운드 2 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | `shared/ui/markdown/Markdown.tsx`(`code` 판정 교체 + 인라인 `bg-border`) · `shared/ui/markdown/isCodeBlock.ts`(신규 순수 헬퍼) · `shared/ui/markdown/isCodeBlock.test.ts`(신규 단위 테스트) |
+| 변경 파일 | `shared/ui/markdown/Markdown.tsx`(`code` 판정 교체 + 인라인 `bg-border`) · `shared/ui/markdown/isCodeBlock.ts`(신규 순수 헬퍼) · `shared/ui/markdown/isCodeBlock.test.ts`(신규 단위 테스트) · `shared/ui/markdown/CodeBlock.tsx`(언어 없는 헤더 라벨 `text`, 기준 11) |
 | 설계 | `isCodeBlock(className, text) = Boolean(className) || text.includes('\n')` — 인라인 코드는 개행 불포함(CommonMark), 블록 코드는 언어 유무와 무관하게 후행/내부 개행 보유 |
 | 실행 명령 | `npm run lint` · `npm run typecheck` · `npx vitest run src/renderer` |
 | 게이트 결과 | lint ✅ 0 errors(경고 1=0102 TanStack, 무관) · typecheck 3종 ✅ 0 · renderer **248/248**(30 files, +5 isCodeBlock) ✅ (DB 스위트는 ABI-403 베이스라인 미로드) |

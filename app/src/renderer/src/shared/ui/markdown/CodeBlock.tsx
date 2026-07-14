@@ -101,8 +101,9 @@ export function CodeBlock({
   const isStale = hl != null && (hl.code !== code || hl.lang !== safeLang || hl.theme !== theme)
   const html = !isStale && hl ? hl.html : null
 
-  // 헤더에 표시할 언어 라벨 — 지원 언어면 safeLang, 미지원이면 원본 lang 그대로, 없으면 빈 문자열
-  const langLabel = safeLang !== 'text' ? safeLang : (lang ?? '')
+  // 헤더에 표시할 언어 라벨 — 지원 언어면 safeLang, 미지원이면 원본 lang 그대로,
+  // 언어 헤더가 없으면 `text`(언어 식별자 라벨은 로케일 무관 원문 유지).
+  const langLabel = safeLang !== 'text' ? safeLang : lang || 'text'
 
   const header = (
     <div className="flex items-center justify-between border-b border-t5 bg-t1 px-3 py-1 text-caption text-t6">
