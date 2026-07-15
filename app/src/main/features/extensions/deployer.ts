@@ -12,15 +12,11 @@
 // 레이아웃은 paths.ts 의 sources*/dist* 헬퍼와 일치해야 한다 — 본 함수는 테스트 용이성을 위해 root 를
 // 받아 상대 경로로 계산한다(homedir 비의존). 기본값은 orcaConfigDir().
 
-import {
-  existsSync,
-  writeFileSync,
-  rmSync,
-  renameSync,
-  readFileSync,
-  readdirSync,
-  type Dirent
-} from 'node:fs'
+// 동기 fs 금지(0109) — 배포는 부팅 스텝과 스킬/MCP CRUD invoke 핸들러 안에서 돌므로,
+// 재귀 복사/삭제가 sync 면 그 동안 이벤트 루프(=모든 IPC·프로토콜 응답)가 멈춘다.
+import { existsSync } from 'node:fs'
+import { readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
+import type { Dirent } from 'node:fs'
 import { join } from 'node:path'
 import type { Backend } from '../../../shared/ipc'
 import { isRecord } from '../../../shared/obj'
@@ -49,11 +45,11 @@ export interface DeployResult {
 const MCP_KEY_RE = PROVIDER_NAME_RE
 
 // MCP 서버 키 이름 검증(잘못된 키는 엔진이 조용히 무시할 수 있으므로). 파일 부재/손상은 ok(서버 0).
-function validateMcp(mcpJson: string): { ok: boolean; errors: string[] } {
+async function validateMcp(mcpJson: string): Promise<{ ok: boolean; errors: string[] }> {
   const errors: string[] = []
   let raw: string
   try {
-    raw = readFileSync(mcpJson, 'utf8')
+    raw = await readFile(mcpJson, 'utf8')
   } catch {
     return { ok: true, errors }
   }
@@ -73,15 +69,15 @@ function validateMcp(mcpJson: string): { ok: boolean; errors: string[] } {
 
 // sources/settings/<engine>/ 의 provider 디렉토리 열거 + settings.json 검증. 이름 위반/JSON 파싱
 // 실패는 해당 provider 만 에러에 추가하고 나머지는 계속 배포한다 (3단 관용 — 항목 단위 격리).
-function scanProviderSettings(settingsRoot: string): {
+async function scanProviderSettings(settingsRoot: string): Promise<{
   providers: string[]
   errors: string[]
-} {
+}> {
   const providers: string[] = []
   const errors: string[] = []
   let entries: Dirent[]
   try {
-    entries = readdirSync(settingsRoot, { withFileTypes: true })
+    entries = await readdir(settingsRoot, { withFileTypes: true })
   } catch {
     return { providers, errors } // settings 소스 부재 = provider 0 (정상)
   }
@@ -101,19 +97,19 @@ function scanProviderSettings(settingsRoot: string): {
   return { providers, errors }
 }
 
-export function deploy(
+export async function deploy(
   engine: Backend,
   opts: DeployOptions = {},
   root: string = orcaConfigDir()
-): DeployResult {
+): Promise<DeployResult> {
   const dryRun = !!opts.dryRun
   const sources = join(root, 'sources')
   const dist = join(root, 'dist', engine)
   const mcpSrc = join(sources, 'mcp', 'mcp.json')
   const actions: string[] = []
 
-  const mcpValidation = validateMcp(mcpSrc)
-  const settingsScan = scanProviderSettings(join(sources, 'settings', engine))
+  const mcpValidation = await validateMcp(mcpSrc)
+  const settingsScan = await scanProviderSettings(join(sources, 'settings', engine))
   const validation = {
     ok: mcpValidation.ok && settingsScan.errors.length === 0,
     errors: [...mcpValidation.errors, ...settingsScan.errors]
@@ -139,13 +135,13 @@ export function deploy(
   if (existsSync(dist)) {
     const bak = `${dist}.bak`
     try {
-      rmSync(bak, { recursive: true, force: true })
-      renameSync(dist, bak)
+      await rm(bak, { recursive: true, force: true })
+      await rename(dist, bak)
       backedUp = true
       actions.push('backup dist → .bak')
     } catch (e) {
       console.warn('[deploy] dist 백업 실패(덮어쓰기 진행):', e)
-      rmSync(dist, { recursive: true, force: true })
+      await rm(dist, { recursive: true, force: true })
     }
   }
 
@@ -165,7 +161,7 @@ export function deploy(
     actions.push('render empty mcp → plugins/orca/.mcp.json')
   }
 
-  renderClaudePluginPackage({
+  await renderClaudePluginPackage({
     engine,
     root,
     skillRoots: opts.skillRoots ?? [
@@ -182,7 +178,7 @@ export function deploy(
   actions.push('skip commands/settings dist copy')
 
   // 배포 마커(드리프트 식별·디버깅용).
-  writeFileSync(
+  await writeFile(
     join(dist, '.orca-deploy.json'),
     JSON.stringify({ engine, at: Date.now() }, null, 2),
     'utf8'

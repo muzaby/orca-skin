@@ -33,9 +33,9 @@ function seedProviderSettings(provider: string, settings = '{"env":{}}'): void {
 const dist = (): string => join(root, 'dist', 'claude')
 
 describe('deploy', () => {
-  it('skills 와 mcp 를 Claude plugin 패키지로 렌더하고 구 dist 거울은 만들지 않는다', () => {
+  it('skills 와 mcp 를 Claude plugin 패키지로 렌더하고 구 dist 거울은 만들지 않는다', async () => {
     seedSources('{"mcpServers":{"gh":{"command":"${GH_MCP}"}}}')
-    const r = deploy('claude', {}, root)
+    const r = await deploy('claude', {}, root)
 
     expect(r.dryRun).toBe(false)
     expect(r.validation.ok).toBe(true)
@@ -60,67 +60,67 @@ describe('deploy', () => {
     expect(existsSync(join(dist(), '.orca-deploy.json'))).toBe(true)
   })
 
-  it('provider settings 는 검증만 하고 dist 로 복사하지 않는다', () => {
+  it('provider settings 는 검증만 하고 dist 로 복사하지 않는다', async () => {
     seedSources()
     seedProviderSettings('anthropic', '{"env":{"A":"1"}}')
     seedProviderSettings('bedrock', '{"env":{"CLAUDE_CODE_USE_BEDROCK":"1"}}')
 
-    const r = deploy('claude', {}, root)
+    const r = await deploy('claude', {}, root)
     expect(r.validation.ok).toBe(true)
     expect(existsSync(join(dist(), 'anthropic'))).toBe(false)
     expect(existsSync(join(dist(), 'bedrock'))).toBe(false)
   })
 
-  it('settings.json 파싱 실패는 해당 provider 만 에러로 보고하고 나머지는 배포한다', () => {
+  it('settings.json 파싱 실패는 해당 provider 만 에러로 보고하고 나머지는 배포한다', async () => {
     seedSources()
     seedProviderSettings('anthropic')
     seedProviderSettings('bedrock', '{broken')
 
-    const r = deploy('claude', {}, root)
+    const r = await deploy('claude', {}, root)
     expect(r.validation.ok).toBe(false)
     expect(r.validation.errors.join(' ')).toContain('settings/bedrock/settings.json')
     expect(existsSync(join(dist(), 'anthropic'))).toBe(false)
     expect(existsSync(join(dist(), 'bedrock'))).toBe(false)
   })
 
-  it('잘못된 provider 디렉토리 이름을 검증 오류로 보고한다', () => {
+  it('잘못된 provider 디렉토리 이름을 검증 오류로 보고한다', async () => {
     seedSources()
     seedProviderSettings('bad name!')
-    const r = deploy('claude', {}, root)
+    const r = await deploy('claude', {}, root)
     expect(r.validation.ok).toBe(false)
     expect(r.validation.errors.join(' ')).toContain('bad name!')
   })
 
-  it('settings.json 없는 provider 디렉토리는 dist 파일 없이 허용한다', () => {
+  it('settings.json 없는 provider 디렉토리는 dist 파일 없이 허용한다', async () => {
     seedSources()
     mkdirSync(join(root, 'sources', 'settings', 'claude', 'vertex'), { recursive: true })
-    const r = deploy('claude', {}, root)
+    const r = await deploy('claude', {}, root)
     expect(r.validation.ok).toBe(true)
     expect(r.actions.join(' ')).toContain('skip commands/settings dist copy')
     expect(existsSync(join(dist(), 'vertex'))).toBe(false)
   })
 
-  it('dryRun 은 계획만 반환하고 dist 를 쓰지 않는다', () => {
+  it('dryRun 은 계획만 반환하고 dist 를 쓰지 않는다', async () => {
     seedSources()
     seedProviderSettings('anthropic')
-    const r = deploy('claude', { dryRun: true }, root)
+    const r = await deploy('claude', { dryRun: true }, root)
     expect(r.dryRun).toBe(true)
     expect(r.actions.join(' ')).toContain('skip commands/settings dist copy')
     expect(existsSync(dist())).toBe(false)
   })
 
-  it('잘못된 MCP 키 이름을 검증 오류로 보고한다', () => {
+  it('잘못된 MCP 키 이름을 검증 오류로 보고한다', async () => {
     seedSources('{"mcpServers":{"bad name!":{"command":"x"}}}')
-    const r = deploy('claude', {}, root)
+    const r = await deploy('claude', {}, root)
     expect(r.validation.ok).toBe(false)
     expect(r.validation.errors.join(' ')).toContain('bad name!')
   })
 
-  it('재배포 시 기존 dist 를 백업(.bak)하고 새로 쓴다 — provider 디렉토리 포함 루트 단위', () => {
+  it('재배포 시 기존 dist 를 백업(.bak)하고 새로 쓴다 — provider 디렉토리 포함 루트 단위', async () => {
     seedSources()
     seedProviderSettings('anthropic')
-    deploy('claude', {}, root)
-    const r2 = deploy('claude', {}, root)
+    await deploy('claude', {}, root)
+    const r2 = await deploy('claude', {}, root)
     expect(r2.backedUp).toBe(true)
     expect(existsSync(`${dist()}.bak`)).toBe(true)
     expect(existsSync(join(`${dist()}.bak`, 'plugins', 'orca', 'skills', 'demo', 'SKILL.md'))).toBe(
@@ -128,11 +128,11 @@ describe('deploy', () => {
     )
   })
 
-  it('Orca 스킬은 enabled 와 무관하게 plugin 에 포함하고(활성 제어는 런타임 options.skills) MCP 는 mcpConfig 로 필터된다', () => {
+  it('Orca 스킬은 enabled 와 무관하게 plugin 에 포함하고(활성 제어는 런타임 options.skills) MCP 는 mcpConfig 로 필터된다', async () => {
     seedSources('{"mcpServers":{"on":{"command":"npx"},"off":{"command":"node"}}}')
     writeFile(join(root, 'sources', 'skills', 'off', 'SKILL.md'), '# off')
 
-    const r = deploy('claude', { mcpConfig: { on: { command: 'npx' } } }, root)
+    const r = await deploy('claude', { mcpConfig: { on: { command: 'npx' } } }, root)
 
     expect(r.validation.ok).toBe(true)
     // 비활성 스킬도 파일은 복사된다 — 활성/비활성은 어댑터의 options.skills 필터가 담당.
@@ -143,11 +143,11 @@ describe('deploy', () => {
     })
   })
 
-  it('adapter 스킬은 dist 로 복사하지 않는다 (SDK settingSources:user 가 ~/.claude 에서 직접 탐색)', () => {
+  it('adapter 스킬은 dist 로 복사하지 않는다 (SDK settingSources:user 가 ~/.claude 에서 직접 탐색)', async () => {
     seedSources()
     writeFile(join(root, 'adapter-skills', 'native', 'SKILL.md'), '# native')
 
-    const r = deploy(
+    const r = await deploy(
       'claude',
       {
         skillRoots: [
@@ -174,9 +174,9 @@ describe('deploy', () => {
     expect(existsSync(join(dist(), 'plugins', 'orca', 'skills', 'native', 'SKILL.md'))).toBe(false)
   })
 
-  it('sources 하위가 비어도 빈 plugin 디렉토리를 만든다', () => {
+  it('sources 하위가 비어도 빈 plugin 디렉토리를 만든다', async () => {
     writeFile(join(root, 'sources', 'mcp', 'mcp.json'), '{"mcpServers":{}}')
-    const r = deploy('claude', {}, root)
+    const r = await deploy('claude', {}, root)
     expect(r.validation.ok).toBe(true)
     expect(existsSync(join(dist(), 'plugins', 'orca', 'skills'))).toBe(true)
   })

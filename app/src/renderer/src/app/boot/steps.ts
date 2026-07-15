@@ -5,7 +5,13 @@ import { initProjects } from '../../features/projects/store/projectsStore'
 import { initSessions } from '../../features/sessions/store/sessionsStore'
 import type { BootReport } from '../../../../shared/ipc'
 
-export type BootStepId = 'main-report' | 'landing-target' | 'backend' | 'sessions' | 'projects-cost'
+export type BootStepId =
+  | 'main-ready'
+  | 'main-report'
+  | 'landing-target'
+  | 'backend'
+  | 'sessions'
+  | 'projects-cost'
 
 export interface BootTimingPolicy {
   warningAfterMs: number
@@ -40,6 +46,7 @@ export interface BootStepEvent {
 }
 
 export interface BootDependencies {
+  whenMainReady: () => Promise<void>
   getBootReport: () => Promise<BootReport>
   getLastSessionId: () => Promise<string | null>
   initBackend: () => Promise<void>
@@ -49,6 +56,7 @@ export interface BootDependencies {
 }
 
 export const defaultBootDependencies: BootDependencies = {
+  whenMainReady: () => bootApi.whenReady(),
   getBootReport: () => bootApi.report(),
   getLastSessionId: async () => {
     const settings = await settingsApi.get()
@@ -62,6 +70,16 @@ export const defaultBootDependencies: BootDependencies = {
 
 export function createBootSteps(deps: BootDependencies = defaultBootDependencies): BootStep[] {
   return [
+    {
+      // 0109 — 창이 main start() 완료 이전에 뜨므로, 나머지 스텝(IPC invoke)이 미등록
+      // 핸들러에 닿지 않도록 main 준비를 먼저 기다린다. 실패/타임아웃은 mandatory 규칙에
+      // 따라 기존 BootScreen failed UX 로 표면화된다.
+      id: 'main-ready',
+      mandatory: true,
+      run: async () => {
+        await deps.whenMainReady()
+      }
+    },
     {
       id: 'main-report',
       mandatory: false,

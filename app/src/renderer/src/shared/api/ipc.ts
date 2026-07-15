@@ -61,7 +61,8 @@ export const chatApi = {
 }
 
 export const bootApi = {
-  report: (): Promise<BootReport> => window.orca.boot.report()
+  report: (): Promise<BootReport> => window.orca.boot.report(),
+  whenReady: (): Promise<void> => window.orca.boot.whenReady()
 }
 
 export const backendApi = {

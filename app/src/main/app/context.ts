@@ -29,9 +29,10 @@ export interface RouterContext {
   // 부팅 1회 스캔 캐시 — 턴 실행 시점에 최신 값을 읽도록 getter 로 노출.
   getSkills(): SkillInfo[]
   refreshSkills(): Promise<SkillInfo[]>
-  deployExtensions(): void
+  // 비동기 배포(0109) — invoke 핸들러가 await 해도 재귀 복사가 이벤트 루프를 막지 않는다.
+  deployExtensions(): Promise<void>
   // 턴 시작 게이트 — query 호출 전 sources→dist plugin 배포 최신성을 멱등 보장한다.
-  ensureExtensionsDeployedForTurn(): void
+  ensureExtensionsDeployedForTurn(): Promise<void>
   // chat send · files list · session cwd 가 공유하는 단일 cwd. 프로젝트 미소속이면
   // projects/default, 소속이면 projects/<이름>-<프로젝트ID8> (DB 에서 이름 조회).
   getCwd(projectId?: string | null): string

@@ -2,7 +2,9 @@
 // dist/claude/plugins/orca/ 패키지로 변환한다. deployer 는 백업/검증/마커를 맡고, 이 모듈은
 // Claude plugin 레이아웃 세부(.claude-plugin, skills, agents, hooks, .mcp.json)만 소유한다.
 
-import { chmodSync, cpSync, mkdirSync, readdirSync, writeFileSync, type Dirent } from 'node:fs'
+// 동기 fs 금지(0109) — 스킬 재귀 복사가 부팅/CRUD 경로에서 이벤트 루프를 막지 않게 한다.
+import { chmod, cp, mkdir, readdir, writeFile } from 'node:fs/promises'
+import type { Dirent } from 'node:fs'
 import { join } from 'node:path'
 import type { Backend } from '../../../shared/ipc'
 import { ORCA_PLUGIN_NAME } from '../../adapters/claude-plugin'
@@ -26,19 +28,19 @@ export function orcaPluginRoot(root: string, engine: Backend): string {
   return join(root, 'dist', engine, 'plugins', ORCA_PLUGIN_NAME)
 }
 
-function copyOrcaSkills(roots: SkillScanRoot[], dest: string): void {
-  mkdirSync(dest, { recursive: true })
+async function copyOrcaSkills(roots: SkillScanRoot[], dest: string): Promise<void> {
+  await mkdir(dest, { recursive: true })
   for (const root of roots) {
     if (root.sourceKind !== 'orca') continue
     let entries: Dirent[]
     try {
-      entries = readdirSync(root.rootDir, { withFileTypes: true })
+      entries = await readdir(root.rootDir, { withFileTypes: true })
     } catch {
       continue
     }
     for (const entry of entries) {
       if (!entry.isDirectory()) continue
-      cpSync(join(root.rootDir, entry.name), join(dest, entry.name), {
+      await cp(join(root.rootDir, entry.name), join(dest, entry.name), {
         recursive: true,
         force: true
       })
@@ -46,27 +48,27 @@ function copyOrcaSkills(roots: SkillScanRoot[], dest: string): void {
   }
 }
 
-export function renderClaudePluginPackage(input: ClaudePluginPackageInput): string {
+export async function renderClaudePluginPackage(input: ClaudePluginPackageInput): Promise<string> {
   const pluginRoot = orcaPluginRoot(input.root, input.engine)
   const manifestDir = join(pluginRoot, '.claude-plugin')
   const skillsDir = join(pluginRoot, 'skills')
   const agentsDir = join(pluginRoot, 'agents')
   const hooksDir = join(pluginRoot, 'hooks')
 
-  mkdirSync(manifestDir, { recursive: true })
-  mkdirSync(agentsDir, { recursive: true })
-  mkdirSync(hooksDir, { recursive: true })
-  copyOrcaSkills(input.skillRoots, skillsDir)
+  await mkdir(manifestDir, { recursive: true })
+  await mkdir(agentsDir, { recursive: true })
+  await mkdir(hooksDir, { recursive: true })
+  await copyOrcaSkills(input.skillRoots, skillsDir)
 
-  writeFileSync(
+  await writeFile(
     join(manifestDir, 'plugin.json'),
     JSON.stringify(ORCA_PLUGIN_MANIFEST, null, 2),
     'utf8'
   )
   const mcpPath = join(pluginRoot, '.mcp.json')
-  writeFileSync(mcpPath, JSON.stringify({ mcpServers: input.mcpConfig }, null, 2), 'utf8')
+  await writeFile(mcpPath, JSON.stringify({ mcpServers: input.mcpConfig }, null, 2), 'utf8')
   try {
-    chmodSync(mcpPath, 0o600)
+    await chmod(mcpPath, 0o600)
   } catch {
     // best-effort: Windows/일부 FS 에서는 POSIX mode 가 의미 없을 수 있다.
   }

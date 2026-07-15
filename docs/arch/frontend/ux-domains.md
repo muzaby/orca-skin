@@ -149,7 +149,7 @@ Main 이 `AbortSignal` 을 SDK `query()` 에 전파 → 현재 inflight 만 중�
 
 ### 3.4 채널 전체 목록
 
-[IPC_CONTRACT.md](../../IPC_CONTRACT.md) §2 참조 — **정확 수치는 IPC_CONTRACT 가 SSOT** (현재 총 64 채널 — update 6·boot 1·engine 5(`importUserSettings` 포함, 0090)·cost 4 등). 본 문서는 총계를 재서술하지 않는다(드리프트 방지).
+[IPC_CONTRACT.md](../../IPC_CONTRACT.md) §2 참조 — **정확 수치는 IPC_CONTRACT 가 SSOT** (현재 총 65 채널 — update 6·boot 2·engine 5(`importUserSettings` 포함, 0090)·cost 4 등). 본 문서는 총계를 재서술하지 않는다(드리프트 방지).
 
 ---
 

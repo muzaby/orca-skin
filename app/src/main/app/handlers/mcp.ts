@@ -8,20 +8,20 @@ import { handle, handlePlain } from '../../infra/ipc/handle'
 export function registerMcpHandlers(ctx: RouterContext): void {
   handlePlain(CHANNELS.mcpList, (): McpServer[] => ctx.mcp.list())
 
-  handlePlain(CHANNELS.mcpAdd, (raw): McpServer => {
+  handlePlain(CHANNELS.mcpAdd, async (raw): Promise<McpServer> => {
     const result = ctx.mcp.add(raw)
-    ctx.deployExtensions()
+    await ctx.deployExtensions()
     return result
   })
 
-  handlePlain(CHANNELS.mcpUpdate, (raw): McpServer | null => {
+  handlePlain(CHANNELS.mcpUpdate, async (raw): Promise<McpServer | null> => {
     const result = ctx.mcp.update(raw)
-    ctx.deployExtensions()
+    await ctx.deployExtensions()
     return result
   })
 
-  handle(CHANNELS.mcpDelete, DeleteMcpServerSchema, 'reject', (req): void => {
+  handle(CHANNELS.mcpDelete, DeleteMcpServerSchema, 'reject', async (req): Promise<void> => {
     ctx.mcp.remove(req.id)
-    ctx.deployExtensions()
+    await ctx.deployExtensions()
   })
 }
