@@ -13,6 +13,9 @@ export const CHANNELS = {
   chatCancel: 'orca:chat:cancel',
   chatStopSubagent: 'orca:chat:stopSubagent',
   bootReport: 'orca:boot:report',
+  // main 부팅 완료 게이트(0109) — 창을 start() 전에 띄우므로, renderer 부트 오케스트레이터의
+  // 첫 스텝이 이 invoke 로 main 준비를 기다린 뒤에야 나머지 IPC 스텝을 시작한다.
+  bootWhenReady: 'orca:boot:whenReady',
   backendList: 'orca:backend:list',
   agentList: 'orca:agent:list',
   installStart: 'orca:install:start',

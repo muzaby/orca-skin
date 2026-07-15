@@ -122,7 +122,7 @@ electron-vite 환경 기준. 표 밖 의존성 추가 시 **사용자 승인 필
 
 > **SSOT 는 [`IPC_CONTRACT.md`](./IPC_CONTRACT.md) §2** — 본 표는 TRD 의 가독성용 미러. 충돌 시 IPC_CONTRACT 우선. 채널 변경 절차는 IPC_CONTRACT §6 참조.
 
-현재 **총 64 채널 · 20 도메인** (SSOT = IPC_CONTRACT §2). 아래 표는 **Phase 2 코어 도메인**(chat / backend / install / settings / skills / files)의 역사적 미러만 유지한다 — 이후 추가된 도메인(session·project·window·search·mcp·engine·agent·update·cost·boot·concurrency·permission·notify·debug)은 재서술하지 않는다(드리프트 방지).
+현재 **총 65 채널 · 20 도메인** (SSOT = IPC_CONTRACT §2). 아래 표는 **Phase 2 코어 도메인**(chat / backend / install / settings / skills / files)의 역사적 미러만 유지한다 — 이후 추가된 도메인(session·project·window·search·mcp·engine·agent·update·cost·boot·concurrency·permission·notify·debug)은 재서술하지 않는다(드리프트 방지).
 
 | 채널 | 방향 | 요청 페이로드 (TS) | 응답·스트림 | zod 스키마 |
 |---|---|---|---|---|
@@ -148,7 +148,7 @@ Phase 2 범위 밖 (예약 — 도입 시점에 재등록):
 | `orca:credentials:set` / `:hasKey` | **Phase 3+** | safeStorage 자격증명 ([arch/backend/security.md](arch/backend/security.md) §1.4) |
 | `orca:skills:reload` | **Future** | 핫리로드 도입 시 |
 
-> **Phase 3+ 이후 추가 도메인** (본 표는 Phase 2 미러라 누락 — SSOT 는 IPC_CONTRACT §2): `session` 6 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `engine` 5 · `agent` 1 · `update` 6 · `cost` 4 · `boot` 1 · `concurrency` 1 · `permission` 2 · `notify` 1 · `debug` 2(dev) · ~~`runtime` 3~~ (구 Python uv 런타임 채널 — renderer 소비처 부재로 제거, handoff 0012 · IPC_CONTRACT §2.11). 현행 전수는 IPC_CONTRACT §2 (**총 64**).
+> **Phase 3+ 이후 추가 도메인** (본 표는 Phase 2 미러라 누락 — SSOT 는 IPC_CONTRACT §2): `session` 6 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `engine` 5 · `agent` 1 · `update` 6 · `cost` 4 · `boot` 2 · `concurrency` 1 · `permission` 2 · `notify` 1 · `debug` 2(dev) · ~~`runtime` 3~~ (구 Python uv 런타임 채널 — renderer 소비처 부재로 제거, handoff 0012 · IPC_CONTRACT §2.11). 현행 전수는 IPC_CONTRACT §2 (**총 65**).
 
 ### 5.3 `window.orca` API (Preload 화이트리스트)
 

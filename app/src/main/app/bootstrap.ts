@@ -137,7 +137,7 @@ export class Bootstrap {
 
   private createDeploymentService(): ExtensionDeploymentService {
     return new ExtensionDeploymentService({
-      deploy: () => {
+      deploy: async () => {
         const { config, dropped } = toClaudeConfig(this.mcp.enabledConfig(), this.mcp.resolver())
         for (const d of dropped) console.warn(`[mcp] 서버 '${d.name}' 를 건너뜀: ${d.reason}`)
         return deploy('claude', {
@@ -149,12 +149,12 @@ export class Bootstrap {
     })
   }
 
-  private deployExtensions(): void {
-    this.deployment?.deployNow()
+  private async deployExtensions(): Promise<void> {
+    await this.deployment?.deployNow()
   }
 
-  private ensureExtensionsDeployedForTurn(): void {
-    this.deployment?.ensureDeployed()
+  private async ensureExtensionsDeployedForTurn(): Promise<void> {
+    await this.deployment?.ensureDeployed()
   }
 
   async start(): Promise<void> {
@@ -230,11 +230,11 @@ export class Bootstrap {
     this.bootReport.stepSync('orca-config', { critical: false, label: 'orca.json 로드' }, () =>
       loadOrcaConfig()
     )
-    this.bootReport.stepSync(
+    await this.bootReport.step(
       'builtin-skill-seed',
       { critical: false, label: '기본 스킬 seed' },
-      () => {
-        const result = seedBuiltinSkills(this.builtinSkillsDir(), sourcesSkillsDir())
+      async () => {
+        const result = await seedBuiltinSkills(this.builtinSkillsDir(), sourcesSkillsDir())
         for (const name of result.seeded) console.log('[seed] builtin skill:', name)
         for (const name of result.pruned) console.log('[seed] prune builtin skill:', name)
       }
@@ -260,7 +260,7 @@ export class Bootstrap {
     // dist/claude/plugins/orca 렌더를 boot 1회 수행한다. CRUD 는 즉시 재배포, 턴 진입은
     // ensureDeployed 로 실패/dirty 상태를 한 번 더 보장한다.
     this.deployment = this.createDeploymentService()
-    this.bootReport.stepSync('extension-deploy', { critical: false, label: '확장 배포' }, () =>
+    await this.bootReport.step('extension-deploy', { critical: false, label: '확장 배포' }, () =>
       this.deployExtensions()
     )
     providerSettings.invalidateAll()

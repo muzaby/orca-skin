@@ -206,4 +206,6 @@
 
 | `0108-streaming-highlight-incremental` | impl | IMPL_DONE | Claude | (push 전) | 1 | 성능 시리즈 2/4 (비기능=Claude 직접). 스트리밍 코드블록 O(n²) 하이라이트 해소 — tail 을 `MarkdownStreamingContext` 로 감싸 CodeBlock 이 스트리밍 중 shiki skip(plain 고정, 플리커 0, 확정/커밋 시 1회) + `advanceStableBlocks` 증분 분할(전문 동치 property 테스트) + SessionRow `memo` + themeStore 싱글톤 observer + DiffBody `useMemo`. 검증 대기. |
 
+| `0109-boot-window-first-async-deploy` | impl | IMPL_DONE | Claude | (push 전) | 1 | 성능 시리즈 3/4 (비기능=Claude 직접). 콜드스타트 흰 화면 + CRUD 프리즈 해소 — 창을 `start()` **이전** 생성 + 신규 `orca:boot:whenReady` 게이트(IPC 64→65, renderer 부트 첫 mandatory 스텝 `main-ready`) + deployer/plugin-package/seed `fs/promises` 전환 + `ExtensionDeploymentService` in-flight 직렬화(코얼레스) + 스킬/MCP/engine CRUD·턴 게이트 await. 파생 이슈 D1(engine 직접 deploy 경로 직렬화 밖). 검증 대기. electron 실기(콜드스타트 체감)는 사람/CI. |
+
 > 새 작업: 기존 행 중 `max(번호)+1` 로 행을 추가하고 `<NNNN-slug>/plan.md` 를 생성한다.

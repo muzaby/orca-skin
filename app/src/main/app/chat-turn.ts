@@ -514,7 +514,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
 
     // plugin 배포는 query 호출 전 최신성을 멱등 보장한다. 활성/비활성 토글은
     // 파일 삭제가 아니라 런타임 options.skills 필터로 반영한다.
-    ctx.ensureExtensionsDeployedForTurn()
+    await ctx.ensureExtensionsDeployedForTurn()
 
     // 백엔드 중립 확장 리소스(지침+정적 정책 append · MCP · skills · hooks)를 빌더가 조립.
     // resume 면 projectId 는 세션 바인딩에서 조회되므로 null 을 넘긴다. fork/handoff 새 세션은

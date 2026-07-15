@@ -1,4 +1,6 @@
-import { cpSync, existsSync, mkdirSync, rmSync, statSync } from 'node:fs'
+// 동기 fs 금지(0109) — 버전 전환 부팅의 스킬 재귀 복사가 첫 페인트를 막지 않게 한다.
+import { existsSync } from 'node:fs'
+import { cp, mkdir, rm, stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { isRecord } from '../../../../shared/obj'
 import { readJsonFile, writeJsonAtomic } from '../../../infra/config/json-file'
@@ -47,9 +49,9 @@ function readBuiltinJson(path: string): BuiltinSkillSet | null {
   return { version: parsed.version, skills }
 }
 
-function isDirectory(path: string): boolean {
+async function isDirectory(path: string): Promise<boolean> {
   try {
-    return statSync(path).isDirectory()
+    return (await stat(path)).isDirectory()
   } catch {
     return false
   }
@@ -61,7 +63,10 @@ function safeSkillPath(root: string, name: string): string | null {
   return isWithinDir(path, root) ? path : null
 }
 
-export function seedBuiltinSkills(builtinDir: string, skillsDir: string): SeedResult {
+export async function seedBuiltinSkills(
+  builtinDir: string,
+  skillsDir: string
+): Promise<SeedResult> {
   const manifest = readBuiltinJson(join(builtinDir, MANIFEST))
   if (!manifest) return { seeded: [], pruned: [], skipped: true, version: null }
 
@@ -70,15 +75,15 @@ export function seedBuiltinSkills(builtinDir: string, skillsDir: string): SeedRe
     return { seeded: [], pruned: [], skipped: true, version: manifest.version }
   }
 
-  mkdirSync(skillsDir, { recursive: true })
+  await mkdir(skillsDir, { recursive: true })
 
   const seeded: string[] = []
   for (const name of manifest.skills) {
     const src = safeSkillPath(builtinDir, name)
     const dest = safeSkillPath(skillsDir, name)
-    if (!src || !dest || !isDirectory(src)) continue
-    rmSync(dest, { recursive: true, force: true })
-    cpSync(src, dest, { recursive: true, force: true })
+    if (!src || !dest || !(await isDirectory(src))) continue
+    await rm(dest, { recursive: true, force: true })
+    await cp(src, dest, { recursive: true, force: true })
     seeded.push(name)
   }
 
@@ -88,7 +93,7 @@ export function seedBuiltinSkills(builtinDir: string, skillsDir: string): SeedRe
     if (current.has(name)) continue
     const dest = safeSkillPath(skillsDir, name)
     if (!dest || !existsSync(dest)) continue
-    rmSync(dest, { recursive: true, force: true })
+    await rm(dest, { recursive: true, force: true })
     pruned.push(name)
   }
 

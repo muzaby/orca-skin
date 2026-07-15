@@ -2,7 +2,7 @@
 
 > 이 문서는 Main ↔ Renderer 간 IPC 채널의 **단일 진실 공급원 (SSOT)** 이다.
 > 채널을 추가/변경할 때는 코드와 이 문서를 함께 갱신한다.
-> 최종 업데이트: 2026-07-11 (handoff 0096 — §2.4 Settings 18 키: `uiLocale` 추가. 채널 자체는 0090 engine:importUserSettings 이 마지막 추가)
+> 최종 업데이트: 2026-07-15 (handoff 0109 — `boot` 도메인에 `whenReady` 게이트 추가, 64→65)
 > 관련 문서: [ARCHITECTURE.md](ARCHITECTURE.md), [ARCHITECTURE.md](ARCHITECTURE.md), [GLOSSARY.md](./GLOSSARY.md), [TRD.md](./TRD.md) §5
 
 ## 1. 명명 규칙
@@ -20,9 +20,9 @@
   - 특례: `chat:send` 는 실패를 `error` 이벤트로 회신(§2.1). 입력이 없거나 store 내부 zod 가 검증하는 채널(settings set · mcp add/update)은 `handlePlain`.
 - 출력(main→renderer send) 무검증: `NormalizedEvent` 등의 형상 보증은 어댑터 정규화(`claude-map.ts`)가 담당 — 의도된 설계.
 
-## 2. 채널 카탈로그 (총 64 채널)
+## 2. 채널 카탈로그 (총 65 채널)
 
-도메인별 분포: `chat` 5 (`send` · `event` · `cancel` · `stopSubagent` · `steerCancel`) · `boot` 1 (`report`) · `backend` 1 · `agent` 1 · `engine` 5 · `install` 2 · `update` 6 · `settings` 2 · `skills` 7 · `files` 5 · `session` 6 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `cost` 4 · `concurrency` 1 · `permission` 2 (`respond` · `setMode`) · `notify` 1 (`show` — §2.12-c) · `debug` 2 (dev 전용 — `getMock` · `setMock`) = **64**.
+도메인별 분포: `chat` 5 (`send` · `event` · `cancel` · `stopSubagent` · `steerCancel`) · `boot` 2 (`report` · `whenReady`) · `backend` 1 · `agent` 1 · `engine` 5 · `install` 2 · `update` 6 · `settings` 2 · `skills` 7 · `files` 5 · `session` 6 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `cost` 4 · `concurrency` 1 · `permission` 2 (`respond` · `setMode`) · `notify` 1 (`show` — §2.12-c) · `debug` 2 (dev 전용 — `getMock` · `setMock`) = **65**.
 
 `app/src/shared/ipc.ts` 의 `CHANNELS` 상수와 1:1 일치. **단, `debug` 2채널은 `import.meta.env.DEV` 일 때만 `ipcMain.handle` 로 등록된다** (CHANNELS 상수 문자열은 상존하나 prod 핸들러 미등록 — §2.13 참조).
 
@@ -40,9 +40,10 @@
 
 | 채널 | 방향 | 페이로드 | 응답 | 설명 |
 | --- | --- | --- | --- | --- |
-| `orca:boot:report` | R→M (invoke) | — | `BootReport` = `{ startedAt; finishedAt; durationMs; status:'ok'\|'warning'\|'failed'; steps: BootReportStep[]; warnings: string[] }` | main `Bootstrap.start()` 가 BrowserWindow/renderer 이전에 완료한 부트 결과의 **완료 리포트 스냅샷**을 조회한다. 실시간 진행률/event 채널이 아니며, renderer boot 에서는 non-mandatory diagnostic 단계로만 조회한다. 조회 실패나 `warning` status 는 앱 진입을 막지 않고 degrade/console warning 으로 남긴다. |
+| `orca:boot:report` | R→M (invoke) | — | `BootReport` = `{ startedAt; finishedAt; durationMs; status:'ok'\|'warning'\|'failed'; steps: BootReportStep[]; warnings: string[] }` | main `Bootstrap.start()` 부트 결과의 **완료 리포트 스냅샷**을 조회한다. 실시간 진행률/event 채널이 아니며, renderer boot 에서는 non-mandatory diagnostic 단계로만 조회한다(`whenReady` 게이트 뒤). 조회 실패나 `warning` status 는 앱 진입을 막지 않고 degrade/console warning 으로 남긴다. |
+| `orca:boot:whenReady` | R→M (invoke) | — | `void` (resolve = main 준비 완료 / reject = `start()` 실패) | **main 부팅 완료 게이트** (0109). 창이 `start()` 완료 *이전* 에 뜨므로, renderer 부트 오케스트레이터의 **첫 mandatory 스텝**(`main-ready`)이 이 invoke 로 main 준비를 기다린 뒤에야 나머지 IPC 스텝(settings/session 조회 등)을 시작한다 — "미등록 핸들러 invoke" 창을 구조적으로 차단. 핸들러는 `index.ts` 가 `start()` 착수 직후(다른 어떤 핸들러 등록보다 먼저) 등록하고 `start()` promise 를 그대로 반환한다. reject 는 renderer mandatory 규칙에 따라 BootScreen failed UX 로 표면화된다. |
 
-`BootReportStep` = `{ id; label?; status:'ok'\|'warning'\|'failed'; critical; startedAt; finishedAt; durationMs; message? }`. `critical:false` 단계의 실패는 `warning` 으로 기록되며 main 부트를 막지 않는다. `critical:true` 단계의 실패는 main 부트 실패로 전파되므로 일반적으로 renderer 가 리포트를 조회할 수 없다.
+`BootReportStep` = `{ id; label?; status:'ok'\|'warning'\|'failed'; critical; startedAt; finishedAt; durationMs; message? }`. `critical:false` 단계의 실패는 `warning` 으로 기록되며 main 부트를 막지 않는다. `critical:true` 단계의 실패는 main 부트 실패로 전파되며, renderer 는 `whenReady` reject 로 이를 관측한다(0109 이전에는 창 자체가 뜨지 않았다).
 
 ### 2.2 Backend
 

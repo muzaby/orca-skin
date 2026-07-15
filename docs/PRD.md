@@ -286,7 +286,7 @@ Renderer (UI) → Electron IPC → `SessionAdapter` → `ClaudeCodeAdapter` 또�
 | `docs/etc/llm-chat-desktop-strategy.md` | 백엔드 / 어댑터 / 세션 / 설치 (§§2–11 핵심 입력) |
 | `docs/ARCHITECTURE.md` | Renderer 구조·상태 관리 (Zustand 채택 §4.4)·도메인 화면 카탈로그 |
 | `docs/ARCHITECTURE.md` | Main 구조·SessionAdapter §4·영속성 §6 (로컬 DB + FS)·자격증명 §8.4 |
-| `docs/IPC_CONTRACT.md` | Main ↔ Renderer 채널 SSOT (총 64 채널, NormalizedEvent variant, ErrorCategory) |
+| `docs/IPC_CONTRACT.md` | Main ↔ Renderer 채널 SSOT (총 65 채널, NormalizedEvent variant, ErrorCategory) |
 | `docs/GLOSSARY.md` | 용어 단일 출처 (Session / Backend / SessionAdapter / Artifact / Credential 등, 사용 금지 어휘) |
 | `docs/claude-code-spec.md` | Claude Code CLI 공식 스펙 미러 (§7.2~7.4, OQ9 의 참조점) |
 | `chats/chat1.md` | 디자인 의도 트랜스크립트 (§4 페르소나, §10 디자인 톤) |

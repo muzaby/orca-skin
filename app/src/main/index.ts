@@ -161,10 +161,21 @@ app.whenReady().then(async () => {
   registerAppProtocol()
 
   const router = new Bootstrap()
-  await router.start()
   routerRef = router
-
+  // 창 먼저(0109) — start() 의 DB 마이그레이션/스킬 시드/확장 배포를 기다리지 않고 셸을
+  // 띄운다. renderer 부트 오케스트레이터의 첫 스텝(main-ready)이 이 게이트 invoke 로 완료를
+  // 대기하므로 "미등록 핸들러 invoke" 창이 구조적으로 닫힌다. 게이트 핸들러는 start() 호출
+  // 이전에 등록돼야 한다(등록 전 도착 invoke 는 reject 되므로).
+  const started = router.start()
+  ipcMain.handle(CHANNELS.bootWhenReady, () => started)
   createWindow(router.settings)
+  try {
+    await started
+  } catch (err) {
+    // 창은 이미 떠 있다 — 실패는 renderer 의 main-ready 필수 스텝(failed UX)으로 표면화된다.
+    console.error('[main] bootstrap 실패:', err)
+    return
+  }
   void router.checkForUpdatesOnStartup()
 
   app.on('activate', function () {

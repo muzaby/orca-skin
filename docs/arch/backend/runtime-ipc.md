@@ -91,7 +91,7 @@ handle(CHANNELS.chatSend, SendChatMessageSchema, /* 실패=error 이벤트 */, a
 })
 ```
 
-- **채널 총계는 [IPC_CONTRACT.md](../../IPC_CONTRACT.md) §2 가 SSOT** — 현재 **총 64 채널**(도메인: `chat`·`boot`·`backend`·`agent`·`engine`·`install`·`update`·`settings`·`skills`·`files`·`session`·`project`·`window`·`search`·`mcp`·`cost`·`concurrency`·`permission`·`debug`(dev)). **본 문서는 총계를 재서술하지 않는다**(드리프트 방지 — 변경 시 SSOT 1곳만 갱신). `chat` 도메인 5채널(`send`·`event`·`cancel`·`stopSubagent`·`steerCancel`).
+- **채널 총계는 [IPC_CONTRACT.md](../../IPC_CONTRACT.md) §2 가 SSOT** — 현재 **총 65 채널**(도메인: `chat`·`boot`·`backend`·`agent`·`engine`·`install`·`update`·`settings`·`skills`·`files`·`session`·`project`·`window`·`search`·`mcp`·`cost`·`concurrency`·`permission`·`debug`(dev)). **본 문서는 총계를 재서술하지 않는다**(드리프트 방지 — 변경 시 SSOT 1곳만 갱신). `chat` 도메인 5채널(`send`·`event`·`cancel`·`stopSubagent`·`steerCancel`).
 - 채널 상수는 `app/src/shared/ipc.ts` 의 `CHANNELS`(문자열 리터럴 직접 사용 금지). `debug` 2채널은 `import.meta.env.DEV` 에서만 `ipcMain.handle` 등록.
 
 ### 2.2 명명 규칙

@@ -52,7 +52,9 @@ import {
 // 추가 채널 (backend.select, settings.*) 은 사용처 도입 시점에 다시 등록.
 const orca = {
   boot: {
-    report: (): Promise<BootReport> => ipcRenderer.invoke(CHANNELS.bootReport)
+    report: (): Promise<BootReport> => ipcRenderer.invoke(CHANNELS.bootReport),
+    // main start() 완료 게이트(0109) — resolve 될 때까지 나머지 부트 스텝을 시작하지 않는다.
+    whenReady: (): Promise<void> => ipcRenderer.invoke(CHANNELS.bootWhenReady)
   },
   chat: {
     send: (req: SendChatMessage): Promise<void> => ipcRenderer.invoke(CHANNELS.chatSend, req),
