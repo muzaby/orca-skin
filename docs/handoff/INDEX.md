@@ -208,4 +208,6 @@
 
 | `0109-boot-window-first-async-deploy` | impl | IMPL_DONE | Claude | (push 전) | 1 | 성능 시리즈 3/4 (비기능=Claude 직접). 콜드스타트 흰 화면 + CRUD 프리즈 해소 — 창을 `start()` **이전** 생성 + 신규 `orca:boot:whenReady` 게이트(IPC 64→65, renderer 부트 첫 mandatory 스텝 `main-ready`) + deployer/plugin-package/seed `fs/promises` 전환 + `ExtensionDeploymentService` in-flight 직렬화(코얼레스) + 스킬/MCP/engine CRUD·턴 게이트 await. 파생 이슈 D1(engine 직접 deploy 경로 직렬화 밖). 검증 대기. electron 실기(콜드스타트 체감)는 사람/CI. |
 
+| `0110-attachment-encode-chunking` | impl | IMPL_DONE | Claude | (push 전) | 1 | 성능 시리즈 4/4 (비기능=Claude 직접). 이미지 첨부(최대 32MB) base64 동기 인코딩의 send/미리보기 프리즈 해소 — `bufferToBase64Chunked`(3의 배수 정렬 3MiB 청크 + `setImmediate` 양보, 단일 인코딩 바이트 동치 테스트) + provider settings mtime 체크 `statSync`→`fs/promises.stat`. 검증 대기. |
+
 > 새 작업: 기존 행 중 `max(번호)+1` 로 행을 추가하고 `<NNNN-slug>/plan.md` 를 생성한다.

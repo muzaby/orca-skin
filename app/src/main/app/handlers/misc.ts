@@ -40,6 +40,7 @@ import { skillEnabledKey } from '../../features/extensions/skills/scan'
 import {
   fileMeta,
   assertAllowedAttachmentPath,
+  bufferToBase64Chunked,
   SUPPORTED_IMAGE_MIME_TYPES
 } from '../../features/chat/attachments'
 import { listDir } from '../../features/chat/scan'
@@ -211,7 +212,8 @@ export function registerMiscHandlers(ctx: RouterContext): void {
       if (!SUPPORTED_IMAGE_MIME_TYPES.has(meta.mimeType)) {
         throw new Error('미리보기는 이미지 첨부만 지원합니다.')
       }
-      return { data: (await fs.readFile(path)).toString('base64'), mimeType: meta.mimeType }
+      // 대용량 이미지 동기 인코딩이 이벤트 루프를 점유하지 않게 청크 양보(0110).
+      return { data: await bufferToBase64Chunked(await fs.readFile(path)), mimeType: meta.mimeType }
     }
   )
 

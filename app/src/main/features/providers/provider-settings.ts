@@ -13,7 +13,7 @@
 // 0017 분해: 열거→provider-registry.ts · 모델 해석→model-resolve.ts · env 유틸→env-merge.ts.
 // 호출처 무회귀를 위해 본 모듈이 그 3개를 배럴 re-export 한다(기존 import 경로 보존).
 
-import { statSync } from 'node:fs'
+import { stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { orcaConfigDir } from '../../infra/config/paths'
 import { listAdapters, listProviders, type ProviderEntry } from './provider-registry'
@@ -102,7 +102,7 @@ export class ProviderSettingsService {
     // mtime 스테일 체크 — sources 파일 기준. 파일이 없으면 mtime 0
     // (빈 settings 캐시도 유효 — 파일 등장 시 mtime 변화로 재해석).
     const srcPath = sourcesSettingsFile
-    const mtimeMs = statMtime(srcPath)
+    const mtimeMs = await statMtime(srcPath)
     const hit = this.cache.get(entry.key)
     if (hit && hit.srcPath === srcPath && hit.mtimeMs === mtimeMs) {
       return {
@@ -126,9 +126,10 @@ export class ProviderSettingsService {
   }
 }
 
-function statMtime(path: string): number {
+// 매 chat:send 경유(resolveTurnProvider) — resolve() 가 이미 async 라 stat 도 비동기로(0110).
+async function statMtime(path: string): Promise<number> {
   try {
-    return statSync(path).mtimeMs
+    return (await stat(path)).mtimeMs
   } catch {
     return 0
   }
