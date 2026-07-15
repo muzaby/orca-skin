@@ -27,6 +27,26 @@ export class TextExtractor implements AttachmentExtractor {
 
 const textExtractor = new TextExtractor()
 
+// 대용량 버퍼 base64 인코딩(0110) — 이미지 상한 32MB 의 단일 .toString('base64') 는
+// send 경로에서 이벤트 루프를 수백 ms 점유한다. base64 패딩 경계(3바이트 배수) 청크로
+// 나눠 setImmediate 로 양보하며 인코딩한다 — 총비용 동일, 점유만 분산. worker 오프로딩은
+// 1회성 수십~백 ms 에 프로세스/직렬화 비용이 부적합해 기각(계획 문서).
+const BASE64_CHUNK_BYTES = 3 * 1024 * 1024
+
+export async function bufferToBase64Chunked(
+  buf: Buffer,
+  chunkBytes = BASE64_CHUNK_BYTES
+): Promise<string> {
+  const aligned = Math.max(3, chunkBytes - (chunkBytes % 3))
+  if (buf.length <= aligned) return buf.toString('base64')
+  const parts: string[] = []
+  for (let at = 0; at < buf.length; at += aligned) {
+    parts.push(buf.subarray(at, Math.min(buf.length, at + aligned)).toString('base64'))
+    await new Promise<void>((resolve) => setImmediate(resolve))
+  }
+  return parts.join('')
+}
+
 export function mimeTypeForPath(path: string): string {
   const ext = extname(path).toLowerCase()
   if (ext === '.md') return 'text/markdown'
@@ -109,7 +129,7 @@ async function attachmentFromPath(
   const sizeBytes = att.sizeBytes ?? (await fs.stat(path)).size
   const id = makeAttachmentId({ name: att.name, path })
   if (SUPPORTED_IMAGE_MIME_TYPES.has(mimeType)) {
-    const data = (await fs.readFile(path)).toString('base64')
+    const data = await bufferToBase64Chunked(await fs.readFile(path))
     return { id, name: att.name, mimeType, sizeBytes, data, sourceKind: att.sourceKind }
   }
   const ext = extname(path).toLowerCase()
