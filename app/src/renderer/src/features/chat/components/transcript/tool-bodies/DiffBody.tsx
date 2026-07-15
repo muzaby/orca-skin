@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { diffLines } from 'diff'
 import { stringify } from '../../../format'
 import type { ToolCall } from '../../../reducer/chatReducer'
@@ -69,7 +70,8 @@ function buildDiffLines(oldValue: string, newValue: string): DiffLine[] {
 }
 
 function DiffTable({ oldValue, newValue }: DiffPair): React.JSX.Element {
-  const lines = buildDiffLines(oldValue, newValue)
+  // diffLines 는 O(n·m) — 부모가 재렌더돼도 같은 입력이면 재계산하지 않는다(0108).
+  const lines = useMemo(() => buildDiffLines(oldValue, newValue), [oldValue, newValue])
 
   return (
     <table
@@ -119,7 +121,7 @@ function DiffTable({ oldValue, newValue }: DiffPair): React.JSX.Element {
 }
 
 export function DiffBody({ call }: { call: ToolCall }): React.JSX.Element {
-  const pairs = buildPairs(call)
+  const pairs = useMemo(() => buildPairs(call), [call])
 
   return (
     <div className="flex flex-col gap-2">

@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { memo, useRef, useState } from 'react'
 import { Icon } from '../../../shared/ui/Icon'
 import { Popover } from '../../../shared/ui/Popover'
 import { RenameInput } from '../../../shared/ui/RenameInput'
@@ -24,7 +24,9 @@ export interface SessionRowProps {
   renameable?: boolean
 }
 
-export function SessionRow({
+// memo(0108) — 제목 이벤트/목록 재조회가 list 배열 identity 를 갈아도, sessionsStore 의
+// in-place 패치가 비변경 항목의 참조를 보존하므로 변경 행만 재렌더된다.
+export const SessionRow = memo(function SessionRow({
   session,
   isActive,
   projectName,
@@ -165,4 +167,4 @@ export function SessionRow({
       )}
     </div>
   )
-}
+})
