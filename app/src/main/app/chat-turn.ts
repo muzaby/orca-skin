@@ -40,7 +40,10 @@ import type { ApprovalCoordinator } from '../features/approvals/coordinator'
 import type { HistoryWriter } from '../features/history/writer'
 import { SessionRuntime } from '../features/sessions/session-runtime'
 import type { RuntimeSessionAdapter } from '../contracts/ports'
-import { recoverDanglingToolCalls } from '../features/chat/recovery'
+import {
+  recoverDanglingToolCalls,
+  rebuildIncompleteMessageContent
+} from '../features/chat/recovery'
 import type { SteerFlushBatch, TurnRequest } from '../adapters/turn'
 import { TurnCoordinator } from '../features/chat/turn-coordinator'
 import { settleOpenToolRuns, settleSubagentTask, stopLiveSubagent } from '../features/chat/settle'
@@ -396,6 +399,11 @@ export function registerChatHandlers(deps: ChatDeps): void {
     }
 
     if (parsed.data.sessionId) {
+      // content 재구성이 먼저다(0107) — recover 가 complete 를 올리면 대상 식별 불가.
+      // live 세션은 진행 턴의 finalize 가 곧 기록하므로 건너뛴다(recover 의 가드와 대칭).
+      if (!supervisor.hasSession(parsed.data.sessionId)) {
+        rebuildIncompleteMessageContent(ctx.db, { sessionId: parsed.data.sessionId })
+      }
       recoverDanglingToolCalls(ctx.db, {
         sessionId: parsed.data.sessionId,
         isSessionLive: (sessionId) => supervisor.hasSession(sessionId)
@@ -766,6 +774,9 @@ export function registerChatHandlers(deps: ChatDeps): void {
     // 진행 중이던 도구(최상위 + 서브에이전트 child)를 중단 결과로 정착 — 안 하면 결과가
     // 영영 안 와 "실행 중"으로 무한 렌더되고 부모 Task 가 "진행 중"으로 남는다. turn.aborted 전에.
     settleOpenToolRuns(turn, emitTurn, 'aborted')
+    // 중단 턴은 버스 telemetry 없이 끝난다 — 진행 중 assistant 메시지의 content(FTS 캐시)를
+    // 여기서 마감 기록한다(0107). settle 의 합성 tool_result 영속 뒤에 와야 한다.
+    persistence.finalizeTurn(turn)
     sendChatEvent(turn.owner, {
       type: 'turn.aborted',
       sessionId: req.sessionId,

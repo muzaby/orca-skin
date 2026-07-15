@@ -241,6 +241,13 @@ export interface DanglingToolCallRow {
   payload_json: string
 }
 
+// 미완(complete=0) assistant 메시지의 text 파트 — finalize 이전 종료로 비어 있을 수 있는
+// content(FTS 캐시)를 부팅/세션 복구가 재구성하는 데 쓴다(0107).
+export interface IncompleteAssistantTextPartRow {
+  message_id: number
+  payload_json: string
+}
+
 export interface LoadedPartRow {
   message_id: number
   role: MessageRole

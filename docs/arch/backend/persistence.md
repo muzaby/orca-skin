@@ -91,6 +91,12 @@
 
 `db/queries.ts` 의 `toFtsMatch(q)` — 공백으로 토큰 분리 후 모든 토큰에 prefix wildcard `*` 부착 (예: `진행 중` → `"진행"* "중"*`). 결과는 FTS5 rank 정렬, LIMIT 적용.
 
+#### PRAGMA · content 기록 시점 (0107 — 스트리밍 영속 핫패스)
+
+- **`synchronous = NORMAL`** (WAL 공식 권장 조합, `infra/db/index.ts`). 기본 FULL 은 커밋마다 fsync 해 스트리밍 persist(동기 better-sqlite3, 버스 critical 구독자)가 이벤트 루프를 점유했다. **트레이드오프**: 앱 크래시는 무손실, 정전/OS 크래시 시에만 최근 커밋 롤백 가능(DB 무결성은 보존 — WAL 특성).
+- **`messages.content`(FTS5 text-cache) 는 메시지 마감 시 1회 기록** — 스트리밍 중 블록마다 누적 전체를 재기록하면 `messages_au` 트리거가 매번 전체 재색인(응답 길이에 초선형). 마감 경계 = telemetry persist · `commitUserMessage` · chatCancel(`finalizeTurn`). 트랜스크립트 복원은 `message_parts` 만 쓰므로(loadParts) 화면 영향 없음.
+- **finalize 이전 비정상 종료(크래시·adapter error·stall timeout)의 FTS 공백**은 `rebuildIncompleteMessageContent`(features/chat/recovery)가 복구 — 부팅(chat-recovery 스텝) + 해당 세션 다음 `chat:send` 초입, 둘 다 `recoverDanglingToolCalls` **이전** 실행(complete=0 이 대상 식별자).
+
 #### 1.4 계층 2 — 파일 시스템 (Future)
 
 | 저장 대상 | 경로 패턴 |
