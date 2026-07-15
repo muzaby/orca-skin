@@ -138,7 +138,7 @@
 | 실행 명령 | `npm run lint` / `npm run typecheck` / `./node_modules/.bin/vitest run src/main/adapters` / `node --test scripts/ensure-sqlite-abi.test.mjs` |
 | 게이트 결과 | lint ✅ 0 error(경고 1 = 0102 TanStack↔React Compiler, 무관) / typecheck 3종 ✅ 0 / adapters vitest ✅ 224/224(21파일) / ensure-sqlite-abi ✅ 7/7. DB 로드 스위트는 better-sqlite3 ABI egress-403 베이스라인(변경 무관). |
 | 블로커 / 역질문 | 없음 |
-| 대상 커밋 | `<impl-hash>` |
+| 대상 커밋 | `0ec71f7` |
 
 ---
 
