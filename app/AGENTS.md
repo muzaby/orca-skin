@@ -115,6 +115,19 @@ new BrowserWindow({
 
 `better-sqlite3` 네이티브 모듈은 **Electron 런타임 ABI** 와 **plain Node/Vitest ABI** 를 동시에 만족할 수 없다(한 번에 하나). `scripts/ensure-sqlite-abi.mjs` 가 `pretest`(Node = `npm rebuild better-sqlite3`)·`predev`/`prebuild`/`postinstall`(Electron = `electron-builder install-app-deps`) 진입점에서 현재 target ABI 를 멱등 보장한다. 수동 `npm rebuild better-sqlite3` 를 게이트 통과 절차로 요구하지 않는다.
 
+**어떤 명령이 ABI 를 뒤집는가 — 코드 수정 루프에서 필히 구분.** ABI 를 바꾸는 것은 **오직 pre/post 훅이 붙은 4개 명령**뿐이다:
+
+| 명령 | 훅 | 결과 ABI |
+|---|---|---|
+| `npm install` / `npm ci` | `postinstall` | **Electron** (단, better-sqlite3 자체 install 이 Node-ABI prebuilt 를 먼저 깔 수 있음 → 아래 주의) |
+| `npm run dev` / `npm run build` | `predev` / `prebuild` | **Electron** |
+| `npm test` | `pretest` | **Node** |
+
+- **`npm run lint`·`npm run typecheck`·`npm run format` 은 pre/post 훅이 없고 네이티브 바이너리를 로드하지도 않는다 → 완전 ABI-중립.** 아무리 자주 돌려도 ABI 를 뒤집지 않고 rebuild 도 유발하지 않는다. **코드 수정 루프의 기본 게이트는 이 둘(lint + typecheck)로 삼는다.**
+- **ABI 마찰의 실체**: `npm test` 가 ABI 를 **Node** 로 뒤집는다. 그 직후 `npm run dev`/`build` 를 하면 다시 **Electron** 재빌드가 필요한데, egress 차단 환경에선 이 재빌드가 403 으로 막혀 **빌드가 실패**한다. 즉 lint/typecheck/format 이 아니라 **`npm test` → build 순서**가 원인이다.
+- **DB 를 실제로 실행하지 않는 로직 테스트는 ABI 를 안 뒤집고** 돌린다: `pretest` 를 우회해 `./node_modules/.bin/vitest run <suite>`(비-DB 스위트는 네이티브 미로드) 또는 `node --test scripts/*.test.mjs` 를 직접 호출한다. `npm test` 는 **DB 동작을 실제로 봐야 할 때만** 의도적으로 쓴다.
+- **`npm install` 후 `npm run dev` 가 Node-ABI 에 고착되던 버그(수정됨)**: npm 의 prebuild-install 이 바이너리를 Node-ABI 로 되돌려도 orca 마커는 `{target:electron}` 이라, 예전 fast-path 가 마커만 보고(binary-blind) 재빌드를 건너뛰었다. 이제 `ensure-sqlite-abi.mjs` 의 electron 판정이 **실제 로드 프로브**(plain Node 에서 로드되면 Node-ABI → 재빌드)를 겸해, 네트워크만 열려 있으면 `dev`/`build` 가 자동으로 Electron 재빌드로 자가 치유한다. (핸드오프 0104.)
+
 **제약 환경(egress 차단) 주의 — 에이전트가 헛발질하기 쉬운 지점.** 에이전트 실행 환경은 electron 바이너리·헤더 다운로드가 **403 으로 차단**되곤 한다. 그러면 `postinstall`/`predev`/`prebuild`(Electron ABI)이 실패해 `npm ci`/`npm test`/`npm run build` 가 exit 1 을 낸다. 그럼에도 **node_modules 는 설치되어 lint·typecheck·순수(비-DB) vitest 는 정상 동작**하고, `better_sqlite3.node` 바인딩만 미빌드라 **DB 로드 스위트만** 실패한다.
 
 - **이건 환경 제약이지 코드 회귀가 아니다.** 아래 서명이 보이면 그렇게 판정한다:
