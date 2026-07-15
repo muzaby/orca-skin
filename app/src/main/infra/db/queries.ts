@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3'
 import type {
   DanglingToolCallRow,
+  IncompleteAssistantTextPartRow,
   LoadedPartRow,
   MessageInsert,
   MessagePartInsert,
@@ -41,6 +42,8 @@ export class DbQueries {
   private readonly updateToolResultPartScopedStmt: Database.Statement
   private readonly findDanglingToolCallsStmt: Database.Statement
   private readonly findDanglingToolCallsBySessionStmt: Database.Statement
+  private readonly findIncompleteAssistantTextPartsStmt: Database.Statement
+  private readonly findIncompleteAssistantTextPartsBySessionStmt: Database.Statement
   private readonly updateSessionPreviewStmt: Database.Statement
   private readonly updateSessionProviderKeyStmt: Database.Statement
   private readonly updateSessionTitleStmt: Database.Statement
@@ -186,6 +189,23 @@ export class DbQueries {
       ${danglingToolCallsSql}
         AND m.session_id = @sessionId
       ORDER BY m.id ASC, tc.idx ASC
+    `)
+    // 미완 assistant 메시지의 text 파트(0107) — finalize 이전 종료로 content(FTS 캐시)가
+    // 비어 있을 수 있는 메시지의 재구성 소스. recoverDanglingToolCalls 가 complete 를 올리기
+    // *전* 에 조회해야 한다(마킹 후엔 대상 식별 불가).
+    const incompleteAssistantTextPartsSql = `
+      SELECT mp.message_id AS message_id, mp.payload_json AS payload_json
+      FROM messages m
+      JOIN message_parts mp ON mp.message_id = m.id
+      WHERE m.role = 'assistant' AND m.complete = 0 AND mp.type = 'text'
+    `
+    this.findIncompleteAssistantTextPartsStmt = db.prepare(
+      `${incompleteAssistantTextPartsSql} ORDER BY mp.message_id ASC, mp.idx ASC`
+    )
+    this.findIncompleteAssistantTextPartsBySessionStmt = db.prepare(`
+      ${incompleteAssistantTextPartsSql}
+        AND m.session_id = @sessionId
+      ORDER BY mp.message_id ASC, mp.idx ASC
     `)
     this.updateSessionPreviewStmt = db.prepare(`
       UPDATE sessions
@@ -491,6 +511,13 @@ export class DbQueries {
       ? this.findDanglingToolCallsBySessionStmt
       : this.findDanglingToolCallsStmt
     return stmt.all(sessionId ? { sessionId } : {}) as DanglingToolCallRow[]
+  }
+
+  findIncompleteAssistantTextParts(sessionId?: string): IncompleteAssistantTextPartRow[] {
+    const stmt = sessionId
+      ? this.findIncompleteAssistantTextPartsBySessionStmt
+      : this.findIncompleteAssistantTextPartsStmt
+    return stmt.all(sessionId ? { sessionId } : {}) as IncompleteAssistantTextPartRow[]
   }
 
   updateSessionPreview(id: string, preview: string, updatedAt: number): void {

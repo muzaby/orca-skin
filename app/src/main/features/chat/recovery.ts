@@ -38,6 +38,35 @@ export function recoverDanglingToolCalls(
   return { messagesCompleted: completed.size, toolResultsWritten }
 }
 
+// finalize(마감 시 1회 content 기록, 0107) 이전에 턴이 끝난 assistant 메시지는 content
+// (FTS5 캐시)가 비어 검색에서 빠진다. 최상위 text 파트(payload.parentToolRunId 부재 —
+// 서브에이전트 child 텍스트 제외)를 concat 해 재구성한다. recoverDanglingToolCalls 가
+// complete 를 올리기 *전* 에 호출해야 한다(complete=0 이 대상 식별자).
+export function rebuildIncompleteMessageContent(
+  db: Pick<DbQueries, 'findIncompleteAssistantTextParts' | 'updateMessageContent'>,
+  options: { sessionId?: string } = {}
+): number {
+  const rows = db.findIncompleteAssistantTextParts(options.sessionId)
+  const byMessage = new Map<number, string>()
+  for (const row of rows) {
+    let payload: { text?: unknown; parentToolRunId?: unknown }
+    try {
+      payload = JSON.parse(row.payload_json) as { text?: unknown; parentToolRunId?: unknown }
+    } catch {
+      continue
+    }
+    if (typeof payload.text !== 'string' || payload.parentToolRunId !== undefined) continue
+    byMessage.set(row.message_id, (byMessage.get(row.message_id) ?? '') + payload.text)
+  }
+  let rebuilt = 0
+  for (const [messageId, content] of byMessage) {
+    if (content === '') continue
+    db.updateMessageContent(messageId, content)
+    rebuilt += 1
+  }
+  return rebuilt
+}
+
 export function groupDanglingToolCallsByMessage(
   rows: readonly DanglingToolCallRow[]
 ): Map<number, DanglingToolCallRow[]> {

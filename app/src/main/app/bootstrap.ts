@@ -68,7 +68,10 @@ import { ApprovalCoordinator } from '../features/approvals/coordinator'
 import { HistoryWriter } from '../features/history/writer'
 import { materializeContinuityArrival } from '../features/orchestration/fork'
 import { TitleGenerator } from '../features/chat/title-generation'
-import { recoverDanglingToolCalls } from '../features/chat/recovery'
+import {
+  recoverDanglingToolCalls,
+  rebuildIncompleteMessageContent
+} from '../features/chat/recovery'
 import { broadcastConcurrency, sendChatEvent } from '../infra/ipc/send'
 import { resolveBuiltinSkillsDir } from './builtin-resources'
 
@@ -168,7 +171,11 @@ export class Bootstrap {
     const recovered = this.bootReport.stepSync(
       'chat-recovery',
       { critical: true, label: '미완료 도구 호출 복구' },
-      () => recoverDanglingToolCalls(db)
+      () => {
+        // content 재구성이 먼저다(0107) — recover 가 complete 를 올리면 대상 식별 불가.
+        rebuildIncompleteMessageContent(db)
+        return recoverDanglingToolCalls(db)
+      }
     )
     if (recovered.toolResultsWritten > 0 && is.dev) {
       console.log('[recovery] dangling tools settled:', recovered)

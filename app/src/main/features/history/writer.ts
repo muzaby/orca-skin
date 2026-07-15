@@ -68,7 +68,7 @@ export class HistoryWriter {
     const sessionId = turn.dbSessionId
     if (!sessionId) return null
     if (turn.currentAssistantMessageId != null) {
-      this.db.markMessageComplete(turn.currentAssistantMessageId)
+      this.finalizeAssistantMessage(turn)
       turn.currentAssistantMessageId = null
       turn.assistantText = ''
     }
@@ -81,6 +81,23 @@ export class HistoryWriter {
     this.db.updateSessionPreview(sessionId, previewOf(batch.text), batch.createdAt)
     this.db.updateSessionProviderKey(sessionId, turn.providerKey, batch.createdAt)
     return id
+  }
+
+  // assistant 메시지 마감 — content(FTS5 캐시)를 파트 누적분으로 이 시점 1회만 동기화한다.
+  // 스트리밍 중 블록마다 전체 content 를 재기록하면 FTS 트리거(messages_au)가 매번 전체를
+  // 재색인해 응답 길이에 초선형 비용이 든다(0107) — 기록은 메시지가 닫히는 경계로 미룬다.
+  // finalize 이전 비정상 종료의 FTS 공백은 rebuildIncompleteMessageContent(부팅·세션 send)가 복구.
+  private finalizeAssistantMessage(turn: TurnContext): void {
+    if (turn.currentAssistantMessageId == null) return
+    this.db.updateMessageContent(turn.currentAssistantMessageId, turn.assistantText)
+    this.db.markMessageComplete(turn.currentAssistantMessageId)
+  }
+
+  // 버스 밖 턴 종료 경계(chatCancel 등)용 — 진행 중 assistant 메시지를 마감하고 reset 한다.
+  finalizeTurn(turn: TurnContext): void {
+    this.finalizeAssistantMessage(turn)
+    turn.currentAssistantMessageId = null
+    turn.assistantText = ''
   }
 
   // 현재 assistant 메시지를 보장(없으면 빈 메시지 생성 + text 캐시 리셋)하고 id 를 반환한다.
@@ -217,9 +234,10 @@ export class HistoryWriter {
         })
         // 서브에이전트(Task) child 텍스트는 메인 메시지 content/preview 를 오염시키지 않는다 —
         // 우측 패널 child 트랜스크립트 전용. assistantText 누적·세션 프리뷰 갱신은 최상위 텍스트만.
+        // content(FTS 캐시) 기록은 메시지 마감 시 1회(finalizeAssistantMessage, 0107) —
+        // 여기서는 누적과 사이드바 프리뷰 라이브 갱신만 한다.
         if (ev.parentToolRunId === undefined) {
           turn.assistantText += ev.message.text
-          this.db.updateMessageContent(id, turn.assistantText)
           this.db.updateSessionPreview(turn.dbSessionId, previewOf(ev.message.text), now)
         }
         break
@@ -281,9 +299,7 @@ export class HistoryWriter {
         // 턴 종료 — 진행 중 assistant 메시지를 마감하고 다음 턴 대비 reset 한다. 사용량 적재(turn_usage
         // 원장)·비용 방출은 usage 구독자가, 제목 생성은 title 구독자가 버스에서 먼저 소비한다(0062).
         // 등록 순서(usage→history)가 usage 의 currentAssistantMessageId 링크를 이 reset 전에 보장한다.
-        if (turn.currentAssistantMessageId != null) {
-          this.db.markMessageComplete(turn.currentAssistantMessageId)
-        }
+        this.finalizeAssistantMessage(turn)
         // 다음 assistant 파트는 새 메시지에 묶이도록 reset.
         turn.currentAssistantMessageId = null
         turn.assistantText = ''
