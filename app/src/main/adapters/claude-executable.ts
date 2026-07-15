@@ -20,6 +20,11 @@ export function toUnpackedPath(p: string): string {
   return p.replace(/([\\/])app\.asar([\\/])/, '$1app.asar.unpacked$2')
 }
 
+// 플랫폼별 claude 실행 파일명 — win 만 .exe. PATH·공식 위치·번들 후보가 공유한다.
+function claudeBinName(platform: NodeJS.Platform): string {
+  return platform === 'win32' ? 'claude.exe' : 'claude'
+}
+
 // (1) PATH 에서 claude 실행 파일 탐색. win 은 실행 가능한 .exe 만 본다 — .cmd/.bat 은 shell 없이
 // spawn 불가라 SDK 의 native spawn 과 맞지 않는다(공식 인스톨러는 .exe 를 설치).
 export function findOnPath(
@@ -27,7 +32,7 @@ export function findOnPath(
   platform: NodeJS.Platform = process.platform,
   exists: (p: string) => boolean = existsSync
 ): string | undefined {
-  const name = platform === 'win32' ? 'claude.exe' : 'claude'
+  const name = claudeBinName(platform)
   const sep = platform === 'win32' ? ';' : ':'
   for (const dir of (env.PATH ?? '').split(sep).filter(Boolean)) {
     const full = join(dir, name)
@@ -42,19 +47,18 @@ export function officialInstallPath(
   home: string = homedir(),
   exists: (p: string) => boolean = existsSync
 ): string | undefined {
-  const name = platform === 'win32' ? 'claude.exe' : 'claude'
-  const full = join(home, '.local', 'bin', name)
+  const full = join(home, '.local', 'bin', claudeBinName(platform))
   return exists(full) ? full : undefined
 }
 
 // SDK Q2 와 동일한 플랫폼별 후보 서브패스(설치된 변형만 resolve 된다 — linux 는 glibc/musl 둘 다 시도).
 function bundledCandidates(platform: NodeJS.Platform, arch: string): string[] {
-  const ext = platform === 'win32' ? '.exe' : ''
+  const bin = claudeBinName(platform)
   const names =
     platform === 'linux'
       ? [`${PKG}-linux-${arch}`, `${PKG}-linux-${arch}-musl`]
       : [`${PKG}-${platform}-${arch}`]
-  return names.map((n) => `${n}/claude${ext}`)
+  return names.map((n) => `${n}/${bin}`)
 }
 
 // (3) 번들 npm native binary → asar 언팩 경로. asar 안일 때만 값을 반환하고, 비패키징(dev)에서는

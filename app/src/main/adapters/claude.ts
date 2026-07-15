@@ -48,7 +48,11 @@ const requireFn = createRequire(import.meta.url)
 
 // SDK 가 spawn 할 claude 실행 파일 경로(공식/PATH 우선 → 번들 asar-언팩 폴백). 부팅 1회 해석.
 // undefined 면 옵션을 생략해 SDK 기본 해석에 위임(dev/비패키징). 패키징 배경은 claude-executable.ts.
+// query options 스프레드용으로 파생 옵션을 1회 만든다(runCompletion·sendMessage 공용).
 const claudeExecutable = resolveClaudeExecutable()
+const claudeExecutableOption = claudeExecutable
+  ? { pathToClaudeCodeExecutable: claudeExecutable }
+  : {}
 
 // AskUserQuestion 회피 안내 — skip(deny) 시 Claude 에 전달할 거부 메시지.
 const ASK_SKIP_MESSAGE = '사용자가 질문에 답하지 않고 건너뛰었습니다. 최선의 판단으로 진행하세요.'
@@ -236,7 +240,7 @@ export class ClaudeAdapter implements SessionAdapter {
       // 제목 생성 complete 경로는 도구/스킬/MCP 가 필요 없는 1-shot 요약이다.
       // plugin 로딩은 chat sendMessage 경로에만 적용한다.
       persistSession: false,
-      ...(claudeExecutable ? { pathToClaudeCodeExecutable: claudeExecutable } : {}),
+      ...claudeExecutableOption,
       ...adaptSettings(req.providerSettings?.settings),
       ...adaptEnv(req.env),
       ...(req.cwd ? { cwd: req.cwd } : {}),
@@ -339,7 +343,7 @@ export class ClaudeAdapter implements SessionAdapter {
         additionalDirectories,
         abortController,
         // claude 실행 파일 경로(공식/PATH 우선 → 번들 asar-언팩 폴백). undefined 면 생략해 SDK 기본 해석.
-        ...(claudeExecutable ? { pathToClaudeCodeExecutable: claudeExecutable } : {}),
+        ...claudeExecutableOption,
         ...adaptSystemPrompt(extensions.systemPromptAppend),
         ...adaptPlugins(extensions.pluginRoot),
         ...adaptSkills(extensions.skills),
