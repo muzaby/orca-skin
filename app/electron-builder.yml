@@ -12,6 +12,9 @@ files:
   - '!resources/builtin/**'
 asarUnpack:
   - resources/**
+  # SDK 번들 native binary(claude[.exe])는 asar 내부에선 spawn 불가 → 실디스크로 언팩.
+  # (설치된 플랫폼 패키지만 매칭 — npm 은 os/cpu 일치본만 설치. 상세: adapters/claude-executable.ts)
+  - node_modules/@anthropic-ai/claude-agent-sdk-*/**
 extraResources:
   - from: resources/builtin
     to: builtin
