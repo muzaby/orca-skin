@@ -113,4 +113,4 @@ Electron 이 Node-ABI 바이너리를 로드하다 `NODE_MODULE_VERSION` 불일�
 | 실행 명령 | `node --test scripts/ensure-sqlite-abi.test.mjs` · `npm run lint` · `npm run typecheck` |
 | 게이트 결과 | ensure-sqlite-abi 7/7 green · lint 0 errors(경고 1=0102 TanStack) · typecheck 3종 0 ✅ |
 | 블로커 / 역질문 | 없음. 실제 electron ABI 전환 실기는 egress 403 로 이 환경 불가 → CI(windows-latest)/사람 실기 대기. |
-| 대상 커밋 | (push 후 기입) |
+| 대상 커밋 | `a9bf02b` |
