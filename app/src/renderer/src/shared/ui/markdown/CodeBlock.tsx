@@ -1,7 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useContext, useEffect, useState, useSyncExternalStore } from 'react'
 import { createHighlighter, type Highlighter } from 'shiki'
 import { CopyIconButton } from '../CopyIconButton'
 import { useI18n } from '../../i18n'
+import { MarkdownStreamingContext } from './streamingContext'
+import { getThemeSnapshot, subscribeTheme, type ShikiThemeId } from './themeStore'
 
 const LANGUAGES = [
   'typescript',
@@ -29,13 +31,6 @@ function getHighlighter(): Promise<Highlighter> {
     })
   }
   return highlighterPromise
-}
-
-function pickTheme(): (typeof THEMES)[number] {
-  if (typeof document === 'undefined') return 'github-light'
-  const t = document.documentElement.dataset.theme
-  if (t === 'dark') return 'github-dark'
-  return 'github-light'
 }
 
 function isLang(s: string): s is (typeof LANGUAGES)[number] {
@@ -74,6 +69,10 @@ export function CodeBlock({
 }: CodeBlockProps): React.JSX.Element {
   const { tr } = useI18n()
   const theme = useThemeId()
+  // 스트리밍 tail 안에서는 하이라이트를 건너뛴다(0108) — 열린 펜스의 code 가 프레임마다
+  // 자라며 매번 전체 재하이라이트(O(n²))와 plain↔색상 플리커를 만든다. 블록이 stable 로
+  // 승격되거나 message.completed 커밋 렌더로 교체되면 streaming=false 로 1회 하이라이트.
+  const streaming = useContext(MarkdownStreamingContext)
   const safeLang = lang && isLang(lang) ? lang : 'text'
   const [hl, setHl] = useState<{
     code: string
@@ -83,7 +82,7 @@ export function CodeBlock({
   } | null>(null)
 
   useEffect(() => {
-    if (safeLang === 'text') return
+    if (safeLang === 'text' || streaming) return
     let cancelled = false
     getHighlighter().then((h) => {
       if (cancelled) return
@@ -96,7 +95,7 @@ export function CodeBlock({
     return () => {
       cancelled = true
     }
-  }, [code, safeLang, theme])
+  }, [code, safeLang, theme, streaming])
 
   const isStale = hl != null && (hl.code !== code || hl.lang !== safeLang || hl.theme !== theme)
   const html = !isStale && hl ? hl.html : null
@@ -140,13 +139,7 @@ export function CodeBlock({
   )
 }
 
-function useThemeId(): (typeof THEMES)[number] {
-  const [theme, setTheme] = useState<(typeof THEMES)[number]>(() => pickTheme())
-  useEffect(() => {
-    if (typeof MutationObserver === 'undefined') return
-    const obs = new MutationObserver(() => setTheme(pickTheme()))
-    obs.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
-    return () => obs.disconnect()
-  }, [])
-  return theme
+// 인스턴스별 MutationObserver 대신 모듈 싱글톤 구독(themeStore, 0108).
+function useThemeId(): ShikiThemeId {
+  return useSyncExternalStore(subscribeTheme, getThemeSnapshot)
 }

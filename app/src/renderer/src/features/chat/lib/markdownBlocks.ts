@@ -72,3 +72,38 @@ export function splitStableBlocks(source: string): StableBlocks {
 
   return { stable, tail: lines.slice(blockStart).join('\n') }
 }
+
+// 증분 분할 캐시(0108) — 스트리밍은 append-only 라 확정된 prefix 는 다시 스캔할 필요가
+// 없다. consumed = source 안에서 tail 이 시작하는 오프셋. 안전 근거: 분할 경계는 항상
+// 펜스 밖 빈 줄에서만 확정되므로 tail 시작점의 스캐너 상태는 fence=null — suffix 만 새로
+// 스캔해도 전체 스캔과 결과가 동치다(동치 property 테스트로 고정).
+export interface StableBlocksCache {
+  source: string
+  consumed: number
+  stable: string[]
+}
+
+export interface AdvanceResult extends StableBlocks {
+  cache: StableBlocksCache
+}
+
+export function advanceStableBlocks(
+  cache: StableBlocksCache | null,
+  source: string
+): AdvanceResult {
+  // append 가 아니면(메시지 교체·수축) 전체 재계산으로 폴백 — startsWith 는 네이티브
+  // prefix 비교라 split+정규식 스캔보다 훨씬 싸다.
+  if (cache !== null && source.startsWith(cache.source)) {
+    const suffix = source.slice(cache.consumed)
+    const next = splitStableBlocks(suffix)
+    const stable = next.stable.length > 0 ? [...cache.stable, ...next.stable] : cache.stable
+    const consumed = cache.consumed + (suffix.length - next.tail.length)
+    return { stable, tail: next.tail, cache: { source, consumed, stable } }
+  }
+  const full = splitStableBlocks(source)
+  return {
+    stable: full.stable,
+    tail: full.tail,
+    cache: { source, consumed: source.length - full.tail.length, stable: full.stable }
+  }
+}

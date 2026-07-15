@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { splitStableBlocks } from './markdownBlocks'
+import { advanceStableBlocks, splitStableBlocks, type StableBlocksCache } from './markdownBlocks'
 
 describe('splitStableBlocks', () => {
   it('문단 사이 빈 줄에서 확정 블록을 자르고 마지막 블록은 꼬리로 남긴다', () => {
@@ -64,5 +64,77 @@ describe('splitStableBlocks', () => {
     const sa = splitStableBlocks(a)
     const sb = splitStableBlocks(b)
     expect(sb.stable.slice(0, sa.stable.length)).toEqual(sa.stable)
+  })
+})
+
+// 증분 분할(0108) — 임의 append 시퀀스에서 전체 스캔(splitStableBlocks)과 결과 동치.
+describe('advanceStableBlocks', () => {
+  // 경계 조건을 두루 건드리는 코퍼스 — 펜스(열림/닫힘/미닫힘)·loose list·들여쓰기 코드·
+  // 빈 줄 런·미완 마지막 줄.
+  const FULL_SOURCE = [
+    '첫 문단이다.',
+    '',
+    '둘째 문단이고 조금 길다.',
+    '',
+    '```ts',
+    'const a = 1',
+    '',
+    'const b = 2',
+    '```',
+    '',
+    '- 항목 1',
+    '',
+    '- 항목 2 (loose)',
+    '',
+    '셋째 문단.',
+    '',
+    '    indented code',
+    '',
+    '넷째 문단.',
+    '',
+    '~~~',
+    '미닫힘 펜스 시작',
+    '',
+    '아직 안 닫힘'
+  ].join('\n')
+
+  function chunksOf(source: string, sizes: number[]): string[] {
+    const out: string[] = []
+    let at = 0
+    let i = 0
+    while (at < source.length) {
+      const n = sizes[i % sizes.length]
+      out.push(source.slice(0, Math.min(source.length, at + n)))
+      at += n
+      i++
+    }
+    return out
+  }
+
+  it('여러 청크 크기의 append 시퀀스에서 splitStableBlocks(전문)과 동치', () => {
+    for (const sizes of [[1], [3], [7, 2], [16, 5, 1], [64]]) {
+      let cache: StableBlocksCache | null = null
+      for (const partial of chunksOf(FULL_SOURCE, sizes)) {
+        const inc = advanceStableBlocks(cache, partial)
+        cache = inc.cache
+        const full = splitStableBlocks(partial)
+        expect(inc.stable).toEqual(full.stable)
+        expect(inc.tail).toBe(full.tail)
+      }
+    }
+  })
+
+  it('append 가 아니면(소스 교체) 전체 재계산으로 폴백한다', () => {
+    const first = advanceStableBlocks(null, '가.\n\n나.\n\n다')
+    const replaced = advanceStableBlocks(first.cache, '전혀 다른 소스.\n\n둘째.\n\n셋')
+    const full = splitStableBlocks('전혀 다른 소스.\n\n둘째.\n\n셋')
+    expect(replaced.stable).toEqual(full.stable)
+    expect(replaced.tail).toBe(full.tail)
+  })
+
+  it('stable 미증가 프레임에서는 기존 stable 배열 참조를 유지한다 (memo 친화)', () => {
+    const a = advanceStableBlocks(null, '문단.\n\n꼬리 자라는')
+    const b = advanceStableBlocks(a.cache, '문단.\n\n꼬리 자라는 중')
+    expect(b.stable).toBe(a.stable)
   })
 })
