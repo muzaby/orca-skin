@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { Button } from '../../../shared/ui/Button'
 import { uiMessageText, useI18n } from '../../../shared/i18n'
 import { loginActions, useLoginStore } from '../store'
-import orca from '../assets/orca-login.png'
+import orca from '../assets/orca-login.webp'
 
 // 로그인 랜딩(이미지1 참고). 중앙 '로그인' 제목 자리를 오르카 이미지로 대체하고,
 // 아래 카드에는 검정 'SSO로 로그인' 버튼 1개만 둔다. SSO 는 항상 실패(store.attemptSso)
