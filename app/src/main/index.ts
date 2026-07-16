@@ -23,6 +23,31 @@ if (import.meta.env.DEV) {
 // will-quit(모듈 스코프)에서 종료 정리를 호출하기 위한 라우터 참조. whenReady 에서 채워진다.
 let routerRef: Bootstrap | null = null
 
+// second-instance 핸들러가 포커스할 메인 창 참조. createWindow 에서 채우고 closed 에서 비운다.
+let mainWindowRef: BrowserWindow | null = null
+
+// 단일 인스턴스 강제 — 패키징 빌드 한정. 이미 실행 중인 인스턴스가 있으면 락 획득에 실패하고
+// 두 번째 프로세스는 아래 app.quit() 으로 즉시 종료된다. dev(electron-vite HMR 재시작)에서는
+// 이전 프로세스가 락을 늦게 놓으면 새 인스턴스가 즉시 종료되는 경합이 생기므로 제외한다.
+const hasSingleInstanceLock = app.isPackaged ? app.requestSingleInstanceLock() : true
+if (!hasSingleInstanceLock) {
+  app.quit()
+} else {
+  // 두 번째 실행 시도 시: 새 창을 띄우지 않고 기존 창을 복원·포커스한다.
+  app.on('second-instance', () => {
+    focusMainWindow()
+  })
+}
+
+// 기존 창을 전면으로. 최소화 상태면 복원하고, 숨겨져 있으면 표시한 뒤 포커스한다.
+function focusMainWindow(): void {
+  const win = mainWindowRef ?? BrowserWindow.getAllWindows()[0]
+  if (!win) return
+  if (win.isMinimized()) win.restore()
+  win.show()
+  win.focus()
+}
+
 // 전역 미처리 예외 가드. Claude SDK 가 claude CLI 서브프로세스 stdin 으로 user 메시지를
 // 쓰다 실패하는 비동기 에러(예: 큰 이미지 첨부 전송 중 'write EOF at
 // WriteWrap.onWriteComplete')는 어댑터의 턴 try/catch 밖(SDK 소유 write 경로)이라 잡히지
@@ -104,6 +129,12 @@ function createWindow(settings: SettingsStore): void {
     }
   })
 
+  // second-instance 포커스가 집을 수 있도록 창 참조를 보관하고, 닫히면 비운다.
+  mainWindowRef = mainWindow
+  mainWindow.on('closed', () => {
+    if (mainWindowRef === mainWindow) mainWindowRef = null
+  })
+
   mainWindow.on('ready-to-show', () => {
     mainWindow.show()
   })
@@ -151,6 +182,9 @@ function createWindow(settings: SettingsStore): void {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(async () => {
+  // 락을 얻지 못한(종료 중인) 두 번째 인스턴스는 창/Bootstrap 을 만들지 않는다.
+  if (!hasSingleInstanceLock) return
+
   electronApp.setAppUserModelId('com.orca.app')
 
   app.on('browser-window-created', (_, window) => {
