@@ -76,6 +76,10 @@ export interface ChatState {
   backend: Backend | null
   providerKey: string | null
   modelFamily: string | null
+  // 0119: 진행 중 턴이 실제로 쓰는 provider 스냅샷 — BEGIN_TURN 에서 providerKey 를 고정,
+  // 턴 종료(telemetry/turn.aborted/error/CANCEL_CHAT)에 초기화. SET_MODEL 이 providerKey 를
+  // inflight 중에도 덮어쓰므로, steer 게이트(경계 판정)는 이 스냅샷과 선택값을 비교한다.
+  turnProviderKey: string | null
   effort: EffortLevel
   // 어댑터가 발급한 세션의 working directory (`init` 이벤트). Composer 의 `@`
   // 파일 자동완성이 이 경로 기준으로 디렉토리를 리스팅한다.
@@ -152,6 +156,7 @@ export const initialChatState: ChatState = {
   backend: null,
   providerKey: null,
   modelFamily: null,
+  turnProviderKey: null,
   effort: 'high',
   cwd: null,
   messages: [],
@@ -261,6 +266,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ...state,
         sendCount: state.sendCount + 1,
         inflight: true,
+        // 0119: 이 턴이 쓰는 provider 고정 — 이후 SET_MODEL 이 providerKey 를 바꿔도
+        // steer 게이트가 진행 턴의 provider 를 기억한다.
+        turnProviderKey: state.providerKey,
         turnStartedAt: Date.now(),
         // lastTelemetry 는 비우지 않는다 — 컨텍스트 도넛이 턴 진행 중에도 직전 값을 유지.
         error: undefined,
@@ -403,6 +411,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           return {
             ...state,
             inflight: false,
+            turnProviderKey: null,
             turnStartedAt: null,
             retry: undefined,
             // 도넛/패널은 lastTelemetry 파생(컨텍스트 사용량 소스). 비용/지연 누산은 제거 —
@@ -467,6 +476,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           return {
             ...state,
             inflight: false,
+            turnProviderKey: null,
             turnStartedAt: null,
             retry: undefined,
             pendingAsks: [],
@@ -480,6 +490,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             ...state,
             error: ev.error,
             inflight: false,
+            turnProviderKey: null,
             turnStartedAt: null,
             retry: undefined,
             pendingAsks: [],
@@ -517,6 +528,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       return {
         ...state,
         inflight: false,
+        turnProviderKey: null,
         turnStartedAt: null,
         retry: undefined,
         pendingAsks: [],

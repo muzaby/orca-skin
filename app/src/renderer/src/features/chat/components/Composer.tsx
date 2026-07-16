@@ -15,6 +15,7 @@ import { EffortMenu } from './composer/EffortMenu'
 import { EFFORT_LABEL_KEYS } from './composer/effort'
 import { AttachMenu } from './composer/AttachMenu'
 import { defaultSelection, modelKey, selectionLabel } from './composer/modelSelection'
+import { steerBlockedByProviderBoundary } from '../lib/steerGate'
 import { ConversationStatusLine } from './composer/ConversationStatusLine'
 import { AttachmentTray } from './composer/AttachmentTray'
 import { CwdButton } from './CwdButton'
@@ -103,6 +104,7 @@ export function Composer({
   const backend = useChatSession((s) => s.backend)
   const providerKey = useChatSession((s) => s.providerKey)
   const modelFamily = useChatSession((s) => s.modelFamily)
+  const turnProviderKey = useChatSession((s) => s.turnProviderKey)
   const effort = useChatSession((s) => s.effort)
   const pendingPlanReview = useChatSession((s) => s.pendingPlanReview)
   const projectId = useChatSession((s) => s.projectId ?? s.pendingProjectId)
@@ -326,10 +328,19 @@ export function Composer({
     })
   }
 
+  // 0119: busy 중 provider 경계를 넘는 모델이 선택된 동안 steer 차단 — 진행 턴의 채널은
+  // 낡은 provider env 라 경계 너머 메시지를 실을 수 없다. 본래 provider 로 되돌리면 해제.
+  const steerBlocked = steerBlockedByProviderBoundary({
+    inflight,
+    turnProviderKey,
+    selectedProviderKey: selectedModel?.providerKey
+  })
+
   // 단일 send(0067) — busy/idle 판정은 main 소관: 진행 중이면 예약(held, pending 버블),
   // 유휴면 즉시 flush. renderer 는 분기하지 않는다.
   const submit = (): void => {
     if (draft.trim() === '') return
+    if (steerBlocked) return
     const text = draft
     const items = attachments
     void buildAttachmentViews(items).then((views) => {
@@ -341,7 +352,7 @@ export function Composer({
   }
 
   const toolApprovalPending = pendingToolApprovals.length > 0
-  const feedbackMode = inflight && draft.trim() !== ''
+  const feedbackMode = inflight && !steerBlocked && draft.trim() !== ''
   const showCancelButton = !feedbackMode && (inflight || toolApprovalPending)
 
   const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>): void => {
@@ -533,7 +544,9 @@ export function Composer({
                     validFilePaths={fileAutocomplete.validPaths}
                     placeholder={
                       inflight
-                        ? tr('chat.composer.placeholderFeedback')
+                        ? steerBlocked
+                          ? tr('chat.composer.placeholderProviderBoundary')
+                          : tr('chat.composer.placeholderFeedback')
                         : tr('chat.composer.placeholderIdle')
                     }
                     ariaLabel={tr('chat.composer.inputAria')}

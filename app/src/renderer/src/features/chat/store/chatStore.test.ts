@@ -902,3 +902,40 @@ describe('chatStore — pending message lifecycle (0067)', () => {
     expect(entry().session.inflight).toBe(false)
   })
 })
+
+// 0119 — busy 세션에서 provider 경계를 넘는 모델이 선택된 동안 steer 예약을 거부한다
+// (Composer 게이트의 main-호출 직전 이중 방어). 본래 provider 로 되돌리면 통과.
+describe('chatStore — steer provider 경계 게이트(0119)', () => {
+  const seedBusyWithProvider = (selectedKey: string): void => {
+    useChatStore.setState((st) => ({
+      sessions: {
+        ...st.sessions,
+        s: {
+          ...st.sessions.s,
+          session: {
+            ...st.sessions.s.session,
+            backend: 'claude',
+            providerKey: selectedKey,
+            turnProviderKey: 'claude-anthropic'
+          }
+        }
+      }
+    }))
+  }
+
+  it('경계 선택 중 send 는 false — pendingSteer 미적재 + IPC 미호출', () => {
+    seedBusyWithProvider('claude-zai')
+    expect(chatActions.send('끼어들기 시도')).toBe(false)
+    expect(useChatStore.getState().sessions.s.pendingSteer ?? []).toEqual([])
+    expect(chatSend).not.toHaveBeenCalled()
+  })
+
+  it('본래 provider 로 되돌리면 steer 예약이 정상 동작한다', () => {
+    seedBusyWithProvider('claude-anthropic')
+    expect(chatActions.send('정상 피드백')).toBe(true)
+    expect(useChatStore.getState().sessions.s.pendingSteer?.map((p) => p.text)).toEqual([
+      '정상 피드백'
+    ])
+    expect(chatSend).toHaveBeenCalledTimes(1)
+  })
+})

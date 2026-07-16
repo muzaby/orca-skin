@@ -9,6 +9,7 @@ import {
   type PlanComment
 } from '../reducer/chatReducer'
 import { toPlanFeedback } from '../lib/planComments'
+import { steerBlockedByProviderBoundary } from '../lib/steerGate'
 import {
   chatApi,
   concurrencyApi,
@@ -557,6 +558,18 @@ function send(
   const sendKey = getState().activeKey
   const requestId = crypto.randomUUID()
   const busy = cur.inflight
+  // 0119: busy 중 provider 경계를 넘는 모델이 선택돼 있으면 steer 예약을 거부한다 —
+  // 진행 턴의 채널은 낡은 provider env 라 경계 너머 메시지를 실을 수 없다(Composer 게이트의
+  // main-호출 직전 이중 방어). 본래 provider 로 되돌리면 통과.
+  if (
+    steerBlockedByProviderBoundary({
+      inflight: busy,
+      turnProviderKey: cur.turnProviderKey,
+      selectedProviderKey: cur.providerKey
+    })
+  ) {
+    return false
+  }
   if (!busy) {
     // 턴을 여는 send — 잔여 라이브 버퍼 제거 + inflight 전이 + **낙관 커밋**(0068): 정식
     // user 버블이 즉시 서서 다음 어시스턴트 스트림이 올바른 턴 경계 아래로 흐른다. echo
