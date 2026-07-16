@@ -57,7 +57,7 @@ export class ExternalUsageService {
 
   async refresh(providerKey: string): Promise<ExternalUsageReport | null> {
     const module = this.providers.get(providerKey)
-    if (!module) return this.readCachedReport(providerKey) ?? null
+    if (!module) return this.readCachedReport(providerKey)
     const existing = this.inFlight.get(providerKey)
     if (existing) return existing
     const promise = this.fetchAndPersist(providerKey, module).finally(() =>
@@ -83,7 +83,7 @@ export class ExternalUsageService {
     module: StaticUsageProviderModule
   ): Promise<ExternalUsageReport | null> {
     const provider = this.providerFor(module)
-    if (!provider) return this.readCachedReport(providerKey) ?? null
+    if (!provider) return this.readCachedReport(providerKey)
     const timeoutMs = module.usage?.config?.timeoutMs ?? DEFAULT_TIMEOUT_MS
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), timeoutMs)
@@ -105,13 +105,11 @@ export class ExternalUsageService {
         return report
       }
       // provider 가 리포트 없이 반환 — baseline 유지, stale 표시.
-      this.lastFetchOk.set(providerKey, false)
-      return this.readCachedReport(providerKey) ?? null
+      return this.staleBaseline(providerKey)
     } catch (err) {
       // 네트워크 오류(throw) — 마지막 성공 baseline 으로 폴백하고 stale 표시(0111).
       this.logger('fetch failed — using cached baseline', { providerKey, err: String(err) })
-      this.lastFetchOk.set(providerKey, false)
-      return this.readCachedReport(providerKey) ?? null
+      return this.staleBaseline(providerKey)
     } finally {
       clearTimeout(timer)
     }
@@ -140,6 +138,12 @@ export class ExternalUsageService {
       quotaRemainingUsd: report.quota?.remainingUsd ?? null,
       updatedAt: this.clock()
     })
+  }
+
+  // fetch 실패(리포트 없음/throw) 공용 폴백 — stale 표시 후 마지막 baseline 반환(0111).
+  private staleBaseline(providerKey: string): ExternalUsageReport | null {
+    this.lastFetchOk.set(providerKey, false)
+    return this.readCachedReport(providerKey)
   }
 
   // 마지막으로 영속된 리포트(baseline). staleness 판정은 호출부의 lastFetchOk 가 소유한다(0111).

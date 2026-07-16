@@ -55,23 +55,23 @@ function reconcileExternalSummary(
   now: number | Date
 ): CostSummary {
   const lm = local.month.totalCostUsd
-  const month = { ...local.month, totalCostUsd: monthUsed }
+  let weekUsed: number
+  let dayUsed: number
   if (lm > 0) {
     const scale = monthUsed / lm
-    return {
-      ...local,
-      month,
-      week: { ...local.week, totalCostUsd: local.week.totalCostUsd * scale },
-      day: { ...local.day, totalCostUsd: local.day.totalCostUsd * scale }
-    }
+    weekUsed = local.week.totalCostUsd * scale
+    dayUsed = local.day.totalCostUsd * scale
+  } else {
+    const elapsedDays = toDate(now).getDate()
+    const perDay = elapsedDays > 0 ? monthUsed / elapsedDays : 0
+    weekUsed = perDay * weekDaysElapsedInMonth(now)
+    dayUsed = perDay
   }
-  const elapsedDays = toDate(now).getDate()
-  const perDay = elapsedDays > 0 ? monthUsed / elapsedDays : 0
   return {
     ...local,
-    month,
-    week: { ...local.week, totalCostUsd: perDay * weekDaysElapsedInMonth(now) },
-    day: { ...local.day, totalCostUsd: perDay }
+    month: { ...local.month, totalCostUsd: monthUsed },
+    week: { ...local.week, totalCostUsd: weekUsed },
+    day: { ...local.day, totalCostUsd: dayUsed }
   }
 }
 
