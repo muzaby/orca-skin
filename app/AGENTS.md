@@ -153,10 +153,10 @@ new BrowserWindow({
 | 워크플로우 | 트리거 | 동작 |
 | --- | --- | --- |
 | `.github/workflows/ci.yml` | `main` push + 모든 PR (둘 다 paths `app/**`·`.github/workflows/**`) + 수동 dispatch | windows-latest · Node 22 — `npm ci` → 마이그레이션 append-only 가드 → lint → typecheck → test. PR CI 추가(0113 — 0088 "PR CI 없음" supersede), 로컬 게이트는 유지 |
-| `.github/workflows/release.yml` | `v*` 태그 push (수동 dispatch = 항상 dry-run) | 버전 검증(fail-fast) → 게이트 → NSIS `build:win` → **draft** GitHub Release 게시(installer·latest.yml·blockmap) → sha512 검증 |
+| `.github/workflows/release.yml` | `v*` 태그 push (수동 dispatch = 항상 dry-run) | 버전 검증(fail-fast) → 게이트 → NSIS `build:win` → GitHub Release **즉시 게시**(installer·latest.yml·blockmap) → sha512 검증 |
 
 - 릴리스 절차·수동 체크리스트·롤백 정본은 [`../docs/guides/release-operations.md`](../docs/guides/release-operations.md).
-- 현재 채널: Windows unsigned NSIS + GitHub Releases (draft = 수동 배포 게이트). 인앱 자동 업데이트는 electron-updater (`src/main/app/updater.ts`, 0084~0086).
+- 현재 채널: Windows unsigned NSIS + GitHub Releases (`v*` 태그 push 시 즉시 게시, 수동 dispatch는 dry-run). 인앱 자동 업데이트는 electron-updater (`src/main/app/updater.ts`, 0084~0086).
 
 ## 에이전트 원칙 (app 고유)
 
