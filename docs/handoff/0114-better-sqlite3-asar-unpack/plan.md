@@ -116,3 +116,35 @@ asarUnpack:
 | 게이트 결과 | 해당 없음(빌드 설정). 정본 회귀는 CI windows-latest 빌드 |
 | 블로커 / 역질문 | 없음. **패키징 실행 검증은 egress 403·비-Windows 로 이 환경 불가** → `build:win` 산출물 설치·부팅 실기는 CI dry-run/사람 대기 |
 | 대상 커밋 | (push 후 기재) |
+
+## 파생 이슈 (Derived Issues) — r2
+
+### 설치본 ABI 불일치 (사용자 실기, 2026-07-16)
+
+r1은 네이티브 바인딩의 **위치**만 수정했지만, 설치본은 다음 단계에서 부팅에 실패했다.
+
+- 포장된 `better_sqlite3.node`: `NODE_MODULE_VERSION 127` (릴리스 러너 Node 22)
+- Electron 39 런타임 요구 ABI: `NODE_MODULE_VERSION 140`
+
+릴리스 순서는 `npm test`(pretest가 Node ABI로 rebuild) → `npm run build:win`이다
+(`.github/workflows/release.yml`). `prebuild`의 별도 ABI 보장에 기대고 있었지만,
+`electron-builder.yml`의 `npmRebuild: false`가 패키저 자체의 production native dependency rebuild를
+명시적으로 차단했다. 그 결과 r1의 `asarUnpack`은 Node ABI 바이너리를 정상적으로 실디스크에
+옮겼을 뿐이며, Electron ABI 호환성은 보장하지 못했다.
+
+### r2 인수 기준
+
+4. `electron-builder`의 패키징 직전 native dependency rebuild를 활성화한다
+   (`npmRebuild: true`). 따라서 `npm test`가 Node ABI로 바꾼 바이너리를 패키징 대상 Electron
+   버전/플랫폼/아키텍처에 맞게 다시 빌드한다.
+5. r1의 `asarUnpack`을 유지해 ABI가 맞는 바인딩이 `app.asar.unpacked`에 배치되도록 한다.
+6. Windows 릴리스/사람 실기에서 설치본 부팅 시 ABI mismatch 없이 DB가 초기화된다.
+
+### r2 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 설계 리뷰 | r1의 “ABI 관리가 결함과 무관” 판단은 잘못됐다. 네이티브 모듈은 위치와 ABI가 모두 패키징 불변조건이다. |
+| 변경 파일 | `app/electron-builder.yml` (`npmRebuild: false` → `true`, 원인 주석) |
+| 놓친 잠재 문제 + 대응 | `ensure-sqlite-abi`만 성공해도 이후 단계가 바이너리를 바꿀 수 있으므로, 최종 패키저가 대상 ABI rebuild를 소유하도록 복구했다. |
+| 검증 | YAML 파싱 및 `npmRebuild`/`asarUnpack` 설정값 확인. Windows 설치본 실기는 PR/release CI와 사용자 환경에서 최종 확인. |

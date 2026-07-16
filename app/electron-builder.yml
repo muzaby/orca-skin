@@ -47,7 +47,9 @@ linux:
   category: Utility
 appImage:
   artifactName: ${name}-${version}.${ext}
-npmRebuild: false
+# 패키징 직전에 production native dependency 를 대상 Electron ABI 로 다시 빌드한다.
+# release 게이트의 `npm test` 가 better-sqlite3 를 Node ABI 로 바꾸므로 비활성화하면 안 된다. (0114 r2)
+npmRebuild: true
 publish:
   provider: github
   owner: muzaby
