@@ -169,7 +169,7 @@ respawn 0118 · steer gate 0119)를 4관점 병렬 리뷰한 결과, 핵심 설�
 | 실행 명령 | `npm run lint` / `npm run typecheck` / `npm test` / `node --test scripts/*.test.mjs` |
 | 게이트 결과 | lint ✅ 0 error(경고 1 = 0102 TanStack↔React Compiler 기존) / typecheck 3종 ✅ 0 / vitest ✅ **934/934**(122파일 — `chat-turn.continuity` 1스위트 로드 실패는 electron 바이너리 egress 403 환경 베이스라인, 0117~0119 verify 동일) / scripts ✅ 25/25 |
 | 블로커 / 역질문 | 없음 |
-| 대상 커밋 | (구현 커밋 hash — 커밋 후 INDEX 에 기재) |
+| 대상 커밋 | `184230e` |
 
 ---
 
