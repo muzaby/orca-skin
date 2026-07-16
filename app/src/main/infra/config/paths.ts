@@ -122,22 +122,9 @@ export function distDir(engine: Backend): string {
   return join(orcaConfigDir(), 'dist', engine)
 }
 
-// Claude Code 플러그인 산출물 루트. SDK options.plugins 의 local path 는 이 디렉토리를 가리킨다.
-export function distPluginsDir(engine: Backend): string {
-  return join(distDir(engine), 'plugins')
-}
-
-// 플러그인 내부 레이아웃(.claude-plugin/plugin.json·skills·.mcp.json)의 소유자는
-// features/extensions/claude-plugin-package.ts — 여기서는 루트 디렉토리까지만 제공한다.
-export function distOrcaPluginDir(engine: Backend): string {
-  return join(distPluginsDir(engine), 'orca')
-}
-
-// 사용자 ~/.claude/skills 래퍼 플러그인 루트 (handoff 0117 — settingSources user 배제 보전).
-// 내부 레이아웃 소유자는 features/extensions/claude-user-skills-plugin.ts.
-export function distUserClaudePluginDir(engine: Backend): string {
-  return join(distPluginsDir(engine), 'claude')
-}
+// 개별 플러그인 루트(dist/<engine>/plugins/<name>)는 여기서 제공하지 않는다 — 레이아웃과
+// 이름의 소유자는 features/extensions/{claude-plugin-package,claude-user-skills-plugin}.ts 의
+// orcaPluginRoot/userClaudePluginRoot 다(경로 지식 이중 정의 방지, /simplify 0120).
 
 // 부팅 시 1회. mkdir -p 의미 (recursive). 이미 있으면 무시.
 export async function ensureConfigDir(): Promise<void> {

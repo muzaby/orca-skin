@@ -3,7 +3,7 @@
 // 주기적 실행 설정 그룹(0099)은 0112 에서 제거 — main 스케줄러/tweak 스키마는 유지된다.
 // SyncRow/CostRefreshView 는 provider 서브탭이 재사용하므로 여기 정의를 유지한다.
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { UsageStatsModel, UsageStatsRange } from '../../../../../shared/ipc'
 import {
   WEEKLY_AGGREGATION_THRESHOLD_DAYS,
@@ -127,11 +127,18 @@ export function UsageTab(): React.JSX.Element {
 
   // days 는 희소(사용 있던 날만) — 여기서 연속 일자로 제로필한다. '전체' 범위가 표시 임계를
   // 넘으면 주 단위(월요일 시작)로 접는다(표시 전용, 합계/모델 내역은 영향 없음).
-  const filled = stats ? fillDailySeries(stats.days, stats.since, stats.updatedAt) : []
-  const weekly = range === 'all' && filled.length > WEEKLY_AGGREGATION_THRESHOLD_DAYS
-  const series = weekly ? aggregateWeekly(filled) : filled
-  const grandTotal = stats?.days.reduce((acc, d) => acc + totalTokens(d), 0) ?? 0
-  const totalCost = stats?.days.reduce((acc, d) => acc + d.totalCostUsd, 0) ?? 0
+  // 제로필은 최대 MAX_FILLED_DAYS 행을 만들므로 파생값 일체를 stats/range 에 memo 한다
+  // (fillDailySeries 의 now 는 stats.updatedAt 고정 — 입력이 같으면 결과도 같다).
+  const { series, weekly, grandTotal, totalCost } = useMemo(() => {
+    const filled = stats ? fillDailySeries(stats.days, stats.since, stats.updatedAt) : []
+    const weekly = range === 'all' && filled.length > WEEKLY_AGGREGATION_THRESHOLD_DAYS
+    return {
+      series: weekly ? aggregateWeekly(filled) : filled,
+      weekly,
+      grandTotal: stats?.days.reduce((acc, d) => acc + totalTokens(d), 0) ?? 0,
+      totalCost: stats?.days.reduce((acc, d) => acc + d.totalCostUsd, 0) ?? 0
+    }
+  }, [stats, range])
   const empty = !loading && stats != null && stats.days.length === 0 && stats.models.length === 0
 
   return (

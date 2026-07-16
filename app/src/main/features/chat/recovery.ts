@@ -67,6 +67,28 @@ export function rebuildIncompleteMessageContent(
   return rebuilt
 }
 
+// 세션 히스토리 복구의 단일 진입점 — "rebuild(content 재구성) → recover(dangling 도구 정산)"
+// 순서 불변식을 콜러가 아니라 여기서 소유한다. rebuild 가 먼저다: recover 가 complete 를
+// 올리면 complete=0 을 대상 식별자로 쓰는 rebuild 가 대상을 찾지 못한다(0107).
+// live 세션은 진행 턴의 finalize 가 곧 기록하므로 건너뛴다(두 단계 동일 가드).
+export function recoverSessionHistory(
+  db: Pick<
+    DbQueries,
+    | 'findIncompleteAssistantTextParts'
+    | 'updateMessageContent'
+    | 'findDanglingToolCalls'
+    | 'upsertToolResultPartScoped'
+    | 'markMessageComplete'
+  >,
+  options: RecoverDanglingToolCallsOptions = {}
+): RecoverySummary {
+  const { sessionId, isSessionLive } = options
+  if (!(sessionId !== undefined && isSessionLive?.(sessionId))) {
+    rebuildIncompleteMessageContent(db, sessionId !== undefined ? { sessionId } : {})
+  }
+  return recoverDanglingToolCalls(db, options)
+}
+
 export function groupDanglingToolCallsByMessage(
   rows: readonly DanglingToolCallRow[]
 ): Map<number, DanglingToolCallRow[]> {

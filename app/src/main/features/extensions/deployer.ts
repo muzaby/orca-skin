@@ -112,12 +112,21 @@ export async function deploy(
   const mcpSrc = join(sources, 'mcp', 'mcp.json')
   const actions: string[] = []
 
-  const mcpValidation = await validateMcp(mcpSrc)
-  const settingsScan = await scanProviderSettings(join(sources, 'settings', engine))
+  const [mcpValidation, settingsScan] = await Promise.all([
+    validateMcp(mcpSrc),
+    scanProviderSettings(join(sources, 'settings', engine))
+  ])
   const validation = {
     ok: mcpValidation.ok && settingsScan.errors.length === 0,
     errors: [...mcpValidation.errors, ...settingsScan.errors]
   }
+
+  // dry-run 계획과 실행 계획이 같은 문구를 쓰도록 액션 문자열은 한 곳에서 만든다
+  // (deploy 테스트가 두 경로의 문구를 대조한다 — 복사본이 갈리면 계획↔실행 드리프트).
+  const userSkillsAction = (rendered: boolean): string =>
+    rendered
+      ? 'render user-skills plugin → dist/plugins/claude'
+      : 'skip user-skills plugin (no adapter skills)'
 
   // adapter 스킬 루트(~/.claude/skills — 프로덕션은 bootstrap 이 주입) = 래퍼 플러그인의 링크
   // 대상. skillRoots 에서 파생해 deployer 는 homedir 비의존을 유지한다(테스트는 임시 경로 주입).
@@ -136,11 +145,7 @@ export async function deploy(
         ? 'render mcp → plugins/orca/.mcp.json'
         : 'render empty mcp → plugins/orca/.mcp.json'
     )
-    actions.push(
-      adapterSkillsRoot && existsSync(adapterSkillsRoot)
-        ? 'render user-skills plugin → dist/plugins/claude'
-        : 'skip user-skills plugin (no adapter skills)'
-    )
+    actions.push(userSkillsAction(!!adapterSkillsRoot && existsSync(adapterSkillsRoot)))
     actions.push('skip commands/settings dist copy')
     return { engine, dryRun, actions, backedUp: false, validation }
   }
@@ -195,11 +200,7 @@ export async function deploy(
   const userPluginRoot = adapterSkillsRoot
     ? await renderClaudeUserSkillsPlugin({ root, engine, skillsTarget: adapterSkillsRoot })
     : null
-  actions.push(
-    userPluginRoot
-      ? 'render user-skills plugin → dist/plugins/claude'
-      : 'skip user-skills plugin (no adapter skills)'
-  )
+  actions.push(userSkillsAction(userPluginRoot !== null))
   actions.push('skip commands/settings dist copy')
 
   // 배포 마커(드리프트 식별·디버깅용).

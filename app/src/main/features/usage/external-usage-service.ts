@@ -20,9 +20,10 @@ export class ExternalUsageService {
   private readonly providers = new Map<string, StaticUsageProviderModule>()
   private readonly inFlight = new Map<string, Promise<ExternalUsageReport | null>>()
   private readonly store = new Map<string, Map<string, unknown>>()
-  // 마지막 fetch 성공 여부(providerKey별, in-memory). 실패 시 캐시 baseline 을 stale 로 쓰고,
-  // 재성공 시 false→ 아님으로 풀려 권위값이 복구된다(0111). 재시작 직후 첫 성공 전까지는 stale.
-  private readonly lastFetchOk = new Map<string, boolean>()
+  // 마지막 fetch 가 성공한(fresh) providerKey 집합(in-memory). 실패 시 제거되어 캐시 baseline
+  // 을 stale 로 쓰고, 재성공 시 다시 담겨 권위값이 복구된다(0111). 재시작 직후 첫 성공 전까지는
+  // 미포함 = stale.
+  private readonly freshProviderKeys = new Set<string>()
   private readonly fetchImpl: typeof fetch
   private readonly clock: () => number
   private readonly logger: (message: string, meta?: Record<string, unknown>) => void
@@ -45,7 +46,7 @@ export class ExternalUsageService {
     localLimitUsd: number | null
   ): ProviderUsageEntry {
     const externalReport = this.readCachedReport(providerKey)
-    const stale = !(this.lastFetchOk.get(providerKey) ?? false)
+    const stale = !this.freshProviderKeys.has(providerKey)
     return {
       providerKey,
       summary,
@@ -101,7 +102,7 @@ export class ExternalUsageService {
       })
       if (report) {
         this.persist(report)
-        this.lastFetchOk.set(providerKey, true)
+        this.freshProviderKeys.add(providerKey)
         return report
       }
       // provider 가 리포트 없이 반환 — baseline 유지, stale 표시.
@@ -142,11 +143,11 @@ export class ExternalUsageService {
 
   // fetch 실패(리포트 없음/throw) 공용 폴백 — stale 표시 후 마지막 baseline 반환(0111).
   private staleBaseline(providerKey: string): ExternalUsageReport | null {
-    this.lastFetchOk.set(providerKey, false)
+    this.freshProviderKeys.delete(providerKey)
     return this.readCachedReport(providerKey)
   }
 
-  // 마지막으로 영속된 리포트(baseline). staleness 판정은 호출부의 lastFetchOk 가 소유한다(0111).
+  // 마지막으로 영속된 리포트(baseline). staleness 판정은 호출부의 freshProviderKeys 가 소유한다(0111).
   private readCachedReport(providerKey: string): ExternalUsageReport | null {
     const row = this.deps.db.getProviderUsageReport(providerKey)
     if (!row) return null

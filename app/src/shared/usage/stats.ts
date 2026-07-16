@@ -3,6 +3,7 @@
 // SQL 쪽 일 버킷(date(...,'localtime'))과 같은 'YYYY-MM-DD' 키를 생성해야 한다.
 
 import type { UsageStatsDay, UsageStatsRange } from '../ipc'
+import { boundaries } from '../time/clock'
 
 // 제로필 시계열이 렌더러에서 무한히 자라지 않도록 하는 보호선 — '전체' 범위에서
 // 오늘 기준 최근 2년까지만 일 단위로 펼친다(그 이전 행은 잘림, 표시 전용 캡).
@@ -41,7 +42,9 @@ export function localDayKey(ms: number): string {
   return `${d.getFullYear()}-${mm}-${dd}`
 }
 
-function parseDayKey(key: string): Date {
+// 'YYYY-MM-DD' 키 → 로컬 자정 Date. localDayKey 의 역함수 — 키 포맷 계약(SQL
+// date(...,'localtime'))의 파서 단일 지점. 차트 축 라벨 등 소비처도 이걸 쓴다.
+export function parseDayKey(key: string): Date {
   const [y, m, d] = key.split('-').map(Number)
   return new Date(y, m - 1, d)
 }
@@ -88,16 +91,12 @@ export function fillDailySeries(
   return filled
 }
 
-// 일 → 주(월요일 시작, clock.ts weekStart 와 동일 기준) 표시 전용 집계.
+// 일 → 주(월요일 시작 — 주 정의는 clock.ts boundaries 재사용) 표시 전용 집계.
 // day 키는 각 주의 월요일 날짜가 된다. '전체' 범위가 임계를 넘을 때만 사용한다.
 export function aggregateWeekly(days: UsageStatsDay[]): UsageStatsDay[] {
   const byWeek = new Map<string, UsageStatsDay>()
   for (const row of days) {
-    const d = parseDayKey(row.day)
-    const mondayIdx = (d.getDay() + 6) % 7
-    const weekKey = localDayKey(
-      new Date(d.getFullYear(), d.getMonth(), d.getDate() - mondayIdx).getTime()
-    )
+    const weekKey = localDayKey(boundaries(parseDayKey(row.day)).weekStart)
     const acc = byWeek.get(weekKey) ?? zeroDay(weekKey)
     acc.inputTokens += row.inputTokens
     acc.outputTokens += row.outputTokens

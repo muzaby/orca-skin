@@ -41,10 +41,7 @@ import type { ApprovalCoordinator } from '../features/approvals/coordinator'
 import type { HistoryWriter } from '../features/history/writer'
 import { SessionRuntime } from '../features/sessions/session-runtime'
 import type { RuntimeSessionAdapter } from '../contracts/ports'
-import {
-  recoverDanglingToolCalls,
-  rebuildIncompleteMessageContent
-} from '../features/chat/recovery'
+import { recoverSessionHistory } from '../features/chat/recovery'
 import type { SteerFlushBatch, TurnRequest } from '../adapters/turn'
 import { TurnCoordinator } from '../features/chat/turn-coordinator'
 import { settleOpenToolRuns, settleSubagentTask, stopLiveSubagent } from '../features/chat/settle'
@@ -400,12 +397,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
     }
 
     if (parsed.data.sessionId) {
-      // content 재구성이 먼저다(0107) — recover 가 complete 를 올리면 대상 식별 불가.
-      // live 세션은 진행 턴의 finalize 가 곧 기록하므로 건너뛴다(recover 의 가드와 대칭).
-      if (!supervisor.hasSession(parsed.data.sessionId)) {
-        rebuildIncompleteMessageContent(ctx.db, { sessionId: parsed.data.sessionId })
-      }
-      recoverDanglingToolCalls(ctx.db, {
+      recoverSessionHistory(ctx.db, {
         sessionId: parsed.data.sessionId,
         isSessionLive: (sessionId) => supervisor.hasSession(sessionId)
       })

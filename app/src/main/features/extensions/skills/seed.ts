@@ -77,15 +77,20 @@ export async function seedBuiltinSkills(
 
   await mkdir(skillsDir, { recursive: true })
 
-  const seeded: string[] = []
-  for (const name of manifest.skills) {
-    const src = safeSkillPath(builtinDir, name)
-    const dest = safeSkillPath(skillsDir, name)
-    if (!src || !dest || !(await isDirectory(src))) continue
-    await rm(dest, { recursive: true, force: true })
-    await cp(src, dest, { recursive: true, force: true })
-    seeded.push(name)
-  }
+  // 스킬 디렉토리는 이름별로 서로소 — rm→cp 쌍은 스킬 내부에서만 직렬이면 되고 스킬 간에는
+  // 병렬이 안전하다(manifest.skills 는 빌드 산출물이라 중복 없음). seeded 순서는 map 순서 보존.
+  const seeded = (
+    await Promise.all(
+      manifest.skills.map(async (name) => {
+        const src = safeSkillPath(builtinDir, name)
+        const dest = safeSkillPath(skillsDir, name)
+        if (!src || !dest || !(await isDirectory(src))) return null
+        await rm(dest, { recursive: true, force: true })
+        await cp(src, dest, { recursive: true, force: true })
+        return name
+      })
+    )
+  ).filter((name): name is string => name !== null)
 
   const current = new Set(seeded)
   const pruned: string[] = []
