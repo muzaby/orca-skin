@@ -27,6 +27,8 @@ export {
   formatTimeFull,
   formatDateLong,
   formatDateMedium,
+  // 0100 F4 에서 소비자 부재로 배럴에서 내렸다가 사용량 차트(0112) 축 라벨이 다시 소비.
+  formatMonthDay,
   formatRelativeDay,
   formatRelativeTime,
   formatResetLabel,

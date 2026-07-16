@@ -256,6 +256,150 @@ describe('DbQueries turn usage', () => {
   })
 })
 
+describe('DbQueries usage stats (0112)', () => {
+  function insertUsage(
+    q: DbQueries,
+    createdAt: number,
+    tokens: Partial<{
+      inputTokens: number | null
+      outputTokens: number | null
+      cacheCreationInputTokens: number | null
+      cacheReadInputTokens: number | null
+      totalCostUsd: number | null
+    }> = {}
+  ): number {
+    return q.insertTurnUsage({
+      sessionId: 's1',
+      messageId: null,
+      createdAt,
+      inputTokens: tokens.inputTokens ?? null,
+      outputTokens: tokens.outputTokens ?? null,
+      cacheCreationInputTokens: tokens.cacheCreationInputTokens ?? null,
+      cacheReadInputTokens: tokens.cacheReadInputTokens ?? null,
+      totalCostUsd: tokens.totalCostUsd ?? null
+    })
+  }
+
+  it('sumUsageByDaySince 는 OS 로컬 일자로 버킷팅한다 (자정 경계 분리, null→0, 오름차순)', () => {
+    const db = dbWithMigrations()
+    insertSession(db)
+    const q = new DbQueries(db)
+    // 로컬 자정을 사이에 둔 두 행 — Date 생성자도 SQL 'localtime' 도 OS 타임존이라 tz-포터블.
+    const lateNight = new Date(2026, 0, 15, 23, 30).getTime()
+    const earlyMorning = new Date(2026, 0, 16, 0, 30).getTime()
+    insertUsage(q, lateNight, { inputTokens: 1, cacheReadInputTokens: 4, totalCostUsd: 0.1 })
+    insertUsage(q, earlyMorning, { outputTokens: 2, cacheCreationInputTokens: 3 })
+    insertUsage(q, earlyMorning + 60_000, { outputTokens: 5 })
+
+    const rows = q.sumUsageByDaySince(0)
+    expect(rows).toEqual([
+      {
+        day: '2026-01-15',
+        input_tokens: 1,
+        output_tokens: 0,
+        cache_creation_input_tokens: 0,
+        cache_read_input_tokens: 4,
+        total_cost_usd: 0.1
+      },
+      {
+        day: '2026-01-16',
+        input_tokens: 0,
+        output_tokens: 7,
+        cache_creation_input_tokens: 3,
+        cache_read_input_tokens: 0,
+        total_cost_usd: 0
+      }
+    ])
+  })
+
+  it('sumUsageByDaySince 는 since 이전 행을 제외한다', () => {
+    const db = dbWithMigrations()
+    insertSession(db)
+    const q = new DbQueries(db)
+    const old = new Date(2026, 0, 10, 12).getTime()
+    const recent = new Date(2026, 0, 16, 12).getTime()
+    insertUsage(q, old, { inputTokens: 100 })
+    insertUsage(q, recent, { inputTokens: 1 })
+
+    const rows = q.sumUsageByDaySince(new Date(2026, 0, 15).getTime())
+    expect(rows.map((r) => r.day)).toEqual(['2026-01-16'])
+  })
+
+  it('sumUsageByModelSince 는 턴 횡단 모델별 합산 + 총 토큰 내림차순 + since 필터를 제공한다', () => {
+    const db = dbWithMigrations()
+    insertSession(db)
+    const q = new DbQueries(db)
+    const old = new Date(2026, 0, 10, 12).getTime()
+    const t1 = new Date(2026, 0, 15, 12).getTime()
+    const t2 = new Date(2026, 0, 16, 12).getTime()
+
+    const oldTurn = insertUsage(q, old)
+    q.insertTurnModelUsage({
+      turnUsageId: oldTurn,
+      model: 'claude-opus-4-5',
+      inputTokens: 999,
+      outputTokens: null,
+      cacheCreationInputTokens: null,
+      cacheReadInputTokens: null,
+      costUsd: null
+    })
+    const turn1 = insertUsage(q, t1)
+    q.insertTurnModelUsage({
+      turnUsageId: turn1,
+      model: 'claude-opus-4-5',
+      inputTokens: 10,
+      outputTokens: 5,
+      cacheCreationInputTokens: null,
+      cacheReadInputTokens: null,
+      costUsd: 0.3
+    })
+    q.insertTurnModelUsage({
+      turnUsageId: turn1,
+      model: 'claude-haiku-4',
+      inputTokens: 1,
+      outputTokens: null,
+      cacheCreationInputTokens: null,
+      cacheReadInputTokens: 100,
+      costUsd: null
+    })
+    const turn2 = insertUsage(q, t2)
+    q.insertTurnModelUsage({
+      turnUsageId: turn2,
+      model: 'claude-opus-4-5',
+      inputTokens: 20,
+      outputTokens: null,
+      cacheCreationInputTokens: 2,
+      cacheReadInputTokens: null,
+      costUsd: 0.4
+    })
+
+    const rows = q.sumUsageByModelSince(new Date(2026, 0, 15).getTime())
+    expect(rows).toEqual([
+      {
+        model: 'claude-haiku-4',
+        input_tokens: 1,
+        output_tokens: 0,
+        cache_creation_input_tokens: 0,
+        cache_read_input_tokens: 100,
+        cost_usd: 0
+      },
+      {
+        model: 'claude-opus-4-5',
+        input_tokens: 30,
+        output_tokens: 5,
+        cache_creation_input_tokens: 2,
+        cache_read_input_tokens: 0,
+        cost_usd: 0.7
+      }
+    ])
+
+    // since=0 이면 이전 턴까지 포함.
+    const all = q.sumUsageByModelSince(0)
+    expect(all[0].model).toBe('claude-opus-4-5')
+    expect(all[0].input_tokens).toBe(1029)
+  })
+})
+
 describe('DbQueries session title source', () => {
   it('getTitleSource 는 기본 auto 값을 읽는다', () => {
     const db = dbWithMigrations()

@@ -233,6 +233,11 @@ export const RefreshProviderUsageReportSchema = z.object({
   providerKey: z.string().min(1)
 })
 
+// 사용량 요약 조회(0112) — 설정 사용량 탭의 기간 탭(최근 7일/30일/전체)과 1:1.
+export const UsageStatsRequestSchema = z.object({
+  range: z.enum(['7d', '30d', 'all'])
+})
+
 export const SetProviderLimitSchema = z.object({
   providerKey: z.string().min(1),
   limitUsd: z.number().positive().nullable()
@@ -497,6 +502,10 @@ export type {
   CostPeriodSummary,
   CostSummary,
   ProviderUsageEntry,
+  UsageStatsRange,
+  UsageStatsDay,
+  UsageStatsModel,
+  UsageStats,
   SessionCapabilities,
   RevertCapabilities,
   CancellationCapability,

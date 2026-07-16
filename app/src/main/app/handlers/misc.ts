@@ -13,6 +13,7 @@ import {
   ReadAttachmentRequestSchema,
   SetProviderLimitSchema,
   SetSkillEnabledSchema,
+  UsageStatsRequestSchema,
   SkillTargetSchema,
   SearchMessagesRequestSchema,
   UploadSkillSchema,
@@ -21,6 +22,7 @@ import {
   type BackendListResult,
   type CostSummary,
   type ProviderUsageEntry,
+  type UsageStats,
   type DebugMockState,
   type FileEntry,
   type PickedAttachment,
@@ -285,6 +287,14 @@ export function registerMiscHandlers(ctx: RouterContext): void {
         ctx.db.getProviderLimit(req.providerKey)
       )
     }
+  )
+
+  // 사용량 요약(0112) — 기간별 일 단위 시계열 + 모델별 집계. 조회류라 fallback 정책(빈 요약).
+  handle(
+    CHANNELS.costUsageStats,
+    UsageStatsRequestSchema,
+    { fallback: { range: '7d', since: null, days: [], models: [], updatedAt: 0 } as UsageStats },
+    (req): UsageStats => ctx.cost.usageStats(req.range)
   )
 
   // 응답완료 등 OS 네이티브 알림. 렌더러는 토글(notifyOnComplete)만 확인해 요청하고,

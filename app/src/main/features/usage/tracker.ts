@@ -1,6 +1,12 @@
-import type { CostPeriodSummary, CostSummary } from '../../../shared/ipc'
+import type {
+  CostPeriodSummary,
+  CostSummary,
+  UsageStats,
+  UsageStatsRange
+} from '../../../shared/ipc'
+import { rangeSince } from '../../../shared/usage/stats'
 import type { DbQueries } from '../../infra/db'
-import type { UsageSumRow } from '../../infra/db/types'
+import type { DailyUsageRow, ModelUsageSumRow, UsageSumRow } from '../../infra/db/types'
 import { boundaries } from './boundaries'
 import { NoopCorrectionSource, type UsageCorrectionSource } from './external-correction'
 
@@ -46,6 +52,20 @@ export class UsageTracker {
     return this.summary
   }
 
+  // 사용량 요약(0112) — 기간별 일 단위 시계열 + 모델별 집계. providerSummary 처럼 캐시 없이
+  // 요청 시 스캔한다(설정 사용량 탭 조회 시점에만 필요). days 는 희소(사용 있던 날만) —
+  // 제로필은 renderer 몫. since=null 은 '전체'(하한 없음)를 뜻한다.
+  usageStats(range: UsageStatsRange, now = Date.now()): UsageStats {
+    const since = rangeSince(range, now)
+    return {
+      range,
+      since: range === 'all' ? null : since,
+      days: this.db.sumUsageByDaySince(since).map(toStatsDay),
+      models: this.db.sumUsageByModelSince(since).map(toStatsModel),
+      updatedAt: now
+    }
+  }
+
   // provider 한정 summary(0080) — 전역 집계와 달리 캐시하지 않고 요청 시 DB 를 스캔한다
   // (설정 사용량 provider 서브탭 조회 시점에만 필요). 형태는 전역 CostSummary 와 동일.
   providerSummary(providerKey: string, now = Date.now()): CostSummary {
@@ -56,6 +76,28 @@ export class UsageTracker {
       month: toPeriod(sums.month),
       updatedAt: now
     }
+  }
+}
+
+function toStatsDay(row: DailyUsageRow): UsageStats['days'][number] {
+  return {
+    day: row.day,
+    inputTokens: row.input_tokens,
+    outputTokens: row.output_tokens,
+    cacheCreationInputTokens: row.cache_creation_input_tokens,
+    cacheReadInputTokens: row.cache_read_input_tokens,
+    totalCostUsd: row.total_cost_usd
+  }
+}
+
+function toStatsModel(row: ModelUsageSumRow): UsageStats['models'][number] {
+  return {
+    model: row.model,
+    inputTokens: row.input_tokens,
+    outputTokens: row.output_tokens,
+    cacheCreationInputTokens: row.cache_creation_input_tokens,
+    cacheReadInputTokens: row.cache_read_input_tokens,
+    costUsd: row.cost_usd
   }
 }
 

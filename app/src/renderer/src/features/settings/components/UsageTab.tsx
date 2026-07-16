@@ -1,20 +1,23 @@
-// 설정 모달 '사용량' 탭(전역) — 사용량 한도 바/한도 설정은 provider 하위 탭(ProviderUsageTab)
-// 으로 이관됐다(0081). 이 전역 탭은 Claude Code `/cost` 유사 요약(총비용·토큰·모델별 내역)의
-// 자리와 주기적 사용량 새로고침 설정을 담는다.
+// 설정 모달 '사용량' 탭(전역) — 사용량 요약(0112): 기간 탭(최근 7일/30일/전체)별 일별 토큰
+// 차트 + 모델별 내역. 데이터는 main 의 turn_usage/turn_model_usage 집계(costUsageStats).
+// 주기적 실행 설정 그룹(0099)은 0112 에서 제거 — main 스케줄러/tweak 스키마는 유지된다.
 // SyncRow/CostRefreshView 는 provider 서브탭이 재사용하므로 여기 정의를 유지한다.
 
 import { useState } from 'react'
-import { Icon } from '../../../shared/ui/Icon'
-import { Toggle } from '../../../shared/ui/Toggle'
-import { useI18n } from '../../../shared/i18n'
-import { useTweakContext } from '../../../shared/theme'
-import { SettingsGroup, SettingsRow } from './parts'
+import type { UsageStatsModel, UsageStatsRange } from '../../../../../shared/ipc'
 import {
-  CUSTOM_USAGE_RECOMPUTE_PRESET,
-  USAGE_RECOMPUTE_PRESETS,
-  isUsageCronInputEnabled,
-  usageRecomputeSelectValue
-} from '../lib/usageSchedule'
+  WEEKLY_AGGREGATION_THRESHOLD_DAYS,
+  aggregateWeekly,
+  fillDailySeries,
+  totalTokens
+} from '../../../../../shared/usage/stats'
+import { Icon } from '../../../shared/ui/Icon'
+import { Meter } from '../../../shared/ui/Meter'
+import { useI18n } from '../../../shared/i18n'
+import { useUsageStats } from '../hooks/useUsageStats'
+import { fmtUsd, formatTokens } from '../lib/usageFormat'
+import { SettingsGroup } from './parts'
+import { TokensPerDayChart } from './TokensPerDayChart'
 
 export interface CostRefreshView {
   label: string | null
@@ -43,106 +46,137 @@ export function SyncRow({ label, refreshing, onRefresh }: CostRefreshView): Reac
   )
 }
 
-// 전역 사용량 요약 — /cost 유사 기능 예고 + 추후 구현 안내(0081) + 주기적 실행 설정(0099).
+// 기간 탭 라벨은 언어 전환 시 stale 해지지 않도록 키만 상수로 두고 렌더에서 tr() 해석.
+const RANGES = [
+  { id: '7d', labelKey: 'settings.usage.range7d' },
+  { id: '30d', labelKey: 'settings.usage.range30d' },
+  { id: 'all', labelKey: 'settings.usage.rangeAll' }
+] as const satisfies readonly { id: UsageStatsRange; labelKey: string }[]
+
+// 세그먼티드 기간 탭 — 공용 Tabs 프리미티브가 없어 SettingsModal 내비 선택 패턴을 따른다.
+function RangeTabs({
+  value,
+  onChange
+}: {
+  value: UsageStatsRange
+  onChange: (next: UsageStatsRange) => void
+}): React.JSX.Element {
+  const { tr } = useI18n()
+  return (
+    <div role="tablist" className="flex gap-1 self-start rounded-r4 border border-border p-0.5">
+      {RANGES.map((r) => {
+        const active = value === r.id
+        return (
+          <button
+            key={r.id}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(r.id)}
+            className={`cursor-pointer rounded-r3 border-0 px-2.5 py-1 text-[12px] transition-colors ${
+              active
+                ? 'bg-selected-soft font-medium text-selected'
+                : 'bg-transparent text-ink3 hover:bg-fill-uncontained-hover hover:text-ink2'
+            }`}
+          >
+            {tr(r.labelKey)}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+// 모델별 내역 — 총 토큰 내림차순, 최대 모델 대비 비율 Meter(차트와 같은 indigo 톤).
+function ModelUsageList({ models }: { models: UsageStatsModel[] }): React.JSX.Element {
+  const { tr } = useI18n()
+  const top = models.length > 0 ? totalTokens(models[0]) : 0
+  return (
+    <div className="flex flex-col gap-4">
+      {models.map((m) => {
+        const total = totalTokens(m)
+        return (
+          <div key={m.model}>
+            <div className="flex items-baseline justify-between gap-4">
+              <span className="min-w-0 truncate font-mono text-[12px] text-ink">{m.model}</span>
+              <span className="flex-none text-[12.5px] tabular-nums text-ink2">
+                {formatTokens(total)}
+              </span>
+            </div>
+            <Meter ratio={top > 0 ? total / top : 0} tone="info" className="mt-1.5" />
+            <div className="mt-1 text-[11.5px] tabular-nums text-ink3">
+              {tr('settings.usage.modelBreakdown', {
+                input: formatTokens(m.inputTokens),
+                output: formatTokens(m.outputTokens),
+                cache: formatTokens(m.cacheCreationInputTokens + m.cacheReadInputTokens),
+                cost: fmtUsd(m.costUsd)
+              })}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// 전역 사용량 요약(0112) — /cost 유사 요약의 실구현.
 export function UsageTab(): React.JSX.Element {
   const { tr } = useI18n()
-  const { t, setTweak } = useTweakContext()
-  const [customSelected, setCustomSelected] = useState(false)
-  const cron = t.scheduler.usageRecompute.cron
-  const selectValue = usageRecomputeSelectValue(cron, customSelected)
-  const cronInputEnabled = isUsageCronInputEnabled(selectValue)
+  const [range, setRange] = useState<UsageStatsRange>('7d')
+  const { stats, loading } = useUsageStats(range)
+
+  // days 는 희소(사용 있던 날만) — 여기서 연속 일자로 제로필한다. '전체' 범위가 표시 임계를
+  // 넘으면 주 단위(월요일 시작)로 접는다(표시 전용, 합계/모델 내역은 영향 없음).
+  const filled = stats ? fillDailySeries(stats.days, stats.since, stats.updatedAt) : []
+  const weekly = range === 'all' && filled.length > WEEKLY_AGGREGATION_THRESHOLD_DAYS
+  const series = weekly ? aggregateWeekly(filled) : filled
+  const grandTotal = stats?.days.reduce((acc, d) => acc + totalTokens(d), 0) ?? 0
+  const totalCost = stats?.days.reduce((acc, d) => acc + d.totalCostUsd, 0) ?? 0
+  const empty = !loading && stats != null && stats.days.length === 0 && stats.models.length === 0
 
   return (
     <div className="flex flex-col gap-5">
       <div>
         <h3 className="text-[15px] font-semibold text-ink">{tr('settings.usage.title')}</h3>
-        <p className="mt-1.5 text-[13px] leading-relaxed text-ink2">
-          {tr('settings.usage.descPrefix')}
-          <span className="font-mono text-[12px] text-ink">/cost</span>
-          {tr('settings.usage.descSuffix')}
-        </p>
+        <p className="mt-1.5 text-[13px] leading-relaxed text-ink2">{tr('settings.usage.desc')}</p>
       </div>
 
-      <SettingsGroup title={tr('settings.usage.scheduling')}>
-        <SettingsRow
-          label={tr('settings.usage.usageRecompute')}
-          description={tr('settings.usage.usageRecomputeDesc')}
-        >
-          <Toggle
-            on={t.scheduler.usageRecompute.enabled}
-            onClick={() =>
-              setTweak('scheduler', {
-                ...t.scheduler,
-                usageRecompute: {
-                  ...t.scheduler.usageRecompute,
-                  enabled: !t.scheduler.usageRecompute.enabled
-                }
-              })
-            }
-            label={tr('settings.usage.usageRecomputeToggle')}
-          />
-        </SettingsRow>
+      <RangeTabs value={range} onChange={setRange} />
 
-        <SettingsRow
-          label={tr('settings.usage.refreshInterval')}
-          description={tr('settings.usage.refreshIntervalDesc')}
-        >
-          <div className="flex flex-col gap-2">
-            <select
-              value={selectValue}
-              onChange={(e) => {
-                if (e.target.value === CUSTOM_USAGE_RECOMPUTE_PRESET) {
-                  setCustomSelected(true)
-                  return
-                }
-                setCustomSelected(false)
-                setTweak('scheduler', {
-                  ...t.scheduler,
-                  usageRecompute: { ...t.scheduler.usageRecompute, cron: e.target.value }
-                })
-              }}
-              className="cursor-pointer rounded-r4 border border-border bg-bg px-2.5 py-1.5 text-[12.5px] text-ink outline-none focus:border-border-strong"
-            >
-              {USAGE_RECOMPUTE_PRESETS.map((preset) => (
-                <option key={preset.value} value={preset.value}>
-                  {tr(preset.labelKey)}
-                </option>
-              ))}
-              <option value={CUSTOM_USAGE_RECOMPUTE_PRESET}>
-                {tr('settings.usage.presetCustom')}
-              </option>
-            </select>
-            <input
-              key={`${cron}:${selectValue}`}
-              defaultValue={cron}
-              disabled={!cronInputEnabled}
-              aria-disabled={!cronInputEnabled}
-              onBlur={(e) => {
-                const next = e.currentTarget.value.trim()
-                if (!next || next === cron) return
-                setCustomSelected(false)
-                setTweak('scheduler', {
-                  ...t.scheduler,
-                  usageRecompute: { ...t.scheduler.usageRecompute, cron: next }
-                })
-              }}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') e.currentTarget.blur()
-              }}
-              aria-label={tr('settings.usage.cronAria')}
-              className={`w-48 rounded-r4 border border-border bg-bg px-2.5 py-1.5 font-mono text-[12.5px] outline-none focus:border-border-strong ${
-                cronInputEnabled ? 'text-ink' : 'cursor-not-allowed text-ink3 opacity-70'
-              }`}
-            />
+      {loading && <p className="text-[12.5px] text-ink3">{tr('usage.loading')}</p>}
+
+      {empty && (
+        <div className="flex flex-col items-center gap-1.5 rounded-r4 border border-dashed border-border px-4 py-8 text-center">
+          <Icon name="chart" size={20} className="text-ink3" />
+          <div className="text-[13px] font-medium text-ink2">{tr('settings.usage.empty')}</div>
+          <p className="text-[12px] text-ink3">{tr('settings.usage.emptyDesc')}</p>
+        </div>
+      )}
+
+      {!loading && stats != null && !empty && (
+        <>
+          <div>
+            <div className="flex items-baseline gap-2">
+              <span className="text-[22px] font-semibold tabular-nums text-ink">
+                {formatTokens(grandTotal)}
+              </span>
+              <span className="text-[12px] text-ink3">{tr('settings.usage.totalTokens')}</span>
+            </div>
+            <div className="mt-0.5 text-[12px] tabular-nums text-ink3">
+              {tr('settings.usage.totalCost')}: {fmtUsd(totalCost)}
+            </div>
           </div>
-        </SettingsRow>
-      </SettingsGroup>
 
-      <div className="flex flex-col items-center gap-1.5 rounded-r4 border border-dashed border-border px-4 py-8 text-center">
-        <Icon name="chart" size={20} className="text-ink3" />
-        <div className="text-[13px] font-medium text-ink2">{tr('settings.usage.comingSoon')}</div>
-        <p className="text-[12px] text-ink3">{tr('settings.usage.comingSoonDesc')}</p>
-      </div>
+          <SettingsGroup title={tr('settings.usage.dailyTokens')}>
+            <TokensPerDayChart days={series} ariaLabel={tr('settings.usage.chartAria')} />
+            {weekly && <p className="text-[11.5px] text-ink3">{tr('settings.usage.weeklyNote')}</p>}
+          </SettingsGroup>
+
+          <SettingsGroup title={tr('settings.usage.byModel')}>
+            <ModelUsageList models={stats.models} />
+          </SettingsGroup>
+        </>
+      )}
     </div>
   )
 }

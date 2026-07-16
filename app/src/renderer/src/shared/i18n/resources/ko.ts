@@ -678,23 +678,19 @@ export const ko = {
     },
     usage: {
       title: '사용량 요약',
-      descPrefix: 'Claude Code 의 ',
-      descSuffix:
-        ' 처럼 총 사용 비용, 토큰 사용량(입력·출력·캐시), 모델별 내역을 한눈에 볼 수 있는 요약을 제공할 예정입니다.',
-      comingSoon: '추후 구현 예정',
-      comingSoonDesc:
-        'provider별 사용량 한도와 지출 한도 설정은 좌측 하위 항목에서 확인할 수 있습니다.',
-      scheduling: '주기적 실행',
-      usageRecompute: '사용량 새로고침',
-      usageRecomputeDesc: '앱이 실행 중일 때만 저장된 주기에 따라 사용량 집계를 다시 계산합니다.',
-      usageRecomputeToggle: '주기적 사용량 새로고침',
-      refreshInterval: '새로고침 주기',
-      refreshIntervalDesc: 'cron 표현식 또는 기본 프리셋을 선택하세요.',
-      presetHourly: '매시간',
-      preset30m: '30분마다',
-      presetDaily9: '매일 오전 9시',
-      presetCustom: '직접 입력',
-      cronAria: '사용량 새로고침 cron'
+      desc: '기간별 토큰 사용량(입력·출력·캐시)과 모델별 내역을 보여줍니다. provider별 사용량 한도는 좌측 하위 항목에서 확인할 수 있습니다.',
+      range7d: '최근 7일',
+      range30d: '최근 30일',
+      rangeAll: '전체',
+      totalTokens: '총 토큰',
+      totalCost: '총 비용',
+      dailyTokens: '일별 토큰',
+      byModel: '모델별 사용량',
+      chartAria: '일별 토큰 사용량 차트',
+      weeklyNote: '90일이 넘는 기간은 주 단위 합산으로 표시됩니다.',
+      modelBreakdown: '입력 {{input}} · 출력 {{output}} · 캐시 {{cache}} · {{cost}}',
+      empty: '아직 사용량이 없습니다',
+      emptyDesc: '대화를 시작하면 토큰 사용량이 여기에 집계됩니다.'
     }
   },
   time: {
