@@ -29,14 +29,17 @@ import {
 } from './hooks'
 import type { SteerFlushBatch } from './turn'
 
-// Claude Code plugin root를 SDK local plugin 옵션으로 변환한다. 상대 경로는 cwd 기준이라 세션 cwd
-// 변경과 얽힐 수 있으므로 호출자는 절대 경로를 넘긴다. 경로가 비어 있거나 실제 플러그인 매니페스트
-// (.claude-plugin/plugin.json)가 없으면 옵션 자체를 생략한다 — deploy 실패/미실행 시 SDK 에
-// 존재하지 않는 local plugin 경로를 넘겨 오류를 내는 대신 플러그인 없이 진행한다(설계 AC#5·엣지케이스#2).
-export function adaptPlugins(pluginRoot?: string | null): object {
-  if (!pluginRoot || pluginRoot.trim() === '') return {}
-  if (!existsSync(join(pluginRoot, '.claude-plugin', 'plugin.json'))) return {}
-  return { plugins: [{ type: 'local' as const, path: pluginRoot }] }
+// Claude Code plugin root 들을 SDK local plugin 옵션으로 변환한다(0117 에서 복수화 — Orca plugin +
+// 사용자 ~/.claude/skills 래퍼 plugin). 상대 경로는 cwd 기준이라 세션 cwd 변경과 얽힐 수 있으므로
+// 호출자는 절대 경로를 넘긴다. 경로가 비어 있거나 실제 플러그인 매니페스트(.claude-plugin/plugin.json)가
+// 없는 root 는 개별 생략한다 — deploy 실패/미실행 시 SDK 에 존재하지 않는 local plugin 경로를 넘겨
+// 오류를 내는 대신 해당 플러그인 없이 진행한다(설계 AC#5·엣지케이스#2). 전부 탈락이면 옵션 자체 생략.
+export function adaptPlugins(pluginRoots?: readonly (string | null | undefined)[]): object {
+  const plugins = (pluginRoots ?? [])
+    .filter((p): p is string => typeof p === 'string' && p.trim() !== '')
+    .filter((p) => existsSync(join(p, '.claude-plugin', 'plugin.json')))
+    .map((path) => ({ type: 'local' as const, path }))
+  return plugins.length > 0 ? { plugins } : {}
 }
 
 // claude_code preset + append. preset 으로 claude 의 기본 시스템 프롬프트(작업 디렉토리,
@@ -47,11 +50,11 @@ export function adaptSystemPrompt(append?: string): object {
   return { systemPrompt: { type: 'preset' as const, preset: 'claude_code' as const, append } }
 }
 
-// Skill 은 plugin(sources/skills → dist/plugins/orca/skills) 과 adapter user path(~/.claude/skills) 에서
-// 발견되고, SDK `options.skills`(string[]) 가 그중 **활성**만 필터한다. plugin 스킬은
-// `plugin-name:skill-name` 네임스페이스를 사용해야 하므로 Orca 스킬만 `orca:` prefix 를 붙인다.
-// 어댑터 스킬은 토글 불가·항상 on 이며 기존 이름을 유지한다. 알려진 스킬이 하나도 없으면
-// 'all' 로 둬 스캔 누락이 스킬을 통째로 가리지 않게 한다.
+// Skill 은 두 plugin(sources/skills → dist/plugins/orca/skills · ~/.claude/skills → dist/plugins/claude
+// 래퍼, 0117) 에서 발견되고, SDK `options.skills`(string[]) 가 그중 **활성**만 필터한다. plugin 스킬은
+// `plugin-name:skill-name` 네임스페이스로 발견되므로 Orca 스킬은 `orca:`, 어댑터 스킬은 `claude:`
+// prefix 를 붙인다(adaptSkillNameForClaude). 어댑터 스킬은 토글 불가·항상 on. 알려진 스킬이
+// 하나도 없으면 'all' 로 둬 스캔 누락이 스킬을 통째로 가리지 않게 한다.
 export function adaptSkills(skills: SkillInfo[]): object {
   if (skills.length === 0) return { skills: 'all' as const }
   const active = skills
@@ -62,8 +65,9 @@ export function adaptSkills(skills: SkillInfo[]): object {
 
 // provider settings flag 주입 (handoff 0023/0024/0028). 해석 완료 blob 의 settings 를 flag settings
 // 레이어(options.settings — CLI --settings 동등, 사용자 제어 설정 중 최우선)로 넘긴다.
-// settingSources 옵션은 생략해 SDK 기본 user/project/local 소스를 상속하며, 이 flag settings 가
-// 그 위에 얹혀 `~/.claude/settings.json` 을 덮어쓴다(env 포함 — handoff 0028).
+// settingSources 는 adaptSettingSources 가 ['project','local'] 로 명시해 user 소스를 배제한다
+// (handoff 0117 — 0023/0028 의 "생략=기본 소스 상속" 결정 supersede). 이 flag settings 는
+// provider 전용 값이 사용자 전역 `~/.claude/settings.json` 과 겹치지 않고 그대로 적용되게 한다.
 //
 // **settings 는 인라인 JSON 문자열로 직렬화한다** (handoff 0015 결함 수정): SDK 의
 // Options.settings 는 d.ts 상 `string | Settings` 지만 런타임 transport 는 값을 직렬화 없이
@@ -76,6 +80,16 @@ export function adaptSkills(skills: SkillInfo[]): object {
 // 사용자 전역 env 를 덮어쓰는 메커니즘. argv 평문 노출(same-user process list)은 수용된 트레이드오프.
 export function adaptSettings(settings?: ProviderSettings): object {
   return settings && Object.keys(settings).length > 0 ? { settings: JSON.stringify(settings) } : {}
+}
+
+// settingSources 명시 (handoff 0117 — 0023/0028 "생략=user/project/local 상속" supersede).
+// user 소스(~/.claude/settings.json + ~/.claude/skills 탐색)를 배제해 provider 전용 settings
+// (adaptSettings flag)가 사용자 전역 설정 개입 없이 결정론적으로 적용되게 한다. user 배제로
+// 끊기는 ~/.claude/skills 는 dist/claude/plugins/claude 래퍼 플러그인이 보전한다
+// (features/extensions/claude-user-skills-plugin.ts — adaptPlugins 로 주입). provider settings
+// 유무와 무관하게 항상 주입하므로 adaptSettings 와 분리된 조각이다.
+export function adaptSettingSources(): object {
+  return { settingSources: ['project', 'local'] }
 }
 
 // 시스템(턴) env 주입. 턴 env(orca.json 앱 env 병합 결과)를 options.env(subprocess

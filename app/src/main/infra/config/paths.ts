@@ -10,6 +10,7 @@
 //   │   └── settings/<adapter>/         #   settings/<adapter>/<provider>/settings.json)
 //   ├── dist/<engine>/                  # deployer 산출 (읽기 전용)
 //   │   └── plugins/orca/               #   Claude Code plugin(.claude-plugin, skills, agents, hooks, .mcp.json)
+//   │   └── plugins/claude/             #   사용자 ~/.claude/skills 래퍼 plugin(.claude-plugin + skills 정션/심링크, 0117)
 //   └── projects/                       # 세션 작업 디렉토리(cwd) 루트 — 확장 파일을 복사하지 않는다.
 //       ├── default/                    #   비-프로젝트 / cwd 미지정 세션 공용 cwd
 //       └── <이름>-<프로젝트ID8>/        #   프로젝트 소속 세션 cwd (future: 절대경로 지정값으로 대체 가능)
@@ -130,6 +131,12 @@ export function distPluginsDir(engine: Backend): string {
 // features/extensions/claude-plugin-package.ts — 여기서는 루트 디렉토리까지만 제공한다.
 export function distOrcaPluginDir(engine: Backend): string {
   return join(distPluginsDir(engine), 'orca')
+}
+
+// 사용자 ~/.claude/skills 래퍼 플러그인 루트 (handoff 0117 — settingSources user 배제 보전).
+// 내부 레이아웃 소유자는 features/extensions/claude-user-skills-plugin.ts.
+export function distUserClaudePluginDir(engine: Backend): string {
+  return join(distPluginsDir(engine), 'claude')
 }
 
 // 부팅 시 1회. mkdir -p 의미 (recursive). 이미 있으면 무시.

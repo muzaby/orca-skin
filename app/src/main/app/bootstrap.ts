@@ -21,6 +21,7 @@ import { SettingsStore } from '../infra/settings-store'
 import { McpStore } from '../features/extensions/mcp/store'
 import {
   distOrcaPluginDir,
+  distUserClaudePluginDir,
   ensureConfigDir,
   getWorkspacePath,
   sourcesSkillsDir
@@ -208,7 +209,8 @@ export class Bootstrap {
       () => this.skillsCache,
       () => this.settings.getAll(),
       app.getVersion(),
-      () => distOrcaPluginDir('claude')
+      // Orca plugin + 사용자 ~/.claude/skills 래퍼 plugin(0117) — 존재 검증은 adaptPlugins 몫.
+      () => [distOrcaPluginDir('claude'), distUserClaudePluginDir('claude')]
     )
     await this.bootReport.step(
       'adapter-registry',

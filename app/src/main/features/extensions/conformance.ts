@@ -28,7 +28,8 @@ export interface StandardConformance {
   settings: {
     // provider 별 settings 를 어댑터별로 분리 관리하는가.
     perProvider: boolean
-    // 런타임 주입 메커니즘. claude = SDK flag settings(Options.settings) + 기본 settingSources 상속.
+    // 런타임 주입 메커니즘. claude = SDK flag settings(Options.settings) + settingSources
+    // ['project','local'] 명시(user 배제 — 0117). 리터럴 이름은 0023 당시 표기 유지(rename 은 후속).
     mechanism: 'sdk_flag_settings_default_sources' | 'native_config_file' | 'none'
   }
 }
@@ -59,8 +60,9 @@ const claudeConformance: StandardConformance = {
   },
   settings: {
     perProvider: true,
-    // sources/settings 의 provider settings 를 query options.settings 로 주입하고
-    // settingSources 는 생략해 사용자 ~/.claude/project/local 소스를 상속한다.
+    // sources/settings 의 provider settings 를 query options.settings 로 주입하고 settingSources
+    // 는 ['project','local'] 로 명시해 user 소스를 배제한다(0117 — 0023 "생략" 결정 supersede).
+    // 끊기는 ~/.claude/skills 는 dist/claude/plugins/claude 래퍼 플러그인이 보전한다.
     mechanism: 'sdk_flag_settings_default_sources'
   }
 }
