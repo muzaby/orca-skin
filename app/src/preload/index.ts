@@ -9,6 +9,8 @@ import {
   type AgentEnvironment,
   type CostSummary,
   type ProviderUsageEntry,
+  type UsageStats,
+  type UsageStatsRange,
   type ConcurrencyEvent,
   type NormalizedEvent,
   type CreateMcpServerRequest,
@@ -183,7 +185,9 @@ const orca = {
     refreshProviderUsageReport: (providerKey: string): Promise<ProviderUsageEntry> =>
       ipcRenderer.invoke(CHANNELS.costRefreshProviderUsageReport, { providerKey }),
     setProviderLimit: (providerKey: string, limitUsd: number | null): Promise<ProviderUsageEntry> =>
-      ipcRenderer.invoke(CHANNELS.costSetProviderLimit, { providerKey, limitUsd })
+      ipcRenderer.invoke(CHANNELS.costSetProviderLimit, { providerKey, limitUsd }),
+    usageStats: (range: UsageStatsRange): Promise<UsageStats> =>
+      ipcRenderer.invoke(CHANNELS.costUsageStats, { range })
   },
   concurrency: {
     onEvent: (handler: (ev: ConcurrencyEvent) => void): (() => void) => {

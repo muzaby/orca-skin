@@ -16,6 +16,8 @@ import type {
   SessionInsert,
   SessionLineageInsert,
   SessionLineageRow,
+  DailyUsageRow,
+  ModelUsageSumRow,
   SessionListRow,
   SessionTitleSource,
   TurnModelUsageInsert,
@@ -60,6 +62,9 @@ export class DbQueries {
   private insertScheduleRunStartedStmt?: Database.Statement
   private finishScheduleRunStmt?: Database.Statement
   private listScheduleRunsStmt?: Database.Statement
+  // 사용량 요약(0112) — 설정 모달 열림 시에만 필요해 lazy prepare(부팅 비용 회피, schedule* 선례).
+  private sumUsageByDaySinceStmt?: Database.Statement
+  private sumUsageByModelSinceStmt?: Database.Statement
   private readonly getProviderLimitStmt: Database.Statement
   private readonly setProviderLimitStmt: Database.Statement
   private readonly getProviderUsageReportStmt: Database.Statement
@@ -612,6 +617,48 @@ export class DbQueries {
 
   listScheduleRuns(jobKey: string, limit = 20): ScheduleRunRow[] {
     return this.scheduleListStmt().all({ jobKey, limit }) as ScheduleRunRow[]
+  }
+
+  // 사용량 요약(0112) — since(epoch ms, 'all'=0) 이후를 OS 로컬 일자로 버킷팅해 합산한다.
+  // date(...,'localtime') 은 renderer 의 localDayKey(shared/usage/stats.ts)와 같은 OS 타임존을
+  // 쓰므로 키 포맷('YYYY-MM-DD')이 일치한다. created_at/1000 은 SQLite 정수 나눗셈(절삭).
+  sumUsageByDaySince(since: number): DailyUsageRow[] {
+    this.sumUsageByDaySinceStmt ??= this.db.prepare(`
+      SELECT
+        date(created_at / 1000, 'unixepoch', 'localtime') AS day,
+        COALESCE(SUM(input_tokens), 0) AS input_tokens,
+        COALESCE(SUM(output_tokens), 0) AS output_tokens,
+        COALESCE(SUM(cache_creation_input_tokens), 0) AS cache_creation_input_tokens,
+        COALESCE(SUM(cache_read_input_tokens), 0) AS cache_read_input_tokens,
+        COALESCE(SUM(total_cost_usd), 0) AS total_cost_usd
+      FROM turn_usage
+      WHERE created_at >= @since
+      GROUP BY day
+      ORDER BY day ASC
+    `)
+    return this.sumUsageByDaySinceStmt.all({ since }) as DailyUsageRow[]
+  }
+
+  // 사용량 요약(0112) — since 이후 모델별 합산(총 토큰 내림차순). 부모 turn_usage 와 조인해
+  // created_at 필터를 공유한다(자식 행에는 시각 컬럼이 없다).
+  sumUsageByModelSince(since: number): ModelUsageSumRow[] {
+    this.sumUsageByModelSinceStmt ??= this.db.prepare(`
+      SELECT
+        tmu.model AS model,
+        COALESCE(SUM(tmu.input_tokens), 0) AS input_tokens,
+        COALESCE(SUM(tmu.output_tokens), 0) AS output_tokens,
+        COALESCE(SUM(tmu.cache_creation_input_tokens), 0) AS cache_creation_input_tokens,
+        COALESCE(SUM(tmu.cache_read_input_tokens), 0) AS cache_read_input_tokens,
+        COALESCE(SUM(tmu.cost_usd), 0) AS cost_usd
+      FROM turn_model_usage tmu
+      JOIN turn_usage tu ON tu.id = tmu.turn_usage_id
+      WHERE tu.created_at >= @since
+      GROUP BY tmu.model
+      ORDER BY (COALESCE(SUM(tmu.input_tokens), 0) + COALESCE(SUM(tmu.output_tokens), 0)
+        + COALESCE(SUM(tmu.cache_creation_input_tokens), 0)
+        + COALESCE(SUM(tmu.cache_read_input_tokens), 0)) DESC, tmu.model ASC
+    `)
+    return this.sumUsageByModelSinceStmt.all({ since }) as ModelUsageSumRow[]
   }
 
   private scheduleStartStmt(): Database.Statement {

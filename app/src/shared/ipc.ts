@@ -59,6 +59,8 @@ export const CHANNELS = {
   costProviderSummaries: 'orca:cost:providerSummaries',
   costRefreshProviderUsageReport: 'orca:cost:refreshProviderUsageReport',
   costSetProviderLimit: 'orca:cost:setProviderLimit',
+  // 사용량 요약(0112) — 기간(range)별 일 단위 시계열 + 모델별 집계를 한 번에 반환.
+  costUsageStats: 'orca:cost:usageStats',
   concurrencyEvent: 'orca:concurrency:event',
   // 권한 응답 단일 채널 — ask/plan/tool 세 종류의 승인 응답이 모두 이 채널로 흐른다
   // (askRespond/planRespond 2채널 통합). 응답 = { approvalId, resolution: ApprovalResolution }.
@@ -259,6 +261,37 @@ export interface ProviderUsageEntry {
   limitUsd: number | null
   externalReport?: ExternalUsageReport
   effectiveLimit: EffectiveUsageLimitView
+}
+
+// 사용량 요약(0112) — 설정 사용량 탭의 일별 토큰 차트 + 모델별 내역.
+// days 는 실제 사용이 있던 날만 담는 희소 배열(오름차순) — 제로필은 renderer 의
+// fillDailySeries(shared/usage/stats.ts) 가 수행한다. since=null 은 '전체' 범위.
+export type UsageStatsRange = '7d' | '30d' | 'all'
+
+export interface UsageStatsDay {
+  day: string // 'YYYY-MM-DD' (OS 로컬 타임존)
+  inputTokens: number
+  outputTokens: number
+  cacheCreationInputTokens: number
+  cacheReadInputTokens: number
+  totalCostUsd: number
+}
+
+export interface UsageStatsModel {
+  model: string
+  inputTokens: number
+  outputTokens: number
+  cacheCreationInputTokens: number
+  cacheReadInputTokens: number
+  costUsd: number
+}
+
+export interface UsageStats {
+  range: UsageStatsRange
+  since: number | null
+  days: UsageStatsDay[]
+  models: UsageStatsModel[] // 총 토큰 내림차순
+  updatedAt: number
 }
 
 export interface SessionTitleEvent {

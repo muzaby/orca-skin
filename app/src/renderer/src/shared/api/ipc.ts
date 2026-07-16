@@ -7,6 +7,8 @@ import type {
   AgentEnvironment,
   CostSummary,
   ProviderUsageEntry,
+  UsageStats,
+  UsageStatsRange,
   ConcurrencyEvent,
   NormalizedEvent,
   CreateMcpServerRequest,
@@ -163,7 +165,8 @@ export const costApi = {
   refreshProviderUsageReport: (providerKey: string): Promise<ProviderUsageEntry> =>
     window.orca.cost.refreshProviderUsageReport(providerKey),
   setProviderLimit: (providerKey: string, limitUsd: number | null): Promise<ProviderUsageEntry> =>
-    window.orca.cost.setProviderLimit(providerKey, limitUsd)
+    window.orca.cost.setProviderLimit(providerKey, limitUsd),
+  usageStats: (range: UsageStatsRange): Promise<UsageStats> => window.orca.cost.usageStats(range)
 }
 
 export const permissionApi = {

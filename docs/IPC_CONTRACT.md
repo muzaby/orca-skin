@@ -2,7 +2,7 @@
 
 > 이 문서는 Main ↔ Renderer 간 IPC 채널의 **단일 진실 공급원 (SSOT)** 이다.
 > 채널을 추가/변경할 때는 코드와 이 문서를 함께 갱신한다.
-> 최종 업데이트: 2026-07-15 (handoff 0109 — `boot` 도메인에 `whenReady` 게이트 추가, 64→65)
+> 최종 업데이트: 2026-07-16 (handoff 0112 — `cost` 도메인에 `usageStats` 사용량 요약 조회 추가, 65→66)
 > 관련 문서: [ARCHITECTURE.md](ARCHITECTURE.md), [ARCHITECTURE.md](ARCHITECTURE.md), [GLOSSARY.md](./GLOSSARY.md), [TRD.md](./TRD.md) §5
 
 ## 1. 명명 규칙
@@ -20,9 +20,9 @@
   - 특례: `chat:send` 는 실패를 `error` 이벤트로 회신(§2.1). 입력이 없거나 store 내부 zod 가 검증하는 채널(settings set · mcp add/update)은 `handlePlain`.
 - 출력(main→renderer send) 무검증: `NormalizedEvent` 등의 형상 보증은 어댑터 정규화(`claude-map.ts`)가 담당 — 의도된 설계.
 
-## 2. 채널 카탈로그 (총 65 채널)
+## 2. 채널 카탈로그 (총 66 채널)
 
-도메인별 분포: `chat` 5 (`send` · `event` · `cancel` · `stopSubagent` · `steerCancel`) · `boot` 2 (`report` · `whenReady`) · `backend` 1 · `agent` 1 · `engine` 5 · `install` 2 · `update` 6 · `settings` 2 · `skills` 7 · `files` 5 · `session` 6 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `cost` 4 · `concurrency` 1 · `permission` 2 (`respond` · `setMode`) · `notify` 1 (`show` — §2.12-c) · `debug` 2 (dev 전용 — `getMock` · `setMock`) = **65**.
+도메인별 분포: `chat` 5 (`send` · `event` · `cancel` · `stopSubagent` · `steerCancel`) · `boot` 2 (`report` · `whenReady`) · `backend` 1 · `agent` 1 · `engine` 5 · `install` 2 · `update` 6 · `settings` 2 · `skills` 7 · `files` 5 · `session` 6 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `cost` 5 · `concurrency` 1 · `permission` 2 (`respond` · `setMode`) · `notify` 1 (`show` — §2.12-c) · `debug` 2 (dev 전용 — `getMock` · `setMock`) = **66**.
 
 `app/src/shared/ipc.ts` 의 `CHANNELS` 상수와 1:1 일치. **단, `debug` 2채널은 `import.meta.env.DEV` 일 때만 `ipcMain.handle` 로 등록된다** (CHANNELS 상수 문자열은 상존하나 prod 핸들러 미등록 — §2.13 참조).
 
@@ -261,6 +261,7 @@ interface McpServer {
 | `orca:cost:providerSummaries`   | R→M (invoke) | `{ providerKeys: string[] }`            | `ProviderUsageEntry[]` | provider key 마다 로컬 summary + 적용 한도 + 외부 API report 파생 `effectiveLimit`을 묶어 반환한다.                         |
 | `orca:cost:refreshProviderUsageReport` | R→M (invoke) | `{ providerKey: string }` | `ProviderUsageEntry` | 정적 provider 모듈의 external usage provider/config를 호출해 authoritative report를 fetch·영속하고 갱신 엔트리를 반환한다. 실패/미지원 시 마지막 cache 또는 로컬 한도로 폴백한다. |
 | `orca:cost:setProviderLimit`    | R→M (invoke) | `{ providerKey: string; limitUsd: number \| null }` | `ProviderUsageEntry`   | provider별 월 한도를 upsert 하고 갱신된 엔트리를 반환한다(즉시 반영).                                                       |
+| `orca:cost:usageStats`          | R→M (invoke) | `{ range: '7d' \| '30d' \| 'all' }`     | `UsageStats`           | 사용량 요약(0112) — range 하한(since, 로컬 자정 기준) 이후의 일별 토큰/비용 시계열(희소, 오름차순)과 모델별 집계(총 토큰 내림차순)를 한 번에 반환한다. 제로필은 renderer(`shared/usage/stats.ts`) 몫. 실패 정책 = fallback(빈 요약). |
 
 `CostSummary` 타입 (`app/src/shared/ipc.ts`):
 
@@ -308,6 +309,30 @@ interface ProviderUsageEntry {
   limitUsd: number | null; // 적용 한도(외부 report quota.limitUsd 우선, 없으면 provider_limits)
   externalReport?: ExternalUsageReport;
   effectiveLimit: EffectiveUsageLimitView; // 도넛/provider 서브탭 한도·잔량 계산 입력
+}
+type UsageStatsRange = '7d' | '30d' | 'all';
+interface UsageStatsDay {
+  day: string; // 'YYYY-MM-DD' (OS 로컬 타임존, SQL date(...,'localtime') 버킷)
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationInputTokens: number;
+  cacheReadInputTokens: number;
+  totalCostUsd: number;
+}
+interface UsageStatsModel {
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheCreationInputTokens: number;
+  cacheReadInputTokens: number;
+  costUsd: number;
+}
+interface UsageStats {
+  range: UsageStatsRange;
+  since: number | null; // range 하한(epoch ms, 로컬 자정) — 'all' 은 null
+  days: UsageStatsDay[]; // 희소(사용 있던 날만), 오름차순
+  models: UsageStatsModel[]; // 총 토큰 내림차순
+  updatedAt: number;
 }
 ```
 

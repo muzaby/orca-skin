@@ -683,24 +683,19 @@ export const en: typeof ko = {
     },
     usage: {
       title: 'Usage summary',
-      descPrefix: "Like Claude Code's ",
-      descSuffix:
-        ', a summary of total cost, token usage (input/output/cache), and per-model breakdown is planned.',
-      comingSoon: 'Coming soon',
-      comingSoonDesc:
-        'Per-provider usage and spending limits are available in the sub-items on the left.',
-      scheduling: 'Periodic tasks',
-      usageRecompute: 'Usage refresh',
-      usageRecomputeDesc:
-        'Recomputes usage aggregates on the saved schedule, only while the app is running.',
-      usageRecomputeToggle: 'Periodic usage refresh',
-      refreshInterval: 'Refresh interval',
-      refreshIntervalDesc: 'Choose a cron expression or a preset.',
-      presetHourly: 'Every hour',
-      preset30m: 'Every 30 minutes',
-      presetDaily9: 'Daily at 9 AM',
-      presetCustom: 'Custom',
-      cronAria: 'Usage refresh cron'
+      desc: 'Token usage (input/output/cache) over time and a per-model breakdown. Per-provider usage limits are available in the sub-items on the left.',
+      range7d: 'Last 7 days',
+      range30d: 'Last 30 days',
+      rangeAll: 'All time',
+      totalTokens: 'total tokens',
+      totalCost: 'Total cost',
+      dailyTokens: 'Tokens per day',
+      byModel: 'Usage by model',
+      chartAria: 'Daily token usage chart',
+      weeklyNote: 'Ranges longer than 90 days are shown as weekly totals.',
+      modelBreakdown: 'Input {{input}} · Output {{output}} · Cache {{cache}} · {{cost}}',
+      empty: 'No usage yet',
+      emptyDesc: 'Token usage will appear here once you start chatting.'
     }
   },
   time: {

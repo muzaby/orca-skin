@@ -107,6 +107,21 @@ export interface UsageByBoundaries {
   month: UsageSumRow
 }
 
+// 사용량 요약(0112) — since 이후 로컬 일자별 합산 한 행. day = date(...,'localtime') 'YYYY-MM-DD'.
+export interface DailyUsageRow extends UsageSumRow {
+  day: string
+}
+
+// 사용량 요약(0112) — since 이후 모델별 합산 한 행(turn_model_usage ⨝ turn_usage).
+export interface ModelUsageSumRow {
+  model: string
+  input_tokens: number
+  output_tokens: number
+  cache_creation_input_tokens: number
+  cache_read_input_tokens: number
+  cost_usd: number
+}
+
 export interface ProviderUsageReportCacheRow {
   provider_key: string
   report_json: string
