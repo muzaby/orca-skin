@@ -1,7 +1,7 @@
-import { mkdtemp, writeFile } from 'node:fs/promises'
+import { mkdtemp, writeFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
-import { homedir } from 'node:os'
-import { describe, expect, it } from 'vitest'
+import { homedir, tmpdir } from 'node:os'
+import { afterEach, describe, expect, it } from 'vitest'
 import {
   MAX_FILE_CONTEXT_CHARS,
   TextExtractor,
@@ -9,9 +9,31 @@ import {
   normalizeAttachments
 } from './attachments'
 
+const createdDirs: string[] = []
+
+async function trackTempDir(dir: string): Promise<string> {
+  createdDirs.push(dir)
+  return dir
+}
+
+// TextExtractor 는 홈-경계 검사를 거치지 않으므로 OS 임시 디렉토리를 쓴다.
+async function makeTempDir(): Promise<string> {
+  return trackTempDir(await mkdtemp(join(tmpdir(), 'orca-attachment-test-')))
+}
+
+// normalizeAttachments 경로 첨부는 assertAllowedAttachmentPath 가 홈 하위 경로만
+// 허용하므로(보안 검사) 홈 안에 만들 수밖에 없다 — afterEach 가 즉시 정리한다.
+async function makeHomeTempDir(): Promise<string> {
+  return trackTempDir(await mkdtemp(join(homedir(), '.orca-attachment-test-')))
+}
+
+afterEach(async () => {
+  await Promise.all(createdDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })))
+})
+
 describe('TextExtractor', () => {
   it('extracts UTF-8 text and strips BOM', async () => {
-    const dir = await mkdtemp(join(homedir(), '.orca-attachment-test-'))
+    const dir = await makeTempDir()
     const path = join(dir, 'note.md')
     await writeFile(path, '\uFEFFhello')
 
@@ -19,7 +41,7 @@ describe('TextExtractor', () => {
   })
 
   it('rejects binary-like text', async () => {
-    const dir = await mkdtemp(join(homedir(), '.orca-attachment-test-'))
+    const dir = await makeTempDir()
     const path = join(dir, 'bad.txt')
     await writeFile(path, Buffer.from([65, 0, 66]))
 
@@ -43,7 +65,7 @@ describe('normalizeAttachments', () => {
   })
 
   it('truncates oversized path text attachments', async () => {
-    const dir = await mkdtemp(join(homedir(), '.orca-attachment-test-'))
+    const dir = await makeHomeTempDir()
     const path = join(dir, 'large.txt')
     await writeFile(path, 'a'.repeat(MAX_FILE_CONTEXT_CHARS + 10))
 
