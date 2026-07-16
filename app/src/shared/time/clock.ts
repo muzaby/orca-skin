@@ -43,30 +43,29 @@ export function weekDaysLeft(now: number | Date = Date.now()): number {
   return 7 - mondayIndex(toDate(now))
 }
 
-// 이번 주(월~일) 중 '오늘이 속한 달' 에 속하는 일수. 경계 주(두 달에 걸친 주)는 이달 몫만 센다.
-// 비경계 주=7. 오늘은 항상 이번 주·이번 달에 있으므로 최소 1.
-export function weekDaysInMonth(now: number | Date = Date.now()): number {
+// 이번 주(월~일, 월요일 시작) 7일 중 keep 을 만족하는 일수. 아래 두 export 의 공용 루프.
+function countWeekDays(now: number | Date, keep: (day: Date, d: Date) => boolean): number {
   const d = toDate(now)
   const monday = new Date(d.getFullYear(), d.getMonth(), d.getDate() - mondayIndex(d))
   let count = 0
   for (let i = 0; i < 7; i++) {
     const day = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i)
-    if (day.getFullYear() === d.getFullYear() && day.getMonth() === d.getMonth()) count++
+    if (keep(day, d)) count++
   }
   return count
+}
+
+const sameMonth = (day: Date, d: Date): boolean =>
+  day.getFullYear() === d.getFullYear() && day.getMonth() === d.getMonth()
+
+// 이번 주(월~일) 중 '오늘이 속한 달' 에 속하는 일수. 경계 주(두 달에 걸친 주)는 이달 몫만 센다.
+// 비경계 주=7. 오늘은 항상 이번 주·이번 달에 있으므로 최소 1.
+export function weekDaysInMonth(now: number | Date = Date.now()): number {
+  return countWeekDays(now, sameMonth)
 }
 
 // 이번 주(월~일) 중 '오늘이 속한 달' 에 속하면서 오늘까지 경과한 일수(오늘 포함).
 // 외부 리포트 폴백(로컬 월사용≈0)에서 주간 몫을 배분할 때 쓴다.
 export function weekDaysElapsedInMonth(now: number | Date = Date.now()): number {
-  const d = toDate(now)
-  const today = d.getDate()
-  const monday = new Date(d.getFullYear(), d.getMonth(), today - mondayIndex(d))
-  let count = 0
-  for (let i = 0; i < 7; i++) {
-    const day = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + i)
-    const sameMonth = day.getFullYear() === d.getFullYear() && day.getMonth() === d.getMonth()
-    if (sameMonth && day.getDate() <= today) count++
-  }
-  return count
+  return countWeekDays(now, (day, d) => sameMonth(day, d) && day.getDate() <= d.getDate())
 }
