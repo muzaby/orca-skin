@@ -4,7 +4,7 @@
 // 통화는 추정 비용(totalCostUsd, 청구 권위 아님 — 폴백)이다.
 
 import type { CostSummary, ProviderUsageEntry } from '../ipc'
-import { monthDaysLeft, weekDaysLeft } from '../time/clock'
+import { daysInMonth, toDate, weekDaysElapsedInMonth, weekDaysInMonth } from '../time/clock'
 import { nextMonthReset, nextWeekReset } from '../time/reset'
 
 export interface UsageLimitBar {
@@ -21,20 +21,67 @@ export interface UsageLimitsView {
   month: UsageLimitBar
 }
 
-// provider 엔트리 → 한도 뷰모델(0098/0100). 외부 report 가 권위면 월 사용액을
+// provider 엔트리 → 한도 뷰모델(0098/0100/0111). 외부 report 가 권위면 월 사용액을
 // effectiveLimit.usedUsd 로 치환하고, 한도는 effectiveLimit.limitUsd(외부 quota 우선,
 // 부재 시 로컬 한도와 동일 체인)를 쓴다. 설정 provider 서브탭·도넛 팝오버가 이 단일
 // 투영만 호출한다(각자 재구현 금지).
+//
+// 외부 월간 총액은 Orca 분 + 외부(비-Orca) 분을 모두 포함한 권위값이고, 로컬 summary 는
+// 그중 일부에 대한 SDK 추정치다. 그래서 주/일 used 를 다음처럼 정합한다(0111):
+//   external·fresh  → 월=권위 M, 주/일=로컬 추정치를 M/로컬월 배로 스케일(분포는 로컬 신뢰).
+//   external·stale  → fetch 실패로 baseline 만 있음. 월=max(baseline, 로컬월), 주/일=로컬 원값.
+//   local           → 변경 없음.
+// 모두 표시 시점 순수 파생이라 refresh 성공(stale=false) 시 자동으로 권위값으로 복구된다.
 export function computeProviderUsageLimits(
   entry: ProviderUsageEntry,
   now: number | Date = Date.now()
 ): UsageLimitsView {
   const eff = entry.effectiveLimit
-  const summary: CostSummary =
-    eff.source === 'external'
-      ? { ...entry.summary, month: { ...entry.summary.month, totalCostUsd: eff.usedUsd } }
-      : entry.summary
+  let summary = entry.summary
+  if (eff.source === 'external') {
+    summary = eff.stale
+      ? staleExternalSummary(entry.summary, eff.usedUsd)
+      : reconcileExternalSummary(entry.summary, eff.usedUsd, now)
+  }
   return computeUsageLimits(summary, eff.limitUsd, now)
+}
+
+// external·fresh: 권위 월간(monthUsed)에 로컬 주/일 추정치를 크기 정합. 분포는 로컬을
+// 신뢰하고 총량만 monthUsed 에 맞춘다(lw≤lm·ld≤lw 이므로 정합 후에도 week≤month·day≤week).
+// 로컬 월사용≈0(스케일 불능)이면 외부 사용을 이달 경과일에 균등 분배해 주/일에 배분한다.
+function reconcileExternalSummary(
+  local: CostSummary,
+  monthUsed: number,
+  now: number | Date
+): CostSummary {
+  const lm = local.month.totalCostUsd
+  const month = { ...local.month, totalCostUsd: monthUsed }
+  if (lm > 0) {
+    const scale = monthUsed / lm
+    return {
+      ...local,
+      month,
+      week: { ...local.week, totalCostUsd: local.week.totalCostUsd * scale },
+      day: { ...local.day, totalCostUsd: local.day.totalCostUsd * scale }
+    }
+  }
+  const elapsedDays = toDate(now).getDate()
+  const perDay = elapsedDays > 0 ? monthUsed / elapsedDays : 0
+  return {
+    ...local,
+    month,
+    week: { ...local.week, totalCostUsd: perDay * weekDaysElapsedInMonth(now) },
+    day: { ...local.day, totalCostUsd: perDay }
+  }
+}
+
+// external·stale: 마지막 성공 baseline(monthUsed)을 월간 바닥값으로, 로컬이 그 위로
+// 자라면 로컬을 채택한다. 주/일은 로컬 추정 원값(스케일 없음) — 오프라인 중 최근 활동 반영.
+function staleExternalSummary(local: CostSummary, monthUsed: number): CostSummary {
+  return {
+    ...local,
+    month: { ...local.month, totalCostUsd: Math.max(monthUsed, local.month.totalCostUsd) }
+  }
 }
 
 function clamp01(x: number): number {
@@ -42,11 +89,11 @@ function clamp01(x: number): number {
   return x > 1 ? 1 : x
 }
 
-// 주간 예산(사용자 제안 공식 완성):
-//   perDay = 남은 월 한도 / 이달 남은 일수(오늘 포함)
-//   weekRemainingBudget = perDay * 이번 주 남은 일수(오늘~일요일)
-//   weekBudget = 이번 주 실사용 + weekRemainingBudget   (이번 주 유효 envelope)
+// 주간 예산(고정 일할 — 0111, 구 런웨이 공식 대체):
+//   perDay = 월 한도 / 이달 총 일수                        (한 달 내내 고정)
+//   weekBudget = perDay * 이번 주 중 이달에 속한 일수       (경계 주는 이달 몫만)
 //   weekPct = 이번 주 실사용 / weekBudget
+// 사용량·경과일과 무관한 고정 envelope 라 weekPct 가 이번 주 실지출에만 반응한다.
 // 월간: monthPct = 이달 실사용 / 월 한도.
 export function computeUsageLimits(
   summary: CostSummary,
@@ -66,11 +113,9 @@ export function computeUsageLimits(
     }
   }
 
-  const remainingLimit = Math.max(0, limitUsd - mUsed)
-  const daysLeftInMonth = monthDaysLeft(now)
-  const perDay = daysLeftInMonth > 0 ? remainingLimit / daysLeftInMonth : 0
-  const weekRemainingBudget = perDay * weekDaysLeft(now)
-  const weekBudget = wUsed + weekRemainingBudget
+  const totalDaysInMonth = daysInMonth(now)
+  const perDay = totalDaysInMonth > 0 ? limitUsd / totalDaysInMonth : 0
+  const weekBudget = perDay * weekDaysInMonth(now)
 
   return {
     week: {

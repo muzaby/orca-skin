@@ -181,6 +181,94 @@ describe('ExternalUsageService', () => {
     })
   })
 
+  it('falls back to cached baseline (stale) when fetch throws, without rejecting', async () => {
+    const backingDb = db()
+    const seed = new ExternalUsageService({
+      db: backingDb as never,
+      secretStore: { get: () => undefined, set: () => undefined } as never,
+      providers: [
+        {
+          adapter: 'claude',
+          provider: 'net',
+          defaultSettings: {},
+          usage: {
+            provider: {
+              async fetchUsageReport() {
+                return report('claude-net', 100, 55)
+              }
+            }
+          }
+        }
+      ],
+      clock: () => 100
+    })
+    await seed.refresh('claude-net') // persist baseline usedUsd=55
+
+    const offline = new ExternalUsageService({
+      db: backingDb as never,
+      secretStore: { get: () => undefined, set: () => undefined } as never,
+      providers: [
+        {
+          adapter: 'claude',
+          provider: 'net',
+          defaultSettings: {},
+          usage: {
+            provider: {
+              async fetchUsageReport() {
+                throw new Error('ENOTFOUND usage.example')
+              }
+            }
+          }
+        }
+      ],
+      clock: () => 200
+    })
+
+    // throw 를 캐시 baseline 으로 삼켜 reject 하지 않는다.
+    await expect(offline.refresh('claude-net')).resolves.toMatchObject({ quota: { usedUsd: 55 } })
+    expect(offline.entry('claude-net', summary(10), 50).effectiveLimit).toMatchObject({
+      source: 'external',
+      usedUsd: 55,
+      stale: true
+    })
+  })
+
+  it('marks fresh on success and recovers stale→fresh across fail→success', async () => {
+    const backingDb = db()
+    let mode: 'ok' | 'throw' = 'ok'
+    const service = new ExternalUsageService({
+      db: backingDb as never,
+      secretStore: { get: () => undefined, set: () => undefined } as never,
+      providers: [
+        {
+          adapter: 'claude',
+          provider: 'flap',
+          defaultSettings: {},
+          usage: {
+            provider: {
+              async fetchUsageReport(ctx) {
+                if (mode === 'throw') throw new Error('offline')
+                return report(ctx.providerKey, 100, 42)
+              }
+            }
+          }
+        }
+      ],
+      clock: () => 100
+    })
+
+    await service.refresh('claude-flap')
+    expect(service.entry('claude-flap', summary(10), 50).effectiveLimit.stale).toBe(false)
+
+    mode = 'throw'
+    await service.refresh('claude-flap')
+    expect(service.entry('claude-flap', summary(10), 50).effectiveLimit.stale).toBe(true)
+
+    mode = 'ok'
+    await service.refresh('claude-flap')
+    expect(service.entry('claude-flap', summary(10), 50).effectiveLimit.stale).toBe(false)
+  })
+
   it('treats static provider modules as provider-agnostic registry entries', async () => {
     const calls: string[] = []
     const modules: StaticUsageProviderModule[] = ['alpha', 'beta'].map((provider) => ({
