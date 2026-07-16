@@ -54,4 +54,4 @@ publish:
   provider: github
   owner: muzaby
   repo: orca-skin
-  releaseType: draft
+  releaseType: release

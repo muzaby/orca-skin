@@ -1,6 +1,6 @@
-# internal-release — v* 태그 push 시 unsigned NSIS installer 를 빌드해 GitHub Releases
-# **draft** 에 게시한다 (installer + latest.yml + blockmap). draft 를 Publish 하는 순간이
-# 사용자 배포 시점이다 — electron-updater 는 published release 만 피드로 본다.
+# internal-release — v* 태그 push 시 unsigned NSIS installer 를 빌드해 GitHub Releases에
+# 즉시 게시한다 (installer + latest.yml + blockmap). 게시가 끝나면 electron-updater가
+# published release를 피드에서 감지한다.
 # workflow_dispatch 는 항상 dry-run: 게시 없이 빌드 + 검증 + workflow artifact 업로드만.
 #
 # 서명 없음(사내용): 코드 서명 설정/CSC_* env 를 의도적으로 두지 않는다. 다운로드 무결성은
@@ -62,7 +62,7 @@ jobs:
 
       # prebuild 가 electron ABI 로 복귀시킨다. npm run 인자는 스크립트 끝의
       # electron-builder --win 에 붙는다 — npx electron-builder 직접 호출은 ABI 훅 우회라 금지.
-      - name: Build + publish draft release (tag only)
+      - name: Build + publish release (tag only)
         if: github.ref_type == 'tag'
         run: npm run build:win -- --publish always
         env:

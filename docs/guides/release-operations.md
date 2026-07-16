@@ -6,7 +6,7 @@ Orca 의 사내용 릴리스 절차 정본. 파이프라인 구성은 핸드오�
 
 | 구성 요소 | 값 |
 |---|---|
-| 배포 채널 | GitHub Releases (`muzaby/orca-skin`, public) — **draft = 수동 배포 게이트** |
+| 배포 채널 | GitHub Releases (`muzaby/orca-skin`, public) — `v*` 태그 push 시 **즉시 게시** |
 | 산출물 | `orca-<ver>-setup.exe` (NSIS installer) + `latest.yml` + `.blockmap` |
 | 릴리스 CI | [`.github/workflows/release.yml`](../../.github/workflows/release.yml) — `v*` 태그 push 트리거, `windows-latest` |
 | 상시 게이트 | [`.github/workflows/ci.yml`](../../.github/workflows/ci.yml) — main push (`app/**` 변경 시) + 수동 실행(`workflow_dispatch`) |
@@ -27,10 +27,9 @@ Orca 의 사내용 릴리스 절차 정본. 파이프라인 구성은 핸드오�
    ```bash
    git push origin main --follow-tags
    ```
-3. **CI 자동 수행** (release.yml, `v*` 태그 push 로 발동): 버전 검증(태그↔package.json) → 마이그레이션 가드(동기화+append-only) → lint/typecheck/test → NSIS 빌드 → **draft release 게시** → 산출물 검증(sha512 대조) → workflow artifact 업로드.
-4. **draft 확인**: GitHub Releases 의 draft 에 자산 3종(`orca-<ver>-setup.exe`, `latest.yml`, `.blockmap`)이 있는지 확인.
-5. **수동 시나리오 테스트** (아래 체크리스트) 수행.
-6. **draft 를 Publish** — 이 순간부터 기존 설치본의 electron-updater 가 새 버전을 감지한다.
+3. **CI 자동 수행** (release.yml, `v*` 태그 push 로 발동): 버전 검증(태그↔package.json) → 마이그레이션 가드(동기화+append-only) → lint/typecheck/test → NSIS 빌드 → **GitHub Release 즉시 게시** → 산출물 검증(sha512 대조) → workflow artifact 업로드.
+4. **published release 확인**: GitHub Releases 에 자산 3종(`orca-<ver>-setup.exe`, `latest.yml`, `.blockmap`)이 있는지 확인한다. 게시 완료 시점부터 기존 설치본의 electron-updater가 새 버전을 감지한다.
+5. **수동 시나리오 테스트** (아래 체크리스트) 수행. 문제가 있으면 아래 롤백 절차로 즉시 전파를 중단한다.
 
 > **dry-run**: Actions 탭에서 release.yml 을 `workflow_dispatch` 로 수동 실행하면 게시 없이 빌드+검증만 수행하고 결과를 workflow artifact 로 남긴다 (파이프라인 자체 점검용).
 
@@ -50,10 +49,10 @@ Orca 의 사내용 릴리스 절차 정본. 파이프라인 구성은 핸드오�
 
 ## 업데이트 시나리오 수동 체크리스트
 
-릴리스마다 Publish **전** draft 상태에서 수행한다 (테스트 머신에서 draft 자산을 직접 받아 구버전→신버전 흐름 확인):
+릴리스 태그를 push하기 **전** 로컬 또는 별도 테스트 산출물로 사전 점검하고, 게시 후에는 테스트 머신에서 구버전→신버전 흐름을 즉시 확인한다:
 
 - [ ] **구버전 설치**: 직전 릴리스의 `orca-<old>-setup.exe` 설치 → 앱 실행 → 세션 생성·메시지 송수신으로 DB 데이터 생성.
-- [ ] **신버전 공개**: draft 를 Publish (또는 테스트 후 되돌릴 계획으로 임시 publish).
+- [ ] **신버전 공개**: 검증된 `v*` 태그를 push하여 release workflow가 published release를 생성하도록 한다.
 - [ ] **감지**: 구버전 앱 재시작 → 헤더에 업데이트 버튼 노출 (0085 UX — 시작 시 1회 확인).
 - [ ] **다운로드**: 버튼 클릭 → 안내 다이얼로그 → 다운로드 진행률 표시.
 - [ ] **idle-gate 설치**: 턴 진행 중에는 설치가 거부되는지 확인 → idle 상태에서 설치 → 앱 재시작.
@@ -100,7 +99,7 @@ Orca 의 사내용 릴리스 절차 정본. 파이프라인 구성은 핸드오�
 | release.yml 이 버전 검증에서 실패 | 태그 ≠ `app/package.json` version. 태그 삭제 → 버전 커밋 반영 → 재태그 |
 | 마이그레이션 가드 실패 (append-only) | 머지된 `NNNN_*.sql` 이 수정/삭제됨 — 금지. 변경은 새 번호 파일로 |
 | 마이그레이션 가드 실패 (sync) | `migrations/` 디렉토리와 `migrate.ts` import 불일치(잉여/누락 .sql). 둘을 정합화 |
-| 앱이 업데이트를 감지 못함 | 1순위: release 가 **draft 상태** (Publish 필요). 그 외: 버전이 semver 로 더 낮음, `orca.json` `update.enabled=false` |
-| 같은 태그 재실행 시 업로드 충돌 | 기존 draft 에 동명 자산이 남아 있음 — draft 삭제 후 re-run |
+| 앱이 업데이트를 감지 못함 | 1순위: tag workflow가 아닌 `workflow_dispatch` dry-run으로 실행했는지 확인. 그 외: release가 draft 상태, 버전이 semver로 더 낮음, `orca.json` `update.enabled=false` |
+| 같은 태그 재실행 시 업로드 충돌 | 기존 release에 동명 자산이 남아 있음 — 실패 버전 번호를 재사용하지 말고 다음 patch 버전으로 전진 |
 | 구버전 설치 후 앱이 안 뜸 | `DB_SCHEMA_TOO_NEW` 다운그레이드 가드 — 위 클라이언트측 롤백 3단계(DB 백업 복원) 수행 |
 | CI 에서 better-sqlite3 로드 실패 | `ensure-sqlite-abi.mjs` 훅 순서 전제(`npm ci`→test→build) 위반 여부 확인 — `npx electron-builder` 직접 호출 금지 |
