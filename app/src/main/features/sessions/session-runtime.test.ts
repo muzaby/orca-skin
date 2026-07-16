@@ -271,6 +271,72 @@ describe('SessionRuntime 장수명 채널(0067)', () => {
   })
 })
 
+// 0118 — provider 경계 respawn: spawn-바운드 옵션(env·providerSettings) 변경 시 호출자
+// (chat-turn)가 teardownChannel() 로 채널을 내리고, 다음 send 가 새 옵션으로 respawn 한다.
+describe('SessionRuntime provider 경계 respawn(0118)', () => {
+  it('teardownChannel() 은 유휴 채널을 내리고(상태 불변) 다음 send 가 새 env 로 respawn 한다', async () => {
+    const ch = channelLive()
+    const second = channelLive()
+    let spawns = 0
+    const requests: TurnRequest[] = []
+    const runtime = new SessionRuntime({
+      id: 'claude',
+      complete: async () => '',
+      sendMessage: (r) => {
+        requests.push(r)
+        spawns += 1
+        return spawns === 1 ? ch.liveTurn : second.liveTurn
+      },
+      classifyError: (err) => makeClassifiedError('stream_error', String(err), { retryable: true })
+    })
+    const f1 = collect(runtime.send({ ...req(), env: { ANTHROPIC_BASE_URL: 'old' } }))
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await f1
+    expect(runtime.channelAlive).toBe(true)
+
+    runtime.teardownChannel()
+    expect(ch.close).toHaveBeenCalled()
+    expect(runtime.channelAlive).toBe(false)
+    // close() 와 달리 상태머신은 건드리지 않는다 — 다음 send 가 정상 진행.
+    expect(runtime.state).toBe('live')
+
+    const f2 = collect(runtime.send({ ...req(), env: { ANTHROPIC_BASE_URL: 'new' } }))
+    second.emit({ type: 'telemetry', sessionId: 's1' })
+    await f2
+    expect(spawns).toBe(2)
+    expect(requests[1]?.env).toEqual({ ANTHROPIC_BASE_URL: 'new' })
+  })
+
+  it('teardownChannel() 은 unframed 백로그를 비운다 — respawn 후 프레임에 유출 금지', async () => {
+    const ch = channelLive()
+    const second = channelLive()
+    let spawns = 0
+    const runtime = new SessionRuntime({
+      id: 'claude',
+      complete: async () => '',
+      sendMessage: () => {
+        spawns += 1
+        return spawns === 1 ? ch.liveTurn : second.liveTurn
+      },
+      classifyError: (err) => makeClassifiedError('stream_error', String(err), { retryable: true })
+    })
+    const f1 = collect(runtime.send(req()))
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await f1
+
+    // 프레임 밖 이벤트(구 채널 잔여)를 쌓은 뒤 teardown — 새 채널 프레임에 새면 안 된다.
+    ch.emit({ type: 'session.updated', sessionId: 's1', patch: {} })
+    await tick()
+    runtime.teardownChannel()
+
+    const f2 = collect(runtime.send(req()))
+    second.emit({ type: 'telemetry', sessionId: 's1' })
+    const events2 = await f2
+    expect(events2.map((e) => e.type)).toEqual(['telemetry'])
+    expect(spawns).toBe(2)
+  })
+})
+
 // 인수 2·6(c) — 모드-불변 소비자 계약. Persistent 구현(P1) 없이 검증하기 위해,
 // 동일 send() 표면에 close 정책만 주입 가능한 FakeSessionRuntime 으로 "소비자가 close 정책에
 // 무지함"을 본다 (보강 4). OneShot=terminal 관측 시 self-close, fake-persistent=수명 유지.
