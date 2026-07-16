@@ -210,4 +210,6 @@
 
 | `0110-attachment-encode-chunking` | verify | PASS | — | `1ace298` | 1 | 성능 시리즈 4/4 (비기능=Claude 직접). 이미지 첨부(최대 32MB) base64 동기 인코딩의 send/미리보기 프리즈 해소 — `bufferToBase64Chunked`(3의 배수 정렬 3MiB 청크 + `setImmediate` 양보, 단일 인코딩 바이트 동치 테스트) + provider settings mtime 체크 `statSync`→`fs/promises.stat`. **검증 PASS — 인수 5/5, 동치 테스트(크기 11×청크 6) 포함 게이트 전체 green.** PHASES 승격. 사람 확인 대기: 대형 첨부 실기·PR 머지. |
 
+| `0111-weekly-usage-fixed-budget-external-reconcile` | impl | IMPL_DONE | Claude | (push 후) | 1 | 사용량 계산 3축 (비기능=Claude 직접). **① 주간 버짓**: 동적 런웨이(남은예산÷남은일수, 분모가 계속 이동)→ 고정 일할 `limitUsd×weekDaysInMonth/daysInMonth`(경계 주는 이달 몫만) → weekPct 가 이번 주 실지출에만 반응. **② 주/일 사용량 정합(fresh)**: 외부 권위 월간(=Orca+외부 총액)에 로컬 추정치를 `외부월/로컬월` 배 비례 스케일(week≤month 보존), 로컬월≈0 시 경과일 균등 분배 폴백. **③ stale 폴백·복구**: 외부 fetch throw/null 시 `external-usage-service` 가 캐시 baseline 으로 폴백(reject 안 함)+`lastFetchOk` 로 stale 의미화 → 순수 파생이 월=`max(baseline,로컬월)`·주/일=로컬 원값, 재성공 시 권위값 자동 복구. `limits.ts`/`clock.ts` 순수 + `external-usage-service.ts` 소폭. 게이트 typecheck/lint ✅, 대상 3 스위트 22/22·전체 순수 853 pass(DB 로드 5파일은 ABI egress 베이스라인, 변경 무관). 소비자 UI/훅 무변경. verify PASS 대기. |
+
 > 새 작업: 기존 행 중 `max(번호)+1` 로 행을 추가하고 `<NNNN-slug>/plan.md` 를 생성한다.

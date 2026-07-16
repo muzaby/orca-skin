@@ -20,6 +20,9 @@ export class ExternalUsageService {
   private readonly providers = new Map<string, StaticUsageProviderModule>()
   private readonly inFlight = new Map<string, Promise<ExternalUsageReport | null>>()
   private readonly store = new Map<string, Map<string, unknown>>()
+  // 마지막 fetch 성공 여부(providerKey별, in-memory). 실패 시 캐시 baseline 을 stale 로 쓰고,
+  // 재성공 시 false→ 아님으로 풀려 권위값이 복구된다(0111). 재시작 직후 첫 성공 전까지는 stale.
+  private readonly lastFetchOk = new Map<string, boolean>()
   private readonly fetchImpl: typeof fetch
   private readonly clock: () => number
   private readonly logger: (message: string, meta?: Record<string, unknown>) => void
@@ -41,25 +44,20 @@ export class ExternalUsageService {
     summary: CostSummary,
     localLimitUsd: number | null
   ): ProviderUsageEntry {
-    const cached = this.readCachedReport(providerKey)
-    const externalReport = cached?.report
+    const externalReport = this.readCachedReport(providerKey)
+    const stale = !(this.lastFetchOk.get(providerKey) ?? false)
     return {
       providerKey,
       summary,
-      limitUsd: cached?.report.quota?.limitUsd ?? localLimitUsd,
+      limitUsd: externalReport?.quota?.limitUsd ?? localLimitUsd,
       ...(externalReport ? { externalReport } : {}),
-      effectiveLimit: effectiveLimitFromReport(
-        summary,
-        localLimitUsd,
-        externalReport,
-        cached?.stale ?? false
-      )
+      effectiveLimit: effectiveLimitFromReport(summary, localLimitUsd, externalReport, stale)
     }
   }
 
   async refresh(providerKey: string): Promise<ExternalUsageReport | null> {
     const module = this.providers.get(providerKey)
-    if (!module) return this.readCachedReport(providerKey)?.report ?? null
+    if (!module) return this.readCachedReport(providerKey) ?? null
     const existing = this.inFlight.get(providerKey)
     if (existing) return existing
     const promise = this.fetchAndPersist(providerKey, module).finally(() =>
@@ -85,7 +83,7 @@ export class ExternalUsageService {
     module: StaticUsageProviderModule
   ): Promise<ExternalUsageReport | null> {
     const provider = this.providerFor(module)
-    if (!provider) return this.readCachedReport(providerKey)?.report ?? null
+    if (!provider) return this.readCachedReport(providerKey) ?? null
     const timeoutMs = module.usage?.config?.timeoutMs ?? DEFAULT_TIMEOUT_MS
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), timeoutMs)
@@ -101,8 +99,19 @@ export class ExternalUsageService {
         logger: this.logger,
         clock: this.clock
       })
-      if (report) this.persist(report)
-      return report ?? this.readCachedReport(providerKey)?.report ?? null
+      if (report) {
+        this.persist(report)
+        this.lastFetchOk.set(providerKey, true)
+        return report
+      }
+      // provider 가 리포트 없이 반환 — baseline 유지, stale 표시.
+      this.lastFetchOk.set(providerKey, false)
+      return this.readCachedReport(providerKey) ?? null
+    } catch (err) {
+      // 네트워크 오류(throw) — 마지막 성공 baseline 으로 폴백하고 stale 표시(0111).
+      this.logger('fetch failed — using cached baseline', { providerKey, err: String(err) })
+      this.lastFetchOk.set(providerKey, false)
+      return this.readCachedReport(providerKey) ?? null
     } finally {
       clearTimeout(timer)
     }
@@ -133,13 +142,12 @@ export class ExternalUsageService {
     })
   }
 
-  private readCachedReport(
-    providerKey: string
-  ): { report: ExternalUsageReport; stale: boolean } | null {
+  // 마지막으로 영속된 리포트(baseline). staleness 판정은 호출부의 lastFetchOk 가 소유한다(0111).
+  private readCachedReport(providerKey: string): ExternalUsageReport | null {
     const row = this.deps.db.getProviderUsageReport(providerKey)
     if (!row) return null
     try {
-      return { report: JSON.parse(row.report_json) as ExternalUsageReport, stale: true }
+      return JSON.parse(row.report_json) as ExternalUsageReport
     } catch {
       return null
     }
