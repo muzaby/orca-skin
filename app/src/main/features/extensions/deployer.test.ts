@@ -1,5 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from 'node:fs'
+import {
+  mkdtempSync,
+  mkdirSync,
+  writeFileSync,
+  rmSync,
+  existsSync,
+  lstatSync,
+  readFileSync,
+  readlinkSync
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { deploy } from './deployer'
@@ -143,7 +152,7 @@ describe('deploy', () => {
     })
   })
 
-  it('adapter 스킬은 dist 로 복사하지 않는다 (SDK settingSources:user 가 ~/.claude 에서 직접 탐색)', async () => {
+  it('adapter 스킬은 복사하지 않고 dist/plugins/claude 래퍼 플러그인(링크)으로 배포한다 (0117)', async () => {
     seedSources()
     writeFile(join(root, 'adapter-skills', 'native', 'SKILL.md'), '# native')
 
@@ -169,9 +178,51 @@ describe('deploy', () => {
     )
 
     expect(r.validation.ok).toBe(true)
-    // Orca 스킬만 plugin 패키지에 포함, 어댑터 스킬은 제외.
+    // Orca 스킬만 orca plugin 패키지에 포함, 어댑터 스킬은 제외(복사 없음).
     expect(existsSync(join(dist(), 'plugins', 'orca', 'skills', 'demo', 'SKILL.md'))).toBe(true)
     expect(existsSync(join(dist(), 'plugins', 'orca', 'skills', 'native', 'SKILL.md'))).toBe(false)
+    // 어댑터 스킬은 래퍼 플러그인(매니페스트 + skills 링크)으로 노출된다.
+    expect(
+      JSON.parse(
+        readFileSync(join(dist(), 'plugins', 'claude', '.claude-plugin', 'plugin.json'), 'utf8')
+      ).name
+    ).toBe('claude')
+    expect(lstatSync(join(dist(), 'plugins', 'claude', 'skills')).isSymbolicLink()).toBe(true)
+    expect(readlinkSync(join(dist(), 'plugins', 'claude', 'skills'))).toBe(
+      join(root, 'adapter-skills')
+    )
+    expect(r.actions.join(' ')).toContain('render user-skills plugin')
+  })
+
+  it('adapter 스킬 루트 부재(기본 skillRoots) 시 래퍼 플러그인을 만들지 않는다', async () => {
+    seedSources()
+    const r = await deploy('claude', {}, root)
+    expect(existsSync(join(dist(), 'plugins', 'claude'))).toBe(false)
+    expect(r.actions.join(' ')).toContain('skip user-skills plugin')
+  })
+
+  it('재배포의 backup→rm 롤링이 래퍼 링크 대상(어댑터 스킬 원본)을 보존한다 (0117 AC#7)', async () => {
+    seedSources()
+    writeFile(join(root, 'adapter-skills', 'native', 'SKILL.md'), '# native')
+    const opts = {
+      skillRoots: [
+        {
+          sourceId: 'adapter:claude',
+          sourceLabel: 'CLAUDE 스킬',
+          sourceKind: 'adapter' as const,
+          rootDir: join(root, 'adapter-skills')
+        }
+      ]
+    }
+    await deploy('claude', opts, root)
+    await deploy('claude', opts, root) // rename → .bak
+    await deploy('claude', opts, root) // rm .bak(링크 포함) → 재백업
+    expect(readFileSync(join(root, 'adapter-skills', 'native', 'SKILL.md'), 'utf8')).toBe(
+      '# native'
+    )
+    expect(readlinkSync(join(dist(), 'plugins', 'claude', 'skills'))).toBe(
+      join(root, 'adapter-skills')
+    )
   })
 
   it('sources 하위가 비어도 빈 plugin 디렉토리를 만든다', async () => {

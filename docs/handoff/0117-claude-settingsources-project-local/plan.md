@@ -228,39 +228,41 @@ sendMessage 가 orca 플러그인과 함께 `options.plugins` 로 주입한다. 
 
 ---
 
-> **[구현자 기입]** 이하는 구현 턴에서 채운다. 본 작업은 **기능/어댑터 옵션 변경 → Codex 구현**(다음=Codex). 설계자(Claude)는 위쪽을 쓰고, 구현자는 이 블록만 추가한다.
+> **[구현자 기입]** 이하는 구현 턴에서 채운다. 본 작업은 기능/어댑터 옵션 변경으로 Codex 몫이었으나, **사용자 명시 지시(2026-07-16 "수석엔지니어의 실무적 관점에서, orca 규칙을 준수하여 구현하라")로 Claude 가 직접 구현**했다 — 핸드오프 절차(plan→impl→verify)와 구현 커밋 trailer 는 동일하게 따른다.
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- 동의 / 그대로 진행: …
-- 이견 / 우려: …
+- 동의 / 그대로 진행: 래퍼 렌더의 deploy 파이프라인 편입(§설계 — dist wipe 생존), `adaptPlugins` 복수화로 `mergePlugins` 불요, 어댑터 스킬 `claude:` 네임스페이스 전환, 실패 시 플러그인 디렉토리째 정리(매니페스트 잔존 → 가드 오통과 방지). 전부 설계대로 구현.
+- 이견 / 우려(경미·설계 취지 내 정제): 설계는 `renderClaudeUserSkillsPlugin` 의 `skillsTarget` 기본값을 `join(homedir(), '.claude', 'skills')` 로 뒀으나, **deployer 는 homedir 비의존이 자기 원칙**(deployer.ts 상단 주석 — root 주입으로 테스트 용이성 확보)이다. 기본값 대신 `deploy()` 가 `opts.skillRoots` 의 `adapter:<engine>` 루트에서 파생해 명시 전달하도록 했다 — homedir 리터럴은 기존대로 bootstrap(`skillRoots()`) 단독 소유, 테스트는 임시 경로 주입. 프로덕션 경로는 동일 결과(bootstrap 이 항상 adapter:claude 루트를 skillRoots 로 전달).
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 구현함 / ⚠️ 보고만·**결정 필요** | … |
+| 1 | `skillsTarget` homedir 기본값이 deployer 의 homedir 비의존 원칙과 충돌 | ✅ 구현함 — `deploy()` 가 skillRoots(adapter:claude)에서 파생·명시 전달, 렌더러는 기본값 없음 | `deployer.ts` 상단 주석("root 를 받아 상대 경로로 계산 — homedir 비의존"), 설계 리뷰 참조 |
+| 2 | 링크 실패 후 매니페스트만 잔존하면 `adaptPlugins` 가드가 **빈 플러그인을 통과**시킴 | ✅ 구현함 — 실패 catch 에서 플러그인 디렉토리째 `rm`(설계에 명시된 사항의 코드화) | `claude-user-skills-plugin.ts` catch 절 |
+| 3 | 백업 실패 폴백(deployer 가 dist 를 rm 으로만 정리) 경로에서 잔존 링크/실디렉토리 위에 재렌더 가능 | ✅ 구현함 — 렌더러가 `rm(skillsLink)` 후 `symlink`(멱등), 실디렉토리 잔존물(복사 폴백 잔재)도 교체. 테스트 고정 | `claude-user-skills-plugin.test.ts` "잔존 링크"·"실디렉토리 잔존물" 케이스 |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] `renderClaudeUserSkillsPlugin` 신규(부재 스킵·정션/심링크·graceful 실패) + `deploy()` 편입(actions/dryRun)
-- [ ] `distUserClaudePluginDir` + paths 레이아웃 다이어그램
-- [ ] `CLAUDE_USER_PLUGIN_NAME` + `adaptSkillNameForClaude` adapter → `claude:` 네임스페이스
-- [ ] `adaptSettingSources` 신규 + 양쪽 call site spread
-- [ ] `adaptPlugins` 복수 root 화 + `TurnExtensions.pluginRoots`·builder·bootstrap 배선
-- [ ] 주석/테스트 문자열 정합(claude.ts·conformance.ts·deployer.test.ts·turn.ts·types.ts·claude-adapt.ts·claude-plugin.ts)
-- [ ] 단위 테스트(래퍼 렌더·백업 안전성·settingSources·복수 plugins·네임스페이스)
-- [ ] 게이트 lint/typecheck/test
+- [x] `renderClaudeUserSkillsPlugin` 신규(부재 스킵·정션/심링크·graceful 실패) + `deploy()` 편입(actions/dryRun)
+- [x] `distUserClaudePluginDir` + paths 레이아웃 다이어그램
+- [x] `CLAUDE_USER_PLUGIN_NAME` + `adaptSkillNameForClaude` adapter → `claude:` 네임스페이스
+- [x] `adaptSettingSources` 신규 + 양쪽 call site spread
+- [x] `adaptPlugins` 복수 root 화 + `TurnExtensions.pluginRoots`·builder·bootstrap 배선
+- [x] 주석/테스트 문자열 정합(claude.ts·conformance.ts·deployer.test.ts·turn.ts·types.ts·claude-adapt.ts·claude-plugin.ts·paths.ts)
+- [x] 단위 테스트(래퍼 렌더·백업 안전성·settingSources·복수 plugins·네임스페이스)
+- [x] 게이트 lint/typecheck/test
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` |
-| 게이트 결과 | lint … / typecheck … / test … |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | 신규: `features/extensions/claude-user-skills-plugin.ts`(+`.test.ts`), `adapters/claude-plugin.test.ts`. 수정: `features/extensions/deployer.ts`(+`.test.ts`), `infra/config/paths.ts`, `adapters/claude-plugin.ts`, `adapters/claude-adapt.ts`(+`.test.ts`), `adapters/claude.ts`, `adapters/turn.ts`, `adapters/types.ts`, `features/extensions/builder.ts`, `features/extensions/conformance.ts`, `app/bootstrap.ts` |
+| 실행 명령 | `npm run lint` / `npm run typecheck` / `./node_modules/.bin/vitest run` + `node --test scripts/*.test.mjs` (제약 환경 — `npm ci` 의 electron ABI postinstall 403 실패 후 `npm rebuild better-sqlite3` Node ABI 소스 컴파일) |
+| 게이트 결과 | lint ✅(에러 0 — 경고 1건은 기존 `useTranscriptVirtualizer` react-hooks 라이브러리 경고, 무관) / typecheck ✅(node·web·test 3분할 전부) / test **915/915 passed**(119 파일) + scripts node:test 25/25 — 실패 스위트 1건(`chat-turn.continuity.test.ts`)은 electron 바이너리 egress 403 로드 불가(알려진 환경 베이스라인, `app/AGENTS.md` 게이트 가이드 — 본 변경 무관) |
+| 블로커 / 역질문 | 없음. AC#5(provider settings 실기)·AC#8(스킬 `claude:*` 노출 실기 — wire log)은 사람 실기 대기. 배포 빌드(asar) 검증도 사람 몫(가이드 §5). |
+| 대상 커밋 | push 후 INDEX 기재 |
 
 ---
 

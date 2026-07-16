@@ -10,6 +10,7 @@ import {
   adaptHooks,
   adaptPlugins,
   adaptSettings,
+  adaptSettingSources,
   adaptSkills,
   adaptSystemPrompt,
   toClaudeHookOutput,
@@ -30,23 +31,49 @@ describe('adaptPlugins', () => {
     rmSync(pluginRoot, { recursive: true, force: true })
   })
 
-  it('plugin root 부재(빈 값) 시 옵션 생략', () => {
+  function seedManifest(dir: string): void {
+    mkdirSync(join(dir, '.claude-plugin'), { recursive: true })
+    writeFileSync(join(dir, '.claude-plugin', 'plugin.json'), '{"name":"x"}', 'utf8')
+  }
+
+  it('plugin root 부재(미지정/빈 배열/빈 값) 시 옵션 생략', () => {
     expect(adaptPlugins(undefined)).toEqual({})
-    expect(adaptPlugins('')).toEqual({})
+    expect(adaptPlugins([])).toEqual({})
+    expect(adaptPlugins(['', undefined, null])).toEqual({})
   })
 
-  it('매니페스트(.claude-plugin/plugin.json)가 없으면 옵션 생략 (deploy 실패/미실행 방어)', () => {
+  it('매니페스트(.claude-plugin/plugin.json)가 없으면 해당 root 생략 (deploy 실패/미실행 방어)', () => {
     // 경로 문자열은 있으나 실제 플러그인 매니페스트가 없는 경우 — 존재하지 않는 local plugin
-    // 경로를 SDK 에 넘기지 않는다(AC#5·엣지케이스#2).
-    expect(adaptPlugins(pluginRoot)).toEqual({})
+    // 경로를 SDK 에 넘기지 않는다(AC#5·엣지케이스#2). 전부 탈락이면 옵션 자체 생략.
+    expect(adaptPlugins([pluginRoot])).toEqual({})
   })
 
   it('매니페스트가 존재하면 local plugin 옵션을 만든다', () => {
-    mkdirSync(join(pluginRoot, '.claude-plugin'), { recursive: true })
-    writeFileSync(join(pluginRoot, '.claude-plugin', 'plugin.json'), '{"name":"orca"}', 'utf8')
-    expect(adaptPlugins(pluginRoot)).toEqual({
+    seedManifest(pluginRoot)
+    expect(adaptPlugins([pluginRoot])).toEqual({
       plugins: [{ type: 'local', path: pluginRoot }]
     })
+  })
+
+  it('복수 root(orca + user 래퍼, 0117) — 유효한 것만 순서 보존으로 담는다', () => {
+    const orca = join(pluginRoot, 'orca')
+    const wrapper = join(pluginRoot, 'claude')
+    const broken = join(pluginRoot, 'no-manifest')
+    seedManifest(orca)
+    seedManifest(wrapper)
+    mkdirSync(broken, { recursive: true })
+    expect(adaptPlugins([orca, broken, wrapper])).toEqual({
+      plugins: [
+        { type: 'local', path: orca },
+        { type: 'local', path: wrapper }
+      ]
+    })
+  })
+})
+
+describe('adaptSettingSources (0117)', () => {
+  it('user 를 배제한 project/local 을 항상 명시한다', () => {
+    expect(adaptSettingSources()).toEqual({ settingSources: ['project', 'local'] })
   })
 })
 
@@ -81,13 +108,13 @@ describe('adaptSkills', () => {
     expect(adaptSkills([])).toEqual({ skills: 'all' })
   })
 
-  it('활성 Orca + 모든 어댑터 스킬만 활성 목록으로 반환한다(비활성 Orca 제외)', () => {
+  it('활성 Orca + 모든 어댑터 스킬만 활성 목록으로 반환한다(비활성 Orca 제외, 어댑터는 claude: 네임스페이스 — 0117)', () => {
     const skills = [
       skill('a', 'orca', true),
       skill('b', 'orca', false),
       skill('native', 'adapter', true)
     ]
-    expect(adaptSkills(skills)).toEqual({ skills: ['orca:a', 'native'] })
+    expect(adaptSkills(skills)).toEqual({ skills: ['orca:a', 'claude:native'] })
   })
 
   it('이미 네임스페이스된 Orca 스킬은 중복 prefix 하지 않는다', () => {

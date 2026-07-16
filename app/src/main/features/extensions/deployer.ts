@@ -5,6 +5,9 @@
 // claude 축별 동작:
 //   instructions : AGENTS.md 는 런타임 systemPromptAppend 로 주입(ExtensionBuilder) → dist 파일 미생성(중립).
 //   skills : sources/skills → dist/<engine>/plugins/orca/skills 로 **복사**(Claude plugin 패키지).
+//            adapter 스킬(~/.claude/skills)은 복사하지 않고 dist/<engine>/plugins/claude 래퍼
+//            플러그인(매니페스트 + skills 정션/심링크)으로 **링크**한다(0117 — settingSources
+//            user 배제 보전, claude-user-skills-plugin.ts).
 //   mcp : 활성 MCP 를 확장한 뒤 dist/<engine>/plugins/orca/.mcp.json 으로 **렌더** + 키 검증.
 //   agents/hooks : 빈 디렉토리 스캐폴드(후속 자산 수용). commands/settings 는 dist 로 배포하지 않는다.
 //
@@ -26,6 +29,7 @@ import { readJsonFile } from '../../infra/config/json-file'
 import { orcaConfigDir } from '../../infra/config/paths'
 import { PROVIDER_NAME_RE } from '../../infra/config/provider-key'
 import { renderClaudePluginPackage } from './claude-plugin-package'
+import { renderClaudeUserSkillsPlugin } from './claude-user-skills-plugin'
 
 export interface DeployOptions {
   dryRun?: boolean
@@ -115,6 +119,12 @@ export async function deploy(
     errors: [...mcpValidation.errors, ...settingsScan.errors]
   }
 
+  // adapter 스킬 루트(~/.claude/skills — 프로덕션은 bootstrap 이 주입) = 래퍼 플러그인의 링크
+  // 대상. skillRoots 에서 파생해 deployer 는 homedir 비의존을 유지한다(테스트는 임시 경로 주입).
+  const adapterSkillsRoot = opts.skillRoots?.find(
+    (r) => r.sourceKind === 'adapter' && r.sourceId === `adapter:${engine}`
+  )?.rootDir
+
   if (dryRun) {
     actions.push(
       `validate mcp keys (${validation.ok ? 'ok' : validation.errors.length + ' error(s)'})`
@@ -125,6 +135,11 @@ export async function deploy(
       existsSync(mcpSrc) || opts.mcpConfig
         ? 'render mcp → plugins/orca/.mcp.json'
         : 'render empty mcp → plugins/orca/.mcp.json'
+    )
+    actions.push(
+      adapterSkillsRoot && existsSync(adapterSkillsRoot)
+        ? 'render user-skills plugin → dist/plugins/claude'
+        : 'skip user-skills plugin (no adapter skills)'
     )
     actions.push('skip commands/settings dist copy')
     return { engine, dryRun, actions, backedUp: false, validation }
@@ -175,6 +190,16 @@ export async function deploy(
     mcpConfig
   })
   actions.push('render orca plugin → dist/plugins/orca')
+
+  // 사용자 ~/.claude/skills 래퍼 플러그인(0117) — 대상 부재/링크 실패는 렌더러가 null 로 강등.
+  const userPluginRoot = adapterSkillsRoot
+    ? await renderClaudeUserSkillsPlugin({ root, engine, skillsTarget: adapterSkillsRoot })
+    : null
+  actions.push(
+    userPluginRoot
+      ? 'render user-skills plugin → dist/plugins/claude'
+      : 'skip user-skills plugin (no adapter skills)'
+  )
   actions.push('skip commands/settings dist copy')
 
   // 배포 마커(드리프트 식별·디버깅용).
