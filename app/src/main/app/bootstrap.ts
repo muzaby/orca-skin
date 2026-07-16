@@ -20,12 +20,13 @@ import { MockAdapter } from '../adapters/mock'
 import { SettingsStore } from '../infra/settings-store'
 import { McpStore } from '../features/extensions/mcp/store'
 import {
-  distOrcaPluginDir,
-  distUserClaudePluginDir,
   ensureConfigDir,
   getWorkspacePath,
+  orcaConfigDir,
   sourcesSkillsDir
 } from '../infra/config/paths'
+import { orcaPluginRoot } from '../features/extensions/claude-plugin-package'
+import { userClaudePluginRoot } from '../features/extensions/claude-user-skills-plugin'
 import { loadOrcaConfig } from '../infra/config/orca-config'
 import { SecretStore } from '../infra/config/secret-store'
 import { deploy } from '../features/extensions/deployer'
@@ -69,10 +70,7 @@ import { ApprovalCoordinator } from '../features/approvals/coordinator'
 import { HistoryWriter } from '../features/history/writer'
 import { materializeContinuityArrival } from '../features/orchestration/fork'
 import { TitleGenerator } from '../features/chat/title-generation'
-import {
-  recoverDanglingToolCalls,
-  rebuildIncompleteMessageContent
-} from '../features/chat/recovery'
+import { recoverSessionHistory } from '../features/chat/recovery'
 import { broadcastConcurrency, sendChatEvent } from '../infra/ipc/send'
 import { resolveBuiltinSkillsDir } from './builtin-resources'
 
@@ -172,11 +170,7 @@ export class Bootstrap {
     const recovered = this.bootReport.stepSync(
       'chat-recovery',
       { critical: true, label: '미완료 도구 호출 복구' },
-      () => {
-        // content 재구성이 먼저다(0107) — recover 가 complete 를 올리면 대상 식별 불가.
-        rebuildIncompleteMessageContent(db)
-        return recoverDanglingToolCalls(db)
-      }
+      () => recoverSessionHistory(db)
     )
     if (recovered.toolResultsWritten > 0 && is.dev) {
       console.log('[recovery] dangling tools settled:', recovered)
@@ -210,7 +204,11 @@ export class Bootstrap {
       () => this.settings.getAll(),
       app.getVersion(),
       // Orca plugin + 사용자 ~/.claude/skills 래퍼 plugin(0117) — 존재 검증은 adaptPlugins 몫.
-      () => [distOrcaPluginDir('claude'), distUserClaudePluginDir('claude')]
+      // 경로는 각 플러그인 레이아웃을 소유한 feature 렌더러의 헬퍼에서 파생한다(이중 정의 방지).
+      () => [
+        orcaPluginRoot(orcaConfigDir(), 'claude'),
+        userClaudePluginRoot(orcaConfigDir(), 'claude')
+      ]
     )
     await this.bootReport.step(
       'adapter-registry',

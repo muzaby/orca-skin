@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from 'react'
-import type { SchedulerSettings } from '../../../../shared/ipc'
 import type { ThemeId, DensityId } from '../config/theme'
 import type { UiLocale } from '../i18n/datetime'
 import { settingsApi } from '../api/ipc'
@@ -19,7 +18,8 @@ export interface Tweaks {
   notifyOnComplete: boolean
   // 월간 지출 한도(USD). 사용량 한도 바(도넛·설정)의 기준. null=무제한.
   spendingLimitUsd: number | null
-  scheduler: SchedulerSettings
+  // scheduler(주기 실행) 설정은 renderer 소비처가 없다(0112 에서 cron UI 제거) —
+  // main 스케줄러가 settings store 를 직접 읽으므로 이 projection 에는 두지 않는다.
 }
 
 const DEFAULTS: Tweaks = {
@@ -30,8 +30,7 @@ const DEFAULTS: Tweaks = {
   appFont: 'sans',
   uiLocale: 'ko',
   notifyOnComplete: false,
-  spendingLimitUsd: 90,
-  scheduler: { usageRecompute: { enabled: false, cron: '0 */1 * * *' } }
+  spendingLimitUsd: 90
 }
 
 // settings 영속화와 양방향 바인딩되는 Tweaks 훅.
@@ -52,8 +51,7 @@ export function useTweaks(): [Tweaks, <K extends keyof Tweaks>(key: K, val: Twea
         appFont: s.appFont,
         uiLocale: s.uiLocale,
         notifyOnComplete: s.notifyOnComplete,
-        spendingLimitUsd: s.spendingLimitUsd,
-        scheduler: s.scheduler
+        spendingLimitUsd: s.spendingLimitUsd
       })
     })
     return () => {

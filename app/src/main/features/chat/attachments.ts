@@ -42,7 +42,8 @@ export async function bufferToBase64Chunked(
   const parts: string[] = []
   for (let at = 0; at < buf.length; at += aligned) {
     parts.push(buf.subarray(at, Math.min(buf.length, at + aligned)).toString('base64'))
-    await new Promise<void>((resolve) => setImmediate(resolve))
+    // 청크 *사이*에서만 양보 — 마지막 청크 뒤 양보는 결과만 한 틱 늦춘다.
+    if (at + aligned < buf.length) await new Promise<void>((resolve) => setImmediate(resolve))
   }
   return parts.join('')
 }

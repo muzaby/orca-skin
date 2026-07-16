@@ -189,6 +189,17 @@ export const PANEL_MIN_ROW_SPLIT = 0.2
 export const PANEL_MAX_ROW_SPLIT = 0.8
 export const PANEL_DEFAULT_ROW_SPLIT = 0.5
 
+// 턴 종료 공통 리셋 — inflight 와 턴 스냅샷(turnProviderKey 0119 · turnStartedAt)·재시도 배너를
+// 한 곳에서 내린다. 종료 경로(telemetry/turn.aborted/error/CANCEL_CHAT)가 늘거나 per-turn 필드가
+// 추가되면 여기만 갱신한다 — 경로별 개별 나열은 스냅샷 초기화 누락(스티어 영구 차단)을 부른다.
+const TURN_END_RESET: Pick<ChatState, 'inflight' | 'turnProviderKey' | 'turnStartedAt' | 'retry'> =
+  {
+    inflight: false,
+    turnProviderKey: null,
+    turnStartedAt: null,
+    retry: undefined
+  }
+
 export type ChatAction =
   // 턴 시작 전이 — user 버블은 붙이지 않는다(버블은 낙관 커밋 또는 echo 커밋이 별도로).
   // 자동 연속 턴(send 없는 턴)도 store 가 활동 이벤트에서 같은 액션으로 전이시킨다.
@@ -410,10 +421,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           // COMMIT_PENDING_TEXT 로 선행 dispatch 한다 — 버퍼 소유가 store 로 이동했기 때문.
           return {
             ...state,
-            inflight: false,
-            turnProviderKey: null,
-            turnStartedAt: null,
-            retry: undefined,
+            ...TURN_END_RESET,
             // 도넛/패널은 lastTelemetry 파생(컨텍스트 사용량 소스). 비용/지연 누산은 제거 —
             // 비용은 main 의 turn_usage 원장(집계)이 SSOT. 컨텍스트 0인 턴(/context 등 로컬
             // 슬래시 명령 — 모델 미호출)은 직전 도넛 값을 덮어쓰지 않게 스킵한다.
@@ -475,10 +483,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         case 'turn.aborted':
           return {
             ...state,
-            inflight: false,
-            turnProviderKey: null,
-            turnStartedAt: null,
-            retry: undefined,
+            ...TURN_END_RESET,
             pendingAsks: [],
             pendingPlanReview: null,
             pendingToolApprovals: []
@@ -489,10 +494,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           return {
             ...state,
             error: ev.error,
-            inflight: false,
-            turnProviderKey: null,
-            turnStartedAt: null,
-            retry: undefined,
+            ...TURN_END_RESET,
             pendingAsks: [],
             pendingPlanReview: null,
             pendingToolApprovals: []
@@ -527,10 +529,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       // 턴 취소 시 main 의 broker 가 보류 게이트를 해소하므로 카드(질문/계획/도구)도 함께 비운다.
       return {
         ...state,
-        inflight: false,
-        turnProviderKey: null,
-        turnStartedAt: null,
-        retry: undefined,
+        ...TURN_END_RESET,
         pendingAsks: [],
         pendingPlanReview: null,
         pendingToolApprovals: []

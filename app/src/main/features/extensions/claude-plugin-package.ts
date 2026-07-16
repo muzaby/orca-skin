@@ -38,13 +38,18 @@ async function copyOrcaSkills(roots: SkillScanRoot[], dest: string): Promise<voi
     } catch {
       continue
     }
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue
-      await cp(join(root.rootDir, entry.name), join(dest, entry.name), {
-        recursive: true,
-        force: true
-      })
-    }
+    // 같은 root 안에서 entry.name 은 유일 → 대상 경로가 서로소라 병렬 복사가 안전하다.
+    // root 간에는 이름 충돌 시 뒤 root 가 이기는 순서 의미가 있어 루프를 직렬로 유지한다.
+    await Promise.all(
+      entries
+        .filter((entry) => entry.isDirectory())
+        .map((entry) =>
+          cp(join(root.rootDir, entry.name), join(dest, entry.name), {
+            recursive: true,
+            force: true
+          })
+        )
+    )
   }
 }
 
@@ -55,18 +60,23 @@ export async function renderClaudePluginPackage(input: ClaudePluginPackageInput)
   const agentsDir = join(pluginRoot, 'agents')
   const hooksDir = join(pluginRoot, 'hooks')
 
-  await mkdir(manifestDir, { recursive: true })
-  await mkdir(agentsDir, { recursive: true })
-  await mkdir(hooksDir, { recursive: true })
-  await copyOrcaSkills(input.skillRoots, skillsDir)
+  // 디렉토리 4곳은 서로 독립 — 병렬 생성(copyOrcaSkills 가 skillsDir mkdir 를 겸한다).
+  await Promise.all([
+    mkdir(manifestDir, { recursive: true }),
+    mkdir(agentsDir, { recursive: true }),
+    mkdir(hooksDir, { recursive: true }),
+    copyOrcaSkills(input.skillRoots, skillsDir)
+  ])
 
-  await writeFile(
-    join(manifestDir, 'plugin.json'),
-    JSON.stringify(ORCA_PLUGIN_MANIFEST, null, 2),
-    'utf8'
-  )
   const mcpPath = join(pluginRoot, '.mcp.json')
-  await writeFile(mcpPath, JSON.stringify({ mcpServers: input.mcpConfig }, null, 2), 'utf8')
+  await Promise.all([
+    writeFile(
+      join(manifestDir, 'plugin.json'),
+      JSON.stringify(ORCA_PLUGIN_MANIFEST, null, 2),
+      'utf8'
+    ),
+    writeFile(mcpPath, JSON.stringify({ mcpServers: input.mcpConfig }, null, 2), 'utf8')
+  ])
   try {
     await chmod(mcpPath, 0o600)
   } catch {

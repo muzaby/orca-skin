@@ -2,9 +2,10 @@
 // 색은 시맨틱 토큰만 사용한다: 바 = --color-indigo(사용량 지정색, 두 테마 공용), 그리드/축 =
 // --color-border, 라벨 = --color-ink3. 툴팁도 Orca 패널 토큰으로 직접 그린다(기본 스타일 미사용).
 
+import { useMemo } from 'react'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import type { UsageStatsDay } from '../../../../../shared/ipc'
-import { totalTokens } from '../../../../../shared/usage/stats'
+import { parseDayKey, totalTokens } from '../../../../../shared/usage/stats'
 import { formatMonthDay, useI18n, type UiLocale } from '../../../shared/i18n'
 import { fmtUsd, formatTokens } from '../lib/usageFormat'
 
@@ -13,12 +14,6 @@ interface ChartDatum {
   ms: number
   tokens: number
   costUsd: number
-}
-
-// 'YYYY-MM-DD'(로컬 일자 키) → 로컬 자정 epoch ms. Intl 포맷터에 넘기기 위한 역변환.
-function dayKeyToMs(key: string): number {
-  const [y, m, d] = key.split('-').map(Number)
-  return new Date(y, m - 1, d).getTime()
 }
 
 function UsageTooltip({
@@ -51,12 +46,17 @@ export function TokensPerDayChart({
   ariaLabel: string
 }): React.JSX.Element {
   const { locale } = useI18n()
-  const data: ChartDatum[] = days.map((d) => ({
-    day: d.day,
-    ms: dayKeyToMs(d.day),
-    tokens: totalTokens(d),
-    costUsd: d.totalCostUsd
-  }))
+  // 배열 identity 를 days 에 고정 — 매 렌더 재생성하면 recharts 가 차트 전체를 재대조한다.
+  const data: ChartDatum[] = useMemo(
+    () =>
+      days.map((d) => ({
+        day: d.day,
+        ms: parseDayKey(d.day).getTime(),
+        tokens: totalTokens(d),
+        costUsd: d.totalCostUsd
+      })),
+    [days]
+  )
   return (
     <div role="img" aria-label={ariaLabel} className="h-[180px] w-full">
       <ResponsiveContainer width="100%" height="100%">
@@ -64,7 +64,7 @@ export function TokensPerDayChart({
           <CartesianGrid vertical={false} stroke="var(--color-border)" />
           <XAxis
             dataKey="day"
-            tickFormatter={(day: string) => formatMonthDay(dayKeyToMs(day), locale)}
+            tickFormatter={(day: string) => formatMonthDay(parseDayKey(day).getTime(), locale)}
             tick={{ fill: 'var(--color-ink3)', fontSize: 10.5 }}
             axisLine={{ stroke: 'var(--color-border)' }}
             tickLine={false}

@@ -67,11 +67,7 @@ export class HistoryWriter {
   ): number | null {
     const sessionId = turn.dbSessionId
     if (!sessionId) return null
-    if (turn.currentAssistantMessageId != null) {
-      this.finalizeAssistantMessage(turn)
-      turn.currentAssistantMessageId = null
-      turn.assistantText = ''
-    }
+    this.finalizeTurn(turn)
     const id = this.persistUserMessage(
       sessionId,
       batch.text,
@@ -93,7 +89,8 @@ export class HistoryWriter {
     this.db.markMessageComplete(turn.currentAssistantMessageId)
   }
 
-  // 버스 밖 턴 종료 경계(chatCancel 등)용 — 진행 중 assistant 메시지를 마감하고 reset 한다.
+  // 진행 중 assistant 메시지를 마감하고 reset 한다 — 마감+리셋 쌍의 단일 경로.
+  // 버스 밖 턴 종료 경계(chatCancel 등)와 내부 경계(user 커밋·telemetry)가 공유한다.
   finalizeTurn(turn: TurnContext): void {
     this.finalizeAssistantMessage(turn)
     turn.currentAssistantMessageId = null
@@ -299,10 +296,7 @@ export class HistoryWriter {
         // 턴 종료 — 진행 중 assistant 메시지를 마감하고 다음 턴 대비 reset 한다. 사용량 적재(turn_usage
         // 원장)·비용 방출은 usage 구독자가, 제목 생성은 title 구독자가 버스에서 먼저 소비한다(0062).
         // 등록 순서(usage→history)가 usage 의 currentAssistantMessageId 링크를 이 reset 전에 보장한다.
-        this.finalizeAssistantMessage(turn)
-        // 다음 assistant 파트는 새 메시지에 묶이도록 reset.
-        turn.currentAssistantMessageId = null
-        turn.assistantText = ''
+        this.finalizeTurn(turn)
         break
       }
       // message.delta/message.reasoning.delta/turn.retrying 은 transient(미저장).
