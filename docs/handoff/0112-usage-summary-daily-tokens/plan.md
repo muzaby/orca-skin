@@ -156,4 +156,4 @@
 | 실행 명령 | `npm run lint` / `npm run typecheck` / `./node_modules/.bin/vitest run` |
 | 게이트 결과 | lint ✅(error 0, 경고 1=0102 기지) / typecheck 3종 ✅ / vitest — 커밋 메시지·INDEX 비고 참조 |
 | 블로커 / 역질문 | 없음 |
-| 대상 커밋 | (push 후 INDEX 기재) |
+| 대상 커밋 | `2d76b9e` |
