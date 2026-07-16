@@ -21,6 +21,7 @@ import {
 import { normalizeAttachments } from '../features/chat/attachments'
 import { appEnv } from '../infra/config/orca-config'
 import {
+  crossesProviderBoundary,
   defaultModelFamily,
   defaultProvider,
   expandEnvRecord,
@@ -470,6 +471,17 @@ export function registerChatHandlers(deps: ChatDeps): void {
       parsed.data.sessionId,
       () => new SessionRuntime(adapter)
     )
+
+    // 0118: provider 경계 respawn — pushTurn 은 env/providerSettings 를 재주입하지 않으므로
+    // 경계를 넘으면 살아있는 채널을 내려 이번 턴을 spawn(resume) 콜드 패스로 보낸다.
+    // channelAlive=false 가 되어 아래 preludes 의 takeForRespawn 이월이 자연 동작한다.
+    if (
+      parsed.data.sessionId &&
+      crossesProviderBoundary(sessionMeta?.provider_key, resolved.providerKey) &&
+      runtime.channelAlive
+    ) {
+      runtime.teardownChannel()
+    }
 
     // ── 큐 경유(0067 AC5·AC6): 모든 프롬프트는 pending queue 에 적재 후 상태별로 주입된다 ──
     // ① 프렐류드: 채널 사망 이월 — 미소비 flushed(CLI 큐 소멸분) 재전달 + held 를 아이템 단위

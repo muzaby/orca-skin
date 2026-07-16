@@ -289,7 +289,9 @@ export class SessionRuntime implements ManagedRuntime {
   }
 
   // 채널 강제 해체(respawn 경계·draining 충돌) — 상태머신은 건드리지 않는다(close 와 구분).
-  private teardownChannel(): void {
+  // 0118: spawn-바운드 옵션(env·providerSettings) 변경 respawn 경계는 호출자(chat-turn)가
+  // 선언한다 — 여기선 채널만 내리고, 다음 send 가 spawn(resume) 콜드 패스를 탄다.
+  teardownChannel(): void {
     this.channelController.abort()
     this.channelController = new AbortController()
     const frame = this.frame
