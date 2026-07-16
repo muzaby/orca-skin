@@ -27,9 +27,12 @@ describe('toUnpackedPath', () => {
 
 describe('findOnPath', () => {
   it('PATH 디렉토리에서 claude 실행 파일을 찾는다 (posix)', () => {
-    const exists = (p: string): boolean => p === '/opt/bin/claude'
+    // join 은 호스트 시맨틱이라 Windows 러너에선 '/opt/bin/claude' 대신 백슬래시 경로가 나온다 —
+    // win 테스트처럼 기대값을 join 으로 계산해 호스트-독립으로 맞춘다.
+    const target = join('/opt/bin', 'claude')
+    const exists = (p: string): boolean => p === target
     const env = { PATH: '/usr/bin:/opt/bin' } as NodeJS.ProcessEnv
-    expect(findOnPath(env, 'linux', exists)).toBe('/opt/bin/claude')
+    expect(findOnPath(env, 'linux', exists)).toBe(target)
   })
 
   it('win 은 claude.exe 를 세미콜론 구분자로 찾는다', () => {
@@ -52,8 +55,9 @@ describe('findOnPath', () => {
 
 describe('officialInstallPath', () => {
   it('~/.local/bin/claude 존재 시 그 경로 (posix)', () => {
-    const exists = (p: string): boolean => p === '/home/u/.local/bin/claude'
-    expect(officialInstallPath('linux', '/home/u', exists)).toBe('/home/u/.local/bin/claude')
+    const target = join('/home/u', '.local', 'bin', 'claude')
+    const exists = (p: string): boolean => p === target
+    expect(officialInstallPath('linux', '/home/u', exists)).toBe(target)
   })
 
   it('~/.local/bin/claude.exe 존재 시 그 경로 (win)', () => {
@@ -112,6 +116,9 @@ describe('resolveBundledExecutable', () => {
 
 describe('resolveClaudeExecutable 우선순위', () => {
   // node:fs/os 를 주입해 PATH·공식 위치를 동시에 만족시켜도 PATH 가 이기는지(순서) 검증.
+  // 인자 없는 실제 합성 함수라 process.platform 을 그대로 탄다 — 기대 경로는 호스트에 맞춰
+  // join+실행파일명(win=claude.exe)으로 계산해 리눅스·Windows 러너 양쪽에서 일관되게 한다.
+  const bin = process.platform === 'win32' ? 'claude.exe' : 'claude'
   const origPath = process.env.PATH
   const loadWith = async (opts: {
     exists: (p: string) => boolean
@@ -133,8 +140,8 @@ describe('resolveClaudeExecutable 우선순위', () => {
   })
 
   it('PATH 와 공식 위치가 둘 다 있으면 PATH 를 먼저 쓴다', async () => {
-    const onPath = '/opt/bin/claude'
-    const official = '/home/u/.local/bin/claude'
+    const onPath = join('/opt/bin', bin)
+    const official = join('/home/u', '.local', 'bin', bin)
     const mod = await loadWith({
       exists: (p) => p === onPath || p === official,
       home: '/home/u',
@@ -144,7 +151,7 @@ describe('resolveClaudeExecutable 우선순위', () => {
   })
 
   it('PATH 미해결 시 공식 위치로 폴백한다', async () => {
-    const official = '/home/u/.local/bin/claude'
+    const official = join('/home/u', '.local', 'bin', bin)
     const mod = await loadWith({
       exists: (p) => p === official,
       home: '/home/u',
