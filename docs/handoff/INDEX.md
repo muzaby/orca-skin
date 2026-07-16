@@ -218,4 +218,6 @@
 
 | `0114-better-sqlite3-asar-unpack` | impl | IMPL_DONE | Claude | (push 후) | 2 | **r2 — 사용자 실기에서 위치 수정 후 ABI mismatch 확인.** 설치본의 unpacked 바인딩은 Node 22 ABI 127, Electron 39는 ABI 140 요구. 릴리스가 `npm test`로 Node ABI 전환 후 패키징하는데 `npmRebuild: false`가 electron-builder의 최종 native rebuild를 차단한 것이 근본 원인. `npmRebuild: true`로 복구해 패키저가 대상 Electron ABI를 최종 보장하고, r1 `asarUnpack`은 유지한다. YAML 설정값·ABI 스크립트 7/7·lint/typecheck 통과, Windows 설치본 실기 대기. 상세=`0114-better-sqlite3-asar-unpack/plan.md` 파생 이슈 r2. |
 
+| `0115-single-instance-lock` | impl | IMPL_DONE | Claude | (push 후) | 1 | 단일 인스턴스 강제 (비기능=Claude 직접 구현, 사용자 결정 2건). 패키징 빌드 한정 `app.requestSingleInstanceLock()`(`app.isPackaged` 게이트 — dev HMR 재시작 경합 제외) + 두 번째 실행 시 `second-instance` 핸들러가 기존 창 복원·포커스(`focusMainWindow`) + `createWindow` 창 참조 보관(`mainWindowRef`, `closed` 항등 가드 해제) + `whenReady` 조기 반환(락 미획득 인스턴스는 Bootstrap/창 미생성). `app/src/main/index.ts` 1파일·신규 의존성 0·IPC 무변경. 게이트 lint ✅(0 error)/typecheck ✅(3/3)/순수 app 테스트 12 passed. 인수 1·2(중복 실행 차단·기존 창 포커스)는 패키징 설치본 2회 실행 사람 실기 대기(egress 차단으로 electron build/실기 불가 — 환경 제약). 상세=`0115-single-instance-lock/plan.md`. |
+
 > 새 작업: 기존 행 중 `max(번호)+1` 로 행을 추가하고 `<NNNN-slug>/plan.md` 를 생성한다.
