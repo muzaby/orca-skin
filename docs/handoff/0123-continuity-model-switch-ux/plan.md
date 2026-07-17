@@ -227,4 +227,4 @@
 | 실행 명령 | `npm run lint`; `npm run typecheck`; 관련 Vitest 78개; `npm test`(sandbox 실패 원인 분리 후 권한 환경 재실행) |
 | 게이트 결과 | lint 오류 0(기존 React Compiler 경고 1), typecheck node/web/test 통과, Vitest **942/942**, scripts **25/25**. 신규 의존성·IPC 채널·DB 변경 없음. |
 | 블로커 / 역질문 | 구현 블로커 없음. 실 Claude 동일-provider 모델 전환 와이어 로그와 CDP 시각 확인은 검증 책임으로 남김. |
-| 대상 커밋 | 본 구현 커밋(정확한 hash는 INDEX에 기록) |
+| 대상 커밋 | `4f1d4b4` |
