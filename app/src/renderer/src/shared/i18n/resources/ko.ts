@@ -582,6 +582,9 @@ export const ko = {
       },
       lengthLabel: '대화 길이',
       lengthValue: '{{used}}k/{{window}}k {{pct}}%',
+      sessionCostLabel: '이 세션에서 사용한 비용',
+      sessionCostValue: '약 ${{usd}}',
+      costDisclaimer: '표시된 비용은 예상치예요. 실제와 조금 다를 수 있어요.',
       handoffHint: '요약본으로 새 세션에서 이어갑니다',
       compactHint: '현재 세션의 대화 기록을 압축합니다'
     },

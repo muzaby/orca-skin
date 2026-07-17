@@ -69,4 +69,17 @@ describe('conversationStatusModel', () => {
     expect(conversationStatusModel('warn')!.contextUsage).toBeUndefined()
     expect(conversationStatusModel('warn', { tokens: 1, window: 0 })!.contextUsage).toBeUndefined()
   })
+
+  // 0122 r2 — 세션 한정 비용 총합 패스스루("이 세션에서 사용한 비용" 행).
+  it('sessionCostUsd 를 패스스루하고 미제공이면 생략한다', () => {
+    const withCost = conversationStatusModel('warn', { tokens: 1, window: 200_000 }, 1.23)
+    expect(withCost!.sessionCostUsd).toBe(1.23)
+    expect(koLeaf('chat.status.sessionCostLabel')).toBe('이 세션에서 사용한 비용')
+    expect(koLeaf('chat.status.sessionCostValue')).toBe('약 ${{usd}}')
+    expect(koLeaf('chat.status.costDisclaimer')).toBe(
+      '표시된 비용은 예상치예요. 실제와 조금 다를 수 있어요.'
+    )
+
+    expect(conversationStatusModel('danger')!.sessionCostUsd).toBeUndefined()
+  })
 })

@@ -200,6 +200,25 @@ describe('DbQueries turn usage', () => {
     expect(row?.modelUsage.map((m) => m.model)).toEqual(['claude-opus-4-5', 'claude-haiku-4'])
   })
 
+  it('sumSessionCostUsd 는 세션 한정 비용 총합을 반환하고 null 비용/무행을 0 으로 본다', () => {
+    const db = dbWithMigrations()
+    insertSession(db)
+    const q = new DbQueries(db)
+    const base = {
+      messageId: null,
+      inputTokens: null,
+      outputTokens: null,
+      cacheCreationInputTokens: null,
+      cacheReadInputTokens: null
+    }
+    q.insertTurnUsage({ ...base, sessionId: 's1', createdAt: 1, totalCostUsd: 0.1 })
+    q.insertTurnUsage({ ...base, sessionId: 's1', createdAt: 2, totalCostUsd: 0.25 })
+    q.insertTurnUsage({ ...base, sessionId: 's1', createdAt: 3, totalCostUsd: null })
+
+    expect(q.sumSessionCostUsd('s1')).toBeCloseTo(0.35, 10)
+    expect(q.sumSessionCostUsd('없는-세션')).toBe(0)
+  })
+
   it('sumUsageByBoundaries 는 한 스캔으로 day/week/month 를 집계하고 null 을 0 으로 본다', () => {
     const db = dbWithMigrations()
     insertSession(db)
