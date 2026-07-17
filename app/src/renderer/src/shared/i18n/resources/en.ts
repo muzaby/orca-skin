@@ -587,6 +587,10 @@ export const en: typeof ko = {
       },
       lengthLabel: 'Conversation length',
       lengthValue: '{{used}}k/{{window}}k {{pct}}%',
+      sessionCostLabel: 'Cost used in this session',
+      sessionCostValue: '~${{usd}}',
+      costDisclaimer:
+        'The cost shown is an estimate and may differ slightly from the actual amount.',
       handoffHint: 'Continue in a new session with a summary',
       compactHint: 'Compacts the current session history'
     },

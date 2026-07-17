@@ -55,6 +55,8 @@ export function registerSessionHandlers(ctx: RouterContext): void {
       // 세션 마지막 턴 사용량 → 컨텍스트 도넛/패널 복원(세션 수명 동안 표시).
       const usage = ctx.db.getLatestTurnUsage(req.sessionId)
       const lastTelemetry = usage ? usageRowToTelemetry(usage.turn, usage.modelUsage) : undefined
+      // 세션 한정 비용 총합(0122 r2) — 상태 팝오버 "이 세션에서 사용한 비용" 시드.
+      const costUsd = ctx.db.sumSessionCostUsd(req.sessionId)
 
       // 0064 continuity — fork/handoff 파생 세션이면 부모 관계를 실어 출처 배너를 복원한다.
       // 부모가 이미 삭제됐으면 lineage 행도 CASCADE 로 사라져 자연히 미포함된다.
@@ -77,6 +79,7 @@ export function registerSessionHandlers(ctx: RouterContext): void {
         projectId: meta.project_id,
         cwd: meta.cwd ?? ctx.getCwd(meta.project_id),
         ...(lastTelemetry ? { lastTelemetry } : {}),
+        ...(costUsd > 0 ? { costUsd } : {}),
         ...(lineage ? { lineage } : {})
       }
     }

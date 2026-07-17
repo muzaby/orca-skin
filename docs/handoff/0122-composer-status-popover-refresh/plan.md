@@ -126,6 +126,47 @@
 
 ---
 
+## r2 — 세션 비용 행 복구 (사용자 피드백, 2026-07-17)
+
+### 명시 요구 (라이브 세션)
+
+1. 비용 안내 복구 — 단 "오늘 비용"이 아니라 **"이 세션에서 사용한 비용"** 안내로, **해당 세션에서만 발생한 비용 총합** 표시.
+2. 하단 "표시된 비용은 예상치" 안내문구 복구.
+
+### 자료조사 (r2)
+
+| 발견 / 제약 | 레퍼런스 |
+|---|---|
+| 비용 SSOT = main `turn_usage` 원장 — `total_cost_usd` 를 **턴 단위**로 적재(일/주/월 집계도 이 행들의 SUM). 세션 총합 = `SUM(total_cost_usd) WHERE session_id` | `infra/db/queries.ts:552` · reducer 주석 `chatReducer.ts:425` "비용은 main 의 turn_usage 원장(집계)이 SSOT" |
+| SDK result 의 `costUsd` 는 "턴 누적이 맞아 유지"(한 턴 내부 스텝 누적 = 턴 단위) — 원장 행과 동일 단위 | `adapters/claude-map.ts:397-412` 주석 |
+| 세션 로드 페이로드(`LoadedSession`)는 이미 `turn_usage` 최신 행에서 `lastTelemetry` 를 복원 — 같은 지점에서 세션 SUM 을 싣는 것이 자연스러운 확장 | `app/handlers/session.ts:56-58` · `shared/ipc.ts:1065` |
+| fork/handoff 파생 draft 는 `continuityDraftSession` 이 `initialChatState` 에서 명시 필드만 복사 — 비용은 복사하지 않으면 자연히 0 에서 시작(새 세션 = 새 원장) | `store/chatStore.ts` `continuityDraftSession` |
+| `session.compacted` 는 컨텍스트만 무효화 — 비용은 지출 누계라 압축과 무관하게 유지 | `chatReducer.ts:401-416` |
+
+### 인수 기준 (r2 — 기존 3·4 를 supersede)
+
+10. 팝오버에 "이 세션에서 사용한 비용" 행이 표시되고, 값 = 해당 세션에서만 발생한 비용 총합(`약 $X.XX`). 소스 = 세션 로드 시 `turn_usage` 세션 SUM(`LoadedSession.costUsd`) + 라이브 턴의 `telemetry.costUsd` 리듀서 누산.
+11. 비용 데이터가 아직 없으면(누산·복원 모두 부재) 행을 표시하지 않는다.
+12. 하단에 "표시된 비용은 예상치" 디스클레이머가 복구된다 (r1 의 일반 "표시된 내용은 예상치" 가 아니라 **비용 한정** 문구).
+13. fork/handoff 파생 세션은 부모 비용을 승계하지 않는다 (새 세션 = 0 에서 시작).
+14. `IPC_CONTRACT.md` `orca:session:load` 행에 `costUsd` 필드를 동기 갱신 (채널 수 불변 — payload 확장).
+15. 테스트: reducer 비용 누산·세션 로드 시드, `sumSessionCostUsd` 쿼리, view model 패스스루 green.
+
+### 설계 (r2)
+
+- **main**: `queries.ts` 에 `sumSessionCostUsdStmt`(`SELECT COALESCE(SUM(total_cost_usd),0) FROM turn_usage WHERE session_id=@sessionId`) + `sumSessionCostUsd()`. `handlers/session.ts` sessionLoad 가 `costUsd`(>0 일 때만) 포함. `shared/ipc.ts` `LoadedSession.costUsd?: number`.
+- **renderer**: reducer state `sessionCostUsd?: number` — `telemetry` 케이스에서 `costUsd` 존재 시 누산, `LOAD_SESSION` 에서 시드. Composer 가 selector 로 읽어 view model 에 전달(`StatusLineModel.sessionCostUsd?: number`), StatusPopover 가 행 + 디스클레이머 렌더.
+- **i18n**: `chat.status.sessionCostLabel`(이 세션에서 사용한 비용) · `sessionCostValue`(`약 ${{usd}}`) · `costDisclaimer`(표시된 비용은 예상치예요…) — ko/en.
+
+### 리스크 (r2)
+
+| 리스크 | 완화책 |
+|---|---|
+| 세션 로드 직후 아직 원장 미적재된 직전 턴이 있으면 순간 과소 표시 | 디스클레이머(예상치)로 흡수 — 재로드 시 원장 SUM 이 권위 |
+| 라이브 누산(시드+Σtelemetry)과 원장 SUM 의 이중 경로 | 같은 단위(턴)라 로드 시점 기준 서로소 — 로드 후 턴만 누산이 더해짐 |
+
+---
+
 ## [구현자 기입] 설계 리뷰 (비판적)
 
 - 동의 / 그대로 진행: 설계 A~D 전부. 사용자 직접 지시 UI 수정 라운드(0121 r2~r5 선례)로 Claude 직접 구현.
@@ -156,3 +197,12 @@
 | 게이트 결과 | lint 에러 0(경고 1=기존 TanStack Virtual 베이스라인) ✅ / typecheck 3분할 ✅ / vitest **937/937** (1스위트 로드 실패 = electron 바이너리 egress 403 베이스라인) + scripts 25/25 ✅ |
 | 블로커 / 역질문 | 없음 |
 | 대상 커밋 | `61c4d41` |
+
+### [구현자 기입] r2 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | main: `infra/db/queries.ts`(+`sumSessionCostUsd`)·`app/handlers/session.ts`·`shared/ipc.ts`(`LoadedSession.costUsd`) / renderer: `reducer/chatReducer.ts`(`sessionCostUsd` 시드+누산)·`Composer.tsx`·`statusViewModel.ts`·`StatusPopover.tsx`·i18n ko/en(`sessionCostLabel`/`sessionCostValue`/`costDisclaimer`) / docs: `IPC_CONTRACT.md` sessionLoad 행 |
+| 게이트 결과 | lint 에러 0 ✅ / typecheck 3분할 ✅ / vitest **943/943**(+6 — reducer 누산 4·query 1·view model 1, electron 1스위트 로드 실패는 egress 403 베이스라인) + scripts 25/25 ✅ |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | (r2 구현 커밋 — verify r2 에서 기재) |

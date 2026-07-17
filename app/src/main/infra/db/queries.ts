@@ -55,6 +55,7 @@ export class DbQueries {
   private readonly insertTurnUsageStmt: Database.Statement
   private readonly insertTurnModelUsageStmt: Database.Statement
   private readonly getLatestTurnUsageStmt: Database.Statement
+  private readonly sumSessionCostUsdStmt: Database.Statement
   private readonly listTurnModelUsageStmt: Database.Statement
   private readonly sumUsageByBoundariesStmt: Database.Statement
   // provider별(0080) — turn_usage ⨝ sessions(provider_key)로 provider 한정 집계 + 한도 원장.
@@ -250,6 +251,10 @@ export class DbQueries {
     // 세션의 마지막 턴 사용량 — 컨텍스트 도넛/패널을 세션 로드 시 복원.
     this.getLatestTurnUsageStmt = db.prepare(`
       SELECT * FROM turn_usage WHERE session_id = @sessionId ORDER BY created_at DESC, id DESC LIMIT 1
+    `)
+    // 세션 한정 비용 총합(0122 r2) — 상태 팝오버 "이 세션에서 사용한 비용" 복원용.
+    this.sumSessionCostUsdStmt = db.prepare(`
+      SELECT COALESCE(SUM(total_cost_usd), 0) AS total FROM turn_usage WHERE session_id = @sessionId
     `)
     this.listTurnModelUsageStmt = db.prepare(`
       SELECT * FROM turn_model_usage
@@ -569,6 +574,12 @@ export class DbQueries {
       turnUsageId: turn.id
     }) as TurnModelUsageRow[]
     return { turn, modelUsage }
+  }
+
+  // 세션 한정 비용 총합(0122 r2). 원장 행이 없으면 0.
+  sumSessionCostUsd(sessionId: string): number {
+    const r = this.sumSessionCostUsdStmt.get({ sessionId }) as { total: number }
+    return r.total
   }
 
   sumUsageByBoundaries(b: {
