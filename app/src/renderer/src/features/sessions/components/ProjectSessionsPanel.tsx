@@ -49,7 +49,7 @@ export function ProjectSessionsPanel({
       <div className="flex flex-col">
         {!sessions.loading && sessions.list.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border bg-panel/40 px-4 py-6 text-center text-[12px] leading-[1.55] text-ink3">
-            아직 이 프로젝트에 속한 대화가 없습니다. 위 입력창에서 첫 메시지를 보내보세요.
+            {tr('sessions.projectEmpty')}
           </div>
         ) : (
           sessions.list.map((s) => (

@@ -645,7 +645,7 @@ export function Composer({
                         ref={telemetryButtonRef}
                         type="button"
                         onClick={() => setTelemetryOpen((v) => !v)}
-                        className="flex items-center rounded-sm focus:outline-none focus-visible:ring-1 focus-visible:ring-accent"
+                        className="flex items-center rounded-sm outline-none hide-focus-ring ring-focus"
                         aria-haspopup="menu"
                         aria-expanded={telemetryOpen}
                         title={`${tr('chat.composer.contextTitle', {

@@ -12,6 +12,7 @@ export const en: typeof ko = {
     unknown: 'Unknown',
     confirm: 'Confirm',
     delete: 'Delete',
+    edit: 'Edit',
     rename: 'Rename',
     more: 'More',
     copied: 'Copied',
@@ -68,7 +69,18 @@ export const en: typeof ko = {
     deleteDialogMessage: 'Delete this conversation?',
     menuAria: 'Session menu',
     renameAria: 'Edit session title',
-    empty: 'No saved conversations yet.'
+    empty: 'No saved conversations yet.',
+    projectEmpty:
+      'No conversations in this project yet. Send your first message from the input above.'
+  },
+  window: {
+    minimize: 'Minimize',
+    maximize: 'Maximize',
+    close: 'Close window'
+  },
+  captures: {
+    title: 'Capture history & AI analysis',
+    body: 'Coming soon. Capture RAW retention, per-channel metrics, automated ColorChecker / SFR / \u0394E analysis, and Claude analysis comments arrive in a later phase.'
   },
   skills: {
     listTitle: 'Skills',
@@ -99,6 +111,7 @@ export const en: typeof ko = {
       lastUpdated: 'Last updated',
       noBody: 'No body content.',
       markdownAria: 'Markdown',
+      plainTextAria: 'Plain text',
       removeTitle: 'Remove skill',
       removeConfirmBody:
         'This removes the following folder from Orca skill sources. Confirm once more to continue.'
@@ -151,6 +164,7 @@ export const en: typeof ko = {
       name: 'Name',
       namePlaceholder: 'e.g. github',
       nameFormatError: 'Only letters, digits, _ and - are allowed.',
+      bearerNote: 'Sent as an Authorization: Bearer header.',
       descOptional: 'Description (optional)',
       descPlaceholder: 'What tools this server provides',
       transport: 'Transport',
@@ -199,8 +213,16 @@ export const en: typeof ko = {
       editDetails: 'Edit details',
       updated: 'Updated'
     },
-    filesCard: { title: 'Files', addTitle: 'Add file (coming soon)' },
-    instructionsCard: { title: 'Instructions', editTitle: 'Edit instructions' },
+    filesCard: {
+      title: 'Files',
+      addTitle: 'Add file (coming soon)',
+      emptyHint: 'Add PDFs, documents, folders, or other text for this project to reference.'
+    },
+    instructionsCard: {
+      title: 'Instructions',
+      editTitle: 'Edit instructions',
+      emptyHint: 'Add instructions to tailor responses.'
+    },
     sessionsPanel: { title: 'Conversations in this project' },
     landingHeader: {
       navAria: 'Project navigation',
@@ -216,6 +238,7 @@ export const en: typeof ko = {
       'The Composer model menu is built from the provider settings in <c>~/.config/orca/sources/settings</c>. After editing, the model menu refreshes without restarting the app.',
     emptyState: 'No providers registered. Use the Add engine button to create a claude provider.',
     deleteConfirm: 'Delete provider {{name}}?',
+    card: { unsupportedAdapter: 'Unsupported adapter' },
     readSettingsFailed: 'Failed to load the settings.',
     sdkDefaultModel: 'SDK default',
     provider: {
@@ -308,6 +331,7 @@ export const en: typeof ko = {
   },
   debug: {
     title: 'Debug',
+    closeTweaks: 'Close tweaks',
     mockMode: 'Mock mode',
     scenario: 'Scenario',
     contextUsage: 'Context usage',
@@ -386,6 +410,9 @@ export const en: typeof ko = {
       roleUser: 'User'
     },
     transcript: {
+      reasoning: 'Reasoning',
+      structuredOutput: 'Structured output',
+      incompleteResponse: 'The response was not completed',
       loading: 'Loading conversation…',
       emptyPrompt: 'Send your first message to Claude Code.',
       lineageFork: 'This session was forked from <hl>‘{{label}}’</hl>',

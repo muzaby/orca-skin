@@ -1,3 +1,4 @@
+import { Button } from '../../../shared/ui/Button'
 import { Icon, type IconName } from '../../../shared/ui/Icon'
 import { Modal } from '../../../shared/ui/Modal'
 import { useI18n } from '../../../shared/i18n'
@@ -106,14 +107,14 @@ export function SettingsModal({ providerUsage }: SettingsModalProps): React.JSX.
 
       {/* 우: 내용 */}
       <div className="relative flex min-w-0 flex-1 flex-col">
-        <button
-          type="button"
+        <Button
+          iconOnly
+          leadingIcon="x"
+          size="small"
           onClick={hide}
           aria-label={tr('common.close')}
-          className="absolute right-3 top-3 z-10 grid h-7 w-7 cursor-pointer place-items-center rounded-r4 border-0 bg-transparent text-ink3 hover:bg-fill-uncontained-hover hover:text-ink2"
-        >
-          <Icon name="x" size={15} />
-        </button>
+          className="absolute right-3 top-3 z-10 text-ink3"
+        />
         <div className="min-h-0 flex-1 overflow-y-auto px-7 py-6">
           {tab === 'general' && <GeneralTab />}
           {tab === 'usage' && <UsageTab />}

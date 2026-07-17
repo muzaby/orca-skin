@@ -1,10 +1,12 @@
 import type { CSSProperties } from 'react'
 import { getPlatform, windowApi } from '../shared/api/ipc'
+import { useI18n } from '../shared/i18n'
 
 const NO_DRAG_STYLE: CSSProperties = { WebkitAppRegion: 'no-drag' } as CSSProperties
 
 // macOS 는 OS 가 traffic light 를 그리므로 우측 컨트롤 없음.
 export function WinControls(): React.JSX.Element | null {
+  const { tr } = useI18n()
   if (getPlatform() === 'darwin') return null
 
   const base =
@@ -18,7 +20,7 @@ export function WinControls(): React.JSX.Element | null {
       <button
         className={base}
         style={NO_DRAG_STYLE}
-        aria-label="Minimize"
+        aria-label={tr('window.minimize')}
         data-behavior="action:window-minimize"
         onClick={() => void windowApi.minimize()}
       >
@@ -29,7 +31,7 @@ export function WinControls(): React.JSX.Element | null {
       <button
         className={base}
         style={NO_DRAG_STYLE}
-        aria-label="Maximize"
+        aria-label={tr('window.maximize')}
         data-behavior="action:window-maximize"
         onClick={() => void windowApi.maximize()}
       >
@@ -48,7 +50,7 @@ export function WinControls(): React.JSX.Element | null {
       <button
         className={`${base} hover:!bg-[#e44a3a] hover:!text-white`}
         style={NO_DRAG_STYLE}
-        aria-label="Close"
+        aria-label={tr('window.close')}
         data-behavior="action:window-close"
         onClick={() => void windowApi.close()}
       >

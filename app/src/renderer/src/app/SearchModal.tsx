@@ -98,7 +98,7 @@ export function SearchModal({ onClose }: SearchModalProps): React.JSX.Element {
     <div className="grid h-full w-full place-items-center p-6">
       <div
         ref={panelRef}
-        className="app-frame-search-modal flex max-h-[60vh] w-[640px] max-w-[92vw] flex-col overflow-hidden rounded-xl border border-border bg-panel shadow-xl"
+        className="app-frame-search-modal flex max-h-[60vh] w-[640px] max-w-[92vw] flex-col overflow-hidden rounded-r6 border border-border bg-panel shadow-xl"
         data-context="modal"
         data-behavior="focus-trap"
       >

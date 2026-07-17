@@ -1,8 +1,8 @@
 import { memo, useRef, useState, type CSSProperties } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { WinControls } from './WinControls'
-import { Icon } from '../shared/ui/Icon'
 import { Button } from '../shared/ui/Button'
+import { MenuItem } from '../shared/ui/MenuItem'
 import { Popover } from '../shared/ui/Popover'
 import { Modal } from '../shared/ui/Modal'
 import { OrcaLogo } from '../shared/ui/OrcaLogo'
@@ -134,30 +134,26 @@ export const Header = memo(function Header({ onOpenSearch }: HeaderProps): React
         placement="bottom"
         className="min-w-[160px]"
       >
-        <button
-          type="button"
+        <MenuItem
           role="menuitem"
+          icon="doc"
           onClick={() => {
             setMenuOpen(false)
             setVersionOpen(true)
           }}
-          className="flex w-full cursor-pointer items-center gap-2 rounded-md border-0 bg-transparent px-2.5 py-1.5 text-left text-[12.5px] text-ink hover:bg-sidebar"
         >
-          <Icon name="doc" size={14} />
           <span>{tr('header.version')}</span>
-        </button>
-        <button
-          type="button"
+        </MenuItem>
+        <MenuItem
           role="menuitem"
+          icon="power"
           onClick={() => {
             setMenuOpen(false)
             void windowApi.close()
           }}
-          className="flex w-full cursor-pointer items-center gap-2 rounded-md border-0 bg-transparent px-2.5 py-1.5 text-left text-[12.5px] text-ink hover:bg-sidebar"
         >
-          <Icon name="power" size={14} />
           <span>{tr('header.quit')}</span>
-        </button>
+        </MenuItem>
       </Popover>
       <HeaderVersionModal open={versionOpen} onClose={() => setVersionOpen(false)} />
     </header>
@@ -176,7 +172,6 @@ function HeaderVersionModal({
     <Modal
       open={open}
       onClose={onClose}
-      blurBackdrop
       ariaLabel={tr('header.versionModalAria')}
       panelClassName="flex w-[280px] max-w-[92vw] flex-col items-center gap-3 rounded-r6 border border-border bg-panel px-8 py-7 text-center shadow-xl"
     >

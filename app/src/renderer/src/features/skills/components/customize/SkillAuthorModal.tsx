@@ -52,7 +52,7 @@ export function SkillAuthorModal({
         />
         {name.trim() !== '' && !nameValid && (
           <span className="mt-1 block text-[11px] text-bad">
-            영숫자 · _ · - 만 사용할 수 있습니다.
+            {tr('skills.addServer.nameFormatError')}
           </span>
         )}
       </label>

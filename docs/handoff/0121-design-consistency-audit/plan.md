@@ -188,31 +188,41 @@
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- (구현 턴에서 기입)
+- **동의 / 그대로 진행**: 설계 §1~6 전부. backdrop 단일 소스는 `Backdrop` 컴포넌트 대신 **`MODAL_BACKDROP_CLASS` 상수 export**(`shared/ui/Modal.tsx`)로 구현 — 두 소비처(Modal 자체·OverlayLayer 슬롯)의 DOM 구조가 달라 컴포넌트화는 과설계.
+- **이견/보완 1 (설계 §6 MenuItem)**: danger 솔리드는 메뉴 항목이 아니라 **독립 버튼**(ModalActions confirm·EngineCard 삭제)에도 필요 → 공용 `Button` 에 `danger` variant 를 추가(솔리드 rust, ModalActions 기존 톤과 동일)해 이중화 없이 수렴. Button 확장은 설계 "재사용 자산" 원칙과 합치.
+- **이견/보완 2 (자료조사 A 정정)**: `blurBackdrop` "켜는 곳 0" 은 부정확 — `Header.tsx` About 다이얼로그 1곳이 사용 중이었다(탐색 누락). blur 상시화로 prop 제거하며 함께 정리.
+- **보완 3 (설계 §2 UpdateDialog)**: 슬롯에서 빼며 `modalActive` 재계산(installer·auth·search 3종)·`OverlayLayer` 형제 마운트로 이관. `ConfirmDialogHost` 도 함께 슬롯 밖 형제로(설계 §5 그대로).
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| — | (구현 턴에서 기입) | | |
+| 1 | EngineFormModal 을 공용 Modal 로 흡수하면 백드롭 클릭도 `requestClose` 를 타는데, 기존엔 드롭다운 열림 중 백드롭 클릭이 모달까지 닫았다 | ✅ 구현함 — Esc·백드롭 클릭 모두 `menuOpen` 가드 경유(드롭다운 열림 중엔 Popover 만 닫힘). 더 일관된 동작으로 판단 | `EngineFormModal.tsx` `requestClose` |
+| 2 | ProjectsScreen 그룹 A 버튼 2곳(새 프로젝트·첫 프로젝트 만들기)이 탐색 대표 목록에 누락 | ✅ 구현함 — `<Button variant="primary" size="small" leadingIcon="plus">` 치환 | `ProjectsScreen.tsx:32,100` (구 라인) |
+| 3 | focus 링 이탈 2곳(`ring-rust`/`ring-accent`)은 버튼 치환만으로 해소 안 됨 | ✅ 구현함 — `outline-none hide-focus-ring ring-focus` 표준으로 교체 (`ProjectLandingHeader`·Composer telemetry 버튼) | 인수 기준 7 |
+| 4 | `parts.ts` `'중단되었습니다'` 키화: main 에 한국어 원문 계약은 없고(리터럴 grep 0) 신규 데이터는 `reason:'aborted'` 로 판정되지만, `message.includes('중단')` 은 **기존 영속 데이터**(과거 세션의 tool_result)를 위한 가드일 수 있음 | ⚠️ 보고만·**결정 필요** — 순수 lib 라 tr 주입 불가(구조 변경 필요) + 영속 데이터 하위호환 불확실 → 후속 제안 2(main i18n)와 함께 다루기를 권고 | `features/chat/lib/parts.ts:124,294` |
+| 5 | CameraView 솔리드 rust 버튼(capture)은 camera 스테이지 전용 디자인 + 전부 `disabled` Future Scope 플레이스홀더 | ⚠️ 보고만 — record/capture 시맨틱의 rust 로 판단, 치환 제외(잔존 목록) | `CameraView.tsx:146-170` |
+| 6 | ModalActions 를 Button(contained/primary·danger) 기반으로 바꾸며 취소 버튼 시각이 `bg-panel` 테두리→`bg-fill-contained` 테두리로 미세 변화 | ✅ 구현함 — 표준 수렴이 목적(사용자 결정 3). 시각 확인은 사람 실기 | `Modal.tsx` ModalActions |
+
+**잔존 raw `<button` 목록 (치환 제외 정당화)** — 치환 후 48파일 75곳(115→75). 남은 것은 전부 특수 레이아웃/상태 계열: WinControls(창 제어 3종 — 고정 규격+hover 색 반전), Composer(전송 원형·권한모드 pill·telemetry 등 컴포저 전용 크롬), HighlightedTextarea, SettingsModal 탭 레일(selected-soft 내비), ProviderUsageTab 행 내비(chevron 행), EngineFormModal provider 드롭다운(2줄 rich 항목), PendingSteerTurn hover-reveal pill, SessionRow 케밥(hover-reveal h-5), 테마 세그먼트(GeneralTab), SkillDetail 토글(2-상태 아이콘 쌍), tile/사이드바 내비 행, CameraView(위 5), FloatingPanel(dev 전용 glassmorphic 계열) 등.
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] backdrop 단일 소스 + blur 통일
-- [ ] UpdateDialog·EngineFormModal 공용 Modal 흡수
-- [ ] Installer/Auth 닫기 UX + 컨테이너 정합
-- [ ] MenuItem 신설 + 그룹 D/E 치환
-- [ ] 그룹 A/B/C Button 치환
-- [ ] i18n 키 이관 + aria
-- [ ] dom-architecture 개정
-- [ ] 게이트
+- [x] backdrop 단일 소스(`MODAL_BACKDROP_CLASS`) + blur 통일 + dead `blurBackdrop` 제거
+- [x] UpdateDialog(이중 backdrop 해소)·EngineFormModal 공용 Modal 흡수
+- [x] Installer/Auth ESC·바깥클릭(+busy 가드) + 컨테이너 r6/serif 18px 정합 (SearchModal 반경 포함)
+- [x] `shared/ui/MenuItem.tsx` 신설 + 그룹 D/E 6파일 치환(로컬 상수 제거)
+- [x] 그룹 A/B/C `<Button>` 치환 + `danger` variant + focus/disabled/cursor 정책 단일화
+- [x] i18n 키 이관(ko/en 동시): 우회 하드코딩 12곳 + aria 5곳(WinControls 3·FloatingPanel·SkillDetail)
+- [x] dom-architecture §1.2/§1.5 개정(2원 마운트 구조)
+- [x] 게이트 lint/typecheck/vitest
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | (기입) |
-| 실행 명령 | `npm run lint` / `typecheck` / vitest |
-| 게이트 결과 | (기입) |
-| 블로커 / 역질문 | (기입) |
+| 변경 파일 | 41 파일 (신규 2: `shared/ui/MenuItem.tsx`·`shared/hooks/useEscToClose.ts`; 렌더러 37 + i18n 2 + 문서 1) |
+| 실행 명령 | `npm run lint` / `npm run typecheck` / `npm test` |
+| 게이트 결과 | lint ✅ 0 error(경고 1 = 0102 TanStack↔React Compiler 기존 베이스라인) / typecheck ✅ 3분할(node·web·test) / vitest ✅ **934/934** (122/123 파일 — `chat-turn.continuity` 1스위트 로드 실패는 electron 바이너리 egress 403 환경 베이스라인, 0119/0120 동일·본 변경 무관) + scripts `node --test` **25/25** |
+| 블로커 / 역질문 | 없음 (⚠️ 2건은 위 표 — 사용자 결정 대기이나 본 범위 비차단) |
 | 대상 커밋 | (기입) |

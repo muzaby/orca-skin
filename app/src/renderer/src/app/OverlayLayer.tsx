@@ -4,6 +4,7 @@ import { DebugPanel } from '../features/debug'
 import { SsoDebugSection } from '../features/login'
 import { InstallerDialog, AuthExpiredModal } from '../features/backend'
 import { ConfirmDialogHost } from '../shared/ui/ConfirmDialogHost'
+import { MODAL_BACKDROP_CLASS } from '../shared/ui/Modal'
 import { SearchModal } from './SearchModal'
 import { UpdateDebugSection, UpdateDialog, useUpdateDialogOpen } from '../features/update'
 
@@ -18,17 +19,19 @@ interface OverlayLayerProps {
 //   - #app-frame-overlay : modal 활성 시 z=10 (backdrop), 평소 -z-10
 //   - #app-frame-modal   : modal 활성 시 z=20 (focus-trap), 평소 -z-20
 //   - #app-frame-debug   : 항상 z=30 (dev DebugPanel, modal 상태 무관)
+// 공용 Modal 계열(UpdateDialog·ConfirmDialogHost 포함)은 body 포털 + 자체 backdrop
+// (MODAL_BACKDROP_CLASS 공유)로 뜨므로 슬롯 밖 형제로 마운트한다 (handoff 0121).
 export function OverlayLayer({ searchOpen, onCloseSearch }: OverlayLayerProps): React.JSX.Element {
   const installerOpen = useInstallerOpen()
   const authExpired = useChatSession((s) => s.error?.category === 'auth_error')
   const updateOpen = useUpdateDialogOpen()
-  const modalActive = installerOpen || authExpired || searchOpen || updateOpen
+  const modalActive = installerOpen || authExpired || searchOpen
 
   return (
     <>
       <div
         id="app-frame-overlay"
-        className={`bg-black/40 backdrop-blur-sm ${modalActive ? 'z-10' : '-z-10'}`}
+        className={`${MODAL_BACKDROP_CLASS} ${modalActive ? 'z-10' : '-z-10'}`}
         data-state={modalActive ? 'visible' : 'hidden'}
         data-context="overlay"
         aria-hidden
@@ -54,9 +57,9 @@ export function OverlayLayer({ searchOpen, onCloseSearch }: OverlayLayerProps): 
           onDismiss={chatActions.clearError}
         />
         {searchOpen && <SearchModal onClose={onCloseSearch} />}
-        <UpdateDialog open={updateOpen} />
-        <ConfirmDialogHost />
       </div>
+      <UpdateDialog open={updateOpen} />
+      <ConfirmDialogHost />
       <div id="app-frame-debug" className="pointer-events-none z-30" data-context="debug">
         <div className="pointer-events-auto">
           {import.meta.env.DEV && (

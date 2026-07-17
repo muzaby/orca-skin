@@ -1,5 +1,6 @@
 import { memo, useRef } from 'react'
 import { Markdown } from '../../../../shared/ui/markdown/Markdown'
+import { useI18n } from '../../../../shared/i18n'
 import { ToolGroup } from './ToolGroup'
 import { AskExchange } from './AskExchange'
 import { ReasoningBlock } from './ReasoningBlock'
@@ -29,6 +30,7 @@ interface AssistantMessageProps {
 export const AssistantMessage = memo(function AssistantMessage({
   message
 }: AssistantMessageProps): React.JSX.Element {
+  const { tr } = useI18n()
   const prevRef = useRef<MessageSegment[] | null>(null)
   const segments = reconcileSegments(prevRef.current, messageSegments(message.parts))
   prevRef.current = segments
@@ -64,7 +66,7 @@ export const AssistantMessage = memo(function AssistantMessage({
       })}
       {message.incomplete && (
         <div className="inline-flex w-fit rounded-full border border-border bg-bg2 px-2 py-1 text-xs leading-none text-ink3">
-          응답이 완료되지 않았습니다
+          {tr('chat.transcript.incompleteResponse')}
         </div>
       )}
     </div>

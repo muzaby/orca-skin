@@ -1,5 +1,6 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react'
-import { Icon } from '../../../shared/ui/Icon'
+import { Button } from '../../../shared/ui/Button'
+import { MenuItem } from '../../../shared/ui/MenuItem'
 import { Popover } from '../../../shared/ui/Popover'
 import { RenameInput } from '../../../shared/ui/RenameInput'
 import { openConfirmDialog } from '../../../shared/ui/confirmDialogStore'
@@ -11,19 +12,6 @@ import type { RightPanelTileId } from '../lib/rightPanelTiles'
 import { flattenColumns } from '../lib/rightPanelLayout'
 import { tileRegistry } from './rightpanel/tileRegistry'
 import { CwdButton } from './CwdButton'
-
-// 타이틀바 아이콘 버튼 — 3-상태(idle/pressed/disabled)를 시맨틱 토큰으로 표현한다.
-// pressed 는 press 표면 토큰(t3), idle hover 는 중립 ink 오버레이. (구 Button 의 warm
-// fill-selected 대신 press 표면 토큰을 써 화이트/다크 모두에서 중립적으로 보이게 한다.)
-const ICON_BTN_BASE =
-  'grid h-7 w-7 place-items-center rounded-r4 border-0 outline-none hide-focus-ring ring-focus transition-colors'
-const ICON_BTN_IDLE =
-  'cursor-default bg-transparent text-t6 hover:bg-fill-uncontained-hover hover:text-t7'
-const ICON_BTN_PRESSED = 'cursor-default bg-t3 text-t8'
-const MENU_ITEM =
-  'flex w-full cursor-default items-center gap-2 rounded-r4 border-0 bg-transparent px-2.5 py-1.5 text-left text-footnote text-t8 outline-none hide-focus-ring ring-focus hover:bg-fill-uncontained-hover disabled:opacity-50'
-const DANGER_MENU_ITEM =
-  'flex w-full cursor-default items-center gap-2 rounded-r4 border-0 bg-transparent px-2.5 py-1.5 text-left text-footnote text-rust outline-none hide-focus-ring ring-focus hover:bg-rust-soft disabled:opacity-50'
 
 // 예약 타일(reserved1/2)은 Future Scope — 메뉴에서 숨긴다. tileRegistry 는 모듈 상수라
 // 결과가 불변이므로 모듈 로드 시 1회만 계산한다(인스턴스별 useMemo 불필요).
@@ -140,24 +128,24 @@ export const ChatTitleBar = memo(function ChatTitleBar({
         <CwdButton cwd={cwd} sessionStarted className="shrink-0" />
       </div>
       <div className="ml-auto flex gap-1">
-        <button
-          className={`${ICON_BTN_BASE} ${ICON_BTN_IDLE}`}
+        <Button
+          iconOnly
+          leadingIcon={copied ? 'check' : 'copy'}
+          size="small"
           onClick={() => void copyConversation()}
           title={copied ? tr('common.copied') : tr('chat.titleBar.copyAll')}
           aria-label={tr('chat.titleBar.copyAll')}
-        >
-          <Icon name={copied ? 'check' : 'copy'} size={14} />
-        </button>
-        <button
+        />
+        <Button
           ref={anchorRef}
-          className={`${ICON_BTN_BASE} ${open ? ICON_BTN_PRESSED : ICON_BTN_IDLE}`}
+          iconOnly
+          leadingIcon="kebab"
+          size="small"
+          pressed={open}
           onClick={() => setOpen((v) => !v)}
-          aria-pressed={open}
           title={tr('chat.titleBar.tilesButton')}
           aria-label={tr('chat.titleBar.tilesButton')}
-        >
-          <Icon name="kebab" size={14} />
-        </button>
+        />
         <Popover
           open={open}
           anchorRef={anchorRef}
@@ -172,10 +160,10 @@ export const ChatTitleBar = memo(function ChatTitleBar({
           {VISIBLE_TILE_REGISTRY.map((tile) => {
             const active = activeTiles.includes(tile.id)
             return (
-              <button
+              <MenuItem
                 key={tile.id}
-                type="button"
-                className={MENU_ITEM}
+                icon={active ? 'check' : 'plus'}
+                iconSize={13}
                 onClick={() => {
                   chatActions.toggleRightPanelTile(tile.id)
                   setOpen(false)
@@ -183,26 +171,26 @@ export const ChatTitleBar = memo(function ChatTitleBar({
                 role="menuitemcheckbox"
                 aria-checked={active}
               >
-                <Icon name={active ? 'check' : 'plus'} size={13} />
                 <span>{labels[tile.id as RightPanelTileId] ?? tr(tile.defaultLabelKey)}</span>
-              </button>
+              </MenuItem>
             )
           })}
           <div className="my-1 h-px bg-border" />
-          <button
-            type="button"
-            className={MENU_ITEM}
+          <MenuItem
+            icon="edit"
+            iconSize={13}
             onClick={() => {
               setOpen(false)
               setRenaming(true)
             }}
             disabled={!canRenameSession}
           >
-            <Icon name="edit" size={13} /> {tr('common.rename')}
-          </button>
-          <button
-            type="button"
-            className={DANGER_MENU_ITEM}
+            {tr('common.rename')}
+          </MenuItem>
+          <MenuItem
+            danger
+            icon="trash"
+            iconSize={13}
             onClick={() => {
               if (!sessionId || !onDeleteSession) return
               setOpen(false)
@@ -216,8 +204,8 @@ export const ChatTitleBar = memo(function ChatTitleBar({
             }}
             disabled={!canDeleteSession}
           >
-            <Icon name="trash" size={13} /> {tr('common.delete')}
-          </button>
+            {tr('common.delete')}
+          </MenuItem>
         </Popover>
       </div>
     </div>

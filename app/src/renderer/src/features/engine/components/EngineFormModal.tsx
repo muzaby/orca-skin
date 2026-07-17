@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { engineApi } from '../../../shared/api/ipc'
+import { Button } from '../../../shared/ui/Button'
 import { Icon } from '../../../shared/ui/Icon'
+import { Modal } from '../../../shared/ui/Modal'
 import { Popover } from '../../../shared/ui/Popover'
 import { Trans } from 'react-i18next'
 import { useI18n } from '../../../shared/i18n'
@@ -54,15 +56,11 @@ export function EngineFormModal({
 
   const selectedOption = providerOption(providerId)
 
-  // 닫기 버튼이 없으므로 Esc 로 닫는다. 드롭다운이 열려 있으면 Popover 의 Esc 가
-  // 메뉴만 닫도록 모달 닫기는 건너뛴다.
-  useEffect(() => {
-    const onKeyDown = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape' && !menuOpen) onClose()
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [menuOpen, onClose])
+  // 닫기(Esc·백드롭 클릭)는 공용 Modal 이 담당. 드롭다운이 열려 있으면 Popover 의
+  // Esc 가 메뉴만 닫도록 모달 닫기는 건너뛴다.
+  const requestClose = (): void => {
+    if (!menuOpen) onClose()
+  }
 
   useEffect(() => {
     if (isCustom) queueMicrotask(() => nameRef.current?.focus())
@@ -108,20 +106,15 @@ export function EngineFormModal({
   }
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 backdrop-blur-sm"
-      onClick={onClose}
-      role="presentation"
+    <Modal
+      open
+      onClose={requestClose}
+      ariaLabel={editing ? tr('engine.form.titleEdit') : tr('engine.form.titleAdd')}
+      panelClassName="flex max-h-[88vh] w-full max-w-[560px] flex-col overflow-hidden rounded-r6 border border-border bg-panel shadow-xl"
     >
-      <div
-        className="flex max-h-[88vh] w-full max-w-[560px] flex-col overflow-hidden rounded-2xl border border-border bg-panel shadow-2xl"
-        onClick={(event) => event.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-label={editing ? tr('engine.form.titleEdit') : tr('engine.form.titleAdd')}
-      >
+      <>
         <div className="border-b border-border px-6 pb-3.5 pt-4">
-          <h2 className="m-0 text-[16px] font-semibold text-ink">
+          <h2 className="m-0 font-serif text-[18px] font-semibold text-ink">
             {editing ? tr('engine.form.titleEdit') : tr('engine.form.titleAdd')}
           </h2>
         </div>
@@ -267,19 +260,10 @@ export function EngineFormModal({
         </div>
 
         <div className="flex justify-end gap-2 border-t border-border px-6 py-3.5">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg px-3.5 py-2 text-[13px] font-medium text-ink2 hover:bg-sidebar"
-          >
+          <Button variant="contained" onClick={onClose}>
             {tr('common.cancel')}
-          </button>
-          <button
-            type="button"
-            disabled={!canSubmit}
-            onClick={() => void submit()}
-            className="rounded-lg bg-ink px-4 py-2 text-[13px] font-semibold text-bg disabled:cursor-not-allowed disabled:opacity-45"
-          >
+          </Button>
+          <Button variant="primary" disabled={!canSubmit} onClick={() => void submit()}>
             {busy
               ? editing
                 ? tr('engine.form.saving')
@@ -287,9 +271,9 @@ export function EngineFormModal({
               : editing
                 ? tr('common.save')
                 : tr('engine.form.addAction')}
-          </button>
+          </Button>
         </div>
-      </div>
-    </div>
+      </>
+    </Modal>
   )
 }

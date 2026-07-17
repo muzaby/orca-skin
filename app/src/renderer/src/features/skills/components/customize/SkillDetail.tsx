@@ -176,7 +176,7 @@ export function SkillDetail({
           <button
             type="button"
             onClick={() => setPlain(true)}
-            aria-label="plain text"
+            aria-label={tr('skills.detail.plainTextAria')}
             className={`grid h-6 w-6 cursor-pointer place-items-center rounded-r3 border-0 bg-transparent ${plain ? 'text-t9' : 'text-ink3'}`}
           >
             <Icon name="code" size={14} />
