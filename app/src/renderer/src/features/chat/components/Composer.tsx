@@ -97,6 +97,7 @@ export function Composer({
   )
   const cwd = useChatSession((s) => s.cwd)
   const lastTelemetry = useChatSession((s) => s.lastTelemetry)
+  const sessionCostUsd = useChatSession((s) => s.sessionCostUsd)
   const permissionMode = useChatSession((s) => s.permissionMode)
   const backend = useChatSession((s) => s.backend)
   const providerKey = useChatSession((s) => s.providerKey)
@@ -221,8 +222,8 @@ export function Composer({
         conversationStatus = 'warn'
       }
     }
-    return conversationStatusModelFactory(conversationStatus, usage)
-  }, [lastTelemetry])
+    return conversationStatusModelFactory(conversationStatus, usage, sessionCostUsd)
+  }, [lastTelemetry, sessionCostUsd])
 
   const toggleConversationStatus = (): void => {
     if (!conversationStatusModel) return

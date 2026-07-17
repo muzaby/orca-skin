@@ -60,6 +60,14 @@ export function StatusPopover({
             )}
           </dd>
         </div>
+        {model.sessionCostUsd != null && (
+          <div className="flex items-center justify-between gap-3">
+            <dt className="text-ink3">{tr('chat.status.sessionCostLabel')}</dt>
+            <dd className="font-medium tabular-nums text-ink">
+              {tr('chat.status.sessionCostValue', { usd: model.sessionCostUsd.toFixed(2) })}
+            </dd>
+          </div>
+        )}
       </dl>
 
       <Button
@@ -76,6 +84,10 @@ export function StatusPopover({
       >
         {tr(model.labelKeys.actionButton)}
       </Button>
+
+      <p className="border-t border-border pt-2 text-[11px] leading-relaxed text-ink3">
+        {tr('chat.status.costDisclaimer')}
+      </p>
     </div>
   )
 }

@@ -101,6 +101,11 @@ export interface ChatState {
   // 복원, 새 대화에서만 비움. SEND 는 비우지 않아 턴 진행 중에도 도넛이 유지된다.
   // 비용/지연은 패널에서 빠졌고 비용은 turn_usage 원장(집계)이 SSOT 라 state 에 두지 않는다.
   lastTelemetry?: ProviderReportedTelemetry
+  // 이 세션에서만 발생한 비용 총합(USD, 추정치 — 0122 r2). 세션 로드 시 turn_usage 세션
+  // SUM(LoadedSession.costUsd)으로 시드, 라이브 턴 종료(telemetry.costUsd)마다 누산.
+  // fork/handoff 파생 draft 는 새 세션이라 승계하지 않는다(continuityDraftSession 미복사).
+  // 압축(session.compacted)은 컨텍스트만 무효화 — 지출 누계인 비용은 유지.
+  sessionCostUsd?: number
   error?: ClassifiedError
   retry?: { attempt: number; max: number; category: string }
   // Claude 가 AskUserQuestion 으로 던진 미응답 질문 묶음 큐. canUseTool 이 query 를 일시
@@ -422,10 +427,14 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           return {
             ...state,
             ...TURN_END_RESET,
-            // 도넛/패널은 lastTelemetry 파생(컨텍스트 사용량 소스). 비용/지연 누산은 제거 —
-            // 비용은 main 의 turn_usage 원장(집계)이 SSOT. 컨텍스트 0인 턴(/context 등 로컬
-            // 슬래시 명령 — 모델 미호출)은 직전 도넛 값을 덮어쓰지 않게 스킵한다.
-            ...(telemetry && contextTokens(telemetry) > 0 ? { lastTelemetry: telemetry } : {})
+            // 도넛/패널은 lastTelemetry 파생(컨텍스트 사용량 소스). 컨텍스트 0인 턴(/context 등
+            // 로컬 슬래시 명령 — 모델 미호출)은 직전 도넛 값을 덮어쓰지 않게 스킵한다.
+            ...(telemetry && contextTokens(telemetry) > 0 ? { lastTelemetry: telemetry } : {}),
+            // 세션 비용 누산(0122 r2) — costUsd 는 턴 단위(원장 행과 동일 단위)라 단순 합산.
+            // 컨텍스트 게이트와 무관하게 비용이 보고된 턴은 전부 계상한다(/compact 요약 턴 등).
+            ...(telemetry?.costUsd != null
+              ? { sessionCostUsd: (state.sessionCostUsd ?? 0) + telemetry.costUsd }
+              : {})
           }
         }
 
@@ -573,6 +582,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         messages,
         // 컨텍스트 도넛/패널을 세션 수명 동안 유지 — turn_usage 최신 행에서 복원.
         ...(action.session.lastTelemetry ? { lastTelemetry: action.session.lastTelemetry } : {}),
+        // 세션 비용 시드(0122 r2) — turn_usage 세션 SUM. 이후 라이브 턴 telemetry 가 누산.
+        ...(action.session.costUsd != null ? { sessionCostUsd: action.session.costUsd } : {}),
         // 0064 continuity — 파생 세션의 출처 배너 복원(fork/handoff 마커 + 부모 제목).
         ...(action.session.lineage
           ? action.session.lineage.relation === 'fork'

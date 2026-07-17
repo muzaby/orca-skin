@@ -1070,6 +1070,9 @@ export interface LoadedSession {
   // 세션 마지막 턴의 provider-reported 통계 — 컨텍스트 도넛/UsagePanel 을 세션 수명 동안
   // 복원(turn_usage 최신 행에서 재구성). 비용 집계는 원장 SUM 으로 별도(추후 usage 화면).
   lastTelemetry?: ProviderReportedTelemetry
+  // 이 세션에서만 발생한 비용 총합(USD, 추정치) — turn_usage 세션 SUM(0122 r2).
+  // 상태 팝오버 "이 세션에서 사용한 비용" 의 시드. 0 이면 생략.
+  costUsd?: number
   // sessions.provider_key — 마지막 사용 provider 기록. null 은 레거시/미매칭 fallback.
   providerKey?: string | null
   projectId?: string | null
