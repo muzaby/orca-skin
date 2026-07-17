@@ -105,3 +105,7 @@ $ node --test scripts/*.test.mjs  # tests 25 / pass 25 / fail 0
 - 시각 수렴: hover `bg-sidebar`→표준 `fill-uncontained-hover`, cursor pointer→default, 패딩 px-2→px-2.5. ModeMenu 2-스텝 위험 확인 로직 무변경.
 - 게이트(r4): typecheck:web 0 · lint 0 error(경고 1 = 기존) · renderer vitest 266/266.
 - 상태: **PASS 유지** (라운드 4). 사람 실기: composer 모델/작업량/권한모드 드롭다운 시각·동작(위험 모드 2-스텝 포함).
+
+## r5 부록 — 사용자 피드백 반영 검증 (2026-07-17)
+
+- F7: `danger-ghost` = `border border-t5`(contained 동일) + `bg-transparent` + `text-rust` + hover `bg-rust-soft` — EngineCard 편집/삭제 짝 외형 통일. 게이트(r5): typecheck:web 0 · lint 0 error · renderer vitest 266/266. 상태: **PASS 유지** (라운드 5).
