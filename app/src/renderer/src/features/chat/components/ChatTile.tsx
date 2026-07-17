@@ -12,7 +12,6 @@ interface ChatTileProps {
   backendLabel: string
   // 활성 백엔드의 중단 지원 여부(§15). page → ChatView 를 거쳐 Composer 로 전달.
   canAbort: boolean
-  costToday?: string
   // 사용량 한도 뷰모델·설정 이동 콜백 — page → ChatView 를 거쳐 Composer 도넛 팝오버로.
   usageLimits?: UsageLimitsView | null
   // providerKey = 도넛에서 현재 선택된 provider(있으면 그 서브탭으로, 없으면 전역 사용량 탭).
@@ -33,7 +32,6 @@ interface ChatTileProps {
 export function ChatTile({
   backendLabel,
   canAbort,
-  costToday,
   usageLimits,
   onOpenUsageSettings,
   initialDraft,
@@ -115,7 +113,6 @@ export function ChatTile({
             canAbort={canAbort}
             showScrollToBottom={showJump}
             onScrollToBottom={scrollToBottom}
-            costToday={costToday}
             usageLimits={usageLimits}
             onOpenUsageSettings={onOpenUsageSettings}
             initialDraft={initialDraft}

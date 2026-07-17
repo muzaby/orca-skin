@@ -157,3 +157,33 @@
     animation: none;
   }
 }
+
+/* 대화 길이 안내 pill 의 경고등 펄스(0122) — currentColor halo 가 퍼졌다 사라진다.
+   톤(warn=노랑/danger=빨강)은 부모의 text-warn/text-bad 가 currentColor 로 전파. */
+/* box-shadow 애니메이션이 ring 유틸(box-shadow 기반)을 대체하므로, 정적 halo(ring-4
+   ring-current/15 상당)를 각 키프레임에 첫 레이어로 유지하고 그 위에 펄스를 얹는다. */
+@keyframes status-beacon {
+  0% {
+    box-shadow:
+      0 0 0 4px color-mix(in srgb, currentcolor 15%, transparent),
+      0 0 0 0 color-mix(in srgb, currentcolor 45%, transparent);
+  }
+  70% {
+    box-shadow:
+      0 0 0 4px color-mix(in srgb, currentcolor 15%, transparent),
+      0 0 0 8px color-mix(in srgb, currentcolor 0%, transparent);
+  }
+  100% {
+    box-shadow:
+      0 0 0 4px color-mix(in srgb, currentcolor 15%, transparent),
+      0 0 0 0 color-mix(in srgb, currentcolor 0%, transparent);
+  }
+}
+@utility animate-status-beacon {
+  animation: status-beacon 1.6s ease-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-status-beacon {
+    animation: none;
+  }
+}

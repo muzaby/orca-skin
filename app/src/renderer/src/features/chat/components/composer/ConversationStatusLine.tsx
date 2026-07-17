@@ -31,7 +31,12 @@ export const ConversationStatusLine = forwardRef<HTMLButtonElement, Conversation
         aria-controls={popoverId}
         data-behavior="action:toggle-conversation-status"
       >
-        <span className="flex h-2 w-2 rounded-full bg-current ring-4 ring-current/15" aria-hidden />
+        {/* 경고등 펄스(0122) — 톤 currentColor 를 따라 warn=노랑/danger=빨강.
+            reduced-motion 에선 animation 이 꺼져 정적 ring-4 halo 로 폴백한다. */}
+        <span
+          className="flex h-2 w-2 rounded-full bg-current ring-4 ring-current/15 animate-status-beacon"
+          aria-hidden
+        />
         <span className="text-ink">{tr(model.labelKeys.pill)}</span>
         <span className="flex items-center gap-0.5 text-current">
           {tr(model.labelKeys.detail)}
