@@ -228,3 +228,33 @@
 | 게이트 결과 | lint 오류 0(기존 React Compiler 경고 1), typecheck node/web/test 통과, Vitest **942/942**, scripts **25/25**. 신규 의존성·IPC 채널·DB 변경 없음. |
 | 블로커 / 역질문 | 구현 블로커 없음. 실 Claude 동일-provider 모델 전환 와이어 로그와 CDP 시각 확인은 검증 책임으로 남김. |
 | 대상 커밋 | `4f1d4b4` |
+
+## [구현자 기입] r2 실환경 모델 전환 교정
+
+### 비판적 재검토
+
+- r1은 Claude SDK의 `setModel()` 성공 응답을 실제 추론 모델 전환의 보증으로 취급했다. 사용자가 제공한 실측에서는 Haiku 선택과 응답 문구에도 불구하고 root assistant telemetry가 Sonnet을 보고했으므로 이 전제는 폐기했다.
+- 모델과 effort를 채널 생성 시 고정되는 binding으로 승격했다. 둘 중 하나가 달라지면 기존 persistent channel을 teardown하고 동일 provider session을 resume하여 새 설정으로 spawn한다. permission은 SDK가 지원하는 live 변경으로 유지한다.
+- busy queue를 먼저 flush한 뒤 채널을 폐기하면 아직 소비되지 않은 입력을 잃을 수 있다. 따라서 마지막 메시지의 선택 스냅샷으로 경계를 판정하고 채널을 먼저 폐기한 뒤, queue를 `takeForRespawn()`으로 회수하여 마지막 메시지를 prompt, 앞선 메시지를 prelude로 재구성한다.
+- `modelUsage`의 첫 키는 과금 집계일 뿐 현재 root assistant의 실행 모델을 보장하지 않는다. root assistant `message.model`을 `telemetry.model`의 SSOT로 사용하고, child tool assistant 모델은 덮어쓰지 않으며 result 경계마다 상태를 초기화한다.
+- 요청 모델과 provider가 보고한 실제 모델이 다르면 응답은 그대로 보존하되 `model.mismatch` wire 진단을 남긴다. bare alias(`haiku`)와 full id(`claude-haiku-4-5-20251001`)는 같은 모델로 비교한다.
+
+### 구현 체크리스트 r2
+
+- [x] SDK live `setModel` 경로 제거
+- [x] model/effort 변경 시 teardown + 동일 세션 resume
+- [x] busy queue 회수 순서에서 메시지 유실 방지
+- [x] root assistant 실제 모델을 telemetry SSOT로 사용
+- [x] 요청/실행 모델 불일치 wire 경고
+- [x] 동일 binding 재사용·model/effort 변경 respawn·telemetry 매핑 단위 테스트
+- [ ] AC1 실 Claude Sonnet→Haiku 와이어 로그 재검증
+
+### 구현 보고 r2
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `session-runtime.ts`, `chat-turn.ts`, Claude adapter 계약/구현, `claude-map.ts`, `selection-boundary.ts`, `turn-coordinator.ts`, `ipc.ts` 및 관련 테스트 총 20개 파일 |
+| 실행 명령 | `npm run lint`; `npm run typecheck`; 관련 Vitest 10개 파일; `npm test`; `node --test scripts/*.test.mjs` |
+| 게이트 결과 | lint 오류 0(기존 React Compiler 경고 1), typecheck node/web/test 통과, 관련 Vitest **106/106**, scripts **25/25**. 전체 Vitest는 **911/949** 통과, 실패 38건은 모두 설치된 `better-sqlite3` Electron ABI 140과 Node ABI 127 불일치로 분리 확인했다. |
+| 블로커 / 검증 대기 | 구현 블로커 없음. 외부 API 비용이 드는 실 Claude Sonnet→Haiku 호출은 검증 턴에서 와이어 로그의 root assistant model과 telemetry model 일치를 확인해야 한다. |
+| 대상 커밋 | `d61c4e2` |
