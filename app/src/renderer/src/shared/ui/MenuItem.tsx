@@ -10,25 +10,42 @@ import { Icon, type IconName } from './Icon'
  */
 
 const BASE =
-  'flex w-full cursor-default select-none items-center gap-2 rounded-r4 border-0 bg-transparent px-2.5 py-1.5 text-left text-footnote outline-none hide-focus-ring ring-focus transition-colors disabled:cursor-not-allowed disabled:opacity-50'
+  'flex w-full cursor-default select-none gap-2 rounded-r4 border-0 bg-transparent px-2.5 py-1.5 text-left text-footnote outline-none hide-focus-ring ring-focus transition-colors disabled:cursor-not-allowed disabled:opacity-50'
 
 export interface MenuItemProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
   danger?: boolean
   /** 라벨 앞 글리프. */
   icon?: IconName
   iconSize?: number
+  /** 2줄(라벨+설명) 항목은 'start' — 글리프/내용을 상단 정렬한다. 기본 'center'. */
+  align?: 'center' | 'start'
   children?: ReactNode
 }
 
 export const MenuItem = forwardRef<HTMLButtonElement, MenuItemProps>(function MenuItem(
-  { danger = false, icon, iconSize = 14, children, className = '', type = 'button', ...rest },
+  {
+    danger = false,
+    icon,
+    iconSize = 14,
+    align = 'center',
+    children,
+    className = '',
+    type = 'button',
+    ...rest
+  },
   ref
 ) {
   const tone = danger
     ? 'text-rust enabled:hover:bg-rust-soft'
     : 'text-t8 enabled:hover:bg-fill-uncontained-hover'
+  const alignClass = align === 'start' ? 'items-start' : 'items-center'
   return (
-    <button ref={ref} type={type} className={`${BASE} ${tone} ${className}`} {...rest}>
+    <button
+      ref={ref}
+      type={type}
+      className={`${BASE} ${alignClass} ${tone} ${className}`}
+      {...rest}
+    >
       {icon && <Icon name={icon} size={iconSize} className="shrink-0" />}
       {children}
     </button>

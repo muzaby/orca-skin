@@ -3,7 +3,7 @@ import { useI18n } from '../../../../shared/i18n'
 import type { EffortLevel } from '../../../../../../shared/ipc'
 
 import { EFFORT_DESC_KEYS, EFFORT_LABEL_KEYS } from './effort'
-import { MENU_ITEM } from './menuItem'
+import { MenuItem } from '../../../../shared/ui/MenuItem'
 
 const EFFORT_OPTIONS: EffortLevel[] = ['low', 'medium', 'high', 'xhigh', 'max']
 
@@ -19,13 +19,12 @@ export function EffortMenu({ effort, onPick }: EffortMenuProps): React.JSX.Eleme
       {EFFORT_OPTIONS.map((level) => {
         const active = level === effort
         return (
-          <button
+          <MenuItem
             key={level}
-            type="button"
             role="menuitemradio"
             aria-checked={active}
+            align="start"
             onClick={() => onPick(level)}
-            className={MENU_ITEM}
           >
             <span className="min-w-0 flex-1">
               <span className="flex items-center gap-1.5 text-[13px] font-medium text-ink">
@@ -36,7 +35,7 @@ export function EffortMenu({ effort, onPick }: EffortMenuProps): React.JSX.Eleme
                 {tr(EFFORT_DESC_KEYS[level])}
               </span>
             </span>
-          </button>
+          </MenuItem>
         )
       })}
     </div>

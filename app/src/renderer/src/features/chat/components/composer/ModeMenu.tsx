@@ -3,7 +3,7 @@ import { Icon } from '../../../../shared/ui/Icon'
 import { useI18n } from '../../../../shared/i18n'
 import type { NormalizedPermissionMode } from '../../../../../../shared/permission-mode'
 import { MODE_OPTIONS } from './modes'
-import { MENU_ITEM } from './menuItem'
+import { MenuItem } from '../../../../shared/ui/MenuItem'
 
 interface ModeMenuProps {
   mode: NormalizedPermissionMode
@@ -31,15 +31,15 @@ export function ModeMenu({ mode, onPick }: ModeMenuProps): React.JSX.Element {
           onPick(opt.mode)
         }
         return (
-          <button
+          <MenuItem
             key={opt.mode}
-            type="button"
             role="menuitemradio"
             aria-checked={active}
+            icon={opt.icon}
+            iconSize={13}
+            align="start"
             onClick={handleClick}
-            className={MENU_ITEM}
           >
-            <Icon name={opt.icon} size={13} />
             <span className="min-w-0 flex-1">
               <span className="flex items-center gap-1.5 text-[13px] font-medium text-ink">
                 {tr(opt.labelKey)}
@@ -55,7 +55,7 @@ export function ModeMenu({ mode, onPick }: ModeMenuProps): React.JSX.Element {
                 </span>
               )}
             </span>
-          </button>
+          </MenuItem>
         )
       })}
     </div>
