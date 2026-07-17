@@ -32,8 +32,9 @@ interface ModalProps {
 }
 
 // 맞춤설정 추가 플로우(스킬 지침 작성 · 스킬 업로드 · 커스텀 커넥터 추가)가 공유하는
-// 모달 셸. AddMcpServerModal 의 fixed overlay 패턴을 일반화 — 백드롭/패널/타이틀/닫기 +
-// Esc·백드롭 클릭 닫기를 일괄 처리. 닫힌 상태는 null 반환(언마운트=폼 리셋).
+// 모달 셸. AddMcpServerModal 의 fixed overlay 패턴을 일반화 — 백드롭/패널/타이틀 +
+// Esc·백드롭 클릭 닫기를 일괄 처리. X 아이콘은 두지 않는다(0121 사용자 피드백 —
+// 닫기는 Esc·백드롭·footer 버튼). 닫힌 상태는 null 반환(언마운트=폼 리셋).
 export function Modal({
   open,
   title,
@@ -46,7 +47,6 @@ export function Modal({
   panelClassName,
   ariaLabel
 }: ModalProps): React.JSX.Element | null {
-  const { tr } = useI18n()
   useEscToClose(open && !busy, onClose)
 
   if (!open) return null
@@ -69,15 +69,6 @@ export function Modal({
           <div className="mb-4 flex items-center gap-2">
             <span className="font-serif text-[18px] font-semibold text-ink">{title}</span>
             {badge}
-            <Button
-              iconOnly
-              leadingIcon="x"
-              size="small"
-              onClick={onClose}
-              disabled={busy}
-              aria-label={tr('common.close')}
-              className="ml-auto text-ink3"
-            />
           </div>
         )}
 

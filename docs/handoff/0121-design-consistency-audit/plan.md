@@ -226,3 +226,14 @@
 | 게이트 결과 | lint ✅ 0 error(경고 1 = 0102 TanStack↔React Compiler 기존 베이스라인) / typecheck ✅ 3분할(node·web·test) / vitest ✅ **934/934** (122/123 파일 — `chat-turn.continuity` 1스위트 로드 실패는 electron 바이너리 egress 403 환경 베이스라인, 0119/0120 동일·본 변경 무관) + scripts `node --test` **25/25** |
 | 블로커 / 역질문 | 없음 (⚠️ 2건은 위 표 — 사용자 결정 대기이나 본 범위 비차단) |
 | 대상 커밋 | (기입) |
+
+---
+
+## [구현자 기입] 사용자 피드백 라운드 (r2)
+
+| # | 피드백 | 대응 |
+|---|---|---|
+| F1 | "설정 모달에서 종료 아이콘(×)이 상단 중앙에 노출된다. 일반적인 모달의 경우 × 아이콘은 필요없다" (라이브 세션, 2026-07-17) | ✅ 모달 크롬 × 전면 제거 — `Modal.tsx` 타이틀 크롬·`SettingsModal`(노출 버그 지점)·`UpdateDialog` 3곳. 닫기는 Esc·백드롭 클릭·footer 버튼으로 통일. dom-architecture §1.5 에 "모달 크롬에 X 아이콘을 두지 않는다" 명문화. 채팅 패널(Notice·ApprovalCard·RightPanelTile 등)의 × 는 모달이 아니라 유지 |
+| F1-원인 | × 가 상단 *중앙* 에 뜬 것은 r1 의 회귀 — 공용 `Button` 베이스의 `relative` 와 소비처가 얹은 `absolute` 가 같은 position 속성으로 충돌해 위치 지정이 무효화(스타일시트 순서 의존). × 제거로 해소되나, **교훈: Button 에 position 유틸을 className 으로 덮지 말 것**(필요하면 래퍼 div 로 배치) | 기록 |
+
+- r2 게이트: typecheck:web 0 · lint 0 error(경고 1 = 기존 베이스라인) · renderer vitest 266/266.

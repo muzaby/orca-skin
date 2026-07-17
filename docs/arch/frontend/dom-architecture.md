@@ -116,7 +116,7 @@ resize-handle 은 `aside` 형제가 아니라 **자식**으로 둔다.
 - backdrop 시각 (blur + dim) 은 overlay element 의 stable 스타일 — z 가 음수일 때는 어차피 안 보이므로 별도 토글 불요.
 - **슬롯 계열** modal 컴포넌트는 자체 `fixed inset-0` backdrop 을 갖지 않는다 — backdrop 은 `#app-frame-overlay` 가 단독 담당. panel 만 `grid place-items-center` 로 중앙 배치.
 - **공용 Modal 계열**은 슬롯을 거치지 않고 body 포털 + 자체 backdrop(z-50)으로 뜬다 — 슬롯 backdrop 과 이중 적용되지 않도록 **한 모달이 두 계열에 동시에 속하는 것을 금지**한다 (0121 에서 UpdateDialog 이중 backdrop 버그 해소).
-- 닫기 UX 표준: Esc + 백드롭 클릭 (공용 Modal 내장, 슬롯 계열은 `useEscToClose` + 래퍼 클릭 가드). 진행 중(busy — 설치/다운로드)에는 닫기를 차단한다.
+- 닫기 UX 표준: Esc + 백드롭 클릭 (공용 Modal 내장, 슬롯 계열은 `useEscToClose` + 래퍼 클릭 가드). 진행 중(busy — 설치/다운로드)에는 닫기를 차단한다. **모달 크롬에 X 닫기 아이콘은 두지 않는다** (0121 사용자 피드백 — 닫기는 Esc·백드롭·footer 버튼으로 충분).
 
 ### 1.6 data-\* 마커 카탈로그 (현재 사용)
 

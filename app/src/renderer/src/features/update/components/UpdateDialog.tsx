@@ -76,16 +76,6 @@ export function UpdateDialog({ open }: { open: boolean }): React.JSX.Element | n
             {STATUS_KEY[state.status] ? tr(STATUS_KEY[state.status]) : tr('update.statusFallback')}
           </p>
         </div>
-        {!busy && (
-          <Button
-            iconOnly
-            leadingIcon="x"
-            size="small"
-            onClick={updateActions.closeDialog}
-            aria-label={tr('common.close')}
-            className="text-ink3"
-          />
-        )}
       </div>
       <div className="grid gap-3 rounded-r5 border border-border bg-bg p-3 text-[12.5px]">
         <div className="flex items-center justify-between gap-4">
