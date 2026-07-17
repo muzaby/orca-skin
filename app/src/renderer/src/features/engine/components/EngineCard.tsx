@@ -1,4 +1,6 @@
 import type { AgentEnvironment } from '../../../../../shared/ipc'
+import { Button } from '../../../shared/ui/Button'
+import { useI18n } from '../../../shared/i18n'
 import { EngineModelList } from './EngineModelList'
 
 interface EngineCardProps {
@@ -14,6 +16,7 @@ export function EngineCard({
   onEdit,
   onDelete
 }: EngineCardProps): React.JSX.Element {
+  const { tr } = useI18n()
   const canMutate = agent.adapter === 'claude'
   return (
     <div className="rounded-xl border border-border bg-panel px-4 py-3.5">
@@ -24,28 +27,28 @@ export function EngineCard({
             <span className="text-[11px] text-ink3">{agent.provider ?? 'default'}</span>
             {!agent.supported && (
               <span className="rounded-sm bg-bg2 px-1.5 py-px text-[10px] font-semibold tracking-[0.04em] text-ink3">
-                미지원 adapter
+                {tr('engine.card.unsupportedAdapter')}
               </span>
             )}
           </div>
           <div className="mt-0.5 font-mono text-[11px] text-ink3">{agent.key}</div>
         </div>
-        <button
-          type="button"
+        <Button
+          variant="contained"
+          size="small"
           disabled={!canMutate || busy}
           onClick={() => onEdit(agent)}
-          className="rounded-lg border border-border px-3 py-1.5 text-[12.5px] font-medium text-ink hover:border-border-strong hover:bg-sidebar disabled:cursor-not-allowed disabled:opacity-40"
         >
-          편집
-        </button>
-        <button
-          type="button"
+          {tr('common.edit')}
+        </Button>
+        <Button
+          variant="danger"
+          size="small"
           disabled={!canMutate || busy}
           onClick={() => onDelete(agent)}
-          className="rounded-lg border border-border px-3 py-1.5 text-[12.5px] font-medium text-rust hover:bg-rust-soft disabled:cursor-not-allowed disabled:opacity-40"
         >
-          삭제
-        </button>
+          {tr('common.delete')}
+        </Button>
       </div>
       <EngineModelList models={agent.models} />
     </div>

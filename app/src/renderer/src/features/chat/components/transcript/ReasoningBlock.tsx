@@ -1,6 +1,7 @@
 import { memo } from 'react'
 import { Markdown } from '../../../../shared/ui/markdown/Markdown'
 import { StreamingMarkdown } from '../markdown/StreamingMarkdown'
+import { useI18n } from '../../../../shared/i18n'
 import type { ReasoningItem } from '../../lib/parts'
 
 interface ReasoningBlockProps {
@@ -21,6 +22,7 @@ export const ReasoningBlock = memo(function ReasoningBlock({
   defaultOpen,
   streaming
 }: ReasoningBlockProps): React.JSX.Element | null {
+  const { tr } = useI18n()
   if (items.length === 0) return null
   const source = items.map((i) => i.text).join('\n\n')
   if (source.trim() === '') return null // 내용이 비면 빈 카드를 그리지 않는다(방어)
@@ -30,7 +32,7 @@ export const ReasoningBlock = memo(function ReasoningBlock({
       className="group/reasoning rounded-r6 border border-border bg-bg2 px-p5 py-p4 text-[13px] text-ink2"
     >
       <summary className="cursor-pointer select-none list-none font-mono text-[11px] uppercase tracking-[0.04em] text-ink3">
-        사고 과정
+        {tr('chat.transcript.reasoning')}
       </summary>
       <div className="mt-p3 leading-[1.6] text-ink2">
         {streaming ? <StreamingMarkdown source={source} /> : <Markdown source={source} />}

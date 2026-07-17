@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Button } from '../../../shared/ui/Button'
 import { Icon } from '../../../shared/ui/Icon'
 import { CreateProjectModal } from './CreateProjectModal'
 import { formatRelativeDay, useI18n } from '../../../shared/i18n'
@@ -29,12 +30,15 @@ export function ProjectsScreen({
         <span className="text-[13px] text-ink3">
           {loading ? tr('common.loading') : tr('common.count', { count: projects.length })}
         </span>
-        <button
+        <Button
+          variant="primary"
+          size="small"
+          leadingIcon="plus"
+          className="ml-auto"
           onClick={() => setCreateOpen(true)}
-          className="ml-auto inline-flex cursor-pointer items-center gap-1.5 rounded-lg border-0 bg-ink px-3.5 py-[7px] text-[12.5px] font-medium text-bg"
         >
-          <Icon name="plus" size={13} /> {tr('projects.newProject')}
-        </button>
+          {tr('projects.newProject')}
+        </Button>
       </div>
       <p className="mb-[22px] mt-1.5 text-[13.5px] text-ink2">{tr('projects.blurb')}</p>
 
@@ -97,12 +101,9 @@ function EmptyState({ onCreate }: { onCreate: () => void }): React.JSX.Element {
         {tr('projects.emptyTitle')}
       </div>
       <div className="mt-1.5 text-[12.5px] leading-[1.6] text-ink2">{tr('projects.emptyDesc')}</div>
-      <button
-        onClick={onCreate}
-        className="mt-4 inline-flex cursor-pointer items-center gap-1.5 rounded-lg border-0 bg-ink px-3.5 py-[7px] text-[12.5px] font-medium text-bg"
-      >
-        <Icon name="plus" size={13} /> {tr('projects.createFirst')}
-      </button>
+      <Button variant="primary" size="small" leadingIcon="plus" className="mt-4" onClick={onCreate}>
+        {tr('projects.createFirst')}
+      </Button>
     </div>
   )
 }

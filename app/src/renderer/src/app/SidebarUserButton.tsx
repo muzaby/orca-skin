@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { MenuItem } from '../shared/ui/MenuItem'
 import { Popover } from '../shared/ui/Popover'
 import { Icon } from '../shared/ui/Icon'
 import { useTweakContext } from '../shared/theme'
@@ -13,9 +14,6 @@ const LANGUAGES: { value: UiLocale; label: string }[] = [
   { value: 'en', label: 'English (United States)' },
   { value: 'ko', label: '한국어 (대한민국)' }
 ]
-
-const MENU_ITEM =
-  'flex w-full items-center gap-2 rounded-md border-0 bg-transparent px-2.5 py-1.5 text-left text-[12.5px] text-ink hover:bg-sidebar'
 
 // 사이드바 footer 의 사용자 버튼(app 레이어 조립 — 로그인 스토어[features/login] +
 // 설정 모달[features/settings] 를 함께 참조하므로 교차-feature 회피 위해 여기 둔다).
@@ -73,35 +71,32 @@ export function SidebarUserButton(): React.JSX.Element {
         <div className="my-1 border-t border-border" />
 
         {/* 설정 */}
-        <button
-          type="button"
+        <MenuItem
           role="menuitem"
+          icon="settings"
           onClick={() => {
             closeMenu()
             showSettings('general')
           }}
-          className={MENU_ITEM}
         >
-          <Icon name="settings" size={14} />
           <span>{tr('userMenu.settings')}</span>
-        </button>
+        </MenuItem>
 
         {/* 언어 — 클릭 시 우측으로 확장되는 플라이아웃 팝오버(서브메뉴).
             부모 팝오버 패널 내부에 absolute left-full 로 두어 부모 dismiss 트리에
             함께 묶는다(패널 밖 클릭만 닫힘). */}
         <div className="relative">
-          <button
-            type="button"
+          <MenuItem
             role="menuitem"
             aria-haspopup="menu"
             aria-expanded={langOpen}
+            icon="globe"
             onClick={() => setLangOpen((v) => !v)}
-            className={`${MENU_ITEM} ${langOpen ? 'bg-sidebar text-ink' : ''}`}
+            className={langOpen ? 'bg-fill-uncontained-active' : ''}
           >
-            <Icon name="globe" size={14} />
             <span className="flex-1">{tr('userMenu.language')}</span>
             <Icon name="chevR" size={13} />
-          </button>
+          </MenuItem>
           {langOpen && (
             <div
               role="menu"
@@ -114,20 +109,18 @@ export function SidebarUserButton(): React.JSX.Element {
               {LANGUAGES.map((lang) => {
                 const active = t.uiLocale === lang.value
                 return (
-                  <button
+                  <MenuItem
                     key={lang.value}
-                    type="button"
                     role="menuitemradio"
                     aria-checked={active}
                     onClick={() => {
                       setTweak('uiLocale', lang.value)
                       closeMenu()
                     }}
-                    className="flex w-full cursor-pointer items-center gap-2 rounded-md border-0 bg-transparent px-2.5 py-1.5 text-left text-[12.5px] text-ink hover:bg-sidebar"
                   >
                     <span className="flex-1">{lang.label}</span>
                     {active && <Icon name="check" size={13} />}
-                  </button>
+                  </MenuItem>
                 )
               })}
             </div>

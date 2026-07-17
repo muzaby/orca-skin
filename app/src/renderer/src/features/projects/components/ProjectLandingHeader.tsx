@@ -19,7 +19,7 @@ export function ProjectLandingHeader({ onBack }: ProjectLandingHeaderProps): Rea
       <button
         onClick={onBack}
         aria-label={tr('projects.landingHeader.backAria')}
-        className="flex cursor-pointer items-center gap-1 rounded-md border-0 bg-transparent px-1.5 py-1 text-[12px] text-ink2 transition-colors duration-150 hover:bg-panel/60 hover:text-ink focus-visible:ring-2 focus-visible:ring-rust focus-visible:ring-offset-1 focus-visible:outline-none"
+        className="flex cursor-pointer items-center gap-1 rounded-md border-0 bg-transparent px-1.5 py-1 text-[12px] text-ink2 transition-colors duration-150 hover:bg-panel/60 hover:text-ink outline-none hide-focus-ring ring-focus"
       >
         <Icon name="chevR" size={12} style={{ transform: 'rotate(180deg)' }} />
         {tr('projects.landingHeader.all')}

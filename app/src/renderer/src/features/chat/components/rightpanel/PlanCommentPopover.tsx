@@ -6,7 +6,7 @@ import {
   type CSSProperties,
   type KeyboardEvent as ReactKeyboardEvent
 } from 'react'
-import { Icon } from '../../../../shared/ui/Icon'
+import { Button } from '../../../../shared/ui/Button'
 import { quoteSnippet } from '../../lib/planComments'
 import { useI18n } from '../../../../shared/i18n'
 
@@ -116,7 +116,7 @@ export function PlanCommentPopover({
         mode === 'create' ? 'chat.rightpanel.commentCreateAria' : 'chat.rightpanel.commentEditAria',
         { quote: quoteSnippet(quote, 120) }
       )}
-      className="absolute z-50 overflow-hidden rounded-r6 border border-border bg-white shadow-[0_8px_24px_rgba(0,0,0,.16)]"
+      className="absolute z-50 overflow-hidden rounded-r6 border border-border bg-panel shadow-[0_8px_24px_rgba(0,0,0,.16)]"
       style={style}
       data-context="floating"
       data-behavior="dismissible"
@@ -129,30 +129,19 @@ export function PlanCommentPopover({
         rows={1}
         placeholder={tr('chat.rightpanel.commentPlaceholder')}
         aria-label={tr('chat.rightpanel.commentInputAria')}
-        className="block max-h-48 min-h-12 w-full resize-none overflow-hidden border-0 bg-white px-3 py-2.5 text-footnote text-t9 outline-none ring-0 placeholder:text-t6 focus:ring-0"
+        className="block max-h-48 min-h-12 w-full resize-none overflow-hidden border-0 bg-panel px-3 py-2.5 text-footnote text-t9 outline-none ring-0 placeholder:text-t6 focus:ring-0"
       />
       <div className="flex items-center justify-between border-t border-border px-3 py-2">
         {mode === 'edit' && onDelete ? (
-          <button
-            type="button"
-            onClick={onDelete}
-            className="inline-flex cursor-default items-center gap-1 rounded-r4 border-0 bg-transparent px-1 py-0.5 text-footnote text-t7 outline-none hover:text-t9"
-          >
-            <Icon name="trash" size={15} />
+          <Button size="small" leadingIcon="trash" onClick={onDelete}>
             {tr('common.delete')}
-          </button>
+          </Button>
         ) : (
           <span />
         )}
-        <button
-          type="button"
-          onClick={submit}
-          disabled={!canSave}
-          className="inline-flex cursor-default items-center gap-1 rounded-r5 border-0 bg-ink px-3 py-1.5 text-footnote font-medium text-bg outline-none disabled:opacity-40"
-        >
+        <Button variant="primary" size="small" onClick={submit} disabled={!canSave} kbd="↩">
           {tr('chat.rightpanel.commentSubmit')}
-          <span className="text-caption opacity-70">↩</span>
-        </button>
+        </Button>
       </div>
     </div>
   )

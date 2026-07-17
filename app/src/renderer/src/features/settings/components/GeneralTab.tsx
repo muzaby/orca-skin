@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useTweakContext } from '../../../shared/theme'
 import { settingsApi } from '../../../shared/api/ipc'
+import { Button } from '../../../shared/ui/Button'
 import { Icon } from '../../../shared/ui/Icon'
 import { Toggle } from '../../../shared/ui/Toggle'
 import { AutoGrowTextarea } from '../../../shared/ui/AutoGrowTextarea'
@@ -71,20 +72,12 @@ export function GeneralTab(): React.JSX.Element {
           />
           {dirty && (
             <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => setDraft(saved)}
-                className="cursor-pointer rounded-r4 border border-border bg-transparent px-3.5 py-1.5 text-[12.5px] font-medium text-ink hover:bg-fill-uncontained-hover"
-              >
+              <Button variant="contained" size="small" onClick={() => setDraft(saved)}>
                 {tr('common.cancel')}
-              </button>
-              <button
-                type="button"
-                onClick={onSave}
-                className="cursor-pointer rounded-r4 border-0 bg-ink px-3.5 py-1.5 text-[12.5px] font-medium text-bg hover:bg-t8"
-              >
+              </Button>
+              <Button variant="primary" size="small" onClick={onSave}>
                 {tr('common.save')}
-              </button>
+              </Button>
             </div>
           )}
         </SettingsRow>

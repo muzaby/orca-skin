@@ -3,6 +3,7 @@
 
 import { useState } from 'react'
 import type { UsageLimitsView, UsageLimitBar } from '../../../../../shared/usage/limits'
+import { Button } from '../../../shared/ui/Button'
 import { Icon } from '../../../shared/ui/Icon'
 import { Meter } from '../../../shared/ui/Meter'
 import { formatResetLabel, useI18n } from '../../../shared/i18n'
@@ -102,21 +103,12 @@ export function LimitEditor({
       <p className="text-[12px] text-ink3">{tr('usage.appliesImmediately')}</p>
 
       <div className="flex justify-end gap-2">
-        <button
-          type="button"
-          onClick={() => onSave(null)}
-          className="cursor-pointer rounded-r4 border border-border bg-transparent px-3.5 py-1.5 text-[12.5px] font-medium text-ink hover:bg-fill-uncontained-hover"
-        >
+        <Button variant="contained" size="small" onClick={() => onSave(null)}>
           {tr('usage.setUnlimited')}
-        </button>
-        <button
-          type="button"
-          disabled={!valid}
-          onClick={() => onSave(parsed)}
-          className="cursor-pointer rounded-r4 border-0 bg-ink px-3.5 py-1.5 text-[12.5px] font-medium text-bg hover:bg-t8 disabled:cursor-not-allowed disabled:opacity-40"
-        >
+        </Button>
+        <Button variant="primary" size="small" disabled={!valid} onClick={() => onSave(parsed)}>
           {tr('usage.setLimit')}
-        </button>
+        </Button>
       </div>
     </div>
   )

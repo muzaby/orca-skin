@@ -1,5 +1,6 @@
 import { memo } from 'react'
 import { chatActions, type PendingSteerState } from '../../store/chatStore'
+import { useI18n } from '../../../../shared/i18n'
 import { UserBubbleText } from '../UserBubbleText'
 
 interface PendingSteerTurnProps {
@@ -14,6 +15,7 @@ export const PendingSteerTurn = memo(function PendingSteerTurn({
   items,
   onRestoreDraft
 }: PendingSteerTurnProps): React.JSX.Element | null {
+  const { tr } = useI18n()
   if (items.length === 0) return null
   return (
     <div className="group/msg flex flex-col items-end gap-[var(--chat-item-gap)]">
@@ -27,7 +29,7 @@ export const PendingSteerTurn = memo(function PendingSteerTurn({
               if (restored) onRestoreDraft?.(restored)
             }}
           >
-            취소
+            {tr('common.cancel')}
           </button>
           <UserBubbleText
             data-state="pending-steer"

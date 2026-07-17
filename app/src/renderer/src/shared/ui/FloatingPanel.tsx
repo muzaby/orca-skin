@@ -1,4 +1,5 @@
 import { useRef, useState, type ReactNode } from 'react'
+import { useI18n } from '../i18n'
 
 interface ChoiceOption<V> {
   value: V
@@ -18,6 +19,7 @@ const PANEL_CLASS =
   'font-sans text-[11.5px] leading-[1.4]'
 
 export function FloatingPanel({ title, children }: FloatingPanelProps): React.JSX.Element {
+  const { tr } = useI18n()
   const [open, setOpen] = useState(true)
   const dragRef = useRef<HTMLDivElement | null>(null)
   const offsetRef = useRef({ x: 16, y: 16 })
@@ -68,7 +70,7 @@ export function FloatingPanel({ title, children }: FloatingPanelProps): React.JS
         <b className="text-[12px] font-semibold tracking-[0.01em]">{title}</b>
         <button
           className="h-[22px] w-[22px] cursor-default appearance-none rounded-md border-0 bg-transparent text-[13px] leading-none text-floating-panel-muted hover:bg-floating-panel-control-hover hover:text-floating-panel-text"
-          aria-label="Close tweaks"
+          aria-label={tr('debug.closeTweaks')}
           onMouseDown={(e) => e.stopPropagation()}
           onClick={() => setOpen(false)}
         >

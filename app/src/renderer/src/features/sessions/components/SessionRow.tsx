@@ -1,5 +1,6 @@
 import { memo, useRef, useState } from 'react'
 import { Icon } from '../../../shared/ui/Icon'
+import { MenuItem } from '../../../shared/ui/MenuItem'
 import { Popover } from '../../../shared/ui/Popover'
 import { RenameInput } from '../../../shared/ui/RenameInput'
 import { openConfirmDialog } from '../../../shared/ui/confirmDialogStore'
@@ -127,23 +128,24 @@ export const SessionRow = memo(function SessionRow({
           <Popover open={menuOpen} anchorRef={kebabRef} onClose={() => setMenuOpen(false)}>
             <div role="menu" className="flex w-[140px] flex-col py-1">
               {renameable && (
-                <button
-                  type="button"
+                <MenuItem
                   role="menuitem"
+                  icon="edit"
+                  iconSize={12}
                   onClick={(e) => {
                     e.stopPropagation()
                     startRename()
                   }}
-                  className="flex cursor-pointer items-center gap-2 border-0 bg-transparent px-2.5 py-1.5 text-left text-[12.5px] text-ink hover:bg-sidebar"
                 >
-                  <Icon name="edit" size={12} />
                   <span>{tr('common.rename')}</span>
-                </button>
+                </MenuItem>
               )}
               {onDelete != null && (
-                <button
-                  type="button"
+                <MenuItem
                   role="menuitem"
+                  danger
+                  icon="trash"
+                  iconSize={12}
                   onClick={(e) => {
                     e.stopPropagation()
                     setMenuOpen(false)
@@ -155,11 +157,9 @@ export const SessionRow = memo(function SessionRow({
                       onConfirm: () => onDelete(session.id)
                     })
                   }}
-                  className="flex cursor-pointer items-center gap-2 border-0 bg-transparent px-2.5 py-1.5 text-left text-[12.5px] text-rust hover:bg-rust-soft"
                 >
-                  <Icon name="trash" size={12} />
                   <span>{tr('common.delete')}</span>
-                </button>
+                </MenuItem>
               )}
             </div>
           </Popover>

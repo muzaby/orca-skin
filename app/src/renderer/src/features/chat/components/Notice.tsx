@@ -1,3 +1,4 @@
+import { Button } from '../../../shared/ui/Button'
 import { Icon, type IconName } from '../../../shared/ui/Icon'
 import { useI18n } from '../../../shared/i18n'
 
@@ -25,14 +26,14 @@ export function Notice({
         {children && <div className="text-ink2">{children}</div>}
       </div>
       {onClose && (
-        <button
-          type="button"
+        <Button
+          iconOnly
+          leadingIcon="x"
+          size="small"
           onClick={onClose}
           aria-label={tr('common.close')}
-          className="ml-auto -mt-0.5 grid h-6 w-6 shrink-0 cursor-pointer place-items-center rounded-r4 border-0 bg-transparent text-ink3 hover:bg-fill-uncontained-hover hover:text-ink2"
-        >
-          <Icon name="x" size={14} />
-        </button>
+          className="ml-auto -mt-1 shrink-0 text-ink3"
+        />
       )}
     </div>
   )

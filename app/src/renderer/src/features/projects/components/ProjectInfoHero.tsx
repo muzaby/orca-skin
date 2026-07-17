@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
-import { Icon } from '../../../shared/ui/Icon'
+import { Button } from '../../../shared/ui/Button'
+import { MenuItem } from '../../../shared/ui/MenuItem'
 import { Popover } from '../../../shared/ui/Popover'
 import { formatDateLong, useI18n } from '../../../shared/i18n'
 import { useProjectsState } from '../store/projectsStore'
@@ -7,11 +8,6 @@ import { useProjectsState } from '../store/projectsStore'
 interface ProjectInfoHeroProps {
   projectId: string
 }
-
-const ACTION_BTN =
-  'grid h-7 w-7 cursor-pointer place-items-center rounded-md border-0 bg-transparent text-ink3 hover:bg-fill-uncontained-hover hover:text-ink'
-const MENU_ITEM =
-  'flex cursor-pointer items-center gap-2 border-0 bg-transparent px-2.5 py-1.5 text-left text-[12.5px]'
 
 // LEFT 컬럼 상단 hero — 프로젝트 제목 + 지침 preview(line-clamp-2) + 업데이트
 // 메타. 제목 라인 우측에 핀 + 케밥 메뉴(세부사항 수정 / 삭제). 케밥 메뉴 동작은
@@ -39,25 +35,25 @@ export function ProjectInfoHero({ projectId }: ProjectInfoHeroProps): React.JSX.
           {project.name}
         </h1>
         <div className="ml-auto flex shrink-0 items-center gap-0.5">
-          <button
-            className={ACTION_BTN}
+          <Button
+            iconOnly
+            leadingIcon="pin"
+            size="small"
             title={tr('projects.hero.pin')}
             aria-label={tr('projects.hero.pinAria')}
-          >
-            <Icon name="pin" size={15} />
-          </button>
-          <button
+          />
+          <Button
             ref={kebabRef}
-            type="button"
+            iconOnly
+            leadingIcon="kebab"
+            size="small"
             onClick={() => setMenuOpen((v) => !v)}
-            className={ACTION_BTN}
             title={tr('common.more')}
             aria-label={tr('projects.hero.menuAria')}
             aria-haspopup="menu"
             aria-expanded={menuOpen}
-          >
-            <Icon name="kebab" size={15} />
-          </button>
+            pressed={menuOpen}
+          />
           <Popover
             open={menuOpen}
             anchorRef={kebabRef}
@@ -66,24 +62,23 @@ export function ProjectInfoHero({ projectId }: ProjectInfoHeroProps): React.JSX.
             align="end"
           >
             <div role="menu" className="flex w-[180px] flex-col py-1">
-              <button
-                type="button"
+              <MenuItem
                 role="menuitem"
+                icon="edit"
+                iconSize={13}
                 onClick={() => setMenuOpen(false)}
-                className={`${MENU_ITEM} text-ink hover:bg-fill-uncontained-hover`}
               >
-                <Icon name="edit" size={13} />
                 <span>{tr('projects.hero.editDetails')}</span>
-              </button>
-              <button
-                type="button"
+              </MenuItem>
+              <MenuItem
                 role="menuitem"
+                danger
+                icon="trash"
+                iconSize={13}
                 onClick={() => setMenuOpen(false)}
-                className={`${MENU_ITEM} text-rust hover:bg-rust-soft`}
               >
-                <Icon name="trash" size={13} />
                 <span>{tr('common.delete')}</span>
-              </button>
+              </MenuItem>
             </div>
           </Popover>
         </div>

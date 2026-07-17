@@ -11,6 +11,7 @@ export const ko = {
     unknown: '알 수 없음',
     confirm: '확인',
     delete: '삭제',
+    edit: '편집',
     rename: '이름 변경',
     more: '더 보기',
     copied: '복사됨',
@@ -67,7 +68,17 @@ export const ko = {
     deleteDialogMessage: '이 대화를 삭제하시겠습니까?',
     menuAria: '세션 메뉴',
     renameAria: '세션 제목 편집',
-    empty: '아직 저장된 대화가 없습니다.'
+    empty: '아직 저장된 대화가 없습니다.',
+    projectEmpty: '아직 이 프로젝트에 속한 대화가 없습니다. 위 입력창에서 첫 메시지를 보내보세요.'
+  },
+  window: {
+    minimize: '최소화',
+    maximize: '최대화',
+    close: '창 닫기'
+  },
+  captures: {
+    title: '캡처 히스토리 & AI 분석',
+    body: '준비 중입니다. 캡처 RAW 보관, 채널별 메트릭, ColorChecker / SFR / ΔE 자동 분석, Claude의 분석 코멘트는 다음 단계에서 제공됩니다.'
   },
   skills: {
     listTitle: '스킬',
@@ -98,6 +109,7 @@ export const ko = {
       lastUpdated: '마지막 업데이트',
       noBody: '본문이 없습니다.',
       markdownAria: '마크다운',
+      plainTextAria: '텍스트 원문',
       removeTitle: '스킬 제거',
       removeConfirmBody:
         '이 작업은 Orca 스킬 sources에서 다음 폴더를 제거합니다. 계속하려면 한 번 더 확인하세요.'
@@ -150,6 +162,7 @@ export const ko = {
       name: '이름',
       namePlaceholder: '예: github',
       nameFormatError: '영숫자 · _ · - 만 사용할 수 있습니다.',
+      bearerNote: 'Authorization: Bearer 헤더로 전송됩니다.',
       descOptional: '설명 (선택)',
       descPlaceholder: '이 서버가 제공하는 도구 설명',
       transport: '전송 방식',
@@ -198,8 +211,16 @@ export const ko = {
       editDetails: '세부사항 수정',
       updated: '업데이트'
     },
-    filesCard: { title: '파일', addTitle: '파일 추가 (준비 중)' },
-    instructionsCard: { title: '지침', editTitle: '지침 편집' },
+    filesCard: {
+      title: '파일',
+      addTitle: '파일 추가 (준비 중)',
+      emptyHint: '이 프로젝트에서 참조할 PDF, 문서, 폴더 또는 기타 텍스트를 추가하세요.'
+    },
+    instructionsCard: {
+      title: '지침',
+      editTitle: '지침 편집',
+      emptyHint: '응답을 맞춤화하는 지침을 추가하세요.'
+    },
     sessionsPanel: { title: '이 프로젝트의 대화' },
     landingHeader: {
       navAria: '프로젝트 탐색',
@@ -215,6 +236,7 @@ export const ko = {
       '<c>~/.config/orca/sources/settings</c> 의 provider settings 를 기반으로 Composer 모델 메뉴가 구성됩니다. 편집 후 앱 재시작 없이 모델 메뉴가 갱신됩니다.',
     emptyState: '등록된 provider 가 없습니다. 엔진 추가 버튼으로 claude provider 를 생성하세요.',
     deleteConfirm: '{{name}} provider 를 삭제할까요?',
+    card: { unsupportedAdapter: '미지원 adapter' },
     readSettingsFailed: '설정을 불러오지 못했어요.',
     sdkDefaultModel: 'SDK 기본',
     provider: {
@@ -308,6 +330,7 @@ export const ko = {
   },
   debug: {
     title: '디버그',
+    closeTweaks: 'Tweaks 닫기',
     mockMode: 'Mock 모드',
     scenario: '시나리오',
     contextUsage: '컨텍스트 사용량',
@@ -386,6 +409,9 @@ export const ko = {
       roleUser: '사용자'
     },
     transcript: {
+      reasoning: '사고 과정',
+      structuredOutput: '구조화 출력',
+      incompleteResponse: '응답이 완료되지 않았습니다',
       loading: '대화 불러오는 중…',
       emptyPrompt: 'Claude Code 에 첫 메시지를 보내보세요.',
       lineageFork: '이 세션은 <hl>‘{{label}}’</hl>에서 분기되었습니다',

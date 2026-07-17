@@ -1,7 +1,7 @@
 # Frontend Architecture — DOM Architecture (마커 체계·z-stack·titlebar)
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-07-10 (handoff 0094 — 테마 2종·modal/debug 슬롯 children 동기화)
+> 최종 업데이트: 2026-07-17 (handoff 0121 — 모달 2원 마운트 구조 명시·backdrop 단일 소스(`MODAL_BACKDROP_CLASS`)·전 모달 blur 통일·UpdateDialog 슬롯→공용 Modal 이관)
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [layers.md](./layers.md), [ux-domains.md](./ux-domains.md)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 
@@ -57,8 +57,8 @@ html[data-theme][data-platform]
             │                   └── .app-frame-composer-controls
             │                       └── .app-frame-composer-repo  [data-behavior="dismissible"]
             │
-            ├── #app-frame-overlay   z=-10 ↔ 10           (modal backdrop: blur + dim + pointer block)
-            ├── #app-frame-modal     z=-20 ↔ 20           (focus-trap 컨테이너 — InstallerDialog · AuthExpiredModal · SearchModal · UpdateDialog · ConfirmDialogHost)
+            ├── #app-frame-overlay   z=-10 ↔ 10           (슬롯 계열 modal backdrop: blur + dim + pointer block)
+            ├── #app-frame-modal     z=-20 ↔ 20           (focus-trap 컨테이너 — InstallerDialog · AuthExpiredModal · SearchModal)
             └── #app-frame-debug     z=30                 (DebugPanel 등 개발 보조 floating UI)
 ```
 
@@ -93,21 +93,30 @@ resize-handle 은 `aside` 형제가 아니라 **자식**으로 둔다.
 
 ### 1.5 Overlay / Modal / Debug 슬롯 규칙
 
-`#app-frame-overlay` 는 **modal backdrop 전용**이며, modal 활성 시에만 떠올라야 한다. visibility 토글은 **z 부호 반전**으로 한다.
+모달 마운트는 **2원 구조**다 (handoff 0121 — 코드 승격으로 개정, 사용자 결정):
+
+1. **슬롯 계열** — `#app-frame-overlay`(backdrop) + `#app-frame-modal`(패널) z-부호 반전 체계. 셸 수준 상태(설치 필요·인증 만료·전역 검색)가 소유하는 3종: `InstallerDialog` · `AuthExpiredModal` · `SearchModal`.
+2. **공용 Modal 계열 (표준 셸)** — `shared/ui/Modal.tsx` 가 `document.body` 포털 + **자체 backdrop** + Esc/백드롭 클릭 닫기 + 패널 크롬(rounded-r6 · border-border · bg-panel · shadow-xl · serif 18px 타이틀)을 일괄 제공. Settings · 프로젝트 생성/지침 · 스킬 3종 · MCP 추가 · `UpdateDialog`(0121 에서 슬롯→Modal 이관) · `EngineFormModal`(0121 흡수) · `ConfirmDialogHost` · About(버전). **새 모달은 이 계열이 기본값.**
+
+두 계열 모두 backdrop 시각은 단일 소스 **`MODAL_BACKDROP_CLASS`**(`shared/ui/Modal.tsx` export, `bg-black/40 backdrop-blur-sm` — 전 모달 blur 통일, 0121 사용자 결정)를 공유한다.
+
+`#app-frame-overlay` 는 **슬롯 계열 modal backdrop 전용**이며, 슬롯 modal 활성 시에만 떠올라야 한다. visibility 토글은 **z 부호 반전**으로 한다.
 
 | 슬롯                 | 평소 z      | modal 활성 시 z | 역할                                                                                                                 | children                                      |
 | -------------------- | ----------- | --------------- | -------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| `#app-frame-overlay` | `-10`       | `10`            | backdrop (`bg-black/40 backdrop-blur-sm`). 평소엔 body 뒤로 깔려 보이지도 클릭도 안 됨.                              | 없음 — 순수 layer                             |
-| `#app-frame-modal`   | `-20`       | `20`            | focus-trap 컨테이너. 모달들은 동시에 열리지 않으므로 conditional render 로 1개만 노출.                              | `<InstallerDialog>` · `<AuthExpiredModal>` · `<SearchModal>` · `<UpdateDialog>`(0085) · `<ConfirmDialogHost>`(0083) |
+| `#app-frame-overlay` | `-10`       | `10`            | backdrop (`MODAL_BACKDROP_CLASS`). 평소엔 body 뒤로 깔려 보이지도 클릭도 안 됨.                                      | 없음 — 순수 layer                             |
+| `#app-frame-modal`   | `-20`       | `20`            | focus-trap 컨테이너. 모달들은 동시에 열리지 않으므로 conditional render 로 1개만 노출.                              | `<InstallerDialog>` · `<AuthExpiredModal>` · `<SearchModal>` |
 | `#app-frame-debug`   | `30` (상시) | `30` (상시)     | DebugPanel 등 개발 보조 floating UI. modal 상태와 무관. wrapper `pointer-events-none` + 자식 `pointer-events-auto`. | `<DebugPanel>`(dev 전용, Tweaks 컨트롤 포함) 등 |
 
 규칙:
 
-- overlay 와 modal 의 z 부호는 **항상 동시에** 반전 (modal 발생 ↔ 부재).
+- overlay 와 modal 의 z 부호는 **항상 동시에** 반전 (슬롯 modal 발생 ↔ 부재).
 - `data-state="visible|hidden"` 마커는 보존하되, **실제 visibility 는 z 가 결정**.
 - DOM 은 항상 마운트된 상태 — z 부호 반전만으로 토글.
 - backdrop 시각 (blur + dim) 은 overlay element 의 stable 스타일 — z 가 음수일 때는 어차피 안 보이므로 별도 토글 불요.
-- modal 컴포넌트들은 자체 `fixed inset-0 bg-black/40` backdrop 을 갖지 않는다 — backdrop 은 `#app-frame-overlay` 가 단독으로 담당. panel 만 `grid place-items-center` 로 중앙 배치.
+- **슬롯 계열** modal 컴포넌트는 자체 `fixed inset-0` backdrop 을 갖지 않는다 — backdrop 은 `#app-frame-overlay` 가 단독 담당. panel 만 `grid place-items-center` 로 중앙 배치.
+- **공용 Modal 계열**은 슬롯을 거치지 않고 body 포털 + 자체 backdrop(z-50)으로 뜬다 — 슬롯 backdrop 과 이중 적용되지 않도록 **한 모달이 두 계열에 동시에 속하는 것을 금지**한다 (0121 에서 UpdateDialog 이중 backdrop 버그 해소).
+- 닫기 UX 표준: Esc + 백드롭 클릭 (공용 Modal 내장, 슬롯 계열은 `useEscToClose` + 래퍼 클릭 가드). 진행 중(busy — 설치/다운로드)에는 닫기를 차단한다.
 
 ### 1.6 data-\* 마커 카탈로그 (현재 사용)
 

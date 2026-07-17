@@ -1,7 +1,12 @@
-import { useEffect, type ReactNode } from 'react'
+import { type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { Icon } from './Icon'
+import { Button } from './Button'
+import { useEscToClose } from '../hooks/useEscToClose'
 import { useI18n } from '../i18n'
+
+// 모달 backdrop 시각의 단일 소스 (handoff 0121) — 공용 Modal 과 #app-frame-overlay
+// 슬롯(OverlayLayer)이 공유한다. 전 모달 blur 통일은 사용자 결정.
+export const MODAL_BACKDROP_CLASS = 'bg-black/40 backdrop-blur-sm'
 
 const DEFAULT_PANEL =
   'max-h-[88vh] w-full max-w-[92vw] overflow-y-auto rounded-r6 border border-border bg-panel p-5 shadow-xl'
@@ -18,8 +23,8 @@ interface ModalProps {
   footer?: ReactNode
   // 패널 폭. 기본 560px. panelClassName 을 넘기면 무시(폭을 클래스로 지정).
   width?: number
-  // 백드롭 blur (About/버전 다이얼로그 등).
-  blurBackdrop?: boolean
+  // 진행 중(다운로드/설치 등) — Esc·백드롭 클릭·X 닫기를 차단한다.
+  busy?: boolean
   // 패널 크롬 전체 override — 크롬리스/센터드 다이얼로그용. 넘기면 DEFAULT_PANEL·width 대체.
   panelClassName?: string
   // 크롬리스(제목 없는) 다이얼로그의 접근성 라벨.
@@ -37,26 +42,19 @@ export function Modal({
   badge,
   footer,
   width = 560,
-  blurBackdrop = false,
+  busy = false,
   panelClassName,
   ariaLabel
 }: ModalProps): React.JSX.Element | null {
   const { tr } = useI18n()
-  useEffect(() => {
-    if (!open) return
-    const onKeyDown = (e: KeyboardEvent): void => {
-      if (e.key === 'Escape') onClose()
-    }
-    document.addEventListener('keydown', onKeyDown)
-    return () => document.removeEventListener('keydown', onKeyDown)
-  }, [open, onClose])
+  useEscToClose(open && !busy, onClose)
 
   if (!open) return null
 
   return createPortal(
     <div
-      className={`fixed inset-0 z-50 grid place-items-center bg-black/40 p-4${blurBackdrop ? ' backdrop-blur-sm' : ''}`}
-      onClick={onClose}
+      className={`fixed inset-0 z-50 grid place-items-center p-4 ${MODAL_BACKDROP_CLASS}`}
+      onClick={busy ? undefined : onClose}
       data-context="overlay"
     >
       <div
@@ -71,14 +69,15 @@ export function Modal({
           <div className="mb-4 flex items-center gap-2">
             <span className="font-serif text-[18px] font-semibold text-ink">{title}</span>
             {badge}
-            <button
-              type="button"
+            <Button
+              iconOnly
+              leadingIcon="x"
+              size="small"
               onClick={onClose}
+              disabled={busy}
               aria-label={tr('common.close')}
-              className="ml-auto grid h-7 w-7 cursor-pointer place-items-center rounded-r4 border-0 bg-transparent text-ink3 hover:bg-fill-uncontained-hover hover:text-ink2"
-            >
-              <Icon name="x" size={15} />
-            </button>
+              className="ml-auto text-ink3"
+            />
           </div>
         )}
 
@@ -116,25 +115,19 @@ export function ModalActions({
   danger?: boolean
 }): React.JSX.Element {
   const { tr } = useI18n()
-  const confirmTone = danger ? 'bg-rust hover:brightness-110' : 'bg-ink hover:bg-t8'
   return (
     <>
-      <button
-        type="button"
-        onClick={onCancel}
-        disabled={cancelDisabled}
-        className="cursor-pointer rounded-r4 border border-border bg-panel px-3.5 py-1.5 text-[12.5px] text-ink2 hover:bg-fill-uncontained-hover disabled:cursor-not-allowed disabled:opacity-40"
-      >
+      <Button variant="contained" size="small" onClick={onCancel} disabled={cancelDisabled}>
         {cancelLabel ?? tr('common.cancel')}
-      </button>
-      <button
-        type="button"
+      </Button>
+      <Button
+        variant={danger ? 'danger' : 'primary'}
+        size="small"
         onClick={onConfirm}
         disabled={confirmDisabled}
-        className={`cursor-pointer rounded-r4 border-0 px-3.5 py-1.5 text-[12.5px] font-medium text-bg disabled:cursor-not-allowed disabled:opacity-40 ${confirmTone}`}
       >
         {confirmLabel}
-      </button>
+      </Button>
     </>
   )
 }

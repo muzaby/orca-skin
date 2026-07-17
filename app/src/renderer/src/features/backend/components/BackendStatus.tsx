@@ -1,7 +1,7 @@
 import type { ProviderDescriptor } from '../../../../../shared/ipc'
 import { Avatar } from '../../../shared/ui/Avatar'
+import { Button } from '../../../shared/ui/Button'
 import { Dot } from '../../../shared/ui/Status'
-import { Icon } from '../../../shared/ui/Icon'
 import { useI18n, type MessageKey } from '../../../shared/i18n'
 import {
   useBackendCapabilities,
@@ -39,9 +39,13 @@ export function BackendStatus(): React.JSX.Element {
           </div>
         )}
       </div>
-      <button className="h-[26px] w-[26px] cursor-pointer rounded-md border-0 bg-transparent text-ink3">
-        <Icon name="settings" size={14} />
-      </button>
+      <Button
+        iconOnly
+        leadingIcon="settings"
+        size="small"
+        aria-label={tr('userMenu.settings')}
+        className="text-ink3"
+      />
     </>
   )
 }

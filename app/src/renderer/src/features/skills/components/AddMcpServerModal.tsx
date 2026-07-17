@@ -221,9 +221,7 @@ function AddMcpServerModalOpen({
           className={`${MODAL_INPUT} font-mono`}
         />
         {transport === 'http' && (
-          <div className="mt-1 text-[10.5px] text-ink3">
-            Authorization: Bearer 헤더로 전송됩니다.
-          </div>
+          <div className="mt-1 text-[10.5px] text-ink3">{tr('skills.addServer.bearerNote')}</div>
         )}
       </label>
     </Modal>
