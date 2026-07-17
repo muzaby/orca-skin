@@ -1,4 +1,3 @@
-import { Button } from '../../../shared/ui/Button'
 import { Icon, type IconName } from '../../../shared/ui/Icon'
 import { Modal } from '../../../shared/ui/Modal'
 import { useI18n } from '../../../shared/i18n'
@@ -105,16 +104,8 @@ export function SettingsModal({ providerUsage }: SettingsModalProps): React.JSX.
         })}
       </nav>
 
-      {/* 우: 내용 */}
+      {/* 우: 내용 — 닫기는 Esc·백드롭 클릭 (X 아이콘 없음, 0121 사용자 피드백) */}
       <div className="relative flex min-w-0 flex-1 flex-col">
-        <Button
-          iconOnly
-          leadingIcon="x"
-          size="small"
-          onClick={hide}
-          aria-label={tr('common.close')}
-          className="absolute right-3 top-3 z-10 text-ink3"
-        />
         <div className="min-h-0 flex-1 overflow-y-auto px-7 py-6">
           {tab === 'general' && <GeneralTab />}
           {tab === 'usage' && <UsageTab />}

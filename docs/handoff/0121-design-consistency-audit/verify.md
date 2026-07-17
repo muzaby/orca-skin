@@ -79,3 +79,14 @@ $ node --test scripts/*.test.mjs  # tests 25 / pass 25 / fail 0
 - 상태: **PASS** — 인수 11/11 충족. PHASES 승격 + draft PR 생성.
 - 사람 확인 대기: 시각 실기 6항목(위 책임 분리표) · PR 머지.
 - 후속 핸드오프 권고(사용자 결정 필요): ① 타이포 전면 토큰화 ② main 사용자 노출 문자열 i18n(+`parts.ts` '중단' 커플링 동반 해소).
+
+---
+
+## r2 부록 — 사용자 피드백 반영 검증 (2026-07-17)
+
+- **피드백 F1**: 설정 모달 상단 중앙에 ×가 노출 + "일반적인 모달의 경우 × 아이콘은 필요없다".
+- **대응 확인**: 모달 크롬 × 3곳 제거 — `Modal.tsx` 타이틀 크롬 / `SettingsModal.tsx`(중앙 노출 버그 지점 — Button 베이스 `relative` 와 `absolute` className 충돌이 원인) / `UpdateDialog.tsx`. `grep 'leadingIcon="x"'` 잔존 = 채팅 패널 4곳(AskUserQuestionCard·Notice·ApprovalCard·RightPanelTile — 모달 아님, 유지)뿐.
+- **닫기 경로 보존**: Esc(`useEscToClose`)·백드롭 클릭·footer 버튼(취소/닫기/나중에) 전 모달 유지, busy 가드 불변. `common.close` 키는 footer 버튼들이 계속 사용.
+- **문서**: dom-architecture §1.5 에 "모달 크롬에 X 닫기 아이콘은 두지 않는다" 명문화.
+- **게이트(r2)**: typecheck:web 0 · lint 0 error(경고 1 = 기존) · renderer vitest 266/266.
+- 상태: **PASS 유지** (라운드 2). 사람 확인 대기에 "설정/업데이트 모달 × 부재 + Esc/백드롭 닫기 실기" 추가.
