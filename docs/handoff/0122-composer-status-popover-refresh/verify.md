@@ -74,3 +74,44 @@ $ node --test scripts/*.test.mjs   # 25/25 passed
 ## 결론 / 다음 단계
 
 - 상태: **PASS** → PHASES 승격. 사람 확인 대기: UI 시각 실기(펄스·수치 행·중앙정렬·리사이즈)·PR 머지.
+
+---
+
+# Verify r2 — 세션 비용 행·예상치 안내 복구
+
+## 메타 (r2)
+
+| 항목 | 값 |
+|---|---|
+| 대상 커밋 | `986fdaf` |
+| 라운드 | 2 (사용자 피드백) |
+| 상태 | PASS |
+
+## 요구사항 충족 매트릭스 (r2 — plan r2 인수 10~15)
+
+| # | 인수 기준 | 충족 | 증거 |
+|---|---|---|---|
+| 10 | "이 세션에서 사용한 비용" 행 = 세션 한정 총합(`약 $X.XX`), 소스 = 로드 시 `turn_usage` 세션 SUM + 라이브 telemetry 누산 | ✅ | main `queries.ts` `sumSessionCostUsd`(COALESCE SUM) → `handlers/session.ts` `LoadedSession.costUsd`(>0) → reducer `LOAD_SESSION` 시드 + `telemetry` 케이스 누산 → `Composer.tsx` selector → `statusViewModel.ts` 패스스루 → `StatusPopover.tsx` 행(`sessionCostLabel`/`sessionCostValue`, `toFixed(2)`) |
+| 11 | 비용 데이터 부재 시 행 미표시 | ✅ | reducer 는 costUsd 미보고 시 `sessionCostUsd` undefined 유지(테스트 고정), `StatusPopover` 는 `!= null` 게이트 |
+| 12 | 하단 디스클레이머 복구 — 비용 한정 문구 | ✅ | `StatusPopover.tsx` 하단 `<p>` + `chat.status.costDisclaimer`('표시된 비용은 예상치예요…') ko/en |
+| 13 | fork/handoff 파생 세션 비용 미승계 | ✅ | `continuityDraftSession` 은 `initialChatState` 기반 명시 필드 복사 — `sessionCostUsd` 미복사(코드 대조) |
+| 14 | IPC_CONTRACT `orca:session:load` 행 동기(채널 수 불변) | ✅ | `docs/IPC_CONTRACT.md:157` "0122 r2: 세션 한정 비용 총합 costUsd…" 추가 |
+| 15 | 테스트 green | ✅ | 신규 6 tests — reducer 누산/시드/undefined 4 · `sumSessionCostUsd`(null 비용·무행 0) 1 · view model 패스스루 1. vitest **943/943** |
+
+## 게이트 재실행 결과 (r2)
+
+```
+$ npm run lint        # 에러 0 (경고 1 = 기존 TanStack Virtual 베이스라인)
+$ npm run typecheck   # node/web/test 3분할 모두 통과 (LoadedSession.costUsd 타입 전파 포함)
+$ npm test            # vitest 943/943 passed (+6, electron 1스위트 로드 실패 = egress 403 베이스라인)
+$ node --test scripts/*.test.mjs   # 25/25 passed
+```
+
+## 검증 자기 리뷰 (r2)
+
+- 설계: r1 이 "오늘 비용" 을 맥락 밖 소음으로 판단해 제거했으나, 사용자 의도는 *세션 스코프* 비용 — 스코프 교정 요구를 r1 설계 단계에서 묻지 못했다.
+- 검증: 세션 로드 직후 원장 미적재 직전 턴의 순간 과소 표시(plan r2 리스크)는 기계 검증 불가 — 디스클레이머로 흡수, 실기 확인은 사람 몫.
+
+## 결론 (r2)
+
+- 상태: **PASS**. 사람 확인 대기: 세션 비용 행 실기(로드 복원·라이브 누산·fork 미승계)·디스클레이머 문구 어감·PR 머지.

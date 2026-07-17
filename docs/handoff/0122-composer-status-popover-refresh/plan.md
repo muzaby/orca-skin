@@ -205,4 +205,4 @@
 | 변경 파일 | main: `infra/db/queries.ts`(+`sumSessionCostUsd`)·`app/handlers/session.ts`·`shared/ipc.ts`(`LoadedSession.costUsd`) / renderer: `reducer/chatReducer.ts`(`sessionCostUsd` 시드+누산)·`Composer.tsx`·`statusViewModel.ts`·`StatusPopover.tsx`·i18n ko/en(`sessionCostLabel`/`sessionCostValue`/`costDisclaimer`) / docs: `IPC_CONTRACT.md` sessionLoad 행 |
 | 게이트 결과 | lint 에러 0 ✅ / typecheck 3분할 ✅ / vitest **943/943**(+6 — reducer 누산 4·query 1·view model 1, electron 1스위트 로드 실패는 egress 403 베이스라인) + scripts 25/25 ✅ |
 | 블로커 / 역질문 | 없음 |
-| 대상 커밋 | (r2 구현 커밋 — verify r2 에서 기재) |
+| 대상 커밋 | `986fdaf` |
