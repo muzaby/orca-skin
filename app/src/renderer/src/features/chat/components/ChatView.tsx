@@ -6,7 +6,6 @@ interface ChatViewProps {
   backendLabel: string
   // 활성 백엔드의 중단 지원 여부(§15). page 가 capabilities 에서 도출해 주입.
   canAbort: boolean
-  costToday?: string
   usageLimits?: UsageLimitsView | null
   // providerKey = 도넛에서 현재 선택된 provider(있으면 그 서브탭으로, 없으면 전역 사용량 탭).
   onOpenUsageSettings?: (providerKey?: string) => void
@@ -22,7 +21,6 @@ interface ChatViewProps {
 export function ChatView({
   backendLabel,
   canAbort,
-  costToday,
   usageLimits,
   onOpenUsageSettings,
   projectId,
@@ -35,7 +33,6 @@ export function ChatView({
     <ChatTile
       backendLabel={backendLabel}
       canAbort={canAbort}
-      costToday={costToday}
       usageLimits={usageLimits}
       onOpenUsageSettings={onOpenUsageSettings}
       projectId={projectId}

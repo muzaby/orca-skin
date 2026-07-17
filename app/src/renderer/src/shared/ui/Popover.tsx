@@ -44,40 +44,49 @@ export function Popover({
   // visibility:hidden 으로 측정 가능 상태를 유지한다. 여기서 패널 실제 높이를 읽어
   // 요청 placement 의 가용 공간과 비교, 부족하면 반대 방향으로 flip 한다 — anchor 가
   // 뷰포트 상/하단에 붙어 메뉴가 렌더 영역을 벗어나는 것을 방지(기본 방향은 유지).
+  // 열린 동안 창 리사이즈에도 같은 계산으로 재배치한다(0122) — anchor 정렬(중앙 포함)이
+  // 창 크기 변경 후에도 유지된다.
   useLayoutEffect(() => {
     if (!open) return
-    const el = anchorRef.current
-    if (!el) return
-    const rect = el.getBoundingClientRect()
-    const panelW = panelRef.current?.offsetWidth ?? 0
-    const startLeft = Math.min(
-      Math.max(rect.left, EDGE_MARGIN),
-      Math.max(EDGE_MARGIN, window.innerWidth - panelW - EDGE_MARGIN)
-    )
-    const centerLeft = Math.min(
-      Math.max(rect.left + rect.width / 2 - panelW / 2, EDGE_MARGIN),
-      Math.max(EDGE_MARGIN, window.innerWidth - panelW - EDGE_MARGIN)
-    )
-    const endRight = Math.min(
-      Math.max(window.innerWidth - rect.right, EDGE_MARGIN),
-      Math.max(EDGE_MARGIN, window.innerWidth - panelW - EDGE_MARGIN)
-    )
-    const horizontal =
-      align === 'end' ? { right: endRight } : { left: align === 'center' ? centerLeft : startLeft }
-    const panelH = panelRef.current?.offsetHeight ?? 0
-    const spaceAbove = rect.top
-    const spaceBelow = window.innerHeight - rect.bottom
-    let resolved = placement
-    if (placement === 'top' && panelH + GAP + EDGE_MARGIN > spaceAbove) {
-      resolved = 'bottom'
-    } else if (placement === 'bottom' && panelH + GAP + EDGE_MARGIN > spaceBelow) {
-      resolved = 'top'
+    const compute = (): void => {
+      const el = anchorRef.current
+      if (!el) return
+      const rect = el.getBoundingClientRect()
+      const panelW = panelRef.current?.offsetWidth ?? 0
+      const startLeft = Math.min(
+        Math.max(rect.left, EDGE_MARGIN),
+        Math.max(EDGE_MARGIN, window.innerWidth - panelW - EDGE_MARGIN)
+      )
+      const centerLeft = Math.min(
+        Math.max(rect.left + rect.width / 2 - panelW / 2, EDGE_MARGIN),
+        Math.max(EDGE_MARGIN, window.innerWidth - panelW - EDGE_MARGIN)
+      )
+      const endRight = Math.min(
+        Math.max(window.innerWidth - rect.right, EDGE_MARGIN),
+        Math.max(EDGE_MARGIN, window.innerWidth - panelW - EDGE_MARGIN)
+      )
+      const horizontal =
+        align === 'end'
+          ? { right: endRight }
+          : { left: align === 'center' ? centerLeft : startLeft }
+      const panelH = panelRef.current?.offsetHeight ?? 0
+      const spaceAbove = rect.top
+      const spaceBelow = window.innerHeight - rect.bottom
+      let resolved = placement
+      if (placement === 'top' && panelH + GAP + EDGE_MARGIN > spaceAbove) {
+        resolved = 'bottom'
+      } else if (placement === 'bottom' && panelH + GAP + EDGE_MARGIN > spaceBelow) {
+        resolved = 'top'
+      }
+      if (resolved === 'bottom') {
+        setPos({ ...horizontal, top: rect.bottom + GAP })
+      } else {
+        setPos({ ...horizontal, bottom: window.innerHeight - rect.top + GAP })
+      }
     }
-    if (resolved === 'bottom') {
-      setPos({ ...horizontal, top: rect.bottom + GAP })
-    } else {
-      setPos({ ...horizontal, bottom: window.innerHeight - rect.top + GAP })
-    }
+    compute()
+    window.addEventListener('resize', compute)
+    return () => window.removeEventListener('resize', compute)
   }, [open, anchorRef, placement, align])
 
   useEffect(() => {

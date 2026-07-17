@@ -37,9 +37,6 @@ export const en: typeof ko = {
     errorTitle: 'A problem occurred while preparing the app.',
     retry: 'Retry boot'
   },
-  cost: {
-    approx: '~${{usd}}'
-  },
   landing: {
     newChatGreeting: 'How can I help you?'
   },
@@ -577,9 +574,7 @@ export const en: typeof ko = {
         title: 'The conversation is getting long',
         description: 'You can keep going, but a light cleanup will make it flow more smoothly.',
         length: 'On the long side',
-        usage: 'A bit above average',
-        actionButton: 'Summarize the conversation',
-        disclaimer: 'These figures are estimates and may differ slightly from reality.'
+        actionButton: 'Summarize the conversation'
       },
       danger: {
         pill: 'This conversation is very long — cleanup needed',
@@ -588,13 +583,10 @@ export const en: typeof ko = {
         description:
           'It is better to move to a new session (handoff) that inherits a summary. Everything so far will be kept.',
         length: 'Very long',
-        usage: 'On the high side',
-        actionButton: 'Continue via handoff',
-        disclaimer: 'These figures are estimates and may differ slightly from reality.'
+        actionButton: 'Continue via handoff'
       },
       lengthLabel: 'Conversation length',
-      usageTodayLabel: "Today's usage",
-      costTodayLabel: "Today's cost",
+      lengthValue: '{{used}}k/{{window}}k {{pct}}%',
       handoffHint: 'Continue in a new session with a summary',
       compactHint: 'Compacts the current session history'
     },

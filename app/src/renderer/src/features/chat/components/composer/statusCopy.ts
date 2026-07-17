@@ -6,15 +6,14 @@ export type ConversationStatus = 'safe' | 'warn' | 'danger'
 // danger = 핸드오프(요약을 이어받아 새 세션). "정리하고 새 대화 시작"(내용 미계승 새채팅)은
 // 핸드오프와 혼동돼 제거(순수 새 채팅은 사이드바/헤더가 담당).
 // 카피 문자열은 카탈로그(chat.status.*)로 이관 — 여기는 **키 테이블**만 둔다(0097).
+// 0122 (사용자 확정): 오늘 사용량 행·디스클레이머 제거 — usage/disclaimer 키 폐기.
 export interface StatusCopyKeys {
   pill: MessageKey
   detail: MessageKey
   title: MessageKey
   description: MessageKey
   length: MessageKey
-  usage: MessageKey
   actionButton: MessageKey
-  disclaimer: MessageKey
 }
 
 export const STATUS_COPY_KEYS: Record<Exclude<ConversationStatus, 'safe'>, StatusCopyKeys> = {
@@ -24,9 +23,7 @@ export const STATUS_COPY_KEYS: Record<Exclude<ConversationStatus, 'safe'>, Statu
     title: 'chat.status.warn.title',
     description: 'chat.status.warn.description',
     length: 'chat.status.warn.length',
-    usage: 'chat.status.warn.usage',
-    actionButton: 'chat.status.warn.actionButton',
-    disclaimer: 'chat.status.warn.disclaimer'
+    actionButton: 'chat.status.warn.actionButton'
   },
   danger: {
     pill: 'chat.status.danger.pill',
@@ -34,8 +31,6 @@ export const STATUS_COPY_KEYS: Record<Exclude<ConversationStatus, 'safe'>, Statu
     title: 'chat.status.danger.title',
     description: 'chat.status.danger.description',
     length: 'chat.status.danger.length',
-    usage: 'chat.status.danger.usage',
-    actionButton: 'chat.status.danger.actionButton',
-    disclaimer: 'chat.status.danger.disclaimer'
+    actionButton: 'chat.status.danger.actionButton'
   }
 }
