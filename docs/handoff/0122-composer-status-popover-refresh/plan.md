@@ -155,4 +155,4 @@
 | 실행 명령 | `npm run lint` / `npm run typecheck` / `npm test` / `node --test scripts/*.test.mjs` |
 | 게이트 결과 | lint 에러 0(경고 1=기존 TanStack Virtual 베이스라인) ✅ / typecheck 3분할 ✅ / vitest **937/937** (1스위트 로드 실패 = electron 바이너리 egress 403 베이스라인) + scripts 25/25 ✅ |
 | 블로커 / 역질문 | 없음 |
-| 대상 커밋 | (구현 커밋 hash — verify 에서 기재) |
+| 대상 커밋 | `61c4d41` |
