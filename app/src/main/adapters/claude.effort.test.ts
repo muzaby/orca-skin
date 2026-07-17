@@ -10,11 +10,9 @@ const { queryMock } = vi.hoisted(() => ({
     } as AsyncIterable<never> & {
       setPermissionMode: () => void
       interrupt: () => void
-      setModel: () => void
     }
     iterable.setPermissionMode = vi.fn()
     iterable.interrupt = vi.fn()
-    iterable.setModel = vi.fn()
     return iterable
   })
 }))

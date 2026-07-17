@@ -13,13 +13,13 @@ export type { Backend, NormalizedEvent }
 // 라이브 핸들 (provider-runtime.md §3). 0067 부터 두 수명 모델을 겸한다: `pushTurn` 을 구현한
 // 어댑터(claude)는 **장수명 세션 채널** — result 후에도 입력이 열려 있어 후속 턴을 이어붙이고,
 // `events` 는 close() 까지 다중 턴을 흘린다(프레임 절단은 SessionRuntime). `pushTurn` 미구현
-// 어댑터(mock)는 턴-스코프 — `events` 소비가 끝나면 핸들이 닫힌다(현행 보존). control 메서드는
-// 스트리밍 입력 모드에서만 동작하는 SDK Query 메서드에 위임된다.
+// 어댑터(mock)는 턴-스코프 — `events` 소비가 끝나면 핸들이 닫힌다(현행 보존). permission control
+// 메서드는 스트리밍 입력 모드에서만 동작하는 SDK Query 메서드에 위임된다.
 export interface LiveTurn {
   events: AsyncIterable<NormalizedEvent>
   // 멱등 cleanup 계약 — terminal 관측, consumer 조기 종료, abort path 에서 모두 안전해야 한다.
   close(): void
-  // 장수명 채널 전용(0067) — 라이브 setter 적용 후 후속 턴 프롬프트를 입력 채널에 push 한다.
+  // 장수명 채널 전용(0067) — permission setter 적용 후 후속 턴 프롬프트를 입력 채널에 push 한다.
   // 미구현이면 SessionRuntime 이 턴-스코프 경로(매 턴 spawn)로 폴백한다.
   pushTurn?(next: TurnContinuation): Promise<void>
   setPermissionMode(mode: ClaudePermissionMode): Promise<void>
@@ -27,7 +27,6 @@ export interface LiveTurn {
   // steer UX 수용 여부 — 전달은 어댑터 게이트 훅(TurnRequest.takeSteerFlush) 또는 다음 턴
   // carryover(0060 D2/D3). mid-turn stdin 직주입 경로(injectMessage)는 0060 D3 에서 제거됐다.
   readonly canSteer?: boolean
-  setModel(model?: string): Promise<void>
   // 서브에이전트(Task) 단위 중단 — SDK task_id 로 stopTask. 백엔드 미지원 시 no-op 가능.
   stopTask(taskId: string): Promise<void>
   // foreground 서브에이전트를 백그라운드로 — stopTask 가 foreground 를 거부할 때의 fallback 경로.

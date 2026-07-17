@@ -53,7 +53,6 @@ function fakeRuntime(
     close: () => {},
     setPermissionMode: stub,
     interrupt: stub,
-    setModel: stub,
     stopTask: stub,
     backgroundTask: async () => false,
     markAborted: () => {},

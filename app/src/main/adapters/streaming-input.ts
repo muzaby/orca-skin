@@ -1,6 +1,6 @@
 // 세션-스코프 스트리밍 입력 (provider-runtime.md §3, 0067 장수명 채널).
 //
-// claude SDK 의 control 메서드(setPermissionMode/interrupt/setModel)와 다중 턴 입력은 "스트리밍
+// claude SDK 의 control 메서드(setPermissionMode/interrupt)와 다중 턴 입력은 "스트리밍
 // 입력 모드"(prompt 가 AsyncIterable)에서만 열린다. 0067 이전에는 이 스트림이 턴-스코프(result
 // 도착 시 close)였으나, 이제 **세션 수명** 동안 열려 후속 턴 프롬프트와 steer 를 같은 채널로
 // push 한다 — generator 가 return 되면 SDK 세션이 닫히므로(서브프로세스 종료), close() 는 세션

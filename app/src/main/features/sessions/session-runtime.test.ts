@@ -23,7 +23,6 @@ function live(events: NormalizedEvent[], close = vi.fn()): RuntimeLiveTurn {
     close,
     setPermissionMode: async () => {},
     interrupt: async () => {},
-    setModel: async () => {},
     stopTask: async () => {},
     backgroundTask: async () => false
   }
@@ -106,7 +105,7 @@ function channelLive(): {
   liveTurn: RuntimeLiveTurn
   emit: (ev: NormalizedEvent) => void
   close: ReturnType<typeof vi.fn>
-  pushed: Array<{ text: string; promptUuid?: string }>
+  pushed: Array<{ text: string; promptUuid?: string; permissionMode?: string }>
   interrupted: ReturnType<typeof vi.fn>
 } {
   const queue: NormalizedEvent[] = []
@@ -117,7 +116,7 @@ function channelLive(): {
     wake?.()
     wake = null
   })
-  const pushed: Array<{ text: string; promptUuid?: string }> = []
+  const pushed: Array<{ text: string; promptUuid?: string; permissionMode?: string }> = []
   const interrupted = vi.fn()
   const liveTurn: RuntimeLiveTurn = {
     events: (async function* () {
@@ -132,13 +131,16 @@ function channelLive(): {
     })(),
     close,
     pushTurn: async (next) => {
-      pushed.push({ text: next.text, ...(next.promptUuid ? { promptUuid: next.promptUuid } : {}) })
+      pushed.push({
+        text: next.text,
+        ...(next.promptUuid ? { promptUuid: next.promptUuid } : {}),
+        ...(next.permissionMode ? { permissionMode: next.permissionMode } : {})
+      })
     },
     setPermissionMode: async () => {},
     interrupt: async () => {
       interrupted()
     },
-    setModel: async () => {},
     stopTask: async () => {},
     backgroundTask: async () => false
   }
@@ -337,6 +339,87 @@ describe('SessionRuntime provider 경계 respawn(0118)', () => {
   })
 })
 
+describe('SessionRuntime model/effort 채널 바인딩(0123 r2)', () => {
+  function boundRuntime(
+    first: ReturnType<typeof channelLive>,
+    second: ReturnType<typeof channelLive>
+  ): {
+    runtime: SessionRuntime
+    requests: TurnRequest[]
+  } {
+    const requests: TurnRequest[] = []
+    const runtime = new SessionRuntime({
+      id: 'claude',
+      complete: async () => '',
+      sendMessage: (request) => {
+        requests.push(request)
+        return requests.length === 1 ? first.liveTurn : second.liveTurn
+      },
+      classifyError: (err) => makeClassifiedError('stream_error', String(err), { retryable: true })
+    })
+    return { runtime, requests }
+  }
+
+  it('같은 model/effort 는 채널을 재사용하고 permission 만 live 적용한다', async () => {
+    const first = channelLive()
+    const second = channelLive()
+    const { runtime, requests } = boundRuntime(first, second)
+    const initial = { ...req(), model: 'sonnet', effort: 'low' as const }
+
+    const f1 = collect(runtime.send(initial))
+    first.emit({ type: 'telemetry', sessionId: 's1' })
+    await f1
+    expect(runtime.prepareForTurn(initial)).toBe(false)
+
+    const f2 = collect(runtime.send({ ...initial, text: 'second', permissionMode: 'accept_edits' }))
+    await tick()
+    expect(first.pushed).toEqual([{ text: 'second', permissionMode: 'accept_edits' }])
+    first.emit({ type: 'telemetry', sessionId: 's1' })
+    await f2
+    expect(requests).toHaveLength(1)
+  })
+
+  it.each([
+    ['model', { model: 'haiku', effort: 'low' as const }],
+    ['effort', { model: 'sonnet', effort: 'high' as const }]
+  ])('%s 변경은 구 채널을 내리고 다음 send 를 resume spawn 한다', async (_kind, next) => {
+    const first = channelLive()
+    const second = channelLive()
+    const { runtime, requests } = boundRuntime(first, second)
+    const initial = { ...req(), model: 'sonnet', effort: 'low' as const }
+
+    const f1 = collect(runtime.send(initial))
+    first.emit({ type: 'telemetry', sessionId: 's1' })
+    await f1
+
+    expect(runtime.prepareForTurn(next)).toBe(true)
+    expect(first.close).toHaveBeenCalled()
+    expect(runtime.channelAlive).toBe(false)
+
+    const f2 = collect(runtime.send({ ...req(), ...next, text: 'next' }))
+    second.emit({ type: 'telemetry', sessionId: 's1' })
+    await f2
+    expect(requests).toHaveLength(2)
+    expect(requests[1]).toMatchObject({ sessionId: 's1', ...next, text: 'next' })
+    expect(first.pushed).toEqual([])
+  })
+
+  it('호출부 선판정이 없어도 send 가 다른 모델 채널 재사용을 방어한다', async () => {
+    const first = channelLive()
+    const second = channelLive()
+    const { runtime, requests } = boundRuntime(first, second)
+    const f1 = collect(runtime.send({ ...req(), model: 'sonnet' }))
+    first.emit({ type: 'telemetry', sessionId: 's1' })
+    await f1
+
+    const f2 = collect(runtime.send({ ...req(), model: 'haiku' }))
+    second.emit({ type: 'telemetry', sessionId: 's1' })
+    await f2
+    expect(first.close).toHaveBeenCalled()
+    expect(requests.map((request) => request.model)).toEqual(['sonnet', 'haiku'])
+  })
+})
+
 // 인수 2·6(c) — 모드-불변 소비자 계약. Persistent 구현(P1) 없이 검증하기 위해,
 // 동일 send() 표면에 close 정책만 주입 가능한 FakeSessionRuntime 으로 "소비자가 close 정책에
 // 무지함"을 본다 (보강 4). OneShot=terminal 관측 시 self-close, fake-persistent=수명 유지.
@@ -381,7 +464,6 @@ class FakeSessionRuntime implements RuntimeLiveTurn {
   async interrupt(): Promise<void> {
     this.markAborted('user_cancelled')
   }
-  setModel = async (): Promise<void> => {}
   stopTask = async (): Promise<void> => {}
   async backgroundTask(): Promise<boolean> {
     return false

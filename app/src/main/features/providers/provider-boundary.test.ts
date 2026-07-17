@@ -8,7 +8,7 @@ describe('crossesProviderBoundary(0118)', () => {
     expect(crossesProviderBoundary('claude-anthropic', 'claude-zai')).toBe(true)
   })
 
-  it('같은 providerKey 는 경계가 아니다 — 채널 재사용(모델 변경은 setModel 라이브 적용)', () => {
+  it('같은 providerKey 자체는 경계가 아니다 — model/effort 경계는 SessionRuntime 이 별도 판정', () => {
     expect(crossesProviderBoundary('claude-anthropic', 'claude-anthropic')).toBe(false)
   })
 

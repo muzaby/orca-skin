@@ -56,7 +56,6 @@ export class MockAdapter implements SessionAdapter {
       setPermissionMode: async () => {},
       interrupt: async () => internal.abort(),
       canSteer: false,
-      setModel: async () => {},
       // mock 은 시나리오 스크립트가 subagent.task settled(stopped)를 직접 emit 해 중단을 시연한다.
       stopTask: async () => {},
       backgroundTask: async () => false

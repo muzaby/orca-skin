@@ -457,6 +457,8 @@ export interface TelemetryModelUsage {
 }
 
 export interface ProviderReportedTelemetry {
+  // 직전 root assistant 응답의 실제 실행 모델. modelUsage 는 비용 회계용 다중 모델 breakdown 이며
+  // 현재 응답 모델의 진실원으로 사용하지 않는다(Claude = assistant message.model, 0123 r2).
   model?: string
   inputTokens?: number
   outputTokens?: number

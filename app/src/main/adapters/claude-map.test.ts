@@ -387,6 +387,62 @@ describe('claudeToNormalized', () => {
     expect(Object.keys(ev.usage?.modelUsage ?? {})).toEqual(['claude-opus-4', 'claude-haiku-4'])
   })
 
+  it('root assistant message.model 이 result.modelUsage 보다 실행 모델로 우선한다', () => {
+    const c = ctx()
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        parent_tool_use_id: null,
+        message: {
+          model: 'claude-haiku-4-5-20251001',
+          content: [{ type: 'text', text: '응답' }]
+        }
+      }),
+      c
+    )
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        modelUsage: { 'claude-sonnet-4-6': { costUSD: 0.03 } }
+      }),
+      c
+    )
+    expect(out[0]).toMatchObject({
+      type: 'telemetry',
+      usage: {
+        model: 'claude-haiku-4-5-20251001',
+        modelUsage: { 'claude-sonnet-4-6': { costUsd: 0.03 } }
+      }
+    })
+    expect(c.lastRootAssistantModel).toBeUndefined()
+  })
+
+  it('child assistant 모델은 root 실행 모델을 덮지 않는다', () => {
+    const c = ctx()
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        parent_tool_use_id: null,
+        message: { model: 'claude-sonnet-4-6', content: [] }
+      }),
+      c
+    )
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        parent_tool_use_id: 'agent-1',
+        message: { model: 'claude-haiku-4-5', content: [] }
+      }),
+      c
+    )
+    const out = claudeToNormalized(sdk({ type: 'result' }), c)
+    expect(out[0]).toEqual({
+      type: 'telemetry',
+      sessionId: 's1',
+      usage: { model: 'claude-sonnet-4-6' }
+    })
+  })
+
   it('result(잡음만, 의미있는 필드 없음) → telemetry (usage 생략)', () => {
     expect(
       claudeToNormalized(sdk({ type: 'result', subtype: 'success', is_error: false }), ctx())

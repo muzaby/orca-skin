@@ -21,6 +21,7 @@ import { settleOpenToolRuns, settleSubagentTask, stopLiveSubagent } from './sett
 import type { TurnEventSink, TurnPersistSink } from './turn-sinks'
 import type { MainBus, TurnEmit } from '../../contracts/bus-events'
 import type { PendingMessageQueue } from './pending-message-queue'
+import { matchesActualModel } from './selection-boundary'
 
 export const MAX_RETRIES = 2
 export const RETRY_BACKOFF_MS = [1_000, 2_000] as const
@@ -227,6 +228,18 @@ export class TurnCoordinator<W = unknown> {
             if (ev.type !== 'telemetry') this.commitConsumed(turn)
             if (ev.type === 'telemetry' || ev.type === 'error' || ev.type === 'turn.aborted') {
               sawTerminal = true
+            }
+            if (
+              ev.type === 'telemetry' &&
+              ev.usage?.model &&
+              !matchesActualModel(turn.selection, ev.usage.model)
+            ) {
+              wireLog('model.mismatch', {
+                sessionId: ev.sessionId,
+                requestedModel: turn.selection.model,
+                modelFamily: turn.selection.modelFamily,
+                actualModel: ev.usage.model
+              })
             }
             // 단일 팬아웃 — 버스가 등록순(usage→history→title→relay)으로 동기 소비한다. usage 가
             // history 의 reset 전에 messageId 를 읽고, title 이 relay 전에 트리거되는 순서 불변식은

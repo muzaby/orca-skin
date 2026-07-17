@@ -21,6 +21,19 @@ const EMPTY_EVENTS: AsyncIterable<NormalizedEvent> = {
   }
 }
 
+type ChannelBinding = Pick<TurnRequest, 'model' | 'effort'>
+
+function bindingFor(req: Pick<TurnRequest, 'model' | 'effort'>): ChannelBinding {
+  return {
+    ...(req.model !== undefined ? { model: req.model } : {}),
+    ...(req.effort !== undefined ? { effort: req.effort } : {})
+  }
+}
+
+function sameBinding(left: ChannelBinding, right: ChannelBinding): boolean {
+  return left.model === right.model && left.effort === right.effort
+}
+
 function isTerminal(ev: NormalizedEvent): boolean {
   return ev.type === 'telemetry' || ev.type === 'error' || ev.type === 'turn.aborted'
 }
@@ -84,6 +97,9 @@ export class SessionRuntime implements ManagedRuntime {
   // (close/teardown)에서만 abort 된다. 턴 취소는 interrupt() 경로(markAborted)로 채널을 살린다.
   private channelController = new AbortController()
   private pumpRunning = false
+  // query() 생성 시 고정된 모델·effort. SDK live setModel 은 성공 응답 뒤에도 실제 추론 모델이
+  // 바뀌지 않을 수 있어(0123 실측), 다음 턴과 다르면 채널을 재사용하지 않고 resume respawn 한다.
+  private channelBinding: ChannelBinding | null = null
   private frame: Frame | null = null
   // 프레임 조기 이탈(취소/스톨) 후 그 턴의 잔여 이벤트를 terminal 까지 드랍하는 상태. draining
   // 중 send 가 오면 이벤트 소속을 구분할 수 없으므로 채널을 teardown 하고 respawn 한다(안전 열화).
@@ -132,6 +148,16 @@ export class SessionRuntime implements ManagedRuntime {
     return this.live?.canSteer === true
   }
 
+  // 프롬프트/미소비 큐를 회수하기 전에 호출하는 채널 호환성 게이트. true 면 기존 채널을 내렸고,
+  // 호출자는 channelAlive=false 를 보고 takeForRespawn 으로 구 채널 잔여를 재주입해야 한다.
+  prepareForTurn(next: Pick<TurnRequest, 'model' | 'effort'>): boolean {
+    if (!this.channelAlive) return false
+    const desired = bindingFor(next)
+    if (this.channelBinding && sameBinding(this.channelBinding, desired)) return false
+    this.teardownChannel()
+    return true
+  }
+
   send(req: TurnRequest): AsyncIterable<NormalizedEvent> {
     return this.runAttempt(req)
   }
@@ -146,6 +172,10 @@ export class SessionRuntime implements ManagedRuntime {
     // draining(직전 턴 잔여 드랍) 중의 새 턴은 이벤트 소속 구분이 불가 — 채널 respawn(안전 열화).
     if (this.draining) this.teardownChannel()
 
+    // app 호출부가 큐 회수를 위해 선판정하지만, SessionRuntime 직접 소비자도 잘못된 모델·effort
+    // 채널을 재사용하지 않도록 동일 불변식을 방어한다.
+    this.prepareForTurn(req)
+
     // 장수명 채널 생존 → 후속 턴 이어붙이기(프레임 오픈 후 push — 이른 이벤트 유실 방지).
     const live = this.live
     if (live?.pushTurn && this.pumpRunning) {
@@ -156,7 +186,6 @@ export class SessionRuntime implements ManagedRuntime {
           ...(req.attachmentTexts ? { attachmentTexts: req.attachmentTexts } : {}),
           ...(req.attachmentImages ? { attachmentImages: req.attachmentImages } : {}),
           ...(req.promptUuid !== undefined ? { promptUuid: req.promptUuid } : {}),
-          ...(req.model !== undefined ? { model: req.model } : {}),
           ...(req.permissionMode !== undefined ? { permissionMode: req.permissionMode } : {})
         })
       } catch (err) {
@@ -174,6 +203,7 @@ export class SessionRuntime implements ManagedRuntime {
     const spawned = this.adapter.sendMessage(this.wrapRequest(req))
     this.live = spawned
     if (spawned.pushTurn && this.closePolicy === 'persistent') {
+      this.channelBinding = bindingFor(req)
       const frame = this.openFrame()
       this.startPump(spawned)
       yield* this.consumeFrame(frame)
@@ -286,6 +316,7 @@ export class SessionRuntime implements ManagedRuntime {
     }
     this.live?.close()
     this.live = null
+    this.channelBinding = null
   }
 
   // 채널 강제 해체(respawn 경계·draining 충돌) — 상태머신은 건드리지 않는다(close 와 구분).
@@ -302,6 +333,7 @@ export class SessionRuntime implements ManagedRuntime {
     this.pumpRunning = false
     this.live?.close()
     this.live = null
+    this.channelBinding = null
   }
 
   // 어댑터에 넘기는 요청 — 신호는 채널 신호로 치환(턴 신호와 분리), 콜백은 delegate 래퍼로 치환.
@@ -351,10 +383,6 @@ export class SessionRuntime implements ManagedRuntime {
 
   async interrupt(): Promise<void> {
     this.markAborted('user_cancelled')
-  }
-
-  async setModel(model?: string): Promise<void> {
-    await this.live?.setModel(model)
   }
 
   async stopTask(taskId: string): Promise<void> {

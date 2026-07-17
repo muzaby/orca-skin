@@ -503,8 +503,9 @@ export function registerChatHandlers(deps: ChatDeps): void {
       () => new SessionRuntime(adapter)
     )
 
-    // 0118: provider 경계 respawn — pushTurn 은 env/providerSettings 를 재주입하지 않으므로
-    // 경계를 넘으면 살아있는 채널을 내려 이번 턴을 spawn(resume) 콜드 패스로 보낸다.
+    // 0118/0123 r2: provider·model·effort 경계 respawn — pushTurn 은 스폰 설정을 재주입하지
+    // 않으며 SDK live setModel 성공 응답도 실제 전환을 보장하지 않는다. 프롬프트 큐를 회수하기
+    // 전에 채널을 내려 이번 턴을 spawn(resume) 콜드 패스로 보낸다.
     // channelAlive=false 가 되어 아래 preludes 의 takeForRespawn 이월이 자연 동작한다.
     if (
       parsed.data.sessionId &&
@@ -513,6 +514,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
     ) {
       runtime.teardownChannel()
     }
+    runtime.prepareForTurn({ model: resolved.model, effort: parsed.data.effort })
 
     // ── 큐 경유(0067 AC5·AC6): 모든 프롬프트는 pending queue 에 적재 후 상태별로 주입된다 ──
     // ① 프렐류드: 채널 사망 이월 — 미소비 flushed(CLI 큐 소멸분) 재전달 + held 를 아이템 단위
@@ -721,22 +723,14 @@ export function registerChatHandlers(deps: ChatDeps): void {
       // 시에는 발동하지 않는다 — 중단 버튼이 held 를 이미 drain(draft 복원)했다.
       while (!activeTurn.controller.signal.aborted && activeTurn.dbSessionId) {
         const sessionId = activeTurn.dbSessionId
-        if (pendingMessages.pending(sessionId).length === 0) {
+        const pending = pendingMessages.pending(sessionId)
+        if (pending.length === 0) {
           pendingMessages.endTurn(sessionId)
           break
         }
-        let contPreludes: SteerFlushBatch[] = []
-        // 턴 종료 시 barrier 뒤 메시지를 포함한 held 전량을 마지막 선택으로 한 배치화한다.
-        let batch = pendingMessages.flushAllHeld(sessionId)
-        if (!batch) break
-        if (!runtime.channelAlive) {
-          // 채널 사망 — respawn 이월 전체를 회수해 마지막을 본 프롬프트, 앞을 프렐류드로.
-          const leftovers = pendingMessages.takeForRespawn(sessionId)
-          batch = leftovers.pop()
-          contPreludes = leftovers
-        }
-        if (!batch) break
-        const nextSelection = batch.selection ?? activeTurn.selection
+        // barrier 뒤 메시지를 포함한 held 전량은 마지막 메시지의 선택으로 실행된다. 채널 경계를
+        // 먼저 판정해야 teardown 으로 소멸하는 구 채널의 미소비 flushed 배치까지 회수할 수 있다.
+        const nextSelection = pending.at(-1)?.selection ?? activeTurn.selection
         const contResolved = await resolveTurnProvider(ctx, {
           adapter,
           sessionId,
@@ -748,18 +742,30 @@ export function registerChatHandlers(deps: ChatDeps): void {
           providerKey: contResolved.providerKey,
           model: contResolved.model ?? null
         }
-        // provider/effort 는 spawn-bound 설정이다. 경계를 넘으면 기존 persistent 채널을 내리고
-        // 같은 세션 resume 로 새 설정을 주입한다. 같은 provider 의 model 은 pushTurn setModel.
+        // provider/model/effort 는 spawn-bound 설정이다. 경계를 넘으면 기존 persistent 채널을
+        // 내리고 같은 세션 resume 로 새 설정을 주입한다. permission 만 pushTurn live setter 대상.
         if (
           runtime.channelAlive &&
-          (crossesProviderBoundary(
-            activeTurn.selection.providerKey,
-            resolvedSelection.providerKey
-          ) ||
-            activeTurn.selection.effort !== resolvedSelection.effort)
+          crossesProviderBoundary(activeTurn.selection.providerKey, resolvedSelection.providerKey)
         ) {
           runtime.teardownChannel()
         }
+        runtime.prepareForTurn({
+          model: contResolved.model,
+          effort: resolvedSelection.effort
+        })
+
+        let contPreludes: SteerFlushBatch[] = []
+        // 턴 종료 시 held 전량을 마지막 선택으로 한 배치화한다.
+        let batch = pendingMessages.flushAllHeld(sessionId)
+        if (!batch) break
+        if (!runtime.channelAlive) {
+          // 채널 사망/설정 경계 — 미소비 flushed 전체를 회수해 마지막을 본 프롬프트, 앞을 프렐류드로.
+          const leftovers = pendingMessages.takeForRespawn(sessionId)
+          batch = leftovers.pop()
+          contPreludes = leftovers
+        }
+        if (!batch) break
         const contTurn: TurnContext<WebContents> = {
           ...makeContinuationTurn(activeTurn),
           providerKey: resolvedSelection.providerKey,

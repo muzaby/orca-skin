@@ -441,12 +441,12 @@ export class ClaudeAdapter implements SessionAdapter {
     return {
       events: events(),
       close,
-      // 장수명 채널(0067) — 후속 턴을 같은 서브프로세스에 이어붙인다. 라이브 setter 적용 후
-      // content 를 push(P2 픽업 또는 P1 게이트 drain — 분기는 CLI). effort/providerSettings/
+      // 장수명 채널(0067) — 후속 턴을 같은 서브프로세스에 이어붙인다. permission setter 적용 후
+      // content 를 push(P2 픽업 또는 P1 게이트 drain — 분기는 CLI). model/effort/providerSettings/
       // extensions 변경은 respawn 경계(호출자 소관). setter 실패는 push 전에 던져져 호출자
-      // (SessionRuntime frame)가 스폰 폴백/에러 처리한다.
+      // (SessionRuntime frame)가 에러 처리한다. SDK setModel 성공 응답은 실제 전환을 보장하지 않아
+      // 0123 r2 에서 사용하지 않는다.
       pushTurn: async (next) => {
-        if (next.model !== undefined) await handle.setModel(next.model)
         if (next.permissionMode !== undefined) {
           await handle.setPermissionMode(toClaudePermissionMode(next.permissionMode))
         }
@@ -460,7 +460,6 @@ export class ClaudeAdapter implements SessionAdapter {
       interrupt: () => handle.interrupt(),
       // steer UX 수용 — 전달은 게이트 훅 flush(takeSteerFlush) 또는 다음 턴 carryover(D2)로.
       canSteer: true,
-      setModel: (model) => handle.setModel(model),
       // 서브에이전트 단위 중단 — task_started/notification 의 task_id 로 stopTask.
       stopTask: (taskId) => handle.stopTask(taskId),
       // foreground 서브에이전트를 백그라운드로(필요 시 stopTask 전 fallback). tool_use id 로 단건.

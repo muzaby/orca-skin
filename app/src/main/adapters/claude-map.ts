@@ -33,6 +33,10 @@ export interface MapContext {
     cacheReadTokens?: number
     cacheCreationTokens?: number
   }
+  // 현재 턴의 마지막 root assistant 실제 모델. SDK result.modelUsage 는 세션/도구 모델을 섞은
+  // 회계 자료일 수 있으므로, 응답 실행 모델은 assistant message.model 을 우선한다(0123 r2).
+  // result 처리 후 지워 장수명 채널의 다음 턴으로 누출되지 않게 한다.
+  lastRootAssistantModel?: string
   // 이 턴에서 compact_boundary(네이티브 압축)를 지났는가 — 경계 이전의 usage(전체 이력이 실린
   // 요약 요청 입력)는 더 이상 라이브 컨텍스트가 아니므로, 경계에서 스냅샷을 무효화하고 result
   // telemetry 의 컨텍스트 점유를 압축 후 값으로 근사하는 데 쓴다(0064 r5 피드백 1).
@@ -235,6 +239,9 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
     ).message
     const content = m?.content ?? []
     const parentToolRunId = readParentToolRunId(msg)
+    if (parentToolRunId === undefined && typeof m?.model === 'string' && m.model !== '') {
+      ctx.lastRootAssistantModel = m.model
+    }
     // 서브에이전트 child assistant 면 실제 모델(message.model)을 캡처 → subagent.task 로 표시,
     // ctx 누산으로 부모 tool_result 에 영속. 'Explore'(subagent_type) 대신 모델명을 보이게 한다.
     const childEvents: NormalizedEvent[] = []
@@ -392,10 +399,14 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
         }
       >
     }
-    const telemetry = normalizeResultTelemetry(r)
+    let telemetry = normalizeResultTelemetry(r)
+    if (ctx.lastRootAssistantModel) {
+      telemetry ??= {}
+      telemetry.model = ctx.lastRootAssistantModel
+    }
     // 컨텍스트 점유 입력 3종(input·cache_read·cache_creation)을 마지막 assistant 스냅샷으로 대체
     // — /context 상단 % 와 같은 정의(모델이 마지막으로 본 입력)로 근사. costUsd·durationMs·
-    // numTurns·modelUsage·model 은 턴 누적이 맞아 result 값 유지(사용자 결정).
+    // numTurns·modelUsage 는 턴 회계값을 유지하고, top-level model 은 root assistant 실측을 우선한다.
     // 스냅샷에 있는 필드만 덮는다 — 없는 필드는 result.usage 값을 보존한다. (스냅샷이 input 만
     // 담고 cache_read 를 안 줄 때 delete 하면 contextTokens 가 input(≈1) 으로 붕괴 → 도넛 0~1%.)
     if (telemetry && ctx.lastAssistantUsage) {
@@ -446,6 +457,7 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
         )
       )
     }
+    delete ctx.lastRootAssistantModel
     return out
   }
 
