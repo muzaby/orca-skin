@@ -54,7 +54,8 @@ const TEXT: Record<ButtonVariant, string> = {
   primary: 'text-bg',
   // 파괴적 확정(삭제 등) 전용 rust 솔리드 — ModalActions danger 와 동일 톤.
   danger: 'text-bg',
-  // 파괴적 진입점(항목별 삭제 버튼) — 채움 없이 rust 글자만, 메뉴 danger 항목과 동일 톤.
+  // 파괴적 진입점(항목별 삭제 버튼) — 채움 없이 rust 글자 + contained 와 동일한 테두리
+  // (짝으로 놓이는 편집=contained 버튼과 외형 통일, 0121 r5 사용자 피드백).
   'danger-ghost': 'text-rust'
 }
 
@@ -69,7 +70,7 @@ function squishClass(variant: ButtonVariant, pressed: boolean): string {
     case 'danger':
       return 'bg-rust group-hover/btn:brightness-110'
     case 'danger-ghost':
-      return 'bg-transparent group-hover/btn:bg-rust-soft'
+      return 'border border-t5 bg-transparent group-hover/btn:bg-rust-soft'
     case 'contained':
       return 'border border-t5 bg-fill-contained group-hover/btn:bg-fill-contained-hover'
     case 'uncontained':

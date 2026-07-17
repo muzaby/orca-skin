@@ -256,3 +256,11 @@
 | F6 | Composer 하단 모델·작업량 메뉴 항목도 같은 룰(공용 MenuItem)로 통일 | ✅ 공용 `MenuItem` 에 2줄(라벨+설명) 항목용 `align="start"` prop 추가 후 `ModelMenu`·`EffortMenu` 수렴. **같은 상수를 공유하던 `ModeMenu`(권한모드)도 함께 수렴**(하나만 남기면 동일 불일치 재생산 — 선조치 ✅ 보고). r1 에서 "문서화된 예외"로 남겼던 `composer/menuItem.ts` 로컬 상수 삭제 — 이제 메뉴 항목 표준은 shared/ui/MenuItem 단일 |
 
 - r4 게이트: typecheck:web 0 · lint 0 error(경고 1 = 기존) · renderer vitest 266/266.
+
+## [구현자 기입] 사용자 피드백 라운드 (r5)
+
+| # | 피드백 | 대응 |
+|---|---|---|
+| F7 | 엔진 항목별 삭제 버튼에 테두리가 없다 — 편집 버튼과 통일성 | ✅ Button `danger-ghost` variant 에 contained 와 동일한 `border border-t5` 부여(채움 없음·rust 글자는 F5 지시대로 유지) — 편집(contained)과 짝으로 외형 통일 |
+
+- r5 게이트: typecheck:web 0 · lint 0 error(경고 1 = 기존) · renderer vitest 266/266.
