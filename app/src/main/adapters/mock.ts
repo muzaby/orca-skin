@@ -9,7 +9,7 @@ import type { TurnRequest } from './turn'
 import { CLAUDE_DESCRIPTOR } from './descriptor'
 import { claudeErrorClassifier } from './error-classifier'
 import type { LiveTurn, SessionAdapter } from './types'
-import { runScenario, SCENARIOS } from './mock-scenarios'
+import { handoffArrivalScenario, runScenario, SCENARIOS } from './mock-scenarios'
 
 export class MockAdapter implements SessionAdapter {
   readonly id = 'claude' as const
@@ -42,13 +42,16 @@ export class MockAdapter implements SessionAdapter {
     const signal = combineSignals(req.signal, internal.signal)
     const sessionId = req.sessionId ?? randomUUID()
     return {
-      events: runScenario(SCENARIOS[state.scenarioId], {
-        sessionId,
-        cwd: req.cwd,
-        contextUsageRatio: state.contextUsageRatio,
-        signal,
-        requestApproval: req.requestApproval
-      }),
+      events: runScenario(
+        req.continuityKind === 'handoff' ? handoffArrivalScenario() : SCENARIOS[state.scenarioId],
+        {
+          sessionId,
+          cwd: req.cwd,
+          contextUsageRatio: state.contextUsageRatio,
+          signal,
+          requestApproval: req.requestApproval
+        }
+      ),
       close: () => internal.abort(),
       setPermissionMode: async () => {},
       interrupt: async () => internal.abort(),

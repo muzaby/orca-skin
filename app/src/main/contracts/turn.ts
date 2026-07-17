@@ -2,6 +2,7 @@ import type { AttachmentView } from '../../shared/ipc'
 import type { ResolvedProviderSettings } from '../adapters/provider-config'
 import type { LineageRelation } from '../infra/db/types'
 import type { RuntimeLiveTurn, RuntimeTitleAdapter } from './ports'
+import type { TurnSelectionSnapshot } from '../adapters/turn'
 
 export interface TurnContext<W = unknown> {
   controller: AbortController
@@ -12,6 +13,9 @@ export interface TurnContext<W = unknown> {
   titleEnv?: Record<string, string>
   titleModel?: string
   providerKey: string | null
+  // 이 턴이 실제로 시작할 때의 Composer 선택/해석 모델 스냅샷. busy 메시지의 steer 경계 판정
+  // 기준이며, renderer 의 이후 선택 변경과 독립적으로 유지한다.
+  selection: TurnSelectionSnapshot
   pendingUserText: string | null
   firstUserText: string
   pendingAttachmentViews: AttachmentView[]

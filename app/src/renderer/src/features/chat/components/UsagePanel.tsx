@@ -5,6 +5,7 @@ import { Meter } from '../../../shared/ui/Meter'
 import { formatResetLabel, useI18n } from '../../../shared/i18n'
 import { contextTokens } from '../lib/telemetry'
 import { contextWindowFor, nearCompaction } from '../lib/contextWindow'
+import { modelDisplayLabel } from '../lib/parts'
 
 interface UsagePanelProps {
   // 마지막 턴의 provider-reported 통계(도넛 트리거가 존재 가드). 컨텍스트 섹션 소스.
@@ -38,6 +39,14 @@ export function UsagePanel({
     <div className="flex w-[280px] flex-col gap-2.5 p-3" data-context="usage-panel">
       {/* 컨텍스트 창 */}
       <div className="flex flex-col gap-1.5">
+        {telemetry.model && (
+          <div className="flex items-baseline justify-between gap-3">
+            <span className="text-caption text-t6">{tr('usage.executedModel')}</span>
+            <span className="truncate text-caption text-ink2">
+              {modelDisplayLabel(telemetry.model)}
+            </span>
+          </div>
+        )}
         <div className="flex items-baseline justify-between gap-3">
           <span className="text-caption text-t6">{tr('usage.contextWindow')}</span>
           <span className="text-caption tabular-nums text-ink2">

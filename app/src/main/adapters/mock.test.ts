@@ -53,6 +53,32 @@ describe('MockAdapter', () => {
     expect(second.some((ev) => ev.type === 'telemetry')).toBe(true)
   })
 
+  it('continuityKind=handoff 는 선택 시나리오 대신 compact 도착 시퀀스를 사용한다', async () => {
+    const state: DebugMockState = {
+      enabled: true,
+      scenarioId: 'error',
+      contextUsageRatio: 0.95,
+      wireLog: false
+    }
+    const adapter = new MockAdapter(() => state)
+    const events = await collect(
+      adapter.sendMessage({
+        sessionId: null,
+        forkFrom: 'source',
+        continuityKind: 'handoff',
+        text: '/compact',
+        cwd: '/w',
+        extensions
+      }).events
+    )
+    expect(events.map((event) => event.type)).toEqual([
+      'session.updated',
+      'session.compacted',
+      'message.completed',
+      'telemetry'
+    ])
+  })
+
   it('interrupt 호출 시 스트림을 종료한다', async () => {
     const state: DebugMockState = {
       enabled: true,

@@ -16,7 +16,7 @@ export type MockStep =
       allow?: MockStep[] | ((resolution: ApprovalResolution) => MockStep[])
       deny?: MockStep[] | ((resolution: ApprovalResolution) => MockStep[])
     }
-  | { kind: 'telemetry' }
+  | { kind: 'telemetry'; ratio?: number }
 
 type DistributiveOmit<T, K extends keyof T> = T extends unknown ? Omit<T, K> : never
 type MockEventTemplate = DistributiveOmit<NormalizedEvent, 'sessionId'> & {
@@ -567,7 +567,10 @@ export async function* runScenario(
       continue
     }
     if (step.kind === 'telemetry') {
-      yield withEnvelope({ type: 'telemetry', usage: usageForRatio(ctx.contextUsageRatio) }, ctx)
+      yield withEnvelope(
+        { type: 'telemetry', usage: usageForRatio(step.ratio ?? ctx.contextUsageRatio) },
+        ctx
+      )
       continue
     }
 
@@ -583,6 +586,25 @@ export async function* runScenario(
 
 function prelude(): MockStep[] {
   return [emit({ type: 'session.updated', patch: { model: MODEL } })]
+}
+
+// 핸드오프 도착 턴 — 원본 ratio 와 무관하게 compact 후 작은 컨텍스트를 보고한다.
+export function handoffArrivalScenario(): MockStep[] {
+  const postTokens = 9_000
+  return [
+    ...prelude(),
+    emit({
+      type: 'session.compacted',
+      trigger: 'manual',
+      preTokens: 155_000,
+      postTokens
+    }),
+    emit({
+      type: 'message.completed',
+      message: { text: '이전 세션의 핵심 맥락을 압축해 이어받았습니다.' }
+    }),
+    { kind: 'telemetry', ratio: postTokens / CONTEXT_WINDOW }
+  ]
 }
 
 function closing(text: string): MockStep[] {

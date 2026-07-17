@@ -21,6 +21,17 @@ import type {
 import type { NormalizedPermissionMode } from '../../shared/permission-mode'
 import type { NormalizedHookSet } from './hooks'
 
+// Composer 가 메시지를 보낸 순간의 턴 설정 스냅샷. busy 큐는 이 값을 메시지와 함께 보존해
+// steer 가능 여부를 판정하고, 자동 연속 턴은 마지막 메시지의 스냅샷으로 실행한다.
+export interface TurnSelectionSnapshot {
+  providerKey: string | null
+  modelFamily: string | null
+  // provider settings 를 통해 해석된 실제 모델 id — 진행 턴과 steer 후보의 동등성 판정용.
+  model: string | null
+  permissionMode?: NormalizedPermissionMode
+  effort?: EffortLevel
+}
+
 // pending message flush 배치 계약 — 어댑터가 게이트 훅에서 회수(takeSteerFlush)하거나 턴
 // 프롬프트/프렐류드(0067)로 받아 자기 입력 채널로 주입한다. 구조 페이로드(0067 AC5): 첨부
 // 추출분은 어댑터가 content 블록으로 굽고, attachmentViews 는 커밋 시 표시/영속용으로 흐른다.
@@ -37,6 +48,8 @@ export interface SteerFlushBatch extends SteerFlush {
   // stdin 주입 배치의 uuid — echo 상관키(주입 user 메시지의 uuid). 게이트 병합 배치는 신규
   // uuid, 턴 프롬프트/프렐류드 아이템 단위 배치는 item id 를 그대로 쓴다(renderer 정합).
   uuid: string
+  // 병합 배치는 가장 마지막 메시지의 선택을 따른다.
+  selection?: TurnSelectionSnapshot
 }
 
 // 첨부 추출 결과 — 어댑터가 turn content 로 굽는 입력 계약(구 files/attachments 정의를 포트로 이관).
@@ -103,6 +116,9 @@ export interface TurnRequest {
   // (resume=이어쓰기)와 달리 원본은 불변이고 백엔드가 **새 session id 를 발급**한다
   // (claude = query resume+forkSession). sessionId 는 null(새 세션 의미론 유지).
   forkFrom?: string
+  // forkFrom 은 SDK fork 원본 id 로 fork/handoff 가 공유하므로, 어댑터가 문자열을 추측하지
+  // 않도록 관계 종류를 별도 전달한다. main 내부 계약이며 IPC 채널 표면은 바뀌지 않는다.
+  continuityKind?: 'fork' | 'handoff'
   text: string
   cwd: string
   signal?: AbortSignal

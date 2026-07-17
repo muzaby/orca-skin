@@ -18,6 +18,7 @@ import {
   SendChatMessageSchema,
   StopSubagentSchema
 } from '../../shared/protocol'
+import { toClaudePermissionMode } from '../../shared/permission-mode'
 import { normalizeAttachments } from '../features/chat/attachments'
 import { appEnv } from '../infra/config/orca-config'
 import {
@@ -42,7 +43,8 @@ import type { HistoryWriter } from '../features/history/writer'
 import { SessionRuntime } from '../features/sessions/session-runtime'
 import type { RuntimeSessionAdapter } from '../contracts/ports'
 import { recoverSessionHistory } from '../features/chat/recovery'
-import type { SteerFlushBatch, TurnRequest } from '../adapters/turn'
+import { canSteerAcrossSelection } from '../features/chat/selection-boundary'
+import type { SteerFlushBatch, TurnRequest, TurnSelectionSnapshot } from '../adapters/turn'
 import { TurnCoordinator } from '../features/chat/turn-coordinator'
 import { settleOpenToolRuns, settleSubagentTask, stopLiveSubagent } from '../features/chat/settle'
 import type { MainBus, TurnEmit } from '../contracts/bus-events'
@@ -147,6 +149,24 @@ async function resolveTurnProvider(
   }
 }
 
+function turnSelection(
+  input: {
+    providerKey?: string | null
+    modelFamily?: string | null
+    permissionMode?: TurnSelectionSnapshot['permissionMode']
+    effort?: TurnSelectionSnapshot['effort']
+  },
+  resolved: { providerKey: string | null; model?: string }
+): TurnSelectionSnapshot {
+  return {
+    providerKey: resolved.providerKey,
+    modelFamily: input.modelFamily ?? null,
+    model: resolved.model ?? null,
+    ...(input.permissionMode ? { permissionMode: input.permissionMode } : {}),
+    ...(input.effort ? { effort: input.effort } : {})
+  }
+}
+
 // subprocess env 조립 — orca.json 앱 전역 env(${VAR} 확장)를 병합.
 
 function resolveTurnCwd(
@@ -211,21 +231,11 @@ export function registerChatHandlers(deps: ChatDeps): void {
       attachments?: Parameters<typeof normalizeAttachments>[0]
       attachmentViews?: AttachmentView[]
       clientRequestId?: string
-    }
+    },
+    selection: TurnSelectionSnapshot
   ): Promise<void> => {
     const turn = supervisor.getBySession(sessionId)
-    if (!turn?.live?.canSteer) {
-      sendChatEvent(event.sender, {
-        type: 'error',
-        sessionId,
-        error: makeClassifiedError(
-          'capability_unsupported',
-          '이 백엔드는 피드백 끼어들기를 지원하지 않습니다.',
-          { retryable: false }
-        )
-      })
-      return
-    }
+    if (!turn) return
     let na: Awaited<ReturnType<typeof normalizeAttachments>>
     try {
       na = await normalizeAttachments(data.attachments ?? [])
@@ -240,10 +250,27 @@ export function registerChatHandlers(deps: ChatDeps): void {
       })
       return
     }
+    // 권한 모드는 라이브 제어가 가능하므로 선택 스냅샷을 enqueue 전에 현재 채널에 적용한다.
+    // 실패해도 controller 값이 자동 연속 턴의 다음 요청에 남는다.
+    if (selection.permissionMode) {
+      await permissionModes.setMode(sessionId, selection.permissionMode)
+      if (turn.live) {
+        try {
+          await turn.live.setPermissionMode(toClaudePermissionMode(selection.permissionMode))
+        } catch {
+          // 채널 종료 경합 — 아래 queue/연속 턴 경로가 스냅샷을 다시 적용한다.
+        }
+      }
+    }
+    const steerEligible =
+      turn.live?.canSteer === true &&
+      !pendingMessages.hasQueueBarrier(sessionId) &&
+      canSteerAcrossSelection(turn.selection, selection)
     const item = pendingMessages.enqueue(
       sessionId,
       {
         text: data.text,
+        selection,
         ...(na.attachmentTexts.length > 0 ? { attachmentTexts: na.attachmentTexts } : {}),
         ...(na.attachmentImages.length > 0 ? { attachmentImages: na.attachmentImages } : {}),
         ...(data.attachmentViews && data.attachmentViews.length > 0
@@ -251,7 +278,8 @@ export function registerChatHandlers(deps: ChatDeps): void {
           : {})
       },
       Date.now(),
-      data.clientRequestId
+      data.clientRequestId,
+      steerEligible ? 'steer' : 'queued'
     )
     sendChatEvent(event.sender, {
       type: 'message.queued',
@@ -289,12 +317,35 @@ export function registerChatHandlers(deps: ChatDeps): void {
       return
     }
 
+    const adapter =
+      ctx.mockAdapter && ctx.debugMock.enabled ? ctx.mockAdapter : ctx.registry.getActive()
+    if (!adapter) {
+      sendChatEvent(event.sender, {
+        type: 'error',
+        error: makeClassifiedError('provider_connection_error', '활성 백엔드가 없습니다.', {
+          retryable: true
+        })
+      })
+      return
+    }
+
     // 동시 턴 admission — 서로 다른 세션의 동시 턴은 허용하되, 같은 세션(또는 같은 창의
     // busy 세션 send = 예약(held) — 구 chat:steer 채널 흡수(0067 AC5). 진행 턴이 있으면 큐에
     // 적재만 하고 반환한다. 주입은 게이트 훅(PostToolBatch)·턴 종료 자동 연속이, 커밋은 echo 가
     // 소유한다. 취소는 held 창 안에서 chat:steerCancel/중단 버튼.
     if (parsed.data.sessionId && supervisor.hasSession(parsed.data.sessionId)) {
-      await reserveOnBusySession(event, parsed.data.sessionId, parsed.data)
+      const busyResolved = await resolveTurnProvider(ctx, {
+        adapter,
+        sessionId: parsed.data.sessionId,
+        providerKey: parsed.data.providerKey ?? null,
+        modelFamily: parsed.data.modelFamily ?? null
+      })
+      await reserveOnBusySession(
+        event,
+        parsed.data.sessionId,
+        parsed.data,
+        turnSelection(parsed.data, busyResolved)
+      )
       return
     }
     // 새-채팅 슬롯 중복 send race 가드 — 0056 admission 의 유일 잔존 케이스(0067 AC10 인라인).
@@ -306,19 +357,6 @@ export function registerChatHandlers(deps: ChatDeps): void {
           '이미 진행 중인 턴이 있습니다. 완료 후 다시 시도하세요.',
           { retryable: true }
         )
-      })
-      return
-    }
-
-    const adapter =
-      ctx.mockAdapter && ctx.debugMock.enabled ? ctx.mockAdapter : ctx.registry.getActive()
-    if (!adapter) {
-      // 세션-이전 에러(0016): 활성 어댑터 부재가 곧 이 에러의 원인 — provider 부재가 정상.
-      sendChatEvent(event.sender, {
-        type: 'error',
-        error: makeClassifiedError('provider_connection_error', '활성 백엔드가 없습니다.', {
-          retryable: true
-        })
       })
       return
     }
@@ -415,6 +453,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
       titleEnv: turnEnv,
       titleModel: resolved.titleModel,
       providerKey: resolved.providerKey,
+      selection: turnSelection(parsed.data, resolved),
       pendingUserText: effectiveText,
       firstUserText: effectiveText,
       pendingAttachmentViews: parsed.data.attachmentViews,
@@ -491,6 +530,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
       queueKey,
       {
         text: effectiveText,
+        selection: turnSelection(parsed.data, resolved),
         ...(normalizedAttachments.attachmentTexts.length > 0
           ? { attachmentTexts: normalizedAttachments.attachmentTexts }
           : {}),
@@ -644,6 +684,9 @@ export function registerChatHandlers(deps: ChatDeps): void {
       sessionId: parsed.data.sessionId,
       // 0064 continuity — 어댑터가 resume+forkSession 으로 어댑트해 새 session id 를 발급받는다.
       ...(continuitySource ? { forkFrom: continuitySource } : {}),
+      ...(continuitySource
+        ? { continuityKind: parsed.data.handoffFrom ? ('handoff' as const) : ('fork' as const) }
+        : {}),
       // 본 프롬프트 = 큐에서 방금 flush 한 아이템 배치(0067 AC5). promptUuid=item id 가 echo
       // 상관키가 돼 커밋(user row 영속·renderer 승격)이 echo 관측 단일 경로로 흐른다(AC6).
       text: mainBatch.text,
@@ -678,20 +721,50 @@ export function registerChatHandlers(deps: ChatDeps): void {
       // 시에는 발동하지 않는다 — 중단 버튼이 held 를 이미 drain(draft 복원)했다.
       while (!activeTurn.controller.signal.aborted && activeTurn.dbSessionId) {
         const sessionId = activeTurn.dbSessionId
-        if (pendingMessages.pending(sessionId).length === 0) break
+        if (pendingMessages.pending(sessionId).length === 0) {
+          pendingMessages.endTurn(sessionId)
+          break
+        }
         let contPreludes: SteerFlushBatch[] = []
-        let batch: SteerFlushBatch | undefined
-        if (runtime.channelAlive) {
-          // 채널 생존 — held 병합 단일 배치(D4 1버블)를 pushTurn 프롬프트로.
-          batch = pendingMessages.flushHeld(sessionId)
-        } else {
+        // 턴 종료 시 barrier 뒤 메시지를 포함한 held 전량을 마지막 선택으로 한 배치화한다.
+        let batch = pendingMessages.flushAllHeld(sessionId)
+        if (!batch) break
+        if (!runtime.channelAlive) {
           // 채널 사망 — respawn 이월 전체를 회수해 마지막을 본 프롬프트, 앞을 프렐류드로.
           const leftovers = pendingMessages.takeForRespawn(sessionId)
           batch = leftovers.pop()
           contPreludes = leftovers
         }
         if (!batch) break
-        const contTurn = makeContinuationTurn(activeTurn)
+        const nextSelection = batch.selection ?? activeTurn.selection
+        const contResolved = await resolveTurnProvider(ctx, {
+          adapter,
+          sessionId,
+          providerKey: nextSelection.providerKey,
+          modelFamily: nextSelection.modelFamily
+        })
+        const resolvedSelection: TurnSelectionSnapshot = {
+          ...nextSelection,
+          providerKey: contResolved.providerKey,
+          model: contResolved.model ?? null
+        }
+        // provider/effort 는 spawn-bound 설정이다. 경계를 넘으면 기존 persistent 채널을 내리고
+        // 같은 세션 resume 로 새 설정을 주입한다. 같은 provider 의 model 은 pushTurn setModel.
+        if (
+          runtime.channelAlive &&
+          (crossesProviderBoundary(
+            activeTurn.selection.providerKey,
+            resolvedSelection.providerKey
+          ) ||
+            activeTurn.selection.effort !== resolvedSelection.effort)
+        ) {
+          runtime.teardownChannel()
+        }
+        const contTurn: TurnContext<WebContents> = {
+          ...makeContinuationTurn(activeTurn),
+          providerKey: resolvedSelection.providerKey,
+          selection: resolvedSelection
+        }
         supervisor.startResume(sessionId, contTurn)
         activeTurn = contTurn
         const contRequest: TurnRequest = {
@@ -700,12 +773,17 @@ export function registerChatHandlers(deps: ChatDeps): void {
           text: batch.text,
           promptUuid: batch.uuid,
           signal: contTurn.controller.signal,
+          providerSettings: contResolved.providerSettings,
+          model: contResolved.model,
+          permissionMode: resolvedSelection.permissionMode,
+          effort: resolvedSelection.effort,
           attachmentTexts: batch.attachmentTexts ?? [],
           attachmentImages: batch.attachmentImages ?? [],
           ...(contPreludes.length > 0 ? { preludes: contPreludes } : {})
         }
         // 연속 턴은 fork/프렐류드(원 요청분)를 계승하지 않는다 — 재분기·이중 전달 방지.
         delete contRequest.forkFrom
+        delete contRequest.continuityKind
         if (contPreludes.length === 0) delete contRequest.preludes
         try {
           await coordinator.run(contTurn, contRequest, { boundProjectId })
@@ -733,6 +811,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
     titleEnv: prev.titleEnv,
     titleModel: prev.titleModel,
     providerKey: prev.providerKey,
+    selection: prev.selection,
     pendingUserText: null,
     firstUserText: prev.firstUserText,
     pendingAttachmentViews: [],

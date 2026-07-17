@@ -903,9 +903,9 @@ describe('chatStore — pending message lifecycle (0067)', () => {
   })
 })
 
-// 0119 — busy 세션에서 provider 경계를 넘는 모델이 선택된 동안 steer 예약을 거부한다
-// (Composer 게이트의 main-호출 직전 이중 방어). 본래 provider 로 되돌리면 통과.
-describe('chatStore — steer provider 경계 게이트(0119)', () => {
+// 0123 — renderer 는 provider 경계를 차단하지 않고 전송 순간의 전체 선택을 main 에 넘긴다.
+// steer/다음 턴 queue 분류는 실제 실행 모델을 아는 main 의 단일 책임이다.
+describe('chatStore — busy 선택 스냅샷 전달(0123)', () => {
   const seedBusyWithProvider = (selectedKey: string): void => {
     useChatStore.setState((st) => ({
       sessions: {
@@ -916,26 +916,28 @@ describe('chatStore — steer provider 경계 게이트(0119)', () => {
             ...st.sessions.s.session,
             backend: 'claude',
             providerKey: selectedKey,
-            turnProviderKey: 'claude-anthropic'
+            modelFamily: 'glm',
+            permissionMode: 'accept_edits',
+            effort: 'max'
           }
         }
       }
     }))
   }
 
-  it('경계 선택 중 send 는 false — pendingSteer 미적재 + IPC 미호출', () => {
+  it('provider 경계 선택도 차단하지 않고 전체 스냅샷으로 전송한다', () => {
     seedBusyWithProvider('claude-zai')
-    expect(chatActions.send('끼어들기 시도')).toBe(false)
-    expect(useChatStore.getState().sessions.s.pendingSteer ?? []).toEqual([])
-    expect(chatSend).not.toHaveBeenCalled()
-  })
-
-  it('본래 provider 로 되돌리면 steer 예약이 정상 동작한다', () => {
-    seedBusyWithProvider('claude-anthropic')
-    expect(chatActions.send('정상 피드백')).toBe(true)
+    expect(chatActions.send('다음 턴 메시지')).toBe(true)
     expect(useChatStore.getState().sessions.s.pendingSteer?.map((p) => p.text)).toEqual([
-      '정상 피드백'
+      '다음 턴 메시지'
     ])
-    expect(chatSend).toHaveBeenCalledTimes(1)
+    expect(chatSend).toHaveBeenCalledWith(
+      expect.objectContaining({
+        providerKey: 'claude-zai',
+        modelFamily: 'glm',
+        permissionMode: 'accept_edits',
+        effort: 'max'
+      })
+    )
   })
 })

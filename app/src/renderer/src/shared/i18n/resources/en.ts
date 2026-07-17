@@ -539,11 +539,10 @@ export const en: typeof ko = {
         'This message will be sent in order as soon as the previous new chat session is ready.',
       backendTitle: 'Backend: {{label}}',
       placeholderFeedback: 'Send feedback… (Enter to send / Shift+Enter for newline)',
-      placeholderProviderBoundary:
-        "A different provider's model is selected — you can send after the current response completes",
       placeholderIdle: 'Type / to see skills.',
       inputAria: 'Message input',
       abortUnsupported: 'This backend does not support aborting',
+      sessionOpening: 'Preparing session',
       sendFeedback: 'Send feedback',
       sendFeedbackEnter: 'Send feedback (Enter)',
       send: 'Send',
@@ -753,6 +752,7 @@ export const en: typeof ko = {
     setUnlimited: 'Set unlimited',
     setLimit: 'Set spending limit',
     backToUsage: 'Usage',
+    executedModel: 'Executed model',
     contextWindow: 'Context window',
     openUsageSettingsAria: 'Open usage limit settings'
   }

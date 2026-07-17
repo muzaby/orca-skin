@@ -192,30 +192,39 @@
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- (구현 턴에서 기입)
+- 기존 설계는 busy 중 모델 변경만 후속 턴에 반영하는 방향이어서, 권한·effort 등 Composer 선택이 메시지와 분리되는 시간차 버그를 남길 수 있었다. 사용자 정정에 따라 텍스트·첨부와 `providerKey/modelFamily/permissionMode/effort` 전체를 메시지별로 스냅샷하고 main 이 해석한 실제 모델 id 도 함께 보존했다.
+- 기존 0119 renderer provider 차단은 새 정책(경계 메시지도 queue 로 수리)과 정면 충돌했다. renderer 의 차단·`turnProviderKey` 상태·전용 카피/테스트를 제거하고, 실제 실행 모델과 런타임 capability 를 아는 main 으로 분류 책임을 모았다.
+- 단순히 "마지막 모델"만 읽으면 먼저 queue 된 메시지를 취소하거나 설정을 되돌린 뒤 후속 메시지가 steer 로 앞질러 갈 수 있다. 첫 queue 판정이 세션별 sticky barrier 를 만들고, 원인 메시지 단건 취소 뒤에도 assistant 턴 종료 전까지 유지되도록 했다.
+- provider 와 effort 는 spawn-bound, 같은 provider 의 모델과 permission 은 live-mutable 이라는 차이를 분리했다. provider/effort 경계는 채널 teardown+resume, 모델은 기존 `pushTurn.setModel`, permission 은 즉시 라이브 적용과 후속 요청 스냅샷을 함께 사용한다.
+- mock 이 `/compact` 문자열을 추측하는 설계는 명령 문구 변경과 사용자 수동 compact 를 혼동한다. 내부 `continuityKind` 계약을 추가해 handoff 만 명시적으로 축소 telemetry 시나리오를 선택하게 했다.
+- 핸드오프 후 telemetry 자체를 숨기는 것은 사용자 정정과 반대다. compact 후 작은 telemetry 를 도넛/일반 UsagePanel 에 유지하고, 기존 안전 상태 파생이 경고 pill·상태 팝오버만 자연히 숨기게 했다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| | | | |
+| 1 | handoff 는 `session.updated`가 compact 턴 종료보다 먼저 와 일반 `sessionId == null` 판정만으로는 스피너가 너무 일찍 끝남 | `handoffFrom + 자동 user 턴 1개 이하`를 별도 오픈 상태로 판정 | `sessionOpening.test.ts` |
+| 2 | 스피너 버튼만 비활성화해도 Enter 키가 submit 경로를 우회할 수 있음 | `submit()` 자체에 `sessionOpening` 가드 추가 | `Composer.tsx` |
+| 3 | 선택 모델명과 provider 가 보고한 실제 실행 모델이 다를 수 있음 | UsagePanel 은 오직 `telemetry.model`만 표시하고 선택값/modelUsage 첫 키를 폴백으로 쓰지 않음 | `UsagePanel.tsx` |
+| 4 | 전역 mock ratio 70~90%가 handoff 직후에도 빨간 경고를 재시드함 | handoff 시나리오가 compact `postTokens=9k`와 동일한 9k telemetry 를 명시 | `mock-scenarios.test.ts` |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] A1 재현 + 와이어 로그 증거
-- [ ] A2 연속 턴 모델 재해석 + 테스트
-- [ ] A3 실행 모델 가시화
-- [ ] B mock continuity 시뮬레이션 + 테스트
-- [ ] C telemetry 리셋 정합 (+ 조건부 reducer 게이트)
-- [ ] D 오픈 구간 버튼 상태 + 판정 함수 테스트
-- [ ] 게이트 + CDP mock 시각 확인
+- [ ] A1 실 Claude 와이어 로그 증거 — 코드/자동 테스트 완료, 검증 턴 실기 책임으로 분리
+- [x] A2 연속 턴 전체 선택 재해석 + queue/barrier 테스트
+- [x] A3 실행 모델 가시화(`telemetry.model` 단일 소스)
+- [x] B mock continuity 명시 시뮬레이션 + 테스트
+- [x] C compact 후 축소 telemetry·도넛 유지·안전 상태 파생 정합
+- [x] D 오픈 구간 버튼 상태 + 판정 함수 테스트 + Enter 우회 가드
+- [x] 자동 게이트
+- [ ] CDP mock 시각 확인 — 검증 턴/사람 확인 책임
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | |
-| 실행 명령 | |
-| 게이트 결과 | |
-| 블로커 / 역질문 | |
-| 대상 커밋 | |
+| 변경 파일 | main: `adapters/{turn,mock,mock-scenarios}.ts`, `app/chat-turn.ts`, `contracts/turn.ts`, `features/chat/{pending-message-queue,selection-boundary}.ts` 및 테스트. renderer: `Composer.tsx`, `UsagePanel.tsx`, `sessionOpening.ts`, chat store/reducer의 0119 gate 제거·대체 테스트, ko/en. 문서: `docs/IPC_CONTRACT.md`. |
+| 실행 명령 | `npm run lint`; `npm run typecheck`; 관련 Vitest 78개; `npm test`(sandbox 실패 원인 분리 후 권한 환경 재실행) |
+| 게이트 결과 | lint 오류 0(기존 React Compiler 경고 1), typecheck node/web/test 통과, Vitest **942/942**, scripts **25/25**. 신규 의존성·IPC 채널·DB 변경 없음. |
+| 블로커 / 역질문 | 구현 블로커 없음. 실 Claude 동일-provider 모델 전환 와이어 로그와 CDP 시각 확인은 검증 책임으로 남김. |
+| 대상 커밋 | 본 구현 커밋(정확한 hash는 INDEX에 기록) |

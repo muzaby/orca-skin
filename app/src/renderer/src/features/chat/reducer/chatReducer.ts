@@ -76,10 +76,6 @@ export interface ChatState {
   backend: Backend | null
   providerKey: string | null
   modelFamily: string | null
-  // 0119: 진행 중 턴이 실제로 쓰는 provider 스냅샷 — BEGIN_TURN 에서 providerKey 를 고정,
-  // 턴 종료(telemetry/turn.aborted/error/CANCEL_CHAT)에 초기화. SET_MODEL 이 providerKey 를
-  // inflight 중에도 덮어쓰므로, steer 게이트(경계 판정)는 이 스냅샷과 선택값을 비교한다.
-  turnProviderKey: string | null
   effort: EffortLevel
   // 어댑터가 발급한 세션의 working directory (`init` 이벤트). Composer 의 `@`
   // 파일 자동완성이 이 경로 기준으로 디렉토리를 리스팅한다.
@@ -161,7 +157,6 @@ export const initialChatState: ChatState = {
   backend: null,
   providerKey: null,
   modelFamily: null,
-  turnProviderKey: null,
   effort: 'high',
   cwd: null,
   messages: [],
@@ -194,16 +189,13 @@ export const PANEL_MIN_ROW_SPLIT = 0.2
 export const PANEL_MAX_ROW_SPLIT = 0.8
 export const PANEL_DEFAULT_ROW_SPLIT = 0.5
 
-// 턴 종료 공통 리셋 — inflight 와 턴 스냅샷(turnProviderKey 0119 · turnStartedAt)·재시도 배너를
-// 한 곳에서 내린다. 종료 경로(telemetry/turn.aborted/error/CANCEL_CHAT)가 늘거나 per-turn 필드가
-// 추가되면 여기만 갱신한다 — 경로별 개별 나열은 스냅샷 초기화 누락(스티어 영구 차단)을 부른다.
-const TURN_END_RESET: Pick<ChatState, 'inflight' | 'turnProviderKey' | 'turnStartedAt' | 'retry'> =
-  {
-    inflight: false,
-    turnProviderKey: null,
-    turnStartedAt: null,
-    retry: undefined
-  }
+// 턴 종료 공통 리셋 — 종료 경로(telemetry/turn.aborted/error/CANCEL_CHAT)가 늘어도
+// per-turn 상태가 한 곳에서 내려가도록 유지한다.
+const TURN_END_RESET: Pick<ChatState, 'inflight' | 'turnStartedAt' | 'retry'> = {
+  inflight: false,
+  turnStartedAt: null,
+  retry: undefined
+}
 
 export type ChatAction =
   // 턴 시작 전이 — user 버블은 붙이지 않는다(버블은 낙관 커밋 또는 echo 커밋이 별도로).
@@ -282,9 +274,6 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         ...state,
         sendCount: state.sendCount + 1,
         inflight: true,
-        // 0119: 이 턴이 쓰는 provider 고정 — 이후 SET_MODEL 이 providerKey 를 바꿔도
-        // steer 게이트가 진행 턴의 provider 를 기억한다.
-        turnProviderKey: state.providerKey,
         turnStartedAt: Date.now(),
         // lastTelemetry 는 비우지 않는다 — 컨텍스트 도넛이 턴 진행 중에도 직전 값을 유지.
         error: undefined,

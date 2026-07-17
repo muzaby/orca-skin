@@ -534,11 +534,10 @@ export const ko = {
       queuedNoticeBody: '이전 새 대화의 세션이 준비되는 대로 이 메시지를 순서대로 전송합니다.',
       backendTitle: '백엔드: {{label}}',
       placeholderFeedback: '피드백 보내기… (Enter 전송 / Shift+Enter 줄바꿈)',
-      placeholderProviderBoundary:
-        '다른 공급자 모델이 선택되어 있습니다 — 응답 완료 후 전송할 수 있습니다',
       placeholderIdle: '스킬을 보려면 /를 입력하세요.',
       inputAria: '메시지 입력',
       abortUnsupported: '이 백엔드는 중단을 지원하지 않습니다',
+      sessionOpening: '세션을 준비하는 중',
       sendFeedback: '피드백 보내기',
       sendFeedbackEnter: '피드백 보내기 (Enter)',
       send: '전송',
@@ -746,6 +745,7 @@ export const ko = {
     setUnlimited: '무제한으로 설정',
     setLimit: '지출 한도 설정',
     backToUsage: '사용량',
+    executedModel: '실행 모델',
     contextWindow: '컨텍스트 창',
     openUsageSettingsAria: '사용량 한도 설정 열기'
   }

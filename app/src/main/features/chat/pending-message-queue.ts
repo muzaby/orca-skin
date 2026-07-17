@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import type { AttachmentView } from '../../../shared/ipc'
-import type { SteerFlush, SteerFlushBatch } from '../../adapters/turn'
+import type { SteerFlush, SteerFlushBatch, TurnSelectionSnapshot } from '../../adapters/turn'
 import type { ExtractedAttachmentImage, ExtractedAttachmentText } from '../../adapters/turn'
 
 // 큐 아이템 페이로드 — 구조 페이로드(0067 AC5): 텍스트 + 추출 첨부(어댑터가 content 블록으로
@@ -10,12 +10,14 @@ export interface PendingMessagePayload {
   attachmentTexts?: ExtractedAttachmentText[]
   attachmentImages?: ExtractedAttachmentImage[]
   attachmentViews?: AttachmentView[]
+  selection?: TurnSelectionSnapshot
 }
 
 export interface PendingMessage extends PendingMessagePayload {
   id: string
   sessionId: string
   createdAt: number
+  delivery: 'steer' | 'queued'
 }
 
 // held 에서 flush 로 넘어간 배치. 병합 텍스트는 flush 시점에 1회 계산·보존한다 — echo 의
@@ -34,6 +36,7 @@ function toBatch(items: PendingMessage[], uuid: string): SteerFlushBatch {
     ids: items.map((item) => item.id),
     text: items.map((item) => item.text).join('\n\n'),
     createdAt: items[0].createdAt,
+    ...(items.at(-1)?.selection ? { selection: items.at(-1)!.selection } : {}),
     ...(attachmentTexts.length > 0 ? { attachmentTexts } : {}),
     ...(attachmentImages.length > 0 ? { attachmentImages } : {}),
     ...(attachmentViews.length > 0 ? { attachmentViews } : {})
@@ -64,16 +67,28 @@ function toBatch(items: PendingMessage[], uuid: string): SteerFlushBatch {
 export class PendingMessageQueue {
   private readonly heldBySession = new Map<string, PendingMessage[]>()
   private readonly flushedBySession = new Map<string, FlushedBatch[]>()
+  private readonly queueBarriers = new Set<string>()
 
   enqueue(
     sessionId: string,
     payload: PendingMessagePayload,
     now = Date.now(),
-    id: string = randomUUID()
+    id: string = randomUUID(),
+    requestedDelivery: 'steer' | 'queued' = 'steer'
   ): PendingMessage {
     const trimmed = payload.text.trim()
     if (trimmed === '') throw new Error('empty pending message text')
-    const item: PendingMessage = { ...payload, id, sessionId, text: trimmed, createdAt: now }
+    const delivery =
+      requestedDelivery === 'queued' || this.queueBarriers.has(sessionId) ? 'queued' : 'steer'
+    if (delivery === 'queued') this.queueBarriers.add(sessionId)
+    const item: PendingMessage = {
+      ...payload,
+      id,
+      sessionId,
+      text: trimmed,
+      createdAt: now,
+      delivery
+    }
     const items = this.heldBySession.get(sessionId) ?? []
     items.push(item)
     this.heldBySession.set(sessionId, items)
@@ -97,11 +112,16 @@ export class PendingMessageQueue {
   cancelAllHeld(sessionId: string): PendingMessage[] {
     const items = this.heldBySession.get(sessionId) ?? []
     this.heldBySession.delete(sessionId)
+    this.queueBarriers.delete(sessionId)
     return items
   }
 
   pending(sessionId: string): PendingMessage[] {
     return [...(this.heldBySession.get(sessionId) ?? [])]
+  }
+
+  hasQueueBarrier(sessionId: string): boolean {
+    return this.queueBarriers.has(sessionId)
   }
 
   // 세션 키 재바인딩(0067 AC9) — 새 세션은 clientKey(draft UUID)로 적재됐다가 init 에서 실
@@ -120,17 +140,37 @@ export class PendingMessageQueue {
       const target = this.flushedBySession.get(newKey) ?? []
       this.flushedBySession.set(newKey, [...target, ...flushed])
     }
+    if (this.queueBarriers.delete(oldKey)) this.queueBarriers.add(newKey)
   }
 
-  // 게이트 훅(PostToolBatch) 시점 — held 전체를 병합 단일 배치로 넘기고 flushed 로 전이한다.
+  // 게이트 훅(PostToolBatch) 시점 — queue barrier 앞의 steer 가능 prefix 만 병합한다.
   // 반환 배치를 stdin 에 1건의 user 메시지(uuid=batch uuid)로 주입한다(D3·D4: 1버블 = 구조 보장).
   flushHeld(sessionId: string, uuid: string = randomUUID()): SteerFlushBatch | undefined {
     const items = this.heldBySession.get(sessionId)
+    if (!items || items.length === 0) return undefined
+    const barrierIndex = items.findIndex((item) => item.delivery === 'queued')
+    const count = barrierIndex < 0 ? items.length : barrierIndex
+    if (count === 0) return undefined
+    const flushedItems = items.splice(0, count)
+    if (items.length === 0) this.heldBySession.delete(sessionId)
+    const batch = toBatch(flushedItems, uuid)
+    this.registerFlushed(sessionId, batch)
+    return batch
+  }
+
+  // 어시스턴트 턴 종료 — 남은 steer/queued 항목을 마지막 선택으로 한 번에 연속 실행한다.
+  flushAllHeld(sessionId: string, uuid: string = randomUUID()): SteerFlushBatch | undefined {
+    const items = this.heldBySession.get(sessionId)
+    this.queueBarriers.delete(sessionId)
     if (!items || items.length === 0) return undefined
     this.heldBySession.delete(sessionId)
     const batch = toBatch(items, uuid)
     this.registerFlushed(sessionId, batch)
     return batch
+  }
+
+  endTurn(sessionId: string): void {
+    this.queueBarriers.delete(sessionId)
   }
 
   // 턴 프롬프트 flush(0067 AC5) — 지정 아이템 1개를 자기 배치(uuid=item id)로 전이한다. 사용자
@@ -154,6 +194,7 @@ export class PendingMessageQueue {
     )
     const held = this.heldBySession.get(sessionId) ?? []
     this.heldBySession.delete(sessionId)
+    this.queueBarriers.delete(sessionId)
     const next: FlushedBatch[] = [...unconsumed]
     const heldBatches = held.map((item) => {
       const batch: FlushedBatch = { ...toBatch([item], item.id), consumed: false }

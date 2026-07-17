@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest'
+import type { TurnSelectionSnapshot } from '../../adapters/turn'
 import { PendingMessageQueue } from './pending-message-queue'
 
 const msg = (text: string): { text: string } => ({ text })
+const selection = (model: string, effort: 'low' | 'high' = 'low'): TurnSelectionSnapshot => ({
+  providerKey: 'claude-anthropic',
+  modelFamily: model,
+  model,
+  permissionMode: 'plan' as const,
+  effort
+})
 
 describe('PendingMessageQueue', () => {
   it('held 취소는 성공하고 다른 세션을 건드리지 않는다', () => {
@@ -39,6 +47,46 @@ describe('PendingMessageQueue', () => {
     // held 는 비고(취소 불가 영역으로 이동), 빈 큐 재호출은 undefined(게이트 no-op).
     expect(q.pending('s')).toHaveLength(0)
     expect(q.flushHeld('s')).toBeUndefined()
+  })
+
+  it('queue barrier 앞 steer prefix 만 게이트 flush 하고 이후 항목은 sticky queue 로 유지한다', () => {
+    const q = new PendingMessageQueue()
+    q.enqueue('s', { text: 'steer', selection: selection('sonnet') }, 1, 'a', 'steer')
+    q.enqueue('s', { text: 'boundary', selection: selection('opus') }, 2, 'b', 'queued')
+    // 설정이 다시 같아져도 barrier 뒤 메시지는 queue 로 고정된다.
+    q.enqueue('s', { text: 'after', selection: selection('sonnet') }, 3, 'c', 'steer')
+
+    expect(q.flushHeld('s', 'steer-batch')).toMatchObject({ ids: ['a'], text: 'steer' })
+    expect(q.pending('s').map((item) => [item.id, item.delivery])).toEqual([
+      ['b', 'queued'],
+      ['c', 'queued']
+    ])
+    expect(q.flushHeld('s')).toBeUndefined()
+    expect(q.flushAllHeld('s', 'next-turn')).toMatchObject({
+      ids: ['b', 'c'],
+      text: 'boundary\n\nafter',
+      selection: selection('sonnet')
+    })
+    expect(q.hasQueueBarrier('s')).toBe(false)
+  })
+
+  it('barrier 원인 메시지를 취소해도 턴 종료 전에는 뒤 메시지를 steer 로 재분류하지 않는다', () => {
+    const q = new PendingMessageQueue()
+    q.enqueue('s', { text: 'boundary', selection: selection('opus') }, 1, 'a', 'queued')
+    q.enqueue('s', { text: 'after', selection: selection('sonnet') }, 2, 'b', 'steer')
+    expect(q.cancel('s', 'a')?.id).toBe('a')
+    expect(q.hasQueueBarrier('s')).toBe(true)
+    expect(q.pending('s')[0]).toMatchObject({ id: 'b', delivery: 'queued' })
+    expect(q.flushHeld('s')).toBeUndefined()
+    q.endTurn('s')
+    expect(q.hasQueueBarrier('s')).toBe(false)
+  })
+
+  it('연속 턴 병합은 마지막 메시지의 provider/model/permission/effort 스냅샷을 사용한다', () => {
+    const q = new PendingMessageQueue()
+    q.enqueue('s', { text: 'one', selection: selection('sonnet', 'low') }, 1, 'a', 'queued')
+    q.enqueue('s', { text: 'two', selection: selection('opus', 'high') }, 2, 'b', 'queued')
+    expect(q.flushAllHeld('s', 'next')?.selection).toEqual(selection('opus', 'high'))
   })
 
   it('flushItem 은 지정 아이템만 자기 배치(uuid=item id)로 전이한다 (턴 프롬프트, 0067)', () => {

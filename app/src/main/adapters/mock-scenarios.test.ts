@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { ApprovalResolution, NormalizedEvent } from '../../shared/ipc'
-import { runScenario, SCENARIOS, type MockStep } from './mock-scenarios'
+import { handoffArrivalScenario, runScenario, SCENARIOS, type MockStep } from './mock-scenarios'
 
 const instantSleep = async (): Promise<void> => {}
 
@@ -83,6 +83,21 @@ describe('mock scenarios', () => {
         (highUsage?.cacheCreationTokens ?? 0)
     ).toBe(190_000)
     expect(highUsage?.costUsd).toBe(0)
+  })
+
+  it('handoff 도착은 compact 경계→요약→축소 telemetry 순서로 전역 ratio 를 덮어쓴다', async () => {
+    const { events } = await collect(handoffArrivalScenario(), { contextUsageRatio: 0.95 })
+    expect(events.map((event) => event.type)).toEqual([
+      'session.updated',
+      'session.compacted',
+      'message.completed',
+      'telemetry'
+    ])
+    expect(events[1]).toMatchObject({ preTokens: 155_000, postTokens: 9_000 })
+    const usage = events[3].type === 'telemetry' ? events[3].usage : undefined
+    expect(
+      (usage?.inputTokens ?? 0) + (usage?.cacheReadTokens ?? 0) + (usage?.cacheCreationTokens ?? 0)
+    ).toBe(9_000)
   })
 
   it('tool_approval 은 allow/deny 분기를 모두 표현한다', async () => {
