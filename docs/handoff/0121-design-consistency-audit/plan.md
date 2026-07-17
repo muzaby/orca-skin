@@ -248,3 +248,11 @@
 | F5 | 엔진 항목별 삭제 버튼: bg 채우지 말고 글자만 빨간색(컨텍스트 메뉴 삭제 참고) | ✅ Button 신규 variant `danger-ghost`(채움 없음·`text-rust`·hover `bg-rust-soft` — MenuItem danger 와 동일 톤) 추가 후 EngineCard 삭제에 적용. 솔리드 `danger` 는 ModalActions 확정 버튼용으로 유지 |
 
 - r3 게이트: typecheck:web 0 · lint 0 error(경고 1 = 기존) · renderer vitest 266/266.
+
+## [구현자 기입] 사용자 피드백 라운드 (r4)
+
+| # | 피드백 | 대응 |
+|---|---|---|
+| F6 | Composer 하단 모델·작업량 메뉴 항목도 같은 룰(공용 MenuItem)로 통일 | ✅ 공용 `MenuItem` 에 2줄(라벨+설명) 항목용 `align="start"` prop 추가 후 `ModelMenu`·`EffortMenu` 수렴. **같은 상수를 공유하던 `ModeMenu`(권한모드)도 함께 수렴**(하나만 남기면 동일 불일치 재생산 — 선조치 ✅ 보고). r1 에서 "문서화된 예외"로 남겼던 `composer/menuItem.ts` 로컬 상수 삭제 — 이제 메뉴 항목 표준은 shared/ui/MenuItem 단일 |
+
+- r4 게이트: typecheck:web 0 · lint 0 error(경고 1 = 기존) · renderer vitest 266/266.

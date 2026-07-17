@@ -2,7 +2,7 @@ import { Icon } from '../../../../shared/ui/Icon'
 import type { AgentEnvironment } from '../../../../../../shared/ipc'
 
 import { modelKey, type ModelSelection } from './modelSelection'
-import { MENU_ITEM } from './menuItem'
+import { MenuItem } from '../../../../shared/ui/MenuItem'
 import { useI18n } from '../../../../shared/i18n'
 
 interface ModelMenuProps {
@@ -40,17 +40,17 @@ export function ModelMenu({
             const alias = modelKey(model)
             const active = selection?.providerKey === agent.key && selection.modelFamily === alias
             return (
-              <button
+              <MenuItem
                 key={`${agent.key}/${alias}`}
-                type="button"
                 role="menuitemradio"
                 aria-checked={active}
+                icon="cpu"
+                iconSize={13}
+                align="start"
                 onClick={() =>
                   onPick({ providerKey: agent.key, modelFamily: alias, adapter: agent.adapter })
                 }
-                className={MENU_ITEM}
               >
-                <Icon name="cpu" size={13} />
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-1.5 text-[13px] font-medium text-ink">
                     {alias}
@@ -62,7 +62,7 @@ export function ModelMenu({
                     {model.model ?? tr('chat.composer.sdkDefaultModel')}
                   </span>
                 </span>
-              </button>
+              </MenuItem>
             )
           })}
         </div>

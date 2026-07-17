@@ -98,3 +98,10 @@ $ node --test scripts/*.test.mjs  # tests 25 / pass 25 / fail 0
 - F4/F5: add engine = 프로젝트 추가 버튼과 동일 primary small(+plus), EngineCard 삭제 = 신규 `danger-ghost`(채움 없음·rust 글자). 편집=contained 유지.
 - 게이트(r3): typecheck:web 0 · lint 0 error(경고 1 = 기존) · renderer vitest 266/266.
 - 상태: **PASS 유지** (라운드 3). 사람 실기: 스킬 리스트 헤더(+만)·그룹 라벨 en 전환·엔진 버튼 2종 시각.
+
+## r4 부록 — 사용자 피드백 반영 검증 (2026-07-17)
+
+- F6: `ModelMenu`/`EffortMenu`/`ModeMenu`(동일 상수 공유로 동반 수렴) 가 공용 `MenuItem`(신규 `align="start"`) 사용. `composer/menuItem.ts` 삭제 — `grep "from './menuItem'"` 잔존 0. r1 verify #6 의 "composer menuItem.ts 예외" 기술은 본 부록으로 supersede.
+- 시각 수렴: hover `bg-sidebar`→표준 `fill-uncontained-hover`, cursor pointer→default, 패딩 px-2→px-2.5. ModeMenu 2-스텝 위험 확인 로직 무변경.
+- 게이트(r4): typecheck:web 0 · lint 0 error(경고 1 = 기존) · renderer vitest 266/266.
+- 상태: **PASS 유지** (라운드 4). 사람 실기: composer 모델/작업량/권한모드 드롭다운 시각·동작(위험 모드 2-스텝 포함).
