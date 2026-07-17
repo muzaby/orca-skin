@@ -92,8 +92,9 @@ export const ko = {
       skillCardDesc: 'Orca에게 프로세스, 팀 규범, 전문 지식을 가르치세요.'
     },
     list: {
-      searchAria: '검색',
       addAria: '추가',
+      groupOrca: 'Orca 스킬',
+      groupClaude: 'CLAUDE 스킬',
       off: '꺼짐',
       activeMcp: '활성 MCP',
       inactiveMcp: '비활성 MCP'
@@ -115,7 +116,6 @@ export const ko = {
         '이 작업은 Orca 스킬 sources에서 다음 폴더를 제거합니다. 계속하려면 한 번 더 확인하세요.'
     },
     addMenu: {
-      browse: '스킬 둘러보기',
       create: '스킬 만들기',
       author: '스킬 지침 작성',
       upload: '스킬 업로드'

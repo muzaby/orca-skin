@@ -90,3 +90,11 @@ $ node --test scripts/*.test.mjs  # tests 25 / pass 25 / fail 0
 - **문서**: dom-architecture §1.5 에 "모달 크롬에 X 닫기 아이콘은 두지 않는다" 명문화.
 - **게이트(r2)**: typecheck:web 0 · lint 0 error(경고 1 = 기존) · renderer vitest 266/266.
 - 상태: **PASS 유지** (라운드 2). 사람 확인 대기에 "설정/업데이트 모달 × 부재 + Esc/백드롭 닫기 실기" 추가.
+
+## r3 부록 — 사용자 피드백 반영 검증 (2026-07-17)
+
+- F2 스킬 그룹 i18n: `CustomizeList` 가 `sourceId` 로 그룹핑 + `groupLabel()` 카탈로그 해석(ko/en 패리티 컴파일 강제) — en 전환 시 'Orca skills'/'Claude skills' 로 번역됨. 미지 sourceId 폴백 보존.
+- F3 제거 확인: 돋보기 버튼(skills·mcp 공용 `ListHeader`)·SkillAddMenu 'browse' 항목 삭제 + 사어 키 2개(`searchAria`·`addMenu.browse`) ko/en 동시 제거.
+- F4/F5: add engine = 프로젝트 추가 버튼과 동일 primary small(+plus), EngineCard 삭제 = 신규 `danger-ghost`(채움 없음·rust 글자). 편집=contained 유지.
+- 게이트(r3): typecheck:web 0 · lint 0 error(경고 1 = 기존) · renderer vitest 266/266.
+- 상태: **PASS 유지** (라운드 3). 사람 실기: 스킬 리스트 헤더(+만)·그룹 라벨 en 전환·엔진 버튼 2종 시각.

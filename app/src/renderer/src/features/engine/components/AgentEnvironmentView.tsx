@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { AgentEnvironment } from '../../../../../shared/ipc'
-import { Icon } from '../../../shared/ui/Icon'
+import { Button } from '../../../shared/ui/Button'
 import { Trans } from 'react-i18next'
 import { uiMessageText, useI18n } from '../../../shared/i18n'
 import { EngineCard } from './EngineCard'
@@ -49,13 +49,15 @@ export function AgentEnvironmentView(): React.JSX.Element {
           {tr('engine.title')}
         </h1>
         <span className="text-[13px] text-ink3">{tr('engine.subtitle')}</span>
-        <button
-          type="button"
+        <Button
+          variant="primary"
+          size="small"
+          leadingIcon="plus"
+          className="ml-auto"
           onClick={() => setModal({ mode: 'add' })}
-          className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-border-strong bg-panel px-3.5 py-[7px] text-[12.5px] font-medium text-ink hover:bg-sidebar"
         >
-          <Icon name="plus" size={13} /> {tr('engine.addEngine')}
-        </button>
+          {tr('engine.addEngine')}
+        </Button>
       </div>
       <p className="mb-[22px] mt-1.5 text-[13.5px] text-ink2">
         {/* 카탈로그 값의 <c> 태그가 code 요소로 치환된다. */}

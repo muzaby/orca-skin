@@ -237,3 +237,14 @@
 | F1-원인 | × 가 상단 *중앙* 에 뜬 것은 r1 의 회귀 — 공용 `Button` 베이스의 `relative` 와 소비처가 얹은 `absolute` 가 같은 position 속성으로 충돌해 위치 지정이 무효화(스타일시트 순서 의존). × 제거로 해소되나, **교훈: Button 에 position 유틸을 className 으로 덮지 말 것**(필요하면 래퍼 div 로 배치) | 기록 |
 
 - r2 게이트: typecheck:web 0 · lint 0 error(경고 1 = 기존 베이스라인) · renderer vitest 266/266.
+
+## [구현자 기입] 사용자 피드백 라운드 (r3)
+
+| # | 피드백 | 대응 |
+|---|---|---|
+| F2 | skills&mcp.skills 그룹 텍스트 i18n 미적용 | ✅ 그룹핑 키를 main 이 준 한국어 `sourceLabel` → 안정 키 `sourceId`('orca'/'adapter:claude') 로 전환, 라벨은 신규 카탈로그 키(`skills.list.groupOrca/groupClaude`)로 해석(미지 sourceId 는 sourceLabel 폴백). `CustomizeList.tsx` |
+| F3 | skills 의 + 메뉴에서 'browse skills'(스킬 둘러보기) 제거 + 리스트 헤더 돋보기 버튼 제거(skills·mcp 양쪽) | ✅ `SkillAddMenu` browse 항목 삭제(죽은 키 `addMenu.browse` ko/en 동시 제거), `CustomizeList` `ListHeader` 돋보기 삭제(사어 키 `list.searchAria` 제거) — 헤더는 공용 `Button iconOnly` + 버튼만 잔존 |
+| F4 | 엔진&모델 'add engine' 버튼이 다른 페이지 추가 버튼과 디자인 상이 | ✅ 프로젝트 '새 프로젝트'와 동일한 `<Button variant="primary" size="small" leadingIcon="plus">` 로 통일. `AgentEnvironmentView.tsx` |
+| F5 | 엔진 항목별 삭제 버튼: bg 채우지 말고 글자만 빨간색(컨텍스트 메뉴 삭제 참고) | ✅ Button 신규 variant `danger-ghost`(채움 없음·`text-rust`·hover `bg-rust-soft` — MenuItem danger 와 동일 톤) 추가 후 EngineCard 삭제에 적용. 솔리드 `danger` 는 ModalActions 확정 버튼용으로 유지 |
+
+- r3 게이트: typecheck:web 0 · lint 0 error(경고 1 = 기존) · renderer vitest 266/266.

@@ -11,7 +11,7 @@ import { Icon, type IconName } from './Icon'
  * button re-themes with white/dark automatically.
  */
 
-export type ButtonVariant = 'uncontained' | 'contained' | 'primary' | 'danger'
+export type ButtonVariant = 'uncontained' | 'contained' | 'primary' | 'danger' | 'danger-ghost'
 export type ButtonSize = 'small' | 'base' | 'large'
 
 export interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
@@ -53,7 +53,9 @@ const TEXT: Record<ButtonVariant, string> = {
   // 모노크롬 통일 — primary = 반전 중립(잉크 위 bg-색 글리프), warm rust 폐기.
   primary: 'text-bg',
   // 파괴적 확정(삭제 등) 전용 rust 솔리드 — ModalActions danger 와 동일 톤.
-  danger: 'text-bg'
+  danger: 'text-bg',
+  // 파괴적 진입점(항목별 삭제 버튼) — 채움 없이 rust 글자만, 메뉴 danger 항목과 동일 톤.
+  'danger-ghost': 'text-rust'
 }
 
 function squishClass(variant: ButtonVariant, pressed: boolean): string {
@@ -66,6 +68,8 @@ function squishClass(variant: ButtonVariant, pressed: boolean): string {
       return 'bg-ink group-hover/btn:bg-t8'
     case 'danger':
       return 'bg-rust group-hover/btn:brightness-110'
+    case 'danger-ghost':
+      return 'bg-transparent group-hover/btn:bg-rust-soft'
     case 'contained':
       return 'border border-t5 bg-fill-contained group-hover/btn:bg-fill-contained-hover'
     case 'uncontained':
