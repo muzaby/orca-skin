@@ -42,7 +42,7 @@ export function EngineCard({
           {tr('common.edit')}
         </Button>
         <Button
-          variant="danger"
+          variant="danger-ghost"
           size="small"
           disabled={!canMutate || busy}
           onClick={() => onDelete(agent)}

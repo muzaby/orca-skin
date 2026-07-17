@@ -1,5 +1,6 @@
 import { useMemo, useState, type RefObject } from 'react'
 import type { McpServer, SkillInfo } from '../../../../../../shared/ipc'
+import { Button } from '../../../../shared/ui/Button'
 import { Icon } from '../../../../shared/ui/Icon'
 import { Dot } from '../../../../shared/ui/Status'
 import type { CustomizeTab } from './CustomizeRail'
@@ -19,22 +20,14 @@ function ListHeader({
     <div className="flex items-center gap-1.5 px-3.5 pb-2 pt-3.5">
       <span className="font-serif text-[16px] font-semibold text-ink">{title}</span>
       <div className="ml-auto flex items-center gap-0.5">
-        <button
-          type="button"
-          aria-label={tr('skills.list.searchAria')}
-          className="grid h-7 w-7 cursor-pointer place-items-center rounded-r4 border-0 bg-transparent text-ink3 hover:bg-fill-uncontained-hover hover:text-ink2"
-        >
-          <Icon name="search" size={14} />
-        </button>
-        <button
+        <Button
           ref={addRef}
-          type="button"
+          iconOnly
+          leadingIcon="plus"
+          size="small"
           onClick={onAdd}
           aria-label={tr('skills.list.addAria')}
-          className="grid h-7 w-7 cursor-pointer place-items-center rounded-r4 border-0 bg-transparent text-ink3 hover:bg-fill-uncontained-hover hover:text-ink2"
-        >
-          <Icon name="plus" size={15} />
-        </button>
+        />
       </div>
     </div>
   )
@@ -134,14 +127,24 @@ export function CustomizeList({
 }): React.JSX.Element {
   const { tr } = useI18n()
   const [open, setOpen] = useState<Record<string, boolean>>({
-    'Orca 스킬': true,
+    orca: true,
     active: true,
     inactive: true
   })
+  // 그룹 키는 안정된 sourceId — 라벨은 카탈로그에서 해석해 UI 언어를 따른다(0121 r3).
+  // 미지의 sourceId 는 main 이 준 sourceLabel 원문 폴백.
+  const groupLabel = (sourceId: string, fallback: string): string => {
+    if (sourceId === 'orca') return tr('skills.list.groupOrca')
+    if (sourceId === 'adapter:claude') return tr('skills.list.groupClaude')
+    return fallback
+  }
   const skillGroups = useMemo(() => {
-    const map = new Map<string, SkillInfo[]>()
-    for (const skill of skills)
-      map.set(skill.sourceLabel, [...(map.get(skill.sourceLabel) ?? []), skill])
+    const map = new Map<string, { fallbackLabel: string; items: SkillInfo[] }>()
+    for (const skill of skills) {
+      const group = map.get(skill.sourceId) ?? { fallbackLabel: skill.sourceLabel, items: [] }
+      group.items.push(skill)
+      map.set(skill.sourceId, group)
+    }
     return [...map.entries()]
   }, [skills])
   const mcpGroups: { id: string; label: string; items: McpServer[] }[] = [
@@ -165,14 +168,14 @@ export function CustomizeList({
       />
       <div className="px-1.5 pb-3">
         {tab === 'skills'
-          ? skillGroups.map(([label, items]) => (
-              <div key={label}>
+          ? skillGroups.map(([sourceId, { fallbackLabel, items }]) => (
+              <div key={sourceId}>
                 <GroupHead
-                  label={label}
-                  open={open[label] ?? true}
-                  onToggle={() => setOpen((p) => ({ ...p, [label]: !(p[label] ?? true) }))}
+                  label={groupLabel(sourceId, fallbackLabel)}
+                  open={open[sourceId] ?? true}
+                  onToggle={() => setOpen((p) => ({ ...p, [sourceId]: !(p[sourceId] ?? true) }))}
                 />
-                {(open[label] ?? true) &&
+                {(open[sourceId] ?? true) &&
                   items.map((s) => (
                     <SkillRow
                       key={`${s.sourceId}/${s.name}`}

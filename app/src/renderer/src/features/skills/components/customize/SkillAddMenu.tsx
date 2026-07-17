@@ -45,7 +45,6 @@ export function SkillAddMenu({
   const { tr } = useI18n()
   return (
     <Popover open={open} anchorRef={anchorRef} onClose={onClose} placement="bottom">
-      <MenuRow icon="board" label={tr('skills.addMenu.browse')} onClick={onClose} />
       <div
         className="relative"
         onMouseEnter={() => setSubOpen(true)}

@@ -94,8 +94,9 @@ export const en: typeof ko = {
       skillCardDesc: 'Teach Orca your processes, team norms, and expertise.'
     },
     list: {
-      searchAria: 'Search',
       addAria: 'Add',
+      groupOrca: 'Orca skills',
+      groupClaude: 'Claude skills',
       off: 'Off',
       activeMcp: 'Active MCP',
       inactiveMcp: 'Inactive MCP'
@@ -117,7 +118,6 @@ export const en: typeof ko = {
         'This removes the following folder from Orca skill sources. Confirm once more to continue.'
     },
     addMenu: {
-      browse: 'Browse skills',
       create: 'Create skill',
       author: 'Write skill instructions',
       upload: 'Upload skill'
