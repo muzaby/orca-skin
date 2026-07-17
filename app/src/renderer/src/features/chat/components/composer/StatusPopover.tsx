@@ -47,18 +47,19 @@ export function StatusPopover({
       <dl className="grid gap-1.5 rounded-r4 border border-border bg-bg/70 p-2 text-[12px]">
         <div className="flex items-center justify-between gap-3">
           <dt className="text-ink3">{tr('chat.status.lengthLabel')}</dt>
-          <dd className="font-medium text-ink">{tr(model.labelKeys.length)}</dd>
+          <dd className="font-medium text-ink">
+            {tr(model.labelKeys.length)}
+            {model.contextUsage && (
+              <span className="ml-1.5 tabular-nums text-ink2">
+                {tr('chat.status.lengthValue', {
+                  used: model.contextUsage.usedK,
+                  window: model.contextUsage.windowK,
+                  pct: model.contextUsage.pct
+                })}
+              </span>
+            )}
+          </dd>
         </div>
-        <div className="flex items-center justify-between gap-3">
-          <dt className="text-ink3">{tr('chat.status.usageTodayLabel')}</dt>
-          <dd className="font-medium text-ink">{tr(model.labelKeys.usage)}</dd>
-        </div>
-        {model.costToday && (
-          <div className="flex items-center justify-between gap-3">
-            <dt className="text-ink3">{tr('chat.status.costTodayLabel')}</dt>
-            <dd className="font-medium text-ink">{model.costToday}</dd>
-          </div>
-        )}
       </dl>
 
       <Button
@@ -75,10 +76,6 @@ export function StatusPopover({
       >
         {tr(model.labelKeys.actionButton)}
       </Button>
-
-      <p className="border-t border-border pt-2 text-[11px] leading-relaxed text-ink3">
-        {tr(model.labelKeys.disclaimer)}
-      </p>
     </div>
   )
 }

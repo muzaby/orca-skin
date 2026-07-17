@@ -1,7 +1,7 @@
 import { useLocation } from 'react-router-dom'
 import { ChatTile, Composer, useChatSession } from '../features/chat'
 import { useBackendCapabilities, useBackendLabel } from '../features/backend'
-import { formatApproxCost, useCostSummary, useProviderUsageLimits } from '../features/cost'
+import { useProviderUsageLimits } from '../features/cost'
 import { useOpenSettings, providerTabId } from '../features/settings'
 import { useI18n } from '../shared/i18n'
 
@@ -18,10 +18,8 @@ export function NewChatLandingPage(): React.JSX.Element {
   const isEmpty = useChatSession((s) => s.messages.length === 0 && !s.loadingSession && !s.inflight)
   const backendLabel = useBackendLabel()
   const capabilities = useBackendCapabilities()
-  const summary = useCostSummary()
   // 능력 서술자가 로드됐는데 sessionAbort 가 아니면 중단 게이팅(미로드면 현행 동작 유지).
   const canAbort = capabilities ? capabilities.cancellation.sessionAbort === true : true
-  const costToday = summary ? formatApproxCost(tr, summary.day.totalCostUsd) : undefined
   // 도넛 사용량 한도를 현재 세션 provider 기준으로(모델 선택 반영, 0082). providerKey 없으면 전역.
   const providerKey = useChatSession((s) => s.providerKey)
   const usageLimits = useProviderUsageLimits(providerKey)
@@ -45,7 +43,6 @@ export function NewChatLandingPage(): React.JSX.Element {
           <Composer
             backendLabel={backendLabel}
             canAbort={canAbort}
-            costToday={costToday}
             usageLimits={usageLimits}
             onOpenUsageSettings={onOpenUsageSettings}
             initialDraft={composerDraft}
@@ -59,7 +56,6 @@ export function NewChatLandingPage(): React.JSX.Element {
     <ChatTile
       backendLabel={backendLabel}
       canAbort={canAbort}
-      costToday={costToday}
       usageLimits={usageLimits}
       onOpenUsageSettings={onOpenUsageSettings}
       initialDraft={composerDraft}

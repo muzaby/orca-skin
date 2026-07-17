@@ -128,27 +128,31 @@
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-(비기능 아님 — 사용자 직접 지시 UI 수정 라운드, 0121 r2~r5 선례로 Claude 직접 구현. 구현 중 발견은 아래에.)
+- 동의 / 그대로 진행: 설계 A~D 전부. 사용자 직접 지시 UI 수정 라운드(0121 r2~r5 선례)로 Claude 직접 구현.
+- 이견 없음. 단 설계 C 가 놓친 세부 1건 발견(아래 #1).
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
+| 1 | Tailwind `ring-*` 유틸도 **box-shadow 기반**이라, 키프레임이 box-shadow 를 소유하는 동안 기존 정적 halo(`ring-4 ring-current/15`)가 사라진다 — 펄스 사이에 점이 벌거벗는 깜빡임 | ✅ 키프레임 각 스텝의 첫 레이어로 정적 halo 상당(`0 0 0 4px currentcolor 15%`)을 유지하고 그 위에 확장 펄스를 얹음. reduced-motion 은 animation:none → 원래 ring 폴백 | `styles/app.css` status-beacon 주석 |
+| 2 | `formatApproxCost` 제거로 그것만 쓰던 i18n 키 `cost.approx`(ko/en)와 `features/cost/lib/` 디렉토리 자체가 죽음 | ✅ 키·파일·디렉토리·barrel export 동반 제거 (plan 인수 5 의 "죽은 배선" 범위로 판단) | grep 소비자 0 |
+| 3 | `costToday` 제거로 pages 3곳의 `useCostSummary`·(ChatPage/ProjectLandingPage 의) `useI18n` import 도 죽음 | ✅ 동반 제거 (NewChatLandingPage 는 `tr` 을 인사말에 계속 사용 — 유지) | lint no-unused-vars |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] A. view model 수치화 + Composer 전달 + StatusPopover 표기 + i18n `lengthValue`
-- [ ] B. usage/cost 행·디스클레이머 제거 + i18n 키 삭제 + costToday 체인·formatApproxCost 제거
-- [ ] C. status-beacon 키프레임/유틸 + pill 점 적용
-- [ ] D. Popover resize 재배치 + `align="center"`
-- [ ] 테스트 갱신 + 게이트
+- [x] A. view model 수치화 + Composer 전달 + StatusPopover 표기 + i18n `lengthValue`
+- [x] B. usage/cost 행·디스클레이머 제거 + i18n 키 삭제 + costToday 체인·formatApproxCost 제거
+- [x] C. status-beacon 키프레임/유틸 + pill 점 적용
+- [x] D. Popover resize 재배치 + `align="center"`
+- [x] 테스트 갱신 + 게이트
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | (구현 후 기입) |
-| 실행 명령 | `npm run lint` / `typecheck` / vitest |
-| 게이트 결과 | (구현 후 기입) |
-| 블로커 / 역질문 | (구현 후 기입) |
-| 대상 커밋 | (구현 후 기입) |
+| 변경 파일 | `composer/{statusViewModel,statusCopy}.ts`·`statusViewModel.test.ts`·`composer/{StatusPopover,ConversationStatusLine}.tsx`·`{Composer,ChatView,ChatTile}.tsx`·pages 3곳·`shared/ui/Popover.tsx`·`i18n/resources/{ko,en}.ts`·`styles/app.css`·`features/cost/{index.ts,lib/formatCost.ts(삭제)}` |
+| 실행 명령 | `npm run lint` / `npm run typecheck` / `npm test` / `node --test scripts/*.test.mjs` |
+| 게이트 결과 | lint 에러 0(경고 1=기존 TanStack Virtual 베이스라인) ✅ / typecheck 3분할 ✅ / vitest **937/937** (1스위트 로드 실패 = electron 바이너리 egress 403 베이스라인) + scripts 25/25 ✅ |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | (구현 커밋 hash — verify 에서 기재) |

@@ -53,8 +53,6 @@ interface ComposerProps {
   // 중앙에 "맨 아래로" 버튼을 띄운다. 랜딩(NewChat/Project)은 미전달 → 버튼 미표시.
   showScrollToBottom?: boolean
   onScrollToBottom?: () => void
-  // cross-feature 비용 summary 는 page/app 계층에서 문자열로 포맷해 주입한다.
-  costToday?: string
   // 사용량 한도 뷰모델(도넛 팝오버). page 가 실사용 SSOT(costStore)+월 한도로 공용 파생해 주입.
   usageLimits?: UsageLimitsView | null
   // 도넛 `사용량 한도 >` — 현재 세션 provider 서브탭 열기(providerKey 전달, page 가 배선).
@@ -82,7 +80,6 @@ export function Composer({
   canAbort,
   showScrollToBottom,
   onScrollToBottom,
-  costToday,
   usageLimits,
   onOpenUsageSettings,
   initialDraft,
@@ -212,18 +209,20 @@ export function Composer({
   const conversationStatusModel = useMemo(() => {
     // TODO(후속 핸드오프): 정식 상태 판정 신호로 교체 — 현재는 임시 근사
     let conversationStatus: ConversationStatus = 'safe'
+    let usage: { tokens: number; window: number } | undefined
     if (lastTelemetry) {
       const tokens = contextTokens(lastTelemetry)
       const window = contextWindowFor(lastTelemetry.model)
       const ratio = tokens / window
+      usage = { tokens, window }
       if (nearCompaction(tokens, window) || ratio >= 0.85) {
         conversationStatus = 'danger'
       } else if (ratio >= 0.6) {
         conversationStatus = 'warn'
       }
     }
-    return conversationStatusModelFactory(conversationStatus, costToday)
-  }, [lastTelemetry, costToday])
+    return conversationStatusModelFactory(conversationStatus, usage)
+  }, [lastTelemetry])
 
   const toggleConversationStatus = (): void => {
     if (!conversationStatusModel) return
@@ -461,6 +460,7 @@ export function Composer({
             anchorRef={conversationStatusButtonRef}
             onClose={() => setConversationStatusOpen(false)}
             placement="top"
+            align="center"
             className="p-0"
           >
             <StatusPopover

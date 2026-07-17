@@ -36,9 +36,6 @@ export const ko = {
     errorTitle: '앱 준비 중 문제가 발생했습니다.',
     retry: '부트 다시 시도'
   },
-  cost: {
-    approx: '약 ${{usd}}'
-  },
   landing: {
     newChatGreeting: '무엇을 도와드릴까요?'
   },
@@ -572,9 +569,7 @@ export const ko = {
         title: '대화가 길어지고 있어요',
         description: '이대로 계속해도 되지만, 가볍게 정리하면 더 매끄럽게 이어갈 수 있어요.',
         length: '긴 편이에요',
-        usage: '보통보다 조금 많아요',
-        actionButton: '대화 가볍게 요약하기',
-        disclaimer: '표시된 내용은 예상치예요. 실제와 조금 다를 수 있어요.'
+        actionButton: '대화 가볍게 요약하기'
       },
       danger: {
         pill: '대화가 아주 길어졌어요 — 정리가 필요해요',
@@ -583,13 +578,10 @@ export const ko = {
         description:
           '요약본을 이어받는 새 세션(핸드오프)으로 넘어가는 편이 좋아요. 지금까지 내용은 그대로 남아요.',
         length: '아주 길어요',
-        usage: '많은 편이에요',
-        actionButton: '핸드오프로 이어가기',
-        disclaimer: '표시된 내용은 예상치예요. 실제와 조금 다를 수 있어요.'
+        actionButton: '핸드오프로 이어가기'
       },
       lengthLabel: '대화 길이',
-      usageTodayLabel: '오늘 사용량',
-      costTodayLabel: '오늘 비용',
+      lengthValue: '{{used}}k/{{window}}k {{pct}}%',
       handoffHint: '요약본으로 새 세션에서 이어갑니다',
       compactHint: '현재 세션의 대화 기록을 압축합니다'
     },
