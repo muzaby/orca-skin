@@ -18,6 +18,7 @@
 // 동기 fs 금지(0109) — 배포는 부팅 스텝과 스킬/MCP CRUD invoke 핸들러 안에서 돌므로,
 // 재귀 복사/삭제가 sync 면 그 동안 이벤트 루프(=모든 IPC·프로토콜 응답)가 멈춘다.
 import { existsSync } from 'node:fs'
+import { getLogger } from '../../infra/log/registry'
 import { readFile, readdir, rename, rm, writeFile } from 'node:fs/promises'
 import type { Dirent } from 'node:fs'
 import { join } from 'node:path'
@@ -160,7 +161,9 @@ export async function deploy(
       backedUp = true
       actions.push('backup dist → .bak')
     } catch (e) {
-      console.warn('[deploy] dist 백업 실패(덮어쓰기 진행):', e)
+      getLogger()
+        .child('extensions')
+        .warn('extensions.deploy.backup-failed', { message: String(e), overwrite: true })
       await rm(dist, { recursive: true, force: true })
     }
   }

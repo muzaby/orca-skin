@@ -13,6 +13,7 @@ import type { ClassifiedError, NormalizedEvent } from '../../../shared/ipc'
 import type { TurnRequest } from '../../adapters/turn'
 import { makeClassifiedError } from '../../infra/errors'
 import { wireLog } from '../../infra/ipc/wire-log'
+import { getLogger } from '../../infra/log/registry'
 import type { TurnContext } from '../../contracts/turn'
 import type { RuntimeLiveTurn } from '../../contracts/ports'
 import { createStallTimer, type StallTimer } from './timers'
@@ -105,7 +106,13 @@ export class TurnCoordinator<W = unknown> {
     try {
       this.emit(turn, ev)
     } catch (err) {
-      console.warn('[settle] turn.event 방출 실패(격리):', err)
+      getLogger()
+        .child('chat')
+        .warn('chat.turn-event.emit-failed', {
+          isolated: true,
+          phase: 'settle',
+          message: String(err)
+        })
     }
   }
 
@@ -170,6 +177,22 @@ export class TurnCoordinator<W = unknown> {
     const { backgroundSubagents } = this.deps
     const { boundProjectId } = opts
 
+    // chat 턴 경계(0124 카탈로그) — started/completed/failed/cancelled 메타만 기록(원문 금지).
+    // correlationId 는 chat-turn 의 runWithLogContext 컨텍스트에서 자동 주입된다(AC4).
+    const log = getLogger().child('chat')
+    const turnStartedAt = Date.now()
+    let lastUsage: { model?: string; inputTokens?: number; outputTokens?: number } | undefined
+    const turnMeta = (): Record<string, unknown> => ({
+      ...((turn.dbSessionId ?? request.sessionId)
+        ? { sessionId: turn.dbSessionId ?? request.sessionId }
+        : {}),
+      durationMs: Date.now() - turnStartedAt
+    })
+    log.info('chat.turn.started', {
+      ...(request.sessionId ? { sessionId: request.sessionId } : {}),
+      ...(request.model !== undefined ? { model: request.model } : {})
+    })
+
     // 턴-시작 배치(프렐류드+프롬프트)는 **응답 시작 = 소비 증거**(0069, 사용자 확정) — 모델이
     // 출력을 냈다는 것은 턴을 연 입력을 이미 봤다는 뜻이다(CLI 는 턴 시작에 프렐류드+프롬프트를
     // coalesce 소비, 명세 C9). echo 를 기다리지 않으므로 user row 가 항상 첫 영속 어시스턴트
@@ -206,8 +229,8 @@ export class TurnCoordinator<W = unknown> {
             // 다음 이벤트로 넘어간다. echo 는 drain 배치 동안 연속으로 오므로(명세 §6.2), 실제
             // flush 는 배치가 끝난 첫 비-echo 이벤트에서 일괄 수행된다(0059 요구 4 단일 버블 유지).
             if (ev.type === 'input.echo') {
-              // input.echo 는 renderer 미전달이라 sendChatEvent 의 [wire] 로그에 안 잡힌다 —
-              // echo↔어시스턴트 스트림 순서 실측(0068 AC7)을 위해 여기서 직접 남긴다.
+              // input.echo 는 renderer 미전달이라 sendChatEvent 의 wire 기록(ipc.wire.event)에 안
+              // 잡힌다 — echo↔어시스턴트 스트림 순서 실측(0068 AC7)을 위해 여기서 직접 남긴다.
               wireLog('input.echo', { uuid: ev.uuid, text: ev.text.slice(0, 80) })
               this.markSteerConsumed(turn, ev)
               continue
@@ -227,6 +250,17 @@ export class TurnCoordinator<W = unknown> {
             if (ev.type !== 'telemetry') this.commitConsumed(turn)
             if (ev.type === 'telemetry' || ev.type === 'error' || ev.type === 'turn.aborted') {
               sawTerminal = true
+            }
+            if (ev.type === 'telemetry' && ev.usage) {
+              lastUsage = {
+                ...(ev.usage.model !== undefined ? { model: ev.usage.model } : {}),
+                ...(ev.usage.inputTokens !== undefined
+                  ? { inputTokens: ev.usage.inputTokens }
+                  : {}),
+                ...(ev.usage.outputTokens !== undefined
+                  ? { outputTokens: ev.usage.outputTokens }
+                  : {})
+              }
             }
             // 단일 팬아웃 — 버스가 등록순(usage→history→title→relay)으로 동기 소비한다. usage 가
             // history 의 reset 전에 messageId 를 읽고, title 이 relay 전에 트리거되는 순서 불변식은
@@ -296,12 +330,18 @@ export class TurnCoordinator<W = unknown> {
           // 남긴다 — 모델이 못 본 텍스트를 committed 로 굳히지 않고 다음 chat:send 로 이월(D2).
           this.commitConsumed(turn)
         }
+        if (turn.controller.signal.aborted) log.info('chat.turn.cancelled', turnMeta())
+        else log.info('chat.turn.completed', { ...turnMeta(), ...lastUsage })
         return
       } catch (err) {
-        if (runtime.cancelled === true && turn.controller.signal.aborted) return
+        if (runtime.cancelled === true && turn.controller.signal.aborted) {
+          log.info('chat.turn.cancelled', turnMeta())
+          return
+        }
         if (runtime.timedOut === true) {
           sawTerminal = true
           settleOpenToolRuns(turn, this.settleEmit, 'aborted')
+          log.error('chat.turn.failed', undefined, { ...turnMeta(), reason: 'stall' })
           forward.forward(turn.owner, {
             type: 'error',
             ...(turn.dbSessionId ? { sessionId: turn.dbSessionId } : {}),
@@ -335,6 +375,8 @@ export class TurnCoordinator<W = unknown> {
         // 어댑터 소유 분류기(0016) — provider 는 어댑터가 자기 id 로 채운다. 표시용, 분기 미사용.
         sawTerminal = true
         settleOpenToolRuns(turn, this.settleEmit, 'failed')
+        // ClassifiedError 의 category/message 만 — 원문 cause 는 serializeError 경유(redaction 통과).
+        log.error('chat.turn.failed', err, { ...turnMeta(), category: error.category })
         forward.forward(turn.owner, {
           type: 'error',
           ...(turn.dbSessionId ? { sessionId: turn.dbSessionId } : {}),

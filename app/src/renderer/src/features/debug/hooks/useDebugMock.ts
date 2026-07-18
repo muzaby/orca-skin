@@ -6,7 +6,7 @@ const DEFAULT_DEBUG_MOCK: DebugMockState = {
   enabled: false,
   scenarioId: 'full',
   contextUsageRatio: 0.3,
-  wireLog: false
+  log: false
 }
 
 export function useDebugMock(): {

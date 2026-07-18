@@ -1,6 +1,7 @@
 import { Cron } from 'croner'
 import type { Settings } from '../../../shared/protocol'
 import { errorMessage } from '../../infra/errors'
+import { getLogger } from '../../infra/log/registry'
 import { assertValidCron } from './cron-validate'
 import type { JobAction, JobKey, RunRecorder, ScheduleSpec } from './types'
 
@@ -85,8 +86,15 @@ export class Scheduler {
     try {
       await action()
       this.recorder.finish(runId, this.now(), 'success', null)
+      // 주기 실행 경계(0124 카탈로그) — job id·소요만 기록.
+      getLogger()
+        .child('scheduler')
+        .info('scheduler.job.fired', { job: key, durationMs: this.now() - startedAt })
     } catch (e) {
       this.recorder.finish(runId, this.now(), 'error', errorMessage(e))
+      getLogger()
+        .child('scheduler')
+        .error('scheduler.job.failed', e, { job: key, durationMs: this.now() - startedAt })
     } finally {
       this.running.delete(key)
     }

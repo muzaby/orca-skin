@@ -10,6 +10,7 @@ import type {
 import { getOrcaConfig } from '../infra/config/orca-config'
 import { broadcastUpdateProgress, broadcastUpdateState } from '../infra/ipc/send'
 import { errorMessage } from '../infra/errors'
+import { getLogger } from '../infra/log'
 
 const INSTALL_BLOCK_REASON = '작업이 진행 중입니다 — 끝난 뒤 다시 시도하세요.'
 
@@ -83,6 +84,8 @@ export class UpdateController {
   private state: UpdateState
   private installPending = false
   private readonly disabled: boolean
+  // 생성 시점 캡처 — UpdateController 는 initLog 이후(컴포지션 루트)에서만 생성된다.
+  private readonly log = getLogger().child('updater')
   constructor(private readonly deps: UpdateControllerDeps) {
     deps.updater.autoDownload = false
     deps.updater.autoInstallOnAppQuit = false
@@ -117,8 +120,15 @@ export class UpdateController {
     if (['checking', 'downloading', 'installing'].includes(this.state.status))
       return { ok: true, state: this.getState() }
     this.patch({ status: 'checking', error: undefined, checkedAt: Date.now() })
+    // 업데이트 확인 경계(0124 카탈로그) — 현재/대상 버전만 기록.
+    this.log.info('update.check.started', { currentVersion: this.state.currentVersion })
     try {
       await this.deps.updater.checkForUpdates()
+      this.log.info('update.check.completed', {
+        currentVersion: this.state.currentVersion,
+        ...(this.state.availableVersion ? { availableVersion: this.state.availableVersion } : {}),
+        available: this.state.status !== 'idle'
+      })
       return {
         ok: this.state.status !== 'idle',
         ...(this.state.status === 'idle' ? { reason: 'not-available' as const } : {}),
@@ -126,7 +136,7 @@ export class UpdateController {
       }
     } catch (err) {
       const message = errorMessage(err)
-      console.warn('[update] check failed:', err)
+      this.log.warn('update.check.failed', { message })
       this.patch(
         startup
           ? { status: 'idle', lastError: message }
@@ -140,11 +150,18 @@ export class UpdateController {
     if (this.state.status !== 'available')
       return { ok: false, reason: 'download-failed', state: this.getState() }
     this.patch({ status: 'downloading', progress: { percent: 0 }, error: undefined })
+    this.log.info('update.download.started', {
+      ...(this.state.availableVersion ? { availableVersion: this.state.availableVersion } : {})
+    })
     try {
       await this.deps.updater.downloadUpdate()
+      this.log.info('update.download.completed', {
+        ...(this.state.availableVersion ? { availableVersion: this.state.availableVersion } : {})
+      })
       return { ok: true, state: this.getState() }
     } catch (err) {
       const message = errorMessage(err)
+      this.log.error('update.download.failed', err)
       this.patch({ status: 'error', error: message, lastError: message })
       return { ok: false, reason: 'download-failed', state: this.getState() }
     }
@@ -158,6 +175,9 @@ export class UpdateController {
       return { ok: false, reason: 'not-idle', message: before.reason }
     }
     this.installPending = true
+    this.log.info('update.install.started', {
+      ...(this.state.availableVersion ? { availableVersion: this.state.availableVersion } : {})
+    })
     try {
       this.deps.prepareForUpdateInstall()
       const after = computeUpdateInstallGate(this.deps.restartGateState())
@@ -168,10 +188,13 @@ export class UpdateController {
       }
       this.patch({ status: 'installing', canInstall: true, installBlockReason: undefined })
       this.deps.updater.quitAndInstall(false, true)
+      // quitAndInstall 이후는 프로세스 종료 경로 — update.install.completed 는 재시작 후
+      // app.start.completed(새 버전 공통 필드)가 대신 증명한다.
       return { ok: true }
     } catch (err) {
       this.installPending = false
       const message = errorMessage(err)
+      this.log.error('update.install.failed', err)
       this.patch({ status: 'error', error: message, lastError: message })
       return { ok: false, reason: 'internal-error', message }
     }
@@ -247,7 +270,12 @@ export function loadElectronAutoUpdater(): AutoUpdaterPort | null {
     const mod = require('electron-updater') as { autoUpdater?: AutoUpdaterPort }
     return mod.autoUpdater ?? null
   } catch (err) {
-    console.warn('[update] electron-updater 로드 실패 — 업데이트 기능 비활성:', err)
+    getLogger()
+      .child('updater')
+      .warn('update.loader.failed', {
+        message: String(err),
+        reason: 'electron-updater unavailable — updates disabled'
+      })
     return null
   }
 }

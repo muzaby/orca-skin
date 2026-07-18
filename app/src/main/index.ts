@@ -251,9 +251,11 @@ app.whenReady().then(async () => {
     await started
   } catch (err) {
     // 창은 이미 떠 있다 — 실패는 renderer 의 main-ready 필수 스텝(failed UX)으로 표면화된다.
-    console.error('[main] bootstrap 실패:', err)
+    rootLog.error('app.start.failed', err)
+    flushLogSync()
     return
   }
+  rootLog.info('app.start.completed')
   void router.checkForUpdatesOnStartup()
 
   app.on('activate', function () {
@@ -274,6 +276,8 @@ app.on('window-all-closed', () => {
 // flush+close(0123 AC9 — shutdown 중 로그까지 담고 닫는다), ③ DB close(WAL 체크포인트).
 // 순서 중요: persist 가 closeDb 전에 끝나야 한다(모두 동기).
 app.on('will-quit', () => {
+  // app.quit.started 는 flush(closeLog) *이전* 에 emit 돼야 파일에 남는다(0123 AC9 정합).
+  rootLog.info('app.quit.started')
   routerRef?.shutdown()
   closeLog()
   closeDb()

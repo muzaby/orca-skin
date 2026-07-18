@@ -14,6 +14,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import type { EngineUserSettingsResult } from '../../shared/ipc'
 import { isRecord } from '../../shared/obj'
+import { getLogger } from '../infra/log/registry'
 import type { ProviderSettingsLoader } from './provider-config'
 
 // CLI 가 repo-커밋 파일의 escalating 모드에 적용하는 trust 필터와 동등한 목록
@@ -30,7 +31,9 @@ function flatRead(path: string): SettingsObject | undefined {
       return parsed
     }
   } catch (err) {
-    console.warn(`[claude-settings] settings.json 파싱 실패 — 무시: ${path}`, err)
+    getLogger()
+      .child('providers')
+      .warn('providers.settings.parse-failed', { path, message: String(err) })
   }
   return undefined
 }

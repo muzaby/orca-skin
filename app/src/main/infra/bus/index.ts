@@ -15,6 +15,8 @@
 //
 // L0/L1: main 하위 어떤 모듈도 import 하지 않는 순수 유틸(이벤트 맵 타입은 소비 측이 주입).
 
+import { getLogger } from '../log/registry'
+
 type Listener<P> = { fn: (payload: P) => void; critical: boolean }
 
 // M = 이벤트 맵(예: OrcaBusEvents) — 키→페이로드 타입. 인터페이스도 그대로 쓸 수 있게 index
@@ -54,7 +56,13 @@ export class TypedBus<M> {
         try {
           fn(payload)
         } catch (err) {
-          console.error(`[bus] '${String(key)}' 리스너 오류(격리):`, err)
+          getLogger()
+            .child('bus')
+            .warn('bus.listener.failed', {
+              event: String(key),
+              isolated: true,
+              message: String(err)
+            })
         }
       }
     }

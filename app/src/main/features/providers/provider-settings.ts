@@ -16,6 +16,7 @@
 import { stat } from 'node:fs/promises'
 import { join } from 'node:path'
 import { orcaConfigDir } from '../../infra/config/paths'
+import { getLogger } from '../../infra/log/registry'
 import { listAdapters, listProviders, type ProviderEntry } from './provider-registry'
 
 // ── 배럴 re-export (0017 분해 — 기존 import 경로 무회귀) ──────────────────────────────────
@@ -118,10 +119,12 @@ export class ProviderSettingsService {
       this.cache.set(entry.key, { settings, mtimeMs, srcPath })
       return { providerKey: entry.key, provider: entry.provider, settings }
     } catch (err) {
-      console.warn(
-        `[provider-settings] '${entry.key}' settings 해석 실패 — settings 없이 진행:`,
-        err
-      )
+      getLogger()
+        .child('providers')
+        .warn('providers.settings.resolve-failed', {
+          providerKey: entry.key,
+          message: String(err)
+        })
       return undefined
     }
   }
