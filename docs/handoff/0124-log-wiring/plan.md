@@ -17,19 +17,26 @@
 | 명시 요구 | 로그 시스템 핸드오프 2개 중 두 번째 = **로그 배선**. 배포 정책에서는 로그를 최소화하되 **필수 동작·경계에서는 확실한 동작확인**이 가능해야 한다. 에이전트가 분석할 수 있어야 한다 | 라이브 세션 요청 (2026-07-18) |
 | 명시 요구 | 0123 **verify 이후 배선(본 건)도 진행**한다. **배선 시 chat event 에서 delta 는 제외**한다 | 라이브 세션 요청 (2026-07-18, 후속 지시) |
 | 명시 요구 | **"클로드가 모두 진행하라"** — 0123·0124 의 구현·검증까지 전부 Claude 전담. 0123 verify/PASS 직후 대기 없이 본 건 impl→verify 수행 | 라이브 세션 요청 (2026-07-18, 후속 지시 — 앞선 추론을 사용자가 명시 확정) |
-| 추론 의도 | "delta 제외" = 스트리밍 델타 이벤트(`message.delta`·`message.reasoning.delta`, `app/src/shared/ipc.ts:480,537`)를 info 카탈로그만이 아니라 **debug·wire-log 미러를 포함한 배선의 전 경로에서 미기록** | 추론 — "로그 최소화" 취지의 일관 적용 |
+| 명시 요구 | **어시스턴트 델타를 wire log 를 포함한 로그 배선 전체에서 배제** — 기존 콘솔 wireLog 출력도 예외가 아니다(AC8 의 "기존 콘솔 wireLog 출력 불변" 단서 폐기) | 라이브 세션 요청 (2026-07-18, 구현 전 검토 턴) |
+| 명시 요구 | **디버그 패널의 wire log 스위치를 "로그" 스위치로 변경, 켜지면 콘솔창에도 로그 출력** — 구현 전 검토에서 결정 3건으로 구체화: ① **통합 게이트**(ON = wire 이벤트(델타 제외) debug 기록 + 모든 로그 레코드 콘솔 미러 / OFF = wire 미기록 + 콘솔 침묵, 파일 기록은 기존 정책 유지 — dev 기본값 OFF 에선 콘솔 침묵으로 0123 무조건 미러를 대체) ② **배제는 델타 2종만**(telemetry·subagent.task 는 유지) ③ **wire 레코드는 payload 전체**(redaction 통과, dev 전용 + 로그 스위치 게이트 하에서만) | 라이브 세션 요청 (2026-07-18, 구현 전 검토 턴 — AskUserQuestion 확정 3건) |
+| 추론 의도 | "delta 제외" = 스트리밍 델타 이벤트(`message.delta`·`message.reasoning.delta`, `app/src/shared/ipc.ts:483,540`)를 info 카탈로그만이 아니라 **debug·wire 기록·콘솔 미러를 포함한 배선의 전 경로에서 미기록** — 구현 전 검토 턴에서 사용자가 "wire log 포함" 을 명시 확정(추론→명시 승격) | 추론 — "로그 최소화" 취지의 일관 적용 |
 | 추론 의도 | "배선" = (a) prod 에 남길 이벤트 카탈로그를 확정하고 (b) 기존 `console.*` call site 를 로거로 이관하며 (c) 재발을 기계 강제(eslint)하는 작업 | 추론 — 0123 이 인프라만 다루므로 소비 지점 연결이 별도 필요 |
 | 추론 의도 | "에이전트가 분석" 요구를 배선 규율로 번역: 이벤트 이름은 grep 가능한 고정 문자열(`<domain>.<operation>.<state>`), 자유 서술 메시지에 의존하지 않는다 | 추론 |
 
 ## Context (왜)
 
-0123 이 로깅 인프라(LogManager·JSONL·redaction·장애 훅)를 만들지만, 인프라만으로는 파일이 비어 있다. main 전역의 `console.*` 62곳(30파일)은 파일에 남지 않고 이벤트 이름도 없어 검색·집계가 불가능하다. 본 핸드오프는 **prod 이벤트 카탈로그를 확정**하고, 기존 call site 를 로거로 이관하며, `no-console` lint 로 회귀를 차단한다. 완료되면 배포본의 JSONL 만으로 "어떤 버전에서, 어떤 흐름 중, 어디서, 무엇이 실패했나"를 에이전트가 재구성할 수 있다.
+0123 이 로깅 인프라(LogManager·JSONL·redaction·장애 훅)를 만들지만, 인프라만으로는 파일이 비어 있다. main 전역의 `console.*` **35곳(20파일, 0123 반영 후 재실측 — 최초 설계 시점 측정치 62/30 은 0123 이 index.ts 전역 가드 등을 이관하며 감소)** 은 파일에 남지 않고 이벤트 이름도 없어 검색·집계가 불가능하다. 본 핸드오프는 **prod 이벤트 카탈로그를 확정**하고, 기존 call site 를 로거로 이관하며, `no-console` lint 로 회귀를 차단한다. 아울러 구현 전 검토(2026-07-18)에서 사용자 확정한 **디버그 패널 "로그" 스위치(구 wire 스위치)의 통합 게이트** — wire 이벤트 debug 기록 + 콘솔 미러 동시 제어 — 를 배선한다. 완료되면 배포본의 JSONL 만으로 "어떤 버전에서, 어떤 흐름 중, 어디서, 무엇이 실패했나"를 에이전트가 재구성할 수 있다.
 
 ## 자료조사 (Research)
 
 | 발견 / 제약 | 레퍼런스 |
 |---|---|
-| `console.*` 분포 — 총 62곳/30파일. 밀집: `app/bootstrap.ts`(9) · `app/chat-turn.ts`(4) · `index.ts`(3) · `app/updater.ts`(2), 나머지는 features/infra 산개. prefix 관례 `[main]`·`[boot]`·`[recovery]`·`[scheduler]`·`[mcp]`·`[update]`·`[shutdown]` 등 | `grep -rn 'console\.' app/src/main` |
+| `console.*` 분포 — **총 35곳/20파일 (0123 반영 후 재실측)**. 밀집: `app/bootstrap.ts`(9) · `app/chat-turn.ts`(4) · `app/updater.ts`(2) · `infra/config/orca-config.ts`(2) · `features/providers/provider-registry.ts`(2) · `infra/log/index.ts`(2, 정당 예외), 나머지 산개. prefix 관례 `[main]`·`[boot]`·`[recovery]`·`[scheduler]`·`[mcp]`·`[update]`·`[shutdown]` 등. *최초 설계 시점 62/30 은 0123 구현 전 측정치 — stale* | `grep -rn 'console\.' app/src/main` (2026-07-18 재실측) |
+| **wire-log 콘솔 출력의 AC3 충돌 (구현 전 검토 발견)** — `wireLog()` 의 `console.log` 는 `infra/ipc/wire-log.ts:14` 로, AC3 의 no-console 예외 범위(`infra/log/**`) 밖. 콘솔 출력을 유지하면 lint 위반 → AC8 개정(로거 흡수)으로 자연 해소 | `app/src/main/infra/ipc/wire-log.ts:13-15` · 본 plan AC3/AC8 |
+| **wire 호출부는 2곳뿐** — `sendChatEvent`(`infra/ipc/send.ts:22`, 전 outbound NormalizedEvent chokepoint — 델타 포함)와 `turn-coordinator.ts:211`(`input.echo`, 사용자 텍스트 80자 포함 — 결정 ③ dev 전용 payload 허용에 포섭) | `app/src/main/infra/ipc/send.ts:22` · `features/chat/turn-coordinator.ts:211` |
+| **델타 외 고빈도 이벤트** — `telemetry`(사용량 틱)·`subagent.task`(progress 반복 발화)도 같은 chokepoint 통과. 사용자 결정 ②로 **배제는 델타 2종만**, 이들은 유지(스위치 ON 일 때만 기록되므로 폭증 위험 제한적) | `app/src/shared/ipc.ts:567-589` · `adapters/claude-map.ts:244,430` |
+| **스위치 전달 경로** — 디버그 패널 토글은 전용 채널이 아니라 `orca:debug:setMock` 의 `DebugMockState.wireLog` 필드. 핸들러는 `import.meta.env.DEV` 게이트(`misc.ts:310-318`)라 prod 에선 스위치 부재·콘솔 무출력 불변. 상태 비영속(재시작 OFF, IPC_CONTRACT 기록) | `app/src/main/app/handlers/misc.ts:310-318` · `app/src/shared/ipc.ts:170-176` · `docs/IPC_CONTRACT.md` §2.13 |
+| **0123 콘솔 미러는 무조건** — dev 에서 `consoleMirror` 가 `writeRecord` 마다 항상 발화(`infra/log/index.ts:51`·`log-manager.ts:146-149`). 결정 ①(통합 게이트)에 따라 런타임 게이트 setter 로 전환 필요(파이프라인 불변, 0123 소폭 수정을 사용자 지시로 범위 편입) | `app/src/main/infra/log/index.ts:30-56` |
 | 부팅 진단은 이미 구조화 — `BootReportStep{status,critical,durationMs,message}` 수집 + renderer 전달, 경고는 `console.warn('[boot] …')` 로만 콘솔 출력 | `app/src/main/app/boot-report.ts` (0077) |
 | IPC 검증 실패가 무기록 — `handle()` 의 'reject'/fallback 경로 모두 로그 없음(무효 payload 가 조용히 사라짐) | `app/src/main/infra/ipc/handle.ts:30-37` |
 | wire-log — dev 전용 콘솔 토글, `sendChatEvent` 가 이벤트마다 `wireLog(ev.type, ev)` 호출(아웃바운드 와이어의 기존 chokepoint). electron 비의존 설계(0068) | `app/src/main/infra/ipc/wire-log.ts` · `infra/ipc/send.ts` |
@@ -59,22 +66,23 @@
 
 ## 인수 기준 (Acceptance Criteria)
 
-1. **카탈로그 배선**: 위 표의 이벤트가 해당 코드 경로에 실제로 발화된다 — 각 행에 대해 `파일:라인` 근거를 구현 보고에 명시(대표 흐름: 부팅→턴 1회→종료의 dev 실행 JSONL 샘플 캡처 포함).
-2. **console.* 전면 이관**: `app/src/main/**` 에서 `console.*` 직접 호출 0 (허용 예외: `infra/log/` 내부 emergency 경로 + dev 콘솔 미러 구현부). 기존 62곳은 삭제(무가치)·`debug`(dev 진단)·카탈로그 이벤트(info/warn/error) 중 하나로 분류 이관하고, 이관 표(기존 → 처분)를 구현 보고에 첨부한다.
+1. **카탈로그 배선**: 위 표의 이벤트가 해당 코드 경로에 실제로 발화된다 — 각 행에 대해 `파일:라인` 근거를 구현 보고에 명시(대표 흐름: 부팅→턴 1회→종료의 dev 실행 JSONL 샘플 캡처 포함. **단 electron 실행이 불가한 제약 환경에서는 JSONL 샘플을 사람/CI 실기 대기로 분리 보고한다 — 0019/0102 선례**).
+2. **console.* 전면 이관**: `app/src/main/**` 에서 `console.*` 직접 호출 0 (허용 예외: `infra/log/` 내부 emergency 경로 + dev 콘솔 미러 구현부). 기존 **35곳(20파일, 재실측)** 은 삭제(무가치)·`debug`(dev 진단)·카탈로그 이벤트(info/warn/error) 중 하나로 분류 이관하고, 이관 표(기존 → 처분)를 구현 보고에 첨부한다.
 3. **기계 강제**: `app/eslint.config.mjs` 의 `src/main/**` 블록에 `no-console: error` 추가, 예외는 `infra/log/**` 한정 override. `npm run lint` 로 회귀 차단.
 4. **correlationId 배선**: 턴 진입(`app/chat-turn.ts`)이 `runWithLogContext({correlationId})` 로 감싸져 한 턴에서 발생한 chat/engine/db 로그가 동일 correlationId 를 갖는다(JSONL 샘플로 증명).
-5. **원문·델타 미기록**: chat 이벤트 데이터에 프롬프트·응답·도구 입출력 원문이 포함되지 않는다(토큰 수·duration·finishReason 등 메타만). **스트리밍 델타 이벤트(`message.delta`·`message.reasoning.delta`)는 배선의 어느 경로(info 카탈로그·debug·wire-log 미러)에서도 기록하지 않는다(사용자 결정 2026-07-18)**. grep 근거 + 카탈로그 표와 1:1.
+5. **원문·델타 미기록**: chat *카탈로그* 이벤트 데이터에 프롬프트·응답·도구 입출력 원문이 포함되지 않는다(토큰 수·duration·finishReason 등 메타만). **스트리밍 델타 이벤트(`message.delta`·`message.reasoning.delta`)는 배선의 어느 경로(info 카탈로그·debug·wire 기록·콘솔 미러)에서도 기록하지 않는다 — 기존 콘솔 wireLog 출력도 예외가 아니다(사용자 결정 2026-07-18, 구현 전 검토 턴에서 "wire log 포함" 재확정)**. 배제는 델타 2종만이며 telemetry·subagent.task 는 유지한다(결정 ②). grep 근거 + 카탈로그 표와 1:1. *단 `ipc.wire.event` debug 레코드는 결정 ③의 dev 전용 예외(AC8)를 따른다.*
 6. **IPC 검증 실패 가시화**: `handle()` 'reject'/fallback 및 log `on()` 폐기 경로에서 `ipc.payload.rejected`(warn, suppress 적용) 기록.
 7. **boot-report 연동**: 부팅 스텝 완료/실패가 카탈로그 `boot.*` 로 파일에 남는다(기존 renderer 전달 동작 불변).
-8. **wire-log 처분(결정)**: `wireLog()` 는 dev 콘솔 도구로 유지하되, 활성 시 로거 `debug`(`ipc.wire.event`) 로도 미러한다 — 주입식으로 연결해 electron 비의존·순수 vitest 성질을 보존한다(0068). 토글 off 기본값 불변. **단 미러는 델타 이벤트(`message.delta`·`message.reasoning.delta`)를 제외한다(사용자 결정 — 기존 콘솔 wireLog 자체의 출력은 불변)**.
+8. **wire-log 처분(개정 — 사용자 결정 ①③, 2026-07-18 구현 전 검토)**: `wireLog()` 의 `console.log` 직접 출력을 **제거**하고, 주입된 로거 sink 를 통한 `debug`(`ipc.wire.event`) 기록으로 대체한다 — 컴포지션 루트가 sink 를 주입해 electron 비의존·순수 vitest 성질을 보존한다(0068). 스위치 ON + 델타 2종(`message.delta`·`message.reasoning.delta`) 이 아닐 때만 발화(필터는 wire-log 내부). **레코드 data 는 payload 전체**(redaction·8KB 절단 통과) — dev 전용 debug 레벨 + 스위치 게이트라 prod 파일에는 절대 남지 않음을 근거로 원문 금지 정책의 dev 예외를 인정한다(결정 ③). `input.echo` 사이트(사용자 텍스트 80자)도 같은 예외에 포섭. 토글 off 기본값·비영속 불변. 이로써 wire-log 의 console 잔존이 0 이 되어 AC3 예외(`infra/log/**` 한정)와 정합한다.
 9. **로그 영어화**: 이관되는 로그 문자열(이벤트·message)은 영어로 통일(root AGENTS.md §6). UI 카피는 무관.
 10. **renderer 최소 배선**: renderer 는 boot 실패 표면화·전역 에러(0123 훅) 외 신규 info 배선 없음 — renderer 상세는 `debug` 레벨 원칙 확인(grep 근거).
-11. **게이트/위생**: lint(no-console 포함)+typecheck+test 통과(제약 환경 베이스라인 분리 보고), 레이어 경계 위반 0, 신규 의존성 0, IPC 채널 변경 0.
+11. **게이트/위생**: lint(no-console 포함)+typecheck+test 통과(제약 환경 베이스라인 분리 보고), 레이어 경계 위반 0, 신규 의존성 0, IPC 채널 변경 0 (**단 `DebugMockState` 필드 개명은 AC12 로 허용 — 채널 수 67 불변, IPC_CONTRACT §2.13 debug 표 동시 갱신**).
+12. **로그 스위치(신설 — 사용자 결정 ①, 2026-07-18)**: 디버그 패널의 wire 스위치를 "로그" 스위치로 개편한다 — (a) `DebugMockState.wireLog` → `log` 필드 개명(+`DebugMockPatchSchema`·bootstrap 기본값 `false`·`useDebugMock`·`DebugPanel`), (b) i18n 라벨 `debug.wireLog` → `debug.log`(ko `로그` / en `Logs`), (c) **통합 게이트**: 핸들러(`misc.ts` DEV 블록 유지)가 스위치 변경 시 wire 기록 플래그(`setWireLog`)와 `infra/log` 의 **콘솔 미러 런타임 게이트**(신설 setter — `LogManager` 파이프라인 불변, 0123 소폭 수정을 사용자 지시로 범위 편입)를 동시 제어한다. ON = wire 이벤트(델타 제외) debug 기록 + 모든 로그 레코드 콘솔 미러 / OFF = wire 미기록 + 콘솔 침묵(파일 기록은 기존 정책 유지). **dev 기본값 OFF 에서는 콘솔이 침묵한다 — 0123 의 무조건 dev 미러를 대체하는 의도된 동작 변화.** prod 는 핸들러 부재 + 미러 미주입으로 무영향. 비영속(재시작 OFF) 불변.
 
 ## 범위 / 비범위
 
-- **범위**: 위 인수 기준 — 카탈로그 확정·이관·강제·correlationId 턴 배선·wire-log 미러.
-- **비범위**: 로깅 인프라 자체 변경(0123 소관 — 결함 발견 시 파생 이슈로 회송) · renderer 상세 계측 · 로그 뷰어 UI · 원격 전송(OQ4) · debug 모드 런타임 토글 UI(설정 키 추가 포함 — 필요성이 확인되면 후속 핸드오프).
+- **범위**: 위 인수 기준 — 카탈로그 확정·이관·강제·correlationId 턴 배선·wire-log 로거 흡수·**로그 스위치 통합 게이트(AC12, 콘솔 미러 게이트 setter 포함 — 사용자 지시로 편입)**.
+- **비범위**: 로깅 인프라 자체 변경(0123 소관 — 결함 발견 시 파생 이슈로 회송. **예외: AC12 의 콘솔 미러 런타임 게이트 setter 1개는 사용자 지시로 본 건이 수행**) · renderer 상세 계측 · 로그 뷰어 UI · 원격 전송(OQ4) · **신규 설정 키/IPC 채널 추가**(로그 스위치는 기존 `orca:debug:setMock`·debugMock 구조 재사용 — 구 문구 "debug 모드 런타임 토글 UI 제외" 는 2026-07-18 사용자 지시로 supersede).
 
 ## 의존 기술 / 전제 (Dependencies & Assumptions)
 
@@ -84,8 +92,10 @@
 
 ## 파생 UX / 엣지케이스 (Derived UX & Edge Cases)
 
-- 사용자 노출 UI 없음. N/A (테마·a11y).
-- 스트리밍 델타(`message.delta`·`message.reasoning.delta`)·토큰 단위 이벤트는 **전 레벨·전 경로 미기록(사용자 결정)** — info 카탈로그는 물론 debug·wire-log 미러도 제외(파일 폭증 방지, suppress 는 최후 방어).
+- 사용자 노출 UI 는 디버그 패널 스위치 라벨 변경("Wire 메시지"→"로그")뿐 — dev 전용, 테마·a11y 는 기존 Toggle 컴포넌트 그대로.
+- 스트리밍 델타(`message.delta`·`message.reasoning.delta`)·토큰 단위 이벤트는 **전 레벨·전 경로 미기록(사용자 결정)** — info 카탈로그는 물론 debug·wire 기록·콘솔 미러(구 콘솔 wireLog 출력 포함)도 제외(파일 폭증 방지, suppress 는 최후 방어).
+- **로그 스위치 OFF(기본) 의 dev 콘솔 침묵**: 부팅~스위치 ON 이전의 레코드는 콘솔에 안 보인다(파일에는 정책대로 남음) — 결정 ① 의 의도된 트레이드오프. 부팅 진단이 필요하면 파일(JSONL) 또는 스위치 ON 후 재현.
+- wire 기록은 debug 레벨이라 suppress(경고/에러 한정) 미적용 — 스위치 수동 제어 + 10MB×5 로테이션이 방어선.
 - 턴 실패 시 `chat.turn.failed` 는 ClassifiedError 의 category/message 만 싣는다(원문 cause 는 serializeError 경유 — redaction 통과).
 - shutdown 경로(`will-quit`)의 `app.quit.started` 는 flush 이전에 emit 되어야 한다(0123 AC9 순서와 정합).
 
@@ -102,7 +112,7 @@
 
 ## 영향 받는 파일
 
-- 수정(대표): `app/eslint.config.mjs` · `app/src/main/index.ts` · `app/src/main/app/{bootstrap,chat-turn,boot-report,updater}.ts` · `app/src/main/app/handlers/*.ts` · `app/src/main/infra/ipc/{handle,send,wire-log}.ts` · `app/src/main/features/{scheduler,extensions,history,chat,…}/**`(console 이관 산개분) · `docs/arch/backend/observability.md`(카탈로그 승격)
+- 수정(대표): `app/eslint.config.mjs` · `app/src/main/index.ts` · `app/src/main/app/{bootstrap,chat-turn,boot-report,updater}.ts` · `app/src/main/app/handlers/*.ts` · `app/src/main/infra/ipc/{handle,send,wire-log}.ts` · `app/src/main/infra/log/{index,log-manager}.ts`(미러 게이트 setter) · `app/src/main/features/{scheduler,extensions,history,chat,…}/**`(console 이관 산개분) · **AC12 분**: `app/src/shared/{ipc,protocol}.ts`(DebugMockState 필드 개명) · `app/src/renderer/src/features/debug/{components/DebugPanel.tsx,hooks/useDebugMock.ts}` · `app/src/renderer/src/shared/i18n/resources/{ko,en}.ts` · `docs/IPC_CONTRACT.md`(§2.13 debug 표) · `docs/arch/backend/observability.md`(카탈로그 승격 + dev wire 예외)
 - 정확한 전수는 이관 표(AC2)가 담는다.
 
 ## 참고 문서
