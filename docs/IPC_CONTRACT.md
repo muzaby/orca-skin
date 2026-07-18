@@ -2,16 +2,17 @@
 
 > 이 문서는 Main ↔ Renderer 간 IPC 채널의 **단일 진실 공급원 (SSOT)** 이다.
 > 채널을 추가/변경할 때는 코드와 이 문서를 함께 갱신한다.
-> 최종 업데이트: 2026-07-16 (handoff 0112 — `cost` 도메인에 `usageStats` 사용량 요약 조회 추가, 65→66)
+> 최종 업데이트: 2026-07-18 (handoff 0123 — `log` 도메인 신설(`orca:log:emit`, 최초의 R→M one-way send), 66→67)
 > 관련 문서: [ARCHITECTURE.md](ARCHITECTURE.md), [ARCHITECTURE.md](ARCHITECTURE.md), [GLOSSARY.md](./GLOSSARY.md), [TRD.md](./TRD.md) §5
 
 ## 1. 명명 규칙
 
 - 형식: `orca:<domain>:<action>` — 소문자 + 콜론 구분
-- 도메인 (20개): `chat`, `boot`, `backend`, `agent`, `engine`, `install`, `update`, `settings`, `skills`, `files`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `concurrency`, `permission`, `notify`, `debug`(dev 전용)
+- 도메인 (21개): `chat`, `boot`, `backend`, `agent`, `engine`, `install`, `update`, `settings`, `skills`, `files`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `concurrency`, `permission`, `notify`, `debug`(dev 전용), `log`
 - 방향:
   - Renderer → Main 요청: `ipcMain.handle` + `ipcRenderer.invoke` (Promise 반환)
   - Main → Renderer 이벤트: `webContents.send` + `ipcRenderer.on` (단방향 push)
+  - Renderer → Main one-way send: `ipcMain.on` + `ipcRenderer.send` (응답 없음 — 현재 `log:emit` 유일, `infra/ipc/handle.ts` 의 `on()` 헬퍼로 zod 검증 경유)
 - preload 노출: `window.orca.<domain>.<action>(...)` 형태 (`app/src/preload/index.ts`)
 - 채널 상수: `app/src/shared/ipc.ts` 의 `CHANNELS` 객체. 문자열 리터럴 직접 사용 금지.
 - 입력 검증: 모든 invoke 핸들러는 `app/src/main/ipc/registry.ts` 의 `handle(channel, schema, invalid, fn)` 헬퍼를 경유해 **zod 스키마 (`app/src/shared/protocol.ts`)** 로 safeParse 검증한다. 채널별 실패 정책은 등록부에 명시:
@@ -20,9 +21,9 @@
   - 특례: `chat:send` 는 실패를 `error` 이벤트로 회신(§2.1). 입력이 없거나 store 내부 zod 가 검증하는 채널(settings set · mcp add/update)은 `handlePlain`.
 - 출력(main→renderer send) 무검증: `NormalizedEvent` 등의 형상 보증은 어댑터 정규화(`claude-map.ts`)가 담당 — 의도된 설계.
 
-## 2. 채널 카탈로그 (총 66 채널)
+## 2. 채널 카탈로그 (총 67 채널)
 
-도메인별 분포: `chat` 5 (`send` · `event` · `cancel` · `stopSubagent` · `steerCancel`) · `boot` 2 (`report` · `whenReady`) · `backend` 1 · `agent` 1 · `engine` 5 · `install` 2 · `update` 6 · `settings` 2 · `skills` 7 · `files` 5 · `session` 6 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `cost` 5 · `concurrency` 1 · `permission` 2 (`respond` · `setMode`) · `notify` 1 (`show` — §2.12-c) · `debug` 2 (dev 전용 — `getMock` · `setMock`) = **66**.
+도메인별 분포: `chat` 5 (`send` · `event` · `cancel` · `stopSubagent` · `steerCancel`) · `boot` 2 (`report` · `whenReady`) · `backend` 1 · `agent` 1 · `engine` 5 · `install` 2 · `update` 6 · `settings` 2 · `skills` 7 · `files` 5 · `session` 6 · `project` 5 · `window` 3 · `search` 1 · `mcp` 4 · `cost` 5 · `concurrency` 1 · `permission` 2 (`respond` · `setMode`) · `notify` 1 (`show` — §2.12-c) · `debug` 2 (dev 전용 — `getMock` · `setMock`) · `log` 1 (`emit` — §2.13-b) = **67**.
 
 `app/src/shared/ipc.ts` 의 `CHANNELS` 상수와 1:1 일치. **단, `debug` 2채널은 `import.meta.env.DEV` 일 때만 `ipcMain.handle` 로 등록된다** (CHANNELS 상수 문자열은 상존하나 prod 핸들러 미등록 — §2.13 참조).
 
@@ -361,6 +362,14 @@ LLM API 없이 renderer 의 스트리밍·사고 블록·도구 카드·권한 �
 | `orca:debug:setMock` | R→M (invoke) | `Partial<DebugMockState>` (`DebugMockPatchSchema` — 네 필드 optional, `contextUsageRatio` 0~1) | `DebugMockState`                                                                                 | mock 상태 부분 패치 후 병합된 전체 반환. `enabled` 토글 시 `handleChatSend` 의 어댑터 선택이 MockAdapter ↔ 활성 어댑터로 분기. |
 
 `MockScenarioId` 13종 (`app/src/shared/ipc.ts` `MOCK_SCENARIO_IDS`): `text_streaming` · `reasoning` · `tool_calls` · `tool_approval` · `ask_question` · `plan_review` · `subagent_task` · `subagent_task_child` · `subagent_task_aborted` · `subagent_task_multi` · `subagent_task_running` · `error` · `full`. `full` 은 text/reasoning/tool_calls/tool_approval/ask_question/plan_review 를 순차 재생한 뒤 도구호출→error 점프로 종료한다(권한 2종은 approval 스텝이 라우터를 경유해 합성). 시나리오 telemetry 는 `costUsd: 0`·`model: 'mock-sonnet'`, 컨텍스트 토큰 합 = `round(contextUsageRatio × 200_000)` 로 도넛/`nearCompaction` 경고를 구동.
+
+### 2.13-b Log (0123 — 로그 인제스트)
+
+renderer/preload 발 구조화 로그를 main 의 중앙 LogManager 로 전달하는 **유일한 R→M one-way send** 채널. 로깅 정본(스키마·레벨 정책·redaction·파일 위치)은 [arch/backend/observability.md](arch/backend/observability.md).
+
+| 채널            | 방향       | 페이로드                                                                       | 응답 | 설명                                                                                                                                                                                                             |
+| --------------- | ---------- | ------------------------------------------------------------------------------ | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `orca:log:emit` | R→M (send) | `LogInput` = `{ level; event; scope; message?; correlationId?; data?; error? }` | —    | fire-and-forget 로그 전송. main 이 `LogInputSchema` + payload 32KB 상한으로 검증, 실패는 **폐기 + `ipc.payload.rejected` warn 집계**(reject 응답 없음). 공통 필드(`timestamp`·`process`·`appVersion`·`sessionId`·`windowId`)는 **main 이 강제 부여** — renderer 가 보내면 strict 스키마가 거부한다(위조 방지). |
 
 ### 2.14 예약 / 미노출 채널
 
