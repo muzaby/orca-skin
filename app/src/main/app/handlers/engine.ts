@@ -18,12 +18,17 @@ import {
 } from '../../features/providers/engine-write'
 import type { RouterContext } from '../context'
 import { handle, handlePlain } from '../../infra/ipc/handle'
+import { getLogger } from '../../infra/log'
 
 async function refreshProviderSettings(ctx: RouterContext): Promise<void> {
   try {
     const result = await deploy('claude')
     if (!result.validation.ok) {
-      for (const err of result.validation.errors) console.warn('[engine] deploy 검증 경고:', err)
+      for (const err of result.validation.errors) {
+        getLogger()
+          .child('extensions')
+          .warn('extensions.deploy.warning', { message: String(err) })
+      }
     }
   } finally {
     ctx.providerSettings.invalidateAll()

@@ -2,11 +2,14 @@
 // 미로드 상태의 getOrcaConfig()/appEnv() 호출은 lazy load 로 동일하게 동작한다.
 
 import { DEFAULT_ORCA_CONFIG, ensureOrcaFile, readOrcaFile, type OrcaConfig } from './orca-file'
+import { getLogger } from '../log/registry'
 
 let cached: OrcaConfig | null = null
 
 function warnAll(warnings: string[]): void {
-  for (const warning of warnings) console.warn(`[orca-config] ${warning}`)
+  for (const warning of warnings) {
+    getLogger().child('config').warn('config.orca.invalid', { warning })
+  }
 }
 
 export function loadOrcaConfig(): OrcaConfig {
@@ -16,7 +19,9 @@ export function loadOrcaConfig(): OrcaConfig {
     warnAll(result.warnings)
     cached = result.config
   } catch (err) {
-    console.warn('[orca-config] 로드 실패 — 기본값 사용:', err)
+    getLogger()
+      .child('config')
+      .warn('config.orca.load-failed', { message: String(err), fallback: 'defaults' })
     cached = DEFAULT_ORCA_CONFIG
   }
   return cached

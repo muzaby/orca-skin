@@ -332,7 +332,7 @@ export const en: typeof ko = {
     mockMode: 'Mock mode',
     scenario: 'Scenario',
     contextUsage: 'Context usage',
-    wireLog: 'Wire messages',
+    log: 'Logs',
     themeSection: 'Theme',
     palette: 'Color palette',
     layoutSection: 'Layout',

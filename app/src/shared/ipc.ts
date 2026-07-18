@@ -171,8 +171,9 @@ export interface DebugMockState {
   enabled: boolean
   scenarioId: MockScenarioId
   contextUsageRatio: number
-  // dev 전용 — main 의 outbound wire message(NormalizedEvent) 를 터미널에 덤프할지.
-  wireLog: boolean
+  // dev 전용 "로그" 스위치(0124) — ON 이면 outbound wire message(NormalizedEvent, 델타 제외)를
+  // 로거 debug(`ipc.wire.event`)로 기록하고 모든 로그 레코드를 main 콘솔에 미러한다. 비영속.
+  log: boolean
 }
 
 export interface CostPeriodSummary {

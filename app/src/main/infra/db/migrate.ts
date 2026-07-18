@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, statSync, statfsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import type Database from 'better-sqlite3'
+import { getLogger } from '../log/registry'
 import migration0001 from './migrations/0001_initial.sql?raw'
 import migration0002 from './migrations/0002_projects.sql?raw'
 import migration0003 from './migrations/0003_messages_fts.sql?raw'
@@ -135,7 +136,16 @@ export function applyMigrations(db: Database.Database, options: ApplyMigrationsO
   if (unknown.length > 0) throw new DbSchemaTooNewError(unknown)
 
   const pending = MIGRATIONS.filter((m) => !applied.has(m.name))
-  if (pending.length > 0 && options.backup) {
+  if (pending.length === 0) return
+  // DB 마이그레이션 경계(0124 카탈로그) — 이름·개수·소요만 기록(값/데이터 금지).
+  const log = getLogger().child('db')
+  const startedAt = Date.now()
+  log.info('db.migration.started', {
+    pending: pending.length,
+    from: [...applied].sort().at(-1) ?? null,
+    to: pending[pending.length - 1].name
+  })
+  if (options.backup) {
     options.onBackupStart?.()
     try {
       createMigrationBackup(db, options.backup)
@@ -150,6 +160,16 @@ export function applyMigrations(db: Database.Database, options: ApplyMigrationsO
       db.exec(m.sql)
       record.run(m.name, Date.now())
     })
-    apply()
+    try {
+      apply()
+    } catch (err) {
+      log.error('db.migration.failed', err, { migration: m.name })
+      throw err
+    }
   }
+  log.info('db.migration.completed', {
+    applied: pending.length,
+    to: pending[pending.length - 1].name,
+    durationMs: Date.now() - startedAt
+  })
 }

@@ -3,6 +3,7 @@ import type { ClaudePermissionMode } from '../../../shared/permission-mode'
 import type { TurnRequest } from '../../adapters/turn'
 import type { LiveTurn } from '../../adapters/types'
 import type { ManagedRuntime, RuntimeSessionAdapter } from '../../contracts/ports'
+import { getLogger } from '../../infra/log/registry'
 import {
   SessionRuntimeStatus,
   type AbortCause,
@@ -170,8 +171,18 @@ export class SessionRuntime implements ManagedRuntime {
     }
 
     // 스폰 — 채널이 없거나 죽었거나 pushTurn 미지원(mock). 콜백은 delegate 래퍼로 치환해
-    // 채널이 턴을 넘어도 현재 턴의 콜백이 호출되게 한다.
-    const spawned = this.adapter.sendMessage(this.wrapRequest(req))
+    // 채널이 턴을 넘어도 현재 턴의 콜백이 호출되게 한다. spawn 경계는 카탈로그(0124) 기록 —
+    // sendMessage 동기 호출이 spawn 경계이며, 이후 스트림 실패는 chat.turn.failed 가 담당한다.
+    const log = getLogger().child('engine')
+    log.info('engine.spawn.started', { provider: this.adapter.id })
+    let spawned: LiveTurn
+    try {
+      spawned = this.adapter.sendMessage(this.wrapRequest(req))
+    } catch (err) {
+      log.error('engine.spawn.failed', err, { provider: this.adapter.id })
+      throw err
+    }
+    log.info('engine.spawn.completed', { provider: this.adapter.id })
     this.live = spawned
     if (spawned.pushTurn && this.closePolicy === 'persistent') {
       const frame = this.openFrame()
@@ -282,16 +293,31 @@ export class SessionRuntime implements ManagedRuntime {
       if (err != null) frame.fail(err)
       else frame.end() // terminal 없이 종료 — coordinator 가 합성 telemetry 로 마감
     } else if (err != null) {
-      console.warn('[session-runtime] 채널 스트림 에러(유휴 중):', err)
+      getLogger()
+        .child('engine')
+        .warn('engine.channel.error', {
+          provider: this.adapter.id,
+          idle: true,
+          message: String(err)
+        })
     }
     this.live?.close()
     this.live = null
+    getLogger()
+      .child('engine')
+      .info('engine.channel.teardown', { provider: this.adapter.id, reason: 'stream-ended' })
   }
 
   // 채널 강제 해체(respawn 경계·draining 충돌) — 상태머신은 건드리지 않는다(close 와 구분).
   // 0118: spawn-바운드 옵션(env·providerSettings) 변경 respawn 경계는 호출자(chat-turn)가
   // 선언한다 — 여기선 채널만 내리고, 다음 send 가 spawn(resume) 콜드 패스를 탄다.
   teardownChannel(): void {
+    // 살아있던 채널의 강제 해체만 기록한다(무채널 close 반복은 소음).
+    if (this.live !== null || this.pumpRunning) {
+      getLogger()
+        .child('engine')
+        .info('engine.channel.teardown', { provider: this.adapter.id, reason: 'forced' })
+    }
     this.channelController.abort()
     this.channelController = new AbortController()
     const frame = this.frame

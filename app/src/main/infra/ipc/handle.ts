@@ -5,6 +5,7 @@
 // main→renderer send 이벤트는 검증하지 않는다(형상 보증은 어댑터 정규화 — IPC_CONTRACT §1).
 
 import { ipcMain, type IpcMainEvent, type IpcMainInvokeEvent } from 'electron'
+import { getLogger } from '../log/registry'
 
 interface ParseOk<T> {
   success: true
@@ -30,6 +31,14 @@ export function handle<T, R>(
   ipcMain.handle(channel, async (event, raw: unknown) => {
     const parsed = schema.safeParse(raw)
     if (!parsed.success) {
+      // 무효 payload 가 조용히 사라지지 않게 warn 으로 가시화(0124 AC6) — suppress(60s 창)가
+      // 반복을 삼킨다. 채널·정책만 기록하고 payload 원문은 싣지 않는다.
+      getLogger()
+        .child('ipc')
+        .warn('ipc.payload.rejected', {
+          channel,
+          policy: invalid === 'reject' ? 'reject' : 'fallback'
+        })
       if (invalid === 'reject') throw parsed.error
       return invalid.fallback
     }

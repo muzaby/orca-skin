@@ -9,6 +9,7 @@ import type { DbQueries } from '../../infra/db'
 import type { LineageRelation } from '../../infra/db/types'
 import { previewOf } from '../../infra/ipc/dto'
 import { sendChatEvent } from '../../infra/ipc/send'
+import { getLogger } from '../../infra/log/registry'
 import type { TurnContext } from '../../contracts/turn'
 
 // 0064 continuity — fork/handoff 도착 물질화 훅(구조적 포트). 구현은 features/orchestration
@@ -167,6 +168,12 @@ export class HistoryWriter {
           providerKey: turn.providerKey,
           cwd: turn.cwd
         })
+        // 세션 생성 경계(0124 카탈로그) — sessionId 발급 시점(system/init)이 생성의 진실.
+        if (turn.isNewSession) {
+          getLogger()
+            .child('session')
+            .info('session.create.completed', { sessionId, provider: turn.titleAdapter.id })
+        }
         // 0064 continuity — fork/handoff 도착 물질화(lineage + fork 만 display 복사).
         // fork 복사가 원본 idx 를 보존하므로 아래 user 발화 영속(MAX(idx)+1)보다 먼저 실행해
         // 새 발화가 복사 이력 뒤로 정렬되게 한다.

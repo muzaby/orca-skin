@@ -6,7 +6,6 @@ import { app, webContents } from 'electron'
 import { mkdir } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
-import { is } from '@electron-toolkit/utils'
 import {
   CHANNELS,
   type DebugMockState,
@@ -43,6 +42,7 @@ import { loadClaudeProviderSettings, readUserClaudeSettings } from '../adapters/
 import { scanSkills, type SkillScanRoot } from '../features/extensions/skills/scan'
 import { seedBuiltinSkills } from '../features/extensions/skills/seed'
 import { initDb } from '../infra/db'
+import { getLogger } from '../infra/log'
 import { UsageTracker } from '../features/usage/tracker'
 import { DbRunRecorder, Scheduler } from '../features/scheduler'
 import { ExtensionBuilder } from '../features/extensions/builder'
@@ -91,7 +91,7 @@ export class Bootstrap {
     enabled: false,
     scenarioId: 'full',
     contextUsageRatio: 0.3,
-    wireLog: false
+    log: false
   }
   // 앱 종료(will-quit) 정리용 참조 — register() 에서 채워진다. 종료 시 진행 중 턴의 열린 도구를
   // 정착하고 controller 를 abort 한다(shutdown).
@@ -136,16 +136,26 @@ export class Bootstrap {
   }
 
   private createDeploymentService(): ExtensionDeploymentService {
+    const log = getLogger().child('extensions')
     return new ExtensionDeploymentService({
       deploy: async () => {
         const { config, dropped } = toClaudeConfig(this.mcp.enabledConfig(), this.mcp.resolver())
-        for (const d of dropped) console.warn(`[mcp] 서버 '${d.name}' 를 건너뜀: ${d.reason}`)
-        return deploy('claude', {
+        for (const d of dropped) {
+          log.warn('mcp.server.skipped', { name: d.name, reason: d.reason })
+        }
+        const result = await deploy('claude', {
           skillRoots: this.skillRoots(),
           mcpConfig: config
         })
+        // 확장 배포 경계(0124 카탈로그) — 실패는 서비스가 삼키고 onWarning 으로 회귀하므로
+        // extensions.deploy.failed 는 아래 onWarning 배선(warn)이 담당한다.
+        log.info('extensions.deploy.completed', {
+          standard: 'claude',
+          validationOk: result.validation.ok
+        })
+        return result
       },
-      onWarning: (message) => console.warn(message)
+      onWarning: (message) => log.warn('extensions.deploy.warning', { message })
     })
   }
 
@@ -173,8 +183,11 @@ export class Bootstrap {
       { critical: true, label: '미완료 도구 호출 복구' },
       () => recoverSessionHistory(db)
     )
-    if (recovered.toolResultsWritten > 0 && is.dev) {
-      console.log('[recovery] dangling tools settled:', recovered)
+    if (recovered.toolResultsWritten > 0) {
+      // dev 진단(구 is.dev 콘솔) — debug 레벨 자체가 dev 전용이라 별도 가드 불요.
+      getLogger()
+        .child('chat')
+        .debug('chat.recovery.settled', { ...recovered })
     }
     // 비용 요약 IPC 송출 배선 — domain(UsageTracker)은 electron 비의존, 송출은 여기(컴포지션 루트)서.
     const cost = new UsageTracker(db, (summary) => {
@@ -195,7 +208,12 @@ export class Bootstrap {
     try {
       scheduler.applySettings(this.settings.getAll().scheduler)
     } catch (e) {
-      console.warn('[scheduler] 설정 적용 실패, 주기 작업을 비활성 상태로 시작:', e)
+      getLogger()
+        .child('scheduler')
+        .warn('scheduler.settings.failed', {
+          message: String(e),
+          reason: 'starting with periodic jobs disabled'
+        })
     }
 
     const extensions = new ExtensionBuilder(
@@ -236,8 +254,9 @@ export class Bootstrap {
       { critical: false, label: '기본 스킬 seed' },
       async () => {
         const result = await seedBuiltinSkills(this.builtinSkillsDir(), sourcesSkillsDir())
-        for (const name of result.seeded) console.log('[seed] builtin skill:', name)
-        for (const name of result.pruned) console.log('[seed] prune builtin skill:', name)
+        const seedLog = getLogger().child('extensions')
+        for (const name of result.seeded) seedLog.debug('extensions.skill.seeded', { name })
+        for (const name of result.pruned) seedLog.debug('extensions.skill.pruned', { name })
       }
     )
     const secretStore = new SecretStore()
@@ -253,9 +272,12 @@ export class Bootstrap {
           undefined,
           userSettings.exists ? userSettings.settingsJson : null
         )
-        for (const path of s.created) console.log('[scaffold] 생성:', path)
+        const scaffoldLog = getLogger().child('providers')
+        for (const path of s.created) scaffoldLog.debug('providers.scaffold.created', { path })
         const staticProviders = materializeStaticProviderSettings()
-        for (const path of staticProviders.created) console.log('[static-provider] 생성:', path)
+        for (const path of staticProviders.created) {
+          scaffoldLog.debug('providers.static.created', { path })
+        }
       }
     )
     // dist/claude/plugins/orca 렌더를 boot 1회 수행한다. CRUD 는 즉시 재배포, 턴 진입은
@@ -357,7 +379,9 @@ export class Bootstrap {
       try {
         bus.emit('turn.event', { turn, ev })
       } catch (e) {
-        console.warn('[shutdown] turn.event 방출 실패:', e)
+        getLogger()
+          .child('chat')
+          .warn('chat.turn-event.emit-failed', { phase: 'shutdown', message: String(e) })
       }
     }
     for (const turn of this.supervisor.all()) {

@@ -6,6 +6,7 @@ import { readdirSync, readFileSync, type Dirent } from 'node:fs'
 import { join } from 'node:path'
 import { isRecord } from '../../../shared/obj'
 import { orcaConfigDir } from '../../infra/config/paths'
+import { getLogger } from '../../infra/log/registry'
 import { providerKeyOf, PROVIDER_NAME_RE } from '../../infra/config/provider-key'
 import { parseClaudeModels, type ParsedModel } from './claude-model-parser'
 
@@ -30,11 +31,18 @@ function modelsForProvider(settingsFile: string): ParsedModel[] {
   try {
     json = JSON.parse(raw)
   } catch {
-    console.warn(`[provider-settings] settings.json 파싱 실패 — 기본 모델로 열거: ${settingsFile}`)
+    getLogger().child('providers').warn('providers.settings.parse-failed', {
+      path: settingsFile,
+      fallback: 'default models'
+    })
     return parseClaudeModels({})
   }
   if (!isRecord(json)) {
-    console.warn(`[provider-settings] settings.json 최상위는 객체여야 합니다 — 기본 모델로 열거`)
+    getLogger().child('providers').warn('providers.settings.invalid', {
+      path: settingsFile,
+      reason: 'top-level value must be an object',
+      fallback: 'default models'
+    })
     return parseClaudeModels({})
   }
   return parseClaudeModels(json)

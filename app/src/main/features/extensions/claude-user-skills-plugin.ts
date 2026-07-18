@@ -18,6 +18,7 @@ import { mkdir, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Backend } from '../../../shared/ipc'
 import { CLAUDE_USER_PLUGIN_NAME } from '../../adapters/claude-plugin'
+import { getLogger } from '../../infra/log/registry'
 
 export const CLAUDE_USER_PLUGIN_MANIFEST = {
   name: CLAUDE_USER_PLUGIN_NAME,
@@ -61,7 +62,9 @@ export async function renderClaudeUserSkillsPlugin(input: {
     await symlink(input.skillsTarget, skillsLink, 'junction')
     return pluginRoot
   } catch (e) {
-    console.warn('[deploy] user-skills 래퍼 플러그인 생성 실패 — 스킬 없이 진행:', e)
+    getLogger()
+      .child('extensions')
+      .warn('extensions.plugin.wrapper-failed', { message: String(e), degraded: 'no-skills' })
     await rm(pluginRoot, { recursive: true, force: true }).catch(() => undefined)
     return null
   }

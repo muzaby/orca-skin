@@ -139,3 +139,66 @@
 ---
 
 > **[구현자 기입]** 이하는 구현 턴에서 채운다 (Codex=기능 / Claude=비기능). 설계자(Claude)는 위쪽을 쓰고, 구현자는 이 블록만 추가한다(공유 파일 충돌 회피).
+
+## [구현자 기입] 구현 보고 (Claude, 2026-07-18)
+
+### 설계 리뷰 (비판적 검토 턴 — 사용자 지시로 구현 전 수행)
+
+- **동의**: 카탈로그 화이트리스트·correlationId 턴 배선·no-console 강제·0068 electron 비의존 보존 방침 모두 타당. 구현에서 그대로 따랐다.
+- **이견→plan 개정 반영(상단 개정 이력 참조)**: ① AC8 "콘솔 wireLog 출력 불변" 이 신규 사용자 요구(델타를 wire log 포함 전 경로 배제)와 충돌 → 콘솔 출력 자체를 로거로 흡수(AC3 의 no-console 예외 범위 밖 문제도 동시 해소). ② console.* 62/30 은 0123 이전 stale 수치 → 재실측 35곳/20파일. ③ 델타 라인 레퍼런스 480/537 → 483/540. ④ 비범위(debug 런타임 토글 UI·0123 인프라 불변)와 AC12 신설의 충돌 → 사용자 지시로 범위 편입 명기.
+
+### 놓친 잠재 문제 + 대응 (✅ 선조치)
+
+- ✅ **getLogger 의 electron 의존**: `infra/log/index.ts` 가 electron 을 import 하므로 순수 vitest 대상 모듈(turn-coordinator·session-runtime·scheduler 등)이 직접 import 하면 테스트가 깨진다 → **electron-free 레지스트리 분리**(`infra/log/registry.ts` 신설, no-op 폴백·`setRootLogger`) — index.ts 는 initLog/closeLog 에서 채우고 비우며 re-export 로 기존 import 경로 무회귀(0068 wire-log 와 동일 패턴). 모듈 스코프 캡처 금지(initLog 이전 import 가 no-op 고정) 규칙을 주석으로 명문화.
+- ✅ **extensions.deploy.failed 관측 지점**: `ExtensionDeploymentService.attempt()` 가 실패를 삼키고 onWarning 문자열로만 회귀 → 서비스 catch 에서 직접 `extensions.deploy.failed` warn 기록(구분 불가 문제 해소).
+- ✅ **mock.test.ts 의 debugMock 필드**: `wireLog` → `log` 개명 동반 수정.
+
+### 이관 표 (console.* 35곳/20파일 → 처분; 예외 잔존 = `infra/log/index.ts` 2곳)
+
+| 기존 (파일:구라인) | 처분 → 이벤트(레벨) |
+|---|---|
+| `index.ts:254` bootstrap 실패 | `app.start.failed` (error) + flushLogSync |
+| `bootstrap.ts:142` mcp 서버 skip | `mcp.server.skipped` (warn) |
+| `bootstrap.ts:148` deploy onWarning | `extensions.deploy.warning` (warn) |
+| `bootstrap.ts:177` recovery(is.dev) | `chat.recovery.settled` (debug — is.dev 가드 제거, debug 자체가 dev 전용) |
+| `bootstrap.ts:198` scheduler 설정 실패 | `scheduler.settings.failed` (warn) |
+| `bootstrap.ts:239/240` skill seed/prune | `extensions.skill.seeded`/`.pruned` (debug) |
+| `bootstrap.ts:256/258` scaffold/static 생성 | `providers.scaffold.created`/`providers.static.created` (debug) |
+| `bootstrap.ts:360` shutdown emit 실패 | `chat.turn-event.emit-failed` (warn, phase=shutdown) |
+| `boot-report.ts:55` 비-critical 경고 | `boot.step.failed` (warn, degraded) — boot.* 배선에 흡수 |
+| `handlers/engine.ts:26` deploy 검증 경고 | `extensions.deploy.warning` (warn) |
+| `updater.ts:129` check 실패 | `update.check.failed` (warn) |
+| `updater.ts:250` electron-updater 로드 실패 | `update.loader.failed` (warn) |
+| `chat-turn.ts:127` providerKey 불일치 | `providers.key.mismatch` (warn) |
+| `chat-turn.ts:166` env 미해결 | `config.env.unresolved` (warn) |
+| `chat-turn.ts:193` emit 실패(격리) | `chat.turn-event.emit-failed` (warn) |
+| `chat-turn.ts:592` 승인 sessionId 부재 | `chat.permission.session-missing` (warn) |
+| `deployer.ts:163` dist 백업 실패 | `extensions.deploy.backup-failed` (warn) |
+| `claude-user-skills-plugin.ts:64` 래퍼 실패 | `extensions.plugin.wrapper-failed` (warn) |
+| `provider-settings.ts:121` settings 해석 실패 | `providers.settings.resolve-failed` (warn) |
+| `provider-registry.ts:33/37` 파싱/형식 오류 | `providers.settings.parse-failed`/`.invalid` (warn) |
+| `external-usage-service.ts:36` 기본 logger | `usage.external.warning` (warn, 주입 기본값 교체) |
+| `turn-coordinator.ts:108` settle emit 실패 | `chat.turn-event.emit-failed` (warn, phase=settle) |
+| `title-generation.ts:65` 제목 생성 실패 | `chat.title.generation-failed` (warn) |
+| `session-runtime.ts:285` 유휴 채널 에러 | `engine.channel.error` (warn) |
+| `bus/index.ts:57` 리스너 오류(격리) | `bus.listener.failed` (warn) |
+| `orca-config.ts:9/19` 경고/로드 실패 | `config.orca.invalid`/`config.orca.load-failed` (warn) |
+| `wire-log.ts:14` `[wire]` 덤프 | **제거** — 주입 sink 경유 `ipc.wire.event` (debug, AC8) |
+| `claude-adapt.ts:153` steer gate hook 실패 | `engine.steer.flush-failed` (warn) |
+| `claude-settings.ts:33` settings 파싱 실패 | `providers.settings.parse-failed` (warn) |
+| `infra/log/index.ts:25/36` emergency·미러 | **예외 잔존** (AC2·AC3 허용, eslint override) |
+
+### 카탈로그 발화 근거 (AC1 — 파일:라인)
+
+`app.start.completed` `index.ts:258` · `app.quit.started` `index.ts:280`(closeLog 이전) · `boot.step.completed/failed` `boot-report.ts:116-118` · `boot.sequence.completed` `boot-report.ts:62` · `db.migration.started/completed/failed` `infra/db/migrate.ts:143,170,163` · `session.create.completed` `features/history/writer.ts:175`(isNewSession 한정) · `session.resume.completed` `app/chat-turn.ts:467` · `chat.turn.started/completed/cancelled/failed` `features/chat/turn-coordinator.ts:191,334,333·338,344·379` · `engine.spawn.started/completed/failed` `features/sessions/session-runtime.ts:177,185,182` · `engine.channel.teardown` `session-runtime.ts:308,319` · `update.check/download/install .started/…` `app/updater.ts:124,153,178`(+completed/failed 인접) · `scheduler.job.fired/failed` `features/scheduler/scheduler.ts:92,95` · `extensions.deploy.completed/failed` `app/bootstrap.ts:152`·`extension-deployment-service.ts`(catch) · `settings.patch.applied` `app/handlers/misc.ts:111`(키 이름만) · `ipc.payload.rejected` `infra/ipc/handle.ts:38`·`app/handlers/log.ts:15`. `update.install.completed` 는 quitAndInstall 재시작 특성상 새 버전의 `app.start.completed` 가 대신 증명(코드 주석 명기).
+
+### 게이트 결과 (제약 환경 베이스라인 분리)
+
+- `npm run typecheck` 3종 0 error ✅ · `npm run lint` 0 error ✅ (경고 1 = 0102 TanStack↔React Compiler 기존 수용, no-console 신규 위반 0)
+- vitest 직접 실행(ABI 안 뒤집는 경로): **1002/1002 pass, 130/131 파일** — 실패 1파일 = `chat-turn.continuity.test.ts` **로드 실패**(electron 바이너리 egress 403 미설치, 0112 기록 동일 베이스라인·본 변경 무관). `npm rebuild better-sqlite3`(Node ABI 소스 컴파일)로 DB 스위트 포함 green. scripts `node --test` 25/25 ✅.
+- 신규 테스트: `wire-log.test.ts`(5 — sink 주입·스위치·**델타 2종 배제**·telemetry/subagent 유지) · `handle.test.ts`(4 — reject/fallback `ipc.payload.rejected`·유효 통과·no-op 안전) · `log-manager.test.ts` +2(미러 게이트 기본 OFF·ON/OFF 왕복).
+- **AC1 JSONL 샘플: 사람/CI 실기 대기** — electron 실행이 egress 403 으로 불가(plan 개정 단서·0019/0102 선례). 캡처 절차: `npm run dev` → 디버그 패널 "로그" ON → 턴 1회 → 종료 → `<userData(orca-dev)>/logs/application.jsonl` 확인.
+
+### 블로커
+
+없음. (AC1 샘플 캡처만 환경 제약으로 사람/CI 이관.)
