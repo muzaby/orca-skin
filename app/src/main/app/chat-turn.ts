@@ -35,6 +35,7 @@ import { agentPermissionRequest } from '../features/approvals/permission-bridge'
 import type { PermissionModeController } from '../features/approvals/permission-mode-controller'
 import { makeClassifiedError } from '../infra/errors'
 import type { RouterContext } from './context'
+import { getLogger, runWithLogContext } from '../infra/log'
 import { sendChatEvent } from '../infra/ipc/send'
 import { handle, handlePlain } from '../infra/ipc/handle'
 import type { ApprovalCoordinator } from '../features/approvals/coordinator'
@@ -124,9 +125,10 @@ async function resolveTurnProvider(
 
   let selected = byKey(req.providerKey)
   if (req.sessionId && selected && selected.adapter !== meta?.backend) {
-    console.warn(
-      `[provider-settings] providerKey '${req.providerKey}' adapter 불일치 — 세션 provider 로 fallback`
-    )
+    getLogger().child('providers').warn('providers.key.mismatch', {
+      providerKey: req.providerKey,
+      reason: 'adapter mismatch — falling back to session provider'
+    })
     selected = undefined
   }
   if (req.sessionId && !selected) selected = byKey(meta?.provider_key)
@@ -163,7 +165,9 @@ function resolveTurnCwd(
 function buildTurnEnv(ctx: RouterContext): Record<string, string> | undefined {
   const { env: expanded, missing } = expandEnvRecord(appEnv(), ctx.mcp.resolver())
   if (missing.length > 0) {
-    console.warn(`[orca-config] 미해결 환경변수로 일부 앱 env 키를 건너뜀: ${missing.join(', ')}`)
+    getLogger()
+      .child('config')
+      .warn('config.env.unresolved', { missing, reason: 'app env keys skipped' })
   }
   return mergeEnvLayers(undefined, expanded)
 }
@@ -190,7 +194,9 @@ export function registerChatHandlers(deps: ChatDeps): void {
     try {
       bus.emit('turn.event', { turn, ev })
     } catch (err) {
-      console.warn('[chat] turn.event 방출 실패(격리):', err)
+      getLogger()
+        .child('chat')
+        .warn('chat.turn-event.emit-failed', { isolated: true, message: String(err) })
     }
   }
 
@@ -454,8 +460,15 @@ export function registerChatHandlers(deps: ChatDeps): void {
       // 0067 AC9 — 세션 id 확정 전 큐 키. coordinator 가 session.updated 에서 실 id 로 rekey.
       queueKey: parsed.data.sessionId ?? parsed.data.clientKey ?? randomUUID()
     }
-    if (parsed.data.sessionId) supervisor.startResume(parsed.data.sessionId, turn)
-    else supervisor.startNew(event.sender, turn)
+    if (parsed.data.sessionId) {
+      supervisor.startResume(parsed.data.sessionId, turn)
+      // 세션 재개 경계(카탈로그) — 신규 세션의 대응 이벤트(session.create.completed)는 sessionId
+      // 발급 시점(HistoryWriter 의 session.updated persist)에 남는다.
+      getLogger().child('session').info('session.resume.completed', {
+        sessionId: parsed.data.sessionId,
+        provider: adapter.id
+      })
+    } else supervisor.startNew(event.sender, turn)
 
     // Persistent 채널이 세션 키의 idle 핸들로 살아있으면 재사용, 아니면 fresh(0067 — pushTurn
     // 미지원 어댑터는 SessionRuntime 이 턴-스코프 폴백). 반납은 finally 의 releaseRuntime.
@@ -589,13 +602,11 @@ export function registerChatHandlers(deps: ChatDeps): void {
       // set, persist.ts) 이후라 dbSessionId 가 채워져 있다. 깨지면(provider/adapter 변경 등)
       // 조용한 오배선 대신 dev warn 으로 가시화 — 이벤트는 sessionId 없이 폴백 라우팅된다.
       if (!turn.dbSessionId) {
-        console.warn(
-          '[chat] permission.requested without dbSessionId — falling back to activeKey',
-          {
-            approvalId,
-            kind: action.kind
-          }
-        )
+        getLogger().child('chat').warn('chat.permission.session-missing', {
+          approvalId,
+          kind: action.kind,
+          reason: 'permission.requested without dbSessionId — falling back to activeKey'
+        })
       }
       sendChatEvent(wc, agentPermissionRequest(approvalId, outbound, turn.dbSessionId ?? undefined))
       // 승인 보류 동안 stall 타이머를 멈춘다 — 사용자 판단 시간이 stall 로 오판돼 턴이 abort 되지
@@ -745,8 +756,11 @@ export function registerChatHandlers(deps: ChatDeps): void {
   })
 
   // chatSend 는 검증 실패를 reject 가 아닌 error 이벤트로 회신하는 특례 — handlePlain 으로
-  // 등록하고 핸들러 서두에서 직접 safeParse 한다.
-  handlePlain(CHANNELS.chatSend, (raw, event) => handleChatSend(event, raw))
+  // 등록하고 핸들러 서두에서 직접 safeParse 한다. 턴 진입을 runWithLogContext 로 감싸(0124 AC4)
+  // 이 턴의 비동기 흐름(chat/engine/db)에서 emit 되는 로그가 동일 correlationId 로 묶인다.
+  handlePlain(CHANNELS.chatSend, (raw, event) =>
+    runWithLogContext({ correlationId: randomUUID() }, () => handleChatSend(event, raw))
+  )
 
   // held 단건 취소(pending 버블 hover) — flushed(주입 완료) 항목은 거부(무이벤트), 이후 echo
   // 커밋이 버블을 복원한다(D3 정직 화해). 구 chat:steer 채널은 chat:send 로 흡수됐다(0067 AC5).

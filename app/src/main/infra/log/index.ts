@@ -9,10 +9,12 @@ import { randomUUID } from 'crypto'
 import type { LogInput, LogRecord } from '../../../shared/logging'
 import { FileTransport } from './file-transport'
 import { LogManager, type AppLogger, type LogSource } from './log-manager'
+import { setRootLogger } from './registry'
 
 export type { AppLogger, LogSource } from './log-manager'
 export { runWithLogContext, currentCorrelationId, type LogContext } from './log-context'
 export { serializeError } from './serialize-error'
+export { getLogger } from './registry'
 
 let manager: LogManager | null = null
 let transport: FileTransport | null = null
@@ -52,20 +54,14 @@ export function initLog(): AppLogger {
     onInternalError: emergency
   })
   rootLogger = manager.logger('main', MAIN_SOURCE)
+  setRootLogger(rootLogger)
   return rootLogger
 }
 
-const NOOP_LOGGER: AppLogger = {
-  debug: () => {},
-  info: () => {},
-  warn: () => {},
-  error: () => {},
-  child: () => NOOP_LOGGER
-}
-
-// initLog() 이전 호출도 안전해야 한다(로거 장애 ≠ 앱 장애) — no-op 폴백.
-export function getLogger(): AppLogger {
-  return rootLogger ?? NOOP_LOGGER
+// dev 콘솔 미러 런타임 게이트 (0124 AC12) — 디버그 패널 "로그" 스위치가 wire 기록과 함께
+// 통합 제어한다. 기본 OFF(스위치 기본값과 일치) — 파일 기록 정책은 불변, 콘솔 출력만 게이트.
+export function setConsoleMirror(on: boolean): void {
+  manager?.setConsoleMirrorEnabled(on)
 }
 
 // renderer/preload 발 로그 인제스트 (app/handlers/log.ts 전용) — 검증된 LogInput 만 받는다.
@@ -84,4 +80,5 @@ export function closeLog(): void {
   manager = null
   transport = null
   rootLogger = null
+  setRootLogger(null)
 }

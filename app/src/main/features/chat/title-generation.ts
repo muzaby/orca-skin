@@ -6,6 +6,7 @@ import type { RuntimeTitleAdapter } from '../../contracts/ports'
 import type { ResolvedProviderSettings } from '../../adapters/provider-config'
 import { normalizeTitle, shouldGenerateTitle, titlePrompt } from '../../features/chat/title'
 import { broadcastSessionTitle } from '../../infra/ipc/send'
+import { getLogger } from '../../infra/log/registry'
 import type { TurnContext } from '../../contracts/turn'
 
 export class TitleGenerator {
@@ -62,7 +63,9 @@ export class TitleGenerator {
       const updated = this.db.updateSessionTitleAuto(req.sessionId, title, Date.now())
       if (updated) broadcastSessionTitle({ sessionId: req.sessionId, title })
     } catch (err) {
-      console.warn('[session-title] 자동 제목 생성 실패:', err)
+      getLogger()
+        .child('chat')
+        .warn('chat.title.generation-failed', { sessionId: req.sessionId, message: String(err) })
     } finally {
       clearTimeout(timeout)
     }

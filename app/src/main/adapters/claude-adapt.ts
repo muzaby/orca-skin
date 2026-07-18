@@ -17,6 +17,7 @@ import type {
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { adaptSkillNameForClaude } from './claude-plugin'
+import { getLogger } from '../infra/log/registry'
 import type { SkillInfo } from '../../shared/ipc'
 import type { ProviderSettings } from './provider-config'
 import {
@@ -150,7 +151,9 @@ export function makeSteerGateHook(
       // 구조 페이로드(0067) — content 조립(첨부 블록 포함)은 호출자(claude.ts)의 push 가 소유.
       if (batch) push(batch)
     } catch (err) {
-      console.warn('[claude] steer gate hook 실패 — 이번 경계 flush 를 건너뜀', err)
+      getLogger()
+        .child('engine')
+        .warn('engine.steer.flush-failed', { provider: 'claude', message: String(err) })
     }
     return {}
   }

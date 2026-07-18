@@ -50,7 +50,9 @@ import { isWithinDir, projectsDir } from '../../infra/config/paths'
 import { promises as fs } from 'node:fs'
 import type { RouterContext } from '../context'
 import { sendInstallStatus, setWireLog } from '../../infra/ipc/send'
+import { setWireSink } from '../../infra/ipc/wire-log'
 import { handle, handlePlain } from '../../infra/ipc/handle'
+import { getLogger, setConsoleMirror } from '../../infra/log'
 
 function findSkill(ctx: RouterContext, sourceId: string, name: string): SkillInfo {
   const skill = ctx.getSkills().find((s) => s.sourceId === sourceId && s.name === name)
@@ -102,6 +104,12 @@ export function registerMiscHandlers(ctx: RouterContext): void {
   handlePlain(CHANNELS.settingsSet, (raw): Settings => {
     const next = ctx.settings.patch(raw)
     ctx.scheduler.applySettings(next.scheduler)
+    // 설정 변경 경계(0124 카탈로그) — 변경 키 이름만 기록(값 금지).
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+      getLogger()
+        .child('settings')
+        .info('settings.patch.applied', { keys: Object.keys(raw) })
+    }
     return next
   })
 
@@ -308,11 +316,21 @@ export function registerMiscHandlers(ctx: RouterContext): void {
   })
 
   if (import.meta.env.DEV) {
-    setWireLog(ctx.debugMock.wireLog)
+    // "로그" 스위치 통합 게이트(0124 AC12) — wire 이벤트 debug 기록과 콘솔 미러를 함께 제어.
+    // sink 는 여기(DEV 블록)서만 주입돼 prod 번들에선 dead-code 제거 — wire-log 는 electron
+    // 비의존을 유지한다(0068). 델타 2종 필터는 wire-log 내부가 소유한다.
+    setWireSink((label, data) =>
+      getLogger().child('ipc').debug('ipc.wire.event', { type: label, payload: data })
+    )
+    const applyLogSwitch = (on: boolean): void => {
+      setWireLog(on)
+      setConsoleMirror(on)
+    }
+    applyLogSwitch(ctx.debugMock.log)
     handlePlain(CHANNELS.debugGetMock, (): DebugMockState => ({ ...ctx.debugMock }))
     handle(CHANNELS.debugSetMock, DebugMockPatchSchema, 'reject', (patch): DebugMockState => {
       Object.assign(ctx.debugMock, patch)
-      setWireLog(ctx.debugMock.wireLog)
+      applyLogSwitch(ctx.debugMock.log)
       return { ...ctx.debugMock }
     })
   }

@@ -128,6 +128,9 @@ export default defineConfig(
       ]
     },
     rules: {
+      // 0124 AC3 — main/shared 는 console 직접 호출 금지(중앙 로거로만). 예외는 아래
+      // infra/log/** override (emergency 경로 + dev 콘솔 미러 구현부) 한정.
+      'no-console': 'error',
       'import/no-cycle': ['error', { maxDepth: Infinity }],
       'boundaries/dependencies': [
         'error',
@@ -170,6 +173,11 @@ export default defineConfig(
         }
       ]
     }
+  },
+  // no-console 예외(0124 AC3) — 로깅 인프라 내부의 emergency 경로·dev 콘솔 미러 구현부만.
+  {
+    files: ['src/main/infra/log/**/*.ts'],
+    rules: { 'no-console': 'off' }
   },
   eslintConfigPrettier
 )

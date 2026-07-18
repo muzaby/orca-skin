@@ -4,6 +4,7 @@ import type { SecretStore } from '../../infra/config/secret-store'
 import type { StaticUsageProviderModule, ExternalUsageProvider } from '../../contracts/usage-report'
 import { createSecretFacade, effectiveLimitFromReport } from './external-usage'
 import { createHttpUsageReportProvider } from './http-usage-report'
+import { getLogger } from '../../infra/log/registry'
 
 interface ServiceDeps {
   db: DbQueries
@@ -33,7 +34,11 @@ export class ExternalUsageService {
     this.fetchImpl = deps.fetchImpl ?? fetch
     this.clock = deps.clock ?? Date.now
     this.logger =
-      deps.logger ?? ((message, meta) => console.warn(`[external-usage] ${message}`, meta ?? ''))
+      deps.logger ??
+      ((message, meta) =>
+        getLogger()
+          .child('usage')
+          .warn('usage.external.warning', { message, ...(meta !== undefined ? { meta } : {}) }))
   }
 
   hasProvider(providerKey: string): boolean {

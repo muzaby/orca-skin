@@ -31,7 +31,8 @@ export interface LogManagerOptions {
   sessionId: string
   // dev=true 면 debug 까지 기록, false(prod) 면 info 이상만 (AC10).
   dev: boolean
-  // dev 콘솔 미러 — 호출측(컴포지션)이 주입. prod 에선 미주입.
+  // dev 콘솔 미러 — 호출측(컴포지션)이 주입. prod 에선 미주입. 발화 여부는 런타임 게이트
+  // (setConsoleMirrorEnabled — 디버그 패널 "로그" 스위치, 0124 AC12)가 추가로 제어한다.
   consoleMirror?: (record: LogRecord) => void
   suppressor?: RepeatSuppressor
   onInternalError?: (message: string) => void
@@ -50,6 +51,8 @@ export class LogManager {
   private readonly onInternalError: (message: string) => void
   private readonly now: () => Date
   private internalErrorReported = false
+  // 콘솔 미러 런타임 게이트 — 기본 OFF(스위치 전까지 콘솔 침묵, 파일 기록은 불변).
+  private consoleMirrorEnabled = false
 
   constructor(options: LogManagerOptions) {
     this.transport = options.transport
@@ -60,6 +63,10 @@ export class LogManager {
     this.suppressor = options.suppressor ?? new RepeatSuppressor()
     this.onInternalError = options.onInternalError ?? (() => {})
     this.now = options.now ?? (() => new Date())
+  }
+
+  setConsoleMirrorEnabled(on: boolean): void {
+    this.consoleMirrorEnabled = on
   }
 
   emit(input: LogInput, source: LogSource): void {
@@ -145,6 +152,6 @@ export class LogManager {
 
   private writeRecord(record: LogRecord): void {
     this.transport.write(JSON.stringify(record))
-    this.consoleMirror?.(record)
+    if (this.consoleMirrorEnabled) this.consoleMirror?.(record)
   }
 }

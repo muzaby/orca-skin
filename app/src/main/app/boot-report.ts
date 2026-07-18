@@ -1,5 +1,6 @@
 import type { BootReport, BootReportStep, BootReportStatus } from '../../shared/ipc'
 import { errorMessage } from '../infra/errors'
+import { getLogger } from '../infra/log/registry'
 
 type MaybePromise<T> = T | Promise<T>
 
@@ -52,12 +53,18 @@ export class BootReportRecorder {
     })
     if (options.critical) throw error
     this.warnings.push(`${id}: ${message}`)
-    console.warn(`[boot] ${id} 경고:`, error)
     return undefined as T
   }
 
   finish(): void {
     if (this.finishedAt === null) this.finishedAt = now()
+    const report = this.getReport()
+    getLogger().child('boot').info('boot.sequence.completed', {
+      status: report.status,
+      durationMs: report.durationMs,
+      steps: report.steps.length,
+      warnings: report.warnings.length
+    })
   }
 
   getReport(): BootReport {
@@ -87,6 +94,7 @@ export class BootReportRecorder {
     message?: string
   }): void {
     const finishedAt = now()
+    const durationMs = finishedAt - input.startedAt
     this.steps.push({
       id: input.id,
       ...(input.options.label ? { label: input.options.label } : {}),
@@ -94,9 +102,20 @@ export class BootReportRecorder {
       critical: input.options.critical,
       startedAt: input.startedAt,
       finishedAt,
-      durationMs: finishedAt - input.startedAt,
+      durationMs,
       ...(input.message ? { message: input.message } : {})
     })
+    // 부팅 스텝 경계(0124 카탈로그) — 성공=info / critical 실패=error / 비-critical 실패=warn.
+    // renderer 전달(BootReport) 동작은 불변 — 파일 기록만 추가한다(구 console.warn 대체).
+    const log = getLogger().child('boot')
+    const data = {
+      step: input.id,
+      durationMs,
+      ...(input.message ? { message: input.message } : {})
+    }
+    if (input.status === 'ok') log.info('boot.step.completed', data)
+    else if (input.status === 'failed') log.error('boot.step.failed', undefined, data)
+    else log.warn('boot.step.failed', { ...data, degraded: true })
   }
 }
 

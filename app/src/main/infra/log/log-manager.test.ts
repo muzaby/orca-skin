@@ -185,3 +185,26 @@ describe('logger facade', () => {
     expect(rec.data).toEqual({ retry: 1 })
   })
 })
+
+describe('console mirror runtime gate (0124 AC12)', () => {
+  it('기본 OFF — 미러가 주입돼 있어도 게이트 전에는 콘솔 미러가 발화하지 않는다', () => {
+    const mirrored: LogRecord[] = []
+    const { m, lines } = manager({ consoleMirror: (rec) => mirrored.push(rec) })
+    m.emit({ level: 'info', event: 'app.start.completed', scope: 'app' }, MAIN)
+    expect(lines).toHaveLength(1) // 파일 기록은 게이트와 무관하게 불변
+    expect(mirrored).toHaveLength(0)
+  })
+
+  it('게이트 ON 이면 파일과 동일 레코드를 미러하고, OFF 로 되돌리면 다시 침묵한다', () => {
+    const mirrored: LogRecord[] = []
+    const { m, lines } = manager({ consoleMirror: (rec) => mirrored.push(rec) })
+    m.setConsoleMirrorEnabled(true)
+    m.emit({ level: 'info', event: 'app.start.completed', scope: 'app' }, MAIN)
+    expect(mirrored).toHaveLength(1)
+    expect(mirrored[0]).toEqual(parse(lines[0]))
+    m.setConsoleMirrorEnabled(false)
+    m.emit({ level: 'info', event: 'app.quit.started', scope: 'app' }, MAIN)
+    expect(lines).toHaveLength(2)
+    expect(mirrored).toHaveLength(1)
+  })
+})

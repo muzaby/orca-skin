@@ -1,4 +1,5 @@
 import type { DeployResult } from './deployer'
+import { getLogger } from '../../infra/log/registry'
 
 export interface ExtensionDeploymentServiceOptions {
   deploy: () => Promise<DeployResult>
@@ -43,12 +44,16 @@ export class ExtensionDeploymentService {
       this.deployedOnce = true
       if (!result.validation.ok) {
         for (const err of result.validation.errors) {
-          this.opts.onWarning?.(`[deploy] 검증 경고: ${err}`)
+          this.opts.onWarning?.(`[deploy] validation warning: ${err}`)
         }
       }
       return result
     } catch (e) {
-      this.opts.onWarning?.(`[deploy] 확장 배포 건너뜀: ${String(e)}`)
+      // 배포 실패는 부팅/CRUD 를 막지 않는다(비-critical) — warn 으로 기록하고 skip.
+      getLogger()
+        .child('extensions')
+        .warn('extensions.deploy.failed', { standard: 'claude', message: String(e) })
+      this.opts.onWarning?.(`[deploy] skipped extension deploy: ${String(e)}`)
       return null
     }
   }
