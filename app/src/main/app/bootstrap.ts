@@ -55,6 +55,7 @@ import { registerEngineHandlers } from './handlers/engine'
 import { registerMiscHandlers } from './handlers/misc'
 import { registerBootHandlers } from './handlers/boot'
 import { registerUpdateHandlers } from './handlers/update'
+import { registerLogHandlers } from './handlers/log'
 import { createNoopUpdater, loadElectronAutoUpdater, UpdateController } from './updater'
 import { registerChatHandlers } from './chat-turn'
 import { createBootReportRecorder } from './boot-report'
@@ -426,5 +427,6 @@ export class Bootstrap {
     registerBootHandlers(ctx)
     registerUpdateHandlers(ctx)
     registerMiscHandlers(ctx)
+    registerLogHandlers()
   }
 }

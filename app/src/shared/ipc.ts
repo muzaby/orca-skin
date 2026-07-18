@@ -82,7 +82,10 @@ export const CHANNELS = {
   updateDownload: 'orca:update:download',
   updateQuitAndInstall: 'orca:update:quitAndInstall',
   updateStateEvent: 'orca:update:stateEvent',
-  updateProgressEvent: 'orca:update:progressEvent'
+  updateProgressEvent: 'orca:update:progressEvent',
+  // renderer/preload → main 로그 인제스트 (0123). 유일한 one-way send 채널 —
+  // fire-and-forget 이라 invoke 가 아니다. 공통 필드는 main 이 강제 부여.
+  logEmit: 'orca:log:emit'
 } as const
 
 export type UpdateStateStatus =

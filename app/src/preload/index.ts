@@ -49,6 +49,18 @@ import {
   type UpdateCheckResult,
   type UpdateInstallResult
 } from '../shared/ipc'
+import { LOG_IPC_PAYLOAD_MAX_BYTES, type LogInput, type SerializedError } from '../shared/logging'
+
+// 로그 전송 (0123) — 유일한 one-way send. 크기 상한 초과·직렬화 불가는 조용히 폐기한다
+// (로깅 실패가 renderer 를 깨면 안 된다). 공통 필드(timestamp 등)는 main 이 강제 부여.
+function sendLog(input: LogInput): void {
+  try {
+    if (JSON.stringify(input).length > LOG_IPC_PAYLOAD_MAX_BYTES) return
+    ipcRenderer.send(CHANNELS.logEmit, input)
+  } catch {
+    // 직렬화 불가 payload — 폐기.
+  }
+}
 
 // Phase 2 노출 표면 — renderer 가 실제 사용하는 6개 채널만.
 // 추가 채널 (backend.select, settings.*) 은 사용처 도입 시점에 다시 등록.
@@ -230,6 +242,21 @@ const orca = {
       ipcRenderer.on(CHANNELS.updateProgressEvent, listener)
       return () => ipcRenderer.off(CHANNELS.updateProgressEvent, listener)
     }
+  },
+  // renderer 로그 인제스트 (0123) — 제한된 4메서드만. ipcRenderer 원본·임의 채널은 미노출.
+  log: {
+    debug: (event: string, scope: string, data?: Record<string, unknown>): void =>
+      sendLog({ level: 'debug', event, scope, data }),
+    info: (event: string, scope: string, data?: Record<string, unknown>): void =>
+      sendLog({ level: 'info', event, scope, data }),
+    warn: (event: string, scope: string, data?: Record<string, unknown>): void =>
+      sendLog({ level: 'warn', event, scope, data }),
+    error: (
+      event: string,
+      scope: string,
+      error?: SerializedError,
+      data?: Record<string, unknown>
+    ): void => sendLog({ level: 'error', event, scope, error, data })
   },
   // 데스크톱 플랫폼 식별자. renderer 의 `<html data-platform>` 에 부착되고,
   // WinControls 가 macOS 에서 null 을 반환하는 분기 등에 사용.

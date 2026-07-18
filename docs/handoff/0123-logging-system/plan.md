@@ -152,3 +152,39 @@ main 코드 ─ getLogger().child(scope).* ────────┘   → zod
 ---
 
 > **[구현자 기입]** 이하는 구현 턴에서 채운다 (Codex=기능 / Claude=비기능). 설계자(Claude)는 위쪽을 쓰고, 구현자는 이 블록만 추가한다(공유 파일 충돌 회피).
+
+## [구현자 기입] 설계 리뷰 (비판적)
+
+- 동의 / 그대로 진행: 전체 구조(설계 §모듈 1~9)·AC 14종·`<userData>/logs/` 채택·electron-log 미도입. 구현 결과 설계와 코드가 1:1 로 대응한다.
+- 이견 / 우려 1 — **설계 §7 "on() 실패 폐기 + main 측 warn"**: one-way send 는 응답 채널이 없어 sender 에게 실패가 보이지 않는다. 그대로 구현했으나 renderer 쪽 로깅 버그는 조용히 사라진다 — dev 에서는 콘솔 미러로 warn(`ipc.payload.rejected`)이 보이므로 수용 가능하다고 판단.
+- 이견 / 우려 2 — **공유 타입 §1 의 `ProcessType('main'|'renderer'|'preload')`**: preload 발신도 wire 상 renderer 프레임과 구분할 신뢰 가능한 신호가 없다(자칭 값은 위조 가능). `process` 는 main 이 `'renderer'` 로 일괄 부여하고, preload 구분은 `scope` 로 하도록 했다 — `'preload'` 는 타입에 남겨 향후 확장 여지만 유지.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
+
+| # | 놓친 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | zod `z.record` 가 파싱 시 객체를 **복사**하며 `JSON.parse` 산 `__proto__` own-key 가 프로토타입 대입으로 소실 → 파싱 후 superRefine 은 오염 키를 관찰 불가(AC7 구멍) | ✅ 검사를 raw 입력 단계로 이동(`z.unknown().superRefine(...).pipe(LogInputObjectSchema)`) — 테스트로 고정 | `src/shared/protocol.ts` LogInputSchema 주석 + `protocol.log.test.ts` "프로토타입 오염" 케이스 |
+| 2 | 반복 억제 summary 시점 — 설계는 "창 만료 시 집계"만 명시. 만료 후 첫 도착 레코드에 `fingerprint`·`suppressedCount`·`windowMs` 를 합승시키는 방식으로 구체화(별도 타이머 없음 — 로거를 깨우는 스레드 불필요) | ✅ 구현·테스트 | `suppress.ts`·`log-manager.ts` summary 경로 |
+| 3 | `did-fail-load` 는 정상 네비게이션 중단(errorCode -3, ERR_ABORTED)에도 발화 — 무필터면 dev HMR 마다 오탐 error 기록 | ✅ -3 제외 가드 | `src/main/index.ts` did-fail-load 핸들러 |
+| 4 | 민감 키 부분 매칭에 `pat` 을 넣으면 `path` 오탐 — 정확 일치 집합(`pat`·`auth`·`bearer`·`key`)으로 분리 | ✅ 구현·오탐 테스트(`path`·`pattern`·`keys` 통과) | `redact.ts` `SENSITIVE_KEY_EXACT` |
+| 5 | renderer 소비 지점 — 설계 §8 은 `shared/api/ipc.ts` 의 `logApi` 를 지시했으나, 로그는 invoke 계약이 아닌 fire-and-forget 사이드채널 + 전역 에러 훅과 동거해야 해서 `renderer/src/shared/logging.ts` 단일 모듈(rendererLog + registerGlobalErrorLogging + toSerializedError)로 배치 | ✅ 구현 (4-layer 경계 준수 — shared 배치) | `renderer/src/shared/logging.ts`·`main.tsx` |
+
+## [구현자 기입] 구현 체크리스트
+
+- [x] `src/shared/logging.ts` 타입/상수 · `ipc.ts` `logEmit` · `protocol.ts` `LogInputSchema`
+- [x] `infra/log/` 6모듈 + `index.ts` 싱글턴 (+ 테스트 5파일 41케이스, 스키마 7케이스)
+- [x] `infra/ipc/handle.ts` `on()` 프리미티브
+- [x] `app/handlers/log.ts` + bootstrap 등록
+- [x] `index.ts` 배선: initLog·전역 가드 교체(+flush)·process-gone 2종·webContents 3종·will-quit closeLog
+- [x] preload `orca.log` 4메서드(32KB 사전 검사) · renderer `rendererLog`+전역 훅
+- [x] 문서: IPC_CONTRACT(66→67, §2.13-b)·`arch/backend/observability.md` 신설·docs/AGENTS.md 인벤토리
+
+## [구현자 기입] 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 신규: `app/src/shared/logging.ts` · `app/src/shared/protocol.log.test.ts` · `app/src/main/infra/log/{index,log-manager,file-transport,redact,serialize-error,suppress,log-context}.ts` + 테스트 5파일 · `app/src/main/app/handlers/log.ts` · `app/src/renderer/src/shared/logging.ts` · `docs/arch/backend/observability.md` / 수정: `app/src/shared/{ipc,protocol}.ts` · `app/src/main/{index.ts,infra/ipc/handle.ts,app/bootstrap.ts}` · `app/src/preload/index.ts` · `app/src/renderer/src/main.tsx` · `docs/{IPC_CONTRACT.md,AGENTS.md}` |
+| 실행 명령 | `npm run lint` / `npm run typecheck` / `./node_modules/.bin/vitest run` / `node --test scripts/*.test.mjs` |
+| 게이트 결과 | lint 에러 0(경고 1 = 기존 useTranscriptVirtualizer) ✅ / typecheck 3분할 ✅ / vitest **991/991**(신규 48 포함 — better-sqlite3 Node ABI 소스 리빌드로 DB 스위트 포함 전체 green) ✅ / scripts 25/25 ✅ |
+| 블로커 / 역질문 | 없음. electron 실행 실기(JSONL 실파일 생성·크래시 flush·prod dead-code 빌드)는 egress 제약으로 본 환경 불가 — verify 책임 분리표에 사람 실기 대기로 명시 |
+| 대상 커밋 | 본 plan 기입과 동일 커밋 (hash 는 INDEX/verify 에 기재) |

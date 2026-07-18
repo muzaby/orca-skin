@@ -7,6 +7,7 @@ import icon from '../../resources/icon.png?asset'
 import iconIco from '../../resources/icon.ico?asset'
 import { Bootstrap } from './app/bootstrap'
 import { closeDb } from './infra/db'
+import { closeLog, flushLogSync, getLogger, initLog } from './infra/log'
 import { devUserDataDir } from './infra/config/paths'
 import { CHANNELS } from '../shared/ipc'
 import type { SettingsStore } from './infra/settings-store'
@@ -19,6 +20,10 @@ import type { SettingsStore } from './infra/settings-store'
 if (import.meta.env.DEV) {
   app.setPath('userData', devUserDataDir(app.getPath('appData')))
 }
+
+// 로깅 싱글턴 초기화 (0123) — userData 리다이렉트 *이후*·다른 모든 배선 이전. 파일은
+// <userData>/logs/ 라 dev/prod 가 자동 격리된다. 이후 전역 장애 훅이 이 로거를 쓴다.
+const rootLog = initLog()
 
 // will-quit(모듈 스코프)에서 종료 정리를 호출하기 위한 라우터 참조. whenReady 에서 채워진다.
 let routerRef: Bootstrap | null = null
@@ -52,12 +57,34 @@ function focusMainWindow(): void {
 // 쓰다 실패하는 비동기 에러(예: 큰 이미지 첨부 전송 중 'write EOF at
 // WriteWrap.onWriteComplete')는 어댑터의 턴 try/catch 밖(SDK 소유 write 경로)이라 잡히지
 // 않는다. 핸들러가 없으면 Electron 기본 네이티브 에러창이 떠 UX 를 깨므로, 여기서 로깅으로
-// 흡수해 다이얼로그/크래시를 막는다. 진짜 버그를 숨기지 않도록 stderr 로는 항상 남긴다.
+// 흡수해 다이얼로그/크래시를 막는다(동작 보존 — 0123 에서 console → 로거 교체). 파일 로그가
+// 항상 남고 dev 는 콘솔 미러가 받는다. fatal 경로는 즉시 flush 해 버퍼 유실을 막는다.
 process.on('unhandledRejection', (reason) => {
-  console.error('[main] unhandledRejection:', reason)
+  rootLog.error('app.unhandled.rejection', reason)
+  flushLogSync()
 })
 process.on('uncaughtException', (err) => {
-  console.error('[main] uncaughtException:', err)
+  rootLog.error('app.uncaught.exception', err)
+  flushLogSync()
+})
+
+// 프로세스 장애 수집 (0123 AC8) — renderer/child 비정상 종료를 원인·windowId 와 함께 기록.
+app.on('render-process-gone', (_event, contents, details) => {
+  rootLog.error('app.renderer.gone', undefined, {
+    reason: details.reason,
+    exitCode: details.exitCode,
+    windowId: contents.id
+  })
+  flushLogSync()
+})
+app.on('child-process-gone', (_event, details) => {
+  rootLog.error('app.child-process.gone', undefined, {
+    processType: details.type,
+    reason: details.reason,
+    exitCode: details.exitCode,
+    name: details.name
+  })
+  flushLogSync()
 })
 
 // renderer 번들 루트 — production 빌드에서 electron-vite 가 `out/renderer/` 에
@@ -150,6 +177,23 @@ function createWindow(settings: SettingsStore): void {
     return { action: 'deny' }
   })
 
+  // webContents 장애 수집 (0123 AC8) — 응답 없음·preload 실패·로드 실패.
+  const windowLog = getLogger().child('window')
+  const windowId = mainWindow.webContents.id
+  mainWindow.webContents.on('unresponsive', () => {
+    windowLog.error('window.webcontents.unresponsive', undefined, { windowId })
+    flushLogSync()
+  })
+  mainWindow.webContents.on('preload-error', (_event, preloadPath, error) => {
+    windowLog.error('window.preload.failed', error, { windowId, preloadPath })
+    flushLogSync()
+  })
+  mainWindow.webContents.on('did-fail-load', (_event, errorCode, errorDescription) => {
+    // -3(ERR_ABORTED) 은 정상 네비게이션 중단 — 장애가 아니므로 기록하지 않는다.
+    if (errorCode === -3) return
+    windowLog.error('window.load.failed', undefined, { windowId, errorCode, errorDescription })
+  })
+
   // 커스텀 타이틀바의 minimize/maximize/close 버튼이 호출하는 IPC. 인자 없음, void 반환.
   // 채널은 mainWindow 마다 등록되는 것이 아니라 ipcMain 글로벌이라 createWindow 안에서
   // 한 번만 부착. 다중 윈도우 도입 시 router 로 옮긴다.
@@ -226,10 +270,12 @@ app.on('window-all-closed', () => {
   }
 })
 
-// 종료 직전 정리 — ① 진행 중 턴의 열린 도구를 'aborted' 로 정착 + SDK abort(shutdown), 그 다음
-// ② DB close(WAL 체크포인트). 순서 중요: persist 가 closeDb 전에 끝나야 한다(둘 다 동기).
+// 종료 직전 정리 — ① 진행 중 턴의 열린 도구를 'aborted' 로 정착 + SDK abort(shutdown), ② 로그
+// flush+close(0123 AC9 — shutdown 중 로그까지 담고 닫는다), ③ DB close(WAL 체크포인트).
+// 순서 중요: persist 가 closeDb 전에 끝나야 한다(모두 동기).
 app.on('will-quit', () => {
   routerRef?.shutdown()
+  closeLog()
   closeDb()
 })
 

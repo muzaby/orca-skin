@@ -5,6 +5,8 @@
 import { z } from 'zod'
 import { MOCK_SCENARIO_IDS } from './ipc'
 import type { AttachmentView, Backend, ComposerAttachment, EffortLevel } from './ipc'
+import { LOG_EVENT_PATTERN, LOG_SCOPE_MAX_LENGTH, LOG_STRING_MAX_LENGTH } from './logging'
+import type { LogInput, SerializedError as LogSerializedError } from './logging'
 
 const BackendSchema: z.ZodType<Backend> = z.enum(['claude'])
 const EffortLevelSchema: z.ZodType<EffortLevel> = z.enum(['low', 'medium', 'high', 'xhigh', 'max'])
@@ -574,3 +576,85 @@ export type {
   UpdateCheckResult,
   UpdateInstallResult
 } from './ipc'
+
+// ── 로그 인제스트 (0123) ─────────────────────────────────────────────────────
+// renderer/preload 가 보낸 LogInput 의 신뢰 경계 검증. 공통 필드(timestamp 등)는 스키마
+// 대상이 아니다 — 보내와도 main 이 무시하고 강제 부여한다(strict 라 아예 거부됨).
+
+const LOG_DATA_MAX_DEPTH = 6
+const LOG_DATA_MAX_KEYS = 64
+const LOG_DATA_MAX_ARRAY = 128
+const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
+
+// data 트리 검사 — 프로토타입 오염 가능 키·과도한 깊이/폭을 신뢰 경계에서 거부한다.
+function validateDataTree(value: unknown, depth: number): string | null {
+  if (depth > LOG_DATA_MAX_DEPTH) return `depth > ${LOG_DATA_MAX_DEPTH}`
+  if (typeof value === 'string') {
+    return value.length > LOG_STRING_MAX_LENGTH ? `string > ${LOG_STRING_MAX_LENGTH}` : null
+  }
+  if (Array.isArray(value)) {
+    if (value.length > LOG_DATA_MAX_ARRAY) return `array > ${LOG_DATA_MAX_ARRAY}`
+    for (const item of value) {
+      const bad = validateDataTree(item, depth + 1)
+      if (bad) return bad
+    }
+    return null
+  }
+  if (value !== null && typeof value === 'object') {
+    const keys = Object.keys(value)
+    if (keys.length > LOG_DATA_MAX_KEYS) return `keys > ${LOG_DATA_MAX_KEYS}`
+    for (const key of keys) {
+      if (FORBIDDEN_KEYS.has(key)) return `forbidden key: ${key}`
+      const bad = validateDataTree((value as Record<string, unknown>)[key], depth + 1)
+      if (bad) return bad
+    }
+    return null
+  }
+  return null
+}
+
+const LogBoundedString = z.string().max(LOG_STRING_MAX_LENGTH)
+
+const LogSerializedErrorSchema: z.ZodType<LogSerializedError> = z.lazy(() =>
+  z
+    .object({
+      name: LogBoundedString,
+      message: LogBoundedString,
+      code: LogBoundedString.optional(),
+      stack: LogBoundedString.optional(),
+      cause: LogSerializedErrorSchema.optional()
+    })
+    .strict()
+)
+
+const LogInputObjectSchema = z
+  .object({
+    level: z.enum(['error', 'warn', 'info', 'debug']),
+    event: z.string().min(3).max(128).regex(LOG_EVENT_PATTERN),
+    scope: z
+      .string()
+      .min(1)
+      .max(LOG_SCOPE_MAX_LENGTH)
+      .regex(/^[a-z][a-z0-9._-]*$/),
+    message: LogBoundedString.optional(),
+    correlationId: z.string().max(128).optional(),
+    data: z.record(z.string(), z.unknown()).optional(),
+    error: LogSerializedErrorSchema.optional()
+  })
+  .strict()
+
+// data 트리 검사는 zod 파싱 *이전*(raw)에 한다 — z.record 가 파싱 시 객체를 복사하며
+// JSON.parse 산 `__proto__` own-key 를 프로토타입 대입으로 소실시키므로, 파싱 후 검사는
+// 오염 키를 놓친다. raw 원본에서만 Object.keys 로 관찰 가능하다.
+export const LogInputSchema: z.ZodType<LogInput> = z
+  .unknown()
+  .superRefine((raw, ctx) => {
+    if (raw !== null && typeof raw === 'object' && !Array.isArray(raw)) {
+      const data = (raw as Record<string, unknown>).data
+      if (data !== undefined) {
+        const bad = validateDataTree(data, 1)
+        if (bad) ctx.addIssue({ code: 'custom', message: `data rejected: ${bad}` })
+      }
+    }
+  })
+  .pipe(LogInputObjectSchema)
