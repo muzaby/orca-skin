@@ -202,9 +202,8 @@ opencode 등 다중 어댑터 환경 대비:
 
 ### 2.4 로그
 
-- 위치 / 라이브러리: **TBD**.
-- 후보: `<userData>/logs/main.log` + `<userData>/logs/renderer.log`, electron-log 등.
-- 일자별 로테이션 / 크기 제한 정책: TBD.
+- 위치: `~/.config/orca/logs/application.jsonl` (홈 디렉토리 고정, dev/prod 공통). 중앙 LogManager JSONL 단일 파이프라인 — 정본은 [observability.md](observability.md).
+- 로테이션: 10MB × 5개(base + .1~.4), 초과 시 오래된 것부터 삭제.
 
 ---
 

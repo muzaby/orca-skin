@@ -33,7 +33,7 @@ renderer/preload ─ orca.log.* (≤32KB) ─┐
                                        ├→ zod(LogInputSchema) → LogManager.emit
 main ─ getLogger().child(scope).* ─────┘     enrich → suppress → redact → JSONL
                                                                     └→ dev 콘솔 미러(로그 스위치 게이트, 0124)
-파일: <userData>/logs/application.jsonl (dev 는 userData 리다이렉트로 orca-dev 격리)
+파일: ~/.config/orca/logs/application.jsonl (홈 디렉토리 고정 — dev/prod 공통, 격리 없음)
 로테이션: 10MB × 5개(base + .1~.4) — 초과 시 오래된 것부터 삭제, 재실행 후에도 연속
 종료: will-quit 에서 closeLog()(flush) → closeDb() · fatal 경로는 flushLogSync() 즉시
 ```
