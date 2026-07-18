@@ -15,6 +15,9 @@
 | 구분 | 내용 | 출처 |
 |---|---|---|
 | 명시 요구 | 로그 시스템 핸드오프 2개 중 두 번째 = **로그 배선**. 배포 정책에서는 로그를 최소화하되 **필수 동작·경계에서는 확실한 동작확인**이 가능해야 한다. 에이전트가 분석할 수 있어야 한다 | 라이브 세션 요청 (2026-07-18) |
+| 명시 요구 | 0123 **verify 이후 배선(본 건)도 진행**한다. **배선 시 chat event 에서 delta 는 제외**한다 | 라이브 세션 요청 (2026-07-18, 후속 지시) |
+| 추론 의도 | "진행하라"의 수신자가 Claude(검증 턴 수행자)이고 본 건은 기존 `console.*` 이관 중심의 비기능(리팩토링) 성격이므로, **0123 verify/PASS 직후 Claude 가 대기 없이 본 건의 impl→verify 를 직접 수행**하는 것으로 해석 | 추론 — `handoff/AGENTS.md` "비기능 = Claude 직접 구현" 규칙 부합 |
+| 추론 의도 | "delta 제외" = 스트리밍 델타 이벤트(`message.delta`·`message.reasoning.delta`, `app/src/shared/ipc.ts:480,537`)를 info 카탈로그만이 아니라 **debug·wire-log 미러를 포함한 배선의 전 경로에서 미기록** | 추론 — "로그 최소화" 취지의 일관 적용 |
 | 추론 의도 | "배선" = (a) prod 에 남길 이벤트 카탈로그를 확정하고 (b) 기존 `console.*` call site 를 로거로 이관하며 (c) 재발을 기계 강제(eslint)하는 작업 | 추론 — 0123 이 인프라만 다루므로 소비 지점 연결이 별도 필요 |
 | 추론 의도 | "에이전트가 분석" 요구를 배선 규율로 번역: 이벤트 이름은 grep 가능한 고정 문자열(`<domain>.<operation>.<state>`), 자유 서술 메시지에 의존하지 않는다 | 추론 |
 
@@ -60,10 +63,10 @@
 2. **console.* 전면 이관**: `app/src/main/**` 에서 `console.*` 직접 호출 0 (허용 예외: `infra/log/` 내부 emergency 경로 + dev 콘솔 미러 구현부). 기존 62곳은 삭제(무가치)·`debug`(dev 진단)·카탈로그 이벤트(info/warn/error) 중 하나로 분류 이관하고, 이관 표(기존 → 처분)를 구현 보고에 첨부한다.
 3. **기계 강제**: `app/eslint.config.mjs` 의 `src/main/**` 블록에 `no-console: error` 추가, 예외는 `infra/log/**` 한정 override. `npm run lint` 로 회귀 차단.
 4. **correlationId 배선**: 턴 진입(`app/chat-turn.ts`)이 `runWithLogContext({correlationId})` 로 감싸져 한 턴에서 발생한 chat/engine/db 로그가 동일 correlationId 를 갖는다(JSONL 샘플로 증명).
-5. **원문 미기록**: chat 이벤트 데이터에 프롬프트·응답·도구 입출력 원문이 포함되지 않는다(토큰 수·duration·finishReason 등 메타만). grep 근거 + 카탈로그 표와 1:1.
+5. **원문·델타 미기록**: chat 이벤트 데이터에 프롬프트·응답·도구 입출력 원문이 포함되지 않는다(토큰 수·duration·finishReason 등 메타만). **스트리밍 델타 이벤트(`message.delta`·`message.reasoning.delta`)는 배선의 어느 경로(info 카탈로그·debug·wire-log 미러)에서도 기록하지 않는다(사용자 결정 2026-07-18)**. grep 근거 + 카탈로그 표와 1:1.
 6. **IPC 검증 실패 가시화**: `handle()` 'reject'/fallback 및 log `on()` 폐기 경로에서 `ipc.payload.rejected`(warn, suppress 적용) 기록.
 7. **boot-report 연동**: 부팅 스텝 완료/실패가 카탈로그 `boot.*` 로 파일에 남는다(기존 renderer 전달 동작 불변).
-8. **wire-log 처분(결정)**: `wireLog()` 는 dev 콘솔 도구로 유지하되, 활성 시 로거 `debug`(`ipc.wire.event`) 로도 미러한다 — 주입식으로 연결해 electron 비의존·순수 vitest 성질을 보존한다(0068). 토글 off 기본값 불변.
+8. **wire-log 처분(결정)**: `wireLog()` 는 dev 콘솔 도구로 유지하되, 활성 시 로거 `debug`(`ipc.wire.event`) 로도 미러한다 — 주입식으로 연결해 electron 비의존·순수 vitest 성질을 보존한다(0068). 토글 off 기본값 불변. **단 미러는 델타 이벤트(`message.delta`·`message.reasoning.delta`)를 제외한다(사용자 결정 — 기존 콘솔 wireLog 자체의 출력은 불변)**.
 9. **로그 영어화**: 이관되는 로그 문자열(이벤트·message)은 영어로 통일(root AGENTS.md §6). UI 카피는 무관.
 10. **renderer 최소 배선**: renderer 는 boot 실패 표면화·전역 에러(0123 훅) 외 신규 info 배선 없음 — renderer 상세는 `debug` 레벨 원칙 확인(grep 근거).
 11. **게이트/위생**: lint(no-console 포함)+typecheck+test 통과(제약 환경 베이스라인 분리 보고), 레이어 경계 위반 0, 신규 의존성 0, IPC 채널 변경 0.
@@ -82,7 +85,7 @@
 ## 파생 UX / 엣지케이스 (Derived UX & Edge Cases)
 
 - 사용자 노출 UI 없음. N/A (테마·a11y).
-- 스트리밍 델타·토큰 단위 이벤트는 카탈로그에 없음 — 실수로 info 에 넣지 않는다(파일 폭증 방지, suppress 는 최후 방어).
+- 스트리밍 델타(`message.delta`·`message.reasoning.delta`)·토큰 단위 이벤트는 **전 레벨·전 경로 미기록(사용자 결정)** — info 카탈로그는 물론 debug·wire-log 미러도 제외(파일 폭증 방지, suppress 는 최후 방어).
 - 턴 실패 시 `chat.turn.failed` 는 ClassifiedError 의 category/message 만 싣는다(원문 cause 는 serializeError 경유 — redaction 통과).
 - shutdown 경로(`will-quit`)의 `app.quit.started` 는 flush 이전에 emit 되어야 한다(0123 AC9 순서와 정합).
 
