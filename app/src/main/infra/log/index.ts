@@ -1,9 +1,10 @@
 // 로깅 싱글턴 진입점 (0123 AC2) — infra/db 의 initDb/closeDb 패턴을 따른다.
-// electron 값(userData 경로·앱 버전·DEV)은 여기서만 읽어 LogManager 에 주입한다 —
+// electron 값(앱 버전·DEV)은 여기서만 읽어 LogManager 에 주입한다 —
 // 나머지 log 모듈은 electron 비의존(순수 vitest 대상)을 유지한다.
-// 파일 위치는 <userData>/logs/ — dev userData 리다이렉트(src/main/index.ts)로 dev/prod 자동 격리.
+// 파일 위치는 ~/.config/orca/logs/ (홈 디렉토리 고정) — dev/prod 공통 디렉토리를 쓴다.
 
 import { app } from 'electron'
+import { homedir } from 'os'
 import { join } from 'path'
 import { randomUUID } from 'crypto'
 import type { LogInput, LogRecord } from '../../../shared/logging'
@@ -43,7 +44,7 @@ function mirrorToConsole(record: LogRecord): void {
 
 export function initLog(): AppLogger {
   if (rootLogger) return rootLogger
-  const dir = join(app.getPath('userData'), 'logs')
+  const dir = join(homedir(), '.config', 'orca', 'logs')
   transport = new FileTransport({ dir, onInternalError: emergency })
   manager = new LogManager({
     transport,
