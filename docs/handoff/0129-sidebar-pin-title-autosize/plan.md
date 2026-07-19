@@ -242,7 +242,7 @@
 | 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` |
 | 게이트 결과 | lint ✅ 0 error(1 pre-existing warning 무관) / typecheck ✅ 3분할 / vitest ✅ 1042 passed (신규 pin 스키마 5 + DB 왕복 2). `chat-turn.continuity.test.ts` **파일 로드 실패는 electron 바이너리 egress 403 베이스라인**(app/AGENTS.md) — 본 변경 무관. |
 | 블로커 / 역질문 | 없음 |
-| 대상 커밋 | `<impl-hash>` (verify 커밋에서 기입) |
+| 대상 커밋 | `e221077` |
 
 ---
 
