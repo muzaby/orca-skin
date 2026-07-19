@@ -403,6 +403,63 @@ describe('SessionRuntime spawn settings 기록(0125)', () => {
   })
 })
 
+// 0128 — spawn 시점 model 기록 수명: 콜드 스폰에서 기록, pushTurn 재사용은 불변, teardown/
+// 채널 사망에서 해제. 모델 변경 respawn 판정(chat-turn)은 이 기록과 이번 턴 해석 model 비교.
+describe('SessionRuntime spawn model 기록(0128)', () => {
+  it('콜드 스폰이 model 을 기록하고, pushTurn 후속 턴은 기록을 바꾸지 않는다', async () => {
+    const ch = channelLive()
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+    const f1 = collect(runtime.send({ ...req(), model: 'sonnet' }))
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await f1
+    expect(runtime.spawnedModel).toBe('sonnet')
+
+    // 후속 턴이 다른 model 을 실어도 pushTurn 경로는 spawn-바운드 기록을 갱신하지 않는다
+    // (라이브 setModel 은 실제 생성 모델을 못 바꾸므로 respawn 판정은 chat-turn 이 소유).
+    const f2 = collect(runtime.send({ ...req(), text: 'next', model: 'haiku' }))
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await f2
+    expect(runtime.spawnedModel).toBe('sonnet')
+  })
+
+  it('teardownChannel() 은 기록을 해제하고, respawn 이 새 model 을 기록한다', async () => {
+    const ch = channelLive()
+    const second = channelLive()
+    let spawns = 0
+    const runtime = new SessionRuntime({
+      id: 'claude',
+      complete: async () => '',
+      sendMessage: () => {
+        spawns += 1
+        return spawns === 1 ? ch.liveTurn : second.liveTurn
+      },
+      classifyError: (err) => makeClassifiedError('stream_error', String(err), { retryable: true })
+    })
+    const f1 = collect(runtime.send({ ...req(), model: 'sonnet' }))
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await f1
+
+    runtime.teardownChannel()
+    expect(runtime.spawnedModel).toBeUndefined()
+
+    const f2 = collect(runtime.send({ ...req(), model: 'haiku' }))
+    second.emit({ type: 'telemetry', sessionId: 's1' })
+    await f2
+    expect(spawns).toBe(2)
+    expect(runtime.spawnedModel).toBe('haiku')
+  })
+
+  it('채널 스트림 사망(finishPump)도 기록을 해제한다', async () => {
+    const ch = channelLive()
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+    const f1 = collect(runtime.send({ ...req(), model: 'sonnet' }))
+    ch.liveTurn.close()
+    await f1
+    expect(runtime.channelAlive).toBe(false)
+    expect(runtime.spawnedModel).toBeUndefined()
+  })
+})
+
 // 인수 2·6(c) — 모드-불변 소비자 계약. Persistent 구현(P1) 없이 검증하기 위해,
 // 동일 send() 표면에 close 정책만 주입 가능한 FakeSessionRuntime 으로 "소비자가 close 정책에
 // 무지함"을 본다 (보강 4). OneShot=terminal 관측 시 self-close, fake-persistent=수명 유지.
