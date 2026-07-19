@@ -32,6 +32,7 @@ import {
   type ResolvedProviderSettings
 } from '../features/providers/provider-settings'
 import { buildHandoffMessage } from '../features/orchestration/handoff'
+import { continuityLangFor, continuityTitle } from '../../shared/continuity-lang'
 import { agentPermissionRequest } from '../features/approvals/permission-bridge'
 import type { PermissionModeController } from '../features/approvals/permission-mode-controller'
 import { makeClassifiedError } from '../infra/errors'
@@ -397,9 +398,20 @@ export function registerChatHandlers(deps: ChatDeps): void {
       ? (sessionMeta?.project_id ?? null)
       : (continuityMeta?.project_id ?? parsed.data.projectId)
 
+    // 0127 — continuity 산출물(제목 마커·자동 메시지) 언어: renderer draft 생성 시점 스냅샷
+    // (payload continuityLang) 우선, 부재 시 settings.language(선호 언어) 파생 폴백.
+    // settingsLanguage 원문은 en 템플릿의 요약 언어 지시({language}) 보간에도 쓴다.
+    const settingsLanguage = continuitySource ? ctx.settings.getAll().language : undefined
+    const continuityLang = parsed.data.continuityLang ?? continuityLangFor(settingsLanguage)
+
     // handoff 는 main 이 자동 메시지를 조립해 text 를 대체한다(템플릿 단일 출처 = orchestration/).
     const effectiveText = parsed.data.handoffFrom
-      ? buildHandoffMessage(continuityMeta?.title ?? null, parsed.data.handoffFrom)
+      ? buildHandoffMessage(
+          continuityMeta?.title ?? null,
+          parsed.data.handoffFrom,
+          continuityLang,
+          settingsLanguage
+        )
       : parsed.data.text
 
     // 첨부 정규화(경로 추출·이미지 읽기·검증)는 턴 시작 전 단계라 아래 턴 try/catch 밖이다.
@@ -461,18 +473,21 @@ export function registerChatHandlers(deps: ChatDeps): void {
       titleGenerationStarted: continuitySource != null,
       blockedSubagents: new Set(),
       // 0064 continuity — persist(session.updated)가 lineage 영속 + fork display 복사에 쓴다.
-      // 초기 제목 = `[분기]/[핸드오프] <원본 제목>`(r3 피드백 — nav 최근 대화 식별). 원본
-      // 제목 부재 시 id 앞 8자 폴백. titleGenerationStarted=true 로 자동 제목(0004)을 억제해
-      // 마커 제목을 유지한다(사용자 rename 은 그대로 가능).
+      // 초기 제목 = `[분기]/[핸드오프] <원본 제목>`(r3 피드백 — nav 최근 대화 식별, 0127 부터
+      // continuityLang 스냅샷 언어의 shared continuityTitle 로 조립 — renderer draft 와 단일
+      // 조립점). 원본 제목 부재 시 id 앞 8자 폴백. titleGenerationStarted=true 로 자동
+      // 제목(0004)을 억제해 마커 제목을 유지한다(사용자 rename 은 그대로 가능).
       ...(continuitySource
         ? {
             lineage: {
               parentSessionId: continuitySource,
               relation: parsed.data.handoffFrom ? ('handoff' as const) : ('fork' as const)
             },
-            initialTitle: `${parsed.data.handoffFrom ? '[핸드오프]' : '[분기]'} ${
+            initialTitle: continuityTitle(
+              parsed.data.handoffFrom ? 'handoff' : 'fork',
+              continuityLang,
               continuityMeta?.title?.trim() || continuitySource.slice(0, 8)
-            }`
+            )
           }
         : {}),
       // 0067 AC9 — 세션 id 확정 전 큐 키. coordinator 가 session.updated 에서 실 id 로 rekey.
@@ -679,6 +694,8 @@ export function registerChatHandlers(deps: ChatDeps): void {
       sessionId: parsed.data.sessionId,
       // 0064 continuity — 어댑터가 resume+forkSession 으로 어댑트해 새 session id 를 발급받는다.
       ...(continuitySource ? { forkFrom: continuitySource } : {}),
+      // 0127 — 핸드오프 도착 턴 표식: 매퍼가 압축 경계 전의 승계 컨텍스트 usage 를 무효화한다.
+      ...(parsed.data.handoffFrom ? { handoff: true } : {}),
       // 본 프롬프트 = 큐에서 방금 flush 한 아이템 배치(0067 AC5). promptUuid=item id 가 echo
       // 상관키가 돼 커밋(user row 영속·renderer 승격)이 echo 관측 단일 경로로 흐른다(AC6).
       text: mainBatch.text,
@@ -763,7 +780,9 @@ export function registerChatHandlers(deps: ChatDeps): void {
           ...(contPreludes.length > 0 ? { preludes: contPreludes } : {})
         }
         // 연속 턴은 fork/프렐류드(원 요청분)를 계승하지 않는다 — 재분기·이중 전달 방지.
+        // handoff 표식(0127)도 동렬 제거 — 승계 시 후속 연속 턴의 실측 telemetry 를 버리게 된다.
         delete contRequest.forkFrom
+        delete contRequest.handoff
         if (contPreludes.length === 0) delete contRequest.preludes
         try {
           await coordinator.run(contTurn, contRequest, { boundProjectId })

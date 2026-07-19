@@ -40,6 +40,10 @@ export interface MapContext {
   // compact_metadata.post_tokens(SDK optional) — 압축 후 컨텍스트 토큰 실측. 있으면 result
   // telemetry 근사의 1순위 참조(0065 r2 — 요약 크기 폴백보다 정확).
   compactPostTokens?: number
+  // 핸드오프 도착 턴인가(0127). 이 턴의 컨텍스트는 원본 세션 전체 이력의 승계본이라, 압축
+  // 경계(compacted) 전의 assistant usage·result.usage 컨텍스트 3종은 새 세션의 라이브 점유가
+  // 아니다 — 스냅샷 캡처를 막고 result 에서 제거해 도넛/경고가 원본 값을 승계하지 않게 한다.
+  handoffArrival?: boolean
   // 서브에이전트(Task) 누산 메타 — task_*/child assistant 에서 모은 모델·시간·도구수를 부모 Task
   // tool_result(tool.call.completed) emit 시 실어 영속한다. toolUseId(= Agent tool_use id) 키.
   subagentMeta?: Map<string, SubagentTaskMeta>
@@ -251,8 +255,10 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
     // 마지막 assistant usage 스냅샷 갱신(컨텍스트 점유 = 이 턴 마지막 요청 입력). Anthropic 표준
     // shape(input_tokens/output_tokens/cache_read_input_tokens/cache_creation_input_tokens)을
     // num 가드로 좁혀 읽는다. 의미값이 하나라도 있을 때만 덮어쓴다.
+    // 핸드오프 도착 턴(0127)은 압축 경계 전의 usage 가 승계 컨텍스트(원본 전체 이력)라 스냅샷을
+    // 잡지 않는다 — 경계 통과 후의 assistant usage 는 압축 후 실측이므로 기존대로 캡처.
     const u = m?.usage
-    if (u && typeof u === 'object') {
+    if (u && typeof u === 'object' && !(ctx.handoffArrival && ctx.compacted !== true)) {
       const snapshot: NonNullable<MapContext['lastAssistantUsage']> = {}
       assignNums(snapshot, {
         inputTokens: u.input_tokens,
@@ -424,6 +430,15 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
       const postContextTokens = ctx.compactPostTokens ?? (summaryTokens > 0 ? summaryTokens : 0)
       if (postContextTokens > 0) telemetry.inputTokens = postContextTokens
       else delete telemetry.inputTokens
+    } else if (telemetry && ctx.handoffArrival) {
+      // 핸드오프 도착 턴인데 압축 경계도 실측 스냅샷도 없다(0127) — result.usage 컨텍스트 3종은
+      // 원본 세션 전체 이력이라 제거한다(도넛/경고 '미측정' 시작, 다음 실제 턴 실측이 채움).
+      // costUsd·durationMs·modelUsage 는 유지하되, hasContextTokens 게이트로 turn_usage 행은
+      // 스킵된다 — 위 compacted 근사 0 엣지와 동일한 기수용 트레이드오프(renderer 의
+      // sessionCostUsd 라이브 누산은 컨텍스트 게이트와 무관해 유지).
+      delete telemetry.inputTokens
+      delete telemetry.cacheReadTokens
+      delete telemetry.cacheCreationTokens
     }
     const out: NormalizedEvent[] = [
       {

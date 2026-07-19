@@ -12,6 +12,7 @@ import type {
   EffortLevel
 } from '../../../../../shared/ipc'
 import type { NormalizedPermissionMode } from '../../../../../shared/permission-mode'
+import type { ContinuityLang } from '../../../../../shared/continuity-lang'
 import { contextTokens } from '../lib/telemetry'
 import { settleOrphanToolParts } from '../lib/parts'
 import type { RightPanelTileId } from '../lib/rightPanelTiles'
@@ -151,6 +152,10 @@ export interface ChatState {
   handoffFrom: string | null
   // 출처 배너 표시용 부모 세션 제목 스냅샷(없으면 id 표시로 폴백).
   lineageParentTitle: string | null
+  // 0127 — continuity 산출물 언어의 draft 생성 시점 스냅샷(settings.language 파생 ko/en).
+  // send payload(continuityLang) 소스 — draft 제목과 main initialTitle 의 일치를 보장한다.
+  // 재로드 세션은 불요(sessionId 확정 후 continuity send 없음) — LOAD_SESSION 미복원.
+  continuityLang: ContinuityLang | null
 }
 
 export const initialChatState: ChatState = {
@@ -183,7 +188,8 @@ export const initialChatState: ChatState = {
   pendingToolApprovals: [],
   forkFrom: null,
   handoffFrom: null,
-  lineageParentTitle: null
+  lineageParentTitle: null,
+  continuityLang: null
 }
 
 // 우측 패널 열 폭/행 분할 clamp 범위.

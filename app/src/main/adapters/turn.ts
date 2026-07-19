@@ -103,6 +103,10 @@ export interface TurnRequest {
   // (resume=이어쓰기)와 달리 원본은 불변이고 백엔드가 **새 session id 를 발급**한다
   // (claude = query resume+forkSession). sessionId 는 null(새 세션 의미론 유지).
   forkFrom?: string
+  // 0127 — 이 fork 턴이 핸드오프 도착 턴인가. 어댑터가 매퍼 컨텍스트(handoffArrival)로 전달해,
+  // 압축 경계 이전의 승계 컨텍스트 usage(원본 세션 전체 이력)가 telemetry(도넛/경고·원장)를
+  // 오염하지 않게 한다. 자동 연속 턴은 forkFrom 과 함께 이 플래그도 제거된다(chat-turn).
+  handoff?: boolean
   text: string
   cwd: string
   signal?: AbortSignal

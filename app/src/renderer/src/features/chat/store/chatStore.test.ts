@@ -1,8 +1,14 @@
 // chatStore 의 이벤트 라우팅(델타 → live 슬라이스 / 커밋 → reducer / sessionId 키 라우팅)
 // 단위 테스트. IPC(window.orca)를 건드리지 않는 경로만 다룬다 — send/loadSession 등 액션과
 // session.updated 의 설정 영속화는 통합/시각 검증 영역.
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { chatActions, ingestChatEvent, useChatStore, NEW_CHAT_KEY } from './chatStore'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  bootstrapChat,
+  chatActions,
+  ingestChatEvent,
+  useChatStore,
+  NEW_CHAT_KEY
+} from './chatStore'
 import { initialChatState } from '../reducer/chatReducer'
 import { partsText } from '../lib/parts'
 import type { NormalizedEvent } from '../../../../../shared/ipc'
@@ -937,5 +943,87 @@ describe('chatStore — steer provider 경계 게이트(0119)', () => {
       '정상 피드백'
     ])
     expect(chatSend).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('chatStore — continuityLang 스냅샷 (0127)', () => {
+  // bootstrapChat 의 settingsApi.get() 시드 경로를 실제로 태워 languageCache 를 채운다.
+  // languageCache 는 모듈 전역이라 afterEach 에서 ko 로 재시드해 다른 테스트를 오염하지 않는다.
+  const seedLanguage = async (language: string): Promise<void> => {
+    vi.stubGlobal('window', {
+      orca: {
+        chat: { send: chatSend, cancel: vi.fn(), cancelSteer: vi.fn(), onEvent: vi.fn() },
+        settings: { get: vi.fn().mockResolvedValue({ language }), set: settingsSet },
+        permission: { respond: permissionRespond, setMode: vi.fn() },
+        session: { cwd: vi.fn().mockResolvedValue('/w'), onTitle: vi.fn() },
+        concurrency: { onEvent: vi.fn() }
+      }
+    })
+    bootstrapChat()
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  }
+
+  const seedSource = (): void => {
+    useChatStore.setState((st) => ({
+      sessions: {
+        ...st.sessions,
+        s: {
+          ...st.sessions.s,
+          session: {
+            ...st.sessions.s.session,
+            inflight: false,
+            turnStartedAt: null,
+            title: '원본 세션',
+            messages: [
+              { role: 'user', createdAt: 1, parts: [{ type: 'text', text: 'q1' }] },
+              { role: 'assistant', createdAt: 2, parts: [{ type: 'text', text: 'a1' }] },
+              { role: 'user', createdAt: 3, parts: [{ type: 'text', text: 'q2' }] }
+            ]
+          }
+        }
+      }
+    }))
+  }
+
+  afterEach(async () => {
+    await seedLanguage('한국어')
+  })
+
+  it('en 시드 시 fork draft 제목이 [Fork] 이고 send payload 에 continuityLang 이 실린다', async () => {
+    await seedLanguage('English')
+    seedSource()
+    expect(chatActions.startForkDraft()).toBe(true)
+    const draftKey = useChatStore.getState().activeKey
+    const draft = useChatStore.getState().sessions[draftKey].session
+    expect(draft.title).toBe('[Fork] 원본 세션')
+    expect(draft.continuityLang).toBe('en')
+
+    expect(chatActions.send('물질화')).toBe(true)
+    expect(chatSend).toHaveBeenCalledWith(
+      expect.objectContaining({ forkFrom: 's', continuityLang: 'en' })
+    )
+  })
+
+  it('en 시드 시 handoff draft 제목이 [Handoff] 이고 payload 에 continuityLang 이 실린다', async () => {
+    await seedLanguage('English')
+    seedSource()
+    expect(chatActions.startHandoff()).toBe(true)
+    const draftKey = useChatStore.getState().pendingNewChatKey!
+    expect(useChatStore.getState().sessions[draftKey].session.title).toBe('[Handoff] 원본 세션')
+    expect(chatSend).toHaveBeenCalledWith(
+      expect.objectContaining({ handoffFrom: 's', continuityLang: 'en' })
+    )
+  })
+
+  it('ko 시드(기본)면 기존 한글 마커·payload continuityLang=ko — 문자열 무회귀', async () => {
+    await seedLanguage('한국어')
+    seedSource()
+    expect(chatActions.startForkDraft()).toBe(true)
+    const draftKey = useChatStore.getState().activeKey
+    expect(useChatStore.getState().sessions[draftKey].session.title).toBe('[분기] 원본 세션')
+    expect(chatActions.send('물질화')).toBe(true)
+    expect(chatSend).toHaveBeenCalledWith(
+      expect.objectContaining({ forkFrom: 's', continuityLang: 'ko' })
+    )
   })
 })

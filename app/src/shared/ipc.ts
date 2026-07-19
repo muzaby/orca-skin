@@ -3,6 +3,8 @@
 
 // 권한 모드 정규화 타입 (type-only — 런타임 사이클 없음). permission-mode.ts 와 상호 type import.
 import type { NormalizedPermissionMode } from './permission-mode'
+// continuity 언어 스냅샷(0127) — type-only.
+import type { ContinuityLang } from './continuity-lang'
 
 // Phase 2 활성 채널 (preload 노출 대상). 미사용 채널은 의도적으로 누락.
 export const CHANNELS = {
@@ -748,6 +750,10 @@ export interface SendChatMessage {
   // text 는 생략 가능, display 복사 없음).
   forkFrom?: string
   handoffFrom?: string
+  // 0127 — continuity 산출물(제목 마커·핸드오프 자동 메시지) 언어의 draft 생성 시점 스냅샷
+  // (settings.language 파생 ko/en 2종 — uiLocale i18n 아님). renderer draft 제목과 main
+  // initialTitle 의 문자열 일치를 보장한다. 부재 시 main 이 settings.language 에서 파생 폴백.
+  continuityLang?: ContinuityLang
   // 0067 AC9 — renderer draft 키(UUID). 새 세션의 큐/라우팅 키로 쓰이고 init 에서 실 id 로
   // remap 된다. 절대 영속 금지.
   clientKey?: string

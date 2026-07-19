@@ -131,27 +131,30 @@
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- (Claude 직접 구현 — 구현 턴에서 기입)
+- 동의 / 그대로 진행: 설계 전체(소스-매퍼 단일 지점 정화 + shared 단일 조립점 + payload 스냅샷). 특히 "렌더러만 고치면 재로드 원장 복원 구멍" 진단이 구현 중 재확인됨 — `recordTurnUsage` 의 `hasContextTokens` 게이트가 strip 된 telemetry 를 자연 스킵해 `getLatestTurnUsage` 복원 경로까지 한 번에 정화된다.
+- 이견 없음. 인수 기준 7의 en 템플릿은 설계대로 ko 와 동일 구조(①~⑤·verbatim·`/compact [Handoff] ` 접두 + `Write the summary in {language}.`)로 작성.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
+| 1 | 배선 테스트(claude.fork)가 기존 mock 으로는 SDK 메시지를 방출 못해 MapContext 전달을 증명할 수 없음 | ✅ queryMock 에 주입 큐(`sdkMessages`)를 추가해 assistant+result 스트림을 흘리고 telemetry 를 소비 검증(기존 케이스는 빈 큐 기본값으로 무영향) | `claude.fork.test.ts` |
+| 2 | chatStore 의 `languageCache` 는 모듈 전역 — en 테스트가 후속 테스트를 오염할 수 있음 | ✅ 테스트 describe 의 afterEach 에서 ko 재시드(bootstrapChat 실경로 재사용) | `chatStore.test.ts` |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] `src/shared/continuity-lang.ts` + 테스트
-- [ ] 요구1 어댑터 체인(turn→claude→claude-map) + 테스트
-- [ ] 요구2 main(handoff.ts·protocol/ipc·chat-turn) + 테스트
-- [ ] 요구2 renderer(chatReducer·chatStore) + 테스트
-- [ ] 문서(IPC_CONTRACT 등) + 게이트
+- [x] `src/shared/continuity-lang.ts` + 테스트
+- [x] 요구1 어댑터 체인(turn→claude→claude-map) + 테스트
+- [x] 요구2 main(handoff.ts·protocol/ipc·chat-turn) + 테스트
+- [x] 요구2 renderer(chatReducer·chatStore) + 테스트
+- [x] 문서(IPC_CONTRACT·provider-runtime §8) + 게이트
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | (구현 후 기입) |
-| 실행 명령 | |
-| 게이트 결과 | |
-| 블로커 / 역질문 | |
-| 대상 커밋 | |
+| 변경 파일 | 신규 `app/src/shared/continuity-lang.ts`(+test) · main `adapters/{turn,claude,claude-map}.ts`·`app/chat-turn.ts`·`features/orchestration/handoff.ts` · shared `{protocol,ipc}.ts` · renderer `features/chat/{reducer/chatReducer,store/chatStore}.ts` · 테스트 5파일 · 문서 `docs/IPC_CONTRACT.md`·`docs/arch/backend/provider-runtime.md` |
+| 실행 명령 | `npm run lint` / `npm run typecheck` / `./node_modules/.bin/vitest run`(+`npm rebuild better-sqlite3` Node ABI 소스 리빌드) / `node --test scripts/*.test.mjs` |
+| 게이트 결과 | lint 에러 0(warning 1 = 기존 react-compiler 비호환 라이브러리) / typecheck 3분할 ✅ / vitest **1032/1032**(`chat-turn.continuity` 1파일 로드 실패 = electron 바이너리 egress 베이스라인, 0125/0126 동일) / scripts 25/25 |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | (구현 커밋 hash — 검증 턴에서 기입) |

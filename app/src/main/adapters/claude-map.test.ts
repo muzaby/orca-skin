@@ -826,3 +826,118 @@ describe('claudeToNormalized — compact_boundary (0064)', () => {
     expect(ev.usage?.cacheReadTokens).toBe(9000)
   })
 })
+
+describe('claudeToNormalized — handoffArrival (0127, 핸드오프 도착 턴)', () => {
+  const handoffCtx = (): MapContext => ({ ...ctx(), handoffArrival: true })
+
+  it('경계 이전 assistant usage 는 스냅샷으로 캡처되지 않고, 경계 없는 result 의 컨텍스트 3종은 제거된다', () => {
+    const c = handoffCtx()
+    // 승계 컨텍스트(원본 세션 전체 이력)가 실린 assistant usage — 스냅샷 금지.
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          content: [{ type: 'text', text: 'summary...' }],
+          usage: { input_tokens: 1200, output_tokens: 3000, cache_read_input_tokens: 150_000 }
+        }
+      }),
+      c
+    )
+    expect(c.lastAssistantUsage).toBeUndefined()
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        total_cost_usd: 0.4,
+        duration_ms: 7000,
+        usage: { input_tokens: 1200, output_tokens: 3000, cache_read_input_tokens: 150_000 },
+        modelUsage: { 'claude-sonnet-4-6': { costUSD: 0.4, outputTokens: 3000 } }
+      }),
+      c
+    )
+    const ev = out[0] as { usage?: Record<string, unknown> }
+    // 도넛/경고 '미측정' 시작 — 원장(hasContextTokens)·renderer(contextTokens>0) 게이트가 스킵.
+    expect(ev.usage?.inputTokens).toBeUndefined()
+    expect(ev.usage?.cacheReadTokens).toBeUndefined()
+    expect(ev.usage?.cacheCreationTokens).toBeUndefined()
+    // 비용·시간·모델별 사용량은 유지.
+    expect(ev.usage?.costUsd).toBe(0.4)
+    expect(ev.usage?.durationMs).toBe(7000)
+    expect(ev.usage?.outputTokens).toBe(3000)
+    expect(ev.usage?.modelUsage).toBeDefined()
+  })
+
+  it('경계 통과 시 기존 압축 후 근사(post_tokens 우선)가 그대로 적용된다 (무회귀)', () => {
+    const c = handoffCtx()
+    // 경계 *이전* 승계 usage — 스냅샷 금지 대상.
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          content: [{ type: 'text', text: 'summary...' }],
+          usage: { input_tokens: 1200, cache_read_input_tokens: 150_000 }
+        }
+      }),
+      c
+    )
+    claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'compact_boundary',
+        compact_metadata: { trigger: 'manual', pre_tokens: 155_000, post_tokens: 9_000 }
+      }),
+      c
+    )
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        usage: { input_tokens: 0, output_tokens: 0 },
+        modelUsage: { 'claude-sonnet-4-6': { outputTokens: 350 } }
+      }),
+      c
+    )
+    const ev = out[0] as { usage?: Record<string, number> }
+    expect(ev.usage?.inputTokens).toBe(9_000)
+    expect(ev.usage?.cacheReadTokens).toBeUndefined()
+  })
+
+  it('경계 이후 assistant usage(압축 후 실측)는 기존대로 캡처돼 우선한다', () => {
+    const c = handoffCtx()
+    claudeToNormalized(sdk({ type: 'system', subtype: 'compact_boundary' }), c)
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          content: [{ type: 'text', text: 'continue' }],
+          usage: { input_tokens: 80, output_tokens: 20, cache_read_input_tokens: 9000 }
+        }
+      }),
+      c
+    )
+    const out = claudeToNormalized(
+      sdk({ type: 'result', usage: { input_tokens: 160_000, cache_read_input_tokens: 200_000 } }),
+      c
+    )
+    const ev = out[0] as { usage?: Record<string, number> }
+    expect(ev.usage?.inputTokens).toBe(80)
+    expect(ev.usage?.cacheReadTokens).toBe(9000)
+  })
+
+  it('플래그 없는 턴(fork 포함)은 기존 경로 그대로 — 스냅샷 캡처·result 승계 유지 (무회귀)', () => {
+    const c = ctx()
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          content: [{ type: 'text', text: 'hi' }],
+          usage: { input_tokens: 100, cache_read_input_tokens: 50_000 }
+        }
+      }),
+      c
+    )
+    expect(c.lastAssistantUsage).toEqual({ inputTokens: 100, cacheReadTokens: 50_000 })
+    const out = claudeToNormalized(sdk({ type: 'result', usage: { input_tokens: 999 } }), c)
+    const ev = out[0] as { usage?: Record<string, number> }
+    expect(ev.usage?.inputTokens).toBe(100)
+    expect(ev.usage?.cacheReadTokens).toBe(50_000)
+  })
+})

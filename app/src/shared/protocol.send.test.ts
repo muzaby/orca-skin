@@ -167,3 +167,27 @@ describe('SendChatMessageSchema — forkFrom/handoffFrom (0064)', () => {
     expect(SendChatMessageSchema.safeParse({ ...base, handoffFrom: '' }).success).toBe(false)
   })
 })
+
+describe('SendChatMessageSchema — continuityLang (0127)', () => {
+  it('fork/handoff 와 함께 ko/en 을 허용한다', () => {
+    for (const continuityLang of ['ko', 'en']) {
+      expect(
+        SendChatMessageSchema.safeParse({ ...base, forkFrom: 'src-1', continuityLang }).success
+      ).toBe(true)
+      expect(
+        SendChatMessageSchema.safeParse({ ...base, text: '', handoffFrom: 'src-1', continuityLang })
+          .success
+      ).toBe(true)
+    }
+  })
+
+  it('continuity 없이 단독 지정은 거부한다(fork/handoff 전용)', () => {
+    expect(SendChatMessageSchema.safeParse({ ...base, continuityLang: 'ko' }).success).toBe(false)
+  })
+
+  it('ko/en 외 값은 거부한다', () => {
+    expect(
+      SendChatMessageSchema.safeParse({ ...base, forkFrom: 'src-1', continuityLang: 'ja' }).success
+    ).toBe(false)
+  })
+})
