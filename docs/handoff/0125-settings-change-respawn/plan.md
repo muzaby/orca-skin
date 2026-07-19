@@ -154,4 +154,4 @@
 | 실행 명령 | `npm run lint` / `npm run typecheck` / `npm rebuild better-sqlite3`(Node ABI 소스 컴파일) 후 `./node_modules/.bin/vitest run` + `node --test scripts/*.test.mjs` |
 | 게이트 결과 | lint ✅ 에러 0(기존 warning 1) / typecheck 3분할 ✅ / vitest ✅ **1009/1009**(파일 130/131 — `chat-turn.continuity` 1파일 로드 실패는 electron 바이너리 egress 베이스라인, 0124 동일) / scripts ✅ 25 pass |
 | 블로커 / 역질문 | 없음 |
-| 대상 커밋 | (커밋 후 INDEX 에 기재) |
+| 대상 커밋 | `899604b` |
