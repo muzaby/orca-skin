@@ -515,10 +515,14 @@ export function registerChatHandlers(deps: ChatDeps): void {
     // channelAlive=false 가 되어 아래 preludes 의 takeForRespawn 이월이 자연 동작한다.
     // 0125: 같은 provider 라도 settings.json 이 제자리 수정(토큰 로테이션·base URL 교체)돼
     // spawn 시점 주입본과 내용이 달라졌으면 동일하게 respawn 한다.
+    // 0128: 같은 provider 안의 모델 변경(sonnet→haiku)도 respawn 한다 — 라이브 setModel(/model)은
+    // 이미 스폰된 서브프로세스의 실제 생성 모델을 바꾸지 못한다(실측: /model 후에도 생성이 스폰
+    // 모델에 과금). 콜드 spawn(resume)이 options.model 을 지키므로, 모델이 스폰 시점과 다르면 내린다.
     if (
       parsed.data.sessionId &&
       runtime.channelAlive &&
       (crossesProviderBoundary(sessionMeta?.provider_key, resolved.providerKey) ||
+        resolved.model !== runtime.spawnedModel ||
         providerSettingsChangedSinceSpawn(
           runtime.spawnedProviderSettings,
           resolved.providerSettings

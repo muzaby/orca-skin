@@ -101,6 +101,10 @@ export class SessionRuntime implements ManagedRuntime {
   // 호출자(chat-turn + features/providers 판정) 소관이고 여기선 기록/해제만 한다(0016 중립).
   // spawn 성공 시 갱신, teardown/채널 사망 시 해제 — channelAlive 인 동안만 유효.
   private spawnedSettings: ResolvedProviderSettings | undefined
+  // 0128: 채널 spawn 시 어댑터에 넘긴 model — 같은 provider 라도 모델이 스폰 시점과 달라지면
+  // (예: sonnet→haiku) chat-turn 이 respawn 을 판정한다. 라이브 setModel(/model)은 이미 스폰된
+  // 서브프로세스의 실제 생성 모델을 바꾸지 못하므로(실측), 모델 변경도 콜드 spawn 이 필요하다.
+  private spawnedModelValue: string | undefined
 
   constructor(
     private readonly adapter: RuntimeSessionAdapter,
@@ -121,6 +125,12 @@ export class SessionRuntime implements ManagedRuntime {
   // 내용 비교(providerSettingsChangedSinceSpawn)해 respawn 을 판정한다.
   get spawnedProviderSettings(): ResolvedProviderSettings | undefined {
     return this.spawnedSettings
+  }
+
+  // 0128: 살아있는 채널이 스폰될 때 넘긴 model — chat-turn 이 이번 턴 해석 model 과 비교해
+  // (같은 provider 내) 모델 변경 respawn 을 판정한다. channelAlive 인 동안만 유효.
+  get spawnedModel(): string | undefined {
+    return this.spawnedModelValue
   }
 
   get events(): AsyncIterable<NormalizedEvent> {
@@ -196,6 +206,7 @@ export class SessionRuntime implements ManagedRuntime {
     log.info('engine.spawn.completed', { provider: this.adapter.id })
     this.live = spawned
     this.spawnedSettings = req.providerSettings
+    this.spawnedModelValue = req.model
     if (spawned.pushTurn && this.closePolicy === 'persistent') {
       const frame = this.openFrame()
       this.startPump(spawned)
@@ -316,6 +327,7 @@ export class SessionRuntime implements ManagedRuntime {
     this.live?.close()
     this.live = null
     this.spawnedSettings = undefined
+    this.spawnedModelValue = undefined
     getLogger()
       .child('engine')
       .info('engine.channel.teardown', { provider: this.adapter.id, reason: 'stream-ended' })
@@ -342,6 +354,7 @@ export class SessionRuntime implements ManagedRuntime {
     this.live?.close()
     this.live = null
     this.spawnedSettings = undefined
+    this.spawnedModelValue = undefined
   }
 
   // 어댑터에 넘기는 요청 — 신호는 채널 신호로 치환(턴 신호와 분리), 콜백은 delegate 래퍼로 치환.
