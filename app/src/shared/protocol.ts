@@ -70,6 +70,10 @@ export const SendChatMessageSchema = z
     // 0064 continuity — 상호 배타·새 세션 전용(아래 refine).
     forkFrom: z.string().min(1).optional(),
     handoffFrom: z.string().min(1).optional(),
+    // 0127 — continuity 산출물(제목 마커·핸드오프 자동 메시지) 언어의 draft 생성 시점 스냅샷.
+    // renderer draft 제목과 main initialTitle 의 문자열 일치를 보장한다. 부재 시 main 이
+    // settings.language 에서 파생(continuityLangFor) 폴백. continuity 전용(아래 refine).
+    continuityLang: z.enum(['ko', 'en']).optional(),
     // 0067 AC9 — renderer draft 키(UUID). 새 세션(sessionId=null)의 큐/라우팅 키로 쓰이고
     // init(session.updated)에서 실 session id 로 remap 된다. 절대 영속되지 않는다.
     clientKey: z.string().min(1).optional(),
@@ -89,6 +93,9 @@ export const SendChatMessageSchema = z
     }
     if (v.handoffFrom === undefined && v.text.length < 1) {
       ctx.addIssue({ code: 'custom', message: 'text 는 비어 있을 수 없다' })
+    }
+    if (v.continuityLang !== undefined && v.forkFrom === undefined && v.handoffFrom === undefined) {
+      ctx.addIssue({ code: 'custom', message: 'continuityLang 은 fork/handoff 전용이다' })
     }
   })
 

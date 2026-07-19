@@ -285,7 +285,12 @@ export class ClaudeAdapter implements SessionAdapter {
     } = req
 
     // 매퍼 컨텍스트 — sessionId 는 init(=session.updated)에서 갱신된다(resume 면 초기값이 그 id).
-    const ctx: MapContext = { sessionId: sessionId ?? '', cwd }
+    // handoffArrival(0127): 핸드오프 도착 턴 표식 — 경계 이전 승계 컨텍스트 usage 를 매퍼가 무효화.
+    const ctx: MapContext = {
+      sessionId: sessionId ?? '',
+      cwd,
+      ...(req.handoff === true ? { handoffArrival: true } : {})
+    }
 
     const abortController = new AbortController()
     const onAbort = (): void => abortController.abort()

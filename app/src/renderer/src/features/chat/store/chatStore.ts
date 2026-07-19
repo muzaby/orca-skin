@@ -26,6 +26,7 @@ import type {
   SendChatMessage
 } from '../../../../../shared/ipc'
 import type { NormalizedPermissionMode } from '../../../../../shared/permission-mode'
+import { continuityLangFor, continuityTitle } from '../../../../../shared/continuity-lang'
 import type { RightPanelTileId } from '../lib/rightPanelTiles'
 
 // Zustand 단일 chat store — arch/frontend/state.md §1.4 채택안의 멀티세션 외피(handoff 0013).
@@ -512,7 +513,12 @@ function send(
       clientRequestId: requestId,
       // fork draft(0064) 첫 전송 = 물질화 트리거. main 이 SDK forkSession 으로 새 id 를
       // 발급받고 display 복사 + lineage 를 남긴다.
-      ...(cur.forkFrom != null ? { forkFrom: cur.forkFrom } : {})
+      ...(cur.forkFrom != null ? { forkFrom: cur.forkFrom } : {}),
+      // 0127 — draft 생성 시점 언어 스냅샷 동봉: main initialTitle 이 draft 제목과 같은 언어로
+      // 조립되게 한다(생성↔전송 사이 settings.language 변경 race 차단).
+      ...(cur.forkFrom != null && cur.continuityLang != null
+        ? { continuityLang: cur.continuityLang }
+        : {})
     }
     let shouldDispatch = false
     setState((s) => {
@@ -743,20 +749,23 @@ function pruneUnsentContinuityDrafts(parentSessionId: string): void {
   })
 }
 
-// 제목 마커 — **영속 데이터라 i18n 비대상**(0097 D3). main 이 같은 형식을 DB 초기 제목으로
-// 독립 생성하므로(src/main/app/chat-turn.ts 의 initialTitle) draft↔물질화가 문자열 단위로
-// 일치해야 한다. locale 별 마커는 이 계약을 깨므로 도입하지 않는다(en 카탈로그와 무관).
-const CONTINUITY_TITLE_MARKER: Record<'fork' | 'handoff', string> = {
-  fork: '분기',
-  handoff: '핸드오프'
-}
+// 제목 마커 — **영속 데이터라 uiLocale i18n 비대상**(0097 D3 유지). 0127 부터 언어는 draft
+// 생성 시점의 settings.language 스냅샷(ko/en 2종)으로 결정하고, 마커·조립은 main 과 공용인
+// shared/continuity-lang 의 continuityTitle 단일 조립점을 쓴다. draft↔물질화의 문자열 일치는
+// send payload 의 continuityLang 스냅샷(부재 시 main 이 settings 파생 폴백)으로 보장한다.
+
+// 선호 언어(settings.language) 캐시 — 부트스트랩 1회 조회(cwdCache 동형). draft 생성 시점
+// 스냅샷 소스이며, 미시드(부트 직후 수 ms)면 ko 폴백(스키마 기본 '한국어' 정합).
+let languageCache: string | null = null
 
 // fork/handoff draft 공통 시드 — 원본 세션의 정체성·설정 메타 승계 + 마커 제목(0065 dedup).
 // 제목은 main 의 DB 초기 제목(initialTitle)과 같은 형식이어야 물질화 후 표시가 이어진다.
 function continuityDraftSession(src: ChatState, kind: 'fork' | 'handoff'): ChatState {
+  const lang = continuityLangFor(languageCache ?? undefined)
   return {
     ...initialChatState,
-    title: `[${CONTINUITY_TITLE_MARKER[kind]}] ${src.title?.trim() || src.sessionId!.slice(0, 8)}`,
+    title: continuityTitle(kind, lang, src.title?.trim() || src.sessionId!.slice(0, 8)),
+    continuityLang: lang,
     cwd: src.cwd,
     pendingProjectId: src.projectId,
     projectId: src.projectId,
@@ -826,6 +835,8 @@ function startHandoff(): boolean {
   pruneUnsentContinuityDrafts(src.sessionId)
   const sourceSessionId = src.sessionId
   const draftKey = `draft:${crypto.randomUUID()}`
+  // 시드를 payload 앞에 조립 — 생성 시점 언어 스냅샷(continuityLang)을 payload 에 동봉한다(0127).
+  const seed = continuityDraftSession(src, 'handoff')
   const payload: SendChatMessage = {
     sessionId: null,
     projectId: src.projectId,
@@ -838,12 +849,13 @@ function startHandoff(): boolean {
     attachmentViews: [],
     cwd: null,
     handoffFrom: sourceSessionId,
+    ...(seed.continuityLang != null ? { continuityLang: seed.continuityLang } : {}),
     // 0067 AC9 — draft 키 = 세션-이전 큐 키(자동 메시지의 pending 등록·echo 커밋 매칭).
     clientKey: draftKey
   }
   const draft: SessionEntry = {
     session: {
-      ...continuityDraftSession(src, 'handoff'),
+      ...seed,
       inflight: true,
       turnStartedAt: Date.now(),
       handoffFrom: sourceSessionId
@@ -1102,6 +1114,11 @@ export function bootstrapChat(): () => void {
         ])
       )
     }))
+  })
+
+  // 선호 언어 1회 조회(0127) — continuity draft 의 언어 스냅샷 소스. 시드 전 draft 는 ko 폴백.
+  void settingsApi.get().then((s) => {
+    languageCache = s.language ?? null
   })
 
   const unsubEvents = chatApi.onEvent(ingestChatEvent)

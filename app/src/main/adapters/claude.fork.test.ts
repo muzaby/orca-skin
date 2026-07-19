@@ -2,24 +2,37 @@
 // 어댑트되는지 배선 단위 검증(claude.effort.test.ts 패턴).
 import { describe, it, expect, vi } from 'vitest'
 
-const { queryMock } = vi.hoisted(() => ({
-  queryMock: vi.fn((req: unknown) => {
-    void req
-    const iterable = {
-      [Symbol.asyncIterator](): AsyncIterator<never> {
-        return { next: async () => ({ done: true, value: undefined as never }) }
+const { queryMock, sdkMessages } = vi.hoisted(() => {
+  // 테스트가 밀어넣는 SDK 출력 스트림(호출마다 스냅샷 소비) — 기본 빈 배열(기존 케이스 무영향).
+  const sdkMessages: { queue: unknown[] } = { queue: [] }
+  return {
+    sdkMessages,
+    queryMock: vi.fn((req: unknown) => {
+      void req
+      const batch = sdkMessages.queue
+      sdkMessages.queue = []
+      let i = 0
+      const iterable = {
+        [Symbol.asyncIterator](): AsyncIterator<unknown> {
+          return {
+            next: async () =>
+              i < batch.length
+                ? { done: false, value: batch[i++] }
+                : { done: true, value: undefined }
+          }
+        }
+      } as AsyncIterable<unknown> & {
+        setPermissionMode: () => void
+        interrupt: () => void
+        setModel: () => void
       }
-    } as AsyncIterable<never> & {
-      setPermissionMode: () => void
-      interrupt: () => void
-      setModel: () => void
-    }
-    iterable.setPermissionMode = vi.fn()
-    iterable.interrupt = vi.fn()
-    iterable.setModel = vi.fn()
-    return iterable
-  })
-}))
+      iterable.setPermissionMode = vi.fn()
+      iterable.interrupt = vi.fn()
+      iterable.setModel = vi.fn()
+      return iterable
+    })
+  }
+})
 
 vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
   query: queryMock
@@ -27,6 +40,8 @@ vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
 
 import { ClaudeAdapter } from './claude'
 import type { TurnRequest } from './turn'
+import type { LiveTurn } from './types'
+import type { ProviderReportedTelemetry } from '../../shared/ipc'
 
 const baseReq = (): TurnRequest => ({
   sessionId: null,
@@ -60,5 +75,57 @@ describe('ClaudeAdapter — forkFrom (0064)', () => {
     adapter.sendMessage(baseReq())
     expect(lastOptions().resume).toBeUndefined()
     expect(lastOptions().forkSession).toBeUndefined()
+  })
+})
+
+describe('ClaudeAdapter — handoff 도착 턴 (0127)', () => {
+  // 승계 컨텍스트(150k)가 실린 assistant + result — 핸드오프 telemetry 오염 재현 입력.
+  const inheritedContextStream = (): unknown[] => [
+    {
+      type: 'assistant',
+      message: {
+        content: [{ type: 'text', text: 'summary...' }],
+        usage: { input_tokens: 1200, output_tokens: 3000, cache_read_input_tokens: 150_000 }
+      }
+    },
+    {
+      type: 'result',
+      total_cost_usd: 0.4,
+      usage: { input_tokens: 1200, output_tokens: 3000, cache_read_input_tokens: 150_000 }
+    }
+  ]
+
+  const telemetryOf = async (live: LiveTurn): Promise<ProviderReportedTelemetry | undefined> => {
+    for await (const ev of live.events) {
+      if (ev.type === 'telemetry') return ev.usage
+    }
+    return undefined
+  }
+
+  it('handoff:true 는 query 옵션(resume+forkSession)을 바꾸지 않는다', () => {
+    const adapter = new ClaudeAdapter()
+    adapter.sendMessage({ ...baseReq(), forkFrom: 'src-session', handoff: true })
+    expect(lastOptions().resume).toBe('src-session')
+    expect(lastOptions().forkSession).toBe(true)
+  })
+
+  it('handoff:true 면 MapContext(handoffArrival)로 전달돼 telemetry 컨텍스트 3종이 제거된다', async () => {
+    const adapter = new ClaudeAdapter()
+    sdkMessages.queue = inheritedContextStream()
+    const usage = await telemetryOf(
+      adapter.sendMessage({ ...baseReq(), forkFrom: 'src-session', handoff: true })
+    )
+    expect(usage?.inputTokens).toBeUndefined()
+    expect(usage?.cacheReadTokens).toBeUndefined()
+    expect(usage?.cacheCreationTokens).toBeUndefined()
+    expect(usage?.costUsd).toBe(0.4)
+  })
+
+  it('handoff 미설정 fork 는 기존대로 컨텍스트 usage 를 승계한다 (무회귀)', async () => {
+    const adapter = new ClaudeAdapter()
+    sdkMessages.queue = inheritedContextStream()
+    const usage = await telemetryOf(adapter.sendMessage({ ...baseReq(), forkFrom: 'src-session' }))
+    expect(usage?.inputTokens).toBe(1200)
+    expect(usage?.cacheReadTokens).toBe(150_000)
   })
 })

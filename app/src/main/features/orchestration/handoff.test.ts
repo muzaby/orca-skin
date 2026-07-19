@@ -23,4 +23,41 @@ describe('buildHandoffMessage', () => {
     for (const marker of ['①', '②', '③', '④', '⑤']) expect(msg).toContain(marker)
     expect(msg).toContain('원문 그대로 보존')
   })
+
+  it("lang 미전달은 'ko' 기본 — 기존 한글 템플릿과 동일 (하위호환)", () => {
+    expect(buildHandoffMessage('제목', 'abcdef12-3456')).toBe(
+      buildHandoffMessage('제목', 'abcdef12-3456', 'ko')
+    )
+  })
+})
+
+describe('buildHandoffMessage — en (0127, 발생 시점 선호 언어 스냅샷)', () => {
+  it('/compact 접두와 [Handoff] 마커, {title} 보간·id 8자 폴백', () => {
+    const msg = buildHandoffMessage('Payment refactor', 'abcdef12-3456', 'en', 'English')
+    expect(msg.startsWith('/compact [Handoff] ')).toBe(true)
+    expect(msg).toContain('previous session "Payment refactor"')
+    expect(msg).not.toContain('{title}')
+    expect(buildHandoffMessage(null, 'abcdef12-3456', 'en')).toContain(
+      'previous session "abcdef12"'
+    )
+  })
+
+  it('ko 템플릿과 동일 구조(①~⑤·verbatim 보존)를 유지한다', () => {
+    const msg = buildHandoffMessage(null, 'abcdef12-3456', 'en')
+    for (const marker of ['①', '②', '③', '④', '⑤']) expect(msg).toContain(marker)
+    expect(msg).toContain('verbatim')
+  })
+
+  it('요약 산출 언어를 선호 언어 원문으로 지시하고, 미전달/공백이면 English 폴백', () => {
+    expect(buildHandoffMessage(null, 'abcdef12-3456', 'en', '日本語')).toContain(
+      'Write the summary in 日本語.'
+    )
+    expect(buildHandoffMessage(null, 'abcdef12-3456', 'en')).toContain(
+      'Write the summary in English.'
+    )
+    expect(buildHandoffMessage(null, 'abcdef12-3456', 'en', '  ')).toContain(
+      'Write the summary in English.'
+    )
+    expect(buildHandoffMessage(null, 'abcdef12-3456', 'en', 'Español')).not.toContain('{language}')
+  })
 })
