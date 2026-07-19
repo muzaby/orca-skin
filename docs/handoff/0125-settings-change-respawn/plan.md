@@ -126,4 +126,32 @@
 
 ---
 
-> **[구현자 기입]** 이하는 구현 턴에서 채운다 (비기능 = Claude 직접 구현).
+## [구현자 기입] 설계 리뷰 (비판적)
+
+- 동의 / 그대로 진행: 기록(sessions 불투명)·판정(providers 순수)·조합(컴포지션 루트) 3분할, blob 내용 비교 + 참조 fast-path, 0118 조건 확장 방식 모두 최소 변경으로 타당. 설계 그대로 구현했다.
+- 이견 / 우려: 없음. 설계 §"왜 지문이 아니라 blob 기록인가" 의 (c)(invalidateAll 후 동일 내용 무 respawn)는 테스트로 고정했다(provider-boundary.test.ts "재파싱된 동일 내용" 케이스).
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
+
+| # | 놓친 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 0118 조건은 `sessionId && crosses && channelAlive` 순서였는데 판정 2종 확장 시 `channelAlive` 를 괄호 밖 공통 가드로 승격해야 settings 판정도 죽은 채널에서 불필요하게 돌지 않는다 | ✅ `sessionId && channelAlive && (crosses ‖ settingsChanged)` 로 재배열(동작 동일·판정 비용 절감) | 구현 세부 — 설계 의도 불변 |
+
+## [구현자 기입] 구현 체크리스트
+
+- [x] `providerSettingsChangedSinceSpawn` 순수 함수 + 배럴 re-export
+- [x] `SessionRuntime` spawn 기록(`spawnedProviderSettings` getter, 스폰 갱신·teardown/finishPump 해제)
+- [x] chat-turn respawn 조건 확장 (0118 조건 ‖ 0125 판정)
+- [x] 테스트 7건 (판정 4케이스 + 기록 수명 3건)
+- [x] `runtime-ipc.md` §1.3 한 줄
+- [x] 게이트 (lint/typecheck/vitest 전체)
+
+## [구현자 기입] 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `provider-boundary.ts`·`provider-boundary.test.ts`·`provider-settings.ts`·`session-runtime.ts`·`session-runtime.test.ts`·`chat-turn.ts`·`runtime-ipc.md` |
+| 실행 명령 | `npm run lint` / `npm run typecheck` / `npm rebuild better-sqlite3`(Node ABI 소스 컴파일) 후 `./node_modules/.bin/vitest run` + `node --test scripts/*.test.mjs` |
+| 게이트 결과 | lint ✅ 에러 0(기존 warning 1) / typecheck 3분할 ✅ / vitest ✅ **1009/1009**(파일 130/131 — `chat-turn.continuity` 1파일 로드 실패는 electron 바이너리 egress 베이스라인, 0124 동일) / scripts ✅ 25 pass |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | (커밋 후 INDEX 에 기재) |
