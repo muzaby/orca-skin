@@ -117,4 +117,31 @@
 
 ---
 
-> **[구현자 기입]** 이하는 구현 턴에서 채운다 (비기능 = Claude 직접 구현).
+## [구현자 기입] 설계 리뷰 (비판적)
+
+- 동의 / 그대로 진행: 재해석 키 고정(의미론 보존)·teardown 후 기존 분기 자연 전환·백스톱 거부 관례(admission 거부 동형) 모두 설계대로 구현. 설계 §설계 의 배치(재판정을 `channelAlive` 분기 *앞*)가 핵심 — teardown 이 곧바로 `takeForRespawn` 분기를 활성화한다.
+- 이견 / 우려: 없음.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
+
+| # | 놓친 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 백스톱의 `turn` null-내로잉 — `!turn?.live?.canSteer` early-return 이후라 TS 가 `turn` 을 non-null 로 좁혀 추가 가드 불요 | ✅ 확인만(코드 변화 없음) | 구현 세부 |
+
+## [구현자 기입] 구현 체크리스트
+
+- [x] 연속 루프 재해석(`resolveTurnProvider` 키 고정) + 0125 판정 + teardown
+- [x] `contRequest` 신선 blob override(해석 실패 시 원본 유지)
+- [x] `reserveOnBusySession` providerKey 파라미터 + `crossesProviderBoundary` 백스톱 거부
+- [x] `runtime-ipc.md` §1.3 한 줄
+- [x] 게이트 (lint/typecheck/vitest 전체)
+
+## [구현자 기입] 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `app/src/main/app/chat-turn.ts` · `docs/arch/backend/runtime-ipc.md` |
+| 실행 명령 | `npm run lint` / `npm run typecheck` / `./node_modules/.bin/vitest run` + `node --test scripts/*.test.mjs` |
+| 게이트 결과 | lint ✅ 에러 0(기존 warning 1) / typecheck 3분할 ✅ / vitest ✅ **1009/1009**(`chat-turn.continuity` 1파일 로드 실패 = electron egress 베이스라인) / scripts ✅ 25 pass |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | (커밋 후 INDEX 에 기재) |

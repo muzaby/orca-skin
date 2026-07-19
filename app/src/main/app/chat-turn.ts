@@ -218,6 +218,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
       attachments?: Parameters<typeof normalizeAttachments>[0]
       attachmentViews?: AttachmentView[]
       clientRequestId?: string
+      providerKey?: string | null
     }
   ): Promise<void> => {
     const turn = supervisor.getBySession(sessionId)
@@ -229,6 +230,22 @@ export function registerChatHandlers(deps: ChatDeps): void {
           'capability_unsupported',
           '이 백엔드는 피드백 끼어들기를 지원하지 않습니다.',
           { retryable: false }
+        )
+      })
+      return
+    }
+    // 0126: provider 경계 백스톱(main 측) — held 는 진행 턴 채널(spawn-바운드 env)로 flush
+    // 되므로 경계를 넘는 예약은 성립하지 않는다. 렌더러 0119 가드가 1차 차단하고 이를 우회한
+    // 레이스만 여기 도달한다 — 조용히 원 provider 로 실행하는 대신 거부해 드러낸다.
+    // null(미지정) 은 보수적 허용(기존 흐름 불변).
+    if (crossesProviderBoundary(turn.providerKey, data.providerKey ?? null)) {
+      sendChatEvent(event.sender, {
+        type: 'error',
+        sessionId,
+        error: makeClassifiedError(
+          'provider_connection_error',
+          '다른 공급자 모델이 선택되어 있습니다. 응답 완료 후 다시 전송하세요.',
+          { retryable: true }
         )
       })
       return
@@ -697,6 +714,25 @@ export function registerChatHandlers(deps: ChatDeps): void {
       while (!activeTurn.controller.signal.aborted && activeTurn.dbSessionId) {
         const sessionId = activeTurn.dbSessionId
         if (pendingMessages.pending(sessionId).length === 0) break
+        // 0126: 연속 턴 settings 신선도 재판정 — providerKey 는 원 턴 키로 고정(선택 변경은
+        // 다음 사용자 send 부터, 0119)하고 settings blob 만 재해석한다. spawn 주입본과 내용이
+        // 다르면 teardown — 아래 channelAlive 분기가 채널-사망 경로(takeForRespawn)로 자연
+        // 전환되고, respawn 은 contRequest 의 신선한 blob 으로 스폰한다(stale 재사용 방지).
+        const contResolved = await resolveTurnProvider(ctx, {
+          adapter,
+          sessionId,
+          providerKey: activeTurn.providerKey,
+          modelFamily: null
+        })
+        if (
+          runtime.channelAlive &&
+          providerSettingsChangedSinceSpawn(
+            runtime.spawnedProviderSettings,
+            contResolved.providerSettings
+          )
+        ) {
+          runtime.teardownChannel()
+        }
         let contPreludes: SteerFlushBatch[] = []
         let batch: SteerFlushBatch | undefined
         if (runtime.channelAlive) {
@@ -720,6 +756,10 @@ export function registerChatHandlers(deps: ChatDeps): void {
           signal: contTurn.controller.signal,
           attachmentTexts: batch.attachmentTexts ?? [],
           attachmentImages: batch.attachmentImages ?? [],
+          // 0126: respawn 대비 신선한 settings 로 교체 — 해석 실패(undefined)면 원본 유지(보수적).
+          ...(contResolved.providerSettings
+            ? { providerSettings: contResolved.providerSettings }
+            : {}),
           ...(contPreludes.length > 0 ? { preludes: contPreludes } : {})
         }
         // 연속 턴은 fork/프렐류드(원 요청분)를 계승하지 않는다 — 재분기·이중 전달 방지.
