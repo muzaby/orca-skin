@@ -45,6 +45,7 @@ export interface SessionListRow {
   title_source: SessionTitleSource
   provider_key: string | null
   cwd: string | null
+  pinned_at: number | null
 }
 
 // 0006 turn_usage — per-turn 사용량 원장. 모델별 분해는 turn_model_usage 자식 행에 저장.
@@ -173,6 +174,7 @@ export interface ProjectRow {
   instructions: string
   created_at: number
   updated_at: number
+  pinned_at: number | null
 }
 
 export interface ProjectInsert {

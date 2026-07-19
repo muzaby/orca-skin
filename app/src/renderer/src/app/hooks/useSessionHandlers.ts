@@ -7,7 +7,8 @@ import {
   type DraftRow
 } from '../../features/chat'
 import { sessionsActions, type DraftSessionRow } from '../../features/sessions'
-import { useProjectsState } from '../../features/projects'
+import { projectsActions, useProjectsState } from '../../features/projects'
+import type { Project } from '../../../../shared/ipc'
 
 export interface SessionHandlers {
   currentSessionId: string | null
@@ -15,6 +16,11 @@ export interface SessionHandlers {
   handleSelectSession: (id: string) => void
   handleDeleteSession: (id: string) => void
   handleRenameSession: (id: string, title: string) => void
+  // 0129 고정 — "고정됨" 섹션 데이터·토글. app 셸이 sessions/projects 두 feature 를 잇는다.
+  pinnedProjects: Project[]
+  handleTogglePinSession: (id: string, pinned: boolean) => void
+  handleTogglePinProject: (id: string, pinned: boolean) => void
+  handleOpenProject: (id: string) => void
   // 0064 r4 / 0065 — 미물질화 draft(fork/handoff + 활성 '새 대화') nav 행. chat store 파생
   // 값을 sessions feature 의 구조적 타입으로 매핑해 내린다(cross-feature 는 셸이 wiring).
   draftSessions: DraftSessionRow[]
@@ -57,6 +63,30 @@ export function useSessionHandlers(): SessionHandlers {
     for (const p of projects) map.set(p.id, p.name)
     return map
   }, [projects])
+
+  // 고정 프로젝트 — 고정 시각 내림차순(최근 고정이 위). "고정됨" 섹션에 주입.
+  const pinnedProjects = useMemo(
+    () =>
+      projects
+        .filter((p) => p.pinnedAt != null)
+        .sort((a, b) => (b.pinnedAt ?? 0) - (a.pinnedAt ?? 0)),
+    [projects]
+  )
+
+  const handleTogglePinSession = useCallback((id: string, pinned: boolean): void => {
+    void sessionsActions.setPinned(id, pinned)
+  }, [])
+
+  const handleTogglePinProject = useCallback((id: string, pinned: boolean): void => {
+    void projectsActions.setPinned(id, pinned)
+  }, [])
+
+  const handleOpenProject = useCallback(
+    (id: string): void => {
+      navigate(`/projects/${id}`)
+    },
+    [navigate]
+  )
 
   const draftSessions = useMemo<DraftSessionRow[]>(
     () =>
@@ -121,6 +151,10 @@ export function useSessionHandlers(): SessionHandlers {
     handleSelectSession,
     handleDeleteSession,
     handleRenameSession,
+    pinnedProjects,
+    handleTogglePinSession,
+    handleTogglePinProject,
+    handleOpenProject,
     draftSessions,
     activeDraftKey,
     handleSelectDraft,

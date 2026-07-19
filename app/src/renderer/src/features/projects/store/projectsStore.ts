@@ -44,7 +44,19 @@ async function remove(id: string): Promise<void> {
   await initProjects()
 }
 
-export const projectsActions = { refresh: initProjects, create: createProject, update, remove }
+// 0129 고정 토글 — main 이 pinned_at 을 시각/null 로 기록. 이후 refresh 로 목록 갱신.
+async function setPinned(id: string, pinned: boolean): Promise<void> {
+  await projectApi.setPinned(id, pinned)
+  await initProjects()
+}
+
+export const projectsActions = {
+  refresh: initProjects,
+  create: createProject,
+  update,
+  remove,
+  setPinned
+}
 
 export function subscribeProjects(): () => void {
   return () => undefined

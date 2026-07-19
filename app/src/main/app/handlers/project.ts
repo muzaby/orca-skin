@@ -7,6 +7,7 @@ import {
   CreateProjectSchema,
   DeleteProjectSchema,
   ListProjectSessionsSchema,
+  SetProjectPinnedSchema,
   UpdateProjectSchema,
   type Project,
   type SessionListItem
@@ -32,7 +33,8 @@ export function registerProjectHandlers(ctx: RouterContext): void {
       name: req.name,
       instructions: req.instructions,
       createdAt: now,
-      updatedAt: now
+      updatedAt: now,
+      pinnedAt: null
     }
   })
 
@@ -43,6 +45,11 @@ export function registerProjectHandlers(ctx: RouterContext): void {
   handle(CHANNELS.projectDelete, DeleteProjectSchema, 'reject', (req): void => {
     // ON DELETE SET NULL 이 sessions.project_id 를 정리. 세션 자체는 보존.
     ctx.db.deleteProject(req.id)
+  })
+
+  // 0129 고정 토글 — pinned=true 면 현재 시각(정렬 키 겸용), false 면 null.
+  handle(CHANNELS.projectSetPinned, SetProjectPinnedSchema, 'reject', (req): void => {
+    ctx.db.setProjectPinned(req.id, req.pinned ? Date.now() : null)
   })
 
   handle(

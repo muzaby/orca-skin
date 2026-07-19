@@ -46,6 +46,8 @@ export const SIDEBAR_MAX_WIDTH = 480
 export const SIDEBAR_DEFAULT_WIDTH = 248
 
 export interface SidebarProps {
+  // '고정됨' 슬롯 — features/sessions 의 PinnedSection. 고정 항목이 없으면 null 렌더.
+  pinnedSlot: ReactNode
   // '최근 대화' 슬롯 — features/sessions 의 SessionList.
   sessionsSlot: ReactNode
   // footer 슬롯 — features/backend 의 BackendStatus.
@@ -59,7 +61,7 @@ export interface SidebarProps {
 // 설정값 (SIDEBAR_*) 과 적용 (setTweak('sidebarWidth', n)) 만 책임진다.
 // React.memo: slot ReactNode 가 부모에서 안정적으로 전달되는 한 router/TweakContext
 // 변경 시에만 리렌더 (FRONTEND_ARCHITECTURE §3.A).
-function SidebarImpl({ sessionsSlot, footerSlot }: SidebarProps): React.JSX.Element {
+function SidebarImpl({ pinnedSlot, sessionsSlot, footerSlot }: SidebarProps): React.JSX.Element {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const { t, setTweak } = useTweakContext()
@@ -165,9 +167,12 @@ function SidebarImpl({ sessionsSlot, footerSlot }: SidebarProps): React.JSX.Elem
             })}
           </nav>
 
-          <div className={SECTION_HEAD}>{tr('sidebar.recents')}</div>
-          <div className="app-frame-sidebar-sessions flex-1 overflow-y-auto px-1.5 pt-1">
-            {sessionsSlot}
+          {/* 고정됨 + 최근 대화를 한 스크롤 컨테이너에 담아 함께 스크롤한다. 고정 항목이
+              없으면 pinnedSlot 은 null 이라 "고정됨" 헤더까지 통째로 사라진다. */}
+          <div className="app-frame-sidebar-scroll flex min-h-0 flex-1 flex-col overflow-y-auto">
+            {pinnedSlot}
+            <div className={SECTION_HEAD}>{tr('sidebar.recents')}</div>
+            <div className="app-frame-sidebar-sessions px-1.5 pt-1">{sessionsSlot}</div>
           </div>
 
           {footerSlot && (

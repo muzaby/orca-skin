@@ -1,5 +1,5 @@
 import { memo, useRef, useState } from 'react'
-import { Icon } from '../../../shared/ui/Icon'
+import { Icon, type IconName } from '../../../shared/ui/Icon'
 import { MenuItem } from '../../../shared/ui/MenuItem'
 import { Popover } from '../../../shared/ui/Popover'
 import { RenameInput } from '../../../shared/ui/RenameInput'
@@ -23,6 +23,11 @@ export interface SessionRowProps {
   // continuity draft(미물질화, 0064 r4) 행은 rename 불가 — 마커 제목이 main 의 initialTitle
   // 에서 오므로 draft 단계 rename 은 물질화 시 덮여 유실된다. 메뉴에서 항목을 숨긴다.
   renameable?: boolean
+  // 0129 — 항목 좌측 구분 아이콘. 대화 행은 말풍선(기본), 필요 시 호출자가 교체.
+  leadingIcon?: IconName
+  // 0129 고정 토글 — 핸들러가 있으면 kebab 에 고정/해제 항목이 나온다. pinned=현재 상태.
+  onTogglePin?: (sessionId: string, pinned: boolean) => void
+  pinned?: boolean
 }
 
 // memo(0108) — 제목 이벤트/목록 재조회가 list 배열 identity 를 갈아도, sessionsStore 의
@@ -34,7 +39,10 @@ export const SessionRow = memo(function SessionRow({
   onSelect,
   onDelete,
   onRename,
-  renameable = true
+  renameable = true,
+  leadingIcon = 'chat',
+  onTogglePin,
+  pinned = false
 }: SessionRowProps): React.JSX.Element {
   const { tr } = useI18n()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -49,8 +57,8 @@ export const SessionRow = memo(function SessionRow({
   const label = projectName ? `${projectName} / ${baseLabel}` : baseLabel
 
   // 메뉴 항목이 하나도 없으면(이름변경 불가 + 삭제 핸들러 없음 — 활성 '새 대화' draft 행)
-  // kebab 자체를 렌더하지 않는다(0065).
-  const hasMenu = renameable || onDelete != null
+  // kebab 자체를 렌더하지 않는다(0065). 고정 토글이 있으면 메뉴를 노출한다.
+  const hasMenu = renameable || onDelete != null || onTogglePin != null
 
   const startRename = (): void => {
     setMenuOpen(false)
@@ -80,12 +88,14 @@ export const SessionRow = memo(function SessionRow({
         data-behavior="interactive renaming"
         data-session-id={session.id}
       >
+        <Icon name={leadingIcon} size={14} className="shrink-0 text-t5" />
         <RenameInput
           initial={baseLabel}
           onCommit={commitRename}
           onCancel={cancelRename}
           maxLength={120}
           ariaLabel={tr('sessions.renameAria')}
+          autoSize
         />
       </div>
     )
@@ -103,6 +113,7 @@ export const SessionRow = memo(function SessionRow({
       data-session-id={session.id}
       title={label}
     >
+      <Icon name={leadingIcon} size={14} className="shrink-0 text-t5" />
       <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
         {label}
       </span>
@@ -127,6 +138,20 @@ export const SessionRow = memo(function SessionRow({
           </button>
           <Popover open={menuOpen} anchorRef={kebabRef} onClose={() => setMenuOpen(false)}>
             <div role="menu" className="flex w-[140px] flex-col py-1">
+              {onTogglePin != null && (
+                <MenuItem
+                  role="menuitem"
+                  icon="pin"
+                  iconSize={12}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setMenuOpen(false)
+                    onTogglePin(session.id, !pinned)
+                  }}
+                >
+                  <span>{tr(pinned ? 'common.unpin' : 'common.pin')}</span>
+                </MenuItem>
+              )}
               {renameable && (
                 <MenuItem
                   role="menuitem"

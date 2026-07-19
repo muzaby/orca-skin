@@ -14,6 +14,8 @@ interface ChatViewProps {
   onOpenProject?: (projectId: string) => void
   onDeleteSession?: (sessionId: string) => void
   onRenameSession?: (sessionId: string, title: string) => void
+  sessionPinned?: boolean
+  onTogglePinSession?: (sessionId: string, pinned: boolean) => void
 }
 
 // 채팅 상태는 ChatTile 내부가 chatStore selector 로 직접 구독한다 — 여기는 cross-feature
@@ -27,7 +29,9 @@ export function ChatView({
   projectName,
   onOpenProject,
   onDeleteSession,
-  onRenameSession
+  onRenameSession,
+  sessionPinned,
+  onTogglePinSession
 }: ChatViewProps): React.JSX.Element {
   return (
     <ChatTile
@@ -40,6 +44,8 @@ export function ChatView({
       onOpenProject={onOpenProject}
       onDeleteSession={onDeleteSession}
       onRenameSession={onRenameSession}
+      sessionPinned={sessionPinned}
+      onTogglePinSession={onTogglePinSession}
     />
   )
 }

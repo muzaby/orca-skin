@@ -207,6 +207,12 @@ export const RenameSessionRequestSchema = z.object({
   title: z.string().trim().min(1).max(120)
 })
 
+// 0129 고정(pin) 토글 — pinned=true 면 main 이 Date.now() 로, false 면 null 로 기록한다.
+export const SetSessionPinnedSchema = z.object({
+  sessionId: z.string().min(1),
+  pinned: z.boolean()
+})
+
 // Project (Phase 3+) — 시스템 프롬프트 길이 8000 은 Claude Agent SDK 가
 // systemPrompt.append 에 허용하는 토큰 한도 대비 여유.
 export const CreateProjectSchema = z.object({
@@ -221,6 +227,11 @@ export const UpdateProjectSchema = z.object({
 })
 
 export const DeleteProjectSchema = z.object({ id: z.string().min(1) })
+
+export const SetProjectPinnedSchema = z.object({
+  id: z.string().min(1),
+  pinned: z.boolean()
+})
 
 export const ListProjectSessionsSchema = z.object({ projectId: z.string().min(1) })
 

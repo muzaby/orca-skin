@@ -13,6 +13,10 @@ export const ko = {
     delete: '삭제',
     edit: '편집',
     rename: '이름 변경',
+    pin: '고정',
+    unpin: '고정 해제',
+    expand: '펼치기',
+    collapse: '접기',
     more: '더 보기',
     copied: '복사됨',
     copy: '복사',
@@ -651,6 +655,7 @@ export const ko = {
       skills: 'Skills & MCP'
     },
     recents: '최근 대화',
+    pinned: '고정됨',
     resizeAria: '사이드바 폭 조절'
   },
   userMenu: {

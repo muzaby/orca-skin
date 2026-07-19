@@ -16,6 +16,7 @@ import migration0011 from './migrations/0011_session_lineage.sql?raw'
 import migration0012 from './migrations/0012_provider_limits.sql?raw'
 import migration0013 from './migrations/0013_schedules.sql?raw'
 import migration0014 from './migrations/0014_provider_usage_report_cache.sql?raw'
+import migration0015 from './migrations/0015_pinned.sql?raw'
 
 interface Migration {
   name: string
@@ -36,7 +37,8 @@ const MIGRATIONS: Migration[] = [
   { name: '0011_session_lineage', sql: migration0011 },
   { name: '0012_provider_limits', sql: migration0012 },
   { name: '0013_schedules', sql: migration0013 },
-  { name: '0014_provider_usage_report_cache', sql: migration0014 }
+  { name: '0014_provider_usage_report_cache', sql: migration0014 },
+  { name: '0015_pinned', sql: migration0015 }
 ]
 
 export const MIGRATION_NAMES = MIGRATIONS.map((m) => m.name)

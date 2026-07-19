@@ -150,6 +150,8 @@ const orca = {
       ipcRenderer.invoke(CHANNELS.sessionDelete, { sessionId }),
     rename: (sessionId: string, title: string): Promise<void> =>
       ipcRenderer.invoke(CHANNELS.sessionRename, { sessionId, title }),
+    setPinned: (sessionId: string, pinned: boolean): Promise<void> =>
+      ipcRenderer.invoke(CHANNELS.sessionSetPinned, { sessionId, pinned }),
     onTitle: (handler: (ev: SessionTitleEvent) => void): (() => void) => {
       const listener = (_e: IpcRendererEvent, ev: SessionTitleEvent): void => handler(ev)
       ipcRenderer.on(CHANNELS.sessionTitleEvent, listener)
@@ -163,6 +165,8 @@ const orca = {
     update: (req: UpdateProjectRequest): Promise<void> =>
       ipcRenderer.invoke(CHANNELS.projectUpdate, req),
     delete: (id: string): Promise<void> => ipcRenderer.invoke(CHANNELS.projectDelete, { id }),
+    setPinned: (id: string, pinned: boolean): Promise<void> =>
+      ipcRenderer.invoke(CHANNELS.projectSetPinned, { id, pinned }),
     listSessions: (projectId: string): Promise<SessionListItem[]> =>
       ipcRenderer.invoke(CHANNELS.projectListSessions, { projectId })
   },

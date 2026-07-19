@@ -20,6 +20,8 @@ interface SessionListProps {
   onSelect: (id: string) => void
   onDelete: (id: string) => void
   onRename: (id: string, title: string) => void
+  // 0129 고정 토글 — 각 최근 대화 행의 kebab 에 고정/해제 항목을 배선.
+  onTogglePin: (id: string, pinned: boolean) => void
   // 미물질화 continuity draft 행 — DB 목록 위에 얹는다(fork 클릭 = nav 즉시 추가, 0064 r4).
   drafts?: DraftSessionRow[]
   activeDraftKey?: string | null
@@ -35,6 +37,7 @@ export function SessionList({
   onSelect,
   onDelete,
   onRename,
+  onTogglePin,
   drafts = [],
   activeDraftKey = null,
   onSelectDraft,
@@ -69,6 +72,8 @@ export function SessionList({
           onSelect={onSelect}
           onDelete={onDelete}
           onRename={onRename}
+          onTogglePin={onTogglePin}
+          pinned={s.pinnedAt != null}
         />
       ))}
     </>
@@ -84,6 +89,7 @@ function draftAsListItem(d: DraftSessionRow): SessionListItem {
     updatedAt: 0,
     preview: null,
     projectId: d.projectId,
-    cwd: null
+    cwd: null,
+    pinnedAt: null
   }
 }
