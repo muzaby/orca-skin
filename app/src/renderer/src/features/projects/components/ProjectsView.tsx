@@ -15,6 +15,7 @@ export function ProjectsView(): React.JSX.Element {
       onCreate={async (name, instructions) => {
         await create(name, instructions)
       }}
+      onTogglePin={(id, pinned) => void projectsActions.setPinned(id, pinned)}
     />
   )
 }

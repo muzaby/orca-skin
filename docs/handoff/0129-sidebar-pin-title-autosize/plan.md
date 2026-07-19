@@ -205,20 +205,47 @@
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
+- 동의 / 그대로 진행: 설계 §설계 A~D 전부 그대로 구현. `field-sizing:content` 는 Electron 39
+  Chromium 에서 동작하며 JS 측정 없이 목표를 달성한다. 고정 데이터 계층은 기존 rename/delete
+  IPC 패턴을 그대로 복제해 마찰이 없었다.
+- 실무 보정(설계와 어긋나지 않는 세부): ① 자료조사 §"마이그레이션은 test/migrate 양쪽에
+  등록" 이 plan 에 명시되지 않았으나, 마이그레이션 러너(`migrate.ts`)와 **4개 테스트 헬퍼**
+  (`queries`·`fork`·`builder`·`chat-turn.continuity`)·`migrate.test.ts` 의 `EXPECTED_MIGRATIONS`
+  가 마이그레이션 목록을 하드코딩하므로 0015 를 5곳에 함께 등록해야 그린이 된다(선조치 ✅).
+  ② `getProjectStmt`·`insertProject` 반환 `Project` 리터럴이 `pinnedAt` 필수화로 typecheck
+  실패 → 신규 프로젝트는 `pinnedAt: null` 로 채움(선조치 ✅).
+
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
+| # | 놓친 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 마이그레이션 목록이 러너·5개 테스트에 하드코딩 — 0015 미등록 시 전 DB 스위트 red | ✅ 구현함 — `migrate.ts` MIGRATIONS + 4 테스트 헬퍼 배열 + `migrate.test.ts` EXPECTED_MIGRATIONS 에 0015 등록 | vitest 로 `no such column: pinned_at` 재현·해소 |
+| 2 | `Project` DTO 에 `pinnedAt` 추가로 핸들러/생성 리터럴 typecheck 실패 | ✅ 구현함 — `projectCreate` 반환에 `pinnedAt: null` | typecheck:node 에러 재현·해소 |
+| 3 | `ProjectCard` 가 `<button>` — 고정 토글 중첩 시 무효 마크업(nested button) | ✅ 구현함 — `relative` 래퍼의 형제로 고정 버튼 배치(stopPropagation) | HTML 유효성 |
+| 4 | 고정 섹션이 sessions+projects 2 feature 결합 → 경계 위반 위험 | ✅ 구현함 — 컴포넌트는 features/sessions, 프로젝트 데이터·핸들러는 app 셸이 props 주입 | `npm run lint`(boundaries) 0 error |
+
 ## [구현자 기입] 구현 체크리스트
+
+- [x] `RenameInput.autoSize`(field-sizing) + ChatTitleBar/SessionRow 배선
+- [x] 마이그레이션 0015 + DB types/queries(setSessionPinned·setProjectPinned) + DTO
+- [x] shared 타입 `pinnedAt` + CHANNELS 2 + zod 스키마 2 + 핸들러 2 + preload + renderer api
+- [x] store `setPinned` 2 + `PinnedSection`(접기펼치기·아이콘) + Sidebar/slots/handlers 배선
+- [x] SessionRow 행 아이콘 + 고정 메뉴, ChatTitleBar 고정 버튼+메뉴, ProjectInfoHero, ProjectCard
+- [x] i18n ko/en(`common.pin`/`unpin`/`expand`/`collapse`·`sidebar.pinned`)
+- [x] 테스트(pin 스키마 5 + DB 왕복 2) + IPC_CONTRACT/PHASES/INDEX 갱신
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` |
-| 게이트 결과 | … |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | 코드: `RenameInput`·`ChatTitleBar`·`ChatTile`·`ChatView`·`SessionRow`·`SessionList`·`PinnedSection`(신규)·`Sidebar`·`useSidebarSlots`·`useSessionHandlers`·`useSessionActions`·`sessionsStore`·`projectsStore`·`ProjectInfoHero`·`ProjectsScreen`·`ProjectsView`·`sessions/index.ts`. 데이터: `0015_pinned.sql`(신규)·`migrate.ts`·`db/types.ts`·`db/queries.ts`·`ipc/dto.ts`·`shared/ipc.ts`·`shared/protocol.ts`·`handlers/{session,project}.ts`·`preload/index.ts`·`shared/api/ipc.ts`. i18n: `ko.ts`·`en.ts`. 테스트: `protocol.pin.test.ts`(신규)·`queries.test.ts`·`migrate.test.ts`·`fork.test.ts`·`builder.test.ts`·`chat-turn.continuity.test.ts`. 문서: `IPC_CONTRACT.md`. |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` |
+| 게이트 결과 | lint ✅ 0 error(1 pre-existing warning 무관) / typecheck ✅ 3분할 / vitest ✅ 1042 passed (신규 pin 스키마 5 + DB 왕복 2). `chat-turn.continuity.test.ts` **파일 로드 실패는 electron 바이너리 egress 403 베이스라인**(app/AGENTS.md) — 본 변경 무관. |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `<impl-hash>` (verify 커밋에서 기입) |
 
 ---
 
 ## [검증자 기입] 파생 이슈 (Derived Issues)
+
+> 없음(verify/PASS).

@@ -14,6 +14,7 @@ import migration0011 from './migrations/0011_session_lineage.sql?raw'
 import migration0012 from './migrations/0012_provider_limits.sql?raw'
 import migration0013 from './migrations/0013_schedules.sql?raw'
 import migration0014 from './migrations/0014_provider_usage_report_cache.sql?raw'
+import migration0015 from './migrations/0015_pinned.sql?raw'
 import { DbQueries } from './queries'
 
 function dbWithMigrations(): Database.Database {
@@ -33,6 +34,7 @@ function dbWithMigrations(): Database.Database {
   db.exec(migration0012)
   db.exec(migration0013)
   db.exec(migration0014)
+  db.exec(migration0015)
   return db
 }
 
@@ -507,6 +509,38 @@ describe('DbQueries provider_key', () => {
     const q = new DbQueries(db)
 
     expect(q.listSessions()[0].provider_key).toBeNull()
+  })
+})
+
+describe('DbQueries pinned (0129)', () => {
+  it('세션 고정 토글이 pinned_at 을 시각/null 로 왕복한다', () => {
+    const db = dbWithMigrations()
+    insertSession(db, 's-pin')
+    const q = new DbQueries(db)
+
+    // 기본은 미고정(NULL).
+    expect(q.listSessions()[0].pinned_at).toBeNull()
+
+    q.setSessionPinned('s-pin', 1234)
+    expect(q.listSessions()[0].pinned_at).toBe(1234)
+
+    q.setSessionPinned('s-pin', null)
+    expect(q.listSessions()[0].pinned_at).toBeNull()
+  })
+
+  it('프로젝트 고정 토글이 pinned_at 을 시각/null 로 왕복한다', () => {
+    const db = dbWithMigrations()
+    const q = new DbQueries(db)
+    q.insertProject({ id: 'p-pin', name: 'P', instructions: '', createdAt: 1 })
+
+    expect(q.getProject('p-pin')?.pinned_at).toBeNull()
+
+    q.setProjectPinned('p-pin', 5678)
+    expect(q.getProject('p-pin')?.pinned_at).toBe(5678)
+    expect(q.listProjects()[0].pinned_at).toBe(5678)
+
+    q.setProjectPinned('p-pin', null)
+    expect(q.getProject('p-pin')?.pinned_at).toBeNull()
   })
 })
 

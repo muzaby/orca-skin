@@ -16,7 +16,8 @@ export function toSessionListItem(r: SessionListRow): SessionListItem {
     updatedAt: r.updated_at,
     preview: r.last_message_preview,
     projectId: r.project_id,
-    cwd: r.cwd
+    cwd: r.cwd,
+    pinnedAt: r.pinned_at
   }
 }
 
@@ -26,7 +27,8 @@ export function toProject(r: ProjectRow): Project {
     name: r.name,
     instructions: r.instructions,
     createdAt: r.created_at,
-    updatedAt: r.updated_at
+    updatedAt: r.updated_at,
+    pinnedAt: r.pinned_at
   }
 }
 

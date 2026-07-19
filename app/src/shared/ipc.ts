@@ -41,11 +41,13 @@ export const CHANNELS = {
   sessionLoad: 'orca:session:load',
   sessionDelete: 'orca:session:delete',
   sessionRename: 'orca:session:rename',
+  sessionSetPinned: 'orca:session:setPinned',
   sessionTitleEvent: 'orca:session:titleEvent',
   projectList: 'orca:project:list',
   projectCreate: 'orca:project:create',
   projectUpdate: 'orca:project:update',
   projectDelete: 'orca:project:delete',
+  projectSetPinned: 'orca:project:setPinned',
   projectListSessions: 'orca:project:listSessions',
   windowMinimize: 'orca:window:minimize',
   windowMaximize: 'orca:window:maximize',
@@ -998,6 +1000,8 @@ export interface SessionListItem {
   preview: string | null
   projectId: string | null
   cwd: string | null
+  // 0129 고정(pin) — 고정 시각(ms). null=미고정. 좌측 nav "고정됨" 섹션 노출/정렬 기준.
+  pinnedAt: number | null
 }
 
 export interface LoadSessionRequest {
@@ -1099,6 +1103,8 @@ export interface Project {
   instructions: string
   createdAt: number
   updatedAt: number
+  // 0129 고정(pin) — 고정 시각(ms). null=미고정.
+  pinnedAt: number | null
 }
 
 export interface CreateProjectRequest {

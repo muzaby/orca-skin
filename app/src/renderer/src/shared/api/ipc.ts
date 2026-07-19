@@ -132,6 +132,8 @@ export const sessionApi = {
   delete: (sessionId: string): Promise<void> => window.orca.session.delete(sessionId),
   rename: (sessionId: string, title: string): Promise<void> =>
     window.orca.session.rename(sessionId, title),
+  setPinned: (sessionId: string, pinned: boolean): Promise<void> =>
+    window.orca.session.setPinned(sessionId, pinned),
   onTitle: (handler: (ev: SessionTitleEvent) => void): (() => void) =>
     window.orca.session.onTitle(handler)
 }
@@ -141,6 +143,8 @@ export const projectApi = {
   create: (req: CreateProjectRequest): Promise<Project> => window.orca.project.create(req),
   update: (req: UpdateProjectRequest): Promise<void> => window.orca.project.update(req),
   delete: (id: string): Promise<void> => window.orca.project.delete(id),
+  setPinned: (id: string, pinned: boolean): Promise<void> =>
+    window.orca.project.setPinned(id, pinned),
   listSessions: (projectId: string): Promise<SessionListItem[]> =>
     window.orca.project.listSessions(projectId)
 }

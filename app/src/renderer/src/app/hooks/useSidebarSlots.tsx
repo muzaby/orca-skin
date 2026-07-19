@@ -1,9 +1,10 @@
 import { useMemo, type ReactNode } from 'react'
-import { SessionList } from '../../features/sessions'
+import { PinnedSection, SessionList } from '../../features/sessions'
 import { SidebarUserButton } from '../SidebarUserButton'
 import type { SessionHandlers } from './useSessionHandlers'
 
 export interface SidebarSlots {
+  pinnedSlot: ReactNode
   sessionsSlot: ReactNode
   footerSlot: ReactNode
 }
@@ -15,6 +16,27 @@ export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
   // footer = 사용자 버튼(이메일/developer + 팝오버 메뉴 + 설정 모달). 안정 identity 로
   // 두어 Sidebar memo 를 유지한다(자체 상태는 컴포넌트 내부 useState 로 격리).
   const footerSlot = useMemo(() => <SidebarUserButton />, [])
+  // 0129 "고정됨" 섹션 — 최근 대화 위. 고정 항목이 없으면 PinnedSection 이 null 반환.
+  const pinnedSlot = useMemo(
+    () => (
+      <PinnedSection
+        pinnedProjects={handlers.pinnedProjects}
+        currentSessionId={handlers.currentSessionId}
+        onSelectSession={handlers.handleSelectSession}
+        onTogglePinSession={handlers.handleTogglePinSession}
+        onOpenProject={handlers.handleOpenProject}
+        onTogglePinProject={handlers.handleTogglePinProject}
+      />
+    ),
+    [
+      handlers.pinnedProjects,
+      handlers.currentSessionId,
+      handlers.handleSelectSession,
+      handlers.handleTogglePinSession,
+      handlers.handleOpenProject,
+      handlers.handleTogglePinProject
+    ]
+  )
   const sessionsSlot = useMemo(
     () => (
       <SessionList
@@ -23,6 +45,7 @@ export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
         onSelect={handlers.handleSelectSession}
         onDelete={handlers.handleDeleteSession}
         onRename={handlers.handleRenameSession}
+        onTogglePin={handlers.handleTogglePinSession}
         drafts={handlers.draftSessions}
         activeDraftKey={handlers.activeDraftKey}
         onSelectDraft={handlers.handleSelectDraft}
@@ -35,11 +58,12 @@ export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
       handlers.handleSelectSession,
       handlers.handleDeleteSession,
       handlers.handleRenameSession,
+      handlers.handleTogglePinSession,
       handlers.draftSessions,
       handlers.activeDraftKey,
       handlers.handleSelectDraft,
       handlers.handleDeleteDraft
     ]
   )
-  return { sessionsSlot, footerSlot }
+  return { pinnedSlot, sessionsSlot, footerSlot }
 }

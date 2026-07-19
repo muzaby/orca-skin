@@ -3,7 +3,7 @@ import { Button } from '../../../shared/ui/Button'
 import { MenuItem } from '../../../shared/ui/MenuItem'
 import { Popover } from '../../../shared/ui/Popover'
 import { formatDateLong, useI18n } from '../../../shared/i18n'
-import { useProjectsState } from '../store/projectsStore'
+import { projectsActions, useProjectsState } from '../store/projectsStore'
 
 interface ProjectInfoHeroProps {
   projectId: string
@@ -24,6 +24,7 @@ export function ProjectInfoHero({ projectId }: ProjectInfoHeroProps): React.JSX.
   }
 
   const updatedLabel = formatDateLong(project.updatedAt, locale)
+  const pinned = project.pinnedAt != null
 
   return (
     <section aria-labelledby="project-hero-title">
@@ -39,8 +40,11 @@ export function ProjectInfoHero({ projectId }: ProjectInfoHeroProps): React.JSX.
             iconOnly
             leadingIcon="pin"
             size="small"
-            title={tr('projects.hero.pin')}
+            pressed={pinned}
+            onClick={() => void projectsActions.setPinned(project.id, !pinned)}
+            title={tr(pinned ? 'common.unpin' : 'projects.hero.pin')}
             aria-label={tr('projects.hero.pinAria')}
+            aria-pressed={pinned}
           />
           <Button
             ref={kebabRef}

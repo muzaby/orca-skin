@@ -38,7 +38,13 @@ async function rename(sessionId: string, title: string): Promise<void> {
   await initSessions()
 }
 
-export const sessionsActions = { refresh: initSessions, remove, rename }
+// 0129 고정 토글 — main 이 pinned_at 을 시각/null 로 기록. 이후 refresh 로 목록 갱신.
+async function setPinned(sessionId: string, pinned: boolean): Promise<void> {
+  await sessionApi.setPinned(sessionId, pinned)
+  await initSessions()
+}
+
+export const sessionsActions = { refresh: initSessions, remove, rename, setPinned }
 
 // 자동 제목 이벤트 구독(행 in-place 패치 — 전체 refresh 없이).
 // 부팅 1회 조회는 initSessions(부트 오케스트레이터가 await), Provider 는 subscribeSessions 만 붙인다.

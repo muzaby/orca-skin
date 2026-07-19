@@ -10,13 +10,15 @@ interface ProjectsScreenProps {
   loading: boolean
   onOpenProject: (id: string) => void
   onCreate: (name: string, instructions: string) => Promise<void>
+  onTogglePin: (id: string, pinned: boolean) => void
 }
 
 export function ProjectsScreen({
   projects,
   loading,
   onOpenProject,
-  onCreate
+  onCreate,
+  onTogglePin
 }: ProjectsScreenProps): React.JSX.Element {
   const { tr } = useI18n()
   const [createOpen, setCreateOpen] = useState(false)
@@ -47,7 +49,12 @@ export function ProjectsScreen({
       ) : (
         <div className="grid grid-cols-2 gap-3.5">
           {projects.map((p) => (
-            <ProjectCard key={p.id} project={p} onOpen={() => onOpenProject(p.id)} />
+            <ProjectCard
+              key={p.id}
+              project={p}
+              onOpen={() => onOpenProject(p.id)}
+              onTogglePin={onTogglePin}
+            />
           ))}
         </div>
       )}
@@ -64,31 +71,52 @@ export function ProjectsScreen({
 interface ProjectCardProps {
   project: Project
   onOpen: () => void
+  onTogglePin: (id: string, pinned: boolean) => void
 }
 
-function ProjectCard({ project, onOpen }: ProjectCardProps): React.JSX.Element {
+function ProjectCard({ project, onOpen, onTogglePin }: ProjectCardProps): React.JSX.Element {
   const instructionsPreview = project.instructions.trim()
   // "방금"→"어제"→"N일 전"→"5월 13일" 사다리 — 로케일·OS 타임존 명시 공용 포맷터(0096).
   const { tr, locale } = useI18n()
+  const pinned = project.pinnedAt != null
+  // 카드 자체가 <button> 이라 고정 토글을 안에 중첩할 수 없다(중첩 버튼 무효 마크업).
+  // relative 래퍼의 형제로 두고 hover / 고정 상태에서 노출한다.
   return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className="group/card cursor-pointer rounded-xl border border-border bg-panel p-4 text-left transition-colors hover:border-border-strong"
-    >
-      <div className="mb-1.5 flex items-center gap-2">
-        <Icon name="folder" size={14} />
-        <span className="font-mono text-[14px] font-semibold text-ink">{project.name}</span>
-      </div>
-      <div className="mb-3 line-clamp-2 min-h-[36px] text-[12.5px] leading-[1.5] text-ink2">
-        {instructionsPreview || (
-          <span className="italic text-ink3">{tr('projects.noInstructions')}</span>
-        )}
-      </div>
-      <div className="flex items-center border-t border-border pt-2.5 text-[11.5px] text-ink3">
-        <span className="ml-auto">{formatRelativeDay(project.updatedAt, locale)}</span>
-      </div>
-    </button>
+    <div className="group/card relative">
+      <button
+        type="button"
+        onClick={onOpen}
+        className="w-full cursor-pointer rounded-xl border border-border bg-panel p-4 text-left transition-colors hover:border-border-strong"
+      >
+        <div className="mb-1.5 flex items-center gap-2 pr-6">
+          <Icon name="folder" size={14} />
+          <span className="font-mono text-[14px] font-semibold text-ink">{project.name}</span>
+        </div>
+        <div className="mb-3 line-clamp-2 min-h-[36px] text-[12.5px] leading-[1.5] text-ink2">
+          {instructionsPreview || (
+            <span className="italic text-ink3">{tr('projects.noInstructions')}</span>
+          )}
+        </div>
+        <div className="flex items-center border-t border-border pt-2.5 text-[11.5px] text-ink3">
+          <span className="ml-auto">{formatRelativeDay(project.updatedAt, locale)}</span>
+        </div>
+      </button>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          onTogglePin(project.id, !pinned)
+        }}
+        className={`absolute right-3 top-3 grid h-6 w-6 place-items-center rounded border-0 bg-transparent transition-colors hover:bg-fill-uncontained-hover ${
+          pinned ? 'text-ink' : 'text-ink3 opacity-0 group-hover/card:opacity-100'
+        }`}
+        title={tr(pinned ? 'common.unpin' : 'common.pin')}
+        aria-label={tr(pinned ? 'common.unpin' : 'common.pin')}
+        aria-pressed={pinned}
+      >
+        <Icon name="pin" size={14} />
+      </button>
+    </div>
   )
 }
 

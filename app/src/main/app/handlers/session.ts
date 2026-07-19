@@ -6,6 +6,7 @@ import {
   DeleteSessionRequestSchema,
   LoadSessionRequestSchema,
   RenameSessionRequestSchema,
+  SetSessionPinnedSchema,
   type LoadedMessage,
   type LoadedSession,
   type SessionListItem
@@ -105,6 +106,16 @@ export function registerSessionHandlers(ctx: RouterContext): void {
     { fallback: undefined },
     (req): void => {
       ctx.db.renameSession(req.sessionId, req.title, Date.now())
+    }
+  )
+
+  // 0129 고정 토글 — pinned=true 면 현재 시각(정렬 키 겸용), false 면 null.
+  handle(
+    CHANNELS.sessionSetPinned,
+    SetSessionPinnedSchema,
+    { fallback: undefined },
+    (req): void => {
+      ctx.db.setSessionPinned(req.sessionId, req.pinned ? Date.now() : null)
     }
   )
 }

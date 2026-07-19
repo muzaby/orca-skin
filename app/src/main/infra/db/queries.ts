@@ -74,6 +74,9 @@ export class DbQueries {
   // updateSessionTitleStmt 는 첫 init 시점 채우기 용도 (WHERE title IS NULL).
   private readonly renameSessionStmt: Database.Statement
   private readonly deleteSessionStmt: Database.Statement
+  // 0129 고정(pin) — pinned_at 을 시각/NULL 로 토글. 시각값이 정렬 키를 겸한다.
+  private readonly setSessionPinnedStmt: Database.Statement
+  private readonly setProjectPinnedStmt: Database.Statement
   private readonly listProjectsStmt: Database.Statement
   private readonly getProjectStmt: Database.Statement
   private readonly insertProjectStmt: Database.Statement
@@ -102,7 +105,7 @@ export class DbQueries {
       ON CONFLICT(id) DO NOTHING
     `)
     this.listSessionsStmt = db.prepare(`
-      SELECT id, backend, title, updated_at, last_message_preview, project_id, title_source, provider_key, cwd
+      SELECT id, backend, title, updated_at, last_message_preview, project_id, title_source, provider_key, cwd, pinned_at
       FROM sessions
       ORDER BY updated_at DESC
       LIMIT @limit
@@ -345,13 +348,19 @@ export class DbQueries {
       WHERE id = @id
     `)
     this.deleteSessionStmt = db.prepare(`DELETE FROM sessions WHERE id = @id`)
+    this.setSessionPinnedStmt = db.prepare(`
+      UPDATE sessions SET pinned_at = @pinnedAt WHERE id = @id
+    `)
+    this.setProjectPinnedStmt = db.prepare(`
+      UPDATE projects SET pinned_at = @pinnedAt WHERE id = @id
+    `)
     this.listProjectsStmt = db.prepare(`
-      SELECT id, name, instructions, created_at, updated_at
+      SELECT id, name, instructions, created_at, updated_at, pinned_at
       FROM projects
       ORDER BY updated_at DESC
     `)
     this.getProjectStmt = db.prepare(`
-      SELECT id, name, instructions, created_at, updated_at
+      SELECT id, name, instructions, created_at, updated_at, pinned_at
       FROM projects
       WHERE id = @id
     `)
@@ -369,7 +378,7 @@ export class DbQueries {
     `)
     this.deleteProjectStmt = db.prepare(`DELETE FROM projects WHERE id = @id`)
     this.listSessionsByProjectStmt = db.prepare(`
-      SELECT id, backend, title, updated_at, last_message_preview, project_id, title_source, provider_key, cwd
+      SELECT id, backend, title, updated_at, last_message_preview, project_id, title_source, provider_key, cwd, pinned_at
       FROM sessions
       WHERE project_id = @projectId
       ORDER BY updated_at DESC
@@ -730,6 +739,15 @@ export class DbQueries {
 
   deleteSession(id: string): void {
     this.deleteSessionStmt.run({ id })
+  }
+
+  // 0129 고정 토글 — pinnedAt=시각(고정) 또는 null(해제). 시각값이 정렬 키를 겸한다.
+  setSessionPinned(id: string, pinnedAt: number | null): void {
+    this.setSessionPinnedStmt.run({ id, pinnedAt })
+  }
+
+  setProjectPinned(id: string, pinnedAt: number | null): void {
+    this.setProjectPinnedStmt.run({ id, pinnedAt })
   }
 
   listProjects(): ProjectRow[] {

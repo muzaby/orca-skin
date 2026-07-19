@@ -14,6 +14,10 @@ export const en: typeof ko = {
     delete: 'Delete',
     edit: 'Edit',
     rename: 'Rename',
+    pin: 'Pin',
+    unpin: 'Unpin',
+    expand: 'Expand',
+    collapse: 'Collapse',
     more: 'More',
     copied: 'Copied',
     copy: 'Copy',
@@ -657,6 +661,7 @@ export const en: typeof ko = {
       skills: 'Skills & MCP'
     },
     recents: 'Recents',
+    pinned: 'Pinned',
     resizeAria: 'Resize sidebar'
   },
   userMenu: {

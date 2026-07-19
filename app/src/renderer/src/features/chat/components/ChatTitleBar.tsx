@@ -37,6 +37,9 @@ interface ChatTitleBarProps {
   onOpenProject?: (projectId: string) => void
   onDeleteSession?: (sessionId: string) => void
   onRenameSession?: (sessionId: string, title: string) => void
+  // 0129 고정 — 현재 세션 고정 상태 + 토글. 상단 컨트롤 아이콘 + kebab 메뉴에 배선.
+  sessionPinned?: boolean
+  onTogglePinSession?: (sessionId: string, pinned: boolean) => void
 }
 
 export const ChatTitleBar = memo(function ChatTitleBar({
@@ -44,7 +47,9 @@ export const ChatTitleBar = memo(function ChatTitleBar({
   projectName,
   onOpenProject,
   onDeleteSession,
-  onRenameSession
+  onRenameSession,
+  sessionPinned = false,
+  onTogglePinSession
 }: ChatTitleBarProps): React.JSX.Element {
   const { tr } = useI18n()
   const title = useChatSession(selectTitle) || tr('common.newChat')
@@ -61,6 +66,11 @@ export const ChatTitleBar = memo(function ChatTitleBar({
   const anchorRef = useRef<HTMLButtonElement>(null)
   const canRenameSession = sessionId != null && onRenameSession != null
   const canDeleteSession = sessionId != null && onDeleteSession != null
+  const canPinSession = sessionId != null && onTogglePinSession != null
+
+  const togglePin = useCallback((): void => {
+    if (sessionId && onTogglePinSession) onTogglePinSession(sessionId, !sessionPinned)
+  }, [sessionId, onTogglePinSession, sessionPinned])
 
   // 인라인 편집 커밋 — 빈 값/기존 제목과 동일하면 무시. onRenameSession 이 chat store 와
   // sessions store 를 함께 갱신하므로 헤더와 사이드바 '최근 대화' 라벨이 동시에 반영된다.
@@ -118,7 +128,8 @@ export const ChatTitleBar = memo(function ChatTitleBar({
             onCommit={commitRename}
             onCancel={() => setRenaming(false)}
             ariaLabel={tr('chat.titleBar.renameAria')}
-            className="min-w-0 flex-1 rounded-r4 border border-border-strong bg-panel px-1.5 py-0.5 text-[13px] font-medium text-ink outline-none"
+            autoSize
+            className="w-auto min-w-[3ch] max-w-full [field-sizing:content] rounded-r4 border border-border-strong bg-panel px-1.5 py-0.5 text-[13px] font-medium text-ink outline-none"
           />
         ) : (
           <div className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-medium text-ink">
@@ -128,6 +139,18 @@ export const ChatTitleBar = memo(function ChatTitleBar({
         <CwdButton cwd={cwd} sessionStarted className="shrink-0" />
       </div>
       <div className="ml-auto flex gap-1">
+        {canPinSession && (
+          <Button
+            iconOnly
+            leadingIcon="pin"
+            size="small"
+            pressed={sessionPinned}
+            onClick={togglePin}
+            title={tr(sessionPinned ? 'common.unpin' : 'common.pin')}
+            aria-label={tr(sessionPinned ? 'common.unpin' : 'common.pin')}
+            aria-pressed={sessionPinned}
+          />
+        )}
         <Button
           iconOnly
           leadingIcon={copied ? 'check' : 'copy'}
@@ -176,6 +199,17 @@ export const ChatTitleBar = memo(function ChatTitleBar({
             )
           })}
           <div className="my-1 h-px bg-border" />
+          <MenuItem
+            icon="pin"
+            iconSize={13}
+            onClick={() => {
+              setOpen(false)
+              togglePin()
+            }}
+            disabled={!canPinSession}
+          >
+            {tr(sessionPinned ? 'common.unpin' : 'common.pin')}
+          </MenuItem>
           <MenuItem
             icon="edit"
             iconSize={13}

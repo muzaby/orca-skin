@@ -1,6 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { chatActions, useChatSession } from '../features/chat'
-import { sessionsActions } from '../features/sessions'
+import { sessionsActions, useSessionsState } from '../features/sessions'
 
 interface SessionActionsOptions {
   // 삭제 시 chat store 에 넘길 fallback projectId(프로젝트 랜딩에서만 지정).
@@ -13,6 +13,9 @@ interface SessionActions {
   onOpenProject: (projectId: string) => void
   onDeleteSession: (sessionId: string) => void
   onRenameSession: (sessionId: string, title: string) => void
+  // 0129 고정 — 현재(활성) 세션의 고정 상태 + 토글. ChatTitleBar 상단 컨트롤/메뉴가 소비.
+  sessionPinned: boolean
+  onTogglePinSession: (sessionId: string, pinned: boolean) => void
 }
 
 // 세션 삭제/이름변경의 2-스토어(chat + sessions) 동기화와 삭제 후 라우팅을 한 곳에 모은다.
@@ -24,6 +27,11 @@ export function useSessionActions({
 }: SessionActionsOptions): SessionActions {
   const navigate = useNavigate()
   const activeSessionId = useChatSession((s) => s.sessionId)
+  // 활성 세션의 고정 상태 — sessions 목록(SSOT)에서 파생. 토글 후 store refresh 로 갱신.
+  const sessionPinned = useSessionsState(
+    (s) =>
+      activeSessionId != null && s.list.some((x) => x.id === activeSessionId && x.pinnedAt != null)
+  )
 
   return {
     onOpenProject: (projectId) => navigate(`/projects/${projectId}`),
@@ -36,6 +44,10 @@ export function useSessionActions({
     onRenameSession: (id, title) => {
       void chatActions.renameSession(id, title)
       void sessionsActions.rename(id, title)
+    },
+    sessionPinned,
+    onTogglePinSession: (id, pinned) => {
+      void sessionsActions.setPinned(id, pinned)
     }
   }
 }

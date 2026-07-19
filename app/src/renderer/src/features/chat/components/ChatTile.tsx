@@ -23,6 +23,8 @@ interface ChatTileProps {
   onOpenProject?: (projectId: string) => void
   onDeleteSession?: (sessionId: string) => void
   onRenameSession?: (sessionId: string, title: string) => void
+  sessionPinned?: boolean
+  onTogglePinSession?: (sessionId: string, pinned: boolean) => void
 }
 
 // 채팅 타일 셸 — 레이아웃 조립(타이틀바·transcript·컴포저·우측 계획 타일 도킹)과
@@ -39,7 +41,9 @@ export function ChatTile({
   projectName,
   onOpenProject,
   onDeleteSession,
-  onRenameSession
+  onRenameSession,
+  sessionPinned,
+  onTogglePinSession
 }: ChatTileProps): React.JSX.Element {
   const messages = useChatSession((s) => s.messages)
   const sessionId = useChatSession((s) => s.sessionId)
@@ -83,6 +87,8 @@ export function ChatTile({
             onOpenProject={onOpenProject}
             onDeleteSession={onDeleteSession}
             onRenameSession={onRenameSession}
+            sessionPinned={sessionPinned}
+            onTogglePinSession={onTogglePinSession}
           />
 
           {/* 0064 continuity — fork/handoff 파생 세션의 출처 안내(원본 링크). 비파생이면 null. */}
