@@ -157,4 +157,4 @@
 | 실행 명령 | `npm run lint` / `npm run typecheck` / `./node_modules/.bin/vitest run`(+`npm rebuild better-sqlite3` Node ABI 소스 리빌드) / `node --test scripts/*.test.mjs` |
 | 게이트 결과 | lint 에러 0(warning 1 = 기존 react-compiler 비호환 라이브러리) / typecheck 3분할 ✅ / vitest **1032/1032**(`chat-turn.continuity` 1파일 로드 실패 = electron 바이너리 egress 베이스라인, 0125/0126 동일) / scripts 25/25 |
 | 블로커 / 역질문 | 없음 |
-| 대상 커밋 | (구현 커밋 hash — 검증 턴에서 기입) |
+| 대상 커밋 | `8aaa0c8` |
