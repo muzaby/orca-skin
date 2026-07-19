@@ -1,5 +1,6 @@
 import type { NormalizedEvent } from '../../../shared/ipc'
 import type { ClaudePermissionMode } from '../../../shared/permission-mode'
+import type { ResolvedProviderSettings } from '../../adapters/provider-config'
 import type { TurnRequest } from '../../adapters/turn'
 import type { LiveTurn } from '../../adapters/types'
 import type { ManagedRuntime, RuntimeSessionAdapter } from '../../contracts/ports'
@@ -96,6 +97,10 @@ export class SessionRuntime implements ManagedRuntime {
     requestApproval?: TurnRequest['requestApproval']
     takeSteerFlush?: TurnRequest['takeSteerFlush']
   } = {}
+  // 0125: 채널 spawn 시 어댑터에 주입된 providerSettings 의 불투명 기록 — 내용 해석·비교는
+  // 호출자(chat-turn + features/providers 판정) 소관이고 여기선 기록/해제만 한다(0016 중립).
+  // spawn 성공 시 갱신, teardown/채널 사망 시 해제 — channelAlive 인 동안만 유효.
+  private spawnedSettings: ResolvedProviderSettings | undefined
 
   constructor(
     private readonly adapter: RuntimeSessionAdapter,
@@ -110,6 +115,12 @@ export class SessionRuntime implements ManagedRuntime {
   // 채널(장수명 query) 생존 여부 — chat-turn 이 carryover(채널 사망 시에만) 판정에 읽는다.
   get channelAlive(): boolean {
     return this.pumpRunning && this.live != null
+  }
+
+  // 0125: 살아있는 채널이 스폰될 때 주입된 providerSettings — chat-turn 이 이번 턴 해석본과
+  // 내용 비교(providerSettingsChangedSinceSpawn)해 respawn 을 판정한다.
+  get spawnedProviderSettings(): ResolvedProviderSettings | undefined {
+    return this.spawnedSettings
   }
 
   get events(): AsyncIterable<NormalizedEvent> {
@@ -184,6 +195,7 @@ export class SessionRuntime implements ManagedRuntime {
     }
     log.info('engine.spawn.completed', { provider: this.adapter.id })
     this.live = spawned
+    this.spawnedSettings = req.providerSettings
     if (spawned.pushTurn && this.closePolicy === 'persistent') {
       const frame = this.openFrame()
       this.startPump(spawned)
@@ -303,6 +315,7 @@ export class SessionRuntime implements ManagedRuntime {
     }
     this.live?.close()
     this.live = null
+    this.spawnedSettings = undefined
     getLogger()
       .child('engine')
       .info('engine.channel.teardown', { provider: this.adapter.id, reason: 'stream-ended' })
@@ -328,6 +341,7 @@ export class SessionRuntime implements ManagedRuntime {
     this.pumpRunning = false
     this.live?.close()
     this.live = null
+    this.spawnedSettings = undefined
   }
 
   // 어댑터에 넘기는 요청 — 신호는 채널 신호로 치환(턴 신호와 분리), 콜백은 delegate 래퍼로 치환.

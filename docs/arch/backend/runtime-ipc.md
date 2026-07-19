@@ -45,6 +45,7 @@
 - **프레임 밖 이벤트**(CLI 가 자기 큐 잔존분을 자동 픽업해 시작한 턴): `unframed` 버퍼 + `onUnframedEvent` 콜백으로 노출 → 자동 연속 프레임 오픈(배선은 `app/chat-turn.ts`).
 - **채널 사망 시**(서브프로세스 종료·스트림 에러): 다음 `send` 는 spawn+resume 콜드 패스. 이월 잔여(미소비 flushed 재주입 + held)는 `takeForRespawn` 이 프렐류드 배치로 앞세운다.
 - **provider 경계 respawn(0118)**: env/providerSettings 는 spawn-바운드(`pushTurn` 미전달)이므로, 유휴 세션 send 에서 providerKey 가 바뀌면(`crossesProviderBoundary`, `features/providers`) 호출자(`app/chat-turn.ts`)가 `teardownChannel()` 로 채널을 내려 그 턴을 spawn+resume 콜드 패스로 보낸다 — 위 이월 경로가 그대로 동작.
+- **settings 변경 respawn(0125)**: 같은 provider 라도 `settings.json` 이 제자리 수정(토큰 로테이션·base URL 교체)되면 spawn 시점 주입본(`SessionRuntime.spawnedProviderSettings` 기록)과 이번 턴 해석본의 내용 비교(`providerSettingsChangedSinceSpawn`, `features/providers`)로 동일하게 respawn 한다 — 미변경 상시 경로는 resolve 캐시 동일 참조 fast-path.
 
 ### 1.4 세션별 pending message queue (`features/chat/pending-message-queue.ts`)
 

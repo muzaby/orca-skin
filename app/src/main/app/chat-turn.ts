@@ -27,6 +27,7 @@ import {
   expandEnvRecord,
   mergeEnvLayers,
   modelNameForFamily,
+  providerSettingsChangedSinceSpawn,
   resolveTitleModel,
   type ResolvedProviderSettings
 } from '../features/providers/provider-settings'
@@ -480,10 +481,16 @@ export function registerChatHandlers(deps: ChatDeps): void {
     // 0118: provider 경계 respawn — pushTurn 은 env/providerSettings 를 재주입하지 않으므로
     // 경계를 넘으면 살아있는 채널을 내려 이번 턴을 spawn(resume) 콜드 패스로 보낸다.
     // channelAlive=false 가 되어 아래 preludes 의 takeForRespawn 이월이 자연 동작한다.
+    // 0125: 같은 provider 라도 settings.json 이 제자리 수정(토큰 로테이션·base URL 교체)돼
+    // spawn 시점 주입본과 내용이 달라졌으면 동일하게 respawn 한다.
     if (
       parsed.data.sessionId &&
-      crossesProviderBoundary(sessionMeta?.provider_key, resolved.providerKey) &&
-      runtime.channelAlive
+      runtime.channelAlive &&
+      (crossesProviderBoundary(sessionMeta?.provider_key, resolved.providerKey) ||
+        providerSettingsChangedSinceSpawn(
+          runtime.spawnedProviderSettings,
+          resolved.providerSettings
+        ))
     ) {
       runtime.teardownChannel()
     }

@@ -337,6 +337,72 @@ describe('SessionRuntime provider 경계 respawn(0118)', () => {
   })
 })
 
+// 0125 — spawn 시점 providerSettings 기록 수명: 콜드 스폰에서 기록, pushTurn 재사용은 불변,
+// teardown/채널 사망에서 해제. 내용 비교 판정 자체는 features/providers(순수 함수) 소관.
+describe('SessionRuntime spawn settings 기록(0125)', () => {
+  const settingsOf = (token: string): NonNullable<TurnRequest['providerSettings']> => ({
+    providerKey: 'claude-gateway',
+    provider: 'gateway',
+    settings: { env: { ANTHROPIC_AUTH_TOKEN: token } }
+  })
+
+  it('콜드 스폰이 주입본을 기록하고, pushTurn 후속 턴은 기록을 바꾸지 않는다', async () => {
+    const ch = channelLive()
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+    const spawned = settingsOf('old')
+    const f1 = collect(runtime.send({ ...req(), providerSettings: spawned }))
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await f1
+    expect(runtime.spawnedProviderSettings).toBe(spawned)
+
+    // 후속 턴이 새 해석본을 실어도 pushTurn 경로는 spawn-바운드 기록을 갱신하지 않는다.
+    const f2 = collect(
+      runtime.send({ ...req(), text: 'next', providerSettings: settingsOf('rotated') })
+    )
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await f2
+    expect(runtime.spawnedProviderSettings).toBe(spawned)
+  })
+
+  it('teardownChannel() 은 기록을 해제하고, respawn 이 새 주입본을 기록한다', async () => {
+    const ch = channelLive()
+    const second = channelLive()
+    let spawns = 0
+    const runtime = new SessionRuntime({
+      id: 'claude',
+      complete: async () => '',
+      sendMessage: () => {
+        spawns += 1
+        return spawns === 1 ? ch.liveTurn : second.liveTurn
+      },
+      classifyError: (err) => makeClassifiedError('stream_error', String(err), { retryable: true })
+    })
+    const f1 = collect(runtime.send({ ...req(), providerSettings: settingsOf('old') }))
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await f1
+
+    runtime.teardownChannel()
+    expect(runtime.spawnedProviderSettings).toBeUndefined()
+
+    const rotated = settingsOf('rotated')
+    const f2 = collect(runtime.send({ ...req(), providerSettings: rotated }))
+    second.emit({ type: 'telemetry', sessionId: 's1' })
+    await f2
+    expect(spawns).toBe(2)
+    expect(runtime.spawnedProviderSettings).toBe(rotated)
+  })
+
+  it('채널 스트림 사망(finishPump)도 기록을 해제한다', async () => {
+    const ch = channelLive()
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+    const f1 = collect(runtime.send({ ...req(), providerSettings: settingsOf('old') }))
+    ch.liveTurn.close()
+    await f1
+    expect(runtime.channelAlive).toBe(false)
+    expect(runtime.spawnedProviderSettings).toBeUndefined()
+  })
+})
+
 // 인수 2·6(c) — 모드-불변 소비자 계약. Persistent 구현(P1) 없이 검증하기 위해,
 // 동일 send() 표면에 close 정책만 주입 가능한 FakeSessionRuntime 으로 "소비자가 close 정책에
 // 무지함"을 본다 (보강 4). OneShot=terminal 관측 시 self-close, fake-persistent=수명 유지.

@@ -35,7 +35,7 @@ export {
   defaultProvider
 } from './provider-registry'
 export { expandEnvRecord, mergeEnvLayers } from './env-merge'
-export { crossesProviderBoundary } from './provider-boundary'
+export { crossesProviderBoundary, providerSettingsChangedSinceSpawn } from './provider-boundary'
 
 // 계약 타입(ProviderSettings·ResolvedProviderSettings·ProviderSettingsLoader)은 어댑터 포트
 // (`adapters/provider-config.ts`)로 이관됐다 — 어댑터가 도메인/feature 를 import 하지 않도록.
