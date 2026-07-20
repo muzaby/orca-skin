@@ -1,5 +1,6 @@
 import { memo, useRef, useState } from 'react'
 import { Icon, type IconName } from '../../../shared/ui/Icon'
+import { KebabButton } from '../../../shared/ui/KebabButton'
 import { MenuItem } from '../../../shared/ui/MenuItem'
 import { Popover } from '../../../shared/ui/Popover'
 import { RenameInput } from '../../../shared/ui/RenameInput'
@@ -119,23 +120,16 @@ export const SessionRow = memo(function SessionRow({
       </span>
       {hasMenu && (
         <>
-          <button
+          <KebabButton
             ref={kebabRef}
-            type="button"
-            onClick={(e) => {
+            open={menuOpen}
+            onToggle={(e) => {
               e.stopPropagation()
               setMenuOpen((v) => !v)
             }}
-            className={`h-5 w-5 cursor-pointer place-items-center rounded border-0 bg-transparent text-ink3 hover:text-ink ${
-              menuOpen ? 'grid' : 'hidden group-hover/session:grid'
-            }`}
-            title={tr('common.more')}
-            aria-label={tr('sessions.menuAria')}
-            aria-haspopup="menu"
-            aria-expanded={menuOpen}
-          >
-            <Icon name="kebab" size={14} />
-          </button>
+            revealClass="group-hover/session:grid"
+            ariaLabel={tr('sessions.menuAria')}
+          />
           <Popover open={menuOpen} anchorRef={kebabRef} onClose={() => setMenuOpen(false)}>
             <div role="menu" className="flex w-[140px] flex-col py-1">
               {onTogglePin != null && (
