@@ -86,6 +86,7 @@ new BrowserWindow({
 - 마크다운 렌더링: react-markdown 기본값 (raw HTML 비활성). 이미지는 data-uri 만 허용.
 - 외부 링크: `shell.openExternal` 경유, 절대 `webContents` 에서 직접 열지 않음.
 - `will-navigate` / `setWindowOpenHandler` 에서 외부 URL 모두 거부.
+- **의도적 예외 — SSO 인증 창(0130)**: `features/sso/auth-window.ts` 의 `openAuthWindow` 는 SSO 모듈(컴파일 타임 회사 코드)이 지정한 URL 을 **전용 격리 창**에 로드한다. 앱 본창 정책은 불변이며, 이 창은 (a) `session.fromPartition('sso')` 로 앱 세션과 쿠키 격리, (b) preload 없음 + `contextIsolation`/`sandbox` 강제, (c) `isDone(url)` 매칭 또는 타임아웃 시 즉시 destroy 로 경계를 좁힌다.
 - DevTools 자동 오픈: dev 빌드 (`process.env.NODE_ENV !== 'production'`) 한정.
 
 ### 1.6 CSP
@@ -100,7 +101,7 @@ font-src 'self' https://fonts.gstatic.com
 
 ### 1.7 로그인 게이트 · 배포/업데이트 신뢰 (0072 / 0086 / 0087~0089)
 
-- **SSO 로그인 게이트**: dev 빌드는 앱 시작 시 로그인 게이트(`features/login`)를 거친다. 현재 SSO 는 항상-실패 스텁이며, 디버그 패널의 `ssoBypass` 설정 토글(persistence.md §1.2)로 우회한다. **배포 빌드는 게이트 자체를 스킵**한다(0089 — `import.meta.env.DEV` 인라인 가드, prod 번들에 로그인 코드 미포함). 실제 SSO 연동은 Future.
+- **SSO 로그인 게이트 (0072 → 0130 실전화)**: dev 빌드는 앱 시작 시 로그인 게이트(`features/login`)를 거치며 디버그 패널의 `ssoBypass` 설정 토글(persistence.md §1.2)로 우회한다. **배포 빌드의 게이트는 SSO 모듈 등록 여부(`SsoState.required`)로 결정**된다 — 모듈 미등록(기본 배포)이면 현행처럼 게이트 없이 진입하고, 폐쇄망 배포가 `features/sso/modules/` 에 회사 모듈을 opt-in 등록하면 prod 게이트가 활성화된다(계약 `contracts/sso.ts`, 가이드 `docs/guides/closed-network-extensions.md`). prod 게이트에 bypass 백도어는 없다(디버그 bypass 는 DEV 전용). **이 게이트는 UX 게이트이지 보안 경계가 아니다** — 인증 전에도 main IPC 는 열려 있으며, 실제 접근 통제는 사내 네트워크/서비스 인증이 담당한다. SSO 획득 비밀은 SecretStore(safeStorage) 네임스페이스(`sso:<module>:` 전용 / `provider:<key>:` usage 공유)로만 저장하고, `setProviderEnv` 경로는 provider settings.json env 에 리터럴 기록(아래 "Agent provider auth token" 의 사용자 수기 env 와 동일 노출 등급)이다.
 - **업데이트/배포 신뢰**: 릴리스는 **unsigned NSIS**(코드 서명 미도입 — OQ, SmartScreen 경고 수용) + GitHub Releases draft(수동 Publish 게이트). electron-updater 는 `latest.yml` sha512 로 산출물 무결성을 검증하고, 릴리스 파이프라인의 `validate-dist.mjs` 가 게시 전 sha512 를 재계산 검증한다(0087). 자동 다운로드는 하지 않는다(`autoDownload=false`, runtime-ipc.md §3.1).
 
 ---

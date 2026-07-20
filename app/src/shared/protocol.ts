@@ -213,6 +213,11 @@ export const SetSessionPinnedSchema = z.object({
   pinned: z.boolean()
 })
 
+// SSO 로그인 (0130) — input 은 LoginView 필드 값(name 키). 값 상한은 폼 입력 보호선.
+export const SsoLoginRequestSchema = z.object({
+  input: z.record(z.string().max(64), z.string().max(4096)).default({})
+})
+
 // Project (Phase 3+) — 시스템 프롬프트 길이 8000 은 Claude Agent SDK 가
 // systemPrompt.append 에 허용하는 토큰 한도 대비 여유.
 export const CreateProjectSchema = z.object({
@@ -537,6 +542,9 @@ export type {
   Settings,
   SettingsPatch,
   NotifyShow,
+  SsoFieldSpec,
+  SsoIdentity,
+  SsoState,
   SkillInfo,
   AuthorSkillRequest,
   UploadSkillRequest,

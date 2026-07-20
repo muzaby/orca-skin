@@ -47,7 +47,8 @@ import {
   type UpdateState,
   type UpdateProgress,
   type UpdateCheckResult,
-  type UpdateInstallResult
+  type UpdateInstallResult,
+  type SsoState
 } from '../shared/ipc'
 import { LOG_IPC_PAYLOAD_MAX_BYTES, type LogInput, type SerializedError } from '../shared/logging'
 
@@ -245,6 +246,17 @@ const orca = {
       const listener = (_e: IpcRendererEvent, progress: UpdateProgress): void => handler(progress)
       ipcRenderer.on(CHANNELS.updateProgressEvent, listener)
       return () => ipcRenderer.off(CHANNELS.updateProgressEvent, listener)
+    }
+  },
+  // SSO 로그인 게이트 (0130) — 상태 조회/로그인 시도/상태 push 구독. update.onState 패턴 동형.
+  sso: {
+    status: (): Promise<SsoState> => ipcRenderer.invoke(CHANNELS.ssoStatus),
+    login: (input: Record<string, string>): Promise<SsoState> =>
+      ipcRenderer.invoke(CHANNELS.ssoLogin, { input }),
+    onState: (handler: (state: SsoState) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, state: SsoState): void => handler(state)
+      ipcRenderer.on(CHANNELS.ssoStateEvent, listener)
+      return () => ipcRenderer.off(CHANNELS.ssoStateEvent, listener)
     }
   },
   // renderer 로그 인제스트 (0123) — 제한된 4메서드만. ipcRenderer 원본·임의 채널은 미노출.

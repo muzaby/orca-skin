@@ -1,18 +1,24 @@
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../../../shared/ui/Button'
+import { MODAL_INPUT, MODAL_LABEL } from '../../../shared/ui/Modal'
 import { uiMessageText, useI18n } from '../../../shared/i18n'
 import { loginActions, useLoginStore } from '../store'
 import orca from '../assets/orca-login.webp'
 
-// 로그인 랜딩(이미지1 참고). 중앙 '로그인' 제목 자리를 오르카 이미지로 대체하고,
-// 아래 카드에는 검정 'SSO로 로그인' 버튼 1개만 둔다. SSO 는 항상 실패(store.attemptSso)
-// 이며, 실패 시 버튼 위에 빨간 메시지, 수행 중에는 버튼이 inflight(스피너+"로그인 중")로 바뀐다.
+// 로그인 랜딩(이미지1 참고). 중앙 '로그인' 제목 자리를 오르카 이미지로 대체하고, 아래 카드에
+// SSO 모듈이 선언한 입력 필드(store.fields — 0130 제네릭 렌더링) + 검정 'SSO로 로그인' 버튼을
+// 둔다. 실패 시 버튼 위에 빨간 메시지(모듈 원문 우선, 카탈로그 폴백), 수행 중에는 버튼이
+// inflight(스피너+"로그인 중")로 바뀐다.
 export function LoginView(): React.JSX.Element {
   const navigate = useNavigate()
   const { tr } = useI18n()
   const status = useLoginStore((s) => s.status)
   const errorMessage = useLoginStore((s) => s.errorMessage)
+  const fields = useLoginStore((s) => s.fields)
+  const [input, setInput] = useState<Record<string, string>>({})
   const inflight = status === 'inflight'
+  const submit = (): void => void loginActions.attemptSso(navigate, input)
 
   return (
     <div className="flex w-full max-w-[360px] flex-col items-center gap-7 px-6">
@@ -35,12 +41,39 @@ export function LoginView(): React.JSX.Element {
             {uiMessageText(tr, errorMessage)}
           </p>
         )}
+        {fields.length > 0 && (
+          <form
+            className="mb-4"
+            onSubmit={(e) => {
+              e.preventDefault()
+              if (!inflight) submit()
+            }}
+          >
+            {fields.map((field) => (
+              <label key={field.name} className="mb-3 block">
+                <div className={MODAL_LABEL}>{field.label}</div>
+                <input
+                  type={field.type}
+                  value={input[field.name] ?? ''}
+                  placeholder={field.placeholder}
+                  required={field.required}
+                  disabled={inflight}
+                  autoComplete={field.type === 'password' ? 'current-password' : 'username'}
+                  onChange={(e) => setInput((prev) => ({ ...prev, [field.name]: e.target.value }))}
+                  className={MODAL_INPUT}
+                />
+              </label>
+            ))}
+            {/* Enter 제출용 — 시각 버튼은 아래 공용 버튼 하나만 둔다. */}
+            <button type="submit" className="hidden" aria-hidden />
+          </form>
+        )}
         <Button
           variant="primary"
           size="large"
           className="h-12 w-full"
           busy={inflight}
-          onClick={() => void loginActions.attemptSso(navigate)}
+          onClick={submit}
         >
           {inflight ? (
             <span className="inline-flex items-center gap-2">

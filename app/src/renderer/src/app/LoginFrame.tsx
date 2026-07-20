@@ -12,9 +12,9 @@ const NO_DRAG_STYLE: CSSProperties = { WebkitAppRegion: 'no-drag' } as CSSProper
 
 // 로그인 게이트가 활성일 때 AppLayout 을 대체하는 풀-프레임 셸. 사이드바/일반 헤더 없이
 // 슬림 타이틀바(드래그 영역 + 햄버거 + WinControls)만 두고, 본문 중앙에 LoginView 를 둔다.
-// 디버그 패널도 함께 렌더 — 항상-실패 SSO 에 갇히지 않고 bypass 를 켤 수 있게 한다.
-// 로그인 게이트는 dev 전용(handoff 0089) — prod 에서 이 셸은 부트 실패 화면으로만 쓰이므로
-// LoginView(SSO 카드)를 DEV 가드로 감싸 prod 번들에서 정적 제거한다.
+// 게이트는 DEV(디버그 bypass 로 통과, 0089) + SSO 모듈이 등록된 prod 폐쇄망 배포(0130)에서
+// 활성 — LoginView 는 이제 prod 번들에도 포함된다(부트 실패 화면은 bootError 분기 그대로).
+// 디버그 패널(bypass 토글)은 DEV 전용 유지 — prod 게이트에 백도어를 만들지 않는다.
 export function LoginFrame({
   bootError = null,
   onRetryBoot
@@ -70,7 +70,7 @@ export function LoginFrame({
               )}
             </div>
           )}
-          {import.meta.env.DEV && <LoginView />}
+          {!bootError && <LoginView />}
         </div>
       </main>
       {import.meta.env.DEV && <DebugPanel ssoSection={<SsoDebugSection />} />}

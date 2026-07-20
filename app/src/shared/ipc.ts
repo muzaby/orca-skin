@@ -89,7 +89,12 @@ export const CHANNELS = {
   updateProgressEvent: 'orca:update:progressEvent',
   // renderer/preload → main 로그 인제스트 (0123). 유일한 one-way send 채널 —
   // fire-and-forget 이라 invoke 가 아니다. 공통 필드는 main 이 강제 부여.
-  logEmit: 'orca:log:emit'
+  logEmit: 'orca:log:emit',
+  // SSO 로그인 게이트 (0130) — 폐쇄망 배포의 회사별 로그인 모듈(features/sso/modules opt-in).
+  // status/login 핸들러는 부팅 초기에 등록된다(창이 start() 완료 전에 열리므로).
+  ssoStatus: 'orca:sso:status',
+  ssoLogin: 'orca:sso:login',
+  ssoStateEvent: 'orca:sso:stateEvent'
 } as const
 
 export type UpdateStateStatus =
@@ -127,6 +132,32 @@ export interface UpdateInstallResult {
   ok: boolean
   reason?: 'not-ready' | 'not-idle' | 'internal-error'
   message?: string
+}
+
+// SSO 로그인 게이트 (0130) — 회사별 SSO 모듈(main features/sso)의 renderer 노출 상태.
+// 모듈이 로그인 화면에 띄울 입력 필드 선언 — LoginView 가 제네릭 렌더링한다.
+export interface SsoFieldSpec {
+  name: string
+  label: string
+  type: 'text' | 'password'
+  placeholder?: string
+  required?: boolean
+}
+
+export interface SsoIdentity {
+  email?: string
+  displayName?: string
+}
+
+export interface SsoState {
+  // 모듈 등록 여부. false 면 prod 게이트 자동 통과(현행 동작 보존) — DEV 게이트는 별개.
+  required: boolean
+  authenticated: boolean
+  inflight: boolean
+  identity: SsoIdentity | null
+  // 모듈이 반환한 실패 메시지(회사 언어 재량). null 이면 renderer 카탈로그 폴백.
+  errorMessage: string | null
+  fields: SsoFieldSpec[]
 }
 
 export type BootReportStatus = 'ok' | 'warning' | 'failed'

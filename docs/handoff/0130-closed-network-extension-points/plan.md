@@ -127,31 +127,34 @@
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- (구현 턴에서 기입)
+- 동의 / 그대로 진행: 설계 전반(§설계) 그대로 구현. 단일 `login(ctx)` 훅·단일 모듈·조기 핸들러 등록·lazy env sink 모두 실코드와 정합.
+- 이견 없음. 미세 조정 2건은 아래 표.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| — | (구현 턴에서 기입) | | |
+| 1 | 모듈이 `signal` 을 무시하면 timeout 후에도 login Promise 가 영원히 pending — inflight 가 안 풀림 | ✅ `SsoService.run` 이 `Promise.race([fn(ctx), timedOut])` 로 타임아웃 시점에 `{ok:false}` 로 강제 수렴 (`service.ts`, timeout 테스트 고정) | 설계 §3 "timeout" 을 abort 신호 전파만으로 두면 미협조 모듈에 무력 |
+| 2 | usage `_example` 훅 예제에서 `ctx.secret.delete` 사용 — `ExternalUsageContext.secret` 은 get/set 만 (동결 계약이라 확장 안 함) | ✅ 예제를 `ctx.store` 만료 기록으로 교체 — 계약 무변경(AC8) 유지. `delete?` optional 추가는 additive 정책상 가능하나 소비자 없는 확장이라 보류 | rule of three |
+| 3 | `env-merge.ts`(기존 파일명)와 신규 `mergeProviderEnv`(engine-write.ts) 이름 근접 — 혼동 여지 | ⚠️ 보고만 — env-merge.ts 는 스폰 시 env 병합(읽기), mergeProviderEnv 는 settings.json 기록(쓰기)으로 책임이 다름. 개명은 비범위 | 파일 역할 상이 |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] shared 타입/채널/zod + 스키마 테스트
-- [ ] contracts/sso.ts (불변 헤더)
-- [ ] secret facade infra 승격 (usage re-export 무회귀)
-- [ ] features/sso 슬라이스 + _example + 테스트
-- [ ] handlers/sso + bootstrap 조기 등록 + context + preload
-- [ ] renderer 게이트 실전화 (스텁 삭제)
-- [ ] usage _example provider-hook + 두 modules/AGENTS.md
-- [ ] docs (guides/closed-network-extensions.md · IPC_CONTRACT · main AGENTS.md · security.md)
+- [x] shared 타입/채널/zod + 스키마 테스트
+- [x] contracts/sso.ts (불변 헤더)
+- [x] secret facade infra 승격 (usage re-export 무회귀)
+- [x] features/sso 슬라이스 + _example + 테스트
+- [x] handlers/sso + bootstrap 조기 등록 + context + preload
+- [x] renderer 게이트 실전화 (스텁 삭제)
+- [x] usage _example provider-hook + 두 modules/AGENTS.md
+- [x] docs (guides/closed-network-extensions.md · IPC_CONTRACT · main AGENTS.md · security.md)
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | (기입 대기) |
-| 실행 명령 | `npm run lint` / `typecheck` / 순수 vitest |
-| 게이트 결과 | (기입 대기) |
-| 블로커 / 역질문 | (기입 대기) |
-| 대상 커밋 | (기입 대기) |
+| 변경 파일 | 신규: `contracts/sso.ts` · `features/sso/**`(index/service/exec/auth-window/modules) · `app/handlers/sso.ts` · `infra/config/secret-facade.ts` · `providers/static/modules/_example/provider-hook.ts` · 두 `modules/AGENTS.md`(+stub) · `docs/guides/closed-network-extensions.md` / 수정: `shared/{ipc,protocol}.ts` · `app/{bootstrap,context}.ts` · `providers/engine-write.ts`(mergeProviderEnv) · `infra/ipc/send.ts` · preload · renderer login store/View/RootGate/LoginFrame · IPC_CONTRACT · main/app AGENTS.md · security.md / 삭제: `renderer features/login/sso.ts` |
+| 실행 명령 | `npm run lint` / `npm run typecheck` / `./node_modules/.bin/vitest run` / `node --test scripts/*.test.mjs` |
+| 게이트 결과 | lint ✅ 0 error(기존 warning 1 — react-hooks/incompatible-library, 무관) / typecheck ✅ 3분할 / vitest ✅ **1059/1059**(신규 sso 12 + 스키마 4; `chat-turn.continuity` 1파일 로드 실패 = electron egress 베이스라인) / scripts 25 ✅ |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | (구현 커밋 hash — 커밋 후 INDEX 기재) |

@@ -76,6 +76,28 @@ export function writeProviderSettings(
   return { key: providerKeyOf(engine, normalized), engine, provider: normalized }
 }
 
+// SSO 획득 토큰의 env 병합 기록(0130) — settings.json 이 없으면 생성, 있으면 env 블록만
+// 얕은 병합한다(그 외 키 보존). 값은 리터럴 기록(현행 "env 는 사용자가 직접 쓴다" 결정과 동일
+// 노출 등급). 캐시 무효화는 호출부(컴포지션 루트 thunk)가 수행한다.
+export function mergeProviderEnv(
+  engine: string,
+  provider: string,
+  env: Record<string, string>,
+  root: string = orcaConfigDir()
+): EngineWriteResult {
+  requireClaudeEngine(engine)
+  const normalized = normalizeProvider(provider)
+  const path = settingsPath(normalized, root)
+  const current = existsSync(path) ? readSettingsObject(readFileSync(path, 'utf8')) : {}
+  const currentEnv =
+    typeof current.env === 'object' && current.env !== null && !Array.isArray(current.env)
+      ? (current.env as Record<string, unknown>)
+      : {}
+  mkdirSync(providerDir(normalized, root), { recursive: true })
+  writeJsonAtomic(path, { ...current, env: { ...currentEnv, ...env } })
+  return { key: providerKeyOf(engine, normalized), engine, provider: normalized }
+}
+
 export function addProviderSettings(
   engine: typeof SUPPORTED_ENGINE,
   provider: string,

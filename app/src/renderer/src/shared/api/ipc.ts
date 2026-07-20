@@ -45,7 +45,8 @@ import type {
   UpdateState,
   UpdateProgress,
   UpdateCheckResult,
-  UpdateInstallResult
+  UpdateInstallResult,
+  SsoState
 } from '../../../../shared/ipc'
 
 // renderer 의 모든 IPC 호출 진입점. window.orca.* 의 얇은 typed 패스-스루로,
@@ -187,6 +188,12 @@ export const updateApi = {
     window.orca.update.onState(handler),
   onProgress: (handler: (progress: UpdateProgress) => void): (() => void) =>
     window.orca.update.onProgress(handler)
+}
+
+export const ssoApi = {
+  status: (): Promise<SsoState> => window.orca.sso.status(),
+  login: (input: Record<string, string>): Promise<SsoState> => window.orca.sso.login(input),
+  onState: (handler: (state: SsoState) => void): (() => void) => window.orca.sso.onState(handler)
 }
 
 export const debugApi = {
