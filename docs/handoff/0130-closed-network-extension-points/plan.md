@@ -157,4 +157,4 @@
 | 실행 명령 | `npm run lint` / `npm run typecheck` / `./node_modules/.bin/vitest run` / `node --test scripts/*.test.mjs` |
 | 게이트 결과 | lint ✅ 0 error(기존 warning 1 — react-hooks/incompatible-library, 무관) / typecheck ✅ 3분할 / vitest ✅ **1059/1059**(신규 sso 12 + 스키마 4; `chat-turn.continuity` 1파일 로드 실패 = electron egress 베이스라인) / scripts 25 ✅ |
 | 블로커 / 역질문 | 없음 |
-| 대상 커밋 | (구현 커밋 hash — 커밋 후 INDEX 기재) |
+| 대상 커밋 | `99c2a24` |
