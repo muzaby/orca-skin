@@ -1,5 +1,6 @@
 import { memo, useMemo, useRef, useState } from 'react'
 import { Icon } from '../../../shared/ui/Icon'
+import { KebabButton } from '../../../shared/ui/KebabButton'
 import { MenuItem } from '../../../shared/ui/MenuItem'
 import { Popover } from '../../../shared/ui/Popover'
 import { useI18n } from '../../../shared/i18n'
@@ -128,23 +129,16 @@ function PinnedProjectRow({
         <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
           {project.name}
         </span>
-        <button
+        <KebabButton
           ref={kebabRef}
-          type="button"
-          onClick={(e) => {
+          open={menuOpen}
+          onToggle={(e) => {
             e.stopPropagation()
             setMenuOpen((v) => !v)
           }}
-          className={`h-5 w-5 cursor-pointer place-items-center rounded border-0 bg-transparent text-ink3 hover:text-ink ${
-            menuOpen ? 'grid' : 'hidden group-hover/pinproj:grid'
-          }`}
-          title={tr('common.more')}
-          aria-label={tr('common.more')}
-          aria-haspopup="menu"
-          aria-expanded={menuOpen}
-        >
-          <Icon name="kebab" size={14} />
-        </button>
+          revealClass="group-hover/pinproj:grid"
+          ariaLabel={tr('common.more')}
+        />
         <Popover open={menuOpen} anchorRef={kebabRef} onClose={() => setMenuOpen(false)}>
           <div role="menu" className="flex w-[140px] flex-col py-1">
             <MenuItem
