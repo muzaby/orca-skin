@@ -9,6 +9,7 @@ import {
   type InstallStatus,
   type NormalizedEvent,
   type SessionTitleEvent,
+  type SsoState,
   type UpdateProgress,
   type UpdateState
 } from '../../../shared/ipc'
@@ -48,4 +49,8 @@ export function broadcastUpdateState(state: UpdateState): void {
 
 export function broadcastUpdateProgress(progress: UpdateProgress): void {
   broadcast(CHANNELS.updateProgressEvent, progress)
+}
+
+export function broadcastSsoState(state: SsoState): void {
+  broadcast(CHANNELS.ssoStateEvent, state)
 }

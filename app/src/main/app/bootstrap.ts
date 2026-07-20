@@ -53,6 +53,7 @@ import { registerProjectHandlers } from './handlers/project'
 import { registerMcpHandlers } from './handlers/mcp'
 import { registerEngineHandlers } from './handlers/engine'
 import { registerMiscHandlers } from './handlers/misc'
+import { registerSsoHandlers } from './handlers/sso'
 import { registerBootHandlers } from './handlers/boot'
 import { registerUpdateHandlers } from './handlers/update'
 import { registerLogHandlers } from './handlers/log'
@@ -72,7 +73,12 @@ import { HistoryWriter } from '../features/history/writer'
 import { materializeContinuityArrival } from '../features/orchestration/fork'
 import { TitleGenerator } from '../features/chat/title-generation'
 import { recoverSessionHistory } from '../features/chat/recovery'
-import { broadcastConcurrency, sendChatEvent } from '../infra/ipc/send'
+import { broadcastConcurrency, broadcastSsoState, sendChatEvent } from '../infra/ipc/send'
+import { SsoService } from '../features/sso/service'
+import { SSO_MODULE } from '../features/sso'
+import { ssoExec } from '../features/sso/exec'
+import { openSsoAuthWindow } from '../features/sso/auth-window'
+import { mergeProviderEnv } from '../features/providers/engine-write'
 import { resolveBuiltinSkillsDir } from './builtin-resources'
 
 export class Bootstrap {
@@ -168,6 +174,26 @@ export class Bootstrap {
   }
 
   async start(): Promise<void> {
+    // SSO 게이트는 창 오픈 직후 renderer 가 status 를 invoke 하므로(0130) 부팅 최상단에서
+    // 서비스 생성 + 핸들러 조기 등록. providerSettings 는 부팅 후반에 생기므로 env 기록은
+    // lazy sink 로 지연 바인딩한다(그 전 호출은 throw → SsoService 가 실패로 격리).
+    const secretStore = new SecretStore()
+    let providerEnvSink:
+      | ((adapter: string, provider: string, env: Record<string, string>) => void)
+      | null = null
+    const sso = new SsoService({
+      module: SSO_MODULE,
+      secretStore,
+      writeProviderEnv: (adapter, provider, env) => {
+        if (!providerEnvSink) throw new Error('provider settings not ready')
+        providerEnvSink(adapter, provider, env)
+      },
+      broadcastState: broadcastSsoState,
+      exec: ssoExec,
+      openAuthWindow: openSsoAuthWindow
+    })
+    registerSsoHandlers(sso)
+
     const db = this.bootReport.stepSync('db-init', { critical: true, label: 'DB 초기화' }, () =>
       initDb({
         onBackupStart: () => {
@@ -259,8 +285,12 @@ export class Bootstrap {
         for (const name of result.pruned) seedLog.debug('extensions.skill.pruned', { name })
       }
     )
-    const secretStore = new SecretStore()
     const providerSettings = new ProviderSettingsService({ claude: loadClaudeProviderSettings })
+    // SSO env 기록 sink 지연 바인딩(0130) — settings.json env 병합 + 해석 캐시 무효화.
+    providerEnvSink = (adapter, provider, env) => {
+      mergeProviderEnv(adapter, provider, env)
+      providerSettings.invalidateAll()
+    }
     this.bootReport.stepSync(
       'provider-scaffold',
       { critical: false, label: 'provider settings 스캐폴드' },
@@ -303,6 +333,11 @@ export class Bootstrap {
     await this.bootReport.step('skill-scan', { critical: false, label: '스킬 스캔' }, () =>
       this.refreshSkills()
     )
+    // SSO silent 복원(0130) — 모듈 미등록/restore 미구현이면 즉시 no-op. 실패는 조용히
+    // 미인증 유지(비-critical) — 로그인 화면에서 다시 시도한다.
+    await this.bootReport.step('sso-restore', { critical: false, label: 'SSO 세션 복원' }, () =>
+      sso.restore()
+    )
     this.bootReport.finish()
 
     const ctx: RouterContext = {
@@ -324,7 +359,8 @@ export class Bootstrap {
       mockAdapter: import.meta.env.DEV ? new MockAdapter(() => this.debugMock) : null,
       updates: this.createUpdateController(),
       scheduler,
-      externalUsage
+      externalUsage,
+      sso
     }
     this.register(ctx)
   }
