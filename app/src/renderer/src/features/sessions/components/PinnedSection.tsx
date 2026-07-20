@@ -20,6 +20,9 @@ export interface PinnedSectionProps {
   onTogglePinSession: (sessionId: string, pinned: boolean) => void
   onOpenProject: (projectId: string) => void
   onTogglePinProject: (projectId: string, pinned: boolean) => void
+  // 고정 대화 행의 kebab 에도 최근 대화와 동일한 이름변경/삭제를 노출한다.
+  onDeleteSession: (sessionId: string) => void
+  onRenameSession: (sessionId: string, title: string) => void
 }
 
 // 좌측 nav "고정됨" 섹션 — 고정 프로젝트(접기/펼치기 + 하위 대화)와 고정 대화를 나열한다.
@@ -31,7 +34,9 @@ export const PinnedSection = memo(function PinnedSection({
   onSelectSession,
   onTogglePinSession,
   onOpenProject,
-  onTogglePinProject
+  onTogglePinProject,
+  onDeleteSession,
+  onRenameSession
 }: PinnedSectionProps): React.JSX.Element | null {
   const { tr } = useI18n()
   const list = useSessionsState((s) => s.list)
@@ -65,9 +70,10 @@ export const PinnedSection = memo(function PinnedSection({
             session={s}
             isActive={s.id === currentSessionId}
             onSelect={onSelectSession}
+            onDelete={onDeleteSession}
+            onRename={onRenameSession}
             onTogglePin={onTogglePinSession}
             pinned
-            renameable={false}
             leadingIcon="chat"
           />
         ))}
@@ -112,13 +118,13 @@ function PinnedProjectRow({
             e.stopPropagation()
             setExpanded((v) => !v)
           }}
-          className="grid h-5 w-5 shrink-0 place-items-center rounded border-0 bg-transparent text-t5 hover:text-ink"
+          className="grid h-5 w-5 shrink-0 place-items-center rounded border-0 bg-transparent text-t7 hover:text-ink"
           aria-label={tr(expanded ? 'common.collapse' : 'common.expand')}
           aria-expanded={expanded}
         >
           <Icon name={expanded ? 'chevD' : 'chevR'} size={14} />
         </button>
-        <Icon name="folder" size={14} className="shrink-0 text-t5" />
+        <Icon name="folder" size={14} className="shrink-0" />
         <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
           {project.name}
         </span>

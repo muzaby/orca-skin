@@ -26,6 +26,8 @@ export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
         onTogglePinSession={handlers.handleTogglePinSession}
         onOpenProject={handlers.handleOpenProject}
         onTogglePinProject={handlers.handleTogglePinProject}
+        onDeleteSession={handlers.handleDeleteSession}
+        onRenameSession={handlers.handleRenameSession}
       />
     ),
     [
@@ -34,7 +36,9 @@ export function useSidebarSlots(handlers: SessionHandlers): SidebarSlots {
       handlers.handleSelectSession,
       handlers.handleTogglePinSession,
       handlers.handleOpenProject,
-      handlers.handleTogglePinProject
+      handlers.handleTogglePinProject,
+      handlers.handleDeleteSession,
+      handlers.handleRenameSession
     ]
   )
   const sessionsSlot = useMemo(
