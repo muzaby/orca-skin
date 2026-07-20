@@ -88,7 +88,7 @@ export const SessionRow = memo(function SessionRow({
         data-behavior="interactive renaming"
         data-session-id={session.id}
       >
-        <Icon name={leadingIcon} size={14} className="shrink-0 text-t5" />
+        <Icon name={leadingIcon} size={14} className="shrink-0" />
         <RenameInput
           initial={baseLabel}
           onCommit={commitRename}
@@ -113,7 +113,7 @@ export const SessionRow = memo(function SessionRow({
       data-session-id={session.id}
       title={label}
     >
-      <Icon name={leadingIcon} size={14} className="shrink-0 text-t5" />
+      <Icon name={leadingIcon} size={14} className="shrink-0" />
       <span className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap">
         {label}
       </span>

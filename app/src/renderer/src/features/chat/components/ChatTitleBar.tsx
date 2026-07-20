@@ -131,8 +131,17 @@ export const ChatTitleBar = memo(function ChatTitleBar({
             autoSize
             className="w-auto min-w-[3ch] max-w-full [field-sizing:content] rounded-r4 border border-border-strong bg-panel px-1.5 py-0.5 text-[13px] font-medium text-ink outline-none"
           />
+        ) : canRenameSession ? (
+          <button
+            type="button"
+            onClick={() => setRenaming(true)}
+            className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap rounded-r4 border-0 bg-transparent px-p5 py-1 text-[13px] font-medium text-ink transition-colors hover:bg-fill-uncontained-hover"
+            title={title}
+          >
+            {title}
+          </button>
         ) : (
-          <div className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap text-[13px] font-medium text-ink">
+          <div className="min-w-0 overflow-hidden text-ellipsis whitespace-nowrap px-p5 py-1 text-[13px] font-medium text-ink">
             {title}
           </div>
         )}
