@@ -462,7 +462,10 @@ export class ClaudeAdapter implements SessionAdapter {
       },
       // 라이브 control — 스트리밍 입력 모드라야 동작하는 SDK Query 메서드에 위임.
       setPermissionMode: (mode) => handle.setPermissionMode(mode),
-      interrupt: () => handle.interrupt(),
+      // SDK 0.3.2xx 부터 interrupt() 가 SDKControlInterruptResponse 를 반환 — 포트는 void 계약이라 폐기.
+      interrupt: async () => {
+        await handle.interrupt()
+      },
       // steer UX 수용 — 전달은 게이트 훅 flush(takeSteerFlush) 또는 다음 턴 carryover(D2)로.
       canSteer: true,
       setModel: (model) => handle.setModel(model),

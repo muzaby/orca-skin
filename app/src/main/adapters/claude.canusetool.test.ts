@@ -59,8 +59,8 @@ describe('makeCanUseTool — AskUserQuestion', () => {
     const requestApproval = vi.fn<ReqApproval>().mockResolvedValue({ behavior: 'deny' })
     const canUse = makeCanUseTool(requestApproval)
     const res = await canUse('AskUserQuestion', { questions: QUESTIONS }, ctx)
-    expect(res.behavior).toBe('deny')
-    if (res.behavior === 'deny') expect(res.message).toMatch(/건너뛰/)
+    expect(res?.behavior).toBe('deny')
+    if (res?.behavior === 'deny') expect(res.message).toMatch(/건너뛰/)
   })
 
   it('questions 누락 시 빈 배열로 위임', async () => {
@@ -106,8 +106,8 @@ describe('makeCanUseTool — ExitPlanMode', () => {
       .mockResolvedValue({ behavior: 'deny', message: '테스트도 추가해줘' })
     const canUse = makeCanUseTool(requestApproval)
     const res = await canUse('ExitPlanMode', { plan: 'x' }, ctx)
-    expect(res.behavior).toBe('deny')
-    if (res.behavior === 'deny') expect(res.message).toContain('테스트도 추가해줘')
+    expect(res?.behavior).toBe('deny')
+    if (res?.behavior === 'deny') expect(res.message).toContain('테스트도 추가해줘')
   })
 
   it('deny (message 없음) → reject 중단 메시지', async () => {
@@ -116,8 +116,8 @@ describe('makeCanUseTool — ExitPlanMode', () => {
       .mockResolvedValue({ behavior: 'deny', interrupt: true })
     const canUse = makeCanUseTool(requestApproval)
     const res = await canUse('ExitPlanMode', { plan: 'x' }, ctx)
-    expect(res.behavior).toBe('deny')
-    if (res.behavior === 'deny') expect(res.message).toMatch(/거부|중단/)
+    expect(res?.behavior).toBe('deny')
+    if (res?.behavior === 'deny') expect(res.message).toMatch(/거부|중단/)
   })
 
   it('plan 누락 시 빈 문자열로 위임', async () => {
@@ -169,8 +169,8 @@ describe('makeCanUseTool — 위험 도구 게이트(tool_approval)', () => {
     const requestApproval = vi.fn<ReqApproval>().mockResolvedValue({ behavior: 'deny' })
     const canUse = makeCanUseTool(requestApproval)
     const res = await canUse('Write', { file_path: '/tmp/x', content: 'y' }, ctx)
-    expect(res.behavior).toBe('deny')
-    if (res.behavior === 'deny') expect(res.message).toBeTruthy()
+    expect(res?.behavior).toBe('deny')
+    if (res?.behavior === 'deny') expect(res.message).toBeTruthy()
   })
 
   it('위험 도구 + deny + message → 사유 보존', async () => {
@@ -179,8 +179,8 @@ describe('makeCanUseTool — 위험 도구 게이트(tool_approval)', () => {
       .mockResolvedValue({ behavior: 'deny', message: '그 파일은 건드리지 마' })
     const canUse = makeCanUseTool(requestApproval)
     const res = await canUse('Edit', { file_path: '/etc/hosts' }, ctx)
-    expect(res.behavior).toBe('deny')
-    if (res.behavior === 'deny') expect(res.message).toBe('그 파일은 건드리지 마')
+    expect(res?.behavior).toBe('deny')
+    if (res?.behavior === 'deny') expect(res.message).toBe('그 파일은 건드리지 마')
   })
 
   it('안전 도구(Read)는 requestApproval 미호출 + 즉시 allow passthrough', async () => {
@@ -231,8 +231,8 @@ describe('makeCanUseTool — 서브에이전트 백그라운드화 + 재호출 �
       isSubagentBlocked: (st) => st === 'Explore'
     })
     const res = await canUse('Agent', { subagent_type: 'Explore' }, ctx)
-    expect(res.behavior).toBe('deny')
-    if (res.behavior === 'deny') expect(res.message).toMatch(/취소|다시 호출/)
+    expect(res?.behavior).toBe('deny')
+    if (res?.behavior === 'deny') expect(res.message).toMatch(/취소|다시 호출/)
   })
 
   it('차단되지 않은 타입은 정상 주입', async () => {
