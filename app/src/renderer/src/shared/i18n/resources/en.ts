@@ -705,6 +705,11 @@ export const en: typeof ko = {
       fontMono: 'Mono (JetBrains Mono)',
       language: 'Language',
       languageDesc: 'Display language for the app UI and date formatting',
+      density: 'Density',
+      densityDesc: 'App-wide spacing and text size density',
+      densityCompact: 'Compact',
+      densityNormal: 'Normal',
+      densityComfortable: 'Comfortable',
       notifications: 'Notifications',
       notifyComplete: 'Response complete',
       notifyCompleteDesc:
