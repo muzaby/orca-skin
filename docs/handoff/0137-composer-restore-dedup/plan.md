@@ -126,7 +126,7 @@
 | 실행 명령 | `npm run lint` / `npm run typecheck` / `./node_modules/.bin/vitest run …/chatStore.test.ts` |
 | 게이트 결과 | lint ✅ 0 error(1 pre-existing warning 무관) / typecheck ✅ 3분할 / vitest ✅ 42/42 |
 | 블로커 / 역질문 | 없음. (electron ABI egress 차단으로 `npm test` 전체·dev 실기는 CI/사람 몫 — 알려진 베이스라인) |
-| 대상 커밋 | 커밋 시 기재 |
+| 대상 커밋 | `4bfc389` |
 
 ---
 
