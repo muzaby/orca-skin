@@ -11,18 +11,27 @@ import { writeJsonAtomic } from './json-file'
 
 const DisabledUpdateConfigSchema = z.object({
   enabled: z.literal(false),
-  provider: z.enum(['github', 'generic']).optional(),
+  provider: z.enum(['github', 'generic', 's3']).optional(),
   owner: z.string().min(1).optional(),
   repo: z.string().min(1).optional(),
+  host: z.string().min(1).optional(),
+  protocol: z.enum(['https', 'http']).optional(),
   url: z.string().url().optional(),
+  bucket: z.string().min(1).optional(),
+  region: z.string().min(1).optional(),
+  endpoint: z.string().url().optional(),
+  path: z.string().min(1).optional(),
   channel: z.string().min(1).optional()
 })
 
+// GitHub (Releases). 폐쇄망은 GitHub Enterprise → host/protocol override 로 base URL 을 바꾼다.
 const GithubUpdateConfigSchema = z.object({
   enabled: z.boolean().optional(),
   provider: z.literal('github'),
   owner: z.string().min(1),
   repo: z.string().min(1),
+  host: z.string().min(1).optional(),
+  protocol: z.enum(['https', 'http']).optional(),
   channel: z.string().min(1).optional()
 })
 
@@ -33,10 +42,23 @@ const GenericUpdateConfigSchema = z.object({
   channel: z.string().min(1).optional()
 })
 
+// 오브젝트 스토리지(AWS S3 / MinIO 등 S3-호환). endpoint 를 주면 electron-updater 가
+// `${endpoint}/${bucket}` 를 generic base URL 로 삼아 사내 MinIO 를 가리킨다(미지정 시 AWS S3).
+const S3UpdateConfigSchema = z.object({
+  enabled: z.boolean().optional(),
+  provider: z.literal('s3'),
+  bucket: z.string().min(1),
+  region: z.string().min(1).optional(),
+  endpoint: z.string().url().optional(),
+  path: z.string().min(1).optional(),
+  channel: z.string().min(1).optional()
+})
+
 const UpdateConfigSchema = z.union([
   DisabledUpdateConfigSchema,
   GithubUpdateConfigSchema,
-  GenericUpdateConfigSchema
+  GenericUpdateConfigSchema,
+  S3UpdateConfigSchema
 ])
 
 const OrcaConfigTopSchema = z.object({
@@ -52,7 +74,9 @@ export interface OrcaConfig {
   // 앱 전역 env (${VAR} 플레이스홀더 허용 — 확장은 소비 시점). 모든 어댑터 subprocess 에
   // 공통 베이스로 병합된다. provider 별 env 는 settings.json 의 env 블록이 담당.
   env?: Record<string, string>
-  // 자동 업데이트 feed override. token/API key 는 저장하지 않는다.
+  // 자동 업데이트 feed override (provider: github|generic|s3, 또는 enabled:false).
+  // 폐쇄망은 s3(bucket+endpoint 로 MinIO/S3-호환) 또는 github host(GHE) 로 사내 피드를 가리킨다.
+  // token/API key 는 저장하지 않는다.
   update?: UpdateConfig
 }
 
