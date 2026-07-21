@@ -124,4 +124,4 @@
 | 실행 명령 | `npm run lint` / `npm run typecheck` / `vitest run resources.test.ts` |
 | 게이트 결과 | lint ✅ 0 error(1 pre-existing warning 무관) / typecheck ✅ 3분할 / resources 테스트 ✅ 3/3 |
 | 블로커 / 역질문 | 없음. (electron ABI egress 차단으로 `npm test` 전체·`npm run dev` 실기는 네트워크 완전환경/사람 몫 — AGENTS.md 기준.) |
-| 대상 커밋 | 커밋 후 기재 |
+| 대상 커밋 | `f179ada` |
