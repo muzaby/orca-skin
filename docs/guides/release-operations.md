@@ -59,7 +59,7 @@ Orca 의 사내용 릴리스 절차 정본. 파이프라인 구성은 핸드오�
 - [ ] **버전 확인**: 헤더에 `v<new>` 표시.
 - [ ] **DB 마이그레이션**: 신버전에 새 마이그레이션이 있으면 `%APPDATA%/orca/orca.db.backup.before-<old>.<timestamp>` 백업 파일 생성 확인.
 - [ ] **데이터 보존**: 기존 세션·메시지가 그대로 보이는지 확인.
-- [ ] (선택) `orca.json` 의 `update` override (`provider: 'generic'` 등, `orca-file.ts` 스키마) 경로를 쓰는 경우 해당 피드로도 감지 확인.
+- [ ] (선택) `orca.json` 의 `update` override 경로를 쓰는 경우 해당 피드로도 감지 확인. 지원 provider: `github`(옵션 `host`=GitHub Enterprise) · `generic`(정적 HTTPS `url`) · `s3`(오브젝트 스토리지 — `bucket`+옵션 `endpoint`=MinIO/S3-호환·`region`·`path`) · `{ enabled: false }`(비활성). 스키마·조립은 `infra/config/orca-file.ts`·`app/updater-feed.ts`, 폐쇄망 배포는 `docs/guides/closed-network-extensions.md §4`.
 
 ## 롤백 절차
 

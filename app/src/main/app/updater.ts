@@ -8,6 +8,7 @@ import type {
   UpdateState
 } from '../../shared/ipc'
 import { getOrcaConfig } from '../infra/config/orca-config'
+import { resolveUpdateFeed } from './updater-feed'
 import { broadcastUpdateProgress, broadcastUpdateState } from '../infra/ipc/send'
 import { errorMessage } from '../infra/errors'
 import { getLogger } from '../infra/log'
@@ -200,23 +201,9 @@ export class UpdateController {
     }
   }
   private configureFeed(): boolean {
-    const update = getOrcaConfig().update
-    if (update?.enabled === false) return true
-    if (!update) return false
-    if (update.provider === 'github')
-      this.deps.updater.setFeedURL?.({
-        provider: 'github',
-        owner: update.owner,
-        repo: update.repo,
-        channel: update.channel
-      })
-    else if (update.provider === 'generic')
-      this.deps.updater.setFeedURL?.({
-        provider: 'generic',
-        url: update.url,
-        channel: update.channel
-      })
-    return false
+    const { disabled, feed } = resolveUpdateFeed(getOrcaConfig().update)
+    if (feed) this.deps.updater.setFeedURL?.(feed)
+    return disabled
   }
   private registerEvents(): void {
     this.deps.updater.on('checking-for-update', () =>

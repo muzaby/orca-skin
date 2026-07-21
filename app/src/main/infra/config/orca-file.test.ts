@@ -67,6 +67,52 @@ describe('parseOrcaFile', () => {
     })
   })
 
+  it('github host(GitHub Enterprise) override 를 파싱한다', () => {
+    expect(
+      parseOrcaFile(
+        JSON.stringify({
+          version: 1,
+          update: {
+            provider: 'github',
+            owner: 'infra',
+            repo: 'orca',
+            host: 'github.company.com',
+            protocol: 'https'
+          }
+        })
+      ).config.update
+    ).toEqual({
+      provider: 'github',
+      owner: 'infra',
+      repo: 'orca',
+      host: 'github.company.com',
+      protocol: 'https'
+    })
+  })
+
+  it('s3(오브젝트 스토리지) 설정을 파싱한다 — MinIO endpoint/path 포함', () => {
+    expect(
+      parseOrcaFile(
+        JSON.stringify({
+          version: 1,
+          update: {
+            provider: 's3',
+            bucket: 'orca-updates',
+            region: 'ap-northeast-2',
+            endpoint: 'http://minio.internal:9000',
+            path: 'win'
+          }
+        })
+      ).config.update
+    ).toEqual({
+      provider: 's3',
+      bucket: 'orca-updates',
+      region: 'ap-northeast-2',
+      endpoint: 'http://minio.internal:9000',
+      path: 'win'
+    })
+  })
+
   it('잘못된 update 설정은 최상위 스키마 위반으로 기본값 처리한다', () => {
     expect(
       parseOrcaFile(JSON.stringify({ version: 1, update: { provider: 'generic', url: 'not-url' } }))
@@ -76,6 +122,19 @@ describe('parseOrcaFile', () => {
       parseOrcaFile(JSON.stringify({ version: 1, update: { provider: 'github', owner: 'x' } }))
         .config
     ).toEqual({ version: 1 })
+    // s3: bucket 누락 → 위반
+    expect(
+      parseOrcaFile(JSON.stringify({ version: 1, update: { provider: 's3' } })).config
+    ).toEqual({ version: 1 })
+    // s3: endpoint 비-URL → 위반
+    expect(
+      parseOrcaFile(
+        JSON.stringify({
+          version: 1,
+          update: { provider: 's3', bucket: 'orca', endpoint: 'not-url' }
+        })
+      ).warnings[0]
+    ).toContain('최상위 스키마 위반')
   })
 
   it('JSON 손상 시 기본값으로 동작한다', () => {
