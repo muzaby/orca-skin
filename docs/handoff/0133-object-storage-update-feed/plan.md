@@ -104,8 +104,8 @@
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | `orca-file.ts`·`orca-file.test.ts`·`updater.ts`·신규 `updater-feed.ts`+`updater-feed.test.ts`·문서 2건 |
-| 실행 명령 | `npm run lint` / `typecheck` / `vitest run`(순수 스위트) |
-| 게이트 결과 | (구현 턴에서 기재) |
-| 블로커 / 역질문 | (구현 턴에서 기재) |
-| 대상 커밋 | (구현 턴에서 기재) |
+| 변경 파일 | `orca-file.ts`·`orca-file.test.ts`·`updater.ts`·신규 `updater-feed.ts`+`updater-feed.test.ts`·`closed-network-extensions.md`·`release-operations.md` |
+| 실행 명령 | `npm run lint` / `npm run typecheck` / `vitest run orca-file.test.ts updater-feed.test.ts` |
+| 게이트 결과 | lint 0 error(1 pre-existing warning 무관) ✅ / typecheck 3분할 ✅ / 순수 vitest 20/20 ✅ |
+| 블로커 / 역질문 | 없음 (실 피드/electron 패키징 = egress 차단으로 사람·CI 실기 대기) |
+| 대상 커밋 | `7d8de3e` |
