@@ -7,7 +7,7 @@
 | slug | `0132-settings-density` |
 | 검증자 | Claude Code |
 | 일자 | 2026-07-21 |
-| 대상 커밋 | 커밋 후 기재 |
+| 대상 커밋 | `f179ada` |
 | 라운드 | 1 |
 | 상태 | PASS* |
 
