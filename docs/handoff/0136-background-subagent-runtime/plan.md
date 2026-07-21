@@ -168,29 +168,31 @@ while (!aborted && sessionId):
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- (구현 턴에서 기입)
+- 동의 / 그대로 진행: listen 턴을 별도 어댑터 계약 없이 `SessionRuntime.runAttempt` 선분기 + `TurnRequest.listen` 플래그로 얹는 설계가 기존 프레임 인프라(openFrame/unframed/consumeFrame)를 그대로 재사용해 표면이 작다. 릴리즈 밸브가 `draining` 을 세우지 않아 무손실이라는 설계 근거를 코드로 재확인.
+- 이견 / 우려: (F1) 부모 Task 결과가 정착으로 도착하는 두 경로(권위 tool_result vs 런치 영수증)를 구분해야 추적 해제가 정확하다 — 설계 §① 이 암시하지만 코디네이터 훅에 명시 필요. 아래 F1 로 선조치.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| — | | | |
+| F1 | 부모 Task `tool.call.completed` 가 런치 영수증(async_launched)이면 아직 '실행 중'인데, 이를 settled 로 오해하면 추적이 조기 해제돼 listen 턴이 안 열린다 | ✅ 코디네이터의 tool.call.completed 추적 해제에 `!isAsyncLaunchResult(ev.result)` 가드 추가 + 테스트 3종(started→settled / 권위결과 해제 / 영수증 미해제) | `turn-coordinator.ts`, `background-tasks.test.ts` |
+| F2 | listen 턴이 valve(endListenFrame)로 terminal 없이 닫히면 coordinator 가 합성 telemetry 를 emit — 직후 held flush 턴 BEGIN_TURN 과 겹쳐 짧은 inflight 깜빡임 | ⚠️ 보고만 — 기존 자동 연속 턴(0067 AC7)의 telemetry→BEGIN_TURN 패턴과 동형이라 신규 회귀 아님. 시각 실기 확인 대기 항목으로 남김 | `turn-coordinator.ts:322`(합성 telemetry 경로) |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] AC1 claude-map `tool_use_result` 매핑 + 테스트
-- [ ] AC3 session-runtime listen 프레임 + `endListenFrame` + 테스트
-- [ ] AC5 BackgroundTaskTracker + 코디네이터 훅 + 테스트
-- [ ] AC4/AC7/AC8 chat-turn 루프·릴리즈 밸브·사망 정리
-- [ ] AC6 stall 미무장 + 테스트
-- [ ] AC10 게이트 + provider-runtime.md 동기
+- [x] AC1 claude-map `tool_use_result` 매핑 + 테스트 (적용/완료결과/복수블록 3분기)
+- [x] AC3 session-runtime listen 프레임 + `endListenFrame` + 테스트 (소비/백로그합류/채널부재/밸브/no-op 5종)
+- [x] AC5 BackgroundTaskTracker + 코디네이터 started/settled 훅 + 테스트
+- [x] AC4/AC7/AC8 chat-turn 루프(listen 턴)·릴리즈 밸브·채널 사망 합성 정착
+- [x] AC6 stall 미무장(`stallTimerFor`) + 테스트
+- [x] AC10 게이트 + provider-runtime.md 동기(서브에이전트 백그라운드 라이프사이클 절 추가)
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | |
-| 실행 명령 | |
-| 게이트 결과 | |
-| 블로커 / 역질문 | |
-| 대상 커밋 | |
+| 변경 파일 | `adapters/claude-map.ts`(+test), `adapters/turn.ts`, `features/sessions/session-runtime.ts`(+test), `features/chat/turn-coordinator.ts`(+test), `features/chat/background-tasks.ts`(신규+test), `app/chat-turn.ts`, `docs/arch/backend/provider-runtime.md` |
+| 실행 명령 | `npm run lint` / `npm run typecheck` / `./node_modules/.bin/vitest run` / `node --test scripts/*.test.mjs` |
+| 게이트 결과 | lint 0 error(1 pre-existing warning 무관) / typecheck 3분할 0 error / vitest **1099/1099**(신규 listen 6·background-tasks 8·coordinator 5·claude-map 3; `chat-turn.continuity` 1파일 로드 실패 = electron egress 베이스라인) + scripts 25/25. 레이어 경계 0(boundaries lint 통과), IPC/DB 변경 0 |
+| 블로커 / 역질문 | 없음. F2(inflight 깜빡임)·listen 턴 실기는 electron 로드라 사람/CI 몫 |
+| 대상 커밋 | `046d54e` |

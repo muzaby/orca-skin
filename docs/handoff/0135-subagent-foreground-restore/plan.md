@@ -109,26 +109,27 @@
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- (구현 턴에서 기입)
+- 동의 / 그대로 진행: 설계의 "말미 passthrough 를 명시 반환으로 교체" 접근이 최소 표면이다. Agent/Task 는 `RISKY_TOOLS` 밖이라 조기 allow 반환이 승인 게이트를 우회하지 않음을 코드로 재확인(`claude.ts:171` 위험도구 분기는 서브에이전트 분기 이후라 도달 자체가 없다).
+- 이견 / 우려: 없음. 1 분기 수정으로 인수 기준 전부 충족.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| — | | | |
+| 1 | 모델이 `run_in_background` 를 명시한 경우(true/false)의 보존을 AC2 로만 두면 테스트 공백 | ✅ 명시 true·명시 false 보존 케이스를 각각 테스트로 고정 | `claude.canusetool.test.ts` |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] `makeCanUseTool` 분기 수정 (AC1~5)
-- [ ] 테스트 갱신·추가 (AC6)
-- [ ] 게이트 (AC7)
+- [x] `makeCanUseTool` 분기 수정 (AC1~5) — off 기본 false 주입 + 명시값 보존
+- [x] 테스트 갱신·추가 (AC6) — off→false / 명시 true·false 보존 / Task 도구명 / on→true(기존) / deny 우선(기존)
+- [x] 게이트 (AC7)
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | |
-| 실행 명령 | |
-| 게이트 결과 | |
-| 블로커 / 역질문 | |
-| 대상 커밋 | |
+| 변경 파일 | `app/src/main/adapters/claude.ts`, `app/src/main/adapters/claude.canusetool.test.ts` |
+| 실행 명령 | `npm run lint` / `npm run typecheck` / `./node_modules/.bin/vitest run` |
+| 게이트 결과 | lint 0 error(1 pre-existing warning 무관) / typecheck 3분할 0 error / vitest 1099/1099(canusetool 스위트 포함, `chat-turn.continuity` 1파일 로드 실패 = electron egress 베이스라인) + scripts 25/25 |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | `2cd306b` |
