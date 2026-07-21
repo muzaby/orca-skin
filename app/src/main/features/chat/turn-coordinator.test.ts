@@ -4,9 +4,12 @@ import type { TurnRequest } from '../../adapters/turn'
 import type { TurnContext } from '../../contracts/turn'
 import {
   TurnCoordinator,
+  stallTimerFor,
   type CoordinatorRuntime,
   type TurnCoordinatorDeps
 } from './turn-coordinator'
+import { STALL_TIMEOUT_MS } from './timers'
+import { BackgroundTaskTracker } from './background-tasks'
 import { TypedBus } from '../../infra/bus'
 import type { OrcaBusEvents } from '../../contracts/bus-events'
 import { PendingMessageQueue } from './pending-message-queue'
@@ -122,6 +125,21 @@ function makeDeps(
 
 const sessionUpdated = { type: 'session.updated', sessionId: 's1' } as unknown as NormalizedEvent
 const telemetry = { type: 'telemetry', sessionId: 's1' } as unknown as NormalizedEvent
+const subagentStarted = (toolUseId: string): NormalizedEvent =>
+  ({
+    type: 'subagent.task',
+    sessionId: 's1',
+    toolUseId,
+    phase: 'started'
+  }) as unknown as NormalizedEvent
+const subagentSettled = (toolUseId: string): NormalizedEvent =>
+  ({
+    type: 'subagent.task',
+    sessionId: 's1',
+    toolUseId,
+    phase: 'settled',
+    status: 'completed'
+  }) as unknown as NormalizedEvent
 
 describe('TurnCoordinator.run — consume → reduce → persist ∥ forward', () => {
   it('이벤트마다 persist 와 forward 를 모두 호출하고, terminal 관찰 시 합성하지 않는다', async () => {
@@ -534,5 +552,84 @@ describe('TurnCoordinator.run — retry', () => {
     // 두 attempt 모두 active turn 짝이 맞아야 한다(누수 없음)
     expect(deps.activeTurns.increment).toHaveBeenCalledTimes(2)
     expect(deps.activeTurns.decrement).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('TurnCoordinator — 백그라운드 태스크 추적 (0136)', () => {
+  it('subagent.task started→settled 를 tracker 에 반영한다', async () => {
+    const runtime = fakeRuntime([
+      [subagentStarted('a1'), subagentStarted('a2'), subagentSettled('a1'), telemetry]
+    ])
+    const tracker = new BackgroundTaskTracker()
+    const deps = makeDeps(runtime, { backgroundTasks: tracker })
+    const turn = makeTurn()
+    turn.dbSessionId = 's1'
+
+    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    // a1 은 settled, a2 는 미정착으로 남는다.
+    expect([...tracker.ids('s1')]).toEqual(['a2'])
+  })
+
+  it('부모 Task 의 권위 결과(비-런치 영수증) tool.call.completed 도 정착으로 본다', async () => {
+    const started = subagentStarted('a1')
+    const completed = {
+      type: 'tool.call.completed',
+      sessionId: 's1',
+      toolRunId: 'a1',
+      result: { summary: 'done' },
+      isError: false
+    } as unknown as NormalizedEvent
+    const runtime = fakeRuntime([[started, completed, telemetry]])
+    const tracker = new BackgroundTaskTracker()
+    const deps = makeDeps(runtime, { backgroundTasks: tracker })
+    const turn = makeTurn()
+    turn.dbSessionId = 's1'
+
+    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    expect(tracker.ids('s1').size).toBe(0)
+  })
+
+  it('런치 영수증(async_launched) tool.call.completed 는 추적을 해제하지 않는다', async () => {
+    const started = subagentStarted('a1')
+    const receipt = {
+      type: 'tool.call.completed',
+      sessionId: 's1',
+      toolRunId: 'a1',
+      result: { status: 'async_launched', agentId: 'x' },
+      isError: false
+    } as unknown as NormalizedEvent
+    const runtime = fakeRuntime([[started, receipt, telemetry]])
+    const tracker = new BackgroundTaskTracker()
+    const deps = makeDeps(runtime, { backgroundTasks: tracker })
+    const turn = makeTurn()
+    turn.dbSessionId = 's1'
+
+    await new TurnCoordinator(deps).run(turn, REQUEST, { boundProjectId: null })
+    // 런치 영수증은 "실행 중" — settled 로 오해하지 않는다.
+    expect([...tracker.ids('s1')]).toEqual(['a1'])
+  })
+})
+
+describe('stallTimerFor — listen 턴 stall 미무장 (0136)', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  it('listen=true 는 no-op 타이머 — reset 후 STALL_TIMEOUT 경과에도 abort 하지 않는다', () => {
+    const turn = makeTurn()
+    turn.dbSessionId = 's1'
+    const timer = stallTimerFor(true, turn)
+    timer.reset()
+    vi.advanceTimersByTime(STALL_TIMEOUT_MS + 1_000)
+    expect(turn.controller.signal.aborted).toBe(false)
+  })
+
+  it('listen 아님(undefined) 은 실제 stall 타이머 — 경과 시 abort 한다', () => {
+    const turn = makeTurn()
+    turn.dbSessionId = 's1'
+    const timer = stallTimerFor(undefined, turn)
+    timer.reset()
+    vi.advanceTimersByTime(STALL_TIMEOUT_MS + 1_000)
+    expect(turn.controller.signal.aborted).toBe(true)
+    timer.clear()
   })
 })

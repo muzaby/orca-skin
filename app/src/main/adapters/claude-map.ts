@@ -144,6 +144,27 @@ function readParentToolRunId(msg: unknown): string | undefined {
   return typeof id === 'string' && id.trim() !== '' ? id : undefined
 }
 
+// SDK user 메시지의 구조화 도구 출력(tool_use_result)이 백그라운드 런치 영수증(async_launched)
+// 인지 — 맞으면 그 객체를 반환한다(0136). tool_use_result 는 메시지당 1개라 tool_result 블록이
+// 정확히 1개일 때만 귀속이 명확하다(복수 블록이면 보수적으로 미적용 = 현행 content 유지).
+function asyncLaunchReceipt(msg: unknown, content: unknown[]): Record<string, unknown> | undefined {
+  let toolResults = 0
+  for (const part of content) {
+    if (
+      typeof part === 'object' &&
+      part !== null &&
+      (part as { type?: unknown }).type === 'tool_result'
+    ) {
+      toolResults += 1
+    }
+  }
+  if (toolResults !== 1) return undefined
+  const structured = (msg as { tool_use_result?: unknown }).tool_use_result
+  if (typeof structured !== 'object' || structured === null) return undefined
+  const rec = structured as Record<string, unknown>
+  return rec.status === 'async_launched' ? rec : undefined
+}
+
 export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): NormalizedEvent[] {
   // SDKSystemMessage(subtype:'init') → session.updated (+ ctx.sessionId 갱신)
   if (msg.type === 'system' && (msg as { subtype?: string }).subtype === 'init') {
@@ -316,6 +337,12 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
     const rawContent = (msg as unknown as { message?: { content?: unknown } }).message?.content
     const content = Array.isArray(rawContent) ? rawContent : []
     const parentToolRunId = readParentToolRunId(msg)
+    // 백그라운드 런치 영수증(0136) — CLI 2.1.198+ 는 서브에이전트가 백그라운드로 뜨면 부모
+    // Agent/Task tool_result 를 즉시 반환한다. wire content 는 모델용 텍스트라 renderer 의
+    // async_launched 판정(isAsyncLaunchedResult — output.status 객체 검사)이 성립하지 않으므로,
+    // SDK 가 별도 필드(tool_use_result)에 실은 구조화 출력을 result 로 싣는다. 완료/실패 결과는
+    // 현행 content 유지(요약 텍스트 렌더·복사 대상 보존) — 영수증일 때만 대체한다.
+    const launchReceipt = asyncLaunchReceipt(msg, content)
     const events: NormalizedEvent[] = []
     let sawToolResult = false
     for (const part of content) {
@@ -331,7 +358,7 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
           type: 'tool.call.completed',
           sessionId: ctx.sessionId,
           toolRunId,
-          result: p.content,
+          result: launchReceipt ?? p.content,
           isError: p.is_error === true,
           ...(parentToolRunId !== undefined ? { parentToolRunId } : {}),
           ...(meta && Object.keys(meta).length > 0 ? { subagentMeta: meta } : {})

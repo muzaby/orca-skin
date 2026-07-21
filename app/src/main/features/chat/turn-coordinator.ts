@@ -17,6 +17,7 @@ import { getLogger } from '../../infra/log/registry'
 import type { TurnContext } from '../../contracts/turn'
 import type { RuntimeLiveTurn } from '../../contracts/ports'
 import { createStallTimer, type StallTimer } from './timers'
+import { isAsyncLaunchResult, type BackgroundTaskPort } from './background-tasks'
 import { coerceStoppedToolCompletion } from './subagent-settlement'
 import { settleOpenToolRuns, settleSubagentTask, stopLiveSubagent } from './settle'
 import type { TurnEventSink, TurnPersistSink } from './turn-sinks'
@@ -37,6 +38,23 @@ const MODEL_OUTPUT_EVENTS = new Set<string>([
   'message.completed',
   'tool.call.started'
 ])
+
+// listen 턴(0136)용 no-op stall 타이머 — 백그라운드 태스크 대기는 장시간 무이벤트가 정상이라
+// stall abort 로 오판하지 않는다. 회수는 사용자 취소(중단 버튼)·busy-send 릴리즈 밸브·owner
+// 소멸 경로가 담당한다.
+const NOOP_STALL_TIMER: StallTimer = {
+  reset: () => {},
+  clear: () => {},
+  beginPause: () => () => {}
+}
+
+// attempt 별 stall 타이머 선택 — listen 턴만 no-op(순수, 테스트 대상).
+export function stallTimerFor(
+  listen: boolean | undefined,
+  turn: Parameters<typeof createStallTimer>[0]
+): StallTimer {
+  return listen === true ? NOOP_STALL_TIMER : createStallTimer(turn)
+}
 
 // retry backoff 대기 — 턴 abort 시 즉시 reject 해 무의미한 대기를 끊는다.
 export function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
@@ -85,6 +103,9 @@ export interface TurnCoordinatorDeps<W> {
   activeTurns: ActiveTurnGate
   backgroundSubagents: boolean
   pendingMessages?: PendingMessageQueue
+  // 세션별 미정착 백그라운드 서브에이전트 추적 포트(0136) — started/settled 를 이벤트 루프에서
+  // 갱신하고, chat-turn 의 턴-후 루프가 listen 턴 개시 조건으로 조회한다.
+  backgroundTasks?: BackgroundTaskPort
 }
 
 export class TurnCoordinator<W = unknown> {
@@ -190,7 +211,9 @@ export class TurnCoordinator<W = unknown> {
     })
     log.info('chat.turn.started', {
       ...(request.sessionId ? { sessionId: request.sessionId } : {}),
-      ...(request.model !== undefined ? { model: request.model } : {})
+      ...(request.model !== undefined ? { model: request.model } : {}),
+      // listen 턴(0136) — 입력 없는 백그라운드 소비 턴 관측 구분.
+      ...(request.listen === true ? { listen: true } : {})
     })
 
     // 턴-시작 배치(프렐류드+프롬프트)는 **응답 시작 = 소비 증거**(0069, 사용자 확정) — 모델이
@@ -209,7 +232,9 @@ export class TurnCoordinator<W = unknown> {
     for (let attempt = 0; ; attempt += 1) {
       let eventsReceived = 0
       let sawTerminal = false
-      const idle = createStallTimer(turn)
+      // listen 턴은 stall 미무장(0136) — 백그라운드 대기의 장시간 침묵을 '응답 없음'으로 오판해
+      // 채널을 interrupt 하지 않는다.
+      const idle = stallTimerFor(request.listen, turn)
       this.activeStall = idle
       try {
         // send() 가 query() 를 즉시 시작하므로 try 안에서 호출 — 동기 throw 도 동일 경로로 분류.
@@ -283,6 +308,16 @@ export class TurnCoordinator<W = unknown> {
               turn.askPendingIds.push(ev.toolRunId)
               persist.flushAskAnswers(turn, turn.owner)
             }
+            // 백그라운드 태스크 추적(0136) — started 등록 / settled 해제. chat-turn 턴-후 루프의
+            // listen 턴 개시 조건 소스. foreground 태스크도 started→settled 가 턴 안에서 왕복해
+            // 자연 소거된다.
+            if (ev.type === 'subagent.task' && turn.dbSessionId) {
+              if (ev.phase === 'started') {
+                this.deps.backgroundTasks?.started(turn.dbSessionId, ev.toolUseId)
+              } else if (ev.phase === 'settled') {
+                this.deps.backgroundTasks?.settled(turn.dbSessionId, ev.toolUseId)
+              }
+            }
             // 서브에이전트(Task) task_id 매핑 — stopSubagent 가 toolUseId 로 찾는다. 이미 중단
             // 클릭된 서브에이전트면 도착 즉시 라이브 정지.
             if (ev.type === 'subagent.task' && ev.taskId) {
@@ -311,6 +346,12 @@ export class TurnCoordinator<W = unknown> {
               )
             } else if (ev.type === 'tool.call.completed') {
               turn.openToolRuns.delete(ev.toolRunId)
+              // 부모 Task 의 권위 결과(비-런치 영수증) 도착도 정착으로 본다(0136) — foreground
+              // 에이전트가 task_notification 없이 끝나는 경로의 추적 고착 방지. 일반 도구 id 는
+              // 추적에 없어 no-op. 런치 영수증(async_launched)은 아직 실행 중 — 해제하지 않는다.
+              if (turn.dbSessionId && !isAsyncLaunchResult(ev.result)) {
+                this.deps.backgroundTasks?.settled(turn.dbSessionId, ev.toolRunId)
+              }
             }
             // telemetry(턴 종료)는 persist 이후에 소비 확정분을 flush — usage messageId 링크와
             // assistant 마감을 보존한다. 미소비 pending 은 여기서도 flush 하지 않는다(D2).

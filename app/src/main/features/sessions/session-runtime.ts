@@ -87,6 +87,9 @@ export class SessionRuntime implements ManagedRuntime {
   private channelController = new AbortController()
   private pumpRunning = false
   private frame: Frame | null = null
+  // 0136 — 현재 프레임이 listen 프레임(입력 push 없는 소비)인가. endListenFrame 릴리즈 밸브가
+  // 일반 턴 프레임을 오폐쇄하지 않도록 참조를 구분해 든다.
+  private listenFrame: Frame | null = null
   // 프레임 조기 이탈(취소/스톨) 후 그 턴의 잔여 이벤트를 terminal 까지 드랍하는 상태. draining
   // 중 send 가 오면 이벤트 소속을 구분할 수 없으므로 채널을 teardown 하고 respawn 한다(안전 열화).
   private draining = false
@@ -163,6 +166,25 @@ export class SessionRuntime implements ManagedRuntime {
     this.delegate = {
       ...(req.requestApproval ? { requestApproval: req.requestApproval } : {}),
       ...(req.takeSteerFlush ? { takeSteerFlush: req.takeSteerFlush } : {})
+    }
+
+    // listen 턴(0136) — 입력을 push 하지 않고 프레임만 열어 CLI 가 스스로 여는 자동 턴(백그라운드
+    // 서브에이전트 진행·task_notification·완료 알림 턴)을 소비한다. 채널이 없거나 죽었으면 들을
+    // 것이 없다 — 즉시 종료(mock/oneshot 포함 자연 무해). 유휴 중 쌓인 백로그(unframed)는
+    // openFrame 이 선합류하므로 적체분도 이 프레임으로 배달된다.
+    if (req.listen === true) {
+      if (!this.pumpRunning || this.live == null) {
+        this.status.markLive()
+        return
+      }
+      const frame = this.openFrame()
+      this.listenFrame = frame
+      try {
+        yield* this.consumeFrame(frame)
+      } finally {
+        if (this.listenFrame === frame) this.listenFrame = null
+      }
+      return
     }
 
     // draining(직전 턴 잔여 드랍) 중의 새 턴은 이벤트 소속 구분이 불가 — 채널 respawn(안전 열화).
@@ -331,6 +353,20 @@ export class SessionRuntime implements ManagedRuntime {
     getLogger()
       .child('engine')
       .info('engine.channel.teardown', { provider: this.adapter.id, reason: 'stream-ended' })
+  }
+
+  // listen 프레임 강제 종료(0136 릴리즈 밸브) — busy send(held 예약)가 게이트 훅(PostToolBatch)
+  // 없이도 즉시 자동 연속 턴으로 전환되도록 프레임만 닫는다. draining 을 세우지 않으므로
+  // (consumeFrame 의 finally 는 this.frame !== frame 을 보고 통과) 이후 이벤트는 unframed 로
+  // 남아 다음 openFrame 백로그 합류로 무손실 이월된다. listen 프레임이 아니면 no-op(일반 턴
+  // 프레임 오폐쇄 방지).
+  endListenFrame(): void {
+    const frame = this.frame
+    if (frame == null || frame !== this.listenFrame) return
+    this.frame = null
+    this.listenFrame = null
+    frame.end()
+    this.status.markLive()
   }
 
   // 채널 강제 해체(respawn 경계·draining 충돌) — 상태머신은 건드리지 않는다(close 와 구분).

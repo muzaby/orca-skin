@@ -77,6 +77,14 @@ type ProviderEventMapper = { provider: ProviderId; map(raw: unknown): Normalized
 
 > `[미확인]`: OpenCode `event.type` enum 전수와 Claude 메시지 타입 전수는 `types.gen.ts` / Claude SDK 타입에서 추출해 위 매핑을 완성한다(§13). 현재 union 은 골격이다.
 
+**서브에이전트(Agent/Task) 백그라운드 라이프사이클** (CLI 2.1.198+ / SDK 0.3.215, handoff 0135·0136):
+
+- **기본값 원복(0135)**: CLI 2.1.198 부터 서브에이전트는 `run_in_background` 미지정 시 **백그라운드가 기본**이다. `makeCanUseTool`(`adapters/claude.ts`)은 `ORCA_SUBAGENT_BACKGROUND` off(기본) 경로에서 `run_in_background: false` 를 **명시 주입**해 구 foreground 의미론을 고정한다(모델이 명시한 true/false 는 보존). SDK 문서(`AgentInput.run_in_background`)가 false 를 동기 실행 opt-out 으로 정의한다.
+- **런치 영수증 구조화 매핑(0136)**: 백그라운드로 뜬 Task 의 부모 `tool_result` 는 즉시 반환되며, wire `content` 는 모델용 텍스트라 renderer 의 `async_launched` 판정이 성립하지 않는다. `claude-map` 은 SDK user 메시지의 **별도 필드 `tool_use_result`**(status=`async_launched`, tool_result 블록이 정확히 1개일 때) 를 `tool.call.completed.result` 로 싣는다 — renderer 가 '실행 중'을 유지한다. 완료/실패 결과는 현행 content 유지.
+- **listen 턴(0136)**: 백그라운드 태스크의 진짜 종료(`task_notification`)·진행·완료 알림 턴은 메인 턴 종료(터미널) 후 도착해 `SessionRuntime` 의 `unframed` 버퍼에 적체된다. chat-turn 의 턴-후 루프가 "held pending 없음 + 미정착 백그라운드 태스크 존재 + 채널 생존"이면 **listen 턴**(`TurnRequest.listen` — 입력 push 없이 프레임만 소비)을 열어 라이브 배달한다. stall 타이머는 무장하지 않는다(백그라운드 침묵 정상). busy send(held 예약)는 `endListenFrame()` 릴리즈 밸브로 listen 프레임을 닫아 즉시 held flush 턴으로 전환한다.
+- **추적·정착**: `BackgroundTaskTracker`(`features/chat/background-tasks.ts`)가 세션별 미정착 태스크를 `subagent.task` started/settled 로 갱신한다. 콜드 spawn(채널 사망) 시 in-process 태스크 소멸을 합성 settled(`failed`)로 정착(`createSubagentSettlementEvents` 재사용)해 '실행 중' 고착을 막는다.
+- **비범위**: `SDKBackgroundTasksChangedMessage`(레벨 신호)·`remote_launched`(CCR)·백그라운드를 제품 기본으로 전환(Open Question).
+
 ## 3. 권한 정규화 파이프라인
 
 #### permission.requested 는 1급 이벤트 (`origin`)
