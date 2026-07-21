@@ -318,8 +318,12 @@ type AppMessagePart =
 **④ 인터페이스 (정본 — `[검증-런타임]` cost-tracking.md 로 필드 확정).** 구현된 정본 타입은 `src/shared/ipc.ts` 의 `ProviderReportedTelemetry`/`TelemetryModelUsage`(claude `result` 의 snake/camel 혼용을 camelCase 정규화).
 
 ```ts
-interface TelemetryModelUsage { costUsd?: number; inputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheCreationTokens?: number }
-interface ProviderReportedTelemetry { model?: string; inputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheCreationTokens?: number; costUsd?: number; durationMs?: number; numTurns?: number; modelUsage?: Record<string, TelemetryModelUsage> }
+interface TelemetryModelUsage { costUsd?: number; inputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheCreationTokens?: number; contextWindow?: number }
+interface ProviderReportedTelemetry { model?: string; inputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheCreationTokens?: number; costUsd?: number; durationMs?: number; numTurns?: number; contextWindow?: number; modelUsage?: Record<string, TelemetryModelUsage> }
+// contextWindow(0134) = SDK result modelUsage[].contextWindow 실측(단일 모델 턴은 top-level 승격).
+// renderer 분모 단일 진입점 contextWindowOf() 가 ① top-level ② modelUsage[model] ③ 모델명
+// 휴리스틱(contextWindowFor — 1M 패밀리 마커 + 200k 기본) 순으로 해석. DB 비영속 — 재로드 복원
+// 경로는 ③ 폴백(현행 패밀리는 정확, 미지 신모델만 다음 라이브 턴까지 기본값).
 interface AppMeasuredTelemetry { latencyMs?: number; toolDurationMs?: number; streamDurationMs?: number; eventCount?: number; bytesStreamed?: number; errorRate?: number; cancelRate?: number } // latencyMs 만 구현(reducer lastTurnLatencyMs), 나머지 후속
 ```
 

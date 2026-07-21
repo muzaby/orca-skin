@@ -670,13 +670,17 @@ function usageForRatio(ratio: number): ProviderReportedTelemetry {
     cacheReadTokens,
     cacheCreationTokens,
     costUsd: 0,
+    // SDK 실측 경로(0134) 패리티 — mock-sonnet 폴백값과 동일한 200k 를 명시해 도넛 비율
+    // 시뮬레이션(ratio 계산)이 실측/폴백 어느 경로로도 같은 값을 낸다.
+    contextWindow: CONTEXT_WINDOW,
     modelUsage: {
       [MODEL]: {
         inputTokens,
         outputTokens,
         cacheReadTokens,
         cacheCreationTokens,
-        costUsd: 0
+        costUsd: 0,
+        contextWindow: CONTEXT_WINDOW
       }
     }
   }

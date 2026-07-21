@@ -493,6 +493,9 @@ export interface TelemetryModelUsage {
   outputTokens?: number
   cacheReadTokens?: number
   cacheCreationTokens?: number
+  // SDK 가 보고하는 이 모델의 실제 컨텍스트 윈도우(토큰, 0134). 미제공/복원(DB 재조립) 경로엔
+  // 없음 — renderer 는 contextWindowOf() 폴백(모델명 휴리스틱)으로 내려간다.
+  contextWindow?: number
 }
 
 export interface ProviderReportedTelemetry {
@@ -504,6 +507,8 @@ export interface ProviderReportedTelemetry {
   costUsd?: number
   durationMs?: number
   numTurns?: number
+  // 단일 모델 턴이면 model 과 함께 그 모델의 contextWindow 도 top-level 승격(0134).
+  contextWindow?: number
   modelUsage?: Record<string, TelemetryModelUsage>
 }
 

@@ -4,7 +4,7 @@ import { Icon } from '../../../shared/ui/Icon'
 import { Meter } from '../../../shared/ui/Meter'
 import { formatResetLabel, useI18n } from '../../../shared/i18n'
 import { contextTokens } from '../lib/telemetry'
-import { contextWindowFor, nearCompaction } from '../lib/contextWindow'
+import { contextWindowOf, nearCompaction } from '../lib/contextWindow'
 
 interface UsagePanelProps {
   // 마지막 턴의 provider-reported 통계(도넛 트리거가 존재 가드). 컨텍스트 섹션 소스.
@@ -28,7 +28,7 @@ export function UsagePanel({
   onOpenUsageSettings
 }: UsagePanelProps): React.JSX.Element {
   const used = contextTokens(telemetry)
-  const window = contextWindowFor(telemetry.model)
+  const window = contextWindowOf(telemetry)
   const ratio = used / window
   const pct = Math.round(ratio * 100)
   const warn = nearCompaction(used, window)

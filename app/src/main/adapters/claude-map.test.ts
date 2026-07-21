@@ -387,6 +387,64 @@ describe('claudeToNormalized', () => {
     expect(Object.keys(ev.usage?.modelUsage ?? {})).toEqual(['claude-opus-4', 'claude-haiku-4'])
   })
 
+  it('result.modelUsage.contextWindow → per-model 전달 + 단일 모델이면 top-level 승격 (0134)', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        modelUsage: {
+          'claude-sonnet-5': { costUSD: 0.01, inputTokens: 100, contextWindow: 1_000_000 }
+        }
+      }),
+      ctx()
+    )
+    const ev = out[0] as {
+      usage?: {
+        model?: string
+        contextWindow?: number
+        modelUsage?: Record<string, { contextWindow?: number }>
+      }
+    }
+    expect(ev.usage?.model).toBe('claude-sonnet-5')
+    expect(ev.usage?.contextWindow).toBe(1_000_000)
+    expect(ev.usage?.modelUsage?.['claude-sonnet-5']?.contextWindow).toBe(1_000_000)
+  })
+
+  it('result.modelUsage 다중 모델이면 top-level contextWindow 도 안 채운다 (0134)', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        modelUsage: {
+          'claude-sonnet-5': { costUSD: 0.01, contextWindow: 1_000_000 },
+          'claude-haiku-4-5': { costUSD: 0.001, contextWindow: 200_000 }
+        }
+      }),
+      ctx()
+    )
+    const ev = out[0] as {
+      usage?: { contextWindow?: number; modelUsage?: Record<string, { contextWindow?: number }> }
+    }
+    expect(ev.usage?.contextWindow).toBeUndefined()
+    expect(ev.usage?.modelUsage?.['claude-sonnet-5']?.contextWindow).toBe(1_000_000)
+    expect(ev.usage?.modelUsage?.['claude-haiku-4-5']?.contextWindow).toBe(200_000)
+  })
+
+  it('result.modelUsage.contextWindow 비숫자는 드롭 (num 가드, 0134)', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        modelUsage: {
+          'claude-sonnet-5': { costUSD: 0.01, contextWindow: 'huge' as unknown as number }
+        }
+      }),
+      ctx()
+    )
+    const ev = out[0] as {
+      usage?: { contextWindow?: number; modelUsage?: Record<string, { contextWindow?: number }> }
+    }
+    expect(ev.usage?.contextWindow).toBeUndefined()
+    expect(ev.usage?.modelUsage?.['claude-sonnet-5']?.contextWindow).toBeUndefined()
+  })
+
   it('result(잡음만, 의미있는 필드 없음) → telemetry (usage 생략)', () => {
     expect(
       claudeToNormalized(sdk({ type: 'result', subtype: 'success', is_error: false }), ctx())

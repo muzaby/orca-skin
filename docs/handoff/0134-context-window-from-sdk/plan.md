@@ -137,29 +137,32 @@
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- (구현 턴에서 기입)
+- 동의 / 그대로 진행: 설계 전체. SDK `ModelUsage.contextWindow` 는 sdk 0.3.215 d.ts 로 재확인, `assignNums` 숫자 가드 재사용으로 비숫자 방어가 공짜로 따라온다.
+- 이견 없음. 단 "리스크 §lock 수기 편집" 은 실측으로 해소 — 본 환경 `npm ci` 가 수정된 스펙(`"0.3.215"`)으로 lockfile 정합 검증을 통과했다(EUSAGE 없음).
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
+| 1 | `npm run lint` 가 `--fix` 포함이라, 재생성된 lock(2026-07-18, `5dee1af`)이 끌어온 신버전 프리티어/ESLint 가 **본 변경과 무관한 11개 파일**의 union 타입 포맷을 리플로우함 | ✅ 무관 churn 은 스테이징 제외(비커밋), 혼합된 `shared/ipc.ts` 만 churn 3곳을 원 포맷으로 수동 복원해 diff 를 의도 변경만으로 유지 | `git diff` 대조 — 커밋 diff 에 의도 외 hunk 0 |
+| 2 | 0128 baseline 이던 `claude.ts:465 TS2322` 가 현 lock(0.3.215)에선 미발현 — `c69f24d` 가 이미 0.3.215 타입에 맞춰 수정함 | ✅ typecheck 3분할 0 error 로 확인만 (추가 조치 불요) | `npm run typecheck` 출력 |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] shared/ipc.ts 타입 확장
-- [ ] claude-map.ts 추출/승격 + 테스트
-- [ ] contextWindow.ts 헬퍼/폴백 + 테스트
-- [ ] Composer/UsagePanel 치환
-- [ ] mock 패리티
-- [ ] 버전 핀 (package.json + lock)
-- [ ] 문서 동기 (IPC_CONTRACT · provider-runtime)
+- [x] shared/ipc.ts 타입 확장
+- [x] claude-map.ts 추출/승격 + 테스트
+- [x] contextWindow.ts 헬퍼/폴백 + 테스트
+- [x] Composer/UsagePanel 치환
+- [x] mock 패리티
+- [x] 버전 핀 (package.json + lock)
+- [x] 문서 동기 (IPC_CONTRACT · provider-runtime)
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | (기입) |
-| 실행 명령 | (기입) |
-| 게이트 결과 | (기입) |
-| 블로커 / 역질문 | (기입) |
-| 대상 커밋 | (기입) |
+| 변경 파일 | `app/src/shared/ipc.ts` · `app/src/main/adapters/{claude-map.ts,claude-map.test.ts,mock-scenarios.ts}` · `app/src/renderer/src/features/chat/lib/{contextWindow.ts,contextWindow.test.ts}` · `app/src/renderer/src/features/chat/components/{Composer.tsx,UsagePanel.tsx}` · `app/package.json` · `app/package-lock.json` · `docs/IPC_CONTRACT.md` · `docs/arch/backend/provider-runtime.md` |
+| 실행 명령 | `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci`(postinstall electron ABI 실패 = egress 베이스라인) → `npm run lint` → `npm run typecheck` → `npm rebuild better-sqlite3`(Node ABI 소스 리빌드) → `./node_modules/.bin/vitest run` → `node --test scripts/*.test.mjs` |
+| 게이트 결과 | lint ✅ 0 error(1 pre-existing warning — TanStack Virtual, 0133 동일) / typecheck ✅ 3분할 0 / vitest ✅ **1077/1077**(`chat-turn.continuity` 1파일 로드 실패 = electron egress 베이스라인, 0127~0133 동일) / scripts ✅ 25/25 |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | (검증 턴에서 기재) |
