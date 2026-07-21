@@ -8,9 +8,7 @@ import { EngineFormModal } from './EngineFormModal'
 import { useEngines } from '../hooks/useEngines'
 
 type ModalState =
-  | { mode: 'add' }
-  | { mode: 'edit'; agent: AgentEnvironment; settingsJson: string }
-  | null
+  { mode: 'add' } | { mode: 'edit'; agent: AgentEnvironment; settingsJson: string } | null
 
 export function AgentEnvironmentView(): React.JSX.Element {
   const { tr } = useI18n()

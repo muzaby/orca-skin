@@ -18,14 +18,7 @@ export const FILE_EDIT_TOOLS: ReadonlySet<string> = new Set(['Write', 'Edit', 'M
 export const FILE_TOOLS: ReadonlySet<string> = new Set(['Read', ...FILE_EDIT_TOOLS])
 
 export type VerbCategory =
-  | 'ran'
-  | 'created'
-  | 'edited'
-  | 'read'
-  | 'used'
-  | 'planned'
-  | 'requested'
-  | 'delegated'
+  'ran' | 'created' | 'edited' | 'read' | 'used' | 'planned' | 'requested' | 'delegated'
 
 // 동사 키 — 완료 시제. 라벨 문자열이 아니라 카탈로그 키만 두고 렌더에서 tr() 해석한다
 // (0096 stale-방지 패턴 — 언어 전환 시 라이브 갱신, 0097).

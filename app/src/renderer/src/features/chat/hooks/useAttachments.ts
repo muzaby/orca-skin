@@ -103,16 +103,14 @@ export function useAttachments(): UseAttachments {
     if (files.length === 0) return
     event.preventDefault()
     void Promise.all(
-      files.map(
-        async (file): Promise<ComposerAttachment> => ({
-          kind: 'inline',
-          data: await readFileAsBase64(file),
-          name: file.name || 'pasted-image.png',
-          mimeType: file.type || 'image/png',
-          sizeBytes: file.size,
-          sourceKind: 'clipboard'
-        })
-      )
+      files.map(async (file): Promise<ComposerAttachment> => ({
+        kind: 'inline',
+        data: await readFileAsBase64(file),
+        name: file.name || 'pasted-image.png',
+        mimeType: file.type || 'image/png',
+        sizeBytes: file.size,
+        sourceKind: 'clipboard'
+      }))
     ).then(addAttachments)
   }
 

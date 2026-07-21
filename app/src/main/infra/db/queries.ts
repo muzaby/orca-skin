@@ -553,8 +553,7 @@ export class DbQueries {
 
   getTitleSource(id: string): SessionTitleSource | null {
     const row = this.getTitleSourceStmt.get({ id }) as
-      | { title_source: SessionTitleSource }
-      | undefined
+      { title_source: SessionTitleSource } | undefined
     return row?.title_source ?? null
   }
 
@@ -712,8 +711,7 @@ export class DbQueries {
   // provider별 월 한도 조회 — 행 부재/NULL 이면 null(무제한 또는 미설정).
   getProviderLimit(providerKey: string): number | null {
     const row = this.getProviderLimitStmt.get({ providerKey }) as
-      | { limit_usd: number | null }
-      | undefined
+      { limit_usd: number | null } | undefined
     return row?.limit_usd ?? null
   }
 
@@ -724,8 +722,7 @@ export class DbQueries {
   getProviderUsageReport(providerKey: string): ProviderUsageReportCacheRow | null {
     return (
       (this.getProviderUsageReportStmt.get({ providerKey }) as
-        | ProviderUsageReportCacheRow
-        | undefined) ?? null
+        ProviderUsageReportCacheRow | undefined) ?? null
     )
   }
 
@@ -789,8 +786,7 @@ export class DbQueries {
 
   getProjectContextForSession(sessionId: string): { name: string; instructions: string } | null {
     const row = this.getProjectContextForSessionStmt.get({ sessionId }) as
-      | { name: string; instructions: string }
-      | undefined
+      { name: string; instructions: string } | undefined
     return row ?? null
   }
 

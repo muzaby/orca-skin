@@ -6,12 +6,7 @@ import { initSessions } from '../../features/sessions/store/sessionsStore'
 import type { BootReport } from '../../../../shared/ipc'
 
 export type BootStepId =
-  | 'main-ready'
-  | 'main-report'
-  | 'landing-target'
-  | 'backend'
-  | 'sessions'
-  | 'projects-cost'
+  'main-ready' | 'main-report' | 'landing-target' | 'backend' | 'sessions' | 'projects-cost'
 
 export interface BootTimingPolicy {
   warningAfterMs: number

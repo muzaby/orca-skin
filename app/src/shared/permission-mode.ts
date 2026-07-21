@@ -14,21 +14,11 @@ import type { PermissionMode } from './ipc'
 
 // provider 중립 권한 모드 (정규화 어휘). UI/IPC/controller 가 공유하는 SSOT 표현.
 export type NormalizedPermissionMode =
-  | 'default'
-  | 'accept_edits'
-  | 'plan'
-  | 'dont_ask'
-  | 'bypass'
-  | 'auto_classified'
+  'default' | 'accept_edits' | 'plan' | 'dont_ask' | 'bypass' | 'auto_classified'
 
 // Claude Agent SDK PermissionMode 미러 (sdk.d.ts:1865). SDK 직접 import 대신 타입 미러.
 export type ClaudePermissionMode =
-  | 'default'
-  | 'acceptEdits'
-  | 'bypassPermissions'
-  | 'plan'
-  | 'dontAsk'
-  | 'auto'
+  'default' | 'acceptEdits' | 'bypassPermissions' | 'plan' | 'dontAsk' | 'auto'
 
 // 정규화 모드 전수 (UI 메뉴·검증 루프용 단일 출처).
 export const NORMALIZED_MODES: readonly NormalizedPermissionMode[] = [
