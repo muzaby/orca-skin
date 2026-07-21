@@ -6,7 +6,7 @@ import { Icon } from '../../../shared/ui/Icon'
 import { Toggle } from '../../../shared/ui/Toggle'
 import { AutoGrowTextarea } from '../../../shared/ui/AutoGrowTextarea'
 import { useI18n, type UiLocale } from '../../../shared/i18n'
-import type { ThemeId } from '../../../shared/config/theme'
+import type { ThemeId, DensityId } from '../../../shared/config/theme'
 import type { AppFontId } from '../../../shared/hooks/useTweaks'
 import { SettingsGroup, SettingsRow } from './parts'
 
@@ -21,6 +21,13 @@ const THEME_OPTIONS = [
   { value: 'white', labelKey: 'settings.general.themeWhite', icon: 'sun' },
   { value: 'dark', labelKey: 'settings.general.themeDark', icon: 'moon' }
 ] as const satisfies readonly { value: ThemeId; labelKey: string; icon: 'sun' | 'moon' }[]
+
+// 앱 전역 밀도(루트 font-size 파생 — DENSITY_FONT). 디버그 패널의 밀도 라디오와 같은 t.density Tweak.
+const DENSITY_OPTIONS = [
+  { value: 'compact', labelKey: 'settings.general.densityCompact' },
+  { value: 'normal', labelKey: 'settings.general.densityNormal' },
+  { value: 'comfortable', labelKey: 'settings.general.densityComfortable' }
+] as const satisfies readonly { value: DensityId; labelKey: string }[]
 
 // 언어 이름은 해당 언어 자체 표기(자기 언어로 항상 읽을 수 있어야 함) — 번역 대상 아님.
 const LOCALE_OPTIONS: { value: UiLocale; label: string }[] = [
@@ -140,6 +147,23 @@ export function GeneralTab(): React.JSX.Element {
             {LOCALE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
+              </option>
+            ))}
+          </select>
+        </SettingsRow>
+
+        <SettingsRow
+          label={tr('settings.general.density')}
+          description={tr('settings.general.densityDesc')}
+        >
+          <select
+            value={t.density}
+            onChange={(e) => setTweak('density', e.target.value as DensityId)}
+            className="cursor-pointer rounded-r4 border border-border bg-bg px-2.5 py-1.5 text-[12.5px] text-ink outline-none focus:border-border-strong"
+          >
+            {DENSITY_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {tr(opt.labelKey)}
               </option>
             ))}
           </select>
