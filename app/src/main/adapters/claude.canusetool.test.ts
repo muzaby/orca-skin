@@ -218,11 +218,33 @@ describe('makeCanUseTool — 서브에이전트 백그라운드화 + 재호출 �
     expect(res).toMatchObject({ behavior: 'allow', updatedInput: { run_in_background: true } })
   })
 
-  it('backgroundSubagents off(기본) → 주입 없이 passthrough', async () => {
+  it('backgroundSubagents off(기본) → run_in_background:false 명시 주입 (0135 — CLI 2.1.198+ 기본 백그라운드 고정 해제)', async () => {
     const canUse = makeCanUseTool(reqAllow)
-    const input = { subagent_type: 'Explore' }
+    const res = await canUse('Agent', { subagent_type: 'Explore' }, ctx)
+    expect(res).toEqual({
+      behavior: 'allow',
+      updatedInput: { subagent_type: 'Explore', run_in_background: false }
+    })
+  })
+
+  it('off + 모델이 run_in_background:true 명시 → 보존(강제 덮어쓰기 없음)', async () => {
+    const canUse = makeCanUseTool(reqAllow)
+    const input = { subagent_type: 'Explore', run_in_background: true }
     const res = await canUse('Agent', input, ctx)
     expect(res).toEqual({ behavior: 'allow', updatedInput: input })
+  })
+
+  it('off + 모델이 run_in_background:false 명시 → 보존', async () => {
+    const canUse = makeCanUseTool(reqAllow)
+    const input = { subagent_type: 'Explore', run_in_background: false }
+    const res = await canUse('Agent', input, ctx)
+    expect(res).toEqual({ behavior: 'allow', updatedInput: input })
+  })
+
+  it('off 의 Task(구버전 도구명)도 false 주입', async () => {
+    const canUse = makeCanUseTool(reqAllow)
+    const res = await canUse('Task', { subagent_type: 'general' }, ctx)
+    expect(res).toMatchObject({ behavior: 'allow', updatedInput: { run_in_background: false } })
   })
 
   it('차단된 서브에이전트 타입은 deny(주입보다 우선)', async () => {
