@@ -395,6 +395,7 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
           outputTokens?: number
           cacheReadInputTokens?: number
           cacheCreationInputTokens?: number
+          contextWindow?: number
         }
       >
     }
@@ -489,6 +490,7 @@ function normalizeResultTelemetry(r: {
       outputTokens?: number
       cacheReadInputTokens?: number
       cacheCreationInputTokens?: number
+      contextWindow?: number
     }
   >
 }): ProviderReportedTelemetry | undefined {
@@ -514,15 +516,22 @@ function normalizeResultTelemetry(r: {
         inputTokens: mu.inputTokens,
         outputTokens: mu.outputTokens,
         cacheReadTokens: mu.cacheReadInputTokens,
-        cacheCreationTokens: mu.cacheCreationInputTokens
+        cacheCreationTokens: mu.cacheCreationInputTokens,
+        // SDK 실측 컨텍스트 윈도우(0134) — renderer 도넛 분모의 1차 소스. 미제공 시 생략
+        // (renderer 가 모델명 휴리스틱으로 폴백).
+        contextWindow: mu.contextWindow
       })
       modelUsage[model] = entry
     }
     const models = Object.keys(modelUsage)
     if (models.length > 0) {
       out.modelUsage = modelUsage
-      // 단일 모델 턴이면 편의상 top-level model 도 채운다.
-      if (models.length === 1) out.model = models[0]
+      // 단일 모델 턴이면 편의상 top-level model 도 채운다. contextWindow 도 동형 승격(0134).
+      if (models.length === 1) {
+        out.model = models[0]
+        const window = modelUsage[models[0]].contextWindow
+        if (window !== undefined) out.contextWindow = window
+      }
     }
   }
 

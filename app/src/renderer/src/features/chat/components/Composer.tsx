@@ -35,7 +35,7 @@ import {
   useProjectConcurrencyCount
 } from '../store/chatStore'
 import { contextTokens } from '../lib/telemetry'
-import { contextWindowFor, nearCompaction } from '../lib/contextWindow'
+import { contextWindowOf, nearCompaction } from '../lib/contextWindow'
 import { useSkills } from '../../../shared/hooks/useSkills'
 import { useAgents } from '../../../shared/hooks/useAgents'
 import { useSkillAutocomplete } from '../hooks/useSkillAutocomplete'
@@ -213,7 +213,7 @@ export function Composer({
     let usage: { tokens: number; window: number } | undefined
     if (lastTelemetry) {
       const tokens = contextTokens(lastTelemetry)
-      const window = contextWindowFor(lastTelemetry.model)
+      const window = contextWindowOf(lastTelemetry)
       const ratio = tokens / window
       usage = { tokens, window }
       if (nearCompaction(tokens, window) || ratio >= 0.85) {
@@ -638,7 +638,7 @@ export function Composer({
                     // 컨텍스트 사용량 = (입력+캐시)/모델 윈도우(마지막 턴 기준). 세션 동안 lastTelemetry
                     // 가 유지·복원되므로 도넛도 세션 수명 동안 표시된다.
                     const tokens = contextTokens(lastTelemetry)
-                    const window = contextWindowFor(lastTelemetry.model)
+                    const window = contextWindowOf(lastTelemetry)
                     const pct = Math.round((tokens / window) * 100)
                     const warn = nearCompaction(tokens, window)
                     return (
