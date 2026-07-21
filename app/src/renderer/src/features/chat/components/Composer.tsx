@@ -169,8 +169,14 @@ export function Composer({
     })
   }, [initialDraft])
 
+  // initialDraft 의 seededRef 와 대칭 — 각 복원 신호(id=seq)를 1회만 적용한다.
+  // store draftRestore 는 소비 후 clear 되지 않아 ChatTile 이 매 렌더 새 객체로
+  // restoredDraft 를 churn 시킨다(스트리밍/telemetry 재렌더). id 가드가 없으면
+  // 그 churn 마다 effect 가 재발화해 사용자가 지운 textarea 를 취소 텍스트로 덮어썼다.
+  const restoredRef = useRef<number | null>(null)
   useEffect(() => {
-    if (!restoredDraft) return
+    if (!restoredDraft || restoredRef.current === restoredDraft.id) return
+    restoredRef.current = restoredDraft.id
     queueMicrotask(() => {
       setDraft(restoredDraft.text)
       setCaret(restoredDraft.text.length)
