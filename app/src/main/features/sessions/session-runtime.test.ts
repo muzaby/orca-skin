@@ -337,6 +337,98 @@ describe('SessionRuntime provider 경계 respawn(0118)', () => {
   })
 })
 
+// 0136 — listen 턴: 입력 push 없이 살아있는 채널 프레임만 소비. 백그라운드 서브에이전트의
+// CLI 자동 턴(진행·task_notification·완료 알림 턴)을 라이브 배달한다.
+describe('SessionRuntime listen 턴(0136)', () => {
+  const listenReq = (): TurnRequest => ({ ...req(), listen: true, text: '' })
+
+  it('채널 생존 중 listen 은 push 없이 프레임을 열어 이벤트를 소비한다', async () => {
+    const ch = channelLive()
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+    const f1 = collect(runtime.send(req()))
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await f1
+
+    const fl = collect(runtime.send(listenReq()))
+    await tick()
+    expect(ch.pushed).toEqual([]) // 입력 주입 없음
+    ch.emit({
+      type: 'tool.call.completed',
+      sessionId: 's1',
+      toolRunId: 't1',
+      result: {},
+      isError: false
+    })
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    const events = await fl
+    expect(events.map((e) => e.type)).toEqual(['tool.call.completed', 'telemetry'])
+    expect(runtime.channelAlive).toBe(true)
+  })
+
+  it('유휴 중 쌓인 백로그(unframed)를 listen 프레임이 선합류한다', async () => {
+    const ch = channelLive()
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+    const f1 = collect(runtime.send(req()))
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await f1
+
+    // 프레임 없는 상태에서 CLI 자동 턴 이벤트가 먼저 도착(백로그).
+    ch.emit({ type: 'session.updated', sessionId: 's1', patch: {} })
+    await tick()
+
+    const fl = collect(runtime.send(listenReq()))
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    const events = await fl
+    expect(events.map((e) => e.type)).toEqual(['session.updated', 'telemetry'])
+  })
+
+  it('채널이 없으면 listen 은 즉시 빈 스트림으로 종료한다', async () => {
+    const ch = channelLive()
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+    // 아직 채널 미개설(첫 send 전) — pushTurn 지원 어댑터라도 pump 미가동.
+    const events = await collect(runtime.send(listenReq()))
+    expect(events).toEqual([])
+    expect(ch.pushed).toEqual([])
+  })
+
+  it('endListenFrame() 은 listen 프레임을 닫되 draining 없이 이후 이벤트를 다음 프레임에 이월한다', async () => {
+    const ch = channelLive()
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+    const f1 = collect(runtime.send(req()))
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await f1
+
+    const fl = collect(runtime.send(listenReq()))
+    await tick()
+    // 릴리즈 밸브 — busy send 예약이 listen 프레임을 닫는다(terminal 없이).
+    runtime.endListenFrame()
+    const listenEvents = await fl
+    expect(listenEvents).toEqual([]) // terminal 없이 종료
+    expect(runtime.channelAlive).toBe(true)
+
+    // 밸브 직후의 held flush 턴 — 이후 도착 이벤트는 unframed 로 살아 다음 프레임에 합류한다.
+    ch.emit({ type: 'session.updated', sessionId: 's1', patch: {} })
+    await tick()
+    const f2 = collect(runtime.send({ ...req(), text: 'held' }))
+    await tick()
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    const events2 = await f2
+    expect(events2.map((e) => e.type)).toEqual(['session.updated', 'telemetry'])
+  })
+
+  it('endListenFrame() 은 일반(비-listen) 프레임을 닫지 않는다 (no-op)', async () => {
+    const ch = channelLive()
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+    const f1 = collect(runtime.send(req()))
+    await tick()
+    // 일반 턴 프레임 진행 중 — 릴리즈 밸브는 무효여야 한다.
+    runtime.endListenFrame()
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    const events = await f1
+    expect(events.map((e) => e.type)).toEqual(['telemetry'])
+  })
+})
+
 // 0125 — spawn 시점 providerSettings 기록 수명: 콜드 스폰에서 기록, pushTurn 재사용은 불변,
 // teardown/채널 사망에서 해제. 내용 비교 판정 자체는 features/providers(순수 함수) 소관.
 describe('SessionRuntime spawn settings 기록(0125)', () => {

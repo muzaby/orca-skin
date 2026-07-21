@@ -152,4 +152,9 @@ export interface TurnRequest {
   // 각 배치는 자기 uuid 의 개별 user 메시지로 주입되고, 프롬프트와 함께 응답 시작에서
   // 개별 배치로 커밋된다(버블 구조 보존, 0069).
   preludes?: SteerFlushBatch[]
+  // listen 턴(0136) — 입력을 push 하지 않고 살아있는 채널의 프레임만 열어, CLI 가 스스로 여는
+  // 자동 턴(백그라운드 서브에이전트 진행·task_notification·완료 알림 턴)을 소비한다. 어댑터는
+  // 이 필드를 결코 보지 않는다 — SessionRuntime 이 pushTurn/spawn 전에 선분기한다. text 는
+  // 무시되므로 빈 문자열을 관례로 한다. stall 타이머 미무장은 TurnCoordinator 가 판정한다.
+  listen?: boolean
 }

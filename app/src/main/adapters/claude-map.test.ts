@@ -226,6 +226,81 @@ describe('claudeToNormalized', () => {
     ])
   })
 
+  it('백그라운드 런치 영수증(tool_use_result.status=async_launched)을 result 로 싣는다 (0136)', () => {
+    const receipt = { status: 'async_launched', agentId: 'a1', description: 'x', prompt: 'y' }
+    const out = claudeToNormalized(
+      sdk({
+        type: 'user',
+        tool_use_result: receipt,
+        message: {
+          content: [
+            { type: 'tool_result', tool_use_id: 't1', content: 'Agent launched', is_error: false }
+          ]
+        }
+      }),
+      ctx()
+    )
+    expect(out).toEqual([
+      {
+        type: 'tool.call.completed',
+        sessionId: 's1',
+        toolRunId: 't1',
+        result: receipt,
+        isError: false
+      }
+    ])
+  })
+
+  it('완료(비-async) tool_use_result 는 매핑하지 않고 wire content 를 유지한다 (0136)', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'user',
+        tool_use_result: { status: 'completed', totalTokens: 5 },
+        message: {
+          content: [
+            { type: 'tool_result', tool_use_id: 't1', content: '최종 보고', is_error: false }
+          ]
+        }
+      }),
+      ctx()
+    )
+    expect(out).toEqual([
+      {
+        type: 'tool.call.completed',
+        sessionId: 's1',
+        toolRunId: 't1',
+        result: '최종 보고',
+        isError: false
+      }
+    ])
+  })
+
+  it('tool_result 블록이 복수면 런치 영수증 매핑을 미적용한다 (귀속 모호 — 0136)', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'user',
+        tool_use_result: { status: 'async_launched', agentId: 'a1' },
+        message: {
+          content: [
+            { type: 'tool_result', tool_use_id: 't1', content: 'a', is_error: false },
+            { type: 'tool_result', tool_use_id: 't2', content: 'b', is_error: false }
+          ]
+        }
+      }),
+      ctx()
+    )
+    expect(out).toEqual([
+      {
+        type: 'tool.call.completed',
+        sessionId: 's1',
+        toolRunId: 't1',
+        result: 'a',
+        isError: false
+      },
+      { type: 'tool.call.completed', sessionId: 's1', toolRunId: 't2', result: 'b', isError: false }
+    ])
+  })
+
   it('user(텍스트 echo, 배열 content) → input.echo (uuid 보존)', () => {
     const out = claudeToNormalized(
       sdk({
