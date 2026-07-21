@@ -91,7 +91,9 @@ const SUBAGENT_BLOCKED_MESSAGE =
 
 export interface CanUseToolOptions {
   // 서브에이전트(Agent/Task) 호출에 run_in_background:true 를 주입해 백그라운드 task 로 띄운다 →
-  // stopTask 로 개별 중단 가능(가이드). 기본 off(ORCA_SUBAGENT_BACKGROUND) — 현행 foreground 보존.
+  // stopTask 로 개별 중단 가능(가이드). 기본 off(ORCA_SUBAGENT_BACKGROUND) — off 면
+  // run_in_background:false 를 명시 주입해 foreground 를 고정한다(0135 — CLI 2.1.198+ 는
+  // 미지정 시 백그라운드가 기본이라 passthrough 가 곧 백그라운드가 됐다). 모델 명시값은 보존.
   backgroundSubagents?: boolean
   // 중단된 서브에이전트 타입이면 재호출을 deny(가이드 §6-A). 미주입이면 차단 없음.
   isSubagentBlocked?: (subagentType: string | undefined) => boolean
@@ -117,7 +119,14 @@ export function makeCanUseTool(
           updatedInput: { ...(input as Record<string, unknown>), run_in_background: true }
         }
       }
-      // 백그라운드 off — 기존 동작(allow passthrough)로 떨어진다.
+      // 백그라운드 off(기본) — CLI 2.1.198+ 는 run_in_background 미지정 시 **백그라운드가 기본**
+      // 이므로(0135), false 명시 주입으로 구 foreground 의미론을 고정한다. 모델이 명시한 값
+      // (true/false)은 보존한다 — 명시 백그라운드 라이프사이클은 0136 런타임이 소화한다.
+      const rec = (input ?? {}) as Record<string, unknown>
+      if (rec.run_in_background === undefined) {
+        return { behavior: 'allow', updatedInput: { ...rec, run_in_background: false } }
+      }
+      return { behavior: 'allow', updatedInput: input }
     }
     if (toolName === 'AskUserQuestion' && requestApproval) {
       const questions = Array.isArray((input as { questions?: unknown }).questions)
