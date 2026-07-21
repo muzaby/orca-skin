@@ -98,13 +98,7 @@ export const CHANNELS = {
 } as const
 
 export type UpdateStateStatus =
-  | 'idle'
-  | 'checking'
-  | 'available'
-  | 'downloading'
-  | 'ready'
-  | 'installing'
-  | 'error'
+  'idle' | 'checking' | 'available' | 'downloading' | 'ready' | 'installing' | 'error'
 export interface UpdateProgress {
   percent: number
   transferred?: number
@@ -229,12 +223,7 @@ export interface CostSummary {
 // provider별 사용량 엔트리(0080 항목 4) — providerKey(=agent key)별 실사용 summary + 월 한도.
 // summary 는 turn_usage ⨝ sessions(provider_key)로 파생, limitUsd 는 provider_limits 원장.
 export type UsageReportScope =
-  | 'provider-account'
-  | 'organization'
-  | 'workspace'
-  | 'project'
-  | 'user'
-  | 'unknown'
+  'provider-account' | 'organization' | 'workspace' | 'project' | 'user' | 'unknown'
 
 export interface UsageTotals {
   costUsd?: number
@@ -703,9 +692,7 @@ export interface PlanReviewRequest {
 // (재제안 금지) / revise=피드백 반영해 재작성. renderer→main 와이어는 PermissionRespond 로
 // 통일됐다 — approved↔allow, revise↔deny{message}, rejected↔deny{interrupt:true} 로 매핑.
 export type PlanDecision =
-  | { type: 'approved' }
-  | { type: 'rejected' }
-  | { type: 'revise'; feedback: string }
+  { type: 'approved' } | { type: 'rejected' } | { type: 'revise'; feedback: string }
 
 export type AttachmentSourceKind = 'dialog' | 'drag_drop' | 'clipboard'
 

@@ -77,8 +77,7 @@ export function validateProviderName(name: string): ProviderNameValidation {
 }
 
 export type JsonValidation =
-  | { ok: true }
-  | { ok: false; errorKey: MessageKey; params?: Record<string, unknown> }
+  { ok: true } | { ok: false; errorKey: MessageKey; params?: Record<string, unknown> }
 
 // JSON.parse 의 "at position N" 을 사람이 읽을 줄·열로 환산 (toss 식 친절한 안내).
 function locateError(text: string, raw: string): { line: number; col: number } | null {

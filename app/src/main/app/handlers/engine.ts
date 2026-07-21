@@ -68,8 +68,7 @@ export function registerEngineHandlers(ctx: RouterContext): void {
   })
 
   // 사용자 전역 ~/.claude/settings.json 원문 — 모달 자동완성용 (무입력 read, 부재=exists:false).
-  handlePlain(
-    CHANNELS.engineImportUserSettings,
-    (): EngineUserSettingsResult => readUserClaudeSettings()
+  handlePlain(CHANNELS.engineImportUserSettings, (): EngineUserSettingsResult =>
+    readUserClaudeSettings()
   )
 }

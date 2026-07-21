@@ -46,8 +46,7 @@ describe('ClaudeAdapter — steer echo replay 플래그 (0060 D5)', () => {
 
     expect(queryMock).toHaveBeenCalledTimes(1)
     const call = queryMock.mock.calls[0]?.[0] as
-      | { options: { extraArgs?: Record<string, string | null> } }
-      | undefined
+      { options: { extraArgs?: Record<string, string | null> } } | undefined
     expect(call?.options.extraArgs).toMatchObject({ 'replay-user-messages': null })
   })
 })

@@ -179,8 +179,7 @@ export class Bootstrap {
     // lazy sink 로 지연 바인딩한다(그 전 호출은 throw → SsoService 가 실패로 격리).
     const secretStore = new SecretStore()
     let providerEnvSink:
-      | ((adapter: string, provider: string, env: Record<string, string>) => void)
-      | null = null
+      ((adapter: string, provider: string, env: Record<string, string>) => void) | null = null
     const sso = new SsoService({
       module: SSO_MODULE,
       secretStore,

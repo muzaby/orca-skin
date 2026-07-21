@@ -54,14 +54,12 @@ export function toAgentEnvironments(
     adapter: entry.adapter,
     provider: entry.provider,
     supported: supported.has(entry.adapter),
-    models: entry.models.map(
-      (model): AgentModelView => ({
-        alias: model.alias,
-        model: model.model,
-        isCustom: model.isCustom,
-        oneMillionContext: model.oneMillionContext,
-        isDefault: model.isDefault
-      })
-    )
+    models: entry.models.map((model): AgentModelView => ({
+      alias: model.alias,
+      model: model.model,
+      isCustom: model.isCustom,
+      oneMillionContext: model.oneMillionContext,
+      isDefault: model.isDefault
+    }))
   }))
 }
