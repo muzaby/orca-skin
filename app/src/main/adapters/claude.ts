@@ -44,6 +44,7 @@ import { CLAUDE_DESCRIPTOR } from './descriptor'
 import { makeWorkspaceGuardHook } from './workspace-guard'
 import { resolveClaudeExecutable } from './claude-executable'
 import type { ProviderDescriptor } from '../../shared/ipc'
+import { getLogger } from '../infra/log/registry'
 
 const requireFn = createRequire(import.meta.url)
 
@@ -430,6 +431,26 @@ export class ClaudeAdapter implements SessionAdapter {
       try {
         for await (const msg of handle) {
           yield* claudeToNormalized(msg, ctx)
+          // [PHASE0-DIAG] 컨텍스트 예산 재설계 진단(handoff 0140) — Phase 2 에서 제거.
+          // spawnedModel 후보(req.model) ↔ observed message.model ↔ result.modelUsage 키/window
+          // 세 문자열이 실환경(Bedrock)에서 실제로 어떻게 다른지 확정한다. 순수 매퍼(claude-map)를
+          // 건드리지 않도록 어댑터 루프에서 raw SDKMessage 를 읽어 방출한다.
+          if ((msg as { type?: string }).type === 'result') {
+            const rawModelUsage = (
+              msg as { modelUsage?: Record<string, { contextWindow?: number }> }
+            ).modelUsage
+            getLogger()
+              .child('engine')
+              .debug('engine.contextbudget.diag', {
+                sessionId: ctx.sessionId,
+                reqModel: model ?? null,
+                observedMainModel: ctx.mainModel ?? null,
+                modelUsage: Object.entries(rawModelUsage ?? {}).map(([m, mu]) => ({
+                  model: m,
+                  contextWindow: mu?.contextWindow ?? null
+                }))
+              })
+          }
           // hook 은 다음 SDK 메시지(compact_boundary/result)보다 먼저 완료되므로 메시지 뒤
           // 드레인이 [구분선 → 요약] 순서를 만든다.
           yield* drainCompactSummaries()

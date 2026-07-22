@@ -141,6 +141,22 @@ async function resolveTurnProvider(
   const providerSettings = await ctx.providerSettings.resolve(selected)
   const modelFamily = req.modelFamily ?? defaultModelFamily(selected.models)
   const model = modelNameForFamily(selected.models, modelFamily)
+  // [PHASE0-DIAG] 컨텍스트 예산 재설계 진단(handoff 0140) — Phase 2 에서 제거.
+  // 선택 모델의 oneMillionContext([1m] 설정 파생, 권위) 를 해석 model 문자열과 상관지어,
+  // configWindow(1M/기본) 산출의 실환경 입력을 확정한다(claude.ts 진단과 sessionId 상관).
+  {
+    const picked =
+      selected.models.find((m) => m.alias === modelFamily || m.model === modelFamily) ??
+      selected.models.find((m) => m.isDefault) ??
+      selected.models[0]
+    getLogger()
+      .child('providers')
+      .debug('providers.contextbudget.diag', {
+        sessionId: req.sessionId,
+        model: model ?? null,
+        oneMillionContext: picked?.oneMillionContext ?? null
+      })
+  }
   // 제목 생성 모델은 요청 전에 사전 선택한다 (저가 모델 보유 시 그것, 없으면 default — 정책은
   // settings 레이어 resolveTitleModel 에 둔다).
   const titleModel = resolveTitleModel(selected.models)
