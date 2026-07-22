@@ -56,7 +56,7 @@ Claude Code CLI 는 **model 문자열의 `[1m]` 접미사**를 1M 컨텍스트 �
 |---|---|
 | 변경 파일 | `app/src/main/features/providers/model-resolve.ts` · `app/src/main/features/providers/provider-settings.test.ts` |
 | 게이트 결과 | lint ✅ 0 error(1 pre-existing warning) / typecheck ✅ 3분할 0 / vitest ✅ providers **39/39**(신규 [1m] 케이스 포함) |
-| 대상 커밋 | (커밋 후 기재) |
+| 대상 커밋 | `b8c07fa` |
 | 블로커 | 없음. **사람 실기 대기**: `global.anthropic.claude-opus-4-8[1m]` 설정으로 대화 → completed 턴 종료 메시지에서 1M 반영 확인. |
 
 ## [검증] 요구 충족
