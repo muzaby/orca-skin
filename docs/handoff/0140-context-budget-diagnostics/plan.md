@@ -90,7 +90,7 @@
 | 변경 파일 | `app/src/main/adapters/claude.ts`(events() 루프 `[PHASE0-DIAG]` result 진단 + `getLogger` import) · `app/src/main/app/chat-turn.ts`(`resolveTurnProvider` `[PHASE0-DIAG]` oneMillionContext 진단) |
 | 실행 명령 | `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` → `npm run lint` → `npm run typecheck` → `./node_modules/.bin/vitest run src/main/adapters src/renderer/src/features/chat/lib` |
 | 게이트 결과 | lint ✅ 0 error(1 pre-existing warning = TanStack Virtual, 무관) / typecheck ✅ 3분할 0 / vitest ✅ **378/378**(adapters+chat lib 순수 스위트, 진단 additive 무회귀). DB 로드 스위트는 미실행(진단 무관). |
-| 대상 커밋 | (커밋 후 기재) |
+| 대상 커밋 | `9712440` |
 | 블로커 | 없음. **사용자 실데이터 대기**(AC5) — dev 로그 스위치 ON + Bedrock sonnet-5 1턴. |
 
 ## [검증자 기입 — 사용자 실데이터] R2 실패지점 확정
