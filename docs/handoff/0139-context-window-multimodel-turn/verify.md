@@ -7,7 +7,7 @@
 | slug | `0139-context-window-multimodel-turn` |
 | 검증자 | Claude Code |
 | 일자 | 2026-07-22 |
-| 대상 커밋 | (커밋 시 기재) |
+| 대상 커밋 | `0b2b84a` |
 | 라운드 | 1 |
 | 상태 | PASS |
 
