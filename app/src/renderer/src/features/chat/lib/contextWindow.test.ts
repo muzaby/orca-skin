@@ -64,7 +64,10 @@ describe('contextWindowOf (분모 단일 진입점, 0134)', () => {
     expect(contextWindowOf({ model: 'claude-haiku-4-5', contextWindow: -1 })).toBe(200_000)
   })
 
-  it('멀티모델 턴(top-level model 부재)은 폴백 기본값', () => {
+  // 0139 이후 멀티모델 턴도 claude-map 이 이번 턴 메인 모델을 top-level(model+contextWindow)로
+  // 승격하므로, 아래처럼 top-level 이 *부재* 한 입력은 복원/비정상 경로에서만 발생한다. 그 경우
+  // 어느 모델이 메인인지 알 수 없어 폴백 기본값으로 내려가는 것이 옳다(renderer 방어).
+  it('top-level model 부재 + modelUsage 다중(복원/비정상)은 폴백 기본값', () => {
     expect(
       contextWindowOf({
         modelUsage: {
@@ -73,6 +76,19 @@ describe('contextWindowOf (분모 단일 진입점, 0134)', () => {
         }
       })
     ).toBe(DEFAULT_CONTEXT_WINDOW)
+  })
+
+  it('멀티모델이라도 top-level model 이 채워지면(0139 승격) 그 모델 window 를 쓴다', () => {
+    expect(
+      contextWindowOf({
+        model: 'claude-sonnet-5',
+        contextWindow: 1_000_000,
+        modelUsage: {
+          'claude-sonnet-5': { contextWindow: 1_000_000 },
+          'claude-haiku-4-5': { contextWindow: 200_000 }
+        }
+      })
+    ).toBe(1_000_000)
   })
 })
 

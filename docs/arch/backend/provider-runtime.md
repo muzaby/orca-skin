@@ -328,7 +328,9 @@ type AppMessagePart =
 ```ts
 interface TelemetryModelUsage { costUsd?: number; inputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheCreationTokens?: number; contextWindow?: number }
 interface ProviderReportedTelemetry { model?: string; inputTokens?: number; outputTokens?: number; cacheReadTokens?: number; cacheCreationTokens?: number; costUsd?: number; durationMs?: number; numTurns?: number; contextWindow?: number; modelUsage?: Record<string, TelemetryModelUsage> }
-// contextWindow(0134) = SDK result modelUsage[].contextWindow 실측(단일 모델 턴은 top-level 승격).
+// contextWindow(0134/0139) = SDK result modelUsage[].contextWindow 실측. top-level 승격 = 단일
+// 모델이면 그 모델, 멀티모델(서브에이전트·동시 실행 제목 haiku 등 누적 다중 키)이면 *이번 턴*
+// 메인 모델(마지막 non-child assistant.model)을 승격 → 도넛 분모가 200k 로 붕괴/고착하지 않음.
 // renderer 분모 단일 진입점 contextWindowOf() 가 ① top-level ② modelUsage[model] ③ 모델명
 // 휴리스틱(contextWindowFor — 1M 패밀리 마커 + 200k 기본) 순으로 해석. DB 비영속 — 재로드 복원
 // 경로는 ③ 폴백(현행 패밀리는 정확, 미지 신모델만 다음 라이브 턴까지 기본값).
