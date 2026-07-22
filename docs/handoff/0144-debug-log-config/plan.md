@@ -120,4 +120,4 @@ prod 는 `info` 이상만 파일 기록(`observability.md` §4)이라 배포 후
 | 게이트 결과 | lint ✅ 0 error(1 pre-existing warning=TanStack Virtual 무관) · typecheck ✅ 3분할 0 · vitest ✅ 91/91(신규 orca-file 2·log-manager 2·wire-log 4). DB/electron 스위트는 egress ABI 제약으로 비실행(변경 무관). |
 | 블로커 / 역질문 | 없음 |
 | 부팅 순서 확인 | `orca-config` 스텝(bootstrap:274, `loadOrcaConfig`+`setLogDebug`+config 캐시 채움)이 `registerMiscHandlers`(bootstrap:490, prod `getOrcaConfig()`+`setWireLog`)보다 선행 — 캐시 히트라 dir/throw 리스크 없음, 레벨·wire 배선이 chat 이벤트 유입 전 완료. |
-| 대상 커밋 | (커밋 후 기입) |
+| 대상 커밋 | `d531c56` |
