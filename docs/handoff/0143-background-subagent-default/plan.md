@@ -201,4 +201,4 @@ SDK 0.3.215 / CLI 2.1.198+ 는 서브에이전트를 기본 백그라운드로 �
 | 실행 명령 | `npm run lint` / `npm run typecheck` / `./node_modules/.bin/vitest run` / `node --test scripts/*.test.mjs` |
 | 게이트 결과 | lint 0 error(1 pre-existing warning: useTranscriptVirtualizer, 무관) / typecheck 3분할 0 error / vitest **1144/1144**(신규 ~35 — post-turn 8·session-runtime 5·coordinator 4·background-tasks 5·canusetool 재작성·reducer listen 9·store listen 7·parts stale 4; `chat-turn.continuity` 1파일 로드 실패 = electron egress 베이스라인) + scripts 25/25. grep 게이트 `ORCA_SUBAGENT_BACKGROUND\|backgroundSubagents` app/src **0건**. 레이어 경계 0, IPC 채널 수 불변(이벤트 variant/파트 additive), DB 마이그레이션 0(파트 JSON) |
 | 블로커 / 역질문 | 없음. 라이브 실기(백그라운드 런치→listen 배달→통지·steer 무사망·중단 정착)는 electron 로드라 사람/CI 몫 |
-| 대상 커밋 | (push 후 기재) |
+| 대상 커밋 | `7728fe1` |
