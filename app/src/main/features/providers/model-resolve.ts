@@ -14,6 +14,9 @@ export function modelKey(model: ParsedModel): string {
 
 // 선택된 alias 를 SDK 에 넘길 model 문자열로 해석. model 이 null(커스텀 미구성)이면 bare alias
 // (sonnet/opus/haiku)를 그대로 넘겨 SDK 가 해석하게 한다 — 추측 금지(모델명 임의 생성 안 함).
+// oneMillionContext(설정의 `[1m]` 접미사, 0142)면 접미사를 **재부착**해 SDK query 의 options.model
+// 로 넘긴다 — Claude Code CLI 는 model 문자열의 `[1m]` 를 1M 컨텍스트 베타로 번역한다. 파서가
+// 표시/매칭용으로 떼어낸 접미사를 실행 경로에서만 되살린다(도넛 modelUsage 키는 해석 ID 라 무관).
 export function modelNameForFamily(
   models: ParsedModel[],
   alias: string | null | undefined
@@ -25,7 +28,8 @@ export function modelNameForFamily(
     : undefined
   const selected = byAlias ?? models.find((model) => model.isDefault) ?? models[0]
   if (!selected) return undefined
-  return selected.model ?? selected.alias
+  const base = selected.model ?? selected.alias
+  return selected.oneMillionContext ? `${base}[1m]` : base
 }
 
 export function defaultModelFamily(models: ParsedModel[]): string | null {

@@ -112,6 +112,22 @@ describe('model helpers (alias 기준)', () => {
     expect(modelNameForFamily([], 'sonnet')).toBeUndefined()
   })
 
+  it('modelNameForFamily 는 oneMillionContext 면 [1m] 접미사를 재부착한다 (0142)', () => {
+    const oneM: ParsedModel[] = [
+      {
+        alias: 'opus',
+        model: 'global.anthropic.claude-opus-4-8',
+        isCustom: true,
+        oneMillionContext: true,
+        isDefault: true
+      }
+    ]
+    // 설정의 `[1m]` 이 SDK query 의 options.model 로 되살아나야 1M 베타가 켜진다.
+    expect(modelNameForFamily(oneM, 'opus')).toBe('global.anthropic.claude-opus-4-8[1m]')
+    // oneMillionContext=false 면 접미사 없음(무회귀).
+    expect(modelNameForFamily(models, 'sonnet')).toBe('claude-sonnet-4-6')
+  })
+
   it('defaultModelFamily 는 default 항목의 alias, 빈 배열이면 null', () => {
     expect(defaultModelFamily(models)).toBe('sonnet')
     expect(defaultModelFamily([])).toBeNull()
