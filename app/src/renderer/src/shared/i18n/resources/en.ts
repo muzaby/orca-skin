@@ -481,6 +481,12 @@ export const en: typeof ko = {
       subagentTypeLine: 'Type: {{type}}',
       openSubagentPanel: 'Open subagent panel'
     },
+    subagentNotice: {
+      completed: 'Background task finished',
+      failed: 'Background task failed',
+      stopped: 'Background task stopped',
+      agentLine: 'Agent "{{title}}"'
+    },
     subagentTile: {
       status: {
         running: 'In progress',

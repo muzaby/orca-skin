@@ -331,12 +331,16 @@ function receive(ev: NormalizedEvent): void {
 
   // 자동 연속 턴(0067 AC7) — renderer 의 send 없이 main 이 시작한 턴도 활동 이벤트가 오면
   // inflight 로 전이해 도넛/중단 버튼/스크롤 앵커가 정상 동작하게 한다.
+  // 0143: 서브에이전트 child 이벤트(parentToolRunId)는 제외 — listen 대기 중 백그라운드 child
+  // 스트림이 메인 inflight 를 점멸시키지 않는다(대기 표시는 listening 레벨 상태가 담당).
+  // foreground(메인 턴 내) child 는 inflight 가 이미 true 라 제외해도 무영향.
   if (
     (ev.type === 'message.delta' ||
       ev.type === 'message.reasoning.delta' ||
       ev.type === 'message.completed' ||
       ev.type === 'message.reasoning' ||
       ev.type === 'tool.call.started') &&
+    (ev as { parentToolRunId?: string }).parentToolRunId === undefined &&
     getState().sessions[key]?.session.inflight === false
   ) {
     dispatchTo(key, { type: 'BEGIN_TURN' })
@@ -371,8 +375,13 @@ function receive(ev: NormalizedEvent): void {
       return
 
     case 'subagent.task':
-      // reducer 미경유 — 우측 패널·AgentTaskRow 표시용 transient 메타로만 흡수.
+      // 우측 패널·AgentTaskRow 표시용 transient 메타 흡수 + **백그라운드 완료 통지**(0143) —
+      // settled+background(main 권위 게이팅)만 reducer 로 넘겨 subagent_notice 파트를 커밋한다
+      // (writer 영속과 동형 — 라이브·재로드 렌더 일치. 그 외 phase 는 종전대로 reducer 미경유).
       patchSubagentMeta(key, ev)
+      if (ev.phase === 'settled' && ev.background === true) {
+        dispatchTo(key, { type: 'RECV_EVENT', event: ev })
+      }
       return
 
     case 'message.queued':
@@ -563,7 +572,10 @@ function send(
 
   const sendKey = getState().activeKey
   const requestId = crypto.randomUUID()
-  const busy = cur.inflight
+  // 0143: listen 대기(listening) 중에도 main 세션은 busy(턴-후 루프 진행 중) — steer 예약
+  // 경로로 보내야 낙관 커밋 vs message.queued 이중 렌더가 없다(main 은 held 로 수용 후
+  // 릴리즈 밸브/유예를 거쳐 연속 턴으로 커밋한다).
+  const busy = cur.inflight || cur.listening
   // 0119: busy 중 provider 경계를 넘는 모델이 선택돼 있으면 steer 예약을 거부한다 —
   // 진행 턴의 채널은 낡은 provider env 라 경계 너머 메시지를 실을 수 없다(Composer 게이트의
   // main-호출 직전 이중 방어). 본래 provider 로 되돌리면 통과.

@@ -429,6 +429,117 @@ describe('SessionRuntime listen 턴(0136)', () => {
   })
 })
 
+// 0143 — CLI 메인 루프 mid-turn 추적(channelBusy) + 밸브 유예: steer 세션 사망(버그 a)의
+// 런타임측 차단. mid auto-turn 에 listen 프레임을 닫고 pushTurn 하면 auto-turn 의 잔여/terminal
+// 이 steer 프레임으로 오귀속되던 경로를 "busy 면 밸브 no-op → terminal 자연 마감" 으로 막는다.
+describe('SessionRuntime channelBusy + 밸브 유예(0143)', () => {
+  const listenReq = (): TurnRequest => ({ ...req(), listen: true, text: '' })
+
+  it('비-terminal 최상위 이벤트에 busy, terminal 에 유휴로 굴린다', async () => {
+    const ch = channelLive()
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+    const f1 = collect(runtime.send(req()))
+    await tick()
+    expect(runtime.channelBusy).toBe(false) // 아직 이벤트 없음
+    ch.emit({ type: 'message.delta', sessionId: 's1', delta: { text: 'x' } })
+    await tick()
+    expect(runtime.channelBusy).toBe(true)
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await f1
+    expect(runtime.channelBusy).toBe(false)
+  })
+
+  it('백그라운드 스코프 이벤트(child·subagent.task)는 busy 를 켜지 않는다', async () => {
+    const ch = channelLive()
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+    const f1 = collect(runtime.send(req()))
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await f1
+
+    const fl = collect(runtime.send(listenReq()))
+    await tick()
+    // 백그라운드 태스크의 child 스트림·진행 신호만 흐르는 구간 — CLI 메인 루프는 유휴.
+    ch.emit({ type: 'subagent.task', sessionId: 's1', toolUseId: 'p1', phase: 'progress' })
+    ch.emit({
+      type: 'tool.call.started',
+      sessionId: 's1',
+      toolRunId: 'c1',
+      toolName: 'Bash',
+      args: {},
+      parentToolRunId: 'p1'
+    })
+    await tick()
+    expect(runtime.channelBusy).toBe(false)
+    // 유휴이므로 밸브는 즉시 프레임을 닫는다.
+    runtime.endListenFrame()
+    const events = await fl
+    expect(events.map((e) => e.type)).toEqual(['subagent.task', 'tool.call.started'])
+  })
+
+  it('mid auto-turn 밸브는 no-op — auto-turn terminal 이 listen 프레임을 자연 마감(무손실)', async () => {
+    const ch = channelLive()
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+    const f1 = collect(runtime.send(req()))
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await f1
+
+    const fl = collect(runtime.send(listenReq()))
+    await tick()
+    // CLI 자동(알림) 턴 진행 중 — 최상위 스트림 이벤트가 흐른다.
+    ch.emit({ type: 'message.delta', sessionId: 's1', delta: { text: '알림 턴' } })
+    await tick()
+    expect(runtime.channelBusy).toBe(true)
+    // steer 예약(held) 릴리즈 밸브 발화 — busy 라 no-op 이어야 한다.
+    runtime.endListenFrame()
+    ch.emit({ type: 'message.completed', sessionId: 's1', message: { text: '알림 턴' } })
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    // auto-turn 의 전체 이벤트(terminal 포함)가 listen 프레임에 귀속된다 — steer 프레임 오귀속 없음.
+    const events = await fl
+    expect(events.map((e) => e.type)).toEqual(['message.delta', 'message.completed', 'telemetry'])
+    expect(runtime.channelBusy).toBe(false)
+
+    // 이후 held flush 턴은 깨끗한 유휴 채널에서 시작한다.
+    const f2 = collect(runtime.send({ ...req(), text: 'held' }))
+    await tick()
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    const events2 = await f2
+    expect(events2.map((e) => e.type)).toEqual(['telemetry'])
+  })
+
+  it('hasUnframedBacklog — 프레임 밖 적체를 노출하고 openFrame 합류로 소진된다', async () => {
+    const ch = channelLive()
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+    const f1 = collect(runtime.send(req()))
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await f1
+    expect(runtime.hasUnframedBacklog).toBe(false)
+
+    ch.emit({ type: 'session.updated', sessionId: 's1', patch: {} })
+    await tick()
+    expect(runtime.hasUnframedBacklog).toBe(true)
+
+    const fl = collect(runtime.send(listenReq()))
+    await tick()
+    expect(runtime.hasUnframedBacklog).toBe(false) // 백로그 선합류
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    const events = await fl
+    expect(events.map((e) => e.type)).toEqual(['session.updated', 'telemetry'])
+  })
+
+  it('teardownChannel/채널 사망은 busy 를 해제한다', async () => {
+    const ch = channelLive()
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+    const f1 = collect(runtime.send(req()))
+    await tick()
+    ch.emit({ type: 'message.delta', sessionId: 's1', delta: { text: 'x' } })
+    await tick()
+    expect(runtime.channelBusy).toBe(true)
+    runtime.teardownChannel()
+    expect(runtime.channelBusy).toBe(false)
+    await f1.catch(() => undefined)
+  })
+})
+
 // 0125 — spawn 시점 providerSettings 기록 수명: 콜드 스폰에서 기록, pushTurn 재사용은 불변,
 // teardown/채널 사망에서 해제. 내용 비교 판정 자체는 features/providers(순수 함수) 소관.
 describe('SessionRuntime spawn settings 기록(0125)', () => {

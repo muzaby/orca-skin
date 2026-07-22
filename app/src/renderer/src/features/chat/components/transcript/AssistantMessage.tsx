@@ -8,6 +8,7 @@ import { ErrorCard } from './ErrorCard'
 import { StructuredOutputCard } from './StructuredOutputCard'
 import { CompactBoundaryMarker } from './CompactBoundaryMarker'
 import { ForkBoundaryMarker } from './ForkBoundaryMarker'
+import { SubagentNoticeRow } from './SubagentNoticeRow'
 import { messageSegments, reconcileSegments, type MessageSegment } from '../../lib/parts'
 import type { Message } from '../../reducer/chatReducer'
 
@@ -62,6 +63,16 @@ export const AssistantMessage = memo(function AssistantMessage({
             )
           case 'fork':
             return <ForkBoundaryMarker key={i} />
+          case 'subagent_notice':
+            return (
+              <SubagentNoticeRow
+                key={i}
+                toolRunId={seg.toolRunId}
+                status={seg.status}
+                durationMs={seg.durationMs}
+                summary={seg.summary}
+              />
+            )
         }
       })}
       {message.incomplete && (

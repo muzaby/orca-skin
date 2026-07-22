@@ -48,6 +48,7 @@ import { recoverSessionHistory } from '../features/chat/recovery'
 import type { SteerFlushBatch, TurnRequest } from '../adapters/turn'
 import { TurnCoordinator } from '../features/chat/turn-coordinator'
 import { BackgroundTaskTracker } from '../features/chat/background-tasks'
+import { decidePostTurnStep } from '../features/chat/post-turn'
 import { settleOpenToolRuns, settleSubagentTask, stopLiveSubagent } from '../features/chat/settle'
 import type { MainBus, TurnEmit } from '../contracts/bus-events'
 import type { TurnEventSink } from '../features/chat/turn-sinks'
@@ -203,10 +204,6 @@ export function registerChatHandlers(deps: ChatDeps): void {
     }
   }
 
-  // 서브에이전트 백그라운드화 게이트(가이드 — run_in_background 주입). 종료 정착은
-  // task_notification/사용자 중단 공통 경로에서 foreground/background 모두 처리한다.
-  const backgroundSubagents = process.env.ORCA_SUBAGENT_BACKGROUND === '1'
-
   // 0136 — 세션별 미정착 백그라운드 서브에이전트 추적(coordinator 가 갱신, 턴-후 루프가 조회)
   // + listen 턴 릴리즈 밸브(세션 키 — busy send 예약이 listen 프레임을 닫아 즉시 연속 턴 전환).
   const backgroundTasks = new BackgroundTaskTracker()
@@ -223,14 +220,52 @@ export function registerChatHandlers(deps: ChatDeps): void {
     const ids = [...backgroundTasks.ids(sessionId)]
     if (ids.length === 0) return
     for (const toolUseId of ids) {
-      settleSubagentTask(turn, emitTurn, {
+      const settledEv = {
         type: 'subagent.task',
         sessionId,
         toolUseId,
         phase: 'settled',
         status: 'failed',
+        // 턴-후 루프까지 살아남은 추적 = 백그라운드 대기물(0143) — 완료 통지(실패) 게이팅.
+        background: true,
         summary: '채널이 종료되어 서브에이전트가 중단되었습니다.'
-      })
+      } as const
+      settleSubagentTask(turn, emitTurn, settledEv)
+      // 합성 settled 자체도 버스로 방출(0143) — writer 의 subagent_notice 영속과 renderer 의
+      // transient 메타(status) 갱신이 라이브 settled(coordinator emit)와 동일 경로로 흐른다.
+      emitTurn(turn, settledEv)
+    }
+    backgroundTasks.clear(sessionId)
+  }
+
+  // listen 대기 중 사용자 중단(0143, 사용자 확정) — 대기만 끊지 않고 실행 중 백그라운드 태스크도
+  // 함께 중단한다(stopTask + 합성 stopped 정착). 대안(태스크 유지)은 다음 send 의 draining
+  // teardown 으로 태스크가 어차피 소리 없이 죽어 '실행 중' 거짓 표시만 남긴다.
+  const stopAndSettleAbortedTasks = async (
+    turn: TurnContext<WebContents>,
+    sessionId: string
+  ): Promise<void> => {
+    const ids = [...backgroundTasks.ids(sessionId)]
+    if (ids.length === 0) return
+    for (const toolUseId of ids) {
+      const taskId = turn.subagentTaskIds.get(toolUseId)
+      await stopLiveSubagent(
+        turn.live,
+        toolUseId,
+        taskId,
+        backgroundTasks.isAsyncLaunched(sessionId, toolUseId)
+      )
+      const settledEv = {
+        type: 'subagent.task',
+        sessionId,
+        toolUseId,
+        phase: 'settled',
+        status: 'stopped',
+        background: true,
+        summary: '사용자가 대기를 중단해 백그라운드 서브에이전트를 중지했습니다.'
+      } as const
+      settleSubagentTask(turn, emitTurn, settledEv)
+      emitTurn(turn, settledEv)
     }
     backgroundTasks.clear(sessionId)
   }
@@ -640,7 +675,6 @@ export function registerChatHandlers(deps: ChatDeps): void {
       registry: supervisor,
       classifyError: (err, phase) => adapter.classifyError(err, phase),
       activeTurns: supervisor.activeTurns,
-      backgroundSubagents,
       pendingMessages,
       backgroundTasks
     })
@@ -756,11 +790,26 @@ export function registerChatHandlers(deps: ChatDeps): void {
       // 전까지 null(그동안 예약 자체가 불가능하므로 빈 회수가 옳다).
       takeSteerFlush: () =>
         activeTurn.dbSessionId ? pendingMessages.flushHeld(activeTurn.dbSessionId) : undefined,
-      // 서브에이전트 백그라운드화(가이드) — ORCA_SUBAGENT_BACKGROUND 게이트. 기본 off=foreground.
-      backgroundSubagents,
       isSubagentBlocked: (st) => st !== undefined && activeTurn.blockedSubagents.has(st),
       attachmentTexts: normalizedAttachments.attachmentTexts,
       attachmentImages: normalizedAttachments.attachmentImages
+    }
+
+    // listen phase 레벨 신호(0143) — renderer 의 listening 상태(inflight 지속·send=steer 라우팅)
+    // 를 구동한다. 개별 listen 턴 경계가 아니라 **턴-후 루프 스코프**로 started 1회/ended 1회 —
+    // 연속 listen 턴·중간 held-flush 연속 턴을 관통해 깜빡임을 없앤다. sendChatEvent 직행(버스
+    // 미경유)이라 history/usage 는 구조적으로 못 본다(미영속 — message.queued 동렬).
+    let listenPhaseSessionId: string | null = null
+    const beginListenPhase = (sessionId: string): void => {
+      if (listenPhaseSessionId) return
+      listenPhaseSessionId = sessionId
+      sendChatEvent(wc, { type: 'chat.listen', sessionId, phase: 'started' })
+    }
+    const endListenPhase = (): void => {
+      if (!listenPhaseSessionId) return
+      const sessionId = listenPhaseSessionId
+      listenPhaseSessionId = null
+      sendChatEvent(wc, { type: 'chat.listen', sessionId, phase: 'ended' })
     }
 
     try {
@@ -768,35 +817,26 @@ export function registerChatHandlers(deps: ChatDeps): void {
       // 자동 연속 턴(0067 AC7) — 턴 종료 시 held 잔여(어시스턴트 턴 중 예약됐으나 게이트를 못
       // 만난 메시지)를 즉시 다음 턴으로 잇는다. 사용자 개입 없음. 명시 취소(controller abort)
       // 시에는 발동하지 않는다 — 중단 버튼이 held 를 이미 drain(draft 복원)했다.
-      // 0136 — held 가 없어도 미정착 백그라운드 태스크가 살아 있으면 listen 턴(입력 push 없는
-      // 프레임 소비)으로 CLI 자동 턴(진행·task_notification·완료 알림 턴)을 라이브 배달한다.
+      // 0136/0143 — held 가 없어도 미정착 백그라운드 태스크가 살아 있으면 listen 턴(입력 push
+      // 없는 프레임 소비)으로 CLI 자동 턴(진행·task_notification·완료 알림 턴)을 라이브 배달한다.
+      // 0143 기본화: 게이트 없음(구 opt-in env 게이트·0138 기본 배제 폐기).
       while (!activeTurn.controller.signal.aborted && activeTurn.dbSessionId) {
         const sessionId = activeTurn.dbSessionId
         // 채널이 죽었으면 in-process 백그라운드 태스크도 소멸 — 정착·정리(고착 방지, 0136).
         if (!runtime.channelAlive) settleDeadBackgroundTasks(activeTurn, sessionId)
-        if (pendingMessages.pending(sessionId).length === 0) {
-          // 135 엄격(0138): 기본(foreground)에서는 listen 턴을 열지 않는다 — 백그라운드 수용
-          // (listen 턴)은 ORCA_SUBAGENT_BACKGROUND opt-in 뒤로만. 기본 경로에 미정착 태스크가
-          // 남으면(= run_in_background:false 주입이 CLI 에서 무효화돼 서브에이전트가 백그라운드로
-          // 돈 경우) 트래커만 비우고 진단 로그를 남긴 뒤 종료한다 — 세션을 즉시 유휴로 복귀시켜
-          // inflight 고착·steer 미커밋을 막는다. 실작업 절단(강제 실패 정착)은 하지 않는다(진짜
-          // 도는 백그라운드 서브에이전트는 완료 이벤트가 다음 send 백로그 합류로 멱등 화해된다).
-          if (!backgroundSubagents) {
-            const stuck = backgroundTasks.ids(sessionId).size
-            if (stuck > 0) {
-              backgroundTasks.clear(sessionId)
-              getLogger().child('chat').warn('chat.subagent.background-unexpected', {
-                sessionId,
-                count: stuck,
-                reason:
-                  'foreground default but task_started tracked — run_in_background:false ineffective?'
-              })
-            }
-            break
-          }
-          if (backgroundTasks.ids(sessionId).size === 0 || !runtime.channelAlive) break
+        // 다음 스텝 판정(순수, 0143) — pushTurn 은 "CLI 유휴 + 백로그 없음" 채널에서만(버그 a).
+        const step = decidePostTurnStep({
+          havePending: pendingMessages.pending(sessionId).length > 0,
+          haveTasks: backgroundTasks.ids(sessionId).size > 0,
+          channelAlive: runtime.channelAlive,
+          channelBusy: runtime.channelBusy,
+          hasBacklog: runtime.hasUnframedBacklog
+        })
+        if (step === 'break') break
+        if (step === 'listen') {
           // listen 턴 — settle/persist/relay/usage/title 은 일반 턴과 같은 버스 파이프라인.
           // 종료 후 루프 재평가: 알림 턴이 pending 을 남겼으면 연속 턴, 태스크가 남았으면 재개.
+          beginListenPhase(sessionId)
           const listenTurn = makeContinuationTurn(activeTurn)
           supervisor.startResume(sessionId, listenTurn)
           activeTurn = listenTurn
@@ -812,12 +852,17 @@ export function registerChatHandlers(deps: ChatDeps): void {
           delete listenRequest.preludes
           delete listenRequest.promptUuid
           // busy send 릴리즈 밸브 — 예약(held) 적재 직후 listen 프레임을 닫아 즉시 전환(0136).
+          // CLI 가 자동 턴 진행 중이면 no-op(0143 유예) — terminal 자연 마감 후 루프가 flush.
           listenRelease.set(sessionId, () => runtime.endListenFrame())
           try {
             await coordinator.run(listenTurn, listenRequest, { boundProjectId })
           } finally {
             listenRelease.delete(sessionId)
             supervisor.release(listenTurn)
+          }
+          // 사용자 중단(0143, 사용자 확정) — 대기 종료와 함께 실행 중 태스크도 중지·정착한다.
+          if (listenTurn.controller.signal.aborted) {
+            await stopAndSettleAbortedTasks(listenTurn, sessionId)
           }
           continue
         }
@@ -881,6 +926,9 @@ export function registerChatHandlers(deps: ChatDeps): void {
         }
       }
     } finally {
+      // listen phase 종료 신호(0143) — 정상 종료·break·중단·throw 전 경로에서 renderer 의
+      // listening 상태를 반드시 내린다.
+      endListenPhase()
       wc.removeListener('destroyed', onOwnerGone)
       wc.removeListener('render-process-gone', onOwnerGone)
       // turn 핸들 teardown(레지스트리 제거)과 runtime 수명은 분리한다 — Persistent 핸들은 정상
@@ -969,18 +1017,23 @@ export function registerChatHandlers(deps: ChatDeps): void {
     const subagentType = turn.subagentTypes.get(req.toolUseId)
     if (subagentType) turn.blockedSubagents.add(subagentType)
     turn.stoppedSubagents.add(req.toolUseId)
+    const trackerSessionId = turn.dbSessionId ?? req.sessionId
+    // per-task background 관측(0143) — settled(추적 해제)가 관측까지 지우므로 **해제 전에** 읽는다.
+    const alreadyBackground = backgroundTasks.isAsyncLaunched(trackerSessionId, req.toolUseId)
     // 0136 — 사용자 중단은 즉시 추적 해제(아래 합성 settled 는 버스 직행이라 coordinator 의
     // 추적 훅을 지나지 않는다). 늦게 오는 SDK task_notification(stopped)의 해제는 멱등.
-    backgroundTasks.settled(turn.dbSessionId ?? req.sessionId, req.toolUseId)
+    backgroundTasks.settled(trackerSessionId, req.toolUseId)
 
+    // 사용자 자기 행위의 통지는 소음(0143 설계 결정) — background 플래그를 싣지 않아
+    // subagent_notice 미생성. 행 상태('중단')와 패널이 이미 결과를 보여준다.
     settleSubagentTask(turn, emitTurn, {
       type: 'subagent.task',
-      sessionId: turn.dbSessionId ?? req.sessionId,
+      sessionId: trackerSessionId,
       toolUseId: req.toolUseId,
       phase: 'settled',
       status: 'stopped'
     })
 
-    await stopLiveSubagent(turn.live, req.toolUseId, taskId, backgroundSubagents)
+    await stopLiveSubagent(turn.live, req.toolUseId, taskId, alreadyBackground)
   })
 }
