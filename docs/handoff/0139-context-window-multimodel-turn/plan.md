@@ -139,4 +139,4 @@
 | 실행 명령 | `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci`(postinstall electron ABI 실패 = egress 베이스라인) → `npm rebuild better-sqlite3`(Node ABI) → `npm run lint` → `npm run typecheck` → `./node_modules/.bin/vitest run` → `node --test scripts/*.test.mjs` |
 | 게이트 결과 | lint ✅ 0 error(1 pre-existing warning = TanStack Virtual) / typecheck ✅ 3분할 0 / vitest ✅ **1104/1104**(`chat-turn.continuity` 1파일 로드 실패 = electron egress 베이스라인) / scripts ✅ 25/25 |
 | 블로커 / 역질문 | 없음 |
-| 대상 커밋 | (커밋 시 기재) |
+| 대상 커밋 | `0b2b84a` |
