@@ -485,7 +485,8 @@ export const en: typeof ko = {
       completed: 'Background task finished',
       failed: 'Background task failed',
       stopped: 'Background task stopped',
-      agentLine: 'Agent "{{title}}"'
+      agentLine: 'Agent "{{title}}" {{verb}}',
+      took: 'took {{duration}}'
     },
     subagentTile: {
       status: {

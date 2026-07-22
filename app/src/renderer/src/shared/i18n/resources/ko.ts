@@ -484,7 +484,8 @@ export const ko = {
       completed: '백그라운드 작업 완료',
       failed: '백그라운드 작업 실패',
       stopped: '백그라운드 작업 중단됨',
-      agentLine: 'Agent "{{title}}"'
+      agentLine: 'Agent "{{title}}" {{verb}}',
+      took: '{{duration}} 소요됨'
     },
     subagentTile: {
       status: {
