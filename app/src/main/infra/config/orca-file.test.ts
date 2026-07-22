@@ -155,6 +155,24 @@ describe('parseOrcaFile', () => {
     expect(warnings[0]).toContain('최상위 스키마 위반')
   })
 
+  it('debug 스위치(0144)를 파싱한다 — true/false 보존, 부재 시 키 생략', () => {
+    expect(parseOrcaFile(JSON.stringify({ version: 1, debug: true })).config).toEqual({
+      version: 1,
+      debug: true
+    })
+    expect(parseOrcaFile(JSON.stringify({ version: 1, debug: false })).config).toEqual({
+      version: 1,
+      debug: false
+    })
+    expect(parseOrcaFile(JSON.stringify({ version: 1 })).config).toEqual({ version: 1 })
+  })
+
+  it('debug 가 불린이 아니면 최상위 스키마 위반으로 기본값 처리한다', () => {
+    const { config, warnings } = parseOrcaFile(JSON.stringify({ version: 1, debug: 'yes' }))
+    expect(config).toEqual({ version: 1 })
+    expect(warnings[0]).toContain('최상위 스키마 위반')
+  })
+
   it('구 agents 필드(handoff 0009~0010) 잔존 시 무시하되 이전 안내 경고를 낸다 (클린 브레이크)', () => {
     const { config, warnings } = parseOrcaFile(
       JSON.stringify({

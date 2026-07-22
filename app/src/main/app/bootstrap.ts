@@ -42,7 +42,7 @@ import { loadClaudeProviderSettings, readUserClaudeSettings } from '../adapters/
 import { scanSkills, type SkillScanRoot } from '../features/extensions/skills/scan'
 import { seedBuiltinSkills } from '../features/extensions/skills/seed'
 import { initDb } from '../infra/db'
-import { getLogger } from '../infra/log'
+import { getLogger, setLogDebug } from '../infra/log'
 import { UsageTracker } from '../features/usage/tracker'
 import { DbRunRecorder, Scheduler } from '../features/scheduler'
 import { ExtensionBuilder } from '../features/extensions/builder'
@@ -271,9 +271,11 @@ export class Bootstrap {
       { critical: false, label: 'Orca 설정 디렉터리 보장' },
       () => ensureConfigDir()
     )
-    this.bootReport.stepSync('orca-config', { critical: false, label: 'orca.json 로드' }, () =>
-      loadOrcaConfig()
-    )
+    this.bootReport.stepSync('orca-config', { critical: false, label: 'orca.json 로드' }, () => {
+      const cfg = loadOrcaConfig()
+      // orca.json "debug":true 면 prod 파일 레벨을 info→debug 로 올린다(0144). dev 는 항상 debug.
+      setLogDebug(cfg.debug === true)
+    })
     await this.bootReport.step(
       'builtin-skill-seed',
       { critical: false, label: '기본 스킬 seed' },

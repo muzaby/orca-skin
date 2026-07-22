@@ -85,6 +85,27 @@ describe('레벨 정책 (dev/prod)', () => {
     m.emit({ level: 'debug', event: 'x.y.z', scope: 's' }, MAIN)
     expect(lines.length).toBe(1)
   })
+
+  // 0144 — orca.json debug 스위치 런타임 반영.
+  it('setDebugEnabled(true) 면 prod(dev:false) 도 debug 를 기록한다', () => {
+    const { m, lines } = manager({ dev: false })
+    m.emit({ level: 'debug', event: 'x.y.z', scope: 's' }, MAIN)
+    expect(lines.length).toBe(0)
+    m.setDebugEnabled(true)
+    m.emit({ level: 'debug', event: 'x.y.z', scope: 's' }, MAIN)
+    expect(lines.length).toBe(1)
+    // 다시 끄면 info 정책으로 복귀.
+    m.setDebugEnabled(false)
+    m.emit({ level: 'debug', event: 'x.y.z', scope: 's' }, MAIN)
+    expect(lines.length).toBe(1)
+  })
+
+  it('dev(dev:true) 는 setDebugEnabled(false) 여도 항상 debug 를 유지한다', () => {
+    const { m, lines } = manager({ dev: true })
+    m.setDebugEnabled(false)
+    m.emit({ level: 'debug', event: 'x.y.z', scope: 's' }, MAIN)
+    expect(lines.length).toBe(1)
+  })
 })
 
 describe('redaction 통합 (파일 기록 직전)', () => {

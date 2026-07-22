@@ -64,7 +64,8 @@ const UpdateConfigSchema = z.union([
 const OrcaConfigTopSchema = z.object({
   version: z.literal(1),
   env: z.record(z.string(), z.string()).optional(),
-  update: UpdateConfigSchema.optional()
+  update: UpdateConfigSchema.optional(),
+  debug: z.boolean().optional()
 })
 
 export type UpdateConfig = z.infer<typeof UpdateConfigSchema>
@@ -78,6 +79,10 @@ export interface OrcaConfig {
   // 폐쇄망은 s3(bucket+endpoint 로 MinIO/S3-호환) 또는 github host(GHE) 로 사내 피드를 가리킨다.
   // token/API key 는 저장하지 않는다.
   update?: UpdateConfig
+  // 디버그 로깅 스위치(0144). true 면 prod 설치본도 debug 레벨 로그 전체 + 메시지/턴 이벤트
+  // 타임라인(ipc.wire.event, 메시지 본문 제거)을 파일에 남긴다. 미지정/false 면 기존 info 정책.
+  // dev 빌드는 항상 debug 라 이 값과 무관(플래그는 prod 에서만 실질 효과).
+  debug?: boolean
 }
 
 export interface ParseOrcaFileResult {
@@ -124,7 +129,8 @@ export function parseOrcaFile(raw: string): ParseOrcaFileResult {
     config: {
       version: 1,
       ...(top.data.env ? { env: top.data.env } : {}),
-      ...(top.data.update ? { update: top.data.update } : {})
+      ...(top.data.update ? { update: top.data.update } : {}),
+      ...(top.data.debug !== undefined ? { debug: top.data.debug } : {})
     },
     warnings
   }

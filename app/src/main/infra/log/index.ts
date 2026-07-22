@@ -65,6 +65,12 @@ export function setConsoleMirror(on: boolean): void {
   manager?.setConsoleMirrorEnabled(on)
 }
 
+// orca.json debug 스위치 런타임 반영 (0144) — 부팅 시 loadOrcaConfig() 후 컴포지션 루트가 호출.
+// true 면 prod 파일 레벨을 info→debug 로 올린다(dev 는 항상 debug 라 무영향).
+export function setLogDebug(on: boolean): void {
+  manager?.setDebugEnabled(on)
+}
+
 // renderer/preload 발 로그 인제스트 (app/handlers/log.ts 전용) — 검증된 LogInput 만 받는다.
 // 공통 필드는 LogManager.enrich 가 source 기반으로 강제 부여한다.
 export function emitIngestedLog(input: LogInput, source: LogSource): void {
