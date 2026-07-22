@@ -90,11 +90,6 @@ const SUBAGENT_BLOCKED_MESSAGE =
   '사용자가 이 작업을 취소했습니다. 해당 서브에이전트를 다시 호출하지 말고 다른 방식으로 진행하세요.'
 
 export interface CanUseToolOptions {
-  // 서브에이전트(Agent/Task) 호출에 run_in_background:true 를 주입해 백그라운드 task 로 띄운다 →
-  // stopTask 로 개별 중단 가능(가이드). 기본 off(ORCA_SUBAGENT_BACKGROUND) — off 면
-  // run_in_background:false 를 명시 주입해 foreground 를 고정한다(0135 — CLI 2.1.198+ 는
-  // 미지정 시 백그라운드가 기본이라 passthrough 가 곧 백그라운드가 됐다). 모델 명시값은 보존.
-  backgroundSubagents?: boolean
   // 중단된 서브에이전트 타입이면 재호출을 deny(가이드 §6-A). 미주입이면 차단 없음.
   isSubagentBlocked?: (subagentType: string | undefined) => boolean
 }
@@ -107,24 +102,13 @@ export function makeCanUseTool(
   // 로 전달해 broker 가 그 신호로도 해소되게 한다 — 무시하면 canUseTool 이 영영 await 에 걸린다.
   return async (toolName, input, options): Promise<PermissionResult> => {
     const signal = options?.signal
-    // 서브에이전트 호출 — 재호출 차단(deny) 우선, 아니면 백그라운드 주입(allow + run_in_background).
+    // 서브에이전트 호출 — 재호출 차단(deny)만 판정하고 입력은 passthrough(0143). CLI 2.1.198+
+    // 기본 = 백그라운드이며 Orca 런타임(listen 턴)이 이를 기본 경로로 소화한다. run_in_background
+    // 는 주입하지 않는다 — 모델이 명시한 값(동기 실행 opt-out 포함)을 그대로 존중한다.
     if (isSubagentTool(toolName)) {
       const subagentType = subagentTypeOf(input)
       if (opts.isSubagentBlocked?.(subagentType)) {
         return { behavior: 'deny', message: SUBAGENT_BLOCKED_MESSAGE }
-      }
-      if (opts.backgroundSubagents) {
-        return {
-          behavior: 'allow',
-          updatedInput: { ...(input as Record<string, unknown>), run_in_background: true }
-        }
-      }
-      // 백그라운드 off(기본) — CLI 2.1.198+ 는 run_in_background 미지정 시 **백그라운드가 기본**
-      // 이므로(0135), false 명시 주입으로 구 foreground 의미론을 고정한다. 모델이 명시한 값
-      // (true/false)은 보존한다 — 명시 백그라운드 라이프사이클은 0136 런타임이 소화한다.
-      const rec = (input ?? {}) as Record<string, unknown>
-      if (rec.run_in_background === undefined) {
-        return { behavior: 'allow', updatedInput: { ...rec, run_in_background: false } }
       }
       return { behavior: 'allow', updatedInput: input }
     }
@@ -287,7 +271,6 @@ export class ClaudeAdapter implements SessionAdapter {
       permissionMode,
       model,
       effort,
-      backgroundSubagents,
       isSubagentBlocked,
       attachmentTexts = [],
       attachmentImages = []
@@ -396,7 +379,6 @@ export class ClaudeAdapter implements SessionAdapter {
         ...(requestApproval
           ? {
               canUseTool: makeCanUseTool(requestApproval, {
-                ...(backgroundSubagents ? { backgroundSubagents } : {}),
                 ...(isSubagentBlocked ? { isSubagentBlocked } : {})
               })
             }

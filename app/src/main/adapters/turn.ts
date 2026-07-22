@@ -138,9 +138,6 @@ export interface TurnRequest {
   // — 미주입(steer 미지원 백엔드)/빈 큐면 undefined(주입 없음). requestApproval 과 대칭인
   // 라이브-턴 제어 채널이라 TurnExtensions 가 아닌 TurnRequest 직속.
   takeSteerFlush?: () => SteerFlushBatch | undefined
-  // 서브에이전트를 백그라운드 task 로 띄울지(run_in_background 주입) — 개별 stopTask 중단 가능.
-  // ipc/chat/send.ts 가 ORCA_SUBAGENT_BACKGROUND 로 결정해 실어 보낸다. 기본 off.
-  backgroundSubagents?: boolean
   // 중단된 서브에이전트 타입 재호출 차단 술어(가이드 §6-A). turn.blockedSubagents 를 읽는다.
   isSubagentBlocked?: (subagentType: string | undefined) => boolean
   attachmentTexts?: ExtractedAttachmentText[]

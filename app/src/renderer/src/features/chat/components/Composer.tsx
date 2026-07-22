@@ -89,7 +89,11 @@ export function Composer({
 }: ComposerProps): React.JSX.Element {
   const { tr } = useI18n()
   const { send, cancel, answerAsk, skipAsk, setPermissionMode, setModel, setEffort } = chatActions
-  const inflight = useChatSession((s) => s.inflight)
+  const inflightTurn = useChatSession((s) => s.inflight)
+  const listening = useChatSession((s) => s.listening)
+  // 0143 — listen 대기(백그라운드 서브에이전트 완료 대기)도 busy: 전송=steer 예약(feedbackMode),
+  // 중단 버튼 노출, concurrency 자기-차감이 일반 턴과 동일하게 동작한다.
+  const inflight = inflightTurn || listening
   const sessionId = useChatSession((s) => s.sessionId)
   // 0064 handoff 가드 — 사용자 턴 2회 미만 세션 제외(값이 바뀔 때만 재렌더).
   const userTurnCount = useChatSession((s) =>

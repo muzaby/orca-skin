@@ -145,7 +145,6 @@ async function runTurn(
       throw err
     },
     activeTurns: { increment: vi.fn(), decrement: vi.fn() },
-    backgroundSubagents: false,
     pendingMessages
   })
   await coordinator.run(turn, { sessionId: null, text: '', cwd: '/w' } as never, {

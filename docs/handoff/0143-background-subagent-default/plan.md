@@ -170,31 +170,35 @@ SDK 0.3.215 / CLI 2.1.198+ 는 서브에이전트를 기본 백그라운드로 �
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- (구현 턴 기입)
+- 동의 / 그대로 진행: `channelBusy` + 밸브 유예 + `pushTurn` 유휴 보장(설계 §B·§C)이 버그 a 의 근원(mid-turn push → 프레임 오귀속)을 제거함을 코드로 재확인. `chat.listen` 레벨 신호(phase 스코프)는 renderer 상태 1쌍으로 inflight 지속·send 라우팅을 동시에 해결 — 파생(태스크 running) 대안의 stale-row phantom busy 문제를 회피한다.
+- 이견 / 보강 (F1): 설계 §B 초안의 "routeEvent 비-terminal = busy" 는 **백그라운드 child 스트림에서 busy 가 고착**되는 결함이 있었다 — child(parentToolRunId)·`subagent.task` 이벤트는 CLI 메인 루프 턴 밖에서도(백그라운드 동시 실행) 흐르므로, 이를 busy 로 치면 서브에이전트가 스트리밍하는 동안 밸브가 영영 안 열려 steer 가 태스크 종료까지 좌초한다. **백그라운드 스코프 이벤트를 busy 판정에서 제외**(`isBackgroundScoped`)로 선조치.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| | | | |
+| F1 | busy 판정에 백그라운드 스코프 이벤트가 포함되면 child 스트리밍 중 밸브 영구 no-op(steer 좌초) | ✅ `isBackgroundScoped`(child parentToolRunId·subagent.task) 제외 + 테스트 "백그라운드 스코프 이벤트는 busy 를 켜지 않는다" | `session-runtime.ts` |
+| F2 | 완료 알림(useCompletionNotifier)이 메인 턴 telemetry 에서 조기 발화 — listen 대기 중 "완료" OS 알림 | ✅ busy = `inflight ‖ listening` 로 확장 — listen phase 종료까지 알림 유예 | `useCompletionNotifier.ts` |
+| F3 | 채널 사망 합성 settled(`settleSubagentTask`)만으로는 renderer transient 메타·writer 통지가 안 흐름(정착 tool_result 만 방출) | ✅ 합성 `subagent.task settled` 이벤트 자체도 `emitTurn` 으로 버스 방출(사망=failed·중단=stopped, `background:true`) — 라이브 settled 와 동일 경로 | `chat-turn.ts` `settleDeadBackgroundTasks`/`stopAndSettleAbortedTasks` |
+| F4 | stopSubagent 핸들러의 per-task 관측 조회가 트래커 `settled()`(관측 동반 제거) 뒤면 항상 false | ✅ 해제 **전에** `isAsyncLaunched` 를 읽어 `stopLiveSubagent` 에 전달 | `chat-turn.ts` stopSubagent 핸들러 |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] AC1~3 0135/0138 제거 + env 소거 + canusetool 테스트 재작성
-- [ ] AC4~6 session-runtime channelBusy·밸브 유예 + 테스트
-- [ ] AC5 decidePostTurnStep 순수 추출 + 루프 재구성 + chat.listen + AC12 중단
-- [ ] AC11 트래커 asyncLaunched + stop 분기 + AC13 enrich
-- [ ] AC7~9 renderer listening·busy 라우팅·BEGIN_TURN 제외 + 테스트
-- [ ] AC13 subagent_notice 영속/렌더/i18n + AC15 재로드 위생
-- [ ] AC14 listen activeTurns 미계상
-- [ ] AC16 문서 동기 / AC17 게이트
+- [x] AC1~3 0135/0138 제거 + env 소거(grep 0건) + canusetool 테스트 재작성(passthrough/명시값 보존/deny)
+- [x] AC4~6 session-runtime `channelBusy`(백그라운드 스코프 제외)·`hasUnframedBacklog`·밸브 유예 + 테스트 5종(busy 전이·스코프 제외·mid-turn 밸브 no-op→자연 마감 무손실·백로그·teardown 해제)
+- [x] AC5 `decidePostTurnStep`(`features/chat/post-turn.ts`) 순수 추출(테스트 8종) + 루프 재구성 + AC7 `chat.listen` phase 신호 + AC12 중단(stop+stopped 정착+clear)
+- [x] AC11 트래커 `markAsyncLaunched`/`isAsyncLaunched`(테스트 5종) + coordinator 영수증 마킹·settled enrich(테스트 3종) + `stopLiveSubagent` per-task 분기
+- [x] AC8~9 renderer `listening`/`listenStartedAt`·busy 라우팅·BEGIN_TURN 자식 제외 + reducer/store 테스트(9종)
+- [x] AC13 `subagent_notice` 파트(writer case + reducer 멱등 커밋 + `SubagentNoticeRow` + segments 분리 + i18n ko/en 4키) / AC15 `settleStaleAsyncLaunchParts`(테스트 4종)
+- [x] AC14 listen 턴 activeTurns 미계상(+테스트)
+- [x] AC16 provider-runtime.md §2 재서술·IPC_CONTRACT §3(`chat.listen`·`background`·`subagent_notice`) / AC17 게이트
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | (구현 후 기입) |
-| 실행 명령 | |
-| 게이트 결과 | |
-| 블로커 / 역질문 | |
-| 대상 커밋 | |
+| 변경 파일 | main: `adapters/claude.ts`·`adapters/turn.ts`·`features/sessions/session-runtime.ts`(+test)·`features/chat/{turn-coordinator(+test),background-tasks(+test),settle,post-turn(신규+test)}.ts`·`features/history/writer.ts`·`infra/db/types.ts`·`app/chat-turn.ts`(+continuity 픽스처) / shared: `ipc.ts` / renderer: `reducer/chatReducer.ts`(+listen test)·`store/chatStore.ts`(+listen test)·`lib/parts.ts`(+stale-async test)·`components/{ChatTile,Composer,transcript/{PendingAssistant,AssistantMessage,SubagentNoticeRow(신규)}}.tsx`·`app/hooks/useCompletionNotifier.ts`·`shared/i18n/resources/{ko,en}.ts` / adapters test: `claude.canusetool.test.ts` / docs: provider-runtime·IPC_CONTRACT |
+| 실행 명령 | `npm run lint` / `npm run typecheck` / `./node_modules/.bin/vitest run` / `node --test scripts/*.test.mjs` |
+| 게이트 결과 | lint 0 error(1 pre-existing warning: useTranscriptVirtualizer, 무관) / typecheck 3분할 0 error / vitest **1144/1144**(신규 ~35 — post-turn 8·session-runtime 5·coordinator 4·background-tasks 5·canusetool 재작성·reducer listen 9·store listen 7·parts stale 4; `chat-turn.continuity` 1파일 로드 실패 = electron egress 베이스라인) + scripts 25/25. grep 게이트 `ORCA_SUBAGENT_BACKGROUND\|backgroundSubagents` app/src **0건**. 레이어 경계 0, IPC 채널 수 불변(이벤트 variant/파트 additive), DB 마이그레이션 0(파트 JSON) |
+| 블로커 / 역질문 | 없음. 라이브 실기(백그라운드 런치→listen 배달→통지·steer 무사망·중단 정착)는 electron 로드라 사람/CI 몫 |
+| 대상 커밋 | (push 후 기재) |

@@ -101,7 +101,6 @@ export interface TurnCoordinatorDeps<W> {
   registry: { promote(turn: TurnContext<W>, sessionId: string): void }
   classifyError: (err: unknown, phase: string) => ClassifiedError
   activeTurns: ActiveTurnGate
-  backgroundSubagents: boolean
   pendingMessages?: PendingMessageQueue
   // 세션별 미정착 백그라운드 서브에이전트 추적 포트(0136) — started/settled 를 이벤트 루프에서
   // 갱신하고, chat-turn 의 턴-후 루프가 listen 턴 개시 조건으로 조회한다.
@@ -195,7 +194,6 @@ export class TurnCoordinator<W = unknown> {
     opts: { boundProjectId: string | null }
   ): Promise<void> {
     const { runtime, persist, forward, registry, classifyError, activeTurns } = this.deps
-    const { backgroundSubagents } = this.deps
     const { boundProjectId } = opts
 
     // chat 턴 경계(0124 카탈로그) — started/completed/failed/cancelled 메타만 기록(원문 금지).
@@ -240,14 +238,28 @@ export class TurnCoordinator<W = unknown> {
         // send() 가 query() 를 즉시 시작하므로 try 안에서 호출 — 동기 throw 도 동일 경로로 분류.
         turn.live = runtime
         const events = runtime.send(request)
-        activeTurns.increment(boundProjectId)
+        // listen 턴(0143)은 동시 턴 회계에 계상하지 않는다 — 백그라운드 대기는 사용자 관점의
+        // "진행 중 작업" 이 아니라 수신 대기라, 프로젝트 동시 턴 경고를 오점화하지 않는다.
+        if (request.listen !== true) activeTurns.increment(boundProjectId)
         try {
           idle.reset()
           for await (const rawEv of events) {
-            const ev =
+            const coerced =
               rawEv.type === 'tool.call.completed'
                 ? coerceStoppedToolCompletion(turn.stoppedSubagents, rawEv)
                 : rawEv
+            // settled background enrich(0143) — async_launched 영수증이 관측된 태스크의 권위
+            // 정착에 background:true 를 실어 renderer 완료 통지·writer 영속(subagent_notice)의
+            // 권위 신호로 삼는다. 트래커 해제(아래)보다 먼저 판정해야 하며, 해제 후 지각 도착한
+            // 중복 settled 는 관측이 이미 사라져 미부여된다(통지 중복 차단).
+            const ev =
+              coerced.type === 'subagent.task' &&
+              coerced.phase === 'settled' &&
+              turn.dbSessionId &&
+              this.deps.backgroundTasks?.isAsyncLaunched(turn.dbSessionId, coerced.toolUseId) ===
+                true
+                ? { ...coerced, background: true }
+                : coerced
             eventsReceived += 1
             idle.reset()
             // input.echo — main 내부 steer 커밋 신호(renderer 미전달·미영속). 소비 표시만 하고
@@ -323,7 +335,16 @@ export class TurnCoordinator<W = unknown> {
             if (ev.type === 'subagent.task' && ev.taskId) {
               turn.subagentTaskIds.set(ev.toolUseId, ev.taskId)
               if (turn.stoppedSubagents.has(ev.toolUseId)) {
-                void stopLiveSubagent(turn.live, ev.toolUseId, ev.taskId, backgroundSubagents)
+                void stopLiveSubagent(
+                  turn.live,
+                  ev.toolUseId,
+                  ev.taskId,
+                  // per-task 관측(0143) — 영수증이 확인된 태스크만 backgroundTask 선행을 생략.
+                  turn.dbSessionId
+                    ? (this.deps.backgroundTasks?.isAsyncLaunched(turn.dbSessionId, ev.toolUseId) ??
+                        false)
+                    : false
+                )
               }
             }
             // subagent_type 매핑 — 재호출 차단(blockedSubagents)에 쓸 타입.
@@ -348,9 +369,14 @@ export class TurnCoordinator<W = unknown> {
               turn.openToolRuns.delete(ev.toolRunId)
               // 부모 Task 의 권위 결과(비-런치 영수증) 도착도 정착으로 본다(0136) — foreground
               // 에이전트가 task_notification 없이 끝나는 경로의 추적 고착 방지. 일반 도구 id 는
-              // 추적에 없어 no-op. 런치 영수증(async_launched)은 아직 실행 중 — 해제하지 않는다.
-              if (turn.dbSessionId && !isAsyncLaunchResult(ev.result)) {
-                this.deps.backgroundTasks?.settled(turn.dbSessionId, ev.toolRunId)
+              // 추적에 없어 no-op. 런치 영수증(async_launched)은 아직 실행 중 — 해제하지 않고
+              // **background 확정 관측**으로 기록한다(0143 — stop 분기·settled enrich 의 신호).
+              if (turn.dbSessionId) {
+                if (isAsyncLaunchResult(ev.result)) {
+                  this.deps.backgroundTasks?.markAsyncLaunched(turn.dbSessionId, ev.toolRunId)
+                } else {
+                  this.deps.backgroundTasks?.settled(turn.dbSessionId, ev.toolRunId)
+                }
               }
             }
             // telemetry(턴 종료)는 persist 이후에 소비 확정분을 flush — usage messageId 링크와
@@ -358,7 +384,7 @@ export class TurnCoordinator<W = unknown> {
             if (ev.type === 'telemetry') this.commitConsumed(turn)
           }
         } finally {
-          activeTurns.decrement(boundProjectId)
+          if (request.listen !== true) activeTurns.decrement(boundProjectId)
         }
         // 스트림이 terminal 없이 끝났고 abort 도 아니면 합성 telemetry 로 턴을 마감(버스 팬아웃).
         if (!sawTerminal && !turn.controller.signal.aborted) {

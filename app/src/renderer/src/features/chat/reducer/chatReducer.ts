@@ -14,7 +14,7 @@ import type {
 import type { NormalizedPermissionMode } from '../../../../../shared/permission-mode'
 import type { ContinuityLang } from '../../../../../shared/continuity-lang'
 import { contextTokens } from '../lib/telemetry'
-import { settleOrphanToolParts } from '../lib/parts'
+import { settleOrphanToolParts, settleStaleAsyncLaunchParts } from '../lib/parts'
 import type { RightPanelTileId } from '../lib/rightPanelTiles'
 import {
   addTileColumnMajor,
@@ -88,6 +88,14 @@ export interface ChatState {
   // 커밋된 transcript 메시지(SSOT 는 DB, 이 배열은 그 미러). 스트리밍 라이브 텍스트/사고는
   // 여기 없다 — chatStore 의 live 슬라이스(transient)가 담당하고, 완성 시 parts 로 커밋된다.
   messages: Message[]
+  // 0143 listen phase — 메인 턴 종료 후 main 이 백그라운드 서브에이전트를 기다리는 대기 구간
+  // (chat.listen started/ended 레벨 신호). inflight 와 독립: TURN_END_RESET(telemetry 등)은
+  // 건드리지 않는다 — listen 중 개별 알림 턴이 끝나도 애니메이션이 유지된다. send 라우팅
+  // busy(steer 예약)와 StatusLine 표시가 inflight ‖ listening 으로 판정한다.
+  listening: boolean
+  // listening 구간의 경과시간 앵커 — turnStartedAt 이 TURN_END_RESET 으로 비어도 StatusLine
+  // 이 이 값을 폴백으로 쓴다.
+  listenStartedAt: number | null
   // 이 세션 뷰에서 사용자가 라이브로 전송한 횟수(단조 증가, 세션 전환/새 채팅 시 0 리셋).
   // useScrollAnchor 가 "새 user 메시지 앵커" 트리거로 쓴다 — 메시지 배열 휴리스틱(로드된
   // 세션의 마지막 user 메시지 등 오탐) 없이 SEND 만 정확히 감지하기 위한 카운터.
@@ -172,6 +180,8 @@ export const initialChatState: ChatState = {
   messages: [],
   sendCount: 0,
   inflight: false,
+  listening: false,
+  listenStartedAt: null,
   loadingSession: false,
   turnStartedAt: null,
   pendingAsks: [],
@@ -495,6 +505,40 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
               : {})
           }
 
+        case 'chat.listen':
+          // listen phase 레벨 신호(0143) — started/ended 1쌍(턴-후 루프 스코프). TURN_END_RESET
+          // 은 listening 을 건드리지 않으므로, 대기 중 개별 알림 턴의 telemetry 가 애니메이션을
+          // 끊지 못한다. 앵커는 최초 started 1회만 기록(중복 started 방어).
+          if (ev.phase === 'started') {
+            return {
+              ...state,
+              listening: true,
+              listenStartedAt: state.listenStartedAt ?? Date.now()
+            }
+          }
+          return { ...state, listening: false, listenStartedAt: null }
+
+        case 'subagent.task': {
+          // 라이브 메타는 store transient(patchSubagentMeta)가 소유 — reducer 에는 **백그라운드
+          // 완료 통지**(settled + background, main 권위 게이팅)만 도달해 subagent_notice 파트로
+          // 물질화한다(writer 영속과 동형 — 재로드와 동일 위치·내용). toolRunId 멱등.
+          if (ev.phase !== 'settled' || ev.background !== true) return state
+          const exists = state.messages.some((m) =>
+            m.parts.some((p) => p.type === 'subagent_notice' && p.toolRunId === ev.toolUseId)
+          )
+          if (exists) return state
+          return {
+            ...state,
+            messages: appendAssistantPart(state.messages, {
+              type: 'subagent_notice',
+              toolRunId: ev.toolUseId,
+              status: ev.status ?? 'completed',
+              ...(ev.durationMs !== undefined ? { durationMs: ev.durationMs } : {}),
+              ...(ev.summary !== undefined ? { summary: ev.summary } : {})
+            })
+          }
+        }
+
         case 'turn.aborted':
           return {
             ...state,
@@ -542,9 +586,13 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
 
     case 'CANCEL_CHAT':
       // 턴 취소 시 main 의 broker 가 보류 게이트를 해소하므로 카드(질문/계획/도구)도 함께 비운다.
+      // listening 도 즉시 내린다(0143) — main 의 chat.listen ended 가 곧 따라오지만, 중단 버튼의
+      // 시각 피드백은 낙관적으로 즉각 반영한다.
       return {
         ...state,
         ...TURN_END_RESET,
+        listening: false,
+        listenStartedAt: null,
         pendingAsks: [],
         pendingPlanReview: null,
         pendingToolApprovals: []
@@ -574,7 +622,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         createdAt: m.createdAt,
         // 미완료(crash/quit)로 남은 메시지의 열린 도구는 'aborted' 로 정착해 "실행 중" 잔재를
         // 막는다. 라이브 경로(RECV_EVENT)는 미경유 — incomplete 한정이라 스트리밍 무영향.
-        parts: m.incomplete ? settleOrphanToolParts(m.parts) : m.parts,
+        // 0143: settled 로 덮이지 않은 async_launched 영수증(재시작 = 태스크 소멸이라 '실행 중'
+        // 표시는 항상 거짓)은 완료 여부와 무관하게 aborted 로 정착한다(로드 경로 전용).
+        parts: settleStaleAsyncLaunchParts(m.incomplete ? settleOrphanToolParts(m.parts) : m.parts),
         ...(m.incomplete ? { incomplete: true } : {})
       }))
       return {

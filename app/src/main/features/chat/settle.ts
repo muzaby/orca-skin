@@ -59,14 +59,17 @@ export function settleSubagentTask<W>(
 
 // foreground Task 는 먼저 background control-request 로 루트 턴에서 분리해야 stopTask 가 실제
 // 작업 취소로 이어진다. 이미 background 로 시작된 경우에는 불필요한 backgroundTask 를 건너뛴다.
+// alreadyBackground(0143) — 전역 플래그가 아니라 **per-task async_launched 영수증 관측 여부**
+// (BackgroundTaskTracker.isAsyncLaunched)를 받는다: 관측됨 = 이미 백그라운드 task 로 분리돼
+// stopTask 직행, 미관측(foreground 또는 영수증 이전) = backgroundTask 선행(보수적 현행 동작).
 export async function stopLiveSubagent(
   live: RuntimeLiveTurn | null,
   toolUseId: string,
   taskId: string | undefined,
-  backgroundSubagents: boolean
+  alreadyBackground: boolean
 ): Promise<void> {
   if (!live) return
-  if (!backgroundSubagents) {
+  if (!alreadyBackground) {
     await live.backgroundTask(toolUseId).catch(() => false)
   }
   if (!taskId) return

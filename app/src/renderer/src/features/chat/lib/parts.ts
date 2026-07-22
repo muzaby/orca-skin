@@ -129,6 +129,35 @@ export function settleOrphanToolParts(parts: AppMessagePart[]): AppMessagePart[]
   return synthesized.length === 0 ? parts : [...parts, ...synthesized]
 }
 
+// 재로드 위생(0143) — 앱 재시작 후에는 in-process 백그라운드 태스크가 존재하지 않으므로,
+// settled 로 덮이지 않은 async_launched 런치 영수증(= '실행 중' 표시)은 항상 거짓이다. 세션
+// 로드 시 전 메시지에 적용해 해당 부모 Task 를 합성 aborted 로 정착시킨다(마지막 tool_result
+// 가 이기는 페어링 규칙 재사용). **로드 경로 전용** — 라이브 스트리밍에는 적용하지 않는다.
+export function settleStaleAsyncLaunchParts(parts: AppMessagePart[]): AppMessagePart[] {
+  const lastResult = new Map<string, Extract<AppMessagePart, { type: 'tool_result' }>>()
+  for (const p of parts) if (isToolResultPart(p)) lastResult.set(p.toolRunId, p)
+  const synthesized: AppMessagePart[] = []
+  for (const p of parts) {
+    if (!isToolCallPart(p) || !isAgentTaskName(p.toolName)) continue
+    const last = lastResult.get(p.toolRunId)
+    if (!last) continue // 결과 자체가 없는 미완 도구는 settleOrphanToolParts(incomplete) 소관
+    const o = last.result
+    const launched =
+      typeof o === 'object' && o !== null && (o as { status?: unknown }).status === 'async_launched'
+    if (!launched) continue
+    synthesized.push({
+      type: 'tool_result',
+      toolRunId: p.toolRunId,
+      result: {
+        reason: 'aborted',
+        message: '앱 재시작으로 백그라운드 서브에이전트가 중단되었습니다'
+      },
+      isError: true
+    })
+  }
+  return synthesized.length === 0 ? parts : [...parts, ...synthesized]
+}
+
 export type SubagentTaskStatus = 'running' | 'completed' | 'failed' | 'aborted'
 
 export interface SubagentTaskSummary {
@@ -393,6 +422,15 @@ export type MessageSegment =
   | { kind: 'error'; error: unknown } // 개별 카드
   | { kind: 'compact'; trigger?: 'manual' | 'auto'; preTokens?: number; postTokens?: number } // 압축 경계 구분선(0064, post=0065 r2)
   | { kind: 'fork' } // 분기 경계 구분선(0064 r5) — 복사된 원본 이력과 새 대화 사이
+  // 백그라운드 서브에이전트 완료 통지(0143) — 독립 세그먼트(도구 그룹·텍스트에 미병합).
+  // description 은 파트에 없다 — 렌더(SubagentNoticeRow)가 toolRunId 로 부모 Task 조인.
+  | {
+      kind: 'subagent_notice'
+      toolRunId: string
+      status: 'completed' | 'failed' | 'stopped'
+      durationMs?: number
+      summary?: string
+    }
 
 // parts 를 순회하며 순서 보존 세그먼트 배열로 투영한다(순수). tool_result 는 toolRunId 로
 // 선구축한 맵에서 페어링되며(partsToolCalls 와 동일 규칙) 순회 중에는 흡수(스킵)한다.
@@ -463,6 +501,16 @@ export function messageSegments(parts: AppMessagePart[]): MessageSegment[] {
       )
     } else if (p.type === 'fork_boundary') {
       segments.push((current = { kind: 'fork' }))
+    } else if (p.type === 'subagent_notice') {
+      segments.push(
+        (current = {
+          kind: 'subagent_notice',
+          toolRunId: p.toolRunId,
+          status: p.status,
+          ...(p.durationMs !== undefined ? { durationMs: p.durationMs } : {}),
+          ...(p.summary !== undefined ? { summary: p.summary } : {})
+        })
+      )
     }
   }
 
@@ -540,6 +588,14 @@ function reconcileSegment(prev: MessageSegment, next: MessageSegment): MessageSe
     case 'fork':
       // 필드 없는 마커 — kind 일치(첫 가드)면 항상 이전 identity 재사용.
       return prev
+    case 'subagent_notice':
+      return prev.kind === 'subagent_notice' &&
+        prev.toolRunId === next.toolRunId &&
+        prev.status === next.status &&
+        prev.durationMs === next.durationMs &&
+        prev.summary === next.summary
+        ? prev
+        : next
   }
 }
 

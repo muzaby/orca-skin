@@ -48,7 +48,11 @@ export function ChatTile({
   const messages = useChatSession((s) => s.messages)
   const sessionId = useChatSession((s) => s.sessionId)
   const sendCount = useChatSession((s) => s.sendCount)
-  const inflight = useChatSession((s) => s.inflight)
+  const inflightTurn = useChatSession((s) => s.inflight)
+  const listening = useChatSession((s) => s.listening)
+  // 0143 — listen 대기(백그라운드 서브에이전트 완료 대기)도 사용자 관점 "작업 중" 이다:
+  // StatusLine 애니메이션 지속·스크롤 앵커 유지. 개별 알림 턴 종료(telemetry)로 끊기지 않는다.
+  const inflight = inflightTurn || listening
   const loadingSession = useChatSession((s) => s.loadingSession)
   const error = useChatSession((s) => s.error)
   const pendingSteer = usePendingSteer()

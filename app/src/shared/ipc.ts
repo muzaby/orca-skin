@@ -611,7 +611,17 @@ export type NormalizedEvent =
       lastToolName?: string
       status?: 'completed' | 'failed' | 'stopped'
       summary?: string
+      // settled 한정(0143) — main 권위 게이팅: async_launched 런치 영수증이 관측된(=실제로
+      // 백그라운드로 돈) 태스크의 정착에만 true. renderer 완료 통지(subagent_notice 파트 커밋)와
+      // history writer 영속의 유일한 신호 — renderer 는 스스로 background 를 추론하지 않는다.
+      background?: boolean
     }
+  // listen phase 레벨 신호(0143, transient·relay-only) — 메인 턴 종료 후 미정착 백그라운드
+  // 태스크를 기다리는 대기(listen) 구간의 시작/끝. chat-turn 턴-후 루프가 sendChatEvent 직행으로
+  // 방출한다(버스 미경유 — history/usage 미소비 = 미영속, message.queued 동렬). renderer 는
+  // listening 상태로 흡수해 inflight 애니메이션 지속·send=steer 라우팅을 구동한다. 개별 listen
+  // 턴 경계가 아니라 루프 스코프 1쌍(started/ended)이다.
+  | { type: 'chat.listen'; sessionId: string; phase: 'started' | 'ended' }
   | {
       type: 'telemetry'
       sessionId: string
@@ -1090,6 +1100,17 @@ export type AppMessagePart =
   // 영속한다('분기된 지점' 구분선). 렌더러 fork draft 프리필도 같은 위치에 합성해 라이브와
   // 재로드 표시가 일치한다. handoff 는 display 복사가 없어 이 파트를 만들지 않는다.
   | { type: 'fork_boundary' }
+  // 백그라운드 서브에이전트 완료 통지(0143) — subagent.task settled + background:true 를 writer
+  // (라이브)와 renderer(낙관 커밋)가 이 파트로 물질화한다(toolRunId 멱등 — 같은 태스크 통지는
+  // 1개). description 은 싣지 않는다 — 렌더 시 toolRunId 로 부모 tool_call args 와 조인(라이브·
+  // 재로드 공통). 과거 렌더러는 미인식 파트를 무시하므로 전방 호환.
+  | {
+      type: 'subagent_notice'
+      toolRunId: string
+      status: 'completed' | 'failed' | 'stopped'
+      durationMs?: number
+      summary?: string
+    }
 
 // 로드된 세션 — Renderer 의 chatReducer state 와 1:1 대응. 메시지는 순서 보존 parts 로 표현.
 export interface LoadedMessage {

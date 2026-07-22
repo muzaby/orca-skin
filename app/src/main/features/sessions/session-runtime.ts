@@ -27,6 +27,15 @@ function isTerminal(ev: NormalizedEvent): boolean {
   return ev.type === 'telemetry' || ev.type === 'error' || ev.type === 'turn.aborted'
 }
 
+// 0143 — 백그라운드 스코프 이벤트인가: 서브에이전트 child(parentToolRunId)와 task 진행 신호
+// (subagent.task)는 CLI 메인 루프의 턴 경계 **밖에서도**(백그라운드 태스크 동시 실행) 흐른다.
+// cliBusy(메인 루프 mid-turn) 판정에서 제외하지 않으면, 백그라운드 스트리밍만으로 busy 가
+// 고착돼 steer 릴리즈 밸브가 태스크 종료까지 영영 안 열린다.
+function isBackgroundScoped(ev: NormalizedEvent): boolean {
+  if (ev.type === 'subagent.task') return true
+  return (ev as { parentToolRunId?: string }).parentToolRunId !== undefined
+}
+
 // 턴 프레임 — 채널 pump 가 밀어넣고(consumer 는 TurnCoordinator) terminal 에서 닫히는 이벤트 큐.
 // streaming-input 과 같은 wake 패턴. fail 은 채널 스트림 예외를 프레임 소비자에게 전파한다.
 class Frame {
@@ -94,6 +103,11 @@ export class SessionRuntime implements ManagedRuntime {
   // 중 send 가 오면 이벤트 소속을 구분할 수 없으므로 채널을 teardown 하고 respawn 한다(안전 열화).
   private draining = false
   private unframed: NormalizedEvent[] = []
+  // 0143 — CLI 가 지금 턴(사용자 턴이든 자동/알림 턴이든)을 진행 중인가. routeEvent 가 비-terminal
+  // 이벤트에서 true, terminal 에서 false 로 굴린다(draining 경로 포함). endListenFrame 밸브 유예와
+  // chat-turn 의 "pushTurn 은 유휴 채널에서만" 가드가 읽는다 — mid-turn push 로 auto-turn 의
+  // terminal/에러가 다음 프레임에 오귀속되는 것(steer 세션 사망)을 구조적으로 차단한다.
+  private cliBusy = false
   // 현재 턴의 콜백 위임 — 채널 spawn 시 바인딩되는 requestApproval/takeSteerFlush 가 턴을 넘어
   // 재사용되므로, 어댑터에는 고정 래퍼를 주고 실제 콜백은 매 send 마다 여기로 갈아끼운다(0067 W1).
   private delegate: {
@@ -122,6 +136,18 @@ export class SessionRuntime implements ManagedRuntime {
   // 채널(장수명 query) 생존 여부 — chat-turn 이 carryover(채널 사망 시에만) 판정에 읽는다.
   get channelAlive(): boolean {
     return this.pumpRunning && this.live != null
+  }
+
+  // 0143 — CLI mid-turn 여부(자동/알림 턴 포함). chat-turn 턴-후 루프가 "held flush(pushTurn)는
+  // 유휴 채널에서만" 을 판정한다.
+  get channelBusy(): boolean {
+    return this.cliBusy
+  }
+
+  // 0143 — 프레임 밖 적체(unframed) 존재 여부. 백로그가 있으면 pushTurn 전에 listen 드레인이
+  // 먼저 소화해야 새 프레임이 이전 턴 잔여/terminal 을 승계하지 않는다.
+  get hasUnframedBacklog(): boolean {
+    return this.unframed.length > 0
   }
 
   // 0125: 살아있는 채널이 스폰될 때 주입된 providerSettings — chat-turn 이 이번 턴 해석본과
@@ -305,6 +331,10 @@ export class SessionRuntime implements ManagedRuntime {
 
   private routeEvent(ev: NormalizedEvent): void {
     const terminal = isTerminal(ev)
+    // CLI 메인 루프 mid-turn 추적(0143) — 어떤 경로(프레임/드레인/unframed)든 터미널 = 유휴 복귀,
+    // 비-terminal 은 백그라운드 스코프(child·subagent.task)를 제외하고 진행 중으로 굴린다.
+    if (terminal) this.cliBusy = false
+    else if (!isBackgroundScoped(ev)) this.cliBusy = true
     if (this.draining) {
       // 조기 이탈한 턴의 잔여 — terminal 에서 드레인 종료, 채널 유휴 복귀.
       if (terminal) {
@@ -332,6 +362,7 @@ export class SessionRuntime implements ManagedRuntime {
   private finishPump(err: unknown): void {
     this.pumpRunning = false
     this.draining = false
+    this.cliBusy = false
     const frame = this.frame
     this.frame = null
     if (frame) {
@@ -360,9 +391,14 @@ export class SessionRuntime implements ManagedRuntime {
   // (consumeFrame 의 finally 는 this.frame !== frame 을 보고 통과) 이후 이벤트는 unframed 로
   // 남아 다음 openFrame 백로그 합류로 무손실 이월된다. listen 프레임이 아니면 no-op(일반 턴
   // 프레임 오폐쇄 방지).
+  //
+  // 0143 유예: CLI 가 자동(알림) 턴을 진행 중(cliBusy)이면 **no-op** — 그 턴의 terminal 이 listen
+  // 프레임을 자연 마감하고 턴-후 루프가 held 를 flush 한다. mid-turn 에 프레임을 닫고 pushTurn
+  // 하면 auto-turn 의 잔여/terminal 이 steer 프레임으로 오귀속돼(steer 세션 사망) 됐었다.
   endListenFrame(): void {
     const frame = this.frame
     if (frame == null || frame !== this.listenFrame) return
+    if (this.cliBusy) return
     this.frame = null
     this.listenFrame = null
     frame.end()
@@ -385,6 +421,7 @@ export class SessionRuntime implements ManagedRuntime {
     this.frame = null
     frame?.end()
     this.draining = false
+    this.cliBusy = false
     this.unframed = []
     this.pumpRunning = false
     this.live?.close()

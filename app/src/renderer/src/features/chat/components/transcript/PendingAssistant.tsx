@@ -35,8 +35,11 @@ function LiveText(): React.JSX.Element | null {
 
 function LiveStatus(): React.JSX.Element {
   const turnStartedAt = useChatSession((s) => s.turnStartedAt)
+  // 0143 listen 대기 — 개별 알림 턴 종료가 turnStartedAt 을 비워도(TURN_END_RESET) listening
+  // 구간의 앵커(listenStartedAt)로 폴백해 StatusLine 애니메이션이 끊기지 않는다.
+  const listenStartedAt = useChatSession((s) => s.listenStartedAt)
   const text = useLiveText()
-  return <StatusLine turnStartedAt={turnStartedAt} outputApproxFromText={text} />
+  return <StatusLine turnStartedAt={turnStartedAt ?? listenStartedAt} outputApproxFromText={text} />
 }
 
 function RetryStatus(): React.JSX.Element | null {

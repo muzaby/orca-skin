@@ -200,56 +200,42 @@ describe('makeCanUseTool — 위험 도구 게이트(tool_approval)', () => {
   })
 })
 
-describe('makeCanUseTool — 서브에이전트 백그라운드화 + 재호출 차단', () => {
+describe('makeCanUseTool — 서브에이전트 passthrough(0143) + 재호출 차단', () => {
   const reqAllow = vi.fn<ReqApproval>().mockResolvedValue({ behavior: 'allow' })
 
-  it('backgroundSubagents on → Agent 호출에 run_in_background:true 주입', async () => {
-    const canUse = makeCanUseTool(reqAllow, { backgroundSubagents: true })
-    const res = await canUse('Agent', { subagent_type: 'Explore', prompt: 'x' }, ctx)
-    expect(res).toEqual({
-      behavior: 'allow',
-      updatedInput: { subagent_type: 'Explore', prompt: 'x', run_in_background: true }
-    })
-  })
-
-  it('구버전 도구명 Task 도 동일하게 주입', async () => {
-    const canUse = makeCanUseTool(reqAllow, { backgroundSubagents: true })
-    const res = await canUse('Task', { subagent_type: 'general' }, ctx)
-    expect(res).toMatchObject({ behavior: 'allow', updatedInput: { run_in_background: true } })
-  })
-
-  it('backgroundSubagents off(기본) → run_in_background:false 명시 주입 (0135 — CLI 2.1.198+ 기본 백그라운드 고정 해제)', async () => {
+  it('Agent 호출은 run_in_background 무주입 passthrough (CLI 기본 = 백그라운드)', async () => {
     const canUse = makeCanUseTool(reqAllow)
-    const res = await canUse('Agent', { subagent_type: 'Explore' }, ctx)
-    expect(res).toEqual({
-      behavior: 'allow',
-      updatedInput: { subagent_type: 'Explore', run_in_background: false }
-    })
+    const input = { subagent_type: 'Explore', prompt: 'x' }
+    const res = await canUse('Agent', input, ctx)
+    expect(res).toEqual({ behavior: 'allow', updatedInput: input })
+    expect((res as { updatedInput?: Record<string, unknown> }).updatedInput).not.toHaveProperty(
+      'run_in_background'
+    )
   })
 
-  it('off + 모델이 run_in_background:true 명시 → 보존(강제 덮어쓰기 없음)', async () => {
+  it('구버전 도구명 Task 도 동일 passthrough', async () => {
+    const canUse = makeCanUseTool(reqAllow)
+    const input = { subagent_type: 'general' }
+    const res = await canUse('Task', input, ctx)
+    expect(res).toEqual({ behavior: 'allow', updatedInput: input })
+  })
+
+  it('모델이 run_in_background:true 명시 → 보존', async () => {
     const canUse = makeCanUseTool(reqAllow)
     const input = { subagent_type: 'Explore', run_in_background: true }
     const res = await canUse('Agent', input, ctx)
     expect(res).toEqual({ behavior: 'allow', updatedInput: input })
   })
 
-  it('off + 모델이 run_in_background:false 명시 → 보존', async () => {
+  it('모델이 run_in_background:false 명시(동기 opt-out) → 보존', async () => {
     const canUse = makeCanUseTool(reqAllow)
     const input = { subagent_type: 'Explore', run_in_background: false }
     const res = await canUse('Agent', input, ctx)
     expect(res).toEqual({ behavior: 'allow', updatedInput: input })
   })
 
-  it('off 의 Task(구버전 도구명)도 false 주입', async () => {
-    const canUse = makeCanUseTool(reqAllow)
-    const res = await canUse('Task', { subagent_type: 'general' }, ctx)
-    expect(res).toMatchObject({ behavior: 'allow', updatedInput: { run_in_background: false } })
-  })
-
-  it('차단된 서브에이전트 타입은 deny(주입보다 우선)', async () => {
+  it('차단된 서브에이전트 타입은 deny(passthrough 보다 우선)', async () => {
     const canUse = makeCanUseTool(reqAllow, {
-      backgroundSubagents: true,
       isSubagentBlocked: (st) => st === 'Explore'
     })
     const res = await canUse('Agent', { subagent_type: 'Explore' }, ctx)
@@ -257,12 +243,12 @@ describe('makeCanUseTool — 서브에이전트 백그라운드화 + 재호출 �
     if (res?.behavior === 'deny') expect(res.message).toMatch(/취소|다시 호출/)
   })
 
-  it('차단되지 않은 타입은 정상 주입', async () => {
+  it('차단되지 않은 타입은 passthrough', async () => {
     const canUse = makeCanUseTool(reqAllow, {
-      backgroundSubagents: true,
       isSubagentBlocked: (st) => st === 'Explore'
     })
-    const res = await canUse('Agent', { subagent_type: 'other' }, ctx)
-    expect(res).toMatchObject({ updatedInput: { run_in_background: true } })
+    const input = { subagent_type: 'other' }
+    const res = await canUse('Agent', input, ctx)
+    expect(res).toEqual({ behavior: 'allow', updatedInput: input })
   })
 })

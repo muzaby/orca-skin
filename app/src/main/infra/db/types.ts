@@ -21,6 +21,9 @@ export type MessagePartType =
   | 'attachment'
   | 'compact_boundary'
   | 'fork_boundary'
+  // 백그라운드 서브에이전트 완료 통지(0143) — payload 에 status/durationMs/summary, tool_run_id
+  // 컬럼 = 부모 Task toolRunId(렌더 시 tool_call args 와 조인 키).
+  | 'subagent_notice'
 
 export interface SessionRow {
   id: string

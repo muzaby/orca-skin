@@ -480,6 +480,12 @@ export const ko = {
       subagentTypeLine: '유형: {{type}}',
       openSubagentPanel: '서브에이전트 패널 열기'
     },
+    subagentNotice: {
+      completed: '백그라운드 작업 완료',
+      failed: '백그라운드 작업 실패',
+      stopped: '백그라운드 작업 중단됨',
+      agentLine: 'Agent "{{title}}"'
+    },
     subagentTile: {
       status: {
         running: '진행 중',

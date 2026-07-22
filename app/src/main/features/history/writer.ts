@@ -299,6 +299,27 @@ export class HistoryWriter {
         })
         break
       }
+      case 'subagent.task': {
+        // 라이브 메타는 transient(영속은 부모 Task tool_result 의 subagentMeta) — 단, 백그라운드
+        // 완료 통지(0143)만 파트로 영속한다: settled + background(main 권위 게이팅) 일 때
+        // subagent_notice 를 현 assistant 메시지에 append 해 재로드 후에도 동일 위치에 렌더된다.
+        // 중복은 구조적으로 차단된다 — enrich 는 트래커 관측(settled 해제 전) 1회만 부여된다.
+        if (!turn.dbSessionId) break
+        if (ev.phase !== 'settled' || ev.background !== true) break
+        const id = this.ensureAssistantMessage(turn, turn.dbSessionId)
+        this.db.appendPart({
+          messageId: id,
+          type: 'subagent_notice',
+          toolRunId: ev.toolUseId,
+          payloadJson: JSON.stringify({
+            toolRunId: ev.toolUseId,
+            status: ev.status ?? 'completed',
+            ...(ev.durationMs !== undefined ? { durationMs: ev.durationMs } : {}),
+            ...(ev.summary !== undefined ? { summary: ev.summary } : {})
+          })
+        })
+        break
+      }
       case 'telemetry': {
         // 턴 종료 — 진행 중 assistant 메시지를 마감하고 다음 턴 대비 reset 한다. 사용량 적재(turn_usage
         // 원장)·비용 방출은 usage 구독자가, 제목 생성은 title 구독자가 버스에서 먼저 소비한다(0062).
@@ -307,8 +328,9 @@ export class HistoryWriter {
         break
       }
       // message.delta/message.reasoning.delta/turn.retrying 은 transient(미저장).
-      // permission.* 는 별도 row 없음. subagent.task 도 transient — 영속은 부모 Task
-      // tool_result 의 subagentMeta(위 tool.call.completed)가 담당한다.
+      // permission.* 는 별도 row 없음. subagent.task 는 위 통지 파트 외 transient — 메타 영속은
+      // 부모 Task tool_result 의 subagentMeta(위 tool.call.completed)가 담당한다. chat.listen 은
+      // sendChatEvent 직행이라 여기 도달하지 않는다(도달해도 case 부재 = no-op).
     }
   }
 }
