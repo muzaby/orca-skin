@@ -5,14 +5,23 @@ import { formatDurationLabel } from '../../lib/toolMeta'
 import { subagentTasksFromMessages } from '../../lib/parts'
 import { chatActions, useChatSession } from '../../store/chatStore'
 
-// 백그라운드 서브에이전트 완료 통지(0143) — Claude Code web 의 "백그라운드 작업 완료 ·
-// Agent "…" finished · 4m 43s" 패리티. subagent_notice 파트(라이브=settled+background 이벤트,
-// 재로드=DB 파트)에서 렌더한다. description 은 파트에 없다 — toolRunId 로 부모 Task tool_call
-// (subagentTasksFromMessages)과 조인한다(파생·복사 없음). 클릭 시 해당 태스크 상세(우측 패널).
-const TITLE_KEY: Record<'completed' | 'failed' | 'stopped', MessageKey> = {
+// 백그라운드 서브에이전트 완료 통지(0143, r2 — Claude Code web 패리티 평문 행). 카드 크롬 없이
+// AgentTaskRow 와 동형의 한 줄 텍스트 행으로 렌더한다:
+//   `백그라운드 작업 완료 Agent "…" finished · 4분 43초 소요됨`
+// subagent_notice 파트(라이브=settled+background 이벤트, 재로드=DB 파트)에서 렌더하며,
+// description 은 파트에 없다 — toolRunId 로 부모 Task tool_call(subagentTasksFromMessages)과
+// 조인한다(파생·복사 없음). 클릭 시 해당 태스크 상세(우측 패널). 실패는 summary(사유) 2줄째.
+const PREFIX_KEY: Record<'completed' | 'failed' | 'stopped', MessageKey> = {
   completed: 'chat.subagentNotice.completed',
   failed: 'chat.subagentNotice.failed',
   stopped: 'chat.subagentNotice.stopped'
+}
+
+// Claude Code web 표기 미러 — 상태 동사는 두 로케일 공통 영문(finished/failed/stopped).
+const VERB: Record<'completed' | 'failed' | 'stopped', string> = {
+  completed: 'finished',
+  failed: 'failed',
+  stopped: 'stopped'
 }
 
 interface SubagentNoticeRowProps {
@@ -35,32 +44,42 @@ export const SubagentNoticeRow = memo(function SubagentNoticeRow({
     [messages, toolRunId]
   )
   const durationLabel = formatDurationLabel(tr, durationMs)
-  const line = [
-    tr(TITLE_KEY[status]),
-    ...(description ? [tr('chat.subagentNotice.agentLine', { title: description })] : []),
-    ...(durationLabel ? [durationLabel] : [])
+  const detail = [
+    ...(description
+      ? [tr('chat.subagentNotice.agentLine', { title: description, verb: VERB[status] })]
+      : []),
+    ...(durationLabel ? [tr('chat.subagentNotice.took', { duration: durationLabel })] : [])
   ].join(' · ')
   const activate = (): void => chatActions.openSubagentTask(toolRunId)
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={activate}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          activate()
-        }
-      }}
-      className="group/notice flex w-fit max-w-full cursor-pointer flex-col gap-1 rounded-lg border border-border bg-bg2 px-3 py-2 text-body outline-none hide-focus-ring ring-focus"
-    >
-      <span
-        className={`flex items-center gap-1.5 ${status === 'failed' ? 'text-bad' : 'text-t6'} group-hover/notice:text-t9`}
+    <div className="flex flex-col gap-1">
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={activate}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            activate()
+          }
+        }}
+        className="group/notice flex max-w-full cursor-pointer items-center gap-g2 self-start text-left text-body text-t6 outline-none hide-focus-ring ring-focus"
       >
-        <Icon name="chevR" size={12} />
-        <span className="min-w-0 truncate">{line}</span>
-      </span>
-      {summary && <span className="line-clamp-2 text-caption text-t5">{summary}</span>}
+        <span
+          className={`shrink-0 ${status === 'failed' ? 'text-bad' : ''} group-hover/notice:text-t9`}
+        >
+          {tr(PREFIX_KEY[status])}
+        </span>
+        {detail !== '' && (
+          <span className="min-w-0 truncate group-hover/notice:text-t9">{detail}</span>
+        )}
+        <span aria-hidden className="shrink-0">
+          <Icon name="chevR" size={12} />
+        </span>
+      </div>
+      {status === 'failed' && summary && (
+        <span className="line-clamp-2 text-caption text-t5">{summary}</span>
+      )}
     </div>
   )
 })
