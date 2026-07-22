@@ -775,6 +775,25 @@ export function registerChatHandlers(deps: ChatDeps): void {
         // 채널이 죽었으면 in-process 백그라운드 태스크도 소멸 — 정착·정리(고착 방지, 0136).
         if (!runtime.channelAlive) settleDeadBackgroundTasks(activeTurn, sessionId)
         if (pendingMessages.pending(sessionId).length === 0) {
+          // 135 엄격(0138): 기본(foreground)에서는 listen 턴을 열지 않는다 — 백그라운드 수용
+          // (listen 턴)은 ORCA_SUBAGENT_BACKGROUND opt-in 뒤로만. 기본 경로에 미정착 태스크가
+          // 남으면(= run_in_background:false 주입이 CLI 에서 무효화돼 서브에이전트가 백그라운드로
+          // 돈 경우) 트래커만 비우고 진단 로그를 남긴 뒤 종료한다 — 세션을 즉시 유휴로 복귀시켜
+          // inflight 고착·steer 미커밋을 막는다. 실작업 절단(강제 실패 정착)은 하지 않는다(진짜
+          // 도는 백그라운드 서브에이전트는 완료 이벤트가 다음 send 백로그 합류로 멱등 화해된다).
+          if (!backgroundSubagents) {
+            const stuck = backgroundTasks.ids(sessionId).size
+            if (stuck > 0) {
+              backgroundTasks.clear(sessionId)
+              getLogger().child('chat').warn('chat.subagent.background-unexpected', {
+                sessionId,
+                count: stuck,
+                reason:
+                  'foreground default but task_started tracked — run_in_background:false ineffective?'
+              })
+            }
+            break
+          }
           if (backgroundTasks.ids(sessionId).size === 0 || !runtime.channelAlive) break
           // listen 턴 — settle/persist/relay/usage/title 은 일반 턴과 같은 버스 파이프라인.
           // 종료 후 루프 재평가: 알림 턴이 pending 을 남겼으면 연속 턴, 태스크가 남았으면 재개.
