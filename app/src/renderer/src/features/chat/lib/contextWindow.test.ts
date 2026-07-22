@@ -64,8 +64,8 @@ describe('contextWindowOf (분모 단일 진입점, 0134)', () => {
     expect(contextWindowOf({ model: 'claude-haiku-4-5', contextWindow: -1 })).toBe(200_000)
   })
 
-  // 0139 이후 멀티모델 턴도 claude-map 이 이번 턴 메인 모델을 top-level(model+contextWindow)로
-  // 승격하므로, 아래처럼 top-level 이 *부재* 한 입력은 복원/비정상 경로에서만 발생한다. 그 경우
+  // 0141 이후 멀티모델 턴도 claude-map 이 실사용량 최대 모델(argmax)을 top-level(model+contextWindow)로
+  // 항상 승격하므로, 아래처럼 top-level 이 *부재* 한 입력은 복원/비정상 경로에서만 발생한다. 그 경우
   // 어느 모델이 메인인지 알 수 없어 폴백 기본값으로 내려가는 것이 옳다(renderer 방어).
   it('top-level model 부재 + modelUsage 다중(복원/비정상)은 폴백 기본값', () => {
     expect(

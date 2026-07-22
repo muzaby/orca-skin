@@ -97,10 +97,10 @@
 
 > 사용자가 실 Bedrock sonnet-5 턴 로그를 회수해 붙이면, 여기서 키 형태 불일치 / mainModel 오염 / 미포착 중 무엇인지 확정하고 Phase 1 리졸버 규칙을 못박는다.
 
-| 관측 필드 | 값 (사용자 로그) |
+| 관측 필드 | 값 (사용자 실측, 2026-07-22) |
 |---|---|
-| reqModel(spawnedModel) | |
-| observedMainModel | |
-| modelUsage 키+windows | |
-| oneMillionContext | |
-| 결론(실패지점) | |
+| SDK 동작 | `query.options.model` 에 `sonnet` **또는** `global.anthropic.claude-sonnet-5` 입력 → **출력(modelUsage 키·message.model)은 항상 `global.anthropic.claude-sonnet-5`**(해석된 ID) |
+| 함의 | 런타임 `spawnedModel`(=입력 alias) ≠ `modelUsage` 키(해석 ID). **입력측 모델 문자열 매칭(spawnedModel/message.model)은 원천적으로 신뢰 불가.** |
+| 결론(실패지점) | R2 = **키 형태 불일치**(입력 alias vs 해석 ID). 해결책: 입력 매칭 폐기 → **modelUsage 에서 실사용량 최대 엔트리(argmax)로 primary 선택 후 그 contextWindow 직독**(레퍼런스 예제·복원 경로 `usage-map:41` 와 동형). |
+
+> **Phase 0 종결**: 사용자 실측이 R2 를 확정(입력 alias↔해석 ID 불일치). Phase 1 진단 로그 수집(AC5) 은 사용자가 "건너뛰겠다"로 생략 — 실측이 대체. 실제 수정은 후속 핸드오프 `0141-context-budget-resolver`. `[PHASE0-DIAG]` 로그는 0141 에서 제거.

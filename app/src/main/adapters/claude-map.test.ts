@@ -446,19 +446,19 @@ describe('claudeToNormalized', () => {
     ])
   })
 
-  it('result.modelUsage 다중 모델 + 메인 미판정(assistant 없음)이면 top-level model 을 안 채운다', () => {
+  it('다중 모델이면 실사용량(input+cache) 최대 모델을 top-level 승격 (argmax, 0141)', () => {
     const out = claudeToNormalized(
       sdk({
         type: 'result',
         modelUsage: {
-          'claude-opus-4': { costUSD: 0.05 },
-          'claude-haiku-4': { costUSD: 0.001 }
+          'claude-opus-4': { costUSD: 0.05, inputTokens: 100 },
+          'claude-haiku-4': { costUSD: 0.001, inputTokens: 5 }
         }
       }),
       ctx()
     )
     const ev = out[0] as { usage?: { model?: string; modelUsage?: Record<string, unknown> } }
-    expect(ev.usage?.model).toBeUndefined()
+    expect(ev.usage?.model).toBe('claude-opus-4')
     expect(Object.keys(ev.usage?.modelUsage ?? {})).toEqual(['claude-opus-4', 'claude-haiku-4'])
   })
 
@@ -484,7 +484,82 @@ describe('claudeToNormalized', () => {
     expect(ev.usage?.modelUsage?.['claude-sonnet-5']?.contextWindow).toBe(1_000_000)
   })
 
-  it('result.modelUsage 다중 모델 + 메인 미판정이면 top-level contextWindow 도 안 채운다 (0134/0139)', () => {
+  it('다중 모델 argmax → primary 의 contextWindow 를 top-level 승격 (0141)', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        modelUsage: {
+          'claude-sonnet-5': { costUSD: 0.01, inputTokens: 1000, contextWindow: 1_000_000 },
+          'claude-haiku-4-5': { costUSD: 0.001, inputTokens: 10, contextWindow: 200_000 }
+        }
+      }),
+      ctx()
+    )
+    const ev = out[0] as {
+      usage?: {
+        model?: string
+        contextWindow?: number
+        modelUsage?: Record<string, { contextWindow?: number }>
+      }
+    }
+    expect(ev.usage?.model).toBe('claude-sonnet-5')
+    expect(ev.usage?.contextWindow).toBe(1_000_000)
+    expect(ev.usage?.modelUsage?.['claude-haiku-4-5']?.contextWindow).toBe(200_000)
+  })
+
+  it('Bedrock 해석 키(입력 alias 와 불일치)라도 argmax 로 분모 정답 — 입력 매칭 불필요 (0141)', () => {
+    // 실측: options.model=sonnet 입력이라도 modelUsage 키는 해석 ID(global.anthropic.claude-sonnet-5).
+    // argmax 는 입력측 문자열을 안 보고 실사용량만 보므로, 키 형태 불일치와 무관하게 대화 모델을 고른다.
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        modelUsage: {
+          'global.anthropic.claude-sonnet-5': { inputTokens: 5000, contextWindow: 1_000_000 },
+          'global.anthropic.claude-haiku-4-5': { inputTokens: 50, contextWindow: 200_000 }
+        }
+      }),
+      ctx()
+    )
+    const ev = out[0] as { usage?: { model?: string; contextWindow?: number } }
+    expect(ev.usage?.model).toBe('global.anthropic.claude-sonnet-5')
+    expect(ev.usage?.contextWindow).toBe(1_000_000)
+  })
+
+  it('누적 modelUsage 에 haiku 가 남아도 대화 모델(sonnet-5)이 대용량이면 분모 유지 — 200k 고착 방지 (0141)', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        modelUsage: {
+          'claude-sonnet-5': { inputTokens: 500, contextWindow: 1_000_000 },
+          // 과거 턴(제목/서브에이전트)에서 누적 잔류한 haiku — 사용량 0 이라 argmax 대상 아님
+          'claude-haiku-4-5': { contextWindow: 200_000 }
+        }
+      }),
+      ctx()
+    )
+    const ev = out[0] as { usage?: { model?: string; contextWindow?: number } }
+    expect(ev.usage?.model).toBe('claude-sonnet-5')
+    expect(ev.usage?.contextWindow).toBe(1_000_000)
+  })
+
+  it('이번 턴 haiku 가 우세하면 분모도 haiku(200k) 추종 — argmax(모델 전환/respawn 후) (0141)', () => {
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        modelUsage: {
+          // 잔류/전환 전 sonnet-5(사용량 0) vs 이번 턴 우세 haiku
+          'claude-sonnet-5': { contextWindow: 1_000_000 },
+          'claude-haiku-4-5': { inputTokens: 800, contextWindow: 200_000 }
+        }
+      }),
+      ctx()
+    )
+    const ev = out[0] as { usage?: { model?: string; contextWindow?: number } }
+    expect(ev.usage?.model).toBe('claude-haiku-4-5')
+    expect(ev.usage?.contextWindow).toBe(200_000)
+  })
+
+  it('modelUsage 전부 사용량 0 이면 첫 키(삽입 순서)로 폴백 승격 (0141)', () => {
     const out = claudeToNormalized(
       sdk({
         type: 'result',
@@ -495,120 +570,9 @@ describe('claudeToNormalized', () => {
       }),
       ctx()
     )
-    const ev = out[0] as {
-      usage?: { contextWindow?: number; modelUsage?: Record<string, { contextWindow?: number }> }
-    }
-    expect(ev.usage?.contextWindow).toBeUndefined()
-    expect(ev.usage?.modelUsage?.['claude-sonnet-5']?.contextWindow).toBe(1_000_000)
-    expect(ev.usage?.modelUsage?.['claude-haiku-4-5']?.contextWindow).toBe(200_000)
-  })
-
-  it('멀티모델 턴이라도 이번 턴 메인(non-child assistant)으로 top-level 승격 (0139)', () => {
-    const c = ctx()
-    // 메인 assistant(parent 없음) = sonnet-5 → ctx.mainModel 캡처
-    claudeToNormalized(
-      sdk({
-        type: 'assistant',
-        message: { model: 'claude-sonnet-5', content: [{ type: 'text', text: 'hi' }] }
-      }),
-      c
-    )
-    // child assistant(서브에이전트/동시 haiku) = haiku → parent 있으니 mainModel 갱신 안 함
-    claudeToNormalized(
-      sdk({
-        type: 'assistant',
-        parent_tool_use_id: 'p1',
-        message: { model: 'claude-haiku-4-5', content: [{ type: 'text', text: 'x' }] }
-      }),
-      c
-    )
-    const out = claudeToNormalized(
-      sdk({
-        type: 'result',
-        modelUsage: {
-          'claude-sonnet-5': { costUSD: 0.01, contextWindow: 1_000_000 },
-          'claude-haiku-4-5': { costUSD: 0.001, contextWindow: 200_000 }
-        }
-      }),
-      c
-    )
     const ev = out[0] as { usage?: { model?: string; contextWindow?: number } }
     expect(ev.usage?.model).toBe('claude-sonnet-5')
     expect(ev.usage?.contextWindow).toBe(1_000_000)
-  })
-
-  it('누적 modelUsage 에 haiku 가 남아도 순수 대화 턴은 메인(sonnet-5) 분모 유지 — 200k 고착 방지 (0139)', () => {
-    const c = ctx()
-    claudeToNormalized(
-      sdk({
-        type: 'assistant',
-        message: { model: 'claude-sonnet-5', content: [{ type: 'text', text: 'ok' }] }
-      }),
-      c
-    )
-    const out = claudeToNormalized(
-      sdk({
-        type: 'result',
-        modelUsage: {
-          'claude-sonnet-5': { contextWindow: 1_000_000, inputTokens: 500 },
-          // 과거 턴(제목/서브에이전트)에서 누적 잔류한 haiku — 이번 턴엔 메인 아님
-          'claude-haiku-4-5': { contextWindow: 200_000 }
-        }
-      }),
-      c
-    )
-    const ev = out[0] as { usage?: { model?: string; contextWindow?: number } }
-    expect(ev.usage?.model).toBe('claude-sonnet-5')
-    expect(ev.usage?.contextWindow).toBe(1_000_000)
-  })
-
-  it('세션 중 모델 전환 — 이번 턴 메인이 haiku 면 분모도 haiku(200k) 추종 (0139)', () => {
-    const c = ctx()
-    claudeToNormalized(
-      sdk({
-        type: 'assistant',
-        message: { model: 'claude-haiku-4-5', content: [{ type: 'text', text: 'ok' }] }
-      }),
-      c
-    )
-    const out = claudeToNormalized(
-      sdk({
-        type: 'result',
-        modelUsage: {
-          // 과거 sonnet-5 턴 누적 잔류
-          'claude-sonnet-5': { contextWindow: 1_000_000 },
-          'claude-haiku-4-5': { contextWindow: 200_000 }
-        }
-      }),
-      c
-    )
-    const ev = out[0] as { usage?: { model?: string; contextWindow?: number } }
-    expect(ev.usage?.model).toBe('claude-haiku-4-5')
-    expect(ev.usage?.contextWindow).toBe(200_000)
-  })
-
-  it('메인 모델이 modelUsage 에 없으면 미승격(방어) → renderer 폴백 (0139)', () => {
-    const c = ctx()
-    claudeToNormalized(
-      sdk({
-        type: 'assistant',
-        message: { model: 'claude-mystery-x', content: [{ type: 'text', text: 'ok' }] }
-      }),
-      c
-    )
-    const out = claudeToNormalized(
-      sdk({
-        type: 'result',
-        modelUsage: {
-          'claude-sonnet-5': { contextWindow: 1_000_000 },
-          'claude-haiku-4-5': { contextWindow: 200_000 }
-        }
-      }),
-      c
-    )
-    const ev = out[0] as { usage?: { model?: string; contextWindow?: number } }
-    expect(ev.usage?.model).toBeUndefined()
-    expect(ev.usage?.contextWindow).toBeUndefined()
   })
 
   it('result.modelUsage.contextWindow 비숫자는 드롭 (num 가드, 0134)', () => {

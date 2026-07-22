@@ -33,11 +33,6 @@ export interface MapContext {
     cacheReadTokens?: number
     cacheCreationTokens?: number
   }
-  // 이 턴의 메인(non-child) 모델 — 마지막 non-child assistant 의 message.model 로 갱신(0139).
-  // 멀티모델 턴(서브에이전트·동시 실행 제목 haiku 등으로 result.modelUsage 가 누적 다중 키)에서
-  // 도넛 분모(contextWindow)를 이 모델로 승격하는 데 쓴다. ctx 는 턴 1회 생성이라 세션 중 모델
-  // 변경도 매 턴 자동 추종한다(세션 레벨 캐시 아님).
-  mainModel?: string
   // 이 턴에서 compact_boundary(네이티브 압축)를 지났는가 — 경계 이전의 usage(전체 이력이 실린
   // 요약 요청 입력)는 더 이상 라이브 컨텍스트가 아니므로, 경계에서 스냅샷을 무효화하고 result
   // telemetry 의 컨텍스트 점유를 압축 후 값으로 근사하는 데 쓴다(0064 r5 피드백 1).
@@ -278,11 +273,6 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
         model: m.model
       })
     }
-    // 메인(non-child) assistant 의 모델을 턴-스코프로 기록(0139) — 아래 result 정규화가 멀티모델
-    // 턴에서도 분모(contextWindow)를 이 모델로 승격한다. child(서브에이전트) assistant 는 제외.
-    if (parentToolRunId === undefined && typeof m?.model === 'string' && m.model !== '') {
-      ctx.mainModel = m.model
-    }
     // 마지막 assistant usage 스냅샷 갱신(컨텍스트 점유 = 이 턴 마지막 요청 입력). Anthropic 표준
     // shape(input_tokens/output_tokens/cache_read_input_tokens/cache_creation_input_tokens)을
     // num 가드로 좁혀 읽는다. 의미값이 하나라도 있을 때만 덮어쓴다.
@@ -436,7 +426,7 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
         }
       >
     }
-    const telemetry = normalizeResultTelemetry(r, ctx.mainModel)
+    const telemetry = normalizeResultTelemetry(r)
     // 컨텍스트 점유 입력 3종(input·cache_read·cache_creation)을 마지막 assistant 스냅샷으로 대체
     // — /context 상단 % 와 같은 정의(모델이 마지막으로 본 입력)로 근사. costUsd·durationMs·
     // numTurns·modelUsage·model 은 턴 누적이 맞아 result 값 유지(사용자 결정).
@@ -507,34 +497,49 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
   return []
 }
 
+// modelUsage 에서 도넛 분모의 귀속 모델(primary)을 고른다 — **실사용량(input+cache_read+
+// cache_creation) 최대 엔트리**. 입력측 모델 문자열(spawnedModel=alias / message.model)과
+// SDK 가 돌려주는 modelUsage 키(해석된 ID, 예: bedrock `global.anthropic.claude-sonnet-5`)가
+// 다를 수 있음이 실측 확인돼(0141), 입력 매칭을 전면 폐기하고 SDK 출력만으로 고른다. 실사용량
+// 최대 = 실제 대화 모델(동시 실행 제목 haiku 는 소량이라 자동 배제). 복원 경로 usage-map:41
+// primaryModel 과 동형. 전부 0(사용량 미상)이면 첫 키(삽입 순서) 유지.
+function primaryModelKey(modelUsage: Record<string, TelemetryModelUsage>): string | undefined {
+  let bestKey: string | undefined
+  let bestScore = -1
+  for (const [key, mu] of Object.entries(modelUsage)) {
+    const score = (mu.inputTokens ?? 0) + (mu.cacheReadTokens ?? 0) + (mu.cacheCreationTokens ?? 0)
+    if (score > bestScore) {
+      bestScore = score
+      bestKey = key
+    }
+  }
+  return bestKey
+}
+
 // SDKResultMessage 의 사용량/비용을 ProviderReportedTelemetry 로 정규화. 의미있는 필드가 하나도
 // 없으면 undefined 반환(어댑터가 usage 를 생략 → 현행 빈 telemetry 와 동일). num 가드로 NaN 차단.
-// mainModel(0139) = 이 턴 메인 모델(ctx 에서 전달) — 멀티모델 턴의 top-level 승격 대상 선택에 쓴다.
-function normalizeResultTelemetry(
-  r: {
-    total_cost_usd?: number
-    duration_ms?: number
-    num_turns?: number
-    usage?: {
-      input_tokens?: number
-      output_tokens?: number
-      cache_read_input_tokens?: number
-      cache_creation_input_tokens?: number
+function normalizeResultTelemetry(r: {
+  total_cost_usd?: number
+  duration_ms?: number
+  num_turns?: number
+  usage?: {
+    input_tokens?: number
+    output_tokens?: number
+    cache_read_input_tokens?: number
+    cache_creation_input_tokens?: number
+  }
+  modelUsage?: Record<
+    string,
+    {
+      costUSD?: number
+      inputTokens?: number
+      outputTokens?: number
+      cacheReadInputTokens?: number
+      cacheCreationInputTokens?: number
+      contextWindow?: number
     }
-    modelUsage?: Record<
-      string,
-      {
-        costUSD?: number
-        inputTokens?: number
-        outputTokens?: number
-        cacheReadInputTokens?: number
-        cacheCreationInputTokens?: number
-        contextWindow?: number
-      }
-    >
-  },
-  mainModel?: string
-): ProviderReportedTelemetry | undefined {
+  >
+}): ProviderReportedTelemetry | undefined {
   const out: ProviderReportedTelemetry = {}
 
   assignNums(out, {
@@ -567,17 +572,12 @@ function normalizeResultTelemetry(
     const models = Object.keys(modelUsage)
     if (models.length > 0) {
       out.modelUsage = modelUsage
-      // top-level model/contextWindow 승격 = 도넛 분모 소스(0134/0139). 단일 모델이면 그 모델을,
-      // 멀티모델(서브에이전트·동시 실행 제목 haiku 등으로 누적 modelUsage 가 다중 키)이면 *이번 턴*
-      // 메인 모델(ctx.mainModel = 마지막 non-child assistant)을 승격한다 — 누적에 과거·타 모델이
-      // 남아 있어도 분모는 언제나 이번 턴 메인 모델을 따른다. 메인이 modelUsage 에 실제로 있을 때만
-      // 승격(방어), 미판정이면 미승격 → renderer 휴리스틱 폴백(복원 경로와 동형).
-      const primary =
-        models.length === 1
-          ? models[0]
-          : mainModel !== undefined && modelUsage[mainModel]
-            ? mainModel
-            : undefined
+      // top-level model/contextWindow 승격 = 도넛 분모 소스. primary = modelUsage 실사용량 최대
+      // 엔트리(primaryModelKey, 0141) — 입력측 모델 문자열 매칭 폐기(alias↔해석 ID 불일치 실측).
+      // 단일 모델이면 그 모델, 멀티모델이면 argmax(제목 haiku 는 소량이라 자동 배제). primary 는
+      // 항상 실제 modelUsage 키라 out.model 은 유효 키 = renderer modelUsage[model] 조회·비용 원장
+      // 정합. 이로써 멀티모델 턴에서도 top-level 이 항상 채워져 renderer 200k-default 붕괴가 사라진다.
+      const primary = models.length === 1 ? models[0] : primaryModelKey(modelUsage)
       if (primary !== undefined) {
         out.model = primary
         const window = modelUsage[primary].contextWindow
