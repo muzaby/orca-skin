@@ -50,9 +50,10 @@ import { isWithinDir, projectsDir } from '../../infra/config/paths'
 import { promises as fs } from 'node:fs'
 import type { RouterContext } from '../context'
 import { sendInstallStatus, setWireLog } from '../../infra/ipc/send'
-import { setWireSink } from '../../infra/ipc/wire-log'
+import { setWireSink, stripMessageContent } from '../../infra/ipc/wire-log'
 import { handle, handlePlain } from '../../infra/ipc/handle'
 import { getLogger, setConsoleMirror } from '../../infra/log'
+import { getOrcaConfig } from '../../infra/config/orca-config'
 
 function findSkill(ctx: RouterContext, sourceId: string, name: string): SkillInfo {
   const skill = ctx.getSkills().find((s) => s.sourceId === sourceId && s.name === name)
@@ -316,9 +317,8 @@ export function registerMiscHandlers(ctx: RouterContext): void {
   })
 
   if (import.meta.env.DEV) {
-    // "로그" 스위치 통합 게이트(0124 AC12) — wire 이벤트 debug 기록과 콘솔 미러를 함께 제어.
-    // sink 는 여기(DEV 블록)서만 주입돼 prod 번들에선 dead-code 제거 — wire-log 는 electron
-    // 비의존을 유지한다(0068). 델타 2종 필터는 wire-log 내부가 소유한다.
+    // DEV "로그" 스위치 통합 게이트(0124 AC12) — wire 이벤트 debug 기록과 콘솔 미러를 함께 제어.
+    // DEV sink 는 풀 payload 를 남긴다(개발 계측, 무회귀). 델타 2종 필터는 wire-log 내부가 소유한다.
     setWireSink((label, data) =>
       getLogger().child('ipc').debug('ipc.wire.event', { type: label, payload: data })
     )
@@ -333,5 +333,15 @@ export function registerMiscHandlers(ctx: RouterContext): void {
       applyLogSwitch(ctx.debugMock.log)
       return { ...ctx.debugMock }
     })
+  } else if (getOrcaConfig().debug === true) {
+    // prod: orca.json "debug":true 면 wire 이벤트를 파일에 남긴다(0144) — 단 sink 에서
+    // stripMessageContent 로 메시지 본문을 제거한다(비내용 메타는 유지). 파일 레벨을 debug 로
+    // 올리는 것은 bootstrap 의 setLogDebug 담당(레벨이 info 면 이 debug 레코드는 드롭됨).
+    setWireSink((label, data) =>
+      getLogger()
+        .child('ipc')
+        .debug('ipc.wire.event', { type: label, data: stripMessageContent(data) })
+    )
+    setWireLog(true)
   }
 }

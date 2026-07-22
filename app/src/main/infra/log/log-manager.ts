@@ -45,7 +45,10 @@ export class LogManager {
   private readonly transport: LogTransport
   private readonly appVersion: string
   private readonly sessionId: string
-  private readonly minRank: number
+  private readonly dev: boolean
+  // orca.json debug 스위치(0144). dev 는 항상 debug 라 이 값은 prod 에서만 minRank 를 올린다.
+  private debugEnabled = false
+  private minRank: number
   private readonly consoleMirror?: (record: LogRecord) => void
   private readonly suppressor: RepeatSuppressor
   private readonly onInternalError: (message: string) => void
@@ -58,7 +61,8 @@ export class LogManager {
     this.transport = options.transport
     this.appVersion = options.appVersion
     this.sessionId = options.sessionId
-    this.minRank = LEVEL_RANK[options.dev ? 'debug' : 'info']
+    this.dev = options.dev
+    this.minRank = LEVEL_RANK[this.dev ? 'debug' : 'info']
     this.consoleMirror = options.consoleMirror
     this.suppressor = options.suppressor ?? new RepeatSuppressor()
     this.onInternalError = options.onInternalError ?? (() => {})
@@ -67,6 +71,13 @@ export class LogManager {
 
   setConsoleMirrorEnabled(on: boolean): void {
     this.consoleMirrorEnabled = on
+  }
+
+  // orca.json debug 플래그 런타임 반영(0144). 부팅 시 config 로드 후 컴포지션 루트가 호출한다
+  // (initLog 가 config 로드보다 먼저라 생성자 주입 불가). dev 는 항상 debug 유지.
+  setDebugEnabled(on: boolean): void {
+    this.debugEnabled = on
+    this.minRank = LEVEL_RANK[this.dev || this.debugEnabled ? 'debug' : 'info']
   }
 
   emit(input: LogInput, source: LogSource): void {
