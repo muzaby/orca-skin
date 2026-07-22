@@ -87,5 +87,5 @@
 | 변경 파일 | 위 4(+2 test) |
 | 실행 명령 | `npm run lint` → `npm run typecheck` → `./node_modules/.bin/vitest run src/main/adapters src/renderer/src/features/chat/lib` (+ usage/chat/renderer 확장) |
 | 게이트 결과 | lint ✅ 0 error(1 pre-existing warning) / typecheck ✅ 3분할 0 / vitest ✅ **378/378** (adapters+chat lib) + **373/373** (usage+chat+renderer) |
-| 대상 커밋 | (커밋 후 기재) |
+| 대상 커밋 | `9a93c85` |
 | 블로커 | 없음 |
