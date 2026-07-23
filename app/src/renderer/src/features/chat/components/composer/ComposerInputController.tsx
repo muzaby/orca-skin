@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useDeferredValue,
   useEffect,
   useMemo,
@@ -33,6 +34,7 @@ import {
   replaceDraftRange,
   setDraftComposition,
   updateDraftSelection,
+  updateDraftSelectionWhenIdle,
   updateDraftText,
   type DraftSnapshot
 } from './draftSnapshot'
@@ -87,13 +89,14 @@ export function ComposerInputController({
   const { tr } = useI18n()
   const [snapshot, setSnapshotState] = useState(createDraftSnapshot)
   const snapshotRef = useRef(snapshot)
-  const updateSnapshot = (update: (current: DraftSnapshot) => DraftSnapshot): void => {
+  const composingRef = useRef(snapshot.composing)
+  const updateSnapshot = useCallback((update: (current: DraftSnapshot) => DraftSnapshot): void => {
     const current = snapshotRef.current
     const next = update(current)
     if (next === current) return
     snapshotRef.current = next
     setSnapshotState(next)
-  }
+  }, [])
 
   const {
     attachments,
@@ -114,28 +117,46 @@ export function ComposerInputController({
   const attachButtonRef = useRef<HTMLButtonElement>(null)
   const [attachMenuOpen, setAttachMenuOpen] = useState(false)
 
-  const focus = (start: number, end = start): void => {
-    queueMicrotask(() => {
-      surfaceRef.current?.focus()
-      surfaceRef.current?.setSelectionRange(start, end)
-    })
-  }
+  const compositionActive = useCallback(
+    (nativeIsComposing = false): boolean =>
+      composingRef.current || snapshotRef.current.composing || nativeIsComposing,
+    []
+  )
+
+  const focus = useCallback(
+    (start: number, end = start): void => {
+      queueMicrotask(() => {
+        if (compositionActive()) return
+        surfaceRef.current?.focus()
+        surfaceRef.current?.setSelectionRange(start, end)
+      })
+    },
+    [compositionActive]
+  )
 
   const seededRef = useRef<string | null>(null)
   useEffect(() => {
+    if (compositionActive()) return
     if (initialDraft === undefined || seededRef.current === initialDraft) return
     seededRef.current = initialDraft
     updateSnapshot((current) => replaceDraft(current, initialDraft))
     if (active) requestAnimationFrame(() => focus(initialDraft.length))
-  }, [active, initialDraft])
+  }, [active, compositionActive, focus, initialDraft, snapshot.composing, updateSnapshot])
 
   const restoredRef = useRef<number | null>(null)
   useEffect(() => {
+    if (compositionActive()) return
     if (!restoredDraft || restoredRef.current === restoredDraft.id) return
     restoredRef.current = restoredDraft.id
     updateSnapshot((current) => replaceDraft(current, restoredDraft.text))
     if (active) focus(restoredDraft.text.length)
-  }, [active, restoredDraft])
+  }, [active, compositionActive, focus, restoredDraft, snapshot.composing, updateSnapshot])
+
+  useEffect(() => {
+    if (active || !compositionActive()) return
+    composingRef.current = false
+    updateSnapshot((current) => setDraftComposition(current, false))
+  }, [active, compositionActive, updateSnapshot])
 
   const deferredSnapshot = useDeferredValue(snapshot)
   const derivedCurrent = derivedSnapshotIsCurrent(snapshot, deferredSnapshot)
@@ -147,6 +168,7 @@ export function ComposerInputController({
   const fileOpen = active && derivedCurrent && fileAutocomplete.open
 
   const openSkillPicker = (): void => {
+    if (compositionActive()) return
     setAttachMenuOpen(false)
     const current = snapshotRef.current
     const nextText =
@@ -158,6 +180,7 @@ export function ComposerInputController({
   }
 
   const applyAutocomplete = (skill: SkillInfo): void => {
+    if (compositionActive()) return
     if (!derivedSnapshotIsCurrent(snapshotRef.current, deferredSnapshot)) return
     const start = autocomplete.tokenStart
     if (start < 0) return
@@ -177,6 +200,7 @@ export function ComposerInputController({
   }
 
   const applyFileAutocomplete = (entry: FileEntry): void => {
+    if (compositionActive()) return
     if (!derivedSnapshotIsCurrent(snapshotRef.current, deferredSnapshot)) return
     const start = fileAutocomplete.tokenStart
     if (start < 0) return
@@ -211,12 +235,13 @@ export function ComposerInputController({
 
   const submit = (): void => {
     const submitted = snapshotRef.current
-    if (submitted.text.trim() === '' || steerBlocked) return
+    if (compositionActive() || submitted.text.trim() === '' || steerBlocked) return
     const items = attachments
     void buildAttachmentViews(items).then((views) => {
       if (!onSend(submitted.text, items, views)) return
       // text 또는 attachment가 바뀌었으면 둘 다 보존한다. 오래된 async 완료가 최신 초안을
       // 부분적으로 지우지 않도록 submit snapshot 전체를 하나의 clear 조건으로 취급한다.
+      if (compositionActive()) return
       if (snapshotRef.current.revision !== submitted.revision) return
       if (!resetAttachmentsIfUnchanged(items)) return
       updateSnapshot((current) => clearDraftAfterAcceptedSubmit(current, submitted.revision))
@@ -228,7 +253,8 @@ export function ComposerInputController({
   const showCancelButton = !feedbackMode && (inflight || toolApprovalPending)
 
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
-    const composing = snapshotRef.current.composing || event.nativeEvent.isComposing
+    const composing = compositionActive(event.nativeEvent.isComposing)
+    if (composing) return
     if (skillOpen) {
       if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
         event.preventDefault()
@@ -237,7 +263,7 @@ export function ComposerInputController({
         autocomplete.setActiveIndex((autocomplete.activeIndex + offset + length) % length)
         return
       }
-      if ((event.key === 'Enter' || event.key === 'Tab') && !composing) {
+      if (event.key === 'Enter' || event.key === 'Tab') {
         event.preventDefault()
         const pick = autocomplete.suggestions[autocomplete.activeIndex]
         if (pick) applyAutocomplete(pick)
@@ -260,7 +286,7 @@ export function ComposerInputController({
         }
         return
       }
-      if ((event.key === 'Enter' || event.key === 'Tab') && !composing) {
+      if (event.key === 'Enter' || event.key === 'Tab') {
         event.preventDefault()
         const pick = fileAutocomplete.suggestions[fileAutocomplete.activeIndex]
         if (pick) applyFileAutocomplete(pick)
@@ -273,7 +299,7 @@ export function ComposerInputController({
       }
     }
 
-    if (event.key === 'Enter' && !event.shiftKey && !composing) {
+    if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault()
       submit()
     }
@@ -325,14 +351,20 @@ export function ComposerInputController({
                   }
                   onSelectionChange={(selectionStart, selectionEnd) =>
                     updateSnapshot((current) =>
-                      updateDraftSelection(current, selectionStart, selectionEnd)
+                      updateDraftSelectionWhenIdle(
+                        current,
+                        composingRef.current,
+                        selectionStart,
+                        selectionEnd
+                      )
                     )
                   }
-                  onCompositionChange={(composing, text, selectionStart, selectionEnd) =>
+                  onCompositionChange={(composing, text, selectionStart, selectionEnd) => {
+                    composingRef.current = composing
                     updateSnapshot((current) =>
                       setDraftComposition(current, composing, text, selectionStart, selectionEnd)
                     )
-                  }
+                  }}
                   onKeyDown={onKeyDown}
                   knownSkillNames={knownSkillNames}
                   validFilePaths={fileAutocomplete.validPaths}
