@@ -34,7 +34,7 @@ export interface ComposerInputSurfaceHandle {
 }
 
 const TYPOGRAPHY =
-  'block w-full px-1 py-1.5 text-[13px] leading-[1.6] font-sans whitespace-pre-wrap break-words'
+  'block w-full px-1 py-1.5 text-[13px] leading-[1.6] font-sans whitespace-pre-wrap break-words [scrollbar-gutter:stable]'
 
 export const ComposerInputSurface = forwardRef<
   ComposerInputSurfaceHandle,
