@@ -5,7 +5,7 @@ import { useI18n } from '../../../../shared/i18n'
 
 interface SkillAutocompleteProps {
   open: boolean
-  // 자동완성이 부착될 textarea wrapper (HighlightedTextarea 의 outer div).
+  // 자동완성이 부착될 textarea wrapper (ComposerInputSurface 의 outer div).
   anchorRef: RefObject<HTMLElement | null>
   suggestions: SkillInfo[]
   activeIndex: number

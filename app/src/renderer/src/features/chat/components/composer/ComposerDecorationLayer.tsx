@@ -1,0 +1,59 @@
+import { forwardRef, useDeferredValue, useMemo } from 'react'
+import { tokenizeComposerDecoration } from './composerDecoration'
+import type { DraftSnapshot } from './draftSnapshot'
+
+interface ComposerDecorationLayerProps {
+  snapshot: DraftSnapshot
+  knownSkillNames: ReadonlySet<string>
+  validFilePaths: ReadonlySet<string>
+  typographyClassName: string
+}
+
+const EMPTY_SET: ReadonlySet<string> = new Set()
+
+// 파생 장식은 native textarea 아래에 배경만 그린다. 실제 glyph와 caret은 textarea가
+// 소유하므로 장식 계산이 늦거나 실패해도 입력 피드백은 지연되지 않는다.
+export const ComposerDecorationLayer = forwardRef<HTMLDivElement, ComposerDecorationLayerProps>(
+  function ComposerDecorationLayer(
+    { snapshot, knownSkillNames = EMPTY_SET, validFilePaths = EMPTY_SET, typographyClassName },
+    ref
+  ): React.JSX.Element {
+    const deferredSnapshot = useDeferredValue(snapshot)
+    const current =
+      !snapshot.composing &&
+      deferredSnapshot.revision === snapshot.revision &&
+      deferredSnapshot.text === snapshot.text
+    const segments = useMemo(
+      () => tokenizeComposerDecoration(deferredSnapshot.text, knownSkillNames, validFilePaths),
+      [deferredSnapshot.text, knownSkillNames, validFilePaths]
+    )
+
+    return (
+      <div
+        ref={ref}
+        aria-hidden
+        className={`${typographyClassName} pointer-events-none absolute inset-0 max-h-56 min-h-9 overflow-hidden text-transparent ${
+          current ? 'opacity-100' : 'opacity-0'
+        }`}
+      >
+        {segments.map((segment, index) =>
+          segment.kind === 'chip' ? (
+            <span
+              key={index}
+              className={
+                segment.chip === 'skill'
+                  ? 'rounded bg-blue-500/15 text-transparent'
+                  : 'rounded bg-emerald-500/15 text-transparent'
+              }
+            >
+              {segment.text}
+            </span>
+          ) : (
+            <span key={index}>{segment.text}</span>
+          )
+        )}
+        {deferredSnapshot.text.endsWith('\n') ? '\u200b' : ''}
+      </div>
+    )
+  }
+)

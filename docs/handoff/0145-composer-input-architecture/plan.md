@@ -218,30 +218,33 @@ interface ComposerInputCommands {
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- 동의 / 그대로 진행:
-- 이견 / 우려:
+- 동의 / 그대로 진행: native textarea를 foreground 권위 표면으로 두고, persistent controller의 local `DraftSnapshot`과 revision-guarded deferred 파생 채널로 분리하는 end state는 타당하다. delta는 React 자동 배칭에 기대지 않고 store transaction 자체를 1회로 만들어야 한다는 AC3도 그대로 적용했다.
+- 이견 / 우려: 사전 비판처럼 controller 추출과 delta batch는 신고 증상의 직접 원인인 visible mirror 제거와 서로 다른 효과를 낸다. 사용자가 최종 구조 전체 구현을 명시 승인했으므로 범위는 유지하되, surface/controller/batch를 독립 파일·순수 테스트 경계로 나눴다. 저장소의 비기능 작업 기본 라우팅은 Claude지만, 이번 구현은 사용자의 “구현까지 진행”이라는 Codex 직접 지시를 명시적 예외 근거로 삼았다. production input-to-paint trace는 Electron 바이너리/GUI를 사용할 수 없는 실행 환경에서 수치를 꾸며내지 않고 검증 대기로 남긴다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
+| 1 | attachment view 생성 중 text뿐 아니라 attachments도 바뀔 수 있어 revision만 검사하면 부분 clear가 된다. | `useAttachments.resetIfUnchanged(expectedArray)`를 추가하고 text revision과 attachment identity가 모두 같은 경우에만 둘을 함께 clear한다. | `ComposerInputController.submit`, `useAttachments` |
+| 2 | native glyph 위에 색상 glyph를 다시 overlay하면 반투명 배경에서 글자가 겹쳐 보일 수 있다. | decoration은 chip 배경만 그리고 glyph는 항상 native textarea가 그리게 했다. stale/IME 중에는 layer 전체를 숨긴다. | `ComposerDecorationLayer.tsx` |
+| 3 | `field-sizing` 폴백으로 value mirror를 되살리면 같은 병목이 복귀한다. | Electron 39 Chromium의 `field-sizing: content`를 사용하고, 이 변경에는 value-copy 폴백을 추가하지 않았다. | `ComposerInputSurface.tsx` |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] Persistent controller와 native urgent surface 추출
-- [ ] revisioned decoration/autocomplete 및 IME/selection 계약 구현
-- [ ] delta batch 단일 store transaction 구현
-- [ ] 테스트·문서·production trace 완료
+- [x] Persistent controller와 native urgent surface 추출
+- [x] revisioned decoration/autocomplete 및 IME/selection 계약 구현
+- [x] delta batch 단일 store transaction 구현
+- [ ] 테스트·문서 완료 / production trace는 검증 환경에서 수행 대기
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | |
-| 실행 명령 | `npm run lint` / `npm run typecheck` / `npm test` |
-| 게이트 결과 | |
-| 블로커 / 역질문 | |
-| 대상 커밋 | |
+| 변경 파일 | `Composer.tsx`, 신규 `ComposerInputController/Surface/DecorationLayer`·snapshot/tokenizer와 테스트, `useAttachments.ts`, `eventCoalescer*`, `chatStore*`, frontend state/rendering 문서 |
+| 실행 명령 | `npm run lint`; `npm run typecheck`; 대상 Vitest 4파일; `npm test`(환경 재실행 포함) |
+| 게이트 결과 | lint 0 error(기존 TanStack compiler warning 1), typecheck 3종 PASS, 신규/영향 테스트 51/51 PASS. 전체 Vitest는 144 suites 중 142 PASS·1156/1157 tests PASS; 잔여 2건은 코드와 무관한 실행환경 제약(Electron binary 미설치 1 suite, read-only `/root`를 쓰는 attachment temp test 1건). |
+| 블로커 / 역질문 | 구현 블로커 없음. production build의 10k+streaming+한글 IME input-to-paint trace와 시각/확대/scroll 실기는 GUI 가능한 검증 환경 책임으로 이관. |
+| 대상 커밋 | 구현 커밋 후 INDEX 메타 커밋에서 hash 확정 |
 
 ---
 

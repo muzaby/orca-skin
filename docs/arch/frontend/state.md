@@ -23,8 +23,8 @@
 | 설정 모달 상태 | `features/settings/store/settingsModalStore`(Zustand, 0079~0081) | — | open, tab(`'general' \| 'usage' \| 'provider:<key>'` — 도넛 `>` → provider 탭 라우팅) |
 | Skills 카탈로그 | `shared/hooks/useSkills` useState 캐시 | — | SkillInfo[] (부팅 1회 스캔) |
 | Agents/provider 목록 | `shared/stores/agentStore`(Zustand, 0021) | — | agents, refresh — EngineCard·Composer/ModelMenu 싱크 |
-| 자동완성 상태 | `useSkillAutocomplete / useFileAutocomplete` 의 useMemo + useState | — | open, query, activeIndex |
-| 입력창 텍스트 | 컴포넌트 로컬 `useState` | — | Composer 의 draft text |
+| 자동완성 상태 | `ComposerInputController`의 deferred snapshot + `useSkillAutocomplete / useFileAutocomplete` | — | open, query, activeIndex, expected revision |
+| 입력창 상태 | 항상 mount되는 `ComposerInputController` 로컬 `DraftSnapshot` | — | revision, text, selectionStart/End, composing |
 | UI 인터랙션 (hover/focus/모달) | 컴포넌트 로컬 `useState` | — | DebugPanel 펼침 여부 |
 
 ### 1.2 chat store 구조 (실제 정의 요약)
@@ -46,11 +46,11 @@ interface SessionEntry {
 - **구 `sessionCache`(snapshot Map) 폐기** — sessions Record 가 캐시를 흡수: 본 적 있는 세션 재진입은 IPC 없이 `activeKey` 전환. LRU cap 은 Future Scope.
 - 스트리밍 델타 누적(구 `pendingDelta`/`pendingReasoning`)은 **reducer 에서 제거** — 엔트리별 `live` 슬라이스가 소유하고, `message.completed`(완성본 페이로드)·`telemetry`(잔여분 `COMMIT_PENDING_TEXT` 폴백) 시 parts 로 커밋된다.
 - 컴포넌트 접근은 selector 훅(`useChatSession`/`useLiveText`/`useLiveReasoning` — 활성 엔트리 구독)과 안정 액션 묶음 `chatActions`, imperative read 는 `getActiveChatSession()` — `UseChat` 객체 전달/Context 전파 모델 폐기.
-- 코얼레서는 단일 FIFO(세션 간 순서도 보존) — 세션 전환 시 dispose 하지 않는다(키 라우팅이 스테일 오염 방지).
+- 코얼레서는 단일 FIFO(세션 간 순서도 보존)이며 delta window를 `DeltaEvent[]`로 넘긴다. store는 batch 전체를 단일 `setState` transaction으로 반영해 flush당 notification을 1회로 제한한다. 세션 전환 시 dispose 하지 않는다(키 라우팅이 스테일 오염 방지).
 
 ### 1.3 Anti-pattern (하지 말 것)
 
-- ❌ **입력창 텍스트를 전역 store 에 두기** — 매 키 입력마다 전역 리렌더 발생. Composer 의 draft 는 컴포넌트 로컬 `useState` 로.
+- ❌ **입력창 텍스트를 전역 store 에 두기** — 매 키 입력마다 전역 리렌더 발생. draft snapshot은 persistent input controller의 로컬 state로 두고, shell·transcript에는 올리지 않는다.
 - ❌ **컴포넌트에서 `window.orca` 직접 호출** — `features/<domain>/hooks/use*.ts` (Tweaks 는 `shared/hooks/useTweaks.ts`) 안에서만 IPC 호출. Zustand 전환 후에도 IPC 호출은 store action 안에 머무르며 컴포넌트는 selector / action 만 사용한다.
 - ❌ **`features/` hook 에서 `window.orca.*` 직접 호출** — `shared/api/ipc.ts` 타입드 래퍼 (PR #29 에서 도입) 를 경유한다. 직접 호출은 ESLint 위반은 아니지만 테스트 진입점 / IPC 계약 변경 추적성을 망가뜨린다.
 - ❌ **`useEffect` 안에서 store→다른 store 갱신** — 무한 루프 위험. reducer 의 단일 액션으로 묶을 것.
@@ -152,4 +152,3 @@ useEffect(density): ──► document.documentElement.style.fontSize = DENSITY_
 - 비활성 세션에 새 응답이 도착하면 Sidebar 에 배지 (예: 굵게).
 
 ---
-

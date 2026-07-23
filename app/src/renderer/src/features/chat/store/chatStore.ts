@@ -17,7 +17,7 @@ import {
   sessionApi,
   settingsApi
 } from '../../../shared/api/ipc'
-import { createEventCoalescer } from '../lib/eventCoalescer'
+import { createEventCoalescer, type DeltaEvent } from '../lib/eventCoalescer'
 import type {
   AttachmentView,
   ComposerAttachment,
@@ -225,6 +225,38 @@ function isTerminalWithoutSession(ev: NormalizedEvent): boolean {
   return ev.type === 'error' || ev.type === 'turn.aborted' || ev.type === 'telemetry'
 }
 
+// 한 scheduler window의 모든 live delta를 단일 Zustand transaction으로 반영한다.
+// session 커밋 슬라이스 identity는 BEGIN_TURN이 필요한 첫 활동을 제외하고 그대로 유지된다.
+function receiveDeltaBatch(events: readonly DeltaEvent[]): void {
+  if (events.length === 0) return
+  setState((state) => {
+    let sessions = state.sessions
+    for (const event of events) {
+      const pendingKey = state.pendingNewChatKey
+      const key = sessions[event.sessionId]
+        ? event.sessionId
+        : pendingKey && sessions[pendingKey]?.session.sessionId == null
+          ? pendingKey
+          : null
+      if (!key) continue
+      const entry = sessions[key]
+      if (!entry) continue
+
+      const session = entry.session.inflight
+        ? entry.session
+        : chatReducer(entry.session, { type: 'BEGIN_TURN' })
+      const live =
+        event.type === 'message.delta'
+          ? { ...entry.live, text: entry.live.text + event.delta.text }
+          : { ...entry.live, reasoning: entry.live.reasoning + event.delta.text }
+
+      if (sessions === state.sessions) sessions = { ...sessions }
+      sessions[key] = { ...entry, session, live }
+    }
+    return sessions === state.sessions ? state : { sessions }
+  })
+}
+
 function sendNewChatPayload(payload: SendChatMessage): void {
   void chatApi.send(payload).catch((err) => console.error('[chat] send invoke rejected', err))
 }
@@ -293,7 +325,7 @@ function dropSession(sessionId: string, fallbackProjectId: string | null = null)
   })
 }
 
-// 코얼레서가 비운 이벤트의 최종 수신부 — React 트리 밖 dispatch(state.md §4.4.2).
+// 코얼레서가 비운 비-delta 이벤트의 최종 수신부 — React 트리 밖 dispatch(state.md §4.4.2).
 // ev.sessionId 로 해당 엔트리에 라우팅한다: 비활성 세션의 턴도 백그라운드로 누적되고,
 // 델타 2종은 그 엔트리의 live 슬라이스로만 흐른다. sessionId 가 없는 이벤트(일부 error)는
 // 활성 엔트리 폴백, 미지 sessionId(엔트리 삭제 후 늦게 도착)는 폐기한다.
@@ -473,13 +505,16 @@ function receive(ev: NormalizedEvent): void {
   }
 }
 
-// 스트리밍 델타 코얼레서 — 델타는 rAF 한 틱마다 모아 receive 로 비운다(rendering.md §1.2).
+// 스트리밍 델타 코얼레서 — 델타는 rAF 한 틱마다 모아 receiveDeltaBatch로 비운다.
 // 단일 FIFO 버퍼가 세션 간 순서도 보존하며, 키 라우팅이 스테일 오염을 막으므로 세션
 // 전환 시 dispose 하지 않는다(비활성 세션의 백그라운드 누적 유지). dispose 는 언마운트만.
-const coalescer = createEventCoalescer(receive, {
-  schedule: (cb) => requestAnimationFrame(cb),
-  cancel: (h) => cancelAnimationFrame(h)
-})
+const coalescer = createEventCoalescer(
+  { emit: receive, emitDeltaBatch: receiveDeltaBatch },
+  {
+    schedule: (cb) => requestAnimationFrame(cb),
+    cancel: (h) => cancelAnimationFrame(h)
+  }
+)
 
 // IPC 인바운드 이벤트 1개 라우팅(코얼레서 경유). ChatProvider 부트스트랩이 구독을 연결한다.
 export function ingestChatEvent(ev: NormalizedEvent): void {

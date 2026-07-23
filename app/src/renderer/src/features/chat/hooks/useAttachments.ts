@@ -1,4 +1,4 @@
-import { useState, type ClipboardEvent } from 'react'
+import { useRef, useState, type ClipboardEvent } from 'react'
 import { fileApi } from '../../../shared/api/ipc'
 import { downscaleDataUrl } from '../lib/imageThumb'
 import type { AttachmentView, ComposerAttachment } from '../../../../../shared/ipc'
@@ -16,6 +16,7 @@ export interface UseAttachments {
   onPaste: (event: ClipboardEvent<HTMLDivElement>) => void
   buildAttachmentViews: (items: ComposerAttachment[]) => Promise<AttachmentView[]>
   reset: () => void
+  resetIfUnchanged: (expected: ComposerAttachment[]) => boolean
 }
 
 function readFileAsBase64(file: File): Promise<string> {
@@ -32,12 +33,15 @@ function readFileAsBase64(file: File): Promise<string> {
 
 export function useAttachments(): UseAttachments {
   const [attachments, setAttachments] = useState<ComposerAttachment[]>([])
+  const attachmentsRef = useRef(attachments)
   const [attachmentPreviews, setAttachmentPreviews] = useState<Record<string, string>>({})
   const [draggingAttachment, setDraggingAttachment] = useState(false)
 
   const addAttachments = async (items: ComposerAttachment[]): Promise<void> => {
-    const startIndex = attachments.length
-    setAttachments((current) => [...current, ...items])
+    const startIndex = attachmentsRef.current.length
+    const nextAttachments = [...attachmentsRef.current, ...items]
+    attachmentsRef.current = nextAttachments
+    setAttachments(nextAttachments)
     const previews: Record<string, string> = {}
     await Promise.all(
       items.map(async (att, offset) => {
@@ -70,10 +74,13 @@ export function useAttachments(): UseAttachments {
   }
 
   const removeAttachment = (index: number): void => {
-    setAttachments((current) => current.filter((_, i) => i !== index))
+    const removed = attachmentsRef.current[index]
+    const nextAttachments = attachmentsRef.current.filter((_, current) => current !== index)
+    attachmentsRef.current = nextAttachments
+    setAttachments(nextAttachments)
     setAttachmentPreviews((current) => {
       const next = { ...current }
-      delete next[`${attachments[index]?.name ?? ''}-${index}`]
+      delete next[`${removed?.name ?? ''}-${index}`]
       return next
     })
   }
@@ -143,8 +150,18 @@ export function useAttachments(): UseAttachments {
     )
 
   const reset = (): void => {
+    attachmentsRef.current = []
     setAttachments([])
     setAttachmentPreviews({})
+  }
+
+  // attachment view 생성은 비동기다. 그 사이 새 첨부가 추가/제거됐다면 전송 당시 배열만
+  // 지운다는 보장이 없으므로 clear를 거부한다. controller가 draft revision과 함께 검사해
+  // text+attachments를 하나의 submit snapshot처럼 다룬다.
+  const resetIfUnchanged = (expected: ComposerAttachment[]): boolean => {
+    if (attachmentsRef.current !== expected) return false
+    reset()
+    return true
   }
 
   return {
@@ -157,6 +174,7 @@ export function useAttachments(): UseAttachments {
     addDroppedFiles,
     onPaste,
     buildAttachmentViews,
-    reset
+    reset,
+    resetIfUnchanged
   }
 }

@@ -1,23 +1,18 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
-import { Button } from '../../../shared/ui/Button'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../../../shared/ui/Icon'
 import { useI18n } from '../../../shared/i18n'
 import { UsageCircle } from '../../../shared/ui/UsageCircle'
 import { Popover } from '../../../shared/ui/Popover'
 import { ReadingColumn } from '../../../shared/ui/ReadingColumn'
-import { HighlightedTextarea, type HighlightedTextareaHandle } from './composer/HighlightedTextarea'
-import { SkillAutocomplete } from './composer/SkillAutocomplete'
-import { FileAutocomplete } from './composer/FileAutocomplete'
+import { ComposerInputController } from './composer/ComposerInputController'
 import { ComposerChip } from './composer/ComposerChip'
 import { ModeMenu } from './composer/ModeMenu'
 import { ModelMenu } from './composer/ModelMenu'
 import { EffortMenu } from './composer/EffortMenu'
 import { EFFORT_LABEL_KEYS } from './composer/effort'
-import { AttachMenu } from './composer/AttachMenu'
 import { defaultSelection, modelKey, selectionLabel } from './composer/modelSelection'
 import { steerBlockedByProviderBoundary } from '../lib/steerGate'
 import { ConversationStatusLine } from './composer/ConversationStatusLine'
-import { AttachmentTray } from './composer/AttachmentTray'
 import { CwdButton } from './CwdButton'
 import { Notice } from './Notice'
 import { StatusPopover } from './composer/StatusPopover'
@@ -36,12 +31,7 @@ import {
 } from '../store/chatStore'
 import { contextTokens } from '../lib/telemetry'
 import { contextWindowOf, nearCompaction } from '../lib/contextWindow'
-import { useSkills } from '../../../shared/hooks/useSkills'
 import { useAgents } from '../../../shared/hooks/useAgents'
-import { useSkillAutocomplete } from '../hooks/useSkillAutocomplete'
-import { useFileAutocomplete } from '../hooks/useFileAutocomplete'
-import { useAttachments } from '../hooks/useAttachments'
-import type { FileEntry, SkillInfo } from '../../../../../shared/ipc'
 
 interface ComposerProps {
   backendLabel: string
@@ -72,9 +62,8 @@ interface ComposerProps {
 
 // 채팅 입력 composer — textarea + chip 행 + send/cancel 버튼 + skills/file 자동완성.
 // ChatTile 과 NewChatLandingPage 양쪽에서 동일하게 재사용.
-// 자체 local state (draft / caret) 는 컴포넌트 내부에 가두고, 채팅 상태는
-// chatStore selector 로 필요한 슬라이스만 구독한다 — 스트리밍 델타/transcript 커밋
-// (messages 교체)에는 깨어나지 않는다 (0008).
+// 고빈도 draft/selection/IME는 항상 mount되는 ComposerInputController에 가두고,
+// 이 shell은 chat selector와 저빈도 메뉴/상태만 조율한다.
 export function Composer({
   backendLabel,
   canAbort,
@@ -119,27 +108,7 @@ export function Composer({
   const [modelMenuOpen, setModelMenuOpen] = useState(false)
   const effortButtonRef = useRef<HTMLButtonElement>(null)
   const [effortMenuOpen, setEffortMenuOpen] = useState(false)
-  const attachButtonRef = useRef<HTMLButtonElement>(null)
-  const [attachMenuOpen, setAttachMenuOpen] = useState(false)
-  const [draft, setDraft] = useState('')
-  const [caret, setCaret] = useState(0)
-  const {
-    attachments,
-    attachmentPreviews,
-    draggingAttachment,
-    setDraggingAttachment,
-    pickAttachments,
-    removeAttachment,
-    addDroppedFiles,
-    onPaste,
-    buildAttachmentViews,
-    reset: resetAttachments
-  } = useAttachments()
-  const skills = useSkills()
   const agents = useAgents()
-  const knownSkillNames = useMemo(() => new Set(skills.map((s) => s.name)), [skills])
-  const textareaRef = useRef<HighlightedTextareaHandle>(null)
-  const textareaWrapRef = useRef<HTMLDivElement>(null)
   const telemetryButtonRef = useRef<HTMLButtonElement>(null)
   const [telemetryOpen, setTelemetryOpen] = useState(false)
   const conversationStatusButtonRef = useRef<HTMLButtonElement>(null)
@@ -158,40 +127,6 @@ export function Composer({
     if (noticeEpisode.projectId !== projectId || !concurrencyActive) setConcurrencyDismissed(false)
   }
   const showConcurrencyNotice = concurrencyActive && !concurrencyDismissed
-
-  // initialDraft 시드 — page 가 nav state 로 같은 값을 다시 넘겨도 1회만 적용(seededRef).
-  // 적용 후 캐럿을 끝으로 두고 포커스해 사용자가 바로 이어 입력할 수 있게 한다.
-  const seededRef = useRef<string | null>(null)
-  useEffect(() => {
-    if (initialDraft === undefined || seededRef.current === initialDraft) return
-    seededRef.current = initialDraft
-    setDraft(initialDraft)
-    setCaret(initialDraft.length)
-    requestAnimationFrame(() => {
-      textareaRef.current?.focus()
-      textareaRef.current?.setSelectionRange(initialDraft.length, initialDraft.length)
-    })
-  }, [initialDraft])
-
-  // initialDraft 의 seededRef 와 대칭 — 각 복원 신호(id=seq)를 1회만 적용한다.
-  // store draftRestore 는 소비 후 clear 되지 않아 ChatTile 이 매 렌더 새 객체로
-  // restoredDraft 를 churn 시킨다(스트리밍/telemetry 재렌더). id 가드가 없으면
-  // 그 churn 마다 effect 가 재발화해 사용자가 지운 textarea 를 취소 텍스트로 덮어썼다.
-  const restoredRef = useRef<number | null>(null)
-  useEffect(() => {
-    if (!restoredDraft || restoredRef.current === restoredDraft.id) return
-    restoredRef.current = restoredDraft.id
-    queueMicrotask(() => {
-      setDraft(restoredDraft.text)
-      setCaret(restoredDraft.text.length)
-      const el = textareaRef.current?.element
-      el?.focus()
-      el?.setSelectionRange(restoredDraft.text.length, restoredDraft.text.length)
-    })
-  }, [restoredDraft])
-
-  const autocomplete = useSkillAutocomplete(draft, caret, skills)
-  const fileAutocomplete = useFileAutocomplete(draft, caret, cwd)
 
   const selectedModel = useMemo(() => {
     if (providerKey)
@@ -264,80 +199,6 @@ export function Composer({
     }
   }
 
-  // "+" 메뉴의 Skill 진입 — 입력란에 `/` 를 넣어 `/` 자동완성(SkillAutocomplete)을 연다.
-  // PARTIAL_RE 가 줄 시작/공백 뒤의 `/` 만 매칭하므로, 끝이 공백/개행이 아니면 ` /` 로 공백을 끼운다.
-  const openSkillPicker = (): void => {
-    setAttachMenuOpen(false)
-    setDraft((d) => {
-      const next = d === '' || d.endsWith(' ') || d.endsWith('\n') ? d + '/' : d + ' /'
-      queueMicrotask(() => {
-        const el = textareaRef.current?.element
-        if (!el) return
-        el.focus()
-        el.setSelectionRange(next.length, next.length)
-        setCaret(next.length)
-      })
-      return next
-    })
-  }
-
-  // 자동완성 선택: caret 직전 `/partial` 을 `/name ` 으로 치환.
-  const applyAutocomplete = (skill: SkillInfo): void => {
-    const start = autocomplete.tokenStart
-    if (start < 0) return
-    const replacement = `/${skill.name} `
-    const next = draft.slice(0, start) + replacement + draft.slice(caret)
-    const nextCaret = start + replacement.length
-    setDraft(next)
-    autocomplete.close()
-    queueMicrotask(() => {
-      const el = textareaRef.current?.element
-      if (!el) return
-      el.focus()
-      el.setSelectionRange(nextCaret, nextCaret)
-      setCaret(nextCaret)
-    })
-  }
-
-  // 파일 picker 선택: caret 직전 토큰을 새 토큰으로 치환.
-  // - 디렉토리: picker 유지 (다음 단계 진입).
-  // - 파일: picker 닫고 caret 을 토큰 뒤로.
-  // quoting 케이스 분기:
-  //   (a) quote 쌍 안 (`hasClosingQuote`): 기존 닫는 `"` 를 재사용. 열린 quote
-  //       와 body 만 작성, draft.slice(caret) 의 `"` 가 그대로 닫음.
-  //   (b) 미닫힘 quote 안 또는 새 토큰: 공백 포함이면 `@"<body>"` 로 wrap.
-  const applyFileAutocomplete = (entry: FileEntry): void => {
-    const start = fileAutocomplete.tokenStart
-    if (start < 0) return
-    const dir = fileAutocomplete.dirPath
-    const full = dir === '' ? entry.name : `${dir}/${entry.name}`
-    const body = entry.isDirectory ? `${full}/` : full
-
-    let next: string
-    let nextCaret: number
-    if (fileAutocomplete.quoted && fileAutocomplete.hasClosingQuote) {
-      const replacement = `@"${body}`
-      next = draft.slice(0, start) + replacement + draft.slice(caret)
-      nextCaret = entry.isDirectory ? start + replacement.length : start + replacement.length + 1
-    } else {
-      const needsQuote = /\s/.test(body)
-      const wrapped = needsQuote ? `"${body}"` : body
-      const replacement = entry.isDirectory ? `@${wrapped}` : `@${wrapped} `
-      next = draft.slice(0, start) + replacement + draft.slice(caret)
-      nextCaret = start + replacement.length
-    }
-
-    setDraft(next)
-    if (!entry.isDirectory) fileAutocomplete.close()
-    queueMicrotask(() => {
-      const el = textareaRef.current?.element
-      if (!el) return
-      el.focus()
-      el.setSelectionRange(nextCaret, nextCaret)
-      setCaret(nextCaret)
-    })
-  }
-
   // 0119: busy 중 provider 경계를 넘는 모델이 선택된 동안 steer 차단 — 진행 턴의 채널은
   // 낡은 provider env 라 경계 너머 메시지를 실을 수 없다. 본래 provider 로 되돌리면 해제.
   const steerBlocked = steerBlockedByProviderBoundary({
@@ -346,105 +207,9 @@ export function Composer({
     selectedProviderKey: selectedModel?.providerKey
   })
 
-  // 단일 send(0067) — busy/idle 판정은 main 소관: 진행 중이면 예약(held, pending 버블),
-  // 유휴면 즉시 flush. renderer 는 분기하지 않는다.
-  const submit = (): void => {
-    if (draft.trim() === '') return
-    if (steerBlocked) return
-    const text = draft
-    const items = attachments
-    void buildAttachmentViews(items).then((views) => {
-      if (!send(text, items, views)) return
-      setDraft('')
-      setCaret(0)
-      resetAttachments()
-    })
-  }
-
   const toolApprovalPending = pendingToolApprovals.length > 0
-  const feedbackMode = inflight && !steerBlocked && draft.trim() !== ''
-  const showCancelButton = !feedbackMode && (inflight || toolApprovalPending)
-
-  const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>): void => {
-    // 자동완성 open 시 키 우선 처리 — Enter/Tab/Arrow/Escape 는 picker 가 소비.
-    // 스킬과 파일은 trigger 가 배타적이라 동시에 open 될 수 없다.
-    if (autocomplete.open) {
-      if (e.key === 'ArrowDown') {
-        e.preventDefault()
-        autocomplete.setActiveIndex(
-          (autocomplete.activeIndex + 1) % autocomplete.suggestions.length
-        )
-        return
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault()
-        const len = autocomplete.suggestions.length
-        autocomplete.setActiveIndex((autocomplete.activeIndex - 1 + len) % len)
-        return
-      }
-      if ((e.key === 'Enter' || e.key === 'Tab') && !e.nativeEvent.isComposing) {
-        e.preventDefault()
-        const pick = autocomplete.suggestions[autocomplete.activeIndex]
-        if (pick) applyAutocomplete(pick)
-        return
-      }
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        autocomplete.close()
-        return
-      }
-    }
-
-    if (fileAutocomplete.open) {
-      // suggestions 가 비어 있으면 (로딩 중 또는 결과 없음) Arrow/Enter/Tab 은
-      // preventDefault 만 — Enter 가 메시지 전송으로 흘러 picker 가 닫히지 않게.
-      const len = fileAutocomplete.suggestions.length
-      if (e.key === 'ArrowDown') {
-        e.preventDefault()
-        if (len > 0) fileAutocomplete.setActiveIndex((fileAutocomplete.activeIndex + 1) % len)
-        return
-      }
-      if (e.key === 'ArrowUp') {
-        e.preventDefault()
-        if (len > 0) fileAutocomplete.setActiveIndex((fileAutocomplete.activeIndex - 1 + len) % len)
-        return
-      }
-      if ((e.key === 'Enter' || e.key === 'Tab') && !e.nativeEvent.isComposing) {
-        e.preventDefault()
-        if (len > 0) {
-          const pick = fileAutocomplete.suggestions[fileAutocomplete.activeIndex]
-          if (pick) applyFileAutocomplete(pick)
-        }
-        return
-      }
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        fileAutocomplete.close()
-        return
-      }
-    }
-
-    if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
-      e.preventDefault()
-      submit()
-    }
-  }
-
   return (
-    <div
-      className="app-frame-composer relative pb-[18px] pt-3"
-      onPaste={onPaste}
-      onDragOver={(event) => {
-        event.preventDefault()
-        setDraggingAttachment(true)
-      }}
-      onDragLeave={() => setDraggingAttachment(false)}
-      onDrop={(event) => {
-        event.preventDefault()
-        setDraggingAttachment(false)
-        void addDroppedFiles(event.dataTransfer.files)
-      }}
-    >
+    <div className="app-frame-composer relative pb-[18px] pt-3">
       {showScrollToBottom && (
         <button
           type="button"
@@ -523,108 +288,31 @@ export function Composer({
               {tr('chat.composer.queuedNoticeBody')}
             </Notice>
           )}
-          {pendingPlanReview ? (
-            <ApprovalCard key={pendingPlanReview.requestId} />
-          ) : (
-            <div
-              className={`epitaxy-prompt rounded-r7 border bg-panel px-3 py-2.5 shadow-[0_2px_12px_rgba(0,0,0,0.04)] transition-colors ${
-                draggingAttachment ? 'border-accent ring-2 ring-accent/40' : 'border-border'
-              }`}
-              data-surface="prompt"
-              data-state={draggingAttachment ? 'drag-over' : undefined}
-              title={tr('chat.composer.backendTitle', { label: backendLabel })}
-            >
-              <AttachmentTray
-                attachments={attachments}
-                previews={attachmentPreviews}
-                onRemove={removeAttachment}
+          {pendingPlanReview && <ApprovalCard key={pendingPlanReview.requestId} />}
+          <ComposerInputController
+            active={!pendingPlanReview}
+            backendLabel={backendLabel}
+            canAbort={canAbort}
+            inflight={inflight}
+            steerBlocked={steerBlocked}
+            toolApprovalPending={toolApprovalPending}
+            cwd={cwd}
+            initialDraft={initialDraft}
+            restoredDraft={restoredDraft}
+            onSend={send}
+            onCancel={cancel}
+            controlsStart={
+              <ComposerChip
+                ref={modeButtonRef}
+                label={tr(MODE_LABEL_KEYS[permissionMode])}
+                onClick={() => setModeMenuOpen((value) => !value)}
+                ariaHasPopup
+                ariaExpanded={modeMenuOpen}
+                title={tr('chat.composer.permissionModeTitle')}
               />
-              <div className="flex items-end gap-2">
-                <div
-                  ref={textareaWrapRef}
-                  className="app-frame-composer-input min-w-0 flex-1"
-                  data-behavior="interactive"
-                >
-                  <HighlightedTextarea
-                    ref={textareaRef}
-                    value={draft}
-                    onChange={setDraft}
-                    onCaretChange={setCaret}
-                    onKeyDown={onKeyDown}
-                    knownSkillNames={knownSkillNames}
-                    validFilePaths={fileAutocomplete.validPaths}
-                    placeholder={
-                      inflight
-                        ? steerBlocked
-                          ? tr('chat.composer.placeholderProviderBoundary')
-                          : tr('chat.composer.placeholderFeedback')
-                        : tr('chat.composer.placeholderIdle')
-                    }
-                    ariaLabel={tr('chat.composer.inputAria')}
-                  />
-                </div>
-                {showCancelButton ? (
-                  <Button
-                    iconOnly
-                    variant="uncontained"
-                    leadingIcon="stop"
-                    onClick={cancel}
-                    disabled={!canAbort}
-                    title={canAbort ? tr('common.stop') : tr('chat.composer.abortUnsupported')}
-                    aria-label={tr('common.stop')}
-                    data-behavior="action:cancel-turn"
-                    className="mb-1 shrink-0 rounded-full"
-                  />
-                ) : (
-                  <Button
-                    iconOnly
-                    variant="uncontained"
-                    leadingIcon="enter"
-                    onClick={submit}
-                    disabled={draft.trim() === ''}
-                    title={
-                      feedbackMode
-                        ? tr('chat.composer.sendFeedbackEnter')
-                        : tr('chat.composer.sendEnter')
-                    }
-                    aria-label={
-                      feedbackMode ? tr('chat.composer.sendFeedback') : tr('chat.composer.send')
-                    }
-                    data-behavior={feedbackMode ? 'action:send-feedback' : 'action:send'}
-                    className="mb-1 shrink-0 rounded-full"
-                  />
-                )}
-              </div>
-            </div>
-          )}
-          {/* 컨트롤 패널 — 입력 패널에서 분리한 칩 행. 이 패널만 bg 투명·borderless. */}
-          {!pendingPlanReview && (
-            <div className="app-frame-composer-controls flex items-center gap-1.5 px-1">
-              {/* repo zone — 첨부 후보들 (파일/Skill). 명세 §3.3.2 의
-              app-frame-composer-repo 슬롯. data-behavior="dismissible" 은 향후 칩
-              제거 UX 도입 시점에 각 칩 element 로 내려간다. */}
-              <div
-                className="app-frame-composer-repo flex items-center gap-1.5"
-                data-behavior="dismissible"
-              >
-                <ComposerChip
-                  ref={modeButtonRef}
-                  label={tr(MODE_LABEL_KEYS[permissionMode])}
-                  onClick={() => setModeMenuOpen((v) => !v)}
-                  ariaHasPopup
-                  ariaExpanded={modeMenuOpen}
-                  title={tr('chat.composer.permissionModeTitle')}
-                />
-                <ComposerChip
-                  ref={attachButtonRef}
-                  icon="plus"
-                  onClick={() => setAttachMenuOpen((v) => !v)}
-                  ariaHasPopup
-                  ariaExpanded={attachMenuOpen}
-                  title={tr('chat.composer.attachMenuTitle')}
-                />
-              </div>
-              <span className="ml-auto flex items-center gap-g4">
+            }
+            controlsEnd={
+              <>
                 {agents.some((agent) => agent.supported) && (
                   <ComposerChip
                     ref={modelButtonRef}
@@ -693,9 +381,9 @@ export function Composer({
                     />
                   </Popover>
                 )}
-              </span>
-            </div>
-          )}
+              </>
+            }
+          />
         </div>
       </ColumnWrap>
       <Popover open={modeMenuOpen} anchorRef={modeButtonRef} onClose={() => setModeMenuOpen(false)}>
@@ -705,19 +393,6 @@ export function Composer({
             setPermissionMode(mode)
             setModeMenuOpen(false)
           }}
-        />
-      </Popover>
-      <Popover
-        open={attachMenuOpen}
-        anchorRef={attachButtonRef}
-        onClose={() => setAttachMenuOpen(false)}
-      >
-        <AttachMenu
-          onPickAttachment={() => {
-            setAttachMenuOpen(false)
-            void pickAttachments()
-          }}
-          onPickSkill={openSkillPicker}
         />
       </Popover>
       <Popover
@@ -750,24 +425,6 @@ export function Composer({
           }}
         />
       </Popover>
-      <SkillAutocomplete
-        open={autocomplete.open}
-        anchorRef={textareaWrapRef}
-        suggestions={autocomplete.suggestions}
-        activeIndex={autocomplete.activeIndex}
-        onHover={autocomplete.setActiveIndex}
-        onPick={applyAutocomplete}
-      />
-      <FileAutocomplete
-        open={fileAutocomplete.open}
-        loading={fileAutocomplete.loading}
-        anchorRef={textareaWrapRef}
-        dirPath={fileAutocomplete.dirPath}
-        suggestions={fileAutocomplete.suggestions}
-        activeIndex={fileAutocomplete.activeIndex}
-        onHover={fileAutocomplete.setActiveIndex}
-        onPick={applyFileAutocomplete}
-      />
     </div>
   )
 }

@@ -1,7 +1,7 @@
 # Frontend Architecture — Rendering (렌더링·ToolRendererRegistry·streaming)
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-07-10 (handoff 0094 — §1.9 UsagePanel(0079~0082)·라이브 reasoning StreamingMarkdown(0093) 동기화)
+> 최종 업데이트: 2026-07-23 (handoff 0145 — Composer urgent/derived 경로와 실제 delta batch 동기화)
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [../backend/provider-runtime.md](../backend/provider-runtime.md), [ux-domains.md](./ux-domains.md)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 
@@ -15,9 +15,15 @@
 
 ### 1.2 스트리밍 렌더링 최적화 (0008 재설계)
 
-- **델타 경로는 reducer 를 우회한다.** `features/chat/lib/eventCoalescer.ts` 가 델타(message.delta·message.reasoning.delta)를 rAF 한 틱마다 모아 `chatStore.receive` 로 비우고(비-델타는 버퍼 선-flush 로 순서 보존, §1.7 Option B), receive 는 델타를 Zustand `live` 슬라이스(`{text, reasoning}`)에만 누적한다 — 커밋 슬라이스(`session`) identity 불변. 결과: **델타 프레임의 재렌더는 live 를 구독하는 라이브 리프뿐** — text 델타 → `LiveText`(+`LiveStatus` 토큰 근사), reasoning 델타 → `LiveReasoning`(`ReasoningBlock streaming` → `StreamingMarkdown` 경유 — 델타 프레임당 전문 재파스 없이 꼬리만 재파스, 0093). transcript(커밋 메시지)·Composer·셸·호스트는 깨어나지 않는다(state.md §1.4).
+- **델타 경로는 reducer 를 우회한다.** `features/chat/lib/eventCoalescer.ts` 가 델타(message.delta·message.reasoning.delta)를 rAF 한 틱마다 `DeltaEvent[]` 하나로 넘긴다(비-델타는 버퍼 선-flush 로 순서 보존, §1.7 Option B). `chatStore.receiveDeltaBatch` 는 배열을 event 순서대로 session별 `live`(`{text, reasoning}`)에 연결하고 **flush당 단일 Zustand `setState` transaction**으로 반영한다. `BEGIN_TURN`이 필요한 첫 활동 외에는 커밋 슬라이스(`session`) identity도 불변이다. 결과: selector 팬아웃·store notification은 프레임당 1회이고, 실제 재렌더는 live 구독 리프뿐이다 — text 델타 → `LiveText`(+`LiveStatus` 토큰 근사), reasoning 델타 → `LiveReasoning`(`ReasoningBlock streaming` → `StreamingMarkdown` 경유 — 델타 프레임당 전문 재파스 없이 꼬리만 재파스, 0093). transcript(커밋 메시지)·Composer shell·호스트는 깨어나지 않는다(state.md §1.2).
 - **라이브 마크다운은 꼬리 블록만 재파스** — `StreamingMarkdown` 이 누적 소스를 `lib/markdownBlocks.ts` 의 `splitStableBlocks` 로 "확정 블록들 + 꼬리"로 분할, 확정 블록은 memo 된 `<Markdown>`(string shallow)으로 고정하고 꼬리만 매 델타 unified 재파스한다(프레임당 O(전문)→O(꼬리)). 분할 경계는 보수적(펜스/loose list/들여쓰기 코드 비분할, 완결 줄 뒤만 확정 = append-stable). 코드 블록 하이라이팅(shiki)은 ToolCard 첫 오픈까지 지연(비용 회피).
 - **커밋 경로는 카드 단위로 격리** — `message.completed`(완성본 text 파트 커밋)·`tool.call.*` 는 reducer 커밋으로 마지막 message identity 만 교체하고, `AssistantMessage` 가 `reconcileSegments`(lib/parts.ts) 로 직전 렌더와 대조해 내용 미변경 세그먼트/ToolCall view 의 identity 를 재사용한다 → memo 된 `ToolGroup`/`ToolCard`/`ReasoningBlock`/`Markdown` 이 shallow 로 bail — **tool.call.completed 1건 = 결과가 도착한 ToolCard 1개 재렌더**. `message.completed` 없이 끝난 턴의 잔여 live.text 는 telemetry 시점에 `COMMIT_PENDING_TEXT` 폴백으로 굳힌다(error/cancel 은 폐기 — 기존 동작 동형).
+
+### 1.2.1 Composer 입력 긴급도 분리 (0145)
+
+- `Composer`는 chat selector·상태 카드·저빈도 메뉴만 조율한다. `ComposerInputController`는 plan review 중에도 항상 mount된 채 `DraftSnapshot(revision/text/selection/composing)`과 attachments를 소유하므로, 키 입력은 shell을 재실행하지 않는다.
+- `ComposerInputSurface`의 **controlled native textarea가 실제 글자·placeholder·caret을 직접 그린다.** 종전 transparent textarea + visible mirror 계약은 폐기했다. CSS `field-sizing: content`가 높이를 결정하고, decoration은 레이아웃 권위가 없는 `aria-hidden`/`pointer-events-none` 배경 overlay다.
+- 전체 draft tokenization, skill filter, 파일 listing은 `useDeferredValue(snapshot)` 파생 채널에서 수행한다. deferred revision·text·selection이 현재 snapshot과 다르거나 IME 조합 중이면 autocomplete와 decoration을 숨긴다. 자동완성 적용과 비동기 submit clear도 expected revision을 재검증해 최신 입력을 덮어쓰지 않는다.
 
 ### 1.3 마크다운 + 코드 블록
 
@@ -141,4 +147,3 @@ interface ReconnectPolicy { maxRetries: number; backoffMs: (attempt: number) => 
 **⑤ 빈 reasoning 카드 스킵 (구현 완료).** 빈/공백 "사고 과정" 카드가 뜨던 문제 해소 — `claude-map`(빈 `thinking` emit 안 함)·`messageSegments`(빈 reasoning 파트 스킵)·`ReasoningBlock`(합친 텍스트 공백이면 `null`) 3층 가드. 라이브 경로 `PendingAssistant` 는 기존 `{pendingReasoning && …}` 로 이미 가드됨.
 
 ---
-
