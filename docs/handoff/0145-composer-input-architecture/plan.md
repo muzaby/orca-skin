@@ -234,7 +234,8 @@ interface ComposerInputCommands {
 - [x] Persistent controller와 native urgent surface 추출
 - [x] revisioned decoration/autocomplete 및 IME/selection 계약 구현
 - [x] delta batch 단일 store transaction 구현
-- [ ] 테스트·문서 완료 / production trace는 검증 환경에서 수행 대기
+- [x] 테스트·아키텍처 문서 동기화
+- [ ] production trace는 GUI 가능한 검증 환경에서 수행 대기
 
 ## [구현자 기입] 구현 보고
 
@@ -244,7 +245,7 @@ interface ComposerInputCommands {
 | 실행 명령 | `npm run lint`; `npm run typecheck`; 대상 Vitest 4파일; `npm test`(환경 재실행 포함) |
 | 게이트 결과 | lint 0 error(기존 TanStack compiler warning 1), typecheck 3종 PASS, 신규/영향 테스트 51/51 PASS. 전체 Vitest는 144 suites 중 142 PASS·1156/1157 tests PASS; 잔여 2건은 코드와 무관한 실행환경 제약(Electron binary 미설치 1 suite, read-only `/root`를 쓰는 attachment temp test 1건). |
 | 블로커 / 역질문 | 구현 블로커 없음. production build의 10k+streaming+한글 IME input-to-paint trace와 시각/확대/scroll 실기는 GUI 가능한 검증 환경 책임으로 이관. |
-| 대상 커밋 | 구현 커밋 후 INDEX 메타 커밋에서 hash 확정 |
+| 대상 커밋 | `ad9f61c` |
 
 ---
 
