@@ -12,7 +12,7 @@
 | 작성자 | Codex (사용자 직접 요청 및 2차 리뷰 반영) |
 | 일자 | 2026-07-23 |
 | 매핑 | `0145-composer-input-architecture` 후속 correctness 버그수정 / PR 미정 |
-| 상태 | **IMPL_DONE — 최소 composition guard 구현 완료, GUI 검증 대기** |
+| 상태 | **IMPL_DONE r2 — caret 개선 확인, decoration gutter 수정 재검증 대기** |
 
 ## 사용자 의도 / 요구 출처 (Intent & Provenance)
 
@@ -113,6 +113,18 @@ heuristic일 뿐 H0~H3를 대체하는 인과 증거가 아니다.
 - 신규 의존성 없음.
 
 ## 설계
+
+### 사용자 실측 r2 — 2026-07-23
+
+| 관찰 | 판정 | 반영 |
+|---|---|---|
+| 실제 Electron 한글 입력에서 caret은 정상 위치를 유지한다. | composition guard가 native input/caret 경로에 효과가 있다는 사용자 증거다. 전체 H0~H3·zoom 매트릭스를 대체하지는 않는다. | AC1을 부분 실측 충족으로 기록한다. |
+| text가 길어질수록 highlight 배경 위치가 실제 text에서 벗어난다. | caret과 별개인 decoration 좌표계 문제다. max-height 이후 textarea는 classic vertical scrollbar가 content width를 줄이지만 `overflow-hidden` decoration은 gutter를 소비하지 않아 soft-wrap 지점이 달라질 수 있다. | shared typography에 `scrollbar-gutter:stable`을 넣어 textarea와 decoration의 wrap width를 통일한다. |
+
+이 수정은 `field-sizing` 또는 controlled ownership을 바꾸지 않는다. classic scrollbar에서는 양쪽이
+동일 gutter를 예약하고, overlay scrollbar 환경에서는 양쪽 모두 gutter를 만들지 않는 CSS 계약을
+사용한다. 실제 장문·max-height scroll에서 highlight가 다시 정렬되는지는 사용자 재검증 전까지
+확정하지 않는다.
 
 ### Controller guard
 
@@ -230,11 +242,11 @@ native 또는 controlled 경로로 라우팅한다.
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | `ComposerInputController.tsx`, `draftSnapshot.ts`, `draftSnapshot.test.ts`, 본 handoff와 `INDEX.md` |
-| 실행 명령 | `npm run lint`; `npm run typecheck`; Composer 영향 Vitest 5파일; 전체 `vitest run`; `node --test scripts/*.test.mjs`; `git diff --check` |
-| 게이트 결과 | lint 0 error(기존 TanStack compiler warning 1), node/web/test typecheck PASS, Composer 영향 5 files·15/15 tests PASS, scripts 28/28 PASS. 전체 Vitest는 140/146 files·1122/1161 tests PASS; 실패는 환경 제약 40건(`better-sqlite3` native binding 미설치 38, read-only `/root` attachment temp 1, Electron payload 미설치 1 suite)이며 변경 경로 실패는 없다. |
-| 블로커 / 역질문 | 구현 블로커 없음. 실제 Windows Electron 한국어 IME에서 H0~H3, soft-wrap, max-height scroll, zoom 100/125/200% 검증은 GUI 가능한 검증자에게 이관한다. |
-| 대상 커밋 | `8c997ed` |
+| 변경 파일 | `ComposerInputController.tsx`, `ComposerInputSurface.tsx`, `ComposerDecorationLayer.test.ts`, `draftSnapshot.ts`, `draftSnapshot.test.ts`, 본 handoff와 `INDEX.md` |
+| 실행 명령 | `npm run lint`; `npm run typecheck`; Composer 영향 Vitest; 전체 `vitest run`; `node --test scripts/*.test.mjs`; `git diff --check` |
+| 게이트 결과 | r1: lint 0 error(기존 TanStack compiler warning 1), node/web/test typecheck PASS, Composer 영향 5 files·15/15 tests PASS, scripts 28/28 PASS. 전체 Vitest는 140/146 files·1122/1161 tests PASS; 실패는 환경 제약 40건(`better-sqlite3` native binding 미설치 38, read-only `/root` attachment temp 1, Electron payload 미설치 1 suite). r2 gutter 수정: 직접 영향 2 files·6/6, Composer 전체 5 files·16/16 tests, lint 0 error(기존 warning 1), typecheck 3종 PASS. |
+| 블로커 / 역질문 | caret 정상 유지 사용자 확인. 장문 highlight 정렬은 r2 gutter 수정본으로 실제 Windows Electron max-height scroll·zoom 100/125/200% 재검증이 필요하다. |
+| 대상 커밋 | r1 `8c997ed`; r2 `d737f03` |
 
 ---
 
@@ -242,4 +254,5 @@ native 또는 controlled 경로로 라우팅한다.
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
-| D1 | 실제 Windows Electron Korean IME geometry 미검증 | `0145` D2 / 본 신고 | H0~H3·sizing/CSS 매트릭스와 soft-wrap 실기 | open |
+| D1 | 실제 Windows Electron Korean IME caret | `0145` D2 / 본 신고 | 사용자 실측에서 caret 정상 유지 확인. H0~H3·zoom 전체 매트릭스는 별도 보존 | partial |
+| D2 | 장문에서 decoration highlight wrap 누적 이탈 | 사용자 실측 r2 | textarea/layer stable gutter 적용 후 max-height scroll·zoom 재검증 | open |
