@@ -248,9 +248,9 @@ interface ComposerInputCommands {
 |---|---|
 | 변경 파일 | `Composer.tsx`, 신규 `ComposerInputController/Surface/DecorationLayer`·snapshot/tokenizer와 테스트, `useAttachments.ts`·`attachmentState*`, `eventCoalescer*`, `chatStore*`, frontend state/rendering 문서, `scripts/analyze-composer-input-trace.mjs`와 단위 테스트 |
 | 실행 명령 | `npm run lint`; `npm run typecheck`; 대상 Vitest 6파일; `npm test`(환경 재실행 포함); `node --test scripts/analyze-composer-input-trace.test.mjs` |
-| 게이트 결과 | IME 하이라이트 회귀 수정 후 lint 0 error(기존 TanStack compiler warning 1), typecheck 3종 PASS, 신규/영향 테스트 54/54 PASS. 전체 Vitest는 146 suites 중 144 PASS·1159/1160 tests PASS; 잔여 2건은 코드와 무관한 실행환경 제약(Electron binary 미설치 1 suite, read-only `/root`를 쓰는 attachment temp test 1건). |
+| 게이트 결과 | IME 하이라이트 회귀 수정 후 lint 0 error(기존 TanStack compiler warning 1), typecheck 3종 PASS, 신규/영향 테스트 54/54 PASS, scripts 28/28 PASS(신규 trace analyzer 3/3). 전체 Vitest는 146 suites 중 144 PASS·1159/1160 tests PASS; 잔여 2건은 코드와 무관한 실행환경 제약(Electron binary 미설치 1 suite, read-only `/root`를 쓰는 attachment temp test 1건). Production build preflight도 read-only `/root/.electron-gyp`에서 차단됐다. |
 | 블로커 / 역질문 | 구현 블로커 없음. 검증 환경에는 Electron payload·Chromium·Xvfb·`DISPLAY`/Wayland가 없어 production build의 idle/streaming+10k+한글 IME input-to-paint trace를 캡처할 수 없다. 아래 실행 계약으로 GUI 가능한 동일 장비에서 main/PR을 측정해야 한다. |
-| 대상 커밋 | `42a108e` (IME 하이라이트 유지), 이전 피드백 수정 `322fac1`, 기반 구현 `ad9f61c` |
+| 대상 커밋 | `4f59769` (AC3 분석기·계약), `42a108e` (IME 하이라이트 유지), `322fac1` (제출/플리커 수정), `ad9f61c` (기반 구현) |
 
 ### [구현자 기입] AC3 재현·측정 계약
 
@@ -275,3 +275,5 @@ interface ComposerInputCommands {
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
+| D1 | AC3 main/PR production input-to-paint 수치와 50ms+ long task가 없다. | `verify.md` r1 AC3 | GUI 가능한 동일 장비에서 idle/streaming trace 4종을 최소 100 input 표본으로 캡처하고 제공된 분석기로 비교한다. | OPEN — merge blocker |
+| D2 | React Profiler의 셸 commit 증거와 IME/caret/scroll/paste/undo/redo/200% 확대 전체 실기가 없다. | `verify.md` r1 AC2·AC3 | dev Profiler와 실제 Electron IME 수동 매트릭스를 실행해 결과를 r2 verify에 기록한다. | OPEN — GUI 환경 대기 |
