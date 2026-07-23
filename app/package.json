@@ -21,6 +21,7 @@
     "build:win": "npm run build && electron-builder --win",
     "build:mac": "npm run build && electron-builder --mac",
     "build:linux": "npm run build && electron-builder --linux",
+    "analyze:composer-input-trace": "node scripts/analyze-composer-input-trace.mjs",
     "typecheck:test": "tsc --noEmit -p tsconfig.test.json",
     "pretest": "node scripts/ensure-sqlite-abi.mjs node",
     "predev": "node scripts/ensure-sqlite-abi.mjs electron",
