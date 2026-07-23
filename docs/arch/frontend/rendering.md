@@ -23,7 +23,7 @@
 
 - `Composer`는 chat selector·상태 카드·저빈도 메뉴만 조율한다. `ComposerInputController`는 plan review 중에도 항상 mount된 채 `DraftSnapshot(revision/text/selection/composing)`과 attachments를 소유하므로, 키 입력은 shell을 재실행하지 않는다.
 - `ComposerInputSurface`의 **controlled native textarea가 실제 글자·placeholder·caret을 직접 그린다.** 종전 transparent textarea + visible mirror 계약은 폐기했다. CSS `field-sizing: content`가 높이를 결정하고, decoration은 레이아웃 권위가 없는 `aria-hidden`/`pointer-events-none` 배경 overlay다.
-- 전체 draft tokenization, skill filter, 파일 listing은 `useDeferredValue(snapshot)` 파생 채널에서 수행한다. deferred revision·text·selection이 현재 snapshot과 다르거나 IME 조합 중이면 autocomplete와 decoration을 숨긴다. 자동완성 적용과 비동기 submit clear도 expected revision을 재검증해 최신 입력을 덮어쓰지 않는다.
+- 전체 draft tokenization, skill filter, 파일 listing은 `useDeferredValue(snapshot)` 파생 채널에서 수행한다. autocomplete는 deferred revision·text·selection이 현재 snapshot과 다르거나 IME 조합 중이면 숨긴다. background-only decoration은 revision·IME 조합 중에도 마지막 완료 결과를 유지해 사라짐 없이 최신 결과로 교체한다. 자동완성 적용과 비동기 submit clear도 expected revision을 재검증해 최신 입력을 덮어쓰지 않는다.
 
 ### 1.3 마크다운 + 코드 블록
 
