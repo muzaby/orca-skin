@@ -6,6 +6,7 @@ import {
   replaceDraftRange,
   setDraftComposition,
   updateDraftSelection,
+  updateDraftSelectionWhenIdle,
   updateDraftText
 } from './draftSnapshot'
 
@@ -38,5 +39,21 @@ describe('DraftSnapshot', () => {
     expect(composing.composing).toBe(true)
     expect(ended).toMatchObject({ text: '/skill 한', composing: false })
     expect(ended.revision).toBe(completed.revision + 1)
+  })
+
+  it('IME 조합 중 selection-only 갱신을 즉시 ref와 snapshot 양쪽에서 차단한다', () => {
+    const typed = updateDraftText(createDraftSnapshot(), '한글 입력', 5, 5)
+    const staleSnapshotGuarded = updateDraftSelectionWhenIdle(typed, true, 0, 2)
+    const composing = setDraftComposition(typed, true)
+    const snapshotGuarded = updateDraftSelectionWhenIdle(composing, false, 0, 2)
+    const idleSelection = updateDraftSelectionWhenIdle(typed, false, 0, 2)
+
+    expect(staleSnapshotGuarded).toBe(typed)
+    expect(snapshotGuarded).toBe(composing)
+    expect(idleSelection).toMatchObject({
+      revision: typed.revision,
+      selectionStart: 0,
+      selectionEnd: 2
+    })
   })
 })

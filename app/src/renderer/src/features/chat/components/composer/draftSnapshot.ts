@@ -52,6 +52,16 @@ export function updateDraftSelection(
   return updateDraftText(snapshot, snapshot.text, selectionStart, selectionEnd)
 }
 
+export function updateDraftSelectionWhenIdle(
+  snapshot: DraftSnapshot,
+  immediateComposing: boolean,
+  selectionStart: number,
+  selectionEnd: number
+): DraftSnapshot {
+  if (immediateComposing || snapshot.composing) return snapshot
+  return updateDraftSelection(snapshot, selectionStart, selectionEnd)
+}
+
 export function setDraftComposition(
   snapshot: DraftSnapshot,
   composing: boolean,
