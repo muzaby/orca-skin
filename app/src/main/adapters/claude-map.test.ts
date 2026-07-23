@@ -649,6 +649,147 @@ describe('claudeToNormalized', () => {
     expect(ev.usage?.costUsd).toBe(0.02)
   })
 
+  it('per-step id 중복 제거: 같은 id 의 뒤따르는 0 usage 가 첫 판독을 덮지 않는다', () => {
+    const c = ctx()
+    // 병렬 도구 스텝 — 동일 message id 'stepX'. 첫 메시지 실측, 둘째(같은 id) 0 usage.
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          id: 'stepX',
+          content: [{ type: 'tool_use', id: 't1', name: 'Read', input: {} }],
+          usage: { input_tokens: 5000, output_tokens: 10, cache_read_input_tokens: 150_000 }
+        }
+      }),
+      c
+    )
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          id: 'stepX',
+          content: [{ type: 'tool_use', id: 't2', name: 'Grep', input: {} }],
+          usage: { input_tokens: 0, output_tokens: 0 }
+        }
+      }),
+      c
+    )
+    // dedup — 같은 id 의 0 usage 는 스킵, 첫 양(+)-컨텍스트 판독 유지.
+    expect(c.lastStepUsage).toEqual({
+      inputTokens: 5000,
+      outputTokens: 10,
+      cacheReadTokens: 150_000
+    })
+    const out = claudeToNormalized(
+      sdk({ type: 'result', usage: { input_tokens: 5000, cache_read_input_tokens: 150_000 } }),
+      c
+    )
+    const ev = out[0] as { usage?: Record<string, number> }
+    expect(ev.usage?.inputTokens).toBe(5000)
+    expect(ev.usage?.cacheReadTokens).toBe(150_000)
+  })
+
+  it('distinct 스텝은 마지막 스텝으로 갱신된다(id 별 1회)', () => {
+    const c = ctx()
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          id: 'stepX',
+          content: [{ type: 'text', text: 'a' }],
+          usage: { input_tokens: 5000, cache_read_input_tokens: 150_000 }
+        }
+      }),
+      c
+    )
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          id: 'stepY',
+          content: [{ type: 'text', text: 'b' }],
+          usage: { input_tokens: 5200, cache_read_input_tokens: 155_200 }
+        }
+      }),
+      c
+    )
+    // 마지막 distinct 스텝(Y) 이 이긴다. result 누적(10200/305200) 아님.
+    const out = claudeToNormalized(
+      sdk({ type: 'result', usage: { input_tokens: 10_200, cache_read_input_tokens: 305_200 } }),
+      c
+    )
+    const ev = out[0] as { usage?: Record<string, number> }
+    expect(ev.usage?.inputTokens).toBe(5200)
+    expect(ev.usage?.cacheReadTokens).toBe(155_200)
+  })
+
+  it('서브에이전트 child 의 usage 는 스냅샷을 오염시키지 않는다', () => {
+    const c = ctx()
+    // 메인 스텝(양) → child assistant(parent_tool_use_id) → result 는 메인 값 유지.
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          id: 'stepX',
+          content: [{ type: 'text', text: 'main' }],
+          usage: { input_tokens: 5000, cache_read_input_tokens: 150_000 }
+        }
+      }),
+      c
+    )
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        parent_tool_use_id: 'agent-1',
+        message: {
+          id: 'childC',
+          model: 'claude-haiku-4-5',
+          content: [{ type: 'text', text: 'sub' }],
+          usage: { input_tokens: 300, cache_read_input_tokens: 100 }
+        }
+      }),
+      c
+    )
+    expect(c.lastStepUsage).toEqual({ inputTokens: 5000, cacheReadTokens: 150_000 })
+    expect(c.capturedStepIds?.has('childC')).toBe(false)
+    const out = claudeToNormalized(
+      sdk({ type: 'result', usage: { input_tokens: 9999, cache_read_input_tokens: 9999 } }),
+      c
+    )
+    const ev = out[0] as { usage?: Record<string, number> }
+    expect(ev.usage?.inputTokens).toBe(5000)
+    expect(ev.usage?.cacheReadTokens).toBe(150_000)
+  })
+
+  it('전부-0 메인 스텝은 실측 result 를 0 으로 덮지 않는다(도넛 미렌더 방지)', () => {
+    const c = ctx()
+    // 컨텍스트 3종 전부 0 인 메인 assistant → 스냅샷 미갱신 → result.usage 정상값 보존.
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          id: 'stepZero',
+          content: [{ type: 'text', text: 'x' }],
+          usage: {
+            input_tokens: 0,
+            output_tokens: 0,
+            cache_read_input_tokens: 0,
+            cache_creation_input_tokens: 0
+          }
+        }
+      }),
+      c
+    )
+    expect(c.lastStepUsage).toBeUndefined()
+    const out = claudeToNormalized(
+      sdk({ type: 'result', usage: { input_tokens: 8000, cache_read_input_tokens: 120_000 } }),
+      c
+    )
+    const ev = out[0] as { usage?: Record<string, number> }
+    expect(ev.usage?.inputTokens).toBe(8000)
+    expect(ev.usage?.cacheReadTokens).toBe(120_000)
+  })
+
   it('assistant usage 가 없으면 result.usage 로 graceful fallback', () => {
     const c = ctx()
     // usage 없는 assistant → 스냅샷 미갱신. result.usage 가 그대로 telemetry 가 된다.
@@ -1048,7 +1189,7 @@ describe('claudeToNormalized — handoffArrival (0127, 핸드오프 도착 턴)'
       }),
       c
     )
-    expect(c.lastAssistantUsage).toBeUndefined()
+    expect(c.lastStepUsage).toBeUndefined()
     const out = claudeToNormalized(
       sdk({
         type: 'result',
@@ -1139,7 +1280,7 @@ describe('claudeToNormalized — handoffArrival (0127, 핸드오프 도착 턴)'
       }),
       c
     )
-    expect(c.lastAssistantUsage).toEqual({ inputTokens: 100, cacheReadTokens: 50_000 })
+    expect(c.lastStepUsage).toEqual({ inputTokens: 100, cacheReadTokens: 50_000 })
     const out = claudeToNormalized(sdk({ type: 'result', usage: { input_tokens: 999 } }), c)
     const ev = out[0] as { usage?: Record<string, number> }
     expect(ev.usage?.inputTokens).toBe(100)

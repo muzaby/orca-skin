@@ -23,16 +23,21 @@ import { errorEvent } from './error-classifier'
 export interface MapContext {
   sessionId: string
   cwd: string
-  // 마지막 assistant 메시지의 usage 스냅샷 — /context 상단 % 근사용. 턴 누적이 아니라 그 턴
-  // *마지막* 요청에서 모델이 본 입력 컨텍스트다. 멀티스텝(도구 N회) 턴에서 result.usage 는
-  // 단계별 입력이 합산돼 과대 집계되므로, result telemetry 의 컨텍스트 입력 3종을 이 값으로 덮는다.
-  // assistant 가 여러 번 와도 마지막 것이 남는다(ctx 는 턴 1회 생성·스트림 전체 공유).
-  lastAssistantUsage?: {
+  // 마지막 *구별되는 스텝*(distinct assistant message id)의 usage 스냅샷 — /context 상단 % 근사용.
+  // 턴 누적이 아니라 그 턴 마지막 스텝에서 모델이 본 입력 컨텍스트다. 멀티스텝(도구 N회) 턴에서
+  // result.usage 는 단계별 입력이 합산돼 과대 집계되므로, result telemetry 의 컨텍스트 입력 3종을
+  // 이 값으로 덮는다. 병렬 도구 스텝은 동일 id 의 assistant 메시지를 여러 개 내고 그중 일부가
+  // 0/부분 usage 라, 매 메시지로 덮으면 마지막(0) 값에 오염된다 — capturedStepIds 로 id 를 중복
+  // 제거해(가이드 cost-tracking#track-per-step) distinct 스텝의 첫 양(+)-컨텍스트 판독만 취한다.
+  lastStepUsage?: {
     inputTokens?: number
     outputTokens?: number
     cacheReadTokens?: number
     cacheCreationTokens?: number
   }
+  // 이 턴에서 이미 컨텍스트 스냅샷을 캡처한 assistant 메시지 id 집합 — per-step id 중복 제거용
+  // (turn-scoped; ctx 는 events() 당 1회 생성). 같은 id 의 뒤따르는 0/중복 usage 를 스킵한다.
+  capturedStepIds?: Set<string>
   // 이 턴에서 compact_boundary(네이티브 압축)를 지났는가 — 경계 이전의 usage(전체 이력이 실린
   // 요약 요청 입력)는 더 이상 라이브 컨텍스트가 아니므로, 경계에서 스냅샷을 무효화하고 result
   // telemetry 의 컨텍스트 점유를 압축 후 값으로 근사하는 데 쓴다(0064 r5 피드백 1).
@@ -207,7 +212,7 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
       // 경계 이후 assistant 가 또 오면(auto 압축 후 턴 계속) 실측 스냅샷이 새로 잡힌다.
       ctx.compacted = true
       if (postTokens !== undefined) ctx.compactPostTokens = postTokens
-      delete ctx.lastAssistantUsage
+      delete ctx.lastStepUsage
       return [
         {
           type: 'session.compacted',
@@ -273,21 +278,41 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
         model: m.model
       })
     }
-    // 마지막 assistant usage 스냅샷 갱신(컨텍스트 점유 = 이 턴 마지막 요청 입력). Anthropic 표준
-    // shape(input_tokens/output_tokens/cache_read_input_tokens/cache_creation_input_tokens)을
-    // num 가드로 좁혀 읽는다. 의미값이 하나라도 있을 때만 덮어쓴다.
+    // 컨텍스트 점유 스냅샷 = 이 턴 마지막 *distinct 스텝*의 입력. Anthropic 표준 shape
+    // (input_tokens/output_tokens/cache_read_input_tokens/cache_creation_input_tokens)을 num 가드로
+    // 좁혀 읽는다. per-step id 중복 제거(가이드 cost-tracking#track-per-step): 병렬 도구 스텝은 동일
+    // message id 의 assistant 를 여러 개 내고 뒤 메시지가 0/부분 usage 일 수 있어, 매번 덮으면
+    // 마지막(0) 값에 오염된다 → distinct id 의 첫 양(+)-컨텍스트 판독만 캡처하고 같은 id 는 스킵.
+    // 서브에이전트 child(parentToolRunId 有)는 격리 컨텍스트라 제외(메인 도넛 오염 방지).
     // 핸드오프 도착 턴(0127)은 압축 경계 전의 usage 가 승계 컨텍스트(원본 전체 이력)라 스냅샷을
     // 잡지 않는다 — 경계 통과 후의 assistant usage 는 압축 후 실측이므로 기존대로 캡처.
     const u = m?.usage
-    if (u && typeof u === 'object' && !(ctx.handoffArrival && ctx.compacted !== true)) {
-      const snapshot: NonNullable<MapContext['lastAssistantUsage']> = {}
+    const stepId =
+      typeof (m as { id?: unknown })?.id === 'string' ? (m as { id: string }).id : undefined
+    if (
+      u &&
+      typeof u === 'object' &&
+      parentToolRunId === undefined &&
+      !(ctx.handoffArrival && ctx.compacted !== true) &&
+      (stepId === undefined || !ctx.capturedStepIds?.has(stepId))
+    ) {
+      const snapshot: NonNullable<MapContext['lastStepUsage']> = {}
       assignNums(snapshot, {
         inputTokens: u.input_tokens,
         outputTokens: u.output_tokens,
         cacheReadTokens: u.cache_read_input_tokens,
         cacheCreationTokens: u.cache_creation_input_tokens
       })
-      if (Object.keys(snapshot).length > 0) ctx.lastAssistantUsage = snapshot
+      // 컨텍스트 3종이 전부 0/부재인 무의미 판독은 실측을 0 으로 덮어 도넛을 미렌더시키므로,
+      // 양(+)의 컨텍스트 신호가 있을 때만 스냅샷·dedup 마킹한다.
+      const contextSignal =
+        (snapshot.inputTokens ?? 0) +
+        (snapshot.cacheReadTokens ?? 0) +
+        (snapshot.cacheCreationTokens ?? 0)
+      if (contextSignal > 0) {
+        ctx.lastStepUsage = snapshot
+        if (stepId !== undefined) (ctx.capturedStepIds ??= new Set()).add(stepId)
+      }
     }
     const events: NormalizedEvent[] = [...childEvents]
     for (const part of content) {
@@ -427,13 +452,13 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
       >
     }
     const telemetry = normalizeResultTelemetry(r)
-    // 컨텍스트 점유 입력 3종(input·cache_read·cache_creation)을 마지막 assistant 스냅샷으로 대체
+    // 컨텍스트 점유 입력 3종(input·cache_read·cache_creation)을 마지막 distinct 스텝 스냅샷으로 대체
     // — /context 상단 % 와 같은 정의(모델이 마지막으로 본 입력)로 근사. costUsd·durationMs·
     // numTurns·modelUsage·model 은 턴 누적이 맞아 result 값 유지(사용자 결정).
     // 스냅샷에 있는 필드만 덮는다 — 없는 필드는 result.usage 값을 보존한다. (스냅샷이 input 만
     // 담고 cache_read 를 안 줄 때 delete 하면 contextTokens 가 input(≈1) 으로 붕괴 → 도넛 0~1%.)
-    if (telemetry && ctx.lastAssistantUsage) {
-      const snap = ctx.lastAssistantUsage
+    if (telemetry && ctx.lastStepUsage) {
+      const snap = ctx.lastStepUsage
       if (snap.inputTokens !== undefined) telemetry.inputTokens = snap.inputTokens
       if (snap.cacheReadTokens !== undefined) telemetry.cacheReadTokens = snap.cacheReadTokens
       if (snap.cacheCreationTokens !== undefined)
