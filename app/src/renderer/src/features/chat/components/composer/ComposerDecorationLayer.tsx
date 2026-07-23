@@ -27,29 +27,33 @@ export const ComposerDecorationLayer = forwardRef<HTMLDivElement, ComposerDecora
       [deferredSnapshot.text, knownSkillNames, validFilePaths]
     )
 
+    // viewport는 textarea와 같은 wrap width/gutter를 유지하고 clip만 담당한다. 실제 scroll
+    // offset은 안쪽 projection에 transform으로 적용되어 이 레이어 자체에는 scroll state가 없다.
     return (
       <div
-        ref={ref}
         aria-hidden
+        data-composer-decoration-viewport
         className={`${typographyClassName} pointer-events-none absolute inset-0 max-h-56 min-h-9 overflow-hidden text-transparent`}
       >
-        {segments.map((segment, index) =>
-          segment.kind === 'chip' ? (
-            <span
-              key={index}
-              className={
-                segment.chip === 'skill'
-                  ? 'rounded bg-blue-500/15 text-transparent'
-                  : 'rounded bg-emerald-500/15 text-transparent'
-              }
-            >
-              {segment.text}
-            </span>
-          ) : (
-            <span key={index}>{segment.text}</span>
-          )
-        )}
-        {deferredSnapshot.text.endsWith('\n') ? '\u200b' : ''}
+        <div ref={ref} data-composer-decoration-projection className="will-change-transform">
+          {segments.map((segment, index) =>
+            segment.kind === 'chip' ? (
+              <span
+                key={index}
+                className={
+                  segment.chip === 'skill'
+                    ? 'rounded bg-blue-500/15 text-transparent'
+                    : 'rounded bg-emerald-500/15 text-transparent'
+                }
+              >
+                {segment.text}
+              </span>
+            ) : (
+              <span key={index}>{segment.text}</span>
+            )
+          )}
+          {deferredSnapshot.text.endsWith('\n') ? '\u200b' : ''}
+        </div>
       </div>
     )
   }
