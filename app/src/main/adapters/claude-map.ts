@@ -17,27 +17,28 @@ import type {
 import { makeClassifiedError } from '../infra/errors'
 import { errorEvent } from './error-classifier'
 
-// 매퍼 컨텍스트 — sessionId 는 턴 동안 system/init(=session.updated)에서 갱신된다
-// (resume 면 초기값이 그 id). cwd 는 session.updated.patch 에 실린다. 코어 중립(0016)으로
-// provider 는 이벤트에 싣지 않으므로 ctx 도 들지 않는다.
+interface StepUsageSnapshot {
+  inputTokens?: number
+  outputTokens?: number
+  cacheReadTokens?: number
+  cacheCreationTokens?: number
+}
+
+// 매퍼 컨텍스트 — persistent query 채널 전체에서 공유된다. sessionId 는 system/init
+// (=session.updated)에서 갱신되고, usage/compact/handoff 의 턴 상태는 result 경계에서 비운다.
+// cwd 는 session.updated.patch 에 실린다. 코어 중립(0016)으로 provider 는 이벤트에 싣지 않는다.
 export interface MapContext {
   sessionId: string
   cwd: string
-  // 마지막 *구별되는 스텝*(distinct assistant message id)의 usage 스냅샷 — /context 상단 % 근사용.
-  // 턴 누적이 아니라 그 턴 마지막 스텝에서 모델이 본 입력 컨텍스트다. 멀티스텝(도구 N회) 턴에서
-  // result.usage 는 단계별 입력이 합산돼 과대 집계되므로, result telemetry 의 컨텍스트 입력 3종을
-  // 이 값으로 덮는다. 병렬 도구 스텝은 동일 id 의 assistant 메시지를 여러 개 내고 그중 일부가
-  // 0/부분 usage 라, 매 메시지로 덮으면 마지막(0) 값에 오염된다 — capturedStepIds 로 id 를 중복
-  // 제거해(가이드 cost-tracking#track-per-step) distinct 스텝의 첫 양(+)-컨텍스트 판독만 취한다.
-  lastStepUsage?: {
-    inputTokens?: number
-    outputTokens?: number
-    cacheReadTokens?: number
-    cacheCreationTokens?: number
-  }
-  // 이 턴에서 이미 컨텍스트 스냅샷을 캡처한 assistant 메시지 id 집합 — per-step id 중복 제거용
-  // (turn-scoped; ctx 는 events() 당 1회 생성). 같은 id 의 뒤따르는 0/중복 usage 를 스킵한다.
-  capturedStepIds?: Set<string>
+  // 마지막 유효 distinct 메인 스텝의 usage 스냅샷 — /context 상단 % 근사용. 턴 누적인
+  // result.usage 대신 이 값을 쓰며, 같은 message id 의 반복 판독은 stepUsageById 에서 필드별
+  // 최댓값으로 병합한다. 전부-0인 최신 스텝은 직전 유효 측정을 지우지 않는다.
+  lastStepUsage?: StepUsageSnapshot
+  // 턴 안에서 처음 등장한 distinct 메인 스텝의 순서를 보존한다. 이미 본 id 의 늦은 중복이
+  // 도착해도 마지막 스텝 순서를 되감지 않도록 lastDistinctStepId 는 최초 등장 때만 갱신한다.
+  stepUsageById?: Map<string, StepUsageSnapshot>
+  lastDistinctStepId?: string
+  lastMeasuredStepId?: string
   // 이 턴에서 compact_boundary(네이티브 압축)를 지났는가 — 경계 이전의 usage(전체 이력이 실린
   // 요약 요청 입력)는 더 이상 라이브 컨텍스트가 아니므로, 경계에서 스냅샷을 무효화하고 result
   // telemetry 의 컨텍스트 점유를 압축 후 값으로 근사하는 데 쓴다(0064 r5 피드백 1).
@@ -144,6 +145,76 @@ function assignNums(target: object, fields: Record<string, unknown>): void {
   }
 }
 
+const STEP_USAGE_KEYS = [
+  'inputTokens',
+  'outputTokens',
+  'cacheReadTokens',
+  'cacheCreationTokens'
+] as const
+
+function mergeStepUsage(
+  previous: StepUsageSnapshot | undefined,
+  incoming: StepUsageSnapshot
+): StepUsageSnapshot {
+  const merged: StepUsageSnapshot = { ...previous }
+  for (const key of STEP_USAGE_KEYS) {
+    const next = incoming[key]
+    const current = merged[key]
+    if (next !== undefined && (current === undefined || next > current)) merged[key] = next
+  }
+  return merged
+}
+
+function contextSignal(usage: StepUsageSnapshot): number {
+  return (usage.inputTokens ?? 0) + (usage.cacheReadTokens ?? 0) + (usage.cacheCreationTokens ?? 0)
+}
+
+function clearStepUsage(ctx: MapContext): void {
+  delete ctx.lastStepUsage
+  delete ctx.stepUsageById
+  delete ctx.lastDistinctStepId
+  delete ctx.lastMeasuredStepId
+}
+
+function resetTurnState(ctx: MapContext): void {
+  clearStepUsage(ctx)
+  delete ctx.compacted
+  delete ctx.compactPostTokens
+  delete ctx.handoffArrival
+}
+
+function captureMainStepUsage(
+  ctx: MapContext,
+  stepId: string | undefined,
+  snapshot: StepUsageSnapshot
+): void {
+  // 구 mock/비표준 런타임의 id 부재 폴백: 중복 제거는 불가능하므로 기존처럼 마지막 양수 판독.
+  if (stepId === undefined) {
+    if (contextSignal(snapshot) > 0) {
+      ctx.lastStepUsage = snapshot
+      delete ctx.lastDistinctStepId
+      delete ctx.lastMeasuredStepId
+    }
+    return
+  }
+
+  const stepUsageById = (ctx.stepUsageById ??= new Map())
+  const previous = stepUsageById.get(stepId)
+  if (previous === undefined) ctx.lastDistinctStepId = stepId
+
+  // 동일 id 는 합산하지 않는다. 0/부분/점진 판독 중 가장 완전한 값이 남도록 필드별 max 병합.
+  const merged = mergeStepUsage(previous, snapshot)
+  stepUsageById.set(stepId, merged)
+  if (contextSignal(merged) <= 0) return
+
+  // 새 distinct 스텝 또는 현재 fallback 으로 쓰는 마지막 유효 스텝만 라이브 스냅샷을 갱신한다.
+  // 이전 id 의 늦은 중복이 더 최신 distinct 스텝을 되감는 것은 금지한다.
+  if (ctx.lastDistinctStepId === stepId || ctx.lastMeasuredStepId === stepId) {
+    ctx.lastStepUsage = merged
+    if (ctx.lastDistinctStepId === stepId) ctx.lastMeasuredStepId = stepId
+  }
+}
+
 function readParentToolRunId(msg: unknown): string | undefined {
   const id = (msg as { parent_tool_use_id?: unknown }).parent_tool_use_id
   return typeof id === 'string' && id.trim() !== '' ? id : undefined
@@ -212,7 +283,7 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
       // 경계 이후 assistant 가 또 오면(auto 압축 후 턴 계속) 실측 스냅샷이 새로 잡힌다.
       ctx.compacted = true
       if (postTokens !== undefined) ctx.compactPostTokens = postTokens
-      delete ctx.lastStepUsage
+      clearStepUsage(ctx)
       return [
         {
           type: 'session.compacted',
@@ -281,8 +352,8 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
     // 컨텍스트 점유 스냅샷 = 이 턴 마지막 *distinct 스텝*의 입력. Anthropic 표준 shape
     // (input_tokens/output_tokens/cache_read_input_tokens/cache_creation_input_tokens)을 num 가드로
     // 좁혀 읽는다. per-step id 중복 제거(가이드 cost-tracking#track-per-step): 병렬 도구 스텝은 동일
-    // message id 의 assistant 를 여러 개 내고 뒤 메시지가 0/부분 usage 일 수 있어, 매번 덮으면
-    // 마지막(0) 값에 오염된다 → distinct id 의 첫 양(+)-컨텍스트 판독만 캡처하고 같은 id 는 스킵.
+    // message id 의 assistant 를 여러 개 내므로 id 별 1개 스텝으로 묶는다. 실측에서 0/부분/점진
+    // 판독도 관찰돼 같은 id 안에서는 필드별 max 로 병합하고, distinct id 만 스텝 순서를 전진시킨다.
     // 서브에이전트 child(parentToolRunId 有)는 격리 컨텍스트라 제외(메인 도넛 오염 방지).
     // 핸드오프 도착 턴(0127)은 압축 경계 전의 usage 가 승계 컨텍스트(원본 전체 이력)라 스냅샷을
     // 잡지 않는다 — 경계 통과 후의 assistant usage 는 압축 후 실측이므로 기존대로 캡처.
@@ -293,26 +364,16 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
       u &&
       typeof u === 'object' &&
       parentToolRunId === undefined &&
-      !(ctx.handoffArrival && ctx.compacted !== true) &&
-      (stepId === undefined || !ctx.capturedStepIds?.has(stepId))
+      !(ctx.handoffArrival && ctx.compacted !== true)
     ) {
-      const snapshot: NonNullable<MapContext['lastStepUsage']> = {}
+      const snapshot: StepUsageSnapshot = {}
       assignNums(snapshot, {
         inputTokens: u.input_tokens,
         outputTokens: u.output_tokens,
         cacheReadTokens: u.cache_read_input_tokens,
         cacheCreationTokens: u.cache_creation_input_tokens
       })
-      // 컨텍스트 3종이 전부 0/부재인 무의미 판독은 실측을 0 으로 덮어 도넛을 미렌더시키므로,
-      // 양(+)의 컨텍스트 신호가 있을 때만 스냅샷·dedup 마킹한다.
-      const contextSignal =
-        (snapshot.inputTokens ?? 0) +
-        (snapshot.cacheReadTokens ?? 0) +
-        (snapshot.cacheCreationTokens ?? 0)
-      if (contextSignal > 0) {
-        ctx.lastStepUsage = snapshot
-        if (stepId !== undefined) (ctx.capturedStepIds ??= new Set()).add(stepId)
-      }
+      captureMainStepUsage(ctx, stepId, snapshot)
     }
     const events: NormalizedEvent[] = [...childEvents]
     for (const part of content) {
@@ -455,14 +516,18 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
     // 컨텍스트 점유 입력 3종(input·cache_read·cache_creation)을 마지막 distinct 스텝 스냅샷으로 대체
     // — /context 상단 % 와 같은 정의(모델이 마지막으로 본 입력)로 근사. costUsd·durationMs·
     // numTurns·modelUsage·model 은 턴 누적이 맞아 result 값 유지(사용자 결정).
-    // 스냅샷에 있는 필드만 덮는다 — 없는 필드는 result.usage 값을 보존한다. (스냅샷이 input 만
-    // 담고 cache_read 를 안 줄 때 delete 하면 contextTokens 가 input(≈1) 으로 붕괴 → 도넛 0~1%.)
+    // 단일 메인 스텝에서는 누락 필드의 result 값이 같은 스텝이므로 보존 가능하다. distinct 메인
+    // 스텝이 2개 이상이면 result 값은 턴 누적이라 스냅샷과 혼합할 수 없으므로 누락 필드를 제거한다.
     if (telemetry && ctx.lastStepUsage) {
       const snap = ctx.lastStepUsage
+      const hasMultipleMainSteps = (ctx.stepUsageById?.size ?? 0) > 1
       if (snap.inputTokens !== undefined) telemetry.inputTokens = snap.inputTokens
+      else if (hasMultipleMainSteps) delete telemetry.inputTokens
       if (snap.cacheReadTokens !== undefined) telemetry.cacheReadTokens = snap.cacheReadTokens
+      else if (hasMultipleMainSteps) delete telemetry.cacheReadTokens
       if (snap.cacheCreationTokens !== undefined)
         telemetry.cacheCreationTokens = snap.cacheCreationTokens
+      else if (hasMultipleMainSteps) delete telemetry.cacheCreationTokens
     } else if (telemetry && ctx.compacted) {
       // 압축 턴(manual /compact·핸드오프 도착)인데 경계 이후 실측 usage 가 없는 경우 —
       // result.usage 의 컨텍스트 3종은 압축 *전* 전체 이력이 실린 요약 요청 입력이라 그대로
@@ -514,6 +579,9 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
         )
       )
     }
+    // Orca persistent 채널은 같은 MapContext 로 pushTurn 을 반복한다. result 가 논리 턴 경계이므로
+    // usage dedup·compact·handoff 상태를 반드시 여기서 비워 다음 턴 오염과 Set/Map 누적을 막는다.
+    resetTurnState(ctx)
     return out
   }
 
