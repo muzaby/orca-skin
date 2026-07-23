@@ -57,7 +57,7 @@
 3. **스트리밍 경합 제한과 검증 근거**
    - delta flush는 같은 scheduler window의 델타를 세션·종류별로 결합하고, 비-delta 이벤트 앞의 flush 순서를 보존하면서 store 알림을 **flush당 최대 1회**로 제한한다. text/reasoning의 원래 연결 결과와 멀티세션 라우팅은 바뀌지 않는다.
    - 순수 테스트로 revision 무효화, IME 전이, 시드/복원 1회성, autocomplete 적용 가드, delta batch의 혼합 type·멀티세션·비-delta barrier·dispose를 검증한다.
-   - 동일 장비의 production build에서 main과 변경본을 10k 문자 draft + 지속 스트리밍 + 한글 IME 시나리오로 비교한다. input event→next paint p95가 16.7ms 이하거나 main 대비 30% 이상 개선되고, draft 입력 때문에 `Composer` 셸 commit이 발생하지 않으며, 50ms 이상 long task의 회귀가 없어야 한다. 수치와 trace 조건을 구현 보고에 남긴다.
+   - 동일 장비의 production build에서 main과 변경본을 **(a) idle 10k 문자 draft + 한글 IME, (b) 10k 문자 draft + 지속 스트리밍 + 한글 IME**로 분리 비교한다. 각 시나리오의 input event→next paint p95가 16.7ms 이하거나 main 대비 30% 이상 개선되고, draft 입력 때문에 `Composer` 셸 commit이 발생하지 않으며, 50ms 이상 long task의 회귀가 없어야 한다. 수치와 trace 조건을 구현 보고에 남긴다.
 
 ## 범위 / 비범위
 
@@ -90,7 +90,7 @@ flowchart TD
 
 - `Composer`는 상태/사용량/승인/메뉴를 조율하고 `ComposerInputController`를 **항상** 렌더한다. `pendingPlanReview`일 때 컨트롤러 인스턴스는 유지하되 input panel만 `active=false`로 숨긴다.
 - `ComposerInputController`는 draft snapshot, attachments, 시드/복원 소비 id, submit/clear/insert/replace/focus 명령을 소유한다. 초안 변경이 부모로 올라가지 않도록 local state와 안정된 action만 사용한다.
-- `ComposerInputSurface`는 memo된 leaf다. 동기 입력 경로는 `text`, selection, `composing`, placeholder/send/cancel의 최소 boolean만 처리한다.
+- `ComposerInputSurface`는 입력 전용 leaf다. 동기 입력 경로는 `text`, selection, `composing`, placeholder/send/cancel의 최소 boolean만 처리한다. 현재 경계는 타이핑이 셸로 올라가지 않게 하는 소유권 분리이며 `memo`를 계약으로 요구하지 않는다. 부모 주도 commit이 프로파일에서 유의미하게 확인될 때만 controls/action identity 안정화와 함께 `memo`를 후속 적용한다.
 - `ComposerDecorationLayer`와 autocomplete view는 snapshot을 `useDeferredValue`로 소비한다. 파생 계산은 컨트롤러의 urgent render와 분리한다. autocomplete는 current revision만 열고, background-only decoration은 마지막 완료 결과를 유지하다 최신 결과로 교체한다.
 - broad Context는 만들지 않는다. 입력 subtree 내부는 명시적 props와 안정된 command object/imperative handle을 사용한다. 세 번째 독립 소비자가 생길 때만 selector 가능한 외부 store/context를 재검토한다.
 
@@ -239,17 +239,35 @@ interface ComposerInputCommands {
 - [x] revisioned decoration/autocomplete 및 IME/selection 계약 구현
 - [x] delta batch 단일 store transaction 구현
 - [x] 테스트·아키텍처 문서 동기화
+- [x] 동일 산식의 main/PR trace 비교를 위한 무의존성 분석기와 단위 테스트 추가
 - [ ] production trace는 GUI 가능한 검증 환경에서 수행 대기
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | `Composer.tsx`, 신규 `ComposerInputController/Surface/DecorationLayer`·snapshot/tokenizer와 테스트, `useAttachments.ts`·`attachmentState*`, `eventCoalescer*`, `chatStore*`, frontend state/rendering 문서 |
-| 실행 명령 | `npm run lint`; `npm run typecheck`; 대상 Vitest 6파일; `npm test`(환경 재실행 포함) |
+| 변경 파일 | `Composer.tsx`, 신규 `ComposerInputController/Surface/DecorationLayer`·snapshot/tokenizer와 테스트, `useAttachments.ts`·`attachmentState*`, `eventCoalescer*`, `chatStore*`, frontend state/rendering 문서, `scripts/analyze-composer-input-trace.mjs`와 단위 테스트 |
+| 실행 명령 | `npm run lint`; `npm run typecheck`; 대상 Vitest 6파일; `npm test`(환경 재실행 포함); `node --test scripts/analyze-composer-input-trace.test.mjs` |
 | 게이트 결과 | IME 하이라이트 회귀 수정 후 lint 0 error(기존 TanStack compiler warning 1), typecheck 3종 PASS, 신규/영향 테스트 54/54 PASS. 전체 Vitest는 146 suites 중 144 PASS·1159/1160 tests PASS; 잔여 2건은 코드와 무관한 실행환경 제약(Electron binary 미설치 1 suite, read-only `/root`를 쓰는 attachment temp test 1건). |
-| 블로커 / 역질문 | 구현 블로커 없음. production build의 10k+streaming+한글 IME input-to-paint trace와 시각/확대/scroll 실기는 GUI 가능한 검증 환경 책임으로 이관. |
+| 블로커 / 역질문 | 구현 블로커 없음. 검증 환경에는 Electron payload·Chromium·Xvfb·`DISPLAY`/Wayland가 없어 production build의 idle/streaming+10k+한글 IME input-to-paint trace를 캡처할 수 없다. 아래 실행 계약으로 GUI 가능한 동일 장비에서 main/PR을 측정해야 한다. |
 | 대상 커밋 | `42a108e` (IME 하이라이트 유지), 이전 피드백 수정 `322fac1`, 기반 구현 `ad9f61c` |
+
+### [구현자 기입] AC3 재현·측정 계약
+
+코드 리딩으로 성능 PASS를 추정하지 않는다. Chromium DevTools Performance trace의 renderer main thread에서 `EventDispatch(type=input)` 시작부터 같은 thread의 다음 `Paint` 시작까지를 input-to-next-paint로 계산한다. `RunTask >= 50ms`도 같은 입력 표본 구간에서 집계한다. 분석기는 신규 의존성 없이 `npm run analyze:composer-input-trace -- <trace.json> --label <name>`으로 실행한다.
+
+1. 동일 장비·OS·창 크기·배율·provider/model·세션 transcript에서 `git merge-base origin/main HEAD`와 PR HEAD를 각각 production build한다. 각 build를 `./node_modules/.bin/electron --remote-debugging-port=9223 .`로 실행하고 DevTools Performance의 `devtools.timeline` trace를 저장한다.
+2. build마다 `main-idle`, `main-streaming`, `pr-idle`, `pr-streaming`을 별도 trace로 캡처한다. textarea에는 동일한 10k seed를 넣고 각 trace에서 최소 100개 실제 `input` event를 기록한다. idle은 inflight가 없는 상태, streaming은 동일 provider 시나리오의 delta가 계속 도착하는 상태다. 한글 IME 조합·공백·줄바꿈을 표본에 포함한다. dev-only `text_streaming` mock trace는 원인 진단 보조자료일 뿐 production AC3 수치를 대신하지 않는다.
+3. 네 trace를 같은 분석기로 산출하고 p95/50ms long task를 위 인수 기준과 비교한다. React DevTools의 별도 dev trace로 draft 입력이 `Composer` 셸 commit을 만들지 않는지 확인하며, 실제 브라우저에서 IME 중복·조기 commit, `/`·`@` 배경 지속, 전송 후 clear, caret·scroll·200% 확대를 실기한다.
+
+| trace | 표본 | p50 | p95 | 50ms+ task | 판정 |
+|---|---:|---:|---:|---:|---|
+| main-idle | GUI 측정 대기 | — | — | — | 미실행 |
+| pr-idle | GUI 측정 대기 | — | — | — | 미실행 |
+| main-streaming | GUI 측정 대기 | — | — | — | 미실행 |
+| pr-streaming | GUI 측정 대기 | — | — | — | 미실행 |
+
+2026-07-23 현재 검증 컨테이너 preflight: `node_modules/.bin/electron` shim은 있으나 `node_modules/electron/path.txt` payload가 없어 `electron --version`부터 실패한다. Chromium/Chrome/Xvfb 실행 파일과 `DISPLAY`/`WAYLAND_DISPLAY`도 없다. 따라서 이 환경에서 수치를 생성하거나 실제 IME를 자동 대체하지 않는다.
 
 ---
 
