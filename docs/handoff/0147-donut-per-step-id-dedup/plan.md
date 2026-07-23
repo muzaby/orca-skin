@@ -89,3 +89,45 @@
 
 ### 설계 리뷰 / 놓친 잠재 문제
 - 없음. override·reducer 무변경으로 폭발 반경 최소. `contextSignal` 가드는 child/dedup 과 독립적인 belt-and-suspenders.
+
+---
+
+## [구현자 기입] r2 — Codex 수석 리뷰 후속
+
+### 설계 비판적 리뷰
+
+- r1 자료조사의 “`ctx`는 턴 스코프” 전제는 사실과 달랐다. `MapContext`는 `ClaudeAdapter.sendMessage()`에서 장수명 query 채널당 한 번 생성되고, `SessionRuntime`은 같은 `LiveTurn`에 `pushTurn()`을 반복한다(`claude.ts:281`, `session-runtime.ts:219-239`). 따라서 usage·compact·handoff 상태의 실제 턴 경계는 `result`다.
+- r1 인수 기준의 “같은 id 첫 양수 판독 고정”은 r1이 동시에 전제한 0/부분 usage와 양립하지 않는다. 첫 양수 판독이 부분값이면 후속 완전값을 버리므로, 같은 id 안에서는 합산 없이 필드별 최댓값으로 병합해야 한다.
+- 마지막 스텝에 없는 필드를 멀티스텝 누적 `result.usage`에서 보존하면 스냅샷과 누적값의 스코프가 섞인다. 단일 메인 스텝에서만 누락 필드 fallback이 안전하다.
+
+### r2 파생 인수 기준
+
+1. 동일 `message.id`의 0/부분/점진 usage는 필드별 최댓값으로 병합하고 한 스텝으로만 계산한다.
+2. 이미 본 이전 id의 늦은 중복은 해당 id 값만 보강하며 마지막 distinct 스텝 순서를 되감지 않는다.
+3. persistent 채널의 각 `result` 뒤 usage dedup·compact·handoff 턴 상태를 초기화한다.
+4. distinct 메인 스텝이 2개 이상이면 마지막 스냅샷의 누락 필드에 누적 `result.usage`를 혼합하지 않는다.
+
+### 변경 파일
+
+- `app/src/main/adapters/claude-map.ts`
+  - `capturedStepIds`를 `stepUsageById` 맵과 distinct/last-measured id 추적으로 교체.
+  - 동일 id usage를 필드별 max 병합하고 늦은 중복의 순서 역행을 차단.
+  - `result`에서 `lastStepUsage`·step map·compact·handoff 상태를 초기화.
+  - 다중 메인 스텝에서 누락된 마지막 스텝 필드에 누적 result 값을 혼합하지 않도록 제거.
+- `app/src/main/adapters/claude-map.test.ts`
+  - 동일 id 부분→완전 병합, 이전 id 늦은 중복, persistent 2턴 오염, 다중 스텝 scope 혼합, compact/handoff 상태 누출 회귀 추가.
+
+### 실행 명령 · 게이트 결과
+
+- `./node_modules/.bin/vitest run src/main/adapters/claude-map.test.ts` → **63/63 passed**.
+- `./node_modules/.bin/vitest run src/main/adapters` → **22 files, 257/257 passed**.
+- `npm run lint` → **0 error**, 기존 TanStack Virtual warning 1.
+- `npm run typecheck` → node/web/test **3분할 0 error**.
+- `node --test scripts/*.test.mjs` → **28/28 passed**.
+- 전체 `vitest run` → **140/146 files, 1133/1172 tests passed**. 잔여 6파일/39건은 환경 베이스라인: `better-sqlite3` 바인딩 없음, Electron 바이너리 미설치, read-only `/root` temp 생성 실패. 변경 대상 adapters는 전부 green.
+
+### 구현 결과
+
+- 대상 코드 커밋: `fc825e4`
+- r2 파생 인수 기준: **4/4 충족**
+- 다음 단계: Claude 재검증 + 실제 Electron persistent 멀티턴 도넛 실측.
