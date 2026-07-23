@@ -649,7 +649,7 @@ describe('claudeToNormalized', () => {
     expect(ev.usage?.costUsd).toBe(0.02)
   })
 
-  it('per-step id 중복 제거: 같은 id 의 뒤따르는 0 usage 가 첫 판독을 덮지 않는다', () => {
+  it('per-step id 중복 제거: 같은 id 의 뒤따르는 0 usage 를 합산·덮어쓰기하지 않는다', () => {
     const c = ctx()
     // 병렬 도구 스텝 — 동일 message id 'stepX'. 첫 메시지 실측, 둘째(같은 id) 0 usage.
     claudeToNormalized(
@@ -674,12 +674,13 @@ describe('claudeToNormalized', () => {
       }),
       c
     )
-    // dedup — 같은 id 의 0 usage 는 스킵, 첫 양(+)-컨텍스트 판독 유지.
+    // dedup — 같은 id 의 0 usage 는 max 병합에서 무해, 첫 양(+)-컨텍스트 판독 유지.
     expect(c.lastStepUsage).toEqual({
       inputTokens: 5000,
       outputTokens: 10,
       cacheReadTokens: 150_000
     })
+    expect(c.stepUsageById?.size).toBe(1)
     const out = claudeToNormalized(
       sdk({ type: 'result', usage: { input_tokens: 5000, cache_read_input_tokens: 150_000 } }),
       c
@@ -687,6 +688,60 @@ describe('claudeToNormalized', () => {
     const ev = out[0] as { usage?: Record<string, number> }
     expect(ev.usage?.inputTokens).toBe(5000)
     expect(ev.usage?.cacheReadTokens).toBe(150_000)
+  })
+
+  it('같은 step id 의 부분 판독은 필드별 max 로 병합해 후속 완전값을 보존한다', () => {
+    const c = ctx()
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          id: 'stepX',
+          content: [{ type: 'tool_use', id: 't1', name: 'Read', input: {} }],
+          usage: { input_tokens: 5000, output_tokens: 2 }
+        }
+      }),
+      c
+    )
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          id: 'stepX',
+          content: [{ type: 'tool_use', id: 't2', name: 'Grep', input: {} }],
+          usage: {
+            input_tokens: 5000,
+            output_tokens: 10,
+            cache_read_input_tokens: 150_000,
+            cache_creation_input_tokens: 700
+          }
+        }
+      }),
+      c
+    )
+
+    expect(c.stepUsageById?.size).toBe(1)
+    expect(c.lastStepUsage).toEqual({
+      inputTokens: 5000,
+      outputTokens: 10,
+      cacheReadTokens: 150_000,
+      cacheCreationTokens: 700
+    })
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        usage: {
+          input_tokens: 5000,
+          cache_read_input_tokens: 150_000,
+          cache_creation_input_tokens: 700
+        }
+      }),
+      c
+    )
+    const ev = out[0] as { usage?: Record<string, number> }
+    expect(ev.usage?.inputTokens).toBe(5000)
+    expect(ev.usage?.cacheReadTokens).toBe(150_000)
+    expect(ev.usage?.cacheCreationTokens).toBe(700)
   })
 
   it('distinct 스텝은 마지막 스텝으로 갱신된다(id 별 1회)', () => {
@@ -713,6 +768,23 @@ describe('claudeToNormalized', () => {
       }),
       c
     )
+    // 이전 id 의 늦은 중복은 그 id 내부 값만 병합하고 마지막 distinct 순서를 되감지 않는다.
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          id: 'stepX',
+          content: [{ type: 'text', text: 'late duplicate' }],
+          usage: { input_tokens: 5300, cache_read_input_tokens: 160_000 }
+        }
+      }),
+      c
+    )
+    expect(c.stepUsageById?.get('stepX')).toMatchObject({
+      inputTokens: 5300,
+      cacheReadTokens: 160_000
+    })
+    expect(c.lastStepUsage).toEqual({ inputTokens: 5200, cacheReadTokens: 155_200 })
     // 마지막 distinct 스텝(Y) 이 이긴다. result 누적(10200/305200) 아님.
     const out = claudeToNormalized(
       sdk({ type: 'result', usage: { input_tokens: 10_200, cache_read_input_tokens: 305_200 } }),
@@ -751,7 +823,7 @@ describe('claudeToNormalized', () => {
       c
     )
     expect(c.lastStepUsage).toEqual({ inputTokens: 5000, cacheReadTokens: 150_000 })
-    expect(c.capturedStepIds?.has('childC')).toBe(false)
+    expect(c.stepUsageById?.has('childC')).toBe(false)
     const out = claudeToNormalized(
       sdk({ type: 'result', usage: { input_tokens: 9999, cache_read_input_tokens: 9999 } }),
       c
@@ -788,6 +860,78 @@ describe('claudeToNormalized', () => {
     const ev = out[0] as { usage?: Record<string, number> }
     expect(ev.usage?.inputTokens).toBe(8000)
     expect(ev.usage?.cacheReadTokens).toBe(120_000)
+  })
+
+  it('persistent ctx 는 result 에서 턴 상태를 초기화해 다음 턴에 이전 usage 를 재사용하지 않는다', () => {
+    const c = ctx()
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          id: 'turn1-step',
+          content: [{ type: 'text', text: 'first' }],
+          usage: { input_tokens: 5000, cache_read_input_tokens: 150_000 }
+        }
+      }),
+      c
+    )
+    const first = claudeToNormalized(
+      sdk({ type: 'result', usage: { input_tokens: 5000, cache_read_input_tokens: 150_000 } }),
+      c
+    )
+    expect((first[0] as { usage?: Record<string, number> }).usage?.cacheReadTokens).toBe(150_000)
+    expect(c.lastStepUsage).toBeUndefined()
+    expect(c.stepUsageById).toBeUndefined()
+
+    // 같은 persistent query 채널의 다음 pushTurn. assistant usage 가 없어도 이전 턴으로 덮지 않는다.
+    const second = claudeToNormalized(
+      sdk({ type: 'result', usage: { input_tokens: 7, cache_read_input_tokens: 11 } }),
+      c
+    )
+    const ev = second[0] as { usage?: Record<string, number> }
+    expect(ev.usage?.inputTokens).toBe(7)
+    expect(ev.usage?.cacheReadTokens).toBe(11)
+  })
+
+  it('멀티스텝 마지막 스냅샷의 누락 필드에 result 누적값을 혼합하지 않는다', () => {
+    const c = ctx()
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          id: 'stepX',
+          content: [{ type: 'tool_use', id: 't1', name: 'Read', input: {} }],
+          usage: { input_tokens: 100, cache_read_input_tokens: 100_000 }
+        }
+      }),
+      c
+    )
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          id: 'stepY',
+          content: [{ type: 'text', text: 'done' }],
+          usage: { input_tokens: 5 }
+        }
+      }),
+      c
+    )
+    const out = claudeToNormalized(
+      sdk({
+        type: 'result',
+        usage: {
+          input_tokens: 105,
+          cache_read_input_tokens: 100_000,
+          cache_creation_input_tokens: 900
+        }
+      }),
+      c
+    )
+    const ev = out[0] as { usage?: Record<string, number> }
+    expect(ev.usage?.inputTokens).toBe(5)
+    expect(ev.usage?.cacheReadTokens).toBeUndefined()
+    expect(ev.usage?.cacheCreationTokens).toBeUndefined()
   })
 
   it('assistant usage 가 없으면 result.usage 로 graceful fallback', () => {
@@ -1171,6 +1315,33 @@ describe('claudeToNormalized — compact_boundary (0064)', () => {
     expect(ev.usage?.inputTokens).toBe(80)
     expect(ev.usage?.cacheReadTokens).toBe(9000)
   })
+
+  it('persistent ctx 의 compact 상태는 result 뒤 다음 턴으로 누출되지 않는다', () => {
+    const c = ctx()
+    claudeToNormalized(
+      sdk({
+        type: 'system',
+        subtype: 'compact_boundary',
+        compact_metadata: { trigger: 'manual', post_tokens: 9000 }
+      }),
+      c
+    )
+    const compactResult = claudeToNormalized(
+      sdk({ type: 'result', usage: { input_tokens: 0, output_tokens: 0 } }),
+      c
+    )
+    expect((compactResult[0] as { usage?: Record<string, number> }).usage?.inputTokens).toBe(9000)
+    expect(c.compacted).toBeUndefined()
+    expect(c.compactPostTokens).toBeUndefined()
+
+    const next = claudeToNormalized(
+      sdk({ type: 'result', usage: { input_tokens: 25, cache_read_input_tokens: 75 } }),
+      c
+    )
+    const ev = next[0] as { usage?: Record<string, number> }
+    expect(ev.usage?.inputTokens).toBe(25)
+    expect(ev.usage?.cacheReadTokens).toBe(75)
+  })
 })
 
 describe('claudeToNormalized — handoffArrival (0127, 핸드오프 도착 턴)', () => {
@@ -1244,6 +1415,38 @@ describe('claudeToNormalized — handoffArrival (0127, 핸드오프 도착 턴)'
     const ev = out[0] as { usage?: Record<string, number> }
     expect(ev.usage?.inputTokens).toBe(9_000)
     expect(ev.usage?.cacheReadTokens).toBeUndefined()
+  })
+
+  it('persistent ctx 의 handoffArrival 은 첫 result 뒤 해제돼 후속 턴 usage 를 캡처한다', () => {
+    const c = handoffCtx()
+    claudeToNormalized(
+      sdk({
+        type: 'result',
+        usage: { input_tokens: 1200, cache_read_input_tokens: 150_000 }
+      }),
+      c
+    )
+    expect(c.handoffArrival).toBeUndefined()
+
+    claudeToNormalized(
+      sdk({
+        type: 'assistant',
+        message: {
+          id: 'next-turn-step',
+          content: [{ type: 'text', text: 'next' }],
+          usage: { input_tokens: 80, cache_read_input_tokens: 9000 }
+        }
+      }),
+      c
+    )
+    expect(c.lastStepUsage).toEqual({ inputTokens: 80, cacheReadTokens: 9000 })
+    const next = claudeToNormalized(
+      sdk({ type: 'result', usage: { input_tokens: 1280, cache_read_input_tokens: 159_000 } }),
+      c
+    )
+    const ev = next[0] as { usage?: Record<string, number> }
+    expect(ev.usage?.inputTokens).toBe(80)
+    expect(ev.usage?.cacheReadTokens).toBe(9000)
   })
 
   it('경계 이후 assistant usage(압축 후 실측)는 기존대로 캡처돼 우선한다', () => {
