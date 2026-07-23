@@ -19,6 +19,7 @@
 |---|---|---|
 | 명시 요구 | 입력 병목을 구조적으로 해소하는 최상의 아키텍처와 Composer 재구성안의 장단점·이득·리스크를 제시하고, 이를 구현자가 바로 집행할 수 있는 핸드오프 설계문서와 PR로 만든다. handoff 번호는 `0145`, PR base는 `main`으로 한다. | **라이브 세션 요청**: “구조적 관점에서 입력 병목을 해소하는 최상의 아키텍처…”, “제안대로 핸드오프 설계문서를 만들어서 pr 만들어줘”, “Main에 145로 만들어라” |
 | 명시 피드백 | `/` 스킬 및 `@` 참조 하이라이트가 글자 입력마다 깜빡이지 않아야 하며, 한글 IME 입력 중에도 공백·줄바꿈까지 사라져 있지 않아야 한다. 승인된 메시지를 보낸 뒤 입력창이 비워져야 한다. | **구현 후 사용자 피드백**: “글자를 작성할때마다 깜빡이는 플리커”, “글자 작성시 하이라이트 효과가 사라졌다가 공백, 줄바꿈의 상황에서만…”, “보내기버튼 클릭… 입력창에서 메시지가 사라지지 않음” |
+| 명시 결정 | 실제 Electron dev 환경에서 체감 개선을 확인했으므로 본 PR은 진행하고, production 정량 성능 측정은 추후 수행한다. 미측정 수치를 통과로 간주하지 않고 비차단 후속으로 보존한다. | **검증 중 사용자 결정**: “체감 개선으로 넘어가겠다 추후 성능 측정 진행하겠다” |
 | 추론 의도 | 한글 IME·선언적 상태·기존 전송/복원 의미론은 보존하되, 키 입력의 긴급 경로에서 토큰화·파일 IPC·자동완성 필터·채팅 스트림 갱신에 따른 상위 셸 작업을 제거한다. | 현재 구현이 제어형 textarea와 IME 가드를 사용하고 있음 (`Composer.tsx:368-430`, `HighlightedTextarea.tsx:186-199`) |
 | 추론 의도 | 비제어 textarea, `contentEditable`, 별도 `liveStore`, Markdown Worker는 측정 없이 선행 도입하지 않는다. 먼저 되돌리기 쉬운 컴포넌트 경계와 배치 계약을 확립한다. | React 제어형 textarea 계약 및 현재 chat store 결정 (`docs/arch/frontend/state.md:10-18`) |
 
@@ -58,6 +59,8 @@
    - delta flush는 같은 scheduler window의 델타를 세션·종류별로 결합하고, 비-delta 이벤트 앞의 flush 순서를 보존하면서 store 알림을 **flush당 최대 1회**로 제한한다. text/reasoning의 원래 연결 결과와 멀티세션 라우팅은 바뀌지 않는다.
    - 순수 테스트로 revision 무효화, IME 전이, 시드/복원 1회성, autocomplete 적용 가드, delta batch의 혼합 type·멀티세션·비-delta barrier·dispose를 검증한다.
    - 동일 장비의 production build에서 main과 변경본을 **(a) idle 10k 문자 draft + 한글 IME, (b) 10k 문자 draft + 지속 스트리밍 + 한글 IME**로 분리 비교한다. 각 시나리오의 input event→next paint p95가 16.7ms 이하거나 main 대비 30% 이상 개선되고, draft 입력 때문에 `Composer` 셸 commit이 발생하지 않으며, 50ms 이상 long task의 회귀가 없어야 한다. 수치와 trace 조건을 구현 보고에 남긴다.
+
+> **사용자 승인에 따른 검증 범위 변경(2026-07-23):** Electron dev 실기에서 체감 개선을 확인해 본 handoff의 병합을 승인했다. 위 production 수치·Profiler 조건은 삭제하거나 충족으로 간주하지 않고 **비차단 후속 D1/D2**로 이연한다. 정량 개선율은 측정 전까지 주장하지 않는다.
 
 ## 범위 / 비범위
 
@@ -240,7 +243,7 @@ interface ComposerInputCommands {
 - [x] delta batch 단일 store transaction 구현
 - [x] 테스트·아키텍처 문서 동기화
 - [x] 동일 산식의 main/PR trace 비교를 위한 무의존성 분석기와 단위 테스트 추가
-- [ ] production trace는 GUI 가능한 검증 환경에서 수행 대기
+- [ ] production trace는 GUI 가능한 검증 환경에서 비차단 후속 수행 대기
 
 ## [구현자 기입] 구현 보고
 
@@ -275,5 +278,5 @@ interface ComposerInputCommands {
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
-| D1 | AC3 main/PR production input-to-paint 수치와 50ms+ long task가 없다. | `verify.md` r1 AC3 | GUI 가능한 동일 장비에서 idle/streaming trace 4종을 최소 100 input 표본으로 캡처하고 제공된 분석기로 비교한다. | OPEN — merge blocker |
-| D2 | React Profiler의 셸 commit 증거와 IME/caret/scroll/paste/undo/redo/200% 확대 전체 실기가 없다. | `verify.md` r1 AC2·AC3 | dev Profiler와 실제 Electron IME 수동 매트릭스를 실행해 결과를 r2 verify에 기록한다. | OPEN — GUI 환경 대기 |
+| D1 | AC3 main/PR production input-to-paint 수치와 50ms+ long task가 없다. | `verify.md` r1 AC3 + 사용자 승인 | GUI 가능한 동일 장비에서 idle/streaming trace 4종을 최소 100 input 표본으로 캡처하고 제공된 분석기로 비교한다. | DEFERRED — 사용자 승인 비차단 후속 |
+| D2 | React Profiler의 셸 commit 증거와 IME/caret/scroll/paste/undo/redo/200% 확대 전체 실기가 없다. | `verify.md` r1 AC2·AC3 + 사용자 승인 | dev Profiler와 실제 Electron IME 수동 매트릭스를 실행해 결과를 후속 기록한다. | DEFERRED — 사용자 승인 비차단 후속 |
