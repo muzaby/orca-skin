@@ -28,7 +28,7 @@ export const ComposerDecorationLayer = forwardRef<HTMLDivElement, ComposerDecora
     )
 
     // viewport는 textarea와 같은 wrap width/gutter를 유지하고 clip만 담당한다. 실제 scroll
-    // offset은 안쪽 projection에 transform으로 적용되어 이 레이어 자체에는 scroll state가 없다.
+    // offset은 안쪽 projection에 transform으로 적용되어 decoration은 독립 offset을 소유하지 않는다.
     return (
       <div
         aria-hidden

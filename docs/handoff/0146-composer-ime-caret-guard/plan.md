@@ -1,7 +1,8 @@
 # Plan — 0146-composer-ime-caret-guard
 
 > 기준 브랜치: `main` (`4688b133aa7a2c92cf48917da9bebec7e77c0179`).
-> 두 차례 외부 리뷰를 반영한 `r3`다. 사용자가 구현을 명시 지시했으므로 최소 수정은 착수하되,
+> 두 차례 외부 리뷰와 실제 Electron 측정 피드백을 반영한 `r4`다. 사용자가 구현을 명시
+> 지시했으므로 수정은 착수하되,
 > 실제 Windows Electron 한글 IME 검증 전에는 correctness를 PASS로 판정하지 않는다.
 
 ## 메타
@@ -9,10 +10,10 @@
 | 항목 | 값 |
 |---|---|
 | slug | `0146-composer-ime-caret-guard` |
-| 작성자 | Codex (사용자 직접 요청 및 2차 리뷰 반영) |
+| 작성자 | Codex (사용자 직접 요청·2차 리뷰·실측 피드백 반영) |
 | 일자 | 2026-07-23 |
-| 매핑 | `0145-composer-input-architecture` 후속 correctness 버그수정 / PR 미정 |
-| 상태 | **IMPL_DONE r2 — caret 개선 확인, decoration gutter 수정 재검증 대기** |
+| 매핑 | `0145-composer-input-architecture` 후속 correctness 버그수정 / PR #286 |
+| 상태 | **IMPL_DONE r3 — single scroll authority 구현, GUI 재검증 대기** |
 
 ## 사용자 의도 / 요구 출처 (Intent & Provenance)
 
@@ -20,6 +21,7 @@
 |---|---|---|
 | 명시 요구 | 한글 입력이 Composer 폭을 넘어 soft-wrap될 때 caret이 실제 글자 위치와 정렬되지 않는 문제를 검토하고, 구조 문제라면 개선안을 제시한다. | 라이브 세션 요청 |
 | 명시 요구 | 두 차례 리뷰를 반영한 handoff를 작성하고 구현을 진행한다. | 라이브 세션 요청: “핸드오프 작성하고 구현 진행하라” |
+| 명시 요구 | 장문 highlight가 scroll 변경 시 즉시 복구되는 실측을 반영하고, 사후 재동기화 workaround가 아니라 구조적으로 해결한다. | 라이브 세션 실측 및 “워크어라운드 말고 구조적으로 해결” |
 | 명시 제약 | 원인 확정 전 uncontrolled·`DraftBuffer`·rAF autosize로 확대하지 않는다. H3 재현은 AC2가 아니라 별도 DOM-owned escalation으로 보낸다. | 라이브 세션의 1·2차 리뷰 및 사용자 구현 지시 |
 | 이전 결정 | `0145`의 production 정량 성능은 미측정이며 PASS로 간주하지 않는다. revision guard와 submit/attachment atomic clear는 보존한다. | `@docs/handoff/0145-composer-input-architecture/plan.md`, `verify.md` |
 | 추론 의도 | 정적 코드에서 확인되는 composition 중 selection-only commit과 프로그램적 selection mutation을 먼저 차단하되, 이를 root cause 확정으로 표현하지 않는다. | 현재 `ComposerInputSurface`·`ComposerInputController` 이벤트 경로 |
@@ -38,6 +40,12 @@ selection-only update와 프로그램적 value/selection command만 차단한다
 native/CSS geometry, `field-sizing`, controlled reconcile 중 무엇이 실제 root cause인지는 이
 환경에서 Windows IME로 판정할 수 없다. 이 불확실성은 verify의 사람 GUI 게이트로 남긴다.
 
+후속 실측에서는 caret은 정상이나 장문 highlight가 누적 이탈하고, textarea scroll이 변하면
+즉시 올바른 위치로 복구됐다. 정적 typography/wrap 오차라면 scroll만으로 복구되지 않는다. 기존
+구조는 textarea와 decoration이 각각 scroll offset을 소유하고, deferred decoration의 content
+height가 아직 짧은 시점에 큰 `scrollTop`을 복사하면 브라우저가 decoration offset을 clamp한다.
+이후 deferred content가 늘어도 두 번째 scroll event가 없으므로 두 좌표계가 어긋난 채 남는다.
+
 ## 자료조사 (Research)
 
 | 발견 / 제약 | 레퍼런스 |
@@ -48,6 +56,7 @@ native/CSS geometry, `field-sizing`, controlled reconcile 중 무엇이 실제 r
 | text revision은 text가 바뀔 때만 증가하고 selection-only update는 동일 revision을 유지한다. 이 계약은 보존해야 한다. | `draftSnapshot.ts:16-52`; `draftSnapshot.test.ts:12-21` |
 | React controlled textarea는 `onChange`에서 DOM의 값을 backing state에 동기 갱신해야 한다. | [React `<textarea>`](https://react.dev/reference/react-dom/components/textarea) |
 | classic scrollbar gutter는 content area 폭에 영향을 줄 수 있으며 `scrollbar-gutter:stable`도 overlay scrollbar에는 gutter를 만들지 않는다. sizing A/B는 속성이 아니라 실측 `clientWidth`를 통제해야 한다. | [CSS Overflow Module Level 3 §5](https://drafts.csswg.org/css-overflow-3/#scrollbar-gutter-property) |
+| 기존 surface는 textarea `onScroll`에서 decoration의 별도 `scrollTop/scrollLeft`를 쓴다. decoration은 `useDeferredValue(snapshot)`으로 textarea보다 짧은 content를 잠시 가질 수 있어 scroll range가 다르다. | `ComposerInputSurface.tsx`, `ComposerDecorationLayer.tsx` r2 |
 | 실제 Windows IME geometry는 jsdom 또는 순수 reducer 테스트로 판정할 수 없다. | `@docs/handoff/0145-composer-input-architecture/verify.md` D2 |
 
 ## 진단 라우팅 r3
@@ -80,12 +89,17 @@ heuristic일 뿐 H0~H3를 대체하는 인과 증거가 아니다.
    - keydown, autocomplete, submit, seed/restore, accepted-submit clear와 `setSelectionRange`
      경로는 즉시 ref와 snapshot 중 하나라도 composing이면 실행하지 않거나 종료 뒤 재평가한다.
 
-2. **기존 입력·경쟁 계약 보존**
+2. **단일 scroll authority와 기존 입력·경쟁 계약 보존**
+   - native textarea만 실제 scroll offset을 소유한다.
+   - decoration은 같은 gutter·typography의 clip viewport와, textarea offset을
+     `translate3d`로 투영하는 content layer로 분리한다.
+   - decoration DOM에는 `scrollTop/scrollLeft`를 쓰지 않으며 deferred content의 현재 길이가
+     짧아도 투영 offset이 clamp되지 않는다.
    - text revision 단조 증가, selection-only revision 유지, stale autocomplete 거부를 보존한다.
    - async attachment view 생성 중 text 또는 attachment가 바뀌면 둘 다 clear하지 않는 기존
      atomic clear를 보존한다.
-   - `/skill`, `@file`, quoted path, 방향키·Tab·Escape, paste, undo/redo, decoration,
-     `field-sizing:content`를 이번 수정에서 재설계하지 않는다.
+   - `/skill`, `@file`, quoted path, 방향키·Tab·Escape, paste, undo/redo, decoration
+     tokenization/deferred 계산과 `field-sizing:content`는 재설계하지 않는다.
    - 신규 의존성, IPC·DB·main process 변경이 없다.
 
 3. **검증과 원인 표현 규율**
@@ -99,9 +113,10 @@ heuristic일 뿐 H0~H3를 대체하는 인과 증거가 아니다.
 ## 범위 / 비범위
 
 - **범위**: `ComposerInputController`의 immediate composition ref; composition 중 selection-only
-  update와 프로그램 command 차단; `draftSnapshot` 순수 guard와 테스트; handoff/INDEX 기록.
+  update와 프로그램 command 차단; `draftSnapshot` 순수 guard; textarea 단일 scroll authority와
+  decoration viewport/projection 분리; shared scrollbar gutter; 테스트와 handoff/INDEX 기록.
 - **비범위**: uncontrolled textarea, `DraftBuffer`, rAF autosize, `field-sizing` 제거,
-  decoration/Token Summary UX 변경, `contentEditable`, 신규 진단 패널 또는 신규 의존성.
+  decoration token/Token Summary UX 변경, `contentEditable`, 신규 진단 패널 또는 신규 의존성.
 
 ## 의존 기술 / 전제 (Dependencies & Assumptions)
 
@@ -110,21 +125,35 @@ heuristic일 뿐 H0~H3를 대체하는 인과 증거가 아니다.
   같은 stack의 command 차단에는 별도 `composingRef`가 필요하다.
 - `initialDraft`·`restoredDraft` effect는 composition 중 소비하지 않고 `snapshot.composing`
   종료 전이를 dependency로 사용해 다시 평가한다.
+- scroll event는 기존처럼 textarea에서만 받고, projection transform은 React state 없이
+  동일 DOM node에 O(1)로 갱신한다. deferred children 교체 시 이 transform은 보존된다.
 - 신규 의존성 없음.
 
 ## 설계
 
-### 사용자 실측 r2 — 2026-07-23
+### 사용자 실측 r2/r3 — 2026-07-23
 
 | 관찰 | 판정 | 반영 |
 |---|---|---|
 | 실제 Electron 한글 입력에서 caret은 정상 위치를 유지한다. | composition guard가 native input/caret 경로에 효과가 있다는 사용자 증거다. 전체 H0~H3·zoom 매트릭스를 대체하지는 않는다. | AC1을 부분 실측 충족으로 기록한다. |
-| text가 길어질수록 highlight 배경 위치가 실제 text에서 벗어난다. | caret과 별개인 decoration 좌표계 문제다. max-height 이후 textarea는 classic vertical scrollbar가 content width를 줄이지만 `overflow-hidden` decoration은 gutter를 소비하지 않아 soft-wrap 지점이 달라질 수 있다. | shared typography에 `scrollbar-gutter:stable`을 넣어 textarea와 decoration의 wrap width를 통일한다. |
+| text가 길어질수록 highlight 배경 위치가 실제 text에서 벗어난다. | caret과 별개인 decoration 좌표계 문제다. classic scrollbar가 wrap width를 바꾸는 변수를 통제해야 한다. | shared typography의 `scrollbar-gutter:stable`로 wrap width 계약을 통일한다. |
+| scroll이 변경되면 highlight가 즉시 올바른 위치로 복구된다. | 정적 glyph/wrap geometry 오차보다, 서로 다른 scroll range를 가진 textarea와 deferred decoration 사이의 offset clamp/race를 직접 지목한다. | decoration의 독립 `scrollTop/scrollLeft` 소유를 제거하고 single-authority projection 구조로 바꾼다. |
 
-이 수정은 `field-sizing` 또는 controlled ownership을 바꾸지 않는다. classic scrollbar에서는 양쪽이
-동일 gutter를 예약하고, overlay scrollbar 환경에서는 양쪽 모두 gutter를 만들지 않는 CSS 계약을
-사용한다. 실제 장문·max-height scroll에서 highlight가 다시 정렬되는지는 사용자 재검증 전까지
+stable gutter는 두 표면의 폭 불변식을 지키지만, scroll만으로 복구되는 실측상 단독 root cause는
+아니다. 실제 장문·max-height scroll에서 highlight가 계속 정렬되는지는 사용자 재검증 전까지
 확정하지 않는다.
+
+### Decoration single scroll authority
+
+- textarea가 glyph, caret, selection, viewport scroll을 모두 소유한다.
+- decoration 바깥 노드는 textarea와 동일한 typography/gutter를 가진 clip viewport다.
+- 안쪽 projection 노드만 textarea의 `(-scrollLeft, -scrollTop)`만큼 `translate3d`된다.
+- 이전처럼 decoration의 `scrollTop`에 값을 쓰지 않으므로, deferred content가 아직 짧아도
+  브라우저 scroll range에 의해 offset이 잘리지 않는다.
+- `useDeferredValue`와 tokenization은 그대로다. scroll마다 React state나 tokenization을
+  발생시키지 않고 기존 `onScroll`의 DOM write 하나를 composited transform write로 바꾼다.
+- deferred segments는 안정적인 projection DOM node의 자식만 교체하므로 저장된 transform이
+  사라지지 않는다. 별도 rAF, layout effect, resize observer, 사후 재동기화가 필요 없다.
 
 ### Controller guard
 
@@ -162,6 +191,8 @@ native 또는 controlled 경로로 라우팅한다.
 - composition 중 도착한 initial/restore draft는 종료 뒤 한 번만 소비한다.
 - submit의 비동기 완료 전에 새 composition이 시작되면 text·attachments를 clear하지 않는다.
 - composition 종료 후 일반 selection, autocomplete, submit은 기존 동작으로 복귀한다.
+- max-height auto-scroll과 사용자 scroll은 같은 textarea event 경로로 projection을 이동한다.
+- deferred content가 현재 textarea보다 짧은 프레임에도 projection offset은 유지된다.
 - 실제 IME 후보창·caret geometry·scrollbar width는 사람 GUI 검증 대상이다.
 
 ## 리스크 / 트레이드오프 (Risks & Trade-offs)
@@ -173,6 +204,8 @@ native 또는 controlled 경로로 라우팅한다.
 | async submit clear가 composition 시작 직후 attachments만 지울 수 있다. | composing gate를 attachment reset보다 먼저 검사한다. |
 | native engine geometry 결함이면 본 수정이 증상을 해결하지 못한다. | ownership 확장을 금지하고 H0~H3·CSS/runtime 경로로 재라우팅한다. |
 | sizing A/B의 scrollbar가 inline width를 바꾼다. | `scrollbar-gutter`와 실측 `clientWidth` 일치를 함께 요구한다. |
+| projection용 중첩 block이 line wrapping에 영향을 줄 수 있다. | outer content box의 동일 폭과 상속 typography를 유지하고 static 구조·transform 단위 테스트 및 Electron 실측으로 검증한다. |
+| 장문 scroll마다 transform write가 발생한다. | 기존에도 매 scroll마다 decoration scroll write가 있었다. React state 없이 composited `translate3d` 하나만 갱신하므로 계산량과 렌더 횟수는 늘지 않는다. |
 
 - 되돌리기 어려운 결정: 없음.
 - 단독 결정 금지 항목: decoration 제거, DOM-owned 구조 승격, Chromium/runtime 변경.
@@ -180,6 +213,10 @@ native 또는 controlled 경로로 라우팅한다.
 ## 영향 받는 파일
 
 - `app/src/renderer/src/features/chat/components/composer/ComposerInputController.tsx`
+- `app/src/renderer/src/features/chat/components/composer/ComposerInputSurface.tsx`
+- `app/src/renderer/src/features/chat/components/composer/ComposerDecorationLayer.tsx`
+- `app/src/renderer/src/features/chat/components/composer/ComposerDecorationLayer.test.ts`
+- `app/src/renderer/src/features/chat/components/composer/composerScrollProjection.ts`
 - `app/src/renderer/src/features/chat/components/composer/draftSnapshot.ts`
 - `app/src/renderer/src/features/chat/components/composer/draftSnapshot.test.ts`
 - `docs/handoff/0146-composer-ime-caret-guard/plan.md`
@@ -235,6 +272,7 @@ native 또는 controlled 경로로 라우팅한다.
 
 - [x] immediate composition ref와 selection-only guard
 - [x] programmatic mutation·async clear guard
+- [x] textarea single scroll authority와 decoration viewport/projection 분리
 - [x] 순수 테스트·lint·typecheck
 - [ ] 실제 Windows Electron 사람 검증 항목 보존
 
@@ -242,11 +280,11 @@ native 또는 controlled 경로로 라우팅한다.
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | `ComposerInputController.tsx`, `ComposerInputSurface.tsx`, `ComposerDecorationLayer.test.ts`, `draftSnapshot.ts`, `draftSnapshot.test.ts`, 본 handoff와 `INDEX.md` |
+| 변경 파일 | `ComposerInputController.tsx`, `ComposerInputSurface.tsx`, `ComposerDecorationLayer.tsx`, `ComposerDecorationLayer.test.ts`, `composerScrollProjection.ts`, `draftSnapshot.ts`, `draftSnapshot.test.ts`, 본 handoff와 `INDEX.md` |
 | 실행 명령 | `npm run lint`; `npm run typecheck`; Composer 영향 Vitest; 전체 `vitest run`; `node --test scripts/*.test.mjs`; `git diff --check` |
-| 게이트 결과 | r1: lint 0 error(기존 TanStack compiler warning 1), node/web/test typecheck PASS, Composer 영향 5 files·15/15 tests PASS, scripts 28/28 PASS. 전체 Vitest는 140/146 files·1122/1161 tests PASS; 실패는 환경 제약 40건(`better-sqlite3` native binding 미설치 38, read-only `/root` attachment temp 1, Electron payload 미설치 1 suite). r2 gutter 수정: 직접 영향 2 files·6/6, Composer 전체 5 files·16/16 tests, lint 0 error(기존 warning 1), typecheck 3종 PASS. |
-| 블로커 / 역질문 | caret 정상 유지 사용자 확인. 장문 highlight 정렬은 r2 gutter 수정본으로 실제 Windows Electron max-height scroll·zoom 100/125/200% 재검증이 필요하다. |
-| 대상 커밋 | r1 `8c997ed`; r2 `d737f03` |
+| 게이트 결과 | r1: lint 0 error(기존 TanStack compiler warning 1), node/web/test typecheck PASS, Composer 영향 5 files·15/15 tests PASS, scripts 28/28 PASS. 전체 Vitest는 140/146 files·1122/1161 tests PASS; 실패는 환경 제약 40건(`better-sqlite3` native binding 미설치 38, read-only `/root` attachment temp 1, Electron payload 미설치 1 suite). r2 gutter 수정: Composer 16/16, lint/typecheck PASS. r3 single-authority projection: 직접 영향 7/7, Composer 전체 5 files·17/17, lint 0 error(기존 warning 1), typecheck 3종 PASS, `git diff --check` PASS. |
+| 블로커 / 역질문 | caret 정상 유지 사용자 확인. 장문 highlight는 r3 single-authority projection으로 실제 Windows Electron max-height 자동 scroll·수동 scroll·zoom 100/125/200% 재검증이 필요하다. |
+| 대상 커밋 | r1 `8c997ed`; r2 `d737f03`; r3 `7e456fa` |
 
 ---
 
@@ -255,4 +293,4 @@ native 또는 controlled 경로로 라우팅한다.
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
 | D1 | 실제 Windows Electron Korean IME caret | `0145` D2 / 본 신고 | 사용자 실측에서 caret 정상 유지 확인. H0~H3·zoom 전체 매트릭스는 별도 보존 | partial |
-| D2 | 장문에서 decoration highlight wrap 누적 이탈 | 사용자 실측 r2 | textarea/layer stable gutter 적용 후 max-height scroll·zoom 재검증 | open |
+| D2 | 장문에서 decoration highlight 누적 이탈, scroll 변경 시 복구 | 사용자 실측 r2/r3 | textarea single scroll authority + transform projection 적용 후 max-height 자동/수동 scroll·zoom 재검증 | partial |
