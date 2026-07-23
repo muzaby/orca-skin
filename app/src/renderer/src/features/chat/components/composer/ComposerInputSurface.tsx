@@ -8,6 +8,7 @@ import {
   type UIEvent
 } from 'react'
 import { ComposerDecorationLayer } from './ComposerDecorationLayer'
+import { composerDecorationTransform } from './composerScrollProjection'
 import type { DraftSnapshot } from './draftSnapshot'
 
 interface ComposerInputSurfaceProps {
@@ -54,7 +55,7 @@ export const ComposerInputSurface = forwardRef<
   ref
 ): React.JSX.Element {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const decorationRef = useRef<HTMLDivElement>(null)
+  const decorationProjectionRef = useRef<HTMLDivElement>(null)
 
   useImperativeHandle(
     ref,
@@ -80,15 +81,21 @@ export const ComposerInputSurface = forwardRef<
     onCompositionChange(composing, target.value, target.selectionStart, target.selectionEnd)
   }
   const scroll = (event: UIEvent<HTMLTextAreaElement>): void => {
-    if (!decorationRef.current) return
-    decorationRef.current.scrollTop = event.currentTarget.scrollTop
-    decorationRef.current.scrollLeft = event.currentTarget.scrollLeft
+    const projection = decorationProjectionRef.current
+    if (!projection) return
+
+    // textarea만 scroll authority를 가진다. decoration은 독립 scrollTop을 복사하지 않고
+    // native viewport 좌표를 그대로 투영하므로 deferred content가 짧아도 offset이 clamp되지 않는다.
+    projection.style.transform = composerDecorationTransform(
+      event.currentTarget.scrollLeft,
+      event.currentTarget.scrollTop
+    )
   }
 
   return (
     <div className="relative">
       <ComposerDecorationLayer
-        ref={decorationRef}
+        ref={decorationProjectionRef}
         snapshot={snapshot}
         knownSkillNames={knownSkillNames}
         validFilePaths={validFilePaths}

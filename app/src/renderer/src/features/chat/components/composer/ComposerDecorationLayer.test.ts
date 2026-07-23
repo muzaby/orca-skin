@@ -3,6 +3,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { describe, expect, it } from 'vitest'
 import { ComposerDecorationLayer } from './ComposerDecorationLayer'
 import { ComposerInputSurface } from './ComposerInputSurface'
+import { composerDecorationTransform } from './composerScrollProjection'
 import { createDraftSnapshot, setDraftComposition } from './draftSnapshot'
 
 describe('ComposerDecorationLayer', () => {
@@ -34,5 +35,21 @@ describe('ComposerDecorationLayer', () => {
     )
 
     expect(html.match(/\[scrollbar-gutter:stable\]/g)).toHaveLength(2)
+  })
+
+  it('decoration을 독립 scroll container가 아닌 viewport projection으로 렌더한다', () => {
+    const html = renderToStaticMarkup(
+      createElement(ComposerDecorationLayer, {
+        snapshot: createDraftSnapshot('/build'),
+        knownSkillNames: new Set(['build']),
+        validFilePaths: new Set<string>(),
+        typographyClassName: 'typography'
+      })
+    )
+
+    expect(html).toContain('data-composer-decoration-viewport')
+    expect(html).toContain('data-composer-decoration-projection')
+    expect(composerDecorationTransform(12, 240)).toBe('translate3d(-12px, -240px, 0)')
+    expect(composerDecorationTransform(0, 0)).toBe('translate3d(0px, 0px, 0)')
   })
 })
