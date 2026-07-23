@@ -36,9 +36,9 @@ const delta = (text: string, sessionId = 's'): NormalizedEvent => ({
   delta: { text }
 })
 
-const reasoningDelta = (text: string): NormalizedEvent => ({
+const reasoningDelta = (text: string, sessionId = 's'): NormalizedEvent => ({
   type: 'message.reasoning.delta',
-  sessionId: 's',
+  sessionId,
   delta: { text }
 })
 
@@ -103,6 +103,34 @@ describe('chatStore — 델타/커밋 라우팅', () => {
     flushRaf()
     expect(entry().live.reasoning).toBe('생각')
     expect(entry().live.text).toBe(textBefore)
+  })
+
+  it('한 프레임의 혼합·멀티세션 delta를 store notification 1회로 반영한다', () => {
+    useChatStore.setState((state) => ({
+      sessions: {
+        ...state.sessions,
+        bg: {
+          session: { ...initialChatState, sessionId: 'bg' },
+          live: { text: '', reasoning: '' },
+          subagentMeta: {}
+        }
+      }
+    }))
+    let notifications = 0
+    const unsubscribe = useChatStore.subscribe(() => {
+      notifications += 1
+    })
+
+    ingestChatEvent(delta('본문'))
+    ingestChatEvent(reasoningDelta('사고'))
+    ingestChatEvent(delta('배경', 'bg'))
+    flushRaf()
+    unsubscribe()
+
+    expect(notifications).toBe(1)
+    expect(entry('s').live).toEqual({ text: '본문', reasoning: '사고' })
+    expect(entry('bg').live.text).toBe('배경')
+    expect(entry('bg').session.inflight).toBe(true)
   })
 
   it('message.completed 가 완성본을 커밋하고 live.text 를 비운다', () => {

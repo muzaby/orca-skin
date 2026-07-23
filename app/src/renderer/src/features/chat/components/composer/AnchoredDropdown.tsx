@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 
 interface AnchoredDropdownProps {
   open: boolean
-  // dropdown 이 부착될 textarea wrapper (HighlightedTextarea 의 outer div).
+  // dropdown 이 부착될 textarea wrapper (ComposerInputSurface 의 outer div).
   anchorRef: RefObject<HTMLElement | null>
   // 항목 수 — 변동 시 재측정 (기존 구현들의 useLayoutEffect deps 보존).
   itemCount: number

@@ -30,7 +30,7 @@ export interface UseFileAutocomplete {
   // 쌍 안으로 caret 을 이동해 picker 가 재오픈된 상태. applyFileAutocomplete 가
   // 새 닫는 quote 를 만들지 않고 기존 것을 재사용하도록 분기.
   hasClosingQuote: boolean
-  // picker 가 listing 한 경로의 cwd-상대 fullpath 누적. HighlightedTextarea 의
+  // picker 가 listing 한 경로의 cwd-상대 fullpath 누적. ComposerDecorationLayer 의
   // `validFilePaths` 로 전달되어 chip 강조 대상 결정에 쓰인다.
   validPaths: ReadonlySet<string>
   close: () => void

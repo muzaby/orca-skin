@@ -2,14 +2,21 @@ import type { NormalizedEvent } from '../../../../../shared/ipc'
 
 // 스트리밍 델타(message.delta · message.reasoning.delta)는 SDK 토큰 1개당 IPC 이벤트 1개로
 // 도착한다. 토큰마다 즉시 dispatch 하면 transcript 가 토큰 수만큼 재렌더된다(rendering.md §1.2).
-// 이 코얼레서는 델타를 버퍼에 모아 scheduler(보통 requestAnimationFrame) 한 틱마다 한꺼번에
-// emit 한다 — React 19 의 자동 배칭이 "단일 동기 실행 안의 N개 dispatch" 를 1렌더로 묶으므로
-// 결과적으로 프레임당 1렌더가 된다(reducer 는 무변경, 외형 동일).
+// 이 코얼레서는 델타를 버퍼에 모아 scheduler(보통 requestAnimationFrame) 한 틱마다 배열로
+// 넘긴다. store가 배열 전체를 단일 transaction으로 반영하므로 React 배칭에 기대지 않고
+// flush당 store notification도 정확히 1회가 된다.
 //
 // 순서 불변식: message.completed · tool.call.* · telemetry 같은 비-델타 이벤트가 오면 버퍼를
 // 먼저 동기 flush 한 뒤 그 이벤트를 emit 한다 → "텍스트→도구→텍스트" 순서(Option B) 보존.
 
-const DELTA_TYPES = new Set<NormalizedEvent['type']>(['message.delta', 'message.reasoning.delta'])
+export type DeltaEvent = Extract<
+  NormalizedEvent,
+  { type: 'message.delta' | 'message.reasoning.delta' }
+>
+
+function isDeltaEvent(event: NormalizedEvent): event is DeltaEvent {
+  return event.type === 'message.delta' || event.type === 'message.reasoning.delta'
+}
 
 export interface CoalescerScheduler {
   schedule: (cb: () => void) => number
@@ -25,11 +32,16 @@ export interface EventCoalescer {
   dispose: () => void
 }
 
+export interface EventCoalescerSink {
+  emit: (event: NormalizedEvent) => void
+  emitDeltaBatch: (events: readonly DeltaEvent[]) => void
+}
+
 export function createEventCoalescer(
-  emit: (ev: NormalizedEvent) => void,
+  sink: EventCoalescerSink,
   scheduler: CoalescerScheduler
 ): EventCoalescer {
-  let buffer: NormalizedEvent[] = []
+  let buffer: DeltaEvent[] = []
   let handle: number | null = null
 
   const flush = (): void => {
@@ -40,11 +52,11 @@ export function createEventCoalescer(
     if (buffer.length === 0) return
     const batch = buffer
     buffer = []
-    for (const ev of batch) emit(ev)
+    sink.emitDeltaBatch(batch)
   }
 
   const push = (ev: NormalizedEvent): void => {
-    if (DELTA_TYPES.has(ev.type)) {
+    if (isDeltaEvent(ev)) {
       buffer.push(ev)
       if (handle === null) {
         handle = scheduler.schedule(() => {
@@ -56,7 +68,7 @@ export function createEventCoalescer(
     }
     // 비-델타: 순서 보존을 위해 버퍼를 먼저 비우고 emit.
     flush()
-    emit(ev)
+    sink.emit(ev)
   }
 
   const dispose = (): void => {
