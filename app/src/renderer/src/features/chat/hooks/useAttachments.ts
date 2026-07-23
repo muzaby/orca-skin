@@ -2,6 +2,7 @@ import { useRef, useState, type ClipboardEvent } from 'react'
 import { fileApi } from '../../../shared/api/ipc'
 import { downscaleDataUrl } from '../lib/imageThumb'
 import type { AttachmentView, ComposerAttachment } from '../../../../../shared/ipc'
+import { clearAttachmentsIfUnchanged } from './attachmentState'
 
 // 컴포저의 첨부 lifecycle(다이얼로그/DnD/붙여넣기 3경로 수집 · 미리보기 · 제거 · 전송용 뷰 빌드)를
 // 한곳에 가둔다. 컴포저는 입력 합성에 집중하고, 첨부 상태/핸들러는 이 훅이 소유한다(AGENTS.md §5 분해).
@@ -37,11 +38,17 @@ export function useAttachments(): UseAttachments {
   const [attachmentPreviews, setAttachmentPreviews] = useState<Record<string, string>>({})
   const [draggingAttachment, setDraggingAttachment] = useState(false)
 
+  // React state와 async submit이 읽는 ref는 반드시 같은 배열 identity를 가리켜야 한다.
+  // 한쪽만 새 배열로 바뀌면 resetIfUnchanged가 사용자 변경으로 오판해 draft clear까지 막는다.
+  const commitAttachments = (next: ComposerAttachment[]): void => {
+    attachmentsRef.current = next
+    setAttachments(next)
+  }
+
   const addAttachments = async (items: ComposerAttachment[]): Promise<void> => {
     const startIndex = attachmentsRef.current.length
     const nextAttachments = [...attachmentsRef.current, ...items]
-    attachmentsRef.current = nextAttachments
-    setAttachments(nextAttachments)
+    commitAttachments(nextAttachments)
     const previews: Record<string, string> = {}
     await Promise.all(
       items.map(async (att, offset) => {
@@ -76,8 +83,7 @@ export function useAttachments(): UseAttachments {
   const removeAttachment = (index: number): void => {
     const removed = attachmentsRef.current[index]
     const nextAttachments = attachmentsRef.current.filter((_, current) => current !== index)
-    attachmentsRef.current = nextAttachments
-    setAttachments(nextAttachments)
+    commitAttachments(nextAttachments)
     setAttachmentPreviews((current) => {
       const next = { ...current }
       delete next[`${removed?.name ?? ''}-${index}`]
@@ -150,8 +156,7 @@ export function useAttachments(): UseAttachments {
     )
 
   const reset = (): void => {
-    attachmentsRef.current = []
-    setAttachments([])
+    commitAttachments([])
     setAttachmentPreviews({})
   }
 
@@ -159,8 +164,10 @@ export function useAttachments(): UseAttachments {
   // 지운다는 보장이 없으므로 clear를 거부한다. controller가 draft revision과 함께 검사해
   // text+attachments를 하나의 submit snapshot처럼 다룬다.
   const resetIfUnchanged = (expected: ComposerAttachment[]): boolean => {
-    if (attachmentsRef.current !== expected) return false
-    reset()
+    const next = clearAttachmentsIfUnchanged(attachmentsRef.current, expected)
+    if (next === null) return false
+    commitAttachments(next)
+    setAttachmentPreviews({})
     return true
   }
 
