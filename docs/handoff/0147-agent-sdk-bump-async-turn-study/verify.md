@@ -7,7 +7,7 @@
 | slug | `0147-agent-sdk-bump-async-turn-study` |
 | 검증자 | Claude Code |
 | 일자 | 2026-07-25 |
-| 대상 커밋 | `claude/agent-sdk-handoff-docs-uh96gv` HEAD (본 커밋) |
+| 대상 커밋 | `3cd91d5` |
 | 라운드 | 1 |
 | 상태 | **PASS** |
 
