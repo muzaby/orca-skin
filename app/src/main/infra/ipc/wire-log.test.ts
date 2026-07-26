@@ -1,7 +1,7 @@
 // wire-log (0124) — 스위치 게이트·sink 주입·델타 2종 전 경로 배제(사용자 결정 2026-07-18) 검증.
 
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { setWireLog, setWireSink, stripMessageContent, wireLog } from './wire-log'
+import { setWireLog, setWireSink, wireLog } from './wire-log'
 
 afterEach(() => {
   setWireLog(false)
@@ -56,9 +56,35 @@ describe('wireLog', () => {
 })
 
 // 0144 — prod wire sink 의 메시지 본문 제거(비내용 메타는 유지).
-describe('stripMessageContent', () => {
+// 0149 — 본문 제거는 sink 등록 시 선언하는 속성(setWireSink redact)이고 wire-log 가 적용한다.
+// 호출부가 감싸던 시절의 순수 함수 테스트를 sink 경유 관측으로 옮겼다(규칙이 모듈 불변식임을 고정).
+describe('setWireSink redact — 본문 제거', () => {
+  const redacted = (data: unknown): unknown => {
+    let seen: unknown
+    setWireSink(
+      (_label, payload) => {
+        seen = payload
+      },
+      { redact: true }
+    )
+    setWireLog(true)
+    wireLog('some.event', data)
+    return seen
+  }
+
+  it('redact 미선언 sink 는 풀 payload 를 그대로 받는다(dev 무회귀)', () => {
+    let seen: unknown
+    setWireSink((_label, payload) => {
+      seen = payload
+    })
+    setWireLog(true)
+    const full = { type: 'message.completed', message: { text: 'secret' } }
+    wireLog('some.event', full)
+    expect(seen).toEqual(full)
+  })
+
   it('drops message body from message.completed but keeps metadata', () => {
-    const out = stripMessageContent({
+    const out = redacted({
       type: 'message.completed',
       sessionId: 's1',
       message: { text: 'secret conversation' },
@@ -69,7 +95,7 @@ describe('stripMessageContent', () => {
 
   it('drops reasoning/echo/queued text content, keeps identifiers', () => {
     expect(
-      stripMessageContent({
+      redacted({
         type: 'message.reasoning',
         sessionId: 's',
         text: 'x',
@@ -80,12 +106,12 @@ describe('stripMessageContent', () => {
       sessionId: 's',
       signature: 'sig'
     })
-    expect(stripMessageContent({ type: 'input.echo', text: 'hi', uuid: 'u1' })).toEqual({
+    expect(redacted({ type: 'input.echo', text: 'hi', uuid: 'u1' })).toEqual({
       type: 'input.echo',
       uuid: 'u1'
     })
     expect(
-      stripMessageContent({
+      redacted({
         type: 'message.committed',
         sessionId: 's',
         text: 't',
@@ -97,7 +123,7 @@ describe('stripMessageContent', () => {
   })
 
   it('keeps non-message events (tool call) intact except content keys', () => {
-    const out = stripMessageContent({
+    const out = redacted({
       type: 'tool.call.started',
       sessionId: 's',
       toolRunId: 'r1',
@@ -115,8 +141,8 @@ describe('stripMessageContent', () => {
   })
 
   it('passes through non-object values unchanged', () => {
-    expect(stripMessageContent(undefined)).toBeUndefined()
-    expect(stripMessageContent('str')).toBe('str')
-    expect(stripMessageContent(null)).toBeNull()
+    expect(redacted(undefined)).toBeUndefined()
+    expect(redacted('str')).toBe('str')
+    expect(redacted(null)).toBeNull()
   })
 })

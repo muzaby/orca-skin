@@ -57,6 +57,55 @@ export function settleSubagentTask<W>(
   }
 }
 
+// 추적 중인 백그라운드 서브에이전트 전체를 한 상태로 정착시킨다(0149 — 구 chat-turn 의
+// settleDeadBackgroundTasks/stopAndSettleAbortedTasks 쌍둥이 통합). 두 경로의 차이는
+// status/summary 와 "실행 중인 태스크를 실제로 중지하는가" 뿐이라 옵션으로 받는다.
+//
+// 합성 settled 는 **두 번** 흘린다: settleSubagentTask 가 부모 Task/열린 child 를 권위
+// tool_result 로 마감하고, 이어지는 emit 이 settled 자체를 버스로 보내 writer 의
+// subagent_notice 영속과 renderer transient 메타 갱신이 라이브 경로와 같은 길을 타게 한다.
+// 이 순서·쌍 방출이 두 경로에서 갈라지지 않도록 여기 한 곳이 소유한다.
+export async function settleTrackedTasks<W>(
+  turn: TurnContext<W>,
+  emit: TurnEmit<W>,
+  sessionId: string,
+  tracker: BackgroundTaskSettleSource,
+  opts: { status: 'failed' | 'stopped'; summary: string; stopLive: boolean }
+): Promise<void> {
+  const ids = [...tracker.ids(sessionId)]
+  if (ids.length === 0) return
+  for (const toolUseId of ids) {
+    if (opts.stopLive) {
+      await stopLiveSubagent(
+        turn.live,
+        toolUseId,
+        turn.subagentTaskIds.get(toolUseId),
+        tracker.isAsyncLaunched(sessionId, toolUseId)
+      )
+    }
+    const settled = {
+      type: 'subagent.task',
+      sessionId,
+      toolUseId,
+      phase: 'settled',
+      status: opts.status,
+      // 턴-후 루프까지 살아남은 추적 = 백그라운드 대기물(0143) — 완료 통지 게이팅.
+      background: true,
+      summary: opts.summary
+    } as const
+    settleSubagentTask(turn, emit, settled)
+    emit(turn, settled)
+  }
+  tracker.clear(sessionId)
+}
+
+// settleTrackedTasks 가 트래커에게 요구하는 최소 표면(구조적 포트 — 구현은 BackgroundTaskTracker).
+export interface BackgroundTaskSettleSource {
+  ids(sessionId: string): ReadonlySet<string>
+  isAsyncLaunched(sessionId: string, toolUseId: string): boolean
+  clear(sessionId: string): void
+}
+
 // foreground Task 는 먼저 background control-request 로 루트 턴에서 분리해야 stopTask 가 실제
 // 작업 취소로 이어진다. 이미 background 로 시작된 경우에는 불필요한 backgroundTask 를 건너뛴다.
 // alreadyBackground(0143) — 전역 플래그가 아니라 **per-task async_launched 영수증 관측 여부**

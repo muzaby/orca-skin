@@ -2,6 +2,7 @@
 // view 로 투영한다(순수). text/reasoning 추출, tool_call↔tool_result 페어링, error 추출.
 
 import type { AppMessagePart, AttachmentView } from '../../../../../shared/ipc'
+import { isAsyncLaunchedPayload } from '../../../../../shared/subagent'
 import type { Message, ToolCall } from '../reducer/chatReducer'
 
 // 파트의 parentToolRunId(서브에이전트 child 표식) 조회 — 4종 파트가 옵션 필드로 가질 수 있다.
@@ -141,10 +142,7 @@ export function settleStaleAsyncLaunchParts(parts: AppMessagePart[]): AppMessage
     if (!isToolCallPart(p) || !isAgentTaskName(p.toolName)) continue
     const last = lastResult.get(p.toolRunId)
     if (!last) continue // 결과 자체가 없는 미완 도구는 settleOrphanToolParts(incomplete) 소관
-    const o = last.result
-    const launched =
-      typeof o === 'object' && o !== null && (o as { status?: unknown }).status === 'async_launched'
-    if (!launched) continue
+    if (!isAsyncLaunchedPayload(last.result)) continue
     synthesized.push({
       type: 'tool_result',
       toolRunId: p.toolRunId,
@@ -302,11 +300,7 @@ export function isAgentTaskName(name: string): boolean {
 // 반환하고(SDK AgentOutput), 진짜 종료(완료/실패/중지)는 나중에 task_notification 으로 온다.
 // 따라서 이 임시 결과는 "완료"가 아니라 "실행 중"으로 취급한다(settled 알림이 덮어쓸 때까지).
 export function isAsyncLaunchedResult(result: ToolCall['result']): boolean {
-  if (!result) return false
-  const o = result.output
-  return (
-    typeof o === 'object' && o !== null && (o as { status?: unknown }).status === 'async_launched'
-  )
+  return result ? isAsyncLaunchedPayload(result.output) : false
 }
 
 // 도구 결과가 중단/취소(에러이되 사용자/시스템 abort 마커를 가진) 인지. 전체 턴 취소·개별

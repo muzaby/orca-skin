@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { BackgroundTaskTracker, isAsyncLaunchResult } from './background-tasks'
+import { BackgroundTaskTracker } from './background-tasks'
 
 describe('BackgroundTaskTracker (0136)', () => {
   it('started 로 등록하고 ids 로 조회한다', () => {
@@ -72,18 +72,5 @@ describe('BackgroundTaskTracker.asyncLaunched (0143)', () => {
   it('미등록 조회는 false', () => {
     const t = new BackgroundTaskTracker()
     expect(t.isAsyncLaunched('nope', 'x')).toBe(false)
-  })
-})
-
-describe('isAsyncLaunchResult (0136)', () => {
-  it('async_launched 상태 객체를 인식한다', () => {
-    expect(isAsyncLaunchResult({ status: 'async_launched', agentId: 'a1' })).toBe(true)
-  })
-
-  it('완료/실패/원시값은 false', () => {
-    expect(isAsyncLaunchResult({ status: 'completed' })).toBe(false)
-    expect(isAsyncLaunchResult('최종 보고')).toBe(false)
-    expect(isAsyncLaunchResult(null)).toBe(false)
-    expect(isAsyncLaunchResult(undefined)).toBe(false)
   })
 })

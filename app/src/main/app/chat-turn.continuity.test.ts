@@ -28,6 +28,7 @@ import type { OrcaBusEvents } from '../contracts/bus-events'
 import type { TurnContext } from '../contracts/turn'
 import { TurnCoordinator, type CoordinatorRuntime } from '../features/chat/turn-coordinator'
 import { PendingMessageQueue } from '../features/chat/pending-message-queue'
+import { BackgroundTaskTracker } from '../features/chat/background-tasks'
 import { HistoryWriter } from '../features/history/writer'
 import { buildHandoffMessage } from '../features/orchestration/handoff'
 import { materializeContinuityArrival } from '../features/orchestration/fork'
@@ -145,7 +146,8 @@ async function runTurn(
       throw err
     },
     activeTurns: { increment: vi.fn(), decrement: vi.fn() },
-    pendingMessages
+    pendingMessages,
+    backgroundTasks: new BackgroundTaskTracker()
   })
   await coordinator.run(turn, { sessionId: null, text: '', cwd: '/w' } as never, {
     boundProjectId: null

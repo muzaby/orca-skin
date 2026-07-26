@@ -14,6 +14,8 @@ import type {
   SubagentTaskMeta,
   TelemetryModelUsage
 } from '../../shared/ipc'
+import { isRecord } from '../../shared/obj'
+import { isAsyncLaunchedPayload } from '../../shared/subagent'
 import { makeClassifiedError } from '../infra/errors'
 import { errorEvent } from './error-classifier'
 
@@ -150,19 +152,12 @@ function readParentToolRunId(msg: unknown): string | undefined {
 function asyncLaunchReceipt(msg: unknown, content: unknown[]): Record<string, unknown> | undefined {
   let toolResults = 0
   for (const part of content) {
-    if (
-      typeof part === 'object' &&
-      part !== null &&
-      (part as { type?: unknown }).type === 'tool_result'
-    ) {
-      toolResults += 1
-    }
+    if (isRecord(part) && part.type === 'tool_result') toolResults += 1
   }
   if (toolResults !== 1) return undefined
   const structured = (msg as { tool_use_result?: unknown }).tool_use_result
-  if (typeof structured !== 'object' || structured === null) return undefined
-  const rec = structured as Record<string, unknown>
-  return rec.status === 'async_launched' ? rec : undefined
+  if (!isAsyncLaunchedPayload(structured)) return undefined
+  return structured as Record<string, unknown>
 }
 
 export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): NormalizedEvent[] {

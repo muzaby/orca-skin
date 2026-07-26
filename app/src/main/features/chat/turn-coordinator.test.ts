@@ -108,6 +108,7 @@ function makeDeps(
       () => ({ kind: 'stream_error', message: 'x', retryable: false }) as unknown as ClassifiedError
     ),
     activeTurns: { increment: vi.fn(), decrement: vi.fn() },
+    backgroundTasks: new BackgroundTaskTracker(),
     ...overrides
   }
   base.bus.on(

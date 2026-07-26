@@ -49,7 +49,12 @@ import type { SteerFlushBatch, TurnRequest } from '../adapters/turn'
 import { TurnCoordinator } from '../features/chat/turn-coordinator'
 import { BackgroundTaskTracker } from '../features/chat/background-tasks'
 import { decidePostTurnStep } from '../features/chat/post-turn'
-import { settleOpenToolRuns, settleSubagentTask, stopLiveSubagent } from '../features/chat/settle'
+import {
+  settleOpenToolRuns,
+  settleSubagentTask,
+  settleTrackedTasks,
+  stopLiveSubagent
+} from '../features/chat/settle'
 import type { MainBus, TurnEmit } from '../contracts/bus-events'
 import type { TurnEventSink } from '../features/chat/turn-sinks'
 import { RuntimeSupervisor } from '../features/sessions/supervisor'
@@ -216,59 +221,28 @@ export function registerChatHandlers(deps: ChatDeps): void {
   // 소멸) 합성 settled(failed)로 부모 Task/열린 child 를 정착해 '실행 중' 영구 고착을 막고
   // 추적을 비운다. 정착 이벤트는 turn.event 버스(persist∥forward — tool_result upsert 멱등)로
   // 흐르므로 재로드 복원까지 일관된다.
-  const settleDeadBackgroundTasks = (turn: TurnContext<WebContents>, sessionId: string): void => {
-    const ids = [...backgroundTasks.ids(sessionId)]
-    if (ids.length === 0) return
-    for (const toolUseId of ids) {
-      const settledEv = {
-        type: 'subagent.task',
-        sessionId,
-        toolUseId,
-        phase: 'settled',
-        status: 'failed',
-        // 턴-후 루프까지 살아남은 추적 = 백그라운드 대기물(0143) — 완료 통지(실패) 게이팅.
-        background: true,
-        summary: '채널이 종료되어 서브에이전트가 중단되었습니다.'
-      } as const
-      settleSubagentTask(turn, emitTurn, settledEv)
-      // 합성 settled 자체도 버스로 방출(0143) — writer 의 subagent_notice 영속과 renderer 의
-      // transient 메타(status) 갱신이 라이브 settled(coordinator emit)와 동일 경로로 흐른다.
-      emitTurn(turn, settledEv)
-    }
-    backgroundTasks.clear(sessionId)
-  }
+  const settleDeadBackgroundTasks = (
+    turn: TurnContext<WebContents>,
+    sessionId: string
+  ): Promise<void> =>
+    settleTrackedTasks(turn, emitTurn, sessionId, backgroundTasks, {
+      status: 'failed',
+      summary: '채널이 종료되어 서브에이전트가 중단되었습니다.',
+      stopLive: false
+    })
 
   // listen 대기 중 사용자 중단(0143, 사용자 확정) — 대기만 끊지 않고 실행 중 백그라운드 태스크도
   // 함께 중단한다(stopTask + 합성 stopped 정착). 대안(태스크 유지)은 다음 send 의 draining
   // teardown 으로 태스크가 어차피 소리 없이 죽어 '실행 중' 거짓 표시만 남긴다.
-  const stopAndSettleAbortedTasks = async (
+  const stopAndSettleAbortedTasks = (
     turn: TurnContext<WebContents>,
     sessionId: string
-  ): Promise<void> => {
-    const ids = [...backgroundTasks.ids(sessionId)]
-    if (ids.length === 0) return
-    for (const toolUseId of ids) {
-      const taskId = turn.subagentTaskIds.get(toolUseId)
-      await stopLiveSubagent(
-        turn.live,
-        toolUseId,
-        taskId,
-        backgroundTasks.isAsyncLaunched(sessionId, toolUseId)
-      )
-      const settledEv = {
-        type: 'subagent.task',
-        sessionId,
-        toolUseId,
-        phase: 'settled',
-        status: 'stopped',
-        background: true,
-        summary: '사용자가 대기를 중단해 백그라운드 서브에이전트를 중지했습니다.'
-      } as const
-      settleSubagentTask(turn, emitTurn, settledEv)
-      emitTurn(turn, settledEv)
-    }
-    backgroundTasks.clear(sessionId)
-  }
+  ): Promise<void> =>
+    settleTrackedTasks(turn, emitTurn, sessionId, backgroundTasks, {
+      status: 'stopped',
+      summary: '사용자가 대기를 중단해 백그라운드 서브에이전트를 중지했습니다.',
+      stopLive: true
+    })
 
   // busy 세션의 send 를 pending queue 예약(held)으로 수용한다(0067 AC5 — 구 chat:steer 본체).
   // 구조 페이로드: 첨부도 추출해 함께 적재 — 게이트 flush 시 content 블록으로 주입된다.
@@ -598,7 +572,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
     // 0136 — 콜드 spawn 경계 = in-process 백그라운드 태스크 소멸. 이전 채널이 남긴 미정착
     // 태스크를 정착·정리해 렌더 '실행 중' 고착과 무의미한 listen 턴 개시를 막는다.
     if (parsed.data.sessionId && !runtime.channelAlive) {
-      settleDeadBackgroundTasks(turn, parsed.data.sessionId)
+      await settleDeadBackgroundTasks(turn, parsed.data.sessionId)
     }
 
     // ── 큐 경유(0067 AC5·AC6): 모든 프롬프트는 pending queue 에 적재 후 상태별로 주입된다 ──
@@ -823,7 +797,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
       while (!activeTurn.controller.signal.aborted && activeTurn.dbSessionId) {
         const sessionId = activeTurn.dbSessionId
         // 채널이 죽었으면 in-process 백그라운드 태스크도 소멸 — 정착·정리(고착 방지, 0136).
-        if (!runtime.channelAlive) settleDeadBackgroundTasks(activeTurn, sessionId)
+        if (!runtime.channelAlive) await settleDeadBackgroundTasks(activeTurn, sessionId)
         // 다음 스텝 판정(순수, 0143) — pushTurn 은 "CLI 유휴 + 백로그 없음" 채널에서만(버그 a).
         const step = decidePostTurnStep({
           havePending: pendingMessages.pending(sessionId).length > 0,

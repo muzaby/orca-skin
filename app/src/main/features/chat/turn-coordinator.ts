@@ -18,7 +18,8 @@ import type { TurnContext } from '../../contracts/turn'
 import type { RuntimeLiveTurn } from '../../contracts/ports'
 import { createStallTimer, type StallTimer } from './timers'
 import { turnPolicyFor, type TurnKind } from './turn-policy'
-import { isAsyncLaunchResult, type BackgroundTaskPort } from './background-tasks'
+import type { BackgroundTaskPort } from './background-tasks'
+import { isAsyncLaunchedPayload } from '../../../shared/subagent'
 import { coerceStoppedToolCompletion } from './subagent-settlement'
 import { settleOpenToolRuns, settleSubagentTask, stopLiveSubagent } from './settle'
 import type { TurnEventSink, TurnPersistSink } from './turn-sinks'
@@ -102,7 +103,7 @@ export interface TurnCoordinatorDeps<W> {
   pendingMessages?: PendingMessageQueue
   // 세션별 미정착 백그라운드 서브에이전트 추적 포트(0136) — started/settled 를 이벤트 루프에서
   // 갱신하고, chat-turn 의 턴-후 루프가 listen 턴 개시 조건으로 조회한다.
-  backgroundTasks?: BackgroundTaskPort
+  backgroundTasks: BackgroundTaskPort
 }
 
 export class TurnCoordinator<W = unknown> {
@@ -257,8 +258,7 @@ export class TurnCoordinator<W = unknown> {
               coerced.type === 'subagent.task' &&
               coerced.phase === 'settled' &&
               turn.dbSessionId &&
-              this.deps.backgroundTasks?.isAsyncLaunched(turn.dbSessionId, coerced.toolUseId) ===
-                true
+              this.deps.backgroundTasks.isAsyncLaunched(turn.dbSessionId, coerced.toolUseId)
                 ? { ...coerced, background: true }
                 : coerced
             eventsReceived += 1
@@ -326,9 +326,9 @@ export class TurnCoordinator<W = unknown> {
             // 자연 소거된다.
             if (ev.type === 'subagent.task' && turn.dbSessionId) {
               if (ev.phase === 'started') {
-                this.deps.backgroundTasks?.started(turn.dbSessionId, ev.toolUseId)
+                this.deps.backgroundTasks.started(turn.dbSessionId, ev.toolUseId)
               } else if (ev.phase === 'settled') {
-                this.deps.backgroundTasks?.settled(turn.dbSessionId, ev.toolUseId)
+                this.deps.backgroundTasks.settled(turn.dbSessionId, ev.toolUseId)
               }
             }
             // 서브에이전트(Task) task_id 매핑 — stopSubagent 가 toolUseId 로 찾는다. 이미 중단
@@ -342,8 +342,7 @@ export class TurnCoordinator<W = unknown> {
                   ev.taskId,
                   // per-task 관측(0143) — 영수증이 확인된 태스크만 backgroundTask 선행을 생략.
                   turn.dbSessionId
-                    ? (this.deps.backgroundTasks?.isAsyncLaunched(turn.dbSessionId, ev.toolUseId) ??
-                        false)
+                    ? this.deps.backgroundTasks.isAsyncLaunched(turn.dbSessionId, ev.toolUseId)
                     : false
                 )
               }
@@ -373,10 +372,10 @@ export class TurnCoordinator<W = unknown> {
               // 추적에 없어 no-op. 런치 영수증(async_launched)은 아직 실행 중 — 해제하지 않고
               // **background 확정 관측**으로 기록한다(0143 — stop 분기·settled enrich 의 신호).
               if (turn.dbSessionId) {
-                if (isAsyncLaunchResult(ev.result)) {
-                  this.deps.backgroundTasks?.markAsyncLaunched(turn.dbSessionId, ev.toolRunId)
+                if (isAsyncLaunchedPayload(ev.result)) {
+                  this.deps.backgroundTasks.markAsyncLaunched(turn.dbSessionId, ev.toolRunId)
                 } else {
-                  this.deps.backgroundTasks?.settled(turn.dbSessionId, ev.toolRunId)
+                  this.deps.backgroundTasks.settled(turn.dbSessionId, ev.toolRunId)
                 }
               }
             }
