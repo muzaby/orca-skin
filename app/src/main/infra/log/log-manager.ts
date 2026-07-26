@@ -46,8 +46,6 @@ export class LogManager {
   private readonly appVersion: string
   private readonly sessionId: string
   private readonly dev: boolean
-  // orca.json debug 스위치(0144). dev 는 항상 debug 라 이 값은 prod 에서만 minRank 를 올린다.
-  private debugEnabled = false
   private minRank: number
   private readonly consoleMirror?: (record: LogRecord) => void
   private readonly suppressor: RepeatSuppressor
@@ -74,10 +72,10 @@ export class LogManager {
   }
 
   // orca.json debug 플래그 런타임 반영(0144). 부팅 시 config 로드 후 컴포지션 루트가 호출한다
-  // (initLog 가 config 로드보다 먼저라 생성자 주입 불가). dev 는 항상 debug 유지.
+  // (initLog 가 config 로드보다 먼저라 생성자 주입 불가). dev 는 항상 debug 유지 — 이 스위치는
+  // prod 에서만 minRank 를 올린다. minRank 가 유일한 상태다(플래그를 따로 들지 않는다).
   setDebugEnabled(on: boolean): void {
-    this.debugEnabled = on
-    this.minRank = LEVEL_RANK[this.dev || this.debugEnabled ? 'debug' : 'info']
+    this.minRank = LEVEL_RANK[this.dev || on ? 'debug' : 'info']
   }
 
   emit(input: LogInput, source: LogSource): void {

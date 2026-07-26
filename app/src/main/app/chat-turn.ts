@@ -840,22 +840,27 @@ export function registerChatHandlers(deps: ChatDeps): void {
           const listenTurn = makeContinuationTurn(activeTurn)
           supervisor.startResume(sessionId, listenTurn)
           activeTurn = listenTurn
+          // listen 요청은 **최소 리터럴**로 조립한다(0149) — 원 턴 request 를 spread 하면 그
+          // 턴의 base64 첨부(수 MB)가 listen phase(분 단위) 내내 살아남는다. listen 경로가
+          // 실제로 읽는 것은 프레임 위임(requestApproval·takeSteerFlush)·관측 메타뿐이다.
           const listenRequest: TurnRequest = {
-            ...request,
             sessionId,
-            listen: true,
             text: '',
-            signal: listenTurn.controller.signal
+            cwd: request.cwd,
+            extensions: request.extensions,
+            signal: listenTurn.controller.signal,
+            ...(request.model !== undefined ? { model: request.model } : {}),
+            ...(request.requestApproval ? { requestApproval: request.requestApproval } : {}),
+            ...(request.takeSteerFlush ? { takeSteerFlush: request.takeSteerFlush } : {})
           }
-          delete listenRequest.forkFrom
-          delete listenRequest.handoff
-          delete listenRequest.preludes
-          delete listenRequest.promptUuid
           // busy send 릴리즈 밸브 — 예약(held) 적재 직후 listen 프레임을 닫아 즉시 전환(0136).
           // CLI 가 자동 턴 진행 중이면 no-op(0143 유예) — terminal 자연 마감 후 루프가 flush.
           listenRelease.set(sessionId, () => runtime.endListenFrame())
           try {
-            await coordinator.run(listenTurn, listenRequest, { boundProjectId })
+            await coordinator.run(listenTurn, listenRequest, {
+              boundProjectId,
+              kind: 'listen'
+            })
           } finally {
             listenRelease.delete(sessionId)
             supervisor.release(listenTurn)

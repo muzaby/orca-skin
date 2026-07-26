@@ -340,7 +340,7 @@ describe('SessionRuntime provider 경계 respawn(0118)', () => {
 // 0136 — listen 턴: 입력 push 없이 살아있는 채널 프레임만 소비. 백그라운드 서브에이전트의
 // CLI 자동 턴(진행·task_notification·완료 알림 턴)을 라이브 배달한다.
 describe('SessionRuntime listen 턴(0136)', () => {
-  const listenReq = (): TurnRequest => ({ ...req(), listen: true, text: '' })
+  const listenReq = (): TurnRequest => ({ ...req(), text: '' })
 
   it('채널 생존 중 listen 은 push 없이 프레임을 열어 이벤트를 소비한다', async () => {
     const ch = channelLive()
@@ -349,7 +349,7 @@ describe('SessionRuntime listen 턴(0136)', () => {
     ch.emit({ type: 'telemetry', sessionId: 's1' })
     await f1
 
-    const fl = collect(runtime.send(listenReq()))
+    const fl = collect(runtime.listen(listenReq()))
     await tick()
     expect(ch.pushed).toEqual([]) // 입력 주입 없음
     ch.emit({
@@ -376,7 +376,7 @@ describe('SessionRuntime listen 턴(0136)', () => {
     ch.emit({ type: 'session.updated', sessionId: 's1', patch: {} })
     await tick()
 
-    const fl = collect(runtime.send(listenReq()))
+    const fl = collect(runtime.listen(listenReq()))
     ch.emit({ type: 'telemetry', sessionId: 's1' })
     const events = await fl
     expect(events.map((e) => e.type)).toEqual(['session.updated', 'telemetry'])
@@ -386,7 +386,7 @@ describe('SessionRuntime listen 턴(0136)', () => {
     const ch = channelLive()
     const runtime = new SessionRuntime(adapter(ch.liveTurn))
     // 아직 채널 미개설(첫 send 전) — pushTurn 지원 어댑터라도 pump 미가동.
-    const events = await collect(runtime.send(listenReq()))
+    const events = await collect(runtime.listen(listenReq()))
     expect(events).toEqual([])
     expect(ch.pushed).toEqual([])
   })
@@ -398,7 +398,7 @@ describe('SessionRuntime listen 턴(0136)', () => {
     ch.emit({ type: 'telemetry', sessionId: 's1' })
     await f1
 
-    const fl = collect(runtime.send(listenReq()))
+    const fl = collect(runtime.listen(listenReq()))
     await tick()
     // 릴리즈 밸브 — busy send 예약이 listen 프레임을 닫는다(terminal 없이).
     runtime.endListenFrame()
@@ -433,7 +433,7 @@ describe('SessionRuntime listen 턴(0136)', () => {
 // 런타임측 차단. mid auto-turn 에 listen 프레임을 닫고 pushTurn 하면 auto-turn 의 잔여/terminal
 // 이 steer 프레임으로 오귀속되던 경로를 "busy 면 밸브 no-op → terminal 자연 마감" 으로 막는다.
 describe('SessionRuntime channelBusy + 밸브 유예(0143)', () => {
-  const listenReq = (): TurnRequest => ({ ...req(), listen: true, text: '' })
+  const listenReq = (): TurnRequest => ({ ...req(), text: '' })
 
   it('비-terminal 최상위 이벤트에 busy, terminal 에 유휴로 굴린다', async () => {
     const ch = channelLive()
@@ -456,7 +456,7 @@ describe('SessionRuntime channelBusy + 밸브 유예(0143)', () => {
     ch.emit({ type: 'telemetry', sessionId: 's1' })
     await f1
 
-    const fl = collect(runtime.send(listenReq()))
+    const fl = collect(runtime.listen(listenReq()))
     await tick()
     // 백그라운드 태스크의 child 스트림·진행 신호만 흐르는 구간 — CLI 메인 루프는 유휴.
     ch.emit({ type: 'subagent.task', sessionId: 's1', toolUseId: 'p1', phase: 'progress' })
@@ -483,7 +483,7 @@ describe('SessionRuntime channelBusy + 밸브 유예(0143)', () => {
     ch.emit({ type: 'telemetry', sessionId: 's1' })
     await f1
 
-    const fl = collect(runtime.send(listenReq()))
+    const fl = collect(runtime.listen(listenReq()))
     await tick()
     // CLI 자동(알림) 턴 진행 중 — 최상위 스트림 이벤트가 흐른다.
     ch.emit({ type: 'message.delta', sessionId: 's1', delta: { text: '알림 턴' } })
@@ -518,7 +518,7 @@ describe('SessionRuntime channelBusy + 밸브 유예(0143)', () => {
     await tick()
     expect(runtime.hasUnframedBacklog).toBe(true)
 
-    const fl = collect(runtime.send(listenReq()))
+    const fl = collect(runtime.listen(listenReq()))
     await tick()
     expect(runtime.hasUnframedBacklog).toBe(false) // 백로그 선합류
     ch.emit({ type: 'telemetry', sessionId: 's1' })
