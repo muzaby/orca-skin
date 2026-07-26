@@ -72,14 +72,3 @@ export class BackgroundTaskTracker implements BackgroundTaskPort {
     this.bySession.delete(sessionId)
   }
 }
-
-// 값이 백그라운드 런치 영수증({status:'async_launched', …})인지 — claude-map(0136)이 구조화
-// tool_use_result 를 result 로 실은 경우를 코디네이터가 판별한다(권위 결과와 구분해 추적 해제를
-// 미룸). renderer 의 isAsyncLaunchedResult(parts.ts)와 동형 — 레이어가 달라 각자 소유한다.
-export function isAsyncLaunchResult(value: unknown): boolean {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    (value as { status?: unknown }).status === 'async_launched'
-  )
-}

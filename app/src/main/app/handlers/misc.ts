@@ -50,7 +50,7 @@ import { isWithinDir, projectsDir } from '../../infra/config/paths'
 import { promises as fs } from 'node:fs'
 import type { RouterContext } from '../context'
 import { sendInstallStatus, setWireLog } from '../../infra/ipc/send'
-import { setWireSink, stripMessageContent } from '../../infra/ipc/wire-log'
+import { setWireSink } from '../../infra/ipc/wire-log'
 import { handle, handlePlain } from '../../infra/ipc/handle'
 import { getLogger, setConsoleMirror } from '../../infra/log'
 import { getOrcaConfig } from '../../infra/config/orca-config'
@@ -334,13 +334,13 @@ export function registerMiscHandlers(ctx: RouterContext): void {
       return { ...ctx.debugMock }
     })
   } else if (getOrcaConfig().debug === true) {
-    // prod: orca.json "debug":true 면 wire 이벤트를 파일에 남긴다(0144) — 단 sink 에서
-    // stripMessageContent 로 메시지 본문을 제거한다(비내용 메타는 유지). 파일 레벨을 debug 로
-    // 올리는 것은 bootstrap 의 setLogDebug 담당(레벨이 info 면 이 debug 레코드는 드롭됨).
-    setWireSink((label, data) =>
-      getLogger()
-        .child('ipc')
-        .debug('ipc.wire.event', { type: label, data: stripMessageContent(data) })
+    // prod: orca.json "debug":true 면 wire 이벤트를 파일에 남긴다(0144) — 메시지 본문 제거는
+    // redact 옵션으로 선언하고 wire-log 가 적용한다(0149). 파일 레벨을 debug 로 올리는 것은
+    // bootstrap 의 setLogDebug 담당(레벨이 info 면 이 debug 레코드는 드롭됨).
+    setWireSink(
+      (label, data) =>
+        getLogger().child('ipc').debug('ipc.wire.event', { type: label, payload: data }),
+      { redact: true }
     )
     setWireLog(true)
   }
