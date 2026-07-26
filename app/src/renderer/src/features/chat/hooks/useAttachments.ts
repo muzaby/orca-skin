@@ -2,7 +2,6 @@ import { useRef, useState, type ClipboardEvent } from 'react'
 import { fileApi } from '../../../shared/api/ipc'
 import { downscaleDataUrl } from '../lib/imageThumb'
 import type { AttachmentView, ComposerAttachment } from '../../../../../shared/ipc'
-import { clearAttachmentsIfUnchanged } from './attachmentState'
 
 // 컴포저의 첨부 lifecycle(다이얼로그/DnD/붙여넣기 3경로 수집 · 미리보기 · 제거 · 전송용 뷰 빌드)를
 // 한곳에 가둔다. 컴포저는 입력 합성에 집중하고, 첨부 상태/핸들러는 이 훅이 소유한다(AGENTS.md §5 분해).
@@ -16,7 +15,6 @@ export interface UseAttachments {
   addDroppedFiles: (files: FileList) => Promise<void>
   onPaste: (event: ClipboardEvent<HTMLDivElement>) => void
   buildAttachmentViews: (items: ComposerAttachment[]) => Promise<AttachmentView[]>
-  reset: () => void
   resetIfUnchanged: (expected: ComposerAttachment[]) => boolean
 }
 
@@ -155,18 +153,13 @@ export function useAttachments(): UseAttachments {
       })
     )
 
-  const reset = (): void => {
-    commitAttachments([])
-    setAttachmentPreviews({})
-  }
-
   // attachment view 생성은 비동기다. 그 사이 새 첨부가 추가/제거됐다면 전송 당시 배열만
   // 지운다는 보장이 없으므로 clear를 거부한다. controller가 draft revision과 함께 검사해
-  // text+attachments를 하나의 submit snapshot처럼 다룬다.
+  // text+attachments를 하나의 submit snapshot처럼 다룬다. 배열 identity 가 optimistic
+  // concurrency token — 전송 시점 그대로일 때만 비운다.
   const resetIfUnchanged = (expected: ComposerAttachment[]): boolean => {
-    const next = clearAttachmentsIfUnchanged(attachmentsRef.current, expected)
-    if (next === null) return false
-    commitAttachments(next)
+    if (attachmentsRef.current !== expected) return false
+    commitAttachments([])
     setAttachmentPreviews({})
     return true
   }
@@ -181,7 +174,6 @@ export function useAttachments(): UseAttachments {
     addDroppedFiles,
     onPaste,
     buildAttachmentViews,
-    reset,
     resetIfUnchanged
   }
 }

@@ -31,7 +31,6 @@ interface ComposerInputSurfaceProps {
 export interface ComposerInputSurfaceHandle {
   focus(): void
   setSelectionRange(start: number, end: number): void
-  readonly element: HTMLTextAreaElement | null
 }
 
 const TYPOGRAPHY =
@@ -61,10 +60,7 @@ export const ComposerInputSurface = forwardRef<
     ref,
     () => ({
       focus: () => textareaRef.current?.focus(),
-      setSelectionRange: (start, end) => textareaRef.current?.setSelectionRange(start, end),
-      get element(): HTMLTextAreaElement | null {
-        return textareaRef.current
-      }
+      setSelectionRange: (start, end) => textareaRef.current?.setSelectionRange(start, end)
     }),
     []
   )

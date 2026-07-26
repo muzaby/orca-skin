@@ -4,10 +4,10 @@ import type { TurnRequest } from '../../adapters/turn'
 import type { TurnContext } from '../../contracts/turn'
 import {
   TurnCoordinator,
-  stallTimerFor,
   type CoordinatorRuntime,
   type TurnCoordinatorDeps
 } from './turn-coordinator'
+import { turnPolicyFor } from './turn-policy'
 import { STALL_TIMEOUT_MS } from './timers'
 import { BackgroundTaskTracker } from './background-tasks'
 import { TypedBus } from '../../infra/bus'
@@ -46,6 +46,17 @@ function fakeRuntime(
       next: async () => ({ done: true, value: undefined as never })
     })
   }
+  const nextScript = (): AsyncIterable<NormalizedEvent> => {
+    const script = scripts[sendCount] ?? scripts[scripts.length - 1]
+    sendCount += 1
+    return (async function* () {
+      if (typeof script === 'function') {
+        script() // 동기 throw — 첫 .next() 에서 터진다
+        return
+      }
+      for (const ev of script) yield ev
+    })()
+  }
   return {
     get sendCount() {
       return sendCount
@@ -60,17 +71,9 @@ function fakeRuntime(
     stopTask: stub,
     backgroundTask: async () => false,
     markAborted: () => {},
-    send: () => {
-      const script = scripts[sendCount] ?? scripts[scripts.length - 1]
-      sendCount += 1
-      return (async function* () {
-        if (typeof script === 'function') {
-          script() // 동기 throw — 첫 .next() 에서 터진다
-          return
-        }
-        for (const ev of script) yield ev
-      })()
-    }
+    send: nextScript,
+    // listen 턴도 같은 스크립트를 소비한다 — 코디네이터 관점에서 프레임 소스만 다르다.
+    listen: nextScript
   } as unknown as CoordinatorRuntime & { sendCount: number }
 }
 
@@ -681,34 +684,69 @@ describe('TurnCoordinator — settled background enrich + listen 회계 (0143)',
 
     await new TurnCoordinator(deps).run(
       makeTurn(),
-      { ...REQUEST, listen: true, text: '' },
-      { boundProjectId: null }
+      { ...REQUEST, text: '' },
+      { boundProjectId: null, kind: 'listen' }
     )
     expect(deps.activeTurns.increment).not.toHaveBeenCalled()
     expect(deps.activeTurns.decrement).not.toHaveBeenCalled()
   })
+
+  it('listen 턴은 send 가 아니라 runtime.listen 으로 프레임을 연다 (0149)', async () => {
+    const runtime = fakeRuntime([[telemetry]])
+    const sendSpy = vi.spyOn(runtime, 'send')
+    const listenSpy = vi.spyOn(runtime, 'listen')
+    const deps = makeDeps(runtime)
+
+    await new TurnCoordinator(deps).run(
+      makeTurn(),
+      { ...REQUEST, text: '' },
+      { boundProjectId: null, kind: 'listen' }
+    )
+    expect(listenSpy).toHaveBeenCalledTimes(1)
+    expect(sendSpy).not.toHaveBeenCalled()
+  })
 })
 
-describe('stallTimerFor — listen 턴 stall 미무장 (0136)', () => {
+// 0149 — 턴 종류별 정책이 turn-policy 단일 지점으로 올라갔다(구 stallTimerFor + 산재한
+// `request.listen !== true` 판정). stall 무장·동시 턴 계상 규칙을 여기서 고정한다.
+describe('turnPolicyFor — 턴 종류별 정책 (0149, 구 0136 stallTimerFor)', () => {
+  it('listen 턴은 stall 미무장 · 동시 턴 미계상 · 입력 미push', () => {
+    expect(turnPolicyFor('listen')).toEqual({
+      armStall: false,
+      countsAsActive: false,
+      pushesInput: false
+    })
+  })
+
+  it('user·continuation 턴은 stall 무장 · 동시 턴 계상 · 입력 push', () => {
+    for (const kind of ['user', 'continuation'] as const) {
+      expect(turnPolicyFor(kind)).toEqual({
+        armStall: true,
+        countsAsActive: true,
+        pushesInput: true
+      })
+    }
+  })
+})
+
+describe('TurnCoordinator — listen 턴 stall 미무장 (0136)', () => {
   beforeEach(() => vi.useFakeTimers())
   afterEach(() => vi.useRealTimers())
 
-  it('listen=true 는 no-op 타이머 — reset 후 STALL_TIMEOUT 경과에도 abort 하지 않는다', () => {
+  it('listen 턴은 STALL_TIMEOUT 경과에도 abort 하지 않는다', async () => {
     const turn = makeTurn()
     turn.dbSessionId = 's1'
-    const timer = stallTimerFor(true, turn)
-    timer.reset()
+    const deps = makeDeps(fakeRuntime([[telemetry]]))
+
+    await new TurnCoordinator(deps).run(
+      turn,
+      { ...REQUEST, text: '' },
+      {
+        boundProjectId: null,
+        kind: 'listen'
+      }
+    )
     vi.advanceTimersByTime(STALL_TIMEOUT_MS + 1_000)
     expect(turn.controller.signal.aborted).toBe(false)
-  })
-
-  it('listen 아님(undefined) 은 실제 stall 타이머 — 경과 시 abort 한다', () => {
-    const turn = makeTurn()
-    turn.dbSessionId = 's1'
-    const timer = stallTimerFor(undefined, turn)
-    timer.reset()
-    vi.advanceTimersByTime(STALL_TIMEOUT_MS + 1_000)
-    expect(turn.controller.signal.aborted).toBe(true)
-    timer.clear()
   })
 })

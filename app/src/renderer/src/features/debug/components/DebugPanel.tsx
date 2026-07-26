@@ -78,13 +78,15 @@ export function DebugPanel({
         onChange={(v) => setTweak('theme', v)}
       />
       <PanelSection label={tr('debug.layoutSection')} />
+      {/* 같은 t.density Tweak 을 설정 화면(GeneralTab)도 노출한다(0132) — 라벨은 설정 쪽
+          키 집합을 단일 출처로 쓴다(0149, 구 debug.density* 중복 제거). */}
       <PanelRadio
-        label={tr('debug.density')}
+        label={tr('settings.general.density')}
         value={t.density}
         options={[
-          { value: 'compact', label: tr('debug.densityCompact') },
-          { value: 'normal', label: tr('debug.densityNormal') },
-          { value: 'comfortable', label: tr('debug.densityComfortable') }
+          { value: 'compact', label: tr('settings.general.densityCompact') },
+          { value: 'normal', label: tr('settings.general.densityNormal') },
+          { value: 'comfortable', label: tr('settings.general.densityComfortable') }
         ]}
         onChange={(v) => setTweak('density', v)}
       />

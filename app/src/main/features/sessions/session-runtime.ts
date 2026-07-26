@@ -187,31 +187,41 @@ export class SessionRuntime implements ManagedRuntime {
     return this.runAttempt(req)
   }
 
-  private async *runAttempt(req: TurnRequest): AsyncIterable<NormalizedEvent> {
+  // listen 턴(0136) — 입력을 push 하지 않고 프레임만 열어 CLI 가 스스로 여는 자동 턴(백그라운드
+  // 서브에이전트 진행·task_notification·완료 알림 턴)을 소비한다. 채널이 없거나 죽었으면 들을
+  // 것이 없다 — 즉시 종료(mock/oneshot 포함 자연 무해). 유휴 중 쌓인 백로그(unframed)는
+  // openFrame 이 선합류하므로 적체분도 이 프레임으로 배달된다.
+  // send() 의 모드 플래그가 아니라 별도 메서드다(0149) — 어댑터 계약에 listen 불리언을 싣지 않는다.
+  listen(req: TurnRequest): AsyncIterable<NormalizedEvent> {
+    return this.runListen(req)
+  }
+
+  private async *runListen(req: TurnRequest): AsyncIterable<NormalizedEvent> {
     this.status.beginSend()
+    this.adoptDelegate(req)
+    if (!this.pumpRunning || this.live == null) {
+      this.status.markLive()
+      return
+    }
+    const frame = this.openFrame()
+    this.listenFrame = frame
+    try {
+      yield* this.consumeFrame(frame)
+    } finally {
+      if (this.listenFrame === frame) this.listenFrame = null
+    }
+  }
+
+  private adoptDelegate(req: TurnRequest): void {
     this.delegate = {
       ...(req.requestApproval ? { requestApproval: req.requestApproval } : {}),
       ...(req.takeSteerFlush ? { takeSteerFlush: req.takeSteerFlush } : {})
     }
+  }
 
-    // listen 턴(0136) — 입력을 push 하지 않고 프레임만 열어 CLI 가 스스로 여는 자동 턴(백그라운드
-    // 서브에이전트 진행·task_notification·완료 알림 턴)을 소비한다. 채널이 없거나 죽었으면 들을
-    // 것이 없다 — 즉시 종료(mock/oneshot 포함 자연 무해). 유휴 중 쌓인 백로그(unframed)는
-    // openFrame 이 선합류하므로 적체분도 이 프레임으로 배달된다.
-    if (req.listen === true) {
-      if (!this.pumpRunning || this.live == null) {
-        this.status.markLive()
-        return
-      }
-      const frame = this.openFrame()
-      this.listenFrame = frame
-      try {
-        yield* this.consumeFrame(frame)
-      } finally {
-        if (this.listenFrame === frame) this.listenFrame = null
-      }
-      return
-    }
+  private async *runAttempt(req: TurnRequest): AsyncIterable<NormalizedEvent> {
+    this.status.beginSend()
+    this.adoptDelegate(req)
 
     // draining(직전 턴 잔여 드랍) 중의 새 턴은 이벤트 소속 구분이 불가 — 채널 respawn(안전 열화).
     if (this.draining) this.teardownChannel()

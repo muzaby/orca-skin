@@ -17,6 +17,7 @@ import { getLogger } from '../../infra/log/registry'
 import type { TurnContext } from '../../contracts/turn'
 import type { RuntimeLiveTurn } from '../../contracts/ports'
 import { createStallTimer, type StallTimer } from './timers'
+import { turnPolicyFor, type TurnKind } from './turn-policy'
 import { isAsyncLaunchResult, type BackgroundTaskPort } from './background-tasks'
 import { coerceStoppedToolCompletion } from './subagent-settlement'
 import { settleOpenToolRuns, settleSubagentTask, stopLiveSubagent } from './settle'
@@ -48,14 +49,6 @@ const NOOP_STALL_TIMER: StallTimer = {
   beginPause: () => () => {}
 }
 
-// attempt 별 stall 타이머 선택 — listen 턴만 no-op(순수, 테스트 대상).
-export function stallTimerFor(
-  listen: boolean | undefined,
-  turn: Parameters<typeof createStallTimer>[0]
-): StallTimer {
-  return listen === true ? NOOP_STALL_TIMER : createStallTimer(turn)
-}
-
 // retry backoff 대기 — 턴 abort 시 즉시 reject 해 무의미한 대기를 끊는다.
 export function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -79,6 +72,11 @@ export function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
 // send() 1회 = adapter attempt 1회. retry(외부 재시도)는 코디네이터가 소유한다.
 export interface CoordinatorRuntime extends RuntimeLiveTurn {
   send(req: TurnRequest): AsyncIterable<NormalizedEvent>
+  // listen 턴(0136) — 입력을 push 하지 않고 살아있는 채널의 프레임만 열어 CLI 가 스스로 여는
+  // 자동 턴(백그라운드 서브에이전트 진행·task_notification·완료 알림 턴)을 소비한다. 어댑터
+  // 계약(TurnRequest)의 모드 플래그가 아니라 런타임의 1급 능력이다(0149) — 어댑터가 결코 읽지
+  // 않는 `listen` 불리언을 TurnRequest 에 싣는 대신 별도 메서드로 분리한다.
+  listen(req: TurnRequest): AsyncIterable<NormalizedEvent>
 }
 
 // 프로젝트별 active turn 회계 포트 — lifecycle ActiveTurnTracker 가 만족.
@@ -191,10 +189,13 @@ export class TurnCoordinator<W = unknown> {
   async run(
     turn: TurnContext<W>,
     request: TurnRequest,
-    opts: { boundProjectId: string | null }
+    opts: { boundProjectId: string | null; kind?: TurnKind }
   ): Promise<void> {
     const { runtime, persist, forward, registry, classifyError, activeTurns } = this.deps
     const { boundProjectId } = opts
+    // 턴 종류별 정책은 turn-policy 단일 지점이 소유한다(0149) — stall 무장·동시 턴 계상·입력 push.
+    const kind: TurnKind = opts.kind ?? 'user'
+    const policy = turnPolicyFor(kind)
 
     // chat 턴 경계(0124 카탈로그) — started/completed/failed/cancelled 메타만 기록(원문 금지).
     // correlationId 는 chat-turn 의 runWithLogContext 컨텍스트에서 자동 주입된다(AC4).
@@ -211,7 +212,7 @@ export class TurnCoordinator<W = unknown> {
       ...(request.sessionId ? { sessionId: request.sessionId } : {}),
       ...(request.model !== undefined ? { model: request.model } : {}),
       // listen 턴(0136) — 입력 없는 백그라운드 소비 턴 관측 구분.
-      ...(request.listen === true ? { listen: true } : {})
+      ...(kind === 'listen' ? { listen: true } : {})
     })
 
     // 턴-시작 배치(프렐류드+프롬프트)는 **응답 시작 = 소비 증거**(0069, 사용자 확정) — 모델이
@@ -232,15 +233,15 @@ export class TurnCoordinator<W = unknown> {
       let sawTerminal = false
       // listen 턴은 stall 미무장(0136) — 백그라운드 대기의 장시간 침묵을 '응답 없음'으로 오판해
       // 채널을 interrupt 하지 않는다.
-      const idle = stallTimerFor(request.listen, turn)
+      const idle = policy.armStall ? createStallTimer(turn) : NOOP_STALL_TIMER
       this.activeStall = idle
       try {
         // send() 가 query() 를 즉시 시작하므로 try 안에서 호출 — 동기 throw 도 동일 경로로 분류.
         turn.live = runtime
-        const events = runtime.send(request)
+        const events = policy.pushesInput ? runtime.send(request) : runtime.listen(request)
         // listen 턴(0143)은 동시 턴 회계에 계상하지 않는다 — 백그라운드 대기는 사용자 관점의
         // "진행 중 작업" 이 아니라 수신 대기라, 프로젝트 동시 턴 경고를 오점화하지 않는다.
-        if (request.listen !== true) activeTurns.increment(boundProjectId)
+        if (policy.countsAsActive) activeTurns.increment(boundProjectId)
         try {
           idle.reset()
           for await (const rawEv of events) {
@@ -384,7 +385,7 @@ export class TurnCoordinator<W = unknown> {
             if (ev.type === 'telemetry') this.commitConsumed(turn)
           }
         } finally {
-          if (request.listen !== true) activeTurns.decrement(boundProjectId)
+          if (policy.countsAsActive) activeTurns.decrement(boundProjectId)
         }
         // 스트림이 terminal 없이 끝났고 abort 도 아니면 합성 telemetry 로 턴을 마감(버스 팬아웃).
         if (!sawTerminal && !turn.controller.signal.aborted) {

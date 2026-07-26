@@ -340,10 +340,6 @@ export const en: typeof ko = {
     themeSection: 'Theme',
     palette: 'Color palette',
     layoutSection: 'Layout',
-    density: 'Density',
-    densityCompact: 'Compact',
-    densityNormal: 'Normal',
-    densityComfortable: 'Comfortable',
     scenarios: {
       text_streaming: 'Text streaming',
       reasoning: 'Reasoning block',

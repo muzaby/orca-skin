@@ -378,15 +378,9 @@ function receive(ev: NormalizedEvent): void {
     dispatchTo(key, { type: 'BEGIN_TURN' })
   }
 
+  // 델타(message.delta·message.reasoning.delta)는 여기 오지 않는다 — 코얼레서가 전량
+  // receiveDeltaBatch 로 라우팅한다(sink.emit=receive 는 비-델타 전용).
   switch (ev.type) {
-    case 'message.delta':
-      patchLive(key, (live) => ({ ...live, text: live.text + ev.delta.text }))
-      return
-
-    case 'message.reasoning.delta':
-      patchLive(key, (live) => ({ ...live, reasoning: live.reasoning + ev.delta.text }))
-      return
-
     case 'message.completed':
       // 완성본(ev.message.text)이 text 파트로 커밋되므로 라이브 프리뷰는 비운다. 단,
       // 서브에이전트(Task) child 텍스트(parentToolRunId)는 메인 스트리밍이 아니므로 메인

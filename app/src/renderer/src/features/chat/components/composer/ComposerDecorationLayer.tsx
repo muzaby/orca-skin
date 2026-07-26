@@ -9,13 +9,11 @@ interface ComposerDecorationLayerProps {
   typographyClassName: string
 }
 
-const EMPTY_SET: ReadonlySet<string> = new Set()
-
 // 파생 장식은 native textarea 아래에 배경만 그린다. 실제 glyph와 caret은 textarea가
 // 소유하므로 장식 계산이 늦거나 실패해도 입력 피드백은 지연되지 않는다.
 export const ComposerDecorationLayer = forwardRef<HTMLDivElement, ComposerDecorationLayerProps>(
   function ComposerDecorationLayer(
-    { snapshot, knownSkillNames = EMPTY_SET, validFilePaths = EMPTY_SET, typographyClassName },
+    { snapshot, knownSkillNames, validFilePaths, typographyClassName },
     ref
   ): React.JSX.Element {
     const deferredSnapshot = useDeferredValue(snapshot)

@@ -339,10 +339,6 @@ export const ko = {
     themeSection: '테마',
     palette: '컬러 팔레트',
     layoutSection: '레이아웃',
-    density: '밀도',
-    densityCompact: '조밀',
-    densityNormal: '보통',
-    densityComfortable: '넓게',
     scenarios: {
       text_streaming: '텍스트 스트리밍',
       reasoning: '추론 블록',
