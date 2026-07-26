@@ -40,7 +40,7 @@
 | hook 타입 3종 import (가드 훅) | `workspace-guard.ts:15-19` |
 | `SDKUserMessage` — 입력 스트림 요소 | `streaming-input.ts:11` |
 | `SDKMessage` — 출력 스트림 소비 | `claude-map.ts:10` |
-| 패키지/바이너리 해석 (`require.resolve` + asar 언팩 리맵) | `claude-executable.ts:16,20-22` |
+| 패키지/바이너리 해석 (`require.resolve` + asar 언팩 리맵) | `claude-executable.ts:16,19-21` |
 | 버전 read (`package.json`) | `claude.ts:197` |
 | base SDK `@anthropic-ai/sdk` 타입 2종 (`MessageParam`·`Base64ImageSource`) | `streaming-input.ts:12`, `claude.ts:24` |
 | `query()` 호출은 **정확히 2경로** — `runCompletion`(1-shot) / `sendMessage`(장수명 채널) | `claude.ts:230-248`, `:322-391` |
@@ -86,7 +86,7 @@
 5. **`api/01`~`07` 에 `app/src/` 인용·"Orca"·"어댑터"·`orca:` 채널명이 0** — `grep` 빈 출력로 기계 검증.
 6. **딥다이브 깊이** — `api/01`~`07` 이 각각 6단 골격(①시그니처 ②SDK 내부 콜스택 ③wire 프레임 ④구현 디테일 ⑤다이어그램 ⑥관측 불가 구간)을 **모두** 채운다. ②는 `sdk.mjs` 식별자/로그 문자열 인용을 최소 1건, ⑥은 "코드에서 확인 안 됨" 항목을 최소 1건 포함한다. 시그니처 요약 수준은 FAIL.
 7. 사용 중인 SDK 심볼이 **빠짐없이** 어느 api 문서엔가 배정된다 — `query` · `Query` 메서드 5종 · `CanUseTool`/`PermissionResult` · hook 타입 8종 · `SDKUserMessage` · `SDKMessage` · `Options` · 실행파일/패키지 해석 · base SDK 2타입.
-8. 신규 mermaid **10개**(flowchart 6 · sequence 3 · state 1)가 인라인이며 문법 오류가 없다.
+8. 신규 mermaid **10개**(flowchart 5 · sequence 4 · state 1)가 인라인이며 문법 오류가 없다.
 9. `api/README.md` 가 목차 + 근거 등급 상속 고지 + 1부 상호참조표 + 스냅샷 고지를 담는다.
 10. 루트 `README.md` 에 2부 행이 추가되고 다이어그램 수가 19 로 갱신된다. **범위 절과 01~07 본문은 무변경.**
 11. `docs/AGENTS.md` 인벤토리 행이 1부/2부 구조로 갱신된다.
