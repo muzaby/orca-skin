@@ -16,6 +16,7 @@ import type {
 } from '../../shared/ipc'
 import { isRecord } from '../../shared/obj'
 import { isAsyncLaunchedPayload } from '../../shared/subagent'
+import { pickPrimaryModel } from '../../shared/usage/primary-model'
 import { makeClassifiedError } from '../infra/errors'
 import { errorEvent } from './error-classifier'
 
@@ -495,22 +496,6 @@ export function claudeToNormalized(msg: SDKMessage, ctx: MapContext): Normalized
 // modelUsage 에서 도넛 분모의 귀속 모델(primary)을 고른다 — **실사용량(input+cache_read+
 // cache_creation) 최대 엔트리**. 입력측 모델 문자열(spawnedModel=alias / message.model)과
 // SDK 가 돌려주는 modelUsage 키(해석된 ID, 예: bedrock `global.anthropic.claude-sonnet-5`)가
-// 다를 수 있음이 실측 확인돼(0141), 입력 매칭을 전면 폐기하고 SDK 출력만으로 고른다. 실사용량
-// 최대 = 실제 대화 모델(동시 실행 제목 haiku 는 소량이라 자동 배제). 복원 경로 usage-map:41
-// primaryModel 과 동형. 전부 0(사용량 미상)이면 첫 키(삽입 순서) 유지.
-function primaryModelKey(modelUsage: Record<string, TelemetryModelUsage>): string | undefined {
-  let bestKey: string | undefined
-  let bestScore = -1
-  for (const [key, mu] of Object.entries(modelUsage)) {
-    const score = (mu.inputTokens ?? 0) + (mu.cacheReadTokens ?? 0) + (mu.cacheCreationTokens ?? 0)
-    if (score > bestScore) {
-      bestScore = score
-      bestKey = key
-    }
-  }
-  return bestKey
-}
-
 // SDKResultMessage 의 사용량/비용을 ProviderReportedTelemetry 로 정규화. 의미있는 필드가 하나도
 // 없으면 undefined 반환(어댑터가 usage 를 생략 → 현행 빈 telemetry 와 동일). num 가드로 NaN 차단.
 function normalizeResultTelemetry(r: {
@@ -568,11 +553,11 @@ function normalizeResultTelemetry(r: {
     if (models.length > 0) {
       out.modelUsage = modelUsage
       // top-level model/contextWindow 승격 = 도넛 분모 소스. primary = modelUsage 실사용량 최대
-      // 엔트리(primaryModelKey, 0141) — 입력측 모델 문자열 매칭 폐기(alias↔해석 ID 불일치 실측).
+      // 엔트리(pickPrimaryModel, 0141) — 입력측 모델 문자열 매칭 폐기(alias↔해석 ID 불일치 실측).
       // 단일 모델이면 그 모델, 멀티모델이면 argmax(제목 haiku 는 소량이라 자동 배제). primary 는
       // 항상 실제 modelUsage 키라 out.model 은 유효 키 = renderer modelUsage[model] 조회·비용 원장
       // 정합. 이로써 멀티모델 턴에서도 top-level 이 항상 채워져 renderer 200k-default 붕괴가 사라진다.
-      const primary = models.length === 1 ? models[0] : primaryModelKey(modelUsage)
+      const primary = models.length === 1 ? models[0] : pickPrimaryModel(modelUsage)
       if (primary !== undefined) {
         out.model = primary
         const window = modelUsage[primary].contextWindow

@@ -1,5 +1,6 @@
 import type { ProviderReportedTelemetry, TelemetryModelUsage } from '../../../shared/ipc'
 import { ifPresent } from '../../../shared/obj'
+import { pickPrimaryModel } from '../../../shared/usage/primary-model'
 import type { TurnModelUsageRow, TurnUsageRow } from '../../infra/db/types'
 
 // 컨텍스트 점유(input + cache_read + cache_creation)가 1 이상인지 — turn_usage 적재 가드.
@@ -26,7 +27,7 @@ export function usageRowToTelemetry(
     return acc
   }, {})
 
-  const primary = primaryModel(modelRows)
+  const primary = pickPrimaryModel(modelUsage)
   return {
     ...ifPresent('model', primary),
     ...ifPresent('inputTokens', turn.input_tokens),
@@ -36,12 +37,4 @@ export function usageRowToTelemetry(
     ...ifPresent('costUsd', turn.total_cost_usd),
     ...(Object.keys(modelUsage).length > 0 ? { modelUsage } : {})
   }
-}
-
-function primaryModel(rows: TurnModelUsageRow[]): string | undefined {
-  let best: TurnModelUsageRow | undefined
-  for (const row of rows) {
-    if (!best || (row.input_tokens ?? 0) > (best.input_tokens ?? 0)) best = row
-  }
-  return best?.model
 }

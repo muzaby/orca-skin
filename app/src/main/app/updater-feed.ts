@@ -35,38 +35,26 @@ export interface ResolvedUpdateFeed {
   feed?: UpdateFeedOptions
 }
 
+// provider 별로 피드에 실어 나를 필드 목록. 세 갈래가 "값이 있는 것만 담는다" 는 같은 규칙을
+// 반복하던 것을 표로 접었다(0149) — 한 갈래에만 오타가 나서 그 provider 만 조용히 필드를
+// 흘리던 실수 모드를 없앤다. 새 필드는 여기 한 줄만 더하면 된다.
+const FEED_FIELDS = {
+  github: ['owner', 'repo', 'host', 'protocol', 'channel'],
+  generic: ['url', 'channel'],
+  s3: ['bucket', 'region', 'endpoint', 'path', 'channel']
+} as const satisfies Record<UpdateFeedOptions['provider'], readonly string[]>
+
 export function resolveUpdateFeed(update: UpdateConfig | undefined): ResolvedUpdateFeed {
   if (update?.enabled === false) return { disabled: true }
   if (!update) return { disabled: false }
-  if (update.provider === 'github') {
-    const feed: UpdateFeedOptions = {
-      provider: 'github',
-      ...(update.owner ? { owner: update.owner } : {}),
-      ...(update.repo ? { repo: update.repo } : {}),
-      ...(update.host ? { host: update.host } : {}),
-      ...(update.protocol ? { protocol: update.protocol } : {}),
-      ...(update.channel ? { channel: update.channel } : {})
-    }
-    return { disabled: false, feed }
+  const keys: readonly string[] | undefined = FEED_FIELDS[update.provider]
+  if (!keys) return { disabled: false }
+
+  const feed = { provider: update.provider } as Record<string, unknown>
+  const source = update as unknown as Record<string, unknown>
+  for (const key of keys) {
+    const value = source[key]
+    if (value) feed[key] = value
   }
-  if (update.provider === 'generic') {
-    const feed: UpdateFeedOptions = {
-      provider: 'generic',
-      ...(update.url ? { url: update.url } : {}),
-      ...(update.channel ? { channel: update.channel } : {})
-    }
-    return { disabled: false, feed }
-  }
-  if (update.provider === 's3') {
-    const feed: UpdateFeedOptions = {
-      provider: 's3',
-      ...(update.bucket ? { bucket: update.bucket } : {}),
-      ...(update.region ? { region: update.region } : {}),
-      ...(update.endpoint ? { endpoint: update.endpoint } : {}),
-      ...(update.path ? { path: update.path } : {}),
-      ...(update.channel ? { channel: update.channel } : {})
-    }
-    return { disabled: false, feed }
-  }
-  return { disabled: false }
+  return { disabled: false, feed: feed as UpdateFeedOptions }
 }

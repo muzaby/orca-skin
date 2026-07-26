@@ -8,6 +8,7 @@ export {
   chatActions,
   getActiveChatSession,
   useChatRecentsEpoch,
+  useChatBusy,
   useChatSession,
   useDraftSessionRows,
   useActiveDraftKey,

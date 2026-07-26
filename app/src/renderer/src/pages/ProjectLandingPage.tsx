@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from 'react-router-dom'
-import { chatActions, ChatTile, Composer, useChatSession } from '../features/chat'
+import { chatActions, ChatTile, Composer, useChatBusy, useChatSession } from '../features/chat'
 import { useBackendCapabilities, useBackendLabel } from '../features/backend'
 import { useProviderUsageLimits } from '../features/cost'
 import { useOpenSettings, providerTabId } from '../features/settings'
@@ -29,7 +29,8 @@ export function ProjectLandingPage(): React.JSX.Element {
   const sessionId = useChatSession((s) => s.sessionId)
   const messages = useChatSession((s) => s.messages)
   const loadingSession = useChatSession((s) => s.loadingSession)
-  const inflight = useChatSession((s) => s.inflight)
+  // 0149 — listen 대기(백그라운드 서브에이전트)도 busy(useChatBusy 단일 정의).
+  const inflight = useChatBusy()
   const backendLabel = useBackendLabel()
   const capabilities = useBackendCapabilities()
   // 능력 서술자가 로드됐는데 sessionAbort 가 아니면 중단 게이팅(미로드면 현행 동작 유지).

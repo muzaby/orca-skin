@@ -9,19 +9,14 @@ import { z } from 'zod'
 import { orcaJsonPath } from './paths'
 import { writeJsonAtomic } from './json-file'
 
+// enabled:false 면 업데이터 전체가 꺼져 피드 데이터를 아무도 읽지 않는다 — provider 만 남긴다
+// (resolveUpdateFeed 의 provider narrowing 이 이 필드를 요구). 나머지 키는 zod 가 알아서
+// strip 하므로, 사용자가 설정을 지우지 않고 enabled 만 false 로 둬도 그대로 파싱된다.
+// 0149: provider 별 데이터 필드를 여기 다시 나열하던 것을 제거했다 — 새 필드가 생길 때마다
+// 아무도 안 읽는 목록을 따라 갱신해야 했다.
 const DisabledUpdateConfigSchema = z.object({
   enabled: z.literal(false),
-  provider: z.enum(['github', 'generic', 's3']).optional(),
-  owner: z.string().min(1).optional(),
-  repo: z.string().min(1).optional(),
-  host: z.string().min(1).optional(),
-  protocol: z.enum(['https', 'http']).optional(),
-  url: z.string().url().optional(),
-  bucket: z.string().min(1).optional(),
-  region: z.string().min(1).optional(),
-  endpoint: z.string().url().optional(),
-  path: z.string().min(1).optional(),
-  channel: z.string().min(1).optional()
+  provider: z.enum(['github', 'generic', 's3']).optional()
 })
 
 // GitHub (Releases). 폐쇄망은 GitHub Enterprise → host/protocol override 로 base URL 을 바꾼다.
