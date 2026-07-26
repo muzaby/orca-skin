@@ -89,7 +89,6 @@ export function ComposerInputController({
   const { tr } = useI18n()
   const [snapshot, setSnapshotState] = useState(createDraftSnapshot)
   const snapshotRef = useRef(snapshot)
-  const composingRef = useRef(snapshot.composing)
   const updateSnapshot = useCallback((update: (current: DraftSnapshot) => DraftSnapshot): void => {
     const current = snapshotRef.current
     const next = update(current)
@@ -117,9 +116,11 @@ export function ComposerInputController({
   const attachButtonRef = useRef<HTMLButtonElement>(null)
   const [attachMenuOpen, setAttachMenuOpen] = useState(false)
 
+  // 조합 상태는 스냅샷이 단일 소유한다(0149 — 별도 ref 미러 제거). 텍스트 변이 자체의 거부는
+  // draftSnapshot 순수 함수가 하고, 여기 남은 용도는 **DOM 부수효과**(focus/setSelectionRange)와
+  // 키 이벤트 분기 억제뿐이다. native isComposing 은 스냅샷보다 먼저 도착할 수 있어 함께 본다.
   const compositionActive = useCallback(
-    (nativeIsComposing = false): boolean =>
-      composingRef.current || snapshotRef.current.composing || nativeIsComposing,
+    (nativeIsComposing = false): boolean => snapshotRef.current.composing || nativeIsComposing,
     []
   )
 
@@ -154,7 +155,6 @@ export function ComposerInputController({
 
   useEffect(() => {
     if (active || !compositionActive()) return
-    composingRef.current = false
     updateSnapshot((current) => setDraftComposition(current, false))
   }, [active, compositionActive, updateSnapshot])
 
@@ -351,20 +351,14 @@ export function ComposerInputController({
                   }
                   onSelectionChange={(selectionStart, selectionEnd) =>
                     updateSnapshot((current) =>
-                      updateDraftSelectionWhenIdle(
-                        current,
-                        composingRef.current,
-                        selectionStart,
-                        selectionEnd
-                      )
+                      updateDraftSelectionWhenIdle(current, selectionStart, selectionEnd)
                     )
                   }
-                  onCompositionChange={(composing, text, selectionStart, selectionEnd) => {
-                    composingRef.current = composing
+                  onCompositionChange={(composing, text, selectionStart, selectionEnd) =>
                     updateSnapshot((current) =>
                       setDraftComposition(current, composing, text, selectionStart, selectionEnd)
                     )
-                  }}
+                  }
                   onKeyDown={onKeyDown}
                   knownSkillNames={knownSkillNames}
                   validFilePaths={fileAutocomplete.validPaths}

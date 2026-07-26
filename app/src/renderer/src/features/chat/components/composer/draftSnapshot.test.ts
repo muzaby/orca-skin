@@ -41,19 +41,33 @@ describe('DraftSnapshot', () => {
     expect(ended.revision).toBe(completed.revision + 1)
   })
 
-  it('IME 조합 중 selection-only 갱신을 즉시 ref와 snapshot 양쪽에서 차단한다', () => {
+  it('IME 조합 중 selection-only 갱신을 차단한다', () => {
     const typed = updateDraftText(createDraftSnapshot(), '한글 입력', 5, 5)
-    const staleSnapshotGuarded = updateDraftSelectionWhenIdle(typed, true, 0, 2)
     const composing = setDraftComposition(typed, true)
-    const snapshotGuarded = updateDraftSelectionWhenIdle(composing, false, 0, 2)
-    const idleSelection = updateDraftSelectionWhenIdle(typed, false, 0, 2)
 
-    expect(staleSnapshotGuarded).toBe(typed)
-    expect(snapshotGuarded).toBe(composing)
-    expect(idleSelection).toMatchObject({
+    expect(updateDraftSelectionWhenIdle(composing, 0, 2)).toBe(composing)
+    expect(updateDraftSelectionWhenIdle(typed, 0, 2)).toMatchObject({
       revision: typed.revision,
       selectionStart: 0,
       selectionEnd: 2
     })
+  })
+
+  // 0149 — 조합 중 거부를 순수 모듈이 소유한다(구: 컨트롤러가 변이 경로마다 손으로 가드).
+  // 새 삽입 경로가 늘어도 가드를 잊을 수 없다는 것이 이 테스트의 요지다.
+  it('IME 조합 중에는 텍스트 변이(전문 치환·범위 치환·전송 후 비우기)를 전부 거부한다', () => {
+    const typed = updateDraftText(createDraftSnapshot(), '한글 입력', 5, 5)
+    const composing = setDraftComposition(typed, true)
+
+    expect(replaceDraft(composing, '/skill ')).toBe(composing)
+    expect(replaceDraftRange(composing, composing.revision, 0, 2, 'x')).toBe(composing)
+    expect(clearDraftAfterAcceptedSubmit(composing, composing.revision)).toBe(composing)
+  })
+
+  it('조합이 끝나면 같은 변이가 정상 적용된다', () => {
+    const typed = updateDraftText(createDraftSnapshot(), '한글 입력', 5, 5)
+
+    expect(replaceDraft(typed, '/skill ')).toMatchObject({ text: '/skill ' })
+    expect(clearDraftAfterAcceptedSubmit(typed, typed.revision)).toMatchObject({ text: '' })
   })
 })

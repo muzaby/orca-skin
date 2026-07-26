@@ -1,5 +1,4 @@
 import { useMemo } from 'react'
-import { Icon } from '../../../../shared/ui/Icon'
 import { formatElapsed, useElapsed } from '../../../../shared/ui/elapsed'
 import { useI18n, type MessageKey } from '../../../../shared/i18n'
 import {
@@ -10,6 +9,7 @@ import {
 import { formatDurationLabel, toolDescription } from '../../lib/toolMeta'
 import { chatActions, useChatSession, useSubagentMeta } from '../../store/chatStore'
 import type { ToolCall } from '../../reducer/chatReducer'
+import { TranscriptActionRow } from './TranscriptActionRow'
 
 // 서브에이전트(Task) 행의 상태별 접두 동사 키 — 렌더에서 tr() 해석(0096 패턴). 진행 중만 shimmer.
 const PREFIX_KEY: Record<SubagentTaskStatus, MessageKey> = {
@@ -75,18 +75,7 @@ export function AgentTaskRow({
   const activate = (): void => chatActions.openSubagentTask(call.toolUseId)
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={activate}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          activate()
-        }
-      }}
-      className="group/tool flex max-w-full cursor-pointer items-center gap-g2 self-start text-left text-body text-t6 outline-none hide-focus-ring ring-focus"
-    >
+    <TranscriptActionRow groupClassName="group/tool" onActivate={activate}>
       <span
         className={`shrink-0 ${
           isBad ? 'text-bad' : running ? 'epitaxy-text-shine' : 'group-hover/tool:text-t9'
@@ -96,9 +85,6 @@ export function AgentTaskRow({
       </span>
       {running && <span className="sr-only">{tr('common.running')}</span>}
       <span className="min-w-0 truncate group-hover/tool:text-t9">{detail}</span>
-      <span aria-hidden className="shrink-0">
-        <Icon name="chevR" size={12} />
-      </span>
-    </div>
+    </TranscriptActionRow>
   )
 }

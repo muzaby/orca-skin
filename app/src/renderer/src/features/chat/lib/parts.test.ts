@@ -6,6 +6,7 @@ import {
   partsErrors,
   partsAttachments,
   childMessageForParentToolRunId,
+  subagentTaskDescription,
   subagentTasksFromMessages,
   isAbortedResult,
   isAsyncLaunchedResult,
@@ -141,6 +142,10 @@ describe('parts selectors', () => {
         parentToolRunId: undefined
       }
     ])
+    // 0149 — 통지 행 전용 타깃 조회는 전체 요약 경로와 같은 description 을 돌려줘야 한다
+    // (전자는 조기 종료, 후자는 세션 전 파트 스캔 — 결과 동치가 치환의 전제).
+    expect(subagentTaskDescription(messages, 'parent-task')).toBe('child 분석')
+    expect(subagentTaskDescription(messages, 'no-such-run')).toBeUndefined()
     expect(subagentTasksFromMessages(messages)).toMatchObject([
       {
         toolUseId: 'parent-task',
