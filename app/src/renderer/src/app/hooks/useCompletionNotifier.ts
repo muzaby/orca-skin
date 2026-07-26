@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { useChatSession } from '../../features/chat'
+import { useChatBusy, useChatSession } from '../../features/chat'
 import { useTweakContext } from '../../shared/theme'
 import { useI18n } from '../../shared/i18n'
 import { notifyApi } from '../../shared/api/ipc'
@@ -14,7 +14,7 @@ export function useCompletionNotifier(): void {
   // 0143 — listen 대기(백그라운드 서브에이전트 완료 대기) 중에는 아직 끝이 아니다: busy 가
   // 진짜로 내려갈 때(listen phase 종료 포함)만 완료 알림을 쏜다. 대기 중 개별 알림 턴의
   // telemetry 로 inflight 만 내려가는 순간에 조기 발화하지 않는다.
-  const inflight = useChatSession((s) => s.inflight || s.listening)
+  const inflight = useChatBusy()
   const sessionId = useChatSession((s) => s.sessionId)
   const prev = useRef<{ sessionId: string | null; inflight: boolean }>({ sessionId, inflight })
 

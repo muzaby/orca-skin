@@ -869,7 +869,9 @@ function startHandoff(): boolean {
   const s = getState()
   const src = s.sessions[s.activeKey]?.session
   // 가드: 확정 세션 + 턴 비진행 + 사용자 턴 2회 이상(Composer 비활성 가드와 이중 방어).
-  if (!src?.sessionId || src.inflight || src.loadingSession) return false
+  // 0149 — listen 대기(main 의 턴-후 루프 진행 중)도 busy 로 센다(sessionBusy 단일 정의):
+  // 백그라운드 서브에이전트를 기다리는 동안 핸드오프가 열리던 구멍을 막는다.
+  if (!src?.sessionId || sessionBusy(src) || src.loadingSession) return false
   if (src.messages.filter((m) => m.role === 'user').length < 2) return false
   // 다른 새-채팅 전송이 pending 이면 조용한 큐 대기 대신 거부 — silent stuck 방지(r2).
   if (s.pendingNewChatKey != null) return false
@@ -1190,6 +1192,21 @@ export function useChatSession<T>(selector: (s: ChatState) => T): T {
 // 라이브 스트림 리프 전용 — 활성 세션의 text 델타에만 재렌더.
 export function useLiveText(): string {
   return useChatStore((s) => s.sessions[s.activeKey].live.text)
+}
+
+// 세션이 "작업 중" 인가 — inflight(턴 진행) ‖ listening(백그라운드 서브에이전트 완료 대기).
+//
+// 0143 이 listening 을 두 번째 불리언으로 들이면서 소비처마다 `inflight || listening` 을 손으로
+// 유도했고, 그 결과 일부가 누락돼 판정이 갈렸다(startHandoff·useChatSessionsSync·
+// ProjectLandingPage 는 inflight 만 봤다). 0149: busy 정의를 스토어가 단독 소유한다 — 다음
+// busy 하위 상태(압축 대기·승인 대기 등)가 생겨도 여기 한 곳만 고치면 된다.
+// listening 자체는 PendingAssistant 의 경과시간 앵커 전용으로만 직접 읽는다.
+export function useChatBusy(): boolean {
+  return useChatSession(sessionBusy)
+}
+
+export function sessionBusy(s: Pick<ChatState, 'inflight' | 'listening'>): boolean {
+  return s.inflight || s.listening
 }
 
 export function usePendingSteer(): PendingSteerState[] {
