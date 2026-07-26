@@ -83,6 +83,8 @@ export interface TurnModelUsageInsert {
   cacheCreationInputTokens: number | null
   cacheReadInputTokens: number | null
   costUsd: number | null
+  // SDK 실측 컨텍스트 윈도우(0149). NULL = 실측 미보유 → 복원 시 모델명 폴백.
+  contextWindow: number | null
 }
 
 export interface TurnModelUsageRow {
@@ -94,6 +96,7 @@ export interface TurnModelUsageRow {
   cache_creation_input_tokens: number | null
   cache_read_input_tokens: number | null
   cost_usd: number | null
+  context_window: number | null
 }
 
 export interface UsageSumRow {

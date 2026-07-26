@@ -22,7 +22,8 @@ export function usageRowToTelemetry(
       ...ifPresent('outputTokens', row.output_tokens),
       ...ifPresent('cacheReadTokens', row.cache_read_input_tokens),
       ...ifPresent('cacheCreationTokens', row.cache_creation_input_tokens),
-      ...ifPresent('costUsd', row.cost_usd)
+      ...ifPresent('costUsd', row.cost_usd),
+      ...ifPresent('contextWindow', row.context_window)
     }
     return acc
   }, {})

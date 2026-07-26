@@ -246,10 +246,10 @@ export class DbQueries {
     this.insertTurnModelUsageStmt = db.prepare(`
       INSERT INTO turn_model_usage
         (turn_usage_id, model, input_tokens, output_tokens,
-         cache_creation_input_tokens, cache_read_input_tokens, cost_usd)
+         cache_creation_input_tokens, cache_read_input_tokens, cost_usd, context_window)
       VALUES
         (@turnUsageId, @model, @inputTokens, @outputTokens,
-         @cacheCreationInputTokens, @cacheReadInputTokens, @costUsd)
+         @cacheCreationInputTokens, @cacheReadInputTokens, @costUsd, @contextWindow)
     `)
     // 세션의 마지막 턴 사용량 — 컨텍스트 도넛/패널을 세션 로드 시 복원.
     this.getLatestTurnUsageStmt = db.prepare(`

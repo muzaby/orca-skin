@@ -67,6 +67,9 @@
 | `0011_session_lineage.sql` | `session_lineage` 테이블 — Conversation Continuity fork/handoff 계보 (handoff 0051). |
 | `0012_provider_limits.sql` | `provider_limits` 테이블 — provider별 월간 지출 한도 (0080~0082). |
 | `0013_schedules.sql` | `schedule_runs` 테이블 — scheduler job 실행 이력 원장 (0091). |
+| `0014_provider_usage_report_cache.sql` | `provider_usage_report_cache` 테이블 — 외부 권위 사용량 리포트 캐시 (0111). |
+| `0015_pinned.sql` | 고정(pin) 섹션 지원 컬럼 (0129). |
+| `0016_turn_model_context_window.sql` | `turn_model_usage.context_window`(nullable) — SDK 실측 컨텍스트 윈도 영속. 재로드 도넛 분모가 라이브와 같은 실측값을 쓰게 해 렌더러의 모델명 추측 목록을 걷어냈다 (0149). |
 
 **마이그레이션 규칙**:
 - `src/main/infra/db/migrations/NNNN_<name>.sql` (NNNN = 0으로 패딩된 일련번호)
@@ -81,7 +84,7 @@
 | `messages` | sessionId FK, role, content(text — FTS5 text-cache), complete, createdAt, metadata(JSON) |
 | `message_parts` | messageId FK, 순서 보존 parts (text/tool/reasoning …, provider-runtime.md §7) |
 | `projects` | id, name, instructions, createdAt, updatedAt |
-| `turn_usage` / `turn_model_usage` | per-turn 사용량 원장 + 모델별 분해 (토큰·cost_usd) |
+| `turn_usage` / `turn_model_usage` | per-turn 사용량 원장 + 모델별 분해 (토큰·cost_usd·context_window) |
 | `provider_limits` | provider별 월간 지출 한도 (0080) |
 | `session_lineage` | fork/handoff 계보 (0051) |
 | `schedule_runs` | scheduler job 실행 이력 (0091) |

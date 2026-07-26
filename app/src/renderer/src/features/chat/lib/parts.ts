@@ -135,6 +135,9 @@ export function settleOrphanToolParts(parts: AppMessagePart[]): AppMessagePart[]
 // 로드 시 전 메시지에 적용해 해당 부모 Task 를 합성 aborted 로 정착시킨다(마지막 tool_result
 // 가 이기는 페어링 규칙 재사용). **로드 경로 전용** — 라이브 스트리밍에는 적용하지 않는다.
 export function settleStaleAsyncLaunchParts(parts: AppMessagePart[]): AppMessagePart[] {
+  // 대상 도구가 아예 없는 메시지(평문 텍스트 — 압도적 다수)는 Map 할당도 순회도 하지 않는다.
+  // 세션 로드는 메시지 수만큼 이 함수를 부른다(0149).
+  if (!parts.some((p) => isToolCallPart(p) && isAgentTaskName(p.toolName))) return parts
   const lastResult = new Map<string, Extract<AppMessagePart, { type: 'tool_result' }>>()
   for (const p of parts) if (isToolResultPart(p)) lastResult.set(p.toolRunId, p)
   const synthesized: AppMessagePart[] = []

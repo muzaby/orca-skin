@@ -19,6 +19,7 @@ import migration0010 from '../infra/db/migrations/0010_session_cwd.sql?raw'
 import migration0011 from '../infra/db/migrations/0011_session_lineage.sql?raw'
 import migration0014 from '../infra/db/migrations/0014_provider_usage_report_cache.sql?raw'
 import migration0015 from '../infra/db/migrations/0015_pinned.sql?raw'
+import migration0016 from '../infra/db/migrations/0016_turn_model_context_window.sql?raw'
 import migration0012 from '../infra/db/migrations/0012_provider_limits.sql?raw'
 import { DbQueries } from '../infra/db/queries'
 import type { LineageRelation } from '../infra/db/types'
@@ -50,7 +51,8 @@ function makeDb(): DbQueries {
     migration0011,
     migration0012,
     migration0014,
-    migration0015
+    migration0015,
+    migration0016
   ]) {
     db.exec(sql)
   }

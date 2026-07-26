@@ -636,6 +636,9 @@ export function registerChatHandlers(deps: ChatDeps): void {
     const onOwnerGone = (): void => {
       runtime.markAborted('user_cancelled')
       controller.abort()
+      // 창이 사라지면 in-process 백그라운드 태스크도 함께 죽는다 — 추적을 남기면 그 세션에
+      // 다시 send 하기 전까지 영영 회수되지 않는다(clear 도달 조건이 재전송뿐이었다, 0149).
+      if (turn.dbSessionId) backgroundTasks.clear(turn.dbSessionId)
     }
     wc.once('destroyed', onOwnerGone)
     wc.once('render-process-gone', onOwnerGone)
@@ -801,7 +804,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
         // 다음 스텝 판정(순수, 0143) — pushTurn 은 "CLI 유휴 + 백로그 없음" 채널에서만(버그 a).
         const step = decidePostTurnStep({
           havePending: pendingMessages.pending(sessionId).length > 0,
-          haveTasks: backgroundTasks.ids(sessionId).size > 0,
+          haveTasks: backgroundTasks.hasAny(sessionId),
           channelAlive: runtime.channelAlive,
           channelBusy: runtime.channelBusy,
           hasBacklog: runtime.hasUnframedBacklog

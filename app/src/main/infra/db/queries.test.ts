@@ -15,6 +15,7 @@ import migration0012 from './migrations/0012_provider_limits.sql?raw'
 import migration0013 from './migrations/0013_schedules.sql?raw'
 import migration0014 from './migrations/0014_provider_usage_report_cache.sql?raw'
 import migration0015 from './migrations/0015_pinned.sql?raw'
+import migration0016 from './migrations/0016_turn_model_context_window.sql?raw'
 import { DbQueries } from './queries'
 
 function dbWithMigrations(): Database.Database {
@@ -35,6 +36,7 @@ function dbWithMigrations(): Database.Database {
   db.exec(migration0013)
   db.exec(migration0014)
   db.exec(migration0015)
+  db.exec(migration0016)
   return db
 }
 
@@ -145,6 +147,7 @@ describe('DbQueries turn usage', () => {
       outputTokens: 2,
       cacheCreationInputTokens: 3,
       cacheReadInputTokens: 4,
+      contextWindow: null,
       costUsd: 0.1
     })
 
@@ -185,6 +188,7 @@ describe('DbQueries turn usage', () => {
       outputTokens: null,
       cacheCreationInputTokens: null,
       cacheReadInputTokens: null,
+      contextWindow: null,
       costUsd: null
     })
     q.insertTurnModelUsage({
@@ -194,6 +198,7 @@ describe('DbQueries turn usage', () => {
       outputTokens: null,
       cacheCreationInputTokens: null,
       cacheReadInputTokens: null,
+      contextWindow: null,
       costUsd: null
     })
 
@@ -362,6 +367,7 @@ describe('DbQueries usage stats (0112)', () => {
       outputTokens: null,
       cacheCreationInputTokens: null,
       cacheReadInputTokens: null,
+      contextWindow: null,
       costUsd: null
     })
     const turn1 = insertUsage(q, t1)
@@ -372,6 +378,7 @@ describe('DbQueries usage stats (0112)', () => {
       outputTokens: 5,
       cacheCreationInputTokens: null,
       cacheReadInputTokens: null,
+      contextWindow: null,
       costUsd: 0.3
     })
     q.insertTurnModelUsage({
@@ -381,6 +388,7 @@ describe('DbQueries usage stats (0112)', () => {
       outputTokens: null,
       cacheCreationInputTokens: null,
       cacheReadInputTokens: 100,
+      contextWindow: null,
       costUsd: null
     })
     const turn2 = insertUsage(q, t2)
@@ -391,6 +399,7 @@ describe('DbQueries usage stats (0112)', () => {
       outputTokens: null,
       cacheCreationInputTokens: 2,
       cacheReadInputTokens: null,
+      contextWindow: null,
       costUsd: 0.4
     })
 
