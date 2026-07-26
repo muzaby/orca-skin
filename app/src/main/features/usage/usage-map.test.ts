@@ -24,6 +24,7 @@ const model = (over: Partial<TurnModelUsageRow>): TurnModelUsageRow => ({
   cache_read_input_tokens: 1000,
   cache_creation_input_tokens: 200,
   cost_usd: 0.01,
+  context_window: null,
   ...over
 })
 

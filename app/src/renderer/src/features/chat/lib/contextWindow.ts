@@ -4,20 +4,13 @@ import type { ProviderReportedTelemetry } from '../../../../../shared/ipc'
 // contextWindowFor 는 실측이 없는 경로(세션 재로드 복원 = DB 재조립 telemetry · mock)의 **폴백**이다.
 export const DEFAULT_CONTEXT_WINDOW = 200_000
 
-// 1M 컨텍스트 윈도우 모델 패밀리 마커(부분 문자열 매칭 — bedrock `us.anthropic.claude-sonnet-5`
-// 같은 프리픽스/스냅샷 변형도 커버). 폴백 전용 정적 목록: 신규 모델은 라이브 턴에서 SDK 실측이
-// 자동으로 정확한 값을 주므로, 여기는 복원 경로 보정용으로만 갱신하면 된다(0134).
-// 주의: 'sonnet-4-5'(200k) 는 'sonnet-5' 와 불일치 — 부분 문자열 오탐 없음을 테스트가 고정한다.
-const WINDOW_1M_MARKERS = [
-  '1m', // 명시적 1M 변종 표기(기존 휴리스틱 유지)
-  'sonnet-5',
-  'sonnet-4-6',
-  'opus-4-6',
-  'opus-4-7',
-  'opus-4-8',
-  'fable',
-  'mythos'
-]
+// 1M 컨텍스트 윈도우 마커(부분 문자열 매칭 — bedrock `us.anthropic.…` 같은 프리픽스 변형 커버).
+//
+// 0149: 이 목록에서 **모델명 추측을 걷어냈다.** SDK 실측 컨텍스트 윈도가 이제
+// turn_model_usage.context_window 로 영속되므로(마이그레이션 0016), 재로드 경로도 라이브와 같은
+// 실측값을 쓴다 — 신규 모델이 나올 때마다 렌더러 목록을 손으로 갱신할 이유가 사라졌다.
+// 남은 것은 실측이 아예 없는 경로(mock 어댑터 · 마이그레이션 이전 행)를 위한 명시적 표기뿐이다.
+const WINDOW_1M_MARKERS = ['1m']
 
 export function contextWindowFor(model?: string): number {
   if (!model) return DEFAULT_CONTEXT_WINDOW

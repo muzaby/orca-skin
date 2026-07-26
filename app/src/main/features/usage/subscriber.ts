@@ -43,7 +43,8 @@ export function recordTurnUsage(
         outputTokens: mu.outputTokens ?? null,
         cacheCreationInputTokens: mu.cacheCreationTokens ?? null,
         cacheReadInputTokens: mu.cacheReadTokens ?? null,
-        costUsd: mu.costUsd ?? null
+        costUsd: mu.costUsd ?? null,
+        contextWindow: mu.contextWindow ?? null
       })
     }
   } else if (u.model) {
@@ -54,7 +55,9 @@ export function recordTurnUsage(
       outputTokens: u.outputTokens ?? null,
       cacheCreationInputTokens: u.cacheCreationTokens ?? null,
       cacheReadInputTokens: u.cacheReadTokens ?? null,
-      costUsd: u.costUsd ?? null
+      costUsd: u.costUsd ?? null,
+      // 단일 모델 턴은 top-level 승격값이 실측 컨텍스트 윈도(0134).
+      contextWindow: u.contextWindow ?? null
     })
   }
   cost.recordAndBroadcast()

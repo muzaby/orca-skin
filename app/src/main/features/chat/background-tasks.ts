@@ -68,6 +68,12 @@ export class BackgroundTaskTracker implements BackgroundTaskPort {
     return new Set(map.keys())
   }
 
+  // 존재 여부만 필요한 곳(턴-후 루프의 매 반복)이 Set 을 새로 만들지 않게 한다.
+  hasAny(sessionId: string): boolean {
+    const map = this.bySession.get(sessionId)
+    return map !== undefined && map.size > 0
+  }
+
   clear(sessionId: string): void {
     this.bySession.delete(sessionId)
   }

@@ -116,6 +116,30 @@ describe('chatStore — 자동 BEGIN_TURN 자식 이벤트 제외 (0143)', () =>
     flushRaf()
     expect(session().inflight).toBe(true)
   })
+
+  // 0149 — 델타는 코얼레서 배치 경로로 흐른다. 그 경로가 receive 의 라우팅/BEGIN_TURN 규칙을
+  // 따로 구현하는 바람에 0143 의 child 제외가 델타에는 적용되지 않았다(백그라운드 서브에이전트
+  // 스트리밍이 listen 대기 중 메인 inflight 를 점멸시켰다). 두 경로가 같은 술어를 쓴다.
+  it('parentToolRunId 실린 델타도 유휴 세션의 inflight 를 켜지 않는다', () => {
+    ingestChatEvent({
+      type: 'message.delta',
+      sessionId: 's',
+      delta: { text: '백그라운드 출력' },
+      parentToolRunId: 'p1'
+    } as NormalizedEvent)
+    flushRaf()
+    expect(session().inflight).toBe(false)
+  })
+
+  it('최상위 델타는 BEGIN_TURN 을 유발한다', () => {
+    ingestChatEvent({
+      type: 'message.delta',
+      sessionId: 's',
+      delta: { text: '메인 출력' }
+    } as NormalizedEvent)
+    flushRaf()
+    expect(session().inflight).toBe(true)
+  })
 })
 
 describe('chatStore — 백그라운드 완료 통지 dispatch (0143)', () => {

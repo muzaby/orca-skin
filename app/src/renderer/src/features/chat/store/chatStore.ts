@@ -225,6 +225,47 @@ function isTerminalWithoutSession(ev: NormalizedEvent): boolean {
   return ev.type === 'error' || ev.type === 'turn.aborted' || ev.type === 'telemetry'
 }
 
+// 자동 연속 턴(0067 AC7) — renderer 의 send 없이 main 이 시작한 턴도 활동 이벤트가 오면
+// inflight 로 전이해 도넛/중단 버튼/스크롤 앵커가 정상 동작하게 한다.
+const TURN_ACTIVITY_EVENTS = new Set<NormalizedEvent['type']>([
+  'message.delta',
+  'message.reasoning.delta',
+  'message.completed',
+  'message.reasoning',
+  'tool.call.started'
+])
+
+// 이 이벤트가 유휴 세션의 턴을 열어야 하는가.
+//
+// 0143: 서브에이전트 child 이벤트(parentToolRunId)는 제외 — listen 대기 중 백그라운드 child
+// 스트림이 메인 inflight 를 점멸시키지 않는다(대기 표시는 listening 레벨 상태가 담당).
+// foreground(메인 턴 내) child 는 inflight 가 이미 true 라 제외해도 무영향.
+//
+// 0149: 델타가 코얼레서 배치 경로로 갈라지면서 이 규칙이 두 벌이 됐고, 0143 의 child 제외가
+// receive 쪽에만 붙어 라이브 델타에는 실효되지 않았다 — 두 경로가 같은 술어를 쓴다.
+function shouldBeginTurn(ev: NormalizedEvent, session: { inflight: boolean }): boolean {
+  return (
+    TURN_ACTIVITY_EVENTS.has(ev.type) &&
+    (ev as { parentToolRunId?: string }).parentToolRunId === undefined &&
+    session.inflight === false
+  )
+}
+
+// sessionId 를 가진 이벤트의 라우팅 키 — 엔트리가 있으면 그 키, 없으면 pending new-chat
+// draft 로 폴백(승격이 늦거나 어긋나도 그 턴이 draft 에 보이게 한다, r2 견고화).
+// 둘 다 아니면 삭제된 세션의 늦은 이벤트로 보고 폐기(null).
+function resolveSessionKey(
+  sessions: Record<string, { session: { sessionId: string | null } }>,
+  pendingNewChatKey: string | null,
+  sessionId: string
+): { key: string | null; pendingFallback: boolean } {
+  if (sessions[sessionId]) return { key: sessionId, pendingFallback: false }
+  if (pendingNewChatKey && sessions[pendingNewChatKey]?.session.sessionId == null) {
+    return { key: pendingNewChatKey, pendingFallback: true }
+  }
+  return { key: null, pendingFallback: false }
+}
+
 // 한 scheduler window의 모든 live delta를 단일 Zustand transaction으로 반영한다.
 // session 커밋 슬라이스 identity는 BEGIN_TURN이 필요한 첫 활동을 제외하고 그대로 유지된다.
 function receiveDeltaBatch(events: readonly DeltaEvent[]): void {
@@ -232,19 +273,15 @@ function receiveDeltaBatch(events: readonly DeltaEvent[]): void {
   setState((state) => {
     let sessions = state.sessions
     for (const event of events) {
-      const pendingKey = state.pendingNewChatKey
-      const key = sessions[event.sessionId]
-        ? event.sessionId
-        : pendingKey && sessions[pendingKey]?.session.sessionId == null
-          ? pendingKey
-          : null
+      // 라우팅·턴 시작 판정은 receive 와 같은 술어를 쓴다(0149) — 두 경로가 갈라지지 않는다.
+      const { key } = resolveSessionKey(sessions, state.pendingNewChatKey, event.sessionId)
       if (!key) continue
       const entry = sessions[key]
       if (!entry) continue
 
-      const session = entry.session.inflight
-        ? entry.session
-        : chatReducer(entry.session, { type: 'BEGIN_TURN' })
+      const session = shouldBeginTurn(event, entry.session)
+        ? chatReducer(entry.session, { type: 'BEGIN_TURN' })
+        : entry.session
       const live =
         event.type === 'message.delta'
           ? { ...entry.live, text: entry.live.text + event.delta.text }
@@ -340,16 +377,14 @@ function receive(ev: NormalizedEvent): void {
   let key: string | null = null
   // sessionId 이벤트가 pending draft 로 폴백 라우팅됐는가 — 터미널 이벤트 시 게이트 해제용.
   let pendingFallback = false
-  if (evSessionId && getState().sessions[evSessionId]) key = evSessionId
-  else if (evSessionId) {
-    // entry 없는 sessionId — 폐기 전에 pending new-chat draft 로 폴백 라우팅(r2 견고화).
-    // 승격(promote)이 어긋나거나 늦어도 그 턴의 에코(message.user)·에러·telemetry 가
-    // draft 에 보이게 한다. pending draft 조차 없으면 삭제된 세션의 늦은 이벤트로 보고 폐기.
-    const pendingKey = getState().pendingNewChatKey
-    if (pendingKey && getState().sessions[pendingKey]?.session.sessionId == null) {
-      key = pendingKey
-      pendingFallback = true
-    }
+  if (evSessionId) {
+    const resolved = resolveSessionKey(
+      getState().sessions,
+      getState().pendingNewChatKey,
+      evSessionId
+    )
+    key = resolved.key
+    pendingFallback = resolved.pendingFallback
   } else {
     // sessionId 없는 message.queued = 새 세션 send 의 pending 등록(0067 — 핸드오프 자동 메시지
     // 포함, 턴 시작 전 발행). startHandoff/send 가 방금 세운 pendingNewChatKey(draft)로
@@ -361,20 +396,8 @@ function receive(ev: NormalizedEvent): void {
   }
   if (!key) return // 미지 세션의 늦은 이벤트 — 폐기
 
-  // 자동 연속 턴(0067 AC7) — renderer 의 send 없이 main 이 시작한 턴도 활동 이벤트가 오면
-  // inflight 로 전이해 도넛/중단 버튼/스크롤 앵커가 정상 동작하게 한다.
-  // 0143: 서브에이전트 child 이벤트(parentToolRunId)는 제외 — listen 대기 중 백그라운드 child
-  // 스트림이 메인 inflight 를 점멸시키지 않는다(대기 표시는 listening 레벨 상태가 담당).
-  // foreground(메인 턴 내) child 는 inflight 가 이미 true 라 제외해도 무영향.
-  if (
-    (ev.type === 'message.delta' ||
-      ev.type === 'message.reasoning.delta' ||
-      ev.type === 'message.completed' ||
-      ev.type === 'message.reasoning' ||
-      ev.type === 'tool.call.started') &&
-    (ev as { parentToolRunId?: string }).parentToolRunId === undefined &&
-    getState().sessions[key]?.session.inflight === false
-  ) {
+  const entrySession = getState().sessions[key]?.session
+  if (entrySession && shouldBeginTurn(ev, entrySession)) {
     dispatchTo(key, { type: 'BEGIN_TURN' })
   }
 

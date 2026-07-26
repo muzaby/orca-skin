@@ -13,21 +13,13 @@ describe('contextWindowFor (폴백 휴리스틱)', () => {
     expect(contextWindowFor('claude-opus-4-1M-20251101')).toBe(1_000_000) // 대소문자 무관
   })
 
-  it('1M 컨텍스트 현행 모델 패밀리는 1M (0134)', () => {
-    expect(contextWindowFor('claude-sonnet-5')).toBe(1_000_000)
-    expect(contextWindowFor('claude-sonnet-4-6')).toBe(1_000_000)
-    expect(contextWindowFor('claude-opus-4-6')).toBe(1_000_000)
-    expect(contextWindowFor('claude-opus-4-7')).toBe(1_000_000)
-    expect(contextWindowFor('claude-opus-4-8')).toBe(1_000_000)
-    expect(contextWindowFor('claude-fable-5')).toBe(1_000_000)
-    // 프리픽스/스냅샷 변형(bedrock 등)도 부분 문자열 매칭으로 커버
-    expect(contextWindowFor('us.anthropic.claude-sonnet-5')).toBe(1_000_000)
-  })
-
-  it('200k 모델·구형·미지 모델은 기본 200k', () => {
+  // 0149 — 모델명 추측 목록을 제거했다. 실측 컨텍스트 윈도가 turn_model_usage.context_window
+  // 로 영속되므로(마이그레이션 0016) 재로드 경로도 실측을 쓴다. 이름만 보고 1M 을 단정하지
+  // 않으므로, 명시 표기('1m')가 없는 모델은 전부 기본값으로 내려간다.
+  it('모델명 추측 없이 기본 200k — 실측은 contextWindowOf 가 우선한다', () => {
+    expect(contextWindowFor('claude-sonnet-5')).toBe(DEFAULT_CONTEXT_WINDOW)
     expect(contextWindowFor('claude-haiku-4-5')).toBe(200_000)
     expect(contextWindowFor('claude-opus-4-5')).toBe(DEFAULT_CONTEXT_WINDOW)
-    // 'sonnet-4-5' 는 'sonnet-5' 마커와 부분 문자열 오탐이 없어야 한다
     expect(contextWindowFor('claude-sonnet-4-5-20250929')).toBe(200_000)
     expect(contextWindowFor('mock-sonnet')).toBe(200_000)
     expect(contextWindowFor('unknown-model')).toBe(200_000)
@@ -53,14 +45,24 @@ describe('contextWindowOf (분모 단일 진입점, 0134)', () => {
     ).toBe(200_000)
   })
 
-  it('③ 실측 부재(복원 경로)면 모델명 휴리스틱 폴백', () => {
-    expect(contextWindowOf({ model: 'claude-sonnet-5' })).toBe(1_000_000)
+  it('③ 실측 부재(mock·마이그레이션 이전 행)면 명시 표기 폴백', () => {
+    expect(contextWindowOf({ model: 'claude-sonnet-4-5-1m' })).toBe(1_000_000)
     expect(contextWindowOf({ model: 'claude-haiku-4-5' })).toBe(200_000)
     expect(contextWindowOf({})).toBe(DEFAULT_CONTEXT_WINDOW)
   })
 
+  it('영속된 실측이 있으면 재로드 경로도 라이브와 같은 분모를 쓴다 (0149)', () => {
+    // usage-map 이 turn_model_usage.context_window 를 modelUsage 로 재생한 모양.
+    expect(
+      contextWindowOf({
+        model: 'claude-sonnet-5',
+        modelUsage: { 'claude-sonnet-5': { contextWindow: 1_000_000 } }
+      })
+    ).toBe(1_000_000)
+  })
+
   it('실측 0/음수는 무시하고 폴백 (비정상 가드)', () => {
-    expect(contextWindowOf({ model: 'claude-sonnet-5', contextWindow: 0 })).toBe(1_000_000)
+    expect(contextWindowOf({ model: 'claude-sonnet-4-5-1m', contextWindow: 0 })).toBe(1_000_000)
     expect(contextWindowOf({ model: 'claude-haiku-4-5', contextWindow: -1 })).toBe(200_000)
   })
 
