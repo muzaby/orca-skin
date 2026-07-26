@@ -240,6 +240,29 @@ export function childMessageForParentToolRunId(
   return { role: 'assistant', createdAt: Date.now(), parts }
 }
 
+// 부모 Task 하나의 description 만 필요할 때(완료 통지 행) — 전체 요약을 만들지 않는다.
+// subagentTasksFromMessages 는 세션의 모든 파트를 flatMap 으로 펼치고 Map 4개를 만든 뒤 여러 번
+// 순회하는데, 통지 행은 그중 문자열 하나만 읽었다. 트랜스크립트는 커밋마다 messages identity 가
+// 바뀌므로(턴당 수십 회 × 표시 중인 행 수) 그 비용이 그대로 곱해졌다(0149).
+export function subagentTaskDescription(
+  messages: Message[],
+  toolUseId: string
+): string | undefined {
+  for (const message of messages) {
+    for (const part of message.parts) {
+      if (
+        isToolCallPart(part) &&
+        part.parentToolRunId === undefined &&
+        part.toolRunId === toolUseId &&
+        isAgentTaskName(part.toolName)
+      ) {
+        return toolDescriptionFromInput(part.args) ?? part.toolName
+      }
+    }
+  }
+  return undefined
+}
+
 export function subagentTasksFromMessages(messages: Message[]): SubagentTaskSummary[] {
   const allParts = messages.flatMap((m) => m.parts)
   const resultByRun = resultMap(allParts)
