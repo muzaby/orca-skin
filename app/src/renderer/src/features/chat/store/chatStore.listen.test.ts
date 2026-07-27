@@ -1,59 +1,19 @@
 // 0143 — listen 대기 UX 의 store 계약: busy 라우팅(steer 예약), 자식 이벤트 BEGIN_TURN 제외,
-// 백그라운드 완료 통지 dispatch. chatStore.test.ts 와 동일 하네스(rAF 스텁 + window.orca 스텁).
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+// 백그라운드 완료 통지 dispatch. 하네스는 chatStore.testHarness 공용(0149).
+import { beforeEach, describe, expect, it } from 'vitest'
 import { chatActions, ingestChatEvent, useChatStore } from './chatStore'
-import { initialChatState } from '../reducer/chatReducer'
+import {
+  flushRaf,
+  harnessSession as session,
+  installChatStoreHarness
+} from './chatStore.testHarness'
 import type { NormalizedEvent } from '../../../../../shared/ipc'
 
-let rafQueue: FrameRequestCallback[] = []
-let chatSend: ReturnType<typeof vi.fn>
-vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback): number => {
-  rafQueue.push(cb)
-  return rafQueue.length
-})
-vi.stubGlobal('cancelAnimationFrame', () => {})
-const flushRaf = (): void => {
-  const q = rafQueue
-  rafQueue = []
-  for (const cb of q) cb(0)
-}
+let chatSend: ReturnType<typeof installChatStoreHarness>['chatSend']
 
 beforeEach(() => {
-  rafQueue = []
-  chatSend = vi.fn().mockResolvedValue(undefined)
-  vi.stubGlobal('window', {
-    orca: {
-      chat: {
-        send: chatSend,
-        cancel: vi.fn(),
-        cancelSteer: vi.fn().mockResolvedValue(undefined),
-        onEvent: vi.fn()
-      },
-      settings: { set: vi.fn().mockResolvedValue({}) },
-      permission: { respond: vi.fn().mockResolvedValue(undefined), setMode: vi.fn() }
-    }
-  })
-  useChatStore.setState(
-    {
-      sessions: {
-        s: {
-          session: { ...initialChatState, sessionId: 's' },
-          live: { text: '', reasoning: '' },
-          subagentMeta: {}
-        }
-      },
-      activeKey: 's',
-      pendingNewChatKey: null,
-      newChatQueue: [],
-      recentsEpoch: 0,
-      concurrencyByProjectId: {},
-      draftRestore: null
-    },
-    true
-  )
+  ;({ chatSend } = installChatStoreHarness())
 })
-
-const session = (): typeof initialChatState => useChatStore.getState().sessions.s.session
 
 describe('chatStore — chat.listen 라우팅 (0143)', () => {
   it('chat.listen started/ended 가 listening 상태를 굴린다', () => {

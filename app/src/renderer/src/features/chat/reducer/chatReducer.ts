@@ -11,6 +11,7 @@ import type {
   Backend,
   EffortLevel
 } from '../../../../../shared/ipc'
+import { subagentNoticePart } from '../../../../../shared/ipc'
 import type { NormalizedPermissionMode } from '../../../../../shared/permission-mode'
 import type { ContinuityLang } from '../../../../../shared/continuity-lang'
 import { contextTokens } from '../lib/telemetry'
@@ -529,13 +530,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           if (exists) return state
           return {
             ...state,
-            messages: appendAssistantPart(state.messages, {
-              type: 'subagent_notice',
-              toolRunId: ev.toolUseId,
-              status: ev.status ?? 'completed',
-              ...(ev.durationMs !== undefined ? { durationMs: ev.durationMs } : {}),
-              ...(ev.summary !== undefined ? { summary: ev.summary } : {})
-            })
+            messages: appendAssistantPart(state.messages, subagentNoticePart(ev))
           }
         }
 
