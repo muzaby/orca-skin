@@ -19,6 +19,7 @@
 | 명시 요구 ② | "수락 버튼 클릭 시 gui에서 편집 수락 모드로 변경이 되는데, 실제 sdk 를 통해 권한 변경이 이루어지고 있는지? (훅 혹은 query.setpermissionmode api등)" | 라이브 세션 요청 |
 | 명시 결정 ③ | 뒤로 동작 = **항상 접기 · 내용 보존** (코멘트가 있어도 접히고, 작성 중 텍스트·코멘트 보존) | 라이브 세션 AskUserQuestion 답변 |
 | 명시 결정 ④ | 권한 전환 통로 = **allow 응답의 `updatedPermissions`** | 라이브 세션 답변 ("그럼 … updatedPermissions 로 실어 보내는 걸로 가겠습니다" 에 대한 후속 확인 승인) |
+| 명시 요구 ⑤ | "'거부' 디자인 룰에 맞춰 '수정…', '뒤로' 버튼도 똑같이 적용하라" — 좌측 보조 액션 variant 통일 | 라이브 세션 요청 (구현 후 피드백) |
 | 추론 의도 | ②는 질문 형태지만 "GUI 와 SDK 가 어긋난다면 고쳐라"를 함의한다고 해석 (추론). 목표 모드는 현행 GUI 칩이 이미 주장하는 `accept_edits` 를 유지 — 제품 의도 변경 아님 | — |
 
 ## Context (왜)
@@ -91,6 +92,7 @@
 7. 계획 승인 시 main `PermissionModeController` 가 해당 세션을 `accept_edits` 로 기록한다.
 8. `계획 승인 → accept_edits` 규칙이 `shared/permission-mode.ts` 상수 1곳에만 존재한다 (렌더러·main 양쪽 참조).
 9. 게이트: `npm run lint` 0 error · `npm run typecheck` 3종 0 · vitest 회귀 0.
+10. (추가) 푸터 좌측 세 버튼(`거부`·`수정…`·`뒤로`)이 모두 `contained` 로 동일한 테두리·채움을 갖는다. 우측 확정 액션은 `primary` 유지.
 
 ## 범위 / 비범위
 
@@ -126,7 +128,9 @@ const reviseExpanded = collapsedAtCount === null || comments.length > collapsedA
 
 > **`useEffect` + `setState` 를 쓰지 않은 이유**: `react-hooks/set-state-in-effect` 가 lint **error** 다(React Compiler 규칙). 초기 구현에서 실제로 걸렸고, 순수 파생으로 재설계해 해소했다. 기존 포커스 effect 는 setState 를 안 하므로 그대로 두되 키를 `hasComments`(boolean) → `comments.length` 로 바꿔 2번째 코멘트에도 재포커스한다.
 
-**A-2. 푸터 좌측 슬롯을 항상 채운다.** `justify-end`/`justify-between` 토글 제거 → `justify-between` 고정. 좌측이 확장 시 `뒤로`(`variant="uncontained"` + `leadingIcon="arrowL"`), 접힘 시 `거부`+`수정…` 그룹으로 스왑. 우측은 현행 유지.
+**A-2. 푸터 좌측 슬롯을 항상 채운다.** `justify-end`/`justify-between` 토글 제거 → `justify-between` 고정. 좌측이 확장 시 `뒤로`(`leadingIcon="arrowL"`), 접힘 시 `거부`+`수정…` 그룹으로 스왑. 우측은 현행 유지.
+
+**A-5. 좌측 보조 액션 variant 통일 (사용자 추가 요구).** 좌측 슬롯의 세 버튼(`거부`·`수정…`·`뒤로`)을 전부 `variant="contained"` 로 맞춘다. 종전에는 `거부` 만 contained(테두리+채움)이고 `수정…` 은 uncontained(투명)라 나란히 놓였을 때 한쪽만 떠 보였다. `danger-ghost` 가 "짝으로 놓이는 편집=contained 버튼과 외형 통일"을 위해 contained 테두리를 따라간 것과 같은 규칙이다(`shared/ui/Button.tsx:57-58`, 0121 r5 사용자 피드백). 우측 확정 액션(`수락`/`수정` 제출)은 `primary` 유지 — 보조 액션과 확정 액션의 위계는 그대로다.
 
 **A-3. Escape.** 카드 루트 `onKeyDown` 에 확장 상태 한정 분기 추가(`AskUserQuestionCard.tsx:150` 선례). textarea 는 Enter 만 `stopPropagation` 하므로 입력 중에도 버블링된다. 접힌 상태에선 `preventDefault` 하지 않아 상위 핸들러를 보존한다.
 
@@ -225,6 +229,7 @@ const reviseExpanded = collapsedAtCount === null || comments.length > collapsedA
 - [x] A-2 푸터 좌측 `뒤로`
 - [x] A-3 Escape 바인딩
 - [x] A-4 i18n ko/en
+- [x] A-5 좌측 보조 액션 `contained` 통일 (사용자 추가 요구)
 - [x] 어댑터 테스트 3건(기대값 갱신 1 + 신규 2)
 
 ## [구현자 기입] 구현 보고
@@ -245,6 +250,7 @@ const reviseExpanded = collapsedAtCount === null || comments.length > collapsedA
 3. 확장 상태 `Escape` (AC5)
 4. **`수락` 직후 같은 턴에서 Edit/Write 가 도구 승인 카드 없이 진행되는가** — 이번 수정의 핵심 관측점(AC6 의 실효). 종전에는 매 편집마다 카드가 떴다
 5. 라이트/다크 2테마 시각 확인
+6. 푸터 좌측 세 버튼의 테두리·채움이 동일해 보이는지 (AC10)
 
 ## [검증자 기입] 파생 이슈 (Derived Issues)
 

@@ -292,9 +292,11 @@ function PlanApprovalBody(): React.JSX.Element | null {
 
       <div className="mt-2.5 flex items-center justify-between gap-g3">
         {/* 좌측 슬롯은 항상 채운다 — 펼친 상태에선 '뒤로'(빠져나갈 길), 접힌 기본 상태에선
-            거부 + 수정 진입. 우측은 펼침=수정 제출 / 접힘=수락. */}
+            거부 + 수정 진입. 우측은 펼침=수정 제출 / 접힘=수락.
+            좌측 보조 액션은 전부 contained 로 통일한다 — 나란히 놓이는 버튼끼리 테두리 유무가
+            갈리면 한쪽만 떠 보인다(danger-ghost 가 contained 테두리를 따라간 것과 같은 이유). */}
         {reviseExpanded ? (
-          <Button variant="uncontained" leadingIcon="arrowL" onClick={collapseRevise}>
+          <Button variant="contained" leadingIcon="arrowL" onClick={collapseRevise}>
             {tr('chat.approval.reviseBack')}
           </Button>
         ) : (
@@ -302,7 +304,7 @@ function PlanApprovalBody(): React.JSX.Element | null {
             <Button variant="contained" onClick={() => rejectPlan(rid)} data-behavior="dismissible">
               {tr('chat.approval.deny')}
             </Button>
-            <Button variant="uncontained" onClick={onReviseClick}>
+            <Button variant="contained" onClick={onReviseClick}>
               {tr('chat.approval.reviseOpen')}
             </Button>
           </div>
