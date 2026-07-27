@@ -223,3 +223,65 @@
 - [x] 파생 UX — AC11/AC7 의 가시 효과, AC15 의 NULL 폴백, IME 엣지케이스를 펼쳤다.
 - [x] 리스크 — 동작 변화·마이그레이션 비가역성·일괄 적용 추적성을 적고, Open Question(DebugPanel
       밀도)은 사용자로 분리했다.
+
+---
+
+> **[구현자 기입]** 이하는 구현 턴(Claude, 비기능 직접 구현)에서 채웠다.
+
+## [구현자 기입] 설계 리뷰 (비판적)
+
+- **동의 / 그대로 진행**: Tier 별 커밋 분리(리스크 §"29건 일괄 적용")는 실제로 값을 했다 —
+  5개 커밋으로 갈라 두어 각 묶음마다 게이트를 돌렸고, 회귀 시 이등분 대상이 명확하다.
+- **이견 1 (AC6 — 설계 수정)**: 설계는 "`claude-map` 이 `tool.call.completed.asyncLaunched` **사실**을
+  방출" 하자고 했으나, 이는 `NormalizedEvent` 표면을 넓히는 **IPC 타입 변경**이라 같은 plan 의
+  AC16("IPC 채널/스키마 무변경")과 충돌한다. 또 renderer 는 재로드 경로에서 **영속된 result 모양**을
+  봐야 하므로(이벤트 플래그는 DB 에 없다) 플래그만으로는 판별이 불완전하다. → **shared 순수 술어
+  (`shared/subagent.ts isAsyncLaunchedPayload`) 로 수렴**해 리터럴 단일 소유라는 목적은 그대로
+  달성하고 타입 표면은 건드리지 않았다. AC6 의 의도(3중 판별 → 1곳)는 충족.
+- **이견 2 (AC14 — 범위 조정)**: 설계는 `TurnRequest.listen` 제거만 적었으나, 제거하면
+  `SessionRuntime` 이 listen 프레임을 열 진입점을 잃는다. 런타임에 `listen(req)` 1급 메서드를
+  신설해(`CoordinatorRuntime.listen`) 해소했다 — 어댑터 계약에서 **모드 플래그**가 사라진 것이
+  요점이고, 요청 객체 자체를 없애는 것은 목적이 아니었다.
+- **우려 (F7 잔여)**: 아래 "놓친 잠재 문제" #3 참조 — 트래커 회수 경로를 완전히 닫지 못했다.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
+
+| # | 놓친 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 설계가 `stripMessageContent` 를 export 로 남길지 안 적음. sink 내부로 들이면 export 가 죽는데, 기존 테스트가 **순수 함수로 직접** 호출하고 있었다 | ✅ 구현함 — export 를 제거하고 테스트를 `setWireSink(…, {redact:true})` **경유 관측**으로 재작성. redact 미선언 sink 가 풀 payload 를 받는 케이스(dev 무회귀)도 추가 | `wire-log.test.ts` §`setWireSink redact` |
+| 2 | AC15 마이그레이션이 **DB 테스트 픽스처 4곳**(각자 마이그레이션 목록을 손으로 나열)과 `migrate.test.ts` 의 이름 순서 고정 배열을 깬다 — 설계가 예견하지 못함 | ✅ 구현함 — 5개 파일에 `0016` 등록. 이 픽스처 중복 자체가 다음 /simplify 후보(마이그레이션 추가마다 5곳 수정) | `queries.test.ts`·`builder.test.ts`·`chat-turn.continuity.test.ts`·`fork.test.ts`·`migrate.test.ts` |
+| 3 | **F7 트래커 회수를 완전히 닫지 못함.** `onOwnerGone`(창 소멸)에서 `clear` 하도록 했으나, **세션 삭제** 경로(`handlers/session.ts`)는 `backgroundTasks` 가 `registerChatHandlers` 클로저 안에 있어 도달 불가 | ⚠️ **보고만 — 부분 해소.** 완전 해소는 트래커를 `RouterContext` 로 올리거나 세션 삭제 버스 이벤트를 신설해야 하고, 둘 다 컴포지션 루트 구조 변경이라 이 묶음의 "동작 보존 정리" 범위를 넘는다. 파생 이슈 D1 로 이관 | `chat-turn.ts:636` · `handlers/session.ts:94` |
+| 4 | AC3(밀도 i18n 중복 제거) 방향을 설계가 정하지 않음 — `debug.*` 를 지울지 `settings.general.*` 를 지울지 | ✅ 구현함 — **설정 쪽을 정본**으로 삼고 `debug.density*` 4키를 제거, `DebugPanel` 이 `settings.general.*` 를 참조. 근거: 0132 가 설정을 정식 노출 지점으로 만들었고 `densityDesc` 도 그쪽에만 있다. 표시 문자열 불변 | `ko.ts`/`en.ts` · `DebugPanel.tsx:82-91` |
+| 5 | `replaceDraft` 의 `composing` 3번째 파라미터가 **아무 호출부도 쓰지 않는** 미사용 일반성이었다(설계 미언급) | ✅ 구현함 — AC13 작업 중 발견해 파라미터 삭제. 조합 상태를 내리는 책임은 `setDraftComposition` 단일 소유 | `draftSnapshot.ts:90` |
+
+## [구현자 기입] 구현 체크리스트
+
+- [x] AC1~3 삭제 9건 (도달 불가 delta 분기 · `reset()` · 핸들 `element` · `attachmentState` 모듈+테스트 · `debugEnabled` · `EMPTY_SET` · `-0` 가드 · `stallTimerFor` · 중복 density 3키) — 잔존 참조 grep 0(주석 언급만 잔존)
+- [x] AC4 `settleTrackedTasks` 통합 (`settle.ts`, 구조적 포트 `BackgroundTaskSettleSource`)
+- [x] AC5 `shared/usage/primary-model.ts pickPrimaryModel` — live/restore 동일 점수식 + 회귀 테스트
+- [x] AC6 `shared/subagent.ts isAsyncLaunchedPayload` — 3중 판별 → 1곳 (설계 이견 1 반영)
+- [x] AC7 `useChatBusy`/`sessionBusy` + **누락 3곳** 정렬(`startHandoff`·`useChatSessionsSync`·`ProjectLandingPage`)
+- [x] AC8 행 셸(`TranscriptActionRow`) · notice 파트 빌더(`subagentNoticePart`) · `isRecord` 3곳 · 테스트 하네스(`chatStore.testHarness`) · `composingRef` · updater-feed `FEED_FIELDS` · `NOTICE` 단일 표
+- [x] AC9 `BackgroundTaskPort` 필수화 — `?.` 6곳 + `?? false`/`=== true` 평탄화 제거
+- [x] AC10 `hasAny` · listen 요청 최소 리터럴(첨부 미보유) · `settleStaleAsyncLaunchParts` 조기 반환 · `subagentTaskDescription` 타깃 조회 + 동치 테스트
+- [x] AC11 `resolveSessionKey`/`shouldBeginTurn` 공용 — **child 델타 inflight 미점등 회귀 테스트 2건 추가**
+- [x] AC12 `setWireSink(sink, {redact})` — 레코드 키 `payload` 로 통일
+- [x] AC13 IME 거부를 `draftSnapshot` 3함수로 강하 — 컨트롤러 가드 9곳 → 2곳(DOM 부수효과만)
+- [x] AC14 `TurnKind`/`turnPolicyFor` + `SessionRuntime.listen()` — `TurnRequest.listen` 제거
+- [x] AC15 마이그레이션 `0016` + tracker 기록 + `usage-map` 재생 + `WINDOW_1M_MARKERS` 축소(`['1m']`)
+- [x] AC16 게이트 green · 신규 의존성 0 · IPC 채널/스키마 무변경
+- [x] `docs/arch/backend/persistence.md` 스키마 표 동시 갱신(0014·0015·0016 행 보강)
+
+## [구현자 기입] 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | `app/src` **65 파일 · +926/−642** (신규 8 · 삭제 2) |
+| 신규 | `features/chat/turn-policy.ts` · `shared/subagent.ts`(+test) · `shared/usage/primary-model.ts`(+test) · `transcript/TranscriptActionRow.tsx` · `store/chatStore.testHarness.ts` · `migrations/0016_turn_model_context_window.sql` |
+| 삭제 | `hooks/attachmentState.ts` · `hooks/attachmentState.test.ts` |
+| 실행 명령 | `npm run typecheck` · `npm run lint` · `./node_modules/.bin/vitest run` · `node --test "scripts/*.test.mjs"` |
+| 게이트 결과 | typecheck 3분할 ✅ 0 error · lint ✅ **0 error**(warning 1 = `useTranscriptVirtualizer` TanStack↔React Compiler, 0102 이래 베이스라인·본 변경 무관) · vitest ✅ **1174/1174 pass**(146/147 파일) · scripts ✅ 28/28 |
+| 베이스라인 분리 | vitest 실패 **파일 1** = `chat-turn.continuity.test.ts` **로드 실패**(`Electron failed to install correctly`) — egress 403 으로 electron 바이너리 미설치. `app/AGENTS.md` §제약 환경 가이드의 알려진 서명이며 **테스트 0건 실패**(전부 pass). DB 로드 스위트는 `npm rebuild better-sqlite3`(Node ABI)로 전부 green 확보 |
+| 경계/의존성 | eslint-boundaries 위반 **0** · 신규 의존성 **0** · IPC 채널/스키마 **무변경**(grep 확인) |
+| 커밋 | `de2a600`(삭제+listen 1급화) · `0f37705`(main 수렴) · `e72c858`(busy/주모델/피드) · `b1eee9f`(IME/행셸) · `b80a8ef`(컨텍스트윈도+델타경로) · `e54cf35`(notice 빌더+하네스) |
+| 블로커 / 역질문 | 없음. 단 D1(트래커 회수 잔여)·DebugPanel 밀도 라디오 존치 여부는 사용자 판단 대기 |
