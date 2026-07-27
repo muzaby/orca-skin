@@ -78,18 +78,8 @@ export function DebugPanel({
         onChange={(v) => setTweak('theme', v)}
       />
       <PanelSection label={tr('debug.layoutSection')} />
-      {/* 같은 t.density Tweak 을 설정 화면(GeneralTab)도 노출한다(0132) — 라벨은 설정 쪽
-          키 집합을 단일 출처로 쓴다(0149, 구 debug.density* 중복 제거). */}
-      <PanelRadio
-        label={tr('settings.general.density')}
-        value={t.density}
-        options={[
-          { value: 'compact', label: tr('settings.general.densityCompact') },
-          { value: 'normal', label: tr('settings.general.densityNormal') },
-          { value: 'comfortable', label: tr('settings.general.densityComfortable') }
-        ]}
-        onChange={(v) => setTweak('density', v)}
-      />
+      {/* 밀도(t.density)는 설정 → 일반 → 환경설정이 단독 노출한다(0132 가 정식 노출 지점을
+          만든 뒤 디버그 패널 라디오는 중복이 됐다 — 0149 에서 사용자 결정으로 제거). */}
       <PanelToggle
         label={tr('header.collapseSidebar')}
         value={t.sidebarCollapsed}

@@ -31,7 +31,7 @@
 |---|---|---|---|
 | AC1 | `receive()` 도달 불가 delta 분기 삭제 | ✅ | `chatStore.ts:381-383` 주석만 남고 `case 'message.delta'` 본문 소멸. 도달 불가 근거 재확인: `chatStore.ts` 의 `createEventCoalescer({emit: receive, emitDeltaBatch: receiveDeltaBatch})` 가 `receive` **유일 호출자**(`rg 'receive\('` → sink 등록 1건) |
 | AC2 | 삭제 8종 + 잔존 참조 0 | ✅ | 삭제 파일 2(`attachmentState.{ts,test.ts}`, `git diff --diff-filter=D`). 심볼 grep: `clearAttachmentsIfUnchanged` 0 · `composingRef` 0 · `stallTimerFor`/`isAsyncLaunchResult` = **주석 언급만**(`turn-coordinator.test.ts:711,713` · `subagent.test.ts:2`, 이력 서술) |
-| AC3 | 밀도 i18n 중복 3키 제거, 표시 불변 | ✅ | `ko.ts`/`en.ts` 에서 `debug.density*` 4키 삭제, `DebugPanel.tsx:82-91` 이 `settings.general.*` 참조. 값이 바이트 동일했으므로 표시 문자열 불변 |
+| AC3 | 밀도 i18n 중복 3키 제거, 표시 불변 | ✅ | `ko.ts`/`en.ts` 에서 `debug.density*` 4키 삭제. 값이 바이트 동일했으므로 표시 문자열 불변. **후속(D3 결정, `bfc29bb`)**: 디버그 패널 라디오 자체를 제거해 밀도 진입점이 설정 단독이 됐다 — 이제 `settings.general.density*` 소비처는 `GeneralTab` 1곳 |
 | AC4 | `settleTrackedTasks` 단일 통합 | ✅ | `settle.ts` 의 `settleTrackedTasks(turn, emit, sessionId, tracker, {status, summary, stopLive})` + 구조적 포트 `BackgroundTaskSettleSource`. `chat-turn.ts:224,238` 두 호출부가 옵션 리터럴만 전달 |
 | AC5 | `pickPrimaryModel` 단일 점수식 | ✅ | `shared/usage/primary-model.ts`. `claude-map.ts:560`·`usage-map.ts:30` 양쪽 호출. 회귀 테스트 `primary-model.test.ts` — "input only 로 비교하면 뒤집히는 케이스"가 구 복원 경로 버그를 고정 |
 | AC6 | `async_launched` 리터럴 단일 소유 | ✅ (설계 수정 반영) | `shared/subagent.ts isAsyncLaunchedPayload` 1곳. 소비: `turn-coordinator.ts:375` · `parts.ts:146,304` · `claude-map.ts:160`. **구현자 이견 1 채택** — 이벤트 필드 대신 shared 술어(사유는 위 표) |
@@ -56,7 +56,7 @@
 | 문서 형식/링크/한국어 | ✅ | — | plan/verify 한국어, 상대 링크 해석 |
 | AGENTS.md 위생 스캔 | ✅ grep | ✅ 최종 판단 | 키/토큰/이메일/IP 패턴 **0건** |
 | 제품 의도 부합 | ✖ 보조 | ✅ 결정 | 사람 확인 대기 |
-| Open Questions | ✖ | ✅ | **DebugPanel 밀도 라디오 존치 여부** — 사람 결정 대기 |
+| Open Questions | ✖ | ✅ | **해결** — DebugPanel 밀도 라디오 제거로 사용자 결정(2026-07-27) |
 | UI/UX 시각 검증 | ✖ | ✅ | **대기** — composer IME(한글 조합 중 자동완성/전송) · listen 대기 표시 · 도넛 분모 |
 | DB 마이그레이션 실적용 | ✖(로컬 in-memory 만) | ✅/CI | **대기** — 실 설치본 `0016` 적용·기존 세션 재로드 |
 | 신규 의존성 승인 | ✖ | ✅ | 해당 없음(0건) |
@@ -110,8 +110,9 @@ $ node --test "scripts/*.test.mjs"
 선조치했고 검증에서 타당 판정했다. 동작 변화 2건(AC11 델타 가드 실효 · AC15 스키마 추가)은
 의도된 것이며 각각 회귀 테스트/NULL 폴백으로 방어된다.
 
-**사람 확인 대기**: UI/UX 시각 검증(IME·listen 표시·도넛) · 실 설치본 마이그레이션 적용 ·
-DebugPanel 밀도 라디오 존치 여부 · PR 머지.
+**사람 확인 대기**: UI/UX 시각 검증(IME·listen 표시·도넛) · 실 설치본 마이그레이션 적용 · PR 머지.
+
+**후속(같은 PR)**: D3 사용자 결정 반영 — `DebugPanel` 밀도 라디오 제거(커밋 `bfc29bb`).
 
 ---
 
@@ -121,4 +122,4 @@ DebugPanel 밀도 라디오 존치 여부 · PR 머지.
 |---|---|---|---|---|
 | D1 | `BackgroundTaskTracker` 회수 경로 미완 — 창 소멸(`onOwnerGone`)은 닫았으나 **세션 삭제** 시 회수가 없다. 트래커가 `registerChatHandlers` 클로저에 있어 `handlers/session.ts` 에서 도달 불가 | 구현자 코멘트 #3 (⚠️ 보고만) | 트래커를 `RouterContext` 로 올리거나 세션 삭제 버스 이벤트를 신설. 누수 규모는 세션당 `Map` 1개 + id 문자열로 작으나 단조 증가 | open (후속 핸드오프) |
 | D2 | 마이그레이션 추가 시 **테스트 픽스처 5곳**(`queries`·`builder`·`chat-turn.continuity`·`fork`·`migrate` test)이 각자 마이그레이션 목록을 손으로 나열 — 새 마이그레이션마다 5곳 수정 | 구현자 코멘트 #2 (부수 발견) | 공용 `testDb()` 헬퍼가 `migrate.ts` 의 `MIGRATIONS` 배열을 그대로 적용하도록 수렴 | open (이번 범위 밖 — 0132~0148 도입분 아님) |
-| D3 | `DebugPanel` 밀도 라디오가 0132 의 설정 노출 이후 중복 UI 인가 | verify r1 (제품 판단) | 사용자 결정 — 존치 시 현행 유지, 제거 시 별도 핸드오프 | 사용자 결정 대기 |
+| D3 | `DebugPanel` 밀도 라디오가 0132 의 설정 노출 이후 중복 UI 인가 | verify r1 (제품 판단) | **사용자 결정: "밀도를 설정에만 둘 것. 디버그패널에서는 제거"** → `DebugPanel` 의 밀도 `PanelRadio` 제거(같은 커밋). `t.density` Tweak 자체와 설정 화면(GeneralTab) 노출은 불변 — 디버그 패널의 중복 진입점만 소멸. `debug.layoutSection` 섹션은 `header.collapseSidebar` 토글이 남아 유지 | **해결** |
