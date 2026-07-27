@@ -9,26 +9,14 @@ import {
   useChatStore,
   NEW_CHAT_KEY
 } from './chatStore'
+import { flushRaf, installChatStoreHarness } from './chatStore.testHarness'
 import { initialChatState } from '../reducer/chatReducer'
 import { partsText } from '../lib/parts'
 import type { NormalizedEvent } from '../../../../../shared/ipc'
 
-// 코얼레서가 rAF 로 델타를 배칭한다 — 테스트에선 큐에 모았다가 flushRaf() 로 프레임을 흉내낸다.
-// (등록 즉시 실행하는 스텁은 코얼레서의 handle 대입 전에 콜백이 돌아 재예약이 막힌다.)
-let rafQueue: FrameRequestCallback[] = []
-let chatSend: ReturnType<typeof vi.fn>
-let settingsSet: ReturnType<typeof vi.fn>
-let permissionRespond: ReturnType<typeof vi.fn>
-vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback): number => {
-  rafQueue.push(cb)
-  return rafQueue.length
-})
-vi.stubGlobal('cancelAnimationFrame', () => {})
-const flushRaf = (): void => {
-  const q = rafQueue
-  rafQueue = []
-  for (const cb of q) cb(0)
-}
+let chatSend: ReturnType<typeof installChatStoreHarness>['chatSend']
+let settingsSet: ReturnType<typeof installChatStoreHarness>['settingsSet']
+let permissionRespond: ReturnType<typeof installChatStoreHarness>['permissionRespond']
 
 const delta = (text: string, sessionId = 's'): NormalizedEvent => ({
   type: 'message.delta',
@@ -42,42 +30,12 @@ const reasoningDelta = (text: string, sessionId = 's'): NormalizedEvent => ({
   delta: { text }
 })
 
-// 활성 키 's' 에 진행 중 턴 엔트리 1개로 초기화.
+// 활성 키 's' 에 진행 중 턴 엔트리 1개로 초기화(하네스는 chatStore.testHarness 공용, 0149).
 beforeEach(() => {
-  rafQueue = []
-  chatSend = vi.fn().mockResolvedValue(undefined)
-  settingsSet = vi.fn().mockResolvedValue({})
-  permissionRespond = vi.fn().mockResolvedValue(undefined)
-  vi.stubGlobal('window', {
-    orca: {
-      chat: {
-        send: chatSend,
-        cancel: vi.fn(),
-        cancelSteer: vi.fn().mockResolvedValue(undefined),
-        onEvent: vi.fn()
-      },
-      settings: { set: settingsSet },
-      permission: { respond: permissionRespond, setMode: vi.fn() }
-    }
-  })
-  useChatStore.setState(
-    {
-      sessions: {
-        s: {
-          session: { ...initialChatState, sessionId: 's', inflight: true, turnStartedAt: 1 },
-          live: { text: '', reasoning: '' },
-          subagentMeta: {}
-        }
-      },
-      activeKey: 's',
-      pendingNewChatKey: null,
-      newChatQueue: [],
-      recentsEpoch: 0,
-      concurrencyByProjectId: {},
-      draftRestore: null
-    },
-    true
-  )
+  ;({ chatSend, settingsSet, permissionRespond } = installChatStoreHarness({
+    inflight: true,
+    turnStartedAt: 1
+  }))
 })
 
 const entry = (

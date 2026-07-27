@@ -5,6 +5,7 @@
 
 import type { WebContents } from 'electron'
 import type { AttachmentView, NormalizedEvent } from '../../../shared/ipc'
+import { subagentNoticePart } from '../../../shared/ipc'
 import type { DbQueries } from '../../infra/db'
 import type { LineageRelation } from '../../infra/db/types'
 import { previewOf } from '../../infra/ipc/dto'
@@ -307,16 +308,14 @@ export class HistoryWriter {
         if (!turn.dbSessionId) break
         if (ev.phase !== 'settled' || ev.background !== true) break
         const id = this.ensureAssistantMessage(turn, turn.dbSessionId)
+        // 파트 내용은 renderer 와 같은 빌더로 만든다(0149) — 라이브/재로드 동치의 전제.
+        // payload 에서 type 은 뺀다(별도 컬럼이 들고 있고, loadParts 가 재조립한다).
+        const { type, ...noticePayload } = subagentNoticePart(ev)
         this.db.appendPart({
           messageId: id,
-          type: 'subagent_notice',
+          type,
           toolRunId: ev.toolUseId,
-          payloadJson: JSON.stringify({
-            toolRunId: ev.toolUseId,
-            status: ev.status ?? 'completed',
-            ...(ev.durationMs !== undefined ? { durationMs: ev.durationMs } : {}),
-            ...(ev.summary !== undefined ? { summary: ev.summary } : {})
-          })
+          payloadJson: JSON.stringify(noticePayload)
         })
         break
       }

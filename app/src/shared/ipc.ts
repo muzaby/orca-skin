@@ -1112,6 +1112,24 @@ export type AppMessagePart =
       summary?: string
     }
 
+// 백그라운드 완료 통지 파트 조립 — 라이브(renderer chatReducer)와 재로드(main history writer)가
+// **같은 내용**을 만들어야 재로드 후 트랜스크립트가 라이브와 동일하게 보인다. 0149: 두 프로세스가
+// 각자 조립하던 것을 한 곳으로 모았다(status 기본값·선택 필드 규칙이 갈라질 수 없게).
+export function subagentNoticePart(ev: {
+  toolUseId: string
+  status?: 'completed' | 'failed' | 'stopped'
+  durationMs?: number
+  summary?: string
+}): Extract<AppMessagePart, { type: 'subagent_notice' }> {
+  return {
+    type: 'subagent_notice',
+    toolRunId: ev.toolUseId,
+    status: ev.status ?? 'completed',
+    ...(ev.durationMs !== undefined ? { durationMs: ev.durationMs } : {}),
+    ...(ev.summary !== undefined ? { summary: ev.summary } : {})
+  }
+}
+
 // 로드된 세션 — Renderer 의 chatReducer state 와 1:1 대응. 메시지는 순서 보존 parts 로 표현.
 export interface LoadedMessage {
   role: 'user' | 'assistant'
