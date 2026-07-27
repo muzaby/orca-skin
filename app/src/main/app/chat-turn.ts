@@ -35,6 +35,7 @@ import { buildHandoffMessage } from '../features/orchestration/handoff'
 import { continuityLangFor, continuityTitle } from '../../shared/continuity-lang'
 import { agentPermissionRequest } from '../features/approvals/permission-bridge'
 import type { PermissionModeController } from '../features/approvals/permission-mode-controller'
+import { PLAN_APPROVED_MODE } from '../../shared/permission-mode'
 import { makeClassifiedError } from '../infra/errors'
 import type { RouterContext } from './context'
 import { getLogger, runWithLogContext } from '../infra/log'
@@ -731,6 +732,12 @@ export function registerChatHandlers(deps: ChatDeps): void {
           ...(typeof ui.response === 'string' ? { response: ui.response } : {})
         })
         persistence.flushAskAnswers(turn, wc)
+      }
+      // 계획 승인 후처리 — SDK 세션은 어댑터가 allow 응답의 updatedPermissions 로 이미 전환했다
+      // (adapters/claude.ts). 여기서는 main 세션 SSOT 를 같은 값으로 맞춰, 다음 턴 send 페이로드가
+      // 도착하기 전 구간에도 controller 가 plan 이라고 답하지 않게 한다.
+      if (action.kind === 'plan_review' && resolution.behavior === 'allow' && turn.dbSessionId) {
+        void permissionModes.setMode(turn.dbSessionId, PLAN_APPROVED_MODE)
       }
       return resolution
     }

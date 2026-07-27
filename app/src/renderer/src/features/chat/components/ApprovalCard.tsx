@@ -168,18 +168,20 @@ function PlanApprovalBody(): React.JSX.Element | null {
   const planTileOpen = useChatSession((s) => columnsContain(s.rightPanelTiles, 'plan'))
   const comments = useChatSession((s) => s.planComments)
   const [feedback, setFeedback] = useState('')
-  const [reviseOpen, setReviseOpen] = useState(false)
+  // 수정 영역 확장 여부를 "사용자가 마지막으로 접었을 때의 코멘트 수"로 표현한다(null = 명시적 펼침).
+  // 코멘트가 그 수를 넘어서면 다시 펼쳐지므로, 코멘트가 확장을 *강제*하던 종전 규칙(reviseOpen ||
+  // hasComments)과 달리 '뒤로'가 코멘트 유무와 무관하게 항상 접을 수 있다. effect 없는 순수 파생.
+  const [collapsedAtCount, setCollapsedAtCount] = useState<number | null>(0)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const hasComments = comments.length > 0
-  // 코멘트가 추가되면 composer 수정 영역을 파생 활성화해 칩과 추가 textarea 를 즉시 노출한다.
-  const reviseExpanded = reviseOpen || hasComments
+  const reviseExpanded = collapsedAtCount === null || comments.length > collapsedAtCount
   const canRevise = feedback.trim() !== '' || hasComments
 
   useEffect(() => {
-    if (!hasComments) return
+    if (comments.length === 0) return
     const id = requestAnimationFrame(() => textareaRef.current?.focus())
     return () => cancelAnimationFrame(id)
-  }, [hasComments])
+  }, [comments.length])
 
   if (!review) return null
   const rid = review.requestId
@@ -190,11 +192,15 @@ function PlanApprovalBody(): React.JSX.Element | null {
 
   const onReviseClick = (): void => {
     if (!reviseExpanded) {
-      setReviseOpen(true)
+      setCollapsedAtCount(null)
       return
     }
     submitRevise()
   }
+
+  // 뒤로 = 수정 영역만 접는다. feedback(로컬)·planComments(store) 는 손대지 않아 재진입 시 복원되고,
+  // 코멘트를 단 뒤에도 수락/거부에 도달할 수 있게 된다(접기 전에는 좌측 그룹이 통째로 숨겨졌다).
+  const collapseRevise = (): void => setCollapsedAtCount(comments.length)
 
   const openComment = (id: string): void => {
     setRightPanelTileActive('plan', true)
@@ -211,6 +217,13 @@ function PlanApprovalBody(): React.JSX.Element | null {
   }
 
   const onKeyDown = (e: KeyboardEvent<HTMLDivElement>): void => {
+    // Esc=뒤로(확장 상태에서만 소비 — 접힌 상태에선 상위 핸들러에 양보). textarea 는 Enter 만
+    // stopPropagation 하므로 입력 중에도 여기까지 버블링된다(AskUserQuestionCard 와 같은 패턴).
+    if (e.key === 'Escape' && reviseExpanded) {
+      e.preventDefault()
+      collapseRevise()
+      return
+    }
     if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !e.nativeEvent.isComposing) {
       e.preventDefault()
       approvePlan(rid)
@@ -277,12 +290,14 @@ function PlanApprovalBody(): React.JSX.Element | null {
         </div>
       </div>
 
-      <div
-        className={`mt-2.5 flex items-center gap-g3 ${reviseExpanded ? 'justify-end' : 'justify-between'}`}
-      >
-        {/* revise 영역이 펼쳐지면(수정 클릭 또는 코멘트 추가) 좌측 거부/수락 그룹을 숨기고
-            우측 '수정' 제출만 남긴다. 접힌 기본 상태에서만 거부 + 수정 진입 버튼을 노출. */}
-        {!reviseExpanded && (
+      <div className="mt-2.5 flex items-center justify-between gap-g3">
+        {/* 좌측 슬롯은 항상 채운다 — 펼친 상태에선 '뒤로'(빠져나갈 길), 접힌 기본 상태에선
+            거부 + 수정 진입. 우측은 펼침=수정 제출 / 접힘=수락. */}
+        {reviseExpanded ? (
+          <Button variant="uncontained" leadingIcon="arrowL" onClick={collapseRevise}>
+            {tr('chat.approval.reviseBack')}
+          </Button>
+        ) : (
           <div className="flex items-center gap-g3">
             <Button variant="contained" onClick={() => rejectPlan(rid)} data-behavior="dismissible">
               {tr('chat.approval.deny')}

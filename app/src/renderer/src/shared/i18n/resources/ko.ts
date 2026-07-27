@@ -611,6 +611,7 @@ export const ko = {
       reviseInputAria: '수정 제안 내용',
       reviseFirst: '수정 제안 내용을 먼저 입력하세요',
       reviseOpen: '수정…',
+      reviseBack: '뒤로',
       revise: '수정',
       accept: '수락'
     },

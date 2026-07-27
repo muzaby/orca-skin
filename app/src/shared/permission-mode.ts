@@ -20,6 +20,11 @@ export type NormalizedPermissionMode =
 export type ClaudePermissionMode =
   'default' | 'acceptEdits' | 'bypassPermissions' | 'plan' | 'dontAsk' | 'auto'
 
+// 계획 승인(ExitPlanMode allow) = plan 모드 종료 시 들어갈 모드. 렌더러 칩(chatStore.approvePlan)·
+// SDK 세션(adapters/claude.ts 의 updatedPermissions)·main 세션 SSOT(app/chat-turn.ts) 세 곳이
+// 같은 값을 읽도록 단일 정의로 둔다 — 셋이 어긋나면 "칩은 편집 수락인데 SDK 는 plan" 이 된다.
+export const PLAN_APPROVED_MODE: NormalizedPermissionMode = 'accept_edits'
+
 // 정규화 모드 전수 (UI 메뉴·검증 루프용 단일 출처).
 export const NORMALIZED_MODES: readonly NormalizedPermissionMode[] = [
   'default',
