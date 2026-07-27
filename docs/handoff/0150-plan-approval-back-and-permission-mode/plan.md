@@ -236,12 +236,12 @@ const reviseExpanded = collapsedAtCount === null || comments.length > collapsedA
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | `shared/permission-mode.ts` · `main/adapters/claude.ts` · `main/app/chat-turn.ts` · `main/adapters/claude.canusetool.test.ts` · `renderer/…/chat/store/chatStore.ts` · `renderer/…/chat/components/ApprovalCard.tsx` · `renderer/…/i18n/resources/{ko,en}.ts` |
+| 변경 파일 | `shared/permission-mode.ts` · `main/adapters/claude.ts` · `main/app/chat-turn.ts` · `main/adapters/claude.canusetool.test.ts` · `renderer/…/chat/store/chatStore.ts` · `renderer/…/chat/components/ApprovalCard.tsx` · `renderer/…/i18n/resources/{ko,en}.ts` (7파일) |
 | 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` · `node --test "scripts/*.test.mjs"` |
 | 게이트 결과 | lint ✅ **0 error**(warning 1 = `useTranscriptVirtualizer` TanStack↔React Compiler, 0102 이래 베이스라인) · typecheck ✅ 3/3 · vitest ✅ **1176/1176 pass**(테스트 실패 0. 파일 1 = `app/chat-turn.continuity` **로드 실패** — `Electron failed to install correctly`, egress 403 환경 제약, 코드 무관) · scripts ✅ 28/28 |
 | 환경 메모 | `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` 후 `npm rebuild better-sqlite3`(Node ABI)로 DB 로드 스위트까지 green 확보 |
 | 블로커 / 역질문 | 없음. 단 **적용 순서 런타임 실측**은 이 환경에서 불가 — 사람 실기 필요 |
-| 대상 커밋 | (push 후) |
+| 대상 커밋 | `38f8032` (본 구현) · `282a4e7` (사용자 추가 요구 A-5) |
 
 ## [검증 대기] 사람 실기 항목
 
@@ -258,3 +258,6 @@ const reviseExpanded = collapsedAtCount === null || comments.length > collapsedA
 |---|---|---|---|---|
 | D1 | `PermissionModeController.getCurrentMode`/`forget` 프로덕션 호출처 0 — write-only 싱크 + 세션 삭제 시 Map 누수. 본 작업이 write 경로를 하나 더 늘렸다 | 조사(0150) | 세션 delete 경로에서 `forget` 호출 + 다음 턴이 controller 를 읽도록 배선, 또는 controller 폐기 | open |
 | D2 | `shared/ipc.ts:800-806` 의 `PermissionMode`(2종)와 `fromUiPermissionMode` 가 죽은 코드 (주석도 "현 Composer UI 2종"이라 낡음 — 실제 6종 노출) | 조사(0150) | 제거 + 주석 교정 | open |
+| D3 | AC7(main controller 동기화)에 기계 검증 부재 — `requestApproval` 후처리 경로는 단위 테스트가 없다 | verify r1 | `requestApproval` 을 주입 가능한 형태로 얇게 갈라 후처리 분기만 테스트 | open |
+| D4 | AC1~5 UI 인수 기준 기계 검증 부재. 특히 AC3·4 는 시각이 아니라 로직(`collapsedAtCount` 파생)이라 순수 함수 추출 + 테스트가 가능했다 | verify r1 (검증자 자기 리뷰) | 파생식을 `features/chat/lib/` 순수 함수로 추출해 테이블 테스트, 또는 렌더 테스트 도입 여부는 제품 판단 | open |
+| D5 | `ToolApprovalBody` 의 `세션 동안 허용` 이 `uncontained` 로 남아 계획 카드와 규칙이 갈린다 | 사용자 요구 ⑤ 의 인접 범위 | 같은 통일 규칙 적용 여부 = 사용자 결정 (이번 요청 범위는 계획 카드) | open |
