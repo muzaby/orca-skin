@@ -97,7 +97,32 @@ describe('makeCanUseTool — ExitPlanMode', () => {
       },
       expect.any(AbortSignal)
     )
-    expect(res).toEqual({ behavior: 'allow', updatedInput: input })
+    expect(res).toEqual({
+      behavior: 'allow',
+      updatedInput: input,
+      updatedPermissions: [{ type: 'setMode', mode: 'acceptEdits', destination: 'session' }]
+    })
+  })
+
+  it('allow 는 세션 스코프 setMode(acceptEdits) 를 동봉한다 — 계획 승인 = plan 모드 종료', async () => {
+    const requestApproval = vi.fn<ReqApproval>().mockResolvedValue({ behavior: 'allow' })
+    const canUse = makeCanUseTool(requestApproval)
+    const res = await canUse('ExitPlanMode', { plan: 'x' }, ctx)
+    expect(res?.behavior).toBe('allow')
+    if (res?.behavior !== 'allow') return
+    // destination='session' 고정 — localSettings/projectSettings 는 settings 파일에 규칙을 쓴다.
+    expect(res.updatedPermissions).toEqual([
+      { type: 'setMode', mode: 'acceptEdits', destination: 'session' }
+    ])
+  })
+
+  it('deny 는 권한 업데이트를 동봉하지 않는다 (모드 유지)', async () => {
+    const requestApproval = vi
+      .fn<ReqApproval>()
+      .mockResolvedValue({ behavior: 'deny', message: '다시' })
+    const canUse = makeCanUseTool(requestApproval)
+    const res = await canUse('ExitPlanMode', { plan: 'x' }, ctx)
+    expect(res).not.toHaveProperty('updatedPermissions')
   })
 
   it('deny + message → revise (피드백 메시지 동봉)', async () => {

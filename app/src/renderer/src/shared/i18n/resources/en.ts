@@ -617,6 +617,7 @@ export const en: typeof ko = {
       reviseInputAria: 'Revision suggestion',
       reviseFirst: 'Enter your revision suggestion first',
       reviseOpen: 'Revise…',
+      reviseBack: 'Back',
       revise: 'Revise',
       accept: 'Accept'
     },

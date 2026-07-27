@@ -17,7 +17,7 @@ import type {
   NormalizedEvent,
   PermissionAction
 } from '../../shared/ipc'
-import { toClaudePermissionMode } from '../../shared/permission-mode'
+import { PLAN_APPROVED_MODE, toClaudePermissionMode } from '../../shared/permission-mode'
 import { claudeToNormalized, type MapContext } from './claude-map'
 import { claudeErrorClassifier, errorEvent } from './error-classifier'
 import { createSessionInputStream, type TurnInputContent } from './streaming-input'
@@ -149,7 +149,21 @@ export function makeCanUseTool(
         signal
       )
       if (res.behavior === 'allow') {
-        return { behavior: 'allow', updatedInput: input }
+        // 계획 승인 = plan 모드 종료. 모드 전환을 **allow 응답에 동봉**해 단일 control_response 로
+        // 원자 적용한다 — 별도 setPermissionMode control_request 를 쓰면 allow 가 먼저 도착해
+        // 모델이 이미 다음 도구를 부르기 시작하는 순서 경쟁이 남는다. destination='session' 은
+        // 인메모리 세션 스코프(설정 파일 미기록) — localSettings/projectSettings 는 쓰지 않는다.
+        return {
+          behavior: 'allow',
+          updatedInput: input,
+          updatedPermissions: [
+            {
+              type: 'setMode',
+              mode: toClaudePermissionMode(PLAN_APPROVED_MODE),
+              destination: 'session'
+            }
+          ]
+        }
       }
       // deny: planFeedback(구조화 코멘트) 우선 — 자기서술 블록이라 '사용자 수정 요청:' 프리픽스
       // 없이 직렬화. 없으면 message(단순 수정), 둘 다 없으면 거부(reject — turn abort 는 router).

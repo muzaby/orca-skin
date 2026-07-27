@@ -25,7 +25,10 @@ import type {
   NormalizedEvent,
   SendChatMessage
 } from '../../../../../shared/ipc'
-import type { NormalizedPermissionMode } from '../../../../../shared/permission-mode'
+import {
+  PLAN_APPROVED_MODE,
+  type NormalizedPermissionMode
+} from '../../../../../shared/permission-mode'
 import { continuityLangFor, continuityTitle } from '../../../../../shared/continuity-lang'
 import type { RightPanelTileId } from '../lib/rightPanelTiles'
 
@@ -1048,8 +1051,10 @@ function approvePlan(requestId: string): void {
   void permissionApi.respond({ approvalId: requestId, resolution: { behavior: 'allow' } })
   dispatchActive({ type: 'RESOLVE_PLAN' })
   // 승인 = plan 모드 종료. 칩을 '편집 수락'으로 전환 → 다음 턴이 plan 모드로 재진입하지
-  // 않아 ExitPlanMode 재호출(단순 질문 시 계획 카드 재출현)을 막는다.
-  dispatchActive({ type: 'SET_PERMISSION_MODE', mode: 'accept_edits' })
+  // 않아 ExitPlanMode 재호출(단순 질문 시 계획 카드 재출현)을 막는다. 여기는 낙관적 UI 갱신이고,
+  // SDK 세션 전환은 어댑터가 같은 allow 응답의 updatedPermissions 로 원자 처리한다
+  // (adapters/claude.ts) — 그래서 setPermissionMode() 처럼 별도 IPC 를 발행하지 않는다.
+  dispatchActive({ type: 'SET_PERMISSION_MODE', mode: PLAN_APPROVED_MODE })
 }
 
 function revisePlan(requestId: string, feedback: string): void {
