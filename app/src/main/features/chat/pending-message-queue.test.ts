@@ -125,17 +125,34 @@ describe('PendingMessageQueue', () => {
 
   // ── 0151 AC5·AC6: 확정 신호 검증 ─────────────────────────────────────────────
   describe('confirm — origin ↔ 신호 대조 (AC5) / uuid 우선 (AC6)', () => {
-    it('echo 는 steer 배치만 확정한다 — turn-open 배치는 구조적으로 거부', () => {
+    it('echo 는 turn-open 배치도 확정한다 — CLI drain 영수증은 배치 성격과 무관하다', () => {
+      // r1 회귀 방어: 모델 출력이 하나도 없는 턴(handoff 도착 턴 등)에서는 echo 가 turn-open
+      // 배치의 **유일한** 확정 신호다. 여기서 거부하면 사용자 메시지가 영영 커밋되지 않는다.
       const q = new PendingMessageQueue()
       q.enqueue('s', msg('prompt'), 1, 'p')
       q.reserveItem('s', 'p', 'turn-open')
-      // 늦게 도착한 턴-시작 echo: uuid 가 정확히 맞아도 확정되지 않는다.
-      expect(q.confirm('s', { kind: 'echo', uuid: 'p', text: 'prompt' })).toEqual([])
-      expect(q.drainConfirmed('s')).toEqual([])
-      // 올바른 신호로는 확정된다.
+      expect(q.confirm('s', { kind: 'echo', uuid: 'p', text: 'prompt' }).map((b) => b.ids)).toEqual(
+        [['p']]
+      )
+      expect(q.drainConfirmed('s').map((b) => b.ids)).toEqual([['p']])
+    })
+
+    it('첫 모델 출력으로도 turn-open 배치가 확정된다 (0069 기본 앵커)', () => {
+      const q = new PendingMessageQueue()
+      q.enqueue('s', msg('prompt'), 1, 'p')
+      q.reserveItem('s', 'p', 'turn-open')
       expect(q.confirm('s', { kind: 'model-output', uuids: ['p'] }).map((b) => b.ids)).toEqual([
         ['p']
       ])
+    })
+
+    it('이미 확정된 배치는 다른 신호가 늦게 와도 두 번 확정되지 않는다', () => {
+      const q = new PendingMessageQueue()
+      q.enqueue('s', msg('prompt'), 1, 'p')
+      q.reserveItem('s', 'p', 'turn-open')
+      q.confirm('s', { kind: 'model-output', uuids: ['p'] })
+      expect(q.confirm('s', { kind: 'echo', uuid: 'p' })).toEqual([])
+      expect(q.drainConfirmed('s')).toHaveLength(1)
     })
 
     it('첫 모델 출력은 turn-open 배치만 확정한다 — steer 배치는 거부', () => {
@@ -268,9 +285,9 @@ describe('PendingMessageQueue', () => {
     expect(batches.map((batch) => batch.uuid)).toEqual(['batch-1', 'b'])
     expect(batches.map((batch) => batch.text)).toEqual(['flushed-lost', 'held-late'])
     expect(q.pending('s')).toHaveLength(0)
-    // 재전달분은 새 턴의 프렐류드/프롬프트가 되므로 origin 이 turn-open 으로 재스탬프된다 —
-    // 확정 신호가 echo 에서 첫 모델 출력으로 바뀐다(0151 AC1).
-    expect(q.confirm('s', { kind: 'echo', uuid: 'b' })).toEqual([])
+    // 재전달분은 새 턴의 프렐류드/프롬프트가 되므로 origin 이 turn-open 으로 재스탬프된다(AC1).
+    // 재스탬프가 필요한 이유는 **첫 모델 출력을 확정 신호로 열어야** 하기 때문이다 — steer 로
+    // 남겨두면 model-output 이 확정하지 못해(D2 비대칭) 새 턴이 이 배치를 영영 커밋하지 못한다.
     expect(q.confirm('s', { kind: 'model-output', uuids: ['b'] }).map((b) => b.ids)).toEqual([
       ['b']
     ])

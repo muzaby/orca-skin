@@ -18,9 +18,12 @@ export interface PendingMessage extends PendingMessagePayload {
   createdAt: number
 }
 
-// 배치 성격(0151 AC1) — **어느 신호가 이 배치의 소비를 확정하는가**를 데이터로 못박는다.
-//   turn-open : 턴 프롬프트·프렐류드 → 확정 = 첫 모델 출력(응답 시작이 곧 소비 증거, 0069)
-//   steer     : mid-turn 게이트 flush → 확정 = CLI user echo(응답 진행은 증거가 못 된다, 0060 D2)
+// 배치 성격(0151 AC1) — **어느 신호가 이 배치를 확정할 수 있는가**를 데이터로 못박는다.
+//   turn-open : 턴 프롬프트·프렐류드 → 첫 모델 출력(0069 기본 앵커) **또는** echo
+//   steer     : mid-turn 게이트 flush → **echo 만**. 응답 진행은 mid-turn steer 의 소비 증거가
+//               못 되므로(0060 D2) 모델 출력으로 확정하면 모델이 못 본 텍스트를 커밋하게 된다.
+// 관계는 **비대칭**이다 — 막아야 하는 것은 "모델 출력 → steer" 한 방향뿐이고, echo 는 CLI 의
+// drain 영수증이라 양쪽에 유효하다(r2 교정, 아래 confirm 주석 참조).
 // 성격은 **메서드로 유도할 수 없다** — 같은 reserveHeld 가 게이트에서는 steer 를, 연속 턴
 // 루프에서는 턴 프롬프트를 만든다(chat-turn). 그래서 호출자가 명시한다.
 export type BatchOrigin = 'turn-open' | 'steer'
@@ -28,13 +31,13 @@ export type BatchOrigin = 'turn-open' | 'steer'
 // 예약 배치의 수명(0151 AC2) — 구 `consumed: boolean` 을 대체한다. held 는 별도 맵이 소유하므로
 // 여기 없다.
 //   submitted : stdin 주입됨. 취소 불가(소유권 transport). push 실패 시에만 rollback 으로 복귀.
-//   confirmed : origin 이 지정한 신호를 관측. 커밋 대상.
+//   confirmed : origin 이 허용하는 신호를 관측. 커밋 대상.
 //   orphaned  : 턴 체인이 끝나도록 확정 신호가 오지 않음. 재주입 후보이자 관측 지점 —
 //               구 구조에는 이 상태가 없어 echo 유실이 **표현도 탐지도 불가**했다.
 export type BatchState = 'submitted' | 'confirmed' | 'orphaned'
 
-// 확정 신호 — kind 가 origin 과 짝이 맞아야만 확정된다(AC5). 규약이 코드 4곳에 흩어져 있던 것을
-// 큐 안의 검증 한 줄로 내린다.
+// 확정 신호 — 큐가 kind 와 origin 의 (비대칭) 관계를 검증한다(AC5). 규약이 코드 4곳에 흩어져
+// 있던 것을 큐 안의 검증 한 곳으로 내린다.
 export type ConfirmSignal =
   { kind: 'echo'; uuid?: string; text?: string } | { kind: 'model-output'; uuids: string[] }
 
@@ -230,9 +233,13 @@ export class PendingMessageQueue {
     return true
   }
 
-  // 소비 확정(구 markConsumed) — **origin 과 신호 종류가 짝이 맞아야만** 확정한다(AC5).
-  // echo 는 steer 배치만, 첫 모델 출력은 turn-open 배치만 확정할 수 있다. 늦게 도착한 턴-시작
-  // echo 가 무해한 이유가 이제 "우연히 매칭 실패" 가 아니라 **구조적 거부** 다.
+  // 소비 확정(구 markConsumed) — 신호와 origin 의 관계는 **비대칭**이다(AC5, r2 교정):
+  //   · `model-output`(첫 모델 출력) → **turn-open 만**. 응답 진행은 mid-turn steer 의 소비
+  //     증거가 못 되므로(0060 D2) steer 배치를 확정하면 모델이 못 본 텍스트를 커밋하게 된다.
+  //   · `echo`(CLI drain 영수증) → **양쪽**. 배치 성격과 무관하게 "CLI 가 이 입력을 흡수했다" 는
+  //     직접 증거다. 모델 출력이 없는 턴에서는 turn-open 의 유일한 신호이기도 하다.
+  // (r1 은 echo 도 steer 로 한정했다가 CI 에서 회귀를 냈다 — 모델 출력 없는 handoff 도착 턴의
+  //  사용자 메시지가 영영 커밋되지 않았다.)
   // uuid 가 실려 오면 uuid 로만 판정한다(AC6) — 텍스트가 같은 무관한 배치를 확정하던 폴백
   // 경로를 끊는다. text 폴백은 uuid 를 보존하지 않는 replay 에서만 살아난다.
   // orphaned 도 확정 대상이다 — 지각 신호로 커밋이 유실되지 않게(AC7).
@@ -252,12 +259,14 @@ export class PendingMessageQueue {
       return confirmed
     }
 
-    const steerOpen = (b: TrackedBatch): boolean => b.origin === 'steer' && open(b)
+    // echo 는 **양쪽 origin 을 확정할 수 있다** — CLI 가 입력을 drain 했다는 영수증이라 배치
+    // 성격과 무관하게 유효하다. 모델 출력이 하나도 없는 턴(handoff 도착 턴 등)에서는 turn-open
+    // 배치의 **유일한** 확정 신호이므로, 여기서 거부하면 사용자 메시지가 영영 커밋되지 않는다.
     const batch =
       signal.uuid !== undefined
-        ? batches.find((b) => steerOpen(b) && b.uuid === signal.uuid)
+        ? batches.find((b) => open(b) && b.uuid === signal.uuid)
         : signal.text !== undefined
-          ? batches.find((b) => steerOpen(b) && b.text === signal.text!.trim())
+          ? batches.find((b) => open(b) && b.text === signal.text!.trim())
           : undefined
     if (!batch) return []
     batch.state = 'confirmed'
@@ -290,6 +299,25 @@ export class PendingMessageQueue {
       orphaned.push(toPublic(batch))
     }
     return orphaned
+  }
+
+  // orphaned 폐기(0151 r2 / OQ2 결정 = "폐기 후 draft 복원") — 턴 체인이 끝나도록 확정되지 않은
+  // 배치를 큐에서 빼고 호출자에게 넘긴다. 호출자는 텍스트를 composer draft 로 되돌려 **사용자가**
+  // 재전송 여부를 정하게 한다.
+  //
+  // 왜 자동 재주입이 아닌가: 확정 신호가 없다는 것은 "CLI 가 못 봤다" 와 "봤는데 echo 가 유실됐다"
+  // 를 **구분할 수 없다**는 뜻이다. 자동 재주입은 후자에서 모델 이중 전달이 되고, 조용한 폐기는
+  // 전자에서 유실이 된다. 어느 쪽도 앱이 혼자 판정할 근거가 없으므로 사용자를 루프에 넣는다
+  // (공개 SDK 에 "이 uuid 가 실행됐나" 를 묻는 표면이 없다).
+  discardOrphaned(sessionId: string): SteerFlushBatch[] {
+    return this.remove(sessionId, (b) => b.state === 'orphaned')
+  }
+
+  // 지정 uuid 의 예약을 폐기한다(0151 r2 / OQ1 "세션 전체 중단") — 런타임을 폐기해 CLI 큐를
+  // 서브프로세스와 함께 없앤 뒤, 그 배치들의 텍스트를 draft 로 되돌리는 데 쓴다.
+  discardSubmitted(sessionId: string, uuids: readonly string[]): SteerFlushBatch[] {
+    const target = new Set(uuids)
+    return this.remove(sessionId, (b) => b.state === 'submitted' && target.has(b.uuid))
   }
 
   // interrupt 영수증의 still_queued 와 대조할 **우리 uuid** 집합(AC11). 영수증에는 클라이언트가
@@ -345,6 +373,18 @@ export class PendingMessageQueue {
     for (const sessionId of [...this.heldBySession.keys(), ...this.trackedBySession.keys()]) {
       this.dispose(sessionId)
     }
+  }
+
+  // 조건에 맞는 추적 배치를 큐에서 빼 공개 형태로 돌려준다(폐기 경로 공통).
+  private remove(sessionId: string, match: (batch: TrackedBatch) => boolean): SteerFlushBatch[] {
+    const batches = this.trackedBySession.get(sessionId)
+    if (!batches) return []
+    const hit = batches.filter(match)
+    if (hit.length === 0) return []
+    const remaining = batches.filter((b) => !match(b))
+    if (remaining.length === 0) this.trackedBySession.delete(sessionId)
+    else this.trackedBySession.set(sessionId, remaining)
+    return hit.map(toPublic)
   }
 
   private track(
