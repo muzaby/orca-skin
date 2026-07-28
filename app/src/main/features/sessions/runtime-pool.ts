@@ -36,6 +36,12 @@ export class RuntimePool<RT extends ManagedRuntime = ManagedRuntime> {
     return true
   }
 
+  // 지정 세션의 idle 핸들 폐기(0151 r2 — "세션 전체 중단"). LRU 축출과 달리 **사용자 의도**로
+  // 서브프로세스를 죽여 CLI 입력 큐 잔여를 통째로 소멸시킨다. 없으면 false.
+  close(sessionId: string): boolean {
+    return this.closeEntry(sessionId)
+  }
+
   has(sessionId: string): boolean {
     return this.idle.has(sessionId)
   }

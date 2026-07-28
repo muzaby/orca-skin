@@ -170,8 +170,16 @@ cancel                 └──턴 체인 종료──→ orphaned ──takeFo
 | 되돌리기 어려운 결정: IPC 이벤트 1건 추가 | additive variant 이며 renderer 미처리 시 무시된다. `IPC_CONTRACT.md` 동시 갱신 |
 
 - **단독 결정 금지 항목(Open Question)** → 사용자에게:
-  - **OQ1.** Stop 시 우리 uuid 가 `still_queued` 에 남았을 때 — (a) 통지만 (본 PR 채택) / (b) 능동 "세션 전체 중단" 제시 / (c) 무조건 런타임 폐기. (c)는 0143 백그라운드 통지를 죽인다(R4·R5).
-  - **OQ2.** `orphaned` 처리 — (a) 다음 턴 자동 재주입(이중 전달 위험) / (b) 폐기 후 draft 복원 / (c) 관측만(본 PR 채택 = 기존 동작 유지).
+  - **OQ1.** Stop 시 우리 uuid 가 `still_queued` 에 남았을 때 — (a) 통지만 / (b) 능동 "세션 전체 중단" 제시 / (c) 무조건 런타임 폐기. (c)는 0143 백그라운드 통지를 죽인다(R4·R5).
+  - **OQ2.** `orphaned` 처리 — (a) 다음 턴 자동 재주입(이중 전달 위험) / (b) 폐기 후 draft 복원 / (c) 관측만(= 기존 동작 유지).
+  - **→ r2 에서 사용자 결정 완료: OQ1 = (b), OQ2 = (b)** (라이브 세션 "진행하라" — 검증자 권고안 채택). 아래 AC16~AC19 로 인수 기준 승격.
+
+## 인수 기준 추가 (r2 — OQ 결정 반영)
+
+16. **Stop 잔여를 능동 고지한다.** `still_queued ∩ 우리 예약` 이 비지 않으면 `chat.residual{count}` 를 발신하고, 컴포저가 "세션 전체 중단" 액션이 붙은 Notice 를 띄운다. 교집합이 비면 통지를 해제한다(`count:0`). 수동적 배지로 끝내지 않는다 — Stop 을 눌렀는데 잠시 후 steer 가 실행되는 것은 Stop 의 통념과 어긋나므로 그 자리에서 완전 정지 수단을 준다.
+17. **"세션 전체 중단" 이 실제로 잔여를 없앤다.** 신규 IPC `orca:chat:discardSession` 이 진행 턴 abort → 런타임(서브프로세스) 폐기 → 잔여 예약 폐기 → `message.cancelled`(draft 복원) + `chat.residual{count:0}` 을 수행한다. **백그라운드 서브에이전트도 함께 종료된다는 사실을 UI 문구에 명시**한다(비용을 숨기지 않는다).
+18. **`orphaned` 는 자동 재주입하지 않는다.** 턴 체인 종료 시 `discardOrphaned` 로 큐에서 빼고 `message.cancelled` 로 텍스트를 composer draft 에 되돌린다. 근거: 확정 신호 부재는 "CLI 가 못 봤다" 와 "봤는데 echo 가 유실됐다" 를 **구분할 수 없다**(공개 SDK 에 "이 uuid 가 실행됐나" 를 묻는 표면이 없다). 재주입은 후자에서 모델 이중 전달, 조용한 폐기는 전자에서 유실이므로 **사용자를 루프에 넣는다**.
+19. **폐기된 배치는 되살아나지 않는다.** `discardOrphaned`/`discardSubmitted` 이후 지각 확정 신호나 `takeForRespawn` 이 그 배치를 재전달하지 않는다.
 
 ## 영향 받는 파일
 
@@ -255,5 +263,32 @@ cancel                 └──턴 체인 종료──→ orphaned ──takeFo
 | 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` · `node --test "scripts/*.test.mjs"` |
 | 게이트 결과 | lint ✅ **0 error**(warning 1 = `useTranscriptVirtualizer` TanStack↔React Compiler, 0102 이래 베이스라인) · typecheck ✅ **3/3** · vitest ✅ **1212/1212 pass** (파일 1 = `chat-turn.continuity.test.ts` **로드 실패** — `ELECTRON_SKIP_BINARY_DOWNLOAD=1` 로 설치해 electron 바이너리 부재, **테스트 0건 실패**, 코드 무관 환경 제약) · scripts ✅ **28/28** |
 | 신규 의존성 | 0 |
-| 블로커 / 역질문 | 없음. 단 plan Open Question 2건(OQ1 Stop 처분 정책 · OQ2 orphaned 처리)은 **미결 — 사용자 결정 대기**. 현 구현은 둘 다 보수적 기본값(관측·통지까지만 / 기존 재주입 동작 유지). |
-| 대상 커밋 | (아래 verify 참조) |
+| 블로커 / 역질문 | 없음 (r1 시점의 OQ 2건은 r2 에서 사용자 결정 후 구현 완료 — 아래 참조). |
+| 대상 커밋 | `32a350e`(r1) · `2d4480e`(CI 회귀 수정) · r2(OQ 구현) |
+
+## [구현자 기입] r2 — CI 회귀 수정 + OQ 결정 구현
+
+### R1. CI 가 잡은 실재 회귀 (커밋 `2d4480e`)
+
+**증상**: `chat-turn.continuity.test.ts` 2건 실패 — 사용자 메시지 파트가 영속되지 않음(`parts` 가 `[]`).
+
+**원인**: AC5 의 origin↔신호 대조를 **양방향 대칭**으로 만든 것이 과했다. echo 를 `steer` 전용으로 막았는데, echo 는 **CLI 가 입력을 drain 했다는 영수증**이라 배치 성격과 무관하게 유효하다. **모델 출력이 하나도 없는 턴**(handoff 도착 턴)에서는 turn-open 배치의 **유일한** 확정 신호였고, 이를 거부하자 user row 가 영영 커밋되지 않았다.
+
+**수정**: 관계를 **비대칭**으로 되돌린다 — 막아야 할 것은 `model-output → steer` 한 방향뿐이다(0060 D2: 응답 진행은 mid-turn steer 의 소비 증거가 못 된다). `echo` 는 양쪽 origin 을 확정한다. `takeForRespawn` 의 `turn-open` 재스탬프는 여전히 필요하다 — 재스탬프해야 **첫 모델 출력이 확정 신호로 열린다**.
+
+**왜 로컬에서 못 잡았나 (프로세스 교훈)**: 이 스위트는 electron 바이너리 부재로 **로드조차 되지 않아** r1 verify 가 "환경 베이스라인, 테스트 0건 실패" 로 분리 보고했다. 그러나 **내가 바로 그 파일의 큐 API 호출을 바꿨으므로** 베이스라인으로 넘길 게 아니라 실행 수단을 찾았어야 했다. 실제로 `ELECTRON_OVERRIDE_DIST_PATH=<any>` 로 `electron/index.js` 의 경로 해석을 우회하면 **전 스위트(148 파일 · 1216 테스트)가 로컬에서 돈다**. 베이스라인은 회피 가능했다.
+
+### R2. OQ 결정 구현 (사용자 결정 = 검증자 권고안 (b)/(b))
+
+| AC | 구현 | 파일 |
+|---|---|---|
+| 16 | `chat.residual{count}` 이벤트 + 컴포저 Notice(액션 버튼 동반). `reconcileInterrupt` 가 교집합 비면 통지 해제 | `shared/ipc.ts` · `app/chat-turn.ts` · `Composer.tsx` · `chatStore.ts` · i18n |
+| 17 | 신규 IPC `orca:chat:discardSession` — abort → `supervisor.discardRuntime` → `discardSubmitted` → `message.cancelled` + `chat.residual{0}`. `RuntimePool.close(sessionId)` 신설. UI 문구가 백그라운드 종료를 명시 | `handlers` in `chat-turn.ts` · `supervisor.ts` · `runtime-pool.ts` · `preload` · `shared/api/ipc.ts` |
+| 18 | 턴 체인 종료 시 `orphanUnconfirmed` → `discardOrphaned` → `message.cancelled`(기존 renderer 경로가 버블 제거 + draft 복원을 이미 수행) | `pending-message-queue.ts` · `app/chat-turn.ts` |
+| 19 | 폐기분은 큐에서 제거돼 지각 확정·`takeForRespawn` 어느 쪽으로도 되살아나지 않음 | 테스트 6건 |
+
+**설계 판단 기록**: OQ1 에서 (c)"무조건 폐기" 를 고르지 않은 이유는 R4·R5 그대로다 — `still_queued` 의 미지 uuid 는 백그라운드 auto-resume continuation 일 수 있어 자동 폐기는 0143 을 죽인다. (b)는 폐기 **행위 자체는 동일**하되 **사용자가 방아쇠를 당긴다** — 백그라운드 작업이 함께 죽는 비용을 UI 문구로 고지하고 동의를 받는다.
+
+### r2 게이트
+
+lint **0 error**(warning 1 = 0102 베이스라인) · typecheck **3/3** · vitest **148 파일 / 1216 테스트 전부 pass**(`ELECTRON_OVERRIDE_DIST_PATH` 로 종전 로드 실패 파일 포함 — **베이스라인 제외 0건**) · scripts 28/28. CI `gate`(windows-latest) **success** on `2d4480e`.

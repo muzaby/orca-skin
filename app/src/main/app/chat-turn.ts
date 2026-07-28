@@ -15,6 +15,7 @@ import {
 import {
   CancelChatSchema,
   CancelSteerSchema,
+  DiscardSessionSchema,
   SendChatMessageSchema,
   StopSubagentSchema
 } from '../../shared/protocol'
@@ -215,6 +216,10 @@ export function registerChatHandlers(deps: ChatDeps): void {
   // + listen 턴 릴리즈 밸브(세션 키 — busy send 예약이 listen 프레임을 닫아 즉시 연속 턴 전환).
   const backgroundTasks = new BackgroundTaskTracker()
   const listenRelease = new Map<string, () => void>()
+  // 중단 잔여(0151 r2) — Stop 영수증의 still_queued 중 **우리 예약**과 교집합인 uuid 목록.
+  // "세션 전체 중단" 을 사용자가 고르면 이 목록의 예약을 폐기 대상으로 삼는다. 세션 키별 1건이며
+  // 새 턴 시작·폐기 실행 시 해제된다. 메모리 전용(비영속 — pending 정책 동일).
+  const residualBySession = new Map<string, string[]>()
 
   // 0067: 장수명 세션 채널이 기본 — 게이트 env(ORCA_PERSISTENT_RUNTIME) 폐기(사용자 확정
   // "long-lived 직행"). pushTurn 미지원 어댑터(mock)는 SessionRuntime 이 턴-스코프로 폴백한다.
@@ -761,10 +766,11 @@ export function registerChatHandlers(deps: ChatDeps): void {
     // 백그라운드 auto-resume continuation)가 섞이므로(`sdk.d.ts:3487`), **우리 예약과의 교집합만**
     // 취한다. 모르는 uuid 를 잔여로 오인해 런타임을 폐기하면 0143 백그라운드 완료 통지가 죽는다.
     //
-    // 교집합이 비지 않아도 이번 범위에서는 관측·기록까지만 한다 — 공개 SDK 에 provider 큐의 개별
-    // 메시지를 취소하는 메서드가 없고(`cancel_async_message` 는 Query 메서드 아님), `interrupt()`
-    // 는 인자가 없어 `cancel_queued:true` 도 못 보낸다. 남은 수단은 런타임 폐기뿐인데 그건
-    // 백그라운드 태스크를 함께 죽이므로 제품 결정 사항이다(plan Open Question 1).
+    // 교집합이 비지 않으면 **사용자에게 알리고 선택지를 준다**(0151 r2 / OQ1 결정). 공개 SDK 로는
+    // 잔여를 취소할 수 없고(`cancel_async_message` 는 Query 메서드 아님, `interrupt()` 는 인자가
+    // 없어 `cancel_queued:true` 도 못 보낸다) 남은 수단은 런타임 폐기뿐인데, 그건 백그라운드
+    // 태스크를 함께 죽인다. 그 비용을 앱이 몰래 치르지 않고 사용자가 고르게 한다 — Stop 을 눌렀는데
+    // 잠시 후 내 steer 가 실행되는 상황은 수동적 배지로 덮을 문제가 아니다.
     const reconcileInterrupt = (sessionId: string, receipt: InterruptReceipt | undefined): void => {
       const outcome = reconcileInterruptReceipt(receipt, pendingMessages.submittedUuids(sessionId))
       const log = getLogger().child('chat')
@@ -773,12 +779,17 @@ export function registerChatHandlers(deps: ChatDeps): void {
         log.info('chat.interrupt.receipt-absent', { sessionId })
         return
       }
-      if (outcome.kind === 'clear') return
+      if (outcome.kind === 'clear') {
+        residualBySession.delete(sessionId)
+        return
+      }
       log.info('chat.interrupt.still-queued', {
         sessionId,
         ourCount: outcome.uuids.length,
         totalCount: outcome.totalCount
       })
+      residualBySession.set(sessionId, outcome.uuids)
+      sendChatEvent(wc, { type: 'chat.residual', sessionId, count: outcome.uuids.length })
     }
 
     const request: TurnRequest = {
@@ -871,11 +882,22 @@ export function registerChatHandlers(deps: ChatDeps): void {
           // 기능적으로는 takeForRespawn 대상 판정이 명시화될 뿐이지만, 구 구조에서 조용히
           // 잔존하던 echo 유실이 여기서 처음으로 **관측 가능**해진다(첨부 base64 포함 배치가
           // 세션 런타임 수명 내내 붙들려 있던 것).
-          const orphaned = pendingMessages.orphanUnconfirmed(sessionId)
+          pendingMessages.orphanUnconfirmed(sessionId)
+          // OQ2 결정 — 자동 재주입이 아니라 **폐기 후 draft 복원**. 확정 신호가 없다는 것은
+          // "CLI 가 못 봤다" 와 "봤는데 echo 가 유실됐다" 를 구분할 수 없다는 뜻이라, 재주입은
+          // 모델 이중 전달을·조용한 폐기는 유실을 낳는다. 어느 쪽도 앱이 혼자 판정할 근거가
+          // 없으므로 텍스트를 사용자에게 돌려주고 재전송 여부를 맡긴다. message.cancelled 는
+          // renderer 에서 "버블 제거 + composer draft 복원" 이라 이 의미에 그대로 맞는다.
+          const orphaned = pendingMessages.discardOrphaned(sessionId)
           if (orphaned.length > 0) {
             getLogger()
               .child('chat')
               .info('chat.steer.orphaned', { sessionId, count: orphaned.length })
+            sendChatEvent(wc, {
+              type: 'message.cancelled',
+              sessionId,
+              ids: orphaned.flatMap((batch) => batch.ids)
+            })
           }
           break
         }
@@ -1040,6 +1062,30 @@ export function registerChatHandlers(deps: ChatDeps): void {
       sessionId: req.sessionId,
       ids: [req.id]
     })
+  })
+
+  // 세션 전체 중단(0151 r2 / OQ1 결정) — Stop 뒤에도 CLI 큐에 살아남은 **우리** 예약을 없애는
+  // 유일한 수단. 공개 SDK 에 provider 큐 개별 취소 표면이 없으므로 런타임(서브프로세스)을 폐기해
+  // 큐를 통째로 소멸시킨다. **백그라운드 서브에이전트도 함께 죽으므로** 자동화하지 않고 사용자가
+  // 명시적으로 고를 때만 실행된다(renderer 는 chat.residual 통지가 있을 때만 이 액션을 제시).
+  handle(CHANNELS.chatDiscardSession, DiscardSessionSchema, 'reject', (req, event): void => {
+    const residual = residualBySession.get(req.sessionId) ?? []
+    residualBySession.delete(req.sessionId)
+    // 진행 중 턴이 남아 있으면 먼저 끊는다 — 그래야 런타임이 풀로 반납돼 폐기 대상이 된다.
+    const turn = supervisor.getBySession(req.sessionId)
+    if (turn) abortTurn(turn, 'user_cancelled')
+    supervisor.discardRuntime(req.sessionId)
+    // 큐 잔여를 되돌려준다 — 서브프로세스와 함께 CLI 큐가 사라졌으므로 이 예약들은 확실히
+    // 실행되지 않는다. 텍스트는 draft 로 복원해 사용자가 재전송을 정한다.
+    const discarded = pendingMessages.discardSubmitted(req.sessionId, residual)
+    const ids = discarded.flatMap((batch) => batch.ids)
+    if (ids.length > 0) {
+      sendChatEvent(event.sender, { type: 'message.cancelled', sessionId: req.sessionId, ids })
+    }
+    sendChatEvent(event.sender, { type: 'chat.residual', sessionId: req.sessionId, count: 0 })
+    getLogger()
+      .child('chat')
+      .info('chat.session.discarded', { sessionId: req.sessionId, discarded: ids.length })
   })
 
   handle(CHANNELS.chatCancel, CancelChatSchema, 'reject', (req, event): void => {

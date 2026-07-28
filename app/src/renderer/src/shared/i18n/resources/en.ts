@@ -400,7 +400,11 @@ export const en: typeof ko = {
   },
   chat: {
     steer: {
-      submitted: 'Sent'
+      submitted: 'Sent',
+      residualTitle: 'Stopped, but a queued message is still pending',
+      residualBody:
+        '{{count}} already-delivered message(s) may still run. To stop everything now, discard the session — any running background tasks end too.',
+      residualAction: 'Discard session'
     },
     titleBar: {
       renameAria: 'Edit conversation title',

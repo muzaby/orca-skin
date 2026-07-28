@@ -83,7 +83,11 @@ const orca = {
     cancel: (sessionId: string): Promise<void> =>
       ipcRenderer.invoke(CHANNELS.chatCancel, { sessionId }),
     stopSubagent: (sessionId: string, toolUseId: string): Promise<void> =>
-      ipcRenderer.invoke(CHANNELS.chatStopSubagent, { sessionId, toolUseId })
+      ipcRenderer.invoke(CHANNELS.chatStopSubagent, { sessionId, toolUseId }),
+    // 세션 전체 중단(0151 r2) — Stop 잔여가 있을 때만 UI 가 제시한다. 런타임 폐기라
+    // 백그라운드 서브에이전트도 함께 종료된다.
+    discardSession: (sessionId: string): Promise<void> =>
+      ipcRenderer.invoke(CHANNELS.chatDiscardSession, { sessionId })
   },
   backend: {
     list: (): Promise<BackendListResult> => ipcRenderer.invoke(CHANNELS.backendList)

@@ -83,6 +83,9 @@ export interface SessionEntry {
   live: LiveTurnState
   subagentMeta: Record<string, SubagentMetaState>
   pendingSteer?: PendingSteerState[]
+  // 중단 잔여(0151 r2) — Stop 뒤에도 CLI 큐에 살아남은 우리 예약 수. >0 이면 컴포저가
+  // "세션 전체 중단" 을 제시한다. 0/undefined 면 통지 없음. transient(미영속).
+  residualSteer?: number
 }
 
 interface QueuedNewChat {
@@ -469,6 +472,16 @@ function receive(ev: NormalizedEvent): void {
       })
       return
 
+    case 'chat.residual':
+      setState((st) => {
+        const entry = st.sessions[key]
+        if (!entry) return st
+        const next = ev.count > 0 ? ev.count : undefined
+        if ((entry.residualSteer ?? undefined) === next) return st
+        return { sessions: { ...st.sessions, [key]: { ...entry, residualSteer: next } } }
+      })
+      return
+
     case 'message.submitted':
       // 소유권 전이(0151) — held(취소 가능) ↔ submitted(전달됨). 취소 버튼 노출만 바뀌고 버블
       // 자체는 그대로다(커밋은 여전히 message.committed 가 한다).
@@ -735,6 +748,16 @@ function cancelSteer(id: string): string | null {
     .cancelSteer({ sessionId: cur.sessionId, id })
     .catch((err) => console.error('[chat] cancelSteer invoke rejected', err))
   return text
+}
+
+// 세션 전체 중단(0151 r2) — Stop 잔여가 있을 때만 UI 가 노출한다. 런타임 폐기라 백그라운드
+// 서브에이전트도 함께 종료된다. main 이 message.cancelled(draft 복원) + chat.residual(0) 을 회신.
+function discardSession(): void {
+  const cur = getActiveChatSession()
+  if (!cur.sessionId) return
+  void chatApi
+    .discardSession(cur.sessionId)
+    .catch((err) => console.error('[chat] discardSession invoke rejected', err))
 }
 
 function cancel(): void {
@@ -1138,6 +1161,7 @@ export const chatActions = {
   send,
   cancelSteer,
   cancel,
+  discardSession,
   newChat,
   startForkDraft,
   startHandoff,
@@ -1246,6 +1270,11 @@ export function useLiveText(): string {
 // ProjectLandingPage 는 inflight 만 봤다). 0149: busy 정의를 스토어가 단독 소유한다 — 다음
 // busy 하위 상태(압축 대기·승인 대기 등)가 생겨도 여기 한 곳만 고치면 된다.
 // listening 자체는 PendingAssistant 의 경과시간 앵커 전용으로만 직접 읽는다.
+// 중단 잔여 수(0151 r2) — >0 이면 컴포저가 "세션 전체 중단" 을 제시한다.
+export function useChatResidualSteer(): number {
+  return useChatStore((s) => s.sessions[s.activeKey]?.residualSteer ?? 0)
+}
+
 export function useChatBusy(): boolean {
   return useChatSession(sessionBusy)
 }

@@ -400,7 +400,11 @@ export const ko = {
   chat: {
     // 예약 steer 가 stdin 으로 넘어가 취소 불가가 된 상태 표시(0151).
     steer: {
-      submitted: '전달됨'
+      submitted: '전달됨',
+      residualTitle: '중단했지만 대기 중인 메시지가 남아 있습니다',
+      residualBody:
+        '이미 전달된 메시지 {{count}}건이 곧 실행될 수 있습니다. 지금 완전히 멈추려면 세션을 중단하세요 — 실행 중인 백그라운드 작업도 함께 종료됩니다.',
+      residualAction: '세션 전체 중단'
     },
     titleBar: {
       renameAria: '대화 제목 편집',

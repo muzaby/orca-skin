@@ -138,6 +138,16 @@ export class RuntimeSupervisor<W = unknown> {
     this.pool.closeAll()
   }
 
+  // 세션 런타임 폐기(0151 r2 — "세션 전체 중단"). 사용자가 명시적으로 고른 경우에만 호출된다:
+  // 공개 SDK 에 provider 큐의 개별 메시지를 취소하는 표면이 없으므로, Stop 뒤에도 CLI 큐에
+  // 살아남은 우리 예약을 없애는 유일한 수단이 서브프로세스 폐기다. **백그라운드 서브에이전트도
+  // 함께 죽는다** — 그래서 자동화하지 않고 사용자 결정으로 남긴다.
+  // 진행 중 턴의 런타임은 풀 밖(active)이라 여기서 잡히지 않는다 — 호출자가 abortTurn 을 먼저
+  // 태워 idle 로 반납되게 하거나, 반납 실패 시 다음 send 가 콜드 스폰으로 자연 복구한다.
+  discardRuntime(sessionId: string): boolean {
+    return this.pool.close(sessionId)
+  }
+
   private enforceCap(): void {
     const population = this.getRuntimePopulation()
     if (this.capPolicy.admit({ ...population, capacity: this.capacity }) !== 'evict-idle') return
