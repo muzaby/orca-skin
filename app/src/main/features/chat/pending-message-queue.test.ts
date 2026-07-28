@@ -252,6 +252,74 @@ describe('PendingMessageQueue', () => {
     })
   })
 
+  // ── 0151 r2: OQ 결정 배선용 폐기 경로 ────────────────────────────────────────
+  describe('discardOrphaned (OQ2 — 폐기 후 draft 복원)', () => {
+    it('orphaned 만 빼내고 submitted·confirmed 는 남긴다', () => {
+      const q = new PendingMessageQueue()
+      q.enqueue('s', msg('lost'), 1, 'a')
+      q.reserveHeld('s', 'steer', 'orphan-1')
+      q.orphanUnconfirmed('s')
+      q.enqueue('s', msg('inflight'), 2, 'b')
+      q.reserveHeld('s', 'steer', 'live-1')
+
+      const discarded = q.discardOrphaned('s')
+      expect(discarded.map((x) => x.ids)).toEqual([['a']])
+      // 폐기분은 더 이상 확정 대상이 아니다 — 지각 echo 가 와도 되살아나지 않는다.
+      expect(q.confirm('s', { kind: 'echo', uuid: 'orphan-1' })).toEqual([])
+      // 진행 중 예약은 그대로.
+      expect(q.submittedUuids('s')).toEqual(['live-1'])
+    })
+
+    it('orphaned 가 없으면 빈 배열', () => {
+      const q = new PendingMessageQueue()
+      q.enqueue('s', msg('one'), 1, 'a')
+      q.reserveHeld('s', 'steer', 'batch-1')
+      expect(q.discardOrphaned('s')).toEqual([])
+      expect(q.submittedUuids('s')).toEqual(['batch-1'])
+    })
+
+    it('폐기 후 takeForRespawn 이 그 배치를 재주입하지 않는다 (이중 전달 차단)', () => {
+      const q = new PendingMessageQueue()
+      q.enqueue('s', msg('one'), 1, 'a')
+      q.reserveHeld('s', 'steer', 'batch-1')
+      q.orphanUnconfirmed('s')
+      q.discardOrphaned('s')
+      expect(q.takeForRespawn('s')).toEqual([])
+    })
+  })
+
+  describe('discardSubmitted (OQ1 — 세션 전체 중단)', () => {
+    it('지정 uuid 의 예약만 폐기한다', () => {
+      const q = new PendingMessageQueue()
+      q.enqueue('s', msg('one'), 1, 'a')
+      q.reserveHeld('s', 'steer', 'batch-1')
+      q.enqueue('s', msg('two'), 2, 'b')
+      q.reserveHeld('s', 'steer', 'batch-2')
+
+      const discarded = q.discardSubmitted('s', ['batch-1'])
+      expect(discarded.map((x) => x.ids)).toEqual([['a']])
+      expect(q.submittedUuids('s')).toEqual(['batch-2'])
+    })
+
+    it('모르는 uuid·확정된 배치는 건드리지 않는다', () => {
+      const q = new PendingMessageQueue()
+      q.enqueue('s', msg('one'), 1, 'a')
+      q.reserveHeld('s', 'steer', 'batch-1')
+      q.confirm('s', { kind: 'echo', uuid: 'batch-1' })
+      expect(q.discardSubmitted('s', ['batch-1', 'unknown'])).toEqual([])
+      // 확정분은 커밋 경로에 그대로 남는다.
+      expect(q.drainConfirmed('s').map((x) => x.ids)).toEqual([['a']])
+    })
+
+    it('빈 목록이면 no-op', () => {
+      const q = new PendingMessageQueue()
+      q.enqueue('s', msg('one'), 1, 'a')
+      q.reserveHeld('s', 'steer', 'batch-1')
+      expect(q.discardSubmitted('s', [])).toEqual([])
+      expect(q.submittedUuids('s')).toEqual(['batch-1'])
+    })
+  })
+
   // ── 0151 AC11: 영수증 대조용 uuid 집합 ───────────────────────────────────────
   describe('submittedUuids (AC11)', () => {
     it('예약 중(submitted)인 배치만 열거한다', () => {

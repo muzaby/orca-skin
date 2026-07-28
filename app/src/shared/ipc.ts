@@ -14,6 +14,10 @@ export const CHANNELS = {
   chatEvent: 'orca:chat:event',
   chatCancel: 'orca:chat:cancel',
   chatStopSubagent: 'orca:chat:stopSubagent',
+  // 세션 전체 중단(0151 r2) — Stop 이후에도 CLI 큐에 살아남은 우리 예약을 없애는 유일한 수단.
+  // 공개 SDK 에 provider 큐 개별 취소가 없으므로 런타임(서브프로세스)을 폐기해 큐를 통째로
+  // 소멸시킨다. 백그라운드 서브에이전트도 함께 죽으므로 **사용자가 명시적으로 고를 때만** 쓴다.
+  chatDiscardSession: 'orca:chat:discardSession',
   bootReport: 'orca:boot:report',
   // main 부팅 완료 게이트(0109) — 창을 start() 전에 띄우므로, renderer 부트 오케스트레이터의
   // 첫 스텝이 이 invoke 로 main 준비를 기다린 뒤에야 나머지 IPC 스텝을 시작한다.
@@ -543,6 +547,10 @@ export type NormalizedEvent =
   // 표시하고, `false`(예약 롤백 — 닫힌 입력 스트림 등)면 다시 취소 가능 상태로 되돌린다.
   // message.queued 동렬의 **미영속 UI 상태 신호**(버스 미경유 — history/usage 미소비).
   | { type: 'message.submitted'; sessionId: string; ids: string[]; submitted: boolean }
+  // 중단 잔여 통지(0151 r2) — Stop 뒤에도 CLI 큐에 살아남은 **우리** 예약이 있다. `count`>0 이면
+  // renderer 가 "세션 전체 중단" 을 능동 제시한다(Stop 의 통념과 어긋나는 상태를 수동적 배지로
+  // 덮지 않는다). 0 이면 통지를 내린다. transient·relay-only(버스 미경유·미영속).
+  | { type: 'chat.residual'; sessionId: string; count: number }
   // SDK 네이티브 압축 완료(system/compact_boundary → 정규화, 0064). 도착 세션 transcript 에
   // 압축 경계를 표시한다. preTokens/postTokens = 압축 전/후 토큰 수(compact_metadata 의
   // pre_tokens/post_tokens — post 는 SDK optional). postTokens 는 압축 후 컨텍스트 실측이라

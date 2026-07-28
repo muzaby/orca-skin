@@ -13,6 +13,7 @@ import { EFFORT_LABEL_KEYS } from './composer/effort'
 import { defaultSelection, modelKey, selectionLabel } from './composer/modelSelection'
 import { steerBlockedByProviderBoundary } from '../lib/steerGate'
 import { ConversationStatusLine } from './composer/ConversationStatusLine'
+import { Button } from '../../../shared/ui/Button'
 import { CwdButton } from './CwdButton'
 import { Notice } from './Notice'
 import { StatusPopover } from './composer/StatusPopover'
@@ -26,6 +27,7 @@ import type { UsageLimitsView } from '../../../../../shared/usage/limits'
 import {
   chatActions,
   useChatBusy,
+  useChatResidualSteer,
   useChatSession,
   useNewChatPending,
   useProjectConcurrencyCount
@@ -82,6 +84,9 @@ export function Composer({
   // 0143 — listen 대기(백그라운드 서브에이전트 완료 대기)도 busy: 전송=steer 예약(feedbackMode),
   // 중단 버튼 노출, concurrency 자기-차감이 일반 턴과 동일하게 동작한다(정의는 useChatBusy).
   const inflight = useChatBusy()
+  // Stop 잔여(0151 r2) — 중단했는데 이미 전달된 예약이 CLI 큐에 살아남았다. 수동 배지로 덮지 않고
+  // 완전 정지 수단을 그 자리에서 제시한다(런타임 폐기 = 백그라운드 작업도 종료, 본문에 명시).
+  const residualSteer = useChatResidualSteer()
   const sessionId = useChatSession((s) => s.sessionId)
   // 0064 handoff 가드 — 사용자 턴 2회 미만 세션 제외(값이 바뀔 때만 재렌더).
   const userTurnCount = useChatSession((s) =>
@@ -280,6 +285,19 @@ export function Composer({
               onClose={() => setConcurrencyDismissed(true)}
             >
               {tr('chat.composer.concurrencyNoticeBody')}
+            </Notice>
+          )}
+          {residualSteer > 0 && (
+            <Notice title={tr('chat.steer.residualTitle')}>
+              <div>{tr('chat.steer.residualBody', { count: residualSteer })}</div>
+              <Button
+                size="small"
+                variant="contained"
+                className="mt-2"
+                onClick={() => chatActions.discardSession()}
+              >
+                {tr('chat.steer.residualAction')}
+              </Button>
             </Notice>
           )}
           {newChatPending && (

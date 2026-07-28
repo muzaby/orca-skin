@@ -109,6 +109,9 @@ export const CancelSteerSchema = z.object({
 
 export const CancelChatSchema = z.object({ sessionId: z.string() })
 
+// 세션 전체 중단 (orca:chat:discardSession, 0151 r2) — 런타임 폐기로 CLI 큐 잔여를 소멸시킨다.
+export const DiscardSessionSchema = z.object({ sessionId: z.string().min(1) })
+
 // 서브에이전트(Task) 단위 중단 (orca:chat:stopSubagent). toolUseId = 부모 Agent 도구 호출 id.
 export const StopSubagentSchema = z.object({
   sessionId: z.string().min(1),
