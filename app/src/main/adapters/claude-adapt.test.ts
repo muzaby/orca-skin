@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -12,7 +12,8 @@ import {
   adaptSkills,
   adaptSystemPrompt,
   toClaudeHookOutput,
-  toContext
+  toContext,
+  withModelCallBoundaryHook
 } from './claude-adapt'
 import type { NormalizedHookHandler } from '../extensions/hooks'
 import type { SkillInfo } from '../../shared/ipc'
@@ -157,6 +158,37 @@ describe('adaptHooks', () => {
     }) as { hooks: Record<string, unknown[]> }
     expect(out.hooks).toBeDefined()
     expect(out.hooks.PreToolUse).toHaveLength(1)
+  })
+
+  it('after-tool-batch 를 claude PostToolBatch 로 매핑한다', () => {
+    const out = adaptHooks({
+      normalized: { 'after-tool-batch': [() => ({})] }
+    }) as { hooks: Record<string, unknown[]> }
+    expect(out.hooks.PostToolBatch).toHaveLength(1)
+  })
+})
+
+describe('withModelCallBoundaryHook', () => {
+  it('콜백이 없으면 훅 세트를 그대로 둔다 (무회귀)', () => {
+    const set = { normalized: {} }
+    expect(withModelCallBoundaryHook(set, undefined)).toBe(set)
+  })
+
+  it('기존 after-tool-batch 핸들러 뒤에 관측자를 append 한다 (공존)', async () => {
+    const existing = vi.fn(() => ({}))
+    const onBoundary = vi.fn()
+    const out = withModelCallBoundaryHook(
+      { normalized: { 'after-tool-batch': [existing] } },
+      onBoundary
+    )
+    const handlers = out.normalized['after-tool-batch']!
+    expect(handlers).toHaveLength(2)
+    expect(handlers[0]).toBe(existing)
+
+    // 관측자는 결정을 내지 않는다 — 순수 신호.
+    const ctx = {} as Parameters<NormalizedHookHandler>[0]
+    expect(await handlers[1](ctx)).toEqual({})
+    expect(onBoundary).toHaveBeenCalledTimes(1)
   })
 })
 

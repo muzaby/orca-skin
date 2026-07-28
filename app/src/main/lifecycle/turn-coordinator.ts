@@ -72,6 +72,11 @@ export class TurnCoordinator<W = unknown> {
   // 있도록 인디렉션으로 보관한다. 동시 보류(서브에이전트 병렬 승인)는 beginPause refcount 가 처리.
   private activeStall: StallTimer | null = null
 
+  // 모델이 대기 입력을 받아들이는 경계(claude=PostToolBatch)가 발화했다는 표식. 훅 콜백은 SDK
+  // 쪽 실행 흐름이라 그 자리에서 persist 하면 아직 이 루프에 도달하지 못한 tool_result 보다
+  // steer 버블이 위로 올라간다 → 플래그만 세우고 커밋은 루프가(= 단일 제어 흐름) 수행한다.
+  private boundaryPending = false
+
   constructor(private readonly deps: TurnCoordinatorDeps<W>) {}
 
   cancelSteer(sessionId: string, id: string): boolean {
@@ -79,14 +84,28 @@ export class TurnCoordinator<W = unknown> {
     return item != null
   }
 
-  private consumeSteerForInput(turn: TurnContext<W>): string | undefined {
+  // 아직 커밋되지 않은 steer 피드백이 있는가 — 어댑터가 result→telemetry 를 continuation 으로
+  // 태깅할지 판정하는 술어. 커밋되면 큐가 비므로 false 가 되어 그 턴은 정상 종료한다.
+  private hasPendingSteer(turn: TurnContext<W>): boolean {
+    const sessionId = turn.dbSessionId
+    const { steerQueue } = this.deps
+    if (!sessionId || !steerQueue) return false
+    return steerQueue.pending(sessionId).length > 0
+  }
+
+  // 소비 경계에서 pending steer 를 **일반 커밋 사용자 메시지**로 굳힌다(0059 요구 3·4).
+  // 큐 전체를 하나로 병합(drainForFlush)하므로 버블은 항상 1개다.
+  //
+  // 호출 시점이 정렬의 전부다 — 이 함수가 telemetry 의 persist∥forward **뒤**에 불려야
+  // [응답-전][steer user][응답-후] 가 DB·라이브 양쪽에서 같아진다(handoff 0060 §5).
+  private commitSteer(turn: TurnContext<W>): void {
     const sessionId = turn.dbSessionId
     const { steerQueue, persist, forward } = this.deps
-    if (!sessionId || !steerQueue) return undefined
+    if (!sessionId || !steerQueue) return
     const flush = steerQueue.drainForFlush(sessionId)
-    if (!flush) return undefined
-    const messageId = persist.persistSteerUserMessage?.(turn, flush.text, Date.now())
-    if (messageId == null) return undefined
+    if (!flush) return
+    const messageId = persist.persistSteerUserMessage?.(turn, flush.text, flush.createdAt)
+    if (messageId == null) return
     forward.forward(turn.owner, {
       type: 'steer.flushed',
       sessionId,
@@ -95,7 +114,6 @@ export class TurnCoordinator<W = unknown> {
       messageId,
       createdAt: flush.createdAt
     })
-    return flush.text
   }
 
   // 승인 보류 동안 stall 타이머 멈춤 — 사용자 판단 시간이 stall 로 오판돼 턴이 abort 되지 않게.
@@ -104,7 +122,27 @@ export class TurnCoordinator<W = unknown> {
     return this.activeStall?.beginPause()
   }
 
+  // 턴 정착 — 어떤 경로로 끝나든(정상·에러·중단) 남은 pending steer 를 사용자 메시지로 커밋한다.
+  // 이미 SDK 입력 스트림으로 전달된 텍스트이므로 provider transcript 에는 존재한다 → 버리면 우리
+  // DB 에만 없는 desync 가 되고, 다음 턴 첫 커밋에 옛 텍스트가 섞이는 누수도 남는다(사용자 결정).
+  private finalizeSteer(turn: TurnContext<W>): void {
+    this.boundaryPending = false
+    this.commitSteer(turn)
+  }
+
   async run(
+    turn: TurnContext<W>,
+    request: TurnRequest,
+    opts: { boundProjectId: string | null }
+  ): Promise<void> {
+    try {
+      await this.runTurn(turn, request, opts)
+    } finally {
+      this.finalizeSteer(turn)
+    }
+  }
+
+  private async runTurn(
     turn: TurnContext<W>,
     request: TurnRequest,
     opts: { boundProjectId: string | null }
@@ -123,21 +161,34 @@ export class TurnCoordinator<W = unknown> {
         turn.live = runtime
         const events = runtime.send({
           ...request,
-          onInputConsumed: (text) => request.onInputConsumed?.(text),
-          consumeInjectedInput: () =>
-            request.consumeInjectedInput?.() ?? this.consumeSteerForInput(turn)
+          onModelCallBoundary: () => {
+            request.onModelCallBoundary?.()
+            this.boundaryPending = true
+          },
+          hasPendingSteer: () => request.hasPendingSteer?.() ?? this.hasPendingSteer(turn)
         })
         concurrency.increment(boundProjectId)
         try {
           idle.reset()
           for await (const rawEv of events) {
+            // 소비 경계가 지나갔다면 *이 이벤트를 처리하기 전에* 커밋한다 — 경계 시점까지 방출된
+            // 이벤트(그 배치의 tool_result 등)는 이미 처리됐고, 이후 파트는 steer 버블 아래로 간다.
+            if (this.boundaryPending) {
+              this.boundaryPending = false
+              this.commitSteer(turn)
+            }
             const ev =
               rawEv.type === 'tool.call.completed'
                 ? coerceStoppedToolCompletion(turn.stoppedSubagents, rawEv)
                 : rawEv
             eventsReceived += 1
             idle.reset()
-            if (ev.type === 'telemetry' || ev.type === 'error' || ev.type === 'turn.aborted') {
+            // continuation telemetry 는 sub-turn 경계 — 턴은 아직 끝나지 않았다(handoff 0060).
+            if (
+              (ev.type === 'telemetry' && ev.continuation !== true) ||
+              ev.type === 'error' ||
+              ev.type === 'turn.aborted'
+            ) {
               sawTerminal = true
             }
             // persist ∥ forward — 두 sink 는 병렬 독립. persist 가 먼저(main-side·renderer 비의존),
@@ -145,6 +196,12 @@ export class TurnCoordinator<W = unknown> {
             persist.persist(turn, ev)
             if (ev.type === 'session.updated') titles.maybeStart(turn)
             forward.forward(turn.owner, ev)
+            // 응답 경계 — 어시스턴트 메시지가 방금 마감(persist)되고 렌더러도 잔여 라이브 텍스트를
+            // 굳힌 뒤라, 여기서 커밋해야 steer 버블이 그 응답 **뒤**에 놓인다(양쪽 동일 정렬).
+            if (ev.type === 'telemetry') {
+              this.boundaryPending = false
+              this.commitSteer(turn)
+            }
             if (ev.type === 'session.updated') {
               registry.promote(turn, ev.sessionId)
             }

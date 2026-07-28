@@ -99,6 +99,7 @@ export function adaptEnv(base?: Record<string, string>): object {
 const NORMALIZED_TO_CLAUDE_EVENT: Record<NormalizedHookEvent, HookEvent> = {
   'before-tool': 'PreToolUse',
   'after-tool': 'PostToolUse',
+  'after-tool-batch': 'PostToolBatch',
   'on-prompt': 'UserPromptSubmit',
   'on-turn-end': 'Stop',
   'on-session-start': 'SessionStart',
@@ -106,6 +107,26 @@ const NORMALIZED_TO_CLAUDE_EVENT: Record<NormalizedHookEvent, HookEvent> = {
   'on-subagent-end': 'SubagentStop',
   'on-notification': 'Notification',
   'before-compact': 'PreCompact'
+}
+
+// 이 턴의 훅 세트에 "모델 호출 경계" 관측 핸들러를 합성한다(steer 커밋 경계 — handoff 0060).
+// claude 의 PostToolBatch = 배치 전체가 해결되고 **다음 모델 호출 직전** 1회 → 대기 중인 사용자
+// 입력이 대화에 반영되는 지점이다. 확장이 등록한 같은 이벤트 핸들러 뒤에 append 해 공존시키고,
+// 결정은 내지 않는다(빈 결정 = 아무 것도 바꾸지 않음). 콜백이 없으면 원본을 그대로 돌려준다.
+export function withModelCallBoundaryHook(
+  set: NormalizedHookSet,
+  onBoundary?: () => void
+): NormalizedHookSet {
+  if (!onBoundary) return set
+  const observer: NormalizedHookHandler = () => {
+    onBoundary()
+    return {}
+  }
+  const existing = set.normalized['after-tool-batch'] ?? []
+  return {
+    ...set,
+    normalized: { ...set.normalized, 'after-tool-batch': [...existing, observer] }
+  }
 }
 
 // 정규화된 Hook 집합을 claude options.hooks 조각으로 변환한다. 핸들러가 등록된 이벤트만 매처로

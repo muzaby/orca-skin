@@ -49,10 +49,13 @@ export class TurnPersistence {
   persistSteerUserMessage(turn: InflightTurn, text: string, createdAt: number): number | null {
     const sessionId = turn.dbSessionId
     if (!sessionId) return null
-    // 소비 확정 = 응답 경계. 진행 중 어시스턴트 메시지(소비 전 응답)를 먼저 마감·리셋해 steer
-    // user row 가 그 뒤 idx 로 정렬되고, 이후 어시스턴트 파트는 ensureAssistantMessage 가 새
-    // 메시지(steer 뒤)로 만든다 → 재로드 정렬 [응답-전][steer user][응답-후] = 라이브와 동일.
-    // 마감을 안 하면 A 가 incomplete 로 남아 재로드 시 settleOrphanToolParts 를 타는 문제도 방지.
+    // 진행 중 어시스턴트 메시지를 먼저 마감·리셋해 steer user row 가 그 뒤 idx 로 정렬되고,
+    // 이후 어시스턴트 파트는 ensureAssistantMessage 가 새 메시지(steer 뒤)로 만든다 → 재로드
+    // 정렬 [응답-전][steer user][응답-후] = 라이브와 동일.
+    //
+    // 정상 경로(TurnCoordinator 가 telemetry persist 직후 호출)에서는 이미 마감됐으므로 no-op 이고,
+    // 실질 역할은 **정착 경로의 안전망**이다 — error/abort 로 telemetry 를 못 거친 채 finalizeSteer
+    // 가 부르면 여기서 마감해야 A 가 incomplete 로 남아 재로드 시 settleOrphanToolParts 를 타지 않는다.
     if (turn.currentAssistantMessageId != null) {
       this.db.markMessageComplete(turn.currentAssistantMessageId)
       turn.currentAssistantMessageId = null
@@ -272,7 +275,9 @@ export class TurnPersistence {
         if (turn.currentAssistantMessageId != null) {
           this.db.markMessageComplete(turn.currentAssistantMessageId)
         }
-        this.onTurnEnd(turn)
+        // sub-turn 경계(continuation)는 턴 종료가 아니다 — 제목 생성 등 턴-종료 후처리는 건너뛴다.
+        // 반면 메시지 마감·reset 과 usage 적재는 실제 응답 경계이므로 continuation 에서도 수행한다.
+        if (!ev.continuation) this.onTurnEnd(turn)
         // 다음 assistant 파트는 새 메시지에 묶이도록 reset.
         turn.currentAssistantMessageId = null
         turn.assistantText = ''

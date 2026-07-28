@@ -15,8 +15,11 @@ const EMPTY_EVENTS: AsyncIterable<NormalizedEvent> = {
   }
 }
 
+// continuation telemetry 는 sub-turn 경계일 뿐 턴 종료가 아니다 — 입력 스트림을 닫으면 아직
+// 커밋 안 된 steer 피드백의 응답을 받을 수 없다(handoff 0060).
 function isTerminal(ev: NormalizedEvent): boolean {
-  return ev.type === 'telemetry' || ev.type === 'error' || ev.type === 'turn.aborted'
+  if (ev.type === 'telemetry') return ev.continuation !== true
+  return ev.type === 'error' || ev.type === 'turn.aborted'
 }
 
 // SessionRuntime: send() 1회는 adapter attempt 1회다(retry 정책은 TurnCoordinator 가 소유). close
@@ -109,8 +112,8 @@ export class SessionRuntime implements ManagedRuntime {
     await this.live?.interrupt()
   }
 
-  async injectMessage(text: string): Promise<void> {
-    await this.live?.injectMessage?.(text)
+  async injectMessage(text: string): Promise<boolean> {
+    return (await this.live?.injectMessage?.(text)) ?? false
   }
 
   async setModel(model?: string): Promise<void> {

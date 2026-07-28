@@ -12,22 +12,18 @@ import type { MessageParam } from '@anthropic-ai/sdk/resources'
 
 export type TurnInputContent = MessageParam['content']
 
-export interface ConsumedTurnInput {
-  text: string
-  message: SDKUserMessage
-}
-
-export interface TurnInputStreamOptions {
-  // SDK 가 prompt AsyncIterable 을 pull 해 user 메시지를 실제 소비하는 순간 발화한다.
-  onConsume?: (input: ConsumedTurnInput) => void
-  nextInjectedInput?: () => string | undefined
-}
-
 export interface TurnInputStream {
   // query({ prompt }) 에 넘기는 입력 스트림.
   stream: AsyncIterable<SDKUserMessage>
   // 진행 중 턴에 텍스트 피드백을 추가한다. text-only 로 제한해 병합 규칙을 단순화한다.
-  push(text: string): void
+  //
+  // pull 은 "SDK transport 가 텍스트를 받아간 시각"일 뿐 **모델이 그 메시지를 대화에 받아들인
+  // 지점이 아니다**(transport 는 generator 를 eager drain 한다). 그래서 소비 콜백을 두지 않는다 —
+  // 실제 소비 경계는 PostToolBatch 훅 / result 로 관측하고 TurnCoordinator 가 커밋한다(handoff 0060).
+  //
+  // 반환값 = 전달 수락 여부. 이미 close 된 스트림이면 false — 호출자가 조용한 유실(큐에만 남아
+  // 다음 턴 첫 flush 를 오염시키던 버그)을 감지해 정리할 수 있게 한다.
+  push(text: string): boolean
   // 턴 종료(=result 도착) 또는 abort 시 호출 — generator 를 return 시켜 세션을 닫는다. 멱등.
   close(): void
 }
@@ -37,25 +33,15 @@ function userMessage(content: TurnInputContent): SDKUserMessage {
 }
 
 // 이 턴의 user 메시지 1건을 내보내고 close() 까지 열려있는 입력 스트림을 만든다.
-export function createTurnInputStream(
-  content: TurnInputContent,
-  options: TurnInputStreamOptions = {}
-): TurnInputStream {
+export function createTurnInputStream(content: TurnInputContent): TurnInputStream {
   let closed = false
   let wake: (() => void) | null = null
-  const queue: Array<SDKUserMessage | (() => string | undefined)> = [userMessage(content)]
+  const queue: SDKUserMessage[] = [userMessage(content)]
 
   async function* gen(): AsyncIterable<SDKUserMessage> {
     while (true) {
       while (queue.length > 0) {
-        const queued = queue.shift()!
-        const next = typeof queued === 'function' ? queued() : queued
-        if (next === undefined) continue
-        const message = typeof next === 'string' ? userMessage(next) : next
-        if (typeof message.message.content === 'string') {
-          options.onConsume?.({ text: message.message.content, message })
-        }
-        yield message
+        yield queue.shift()!
       }
       if (closed) return
       // 다음 입력 또는 close() 까지 대기. close() race 가드 포함.
@@ -71,12 +57,12 @@ export function createTurnInputStream(
 
   return {
     stream: gen(),
-    push(text: string): void {
-      if (closed) return
-      void text
-      queue.push(() => options.nextInjectedInput?.())
+    push(text: string): boolean {
+      if (closed) return false
+      queue.push(userMessage(text))
       wake?.()
       wake = null
+      return true
     },
     close(): void {
       closed = true

@@ -206,7 +206,8 @@ function patchSubagentMeta(
 
 function isTerminalWithoutSession(ev: NormalizedEvent): boolean {
   if ('sessionId' in ev && ev.sessionId) return false
-  return ev.type === 'error' || ev.type === 'turn.aborted' || ev.type === 'telemetry'
+  if (ev.type === 'telemetry') return ev.continuation !== true
+  return ev.type === 'error' || ev.type === 'turn.aborted'
 }
 
 function sendNewChatPayload(payload: SendChatMessage): void {
@@ -360,11 +361,15 @@ function receive(ev: NormalizedEvent): void {
 
     case 'telemetry': {
       // message.completed 없이 턴이 끝난 경우 잔여 라이브 텍스트를 text 파트로 굳힌다.
+      // sub-turn 경계(continuation)에서도 반드시 한다 — 여기서 안 굳히면 직전 응답의 꼬리가
+      // 곧이어 커밋될 steer 사용자 메시지 *뒤*로 밀려 DB 정렬과 어긋난다(handoff 0060).
       const leftover = getState().sessions[key]?.live.text ?? ''
       if (leftover !== '') dispatchTo(key, { type: 'COMMIT_PENDING_TEXT', text: leftover })
       dispatchTo(key, { type: 'RECV_EVENT', event: ev })
       resetLive(key)
-      if (!evSessionId) releaseNewChatGate(key)
+      // 새-채팅 게이트 해제는 *진짜* 턴 종료에서만 — 아직 진행 중인데 대기 중인 새 채팅을
+      // 디스패치하면 같은 세션에 턴이 겹친다.
+      if (!evSessionId && !ev.continuation) releaseNewChatGate(key)
       return
     }
 

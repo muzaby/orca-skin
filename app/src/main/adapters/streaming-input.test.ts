@@ -44,6 +44,40 @@ describe('createTurnInputStream', () => {
     expect(done.done).toBe(true)
   })
 
+  it('push(text) 는 그 텍스트를 그대로 다음 메시지로 yield 한다', async () => {
+    const { stream, push } = createTurnInputStream('first')
+    const it = stream[Symbol.asyncIterator]()
+    await it.next()
+
+    expect(push('feedback')).toBe(true)
+    const next = await it.next()
+    expect(next.value).toMatchObject({
+      type: 'user',
+      parent_tool_use_id: null,
+      message: { role: 'user', content: 'feedback' }
+    })
+  })
+
+  it('push 순서를 보존한다', async () => {
+    const { stream, push } = createTurnInputStream('first')
+    const it = stream[Symbol.asyncIterator]()
+    await it.next()
+
+    push('a')
+    push('b')
+    expect((await it.next()).value?.message.content).toBe('a')
+    expect((await it.next()).value?.message.content).toBe('b')
+  })
+
+  it('close() 후 push 는 거부된다 (조용한 유실 방지)', async () => {
+    const { stream, push, close } = createTurnInputStream('x')
+    const it = stream[Symbol.asyncIterator]()
+    await it.next()
+    close()
+    expect(push('late')).toBe(false)
+    expect((await it.next()).done).toBe(true)
+  })
+
   it('close() 는 멱등이다', async () => {
     const { stream, close } = createTurnInputStream('x')
     const it = stream[Symbol.asyncIterator]()

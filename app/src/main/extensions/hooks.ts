@@ -5,11 +5,12 @@
 // 반환한 NormalizedHookDecision 들을 resolveHookDecisions() 로 1결정 병합한 뒤 자기 출력 형식으로
 // 다시 굽는다. electron 비의존 — 순수 타입 + 순수 함수라 단위 테스트 가능.
 
-// claude HookEvent (29종) 중 Orca 가 정규화한 9종. 나머지(Setup·WorktreeCreate 등)는 백엔드
+// claude HookEvent (29종) 중 Orca 가 정규화한 10종. 나머지(Setup·WorktreeCreate 등)는 백엔드
 // 종속이라 backendSpecific 이스케이프 해치로만 노출한다.
 export type NormalizedHookEvent =
   | 'before-tool' // PreToolUse
   | 'after-tool' // PostToolUse
+  | 'after-tool-batch' // PostToolBatch — 배치 전체가 해결되고 다음 모델 호출 직전, 배치당 1회.
   | 'on-prompt' // UserPromptSubmit
   | 'on-turn-end' // Stop
   | 'on-session-start' // SessionStart

@@ -523,20 +523,38 @@ export function registerChatHandlers(deps: ChatDeps): void {
     SteerChatMessageSchema,
     'reject',
     async (req, event): Promise<void> => {
-      const turn = supervisor.getBySession(req.sessionId)
-      if (!turn || !turn.live?.canSteer) {
+      // 실패 경로는 반드시 steer.cancelled 로 마감한다 — 렌더러가 낙관적으로 띄운 pending 버블을
+      // 지울 신호가 없으면 "보냈는데 영원히 회색"으로 남는다.
+      const reject = (message: string): void => {
         sendChatEvent(event.sender, {
           type: 'error',
           sessionId: req.sessionId,
-          error: makeClassifiedError(
-            'capability_unsupported',
-            '이 백엔드는 피드백 끼어들기를 지원하지 않습니다.',
-            { retryable: false }
-          )
+          error: makeClassifiedError('capability_unsupported', message, { retryable: false })
         })
+        // 렌더러는 자기가 만든 clientRequestId 로 낙관적 버블을 띄운다 — 그 id 가 있을 때만
+        // 취소 신호를 보낼 수 있다(없으면 지울 대상 자체가 없다).
+        if (req.clientRequestId) {
+          sendChatEvent(event.sender, {
+            type: 'steer.cancelled',
+            sessionId: req.sessionId,
+            id: req.clientRequestId
+          })
+        }
+      }
+      const turn = supervisor.getBySession(req.sessionId)
+      if (!turn || !turn.live?.canSteer) {
+        reject('이 백엔드는 피드백 끼어들기를 지원하지 않습니다.')
         return
       }
       const item = steerQueue.enqueue(req.sessionId, req.text, Date.now(), req.clientRequestId)
+      // 전달 실패(턴이 이미 닫혀 입력 스트림이 close)면 큐에서 되돌린다 — 남겨두면 다음 턴의 첫
+      // 커밋에 옛 텍스트가 섞인다.
+      const delivered = (await turn.live.injectMessage?.(item.text)) ?? false
+      if (!delivered) {
+        steerQueue.cancel(req.sessionId, item.id)
+        reject('턴이 이미 종료되어 피드백을 전달하지 못했습니다.')
+        return
+      }
       sendChatEvent(event.sender, {
         type: 'steer.queued',
         sessionId: req.sessionId,
@@ -544,7 +562,6 @@ export function registerChatHandlers(deps: ChatDeps): void {
         text: item.text,
         createdAt: item.createdAt
       })
-      await turn.live.injectMessage?.(item.text)
     }
   )
 

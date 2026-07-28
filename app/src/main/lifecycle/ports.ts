@@ -10,7 +10,7 @@ export interface RuntimeLiveTurn {
   close(): void
   setPermissionMode(mode: ClaudePermissionMode): Promise<void>
   interrupt(): Promise<void>
-  injectMessage?(text: string): Promise<void>
+  injectMessage?(text: string): Promise<boolean>
   readonly canSteer?: boolean
   setModel(model?: string): Promise<void>
   stopTask(taskId: string): Promise<void>

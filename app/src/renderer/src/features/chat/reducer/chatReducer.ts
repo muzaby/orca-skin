@@ -342,8 +342,10 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           // COMMIT_PENDING_TEXT 로 선행 dispatch 한다 — 버퍼 소유가 store 로 이동했기 때문.
           return {
             ...state,
-            inflight: false,
-            turnStartedAt: null,
+            // continuation = sub-turn 경계(아직 커밋 안 된 steer 피드백의 응답이 남았다). 턴을 닫으면
+            // PendingAssistant(isLast && inflight)가 사라져 이후 델타가 보이지 않게 쌓이고 다음 전송
+            // 때 한꺼번에 렌더된다 — 그래서 inflight/turnStartedAt 을 유지한다(handoff 0060).
+            ...(ev.continuation ? {} : { inflight: false, turnStartedAt: null }),
             retry: undefined,
             // 도넛/패널은 lastTelemetry 파생(컨텍스트 사용량 소스). 비용/지연 누산은 제거 —
             // 비용은 main 의 turn_usage 원장(집계)이 SSOT. 컨텍스트 0인 턴(/context 등 로컬

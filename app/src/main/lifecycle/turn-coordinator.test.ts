@@ -7,6 +7,7 @@ import {
   type CoordinatorRuntime,
   type TurnCoordinatorDeps
 } from './turn-coordinator'
+import { SteerQueue } from './steer-queue'
 
 type W = string
 
@@ -194,5 +195,174 @@ describe('TurnCoordinator.run — retry', () => {
     // 두 attempt 모두 concurrency 짝이 맞아야 한다(누수 없음)
     expect(deps.concurrency.increment).toHaveBeenCalledTimes(2)
     expect(deps.concurrency.decrement).toHaveBeenCalledTimes(2)
+  })
+})
+
+// steer 커밋 경계 (handoff 0060) — 커밋은 "SDK 가 텍스트를 받아간 순간" 이 아니라 **모델이
+// 그 메시지를 받아들인 지점**(PostToolBatch 훅 / result)에서 일어나야 한다. 그래야 트랜스크립트와
+// DB 가 똑같이 [응답-전][steer user][응답-후] 로 정렬된다.
+describe('TurnCoordinator — steer 소비 경계', () => {
+  // 이벤트 사이에 부수효과(경계 훅 발화 등)를 끼워넣을 수 있는 런타임. send() 가 받은 요청도
+  // 노출해 어댑터에 주입되는 콜백(onModelCallBoundary·hasPendingSteer)을 직접 운동한다.
+  function scriptedRuntime(script: Array<NormalizedEvent | ((req: TurnRequest) => void)>): {
+    runtime: CoordinatorRuntime
+    lastRequest: () => TurnRequest
+  } {
+    const stub = async (): Promise<void> => {}
+    let captured: TurnRequest | null = null
+    const runtime = {
+      cancelled: false,
+      timedOut: false,
+      close: () => {},
+      setPermissionMode: stub,
+      interrupt: stub,
+      setModel: stub,
+      stopTask: stub,
+      backgroundTask: async () => false,
+      markAborted: () => {},
+      send: (req: TurnRequest) => {
+        captured = req
+        return (async function* () {
+          for (const step of script) {
+            if (typeof step === 'function') step(req)
+            else yield step
+          }
+        })()
+      }
+    } as unknown as CoordinatorRuntime
+    return { runtime, lastRequest: () => captured! }
+  }
+
+  function steerDeps(
+    runtime: CoordinatorRuntime,
+    queue: SteerQueue
+  ): TurnCoordinatorDeps<W> & { forwardedTypes: () => string[] } {
+    const deps = makeDeps(runtime, {
+      steerQueue: queue,
+      persist: {
+        persist: vi.fn(),
+        flushAskAnswers: vi.fn(),
+        persistSteerUserMessage: vi.fn(() => 42)
+      }
+    })
+    return {
+      ...deps,
+      forwardedTypes: () =>
+        (deps.forward.forward as ReturnType<typeof vi.fn>).mock.calls.map(
+          (c) => (c[1] as NormalizedEvent).type
+        )
+    }
+  }
+
+  function steerTurn(): TurnContext<W> {
+    const turn = makeTurn()
+    turn.dbSessionId = 's1'
+    return turn
+  }
+
+  const assistantText = {
+    type: 'message.completed',
+    sessionId: 's1',
+    message: { text: 'A' }
+  } as unknown as NormalizedEvent
+
+  it('응답 이벤트가 흐르는 동안에는 커밋하지 않고, result 경계에서 응답 뒤에 커밋한다', async () => {
+    const queue = new SteerQueue()
+    queue.enqueue('s1', '피드백', 1_000, 'q1')
+    const { runtime } = scriptedRuntime([assistantText, telemetry])
+    const deps = steerDeps(runtime, queue)
+
+    await new TurnCoordinator(deps).run(steerTurn(), REQUEST, { boundProjectId: null })
+
+    // 응답(A) → 턴 마감(telemetry) → 그 뒤에 steer user 메시지. 이 순서가 DB 정렬과 같다.
+    expect(deps.forwardedTypes()).toEqual(['message.completed', 'telemetry', 'steer.flushed'])
+    expect(deps.persist.persistSteerUserMessage).toHaveBeenCalledWith(
+      expect.anything(),
+      '피드백',
+      1_000 // 사용자가 입력한 시각을 쓴다(커밋 시각이 아니라)
+    )
+    expect(queue.pending('s1')).toEqual([])
+  })
+
+  it('PostToolBatch 경계가 발화하면 다음 이벤트를 처리하기 전에 커밋한다', async () => {
+    const queue = new SteerQueue()
+    queue.enqueue('s1', '피드백', 1_000, 'q1')
+    const { runtime } = scriptedRuntime([
+      assistantText,
+      (req) => req.onModelCallBoundary?.(),
+      assistantText,
+      telemetry
+    ])
+    const deps = steerDeps(runtime, queue)
+
+    await new TurnCoordinator(deps).run(steerTurn(), REQUEST, { boundProjectId: null })
+
+    expect(deps.forwardedTypes()).toEqual([
+      'message.completed',
+      'steer.flushed',
+      'message.completed',
+      'telemetry'
+    ])
+  })
+
+  it('hasPendingSteer 는 커밋 전 true, 커밋 후 false — result 의 continuation 태깅 근거', async () => {
+    const queue = new SteerQueue()
+    queue.enqueue('s1', '피드백', 1_000, 'q1')
+    const seen: boolean[] = []
+    const { runtime } = scriptedRuntime([
+      (req) => seen.push(req.hasPendingSteer?.() === true),
+      telemetry,
+      (req) => seen.push(req.hasPendingSteer?.() === true)
+    ])
+    const deps = steerDeps(runtime, queue)
+
+    await new TurnCoordinator(deps).run(steerTurn(), REQUEST, { boundProjectId: null })
+
+    expect(seen).toEqual([true, false])
+  })
+
+  it('continuation telemetry 는 턴을 닫지 않는다 — 합성 telemetry 로 마감된다', async () => {
+    const queue = new SteerQueue()
+    queue.enqueue('s1', '피드백', 1_000, 'q1')
+    const continuation = {
+      type: 'telemetry',
+      sessionId: 's1',
+      continuation: true
+    } as unknown as NormalizedEvent
+    const { runtime } = scriptedRuntime([continuation])
+    const deps = steerDeps(runtime, queue)
+
+    await new TurnCoordinator(deps).run(steerTurn(), REQUEST, { boundProjectId: null })
+
+    // sawTerminal 이 서지 않았으므로 스트림 종료 후 합성 telemetry 가 붙는다.
+    expect(deps.forwardedTypes()).toEqual(['telemetry', 'steer.flushed', 'telemetry'])
+  })
+
+  it('에러로 끝나도 미커밋 steer 를 사용자 메시지로 정착시킨다', async () => {
+    const queue = new SteerQueue()
+    queue.enqueue('s1', '피드백', 1_000, 'q1')
+    const errorEv = { type: 'error', sessionId: 's1' } as unknown as NormalizedEvent
+    const { runtime } = scriptedRuntime([errorEv])
+    const deps = steerDeps(runtime, queue)
+
+    await new TurnCoordinator(deps).run(steerTurn(), REQUEST, { boundProjectId: null })
+
+    expect(deps.forwardedTypes()).toEqual(['error', 'steer.flushed'])
+    expect(queue.pending('s1')).toEqual([])
+  })
+
+  it('pending steer 가 없으면 커밋 경로가 아무 것도 하지 않는다 (무회귀)', async () => {
+    const queue = new SteerQueue()
+    const { runtime } = scriptedRuntime([
+      (req) => req.onModelCallBoundary?.(),
+      assistantText,
+      telemetry
+    ])
+    const deps = steerDeps(runtime, queue)
+
+    await new TurnCoordinator(deps).run(steerTurn(), REQUEST, { boundProjectId: null })
+
+    expect(deps.forwardedTypes()).toEqual(['message.completed', 'telemetry'])
+    expect(deps.persist.persistSteerUserMessage).not.toHaveBeenCalled()
   })
 })

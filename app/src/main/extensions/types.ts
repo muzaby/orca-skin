@@ -70,6 +70,12 @@ export interface TurnRequest {
   isSubagentBlocked?: (subagentType: string | undefined) => boolean
   attachmentTexts?: ExtractedAttachmentText[]
   attachmentImages?: ExtractedAttachmentImage[]
-  onInputConsumed?: (text: string) => void
-  consumeInjectedInput?: () => string | undefined
+  // steer(피드백 끼어들기) 경계 seam — 어댑터는 *관측만* 하고 커밋은 TurnCoordinator 가 한다.
+  //
+  // onModelCallBoundary: 모델이 대기 입력을 받아들이는 지점(claude=PostToolBatch — 배치 전체가
+  //   해결되고 다음 모델 호출 직전)에 발화. 코디네이터가 이 신호로 pending steer 를 커밋한다.
+  // hasPendingSteer: 아직 커밋되지 않은 steer 가 있는지. 어댑터가 result→telemetry 를
+  //   `continuation` 으로 태깅할지 판정하는 데 쓴다(= 이 result 는 턴 종료가 아님).
+  onModelCallBoundary?: () => void
+  hasPendingSteer?: () => boolean
 }

@@ -552,4 +552,61 @@ describe('chatStore — steer feedback lifecycle', () => {
     expect(partsText(entry().session.messages[2].parts)).toBe('응답-후')
     expect(useChatStore.getState().sessions.s.pendingSteer).toEqual([])
   })
+
+  // handoff 0060 — 스트리밍 입력 모드에서는 query() 하나가 sub-turn 여러 개를 낸다. 경계
+  // telemetry 를 턴 종료로 오판하면 (a) inflight 가 꺼져 이후 델타가 보이지 않게 쌓이고
+  // (b) 그 델타가 뒤늦게 커밋되며 DB 순서와 어긋난다 — 두 사용자 리포트의 근인.
+  it('continuation telemetry 는 턴을 닫지 않고 잔여 라이브 텍스트만 굳힌다', () => {
+    ingestChatEvent(delta('응답-전'))
+    flushRaf()
+    ingestChatEvent({ type: 'telemetry', sessionId: 's', continuation: true })
+
+    expect(entry().session.inflight).toBe(true)
+    expect(entry().session.turnStartedAt).toBe(1)
+    expect(entry().live.text).toBe('')
+    expect(partsText(entry().session.messages[0].parts)).toBe('응답-전')
+  })
+
+  it('continuation 없는 telemetry 는 종전대로 턴을 닫는다', () => {
+    ingestChatEvent({ type: 'telemetry', sessionId: 's' })
+
+    expect(entry().session.inflight).toBe(false)
+    expect(entry().session.turnStartedAt).toBeNull()
+  })
+
+  it('sub-turn 전체 시퀀스가 [assistant][user steer][assistant] 로 굳는다 (= 재로드 순서)', () => {
+    ingestChatEvent({
+      type: 'steer.queued',
+      sessionId: 's',
+      id: 'q1',
+      text: '추가 피드백',
+      createdAt: 10
+    })
+    // 응답 A 는 델타로만 흐르다가 sub-turn 경계에서 확정된다.
+    ingestChatEvent(delta('응답-전'))
+    flushRaf()
+    ingestChatEvent({ type: 'telemetry', sessionId: 's', continuation: true })
+    ingestChatEvent({
+      type: 'steer.flushed',
+      sessionId: 's',
+      ids: ['q1'],
+      text: '추가 피드백',
+      messageId: 7,
+      createdAt: 10
+    })
+    // 응답 B — 턴이 살아 있으므로 라이브로 보이고, 커밋 위치도 steer 버블 아래다.
+    ingestChatEvent(delta('응답-후'))
+    flushRaf()
+    expect(entry().session.inflight).toBe(true)
+    ingestChatEvent({ type: 'telemetry', sessionId: 's' })
+
+    expect(entry().session.messages.map((m) => m.role)).toEqual(['assistant', 'user', 'assistant'])
+    expect(entry().session.messages.map((m) => partsText(m.parts))).toEqual([
+      '응답-전',
+      '추가 피드백',
+      '응답-후'
+    ])
+    expect(entry().session.inflight).toBe(false)
+    expect(useChatStore.getState().sessions.s.pendingSteer).toEqual([])
+  })
 })

@@ -363,6 +363,11 @@ export type NormalizedEvent =
       type: 'telemetry'
       sessionId: string
       usage?: ProviderReportedTelemetry
+      // sub-turn 경계 표식 — 아직 커밋되지 않은 steer 피드백이 남아 응답이 더 온다는 뜻이다.
+      // 스트리밍 입력 모드의 query() 하나는 입력 메시지마다 result 를 낼 수 있으므로 "첫 result =
+      // 턴 종료" 가 아니다. 이 표식이 붙은 telemetry 는 usage 적재·어시스턴트 메시지 마감은 그대로
+      // 하되 턴을 닫지 않는다(입력 스트림 유지 · inflight 유지). 없으면 종전대로 턴 종료(handoff 0060).
+      continuation?: true
     }
   | {
       type: 'error'

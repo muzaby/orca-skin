@@ -34,7 +34,8 @@ import {
   adaptPlugins,
   adaptSettings,
   adaptSkills,
-  adaptSystemPrompt
+  adaptSystemPrompt,
+  withModelCallBoundaryHook
 } from './claude-adapt'
 import { CLAUDE_DESCRIPTOR } from '../capabilities/claude-probe'
 import type { ProviderDescriptor } from '../../shared/ipc'
@@ -276,10 +277,7 @@ export class ClaudeAdapter implements SessionAdapter {
     else signal?.addEventListener('abort', onAbort)
 
     // 턴-스코프 입력 스트림 — close() 까지 미종료(streaming-input.ts 가 불변식 격리).
-    const input = createTurnInputStream(buildTurnContent(text, attachmentTexts, attachmentImages), {
-      onConsume: ({ text }) => req.onInputConsumed?.(text),
-      nextInjectedInput: () => req.consumeInjectedInput?.()
-    })
+    const input = createTurnInputStream(buildTurnContent(text, attachmentTexts, attachmentImages))
 
     const handle = query({
       prompt: input.stream,
@@ -300,7 +298,9 @@ export class ClaudeAdapter implements SessionAdapter {
         // options.env(adaptEnv)에는 시스템(턴) env 만 — orca.json 앱 env.
         ...adaptSettings(req.providerSettings?.settings),
         ...adaptEnv(env),
-        ...adaptHooks(extensions.hooks),
+        // steer 소비 경계(PostToolBatch) 관측 핸들러를 이 턴의 훅 세트에 합성한다 — 확장이 등록한
+        // 같은 이벤트 핸들러와 공존(append)하며, 발화는 코디네이터에 신호만 준다(handoff 0060).
+        ...adaptHooks(withModelCallBoundaryHook(extensions.hooks, req.onModelCallBoundary)),
         // canUseTool — AskUserQuestion·ExitPlanMode·위험 도구를 requestApproval 로 게이트하고
         // 안전 도구는 allow passthrough. 콜백 미주입(opencode 등) 시 옵션 자체를 생략해 현행
         // 자동 통과 동작을 유지한다.
@@ -324,7 +324,17 @@ export class ClaudeAdapter implements SessionAdapter {
     async function* events(): AsyncIterable<NormalizedEvent> {
       try {
         for await (const msg of handle) {
-          yield* claudeToNormalized(msg, ctx)
+          for (const ev of claudeToNormalized(msg, ctx)) {
+            // 아직 커밋되지 않은 steer 가 있으면 이 result 는 턴 종료가 아니라 sub-turn 경계다.
+            // 표식이 붙으면 하류(SessionRuntime·TurnCoordinator·렌더러)가 턴을 닫지 않는다.
+            // 판정을 "미커밋 steer 존재" 로 두므로, 이미 PostToolBatch 에서 커밋됐으면 표식이
+            // 붙지 않아 턴이 정상 종료된다(오판으로 매달리지 않음).
+            if (ev.type === 'telemetry' && req.hasPendingSteer?.() === true) {
+              yield { ...ev, continuation: true }
+            } else {
+              yield ev
+            }
+          }
         }
       } catch (err) {
         // 의도적 중단(턴 취소 / 계획 거부)은 에러가 아니므로 error 이벤트를 내지 않는다
