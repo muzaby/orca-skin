@@ -380,8 +380,10 @@ export class ClaudeAdapter implements SessionAdapter {
             // pass-through 라 아래 canUseTool/permissionMode 흐름은 그대로 유지된다.
             makeWorkspaceGuardHook(cwd, additionalDirectories),
             req.takeSteerFlush
-              ? makeSteerGateHook(req.takeSteerFlush, (batch) =>
-                  input.push(batchContent(batch), batch.uuid)
+              ? makeSteerGateHook(
+                  req.takeSteerFlush,
+                  (batch) => input.push(batchContent(batch), batch.uuid),
+                  req.rollbackSteerFlush
                 )
               : {}
           ),
@@ -467,9 +469,16 @@ export class ClaudeAdapter implements SessionAdapter {
       },
       // 라이브 control — 스트리밍 입력 모드라야 동작하는 SDK Query 메서드에 위임.
       setPermissionMode: (mode) => handle.setPermissionMode(mode),
-      // SDK 0.3.2xx 부터 interrupt() 가 SDKControlInterruptResponse 를 반환 — 포트는 void 계약이라 폐기.
+      // 중단 영수증(0151 AC10) — SDK 0.3.2xx 의 `interrupt()` 는 `SDKControlInterruptResponse |
+      // undefined` 를 돌려준다(`sdk.d.ts:2293`). 구 구현은 이를 폐기해 "중단 뒤에도 실행될 잔여"
+      // 를 앱이 알 수 없었다. `undefined`(구형 CLI = `interrupt_receipt_v1` 미보유)는 **그대로**
+      // 전파한다 — 빈 배열로 뭉개면 "잔여 없음" 과 "잔여 미상" 이 구분되지 않는다.
+      // `cancel_queued:true` 는 공개 `interrupt()` 시그니처에 인자가 없어 도달 불가하므로
+      // (`sdk.mjs` 가 `{subtype:"interrupt"}` 하드코딩) 잔여 취소는 이 경로로 할 수 없다.
       interrupt: async () => {
-        await handle.interrupt()
+        const res = await handle.interrupt()
+        if (!res || !Array.isArray(res.still_queued)) return undefined
+        return { stillQueued: res.still_queued.filter((u): u is string => typeof u === 'string') }
       },
       // steer UX 수용 — 전달은 게이트 훅 flush(takeSteerFlush) 또는 다음 턴 carryover(D2)로.
       canSteer: true,

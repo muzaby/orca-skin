@@ -399,6 +399,9 @@ export const en: typeof ko = {
     completeBody: 'The response is complete.'
   },
   chat: {
+    steer: {
+      submitted: 'Sent'
+    },
     titleBar: {
       renameAria: 'Edit conversation title',
       copyAll: 'Copy entire conversation',

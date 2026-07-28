@@ -3,7 +3,8 @@ import type { NormalizedEvent } from '../../../shared/ipc'
 import { makeClassifiedError } from '../../infra/errors'
 import type { TurnRequest } from '../../adapters/turn'
 import type { AbortCause } from '../../contracts/session-state'
-import type { RuntimeLiveTurn, RuntimeSessionAdapter } from '../../contracts/ports'
+import type { GovernedLiveTurn, RuntimeSessionAdapter } from '../../contracts/ports'
+import type { LiveTurn } from '../../adapters/types'
 import { SessionRuntime } from './session-runtime'
 
 function req(): TurnRequest {
@@ -15,21 +16,21 @@ function req(): TurnRequest {
   }
 }
 
-function live(events: NormalizedEvent[], close = vi.fn()): RuntimeLiveTurn {
+function live(events: NormalizedEvent[], close = vi.fn()): LiveTurn {
   return {
     events: (async function* () {
       for (const ev of events) yield ev
     })(),
     close,
     setPermissionMode: async () => {},
-    interrupt: async () => {},
+    interrupt: async () => undefined,
     setModel: async () => {},
     stopTask: async () => {},
     backgroundTask: async () => false
   }
 }
 
-function adapter(turn: RuntimeLiveTurn): RuntimeSessionAdapter {
+function adapter(turn: LiveTurn): RuntimeSessionAdapter {
   return {
     id: 'claude',
     complete: async () => '',
@@ -103,7 +104,7 @@ describe('SessionRuntime close 정책(0054 → 0067)', () => {
 // 0067 장수명 채널 — pushTurn 지원 어댑터(claude)의 프레임 demux. 채널을 외부에서 구동할 수
 // 있는 fake live 로 spawn 1회·프레임 절단·interrupt 취소·unframed 버퍼를 본다.
 function channelLive(): {
-  liveTurn: RuntimeLiveTurn
+  liveTurn: LiveTurn
   emit: (ev: NormalizedEvent) => void
   close: ReturnType<typeof vi.fn>
   pushed: Array<{ text: string; promptUuid?: string }>
@@ -119,7 +120,7 @@ function channelLive(): {
   })
   const pushed: Array<{ text: string; promptUuid?: string }> = []
   const interrupted = vi.fn()
-  const liveTurn: RuntimeLiveTurn = {
+  const liveTurn: LiveTurn = {
     events: (async function* () {
       while (true) {
         while (queue.length > 0) yield queue.shift()!
@@ -137,6 +138,7 @@ function channelLive(): {
     setPermissionMode: async () => {},
     interrupt: async () => {
       interrupted()
+      return undefined
     },
     setModel: async () => {},
     stopTask: async () => {},
@@ -672,7 +674,7 @@ function isTerminal(ev: NormalizedEvent): boolean {
 
 type ClosePolicy = 'oneshot' | 'persistent'
 
-class FakeSessionRuntime implements RuntimeLiveTurn {
+class FakeSessionRuntime implements GovernedLiveTurn {
   readonly closeLog: number[] = []
   private aborted: AbortCause = null
   private emitted = 0
@@ -696,7 +698,7 @@ class FakeSessionRuntime implements RuntimeLiveTurn {
     }
   }
 
-  // RuntimeLiveTurn 전체 표면 (R3-1 의 stopTask/backgroundTask 포함) — 타입 만족용.
+  // GovernedLiveTurn 전체 표면 (R3-1 의 stopTask/backgroundTask 포함) — 타입 만족용.
   get events(): AsyncIterable<NormalizedEvent> {
     return this.send()
   }

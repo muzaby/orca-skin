@@ -113,6 +113,8 @@ export class SessionRuntime implements ManagedRuntime {
   private delegate: {
     requestApproval?: TurnRequest['requestApproval']
     takeSteerFlush?: TurnRequest['takeSteerFlush']
+    // 0151 — 중단 영수증 상향 통로. 잔여 uuid 판정은 컴포지션 루트가 한다(교차 feature 금지).
+    onInterruptReceipt?: TurnRequest['onInterruptReceipt']
   } = {}
   // 0125: 채널 spawn 시 어댑터에 주입된 providerSettings 의 불투명 기록 — 내용 해석·비교는
   // 호출자(chat-turn + features/providers 판정) 소관이고 여기선 기록/해제만 한다(0016 중립).
@@ -215,7 +217,8 @@ export class SessionRuntime implements ManagedRuntime {
   private adoptDelegate(req: TurnRequest): void {
     this.delegate = {
       ...(req.requestApproval ? { requestApproval: req.requestApproval } : {}),
-      ...(req.takeSteerFlush ? { takeSteerFlush: req.takeSteerFlush } : {})
+      ...(req.takeSteerFlush ? { takeSteerFlush: req.takeSteerFlush } : {}),
+      ...(req.onInterruptReceipt ? { onInterruptReceipt: req.onInterruptReceipt } : {})
     }
   }
 
@@ -469,7 +472,13 @@ export class SessionRuntime implements ManagedRuntime {
   markAborted(cause: Exclude<AbortCause, null>): void {
     this.status.markInterrupting(cause)
     if (this.pumpRunning && this.live) {
-      void this.live.interrupt().catch(() => {})
+      // 0151 — interrupt 영수증(still_queued)을 폐기하지 않고 위임으로 올린다. 시그니처는 동기를
+      // 유지한다(호출자 다수). 영수증 도착은 중단 처리와 비동기라, 소비자는 늦게 오는 것을 전제로
+      // 짜야 한다. 실패는 현행대로 삼킨다 — 중단 자체는 이미 발생했다.
+      void this.live
+        .interrupt()
+        .then((receipt) => this.delegate.onInterruptReceipt?.(receipt))
+        .catch(() => {})
       const frame = this.frame
       if (frame) {
         this.frame = null

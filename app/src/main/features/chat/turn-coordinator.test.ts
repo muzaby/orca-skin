@@ -274,7 +274,7 @@ describe('TurnCoordinator.run — steer 커밋 (user echo 기반, handoff 0060 D
     const pendingMessages = new PendingMessageQueue()
     for (const item of items) {
       pendingMessages.enqueue('s1', { text: item.text }, Date.now(), item.id)
-      pendingMessages.flushHeld('s1', item.id)
+      pendingMessages.reserveHeld('s1', 'steer', item.id)
     }
     const persistSteer = vi.fn(() => 42)
     const deps = makeDeps(runtime, {
@@ -435,13 +435,13 @@ describe('TurnCoordinator.run — 턴-시작 배치 소비 (응답 시작 증거
     const pendingMessages = new PendingMessageQueue()
     const preludes = (opts.preludeIds ?? []).map((id) => {
       pendingMessages.enqueue('s1', { text: `carry-${id}` }, Date.now(), id)
-      return pendingMessages.flushItem('s1', id)!
+      return pendingMessages.reserveItem('s1', id, 'turn-open')!
     })
     pendingMessages.enqueue('s1', { text: 'hello' }, Date.now(), 'p1')
-    const mainBatch = pendingMessages.flushItem('s1', 'p1')!
+    const mainBatch = pendingMessages.reserveItem('s1', 'p1', 'turn-open')!
     for (const id of opts.steerIds ?? []) {
       pendingMessages.enqueue('s1', { text: `steer-${id}` }, Date.now(), id)
-      pendingMessages.flushHeld('s1', id)
+      pendingMessages.reserveHeld('s1', 'steer', id)
     }
     const commitUser = vi.fn(() => 42)
     const deps = makeDeps(runtime, {

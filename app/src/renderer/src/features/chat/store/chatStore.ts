@@ -61,6 +61,9 @@ export interface PendingSteerState {
   id: string
   text: string
   createdAt: number
+  // 소유권(0151) — true 면 stdin 주입이 끝나 **취소 불가**(main 이 취소를 거부한다). 버블은
+  // 취소 버튼을 감추고 "전달됨" 으로 보인다. 예약 롤백(닫힌 입력 스트림)이면 다시 false 로 돌아온다.
+  submitted?: boolean
 }
 
 export interface SubagentMetaState {
@@ -463,6 +466,20 @@ function receive(ev: NormalizedEvent): void {
         createdAt: ev.createdAt,
         clientId: ev.ids[0],
         ...(ev.attachmentViews ? { attachmentViews: ev.attachmentViews } : {})
+      })
+      return
+
+    case 'message.submitted':
+      // 소유권 전이(0151) — held(취소 가능) ↔ submitted(전달됨). 취소 버튼 노출만 바뀌고 버블
+      // 자체는 그대로다(커밋은 여전히 message.committed 가 한다).
+      patchPendingSteer(key, (pending) => {
+        let changed = false
+        const next = pending.map((item) => {
+          if (!ev.ids.includes(item.id) || (item.submitted ?? false) === ev.submitted) return item
+          changed = true
+          return { ...item, submitted: ev.submitted }
+        })
+        return changed ? next : pending
       })
       return
 

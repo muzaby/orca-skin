@@ -1,16 +1,16 @@
 import { describe, expect, it, vi } from 'vitest'
 import { abortTurn } from './abort'
 import type { TurnContext } from '../../contracts/turn'
-import type { RuntimeLiveTurn } from '../../contracts/ports'
+import type { GovernedLiveTurn } from '../../contracts/ports'
 
-function fakeTurn(live: RuntimeLiveTurn | null = null): TurnContext<object> {
+function fakeTurn(live: GovernedLiveTurn | null = null): TurnContext<object> {
   return { controller: new AbortController(), owner: {}, live } as unknown as TurnContext<object>
 }
 
 describe('abortTurn (단일 abort 프리미티브)', () => {
   it('라이브 핸들에 원인을 표시하고 controller 를 abort 한다', () => {
     const markAborted = vi.fn()
-    const turn = fakeTurn({ markAborted } as unknown as RuntimeLiveTurn)
+    const turn = fakeTurn({ markAborted } as unknown as GovernedLiveTurn)
     abortTurn(turn, 'user_cancelled')
     expect(markAborted).toHaveBeenCalledExactlyOnceWith('user_cancelled')
     expect(turn.controller.signal.aborted).toBe(true)
@@ -18,7 +18,7 @@ describe('abortTurn (단일 abort 프리미티브)', () => {
 
   it('stall 원인도 그대로 전달한다', () => {
     const markAborted = vi.fn()
-    const turn = fakeTurn({ markAborted } as unknown as RuntimeLiveTurn)
+    const turn = fakeTurn({ markAborted } as unknown as GovernedLiveTurn)
     abortTurn(turn, 'stall')
     expect(markAborted).toHaveBeenCalledExactlyOnceWith('stall')
     expect(turn.controller.signal.aborted).toBe(true)
