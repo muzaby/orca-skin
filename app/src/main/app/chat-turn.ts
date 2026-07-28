@@ -253,17 +253,19 @@ export function registerChatHandlers(deps: ChatDeps): void {
 
   // busy 세션의 send 를 pending queue 예약(held)으로 수용한다(0067 AC5 — 구 chat:steer 본체).
   // 구조 페이로드: 첨부도 추출해 함께 적재 — 게이트 flush 시 content 블록으로 주입된다.
-  const reserveOnBusySession = async (
+  // **동기 함수다(0152 AC1)**: 첨부 정규화는 호출자가 busy 판정 *전에* 끝내 넘긴다. 여기서
+  // await 하면 그 사이 진행 턴이 끝나 held 예약이 고아가 된다(턴-후 루프는 이미 break·release).
+  const reserveOnBusySession = (
     event: IpcMainInvokeEvent,
     sessionId: string,
     data: {
       text: string
-      attachments?: Parameters<typeof normalizeAttachments>[0]
       attachmentViews?: AttachmentView[]
       clientRequestId?: string
       providerKey?: string | null
-    }
-  ): Promise<void> => {
+    },
+    na: Awaited<ReturnType<typeof normalizeAttachments>>
+  ): void => {
     const turn = supervisor.getBySession(sessionId)
     if (!turn?.live?.canSteer) {
       sendChatEvent(event.sender, {
@@ -290,20 +292,6 @@ export function registerChatHandlers(deps: ChatDeps): void {
           '다른 공급자 모델이 선택되어 있습니다. 응답 완료 후 다시 전송하세요.',
           { retryable: true }
         )
-      })
-      return
-    }
-    let na: Awaited<ReturnType<typeof normalizeAttachments>>
-    try {
-      na = await normalizeAttachments(data.attachments ?? [])
-    } catch (err) {
-      sendChatEvent(event.sender, {
-        type: 'error',
-        sessionId,
-        error: makeClassifiedError('schema_validation_error', '첨부 파일을 처리할 수 없습니다.', {
-          retryable: false,
-          cause: err
-        })
       })
       return
     }
@@ -359,12 +347,36 @@ export function registerChatHandlers(deps: ChatDeps): void {
       return
     }
 
+    // 첨부 정규화(경로 추출·이미지 읽기·검증)는 턴 시작 전 단계라 아래 턴 try/catch 밖이다.
+    // 여기서 throw 하면(홈 밖 경로·unsupported·binary·fs 오류) invoke 가 거부돼 renderer 의
+    // fire-and-forget send 가 콘솔 rejection 으로만 남는다 → 정규 chat:error 로 surface 한다.
+    //
+    // **busy 판정보다 앞에 둔다(0152 AC1)**: 구 구조는 `hasSession()` 으로 busy 를 판정한 뒤
+    // `reserveOnBusySession` 안에서 첨부를 await 했다. 그 await 동안 진행 턴이 끝나고 턴-후
+    // 루프가 `havePending:false` 로 break·release 해버리면, 뒤늦게 held 에 착지한 예약을 flush
+    // 할 주체가 사라진다(세션 idle + held 잔존 = "pending 인 채 답변완료"). 정규화를 앞으로
+    // 올려 **판정 → 적재 사이에 await 가 없게** 만들면 단일 스레드 특성상 그 창이 닫힌다.
+    let normalizedAttachments: Awaited<ReturnType<typeof normalizeAttachments>>
+    try {
+      normalizedAttachments = await normalizeAttachments(parsed.data.attachments)
+    } catch (err) {
+      sendChatEvent(event.sender, {
+        type: 'error',
+        ...(parsed.data.sessionId ? { sessionId: parsed.data.sessionId } : {}),
+        error: makeClassifiedError('schema_validation_error', '첨부 파일을 처리할 수 없습니다.', {
+          retryable: false,
+          cause: err
+        })
+      })
+      return
+    }
+
     // 동시 턴 admission — 서로 다른 세션의 동시 턴은 허용하되, 같은 세션(또는 같은 창의
     // busy 세션 send = 예약(held) — 구 chat:steer 채널 흡수(0067 AC5). 진행 턴이 있으면 큐에
     // 적재만 하고 반환한다. 주입은 게이트 훅(PostToolBatch)·턴 종료 자동 연속이, 커밋은 echo 가
     // 소유한다. 취소는 held 창 안에서 chat:steerCancel/중단 버튼.
     if (parsed.data.sessionId && supervisor.hasSession(parsed.data.sessionId)) {
-      await reserveOnBusySession(event, parsed.data.sessionId, parsed.data)
+      reserveOnBusySession(event, parsed.data.sessionId, parsed.data, normalizedAttachments)
       return
     }
     // 새-채팅 슬롯 중복 send race 가드 — 0056 admission 의 유일 잔존 케이스(0067 AC10 인라인).
@@ -458,24 +470,6 @@ export function registerChatHandlers(deps: ChatDeps): void {
           settingsLanguage
         )
       : parsed.data.text
-
-    // 첨부 정규화(경로 추출·이미지 읽기·검증)는 턴 시작 전 단계라 아래 턴 try/catch 밖이다.
-    // 여기서 throw 하면(홈 밖 경로·unsupported·binary·fs 오류) invoke 가 거부돼 renderer 의
-    // fire-and-forget send 가 콘솔 rejection 으로만 남는다 → 정규 chat:error 로 surface 한다.
-    let normalizedAttachments: Awaited<ReturnType<typeof normalizeAttachments>>
-    try {
-      normalizedAttachments = await normalizeAttachments(parsed.data.attachments)
-    } catch (err) {
-      sendChatEvent(event.sender, {
-        type: 'error',
-        ...(parsed.data.sessionId ? { sessionId: parsed.data.sessionId } : {}),
-        error: makeClassifiedError('schema_validation_error', '첨부 파일을 처리할 수 없습니다.', {
-          retryable: false,
-          cause: err
-        })
-      })
-      return
-    }
 
     if (parsed.data.sessionId) {
       recoverSessionHistory(ctx.db, {
@@ -622,7 +616,17 @@ export function registerChatHandlers(deps: ChatDeps): void {
       createdAt: queuedItem.createdAt
     })
     // 턴 프롬프트 예약 — origin='turn-open' 이라 확정 신호는 **첫 모델 출력**이다(0069·0151 AC1).
-    const mainBatch = pendingMessages.reserveItem(queueKey, queuedItem.id, 'turn-open')!
+    //
+    // **잔여 held 를 함께 병합한다(0152 AC2)**: 이전 턴이 남긴 예약이 있는데 새 항목만 예약하면
+    // 새 메시지가 턴 프롬프트로 먼저 들어가고 잔여는 게이트/연속 턴으로 나중에 흘러 **입력 순서가
+    // 뒤집힌다**. 구 주석의 근거("held 는 이번 턴 게이트 flush 로 이어진다")는 *busy 채널*에서만
+    // 성립하고 idle send 에는 적용되지 않았다. reserveHeld 는 held 를 적재 순서(=시간 순)대로
+    // 병합하므로 잔여가 앞, 새 메시지가 뒤가 된다(0067 D4 = 병합 1버블, 게이트 flush 와 동일 규칙).
+    // 잔여가 없으면 종전대로 아이템 단위 배치(uuid=item id)를 유지한다.
+    const mainBatch =
+      pendingMessages.pending(queueKey).length > 1
+        ? pendingMessages.reserveHeld(queueKey, 'turn-open')!
+        : pendingMessages.reserveItem(queueKey, queuedItem.id, 'turn-open')!
 
     // plugin 배포는 query 호출 전 최신성을 멱등 보장한다. 활성/비활성 토글은
     // 파일 삭제가 아니라 런타임 options.skills 필터로 반영한다.

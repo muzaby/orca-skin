@@ -43,6 +43,21 @@ describe('PendingMessageQueue', () => {
     expect(q.reserveHeld('s', 'steer')).toBeUndefined()
   })
 
+  it('잔여 held + 신규 send 를 병합하면 시간순이 보존된다 (0152 — 입력 순서 역전 방어)', () => {
+    // 이전 턴이 남긴 예약(stranded)이 있는 상태에서 사용자가 새 메시지를 보낸 상황.
+    // 새 항목만 예약하면(reserveItem) 새 메시지가 턴 프롬프트로 먼저 들어가고 잔여는 나중에
+    // 흘러 순서가 뒤집힌다. reserveHeld 는 적재 순서(=시간 순)대로 병합해 잔여를 앞세운다.
+    const q = new PendingMessageQueue()
+    q.enqueue('s', msg('이전 턴에서 남은 것'), 10, 'stranded')
+    q.enqueue('s', msg('방금 보낸 것'), 20, 'fresh')
+    const batch = q.reserveHeld('s', 'turn-open')!
+    expect(batch.ids).toEqual(['stranded', 'fresh'])
+    expect(batch.text).toBe('이전 턴에서 남은 것\n\n방금 보낸 것')
+    // createdAt 은 가장 오래된 항목 기준 — transcript 정렬이 대화 흐름을 따른다.
+    expect(batch.createdAt).toBe(10)
+    expect(q.pending('s')).toHaveLength(0)
+  })
+
   it('reserveItem 은 지정 아이템만 자기 배치(uuid=item id)로 전이한다 (턴 프롬프트, 0067)', () => {
     const q = new PendingMessageQueue()
     q.enqueue('s', msg('steer'), 10, 'a')
