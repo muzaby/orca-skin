@@ -13,7 +13,7 @@ describe('StallTimer', () => {
         })([]),
         close: () => {},
         setPermissionMode: async () => {},
-        interrupt: async () => {},
+        interrupt: async () => undefined,
         setModel: async () => {},
         stopTask: async () => {},
         backgroundTask: async () => false,

@@ -51,7 +51,11 @@ export class MockAdapter implements SessionAdapter {
       }),
       close: () => internal.abort(),
       setPermissionMode: async () => {},
-      interrupt: async () => internal.abort(),
+      // mock 은 큐 프로토콜이 없다 — 영수증 미보유(undefined = 잔여 미상)로 보고한다(0151 AC10).
+      interrupt: async () => {
+        internal.abort()
+        return undefined
+      },
       canSteer: false,
       setModel: async () => {},
       // mock 은 시나리오 스크립트가 subagent.task settled(stopped)를 직접 emit 해 중단을 시연한다.

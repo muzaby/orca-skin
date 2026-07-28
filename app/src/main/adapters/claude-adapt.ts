@@ -140,20 +140,37 @@ export function adaptHooks(set: NormalizedHookSet): object {
 //   - push(스트림 stdin write)가 훅 응답 반환보다 선행 → 같은 stdin FIFO 라 CLI 가 훅 응답을
 //     읽기 전에 배치가 enqueue 된다(same-batch 포함, 명세 §7.3 — 부정돼도 다음 경계 열화로 안전).
 //   - fail-open: steer 는 부가기능 — 어떤 예외도 {} 로 삼켜 턴 본체를 보호한다.
+//   - 2단계 인계(0151 AC4): take 는 **예약**이고 push 성공까지는 소유권이 넘어가지 않는다.
+//     push 가 false(닫힌 스트림)를 돌려주거나 예외가 나면 rollback 으로 항목을 held 로 되돌려
+//     사용자가 다시 취소할 수 있게 한다 — 구 계약은 실패를 삼켜 메시지가 굳었다.
 export function makeSteerGateHook(
   take: () => SteerFlushBatch | undefined,
-  push: (batch: SteerFlushBatch) => void
+  push: (batch: SteerFlushBatch) => boolean,
+  rollback?: (batch: SteerFlushBatch) => void
 ): object {
   const callback: HookCallback = async (input) => {
+    let reserved: SteerFlushBatch | undefined
     try {
       if ((input as { agent_id?: string }).agent_id !== undefined) return {}
-      const batch = take()
+      reserved = take()
       // 구조 페이로드(0067) — content 조립(첨부 블록 포함)은 호출자(claude.ts)의 push 가 소유.
-      if (batch) push(batch)
+      if (reserved && !push(reserved)) {
+        rollback?.(reserved)
+        getLogger()
+          .child('engine')
+          .warn('engine.steer.submit-rejected', { provider: 'claude', rolledBack: true })
+      }
     } catch (err) {
+      // fail-open: steer 는 부가기능이라 예외를 삼켜 턴 본체를 보호한다. 단 **상태는 반드시**
+      // 되돌린다 — 삼키기와 상태 유실은 별개다.
+      if (reserved) rollback?.(reserved)
       getLogger()
         .child('engine')
-        .warn('engine.steer.flush-failed', { provider: 'claude', message: String(err) })
+        .warn('engine.steer.flush-failed', {
+          provider: 'claude',
+          message: String(err),
+          rolledBack: reserved !== undefined
+        })
     }
     return {}
   }

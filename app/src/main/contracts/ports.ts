@@ -25,9 +25,19 @@ export type RuntimeSessionAdapter = Pick<
   'id' | 'complete' | 'sendMessage' | 'classifyError'
 >
 
+// 런타임 **거버넌스** 표면(0151) — `interrupt` 만 좁힌 RuntimeLiveTurn.
+//
+// 어댑터 raw 핸들의 `interrupt()` 는 SDK 제어 호출이라 영수증(still_queued)을 돌려주지만,
+// 거버넌스의 `interrupt()` 는 "이 턴을 중단 표시" 라는 **다른 행위**다 — `markAborted` 가 SDK
+// 호출을 fire-and-forget 으로 걸고, 영수증은 비동기로 도착해 `TurnRequest.onInterruptReceipt`
+// 위임으로 컴포지션 루트에 올라간다. 반환값으로 받을 수 있는 자리가 아니다.
+export interface GovernedLiveTurn extends Omit<RuntimeLiveTurn, 'interrupt'> {
+  interrupt(): Promise<void>
+}
+
 // Supervisor/RuntimePool 이 관리하는 SessionRuntime 표면 — 거버넌스 live 핸들 위에 보존 판정에
 // 필요한 최소(현재 상태 + reusable close 정책)를 더한다. SessionRuntime 이 구조적으로 만족한다(0054).
-export interface ManagedRuntime extends RuntimeLiveTurn {
+export interface ManagedRuntime extends GovernedLiveTurn {
   readonly state: SessionRuntimeState
   readonly reusable: boolean
   close(): void

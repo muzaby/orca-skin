@@ -56,6 +56,30 @@ describe('createSessionInputStream', () => {
     expect(done.done).toBe(true)
   })
 
+  // ── 0151 AC3: push 영수증 ───────────────────────────────────────────────────
+  it('push 는 수용 시 true 를 반환한다', () => {
+    const { push, close } = createSessionInputStream()
+    expect(push('hello', 'u1')).toBe(true)
+    close()
+  })
+
+  it('closed 스트림의 push 는 false — 조용한 no-op 이 아니다', () => {
+    const { push, close } = createSessionInputStream()
+    close()
+    // 구 계약(void)은 여기서 조용히 삼켜, 호출자가 예약을 되돌릴 수 없었다.
+    expect(push('too late', 'u1')).toBe(false)
+  })
+
+  it('closed 이후 push 한 내용은 스트림에 흘러나오지 않는다', async () => {
+    const { stream, push, close } = createSessionInputStream([{ content: 'first' }])
+    const it = stream[Symbol.asyncIterator]()
+    await it.next()
+    close()
+    expect(push('dropped')).toBe(false)
+    const done = await it.next()
+    expect(done.done).toBe(true)
+  })
+
   it('close() 는 멱등이다', async () => {
     const { stream, close } = createSessionInputStream([{ content: 'x' }])
     const it = stream[Symbol.asyncIterator]()

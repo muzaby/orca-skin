@@ -1,12 +1,12 @@
 import type { AttachmentView } from '../../shared/ipc'
 import type { ResolvedProviderSettings } from '../adapters/provider-config'
 import type { LineageRelation } from '../infra/db/types'
-import type { RuntimeLiveTurn, RuntimeTitleAdapter } from './ports'
+import type { GovernedLiveTurn, RuntimeTitleAdapter } from './ports'
 
 export interface TurnContext<W = unknown> {
   controller: AbortController
   owner: W
-  live: RuntimeLiveTurn | null
+  live: GovernedLiveTurn | null
   titleAdapter: RuntimeTitleAdapter
   titleSettings?: ResolvedProviderSettings
   titleEnv?: Record<string, string>

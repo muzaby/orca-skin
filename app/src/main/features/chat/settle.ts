@@ -8,7 +8,7 @@ import type { NormalizedEvent } from '../../../shared/ipc'
 import type { TurnContext } from '../../contracts/turn'
 import type { TurnEmit } from '../../contracts/bus-events'
 import { createSubagentSettlementEvents } from './subagent-settlement'
-import type { RuntimeLiveTurn } from '../../contracts/ports'
+import type { GovernedLiveTurn } from '../../contracts/ports'
 
 // 턴 중단/실패 시 아직 열린 도구 실행을 abort/failed 마커 tool_result 로 정착시킨다.
 // AskUserQuestion tool_result 합성(flushAskAnswers)과 동형의 보정 — toolRunId 멱등(upsert).
@@ -112,7 +112,7 @@ export interface BackgroundTaskSettleSource {
 // (BackgroundTaskTracker.isAsyncLaunched)를 받는다: 관측됨 = 이미 백그라운드 task 로 분리돼
 // stopTask 직행, 미관측(foreground 또는 영수증 이전) = backgroundTask 선행(보수적 현행 동작).
 export async function stopLiveSubagent(
-  live: RuntimeLiveTurn | null,
+  live: GovernedLiveTurn | null,
   toolUseId: string,
   taskId: string | undefined,
   alreadyBackground: boolean

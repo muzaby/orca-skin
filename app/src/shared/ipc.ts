@@ -538,6 +538,11 @@ export type NormalizedEvent =
       createdAt: number
     }
   | { type: 'message.cancelled'; sessionId: string; ids: string[] }
+  // 소유권 전이(0151) — pending 버블이 held(취소 가능) ↔ submitted(stdin 주입 완료, 취소 불가)
+  // 사이를 오갈 때 발신한다. `submitted:true` 면 renderer 는 취소 버튼을 감추고 "전달됨" 으로
+  // 표시하고, `false`(예약 롤백 — 닫힌 입력 스트림 등)면 다시 취소 가능 상태로 되돌린다.
+  // message.queued 동렬의 **미영속 UI 상태 신호**(버스 미경유 — history/usage 미소비).
+  | { type: 'message.submitted'; sessionId: string; ids: string[]; submitted: boolean }
   // SDK 네이티브 압축 완료(system/compact_boundary → 정규화, 0064). 도착 세션 transcript 에
   // 압축 경계를 표시한다. preTokens/postTokens = 압축 전/후 토큰 수(compact_metadata 의
   // pre_tokens/post_tokens — post 는 SDK optional). postTokens 는 압축 후 컨텍스트 실측이라

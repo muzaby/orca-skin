@@ -16,7 +16,13 @@ import type { RouterContext } from '../context'
 import { partFromRow, toSessionListItem } from '../../infra/ipc/dto'
 import { handle, handlePlain } from '../../infra/ipc/handle'
 
-export function registerSessionHandlers(ctx: RouterContext): void {
+// 세션 폐기 시 정리할 in-memory 소유자들(0151 AC8) — 컴포지션 루트가 주입한다. 세션 슬라이스가
+// chat 슬라이스를 직접 참조하지 않기 위한 구조적 포트(main/AGENTS.md 해소책 ③).
+export interface SessionDisposeHooks {
+  onSessionDisposed?: (sessionId: string) => void
+}
+
+export function registerSessionHandlers(ctx: RouterContext, hooks: SessionDisposeHooks = {}): void {
   // Renderer 가 세션 init 이벤트 전에도 cwd 를 알 수 있도록 노출. chat send 와
   // 동일한 cwd 단일 소스 — 인자 없는 호출은 비-프로젝트 기본(projects/default).
   handlePlain(CHANNELS.sessionCwd, (): string => ctx.getCwd())
@@ -92,6 +98,9 @@ export function registerSessionHandlers(ctx: RouterContext): void {
     { fallback: undefined },
     (req): void => {
       ctx.db.deleteSession(req.sessionId)
+      // 미커밋 pending(입력 원문 + base64 첨부)까지 폐기한다(0151 AC8) — 구 구현은 DB 행만
+      // 지우고 메모리 큐를 그대로 둬, 삭제한 대화의 원문이 프로세스 수명 내내 남았다.
+      hooks.onSessionDisposed?.(req.sessionId)
       // 영속화된 lastSessionId 가 삭제 대상이면 같이 해제.
       const current = ctx.settings.getAll()
       if (current.lastSessionId === req.sessionId) {

@@ -5,7 +5,7 @@ import type {
   ProviderDescriptor
 } from '../../shared/ipc'
 import type { ClaudePermissionMode } from '../../shared/permission-mode'
-import type { TurnContinuation, TurnRequest } from './turn'
+import type { InterruptReceipt, TurnContinuation, TurnRequest } from './turn'
 import type { ResolvedProviderSettings } from './provider-config'
 
 export type { Backend, NormalizedEvent }
@@ -23,7 +23,10 @@ export interface LiveTurn {
   // 미구현이면 SessionRuntime 이 턴-스코프 경로(매 턴 spawn)로 폴백한다.
   pushTurn?(next: TurnContinuation): Promise<void>
   setPermissionMode(mode: ClaudePermissionMode): Promise<void>
-  interrupt(): Promise<void>
+  // 현재 턴 중단. 영수증(0151 AC10)을 그대로 올린다 — 구 계약은 `Promise<void>` 라 SDK 가 주는
+  // `still_queued`(중단 뒤에도 실행될 잔여 uuid)를 어댑터가 버렸다. 미지원 어댑터/구형 CLI 는
+  // `undefined`(잔여 미상)를 반환하며, 이는 빈 배열(잔여 없음)과 **다른 의미**다.
+  interrupt(): Promise<InterruptReceipt | undefined>
   // steer UX 수용 여부 — 전달은 어댑터 게이트 훅(TurnRequest.takeSteerFlush) 또는 다음 턴
   // carryover(0060 D2/D3). mid-turn stdin 직주입 경로(injectMessage)는 0060 D3 에서 제거됐다.
   readonly canSteer?: boolean

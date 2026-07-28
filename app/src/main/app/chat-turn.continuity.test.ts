@@ -134,10 +134,10 @@ async function runTurn(
   const bus = new TypedBus<OrcaBusEvents<unknown>>()
   bus.on('turn.event', ({ turn: t, ev }) => persistence.persist(t, ev), { critical: true })
   bus.on('turn.event', ({ ev }) => forwarded.push(ev))
-  // 0067: 프롬프트도 큐 경유 — enqueue→flushItem 후 echo(uuid=item id) 관측으로 커밋된다.
+  // 0067: 프롬프트도 큐 경유 — enqueue→예약 후 첫 모델 출력(uuid=item id) 관측으로 커밋된다.
   const pendingMessages = new PendingMessageQueue()
   pendingMessages.enqueue('draft-key', { text: turn.firstUserText }, 1, 'prompt-item')
-  pendingMessages.flushItem('draft-key', 'prompt-item')
+  pendingMessages.reserveItem('draft-key', 'prompt-item', 'turn-open')
   const coordinator = new TurnCoordinator({
     runtime: fakeRuntime(newSessionId, { text: turn.firstUserText, uuid: 'prompt-item' }),
     bus,

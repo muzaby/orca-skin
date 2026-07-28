@@ -39,6 +39,22 @@ export interface SteerFlushBatch extends SteerFlush {
   uuid: string
 }
 
+// 턴 중단 영수증(0151 AC10) — SDK `Query.interrupt()` 가 돌려주는 `SDKControlInterruptResponse`
+// 의 중립 형태. `stillQueued` = 이 인터럽트에서 살아남아 **여전히 실행될** 비동기 사용자 메시지
+// uuid 목록(`sdk.d.ts:3487`).
+//
+// 두 가지를 엄격히 구분해야 한다:
+//   `undefined`        = CLI 가 `interrupt_receipt_v1` capability 미보유(구형). 잔여 여부 **미상**.
+//   `{stillQueued: []}` = 영수증은 왔고 uuid 기반 생존 메시지가 없음.
+// 뭉개면 "잔여 없음" 을 오판한다.
+//
+// 주의: 목록에는 클라이언트가 보낸 적 없는 **내부 uuid**(cron 트리거·auto-resume continuation)가
+// 섞인다. 소비자는 자기가 아는 uuid 와 교집합만 취하고 나머지는 무시해야 한다 — Orca 는
+// 백그라운드 서브에이전트가 기본이라(0143) 내부 uuid 가 실제로 발생한다.
+export interface InterruptReceipt {
+  stillQueued: string[]
+}
+
 // 첨부 추출 결과 — 어댑터가 turn content 로 굽는 입력 계약(구 files/attachments 정의를 포트로 이관).
 export interface ExtractedAttachmentText {
   id: string
@@ -138,6 +154,14 @@ export interface TurnRequest {
   // — 미주입(steer 미지원 백엔드)/빈 큐면 undefined(주입 없음). requestApproval 과 대칭인
   // 라이브-턴 제어 채널이라 TurnExtensions 가 아닌 TurnRequest 직속.
   takeSteerFlush?: () => SteerFlushBatch | undefined
+  // 예약 롤백(0151 AC4) — 어댑터가 takeSteerFlush 로 회수한 배치를 자기 입력 채널이 **거부**했을
+  // 때(closed stream / push 예외) 호출한다. 큐가 항목을 held 로 되돌려 다시 취소 가능해진다.
+  // takeSteerFlush 와 짝이며, 미주입이면 어댑터는 실패를 삼킨다(fail-open 현행 유지).
+  rollbackSteerFlush?: (batch: SteerFlushBatch) => void
+  // 턴 중단 영수증 수신(0151 AC10·AC11) — 런타임이 interrupt() 를 호출한 뒤 결과를 여기로 올린다.
+  // 잔여 uuid 와 자기 예약의 교집합 판정은 **컴포지션 루트**가 한다(features/sessions 가
+  // features/chat 을 참조하지 않도록 — main/AGENTS.md 해소책 ③).
+  onInterruptReceipt?: (receipt: InterruptReceipt | undefined) => void
   // 중단된 서브에이전트 타입 재호출 차단 술어(가이드 §6-A). turn.blockedSubagents 를 읽는다.
   isSubagentBlocked?: (subagentType: string | undefined) => boolean
   attachmentTexts?: ExtractedAttachmentText[]

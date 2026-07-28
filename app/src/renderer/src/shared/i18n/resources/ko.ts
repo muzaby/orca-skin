@@ -398,6 +398,10 @@ export const ko = {
     completeBody: '응답이 완료되었습니다.'
   },
   chat: {
+    // 예약 steer 가 stdin 으로 넘어가 취소 불가가 된 상태 표시(0151).
+    steer: {
+      submitted: '전달됨'
+    },
     titleBar: {
       renameAria: '대화 제목 편집',
       copyAll: '전체 대화 복사',

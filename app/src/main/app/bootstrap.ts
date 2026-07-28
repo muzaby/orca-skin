@@ -107,6 +107,8 @@ export class Bootstrap {
   private isIndexing = false
   private updates: UpdateController | null = null
   private scheduler?: Scheduler
+  // 0151 — 종료 시 admission freeze + payload 스크럽을 위해 루트가 참조를 보관한다.
+  private pendingMessages?: PendingMessageQueue
 
   private builtinSkillsDir(): string {
     return resolveBuiltinSkillsDir({
@@ -408,8 +410,15 @@ export class Bootstrap {
   // abort 해 SDK 서브프로세스를 깨끗이 종료한다. persist 는 better-sqlite3 동기라 종료 시간 내
   // 완료된다. start() 이전(register 미실행)이면 no-op.
   shutdown(): void {
+    // admission freeze 를 **가장 먼저**(0151 AC9) — 이후 send/steer 예약을 거부해, 종료 중
+    // 게이트 flush·자동 연속 턴이 큐 폐기와 경합하며 메시지를 뒤늦게 제출하는 것을 막는다.
+    this.pendingMessages?.freeze()
     this.scheduler?.stopAll()
-    if (!this.supervisor || !this.bus) return
+    if (!this.supervisor || !this.bus) {
+      // 조기 반환 경로에서도 미커밋 payload 는 반드시 스크럽한다.
+      this.pendingMessages?.disposeAll()
+      return
+    }
     const bus = this.bus
     // 열린 도구를 'aborted' 합성 tool_result 로 정착 → turn.event 버스로 방출(history 구독자가 영속).
     const emit = (turn: TurnContext<Electron.WebContents>, ev: NormalizedEvent): void => {
@@ -427,6 +436,10 @@ export class Bootstrap {
     }
     // idle 로 보존된 Persistent 핸들(진행 턴 아님) 일괄 close(0054). 게이트 OFF 면 풀이 비어 no-op.
     this.supervisor.closeIdleRuntimes()
+    // 런타임을 모두 닫은 **뒤** 미커밋 pending 을 스크럽하고 맵을 비운다(0151 AC8) — pending 은
+    // 비영속이 정책이라 다음 실행에서 복원하지 않는다. 순서가 중요하다: 채널이 살아 있는 동안
+    // 지우면 진행 중 flush 가 빈 큐를 보고 조용히 유실될 수 있다.
+    this.pendingMessages?.disposeAll()
   }
 
   private register(ctx: RouterContext): void {
@@ -468,7 +481,7 @@ export class Bootstrap {
     const approvals = new ApprovalCoordinator()
     const permissionModes = new PermissionModeController()
     // 0067 AC10: AdmissionController 폐기 — busy send = pending queue 예약(chat-turn 소유).
-    const pendingMessages = new PendingMessageQueue()
+    const pendingMessages = (this.pendingMessages = new PendingMessageQueue())
     registerChatHandlers({
       ctx,
       supervisor,
@@ -481,7 +494,11 @@ export class Bootstrap {
     })
     approvals.registerHandlers(supervisor, permissionModes)
 
-    registerSessionHandlers(ctx)
+    // 세션 삭제 시 미커밋 pending 도 함께 폐기한다(0151 AC8) — 루트가 chat 큐를 주입해
+    // session 슬라이스가 chat 슬라이스를 참조하지 않게 한다.
+    registerSessionHandlers(ctx, {
+      onSessionDisposed: (sessionId) => pendingMessages.dispose(sessionId)
+    })
     registerProjectHandlers(ctx)
     registerMcpHandlers(ctx)
     registerEngineHandlers(ctx)

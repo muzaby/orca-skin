@@ -46,10 +46,11 @@ import type { HistoryWriter } from '../features/history/writer'
 import { SessionRuntime } from '../features/sessions/session-runtime'
 import type { RuntimeSessionAdapter } from '../contracts/ports'
 import { recoverSessionHistory } from '../features/chat/recovery'
-import type { SteerFlushBatch, TurnRequest } from '../adapters/turn'
+import type { InterruptReceipt, SteerFlushBatch, TurnRequest } from '../adapters/turn'
 import { TurnCoordinator } from '../features/chat/turn-coordinator'
 import { BackgroundTaskTracker } from '../features/chat/background-tasks'
 import { decidePostTurnStep } from '../features/chat/post-turn'
+import { reconcileInterruptReceipt } from '../features/chat/interrupt-reconcile'
 import {
   settleOpenToolRuns,
   settleSubagentTask,
@@ -615,7 +616,8 @@ export function registerChatHandlers(deps: ChatDeps): void {
       ...(queuedItem.attachmentViews ? { attachmentViews: queuedItem.attachmentViews } : {}),
       createdAt: queuedItem.createdAt
     })
-    const mainBatch = pendingMessages.flushItem(queueKey, queuedItem.id)!
+    // 턴 프롬프트 예약 — origin='turn-open' 이라 확정 신호는 **첫 모델 출력**이다(0069·0151 AC1).
+    const mainBatch = pendingMessages.reserveItem(queueKey, queuedItem.id, 'turn-open')!
 
     // plugin 배포는 query 호출 전 최신성을 멱등 보장한다. 활성/비활성 토글은
     // 파일 삭제가 아니라 런타임 options.skills 필터로 반영한다.
@@ -748,6 +750,37 @@ export function registerChatHandlers(deps: ChatDeps): void {
       void permissionModes.setMode(parsed.data.sessionId, parsed.data.permissionMode)
     }
 
+    // 소유권 표시(0151 AC12) — held(취소 가능) ↔ submitted(전달됨, 취소 불가) 전이를 renderer 에
+    // 알린다. 버스 미경유 직행(message.queued 동렬 — 미영속 UI 상태).
+    const sendOwnership = (sessionId: string, ids: string[], submitted: boolean): void => {
+      if (ids.length === 0) return
+      sendChatEvent(wc, { type: 'message.submitted', sessionId, ids, submitted })
+    }
+
+    // 중단 영수증 화해(0151 AC11) — still_queued 에는 우리가 보낸 적 없는 내부 uuid(cron 트리거·
+    // 백그라운드 auto-resume continuation)가 섞이므로(`sdk.d.ts:3487`), **우리 예약과의 교집합만**
+    // 취한다. 모르는 uuid 를 잔여로 오인해 런타임을 폐기하면 0143 백그라운드 완료 통지가 죽는다.
+    //
+    // 교집합이 비지 않아도 이번 범위에서는 관측·기록까지만 한다 — 공개 SDK 에 provider 큐의 개별
+    // 메시지를 취소하는 메서드가 없고(`cancel_async_message` 는 Query 메서드 아님), `interrupt()`
+    // 는 인자가 없어 `cancel_queued:true` 도 못 보낸다. 남은 수단은 런타임 폐기뿐인데 그건
+    // 백그라운드 태스크를 함께 죽이므로 제품 결정 사항이다(plan Open Question 1).
+    const reconcileInterrupt = (sessionId: string, receipt: InterruptReceipt | undefined): void => {
+      const outcome = reconcileInterruptReceipt(receipt, pendingMessages.submittedUuids(sessionId))
+      const log = getLogger().child('chat')
+      if (outcome.kind === 'unknown') {
+        // capability 미보유(구형 CLI) — "잔여 없음" 이 아니라 "잔여 미상". 폐기하지 않는다.
+        log.info('chat.interrupt.receipt-absent', { sessionId })
+        return
+      }
+      if (outcome.kind === 'clear') return
+      log.info('chat.interrupt.still-queued', {
+        sessionId,
+        ourCount: outcome.uuids.length,
+        totalCount: outcome.totalCount
+      })
+    }
+
     const request: TurnRequest = {
       sessionId: parsed.data.sessionId,
       // 0064 continuity — 어댑터가 resume+forkSession 으로 어댑트해 새 session id 를 발급받는다.
@@ -772,8 +805,25 @@ export function registerChatHandlers(deps: ChatDeps): void {
       // 게이트 훅(PostToolBatch) 시점에 로컬 홀드 pending 을 병합 단일 배치로 회수(0060 D3·D4).
       // 활성 턴의 dbSessionId 를 훅 발화 시점에 동적으로 읽는다 — 새 세션 턴은 session.updated
       // 전까지 null(그동안 예약 자체가 불가능하므로 빈 회수가 옳다).
-      takeSteerFlush: () =>
-        activeTurn.dbSessionId ? pendingMessages.flushHeld(activeTurn.dbSessionId) : undefined,
+      takeSteerFlush: () => {
+        const sid = activeTurn.dbSessionId
+        if (!sid) return undefined
+        const batch = pendingMessages.reserveHeld(sid, 'steer')
+        // 소유권 이전을 즉시 UI 에 알린다(0151 AC12) — 예약분은 취소가 거부되므로, 버블이
+        // "취소 가능" 인 채로 남아 사용자가 눌러도 아무 일도 안 일어나는 상태를 없앤다.
+        if (batch) sendOwnership(sid, batch.ids, true)
+        return batch
+      },
+      // 입력 채널이 배치를 거부하면(closed stream / push 예외) 예약을 held 로 되돌린다(AC4).
+      rollbackSteerFlush: (batch) => {
+        const sid = activeTurn.dbSessionId
+        if (!sid) return
+        if (pendingMessages.rollback(sid, batch.uuid)) sendOwnership(sid, batch.ids, false)
+      },
+      onInterruptReceipt: (receipt) => {
+        const sid = activeTurn.dbSessionId
+        if (sid) reconcileInterrupt(sid, receipt)
+      },
       isSubagentBlocked: (st) => st !== undefined && activeTurn.blockedSubagents.has(st),
       attachmentTexts: normalizedAttachments.attachmentTexts,
       attachmentImages: normalizedAttachments.attachmentImages
@@ -816,7 +866,19 @@ export function registerChatHandlers(deps: ChatDeps): void {
           channelBusy: runtime.channelBusy,
           hasBacklog: runtime.hasUnframedBacklog
         })
-        if (step === 'break') break
+        if (step === 'break') {
+          // 턴 체인 종료(0151 AC7) — 확정 신호가 끝내 오지 않은 예약을 orphaned 로 내린다.
+          // 기능적으로는 takeForRespawn 대상 판정이 명시화될 뿐이지만, 구 구조에서 조용히
+          // 잔존하던 echo 유실이 여기서 처음으로 **관측 가능**해진다(첨부 base64 포함 배치가
+          // 세션 런타임 수명 내내 붙들려 있던 것).
+          const orphaned = pendingMessages.orphanUnconfirmed(sessionId)
+          if (orphaned.length > 0) {
+            getLogger()
+              .child('chat')
+              .info('chat.steer.orphaned', { sessionId, count: orphaned.length })
+          }
+          break
+        }
         if (step === 'listen') {
           // listen 턴 — settle/persist/relay/usage/title 은 일반 턴과 같은 버스 파이프라인.
           // 종료 후 루프 재평가: 알림 턴이 pending 을 남겼으면 연속 턴, 태스크가 남았으면 재개.
@@ -877,8 +939,10 @@ export function registerChatHandlers(deps: ChatDeps): void {
         let contPreludes: SteerFlushBatch[] = []
         let batch: SteerFlushBatch | undefined
         if (runtime.channelAlive) {
-          // 채널 생존 — held 병합 단일 배치(D4 1버블)를 pushTurn 프롬프트로.
-          batch = pendingMessages.flushHeld(sessionId)
+          // 채널 생존 — held 병합 단일 배치(D4 1버블)를 pushTurn 프롬프트로. 게이트 flush 와
+          // 같은 메서드지만 여기서는 **턴 프롬프트**라 origin 이 다르다(0151 AC1 — 확정 신호가
+          // echo 가 아니라 첫 모델 출력).
+          batch = pendingMessages.reserveHeld(sessionId, 'turn-open')
         } else {
           // 채널 사망 — respawn 이월 전체를 회수해 마지막을 본 프롬프트, 앞을 프렐류드로.
           const leftovers = pendingMessages.takeForRespawn(sessionId)
@@ -959,7 +1023,18 @@ export function registerChatHandlers(deps: ChatDeps): void {
   // 커밋이 버블을 복원한다(D3 정직 화해). 구 chat:steer 채널은 chat:send 로 흡수됐다(0067 AC5).
   handle(CHANNELS.chatSteerCancel, CancelSteerSchema, 'reject', (req, event): void => {
     const removed = pendingMessages.cancel(req.sessionId, req.id)
-    if (!removed) return
+    if (!removed) {
+      // 0151 AC12 — 거부를 침묵하지 않는다. 예약된 항목은 이미 소유권이 넘어갔으므로 그 사실을
+      // 돌려줘 renderer 가 버블을 "전달됨"(취소 버튼 없음)으로 재동기화한다. 구 구현은 무이벤트
+      // 반환이라, 사용자가 취소를 눌러도 화면에 아무 변화가 없었다.
+      sendChatEvent(event.sender, {
+        type: 'message.submitted',
+        sessionId: req.sessionId,
+        ids: [req.id],
+        submitted: true
+      })
+      return
+    }
     sendChatEvent(event.sender, {
       type: 'message.cancelled',
       sessionId: req.sessionId,

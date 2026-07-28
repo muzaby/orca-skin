@@ -286,7 +286,7 @@ describe('makeSteerGateHook (0060 D3·D4 — PostToolBatch 게이트 flush)', ()
 
   it('메인 루프(agent_id 부재)에서 배치를 push 하고 {} 를 반환한다', async () => {
     const take = vi.fn(() => batch)
-    const push = vi.fn()
+    const push = vi.fn(() => true)
     const cb = gateCallbackOf(makeSteerGateHook(take, push))
     expect(
       await cb(mainInput as never, undefined, { signal: new AbortController().signal })
@@ -297,7 +297,7 @@ describe('makeSteerGateHook (0060 D3·D4 — PostToolBatch 게이트 flush)', ()
 
   it('서브에이전트 발화(agent_id 존재)에서는 take/push 를 호출하지 않는다', async () => {
     const take = vi.fn(() => batch)
-    const push = vi.fn()
+    const push = vi.fn(() => true)
     const cb = gateCallbackOf(makeSteerGateHook(take, push))
     const input = { ...mainInput, agent_id: 'sub-1' }
     expect(await cb(input as never, undefined, { signal: new AbortController().signal })).toEqual(
@@ -308,7 +308,7 @@ describe('makeSteerGateHook (0060 D3·D4 — PostToolBatch 게이트 flush)', ()
   })
 
   it('빈 큐(take → undefined)면 push 없이 {} (no-op 경계)', async () => {
-    const push = vi.fn()
+    const push = vi.fn(() => true)
     const cb = gateCallbackOf(makeSteerGateHook(() => undefined, push))
     expect(
       await cb(mainInput as never, undefined, { signal: new AbortController().signal })
@@ -320,9 +320,12 @@ describe('makeSteerGateHook (0060 D3·D4 — PostToolBatch 게이트 flush)', ()
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     try {
       const throwingTake = gateCallbackOf(
-        makeSteerGateHook(() => {
-          throw new Error('boom')
-        }, vi.fn())
+        makeSteerGateHook(
+          () => {
+            throw new Error('boom')
+          },
+          vi.fn(() => true)
+        )
       )
       expect(
         await throwingTake(mainInput as never, undefined, { signal: new AbortController().signal })
@@ -337,6 +340,94 @@ describe('makeSteerGateHook (0060 D3·D4 — PostToolBatch 게이트 flush)', ()
       )
       expect(
         await throwingPush(mainInput as never, undefined, { signal: new AbortController().signal })
+      ).toEqual({})
+    } finally {
+      warn.mockRestore()
+    }
+  })
+
+  // ── 0151 AC4: 2단계 인계 — push 거부/예외 시 예약 롤백 ────────────────────────
+  it('push 가 false(closed stream)면 rollback 을 호출한다 — 조용한 유실 없음', async () => {
+    const rollback = vi.fn()
+    const cb = gateCallbackOf(
+      makeSteerGateHook(
+        () => batch,
+        () => false,
+        rollback
+      )
+    )
+    expect(
+      await cb(mainInput as never, undefined, { signal: new AbortController().signal })
+    ).toEqual({})
+    expect(rollback).toHaveBeenCalledWith(batch)
+  })
+
+  it('push 성공(true)이면 rollback 하지 않는다', async () => {
+    const rollback = vi.fn()
+    const cb = gateCallbackOf(
+      makeSteerGateHook(
+        () => batch,
+        () => true,
+        rollback
+      )
+    )
+    await cb(mainInput as never, undefined, { signal: new AbortController().signal })
+    expect(rollback).not.toHaveBeenCalled()
+  })
+
+  it('push 예외도 롤백한다 — fail-open 이 상태 유실을 뜻하지는 않는다', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const rollback = vi.fn()
+      const cb = gateCallbackOf(
+        makeSteerGateHook(
+          () => batch,
+          () => {
+            throw new Error('closed')
+          },
+          rollback
+        )
+      )
+      expect(
+        await cb(mainInput as never, undefined, { signal: new AbortController().signal })
+      ).toEqual({})
+      expect(rollback).toHaveBeenCalledWith(batch)
+    } finally {
+      warn.mockRestore()
+    }
+  })
+
+  it('take 자체가 던지면 예약이 없으므로 rollback 하지 않는다', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const rollback = vi.fn()
+      const cb = gateCallbackOf(
+        makeSteerGateHook(
+          () => {
+            throw new Error('boom')
+          },
+          () => true,
+          rollback
+        )
+      )
+      await cb(mainInput as never, undefined, { signal: new AbortController().signal })
+      expect(rollback).not.toHaveBeenCalled()
+    } finally {
+      warn.mockRestore()
+    }
+  })
+
+  it('rollback 미주입(구 계약)이어도 push 거부가 턴을 깨지 않는다', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    try {
+      const cb = gateCallbackOf(
+        makeSteerGateHook(
+          () => batch,
+          () => false
+        )
+      )
+      expect(
+        await cb(mainInput as never, undefined, { signal: new AbortController().signal })
       ).toEqual({})
     } finally {
       warn.mockRestore()

@@ -15,7 +15,7 @@ import { makeClassifiedError } from '../../infra/errors'
 import { wireLog } from '../../infra/ipc/wire-log'
 import { getLogger } from '../../infra/log/registry'
 import type { TurnContext } from '../../contracts/turn'
-import type { RuntimeLiveTurn } from '../../contracts/ports'
+import type { GovernedLiveTurn } from '../../contracts/ports'
 import { createStallTimer, type StallTimer } from './timers'
 import { turnPolicyFor, type TurnKind } from './turn-policy'
 import type { BackgroundTaskPort } from './background-tasks'
@@ -71,7 +71,9 @@ export function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
 
 // 코디네이터가 구동하는 런타임 표면 — OneShotSessionRuntime 이 구조적으로 만족한다.
 // send() 1회 = adapter attempt 1회. retry(외부 재시도)는 코디네이터가 소유한다.
-export interface CoordinatorRuntime extends RuntimeLiveTurn {
+// `interrupt` 는 ManagedRuntime 과 같은 이유로 좁힌다(0151) — 런타임 거버넌스의 중단은 "턴 중단
+// 표시" 이고, SDK 영수증(still_queued)은 onInterruptReceipt 위임으로 별도 전달된다.
+export interface CoordinatorRuntime extends GovernedLiveTurn {
   send(req: TurnRequest): AsyncIterable<NormalizedEvent>
   // listen 턴(0136) — 입력을 push 하지 않고 살아있는 채널의 프레임만 열어 CLI 가 스스로 여는
   // 자동 턴(백그라운드 서브에이전트 진행·task_notification·완료 알림 턴)을 소비한다. 어댑터
@@ -148,7 +150,11 @@ export class TurnCoordinator<W = unknown> {
   private markSteerConsumed(turn: TurnContext<W>, ev: { uuid?: string; text: string }): void {
     const sessionId = turn.dbSessionId
     if (!sessionId) return
-    this.deps.pendingMessages?.markConsumed(sessionId, {
+    // 0151 — 신호를 종류로 실어 보낸다. 큐가 origin(steer/turn-open)과 대조해 **짝이 맞는 배치만**
+    // 확정하므로, 늦게 도착한 턴-시작 echo 가 무해한 것이 우연이 아니라 구조적 거부가 된다.
+    // uuid 가 실려 오면 큐는 uuid 로만 판정한다(텍스트 동일 배치 오확정 차단).
+    this.deps.pendingMessages?.confirm(sessionId, {
+      kind: 'echo',
       ...(ev.uuid !== undefined ? { uuid: ev.uuid } : {}),
       text: ev.text
     })
@@ -162,7 +168,7 @@ export class TurnCoordinator<W = unknown> {
     const sessionId = turn.dbSessionId
     const { pendingMessages, persist, forward } = this.deps
     if (!sessionId || !pendingMessages) return
-    for (const batch of pendingMessages.drainConsumedBatches(sessionId)) {
+    for (const batch of pendingMessages.drainConfirmed(sessionId)) {
       const messageId = persist.commitUserMessage?.(turn, {
         text: batch.text,
         createdAt: batch.createdAt,
@@ -276,9 +282,10 @@ export class TurnCoordinator<W = unknown> {
             // 턴-시작 배치 소비 판정(0069) — 첫 모델 출력 관측 시 프렐류드+프롬프트를 일괄
             // 소비 표시한다. 바로 아래 commitConsumed 가 같은 이벤트의 persist 전에 커밋한다.
             if (!turnOpenConsumed && turn.dbSessionId && MODEL_OUTPUT_EVENTS.has(ev.type)) {
-              for (const uuid of turnOpenUuids) {
-                this.deps.pendingMessages?.markConsumed(turn.dbSessionId, { uuid })
-              }
+              this.deps.pendingMessages?.confirm(turn.dbSessionId, {
+                kind: 'model-output',
+                uuids: turnOpenUuids
+              })
               turnOpenConsumed = true
             }
             // echo 배치 종료 지점 — 소비 확정분을 이 이벤트의 persist *전에* flush 해 DB 정렬
