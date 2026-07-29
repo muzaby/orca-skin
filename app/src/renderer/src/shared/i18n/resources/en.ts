@@ -733,10 +733,8 @@ export const en: typeof ko = {
       updateAutoToggle: 'Automatic update check',
       updateInterval: 'Check interval',
       updateIntervalDesc: 'Checks run at this interval, measured from when the app started.',
-      updateInterval1h: 'Every hour',
-      updateInterval6h: 'Every 6 hours',
-      updateInterval12h: 'Every 12 hours',
-      updateInterval24h: 'Every 24 hours'
+      updateIntervalEvery_one: 'Every hour',
+      updateIntervalEvery_other: 'Every {{count}} hours'
     },
     usage: {
       title: 'Usage summary',

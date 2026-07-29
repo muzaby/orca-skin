@@ -39,6 +39,11 @@ export class Scheduler {
     // 검증은 enabled 여부와 무관하게 먼저 — 꺼진 잡의 잘못된 스펙도 즉시 드러나야 한다.
     if ('cron' in spec) assertValidCron(spec.cron)
     else assertValidInterval(spec.intervalMs)
+    // 스펙이 그대로면 손대지 않는다. applySettings 는 *모든* 설정 쓰기(lastSessionId 등 무관한
+    // 것 포함)마다 불리므로, 무조건 재생성하면 interval 잡의 카운트다운이 매번 0으로 돌아가
+    // 주기가 영영 도래하지 않는다. 스펙이 실제로 바뀔 때만 재-anchor 한다.
+    const existing = this.scheduled.get(key)
+    if (existing && sameSpec(existing.spec, spec)) return
     this.unschedule(key)
     if (spec.enabled === false) return
     const fire = (): void => {
@@ -126,9 +131,17 @@ export class Scheduler {
 }
 
 function assertValidInterval(intervalMs: number): void {
-  if (!Number.isFinite(intervalMs) || !Number.isInteger(intervalMs) || intervalMs <= 0) {
+  // isInteger 는 NaN·±Infinity 를 이미 걸러낸다.
+  if (!Number.isInteger(intervalMs) || intervalMs <= 0) {
     throw new Error(`Invalid scheduler interval: ${intervalMs}`)
   }
+}
+
+// ScheduleSpec 은 평평한 2키라 얕은 비교로 충분하다.
+function sameSpec(a: ScheduleSpec, b: ScheduleSpec): boolean {
+  if (a.enabled !== b.enabled) return false
+  if ('cron' in a) return 'cron' in b && a.cron === b.cron
+  return 'intervalMs' in b && a.intervalMs === b.intervalMs
 }
 
 function cronHandle(cron: string, fire: () => void): JobHandle {

@@ -727,10 +727,9 @@ export const ko = {
       updateAutoToggle: '자동 업데이트 확인',
       updateInterval: '확인 주기',
       updateIntervalDesc: '앱 시작 시각을 기준으로 이 간격마다 확인합니다.',
-      updateInterval1h: '1시간마다',
-      updateInterval6h: '6시간마다',
-      updateInterval12h: '12시간마다',
-      updateInterval24h: '24시간마다'
+      // 한국어는 복수 구분이 없어 실제로는 _other 만 쓰이지만, 카탈로그 키 패리티를 위해 둘 다 둔다.
+      updateIntervalEvery_one: '1시간마다',
+      updateIntervalEvery_other: '{{count}}시간마다'
     },
     usage: {
       title: '사용량 요약',

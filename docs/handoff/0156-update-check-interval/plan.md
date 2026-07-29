@@ -248,3 +248,16 @@ scheduler.register('update-check', async () => {
 | 게이트 결과 | lint ✅ 0 error (warning 1 = 0102 `useVirtualizer` 베이스라인) / typecheck ✅ 3분할 0 error / vitest ✅ **149 files · 1249 tests 전부 pass** / scripts ✅ 28/28. better-sqlite3 는 `npm rebuild better-sqlite3`(Node ABI) + electron 바이너리 설치로 DB 스위트까지 실기 green — 베이스라인 예외 미사용 |
 | 블로커 / 역질문 | 없음 |
 | 대상 커밋 | (구현 커밋 — verify.md 에 기재) |
+
+---
+
+## [검증자 기입] 파생 이슈 (Derived Issues)
+
+> r1 검증 PASS 후 사용자 요청으로 돌린 **`/simplify` 4관점 리뷰**(재사용·단순화·효율·altitude)에서 나온 항목. D1 은 기계 게이트가 잡지 못한 **기능 무력화**라 같은 핸드오프의 정리 라운드에서 즉시 해소했다.
+
+| # | 이슈 | 출처 | 대응 방향 | 상태 |
+|---|---|---|---|---|
+| D1 | **주기 타이머가 무관한 설정 쓰기마다 재-anchor 됐다.** `handlers/misc.ts:107` 이 *모든* 설정 패치에 `applySettings` 를 부르고 `schedule()` 이 무조건 재생성하는데, `chatStore.ts` 는 세션 전환·생성·삭제 6경로에서 `settingsApi.set({lastSessionId})` 를 호출한다 → 세션을 6시간보다 자주 옮기면 주기 확인이 **영영 발화하지 않는다**. r1 의 단위 테스트는 `schedule()` 을 한 번만 부르는 경로만 봐서 놓쳤다 | `/simplify` 효율 리뷰 | `ScheduledJob.spec`(저장만 되고 읽히지 않던 죽은 필드)을 읽어 **같은 스펙이면 조기 반환**. 스펙이 실제로 바뀔 때만 재-anchor 하므로 "설정을 바꾸면 그 시점부터 다시 센다" 는 의도는 보존 | **해결** (정리 라운드) |
+| D2 | `Scheduler.applySettings` 가 job key·설정 키·단위 변환(`intervalHours * 3600000`)을 하드코딩한다. 세 번째 잡 `provider-usage-report-refresh`(`bootstrap.ts:334-340`)는 이미 **등록 시점에 spec 을 받는** 올바른 패턴이라 두 방식이 공존한다 | `/simplify` altitude 리뷰 | `register(key, action, specFrom?)` 로 spec 을 등록 시점에 받고 `applySettings` 는 등록 테이블을 순회. `Scheduler` 공개 API 변경이라 **별도 핸드오프**로 분리 | open (후속) |
+| D3 | `SettingsStore.patch` 의 `assertValidCron(next.scheduler.usageRecompute.cron)` 이 generic 한 설정 스토어 안에서 특정 잡을 지목한다. 형제 `updateCheck` 는 zod 리터럴 유니온으로 검증돼 **두 형제가 서로 다른 계층·다른 메커니즘**으로 검증된다 | `/simplify` altitude 리뷰 | cron 제약을 zod 스키마(`.refine(isValidCron)`)로 올려 `SettingsPatchSchema.parse` 를 단일 검증 권위로. 검증 실패 지점·에러 메시지가 바뀌므로 별도 작업 | open (후속) |
+| D4 | `useUpdateCheckSetting` 과 `useTweaks` 가 "로드 → 낙관 갱신 → 실패 롤백" 계약을 각자 구현한다 | `/simplify` 재사용 리뷰 | 정리 라운드에서 두 구현의 *차이*(재조회 롤백 → 캡처 롤백)를 없애 동형으로 맞췄다. 공통 프리미티브 추출은 `useTweaks` 가 앱 전역 Provider 의존이라 별도 작업 | 부분 해결 |

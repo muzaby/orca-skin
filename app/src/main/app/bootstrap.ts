@@ -235,9 +235,7 @@ export class Bootstrap {
     // 주기 업데이트 확인(0156). this.updates 는 아직 null 이지만 액션은 *발화 시점* 에 평가되고
     // 첫 발화는 최소 1시간 뒤라 ctx 조립(createUpdateController)을 기다린다 — 등록을 뒤로 미루면
     // 아래 applySettings 가 미등록 key 로 throw 하므로 순서를 바꾸지 말 것.
-    scheduler.register('update-check', async () => {
-      await this.updates?.check(true)
-    })
+    scheduler.register('update-check', () => this.runBackgroundUpdateCheck())
     try {
       scheduler.applySettings(this.settings.getAll().scheduler)
     } catch (e) {
@@ -396,7 +394,9 @@ export class Bootstrap {
     return this.updates?.isInstallPending() ?? false
   }
 
-  async checkForUpdatesOnStartup(): Promise<void> {
+  // 사용자가 부르지 않은 업데이트 확인의 단일 진입점 — 부팅 1회(index.ts)와 주기 잡이 함께 쓴다.
+  // background=true 결정을 여기 한 곳이 소유해, 호출부마다 벌거벗은 불리언이 흩어지지 않게 한다.
+  async runBackgroundUpdateCheck(): Promise<void> {
     await this.updates?.check(true)
   }
 

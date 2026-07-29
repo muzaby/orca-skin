@@ -196,6 +196,24 @@ describe('Scheduler — interval jobs', () => {
     scheduler.stopAll()
   })
 
+  // 회귀: applySettings 는 무관한 설정 쓰기(lastSessionId 등)마다 불린다. 스펙이 그대로인데도
+  // 재생성하면 카운트다운이 매번 0으로 돌아가 주기가 영영 오지 않는다.
+  it('re-applying an unchanged spec does not restart the countdown', async () => {
+    const action = vi.fn()
+    const scheduler = new Scheduler(new MemoryRecorder())
+    scheduler.register('update-check', action)
+    const spec = { enabled: true, intervalMs: 6 * 60 * 60 * 1000 } as const
+
+    scheduler.schedule('update-check', spec)
+    await vi.advanceTimersByTimeAsync(4 * 60 * 60 * 1000)
+    scheduler.schedule('update-check', { ...spec }) // 값은 같고 참조만 다른 스펙
+    await vi.advanceTimersByTimeAsync(2 * 60 * 60 * 1000)
+
+    expect(action).toHaveBeenCalledTimes(1)
+
+    scheduler.stopAll()
+  })
+
   it('applySettings drives both the cron and the interval job from settings', async () => {
     const usage = vi.fn()
     const update = vi.fn()

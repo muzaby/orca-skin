@@ -1,5 +1,36 @@
 import type { ReactNode } from 'react'
 
+// 설정 행 우측의 드롭다운. 네 개 행(폰트·언어·밀도·업데이트 주기)이 같은 표면을 쓰므로 클래스가
+// 여기 한 번만 산다. 라벨은 호출부가 tr() 로 해석해 넘긴다 — i18n 키와 원문 라벨을 모두 받기 위함.
+export function SettingsSelect<V extends string | number>({
+  value,
+  options,
+  onChange,
+  disabled
+}: {
+  value: V
+  options: readonly { value: V; label: string }[]
+  onChange: (value: V) => void
+  disabled?: boolean
+}): React.JSX.Element {
+  return (
+    <select
+      value={value}
+      disabled={disabled}
+      onChange={(e) =>
+        onChange((typeof value === 'number' ? Number(e.target.value) : e.target.value) as V)
+      }
+      className="cursor-pointer rounded-r4 border border-border bg-bg px-2.5 py-1.5 text-[12.5px] text-ink outline-none focus:border-border-strong disabled:cursor-not-allowed disabled:opacity-50"
+    >
+      {options.map((opt) => (
+        <option key={opt.value} value={opt.value}>
+          {opt.label}
+        </option>
+      ))}
+    </select>
+  )
+}
+
 // 설정 모달의 2depth "그룹" — 프로필 / 환경설정 / 알림 등. 헤더 + 세로 행 스택.
 export function SettingsGroup({
   title,
