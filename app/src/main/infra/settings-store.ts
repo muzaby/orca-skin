@@ -68,6 +68,8 @@ function mergeSettings(current: Settings, patch: SettingsPatch): Settings {
   return SettingsSchema.parse({
     ...current,
     ...patch,
+    // scheduler 는 그룹별로 손수 병합한다 — spread 만으로는 부분 패치가 형제 그룹을 덮어쓴다.
+    // 그룹을 추가하면 여기에도 브랜치를 더해야 한다(0156 에서 updateCheck 추가).
     scheduler: patch.scheduler
       ? {
           ...current.scheduler,
@@ -77,7 +79,13 @@ function mergeSettings(current: Settings, patch: SettingsPatch): Settings {
                 ...current.scheduler.usageRecompute,
                 ...patch.scheduler.usageRecompute
               }
-            : current.scheduler.usageRecompute
+            : current.scheduler.usageRecompute,
+          updateCheck: patch.scheduler.updateCheck
+            ? {
+                ...current.scheduler.updateCheck,
+                ...patch.scheduler.updateCheck
+              }
+            : current.scheduler.updateCheck
         }
       : current.scheduler
   })

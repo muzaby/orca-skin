@@ -933,8 +933,20 @@ export interface SchedulerUsageRecomputeSettings {
   cron: string
 }
 
+// 자동 업데이트 확인 주기(0156). 앱 (재)시작 시 1회 확인은 이 설정과 무관하게 항상 수행되고,
+// enabled 는 *시작 시각을 anchor 로 한* 반복 확인만 제어한다. 허용 값 목록은 여기가 SSOT —
+// protocol.ts 의 zod 스키마와 설정 UI 의 select 옵션이 함께 참조한다.
+export const UPDATE_CHECK_INTERVAL_HOURS = [1, 6, 12, 24] as const
+export type UpdateCheckIntervalHours = (typeof UPDATE_CHECK_INTERVAL_HOURS)[number]
+
+export interface SchedulerUpdateCheckSettings {
+  enabled: boolean
+  intervalHours: UpdateCheckIntervalHours
+}
+
 export interface SchedulerSettings {
   usageRecompute: SchedulerUsageRecomputeSettings
+  updateCheck: SchedulerUpdateCheckSettings
 }
 
 export interface Settings {
@@ -972,6 +984,7 @@ export interface Settings {
 export type SettingsPatch = Omit<Partial<Settings>, 'scheduler'> & {
   scheduler?: {
     usageRecompute?: Partial<SchedulerUsageRecomputeSettings>
+    updateCheck?: Partial<SchedulerUpdateCheckSettings>
   }
 }
 

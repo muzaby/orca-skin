@@ -3,7 +3,7 @@
 // 타입과 CHANNELS 만 필요한 곳은 ./ipc 에서 import.
 
 import { z } from 'zod'
-import { MOCK_SCENARIO_IDS } from './ipc'
+import { MOCK_SCENARIO_IDS, UPDATE_CHECK_INTERVAL_HOURS } from './ipc'
 import type { AttachmentView, Backend, ComposerAttachment, EffortLevel } from './ipc'
 import { LOG_EVENT_PATTERN, LOG_SCOPE_MAX_LENGTH, LOG_STRING_MAX_LENGTH } from './logging'
 import type { LogInput, SerializedError as LogSerializedError } from './logging'
@@ -430,11 +430,31 @@ const SchedulerUsageRecomputeSettingsSchema = SchedulerUsageRecomputeSettingsBas
   cron: DEFAULT_USAGE_RECOMPUTE_CRON
 })
 
+// 자동 업데이트 확인 주기(0156). 앱 (재)시작 시 1회 확인은 이 설정과 무관하게 항상 수행되고,
+// 여기서 켜는 것은 *시작 시각을 anchor 로 한* 반복 확인뿐이다. cron 이 아니라 간격인 이유:
+// 사용자 요구가 "앱 시작 후 N시간 주기" 라 벽시계 정렬(0/6/12/18시)과 의미가 다르다.
+// 값 목록은 ipc.ts 가 SSOT — 설정 UI select 가 같은 배열을 쓴다(잘못된 값은 default 복원).
+const DEFAULT_UPDATE_CHECK_INTERVAL_HOURS = 6
+
+const SchedulerUpdateCheckSettingsBaseSchema = z.object({
+  enabled: z.boolean(),
+  intervalHours: z.literal(UPDATE_CHECK_INTERVAL_HOURS)
+})
+
+const SchedulerUpdateCheckSettingsSchema = SchedulerUpdateCheckSettingsBaseSchema.default({
+  enabled: true,
+  intervalHours: DEFAULT_UPDATE_CHECK_INTERVAL_HOURS
+})
+
 const SchedulerSettingsSchema = z
   .object({
-    usageRecompute: SchedulerUsageRecomputeSettingsSchema
+    usageRecompute: SchedulerUsageRecomputeSettingsSchema,
+    updateCheck: SchedulerUpdateCheckSettingsSchema
   })
-  .default({ usageRecompute: { enabled: false, cron: DEFAULT_USAGE_RECOMPUTE_CRON } })
+  .default({
+    usageRecompute: { enabled: false, cron: DEFAULT_USAGE_RECOMPUTE_CRON },
+    updateCheck: { enabled: true, intervalHours: DEFAULT_UPDATE_CHECK_INTERVAL_HOURS }
+  })
 
 export const DEFAULT_SCHEDULER_SETTINGS = SchedulerSettingsSchema.parse({})
 
@@ -498,7 +518,8 @@ export const SettingsPatchSchema = z
     notifyOnComplete: z.boolean(),
     spendingLimitUsd: z.number().positive().nullable(),
     scheduler: z.object({
-      usageRecompute: SchedulerUsageRecomputeSettingsBaseSchema.partial().optional()
+      usageRecompute: SchedulerUsageRecomputeSettingsBaseSchema.partial().optional(),
+      updateCheck: SchedulerUpdateCheckSettingsBaseSchema.partial().optional()
     })
   })
   .partial()

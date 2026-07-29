@@ -113,9 +113,11 @@ export class UpdateController {
     // patch() 가 게이트를 재계산·반영·broadcast 하므로 빈 패치면 충분(중복 계산 제거).
     this.patch({})
   }
-  async check(startup: boolean): Promise<UpdateCheckResult> {
+  // background = 사용자가 명시 요청하지 않은 확인(부팅 1회·주기 확인). 실패를 status:'error' 로
+  // 표면화하지 않고 lastError 로만 삼켜, 사용자가 부르지 않은 작업이 UI 를 흔들지 않게 한다.
+  async check(background: boolean): Promise<UpdateCheckResult> {
     if (this.disabled || !app.isPackaged) {
-      if (!startup) this.patch({ status: 'idle', error: undefined })
+      if (!background) this.patch({ status: 'idle', error: undefined })
       return { ok: false, reason: 'feed-not-configured', state: this.getState() }
     }
     if (['checking', 'downloading', 'installing'].includes(this.state.status))
@@ -139,7 +141,7 @@ export class UpdateController {
       const message = errorMessage(err)
       this.log.warn('update.check.failed', { message })
       this.patch(
-        startup
+        background
           ? { status: 'idle', lastError: message }
           : { status: 'error', error: message, lastError: message }
       )

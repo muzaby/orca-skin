@@ -719,7 +719,18 @@ export const ko = {
       notifications: '알림',
       notifyComplete: '응답 완료',
       notifyCompleteDesc: 'Agent가 응답을 완료하면 알림을 받습니다. (앱 창이 비활성일 때만 표시)',
-      notifyCompleteToggle: '응답 완료 알림'
+      notifyCompleteToggle: '응답 완료 알림',
+      updates: '업데이트',
+      updateAuto: '자동 확인',
+      updateAutoDesc:
+        '앱을 켜 둔 동안 주기적으로 새 버전을 확인합니다. (앱 시작 시 확인은 항상 수행)',
+      updateAutoToggle: '자동 업데이트 확인',
+      updateInterval: '확인 주기',
+      updateIntervalDesc: '앱 시작 시각을 기준으로 이 간격마다 확인합니다.',
+      updateInterval1h: '1시간마다',
+      updateInterval6h: '6시간마다',
+      updateInterval12h: '12시간마다',
+      updateInterval24h: '24시간마다'
     },
     usage: {
       title: '사용량 요약',

@@ -60,3 +60,51 @@ describe('SettingsStore (0092 — write-on-read 제거)', () => {
     expect(backend.store).not.toHaveProperty('garbage')
   })
 })
+
+// scheduler 는 손으로 쓴 그룹별 병합이라(settings-store.ts mergeSettings) 그룹이 늘 때마다
+// 형제 보존이 깨질 수 있다. 0156(updateCheck) 이 그 회귀를 고정한다.
+describe('SettingsStore — scheduler 중첩 병합 (0156)', () => {
+  it('updateCheck 기본값은 켜짐 + 6시간이다', () => {
+    const store = new SettingsStore('1.0.0', countingBackend())
+
+    expect(store.getAll().scheduler.updateCheck).toEqual({ enabled: true, intervalHours: 6 })
+  })
+
+  it('updateCheck 부분 패치가 usageRecompute 와 자기 형제 필드를 보존한다', () => {
+    const store = new SettingsStore('1.0.0', countingBackend())
+    const before = store.getAll()
+
+    const next = store.patch({ scheduler: { updateCheck: { intervalHours: 12 } } })
+
+    expect(next.scheduler.updateCheck).toEqual({ enabled: true, intervalHours: 12 })
+    expect(next.scheduler.usageRecompute).toEqual(before.scheduler.usageRecompute)
+  })
+
+  it('usageRecompute 패치가 updateCheck 를 되돌리지 않는다', () => {
+    const store = new SettingsStore('1.0.0', countingBackend())
+    store.patch({ scheduler: { updateCheck: { enabled: false, intervalHours: 24 } } })
+
+    const next = store.patch({ scheduler: { usageRecompute: { enabled: true } } })
+
+    expect(next.scheduler.updateCheck).toEqual({ enabled: false, intervalHours: 24 })
+    expect(next.scheduler.usageRecompute.enabled).toBe(true)
+  })
+
+  it('허용되지 않는 intervalHours 가 디스크에 있으면 기본값으로 복원된다', () => {
+    const backend = countingBackend({
+      scheduler: {
+        usageRecompute: { enabled: true, cron: '0 */1 * * *' },
+        updateCheck: { enabled: true, intervalHours: 7 }
+      }
+    })
+    const store = new SettingsStore('1.0.0', backend)
+
+    expect(store.getAll().scheduler.updateCheck).toEqual({ enabled: true, intervalHours: 6 })
+  })
+
+  it('허용되지 않는 intervalHours 패치는 거부된다', () => {
+    const store = new SettingsStore('1.0.0', countingBackend())
+
+    expect(() => store.patch({ scheduler: { updateCheck: { intervalHours: 7 } } })).toThrow()
+  })
+})

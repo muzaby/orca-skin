@@ -5,8 +5,14 @@ import { getLogger } from '../../infra/log/registry'
 import { assertValidCron } from './cron-validate'
 import type { JobAction, JobKey, RunRecorder, ScheduleSpec } from './types'
 
+// cron 잡과 interval 잡을 같은 표면으로 감싼다 — unschedule/stopAll/nextRun 이 분기하지 않게.
+interface JobHandle {
+  stop(): void
+  nextRun(): Date | null
+}
+
 interface ScheduledJob {
-  cron: Cron
+  handle: JobHandle
   spec: ScheduleSpec
 }
 
@@ -30,13 +36,21 @@ export class Scheduler {
     this.assertNotDisposed()
     const action = this.actions.get(key)
     if (!action) throw new Error(`Scheduler job is not registered: ${key}`)
-    assertValidCron(spec.cron)
+    // 검증은 enabled 여부와 무관하게 먼저 — 꺼진 잡의 잘못된 스펙도 즉시 드러나야 한다.
+    if ('cron' in spec) assertValidCron(spec.cron)
+    else assertValidInterval(spec.intervalMs)
     this.unschedule(key)
     if (spec.enabled === false) return
-    const cron = new Cron(spec.cron, { protect: true }, () => {
+    const fire = (): void => {
       void this.invoke(key, action)
+    }
+    this.scheduled.set(key, {
+      handle:
+        'cron' in spec
+          ? cronHandle(spec.cron, fire)
+          : intervalHandle(spec.intervalMs, this.now, fire),
+      spec
     })
-    this.scheduled.set(key, { cron, spec })
   }
 
   applySettings(settings: Settings['scheduler']): void {
@@ -44,12 +58,18 @@ export class Scheduler {
       enabled: settings.usageRecompute.enabled,
       cron: settings.usageRecompute.cron
     })
+    // 업데이트 확인은 앱 시작 시각 기준 간격이라 cron 이 아니다(0156). 시작 시 1회 확인은
+    // 컴포지션 루트가 별도로 수행하므로 첫 발화는 여기서 1주기 뒤다(중복 확인 방지).
+    this.schedule('update-check', {
+      enabled: settings.updateCheck.enabled,
+      intervalMs: settings.updateCheck.intervalHours * 60 * 60 * 1000
+    })
   }
 
   unschedule(key: JobKey): void {
     const existing = this.scheduled.get(key)
     if (!existing) return
-    existing.cron.stop()
+    existing.handle.stop()
     this.scheduled.delete(key)
   }
 
@@ -61,13 +81,13 @@ export class Scheduler {
   }
 
   nextRun(key: JobKey): Date | null {
-    return this.scheduled.get(key)?.cron.nextRun() ?? null
+    return this.scheduled.get(key)?.handle.nextRun() ?? null
   }
 
   stopAll(): void {
     if (this.disposed) return
     this.disposed = true
-    for (const job of this.scheduled.values()) job.cron.stop()
+    for (const job of this.scheduled.values()) job.handle.stop()
     this.scheduled.clear()
     this.actions.clear()
     this.running.clear()
@@ -102,5 +122,30 @@ export class Scheduler {
 
   private assertNotDisposed(): void {
     if (this.disposed) throw new Error('Scheduler is disposed')
+  }
+}
+
+function assertValidInterval(intervalMs: number): void {
+  if (!Number.isFinite(intervalMs) || !Number.isInteger(intervalMs) || intervalMs <= 0) {
+    throw new Error(`Invalid scheduler interval: ${intervalMs}`)
+  }
+}
+
+function cronHandle(cron: string, fire: () => void): JobHandle {
+  const job = new Cron(cron, { protect: true }, fire)
+  return { stop: () => job.stop(), nextRun: () => job.nextRun() }
+}
+
+// croner 의 interval 옵션은 "실행 사이의 *최소* 간격" 이라 패턴과 합성돼야 하고 첫 발화가
+// 패턴에 종속된다. "schedule 시각 + N" 이라는 단순한 의미가 필요하므로 setInterval 을 쓴다.
+function intervalHandle(intervalMs: number, now: () => number, fire: () => void): JobHandle {
+  let nextAt = now() + intervalMs
+  const timer = setInterval(() => {
+    nextAt = now() + intervalMs
+    fire()
+  }, intervalMs)
+  return {
+    stop: () => clearInterval(timer),
+    nextRun: () => new Date(nextAt)
   }
 }
