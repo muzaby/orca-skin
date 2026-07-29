@@ -874,39 +874,45 @@ export function registerChatHandlers(deps: ChatDeps): void {
         // 채널이 죽었으면 in-process 백그라운드 태스크도 소멸 — 정착·정리(고착 방지, 0136).
         if (!runtime.channelAlive) await settleDeadBackgroundTasks(activeTurn, sessionId)
         // 다음 스텝 판정(순수, 0143) — pushTurn 은 "CLI 유휴 + 백로그 없음" 채널에서만(버그 a).
+        // 미확정 예약(0154) — pending() 은 held 만 반환하므로 "CLI 에 넘겨놓고 echo 를 기다리는
+        // 중" 이라는 상태는 별도로 읽어야 한다. 이 입력이 없어서 턴 체인이 그 상태를 못 보고 끊겼다.
+        const haveUnconfirmed = pendingMessages.submittedUuids(sessionId).length > 0
         const step = decidePostTurnStep({
           havePending: pendingMessages.pending(sessionId).length > 0,
           haveTasks: backgroundTasks.hasAny(sessionId),
           channelAlive: runtime.channelAlive,
           channelBusy: runtime.channelBusy,
-          hasBacklog: runtime.hasUnframedBacklog
+          hasBacklog: runtime.hasUnframedBacklog,
+          haveUnconfirmed
         })
+        // 유예를 1라운드로 묶는다(0154) — listen 을 여는 김에 미확정 예약을 orphaned 로 강등한다.
+        // 강등해도 늦은 echo 는 여전히 확정할 수 있고(confirm 의 open 술어가 orphaned 포함),
+        // haveUnconfirmed 는 submitted 만 세므로 다음 평가에서 break 에 정상 도달한다(무한 대기 방지).
+        if (step === 'listen' && haveUnconfirmed) pendingMessages.orphanUnconfirmed(sessionId)
         // 세션 점유 신호(0153 F1) — `listen` 뿐 아니라 `flush`(held 를 연속 턴으로 잇는 경로)도
         // main 은 busy 다. 구 구조는 listen 스텝에서만 신호를 보내 renderer 가 이 구간을 idle 로
         // 오판했고, 그 창의 send 가 낙관 커밋 경로를 타 **잔여보다 앞에** 렌더됐다(DB 는 반대 순서
         // → 재시작 시 위치 재조정). 판정은 post-turn 의 순수 함수가 소유한다.
         if (postTurnHoldsSession(step)) beginListenPhase(sessionId)
         if (step === 'break') {
-          // 턴 체인 종료(0151 AC7) — 확정 신호가 끝내 오지 않은 예약을 orphaned 로 내린다.
-          // 기능적으로는 takeForRespawn 대상 판정이 명시화될 뿐이지만, 구 구조에서 조용히
-          // 잔존하던 echo 유실이 여기서 처음으로 **관측 가능**해진다(첨부 base64 포함 배치가
-          // 세션 런타임 수명 내내 붙들려 있던 것).
-          pendingMessages.orphanUnconfirmed(sessionId)
-          // OQ2 결정 — 자동 재주입이 아니라 **폐기 후 draft 복원**. 확정 신호가 없다는 것은
-          // "CLI 가 못 봤다" 와 "봤는데 echo 가 유실됐다" 를 구분할 수 없다는 뜻이라, 재주입은
-          // 모델 이중 전달을·조용한 폐기는 유실을 낳는다. 어느 쪽도 앱이 혼자 판정할 근거가
-          // 없으므로 텍스트를 사용자에게 돌려주고 재전송 여부를 맡긴다. message.cancelled 는
-          // renderer 에서 "버블 제거 + composer draft 복원" 이라 이 의미에 그대로 맞는다.
-          const orphaned = pendingMessages.discardOrphaned(sessionId)
+          // 턴 체인 종료(0151 AC7 → 0154 개정) — 확정 신호가 오지 않은 예약을 orphaned 로 내려
+          // **관측 가능하게만** 한다. 폐기하지 않는다.
+          //
+          // **0151 OQ2("폐기 후 draft 복원")를 실측으로 철회한다.** 그 결정은 미확정 상태를 "CLI 가
+          // 못 봤다" / "봤는데 echo 가 유실됐다" 둘로만 보고 구분 불가하니 사용자에게 되돌린다는
+          // 것이었다. 실기 로그(세션 8c70aacd)가 **제3의 상태**를 보여줬다 — *아직 안 봤을 뿐, 곧
+          // 본다*. push 된 배치는 `priority:'next'` 로 CLI 큐에 살아 있고(streaming-input.ts:35-38),
+          // CLI 는 다음 턴 프롬프트로 정상 픽업한다. 실제로 사용자가 다음 메시지를 보내자 CLI 가
+          // 그 배치의 답변을 먼저 내놓았다 — **버블만 우리가 지웠고 대화는 진행됐다.**
+          //
+          // 따라서 재주입도(이중 전달) 폐기도(유실) 답이 아니고, 옳은 것은 **기다리는 것**이다.
+          // 회수는 CLI 큐가 실제로 사라지는 시점이 맡는다: 채널 사망 → takeForRespawn 이 이월,
+          // 세션 폐기/종료 → dispose·disposeAll. 0151 이 막으려던 영구 잔존은 그 경로로 막힌다.
+          const orphaned = pendingMessages.orphanUnconfirmed(sessionId)
           if (orphaned.length > 0) {
             getLogger()
               .child('chat')
               .info('chat.steer.orphaned', { sessionId, count: orphaned.length })
-            sendChatEvent(wc, {
-              type: 'message.cancelled',
-              sessionId,
-              ids: orphaned.flatMap((batch) => batch.ids)
-            })
           }
           break
         }

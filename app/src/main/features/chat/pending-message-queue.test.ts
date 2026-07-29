@@ -267,39 +267,27 @@ describe('PendingMessageQueue', () => {
     })
   })
 
-  // ── 0151 r2: OQ 결정 배선용 폐기 경로 ────────────────────────────────────────
-  describe('discardOrphaned (OQ2 — 폐기 후 draft 복원)', () => {
-    it('orphaned 만 빼내고 submitted·confirmed 는 남긴다', () => {
+  // ── 0154: orphaned 는 폐기 대상이 아니다 (0151 OQ2 실측 철회) ──────────────────
+  describe('orphaned 잔존 계약 (0154)', () => {
+    it('orphaned 는 큐에 남아 takeForRespawn 으로 이월된다 — 채널 사망이 유일한 회수 시점', () => {
       const q = new PendingMessageQueue()
-      q.enqueue('s', msg('lost'), 1, 'a')
+      q.enqueue('s', msg('CLI 큐에 살아있음'), 1, 'a')
       q.reserveHeld('s', 'steer', 'orphan-1')
       q.orphanUnconfirmed('s')
-      q.enqueue('s', msg('inflight'), 2, 'b')
-      q.reserveHeld('s', 'steer', 'live-1')
-
-      const discarded = q.discardOrphaned('s')
-      expect(discarded.map((x) => x.ids)).toEqual([['a']])
-      // 폐기분은 더 이상 확정 대상이 아니다 — 지각 echo 가 와도 되살아나지 않는다.
-      expect(q.confirm('s', { kind: 'echo', uuid: 'orphan-1' })).toEqual([])
-      // 진행 중 예약은 그대로.
-      expect(q.submittedUuids('s')).toEqual(['live-1'])
+      // 폐기되지 않았으므로 respawn 이 그대로 이월한다(유실 없음).
+      expect(q.takeForRespawn('s').map((b) => b.ids)).toEqual([['a']])
     })
 
-    it('orphaned 가 없으면 빈 배열', () => {
+    it('orphaned 인 채로도 늦은 echo 가 정상 커밋시킨다 — CLI 가 다음 턴에 소비하는 경우', () => {
       const q = new PendingMessageQueue()
-      q.enqueue('s', msg('one'), 1, 'a')
-      q.reserveHeld('s', 'steer', 'batch-1')
-      expect(q.discardOrphaned('s')).toEqual([])
-      expect(q.submittedUuids('s')).toEqual(['batch-1'])
-    })
-
-    it('폐기 후 takeForRespawn 이 그 배치를 재주입하지 않는다 (이중 전달 차단)', () => {
-      const q = new PendingMessageQueue()
-      q.enqueue('s', msg('one'), 1, 'a')
-      q.reserveHeld('s', 'steer', 'batch-1')
+      q.enqueue('s', msg('777'), 1, 'a')
+      q.enqueue('s', msg('888'), 2, 'b')
+      q.reserveHeld('s', 'steer', 'orphan-1')
       q.orphanUnconfirmed('s')
-      q.discardOrphaned('s')
-      expect(q.takeForRespawn('s')).toEqual([])
+      expect(q.confirm('s', { kind: 'echo', uuid: 'orphan-1' }).map((x) => x.ids)).toEqual([
+        ['a', 'b']
+      ])
+      expect(q.drainConfirmed('s').map((x) => x.ids)).toEqual([['a', 'b']])
     })
   })
 

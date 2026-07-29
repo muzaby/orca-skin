@@ -16,6 +16,10 @@ export interface PostTurnState {
   channelBusy: boolean
   // 프레임 밖 적체 존재(SessionRuntime.hasUnframedBacklog)
   hasBacklog: boolean
+  // **CLI 에 넘겼으나 아직 echo 를 못 받은 예약**(batch.state === 'submitted') 존재(0154).
+  // held 와 별개 집합이라 havePending 으로는 보이지 않는다 — 이 입력이 없으면 턴 체인이
+  // "우리가 영수증을 기다리는 중" 을 모른 채 끊긴다.
+  haveUnconfirmed: boolean
 }
 
 // 이 스텝이 세션을 계속 붙들고 있는가(0153) — renderer 의 busy(listening) 신호를 구동한다.
@@ -39,5 +43,13 @@ export function decidePostTurnStep(s: PostTurnState): PostTurnStep {
     if (s.channelBusy || s.hasBacklog) return 'listen'
     return 'flush'
   }
+  // 미확정 예약 유예(0154) — flush 할 held 는 없지만 CLI 에 넘긴 배치의 영수증(steer origin 은
+  // **echo 뿐**)을 아직 못 받았다. echo 는 CLI 가 그 메시지를 실제로 소비할 때 오므로 직전 턴의
+  // terminal 보다 늦을 수 있다(실측: 도구 호출 한 번을 통째로 건너뛴 뒤 도착). 여기서 곧장
+  // break 하면 "기다린 적 없이" 고아 판정이 된다.
+  //
+  // 유예는 호출자가 강등(submitted→orphaned)으로 **1라운드에 묶는다** — 강등은 단조이고 이 술어는
+  // submitted 만 세므로, 미확정 사유의 listen 은 배치당 최대 1회다(무한 대기 불가).
+  if (s.haveUnconfirmed) return 'listen'
   return s.haveTasks ? 'listen' : 'break'
 }
