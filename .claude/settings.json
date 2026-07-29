@@ -1,0 +1,14 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "extraKnownMarketplaces": {
+    "superpowers-vendored": {
+      "source": {
+        "source": "directory",
+        "path": "./.agents"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "superpowers@superpowers-vendored": true
+  }
+}

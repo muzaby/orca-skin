@@ -190,8 +190,40 @@ Codex 는 SessionStart 훅이 없으므로 이 섹션이 `using-superpowers` 존
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
+- **동의 / 그대로 진행**: 벤더 트리 1벌을 `.agents/` 에 두고 두 하네스가 각자 방식으로 붙는 구조(설계 §"왜 벤더링인가")는 실제로 성립했다. `claude plugin details` 가 스킬 14 + SessionStart 훅 1을 인식했고, 마켓플레이스 루트 == 플러그인 루트(`source: "./"`) 가정도 그대로 통했다.
+- **이견 / 우려 1 — 인수 기준 5 의 검증 가능성을 설계가 과대평가했다.** 설계는 `claude plugin marketplace list` / `claude plugin list` 로 기준 5를 확인할 수 있다고 적었으나, 이 두 명령은 **이미 등록·설치된 것**을 보여줄 뿐 *프로젝트 `settings.json` 선언이 설치 프롬프트를 띄우는지* 는 보여주지 못한다. 그 경로는 대화형 세션에서 폴더 신뢰 수락과 함께만 발동한다(헤드리스 `claude -p` 로 실측 — 세션 후에도 미등록). 기준 5는 **부분 충족**으로 내리고 나머지를 사람 확인으로 분리해야 한다(verify 참조).
+- **이견 / 우려 2 — 게이트 절("`app/**` 무변경이므로 앱 게이트가 아니다")은 맞지만 근거가 약하다.** "변경 없음 = 회귀 없음" 은 `git status --porcelain app` 이 비어야 성립한다. 그 확인을 게이트 항목으로 명시했어야 한다(구현에서 인수 기준 10 으로 실행함).
+- **이견 없음 — 리스크 R6**: 훅이 "기계적 강제 장치" 인가에 대한 설계의 구분(플러그인 소유 부트스트랩 ≠ 저장소 강제 장치)은 타당하다. 다만 이 구분을 `.claude/AGENTS.md` 에도 적어야 미래에 훅을 추가하려는 에이전트를 막을 수 있어 그렇게 했다.
+
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
+
+| # | 놓친 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | **`claude plugin marketplace remove` 가 프로젝트 `.claude/settings.json` 을 덮어쓴다.** 검증 중 실행했더니 `extraKnownMarketplaces` 와 `enabledPlugins` 가 `{}` 로 비워졌다 — 커밋된 배선이 CLI 한 줄로 소실된다 | ✅ 구현함 (파일 복원) + `.claude/AGENTS.md` 에 경고를 넣지는 않고 **verify 의 "사람 확인" 항목으로 기록**. 부수 효과로 *프로젝트 settings.json 이 CLI 에 실제로 읽힌다*는 사실이 입증됨 | 실측: remove 직후 `cat .claude/settings.json` → 빈 객체 2개 |
+| 2 | 설계가 `.gitignore` 만 언급하고 **실제 무시 여부를 확인하는 단계**를 안 뒀다 | ✅ 구현함 — `git check-ignore -v .claude/settings.local.json` 로 확인(`.gitignore:2` 매치). `claude plugin install --scope local` 이 실제로 그 파일을 만들었으므로 실효성 있는 검증이 됐다 | 인수 기준 8 |
+| 3 | 설계가 SessionStart 훅의 **출력 형식**까지는 검증 항목에 안 넣었다. 훅이 실행돼도 잘못된 JSON 키를 내면 Claude Code 는 조용히 무시한다 | ✅ 구현함 — `CLAUDE_PLUGIN_ROOT` 를 세팅해 `run-hook.cmd session-start` 를 직접 실행하고 `hookSpecificOutput.hookEventName == "SessionStart"` + `additionalContext` 3,276자를 파싱 확인 | 리스크 R2 의 절반(bash 실행 가능 환경)을 실측으로 닫음 |
+| 4 | 벤더링 원본을 upstream 클론의 **`HEAD`(=main, `44c9b2d`)** 로 뽑을 뻔했다. main 은 v6.2.0 보다 앞서 있다(README 변경 1건) | ✅ 구현함 — `git archive 3dcbd5c…` 로 **태그 커밋에서 직접** 추출. 대상 경로 diff 가 비어 있어 내용은 같지만, 핀의 정확성을 위해 태그 기준을 유지 | 인수 기준 1·2 |
 
 ## [구현자 기입] 구현 체크리스트
 
+- [x] upstream `v6.2.0`(`3dcbd5c`) 에서 `skills` `hooks` `.claude-plugin` `LICENSE` 를 `git archive` 로 추출 → `.agents/`
+- [x] `hooks/hooks-cursor.json` 제거 (Cursor 전용)
+- [x] `marketplace.json` 의 `name` → `superpowers-vendored`
+- [x] `.agents/VENDOR.md` (출처·핀·제외 목록·버전업 절차)
+- [x] `.agents/AGENTS.md` + `CLAUDE.md` stub
+- [x] `.claude/settings.json` (`directory` 소스 `./.agents` + `enabledPlugins`)
+- [x] `.claude/AGENTS.md` + `CLAUDE.md` stub
+- [x] `.gitignore` 에 `.claude/settings.local.json`
+- [x] 루트 `AGENTS.md` — 디렉토리 표 2행 + "superpowers 스킬 (벤더링)" 섹션 (우선순위·스킬 매핑·override 4종·벤더 트리 취급)
+- [x] 실행 비트 보존 확인 (`run-hook.cmd` `session-start` + 스킬 내 스크립트 6종)
+
 ## [구현자 기입] 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 신규 `.agents/**` 59파일(벤더 56 + VENDOR/AGENTS/CLAUDE) · 신규 `.claude/{settings.json,AGENTS.md,CLAUDE.md}` · 수정 `.gitignore`(+1줄) · 수정 `AGENTS.md`(표 2행 + 신규 섹션) |
+| 실행 명령 | `claude plugin validate .agents --strict` · `diff -r` (upstream 대조) · `claude plugin marketplace add ./.agents` · `claude plugin install … --scope local` · `claude plugin details` · 훅 직접 실행 + JSON 파싱 · `git check-ignore` |
+| 게이트 결과 | `plugin validate --strict` ✅ / upstream 바이트 동일성 ✅ (차이 = `marketplace.json` `name` 1줄) / 스킬 14·파일 50 ✅ / 플러그인 로드 ✅ (skills 14 · hooks 1 · always-on ~688 tok) / SessionStart 훅 출력 ✅ / `git status --porcelain app` = 0줄 ✅ |
+| 앱 게이트 | **미실행 — `app/**` 무변경**(0줄). CI 는 `paths: ['app/**','.github/workflows/**']` 이라 트리거되지 않는다 |
+| 블로커 / 역질문 | 없음. 단 인수 기준 5는 부분 충족(위 설계 리뷰 §이견 1) — 대화형 설치 프롬프트는 사람 확인 필요 |
+| 대상 커밋 | `<impl-hash>` |

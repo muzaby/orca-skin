@@ -12,6 +12,8 @@
 | `app/` | Orca v1 실제 구현체 (electron-vite + React/TypeScript). 4-layer Feature 아키텍처 (`app/` · `pages/` · `features/` · `shared/`, ESLint boundaries 강제). 구현 작업 규칙은 가이드, 페이즈 이력은 `docs/PHASES.md` 참조. | `app/AGENTS.md` |
 | `app/src/main/` | Electron **main 프로세스** 레이어 가이드 — **app 컴포지션 루트 → features 수직 슬라이스 → contracts → adapters → infra → shared** DAG, 하향 의존만 + feature 교차 import 금지 (eslint-plugin-boundaries + import/no-cycle 강제, handoff 0062/0063). | `app/src/main/AGENTS.md` |
 | `docs/handoff/` | Claude Code ↔ Codex 협업 hand-off (plan/verify 문서 + 디스패치 보드) | `docs/handoff/AGENTS.md` |
+| `.agents/` | **벤더링 트리** — [obra/superpowers](https://github.com/obra/superpowers) `v6.2.0` 스킬 14종. Codex 가 `$REPO_ROOT/.agents/skills/` 로 네이티브 스캔한다. **편집 금지** (아래 "superpowers 스킬" 섹션 + `.agents/VENDOR.md`). | `.agents/AGENTS.md` |
+| `.claude/` | Claude Code 프로젝트 설정. 현재 용도는 위 벤더 트리를 로컬 마켓플레이스로 배선하는 것 하나뿐. | `.claude/AGENTS.md` |
 
 ## 새 세션 진입 시 읽는 순서
 
@@ -44,6 +46,43 @@
 - **착수 전 항상 [`docs/handoff/INDEX.md`](docs/handoff/INDEX.md) 를 먼저 읽는다** — "지금 누구 차례인가" 의 단일 진실원(디스패치 보드).
 - 흐름: Claude `plan.md`(READY) → Codex 구현 + 게이트 통과(`impl/IMPL_DONE`) → Claude `verify.md`(PASS/FAIL). FAIL 이면 verify 의 "미충족" 체크리스트로 Codex 재구현.
 - 규칙·상태 머신·템플릿 정본은 [`docs/handoff/AGENTS.md`](docs/handoff/AGENTS.md).
+
+## superpowers 스킬 (벤더링)
+
+[obra/superpowers](https://github.com/obra/superpowers) `v6.2.0` 을 [`.agents/`](.agents/AGENTS.md) 에 벤더링해 **두 에이전트 모두**에게 스킬 14종을 상시 제공한다 (핸드오프 `0156`). 하네스별 로드 경로는 다르다:
+
+| 에이전트 | 로드 경로 | 부트스트랩 |
+|---|---|---|
+| **Codex** | `$REPO_ROOT/.agents/skills/` 네이티브 스캔 (설치 불필요) | 훅 없음 — 스킬이 네이티브로 노출된다. 시작점은 **`using-superpowers`** 스킬 |
+| **Claude Code** | `.claude/settings.json` → `superpowers@superpowers-vendored` (로컬 `directory` 마켓플레이스, 폴더 신뢰 시 설치 프롬프트) | `.agents/hooks/` SessionStart 훅이 `using-superpowers` 를 주입 |
+
+미설치·미노출 상태여도 저장소는 정상 동작한다 — **없는 스킬을 호출하려 시도하지 말고 아래 핸드오프 절차만 따르면 된다.**
+
+### 우선순위 — 핸드오프가 상위, 스킬은 그 안의 도구
+
+superpowers 부트스트랩은 `<EXTREMELY_IMPORTANT>` 로 "어떤 응답보다 먼저 스킬을 호출하라" 를 강제하고 자체 방법론(brainstorming → writing-plans → subagent-driven-development → TDD)을 밀어붙인다. **이 저장소에서는 핸드오프 절차가 상위다.** 즉 진입 트리거(find-or-create)·plan→impl→verify 상태 머신·`INDEX.md` 갱신 의무·커밋 trailer·PR 정책이 먼저고, superpowers 스킬은 *그 단계 안에서 쓰는 도구*다.
+
+단계별 매핑:
+
+| 핸드오프 단계 | 쓸 만한 스킬 |
+|---|---|
+| `plan.md` 설계 | `brainstorming` (의도 발굴) · `writing-plans` (계획 서술) |
+| 구현 | `test-driven-development` · `subagent-driven-development` · `dispatching-parallel-agents` |
+| 버그·실패 조사 | `systematic-debugging` |
+| `verify.md` 검증 | `verification-before-completion` |
+| 리뷰 주고받기 | `requesting-code-review` · `receiving-code-review` |
+
+### 명시적 override (충돌 시 저장소 규칙 우선)
+
+1. **자료조사·질문·요약은 핸드오프도 스킬 호출도 없이 바로 답한다.** 부트스트랩의 "ANY response 전에 스킬을 호출하라" 보다 우선한다 — 진입 트리거 분류표(`docs/handoff/AGENTS.md`)가 정본.
+2. **브랜치 종료·PR 은 `finishing-a-development-branch` 가 아니라 저장소 규칙을 따른다.** PR 은 사용자가 명시적으로 요청할 때만 생성한다.
+3. **커밋 메시지는 항상 저장소 trailer 규약**(아래 "커밋 프로토콜"). superpowers 가 제안하는 다른 형식을 쓰지 않는다.
+4. **작업 단위 문서는 `plan.md`/`verify.md` 다.** `writing-plans` 를 쓰더라도 산출물은 핸드오프 템플릿에 담는다 — 별도 계획 파일을 만들지 않는다.
+
+### 벤더 트리 취급
+
+- `.agents/**` 는 **편집 금지**. 버전업 절차·제외 목록·유일한 로컬 수정(`marketplace.json` 의 `name`)은 [`.agents/VENDOR.md`](.agents/VENDOR.md) 가 정본.
+- `.agents/hooks/` 의 SessionStart 훅은 아래 "커밋 프로토콜" 이 말하는 *기계적 강제 장치*가 아니다 — **플러그인이 자기 스킬을 소개하는 부트스트랩**이며 벤더 트리 소유다. 저장소 규칙 자체는 여전히 관례로만 유지된다.
 
 ## 커밋 프로토콜 (Commit Protocol)
 

@@ -1,0 +1,32 @@
+# .claude/ — 코딩 에이전트용 가이드
+
+이 디렉토리는 **Claude Code 프로젝트 설정**만 담는다. Codex 는 이 디렉토리를 읽지 않는다 (Codex 용 배선은 `.agents/` — `.agents/AGENTS.md` 참조).
+
+## 파일
+
+| 파일 | 역할 |
+|---|---|
+| `settings.json` | 프로젝트 공유 설정. 현재 용도는 **벤더링된 superpowers 플러그인 배선 하나뿐** |
+| `settings.local.json` | 개인 오버라이드. **git 추적 안 함** (루트 `.gitignore`). Claude Code 가 자동 생성한다 |
+
+## settings.json 이 하는 일
+
+```json
+{
+  "extraKnownMarketplaces": {
+    "superpowers-vendored": { "source": { "source": "directory", "path": "./.agents" } }
+  },
+  "enabledPlugins": { "superpowers@superpowers-vendored": true }
+}
+```
+
+- `directory` 소스 = 로컬 파일시스템 경로. `./.agents` 는 **저장소 main 체크아웃 기준**으로 해석되므로 worktree 에서도 같은 트리를 가리킨다.
+- `.agents/.claude-plugin/marketplace.json` 의 플러그인 소스가 `"./"` 라서 마켓플레이스 루트 == 플러그인 루트다. 즉 `.agents/` 트리 하나가 마켓플레이스이자 플러그인이다.
+- 폴더 신뢰(trust)를 수락하면 마켓플레이스 등록 → 플러그인 설치를 **프롬프트**한다. 완전 무동의 자동설치는 Claude Code 의 신뢰 경계상 불가능하며, 이게 정상 동작이다. 거절해도 저장소는 정상 동작한다 (스킬 없이 핸드오프 절차만 따르면 된다).
+- 벤더 트리를 버전업한 뒤에는 캐시 사본 갱신이 필요하다: `/plugin marketplace update superpowers-vendored`.
+
+## 규칙
+
+1. **여기에 훅을 추가하지 마라.** 이 저장소는 "기계적 강제(템플릿·CI·훅) 없음, 두 에이전트가 관례로 준수" 를 원칙으로 한다 (루트 `AGENTS.md` 커밋 프로토콜). `.agents/hooks/` 의 SessionStart 훅은 *저장소의 강제 장치*가 아니라 **플러그인이 자기 스킬을 소개하는 부트스트랩**이며 벤더 트리 소유다.
+2. **`settings.local.json` 을 커밋하지 마라.** 개인 경로·토글이 들어간다.
+3. 설정을 추가하기 전에 그것이 *두 에이전트 공통* 규칙인지 확인한다. 공통 규칙은 `AGENTS.md` 에 두는 편이 낫다 — Codex 도 읽기 때문이다.
