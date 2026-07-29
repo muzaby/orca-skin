@@ -944,6 +944,13 @@ export interface SchedulerUpdateCheckSettings {
   intervalHours: UpdateCheckIntervalHours
 }
 
+// 기본값 SSOT — zod 스키마(protocol.ts)와 렌더러 훅이 함께 참조한다. 렌더러는 zod 를 import 할
+// 수 없으므로 값이 여기 살아야 두 쪽이 갈라지지 않는다.
+export const DEFAULT_UPDATE_CHECK: SchedulerUpdateCheckSettings = {
+  enabled: true,
+  intervalHours: 6
+}
+
 export interface SchedulerSettings {
   usageRecompute: SchedulerUsageRecomputeSettings
   updateCheck: SchedulerUpdateCheckSettings

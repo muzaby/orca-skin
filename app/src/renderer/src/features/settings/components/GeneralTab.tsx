@@ -8,9 +8,9 @@ import { AutoGrowTextarea } from '../../../shared/ui/AutoGrowTextarea'
 import { useI18n, type UiLocale } from '../../../shared/i18n'
 import type { ThemeId, DensityId } from '../../../shared/config/theme'
 import type { AppFontId } from '../../../shared/hooks/useTweaks'
-import type { UpdateCheckIntervalHours } from '../../../../../shared/ipc'
+import { UPDATE_CHECK_INTERVAL_HOURS } from '../../../../../shared/ipc'
 import { useUpdateCheckSetting } from '../hooks/useUpdateCheckSetting'
-import { SettingsGroup, SettingsRow } from './parts'
+import { SettingsGroup, SettingsRow, SettingsSelect } from './parts'
 
 // 옵션 라벨은 언어 전환 시 stale 해지지 않도록 모듈 상수에 키만 두고 컴포넌트 안에서 t() 해석.
 const FONT_OPTIONS = [
@@ -36,15 +36,6 @@ const LOCALE_OPTIONS: { value: UiLocale; label: string }[] = [
   { value: 'ko', label: '한국어' },
   { value: 'en', label: 'English' }
 ]
-
-// 값 목록의 SSOT 는 shared 의 UPDATE_CHECK_INTERVAL_HOURS (zod 스키마와 같은 목록). 여기선
-// 그 값에 라벨 키만 붙인다 — 목록이 어긋나면 satisfies 로 타입 에러가 난다.
-const UPDATE_INTERVAL_OPTIONS = [
-  { value: 1, labelKey: 'settings.general.updateInterval1h' },
-  { value: 6, labelKey: 'settings.general.updateInterval6h' },
-  { value: 12, labelKey: 'settings.general.updateInterval12h' },
-  { value: 24, labelKey: 'settings.general.updateInterval24h' }
-] as const satisfies readonly { value: UpdateCheckIntervalHours; labelKey: string }[]
 
 // 설정 모달 '일반' 탭 — 프로필(계정 지침) / 환경설정(모양·폰트·언어) / 알림(응답완료) /
 // 업데이트(자동 확인 주기).
@@ -137,51 +128,33 @@ export function GeneralTab(): React.JSX.Element {
           label={tr('settings.general.font')}
           description={tr('settings.general.fontDesc')}
         >
-          <select
+          <SettingsSelect
             value={t.appFont}
-            onChange={(e) => setTweak('appFont', e.target.value as AppFontId)}
-            className="cursor-pointer rounded-r4 border border-border bg-bg px-2.5 py-1.5 text-[12.5px] text-ink outline-none focus:border-border-strong"
-          >
-            {FONT_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {tr(opt.labelKey)}
-              </option>
-            ))}
-          </select>
+            options={FONT_OPTIONS.map((o) => ({ value: o.value, label: tr(o.labelKey) }))}
+            onChange={(v) => setTweak('appFont', v)}
+          />
         </SettingsRow>
 
         <SettingsRow
           label={tr('settings.general.language')}
           description={tr('settings.general.languageDesc')}
         >
-          <select
+          <SettingsSelect
             value={t.uiLocale}
-            onChange={(e) => setTweak('uiLocale', e.target.value as UiLocale)}
-            className="cursor-pointer rounded-r4 border border-border bg-bg px-2.5 py-1.5 text-[12.5px] text-ink outline-none focus:border-border-strong"
-          >
-            {LOCALE_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+            options={LOCALE_OPTIONS}
+            onChange={(v) => setTweak('uiLocale', v)}
+          />
         </SettingsRow>
 
         <SettingsRow
           label={tr('settings.general.density')}
           description={tr('settings.general.densityDesc')}
         >
-          <select
+          <SettingsSelect
             value={t.density}
-            onChange={(e) => setTweak('density', e.target.value as DensityId)}
-            className="cursor-pointer rounded-r4 border border-border bg-bg px-2.5 py-1.5 text-[12.5px] text-ink outline-none focus:border-border-strong"
-          >
-            {DENSITY_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {tr(opt.labelKey)}
-              </option>
-            ))}
-          </select>
+            options={DENSITY_OPTIONS.map((o) => ({ value: o.value, label: tr(o.labelKey) }))}
+            onChange={(v) => setTweak('density', v)}
+          />
         </SettingsRow>
       </SettingsGroup>
 
@@ -214,20 +187,15 @@ export function GeneralTab(): React.JSX.Element {
           label={tr('settings.general.updateInterval')}
           description={tr('settings.general.updateIntervalDesc')}
         >
-          <select
+          <SettingsSelect
             value={updateCheck.intervalHours}
             disabled={!updateCheck.enabled}
-            onChange={(e) =>
-              setUpdateCheck({ intervalHours: Number(e.target.value) as UpdateCheckIntervalHours })
-            }
-            className="cursor-pointer rounded-r4 border border-border bg-bg px-2.5 py-1.5 text-[12.5px] text-ink outline-none focus:border-border-strong disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {UPDATE_INTERVAL_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {tr(opt.labelKey)}
-              </option>
-            ))}
-          </select>
+            options={UPDATE_CHECK_INTERVAL_HOURS.map((hours) => ({
+              value: hours,
+              label: tr('settings.general.updateIntervalEvery', { count: hours })
+            }))}
+            onChange={(v) => setUpdateCheck({ intervalHours: v })}
+          />
         </SettingsRow>
       </SettingsGroup>
     </div>

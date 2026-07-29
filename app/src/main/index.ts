@@ -256,7 +256,7 @@ app.whenReady().then(async () => {
     return
   }
   rootLog.info('app.start.completed')
-  void router.checkForUpdatesOnStartup()
+  void router.runBackgroundUpdateCheck()
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow(router.settings)

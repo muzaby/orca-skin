@@ -64,28 +64,23 @@ export class SettingsStore {
   }
 }
 
+// scheduler 하위는 한 겹 그룹이라 top-level spread 로는 부분 패치가 형제 그룹을 통째로 덮어쓴다.
+// 그룹 단위로 병합해야 한 그룹만 보내도 나머지가 살아남는다.
+function mergeGroup<T>(current: T, patch: Partial<T> | undefined): T {
+  return patch ? { ...current, ...patch } : current
+}
+
 function mergeSettings(current: Settings, patch: SettingsPatch): Settings {
   return SettingsSchema.parse({
     ...current,
     ...patch,
-    // scheduler 는 그룹별로 손수 병합한다 — spread 만으로는 부분 패치가 형제 그룹을 덮어쓴다.
-    // 그룹을 추가하면 여기에도 브랜치를 더해야 한다(0156 에서 updateCheck 추가).
     scheduler: patch.scheduler
       ? {
-          ...current.scheduler,
-          ...patch.scheduler,
-          usageRecompute: patch.scheduler.usageRecompute
-            ? {
-                ...current.scheduler.usageRecompute,
-                ...patch.scheduler.usageRecompute
-              }
-            : current.scheduler.usageRecompute,
-          updateCheck: patch.scheduler.updateCheck
-            ? {
-                ...current.scheduler.updateCheck,
-                ...patch.scheduler.updateCheck
-              }
-            : current.scheduler.updateCheck
+          usageRecompute: mergeGroup(
+            current.scheduler.usageRecompute,
+            patch.scheduler.usageRecompute
+          ),
+          updateCheck: mergeGroup(current.scheduler.updateCheck, patch.scheduler.updateCheck)
         }
       : current.scheduler
   })
