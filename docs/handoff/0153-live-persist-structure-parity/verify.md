@@ -7,8 +7,13 @@
 | slug | `0153-live-persist-structure-parity` |
 | 검증자 | Claude Code |
 | 일자 | 2026-07-29 |
+| 대상 커밋 | `4ab86ce` |
 | 라운드 | 1 |
 | 상태 | **PASS** |
+
+> 절차 메모: 구현 커밋 `4ab86ce` 에 본 verify 문서가 함께 실렸다(스테이징 실수). trailer 는
+> `Status: implemented` / `Verified-By: pending` 이라 검증 결과가 커밋 버스에 남지 않으므로,
+> 본 커밋을 검증 커밋(`Status: verified`)으로 분리해 기록을 정정한다. 코드 변경은 없다.
 
 > 비기능(버그수정)이라 plan → impl → verify 를 Claude 가 순차 수행했다. 구현자 코멘트 섹션은
 > 설계자=구현자라 아래 "설계↔구현 자기 이견" 으로 대체한다.
