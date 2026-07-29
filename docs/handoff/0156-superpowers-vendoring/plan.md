@@ -226,4 +226,4 @@ Codex 는 SessionStart 훅이 없으므로 이 섹션이 `using-superpowers` 존
 | 게이트 결과 | `plugin validate --strict` ✅ / upstream 바이트 동일성 ✅ (차이 = `marketplace.json` `name` 1줄) / 스킬 14·파일 50 ✅ / 플러그인 로드 ✅ (skills 14 · hooks 1 · always-on ~688 tok) / SessionStart 훅 출력 ✅ / `git status --porcelain app` = 0줄 ✅ |
 | 앱 게이트 | **미실행 — `app/**` 무변경**(0줄). CI 는 `paths: ['app/**','.github/workflows/**']` 이라 트리거되지 않는다 |
 | 블로커 / 역질문 | 없음. 단 인수 기준 5는 부분 충족(위 설계 리뷰 §이견 1) — 대화형 설치 프롬프트는 사람 확인 필요 |
-| 대상 커밋 | `<impl-hash>` |
+| 대상 커밋 | `bfbeec3` |
