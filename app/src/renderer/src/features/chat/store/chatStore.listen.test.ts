@@ -48,6 +48,59 @@ describe('chatStore — chat.listen 라우팅 (0143)', () => {
   })
 })
 
+// 0153 — 실기 로그(세션 5a47b0c7)에서 관측된 순서 역전의 재현. `telemetry` 로 renderer 가 턴을
+// 닫은 직후, main 은 held 배치로 연속 턴을 여는데(flush 스텝) 그 신호가 renderer 에 없어 idle 로
+// 오판했다. 그 창의 send 가 낙관 커밋 경로를 타 **잔여보다 앞에** 정식 버블로 섰고, DB 는 반대
+// 순서(main 커밋 순서 = idx)라 재시작하면 위치가 재조정된 것처럼 보였다.
+describe('chatStore — 턴 경계 낙관 커밋 금지 (0153)', () => {
+  it('telemetry 직후에도 미확정 예약이 있으면 send 는 예약 경로 — 순서 역전 없음', () => {
+    // 진행 턴 중 steer 3건 예약(666·777·888 상당).
+    ingestChatEvent({ type: 'chat.listen', sessionId: 's', phase: 'started' })
+    flushRaf()
+    chatActions.send('666')
+    chatActions.send('777')
+    chatActions.send('888')
+    // 직전 턴이 끝나 renderer 의 inflight/listening 이 모두 내려간 창.
+    ingestChatEvent({ type: 'chat.listen', sessionId: 's', phase: 'ended' })
+    ingestChatEvent({ type: 'telemetry', sessionId: 's', usage: {} } as NormalizedEvent)
+    flushRaf()
+    expect(session().inflight).toBe(false)
+    expect(session().listening).toBe(false)
+
+    // 이 창에서 새 메시지(999 상당) — 낙관 커밋이면 잔여보다 앞에 서게 된다.
+    const ok = chatActions.send('999')
+    expect(ok).toBe(true)
+
+    const st = useChatStore.getState().sessions.s
+    expect(st.session.messages).toHaveLength(0) // 낙관 커밋 없음
+    expect(st.session.inflight).toBe(false) // BEGIN_TURN 없음
+    expect(st.pendingSteer?.map((p) => p.text)).toEqual(['666', '777', '888', '999'])
+  })
+
+  it('예약이 모두 커밋된 뒤의 유휴 send 는 종전대로 낙관 커밋', () => {
+    ingestChatEvent({ type: 'chat.listen', sessionId: 's', phase: 'started' })
+    flushRaf()
+    chatActions.send('잔여')
+    const pendingId = useChatStore.getState().sessions.s.pendingSteer![0].id
+    ingestChatEvent({ type: 'chat.listen', sessionId: 's', phase: 'ended' })
+    ingestChatEvent({
+      type: 'message.committed',
+      sessionId: 's',
+      ids: [pendingId],
+      text: '잔여',
+      messageId: 1,
+      createdAt: 1
+    } as NormalizedEvent)
+    flushRaf()
+    expect(useChatStore.getState().sessions.s.pendingSteer ?? []).toHaveLength(0)
+
+    chatActions.send('새 턴')
+    const st = useChatStore.getState().sessions.s
+    expect(st.session.inflight).toBe(true)
+    expect(st.session.messages.at(-1)?.role).toBe('user')
+  })
+})
+
 describe('chatStore — 자동 BEGIN_TURN 자식 이벤트 제외 (0143)', () => {
   const childTool: NormalizedEvent = {
     type: 'tool.call.started',

@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-07-28 |
 | 매핑 | PR #292 후속 (0151·0152 와 별건) |
-| 상태 | **DRAFT — 재현 정보 대기(아래 "블로킹 입력")** |
+| 상태 | **READY — 로그로 원인 확정(2026-07-29). 비기능(버그수정) = Claude 직접 구현** |
 
 ## 사용자 의도 / 요구 출처
 
@@ -63,73 +63,109 @@ steer 가 응답 중간에 커밋되는 표준 시나리오:
 
 즉 **"main 이 분할하는데 renderer 가 안 한다" 는 내 초기 가설은 틀렸다.** (PR #292 본문에 그 가설을 적어뒀는데, 정정이 필요하다 — 아래 범위 참조.)
 
-## 단일 근본 가설 (오타 정정 후) — **프레임 조기 종료 → unframed 적체 → 늦은 귀속**
+## ~~단일 근본 가설 — 프레임 조기 종료 → unframed 적체~~ (2026-07-29 **반증**)
 
-추가 조사로 확인한 프레임 수명:
+> 초판은 `telemetry` 로 프레임이 닫힌 뒤에도 CLI 가 더 흘려 `unframed` 에 적체된다고 봤다(R9~R11).
+> **사용자 로그가 이를 반증한다** — 6개 턴 전부에서 `telemetry` 가 마지막 이벤트이고, 그 뒤에
+> assistant 델타·`message.completed` 가 **하나도 오지 않는다**. 적체는 발생하지 않았다.
+> R9~R11 의 코드 사실 자체는 유효하나(프레임 수명·`unframed` 주입·`break` 조건), 이번 증상의
+> 원인이 아니다. 아래가 로그로 확정된 진짜 원인이다.
 
-| # | 발견 | 레퍼런스 |
-|---|---|---|
-| R9 | **프레임은 `telemetry`·`error`·`turn.aborted` 에서 닫힌다** (`isTerminal`). `telemetry` 는 SDK `result` 대응이라 **CLI 가 그 뒤 더 흘려도 프레임은 이미 없다** | `session-runtime.ts:26-28` |
-| R10 | 프레임 밖 도착 이벤트는 **`unframed` 버퍼에 적체**되고, 다음 프레임이 열릴 때 `for (const ev of this.unframed.splice(0)) frame.push(ev)` 로 **한꺼번에** 주입된다 | `session-runtime.ts:323,370` |
-| R11 | 턴-후 루프는 `haveTasks`(추적 중인 백그라운드 서브에이전트)가 있을 때만 listen 턴을 연다. **CLI 가 auto-resume 으로 더 말할 것을 Orca 는 알 방법이 없다** — 추적 태스크가 없으면 `break` | `post-turn.ts:21-30` |
+## 확정 근본 원인 — **턴 경계에서 main 과 renderer 의 busy 판정이 어긋난다**
 
-이 셋이 사용자 관찰 3건을 **전부** 설명한다:
+### 로그 증거 (사용자 제공, 2026-07-29 · 세션 `5a47b0c7`)
+
+사용자가 `111`→`101010` 을 턴 메시지/steer 혼용으로 보냈다. 렌더링 결과:
+
+```
+111 → 답변 → 222 333 444 → 답변 → 555 → 답변 → [999] [666 777 888] → 답변 → [101010] → 답변 → 답변
+                                                  ^^^^^ 역전
+```
+
+로그의 결정적 구간:
+
+```
+telemetry (555 턴)              ← renderer: TURN_END_RESET → inflight=false  ⇒ **idle**
+chat.turn.completed
+chat.turn.started               ← main: 666-888 연속 턴 개시 (renderer 로 가는 신호 **없음**)
+message.queued 999              ← 이 창에서 999 전송
+input.echo   666\n\n777\n\n888
+message.committed 666-888 → messageId 801
+...
+message.committed 999     → messageId 803
+```
+
+| # | 발견 | 레퍼런스 | 판정 |
+|---|---|---|---|
+| L1 | renderer 의 send admission 은 `inflight ‖ listening` 단 둘로 판정한다. false 면 **낙관 커밋**(정식 버블 즉시 tail append), true 면 pendingSteer | `renderer/.../store/chatStore.ts:663,676-693` | 확인 |
+| L2 | `telemetry` 가 `TURN_END_RESET` 으로 `inflight=false` 를 만든다 | `renderer/.../reducer/chatReducer.ts:217-219,440` | 확인 |
+| L3 | `chat.listen started`(→ renderer `listening=true`)는 **`step === 'listen'` 에서만** 발화한다. **`flush` 스텝(held 를 연속 턴으로 잇는 경로)은 아무 신호도 보내지 않는다** | `chat-turn.ts:908-911` vs `:967-971` | **← 근본 결함** |
+| L4 | 뒤늦게 온 `message.queued` 는 `hasCommittedClientId` 가드에 걸려 no-op — 낙관 버블이 그 자리에 굳는다 | `renderer/.../store/chatStore.ts:449,226-230` | 확인 |
+| L5 | `message.committed` 는 `TURN_ACTIVITY_EVENTS` 에 없다 → 커밋만으로는 inflight 가 안 켜진다. 첫 모델 출력(`message.reasoning`/델타)까지 idle 구간이 이어진다 | `renderer/.../store/chatStore.ts:239-245` | 확인 |
+| L6 | 999·101010 의 `input.echo` uuid(`983a2cb8`·`31612c35`)가 `message.queued` id(`81ee8c26`·`e8d026b6`)와 **다르다** = `reserveHeld`(배치 uuid 신규 발급) 경로 ⇒ main 은 이들을 **held 로 받았다**. 반면 111·555 는 uuid 동일(`reserveItem`, 턴-여는 send) | 로그 + `chat-turn.ts:626-629,971` | **독립 교차검증** |
+
+### 기전
+
+`telemetry` 도착 시점부터 다음 턴의 **첫 모델 출력**까지, main 은 busy(턴-후 루프가 연속 턴 진행)인데 renderer 는 **idle** 이다. 그 창에서 보낸 메시지는:
+
+- **renderer**: idle 판정 → **낙관 커밋** → 정식 버블이 tail 에 즉시 선다
+- **main**: busy 판정(`hasSession`) → held 적재 → **잔여 배치 뒤에** 커밋
+
+⇒ 라이브 순서와 DB(`idx`) 순서가 **갈린다**.
+
+### 관측 3건이 모두 이 하나로 설명된다
 
 | 사용자 관찰 | 기전 |
 |---|---|
-| "델타가 발생하는 동안 assistant 직전 턴이 **종료된 것처럼**" | `telemetry` 로 프레임이 닫혀 UI 가 완료로 전환(R9). CLI 는 아직 말하는 중 |
-| "델타가 많이 쌓여있어서 **한번에 렌더링**" | 프레임 밖 델타가 `unframed` 에 적체(R10) → 다음 send 가 프레임을 열 때 일괄 주입 |
-| "**잔여**가 늦게 flush" | 프레임이 닫히고 추적 태스크가 없으면 루프가 `break`(R11) → held 를 flush 할 주체 소멸. **0152 가 못 잡은 잔여분의 정체가 이것일 가능성이 크다** |
-| "재시작 시 **버블 위치 재조정**" | 적체분이 **다음 턴의 프레임**으로 주입되면 coordinator 는 그것을 *새 턴 컨텍스트*(`currentAssistantMessageId=null`)에서 persist 한다 → 이전 응답의 파트가 **새 user row 뒤**에 귀속. 라이브 표시와 DB 귀속이 갈리는 지점 |
+| "steer 가 어시스턴트 턴 종료 후 바로 flush 안 되고 **답변완료 상태로 빠짐**" | L2 로 inflight 하강 + L3 로 flush 경로 무신호 ⇒ UI 는 완료, main 은 연속 턴 진행 중 |
+| "새 메시지가 먼저, pending 메시지가 후에 들어간다" (`999` 가 `666~888` 앞) | L1+L4 — 그 창의 send 가 낙관 커밋 경로 |
+| **"재시작 시 버블 위치가 재조정됨"** (0153 원 증상) | DB 는 main 커밋 순서(`idx`, R1)라 재로드 시 제자리로. **라이브 쪽이 틀렸던 것** |
 
-즉 0152 가 고친 TOCTOU 는 **부차적 창**이었고, 진짜 원인은 **"CLI 가 아직 말하는 중인데 Orca 가 턴을 닫는다"** 일 가능성이 높다.
+> 초판 §현재 판단의 후보 1번("라이브 쪽이 과도기적으로 어긋나 보였던 것")이 **맞았다** — 단 원인은
+> `PendingAssistant` 배치가 아니라 **낙관 커밋의 조기 발동**이다. 후보 2(서브에이전트)·3(커밋 계층)은 배제.
 
-## 현재 판단
+## 설계 — 무엇을 고치는가
 
-지금까지의 조사로는 **라이브와 DB 의 `messages` 구조가 일치해야 한다.** 그런데 사용자는 재시작 시 위치가 바뀌는 것을 실제로 봤다. 따라서 다음 중 하나다:
+**원칙: 사용자 메시지의 순서를 정하는 권위는 main 하나다.** renderer 의 낙관 커밋은 "main 도 이 메시지를 즉시 턴 프롬프트로 쓴다" 가 참일 때만 정당하다. 그 전제가 깨지는 구간을 없앤다.
 
-1. **라이브 리프(R7)의 시각적 위치** 문제 — 스트리밍 중 `PendingAssistant` 는 **tail exchange 안**에 렌더된다. steer 가 커밋되면 새 exchange 가 생기므로, *직전 응답의 잔여 델타* 가 **steer 버블 아래**에 붙어 보인다. 사용자의 직전 리포트("델타가 발생하는 동안 assistant 직전 턴이 종료된 것처럼 되고 있다")와 정확히 일치한다. 이 경우 **재시작 후 위치가 "재조정" 되는 게 아니라, 라이브 쪽이 과도기적으로 어긋나 보였던 것**이 된다.
-2. 내가 아직 보지 않은 경로에서 파트/메시지가 다르게 커밋된다 — 유력 후보: **서브에이전트 child 파트**(`parentToolRunId`). 사용자가 "자녀가 있는 상황" 을 명시했다.
-3. 위 트레이스가 실제 이벤트 순서와 다르다 — 예: `message.completed` 가 steer echo **이후**에 도착해 pre-steer 텍스트가 post-steer 메시지로 들어간다.
+| # | 수정 | 위치 | 성격 |
+|---|---|---|---|
+| F1 | **턴-후 루프가 세션을 붙들고 있는 동안 renderer 를 busy 로 유지한다.** phase 신호를 `listen` 스텝 전용에서 **`break` 아닌 모든 스텝**으로 넓힌다 | `chat-turn.ts` 턴-후 루프 · `post-turn.ts` | 원인 제거 |
+| F2 | **renderer admission 에 "미확정 예약 존재" 를 더한다.** main 에 아직 확정 안 된 예약(`pendingSteer`)이 있으면 지금 보내는 메시지는 **반드시 그 뒤에** 커밋되므로 낙관 커밋은 항상 틀리다 | `renderer/.../lib/sendAdmission.ts`(신규 순수 함수) + `chatStore.ts` | 백스톱(F1 신호 도달 전 창) |
+| F3 | **연속 턴의 예약도 소유권 전이를 알린다.** `flush` 경로의 `reserveHeld` 가 `message.submitted` 를 안 보내 예약분 버블이 "취소 가능" 인 채로 남는다 — 0151 AC12 가 게이트 경로만 덮은 구멍 | `chat-turn.ts:971` | 0151 구멍 마감 |
 
-**추측으로 고치지 않는다.** 1번이면 고칠 대상이 렌더 계층(라이브 리프 배치)이고, 2·3번이면 커밋 계층이다. **정반대 방향의 수정**이라 재현 정보 없이 손대면 다른 회귀를 만든다.
+**비채택**: `message.committed` 를 `createdAt` 기준 **삽입**으로 바꿔 라이브를 사후 재정렬하는 안. 증상은 가리지만 (a) 이미 붙은 assistant 파트의 귀속이 흔들리고 (b) 화면이 눈앞에서 재배치돼 더 나쁘다. **순서를 틀리게 만든 뒤 고치지 말고, 틀린 순서가 생기지 않게 한다.**
 
-## 블로킹 입력 (사용자 확인 필요)
+## 인수 기준
 
-가설이 하나로 좁혀져 필요한 확인도 줄었다. **B 하나면 충분하다.**
-
-- **B(1순위). 로그** — DebugPanel "로그" 스위치 ON 후 재현 → `~/.config/orca/logs/` 의 해당 세션 구간. 볼 것은 **`telemetry` 이후에 assistant 델타/`message.completed` 가 더 오는가**다. 온다면 단일 근본 가설이 확정되고, 그 지점부터 바로 구현에 들어간다.
-- **A(보조). 구체 before/after** — 재시작 전/후 버블 순서 한 줄씩. 위치 재조정이 "적체분의 늦은 귀속" 인지 다른 것인지 가른다.
-- ~~C. 서브에이전트 없이 재현되는가~~ — **불필요**(오타 정정으로 서브에이전트 가설 배제).
-
-## 유력 수정 방향 (가설 확정 시 — 아직 착수 안 함)
-
-1. **적체를 다음 턴에 섞지 않는다.** `unframed` 를 다음 프레임에 무조건 주입하는 대신(R10), **적체가 있으면 listen 턴을 먼저 연다**. `decidePostTurnStep` 은 이미 `hasBacklog` 를 입력으로 받으므로(0143 버그 a 방어) 판정 자체는 있다 — 문제는 **루프가 이미 break 한 뒤** 적체가 생기는 경우다.
-2. **턴 종료 판정을 늦춘다.** `telemetry` 를 곧바로 terminal 로 보지 않고 짧은 유예를 둔다 → 회귀 위험 큼(모든 턴의 완료가 늦어짐). **비선호**.
-3. **적체 귀속을 명시한다.** 적체분을 새 턴 컨텍스트가 아니라 **원래 턴 컨텍스트**로 persist 한다 → 버블 위치 재조정만 정조준. 1번과 병행 가능.
-
-**1번이 원인 제거, 3번이 이미 발생한 적체의 정직한 귀속**이라 둘 다 필요할 수 있다. 로그로 확정 후 결정한다.
-
-## 인수 기준 (재현 정보 확보 후 확정 — 잠정)
-
-1. 라이브 `messages` 구조와 재로드 `messages` 구조가 **같은 이벤트 시퀀스에 대해 일치**함을 기계적으로 고정한다(차등 테스트).
-2. 사용자가 본 재조정이 재현되지 않는다.
-3. 회귀 0 — 기존 transcript/persist 스위트 green.
-
-> AC 는 원인이 확정되면 구체화한다. 지금 숫자를 채우면 검증 불가능한 기준이 된다.
+1. **F1** — 턴-후 루프가 `flush` 스텝으로 연속 턴을 열 때도 renderer 가 busy 로 유지된다. 판정은 순수 함수로 표현되고 단위 테스트로 고정된다(`break` 만 세션을 놓는다).
+2. **F2** — `inflight=false ∧ listening=false` 라도 `pendingSteer` 가 비어있지 않으면 send 는 **예약 경로**를 탄다(낙관 커밋 없음 · `BEGIN_TURN` 없음). 순수 함수 + store 계약 테스트.
+3. **F3** — `flush` 연속 턴이 held 를 예약하면 `message.submitted{submitted:true}` 가 그 배치 ids 로 발화한다.
+4. **관측 시나리오 회귀 테스트** — 로그 시퀀스(`telemetry` → 연속 턴 개시 → 그 창에서 send)를 store 레벨에서 재현해 **낙관 커밋이 발생하지 않음**을 잠근다.
+5. **회귀 0** — lint 0 error · typecheck 3/3 · vitest 전량 green. IPC 채널·스키마 **무변경**(기존 `chat.listen`·`message.submitted` 재사용).
 
 ## 범위 / 비범위
 
-- **범위(확정 후)**: 라이브 표현 ↔ 영속 구조의 **동치 보장** + 차등 회귀 테스트.
-- **비범위**: 0151(큐 상태 머신)·0152(고아/순서) — 이미 PR #292 에 있음. 이 건은 커밋 **이후** 표현 계층이다.
-- **부수 작업**: PR #292 본문의 "알려진 미해결" 절에 적은 원인 추정("main 은 분할하는데 renderer 는 한 버블 유지")이 **R4·R5 트레이스로 반증**됐으므로 정정한다.
+- **범위**: send admission 의 busy 판정 일치(F1·F2) + 연속 턴 소유권 신호(F3) + 회귀 테스트.
+- **비범위**: 0151(큐 상태 머신)·0152(고아/순서) — 이미 PR #292 에 있음. `unframed` 적체 처리(R9~R11 경로)는 이번 증상의 원인이 아니므로 **손대지 않는다**.
+- **부수 작업**: PR #292 본문의 0153 절(프레임 조기 종료 가설)을 확정 원인으로 정정한다.
+
+## 파생 UX / 엣지케이스
+
+| 케이스 | 처리 |
+|---|---|
+| F1 로 `listening` 이 flush 구간에도 켜진다 | StatusLine 이 "대기 중" 애니메이션을 유지한다 — **의도한 것**. main 이 실제로 일하는 중이므로 완료로 보이던 종전이 오히려 거짓이었다 |
+| F2 로 예약 경로를 타면 `BEGIN_TURN` 이 없어 즉시 "생각 중" 리프가 안 뜬다 | 기존 steer 경로와 동일한 UX. pending 버블(연회색)이 그 역할을 하고, F1 로 `listening` 이 켜져 StatusLine 은 살아 있다 |
+| main 은 idle 인데 renderer 에 `pendingSteer` 가 남은 경우(0152 stranded 잔재) | F2 로 예약 경로 → main 은 idle send 로 받아 `reserveHeld` 가 잔여+신규를 **적재 순서대로 병합**(0152 AC2) ⇒ 순서 보존. 안전 |
+| `break` 로 루프가 끝나는 정상 턴 | F1 은 `break` 에서 phase 를 열지 않는다 — listen started/ended 깜빡임 없음 |
 
 ## 리스크
 
 | 리스크 | 완화 |
 |---|---|
-| 원인 미확정 상태에서 렌더 계층을 고치면, 실제 원인이 커밋 계층일 때 **증상만 가리고 DB 는 계속 틀린다** | 블로킹 입력을 받고 착수 |
-| 차등 테스트가 main·renderer 두 트리를 함께 import 해야 하는데 `boundaries/include` 가 트리별로 분리돼 있다 | 배치 후 `npm run lint` 로 확인. 걸리면 순수 그룹핑 규칙만 양쪽에서 뽑아 비교하는 형태로 축소 |
+| F1 이 `listening` 의 의미를 넓힌다("백그라운드 대기" → "턴-후 체인 진행 중") | 이름은 `chat.listen`(wire) 그대로 두되 판정을 순수 함수 `postTurnHoldsSession` 으로 명시하고 주석·테스트로 의미를 고정. IPC 스키마 무변경이라 renderer 계약도 그대로 |
+| F2 가 낙관 커밋을 과도하게 막아 첫 send 반응성이 나빠진다 | 조건이 `pendingSteer` **비어있지 않음**이라, 예약이 없는 통상 첫 send 는 영향 없다 |
+| 실기 확인 필요 — 레이스라 기계 검증은 "판정 함수" 수준까지만 | verify 의 사람/에이전트 책임표에 명시. 0152 와 같은 한계 |
 
 ## 참고
 

@@ -18,6 +18,19 @@ export interface PostTurnState {
   hasBacklog: boolean
 }
 
+// 이 스텝이 세션을 계속 붙들고 있는가(0153) — renderer 의 busy(listening) 신호를 구동한다.
+//
+// **왜 필요한가**: 구 구조는 `listen` 스텝에서만 `chat.listen started` 를 보냈다. 그런데 `flush`
+// 스텝(held 를 연속 턴으로 잇는 경로)도 main 은 명백히 busy 인데 renderer 에는 아무 신호가 없어,
+// `telemetry` 로 inflight 를 내린 renderer 가 **idle 로 오판**했다. 그 창에서 들어온 send 는
+// 낙관 커밋 경로를 타 정식 버블이 즉시 서고, main 은 같은 메시지를 held 로 받아 **잔여 배치 뒤**에
+// 커밋한다 → 라이브 순서와 DB(`idx`) 순서가 갈린다(재시작 시 버블 위치 재조정의 정체).
+//
+// `break` 만이 세션을 놓는 유일한 스텝이다.
+export function postTurnHoldsSession(step: PostTurnStep): boolean {
+  return step !== 'break'
+}
+
 export function decidePostTurnStep(s: PostTurnState): PostTurnStep {
   // 채널 사망 — 들을 것이 없다. held 는 respawn 콜드 패스(flush 분기의 takeForRespawn)로 이월.
   if (!s.channelAlive) return s.havePending ? 'flush' : 'break'
