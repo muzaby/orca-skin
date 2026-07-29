@@ -286,9 +286,13 @@ export class PendingMessageQueue {
     return confirmed.map(toPublic)
   }
 
-  // 턴 체인 종료 시점(AC7) — 확정 신호가 오지 않은 예약을 orphaned 로 내린다. 기능적 효과는
-  // takeForRespawn 대상 판정이 명시화되는 것뿐이지만, **echo 유실이 처음으로 관측 가능해진다**
-  // (구 구조에서는 미확정 배치가 세션 런타임 수명 내내 조용히 잔존했다).
+  // 턴 체인 종료 시점(AC7) — 확정 신호가 오지 않은 예약을 orphaned 로 내린다. **표시일 뿐 폐기가
+  // 아니다**(0154). 효과는 두 가지: ① takeForRespawn 대상 판정의 명시화 ② 미확정 유예를 1라운드로
+  // 묶는 단조 전이(호출자가 listen 을 열며 강등 → 다음 평가에서 무한 대기 없이 종료).
+  //
+  // orphaned 는 **폐기 대상이 아니다.** `confirm` 의 open 술어가 orphaned 를 포함하므로 늦은 echo
+  // 가 그대로 확정하고, 회수는 CLI 큐가 실제로 사라지는 시점(채널 사망 → takeForRespawn, 세션
+  // 폐기 → dispose)이 맡는다.
   orphanUnconfirmed(sessionId: string): SteerFlushBatch[] {
     const batches = this.trackedBySession.get(sessionId)
     if (!batches) return []
@@ -301,17 +305,11 @@ export class PendingMessageQueue {
     return orphaned
   }
 
-  // orphaned 폐기(0151 r2 / OQ2 결정 = "폐기 후 draft 복원") — 턴 체인이 끝나도록 확정되지 않은
-  // 배치를 큐에서 빼고 호출자에게 넘긴다. 호출자는 텍스트를 composer draft 로 되돌려 **사용자가**
-  // 재전송 여부를 정하게 한다.
-  //
-  // 왜 자동 재주입이 아닌가: 확정 신호가 없다는 것은 "CLI 가 못 봤다" 와 "봤는데 echo 가 유실됐다"
-  // 를 **구분할 수 없다**는 뜻이다. 자동 재주입은 후자에서 모델 이중 전달이 되고, 조용한 폐기는
-  // 전자에서 유실이 된다. 어느 쪽도 앱이 혼자 판정할 근거가 없으므로 사용자를 루프에 넣는다
-  // (공개 SDK 에 "이 uuid 가 실행됐나" 를 묻는 표면이 없다).
-  discardOrphaned(sessionId: string): SteerFlushBatch[] {
-    return this.remove(sessionId, (b) => b.state === 'orphaned')
-  }
+  // (0154) `discardOrphaned` 제거 — 0151 OQ2 "폐기 후 draft 복원" 의 전제가 실측으로 반증됐다.
+  // 그 결정은 미확정 상태를 "CLI 가 못 봤다" / "봤는데 echo 유실" 둘로만 봤으나, 실제로 흔한 것은
+  // **제3의 상태 "아직 안 봤을 뿐, 곧 본다"** 다 — push 된 배치는 priority:'next' 로 CLI 큐에 남아
+  // 다음 턴 프롬프트로 정상 픽업된다. 폐기하면 CLI 는 답변을 내놓는데 질문 버블만 사라진다(실기
+  // 확인). 재주입(이중 전달)도 폐기(유실)도 아닌 **대기**가 옳으므로 이 경로 자체를 없앤다.
 
   // 지정 uuid 의 예약을 폐기한다(0151 r2 / OQ1 "세션 전체 중단") — 런타임을 폐기해 CLI 큐를
   // 서브프로세스와 함께 없앤 뒤, 그 배치들의 텍스트를 draft 로 되돌리는 데 쓴다.
