@@ -10,6 +10,7 @@ import {
 } from '../reducer/chatReducer'
 import { toPlanFeedback } from '../lib/planComments'
 import { steerBlockedByProviderBoundary } from '../lib/steerGate'
+import { shouldQueueAsPending } from '../lib/sendAdmission'
 import {
   chatApi,
   concurrencyApi,
@@ -661,9 +662,18 @@ function send(
   // 경로로 보내야 낙관 커밋 vs message.queued 이중 렌더가 없다(main 은 held 로 수용 후
   // 릴리즈 밸브/유예를 거쳐 연속 턴으로 커밋한다).
   const busy = cur.inflight || cur.listening
+  // 0153: 예약 경로 판정은 busy 보다 넓다 — **미확정 예약이 남아 있으면** 지금 보내는 메시지는
+  // 반드시 그 뒤에 커밋되므로(main 이 적재 순서대로 병합) 낙관 커밋이 항상 틀린다. busy 신호가
+  // IPC 로 오는 사이의 창(telemetry 직후 ~ chat.listen started 도착 전)을 이것이 덮는다.
+  const queueAsPending = shouldQueueAsPending({
+    inflight: cur.inflight,
+    listening: cur.listening,
+    pendingCount: getState().sessions[sendKey]?.pendingSteer?.length ?? 0
+  })
   // 0119: busy 중 provider 경계를 넘는 모델이 선택돼 있으면 steer 예약을 거부한다 —
   // 진행 턴의 채널은 낡은 provider env 라 경계 너머 메시지를 실을 수 없다(Composer 게이트의
-  // main-호출 직전 이중 방어). 본래 provider 로 되돌리면 통과.
+  // main-호출 직전 이중 방어). 본래 provider 로 되돌리면 통과. 판정 입력은 **진행 중 턴**이
+  // 기준이라 0153 의 넓은 predicate 가 아니라 busy 를 그대로 쓴다(0119 의미 보존).
   if (
     steerBlockedByProviderBoundary({
       inflight: busy,
@@ -673,7 +683,7 @@ function send(
   ) {
     return false
   }
-  if (!busy) {
+  if (!queueAsPending) {
     // 턴을 여는 send — 잔여 라이브 버퍼 제거 + inflight 전이 + **낙관 커밋**(0068): 정식
     // user 버블이 즉시 서서 다음 어시스턴트 스트림이 올바른 턴 경계 아래로 흐른다. echo
     // 커밋(message.committed)은 clientId 멱등으로 화해만 한다.
@@ -686,7 +696,7 @@ function send(
       ...(attachmentViews.length > 0 ? { attachmentViews: [...attachmentViews] } : {})
     })
   } else {
-    // busy 예약(steer) — pending 항목(연회색/기울임)으로 시작, 진행 중 턴 상태는 불변.
+    // 예약(steer) — pending 항목(연회색/기울임)으로 시작, 진행 중 턴 상태는 불변.
     patchPendingSteer(sendKey, (pending) => [
       ...pending,
       { id: requestId, text: trimmed, createdAt: Date.now() }

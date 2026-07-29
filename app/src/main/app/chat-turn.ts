@@ -50,7 +50,7 @@ import { recoverSessionHistory } from '../features/chat/recovery'
 import type { InterruptReceipt, SteerFlushBatch, TurnRequest } from '../adapters/turn'
 import { TurnCoordinator } from '../features/chat/turn-coordinator'
 import { BackgroundTaskTracker } from '../features/chat/background-tasks'
-import { decidePostTurnStep } from '../features/chat/post-turn'
+import { decidePostTurnStep, postTurnHoldsSession } from '../features/chat/post-turn'
 import { reconcileInterruptReceipt } from '../features/chat/interrupt-reconcile'
 import {
   settleOpenToolRuns,
@@ -881,6 +881,11 @@ export function registerChatHandlers(deps: ChatDeps): void {
           channelBusy: runtime.channelBusy,
           hasBacklog: runtime.hasUnframedBacklog
         })
+        // 세션 점유 신호(0153 F1) — `listen` 뿐 아니라 `flush`(held 를 연속 턴으로 잇는 경로)도
+        // main 은 busy 다. 구 구조는 listen 스텝에서만 신호를 보내 renderer 가 이 구간을 idle 로
+        // 오판했고, 그 창의 send 가 낙관 커밋 경로를 타 **잔여보다 앞에** 렌더됐다(DB 는 반대 순서
+        // → 재시작 시 위치 재조정). 판정은 post-turn 의 순수 함수가 소유한다.
+        if (postTurnHoldsSession(step)) beginListenPhase(sessionId)
         if (step === 'break') {
           // 턴 체인 종료(0151 AC7) — 확정 신호가 끝내 오지 않은 예약을 orphaned 로 내린다.
           // 기능적으로는 takeForRespawn 대상 판정이 명시화될 뿐이지만, 구 구조에서 조용히
@@ -908,7 +913,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
         if (step === 'listen') {
           // listen 턴 — settle/persist/relay/usage/title 은 일반 턴과 같은 버스 파이프라인.
           // 종료 후 루프 재평가: 알림 턴이 pending 을 남겼으면 연속 턴, 태스크가 남았으면 재개.
-          beginListenPhase(sessionId)
+          // (phase 신호는 위 postTurnHoldsSession 이 이미 열었다 — 0153 F1.)
           const listenTurn = makeContinuationTurn(activeTurn)
           supervisor.startResume(sessionId, listenTurn)
           activeTurn = listenTurn
@@ -969,6 +974,9 @@ export function registerChatHandlers(deps: ChatDeps): void {
           // 같은 메서드지만 여기서는 **턴 프롬프트**라 origin 이 다르다(0151 AC1 — 확정 신호가
           // echo 가 아니라 첫 모델 출력).
           batch = pendingMessages.reserveHeld(sessionId, 'turn-open')
+          // 소유권 전이 고지(0153 F3) — 0151 AC12 는 게이트(takeSteerFlush) 경로만 덮어서, 이
+          // 연속 턴 예약분은 버블이 "취소 가능" 인 채로 남았다(눌러도 main 이 조용히 거부).
+          if (batch) sendOwnership(sessionId, batch.ids, true)
         } else {
           // 채널 사망 — respawn 이월 전체를 회수해 마지막을 본 프롬프트, 앞을 프렐류드로.
           const leftovers = pendingMessages.takeForRespawn(sessionId)

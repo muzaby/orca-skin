@@ -731,7 +731,39 @@ describe('chatStore — pending message lifecycle (0067)', () => {
     expect(useChatStore.getState().sessions.s.pendingSteer).toEqual([])
   })
 
-  it('idle 세션 send 는 낙관 커밋 — 정식 user 버블 즉시 + 이월 pending 은 그대로(0068)', () => {
+  it('idle 세션 send 는 낙관 커밋 — 정식 user 버블 즉시 + inflight 전이(0068)', () => {
+    useChatStore.setState((s) => ({
+      sessions: {
+        ...s.sessions,
+        s: { ...s.sessions.s, session: { ...s.sessions.s.session, inflight: false } }
+      }
+    }))
+
+    expect(chatActions.send('새 메시지')).toBe(true)
+
+    const st = useChatStore.getState()
+    // 턴을 여는 메시지는 즉시 정식 버블(clientId=clientRequestId).
+    expect(st.sessions.s.session.messages.map((m) => m.role)).toEqual(['user'])
+    expect(partsText(st.sessions.s.session.messages[0].parts)).toBe('새 메시지')
+    expect(st.sessions.s.session.inflight).toBe(true)
+    expect(st.sessions.s.pendingSteer ?? []).toHaveLength(0)
+    expect(chatSend).toHaveBeenCalledWith(
+      expect.objectContaining({ text: '새 메시지', clientRequestId: expect.any(String) })
+    )
+    expect(st.sessions.s.session.messages[0].clientId).toBe(
+      (chatSend.mock.calls[0][0] as { clientRequestId: string }).clientRequestId
+    )
+  })
+
+  // 0153 — 구 계약("idle send 는 잔여가 있어도 낙관 커밋, 잔여는 pending 유지")은 **0152 가 main 을
+  // 바꾼 뒤로 성립하지 않는다**. main 은 idle send 를 받으면 잔여 held 와 신규를 적재 순서대로
+  // 병합해 한 배치로 커밋한다(0152 AC2 — 사용자 확정 "병합 1버블").
+  //
+  // 구 동작이 만들던 결과는 순서 역전보다 나빴다: 병합 커밋 `ids=[a,b,requestId]` 가 도착하면
+  // chatStore 가 a·b 를 pending 에서 지운 뒤 `hasCommittedClientId(requestId)` 로 early return 해
+  // **병합 텍스트가 반영되지 않는다** → 잔여 'first'/'second' 가 라이브에서 사라지고 재시작해야
+  // 돌아온다. 예약 경로로 보내면 세 항목이 한 커밋으로 정직하게 승격된다.
+  it('idle 세션이라도 이월 잔여가 있으면 예약 경로 — 병합 커밋이 잔여를 잃지 않는다 (0153)', () => {
     useChatStore.setState((s) => ({
       sessions: {
         ...s.sessions,
@@ -748,19 +780,26 @@ describe('chatStore — pending message lifecycle (0067)', () => {
 
     expect(chatActions.send('새 메시지')).toBe(true)
 
-    const st = useChatStore.getState()
-    // 턴을 여는 메시지는 즉시 정식 버블(clientId=clientRequestId). 이월 잔여(held/CLI 큐
-    // 생존분)는 pending 유지 — echo 커밋(message.committed)이 유일한 승격 경로(0067 AC6).
-    expect(st.sessions.s.pendingSteer?.map((i) => i.text)).toEqual(['first', 'second'])
+    const sent = chatSend.mock.calls[0][0] as { clientRequestId: string }
+    let st = useChatStore.getState()
+    // 낙관 커밋 없음 — 순서를 정하는 권위는 main 이다.
+    expect(st.sessions.s.session.messages).toHaveLength(0)
+    expect(st.sessions.s.session.inflight).toBe(false)
+    expect(st.sessions.s.pendingSteer?.map((i) => i.text)).toEqual(['first', 'second', '새 메시지'])
+
+    // main 의 병합 배치 커밋 — 적재 순서 그대로 한 버블로 승격되고 pending 은 비워진다.
+    ingestChatEvent({
+      type: 'message.committed',
+      sessionId: 's',
+      ids: ['a', 'b', sent.clientRequestId],
+      text: 'first\n\nsecond\n\n새 메시지',
+      messageId: 11,
+      createdAt: 5
+    })
+    st = useChatStore.getState()
+    expect(st.sessions.s.pendingSteer ?? []).toHaveLength(0)
     expect(st.sessions.s.session.messages.map((m) => m.role)).toEqual(['user'])
-    expect(partsText(st.sessions.s.session.messages[0].parts)).toBe('새 메시지')
-    expect(st.sessions.s.session.inflight).toBe(true)
-    expect(chatSend).toHaveBeenCalledWith(
-      expect.objectContaining({ text: '새 메시지', clientRequestId: expect.any(String) })
-    )
-    expect(st.sessions.s.session.messages[0].clientId).toBe(
-      (chatSend.mock.calls[0][0] as { clientRequestId: string }).clientRequestId
-    )
+    expect(partsText(st.sessions.s.session.messages[0].parts)).toBe('first\n\nsecond\n\n새 메시지')
   })
 
   it('낙관 커밋 뒤 도착한 message.queued/committed 는 멱등 — 이중 버블·pending 없음(0068)', () => {
