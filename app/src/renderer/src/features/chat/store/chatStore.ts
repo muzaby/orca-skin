@@ -656,7 +656,10 @@ function send(
     return true
   }
 
-  const sendKey = getState().activeKey
+  // 스냅샷은 1회만 읽는다 — sendKey 와 pendingCount 가 서로 다른 시점의 store 를 보면
+  // "다른 세션의 잔여 수" 로 예약 판정이 갈릴 수 있다.
+  const snapshot = getState()
+  const sendKey = snapshot.activeKey
   const requestId = crypto.randomUUID()
   // 0143: listen 대기(listening) 중에도 main 세션은 busy(턴-후 루프 진행 중) — steer 예약
   // 경로로 보내야 낙관 커밋 vs message.queued 이중 렌더가 없다(main 은 held 로 수용 후
@@ -668,7 +671,7 @@ function send(
   const queueAsPending = shouldQueueAsPending({
     inflight: cur.inflight,
     listening: cur.listening,
-    pendingCount: getState().sessions[sendKey]?.pendingSteer?.length ?? 0
+    pendingCount: snapshot.sessions[sendKey]?.pendingSteer?.length ?? 0
   })
   // 0119: busy 중 provider 경계를 넘는 모델이 선택돼 있으면 steer 예약을 거부한다 —
   // 진행 턴의 채널은 낡은 provider env 라 경계 너머 메시지를 실을 수 없다(Composer 게이트의
@@ -1280,17 +1283,17 @@ export function useLiveText(): string {
 // ProjectLandingPage 는 inflight 만 봤다). 0149: busy 정의를 스토어가 단독 소유한다 — 다음
 // busy 하위 상태(압축 대기·승인 대기 등)가 생겨도 여기 한 곳만 고치면 된다.
 // listening 자체는 PendingAssistant 의 경과시간 앵커 전용으로만 직접 읽는다.
-// 중단 잔여 수(0151 r2) — >0 이면 컴포저가 "세션 전체 중단" 을 제시한다.
-export function useChatResidualSteer(): number {
-  return useChatStore((s) => s.sessions[s.activeKey]?.residualSteer ?? 0)
-}
-
 export function useChatBusy(): boolean {
   return useChatSession(sessionBusy)
 }
 
 export function sessionBusy(s: Pick<ChatState, 'inflight' | 'listening'>): boolean {
   return s.inflight || s.listening
+}
+
+// 중단 잔여 수(0151 r2) — >0 이면 컴포저가 "세션 전체 중단" 을 제시한다.
+export function useChatResidualSteer(): number {
+  return useChatStore((s) => s.sessions[s.activeKey]?.residualSteer ?? 0)
 }
 
 export function usePendingSteer(): PendingSteerState[] {

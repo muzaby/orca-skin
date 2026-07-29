@@ -276,14 +276,7 @@ export class PendingMessageQueue {
   // 확정 배치를 **배치 단위로** drain — 각 배치가 자기 user row/버블로 커밋된다(0067: 턴
   // 프롬프트·프렐류드는 아이템 단위 배치라 병합하면 버블 구조가 깨진다). 미확정분은 남긴다.
   drainConfirmed(sessionId: string): SteerFlushBatch[] {
-    const batches = this.trackedBySession.get(sessionId)
-    if (!batches) return []
-    const confirmed = batches.filter((b) => b.state === 'confirmed')
-    if (confirmed.length === 0) return []
-    const remaining = batches.filter((b) => b.state !== 'confirmed')
-    if (remaining.length === 0) this.trackedBySession.delete(sessionId)
-    else this.trackedBySession.set(sessionId, remaining)
-    return confirmed.map(toPublic)
+    return this.remove(sessionId, (b) => b.state === 'confirmed')
   }
 
   // 턴 체인 종료 시점(AC7) — 확정 신호가 오지 않은 예약을 orphaned 로 내린다. **표시일 뿐 폐기가
@@ -316,6 +309,12 @@ export class PendingMessageQueue {
   discardSubmitted(sessionId: string, uuids: readonly string[]): SteerFlushBatch[] {
     const target = new Set(uuids)
     return this.remove(sessionId, (b) => b.state === 'submitted' && target.has(b.uuid))
+  }
+
+  // "CLI 에 넘겨놓고 확정 신호를 기다리는 중" 인 예약이 있는가(0154 턴-후 유예 판정). 존재 여부만
+  // 묻는 자리는 이 술어를 쓴다 — submittedUuids().length 는 uuid 배열을 만들어 길이만 보고 버린다.
+  hasSubmitted(sessionId: string): boolean {
+    return (this.trackedBySession.get(sessionId) ?? []).some((b) => b.state === 'submitted')
   }
 
   // interrupt 영수증의 still_queued 와 대조할 **우리 uuid** 집합(AC11). 영수증에는 클라이언트가
@@ -366,9 +365,13 @@ export class PendingMessageQueue {
     this.heldBySession.delete(sessionId)
   }
 
-  // 프로그램 종료 최종 폐기 — 전 세션 스크럽 후 맵을 비운다.
+  // 프로그램 종료 최종 폐기 — 전 세션 스크럽 후 맵을 비운다. 두 맵에 동시에 있는 세션이 흔하므로
+  // 키를 Set 으로 합쳐 세션당 dispose 를 1회만 태운다.
   disposeAll(): void {
-    for (const sessionId of [...this.heldBySession.keys(), ...this.trackedBySession.keys()]) {
+    for (const sessionId of new Set([
+      ...this.heldBySession.keys(),
+      ...this.trackedBySession.keys()
+    ])) {
       this.dispose(sessionId)
     }
   }

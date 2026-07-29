@@ -184,6 +184,19 @@ function buildTurnEnv(ctx: RouterContext): Record<string, string> | undefined {
   return mergeEnvLayers(undefined, expanded)
 }
 
+// 소유권 표시(0151 AC12) 발신 단일 지점 — held(취소 가능) ↔ submitted(전달됨, 취소 불가) 전이를
+// renderer 에 알린다. 버스 미경유 직행(message.queued 동렬 — 미영속 UI 상태). 턴 핸들러(활성 턴의
+// wc)와 steerCancel 핸들러(event.sender)가 서로 다른 WebContents 를 쓰므로 인자로 받는다.
+function sendSubmitted(
+  wc: WebContents,
+  sessionId: string,
+  ids: string[],
+  submitted: boolean
+): void {
+  if (ids.length === 0) return
+  sendChatEvent(wc, { type: 'message.submitted', sessionId, ids, submitted })
+}
+
 // 0067 AC10: AdmissionController(0056 framework) 폐기 — busy 세션 send 는 reject 가 아니라
 // pending queue 예약(held)이 정답이 됐다. 유일하게 남은 가드는 새-채팅 슬롯의 중복 send race
 // 뿐이라 핸들러 서두에 인라인한다.
@@ -218,7 +231,8 @@ export function registerChatHandlers(deps: ChatDeps): void {
   const listenRelease = new Map<string, () => void>()
   // 중단 잔여(0151 r2) — Stop 영수증의 still_queued 중 **우리 예약**과 교집합인 uuid 목록.
   // "세션 전체 중단" 을 사용자가 고르면 이 목록의 예약을 폐기 대상으로 삼는다. 세션 키별 1건이며
-  // 새 턴 시작·폐기 실행 시 해제된다. 메모리 전용(비영속 — pending 정책 동일).
+  // 해제 지점은 둘 — ① 이후 중단 영수증이 clear(우리 잔여 없음) ② chatDiscardSession 실행.
+  // 메모리 전용(비영속 — pending 정책 동일).
   const residualBySession = new Map<string, string[]>()
 
   // 0067: 장수명 세션 채널이 기본 — 게이트 env(ORCA_PERSISTENT_RUNTIME) 폐기(사용자 확정
@@ -759,11 +773,10 @@ export function registerChatHandlers(deps: ChatDeps): void {
       void permissionModes.setMode(parsed.data.sessionId, parsed.data.permissionMode)
     }
 
-    // 소유권 표시(0151 AC12) — held(취소 가능) ↔ submitted(전달됨, 취소 불가) 전이를 renderer 에
-    // 알린다. 버스 미경유 직행(message.queued 동렬 — 미영속 UI 상태).
+    // 소유권 표시(0151 AC12) — 이 턴의 wc 를 묶어 세 예약 경로(게이트 flush·롤백·연속 턴)가
+    // 같은 인자로 부르게 한다. 발신 규칙 정본은 모듈 상단 sendSubmitted.
     const sendOwnership = (sessionId: string, ids: string[], submitted: boolean): void => {
-      if (ids.length === 0) return
-      sendChatEvent(wc, { type: 'message.submitted', sessionId, ids, submitted })
+      sendSubmitted(wc, sessionId, ids, submitted)
     }
 
     // 중단 영수증 화해(0151 AC11) — still_queued 에는 우리가 보낸 적 없는 내부 uuid(cron 트리거·
@@ -876,7 +889,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
         // 다음 스텝 판정(순수, 0143) — pushTurn 은 "CLI 유휴 + 백로그 없음" 채널에서만(버그 a).
         // 미확정 예약(0154) — pending() 은 held 만 반환하므로 "CLI 에 넘겨놓고 echo 를 기다리는
         // 중" 이라는 상태는 별도로 읽어야 한다. 이 입력이 없어서 턴 체인이 그 상태를 못 보고 끊겼다.
-        const haveUnconfirmed = pendingMessages.submittedUuids(sessionId).length > 0
+        const haveUnconfirmed = pendingMessages.hasSubmitted(sessionId)
         const step = decidePostTurnStep({
           havePending: pendingMessages.pending(sessionId).length > 0,
           haveTasks: backgroundTasks.hasAny(sessionId),
@@ -885,10 +898,6 @@ export function registerChatHandlers(deps: ChatDeps): void {
           hasBacklog: runtime.hasUnframedBacklog,
           haveUnconfirmed
         })
-        // 유예를 1라운드로 묶는다(0154) — listen 을 여는 김에 미확정 예약을 orphaned 로 강등한다.
-        // 강등해도 늦은 echo 는 여전히 확정할 수 있고(confirm 의 open 술어가 orphaned 포함),
-        // haveUnconfirmed 는 submitted 만 세므로 다음 평가에서 break 에 정상 도달한다(무한 대기 방지).
-        if (step === 'listen' && haveUnconfirmed) pendingMessages.orphanUnconfirmed(sessionId)
         // 세션 점유 신호(0153 F1) — `listen` 뿐 아니라 `flush`(held 를 연속 턴으로 잇는 경로)도
         // main 은 busy 다. 구 구조는 listen 스텝에서만 신호를 보내 renderer 가 이 구간을 idle 로
         // 오판했고, 그 창의 send 가 낙관 커밋 경로를 타 **잔여보다 앞에** 렌더됐다(DB 는 반대 순서
@@ -917,6 +926,10 @@ export function registerChatHandlers(deps: ChatDeps): void {
           break
         }
         if (step === 'listen') {
+          // 유예를 1라운드로 묶는다(0154) — listen 을 여는 김에 미확정 예약을 orphaned 로 강등한다.
+          // 강등해도 늦은 echo 는 여전히 확정할 수 있고(confirm 의 open 술어가 orphaned 포함),
+          // haveUnconfirmed 는 submitted 만 세므로 다음 평가에서 break 에 정상 도달한다(무한 대기 방지).
+          if (haveUnconfirmed) pendingMessages.orphanUnconfirmed(sessionId)
           // listen 턴 — settle/persist/relay/usage/title 은 일반 턴과 같은 버스 파이프라인.
           // 종료 후 루프 재평가: 알림 턴이 pending 을 남겼으면 연속 턴, 태스크가 남았으면 재개.
           // (phase 신호는 위 postTurnHoldsSession 이 이미 열었다 — 0153 F1.)
@@ -1067,12 +1080,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
       // 0151 AC12 — 거부를 침묵하지 않는다. 예약된 항목은 이미 소유권이 넘어갔으므로 그 사실을
       // 돌려줘 renderer 가 버블을 "전달됨"(취소 버튼 없음)으로 재동기화한다. 구 구현은 무이벤트
       // 반환이라, 사용자가 취소를 눌러도 화면에 아무 변화가 없었다.
-      sendChatEvent(event.sender, {
-        type: 'message.submitted',
-        sessionId: req.sessionId,
-        ids: [req.id],
-        submitted: true
-      })
+      sendSubmitted(event.sender, req.sessionId, [req.id], true)
       return
     }
     sendChatEvent(event.sender, {

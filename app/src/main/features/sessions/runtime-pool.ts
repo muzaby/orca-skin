@@ -71,7 +71,7 @@ export class RuntimePool<RT extends ManagedRuntime = ManagedRuntime> {
     return Array.from(this.idle.entries(), ([sessionId, runtime]) => ({ sessionId, runtime }))
   }
 
-  // 모든 idle close 경로(prev 교체·closeAll·LRU eviction)의 단일 멱등 helper.
+  // 모든 idle close 경로(prev 교체·closeAll·LRU eviction·사용자 의도 폐기 close)의 단일 멱등 helper.
   // Map 선제거 후 close 하므로 경합 시 두 번째 호출은 no-op.
   private closeEntry(sessionId: string): boolean {
     const runtime = this.idle.get(sessionId)
