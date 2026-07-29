@@ -97,7 +97,7 @@
 | 채널                | 방향         | 페이로드                              | 응답       | 설명                                     |
 | ------------------- | ------------ | ------------------------------------- | ---------- | ---------------------------------------- |
 | `orca:settings:get` | R→M (invoke) | —                                     | `Settings` | electron-store 의 전체 설정 객체.        |
-| `orca:settings:set` | R→M (invoke) | `SettingsPatch` = `Omit<Partial<Settings>, 'scheduler'> & { scheduler?: { usageRecompute?: Partial<…> } }` (scheduler 는 중첩 partial) | `Settings` | 부분 패치 후 병합·검증된 전체 객체 반환. |
+| `orca:settings:set` | R→M (invoke) | `SettingsPatch` = `Omit<Partial<Settings>, 'scheduler'> & { scheduler?: { usageRecompute?: Partial<…>; updateCheck?: Partial<…> } }` (scheduler 는 그룹별 중첩 partial — 한 그룹만 보내도 형제 그룹은 보존) | `Settings` | 부분 패치 후 병합·검증된 전체 객체 반환. |
 
 `Settings` 타입 (`app/src/shared/ipc.ts`):
 
@@ -120,7 +120,10 @@ interface Settings {
   appFont: "sans" | "serif" | "mono"; // 앱 전체 폰트 (설정 모달). --font-app 에 매핑. default 'sans'
   notifyOnComplete: boolean; // 응답완료 알림 토글. on ⇒ 턴 완료 시(창 비활성 한정) OS 알림. default false
   spendingLimitUsd: number | null; // 월간 지출 한도(USD) — 사용량 한도 바의 기준. null=무제한. default 90 (0079)
-  scheduler: { usageRecompute: { enabled: boolean; cron: string } }; // 주기 실행 설정 — 사용량 recompute job (0091). default enabled=false
+  scheduler: {
+    usageRecompute: { enabled: boolean; cron: string }; // 사용량 recompute job (0091). default enabled=false
+    updateCheck: { enabled: boolean; intervalHours: 1 | 6 | 12 | 24 }; // 자동 업데이트 확인 주기 (0156) — 앱 시작 시각 anchor 간격. default { true, 6 }. 앱 시작 시 1회 확인은 이 설정과 무관하게 항상 수행
+  };
 }
 ```
 

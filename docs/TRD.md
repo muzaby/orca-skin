@@ -51,7 +51,7 @@ PRD §6.1 의 F1~F10 을 *수용 기준* 으로 구체화한다.
 |---|---|---|---|---|
 | F11 | **자동 업데이트** | `app/updater.ts`(UpdateController) + `features/update/` | electron-updater — 시작 시 1회 체크, `autoDownload=false`(다운로드·설치 = 사용자 명시 액션), 재시작 게이트(`shared/update-restart.ts`), update 6채널 브로드캐스트 | 0084~0086 |
 | F12 | **사용량 한도** | `features/usage`(main) + UsagePanel·설정 탭(renderer) | 월간 `spendingLimitUsd` + provider별 한도(`provider_limits`), 실사용 SSOT 에서 `computeUsageLimits` 파생, 도넛 팝오버 = 컨텍스트바+주간/월간 한도 바 | 0079~0082 |
-| F13 | **주기 실행 (스케줄러)** | `features/scheduler/`(croner) | job 등록·겹침 방지·`schedule_runs` 이력. 첫 소비처 = 주기 사용량 recompute(설정 `scheduler.usageRecompute`) | 0091 |
+| F13 | **주기 실행 (스케줄러)** | `features/scheduler/`(croner + interval) | job 등록·겹침 방지·`schedule_runs` 이력. 스펙 2종 — cron(벽시계 정렬) / `intervalMs`(schedule 시각 anchor, 0156). 소비처 = 주기 사용량 recompute(`scheduler.usageRecompute`, cron) · 자동 업데이트 확인(`scheduler.updateCheck`, interval) | 0091, 0156 |
 | F14 | **번들 스킬 시딩** | `features/extensions/skills/seed.ts` + `builtin-resources.ts` | 부팅 1회 번들 스킬 → `sources/skills` 시딩, manifest/marker 버전 게이트로 사용자 수정 보호 | 0078 |
 | F15 | **CI/CD 릴리스** | `.github/workflows/{ci,release}.yml` + `scripts/validate-*` | main push 게이트 + `v*` 태그 → unsigned NSIS → GitHub Releases draft(수동 Publish). §9 참조 | 0087~0089 |
 
@@ -336,7 +336,7 @@ interface ChatState {
 | `appFont` | `'sans' \| 'serif' \| 'mono'` | 앱 전체 폰트 |
 | `notifyOnComplete` | `boolean` | 턴 완료 시 OS 알림 (창 비활성 한정) |
 | `spendingLimitUsd` | `number \| null` | 월간 지출 한도(USD) — null=무제한, 기본 90 (0079) |
-| `scheduler` | `{ usageRecompute: { enabled; cron } }` | 주기 실행 설정 (0091) |
+| `scheduler` | `{ usageRecompute: { enabled; cron }; updateCheck: { enabled; intervalHours: 1\|6\|12\|24 } }` | 주기 실행 설정 (0091). `updateCheck` = 자동 업데이트 확인 주기 (0156) — 기본 `{ true, 6 }`, 앱 시작 시각 anchor 간격. 시작 시 1회 확인은 이 설정과 무관하게 항상 수행 |
 
 ---
 

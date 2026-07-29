@@ -725,7 +725,18 @@ export const en: typeof ko = {
       notifyComplete: 'Response complete',
       notifyCompleteDesc:
         'Get notified when the agent completes a response. (Shown only while the app window is inactive)',
-      notifyCompleteToggle: 'Response complete notification'
+      notifyCompleteToggle: 'Response complete notification',
+      updates: 'Updates',
+      updateAuto: 'Automatic check',
+      updateAutoDesc:
+        'Periodically check for new versions while the app is running. (The check on app start always runs)',
+      updateAutoToggle: 'Automatic update check',
+      updateInterval: 'Check interval',
+      updateIntervalDesc: 'Checks run at this interval, measured from when the app started.',
+      updateInterval1h: 'Every hour',
+      updateInterval6h: 'Every 6 hours',
+      updateInterval12h: 'Every 12 hours',
+      updateInterval24h: 'Every 24 hours'
     },
     usage: {
       title: 'Usage summary',

@@ -232,6 +232,12 @@ export class Bootstrap {
     scheduler.register('usage-recompute', () => {
       cost.recordAndBroadcast()
     })
+    // 주기 업데이트 확인(0156). this.updates 는 아직 null 이지만 액션은 *발화 시점* 에 평가되고
+    // 첫 발화는 최소 1시간 뒤라 ctx 조립(createUpdateController)을 기다린다 — 등록을 뒤로 미루면
+    // 아래 applySettings 가 미등록 key 로 throw 하므로 순서를 바꾸지 말 것.
+    scheduler.register('update-check', async () => {
+      await this.updates?.check(true)
+    })
     try {
       scheduler.applySettings(this.settings.getAll().scheduler)
     } catch (e) {

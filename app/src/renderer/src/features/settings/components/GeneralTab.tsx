@@ -8,6 +8,8 @@ import { AutoGrowTextarea } from '../../../shared/ui/AutoGrowTextarea'
 import { useI18n, type UiLocale } from '../../../shared/i18n'
 import type { ThemeId, DensityId } from '../../../shared/config/theme'
 import type { AppFontId } from '../../../shared/hooks/useTweaks'
+import type { UpdateCheckIntervalHours } from '../../../../../shared/ipc'
+import { useUpdateCheckSetting } from '../hooks/useUpdateCheckSetting'
 import { SettingsGroup, SettingsRow } from './parts'
 
 // 옵션 라벨은 언어 전환 시 stale 해지지 않도록 모듈 상수에 키만 두고 컴포넌트 안에서 t() 해석.
@@ -35,12 +37,25 @@ const LOCALE_OPTIONS: { value: UiLocale; label: string }[] = [
   { value: 'en', label: 'English' }
 ]
 
-// 설정 모달 '일반' 탭 — 프로필(계정 지침) / 환경설정(모양·폰트·언어) / 알림(응답완료).
-// theme·appFont·uiLocale·notifyOnComplete 는 Tweak 컨텍스트(영속 자동), accountInstructions 는
-// 대용량 텍스트라 컨텍스트에 두지 않고 이 탭이 settingsApi 로 직접 로드/저장한다.
+// 값 목록의 SSOT 는 shared 의 UPDATE_CHECK_INTERVAL_HOURS (zod 스키마와 같은 목록). 여기선
+// 그 값에 라벨 키만 붙인다 — 목록이 어긋나면 satisfies 로 타입 에러가 난다.
+const UPDATE_INTERVAL_OPTIONS = [
+  { value: 1, labelKey: 'settings.general.updateInterval1h' },
+  { value: 6, labelKey: 'settings.general.updateInterval6h' },
+  { value: 12, labelKey: 'settings.general.updateInterval12h' },
+  { value: 24, labelKey: 'settings.general.updateInterval24h' }
+] as const satisfies readonly { value: UpdateCheckIntervalHours; labelKey: string }[]
+
+// 설정 모달 '일반' 탭 — 프로필(계정 지침) / 환경설정(모양·폰트·언어) / 알림(응답완료) /
+// 업데이트(자동 확인 주기).
+// theme·appFont·uiLocale·notifyOnComplete 는 Tweak 컨텍스트(영속 자동). accountInstructions 는
+// 대용량 텍스트라, scheduler.updateCheck 는 중첩 키라 컨텍스트에 두지 않고 settingsApi 로 직접
+// 로드/저장한다(useTweaks 의 flat 패치로는 중첩 키를 표현할 수 없다).
 export function GeneralTab(): React.JSX.Element {
   const { t, setTweak } = useTweakContext()
   const { tr } = useI18n()
+  // 자동 업데이트 확인 주기 — 중첩 설정이라 Tweaks 가 아니라 전용 훅으로 바인딩(0156).
+  const [updateCheck, setUpdateCheck] = useUpdateCheckSetting()
 
   // 계정 지침 — 저장값(saved) vs 편집 중(draft). draft≠saved 면 저장 버튼 노출.
   const [saved, setSaved] = useState('')
@@ -180,6 +195,39 @@ export function GeneralTab(): React.JSX.Element {
             onClick={() => setTweak('notifyOnComplete', !t.notifyOnComplete)}
             label={tr('settings.general.notifyCompleteToggle')}
           />
+        </SettingsRow>
+      </SettingsGroup>
+
+      <SettingsGroup title={tr('settings.general.updates')}>
+        <SettingsRow
+          label={tr('settings.general.updateAuto')}
+          description={tr('settings.general.updateAutoDesc')}
+        >
+          <Toggle
+            on={updateCheck.enabled}
+            onClick={() => setUpdateCheck({ enabled: !updateCheck.enabled })}
+            label={tr('settings.general.updateAutoToggle')}
+          />
+        </SettingsRow>
+
+        <SettingsRow
+          label={tr('settings.general.updateInterval')}
+          description={tr('settings.general.updateIntervalDesc')}
+        >
+          <select
+            value={updateCheck.intervalHours}
+            disabled={!updateCheck.enabled}
+            onChange={(e) =>
+              setUpdateCheck({ intervalHours: Number(e.target.value) as UpdateCheckIntervalHours })
+            }
+            className="cursor-pointer rounded-r4 border border-border bg-bg px-2.5 py-1.5 text-[12.5px] text-ink outline-none focus:border-border-strong disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {UPDATE_INTERVAL_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {tr(opt.labelKey)}
+              </option>
+            ))}
+          </select>
         </SettingsRow>
       </SettingsGroup>
     </div>

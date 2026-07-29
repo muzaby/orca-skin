@@ -243,8 +243,8 @@ scheduler.register('update-check', async () => {
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | [검증 턴 기입] |
-| 실행 명령 | `npm run lint` / `npm run typecheck` / `vitest run <영향 스위트>` |
-| 게이트 결과 | [검증 턴 기입] |
+| 변경 파일 | main 5 (`features/scheduler/{types,scheduler}.ts` · `infra/settings-store.ts` · `app/bootstrap.ts` · `app/updater.ts`) · shared 2 (`ipc.ts` · `protocol.ts`) · renderer 4 (`features/settings/hooks/useUpdateCheckSetting.ts` 신규 · `features/settings/components/GeneralTab.tsx` · `shared/i18n/resources/{ko,en}.ts`) · 테스트 2 (`scheduler.test.ts` · `settings-store.test.ts`) · 문서 2 (`TRD.md` · `IPC_CONTRACT.md`) |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` · `node --test scripts/*.test.mjs` |
+| 게이트 결과 | lint ✅ 0 error (warning 1 = 0102 `useVirtualizer` 베이스라인) / typecheck ✅ 3분할 0 error / vitest ✅ **149 files · 1249 tests 전부 pass** / scripts ✅ 28/28. better-sqlite3 는 `npm rebuild better-sqlite3`(Node ABI) + electron 바이너리 설치로 DB 스위트까지 실기 green — 베이스라인 예외 미사용 |
 | 블로커 / 역질문 | 없음 |
-| 대상 커밋 | [검증 턴 기입] |
+| 대상 커밋 | (구현 커밋 — verify.md 에 기재) |
