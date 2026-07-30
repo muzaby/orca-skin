@@ -9,6 +9,7 @@ function skill(name: string, sourceKind: SkillInfo['sourceKind']): SkillInfo {
     sourceId: sourceKind === 'orca' ? 'orca' : `${sourceKind}:claude`,
     sourceLabel: '',
     sourceKind,
+    isBuiltin: sourceKind === 'orca',
     enabled: true,
     canToggle: sourceKind === 'orca',
     canRemove: sourceKind === 'orca',

@@ -53,8 +53,8 @@ export const en: typeof ko = {
     projectsBreadcrumb: 'Projects',
     engine: '03 Engine & Models',
     engineBreadcrumb: 'Settings · Engine & Models',
-    skills: '04 Skills / MCP',
-    skillsBreadcrumb: 'Settings · Skills & MCP',
+    skills: '04 Skills & Extensions',
+    skillsBreadcrumb: 'Settings · Skills & Extensions',
     captures: '05 Capture History',
     capturesBreadcrumb: 'Capture History'
   },
@@ -84,8 +84,9 @@ export const en: typeof ko = {
     body: 'Coming soon. Capture RAW retention, per-channel metrics, automated ColorChecker / SFR / \u0394E analysis, and Claude analysis comments arrive in a later phase.'
   },
   skills: {
+    modalTitle: 'Skills & Extensions',
     listTitle: 'Skills',
-    rail: { skills: 'Skills', mcp: 'MCP' },
+    rail: { skills: 'Skills', connectors: 'Connectors', plugins: 'Plugins' },
     landing: {
       title: 'Customize',
       subtitle: 'Skills and MCP shape how Orca works with you.',
@@ -102,7 +103,23 @@ export const en: typeof ko = {
       activeMcp: 'Active MCP',
       inactiveMcp: 'Inactive MCP'
     },
-    view: { selectItem: 'Select an item.' },
+    view: {
+      selectItem: 'Select an item.',
+      backAria: 'Back to {{section}}'
+    },
+    table: {
+      skill: 'Skill',
+      plugin: 'Plugin',
+      connector: 'Connector',
+      lastUpdated: 'Last updated',
+      author: 'Author',
+      status: 'Status',
+      transport: 'Transport',
+      user: 'User',
+      noSkills: 'No skills are installed.',
+      noPlugins: 'No plugins are installed.',
+      noConnectors: 'No connectors are configured.'
+    },
     detail: {
       toggleAria: 'Enable {{name}}',
       tryInChat: 'Try in chat',
@@ -669,7 +686,7 @@ export const en: typeof ko = {
       newChat: 'New chat',
       projects: 'Projects',
       engine: 'Engine & Models',
-      skills: 'Skills & MCP'
+      skills: 'Skills & Extensions'
     },
     recents: 'Recents',
     pinned: 'Pinned',

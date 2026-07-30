@@ -25,6 +25,11 @@ describe('scanSkills', () => {
     const orca = join(root, 'orca')
     const adapter = join(root, 'adapter')
     skill(orca, 'alpha', '---\nname: alpha\ndescription: A\nargument-hint: <file>\n---\nbody')
+    writeFileSync(
+      join(orca, '.orca-builtin.json'),
+      JSON.stringify({ version: '1.0.0', skills: ['alpha'] }),
+      'utf8'
+    )
     skill(adapter, 'beta', '---\nname: beta\ndescription: B\n---\ntext')
 
     const result = await scanSkills(
@@ -49,6 +54,7 @@ describe('scanSkills', () => {
           enabled: false,
           canToggle: true,
           sourceKind: 'orca',
+          isBuiltin: true,
           argumentHint: '<file>'
         }),
         expect.objectContaining({
@@ -57,9 +63,22 @@ describe('scanSkills', () => {
           sourceLabel: '어댑터 스킬',
           enabled: true,
           canToggle: false,
-          sourceKind: 'adapter'
+          sourceKind: 'adapter',
+          isBuiltin: false
         })
       ])
     )
+  })
+
+  it('손상된 builtin marker 는 사용자 스킬 분류로 안전하게 폴백한다', async () => {
+    const orca = join(root, 'orca')
+    skill(orca, 'custom', '---\nname: custom\n---\nbody')
+    writeFileSync(join(orca, '.orca-builtin.json'), '{broken', 'utf8')
+
+    const [result] = await scanSkills([
+      { sourceId: 'orca', sourceLabel: 'Orca 스킬', sourceKind: 'orca', rootDir: orca }
+    ])
+
+    expect(result).toEqual(expect.objectContaining({ name: 'custom', isBuiltin: false }))
   })
 })

@@ -5,6 +5,7 @@
 import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
 import type { SkillInfo } from '../../../../shared/ipc'
+import { isRecord } from '../../../../shared/obj'
 
 export interface SkillScanRoot {
   sourceId: string
@@ -45,6 +46,19 @@ function bodyWithoutFrontmatter(text: string): string {
   return text.replace(/^---\s*\r?\n[\s\S]*?\r?\n---\s*/, '').trim()
 }
 
+async function readBuiltinSkillDirs(root: SkillScanRoot): Promise<ReadonlySet<string>> {
+  if (root.sourceKind !== 'orca') return new Set()
+  const text = await fs.readFile(join(root.rootDir, '.orca-builtin.json'), 'utf8').catch(() => null)
+  if (text === null) return new Set()
+  try {
+    const parsed: unknown = JSON.parse(text)
+    if (!isRecord(parsed) || !Array.isArray(parsed.skills)) return new Set()
+    return new Set(parsed.skills.filter((name): name is string => typeof name === 'string'))
+  } catch {
+    return new Set()
+  }
+}
+
 export function skillEnabledKey(sourceId: string, name: string): string {
   return `${sourceId}/${name}`
 }
@@ -56,7 +70,10 @@ async function scanRoot(
   root: SkillScanRoot,
   enabled: Record<string, boolean>
 ): Promise<SkillInfo[]> {
-  const entries = await fs.readdir(root.rootDir, { withFileTypes: true }).catch(() => [])
+  const [entries, builtinSkillDirs] = await Promise.all([
+    fs.readdir(root.rootDir, { withFileTypes: true }).catch(() => []),
+    readBuiltinSkillDirs(root)
+  ])
   const skills = await Promise.all(
     entries
       .filter((dir) => dir.isDirectory())
@@ -82,6 +99,7 @@ async function scanRoot(
               : true,
           body: bodyWithoutFrontmatter(text),
           sourceKind: root.sourceKind,
+          isBuiltin: builtinSkillDirs.has(dir.name),
           canToggle: root.sourceKind === 'orca',
           canRemove: root.sourceKind === 'orca',
           skillPath,

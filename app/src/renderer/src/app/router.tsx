@@ -15,6 +15,7 @@ import { BootRedirector } from './BootRedirector'
 // - `/chat/:sessionId` : ChatPage (useParams 로 sessionId 획득 → useChatRouteSync 가 로드)
 // - `/projects` : 프로젝트 목록
 // - `/projects/:projectId` : ProjectLandingPage
+// - `/skills`   : 기존 딥링크 호환 — 카탈로그 모달을 열고 `/new` 로 replace
 // - 그 외       : `/new` 로 fallback
 export function AppRouter(): React.JSX.Element {
   return (

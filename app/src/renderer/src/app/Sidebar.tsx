@@ -26,13 +26,13 @@ const NAV = [
   {
     i: 'layers',
     l: 'sidebar.nav.skills',
-    path: '/skills',
-    isActive: (p: string) => p.startsWith('/skills')
+    path: null,
+    isActive: () => false
   }
 ] as const satisfies readonly {
   i: IconName
   l: string
-  path: string
+  path: string | null
   isActive: (pathname: string) => boolean
 }[]
 
@@ -52,6 +52,9 @@ export interface SidebarProps {
   sessionsSlot: ReactNode
   // footer 슬롯 — features/backend 의 BackendStatus.
   footerSlot: ReactNode
+  // 스킬·커넥터·플러그인 카탈로그는 route 화면이 아니라 현재 화면 위 모달로 연다.
+  extensionsOpen: boolean
+  onOpenExtensions: () => void
 }
 
 // 앱 셸의 sidebar 골격. router pathname + TweakContext 를 자체 구독해 collapse /
@@ -61,7 +64,13 @@ export interface SidebarProps {
 // 설정값 (SIDEBAR_*) 과 적용 (setTweak('sidebarWidth', n)) 만 책임진다.
 // React.memo: slot ReactNode 가 부모에서 안정적으로 전달되는 한 router/TweakContext
 // 변경 시에만 리렌더 (FRONTEND_ARCHITECTURE §3.A).
-function SidebarImpl({ pinnedSlot, sessionsSlot, footerSlot }: SidebarProps): React.JSX.Element {
+function SidebarImpl({
+  pinnedSlot,
+  sessionsSlot,
+  footerSlot,
+  extensionsOpen,
+  onOpenExtensions
+}: SidebarProps): React.JSX.Element {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const { t, setTweak } = useTweakContext()
@@ -104,11 +113,11 @@ function SidebarImpl({ pinnedSlot, sessionsSlot, footerSlot }: SidebarProps): Re
         </div>
         <nav className="app-frame-sidebar-nav flex flex-col px-1.5 py-1">
           {NAV.map((it) => {
-            const isActive = it.isActive(pathname)
+            const isActive = it.path === null ? extensionsOpen : it.isActive(pathname)
             return (
               <button
-                key={it.path}
-                onClick={() => navigate(it.path)}
+                key={it.path ?? 'extensions'}
+                onClick={() => (it.path === null ? onOpenExtensions() : navigate(it.path))}
                 aria-label={tr(it.l)}
                 aria-current={isActive ? 'page' : undefined}
                 className={`flex items-center justify-center rounded-r4 border-0 px-2.5 py-1.5 outline-none hide-focus-ring ring-focus transition-colors ${
@@ -147,12 +156,12 @@ function SidebarImpl({ pinnedSlot, sessionsSlot, footerSlot }: SidebarProps): Re
 
           <nav className="app-frame-sidebar-nav px-1.5 py-1">
             {NAV.map((it) => {
-              const isActive = it.isActive(pathname)
+              const isActive = it.path === null ? extensionsOpen : it.isActive(pathname)
               return (
                 <button
-                  key={it.path}
+                  key={it.path ?? 'extensions'}
                   type="button"
-                  onClick={() => navigate(it.path)}
+                  onClick={() => (it.path === null ? onOpenExtensions() : navigate(it.path))}
                   aria-current={isActive ? 'page' : undefined}
                   className={`flex w-full items-center gap-g4 rounded-r4 border-0 px-2.5 py-1.5 text-left text-footnote outline-none hide-focus-ring ring-focus transition-colors ${
                     isActive

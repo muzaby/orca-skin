@@ -152,7 +152,7 @@ export function SkillDetail({
       <div className="mt-4 grid grid-cols-1 gap-4 border-b border-border pb-4 sm:grid-cols-2">
         <Meta
           label={tr('skills.detail.lastUpdated')}
-          value={formatDate(skill.createdAt, locale, tr('common.unknown'))}
+          value={formatDate(skill.updatedAt, locale, tr('common.unknown'))}
         />
       </div>
 

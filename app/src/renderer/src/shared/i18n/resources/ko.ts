@@ -52,8 +52,8 @@ export const ko = {
     projectsBreadcrumb: '프로젝트',
     engine: '03 엔진 & 모델',
     engineBreadcrumb: '설정 · 엔진 & 모델',
-    skills: '04 Skills / MCP',
-    skillsBreadcrumb: '설정 · Skills & MCP',
+    skills: '04 스킬 & 확장 기능',
+    skillsBreadcrumb: '설정 · 스킬 & 확장 기능',
     captures: '05 캡처 히스토리',
     capturesBreadcrumb: '캡처 히스토리'
   },
@@ -82,8 +82,9 @@ export const ko = {
     body: '준비 중입니다. 캡처 RAW 보관, 채널별 메트릭, ColorChecker / SFR / ΔE 자동 분석, Claude의 분석 코멘트는 다음 단계에서 제공됩니다.'
   },
   skills: {
+    modalTitle: '스킬 & 확장 기능',
     listTitle: '스킬',
-    rail: { skills: '스킬', mcp: 'MCP' },
+    rail: { skills: '스킬', connectors: '커넥터', plugins: '플러그인' },
     landing: {
       title: '맞춤설정',
       subtitle: '스킬과 MCP는 Orca가 사용자와 함께 작업하는 방식을 결정합니다.',
@@ -100,7 +101,23 @@ export const ko = {
       activeMcp: '활성 MCP',
       inactiveMcp: '비활성 MCP'
     },
-    view: { selectItem: '항목을 선택하세요.' },
+    view: {
+      selectItem: '항목을 선택하세요.',
+      backAria: '{{section}} 목록으로 돌아가기'
+    },
+    table: {
+      skill: '스킬',
+      plugin: '플러그인',
+      connector: '커넥터',
+      lastUpdated: '마지막 업데이트',
+      author: '작성자',
+      status: '상태',
+      transport: '연결 방식',
+      user: '사용자',
+      noSkills: '보유 중인 스킬이 없습니다.',
+      noPlugins: '설치된 플러그인이 없습니다.',
+      noConnectors: '연결된 커넥터가 없습니다.'
+    },
     detail: {
       toggleAria: '{{name}} 활성화',
       tryInChat: '채팅에서 사용해보기',
@@ -664,7 +681,7 @@ export const ko = {
       newChat: '새 대화',
       projects: '프로젝트',
       engine: '엔진 & 모델',
-      skills: 'Skills & MCP'
+      skills: '스킬 & 확장 기능'
     },
     recents: '최근 대화',
     pinned: '고정됨',

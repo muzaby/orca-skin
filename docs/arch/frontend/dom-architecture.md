@@ -18,7 +18,7 @@
 | `data-behavior="..."`         | JS 행동 — _이걸 할 수 있다_  | `drag-region`, `no-drag`, `resizable`, `collapsible`, `virtualizable`, `interactive`, `focus-trap`, `dismissible`, `action:{name}` |
 | `data-state="..."`            | 현재 상태 — _지금 이 상태다_ | `expanded`/`collapsed`, `visible`/`hidden`                                                                                         |
 | `data-axis`, `data-context`   | 메타 설정 — _이런 조건이다_  | `vertical`/`horizontal`, `sidebar`/`tile`/`modal`/`overlay`/`debug`                                                                |
-| `data-theme`, `data-platform` | 루트 환경 — `<html>` 에만    | `white`/`dark`, `darwin`/`win32`/`linux`                                                                                  |
+| `data-theme`, `data-platform` | 루트 환경 — `<html>` 에만    | `white`/`dark`, `darwin`/`win32`/`linux`                                                                                           |
 
 **원칙**: 두 속성은 **공존**한다. `app-frame-*` 클래스는 마커이며 시각 스타일은 같은 element 의 Tailwind 유틸이 계속 진실. 마커 부여로 인한 시각 회귀는 없어야 한다.
 
@@ -42,7 +42,7 @@ html[data-theme][data-platform]
             │   │   [data-state="expanded|collapsed"]
             │   │   ├── .app-frame-sidebar-body
             │   │   │   ├── .app-frame-sidebar-brand    (🐋 + "Orca" 브랜드 로고)
-            │   │   │   ├── nav.app-frame-sidebar-nav   (4-항목: 새 대화 · 프로젝트 · 엔진 & 모델 · Skills & MCP; 자동화는 Future Scope 로 nav 미노출)
+            │   │   │   ├── nav.app-frame-sidebar-nav   (4-항목: 새 대화 · 프로젝트 · 엔진 & 모델 · 스킬 & 확장 기능; 마지막 항목은 모달 action)
             │   │   │   ├── .app-frame-sidebar-sessions
             │   │   │   └── .app-frame-sidebar-footer
             │   │   └── .app-frame-resize-handle          (aside 자식 — collapse 시 함께 사라짐)
@@ -102,11 +102,11 @@ resize-handle 은 `aside` 형제가 아니라 **자식**으로 둔다.
 
 `#app-frame-overlay` 는 **슬롯 계열 modal backdrop 전용**이며, 슬롯 modal 활성 시에만 떠올라야 한다. visibility 토글은 **z 부호 반전**으로 한다.
 
-| 슬롯                 | 평소 z      | modal 활성 시 z | 역할                                                                                                                 | children                                      |
-| -------------------- | ----------- | --------------- | -------------------------------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| `#app-frame-overlay` | `-10`       | `10`            | backdrop (`MODAL_BACKDROP_CLASS`). 평소엔 body 뒤로 깔려 보이지도 클릭도 안 됨.                                      | 없음 — 순수 layer                             |
+| 슬롯                 | 평소 z      | modal 활성 시 z | 역할                                                                                                                | children                                                     |
+| -------------------- | ----------- | --------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `#app-frame-overlay` | `-10`       | `10`            | backdrop (`MODAL_BACKDROP_CLASS`). 평소엔 body 뒤로 깔려 보이지도 클릭도 안 됨.                                     | 없음 — 순수 layer                                            |
 | `#app-frame-modal`   | `-20`       | `20`            | focus-trap 컨테이너. 모달들은 동시에 열리지 않으므로 conditional render 로 1개만 노출.                              | `<InstallerDialog>` · `<AuthExpiredModal>` · `<SearchModal>` |
-| `#app-frame-debug`   | `30` (상시) | `30` (상시)     | DebugPanel 등 개발 보조 floating UI. modal 상태와 무관. wrapper `pointer-events-none` + 자식 `pointer-events-auto`. | `<DebugPanel>`(dev 전용, Tweaks 컨트롤 포함) 등 |
+| `#app-frame-debug`   | `30` (상시) | `30` (상시)     | DebugPanel 등 개발 보조 floating UI. modal 상태와 무관. wrapper `pointer-events-none` + 자식 `pointer-events-auto`. | `<DebugPanel>`(dev 전용, Tweaks 컨트롤 포함) 등              |
 
 규칙:
 
@@ -122,7 +122,7 @@ resize-handle 은 `aside` 형제가 아니라 **자식**으로 둔다.
 
 | 위치                                                                   | 속성                                                          | 값                                                                              |
 | ---------------------------------------------------------------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| `<html>`                                                               | `data-theme` / `data-platform`                                | `white\|dark` / `darwin\|win32\|linux`                                  |
+| `<html>`                                                               | `data-theme` / `data-platform`                                | `white\|dark` / `darwin\|win32\|linux`                                          |
 | header drag-layer                                                      | `data-behavior`                                               | `drag-region`                                                                   |
 | header content-layer · 좌 · 우                                         | `data-behavior`                                               | `no-drag`                                                                       |
 | WinControls 각 버튼                                                    | `data-behavior`                                               | `action:window-minimize\|window-maximize\|window-close`                         |

@@ -11,6 +11,7 @@ import { useChatSessionsSync } from './hooks/useChatSessionsSync'
 import { useCompletionNotifier } from './hooks/useCompletionNotifier'
 import { useSessionHandlers } from './hooks/useSessionHandlers'
 import { useSidebarSlots } from './hooks/useSidebarSlots'
+import { SkillsCustomizeView, useExtensionsModalStore } from '../features/skills'
 
 // 셸 조립 진입점. App.tsx 의 Provider 합성 직하에서 호출되며, 라우팅에 무관한
 // 고정 골격 (Header + Sidebar + main + OverlayLayer) 을 한 곳에서 직접 조립한다.
@@ -32,6 +33,9 @@ export function AppLayout(): React.JSX.Element {
   const [searchOpen, setSearchOpen] = useState(false)
   const openSearch = useCallback(() => setSearchOpen(true), [])
   const closeSearch = useCallback(() => setSearchOpen(false), [])
+  const extensionsOpen = useExtensionsModalStore((state) => state.open)
+  const showExtensions = useExtensionsModalStore((state) => state.show)
+  const openExtensions = useCallback(() => showExtensions('skills'), [showExtensions])
 
   return (
     <div
@@ -41,7 +45,7 @@ export function AppLayout(): React.JSX.Element {
       <Header onOpenSearch={openSearch} />
       <div className="app-frame-grid relative grid min-h-0 flex-1 grid-cols-1 grid-rows-1 [&>*]:[grid-area:1/1]">
         <div className="app-frame-body z-0 flex min-h-0 min-w-0">
-          <Sidebar {...slots} />
+          <Sidebar {...slots} extensionsOpen={extensionsOpen} onOpenExtensions={openExtensions} />
           <main
             className="app-frame-main flex min-h-0 min-w-0 flex-1 flex-col"
             data-context="route-target"
@@ -51,6 +55,7 @@ export function AppLayout(): React.JSX.Element {
         </div>
         <OverlayLayer searchOpen={searchOpen} onCloseSearch={closeSearch} />
       </div>
+      {extensionsOpen && <SkillsCustomizeView />}
     </div>
   )
 }

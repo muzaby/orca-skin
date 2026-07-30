@@ -1014,6 +1014,9 @@ export interface SkillInfo {
   updatedAt?: number
   createdAt?: number
   sourceKind: 'orca' | 'adapter' | 'workspace'
+  // Orca 번들 manifest 로 배포된 내장 항목. 같은 sources/skills 아래의 사용자 작성
+  // 스킬과 구분해 UI 의 플러그인 카탈로그로 분류한다.
+  isBuiltin: boolean
   canToggle: boolean
   canRemove: boolean
   skillPath: string

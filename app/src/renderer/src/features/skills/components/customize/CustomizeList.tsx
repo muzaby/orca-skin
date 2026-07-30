@@ -1,212 +1,207 @@
-import { useMemo, useState, type RefObject } from 'react'
+import type { KeyboardEvent } from 'react'
 import type { McpServer, SkillInfo } from '../../../../../../shared/ipc'
-import { Button } from '../../../../shared/ui/Button'
 import { Icon } from '../../../../shared/ui/Icon'
-import { Dot } from '../../../../shared/ui/Status'
-import type { CustomizeTab } from './CustomizeRail'
-import { useI18n } from '../../../../shared/i18n'
+import { formatDateMedium, useI18n } from '../../../../shared/i18n'
+import type { CustomizeTab } from '../../store/extensionsModalStore'
 
-function ListHeader({
-  title,
-  addRef,
-  onAdd
-}: {
-  title: string
-  addRef: RefObject<HTMLButtonElement | null>
-  onAdd: () => void
-}): React.JSX.Element {
-  const { tr } = useI18n()
-  return (
-    <div className="flex items-center gap-1.5 px-3.5 pb-2 pt-3.5">
-      <span className="font-serif text-[16px] font-semibold text-ink">{title}</span>
-      <div className="ml-auto flex items-center gap-0.5">
-        <Button
-          ref={addRef}
-          iconOnly
-          leadingIcon="plus"
-          size="small"
-          onClick={onAdd}
-          aria-label={tr('skills.list.addAria')}
-        />
-      </div>
-    </div>
-  )
+function skillKey(skill: SkillInfo): string {
+  return `${skill.sourceId}/${skill.name}`
 }
 
-function GroupHead({
-  label,
-  open,
-  onToggle
-}: {
-  label: string
-  open: boolean
-  onToggle: () => void
-}): React.JSX.Element {
+function activateRow(event: KeyboardEvent<HTMLTableRowElement>, action: () => void): void {
+  if (event.key !== 'Enter' && event.key !== ' ') return
+  event.preventDefault()
+  action()
+}
+
+function EmptyRow({ label }: { label: string }): React.JSX.Element {
   return (
-    <div className="flex items-center px-3.5 pb-1 pt-3">
-      <button
-        type="button"
-        onClick={onToggle}
-        className="flex cursor-pointer items-center gap-1.5 border-0 bg-transparent p-0 text-[11.5px] font-medium uppercase tracking-wide text-ink3"
-      >
-        <Icon name={open ? 'chevD' : 'chevR'} size={12} />
+    <tr>
+      <td colSpan={3} className="px-4 py-12 text-center text-[12.5px] text-ink3">
         {label}
-      </button>
-    </div>
+      </td>
+    </tr>
   )
 }
 
-function SkillRow({
-  s,
-  selected,
-  onClick
+function SkillsTable({
+  skills,
+  plugin,
+  onSelect
 }: {
-  s: SkillInfo
-  selected: boolean
-  onClick: () => void
+  skills: SkillInfo[]
+  plugin: boolean
+  onSelect: (id: string) => void
+}): React.JSX.Element {
+  const { tr, locale } = useI18n()
+  return (
+    <table className="w-full min-w-[620px] border-collapse text-left">
+      <thead>
+        <tr className="border-b border-border text-[11.5px] font-medium text-ink3">
+          <th className="w-[52%] px-4 py-2 font-medium">
+            {plugin ? tr('skills.table.plugin') : tr('skills.table.skill')}
+          </th>
+          <th className="w-[25%] px-4 py-2 font-medium">{tr('skills.table.lastUpdated')}</th>
+          <th className="px-4 py-2 font-medium">{tr('skills.table.author')}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {skills.length === 0 ? (
+          <EmptyRow label={plugin ? tr('skills.table.noPlugins') : tr('skills.table.noSkills')} />
+        ) : (
+          skills.map((skill) => {
+            const open = (): void => onSelect(skillKey(skill))
+            const author =
+              skill.isBuiltin || skill.sourceKind === 'orca'
+                ? plugin
+                  ? 'Orca'
+                  : tr('skills.table.user')
+                : skill.sourceLabel
+            return (
+              <tr
+                key={skillKey(skill)}
+                role="button"
+                tabIndex={0}
+                onClick={open}
+                onKeyDown={(event) => activateRow(event, open)}
+                className="group/table-row cursor-pointer border-b border-border/70 outline-none transition-colors last:border-b-0 hover:bg-fill-uncontained-hover focus-visible:bg-fill-uncontained-hover"
+              >
+                <td className="px-4 py-3">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <span className="grid h-7 w-7 flex-none place-items-center rounded-r3 bg-bg2 text-ink2">
+                      <Icon name={plugin ? 'layers' : 'doc'} size={14} />
+                    </span>
+                    <div className="min-w-0">
+                      <div
+                        className={`truncate text-[13px] ${skill.enabled ? 'font-medium text-ink' : 'text-ink3'}`}
+                      >
+                        {skill.name}
+                      </div>
+                      {skill.description && (
+                        <div className="mt-0.5 truncate text-[11.5px] text-ink3">
+                          {skill.description}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </td>
+                <td className="px-4 py-3 text-[12.5px] text-ink2">
+                  {skill.updatedAt
+                    ? formatDateMedium(skill.updatedAt, locale)
+                    : tr('common.unknown')}
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2 text-[12.5px] text-ink2">
+                    <span className="truncate">{author}</span>
+                    <Icon
+                      name="chevR"
+                      size={14}
+                      className="ml-auto flex-none text-ink3 opacity-0 transition-opacity group-hover/table-row:opacity-100"
+                    />
+                  </div>
+                </td>
+              </tr>
+            )
+          })
+        )}
+      </tbody>
+    </table>
+  )
+}
+
+function ConnectorsTable({
+  servers,
+  onSelect
+}: {
+  servers: McpServer[]
+  onSelect: (id: string) => void
 }): React.JSX.Element {
   const { tr } = useI18n()
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex w-full cursor-pointer items-center gap-2 rounded-r4 border-0 px-2.5 py-2 text-left transition-colors ${selected ? 'bg-fill-uncontained-active' : 'bg-transparent hover:bg-fill-uncontained-hover'}`}
-    >
-      <span
-        className={`truncate font-mono text-[12.5px] ${s.enabled ? 'font-semibold text-ink' : 'text-ink3'}`}
-      >
-        {s.name}
-      </span>
-      {s.canToggle && !s.enabled && (
-        <span className="ml-auto text-[10.5px] text-ink3">{tr('skills.list.off')}</span>
-      )}
-    </button>
-  )
-}
-
-function McpRow({
-  server,
-  selected,
-  onClick
-}: {
-  server: McpServer
-  selected: boolean
-  onClick: () => void
-}): React.JSX.Element {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex w-full cursor-pointer items-center gap-2.5 rounded-r4 border-0 px-2.5 py-2 text-left transition-colors ${selected ? 'bg-fill-uncontained-active' : 'bg-transparent hover:bg-fill-uncontained-hover'}`}
-    >
-      <span className="grid h-6 w-6 flex-none place-items-center rounded-r3 bg-bg2 text-ink2">
-        <Icon name={server.transport === 'http' ? 'link' : 'cpu'} size={13} />
-      </span>
-      <span className="min-w-0 flex-1 truncate text-[12.5px] text-ink">{server.name}</span>
-      {!server.enabled && <Dot tone="slate" />}
-    </button>
+    <table className="w-full min-w-[620px] border-collapse text-left">
+      <thead>
+        <tr className="border-b border-border text-[11.5px] font-medium text-ink3">
+          <th className="w-[52%] px-4 py-2 font-medium">{tr('skills.table.connector')}</th>
+          <th className="w-[25%] px-4 py-2 font-medium">{tr('skills.table.status')}</th>
+          <th className="px-4 py-2 font-medium">{tr('skills.table.transport')}</th>
+        </tr>
+      </thead>
+      <tbody>
+        {servers.length === 0 ? (
+          <EmptyRow label={tr('skills.table.noConnectors')} />
+        ) : (
+          servers.map((server) => {
+            const open = (): void => onSelect(server.id)
+            return (
+              <tr
+                key={server.id}
+                role="button"
+                tabIndex={0}
+                onClick={open}
+                onKeyDown={(event) => activateRow(event, open)}
+                className="group/table-row cursor-pointer border-b border-border/70 outline-none transition-colors last:border-b-0 hover:bg-fill-uncontained-hover focus-visible:bg-fill-uncontained-hover"
+              >
+                <td className="px-4 py-3">
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <span className="grid h-7 w-7 flex-none place-items-center rounded-r3 bg-bg2 text-ink2">
+                      <Icon name={server.transport === 'http' ? 'link' : 'cpu'} size={14} />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="truncate text-[13px] font-medium text-ink">{server.name}</div>
+                      {server.description && (
+                        <div className="mt-0.5 truncate text-[11.5px] text-ink3">
+                          {server.description}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </td>
+                <td className="px-4 py-3 text-[12.5px] text-ink2">
+                  {server.enabled ? tr('skills.mcpDetail.active') : tr('skills.mcpDetail.inactive')}
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2 text-[12.5px] text-ink2">
+                    <span className="font-mono uppercase">{server.transport}</span>
+                    <Icon
+                      name="chevR"
+                      size={14}
+                      className="ml-auto flex-none text-ink3 opacity-0 transition-opacity group-hover/table-row:opacity-100"
+                    />
+                  </div>
+                </td>
+              </tr>
+            )
+          })
+        )}
+      </tbody>
+    </table>
   )
 }
 
 export function CustomizeList({
   tab,
   skills,
+  plugins,
   mcpServers,
-  selectedId,
-  onSelect,
-  addRef,
-  onAdd
+  onSelect
 }: {
   tab: CustomizeTab
   skills: SkillInfo[]
+  plugins: SkillInfo[]
   mcpServers: McpServer[]
-  selectedId: string | null
   onSelect: (id: string) => void
-  addRef: RefObject<HTMLButtonElement | null>
-  onAdd: () => void
 }): React.JSX.Element {
-  const { tr } = useI18n()
-  const [open, setOpen] = useState<Record<string, boolean>>({
-    orca: true,
-    active: true,
-    inactive: true
-  })
-  // 그룹 키는 안정된 sourceId — 라벨은 카탈로그에서 해석해 UI 언어를 따른다(0121 r3).
-  // 미지의 sourceId 는 main 이 준 sourceLabel 원문 폴백.
-  const groupLabel = (sourceId: string, fallback: string): string => {
-    if (sourceId === 'orca') return tr('skills.list.groupOrca')
-    if (sourceId === 'adapter:claude') return tr('skills.list.groupClaude')
-    return fallback
-  }
-  const skillGroups = useMemo(() => {
-    const map = new Map<string, { fallbackLabel: string; items: SkillInfo[] }>()
-    for (const skill of skills) {
-      const group = map.get(skill.sourceId) ?? { fallbackLabel: skill.sourceLabel, items: [] }
-      group.items.push(skill)
-      map.set(skill.sourceId, group)
-    }
-    return [...map.entries()]
-  }, [skills])
-  const mcpGroups: { id: string; label: string; items: McpServer[] }[] = [
-    {
-      id: 'active',
-      label: tr('skills.list.activeMcp'),
-      items: mcpServers.filter((s) => s.enabled)
-    },
-    {
-      id: 'inactive',
-      label: tr('skills.list.inactiveMcp'),
-      items: mcpServers.filter((s) => !s.enabled)
-    }
-  ]
   return (
-    <div className="flex w-[280px] flex-none flex-col overflow-y-auto border-r border-border">
-      <ListHeader
-        title={tab === 'skills' ? tr('skills.listTitle') : tr('skills.rail.mcp')}
-        addRef={addRef}
-        onAdd={onAdd}
-      />
-      <div className="px-1.5 pb-3">
-        {tab === 'skills'
-          ? skillGroups.map(([sourceId, { fallbackLabel, items }]) => (
-              <div key={sourceId}>
-                <GroupHead
-                  label={groupLabel(sourceId, fallbackLabel)}
-                  open={open[sourceId] ?? true}
-                  onToggle={() => setOpen((p) => ({ ...p, [sourceId]: !(p[sourceId] ?? true) }))}
-                />
-                {(open[sourceId] ?? true) &&
-                  items.map((s) => (
-                    <SkillRow
-                      key={`${s.sourceId}/${s.name}`}
-                      s={s}
-                      selected={`${s.sourceId}/${s.name}` === selectedId}
-                      onClick={() => onSelect(`${s.sourceId}/${s.name}`)}
-                    />
-                  ))}
-              </div>
-            ))
-          : mcpGroups.map(({ id, label, items }) =>
-              items.length === 0 ? null : (
-                <div key={id}>
-                  <GroupHead
-                    label={label}
-                    open={open[id] ?? true}
-                    onToggle={() => setOpen((p) => ({ ...p, [id]: !(p[id] ?? true) }))}
-                  />
-                  {(open[id] ?? true) &&
-                    items.map((s) => (
-                      <McpRow
-                        key={s.id}
-                        server={s}
-                        selected={s.id === selectedId}
-                        onClick={() => onSelect(s.id)}
-                      />
-                    ))}
-                </div>
-              )
-            )}
-      </div>
+    <div className="min-h-0 flex-1 overflow-auto px-5 pb-6">
+      {tab === 'connectors' ? (
+        <ConnectorsTable servers={mcpServers} onSelect={onSelect} />
+      ) : (
+        <SkillsTable
+          skills={tab === 'plugins' ? plugins : skills}
+          plugin={tab === 'plugins'}
+          onSelect={onSelect}
+        />
+      )}
     </div>
   )
 }

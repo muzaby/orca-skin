@@ -97,6 +97,7 @@ describe('adaptSkills', () => {
     sourceId: sourceKind === 'orca' ? 'orca' : 'adapter:claude',
     sourceLabel: sourceKind === 'orca' ? 'Orca 스킬' : 'CLAUDE 스킬',
     sourceKind,
+    isBuiltin: sourceKind === 'orca',
     enabled,
     canToggle: sourceKind === 'orca',
     canRemove: sourceKind === 'orca',
