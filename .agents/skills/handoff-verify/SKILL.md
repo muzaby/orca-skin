@@ -7,10 +7,11 @@ description: docs/handoff/ 의 verify.md(검증 문서)를 작성할 때 쓴다.
 
 ## 이 스킬의 위치
 
-절차·책임 분리표·상태 머신의 **정본은 `docs/handoff/AGENTS.md` §3**, 문서 뼈대는
-`docs/handoff/_templates/verify.template.md` 다. **여기서 재서술하지 않는다** — 먼저 읽어라.
-
-이 스킬은 그 위에 **"인수 기준만 따라가면 못 잡는 것을 어떻게 잡는가"** 를 얹는다.
+- **문서 뼈대** = [`verify.template.md`](verify.template.md) (같은 디렉토리). `docs/handoff/<NNNN-slug>/verify.md`
+  로 복사해 채운다.
+- **협업 규칙·상태 머신·검증 책임 분리표** = `docs/handoff/AGENTS.md`. **여기서 재서술하지
+  않는다** — 먼저 읽어라.
+- **이 문서** = 그 위의 **"인수 기준만 따라가면 못 잡는 것을 어떻게 잡는가"**.
 
 ## 원칙 0 — FAIL 은 정상 결과다
 

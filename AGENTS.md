@@ -44,7 +44,7 @@
 - **착수 전 항상 [`docs/handoff/INDEX.md`](docs/handoff/INDEX.md) 를 먼저 읽는다** — "지금 누구 차례인가" 의 단일 진실원(디스패치 보드).
 - 흐름: Claude `plan.md`(READY) → Codex 구현 + 게이트 통과(`impl/IMPL_DONE`) → Claude `verify.md`(PASS/FAIL). FAIL 이면 verify 의 "미충족" 체크리스트로 Codex 재구현.
 - 규칙·상태 머신·템플릿 정본은 [`docs/handoff/AGENTS.md`](docs/handoff/AGENTS.md).
-- **작성 스킬**: `plan.md`·`verify.md` 를 쓸 때는 [`.agents/skills/`](.agents/skills/) 의 **`handoff-plan`** / **`handoff-verify`** 를 쓴다 (`.claude/skills` 는 이 디렉토리를 가리키는 심링크). 템플릿이 *섹션 목록* 이라면 스킬은 **"채운 것이 실제로 검증 가능한가"** 를 강제한다 — 인수 기준의 `검증 수단` 열, 미사용/미검증 표면 역방향 탐색 등. 과거 verify 자기 리뷰에서 축적한 설계 실패 패턴은 `.agents/skills/handoff-plan/references/failure-patterns.md` 에 모인다(새 실패를 발견하면 여기에 더한다).
+- **작성 스킬 = 문서 절차의 정본**: `plan.md`·`verify.md` 를 쓸 때는 [`.agents/skills/`](.agents/skills/) 의 **`handoff-plan`** / **`handoff-verify`** 를 쓴다 (`.claude/skills` 는 이 디렉토리를 가리키는 심링크). **템플릿(`plan.template.md`·`verify.template.md`)도 각 스킬 디렉토리에 산다** — 절차와 붙어 있어야 드리프트하지 않는다. 스킬은 템플릿의 *섹션 목록* 위에 **"채운 것이 실제로 검증 가능한가"** 를 강제한다(인수 기준의 `검증 수단` 열, 미사용/미검증 표면 역방향 탐색 등). 과거 verify 자기 리뷰에서 축적한 설계 실패 패턴은 `.agents/skills/handoff-plan/references/failure-patterns.md` 에 모인다(새 실패를 발견하면 여기에 더한다). `docs/handoff/AGENTS.md` 는 협업 규칙·상태 머신·구현 턴 지침만 남긴다.
 
 ## 커밋 프로토콜 (Commit Protocol)
 
