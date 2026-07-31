@@ -28,6 +28,7 @@ import { orcaPluginRoot } from '../features/extensions/claude-plugin-package'
 import { userClaudePluginRoot } from '../features/extensions/claude-user-skills-plugin'
 import { loadOrcaConfig } from '../infra/config/orca-config'
 import { SecretStore } from '../infra/config/secret-store'
+import { createSecretFacade as createProviderSecretFacade } from '../features/usage/external-usage'
 import { deploy } from '../features/extensions/deployer'
 import { ExtensionDeploymentService } from '../features/extensions/extension-deployment-service'
 import { toClaudeConfig } from '../features/extensions/mcp/convert'
@@ -246,6 +247,9 @@ export class Bootstrap {
     const secretStore = new SecretStore()
     const auth = this.createAuthPlatform(secretStore)
     registerAuthHandlers(auth.broker)
+    // MCP `${BINDING:<id>}` 해석을 broker 로 잇는다 (0157). 이 배선이 없으면 binding 참조는
+    // 미해결로 남아 해당 MCP 서버가 드롭된다(fail-closed).
+    this.mcp.attachBindings(auth.broker)
 
     const db = this.bootReport.stepSync('db-init', { critical: true, label: 'DB 초기화' }, () =>
       initDb({
@@ -376,7 +380,8 @@ export class Bootstrap {
     providerSettings.invalidateAll()
     const externalUsage = new ExternalUsageService({
       db,
-      secretStore,
+      // 0157 — raw SecretStore 를 넘기지 않는다. provider 별 네임스페이스 뷰만 준다.
+      secretFor: (providerKey) => createProviderSecretFacade(secretStore, providerKey),
       providers: STATIC_USAGE_PROVIDERS
     })
     scheduler.register('provider-usage-report-refresh', async () => {
@@ -398,7 +403,6 @@ export class Bootstrap {
       mcp: this.mcp,
       registry: this.registry,
       cost,
-      secretStore,
       extensions,
       providerSettings,
       getSkills: () => this.skillsCache,

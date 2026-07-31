@@ -1,9 +1,49 @@
-// 기본 ${VAR} resolver 팩토리. 순서: safeStorage(비밀) → process.env (2단계).
-// expand.ts 의 순수 Resolver 타입에 electron/secret 의존을 주입하는 얇은 어댑터.
+// MCP `${VAR}` · `${BINDING:id}` resolver 팩토리 (0157 — 구 2단계 resolver 대체).
+//
+// ── 무엇이 바뀌었나 ──────────────────────────────────────────────────────────
+// 구 구현은 `secrets.get(name) ?? process.env[name]` 였다. `process.env` **전체**가 fallback
+// 이라, 앱 프로세스 환경에 있는 임의의 값이 이름만 맞으면 MCP 설정으로 새어 들어갔다
+// (도입 보고서 위험 #3). 이제 해석 순서는:
+//
+//   1. `${BINDING:<id>}` → 인증 플랫폼 binding (broker 가 값을 준다)
+//   2. `${VAR}`          → vault(safeStorage) 에 봉인된 비밀
+//   3. `${VAR}`          → **명시 allowlist 에 있는 경우에만** process.env
+//
+// 미해결이면 undefined 를 돌려주고, expand.ts 가 해당 **서버 전체를 드롭**한다(fail-closed 유지).
+//
+// ── 남는 노출 (문서화된 예외) ────────────────────────────────────────────────
+// 해석된 값은 여전히 `dist/plugins/orca/.mcp.json` 에 평문으로 렌더된다 — claude CLI 가 그
+// 파일을 읽어 MCP 서버를 spawn 하므로 Orca 가 요청 주체가 아니기 때문이다. 이번 변경의 이득은
+// 값이 디스크에서 사라지는 것이 아니라 **소유권 일원화**다: 회전·만료·logout 이 binding 하나로
+// 일관되고, 출처가 broker 로 단일화돼 후속 proxy 단계를 코어 수정 없이 얹을 수 있다.
+// (요구명세 §소비자 경계 / §MCP 통합)
 
-import type { Resolver } from '../../../infra/vars'
+import { BINDING_PREFIX, type Resolver } from '../../../infra/vars'
 import type { SecretStore } from '../../../infra/config/secret-store'
 
-export function makeResolver(secrets: SecretStore): Resolver {
-  return (name: string) => secrets.get(name) ?? process.env[name]
+// broker 의 구조적 포트 — features 교차 import 를 피하려고 필요한 메서드만 받는다.
+export interface BindingCredentialSource {
+  resolveBindingCredential(bindingId: string): string | null
+}
+
+export interface ResolverOptions {
+  secrets: SecretStore
+  // 미지정이면 binding 참조는 해석되지 않는다(= 서버 드롭).
+  bindings?: BindingCredentialSource
+  // orca.json 의 `secrets.envAllowlist`. **정확한 이름 일치만** 허용한다(패턴·접두사 없음).
+  envAllowlist?: readonly string[]
+}
+
+export function makeResolver(opts: ResolverOptions): Resolver {
+  const allowlist = new Set(opts.envAllowlist ?? [])
+  return (name: string) => {
+    if (name.startsWith(BINDING_PREFIX)) {
+      const bindingId = name.slice(BINDING_PREFIX.length)
+      return opts.bindings?.resolveBindingCredential(bindingId) ?? undefined
+    }
+    const sealed = opts.secrets.get(name)
+    if (sealed !== undefined) return sealed
+    // allowlist 밖의 이름은 process.env 에 있어도 보이지 않는다.
+    return allowlist.has(name) ? process.env[name] : undefined
+  }
 }

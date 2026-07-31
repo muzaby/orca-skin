@@ -36,6 +36,12 @@ export function appEnv(): Record<string, string> {
   return getOrcaConfig().env ?? {}
 }
 
+// ${VAR} 해석 시 process.env fallback 이 허용되는 이름 목록 (0157). 미지정이면 빈 배열 —
+// fallback 없음이 기본값이다.
+export function secretEnvAllowlist(): readonly string[] {
+  return getOrcaConfig().secrets?.envAllowlist ?? []
+}
+
 export function resetOrcaConfigForTest(): void {
   cached = null
 }

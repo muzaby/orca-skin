@@ -1,14 +1,19 @@
 import type { CostSummary, ExternalUsageReport, ProviderUsageEntry } from '../../../shared/ipc'
 import type { DbQueries } from '../../infra/db'
-import type { SecretStore } from '../../infra/config/secret-store'
-import type { StaticUsageProviderModule, ExternalUsageProvider } from '../../contracts/usage-report'
-import { createSecretFacade, effectiveLimitFromReport } from './external-usage'
+import type {
+  StaticUsageProviderModule,
+  ExternalUsageProvider,
+  ExternalUsageContext
+} from '../../contracts/usage-report'
+import { effectiveLimitFromReport } from './external-usage'
 import { createHttpUsageReportProvider } from './http-usage-report'
 import { getLogger } from '../../infra/log/registry'
 
 interface ServiceDeps {
   db: DbQueries
-  secretStore: SecretStore
+  // 0157 — raw SecretStore 대신 **네임스페이스 팩토리**를 받는다. 이 서비스는 vault 전체를
+  // 가질 이유가 없다(보고서 위험 #4: "Vault 를 broker 내부로 숨기고 consumer capability 만 주입").
+  secretFor: (providerKey: string) => ExternalUsageContext['secret']
   providers: readonly StaticUsageProviderModule[]
   fetchImpl?: typeof fetch
   clock?: () => number
@@ -98,7 +103,7 @@ export class ExternalUsageService {
         providerKey,
         fetch: this.fetchImpl,
         signal: controller.signal,
-        secret: createSecretFacade(this.deps.secretStore, providerKey),
+        secret: this.deps.secretFor(providerKey),
         env: process.env as Record<string, string>,
         settings: module.defaultSettings,
         store: this.providerStore(providerKey),

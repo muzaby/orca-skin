@@ -1,6 +1,22 @@
-# 폐쇄망(사내) 배포 — 외부확장 구현 가이드 (0130)
+# 폐쇄망(사내) 배포 — 외부확장 구현 가이드 (0130 → 0157 개정)
 
-회사 폐쇄망에 Orca 를 배포할 때, main 브랜치를 수정하지 않고 **커스텀 SSO 로그인 체인**과 **정적 사용량 provider** 를 붙이는 방법의 정본. 대상 독자는 Orca 내부 구조를 모르는 외부 에이전트/사내 개발자다.
+회사 폐쇄망에 Orca 를 배포할 때, main 브랜치를 수정하지 않고 **커스텀 인증 provider·connector** 와 **정적 사용량 provider** 를 붙이는 방법의 정본. 대상 독자는 Orca 내부 구조를 모르는 외부 에이전트/사내 개발자다.
+
+## 0. 확장 모델 — 무엇을 어디에 붙이는가 (0157)
+
+축은 "선언형이냐 코드냐" 가 아니라 **"빌드 타임 내장이냐 런타임 MCP 냐"** 다.
+
+| 확장 대상 | 추가 방식 | 재빌드 | 요청 주체 |
+|---|---|---|---|
+| 인증 provider (ADFS/WIA · PAT · API key …) | **빌드 타임 플러그인** (아래 §1) | 필요 | — |
+| 인증이 필요한 **내장 도구**(connector) | **빌드 타임 플러그인** | 필요 | **Orca** (`authenticatedFetch`) |
+| 그 외 모든 서비스 연동 | **MCP 서버** (앱 UI 에서 런타임 추가) | **불필요** | claude CLI |
+
+**"재빌드 없이 서비스를 추가하고 싶다" → MCP 를 쓴다.** 인증이 필요한 MCP 서버는 `mcp.json` 에서
+`${BINDING:<bindingId>}` 로 인증 플랫폼의 binding 을 참조할 수 있다(값 소유는 Orca vault 가 유지).
+
+**런타임 임의 코드 로딩은 금지한다** — Electron main 에서 임의 코드 실행은 filesystem·cookie·Vault
+전권을 주는 것과 같고 타입 검증도 성립하지 않는다. 이 정책은 0157 에서도 유지된다.
 
 ## 1. 구조 — 불변 확장점 2파일 + opt-in 레지스트리
 
@@ -8,37 +24,45 @@ main 브랜치는 다음만 제공하고, 회사별 구현은 전부 회사 포�
 
 | 확장점 | 동결 계약 파일 (생성 후 불변) | opt-in 레지스트리 (배럴 한 줄) | 자족 가이드 |
 |---|---|---|---|
-| A. SSO 로그인 체인 | `app/src/main/contracts/sso.ts` | `app/src/main/features/sso/modules/index.ts` | `features/sso/modules/AGENTS.md` |
+| A. 인증 provider·connector | `app/src/main/contracts/auth-plugin.ts` · `connector-plugin.ts` | `app/src/main/features/auth-platform/modules/index.ts` | `features/auth-platform/modules/AGENTS.md` |
 | B. 정적 사용량 provider | `app/src/main/contracts/usage-report.ts` | `app/src/main/features/providers/static/modules/index.ts` | `features/providers/static/modules/AGENTS.md` |
 
-- **불변 정책 (additive-optional-only)**: 두 계약 파일은 optional 멤버 *추가*만 허용된다(기존 회사 모듈이 계속 컴파일되도록). 제거·개명·required 화는 금지. 파괴적 변경은 `contracts/sso-v2.ts` 식의 병행 파일 신설로만.
+- **불변 정책 (additive-optional-only)**: 계약 파일은 optional 멤버 *추가*만 허용된다(기존 회사 모듈이 계속 컴파일되도록). 제거·개명·required 화는 금지. 파괴적 변경은 `contracts/auth-plugin-v2.ts` 식의 병행 파일 신설로만 하며, registry 가 `apiVersion` 불일치를 등록 단계에서 거부한다.
 - **명시적 배럴 등록**: 모듈은 컴파일 타임 코드다. 런타임 동적 로딩(임의 경로 require)은 보안·타입검증 양면에서 금지.
-- **기본 = 비활성**: 신규 설치는 SSO 모듈 null + usage provider 0개. 게이트/사용량 연동은 등록해야만 켜진다.
+- **기본 = 비활성**: 신규 설치는 인증 패키지 0개 + usage provider 0개. 게이트/사용량 연동은 등록해야만 켜진다. 등록된 `application` provider 가 없으면 `required:false` 로 로그인 게이트가 자동 통과된다.
+- **복수 등록 가능**: 0130 의 "한 빌드 = 회사 모듈 1개" 제약은 없어졌다. provider 를 몇 개든 등록할 수 있고, 하나의 provider 를 앱 로그인과 여러 connector 가 재사용한다.
 
 ## 2. 포크/브랜치 전략 — main 을 손상하지 않기
 
 - 회사 브랜치는 upstream main 을 추적(rebase/merge)한다.
 - **touch-only 목록** — 회사 브랜치가 수정해도 되는 곳은 아래 4곳뿐이다. 이 밖의 수정은 upstream 추적 시 병합 충돌·동작 회귀를 만든다:
-  1. `app/src/main/features/sso/modules/<회사명>/**` (신규 디렉토리)
-  2. `app/src/main/features/sso/modules/index.ts` (배럴 한 줄)
+  1. `app/src/main/features/auth-platform/modules/<회사명>/**` (신규 디렉토리)
+  2. `app/src/main/features/auth-platform/modules/index.ts` (배럴 한 줄)
   3. `app/src/main/features/providers/static/modules/<회사명>/**` (신규 디렉토리)
   4. `app/src/main/features/providers/static/modules/index.ts` (배럴 한 줄)
 - 게이트: `cd app && npm run lint && npm run typecheck` (+ 가능 환경에서 `npm test`).
 
-## 3. SSO ↔ usage ↔ LLM 백엔드 토큰 흐름
+## 3. 획득한 토큰은 어디로 가는가 (0157 개정)
 
-SSO 모듈이 획득한 토큰은 세 경로로 전달된다 (`contracts/sso.ts` `SsoContext`):
+provider 가 획득한 credential 은 **Orca vault 가 소유**하고, 소비자는 binding 을 통해서만 쓴다.
 
 ```
-login(ctx) ─┬─ ctx.secret.set(...)                       → 모듈 전용 캐시 (restore 복원용)
-            ├─ ctx.providerSecrets(<adapter>-<provider>) → usage provider 가 ctx.secret /
-            │                                              ${SECRET:name} 으로 읽음
-            └─ ctx.setProviderEnv(adapter, provider, {…}) → provider settings.json env 병합
-                                                            (LLM 백엔드 subprocess env — 다음 턴부터)
+begin/continue(ctx) ── ctx.vault.set('secret', …, {kind})   → binding 네임스페이스에 봉인
+                                                               (logout 시 한 번에 삭제)
+                            │
+      ┌─────────────────────┼─────────────────────────────┐
+      ▼                     ▼                             ▼
+ 내장 도구/connector    MCP 서버                      앱 로그인 게이트
+ authenticatedFetch    ${BINDING:<id>} 참조           binding.status 만 판정
+ (broker 가 주입)      (mcp.json — 값은 broker 가 해석)  (값 접근 없음)
 ```
 
-- 비밀 저장은 전부 OS `safeStorage` 암호화(SecretStore). **git 에 비밀 커밋 금지.**
-- `setProviderEnv` 는 settings.json 에 **리터럴(평문)** 로 기록된다 — 사용자가 직접 쓰는 API 키와 동일 노출 등급. 원치 않으면 이 경로를 쓰지 않으면 된다.
+- 비밀 저장은 전부 OS `safeStorage` 암호화. **git 에 비밀 커밋 금지.**
+- **0130 의 `ctx.setProviderEnv` 경로는 제거됐다.** 획득 토큰을 provider `settings.json` 의 env 블록에
+  평문으로 병합 기록하던 경로다. LLM 백엔드에 키가 필요하면 사용자가 직접 settings.json 에 적는다
+  (handoff 0028 정책 — 노출 등급·책임이 사용자 소유임이 명확해진다).
+- MCP 로 나가는 값은 여전히 `dist/.../.mcp.json` 에 평문으로 렌더된다 — claude CLI 가 서버를 spawn
+  하기 때문이다. 이는 문서화된 잔여 노출이며 경계표는 `docs/arch/backend/security.md §1.4-b`.
 
 ## 4. 폐쇄망 빌드/배포
 
@@ -55,11 +79,15 @@ login(ctx) ─┬─ ctx.secret.set(...)                       → 모듈 전용
 ## 5. 보안 경계 (알고 시작할 것)
 
 - renderer 로그인 게이트는 **UX 게이트이지 보안 경계가 아니다** — 인증 전에도 main IPC 는 열려 있다(현행 아키텍처 동일). 실제 접근 통제는 사내 네트워크/서비스 인증이 담당한다.
-- SSO 모듈의 `exec`/`openAuthWindow` 는 강력한 능력이다 — 회사 브랜치의 컴파일 타임 코드라서만 허용된다. 브라우저 창은 앱 세션과 격리된 `sso` 파티션 + sandbox 로 열린다(`docs/arch/backend/security.md`).
-- prod 게이트에는 bypass 백도어가 없다(디버그 bypass 는 DEV 빌드 전용). 오프라인 저하 모드(캐시 세션 신뢰)는 모듈 `restore()` 재량이다.
+- auth provider 의 `exec`/browser session 은 강력한 능력이다 — 회사 브랜치의 **컴파일 타임 코드**라서만 허용된다(런타임 로딩 금지의 이유). 브라우저 창은 앱 세션과 격리된 `persist:auth.<sessionGroup>` 파티션 + sandbox 로 열리고, **쿠키를 호출자에게 반환하지 않는다**.
+- provider 에게 vault **전체**·cookie API·`process.env` 전체를 주지 않는다 — 자기 네임스페이스와 manifest 에 선언한 origin 안에서만 움직인다. 미선언 origin 요청·redirect 는 거부된다.
+- `exec` 가 spawn 하는 자식은 `process.env` 를 통째로 상속하지 않는다(PATH/HOME/locale + 호출자 명시분만).
+- prod 게이트에는 bypass 백도어가 없다(디버그 bypass 는 DEV 빌드 전용).
+- binding 은 **영속하지 않는다** — 매 앱 실행마다 인증부터 시작한다. ADFS 처럼 브라우저 세션이 살아 있으면 창 없이 즉시 통과한다.
 
 ## 6. 참고
 
 - 핸드오프: `docs/handoff/0130-closed-network-extension-points/` (설계 근거·인수 기준)
 - 선행 결정: `docs/arch/backend/standardization.md §5.1` (opt-in 정적 provider 계약, 0098/0099)
-- IPC 채널: `docs/IPC_CONTRACT.md` sso 도메인
+- IPC 채널: `docs/IPC_CONTRACT.md` §2.13-c `auth` 도메인
+- 인증 플랫폼 설계 정본: `docs/etc/study/orca/auth-plugin-platform-requirements-ko.md` · 핸드오프 `docs/handoff/0157-auth-plugin-platform/`

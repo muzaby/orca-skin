@@ -137,6 +137,26 @@ describe('deploy', () => {
     )
   })
 
+  // 0157 (AC12) — .bak 은 배포 구조 롤백용이지 비밀 보관용이 아니다. dist 를 통째로 rename 하면
+  // 해석된 MCP 비밀의 평문 사본이 무기한 남는다(보고서 위험 #2).
+  it('백업에 해석된 MCP 비밀의 2차 사본을 남기지 않는다', async () => {
+    seedSources()
+    const opts = { mcpConfig: { wiki: { command: 'npx', env: { TOKEN: 'resolved-secret' } } } }
+    await deploy('claude', opts, root)
+    // 1차 배포본에는 값이 있다(claude CLI 가 읽어야 하는 문서화된 잔여 노출).
+    const live = join(dist(), 'plugins', 'orca', '.mcp.json')
+    expect(readFileSync(live, 'utf8')).toContain('resolved-secret')
+
+    await deploy('claude', opts, root)
+
+    // 백업으로 밀려난 사본은 제거된다.
+    expect(existsSync(join(`${dist()}.bak`, 'plugins', 'orca', '.mcp.json'))).toBe(false)
+    // 백업의 나머지 구조(롤백 목적)는 그대로 남는다.
+    expect(existsSync(join(`${dist()}.bak`, 'plugins', 'orca', 'skills', 'demo', 'SKILL.md'))).toBe(
+      true
+    )
+  })
+
   it('Orca 스킬은 enabled 와 무관하게 plugin 에 포함하고(활성 제어는 런타임 options.skills) MCP 는 mcpConfig 로 필터된다', async () => {
     seedSources('{"mcpServers":{"on":{"command":"npx"},"off":{"command":"node"}}}')
     writeFile(join(root, 'sources', 'skills', 'off', 'SKILL.md'), '# off')

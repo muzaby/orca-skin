@@ -1,8 +1,9 @@
 import type { CostSummary, ExternalUsageReport } from '../../../shared/ipc'
-import type { SecretStore } from '../../infra/config/secret-store'
+
 import {
   createNamespacedSecretFacade,
-  providerSecretPrefix
+  providerSecretPrefix,
+  type SecretStorePort
 } from '../../infra/config/secret-facade'
 import type { ExternalUsageContext } from '../../contracts/usage-report'
 
@@ -43,7 +44,7 @@ export function effectiveLimitFromReport(
 // 구현은 infra/config/secret-facade 로 승격(0130) — SSO 모듈과 `provider:<key>:` 네임스페이스
 // 규약을 공유하기 위함(feature 교차 import 금지). 기존 시그니처는 무회귀 유지.
 export function createSecretFacade(
-  secretStore: SecretStore,
+  secretStore: SecretStorePort,
   providerKey: string
 ): ExternalUsageContext['secret'] {
   return createNamespacedSecretFacade(secretStore, providerSecretPrefix(providerKey))
