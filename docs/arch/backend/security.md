@@ -41,6 +41,45 @@ new BrowserWindow({
 - claude-code SDK 가 `~/.claude` 디렉토리의 자격증명 (OAuth / API key) 을 자동 사용.
 - 디스크 암호화는 OS 에 위임.
 
+### 1.4-b 인증 플랫폼 (0157) — credential 3계층과 **예외 경계**
+
+앱 로그인과 서비스 연결을 같은 lifecycle 로 처리하는 플랫폼. credential 소유는 3계층이다.
+
+| 계층 | 소유 대상 | 구현 |
+|---|---|---|
+| **Vault** | static credential(api_key·auth_token·PAT)의 값 + kind metadata. provider 별·binding 별 네임스페이스 강제 | `infra/auth/credential-vault.ts` (safeStorage 위) |
+| **Browser session store** | session group → Electron `Session`/partition(`persist:auth.<group>`)과 cookie jar. **cookie 를 호출자에게 반환하지 않는다** | `infra/auth/browser-session-store.ts` |
+| **Binding** | "이 대상이 이 provider 로 인증됨" 이라는 불투명 레코드. `handleId` 만 갖고 secret 을 **타입상 표현할 수 없다** | `features/auth-platform/bindings.ts` |
+
+#### raw secret 이 **없는** 곳 (불변식 — 회귀 테스트로 고정)
+
+Renderer 조회 응답 · `auth` IPC DTO · auth 상태 브로드캐스트 · connector 결과 · 로그(중앙 redaction).
+provider context 에도 vault **전체**·cookie API·`process.env` 전체를 주지 않는다(네임스페이스·allowlist 만).
+
+#### raw secret 이 **있는** 곳 (문서화된 예외 — 제거 대상이 아님)
+
+> **왜 예외인가**: Orca 는 이 경로들의 **요청 주체가 아니다.** claude CLI 서브프로세스가 요청하므로
+> credential 이 프로세스 경계를 넘어가야 한다. 이 사실을 감추지 않고 경계로 고정한다.
+
+| 노출 | 경로 | 사유 / 완화 |
+|---|---|---|
+| MCP 비밀 평문 | `dist/<engine>/plugins/orca/.mcp.json` | claude CLI 가 이 파일을 읽어 MCP 서버를 spawn 한다. **완화**: `.bak` 2차 사본 제거(배포 시 스크럽) · `${BINDING:}` 로 소유권을 broker 로 일원화(회전·만료·logout 일관) · 파일 권한 `0600`. **최종 제거는 Orca 호스팅 MCP proxy 몫**(후속) |
+| LLM auth key 평문 | `--settings` argv 인라인 JSON | handoff 0028 이 **명시 채택한 트레이드오프**(same-user process list 노출 수용). 사용자가 직접 적은 값만 남는다 — 0157 이 broker 가 쓰던 경로(구 `SsoContext.setProviderEnv` → settings.json env 병합)를 **제거**했다 |
+
+**이 표 밖의 신규 노출은 금지**한다. `options.mcpServers` 로 옮기는 것은 개선이 아니다 — SDK 가
+`--mcp-config` argv 인라인 JSON 으로 실어 디스크에서 argv 로 자리만 바꾼다.
+
+#### safeStorage 실패 정책 (비대칭 — 의도적)
+
+| 동작 | 정책 | 근거 |
+|---|---|---|
+| 쓰기(`encrypt`) | `isEncryptionAvailable()` false 면 **throw**(fail-closed) | 평문 강등 저장 금지 |
+| 읽기(`safeDecrypt`) | 복호화 실패 시 `null` 강등 | 키체인 잠김 하나로 앱 전체가 죽지 않게 |
+
+읽기 강등을 유지하되 **관측 가능**하게 만든다: auth 경로는 "비밀 없음" 과 "복호화 실패" 를 구분해
+(`CredentialVault.read()` 의 `absent` vs `undecryptable`) 후자는 warn 로그 + binding status `unknown` 으로
+낮춘다 — 조용한 미인증 진행을 막는다.
+
 ### 1.4 채택된 자격증명 모델 (Phase 3+ 도입 결정)
 
 > **사용자 결정**: 어댑터별 base URL + API key 직접 저장 필요 (custom 백엔드 / 호스트 선택 지원). SDK 자격증명 위임 단독 의존 폐기.
@@ -61,7 +100,7 @@ new BrowserWindow({
 > - **비밀** (`secret-store`, `orca-secrets` + safeStorage): **env-var 이름**으로 키잉(서버 id 아님) → 여러 서버가 같은 `${TOKEN}` 공유. mcp.json 엔 `${VAR}` 만, 실제 값은 여기에만.
 > - **enabled / description** (settings `mcpEnabled` / `mcpMeta`): per-install UI 상태 + Claude 스키마에 없는 Orca 메타. 정의(mcp.json) 와 분리(D2).
 >
-> **`${VAR}` resolver 순서 = safeStorage(비밀) → process.env (2단계)**. 미해결 변수가 있으면 해당 **서버를 드롭 + 사유 기록**(`console.warn`) — 조용한 빈 문자열 치환 금지(인증 없는 요청 누출 방지).
+> **`${VAR}` resolver 순서 (0157 개정) = `${BINDING:<id>}`(인증 플랫폼 binding) → safeStorage(비밀) → **명시 allowlist 에 있는 경우에만** process.env**. 구 구현은 `process.env` **전체**가 fallback 이라 앱 환경의 임의 값이 이름만 맞으면 MCP 설정으로 샜다 — 이제 `orca.json` 의 `secrets.envAllowlist` 에 **정확한 이름**을 적은 것만 허용한다(패턴·접두사 없음, 미지정이면 fallback 0건). 미해결 변수가 있으면 해당 **서버를 드롭 + 사유 기록** — 조용한 빈 문자열 치환 금지(인증 없는 요청 누출 방지).
 
 > **provider settings 예외 (0009 → 0014 → 0028)**: 구 orca.json `agents[].authToken` 의 평문 허용 예외는 **`sources/settings/<adapter>/<provider>/settings.json` 의 `env` 블록으로 이전**됐다(orca.json agents 필드 제거 — TRD §6.8). 이 파일은 `~/.claude/settings.json` 과 동일 취급이라(handoff 0028) env 값(auth key 등)을 사용자가 **직접** 적는다 — Orca 는 `${VAR}` 확장이나 secret-store 토큰 주입을 하지 않고 **verbatim** 으로 읽어 `options.settings` flag 로 주입한다(env 포함). 평문을 쓰는 경우 파일 권한·디스크 보호 책임은 사용자에게 있다(`~/.claude/settings.json` 과 동일). provider settings 는 dist 에 배포하지 않으므로(sources 파일만 verbatim 로드) **디스크 평문 0** 은 유지된다. **격리 해제(0024 구현됨 / disallowedTools 보류)**: `settingSources` 옵션을 생략해 사용자 `~/.claude/settings.json`·skill 을 세션에 상속하되(handoff 0014/0015 격리모드 폐기), provider settings 가 그 위에 얹혀 덮어쓴다(env 포함). Orca 가 막아야 할 도구는 `disallowedTools` 옵션으로 확정 차단한다(deny/disallowed > allow > canUseTool). **MCP 디스크 배포 모델**: `.mcp.json` 은 `${VAR}` placeholder 를 그대로 둔 채 `dist/<engine>/.mcp.json` 로 배포(설치 스테이징)하고, 비밀은 디스크에 남기지 않은 채 런타임에 SDK 가 subprocess env 로 `${VAR}` 를 확장한다(standardization.md §5.2). 평문 비밀 디스크 0 불변식은 settings·MCP 양쪽에서 유지된다(MCP 의 `${VAR}` 확장은 유지 — settings 와 무관).
 >

@@ -275,3 +275,65 @@ binding 하나로 일관되고, 2 단계 후 credential 출처가 broker 로 단
 - [x] 의존 기술 — 신규 의존성 0건 명시, 재사용 모듈 열거, 미검증 전제 1건 분리.
 - [x] 파생 UX — 로딩/에러/빈상태/동시성/부팅순서/safeStorage 잠김/접근성 전개.
 - [x] 리스크 — 6건 + 되돌리기 어려운 결정 명시. Open Question 3건은 착수 전 사용자 확인 완료.
+
+---
+
+## [구현자 기입] 설계 리뷰 (비판적)
+
+구현 주체 = 설계자와 동일(Claude, 사용자 지시)이라 자기 설계를 다시 읽고 실무 관점에서 검토했다.
+
+**동의 / 그대로 진행**
+
+- §설계 §소비자 경계 — 구현하면서 재확인됐다. `authenticatedFetch` 를 붙일 곳이 실제로 connector
+  뿐이고, MCP·LLM 은 값을 넘겨야만 한다. 스코프 축소가 맞았다.
+- §확장 모델 — AUTH-PLAT-011 폐기로 사라진 공수가 컸다. plugin-host·RPC capability 표면·직렬화
+  제약이 전부 불필요해졌고, provider context 에 함수(`fetch`/`exec`)를 그대로 넘길 수 있었다.
+
+**이견 / 우려**
+
+- §설계 §모듈 배치 의 `features/connectors/registry.ts` 는 이름이 오해를 부른다. connector **구현체**
+  등록은 manifest 검증을 auth provider 와 한 경로로 묶어야 해서 `auth-platform/registry.ts` 가
+  맡는 게 맞았다. 그래서 이 파일은 **연결(connection) 레지스트리**로 의미를 바꿔 구현했다
+  (connector 1개 : connection N개 — 같은 connector 를 여러 사내 인스턴스에 연결). 파일 헤더에 명시.
+- §설계 §transaction 의 "durable 하지 않음" 결정은 유지하되, `runGuarded` 가 **이미 abort 된 signal**
+  에서도 provider 를 호출하는 구멍이 있었다(테스트로 발견). race 에 맡기면 즉시 resolve 하는
+  provider 가 이겨서 취소·로그아웃 뒤에도 vault 쓰기 같은 부수효과가 난다 → 선행 체크로 수정.
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
+
+| # | 놓친 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | `runGuarded` 가 abort 된 signal 에서도 provider 를 호출 — 취소 후 부수효과 가능 | ✅ 구현함 — `signal.aborted` 선행 체크로 단락. 회귀 테스트 고정 | `transactions.test.ts` "이미 abort 된 signal 이면 즉시 수렴한다" |
+| 2 | 설계에 `CredentialMeta` 를 `contracts/` 에 두었는데 레이어 위반 — `infra/auth` 가 contracts 를 import 할 수 없다(infra → infra·shared 만) | ✅ 구현함 — `shared/ipc.ts` 로 이동. 이유를 타입 주석에 기록 | `src/main/AGENTS.md` DAG |
+| 3 | 설계가 `${BINDING:}` 의 presentation 을 정하지 않음 — mcp.json 에는 connector manifest 가 없다 | ✅ 구현함 — **raw 값 치환**으로 결정. 사용자가 `"Bearer ${BINDING:x}"` 처럼 형식을 직접 쓴다(기존 `${VAR}` 와 동일 시맨틱, 새 문법 개념 0) | `resolver.test.ts` "Bearer 접두사 등 사용자가 쓴 형식을 그대로 보존한다" |
+| 4 | `VAR_RE` 를 확장해 binding 을 담으면 `McpStore` 의 `authEnvKey` 추출이 binding 을 env-var 이름으로 오인 | ✅ 구현함 — `BINDING_RE` 를 **서로소 패턴**으로 분리. 회귀 테스트 고정 | `resolver.test.ts` "binding id 는 env-var 이름으로 오인되지 않느다" |
+| 5 | `ExternalUsageService`·`McpStore` 가 raw `SecretStore` 를 보유 (위험 #4 잔재) | ✅ 구현함 — 각각 `secretFor` 팩토리 / `attachBindings` + allowlist 로 축소. `createSecretFacade` 시그니처도 concrete 클래스 → 구조적 포트로 | 보고서 §위험 경로 #4 |
+| 6 | `pluginExec` 가 `process.env` 를 자식에 통째 상속 (구 `ssoExec` 동작) | ✅ 구현함 — PATH/HOME/locale allowlist + 호출자 명시분만 전달(Hermes `run_secret_cli` 선례) | `infra/auth/plugin-exec.ts` |
+| 7 | Electron per-session WIA allowlist 성립 여부 | ⚠️ **보고만 — 실기 확인 필요.** 코드는 per-session `allowNTLMCredentialsForDomains` 만 쓰고, 분리 불가 시 전역 합집합 의미로 강등한다는 주석을 남겼다 | `browser-session-store.ts` 헤더 |
+
+## [구현자 기입] 구현 체크리스트
+
+- [x] A1 계약 3파일 (`auth-plugin`·`connector-plugin`·`manifest`)
+- [x] A2 `infra/auth` 4파일 (vault·browser-session-store·authenticated-fetch·plugin-exec)
+- [x] A3 플랫폼 5파일 + conformance 하네스
+- [x] B1 기준 provider 2종 (static-credential·corp-adfs-wia) + `_example` 패키지
+- [x] B2 connector 골격 (connection registry + host)
+- [x] B3 `auth` 8채널 + renderer `features/auth` 재배선 + SSO 전량 제거
+- [x] B4 MCP `${BINDING:}` + `process.env` fallback 제거 + `.bak` 스크럽
+- [x] B5 migration(`ssoBypass`→`authBypass`) + `RouterContext.secretStore` 제거
+- [x] 테스트 8파일 (conformance·registry·policy·bindings·transactions·broker·vault·resolver) + 기존 3파일 보강
+- [x] 문서 7종 갱신
+
+## [구현자 기입] 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 신규 24 (main 17 · 테스트 8 · 가이드 2) · 삭제 7 (SSO 계약·feature·핸들러·renderer login) · 수정 20 |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` |
+| 게이트 결과 | lint **0 error**(warning 1 = 0102 `useVirtualizer` 베이스라인) / typecheck 3분할 **0** / vitest **154 파일 중 149 pass, 1314 tests pass** |
+| 베이스라인 예외 | 5 파일 38 tests red = **better-sqlite3 네이티브 바인딩 미빌드**(egress 차단으로 electron ABI rebuild 403). 전부 `Module did not self-register: better_sqlite3.node` 서명이며 **변경 무관** — 비-ABI 실패 0건 확인 |
+| 신규 의존성 | **0** |
+| DB 마이그레이션 | **0** (binding 은 비영속) |
+| IPC 채널 | 73 → **78** (`sso` 3 제거, `auth` 8 추가), 도메인 22 유지 |
+| 블로커 / 역질문 | 없음 |
+| 사람 실기 대기 | ① Electron per-session WIA allowlist 분리 성립 여부 ② ADFS 공유 partition 실동작 ③ `npm run dev` 기동 ④ DB 로드 스위트(네트워크 완전환경) |

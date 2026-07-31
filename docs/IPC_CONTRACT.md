@@ -2,13 +2,13 @@
 
 > 이 문서는 Main ↔ Renderer 간 IPC 채널의 **단일 진실 공급원 (SSOT)** 이다.
 > 채널을 추가/변경할 때는 코드와 이 문서를 함께 갱신한다.
-> 최종 업데이트: 2026-07-20 (handoff 0130 — `sso` 도메인 신설(status·login·stateEvent, 폐쇄망 SSO 게이트), 69→72)
+> 최종 업데이트: 2026-07-31 (handoff 0157 — `sso` 도메인(3채널) 제거 → `auth` 도메인 신설(status·providers·bindings·begin·continue·refresh·logout·stateEvent), 73→78)
 > 관련 문서: [ARCHITECTURE.md](ARCHITECTURE.md), [ARCHITECTURE.md](ARCHITECTURE.md), [GLOSSARY.md](./GLOSSARY.md), [TRD.md](./TRD.md) §5
 
 ## 1. 명명 규칙
 
 - 형식: `orca:<domain>:<action>` — 소문자 + 콜론 구분
-- 도메인 (22개): `chat`, `boot`, `backend`, `agent`, `engine`, `install`, `update`, `settings`, `skills`, `files`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `concurrency`, `permission`, `notify`, `debug`(dev 전용), `log`, `sso`
+- 도메인 (22개): `chat`, `boot`, `backend`, `agent`, `engine`, `install`, `update`, `settings`, `skills`, `files`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `concurrency`, `permission`, `notify`, `debug`(dev 전용), `log`, `auth`
 - 방향:
   - Renderer → Main 요청: `ipcMain.handle` + `ipcRenderer.invoke` (Promise 반환)
   - Main → Renderer 이벤트: `webContents.send` + `ipcRenderer.on` (단방향 push)
@@ -21,9 +21,9 @@
   - 특례: `chat:send` 는 실패를 `error` 이벤트로 회신(§2.1). 입력이 없거나 store 내부 zod 가 검증하는 채널(settings set · mcp add/update)은 `handlePlain`.
 - 출력(main→renderer send) 무검증: `NormalizedEvent` 등의 형상 보증은 어댑터 정규화(`claude-map.ts`)가 담당 — 의도된 설계.
 
-## 2. 채널 카탈로그 (총 73 채널)
+## 2. 채널 카탈로그 (총 78 채널)
 
-도메인별 분포: `chat` 5 (`send` · `event` · `cancel` · `stopSubagent` · `steerCancel`) · `boot` 2 (`report` · `whenReady`) · `backend` 1 · `agent` 1 · `engine` 5 · `install` 2 · `update` 6 · `settings` 2 · `skills` 7 · `files` 5 · `session` 7 (0129 `setPinned` 추가) · `project` 6 (0129 `setPinned` 추가) · `window` 3 · `search` 1 · `mcp` 4 · `cost` 5 · `concurrency` 1 · `permission` 2 (`respond` · `setMode`) · `notify` 1 (`show` — §2.12-c) · `debug` 2 (dev 전용 — `getMock` · `setMock`) · `log` 1 (`emit` — §2.13-b) · `sso` 3 (`status` · `login` · `stateEvent` — §2.13-c, 0130) = **72**.
+도메인별 분포: `chat` 5 (`send` · `event` · `cancel` · `stopSubagent` · `steerCancel`) · `boot` 2 (`report` · `whenReady`) · `backend` 1 · `agent` 1 · `engine` 5 · `install` 2 · `update` 6 · `settings` 2 · `skills` 7 · `files` 5 · `session` 7 (0129 `setPinned` 추가) · `project` 6 (0129 `setPinned` 추가) · `window` 3 · `search` 1 · `mcp` 4 · `cost` 5 · `concurrency` 1 · `permission` 2 (`respond` · `setMode`) · `notify` 1 (`show` — §2.12-c) · `debug` 2 (dev 전용 — `getMock` · `setMock`) · `log` 1 (`emit` — §2.13-b) · `auth` 8 (`status` · `providers` · `bindings` · `begin` · `continue` · `refresh` · `logout` · `stateEvent` — §2.13-c, 0157) = **78**.
 
 `app/src/shared/ipc.ts` 의 `CHANNELS` 상수와 1:1 일치. **단, `debug` 2채널은 `import.meta.env.DEV` 일 때만 `ipcMain.handle` 로 등록된다** (CHANNELS 상수 문자열은 상존하나 prod 핸들러 미등록 — §2.13 참조).
 
@@ -113,7 +113,7 @@ interface Settings {
   mcpEnabled: Record<string, boolean>; // MCP 서버 on/off (키=name). 부재 ⇒ true
   mcpMeta: Record<string, { description: string }>; // MCP Orca 전용 메타 (mcp.json 순정 유지)
   skillEnabled: Record<string, boolean>; // Skill on/off (키=sourceId/name). 부재 ⇒ true
-  ssoBypass: boolean; // SSO 로그인 게이트 우회 (디버그 패널 토글). true ⇒ 앱 시작 시 로그인 건너뜀. default false
+  authBypass: boolean; // 인증 게이트 우회 (디버그 패널 토글, DEV 전용). true ⇒ 앱 시작 시 로그인 건너뜀. default false (0157 — 구 ssoBypass)
   language: string; // 선호 언어 (LLM 응답 언어). 시스템 프롬프트 '# User' 헤더로 매 턴 주입. uiLocale 과 별개. default '한국어'
   uiLocale: "ko" | "en"; // UI 표시 언어 (앱 크롬 로케일, 0096) — 렌더러 i18n(ko/en) + 날짜/시간 포맷 로케일. default 'ko'
   accountInstructions: string; // 설정 모달 '계정 지침' textarea. 시스템 프롬프트 '# User' 헤더로 매 턴 주입. default ''
@@ -377,15 +377,24 @@ renderer/preload 발 구조화 로그를 main 의 중앙 LogManager 로 전달�
 | --------------- | ---------- | ------------------------------------------------------------------------------ | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `orca:log:emit` | R→M (send) | `LogInput` = `{ level; event; scope; message?; correlationId?; data?; error? }` | —    | fire-and-forget 로그 전송. main 이 `LogInputSchema` + payload 32KB 상한으로 검증, 실패는 **폐기 + `ipc.payload.rejected` warn 집계**(reject 응답 없음). 공통 필드(`timestamp`·`process`·`appVersion`·`sessionId`·`windowId`)는 **main 이 강제 부여** — renderer 가 보내면 strict 스키마가 거부한다(위조 방지). |
 
-### 2.13-c SSO (0130 — 폐쇄망 로그인 게이트)
+### 2.13-c Auth (0157 — 인증 플랫폼. 구 `sso` 3채널 대체)
 
-폐쇄망(사내) 배포의 회사별 SSO 모듈(`features/sso/modules/` opt-in 레지스트리)이 등록됐을 때 prod 로그인 게이트를 구동하는 채널. 모듈 미등록(기본 배포)이면 `required:false` 로 게이트가 자동 통과된다. **`status`/`login` 핸들러는 `Bootstrap.start()` 최상단에서 조기 등록**된다 — 창이 start() 완료 전에 열리므로(0109) renderer 게이트의 첫 invoke 가 부팅 완료를 기다리지 않는다. 확장점 계약 정본은 `app/src/main/contracts/sso.ts`, 배포 가이드는 [guides/closed-network-extensions.md](guides/closed-network-extensions.md).
+앱 로그인(`application`)과 서비스 연결(`connector`)을 **같은 lifecycle** 로 처리하는 채널. 둘의 차이는 `AuthTarget.kind` 뿐이고 별도 인증 인터페이스가 없다. 등록된 auth provider 가 0개(기본 배포)면 `required:false` 로 게이트가 자동 통과된다. **`status`/`begin`/`continue` 핸들러는 `Bootstrap.start()` 최상단에서 조기 등록**된다 — 창이 start() 완료 전에 열리므로(0109) renderer 게이트의 첫 invoke 가 부팅 완료를 기다리지 않는다.
 
-| 채널                  | 방향         | 페이로드                                            | 응답/스트림 | 설명 |
-| --------------------- | ------------ | --------------------------------------------------- | ----------- | ---- |
-| `orca:sso:status`     | R→M (invoke) | —                                                   | `SsoState` = `{ required; authenticated; inflight; identity: SsoIdentity \| null; errorMessage: string \| null; fields: SsoFieldSpec[] }` | 게이트 판정용 상태 1회 조회. `required` = SSO 모듈 등록 여부. `fields` = 모듈이 선언한 로그인 입력 필드(LoginView 제네릭 렌더링). renderer 는 prod 에서 invoke 실패를 `required:false` 로 기본화하지 않는다(재시도 후 fail-closed). |
-| `orca:sso:login`      | R→M (invoke) | `{ input: Record<string,string> }` (`SsoLoginRequestSchema` — 키 64자·값 4096자 상한) | `SsoState`  | 로그인 시도 — main `SsoService` 가 모듈 `login(ctx)` 를 타임아웃(기본 300s)·단일 inflight·throw 격리로 실행. 모듈 미등록이면 no-op. `errorMessage` 는 모듈 원문(회사 언어 재량), null 이면 renderer 카탈로그 폴백. |
-| `orca:sso:stateEvent` | M→R (send)   | `SsoState`                                          | —           | 상태 변화 브로드캐스트(전 창) — inflight 진입/로그인 결과/부팅 `restore()` 성공. renderer store 가 구독해 main 상태를 미러한다. |
+계약 정본은 `app/src/main/contracts/auth-plugin.ts`, provider 등록은 `features/auth-platform/modules/` opt-in 레지스트리, 배포 가이드는 [guides/closed-network-extensions.md](guides/closed-network-extensions.md).
+
+> **응답 DTO 에 raw secret 이 없다.** `AuthBindingInfo.artifact` 는 `handleId` 문자열만 갖고(브라우저 세션의 cookie jar·vault 의 값은 main 이 소유), provider 목록은 `allowedOrigins` 조차 내보내지 않는다. 앱 로그인은 **UX 게이트이지 보안 경계가 아니다** — 인증 전에도 main IPC 는 열려 있다(guides/closed-network-extensions.md §5).
+
+| 채널                   | 방향         | 페이로드                                            | 응답/스트림 | 설명 |
+| ---------------------- | ------------ | --------------------------------------------------- | ----------- | ---- |
+| `orca:auth:status`     | R→M (invoke) | —                                                   | `AuthPlatformState` = `{ required; authenticated; inflight; identity: AuthPrincipal \| null; errorMessage: string \| null; step: AuthStepInfo \| null; providers: AuthProviderInfo[] }` | 게이트 판정용 상태 1회 조회. `required` = `application` target 을 지원하는 provider 등록 여부. renderer 는 prod 에서 invoke 실패를 `required:false` 로 기본화하지 않는다(재시도 후 fail-closed). |
+| `orca:auth:providers`  | R→M (invoke) | —                                                   | `AuthProviderInfo[]` | 등록 provider descriptor(라벨·targets·mechanisms·capabilities·sessionGroup). `allowedOrigins` 는 노출하지 않는다. |
+| `orca:auth:bindings`   | R→M (invoke) | —                                                   | `AuthBindingInfo[]` | binding 목록(대상·상태·만료·principal). secret 없음. |
+| `orca:auth:begin`      | R→M (invoke) | `{ providerId; target }` (`AuthBeginRequestSchema`) | `AuthStepInfo` | 인증 transaction 시작 → 다음 step(`collect`·`browser`·`device_code`·`done`·`failed`). `(providerId, target)` 당 1건이며 재진입 시 기존 transaction 을 **명시 취소**하고 교체한다(조용한 덮어쓰기 없음). |
+| `orca:auth:continue`   | R→M (invoke) | `{ transactionId; input: Record<string,string> }` (`AuthContinueRequestSchema` — 키 64자·값 4096자 상한) | `AuthStepInfo` | 입력이 필요한 step 을 잇는다. 브라우저 플로우(ADFS/WIA)는 `begin` 안에서 끝나 이 채널을 쓰지 않는다. 만료·취소된 transaction 은 `failed(reason:'cancelled')`. |
+| `orca:auth:refresh`    | R→M (invoke) | `{ bindingId }` (`AuthBindingRequestSchema`)        | `AuthRefreshOutcome` | 자동 갱신. static credential 처럼 갱신 개념이 없는 provider 는 `not_supported` 를 반환한다(메서드 부재 아님). |
+| `orca:auth:logout`     | R→M (invoke) | `{ bindingId; cascade?: boolean }` (`AuthLogoutRequestSchema`, 기본 `false`) | `AuthLogoutOutcome` | `cascade:false`(기본) = 이 binding 만 — connector 하나의 연결 해제가 공유 session group 을 삭제하지 않는다. `true` = 종속 binding 까지(앱 로그아웃). |
+| `orca:auth:stateEvent` | M→R (send)   | `AuthPlatformState`                                 | —           | 상태 변화 브로드캐스트(전 창) — transaction 진행·취소·binding 변경. renderer store 가 구독해 main 상태를 미러한다. |
 
 ### 2.14 예약 / 미노출 채널
 

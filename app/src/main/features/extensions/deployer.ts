@@ -29,6 +29,7 @@ import type { SkillScanRoot } from './skills/scan'
 import { readJsonFile } from '../../infra/config/json-file'
 import { orcaConfigDir } from '../../infra/config/paths'
 import { PROVIDER_NAME_RE } from '../../infra/config/provider-key'
+import { ORCA_PLUGIN_NAME } from '../../adapters/claude-plugin'
 import { renderClaudePluginPackage } from './claude-plugin-package'
 import { renderClaudeUserSkillsPlugin } from './claude-user-skills-plugin'
 
@@ -159,7 +160,12 @@ export async function deploy(
       await rm(bak, { recursive: true, force: true })
       await rename(dist, bak)
       backedUp = true
-      actions.push('backup dist → .bak')
+      // 0157 — 해석된 MCP 비밀의 **2차 사본 제거**. .bak 은 배포 구조 롤백용이지 비밀 보관용이
+      // 아닌데, dist 를 통째로 rename 하면 평문 .mcp.json 이 무기한 남는다(보고서 위험 #2).
+      // 남는 1차 사본(dist 쪽)은 claude CLI 가 읽어야 해서 제거할 수 없다 — 요구명세
+      // §소비자 경계의 문서화된 잔여 노출이며, 최종 제거는 MCP proxy 단계 몫이다.
+      await rm(join(bak, 'plugins', ORCA_PLUGIN_NAME, '.mcp.json'), { force: true })
+      actions.push('backup dist → .bak (mcp secret 스크럽)')
     } catch (e) {
       getLogger()
         .child('extensions')

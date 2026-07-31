@@ -2,6 +2,12 @@ import { describe, expect, it, vi } from 'vitest'
 import { ExternalUsageService } from './external-usage-service'
 import type { ExternalUsageProvider, StaticUsageProviderModule } from '../../contracts/usage-report'
 import type { CostSummary, ExternalUsageReport } from '../../../shared/ipc'
+import { createSecretFacade } from './external-usage'
+
+// 0157 — 서비스가 raw SecretStore 대신 provider 별 네임스페이스 뷰만 받는다.
+function emptySecretFacade(): ReturnType<typeof createSecretFacade> {
+  return { get: () => null, set: () => undefined }
+}
 
 function summary(month = 10): CostSummary {
   const period = {
@@ -56,7 +62,7 @@ describe('ExternalUsageService', () => {
     }
     const service = new ExternalUsageService({
       db: db() as never,
-      secretStore: { get: () => undefined, set: () => undefined } as never,
+      secretFor: () => emptySecretFacade(),
       providers: [module],
       clock: () => 100
     })
@@ -99,12 +105,19 @@ describe('ExternalUsageService', () => {
     const logger = vi.fn()
     const service = new ExternalUsageService({
       db: backingDb as never,
-      secretStore: {
-        get: (key: string) => secrets.get(key),
-        set: (key: string, value: string) => {
-          secrets.set(key, value)
-        }
-      } as never,
+      secretFor: (providerKey) =>
+        createSecretFacade(
+          {
+            get: (key: string) => secrets.get(key),
+            set: (key: string, value: string) => {
+              secrets.set(key, value)
+            },
+            delete: (key: string) => {
+              secrets.delete(key)
+            }
+          },
+          providerKey
+        ),
       providers: [
         {
           adapter: 'claude',
@@ -131,7 +144,7 @@ describe('ExternalUsageService', () => {
     const backingDb = db()
     const service = new ExternalUsageService({
       db: backingDb as never,
-      secretStore: { get: () => undefined, set: () => undefined } as never,
+      secretFor: () => emptySecretFacade(),
       providers: [
         {
           adapter: 'claude',
@@ -152,7 +165,7 @@ describe('ExternalUsageService', () => {
 
     const fallbackService = new ExternalUsageService({
       db: backingDb as never,
-      secretStore: { get: () => undefined, set: () => undefined } as never,
+      secretFor: () => emptySecretFacade(),
       providers: [
         {
           adapter: 'claude',
@@ -185,7 +198,7 @@ describe('ExternalUsageService', () => {
     const backingDb = db()
     const seed = new ExternalUsageService({
       db: backingDb as never,
-      secretStore: { get: () => undefined, set: () => undefined } as never,
+      secretFor: () => emptySecretFacade(),
       providers: [
         {
           adapter: 'claude',
@@ -206,7 +219,7 @@ describe('ExternalUsageService', () => {
 
     const offline = new ExternalUsageService({
       db: backingDb as never,
-      secretStore: { get: () => undefined, set: () => undefined } as never,
+      secretFor: () => emptySecretFacade(),
       providers: [
         {
           adapter: 'claude',
@@ -238,7 +251,7 @@ describe('ExternalUsageService', () => {
     let mode: 'ok' | 'throw' = 'ok'
     const service = new ExternalUsageService({
       db: backingDb as never,
-      secretStore: { get: () => undefined, set: () => undefined } as never,
+      secretFor: () => emptySecretFacade(),
       providers: [
         {
           adapter: 'claude',
@@ -286,7 +299,7 @@ describe('ExternalUsageService', () => {
     }))
     const service = new ExternalUsageService({
       db: db() as never,
-      secretStore: { get: () => undefined, set: () => undefined } as never,
+      secretFor: () => emptySecretFacade(),
       providers: modules,
       clock: () => 100
     })

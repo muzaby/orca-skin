@@ -56,14 +56,23 @@ const UpdateConfigSchema = z.union([
   S3UpdateConfigSchema
 ])
 
+// 비밀 해석 정책 (0157). 구 MCP resolver 는 미해결 ${VAR} 를 `process.env` **전체**에서
+// 찾았다 — 앱 환경의 임의 값이 이름만 맞으면 MCP 설정으로 샜다. 이제 env fallback 은 여기
+// 나열한 **정확한 이름**만 허용한다(패턴·접두사 없음).
+const SecretsConfigSchema = z.object({
+  envAllowlist: z.array(z.string().min(1)).optional()
+})
+
 const OrcaConfigTopSchema = z.object({
   version: z.literal(1),
   env: z.record(z.string(), z.string()).optional(),
   update: UpdateConfigSchema.optional(),
+  secrets: SecretsConfigSchema.optional(),
   debug: z.boolean().optional()
 })
 
 export type UpdateConfig = z.infer<typeof UpdateConfigSchema>
+export type SecretsConfig = z.infer<typeof SecretsConfigSchema>
 
 export interface OrcaConfig {
   version: 1
@@ -74,6 +83,9 @@ export interface OrcaConfig {
   // 폐쇄망은 s3(bucket+endpoint 로 MinIO/S3-호환) 또는 github host(GHE) 로 사내 피드를 가리킨다.
   // token/API key 는 저장하지 않는다.
   update?: UpdateConfig
+  // 비밀 해석 정책 (0157). `envAllowlist` 에 적은 이름만 `${VAR}` 해석의 process.env
+  // fallback 으로 허용된다. 미지정이면 env fallback 이 **전혀 없다**(vault 와 binding 만).
+  secrets?: SecretsConfig
   // 디버그 로깅 스위치(0144). true 면 prod 설치본도 debug 레벨 로그 전체 + 메시지/턴 이벤트
   // 타임라인(ipc.wire.event, 메시지 본문 제거)을 파일에 남긴다. 미지정/false 면 기존 info 정책.
   // dev 빌드는 항상 debug 라 이 값과 무관(플래그는 prod 에서만 실질 효과).

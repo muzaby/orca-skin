@@ -49,7 +49,7 @@ shared     → shared 내부만                               (순수 타입/상
 | ----------------------------- | --------------------------------------------------------------------------------------------- |
 | `src/main/app/`               | 컴포지션 루트 — `bootstrap.ts`(부팅 배선·버스 구독 순서) · `chat-turn.ts`(턴 셋업) · `handlers/*`(도메인 IPC — `update`·`engine` 포함) · `context.ts`(RouterContext) · `boot-report.ts`(부팅 진단, 0077) · `updater.ts`(electron-updater 자동 업데이트, 0084~0086) · `builtin-resources.ts`(번들 스킬 리소스 해석, 0078) |
 | `src/main/adapters/`          | claude 어댑터 — `claude.ts`(query) · `claude-map.ts`(SDK→`NormalizedEvent`) · `claude-adapt.ts`(outbound) + 포트(`types`·`turn`·`provider-config`…). mock 은 dev, opencode 는 future |
-| `src/main/features/`          | 수직 슬라이스 (10) — `chat`(턴 오케스트레이션) · `sessions`(런타임 거버넌스) · `approvals` · `usage` · `history`(persist) · `providers` · `extensions`(MCP·skill·deploy·seed) · `orchestration`(대화 연속성 fork/handoff, 순수 로직) · `scheduler`(croner 주기 실행, 0091) · `sso`(폐쇄망 로그인 게이트 — 회사 모듈은 `modules/` opt-in 레지스트리, 0130) |
+| `src/main/features/`          | 수직 슬라이스 (11) — `chat`(턴 오케스트레이션) · `sessions`(런타임 거버넌스) · `approvals` · `usage` · `history`(persist) · `providers` · `extensions`(MCP·skill·deploy·seed) · `orchestration`(대화 연속성 fork/handoff, 순수 로직) · `scheduler`(croner 주기 실행, 0091) · `auth-platform`(인증 플랫폼 — provider registry·transaction·binding·broker, 회사 패키지는 `modules/` opt-in 레지스트리, 0157) · `connectors`(인증된 내장 도구 실행 — raw credential 미접근) |
 | `src/main/contracts/`         | 공유 타입 계약 — `turn`(`TurnContext`) · `bus-events` · `ports` · `session-state`               |
 | `src/main/infra/`             | 얇은 인프라 — `db`(better-sqlite3+WAL+마이그레이션) · `bus`(TypedBus) · `config`(orca.json·secret) · `ipc`(handle/send/dto) · `settings-store`(+`settings-migration`) · `cron`(croner 래퍼) · `errors` · `vars` |
 | `src/shared/{ipc,protocol}.ts`| `CHANNELS` 상수 + 순수 TS 타입 / zod 스키마 (main 전용)                                        |
@@ -73,7 +73,7 @@ new BrowserWindow({
 
 - **CSP** (`src/renderer/index.html`): Google Fonts 만 허용 — `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com`.
 - **외부 URL 로드 금지** — `webContents.setWindowOpenHandler` 로 차단 + OS 기본 브라우저 위임. DevTools 자동 오픈은 dev 빌드 한정.
-- 앱은 비밀을 저장하지 않는다 — OAuth/API 키는 호스트 CLI 가 관리, MCP 인증값만 `safeStorage`.
+- 비밀은 `safeStorage` 로만 봉인한다 — MCP 인증값 + 인증 플랫폼 credential(`infra/auth/credential-vault.ts`). raw secret 이 **나가는** 예외 2곳(MCP `.mcp.json` · LLM `--settings` argv)은 `../docs/arch/backend/security.md §1.4-b` 의 경계표에 고정돼 있다 — 표 밖의 신규 노출 금지.
 - 근거 · credential 모델 상세 → [`../docs/arch/backend/security.md`](../docs/arch/backend/security.md).
 
 ## DB · 캐시 정책 (app 고유)

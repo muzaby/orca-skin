@@ -9,7 +9,6 @@ import type { McpStore } from '../features/extensions/mcp/store'
 import type { AdapterRegistry } from '../adapters/registry'
 import type { MockAdapter } from '../adapters/mock'
 import type { UsageTracker } from '../features/usage/tracker'
-import type { SecretStore } from '../infra/config/secret-store'
 import type { ExtensionBuilder } from '../features/extensions/builder'
 import type { ProviderSettingsService } from '../features/providers/provider-settings'
 import type { Scheduler } from '../features/scheduler'
@@ -24,7 +23,6 @@ export interface RouterContext {
   mcp: McpStore
   registry: AdapterRegistry
   cost: UsageTracker
-  secretStore: SecretStore
   extensions: ExtensionBuilder
   // provider settings 해석 서비스 (handoff 0014) — 열거(sources/settings 트리) + 해석 캐시.
   providerSettings: ProviderSettingsService

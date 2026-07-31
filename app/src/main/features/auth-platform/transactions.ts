@@ -125,11 +125,10 @@ export async function runGuarded<T>(
   fn: () => Promise<T>,
   onError: (err: unknown) => T
 ): Promise<T> {
+  // 이미 취소된 transaction 이면 provider 를 **부르지 않는다**. race 에 맡기면 즉시 resolve 하는
+  // provider 가 이겨서, 취소·로그아웃 뒤에도 vault 쓰기 같은 부수효과가 일어난다.
+  if (signal.aborted) return onError(new Error('auth transaction aborted'))
   const aborted = new Promise<never>((_, reject) => {
-    if (signal.aborted) {
-      reject(new Error('auth transaction aborted'))
-      return
-    }
     signal.addEventListener('abort', () => reject(new Error('auth transaction aborted')), {
       once: true
     })
