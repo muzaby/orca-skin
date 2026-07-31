@@ -170,23 +170,23 @@ tool을 호출하는 구조로 유지할 수 있다.
 
 ## Orca 현행 기반과 제거 대상
 
-| 현행 요소 | 판단 |
-|---|---|
-| Electron `safeStorage`와 fail-closed 저장 | `CredentialVault` 구현으로 유지 |
-| namespace `SecretFacade` | provider/consumer별 capability의 출발점으로 축소 |
-| 기존 SSO module | built-in auth provider로 adapter하고 같은 conformance suite 적용 |
-| 중앙 log redaction | auth transaction·binding·connector audit까지 확장 |
+| 현행 요소 | 코드 근거 | 판단 |
+|---|---|---|
+| Electron `safeStorage`와 fail-closed 저장 | [`secret-store.ts`](https://github.com/muzaby/orca-skin/blob/0ddf31eef55ba0d06d4dbfc16cd916b5fde08d50/app/src/main/infra/config/secret-store.ts#L1-L30) | `CredentialVault` 구현으로 유지 |
+| namespace `SecretFacade` | [`secret-facade.ts`](https://github.com/muzaby/orca-skin/blob/0ddf31eef55ba0d06d4dbfc16cd916b5fde08d50/app/src/main/infra/config/secret-facade.ts#L1-L29) | provider/consumer별 capability의 출발점으로 축소 |
+| 기존 SSO module | [`contracts/sso.ts`](https://github.com/muzaby/orca-skin/blob/0ddf31eef55ba0d06d4dbfc16cd916b5fde08d50/app/src/main/contracts/sso.ts#L1-L60) | built-in auth provider로 adapter하고 같은 conformance suite 적용 |
+| 중앙 log redaction | [`redact.ts`](https://github.com/muzaby/orca-skin/blob/0ddf31eef55ba0d06d4dbfc16cd916b5fde08d50/app/src/main/infra/log/redact.ts) | auth transaction·binding·connector audit까지 확장 |
 
-| 위험 경로 | 목표 |
-|---|---|
-| provider secret의 settings 평문 저장·argv 전달 | secret을 settings에서 제거하고 broker binding만 전달 |
-| MCP secret의 `dist/.bak` materialize | secret-free proxy/connector descriptor만 배포 |
-| broad `process.env` fallback | 명시 source policy와 exact-name allowlist로 교체 |
-| raw `SecretStore`의 넓은 주입 | Vault를 broker 내부로 숨기고 consumer capability만 주입 |
-| SSO token의 provider settings 기록 | binding/session handle로 교체 |
+| 위험 경로 | 코드 근거 | 목표 |
+|---|---|---|
+| provider secret의 settings 평문 저장·argv 전달 | [`claude-settings.ts`](https://github.com/muzaby/orca-skin/blob/0ddf31eef55ba0d06d4dbfc16cd916b5fde08d50/app/src/main/adapters/claude-settings.ts#L1-L10), [`claude-adapt.ts`](https://github.com/muzaby/orca-skin/blob/0ddf31eef55ba0d06d4dbfc16cd916b5fde08d50/app/src/main/adapters/claude-adapt.ts#L67-L83) | secret을 settings에서 제거하고 broker binding만 전달 |
+| MCP secret의 `dist/.bak` materialize | [`bootstrap.ts`](https://github.com/muzaby/orca-skin/blob/0ddf31eef55ba0d06d4dbfc16cd916b5fde08d50/app/src/main/app/bootstrap.ts#L146-L157), [`deployer.ts`](https://github.com/muzaby/orca-skin/blob/0ddf31eef55ba0d06d4dbfc16cd916b5fde08d50/app/src/main/features/extensions/deployer.ts#L154-L200) | secret-free proxy/connector descriptor만 배포 |
+| broad `process.env` fallback | [`mcp/resolver.ts`](https://github.com/muzaby/orca-skin/blob/0ddf31eef55ba0d06d4dbfc16cd916b5fde08d50/app/src/main/features/extensions/mcp/resolver.ts#L1-L9) | 명시 source policy와 exact-name allowlist로 교체 |
+| raw `SecretStore`의 넓은 주입 | [`RouterContext`](https://github.com/muzaby/orca-skin/blob/0ddf31eef55ba0d06d4dbfc16cd916b5fde08d50/app/src/main/app/context.ts#L20-L29) | Vault를 broker 내부로 숨기고 consumer capability만 주입 |
+| SSO token의 provider settings 기록 | [`SsoContext.setProviderEnv`](https://github.com/muzaby/orca-skin/blob/0ddf31eef55ba0d06d4dbfc16cd916b5fde08d50/app/src/main/contracts/sso.ts#L45-L60) | binding/session handle로 교체 |
 
-기존 코드 근거와 migration 대상은 PR #299에서 병합된 보고서의 permalink를 유지한다. 실제 구현
-착수 시 최신 코드 SHA로 재검증하고 `security.md`, `provider-runtime.md`, `standardization.md`,
+위 permalink는 PR #299 조사 당시의 Orca 기준 commit에 고정되어 있다. 실제 구현 착수 시 최신
+코드 SHA로 재검증하고 `security.md`, `provider-runtime.md`, `standardization.md`,
 `IPC_CONTRACT.md`, `GLOSSARY.md`를 함께 갱신해야 한다.
 
 ## 플러그인 로딩과 신뢰 경계
@@ -270,4 +270,3 @@ contract로 진행한다.
 - connector·Agent·Skill이 raw credential/cookie/partition을 받지 않는다.
 - app logout cascade와 connector-only disconnect가 공유 세션을 손상하지 않는다.
 - 기존 credential과 SSO 설정에 migration·rollback 계획이 있다.
-
