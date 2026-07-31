@@ -341,3 +341,150 @@ describe('AuthBroker — 입력 검증', () => {
     if (result.kind === 'failed') expect(result.reason).toBe('cancelled')
   })
 })
+
+// 0157 verify r1 / D3 — authenticatedFetch 의 주입 경로가 실제로 도는지 확인한다.
+// `applyPresentation` 단위 검증은 `infra/auth/authenticated-fetch.test.ts` 가 담당하고,
+// 여기서는 **broker 가 그것을 올바른 입력으로 부르는지** 를 본다.
+describe('AuthBroker — authenticatedFetch (AC8 경로)', () => {
+  const CONNECTOR_MANIFEST = {
+    schemaVersion: 1,
+    id: 'corp',
+    version: '1.0.0',
+    contributes: {
+      authProviders: [
+        {
+          id: 'pat',
+          apiVersion: 1,
+          label: 'PAT',
+          targets: ['application', 'connector'],
+          mechanisms: ['personal_access_token'],
+          capabilities: ['logout']
+        }
+      ],
+      connectors: [
+        {
+          id: 'wiki',
+          apiVersion: 1,
+          label: 'Wiki',
+          acceptedAuthProviders: ['pat'],
+          baseUrl: ORIGIN,
+          presentation: { location: 'header', name: 'PRIVATE-TOKEN' }
+        }
+      ]
+    }
+  }
+
+  function connectorHarness(): {
+    broker: AuthBroker
+    sent: Array<{ url: string; headers: Record<string, string> }>
+  } {
+    const store = fakeStore()
+    const registry = new AuthRegistry()
+    const sent: Array<{ url: string; headers: Record<string, string> }> = []
+    const errors = registry.register({
+      manifest: CONNECTOR_MANIFEST,
+      providers: [
+        createStaticCredentialProvider({
+          id: 'pat',
+          pluginId: 'corp',
+          label: 'PAT',
+          mechanism: 'personal_access_token'
+        })
+      ],
+      connectors: [
+        {
+          descriptor: {
+            id: 'wiki',
+            pluginId: 'corp',
+            apiVersion: 1,
+            label: 'Wiki',
+            acceptedAuthProviders: ['pat'],
+            baseUrl: ORIGIN,
+            presentation: { location: 'header', name: 'PRIVATE-TOKEN' }
+          },
+          start: async () => ({ health: 'ready' }),
+          invoke: async () => ({ ok: true, data: null }),
+          stop: async () => undefined
+        }
+      ]
+    })
+    expect(errors).toEqual([])
+    const broker = new AuthBroker({
+      registry,
+      vaultFor: (prefix) => createCredentialVault(store, prefix),
+      browserSessions: {
+        acquire: async (g) => `handle:${g}`,
+        openLoginWindow: async () => ({ finalUrl: '' }),
+        probe: async () => ({ ok: true, status: 200, finalUrl: '' }),
+        clear: async () => undefined
+      },
+      exec: async () => ({ code: 0, stdout: '', stderr: '' }),
+      broadcast: () => undefined,
+      sender: {
+        send: async (r) => {
+          sent.push({ url: r.url, headers: r.headers })
+          return { status: 200, headers: {}, body: '{}' }
+        }
+      }
+    })
+    return { broker, sent }
+  }
+
+  it('connector manifest 의 presentation 대로 주입한다 — kind 에서 추론하지 않는다', async () => {
+    const { broker, sent } = connectorHarness()
+    const target: AuthTarget = { kind: 'connector', connectorId: 'wiki', connectionId: 'c1' }
+    const begun = await broker.begin('pat', target)
+    if (begun.kind !== 'collect') throw new Error('unreachable')
+    const done = await broker.continue(begun.transactionId, { credential: 'pat-value' })
+    if (done.kind !== 'done') throw new Error('unreachable')
+
+    await broker.authenticatedFetch({
+      bindingId: done.binding.id,
+      connectorId: 'wiki',
+      method: 'GET',
+      path: '/rest/api/content'
+    })
+
+    // PAT 인데 Bearer 가 아니라 manifest 가 선언한 전용 header 로 나간다.
+    expect(sent[0].headers['PRIVATE-TOKEN']).toBe('pat-value')
+    expect(sent[0].headers.Authorization).toBeUndefined()
+    expect(sent[0].url).toBe(`${ORIGIN}/rest/api/content`)
+  })
+
+  it('connector 가 Authorization 을 직접 실으면 거부한다 (header spoofing)', async () => {
+    const { broker } = connectorHarness()
+    const target: AuthTarget = { kind: 'connector', connectorId: 'wiki', connectionId: 'c1' }
+    const begun = await broker.begin('pat', target)
+    if (begun.kind !== 'collect') throw new Error('unreachable')
+    const done = await broker.continue(begun.transactionId, { credential: 'pat-value' })
+    if (done.kind !== 'done') throw new Error('unreachable')
+
+    await expect(
+      broker.authenticatedFetch({
+        bindingId: done.binding.id,
+        connectorId: 'wiki',
+        method: 'GET',
+        path: '/x',
+        headers: { Authorization: 'Bearer stolen' }
+      })
+    ).rejects.toThrow(/reserved_header/)
+  })
+
+  it('절대 URL 로 baseUrl 을 우회하려는 요청을 거부한다', async () => {
+    const { broker } = connectorHarness()
+    const target: AuthTarget = { kind: 'connector', connectorId: 'wiki', connectionId: 'c1' }
+    const begun = await broker.begin('pat', target)
+    if (begun.kind !== 'collect') throw new Error('unreachable')
+    const done = await broker.continue(begun.transactionId, { credential: 'pat-value' })
+    if (done.kind !== 'done') throw new Error('unreachable')
+
+    await expect(
+      broker.authenticatedFetch({
+        bindingId: done.binding.id,
+        connectorId: 'wiki',
+        method: 'GET',
+        path: 'https://evil.invalid/steal'
+      })
+    ).rejects.toThrow(/absolute_path/)
+  })
+})

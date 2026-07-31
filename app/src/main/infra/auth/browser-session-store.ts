@@ -15,14 +15,18 @@
 
 import { BrowserWindow, session, type Session } from 'electron'
 import { getLogger } from '../log/registry'
+// 판정 로직은 electron 비의존 모듈에 있다(테스트 가능) — 0157 verify r1 / D1·D7.
+import {
+  classifyProbeResponse,
+  isAllowedOrigin,
+  partitionFor,
+  type BrowserProbeResult
+} from './session-policy'
+
+export type { BrowserProbeResult } from './session-policy'
+export { classifyProbeResponse, isAllowedOrigin, partitionFor } from './session-policy'
 
 const DEFAULT_TIMEOUT_MS = 300_000
-
-export interface BrowserProbeResult {
-  ok: boolean
-  status: number
-  finalUrl: string
-}
 
 export interface LoginWindowOptions {
   url: string
@@ -119,13 +123,34 @@ export class BrowserSessionStore {
   }
 
   // 같은 세션으로 요청하고 **판정만** 돌려준다. 응답 본문·쿠키는 반환하지 않는다.
+  //
+  // ⚠️ **redirect 를 따라가지 않는다(0157 verify r1 / D1).** 이전 구현은 `redirect:'follow'` 였는데,
+  // ADFS 는 미인증 요청을 로그인 페이지로 302 하는 것이 표준 동작이고 그 페이지는 200 을 준다.
+  // follow 하면 `res.ok === true` 가 되어 **인증되지 않았는데 인증됐다고 판정**하고 valid binding
+  // 을 만든다. 3xx 는 곧 "아직 인증 안 됨" 이므로 미인증으로 읽는다.
+  //
+  // 추가로 Location 이 allowlist 밖이면 실패로 본다 — 세션이 통제 밖 origin 으로 끌려가는
+  // 상황을 정상으로 취급하지 않는다.
   async probe(handleId: string, url: string): Promise<BrowserProbeResult> {
     const entry = this.entryOf(handleId)
     if (!isAllowedOrigin(url, entry.policy.allowedOrigins)) {
       throw new Error('허용되지 않은 origin 으로의 probe 요청')
     }
-    const res = await entry.ses.fetch(url, { credentials: 'include', redirect: 'follow' })
-    return { ok: res.ok, status: res.status, finalUrl: res.url || url }
+    const res = await entry.ses.fetch(url, { credentials: 'include', redirect: 'manual' })
+    const verdict = classifyProbeResponse({
+      status: res.status,
+      ok: res.ok,
+      location: res.headers.get('location'),
+      requestUrl: url,
+      finalUrl: res.url,
+      allowedOrigins: entry.policy.allowedOrigins
+    })
+    if (verdict.redirectOutsideAllowlist) {
+      getLogger()
+        .child('auth')
+        .warn('auth.probe.redirect-outside-allowlist', { sessionGroup: entry.sessionGroup })
+    }
+    return verdict.result
   }
 
   // scope='origin' 은 해당 origin 쿠키만, 'group' 은 session group 전체를 비운다.
@@ -155,18 +180,6 @@ export class BrowserSessionStore {
         e.ses.clearStorageData({ storages: ['cookies'] }).catch(() => undefined)
       )
     )
-  }
-}
-
-export function partitionFor(sessionGroup: string): string {
-  return `persist:auth.${sessionGroup}`
-}
-
-export function isAllowedOrigin(rawUrl: string, allowed: readonly string[]): boolean {
-  try {
-    return allowed.includes(new URL(rawUrl).origin)
-  } catch {
-    return false
   }
 }
 

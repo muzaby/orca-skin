@@ -4,6 +4,11 @@
 // "provider 를 늘려도 검사 지점이 늘지 않게" 하기 위함이다 (AUTH-PLAT-001·013).
 
 import type { AuthTarget } from '../../../shared/ipc'
+// origin 판정은 browser session 경로와 **같은 구현**을 쓴다 — 두 벌이면 규칙이 갈린다
+// (0157 verify r1). features → infra 는 허용 방향.
+import { isAllowedOrigin } from '../../infra/auth/session-policy'
+
+export { isAllowedOrigin }
 
 // connector 가 직접 덮어쓰면 안 되는 헤더. 인증 헤더를 스스로 세팅해 broker 의 주입을
 // 무력화하거나 다른 binding 의 credential 을 흉내내는 경로를 막는다.

@@ -358,11 +358,11 @@ export const en: typeof ko = {
   },
   login: {
     title: 'Login',
-    ssoSection: 'SSO login',
+    authSection: 'Login',
     bypass: 'Login bypass',
     devButton: 'SSO dev button',
     loggingIn: 'Signing in',
-    ssoButton: 'Sign in with SSO'
+    authButton: 'Sign in'
   },
   camera: {
     title: 'Hardware control',

@@ -14,7 +14,7 @@ export function AuthDebugSection(): React.JSX.Element {
   const bypass = useAuthStore((s) => s.bypass)
   return (
     <>
-      <PanelSection label={tr('login.ssoSection')} />
+      <PanelSection label={tr('login.authSection')} />
       <PanelToggle
         label={tr('login.bypass')}
         value={bypass}
