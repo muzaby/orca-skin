@@ -337,3 +337,20 @@ binding 하나로 일관되고, 2 단계 후 credential 출처가 broker 로 단
 | IPC 채널 | 73 → **78** (`sso` 3 제거, `auth` 8 추가), 도메인 22 유지 |
 | 블로커 / 역질문 | 없음 |
 | 사람 실기 대기 | ① Electron per-session WIA allowlist 분리 성립 여부 ② ADFS 공유 partition 실동작 ③ `npm run dev` 기동 ④ DB 로드 스위트(네트워크 완전환경) |
+
+---
+
+## [검증자 기입] 파생 이슈 (Derived Issues)
+
+verify r1(FAIL) 이 이관한 항목. 라운드 2 구현 턴이 여기서 이어간다.
+
+| # | 이슈 | 출처 | 대응 방향 | 상태 |
+|---|---|---|---|---|
+| D1 | `BrowserSessionStore.probe` 가 `redirect:'follow'` — 미인증 요청이 로그인 페이지로 302 되고 200 이면 `res.ok` 가 참이라 **인증됐다고 오판**하고 valid binding 생성 | verify r1 §추가 발견 | `redirect:'manual'` + 3xx = 미인증 + 최종 origin allowlist 재검사. 회귀 테스트 필수 | 해결 |
+| D2 | `checkRedirect` 가 프로덕션 미호출 — D1 이 필요로 하는 검사인데 미배선 | verify r1 | D1 수정 시 배선 | 해결 |
+| D3 | 인수 기준 #8 미검증 — `applyPresentation`·`authenticatedFetch` 테스트 0건. "kind 에서 추론하지 않는다" 는 핵심이 증명되지 않음 | verify r1 매트릭스 #8 | 같은 PAT 가 Bearer/Basic/전용 header 로 다르게 나가는 것을 한 테스트에서 대조 | 해결 |
+| D4 | IPC 채널 총계 오기 — 실측 74→79 인데 문서는 73→78. **변경 전부터 어긋나 있던 것**(헤더 73 / 내역 합 72 / 실측 74)을 검증 없이 승계 | verify r1 매트릭스 #13 | 실측치로 정정하고 내역 합 = 총계 보장 | 해결 |
+| D5 | `DEFAULT_PRESENTATION` 죽은 상수 | verify r1 | 제거 | 해결 |
+| D6 | i18n `login.ssoSection`·`ssoButton` 이 폐기 어휘(SSO) 사용자 노출 | verify r1 | GLOSSARY §3 정합화 | 해결 |
+| D7 | 기준 #6 부분 충족 — `partitionFor`·group 격리 자체는 미테스트(electron 의존 파일 전체 미테스트) | verify r1 매트릭스 #6 | 순수 함수만 분리해 테스트 | 해결 |
+| D8 | renderer `features/auth` 동작 테스트 0건 (`stepPatch`·`applyPlatformState` 는 순수 함수라 테스트 가능) | verify r1 §자기 리뷰 | 후속 개선 — 이번 라운드 비범위 | open |
