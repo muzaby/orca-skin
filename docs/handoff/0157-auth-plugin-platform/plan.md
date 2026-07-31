@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-07-31 |
 | 매핑 | PHASES Phase 4 (신규 행) |
-| 상태 | READY |
+| 상태 | 완료 (verify PASS r2) |
 | 구현 주체 | **Claude** (사용자 지시로 설계→구현까지 직접 수행 — AGENTS.md 의 "기능 구현=Codex" 기본값을 이번 태스크 지시가 대체) |
 
 ## 사용자 의도 / 요구 출처 (Intent & Provenance)
@@ -87,7 +87,8 @@
     미해결 시 기존대로 서버 전체를 드롭한다.
 12. 배포 시 `.bak` 에 **해석된 비밀의 2차 사본이 남지 않는다**.
 13. `contracts/sso.ts`·`features/sso/`·`sso` 3채널이 제거되고, `auth` 8채널로 대체된다
-    (총 73 → 78, 도메인 22 유지).
+    (총 **74 → 79** — verify r1 에서 기계 카운트로 정정. 초안의 "73 → 78" 은 변경 전부터
+    어긋나 있던 문서 수치를 검증 없이 승계한 것이었다. 도메인 22 유지).
 14. `Settings.ssoBypass` → `authBypass` 마이그레이션이 동작하고, 기존 `SecretStore` 키
     (`provider:<key>:*` · MCP env-var 이름)가 보존된다.
 15. `RouterContext.secretStore` 가 제거되고, `McpStore`·`ExternalUsageService` 가 raw `SecretStore`
@@ -353,4 +354,4 @@ verify r1(FAIL) 이 이관한 항목. 라운드 2 구현 턴이 여기서 이어
 | D5 | `DEFAULT_PRESENTATION` 죽은 상수 | verify r1 | 제거 | 해결 |
 | D6 | i18n `login.ssoSection`·`ssoButton` 이 폐기 어휘(SSO) 사용자 노출 | verify r1 | GLOSSARY §3 정합화 | 해결 |
 | D7 | 기준 #6 부분 충족 — `partitionFor`·group 격리 자체는 미테스트(electron 의존 파일 전체 미테스트) | verify r1 매트릭스 #6 | 순수 함수만 분리해 테스트 | 해결 |
-| D8 | renderer `features/auth` 동작 테스트 0건 (`stepPatch`·`applyPlatformState` 는 순수 함수라 테스트 가능) | verify r1 §자기 리뷰 | 후속 개선 — 이번 라운드 비범위 | open |
+| D8 | renderer `features/auth` 동작 테스트 0건 (`stepPatch`·`applyPlatformState` 는 순수 함수라 테스트 가능) | verify r1 §자기 리뷰 | 후속 개선 — 이번 라운드 비범위 | **open (후속 핸드오프)** |

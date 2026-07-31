@@ -357,11 +357,11 @@ export const ko = {
   },
   login: {
     title: '로그인',
-    ssoSection: 'SSO 로그인',
+    authSection: '로그인',
     bypass: '로그인 우회(bypass)',
     devButton: 'SSO 개발 버튼',
     loggingIn: '로그인 중',
-    ssoButton: 'SSO로 로그인'
+    authButton: '로그인'
   },
   camera: {
     title: '하드웨어 제어',

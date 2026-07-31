@@ -12,8 +12,7 @@ import type {
   AuthPlatformState,
   AuthRefreshOutcome,
   AuthStepInfo,
-  AuthTarget,
-  CredentialPresentation
+  AuthTarget
 } from '../../../shared/ipc'
 import type {
   AuthBindingRef,
@@ -518,12 +517,4 @@ function safeOrigin(rawUrl: string): string {
   } catch {
     return ''
   }
-}
-
-// presentation 을 kind 에서 추론하지 않는다는 원칙의 기본값 헬퍼 —
-// connector manifest 가 없는 경로(테스트·기본 provider)에서만 쓴다.
-export const DEFAULT_PRESENTATION: CredentialPresentation = {
-  location: 'header',
-  name: 'Authorization',
-  scheme: 'Bearer'
 }

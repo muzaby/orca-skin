@@ -7,9 +7,9 @@
 | slug | `0157-auth-plugin-platform` |
 | 검증자 | Claude Code |
 | 일자 | 2026-07-31 |
-| 대상 커밋 | `dddfbf1` (설계 `26d66bc`, 골격 `24590c8`) |
-| 라운드 | 1 |
-| 상태 | **FAIL** |
+| 대상 커밋 | r1 `dddfbf1` → r2 (본 커밋) |
+| 라운드 | 2 |
+| 상태 | **PASS** (r1 FAIL → 수정 → r2 PASS) |
 
 > 설계·구현·검증을 같은 에이전트가 수행했다(사용자 지시). 자기 검증의 편향을 줄이려고
 > **인수 기준 문장을 읽고 코드를 찾는 방향이 아니라, 코드에서 미사용·미검증 표면을 먼저 뽑아**
@@ -145,10 +145,98 @@ $ vitest run 2>&1 | grep FAIL | grep -viE "queries|migrate|builder|fork|continui
 
 > 위 항목은 plan 의 **"파생 이슈 (Derived Issues)"** 챕터로 이관한다.
 
-## 결론 / 다음 단계
+## 결론 / 다음 단계 (r1)
 
 - 상태: **FAIL (r1)** — 인수 기준 16건 중 #8 미충족·#13 숫자 오류, 추가로 인증 정확성 결함 D1.
 - 다음 주체: **Claude**(구현) — 라운드 2 로 위 액션 아이템 처리 후 재검증.
 - **D1 이 가장 중요하다**: 나머지는 테스트·문서 정합이지만 D1 은 "인증되지 않았는데 인증됐다고
   판정" 하는 동작 결함이다. 폐쇄망 ADFS 는 미인증 요청을 로그인 페이지로 302 하는 것이 표준
   동작이므로 실환경에서 재현 확률이 높다.
+
+
+---
+
+# 라운드 2 (재검증)
+
+## r1 액션 아이템 처리 결과
+
+| 항목 | 처리 | 증거 |
+|---|---|---|
+| **D1** probe 가 redirect 를 따라가 로그인 페이지 200 을 인증으로 오판 | ✅ 수정 — `redirect:'manual'` + **3xx = 미인증** 판정 | `session-policy.ts:classifyProbeResponse` · `browser-session-store.test.ts` "ADFS 로그인 페이지로 302 되는 응답을 authenticated 로 오판하지 않는다" |
+| **D2** `checkRedirect` 미배선 | ✅ 해소 — probe 가 Location origin 을 재검사하고 allowlist 밖이면 warn + 미인증 | 같은 파일 "allowlist 밖으로의 redirect 를 표시한다" · 상대 Location 절대화 · 파싱 실패 보수 처리 |
+| **기준 #8** presentation 별 주입 미검증 | ✅ 해소 — 단위 12케이스 + broker 경유 3케이스 | `authenticated-fetch.test.ts`(**하나의 PAT 가 Bearer/Basic/Token/전용 header 4가지로 나가고 서로 다름**을 한 테스트에서 대조) · `broker.test.ts` "connector manifest 의 presentation 대로 주입한다" |
+| **기준 #13** 채널 총계 오기 | ✅ 정정 — 실측 **74 → 79**. 내역 합 = 총계 기계 검산(22 도메인, 합 79) | `IPC_CONTRACT.md` 헤더·§2 제목·내역(`chat` 5→6·`cost` 5→6) + 정정 각주 · `docs/AGENTS.md` 인벤토리 · plan AC13 |
+| **D3** `DEFAULT_PRESENTATION` 죽은 상수 | ✅ 제거 | `broker.ts` 참조 0 |
+| **D4** i18n 폐기 어휘 | ✅ 정정 — `ssoSection/ssoButton` → `authSection/authButton`(ko/en + 사용처 2곳) | `grep ssoSection\|ssoButton src/` → 0건 |
+| **기준 #6** group 격리 미검증 | ✅ 해소 — 순수 함수를 electron 비의존 모듈로 분리해 테스트 | `session-policy.ts` 신설 · `partitionFor` 4케이스(1:1 매핑·group 간 상이·동일 group 동일·persist 접두사) |
+| **D8** renderer auth store 테스트 | ⏸ **이월 유지** — plan 파생 이슈에 `open` 으로 남김 | 후속 핸드오프 |
+
+**r2 에서 추가로 개선한 것 (r1 이 지적하지 않았으나 D1 수정 중 발견)**
+
+- `isAllowedOrigin` 이 `policy.ts`(features)와 `browser-session-store.ts`(infra)에 **두 벌 존재**했다.
+  origin 판정 규칙이 갈리면 한쪽만 고쳐지는 사고가 난다 → `infra/auth/session-policy.ts` 단일
+  구현으로 통합하고 features 가 re-export 한다(features → infra 는 허용 방향).
+- `browser-session-store.ts` 가 최상단에서 `electron` 을 import 해 **그 파일의 어떤 함수도 테스트할
+  수 없었다**. 판정 로직을 `session-policy.ts` 로 분리해 테스트 가능하게 만들었다 — r1 이
+  "#6 부분 충족" 으로만 적고 넘어간 근본 원인이 이것이었다.
+
+## 매트릭스 재판정
+
+| # | r1 | r2 | 근거 |
+|---|---|---|---|
+| 6 | ⚠️ 부분 | ✅ | `partitionFor` 격리 4케이스 + `classifyProbeResponse` 8케이스 |
+| 8 | ❌ | ✅ | presentation 15케이스(단위 12 + broker 경유 3) |
+| 13 | ❌(숫자) | ✅ | 실측 74→79, 내역 합 = 총계 검산 통과 |
+| 1~5·7·9~12·14~16 | ✅ | ✅ | r1 증거 유지 (회귀 없음 — 전체 스위트 재실행) |
+
+**16/16 충족.**
+
+## 게이트 재실행 결과 (r2)
+
+```
+$ npm run lint
+✖ 1 problem (0 errors, 1 warning)     # warning = 0102 useVirtualizer 베이스라인
+
+$ npm run typecheck                    # 3분할 전부 error 0
+
+$ ./node_modules/.bin/vitest run
+Test Files  5 failed | 151 passed (156)
+Tests      38 failed | 1343 passed (1381)
+
+$ vitest run 2>&1 | grep FAIL | grep -viE "queries|migrate|builder|fork|continuity"
+(출력 없음)                            # 비-ABI 실패 0건
+```
+
+r1 대비 **+2 파일 / +28 테스트**(1315 → 1343). 실패 5파일 38테스트는 동일한 better-sqlite3
+네이티브 바인딩 미빌드 베이스라인(egress 403)이며 변경 무관.
+
+인증 관련 스위트만: **9파일 133테스트 전부 pass**.
+
+## PHASES.md 정합성 (r2)
+
+- PASS 이므로 Phase 4 행으로 승격한다. PR 번호는 미생성(사용자 미요청) — 커밋 해시로 기재.
+
+## 검증 자기 리뷰 (r2 — 이번 라운드가 배운 것)
+
+- **r1 의 검증 방식이 옳았다.** "인수 기준을 읽고 코드를 찾는" 대신 "코드의 미사용·미검증 표면을
+  먼저 뽑는" 순서였기 때문에 기준 밖에 있던 D1(인증 오판)을 잡았다. 기준만 따라갔으면
+  `probe` 의 `redirect:'follow'` 는 어느 기준에도 걸리지 않아 그대로 나갔을 것이다.
+- **r1 이 놓친 것**: `browser-session-store.ts` 를 "electron 의존이라 미테스트" 로 **결론짓고
+  멈췄다**. 실제로는 판정 로직만 떼면 테스트 가능했고, 떼는 과정에서 `isAllowedOrigin` 이중
+  구현까지 드러났다. "테스트 불가" 판정을 내리기 전에 "무엇을 떼면 가능한가" 를 한 번 더
+  물었어야 한다.
+- **구현 단계의 재발 방지**: `Criteria-Met` 을 셀 때 **테스트가 있는 기준만** 센다는 규칙을
+  다음 핸드오프에 적용한다. r1 의 16/16 은 "코드가 존재함" 을 충족으로 셌기 때문에 나온 숫자다.
+- **남은 빚**: renderer `features/auth` 동작 테스트 0건(D8). `stepPatch`·`applyPlatformState` 는
+  순수 함수라 비용이 낮은데 이번 두 라운드 모두 손대지 않았다 — plan 파생 이슈에 `open` 유지.
+
+## 결론 / 다음 단계 (r2)
+
+- 상태: **PASS** — 인수 기준 16/16, 게이트 통과, 비-ABI 실패 0.
+- 다음 주체: **—** (종료). PHASES 승격 완료.
+- **사람 실기 대기 4건** (에이전트 검증 불가):
+  1. Electron 39 에서 session group 별 WIA allowlist 분리 성립 여부 — 불가 시
+     `allowIntegratedAuthDomains` 를 전역 합집합 의미로 강등(코드 주석에 경로 명시됨)
+  2. ADFS 공유 partition 실동작 (최초 WIA 후 두 번째 서비스가 재입력 없이 통과)
+  3. 로그인 화면(AuthView) 시각 검증 — `AuthStep` 기반으로 재구성됨
+  4. `npm run dev` 기동 · DB 로드 스위트(네트워크 완전환경)

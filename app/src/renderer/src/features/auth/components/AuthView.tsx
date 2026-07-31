@@ -84,7 +84,7 @@ export function AuthView(): React.JSX.Element {
               {tr('login.loggingIn')}
             </span>
           ) : (
-            tr('login.ssoButton')
+            tr('login.authButton')
           )}
         </Button>
       </div>
