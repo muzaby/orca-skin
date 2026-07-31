@@ -46,7 +46,13 @@ import type {
   UpdateProgress,
   UpdateCheckResult,
   UpdateInstallResult,
-  SsoState
+  AuthPlatformState,
+  AuthProviderInfo,
+  AuthBindingInfo,
+  AuthStepInfo,
+  AuthTarget,
+  AuthRefreshOutcome,
+  AuthLogoutOutcome
 } from '../../../../shared/ipc'
 
 // renderer 의 모든 IPC 호출 진입점. window.orca.* 의 얇은 typed 패스-스루로,
@@ -192,11 +198,25 @@ export const updateApi = {
     window.orca.update.onProgress(handler)
 }
 
-export const ssoApi = {
-  status: (): Promise<SsoState> => window.orca.sso.status(),
-  login: (input: Record<string, string>): Promise<SsoState> => window.orca.sso.login(input),
-  onState: (handler: (state: SsoState) => void): (() => void) => window.orca.sso.onState(handler)
+// 인증 플랫폼 (0157 — 구 ssoApi 대체). 앱 로그인과 서비스 연결이 같은 표면을 쓰고
+// `AuthTarget` 만 달라진다.
+export const authApi = {
+  status: (): Promise<AuthPlatformState> => window.orca.auth.status(),
+  providers: (): Promise<AuthProviderInfo[]> => window.orca.auth.providers(),
+  bindings: (): Promise<AuthBindingInfo[]> => window.orca.auth.bindings(),
+  begin: (providerId: string, target: AuthTarget): Promise<AuthStepInfo> =>
+    window.orca.auth.begin(providerId, target),
+  continueAuth: (transactionId: string, input: Record<string, string>): Promise<AuthStepInfo> =>
+    window.orca.auth.continueAuth(transactionId, input),
+  refresh: (bindingId: string): Promise<AuthRefreshOutcome> => window.orca.auth.refresh(bindingId),
+  logout: (bindingId: string, cascade?: boolean): Promise<AuthLogoutOutcome> =>
+    window.orca.auth.logout(bindingId, cascade),
+  onState: (handler: (state: AuthPlatformState) => void): (() => void) =>
+    window.orca.auth.onState(handler)
 }
+
+// 앱 로그인 target 상수 — renderer 여러 곳이 같은 값을 만들지 않도록 한 곳에 둔다.
+export const APPLICATION_TARGET: AuthTarget = { kind: 'application', applicationId: 'orca' }
 
 export const debugApi = {
   getMock: (): Promise<DebugMockState> => window.orca.debug.getMock(),

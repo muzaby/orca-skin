@@ -53,7 +53,7 @@ import { registerProjectHandlers } from './handlers/project'
 import { registerMcpHandlers } from './handlers/mcp'
 import { registerEngineHandlers } from './handlers/engine'
 import { registerMiscHandlers } from './handlers/misc'
-import { registerSsoHandlers } from './handlers/sso'
+import { registerAuthHandlers } from './handlers/auth'
 import { registerBootHandlers } from './handlers/boot'
 import { registerUpdateHandlers } from './handlers/update'
 import { registerLogHandlers } from './handlers/log'
@@ -73,12 +73,15 @@ import { HistoryWriter } from '../features/history/writer'
 import { materializeContinuityArrival } from '../features/orchestration/fork'
 import { TitleGenerator } from '../features/chat/title-generation'
 import { recoverSessionHistory } from '../features/chat/recovery'
-import { broadcastConcurrency, broadcastSsoState, sendChatEvent } from '../infra/ipc/send'
-import { SsoService } from '../features/sso/service'
-import { SSO_MODULE } from '../features/sso'
-import { ssoExec } from '../features/sso/exec'
-import { openSsoAuthWindow } from '../features/sso/auth-window'
-import { mergeProviderEnv } from '../features/providers/engine-write'
+import { broadcastConcurrency, broadcastAuthState, sendChatEvent } from '../infra/ipc/send'
+import { AuthBroker } from '../features/auth-platform/broker'
+import { AuthRegistry } from '../features/auth-platform/registry'
+import { AUTH_PLUGIN_PACKAGES } from '../features/auth-platform/modules'
+import { ConnectionRegistry } from '../features/connectors/registry'
+import { ConnectorHost } from '../features/connectors/runtime'
+import { BrowserSessionStore } from '../infra/auth/browser-session-store'
+import { createCredentialVault } from '../infra/auth/credential-vault'
+import { pluginExec } from '../infra/auth/plugin-exec'
 import { resolveBuiltinSkillsDir } from './builtin-resources'
 
 export class Bootstrap {
@@ -167,6 +170,68 @@ export class Bootstrap {
     })
   }
 
+  // 인증 플랫폼 조립 (0157). 여기가 유일한 구체 배선 지점이다 — broker·registry·provider 는
+  // 서로를 직접 만들지 않는다. connector runtime 은 `AuthenticatedFetch` 구조적 포트로만
+  // broker 에 닿는다(features 교차 import 회피, src/main/AGENTS.md §해소책 2+3).
+  private createAuthPlatform(secretStore: SecretStore): {
+    broker: AuthBroker
+    connectors: ConnectorHost
+    sessions: BrowserSessionStore
+  } {
+    const log = getLogger().child('auth')
+    const registry = new AuthRegistry()
+    const sessions = new BrowserSessionStore()
+
+    // opt-in 패키지 등록. 신규 설치는 빈 배열 = 게이트 없음(현행 동작 보존).
+    for (const pkg of AUTH_PLUGIN_PACKAGES) {
+      const errors = registry.register({
+        manifest: pkg.manifest,
+        ...(pkg.providers !== undefined ? { providers: pkg.providers } : {}),
+        ...(pkg.connectors !== undefined ? { connectors: pkg.connectors } : {})
+      })
+      for (const e of errors) {
+        log.warn('auth.package.rejected', {
+          pluginId: e.pluginId,
+          ...(e.contributionId !== undefined ? { contributionId: e.contributionId } : {}),
+          message: e.message
+        })
+      }
+    }
+    for (const e of registry.validateCrossReferences()) {
+      log.warn('auth.package.cross-reference-failed', {
+        pluginId: e.pluginId,
+        message: e.message
+      })
+    }
+
+    // browser_session capability 를 선언한 provider 의 session group 을 미리 등록한다.
+    for (const provider of registry.listProviders()) {
+      const { sessionGroup, allowedOrigins } = provider.descriptor
+      if (sessionGroup) sessions.register({ sessionGroup, allowedOrigins })
+    }
+
+    const broker = new AuthBroker({
+      registry,
+      vaultFor: (prefix) => createCredentialVault(secretStore, prefix),
+      browserSessions: {
+        acquire: async (group) => sessions.acquire(group),
+        openLoginWindow: (handleId, opts) => sessions.openLoginWindow(handleId, opts),
+        probe: (handleId, url) => sessions.probe(handleId, url),
+        clear: (handleId, opts) => sessions.clear(handleId, opts)
+      },
+      exec: pluginExec,
+      broadcast: broadcastAuthState
+    })
+
+    const connections = new ConnectionRegistry()
+    const connectors = new ConnectorHost({
+      connections,
+      lookup: registry,
+      authenticatedFetch: (req, signal) => broker.authenticatedFetch(req, signal)
+    })
+    return { broker, connectors, sessions }
+  }
+
   private async deployExtensions(): Promise<void> {
     await this.deployment?.deployNow()
   }
@@ -176,24 +241,11 @@ export class Bootstrap {
   }
 
   async start(): Promise<void> {
-    // SSO 게이트는 창 오픈 직후 renderer 가 status 를 invoke 하므로(0130) 부팅 최상단에서
-    // 서비스 생성 + 핸들러 조기 등록. providerSettings 는 부팅 후반에 생기므로 env 기록은
-    // lazy sink 로 지연 바인딩한다(그 전 호출은 throw → SsoService 가 실패로 격리).
+    // 인증 게이트는 창 오픈 직후 renderer 가 status 를 invoke 하므로(0109/0157) 부팅 최상단에서
+    // 플랫폼 조립 + 핸들러 조기 등록.
     const secretStore = new SecretStore()
-    let providerEnvSink:
-      ((adapter: string, provider: string, env: Record<string, string>) => void) | null = null
-    const sso = new SsoService({
-      module: SSO_MODULE,
-      secretStore,
-      writeProviderEnv: (adapter, provider, env) => {
-        if (!providerEnvSink) throw new Error('provider settings not ready')
-        providerEnvSink(adapter, provider, env)
-      },
-      broadcastState: broadcastSsoState,
-      exec: ssoExec,
-      openAuthWindow: openSsoAuthWindow
-    })
-    registerSsoHandlers(sso)
+    const auth = this.createAuthPlatform(secretStore)
+    registerAuthHandlers(auth.broker)
 
     const db = this.bootReport.stepSync('db-init', { critical: true, label: 'DB 초기화' }, () =>
       initDb({
@@ -293,11 +345,9 @@ export class Bootstrap {
       }
     )
     const providerSettings = new ProviderSettingsService({ claude: loadClaudeProviderSettings })
-    // SSO env 기록 sink 지연 바인딩(0130) — settings.json env 병합 + 해석 캐시 무효화.
-    providerEnvSink = (adapter, provider, env) => {
-      mergeProviderEnv(adapter, provider, env)
-      providerSettings.invalidateAll()
-    }
+    // 0157: 구 SSO 의 setProviderEnv sink 를 제거했다. 획득 토큰을 provider settings.json 의
+    // env 블록에 **평문으로 병합 기록**하던 경로였다(보고서 위험 #5). 이제 credential 은
+    // binding·vault 가 소유하고, LLM 백엔드로 나가는 값은 사용자가 직접 적은 것만 남는다.
     this.bootReport.stepSync(
       'provider-scaffold',
       { critical: false, label: 'provider settings 스캐폴드' },
@@ -340,11 +390,6 @@ export class Bootstrap {
     await this.bootReport.step('skill-scan', { critical: false, label: '스킬 스캔' }, () =>
       this.refreshSkills()
     )
-    // SSO silent 복원(0130) — 모듈 미등록/restore 미구현이면 즉시 no-op. 실패는 조용히
-    // 미인증 유지(비-critical) — 로그인 화면에서 다시 시도한다.
-    await this.bootReport.step('sso-restore', { critical: false, label: 'SSO 세션 복원' }, () =>
-      sso.restore()
-    )
     this.bootReport.finish()
 
     const ctx: RouterContext = {
@@ -367,7 +412,8 @@ export class Bootstrap {
       updates: this.createUpdateController(),
       scheduler,
       externalUsage,
-      sso
+      auth: auth.broker,
+      connectors: auth.connectors
     }
     this.register(ctx)
   }

@@ -94,11 +94,17 @@ export const CHANNELS = {
   // renderer/preload → main 로그 인제스트 (0123). 유일한 one-way send 채널 —
   // fire-and-forget 이라 invoke 가 아니다. 공통 필드는 main 이 강제 부여.
   logEmit: 'orca:log:emit',
-  // SSO 로그인 게이트 (0130) — 폐쇄망 배포의 회사별 로그인 모듈(features/sso/modules opt-in).
-  // status/login 핸들러는 부팅 초기에 등록된다(창이 start() 완료 전에 열리므로).
-  ssoStatus: 'orca:sso:status',
-  ssoLogin: 'orca:sso:login',
-  ssoStateEvent: 'orca:sso:stateEvent'
+  // 인증 플랫폼 (0157 — 0130 SSO 3채널을 대체). 앱 로그인(application)과 서비스 연결
+  // (connector)이 같은 lifecycle 을 쓰고 target 만 다르다.
+  // status/begin/continue 핸들러는 부팅 초기에 등록된다(창이 start() 완료 전에 열리므로).
+  authStatus: 'orca:auth:status',
+  authProviders: 'orca:auth:providers',
+  authBindings: 'orca:auth:bindings',
+  authBegin: 'orca:auth:begin',
+  authContinue: 'orca:auth:continue',
+  authRefresh: 'orca:auth:refresh',
+  authLogout: 'orca:auth:logout',
+  authStateEvent: 'orca:auth:stateEvent'
 } as const
 
 export type UpdateStateStatus =
@@ -132,9 +138,63 @@ export interface UpdateInstallResult {
   message?: string
 }
 
-// SSO 로그인 게이트 (0130) — 회사별 SSO 모듈(main features/sso)의 renderer 노출 상태.
-// 모듈이 로그인 화면에 띄울 입력 필드 선언 — LoginView 가 제네릭 렌더링한다.
-export interface SsoFieldSpec {
+// ═══════════════════════════════════════════════════════════════════════════
+// 인증 플랫폼 renderer 노출 타입 (0157 — 0130 Sso* 타입을 대체).
+//
+// 여기 있는 것은 전부 **IPC 를 건너는 DTO** 다. raw secret·cookie·Electron Session 은
+// 이 타입들로 표현할 수 없다 — artifact 는 handleId 문자열만 갖는다(AUTH-PLAT-008).
+// provider 구현 계약(main 전용)은 `main/contracts/auth-plugin.ts` 가 정본.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// 인증 결과의 사용 대상. 앱 로그인과 서비스 연결은 이 판별자만 다르고 lifecycle 은 같다.
+//
+// ⚠️ `application` 은 **UX 게이트**이지 보안 경계가 아니다 — 인증 전에도 main IPC 는 열려 있다
+// (docs/guides/closed-network-extensions.md §5). 실제 접근 통제는 사내 네트워크/서비스가 한다.
+export type AuthTarget =
+  | { kind: 'application'; applicationId: 'orca' }
+  | { kind: 'connector'; connectorId: string; connectionId: string }
+
+export type AuthTargetKind = AuthTarget['kind']
+
+export type AuthMechanism =
+  | 'adfs_browser_session'
+  | 'oauth_browser'
+  | 'oauth_device_code'
+  | 'api_key'
+  | 'auth_token'
+  | 'personal_access_token'
+  | 'basic'
+  | 'external_secret'
+
+// provider 가 선언하는 지원 동작. UI 는 이것으로 버튼을 그리고, core 는 메서드 존재 여부로
+// provider 종류를 추론하지 않는다(5메서드는 전부 required — 미지원은 not_supported 반환).
+export type AuthCapability = 'browser_session' | 'status' | 'refresh' | 'logout' | 'device_code'
+
+// 저장되는 credential 의 종류. 요청에 넣는 방식(presentation)은 여기서 추론하지 않는다 —
+// api_key 라고 무조건 X-API-Key 가 아니고, PAT 라고 무조건 Bearer 가 아니다.
+export type CredentialKind = 'api_key' | 'auth_token' | 'personal_access_token' | 'basic' | 'oauth'
+
+// vault 에 봉인된 credential 에 딸리는 비-비밀 metadata. 값 자체는 절대 담지 않는다.
+// shared 에 두는 이유: `infra/auth` 와 `contracts/auth-plugin` 이 함께 쓰는데 레이어 DAG 상
+// infra 는 contracts 를 import 할 수 없다(infra → infra·shared 만).
+export interface CredentialMeta {
+  kind: CredentialKind
+  // 이 credential 이 유효한 서비스(표시·감사용). secret 아님.
+  service?: string
+  scopes?: readonly string[]
+  expiresAt?: number
+  createdAt: number
+}
+
+// secret 을 HTTP 요청의 어디에 어떤 형식으로 넣는지에 대한 선언 (connector manifest 소유).
+export type CredentialPresentation =
+  | { location: 'header'; name: string; scheme?: 'Bearer' | 'Basic' | 'Token' | 'Raw' }
+  | { location: 'cookie'; name: string }
+  // query 노출은 로그·referrer 로 새기 쉬워 명시 opt-in 으로만 허용한다.
+  | { location: 'query'; name: string; restricted: true }
+
+// 로그인 화면 입력 필드 선언 — AuthView 가 제네릭 렌더링한다 (구 SsoFieldSpec).
+export interface AuthFieldSpec {
   name: string
   label: string
   type: 'text' | 'password'
@@ -142,20 +202,95 @@ export interface SsoFieldSpec {
   required?: boolean
 }
 
-export interface SsoIdentity {
+export interface AuthPrincipal {
+  id?: string
   email?: string
   displayName?: string
 }
 
-export interface SsoState {
-  // 모듈 등록 여부. false 면 prod 게이트 자동 통과(현행 동작 보존) — DEV 게이트는 별개.
+export type AuthBindingStatus = 'valid' | 'expired' | 'revoked' | 'unknown'
+
+// binding 이 가리키는 실체. **handleId 만** 갖는다 — 실제 secret·cookie jar 는 main 이 소유하고
+// 이 타입으로는 표현 자체가 불가능하다.
+export type AuthArtifactRef =
+  | { kind: 'browser_session'; handleId: string; sessionGroup: string }
+  | { kind: 'vault_credential'; handleId: string; credentialKind: CredentialKind }
+  | { kind: 'delegated'; handleId: string }
+
+export interface AuthBindingInfo {
+  id: string
+  pluginId: string
+  providerId: string
+  target: AuthTarget
+  mechanism: AuthMechanism
+  principal?: AuthPrincipal
+  artifact: AuthArtifactRef
+  // 앱 로그인 binding 에 종속된 서비스 binding 이면 부모를 가리킨다(logout cascade 판정).
+  parentBindingId?: string
+  status: AuthBindingStatus
+  expiresAt?: number
+  createdAt: number
+}
+
+export interface AuthProviderInfo {
+  id: string
+  pluginId: string
+  apiVersion: number
+  label: string
+  targets: AuthTargetKind[]
+  mechanisms: AuthMechanism[]
+  capabilities: AuthCapability[]
+  sessionGroup?: string
+}
+
+export type AuthFailureReason =
+  | 'invalid_input'
+  | 'invalid_credentials'
+  | 'network'
+  | 'timeout'
+  | 'cancelled'
+  | 'policy_denied'
+  | 'internal'
+
+// transaction 의 다음 단계. `transactionId` 는 provider 가 아니라 **플랫폼이 부여**한다.
+export type AuthStepInfo =
+  | { kind: 'collect'; transactionId: string; fields: AuthFieldSpec[]; message?: string }
+  | { kind: 'browser'; transactionId: string; message?: string }
+  | {
+      kind: 'device_code'
+      transactionId: string
+      userCode: string
+      verificationUrl: string
+      expiresAt?: number
+      message?: string
+    }
+  | { kind: 'done'; binding: AuthBindingInfo }
+  | { kind: 'failed'; reason: AuthFailureReason; message?: string }
+
+export type AuthRefreshOutcome =
+  | { kind: 'refreshed'; binding: AuthBindingInfo }
+  | { kind: 'reauth_required'; message?: string }
+  | { kind: 'not_supported' }
+  | { kind: 'failed'; message?: string }
+
+export type AuthLogoutOutcome =
+  | { kind: 'logged_out'; endedBindingIds: string[] }
+  | { kind: 'not_supported' }
+  | { kind: 'failed'; message?: string }
+
+// 앱 로그인 게이트 판정용 상태 스냅샷 (구 SsoState).
+export interface AuthPlatformState {
+  // application target 을 지원하는 provider 가 하나라도 등록됐는지.
+  // false 면 prod 게이트 자동 통과(모듈 0개 배포의 현행 동작 보존) — DEV 게이트는 별개.
   required: boolean
   authenticated: boolean
   inflight: boolean
-  identity: SsoIdentity | null
-  // 모듈이 반환한 실패 메시지(회사 언어 재량). null 이면 renderer 카탈로그 폴백.
+  identity: AuthPrincipal | null
+  // provider 가 반환한 실패 메시지(회사 언어 재량). null 이면 renderer 카탈로그 폴백.
   errorMessage: string | null
-  fields: SsoFieldSpec[]
+  // 진행 중 application transaction 의 현재 step (없으면 null).
+  step: AuthStepInfo | null
+  providers: AuthProviderInfo[]
 }
 
 export type BootReportStatus = 'ok' | 'warning' | 'failed'
@@ -970,8 +1105,9 @@ export interface Settings {
   mcpMeta: Record<string, { description: string }>
   // Skill enabled on/off (키 = sourceId/name). 부재 ⇒ enabled=true.
   skillEnabled: Record<string, boolean>
-  // SSO 로그인 게이트 우회. true 면 앱 시작 시 로그인 화면을 건너뛴다(디버그 패널에서 토글).
-  ssoBypass: boolean
+  // 인증 게이트 우회(0157 — 구 ssoBypass). true 면 앱 시작 시 로그인 화면을 건너뛴다
+  // (디버그 패널에서 토글, DEV 전용).
+  authBypass: boolean
   // 선호 언어(LLM 응답 언어). 시스템 프롬프트 '# User' 헤더로 매 턴 주입. uiLocale 과 별개.
   language: string
   // UI 표시 언어(앱 크롬 로케일, 0096) — 렌더러 i18n(ko/en) + 날짜/시간 포맷 로케일.

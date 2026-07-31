@@ -48,7 +48,13 @@ import {
   type UpdateProgress,
   type UpdateCheckResult,
   type UpdateInstallResult,
-  type SsoState
+  type AuthPlatformState,
+  type AuthProviderInfo,
+  type AuthBindingInfo,
+  type AuthStepInfo,
+  type AuthTarget,
+  type AuthRefreshOutcome,
+  type AuthLogoutOutcome
 } from '../shared/ipc'
 import { LOG_IPC_PAYLOAD_MAX_BYTES, type LogInput, type SerializedError } from '../shared/logging'
 
@@ -252,15 +258,24 @@ const orca = {
       return () => ipcRenderer.off(CHANNELS.updateProgressEvent, listener)
     }
   },
-  // SSO 로그인 게이트 (0130) — 상태 조회/로그인 시도/상태 push 구독. update.onState 패턴 동형.
-  sso: {
-    status: (): Promise<SsoState> => ipcRenderer.invoke(CHANNELS.ssoStatus),
-    login: (input: Record<string, string>): Promise<SsoState> =>
-      ipcRenderer.invoke(CHANNELS.ssoLogin, { input }),
-    onState: (handler: (state: SsoState) => void): (() => void) => {
-      const listener = (_e: IpcRendererEvent, state: SsoState): void => handler(state)
-      ipcRenderer.on(CHANNELS.ssoStateEvent, listener)
-      return () => ipcRenderer.off(CHANNELS.ssoStateEvent, listener)
+  // 인증 플랫폼 (0157 — 구 sso 3채널 대체). 앱 로그인과 서비스 연결이 같은 표면을 쓴다.
+  // update.onState 패턴 동형.
+  auth: {
+    status: (): Promise<AuthPlatformState> => ipcRenderer.invoke(CHANNELS.authStatus),
+    providers: (): Promise<AuthProviderInfo[]> => ipcRenderer.invoke(CHANNELS.authProviders),
+    bindings: (): Promise<AuthBindingInfo[]> => ipcRenderer.invoke(CHANNELS.authBindings),
+    begin: (providerId: string, target: AuthTarget): Promise<AuthStepInfo> =>
+      ipcRenderer.invoke(CHANNELS.authBegin, { providerId, target }),
+    continueAuth: (transactionId: string, input: Record<string, string>): Promise<AuthStepInfo> =>
+      ipcRenderer.invoke(CHANNELS.authContinue, { transactionId, input }),
+    refresh: (bindingId: string): Promise<AuthRefreshOutcome> =>
+      ipcRenderer.invoke(CHANNELS.authRefresh, { bindingId }),
+    logout: (bindingId: string, cascade = false): Promise<AuthLogoutOutcome> =>
+      ipcRenderer.invoke(CHANNELS.authLogout, { bindingId, cascade }),
+    onState: (handler: (state: AuthPlatformState) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, state: AuthPlatformState): void => handler(state)
+      ipcRenderer.on(CHANNELS.authStateEvent, listener)
+      return () => ipcRenderer.off(CHANNELS.authStateEvent, listener)
     }
   },
   // renderer 로그 인제스트 (0123) — 제한된 4메서드만. ipcRenderer 원본·임의 채널은 미노출.

@@ -216,9 +216,39 @@ export const SetSessionPinnedSchema = z.object({
   pinned: z.boolean()
 })
 
-// SSO 로그인 (0130) — input 은 LoginView 필드 값(name 키). 값 상한은 폼 입력 보호선.
-export const SsoLoginRequestSchema = z.object({
+// 인증 플랫폼 (0157 — 0130 SsoLoginRequestSchema 대체).
+//
+// AuthTarget 은 renderer 가 보내는 값이라 검증 대상이다. application 은 판별자만 있으면 되고
+// connector 는 식별자 2개를 받는다.
+export const AuthTargetSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('application'), applicationId: z.literal('orca') }),
+  z.object({
+    kind: z.literal('connector'),
+    connectorId: z.string().min(1).max(128),
+    connectionId: z.string().min(1).max(128)
+  })
+])
+
+export const AuthBeginRequestSchema = z.object({
+  providerId: z.string().min(1).max(128),
+  target: AuthTargetSchema
+})
+
+// input 은 AuthView 필드 값(name 키). 값 상한은 폼 입력 보호선 — 구 SsoLoginRequestSchema 승계.
+export const AuthContinueRequestSchema = z.object({
+  transactionId: z.string().min(1).max(128),
   input: z.record(z.string().max(64), z.string().max(4096)).default({})
+})
+
+export const AuthBindingRequestSchema = z.object({
+  bindingId: z.string().min(1).max(128)
+})
+
+export const AuthLogoutRequestSchema = z.object({
+  bindingId: z.string().min(1).max(128),
+  // 종속 binding 까지 끊을지. 기본 false = 이 binding 만 (connector-only disconnect 가
+  // 공유 session group 을 손상하지 않게 하는 안전 기본값).
+  cascade: z.boolean().default(false)
 })
 
 // Project (Phase 3+) — 시스템 프롬프트 길이 8000 은 Claude Agent SDK 가
@@ -474,7 +504,7 @@ export const SettingsSchema = z.object({
   // 담으므로 Claude 스키마에 없는 필드는 여기(앱 설정)에 둔다. 키 = 서버 name.
   mcpMeta: z.record(z.string(), z.object({ description: z.string().default('') })).default({}),
   skillEnabled: z.record(z.string(), z.boolean()).default({}),
-  ssoBypass: z.boolean().default(false),
+  authBypass: z.boolean().default(false),
   // 선호 언어 — LLM 응답 언어. 시스템 프롬프트 '# User' 헤더의 Preferred language 로
   // 매 턴 주입된다(ExtensionBuilder). UI 표시 언어(uiLocale)와 별개 개념.
   language: z.string().default('한국어'),
@@ -506,7 +536,7 @@ export const SettingsPatchSchema = z
     mcpEnabled: z.record(z.string(), z.boolean()),
     mcpMeta: z.record(z.string(), z.object({ description: z.string().default('') })),
     skillEnabled: z.record(z.string(), z.boolean()),
-    ssoBypass: z.boolean(),
+    authBypass: z.boolean(),
     language: z.string(),
     uiLocale: z.enum(['ko', 'en']),
     accountInstructions: z.string(),
@@ -562,9 +592,23 @@ export type {
   Settings,
   SettingsPatch,
   NotifyShow,
-  SsoFieldSpec,
-  SsoIdentity,
-  SsoState,
+  AuthTarget,
+  AuthTargetKind,
+  AuthMechanism,
+  AuthCapability,
+  CredentialKind,
+  CredentialPresentation,
+  AuthFieldSpec,
+  AuthPrincipal,
+  AuthBindingStatus,
+  AuthArtifactRef,
+  AuthBindingInfo,
+  AuthProviderInfo,
+  AuthFailureReason,
+  AuthStepInfo,
+  AuthRefreshOutcome,
+  AuthLogoutOutcome,
+  AuthPlatformState,
   SkillInfo,
   AuthorSkillRequest,
   UploadSkillRequest,
