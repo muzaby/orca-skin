@@ -14,7 +14,8 @@ import type { ExtensionBuilder } from '../features/extensions/builder'
 import type { ProviderSettingsService } from '../features/providers/provider-settings'
 import type { Scheduler } from '../features/scheduler'
 import type { ExternalUsageService } from '../features/usage/external-usage-service'
-import type { SsoService } from '../features/sso/service'
+import type { AuthBroker } from '../features/auth-platform/broker'
+import type { ConnectorHost } from '../features/connectors/runtime'
 import type { UpdateController } from './updater'
 
 export interface RouterContext {
@@ -45,7 +46,9 @@ export interface RouterContext {
   updates: UpdateController
   scheduler: Scheduler
   externalUsage: ExternalUsageService
-  // SSO 게이트(0130) — 핸들러는 부팅 초기에 이미 등록됨(bootstrap 조기 등록). ctx 노출은
-  // 다른 도메인이 인증 상태를 조회할 때를 위한 균일성 목적.
-  sso: SsoService
+  // 인증 플랫폼(0157) — 핸들러는 부팅 초기에 이미 등록됨(bootstrap 조기 등록). ctx 노출은
+  // 다른 도메인이 binding 을 참조할 때를 위한 것이다(예: MCP `${BINDING:}` 해석).
+  auth: AuthBroker
+  // 인증된 내장 도구 실행. raw credential 은 여기에도 없다 — authenticatedFetch 위임만.
+  connectors: ConnectorHost
 }

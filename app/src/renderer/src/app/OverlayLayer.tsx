@@ -1,7 +1,7 @@
 import { backendActions, useInstallerOpen } from '../features/backend'
 import { chatActions, useChatSession } from '../features/chat'
 import { DebugPanel } from '../features/debug'
-import { SsoDebugSection } from '../features/login'
+import { AuthDebugSection } from '../features/auth'
 import { InstallerDialog, AuthExpiredModal } from '../features/backend'
 import { ConfirmDialogHost } from '../shared/ui/ConfirmDialogHost'
 import { MODAL_BACKDROP_CLASS } from '../shared/ui/Modal'
@@ -63,7 +63,7 @@ export function OverlayLayer({ searchOpen, onCloseSearch }: OverlayLayerProps): 
       <div id="app-frame-debug" className="pointer-events-none z-30" data-context="debug">
         <div className="pointer-events-auto">
           {import.meta.env.DEV && (
-            <DebugPanel ssoSection={<SsoDebugSection />} updateSection={<UpdateDebugSection />} />
+            <DebugPanel authSection={<AuthDebugSection />} updateSection={<UpdateDebugSection />} />
           )}
         </div>
       </div>

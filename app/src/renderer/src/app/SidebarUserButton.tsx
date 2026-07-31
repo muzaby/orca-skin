@@ -4,7 +4,7 @@ import { Popover } from '../shared/ui/Popover'
 import { Icon } from '../shared/ui/Icon'
 import { useTweakContext } from '../shared/theme'
 import { useI18n, type UiLocale } from '../shared/i18n'
-import { useLoginStore } from '../features/login'
+import { useAuthStore } from '../features/auth'
 import { SettingsModal, useSettingsModalStore } from '../features/settings'
 import { useProviderUsage } from '../features/cost'
 
@@ -15,12 +15,12 @@ const LANGUAGES: { value: UiLocale; label: string }[] = [
   { value: 'ko', label: '한국어 (대한민국)' }
 ]
 
-// 사이드바 footer 의 사용자 버튼(app 레이어 조립 — 로그인 스토어[features/login] +
+// 사이드바 footer 의 사용자 버튼(app 레이어 조립 — 인증 스토어[features/auth] +
 // 설정 모달[features/settings] 를 함께 참조하므로 교차-feature 회피 위해 여기 둔다).
 // 썸네일 아이콘 없이 이메일 텍스트만 표기하고(bypass=developer), 클릭 시 팝오버 메뉴를 연다.
 export function SidebarUserButton(): React.JSX.Element {
-  const bypass = useLoginStore((s) => s.bypass)
-  const email = useLoginStore((s) => s.email)
+  const bypass = useAuthStore((s) => s.bypass)
+  const email = useAuthStore((s) => s.email)
   const displayName = bypass ? 'developer' : (email ?? 'developer')
 
   const anchorRef = useRef<HTMLButtonElement>(null)

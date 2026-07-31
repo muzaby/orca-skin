@@ -29,13 +29,13 @@ const SCENARIO_LABEL_KEYS: Record<MockScenarioId, MessageKey> = {
   full: 'debug.scenarios.full'
 }
 
-// ssoSection/updateSection: app 레이어가 주입하는 그룹(features/login·features/update).
+// authSection/updateSection: app 레이어가 주입하는 그룹(features/auth·features/update).
 // features 교차 import 를 피하려고 슬롯 prop 으로 받는다(없으면 미표시).
 export function DebugPanel({
-  ssoSection,
+  authSection,
   updateSection
 }: {
-  ssoSection?: ReactNode
+  authSection?: ReactNode
   updateSection?: ReactNode
 }): React.JSX.Element {
   const { t, setTweak } = useTweakContext()
@@ -86,7 +86,7 @@ export function DebugPanel({
         onChange={(v) => setTweak('sidebarCollapsed', v)}
       />
       {updateSection}
-      {ssoSection}
+      {authSection}
     </FloatingPanel>
   )
 }
