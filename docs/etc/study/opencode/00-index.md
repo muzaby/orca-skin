@@ -32,6 +32,7 @@ grep으로 찾아 해당 구간을 정독했으며, 어떤 파일에 집중했�
 | 11 | [11-vision-and-modules.md](11-vision-and-modules.md) | 비전과 추구하는 바 요약 · 비전 축별 핵심 모듈 분류(A~E) |
 | 11a | [11a-robustness.md](11a-robustness.md) | (11장 보조) 견고성 심화 — 실패 모드별 전용 방어 + Effect 토대 |
 | 12 | [system_prompt_injection_analysis_ko.md](system_prompt_injection_analysis_ko.md) | 시스템 프롬프트 주입 전체 분석 — 주입 종류·조립/병합·포맷·캐시 breakpoint |
+| 13 | [auth-broker-analysis-ko.md](auth-broker-analysis-ko.md) | 인증 저장소·AuthHook·OAuth callback·런타임 주입·플러그인 신뢰 경계 |
 
 ## 한 줄 요약
 
