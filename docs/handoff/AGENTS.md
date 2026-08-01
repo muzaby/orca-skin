@@ -10,6 +10,9 @@
 
 > Claude Code 는 `.claude/skills` 심링크로 두 스킬을 자동 인식한다. **plan·verify 를 쓸 때는
 > 반드시 해당 스킬을 먼저 로드한다** — 템플릿만 복사해 채우면 검증 가능성 게이트를 건너뛴다.
+> 두 스킬은 **수석 엔지니어 페르소나**로 동작한다 — plan 은 *사용자 요구* 를(관문 0), verify 는
+> *구현 결과* 를(§0) 실무 관점에서 **먼저 비판적으로 검토한 뒤** 본작업에 들어간다. 이는
+> 구현 턴의 "설계 비판적 리뷰"(아래 §2)와 짝을 이뤄 세 단계 모두에 비판 지점을 둔다.
 > 과거 verify 자기 리뷰에서 축적한 설계 실패 패턴은
 > [`handoff-plan/references/failure-patterns.md`](../../.agents/skills/handoff-plan/references/failure-patterns.md).
 
