@@ -8,7 +8,14 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-02 |
 | 매핑 | PHASES 신규 행 (Phase 3++) / PR 미생성 |
-| 상태 | DRAFT → READY |
+| 상태 | DRAFT → READY (**r2** — 아래 §설계 개정 이력) |
+
+### 설계 개정 이력
+
+| 라운드 | 계기 | 개정 |
+|---|---|---|
+| r1 | 최초 작성 | — |
+| **r2** | **타 에이전트 설계 리뷰(2026-08-03) 7건 + 문서 결함 2건. 전건 코드·1차 출처로 대조해 유효 확인** | ① 승인 판정 **fail-open 수정**(`=== false` → `!== true`) ② `PluginHost.connect` 가 **완료된 bindingId 를 받는다**(다단계 인증은 기존 auth 경로 소관) ③ `acceptedAuthProviders` 소속 검사 추가 ④ **다중 연결 충돌 해소** — 조용한 교체 폐기, 명시 거부 + Open Question ⑤ 실제 logout 채널 경로에 도구 정리 배선 ⑥ 도구 기여를 **정적 descriptor + 팩토리**로 분리(등록 시점 1:1 검증 성립) ⑦ AC20 재정의 ⑧ 인용 경로 정정(가이드는 이 저장소에 없다) ⑨ 템플릿 `[구현자 기입]`·`[검증자 기입]` 블록 복원 |
 
 ## 사용자 의도 / 요구 출처 (Intent & Provenance)
 
@@ -112,17 +119,22 @@ Orca 는 지금 **인프로세스 도구를 LLM 에 전달하는 경로가 아�
 | 7 | 도구 핸들러가 받는 컨텍스트의 키 집합이 정확히 `{connectionId, invoke, logger, signal}` 이다 (`RouterContext`·db·vault·auth 접근 없음) | `app/src/main/features/auth-platform/plugin-host.test.ts::"도구 컨텍스트는 좁은 capability 4키만 노출한다"` |
 | 8 | 도구 핸들러가 `invoke(operation, params)` 를 부르면 **자기 연결 ID 로 고정된** connector 호출이 일어난다 (다른 연결 ID 를 인자로 넣을 표면이 없다) | `app/src/main/features/auth-platform/plugin-host.test.ts::"invoke 는 자기 connectionId 로 고정된다"` |
 | 9 | 쓰기 도구(`readOnlyHint:false`) 이름으로 `canUseTool` 이 불리면 승인 요청이 발생하고, 읽기 도구(`readOnlyHint:true`)는 승인 없이 allow 된다. 도구 이름은 `mcp__<serverId>__<tool>` 형식이다 | `app/src/main/adapters/claude.canusetool.test.ts::"런타임 쓰기 도구는 승인 요청을 만든다"` · `::"런타임 읽기 도구는 승인 없이 통과한다"` |
+| 9-b | **`readOnlyHint` 를 선언하지 않은 도구도 승인 대상이 된다** (MCP 기본값 `false` = 쓰기와 일치, fail-closed) | `app/src/main/adapters/claude.canusetool.test.ts::"readOnlyHint 미선언 도구는 승인 대상이다"` · `app/src/main/adapters/runtime-tool-policy.test.ts::"annotations 자체가 없어도 정책 집합에 포함된다"` |
 | 10 | 승인 판정이 **신고서 메타데이터에서만** 나온다 — 같은 도구 이름에서 `readOnlyHint` 값을 뒤집으면 판정도 뒤집힌다 | `app/src/main/adapters/claude.canusetool.test.ts::"readOnlyHint 를 뒤집으면 승인 판정이 뒤집힌다"` |
+| 10-b | binding 의 `providerId` 가 그 connector 의 `acceptedAuthProviders` 에 없으면 연결이 거부되고, 도구가 등록되지 않는다 | `app/src/main/features/auth-platform/plugin-host.test.ts::"허용되지 않은 provider 의 binding 은 연결을 거부한다"` |
+| 10-c | 같은 connector 에 이미 연결이 있는 상태에서 다시 connect 하면 **명시적으로 거부**되고, 기존 연결과 그 도구가 그대로 남는다 (조용한 교체 금지 — 아래 Open Question) | `app/src/main/features/auth-platform/plugin-host.test.ts::"중복 연결은 거부되고 기존 연결·도구가 보존된다"` |
+| 10-d | `create()` 가 만든 서버의 도구 이름 집합이 정적 `descriptor.tools` 와 다르면 연결이 거부된다 (런타임 드리프트 차단) | `app/src/main/features/auth-platform/plugin-host.test.ts::"create 결과가 descriptor 와 불일치하면 연결을 거부한다"` |
 | 11 | `spawnedRuntimeToolsRevision` 과 현재 `revision` 이 다르면 respawn 을 지시하고, 같으면 지시하지 않는다 (electron 비의존 **순수 함수**) | `app/src/main/features/sessions/respawn-policy.test.ts::"runtime tool revision 이 다르면 respawn 을 지시한다"` · `::"revision 이 같으면 respawn 을 지시하지 않는다"` |
 | 12 | 픽스처 플러그인의 식별자 문자열이 **플러그인 디렉토리와 그 테스트 안에만** 존재한다 — `src/main/{app,adapters,contracts,infra}`·`src/shared`·`src/preload`·`src/renderer` 전체 재귀 스캔 결과 등장 0회 | `app/src/main/features/auth-platform/modules/__fixtures__/isolation.test.ts::"픽스처 식별자는 플러그인 디렉토리 밖에 없다"` (fs 재귀) |
 | 13 | 패키지 배열에 픽스처를 **한 줄 넣는 것만으로** 호스트 조립 결과에 그 도구가 실린다 — bootstrap 이 쓰는 것과 **같은 조립 함수**를 테스트가 호출해 확인한다 | `app/src/main/features/auth-platform/plugin-host.test.ts::"패키지 배열에 넣는 것만으로 도구가 조립 결과에 실린다"` |
 | 14 | 한 플러그인의 등록 실패가 다른 플러그인의 등록과 도구 노출을 막지 않는다 (정상 패키지 1 + 불량 패키지 1 을 함께 주면 정상 쪽 도구가 스냅샷에 있다) | `app/src/main/features/auth-platform/plugin-host.test.ts::"불량 패키지가 정상 패키지의 도구 등록을 막지 않는다"` |
 | 15 | `ConnectorHost.connect` 가 `ready` 가 아닌 상태를 받으면 연결 레코드를 남기지 않고, `disconnect` 는 레코드를 제거한다 | `app/src/main/features/connectors/runtime.test.ts::"start 가 ready 가 아니면 연결 레코드를 남기지 않는다"` · `::"disconnect 는 연결 레코드를 제거한다"` |
-| 16 | binding 이 폐기되면 그 binding 을 쓰던 연결이 정리되고 해당 플러그인 도구가 스냅샷에서 사라진다 | `app/src/main/features/auth-platform/plugin-host.test.ts::"binding 폐기 시 연결과 도구가 함께 정리된다"` |
+| 16 | **실제 로그아웃 경로**(`broker.logout`)로 binding 을 폐기하면 그 binding 을 쓰던 연결이 정리되고 해당 플러그인 도구가 스냅샷에서 사라진다 — `PluginHost.disconnect` 를 부르지 않고도 그렇게 된다 | `app/src/main/features/auth-platform/plugin-host.test.ts::"broker.logout 만으로 연결과 도구가 정리된다"` |
+| 16-b | `cascade: true` 로그아웃이 폐기한 **모든** binding 에 대해 연결·도구가 정리된다 (`endedBindingIds` 전건) | `app/src/main/features/auth-platform/plugin-host.test.ts::"cascade 로그아웃은 파생 binding 의 도구까지 정리한다"` |
 | 17 | 신규 IPC 3채널(`pluginList`·`pluginConnectionConnect`·`pluginConnectionDisconnect`)의 요청 스키마가 무효 페이로드를 거부하고, 응답 DTO 의 키 집합이 허용 목록과 정확히 일치한다(비밀 필드 없음) | `app/src/shared/protocol.plugins.test.ts::"연결 요청 스키마가 무효 페이로드를 거부한다"` · `::"연결 응답 DTO 키 집합이 허용 목록과 일치한다"` |
 | 18 | `docs/IPC_CONTRACT.md` 의 채널 총계가 실측과 일치한다 — 헤더 수치 = 도메인별 내역 합 = `CHANNELS` 실측(79 + 3 = **82**) | `app/src/shared/ipc.test.ts::"채널 총계가 내역 합과 일치한다"` + 문서 수치 대조(검증 턴 실측) |
 | 19 | 게이트 통과: `npm run lint` 0 error · `npm run typecheck` 3분할 0 · vitest 전체 pass (better-sqlite3 ABI 베이스라인 예외는 분리 보고) | 검증 턴 실행 로그 |
-| 20 | 실제 Claude 세션에서 픽스처가 아닌 실 플러그인 연결 → 도구 호출 → 쓰기 승인 카드 노출이 동작한다 | **런타임 실기로만 확인 가능 — 사람** (SDK 서브프로세스·승인 UI 필요) |
+| 20 | **dev 전용 실기 경로**로 픽스처 플러그인을 붙인 `npm run dev` 세션에서 ⓐ 도구가 모델에 노출되고 ⓑ 읽기 도구가 승인 없이 실행되며 ⓒ 쓰기 도구에서 승인 카드가 뜬다. 실기용으로 `import.meta.env.DEV` 가드 아래에서만 픽스처를 배열에 싣는다(prod 번들 dead-code 제거) | **런타임 실기로만 확인 가능 — 사람** (SDK 서브프로세스 + 승인 UI 필요). r1 은 "실 플러그인"을 요구했으나 실 플러그인·renderer 가 비범위라 **실행 경로가 없었다** — dev 픽스처 경로로 재정의(r2) |
 
 ## 범위 / 비범위
 
@@ -160,19 +172,32 @@ Orca 는 지금 **인프로세스 도구를 LLM 에 전달하는 경로가 아�
 실험의 범용 배관을 이식하되, 실험이 **컴포지션 루트에 손으로 쓴 조립(252줄)** 을 `features/auth-platform/plugin-host.ts` 의 **플러그인 무지(plugin-agnostic) 오케스트레이터**로 바꾼다. 흐름은 동일하고, 다른 점은 "무엇을 연결할지"가 코드가 아니라 **manifest 선언에서 온다**는 것이다.
 
 ```
-manifest.contributes.runtimeTools[]  (선언: 서버 id · 도구 이름 · 정책)
-        +  package.createRuntimeTools(ctx)  (구현: zod 스키마 · 핸들러)
-                    │  registry 가 1:1 검증 (0157 규칙 재사용)
+[인증 — 기존 경로. 이번 범위 밖]
+  auth IPC(authBegin/authContinue) ─ broker ─ AuthStep 반복(collect·browser·device_code)
+                    └─→ binding (bindingId)          ※ 다단계·재시도 전부 기존 계약이 처리
+
+[연결 — 이번 범위]
+manifest.contributes.runtimeTools[]        (선언: 서버 id · 도구 이름 · 정책)
+        +  RuntimeToolContribution.descriptor  (정적 — 등록 시점 1:1 검증 대상)
+        +  RuntimeToolContribution.create(ctx) (구현: zod 스키마 · 핸들러 — 연결 시점 호출)
+                    │  registry 가 manifest ↔ descriptor 1:1 검증 (0157 규칙 재사용)
                     ▼
-        PluginHost.connect(pluginId, connectorId, providerId, input)
-            broker.begin/continue → binding
-            connectorHost.connect({ connectorId, bindingId })  → ready?
-            runtimeTools.upsert(server)          ← revision++
+        PluginHost.connect({ connectorId, bindingId })
+            ① binding.providerId ∈ connector.acceptedAuthProviders ?   아니면 거부
+            ② 이 connector 에 이미 연결이 있는가 ?                      있으면 거부(교체 금지)
+            ③ connectorHost.connect({ connectorId, bindingId }) → ready ?
+            ④ contribution.create(toolCtx) → runtimeTools.upsert(server)   ← revision++
                     ▼
         ExtensionBuilder.snapshot() → TurnExtensions.runtimeTools
                     ▼
         adaptRuntimeTools() → options.mcpServers → createSdkMcpServer
+
+[정리 — 두 경로 모두 도구를 회수한다]
+  PluginHost.disconnect(connectionId)                      ← 명시 해제
+  broker.logout → endedBindingIds → PluginHost.onBindingsEnded()  ← 로그아웃·cascade
 ```
+
+**`PluginHost.connect` 는 인증을 수행하지 않고 완료된 `bindingId` 를 받는다.** 인증 계약은 collect 외에 `browser`·`device_code`·반복 `continue` 를 지원하는 상태 머신이며(`contracts/auth-plugin.ts:138-150`), 이를 호스트가 다시 구현하면 두 벌이 된다. 기존 auth IPC 는 이미 그 상태 머신을 처리하고 `AuthView` 가 필드를 제네릭 렌더링하므로(`AuthView.tsx:55`), **"기존 인증을 재사용"(사용자 확정)의 가장 곧은 해석**이 이것이다. r1 흐름도의 `begin/continue` 인라인은 실험의 단일 collect 가정을 그대로 옮긴 것이었고, 폐기한다.
 
 ### 레이어 배치 — DAG 가 배치를 강제한다
 
@@ -209,15 +234,45 @@ interface PluginToolContext {
 }
 ```
 
-### 승인 판정 — 문자열 목록 제거
+### 도구 기여의 모양 — 정적 descriptor + 팩토리
 
-`makeCanUseTool` 의 옵션 백에 `runtimeToolPolicy?: ReadonlySet<string>`(쓰기 도구의 완전 이름 집합)을 추가한다. 집합은 `runtime-tool-policy.ts` 가 스냅샷에서 만든다:
+registry 가 등록 시점에 1:1 검증을 하려면 **도구 이름이 연결 이전에 정적으로 알려져야** 한다. `create(ctx)` 는 연결 컨텍스트를 요구하므로 등록 시점에 호출할 수 없다. 따라서 provider·connector 와 **같은 모양**(정적 `descriptor` + 동작)으로 맞춘다:
+
+```ts
+interface RuntimeToolContribution {
+  // 정적 — registry 가 manifest 선언과 대조한다. zod 스키마·핸들러 없음.
+  readonly descriptor: {
+    id: string            // = mcp 서버 식별자
+    pluginId: string
+    apiVersion: 1
+    alwaysLoad?: boolean
+    instructions?: string
+    tools: readonly { name: string; readOnlyHint?: boolean; destructiveHint?: boolean }[]
+  }
+  // 연결 시점 1회 호출 — 스키마와 핸들러를 붙인 실행형 서버를 만든다.
+  create(ctx: PluginToolContext): RuntimeToolServer
+}
+```
+
+registry 는 `descriptor.tools[].name` 과 manifest 선언을 대조하고, **`create()` 결과의 도구 이름이 descriptor 와 다르면 연결을 거부**한다(런타임 드리프트 차단).
+
+### 승인 판정 — 문자열 목록 제거 + fail-closed
+
+`makeCanUseTool` 의 옵션 백에 `runtimeToolPolicy?: ReadonlySet<string>`(승인 대상 도구의 완전 이름 집합)을 추가한다. 집합은 `runtime-tool-policy.ts` 가 스냅샷에서 만든다:
 
 ```
-readOnlyHint === false  →  `mcp__${server.id}__${tool.name}` 을 집합에 넣는다
+readOnlyHint !== true  →  `mcp__${server.id}__${tool.name}` 을 집합에 넣는다
 ```
+
+**`=== false` 가 아니라 `!== true` 인 이유(r2 정정).** MCP 스펙은 `readOnlyHint` 의 **기본값을 `false`(= 읽기 전용 아님)** 로 규정한다(`@modelcontextprotocol/sdk/dist/esm/types.js:1178-1183` — *"If true, the tool does not modify its environment. Default: false"*). 따라서 annotation 을 **생략한 도구는 스펙상 쓰기 도구**다. r1 의 `=== false` 규칙은 `undefined` 를 집합에서 누락시켜 **annotation 을 안 붙인 쓰기 도구를 자동 승인**하는 fail-open 이었다. `!== true` 는 스펙 기본값과 일치하며 **미선언을 승인 대상으로** 처리한다(fail-closed).
 
 `isRiskyTool(name)` 은 그대로 두고(내장 도구 화이트리스트 담당), 게이트가 `isRiskyTool(name) || policy.has(name)` 로 판정한다. **서비스 고유 문자열이 어댑터에 들어가지 않는다.**
+
+### 연결 정리 — 두 경로 모두 도구를 회수한다
+
+`handlers/auth.ts:47` 의 `authLogout` 채널은 `broker.logout` 을 **직접** 부르고, `broker.logout`(`broker.ts:211-239`)에는 connector·도구 정리 훅이 없다. 그대로 두면 로그아웃 후에도 **인증 없는 도구가 모델에 계속 노출**된다(r1 의 AC16 은 실제 경로로 달성 불가였다).
+
+`broker.logout` 이 이미 반환하는 `endedBindingIds`(`:238`)가 seam 이다. 컴포지션 루트가 broker 에 `onBindingsEnded` 콜백을 주입해 `PluginHost.onBindingsEnded(ids)` → `ConnectorHost.stopByBinding` + `runtimeTools.remove` 로 잇는다. broker 는 여전히 connector·도구를 모른다(구조적 포트 주입 — 교차 import 0).
 
 ### 식별자 단일화
 
@@ -237,6 +292,7 @@ readOnlyHint === false  →  `mcp__${server.id}__${tool.name}` 을 집합에 넣
 | **등록 위생의 단일 지점** — built-in 도 우회 등록로 없음, 중복은 last-writer-wins 아니라 **거부** | `auth-platform/registry.ts:1-8` | **유지·확장.** 도구 서버에 같은 1:1·중복 규칙 적용 |
 | **feature 교차 import 금지 + main DAG 하향 의존** | `app/eslint.config.mjs:107-128` · `src/main/AGENTS.md` | **유지.** 계약을 `adapters/` 에 두고 sink 를 구조적 포트로 주입해 위반 0 |
 | **위험 도구는 adapters 경계에서 판정, 새 위험 도구는 `risky-tools.ts` 에만 추가** | `adapters/risky-tools.ts:1-4`(현행 주석) | **유지하되 확장.** 내장 도구 화이트리스트는 그대로, 플러그인 도구는 신고서 유래 집합으로 판정 — 파일에 서비스 문자열을 넣지 않는다 |
+| **다중 연결** — "하나의 connector 를 서로 다른 사내 인스턴스에 여러 번 연결할 수 있어야 하므로 (connector 구현체와 connection 을) 분리한다" | `features/connectors/registry.ts:1-13` (0157 채택) | **일시 제한(r2).** 데이터 모델(`ConnectionRegistry` 의 N:1)은 **그대로 두고**, 이번 라운드의 `PluginHost` 만 connector 당 1연결로 제한한다(AC10-c). 도구 서버가 `server.id` 단일 키라 N연결이면 덮어쓰기가 나므로, 네임스페이싱 설계 전까지 **거부**가 안전하다. r1 은 이 결정과의 충돌을 §기존 결정 표에서 **누락했다** → Open Question 으로 승격 |
 | **IPC 채널 변경 시 `IPC_CONTRACT.md` 동시 갱신**(§6 절차) | `docs/AGENTS.md` 원칙 5 | **준수.** 79 → 82, 도메인 `plugin` 신설 |
 | **구체 provider/engine 리터럴은 adapters·extensions·modules·컴포지션 루트에만** | `src/main/AGENTS.md` §작업 규칙 | **준수.** 픽스처 식별자는 `modules/__fixtures__/` 안에만(AC12 로 기계 강제) |
 
@@ -244,8 +300,8 @@ readOnlyHint === false  →  `mcp__${server.id}__${tool.name}` 을 집합에 넣
 
 - **턴 진행 중 연결/해제**: revision 이 바뀌어도 진행 중인 턴은 **옛 도구 구성으로 완주**한다. 다음 턴 시작 시 `decideRespawn` 이 채널 teardown 을 지시한다. 진행 중 턴을 죽이지 않는다.
 - **연결 도중 앱 종료·취소**: `PluginHost.connect` 는 broker transaction 과 connector start 를 `AbortSignal` 로 잇는다. 중단 시 **binding 과 연결 레코드를 둘 다 정리**한다(부분 성공 금지 — 실험 `handlers/confluence.ts:106-112` 의 catch 정리 로직을 계승).
-- **연결 교체**: 같은 connector 에 다시 연결하면 기존 binding/연결을 먼저 정리한 뒤 새로 만든다(orphan binding·orphan 도구 서버 방지).
-- **binding 폐기(logout·revoke)**: `stopByBinding` 경로로 연결이 정리될 때 **도구 서버도 함께 제거**되어야 한다(AC16). 제거하지 않으면 인증 없는 도구가 모델에 계속 노출된다.
+- **연결 교체(r2 정정)**: r1 은 "기존 연결을 먼저 정리한 뒤 새로 만든다"고 적었다. **이것은 두 가지로 틀렸다.** ⓐ 사용자가 눈치채지 못하는 사이 기존 연결과 그 도구가 사라지는 **조용한 손실**이다. ⓑ `connectors/registry.ts:10` 이 "하나의 connector 를 서로 다른 사내 인스턴스에 여러 번 연결할 수 있어야 한다"를 **채택 결정으로 명시**하는데 그것을 뒤집는다. 게다가 도구 서버가 `server.id` 하나로 키잉되므로 두 연결이 같은 키를 덮어쓴다. → **이번 라운드는 connector 당 연결 1개로 제한하고 두 번째 connect 를 명시 거부한다**(AC10-c). 다중 연결 지원은 도구 서버 네임스페이싱 설계가 필요하므로 Open Question 으로 올리고 후속 핸드오프에서 해소한다.
+- **binding 폐기(logout·revoke)**: 사용자는 `PluginHost` 를 거치지 않고 **auth 화면에서 곧장 로그아웃**할 수 있다(`handlers/auth.ts:47` → `broker.logout` 직행). 이 경로에서도 연결과 **도구 서버가 함께 제거**되어야 한다(AC16·16-b). 제거하지 않으면 인증이 사라진 뒤에도 도구가 모델에 노출된 채 남고, 호출은 broker 정책에서 실패해 사용자에게는 원인 불명의 오류로 보인다.
 - **플러그인 등록 실패 격리**: 한 패키지가 manifest 검증에 걸려도 다른 패키지와 채팅 기능은 정상이어야 한다(AC14). 0157 registry 가 패키지 단위 all-or-nothing 이므로 반쯤 등록된 상태는 생기지 않는다.
 - **앱 재시작**: 연결이 메모리 전용이라 **소실되고 도구도 사라진다.** 이번 범위의 알려진 한계로 명시하며, 부팅 복원은 후속 핸드오프.
 - **도구 0개 상태**: 등록된 플러그인이 없으면 스냅샷이 비고 `mcpServers` 키 자체가 생기지 않아 현행 동작이 그대로 보존된다(AC3).
@@ -262,7 +318,8 @@ readOnlyHint === false  →  `mcp__${server.id}__${tool.name}` 을 집합에 넣
 | manifest 가 도구 이름을 선언하고 코드가 스키마·핸들러를 주므로 **이름이 두 곳에 적힌다**(드리프트 위험) | 0157 이 provider·connector 에 쓰는 것과 **같은 1:1 검증**을 도구에도 적용해 드리프트를 등록 단계에서 거부(AC4). 선언을 없애면 승인 정책을 코드 실행 없이 읽을 수 없다 — 의도적 트레이드오프 |
 
 - **되돌리기 어려운 결정**: 도구 계약을 `adapters/` 에 둔 것(DAG 가 강제). `RuntimeToolServer.id` 단일화(이후 이름 변경은 세션 히스토리·승인 정책에 남은 도구 이름을 무효화한다 — 가이드 §8.5 의 "안정적 ID" 경고).
-- **단독 결정 금지 항목(Open Question)**: 없음 — 본 세션에서 4건 전부 사용자 확정.
+- **단독 결정 금지 항목(Open Question)** → 사용자에게:
+  - **OQ1 — 같은 connector 에 여러 인스턴스를 동시 연결할 것인가.** 0157 은 데이터 모델을 N:1 로 열어뒀으나(`connectors/registry.ts:1-13`) 도구 서버는 `server.id` 단일 키다. N연결을 지원하려면 도구 이름에 connection 을 섞어야 하는데(`mcp__<serverId>_<connectionId>__<tool>` 등), 그러면 **도구 이름이 연결마다 달라져** 세션 히스토리·승인 정책의 안정성이 깨진다(가이드 §8.5). 이번 라운드는 **거부(1연결)** 를 기본값으로 진행하며, 다중 연결이 제품 요구인지 사용자 결정이 필요하다. 결정이 "지원"이면 네임스페이싱 설계를 별도 핸드오프로 선행해야 한다.
 
 ## 영향 받는 파일
 
@@ -272,7 +329,7 @@ readOnlyHint === false  →  `mcp__${server.id}__${tool.name}` 을 집합에 넣
 
 ## 참고 문서
 
-- `docs/etc/confluence-data-center-plugin-implementation-plan.md` — 참고 자료(§4 기준선은 이 저장소에 미해당, 위 §요구 비판적 검토 참조)
+- **참고 가이드 — 이 저장소에 없다.** `C:\Users\rlaeo\github\orca-skin\docs\etc\confluence-data-center-plugin-implementation-plan.md`(sibling clone 의 미커밋 파일). 사용자가 세션에 첨부해 제공했으며 §4 기준선은 이 저장소에 미해당(위 §요구 비판적 검토 ①). **구현자는 이 경로를 이 저장소에서 찾지 말 것** — 필요하면 사용자에게 재요청한다
 - `docs/etc/study/orca/auth-plugin-platform-requirements-ko.md` §확장 모델 — 빌드 타임/런타임 확장 경계의 정본
 - `docs/IPC_CONTRACT.md` §6 — 채널 변경 절차 (**동시 갱신 필수**)
 - `docs/arch/backend/provider-runtime.md` §3 — 위험 도구 게이트
@@ -291,14 +348,53 @@ readOnlyHint === false  →  `mcp__${server.id}__${tool.name}` 을 집합에 넣
 - [x] 자료조사 — 모든 발견에 `파일:라인` 또는 1차 출처를 붙였다.
 - [x] 의존 기술 — 신규 의존성 0 을 확인했다(zod·SDK 기채택).
 - [x] 파생 UX — 턴 중 연결 변경·취소·binding 폐기·재시작 소실·도구 0개를 이 작업에 해당하는 것만 펼쳤다.
-- [x] 리스크 — 미사용 IPC 표면·이름 규약 의존·선언/구현 드리프트를 적었다. Open Question 0(전부 사용자 확정).
+- [x] 리스크 — 미사용 IPC 표면·이름 규약 의존·선언/구현 드리프트를 적었다. **Open Question 1건(OQ1 다중 연결)** 을 사용자로 분리했다.
 
 **기계적으로 확인 가능한 것:**
 
 - [x] 요구 비판적 검토 5질문에 전부 답했고, **요구 범위를 줄이지 않았다** — 사용자가 "화면 제외"를 직접 선택했고 비범위 항목마다 사유·후속 소관을 명시했다.
-- [x] 인수 기준 20개의 **`검증 수단` 칸이 비어 있지 않다** — AC20 은 "런타임 실기로만 확인 가능 — 사람"으로 명시.
-- [x] 부정형/"불변" 기준 **0개** — AC12 는 "픽스처 디렉토리 안에만 존재한다"는 위치 단언, AC3 은 "`{}` 를 반환한다"는 값 단언으로 썼다.
-- [x] **AC 끼리 모순 없음** — AC1(계약 import = zod 뿐) ↔ AC2(SDK 변환)는 서로 다른 파일 소관이라 충돌하지 않는다. AC12(픽스처 격리) ↔ AC13(배열 한 줄 등록)은 픽스처를 `modules/index.ts` 가 아니라 **테스트가 조립 함수에 주입**하는 방식으로 양립시켰다. AC10(정책은 메타데이터 유래) ↔ 기존 `isRiskyTool` 유지는 OR 결합이라 양립.
+- [x] 인수 기준 **25개**(1~20 + 9-b·10-b·10-c·10-d·16-b)의 **`검증 수단` 칸이 비어 있지 않다** — AC20 만 "런타임 실기로만 확인 가능 — 사람"으로 명시.
+- [x] 부정형/"불변" 기준 **0개** — AC12 는 "픽스처 디렉토리 안에만 존재한다"는 위치 단언, AC3 은 "`{}` 를 반환한다"는 값 단언, AC10-c 는 "거부되고 기존 연결·도구가 보존된다"는 양성 단언으로 썼다.
+- [x] **AC 끼리 모순 없음** (r2 재점검) — AC1(계약 import = zod 뿐) ↔ AC2(SDK 변환)는 서로 다른 파일 소관. AC12(픽스처 격리) ↔ AC13(배열 한 줄 등록) ↔ **AC20(dev 실기용 배열 등재)**: AC12 의 스캔 대상은 `src/main/{app,adapters,contracts,infra}`·`src/shared`·`src/preload`·`src/renderer` 이고 `modules/index.ts` 는 `features/auth-platform/modules/` 라 **스캔 범위 밖** — 세 기준이 양립한다. AC9(값이 있을 때 판정) ↔ AC9-b(미선언 판정)는 같은 규칙 `!== true` 의 두 입력이라 모순 없다. AC10-c(중복 연결 거부) ↔ §파생 UX 의 연결 교체 서술을 r2 에서 **일치시켰다**(r1 은 "교체"라 적어 자가당착이었다). AC16(logout 경로 정리) ↔ AC6(명시 해제 정리)은 서로 다른 진입점이며 둘 다 같은 회수 경로로 수렴.
 - [x] 인용 수치를 **이번 세션에서 직접 측정**했다 — 실험 파일 106/252줄(`wc -l`·`git diff --stat`), Confluence hit 1, 미커밋 46경로, 채널 79(+3=82), `AUTH_PLUGIN_PACKAGES` 0개, 마이그레이션 마지막 0016, handlers 테스트 0파일. **승계한 숫자 0개.**
 - [x] 신규 모듈 9개 전부 테스트 방법이 있고, electron 의존 모듈(`handlers/plugins.ts`)은 **떼어낼 순수부(`PluginHost` + 스키마)를 명시**했다.
 - [x] 전수 조사 대상에 N 수치가 있다 — Confluence 결합 1 / 실험 23파일·46경로 / `ConnectorHost` 슬라이스 밖 소비자 0 / 채널 79 / handlers 테스트 0.
+
+---
+
+> **[구현자 기입]** 이하는 구현 턴에서 채운다 (Codex=기능 / Claude=비기능). 설계자(Claude)는 위쪽을 쓰고, 구현자는 이 블록만 추가한다(공유 파일 충돌 회피).
+
+## [구현자 기입] 설계 리뷰 (비판적)
+
+- 동의 / 그대로 진행: …
+- 이견 / 우려: … (어느 섹션의 무엇이 비현실적인가)
+
+## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
+
+| # | 놓친 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | … | ✅ 구현함 / ⚠️ 보고만·**결정 필요** | … |
+
+## [구현자 기입] 구현 체크리스트
+
+- [ ] …
+
+## [구현자 기입] 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | … |
+| 실행 명령 | `npm run lint` / `typecheck` / `test` |
+| 게이트 결과 | lint … / typecheck … / test … |
+| 블로커 / 역질문 | (없으면 "없음") |
+| 대상 커밋 | `<hash>` |
+
+---
+
+## [검증자 기입] 파생 이슈 (Derived Issues)
+
+> verify 가 **미해결**로 판정한 문제를 라운드를 넘겨 추적하는 챕터. `verify/FAIL` 시 검증자(Claude)가 채운다.
+
+| # | 이슈 | 출처 | 대응 방향 | 상태 |
+|---|---|---|---|---|
+| D1 | 다중 연결 지원 여부(OQ1) — 도구 서버 네임스페이싱 설계 필요 | 설계 r2 §리스크 OQ1 | 사용자 결정 후 별도 핸드오프 | open |
