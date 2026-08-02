@@ -81,6 +81,28 @@ export const ConnectorContributionSchema = z.object({
   presentation: CredentialPresentationSchema
 })
 
+export const RuntimeToolAnnotationsSchema = z.object({
+  readOnlyHint: z.boolean().optional(),
+  destructiveHint: z.boolean().optional(),
+  idempotentHint: z.boolean().optional(),
+  openWorldHint: z.boolean().optional()
+})
+
+export const RuntimeToolDeclarationSchema = z.object({
+  name: z.string().min(1).max(128),
+  description: z.string().min(1).max(10_000),
+  annotations: RuntimeToolAnnotationsSchema.optional()
+})
+
+export const RuntimeToolContributionSchema = z.object({
+  id: IdSchema,
+  connectorId: IdSchema,
+  apiVersion: z.literal(1),
+  alwaysLoad: z.boolean().optional(),
+  instructions: z.string().min(1).max(50_000).optional(),
+  tools: z.array(RuntimeToolDeclarationSchema).min(1)
+})
+
 export const PluginManifestSchema = z.object({
   schemaVersion: z.literal(1),
   id: IdSchema,
@@ -88,13 +110,15 @@ export const PluginManifestSchema = z.object({
   contributes: z
     .object({
       authProviders: z.array(AuthProviderContributionSchema).default([]),
-      connectors: z.array(ConnectorContributionSchema).default([])
+      connectors: z.array(ConnectorContributionSchema).default([]),
+      runtimeTools: z.array(RuntimeToolContributionSchema).default([])
     })
-    .default({ authProviders: [], connectors: [] })
+    .default({ authProviders: [], connectors: [], runtimeTools: [] })
 })
 
 export type AuthProviderContribution = z.infer<typeof AuthProviderContributionSchema>
 export type ConnectorContribution = z.infer<typeof ConnectorContributionSchema>
+export type RuntimeToolManifestContribution = z.infer<typeof RuntimeToolContributionSchema>
 export type PluginManifest = z.infer<typeof PluginManifestSchema>
 
 // 현재 registry 가 받아들이는 ABI 버전. 불일치는 등록 단계에서 거부된다 (AUTH-PLAT-014).
@@ -141,6 +165,9 @@ export function parsePluginManifest(raw: unknown): ManifestParseSuccess | Manife
   if (dupProvider) errors.push(`authProviders 내 중복 id: ${dupProvider}`)
   const dupConnector = firstDuplicate(manifest.contributes.connectors.map((c) => c.id))
   if (dupConnector) errors.push(`connectors 내 중복 id: ${dupConnector}`)
+
+  const dupRuntimeTool = firstDuplicate(manifest.contributes.runtimeTools.map((tool) => tool.id))
+  if (dupRuntimeTool) errors.push(`runtimeTools duplicate id: ${dupRuntimeTool}`)
 
   return errors.length > 0 ? { ok: false, errors } : { ok: true, manifest }
 }

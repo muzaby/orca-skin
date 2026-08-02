@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import { AuthRegistry } from './registry'
 import type { AuthProviderV1 } from '../../contracts/auth-plugin'
+import type { ConnectorRuntimeV1 } from '../../contracts/connector-plugin'
+import type { RuntimeToolContribution } from '../../adapters/runtime-tools'
 import type { AuthMechanism, AuthTargetKind } from '../../../shared/ipc'
 
 function provider(
@@ -45,6 +47,103 @@ function manifest(id: string, providerIds: string[], apiVersion = 1): unknown {
         mechanisms: ['api_key']
       }))
     }
+  }
+}
+
+function connector(
+  id: string,
+  opts: Partial<ConnectorRuntimeV1['descriptor']> = {}
+): ConnectorRuntimeV1 {
+  return {
+    descriptor: {
+      id,
+      pluginId: 'pkg',
+      apiVersion: 1,
+      label: id,
+      acceptedAuthProviders: ['auth-a', 'auth-b'],
+      baseUrl: 'https://connector.example.invalid',
+      presentation: { location: 'header', name: 'Authorization', scheme: 'Bearer' },
+      ...opts
+    },
+    start: async () => ({ health: 'ready' }),
+    invoke: async () => ({ ok: true, data: null }),
+    stop: async () => undefined
+  }
+}
+
+function runtimeTool(
+  id: string,
+  opts: Partial<RuntimeToolContribution['descriptor']> = {}
+): RuntimeToolContribution {
+  return {
+    descriptor: {
+      id,
+      pluginId: 'pkg',
+      connectorId: 'connector-a',
+      apiVersion: 1,
+      alwaysLoad: true,
+      instructions: 'Use these tools for the configured connector.',
+      tools: [
+        {
+          name: 'read-item',
+          description: 'Reads one item.',
+          annotations: { readOnlyHint: true, idempotentHint: true }
+        },
+        {
+          name: 'write-item',
+          description: 'Writes one item.',
+          annotations: { destructiveHint: false, openWorldHint: false }
+        }
+      ],
+      ...opts
+    },
+    create: () => []
+  }
+}
+
+function pluginManifest(
+  id: string,
+  connectors: readonly Record<string, unknown>[],
+  runtimeTools: readonly Record<string, unknown>[]
+): unknown {
+  return {
+    schemaVersion: 1,
+    id,
+    version: '1.0.0',
+    contributes: { authProviders: [], connectors, runtimeTools }
+  }
+}
+
+function connectorDeclaration(id = 'connector-a'): Record<string, unknown> {
+  return {
+    id,
+    apiVersion: 1,
+    label: id,
+    acceptedAuthProviders: ['auth-a', 'auth-b'],
+    baseUrl: 'https://connector.example.invalid',
+    presentation: { location: 'header', name: 'Authorization', scheme: 'Bearer' }
+  }
+}
+
+function runtimeToolDeclaration(id = 'server-a'): Record<string, unknown> {
+  return {
+    id,
+    connectorId: 'connector-a',
+    apiVersion: 1,
+    alwaysLoad: true,
+    instructions: 'Use these tools for the configured connector.',
+    tools: [
+      {
+        name: 'read-item',
+        description: 'Reads one item.',
+        annotations: { readOnlyHint: true, idempotentHint: true }
+      },
+      {
+        name: 'write-item',
+        description: 'Writes one item.',
+        annotations: { destructiveHint: false, openWorldHint: false }
+      }
+    ]
   }
 }
 
@@ -194,5 +293,112 @@ describe('AuthRegistry 등록 위생', () => {
     registry.register({ manifest: manifest('pkg', ['a']), providers: [provider('a')] })
     const described = JSON.stringify(registry.describeProviders())
     expect(described).not.toMatch(/allowedOrigins/)
+  })
+  it('runtime tool 선언과 descriptor 전체를 이름 정규화 후 대조한다', () => {
+    const registry = new AuthRegistry()
+    const implementation = runtimeTool('server-a', {
+      tools: [
+        {
+          name: 'write-item',
+          description: 'Writes one item.',
+          annotations: { destructiveHint: false, openWorldHint: false }
+        },
+        {
+          name: 'read-item',
+          description: 'Reads one item.',
+          annotations: { readOnlyHint: true, idempotentHint: true }
+        }
+      ]
+    })
+
+    const errors = registry.register({
+      manifest: pluginManifest('pkg', [connectorDeclaration()], [runtimeToolDeclaration()]),
+      connectors: [connector('connector-a', { acceptedAuthProviders: ['auth-b', 'auth-a'] })],
+      runtimeTools: [implementation]
+    })
+
+    expect(errors).toEqual([])
+  })
+
+  it('runtime tool descriptor 필드 하나라도 선언과 다르면 package 전체를 거부한다', () => {
+    const registry = new AuthRegistry()
+    const errors = registry.register({
+      manifest: pluginManifest('pkg', [connectorDeclaration()], [runtimeToolDeclaration()]),
+      connectors: [connector('connector-a')],
+      runtimeTools: [runtimeTool('server-a', { instructions: 'Drifted instructions.' })]
+    })
+
+    expect(errors.map((error) => error.message).join()).toMatch(/runtime tool descriptor/)
+    expect(registry.getConnector('connector-a')).toBeUndefined()
+  })
+
+  it('runtime tool 선언과 구현의 1대1 불일치를 거부한다', () => {
+    const declaredOnly = new AuthRegistry().register({
+      manifest: pluginManifest('pkg', [connectorDeclaration()], [runtimeToolDeclaration()]),
+      connectors: [connector('connector-a')]
+    })
+    const implementationOnly = new AuthRegistry().register({
+      manifest: pluginManifest('pkg', [connectorDeclaration()], []),
+      connectors: [connector('connector-a')],
+      runtimeTools: [runtimeTool('server-a')]
+    })
+
+    expect(declaredOnly.map((error) => error.message).join()).toMatch(
+      /runtime tool.*implementation/
+    )
+    expect(implementationOnly.map((error) => error.message).join()).toMatch(
+      /runtime tool.*declaration/
+    )
+  })
+
+  it('connector 선언과 구현 descriptor 전체를 대조한다', () => {
+    const registry = new AuthRegistry()
+    const errors = registry.register({
+      manifest: pluginManifest('pkg', [connectorDeclaration()], []),
+      connectors: [connector('connector-a', { label: 'Drifted label' })]
+    })
+
+    expect(errors.map((error) => error.message).join()).toMatch(/connector descriptor/)
+    expect(registry.getConnector('connector-a')).toBeUndefined()
+  })
+
+  it('runtime tool connector 교차 참조와 중복을 등록 단계에서 검증한다', () => {
+    const missingConnector = new AuthRegistry().register({
+      manifest: pluginManifest('pkg', [connectorDeclaration()], [runtimeToolDeclaration()]),
+      connectors: [connector('connector-a')],
+      runtimeTools: [runtimeTool('server-a', { connectorId: 'missing' })]
+    })
+    const duplicateToolName = new AuthRegistry().register({
+      manifest: pluginManifest('pkg', [connectorDeclaration()], [runtimeToolDeclaration()]),
+      connectors: [connector('connector-a')],
+      runtimeTools: [
+        runtimeTool('server-a', {
+          tools: [
+            { name: 'same', description: 'First.' },
+            { name: 'same', description: 'Second.' }
+          ]
+        })
+      ]
+    })
+    const registry = new AuthRegistry()
+    expect(
+      registry.register({
+        manifest: pluginManifest('pkg-a', [connectorDeclaration()], [runtimeToolDeclaration()]),
+        connectors: [connector('connector-a', { pluginId: 'pkg-a' })],
+        runtimeTools: [runtimeTool('server-a', { pluginId: 'pkg-a' })]
+      })
+    ).toEqual([])
+    const duplicateServer = registry.register({
+      manifest: pluginManifest('pkg-b', [connectorDeclaration('connector-b')], [
+        { ...runtimeToolDeclaration(), connectorId: 'connector-b' }
+      ]),
+      connectors: [connector('connector-b', { pluginId: 'pkg-b' })],
+      runtimeTools: [runtimeTool('server-a', { pluginId: 'pkg-b', connectorId: 'connector-b' })]
+    })
+
+    expect(missingConnector.map((error) => error.message).join()).toMatch(/connectorId/)
+    expect(duplicateToolName.map((error) => error.message).join()).toMatch(/tool name/)
+    expect(duplicateServer.map((error) => error.message).join()).toMatch(/runtime tool id/)
+    expect(registry.getConnector('connector-b')).toBeUndefined()
   })
 })

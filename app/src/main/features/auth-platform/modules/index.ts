@@ -1,5 +1,6 @@
 import type { AuthProviderV1 } from '../../../contracts/auth-plugin'
 import type { ConnectorRuntimeV1 } from '../../../contracts/connector-plugin'
+import type { RuntimeToolContribution } from '../../../adapters/runtime-tools'
 
 /**
  * Opt-in auth plugin registry (0157 — 구 `features/sso/modules/index.ts` 승계).
@@ -21,6 +22,7 @@ export interface AuthPluginPackage {
   manifest: unknown
   providers?: readonly AuthProviderV1[]
   connectors?: readonly ConnectorRuntimeV1[]
+  runtimeTools?: readonly RuntimeToolContribution[]
 }
 
 export const AUTH_PLUGIN_PACKAGES: readonly AuthPluginPackage[] = []
