@@ -9,8 +9,14 @@
 
 import type { AuthProviderV1 } from '../../contracts/auth-plugin'
 import type { ConnectorRuntimeV1 } from '../../contracts/connector-plugin'
+import type { RuntimeToolContribution, RuntimeToolDescriptor } from '../../adapters/runtime-tools'
 import type { AuthProviderInfo, AuthTargetKind } from '../../../shared/ipc'
-import { AUTH_PLUGIN_API_VERSION, parsePluginManifest, type PluginManifest } from './manifest'
+import {
+  AUTH_PLUGIN_API_VERSION,
+  parsePluginManifest,
+  type PluginManifest,
+  type RuntimeToolManifestContribution
+} from './manifest'
 
 export interface RegistrationError {
   pluginId: string
@@ -22,11 +28,13 @@ export interface RegisterPackageInput {
   manifest: unknown
   providers?: readonly AuthProviderV1[]
   connectors?: readonly ConnectorRuntimeV1[]
+  runtimeTools?: readonly RuntimeToolContribution[]
 }
 
 export class AuthRegistry {
   private readonly providers = new Map<string, AuthProviderV1>()
   private readonly connectors = new Map<string, ConnectorRuntimeV1>()
+  private readonly runtimeTools = new Map<string, RuntimeToolContribution>()
   private readonly manifests = new Map<string, PluginManifest>()
   private readonly errors: RegistrationError[] = []
 
@@ -52,6 +60,9 @@ export class AuthRegistry {
     for (const connector of input.connectors ?? []) {
       this.connectors.set(connector.descriptor.id, connector)
     }
+    for (const runtimeTool of input.runtimeTools ?? []) {
+      this.runtimeTools.set(runtimeTool.descriptor.id, runtimeTool)
+    }
     return []
   }
 
@@ -70,11 +81,20 @@ export class AuthRegistry {
 
     const providers = input.providers ?? []
     const connectors = input.connectors ?? []
+    const runtimeTools = input.runtimeTools ?? []
 
     // manifest 선언과 실제 구현체가 1:1 인지. 선언만 있고 구현이 없으면 런타임에 조용히 빈
     // provider 가 되고, 구현만 있고 선언이 없으면 capability·origin 검사를 우회한다.
     const declaredProviders = new Set(manifest.contributes.authProviders.map((p) => p.id))
     const declaredConnectors = new Set(manifest.contributes.connectors.map((c) => c.id))
+    const declaredRuntimeTools = new Set(manifest.contributes.runtimeTools.map((tool) => tool.id))
+    const implRuntimeTools = new Set(runtimeTools.map((tool) => tool.descriptor.id))
+    for (const id of declaredRuntimeTools) {
+      if (!implRuntimeTools.has(id)) {
+        err(`runtime tool declaration has no implementation: ${id}`, id)
+      }
+    }
+
     for (const p of providers) {
       if (!declaredProviders.has(p.descriptor.id)) {
         err(`manifest 에 선언되지 않은 auth provider 구현: ${p.descriptor.id}`, p.descriptor.id)
@@ -83,6 +103,14 @@ export class AuthRegistry {
     for (const c of connectors) {
       if (!declaredConnectors.has(c.descriptor.id)) {
         err(`manifest 에 선언되지 않은 connector 구현: ${c.descriptor.id}`, c.descriptor.id)
+      }
+    }
+    for (const runtimeTool of runtimeTools) {
+      if (!declaredRuntimeTools.has(runtimeTool.descriptor.id)) {
+        err(
+          `runtime tool implementation has no manifest declaration: ${runtimeTool.descriptor.id}`,
+          runtimeTool.descriptor.id
+        )
       }
     }
     const implProviders = new Set(providers.map((p) => p.descriptor.id))
@@ -121,8 +149,45 @@ export class AuthRegistry {
       if (c.descriptor.apiVersion !== AUTH_PLUGIN_API_VERSION) {
         err(`지원하지 않는 apiVersion: ${c.descriptor.apiVersion}`, c.descriptor.id)
       }
+      if (c.descriptor.pluginId !== manifest.id) {
+        err(
+          `connector descriptor pluginId does not match manifest: ${c.descriptor.pluginId}`,
+          c.descriptor.id
+        )
+      }
+      const declaredConnector = manifest.contributes.connectors.find(
+        (connector) => connector.id === c.descriptor.id
+      )
+      if (declaredConnector && !sameConnectorDescriptor(declaredConnector, c.descriptor)) {
+        err(`connector descriptor does not match manifest: ${c.descriptor.id}`, c.descriptor.id)
+      }
       if (this.connectors.has(c.descriptor.id)) {
         err(`이미 등록된 connector id 입니다: ${c.descriptor.id}`, c.descriptor.id)
+      }
+    }
+    for (const runtimeTool of runtimeTools) {
+      const descriptor = runtimeTool.descriptor
+      if (descriptor.apiVersion !== AUTH_PLUGIN_API_VERSION) {
+        err(`unsupported runtime tool apiVersion: ${descriptor.apiVersion}`, descriptor.id)
+      }
+      if (descriptor.pluginId !== manifest.id) {
+        err(`runtime tool pluginId does not match manifest: ${descriptor.pluginId}`, descriptor.id)
+      }
+      const declaredRuntimeTool = manifest.contributes.runtimeTools.find(
+        (tool) => tool.id === descriptor.id
+      )
+      if (declaredRuntimeTool && !sameRuntimeToolDescriptor(declaredRuntimeTool, descriptor)) {
+        err(`runtime tool descriptor does not match manifest: ${descriptor.id}`, descriptor.id)
+      }
+      if (!declaredConnectors.has(descriptor.connectorId)) {
+        err(`runtime tool connectorId is not declared by this package: ${descriptor.connectorId}`, descriptor.id)
+      }
+      const duplicateToolName = firstDuplicate(descriptor.tools.map((tool) => tool.name))
+      if (duplicateToolName) {
+        err(`runtime tool descriptor has duplicate tool name: ${duplicateToolName}`, descriptor.id)
+      }
+      if (this.runtimeTools.has(descriptor.id) || hasDuplicateRuntimeToolId(runtimeTools, descriptor.id)) {
+        err(`runtime tool id is already registered: ${descriptor.id}`, descriptor.id)
       }
     }
     return errs
@@ -163,6 +228,14 @@ export class AuthRegistry {
     return [...this.connectors.values()]
   }
 
+  getRuntimeTool(runtimeToolId: string): RuntimeToolContribution | undefined {
+    return this.runtimeTools.get(runtimeToolId)
+  }
+
+  listRuntimeTools(): RuntimeToolContribution[] {
+    return [...this.runtimeTools.values()]
+  }
+
   // renderer 노출형. secret 도 allowedOrigins 도 내보내지 않는다.
   describeProviders(): AuthProviderInfo[] {
     return this.listProviders().map((p) => ({
@@ -187,4 +260,79 @@ export class AuthRegistry {
   registrationErrors(): RegistrationError[] {
     return [...this.errors]
   }
+}
+
+function sameConnectorDescriptor(
+  declared: PluginManifest['contributes']['connectors'][number],
+  actual: ConnectorRuntimeV1['descriptor']
+): boolean {
+  return (
+    declared.id === actual.id &&
+    declared.apiVersion === actual.apiVersion &&
+    declared.label === actual.label &&
+    sameSortedStrings(declared.acceptedAuthProviders, actual.acceptedAuthProviders) &&
+    declared.baseUrl === actual.baseUrl &&
+    sameValue(declared.presentation, actual.presentation)
+  )
+}
+
+function sameRuntimeToolDescriptor(
+  declared: RuntimeToolManifestContribution,
+  actual: RuntimeToolDescriptor
+): boolean {
+  const declaredTools = [...declared.tools].sort((left, right) => left.name.localeCompare(right.name))
+  const actualTools = [...actual.tools].sort((left, right) => left.name.localeCompare(right.name))
+  return (
+    declared.id === actual.id &&
+    declared.connectorId === actual.connectorId &&
+    declared.apiVersion === actual.apiVersion &&
+    declared.alwaysLoad === actual.alwaysLoad &&
+    declared.instructions === actual.instructions &&
+    declaredTools.length === actualTools.length &&
+    declaredTools.every((tool, index) => {
+      const implementation = actualTools[index]
+      return (
+        tool.name === implementation.name &&
+        tool.description === implementation.description &&
+        sameValue(tool.annotations, implementation.annotations)
+      )
+    })
+  )
+}
+
+function sameSortedStrings(left: readonly string[], right: readonly string[]): boolean {
+  if (left.length !== right.length) return false
+  const sortedLeft = [...left].sort()
+  const sortedRight = [...right].sort()
+  return sortedLeft.every((value, index) => value === sortedRight[index])
+}
+
+function sameValue(left: unknown, right: unknown): boolean {
+  return JSON.stringify(sortObjectKeys(left)) === JSON.stringify(sortObjectKeys(right))
+}
+
+function sortObjectKeys(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sortObjectKeys)
+  if (value === null || typeof value !== 'object') return value
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, item]) => [key, sortObjectKeys(item)])
+  )
+}
+
+function firstDuplicate(values: readonly string[]): string | null {
+  const seen = new Set<string>()
+  for (const value of values) {
+    if (seen.has(value)) return value
+    seen.add(value)
+  }
+  return null
+}
+
+function hasDuplicateRuntimeToolId(
+  runtimeTools: readonly RuntimeToolContribution[],
+  runtimeToolId: string
+): boolean {
+  return runtimeTools.filter((tool) => tool.descriptor.id === runtimeToolId).length > 1
 }
