@@ -236,6 +236,10 @@ export class AuthRegistry {
     return [...this.runtimeTools.values()]
   }
 
+  listRuntimeToolsForConnector(connectorId: string): RuntimeToolContribution[] {
+    return this.listRuntimeTools().filter((tool) => tool.descriptor.connectorId === connectorId)
+  }
+
   // renderer 노출형. secret 도 allowedOrigins 도 내보내지 않는다.
   describeProviders(): AuthProviderInfo[] {
     return this.listProviders().map((p) => ({

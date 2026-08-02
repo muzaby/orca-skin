@@ -401,4 +401,20 @@ describe('AuthRegistry 등록 위생', () => {
     expect(duplicateServer.map((error) => error.message).join()).toMatch(/runtime tool id/)
     expect(registry.getConnector('connector-b')).toBeUndefined()
   })
+
+  it('connector별 runtime tool contribution을 읽기 전용으로 조회한다', () => {
+    const registry = new AuthRegistry()
+    expect(
+      registry.register({
+        manifest: pluginManifest('pkg', [connectorDeclaration()], [runtimeToolDeclaration()]),
+        connectors: [connector('connector-a')],
+        runtimeTools: [runtimeTool('server-a')]
+      })
+    ).toEqual([])
+
+    expect(
+      registry.listRuntimeToolsForConnector('connector-a').map((tool) => tool.descriptor.id)
+    ).toEqual(['server-a'])
+    expect(registry.listRuntimeToolsForConnector('missing')).toEqual([])
+  })
 })
