@@ -10,6 +10,7 @@
 
 import type { ResolvedProviderSettings } from './provider-config'
 import type { OrcaMcpConfig } from './mcp-config'
+import type { RuntimeToolSnapshot } from './runtime-tools'
 import type {
   ApprovalResolution,
   AttachmentSourceKind,
@@ -85,6 +86,9 @@ export interface TurnExtensions {
   // 활성 MCP 서버 (미확장 ${VAR}). 0058 이후 Claude 런타임은 query options.mcpServers 가 아니라
   // plugin .mcp.json 렌더 경로로 소비한다. options.mcpServers 는 레거시 제거 대상으로 남겨둔다.
   mcp: OrcaMcpConfig
+  // 인증된 내장 도구의 현재 메모리 snapshot. extensions feature가 조립하며, adapters는
+  // backend별 SDK 옵션으로만 변환한다. 미주입은 기존 MCP 배포 경로를 그대로 유지한다.
+  runtimeTools?: RuntimeToolSnapshot
   // SDK options.plugins 로 로드할 plugin root 목록 — Orca plugin(dist/plugins/orca) + 사용자
   // ~/.claude/skills 래퍼 plugin(dist/plugins/claude, 0117). 존재/매니페스트 검증은 어댑터
   // (adaptPlugins)가 root 별로 수행하므로 조립 측(ExtensionBuilder)은 fs 를 만지지 않는다.

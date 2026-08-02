@@ -28,6 +28,8 @@ import type { CompleteRequest, LiveTurn, SessionAdapter } from './types'
 import type { TurnRequest } from './turn'
 import type { ExtractedAttachmentImage, ExtractedAttachmentText } from './turn'
 import { isRiskyTool } from './risky-tools'
+import { adaptRuntimeTools } from './claude-runtime-tools'
+import { runtimeApprovalToolNames } from './runtime-tool-policy'
 import {
   adaptEnv,
   adaptHooks,
@@ -92,6 +94,9 @@ const SUBAGENT_BLOCKED_MESSAGE =
 export interface CanUseToolOptions {
   // 중단된 서브에이전트 타입이면 재호출을 deny(가이드 §6-A). 미주입이면 차단 없음.
   isSubagentBlocked?: (subagentType: string | undefined) => boolean
+  // readOnlyHint가 true가 아닌 runtime MCP 도구의 완전한 SDK 이름 집합. 미주입이면
+  // 기존 위험 도구 정책만 적용한다.
+  runtimeApprovalToolNames?: ReadonlySet<string>
 }
 
 export function makeCanUseTool(
@@ -175,7 +180,7 @@ export function makeCanUseTool(
       }
       return { behavior: 'deny', message: PLAN_REJECT_MESSAGE }
     }
-    if (requestApproval && isRiskyTool(toolName)) {
+    if (requestApproval && (isRiskyTool(toolName) || opts.runtimeApprovalToolNames?.has(toolName))) {
       const res = await requestApproval({ kind: 'tool_approval', toolName, input }, signal)
       if (res.behavior === 'allow') {
         return {
@@ -332,6 +337,7 @@ export class ClaudeAdapter implements SessionAdapter {
     // Workspace 격리(0075) — 작업 폴더(cwd) 밖 r/w 를 PreToolUse 가드 훅으로 막는다. additionalDirectories
     // 는 옵션과 훅이 **같은 배열**을 공유해 드리프트를 막는다(가이드 §5). 추후 주입 전까지 비움([]).
     const additionalDirectories: string[] = []
+    const runtimeToolApprovalNames = runtimeApprovalToolNames(extensions.runtimeTools)
 
     const handle = query({
       prompt: input.stream,
@@ -371,6 +377,7 @@ export class ClaudeAdapter implements SessionAdapter {
         ...adaptSettingSources(),
         ...adaptSettings(req.providerSettings?.settings),
         ...adaptEnv(env),
+        ...adaptRuntimeTools(extensions.runtimeTools),
         // hooks = 중립 정규화 훅 + steer 게이트(PostToolBatch, 메인 루프 한정 flush) 병합 위에
         // 어댑터 내부 PostCompact(압축 요약 수집, manual 만·0064) 를 덧씌운다.
         ...withPostCompactHook(
@@ -395,6 +402,7 @@ export class ClaudeAdapter implements SessionAdapter {
         ...(requestApproval
           ? {
               canUseTool: makeCanUseTool(requestApproval, {
+                runtimeApprovalToolNames: runtimeToolApprovalNames,
                 ...(isSubagentBlocked ? { isSubagentBlocked } : {})
               })
             }
