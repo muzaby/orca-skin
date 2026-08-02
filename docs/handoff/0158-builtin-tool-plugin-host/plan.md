@@ -16,6 +16,7 @@
 |---|---|---|
 | r1 | 최초 작성 | — |
 | **r2** | **타 에이전트 설계 리뷰(2026-08-03) 7건 + 문서 결함 2건. 전건 코드·1차 출처로 대조해 유효 확인** | ① 승인 판정 **fail-open 수정**(`=== false` → `!== true`) ② `PluginHost.connect` 가 **완료된 bindingId 를 받는다**(다단계 인증은 기존 auth 경로 소관) ③ `acceptedAuthProviders` 소속 검사 추가 ④ **다중 연결 충돌 해소** — 조용한 교체 폐기, 명시 거부 + Open Question ⑤ 실제 logout 채널 경로에 도구 정리 배선 ⑥ 도구 기여를 **정적 descriptor + 팩토리**로 분리(등록 시점 1:1 검증 성립) ⑦ AC20 재정의 ⑧ 인용 경로 정정(가이드는 이 저장소에 없다) ⑨ 템플릿 `[구현자 기입]`·`[검증자 기입]` 블록 복원 |
+| **r3** | **OQ1 사용자 결정(2026-08-03): "jira 검색 도구를 만들텐데, jira 서버가 여러개이다. 이 경우 연결을 두 개 할 거다"** → 다중 연결은 **확정 제품 요구** | r2 의 "connector 당 1연결 + 명시 거부"를 **폐기**하고 **alias 네임스페이싱을 처음부터 도입**한다. r2 의 유예는 "나중에 규칙만 풀면 된다"를 전제했으나 **틀렸다** — 나중에 푸는 순간 기존 연결의 도구 이름이 `jira_search` → `jira_search-hq` 로 **개명**되어, r2 가 막으려던 바로 그 파손(대화 기록의 도구 이름 소실 · 이름 기준 승인 설정 무력화)이 발생한다. **연결이 하나뿐일 때도 항상 alias 를 붙여** 개명 이벤트 자체를 없앤다. AC10-c 반전, alias 관련 AC 4개 추가, OQ1 종결 |
 
 ## 사용자 의도 / 요구 출처 (Intent & Provenance)
 
@@ -118,11 +119,16 @@ Orca 는 지금 **인프로세스 도구를 LLM 에 전달하는 경로가 아�
 | 6 | 연결을 해제하면 그 플러그인 도구가 스냅샷에서 사라지고 `revision` 이 등록 전보다 **증가한다** | `app/src/main/features/auth-platform/plugin-host.test.ts::"연결 해제 시 도구가 제거되고 revision 이 증가한다"` |
 | 7 | 도구 핸들러가 받는 컨텍스트의 키 집합이 정확히 `{connectionId, invoke, logger, signal}` 이다 (`RouterContext`·db·vault·auth 접근 없음) | `app/src/main/features/auth-platform/plugin-host.test.ts::"도구 컨텍스트는 좁은 capability 4키만 노출한다"` |
 | 8 | 도구 핸들러가 `invoke(operation, params)` 를 부르면 **자기 연결 ID 로 고정된** connector 호출이 일어난다 (다른 연결 ID 를 인자로 넣을 표면이 없다) | `app/src/main/features/auth-platform/plugin-host.test.ts::"invoke 는 자기 connectionId 로 고정된다"` |
+| 8-b | 두 연결이 동시에 살아 있을 때 `hq` 도구 호출은 `hq` 연결의 binding·endpoint 로, `lab` 도구 호출은 `lab` 쪽으로 간다 (연결 간 격리) | `app/src/main/features/auth-platform/plugin-host.test.ts::"두 연결의 도구 호출이 각자의 연결로 격리된다"` |
 | 9 | 쓰기 도구(`readOnlyHint:false`) 이름으로 `canUseTool` 이 불리면 승인 요청이 발생하고, 읽기 도구(`readOnlyHint:true`)는 승인 없이 allow 된다. 도구 이름은 `mcp__<serverId>__<tool>` 형식이다 | `app/src/main/adapters/claude.canusetool.test.ts::"런타임 쓰기 도구는 승인 요청을 만든다"` · `::"런타임 읽기 도구는 승인 없이 통과한다"` |
 | 9-b | **`readOnlyHint` 를 선언하지 않은 도구도 승인 대상이 된다** (MCP 기본값 `false` = 쓰기와 일치, fail-closed) | `app/src/main/adapters/claude.canusetool.test.ts::"readOnlyHint 미선언 도구는 승인 대상이다"` · `app/src/main/adapters/runtime-tool-policy.test.ts::"annotations 자체가 없어도 정책 집합에 포함된다"` |
 | 10 | 승인 판정이 **신고서 메타데이터에서만** 나온다 — 같은 도구 이름에서 `readOnlyHint` 값을 뒤집으면 판정도 뒤집힌다 | `app/src/main/adapters/claude.canusetool.test.ts::"readOnlyHint 를 뒤집으면 승인 판정이 뒤집힌다"` |
 | 10-b | binding 의 `providerId` 가 그 connector 의 `acceptedAuthProviders` 에 없으면 연결이 거부되고, 도구가 등록되지 않는다 | `app/src/main/features/auth-platform/plugin-host.test.ts::"허용되지 않은 provider 의 binding 은 연결을 거부한다"` |
-| 10-c | 같은 connector 에 이미 연결이 있는 상태에서 다시 connect 하면 **명시적으로 거부**되고, 기존 연결과 그 도구가 그대로 남는다 (조용한 교체 금지 — 아래 Open Question) | `app/src/main/features/auth-platform/plugin-host.test.ts::"중복 연결은 거부되고 기존 연결·도구가 보존된다"` |
+| 10-c | 같은 connector 에 alias 가 다른 연결 2개를 만들면 **둘 다 살아 있고** 각각의 도구가 `mcp__<descriptorId>-<alias>__<tool>` 로 **서로 다른 이름**으로 스냅샷에 공존한다 | `app/src/main/features/auth-platform/plugin-host.test.ts::"같은 connector 의 두 연결이 서로 다른 도구 이름으로 공존한다"` |
+| 10-c-2 | 같은 connector 안에서 **이미 쓰인 alias** 로 연결하면 거부되고, 기존 연결과 그 도구가 그대로 남는다 | `app/src/main/features/auth-platform/plugin-host.test.ts::"중복 alias 연결은 거부되고 기존 연결·도구가 보존된다"` |
+| 10-c-3 | 케밥 소문자가 아닌 alias(대문자·공백·`_`·빈 문자열)는 연결이 거부된다 — SDK 서버명 정규화 대상 문자가 도구 이름에 들어가지 않는다 | `app/src/shared/protocol.plugins.test.ts::"alias 스키마가 비케밥 입력을 거부한다"` |
+| 10-c-4 | 연결이 **하나뿐일 때도** 도구 이름에 alias 접미가 붙는다 — 두 번째 연결이 생겨도 첫 연결의 도구 이름이 그대로다(개명 없음) | `app/src/main/features/auth-platform/plugin-host.test.ts::"두 번째 연결을 추가해도 첫 연결의 도구 이름이 변하지 않는다"` |
+| 10-c-5 | alias 가 같은 연결을 **해제 후 재연결**하면 도구 이름이 이전과 동일하다 (자동 생성 connection id 가 이름에 섞이지 않는다) | `app/src/main/features/auth-platform/plugin-host.test.ts::"해제 후 같은 alias 로 재연결하면 도구 이름이 동일하다"` |
 | 10-d | `create()` 가 만든 서버의 도구 이름 집합이 정적 `descriptor.tools` 와 다르면 연결이 거부된다 (런타임 드리프트 차단) | `app/src/main/features/auth-platform/plugin-host.test.ts::"create 결과가 descriptor 와 불일치하면 연결을 거부한다"` |
 | 11 | `spawnedRuntimeToolsRevision` 과 현재 `revision` 이 다르면 respawn 을 지시하고, 같으면 지시하지 않는다 (electron 비의존 **순수 함수**) | `app/src/main/features/sessions/respawn-policy.test.ts::"runtime tool revision 이 다르면 respawn 을 지시한다"` · `::"revision 이 같으면 respawn 을 지시하지 않는다"` |
 | 12 | 픽스처 플러그인의 식별자 문자열이 **플러그인 디렉토리와 그 테스트 안에만** 존재한다 — `src/main/{app,adapters,contracts,infra}`·`src/shared`·`src/preload`·`src/renderer` 전체 재귀 스캔 결과 등장 0회 | `app/src/main/features/auth-platform/modules/__fixtures__/isolation.test.ts::"픽스처 식별자는 플러그인 디렉토리 밖에 없다"` (fs 재귀) |
@@ -145,7 +151,8 @@ Orca 는 지금 **인프로세스 도구를 LLM 에 전달하는 경로가 아�
   - 좁은 `PluginToolContext` (4키)
   - 신고서 메타데이터 기반 승인 판정 (`makeCanUseTool` 옵션 확장)
   - revision 기반 respawn **순수 판정 함수** 추출 + 배선
-  - `ConnectorHost.connect`/`disconnect` + `ConnectionRegistry` 의 명시 id 지원
+  - `ConnectorHost.connect`/`disconnect` + `ConnectionRegistry` 의 명시 id 지원 + **`alias` 필드**(케밥·connector 내 유일) — 도구 이름의 안정적 출처
+  - **다중 연결** — 같은 connector 에 alias 가 다른 연결 N개 공존, 연결별 도구 서버 (`${descriptorId}-${alias}`)
   - 범용 IPC 3채널 + zod 스키마 + preload 브리지 (main 측까지)
   - 픽스처 플러그인 (`modules/__fixtures__/`) — 번들 미포함, 테스트 전용
   - `docs/IPC_CONTRACT.md` 갱신
@@ -182,11 +189,12 @@ manifest.contributes.runtimeTools[]        (선언: 서버 id · 도구 이름 �
         +  RuntimeToolContribution.create(ctx) (구현: zod 스키마 · 핸들러 — 연결 시점 호출)
                     │  registry 가 manifest ↔ descriptor 1:1 검증 (0157 규칙 재사용)
                     ▼
-        PluginHost.connect({ connectorId, bindingId })
+        PluginHost.connect({ connectorId, bindingId, alias, label? })
             ① binding.providerId ∈ connector.acceptedAuthProviders ?   아니면 거부
-            ② 이 connector 에 이미 연결이 있는가 ?                      있으면 거부(교체 금지)
+            ② alias 가 케밥이고 이 connector 안에서 유일한가 ?          아니면 거부
             ③ connectorHost.connect({ connectorId, bindingId }) → ready ?
             ④ contribution.create(toolCtx) → runtimeTools.upsert(server)   ← revision++
+                 server.id = `${descriptor.id}-${alias}`   ← 연결마다 다른 서버
                     ▼
         ExtensionBuilder.snapshot() → TurnExtensions.runtimeTools
                     ▼
@@ -256,6 +264,24 @@ interface RuntimeToolContribution {
 
 registry 는 `descriptor.tools[].name` 과 manifest 선언을 대조하고, **`create()` 결과의 도구 이름이 descriptor 와 다르면 연결을 거부**한다(런타임 드리프트 차단).
 
+### 다중 연결과 도구 이름 — alias 네임스페이싱 (r3)
+
+사용자 확정 요구: **같은 connector(예: Jira)에 서버가 여럿이라 연결을 두 개 이상 만든다.** 따라서 도구 서버는 **연결 단위**로 존재해야 한다.
+
+```
+연결 "hq"   → 서버 id `jira-tools-hq`   → 도구 `mcp__jira-tools-hq__search`
+연결 "lab"  → 서버 id `jira-tools-lab`  → 도구 `mcp__jira-tools-lab__search`
+```
+
+**이름의 안정성이 이 설계의 전부다.** 도구 이름은 대화 기록에 그대로 영속되고 승인 정책의 키이기도 하므로(가이드 §8.5 "안정적 ID"), 자동 생성 connection id(`conn_1_ab3f9x`)를 이름에 섞으면 **삭제 후 재연결 시 이름이 바뀐다**. 그래서 이름의 출처를 **사용자가 정한 `alias`** 로 삼는다.
+
+- `alias` 는 **필수**이며 `PluginConnection` 의 신규 필드다. 케밥 소문자(`^[a-z0-9]+(?:-[a-z0-9]+)*$` — manifest `IdSchema` 와 같은 규칙)이고 **connector 안에서 유일**하다. 케밥이므로 SDK 서버명 정규화(`sdk.d.ts:3509`) 대상 문자를 포함하지 않는다.
+- 기존 `Connection.label`(`connectors/registry.ts:20`)은 **자유 문구 표시명으로 남긴다** — 도구 이름에 쓰지 않는다. 두 필드의 역할이 다르다(`alias`=기계 식별자, `label`=사람이 읽는 이름).
+- **연결이 하나뿐일 때도 alias 를 붙인다.** 붙이지 않다가 두 번째 연결에서 붙이기 시작하면 첫 연결의 도구가 **개명**되고, 그 순간 기존 대화 기록의 도구 이름이 무효가 되며 이름 기준 승인 설정이 헛돈다. 개명 이벤트를 없애는 것이 균일 접미의 목적이다.
+- 각 서버의 `instructions` 에 그 연결의 `label`·endpoint 를 실어 모델이 어느 서버를 부를지 고를 근거를 준다.
+
+> **r2 의 판단 정정.** r2 는 "1연결로 제한하고 나중에 규칙만 풀면 데이터 모델이 이미 N:1 이라 손해가 없다"고 적었다. **데이터 모델은 맞지만 도구 이름은 틀렸다** — 나중에 푸는 순간이 곧 개명 순간이다. 사용자 요구 확인으로 유예 근거가 사라졌다.
+
 ### 승인 판정 — 문자열 목록 제거 + fail-closed
 
 `makeCanUseTool` 의 옵션 백에 `runtimeToolPolicy?: ReadonlySet<string>`(승인 대상 도구의 완전 이름 집합)을 추가한다. 집합은 `runtime-tool-policy.ts` 가 스냅샷에서 만든다:
@@ -292,7 +318,8 @@ readOnlyHint !== true  →  `mcp__${server.id}__${tool.name}` 을 집합에 넣�
 | **등록 위생의 단일 지점** — built-in 도 우회 등록로 없음, 중복은 last-writer-wins 아니라 **거부** | `auth-platform/registry.ts:1-8` | **유지·확장.** 도구 서버에 같은 1:1·중복 규칙 적용 |
 | **feature 교차 import 금지 + main DAG 하향 의존** | `app/eslint.config.mjs:107-128` · `src/main/AGENTS.md` | **유지.** 계약을 `adapters/` 에 두고 sink 를 구조적 포트로 주입해 위반 0 |
 | **위험 도구는 adapters 경계에서 판정, 새 위험 도구는 `risky-tools.ts` 에만 추가** | `adapters/risky-tools.ts:1-4`(현행 주석) | **유지하되 확장.** 내장 도구 화이트리스트는 그대로, 플러그인 도구는 신고서 유래 집합으로 판정 — 파일에 서비스 문자열을 넣지 않는다 |
-| **다중 연결** — "하나의 connector 를 서로 다른 사내 인스턴스에 여러 번 연결할 수 있어야 하므로 (connector 구현체와 connection 을) 분리한다" | `features/connectors/registry.ts:1-13` (0157 채택) | **일시 제한(r2).** 데이터 모델(`ConnectionRegistry` 의 N:1)은 **그대로 두고**, 이번 라운드의 `PluginHost` 만 connector 당 1연결로 제한한다(AC10-c). 도구 서버가 `server.id` 단일 키라 N연결이면 덮어쓰기가 나므로, 네임스페이싱 설계 전까지 **거부**가 안전하다. r1 은 이 결정과의 충돌을 §기존 결정 표에서 **누락했다** → Open Question 으로 승격 |
+| **다중 연결** — "하나의 connector 를 서로 다른 사내 인스턴스에 여러 번 연결할 수 있어야 하므로 (connector 구현체와 connection 을) 분리한다" | `features/connectors/registry.ts:1-13` (0157 채택) | **유지·구현(r3).** 사용자 확정 요구(Jira 서버 다수 → 연결 2개)와 이 채택 결정이 일치한다. `PluginHost` 가 alias 네임스페이싱으로 N연결을 지원한다(AC10-c·8-b). r1 은 이 결정과의 충돌을 표에서 **누락**했고, r2 는 유예로 적었다 → r3 에서 정합 |
+| **안정적 도구 ID** — 도구 이름은 한 번 공개되면 prompt·session history 에 남으므로 안정적 ID 로 취급한다 | 참고 가이드 §8.5 | **준수(r3).** 이름의 출처를 자동 생성 connection id 가 아니라 **사용자 지정 alias** 로 삼고, 연결 1개일 때도 접미를 붙여 **개명 이벤트를 없앤다**(AC10-c-4·10-c-5) |
 | **IPC 채널 변경 시 `IPC_CONTRACT.md` 동시 갱신**(§6 절차) | `docs/AGENTS.md` 원칙 5 | **준수.** 79 → 82, 도메인 `plugin` 신설 |
 | **구체 provider/engine 리터럴은 adapters·extensions·modules·컴포지션 루트에만** | `src/main/AGENTS.md` §작업 규칙 | **준수.** 픽스처 식별자는 `modules/__fixtures__/` 안에만(AC12 로 기계 강제) |
 
@@ -300,7 +327,9 @@ readOnlyHint !== true  →  `mcp__${server.id}__${tool.name}` 을 집합에 넣�
 
 - **턴 진행 중 연결/해제**: revision 이 바뀌어도 진행 중인 턴은 **옛 도구 구성으로 완주**한다. 다음 턴 시작 시 `decideRespawn` 이 채널 teardown 을 지시한다. 진행 중 턴을 죽이지 않는다.
 - **연결 도중 앱 종료·취소**: `PluginHost.connect` 는 broker transaction 과 connector start 를 `AbortSignal` 로 잇는다. 중단 시 **binding 과 연결 레코드를 둘 다 정리**한다(부분 성공 금지 — 실험 `handlers/confluence.ts:106-112` 의 catch 정리 로직을 계승).
-- **연결 교체(r2 정정)**: r1 은 "기존 연결을 먼저 정리한 뒤 새로 만든다"고 적었다. **이것은 두 가지로 틀렸다.** ⓐ 사용자가 눈치채지 못하는 사이 기존 연결과 그 도구가 사라지는 **조용한 손실**이다. ⓑ `connectors/registry.ts:10` 이 "하나의 connector 를 서로 다른 사내 인스턴스에 여러 번 연결할 수 있어야 한다"를 **채택 결정으로 명시**하는데 그것을 뒤집는다. 게다가 도구 서버가 `server.id` 하나로 키잉되므로 두 연결이 같은 키를 덮어쓴다. → **이번 라운드는 connector 당 연결 1개로 제한하고 두 번째 connect 를 명시 거부한다**(AC10-c). 다중 연결 지원은 도구 서버 네임스페이싱 설계가 필요하므로 Open Question 으로 올리고 후속 핸드오프에서 해소한다.
+- **연결 교체 → 다중 연결 공존(r3 확정)**: r1 은 "기존 연결을 정리한 뒤 새로 만든다"(조용한 손실), r2 는 "두 번째 연결 거부"(유예)였다. **사용자가 다중 연결을 확정 요구로 밝혀 둘 다 폐기한다.** 같은 connector 에 alias 가 다른 연결이 **동시에 여럿 살아 있고**, 각 연결이 자기 도구 서버를 갖는다(AC10-c). 조용한 교체는 여전히 금지 — 같은 alias 재사용은 명시 거부다(AC10-c-2). `connectors/registry.ts:1-13` 의 다중 연결 채택 결정을 **그대로 따른다**.
+- **alias 충돌·재사용**: 해제 후 같은 alias 로 다시 연결하면 도구 이름이 **이전과 동일**해야 한다(AC10-c-5) — 그래야 그 이름으로 남은 대화 기록과 승인 설정이 계속 유효하다. 반대로 살아 있는 alias 를 다시 쓰면 거부한다.
+- **연결 수 증가와 컨텍스트 비용**: 연결 2개면 도구 수도 2배다. `alwaysLoad: true` 인 플러그인이 여럿이면 프롬프트 비용이 선형으로 는다(가이드 §8.5). 이번 범위에서는 플러그인이 스스로 선언하게 두고 강제하지 않으며, 실사용에서 연결이 늘면 lazy exposure 를 재검토한다.
 - **binding 폐기(logout·revoke)**: 사용자는 `PluginHost` 를 거치지 않고 **auth 화면에서 곧장 로그아웃**할 수 있다(`handlers/auth.ts:47` → `broker.logout` 직행). 이 경로에서도 연결과 **도구 서버가 함께 제거**되어야 한다(AC16·16-b). 제거하지 않으면 인증이 사라진 뒤에도 도구가 모델에 노출된 채 남고, 호출은 broker 정책에서 실패해 사용자에게는 원인 불명의 오류로 보인다.
 - **플러그인 등록 실패 격리**: 한 패키지가 manifest 검증에 걸려도 다른 패키지와 채팅 기능은 정상이어야 한다(AC14). 0157 registry 가 패키지 단위 all-or-nothing 이므로 반쯤 등록된 상태는 생기지 않는다.
 - **앱 재시작**: 연결이 메모리 전용이라 **소실되고 도구도 사라진다.** 이번 범위의 알려진 한계로 명시하며, 부팅 복원은 후속 핸드오프.
@@ -316,10 +345,13 @@ readOnlyHint !== true  →  `mcp__${server.id}__${tool.name}` 을 집합에 넣�
 | `features/auth-platform` 이름이 도구 기여까지 담아 실제 책임보다 좁다 | 이동 비용(앱 로그인 게이트 동반 이사) 대비 이득이 없어 수용. 필요 시 별도 트리비얼 커밋 리네임 |
 | 연결 메모리 전용이라 재시작 시 소실 — 사용자가 결함으로 오인할 수 있다 | 비범위로 명시하고 후속 핸드오프로 분리. 이번엔 UI 가 없어 사용자 노출 자체가 없다 |
 | manifest 가 도구 이름을 선언하고 코드가 스키마·핸들러를 주므로 **이름이 두 곳에 적힌다**(드리프트 위험) | 0157 이 provider·connector 에 쓰는 것과 **같은 1:1 검증**을 도구에도 적용해 드리프트를 등록 단계에서 거부(AC4). 선언을 없애면 승인 정책을 코드 실행 없이 읽을 수 없다 — 의도적 트레이드오프 |
+| **alias 가 필수 입력**이라 연결이 하나뿐인 사용자에게도 "왜 별명을 정해야 하나" 라는 마찰이 생긴다 | 도구 이름의 안정성이 alias 에 걸려 있어 선택 항목으로 둘 수 없다(자동 생성값을 쓰면 재연결 시 개명). 후속 UI 핸드오프에서 **호스트명에서 기본값을 제안**(`wiki-lab.corp` → `lab`)해 마찰을 흡수한다. 이번 라운드는 IPC 필드까지만 |
+| alias 가 도구 이름에 들어가므로 **alias 를 나중에 바꾸면 개명이 일어난다** | 이번 범위에 alias 변경 API 를 **두지 않는다**(연결 해제 후 재연결이 유일한 경로). 변경 기능을 넣을 때 기존 이름 처리 규칙을 함께 설계해야 한다 — 후속 핸드오프 |
 
 - **되돌리기 어려운 결정**: 도구 계약을 `adapters/` 에 둔 것(DAG 가 강제). `RuntimeToolServer.id` 단일화(이후 이름 변경은 세션 히스토리·승인 정책에 남은 도구 이름을 무효화한다 — 가이드 §8.5 의 "안정적 ID" 경고).
-- **단독 결정 금지 항목(Open Question)** → 사용자에게:
-  - **OQ1 — 같은 connector 에 여러 인스턴스를 동시 연결할 것인가.** 0157 은 데이터 모델을 N:1 로 열어뒀으나(`connectors/registry.ts:1-13`) 도구 서버는 `server.id` 단일 키다. N연결을 지원하려면 도구 이름에 connection 을 섞어야 하는데(`mcp__<serverId>_<connectionId>__<tool>` 등), 그러면 **도구 이름이 연결마다 달라져** 세션 히스토리·승인 정책의 안정성이 깨진다(가이드 §8.5). 이번 라운드는 **거부(1연결)** 를 기본값으로 진행하며, 다중 연결이 제품 요구인지 사용자 결정이 필요하다. 결정이 "지원"이면 네임스페이싱 설계를 별도 핸드오프로 선행해야 한다.
+- **단독 결정 금지 항목(Open Question)**:
+  - ~~**OQ1 — 같은 connector 에 여러 인스턴스를 동시 연결할 것인가.**~~ **종결(r3, 2026-08-03).** 사용자 답변: *"jira 검색 도구를 만들텐데, jira 서버가 여러개이다. 이 경우 연결을 두 개 할 거다."* → **다중 연결 지원 확정.** alias 네임스페이싱을 이번 라운드에 포함한다(위 §다중 연결과 도구 이름). 후속 핸드오프로 미루지 않는 이유는 미루는 순간이 곧 개명 순간이기 때문이다.
+  - 잔여 Open Question: 없음.
 
 ## 영향 받는 파일
 
@@ -353,9 +385,9 @@ readOnlyHint !== true  →  `mcp__${server.id}__${tool.name}` 을 집합에 넣�
 **기계적으로 확인 가능한 것:**
 
 - [x] 요구 비판적 검토 5질문에 전부 답했고, **요구 범위를 줄이지 않았다** — 사용자가 "화면 제외"를 직접 선택했고 비범위 항목마다 사유·후속 소관을 명시했다.
-- [x] 인수 기준 **25개**(1~20 + 9-b·10-b·10-c·10-d·16-b)의 **`검증 수단` 칸이 비어 있지 않다** — AC20 만 "런타임 실기로만 확인 가능 — 사람"으로 명시.
-- [x] 부정형/"불변" 기준 **0개** — AC12 는 "픽스처 디렉토리 안에만 존재한다"는 위치 단언, AC3 은 "`{}` 를 반환한다"는 값 단언, AC10-c 는 "거부되고 기존 연결·도구가 보존된다"는 양성 단언으로 썼다.
-- [x] **AC 끼리 모순 없음** (r2 재점검) — AC1(계약 import = zod 뿐) ↔ AC2(SDK 변환)는 서로 다른 파일 소관. AC12(픽스처 격리) ↔ AC13(배열 한 줄 등록) ↔ **AC20(dev 실기용 배열 등재)**: AC12 의 스캔 대상은 `src/main/{app,adapters,contracts,infra}`·`src/shared`·`src/preload`·`src/renderer` 이고 `modules/index.ts` 는 `features/auth-platform/modules/` 라 **스캔 범위 밖** — 세 기준이 양립한다. AC9(값이 있을 때 판정) ↔ AC9-b(미선언 판정)는 같은 규칙 `!== true` 의 두 입력이라 모순 없다. AC10-c(중복 연결 거부) ↔ §파생 UX 의 연결 교체 서술을 r2 에서 **일치시켰다**(r1 은 "교체"라 적어 자가당착이었다). AC16(logout 경로 정리) ↔ AC6(명시 해제 정리)은 서로 다른 진입점이며 둘 다 같은 회수 경로로 수렴.
+- [x] 인수 기준 **30개**(1~20 + 8-b·9-b·10-b·10-c·10-c-2·10-c-3·10-c-4·10-c-5·10-d·16-b = 20+10, 실측 `grep -c` 30)의 **`검증 수단` 칸이 비어 있지 않다** — AC20 만 "런타임 실기로만 확인 가능 — 사람"으로 명시.
+- [x] 부정형/"불변" 기준 **0개** — AC12 는 "픽스처 디렉토리 안에만 존재한다"는 위치 단언, AC3 은 "`{}` 를 반환한다"는 값 단언, AC10-c-2 는 "거부되고 기존 연결·도구가 보존된다"는 양성 단언. AC10-c-4 의 "이름이 변하지 않는다"는 표면상 부정형이나 **두 시점의 값이 같음을 직접 비교**하는 등가 단언이라 측정 가능하다(현행 코드가 자동 통과하지 않는다 — 접미가 없으면 실제로 개명이 일어나 실패한다).
+- [x] **AC 끼리 모순 없음** (r3 재점검) — AC1(계약 import = zod 뿐) ↔ AC2(SDK 변환)는 서로 다른 파일 소관. AC12(픽스처 격리) ↔ AC13(배열 한 줄 등록) ↔ AC20(dev 실기용 배열 등재): AC12 의 스캔 대상은 `src/main/{app,adapters,contracts,infra}`·`src/shared`·`src/preload`·`src/renderer` 이고 `modules/index.ts` 는 `features/auth-platform/modules/` 라 **스캔 범위 밖** — 세 기준이 양립. AC9 ↔ AC9-b 는 같은 규칙 `!== true` 의 두 입력. **AC10-c(두 연결 공존) ↔ AC10-c-2(중복 alias 거부)**: 전자는 *alias 가 다른* 경우, 후자는 *같은* 경우라 배타적 입력이며 모순 없다. **AC10-c-4/-5(이름 안정) ↔ AC2(식별자 일치)**: 서버 식별자는 여전히 하나이며 그 값이 `${descriptorId}-${alias}` 로 정해질 뿐이라 양립. AC8-b(연결 간 격리) ↔ AC8(자기 연결 고정)은 같은 규칙의 1연결/2연결 확장. AC16 ↔ AC6 은 서로 다른 진입점이 같은 회수 경로로 수렴. **r1 의 자가당착(§파생 UX "교체" ↔ 다중 연결 채택 결정)은 r3 에서 양쪽을 다중 연결로 일치시켜 해소했다.**
 - [x] 인용 수치를 **이번 세션에서 직접 측정**했다 — 실험 파일 106/252줄(`wc -l`·`git diff --stat`), Confluence hit 1, 미커밋 46경로, 채널 79(+3=82), `AUTH_PLUGIN_PACKAGES` 0개, 마이그레이션 마지막 0016, handlers 테스트 0파일. **승계한 숫자 0개.**
 - [x] 신규 모듈 9개 전부 테스트 방법이 있고, electron 의존 모듈(`handlers/plugins.ts`)은 **떼어낼 순수부(`PluginHost` + 스키마)를 명시**했다.
 - [x] 전수 조사 대상에 N 수치가 있다 — Confluence 결합 1 / 실험 23파일·46경로 / `ConnectorHost` 슬라이스 밖 소비자 0 / 채널 79 / handlers 테스트 0.
@@ -397,4 +429,6 @@ readOnlyHint !== true  →  `mcp__${server.id}__${tool.name}` 을 집합에 넣�
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
-| D1 | 다중 연결 지원 여부(OQ1) — 도구 서버 네임스페이싱 설계 필요 | 설계 r2 §리스크 OQ1 | 사용자 결정 후 별도 핸드오프 | open |
+| D1 | 다중 연결 지원 여부(OQ1) — 도구 서버 네임스페이싱 설계 필요 | 설계 r2 §리스크 OQ1 | **사용자 결정 완료(2026-08-03): 지원.** 후속 핸드오프로 미루지 않고 **r3 에서 alias 네임스페이싱으로 본 범위에 포함** | **해결** |
+| D2 | alias 변경 API — 변경 시 도구 개명이 일어나므로 기존 이름 처리 규칙 필요 | 설계 r3 §리스크 | 이번 범위에서 API 미제공(해제 후 재연결이 유일 경로). UI 핸드오프에서 함께 설계 | open |
+| D3 | alias 기본값 제안(호스트명 → `lab`) — 필수 입력 마찰 흡수 | 설계 r3 §리스크 | renderer UI 핸드오프 소관 | open |
