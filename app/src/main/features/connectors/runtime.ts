@@ -28,7 +28,7 @@ export interface ConnectorHostDeps {
 const DEFAULT_INVOKE_TIMEOUT_MS = 60_000
 
 export class ConnectorHost {
-  private readonly started = new Set<string>()
+  private readonly started = new Map<string, Connection>()
 
   constructor(private readonly deps: ConnectorHostDeps) {}
 
@@ -64,12 +64,24 @@ export class ConnectorHost {
     }
   }
 
+  private markStarted(connection: Connection): void {
+    if (this.deps.connections.get(connection.id) === connection) {
+      this.started.set(connection.id, connection)
+    }
+  }
+
+  private clearStarted(connection: Connection): void {
+    if (this.started.get(connection.id) === connection) {
+      this.started.delete(connection.id)
+    }
+  }
+
   async connect(input: CreateConnectionInput): Promise<ConnectorStatus> {
     const connection = this.deps.connections.create(input)
     const status = await this.start(connection.id)
     if (status.health !== 'ready') {
-      this.deps.connections.remove(connection.id)
-      this.started.delete(connection.id)
+      this.deps.connections.removeIfSame(connection.id, connection)
+      this.clearStarted(connection)
     }
     return status
   }
@@ -82,7 +94,7 @@ export class ConnectorHost {
       const status = await resolved.connector.start(
         this.contextFor(resolved.connection, controller.signal)
       )
-      if (status.health === 'ready') this.started.add(connectionId)
+      if (status.health === 'ready') this.markStarted(resolved.connection)
       return status
     } catch (err) {
       // connector 예외를 표준 상태로 정규화한다 — 원문 메시지는 로그로만.
@@ -133,7 +145,7 @@ export class ConnectorHost {
         message: String(err)
       })
     } finally {
-      this.started.delete(connectionId)
+      this.clearStarted(resolved.connection)
     }
   }
 
@@ -141,10 +153,13 @@ export class ConnectorHost {
   async stopByBinding(bindingId: string): Promise<void> {
     const victims = this.deps.connections.list().filter((c) => c.bindingId === bindingId)
     await Promise.all(victims.map((c) => this.stop(c.id)))
-    this.deps.connections.removeByBinding(bindingId)
+    for (const connection of victims) {
+      this.deps.connections.removeIfSame(connection.id, connection)
+    }
   }
 
   isStarted(connectionId: string): boolean {
-    return this.started.has(connectionId)
+    const connection = this.deps.connections.get(connectionId)
+    return connection !== undefined && this.started.get(connectionId) === connection
   }
 }

@@ -8,7 +8,8 @@ import { ConnectorHost } from './runtime'
 
 function connector(
   id: string,
-  start: () => Promise<ConnectorStatus> = async () => ({ health: 'ready' })
+  start: () => Promise<ConnectorStatus> = async () => ({ health: 'ready' }),
+  stop: () => Promise<void> = async () => undefined
 ): ConnectorRuntimeV1 {
   return {
     descriptor: {
@@ -22,8 +23,22 @@ function connector(
     },
     start: async () => start(),
     invoke: async () => ({ ok: true, data: null }),
-    stop: async () => undefined
+    stop: async () => stop()
   }
+}
+
+function deferred<T>(): {
+  promise: Promise<T>
+  resolve: (value: T | PromiseLike<T>) => void
+  reject: (reason?: unknown) => void
+} {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+  return { promise, resolve, reject }
 }
 
 function hostWith(...connectors: ConnectorRuntimeV1[]): {
@@ -151,5 +166,161 @@ describe('ConnectorHost.connect', () => {
 
     expect(registry.get('connection-1')).toBeUndefined()
     expect(host.isStarted('connection-1')).toBe(false)
+  })
+
+  it('preserves a replacement connection when a stale connect resolves non-ready', async () => {
+    const firstStart = deferred<ConnectorStatus>()
+    let starts = 0
+    const { registry, host } = hostWith(
+      connector('jira-engineering', async () => {
+        starts += 1
+        return starts === 1 ? firstStart.promise : { health: 'ready' }
+      })
+    )
+
+    const staleConnect = host.connect({
+      id: 'connection-1',
+      connectorId: 'jira-engineering',
+      bindingId: 'binding-a'
+    })
+    const staleConnection = registry.get('connection-1')
+    expect(staleConnection).toBeDefined()
+    registry.remove('connection-1')
+
+    await host.connect({
+      id: 'connection-1',
+      connectorId: 'jira-engineering',
+      bindingId: 'binding-b'
+    })
+    const replacement = registry.get('connection-1')
+    expect(replacement?.bindingId).toBe('binding-b')
+    expect(host.isStarted('connection-1')).toBe(true)
+
+    firstStart.resolve({ health: 'unreachable' })
+    await expect(staleConnect).resolves.toEqual({ health: 'unreachable' })
+
+    expect(registry.get('connection-1')).toBe(replacement)
+    expect(registry.get('connection-1')).not.toBe(staleConnection)
+    expect(host.isStarted('connection-1')).toBe(true)
+  })
+
+  it('preserves a replacement connection when a stale connect start throws', async () => {
+    const firstStart = deferred<ConnectorStatus>()
+    let starts = 0
+    const { registry, host } = hostWith(
+      connector('jira-engineering', async () => {
+        starts += 1
+        return starts === 1 ? firstStart.promise : { health: 'ready' }
+      })
+    )
+
+    const staleConnect = host.connect({
+      id: 'connection-1',
+      connectorId: 'jira-engineering',
+      bindingId: 'binding-a'
+    })
+    registry.remove('connection-1')
+    await host.connect({
+      id: 'connection-1',
+      connectorId: 'jira-engineering',
+      bindingId: 'binding-b'
+    })
+    const replacement = registry.get('connection-1')
+
+    firstStart.reject(new Error('offline'))
+    await expect(staleConnect).resolves.toMatchObject({ health: 'error' })
+
+    expect(registry.get('connection-1')).toBe(replacement)
+    expect(host.isStarted('connection-1')).toBe(true)
+  })
+
+  it('does not mark a replacement connection started when an older start resolves ready', async () => {
+    const firstStart = deferred<ConnectorStatus>()
+    let starts = 0
+    const { registry, host } = hostWith(
+      connector('jira-engineering', async () => {
+        starts += 1
+        return starts === 1 ? firstStart.promise : { health: 'ready' }
+      })
+    )
+    registry.create({ id: 'connection-1', connectorId: 'jira-engineering', bindingId: 'binding-a' })
+
+    const staleStart = host.start('connection-1')
+    registry.remove('connection-1')
+    const replacement = registry.create({
+      id: 'connection-1',
+      connectorId: 'jira-engineering',
+      bindingId: 'binding-b'
+    })
+
+    firstStart.resolve({ health: 'ready' })
+    await expect(staleStart).resolves.toEqual({ health: 'ready' })
+
+    expect(registry.get('connection-1')).toBe(replacement)
+    expect(host.isStarted('connection-1')).toBe(false)
+  })
+
+  it('does not clear a replacement connection started state when an older stop completes', async () => {
+    const firstStop = deferred<void>()
+    let stops = 0
+    const { registry, host } = hostWith(
+      connector(
+        'jira-engineering',
+        async () => ({ health: 'ready' }),
+        async () => {
+          stops += 1
+          return stops === 1 ? firstStop.promise : undefined
+        }
+      )
+    )
+    registry.create({ id: 'connection-1', connectorId: 'jira-engineering', bindingId: 'binding-a' })
+    await host.start('connection-1')
+
+    const staleStop = host.stop('connection-1')
+    registry.remove('connection-1')
+    const replacement = registry.create({
+      id: 'connection-1',
+      connectorId: 'jira-engineering',
+      bindingId: 'binding-b'
+    })
+    await host.start('connection-1')
+
+    firstStop.resolve()
+    await staleStop
+
+    expect(registry.get('connection-1')).toBe(replacement)
+    expect(host.isStarted('connection-1')).toBe(true)
+  })
+
+  it('does not remove a replacement connection while a stale stopByBinding completes', async () => {
+    const firstStop = deferred<void>()
+    let stops = 0
+    const { registry, host } = hostWith(
+      connector(
+        'jira-engineering',
+        async () => ({ health: 'ready' }),
+        async () => {
+          stops += 1
+          return stops === 1 ? firstStop.promise : undefined
+        }
+      )
+    )
+    registry.create({ id: 'connection-1', connectorId: 'jira-engineering', bindingId: 'binding-a' })
+    await host.start('connection-1')
+
+    const staleStop = host.stopByBinding('binding-a')
+    registry.remove('connection-1')
+    const replacement = registry.create({
+      id: 'connection-1',
+      connectorId: 'jira-engineering',
+      bindingId: 'binding-a'
+    })
+    await host.start('connection-1')
+
+    firstStop.resolve()
+    await staleStop
+
+    expect(registry.get('connection-1')).toBe(replacement)
+    expect(host.isStarted('connection-1')).toBe(true)
   })
 })

@@ -76,4 +76,9 @@ export class ConnectionRegistry {
   remove(id: string): boolean {
     return this.connections.delete(id)
   }
+
+  removeIfSame(id: string, expected: Connection): boolean {
+    if (this.connections.get(id) !== expected) return false
+    return this.connections.delete(id)
+  }
 }
