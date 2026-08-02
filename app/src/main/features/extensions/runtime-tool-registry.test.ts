@@ -20,6 +20,29 @@ const server = (id: string): RuntimeToolServer => ({
   ]
 })
 
+const mutableServer = (id: string): RuntimeToolServer => ({
+  descriptor: {
+    id,
+    pluginId: 'plugin-a',
+    connectorId: 'connector-a',
+    apiVersion: 1,
+    tools: [
+      {
+        name: 'change',
+        description: 'Change a record',
+        annotations: { readOnlyHint: false }
+      }
+    ]
+  },
+  implementations: [
+    {
+      name: 'change',
+      inputSchema: { value: z.string() },
+      handler: async () => ({})
+    }
+  ]
+})
+
 describe('RuntimeToolRegistry', () => {
   it('실질 변경 때만 revision을 증가시킨다', () => {
     const registry = new RuntimeToolRegistry()
@@ -50,6 +73,48 @@ describe('RuntimeToolRegistry', () => {
 
     const snapshot = registry.snapshot()
     expect(snapshot.revision).toBe(2)
-    expect(snapshot.servers.get('records')).toBe(replacement)
+    expect(snapshot.servers.get('records')).toStrictEqual(replacement)
+    expect(snapshot.servers.get('records')).not.toBe(replacement)
+  })
+
+  it('add 뒤 호출자의 descriptor와 implementation 변조가 registry에 새지 않는다', () => {
+    const registry = new RuntimeToolRegistry()
+    const input = mutableServer('records')
+    const originalHandler = input.implementations[0].handler
+    const originalSchema = input.implementations[0].inputSchema
+
+    registry.add(input)
+    input.descriptor.tools[0].description = 'Mutated description'
+    input.descriptor.tools[0].annotations = { readOnlyHint: true }
+    input.implementations[0].name = 'mutated'
+
+    const stored = registry.snapshot().servers.get('records')!
+    expect(stored.descriptor.tools[0]).toEqual({
+      name: 'change',
+      description: 'Change a record',
+      annotations: { readOnlyHint: false }
+    })
+    expect(stored.implementations[0]).toMatchObject({ name: 'change', inputSchema: originalSchema })
+    expect(stored.implementations[0].handler).toBe(originalHandler)
+    expect(registry.snapshot().revision).toBe(1)
+  })
+
+  it('snapshot 소비자의 descriptor와 implementation 변조가 다음 snapshot에 새지 않는다', () => {
+    const registry = new RuntimeToolRegistry()
+    registry.add(mutableServer('records'))
+
+    const exposed = registry.snapshot().servers.get('records')!
+    exposed.descriptor.tools[0].description = 'Mutated description'
+    exposed.descriptor.tools[0].annotations = { readOnlyHint: true }
+    exposed.implementations[0].name = 'mutated'
+
+    const later = registry.snapshot().servers.get('records')!
+    expect(later.descriptor.tools[0]).toEqual({
+      name: 'change',
+      description: 'Change a record',
+      annotations: { readOnlyHint: false }
+    })
+    expect(later.implementations[0].name).toBe('change')
+    expect(registry.snapshot().revision).toBe(1)
   })
 })
