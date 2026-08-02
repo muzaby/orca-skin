@@ -12,6 +12,9 @@
 // 레이어: features/connectors 는 features/auth-platform 을 **import 하지 않는다**(교차 금지).
 // 필요한 것은 컴포지션 루트가 주입한다.
 
+// Static connector model (0158 r4): one connector ID represents one fixed server origin,
+// so it has at most one pending or ready connection. The auth binding supplies that record's
+// connection ID; this registry neither generates nor replaces it.
 export interface Connection {
   id: string
   connectorId: string
@@ -22,6 +25,7 @@ export interface Connection {
 }
 
 export interface CreateConnectionInput {
+  id: string
   connectorId: string
   bindingId: string
   label?: string
@@ -29,20 +33,24 @@ export interface CreateConnectionInput {
 
 export class ConnectionRegistry {
   private readonly connections = new Map<string, Connection>()
-  private seq = 0
 
   constructor(private readonly clock: () => number = Date.now) {}
 
   create(input: CreateConnectionInput): Connection {
-    const id = `conn_${++this.seq}_${Math.random().toString(36).slice(2, 10)}`
+    if (this.connections.has(input.id)) {
+      throw new Error(`connection ID already exists: ${input.id}`)
+    }
+    if (this.listByConnector(input.connectorId).length > 0) {
+      throw new Error(`static connector already has an active connection: ${input.connectorId}`)
+    }
     const connection: Connection = {
-      id,
+      id: input.id,
       connectorId: input.connectorId,
       bindingId: input.bindingId,
       createdAt: this.clock(),
       ...(input.label !== undefined ? { label: input.label } : {})
     }
-    this.connections.set(id, connection)
+    this.connections.set(input.id, connection)
     return connection
   }
 
