@@ -16,7 +16,7 @@ import type {
   ConnectorStatus
 } from '../../contracts/connector-plugin'
 import { getLogger } from '../../infra/log/registry'
-import type { Connection, ConnectionRegistry } from './registry'
+import type { Connection, ConnectionRegistry, CreateConnectionInput } from './registry'
 
 export interface ConnectorHostDeps {
   connections: ConnectionRegistry
@@ -62,6 +62,16 @@ export class ConnectorHost {
           ...(meta !== undefined ? { meta } : {})
         })
     }
+  }
+
+  async connect(input: CreateConnectionInput): Promise<ConnectorStatus> {
+    const connection = this.deps.connections.create(input)
+    const status = await this.start(connection.id)
+    if (status.health !== 'ready') {
+      this.deps.connections.remove(connection.id)
+      this.started.delete(connection.id)
+    }
+    return status
   }
 
   async start(connectionId: string): Promise<ConnectorStatus> {
