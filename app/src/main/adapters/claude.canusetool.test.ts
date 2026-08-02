@@ -225,6 +225,44 @@ describe('makeCanUseTool — 위험 도구 게이트(tool_approval)', () => {
   })
 })
 
+describe('makeCanUseTool — runtime MCP 도구 게이트(tool_approval)', () => {
+  it('readOnlyHint가 true가 아닌 runtime 도구는 승인 요청으로 보낸다', async () => {
+    const requestApproval = vi.fn<ReqApproval>().mockResolvedValue({ behavior: 'allow' })
+    const canUse = makeCanUseTool(requestApproval, {
+      runtimeApprovalToolNames: new Set(['mcp__records__write'])
+    })
+    const input = { id: 'record-1', value: 'next' }
+
+    const res = await canUse('mcp__records__write', input, ctx)
+
+    expect(requestApproval).toHaveBeenCalledWith(
+      { kind: 'tool_approval', toolName: 'mcp__records__write', input },
+      expect.any(AbortSignal)
+    )
+    expect(res).toEqual({ behavior: 'allow', updatedInput: input })
+  })
+
+  it('readOnlyHint가 true인 runtime 도구는 승인 없이 passthrough한다', async () => {
+    const requestApproval = vi.fn<ReqApproval>()
+    const canUse = makeCanUseTool(requestApproval, {
+      runtimeApprovalToolNames: new Set(['mcp__records__write'])
+    })
+    const input = { id: 'record-1' }
+
+    expect(await canUse('mcp__records__read', input, ctx)).toEqual({ behavior: 'allow', updatedInput: input })
+    expect(requestApproval).not.toHaveBeenCalled()
+  })
+
+  it('requestApproval 미주입 시 runtime write 도구도 allow passthrough한다', async () => {
+    const input = { id: 'record-1', value: 'next' }
+    const canUse = makeCanUseTool(undefined, {
+      runtimeApprovalToolNames: new Set(['mcp__records__write'])
+    })
+
+    expect(await canUse('mcp__records__write', input, ctx)).toEqual({ behavior: 'allow', updatedInput: input })
+  })
+})
+
 describe('makeCanUseTool — 서브에이전트 passthrough(0143) + 재호출 차단', () => {
   const reqAllow = vi.fn<ReqApproval>().mockResolvedValue({ behavior: 'allow' })
 
