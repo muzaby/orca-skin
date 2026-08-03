@@ -524,11 +524,11 @@ broker는 provider logout 성공 여부와 상관없이 vault와 binding을 제�
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | Task 1~7 범위 구현 완료. `7229c41`은 실제 `registerChatHandlers` IPC 경로의 listen stale revision respawn·flush non-default model 보존과 one-shot 종료 metadata 정리를 고정했다. `3400908`은 PluginHost lifecycle signal을 connector start/invoke까지 전파하고 IPC 문서 응답/82채널 문서 count 검사를 추가했다. `7f606cf`은 pre-aborted connect/start/invoke zero-call과 cleanup 뒤 cached handler 단락을 추가했다. |
+| 변경 파일 | Task 1~7 범위 구현 완료. `7229c41`은 실제 `registerChatHandlers` IPC 경로의 listen stale revision respawn·flush non-default model 보존과 one-shot 종료 metadata 정리를 고정했다. `3400908`은 PluginHost lifecycle signal을 connector start/invoke까지 전파하고 IPC 문서 응답/82채널 문서 count 검사를 추가했다. `7f606cf`은 pre-aborted connect/start/invoke zero-call과 cleanup 뒤 cached handler 단락을 추가했다. `47a0f88`은 Task 1~2 신규 runtime-tool 코드의 lint 자동 포맷을 반영해 재실행 시 작업 트리가 clean하도록 고정했다. |
 | 실행 명령 | `npx vitest run src/main/features/auth-platform/plugin-host.test.ts src/main/features/connectors/runtime.test.ts` (2 files, 38 tests), `npm run lint`, `npm run typecheck`, `npm test`, `node --test scripts/*.test.mjs` |
-| 게이트 결과 | focused 38/38 pass, typecheck node/web/test pass. lint 0 error, 기존 `useTranscriptVirtualizer` TanStack/React Compiler warning 1개. `npm test`는 수집된 169 files·1480 tests pass, `chat-turn.continuity.test.ts`만 intentionally unavailable Electron binary로 collection 전 실패(`Electron failed to install correctly`); 별도 scripts 28/28 pass. lint `--fix`가 만든 범위 밖 포맷 churn은 커밋 전 원복했다. |
+| 게이트 결과 | focused 38/38 pass, typecheck node/web/test pass. lint 0 error, 기존 `useTranscriptVirtualizer` TanStack/React Compiler warning 1개. `npm test`는 수집된 169 files·1480 tests pass, `chat-turn.continuity.test.ts`만 intentionally unavailable Electron binary로 collection 전 실패(`Electron failed to install correctly`); 별도 scripts 28/28 pass. lint `--fix`의 Task 1~2 신규 코드 포맷 7파일은 `47a0f88`에 반영했으며 fresh lint 재실행 뒤 작업 트리 clean을 확인했다. |
 | 블로커 / 역질문 | 없음 — 사용자 결정 완료 |
-| 대상 커밋 | `07e0634` (`feat(runtime-tools): refresh stale tool snapshots`), `1f2c1f1` (`fix(runtime-tools): checkpoint continuation respawn`), `7229c41` (`test(runtime-tools): cover continuation handler wiring`), `3400908` (`fix(plugin): propagate lifecycle cancellation`), `7f606cf` (`fix(plugin): reject pre-aborted connector work`) |
+| 대상 커밋 | `07e0634` (`feat(runtime-tools): refresh stale tool snapshots`), `1f2c1f1` (`fix(runtime-tools): checkpoint continuation respawn`), `7229c41` (`test(runtime-tools): cover continuation handler wiring`), `3400908` (`fix(plugin): propagate lifecycle cancellation`), `7f606cf` (`fix(plugin): reject pre-aborted connector work`), `47a0f88` (`chore(lint): format runtime tool additions`) |
 
 ---
 
