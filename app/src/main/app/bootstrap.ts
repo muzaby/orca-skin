@@ -337,7 +337,8 @@ export class Bootstrap {
       () => [
         orcaPluginRoot(orcaConfigDir(), 'claude'),
         userClaudePluginRoot(orcaConfigDir(), 'claude')
-      ]
+      ],
+      auth.runtimeTools
     )
     await this.bootReport.step(
       'adapter-registry',

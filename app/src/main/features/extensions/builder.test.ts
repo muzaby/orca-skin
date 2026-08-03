@@ -19,6 +19,7 @@ import { DbQueries } from '../../infra/db/queries'
 import { ExtensionBuilder } from './builder'
 import type { McpStore } from './mcp/store'
 import type { Settings } from '../../../shared/ipc'
+import type { RuntimeToolSource } from '../../adapters/runtime-tools'
 
 // builder 는 mcp.enabledConfig() 만 호출하고 skills getter 결과를 패스스루한다. 구조적 최소 fake.
 const fakeMcp = { enabledConfig: () => ({}) } as unknown as McpStore
@@ -118,5 +119,25 @@ describe('ExtensionBuilder.systemPromptAppend', () => {
     expect(systemPromptAppend).toContain('# Orca')
     expect(systemPromptAppend).toContain('Preferred language: 한국어')
     expect(systemPromptAppend).not.toContain('# Project')
+  })
+})
+
+describe('ExtensionBuilder.runtimeTools', () => {
+  it('forwards the injected empty registry snapshot with revision zero', () => {
+    const source: RuntimeToolSource = {
+      snapshot: () => ({ revision: 0, servers: new Map() })
+    }
+    const Builder = ExtensionBuilder as unknown as new (...args: unknown[]) => ExtensionBuilder
+    const builder = new Builder(
+      seedDb(),
+      fakeMcp,
+      () => [],
+      () => makeSettings(),
+      '1.0.0',
+      undefined,
+      source
+    )
+
+    expect(builder.build(null, null).runtimeTools).toEqual({ revision: 0, servers: new Map() })
   })
 })

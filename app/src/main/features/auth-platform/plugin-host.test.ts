@@ -339,7 +339,9 @@ describe('PluginHost', () => {
 
     const connecting = host.connect({ connectorId: 'connector-a', bindingId: 'binding-a' })
     await host.onBindingsEnded(['binding-a'])
-    resolveConnect?.({ health: 'ready' })
+    const completeConnect = resolveConnect as ((status: { health: 'ready' }) => void) | null
+    if (!completeConnect) throw new Error('expected pending connector completion')
+    completeConnect({ health: 'ready' })
 
     await expect(connecting).rejects.toThrow()
     expect(sink.servers).toEqual(new Map())
@@ -364,7 +366,9 @@ describe('PluginHost', () => {
         target: { kind: 'connector', connectorId: 'connector-a', connectionId: 'connection-new' }
       })
     )
-    resolveConnect?.({ health: 'ready' })
+    const completeConnect = resolveConnect as ((status: { health: 'ready' }) => void) | null
+    if (!completeConnect) throw new Error('expected pending connector completion')
+    completeConnect({ health: 'ready' })
 
     await expect(connecting).rejects.toThrow(/binding changed/i)
     expect(connectors.connectCalls).toEqual([
@@ -390,7 +394,9 @@ describe('PluginHost', () => {
 
     const connecting = host.connect({ connectorId: 'connector-a', bindingId: 'binding-a' })
     bindings.set('binding-a', binding('binding-a', { principal: { id: 'refreshed-user' } }))
-    resolveConnect?.({ health: 'ready' })
+    const completeConnect = resolveConnect as ((status: { health: 'ready' }) => void) | null
+    if (!completeConnect) throw new Error('expected pending connector completion')
+    completeConnect({ health: 'ready' })
 
     await expect(connecting).resolves.toBeUndefined()
     expect(sink.servers.has('server-a')).toBe(true)
