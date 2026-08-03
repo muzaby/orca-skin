@@ -337,13 +337,12 @@ describe('PluginHost', () => {
 
   it('aborts an in-flight connection when its binding ends and never exposes a late tool server', async () => {
     const bindings = new Map([['binding-a', binding('binding-a')]])
-    let resolveConnect: ((status: { health: 'ready' }) => void) | null = null
     const { host, connectors, sink } = createHost(bindings)
     connectors.connect = async (input, signal) => {
       connectors.connectCalls.push(input)
       if (signal) connectors.connectSignals.push(signal)
       return new Promise((resolve) => {
-        resolveConnect = resolve
+        signal?.addEventListener('abort', () => resolve({ health: 'error' }), { once: true })
       })
     }
 
@@ -351,9 +350,6 @@ describe('PluginHost', () => {
     expect(connectors.connectSignals).toHaveLength(1)
     await host.onBindingsEnded(['binding-a'])
     expect(connectors.connectSignals[0]?.aborted).toBe(true)
-    const completeConnect = resolveConnect as ((status: { health: 'ready' }) => void) | null
-    if (!completeConnect) throw new Error('expected pending connector completion')
-    completeConnect({ health: 'ready' })
 
     await expect(connecting).rejects.toThrow()
     expect(sink.servers).toEqual(new Map())
@@ -487,6 +483,20 @@ describe('PluginHost', () => {
     await host.disconnect({ connectorId: 'connector-a' })
     await expect(invocation).resolves.toEqual({ ok: true, data: null })
     expect(connectors.invokeSignals[0]?.aborted).toBe(true)
+  })
+
+  it('does not invoke a cached runtime tool handler after explicit cleanup', async () => {
+    const bindings = new Map([['binding-a', binding('binding-a')]])
+    const { host, connectors, logout, sink } = createHost(bindings)
+    logout.onLogout = (bindingId) => host.onBindingsEnded([bindingId])
+
+    await host.connect({ connectorId: 'connector-a', bindingId: 'binding-a' })
+    const handler = sink.servers.get('server-a')?.implementations[0]?.handler
+    if (!handler) throw new Error('expected cached runtime tool handler')
+    await host.disconnect({ connectorId: 'connector-a' })
+
+    await expect(handler({})).resolves.toMatchObject({ ok: false, health: 'error' })
+    expect(connectors.invokeCalls).toEqual([])
   })
 
   it('aborts an in-flight tool invocation when a failed provider logout ends its binding', async () => {

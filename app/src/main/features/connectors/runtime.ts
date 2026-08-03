@@ -77,6 +77,7 @@ export class ConnectorHost {
   }
 
   async connect(input: CreateConnectionInput, signal?: AbortSignal): Promise<ConnectorStatus> {
+    if (signal?.aborted) return cancelledStatus()
     const connection = this.deps.connections.create(input)
     const status = await this.start(connection.id, signal)
     if (status.health !== 'ready') {
@@ -87,6 +88,7 @@ export class ConnectorHost {
   }
 
   async start(connectionId: string, signal?: AbortSignal): Promise<ConnectorStatus> {
+    if (signal?.aborted) return cancelledStatus()
     const resolved = this.resolve(connectionId)
     if (!resolved) return { health: 'error', message: '알 수 없는 연결입니다' }
     const controller = new AbortController()
@@ -112,6 +114,7 @@ export class ConnectorHost {
     timeoutMs = DEFAULT_INVOKE_TIMEOUT_MS,
     signal?: AbortSignal
   ): Promise<ConnectorResult> {
+    if (signal?.aborted) return cancelledResult()
     const resolved = this.resolve(connectionId)
     if (!resolved) return { ok: false, message: '알 수 없는 연결입니다' }
 
@@ -165,6 +168,14 @@ export class ConnectorHost {
     const connection = this.deps.connections.get(connectionId)
     return connection !== undefined && this.started.get(connectionId) === connection
   }
+}
+
+function cancelledStatus(): ConnectorStatus {
+  return { health: 'error', message: 'connector start was cancelled' }
+}
+
+function cancelledResult(): ConnectorResult {
+  return { ok: false, message: 'connector invocation was cancelled', health: 'error' }
 }
 
 function composeAbortSignals(signals: readonly (AbortSignal | undefined)[]): {

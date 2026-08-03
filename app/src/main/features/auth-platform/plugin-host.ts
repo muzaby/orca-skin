@@ -191,8 +191,15 @@ export class PluginHost {
   ): RuntimeToolServer {
     const implementations = contribution.create({
       connectionId: active.connectionId,
-      invoke: (operation, params) =>
-        this.deps.connectors.invoke(
+      invoke: (operation, params) => {
+        if (active.controller.signal.aborted) {
+          return Promise.resolve({
+            ok: false,
+            message: 'connector invocation was cancelled',
+            health: 'error' as const
+          })
+        }
+        return this.deps.connectors.invoke(
           active.connectionId,
           {
             operation,
@@ -200,7 +207,8 @@ export class PluginHost {
           },
           undefined,
           active.controller.signal
-        ),
+        )
+      },
       logger: (message, meta) =>
         this.deps.logger?.(message, {
           connectorId: active.connectorId,
