@@ -5,7 +5,7 @@ import type {
   ConnectorRuntimeV1,
   ConnectorStatus
 } from '../../contracts/connector-plugin'
-import type { AuthBindingInfo, AuthLogoutOutcome } from '../../../shared/ipc'
+import type { AuthBindingInfo, AuthLogoutOutcome, PluginConnectorInfo } from '../../../shared/ipc'
 
 export interface ConnectorPort {
   connect(input: { id: string; connectorId: string; bindingId: string }): Promise<ConnectorStatus>
@@ -30,15 +30,6 @@ interface PluginRegistry {
   getConnector(connectorId: string): ConnectorRuntimeV1 | undefined
   listConnectors(): ConnectorRuntimeV1[]
   listRuntimeToolsForConnector(connectorId: string): RuntimeToolContribution[]
-}
-
-export interface PluginConnectorInfo {
-  connectorId: string
-  label: string
-  origin: string
-  pluginId: string
-  acceptedAuthProviders: readonly string[]
-  connected: boolean
 }
 
 export interface PluginHostDeps {

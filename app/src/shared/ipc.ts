@@ -104,7 +104,10 @@ export const CHANNELS = {
   authContinue: 'orca:auth:continue',
   authRefresh: 'orca:auth:refresh',
   authLogout: 'orca:auth:logout',
-  authStateEvent: 'orca:auth:stateEvent'
+  authStateEvent: 'orca:auth:stateEvent',
+  pluginList: 'orca:plugin:list',
+  pluginConnectionConnect: 'orca:plugin:connectionConnect',
+  pluginConnectionDisconnect: 'orca:plugin:connectionDisconnect'
 } as const
 
 export type UpdateStateStatus =
@@ -277,6 +280,26 @@ export type AuthLogoutOutcome =
   | { kind: 'logged_out'; endedBindingIds: string[] }
   | { kind: 'not_supported' }
   | { kind: 'failed'; message?: string }
+
+// 플러그인 connector 목록은 renderer가 소비하는 안전 DTO다. binding, connection ID,
+// credential presentation 및 secret/artifact는 이 경계를 넘어서는 안 된다.
+export interface PluginConnectorInfo {
+  connectorId: string
+  label: string
+  origin: string
+  pluginId: string
+  acceptedAuthProviders: string[]
+  connected: boolean
+}
+
+export interface PluginConnectionConnectRequest {
+  connectorId: string
+  bindingId: string
+}
+
+export interface PluginConnectionDisconnectRequest {
+  connectorId: string
+}
 
 // 앱 로그인 게이트 판정용 상태 스냅샷 (구 SsoState).
 export interface AuthPlatformState {
