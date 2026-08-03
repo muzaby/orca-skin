@@ -8,7 +8,7 @@
 | 작성자 | Claude Code (r1~r3) · Codex (r4 사용자 결정 반영) |
 | 일자 | 2026-08-02 · r4 2026-08-03 |
 | 매핑 | PHASES 신규 행 (Phase 3++) / PR 미생성 |
-| 상태 | DRAFT → READY (**r4**) |
+| 상태 | IMPL_DONE (**r4**, 구현 완료) |
 
 ### 설계 개정 이력
 
@@ -514,20 +514,20 @@ broker는 provider logout 성공 여부와 상관없이 vault와 binding을 제�
 
 **Interfaces:** `RuntimeToolSnapshot.revision`, `spawnedRuntimeToolsRevision`, `decideRespawn`.
 
-- [ ] RED: builder snapshot 전달과 revision mismatch respawn 테스트를 작성하고 실패를 확인한다.
-- [ ] composition/turn 배선과 IPC 문서 총계 82를 구현한다.
-- [ ] 표적 테스트 후 `npm run lint`, `npm run typecheck`, `npm test`를 실행한다.
-- [ ] plan 구현 보고와 INDEX를 `impl/IMPL_DONE`, 다음 주체 Claude로 갱신하고 하나의 구현 커밋을 만든다.
+- [x] RED: builder snapshot 전달과 revision mismatch respawn 테스트를 작성하고 실패를 확인한다.
+- [x] composition/turn 배선과 IPC 문서 총계 82를 구현한다.
+- [x] 표적 테스트 후 `npm run lint`, `npm run typecheck`, `npm test`를 실행한다.
+- [x] plan 구현 보고와 INDEX를 `impl/IMPL_DONE`, 다음 주체 Claude로 갱신하고 구현 커밋을 만든다.
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | 구현 전 — 위 Task 1~7 범위로 확정 |
-| 실행 명령 | 구현 전 — 각 Task 표적 vitest 후 `npm run lint` / `npm run typecheck` / `npm test` |
-| 게이트 결과 | 구현 전 |
+| 변경 파일 | Task 1~7 범위 구현 완료. Task 7은 runtime snapshot source→`ExtensionBuilder`→`TurnRequest`→`SessionRuntime` revision 기록과 user/automatic continuation respawn을 연결했고 IPC `plugin` 3채널 문서를 82로 갱신했다. |
+| 실행 명령 | `npx vitest run src/main/features/extensions/builder.test.ts src/main/features/sessions/respawn-policy.test.ts src/main/features/sessions/session-runtime.test.ts src/main/features/auth-platform/plugin-host.test.ts` (4 files, 61 tests), `npm run lint`, `npm run typecheck`, `npm test`, `node --test scripts/*.test.mjs` |
+| 게이트 결과 | focused 61/61 pass, lint 오류 0 (기존 React Compiler 호환성 warning 1), typecheck node/web/test pass. `npm test`는 166/167 files·1465/1465 tests pass, `chat-turn.continuity.test.ts`만 Electron binary가 의도적으로 설치되지 않아 collection 전 실패(`Electron failed to install correctly`); 별도 scripts 28/28 pass. |
 | 블로커 / 역질문 | 없음 — 사용자 결정 완료 |
-| 대상 커밋 | 없음 (설계 단계) |
+| 대상 커밋 | `07e0634` (`feat(runtime-tools): refresh stale tool snapshots`) |
 
 ---
 
