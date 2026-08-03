@@ -14,8 +14,8 @@ import {
   type CatalogGroup,
   type CollapsedGroups
 } from '../../lib/catalogGroups'
-import type { PluginRow } from '../../lib/pluginCatalog'
-import { pluginTone } from '../../lib/connectorActions'
+import type { ConnectorRow } from '../../lib/pluginCatalog'
+import { connectorActions } from '../../lib/connectorActions'
 
 function activate(event: KeyboardEvent<HTMLTableRowElement>, action: () => void): void {
   if (event.key === 'Enter' || event.key === ' ') {
@@ -105,7 +105,7 @@ export function CustomizeList({
   tab: CatalogTab
   skills: SkillInfo[]
   mcpServers: McpServer[]
-  plugins: PluginRow[]
+  plugins: ConnectorRow[]
   collapsed: CollapsedGroups
   onToggleGroup: (key: string) => void
   onSelect: (id: string) => void
@@ -211,30 +211,30 @@ export function CustomizeList({
             onToggle={onToggleGroup}
             columns={[
               tr('skills.table.plugin'),
-              tr('skills.table.providers'),
-              tr('skills.table.connectors')
+              tr('skills.table.origin'),
+              tr('skills.table.authMethod')
             ]}
           >
-            {group.rows.map((plugin) => (
+            {/* 0164 — 행 = **서버 하나**. 이전에는 패키지 단위라 빌드타임에 서버 2개를 넣어도
+                항목이 1개로 보였고, provider 만 있는 행은 눌러도 할 일이 없었다. */}
+            {group.rows.map((row) => (
               <tr
-                key={plugin.pluginId}
+                key={row.connectorId}
                 tabIndex={0}
-                aria-label={plugin.title}
-                onClick={() => onSelect(plugin.pluginId)}
-                onKeyDown={(event) => activate(event, () => onSelect(plugin.pluginId))}
+                aria-label={row.title}
+                onClick={() => onSelect(row.connectorId)}
+                onKeyDown={(event) => activate(event, () => onSelect(row.connectorId))}
                 className={rowClass}
               >
                 <td className={`${cellClass} text-ink`}>
-                  {/* 0162 — 연결된 커넥터가 하나라도 있으면 초록 점. `pluginGroups` 가 그룹을
-                      가르는 식과 같은 값을 써야 그룹과 점이 어긋나지 않는다. */}
                   <span className="flex items-center gap-g3">
-                    <Dot tone={pluginTone(plugin)} />
-                    <span className="min-w-0 truncate">{plugin.title}</span>
+                    <Dot tone={connectorActions(row.connector).tone} />
+                    <span className="min-w-0 truncate">{row.title}</span>
                   </span>
                 </td>
-                <td className={`${cellClass} text-ink2`}>{plugin.providerCount}</td>
+                <td className={`${cellClass} truncate text-ink2`}>{row.origin}</td>
                 <td className={`${cellClass} text-ink2`}>
-                  {plugin.connectorCount} · {plugin.connectedCount} {tr('skills.table.connected')}
+                  {row.connectedAuthLabel ?? row.authLabels.join(' · ')}
                 </td>
               </tr>
             ))}

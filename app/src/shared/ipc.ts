@@ -308,6 +308,9 @@ export interface PluginConnectorInfo {
   // 어디서 왔는가 (0161). `static` = 코드로 배포된 서버(UI 에서 삭제 불가),
   // `instance` = 사용자가 추가한 서버. UI 가 삭제 가능 여부를 이 값으로 판정한다.
   source: 'static' | 'instance'
+  // 지금 **무엇으로** 연결돼 있는가 (0164) — 활성 binding 의 auth provider id.
+  // 키 부재 = 미연결. provider **id** 만이고 secret·handle 은 이 경계를 넘지 않는다.
+  connectedProviderId?: string
 }
 
 // 사용자가 추가할 수 있는 connector 청사진 (0161).
@@ -1188,6 +1191,9 @@ export interface Settings {
   appFont: 'sans' | 'serif' | 'mono'
   // 응답완료 알림 토글.
   notifyOnComplete: boolean
+  // 플러그인 탭의 **추가 버튼 노출** (0164). 서버 목록은 빌드타임(`servers.ts`)이 정본이라
+  // 기본은 숨김이고, 디버그 패널 토글로만 켠다.
+  pluginAddEnabled: boolean
   // 월간 지출 한도(USD). 사용량 한도 바(도넛·설정)의 기준. null=무제한.
   spendingLimitUsd: number | null
   // 앱 실행 중 주기적 작업 설정. schedule_runs 는 실행 이력이고 이 설정이 재시작 복원 SSOT.

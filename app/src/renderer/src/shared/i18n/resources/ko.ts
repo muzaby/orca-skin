@@ -90,7 +90,9 @@ export const ko = {
     table: {
       skill: '스킬',
       mcp: 'MCP 서버',
-      plugin: '플러그인 패키지',
+      plugin: '서버',
+      origin: '주소',
+      authMethod: '인증 방식',
       lastUpdated: '마지막 업데이트',
       author: '작성자',
       status: '상태',
@@ -149,7 +151,10 @@ export const ko = {
     pluginDetail: {
       providers: '인증 제공자',
       connectors: '커넥터',
-      origin: '출처',
+      origin: '주소',
+      authMethods: '인증 방식',
+      actions: '작업',
+      connectedWith: '{{method}} 로 연결됨',
       connectedLabel: '연결됨',
       disconnectedLabel: '연결되지 않음'
     },
@@ -384,6 +389,8 @@ export const ko = {
   debug: {
     title: '디버그',
     closeTweaks: 'Tweaks 닫기',
+    plugins: '플러그인',
+    pluginAdd: '서버 추가 버튼 노출',
     mockMode: 'Mock 모드',
     scenario: '시나리오',
     contextUsage: '컨텍스트 사용량',

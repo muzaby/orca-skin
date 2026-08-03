@@ -84,19 +84,28 @@ export class PluginHost {
   constructor(private readonly deps: PluginHostDeps) {}
 
   list(): PluginConnectorInfo[] {
-    return this.deps.registry.listConnectors().map((connector) => ({
-      connectorId: connector.descriptor.id,
-      label: connector.descriptor.label,
-      origin: connector.descriptor.baseUrl,
-      pluginId: connector.descriptor.pluginId,
-      acceptedAuthProviders: [...connector.descriptor.acceptedAuthProviders],
-      connected: this.activeByConnector.get(connector.descriptor.id)?.ready === true,
-      // 미주입이면 static — UI 가 삭제 버튼을 그리지 않는 쪽으로 접힌다(fail-closed).
-      source:
-        this.deps.instances?.isUserInstance(connector.descriptor.id) === true
-          ? ('instance' as const)
-          : ('static' as const)
-    }))
+    return this.deps.registry.listConnectors().map((connector) => {
+      const active = this.activeByConnector.get(connector.descriptor.id)
+      // **무엇으로 연결됐는지** (0164). 사용자가 ID/비밀번호로 붙여놓고도 화면에서 그 사실을
+      // 확인할 수 없었다. provider **id** 만 싣는다 — secret·handle 은 이 경계를 넘지 않는다.
+      // 키 부재 = 미연결이다(연결되지 않았는데 방식이 표시되는 일이 없다).
+      const connectedProviderId =
+        active?.ready === true ? active.bindingFingerprint.providerId : undefined
+      return {
+        connectorId: connector.descriptor.id,
+        label: connector.descriptor.label,
+        origin: connector.descriptor.baseUrl,
+        pluginId: connector.descriptor.pluginId,
+        acceptedAuthProviders: [...connector.descriptor.acceptedAuthProviders],
+        connected: active?.ready === true,
+        // 미주입이면 static — UI 가 삭제 버튼을 그리지 않는 쪽으로 접힌다(fail-closed).
+        source:
+          this.deps.instances?.isUserInstance(connector.descriptor.id) === true
+            ? ('instance' as const)
+            : ('static' as const),
+        ...(connectedProviderId !== undefined ? { connectedProviderId } : {})
+      }
+    })
   }
 
   // 연결돼 있으면 끊는다. 연결이 없으면 아무 일도 하지 않는다 — 인스턴스 삭제 경로가

@@ -20,6 +20,8 @@ export interface InstanceRegistryPort {
     runtimeTools?: readonly never[]
   }): ReadonlyArray<{ message: string }>
   unregister(pluginId: string): boolean
+  // 정적 등록(`AUTH_PLUGIN_PACKAGES`)이 같은 패키지를 먼저 올렸는지 묻는다 (0164).
+  hasPlugin(pluginId: string): boolean
 }
 
 // `PluginHost` 가 구조적으로 만족하는 최소 표면.
@@ -63,6 +65,10 @@ export class ConnectorInstanceLifecycle {
     failed: Array<{ instance: ConnectorInstance; message: string }>
   } {
     for (const template of this.deps.templates.list()) {
+      // 정적 경로가 같은 pluginId 로 이미 올렸으면 건너뛴다 (0164). 정적 패키지와 템플릿
+      // 공용 패키지는 **provider 내용이 동일**하므로 건너뛰어도 인스턴스가 참조할 provider 는
+      // 그대로 있다. 그냥 부르면 registry 가 중복으로 거부해 매 부팅 오류 로그가 남는다.
+      if (this.deps.registry.hasPlugin(template.id)) continue
       const errors = this.registerPackage(template.sharedPackage())
       if (errors.length > 0) {
         this.log('connector.template.shared.failed', { templateId: template.id, errors })
