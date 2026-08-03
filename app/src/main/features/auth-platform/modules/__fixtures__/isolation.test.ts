@@ -1,9 +1,10 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
+import { isFixtureSource } from './fixture-path'
 
 const MAIN_ROOT = join(import.meta.dirname, '../../../..')
-const FIXTURE_PATH = `${join('auth-platform', 'modules', '__fixtures__')}\\`
+const FIXTURE_ROOT = join(MAIN_ROOT, 'features', 'auth-platform', 'modules', '__fixtures__')
 const FIXTURE_LITERALS = ['jira-platform', 'jira-security', 'confluence-rnd']
 
 async function sourceFiles(root: string): Promise<string[]> {
@@ -21,7 +22,7 @@ async function sourceFiles(root: string): Promise<string[]> {
 describe('department fixture isolation', () => {
   it('keeps service-specific connector literals out of main core code', async () => {
     const coreSources = (await sourceFiles(MAIN_ROOT)).filter(
-      (path) => !path.includes(FIXTURE_PATH)
+      (path) => !isFixtureSource(path, FIXTURE_ROOT)
     )
     const coreText = await Promise.all(coreSources.map((path) => readFile(path, 'utf8')))
 
