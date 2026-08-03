@@ -8,13 +8,15 @@
 // 핵심이다 — 미선언 origin 으로 요청하면 런타임에 조용히 새는 대신 등록/실행 시점에 막힌다.
 
 import { z } from 'zod'
+import { PLUGIN_ID_MAX_LENGTH, PLUGIN_ID_PATTERN } from '../../../shared/protocol'
 
+// 규칙 정본은 shared 다 — IPC 경계와 **같은 상수**를 써야 등록은 통과하고 IPC 는 거부하는
+// 어긋남이 생기지 않는다(0158 verify r1 D4). 케밥 소문자 = 비밀 네임스페이스 키 안전.
 const IdSchema = z
   .string()
   .min(1)
-  .max(128)
-  // 케밥 소문자 — 비밀 네임스페이스 키에 그대로 쓰이므로 구분자 오염을 막는다.
-  .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'id 는 케밥 소문자여야 합니다')
+  .max(PLUGIN_ID_MAX_LENGTH)
+  .regex(PLUGIN_ID_PATTERN, 'id 는 케밥 소문자여야 합니다')
 
 // origin 만 받는다(경로·쿼리 금지). policy 판정이 origin 단위라 여기서 형태를 강제한다.
 const OriginSchema = z.string().refine((raw) => {

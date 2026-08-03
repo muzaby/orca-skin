@@ -234,10 +234,6 @@ export class AuthRegistry {
     return [...this.connectors.values()]
   }
 
-  getRuntimeTool(runtimeToolId: string): RuntimeToolContribution | undefined {
-    return this.runtimeTools.get(runtimeToolId)
-  }
-
   listRuntimeTools(): RuntimeToolContribution[] {
     return [...this.runtimeTools.values()]
   }

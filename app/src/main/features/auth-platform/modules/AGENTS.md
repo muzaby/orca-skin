@@ -15,6 +15,8 @@
 
 - 정적 connector는 fixed descriptor(origin 포함) 하나와 활성 연결 하나를 뜻한다. 동적 URL, alias, endpoint 입력을 만들지 않는다.
 - connector별 runtime tool contribution은 connector ID를 명시하고 같은 factory로 구현한다. 서비스/부서 fixture 리터럴은 `__fixtures__/` 밖 core에 두지 않는다.
+- **도구 handler 는 `RuntimeToolResult`(MCP 형상 — `{ content: [{ type:'text', text }], isError? }`)를 반환한다.** `ctx.invoke` 가 준 `ConnectorResult` 를 **그대로 반환하지 마라** — `content` 가 없으면 모델에게 "성공, 결과 없음" 으로 보이고 connector 오류까지 성공으로 뒤집힌다(0158 verify r1 D5). 실패는 `isError: true` 로 싣는다. 어긋난 형상은 SDK 경계에서 도구 실패로 거부된다. 변환 예시는 `__fixtures__/department-fixture-package.ts` 의 `toToolResult`.
+- 연결이 끊긴 뒤의 `ctx.invoke` 는 **던진다.** 잡아서 성공으로 바꾸지 마라 — SDK 가 `isError` 로 변환한다.
 
 - **빌드 타임 코드다.** 런타임 동적 로딩(임의 경로 `require()`/`import()`)은 금지 — 근거는
   `contracts/auth-plugin.ts` 헤더. "재빌드 없이 서비스 추가" 는 **MCP** 가 담당한다.

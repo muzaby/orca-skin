@@ -252,12 +252,15 @@ export const AuthLogoutRequestSchema = z.object({
 })
 
 // plugin connector IPC는 동적 endpoint/alias/connection ID 선택을 전혀 받지 않는다.
-// connector ID는 manifest와 같은 kebab-lowercase 규칙을 shared 경계에서 다시 강제한다.
-const PluginConnectorIdSchema = z
-  .string()
-  .min(1)
-  .max(128)
-  .regex(/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/)
+//
+// **ID 규칙의 SSOT.** main 의 manifest `IdSchema` 가 이 상수를 import 한다 — 규칙을 두 벌
+// 복붙하면 조용히 갈라진다(0158 verify r1 D4: shared 만 letter-leading 을 요구해, 숫자 선두 ID 를
+// 쓴 package 가 등록에 성공한 뒤 목록 IPC 전체를 죽였다). shared→main 방향이 DAG 에 맞다.
+// 케밥 소문자 — 비밀 네임스페이스 키에 그대로 쓰이므로 구분자 오염을 막는다.
+export const PLUGIN_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
+export const PLUGIN_ID_MAX_LENGTH = 128
+
+const PluginConnectorIdSchema = z.string().min(1).max(PLUGIN_ID_MAX_LENGTH).regex(PLUGIN_ID_PATTERN)
 const PluginBindingIdSchema = z.string().min(1).max(256)
 
 export const PluginListRequestSchema = z.undefined()
