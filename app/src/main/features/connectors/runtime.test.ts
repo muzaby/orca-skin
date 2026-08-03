@@ -120,6 +120,77 @@ describe('static connector connection registry', () => {
 })
 
 describe('ConnectorHost.connect', () => {
+  it('does not create a connection or start a connector for a pre-aborted caller', async () => {
+    let starts = 0
+    const { registry, host } = hostWith(
+      connector('jira-engineering', async () => {
+        starts += 1
+        return { health: 'ready' }
+      })
+    )
+    const caller = new AbortController()
+    caller.abort()
+
+    await expect(
+      host.connect(
+        { id: 'connection-1', connectorId: 'jira-engineering', bindingId: 'binding-1' },
+        caller.signal
+      )
+    ).resolves.toMatchObject({ health: 'error' })
+
+    expect(starts).toBe(0)
+    expect(registry.get('connection-1')).toBeUndefined()
+  })
+
+  it('does not call connector start for a pre-aborted caller', async () => {
+    let starts = 0
+    const { registry, host } = hostWith(
+      connector('jira-engineering', async () => {
+        starts += 1
+        return { health: 'ready' }
+      })
+    )
+    registry.create({ id: 'connection-1', connectorId: 'jira-engineering', bindingId: 'binding-1' })
+    const caller = new AbortController()
+    caller.abort()
+
+    await expect(host.start('connection-1', caller.signal)).resolves.toMatchObject({
+      health: 'error'
+    })
+
+    expect(starts).toBe(0)
+  })
+
+  it('does not call connector invoke for a pre-aborted caller', async () => {
+    let invocations = 0
+    const { registry, host } = hostWith({
+      descriptor: {
+        id: 'jira-engineering',
+        pluginId: 'test-plugin',
+        apiVersion: 1,
+        label: 'jira-engineering',
+        acceptedAuthProviders: ['test-auth'],
+        baseUrl: 'https://connector.example.invalid',
+        presentation: { location: 'header', name: 'Authorization', scheme: 'Bearer' }
+      },
+      start: async () => ({ health: 'ready' }),
+      invoke: async () => {
+        invocations += 1
+        return { ok: true, data: null }
+      },
+      stop: async () => undefined
+    })
+    registry.create({ id: 'connection-1', connectorId: 'jira-engineering', bindingId: 'binding-1' })
+    const caller = new AbortController()
+    caller.abort()
+
+    await expect(
+      host.invoke('connection-1', { operation: 'read' }, 60_000, caller.signal)
+    ).resolves.toMatchObject({ ok: false, health: 'error' })
+
+    expect(invocations).toBe(0)
+  })
+
   it('forwards a caller cancellation signal into a pending connector start', async () => {
     let startSignal: AbortSignal | undefined
     const startEntered = deferred<void>()
