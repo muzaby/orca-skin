@@ -294,7 +294,7 @@ main 은 `features/connectors` + `features/auth-platform` 내부라 boundaries �
 | 서버 주소 | **미기입(사용자 결정 "자리만 만들어 두라")** — `CONFLUENCE_SERVERS = []` 유지, 주석에 2서버 자리 |
 | 사람 실기 대기 | AC8(디버그 토글 조작) |
 | 블로커 / 역질문 | 없음 |
-| 대상 커밋 | (아래 커밋 hash) |
+| 대상 커밋 | `4c74524` |
 
 ---
 
