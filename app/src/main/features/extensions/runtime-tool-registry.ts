@@ -9,7 +9,9 @@ import type {
   RuntimeToolSource
 } from '../../adapters/runtime-tools'
 
-function copyAnnotations(annotations: RuntimeToolAnnotations | undefined): RuntimeToolAnnotations | undefined {
+function copyAnnotations(
+  annotations: RuntimeToolAnnotations | undefined
+): RuntimeToolAnnotations | undefined {
   return annotations ? { ...annotations } : undefined
 }
 

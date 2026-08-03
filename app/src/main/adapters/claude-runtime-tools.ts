@@ -1,8 +1,13 @@
 import { createSdkMcpServer, type Options } from '@anthropic-ai/claude-agent-sdk'
 import type { RuntimeToolServer, RuntimeToolSnapshot } from './runtime-tools'
 
-function adaptServer(server: RuntimeToolServer, serverId: string): ReturnType<typeof createSdkMcpServer> {
-  const implementations = new Map(server.implementations.map((implementation) => [implementation.name, implementation]))
+function adaptServer(
+  server: RuntimeToolServer,
+  serverId: string
+): ReturnType<typeof createSdkMcpServer> {
+  const implementations = new Map(
+    server.implementations.map((implementation) => [implementation.name, implementation])
+  )
   const tools = server.descriptor.tools.map((declaration) => {
     const implementation = implementations.get(declaration.name)
     if (!implementation) {
@@ -29,7 +34,9 @@ function adaptServer(server: RuntimeToolServer, serverId: string): ReturnType<ty
 
 // SDK 동적 MCP map은 runtime snapshot이 실제로 있을 때만 주입한다. 빈 map을 넘기면 기존
 // plugin/.mcp.json 경로의 현행 동작까지 strict runtime surface로 바뀔 수 있으므로 key 자체를 생략한다.
-export function adaptRuntimeTools(snapshot?: RuntimeToolSnapshot): Pick<Options, 'mcpServers'> | Record<never, never> {
+export function adaptRuntimeTools(
+  snapshot?: RuntimeToolSnapshot
+): Pick<Options, 'mcpServers'> | Record<never, never> {
   if (!snapshot || snapshot.servers.size === 0) return {}
 
   const mcpServers: NonNullable<Options['mcpServers']> = {}

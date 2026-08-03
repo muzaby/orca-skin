@@ -389,9 +389,11 @@ describe('AuthRegistry 등록 위생', () => {
       })
     ).toEqual([])
     const duplicateServer = registry.register({
-      manifest: pluginManifest('pkg-b', [connectorDeclaration('connector-b')], [
-        { ...runtimeToolDeclaration(), connectorId: 'connector-b' }
-      ]),
+      manifest: pluginManifest(
+        'pkg-b',
+        [connectorDeclaration('connector-b')],
+        [{ ...runtimeToolDeclaration(), connectorId: 'connector-b' }]
+      ),
       connectors: [connector('connector-b', { pluginId: 'pkg-b' })],
       runtimeTools: [runtimeTool('server-a', { pluginId: 'pkg-b', connectorId: 'connector-b' })]
     })
