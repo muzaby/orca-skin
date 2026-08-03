@@ -8,8 +8,8 @@
 | 검증자 | Claude Code |
 | 일자 | 2026-08-03 |
 | 대상 커밋 | `6d67f52..d8124f3` (설계 r4 `f74979f` 이후 전체 15커밋). INDEX/plan 이 적은 6커밋은 **후반부만**이다 — §게이트 재실행 참조 |
-| 라운드 | 1 |
-| 상태 | **FAIL** |
+| 라운드 | 1 → **2** |
+| 상태 | r1 **FAIL** → r2 **PASS** (아래 §라운드 2 재검증) |
 | 자기 검증 여부 | **설계·구현·검증 모두 같은 계열 에이전트**(plan r1~r3 Claude · r4 Codex · 구현 Codex · 검증 Claude). 0117/0123 이 지적한 교차 검증 부재 조건이므로 §0·§역방향 탐색을 매트릭스보다 먼저·강하게 적용했다 |
 
 ---
@@ -377,3 +377,126 @@ $ grep -E "Error:" vitest-full.txt | sort | uniq -c
 - **상태: FAIL (r1).** 인수 기준은 **26/26 충족**이고 게이트도 전부 green(lint 0 error · typecheck 3/3 · vitest **1480/1480** · scripts 28/28 · 의존성 0 · 마이그레이션 0)이다. FAIL 사유는 **기준 밖에서 발견한 결함**이며, 보완 검증 후 무게중심이 바뀌었다 — 초판은 D4·D5 를 '계약 드리프트 2건' 으로 봤으나, **§보완 A 의 실측이 D5 를 false success 결함으로 재분류**했다(취소된 도구 호출이 모델에게 `isError` 없는 성공으로 보인다). 오늘 사용자에게 도달하지 않는 이유는 코드가 옳아서가 아니라 아직 아무도 안 써서다.
 - **다음 주체: Codex** (구현 라운드 2). 액션 아이템은 위 체크리스트, 추적은 plan 의 파생 이슈 챕터.
 - **사람 확인 대기 (보완 후 축소)**: ① 실제 `query()` 서브프로세스에서 빈 `content` 가 모델 컨텍스트에 어떻게 보이는지 — D5 의 *증상 형태* 는 §보완 A 로 확정됐고 *사용자 체감* 만 남는다 ② `npm run dev` 기동 + 실 package 연결 라이브 ③ renderer connector 화면(비범위, 후속). **초판의 '①  SDK 런타임 미검증' 과 'Bootstrap 조립 미실행' 은 §보완 A·B 로 해소돼 사람 몫에서 내렸다.**
+
+---
+
+# 라운드 2 재검증 (PASS)
+
+> r1 FAIL 의 액션 아이템을 사용자 지시로 **Claude 가 직접 구현**했다(핸드오프 규약 §구현 주체
+> 분담 — 버그수정). 구현 보고는 plan 의 `[구현자 기입] 라운드 2 구현 보고`.
+> **자기 구현을 자기가 검증하는 조건이므로**, r1 이 결함을 잡은 것과 **같은 하네스**로 실증하는
+> 것을 재검증의 축으로 삼았다 — "고쳤다" 는 주장 대신 같은 측정의 전후 비교를 증거로 쓴다.
+
+## 대상 커밋
+
+`a217501` (`fix(plugin): runtime tool 결과를 MCP 계약으로 고정`)
+
+## r1 미충족 항목 대조
+
+| # | r1 액션 아이템 | 해소 | 증거 (실측) |
+|---|---|---|---|
+| **D5-a** | handler 반환형을 SDK 계약 형상으로 좁히고 `as never` 제거 | ✅ | `runtime-tools.ts:26-43` `RuntimeToolResult` · `claude-runtime-tools.ts:56` 가 `adaptHandler` 사용, `as never` **grep 0건** · typecheck 3분할 0 |
+| **D5-b** | 취소·오류가 `isError:true` 로 모델에 보이게 | ✅ | `plugin-host.ts:194-201` 이 해소 대신 **reject**. 종단: `{"content":[…closed…],"isError":true}` |
+| **D5-c** | fixture 를 계약대로 수정 | ✅ | `department-fixture-package.ts:45-63` `toToolResult` — `ok:false`→`isError`, 비정상 형상도 `isError` |
+| **D5-d** | `InMemoryTransport`+MCP `Client` 왕복 회귀 테스트 | ✅ | `claude-runtime-tools.boundary.test.ts` **4케이스**(정상 content / 플러그인 isError / throw→isError / 비-MCP 형상→도구 실패) |
+| **D4** | ID 규칙 SSOT 통일 + 동등성 회귀 | ✅ | `shared/protocol.ts:257-262` `PLUGIN_ID_PATTERN` 소유 → `manifest.ts:11` import. `plugin-id-ssot.test.ts` **13케이스**가 12개 입력에서 manifest↔IPC 판정 일치를 단언 |
+| **D7** | cleanup 실패 캐싱 | ✅ | `plugin-host.ts:249-262` 개별 `try/catch`. 회귀 테스트가 sink throw 후 **재연결까지** 확인 |
+| **D6** | 죽은 `getRuntimeTool` | ✅ | `grep -c getRuntimeTool registry.ts` = **0** |
+| **D9** | `connectors/registry.ts` 구 N:1 헤더 | ✅ | 헤더가 정적 connector 모델로 교체(`registry.ts:7-12`) |
+| **D3-b** | `docs/AGENTS.md` 인벤토리 | ✅ | 82 채널 · 23 도메인 · `plugin` 3 |
+| **D8** | plan 검증 수단·커밋 범위 정정 | ✅ | verify r1 메타 표가 `6d67f52..d8124f3` 15커밋으로 정정, 매트릭스는 **실존 케이스명**으로 작성됨 |
+
+**10/10 해소.**
+
+## 핵심 증거 — 같은 하네스, 전후 비교
+
+r1 이 D5 를 잡은 하네스(실제 `McpServer` 인스턴스 + `InMemoryTransport` + 실제 MCP `Client`,
+그리고 fake 0개로 재구성한 실제 파이프라인)를 수정 후 그대로 다시 돌렸다.
+
+| 시나리오 | r1 (수정 전) | r2 (수정 후) |
+|---|---|---|
+| 정상 호출 | `{"content":[],"ok":true,"data":{…}}` — 데이터가 모델에 **도달하지 않음** | `{"content":[{"type":"text","text":"{\"operation\":\"jira-platform-read\"}"}]}` |
+| 로그아웃 후 호출 | `{"content":[],"ok":false,…}` · **`isError` 부재** = 성공으로 읽힘 | `{"content":[{"type":"text","text":"connector connection is closed: jira-platform"}],"isError":true}` |
+
+**false success 소멸을 확인했다.** 실패해야 할 때 실패로 보이고, 성공 시 데이터가 모델에 닿는다.
+
+## RED 확인 (신규 테스트가 결함을 실제로 잡는가)
+
+`§2 — 테스트가 있는 기준만 충족으로 센다` 를 한 단계 더 밀어, **테스트가 옛 코드에서 실제로
+실패하는지** 확인했다. 통과만 보면 무의미한 테스트도 green 이다.
+
+```
+$ (adaptHandler → as never 로 되돌림)  vitest run claude-runtime-tools.boundary.test.ts
+  × MCP 형상이 아닌 반환값은 조용한 빈 성공이 아니라 도구 실패가 된다   → 1 failed | 3 passed
+
+$ (취소 throw·D7 가드 되돌림)          vitest run plugin-host.test.ts
+  × rejects a cached runtime tool handler after explicit cleanup instead of resolving
+  × completes cleanup and allows reconnect even when the runtime tool sink throws on remove
+  × aborts an in-flight tool invocation … (3건)                        → 5 failed | 17 passed
+```
+
+**정직한 표기**: 경계 4케이스 중 `handler 가 던지면 isError 로 도착한다` 는 옛 코드에서도
+통과한다 — SDK 가 원래 throw 를 변환하기 때문이다. 그 케이스는 *결함을 잡는 테스트* 가 아니라
+**우리가 의존하게 된 SDK 동작을 고정하는 테스트**다(SDK 업그레이드 시 깨지면 D5-b 전략이
+무효가 된다). 결함을 실제로 잡는 것은 형상 가드 1건 + plugin-host 5건이다.
+
+## 게이트 재실행 (r2)
+
+```
+$ npm run lint            0 error · warning 1 (0102 TanStack 베이스라인)
+$ npm run typecheck       3분할 전부 exit 0
+$ ./node_modules/.bin/vitest run
+   Test Files  1 failed | 171 passed (172)
+        Tests  1498 passed (1498)          ← r1 1480 → +18
+   FAIL  src/main/app/chat-turn.continuity.test.ts   (유일 에러 서명: Electron failed to install)
+$ node --test "scripts/*.test.mjs"          28/28
+$ git diff --stat HEAD~1 -- package.json package-lock.json migrations/    (빈 출력)
+```
+
+**실패 테스트 0건.** 잔존 1파일은 electron 바이너리 미설치 베이스라인이며, 에러 서명 전수
+집계에서 비-베이스라인 0건이다. 신규 의존성 0 · DB 마이그레이션 0 · IPC 채널 82 불변.
+
+## r2 에서 새로 본 것
+
+| 관찰 | 판단 |
+|---|---|
+| 구현 중 **내가 쓴 테스트가 저장소 가드 2개에 걸렸다** — `isolation.test.ts`(서비스 리터럴 core 유출)와 `boundaries/dependencies`(shared→features) | **긍정 신호.** 0158 이 세운 가드가 새 코드에 즉시 작동했다. 두 가드 모두 r1 매트릭스에서 ✅ 였는데, 실제 위반 입력으로 발화하는 것을 이번에 처음 봤다 |
+| `RuntimeToolResult` 에 `[key: string]: unknown` 이 필요했다 | MCP `CallToolResult` 가 passthrough 라 불가피. **강제되는 것은 `content` 존재**이며 그것이 조용한 빈 성공을 막는 지점이므로 목적은 유지된다 |
+| `PluginToolContext.invoke` 는 여전히 `Promise<unknown>` | 의도적. `adapters` 는 `contracts` 를 import 할 수 없어(main DAG) `ConnectorResult` 를 참조할 수 없다. 저자가 좁히는 것이 계약이고, fixture 가 그 방법을 보여준다 |
+| 기존 테스트 3건의 단언을 바꿨다(`resolves.toEqual({ok:true,data:null})` → 도구 결과 형상) | **계약 변경에 따른 정당한 수정.** 이 테스트들의 의도는 "in-flight 호출이 abort 후 정착한다" 이고 그 의도는 보존했다. 다만 **테스트를 고쳐 green 을 만든 경우**이므로 여기 명시한다 |
+
+## 검증 책임 분리 (r2 갱신)
+
+| 항목 | 에이전트 | 사람 | 결과 |
+|---|---|---|---|
+| r1 미충족 10건 해소 대조 | ✅ 실측 | — | 10/10 |
+| false success 소멸 (MCP 경계) | ✅ 종단 실측 | — | 확인 |
+| 신규 테스트의 RED 확인 | ✅ 옛 코드 되돌려 실행 | — | 6건이 실제로 실패 |
+| 게이트 lint/typecheck/test/scripts | ✅ | — | 전부 green |
+| **실제 `query()` 서브프로세스에서 모델이 보는 최종 표현** | ✖ | ✅ | 사람 실기 대기 |
+| `npm run dev` 기동 + 실 package 연결 라이브 | ✖ | ✅ | 사람 실기 대기 |
+| PR 머지 승인 | ✖ | ✅ | 대기 |
+
+## 검증 자기 리뷰 (r2)
+
+- **설계 단계**: r1 이 새로 세운 P17·P18 이 이번 수정에서 바로 쓰였다 — D4 를 고칠 때 "어느 쪽이
+  SSOT 이고 동등성을 무엇이 강제하나" 를 먼저 답했고(P17), 그래서 상수 공유 + 동등성 테스트라는
+  형태가 자동으로 나왔다. 패턴 축적이 작동한 사례로 기록한다.
+- **구현 단계**: 선조치 경계는 지켰다 — 인수 기준·제품 의도·신규 의존성 변경 0. 기존 테스트
+  단언을 3건 바꿨는데, **테스트를 고쳐 통과시킨 것**이므로 위 표에 명시했다(의도 보존 확인함).
+- **검증 단계 — 이번에도 못 본 것**:
+  - **모델이 실제로 무엇을 읽는지는 여전히 미검증.** MCP 경계까지는 종단 확인했으나, CLI 가
+    `isError:true` 를 모델 컨텍스트에 어떻게 문장화하는지는 실기 영역이다. 즉 "실패가 실패로
+    *전달된다*" 까지가 내 증거이고, "모델이 실패로 *행동한다*" 는 아니다.
+  - **자기 구현의 자기 검증**이라는 구조적 한계는 그대로다. 이번엔 *같은 하네스 전후 비교* 와
+    *RED 확인* 으로 그 편향을 상쇄하려 했으나, 두 장치 모두 내가 설계했다는 점은 남는다.
+  - 실제 사내 package 는 여전히 0개다. 계약이 옳은지는 **첫 실제 package 를 쓸 때** 최종
+    확인된다 — fixture 는 그 대역일 뿐이다.
+
+## 결론 (r2)
+
+- **상태: PASS.** r1 미충족 10/10 해소, 인수 기준 26/26 유지, 게이트 전부 green(테스트 실패 0건,
+  1480 → **1498**). r1 이 잡은 false success 는 같은 하네스로 소멸을 실증했다.
+- **다음 단계**: `docs/PHASES.md` 승격 · PR #302 머지 검토.
+- **사람 실기 대기 3건**: 실제 `query()` 에서 모델이 보는 표현 · `npm run dev` + 실 package 연결
+  라이브 · renderer connector 화면(비범위, 후속).
