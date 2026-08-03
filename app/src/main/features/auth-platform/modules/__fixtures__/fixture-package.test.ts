@@ -102,15 +102,59 @@ describe('department static connector fixture package', () => {
     ).toEqual(new Set(['jira-platform', 'jira-security', 'confluence-rnd']))
   })
 
-  it('isolates a rejected package from a subsequently registered valid fixture package', () => {
+  it('isolates a rejected package while the valid fixture still connects and adds its tools', async () => {
     const registry = new AuthRegistry()
+    const binding: AuthBindingInfo = {
+      id: 'fixture-binding',
+      pluginId: 'department-tools',
+      providerId: 'department-pat',
+      target: {
+        kind: 'connector',
+        connectorId: 'jira-platform',
+        connectionId: 'fixture-connection'
+      },
+      mechanism: 'personal_access_token',
+      artifact: {
+        kind: 'vault_credential',
+        handleId: 'fixture-secret-handle',
+        credentialKind: 'personal_access_token'
+      },
+      status: 'valid',
+      createdAt: 1
+    }
+    const servers = new Map<string, unknown>()
+    const host = new PluginHost({
+      registry,
+      bindings: { getBinding: (bindingId) => (bindingId === binding.id ? binding : undefined) },
+      connectors: {
+        connect: async () => ({ health: 'ready' }),
+        invoke: async () => ({ ok: true, data: null }),
+        stopByBinding: async () => undefined
+      },
+      logout: {
+        logout: async (): Promise<AuthLogoutOutcome> => ({
+          kind: 'logged_out',
+          endedBindingIds: []
+        })
+      },
+      runtimeTools: {
+        add: (server) => servers.set(server.descriptor.id, server),
+        remove: (serverId) => servers.delete(serverId)
+      }
+    })
 
     expect(registry.register(badDepartmentFixturePackage)).not.toEqual([])
     expect(registry.register(departmentFixturePackage)).toEqual([])
+    await host.connect({ connectorId: 'jira-platform', bindingId: binding.id })
+
     expect(registry.listConnectors().map((connector) => connector.descriptor.id)).toEqual([
       'jira-platform',
       'jira-security',
       'confluence-rnd'
     ])
+    expect(host.list()).toContainEqual(
+      expect.objectContaining({ connectorId: 'jira-platform', connected: true })
+    )
+    expect(servers.has('jira-platform-tools')).toBe(true)
   })
 })
