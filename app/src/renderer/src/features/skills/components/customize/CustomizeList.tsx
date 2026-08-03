@@ -219,7 +219,7 @@ export function CustomizeList({
               <tr
                 key={plugin.pluginId}
                 tabIndex={0}
-                aria-label={plugin.pluginId}
+                aria-label={plugin.title}
                 onClick={() => onSelect(plugin.pluginId)}
                 onKeyDown={(event) => activate(event, () => onSelect(plugin.pluginId))}
                 className={rowClass}
@@ -229,7 +229,7 @@ export function CustomizeList({
                       가르는 식과 같은 값을 써야 그룹과 점이 어긋나지 않는다. */}
                   <span className="flex items-center gap-g3">
                     <Dot tone={pluginTone(plugin)} />
-                    <span className="min-w-0 truncate">{plugin.pluginId}</span>
+                    <span className="min-w-0 truncate">{plugin.title}</span>
                   </span>
                 </td>
                 <td className={`${cellClass} text-ink2`}>{plugin.providerCount}</td>
