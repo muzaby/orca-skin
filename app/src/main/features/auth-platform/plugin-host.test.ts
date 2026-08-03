@@ -13,23 +13,32 @@ type ConnectionInput = { id: string; connectorId: string; bindingId: string }
 
 class FakeConnectorPort implements ConnectorPort {
   readonly connectCalls: ConnectionInput[] = []
+  readonly connectSignals: AbortSignal[] = []
   readonly stopCalls: string[] = []
   readonly invokeCalls: Array<{ connectionId: string; operation: string }> = []
+  readonly invokeSignals: AbortSignal[] = []
   status: { health: 'ready' | 'error'; message?: string } = { health: 'ready' }
   connectError: Error | null = null
   stopError: Error | null = null
 
-  async connect(input: ConnectionInput): Promise<{ health: 'ready' | 'error'; message?: string }> {
+  async connect(
+    input: ConnectionInput,
+    signal?: AbortSignal
+  ): Promise<{ health: 'ready' | 'error'; message?: string }> {
     this.connectCalls.push(input)
+    if (signal) this.connectSignals.push(signal)
     if (this.connectError) throw this.connectError
     return this.status
   }
 
   async invoke(
     connectionId: string,
-    request: { operation: string }
+    request: { operation: string },
+    _timeoutMs?: number,
+    signal?: AbortSignal
   ): Promise<{ ok: true; data: unknown }> {
     this.invokeCalls.push({ connectionId, operation: request.operation })
+    if (signal) this.invokeSignals.push(signal)
     return { ok: true, data: null }
   }
 
@@ -330,15 +339,18 @@ describe('PluginHost', () => {
     const bindings = new Map([['binding-a', binding('binding-a')]])
     let resolveConnect: ((status: { health: 'ready' }) => void) | null = null
     const { host, connectors, sink } = createHost(bindings)
-    connectors.connect = async (input) => {
+    connectors.connect = async (input, signal) => {
       connectors.connectCalls.push(input)
+      if (signal) connectors.connectSignals.push(signal)
       return new Promise((resolve) => {
         resolveConnect = resolve
       })
     }
 
     const connecting = host.connect({ connectorId: 'connector-a', bindingId: 'binding-a' })
+    expect(connectors.connectSignals).toHaveLength(1)
     await host.onBindingsEnded(['binding-a'])
+    expect(connectors.connectSignals[0]?.aborted).toBe(true)
     const completeConnect = resolveConnect as ((status: { health: 'ready' }) => void) | null
     if (!completeConnect) throw new Error('expected pending connector completion')
     completeConnect({ health: 'ready' })
@@ -449,5 +461,83 @@ describe('PluginHost', () => {
       message: 'provider logout failed'
     })
     expect(sink.servers).toEqual(new Map())
+  })
+
+  it('aborts an in-flight tool invocation on explicit disconnect', async () => {
+    const bindings = new Map([['binding-a', binding('binding-a')]])
+    const { host, connectors, logout, sink } = createHost(bindings)
+    let resolveInvocationStarted!: () => void
+    const invocationStarted = new Promise<void>((resolve) => {
+      resolveInvocationStarted = resolve
+    })
+    connectors.invoke = async (_connectionId, _request, _timeoutMs, signal) => {
+      if (signal) connectors.invokeSignals.push(signal)
+      resolveInvocationStarted()
+      return new Promise((resolve) => {
+        signal?.addEventListener('abort', () => resolve({ ok: true, data: null }), { once: true })
+      })
+    }
+    logout.onLogout = (bindingId) => host.onBindingsEnded([bindingId])
+
+    await host.connect({ connectorId: 'connector-a', bindingId: 'binding-a' })
+    const invocation = sink.servers.get('server-a')?.implementations[0]?.handler({})
+    await invocationStarted
+
+    expect(connectors.invokeSignals).toHaveLength(1)
+    await host.disconnect({ connectorId: 'connector-a' })
+    await expect(invocation).resolves.toEqual({ ok: true, data: null })
+    expect(connectors.invokeSignals[0]?.aborted).toBe(true)
+  })
+
+  it('aborts an in-flight tool invocation when a failed provider logout ends its binding', async () => {
+    const bindings = new Map([['binding-a', binding('binding-a')]])
+    const { host, connectors, logout, sink } = createHost(bindings)
+    let resolveInvocationStarted!: () => void
+    const invocationStarted = new Promise<void>((resolve) => {
+      resolveInvocationStarted = resolve
+    })
+    connectors.invoke = async (_connectionId, _request, _timeoutMs, signal) => {
+      if (signal) connectors.invokeSignals.push(signal)
+      resolveInvocationStarted()
+      return new Promise((resolve) => {
+        signal?.addEventListener('abort', () => resolve({ ok: true, data: null }), { once: true })
+      })
+    }
+    logout.outcome = { kind: 'failed', message: 'provider logout failed' }
+    logout.onLogout = (bindingId) => host.onBindingsEnded([bindingId])
+
+    await host.connect({ connectorId: 'connector-a', bindingId: 'binding-a' })
+    const invocation = sink.servers.get('server-a')?.implementations[0]?.handler({})
+    await invocationStarted
+
+    expect(connectors.invokeSignals).toHaveLength(1)
+    await expect(host.disconnect({ connectorId: 'connector-a' })).resolves.toEqual(logout.outcome)
+    await expect(invocation).resolves.toEqual({ ok: true, data: null })
+    expect(connectors.invokeSignals[0]?.aborted).toBe(true)
+  })
+
+  it('aborts an in-flight tool invocation when cascade cleanup ends its binding', async () => {
+    const bindings = new Map([['binding-a', binding('binding-a')]])
+    const { host, connectors, sink } = createHost(bindings)
+    let resolveInvocationStarted!: () => void
+    const invocationStarted = new Promise<void>((resolve) => {
+      resolveInvocationStarted = resolve
+    })
+    connectors.invoke = async (_connectionId, _request, _timeoutMs, signal) => {
+      if (signal) connectors.invokeSignals.push(signal)
+      resolveInvocationStarted()
+      return new Promise((resolve) => {
+        signal?.addEventListener('abort', () => resolve({ ok: true, data: null }), { once: true })
+      })
+    }
+
+    await host.connect({ connectorId: 'connector-a', bindingId: 'binding-a' })
+    const invocation = sink.servers.get('server-a')?.implementations[0]?.handler({})
+    await invocationStarted
+
+    expect(connectors.invokeSignals).toHaveLength(1)
+    await host.onBindingsEnded(['binding-a', 'binding-from-cascade'])
+    await expect(invocation).resolves.toEqual({ ok: true, data: null })
+    expect(connectors.invokeSignals[0]?.aborted).toBe(true)
   })
 })

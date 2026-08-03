@@ -405,8 +405,8 @@ renderer/preload 발 구조화 로그를 main 의 중앙 LogManager 로 전달�
 | 채널 | 방향 | 페이로드 | 응답 | 설명 |
 | --- | --- | --- | --- | --- |
 | `orca:plugin:list` | R→M (invoke) | — | `PluginConnectorInfo[]` | 현재 등록된 정적 connector와 연결 상태의 안전 DTO 목록. |
-| `orca:plugin:connectionConnect` | R→M (invoke) | `{ connectorId; bindingId }` (`PluginConnectRequestSchema`) | `PluginConnectorInfo[]` | 유효한 connector binding으로 연결을 시작하고 runtime tool 서버를 등록한다. 같은 connector의 활성/pending 연결은 거부한다. |
-| `orca:plugin:connectionDisconnect` | R→M (invoke) | `{ connectorId }` (`PluginDisconnectRequestSchema`) | `PluginConnectorInfo[]` | connector 연결을 해제하고 해당 runtime tool 서버를 회수한다. |
+| `orca:plugin:connectionConnect` | R→M (invoke) | `{ connectorId; bindingId }` (`PluginConnectionConnectRequestSchema`) | `void` | 유효한 connector binding으로 연결을 시작하고 runtime tool 서버를 등록한다. 같은 connector의 활성/pending 연결은 거부한다. |
+| `orca:plugin:connectionDisconnect` | R→M (invoke) | `{ connectorId }` (`PluginConnectionDisconnectRequestSchema`) | `AuthLogoutOutcome` | connector 연결을 해제하고 해당 runtime tool 서버를 회수한다. |
 
 ### 2.14 예약 / 미노출 채널
 
