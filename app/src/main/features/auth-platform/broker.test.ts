@@ -9,7 +9,7 @@ import { createAdfsWiaProvider } from './providers/corp-adfs-wia'
 import { createCredentialVault } from '../../infra/auth/credential-vault'
 import type { SecretStorePort } from '../../infra/config/secret-facade'
 import type { AuthPlatformState, AuthStepInfo, AuthTarget } from '../../../shared/ipc'
-import type { BrowserSessionCapability } from '../../contracts/auth-plugin'
+import type { AuthProviderV1, BrowserSessionCapability } from '../../contracts/auth-plugin'
 
 const ORIGIN = 'https://wiki.corp.invalid'
 const APP: AuthTarget = { kind: 'application', applicationId: 'orca' }
@@ -61,20 +61,34 @@ interface Harness {
   sessions: { cleared: Array<{ handleId: string; scope: string }> }
 }
 
-function harness(browserOverrides: Partial<BrowserSessionCapability> = {}): Harness {
+function harness(
+  browserOverrides: Partial<BrowserSessionCapability> & {
+    onBindingsEnded?: (bindingIds: readonly string[]) => Promise<void>
+    patContinue?: AuthProviderV1['continue']
+    patLogout?: AuthProviderV1['logout']
+  } = {}
+): Harness {
+  const { onBindingsEnded, patContinue, patLogout, ...sessionOverrides } = browserOverrides
   const store = fakeStore()
   const registry = new AuthRegistry()
   const cleared: Array<{ handleId: string; scope: string }> = []
 
+  const staticPat = createStaticCredentialProvider({
+    id: 'pat',
+    pluginId: 'corp',
+    label: 'PAT',
+    mechanism: 'personal_access_token'
+  })
+  const pat: AuthProviderV1 = {
+    ...staticPat,
+    ...(patContinue !== undefined ? { continue: patContinue } : {}),
+    ...(patLogout !== undefined ? { logout: patLogout } : {})
+  }
+
   const errors = registry.register({
     manifest: MANIFEST,
     providers: [
-      createStaticCredentialProvider({
-        id: 'pat',
-        pluginId: 'corp',
-        label: 'PAT',
-        mechanism: 'personal_access_token'
-      }),
+      pat,
       createAdfsWiaProvider({
         id: 'adfs',
         pluginId: 'corp',
@@ -90,7 +104,9 @@ function harness(browserOverrides: Partial<BrowserSessionCapability> = {}): Harn
   expect(errors).toEqual([])
 
   const states: AuthPlatformState[] = []
-  const broker = new AuthBroker({
+  const deps: ConstructorParameters<typeof AuthBroker>[0] & {
+    onBindingsEnded?: (bindingIds: readonly string[]) => Promise<void>
+  } = {
     registry,
     vaultFor: (prefix) => createCredentialVault(store, prefix),
     browserSessions: {
@@ -98,12 +114,22 @@ function harness(browserOverrides: Partial<BrowserSessionCapability> = {}): Harn
       openLoginWindow: async () => ({ finalUrl: `${ORIGIN}/home` }),
       probe: async () => ({ ok: true, status: 200, finalUrl: `${ORIGIN}/me` }),
       clear: async (handleId, opts) => void cleared.push({ handleId, scope: opts.scope }),
-      ...browserOverrides
+      ...sessionOverrides
     },
     exec: async () => ({ code: 0, stdout: '', stderr: '' }),
-    broadcast: (s) => states.push(s)
-  })
+    broadcast: (s) => states.push(s),
+    ...(onBindingsEnded !== undefined ? { onBindingsEnded } : {})
+  }
+  const broker = new AuthBroker(deps)
   return { broker, store, states, sessions: { cleared } }
+}
+
+function deferred<T>(): { promise: Promise<T>; resolve(value: T): void } {
+  let resolve!: (value: T) => void
+  const promise = new Promise<T>((done) => {
+    resolve = done
+  })
+  return { promise, resolve }
 }
 
 async function loginPat(
@@ -486,5 +512,135 @@ describe('AuthBroker — authenticatedFetch (AC8 경로)', () => {
         path: 'https://evil.invalid/steal'
       })
     ).rejects.toThrow(/absolute_path/)
+  })
+})
+
+describe('AuthBroker ended-binding callback (AC14~16)', () => {
+  it('removes locally, awaits the callback, then publishes and returns the successful logout', async () => {
+    const callback = deferred<void>()
+    const callbackStarted = deferred<void>()
+    const ended: string[][] = []
+    const { broker, states } = harness({
+      onBindingsEnded: async (bindingIds) => {
+        ended.push([...bindingIds])
+        callbackStarted.resolve(undefined)
+        await callback.promise
+      }
+    })
+    const wiki = await loginPat(broker, WIKI)
+    if (wiki.kind !== 'done') throw new Error('unreachable')
+    const publishCountBeforeLogout = states.length
+
+    const logout = broker.logout(wiki.binding.id, false)
+    await callbackStarted.promise
+
+    expect(broker.listBindings()).toEqual([])
+    expect(ended).toEqual([[wiki.binding.id]])
+    expect(states).toHaveLength(publishCountBeforeLogout)
+
+    callback.resolve(undefined)
+
+    await expect(logout).resolves.toEqual({
+      kind: 'logged_out',
+      endedBindingIds: [wiki.binding.id]
+    })
+    expect(states).toHaveLength(publishCountBeforeLogout + 1)
+  })
+
+  it('awaits callback cleanup and removes locally when provider logout fails or throws', async () => {
+    const ended: string[][] = []
+    const { broker } = harness({
+      patLogout: async () => {
+        throw new Error('provider unavailable')
+      },
+      onBindingsEnded: async (bindingIds) => {
+        ended.push([...bindingIds])
+      }
+    })
+    const wiki = await loginPat(broker, WIKI)
+    if (wiki.kind !== 'done') throw new Error('unreachable')
+
+    const outcome = await broker.logout(wiki.binding.id, false)
+    expect(outcome.kind).toBe('failed')
+    if (outcome.kind === 'failed') expect(outcome.message).toContain('provider unavailable')
+
+    expect(broker.listBindings()).toEqual([])
+    expect(ended).toEqual([[wiki.binding.id]])
+  })
+
+  it('passes every actually removed root and dependent id to one cascade callback', async () => {
+    const parent = { bindingId: undefined as string | undefined }
+    const ended: string[][] = []
+    const { broker } = harness({
+      patContinue: async (ctx) => ({
+        kind: 'done',
+        binding: {
+          mechanism: 'personal_access_token',
+          artifact: {
+            kind: 'vault_credential',
+            handleId: 'test-credential',
+            credentialKind: 'personal_access_token'
+          },
+          ...(ctx.target.kind === 'connector' && ctx.target.connectorId === JIRA.connectorId
+            ? { parentBindingId: parent.bindingId }
+            : {})
+        }
+      }),
+      onBindingsEnded: async (bindingIds) => {
+        ended.push([...bindingIds])
+      }
+    })
+    const root = await loginPat(broker, APP)
+    if (root.kind !== 'done') throw new Error('unreachable')
+    parent.bindingId = root.binding.id
+    const dependent = await loginPat(broker, JIRA)
+    if (dependent.kind !== 'done') throw new Error('unreachable')
+
+    await expect(broker.logout(root.binding.id, true)).resolves.toEqual({
+      kind: 'logged_out',
+      endedBindingIds: [root.binding.id, dependent.binding.id]
+    })
+
+    expect(broker.listBindings()).toEqual([])
+    expect(ended).toEqual([[root.binding.id, dependent.binding.id]])
+  })
+
+  it('keeps local cleanup, publishes state, and returns failed when callback cleanup fails', async () => {
+    const { broker, states } = harness({
+      onBindingsEnded: async () => {
+        throw new Error('connector cleanup failed')
+      }
+    })
+    const wiki = await loginPat(broker, WIKI)
+    if (wiki.kind !== 'done') throw new Error('unreachable')
+    const publishCountBeforeLogout = states.length
+
+    await expect(broker.logout(wiki.binding.id, false)).resolves.toEqual({
+      kind: 'failed',
+      message: 'connector cleanup failed'
+    })
+
+    expect(broker.listBindings()).toEqual([])
+    expect(states).toHaveLength(publishCountBeforeLogout + 1)
+  })
+
+  it('preserves both provider and callback failures in the failed logout message', async () => {
+    const { broker } = harness({
+      patLogout: async () => ({ kind: 'failed', message: 'provider logout failed' }),
+      onBindingsEnded: async () => {
+        throw new Error('connector cleanup failed')
+      }
+    })
+    const wiki = await loginPat(broker, WIKI)
+    if (wiki.kind !== 'done') throw new Error('unreachable')
+
+    const outcome = await broker.logout(wiki.binding.id, false)
+
+    expect(outcome.kind).toBe('failed')
+    if (outcome.kind === 'failed') {
+      expect(outcome.message).toContain('provider logout failed')
+      expect(outcome.message).toContain('connector cleanup failed')
+    }
+    expect(broker.listBindings()).toEqual([])
   })
 })

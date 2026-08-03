@@ -76,10 +76,12 @@ import { TitleGenerator } from '../features/chat/title-generation'
 import { recoverSessionHistory } from '../features/chat/recovery'
 import { broadcastConcurrency, broadcastAuthState, sendChatEvent } from '../infra/ipc/send'
 import { AuthBroker } from '../features/auth-platform/broker'
+import { PluginHost } from '../features/auth-platform/plugin-host'
 import { AuthRegistry } from '../features/auth-platform/registry'
 import { AUTH_PLUGIN_PACKAGES } from '../features/auth-platform/modules'
 import { ConnectionRegistry } from '../features/connectors/registry'
 import { ConnectorHost } from '../features/connectors/runtime'
+import { RuntimeToolRegistry } from '../features/extensions/runtime-tool-registry'
 import { BrowserSessionStore } from '../infra/auth/browser-session-store'
 import { createCredentialVault } from '../infra/auth/credential-vault'
 import { pluginExec } from '../infra/auth/plugin-exec'
@@ -177,6 +179,8 @@ export class Bootstrap {
   private createAuthPlatform(secretStore: SecretStore): {
     broker: AuthBroker
     connectors: ConnectorHost
+    pluginHost: PluginHost
+    runtimeTools: RuntimeToolRegistry
     sessions: BrowserSessionStore
   } {
     const log = getLogger().child('auth')
@@ -188,7 +192,8 @@ export class Bootstrap {
       const errors = registry.register({
         manifest: pkg.manifest,
         ...(pkg.providers !== undefined ? { providers: pkg.providers } : {}),
-        ...(pkg.connectors !== undefined ? { connectors: pkg.connectors } : {})
+        ...(pkg.connectors !== undefined ? { connectors: pkg.connectors } : {}),
+        ...(pkg.runtimeTools !== undefined ? { runtimeTools: pkg.runtimeTools } : {})
       })
       for (const e of errors) {
         log.warn('auth.package.rejected', {
@@ -211,6 +216,8 @@ export class Bootstrap {
       if (sessionGroup) sessions.register({ sessionGroup, allowedOrigins })
     }
 
+    const runtimeTools = new RuntimeToolRegistry()
+    const composition: { pluginHost: PluginHost | null } = { pluginHost: null }
     const broker = new AuthBroker({
       registry,
       vaultFor: (prefix) => createCredentialVault(secretStore, prefix),
@@ -221,7 +228,12 @@ export class Bootstrap {
         clear: (handleId, opts) => sessions.clear(handleId, opts)
       },
       exec: pluginExec,
-      broadcast: broadcastAuthState
+      broadcast: broadcastAuthState,
+      onBindingsEnded: async (bindingIds) => {
+        const host = composition.pluginHost
+        if (!host) throw new Error('auth platform composition is not ready')
+        await host.onBindingsEnded(bindingIds)
+      }
     })
 
     const connections = new ConnectionRegistry()
@@ -230,7 +242,16 @@ export class Bootstrap {
       lookup: registry,
       authenticatedFetch: (req, signal) => broker.authenticatedFetch(req, signal)
     })
-    return { broker, connectors, sessions }
+    const pluginHost = new PluginHost({
+      registry,
+      bindings: { getBinding: (bindingId) => broker.getBinding(bindingId) },
+      connectors,
+      logout: { logout: (bindingId, cascade) => broker.logout(bindingId, cascade) },
+      runtimeTools,
+      logger: (message, meta) => log.warn(message, meta)
+    })
+    composition.pluginHost = pluginHost
+    return { broker, connectors, pluginHost, runtimeTools, sessions }
   }
 
   private async deployExtensions(): Promise<void> {
@@ -417,7 +438,9 @@ export class Bootstrap {
       scheduler,
       externalUsage,
       auth: auth.broker,
-      connectors: auth.connectors
+      connectors: auth.connectors,
+      pluginHost: auth.pluginHost,
+      runtimeTools: auth.runtimeTools
     }
     this.register(ctx)
   }

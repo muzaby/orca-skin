@@ -53,6 +53,9 @@ export interface BrokerDeps {
   browserSessions: BrowserSessionCapability
   exec: AuthExec
   broadcast: (state: AuthPlatformState) => void
+  // binding 제거 뒤 connector/runtime server를 정리하는 composition callback. auth-platform은
+  // PluginHost 구현을 import하지 않고 구조적 포트만 받는다.
+  onBindingsEnded?: (bindingIds: readonly string[]) => Promise<void>
   // provider 에게 노출할 env 이름 allowlist. 기본 빈 배열 = 아무것도 노출 안 함.
   envAllowlist?: readonly string[]
   sender?: AuthenticatedFetchDeps
@@ -110,6 +113,11 @@ export class AuthBroker {
 
   listBindings(): AuthBindingInfo[] {
     return this.bindings.list()
+  }
+
+  // PluginHost가 raw BindingStore를 받지 않도록 하는 최소 read port.
+  getBinding(bindingId: string): AuthBindingInfo | undefined {
+    return this.bindings.get(bindingId)
   }
 
   private publish(): void {
@@ -232,6 +240,13 @@ export class AuthBroker {
     }
 
     const removed = this.bindings.remove(bindingId, cascade)
+    if (removed.length > 0 && this.deps.onBindingsEnded) {
+      try {
+        await this.deps.onBindingsEnded(removed)
+      } catch (error) {
+        failures.push(error instanceof Error ? error.message : String(error))
+      }
+    }
     this.publish()
     return failures.length > 0
       ? { kind: 'failed', message: failures.join('; ') }
