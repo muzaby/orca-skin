@@ -21,7 +21,8 @@ const CONNECTOR: PluginConnectorInfo = {
   origin: 'https://wiki.corp',
   pluginId: 'confluence',
   acceptedAuthProviders: ['confluence-pat', 'confluence-basic'],
-  connected: false
+  connected: false,
+  source: 'static'
 }
 
 function provider(id: string, overrides: Partial<AuthProviderInfo> = {}): AuthProviderInfo {

@@ -2,7 +2,7 @@
 
 > 이 문서는 Main ↔ Renderer 간 IPC 채널의 **단일 진실 공급원 (SSOT)** 이다.
 > 채널을 추가/변경할 때는 코드와 이 문서를 함께 갱신한다.
-> 최종 업데이트: 2026-08-03 (handoff 0158 — `plugin` 도메인 신설(list·connectionConnect·connectionDisconnect), **79→82**)
+> 최종 업데이트: 2026-08-03 (handoff 0161 — `plugin` 도메인에 템플릿·인스턴스 CRUD 3채널 추가(templateList·instanceCreate·instanceDelete), **82→85**)
 >
 > ⚠️ **카운트 정정 (0157 verify r1)**: 이전 판은 헤더 73 · 내역 합 72 · 실측 74 로 셋이 서로 달랐다. `chat`(5→6)·`cost`(5→6) 가 내역에서 누락돼 있었다. 아래 수치는 `CHANNELS` 상수를 기계 카운트한 실측치이며 **내역 합 = 총계**가 되도록 맞췄다.
 > 관련 문서: [ARCHITECTURE.md](ARCHITECTURE.md), [ARCHITECTURE.md](ARCHITECTURE.md), [GLOSSARY.md](./GLOSSARY.md), [TRD.md](./TRD.md) §5
@@ -23,9 +23,9 @@
   - 특례: `chat:send` 는 실패를 `error` 이벤트로 회신(§2.1). 입력이 없거나 store 내부 zod 가 검증하는 채널(settings set · mcp add/update)은 `handlePlain`.
 - 출력(main→renderer send) 무검증: `NormalizedEvent` 등의 형상 보증은 어댑터 정규화(`claude-map.ts`)가 담당 — 의도된 설계.
 
-## 2. 채널 카탈로그 (총 82 채널)
+## 2. 채널 카탈로그 (총 85 채널)
 
-도메인별 분포: `chat` 6 (`send` · `event` · `cancel` · `stopSubagent` · `steerCancel` · `steer`) · `boot` 2 (`report` · `whenReady`) · `backend` 1 · `agent` 1 · `engine` 5 · `install` 2 · `update` 6 · `settings` 2 · `skills` 7 · `files` 5 · `session` 7 (0129 `setPinned` 추가) · `project` 6 (0129 `setPinned` 추가) · `window` 3 · `search` 1 · `mcp` 4 · `cost` 6 · `concurrency` 1 · `permission` 2 (`respond` · `setMode`) · `notify` 1 (`show` — §2.12-c) · `debug` 2 (dev 전용 — `getMock` · `setMock`) · `log` 1 (`emit` — §2.13-b) · `auth` 8 (`status` · `providers` · `bindings` · `begin` · `continue` · `refresh` · `logout` · `stateEvent` — §2.13-c, 0157) · `plugin` 3 (`list` · `connectionConnect` · `connectionDisconnect` — §2.13-d, 0158) = **82**.
+도메인별 분포: `chat` 6 (`send` · `event` · `cancel` · `stopSubagent` · `steerCancel` · `steer`) · `boot` 2 (`report` · `whenReady`) · `backend` 1 · `agent` 1 · `engine` 5 · `install` 2 · `update` 6 · `settings` 2 · `skills` 7 · `files` 5 · `session` 7 (0129 `setPinned` 추가) · `project` 6 (0129 `setPinned` 추가) · `window` 3 · `search` 1 · `mcp` 4 · `cost` 6 · `concurrency` 1 · `permission` 2 (`respond` · `setMode`) · `notify` 1 (`show` — §2.12-c) · `debug` 2 (dev 전용 — `getMock` · `setMock`) · `log` 1 (`emit` — §2.13-b) · `auth` 8 (`status` · `providers` · `bindings` · `begin` · `continue` · `refresh` · `logout` · `stateEvent` — §2.13-c, 0157) · `plugin` 6 (`list` · `connectionConnect` · `connectionDisconnect` — 0158 · `templateList` · `instanceCreate` · `instanceDelete` — 0161) = **85**.
 
 `app/src/shared/ipc.ts` 의 `CHANNELS` 상수와 1:1 일치. **단, `debug` 2채널은 `import.meta.env.DEV` 일 때만 `ipcMain.handle` 로 등록된다** (CHANNELS 상수 문자열은 상존하나 prod 핸들러 미등록 — §2.13 참조).
 
@@ -398,15 +398,24 @@ renderer/preload 발 구조화 로그를 main 의 중앙 LogManager 로 전달�
 | `orca:auth:logout`     | R→M (invoke) | `{ bindingId; cascade?: boolean }` (`AuthLogoutRequestSchema`, 기본 `false`) | `AuthLogoutOutcome` | `cascade:false`(기본) = 이 binding 만 — connector 하나의 연결 해제가 공유 session group 을 삭제하지 않는다. `true` = 종속 binding 까지(앱 로그아웃). |
 | `orca:auth:stateEvent` | M→R (send)   | `AuthPlatformState`                                 | —           | 상태 변화 브로드캐스트(전 창) — transaction 진행·취소·binding 변경. renderer store 가 구독해 main 상태를 미러한다. |
 
-### 2.13-d Plugin (0158 — 정적 connector lifecycle)
+### 2.13-d Plugin (0158 connector lifecycle + 0161 템플릿·인스턴스)
 
-정적 connector의 목록과 연결 lifecycle만 renderer에 노출한다. `connectorId`는 서버/하위 도메인별 고정 descriptor 식별자이고 각 connector에는 활성 연결이 하나만 허용된다. 응답 DTO는 `connectorId`·`label`·`origin`·`pluginId`·`acceptedAuthProviders`·`connected`만 포함하며 credential·binding artifact·runtime tool 구현은 포함하지 않는다.
+connector의 목록·연결 lifecycle과, 사용자가 서버를 추가/삭제하는 경로를 renderer에 노출한다.
+
+connector는 두 출처를 갖는다 — **`static`**(코드로 배포, `modules/<x>/servers.ts`)과 **`instance`**(사용자가 템플릿으로 추가). DTO의 `source`가 그 구분이고 UI는 이 값으로 삭제 가능 여부를 판정한다. connector당 활성 연결은 하나다.
+
+응답 DTO는 `connectorId`·`label`·`origin`·`pluginId`·`acceptedAuthProviders`·`connected`·`source`만 포함하며 credential·binding artifact·runtime tool 구현은 포함하지 않는다.
+
+**주소 수정 채널은 없다.** 인스턴스의 `connectorId`가 host+컨텍스트 경로에서 파생되므로(0161) 주소 수정은 곧 도구 서버 ID·승인 키(`mcp__<server>__<tool>`)·다운로드 경로의 이동이다. 수정 대신 삭제 후 재생성한다.
 
 | 채널 | 방향 | 페이로드 | 응답 | 설명 |
 | --- | --- | --- | --- | --- |
-| `orca:plugin:list` | R→M (invoke) | — | `PluginConnectorInfo[]` | 현재 등록된 정적 connector와 연결 상태의 안전 DTO 목록. |
+| `orca:plugin:list` | R→M (invoke) | — | `PluginConnectorInfo[]` | 등록된 connector와 연결 상태의 안전 DTO 목록(정적 + 사용자 인스턴스). |
 | `orca:plugin:connectionConnect` | R→M (invoke) | `{ connectorId; bindingId }` (`PluginConnectionConnectRequestSchema`) | `void` | 유효한 connector binding으로 연결을 시작하고 runtime tool 서버를 등록한다. 같은 connector의 활성/pending 연결은 거부한다. |
 | `orca:plugin:connectionDisconnect` | R→M (invoke) | `{ connectorId }` (`PluginConnectionDisconnectRequestSchema`) | `AuthLogoutOutcome` | connector 연결을 해제하고 해당 runtime tool 서버를 회수한다. |
+| `orca:plugin:templateList` | R→M (invoke) | — | `ConnectorTemplateInfoDto[]` | 사용자가 추가할 수 있는 connector 청사진 목록(현재 Confluence 1종). 각 템플릿은 입력 필드 선언(`label`·`baseUrl`·`apiBasePath`)을 갖고 renderer가 그것으로 폼을 그린다. |
+| `orca:plugin:instanceCreate` | R→M (invoke) | `{ templateId; label; baseUrl; apiBasePath? }` (`PluginInstanceCreateRequestSchema`) | `PluginConnectorInfo[]` | 인스턴스를 영속 저장하고 런타임 등록한 뒤 **갱신된 목록**을 반환한다. `baseUrl`은 경로·쿼리·자격증명·비 http(s)를 거부하는 origin이어야 한다. 같은 host+경로 중복은 `already_exists`로 거부. |
+| `orca:plugin:instanceDelete` | R→M (invoke) | `{ connectorId }` (`PluginInstanceDeleteRequestSchema`) | `PluginConnectorInfo[]` | 연결 해제 → 등록 해제 → 저장소 제거 순으로 지우고 갱신된 목록을 반환한다. 정적 connector는 `not_found`로 거부된다(코드로 배포된 서버는 UI에서 지울 수 없다). |
 
 ### 2.14 예약 / 미노출 채널
 

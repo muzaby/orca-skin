@@ -40,12 +40,20 @@ interface PluginRegistry {
   listRuntimeToolsForConnector(connectorId: string): RuntimeToolContribution[]
 }
 
+// connector 가 코드로 배포된 것(static)인지 사용자가 추가한 것(instance)인지 판정하는 포트
+// (0161). `features/connectors` 의 인스턴스 저장소가 구조적으로 만족한다 — feature 교차
+// import 없이 컴포지션 루트가 주입한다. 미주입이면 전부 static 으로 본다(기존 동작 보존).
+export interface InstanceSourceLookup {
+  isUserInstance(connectorId: string): boolean
+}
+
 export interface PluginHostDeps {
   registry: PluginRegistry
   bindings: BindingLookup
   connectors: ConnectorPort
   logout: LogoutPort
   runtimeTools: RuntimeToolSink
+  instances?: InstanceSourceLookup
   logger?: (message: string, meta?: Record<string, unknown>) => void
 }
 
@@ -82,8 +90,20 @@ export class PluginHost {
       origin: connector.descriptor.baseUrl,
       pluginId: connector.descriptor.pluginId,
       acceptedAuthProviders: [...connector.descriptor.acceptedAuthProviders],
-      connected: this.activeByConnector.get(connector.descriptor.id)?.ready === true
+      connected: this.activeByConnector.get(connector.descriptor.id)?.ready === true,
+      // 미주입이면 static — UI 가 삭제 버튼을 그리지 않는 쪽으로 접힌다(fail-closed).
+      source:
+        this.deps.instances?.isUserInstance(connector.descriptor.id) === true
+          ? ('instance' as const)
+          : ('static' as const)
     }))
+  }
+
+  // 연결돼 있으면 끊는다. 연결이 없으면 아무 일도 하지 않는다 — 인스턴스 삭제 경로가
+  // "연결 여부를 모른 채" 부를 수 있어야 멱등하다(0161 `InstanceHostPort`).
+  async disconnectIfConnected(connectorId: string): Promise<void> {
+    if (!this.activeByConnector.has(connectorId)) return
+    await this.disconnect({ connectorId })
   }
 
   async connect(input: { connectorId: string; bindingId: string }): Promise<void> {

@@ -55,7 +55,9 @@ import {
   type AuthTarget,
   type AuthRefreshOutcome,
   type AuthLogoutOutcome,
-  type PluginConnectorInfo
+  type PluginConnectorInfo,
+  type ConnectorTemplateInfoDto,
+  type PluginInstanceCreateRequest
 } from '../shared/ipc'
 import { LOG_IPC_PAYLOAD_MAX_BYTES, type LogInput, type SerializedError } from '../shared/logging'
 
@@ -284,7 +286,14 @@ const orca = {
     connect: (connectorId: string, bindingId: string): Promise<void> =>
       ipcRenderer.invoke(CHANNELS.pluginConnectionConnect, { connectorId, bindingId }),
     disconnect: (connectorId: string): Promise<AuthLogoutOutcome> =>
-      ipcRenderer.invoke(CHANNELS.pluginConnectionDisconnect, { connectorId })
+      ipcRenderer.invoke(CHANNELS.pluginConnectionDisconnect, { connectorId }),
+    // 0161 — 사용자가 서버를 추가/삭제한다. 생성·삭제는 갱신된 목록을 그대로 돌려준다.
+    templates: (): Promise<ConnectorTemplateInfoDto[]> =>
+      ipcRenderer.invoke(CHANNELS.pluginTemplateList),
+    createInstance: (request: PluginInstanceCreateRequest): Promise<PluginConnectorInfo[]> =>
+      ipcRenderer.invoke(CHANNELS.pluginInstanceCreate, request),
+    deleteInstance: (connectorId: string): Promise<PluginConnectorInfo[]> =>
+      ipcRenderer.invoke(CHANNELS.pluginInstanceDelete, { connectorId })
   },
   // renderer 로그 인제스트 (0123) — 제한된 4메서드만. ipcRenderer 원본·임의 채널은 미노출.
   log: {

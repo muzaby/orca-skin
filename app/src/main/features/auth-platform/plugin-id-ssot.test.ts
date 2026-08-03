@@ -54,7 +54,8 @@ describe('plugin ID 규칙 SSOT', () => {
           origin: 'https://service.example.invalid',
           pluginId: '3rd-party-service',
           acceptedAuthProviders: ['dept-pat'],
-          connected: false
+          connected: false,
+          source: 'static'
         }
       ]).success
     ).toBe(true)

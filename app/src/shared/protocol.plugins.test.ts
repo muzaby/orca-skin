@@ -51,7 +51,8 @@ describe('plugin IPC protocol', () => {
       origin: 'https://connector-one.example.invalid',
       pluginId: 'test-plugin',
       acceptedAuthProviders: ['test-provider'],
-      connected: false
+      connected: false,
+      source: 'static'
     }
     expect(PluginConnectorInfoSchema.safeParse(safe).success).toBe(true)
 

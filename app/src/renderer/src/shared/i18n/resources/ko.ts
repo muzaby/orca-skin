@@ -110,6 +110,29 @@ export const ko = {
       disconnectedPlugins: '연결되지 않은 플러그인 패키지'
     },
     view: { selectItem: '항목을 선택하세요.', backAria: '{{section}} 목록으로 돌아가기' },
+    templates: {
+      confluence: 'Confluence (Data Center)'
+    },
+    instance: {
+      title: '서버 추가',
+      pickTemplate: '어떤 서비스를 추가할까요?',
+      noTemplate: '추가할 수 있는 서비스가 없습니다.',
+      label: '표시 이름',
+      labelPlaceholder: '예: 사내 위키',
+      baseUrl: '서버 주소',
+      baseUrlHint: '주소는 만든 뒤 바꿀 수 없습니다. 바꾸려면 삭제 후 다시 추가하세요.',
+      apiBasePath: '컨텍스트 경로 (선택)',
+      apiBasePathHint: '주소 뒤에 경로가 붙는 배포에만 입력합니다. 예: /confluence',
+      create: '추가',
+      delete: '삭제',
+      errTemplate: '추가할 서비스를 선택해 주세요.',
+      errLabel: '표시 이름을 입력해 주세요.',
+      errBaseUrl: '주소는 경로 없는 형태여야 합니다. 예: https://wiki.example.com',
+      errBasePath: '컨텍스트 경로는 `/` 로 시작해야 합니다.',
+      errExists: '같은 주소의 서버가 이미 있습니다.',
+      errRegister: '서버를 등록하지 못했습니다.',
+      errUnknown: '서버를 추가하지 못했습니다.'
+    },
     connect: {
       title: '{{name}} 연결',
       server: '서버 주소',

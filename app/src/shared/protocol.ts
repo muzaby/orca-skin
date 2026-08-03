@@ -283,7 +283,67 @@ export const PluginConnectorInfoSchema = z
     origin: z.url().max(2048),
     pluginId: PluginConnectorIdSchema,
     acceptedAuthProviders: z.array(PluginConnectorIdSchema),
-    connected: z.boolean()
+    connected: z.boolean(),
+    source: z.enum(['static', 'instance'])
+  })
+  .strict()
+
+// ── connector 인스턴스 (0161) ────────────────────────────────────────────────
+
+// 사용자 입력 origin. **경로·쿼리·fragment·URL 자격증명·비 http(s) 를 거부한다** — 여기가
+// SSRF 표면의 첫 관문이다(사내망이 목적이라 private IP 는 막지 않는다).
+export const PluginInstanceOriginSchema = z
+  .string()
+  .min(1)
+  .max(2048)
+  .refine((raw) => {
+    try {
+      const url = new URL(raw)
+      if (url.protocol !== 'https:' && url.protocol !== 'http:') return false
+      if (url.username !== '' || url.password !== '') return false
+      return raw === url.origin
+    } catch {
+      return false
+    }
+  }, 'baseUrl 은 경로 없는 origin 이어야 합니다')
+
+export const PluginTemplateListRequestSchema = z.undefined()
+
+export const PluginInstanceCreateRequestSchema = z
+  .object({
+    templateId: PluginConnectorIdSchema,
+    label: z.string().trim().min(1).max(200),
+    baseUrl: PluginInstanceOriginSchema,
+    // 컨텍스트 경로 — 앞 `/` 필수, 뒤 `/` 금지. 빈 값은 아예 보내지 않는다.
+    apiBasePath: z
+      .string()
+      .max(200)
+      .regex(
+        /^\/[A-Za-z0-9\-._~/]*[A-Za-z0-9\-._~]$/,
+        'apiBasePath 는 `/` 로 시작하는 경로여야 합니다'
+      )
+      .optional()
+  })
+  .strict()
+
+export const PluginInstanceDeleteRequestSchema = z
+  .object({ connectorId: PluginConnectorIdSchema })
+  .strict()
+
+export const ConnectorTemplateInfoSchema = z
+  .object({
+    templateId: PluginConnectorIdSchema,
+    i18nKey: z.string().min(1).max(200),
+    fields: z.array(
+      z
+        .object({
+          name: z.enum(['label', 'baseUrl', 'apiBasePath']),
+          required: z.boolean(),
+          i18nKey: z.string().min(1).max(200),
+          placeholder: z.string().max(200).optional()
+        })
+        .strict()
+    )
   })
   .strict()
 
@@ -541,6 +601,11 @@ export const SettingsSchema = z.object({
   mcpMeta: z.record(z.string(), z.object({ description: z.string().default('') })).default({}),
   skillEnabled: z.record(z.string(), z.boolean()).default({}),
   authBypass: z.boolean().default(false),
+  // 사용자가 UI 에서 추가한 connector 인스턴스 (0161). **비밀은 담지 않는다** — 자격증명은
+  // safeStorage vault 가 소유하고 여기엔 주소·라벨 등 설정만 있다(AUTH-PLAT-008).
+  // 항목 단위 검증은 `features/connectors/instance-store.ts` 가 한다(깨진 항목만 버리고
+  // 나머지를 살리려면 배열 전체를 거부하면 안 되므로 여기서는 형태만 받는다).
+  connectorInstances: z.array(z.unknown()).default([]),
   // 선호 언어 — LLM 응답 언어. 시스템 프롬프트 '# User' 헤더의 Preferred language 로
   // 매 턴 주입된다(ExtensionBuilder). UI 표시 언어(uiLocale)와 별개 개념.
   language: z.string().default('한국어'),
@@ -647,6 +712,10 @@ export type {
   PluginConnectorInfo,
   PluginConnectionConnectRequest,
   PluginConnectionDisconnectRequest,
+  ConnectorTemplateFieldInfo,
+  ConnectorTemplateInfoDto,
+  PluginInstanceCreateRequest,
+  PluginInstanceDeleteRequest,
   AuthPlatformState,
   SkillInfo,
   AuthorSkillRequest,

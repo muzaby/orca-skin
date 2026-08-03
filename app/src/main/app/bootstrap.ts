@@ -81,6 +81,10 @@ import { PluginHost } from '../features/auth-platform/plugin-host'
 import { AuthRegistry } from '../features/auth-platform/registry'
 import { AUTH_PLUGIN_PACKAGES } from '../features/auth-platform/modules'
 import { ConnectionRegistry } from '../features/connectors/registry'
+import { ConnectorInstanceLifecycle } from '../features/connectors/instance-lifecycle'
+import { ConnectorInstanceStore } from '../features/connectors/instance-store'
+import { ConnectorTemplateRegistry } from '../features/connectors/templates'
+import { confluenceTemplate } from '../features/auth-platform/modules/confluence'
 import { ConnectorHost } from '../features/connectors/runtime'
 import { RuntimeToolRegistry } from '../features/extensions/runtime-tool-registry'
 import { BrowserSessionStore } from '../infra/auth/browser-session-store'
@@ -183,6 +187,8 @@ export class Bootstrap {
     pluginHost: PluginHost
     runtimeTools: RuntimeToolRegistry
     sessions: BrowserSessionStore
+    templates: ConnectorTemplateRegistry
+    instances: ConnectorInstanceLifecycle
   } {
     const log = getLogger().child('auth')
     const registry = new AuthRegistry()
@@ -204,6 +210,33 @@ export class Bootstrap {
         })
       }
     }
+    // 0161 — 템플릿 공용 패키지 + 사용자가 추가한 인스턴스를 복원한다. 정적 opt-in 패키지
+    // (위 루프)와 **공존**한다(사용자 결정). cross-reference 검사 **앞**에 둬야 인스턴스
+    // connector 의 provider 참조까지 같은 패스에서 검증된다.
+    const templates = new ConnectorTemplateRegistry([confluenceTemplate])
+    const instanceStore = new ConnectorInstanceStore({
+      read: () => this.settings.getAll().connectorInstances,
+      write: (list) => void this.settings.patch({ connectorInstances: [...list] })
+    })
+    const composition: { pluginHost: PluginHost | null } = { pluginHost: null }
+    const instances = new ConnectorInstanceLifecycle({
+      store: instanceStore,
+      templates,
+      registry,
+      host: {
+        disconnectIfConnected: async (connectorId) => {
+          await composition.pluginHost?.disconnectIfConnected(connectorId)
+        }
+      },
+      logger: (message, meta) => log.warn(message, meta)
+    })
+    for (const failure of instances.restore().failed) {
+      log.warn('connector.instance.rejected', {
+        connectorId: failure.instance.connectorId,
+        message: failure.message
+      })
+    }
+
     for (const e of registry.validateCrossReferences()) {
       log.warn('auth.package.cross-reference-failed', {
         pluginId: e.pluginId,
@@ -218,7 +251,6 @@ export class Bootstrap {
     }
 
     const runtimeTools = new RuntimeToolRegistry()
-    const composition: { pluginHost: PluginHost | null } = { pluginHost: null }
     const broker = new AuthBroker({
       registry,
       vaultFor: (prefix) => createCredentialVault(secretStore, prefix),
@@ -249,10 +281,12 @@ export class Bootstrap {
       connectors,
       logout: { logout: (bindingId, cascade) => broker.logout(bindingId, cascade) },
       runtimeTools,
+      // 목록 DTO 의 `source` 판정 — 사용자가 추가한 서버만 UI 에서 삭제할 수 있다.
+      instances: { isUserInstance: (connectorId) => instances.isUserInstance(connectorId) },
       logger: (message, meta) => log.warn(message, meta)
     })
     composition.pluginHost = pluginHost
-    return { broker, connectors, pluginHost, runtimeTools, sessions }
+    return { broker, connectors, pluginHost, runtimeTools, sessions, templates, instances }
   }
 
   private async deployExtensions(): Promise<void> {
@@ -269,7 +303,11 @@ export class Bootstrap {
     const secretStore = new SecretStore()
     const auth = this.createAuthPlatform(secretStore)
     registerAuthHandlers(auth.broker)
-    registerPluginHandlers(auth.pluginHost)
+    registerPluginHandlers({
+      pluginHost: auth.pluginHost,
+      templates: auth.templates,
+      instances: auth.instances
+    })
     // MCP `${BINDING:<id>}` 해석을 broker 로 잇는다 (0157). 이 배선이 없으면 binding 참조는
     // 미해결로 남아 해당 MCP 서버가 드롭된다(fail-closed).
     this.mcp.attachBindings(auth.broker)

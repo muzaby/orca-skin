@@ -107,7 +107,12 @@ export const CHANNELS = {
   authStateEvent: 'orca:auth:stateEvent',
   pluginList: 'orca:plugin:list',
   pluginConnectionConnect: 'orca:plugin:connectionConnect',
-  pluginConnectionDisconnect: 'orca:plugin:connectionDisconnect'
+  pluginConnectionDisconnect: 'orca:plugin:connectionDisconnect',
+  // 0161 — 사용자가 UI 에서 서버를 추가/삭제하는 경로. 주소 **수정 채널은 두지 않는다**:
+  // connector ID 가 주소에서 파생되므로 수정은 곧 도구 이름·승인 키·다운로드 경로의 이동이다.
+  pluginTemplateList: 'orca:plugin:templateList',
+  pluginInstanceCreate: 'orca:plugin:instanceCreate',
+  pluginInstanceDelete: 'orca:plugin:instanceDelete'
 } as const
 
 export type UpdateStateStatus =
@@ -300,6 +305,34 @@ export interface PluginConnectorInfo {
   pluginId: string
   acceptedAuthProviders: string[]
   connected: boolean
+  // 어디서 왔는가 (0161). `static` = 코드로 배포된 서버(UI 에서 삭제 불가),
+  // `instance` = 사용자가 추가한 서버. UI 가 삭제 가능 여부를 이 값으로 판정한다.
+  source: 'static' | 'instance'
+}
+
+// 사용자가 추가할 수 있는 connector 청사진 (0161).
+export interface ConnectorTemplateFieldInfo {
+  name: 'label' | 'baseUrl' | 'apiBasePath'
+  required: boolean
+  i18nKey: string
+  placeholder?: string
+}
+
+export interface ConnectorTemplateInfoDto {
+  templateId: string
+  i18nKey: string
+  fields: ConnectorTemplateFieldInfo[]
+}
+
+export interface PluginInstanceCreateRequest {
+  templateId: string
+  label: string
+  baseUrl: string
+  apiBasePath?: string
+}
+
+export interface PluginInstanceDeleteRequest {
+  connectorId: string
 }
 
 export interface PluginConnectionConnectRequest {
@@ -1141,6 +1174,10 @@ export interface Settings {
   // 인증 게이트 우회(0157 — 구 ssoBypass). true 면 앱 시작 시 로그인 화면을 건너뛴다
   // (디버그 패널에서 토글, DEV 전용).
   authBypass: boolean
+  // 사용자가 UI 에서 추가한 connector 인스턴스 (0161). 항목 형태 검증은 main 의
+  // `features/connectors/instance-store.ts` 가 한다 — 깨진 항목 하나가 배열 전체를 버리게
+  // 하지 않으려고 여기서는 `unknown[]` 으로 받는다. **비밀은 담지 않는다**(AUTH-PLAT-008).
+  connectorInstances: unknown[]
   // 선호 언어(LLM 응답 언어). 시스템 프롬프트 '# User' 헤더로 매 턴 주입. uiLocale 과 별개.
   language: string
   // UI 표시 언어(앱 크롬 로케일, 0096) — 렌더러 i18n(ko/en) + 날짜/시간 포맷 로케일.
