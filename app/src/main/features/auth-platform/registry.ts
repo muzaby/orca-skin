@@ -278,7 +278,10 @@ function sameConnectorDescriptor(
     declared.label === actual.label &&
     sameSortedStrings(declared.acceptedAuthProviders, actual.acceptedAuthProviders) &&
     declared.baseUrl === actual.baseUrl &&
-    sameValue(declared.presentation, actual.presentation)
+    sameValue(declared.presentation, actual.presentation) &&
+    // 선언·구현 한쪽만 presentations 를 가지면 등록 단계에서 거부한다. 이 필드가 어긋나면
+    // 어떤 mechanism 이 어떤 헤더로 나가는지가 문서와 코드에서 갈린다(0160).
+    sameValue(declared.presentations, actual.presentations)
   )
 }
 

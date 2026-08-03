@@ -217,7 +217,12 @@ export const authApi = {
 }
 
 export const pluginApi = {
-  list: (): Promise<PluginConnectorInfo[]> => window.orca.plugins.list()
+  list: (): Promise<PluginConnectorInfo[]> => window.orca.plugins.list(),
+  // 연결·해제 (0160). preload 는 0158 부터 노출하고 있었으나 renderer 호출자가 없었다.
+  connect: (connectorId: string, bindingId: string): Promise<void> =>
+    window.orca.plugins.connect(connectorId, bindingId),
+  disconnect: (connectorId: string): Promise<AuthLogoutOutcome> =>
+    window.orca.plugins.disconnect(connectorId)
 }
 
 // 앱 로그인 target 상수 — renderer 여러 곳이 같은 값을 만들지 않도록 한 곳에 둔다.

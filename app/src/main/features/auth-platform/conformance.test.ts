@@ -7,6 +7,7 @@ import { describe, expect, it } from 'vitest'
 import { buildAuthProviderConformanceCases } from './conformance'
 import type { AuthProviderV1 } from '../../contracts/auth-plugin'
 import { createStaticCredentialProvider } from './providers/static-credential'
+import { createBasicCredentialProvider } from './providers/basic-credential'
 import { createAdfsWiaProvider } from './providers/corp-adfs-wia'
 
 const ORIGIN = 'https://svc.example.invalid'
@@ -33,6 +34,15 @@ const PROVIDERS: Array<{ label: string; create: () => AuthProviderV1 }> = [
         mechanism: 'personal_access_token',
         probeUrl: `${ORIGIN}/me`,
         allowedOrigins: [ORIGIN]
+      })
+  },
+  {
+    label: 'basic-credential (ID/비밀번호 2필드, 0160)',
+    create: () =>
+      createBasicCredentialProvider({
+        id: 'test-basic',
+        pluginId: 'test-pkg',
+        label: 'ID/비밀번호'
       })
   },
   {

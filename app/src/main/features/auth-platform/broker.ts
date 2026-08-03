@@ -12,7 +12,8 @@ import type {
   AuthPlatformState,
   AuthRefreshOutcome,
   AuthStepInfo,
-  AuthTarget
+  AuthTarget,
+  CredentialPresentation
 } from '../../../shared/ipc'
 import type {
   AuthBindingRef,
@@ -30,7 +31,9 @@ import {
   applyPresentation,
   createSender,
   type AuthenticatedFetchDeps,
-  type PreparedRequest
+  type PreparedRequest,
+  type SendOptions,
+  type SendResult
 } from '../../infra/auth/authenticated-fetch'
 import {
   authBindingPrefix,
@@ -39,12 +42,16 @@ import {
 } from '../../infra/auth/credential-vault'
 import { getLogger } from '../../infra/log/registry'
 import { BindingStore } from './bindings'
-import { checkOutboundRequest, type PolicyResult } from './policy'
+import { checkOutboundRequest, checkRedirect, type PolicyResult } from './policy'
 import type { AuthRegistry } from './registry'
 import { runGuarded, TransactionStore, type Transaction } from './transactions'
 
 // binding 이 봉인한 credential 의 vault 키. provider 는 이 이름으로 값을 넣고 broker 가 읽는다.
 export const BINDING_SECRET_NAME = 'secret'
+
+// redirect 추종 상한. 초과는 **오류**다 — 마지막 3xx 를 성공으로 접으면 호출자가 빈 본문을
+// 정상 응답으로 읽는다.
+export const MAX_REDIRECT_HOPS = 5
 
 export interface BrokerDeps {
   registry: AuthRegistry
@@ -289,8 +296,63 @@ export class AuthBroker {
 
     const secret = this.readBindingSecret(binding)
     if (secret === null) throw new Error('binding 의 credential 을 읽을 수 없습니다')
-    const prepared = applyPresentation(base, connector.descriptor.presentation, secret)
-    return this.sender.send(prepared, signal)
+    // 같은 connector 가 PAT(Bearer)와 ID/비밀번호(Basic)를 함께 받으면 표현이 하나로 고정될 수
+    // 없다. binding 의 mechanism 으로 고르고, 선언에 없으면 기본 presentation 으로 되돌아간다.
+    const presentation =
+      connector.descriptor.presentations?.[binding.mechanism] ?? connector.descriptor.presentation
+    const prepared = applyPresentation(base, presentation, secret)
+    const options: SendOptions = {
+      ...(req.responseType !== undefined ? { responseType: req.responseType } : {}),
+      ...(req.maxBytes !== undefined ? { maxBytes: req.maxBytes } : {})
+    }
+
+    return this.sendFollowingRedirects(
+      prepared,
+      presentation,
+      secret,
+      connector.descriptor.baseUrl,
+      options,
+      signal
+    )
+  }
+
+  // `redirect:'manual'` 이라 3xx 는 전송자가 그대로 돌려준다. 여기서 policy 로 Location 을
+  // 재검사한 뒤에만 다음 홉을 보낸다 — 허용 밖이면 **요청 자체를 만들지 않으므로** credential 이
+  // 그 origin 으로 나가지 않는다. 0160 이전에는 재검사 호출자가 없어 302 가 빈 본문 응답으로
+  // 반환됐다(첨부 다운로드가 빈 파일로 끝나던 원인).
+  private async sendFollowingRedirects(
+    initial: PreparedRequest,
+    presentation: CredentialPresentation,
+    secret: string,
+    allowedOrigin: string,
+    options: SendOptions,
+    signal?: AbortSignal
+  ): Promise<AuthenticatedFetchResponse> {
+    let request = initial
+    for (let hop = 0; hop <= MAX_REDIRECT_HOPS; hop += 1) {
+      const response = await this.sender.send(request, signal, options)
+      const location = redirectLocation(response)
+      if (location === null) return response
+
+      const next = resolveLocation(request.url, location)
+      if (next === null) throw new Error('인증 정책 거부: invalid_redirect')
+      const verdict = checkRedirect(next, [allowedOrigin])
+      if (!verdict.ok) throw policyError(verdict)
+
+      // 303 과 "GET 이 아닌 요청의 301/302" 는 GET 으로 낮추는 것이 HTTP 규약이다.
+      const method = downgradeMethod(response.status, request.method)
+      request = applyPresentation(
+        {
+          url: next,
+          method,
+          headers: { ...initial.headers },
+          ...(method === initial.method && initial.body !== undefined ? { body: initial.body } : {})
+        },
+        presentation,
+        secret
+      )
+    }
+    throw new Error(`인증 정책 거부: too_many_redirects (${MAX_REDIRECT_HOPS} 홉 초과)`)
   }
 
   // MCP `${BINDING:<id>}` 해석용. **요구명세 §소비자 경계의 문서화된 예외** — claude CLI 가
@@ -528,6 +590,32 @@ export function joinUrl(baseUrl: string, path: string, query?: Record<string, st
 
 function policyError(verdict: PolicyResult & { ok: false }): Error {
   return new Error(`인증 정책 거부: ${verdict.reason} (${verdict.detail})`)
+}
+
+// 3xx + Location 이 있을 때만 redirect 로 본다. 304(Not Modified)는 재요청 대상이 아니다.
+function redirectLocation(response: SendResult): string | null {
+  if (response.status < 300 || response.status >= 400 || response.status === 304) return null
+  const header = Object.entries(response.headers).find(
+    ([name]) => name.toLowerCase() === 'location'
+  )
+  const value = header?.[1]?.trim()
+  return value ? value : null
+}
+
+// Location 은 상대 경로일 수 있다. 현재 URL 기준으로 해석한 절대 URL 을 돌려준다.
+function resolveLocation(currentUrl: string, location: string): string | null {
+  try {
+    return new URL(location, currentUrl).toString()
+  } catch {
+    return null
+  }
+}
+
+function downgradeMethod(status: number, method: string): string {
+  const upper = method.toUpperCase()
+  if (upper === 'GET' || upper === 'HEAD') return method
+  // 303 은 항상, 301/302 는 관례상 GET 으로 낮춘다. 307/308 은 메서드·본문을 보존한다.
+  return status === 303 || status === 301 || status === 302 ? 'GET' : method
 }
 
 function safeOrigin(rawUrl: string): string {

@@ -125,7 +125,7 @@ export function ExtensionsCatalogView(): React.JSX.Element {
             onToggle={() => void mcp.toggle(selectedMcp.id, !selectedMcp.enabled)}
           />
         ) : selectedPlugin ? (
-          <PluginDetail plugin={selectedPlugin} />
+          <PluginDetail plugin={selectedPlugin} onChanged={plugins.refresh} />
         ) : skills.loading || mcp.loading || plugins.loading ? (
           <div className="grid flex-1 place-items-center text-ink3">{tr('common.loading')}</div>
         ) : (

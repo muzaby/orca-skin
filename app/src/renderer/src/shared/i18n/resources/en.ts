@@ -112,6 +112,22 @@ export const en: typeof ko = {
       disconnectedPlugins: 'Disconnected plugin packages'
     },
     view: { selectItem: 'Select an item.', backAria: 'Back to {{section}} list' },
+    connect: {
+      title: 'Connect {{name}}',
+      server: 'Server address',
+      serverHint: 'The server address is fixed at install time. Ask an administrator to change it.',
+      method: 'Authentication method',
+      submit: 'Connect',
+      connect: 'Connect',
+      disconnect: 'Disconnect',
+      noProvider: 'No authentication method is available for this connector.',
+      failInvalid: 'The credentials were rejected. Please try again.',
+      failUnreachable:
+        'Could not reach the server. The address is an install setting — ask an administrator.',
+      failAlreadyConnected: 'Already connected. Disconnect first.',
+      failCancelled: 'The connection was cancelled.',
+      failUnknown: 'The connection failed.'
+    },
     pluginDetail: {
       providers: 'Auth providers',
       connectors: 'Connectors',

@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-03 (r2) |
 | 매핑 | PHASES 신규 행 (Phase 3++) / PR #307 |
-| 상태 | DRAFT → READY |
+| 상태 | IMPL_DONE (Claude 직접 구현 — 환경에 Codex 부재, 사용자 지시) |
 
 ### 설계 개정 이력
 
@@ -493,48 +493,84 @@ presentations: {
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- 동의 / 그대로 진행: …
-- 이견 / 우려: …
+> 구현 주체 이탈 기록: 본 저장소 규약(`docs/handoff/AGENTS.md` §역할 분담)상 **기능 구현은 Codex**
+> 몫이지만, 이 환경에 Codex 가 없고 사용자가 Claude 에게 직접 구현을 지시했다(2026-08-03).
+> 절차·커밋 trailer 형식은 구현 턴 규약을 그대로 따랐다.
+
+- **동의 / 그대로 진행**
+  - r2 의 범위 축소가 옳았다. `originMode`·connect IPC `origin`·`ConnectorOriginPort` 를 뺀 결과
+    **IPC·preload·DTO 를 한 줄도 건드리지 않았다** — 구현 중 `shared/protocol.ts` 를 열 일이 없었다.
+    r1 안이었다면 policy·registry·connection record·DTO 까지 같은 PR 에 들어왔을 것이다.
+  - "계약 확장 4건" 이 실제로 4건이었다. 넷 다 없이는 첨부 다운로드가 성립하지 않는 것을
+    구현하며 재확인했다 — 특히 redirect 는 `checkRedirect` 를 **부르는 코드가 처음 생긴** 것이다.
+  - 순수부 seam 지정이 유효했다. `rest`·`storage-to-markdown`·`limit` 은 네트워크·fs 없이 전량
+    단위 테스트되고, connector 는 `AuthenticatedFetch` fake 주입만으로 11 케이스가 돌았다.
+
+- **이견 / 우려**
+  1. **§도구 3종의 `confluence_get_page` 는 설계보다 큰 단위다.** 페이지 조회 + 변환 + 첨부 목록 +
+     N 개 다운로드 + 3개 파일 쓰기가 도구 한 번에 일어난다. 실패 지점이 많아 부분 실패 처리를
+     설계에 없던 `failedAssets` 로 표면화했다(아래 놓친 문제 3). 설계의 "결과에 잘림 여부" 만으로는
+     "첨부 2개 중 1개 실패" 를 표현할 수 없었다.
+  2. **AC 표의 `사용자 정정 반영` 이 §설계 본문보다 늦게 반영된 흔적이 있었다.** §데이터 흐름에
+     `connectionId: uuid` 를 renderer 가 만든다고 적혀 있는데, 이는 0158 계약 그대로이므로 맞다.
+     다만 "모달을 열 때마다 새 `connectionId`" 는 §파생 UX 에만 있고 AC 에는 없다 — 구현은 §파생 UX
+     를 따랐고 훅 주석에 근거를 남겼다. AC 로 승격할지는 검증자 판단에 맡긴다.
+  3. **AC29·30(사람 실기)은 전제가 하나 더 있다.** 설계는 `servers.ts` 편집 + 배열 한 줄을 적었는데,
+     실제로는 `modules/index.ts` 가 `createConfluencePackage` 를 **import** 해야 한다(배열 한 줄이
+     import 한 줄을 동반한다). `confluence/AGENTS.md` 에 두 줄 모두 적었다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 구현함 / ⚠️ 보고만·**결정 필요** | … |
+| 1 | **zod 4 의 `z.record(enum, v)` 는 키를 exhaustive 로 요구한다.** `presentations` 를 `Partial<Record<AuthMechanism, …>>` 로 설계했는데 `z.record` 로 쓰면 8개 mechanism 을 전부 적지 않은 manifest 가 거부된다 | ✅ `z.partialRecord` 로 구현하고 근거를 스키마 주석에 남김 | 실측: `z.record(E,z.string()).safeParse({a:'1'}).success === false`, `z.partialRecord` 는 `true` (zod 4.4.3) |
+| 2 | **`sanitizeAssetName` 결과가 `..` 로 시작하면 `isWithinDir` 이 경로 이탈로 오판한다.** `../../etc/passwd` → `.._.._etc_passwd` 는 안전한 *파일명*인데 `relative()` 결과가 `..` 로 시작해 `resolveAssetPath` 가 거부했다(테스트가 잡음) | ✅ 선두 점 2개 이상을 `_` 로 치환(`.hidden` 은 보존). 공유 헬퍼는 손대지 않았다 — 디렉터리 판정에는 그 휴리스틱이 맞다 | `infra/config/paths.ts:72-75` · `download-store.test.ts::"상위 참조를 이름으로 눌러앉힌다"` |
+| 3 | **첨부 부분 실패를 표현할 자리가 없었다.** 설계 결과 타입에 `assets` 만 있어 "2개 중 1개 404" 가 성공으로 보인다 | ✅ `failedAssets: {filename, message}[]` 추가 + `manifest.json` 에 기록. 페이지 저장은 계속 진행한다 | `connector.test.ts::"첨부 하나가 실패해도 페이지 저장은 완료된다"` |
+| 4 | **인증 실패 시 로그인 HTML 이 200 으로 오는 배포가 있다.** 상태 코드만 보면 `ready` 로 판정된다 | ✅ `json()` 이 파싱 실패를 오류로 올리고 `start()` 가 `unreachable` 로 낮춘다 | `connector.test.ts::"JSON 이 아닌 200 응답도 실패로 본다"` |
+| 5 | **`download-store.ts` 에 리터럴 제어문자를 넣어 파일이 binary 로 취급됐다**(grep·diff 가 깨짐) | ✅ `/[\u0000-\u001f\u007f]/` 이스케이프로 교체하고 이유를 주석에 남김 | `file(1)` 출력이 `JavaScript source, Unicode text` 로 복귀 |
+| 6 | **예시 connector ID 가 fixture 금지 리터럴과 충돌했다.** `confluence-rnd` 는 `__fixtures__/isolation.test.ts` 가 core 에서 금지하는 3개 중 하나인데 내 예시·테스트가 그 이름을 썼다 | ✅ `confluence-lab` 으로 개명. 격리 가드가 잡은 것이므로 가드를 고치지 않았다 | `isolation.test.ts:8` |
+| 7 | **`storage-to-markdown` ↔ `download-store` 순환 import** (`ASSETS_DIR` ↔ `sanitizeAssetName`) — `import/no-cycle` error | ✅ `ASSETS_DIR` 을 경로 관심사로 보고 `download-store` 로 이동, 의존을 한 방향으로 정리 | `npm run lint` |
+| 8 | turndown 실제 출력이 가정과 달랐다 — 취소선은 물결 **1개**, 목록 들여쓰기는 3칸, `[` 는 `\[` 로 이스케이프 | ✅ 미지원 매크로 마커에서 대괄호 제거(출력 품질), 나머지는 실측값으로 테스트를 맞춤 | `storage-to-markdown.test.ts` 3 케이스 |
+| 9 | **`FAILURE_KEY` 를 `Record<_, string>` 으로 선언하면 i18n 키 리터럴 타입 검사가 죽는다** | ✅ `as const satisfies Record<ConnectFailure, string>` 로 교체 | `npm run typecheck:web` |
 
 ## [구현자 기입] 구현 체크리스트
 
 ### Task A — 계약 확장 4건
 
-- [ ] `app/node_modules` 가 없으면 `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` 후 진행하고 lockfile diff 를 확인한다.
-- [ ] RED: 바이너리 응답·`maxBytes`·redirect 추종/거부·`presentations` 선택 및 fallback·registry 대조·`BasicPair`·2필드 provider 테스트를 먼저 작성한다.
-- [ ] 계약·스키마·`createSender`·broker·provider 를 최소 구현하고 표적 vitest + `npm run typecheck` 를 통과시킨다.
-- [ ] `__fixtures__` 스위트가 **무변경으로** 통과하는지 확인한다(AC8).
+- [x] `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` 로 설치(electron 바이너리는 egress 차단).
+- [x] RED→GREEN: 바이너리 응답·`maxBytes`(선언/누적)·redirect 추종/거부/홉상한·`presentations`
+      선택 및 fallback·registry 대조·`BasicPair`·2필드 provider.
+- [x] `__fixtures__` 스위트가 **무변경으로** 통과(AC8) — `presentations` 미선언 패키지 회귀 케이스 추가.
+- [x] `basic-credential` 을 `conformance.test.ts` PROVIDERS 표에 한 줄 추가(모듈 규약).
 
 ### Task B — Confluence 패키지
 
-- [ ] 신규 의존성 4개를 설치하고 `package.json` diff 가 dependencies 3 + devDependencies 1 인지 확인한다.
-- [ ] RED→GREEN 순서로 `servers` → `rest` → `storage-to-markdown` → `limit` → `download-store` → `connector` → `tools` → `index` 를 구현한다.
-- [ ] `isolation.test.ts` 가 여전히 통과하는지 확인한다(신규 ID 가 금지 리터럴 3개와 겹치지 않는다).
-- [ ] `AUTH_PLUGIN_PACKAGES` 기본값은 **빈 배열로 유지**하고, 활성화 절차를 `modules/confluence/AGENTS.md` 에 적는다.
+- [x] 신규 의존성 4개 설치 — `package.json` diff = dependencies 3 + devDependencies 1, **p-limit 없음**.
+- [x] `servers` → `rest` → `storage-to-markdown` → `limit` → `download-store` → `connector` →
+      `tools` → `index` 순 RED→GREEN.
+- [x] `isolation.test.ts` 통과(예시 ID 를 `confluence-lab` 으로 개명해 충돌 해소).
+- [x] `AUTH_PLUGIN_PACKAGES` 기본값 **빈 배열 유지** + 활성화 절차를 `confluence/AGENTS.md` 에 기록.
 
 ### Task C — UI · 문서
 
-- [ ] `connectorConnect` lib 테스트(방식 목록·연결 액션·실패 분류·주소 읽기 전용 계약)를 먼저 작성한다.
-- [ ] `pluginApi.connect`·`disconnect` 를 추가하고 모달·훅·카탈로그 버튼을 배선한다.
-- [ ] ko/en i18n 키를 양쪽에 추가하고 `resources.test.ts` 를 통과시킨다.
-- [ ] `modules/AGENTS.md` 를 갱신한다. `docs/IPC_CONTRACT.md` 는 **수정하지 않는다**(무변경 확인).
-- [ ] 전체 게이트를 돌리고 사람 실기 2건(AC29·30)은 대기로 보고한다.
+- [x] `connectorConnect` lib 테스트 15 케이스(방식 목록·연결 액션·실패 분류·주소 읽기 전용 계약).
+- [x] `pluginApi.connect`·`disconnect` 추가 + 모달·훅·카탈로그 버튼 배선 + `usePluginCatalog.refresh`.
+- [x] ko/en i18n 키 13개씩 추가 — `resources.test.ts` 통과.
+- [x] `modules/AGENTS.md` 갱신 + `modules/confluence/{AGENTS.md,CLAUDE.md}` 신설.
+- [x] `docs/IPC_CONTRACT.md` **미수정 확인** — 채널·payload·DTO 무변경.
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` |
-| 게이트 결과 | lint … / typecheck … / test … |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | 수정 21 + 신규 20 (`modules/confluence/` 14 · `providers/basic-credential*` 2 · renderer 4). 상세는 §영향 받는 파일과 일치하며, 계획에 없던 신규는 `confluence/servers.ts`(설계 §서버 등록에 있었음) 뿐이다 |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` · `node --test scripts/*.test.mjs` |
+| 게이트 결과 | lint **0 error**(warning 1 = `useTranscriptVirtualizer` 0102 베이스라인) · typecheck **3/3 통과** · vitest **1666/1666 pass** · scripts **28/28 pass** |
+| 알려진 환경 실패 | `app/chat-turn.continuity.test.ts` **1파일이 collection 단계에서 실패** — `Electron failed to install correctly`. egress 차단으로 electron 바이너리를 못 받아서이며 코드 무관(`app/AGENTS.md` §제약 환경 베이스라인, 0158 AC26 과 동일). `npm rebuild better-sqlite3`(Node ABI) 후 DB 스위트는 전부 green |
+| 신규 의존성 | cheerio 1.2.0 · turndown 7.2.4 · turndown-plugin-gfm 1.0.2 · @types/turndown 5.0.6 (승인분 정확히 4개, p-limit 미포함) |
+| 사람 실기 대기 | AC29·30 — 사내 Confluence DC 서버 필요. 전제: `confluence/servers.ts` 에 origin 기입 + `modules/index.ts` 에 import·배열 두 줄 |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | (아래 커밋 hash) |
 
 ---
 
