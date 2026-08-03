@@ -24,12 +24,9 @@ export const ROUTES = [
     breadcrumbKey: 'nav.projectsBreadcrumb'
   },
   { pattern: '/agent', labelKey: 'nav.engine', breadcrumbKey: 'nav.engineBreadcrumb' },
-  { pattern: '/plugins', labelKey: 'nav.plugins', breadcrumbKey: 'nav.pluginsBreadcrumb' },
   { pattern: '/captures', labelKey: 'nav.captures', breadcrumbKey: 'nav.capturesBreadcrumb' }
 ] as const
 
 // fallback — 매칭되지 않는 경로 (`/` 부팅 직후 한 프레임, catch-all 직전 등) 에서
 // AppLayout 이 사용할 안전 기본값.
 export const DEFAULT_ROUTE_INFO: RouteInfo = ROUTES[0]
-
-export const LEGACY_ROUTE_REDIRECTS = { '/skills': '/plugins' } as const

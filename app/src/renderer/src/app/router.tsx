@@ -4,10 +4,8 @@ import { NewChatLandingPage } from '../pages/NewChatLandingPage'
 import { ProjectsPage } from '../pages/ProjectsPage'
 import { ProjectLandingPage } from '../pages/ProjectLandingPage'
 import { AgentPage } from '../pages/AgentPage'
-import { PluginsPage } from '../pages/PluginsPage'
 import { CapturesPage } from '../pages/CapturesPage'
 import { BootRedirector } from './BootRedirector'
-import { LEGACY_ROUTE_REDIRECTS } from '../shared/navigation/routes'
 
 // path 라우팅의 진실의 출처. 화면 ID → element 매핑.
 // - `/`         : BootRedirector — lastSessionId 가 있으면 /chat/<id>, 없으면 /new 로 replace
@@ -27,10 +25,6 @@ export function AppRouter(): React.JSX.Element {
       <Route path="/projects" element={<ProjectsPage />} />
       <Route path="/projects/:projectId" element={<ProjectLandingPage />} />
       <Route path="/agent" element={<AgentPage />} />
-      <Route path="/plugins" element={<PluginsPage />} />
-      {Object.entries(LEGACY_ROUTE_REDIRECTS).map(([from, to]) => (
-        <Route key={from} path={from} element={<Navigate to={to} replace />} />
-      ))}
       <Route path="/captures" element={<CapturesPage />} />
       <Route path="*" element={<Navigate to="/new" replace />} />
     </Routes>

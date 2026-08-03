@@ -23,12 +23,12 @@ export const SIDEBAR_NAV = [
   {
     icon: 'layers',
     labelKey: 'sidebar.nav.plugins',
-    path: '/plugins',
-    isActive: (p: string) => p.startsWith('/plugins')
+    path: null,
+    isActive: () => false
   }
 ] as const satisfies readonly {
   icon: IconName
   labelKey: MessageKey
-  path: string
+  path: string | null
   isActive: (pathname: string) => boolean
 }[]

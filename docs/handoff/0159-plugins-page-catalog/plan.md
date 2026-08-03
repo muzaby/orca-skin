@@ -9,7 +9,7 @@
 | 일자 | 2026-08-03 |
 | 매핑 | PHASES 신규 행 (Phase 4) / PR 미정 |
 | 상태 | DRAFT → **READY** |
-| 개정 | **r2 (2026-08-03)** — "플러그인" 어휘 3중 의미 정합(§용어 레지스터 정합 신설, 결정 ⑥⑦). 초판이 인용한 `GLOSSARY.md §Plugin` 이 **실재하지 않음**을 확인해 정정하고, 표제어 신설을 산출물로 편입(AC15~17). 탭 구성·데이터 출처는 초판과 동일. |
+| 개정 | **r3 (2026-08-03)** — 사용자 구현 리뷰에 따라 라우트 페이지를 공용 `Modal` 기반 카탈로그로 전환하고, 추가 리소스 배선과 표 그룹을 복구. r2의 라우트 페이지 결정은 명시적으로 supersede. / **r2 (2026-08-03)** — "플러그인" 어휘 3중 의미 정합(§용어 레지스터 정합 신설, 결정 ⑥⑦). 초판이 인용한 `GLOSSARY.md §Plugin` 이 **실재하지 않음**을 확인해 정정하고, 표제어 신설을 산출물로 편입(AC15~17). 탭 구성·데이터 출처는 초판과 동일. |
 
 ## 사용자 의도 / 요구 출처 (Intent & Provenance)
 
@@ -23,6 +23,23 @@
 | 명시 지적 ⑥ | "플러그인의 용어가 혼용되고 있는데, 이번 핸드오프에서 언급한 플러그인은 **uiux 에서 적합한 용어**이고, 코드에서 orca plugin 의 경우 **claude 플랫폼에서 사용되는 용어**이다." → 두 "플러그인" 은 *같은 개념의 다른 표기* 가 아니라 **다른 레지스터의 다른 개념**이다. | 라이브 세션 지적 (r2 `/handoff-plan` 인자) |
 | 명시 결정 ⑦ | 지적 ⑥ 을 받아 3번째 탭 정체성을 재질의한 결과 — **"플러그인 탭 유지 / 행 = 플러그인 패키지"**(초판 설계 그대로). 어휘 해소는 UI 재명명이 아니라 **레지스터 구분 + GLOSSARY 표제어 등록**으로 한다. | 세션 중 `AskUserQuestion` 응답 (r2) |
 | 추론 의도 | "참고하여"(②) = *복제* 가 아니라 **하위 구성(3탭 레일 + 목록→상세 1-depth 드릴인 + 테이블 목록)의 채택**. 결정 ③~⑤ 가 컨테이너·어휘·식별자를 명시적으로 갈랐으므로, 참조 브랜치에서 가져오는 것은 **레이아웃 구성뿐**이다. (추론) | 요구 ② 의 "참고" + 결정 ③④⑤ 의 조합 |
+
+## r3 사용자 구현 리뷰 — 요구 비판적 검토 및 결정 supersede
+
+| 요구 | 비판적 검토 | 결정 / 검증 |
+|---|---|---|
+| 사이드바 플러그인 클릭 시 모달 | r2의 라우트 페이지 결정과 정면 충돌하지만 사용자가 실제 구현을 본 뒤 명시적으로 뒤집었다. 저장 가능한 딥링크 소비자가 아직 없으므로 지금 되돌리는 비용이 가장 낮다. | 공용 `shared/ui/Modal`을 재사용하고 `AppLayout`에 단일 인스턴스를 합성한다. `/plugins` 라우트·페이지는 제거한다. |
+| 스킬·MCP 추가 리소스 재사용 | 신규 폼을 만들 필요가 없다. 기존 `SkillAddMenu`→`SkillAuthorModal`/`SkillUploadModal`, `CustomMcpModal`과 각 hook mutation이 이미 정본이다. 초판은 배선이 있었지만 hover 2-depth 메뉴 때문에 실제 클릭 경로가 불안정했다. | 스킬 추가 메뉴를 직접 2행으로 단순화해 기존 두 모달에 확실히 연결하고 MCP는 기존 `CustomMcpModal`을 유지한다. |
+| 모든 표 그룹 출력 | flat table은 기존 스킬 source 그룹 정보를 잃어 사용자 스캔 비용을 높였다. 괄호 예시는 Claude/Orca 스킬을 지목하지만 일관성을 위해 MCP·플러그인에도 상태 그룹을 제공하는 것이 타당하다. | 스킬=source, MCP=활성 상태, 플러그인=연결 상태별 `rowgroup` 헤더를 렌더한다. |
+
+### r3 추가 인수 기준
+
+| # | 인수 기준 | 검증 수단 | 프로덕션 도달 경로 |
+|---|---|---|---|
+| 18 | 사이드바 플러그인 항목은 URL을 바꾸지 않고 modal store를 열며, 공용 `Modal`이 Esc/백드롭으로 닫힌다. | `navItems.test.ts` + `extensionsModalStore.test.ts` + 사람 실기 | `AppLayout` → `Sidebar.onOpenPlugins` → `ExtensionsCatalogModal` → `shared/ui/Modal` |
+| 19 | 스킬 추가 메뉴의 두 직접 행이 기존 지침 작성·업로드 모달을 열고 성공 시 `useCustomizeSkills.author/upload` 결과가 표에 반영된다. MCP 추가는 기존 `CustomMcpModal`→`useMcpServers.add`를 유지한다. | typecheck + 사람 실기(각 버튼 클릭 후 생성/업로드/추가) | `ExtensionsCatalogView`의 기존 mutation hook 배선 |
+| 20 | 스킬 표는 sourceId별(Orca/Claude 포함), MCP는 enabled별, 플러그인은 연결 여부별 그룹 헤더를 출력한다. | 사람 실기 + `CustomizeList.tsx` 정적 리뷰 | `ExtensionsCatalogView` → `CustomizeList` |
+| 21 | `/plugins` route/page가 제거되어 모달과 라우트라는 중복 진입 계약이 남지 않는다. | `routes.test.ts::모달인 플러그인 카탈로그는 ROUTES 에 없다` + typecheck | `AppRouter`/`ROUTES` |
 
 ## Context (왜)
 
@@ -438,9 +455,9 @@ pages/PluginsPage.tsx
 |---|---|
 | 변경 파일 | renderer 25파일(신규 테스트 5 포함) · 문서 7파일 · handoff 메타 2파일 |
 | 실행 명령 | `npm run lint` / `npm run typecheck` / `npm test` / AC13·AC15~17 `rg`·`head` |
-| 게이트 결과 | lint 0 error(기존 warning 1) / typecheck 3분할 PASS / vitest 177파일·1512테스트 + scripts 28 PASS / 문서 grep PASS |
-| 블로커 / 역질문 | 코드 블로커 없음. AC8 후반부·AC11은 GUI 사람 실기 대기. OQ2 구현 상태 문구는 계획대로 미판단. |
-| 대상 커밋 | `f055b14` |
+| 게이트 결과 | r3 lint 0 error(기존 warning 1) / typecheck 3분할 PASS / 전체 vitest 177파일·1511테스트 + scripts 28 PASS, 신규 focused 3파일·4테스트 PASS / 문서 grep PASS |
+| 블로커 / 역질문 | 코드 블로커 없음. r3 AC19 추가 플로우와 AC20 그룹 시각은 GUI 사람 실기 대기. OQ2 구현 상태 문구는 계획대로 미판단. |
+| 대상 커밋 | `f055b14` (r1), `7e58061` (r2/r3 보완) |
 
 ---
 

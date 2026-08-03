@@ -1,4 +1,4 @@
-import { useState, type RefObject } from 'react'
+import type { RefObject } from 'react'
 import { Popover } from '../../../../shared/ui/Popover'
 import { Icon, type IconName } from '../../../../shared/ui/Icon'
 import { useI18n } from '../../../../shared/i18n'
@@ -6,13 +6,11 @@ import { useI18n } from '../../../../shared/i18n'
 function MenuRow({
   icon,
   label,
-  trailing,
   onClick
 }: {
   icon: IconName
   label: string
-  trailing?: IconName
-  onClick?: () => void
+  onClick: () => void
 }): React.JSX.Element {
   return (
     <button
@@ -23,7 +21,6 @@ function MenuRow({
     >
       <Icon name={icon} size={14} color="var(--color-ink2)" />
       <span className="flex-1">{label}</span>
-      {trailing && <Icon name={trailing} size={13} color="var(--color-ink3)" />}
     </button>
   )
 }
@@ -41,39 +38,26 @@ export function SkillAddMenu({
   onAuthor: () => void
   onUpload: () => void
 }): React.JSX.Element | null {
-  const [subOpen, setSubOpen] = useState(false)
   const { tr } = useI18n()
   return (
     <Popover open={open} anchorRef={anchorRef} onClose={onClose} placement="bottom">
-      <div
-        className="relative"
-        onMouseEnter={() => setSubOpen(true)}
-        onMouseLeave={() => setSubOpen(false)}
-      >
-        <MenuRow icon="plus" label={tr('skills.addMenu.create')} trailing="chevR" />
-        {subOpen && (
-          <div
-            role="menu"
-            className="absolute left-full top-0 z-10 ml-1 min-w-[220px] rounded-lg border border-border bg-panel p-1 shadow-lg"
-          >
-            <MenuRow
-              icon="doc"
-              label={tr('skills.addMenu.author')}
-              onClick={() => {
-                onClose()
-                onAuthor()
-              }}
-            />
-            <MenuRow
-              icon="upload"
-              label={tr('skills.addMenu.upload')}
-              onClick={() => {
-                onClose()
-                onUpload()
-              }}
-            />
-          </div>
-        )}
+      <div role="menu" className="min-w-[220px] p-1">
+        <MenuRow
+          icon="doc"
+          label={tr('skills.addMenu.author')}
+          onClick={() => {
+            onClose()
+            onAuthor()
+          }}
+        />
+        <MenuRow
+          icon="upload"
+          label={tr('skills.addMenu.upload')}
+          onClick={() => {
+            onClose()
+            onUpload()
+          }}
+        />
       </div>
     </Popover>
   )
