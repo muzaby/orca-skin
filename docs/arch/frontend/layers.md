@@ -22,7 +22,7 @@ src/renderer/
     ├── app/                         ✅ 셸 — 고정 골격. cross-feature wiring 권한.
     │   ├── AppLayout.tsx            # Header + Sidebar (슬롯) + main + OverlayLayer 조립. 본체는 wiring hook 호출 + JSX 만
     │   ├── Header.tsx               # `app-frame-header` — 브랜드 + breadcrumb + WinControls + drag 2-layer + 조건부 업데이트 버튼/파란 뱃지(0085/0086) + 햄버거 메뉴(버전 → HeaderVersionModal, 0083)
-    │   ├── Sidebar.tsx              # `app-frame-sidebar` — NAV 4-항목(새 대화·프로젝트·엔진&모델·플러그인, 0083) + collapsible/resizable + 슬롯 (sessions/footer). React.memo + 도메인 특정 설정값 (SIDEBAR_MIN/MAX/DEFAULT_WIDTH) 유지
+    │   ├── Sidebar.tsx              # `app-frame-sidebar` — NAV 4-항목(새 대화·프로젝트·엔진&모델·플러그인 모달, 0083/0159) + collapsible/resizable + 슬롯 (sessions/footer). React.memo + 도메인 특정 설정값 (SIDEBAR_MIN/MAX/DEFAULT_WIDTH) 유지
     │   ├── SidebarUserButton.tsx    # 사이드바 하단 사용자 버튼 (언어 플라이아웃 포함)
     │   ├── OverlayLayer.tsx         # `#app-frame-overlay` + `#app-frame-modal` + `#app-frame-debug` 3슬롯 통합 — SearchModal·ConfirmDialogHost·UpdateDialog(0085)·(dev) DebugPanel+UpdateDebugSection 호스트
     │   ├── SearchModal.tsx          # FTS5 전문 검색 모달
@@ -30,7 +30,7 @@ src/renderer/
     │   ├── LoginFrame.tsx           # (dev 전용) features/login LoginView 호스트
     │   ├── boot/                    # BootScreen + bootStore + steps (부팅 오케스트레이션, 0077)
     │   ├── WinControls.tsx          # minimize/maximize/close IPC. macOS → null
-    │   ├── router.tsx               # `<Routes>` — URL path → Page (which). `/`=BootRedirector · `/new`=NewChatLandingPage · `/chat`→/new · `/chat/:sessionId`=ChatPage · `/projects` · `/projects/:projectId` · `/agent` · `/plugins` · `/captures` · `*`→/new
+    │   ├── router.tsx               # `<Routes>` — URL path → Page (which). `/`=BootRedirector · `/new`=NewChatLandingPage · `/chat`→/new · `/chat/:sessionId`=ChatPage · `/projects` · `/projects/:projectId` · `/agent` · `/captures` · `*`→/new
     │   ├── BootRedirector.tsx       # `/` 라우트 element — settings.lastSessionId → `/chat/<id>` 또는 `/new` replace
     │   └── hooks/                   # cross-feature wiring (셸 내부 전용)
     │       ├── useChatRouteSync.ts      # URL ↔ ChatState 동기화 (방향 1: `/new` · `/chat/:id` · `/projects/:id` 모두 처리, 방향 2: armed-ref 패턴 — sessionId null→non-null 전이 시 `/chat/<id>` replace)

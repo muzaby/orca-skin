@@ -105,6 +105,12 @@ export const en: typeof ko = {
       noMcp: 'No registered MCP servers.',
       noPlugins: 'No registered plugin packages.'
     },
+    groups: {
+      activeMcp: 'Active MCP',
+      inactiveMcp: 'Inactive MCP',
+      connectedPlugins: 'Connected plugin packages',
+      disconnectedPlugins: 'Disconnected plugin packages'
+    },
     view: { selectItem: 'Select an item.', backAria: 'Back to {{section}} list' },
     pluginDetail: {
       providers: 'Auth providers',

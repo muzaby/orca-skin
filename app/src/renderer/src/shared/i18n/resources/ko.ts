@@ -103,6 +103,12 @@ export const ko = {
       noMcp: '등록된 MCP 서버가 없습니다.',
       noPlugins: '등록된 플러그인 패키지가 없습니다.'
     },
+    groups: {
+      activeMcp: '활성 MCP',
+      inactiveMcp: '비활성 MCP',
+      connectedPlugins: '연결된 플러그인 패키지',
+      disconnectedPlugins: '연결되지 않은 플러그인 패키지'
+    },
     view: { selectItem: '항목을 선택하세요.', backAria: '{{section}} 목록으로 돌아가기' },
     pluginDetail: {
       providers: '인증 제공자',

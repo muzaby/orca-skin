@@ -66,7 +66,7 @@
 | 이름 | 쉬운 설명 | 정본 |
 |---|---|---|
 | **Screen** | Tile 의 *내용물* 인 도메인 화면(개념). 구 `screens/` 디렉토리·`registry.ts` 는 PR #29 로 해체 — 지금은 `pages/*Page.tsx` 가 `features/<domain>/` 뷰를 조립한다. | [GLOSSARY §2](../../GLOSSARY.md#2-아키텍처-용어) |
-| **라우트 화면** | `/chat`(대화) · `/new`(새 대화) · `/projects`(프로젝트) · `/agent`(엔진/모델 설정) · `/plugins`(플러그인). | [ux-domains.md §3](./ux-domains.md) |
+| **라우트 화면** | `/chat`(대화) · `/new`(새 대화) · `/projects`(프로젝트) · `/agent`(엔진/모델 설정). | [ux-domains.md §3](./ux-domains.md) |
 | **SearchModal** | 헤더 검색 버튼으로 여는 대화 전문검색(FTS5) 모달. | [ux-domains.md §3](./ux-domains.md) |
 | **AuthExpiredModal / InstallerDialog** | 인증 만료 안내 모달 / CLI 설치 진행 로그 다이얼로그. | [ux-domains.md §1](./ux-domains.md) |
 
