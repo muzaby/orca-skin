@@ -570,7 +570,7 @@ presentations: {
 | 신규 의존성 | cheerio 1.2.0 · turndown 7.2.4 · turndown-plugin-gfm 1.0.2 · @types/turndown 5.0.6 (승인분 정확히 4개, p-limit 미포함) |
 | 사람 실기 대기 | AC29·30 — 사내 Confluence DC 서버 필요. 전제: `confluence/servers.ts` 에 origin 기입 + `modules/index.ts` 에 import·배열 두 줄 |
 | 블로커 / 역질문 | 없음 |
-| 대상 커밋 | (아래 커밋 hash) |
+| 대상 커밋 | `c0d1523` |
 
 ---
 
