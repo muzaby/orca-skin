@@ -1,4 +1,5 @@
-import type { RuntimeToolContribution } from '../../../../adapters/runtime-tools'
+import type { RuntimeToolContribution, RuntimeToolResult } from '../../../../adapters/runtime-tools'
+import type { ConnectorResult } from '../../../../contracts/connector-plugin'
 import type { ConnectorRuntimeV1 } from '../../../../contracts/connector-plugin'
 import { createStaticCredentialProvider } from '../../providers/static-credential'
 import type { AuthPluginPackage } from '../index'
@@ -41,6 +42,26 @@ function connectorRuntime(config: (typeof CONNECTORS)[number]): ConnectorRuntime
   }
 }
 
+// ★ 플러그인 저자가 따라 써야 하는 부분. `ctx.invoke` 가 주는 `ConnectorResult` 를 **반드시**
+// MCP 도구 결과로 옮긴다 — 그대로 반환하면 `content` 가 없어 모델에게 "성공, 결과 없음" 으로
+// 보이고 connector 오류까지 성공으로 뒤집힌다(0158 verify r1 D5). 실패는 `isError` 로 싣는다.
+// (연결 자체가 끊긴 경우는 `ctx.invoke` 가 던지고 SDK 가 isError 로 변환하므로 여기 오지 않는다.)
+// `ctx.invoke` 는 backend 중립을 지키려고 `unknown` 을 준다(adapters 는 contracts 를 import 할 수
+// 없다 — main DAG). 저자가 좁히는 것이 계약이므로 fixture 도 좁혀서 보여준다.
+function toToolResult(raw: unknown): RuntimeToolResult {
+  const result = raw as ConnectorResult | undefined
+  if (result === null || typeof result !== 'object' || typeof result?.ok !== 'boolean') {
+    return {
+      content: [{ type: 'text', text: 'connector returned an unexpected result' }],
+      isError: true
+    }
+  }
+  if (!result.ok) {
+    return { content: [{ type: 'text', text: result.message }], isError: true }
+  }
+  return { content: [{ type: 'text', text: JSON.stringify(result.data) }] }
+}
+
 function runtimeTools(config: (typeof CONNECTORS)[number]): RuntimeToolContribution {
   const readName = `${config.id}-read`
   const writeName = `${config.id}-write`
@@ -64,8 +85,16 @@ function runtimeTools(config: (typeof CONNECTORS)[number]): RuntimeToolContribut
       ]
     },
     create: (ctx) => [
-      { name: readName, inputSchema: {}, handler: (input) => ctx.invoke(readName, input) },
-      { name: writeName, inputSchema: {}, handler: (input) => ctx.invoke(writeName, input) }
+      {
+        name: readName,
+        inputSchema: {},
+        handler: async (input) => toToolResult(await ctx.invoke(readName, input))
+      },
+      {
+        name: writeName,
+        inputSchema: {},
+        handler: async (input) => toToolResult(await ctx.invoke(writeName, input))
+      }
     ]
   }
 }

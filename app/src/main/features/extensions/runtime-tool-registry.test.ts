@@ -15,7 +15,7 @@ const server = (id: string): RuntimeToolServer => ({
     {
       name: 'lookup',
       inputSchema: { query: z.string() },
-      handler: async () => ({})
+      handler: async () => ({ content: [] })
     }
   ]
 })
@@ -38,7 +38,7 @@ const mutableServer = (id: string): RuntimeToolServer => ({
     {
       name: 'change',
       inputSchema: { value: z.string() },
-      handler: async () => ({})
+      handler: async () => ({ content: [] })
     }
   ]
 })

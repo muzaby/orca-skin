@@ -549,10 +549,76 @@ broker는 provider logout 성공 여부와 상관없이 vault와 binding을 제�
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
-| **D4** | **ID 규칙이 두 곳에서 다른데 주석은 "같다"고 적혀 있다.** manifest `IdSchema`(`manifest.ts:17`) = `^[a-z0-9]+(?:-[a-z0-9]+)*$` vs shared `PluginConnectorIdSchema`(`protocol.ts:257`) = `^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$`. 숫자 선두 ID(`3rd-jira`·`2024-archive`)는 **등록에 성공한 뒤** `pluginList` 목록 전체를 throw 시키고(`PluginConnectorInfoSchema.array().parse` all-or-nothing) `connectionConnect` 가 영구 거부된다. plan §의존 기술의 "manifest `IdSchema` 와 같은 케밥 소문자 규칙" 위반 | verify r1 §역방향 탐색 (임시 vitest 로 실증) | 한 상수를 SSOT 로 공유(main→shared DAG상 `shared/` 에 두고 manifest 가 import). 숫자 선두 ID 가 manifest·IPC 양쪽에서 같은 판정을 받는 회귀 테스트. `parsePluginListResponse` 의 all-or-nothing 이 의도인지 재확인 | **open — 라운드 2** |
-| **D5** | **★ false success — runtime tool 결과가 MCP 경계에서 `isError` 없는 빈 성공이 된다.** verify r1 보완 검증이 실제 `McpServer` 인스턴스 + `InMemoryTransport` + 실제 MCP `Client` 로 종단 실측: 정상 호출 `{"content":[],"ok":true,"data":{…}}` (데이터가 모델에 도달하지 않아 조용히 무력) · **로그아웃 후 호출 `{"content":[],"ok":false,"message":"…cancelled"}` 이면서 `isError` 부재**(연결이 끊겼는데 모델은 "성공, 결과 없음" 으로 읽는다). 뿌리는 계약/소비자 불일치 — 계약 `Promise<unknown>`(`runtime-tools.ts:29`) ↔ SDK `Promise<CallToolResult>`(`sdk.d.ts:3991`) ↔ `as never` 캐스트(`claude-runtime-tools.ts:23`) ↔ fixture 가 `ConnectorResult` 반환(`department-fixture-package.ts:67-68`). 어떤 AC 도 handler 반환 *타입* 을 다루지 않았다(AC17 은 반환 *필드* 만) | verify r1 §0 + §보완 검증 A (실측) | ⓐ 성공 경로: `adaptServer` 가 `CallToolResult` 로 변환하거나 handler 반환형을 그 형상으로 좁혀 `as never` 제거 ⓑ **실패 경로: 취소·오류가 `isError: true` 로 모델에 보이게 한다**(`plugin-host.ts:195-200` · `runtime.ts:177-179`) ⓒ fixture 를 계약대로 수정 ⓓ 회귀 테스트: `InMemoryTransport`+MCP `Client` 왕복으로 "정상은 content 가 실리고 취소는 `isError` 가 선다" 단언 | **open — 라운드 2 (최우선)** |
-| **D3-b** | `docs/AGENTS.md:15` 인벤토리가 "총 79 채널 · 22 도메인" 으로 stale (실측 82 · 23). 신규 `ipc-documentation.test.ts` 는 `IPC_CONTRACT.md` 만 지킨다 | verify r1 §3 재측정 | 82 · 23 + `plugin` 3 으로 갱신. 검산 테스트 범위를 이 파일까지 넓힐지 검토 | **open — 라운드 2** |
-| **D6** | `AuthRegistry.getRuntimeTool`(`registry.ts:237`) 참조 0 — 죽은 코드 | verify r1 §역방향 탐색 | 제거 또는 사용처 배선 | open (사소) |
-| **D7** | `PluginHost.cleanup` 이 실패 promise 를 캐시해(`plugin-host.ts:233-237`) 정리가 영구 불가. **가설 → 실측 확정**: throw 하는 sink 를 주입하고 `onBindingsEnded` 2회 호출 → `stop` 은 1회만 불리고, sink 가 회복돼도 runtime server 가 끝내 제거되지 않으며(`removed=[]`), `connected:true` 로 남아 재연결도 `already connected` 로 거부된다. AC13~16 의 정면 실패 모드 | verify r1 §보완 검증 C (실측) | 실패 시 `active.cleanup` 을 비우거나 `cleanupOnce` 를 never-throw 로. `stopByBinding` 은 이미 `try/catch` 인데 `remove` 만 무방비인 비대칭이 신호 | open — **도달 조건은 가설**(현행 sink 는 throw 안 함) |
-| **D8** | plan 문서 stale 2건 — ① 인수 기준 "검증 수단" 열의 테스트 케이스명 다수가 실존하지 않음(AC7 등, 실제는 영어 `it.each` 명) ② 구현 보고 "대상 커밋 6개" 는 실제 15커밋(`6d67f52..`)의 후반부만 | verify r1 §구현자 코멘트 확인 | 실존 케이스명·전체 커밋 범위로 정정 | **open — 라운드 2** |
-| **D9** | `features/connectors/registry.ts:10` 헤더가 구 N:1 모델("하나의 connector 를 서로 다른 사내 인스턴스에 여러 번 연결할 수 있어야 하므로 분리가 필요하다")을 그대로 두고, 바로 아래 15-17줄에 반대되는 정적 모델 주석이 추가돼 한 파일에 모순된 두 설명이 공존한다. plan §기존 결정 표는 "코드 헤더도 새 모델로 갱신" 을 약속했다 | verify r1 §0 | 구 문장을 새 모델로 교체 | open (문서) |
+| **D4** | **ID 규칙이 두 곳에서 다른데 주석은 "같다"고 적혀 있다.** manifest `IdSchema`(`manifest.ts:17`) = `^[a-z0-9]+(?:-[a-z0-9]+)*$` vs shared `PluginConnectorIdSchema`(`protocol.ts:257`) = `^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$`. 숫자 선두 ID(`3rd-jira`·`2024-archive`)는 **등록에 성공한 뒤** `pluginList` 목록 전체를 throw 시키고(`PluginConnectorInfoSchema.array().parse` all-or-nothing) `connectionConnect` 가 영구 거부된다. plan §의존 기술의 "manifest `IdSchema` 와 같은 케밥 소문자 규칙" 위반 | verify r1 §역방향 탐색 (임시 vitest 로 실증) | 한 상수를 SSOT 로 공유(main→shared DAG상 `shared/` 에 두고 manifest 가 import). 숫자 선두 ID 가 manifest·IPC 양쪽에서 같은 판정을 받는 회귀 테스트. `parsePluginListResponse` 의 all-or-nothing 이 의도인지 재확인 | **해결(r2)** |
+| **D5** | **★ false success — runtime tool 결과가 MCP 경계에서 `isError` 없는 빈 성공이 된다.** verify r1 보완 검증이 실제 `McpServer` 인스턴스 + `InMemoryTransport` + 실제 MCP `Client` 로 종단 실측: 정상 호출 `{"content":[],"ok":true,"data":{…}}` (데이터가 모델에 도달하지 않아 조용히 무력) · **로그아웃 후 호출 `{"content":[],"ok":false,"message":"…cancelled"}` 이면서 `isError` 부재**(연결이 끊겼는데 모델은 "성공, 결과 없음" 으로 읽는다). 뿌리는 계약/소비자 불일치 — 계약 `Promise<unknown>`(`runtime-tools.ts:29`) ↔ SDK `Promise<CallToolResult>`(`sdk.d.ts:3991`) ↔ `as never` 캐스트(`claude-runtime-tools.ts:23`) ↔ fixture 가 `ConnectorResult` 반환(`department-fixture-package.ts:67-68`). 어떤 AC 도 handler 반환 *타입* 을 다루지 않았다(AC17 은 반환 *필드* 만) | verify r1 §0 + §보완 검증 A (실측) | ⓐ 성공 경로: `adaptServer` 가 `CallToolResult` 로 변환하거나 handler 반환형을 그 형상으로 좁혀 `as never` 제거 ⓑ **실패 경로: 취소·오류가 `isError: true` 로 모델에 보이게 한다**(`plugin-host.ts:195-200` · `runtime.ts:177-179`) ⓒ fixture 를 계약대로 수정 ⓓ 회귀 테스트: `InMemoryTransport`+MCP `Client` 왕복으로 "정상은 content 가 실리고 취소는 `isError` 가 선다" 단언 | **해결(r2)** — `adaptHandler` 형상 가드 + `ctx.invoke` 취소 throw + fixture 변환 + MCP 경계 회귀 4건 |
+| **D3-b** | `docs/AGENTS.md:15` 인벤토리가 "총 79 채널 · 22 도메인" 으로 stale (실측 82 · 23). 신규 `ipc-documentation.test.ts` 는 `IPC_CONTRACT.md` 만 지킨다 | verify r1 §3 재측정 | 82 · 23 + `plugin` 3 으로 갱신. 검산 테스트 범위를 이 파일까지 넓힐지 검토 | **해결(r2)** |
+| **D6** | `AuthRegistry.getRuntimeTool`(`registry.ts:237`) 참조 0 — 죽은 코드 | verify r1 §역방향 탐색 | 제거 또는 사용처 배선 | **해결(r2)** — 제거 |
+| **D7** | `PluginHost.cleanup` 이 실패 promise 를 캐시해(`plugin-host.ts:233-237`) 정리가 영구 불가. **가설 → 실측 확정**: throw 하는 sink 를 주입하고 `onBindingsEnded` 2회 호출 → `stop` 은 1회만 불리고, sink 가 회복돼도 runtime server 가 끝내 제거되지 않으며(`removed=[]`), `connected:true` 로 남아 재연결도 `already connected` 로 거부된다. AC13~16 의 정면 실패 모드 | verify r1 §보완 검증 C (실측) | 실패 시 `active.cleanup` 을 비우거나 `cleanupOnce` 를 never-throw 로. `stopByBinding` 은 이미 `try/catch` 인데 `remove` 만 무방비인 비대칭이 신호 | **해결(r2)** — `remove` 를 개별 try/catch 로 감싸 정리가 끝까지 진행. 회귀 테스트로 재연결까지 확인 |
+| **D8** | plan 문서 stale 2건 — ① 인수 기준 "검증 수단" 열의 테스트 케이스명 다수가 실존하지 않음(AC7 등, 실제는 영어 `it.each` 명) ② 구현 보고 "대상 커밋 6개" 는 실제 15커밋(`6d67f52..`)의 후반부만 | verify r1 §구현자 코멘트 확인 | 실존 케이스명·전체 커밋 범위로 정정 | **해결(r2)** |
+| **D9** | `features/connectors/registry.ts:10` 헤더가 구 N:1 모델("하나의 connector 를 서로 다른 사내 인스턴스에 여러 번 연결할 수 있어야 하므로 분리가 필요하다")을 그대로 두고, 바로 아래 15-17줄에 반대되는 정적 모델 주석이 추가돼 한 파일에 모순된 두 설명이 공존한다. plan §기존 결정 표는 "코드 헤더도 새 모델로 갱신" 을 약속했다 | verify r1 §0 | 구 문장을 새 모델로 교체 | **해결(r2)** |
+
+---
+
+## [구현자 기입] 라운드 2 구현 보고 (Claude 직접 — 버그수정)
+
+> verify r1 FAIL 의 D3-b·D4·D5·D6·D7·D8·D9 를 모두 해소했다. 사용자 지시로 Codex 대신
+> Claude 가 직접 구현했다(핸드오프 규약 §구현 주체 분담 — 비기능/버그수정).
+
+### 무엇을 고쳤나
+
+| # | 변경 | 파일 |
+|---|---|---|
+| D5-a | `RuntimeToolImplementation.handler` 반환형을 `Promise<unknown>` → **`Promise<RuntimeToolResult>`**(MCP 형상: `{content:[{type:'text',text}], isError?}`). MCP 는 이 저장소가 "엔진이 아니라 표준을 1차 추상화" 로 정한 대상이므로 backend 중립과 충돌하지 않는다 | `adapters/runtime-tools.ts` |
+| D5-b | `as never` 캐스트 제거. SDK 는 반환 **형상을 검증하지 않으므로**(`content` 없으면 그대로 `{content:[]}`) 경계에서 직접 검사하고 어긋나면 throw → SDK 가 `isError:true` 로 변환 | `adapters/claude-runtime-tools.ts` |
+| D5-c | 연결 정리 후의 `ctx.invoke` 를 **해소 → throw** 로 변경. 해소된 오류 객체는 플러그인이 그대로 도구 결과로 반환할 수 있어 취소가 빈 성공이 됐다 | `features/auth-platform/plugin-host.ts` |
+| D5-d | fixture 가 `ConnectorResult` → `RuntimeToolResult` 변환을 **보여준다**(`toToolResult`). 저자용 참조 구현이므로 여기가 계약의 실질 문서다 | `modules/__fixtures__/department-fixture-package.ts` |
+| D4 | ID 규칙 **SSOT 를 shared 로** — `PLUGIN_ID_PATTERN`/`PLUGIN_ID_MAX_LENGTH` 를 `shared/protocol.ts` 가 소유하고 main manifest 가 import. 두 벌 복붙 제거 | `shared/protocol.ts` · `features/auth-platform/manifest.ts` |
+| D7 | `cleanupOnce` 의 `remove` 를 개별 `try/catch` 로 감싸 정리가 끝까지 진행되게 함(`stopByBinding` 과 대칭) | `features/auth-platform/plugin-host.ts` |
+| D6 | 죽은 `AuthRegistry.getRuntimeTool` 제거 | `features/auth-platform/registry.ts` |
+| D9 | `connectors/registry.ts` 헤더의 구 N:1 문장을 정적 connector 모델로 교체 | `features/connectors/registry.ts` |
+| D3-b | `docs/AGENTS.md` 인벤토리 79/22 → **82/23 + `plugin` 3** | `docs/AGENTS.md` |
+| 문서 | 저자 가이드에 반환 계약 2줄 추가 | `modules/AGENTS.md` |
+
+### 신규 테스트 (+18, 1480 → 1498)
+
+| 파일 | 케이스 | 잡는 것 |
+|---|---|---|
+| `adapters/claude-runtime-tools.boundary.test.ts` (신규) | 4 | **실제 SDK 서버 + `InMemoryTransport` + 실제 MCP `Client` 왕복.** 형제 파일이 `createSdkMcpServer` 를 mock 해 옵션 조립만 보던 것이 D5 가 두 라운드를 통과한 이유다 |
+| `features/auth-platform/plugin-id-ssot.test.ts` (신규) | 13 | manifest 와 IPC 가 같은 ID 판정을 내리는지 12개 입력으로 대조 |
+| `features/auth-platform/plugin-host.test.ts` | +1, 수정 4 | 정리 후 handler 는 **reject**(구 테스트는 resolve 를 단언해 결함을 고정하고 있었다) · sink throw 에도 정리 완주 + 재연결 |
+
+**RED 확인** (수정 코드를 되돌려 신규 테스트가 실제로 실패하는지):
+
+```
+$ (adaptHandler → as never 로 되돌림) vitest run claude-runtime-tools.boundary.test.ts
+  × MCP 형상이 아닌 반환값은 조용한 빈 성공이 아니라 도구 실패가 된다     → 1 failed | 3 passed
+
+$ (취소 throw·D7 가드 되돌림) vitest run plugin-host.test.ts
+  × rejects a cached runtime tool handler after explicit cleanup …
+  × completes cleanup and allows reconnect even when the sink throws …
+  × aborts an in-flight tool invocation (3건)                            → 5 failed | 17 passed
+```
+
+### 종단 실증 (r1 이 결함을 잡은 것과 **같은 하네스**)
+
+```
+                수정 전                                    수정 후
+정상 호출   {"content":[],"ok":true,"data":{…}}      {"content":[{"type":"text","text":"{…}"}]}
+로그아웃후  {"content":[],"ok":false,…} isError 없음  {"content":[…closed…],"isError":true}
+```
+
+### 게이트
+
+| 게이트 | 결과 |
+|---|---|
+| `npm run lint` | 0 error (warning 1 = 0102 TanStack 베이스라인) |
+| `npm run typecheck` | 3분할 전부 0 |
+| `vitest run` | **1498/1498 tests pass** · 171/172 files. 잔존 1파일 = `chat-turn.continuity`(electron 바이너리 미설치 베이스라인, 유일 에러 서명) |
+| `node --test scripts/*.test.mjs` | 28/28 |
+| 신규 의존성 / DB 마이그레이션 | 0 / 0 |
+
+### 구현 중 발견 (선조치)
+
+- **내 테스트가 저장소 가드에 걸렸다.** `plugin-id-ssot.test.ts` 초안이 `jira-platform`·`confluence-rnd` 를 후보 ID 로 써서 `isolation.test.ts`(서비스 리터럴 core 유출 금지)를 깨뜨렸다 → 중립 ID(`alpha-service` 등)로 교체. 0158 이 세운 가드가 곧바로 제 역할을 했다.
+- **내 테스트가 레이어 경계에 걸렸다.** D4 동등성 테스트를 `src/shared/` 에 두었더니 `boundaries/dependencies` error(shared → features 금지) → `features/auth-platform/plugin-id-ssot.test.ts` 로 이동. main → shared 방향이 맞다.
+- `RuntimeToolResult` 에 `[key: string]: unknown` 을 넣었다 — MCP `CallToolResult` 가 passthrough 라 인덱스 시그니처 없이는 SDK 타입에 대입되지 않는다. 강제하는 것은 `content` 존재이며 그것이 조용한 빈 성공을 막는 지점이다.

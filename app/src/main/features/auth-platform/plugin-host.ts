@@ -192,12 +192,12 @@ export class PluginHost {
     const implementations = contribution.create({
       connectionId: active.connectionId,
       invoke: (operation, params) => {
+        // 연결이 이미 정리됐으면 **던진다.** 해소된 값으로 돌려주면 플러그인이 그것을 그대로
+        // 도구 결과로 반환할 수 있고, 그러면 MCP 경계에서 `isError` 없는 빈 성공이 되어
+        // 모델이 '취소' 를 '성공, 결과 없음' 으로 읽는다(0158 verify r1 D5 실측). 예외는 SDK 가
+        // `isError:true` 로 변환하므로 플러그인 구현과 무관하게 실패가 실패로 보인다.
         if (active.controller.signal.aborted) {
-          return Promise.resolve({
-            ok: false,
-            message: 'connector invocation was cancelled',
-            health: 'error' as const
-          })
+          return Promise.reject(new Error(`connector connection is closed: ${active.connectorId}`))
         }
         return this.deps.connectors.invoke(
           active.connectionId,
@@ -247,7 +247,21 @@ export class PluginHost {
         message: String(error)
       })
     } finally {
-      for (const serverId of active.serverIds) this.deps.runtimeTools.remove(serverId)
+      // remove 실패가 정리를 중단시키면 안 된다. 중단되면 ⓐ runtime server 가 registry 에 남아
+      // LLM 에 계속 노출되고 ⓑ activeByConnector 에서 지워지지 않아 재연결도 거부되며
+      // ⓒ cleanup 이 rejected promise 로 캐시돼 재시도가 영구 불가해진다(0158 verify r1 D7 실측).
+      // stopByBinding 은 이미 감싸져 있었는데 remove 만 무방비였던 비대칭을 없앤다.
+      for (const serverId of active.serverIds) {
+        try {
+          this.deps.runtimeTools.remove(serverId)
+        } catch (error) {
+          this.deps.logger?.('plugin-host.runtime-tool.remove.failed', {
+            connectorId: active.connectorId,
+            serverId,
+            message: String(error)
+          })
+        }
+      }
       active.serverIds = []
       active.ready = false
       if (this.activeByConnector.get(active.connectorId) === active) {

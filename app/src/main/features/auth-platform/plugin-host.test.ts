@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import type { RuntimeToolContribution, RuntimeToolServer } from '../../adapters/runtime-tools'
+import type {
+  RuntimeToolContribution,
+  RuntimeToolResult,
+  RuntimeToolServer
+} from '../../adapters/runtime-tools'
 import type { AuthBindingInfo, AuthLogoutOutcome } from '../../../shared/ipc'
 import { AuthRegistry } from './registry'
 import {
@@ -111,10 +115,16 @@ function contribution(
       return names.map((name) => ({
         name,
         inputSchema: {},
-        handler: (input) => ctx.invoke(name, input)
+        handler: async (input) => toResult(await ctx.invoke(name, input))
       }))
     }
   }
+}
+
+// 계약: handler 는 MCP 도구 결과를 돌려준다. 연결이 끊긴 뒤의 호출은 ctx.invoke 가 던지므로
+// 여기까지 오지 않는다(SDK 가 isError 로 변환).
+function toResult(raw: unknown): RuntimeToolResult {
+  return { content: [{ type: 'text', text: JSON.stringify(raw) }] }
 }
 
 function registryWith(...tools: RuntimeToolContribution[]): AuthRegistry {
@@ -288,7 +298,7 @@ describe('PluginHost', () => {
         actual.map((name) => ({
           name,
           inputSchema: {},
-          handler: (input) => ctx.invoke(name, input)
+          handler: async (input) => toResult(await ctx.invoke(name, input))
         }))
       const { host, connectors, sink } = createHost(bindings, [tool])
 
@@ -320,7 +330,11 @@ describe('PluginHost', () => {
       host.connect({ connectorId: 'connector-a', bindingId: 'binding-a' })
     ).rejects.toThrow()
     tool.create = (ctx) => [
-      { name: 'read-item', inputSchema: {}, handler: (input) => ctx.invoke('read-item', input) }
+      {
+        name: 'read-item',
+        inputSchema: {},
+        handler: async (input) => toResult(await ctx.invoke('read-item', input))
+      }
     ]
     sink.failAtAdd = 1
     await expect(
@@ -481,11 +495,14 @@ describe('PluginHost', () => {
 
     expect(connectors.invokeSignals).toHaveLength(1)
     await host.disconnect({ connectorId: 'connector-a' })
-    await expect(invocation).resolves.toEqual({ ok: true, data: null })
+    await expect(invocation).resolves.toMatchObject({ content: expect.any(Array) })
     expect(connectors.invokeSignals[0]?.aborted).toBe(true)
   })
 
-  it('does not invoke a cached runtime tool handler after explicit cleanup', async () => {
+  // 정리 뒤의 캐시된 handler 는 **던져야** 한다. 해소된 오류 객체로 돌려주면 플러그인이 그것을
+  // 도구 결과로 반환할 수 있고, MCP 경계에서 `isError` 없는 빈 성공이 되어 모델이 '취소' 를
+  // '성공, 결과 없음' 으로 읽는다(0158 verify r1 D5). SDK 는 예외만 isError 로 변환한다.
+  it('rejects a cached runtime tool handler after explicit cleanup instead of resolving', async () => {
     const bindings = new Map([['binding-a', binding('binding-a')]])
     const { host, connectors, logout, sink } = createHost(bindings)
     logout.onLogout = (bindingId) => host.onBindingsEnded([bindingId])
@@ -495,8 +512,28 @@ describe('PluginHost', () => {
     if (!handler) throw new Error('expected cached runtime tool handler')
     await host.disconnect({ connectorId: 'connector-a' })
 
-    await expect(handler({})).resolves.toMatchObject({ ok: false, health: 'error' })
+    await expect(handler({})).rejects.toThrow(/connection is closed/i)
     expect(connectors.invokeCalls).toEqual([])
+  })
+
+  // D7 — sink.remove 가 throw 해도 정리가 끝까지 진행돼야 한다. 중단되면 runtime server 가
+  // registry 에 남아 LLM 에 계속 노출되고 재연결도 거부된다.
+  it('completes cleanup and allows reconnect even when the runtime tool sink throws on remove', async () => {
+    const bindings = new Map([['binding-a', binding('binding-a')]])
+    const { host, connectors, sink } = createHost(bindings)
+    sink.remove = () => {
+      throw new Error('sink remove failed')
+    }
+
+    await host.connect({ connectorId: 'connector-a', bindingId: 'binding-a' })
+    await expect(host.onBindingsEnded(['binding-a'])).resolves.toBeUndefined()
+
+    expect(host.list()[0]).toEqual(expect.objectContaining({ connected: false }))
+    // 연결 레코드가 해제됐으므로 재연결이 'already connected' 로 막히지 않는다.
+    await expect(
+      host.connect({ connectorId: 'connector-a', bindingId: 'binding-a' })
+    ).resolves.toBeUndefined()
+    expect(connectors.connectCalls).toHaveLength(2)
   })
 
   it('aborts an in-flight tool invocation when a failed provider logout ends its binding', async () => {
@@ -522,7 +559,7 @@ describe('PluginHost', () => {
 
     expect(connectors.invokeSignals).toHaveLength(1)
     await expect(host.disconnect({ connectorId: 'connector-a' })).resolves.toEqual(logout.outcome)
-    await expect(invocation).resolves.toEqual({ ok: true, data: null })
+    await expect(invocation).resolves.toMatchObject({ content: expect.any(Array) })
     expect(connectors.invokeSignals[0]?.aborted).toBe(true)
   })
 
@@ -547,7 +584,7 @@ describe('PluginHost', () => {
 
     expect(connectors.invokeSignals).toHaveLength(1)
     await host.onBindingsEnded(['binding-a', 'binding-from-cascade'])
-    await expect(invocation).resolves.toEqual({ ok: true, data: null })
+    await expect(invocation).resolves.toMatchObject({ content: expect.any(Array) })
     expect(connectors.invokeSignals[0]?.aborted).toBe(true)
   })
 })
