@@ -3,7 +3,7 @@ import { Button } from '../../../../shared/ui/Button'
 import { Dot } from '../../../../shared/ui/Status'
 import { useI18n } from '../../../../shared/i18n'
 import { pluginApi } from '../../../../shared/api/ipc'
-import type { PluginConnectorInfo } from '../../../../../../shared/ipc'
+import type { AuthProviderInfo, PluginConnectorInfo } from '../../../../../../shared/ipc'
 import type { PluginRow } from '../../lib/pluginCatalog'
 import { connectorActions, runReconnect } from '../../lib/connectorActions'
 import { ConnectorConnectModal } from './ConnectorConnectModal'
@@ -24,9 +24,14 @@ function Meta({ label, value }: { label: string; value: ReactNode }): React.JSX.
 
 export function PluginDetail({
   plugin,
+  providers,
   onChanged
 }: {
   plugin: PluginRow
+  // **등록된 provider 전체.** 이 행이 기여한 것만이 아니다 — 사용자가 만든 커넥터는 공용
+  // 패키지의 provider 를 참조하므로(0161 패키지 2분할) 자기 행만 보면 인증 방식이 0개가 된다.
+  // 실제로 어느 것을 쓸 수 있는지는 `buildConnectOptions` 가 `acceptedAuthProviders` 로 좁힌다.
+  providers: AuthProviderInfo[]
   // 연결 상태가 바뀌면 카탈로그를 다시 읽는다 — connected 는 main 이 소유한다.
   onChanged?: () => void
 }): React.JSX.Element {
@@ -74,7 +79,12 @@ export function PluginDetail({
 
   return (
     <div className="min-w-0 flex-1 overflow-y-auto px-7 py-6">
-      <h2 className="m-0 text-heading text-ink">{plugin.pluginId}</h2>
+      {/* 인스턴스 행이면 사용자가 붙인 이름이 제목이다(0163) — pluginId 는 주소에서 파생한
+          기계값이라 사용자가 자기가 만든 서버를 알아볼 수 없었다. */}
+      <h2 className="m-0 text-heading text-ink">{plugin.title}</h2>
+      {plugin.title !== plugin.pluginId && (
+        <div className="mt-g1 text-caption text-ink3">{plugin.pluginId}</div>
+      )}
       <div className="mt-p8 grid grid-cols-3 gap-g6">
         <Meta label={tr('skills.table.providers')} value={plugin.providerCount} />
         <Meta label={tr('skills.table.connectors')} value={plugin.connectorCount} />
@@ -109,9 +119,15 @@ export function PluginDetail({
                     ? tr('skills.pluginDetail.connectedLabel')
                     : tr('skills.pluginDetail.disconnectedLabel')}
                 </span>
+              </div>
+              <div className="mt-g1 text-caption text-ink3">
+                {tr('skills.pluginDetail.origin')}: {connector.origin}
+              </div>
+              {/* 액션은 **줄을 따로 쓴다** (0163) — 이름과 같은 줄에 넣으면 버튼 4개가
+                  서버 이름을 밀어내 무엇에 대한 버튼인지 알 수 없다. */}
+              <div className="mt-p3 flex flex-wrap items-center gap-g1">
                 {actions.includes('connect') && (
                   <Button
-                    className="ml-p5 flex-none"
                     variant="uncontained"
                     size="small"
                     busy={busy}
@@ -122,7 +138,6 @@ export function PluginDetail({
                 )}
                 {actions.includes('reconnect') && (
                   <Button
-                    className="ml-p5 flex-none"
                     variant="uncontained"
                     size="small"
                     busy={busy}
@@ -133,7 +148,6 @@ export function PluginDetail({
                 )}
                 {actions.includes('disconnect') && (
                   <Button
-                    className="ml-g1 flex-none"
                     variant="uncontained"
                     size="small"
                     disabled={busy}
@@ -144,7 +158,6 @@ export function PluginDetail({
                 )}
                 {actions.includes('remove') && (
                   <Button
-                    className="ml-g1 flex-none"
                     variant="danger-ghost"
                     size="small"
                     disabled={busy}
@@ -154,9 +167,6 @@ export function PluginDetail({
                   </Button>
                 )}
               </div>
-              <div className="mt-g1 text-caption text-ink3">
-                {tr('skills.pluginDetail.origin')}: {connector.origin}
-              </div>
             </div>
           )
         })}
@@ -165,7 +175,7 @@ export function PluginDetail({
         <ConnectorConnectModal
           open
           connector={connecting}
-          providers={plugin.providers}
+          providers={providers}
           onClose={() => setConnecting(null)}
           onConnected={() => {
             setConnecting(null)

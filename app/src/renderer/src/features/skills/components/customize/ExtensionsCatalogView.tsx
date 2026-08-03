@@ -7,6 +7,7 @@ import { useCustomizeSkills } from '../../hooks/useCustomizeSkills'
 import { useMcpServers } from '../../hooks/useMcpServers'
 import { usePluginCatalog } from '../../hooks/usePluginCatalog'
 import { back, openDetail, selectTab, type CatalogSelection } from '../../lib/catalogSelection'
+import { handleCreated } from '../../lib/connectorCreate'
 import { toggleGroup, type CollapsedGroups } from '../../lib/catalogGroups'
 import { CustomizeRail } from './CustomizeRail'
 import { CustomizeList } from './CustomizeList'
@@ -48,6 +49,8 @@ export function ExtensionsCatalogView(): React.JSX.Element {
   )
   const selectedMcp = mcp.list.find((item) => item.id === selection.selectedId)
   const selectedPlugin = plugins.rows.find((item) => item.pluginId === selection.selectedId)
+  // 등록된 provider 전체 — connector 가 어느 패키지의 provider 든 참조할 수 있다.
+  const allProviders = plugins.rows.flatMap((row) => row.providers)
   const detail = selectedSkill ?? selectedMcp ?? selectedPlugin
   const title = tr(
     selection.tab === 'skills'
@@ -146,7 +149,14 @@ export function ExtensionsCatalogView(): React.JSX.Element {
             onToggle={() => void mcp.toggle(selectedMcp.id, !selectedMcp.enabled)}
           />
         ) : selectedPlugin ? (
-          <PluginDetail plugin={selectedPlugin} onChanged={plugins.refresh} />
+          <PluginDetail
+            plugin={selectedPlugin}
+            // **전체** provider 를 넘긴다 (0163). 인스턴스 커넥터는 공용 패키지의 provider 를
+            // 참조하므로(0161 의 패키지 2분할) 자기 행의 provider 만 넘기면 인증 방식이
+            // 하나도 없다고 나온다. 좁히는 것은 `buildConnectOptions` 가 한다.
+            providers={allProviders}
+            onChanged={plugins.refresh}
+          />
         ) : skills.loading || mcp.loading || plugins.loading ? (
           <div className="grid flex-1 place-items-center text-ink3">{tr('common.loading')}</div>
         ) : (
@@ -172,11 +182,17 @@ export function ExtensionsCatalogView(): React.JSX.Element {
           open
           templateId={pickedTemplate}
           onClose={() => setPickedTemplate(null)}
-          onCreated={(connector) => {
-            plugins.refresh()
+          onCreated={(connectors) => {
+            // **갱신은 무조건, 인증은 새것을 찾았을 때만** (0163). 0162 는 둘을 묶어놔서
+            // 새것을 못 찾으면 목록도 안 바뀌고 오류도 안 떠 "아무 일도 없었다" 가 됐다.
             // 서버를 만들었으면 곧바로 자격증명을 받는다 — 사용자 요구의 "url 및 인증 정보"가
             // 한 흐름이다. 인증을 취소해도 서버는 남는다.
-            setConnecting(connector)
+            handleCreated({
+              before: plugins.rows.flatMap((row) => row.connectors),
+              after: connectors,
+              refresh: plugins.refresh,
+              connect: setConnecting
+            })
           }}
         />
       )}
@@ -184,7 +200,7 @@ export function ExtensionsCatalogView(): React.JSX.Element {
         <ConnectorConnectModal
           open
           connector={connecting}
-          providers={plugins.rows.flatMap((row) => row.providers)}
+          providers={allProviders}
           onClose={() => setConnecting(null)}
           onConnected={() => {
             setConnecting(null)

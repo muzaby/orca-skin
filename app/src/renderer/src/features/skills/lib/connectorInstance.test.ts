@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   classifyCreateFailure,
-  EMPTY_DRAFT,
+  describeApiBase,
   draftForTemplate,
-  splitPastedUrl,
+  EMPTY_DRAFT,
+  splitServerUrl,
   toCreateRequest,
   validateDraft,
   type InstanceDraft
@@ -13,8 +14,7 @@ function draft(overrides: Partial<InstanceDraft> = {}): InstanceDraft {
   return {
     templateId: 'confluence',
     label: '위키',
-    baseUrl: 'https://wiki.corp',
-    apiBasePath: '',
+    address: 'https://wiki.corp',
     ...overrides
   }
 }
@@ -28,16 +28,90 @@ describe('draftForTemplate', () => {
   it('템플릿 외 필드는 비어 있다', () => {
     const opened = draftForTemplate('confluence')
     expect(opened.label).toBe('')
-    expect(opened.baseUrl).toBe('')
-    expect(opened.apiBasePath).toBe('')
+    expect(opened.address).toBe('')
+  })
+})
+
+describe('splitServerUrl', () => {
+  it('주소를 origin 과 컨텍스트 경로로 쪼갠다', () => {
+    expect(splitServerUrl('https://wiki.corp/confluence')).toEqual({
+      baseUrl: 'https://wiki.corp',
+      apiBasePath: '/confluence'
+    })
+  })
+
+  it('경로가 없으면 컨텍스트 경로 키를 만들지 않는다', () => {
+    expect(splitServerUrl('https://wiki.corp')).toEqual({ baseUrl: 'https://wiki.corp' })
+    expect(splitServerUrl('https://wiki.corp/')).toEqual({ baseUrl: 'https://wiki.corp' })
+  })
+
+  it('뷰 경로 앞까지만 컨텍스트 경로다', () => {
+    // 사용자는 보통 보고 있던 문서의 URL 을 그대로 붙여넣는다.
+    expect(splitServerUrl('https://wiki.corp/confluence/display/SP/Page')).toEqual({
+      baseUrl: 'https://wiki.corp',
+      apiBasePath: '/confluence'
+    })
+  })
+
+  it('첫 세그먼트가 뷰 경로면 컨텍스트 경로가 없다', () => {
+    expect(splitServerUrl('https://wiki.corp/display/SP/Page')).toEqual({
+      baseUrl: 'https://wiki.corp'
+    })
+  })
+
+  it('포트를 유지한다', () => {
+    expect(splitServerUrl('https://wiki.corp:8443/confluence')).toEqual({
+      baseUrl: 'https://wiki.corp:8443',
+      apiBasePath: '/confluence'
+    })
+  })
+
+  it('중첩 컨텍스트 경로도 통째로 가져간다', () => {
+    expect(splitServerUrl('https://corp.com/tools/wiki-dc/display/A')).toEqual({
+      baseUrl: 'https://corp.com',
+      apiBasePath: '/tools/wiki-dc'
+    })
+  })
+
+  it('해석 불가·비 http 스킴·주소에 섞인 자격증명은 null 이다', () => {
+    expect(splitServerUrl('')).toBeNull()
+    expect(splitServerUrl('wiki.corp')).toBeNull()
+    expect(splitServerUrl('ftp://wiki.corp')).toBeNull()
+    expect(splitServerUrl('https://user:pw@wiki.corp')).toBeNull()
+  })
+})
+
+describe('주소 입력', () => {
+  // 0162 회귀: 매 키 입력마다 origin 으로 되쓰는 로직이 `/` 를 먹어
+  // `https://wiki.corp/confluence` 가 `https://wiki.corpconfluence` 가 됐다.
+  it('주소 입력은 타이핑 중 값을 고치지 않는다', () => {
+    const typed = 'https://wiki.corp/confluence'
+    let state = draftForTemplate('confluence')
+    for (const char of typed) {
+      // 모달의 onChange 와 같은 규칙 — 받은 값을 그대로 담는다.
+      state = { ...state, address: state.address + char }
+    }
+    expect(state.address).toBe(typed)
+    expect(splitServerUrl(state.address)).toEqual({
+      baseUrl: 'https://wiki.corp',
+      apiBasePath: '/confluence'
+    })
+  })
+})
+
+describe('describeApiBase', () => {
+  it('적용될 주소를 사람이 읽을 문자열로 만든다', () => {
+    expect(describeApiBase({ baseUrl: 'https://wiki.corp', apiBasePath: '/confluence' })).toBe(
+      'https://wiki.corp/confluence'
+    )
+    expect(describeApiBase({ baseUrl: 'https://wiki.corp' })).toBe('https://wiki.corp')
   })
 })
 
 describe('validateDraft', () => {
   it('정상 입력을 통과시킨다', () => {
     expect(validateDraft(draft())).toBeNull()
-    expect(validateDraft(draft({ apiBasePath: '/confluence' }))).toBeNull()
-    expect(validateDraft(draft({ apiBasePath: 'confluence/' }))).toBeNull()
+    expect(validateDraft(draft({ address: 'https://wiki.corp/confluence' }))).toBeNull()
   })
 
   it('템플릿 미선택을 잡는다', () => {
@@ -48,77 +122,38 @@ describe('validateDraft', () => {
     expect(validateDraft(draft({ label: '   ' }))).toBe('label_required')
   })
 
-  it('잘못된 주소를 사유로 낸다', () => {
-    const bad = [
-      'wiki.corp',
-      'https://wiki.corp/confluence',
-      'https://wiki.corp?a=1',
-      'https://user:pw@wiki.corp',
-      'file:///etc/passwd',
-      ''
-    ]
-    for (const baseUrl of bad) {
-      expect(validateDraft(draft({ baseUrl })), baseUrl).toBe('base_url_invalid')
-    }
-  })
-
-  it('잘못된 컨텍스트 경로를 잡는다', () => {
-    expect(validateDraft(draft({ apiBasePath: '/a b' }))).toBe('api_base_path_invalid')
-    expect(validateDraft(draft({ apiBasePath: '/?x' }))).toBe('api_base_path_invalid')
+  it('해석되지 않는 주소를 사유로 낸다', () => {
+    expect(validateDraft(draft({ address: '' }))).toBe('address_invalid')
+    expect(validateDraft(draft({ address: 'wiki.corp' }))).toBe('address_invalid')
   })
 })
 
 describe('toCreateRequest', () => {
   it('공백을 정리해 전송 형상을 만든다', () => {
-    expect(toCreateRequest(draft({ label: '  위키  ', baseUrl: ' https://wiki.corp ' }))).toEqual({
+    expect(toCreateRequest(draft({ label: '  위키  ', address: '  https://wiki.corp  ' }))).toEqual(
+      {
+        templateId: 'confluence',
+        label: '위키',
+        baseUrl: 'https://wiki.corp'
+      }
+    )
+  })
+
+  it('컨텍스트 경로가 있으면 키를 실어 보낸다', () => {
+    expect(toCreateRequest(draft({ address: 'https://wiki.corp/confluence' }))).toEqual({
       templateId: 'confluence',
       label: '위키',
-      baseUrl: 'https://wiki.corp'
+      baseUrl: 'https://wiki.corp',
+      apiBasePath: '/confluence'
     })
   })
 
   it('빈 컨텍스트 경로는 키 자체를 보내지 않는다', () => {
-    // 스키마가 빈 문자열을 거부하므로 키를 넣으면 요청이 통째로 튕긴다.
-    const request = toCreateRequest(draft({ apiBasePath: '   ' }))
-    expect('apiBasePath' in request).toBe(false)
+    expect(toCreateRequest(draft())).not.toHaveProperty('apiBasePath')
   })
 
-  it('컨텍스트 경로를 정규화해 보낸다', () => {
-    expect(toCreateRequest(draft({ apiBasePath: 'confluence/' })).apiBasePath).toBe('/confluence')
-  })
-})
-
-describe('splitPastedUrl', () => {
-  it('붙여넣은 URL 에서 origin 과 경로를 분리한다', () => {
-    // 사용자는 브라우저 주소창을 그대로 붙여넣는다.
-    expect(splitPastedUrl('https://wiki.corp/confluence/display/ENG/Page')).toEqual({
-      origin: 'https://wiki.corp',
-      suggestedBasePath: '/confluence'
-    })
-  })
-
-  it('잘 알려진 뷰 경로는 컨텍스트 경로로 제안하지 않는다', () => {
-    // `/display` 를 컨텍스트 경로로 오인하면 모든 요청이 404 가 된다.
-    for (const url of [
-      'https://wiki.corp/display/ENG/Page',
-      'https://wiki.corp/pages/viewpage.action?pageId=1',
-      'https://wiki.corp/spaces/ENG'
-    ]) {
-      expect(splitPastedUrl(url)?.suggestedBasePath, url).toBe('')
-    }
-  })
-
-  it('origin 만 붙여넣어도 동작한다', () => {
-    expect(splitPastedUrl('https://wiki.corp')).toEqual({
-      origin: 'https://wiki.corp',
-      suggestedBasePath: ''
-    })
-  })
-
-  it('해석 불가 입력은 null 이다', () => {
-    for (const raw of ['', '   ', 'wiki.corp', 'file:///x']) {
-      expect(splitPastedUrl(raw), raw).toBeNull()
-    }
+  it('해석 불가 주소는 전송 형상을 만들지 않는다', () => {
+    expect(toCreateRequest(draft({ address: 'wiki.corp' }))).toBeNull()
   })
 })
 
@@ -130,11 +165,9 @@ describe('classifyCreateFailure', () => {
   })
 
   it('나머지 사유도 갈라낸다', () => {
-    expect(classifyCreateFailure(new Error('invalid_input: baseUrl'))).toBe('invalid_input')
-    expect(classifyCreateFailure(new Error('invalid_id: x'))).toBe('invalid_input')
     expect(classifyCreateFailure(new Error('unknown_template: jira'))).toBe('unknown_template')
-    expect(classifyCreateFailure(new Error('register_failed: dup'))).toBe('register_failed')
-    expect(classifyCreateFailure(new Error('뭔가 다른 오류'))).toBe('unknown')
-    expect(classifyCreateFailure(undefined)).toBe('unknown')
+    expect(classifyCreateFailure(new Error('register_failed: ...'))).toBe('register_failed')
+    expect(classifyCreateFailure(new Error('invalid_input: ...'))).toBe('invalid_input')
+    expect(classifyCreateFailure('뭔가 다른 것')).toBe('unknown')
   })
 })

@@ -120,16 +120,15 @@ export const en: typeof ko = {
       noTemplate: 'No services are available to add.',
       label: 'Display name',
       labelPlaceholder: 'e.g. Team wiki',
-      baseUrl: 'Server address',
-      baseUrlHint: 'The address cannot be changed later. Delete and re-add to change it.',
-      apiBasePath: 'Context path (optional)',
-      apiBasePathHint: 'Only for deployments served under a path. e.g. /confluence',
+      address: 'Server address',
+      addressHint:
+        'Paste the address from your browser. It cannot be changed after the server is created.',
+      addressResolved: 'Connects to: {{url}}',
       create: 'Add',
       delete: 'Delete',
       errTemplate: 'Pick a service to add.',
       errLabel: 'Enter a display name.',
-      errBaseUrl: 'The address must have no path. e.g. https://wiki.example.com',
-      errBasePath: 'The context path must start with `/`.',
+      errAddress: "Couldn't read that address. Example: https://wiki.example.com/confluence",
       errExists: 'A server with this address already exists.',
       errRegister: 'Could not register the server.',
       errUnknown: 'Could not add the server.'
@@ -137,16 +136,16 @@ export const en: typeof ko = {
     connect: {
       title: 'Connect {{name}}',
       server: 'Server address',
-      serverHint: 'The server address is fixed at install time. Ask an administrator to change it.',
+      serverHint:
+        'The address cannot be changed after creation. Remove and add it again to change it.',
       method: 'Authentication method',
       submit: 'Connect',
       connect: 'Connect',
       disconnect: 'Disconnect',
-      reconnect: 'Reconnect',
+      reconnect: 'Change credentials',
       noProvider: 'No authentication method is available for this connector.',
       failInvalid: 'The credentials were rejected. Please try again.',
-      failUnreachable:
-        'Could not reach the server. The address is an install setting — ask an administrator.',
+      failUnreachable: 'Could not reach the server. Check that the address is correct.',
       failAlreadyConnected: 'Already connected. Disconnect first.',
       failCancelled: 'The connection was cancelled.',
       failUnknown: 'The connection failed.'

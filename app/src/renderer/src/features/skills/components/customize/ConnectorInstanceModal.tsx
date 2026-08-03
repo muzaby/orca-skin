@@ -8,6 +8,10 @@
 //
 // **주소는 만든 뒤 고칠 수 없다.** connector ID 가 주소에서 파생되고 그 ID 에서 도구 이름·
 // 승인 키·다운로드 경로가 나오기 때문이다. 그 사실을 생성 **전에** 알린다.
+//
+// **주소 칸은 하나다** (0163). 0161 은 origin 과 컨텍스트 경로를 따로 물었는데 사용자가
+// "이해할 수 없는 옵션" 이라고 보고했다. 브라우저 주소창의 URL 을 그대로 받고 앱이 쪼갠다 —
+// 무엇이 적용되는지는 입력 아래에 되보여준다.
 
 import { useState } from 'react'
 import { Button } from '../../../../shared/ui/Button'
@@ -17,8 +21,9 @@ import { pluginApi } from '../../../../shared/api/ipc'
 import type { PluginConnectorInfo } from '../../../../../../shared/ipc'
 import {
   classifyCreateFailure,
+  describeApiBase,
   draftForTemplate,
-  splitPastedUrl,
+  splitServerUrl,
   toCreateRequest,
   validateDraft,
   type CreateFailure,
@@ -29,13 +34,12 @@ import {
 const PROBLEM_KEY = {
   template_required: 'skills.instance.errTemplate',
   label_required: 'skills.instance.errLabel',
-  base_url_invalid: 'skills.instance.errBaseUrl',
-  api_base_path_invalid: 'skills.instance.errBasePath'
+  address_invalid: 'skills.instance.errAddress'
 } as const satisfies Record<DraftProblem, string>
 
 const FAILURE_KEY = {
   already_exists: 'skills.instance.errExists',
-  invalid_input: 'skills.instance.errBaseUrl',
+  invalid_input: 'skills.instance.errAddress',
   unknown_template: 'skills.instance.errTemplate',
   register_failed: 'skills.instance.errRegister',
   unknown: 'skills.instance.errUnknown'
@@ -51,8 +55,10 @@ export function ConnectorInstanceModal({
   // 추가 메뉴가 고른 템플릿. 선택 없이 열 수 없다는 것을 타입으로 강제한다.
   templateId: string
   onClose: () => void
-  // 만들어진 connector 를 넘겨 호출부가 곧바로 인증 모달을 띄운다.
-  onCreated: (connector: PluginConnectorInfo) => void
+  // 생성 응답(갱신된 **목록 전체**)을 그대로 넘긴다 — 어느 것이 새것인지는 호출부가
+  // 이전 목록과의 차집합으로 정한다(0163 `connectorCreate.ts`). 0162 는 여기서 origin
+  // 문자열로 찾아 매칭이 어긋나면 목록 갱신까지 통째로 건너뛰었다.
+  onCreated: (connectors: PluginConnectorInfo[]) => void
 }): React.JSX.Element {
   const { tr } = useI18n()
   const [draft, setDraft] = useState<InstanceDraft>(() => draftForTemplate(templateId))
@@ -70,20 +76,10 @@ export function ConnectorInstanceModal({
     onClose()
   }
 
-  // 주소를 붙여넣는 순간 origin 과 컨텍스트 경로를 갈라 **제안**한다. 자동 확정하지 않는다 —
-  // `/display` 를 컨텍스트 경로로 오인하면 모든 요청이 404 가 된다.
-  const onBaseUrlChange = (value: string): void => {
-    const parts = splitPastedUrl(value)
-    if (parts !== null && parts.origin !== value) {
-      setDraft((prev) => ({
-        ...prev,
-        baseUrl: parts.origin,
-        apiBasePath: prev.apiBasePath === '' ? parts.suggestedBasePath : prev.apiBasePath
-      }))
-      return
-    }
-    setDraft((prev) => ({ ...prev, baseUrl: value }))
-  }
+  // 입력값은 **손대지 않는다.** 0162 는 매 키 입력마다 origin 으로 되썼는데, 그 탓에
+  // `https://wiki.corp/` 의 `/` 가 지워져 이어 치면 `https://wiki.corpconfluence` 가 됐다.
+  // 쪼개는 것은 제출할 때 한 번이면 충분하다.
+  const address = splitServerUrl(draft.address)
 
   const submit = (): void => {
     const found = validateDraft(draft)
@@ -91,15 +87,18 @@ export function ConnectorInstanceModal({
     setFailure(null)
     if (found !== null) return
 
+    const request = toCreateRequest(draft)
+    if (request === null) {
+      setProblem('address_invalid')
+      return
+    }
+
     setBusy(true)
     void pluginApi
-      .createInstance(toCreateRequest(draft))
+      .createInstance(request)
       .then((connectors) => {
-        const created = connectors.find(
-          (item) => item.origin === draft.baseUrl.trim() && item.source === 'instance'
-        )
         close()
-        if (created) onCreated(created)
+        onCreated(connectors)
       })
       .catch((error: unknown) => setFailure(classifyCreateFailure(error)))
       .finally(() => setBusy(false))
@@ -141,28 +140,21 @@ export function ConnectorInstanceModal({
         </label>
 
         <label className="block">
-          <div className={MODAL_LABEL}>{tr('skills.instance.baseUrl')}</div>
+          <div className={MODAL_LABEL}>{tr('skills.instance.address')}</div>
           <input
             className={MODAL_INPUT}
-            value={draft.baseUrl}
+            value={draft.address}
             disabled={busy}
-            placeholder="https://wiki.example.com"
-            onChange={(event) => onBaseUrlChange(event.target.value)}
+            placeholder="https://wiki.example.com/confluence"
+            onChange={(event) => setDraft((prev) => ({ ...prev, address: event.target.value }))}
           />
-          {/* 생성 전에 알린다 — 나중에 고칠 수 없다는 사실이 입력 순간의 정보다. */}
-          <p className="mt-g1 text-caption text-ink3">{tr('skills.instance.baseUrlHint')}</p>
-        </label>
-
-        <label className="block">
-          <div className={MODAL_LABEL}>{tr('skills.instance.apiBasePath')}</div>
-          <input
-            className={MODAL_INPUT}
-            value={draft.apiBasePath}
-            disabled={busy}
-            placeholder="/confluence"
-            onChange={(event) => setDraft((prev) => ({ ...prev, apiBasePath: event.target.value }))}
-          />
-          <p className="mt-g1 text-caption text-ink3">{tr('skills.instance.apiBasePathHint')}</p>
+          <p className="mt-g1 text-caption text-ink3">{tr('skills.instance.addressHint')}</p>
+          {/* 앱이 실제로 쓸 주소를 되보여준다 — 자동 해석을 숨기지 않는다. */}
+          {address !== null && (
+            <p className="mt-g1 text-caption text-ink2">
+              {tr('skills.instance.addressResolved', { url: describeApiBase(address) })}
+            </p>
+          )}
         </label>
 
         {(problem !== null || failure !== null) && (

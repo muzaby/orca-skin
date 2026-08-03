@@ -59,6 +59,29 @@ describe('buildConnectOptions', () => {
     expect(result.options.map((o) => o.providerId)).toEqual(['confluence-pat'])
   })
 
+  // 0163 — 사용자가 UI 에서 만든 커넥터는 **다른 패키지**(공용)의 provider 를 참조한다.
+  // 0161 이 패키지를 둘로 쪼갠 결과이고, 그래서 상세 화면이 자기 행의 provider 만 넘기면
+  // 교집합이 항상 공집합이 되어 "쓸 수 있는 인증 방식이 없습니다" 가 떴다.
+  it('다른 패키지의 provider 도 수용 목록에 있으면 후보다', () => {
+    const instance: PluginConnectorInfo = {
+      ...CONNECTOR,
+      connectorId: 'confluence-wiki-corp',
+      pluginId: 'confluence-wiki-corp',
+      source: 'instance'
+    }
+    const shared = [
+      provider('confluence-pat', { pluginId: 'confluence', label: 'PAT' }),
+      provider('confluence-basic', {
+        pluginId: 'confluence',
+        label: 'ID/비밀번호',
+        mechanisms: ['basic']
+      })
+    ]
+    const result = buildConnectOptions(instance, shared)
+    expect(result.options.map((o) => o.providerId)).toEqual(['confluence-pat', 'confluence-basic'])
+    expect(result.unavailableReason).toBeNull()
+  })
+
   it('connector target 을 지원하지 않는 provider 를 제외한다', () => {
     const result = buildConnectOptions(CONNECTOR, [
       provider('confluence-pat', { targets: ['application'] })
