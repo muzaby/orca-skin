@@ -5,7 +5,7 @@ import type {
   ConnectorRuntimeV1,
   ConnectorStatus
 } from '../../contracts/connector-plugin'
-import type { AuthBindingInfo } from '../../../shared/ipc'
+import type { AuthBindingInfo, AuthLogoutOutcome } from '../../../shared/ipc'
 
 export interface ConnectorPort {
   connect(input: { id: string; connectorId: string; bindingId: string }): Promise<ConnectorStatus>
@@ -18,7 +18,7 @@ export interface BindingLookup {
 }
 
 export interface LogoutPort {
-  logout(bindingId: string, cascade: boolean): Promise<unknown>
+  logout(bindingId: string, cascade: boolean): Promise<AuthLogoutOutcome>
 }
 
 export interface RuntimeToolSink {
@@ -54,10 +54,19 @@ interface ActiveConnection {
   connectorId: string
   bindingId: string
   connectionId: string
+  bindingFingerprint: BindingFingerprint
   controller: AbortController
   serverIds: string[]
   ready: boolean
   cleanup?: Promise<void>
+}
+
+interface BindingFingerprint {
+  bindingId: string
+  pluginId: string
+  providerId: string
+  connectorId: string
+  connectionId: string
 }
 
 // 인증 binding과 connector runtime을 조립하는 auth-platform 내부 lifecycle coordinator.
@@ -90,6 +99,7 @@ export class PluginHost {
       connectorId: input.connectorId,
       bindingId: binding.id,
       connectionId: binding.target.connectionId,
+      bindingFingerprint: fingerprint(binding),
       controller: new AbortController(),
       serverIds: [],
       ready: false
@@ -112,8 +122,12 @@ export class PluginHost {
       ) {
         throw new Error(`binding ended during connector start: ${active.bindingId}`)
       }
-      // 시작을 기다리는 동안 binding이 만료/교체되었는지 다시 확인한다.
-      this.requireValidBinding(active.bindingId, connector)
+      // 시작을 기다리는 동안 binding이 만료/교체되었는지 다시 확인한다. principal 같은
+      // 표시용 refresh는 허용하지만 connection/provider/plugin이 바뀐 새 binding은 거부한다.
+      const currentBinding = this.requireValidBinding(active.bindingId, connector)
+      if (!sameFingerprint(active.bindingFingerprint, fingerprint(currentBinding))) {
+        throw new Error(`binding changed during connector start: ${active.bindingId}`)
+      }
 
       const servers = this.deps.registry
         .listRuntimeToolsForConnector(active.connectorId)
@@ -132,12 +146,12 @@ export class PluginHost {
     }
   }
 
-  async disconnect(input: { connectorId: string }): Promise<void> {
+  async disconnect(input: { connectorId: string }): Promise<AuthLogoutOutcome> {
     const active = this.activeByConnector.get(input.connectorId)
     if (!active) throw new Error(`connector is not connected: ${input.connectorId}`)
     // cleanup은 broker의 ended-binding callback만 한다. 여기서 별도 경로를 만들면
     // provider logout 실패/cascade와 명시 disconnect가 달라진다.
-    await this.deps.logout.logout(active.bindingId, false)
+    return this.deps.logout.logout(active.bindingId, false)
   }
 
   async onBindingsEnded(bindingIds: readonly string[]): Promise<void> {
@@ -226,4 +240,28 @@ export class PluginHost {
       }
     }
   }
+}
+
+function fingerprint(
+  binding: AuthBindingInfo & {
+    target: { kind: 'connector'; connectorId: string; connectionId: string }
+  }
+): BindingFingerprint {
+  return {
+    bindingId: binding.id,
+    pluginId: binding.pluginId,
+    providerId: binding.providerId,
+    connectorId: binding.target.connectorId,
+    connectionId: binding.target.connectionId
+  }
+}
+
+function sameFingerprint(left: BindingFingerprint, right: BindingFingerprint): boolean {
+  return (
+    left.bindingId === right.bindingId &&
+    left.pluginId === right.pluginId &&
+    left.providerId === right.providerId &&
+    left.connectorId === right.connectorId &&
+    left.connectionId === right.connectionId
+  )
 }
