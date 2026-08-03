@@ -314,7 +314,7 @@ export async function runReconnect(
 | 신규 의존성 | **0개** |
 | 사람 실기 대기 | AC1·2·5·6(앱 실행만 필요) · AC14(사내 Confluence DC 필요) |
 | 블로커 / 역질문 | 없음 |
-| 대상 커밋 | (아래 커밋 hash) |
+| 대상 커밋 | `666a1bd` |
 
 ---
 
