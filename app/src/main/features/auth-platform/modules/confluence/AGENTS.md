@@ -3,31 +3,37 @@
 사내 Confluence DC 를 **내장 MCP**(claude-agent-sdk `createSdkMcpServer`, 0158 배관)로 붙인다.
 검색·페이지 Markdown 변환·첨부 다운로드만 하는 **read-only** 패키지다.
 
-## 두 가지 사용 경로 (0161)
+## 두 가지 사용 경로 (0161 → 0164 로 기본값 반전)
 
 | 경로 | 서버 주소 출처 | 추가 방법 | 삭제 |
 |---|---|---|---|
-| **템플릿 인스턴스** (기본) | 사용자가 UI 에서 입력 | 플러그인 페이지 → **추가** → Confluence → 주소·자격증명 | UI 에서 가능 |
-| **정적 등록** | `servers.ts` (코드) | 아래 절차 | 불가(코드로 배포) |
+| **정적 등록** (기본) | `servers.ts` (코드) | 그 파일의 배열을 채운다 | 불가(코드로 배포) |
+| 템플릿 인스턴스 | 사용자가 UI 에서 입력 | **디버그 패널에서 "서버 추가 버튼 노출" 을 켠 뒤** 플러그인 페이지 → 추가 | UI 에서 가능 |
 
-템플릿 경로는 별도 활성화가 필요 없다 — `confluenceTemplate` 이 `bootstrap.ts` 의
-`ConnectorTemplateRegistry` 에 이미 등록돼 있고, 사용자가 만든 인스턴스는 설정
-(`connectorInstances`)에 영속돼 재시작 후 복원된다.
+**서버 목록의 정본은 빌드타임이다** (사용자 결정 2026-08-03 — "빌드타임에서 2개의 컨플루언스
+등록 … base url 수정은 안된다"). UI 추가 경로는 코드에 남아 있지만 `Tweaks.pluginAddEnabled`
+(기본 `false`) 뒤에 있어 일반 사용자에게 노출되지 않는다. **인증만 런타임**이다 — PAT·ID/비밀번호는
+매번 사용자가 입력한다(binding 은 비영속, 0157).
 
-## 정적 등록 (선택 — 사내 표준 서버를 미리 박아둘 때)
+## 정적 등록 — `servers.ts` **한 파일만** 고친다
 
-저장소 기본값은 `CONFLUENCE_SERVERS = []` + `AUTH_PLUGIN_PACKAGES = []` 다 — 사내 주소를 모르는
-상태로 placeholder connector 를 등록하면 모든 사용자에게 연결되지 않는 카드가 보인다.
-
-1. `servers.ts` 의 `CONFLUENCE_SERVERS` 에 서버를 적는다.
-2. `../index.ts` 의 `AUTH_PLUGIN_PACKAGES` 에 한 줄 추가:
+`AUTH_PLUGIN_PACKAGES` 배선은 이미 켜져 있다(0164). 저장소 기본값은 `CONFLUENCE_SERVERS = []` 라
+provider 2종만 등록되고 connector 는 0개다 — 사내 주소를 모르는 상태로 placeholder 를 넣으면
+모든 사용자에게 연결되지 않는 카드가 보이기 때문이다.
 
 ```ts
-import { createConfluencePackage, CONFLUENCE_SERVERS } from './confluence'
-export const AUTH_PLUGIN_PACKAGES = [createConfluencePackage(CONFLUENCE_SERVERS)]
+export const CONFLUENCE_SERVERS: readonly ConfluenceServerConfig[] = [
+  { id: 'confluence-dc', label: '사내 위키', baseUrl: 'https://wiki.corp' },
+  { id: 'confluence-lab', label: '연구소 위키', baseUrl: 'https://rnd.corp',
+    apiBasePath: '/confluence' }
+]
 ```
 
-그 외 코어 코드(broker·registry·IPC·UI)는 수정하지 않는다.
+**`id` 는 한 번 정하면 유지한다** — 도구 이름(`mcp__<server>__<tool>`)·승인 키·다운로드 경로가
+파생되고 대화 기록에 남는다. 주소만 바뀌면 `baseUrl` 만 고친다.
+
+그 외 코어 코드(broker·registry·IPC·UI)는 수정하지 않는다. 서버 N개는 **한 패키지** 안에
+들어가므로 provider 중복 문제가 없다(패키지 2분할은 인스턴스 경로에만 필요하다).
 
 ## 주소 규칙 (두 경로 공통)
 

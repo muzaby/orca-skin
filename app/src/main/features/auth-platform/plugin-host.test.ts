@@ -242,6 +242,24 @@ describe('PluginHost', () => {
     )
   })
 
+  // 0164 — 사용자가 ID/비밀번호로 붙여놓고도 화면에서 그 사실을 확인할 수 없었다.
+  it('연결되면 무엇으로 연결됐는지를 싣는다', async () => {
+    const bindings = new Map([['binding-a', binding('binding-a')]])
+    const { host } = createHost(bindings, [contribution('server-a', 'connector-a', ['read-item'])])
+
+    await host.connect({ connectorId: 'connector-a', bindingId: 'binding-a' })
+
+    const info = host.list().find((item) => item.connectorId === 'connector-a')
+    expect(info?.connectedProviderId).toBe(binding('binding-a').providerId)
+  })
+
+  it('미연결이면 connectedProviderId 가 없다', () => {
+    const { host } = createHost(new Map(), [contribution('server-a', 'connector-a', ['read-item'])])
+    const info = host.list().find((item) => item.connectorId === 'connector-a')
+    expect(info?.connected).toBe(false)
+    expect(info).not.toHaveProperty('connectedProviderId')
+  })
+
   it('keeps different static connectors independent while preserving the first same-connector connection', async () => {
     const bindings = new Map([
       ['binding-a', binding('binding-a')],

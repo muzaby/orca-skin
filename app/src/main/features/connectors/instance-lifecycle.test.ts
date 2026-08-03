@@ -47,7 +47,12 @@ interface Harness {
 }
 
 function harness(
-  opts: { persist?: InstancePersistPort; registerErrors?: () => Array<{ message: string }> } = {}
+  opts: {
+    persist?: InstancePersistPort
+    registerErrors?: () => Array<{ message: string }>
+    // 정적 등록이 이미 올린 pluginId (0164).
+    alreadyRegistered?: readonly string[]
+  } = {}
 ): Harness {
   const registered: unknown[] = []
   const unregistered: string[] = []
@@ -55,6 +60,7 @@ function harness(
   const order: string[] = []
 
   const registry: InstanceRegistryPort = {
+    hasPlugin: (pluginId) => (opts.alreadyRegistered ?? []).includes(pluginId),
     register: (input) => {
       const errors = opts.registerErrors?.() ?? []
       if (errors.length === 0) registered.push(input.manifest)
@@ -208,6 +214,20 @@ describe('ConnectorInstanceLifecycle — 복원', () => {
     expect(h.registered).toEqual([{ id: 'confluence', kind: 'shared' }])
   })
 
+  // 0164 — 정적 등록(`AUTH_PLUGIN_PACKAGES`)이 같은 pluginId 를 먼저 올릴 수 있다. 그대로
+  // 부르면 registry 가 중복으로 거부해 매 부팅 오류 로그가 남는다.
+  it('공용 패키지가 이미 있으면 건너뛴다', () => {
+    const h = harness({ alreadyRegistered: ['confluence'] })
+    h.lifecycle.restore()
+    expect(h.registered).toEqual([])
+  })
+
+  it('없으면 등록한다', () => {
+    const h = harness()
+    h.lifecycle.restore()
+    expect(h.registered).toEqual([{ id: 'confluence', kind: 'shared' }])
+  })
+
   it('복원 실패를 로거로 알린다', () => {
     const logger = vi.fn()
     const store = new ConnectorInstanceStore(
@@ -218,7 +238,7 @@ describe('ConnectorInstanceLifecycle — 복원', () => {
     new ConnectorInstanceLifecycle({
       store,
       templates: new ConnectorTemplateRegistry([fakeTemplate()]),
-      registry: { register: () => [], unregister: () => true },
+      registry: { register: () => [], unregister: () => true, hasPlugin: () => false },
       host: { disconnectIfConnected: async () => undefined },
       logger
     }).restore()

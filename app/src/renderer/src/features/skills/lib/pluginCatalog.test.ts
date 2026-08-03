@@ -1,63 +1,113 @@
 import { describe, expect, it } from 'vitest'
 import type { AuthProviderInfo, PluginConnectorInfo } from '../../../../../shared/ipc'
-import { buildPluginRows } from './pluginCatalog'
-describe('plugin catalog', () => {
-  it('provider·connector 의 pluginId 합집합을 정렬해 집계한다', () => {
-    const providers = [
-      { id: 'p', pluginId: 'b' },
-      { id: 'q', pluginId: 'b' },
-      { id: 'r', pluginId: 'a' }
-    ] as AuthProviderInfo[]
-    const connectors = [
-      { connectorId: 'c', pluginId: 'b', connected: true },
-      { connectorId: 'd', pluginId: 'c', connected: false }
-    ] as PluginConnectorInfo[]
-    expect(
-      buildPluginRows(providers, connectors).map(
-        ({ pluginId, providerCount, connectorCount, connectedCount }) => ({
-          pluginId,
-          providerCount,
-          connectorCount,
-          connectedCount
-        })
-      )
-    ).toEqual([
-      { pluginId: 'a', providerCount: 1, connectorCount: 0, connectedCount: 0 },
-      { pluginId: 'b', providerCount: 2, connectorCount: 1, connectedCount: 1 },
-      { pluginId: 'c', providerCount: 0, connectorCount: 1, connectedCount: 0 }
+import {
+  buildConnectorRows,
+  connectedAuthLabel,
+  connectorAuthLabels,
+  providerMap
+} from './pluginCatalog'
+
+function provider(id: string, overrides: Partial<AuthProviderInfo> = {}): AuthProviderInfo {
+  return {
+    id,
+    pluginId: 'confluence',
+    apiVersion: 1,
+    label: id,
+    targets: ['connector'],
+    mechanisms: ['personal_access_token'],
+    capabilities: ['logout'],
+    ...overrides
+  } as AuthProviderInfo
+}
+
+const PROVIDERS = [
+  provider('confluence-pat', { label: 'PAT' }),
+  provider('confluence-basic', { label: 'ID/비밀번호', mechanisms: ['basic'] })
+]
+
+function connector(overrides: Partial<PluginConnectorInfo> = {}): PluginConnectorInfo {
+  return {
+    connectorId: 'confluence-dc',
+    label: 'Confluence',
+    origin: 'https://wiki.corp',
+    pluginId: 'confluence',
+    acceptedAuthProviders: ['confluence-pat', 'confluence-basic'],
+    connected: false,
+    source: 'static',
+    ...overrides
+  }
+}
+
+describe('buildConnectorRows', () => {
+  // 사용자 요구(0164): 빌드타임에 2개를 넣으면 UI 에 2개 항목이 보여야 한다.
+  it('커넥터마다 행을 만든다', () => {
+    const rows = buildConnectorRows(PROVIDERS, [
+      connector(),
+      connector({ connectorId: 'confluence-lab', label: '연구소', origin: 'https://rnd.corp' })
     ])
+    expect(rows.map((row) => row.connectorId)).toEqual(['confluence-dc', 'confluence-lab'])
   })
-  it('입력이 비면 행이 없다', () => expect(buildPluginRows([], [])).toEqual([]))
+
+  it('행 제목은 서버 라벨, 부제는 주소', () => {
+    const [row] = buildConnectorRows(PROVIDERS, [connector({ label: '사내 위키' })])
+    expect(row.title).toBe('사내 위키')
+    expect(row.origin).toBe('https://wiki.corp')
+  })
+
+  // 0159 의 "행 = 패키지" 를 뒤집는 지점 — provider 만 기여하는 패키지는 누를 것이 없다.
+  it('provider 전용 패키지는 행이 없다', () => {
+    expect(buildConnectorRows(PROVIDERS, [])).toEqual([])
+  })
+
+  it('라벨이 비면 connectorId 로 되돌린다', () => {
+    const [row] = buildConnectorRows(PROVIDERS, [connector({ label: '   ' })])
+    expect(row.title).toBe('confluence-dc')
+  })
+
+  it('수용 provider 를 라벨로 푼다', () => {
+    const [row] = buildConnectorRows(PROVIDERS, [connector()])
+    expect(row.authLabels).toEqual(['PAT', 'ID/비밀번호'])
+  })
+
+  it('연결된 provider 를 골라낸다', () => {
+    const [row] = buildConnectorRows(PROVIDERS, [
+      connector({ connected: true, connectedProviderId: 'confluence-basic' })
+    ])
+    expect(row.connectedAuthLabel).toBe('ID/비밀번호')
+  })
+
+  it('미연결이면 연결 방식이 없다', () => {
+    const [row] = buildConnectorRows(PROVIDERS, [connector()])
+    expect(row.connectedAuthLabel).toBeNull()
+  })
+
+  it('source 와 원본 커넥터를 그대로 나른다', () => {
+    const [row] = buildConnectorRows(PROVIDERS, [connector({ source: 'instance' })])
+    expect(row.source).toBe('instance')
+    expect(row.connector.connectorId).toBe('confluence-dc')
+  })
 })
 
-// 0163 — 인스턴스 행의 pluginId 는 주소에서 파생한 기계값(`confluence-wiki-corp`)이라
-// 사용자가 붙인 이름이 목록 어디에도 안 보였다.
-describe('행 제목', () => {
-  const instance = [
-    { connectorId: 'confluence-wiki-corp', pluginId: 'confluence-wiki-corp', label: '사내 위키' }
-  ] as PluginConnectorInfo[]
+describe('connectorAuthLabels', () => {
+  // `buildConnectOptions`(연결 시 강제 지점)와 같은 교집합 규칙이어야 한다 — 두 곳이 다르면
+  // "고를 수 있다고 써놓고 못 고르는" 화면이 된다.
+  it('등록되지 않은 provider 는 빼고, connector target 이 아닌 것도 뺀다', () => {
+    const map = providerMap([provider('confluence-pat', { label: 'PAT' })])
+    expect(connectorAuthLabels({ acceptedAuthProviders: ['confluence-pat'] }, map)).toEqual(['PAT'])
+    expect(connectorAuthLabels({ acceptedAuthProviders: ['missing'] }, map)).toEqual([])
 
-  it('인스턴스 행은 사용자가 붙인 이름을 제목으로 쓴다', () => {
-    expect(buildPluginRows([], instance)[0].title).toBe('사내 위키')
+    const appOnly = providerMap([provider('app-sso', { label: 'SSO', targets: ['application'] })])
+    expect(connectorAuthLabels({ acceptedAuthProviders: ['app-sso'] }, appOnly)).toEqual([])
+  })
+})
+
+describe('connectedAuthLabel', () => {
+  it('등록 목록에 없는 provider id 는 id 를 그대로 보여준다', () => {
+    const map = providerMap([])
+    expect(connectedAuthLabel({ connected: true, connectedProviderId: 'gone' }, map)).toBe('gone')
   })
 
-  it('근거가 없으면 pluginId 를 제목으로 유지한다', () => {
-    // provider 를 기여하는 행(공용 패키지)은 서버 이름이랄 것이 없다.
-    const providers = [{ id: 'p', pluginId: 'confluence' }] as AuthProviderInfo[]
-    expect(buildPluginRows(providers, [])[0].title).toBe('confluence')
-
-    // 커넥터가 여럿인 행(정적 패키지)도 어느 이름을 쓸지 정할 근거가 없다.
-    const many = [
-      { connectorId: 'x', pluginId: 'confluence', label: 'A' },
-      { connectorId: 'y', pluginId: 'confluence', label: 'B' }
-    ] as PluginConnectorInfo[]
-    expect(buildPluginRows([], many)[0].title).toBe('confluence')
-  })
-
-  it('라벨이 비면 pluginId 로 되돌린다', () => {
-    const blank = [
-      { connectorId: 'z', pluginId: 'confluence-wiki-corp', label: '   ' }
-    ] as PluginConnectorInfo[]
-    expect(buildPluginRows([], blank)[0].title).toBe('confluence-wiki-corp')
+  it('연결됐다고만 하고 provider id 가 없으면 표시하지 않는다', () => {
+    expect(connectedAuthLabel({ connected: true }, providerMap(PROVIDERS))).toBeNull()
   })
 })

@@ -404,7 +404,7 @@ connector의 목록·연결 lifecycle과, 사용자가 서버를 추가/삭제�
 
 connector는 두 출처를 갖는다 — **`static`**(코드로 배포, `modules/<x>/servers.ts`)과 **`instance`**(사용자가 템플릿으로 추가). DTO의 `source`가 그 구분이고 UI는 이 값으로 삭제 가능 여부를 판정한다. connector당 활성 연결은 하나다.
 
-응답 DTO는 `connectorId`·`label`·`origin`·`pluginId`·`acceptedAuthProviders`·`connected`·`source`만 포함하며 credential·binding artifact·runtime tool 구현은 포함하지 않는다.
+응답 DTO는 `connectorId`·`label`·`origin`·`pluginId`·`acceptedAuthProviders`·`connected`·`source`·`connectedProviderId?`만 포함하며 credential·binding artifact·runtime tool 구현은 포함하지 않는다. `connectedProviderId`(0164)는 활성 binding 의 **auth provider id** 이고 **키 부재 = 미연결**이다 — 화면이 "무엇으로 연결됐는지"를 보여주기 위한 값이라 id 만 나가고 secret·vault handle 은 이 경계를 넘지 않는다.
 
 **주소 수정 채널은 없다.** 인스턴스의 `connectorId`가 host+컨텍스트 경로에서 파생되므로(0161) 주소 수정은 곧 도구 서버 ID·승인 키(`mcp__<server>__<tool>`)·다운로드 경로의 이동이다. 수정 대신 삭제 후 재생성한다.
 

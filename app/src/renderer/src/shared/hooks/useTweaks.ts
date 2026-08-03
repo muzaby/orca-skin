@@ -16,6 +16,9 @@ export interface Tweaks {
   uiLocale: UiLocale
   // 응답완료 알림 토글. 완료 감지 훅(useCompletionNotifier)이 이 값을 읽어 알림 요청.
   notifyOnComplete: boolean
+  // 플러그인 탭의 추가 버튼 노출 (0164). 서버 목록의 정본은 빌드타임(`servers.ts`)이라
+  // 기본은 숨김이고 디버그 패널 토글로만 켠다.
+  pluginAddEnabled: boolean
   // 월간 지출 한도(USD). 사용량 한도 바(도넛·설정)의 기준. null=무제한.
   spendingLimitUsd: number | null
   // scheduler(주기 실행) 설정은 renderer 소비처가 없다(0112 에서 cron UI 제거) —
@@ -30,6 +33,7 @@ const DEFAULTS: Tweaks = {
   appFont: 'sans',
   uiLocale: 'ko',
   notifyOnComplete: false,
+  pluginAddEnabled: false,
   spendingLimitUsd: 90
 }
 
@@ -51,6 +55,7 @@ export function useTweaks(): [Tweaks, <K extends keyof Tweaks>(key: K, val: Twea
         appFont: s.appFont,
         uiLocale: s.uiLocale,
         notifyOnComplete: s.notifyOnComplete,
+        pluginAddEnabled: s.pluginAddEnabled,
         spendingLimitUsd: s.spendingLimitUsd
       })
     })

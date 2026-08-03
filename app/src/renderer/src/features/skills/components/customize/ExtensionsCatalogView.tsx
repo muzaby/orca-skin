@@ -3,11 +3,13 @@ import type { PluginConnectorInfo } from '../../../../../../shared/ipc'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../../../../shared/ui/Button'
 import { useI18n } from '../../../../shared/i18n'
+import { useTweakContext } from '../../../../shared/theme'
 import { useCustomizeSkills } from '../../hooks/useCustomizeSkills'
 import { useMcpServers } from '../../hooks/useMcpServers'
 import { usePluginCatalog } from '../../hooks/usePluginCatalog'
 import { back, openDetail, selectTab, type CatalogSelection } from '../../lib/catalogSelection'
 import { handleCreated } from '../../lib/connectorCreate'
+import { showsAddButton } from '../../lib/pluginAddGate'
 import { toggleGroup, type CollapsedGroups } from '../../lib/catalogGroups'
 import { CustomizeRail } from './CustomizeRail'
 import { CustomizeList } from './CustomizeList'
@@ -26,6 +28,9 @@ const skillKey = (sourceId: string, name: string): string => `${sourceId}/${name
 
 export function ExtensionsCatalogView(): React.JSX.Element {
   const { tr } = useI18n()
+  // 서버 목록의 정본은 빌드타임(`servers.ts`)이라 추가 버튼은 기본으로 숨긴다 (0164).
+  // 디버그 패널 토글로만 열린다.
+  const { t } = useTweakContext()
   const navigate = useNavigate()
   const [selection, setSelection] = useState<CatalogSelection>({ tab: 'skills', selectedId: null })
   // 그룹 접힘 — 키가 탭으로 네임스페이스돼 탭을 오가도 유지되고, 모달 언마운트 시 초기화된다
@@ -48,9 +53,9 @@ export function ExtensionsCatalogView(): React.JSX.Element {
     (item) => skillKey(item.sourceId, item.name) === selection.selectedId
   )
   const selectedMcp = mcp.list.find((item) => item.id === selection.selectedId)
-  const selectedPlugin = plugins.rows.find((item) => item.pluginId === selection.selectedId)
+  const selectedPlugin = plugins.rows.find((item) => item.connectorId === selection.selectedId)
   // 등록된 provider 전체 — connector 가 어느 패키지의 provider 든 참조할 수 있다.
-  const allProviders = plugins.rows.flatMap((row) => row.providers)
+  const allProviders = plugins.providers
   const detail = selectedSkill ?? selectedMcp ?? selectedPlugin
   const title = tr(
     selection.tab === 'skills'
@@ -92,7 +97,7 @@ export function ExtensionsCatalogView(): React.JSX.Element {
               0162 — plugins 도 skills 처럼 **메뉴**를 연다. 고를 것이 하나뿐이어도 무엇을
               추가하는지가 화면에 있어야 한다(이전에는 곧바로 주소 폼이 떠 나열이 없었다).
               mcp 만 커스텀 MCP 모달로 직행한다. */}
-          {!detail && (
+          {!detail && showsAddButton(selection.tab, t.pluginAddEnabled) && (
             <Button
               ref={addRef}
               className="ml-auto"
@@ -150,7 +155,7 @@ export function ExtensionsCatalogView(): React.JSX.Element {
           />
         ) : selectedPlugin ? (
           <PluginDetail
-            plugin={selectedPlugin}
+            row={selectedPlugin}
             // **전체** provider 를 넘긴다 (0163). 인스턴스 커넥터는 공용 패키지의 provider 를
             // 참조하므로(0161 의 패키지 2분할) 자기 행의 provider 만 넘기면 인증 방식이
             // 하나도 없다고 나온다. 좁히는 것은 `buildConnectOptions` 가 한다.
@@ -188,7 +193,7 @@ export function ExtensionsCatalogView(): React.JSX.Element {
             // 서버를 만들었으면 곧바로 자격증명을 받는다 — 사용자 요구의 "url 및 인증 정보"가
             // 한 흐름이다. 인증을 취소해도 서버는 남는다.
             handleCreated({
-              before: plugins.rows.flatMap((row) => row.connectors),
+              before: plugins.rows.map((row) => row.connector),
               after: connectors,
               refresh: plugins.refresh,
               connect: setConnecting

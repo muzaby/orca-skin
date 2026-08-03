@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { McpServer, SkillInfo } from '../../../../../shared/ipc'
-import type { PluginRow } from './pluginCatalog'
+import type { ConnectorRow } from './pluginCatalog'
 import {
   groupKey,
   isGroupOpen,
@@ -13,8 +13,8 @@ import {
 const skill = (sourceId: string, sourceLabel: string, name: string): SkillInfo =>
   ({ sourceKind: 'orca', sourceId, sourceLabel, name }) as SkillInfo
 const server = (id: string, enabled: boolean): McpServer => ({ id, enabled }) as McpServer
-const plugin = (pluginId: string, connectedCount: number): PluginRow =>
-  ({ pluginId, connectedCount }) as PluginRow
+const plugin = (connectorId: string, connected: boolean): ConnectorRow =>
+  ({ connectorId, connected }) as ConnectorRow
 
 describe('catalog groups', () => {
   it('스킬은 source 별로, 라벨은 raw 로 묶인다', () => {
@@ -30,14 +30,14 @@ describe('catalog groups', () => {
 
   it('MCP/플러그인 라벨은 key 로 반환된다 (lib 이 tr 에 의존하지 않는다)', () => {
     expect(mcpGroups([server('m', true)])[0].label).toEqual({ key: 'skills.groups.activeMcp' })
-    expect(pluginGroups([plugin('p', 0)])[0].label).toEqual({
+    expect(pluginGroups([plugin('p', false)])[0].label).toEqual({
       key: 'skills.groups.disconnectedPlugins'
     })
   })
 
   it('행이 없는 그룹은 제외된다', () => {
     expect(mcpGroups([server('m', true)]).map((g) => g.id)).toEqual(['active'])
-    expect(pluginGroups([plugin('p', 2)]).map((g) => g.id)).toEqual(['connected'])
+    expect(pluginGroups([plugin('p', true)]).map((g) => g.id)).toEqual(['connected'])
     expect(mcpGroups([]).length).toBe(0)
   })
 
@@ -46,7 +46,10 @@ describe('catalog groups', () => {
       1, 1
     ])
     expect(
-      pluginGroups([plugin('a', 1), plugin('b', 0)]).map((g) => [g.id, g.rows[0].pluginId])
+      pluginGroups([plugin('a', true), plugin('b', false)]).map((g) => [
+        g.id,
+        g.rows[0].connectorId
+      ])
     ).toEqual([
       ['connected', 'a'],
       ['disconnected', 'b']

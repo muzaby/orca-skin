@@ -92,7 +92,9 @@ export const en: typeof ko = {
     table: {
       skill: 'Skill',
       mcp: 'MCP server',
-      plugin: 'Plugin package',
+      plugin: 'Server',
+      origin: 'Address',
+      authMethod: 'Auth method',
       lastUpdated: 'Last updated',
       author: 'Author',
       status: 'Status',
@@ -153,7 +155,10 @@ export const en: typeof ko = {
     pluginDetail: {
       providers: 'Auth providers',
       connectors: 'Connectors',
-      origin: 'Origin',
+      origin: 'Address',
+      authMethods: 'Auth methods',
+      actions: 'Actions',
+      connectedWith: 'Connected with {{method}}',
       connectedLabel: 'Connected',
       disconnectedLabel: 'Disconnected'
     },
@@ -387,6 +392,8 @@ export const en: typeof ko = {
   debug: {
     title: 'Debug',
     closeTweaks: 'Close tweaks',
+    plugins: 'Plugins',
+    pluginAdd: 'Show add-server button',
     mockMode: 'Mock mode',
     scenario: 'Scenario',
     contextUsage: 'Context usage',

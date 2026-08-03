@@ -4,7 +4,7 @@ import { Dot } from '../../../../shared/ui/Status'
 import { useI18n } from '../../../../shared/i18n'
 import { pluginApi } from '../../../../shared/api/ipc'
 import type { AuthProviderInfo, PluginConnectorInfo } from '../../../../../../shared/ipc'
-import type { PluginRow } from '../../lib/pluginCatalog'
+import type { ConnectorRow } from '../../lib/pluginCatalog'
 import { connectorActions, runReconnect } from '../../lib/connectorActions'
 import { ConnectorConnectModal } from './ConnectorConnectModal'
 
@@ -23,11 +23,13 @@ function Meta({ label, value }: { label: string; value: ReactNode }): React.JSX.
 }
 
 export function PluginDetail({
-  plugin,
+  row,
   providers,
   onChanged
 }: {
-  plugin: PluginRow
+  // 행 하나 = **서버 하나** (0164). 이전에는 패키지였고, 그래서 사용자가 만든 서버의
+  // "인증 제공자" 가 0으로 보였다(provider 는 공용 패키지에 살기 때문).
+  row: ConnectorRow
   // **등록된 provider 전체.** 이 행이 기여한 것만이 아니다 — 사용자가 만든 커넥터는 공용
   // 패키지의 provider 를 참조하므로(0161 패키지 2분할) 자기 행만 보면 인증 방식이 0개가 된다.
   // 실제로 어느 것을 쓸 수 있는지는 `buildConnectOptions` 가 `acceptedAuthProviders` 로 좁힌다.
@@ -77,99 +79,92 @@ export function PluginDetail({
     })
   }
 
+  // 점 색과 버튼 구성은 순수 모듈이 정한다(0162) — 렌더링은 그 결과를 그리기만 한다.
+  const { tone, actions } = connectorActions(row.connector)
+  const busy = busyId === row.connectorId
+
   return (
     <div className="min-w-0 flex-1 overflow-y-auto px-7 py-6">
-      {/* 인스턴스 행이면 사용자가 붙인 이름이 제목이다(0163) — pluginId 는 주소에서 파생한
-          기계값이라 사용자가 자기가 만든 서버를 알아볼 수 없었다. */}
-      <h2 className="m-0 text-heading text-ink">{plugin.title}</h2>
-      {plugin.title !== plugin.pluginId && (
-        <div className="mt-g1 text-caption text-ink3">{plugin.pluginId}</div>
-      )}
-      <div className="mt-p8 grid grid-cols-3 gap-g6">
-        <Meta label={tr('skills.table.providers')} value={plugin.providerCount} />
-        <Meta label={tr('skills.table.connectors')} value={plugin.connectorCount} />
-        <Meta label={tr('skills.table.connected')} value={plugin.connectedCount} />
+      <div className="flex items-center gap-g3">
+        {/* 초록 점 = 자격증명 확인까지 끝난 연결. 색만으로 상태를 전달하지 않도록
+            아래 "연결 상태" 값은 글자로도 남긴다. */}
+        <Dot tone={tone} />
+        <h2 className="m-0 min-w-0 truncate text-heading text-ink">{row.title}</h2>
+      </div>
+      <div className="mt-p8 grid grid-cols-2 gap-g6">
+        <Meta label={tr('skills.pluginDetail.origin')} value={row.origin} />
+        <Meta
+          label={tr('skills.table.connected')}
+          value={
+            row.connected
+              ? tr('skills.pluginDetail.connectedLabel')
+              : tr('skills.pluginDetail.disconnectedLabel')
+          }
+        />
       </div>
       <section className="mt-6">
-        <h3 className={sectionTitleClass}>{tr('skills.pluginDetail.providers')}</h3>
-        {plugin.providers.map((provider) => (
-          <div key={provider.id} className={itemClass}>
-            <div className="text-footnote text-ink">{provider.label}</div>
-            <div className="mt-g1 text-caption text-ink3">
-              {provider.id} · {provider.targets.join(', ')}
-            </div>
+        {/* "인증 제공자 N" 을 대체한다 (0164). 그 숫자는 *패키지가 기여한 provider 수* 라
+            사용자가 ID/비밀번호로 붙여놓고도 0 을 보게 했다. 여기 보이는 것은 **이 서버가
+            쓸 수 있는 방식**이고, 연결돼 있으면 무엇으로 붙었는지를 함께 적는다. */}
+        <h3 className={sectionTitleClass}>{tr('skills.pluginDetail.authMethods')}</h3>
+        <div className={itemClass}>
+          <div className="text-footnote text-ink">
+            {row.authLabels.length > 0
+              ? row.authLabels.join(' · ')
+              : tr('skills.connect.noProvider')}
           </div>
-        ))}
+          {row.connectedAuthLabel !== null && (
+            <div className="mt-g1 text-caption text-ink2">
+              {tr('skills.pluginDetail.connectedWith', { method: row.connectedAuthLabel })}
+            </div>
+          )}
+        </div>
       </section>
       <section className="mt-6">
-        <h3 className={sectionTitleClass}>{tr('skills.pluginDetail.connectors')}</h3>
-        {plugin.connectors.map((connector) => {
-          // 점 색과 버튼 구성은 순수 모듈이 정한다(0162) — 렌더링은 그 결과를 그리기만 한다.
-          const { tone, actions } = connectorActions(connector)
-          const busy = busyId === connector.connectorId
-          return (
-            <div key={connector.connectorId} className={itemClass}>
-              <div className="flex items-center gap-g3 text-footnote">
-                {/* 초록 점 = 자격증명 확인까지 끝난 연결. 색만으로 상태를 전달하지 않도록
-                    옆의 글자 라벨은 지우지 않는다. */}
-                <Dot tone={tone} />
-                <span className="min-w-0 truncate text-ink">{connector.label}</span>
-                <span className="ml-auto flex-none pl-p5 text-caption text-ink3">
-                  {connector.connected
-                    ? tr('skills.pluginDetail.connectedLabel')
-                    : tr('skills.pluginDetail.disconnectedLabel')}
-                </span>
-              </div>
-              <div className="mt-g1 text-caption text-ink3">
-                {tr('skills.pluginDetail.origin')}: {connector.origin}
-              </div>
-              {/* 액션은 **줄을 따로 쓴다** (0163) — 이름과 같은 줄에 넣으면 버튼 4개가
-                  서버 이름을 밀어내 무엇에 대한 버튼인지 알 수 없다. */}
-              <div className="mt-p3 flex flex-wrap items-center gap-g1">
-                {actions.includes('connect') && (
-                  <Button
-                    variant="uncontained"
-                    size="small"
-                    busy={busy}
-                    onClick={() => setConnecting(connector)}
-                  >
-                    {tr('skills.connect.connect')}
-                  </Button>
-                )}
-                {actions.includes('reconnect') && (
-                  <Button
-                    variant="uncontained"
-                    size="small"
-                    busy={busy}
-                    onClick={() => reconnect(connector)}
-                  >
-                    {tr('skills.connect.reconnect')}
-                  </Button>
-                )}
-                {actions.includes('disconnect') && (
-                  <Button
-                    variant="uncontained"
-                    size="small"
-                    disabled={busy}
-                    onClick={() => disconnect(connector.connectorId)}
-                  >
-                    {tr('skills.connect.disconnect')}
-                  </Button>
-                )}
-                {actions.includes('remove') && (
-                  <Button
-                    variant="danger-ghost"
-                    size="small"
-                    disabled={busy}
-                    onClick={() => removeInstance(connector.connectorId)}
-                  >
-                    {tr('skills.instance.delete')}
-                  </Button>
-                )}
-              </div>
-            </div>
-          )
-        })}
+        <h3 className={sectionTitleClass}>{tr('skills.pluginDetail.actions')}</h3>
+        <div className="mt-p3 flex flex-wrap items-center gap-g1">
+          {actions.includes('connect') && (
+            <Button
+              variant="uncontained"
+              size="small"
+              busy={busy}
+              onClick={() => setConnecting(row.connector)}
+            >
+              {tr('skills.connect.connect')}
+            </Button>
+          )}
+          {actions.includes('reconnect') && (
+            <Button
+              variant="uncontained"
+              size="small"
+              busy={busy}
+              onClick={() => reconnect(row.connector)}
+            >
+              {tr('skills.connect.reconnect')}
+            </Button>
+          )}
+          {actions.includes('disconnect') && (
+            <Button
+              variant="uncontained"
+              size="small"
+              disabled={busy}
+              onClick={() => disconnect(row.connectorId)}
+            >
+              {tr('skills.connect.disconnect')}
+            </Button>
+          )}
+          {/* 정적 서버는 제거 버튼이 없다 — 주소가 빌드타임에 고정돼 있다(0164). */}
+          {actions.includes('remove') && (
+            <Button
+              variant="danger-ghost"
+              size="small"
+              disabled={busy}
+              onClick={() => removeInstance(row.connectorId)}
+            >
+              {tr('skills.instance.delete')}
+            </Button>
+          )}
+        </div>
       </section>
       {connecting !== null && (
         <ConnectorConnectModal

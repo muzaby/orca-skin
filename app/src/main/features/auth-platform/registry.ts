@@ -74,6 +74,13 @@ export class AuthRegistry {
   //
   // 제거 후 같은 pluginId 를 다시 등록할 수 있다(중복 거부에 걸리지 않는다) — 삭제 후
   // 같은 주소로 재생성하는 흐름이 성립하려면 필요하다.
+  // 이 pluginId 가 이미 등록됐는가. 중복 등록은 registry 가 **거부**하므로, 두 경로가 같은
+  // 패키지를 등록할 수 있는 자리(정적 등록 vs 템플릿 공용 패키지, 0164)에서는 부르기 전에
+  // 물어야 한다 — 실패를 삼키는 대신.
+  hasPlugin(pluginId: string): boolean {
+    return this.manifests.has(pluginId)
+  }
+
   unregister(pluginId: string): boolean {
     if (!this.manifests.has(pluginId)) return false
     this.manifests.delete(pluginId)
