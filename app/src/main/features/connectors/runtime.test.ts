@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type {
-  ConnectorRuntimeV1,
-  ConnectorStatus
-} from '../../contracts/connector-plugin'
+import type { ConnectorRuntimeV1, ConnectorStatus } from '../../contracts/connector-plugin'
 import { ConnectionRegistry } from './registry'
 import { ConnectorHost } from './runtime'
 
@@ -79,7 +76,11 @@ describe('static connector connection registry', () => {
     registry.create({ id: 'connection-1', connectorId: 'jira-engineering', bindingId: 'binding-1' })
 
     expect(() =>
-      registry.create({ id: 'connection-1', connectorId: 'confluence-engineering', bindingId: 'binding-2' })
+      registry.create({
+        id: 'connection-1',
+        connectorId: 'confluence-engineering',
+        bindingId: 'binding-2'
+      })
     ).toThrow(/connection ID/i)
   })
 
@@ -103,7 +104,11 @@ describe('static connector connection registry', () => {
 
   it('allows different static connectors to coexist', () => {
     const registry = new ConnectionRegistry()
-    registry.create({ id: 'jira-connection', connectorId: 'jira-engineering', bindingId: 'binding-1' })
+    registry.create({
+      id: 'jira-connection',
+      connectorId: 'jira-engineering',
+      bindingId: 'binding-1'
+    })
     registry.create({
       id: 'confluence-connection',
       connectorId: 'confluence-engineering',
@@ -115,6 +120,79 @@ describe('static connector connection registry', () => {
 })
 
 describe('ConnectorHost.connect', () => {
+  it('forwards a caller cancellation signal into a pending connector start', async () => {
+    let startSignal: AbortSignal | undefined
+    const startEntered = deferred<void>()
+    const { registry, host } = hostWith({
+      descriptor: {
+        id: 'jira-engineering',
+        pluginId: 'test-plugin',
+        apiVersion: 1,
+        label: 'jira-engineering',
+        acceptedAuthProviders: ['test-auth'],
+        baseUrl: 'https://connector.example.invalid',
+        presentation: { location: 'header', name: 'Authorization', scheme: 'Bearer' }
+      },
+      start: async (ctx) => {
+        startSignal = ctx.signal
+        startEntered.resolve()
+        return new Promise((resolve) => {
+          ctx.signal.addEventListener('abort', () => resolve({ health: 'error' }), { once: true })
+        })
+      },
+      invoke: async () => ({ ok: true, data: null }),
+      stop: async () => undefined
+    })
+    registry.create({ id: 'connection-1', connectorId: 'jira-engineering', bindingId: 'binding-1' })
+    const caller = new AbortController()
+
+    const starting = host.start('connection-1', caller.signal)
+    await startEntered.promise
+
+    expect(startSignal).toBeDefined()
+    caller.abort()
+    await expect(starting).resolves.toEqual({ health: 'error' })
+    expect(startSignal?.aborted).toBe(true)
+  })
+
+  it('composes caller cancellation with the local invoke timeout signal', async () => {
+    let invokeSignal: AbortSignal | undefined
+    const invokeEntered = deferred<void>()
+    const { registry, host } = hostWith({
+      descriptor: {
+        id: 'jira-engineering',
+        pluginId: 'test-plugin',
+        apiVersion: 1,
+        label: 'jira-engineering',
+        acceptedAuthProviders: ['test-auth'],
+        baseUrl: 'https://connector.example.invalid',
+        presentation: { location: 'header', name: 'Authorization', scheme: 'Bearer' }
+      },
+      start: async () => ({ health: 'ready' }),
+      invoke: async (ctx) => {
+        invokeSignal = ctx.signal
+        invokeEntered.resolve()
+        return new Promise((resolve) => {
+          ctx.signal.addEventListener('abort', () => resolve({ ok: true, data: null }), {
+            once: true
+          })
+        })
+      },
+      stop: async () => undefined
+    })
+    registry.create({ id: 'connection-1', connectorId: 'jira-engineering', bindingId: 'binding-1' })
+    const caller = new AbortController()
+
+    const invocation = host.invoke('connection-1', { operation: 'read' }, 60_000, caller.signal)
+    await invokeEntered.promise
+
+    expect(invokeSignal).toBeDefined()
+    expect(invokeSignal).not.toBe(caller.signal)
+    caller.abort()
+    await expect(invocation).resolves.toEqual({ ok: true, data: null })
+    expect(invokeSignal?.aborted).toBe(true)
+  })
+
   it('creates and starts the caller-supplied connection ID when the connector is ready', async () => {
     let starts = 0
     const { registry, host } = hostWith(

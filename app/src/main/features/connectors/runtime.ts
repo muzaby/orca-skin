@@ -76,9 +76,9 @@ export class ConnectorHost {
     }
   }
 
-  async connect(input: CreateConnectionInput): Promise<ConnectorStatus> {
+  async connect(input: CreateConnectionInput, signal?: AbortSignal): Promise<ConnectorStatus> {
     const connection = this.deps.connections.create(input)
-    const status = await this.start(connection.id)
+    const status = await this.start(connection.id, signal)
     if (status.health !== 'ready') {
       this.deps.connections.removeIfSame(connection.id, connection)
       this.clearStarted(connection)
@@ -86,13 +86,13 @@ export class ConnectorHost {
     return status
   }
 
-  async start(connectionId: string): Promise<ConnectorStatus> {
+  async start(connectionId: string, signal?: AbortSignal): Promise<ConnectorStatus> {
     const resolved = this.resolve(connectionId)
     if (!resolved) return { health: 'error', message: '알 수 없는 연결입니다' }
     const controller = new AbortController()
     try {
       const status = await resolved.connector.start(
-        this.contextFor(resolved.connection, controller.signal)
+        this.contextFor(resolved.connection, signal ?? controller.signal)
       )
       if (status.health === 'ready') this.markStarted(resolved.connection)
       return status
@@ -109,16 +109,18 @@ export class ConnectorHost {
   async invoke(
     connectionId: string,
     request: ConnectorRequest,
-    timeoutMs = DEFAULT_INVOKE_TIMEOUT_MS
+    timeoutMs = DEFAULT_INVOKE_TIMEOUT_MS,
+    signal?: AbortSignal
   ): Promise<ConnectorResult> {
     const resolved = this.resolve(connectionId)
     if (!resolved) return { ok: false, message: '알 수 없는 연결입니다' }
 
     const controller = new AbortController()
+    const combined = composeAbortSignals([controller.signal, signal])
     const timer = setTimeout(() => controller.abort(), timeoutMs)
     try {
       return await resolved.connector.invoke(
-        this.contextFor(resolved.connection, controller.signal),
+        this.contextFor(resolved.connection, combined.signal),
         request
       )
     } catch (err) {
@@ -130,6 +132,7 @@ export class ConnectorHost {
       return { ok: false, message: 'connector 호출에 실패했습니다', health: 'error' }
     } finally {
       clearTimeout(timer)
+      combined.dispose()
     }
   }
 
@@ -161,5 +164,36 @@ export class ConnectorHost {
   isStarted(connectionId: string): boolean {
     const connection = this.deps.connections.get(connectionId)
     return connection !== undefined && this.started.get(connectionId) === connection
+  }
+}
+
+function composeAbortSignals(signals: readonly (AbortSignal | undefined)[]): {
+  signal: AbortSignal
+  dispose: () => void
+} {
+  const controller = new AbortController()
+  const listeners: Array<{ signal: AbortSignal; listener: () => void }> = []
+  const abort = (source: AbortSignal): void => {
+    if (!controller.signal.aborted) controller.abort(source.reason)
+  }
+
+  for (const source of signals) {
+    if (!source) continue
+    if (source.aborted) {
+      abort(source)
+      break
+    }
+    const listener = (): void => abort(source)
+    source.addEventListener('abort', listener, { once: true })
+    listeners.push({ signal: source, listener })
+  }
+
+  return {
+    signal: controller.signal,
+    dispose: () => {
+      for (const { signal: source, listener } of listeners) {
+        source.removeEventListener('abort', listener)
+      }
+    }
   }
 }

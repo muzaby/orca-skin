@@ -8,8 +8,16 @@ import type {
 import type { AuthBindingInfo, AuthLogoutOutcome, PluginConnectorInfo } from '../../../shared/ipc'
 
 export interface ConnectorPort {
-  connect(input: { id: string; connectorId: string; bindingId: string }): Promise<ConnectorStatus>
-  invoke(connectionId: string, request: ConnectorRequest): Promise<ConnectorResult>
+  connect(
+    input: { id: string; connectorId: string; bindingId: string },
+    signal?: AbortSignal
+  ): Promise<ConnectorStatus>
+  invoke(
+    connectionId: string,
+    request: ConnectorRequest,
+    timeoutMs?: number,
+    signal?: AbortSignal
+  ): Promise<ConnectorResult>
   stopByBinding(bindingId: string): Promise<void>
 }
 
@@ -99,11 +107,14 @@ export class PluginHost {
     this.activeByConnector.set(active.connectorId, active)
 
     try {
-      const status = await this.deps.connectors.connect({
-        id: active.connectionId,
-        connectorId: active.connectorId,
-        bindingId: active.bindingId
-      })
+      const status = await this.deps.connectors.connect(
+        {
+          id: active.connectionId,
+          connectorId: active.connectorId,
+          bindingId: active.bindingId
+        },
+        active.controller.signal
+      )
       if (status.health !== 'ready') {
         throw new Error(status.message ?? `connector is not ready: ${active.connectorId}`)
       }
@@ -181,10 +192,15 @@ export class PluginHost {
     const implementations = contribution.create({
       connectionId: active.connectionId,
       invoke: (operation, params) =>
-        this.deps.connectors.invoke(active.connectionId, {
-          operation,
-          ...(params ? { params } : {})
-        }),
+        this.deps.connectors.invoke(
+          active.connectionId,
+          {
+            operation,
+            ...(params ? { params } : {})
+          },
+          undefined,
+          active.controller.signal
+        ),
       logger: (message, meta) =>
         this.deps.logger?.(message, {
           connectorId: active.connectorId,
