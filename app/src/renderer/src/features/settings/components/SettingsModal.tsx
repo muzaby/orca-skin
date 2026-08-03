@@ -1,5 +1,6 @@
-import { Icon, type IconName } from '../../../shared/ui/Icon'
+import { type IconName } from '../../../shared/ui/Icon'
 import { Modal } from '../../../shared/ui/Modal'
+import { Rail, RailItem } from '../../../shared/ui/Rail'
 import { useI18n } from '../../../shared/i18n'
 import type { AgentEnvironment, ProviderUsageEntry } from '../../../../../shared/ipc'
 import { GeneralTab } from './GeneralTab'
@@ -56,53 +57,33 @@ export function SettingsModal({ providerUsage }: SettingsModalProps): React.JSX.
       ariaLabel={tr('settings.title')}
       panelClassName="flex h-[600px] max-h-[85vh] w-[860px] max-w-[92vw] overflow-hidden rounded-r6 border border-border bg-panel shadow-xl"
     >
-      {/* 좌: 탭 레일 */}
-      <nav className="flex w-[210px] flex-none flex-col gap-1 border-r border-border bg-sidebar p-3">
-        <div className="px-2 pb-2 pt-1 font-serif text-[15px] font-semibold text-ink">
-          {tr('settings.title')}
-        </div>
-        {TABS.map((it) => {
-          const active = tab === it.id
-          return (
-            <div key={it.id}>
-              <button
-                type="button"
-                onClick={() => setTab(it.id)}
-                aria-current={active ? 'page' : undefined}
-                className={`flex w-full cursor-pointer items-center gap-2.5 rounded-r4 border-0 px-2.5 py-1.5 text-left text-[13px] transition-colors ${
-                  active
-                    ? 'bg-selected-soft font-medium text-selected'
-                    : 'bg-transparent text-t7 hover:bg-fill-uncontained-hover hover:text-t9'
-                }`}
-              >
-                <Icon name={it.icon} size={15} />
-                <span>{tr(it.labelKey)}</span>
-              </button>
-              {/* 사용량 하위: 구성된 provider 서브항목(0080 항목 4). 각자의 한도/설정. */}
-              {it.id === 'usage' &&
-                providerUsage.providers.map((p) => {
-                  const pid = providerTabId(p.key)
-                  const pactive = tab === pid
-                  return (
-                    <button
-                      key={p.key}
-                      type="button"
-                      onClick={() => setTab(pid)}
-                      aria-current={pactive ? 'page' : undefined}
-                      className={`mt-0.5 flex w-full cursor-pointer items-center gap-2 rounded-r4 border-0 py-1 pl-9 pr-2.5 text-left text-[12.5px] transition-colors ${
-                        pactive
-                          ? 'bg-selected-soft font-medium text-selected'
-                          : 'bg-transparent text-t6 hover:bg-fill-uncontained-hover hover:text-t9'
-                      }`}
-                    >
-                      <span className="min-w-0 truncate">{providerLabel(p)}</span>
-                    </button>
-                  )
-                })}
-            </div>
-          )
-        })}
-      </nav>
+      {/* 좌: 탭 레일 — 플러그인 카탈로그 모달과 같은 shared/ui/Rail 을 소비한다(0159 r5). */}
+      <Rail title={tr('settings.title')}>
+        {TABS.map((it) => (
+          <div key={it.id}>
+            <RailItem
+              icon={it.icon}
+              label={tr(it.labelKey)}
+              active={tab === it.id}
+              onClick={() => setTab(it.id)}
+            />
+            {/* 사용량 하위: 구성된 provider 서브항목(0080 항목 4). 각자의 한도/설정. */}
+            {it.id === 'usage' &&
+              providerUsage.providers.map((p) => {
+                const pid = providerTabId(p.key)
+                return (
+                  <RailItem
+                    key={p.key}
+                    nested
+                    label={providerLabel(p)}
+                    active={tab === pid}
+                    onClick={() => setTab(pid)}
+                  />
+                )
+              })}
+          </div>
+        ))}
+      </Rail>
 
       {/* 우: 내용 — 닫기는 Esc·백드롭 클릭 (X 아이콘 없음, 0121 사용자 피드백) */}
       <div className="relative flex min-w-0 flex-1 flex-col">

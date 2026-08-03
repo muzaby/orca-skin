@@ -48,7 +48,7 @@ export function SkillUploadModal({
         <span className="grid h-9 w-9 place-items-center rounded-r4 border border-border bg-panel text-ink3">
           <Icon name="upload" size={16} />
         </span>
-        <span className="text-[13px] text-ink2">{tr('skills.upload.dropHint')}</span>
+        <span className="text-body text-ink2">{tr('skills.upload.dropHint')}</span>
       </button>
       <input
         ref={inputRef}
@@ -61,12 +61,12 @@ export function SkillUploadModal({
           e.target.value = ''
         }}
       />
-      {error && <div className="mt-2 text-[12px] text-bad">{error}</div>}
+      {error && <div className="mt-g4 text-footnote text-bad">{error}</div>}
       <div className="mt-4">
-        <div className="mb-1.5 text-[12px] font-medium text-ink2">
+        <div className="mb-g3 text-footnote font-medium text-ink2">
           {tr('skills.upload.requirements')}
         </div>
-        <ul className="list-disc space-y-1 pl-4 text-[12px] text-ink3">
+        <ul className="list-disc space-y-1 pl-p7 text-footnote text-ink3">
           <li>{tr('skills.upload.reqLine1')}</li>
           <li>{tr('skills.upload.reqLine2')}</li>
         </ul>

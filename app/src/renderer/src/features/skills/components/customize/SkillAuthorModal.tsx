@@ -51,7 +51,7 @@ export function SkillAuthorModal({
           className={`${MODAL_INPUT} font-mono`}
         />
         {name.trim() !== '' && !nameValid && (
-          <span className="mt-1 block text-[11px] text-bad">
+          <span className="mt-g2 block text-caption text-bad">
             {tr('skills.addServer.nameFormatError')}
           </span>
         )}
@@ -77,7 +77,7 @@ export function SkillAuthorModal({
           className={`${MODAL_INPUT} resize-none leading-[1.6]`}
         />
       </label>
-      {error && <div className="mt-2 text-[12px] text-bad">{error}</div>}
+      {error && <div className="mt-g4 text-footnote text-bad">{error}</div>}
       <div className="mt-5 flex justify-end gap-2">
         <ModalActions
           onCancel={close}
