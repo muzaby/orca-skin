@@ -2,6 +2,7 @@ import type { KeyboardEvent, ReactNode } from 'react'
 import type { McpServer, SkillInfo } from '../../../../../../shared/ipc'
 import { formatDateMedium, uiMessageText, useI18n } from '../../../../shared/i18n'
 import { Icon } from '../../../../shared/ui/Icon'
+import { Dot } from '../../../../shared/ui/Status'
 import type { CatalogTab } from '../../lib/catalogSelection'
 import { mcpRowMeta, skillRowMeta } from '../../lib/catalogRows'
 import {
@@ -14,6 +15,7 @@ import {
   type CollapsedGroups
 } from '../../lib/catalogGroups'
 import type { PluginRow } from '../../lib/pluginCatalog'
+import { pluginTone } from '../../lib/connectorActions'
 
 function activate(event: KeyboardEvent<HTMLTableRowElement>, action: () => void): void {
   if (event.key === 'Enter' || event.key === ' ') {
@@ -222,7 +224,14 @@ export function CustomizeList({
                 onKeyDown={(event) => activate(event, () => onSelect(plugin.pluginId))}
                 className={rowClass}
               >
-                <td className={`${cellClass} text-ink`}>{plugin.pluginId}</td>
+                <td className={`${cellClass} text-ink`}>
+                  {/* 0162 — 연결된 커넥터가 하나라도 있으면 초록 점. `pluginGroups` 가 그룹을
+                      가르는 식과 같은 값을 써야 그룹과 점이 어긋나지 않는다. */}
+                  <span className="flex items-center gap-g3">
+                    <Dot tone={pluginTone(plugin)} />
+                    <span className="min-w-0 truncate">{plugin.pluginId}</span>
+                  </span>
+                </td>
                 <td className={`${cellClass} text-ink2`}>{plugin.providerCount}</td>
                 <td className={`${cellClass} text-ink2`}>
                   {plugin.connectorCount} · {plugin.connectedCount} {tr('skills.table.connected')}

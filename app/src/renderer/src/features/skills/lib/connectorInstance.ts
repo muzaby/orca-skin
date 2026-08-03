@@ -1,17 +1,14 @@
-// 서버 추가 흐름의 **순수 로직** (0161) — React 비의존.
+// 서버 추가 흐름의 **순수 로직** (0161·0162) — React 비의존.
 //
 // 사용자 요구: "플러그인에서 추가 버튼 클릭 시 컨플루언스를 선택, base url·pat 혹은
-// id/passwd 입력". 그 흐름이 두 단계로 갈린다:
+// id/passwd 입력". 그 흐름이 세 단계로 갈린다:
 //
-//   ① 서버 만들기 — 템플릿 선택 + 주소 입력 → `plugins.createInstance`
-//   ② 인증하기   — 0160 의 `connectorConnect.ts` 가 이어받는다
+//   ① 템플릿 고르기 — 추가 버튼의 메뉴 (`connectorAddMenu.ts`, 0162)
+//   ② 서버 만들기   — 주소 입력 → `plugins.createInstance`
+//   ③ 인증하기     — 0160 의 `connectorConnect.ts` 가 이어받는다
 //
-// 두 단계를 분리하는 이유는 실패 지점이 다르기 때문이다. ①이 성공하고 ②가 실패해도 서버는
+// 단계를 나누는 이유는 실패 지점이 다르기 때문이다. ②가 성공하고 ③이 실패해도 서버는
 // 남는다(저장된 서버) — 카탈로그에서 다시 연결하면 된다.
-
-import type { ConnectorTemplateInfoDto } from '../../../../../shared/ipc'
-
-export type InstanceStep = 'template' | 'server' | 'auth'
 
 export interface InstanceDraft {
   templateId: string | null
@@ -27,15 +24,11 @@ export const EMPTY_DRAFT: InstanceDraft = {
   apiBasePath: ''
 }
 
-// 템플릿이 하나뿐이면 선택 단계를 건너뛴다 — 선택지가 없는 선택 화면은 클릭만 늘린다.
-export function initialStep(templates: readonly ConnectorTemplateInfoDto[]): InstanceStep {
-  return templates.length === 1 ? 'server' : 'template'
-}
-
-export function initialDraft(templates: readonly ConnectorTemplateInfoDto[]): InstanceDraft {
-  return templates.length === 1
-    ? { ...EMPTY_DRAFT, templateId: templates[0].templateId }
-    : { ...EMPTY_DRAFT }
+// 템플릿은 **메뉴가 이미 골랐다**(0162). 모달은 그 선택을 받아 주소만 묻는다 —
+// 이전에는 모달 안에 선택 단계가 있었지만, 등록 템플릿이 1개라 그 단계가 조건부로
+// 건너뛰어져 "무엇을 추가하는지" 가 화면에서 사라졌다.
+export function draftForTemplate(templateId: string): InstanceDraft {
+  return { ...EMPTY_DRAFT, templateId }
 }
 
 export type DraftProblem =
