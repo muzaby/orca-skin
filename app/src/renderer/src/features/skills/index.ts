@@ -1,1 +1,1 @@
-export { SkillsCustomizeView } from './components/customize/SkillsCustomizeView'
+export { ExtensionsCatalogView } from './components/customize/ExtensionsCatalogView'

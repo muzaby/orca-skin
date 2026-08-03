@@ -1,25 +1,18 @@
-import { Icon, type IconName } from '../../../../shared/ui/Icon'
-import { useI18n, type MessageKey } from '../../../../shared/i18n'
-
-export type CustomizeTab = 'skills' | 'mcp'
-
-// 라벨은 키만 두고 렌더에서 tr() 해석(0096 패턴). 'MCP' 는 고유명이지만 키로 일관 관리.
-const NAV: { tab: CustomizeTab; icon: IconName; labelKey: MessageKey }[] = [
-  { tab: 'skills', icon: 'doc', labelKey: 'skills.rail.skills' },
-  { tab: 'mcp', icon: 'link', labelKey: 'skills.rail.mcp' }
-]
+import { Icon } from '../../../../shared/ui/Icon'
+import { useI18n } from '../../../../shared/i18n'
+import { CATALOG_TABS, type CatalogTab } from '../../lib/catalogSelection'
 
 export function CustomizeRail({
   tab,
   onSelect
 }: {
-  tab: CustomizeTab | null
-  onSelect: (tab: CustomizeTab) => void
+  tab: CatalogTab
+  onSelect: (tab: CatalogTab) => void
 }): React.JSX.Element {
   const { tr } = useI18n()
   return (
     <nav className="flex w-[200px] flex-none flex-col gap-0.5 border-r border-border px-2.5 py-4">
-      {NAV.map((it) => {
+      {CATALOG_TABS.map((it) => {
         const active = tab === it.tab
         return (
           <button

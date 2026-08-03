@@ -42,7 +42,7 @@ html[data-theme][data-platform]
             │   │   [data-state="expanded|collapsed"]
             │   │   ├── .app-frame-sidebar-body
             │   │   │   ├── .app-frame-sidebar-brand    (🐋 + "Orca" 브랜드 로고)
-            │   │   │   ├── nav.app-frame-sidebar-nav   (4-항목: 새 대화 · 프로젝트 · 엔진 & 모델 · Skills & MCP; 자동화는 Future Scope 로 nav 미노출)
+            │   │   │   ├── nav.app-frame-sidebar-nav   (4-항목: 새 대화 · 프로젝트 · 엔진 & 모델 · 플러그인; 자동화는 Future Scope 로 nav 미노출)
             │   │   │   ├── .app-frame-sidebar-sessions
             │   │   │   └── .app-frame-sidebar-footer
             │   │   └── .app-frame-resize-handle          (aside 자식 — collapse 시 함께 사라짐)
