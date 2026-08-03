@@ -105,12 +105,16 @@ export class BindingStore {
 
   // cascade=false 면 이 binding 만, true 면 종속까지. 제거된 id 목록을 돌려준다 —
   // 호출부(broker)가 그 목록으로 vault·session 정리를 수행한다.
-  remove(id: string, cascade: boolean): string[] {
+  takeForRemoval(id: string, cascade: boolean): AuthBindingInfo[] {
     const target = this.bindings.get(id)
     if (!target) return []
     const victims = cascade ? [target, ...this.dependentsOf(id)] : [target]
     for (const v of victims) this.bindings.delete(v.id)
-    return victims.map((v) => v.id)
+    return victims
+  }
+
+  remove(id: string, cascade: boolean): string[] {
+    return this.takeForRemoval(id, cascade).map((binding) => binding.id)
   }
 
   clear(): void {

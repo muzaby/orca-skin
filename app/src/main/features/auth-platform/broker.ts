@@ -217,10 +217,9 @@ export class AuthBroker {
   // cascade=false 가 기본 — connector 하나의 연결 해제가 공유 session group 을 통째로
   // 날리지 않게 하는 안전 기본값 (AUTH-PLAT-010).
   async logout(bindingId: string, cascade: boolean): Promise<AuthLogoutOutcome> {
-    const binding = this.bindings.get(bindingId)
-    if (!binding) return { kind: 'failed', message: '알 수 없는 binding' }
-
-    const victims = [binding, ...(cascade ? this.bindings.dependentsOf(bindingId) : [])]
+    const victims = this.bindings.takeForRemoval(bindingId, cascade)
+    if (victims.length === 0) return { kind: 'failed', message: '알 수 없는 binding' }
+    const removed = victims.map((victim) => victim.id)
     const failures: string[] = []
 
     for (const victim of victims) {
@@ -239,7 +238,6 @@ export class AuthBroker {
       this.deps.vaultFor(authBindingPrefix(victim.id)).clearAll()
     }
 
-    const removed = this.bindings.remove(bindingId, cascade)
     if (removed.length > 0 && this.deps.onBindingsEnded) {
       try {
         await this.deps.onBindingsEnded(removed)
@@ -324,6 +322,12 @@ export class AuthBroker {
 
   private applyStep(provider: AuthProviderV1, tx: Transaction, step: AuthStep): AuthStepInfo {
     if (step.kind === 'done') {
+      const parentBindingId = step.binding.parentBindingId
+      if (parentBindingId !== undefined && !this.bindings.get(parentBindingId)) {
+        this.deps.vaultFor(txPrefix(provider, tx)).clearAll()
+        this.transactions.finish(tx.id)
+        return this.fail(tx.target, 'policy_denied', 'parent binding is no longer valid')
+      }
       const binding = this.bindings.create({
         pluginId: provider.descriptor.pluginId,
         providerId: provider.descriptor.id,

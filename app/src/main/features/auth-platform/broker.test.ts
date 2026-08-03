@@ -644,3 +644,110 @@ describe('AuthBroker ended-binding callback (AC14~16)', () => {
     expect(broker.listBindings()).toEqual([])
   })
 })
+
+describe('AuthBroker cascade logout linearization', () => {
+  it('fails closed when a dependent completion races a deferred root provider logout', async () => {
+    const root = { bindingId: '' }
+    const providerLogoutStarted = deferred<void>()
+    const releaseProviderLogout = deferred<void>()
+    const providerLogoutIds: string[] = []
+    const callbackIds: string[][] = []
+    const { broker, store } = harness({
+      patContinue: async (ctx) => {
+        const credential = ctx.input.credential ?? ''
+        ctx.vault.set('secret', credential, {
+          kind: 'personal_access_token',
+          createdAt: ctx.clock()
+        })
+        return {
+          kind: 'done',
+          binding: {
+            mechanism: 'personal_access_token',
+            artifact: {
+              kind: 'vault_credential',
+              handleId: 'secret',
+              credentialKind: 'personal_access_token'
+            },
+            ...(ctx.target.kind === 'connector' ? { parentBindingId: root.bindingId } : {})
+          }
+        }
+      },
+      patLogout: async (_ctx, binding) => {
+        providerLogoutIds.push(binding.id)
+        if (binding.id === root.bindingId) {
+          providerLogoutStarted.resolve(undefined)
+          await releaseProviderLogout.promise
+        }
+        return { kind: 'logged_out' }
+      },
+      onBindingsEnded: async (bindingIds) => {
+        callbackIds.push([...bindingIds])
+      }
+    })
+    const app = await loginPat(broker, APP, 'root-secret')
+    if (app.kind !== 'done') throw new Error('unreachable')
+    root.bindingId = app.binding.id
+    const pendingDependent = await broker.begin('pat', JIRA)
+    if (pendingDependent.kind !== 'collect') throw new Error('unreachable')
+
+    const logout = broker.logout(root.bindingId, true)
+    await providerLogoutStarted.promise
+    const dependent = await broker.continue(pendingDependent.transactionId, {
+      credential: 'late-secret'
+    })
+
+    expect(dependent).toMatchObject({ kind: 'failed', reason: 'policy_denied' })
+    expect(broker.listBindings()).toEqual([])
+    expect([...store.raw.values()]).not.toContain('late-secret')
+
+    releaseProviderLogout.resolve(undefined)
+
+    await expect(logout).resolves.toEqual({
+      kind: 'logged_out',
+      endedBindingIds: [root.bindingId]
+    })
+    expect(providerLogoutIds).toEqual([root.bindingId])
+    expect(callbackIds).toEqual([[root.bindingId]])
+  })
+
+  it('does not create an orphan when a dependent transaction finishes after its parent is removed', async () => {
+    const root = { bindingId: '' }
+    const { broker, store } = harness({
+      patContinue: async (ctx) => {
+        const credential = ctx.input.credential ?? ''
+        ctx.vault.set('secret', credential, {
+          kind: 'personal_access_token',
+          createdAt: ctx.clock()
+        })
+        return {
+          kind: 'done',
+          binding: {
+            mechanism: 'personal_access_token',
+            artifact: {
+              kind: 'vault_credential',
+              handleId: 'secret',
+              credentialKind: 'personal_access_token'
+            },
+            ...(ctx.target.kind === 'connector' ? { parentBindingId: root.bindingId } : {})
+          }
+        }
+      }
+    })
+    const app = await loginPat(broker, APP, 'root-secret')
+    if (app.kind !== 'done') throw new Error('unreachable')
+    root.bindingId = app.binding.id
+    const pendingDependent = await broker.begin('pat', JIRA)
+    if (pendingDependent.kind !== 'collect') throw new Error('unreachable')
+
+    await expect(broker.logout(root.bindingId, true)).resolves.toEqual({
+      kind: 'logged_out',
+      endedBindingIds: [root.bindingId]
+    })
+    await expect(
+      broker.continue(pendingDependent.transactionId, { credential: 'late-secret' })
+    ).resolves.toMatchObject({ kind: 'failed', reason: 'policy_denied' })
+
+    expect(broker.listBindings()).toEqual([])
+    expect([...store.raw.values()]).not.toContain('late-secret')
+  })
+})
