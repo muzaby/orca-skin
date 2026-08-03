@@ -8,7 +8,7 @@
 | 작성자 | Claude Code (r1~r3) · Codex (r4 사용자 결정 반영) |
 | 일자 | 2026-08-02 · r4 2026-08-03 |
 | 매핑 | PHASES 신규 행 (Phase 3++) / PR 미생성 |
-| 상태 | IMPL_DONE (**r4**, 구현 완료) |
+| 상태 | IMPL_DONE (**r5**, 구현 완료·후속 리뷰 보완) |
 
 ### 설계 개정 이력
 
@@ -18,6 +18,7 @@
 | r2 | 설계 리뷰 7건 + 문서 결함 2건 | 승인 fail-closed, 기존 다단계 auth 재사용, provider allowlist 강제, logout 실제 경로 정리, 정적 descriptor 도입 |
 | r3 | “Jira 서버가 여러 개라 연결을 두 개 한다”는 사용자 설명 | 같은 connector의 런타임 인스턴스를 alias로 구분하는 안 채택 |
 | **r4** | 사용자 결정: **“서버마다 별도 정적 connector”**, 하위 도메인·소속 부서별 connector 제공. 추가 확인으로 **정적 connector당 활성 연결 1개** 확정 | r3 alias 모델 폐기. 고정 origin을 가진 connector를 서버마다 등록하고 도구 ID도 정적으로 고정한다. binding target을 connection ID의 SSOT로 삼고, runtime tool→connector 매핑·승인 메타데이터 SSOT·provider logout 실패 시 로컬 정리까지 함께 닫는다 |
+| **r5** | 구현 리뷰에서 automatic continuation의 실제 handler 배선과 one-shot spawn metadata 정리 누락을 발견 | listen·flush 모두 원래 선택 model family를 재해석하고, stale 판정과 요청에 같은 fresh runtime-tool snapshot을 쓴다. one-shot 종료도 provider settings·model·runtime-tool revision metadata를 함께 비운다. |
 
 ## 사용자 의도 / 요구 출처 (Intent & Provenance)
 
@@ -99,7 +100,7 @@
 | 17 | 도구 설명과 annotations의 SSOT는 정적 descriptor이며 factory는 `{name,inputSchema,handler}`만 반환한다. factory가 승인 메타데이터를 덮어쓸 타입 표면이 없다 | `adapters/runtime-tools.test.ts::"factory 구현에는 정책 메타데이터 필드가 없다"` · 타입체크 | manifest/descriptor → `PluginHost`가 실행형 server 조립 |
 | 18 | `readOnlyHint:true` 도구는 자동 허용되고 `false` 도구는 승인 요청으로 간다 | `adapters/claude.canusetool.test.ts::"runtime tool readOnlyHint로 승인 여부를 판정한다"` | runtime snapshot → `runtime-tool-policy.ts` → `makeCanUseTool` |
 | 19 | `readOnlyHint` 또는 annotations가 없으면 쓰기 도구로 분류해 승인 요청으로 보낸다 | `adapters/runtime-tool-policy.test.ts::"미선언 readOnlyHint를 fail-closed 처리한다"` | runtime snapshot → approval policy |
-| 20 | runtime server add/remove 때 revision이 증가하고, spawn revision과 다르면 다음 턴 전에 runtime respawn을 지시한다 | `extensions/runtime-tool-registry.test.ts::"실질 변경 때 revision이 증가한다"` · `sessions/respawn-policy.test.ts::"revision 차이가 respawn을 지시한다"` | `PluginHost` → registry revision → `chat-turn.ts`/`session-runtime.ts` |
+| 20 | runtime server add/remove 때 revision이 증가하고, spawn revision과 다르면 다음 턴 전에 runtime respawn을 지시한다. listen·flush는 같은 fresh snapshot을 판정과 요청에 공유하고, flush는 최초 선택 model family를 보존한다 | `extensions/runtime-tool-registry.test.ts::"실질 변경 때 revision이 증가한다"` · `sessions/respawn-policy.test.ts::"revision 차이가 respawn을 지시한다"` · `app/chat-turn.runtime-tools.test.ts::"stale persistent channel"`/`"non-default selected model"` | `PluginHost` → registry revision → `registerChatHandlers` → `SessionRuntime` |
 | 21 | opt-in 배열에 package 한 줄을 추가하면 provider·복수 connector·runtime tools가 같은 등록 경로로 들어가며, fixture 서비스 문자열은 fixture 디렉터리 밖 core에 나타나지 않는다 | `modules/__fixtures__/isolation.test.ts::"fixture 문자열이 core에 새지 않는다"` · `plugin-host.test.ts::"package 배열 등록만으로 확장된다"` | `AUTH_PLUGIN_PACKAGES` → `Bootstrap.createAuthPlatform` |
 | 22 | fixture가 `jira-platform`, `jira-security`, `confluence-rnd`처럼 고정 origin이 다른 connector를 제공하고, list 결과가 connectorId·label·origin·pluginId·acceptedAuthProviders·connected 상태로 구분한다 | `auth-platform/plugin-host.test.ts::"부서별 정적 connector 목록과 상태를 기술한다"` | `pluginList` → `PluginHost.list` → 미래 connector 목록 UI |
 | 23 | 불량 package 한 개가 정상 package의 등록·연결·도구 노출을 막지 않는다 | `auth-platform/plugin-host.test.ts::"불량 package를 격리한다"` | `Bootstrap` package loop → `AuthRegistry.register` |
@@ -193,7 +194,7 @@ createJiraConnector({
 - connect IPC에는 endpoint나 alias가 없다.
 - `ConnectionRegistry`는 connector당 pending/ready record 한 개만 허용한다.
 - 연결을 끊고 다시 인증해도 runtime server ID는 descriptor에서 오므로 도구 이름이 같다.
-- 미래 UI는 `pluginId`, `label`, `origin`, `acceptedAuthProviders`, `connected`를 카드에 표시한다. label이나 ID를 파싱해 제품/부서를 추론하지 않는다.
+- 미래 UI는 `connectorId`, `pluginId`, `label`, `origin`, `acceptedAuthProviders`, `connected`를 카드에 표시한다. label이나 ID를 파싱해 제품/부서를 추론하지 않는다.
 
 ### runtime tool 계약 — 정책 SSOT와 connector 매핑
 
@@ -523,11 +524,11 @@ broker는 provider logout 성공 여부와 상관없이 vault와 binding을 제�
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | Task 1~7 범위 구현 완료. Task 7은 runtime snapshot source→`ExtensionBuilder`→`TurnRequest`→`SessionRuntime` revision 기록과 user/automatic continuation respawn을 연결했고 IPC `plugin` 3채널 문서를 82로 갱신했다. |
-| 실행 명령 | `npx vitest run src/main/features/extensions/builder.test.ts src/main/features/sessions/respawn-policy.test.ts src/main/features/sessions/session-runtime.test.ts src/main/features/auth-platform/plugin-host.test.ts` (4 files, 61 tests), `npm run lint`, `npm run typecheck`, `npm test`, `node --test scripts/*.test.mjs` |
-| 게이트 결과 | focused 61/61 pass, lint 오류 0 (기존 React Compiler 호환성 warning 1), typecheck node/web/test pass. `npm test`는 166/167 files·1465/1465 tests pass, `chat-turn.continuity.test.ts`만 Electron binary가 의도적으로 설치되지 않아 collection 전 실패(`Electron failed to install correctly`); 별도 scripts 28/28 pass. |
+| 변경 파일 | Task 1~7 범위 구현 완료. r5는 실제 `registerChatHandlers` IPC 경로에서 listen stale revision respawn·flush non-default model 보존을 검증하고, one-shot 종료 metadata 정리와 plugin DTO 문구를 정정했다. |
+| 실행 명령 | `npx vitest run src/main/app/chat-turn.runtime-tools.test.ts src/main/app/chat-turn-continuation.test.ts src/main/features/sessions/session-runtime.test.ts` (3 files, 39 tests), `npm run typecheck:node`, `npm run typecheck:web`, `npm run typecheck:test`, `npx eslint --cache ./src ./scripts`, `npm test`, `node --test scripts/*.test.mjs` |
+| 게이트 결과 | focused 39/39 pass, typecheck node/web/test pass. lint는 신규 error 0을 확인했고 기존 formatting cache 실행은 124초에 완료되지 않아 중단했다(범위 밖 자동 포맷 변경은 커밋에서 제외). `npm test`는 168/169 files·1470/1470 tests pass, `chat-turn.continuity.test.ts`만 Electron binary 미설치로 collection 전 실패(`Electron failed to install correctly`); 별도 scripts 28/28 pass. |
 | 블로커 / 역질문 | 없음 — 사용자 결정 완료 |
-| 대상 커밋 | `07e0634` (`feat(runtime-tools): refresh stale tool snapshots`) |
+| 대상 커밋 | `07e0634` (`feat(runtime-tools): refresh stale tool snapshots`), `1f2c1f1` (`fix(runtime-tools): checkpoint continuation respawn`), r5 후속 리뷰 보완 커밋 |
 
 ---
 

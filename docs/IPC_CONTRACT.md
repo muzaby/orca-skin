@@ -400,7 +400,7 @@ renderer/preload 발 구조화 로그를 main 의 중앙 LogManager 로 전달�
 
 ### 2.13-d Plugin (0158 — 정적 connector lifecycle)
 
-정적 connector의 목록과 연결 lifecycle만 renderer에 노출한다. `connectorId`는 서버/하위 도메인별 고정 descriptor 식별자이고 각 connector에는 활성 연결이 하나만 허용된다. 응답 DTO는 `pluginId`·`label`·`origin`·`providerId`·`connected`만 포함하며 credential·binding artifact·runtime tool 구현은 포함하지 않는다.
+정적 connector의 목록과 연결 lifecycle만 renderer에 노출한다. `connectorId`는 서버/하위 도메인별 고정 descriptor 식별자이고 각 connector에는 활성 연결이 하나만 허용된다. 응답 DTO는 `connectorId`·`label`·`origin`·`pluginId`·`acceptedAuthProviders`·`connected`만 포함하며 credential·binding artifact·runtime tool 구현은 포함하지 않는다.
 
 | 채널 | 방향 | 페이로드 | 응답 | 설명 |
 | --- | --- | --- | --- | --- |
