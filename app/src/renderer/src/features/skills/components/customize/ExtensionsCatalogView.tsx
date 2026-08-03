@@ -54,7 +54,7 @@ export function ExtensionsCatalogView(): React.JSX.Element {
         onSelect={(tab) => setSelection((state) => selectTab(state, tab))}
       />
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex h-14 flex-none items-center border-b border-border px-6">
+        <header className="flex flex-none items-center px-7 pb-4 pt-6">
           {detail && (
             <Button
               iconOnly
@@ -64,11 +64,12 @@ export function ExtensionsCatalogView(): React.JSX.Element {
               aria-label={tr('skills.view.backAria', { section: title })}
             />
           )}
-          <h1 className="ml-2 font-serif text-[18px] font-semibold text-ink">{title}</h1>
+          <h1 className="ml-2 font-serif text-[20px] font-semibold text-ink">{title}</h1>
           {!detail && selection.tab !== 'plugins' && (
             <Button
               ref={addRef}
               className="ml-auto"
+              variant="primary"
               leadingIcon="plus"
               size="small"
               onClick={() =>

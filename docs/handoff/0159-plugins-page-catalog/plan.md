@@ -9,7 +9,7 @@
 | 일자 | 2026-08-03 |
 | 매핑 | PHASES 신규 행 (Phase 4) / PR 미정 |
 | 상태 | DRAFT → **READY** |
-| 개정 | **r3 (2026-08-03)** — 사용자 구현 리뷰에 따라 라우트 페이지를 공용 `Modal` 기반 카탈로그로 전환하고, 추가 리소스 배선과 표 그룹을 복구. r2의 라우트 페이지 결정은 명시적으로 supersede. / **r2 (2026-08-03)** — "플러그인" 어휘 3중 의미 정합(§용어 레지스터 정합 신설, 결정 ⑥⑦). 초판이 인용한 `GLOSSARY.md §Plugin` 이 **실재하지 않음**을 확인해 정정하고, 표제어 신설을 산출물로 편입(AC15~17). 탭 구성·데이터 출처는 초판과 동일. |
+| 개정 | **r4 (2026-08-03)** — 사용자 2차 구현 리뷰: 설정 modal과 동일한 패널/레일 디자인, 그룹별 독립 table, 공용 Button primary 추가 액션을 적용. / **r3 (2026-08-03)** — 사용자 구현 리뷰에 따라 라우트 페이지를 공용 `Modal` 기반 카탈로그로 전환하고, 추가 리소스 배선과 표 그룹을 복구. r2의 라우트 페이지 결정은 명시적으로 supersede. / **r2 (2026-08-03)** — "플러그인" 어휘 3중 의미 정합(§용어 레지스터 정합 신설, 결정 ⑥⑦). 초판이 인용한 `GLOSSARY.md §Plugin` 이 **실재하지 않음**을 확인해 정정하고, 표제어 신설을 산출물로 편입(AC15~17). 탭 구성·데이터 출처는 초판과 동일. |
 
 ## 사용자 의도 / 요구 출처 (Intent & Provenance)
 
@@ -23,6 +23,20 @@
 | 명시 지적 ⑥ | "플러그인의 용어가 혼용되고 있는데, 이번 핸드오프에서 언급한 플러그인은 **uiux 에서 적합한 용어**이고, 코드에서 orca plugin 의 경우 **claude 플랫폼에서 사용되는 용어**이다." → 두 "플러그인" 은 *같은 개념의 다른 표기* 가 아니라 **다른 레지스터의 다른 개념**이다. | 라이브 세션 지적 (r2 `/handoff-plan` 인자) |
 | 명시 결정 ⑦ | 지적 ⑥ 을 받아 3번째 탭 정체성을 재질의한 결과 — **"플러그인 탭 유지 / 행 = 플러그인 패키지"**(초판 설계 그대로). 어휘 해소는 UI 재명명이 아니라 **레지스터 구분 + GLOSSARY 표제어 등록**으로 한다. | 세션 중 `AskUserQuestion` 응답 (r2) |
 | 추론 의도 | "참고하여"(②) = *복제* 가 아니라 **하위 구성(3탭 레일 + 목록→상세 1-depth 드릴인 + 테이블 목록)의 채택**. 결정 ③~⑤ 가 컨테이너·어휘·식별자를 명시적으로 갈랐으므로, 참조 브랜치에서 가져오는 것은 **레이아웃 구성뿐**이다. (추론) | 요구 ② 의 "참고" + 결정 ③④⑤ 의 조합 |
+
+## r4 사용자 구현 리뷰 — 디자인·그룹 소유권 정정
+
+- **설정 modal 디자인**: `SettingsModal`의 `860×600`, `max-h-[85vh]`, `max-w-[92vw]`, `210px bg-sidebar p-3` 레일과 `bg-selected-soft/text-selected` 활성 토큰을 그대로 사용한다. 유사 구현이 아니라 동일 클래스 계약을 재사용한다.
+- **그룹별 표 소유**: r3의 단일 `<table>` 안 `rowgroup` 행은 사용자의 "그룹마다 표" 요구를 충족하지 못했다. r4는 각 source/status 그룹이 제목과 자기 `<table>`/`thead`/`tbody`를 가진 독립 section이 되도록 수정한다.
+- **추가 버튼**: 공용 `Button`의 `variant="primary"`를 명시해 `bg-ink` 검정 배경 토큰을 재사용한다. 별도 검정색 클래스나 신규 버튼을 만들지 않는다.
+
+### r4 추가 인수 기준
+
+| # | 인수 기준 | 검증 수단 | 프로덕션 도달 경로 |
+|---|---|---|---|
+| 22 | Extensions modal의 패널·레일·활성 탭 클래스가 SettingsModal의 크기와 시맨틱 토큰 계약과 동일하다. | 정적 diff + 사람 실기 | `ExtensionsCatalogModal` → `CustomizeRail` |
+| 23 | 각 스킬 source, MCP 활성 상태, 플러그인 연결 상태 그룹이 독립된 `<table>`을 소유한다. | `CustomizeList.tsx` 정적 리뷰 + 사람 실기 | `ExtensionsCatalogView` → `CustomizeList` → `GroupTable` |
+| 24 | 스킬/MCP 추가 버튼이 공용 `Button variant="primary"`를 사용해 검정 `bg-ink` 배경으로 렌더된다. | typecheck + `Button.tsx::squishClass(primary)` 정적 대조 | `ExtensionsCatalogView` → `shared/ui/Button` |
 
 ## r3 사용자 구현 리뷰 — 요구 비판적 검토 및 결정 supersede
 
@@ -455,9 +469,9 @@ pages/PluginsPage.tsx
 |---|---|
 | 변경 파일 | renderer 25파일(신규 테스트 5 포함) · 문서 7파일 · handoff 메타 2파일 |
 | 실행 명령 | `npm run lint` / `npm run typecheck` / `npm test` / AC13·AC15~17 `rg`·`head` |
-| 게이트 결과 | r3 lint 0 error(기존 warning 1) / typecheck 3분할 PASS / 전체 vitest 177파일·1511테스트 + scripts 28 PASS, 신규 focused 3파일·4테스트 PASS / 문서 grep PASS |
+| 게이트 결과 | r4 lint 0 error(기존 warning 1) / typecheck 3분할 PASS / 전체 vitest 178파일·1512테스트 + scripts 28 PASS / 문서 grep PASS |
 | 블로커 / 역질문 | 코드 블로커 없음. r3 AC19 추가 플로우와 AC20 그룹 시각은 GUI 사람 실기 대기. OQ2 구현 상태 문구는 계획대로 미판단. |
-| 대상 커밋 | `f055b14` (r1), `7e58061` (r2/r3 보완) |
+| 대상 커밋 | `f055b14` (r1), `7e58061` (r2/r3 보완), `7175e57` (r4 디자인 보완) |
 
 ---
 

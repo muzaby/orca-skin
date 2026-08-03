@@ -12,7 +12,7 @@ export function ExtensionsCatalogModal(): React.JSX.Element | null {
       open={open}
       onClose={hide}
       ariaLabel={tr('skills.pageTitle')}
-      panelClassName="h-[680px] max-h-[88vh] w-[1040px] max-w-[94vw] overflow-hidden rounded-r6 border border-border bg-panel shadow-xl"
+      panelClassName="flex h-[600px] max-h-[85vh] w-[860px] max-w-[92vw] overflow-hidden rounded-r6 border border-border bg-panel shadow-xl"
     >
       <ExtensionsCatalogView />
     </Modal>
