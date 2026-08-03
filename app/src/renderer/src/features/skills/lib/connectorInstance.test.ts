@@ -2,26 +2,12 @@ import { describe, expect, it } from 'vitest'
 import {
   classifyCreateFailure,
   EMPTY_DRAFT,
-  initialDraft,
-  initialStep,
+  draftForTemplate,
   splitPastedUrl,
   toCreateRequest,
   validateDraft,
   type InstanceDraft
 } from './connectorInstance'
-import type { ConnectorTemplateInfoDto } from '../../../../../shared/ipc'
-
-const CONFLUENCE: ConnectorTemplateInfoDto = {
-  templateId: 'confluence',
-  i18nKey: 'skills.templates.confluence',
-  fields: [
-    { name: 'label', required: true, i18nKey: 'skills.instance.label' },
-    { name: 'baseUrl', required: true, i18nKey: 'skills.instance.baseUrl' },
-    { name: 'apiBasePath', required: false, i18nKey: 'skills.instance.apiBasePath' }
-  ]
-}
-
-const JIRA: ConnectorTemplateInfoDto = { ...CONFLUENCE, templateId: 'jira' }
 
 function draft(overrides: Partial<InstanceDraft> = {}): InstanceDraft {
   return {
@@ -33,21 +19,17 @@ function draft(overrides: Partial<InstanceDraft> = {}): InstanceDraft {
   }
 }
 
-describe('단계 전이', () => {
-  it('템플릿이 하나뿐이면 선택 단계를 건너뛴다', () => {
-    // 선택지가 없는 선택 화면은 클릭만 늘린다.
-    expect(initialStep([CONFLUENCE])).toBe('server')
-    expect(initialDraft([CONFLUENCE]).templateId).toBe('confluence')
+describe('draftForTemplate', () => {
+  it('draftForTemplate 은 받은 템플릿으로 초안을 연다', () => {
+    // 선택은 추가 메뉴가 끝냈다(0162) — 모달은 그 결과를 받아 주소만 묻는다.
+    expect(draftForTemplate('confluence')).toEqual({ ...EMPTY_DRAFT, templateId: 'confluence' })
   })
 
-  it('템플릿이 여럿이면 선택부터 한다', () => {
-    expect(initialStep([CONFLUENCE, JIRA])).toBe('template')
-    expect(initialDraft([CONFLUENCE, JIRA])).toEqual(EMPTY_DRAFT)
-  })
-
-  it('템플릿이 없으면 선택 단계로 두고 사유를 보여준다', () => {
-    expect(initialStep([])).toBe('template')
-    expect(initialDraft([]).templateId).toBeNull()
+  it('템플릿 외 필드는 비어 있다', () => {
+    const opened = draftForTemplate('confluence')
+    expect(opened.label).toBe('')
+    expect(opened.baseUrl).toBe('')
+    expect(opened.apiBasePath).toBe('')
   })
 })
 

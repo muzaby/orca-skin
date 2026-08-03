@@ -115,7 +115,6 @@ export const ko = {
     },
     instance: {
       title: '서버 추가',
-      pickTemplate: '어떤 서비스를 추가할까요?',
       noTemplate: '추가할 수 있는 서비스가 없습니다.',
       label: '표시 이름',
       labelPlaceholder: '예: 사내 위키',
@@ -141,6 +140,7 @@ export const ko = {
       submit: '연결',
       connect: '연결',
       disconnect: '연결 해제',
+      reconnect: '재연결',
       noProvider: '이 커넥터에 쓸 수 있는 인증 방식이 없습니다.',
       failInvalid: '자격증명이 거부되었습니다. 다시 입력해 주세요.',
       failUnreachable:

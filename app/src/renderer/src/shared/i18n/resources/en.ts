@@ -117,7 +117,6 @@ export const en: typeof ko = {
     },
     instance: {
       title: 'Add a server',
-      pickTemplate: 'Which service do you want to add?',
       noTemplate: 'No services are available to add.',
       label: 'Display name',
       labelPlaceholder: 'e.g. Team wiki',
@@ -143,6 +142,7 @@ export const en: typeof ko = {
       submit: 'Connect',
       connect: 'Connect',
       disconnect: 'Disconnect',
+      reconnect: 'Reconnect',
       noProvider: 'No authentication method is available for this connector.',
       failInvalid: 'The credentials were rejected. Please try again.',
       failUnreachable:

@@ -1,9 +1,11 @@
 import { useState, type ReactNode } from 'react'
 import { Button } from '../../../../shared/ui/Button'
+import { Dot } from '../../../../shared/ui/Status'
 import { useI18n } from '../../../../shared/i18n'
 import { pluginApi } from '../../../../shared/api/ipc'
 import type { PluginConnectorInfo } from '../../../../../../shared/ipc'
 import type { PluginRow } from '../../lib/pluginCatalog'
+import { connectorActions, runReconnect } from '../../lib/connectorActions'
 import { ConnectorConnectModal } from './ConnectorConnectModal'
 
 // 레퍼런스(claude.ai 설정 상세)의 구성 — 제목 → 라벨/값 메타 열 → 섹션별 hairline 목록.
@@ -56,6 +58,20 @@ export function PluginDetail({
       })
   }
 
+  // 재연결 — PAT·비밀번호가 바뀌었을 때 쓰는 경로다(사용자 요구). 자격증명은 연결 해제 시
+  // vault 에서 지워지므로(`broker.ts` logout) 저장된 값으로 되붙는 길은 없다. 끊고 다시 받는다.
+  // 순서·실패 분기는 `runReconnect` 가 갖는다 — 붙은 채로 붙이면 `already_connected` 다.
+  const reconnect = (connector: PluginConnectorInfo): void => {
+    setBusyId(connector.connectorId)
+    void runReconnect({
+      disconnect: () => pluginApi.disconnect(connector.connectorId),
+      open: () => setConnecting(connector)
+    }).finally(() => {
+      setBusyId(null)
+      onChanged?.()
+    })
+  }
+
   return (
     <div className="min-w-0 flex-1 overflow-y-auto px-7 py-6">
       <h2 className="m-0 text-heading text-ink">{plugin.pluginId}</h2>
@@ -77,46 +93,73 @@ export function PluginDetail({
       </section>
       <section className="mt-6">
         <h3 className={sectionTitleClass}>{tr('skills.pluginDetail.connectors')}</h3>
-        {plugin.connectors.map((connector) => (
-          <div key={connector.connectorId} className={itemClass}>
-            <div className="flex items-center text-footnote">
-              <span className="min-w-0 truncate text-ink">{connector.label}</span>
-              <span className="ml-auto flex-none pl-p5 text-caption text-ink3">
-                {connector.connected
-                  ? tr('skills.pluginDetail.connectedLabel')
-                  : tr('skills.pluginDetail.disconnectedLabel')}
-              </span>
-              {/* 연결됨이면 연결 버튼을 그리지 않는다 — connector 당 활성 연결은 1개다(0158). */}
-              <Button
-                className="ml-p5 flex-none"
-                variant="uncontained"
-                size="small"
-                busy={busyId === connector.connectorId}
-                onClick={() =>
-                  connector.connected ? disconnect(connector.connectorId) : setConnecting(connector)
-                }
-              >
-                {connector.connected
-                  ? tr('skills.connect.disconnect')
-                  : tr('skills.connect.connect')}
-              </Button>
-              {connector.source === 'instance' && (
-                <Button
-                  className="ml-g1 flex-none"
-                  variant="danger-ghost"
-                  size="small"
-                  disabled={busyId === connector.connectorId}
-                  onClick={() => removeInstance(connector.connectorId)}
-                >
-                  {tr('skills.instance.delete')}
-                </Button>
-              )}
+        {plugin.connectors.map((connector) => {
+          // 점 색과 버튼 구성은 순수 모듈이 정한다(0162) — 렌더링은 그 결과를 그리기만 한다.
+          const { tone, actions } = connectorActions(connector)
+          const busy = busyId === connector.connectorId
+          return (
+            <div key={connector.connectorId} className={itemClass}>
+              <div className="flex items-center gap-g3 text-footnote">
+                {/* 초록 점 = 자격증명 확인까지 끝난 연결. 색만으로 상태를 전달하지 않도록
+                    옆의 글자 라벨은 지우지 않는다. */}
+                <Dot tone={tone} />
+                <span className="min-w-0 truncate text-ink">{connector.label}</span>
+                <span className="ml-auto flex-none pl-p5 text-caption text-ink3">
+                  {connector.connected
+                    ? tr('skills.pluginDetail.connectedLabel')
+                    : tr('skills.pluginDetail.disconnectedLabel')}
+                </span>
+                {actions.includes('connect') && (
+                  <Button
+                    className="ml-p5 flex-none"
+                    variant="uncontained"
+                    size="small"
+                    busy={busy}
+                    onClick={() => setConnecting(connector)}
+                  >
+                    {tr('skills.connect.connect')}
+                  </Button>
+                )}
+                {actions.includes('reconnect') && (
+                  <Button
+                    className="ml-p5 flex-none"
+                    variant="uncontained"
+                    size="small"
+                    busy={busy}
+                    onClick={() => reconnect(connector)}
+                  >
+                    {tr('skills.connect.reconnect')}
+                  </Button>
+                )}
+                {actions.includes('disconnect') && (
+                  <Button
+                    className="ml-g1 flex-none"
+                    variant="uncontained"
+                    size="small"
+                    disabled={busy}
+                    onClick={() => disconnect(connector.connectorId)}
+                  >
+                    {tr('skills.connect.disconnect')}
+                  </Button>
+                )}
+                {actions.includes('remove') && (
+                  <Button
+                    className="ml-g1 flex-none"
+                    variant="danger-ghost"
+                    size="small"
+                    disabled={busy}
+                    onClick={() => removeInstance(connector.connectorId)}
+                  >
+                    {tr('skills.instance.delete')}
+                  </Button>
+                )}
+              </div>
+              <div className="mt-g1 text-caption text-ink3">
+                {tr('skills.pluginDetail.origin')}: {connector.origin}
+              </div>
             </div>
-            <div className="mt-g1 text-caption text-ink3">
-              {tr('skills.pluginDetail.origin')}: {connector.origin}
-            </div>
-          </div>
-        ))}
+          )
+        })}
       </section>
       {connecting !== null && (
         <ConnectorConnectModal
