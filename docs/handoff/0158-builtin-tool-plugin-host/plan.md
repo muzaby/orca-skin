@@ -8,7 +8,7 @@
 | 작성자 | Claude Code (r1~r3) · Codex (r4 사용자 결정 반영) |
 | 일자 | 2026-08-02 · r4 2026-08-03 |
 | 매핑 | PHASES 신규 행 (Phase 3++) / PR 미생성 |
-| 상태 | IMPL_DONE (**r6**, `3400908` whole-review 보완까지 구현 완료) |
+| 상태 | IMPL_DONE (**r7**, `7f606cf` pre-aborted connector work 보완까지 구현 완료) |
 
 ### 설계 개정 이력
 
@@ -20,6 +20,7 @@
 | **r4** | 사용자 결정: **“서버마다 별도 정적 connector”**, 하위 도메인·소속 부서별 connector 제공. 추가 확인으로 **정적 connector당 활성 연결 1개** 확정 | r3 alias 모델 폐기. 고정 origin을 가진 connector를 서버마다 등록하고 도구 ID도 정적으로 고정한다. binding target을 connection ID의 SSOT로 삼고, runtime tool→connector 매핑·승인 메타데이터 SSOT·provider logout 실패 시 로컬 정리까지 함께 닫는다 |
 | **r5** | 구현 리뷰에서 automatic continuation의 실제 handler 배선과 one-shot spawn metadata 정리 누락을 발견 | listen·flush 모두 원래 선택 model family를 재해석하고, stale 판정과 요청에 같은 fresh runtime-tool snapshot을 쓴다. one-shot 종료도 provider settings·model·runtime-tool revision metadata를 함께 비운다. |
 | **r6** | whole-review에서 PluginHost 소유 취소 신호가 ConnectorHost start/invoke 경계에서 끊기고 IPC 문서·AC 증빙이 실제 코드와 어긋남을 발견 | `3400908`에서 host signal을 connector start와 invoke timeout 합성 신호까지 전달하고, disconnect·provider logout 실패·cascade cleanup의 in-flight abort 회귀를 고정했다. IPC plugin 응답/스키마명을 실제 계약으로 정정하고 문서 82채널 count를 실행형 테스트로 고정했다. |
+| **r7** | 이미 abort된 caller signal이 connection record를 만들고 connector start/invoke plugin 코드를 호출할 수 있으며, cleanup 뒤 cached tool handler도 이를 우회할 수 있음을 재검토에서 발견 | `7f606cf`에서 `ConnectorHost.connect/start/invoke`의 plugin 호출 전 preflight를 추가해 zero-call을 보장하고, cached handler를 PluginHost에서도 단락했다. pending-start는 실제 abort listener로 settle하도록 강화했다. |
 
 ## 사용자 의도 / 요구 출처 (Intent & Provenance)
 
@@ -523,11 +524,11 @@ broker는 provider logout 성공 여부와 상관없이 vault와 binding을 제�
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | Task 1~7 범위 구현 완료. `7229c41`은 실제 `registerChatHandlers` IPC 경로의 listen stale revision respawn·flush non-default model 보존과 one-shot 종료 metadata 정리를 고정했다. `3400908`은 PluginHost lifecycle signal을 connector start/invoke까지 전파하고 disconnect·provider logout 실패·cascade cleanup abort 회귀, 실제 plugin IPC 문서 응답, 82채널 문서 count 검사를 추가했다. |
-| 실행 명령 | `npx vitest run src/main/features/auth-platform/plugin-host.test.ts src/main/features/connectors/runtime.test.ts src/shared/ipc-documentation.test.ts` (3 files, 35 tests), `npm run lint`, `npm run typecheck`, `npm test`, `node --test scripts/*.test.mjs` |
-| 게이트 결과 | focused 35/35 pass, typecheck node/web/test pass. lint 0 error, 기존 `useTranscriptVirtualizer` TanStack/React Compiler warning 1개. `npm test`는 수집된 169 files·1476 tests pass, `chat-turn.continuity.test.ts`만 intentionally unavailable Electron binary로 collection 전 실패(`Electron failed to install correctly`); 별도 scripts 28/28 pass. lint `--fix`가 만든 범위 밖 포맷 churn은 커밋 전 원복했다. |
+| 변경 파일 | Task 1~7 범위 구현 완료. `7229c41`은 실제 `registerChatHandlers` IPC 경로의 listen stale revision respawn·flush non-default model 보존과 one-shot 종료 metadata 정리를 고정했다. `3400908`은 PluginHost lifecycle signal을 connector start/invoke까지 전파하고 IPC 문서 응답/82채널 문서 count 검사를 추가했다. `7f606cf`은 pre-aborted connect/start/invoke zero-call과 cleanup 뒤 cached handler 단락을 추가했다. |
+| 실행 명령 | `npx vitest run src/main/features/auth-platform/plugin-host.test.ts src/main/features/connectors/runtime.test.ts` (2 files, 38 tests), `npm run lint`, `npm run typecheck`, `npm test`, `node --test scripts/*.test.mjs` |
+| 게이트 결과 | focused 38/38 pass, typecheck node/web/test pass. lint 0 error, 기존 `useTranscriptVirtualizer` TanStack/React Compiler warning 1개. `npm test`는 수집된 169 files·1480 tests pass, `chat-turn.continuity.test.ts`만 intentionally unavailable Electron binary로 collection 전 실패(`Electron failed to install correctly`); 별도 scripts 28/28 pass. lint `--fix`가 만든 범위 밖 포맷 churn은 커밋 전 원복했다. |
 | 블로커 / 역질문 | 없음 — 사용자 결정 완료 |
-| 대상 커밋 | `07e0634` (`feat(runtime-tools): refresh stale tool snapshots`), `1f2c1f1` (`fix(runtime-tools): checkpoint continuation respawn`), `7229c41` (`test(runtime-tools): cover continuation handler wiring`), `3400908` (`fix(plugin): propagate lifecycle cancellation`) |
+| 대상 커밋 | `07e0634` (`feat(runtime-tools): refresh stale tool snapshots`), `1f2c1f1` (`fix(runtime-tools): checkpoint continuation respawn`), `7229c41` (`test(runtime-tools): cover continuation handler wiring`), `3400908` (`fix(plugin): propagate lifecycle cancellation`), `7f606cf` (`fix(plugin): reject pre-aborted connector work`) |
 
 ---
 
