@@ -150,9 +150,7 @@ export function CustomizeList({
                   onKeyDown={(event) => activate(event, () => onSelect(id))}
                   className={rowClass}
                 >
-                  <td
-                    className={`${cellClass} font-mono ${skill.enabled ? 'text-ink' : 'text-ink3'}`}
-                  >
+                  <td className={`${cellClass} ${skill.enabled ? 'text-ink' : 'text-ink3'}`}>
                     {skill.name}
                   </td>
                   <td className={`${cellClass} text-ink2`}>
@@ -194,7 +192,7 @@ export function CustomizeList({
                   className={rowClass}
                 >
                   <td className={`${cellClass} text-ink`}>{server.name}</td>
-                  <td className={`${cellClass} font-mono uppercase text-ink2`}>{meta.transport}</td>
+                  <td className={`${cellClass} uppercase text-ink2`}>{meta.transport}</td>
                   <td className={`${cellClass} text-ink3`}>{tr(meta.statusKey)}</td>
                 </tr>
               )
@@ -224,7 +222,7 @@ export function CustomizeList({
                 onKeyDown={(event) => activate(event, () => onSelect(plugin.pluginId))}
                 className={rowClass}
               >
-                <td className={`${cellClass} font-mono text-ink`}>{plugin.pluginId}</td>
+                <td className={`${cellClass} text-ink`}>{plugin.pluginId}</td>
                 <td className={`${cellClass} text-ink2`}>{plugin.providerCount}</td>
                 <td className={`${cellClass} text-ink2`}>
                   {plugin.connectorCount} · {plugin.connectedCount} {tr('skills.table.connected')}
