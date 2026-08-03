@@ -21,7 +21,7 @@
 | 질문 | 판단 | 근거 / 후속 |
 |---|---|---|
 | 실환경에서 실패하는 방식 (지연·부분 실패·동시 호출·종료 중·권한 거부) | **대체로 잘 닫혀 있다.** 동시 connect 는 `activeByConnector` pending 선등록(`plugin-host.ts:106-107`) + `ConnectionRegistry.create` 원자 거부(`registry.ts:43-45`) 로 이중 방어. connector start 지연 중 binding 교체는 fingerprint 재검사(`plugin-host.ts:129-132`)로 거부. pre-abort 는 `ConnectorHost.connect/start/invoke` 3곳 preflight(`runtime.ts:80,91,117`). 부분 실패는 `cleanup` 의 `finally` 로 server 제거 보장(`plugin-host.ts:249-256`) | 잔여 1건 → **D7** (sink.remove 가 throw 하면 `active.cleanup` 이 rejected 로 캐시돼 재시도 영구 불가) |
-| **잘못된 성공(false success)** 이 가능한 경로 | **승인 게이트는 fail-closed 확인.** `makeCanUseTool` 의 기본 분기가 `allow`(`claude.ts:200`)라 승인 정확성은 전적으로 `runtimeApprovalToolNames` 에 의존하는데, 그 집합과 `mcpServers` 가 **같은 `extensions.runtimeTools` 객체**에서 같은 `buildOptions` 안에 파생된다(`claude.ts:343,383,408`) — 스냅샷 불일치로 승인이 새는 경로 없음. `readOnlyHint` 미선언·`false` 는 모두 승인 대상(`runtime-tool-policy.ts:11`). | ✅ — 0157 D1 형태의 결함은 이 경로엔 없다 |
+| **잘못된 성공(false success)** 이 가능한 경로 | **승인 게이트는 fail-closed 확인.** `makeCanUseTool` 의 기본 분기가 `allow`(`claude.ts:200`)라 승인 정확성은 전적으로 `runtimeApprovalToolNames` 에 의존하는데, 그 집합과 `mcpServers` 가 **같은 `extensions.runtimeTools` 객체**에서 같은 `buildOptions` 안에 파생된다(`claude.ts:343,383,408`) — 스냅샷 불일치로 승인이 새는 경로 없음. `readOnlyHint` 미선언·`false` 는 모두 승인 대상(`runtime-tool-policy.ts:11`). **그러나 도구 *결과* 경로에 false success 가 있다** — 연결이 끊긴 뒤 모델이 도구를 다시 부르면 MCP 경계가 `isError` 없는 **성공**을 돌려준다(§보완 검증 A) | 승인 경로 ✅ / **결과 경로 ❌ → D5(승격)** |
 | 되돌릴 수 있는가 (마이그레이션·파일 쓰기·외부 상태) | **되돌릴 것이 없다.** DB 마이그레이션 0(`git diff --stat … migrations/` 빈 출력), 파일 쓰기 0, connection/runtime server 전부 메모리 전용. 유일한 외부 상태 변경은 `broker.logout` 의 provider 원격 로그아웃인데 이는 0157 기존 경로 | ✅ |
 | 설계가 의도한 것을 구현이 실제로 했는가 (비슷한 다른 것 아닌가) | **두 곳에서 '비슷한 다른 것'을 했다.** ① plan §의존 기술 "connector ID·runtime server ID·tool name 은 manifest `IdSchema` 와 **같은** 케밥 소문자 규칙" ↔ `protocol.ts:257` 이 **다른** 정규식을 쓰면서 주석은 "같은 규칙을 다시 강제한다"고 적음 → **D4**. ② plan §runtime tool 계약이 `handler(input): Promise<unknown>` 으로 backend 중립을 선언했으나 실제 소비자(SDK)는 `Promise<CallToolResult>` 를 요구하고(`sdk.d.ts:3991`) 유일한 참조 구현인 fixture 는 `ConnectorResult` 를 그대로 반환(`department-fixture-package.ts:67-68`) → **D5** | plan §의존 기술·§runtime tool 계약 ↔ `protocol.ts:252-258` · `claude-runtime-tools.ts:23` |
 | 구현자 선조치(✅)가 경계를 넘지 않았나 | **넘지 않았다.** plan `[구현자 기입]` 5건(alias 폐기·`onBindingsEnded` seam·pending race·`finally` cleanup·group metadata 유예)은 전부 r4 설계에 반영된 뒤 구현됐고, 인수 기준·신규 의존성·제품 의도를 단독 변경한 흔적 없음. `AUTH_PLUGIN_PACKAGES` 는 빈 배열 유지(`modules/index.ts:28`) — fixture 를 프로덕션에 밀어넣지 않았다 | ✅ 신규 의존성 0 (`package.json`/lock diff 빈 출력) |
@@ -114,10 +114,102 @@ $ bash .agents/skills/handoff-verify/scripts/scan-surface.sh f74979f..HEAD
 
 즉 산출물은 *호스트* 만이 아니라 **다음 저자가 따라 쓸 확장 계약**이다. 그 계약의 두 모서리가 어긋나 있다 — 둘 다 오늘은 무해하지만(프로덕션 `AUTH_PLUGIN_PACKAGES` 가 빈 배열), **첫 실제 package 를 쓰는 순간 발화**한다.
 
+- **D5 (★ false success — 최우선)** — 도구 호출 결과가 MCP 경계에서 **`isError` 없는 빈 성공**이 된다. 정상 호출은 데이터가 모델에 도달하지 않아 조용히 무력하고, **연결이 끊긴 뒤의 호출은 실패가 성공으로 뒤집힌다**(§보완 검증 A 에서 실제 SDK 서버 + 실제 MCP 클라이언트로 종단 확인). 0157 D1 과 같은 계열이다.
 - **D4** — ID 규칙이 두 곳에서 다르고, 코드 주석은 "같다"고 적혀 있다. 규칙을 믿고 `3rd-jira` 같은 ID 를 쓴 package 는 등록에 성공한 뒤 목록 전체를 죽이고 영원히 연결되지 않는다.
-- **D5** — 유일한 참조 구현(fixture)이 SDK 가 받지 못하는 반환형을 가르치고, `as never` 캐스트가 타입 검사를 끈다.
 
-둘 다 수정 범위가 작다(정규식 1개 · fixture 반환 shape + 경계 테스트 1개 · 문서 2줄). 라운드 2 로 넘겨 **첫 실제 package 가 쓰이기 전에** 계약을 바로잡는 것이 옳다고 판단했다.
+D5 는 `AUTH_PLUGIN_PACKAGES` 가 빈 배열이라 **오늘 사용자에게 도달하지는 않지만**, 도달하지 않는 이유가 "코드가 옳아서" 가 아니라 "아무도 아직 안 써서" 다. 첫 실제 package 가 붙는 순간 발화하며, 증상이 *에러가 아니라 조용한 성공* 이라 그때는 원인 추적이 훨씬 비싸다.
+
+수정 범위는 여전히 작다(반환형 계약 + `adaptServer` 변환 + fixture · 정규식 SSOT · 경계 테스트). 라운드 2 로 넘겨 **첫 실제 package 가 쓰이기 전에** 바로잡는 것이 옳다.
+
+---
+
+## 보완 검증 (r1 2차 패스) — 처음에 "못 봤다" 고 적은 3건을 실측으로 메움
+
+> 초판 verify 는 §자기 리뷰에서 ⓐ SDK 런타임 미검증 ⓑ `Bootstrap.createAuthPlatform` 미실행
+> ⓒ D7 미재현을 한계로 적고 사람에게 넘겼다. **셋 다 이 환경에서 실측 가능했다** — P12("조사
+> 가능한 것을 불가로 선언")를 스스로 반복한 것이다. 아래는 전부 **임시 테스트로 실행 후 삭제**했고
+> (`git status` clean 확인), 저장소 코드는 건드리지 않았다.
+
+### A. SDK 런타임 — D5 의 실제 귀결 (**추정 → 확정, 그리고 더 나쁘다**)
+
+`createSdkMcpServer` 가 돌려주는 `instance`(`sdk.d.ts:1061-1063` = 실제 `McpServer`)를
+`InMemoryTransport` 로 실제 MCP `Client` 에 물려 `tools/call` 을 왕복시켰다.
+
+```
+통제군(올바른 CallToolResult) => {"content":[{"type":"text","text":"hello"}]}
+fixture 형태({ok,data})       => {"content":[],"ok":true,"data":{"issue":"ORCA-1"}}
+취소 경로({ok:false,error})   => {"content":[],"ok":false,"message":"…cancelled","health":"error"}
+```
+
+그리고 **합성 값이 아니라 §B 의 실제 파이프라인 출력**을 같은 경계에 통과시킨 종단 결과:
+
+```
+E2E 정상호출   = {"content":[],"ok":true,"data":{"operation":"jira-platform-read"}}
+E2E 로그아웃후 = {"content":[],"ok":false,"message":"connector invocation was cancelled","health":"error"}
+E2E isError필드 = {"정상":false,"로그아웃후":false}
+```
+
+**판정 — D5 는 계약 타입 불일치가 아니라 false success 결함이다.**
+
+1. **정상 호출이 조용히 무력하다.** 실제 데이터(`{operation:…}`)는 `content` **밖**에 실려 모델에
+   도달하지 않는다. `content: []` 이므로 모델은 "도구가 성공했고 결과가 비었다" 로 읽는다.
+2. **취소·실패가 성공으로 뒤집힌다.** 사용자가 로그아웃/disconnect 한 뒤 모델이 같은 도구를
+   다시 부르면 `PluginHost` 의 `{ok:false, health:'error'}`(`plugin-host.ts:195-200`)가
+   **`isError` 없는 성공**으로 변환된다. 실패해야 할 때 성공을 반환하는 경로 — **0157 D1 과 같은
+   계열**이며 `SKILL.md §0.2` 가 "가장 비싼 결함" 이라 지목한 형태다.
+3. **기존 테스트가 왜 못 잡았나**: `plugin-host.test.ts:498` 은 `handler({})` 가
+   `{ok:false, health:'error'}` 를 resolve 하는 것까지만 단언한다. **그 값이 MCP 경계를 지난 뒤
+   어떻게 보이는지**를 검사하는 테스트가 저장소에 하나도 없다 — `as never` 캐스트
+   (`claude-runtime-tools.ts:23`)가 타입 검사를, 테스트 부재가 런타임 검사를 각각 지웠다.
+
+### B. `Bootstrap.createAuthPlatform` 조립 — **재구성해서 통과 (긍정 발견)**
+
+`bootstrap.ts:5` 가 `electron` 을 최상위 import 하고 `createAuthPlatform` 이 private 이라 직접
+호출은 불가하지만, **같은 순서·같은 배선을 실제 객체로 재구성**할 수 있었다 — `broker.ts` 는
+electron 비의존이다. fake 0개(real `AuthRegistry`+`AuthBroker`+`ConnectionRegistry`+
+`ConnectorHost`+`RuntimeToolRegistry`+`PluginHost`+fixture package)로 인증→연결→도구노출→호출→
+로그아웃 왕복을 돌렸다:
+
+```
+list             = [jira-platform, jira-security, confluence-rnd]   revision 0
+연결 후 servers   = ["jira-platform-tools"]                          revision 1
+승인 대상        = ["mcp__jira-platform-tools__jira-platform-write"]  ← read 는 자동 허용
+mcpServers key   = ["jira-platform-tools"]                           ← server ID 단일화 확인
+connection       = [{id:"conn-jira-platform", connectorId:"jira-platform"}]  ← binding target 보존
+logout           = {"kind":"logged_out","endedBindingIds":["bind_1_…"]}
+로그아웃 후       = servers [] · connections [] · revision 2
+```
+
+**조립은 건전하다.** 이 실행은 매트릭스의 대리 검증 3건을 실측으로 승격시킨다:
+
+| 원래 표기 | 보완 후 |
+|---|---|
+| AC21 "`AUTH_PLUGIN_PACKAGES` 루프는 미테스트, 대리 검증" | **실측** — 같은 루프 형태로 provider·connector 3개·runtimeTools 가 한 경로로 등록됨 |
+| AC14 "정상 logout 회수" (fake `LogoutPort`) | **실측** — real `AuthBroker.logout` → `onBindingsEnded` closure → real `RuntimeToolRegistry` 회수까지 왕복 |
+| AC18·19 승인 판정 (합성 snapshot) | **실측** — real fixture descriptor 에서 write 만 승인 집합에, read 는 자동 허용 |
+
+동시에 이 실행이 **D5 의 종단 증거**를 만들었다 — 실제 파이프라인의 `invoke` 반환이 정확히
+`{ok:true,data:{…}}` 였고, 그것이 §A 의 MCP 경계에서 빈 성공이 됐다.
+
+### C. D7 재현 — **가설 → 확정, 그리고 더 나쁘다**
+
+`RuntimeToolSink.remove` 가 throw 하는 sink 를 주입하고 `onBindingsEnded` 를 2회 호출했다:
+
+```
+D7 stopCalls      = ["binding-a"]     ← 2회 호출했으나 stop 은 1회 (캐시된 rejected promise 반환)
+D7 removed(성공분) = []                ← sink 회복 후에도 runtime server 가 끝내 제거되지 않음
+D7 list           = [{… "connected": true}]   ← binding 폐기 후에도 연결됨으로 표시
+```
+
+**"재시도 불가" 를 넘어선다.** `active.cleanup` 에 rejected promise 가 캐시돼
+(`plugin-host.ts:233-237`) ⓐ runtime tool server 가 registry 에 남아 **LLM 에 계속 노출**되고
+ⓑ `activeByConnector` 에서 삭제되지 않아 **재연결도 `already connected` 로 거부**된다. 즉 AC13~16
+("binding 폐기 시 connector 와 runtime server 를 회수한다")의 정면 실패 모드다.
+
+**도달 조건**: 현행 `RuntimeToolRegistry.remove`(`runtime-tool-registry.ts:98-101`)는 throw 하지
+않으므로 **오늘은 도달 불가**. 다만 `RuntimeToolSink` 는 구조적 포트라 다른 구현이 주입될 수 있는
+자리이고, 이 코드가 방어하는 대상(`stopByBinding` 실패)은 이미 `try/catch` 로 감싼 반면
+`remove` 만 무방비다 — 비대칭 자체가 신호다.
 
 ---
 
@@ -228,22 +320,53 @@ $ grep -E "Error:" vitest-full.txt | sort | uniq -c
 - **설계 단계**: plan §의존 기술이 "manifest `IdSchema` 와 같은 케밥 소문자 규칙" 이라고 *말로* 못박았을 뿐, **어느 코드가 그 규칙의 SSOT 인지 지정하지 않았다.** 그래서 구현이 shared 경계에 정규식을 한 벌 더 쓰는 것이 설계 위반으로 보이지 않았다. → 새 실패 패턴: **"같은 규칙" 을 두 레이어에 요구하는 설계는 *어느 쪽이 SSOT 이고 나머지는 어떻게 파생/검증하는지* 를 인수 기준에 넣어야 한다. 그러지 않으면 복붙된 두 번째 사본이 조용히 갈라진다."**
 - **설계 단계 2**: AC17 이 "factory 는 `{name,inputSchema,handler}` 만 반환한다" 로 *반환 필드* 는 못박았지만 **`handler` 의 반환 *타입* 은 어느 기준도 다루지 않았다.** SDK 소비 계약이 인수 기준 밖으로 새어나간 자리다. → 패턴: **"어댑터가 외부 SDK 로 넘기는 값은 *필드 목록* 이 아니라 *SDK 가 요구하는 타입* 으로 인수 기준을 쓴다."**
 - **구현 단계**: 선조치 경계는 잘 지켰다(⚠️ 항목 0, 신규 의존성 0, 인수 기준 무단 변경 0). 반면 **plan 의 "검증 수단" 열에 적힌 테스트 케이스명을 실제 케이스명과 맞추지 않은 채 IMPL_DONE 을 선언**했다 — 검증자가 인용을 신뢰했다면 존재하지 않는 테스트를 ✅ 로 셀 뻔했다. 구현 보고의 "대상 커밋 6개" 도 실제 15커밋의 후반부만이라 diff 기준선을 잘못 잡게 만든다.
-- **검증 단계 — 이번 verify 가 못 본 것 (정직하게)**:
-  - **SDK 런타임 미검증.** `adaptRuntimeTools` 가 만든 서버가 실제 `query()` 에 실려 도구가 호출되는 경로는 **한 번도 실행되지 않았다.** D5 의 증상(빈 `content` 로 조용히 성공 vs 파싱 오류)을 **나는 판정하지 못했다** — `sdk.d.ts:3991` 의 타입 시그니처와 fixture 반환값의 *정적* 불일치까지만 기계 확인했고, 런타임 귀결은 추정이다. 사람 실기가 남는다.
-  - **`Bootstrap.createAuthPlatform` 미실행.** AC21 의 "배열 한 줄 등록" 은 같은 형상 객체를 `AuthRegistry.register` 에 직접 넣는 **대리 검증**이다. `AUTH_PLUGIN_PACKAGES` 루프·`composition.pluginHost` closure·`registerPluginHandlers` 배선은 typecheck 로만 확인했다.
-  - **동시성은 단일 스레드 await 경계까지만.** `plugin-host.test.ts` 의 race 테스트들은 수동으로 resolve 순서를 조작한 결정적 시나리오다. 실제 스케줄러 하에서의 인터리빙은 재현하지 않았다.
-  - **D7(cleanup 영구 재시도 불가)은 코드 독해만으로 제기했다** — 현재 `RuntimeToolRegistry.remove` 가 throw 하지 않으므로 재현 테스트를 만들지 않았다. 미래 sink 구현에 대한 가설적 결함이며 그 한계를 밝혀 둔다.
+- **검증 단계 — ★이번 verify 자신의 최대 실패**: 초판이 SDK 런타임·Bootstrap 조립·D7 재현 3건을
+  "환경상 불가" 로 적고 사람에게 넘겼는데, **셋 다 이 환경에서 실측 가능했다**(§보완 검증). 이는
+  `failure-patterns.md` **P12("조사 가능한 것을 '불가'로 선언")를 검증 단계에서 그대로 반복**한
+  것이다. 특히 비싼 실수였던 이유:
+  - "SDK 실기는 사람 몫" 이라는 판단이 **틀렸다.** `createSdkMcpServer` 는 `instance`(실제
+    `McpServer`)를 돌려주므로 CLI 서브프로세스 없이 `InMemoryTransport` 로 경계를 왕복시킬 수
+    있었다. 즉 **"SDK 를 못 돌린다" 가 아니라 "SDK 의 어느 부분을 돌릴 수 있는지 안 찾아봤다"** 였다.
+  - 그 한 번의 실행이 D5 를 *계약 타입 불일치*(사소·후속)에서 **false success 결함**(§0 이 최우선으로
+    찾으라는 것)으로 재분류시켰다. 즉 못 본 것이 결론 자체를 바꿨다.
+  - "electron 의존이라 불가" 도 **범위를 과대 적용**했다. 막힌 것은 `bootstrap.ts` 파일 하나였고,
+    그 안의 *조립 로직* 은 electron 비의존 부품으로 재구성 가능했다(P1 의 "무엇을 떼면 가능한가" 를
+    파일 단위가 아니라 **배선 단위**로 물었어야 했다).
+  - → 새 패턴 **P18** 로 축적: *"검증자가 '실기 불가' 를 선언하기 전에, 그 시스템이 **테스트 가능한
+    핸들을 이미 export 하고 있는지** 확인하라."*
+- **검증 단계 — 보완 후에도 여전히 못 본 것 (정직하게)**:
+  - **실제 `query()` 서브프로세스 경로는 미검증.** §보완 A 는 `createSdkMcpServer` 의 `instance` 를
+    직접 물린 것이라 **MCP 경계까지**를 증명한다. CLI 가 그 결과를 모델 컨텍스트에 어떻게 직렬화하는지
+    (빈 `content` 를 어떤 문구로 보여주는지)는 여전히 실기 영역이다. D5 의 *증상 형태* 는 확정됐고
+    *사용자 체감* 은 남는다.
+  - **`registerPluginHandlers` 의 실제 IPC 왕복 미실행.** §보완 B 는 `PluginHost` 까지 조립했고
+    핸들러 등록은 typecheck + `handlers/plugins.test.ts` 의 출력 스키마 테스트로만 확인했다.
+  - **동시성은 단일 스레드 await 경계까지만.** race 테스트들은 수동으로 resolve 순서를 조작한
+    결정적 시나리오다. 실제 스케줄러 인터리빙은 재현하지 않았다.
+  - **D7 은 도달 조건이 가설로 남는다.** 결함 자체(캐시된 rejected promise → 서버 잔존 + 재연결
+    불가)는 실측 확정했으나, 현행 sink 로는 트리거되지 않으므로 **"오늘 발생한다" 는 주장이 아니다.**
 
 ---
 
 ## [FAIL] 미충족 항목 (구현자 액션 아이템)
 
+- [ ] **D5 (최우선) — runtime tool 결과가 MCP 경계에서 false success 가 되는 것을 막는다.** 실측
+      결과: 정상 호출 `{"content":[],"ok":true,"data":{…}}` · **취소 후 호출
+      `{"content":[],"ok":false,…}` 이면서 `isError` 부재**(§보완 A). 최소 두 가지를 함께 고친다 —
+      ⓐ **성공 경로**: `adaptServer`(`claude-runtime-tools.ts:16-25`)가 contribution 반환값을
+      `CallToolResult` 로 변환하거나, `RuntimeToolImplementation.handler` 의 반환형을 그 형상으로
+      좁힌다. `as never`(`:23`)를 제거할 수 있는 형태여야 한다. ⓑ **실패 경로**: `PluginHost` 의
+      취소 반환(`plugin-host.ts:195-200`)과 `ConnectorHost` 의 `cancelledResult`
+      (`runtime.ts:177-179`)가 모델에게 **`isError: true` 로 보이도록** 한다 — 지금은 연결이
+      끊겼는데 모델이 "성공, 결과 없음" 으로 읽는다. ⓒ **fixture 를 그 계약대로 수정**
+      (`department-fixture-package.ts:67-68`) — 저자용 참조 구현이므로 여기가 틀리면 계약이 틀린 것과
+      같다. 회귀 테스트: `InMemoryTransport` + MCP `Client` 로 `tools/call` 을 왕복시켜 **정상은
+      content 가 실리고, 취소는 `isError` 가 선다**를 단언(§보완 A 의 하네스를 그대로 쓸 수 있다).
 - [ ] **D4 — ID 규칙 SSOT 통일.** `protocol.ts:257` `PluginConnectorIdSchema` 의 `^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$` 를 manifest `IdSchema`(`manifest.ts:17`) 의 `^[a-z0-9]+(?:-[a-z0-9]+)*$` 와 **실제로 일치**시킨다(또는 두 곳이 한 상수를 공유하도록 SSOT 를 만든다 — main→shared 방향이므로 `shared/` 에 두고 manifest 가 import 하는 편이 DAG 에 맞다). 회귀 테스트: 숫자 선두 ID(`3rd-jira`) 가 manifest 와 IPC 양쪽에서 **같은 판정**을 받는지. 겸사 `parsePluginListResponse` 가 항목 1개 때문에 목록 전체를 throw 하는 게 의도인지 재확인한다(현행은 all-or-nothing).
-- [ ] **D5 — runtime tool handler 반환 계약 확정.** `RuntimeToolImplementation.handler` 의 반환형을 SDK 가 요구하는 `CallToolResult` 형상으로 좁히거나(backend 중립을 지키려면 `adapters/runtime-tools.ts` 에 구조적 최소 타입 선언), `adaptServer` 에서 `ConnectorResult`→`CallToolResult` 변환을 명시 구현한다. `claude-runtime-tools.ts:23` 의 `as never` 를 제거할 수 있는 형태여야 한다. **fixture 를 그 계약대로 고친다**(`department-fixture-package.ts:67-68` 이 `ctx.invoke()` 결과를 그대로 반환) — fixture 가 저자용 참조 구현이므로 여기가 틀리면 계약이 틀린 것과 같다. 테스트: `adaptRuntimeTools` 로 만든 서버의 handler 를 호출해 반환값이 SDK 계약 형상인지.
 - [ ] **D3 — `docs/AGENTS.md:15` 인벤토리를 82 채널 · 23 도메인 + `plugin` 3 으로 갱신.** `ipc-documentation.test.ts` 의 검산 범위를 이 파일까지 넓히는 것을 함께 검토(같은 stale 이 재발한 자리다).
 - [ ] **D8 — plan 의 검증 수단·대상 커밋 정정.** 인수 기준 표의 테스트 케이스명을 실존 케이스명으로 바꾸고, 구현 보고 "대상 커밋" 을 `6d67f52..` 전 15커밋으로 정정한다.
 - [ ] (선택) **D6 — `AuthRegistry.getRuntimeTool` 제거** 또는 사용처 배선. 현재 참조 0.
-- [ ] (선택) **D7 — `PluginHost.cleanup` 실패 캐싱.** `cleanupOnce` 가 reject 하면 `active.cleanup` 이 rejected promise 로 남아 재시도가 영구 불가하다(`plugin-host.ts:233-237`). 실패 시 `active.cleanup` 을 비우거나 `cleanupOnce` 를 never-throw 로 만든다.
+- [ ] **D7 — `PluginHost.cleanup` 실패 캐싱** (가설 → **실측 확정**, §보완 C). `cleanupOnce` 가 reject 하면 `active.cleanup` 에 rejected promise 가 캐시돼(`plugin-host.ts:233-237`) ⓐ runtime server 가 registry 에 남아 LLM 에 계속 노출되고 ⓑ `activeByConnector` 에서 삭제되지 않아 재연결도 `already connected` 로 거부된다. 실패 시 `active.cleanup` 을 비우거나 `cleanupOnce` 를 never-throw 로 만든다(`stopByBinding` 은 이미 `try/catch` 인데 `remove` 만 무방비인 비대칭). **도달 조건은 여전히 가설** — 현행 sink 는 throw 하지 않는다.
 
 > 위 항목은 plan 하단 `[검증자 기입] 파생 이슈` 챕터에 D3~D8 로 이관했다. 다음 구현 턴은 그 챕터에서 이어간다.
 
@@ -251,6 +374,6 @@ $ grep -E "Error:" vitest-full.txt | sort | uniq -c
 
 ## 결론 / 다음 단계
 
-- **상태: FAIL (r1).** 인수 기준은 **26/26 충족**이고 게이트도 전부 green(lint 0 error · typecheck 3/3 · vitest **1480/1480** · scripts 28/28 · 의존성 0 · 마이그레이션 0)이다. FAIL 사유는 **기준 밖에서 발견한 확장 계약 결함 2건(D4·D5)** — 오늘은 무해하지만 이 핸드오프가 스스로 성공 조건으로 선언한 "첫 실제 package 를 core 수정 없이 추가한다" 를 정면으로 막는다.
+- **상태: FAIL (r1).** 인수 기준은 **26/26 충족**이고 게이트도 전부 green(lint 0 error · typecheck 3/3 · vitest **1480/1480** · scripts 28/28 · 의존성 0 · 마이그레이션 0)이다. FAIL 사유는 **기준 밖에서 발견한 결함**이며, 보완 검증 후 무게중심이 바뀌었다 — 초판은 D4·D5 를 '계약 드리프트 2건' 으로 봤으나, **§보완 A 의 실측이 D5 를 false success 결함으로 재분류**했다(취소된 도구 호출이 모델에게 `isError` 없는 성공으로 보인다). 오늘 사용자에게 도달하지 않는 이유는 코드가 옳아서가 아니라 아직 아무도 안 써서다.
 - **다음 주체: Codex** (구현 라운드 2). 액션 아이템은 위 체크리스트, 추적은 plan 의 파생 이슈 챕터.
-- **사람 확인 대기**: ① SDK 런타임에서 runtime tool 실제 호출(D5 의 실증) ② `npm run dev` 기동 + 실 package 연결 라이브 ③ renderer connector 화면(비범위, 후속).
+- **사람 확인 대기 (보완 후 축소)**: ① 실제 `query()` 서브프로세스에서 빈 `content` 가 모델 컨텍스트에 어떻게 보이는지 — D5 의 *증상 형태* 는 §보완 A 로 확정됐고 *사용자 체감* 만 남는다 ② `npm run dev` 기동 + 실 package 연결 라이브 ③ renderer connector 화면(비범위, 후속). **초판의 '①  SDK 런타임 미검증' 과 'Bootstrap 조립 미실행' 은 §보완 A·B 로 해소돼 사람 몫에서 내렸다.**
