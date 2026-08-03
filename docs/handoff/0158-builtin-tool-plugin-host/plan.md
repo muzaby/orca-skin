@@ -8,7 +8,7 @@
 | 작성자 | Claude Code (r1~r3) · Codex (r4 사용자 결정 반영) |
 | 일자 | 2026-08-02 · r4 2026-08-03 |
 | 매핑 | PHASES 신규 행 (Phase 3++) / PR 미생성 |
-| 상태 | IMPL_DONE (**r5**, 구현 완료·후속 리뷰 보완) |
+| 상태 | IMPL_DONE (**r6**, `3400908` whole-review 보완까지 구현 완료) |
 
 ### 설계 개정 이력
 
@@ -19,6 +19,7 @@
 | r3 | “Jira 서버가 여러 개라 연결을 두 개 한다”는 사용자 설명 | 같은 connector의 런타임 인스턴스를 alias로 구분하는 안 채택 |
 | **r4** | 사용자 결정: **“서버마다 별도 정적 connector”**, 하위 도메인·소속 부서별 connector 제공. 추가 확인으로 **정적 connector당 활성 연결 1개** 확정 | r3 alias 모델 폐기. 고정 origin을 가진 connector를 서버마다 등록하고 도구 ID도 정적으로 고정한다. binding target을 connection ID의 SSOT로 삼고, runtime tool→connector 매핑·승인 메타데이터 SSOT·provider logout 실패 시 로컬 정리까지 함께 닫는다 |
 | **r5** | 구현 리뷰에서 automatic continuation의 실제 handler 배선과 one-shot spawn metadata 정리 누락을 발견 | listen·flush 모두 원래 선택 model family를 재해석하고, stale 판정과 요청에 같은 fresh runtime-tool snapshot을 쓴다. one-shot 종료도 provider settings·model·runtime-tool revision metadata를 함께 비운다. |
+| **r6** | whole-review에서 PluginHost 소유 취소 신호가 ConnectorHost start/invoke 경계에서 끊기고 IPC 문서·AC 증빙이 실제 코드와 어긋남을 발견 | `3400908`에서 host signal을 connector start와 invoke timeout 합성 신호까지 전달하고, disconnect·provider logout 실패·cascade cleanup의 in-flight abort 회귀를 고정했다. IPC plugin 응답/스키마명을 실제 계약으로 정정하고 문서 82채널 count를 실행형 테스트로 고정했다. |
 
 ## 사용자 의도 / 요구 출처 (Intent & Provenance)
 
@@ -81,12 +82,12 @@
 
 | # | 인수 기준 | 검증 수단 (`파일::케이스`) | 프로덕션 도달 경로 |
 |---|---|---|---|
-| 1 | `adapters/runtime-tools.ts`는 backend·서비스 중립 계약이며 서비스 식별자와 Electron/DB import가 없다 | `adapters/runtime-tools.test.ts::"계약 모듈은 backend와 서비스에 중립이다"` | `modules/*` → `AuthRegistry`/`PluginHost` → `RuntimeToolSink` |
+| 1 | `adapters/runtime-tools.ts`는 backend·서비스 중립 계약이며 서비스 식별자와 Electron/DB import가 없다 | 수동: `adapters/runtime-tools.ts` import 표면 검토(backend/service·Electron/DB runtime import 0) · `npm run lint` · `npm run typecheck` — 이 타입 전용 계약에는 자기충족 source-scan보다 실제 import 검토가 정직한 검증이다 | `modules/*` → `AuthRegistry`/`PluginHost` → `RuntimeToolSink` |
 | 2 | `adaptRuntimeTools`는 서버 ID를 `mcpServers` key와 `createSdkMcpServer({name})`에 동일하게 사용한다 | `adapters/claude-runtime-tools.test.ts::"서버 식별자를 하나로 사용한다"` | `ExtensionBuilder.snapshot` → `adapters/turn.ts` → `ClaudeAdapter` |
 | 3 | runtime tool snapshot이 없거나 비면 Claude options에 `mcpServers` key가 생기지 않는다 | `adapters/claude-runtime-tools.test.ts::"빈 스냅샷은 빈 옵션을 반환한다"` | `ExtensionBuilder` → `ClaudeAdapter.buildOptions` |
 | 4 | manifest의 runtime tool 선언과 구현 descriptor는 manifest ID↔descriptor.pluginId, id·connectorId·apiVersion·서버 옵션·도구 이름/설명/annotations까지 정규화 후 동등해야 하며, 선언/구현 한쪽만 있어도 패키지 전체를 거부한다 | `auth-platform/registry.test.ts::"runtime tool 선언과 descriptor 전체를 대조한다"` · `::"선언과 구현의 1대1 불일치를 거부한다"` | `Bootstrap.createAuthPlatform` → `AuthRegistry.register` |
 | 5 | connector 구현 descriptor도 manifest ID·label·acceptedAuthProviders·baseUrl·presentation과 전부 일치해야 한다. runtime tool의 `connectorId`는 같은 package의 connector를 가리키고, server ID와 tool name 중복은 등록 단계에서 거부된다 | `auth-platform/registry.test.ts::"connector 선언과 descriptor 전체를 대조한다"` · `::"runtime tool connector 교차 참조와 중복을 검증한다"` | `AuthRegistry.register`/`validateCrossReferences` |
-| 6 | connector origin은 manifest의 고정 `baseUrl`에서만 오며 connect IPC 요청에는 URL·alias 필드가 없다 | `shared/protocol.plugins.test.ts::"연결 요청은 connectorId와 bindingId만 받는다"` · `manifest.test.ts::"connector baseUrl은 origin만 받는다"` | `window.api.plugins.connect` → `handlers/plugins.ts` → `PluginHost.connect` |
+| 6 | connector origin은 manifest의 고정 `baseUrl`에서만 오며 connect IPC 요청에는 URL·alias 필드가 없다 | `shared/protocol.plugins.test.ts::"연결 요청은 connectorId와 bindingId만 받는다"` · `auth-platform/registry.test.ts::"connector 선언과 구현 descriptor 전체를 대조한다"` | `window.api.plugins.connect` → `handlers/plugins.ts` → `PluginHost.connect` |
 | 7 | PluginHost는 binding이 존재하고 `status='valid'`, target이 connector, target.connectorId가 요청과 같고 providerId가 `acceptedAuthProviders`에 있을 때만 연결한다 | `auth-platform/plugin-host.test.ts::"binding target 상태와 provider 소속을 전부 검증한다"` | `pluginConnectionConnect` → `PluginHost.connect` |
 | 8 | connection ID는 `binding.target.connectionId` 하나만 사용하며 connect 요청이나 ConnectorHost가 새 ID로 교체하지 않는다 | `auth-platform/plugin-host.test.ts::"binding target connectionId를 연결 ID로 사용한다"` · `connectors/runtime.test.ts::"명시 ID를 보존한다"` | `authBegin(target)` → binding → `PluginHost.connect` → `ConnectorHost.connect` |
 | 9 | 같은 정적 connector의 두 번째 pending/ready 연결은 명시적으로 거부되고 기존 연결·도구는 보존된다. 서로 다른 connector는 동시에 연결된다 | `auth-platform/plugin-host.test.ts::"connector당 활성 연결 하나를 강제한다"` · `::"서로 다른 정적 connector는 공존한다"` | `PluginHost.connect` → `ConnectionRegistry.create` |
@@ -97,7 +98,7 @@
 | 14 | 정상 `broker.logout`은 `PluginHost.disconnect`를 직접 호출하지 않아도 폐기된 binding의 connector와 runtime server를 제거한다 | `auth-platform/plugin-host.test.ts::"정상 logout이 연결과 도구를 회수한다"` | `authLogout` → `AuthBroker.logout` → `onBindingsEnded` → `PluginHost.onBindingsEnded` |
 | 15 | provider logout이 실패해도 broker가 로컬에서 제거한 binding ID에 대해 connector와 runtime server를 회수하고, callback을 await한 뒤 실패를 반환한다 | `auth-platform/broker.test.ts::"provider logout 실패에도 ended callback을 await한다"` · `plugin-host.test.ts::"실패 logout도 도구를 회수한다"` | `authLogout` → `AuthBroker.logout` failure branch → `onBindingsEnded` |
 | 16 | cascade logout은 제거된 모든 binding에 대해 연결·runtime server를 한 번씩 정리한다 | `auth-platform/plugin-host.test.ts::"cascade logout이 모든 파생 연결을 정리한다"` | `AuthBroker.logout(cascade:true)` → `onBindingsEnded(ids)` |
-| 17 | 도구 설명과 annotations의 SSOT는 정적 descriptor이며 factory는 `{name,inputSchema,handler}`만 반환한다. factory가 승인 메타데이터를 덮어쓸 타입 표면이 없다 | `adapters/runtime-tools.test.ts::"factory 구현에는 정책 메타데이터 필드가 없다"` · 타입체크 | manifest/descriptor → `PluginHost`가 실행형 server 조립 |
+| 17 | 도구 설명과 annotations의 SSOT는 정적 descriptor이며 factory는 `{name,inputSchema,handler}`만 반환한다. factory가 승인 메타데이터를 덮어쓸 타입 표면이 없다 | `auth-platform/registry.test.ts::"runtime tool 선언과 descriptor 전체를 이름 정규화 후 대조한다"` · `auth-platform/plugin-host.test.ts::"limits factory context to four capabilities and fixes invocation to its own connection"` · `npm run typecheck` | manifest/descriptor → `PluginHost`가 실행형 server 조립 |
 | 18 | `readOnlyHint:true` 도구는 자동 허용되고 `false` 도구는 승인 요청으로 간다 | `adapters/claude.canusetool.test.ts::"runtime tool readOnlyHint로 승인 여부를 판정한다"` | runtime snapshot → `runtime-tool-policy.ts` → `makeCanUseTool` |
 | 19 | `readOnlyHint` 또는 annotations가 없으면 쓰기 도구로 분류해 승인 요청으로 보낸다 | `adapters/runtime-tool-policy.test.ts::"미선언 readOnlyHint를 fail-closed 처리한다"` | runtime snapshot → approval policy |
 | 20 | runtime server add/remove 때 revision이 증가하고, spawn revision과 다르면 다음 턴 전에 runtime respawn을 지시한다. listen·flush는 같은 fresh snapshot을 판정과 요청에 공유하고, flush는 최초 선택 model family를 보존한다 | `extensions/runtime-tool-registry.test.ts::"실질 변경 때 revision이 증가한다"` · `sessions/respawn-policy.test.ts::"revision 차이가 respawn을 지시한다"` · `app/chat-turn.runtime-tools.test.ts::"stale persistent channel"`/`"non-default selected model"` | `PluginHost` → registry revision → `registerChatHandlers` → `SessionRuntime` |
@@ -105,8 +106,8 @@
 | 22 | fixture가 `jira-platform`, `jira-security`, `confluence-rnd`처럼 고정 origin이 다른 connector를 제공하고, list 결과가 connectorId·label·origin·pluginId·acceptedAuthProviders·connected 상태로 구분한다 | `auth-platform/plugin-host.test.ts::"부서별 정적 connector 목록과 상태를 기술한다"` | `pluginList` → `PluginHost.list` → 미래 connector 목록 UI |
 | 23 | 불량 package 한 개가 정상 package의 등록·연결·도구 노출을 막지 않는다 | `auth-platform/plugin-host.test.ts::"불량 package를 격리한다"` | `Bootstrap` package loop → `AuthRegistry.register` |
 | 24 | 신규 IPC 3채널 `pluginList`·`pluginConnectionConnect`·`pluginConnectionDisconnect`가 무효 payload를 거부하고, list DTO에는 secret·credential presentation·raw binding이 없다 | `shared/protocol.plugins.test.ts::"plugin IPC payload와 DTO allowlist를 검증한다"` | preload `window.api.plugins.*` → `handlers/plugins.ts` |
-| 25 | `docs/IPC_CONTRACT.md` 헤더 총계·도메인별 합·`CHANNELS` 실측이 모두 **82**로 일치한다 | `shared/ipc.test.ts::"IPC 문서 총계와 CHANNELS가 일치한다"` | shared IPC 계약 → preload/main handler |
-| 26 | lint 0 error, typecheck 3분할 0, vitest 전체 pass이며 신규 의존성과 DB migration은 0개다 | `npm run lint` · `npm run typecheck` · `npm test` · lockfile/migration diff | 저장소 전체 |
+| 25 | `docs/IPC_CONTRACT.md` 헤더 총계·도메인별 합·`CHANNELS` 실측이 모두 **82**로 일치한다 | `shared/ipc-documentation.test.ts::"keeps the header, domain summary, and CHANNELS count at 82"` | shared IPC 계약 → preload/main handler |
+| 26 | lint 0 error, typecheck 3분할 0, 수집된 vitest 전체가 pass이며 신규 의존성과 DB migration은 0개다. `chat-turn.continuity.test.ts`는 intentionally unavailable Electron binary 때문에 collection 전 실패할 수 있는 허용 baseline이다 | `npm run lint` · `npm run typecheck` · `npm test` · `node --test scripts/*.test.mjs` · lockfile/migration diff | 저장소 전체 |
 
 ## 범위 / 비범위
 
@@ -357,9 +358,7 @@ broker는 provider logout 성공 여부와 상관없이 vault와 binding을 제�
 - `app/src/main/features/connectors/runtime.test.ts`
 - `app/src/main/features/auth-platform/modules/__fixtures__/` + 격리 테스트
 - `app/src/main/app/handlers/plugins.ts`
-- `app/src/main/features/auth-platform/manifest.test.ts`
 - `app/src/shared/protocol.plugins.test.ts`
-- `app/src/shared/ipc.test.ts`
 
 **수정**
 
@@ -524,11 +523,11 @@ broker는 provider logout 성공 여부와 상관없이 vault와 binding을 제�
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | Task 1~7 범위 구현 완료. r5는 실제 `registerChatHandlers` IPC 경로에서 listen stale revision respawn·flush non-default model 보존을 검증하고, one-shot 종료 metadata 정리와 plugin DTO 문구를 정정했다. |
-| 실행 명령 | `npx vitest run src/main/app/chat-turn.runtime-tools.test.ts src/main/app/chat-turn-continuation.test.ts src/main/features/sessions/session-runtime.test.ts` (3 files, 39 tests), `npm run typecheck:node`, `npm run typecheck:web`, `npm run typecheck:test`, `npx eslint --cache ./src ./scripts`, `npm test`, `node --test scripts/*.test.mjs` |
-| 게이트 결과 | focused 39/39 pass, typecheck node/web/test pass. lint는 신규 error 0을 확인했고 기존 formatting cache 실행은 124초에 완료되지 않아 중단했다(범위 밖 자동 포맷 변경은 커밋에서 제외). `npm test`는 168/169 files·1470/1470 tests pass, `chat-turn.continuity.test.ts`만 Electron binary 미설치로 collection 전 실패(`Electron failed to install correctly`); 별도 scripts 28/28 pass. |
+| 변경 파일 | Task 1~7 범위 구현 완료. `7229c41`은 실제 `registerChatHandlers` IPC 경로의 listen stale revision respawn·flush non-default model 보존과 one-shot 종료 metadata 정리를 고정했다. `3400908`은 PluginHost lifecycle signal을 connector start/invoke까지 전파하고 disconnect·provider logout 실패·cascade cleanup abort 회귀, 실제 plugin IPC 문서 응답, 82채널 문서 count 검사를 추가했다. |
+| 실행 명령 | `npx vitest run src/main/features/auth-platform/plugin-host.test.ts src/main/features/connectors/runtime.test.ts src/shared/ipc-documentation.test.ts` (3 files, 35 tests), `npm run lint`, `npm run typecheck`, `npm test`, `node --test scripts/*.test.mjs` |
+| 게이트 결과 | focused 35/35 pass, typecheck node/web/test pass. lint 0 error, 기존 `useTranscriptVirtualizer` TanStack/React Compiler warning 1개. `npm test`는 수집된 169 files·1476 tests pass, `chat-turn.continuity.test.ts`만 intentionally unavailable Electron binary로 collection 전 실패(`Electron failed to install correctly`); 별도 scripts 28/28 pass. lint `--fix`가 만든 범위 밖 포맷 churn은 커밋 전 원복했다. |
 | 블로커 / 역질문 | 없음 — 사용자 결정 완료 |
-| 대상 커밋 | `07e0634` (`feat(runtime-tools): refresh stale tool snapshots`), `1f2c1f1` (`fix(runtime-tools): checkpoint continuation respawn`), r5 후속 리뷰 보완 커밋 |
+| 대상 커밋 | `07e0634` (`feat(runtime-tools): refresh stale tool snapshots`), `1f2c1f1` (`fix(runtime-tools): checkpoint continuation respawn`), `7229c41` (`test(runtime-tools): cover continuation handler wiring`), `3400908` (`fix(plugin): propagate lifecycle cancellation`) |
 
 ---
 
