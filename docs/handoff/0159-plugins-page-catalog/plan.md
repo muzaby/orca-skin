@@ -9,7 +9,7 @@
 | 일자 | 2026-08-03 |
 | 매핑 | PHASES 신규 행 (Phase 4) / PR 미정 |
 | 상태 | DRAFT → **READY** |
-| 개정 | **r5 (2026-08-03)** — 사용자 3차 구현 리뷰: 디자인 토큰 정합(타이포 램프·표면 토큰), 표 재디자인, 그룹 간격, 그룹 접기. 0121 §후속제안 1 의 "램프가 실사용 스케일 밖" 판단이 **16px root 기준 오산**임을 실측 정정(실제 density root=13px → 램프 10.5/12/13/17px). / **r4 (2026-08-03)** — 사용자 2차 구현 리뷰: 설정 modal과 동일한 패널/레일 디자인, 그룹별 독립 table, 공용 Button primary 추가 액션을 적용. / **r3 (2026-08-03)** — 사용자 구현 리뷰에 따라 라우트 페이지를 공용 `Modal` 기반 카탈로그로 전환하고, 추가 리소스 배선과 표 그룹을 복구. r2의 라우트 페이지 결정은 명시적으로 supersede. / **r2 (2026-08-03)** — "플러그인" 어휘 3중 의미 정합(§용어 레지스터 정합 신설, 결정 ⑥⑦). 초판이 인용한 `GLOSSARY.md §Plugin` 이 **실재하지 않음**을 확인해 정정하고, 표제어 신설을 산출물로 편입(AC15~17). 탭 구성·데이터 출처는 초판과 동일. |
+| 개정 | **r6 (2026-08-03)** — 사용자 4차 구현 리뷰: claude.ai 설정 모달 스크린샷 5장을 시각 레퍼런스로 제시("이런 디자인 요소를 사용하도록 폰트, 크기, 배치 등 / **찾아보기는 배치하지 말 것**"). 타이포를 sans 로, 레일 활성색을 중립 회색으로, 추가 버튼을 contained+dropdown 으로 정렬. r4 AC24(추가=primary 검정) supersede. / **r5 (2026-08-03)** — 사용자 3차 구현 리뷰: 디자인 토큰 정합(타이포 램프·표면 토큰), 표 재디자인, 그룹 간격, 그룹 접기. 0121 §후속제안 1 의 "램프가 실사용 스케일 밖" 판단이 **16px root 기준 오산**임을 실측 정정(실제 density root=13px → 램프 10.5/12/13/17px). / **r4 (2026-08-03)** — 사용자 2차 구현 리뷰: 설정 modal과 동일한 패널/레일 디자인, 그룹별 독립 table, 공용 Button primary 추가 액션을 적용. / **r3 (2026-08-03)** — 사용자 구현 리뷰에 따라 라우트 페이지를 공용 `Modal` 기반 카탈로그로 전환하고, 추가 리소스 배선과 표 그룹을 복구. r2의 라우트 페이지 결정은 명시적으로 supersede. / **r2 (2026-08-03)** — "플러그인" 어휘 3중 의미 정합(§용어 레지스터 정합 신설, 결정 ⑥⑦). 초판이 인용한 `GLOSSARY.md §Plugin` 이 **실재하지 않음**을 확인해 정정하고, 표제어 신설을 산출물로 편입(AC15~17). 탭 구성·데이터 출처는 초판과 동일. |
 
 ## 사용자 의도 / 요구 출처 (Intent & Provenance)
 
@@ -23,6 +23,44 @@
 | 명시 지적 ⑥ | "플러그인의 용어가 혼용되고 있는데, 이번 핸드오프에서 언급한 플러그인은 **uiux 에서 적합한 용어**이고, 코드에서 orca plugin 의 경우 **claude 플랫폼에서 사용되는 용어**이다." → 두 "플러그인" 은 *같은 개념의 다른 표기* 가 아니라 **다른 레지스터의 다른 개념**이다. | 라이브 세션 지적 (r2 `/handoff-plan` 인자) |
 | 명시 결정 ⑦ | 지적 ⑥ 을 받아 3번째 탭 정체성을 재질의한 결과 — **"플러그인 탭 유지 / 행 = 플러그인 패키지"**(초판 설계 그대로). 어휘 해소는 UI 재명명이 아니라 **레지스터 구분 + GLOSSARY 표제어 등록**으로 한다. | 세션 중 `AskUserQuestion` 응답 (r2) |
 | 추론 의도 | "참고하여"(②) = *복제* 가 아니라 **하위 구성(3탭 레일 + 목록→상세 1-depth 드릴인 + 테이블 목록)의 채택**. 결정 ③~⑤ 가 컨테이너·어휘·식별자를 명시적으로 갈랐으므로, 참조 브랜치에서 가져오는 것은 **레이아웃 구성뿐**이다. (추론) | 요구 ② 의 "참고" + 결정 ③④⑤ 의 조합 |
+
+## r6 사용자 구현 리뷰 — 시각 레퍼런스(claude.ai 설정 모달) 정렬
+
+> 사용자 요구(라이브 세션, 2026-08-03): claude.ai 설정 모달 스크린샷 **5장**(스킬 목록 / 커넥터 목록 /
+> 플러그인 목록 / 플러그인 상세 / 스킬 상세)을 제시하며 "이런 디자인 요소를 사용하도록 **폰트, 크기,
+> 배치** 등. **찾아보기는 배치하지말것**".
+>
+> r5 는 *토큰 체계* 를 맞췄고, r6 은 그 토큰으로 *어떤 값을 고를지* 를 레퍼런스에 맞춘다.
+
+### r6 레퍼런스에서 읽어낸 디자인 규칙
+
+| 축 | 레퍼런스 | 기존 구현 | 조치 |
+|---|---|---|---|
+| 제목 서체 | **sans** semibold (스킬/커넥터/플러그인, 항목명) | `font-serif` | **이 표면에서 serif 제거**(0건). 브랜드·콘텐츠 헤딩(Header "Orca"·Sidebar·Projects 등 16곳)은 Orca 고유 관례라 유지 — 규칙: *2-pane 설정/카탈로그 모달 = sans, 브랜드·콘텐츠 헤딩 = serif* |
+| 표 이름 열 | 일반 본문 sans (`skill-creator`·`Superpowers` 모두) | `font-mono` | mono 제거. mono 는 코드 블록(JSON 설정 요약·SKILL.md 원문)에만 남김 |
+| 레일 활성 | **중립 회색 칩** | 파랑 `bg-selected-soft`/`text-selected` | `bg-t3`(press/selected surface) + `text-t9`. 이 표면에서 파랑은 유일하게 튀는 색이었다 |
+| 레일 머리 | 조용한 섹션 라벨("설정"·"사용자 지정", 작고 흐림) — *제목 아님* | `font-serif text-[15px] font-semibold` | `text-caption text-ink3` 섹션 라벨로 강등 → **r5 가 남겼던 마지막 arbitrary px(15px)도 소멸** |
+| 헤더 액션 | 🔍 · [찾아보기] · [추가 ⌄] · ✕ (전부 outline) | primary 검정 `+ 추가` | **찾아보기 미배치**(사용자 명시). 추가 = `variant="contained"` + `dropdown`(스킬 탭은 메뉴를 열므로 chevron), plus 아이콘 제거 |
+| 상세 진입 | `← 스킬` 조용한 되돌아가기 줄 + 항목명이 진짜 heading | 헤더 h1(섹션명) + 상세 h2 = **heading 2개** | 상세 모드 헤더를 `← {섹션}`(footnote·ink2) 로 낮추고 큰 제목은 detail 패널이 단독 소유 |
+| 상세 본문 | 라벨/값 메타 열(소스·작성자·마지막 업데이트) + hairline 목록 | 테두리 카드 나열 | `PluginDetail` 을 메타 3열 + hairline 항목 목록으로 재구성(`SkillDetail` 의 기존 `Meta` 패턴과 통일) |
+
+### r6 단독 결정하지 않은 것 (사용자 확인 필요)
+
+| 항목 | 상황 | 처리 |
+|---|---|---|
+| 헤더 **✕ 닫기 버튼** | 레퍼런스는 우상단 ✕ 를 둔다. 그러나 **0121 에서 사용자가 명시적으로 "X 아이콘은 두지 않는다 — 닫기는 Esc·백드롭"** 으로 결정했고 `shared/ui/Modal.tsx:37` 주석에 고정돼 있다. | **기존 결정 유지(✕ 미배치)**. 두 사용자 결정이 충돌하므로 단독으로 뒤집지 않고 보고. |
+| 레일 **검색 입력** | 레퍼런스 레일 최상단에 검색 박스가 있다. | **미배치** — 필터 기능 신설은 "폰트·크기·배치" 범위 밖이고, 동작하지 않는 검색창은 없느니만 못하다. 필요하면 별도 핸드오프. |
+
+### r6 추가 인수 기준
+
+| # | 인수 기준 | 검증 수단 | 프로덕션 도달 경로 |
+|---|---|---|---|
+| 35 | 카탈로그 표면(`customize/` 11파일 + `shared/ui/Rail.tsx`)에 arbitrary `text-[Npx]` 가 **0곳**이다(r5 의 잔존 1곳도 소멸). | `rg -o 'text-\[[0-9.]*px\]' customize/ Rail.tsx \| wc -l` = **0** | 모든 카탈로그·설정 모달 렌더 |
+| 36 | 같은 표면에 `font-serif` 가 **0곳**이고, `font-mono` 는 코드 블록(`<pre>`·JSON textarea·MCP transport)에만 남는다. | `rg 'font-serif' customize/ Rail.tsx \| wc -l` = **0** + `font-mono` 잔존처 정적 리뷰 | 제목·표 이름 열 |
+| 37 | 레일 활성 항목이 중립 회색(`bg-t3`/`text-t9`)으로 렌더되고 파랑 `selected` 토큰을 쓰지 않는다 — 설정 모달도 동일하게 바뀐다. | `rg 'selected-soft' Rail.tsx` = **코드 0건**(주석 언급 1건 — 왜 회색으로 바꿨는지 기록) + **사람 실기**(플러그인 모달·설정 모달 양쪽 활성 탭) | `Rail` → `CustomizeRail`·`SettingsModal` |
+| 38 | 목록 헤더에 "찾아보기" 버튼이 없고, 추가 버튼이 `contained`(스킬 탭은 chevron 포함)로 렌더된다. | `rg '찾아보기' customize/ ko.ts en.ts` = **코드·i18n 0건**(주석 언급 1건 — 미배치 사유 기록) + `ExtensionsCatalogView.tsx` 정적 리뷰 + 사람 실기 | `ExtensionsCatalogView` 헤더 |
+| 39 | 상세 진입 시 heading 이 **하나**다 — 헤더는 `← {섹션}` 조용한 줄, 큰 제목은 detail 패널이 소유. | `ExtensionsCatalogView.tsx` 정적 리뷰(`h1` 은 목록 모드에만) + 사람 실기 | `ExtensionsCatalogView` → `SkillDetail`·`McpDetail`·`PluginDetail` |
+| 40 | `PluginDetail` 이 라벨/값 메타 3열 + hairline 항목 목록으로 렌더된다(테두리 카드 없음). | `rg 'rounded-r4 border' PluginDetail.tsx` = 0 + 사람 실기 | 플러그인 탭 → 행 클릭 |
 
 ## r5 사용자 구현 리뷰 — 디자인 토큰 정합 · 표 재디자인 · 그룹 간격 · 그룹 접기
 
@@ -634,6 +672,26 @@ pages/PluginsPage.tsx
 | 신규 의존성 / IPC / main | **0 / 무변경 / 무변경** (diff 는 renderer + handoff 문서뿐) |
 
 **사람 실기 대기 (기계 검증 불가)** — AC26(밀도 3단 전환 시 카탈로그 글자 크기 동반 변화) · AC28(그룹 간 열 경계 수직 정렬) · AC32(그룹 간격 1.75rem) · `text-heading` 수렴에 따른 제목 축소(20/22→17px) 시각 확인 · **설정 모달 레일 회귀 확인**(Rail 추출 영향 범위).
+
+### r6 구현 보고 (Claude 직접)
+
+| 항목 | 결과 |
+|---|---|
+| `npm run lint` | **0 error** / warning 1 (0102 베이스라인) |
+| `npm run typecheck` | 3분할 **전부 PASS** |
+| `vitest run` | **1518 passed** / 178 파일. 실패 1파일 = electron 바이너리 미설치 환경 제약(r5 와 동일, renderer diff 무관) |
+| AC35 arbitrary px | **0** (r5 의 잔존 15px 이 레일 라벨 강등으로 소멸) |
+| AC36 `font-serif` | **0** (표면 전체). `font-mono` 잔존 = `<pre>` 2 · JSON textarea 1 · 스킬 지침 입력 1 · MCP transport 1 — 전부 코드/식별자 |
+| AC37 레일 활성 | `bg-t3`/`text-t9`. 코드상 `selected-soft` 0건(주석 1건) |
+| AC38 찾아보기 | 코드·i18n **0건** (미배치) |
+| AC39 heading | 목록 모드에만 `h1`. 상세는 `← {섹션}` + detail 패널의 `h2` 하나 |
+| AC40 `PluginDetail` | 테두리 카드 0 → 메타 3열 + hairline 목록 |
+
+**r6 변경 파일** — `shared/ui/Rail.tsx` · `ExtensionsCatalogView.tsx` · `CustomizeList.tsx` · `PluginDetail.tsx` · `McpDetail.tsx` · `SkillDetail.tsx`. **신규 파일 0 · 신규 의존성 0 · IPC/main/i18n diff 0.**
+
+**사람 실기 대기(r6)** — 레일 활성 회색 칩(플러그인 + **설정 모달 양쪽**) · sans 전환 후 제목 위계 · 추가 버튼 contained+chevron · 상세 헤더 1-heading 구성 · `PluginDetail` hairline 목록.
+
+**보고(단독 결정 안 함)** — ✕ 닫기 버튼과 레일 검색 입력은 위 "r6 단독 결정하지 않은 것" 표 참조.
 
 **r5 변경 파일** — 신규 3(`shared/ui/Rail.tsx` · `features/skills/lib/catalogGroups.ts` + `catalogGroups.test.ts`) · 수정 11(`customize/` 10 = `CustomizeList`·`CustomizeRail`·`ExtensionsCatalogView`·`PluginDetail`·`McpDetail`·`SkillDetail`·`SkillAddMenu`·`SkillAuthorModal`·`SkillUploadModal`·`CustomMcpModal`, + `features/settings/components/SettingsModal.tsx`). **main·preload·IPC·i18n 카탈로그 diff 0줄.**
 

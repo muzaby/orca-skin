@@ -58,24 +58,32 @@ export function ExtensionsCatalogView(): React.JSX.Element {
         onSelect={(tab) => setSelection((state) => selectTab(state, tab))}
       />
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex flex-none items-center px-7 pb-p7 pt-6">
-          {detail && (
-            <Button
-              iconOnly
-              leadingIcon="arrowL"
-              size="small"
-              onClick={() => setSelection((state) => back(state))}
-              aria-label={tr('skills.view.backAria', { section: title })}
-            />
+        {/* 레퍼런스(claude.ai 설정) 헤더 구성 — 목록은 제목 + 우측 액션, 상세는 조용한
+            `← 섹션` 되돌아가기 줄. 상세의 큰 제목은 각 detail 패널이 소유한다(중복 heading 제거).
+            "찾아보기"는 사용자 지시로 배치하지 않는다. */}
+        <header className="flex flex-none items-center gap-g3 px-7 pb-p7 pt-6">
+          {detail ? (
+            <>
+              <Button
+                iconOnly
+                leadingIcon="arrowL"
+                size="small"
+                onClick={() => setSelection((state) => back(state))}
+                aria-label={tr('skills.view.backAria', { section: title })}
+              />
+              <span className="text-footnote text-ink2">{title}</span>
+            </>
+          ) : (
+            <h1 className="m-0 text-heading text-ink">{title}</h1>
           )}
-          <h1 className="ml-g4 font-serif text-heading text-ink">{title}</h1>
           {!detail && selection.tab !== 'plugins' && (
             <Button
               ref={addRef}
               className="ml-auto"
-              variant="primary"
-              leadingIcon="plus"
+              variant="contained"
               size="small"
+              dropdown={selection.tab === 'skills'}
+              expanded={selection.tab === 'skills' ? menuOpen : undefined}
               onClick={() =>
                 selection.tab === 'skills' ? setMenuOpen((value) => !value) : setMcpModalOpen(true)
               }

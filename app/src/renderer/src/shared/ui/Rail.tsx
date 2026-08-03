@@ -14,9 +14,9 @@ export function Rail({
 }): React.JSX.Element {
   return (
     <nav className="flex w-[210px] flex-none flex-col gap-g2 border-r border-border bg-sidebar p-p6">
-      {/* 램프에 15px 단계가 없어 유일하게 남은 arbitrary px — 신규 토큰 단계 신설은
-          제품 시각 결정(0121 §후속제안 1)이라 사용자 몫. 여기 한 곳으로 격리한다. */}
-      <div className="px-p4 pb-p4 pt-p2 font-serif text-[15px] font-semibold text-ink">{title}</div>
+      {/* 레퍼런스(claude.ai 설정)의 "설정"·"사용자 지정" 처럼 조용한 섹션 라벨 —
+          제목이 아니라 그룹 머리다. serif 15px 제목이었던 것을 라벨로 낮춘다. */}
+      <div className="px-p4 pb-p2 pt-p2 text-caption text-ink3">{title}</div>
       {children}
     </nav>
   )
@@ -44,8 +44,10 @@ export function RailItem({
       className={`flex w-full cursor-pointer items-center rounded-r4 border-0 text-left transition-colors ${
         nested ? 'mt-g1 gap-g4 py-p2 pl-9 pr-p5 text-footnote' : 'gap-g5 px-p5 py-p3 text-body'
       } ${
+        // 활성 = 중립 회색 칩(t3 = press/selected surface). 레퍼런스가 파랑이 아니라
+        // 회색 칩을 쓰고, 파랑(selected-soft/selected)은 이 표면에서 유일하게 튀는 색이었다.
         active
-          ? 'bg-selected-soft font-medium text-selected'
+          ? 'bg-t3 font-medium text-t9'
           : `bg-transparent hover:bg-fill-uncontained-hover hover:text-t9 ${nested ? 'text-t6' : 'text-t7'}`
       }`}
     >

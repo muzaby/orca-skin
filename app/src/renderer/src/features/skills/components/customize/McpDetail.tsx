@@ -22,7 +22,7 @@ export function McpDetail({
           <Icon name={server.transport === 'http' ? 'link' : 'cpu'} size={18} />
         </span>
         <div className="min-w-0">
-          <h2 className="m-0 font-serif text-heading text-ink">{server.name}</h2>
+          <h2 className="m-0 text-heading text-ink">{server.name}</h2>
           <div className="mt-g1 flex items-center gap-g3 text-footnote text-ink3">
             <span className="font-mono uppercase">{server.transport}</span>
             <span>·</span>
