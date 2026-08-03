@@ -539,3 +539,18 @@ broker는 provider logout 성공 여부와 상관없이 vault와 binding을 제�
 | D1 | 같은 서비스 서버 여러 개의 표현 방식 | r2/r3 OQ1 · 사용자 | 서버마다 별도 정적 connector, connector당 활성 연결 1개 | **해결(r4)** |
 | D2 | alias 변경/기본값/조합 충돌 | r3 | alias 표면 전체를 제거하고 정적 server ID 사용 | **해결(r4)** |
 | D3 | 미래 UI에서 부서별 connector 구분 | 사용자 r4 | safe list DTO의 pluginId·label·origin·provider·connected 사용 | **설계 완료, UI 후속** |
+
+### verify r1 (FAIL) 이관 — 라운드 2 액션 아이템
+
+> 인수 기준은 26/26 충족이나, verify §0·역방향 탐색이 **기준 밖에서** 확장 계약 결함 2건(D4·D5)을 찾았다.
+> 근거·재현 명령은 [`verify.md`](verify.md) 참조.
+
+| # | 이슈 | 출처 | 대응 방향 | 상태 |
+|---|---|---|---|---|
+| **D4** | **ID 규칙이 두 곳에서 다른데 주석은 "같다"고 적혀 있다.** manifest `IdSchema`(`manifest.ts:17`) = `^[a-z0-9]+(?:-[a-z0-9]+)*$` vs shared `PluginConnectorIdSchema`(`protocol.ts:257`) = `^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$`. 숫자 선두 ID(`3rd-jira`·`2024-archive`)는 **등록에 성공한 뒤** `pluginList` 목록 전체를 throw 시키고(`PluginConnectorInfoSchema.array().parse` all-or-nothing) `connectionConnect` 가 영구 거부된다. plan §의존 기술의 "manifest `IdSchema` 와 같은 케밥 소문자 규칙" 위반 | verify r1 §역방향 탐색 (임시 vitest 로 실증) | 한 상수를 SSOT 로 공유(main→shared DAG상 `shared/` 에 두고 manifest 가 import). 숫자 선두 ID 가 manifest·IPC 양쪽에서 같은 판정을 받는 회귀 테스트. `parsePluginListResponse` 의 all-or-nothing 이 의도인지 재확인 | **open — 라운드 2** |
+| **D5** | **runtime tool handler 반환 계약이 SDK 요구와 어긋나고, 참조 fixture 가 그 어긋난 형태를 가르친다.** 계약은 `Promise<unknown>`(`runtime-tools.ts:29`), SDK 는 `Promise<CallToolResult>` 요구(`sdk.d.ts:3991`), 어댑터는 `as never` 로 검사를 끔(`claude-runtime-tools.ts:23`), fixture 는 `ConnectorResult`(`{ok,data}`)를 그대로 반환(`department-fixture-package.ts:67-68`). 어떤 AC 도 handler 반환 *타입* 을 다루지 않는다(AC17 은 반환 *필드* 만) | verify r1 §0 | 반환형을 SDK 계약 형상으로 좁히거나 `adaptServer` 에서 명시 변환. `as never` 제거 가능한 형태여야 한다. **fixture 를 그 계약대로 수정**. `adaptRuntimeTools` 산출 서버의 handler 를 호출해 반환 형상을 확인하는 경계 테스트 추가 | **open — 라운드 2** |
+| **D3-b** | `docs/AGENTS.md:15` 인벤토리가 "총 79 채널 · 22 도메인" 으로 stale (실측 82 · 23). 신규 `ipc-documentation.test.ts` 는 `IPC_CONTRACT.md` 만 지킨다 | verify r1 §3 재측정 | 82 · 23 + `plugin` 3 으로 갱신. 검산 테스트 범위를 이 파일까지 넓힐지 검토 | **open — 라운드 2** |
+| **D6** | `AuthRegistry.getRuntimeTool`(`registry.ts:237`) 참조 0 — 죽은 코드 | verify r1 §역방향 탐색 | 제거 또는 사용처 배선 | open (사소) |
+| **D7** | `PluginHost.cleanup` 이 실패 promise 를 캐시해(`plugin-host.ts:233-237`) sink.remove 가 throw 하면 정리 재시도가 영구 불가 | verify r1 §0 (코드 독해 — 현행 sink 는 throw 안 하므로 미재현) | 실패 시 `active.cleanup` 초기화 또는 `cleanupOnce` never-throw | open (사소·가설) |
+| **D8** | plan 문서 stale 2건 — ① 인수 기준 "검증 수단" 열의 테스트 케이스명 다수가 실존하지 않음(AC7 등, 실제는 영어 `it.each` 명) ② 구현 보고 "대상 커밋 6개" 는 실제 15커밋(`6d67f52..`)의 후반부만 | verify r1 §구현자 코멘트 확인 | 실존 케이스명·전체 커밋 범위로 정정 | **open — 라운드 2** |
+| **D9** | `features/connectors/registry.ts:10` 헤더가 구 N:1 모델("하나의 connector 를 서로 다른 사내 인스턴스에 여러 번 연결할 수 있어야 하므로 분리가 필요하다")을 그대로 두고, 바로 아래 15-17줄에 반대되는 정적 모델 주석이 추가돼 한 파일에 모순된 두 설명이 공존한다. plan §기존 결정 표는 "코드 헤더도 새 모델로 갱신" 을 약속했다 | verify r1 §0 | 구 문장을 새 모델로 교체 | open (문서) |
