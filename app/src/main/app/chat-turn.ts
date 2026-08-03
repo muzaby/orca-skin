@@ -46,6 +46,7 @@ import type { ApprovalCoordinator } from '../features/approvals/coordinator'
 import type { HistoryWriter } from '../features/history/writer'
 import { SessionRuntime } from '../features/sessions/session-runtime'
 import { decideRespawn } from '../features/sessions/respawn-policy'
+import { prepareAutomaticContinuation } from './chat-turn-continuation'
 import type { RuntimeSessionAdapter } from '../contracts/ports'
 import { recoverSessionHistory } from '../features/chat/recovery'
 import type { InterruptReceipt, SteerFlushBatch, TurnRequest } from '../adapters/turn'
@@ -906,6 +907,16 @@ export function registerChatHandlers(deps: ChatDeps): void {
           hasBacklog: runtime.hasUnframedBacklog,
           haveUnconfirmed
         })
+        const prepareContinuation = () =>
+          prepareAutomaticContinuation({
+            runtime,
+            providerKey: activeTurn.providerKey,
+            modelFamily: parsed.data.modelFamily ?? null,
+            fallbackModel: request.model,
+            resolveProvider: ({ providerKey, modelFamily }) =>
+              resolveTurnProvider(ctx, { adapter, sessionId, providerKey, modelFamily }),
+            buildExtensions: () => ctx.extensions.build(sessionId, null)
+          })
         // 세션 점유 신호(0153 F1) — `listen` 뿐 아니라 `flush`(held 를 연속 턴으로 잇는 경로)도
         // main 은 busy 다. 구 구조는 listen 스텝에서만 신호를 보내 renderer 가 이 구간을 idle 로
         // 오판했고, 그 창의 send 가 낙관 커밋 경로를 타 **잔여보다 앞에** 렌더됐다(DB 는 반대 순서
@@ -941,6 +952,8 @@ export function registerChatHandlers(deps: ChatDeps): void {
           // listen 턴 — settle/persist/relay/usage/title 은 일반 턴과 같은 버스 파이프라인.
           // 종료 후 루프 재평가: 알림 턴이 pending 을 남겼으면 연속 턴, 태스크가 남았으면 재개.
           // (phase 신호는 위 postTurnHoldsSession 이 이미 열었다 — 0153 F1.)
+          const continuation = await prepareContinuation()
+          if (continuation.shouldRespawn) runtime.teardownChannel()
           const listenTurn = makeContinuationTurn(activeTurn)
           supervisor.startResume(sessionId, listenTurn)
           activeTurn = listenTurn
@@ -951,9 +964,12 @@ export function registerChatHandlers(deps: ChatDeps): void {
             sessionId,
             text: '',
             cwd: request.cwd,
-            extensions: request.extensions,
+            extensions: continuation.extensions,
             signal: listenTurn.controller.signal,
-            ...(request.model !== undefined ? { model: request.model } : {}),
+            ...(continuation.model !== undefined ? { model: continuation.model } : {}),
+            ...(continuation.providerSettings
+              ? { providerSettings: continuation.providerSettings }
+              : {}),
             ...(request.requestApproval ? { requestApproval: request.requestApproval } : {}),
             ...(request.takeSteerFlush ? { takeSteerFlush: request.takeSteerFlush } : {})
           }
@@ -979,28 +995,8 @@ export function registerChatHandlers(deps: ChatDeps): void {
         // 다음 사용자 send 부터, 0119)하고 settings blob 만 재해석한다. spawn 주입본과 내용이
         // 다르면 teardown — 아래 channelAlive 분기가 채널-사망 경로(takeForRespawn)로 자연
         // 전환되고, respawn 은 contRequest 의 신선한 blob 으로 스폰한다(stale 재사용 방지).
-        const contResolved = await resolveTurnProvider(ctx, {
-          adapter,
-          sessionId,
-          providerKey: activeTurn.providerKey,
-          modelFamily: null
-        })
-        const continuationExtensions = ctx.extensions.build(sessionId, null)
-        if (
-          decideRespawn({
-            channelAlive: runtime.channelAlive,
-            providerBoundaryChanged: false,
-            modelChanged: contResolved.model !== runtime.spawnedModel,
-            providerSettingsChanged: providerSettingsChangedSinceSpawn(
-              runtime.spawnedProviderSettings,
-              contResolved.providerSettings
-            ),
-            spawnedRuntimeToolsRevision: runtime.spawnedRuntimeToolsRevision,
-            runtimeToolsRevision: continuationExtensions.runtimeTools?.revision
-          })
-        ) {
-          runtime.teardownChannel()
-        }
+        const continuation = await prepareContinuation()
+        if (continuation.shouldRespawn) runtime.teardownChannel()
         let contPreludes: SteerFlushBatch[] = []
         let batch: SteerFlushBatch | undefined
         if (runtime.channelAlive) {
@@ -1029,11 +1025,12 @@ export function registerChatHandlers(deps: ChatDeps): void {
           signal: contTurn.controller.signal,
           attachmentTexts: batch.attachmentTexts ?? [],
           attachmentImages: batch.attachmentImages ?? [],
-          extensions: continuationExtensions,
+          extensions: continuation.extensions,
           // 0126: respawn 대비 신선한 settings 로 교체 — 해석 실패(undefined)면 원본 유지(보수적).
-          ...(contResolved.providerSettings
-            ? { providerSettings: contResolved.providerSettings }
+          ...(continuation.providerSettings
+            ? { providerSettings: continuation.providerSettings }
             : {}),
+          ...(continuation.model !== undefined ? { model: continuation.model } : {}),
           ...(contPreludes.length > 0 ? { preludes: contPreludes } : {})
         }
         // 연속 턴은 fork/프렐류드(원 요청분)를 계승하지 않는다 — 재분기·이중 전달 방지.
