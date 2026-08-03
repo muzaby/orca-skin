@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { RuntimeToolContribution, RuntimeToolServer } from '../../adapters/runtime-tools'
-import type { AuthBindingInfo } from '../../../shared/ipc'
+import type { AuthBindingInfo, AuthLogoutOutcome } from '../../../shared/ipc'
 import { AuthRegistry } from './registry'
 import {
   PluginHost,
@@ -60,10 +60,12 @@ class FakeRuntimeToolSink implements RuntimeToolSink {
 class FakeLogoutPort implements LogoutPort {
   readonly requests: Array<{ bindingId: string; cascade: boolean }> = []
   onLogout: ((bindingId: string) => Promise<void>) | null = null
+  outcome: AuthLogoutOutcome = { kind: 'logged_out', endedBindingIds: [] }
 
-  async logout(bindingId: string, cascade: boolean): Promise<void> {
+  async logout(bindingId: string, cascade: boolean): Promise<AuthLogoutOutcome> {
     this.requests.push({ bindingId, cascade })
     await this.onLogout?.(bindingId)
+    return this.outcome
   }
 }
 
@@ -344,6 +346,56 @@ describe('PluginHost', () => {
     expect(host.list()[0]).toEqual(expect.objectContaining({ connected: false }))
   })
 
+  it('rolls back a late-ready connector when the binding ID is replaced with a new connection target', async () => {
+    const bindings = new Map([['binding-a', binding('binding-a')]])
+    let resolveConnect: ((status: { health: 'ready' }) => void) | null = null
+    const { host, connectors, sink } = createHost(bindings)
+    connectors.connect = async (input) => {
+      connectors.connectCalls.push(input)
+      return new Promise((resolve) => {
+        resolveConnect = resolve
+      })
+    }
+
+    const connecting = host.connect({ connectorId: 'connector-a', bindingId: 'binding-a' })
+    bindings.set(
+      'binding-a',
+      binding('binding-a', {
+        target: { kind: 'connector', connectorId: 'connector-a', connectionId: 'connection-new' }
+      })
+    )
+    resolveConnect?.({ health: 'ready' })
+
+    await expect(connecting).rejects.toThrow(/binding changed/i)
+    expect(connectors.connectCalls).toEqual([
+      { id: 'connection-a', connectorId: 'connector-a', bindingId: 'binding-a' }
+    ])
+    expect(connectors.stopCalls).toEqual(['binding-a'])
+    expect(sink.servers).toEqual(new Map())
+    expect(host.list()).toContainEqual(
+      expect.objectContaining({ connectorId: 'connector-a', connected: false })
+    )
+  })
+
+  it('accepts a refreshed binding object when its stable connection identity is unchanged', async () => {
+    const bindings = new Map([['binding-a', binding('binding-a')]])
+    let resolveConnect: ((status: { health: 'ready' }) => void) | null = null
+    const { host, connectors, sink } = createHost(bindings)
+    connectors.connect = async (input) => {
+      connectors.connectCalls.push(input)
+      return new Promise((resolve) => {
+        resolveConnect = resolve
+      })
+    }
+
+    const connecting = host.connect({ connectorId: 'connector-a', bindingId: 'binding-a' })
+    bindings.set('binding-a', binding('binding-a', { principal: { id: 'refreshed-user' } }))
+    resolveConnect?.({ health: 'ready' })
+
+    await expect(connecting).resolves.toBeUndefined()
+    expect(sink.servers.has('server-a')).toBe(true)
+  })
+
   it('uses logout callback cleanup for explicit disconnect and always removes cascade servers after stop failure', async () => {
     const bindings = new Map([
       ['binding-a', binding('binding-a')],
@@ -376,5 +428,20 @@ describe('PluginHost', () => {
       expect.objectContaining({ connectorId: 'connector-a', connected: false }),
       expect.objectContaining({ connectorId: 'connector-b', connected: false })
     ])
+  })
+
+  it('returns a failed logout outcome after the broker callback cleans up the connector', async () => {
+    const bindings = new Map([['binding-a', binding('binding-a')]])
+    const { host, logout, sink } = createHost(bindings)
+    logout.outcome = { kind: 'failed', message: 'provider logout failed' }
+    logout.onLogout = (bindingId) => host.onBindingsEnded([bindingId])
+
+    await host.connect({ connectorId: 'connector-a', bindingId: 'binding-a' })
+
+    await expect(host.disconnect({ connectorId: 'connector-a' })).resolves.toEqual({
+      kind: 'failed',
+      message: 'provider logout failed'
+    })
+    expect(sink.servers).toEqual(new Map())
   })
 })
