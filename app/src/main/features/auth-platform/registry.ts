@@ -180,13 +180,19 @@ export class AuthRegistry {
         err(`runtime tool descriptor does not match manifest: ${descriptor.id}`, descriptor.id)
       }
       if (!declaredConnectors.has(descriptor.connectorId)) {
-        err(`runtime tool connectorId is not declared by this package: ${descriptor.connectorId}`, descriptor.id)
+        err(
+          `runtime tool connectorId is not declared by this package: ${descriptor.connectorId}`,
+          descriptor.id
+        )
       }
       const duplicateToolName = firstDuplicate(descriptor.tools.map((tool) => tool.name))
       if (duplicateToolName) {
         err(`runtime tool descriptor has duplicate tool name: ${duplicateToolName}`, descriptor.id)
       }
-      if (this.runtimeTools.has(descriptor.id) || hasDuplicateRuntimeToolId(runtimeTools, descriptor.id)) {
+      if (
+        this.runtimeTools.has(descriptor.id) ||
+        hasDuplicateRuntimeToolId(runtimeTools, descriptor.id)
+      ) {
         err(`runtime tool id is already registered: ${descriptor.id}`, descriptor.id)
       }
     }
@@ -284,7 +290,9 @@ function sameRuntimeToolDescriptor(
   declared: RuntimeToolManifestContribution,
   actual: RuntimeToolDescriptor
 ): boolean {
-  const declaredTools = [...declared.tools].sort((left, right) => left.name.localeCompare(right.name))
+  const declaredTools = [...declared.tools].sort((left, right) =>
+    left.name.localeCompare(right.name)
+  )
   const actualTools = [...actual.tools].sort((left, right) => left.name.localeCompare(right.name))
   return (
     declared.id === actual.id &&

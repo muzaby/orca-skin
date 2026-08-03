@@ -249,7 +249,10 @@ describe('makeCanUseTool — runtime MCP 도구 게이트(tool_approval)', () =>
     })
     const input = { id: 'record-1' }
 
-    expect(await canUse('mcp__records__read', input, ctx)).toEqual({ behavior: 'allow', updatedInput: input })
+    expect(await canUse('mcp__records__read', input, ctx)).toEqual({
+      behavior: 'allow',
+      updatedInput: input
+    })
     expect(requestApproval).not.toHaveBeenCalled()
   })
 
@@ -259,7 +262,10 @@ describe('makeCanUseTool — runtime MCP 도구 게이트(tool_approval)', () =>
       runtimeApprovalToolNames: new Set(['mcp__records__write'])
     })
 
-    expect(await canUse('mcp__records__write', input, ctx)).toEqual({ behavior: 'allow', updatedInput: input })
+    expect(await canUse('mcp__records__write', input, ctx)).toEqual({
+      behavior: 'allow',
+      updatedInput: input
+    })
   })
 })
 

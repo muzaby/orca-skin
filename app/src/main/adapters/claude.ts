@@ -180,7 +180,10 @@ export function makeCanUseTool(
       }
       return { behavior: 'deny', message: PLAN_REJECT_MESSAGE }
     }
-    if (requestApproval && (isRiskyTool(toolName) || opts.runtimeApprovalToolNames?.has(toolName))) {
+    if (
+      requestApproval &&
+      (isRiskyTool(toolName) || opts.runtimeApprovalToolNames?.has(toolName))
+    ) {
       const res = await requestApproval({ kind: 'tool_approval', toolName, input }, signal)
       if (res.behavior === 'allow') {
         return {

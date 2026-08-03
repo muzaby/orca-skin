@@ -29,11 +29,7 @@ const snapshot: RuntimeToolSnapshot = {
 describe('runtimeApprovalToolNames', () => {
   it('readOnlyHint가 true인 도구만 자동 허용하고 나머지는 완전한 SDK 이름으로 승인 대상에 넣는다', () => {
     expect(runtimeApprovalToolNames(snapshot)).toEqual(
-      new Set([
-        'mcp__records__write',
-        'mcp__records__unspecified',
-        'mcp__records__undeclared'
-      ])
+      new Set(['mcp__records__write', 'mcp__records__unspecified', 'mcp__records__undeclared'])
     )
   })
 
