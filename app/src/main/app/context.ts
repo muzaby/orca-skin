@@ -14,7 +14,9 @@ import type { ProviderSettingsService } from '../features/providers/provider-set
 import type { Scheduler } from '../features/scheduler'
 import type { ExternalUsageService } from '../features/usage/external-usage-service'
 import type { AuthBroker } from '../features/auth-platform/broker'
+import type { PluginHost } from '../features/auth-platform/plugin-host'
 import type { ConnectorHost } from '../features/connectors/runtime'
+import type { RuntimeToolRegistry } from '../features/extensions/runtime-tool-registry'
 import type { UpdateController } from './updater'
 
 export interface RouterContext {
@@ -49,4 +51,8 @@ export interface RouterContext {
   auth: AuthBroker
   // 인증된 내장 도구 실행. raw credential 은 여기에도 없다 — authenticatedFetch 위임만.
   connectors: ConnectorHost
+  // PluginHost/runtime registry는 IPC와 turn composition이 연결 lifecycle을 이어 받을 수 있는
+  // app-layer 소유 참조다. auth-platform과 extensions 구현체는 서로 import하지 않는다.
+  pluginHost: PluginHost
+  runtimeTools: RuntimeToolRegistry
 }
