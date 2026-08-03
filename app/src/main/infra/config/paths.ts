@@ -59,6 +59,14 @@ export function projectsDir(): string {
   return join(orcaConfigDir(), 'projects')
 }
 
+// connector 플러그인이 내려받은 파일의 루트 (0160). `orcaConfigDir()` 하위인 것이 중요하다 —
+// workspace-guard 의 `readOnlyExceptionRoots()` 가 이 루트를 이미 포함하므로, 도구가 경로만
+// 반환해도 모델이 `Read`/`Grep` 으로 결과물을 읽을 수 있다. 세션 cwd 가 아니라 여기 두는 이유는
+// 연결이 앱 전역이고 도구 컨텍스트에 cwd 가 없기 때문이다(`adapters/runtime-tools.ts`).
+export function downloadsDir(): string {
+  return join(orcaConfigDir(), 'downloads')
+}
+
 // child 가 parent 내부(또는 동일)인지 — 정규화 후 상대경로가 '..' 로 빠져나가거나
 // 다른 절대경로면 false. files:openPath 경로 화이트리스트 등에 쓰는 순수 술어.
 export function isWithinDir(child: string, parent: string): boolean {

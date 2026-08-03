@@ -3,8 +3,13 @@
 // 요구명세 §Static credential 와 HTTP presentation 의 요지: 같은 PAT 를 서비스별로 Bearer /
 // Basic password / 전용 header 로 다르게 붙일 수 있어야 한다. 그 "다르게" 를 한 곳에서 대조한다.
 
-import { describe, expect, it } from 'vitest'
-import { applyPresentation, type PreparedRequest } from './authenticated-fetch'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import {
+  applyPresentation,
+  createSender,
+  ResponseTooLargeError,
+  type PreparedRequest
+} from './authenticated-fetch'
 import type { CredentialPresentation } from '../../../shared/ipc'
 
 const PAT = 'glpat-EXAMPLE-TOKEN'
@@ -27,6 +32,11 @@ describe('applyPresentation — 같은 credential, 다른 표현 (AC8)', () => {
       expect: `Basic ${Buffer.from(`:${PAT}`).toString('base64')}`
     },
     {
+      label: 'BasicPair (ID/비밀번호 — secret 자체가 user:pass)',
+      presentation: { location: 'header', name: 'X-Basic-Pair', scheme: 'BasicPair' },
+      expect: `Basic ${Buffer.from(PAT).toString('base64')}`
+    },
+    {
       label: 'Token (일부 사내 게이트웨이)',
       presentation: { location: 'header', name: 'Authorization', scheme: 'Token' },
       expect: `Token ${PAT}`
@@ -45,12 +55,34 @@ describe('applyPresentation — 같은 credential, 다른 표현 (AC8)', () => {
     })
   }
 
-  it('네 가지 표현이 서로 다르다 — kind 하나에 표현이 고정되지 않는다', () => {
+  it('다섯 가지 표현이 서로 다르다 — kind 하나에 표현이 고정되지 않는다', () => {
     const rendered = cases.map((c) => {
       const out = applyPresentation(req(), c.presentation, PAT)
       return `${c.presentation.name}: ${out.headers[c.presentation.name as string]}`
     })
-    expect(new Set(rendered).size).toBe(4)
+    expect(new Set(rendered).size).toBe(5)
+  })
+
+  // 0160 — 두 Basic 계열은 **다른 규칙**이다. 하나로 뭉개면 ID/비밀번호가 `:user:pass` 로 나간다.
+  it('BasicPair 는 secret 전체를 base64 하고, Basic 은 빈 사용자명 형식을 유지한다', () => {
+    const pair = 'alice:s3cret'
+    const asPair = applyPresentation(
+      req(),
+      { location: 'header', name: 'Authorization', scheme: 'BasicPair' },
+      pair
+    )
+    const asBasic = applyPresentation(
+      req(),
+      { location: 'header', name: 'Authorization', scheme: 'Basic' },
+      pair
+    )
+    expect(asPair.headers.Authorization).toBe(
+      `Basic ${Buffer.from('alice:s3cret').toString('base64')}`
+    )
+    expect(asBasic.headers.Authorization).toBe(
+      `Basic ${Buffer.from(':alice:s3cret').toString('base64')}`
+    )
+    expect(asPair.headers.Authorization).not.toBe(asBasic.headers.Authorization)
   })
 
   it('scheme 미지정(Raw)은 값을 그대로 넣는다', () => {
@@ -100,6 +132,96 @@ describe('applyPresentation — cookie / query', () => {
     const params = new URL(out.url).searchParams
     expect(params.get('page')).toBe('2')
     expect(params.get('access_token')).toBe(PAT)
+  })
+})
+
+// ── createSender — 바이너리 수신 · 크기 상한 (0160) ─────────────────────────────
+//
+// 0160 이전에는 `res.text()` 하나뿐이라 **바이너리 수신 경로가 존재하지 않았다** — 첨부를
+// 내려받으면 UTF-8 로 디코드되어 손상됐다. 상한도 없어 대용량 첨부가 main 메모리를 통째로 먹었다.
+
+function stubFetch(res: Response): void {
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => res)
+  )
+}
+
+function bytesResponse(bytes: Uint8Array, headers: Record<string, string> = {}): Response {
+  // Uint8Array<ArrayBufferLike> 는 BodyInit 에 직접 안 맞는다 — 버퍼를 떼어 넘긴다.
+  return new Response(bytes.buffer as ArrayBuffer, { status: 200, headers })
+}
+
+describe('createSender — responseType', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('binary 요청은 bodyBytes 를 채운다', async () => {
+    // 유효한 UTF-8 이 아닌 바이트열 — text 경로였다면 U+FFFD 로 뭉개진다.
+    const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0xff, 0xfe])
+    stubFetch(bytesResponse(png))
+    const out = await createSender().send(req(), undefined, { responseType: 'binary' })
+    expect(out.bodyBytes).toEqual(png)
+    expect(out.body).toBe('')
+  })
+
+  it('미지정 responseType 은 text 로 동작한다', async () => {
+    stubFetch(new Response('hello', { status: 200 }))
+    const out = await createSender().send(req())
+    expect(out.body).toBe('hello')
+    expect(out.bodyBytes).toBeUndefined()
+  })
+
+  it("명시한 'text' 도 text 로 동작한다", async () => {
+    stubFetch(new Response('hello', { status: 200 }))
+    const out = await createSender().send(req(), undefined, { responseType: 'text' })
+    expect(out.body).toBe('hello')
+    expect(out.bodyBytes).toBeUndefined()
+  })
+})
+
+describe('createSender — maxBytes', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('선언 길이 초과를 거부한다', async () => {
+    stubFetch(bytesResponse(new Uint8Array(50), { 'content-length': '5000' }))
+    await expect(
+      createSender().send(req(), undefined, { responseType: 'binary', maxBytes: 100 })
+    ).rejects.toThrow(ResponseTooLargeError)
+  })
+
+  it('선언 없이 초과 누적되면 중단한다', async () => {
+    // content-length 없이 상한을 넘는 본문 — 서버가 길이를 안 주거나 속이는 경우.
+    stubFetch(bytesResponse(new Uint8Array(500)))
+    await expect(
+      createSender().send(req(), undefined, { responseType: 'binary', maxBytes: 100 })
+    ).rejects.toThrow(ResponseTooLargeError)
+  })
+
+  it('상한 이내 바이너리는 그대로 통과한다', async () => {
+    stubFetch(bytesResponse(new Uint8Array([1, 2, 3])))
+    const out = await createSender().send(req(), undefined, {
+      responseType: 'binary',
+      maxBytes: 100
+    })
+    expect(out.bodyBytes).toEqual(new Uint8Array([1, 2, 3]))
+  })
+
+  it('텍스트 응답도 상한을 넘으면 거부한다 (바이트 기준)', async () => {
+    // 한글 3자 = 9바이트 — 문자 수(3)로 재면 상한 5 를 통과해버린다.
+    stubFetch(new Response('가나다', { status: 200 }))
+    await expect(createSender().send(req(), undefined, { maxBytes: 5 })).rejects.toThrow(
+      ResponseTooLargeError
+    )
+  })
+
+  it('상한 미지정이면 큰 응답도 받는다', async () => {
+    stubFetch(bytesResponse(new Uint8Array(10_000)))
+    const out = await createSender().send(req(), undefined, { responseType: 'binary' })
+    expect(out.bodyBytes?.byteLength).toBe(10_000)
   })
 })
 

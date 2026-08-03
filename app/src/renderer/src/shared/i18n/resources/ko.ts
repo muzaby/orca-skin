@@ -110,6 +110,22 @@ export const ko = {
       disconnectedPlugins: '연결되지 않은 플러그인 패키지'
     },
     view: { selectItem: '항목을 선택하세요.', backAria: '{{section}} 목록으로 돌아가기' },
+    connect: {
+      title: '{{name}} 연결',
+      server: '서버 주소',
+      serverHint: '서버 주소는 설치 시 정해집니다. 바꾸려면 관리자에게 문의하세요.',
+      method: '인증 방식',
+      submit: '연결',
+      connect: '연결',
+      disconnect: '연결 해제',
+      noProvider: '이 커넥터에 쓸 수 있는 인증 방식이 없습니다.',
+      failInvalid: '자격증명이 거부되었습니다. 다시 입력해 주세요.',
+      failUnreachable:
+        '서버에 연결하지 못했습니다. 주소는 설치 설정값이므로 관리자에게 문의하세요.',
+      failAlreadyConnected: '이미 연결되어 있습니다. 먼저 연결을 해제하세요.',
+      failCancelled: '연결이 취소되었습니다.',
+      failUnknown: '연결에 실패했습니다.'
+    },
     pluginDetail: {
       providers: '인증 제공자',
       connectors: '커넥터',

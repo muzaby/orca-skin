@@ -2,9 +2,10 @@
 // 나가는 표면이 없는지 확인한다 (AC3·4·7·8·10).
 
 import { describe, expect, it, vi } from 'vitest'
-import { AuthBroker } from './broker'
+import { AuthBroker, MAX_REDIRECT_HOPS } from './broker'
 import { AuthRegistry } from './registry'
 import { createStaticCredentialProvider } from './providers/static-credential'
+import { createBasicCredentialProvider } from './providers/basic-credential'
 import { createAdfsWiaProvider } from './providers/corp-adfs-wia'
 import { createCredentialVault } from '../../infra/auth/credential-vault'
 import type { SecretStorePort } from '../../infra/config/secret-facade'
@@ -512,6 +513,357 @@ describe('AuthBroker — authenticatedFetch (AC8 경로)', () => {
         path: 'https://evil.invalid/steal'
       })
     ).rejects.toThrow(/absolute_path/)
+  })
+})
+
+// ── 0160: redirect 추종 + mechanism 별 presentation ────────────────────────────
+//
+// `createSender` 는 `redirect:'manual'` 인데 0160 이전에는 `checkRedirect` 의 **프로덕션
+// 호출자가 0개**였다 — 302 가 빈 본문 응답으로 그대로 반환되어 첨부 다운로드가 빈 파일로
+// 끝났다. 여기서 그 배선을 고정한다.
+describe('AuthBroker — redirect 추종과 mechanism 별 presentation (0160)', () => {
+  interface Sent {
+    url: string
+    method: string
+    headers: Record<string, string>
+  }
+
+  function redirectManifest(presentations?: Record<string, unknown>): Record<string, unknown> {
+    return {
+      schemaVersion: 1,
+      id: 'corp',
+      version: '1.0.0',
+      contributes: {
+        authProviders: [
+          {
+            id: 'pat',
+            apiVersion: 1,
+            label: 'PAT',
+            targets: ['connector'],
+            mechanisms: ['personal_access_token'],
+            capabilities: ['logout']
+          },
+          {
+            id: 'idpw',
+            apiVersion: 1,
+            label: 'ID/PW',
+            targets: ['connector'],
+            mechanisms: ['basic'],
+            capabilities: ['logout']
+          }
+        ],
+        connectors: [
+          {
+            id: 'wiki',
+            apiVersion: 1,
+            label: 'Wiki',
+            acceptedAuthProviders: ['pat', 'idpw'],
+            baseUrl: ORIGIN,
+            presentation: { location: 'header', name: 'Authorization', scheme: 'Bearer' },
+            ...(presentations !== undefined ? { presentations } : {})
+          }
+        ]
+      }
+    }
+  }
+
+  function harness(opts: {
+    responses: Array<{ status: number; headers?: Record<string, string>; body?: string }>
+    presentations?: Record<string, unknown>
+  }): { broker: AuthBroker; sent: Sent[] } {
+    const store = fakeStore()
+    const registry = new AuthRegistry()
+    const sent: Sent[] = []
+    const errors = registry.register({
+      manifest: redirectManifest(opts.presentations),
+      providers: [
+        createStaticCredentialProvider({
+          id: 'pat',
+          pluginId: 'corp',
+          label: 'PAT',
+          mechanism: 'personal_access_token'
+        }),
+        createBasicCredentialProvider({ id: 'idpw', pluginId: 'corp', label: 'ID/PW' })
+      ],
+      connectors: [
+        {
+          descriptor: {
+            id: 'wiki',
+            pluginId: 'corp',
+            apiVersion: 1,
+            label: 'Wiki',
+            acceptedAuthProviders: ['pat', 'idpw'],
+            baseUrl: ORIGIN,
+            presentation: { location: 'header', name: 'Authorization', scheme: 'Bearer' },
+            ...(opts.presentations !== undefined
+              ? { presentations: opts.presentations as never }
+              : {})
+          },
+          start: async () => ({ health: 'ready' }),
+          invoke: async () => ({ ok: true, data: null }),
+          stop: async () => undefined
+        }
+      ]
+    })
+    expect(errors).toEqual([])
+
+    let hop = 0
+    const broker = new AuthBroker({
+      registry,
+      vaultFor: (prefix) => createCredentialVault(store, prefix),
+      browserSessions: {
+        acquire: async (g) => `handle:${g}`,
+        openLoginWindow: async () => ({ finalUrl: '' }),
+        probe: async () => ({ ok: true, status: 200, finalUrl: '' }),
+        clear: async () => undefined
+      },
+      exec: async () => ({ code: 0, stdout: '', stderr: '' }),
+      broadcast: () => undefined,
+      sender: {
+        send: async (r) => {
+          sent.push({ url: r.url, method: r.method, headers: { ...r.headers } })
+          const canned = opts.responses[Math.min(hop, opts.responses.length - 1)]
+          hop += 1
+          return { status: canned.status, headers: canned.headers ?? {}, body: canned.body ?? '' }
+        }
+      }
+    })
+    return { broker, sent }
+  }
+
+  async function bindPat(broker: AuthBroker): Promise<string> {
+    const begun = await broker.begin('pat', WIKI)
+    if (begun.kind !== 'collect') throw new Error('unreachable')
+    const done = await broker.continue(begun.transactionId, { credential: 'pat-value' })
+    if (done.kind !== 'done') throw new Error('unreachable')
+    return done.binding.id
+  }
+
+  async function bindBasic(broker: AuthBroker): Promise<string> {
+    const begun = await broker.begin('idpw', WIKI)
+    if (begun.kind !== 'collect') throw new Error('unreachable')
+    const done = await broker.continue(begun.transactionId, {
+      username: 'alice',
+      password: 's3cret'
+    })
+    if (done.kind !== 'done') throw new Error('unreachable')
+    return done.binding.id
+  }
+
+  it('허용 origin 내 redirect 를 추종한다', async () => {
+    const { broker, sent } = harness({
+      responses: [
+        { status: 302, headers: { location: `${ORIGIN}/download/final` } },
+        { status: 200, body: 'payload' }
+      ]
+    })
+    const bindingId = await bindPat(broker)
+    const res = await broker.authenticatedFetch({
+      bindingId,
+      connectorId: 'wiki',
+      method: 'GET',
+      path: '/rest/api/attachment/data'
+    })
+
+    expect(res.status).toBe(200)
+    expect(res.body).toBe('payload')
+    expect(sent.map((s) => s.url)).toEqual([
+      `${ORIGIN}/rest/api/attachment/data`,
+      `${ORIGIN}/download/final`
+    ])
+    // credential 은 같은 origin 안이므로 두 홉 모두에 실린다.
+    expect(sent[1].headers.Authorization).toBe('Bearer pat-value')
+  })
+
+  it('상대 경로 Location 도 현재 URL 기준으로 해석한다', async () => {
+    const { broker, sent } = harness({
+      responses: [{ status: 302, headers: { Location: '/download/rel' } }, { status: 200 }]
+    })
+    const bindingId = await bindPat(broker)
+    await broker.authenticatedFetch({
+      bindingId,
+      connectorId: 'wiki',
+      method: 'GET',
+      path: '/rest/api/x'
+    })
+    expect(sent[1].url).toBe(`${ORIGIN}/download/rel`)
+  })
+
+  it('허용 밖 redirect 를 거부한다 — 그 origin 으로 요청을 보내지 않는다', async () => {
+    const { broker, sent } = harness({
+      responses: [{ status: 302, headers: { location: 'https://evil.invalid/steal' } }]
+    })
+    const bindingId = await bindPat(broker)
+    await expect(
+      broker.authenticatedFetch({
+        bindingId,
+        connectorId: 'wiki',
+        method: 'GET',
+        path: '/rest/api/x'
+      })
+    ).rejects.toThrow(/origin_not_allowed/)
+
+    // 전송자는 첫 홉만 봤다 — credential 이 evil.invalid 로 나가지 않았다.
+    expect(sent).toHaveLength(1)
+    expect(sent[0].url).toBe(`${ORIGIN}/rest/api/x`)
+  })
+
+  it('홉 상한을 넘으면 실패한다', async () => {
+    const { broker, sent } = harness({
+      responses: [{ status: 302, headers: { location: `${ORIGIN}/loop` } }]
+    })
+    const bindingId = await bindPat(broker)
+    await expect(
+      broker.authenticatedFetch({
+        bindingId,
+        connectorId: 'wiki',
+        method: 'GET',
+        path: '/rest/api/x'
+      })
+    ).rejects.toThrow(/too_many_redirects/)
+    // 초기 요청 + 상한만큼의 재시도에서 멈춘다(무한 루프 아님).
+    expect(sent).toHaveLength(MAX_REDIRECT_HOPS + 1)
+  })
+
+  it('303 은 POST 를 GET 으로 낮춰 재요청한다', async () => {
+    const { broker, sent } = harness({
+      responses: [{ status: 303, headers: { location: `${ORIGIN}/after` } }, { status: 200 }]
+    })
+    const bindingId = await bindPat(broker)
+    await broker.authenticatedFetch({
+      bindingId,
+      connectorId: 'wiki',
+      method: 'POST',
+      path: '/rest/api/x',
+      body: '{}'
+    })
+    expect(sent[0].method).toBe('POST')
+    expect(sent[1].method).toBe('GET')
+  })
+
+  it('304 는 redirect 로 보지 않는다', async () => {
+    const { broker, sent } = harness({
+      responses: [{ status: 304, headers: { location: `${ORIGIN}/nope` } }]
+    })
+    const bindingId = await bindPat(broker)
+    const res = await broker.authenticatedFetch({
+      bindingId,
+      connectorId: 'wiki',
+      method: 'GET',
+      path: '/rest/api/x'
+    })
+    expect(res.status).toBe(304)
+    expect(sent).toHaveLength(1)
+  })
+
+  it('mechanism 별 presentation 을 선택한다', async () => {
+    const presentations = {
+      personal_access_token: { location: 'header', name: 'Authorization', scheme: 'Bearer' },
+      basic: { location: 'header', name: 'Authorization', scheme: 'BasicPair' }
+    }
+    const { broker, sent } = harness({ responses: [{ status: 200 }], presentations })
+    const bindingId = await bindBasic(broker)
+    await broker.authenticatedFetch({
+      bindingId,
+      connectorId: 'wiki',
+      method: 'GET',
+      path: '/rest/api/x'
+    })
+    // basic binding 이므로 Bearer 기본값이 아니라 BasicPair 로 나간다.
+    expect(sent[0].headers.Authorization).toBe(
+      `Basic ${Buffer.from('alice:s3cret').toString('base64')}`
+    )
+  })
+
+  it('미선언 mechanism 은 기본 presentation 을 쓴다', async () => {
+    // basic 만 선언 — PAT binding 은 fallback 으로 기본 Bearer 를 탄다.
+    const presentations = {
+      basic: { location: 'header', name: 'Authorization', scheme: 'BasicPair' }
+    }
+    const { broker, sent } = harness({ responses: [{ status: 200 }], presentations })
+    const bindingId = await bindPat(broker)
+    await broker.authenticatedFetch({
+      bindingId,
+      connectorId: 'wiki',
+      method: 'GET',
+      path: '/rest/api/x'
+    })
+    expect(sent[0].headers.Authorization).toBe('Bearer pat-value')
+  })
+
+  it('presentations 를 아예 선언하지 않은 connector 는 기존대로 동작한다', async () => {
+    const { broker, sent } = harness({ responses: [{ status: 200 }] })
+    const bindingId = await bindBasic(broker)
+    await broker.authenticatedFetch({
+      bindingId,
+      connectorId: 'wiki',
+      method: 'GET',
+      path: '/rest/api/x'
+    })
+    expect(sent[0].headers.Authorization).toBe('Bearer alice:s3cret')
+  })
+
+  it('responseType 과 maxBytes 를 전송자에게 전달한다', async () => {
+    const store = fakeStore()
+    const registry = new AuthRegistry()
+    const options: Array<unknown> = []
+    registry.register({
+      manifest: redirectManifest(),
+      providers: [
+        createStaticCredentialProvider({
+          id: 'pat',
+          pluginId: 'corp',
+          label: 'PAT',
+          mechanism: 'personal_access_token'
+        }),
+        createBasicCredentialProvider({ id: 'idpw', pluginId: 'corp', label: 'ID/PW' })
+      ],
+      connectors: [
+        {
+          descriptor: {
+            id: 'wiki',
+            pluginId: 'corp',
+            apiVersion: 1,
+            label: 'Wiki',
+            acceptedAuthProviders: ['pat', 'idpw'],
+            baseUrl: ORIGIN,
+            presentation: { location: 'header', name: 'Authorization', scheme: 'Bearer' }
+          },
+          start: async () => ({ health: 'ready' }),
+          invoke: async () => ({ ok: true, data: null }),
+          stop: async () => undefined
+        }
+      ]
+    })
+    const broker = new AuthBroker({
+      registry,
+      vaultFor: (prefix) => createCredentialVault(store, prefix),
+      browserSessions: {
+        acquire: async (g) => `handle:${g}`,
+        openLoginWindow: async () => ({ finalUrl: '' }),
+        probe: async () => ({ ok: true, status: 200, finalUrl: '' }),
+        clear: async () => undefined
+      },
+      exec: async () => ({ code: 0, stdout: '', stderr: '' }),
+      broadcast: () => undefined,
+      sender: {
+        send: async (_r, _s, o) => {
+          options.push(o)
+          return { status: 200, headers: {}, body: '', bodyBytes: new Uint8Array([7]) }
+        }
+      }
+    })
+    const bindingId = await bindPat(broker)
+    const res = await broker.authenticatedFetch({
+      bindingId,
+      connectorId: 'wiki',
+      method: 'GET',
+      path: '/rest/api/x',
+      responseType: 'binary',
+      maxBytes: 1024
+    })
+    expect(options[0]).toEqual({ responseType: 'binary', maxBytes: 1024 })
+    expect(res.bodyBytes).toEqual(new Uint8Array([7]))
   })
 })
 

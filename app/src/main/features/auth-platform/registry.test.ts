@@ -362,6 +362,59 @@ describe('AuthRegistry 등록 위생', () => {
     expect(registry.getConnector('connector-a')).toBeUndefined()
   })
 
+  // 0160 — presentations 는 "어떤 인증 방식이 어떤 헤더로 나가는가" 를 선언한다. 선언과 구현이
+  // 갈리면 문서를 읽고 예상한 헤더와 실제로 나가는 헤더가 달라진다.
+  it('presentations 를 선언·구현 대조한다', () => {
+    const presentations = {
+      personal_access_token: { location: 'header', name: 'Authorization', scheme: 'Bearer' },
+      basic: { location: 'header', name: 'Authorization', scheme: 'BasicPair' }
+    }
+    const registry = new AuthRegistry()
+    const errors = registry.register({
+      manifest: pluginManifest('pkg', [{ ...connectorDeclaration(), presentations }], []),
+      connectors: [connector('connector-a', { presentations: presentations as never })]
+    })
+    expect(errors).toEqual([])
+    expect(registry.getConnector('connector-a')?.descriptor.presentations).toEqual(presentations)
+  })
+
+  it('presentations 불일치 패키지를 거부한다', () => {
+    const declared = {
+      basic: { location: 'header', name: 'Authorization', scheme: 'BasicPair' }
+    }
+    const implemented = {
+      basic: { location: 'header', name: 'X-Other', scheme: 'BasicPair' }
+    }
+    const drifted = new AuthRegistry().register({
+      manifest: pluginManifest('pkg', [{ ...connectorDeclaration(), presentations: declared }], []),
+      connectors: [connector('connector-a', { presentations: implemented as never })]
+    })
+    expect(drifted.map((e) => e.message).join()).toMatch(/connector descriptor/)
+
+    // 한쪽만 선언해도 거부한다 — 있는지 없는지가 곧 규칙의 유무다.
+    const declaredOnly = new AuthRegistry().register({
+      manifest: pluginManifest('pkg', [{ ...connectorDeclaration(), presentations: declared }], []),
+      connectors: [connector('connector-a')]
+    })
+    expect(declaredOnly.map((e) => e.message).join()).toMatch(/connector descriptor/)
+
+    const implementedOnly = new AuthRegistry().register({
+      manifest: pluginManifest('pkg', [connectorDeclaration()], []),
+      connectors: [connector('connector-a', { presentations: declared as never })]
+    })
+    expect(implementedOnly.map((e) => e.message).join()).toMatch(/connector descriptor/)
+  })
+
+  it('presentations 미선언 패키지를 그대로 받는다 (기존 패키지 무변경 통과)', () => {
+    const registry = new AuthRegistry()
+    const errors = registry.register({
+      manifest: pluginManifest('pkg', [connectorDeclaration()], []),
+      connectors: [connector('connector-a')]
+    })
+    expect(errors).toEqual([])
+    expect(registry.getConnector('connector-a')?.descriptor.presentations).toBeUndefined()
+  })
+
   it('runtime tool connector 교차 참조와 중복을 등록 단계에서 검증한다', () => {
     const missingConnector = new AuthRegistry().register({
       manifest: pluginManifest('pkg', [connectorDeclaration()], [runtimeToolDeclaration()]),

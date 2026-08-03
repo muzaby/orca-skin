@@ -13,7 +13,7 @@
 //   (`app/bootstrap.ts`)가 broker 구현을 주입한다 — `src/main/AGENTS.md` §해소책 2+3.
 // ═══════════════════════════════════════════════════════════════════════════
 
-import type { CredentialPresentation } from '../../shared/ipc'
+import type { AuthMechanism, CredentialPresentation } from '../../shared/ipc'
 
 // ── authenticated fetch 포트 ─────────────────────────────────────────────────
 
@@ -22,16 +22,28 @@ export interface AuthenticatedFetchRequest {
   connectorId: string
   method: string
   // connector manifest 의 baseUrl 기준 상대 경로. 절대 URL 은 거부된다(origin 우회 방지).
+  // 컨텍스트 경로(`/confluence`)가 있는 배포는 connector 가 여기에 prefix 를 붙인다 —
+  // baseUrl 은 경로 없는 origin 이어야 하므로(manifest `OriginSchema`) 경로는 이쪽 몫이다.
   path: string
   headers?: Record<string, string>
   query?: Record<string, string>
   body?: string
+  // 응답 본문 형태. **미지정 = `'text'`** (기존 동작 보존). 첨부·이미지처럼 바이트가 필요한
+  // 요청만 `'binary'` 를 쓴다 — 0160 이전에는 `res.text()` 뿐이라 바이너리 수신 경로가
+  // 아예 없었다.
+  responseType?: 'text' | 'binary'
+  // 수신 상한. 미지정이면 상한 없음(기존 동작). 선언된 `content-length` 와 실제 누적
+  // 바이트를 **둘 다** 검사한다 — 서버가 길이를 속이거나 안 보낼 수 있다.
+  maxBytes?: number
 }
 
 export interface AuthenticatedFetchResponse {
   status: number
   headers: Record<string, string>
+  // `responseType:'binary'` 응답에서는 빈 문자열이다. 텍스트 소비자가 그대로 남는다.
   body: string
+  // `responseType:'binary'` 일 때만 채워진다.
+  bodyBytes?: Uint8Array
 }
 
 // broker 가 구현하고 connector runtime 이 소비하는 유일한 인증 표면.
@@ -56,6 +68,10 @@ export interface ConnectorDescriptor {
   // credential 을 요청 어디에 어떤 형식으로 넣을지. **kind 에서 추론하지 않는다** —
   // 같은 PAT 를 서비스별로 Bearer / Basic password / PRIVATE-TOKEN 으로 다르게 붙인다.
   presentation: CredentialPresentation
+  // 인증 방식(binding 의 mechanism)마다 표현이 다를 때. 하나의 connector 가 PAT(Bearer)와
+  // ID/비밀번호(Basic)를 함께 받으면 표현이 하나로 고정될 수 없다(0160). 선언에 없는
+  // mechanism 은 위 `presentation` 으로 되돌아가므로 기존 패키지는 무변경으로 동작한다.
+  presentations?: Partial<Record<AuthMechanism, CredentialPresentation>>
 }
 
 export interface ConnectorContext {

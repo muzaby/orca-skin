@@ -6,6 +6,7 @@ import {
   getWorkspacePath,
   isWithinDir,
   projectsDir,
+  downloadsDir,
   safeProjectName,
   shortProjectId,
   workspaceDirName
@@ -71,6 +72,14 @@ describe('getWorkspacePath', () => {
 
   it('projectsDir 는 ~/.config/orca/projects', () => {
     expect(projectsDir()).toBe(root)
+  })
+})
+
+describe('downloadsDir', () => {
+  it('downloadsDir 는 orcaConfigDir 하위다', () => {
+    // workspace-guard 의 read 예외 루트(`orcaConfigDir()`) 안이어야 모델이 결과물을 읽을 수 있다.
+    expect(downloadsDir()).toBe(join(homedir(), '.config', 'orca', 'downloads'))
+    expect(isWithinDir(downloadsDir(), join(homedir(), '.config', 'orca'))).toBe(true)
   })
 })
 

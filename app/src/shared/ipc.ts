@@ -190,8 +190,18 @@ export interface CredentialMeta {
 }
 
 // secret 을 HTTP 요청의 어디에 어떤 형식으로 넣는지에 대한 선언 (connector manifest 소유).
+// scheme 별 의미 (`infra/auth/authenticated-fetch.ts` 가 유일한 구현부):
+//   Bearer     → `Bearer <secret>`
+//   Basic      → `Basic base64(":" + secret)`  — secret 을 **비밀번호**로 쓰고 사용자명은 빈 값
+//                (PAT-as-password 를 받는 배포). 사용자명이 필요하면 BasicPair 를 쓴다.
+//   BasicPair  → `Basic base64(secret)`        — secret 자체가 `user:pass` 인 경우(0160)
+//   Token/Raw  → `Token <secret>` / `<secret>`
 export type CredentialPresentation =
-  | { location: 'header'; name: string; scheme?: 'Bearer' | 'Basic' | 'Token' | 'Raw' }
+  | {
+      location: 'header'
+      name: string
+      scheme?: 'Bearer' | 'Basic' | 'BasicPair' | 'Token' | 'Raw'
+    }
   | { location: 'cookie'; name: string }
   // query 노출은 로그·referrer 로 새기 쉬워 명시 opt-in 으로만 허용한다.
   | { location: 'query'; name: string; restricted: true }

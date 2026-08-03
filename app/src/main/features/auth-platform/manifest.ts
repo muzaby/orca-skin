@@ -51,7 +51,9 @@ export const CredentialPresentationSchema = z.discriminatedUnion('location', [
   z.object({
     location: z.literal('header'),
     name: z.string().min(1).max(128),
-    scheme: z.enum(['Bearer', 'Basic', 'Token', 'Raw']).optional()
+    // 'BasicPair' 는 secret 자체가 `user:pass` 인 경우 (0160). 'Basic' 은 빈 사용자명 형식이라
+    // ID/비밀번호를 표현할 수 없어 멤버를 **추가**했다(기존 값 의미 불변 — ABI additive).
+    scheme: z.enum(['Bearer', 'Basic', 'BasicPair', 'Token', 'Raw']).optional()
   }),
   z.object({ location: z.literal('cookie'), name: z.string().min(1).max(128) }),
   // query 노출은 로그·referrer 로 새기 쉬워 리터럴 true 를 요구하는 명시 opt-in 으로만 허용.
@@ -80,7 +82,11 @@ export const ConnectorContributionSchema = z.object({
   label: z.string().min(1).max(200),
   acceptedAuthProviders: z.array(IdSchema).min(1),
   baseUrl: OriginSchema,
-  presentation: CredentialPresentationSchema
+  presentation: CredentialPresentationSchema,
+  // 인증 방식별 표현 (0160). 키는 `AuthMechanism` 이며, 선언하지 않은 mechanism 은
+  // `presentation` 으로 되돌아간다. **`partialRecord` 여야 한다** — zod 4 의 `record` 는
+  // enum 키를 exhaustive 로 요구해 8개 mechanism 을 전부 적지 않으면 거부된다(실측).
+  presentations: z.partialRecord(AuthMechanismSchema, CredentialPresentationSchema).optional()
 })
 
 export const RuntimeToolAnnotationsSchema = z.object({
