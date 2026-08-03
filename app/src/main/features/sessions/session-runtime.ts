@@ -301,7 +301,10 @@ export class SessionRuntime implements ManagedRuntime {
       throw err
     } finally {
       live.close()
-      if (this.live === live) this.live = null
+      if (this.live === live) {
+        this.live = null
+        this.clearSpawnedMetadata()
+      }
     }
   }
 
@@ -398,9 +401,7 @@ export class SessionRuntime implements ManagedRuntime {
     }
     this.live?.close()
     this.live = null
-    this.spawnedSettings = undefined
-    this.spawnedModelValue = undefined
-    this.spawnedRuntimeToolsRevisionValue = undefined
+    this.clearSpawnedMetadata()
     getLogger()
       .child('engine')
       .info('engine.channel.teardown', { provider: this.adapter.id, reason: 'stream-ended' })
@@ -446,6 +447,10 @@ export class SessionRuntime implements ManagedRuntime {
     this.pumpRunning = false
     this.live?.close()
     this.live = null
+    this.clearSpawnedMetadata()
+  }
+
+  private clearSpawnedMetadata(): void {
     this.spawnedSettings = undefined
     this.spawnedModelValue = undefined
     this.spawnedRuntimeToolsRevisionValue = undefined

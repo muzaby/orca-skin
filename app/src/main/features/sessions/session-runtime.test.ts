@@ -767,6 +767,25 @@ describe('SessionRuntime mode-invariance (인수 2·6c)', () => {
 })
 
 describe('SessionRuntime runtime tool revision (0158)', () => {
+  it('clears the spawn metadata after a one-shot turn completes', async () => {
+    const runtime = new SessionRuntime(
+      adapter(live([{ type: 'telemetry', sessionId: 's1' }])),
+      'oneshot'
+    )
+    const request: TurnRequest = {
+      ...req(),
+      model: 'sonnet',
+      extensions: { ...req().extensions, runtimeTools: { revision: 7, servers: new Map() } }
+    }
+
+    await collect(runtime.send(request))
+
+    expect(runtime.channelAlive).toBe(false)
+    expect(runtime.spawnedProviderSettings).toBeUndefined()
+    expect(runtime.spawnedModel).toBeUndefined()
+    expect(runtime.spawnedRuntimeToolsRevision).toBeUndefined()
+  })
+
   it('records the spawn revision and clears it for forced and stream-end teardown', async () => {
     const first = channelLive()
     const second = channelLive()
