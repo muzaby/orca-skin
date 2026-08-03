@@ -17,13 +17,13 @@ export function McpDetail({
       : [server.command, ...server.args].filter(Boolean).join(' ')
   return (
     <div className="min-w-0 flex-1 overflow-y-auto px-7 py-6">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-g6">
         <span className="grid h-9 w-9 flex-none place-items-center rounded-r4 bg-bg2 text-ink2">
           <Icon name={server.transport === 'http' ? 'link' : 'cpu'} size={18} />
         </span>
         <div className="min-w-0">
-          <h2 className="m-0 font-serif text-[20px] font-semibold text-ink">{server.name}</h2>
-          <div className="mt-0.5 flex items-center gap-1.5 text-[12px] text-ink3">
+          <h2 className="m-0 font-serif text-heading text-ink">{server.name}</h2>
+          <div className="mt-g1 flex items-center gap-g3 text-footnote text-ink3">
             <span className="font-mono uppercase">{server.transport}</span>
             <span>·</span>
             <Dot tone={server.enabled ? 'green' : 'slate'} />
@@ -35,7 +35,7 @@ export function McpDetail({
         <button
           type="button"
           onClick={onToggle}
-          className={`ml-auto cursor-pointer rounded-r4 border px-3.5 py-1.5 text-[12.5px] font-medium ${
+          className={`ml-auto cursor-pointer rounded-r4 border px-3.5 py-p3 text-footnote font-medium ${
             server.enabled
               ? 'border-border bg-panel text-ink2 hover:bg-fill-uncontained-hover'
               : 'border-0 bg-ink text-bg hover:bg-t8'
@@ -44,11 +44,11 @@ export function McpDetail({
           {server.enabled ? tr('skills.mcpDetail.disable') : tr('skills.mcpDetail.enable')}
         </button>
       </div>
-      <p className="mt-4 text-[13.5px] leading-[1.65] text-ink2">
+      <p className="mt-p7 text-body leading-relaxed text-ink2">
         {server.description || summary || tr('common.noDescription')}
       </p>
-      <div className="mt-5 rounded-r5 border border-border bg-panel p-4 text-[12.5px]">
-        <div className="mb-2 text-[11.5px] text-ink3">{tr('skills.mcpDetail.configSummary')}</div>
+      <div className="mt-p8 rounded-r5 border border-border bg-bg2 p-p7 text-footnote">
+        <div className="mb-g4 text-caption text-ink3">{tr('skills.mcpDetail.configSummary')}</div>
         <pre className="m-0 whitespace-pre-wrap break-all font-mono text-ink2">
           {JSON.stringify(
             server.transport === 'http'

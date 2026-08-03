@@ -17,7 +17,7 @@ function MenuRow({
       type="button"
       role="menuitem"
       onClick={onClick}
-      className="flex w-full cursor-pointer items-center gap-2.5 rounded-r4 border-0 bg-transparent px-2.5 py-1.5 text-left text-[12.5px] text-ink hover:bg-fill-uncontained-hover"
+      className="flex w-full cursor-pointer items-center gap-g5 rounded-r4 border-0 bg-transparent px-p5 py-p3 text-left text-footnote text-ink hover:bg-fill-uncontained-hover"
     >
       <Icon name={icon} size={14} color="var(--color-ink2)" />
       <span className="flex-1">{label}</span>

@@ -86,7 +86,7 @@ export function CustomMcpModal({
 
   return (
     <Modal open={open} title={tr('skills.customMcp.title')} onClose={close} width={640}>
-      <p className="mb-3 text-[12.5px] leading-[1.6] text-ink2">
+      <p className="mb-p6 text-footnote leading-relaxed text-ink2">
         {tr('skills.customMcp.pasteHint')}
       </p>
       <textarea
@@ -94,9 +94,9 @@ export function CustomMcpModal({
         onChange={(e) => setText(e.target.value)}
         rows={12}
         placeholder={PLACEHOLDER}
-        className={`${MODAL_INPUT} resize-none font-mono text-[12px] leading-[1.55]`}
+        className={`${MODAL_INPUT} resize-none font-mono text-code`}
       />
-      {error && <div className="mt-2 text-[12px] text-bad">{error}</div>}
+      {error && <div className="mt-g4 text-footnote text-bad">{error}</div>}
       <div className="mt-5 flex justify-end gap-2">
         <ModalActions
           onCancel={close}

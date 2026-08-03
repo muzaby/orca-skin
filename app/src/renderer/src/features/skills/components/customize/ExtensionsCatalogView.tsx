@@ -6,6 +6,7 @@ import { useCustomizeSkills } from '../../hooks/useCustomizeSkills'
 import { useMcpServers } from '../../hooks/useMcpServers'
 import { usePluginCatalog } from '../../hooks/usePluginCatalog'
 import { back, openDetail, selectTab, type CatalogSelection } from '../../lib/catalogSelection'
+import { toggleGroup, type CollapsedGroups } from '../../lib/catalogGroups'
 import { CustomizeRail } from './CustomizeRail'
 import { CustomizeList } from './CustomizeList'
 import { SkillDetail } from './SkillDetail'
@@ -22,6 +23,9 @@ export function ExtensionsCatalogView(): React.JSX.Element {
   const { tr } = useI18n()
   const navigate = useNavigate()
   const [selection, setSelection] = useState<CatalogSelection>({ tab: 'skills', selectedId: null })
+  // 그룹 접힘 — 키가 탭으로 네임스페이스돼 탭을 오가도 유지되고, 모달 언마운트 시 초기화된다
+  // (영속 키 계약을 만들지 않기 위해 의도적으로 메모리 전용, plan 0159 r5).
+  const [collapsed, setCollapsed] = useState<CollapsedGroups>({})
   const skills = useCustomizeSkills()
   const mcp = useMcpServers()
   const plugins = usePluginCatalog()
@@ -54,7 +58,7 @@ export function ExtensionsCatalogView(): React.JSX.Element {
         onSelect={(tab) => setSelection((state) => selectTab(state, tab))}
       />
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex flex-none items-center px-7 pb-4 pt-6">
+        <header className="flex flex-none items-center px-7 pb-p7 pt-6">
           {detail && (
             <Button
               iconOnly
@@ -64,7 +68,7 @@ export function ExtensionsCatalogView(): React.JSX.Element {
               aria-label={tr('skills.view.backAria', { section: title })}
             />
           )}
-          <h1 className="ml-2 font-serif text-[20px] font-semibold text-ink">{title}</h1>
+          <h1 className="ml-g4 font-serif text-heading text-ink">{title}</h1>
           {!detail && selection.tab !== 'plugins' && (
             <Button
               ref={addRef}
@@ -122,6 +126,8 @@ export function ExtensionsCatalogView(): React.JSX.Element {
             skills={skills.list}
             mcpServers={mcp.list}
             plugins={plugins.rows}
+            collapsed={collapsed}
+            onToggleGroup={(key) => setCollapsed((state) => toggleGroup(state, key))}
             onSelect={(id) => setSelection((state) => openDetail(state, id))}
           />
         )}

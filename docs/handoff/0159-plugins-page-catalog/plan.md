@@ -9,7 +9,7 @@
 | 일자 | 2026-08-03 |
 | 매핑 | PHASES 신규 행 (Phase 4) / PR 미정 |
 | 상태 | DRAFT → **READY** |
-| 개정 | **r4 (2026-08-03)** — 사용자 2차 구현 리뷰: 설정 modal과 동일한 패널/레일 디자인, 그룹별 독립 table, 공용 Button primary 추가 액션을 적용. / **r3 (2026-08-03)** — 사용자 구현 리뷰에 따라 라우트 페이지를 공용 `Modal` 기반 카탈로그로 전환하고, 추가 리소스 배선과 표 그룹을 복구. r2의 라우트 페이지 결정은 명시적으로 supersede. / **r2 (2026-08-03)** — "플러그인" 어휘 3중 의미 정합(§용어 레지스터 정합 신설, 결정 ⑥⑦). 초판이 인용한 `GLOSSARY.md §Plugin` 이 **실재하지 않음**을 확인해 정정하고, 표제어 신설을 산출물로 편입(AC15~17). 탭 구성·데이터 출처는 초판과 동일. |
+| 개정 | **r5 (2026-08-03)** — 사용자 3차 구현 리뷰: 디자인 토큰 정합(타이포 램프·표면 토큰), 표 재디자인, 그룹 간격, 그룹 접기. 0121 §후속제안 1 의 "램프가 실사용 스케일 밖" 판단이 **16px root 기준 오산**임을 실측 정정(실제 density root=13px → 램프 10.5/12/13/17px). / **r4 (2026-08-03)** — 사용자 2차 구현 리뷰: 설정 modal과 동일한 패널/레일 디자인, 그룹별 독립 table, 공용 Button primary 추가 액션을 적용. / **r3 (2026-08-03)** — 사용자 구현 리뷰에 따라 라우트 페이지를 공용 `Modal` 기반 카탈로그로 전환하고, 추가 리소스 배선과 표 그룹을 복구. r2의 라우트 페이지 결정은 명시적으로 supersede. / **r2 (2026-08-03)** — "플러그인" 어휘 3중 의미 정합(§용어 레지스터 정합 신설, 결정 ⑥⑦). 초판이 인용한 `GLOSSARY.md §Plugin` 이 **실재하지 않음**을 확인해 정정하고, 표제어 신설을 산출물로 편입(AC15~17). 탭 구성·데이터 출처는 초판과 동일. |
 
 ## 사용자 의도 / 요구 출처 (Intent & Provenance)
 
@@ -23,6 +23,135 @@
 | 명시 지적 ⑥ | "플러그인의 용어가 혼용되고 있는데, 이번 핸드오프에서 언급한 플러그인은 **uiux 에서 적합한 용어**이고, 코드에서 orca plugin 의 경우 **claude 플랫폼에서 사용되는 용어**이다." → 두 "플러그인" 은 *같은 개념의 다른 표기* 가 아니라 **다른 레지스터의 다른 개념**이다. | 라이브 세션 지적 (r2 `/handoff-plan` 인자) |
 | 명시 결정 ⑦ | 지적 ⑥ 을 받아 3번째 탭 정체성을 재질의한 결과 — **"플러그인 탭 유지 / 행 = 플러그인 패키지"**(초판 설계 그대로). 어휘 해소는 UI 재명명이 아니라 **레지스터 구분 + GLOSSARY 표제어 등록**으로 한다. | 세션 중 `AskUserQuestion` 응답 (r2) |
 | 추론 의도 | "참고하여"(②) = *복제* 가 아니라 **하위 구성(3탭 레일 + 목록→상세 1-depth 드릴인 + 테이블 목록)의 채택**. 결정 ③~⑤ 가 컨테이너·어휘·식별자를 명시적으로 갈랐으므로, 참조 브랜치에서 가져오는 것은 **레이아웃 구성뿐**이다. (추론) | 요구 ② 의 "참고" + 결정 ③④⑤ 의 조합 |
+
+## r5 사용자 구현 리뷰 — 디자인 토큰 정합 · 표 재디자인 · 그룹 간격 · 그룹 접기
+
+> 사용자 요구(라이브 세션, 2026-08-03): "codex 의 구현이 전체적으로 orca 의 디자인 룰을 준수하지
+> 않고 있다. 전체적으로 룰을 준수하고 **디자인 토큰**에 맞게 변경하도록. **표 디자인**도 다시 할 것.
+> **그룹간 간격**도 조정할 것. **그룹 접기** 지원할 것."
+>
+> 비기능(디자인 정합 리팩토링) + 소기능(접기) → **Claude 가 plan→impl→verify 직접 수행**
+> (`docs/handoff/AGENTS.md` §역할 분담 "구현 주체 분담 규칙").
+
+### r5 관문 0 — 요구 비판적 검토
+
+| # | 질문 | 판단 (이번 세션 실측 근거) |
+|---|---|---|
+| 1 | 요구가 진짜 문제를 겨냥하는가 | **타당 — 단, 사용자가 말한 것보다 문제가 구체적이다.** `text-[Npx]` 는 *density 를 무시한다*. 밀도는 루트 font-size 로 구현돼 있고(`shared/config/theme.ts::DENSITY_FONT` = compact 11.5 / normal 13 / comfortable 14.5, `TweakProvider.tsx:30` 이 `documentElement.style.fontSize` 에 적용) 토큰 램프는 전부 `rem` 이다. 즉 설정 → 일반 → **밀도 컨트롤이 이 표면에서만 조용히 무효**다. "디자인 룰 미준수" 의 실체는 취향이 아니라 **기능 결함**이다. |
+| 2 | 이미 충족된 것 아닌가 | 아니다. `customize/` 11파일에 arbitrary `text-[Npx]` **39곳/9종** 잔존(측정: `grep -ho 'text-\[[0-9.]*px\]' *.tsx \| sort \| uniq -c` → 12px×10 · 12.5px×8 · 11px×6 · 13px×4 · 11.5px×3 · 13.5px×3 · 20px×3 · 15px×1 · 22px×1). 램프 유틸(`text-caption/footnote/body/heading/code`) 사용 **0곳**. |
+| 3 | 더 작은 해법이 있는가 | 있고, 채택했다. 색 토큰 체계는 이미 견고하므로(0121 §A 결론, 이번 재확인: `customize/` 에 raw hex 0건) **신규 토큰을 만들지 않는다.** 기존 램프로의 리맵 + 오용 3건 교정만 한다. 레일 중복만 예외적으로 `shared/ui/Rail` 추출(아래 5번). |
+| 4 | 인용 자료가 요구를 부풀렸나 | **부풀린 것이 아니라 반대로 축소돼 있었다 — 선행 문서의 수치가 틀렸다.** 0121 §후속제안 1 은 "실질 UI 스케일(11~13px)이 현 램프(**12.9/14.8/16**) 밖 → **토큰 단계 신설 여부부터 사용자 결정 필요**" 라고 적어 전면 리맵을 사용자 결정 대기로 묶었다. 그 램프 값은 **16px root 로 환산한 것**이다. 실제 root 는 `DENSITY_FONT.normal = 13`px 이므로 램프는 **caption 10.5 / footnote 12 / code 11.7 / body 13 / heading 17px** 이고, `tokens.css:148-149` 주석("caption≈10.5 / footnote≈12 / body≈13 / heading≈17px")이 이를 명시하고 있다. **13px=body·12px=footnote 는 정확히 일치**한다 → 이 표면의 리맵에 신규 토큰도 사용자 결정도 필요 없다. 0121 의 유예 근거는 이 범위에서 성립하지 않는다. |
+| 5 | 기존 결정을 뒤집는가 | **r4 AC22 를 강화하는 방향으로 갱신한다.** AC22 는 "SettingsModal 과 **동일 클래스 계약** 재사용" 인데, 레일을 토큰화하면 두 복사본의 문자열이 갈라진다. → 레일을 `shared/ui/Rail.tsx` 로 추출해 **SettingsModal 과 CustomizeRail 이 같은 컴포넌트를 소비**하게 한다("동일 클래스" → "동일 소스"). r4 AC23(그룹별 독립 `<table>`)·AC24(공용 Button primary)는 **유지**하며 표 재디자인은 AC23 을 전제로 한다. |
+
+**미룬 항목의 유예 비용 (P16)**
+
+| 미루는 것 | 나중에 하면 더 비싼가 | 처리 |
+|---|---|---|
+| `shared/ui/Modal.tsx` 의 `MODAL_LABEL`/`MODAL_INPUT` px 리맵 | **아니다 — 비용 평탄.** 기계적 치환이고 소비자는 클래스 문자열만 받는다(공개 계약 아님). | 비범위. 앱 전역 모달에 파급되므로 별도 핸드오프. |
+| `customize/` 외 renderer 표면 px 리맵(잔여 ~266곳) | **아니다 — 비용 평탄.** | 비범위(0121 §후속제안 1 유지, 단 4번의 수치 정정을 반영). |
+| 그룹 접기 상태의 **영속화** | **지금 하면 오히려 비싸다 — 일방향 문.** 영속화하면 저장 키(`${tab}:${groupId}`)가 계약이 되고, `groupId` 가 스킬 `sourceId` 파생이라 source 개명 시 stale 키가 남는다. | **메모리 전용**으로 구현(모달 언마운트 시 리셋). 키가 프로세스 밖으로 나가지 않으므로 나중에 영속화해도 개명 비용 0. |
+| 램프에 없는 15px(레일 타이틀) | 신규 토큰 단계 신설은 **제품 시각 결정** → 사용자 몫(0121 §후속제안 1). | `shared/ui/Rail` 내부 **단일 지점**으로 격리하고 off-ramp 임을 주석에 명시. 잔존 1곳. |
+
+### r5 자료조사 (이번 세션 실측)
+
+| 발견 / 제약 | 레퍼런스 |
+|---|---|
+| 밀도 = 루트 font-size(11.5/13/14.5px). `rem` 기반 유틸만 밀도에 반응 | `shared/config/theme.ts:6-10`, `shared/theme/TweakProvider.tsx:30` |
+| 타입 램프 실측치(@13px root): caption 10.5 · footnote 12 · code 11.7(lh 1.55) · body 13 · heading 17(w600) | `styles/tokens.css:145-158` |
+| spacing 램프는 `p1`~`p8`(0.125~**1.25rem**)·`g1`~`g6`(0.125~0.75rem) — **1.25rem 초과 간격에는 토큰이 없다** | `styles/tokens.css:126-141` |
+| `customize/` arbitrary px **39곳/9종**(내역은 관문 0 #2). 램프 유틸 사용 0곳 | 전수 grep (`customize/*.tsx`) |
+| 표면 토큰 오용 3건: ① 표 행 hover 에 **버튼 채움 토큰** `fill-uncontained-hover` ② `PluginDetail` 카드가 `bg-panel` 위 `bg-panel`(모달 패널과 동색 → 카드가 안 읽힘) ③ `McpDetail` 설정 카드 동일 | `CustomizeList.tsx:42`, `PluginDetail.tsx:14,29`, `McpDetail.tsx:50`. 토큰 의도는 `tokens.css:14-16`("bordered cards read" = `bg2`), `tokens.css:62`(`t2` = hover surface) |
+| 한글 라벨에 `uppercase tracking-wide` 4곳 — Hangul 에 대소문자가 없어 `uppercase` 는 무효, `tracking-wide` 만 자간을 늘려 가독성을 떨어뜨린다 | `CustomizeList.tsx:28,34`, `PluginDetail.tsx:10,23` |
+| 그룹별 독립 `<table>`(r4 AC23)은 각 표가 **자기 콘텐츠로 열 폭을 계산**한다 → 그룹마다 열 경계가 어긋난다(현재 `table-fixed`·`colgroup` 없음) | `CustomizeList.tsx:33` |
+| 현재 그룹 간격 = `h2` 의 `mt-5`(1.25rem) 하나뿐. 표 아래 여백 0 → 다음 그룹 제목이 앞 표에 붙는다 | `CustomizeList.tsx:28` |
+| vitest `include: ['src/**/*.test.ts']` — **`.tsx` 는 기계 검증 불가**(0159 초판과 동일 제약) → 그룹 구성·접기 판정은 순수 `lib/*.ts` 로 내린다 | `app/vitest.config.ts:8` |
+| 그룹 라벨은 스킬=동적 `sourceLabel`, MCP/플러그인=i18n 키 → 순수 lib 이 `tr` 을 부르지 않도록 기존 판별 유니온 `UiMessage {key}\|{raw}` + `uiMessageText(tr,msg)` 재사용 | `shared/i18n/index.ts:53-57` |
+| 접기 토글 아이콘은 기존 `chevD`/`chevR` 재사용(신규 asset 0) | `shared/ui/Icon.tsx:83-84` |
+| 레일 블록이 `SettingsModal.tsx:61-84` 와 `CustomizeRail.tsx:13-38` 에 **문자열 단위로 중복**. 둘 다 `features/` 라 상호 import 불가 → 공통 상위는 `shared/ui/` 뿐 | 두 파일 + `app/eslint.config.mjs` boundaries(feature 교차 금지) |
+
+### r5 설계
+
+**1. 타이포 리맵 (램프 스냅)** — `customize/` 11파일 + 신규 `shared/ui/Rail.tsx`.
+
+| 현재 px | → 토큰 | @normal 델타 | 적용처 |
+|---|---|---|---|
+| `13px` | `text-body` | **0** | 레일 항목·빈 상태·업로드 힌트·프롬프트 |
+| `13.5px` | `text-body` | −0.5 | 상세 본문 산문 |
+| `12px` | `text-footnote` | **0** | 메타·에러·목록 |
+| `12.5px` | `text-footnote` | −0.5 | 표 본문·메뉴 행·상세 값 |
+| `11px` / `11.5px` | `text-caption` | −0.5 / −1 | 그룹 제목·`thead`·라벨 |
+| `12px`/`12.5px` 중 **`font-mono` 블록** | `text-code` | −0.3 / −0.8 | `<pre>`·JSON textarea (lh 1.55/1.7 → 토큰 lh 1.55 로 흡수) |
+| `20px` / `22px` | `text-heading` | **−3 / −5 (시각 변화)** | 상세·뷰 제목(serif). 램프의 유일한 heading 단계 |
+| `15px` | (잔존) | — | 레일 타이틀 — 램프에 단계 없음, `shared/ui/Rail` 단일 지점으로 격리 |
+
+산문 `leading-[1.6]`/`[1.65]`/`[1.7]` 은 램프 기본 lh(1.5)보다 넓힌 **의도적 override** 이므로 값만
+명명 스케일 `leading-relaxed`(1.625)로 바꾼다. `font-mono` 블록의 lh 는 `text-code`(1.55)가 흡수해 제거.
+
+**2. spacing 어휘 정합** — `p*`/`g*` 램프에 **정확히 대응하는 값만** 치환한다(전부 시각 델타 0):
+`px-3`→`px-p6` · `py-1.5`→`py-p3` · `gap-2.5`→`gap-g5` · `p-4`→`p-p7` · `mt-5`→`mt-p8` 등.
+**1.25rem 을 넘는 레이아웃 리듬**(`px-7` 거터, 그룹 간격)은 램프에 단계가 없으므로 base rem 스케일을
+유지한다 — 규칙: *컴포넌트 내부 여백 = `p*`/`g*` 토큰, 레이아웃 리듬 = base rem*.
+
+**3. 표면 토큰 오용 교정** — 표 행 hover `fill-uncontained-hover`→**`bg-t2`**(hover surface),
+`PluginDetail`·`McpDetail` 카드 `bg-panel`→**`bg-bg2`**(모달 패널 위에서 카드가 읽히게).
+한글 라벨의 `uppercase tracking-wide` 4곳 제거.
+
+**4. 표 재디자인** (r4 AC23 = 그룹별 독립 `<table>` 유지)
+
+- **열 정렬**: 각 그룹 표에 `table-fixed` + 탭별 공용 `<colgroup>`(46% / 27% / 27%) → 독립 표들의
+  열 경계가 그룹을 가로질러 일치한다. (현재는 그룹마다 어긋난다.)
+- **크롬 경량화**: 그룹을 감싼 `rounded-r4 border` 박스를 없애고 `thead` 하단 + 행 사이 hairline
+  (`border-b border-border`, 마지막 행 제거)만 남긴다. `thead` 는 `bg-bg2` 대신 투명 + `text-caption text-ink3`.
+- **a11y**: `<th scope="col">`, 행은 `tabIndex=0` + `aria-label`(행 제목) 유지, Enter/Space 활성.
+- **셀 여백**: `px-p6 py-p4`(헤더 `py-p3`)로 통일.
+
+**5. 그룹 간격** — 그룹 `<section>` 을 `flex flex-col gap-7`(1.75rem) 컨테이너에 넣는다.
+현재 유효 간격 1.25rem → **1.75rem**, 그리고 세로 리듬을 좌우 거터(`px-7`)와 같은 값으로 맞춘다.
+
+**6. 그룹 접기**
+
+- 그룹 제목이 `<button aria-expanded aria-controls>` 가 되고 `chevD`(열림)/`chevR`(닫힘) + 제목 +
+  행 수를 보여준다. 닫히면 `<table>` 을 언마운트한다.
+- 상태는 `ExtensionsCatalogView` 가 소유(`Record<string, boolean>`), 키 = `${tab}:${groupId}` →
+  **탭을 오가도 접힘이 유지**되고 모달을 닫으면(언마운트) 초기화된다. 영속화 없음(관문 0 표 참조).
+- 판정·구성 로직은 신규 순수 모듈 `features/skills/lib/catalogGroups.ts` 로 내린다(`.tsx` 기계 검증
+  불가 제약). 그룹 라벨은 `UiMessage` 유니온으로 반환해 lib 이 `tr` 에 의존하지 않는다.
+
+**7. 레일 단일화** — `shared/ui/Rail.tsx`(`Rail` + `RailItem`, 기존 클래스 그대로 이관)를 신설하고
+`CustomizeRail`·`SettingsModal` 이 모두 소비. r4 AC22 를 "동일 클래스" → **"동일 컴포넌트"** 로 승격.
+
+### r5 추가 인수 기준
+
+| # | 인수 기준 | 검증 수단 | 프로덕션 도달 경로 |
+|---|---|---|---|
+| 25 | `customize/` 11파일 + `shared/ui/Rail.tsx` 에 arbitrary `text-[Npx]` 가 **레일 타이틀 15px 1곳만** 남고(39→1), 나머지는 램프 유틸(`text-caption/footnote/body/code/heading`)로 표현된다. | `rg -o 'text-\[[0-9.]*px\]' app/src/renderer/src/features/skills/components/customize app/src/renderer/src/shared/ui/Rail.tsx \| wc -l` = **1** | 모든 카탈로그 화면 렌더 |
+| 26 | 밀도를 compact/comfortable 로 바꾸면 카탈로그 표·상세의 글자 크기가 **함께 변한다**(현재는 고정). | **사람 실기** — 설정(⚙) → 일반 → 밀도를 `조밀`/`넓게` 로 바꾼 뒤 사이드바 "플러그인" → 표·상세 글자 크기 변화 확인. 실행 경로는 전부 본 범위 안(모달·설정 둘 다 기존 기능). | `TweakProvider` → `documentElement.fontSize` → `rem` 램프 |
+| 27 | 표 행 hover 가 `bg-t2`(hover surface)로, `PluginDetail`·`McpDetail` 카드 배경이 `bg-bg2` 로 렌더되어 모달 패널(`bg-panel`) 위에서 카드 경계가 읽힌다. | `rg 'fill-uncontained-hover' CustomizeList.tsx` = 0 + `rg 'bg-bg2' PluginDetail.tsx McpDetail.tsx` ≥ 3 + 사람 실기(카드 대비) | `CustomizeList` 행 / `PluginDetail`·`McpDetail` 카드 |
+| 28 | 같은 탭의 모든 그룹 표가 **동일한 열 경계**를 갖는다(`table-fixed` + 공용 `colgroup`). | `CustomizeList.tsx` 정적 리뷰(`table-fixed`·`<colgroup>` 존재) + **사람 실기** — 스킬 탭에서 source 그룹이 2개 이상일 때 열 경계가 수직으로 일치하는지 확인 | `CustomizeList` → `CatalogGroupTable` |
+| 29 | 그룹 제목이 `aria-expanded` 를 가진 버튼이고, 클릭하면 해당 그룹의 표가 **언마운트**되며 chevron 이 `chevD`↔`chevR` 로 바뀐다. | `catalogGroups.test.ts::"토글은 열림→닫힘→열림 을 왕복한다"` + 사람 실기(클릭) | `ExtensionsCatalogView`(상태 소유) → `CustomizeList` → 그룹 헤더 버튼 |
+| 30 | 접힘 상태가 **탭 전환을 건너 유지**되고(키 = `${tab}:${groupId}`), 서로 다른 탭의 동명 그룹이 서로 간섭하지 않는다. | `catalogGroups.test.ts::"접힘 키는 탭으로 네임스페이스된다"` | `ExtensionsCatalogView` 의 `collapsed` state |
+| 31 | 그룹 구성(스킬=source / MCP=enabled / 플러그인=connected)이 순수 모듈에서 결정되고, 라벨은 `tr` 없이 `UiMessage` 로 반환된다 — 빈 그룹은 목록에 나타나지 않는다. | `catalogGroups.test.ts::"행이 없는 그룹은 제외된다"` · `::"스킬은 source 별로, 라벨은 raw 로 묶인다"` · `::"MCP/플러그인 라벨은 key 로 반환된다"` | `CustomizeList` 가 `catalogGroups` 를 호출해 렌더 |
+| 32 | 그룹 `<section>` 사이 세로 간격이 `1.75rem`(= 좌우 거터 `px-7`)이고 표 제목이 앞 표에 붙지 않는다. | `CustomizeList.tsx` 정적 리뷰(`gap-7` 컨테이너) + 사람 실기 | `CustomizeList` 그룹 컨테이너 |
+| 33 | `CustomizeRail` 과 `SettingsModal` 이 **같은 `shared/ui/Rail` 컴포넌트**를 소비한다(클래스 복제 0). r4 AC22 를 승격해 충족한다. | `rg 'from .*shared/ui/Rail' app/src/renderer/src \| wc -l` = **2** + typecheck | 사이드바 "플러그인" 모달 / 설정 모달 |
+| 34 | 게이트: `npm run lint`(error 0) · `npm run typecheck`(3분할 0) · `npm test` green(신규 `catalogGroups.test.ts` 포함). 레이어 경계 위반 0, 신규 의존성 0, **IPC·main 무변경**. | 게이트 명령 출력 | — |
+
+> **AC25~34 상호 점검**: AC25(px 제거)는 AC33(레일 단일화)이 남기는 15px 1곳을 *명시적으로 예외*로
+> 세어 충돌하지 않는다. AC28(공용 colgroup)은 AC23(그룹별 독립 table)을 **전제**로 하며 표를 합치지
+> 않는다. AC29(접힘 시 언마운트)와 AC28(열 정렬)은 열린 그룹들 사이에서만 비교되므로 무모순.
+> AC26·AC32 는 시각 항목이라 사람 실기이고, 두 실행 경로 모두 본 범위 안이다(비범위에 막히지 않음).
+
+### r5 범위 / 비범위
+
+- **범위**: `features/skills/components/customize/**`(11파일) · `features/skills/lib/catalogGroups.ts`(신설 + 테스트) · `shared/ui/Rail.tsx`(신설) · `features/settings/components/SettingsModal.tsx`(레일 소비처 전환만).
+- **비범위**: ① `shared/ui/Modal.tsx` 의 `MODAL_LABEL`/`MODAL_INPUT` px(앱 전역 파급) ② `customize/` 외 renderer px 리맵 ③ 신규 토큰 단계 신설(15px 등 — 제품 시각 결정, 사용자 몫) ④ 접힘 상태 영속화 ⑤ IPC·main·i18n 키 구조 변경(문구 추가만).
+
+### r5 리스크
+
+| 리스크 | 완화 / 결정 |
+|---|---|
+| `20px`/`22px` → `text-heading`(17px) 은 **눈에 보이는 축소** | 램프의 유일한 heading 단계이고 요구가 "토큰에 맞게" 다. AC26 과 함께 **사람 실기 대상**으로 명시. 되돌리려면 클래스 1개. |
+| `SettingsModal` 레일 전환이 설정 모달에 회귀를 낼 수 있음 | 클래스 문자열을 **그대로 이관**(값 변경은 항목 텍스트 `13px`→`text-body`= 델타 0, 서브항목 `12.5px`→`text-footnote`= −0.5px 뿐). 사람 실기에 설정 모달 포함. |
+| `.tsx` 기계 검증 불가라 시각 AC 가 사람에 의존 | 판정 가능한 부분(그룹 구성·접힘 토글·키 네임스페이스)을 순수 lib 으로 내려 AC29~31 을 기계화. 나머지는 실행 경로를 AC 에 명시. |
 
 ## r4 사용자 구현 리뷰 — 디자인·그룹 소유권 정정
 
@@ -472,6 +601,41 @@ pages/PluginsPage.tsx
 | 게이트 결과 | r4 lint 0 error(기존 warning 1) / typecheck 3분할 PASS / 전체 vitest 178파일·1512테스트 + scripts 28 PASS / 문서 grep PASS |
 | 블로커 / 역질문 | 코드 블로커 없음. r3 AC19 추가 플로우와 AC20 그룹 시각은 GUI 사람 실기 대기. OQ2 구현 상태 문구는 계획대로 미판단. |
 | 대상 커밋 | `f055b14` (r1), `7e58061` (r2/r3 보완), `7175e57` (r4 디자인 보완) |
+
+### r5 구현 보고 (Claude 직접 — 비기능 디자인 정합 + 소기능 접기)
+
+**설계 리뷰 (비판적)**
+
+- 동의: r5 설계의 핵심 판단(0121 §후속제안 1 의 램프 수치가 16px root 오산 → 실제 13px root 에서 13/12/10.5px 은 램프에 정확히 앉는다)이 구현으로 확인됐다. `text-[13px]`→`text-body`·`text-[12px]`→`text-footnote` 는 normal 밀도에서 시각 델타 0이면서 밀도 반응성만 얻는다.
+- 이견: `text-heading` 은 램프의 **유일한** heading 단계라 20px·22px 두 제목이 같은 17px 로 수렴한다 — 원래 있던 뷰 제목(20) ↔ 스킬 상세 제목(22) 의 위계 차이가 사라진다. 다만 그 위계는 우연한 것(같은 역할의 제목이 화면마다 다른 크기)에 가깝고, 요구가 "토큰에 맞게" 이므로 수렴을 택했다. 위계를 되살리려면 `--text-heading` 위에 단계 신설이 필요하고 그것은 사용자 결정(비범위 ③).
+
+**놓친 잠재 문제 + 대응 (선조치 후보고)**
+
+| # | 놓친 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 기존 행이 `role="button"` 을 `<tr>` 에 걸어 스크린리더가 행을 버튼으로 읽고 **셀↔헤더 연결을 잃었다** | ✅ 구현함 — `role` 제거, `tabIndex=0` + `aria-label`(행 제목) 유지. 표 semantics 를 보존하면서 키보드 활성은 그대로 | ARIA: `role=button` 이 `row` 를 덮어써 `<td>` 의 암시적 `cell` 역할이 무효화됨. 설계 §4 의 a11y 항목 구체화 |
+| 2 | `<th>` 에 `scope` 가 없어 다열 표에서 헤더-셀 연결이 추론에 맡겨져 있었다 | ✅ 구현함 — `scope="col"` 부여 | 설계 §4 a11y |
+| 3 | 그룹 구성이 `CustomizeList.tsx` 안에 인라인이라 `.tsx` 검증 불가 영역에 갇혀 있었다(0159 초판이 세운 "판정 로직은 `lib/` 로" 원칙과 불일치) | ✅ 구현함 — `lib/catalogGroups.ts` 신설 + 8케이스 테스트 | 0159 초판 §레이어 배치 원칙, `vitest.config.ts:8` |
+| 4 | `McpDetail` 의 설정 요약 카드도 `bg-panel` 위 `bg-panel` 이었다(설계는 `PluginDetail` 만 지목) | ✅ 구현함 — 같은 `bg-bg2` 교정 적용 | 동일 결함의 전수 적용, 설계 변경 아님 |
+| 5 | `RailItem` 의 `nested` 변형이 없으면 `SettingsModal` 의 provider 서브항목이 이관 불가(추출이 반쪽) | ✅ 구현함 — `nested` prop 으로 들여쓰기·톤 변형 흡수 | AC33(소비처 2)을 실제로 충족시키기 위해 필요 |
+
+**게이트 결과 (r5)**
+
+| 항목 | 결과 |
+|---|---|
+| `npm run lint` | **0 error** / warning 1 (`useTranscriptVirtualizer` — 0102 베이스라인, 무관) |
+| `npm run typecheck` | 3분할 **전부 PASS** (node · web · test) |
+| `npm test` | **1518 tests passed** / 178 파일 pass. 실패 1파일 = `chat-turn.continuity.test.ts` "Electron failed to install correctly" — `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` 로 설치한 **환경 제약**(app/AGENTS.md §제약 환경 게이트 가이드의 알려진 서명), 본 변경과 무관(renderer 전용 diff) |
+| `node --test scripts/*.test.mjs` | **28/28 pass** |
+| 신규 `catalogGroups.test.ts` | **8/8 pass** (skills/lib 전체 16/16) |
+| AC25 `rg 'text-\[[0-9.]*px\]' customize/ Rail.tsx \| wc -l` | **1** (레일 타이틀 15px — 설계상 유일 예외) |
+| AC27 `rg 'fill-uncontained-hover' CustomizeList.tsx` | **0** / `bg-bg2` = PluginDetail 2 · McpDetail 2 |
+| AC33 Rail 소비처 | **2** (`CustomizeRail` · `SettingsModal`) |
+| 신규 의존성 / IPC / main | **0 / 무변경 / 무변경** (diff 는 renderer + handoff 문서뿐) |
+
+**사람 실기 대기 (기계 검증 불가)** — AC26(밀도 3단 전환 시 카탈로그 글자 크기 동반 변화) · AC28(그룹 간 열 경계 수직 정렬) · AC32(그룹 간격 1.75rem) · `text-heading` 수렴에 따른 제목 축소(20/22→17px) 시각 확인 · **설정 모달 레일 회귀 확인**(Rail 추출 영향 범위).
+
+**r5 변경 파일** — 신규 3(`shared/ui/Rail.tsx` · `features/skills/lib/catalogGroups.ts` + `catalogGroups.test.ts`) · 수정 11(`customize/` 10 = `CustomizeList`·`CustomizeRail`·`ExtensionsCatalogView`·`PluginDetail`·`McpDetail`·`SkillDetail`·`SkillAddMenu`·`SkillAuthorModal`·`SkillUploadModal`·`CustomMcpModal`, + `features/settings/components/SettingsModal.tsx`). **main·preload·IPC·i18n 카탈로그 diff 0줄.**
 
 ---
 

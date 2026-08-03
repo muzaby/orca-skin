@@ -10,8 +10,8 @@ import { formatDateMedium, useI18n, type UiLocale } from '../../../../shared/i18
 function Meta({ label, value }: { label: string; value: string }): React.JSX.Element {
   return (
     <div className="min-w-0">
-      <div className="mb-0.5 text-[11.5px] text-ink3">{label}</div>
-      <div className="truncate text-[12.5px] text-ink2">{value}</div>
+      <div className="mb-g1 text-caption text-ink3">{label}</div>
+      <div className="truncate text-footnote text-ink2">{value}</div>
     </div>
   )
 }
@@ -40,7 +40,7 @@ function MenuRow({
       role="menuitem"
       disabled={disabled}
       onClick={onClick}
-      className={`flex w-full cursor-pointer items-center gap-2.5 rounded-r4 border-0 bg-transparent px-2.5 py-1.5 text-left text-[12.5px] hover:bg-fill-uncontained-hover disabled:cursor-not-allowed disabled:opacity-45 ${danger ? 'text-rust' : 'text-ink'}`}
+      className={`flex w-full cursor-pointer items-center gap-g5 rounded-r4 border-0 bg-transparent px-p5 py-p3 text-left text-footnote hover:bg-fill-uncontained-hover disabled:cursor-not-allowed disabled:opacity-45 ${danger ? 'text-rust' : 'text-ink'}`}
     >
       <Icon name={icon} size={14} color={danger ? 'var(--color-rust)' : 'var(--color-ink2)'} />
       <span>{label}</span>
@@ -84,7 +84,7 @@ export function SkillDetail({
   return (
     <div className="min-w-0 flex-1 overflow-y-auto px-7 py-6">
       <div className="flex items-center gap-3">
-        <h2 className="m-0 font-serif text-[22px] font-semibold text-ink">{skill.name}</h2>
+        <h2 className="m-0 font-serif text-heading text-ink">{skill.name}</h2>
         <div className="ml-auto flex items-center gap-2">
           {skill.canToggle && (
             <Toggle
@@ -157,8 +157,8 @@ export function SkillDetail({
       </div>
 
       <div className="mt-4">
-        <div className="mb-1 text-[11.5px] text-ink3">{tr('common.description')}</div>
-        <p className="m-0 text-[13.5px] leading-[1.65] text-ink2">
+        <div className="mb-g2 text-caption text-ink3">{tr('common.description')}</div>
+        <p className="m-0 text-body leading-relaxed text-ink2">
           {skill.description || tr('common.noDescription')}
         </p>
       </div>
@@ -184,13 +184,13 @@ export function SkillDetail({
         </div>
         <div className="pr-14">
           {plain ? (
-            <pre className="m-0 whitespace-pre-wrap break-words font-mono text-[12.5px] leading-[1.7] text-ink2">
+            <pre className="m-0 whitespace-pre-wrap break-words font-mono text-code text-ink2">
               {body}
             </pre>
           ) : (
             <Markdown
               source={body}
-              className="min-w-0 break-words text-[13.5px] leading-[1.7] text-ink2 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+              className="min-w-0 break-words text-body leading-relaxed text-ink2 [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
             />
           )}
         </div>
@@ -202,10 +202,10 @@ export function SkillDetail({
         onClose={() => setConfirmOpen(false)}
         width={560}
       >
-        <p className="text-[13px] leading-[1.65] text-ink2">
+        <p className="text-body leading-relaxed text-ink2">
           {tr('skills.detail.removeConfirmBody')}
         </p>
-        <pre className="mt-3 overflow-auto rounded-r4 bg-bg2 p-3 font-mono text-[12px] text-ink2">
+        <pre className="mt-p6 overflow-auto rounded-r4 bg-bg2 p-p6 font-mono text-code text-ink2">
           {skill.skillDir}
         </pre>
         <div className="mt-5 flex justify-end gap-2">
