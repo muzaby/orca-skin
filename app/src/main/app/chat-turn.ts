@@ -907,7 +907,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
           hasBacklog: runtime.hasUnframedBacklog,
           haveUnconfirmed
         })
-        const prepareContinuation = () =>
+        const prepareContinuation: () => ReturnType<typeof prepareAutomaticContinuation> = () =>
           prepareAutomaticContinuation({
             runtime,
             providerKey: activeTurn.providerKey,
