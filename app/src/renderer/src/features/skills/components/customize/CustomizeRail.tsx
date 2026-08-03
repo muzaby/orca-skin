@@ -11,7 +11,10 @@ export function CustomizeRail({
 }): React.JSX.Element {
   const { tr } = useI18n()
   return (
-    <nav className="flex w-[200px] flex-none flex-col gap-0.5 border-r border-border px-2.5 py-4">
+    <nav className="flex w-[210px] flex-none flex-col gap-1 border-r border-border bg-sidebar p-3">
+      <div className="px-2 pb-2 pt-1 font-serif text-[15px] font-semibold text-ink">
+        {tr('skills.pageTitle')}
+      </div>
       {CATALOG_TABS.map((it) => {
         const active = tab === it.tab
         return (
@@ -20,9 +23,9 @@ export function CustomizeRail({
             type="button"
             onClick={() => onSelect(it.tab)}
             aria-current={active ? 'page' : undefined}
-            className={`flex w-full cursor-pointer items-center gap-2.5 rounded-r4 border-0 px-2.5 py-2 text-left text-[13px] transition-colors ${
+            className={`flex w-full cursor-pointer items-center gap-2.5 rounded-r4 border-0 px-2.5 py-1.5 text-left text-[13px] transition-colors ${
               active
-                ? 'bg-t3 font-medium text-t8'
+                ? 'bg-selected-soft font-medium text-selected'
                 : 'bg-transparent text-t7 hover:bg-fill-uncontained-hover hover:text-t9'
             }`}
           >
