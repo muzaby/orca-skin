@@ -45,6 +45,7 @@ import { handle, handlePlain } from '../infra/ipc/handle'
 import type { ApprovalCoordinator } from '../features/approvals/coordinator'
 import type { HistoryWriter } from '../features/history/writer'
 import { SessionRuntime } from '../features/sessions/session-runtime'
+import { decideRespawn } from '../features/sessions/respawn-policy'
 import type { RuntimeSessionAdapter } from '../contracts/ports'
 import { recoverSessionHistory } from '../features/chat/recovery'
 import type { InterruptReceipt, SteerFlushBatch, TurnRequest } from '../adapters/turn'
@@ -571,15 +572,27 @@ export function registerChatHandlers(deps: ChatDeps): void {
     // 0128: 같은 provider 안의 모델 변경(sonnet→haiku)도 respawn 한다 — 라이브 setModel(/model)은
     // 이미 스폰된 서브프로세스의 실제 생성 모델을 바꾸지 못한다(실측: /model 후에도 생성이 스폰
     // 모델에 과금). 콜드 spawn(resume)이 options.model 을 지키므로, 모델이 스폰 시점과 다르면 내린다.
+    const extensions = ctx.extensions.build(
+      parsed.data.sessionId,
+      parsed.data.sessionId ? null : boundProjectId
+    )
+
     if (
       parsed.data.sessionId &&
-      runtime.channelAlive &&
-      (crossesProviderBoundary(sessionMeta?.provider_key, resolved.providerKey) ||
-        resolved.model !== runtime.spawnedModel ||
-        providerSettingsChangedSinceSpawn(
+      decideRespawn({
+        channelAlive: runtime.channelAlive,
+        providerBoundaryChanged: crossesProviderBoundary(
+          sessionMeta?.provider_key,
+          resolved.providerKey
+        ),
+        modelChanged: resolved.model !== runtime.spawnedModel,
+        providerSettingsChanged: providerSettingsChangedSinceSpawn(
           runtime.spawnedProviderSettings,
           resolved.providerSettings
-        ))
+        ),
+        spawnedRuntimeToolsRevision: runtime.spawnedRuntimeToolsRevision,
+        runtimeToolsRevision: extensions.runtimeTools?.revision
+      })
     ) {
       runtime.teardownChannel()
     }
@@ -649,11 +662,6 @@ export function registerChatHandlers(deps: ChatDeps): void {
     // 백엔드 중립 확장 리소스(지침+정적 정책 append · MCP · skills · hooks)를 빌더가 조립.
     // resume 면 projectId 는 세션 바인딩에서 조회되므로 null 을 넘긴다. fork/handoff 새 세션은
     // 출발 세션에서 계승한 boundProjectId 를 쓴다.
-    const extensions = ctx.extensions.build(
-      parsed.data.sessionId,
-      parsed.data.sessionId ? null : boundProjectId
-    )
-
     const wc = event.sender
     // 렌더러(owner) 소멸 시 진행 턴 정리 — idle "완전 멈춤"으로 잃는 자가치유(무응답 abort)를
     // 타이머가 아닌 이벤트로 대체한다(사람 판단엔 시간 제한 두지 않음 유지). 바깥 finally 에서 해제.
@@ -977,12 +985,19 @@ export function registerChatHandlers(deps: ChatDeps): void {
           providerKey: activeTurn.providerKey,
           modelFamily: null
         })
+        const continuationExtensions = ctx.extensions.build(sessionId, null)
         if (
-          runtime.channelAlive &&
-          providerSettingsChangedSinceSpawn(
-            runtime.spawnedProviderSettings,
-            contResolved.providerSettings
-          )
+          decideRespawn({
+            channelAlive: runtime.channelAlive,
+            providerBoundaryChanged: false,
+            modelChanged: contResolved.model !== runtime.spawnedModel,
+            providerSettingsChanged: providerSettingsChangedSinceSpawn(
+              runtime.spawnedProviderSettings,
+              contResolved.providerSettings
+            ),
+            spawnedRuntimeToolsRevision: runtime.spawnedRuntimeToolsRevision,
+            runtimeToolsRevision: continuationExtensions.runtimeTools?.revision
+          })
         ) {
           runtime.teardownChannel()
         }
@@ -1014,6 +1029,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
           signal: contTurn.controller.signal,
           attachmentTexts: batch.attachmentTexts ?? [],
           attachmentImages: batch.attachmentImages ?? [],
+          extensions: continuationExtensions,
           // 0126: respawn 대비 신선한 settings 로 교체 — 해석 실패(undefined)면 원본 유지(보수적).
           ...(contResolved.providerSettings
             ? { providerSettings: contResolved.providerSettings }

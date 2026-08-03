@@ -1,7 +1,7 @@
 import { createSdkMcpServer, type Options } from '@anthropic-ai/claude-agent-sdk'
 import type { RuntimeToolServer, RuntimeToolSnapshot } from './runtime-tools'
 
-function adaptServer(server: RuntimeToolServer, serverId: string) {
+function adaptServer(server: RuntimeToolServer, serverId: string): ReturnType<typeof createSdkMcpServer> {
   const implementations = new Map(server.implementations.map((implementation) => [implementation.name, implementation]))
   const tools = server.descriptor.tools.map((declaration) => {
     const implementation = implementations.get(declaration.name)

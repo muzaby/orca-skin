@@ -124,6 +124,7 @@ export class SessionRuntime implements ManagedRuntime {
   // (예: sonnet→haiku) chat-turn 이 respawn 을 판정한다. 라이브 setModel(/model)은 이미 스폰된
   // 서브프로세스의 실제 생성 모델을 바꾸지 못하므로(실측), 모델 변경도 콜드 spawn 이 필요하다.
   private spawnedModelValue: string | undefined
+  private spawnedRuntimeToolsRevisionValue: number | undefined
 
   constructor(
     private readonly adapter: RuntimeSessionAdapter,
@@ -162,6 +163,10 @@ export class SessionRuntime implements ManagedRuntime {
   // (같은 provider 내) 모델 변경 respawn 을 판정한다. channelAlive 인 동안만 유효.
   get spawnedModel(): string | undefined {
     return this.spawnedModelValue
+  }
+
+  get spawnedRuntimeToolsRevision(): number | undefined {
+    return this.spawnedRuntimeToolsRevisionValue
   }
 
   get events(): AsyncIterable<NormalizedEvent> {
@@ -268,6 +273,7 @@ export class SessionRuntime implements ManagedRuntime {
     this.live = spawned
     this.spawnedSettings = req.providerSettings
     this.spawnedModelValue = req.model
+    this.spawnedRuntimeToolsRevisionValue = req.extensions.runtimeTools?.revision
     if (spawned.pushTurn && this.closePolicy === 'persistent') {
       const frame = this.openFrame()
       this.startPump(spawned)
@@ -394,6 +400,7 @@ export class SessionRuntime implements ManagedRuntime {
     this.live = null
     this.spawnedSettings = undefined
     this.spawnedModelValue = undefined
+    this.spawnedRuntimeToolsRevisionValue = undefined
     getLogger()
       .child('engine')
       .info('engine.channel.teardown', { provider: this.adapter.id, reason: 'stream-ended' })
@@ -441,6 +448,7 @@ export class SessionRuntime implements ManagedRuntime {
     this.live = null
     this.spawnedSettings = undefined
     this.spawnedModelValue = undefined
+    this.spawnedRuntimeToolsRevisionValue = undefined
   }
 
   // 어댑터에 넘기는 요청 — 신호는 채널 신호로 치환(턴 신호와 분리), 콜백은 delegate 래퍼로 치환.

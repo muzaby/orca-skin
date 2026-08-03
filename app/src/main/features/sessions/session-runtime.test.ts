@@ -6,6 +6,7 @@ import type { AbortCause } from '../../contracts/session-state'
 import type { GovernedLiveTurn, RuntimeSessionAdapter } from '../../contracts/ports'
 import type { LiveTurn } from '../../adapters/types'
 import { SessionRuntime } from './session-runtime'
+import { decideRespawn } from './respawn-policy'
 
 function req(): TurnRequest {
   return {
@@ -762,5 +763,85 @@ describe('SessionRuntime mode-invariance (인수 2·6c)', () => {
     // OneShot 은 terminal 관측 시 close(소비자 무관), persistent 는 close 하지 않는다.
     expect(oneshot.closeLog.length).toBeGreaterThan(0)
     expect(persistent.closeLog).toEqual([])
+  })
+})
+
+describe('SessionRuntime runtime tool revision (0158)', () => {
+  it('records the spawn revision and clears it for forced and stream-end teardown', async () => {
+    const first = channelLive()
+    const second = channelLive()
+    let spawns = 0
+    const runtime = new SessionRuntime({
+      id: 'claude',
+      complete: async () => '',
+      sendMessage: () => (spawns++ === 0 ? first.liveTurn : second.liveTurn),
+      classifyError: (err) => makeClassifiedError('stream_error', String(err), { retryable: true })
+    })
+    const withRevision = (revision: number): TurnRequest => ({
+      ...req(),
+      extensions: { ...req().extensions, runtimeTools: { revision, servers: new Map() } }
+    })
+    const recorded = runtime as unknown as { spawnedRuntimeToolsRevision?: number }
+
+    const firstAttempt = collect(runtime.send(withRevision(3)))
+    first.emit({ type: 'telemetry', sessionId: 's1' })
+    await firstAttempt
+    expect(recorded.spawnedRuntimeToolsRevision).toBe(3)
+
+    runtime.teardownChannel()
+    expect(recorded.spawnedRuntimeToolsRevision).toBeUndefined()
+
+    const secondAttempt = collect(runtime.send(withRevision(4)))
+    second.liveTurn.close()
+    await secondAttempt
+    expect(recorded.spawnedRuntimeToolsRevision).toBeUndefined()
+  })
+
+  it('uses the fresh automatic-continuation snapshot for both stale detection and respawn request', async () => {
+    const first = channelLive()
+    const second = channelLive()
+    const sent: TurnRequest[] = []
+    let spawns = 0
+    const runtime = new SessionRuntime({
+      id: 'claude',
+      complete: async () => '',
+      sendMessage: (request) => {
+        sent.push(request)
+        return spawns++ === 0 ? first.liveTurn : second.liveTurn
+      },
+      classifyError: (err) => makeClassifiedError('stream_error', String(err), { retryable: true })
+    })
+    const firstRequest: TurnRequest = {
+      ...req(),
+      extensions: { ...req().extensions, runtimeTools: { revision: 3, servers: new Map() } }
+    }
+    const continuationRequest: TurnRequest = {
+      ...req(),
+      text: 'automatic continuation',
+      extensions: { ...req().extensions, runtimeTools: { revision: 4, servers: new Map() } }
+    }
+
+    const firstAttempt = collect(runtime.send(firstRequest))
+    first.emit({ type: 'telemetry', sessionId: 's1' })
+    await firstAttempt
+
+    expect(
+      decideRespawn({
+        channelAlive: runtime.channelAlive,
+        providerBoundaryChanged: false,
+        modelChanged: false,
+        providerSettingsChanged: false,
+        spawnedRuntimeToolsRevision: runtime.spawnedRuntimeToolsRevision,
+        runtimeToolsRevision: continuationRequest.extensions.runtimeTools?.revision
+      })
+    ).toBe(true)
+
+    runtime.teardownChannel()
+    const continuationAttempt = collect(runtime.send(continuationRequest))
+    second.emit({ type: 'telemetry', sessionId: 's1' })
+    await continuationAttempt
+
+    expect(sent[1]?.extensions.runtimeTools).toBe(continuationRequest.extensions.runtimeTools)
+    expect(sent[1]?.extensions.runtimeTools?.revision).toBe(4)
   })
 })
