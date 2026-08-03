@@ -54,7 +54,8 @@ import {
   type AuthStepInfo,
   type AuthTarget,
   type AuthRefreshOutcome,
-  type AuthLogoutOutcome
+  type AuthLogoutOutcome,
+  type PluginConnectorInfo
 } from '../shared/ipc'
 import { LOG_IPC_PAYLOAD_MAX_BYTES, type LogInput, type SerializedError } from '../shared/logging'
 
@@ -277,6 +278,13 @@ const orca = {
       ipcRenderer.on(CHANNELS.authStateEvent, listener)
       return () => ipcRenderer.off(CHANNELS.authStateEvent, listener)
     }
+  },
+  plugins: {
+    list: (): Promise<PluginConnectorInfo[]> => ipcRenderer.invoke(CHANNELS.pluginList),
+    connect: (connectorId: string, bindingId: string): Promise<void> =>
+      ipcRenderer.invoke(CHANNELS.pluginConnectionConnect, { connectorId, bindingId }),
+    disconnect: (connectorId: string): Promise<AuthLogoutOutcome> =>
+      ipcRenderer.invoke(CHANNELS.pluginConnectionDisconnect, { connectorId })
   },
   // renderer 로그 인제스트 (0123) — 제한된 4메서드만. ipcRenderer 원본·임의 채널은 미노출.
   log: {

@@ -55,6 +55,7 @@ import { registerMcpHandlers } from './handlers/mcp'
 import { registerEngineHandlers } from './handlers/engine'
 import { registerMiscHandlers } from './handlers/misc'
 import { registerAuthHandlers } from './handlers/auth'
+import { registerPluginHandlers } from './handlers/plugins'
 import { registerBootHandlers } from './handlers/boot'
 import { registerUpdateHandlers } from './handlers/update'
 import { registerLogHandlers } from './handlers/log'
@@ -268,6 +269,7 @@ export class Bootstrap {
     const secretStore = new SecretStore()
     const auth = this.createAuthPlatform(secretStore)
     registerAuthHandlers(auth.broker)
+    registerPluginHandlers(auth.pluginHost)
     // MCP `${BINDING:<id>}` 해석을 broker 로 잇는다 (0157). 이 배선이 없으면 binding 참조는
     // 미해결로 남아 해당 MCP 서버가 드롭된다(fail-closed).
     this.mcp.attachBindings(auth.broker)

@@ -251,6 +251,39 @@ export const AuthLogoutRequestSchema = z.object({
   cascade: z.boolean().default(false)
 })
 
+// plugin connector IPC는 동적 endpoint/alias/connection ID 선택을 전혀 받지 않는다.
+// connector ID는 manifest와 같은 kebab-lowercase 규칙을 shared 경계에서 다시 강제한다.
+const PluginConnectorIdSchema = z
+  .string()
+  .min(1)
+  .max(128)
+  .regex(/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/)
+const PluginBindingIdSchema = z.string().min(1).max(256)
+
+export const PluginListRequestSchema = z.undefined()
+
+export const PluginConnectionConnectRequestSchema = z
+  .object({
+    connectorId: PluginConnectorIdSchema,
+    bindingId: PluginBindingIdSchema
+  })
+  .strict()
+
+export const PluginConnectionDisconnectRequestSchema = z
+  .object({ connectorId: PluginConnectorIdSchema })
+  .strict()
+
+export const PluginConnectorInfoSchema = z
+  .object({
+    connectorId: PluginConnectorIdSchema,
+    label: z.string().min(1).max(200),
+    origin: z.url().max(2048),
+    pluginId: PluginConnectorIdSchema,
+    acceptedAuthProviders: z.array(PluginConnectorIdSchema),
+    connected: z.boolean()
+  })
+  .strict()
+
 // Project (Phase 3+) — 시스템 프롬프트 길이 8000 은 Claude Agent SDK 가
 // systemPrompt.append 에 허용하는 토큰 한도 대비 여유.
 export const CreateProjectSchema = z.object({
@@ -608,6 +641,9 @@ export type {
   AuthStepInfo,
   AuthRefreshOutcome,
   AuthLogoutOutcome,
+  PluginConnectorInfo,
+  PluginConnectionConnectRequest,
+  PluginConnectionDisconnectRequest,
   AuthPlatformState,
   SkillInfo,
   AuthorSkillRequest,

@@ -13,6 +13,9 @@
 
 ## 규칙
 
+- 정적 connector는 fixed descriptor(origin 포함) 하나와 활성 연결 하나를 뜻한다. 동적 URL, alias, endpoint 입력을 만들지 않는다.
+- connector별 runtime tool contribution은 connector ID를 명시하고 같은 factory로 구현한다. 서비스/부서 fixture 리터럴은 `__fixtures__/` 밖 core에 두지 않는다.
+
 - **빌드 타임 코드다.** 런타임 동적 로딩(임의 경로 `require()`/`import()`)은 금지 — 근거는
   `contracts/auth-plugin.ts` 헤더. "재빌드 없이 서비스 추가" 는 **MCP** 가 담당한다.
 - **manifest 를 반드시 통과한다.** built-in 이라고 우회 등록로를 쓰지 않는다 — `manifest.ts` 의
