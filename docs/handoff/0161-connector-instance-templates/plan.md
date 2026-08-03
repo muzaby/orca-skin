@@ -420,7 +420,7 @@ Confluence 템플릿은 0160 의 factory 를 그대로 감싼다 — `sharedPack
 | 신규 의존성 | **0개** |
 | 사람 실기 대기 | AC21·22 — 사내 Confluence DC 서버 필요. 추가 버튼 → Confluence → 주소·PAT → 재시작 후 목록 유지 확인 |
 | 블로커 / 역질문 | 없음 |
-| 대상 커밋 | (아래 커밋 hash) |
+| 대상 커밋 | `9b161e9` |
 
 ---
 
