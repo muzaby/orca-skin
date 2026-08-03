@@ -1,16 +1,31 @@
 import {
   CHANNELS,
+  ConnectorTemplateInfoSchema,
   PluginConnectionConnectRequestSchema,
   PluginConnectionDisconnectRequestSchema,
   PluginConnectorInfoSchema,
+  PluginInstanceCreateRequestSchema,
+  PluginInstanceDeleteRequestSchema,
   PluginListRequestSchema,
+  PluginTemplateListRequestSchema,
   type AuthLogoutOutcome,
+  type ConnectorTemplateInfoDto,
   type PluginConnectorInfo
 } from '../../../shared/protocol'
 import { handle } from '../../infra/ipc/handle'
 import type { PluginHost } from '../../features/auth-platform/plugin-host'
+import type { ConnectorInstanceLifecycle } from '../../features/connectors/instance-lifecycle'
+import type { ConnectorTemplateRegistry } from '../../features/connectors/templates'
 
-export function registerPluginHandlers(pluginHost: PluginHost): void {
+export interface PluginHandlerDeps {
+  pluginHost: PluginHost
+  templates: ConnectorTemplateRegistry
+  instances: ConnectorInstanceLifecycle
+}
+
+export function registerPluginHandlers(deps: PluginHandlerDeps): void {
+  const { pluginHost, templates, instances } = deps
+
   handle(CHANNELS.pluginList, PluginListRequestSchema, 'reject', (): PluginConnectorInfo[] => {
     return parsePluginListResponse(pluginHost.list())
   })
@@ -26,10 +41,57 @@ export function registerPluginHandlers(pluginHost: PluginHost): void {
     'reject',
     (request): Promise<AuthLogoutOutcome> => pluginHost.disconnect(request)
   )
+
+  // ── 인스턴스 CRUD (0161) ──────────────────────────────────────────────────
+  //
+  // **수정 채널이 없다.** connector ID 가 주소에서 파생되므로 주소 수정은 도구 이름·승인 키·
+  // 다운로드 경로의 이동이다 — 삭제 후 재생성이 그 사실을 정직하게 드러낸다.
+  //
+  // 생성/삭제가 **갱신된 목록을 반환한다** — renderer 가 곧바로 다시 list 를 부르지 않아도
+  // 되고, "만들었는데 목록에 없다" 는 중간 상태가 생기지 않는다.
+  handle(
+    CHANNELS.pluginTemplateList,
+    PluginTemplateListRequestSchema,
+    'reject',
+    (): ConnectorTemplateInfoDto[] => parseTemplateListResponse(templates.describe())
+  )
+  handle(
+    CHANNELS.pluginInstanceCreate,
+    PluginInstanceCreateRequestSchema,
+    'reject',
+    async (request): Promise<PluginConnectorInfo[]> => {
+      const result = await instances.create(request)
+      // 실패 사유를 메시지에 실어 올린다 — renderer 가 이 문자열을 분류해 안내를 고른다.
+      if (!result.ok) {
+        throw new Error(
+          `${result.reason}${result.detail !== undefined ? `: ${result.detail}` : ''}`
+        )
+      }
+      return parsePluginListResponse(pluginHost.list())
+    }
+  )
+  handle(
+    CHANNELS.pluginInstanceDelete,
+    PluginInstanceDeleteRequestSchema,
+    'reject',
+    async (request): Promise<PluginConnectorInfo[]> => {
+      const result = await instances.remove(request.connectorId)
+      if (!result.ok) {
+        throw new Error(
+          `${result.reason}${result.detail !== undefined ? `: ${result.detail}` : ''}`
+        )
+      }
+      return parsePluginListResponse(pluginHost.list())
+    }
+  )
 }
 
 // PluginHost의 타입 선언과 별개로 IPC 직전에는 runtime DTO를 다시 좁힌다. 이 경계가
 // 깨지면 credential/binding 등 main 전용 필드가 renderer에 노출되지 않도록 fail-closed 한다.
 export function parsePluginListResponse(value: unknown): PluginConnectorInfo[] {
   return PluginConnectorInfoSchema.array().parse(value)
+}
+
+export function parseTemplateListResponse(value: unknown): ConnectorTemplateInfoDto[] {
+  return ConnectorTemplateInfoSchema.array().parse(value)
 }

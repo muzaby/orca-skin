@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-03 |
 | 매핑 | PHASES 신규 행 (Phase 3++) / PR #307 (0160 과 같은 브랜치) |
-| 상태 | DRAFT → READY |
+| 상태 | IMPL_DONE (Claude 직접 구현 — 환경에 Codex 부재, 사용자 지시) |
 | 선행 | **0160** (IMPL_DONE `c0d1523`) — 전송 계약 4건 + Confluence 모듈. 이 핸드오프는 그 위에 **인스턴스 수명주기 계층만** 얹는다 |
 
 ## 사용자 의도 / 요구 출처 (Intent & Provenance)
@@ -359,28 +359,68 @@ Confluence 템플릿은 0160 의 factory 를 그대로 감싼다 — `sharedPack
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- 동의 / 그대로 진행: …
-- 이견 / 우려: …
+- **동의 / 그대로 진행**
+  - 사용자 보고("플러그인 클릭 시 추가 버튼이 없다")가 설계의 추론과 정확히 일치했다 —
+    `ExtensionsCatalogView.tsx` 가 `selection.tab !== 'plugins'` 로 추가 버튼을 **명시적으로
+    숨기고** 있었다. 조건 하나를 지우고 탭별 분기를 넣는 것이 UI 변경의 전부였다.
+  - "패키지를 둘로 나눈다"(shared=provider 1회 / instance=connector+tools)가 결정적이었다.
+    합쳤으면 두 번째 서버 추가가 registry 의 중복 provider id 거부에 걸려 통째로 실패했을 것이다.
+  - broker 의 origin·redirect 강제가 `descriptor.baseUrl` 을 읽는다는 설계 관찰이 맞았다 —
+    인스턴스 descriptor 에 사용자 origin 이 들어가면서 **0160 의 정책 코드를 한 줄도 안 고쳤다**.
+
+- **이견 / 우려**
+  1. **§신규 모듈 표가 `ConnectorTemplate` 을 `features/connectors/templates.ts` 에 두게 적었는데
+     그대로 하면 lint error 다.** Confluence 구현은 `features/auth-platform/modules/` 에 있어
+     `auth-platform → connectors` **feature 교차 import** 가 된다. 저장소의 1번 해소책대로
+     계약을 `contracts/connector-template.ts` 로 승격했다(레지스트리 클래스만 features 에 남김).
+     설계가 §신규 모듈에서 "구조적 포트" 를 registry·host 에만 적용하고 **템플릿 계약 자체의
+     방향은 검토하지 않은** 누락이다.
+  2. **AC 표에 "생성/삭제가 갱신된 목록을 반환한다" 가 없다.** 구현에서는 반환하도록 했다 —
+     안 그러면 renderer 가 create 직후 다시 list 를 불러야 하고 그 사이 "만들었는데 목록에 없는"
+     중간 상태가 보인다. AC16(DTO) 이 형상만 고정하고 반환 시점을 다루지 않았다.
+  3. **AC19 의 "단계 전이" 가 템플릿 1개인 경우를 다루지 않는다.** 선택지가 하나뿐인 선택
+     화면은 클릭만 늘리므로 건너뛰도록 구현하고 테스트를 추가했다(`initialStep`).
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 구현함 / ⚠️ 보고만·**결정 필요** | … |
+| 1 | **`ConnectorTemplate` 계약을 features 에 두면 feature 교차 import** — Confluence 구현(auth-platform)이 레지스트리(connectors)를 import 하게 된다 | ✅ 계약을 `contracts/connector-template.ts` 로 승격. 레지스트리 클래스만 `features/connectors` 에 남기고 타입은 re-export | `src/main/AGENTS.md` §해소책 1 · `npm run lint` boundaries |
+| 2 | **`Settings` 는 `z.infer` 가 아니라 손으로 쓴 인터페이스**(`shared/ipc.ts:1160`) — 스키마에만 키를 넣으면 타입에 안 잡힌다 | ✅ 스키마와 인터페이스 양쪽에 `connectorInstances` 추가 | `tsc` 가 `Property 'connectorInstances' does not exist on type 'Settings'` 로 잡음 |
+| 3 | **인스턴스 등록 실패 시 저장소에 유령 항목이 남는다** — 재시작마다 같은 실패를 반복한다 | ✅ 등록 실패면 `store.remove` 로 되돌린다 | `instance-lifecycle.test.ts::"등록 실패 시 저장을 되돌린다"` |
+| 4 | **`/display` 를 컨텍스트 경로로 오인하면 모든 요청이 404 다.** 사용자는 `https://wiki.corp/display/ENG/Page` 를 붙여넣는다 | ✅ `splitPastedUrl` 이 Confluence 의 뷰 경로 6종(`display`·`pages`·`spaces`·`wiki`·`rest`·`x`)을 제안에서 제외. 자동 확정하지 않고 **제안**만 한다 | `connectorInstance.test.ts::"잘 알려진 뷰 경로는 컨텍스트 경로로 제안하지 않는다"` |
+| 5 | **빈 컨텍스트 경로를 키로 보내면 요청이 통째로 거부된다**(스키마가 빈 문자열을 거부) | ✅ `toCreateRequest` 가 빈 값이면 **키 자체를 생략**한다 | `connectorInstance.test.ts::"빈 컨텍스트 경로는 키 자체를 보내지 않는다"` |
+| 6 | **DTO 에 `source` 를 추가하면 기존 테스트 픽스처 4곳이 깨진다**(strict 스키마) | ✅ 픽스처 4곳 갱신. 깨진 것 자체가 DTO 경계가 fail-closed 로 동작한다는 증거다 | `protocol.plugins.test.ts` · `handlers/plugins.test.ts` · `plugin-id-ssot.test.ts` · `connectorConnect.test.ts` |
+| 7 | **템플릿 i18n 키를 main 이 선언하는데 renderer 카탈로그에 없으면 키 문자열이 그대로 버튼에 뜬다** | ✅ `templateLabel` 이 미해결 키를 감지해 `templateId` 로 낮춘다 | `ConnectorInstanceModal.tsx` — i18next 는 미등록 키에 키 자체를 반환 |
+| 8 | **인스턴스 복원을 `validateCrossReferences` 뒤에 두면 인스턴스 connector 의 provider 참조가 검사되지 않는다** | ✅ 복원을 cross-reference 패스 **앞**에 배치 | `bootstrap.ts` — 두 경로가 같은 검증 패스를 탄다 |
+| 9 | **`PluginHost` 가 인스턴스 여부를 모르면 `source` 를 채울 수 없다** | ✅ `InstanceSourceLookup` 구조적 포트를 optional 로 추가. 미주입이면 `static` 으로 접힌다(fail-closed — UI 가 삭제 버튼을 안 그린다) | `plugin-host.ts` · `main/AGENTS.md` 해소책 2 |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] …
+- [x] `instance-id`(파생 ID, 11 케이스) → `instance-store`(CRUD·중복·깨진 항목, 15) →
+      `templates`(계약 + 레지스트리) → `instance-lifecycle`(순서·복원, 12) RED→GREEN
+- [x] `AuthRegistry.unregister` + 재등록 허용 (4 케이스)
+- [x] `confluenceTemplate` — shared/instance 패키지 분리, 정적 `createConfluencePackage` 존치
+- [x] 설정 키 `connectorInstances`(스키마 + `Settings` 인터페이스) + 부팅 복원 배선
+- [x] IPC 3채널 + preload + renderer api + DTO `source` (82→85)
+- [x] `connectorInstance` lib(17 케이스) → `ConnectorInstanceModal` → **추가 버튼 plugins 탭 노출**
+      → 생성 후 인증 모달 연결 → 인스턴스 삭제 버튼
+- [x] ko/en i18n 19키씩 · `IPC_CONTRACT.md` §2.13-d · `modules/AGENTS.md` · `confluence/AGENTS.md`
+      · `GLOSSARY.md`(Connector 인스턴스 표제어)
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` |
-| 게이트 결과 | … |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | 신규 8 (`contracts/connector-template.ts` · `features/connectors/{instance-id,instance-store,instance-lifecycle,templates}.ts` + 테스트 3 · renderer `connectorInstance.ts`+테스트 · `ConnectorInstanceModal.tsx`) + 수정 18 |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` · `node --test scripts/*.test.mjs` |
+| 게이트 결과 | lint **0 error**(warning 1 = 0102 베이스라인) · typecheck **3/3** · vitest **1725/1725 pass** · scripts **28/28** |
+| 알려진 환경 실패 | `app/chat-turn.continuity.test.ts` 1파일 collection 실패 — electron 바이너리 egress 차단(코드 무관, `app/AGENTS.md` 베이스라인) |
+| IPC | 82 → **85** (`templateList`·`instanceCreate`·`instanceDelete`). 주소 **수정 채널 없음**(의도) |
+| 신규 의존성 | **0개** |
+| 사람 실기 대기 | AC21·22 — 사내 Confluence DC 서버 필요. 추가 버튼 → Confluence → 주소·PAT → 재시작 후 목록 유지 확인 |
+| 블로커 / 역질문 | 없음 |
+| 대상 커밋 | (아래 커밋 hash) |
 
 ---
 

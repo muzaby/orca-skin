@@ -112,6 +112,29 @@ export const en: typeof ko = {
       disconnectedPlugins: 'Disconnected plugin packages'
     },
     view: { selectItem: 'Select an item.', backAria: 'Back to {{section}} list' },
+    templates: {
+      confluence: 'Confluence (Data Center)'
+    },
+    instance: {
+      title: 'Add a server',
+      pickTemplate: 'Which service do you want to add?',
+      noTemplate: 'No services are available to add.',
+      label: 'Display name',
+      labelPlaceholder: 'e.g. Team wiki',
+      baseUrl: 'Server address',
+      baseUrlHint: 'The address cannot be changed later. Delete and re-add to change it.',
+      apiBasePath: 'Context path (optional)',
+      apiBasePathHint: 'Only for deployments served under a path. e.g. /confluence',
+      create: 'Add',
+      delete: 'Delete',
+      errTemplate: 'Pick a service to add.',
+      errLabel: 'Enter a display name.',
+      errBaseUrl: 'The address must have no path. e.g. https://wiki.example.com',
+      errBasePath: 'The context path must start with `/`.',
+      errExists: 'A server with this address already exists.',
+      errRegister: 'Could not register the server.',
+      errUnknown: 'Could not add the server.'
+    },
     connect: {
       title: 'Connect {{name}}',
       server: 'Server address',

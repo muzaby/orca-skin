@@ -66,6 +66,23 @@ export class AuthRegistry {
     return []
   }
 
+  // 패키지 단위 제거 (0161) — 사용자가 만든 connector 인스턴스를 지울 때 쓴다.
+  //
+  // 등록이 all-or-nothing 이듯 제거도 **4곳 일괄**이다(manifest·provider·connector·runtime tool).
+  // 하나라도 남으면 "목록에는 없는데 도구는 살아 있는" 상태가 된다. 다른 패키지의 기여는
+  // `pluginId` 로 걸러 보존한다 — 인스턴스 제거가 템플릿 공용 provider 를 지우면 안 된다.
+  //
+  // 제거 후 같은 pluginId 를 다시 등록할 수 있다(중복 거부에 걸리지 않는다) — 삭제 후
+  // 같은 주소로 재생성하는 흐름이 성립하려면 필요하다.
+  unregister(pluginId: string): boolean {
+    if (!this.manifests.has(pluginId)) return false
+    this.manifests.delete(pluginId)
+    removeByPluginId(this.providers, pluginId)
+    removeByPluginId(this.connectors, pluginId)
+    removeByPluginId(this.runtimeTools, pluginId)
+    return true
+  }
+
   private validatePackage(
     manifest: PluginManifest,
     input: RegisterPackageInput
@@ -330,6 +347,17 @@ function sortObjectKeys(value: unknown): unknown {
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([key, item]) => [key, sortObjectKeys(item)])
   )
+}
+
+// descriptor.pluginId 가 일치하는 기여만 제거한다. `manifest.id === descriptor.pluginId` 는
+// 등록 단계에서 이미 강제되므로 이 필터가 곧 "그 패키지의 기여" 다.
+function removeByPluginId<T extends { descriptor: { pluginId: string } }>(
+  map: Map<string, T>,
+  pluginId: string
+): void {
+  for (const [id, entry] of map) {
+    if (entry.descriptor.pluginId === pluginId) map.delete(id)
+  }
 }
 
 function firstDuplicate(values: readonly string[]): string | null {

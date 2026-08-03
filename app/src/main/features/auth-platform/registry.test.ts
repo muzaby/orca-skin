@@ -415,6 +415,71 @@ describe('AuthRegistry 등록 위생', () => {
     expect(registry.getConnector('connector-a')?.descriptor.presentations).toBeUndefined()
   })
 
+  // 0161 — 사용자가 만든 connector 인스턴스를 지우는 경로. 등록이 all-or-nothing 이듯
+  // 제거도 4곳 일괄이어야 "목록에는 없는데 도구는 살아 있는" 상태가 안 생긴다.
+  it('패키지 기여를 전부 제거한다', () => {
+    const registry = new AuthRegistry()
+    expect(
+      registry.register({
+        manifest: pluginManifest('pkg', [connectorDeclaration()], [runtimeToolDeclaration()]),
+        connectors: [connector('connector-a')],
+        runtimeTools: [runtimeTool('server-a')]
+      })
+    ).toEqual([])
+
+    expect(registry.unregister('pkg')).toBe(true)
+    expect(registry.getConnector('connector-a')).toBeUndefined()
+    expect(registry.listConnectors()).toEqual([])
+    expect(registry.listRuntimeTools()).toEqual([])
+    expect(registry.listRuntimeToolsForConnector('connector-a')).toEqual([])
+  })
+
+  it('다른 패키지 기여를 남긴다', () => {
+    // 인스턴스 제거가 템플릿 공용 provider 를 지우면 나머지 인스턴스가 전부 죽는다.
+    const registry = new AuthRegistry()
+    expect(
+      registry.register({
+        manifest: manifest('shared', ['auth-a']),
+        providers: [provider('auth-a', { pluginId: 'shared' })]
+      })
+    ).toEqual([])
+    expect(
+      registry.register({
+        manifest: pluginManifest('inst-1', [connectorDeclaration('connector-a')], []),
+        connectors: [connector('connector-a', { pluginId: 'inst-1' })]
+      })
+    ).toEqual([])
+    expect(
+      registry.register({
+        manifest: pluginManifest('inst-2', [connectorDeclaration('connector-b')], []),
+        connectors: [connector('connector-b', { pluginId: 'inst-2' })]
+      })
+    ).toEqual([])
+
+    expect(registry.unregister('inst-1')).toBe(true)
+    expect(registry.getConnector('connector-a')).toBeUndefined()
+    // 공용 provider 와 다른 인스턴스는 그대로다.
+    expect(registry.getProvider('auth-a')).toBeDefined()
+    expect(registry.getConnector('connector-b')).toBeDefined()
+  })
+
+  it('제거한 pluginId 를 재등록할 수 있다', () => {
+    // 삭제 후 같은 주소로 다시 만드는 흐름이 성립하려면 필요하다.
+    const registry = new AuthRegistry()
+    const pkg = {
+      manifest: pluginManifest('pkg', [connectorDeclaration()], []),
+      connectors: [connector('connector-a')]
+    }
+    expect(registry.register(pkg)).toEqual([])
+    registry.unregister('pkg')
+    expect(registry.register(pkg)).toEqual([])
+    expect(registry.getConnector('connector-a')).toBeDefined()
+  })
+
+  it('없는 pluginId 제거는 false 를 준다', () => {
+    expect(new AuthRegistry().unregister('nope')).toBe(false)
+  })
+
   it('runtime tool connector 교차 참조와 중복을 등록 단계에서 검증한다', () => {
     const missingConnector = new AuthRegistry().register({
       manifest: pluginManifest('pkg', [connectorDeclaration()], [runtimeToolDeclaration()]),

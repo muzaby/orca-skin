@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import type { PluginConnectorInfo } from '../../../../../../shared/ipc'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '../../../../shared/ui/Button'
 import { useI18n } from '../../../../shared/i18n'
@@ -16,6 +17,8 @@ import { SkillAddMenu } from './SkillAddMenu'
 import { SkillAuthorModal } from './SkillAuthorModal'
 import { SkillUploadModal } from './SkillUploadModal'
 import { CustomMcpModal } from './CustomMcpModal'
+import { ConnectorInstanceModal } from './ConnectorInstanceModal'
+import { ConnectorConnectModal } from './ConnectorConnectModal'
 
 const skillKey = (sourceId: string, name: string): string => `${sourceId}/${name}`
 
@@ -33,6 +36,9 @@ export function ExtensionsCatalogView(): React.JSX.Element {
   const [authorOpen, setAuthorOpen] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
   const [mcpModalOpen, setMcpModalOpen] = useState(false)
+  // 0161 — 서버 추가 → 만들어진 connector 로 곧바로 인증 모달을 잇는다.
+  const [instanceModalOpen, setInstanceModalOpen] = useState(false)
+  const [connecting, setConnecting] = useState<PluginConnectorInfo | null>(null)
   const addRef = useRef<HTMLButtonElement>(null)
   const selectedSkill = skills.list.find(
     (item) => skillKey(item.sourceId, item.name) === selection.selectedId
@@ -76,7 +82,9 @@ export function ExtensionsCatalogView(): React.JSX.Element {
           ) : (
             <h1 className="m-0 text-heading text-ink">{title}</h1>
           )}
-          {!detail && selection.tab !== 'plugins' && (
+          {/* 0161 — plugins 탭에도 추가 버튼을 둔다(이전에는 이 탭에서만 숨겨져 있었다).
+              탭마다 여는 것이 다르다: skills=메뉴, mcp=커스텀 MCP, plugins=서버 추가. */}
+          {!detail && (
             <Button
               ref={addRef}
               className="ml-auto"
@@ -84,9 +92,11 @@ export function ExtensionsCatalogView(): React.JSX.Element {
               size="small"
               dropdown={selection.tab === 'skills'}
               expanded={selection.tab === 'skills' ? menuOpen : undefined}
-              onClick={() =>
-                selection.tab === 'skills' ? setMenuOpen((value) => !value) : setMcpModalOpen(true)
-              }
+              onClick={() => {
+                if (selection.tab === 'skills') setMenuOpen((value) => !value)
+                else if (selection.tab === 'mcp') setMcpModalOpen(true)
+                else setInstanceModalOpen(true)
+              }}
             >
               {tr('common.add')}
             </Button>
@@ -140,6 +150,28 @@ export function ExtensionsCatalogView(): React.JSX.Element {
           />
         )}
       </div>
+      <ConnectorInstanceModal
+        open={instanceModalOpen}
+        onClose={() => setInstanceModalOpen(false)}
+        onCreated={(connector) => {
+          plugins.refresh()
+          // 서버를 만들었으면 곧바로 자격증명을 받는다 — 사용자 요구의 "url 및 인증 정보"가
+          // 한 흐름이다. 인증을 취소해도 서버는 남는다.
+          setConnecting(connector)
+        }}
+      />
+      {connecting !== null && (
+        <ConnectorConnectModal
+          open
+          connector={connecting}
+          providers={plugins.rows.flatMap((row) => row.providers)}
+          onClose={() => setConnecting(null)}
+          onConnected={() => {
+            setConnecting(null)
+            plugins.refresh()
+          }}
+        />
+      )}
       <SkillAddMenu
         open={menuOpen}
         anchorRef={addRef}

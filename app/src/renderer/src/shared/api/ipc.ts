@@ -53,6 +53,8 @@ import type {
   AuthTarget,
   AuthRefreshOutcome,
   AuthLogoutOutcome,
+  ConnectorTemplateInfoDto,
+  PluginInstanceCreateRequest,
   PluginConnectorInfo
 } from '../../../../shared/ipc'
 
@@ -222,7 +224,13 @@ export const pluginApi = {
   connect: (connectorId: string, bindingId: string): Promise<void> =>
     window.orca.plugins.connect(connectorId, bindingId),
   disconnect: (connectorId: string): Promise<AuthLogoutOutcome> =>
-    window.orca.plugins.disconnect(connectorId)
+    window.orca.plugins.disconnect(connectorId),
+  // 0161 — 서버 추가/삭제. 생성·삭제는 갱신된 목록을 그대로 돌려준다.
+  templates: (): Promise<ConnectorTemplateInfoDto[]> => window.orca.plugins.templates(),
+  createInstance: (request: PluginInstanceCreateRequest): Promise<PluginConnectorInfo[]> =>
+    window.orca.plugins.createInstance(request),
+  deleteInstance: (connectorId: string): Promise<PluginConnectorInfo[]> =>
+    window.orca.plugins.deleteInstance(connectorId)
 }
 
 // 앱 로그인 target 상수 — renderer 여러 곳이 같은 값을 만들지 않도록 한 곳에 둔다.
