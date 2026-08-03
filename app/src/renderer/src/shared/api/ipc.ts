@@ -52,7 +52,8 @@ import type {
   AuthStepInfo,
   AuthTarget,
   AuthRefreshOutcome,
-  AuthLogoutOutcome
+  AuthLogoutOutcome,
+  PluginConnectorInfo
 } from '../../../../shared/ipc'
 
 // renderer 의 모든 IPC 호출 진입점. window.orca.* 의 얇은 typed 패스-스루로,
@@ -213,6 +214,10 @@ export const authApi = {
     window.orca.auth.logout(bindingId, cascade),
   onState: (handler: (state: AuthPlatformState) => void): (() => void) =>
     window.orca.auth.onState(handler)
+}
+
+export const pluginApi = {
+  list: (): Promise<PluginConnectorInfo[]> => window.orca.plugins.list()
 }
 
 // 앱 로그인 target 상수 — renderer 여러 곳이 같은 값을 만들지 않도록 한 곳에 둔다.

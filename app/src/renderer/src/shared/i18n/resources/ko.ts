@@ -52,8 +52,8 @@ export const ko = {
     projectsBreadcrumb: '프로젝트',
     engine: '03 엔진 & 모델',
     engineBreadcrumb: '설정 · 엔진 & 모델',
-    skills: '04 Skills / MCP',
-    skillsBreadcrumb: '설정 · Skills & MCP',
+    plugins: '04 플러그인',
+    pluginsBreadcrumb: '설정 · 플러그인',
     captures: '05 캡처 히스토리',
     capturesBreadcrumb: '캡처 히스토리'
   },
@@ -82,25 +82,35 @@ export const ko = {
     body: '준비 중입니다. 캡처 RAW 보관, 채널별 메트릭, ColorChecker / SFR / ΔE 자동 분석, Claude의 분석 코멘트는 다음 단계에서 제공됩니다.'
   },
   skills: {
-    listTitle: '스킬',
-    rail: { skills: '스킬', mcp: 'MCP' },
-    landing: {
-      title: '맞춤설정',
-      subtitle: '스킬과 MCP는 Orca가 사용자와 함께 작업하는 방식을 결정합니다.',
-      mcpCardTitle: 'MCP 연결',
-      mcpCardDesc: 'Orca가 이미 사용 중인 도구를 읽고 쓸 수 있도록 허용하세요.',
-      skillCardTitle: '새 스킬 만들기',
-      skillCardDesc: 'Orca에게 프로세스, 팀 규범, 전문 지식을 가르치세요.'
-    },
+    pageTitle: '플러그인',
+    rail: { skills: '스킬', mcp: 'MCP', plugins: '플러그인' },
     list: {
-      addAria: '추가',
-      groupOrca: 'Orca 스킬',
-      groupClaude: 'CLAUDE 스킬',
-      off: '꺼짐',
-      activeMcp: '활성 MCP',
-      inactiveMcp: '비활성 MCP'
+      addAria: '추가'
     },
-    view: { selectItem: '항목을 선택하세요.' },
+    table: {
+      skill: '스킬',
+      mcp: 'MCP 서버',
+      plugin: '플러그인 패키지',
+      lastUpdated: '마지막 업데이트',
+      author: '작성자',
+      status: '상태',
+      transport: '전송 방식',
+      user: '사용자',
+      providers: '인증 제공자',
+      connectors: '커넥터',
+      connected: '연결됨',
+      noSkills: '등록된 스킬이 없습니다.',
+      noMcp: '등록된 MCP 서버가 없습니다.',
+      noPlugins: '등록된 플러그인 패키지가 없습니다.'
+    },
+    view: { selectItem: '항목을 선택하세요.', backAria: '{{section}} 목록으로 돌아가기' },
+    pluginDetail: {
+      providers: '인증 제공자',
+      connectors: '커넥터',
+      origin: '출처',
+      connectedLabel: '연결됨',
+      disconnectedLabel: '연결되지 않음'
+    },
     detail: {
       toggleAria: '{{name}} 활성화',
       tryInChat: '채팅에서 사용해보기',
@@ -664,7 +674,7 @@ export const ko = {
       newChat: '새 대화',
       projects: '프로젝트',
       engine: '엔진 & 모델',
-      skills: 'Skills & MCP'
+      plugins: '플러그인'
     },
     recents: '최근 대화',
     pinned: '고정됨',

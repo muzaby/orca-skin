@@ -53,8 +53,8 @@ export const en: typeof ko = {
     projectsBreadcrumb: 'Projects',
     engine: '03 Engine & Models',
     engineBreadcrumb: 'Settings · Engine & Models',
-    skills: '04 Skills / MCP',
-    skillsBreadcrumb: 'Settings · Skills & MCP',
+    plugins: '04 Plugins',
+    pluginsBreadcrumb: 'Settings · Plugins',
     captures: '05 Capture History',
     capturesBreadcrumb: 'Capture History'
   },
@@ -84,25 +84,35 @@ export const en: typeof ko = {
     body: 'Coming soon. Capture RAW retention, per-channel metrics, automated ColorChecker / SFR / \u0394E analysis, and Claude analysis comments arrive in a later phase.'
   },
   skills: {
-    listTitle: 'Skills',
-    rail: { skills: 'Skills', mcp: 'MCP' },
-    landing: {
-      title: 'Customize',
-      subtitle: 'Skills and MCP shape how Orca works with you.',
-      mcpCardTitle: 'Connect MCP',
-      mcpCardDesc: 'Let Orca read and write with the tools you already use.',
-      skillCardTitle: 'Create a new skill',
-      skillCardDesc: 'Teach Orca your processes, team norms, and expertise.'
-    },
+    pageTitle: 'Plugins',
+    rail: { skills: 'Skills', mcp: 'MCP', plugins: 'Plugins' },
     list: {
-      addAria: 'Add',
-      groupOrca: 'Orca skills',
-      groupClaude: 'Claude skills',
-      off: 'Off',
-      activeMcp: 'Active MCP',
-      inactiveMcp: 'Inactive MCP'
+      addAria: 'Add'
     },
-    view: { selectItem: 'Select an item.' },
+    table: {
+      skill: 'Skill',
+      mcp: 'MCP server',
+      plugin: 'Plugin package',
+      lastUpdated: 'Last updated',
+      author: 'Author',
+      status: 'Status',
+      transport: 'Transport',
+      user: 'User',
+      providers: 'Auth providers',
+      connectors: 'Connectors',
+      connected: 'Connected',
+      noSkills: 'No registered skills.',
+      noMcp: 'No registered MCP servers.',
+      noPlugins: 'No registered plugin packages.'
+    },
+    view: { selectItem: 'Select an item.', backAria: 'Back to {{section}} list' },
+    pluginDetail: {
+      providers: 'Auth providers',
+      connectors: 'Connectors',
+      origin: 'Origin',
+      connectedLabel: 'Connected',
+      disconnectedLabel: 'Disconnected'
+    },
     detail: {
       toggleAria: 'Enable {{name}}',
       tryInChat: 'Try in chat',
@@ -669,7 +679,7 @@ export const en: typeof ko = {
       newChat: 'New chat',
       projects: 'Projects',
       engine: 'Engine & Models',
-      skills: 'Skills & MCP'
+      plugins: 'Plugins'
     },
     recents: 'Recents',
     pinned: 'Pinned',

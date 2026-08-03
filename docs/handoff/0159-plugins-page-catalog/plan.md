@@ -414,28 +414,33 @@ pages/PluginsPage.tsx
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- 동의 / 그대로 진행: …
-- 이견 / 우려: …
+- 동의 / 그대로 진행: 라우트 페이지 유지, 3탭 레일, 목록↔상세 1-depth, 실제 plugin provider/connector 집계, 기본 빈 상태를 계획대로 구현했다.
+- 이견 / 우려: 기본 빌드에서 플러그인 패키지가 0건이라 비어 있지 않은 실제 렌더 경로는 순수 집계 테스트로만 검증된다. 계획의 사람 실기 2건은 비대화형 환경에서 미실행으로 남긴다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 구현함 / ⚠️ 보고만·**결정 필요** | … |
+| 1 | 탭별 데이터 로딩 완료 시점이 달라 목록이 잠시 비어 보일 수 있음 | ✅ 세 훅의 loading을 합쳐 모든 초기 요청이 끝날 때까지 공통 로딩 상태를 표시 | 파생 UX의 로딩 분리 요구 |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] …
+- [x] `/plugins` 라우트·`/skills` replace 리다이렉트·Sidebar 개명
+- [x] 스킬/MCP/플러그인 3탭 테이블과 1-depth 상세
+- [x] plugin provider/connector 합집합 집계 및 IPC facade/hook
+- [x] 순수 판정 모듈 3종과 신규 테스트 5파일
+- [x] ko/en i18n 및 GLOSSARY/프론트엔드/IPC 문서 정합
+- [x] lint·typecheck·test 게이트
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` |
-| 게이트 결과 | lint … / typecheck … / test … |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | … |
+| 변경 파일 | renderer 25파일(신규 테스트 5 포함) · 문서 7파일 · handoff 메타 2파일 |
+| 실행 명령 | `npm run lint` / `npm run typecheck` / `npm test` / AC13·AC15~17 `rg`·`head` |
+| 게이트 결과 | lint 0 error(기존 warning 1) / typecheck 3분할 PASS / vitest 177파일·1512테스트 + scripts 28 PASS / 문서 grep PASS |
+| 블로커 / 역질문 | 코드 블로커 없음. AC8 후반부·AC11은 GUI 사람 실기 대기. OQ2 구현 상태 문구는 계획대로 미판단. |
+| 대상 커밋 | `f055b14` |
 
 ---
 
