@@ -28,7 +28,10 @@ function fakeTemplate(id = 'confluence'): ConnectorTemplate {
     id,
     i18nKey: `skills.templates.${id}`,
     fields: [{ name: 'baseUrl', required: true, i18nKey: 'x' }],
-    sharedPackage: () => ({ manifest: { id, kind: 'shared' }, providers: [{ p: 1 }] }),
+    sharedPackage: () => ({
+      manifest: { id, kind: 'shared' },
+      providers: [{ descriptor: { id: `${id}-pat` } }]
+    }),
     instancePackage: (config) => ({
       manifest: { id: config.connectorId, kind: 'instance' },
       connectors: [{ c: config.connectorId }],
@@ -52,6 +55,9 @@ function harness(
     registerErrors?: () => Array<{ message: string }>
     // 정적 등록이 이미 올린 pluginId (0164).
     alreadyRegistered?: readonly string[]
+    // 정적 등록이 이미 올린 provider id (0164 verify D5). 기본값 = 공용 패키지의 provider 전부.
+    registeredProviders?: readonly string[]
+    logger?: (message: string, meta?: Record<string, unknown>) => void
   } = {}
 ): Harness {
   const registered: unknown[] = []
@@ -61,6 +67,10 @@ function harness(
 
   const registry: InstanceRegistryPort = {
     hasPlugin: (pluginId) => (opts.alreadyRegistered ?? []).includes(pluginId),
+    getProvider: (id) =>
+      opts.registeredProviders === undefined || opts.registeredProviders.includes(id)
+        ? { descriptor: { id } }
+        : undefined,
     register: (input) => {
       const errors = opts.registerErrors?.() ?? []
       if (errors.length === 0) registered.push(input.manifest)
@@ -84,7 +94,8 @@ function harness(
     store,
     templates: new ConnectorTemplateRegistry([fakeTemplate()]),
     registry,
-    host
+    host,
+    ...(opts.logger !== undefined ? { logger: opts.logger } : {})
   })
   return { lifecycle, store, registered, unregistered, disconnected, order }
 }
@@ -228,6 +239,34 @@ describe('ConnectorInstanceLifecycle — 복원', () => {
     expect(h.registered).toEqual([{ id: 'confluence', kind: 'shared' }])
   })
 
+  // 0164 verify D5 — 건너뛸 때 "같은 id = 같은 내용" 을 가정하면, 정적 패키지가 provider 를
+  // 덜 올린 경우 사용자가 연결을 누르는 시점에야 드러난다. 부팅에서 확인하고 남긴다.
+  it('건너뛴 공용 패키지의 provider 가 실제로 없으면 남긴다', () => {
+    const logger = vi.fn()
+    harness({
+      alreadyRegistered: ['confluence'],
+      registeredProviders: [],
+      logger
+    }).lifecycle.restore()
+    expect(logger).toHaveBeenCalledWith('connector.template.shared.divergent', {
+      templateId: 'confluence',
+      missing: ['confluence-pat']
+    })
+  })
+
+  it('건너뛴 공용 패키지의 provider 가 있으면 조용하다', () => {
+    const logger = vi.fn()
+    harness({
+      alreadyRegistered: ['confluence'],
+      registeredProviders: ['confluence-pat'],
+      logger
+    }).lifecycle.restore()
+    expect(logger).not.toHaveBeenCalledWith(
+      'connector.template.shared.divergent',
+      expect.anything()
+    )
+  })
+
   it('복원 실패를 로거로 알린다', () => {
     const logger = vi.fn()
     const store = new ConnectorInstanceStore(
@@ -238,7 +277,12 @@ describe('ConnectorInstanceLifecycle — 복원', () => {
     new ConnectorInstanceLifecycle({
       store,
       templates: new ConnectorTemplateRegistry([fakeTemplate()]),
-      registry: { register: () => [], unregister: () => true, hasPlugin: () => false },
+      registry: {
+        register: () => [],
+        unregister: () => true,
+        hasPlugin: () => false,
+        getProvider: (id) => ({ descriptor: { id } })
+      },
       host: { disconnectIfConnected: async () => undefined },
       logger
     }).restore()

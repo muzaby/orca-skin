@@ -1,10 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import {
-  connectorActions,
-  pluginTone,
-  runReconnect,
-  type ConnectorActionInput
-} from './connectorActions'
+import { connectorActions, runReconnect, type ConnectorActionInput } from './connectorActions'
 import type { AuthLogoutOutcome } from '../../../../../shared/ipc'
 
 const CONNECTED_INSTANCE: ConnectorActionInput = { connected: true, source: 'instance' }
@@ -41,14 +36,6 @@ describe('connectorActions — 액션 집합', () => {
   it('static 은 remove 없음', () => {
     expect(connectorActions(CONNECTED_STATIC).actions).not.toContain('remove')
     expect(connectorActions({ connected: false, source: 'static' }).actions).not.toContain('remove')
-  })
-})
-
-describe('pluginTone', () => {
-  it('목록 tone 은 connectedCount>0 과 일치한다', () => {
-    expect(pluginTone({ connectedCount: 1 })).toBe('green')
-    expect(pluginTone({ connectedCount: 2 })).toBe('green')
-    expect(pluginTone({ connectedCount: 0 })).toBe('slate')
   })
 })
 

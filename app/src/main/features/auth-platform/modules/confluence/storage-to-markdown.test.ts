@@ -109,6 +109,56 @@ describe('storageToMarkdown — GFM', () => {
     expect(out.markdown).toContain('| a | 1 |')
   })
 
+  // 아래 세 케이스는 전부 **실제 Confluence 저장 형식** 이다. 위의 축약 fixture 만 있었기 때문에
+  // 표가 원본 XML 로 새어 나가는 회귀(사용자 보고 2026-08-04)를 테스트가 잡지 못했다.
+  // turndown-plugin-gfm 은 머리글 행이 없는 표를 `keep()` 으로 **HTML 그대로** 내보낸다.
+  it('colgroup 이 붙은 표를 변환한다 — Confluence 가 거의 항상 붙인다', () => {
+    const out = storageToMarkdown(
+      '<table class="wrapped"><colgroup><col /><col /></colgroup><tbody>' +
+        '<tr><th><p>항목</p></th><th><p>값</p></th></tr>' +
+        '<tr><td><p>센서</p></td><td><p>OK</p></td></tr>' +
+        '</tbody></table>'
+    )
+    expect(out.markdown).toContain('| 항목 | 값 |')
+    expect(out.markdown).toContain('| 센서 | OK |')
+    // 원본 XML 이 한 조각도 새어 나오지 않아야 한다.
+    expect(out.markdown).not.toContain('<table')
+    expect(out.markdown).not.toContain('<colgroup')
+  })
+
+  it('머리글 행이 없는 표는 첫 행을 머리글로 승격한다', () => {
+    const out = storageToMarkdown(
+      '<table class="relative-table"><colgroup><col /><col /></colgroup><tbody>' +
+        '<tr><td><p>a</p></td><td><p>b</p></td></tr>' +
+        '<tr><td><p>c</p></td><td><p>d</p></td></tr>' +
+        '</tbody></table>'
+    )
+    // 승격하지 않으면 표 전체가 HTML 로 남는다 — 첫 행의 의미가 달라지는 쪽이 낫다.
+    expect(out.markdown).toContain('| a | b |')
+    expect(out.markdown).toContain('| --- | --- |')
+    expect(out.markdown).toContain('| c | d |')
+    expect(out.markdown).not.toContain('<td>')
+  })
+
+  it('셀 안 여러 문단을 <br> 로 잇는다 — 행을 끊지 않는다', () => {
+    const out = storageToMarkdown(
+      '<table><colgroup><col /></colgroup><tbody>' +
+        '<tr><th><p>비고</p></th></tr>' +
+        '<tr><td><p>첫 줄</p><p>둘째 줄</p></td></tr>' +
+        '</tbody></table>'
+    )
+    expect(out.markdown).toContain('| 첫 줄<br>둘째 줄 |')
+  })
+
+  it('thead 를 쓰는 표도 그대로 변환한다', () => {
+    const out = storageToMarkdown(
+      '<table><thead><tr><th>h1</th><th>h2</th></tr></thead>' +
+        '<tbody><tr><td>v1</td><td>v2</td></tr></tbody></table>'
+    )
+    expect(out.markdown).toContain('| h1 | h2 |')
+    expect(out.markdown).toContain('| v1 | v2 |')
+  })
+
   it('취소선을 GFM 물결 문법으로 변환한다', () => {
     const out = storageToMarkdown('<p><s>지움</s></p>')
     // turndown-plugin-gfm 은 물결 **한 개**를 낸다(실측). GFM 은 `~x~`·`~~x~~` 를 모두 받는다.

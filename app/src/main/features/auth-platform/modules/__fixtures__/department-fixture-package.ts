@@ -139,7 +139,9 @@ export const departmentFixturePackage: AuthPluginPackage = {
       id: PROVIDER_ID,
       pluginId: PLUGIN_ID,
       label: 'Department PAT',
-      mechanism: 'personal_access_token'
+      mechanism: 'personal_access_token',
+      // 위 manifest 선언과 같아야 한다 — registry 가 선언↔구현을 대조한다(0164 verify D4).
+      targets: ['connector']
     })
   ],
   connectors,

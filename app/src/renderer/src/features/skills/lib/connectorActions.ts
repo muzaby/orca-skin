@@ -33,12 +33,6 @@ export function connectorActions(connector: ConnectorActionInput): {
   }
 }
 
-// 목록 행의 점. `pluginGroups` 가 연결됨/안 됨 그룹을 가르는 식과 **같아야** 한다
-// (`catalogGroups.ts` — 그룹은 "연결됨" 인데 점은 회색이면 사용자는 어느 쪽을 믿을지 모른다).
-export function pluginTone(row: { connectedCount: number }): ConnectorTone {
-  return row.connectedCount > 0 ? 'green' : 'slate'
-}
-
 // 재연결 = **끊고 다시 붙기**. 순서가 이 함수의 존재 이유다 — 붙은 채로 붙이면
 // `already_connected` 로 실패하므로 `disconnect` 가 반드시 먼저다.
 //

@@ -55,7 +55,8 @@ import type {
   AuthLogoutOutcome,
   ConnectorTemplateInfoDto,
   PluginInstanceCreateRequest,
-  PluginConnectorInfo
+  PluginConnectorInfo,
+  PluginDiagnostic
 } from '../../../../shared/ipc'
 
 // renderer 의 모든 IPC 호출 진입점. window.orca.* 의 얇은 typed 패스-스루로,
@@ -230,7 +231,9 @@ export const pluginApi = {
   createInstance: (request: PluginInstanceCreateRequest): Promise<PluginConnectorInfo[]> =>
     window.orca.plugins.createInstance(request),
   deleteInstance: (connectorId: string): Promise<PluginConnectorInfo[]> =>
-    window.orca.plugins.deleteInstance(connectorId)
+    window.orca.plugins.deleteInstance(connectorId),
+  // 0164 r2 — 목록이 비어 보이는 이유(거부된 패키지·인스턴스)를 화면에 올린다.
+  diagnostics: (): Promise<PluginDiagnostic[]> => window.orca.plugins.diagnostics()
 }
 
 // 앱 로그인 target 상수 — renderer 여러 곳이 같은 값을 만들지 않도록 한 곳에 둔다.
