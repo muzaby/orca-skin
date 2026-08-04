@@ -1,13 +1,14 @@
 // 0143 — listen 대기 UX 의 store 계약: busy 라우팅(steer 예약), 자식 이벤트 BEGIN_TURN 제외,
 // 백그라운드 완료 통지 dispatch. 하네스는 chatStore.testHarness 공용(0149).
 import { beforeEach, describe, expect, it } from 'vitest'
-import { chatActions, ingestChatEvent, useChatStore } from './chatStore'
+import { chatActions, ingestChatEvent, sessionBusy, useChatStore } from './chatStore'
 import {
   flushRaf,
   harnessSession as session,
   installChatStoreHarness
 } from './chatStore.testHarness'
 import type { NormalizedEvent } from '../../../../../shared/ipc'
+import { activitySnapshot as activity } from '../activity.testfixture'
 
 let chatSend: ReturnType<typeof installChatStoreHarness>['chatSend']
 
@@ -15,18 +16,18 @@ beforeEach(() => {
   ;({ chatSend } = installChatStoreHarness())
 })
 
-describe('chatStore — chat.listen 라우팅 (0143)', () => {
-  it('chat.listen started/ended 가 listening 상태를 굴린다', () => {
-    ingestChatEvent({ type: 'chat.listen', sessionId: 's', phase: 'started' })
+describe('chatStore — chat.activity 라우팅', () => {
+  it('transport 스냅샷이 listening 상태를 굴린다', () => {
+    ingestChatEvent(activity(1, 'listening'))
     flushRaf()
     expect(session().listening).toBe(true)
-    ingestChatEvent({ type: 'chat.listen', sessionId: 's', phase: 'ended' })
+    ingestChatEvent(activity(2, 'idle'))
     flushRaf()
     expect(session().listening).toBe(false)
   })
 
   it('listening 중 send 는 steer 예약(pendingSteer) — 낙관 커밋/BEGIN_TURN 없음', () => {
-    ingestChatEvent({ type: 'chat.listen', sessionId: 's', phase: 'started' })
+    ingestChatEvent(activity(1, 'listening'))
     flushRaf()
     const ok = chatActions.send('대기 중 질문')
     expect(ok).toBe(true)
@@ -36,6 +37,37 @@ describe('chatStore — chat.listen 라우팅 (0143)', () => {
     expect(st.pendingSteer?.[0].text).toBe('대기 중 질문')
     expect(st.session.inflight).toBe(false) // BEGIN_TURN 미발생
     expect(st.session.messages).toHaveLength(0) // 낙관 커밋 없음(이중 렌더 방지)
+  })
+
+  // 0167 AC13 — "sessionBusy 정의 불변" 은 문자열이 아니라 **동작**으로 고정한다.
+  it('**잔여만 남은 idle 스냅샷은 busy 를 만들지 않는다** — 애니메이션·중단버튼이 유휴로 돌아간다', () => {
+    ingestChatEvent(activity(1, 'listening'))
+    flushRaf()
+    expect(sessionBusy(session())).toBe(true)
+    // 체인이 끝나고 orphaned 예약만 남은 상태(0154 가 의도적으로 유지하는 상태).
+    ingestChatEvent(activity(2, 'idle', { deliveryPendingCount: 1, residualCount: 1 }))
+    flushRaf()
+    expect(session().listening).toBe(false)
+    expect(session().inflight).toBe(false)
+    expect(sessionBusy(session())).toBe(false)
+    // 잔여 수는 그대로 노출돼 Composer 의 '세션 전체 중단' 안내가 뜬다.
+    expect(session().activityResidualCount).toBe(1)
+  })
+
+  it('잔여만 남은 상태의 send 는 그래도 예약 경로다 — 0153 의 pendingCount 규칙 유지', () => {
+    ingestChatEvent(activity(1, 'listening'))
+    flushRaf()
+    chatActions.send('잔여 유발')
+    ingestChatEvent(activity(2, 'idle', { deliveryPendingCount: 1, residualCount: 1 }))
+    flushRaf()
+    expect(sessionBusy(session())).toBe(false)
+
+    const ok = chatActions.send('그 다음')
+    expect(ok).toBe(true)
+    const st = useChatStore.getState().sessions.s
+    // busy 가 아니어도 미확정 예약이 있으므로 낙관 커밋하지 않는다(순서 역전 방지).
+    expect(st.session.messages).toHaveLength(0)
+    expect(st.pendingSteer?.map((p) => p.text)).toEqual(['잔여 유발', '그 다음'])
   })
 
   it('유휴(비-listening) send 는 종전대로 턴을 연다', () => {
@@ -55,13 +87,13 @@ describe('chatStore — chat.listen 라우팅 (0143)', () => {
 describe('chatStore — 턴 경계 낙관 커밋 금지 (0153)', () => {
   it('telemetry 직후에도 미확정 예약이 있으면 send 는 예약 경로 — 순서 역전 없음', () => {
     // 진행 턴 중 steer 3건 예약(666·777·888 상당).
-    ingestChatEvent({ type: 'chat.listen', sessionId: 's', phase: 'started' })
+    ingestChatEvent(activity(1, 'listening'))
     flushRaf()
     chatActions.send('666')
     chatActions.send('777')
     chatActions.send('888')
     // 직전 턴이 끝나 renderer 의 inflight/listening 이 모두 내려간 창.
-    ingestChatEvent({ type: 'chat.listen', sessionId: 's', phase: 'ended' })
+    ingestChatEvent(activity(2, 'idle'))
     ingestChatEvent({ type: 'telemetry', sessionId: 's', usage: {} } as NormalizedEvent)
     flushRaf()
     expect(session().inflight).toBe(false)
@@ -78,11 +110,11 @@ describe('chatStore — 턴 경계 낙관 커밋 금지 (0153)', () => {
   })
 
   it('예약이 모두 커밋된 뒤의 유휴 send 는 종전대로 낙관 커밋', () => {
-    ingestChatEvent({ type: 'chat.listen', sessionId: 's', phase: 'started' })
+    ingestChatEvent(activity(1, 'listening'))
     flushRaf()
     chatActions.send('잔여')
     const pendingId = useChatStore.getState().sessions.s.pendingSteer![0].id
-    ingestChatEvent({ type: 'chat.listen', sessionId: 's', phase: 'ended' })
+    ingestChatEvent(activity(2, 'idle'))
     ingestChatEvent({
       type: 'message.committed',
       sessionId: 's',

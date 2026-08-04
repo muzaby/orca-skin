@@ -1,7 +1,12 @@
 import { StreamingMarkdown } from '../markdown/StreamingMarkdown'
 import { ReasoningBlock } from './ReasoningBlock'
 import { StatusLine } from '../StatusLine'
-import { useChatSession, useLiveReasoning, useLiveText } from '../../store/chatStore'
+import {
+  useChatActivity,
+  useChatSession,
+  useLiveReasoning,
+  useLiveText
+} from '../../store/chatStore'
 import { useI18n } from '../../../../shared/i18n'
 import { errorCategoryKey } from '../../lib/errorLabels'
 
@@ -38,8 +43,22 @@ function LiveStatus(): React.JSX.Element {
   // 0143 listen 대기 — 개별 알림 턴 종료가 turnStartedAt 을 비워도(TURN_END_RESET) listening
   // 구간의 앵커(listenStartedAt)로 폴백해 StatusLine 애니메이션이 끊기지 않는다.
   const listenStartedAt = useChatSession((s) => s.listenStartedAt)
+  const activity = useChatActivity()
   const text = useLiveText()
-  return <StatusLine turnStartedAt={turnStartedAt ?? listenStartedAt} outputApproxFromText={text} />
+  return (
+    <StatusLine
+      turnStartedAt={turnStartedAt ?? listenStartedAt}
+      outputApproxFromText={text}
+      activity={{
+        foreground: activity.activityForeground,
+        queuedCount: activity.activityQueuedCount,
+        deliveryPendingCount: activity.activityDeliveryPendingCount,
+        residualCount: activity.activityResidualCount,
+        backgroundTaskCount: activity.activityBackgroundTaskCount,
+        listening: activity.listening
+      }}
+    />
+  )
 }
 
 function RetryStatus(): React.JSX.Element | null {

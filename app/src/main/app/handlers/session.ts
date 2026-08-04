@@ -15,11 +15,13 @@ import { usageRowToTelemetry } from '../../features/usage/usage-map'
 import type { RouterContext } from '../context'
 import { partFromRow, toSessionListItem } from '../../infra/ipc/dto'
 import { handle, handlePlain } from '../../infra/ipc/handle'
+import type { ChatActivitySnapshot } from '../../../shared/ipc'
 
 // 세션 폐기 시 정리할 in-memory 소유자들(0151 AC8) — 컴포지션 루트가 주입한다. 세션 슬라이스가
 // chat 슬라이스를 직접 참조하지 않기 위한 구조적 포트(main/AGENTS.md 해소책 ③).
 export interface SessionDisposeHooks {
   onSessionDisposed?: (sessionId: string) => void
+  getActivity?: (sessionId: string) => ChatActivitySnapshot
 }
 
 export function registerSessionHandlers(ctx: RouterContext, hooks: SessionDisposeHooks = {}): void {
@@ -87,7 +89,8 @@ export function registerSessionHandlers(ctx: RouterContext, hooks: SessionDispos
         cwd: meta.cwd ?? ctx.getCwd(meta.project_id),
         ...(lastTelemetry ? { lastTelemetry } : {}),
         ...(costUsd > 0 ? { costUsd } : {}),
-        ...(lineage ? { lineage } : {})
+        ...(lineage ? { lineage } : {}),
+        ...(hooks.getActivity ? { activity: hooks.getActivity(req.sessionId) } : {})
       }
     }
   )
@@ -97,10 +100,9 @@ export function registerSessionHandlers(ctx: RouterContext, hooks: SessionDispos
     DeleteSessionRequestSchema,
     { fallback: undefined },
     (req): void => {
-      ctx.db.deleteSession(req.sessionId)
-      // 미커밋 pending(입력 원문 + base64 첨부)까지 폐기한다(0151 AC8) — 구 구현은 DB 행만
-      // 지우고 메모리 큐를 그대로 둬, 삭제한 대화의 원문이 프로세스 수명 내내 남았다.
+      // 먼저 런타임·미커밋 입력을 닫아 삭제 뒤 지각 이벤트가 DB에 다시 쓰는 경쟁을 막는다.
       hooks.onSessionDisposed?.(req.sessionId)
+      ctx.db.deleteSession(req.sessionId)
       // 영속화된 lastSessionId 가 삭제 대상이면 같이 해제.
       const current = ctx.settings.getAll()
       if (current.lastSessionId === req.sessionId) {

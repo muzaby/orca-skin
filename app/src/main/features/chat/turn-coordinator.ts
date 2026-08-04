@@ -426,8 +426,10 @@ export class TurnCoordinator<W = unknown> {
           return
         }
         const error = classifyError(err, 'sendMessage')
+        const staleSubmission = err instanceof Error && err.message.startsWith('submission_stale:')
         if (
           error.retryable &&
+          !staleSubmission &&
           eventsReceived === 0 &&
           attempt < MAX_RETRIES &&
           !turn.controller.signal.aborted

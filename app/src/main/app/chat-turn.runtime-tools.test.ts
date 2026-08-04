@@ -149,7 +149,33 @@ function installHarness(options: {
     releaseRuntime: vi.fn(),
     activeTurns: { increment: vi.fn(), decrement: vi.fn() },
     promote: vi.fn(),
-    getBySession: vi.fn()
+    getBySession: vi.fn(),
+    acquireChain: vi.fn(({ logicalKey, owner, requestedProviderKey }) => ({
+      acquired: true,
+      lease: {
+        kind: 'preparing',
+        leaseId: 'lease-1',
+        chainId: 'chain-1',
+        admittedAt: 1,
+        logicalKey,
+        sessionId: null,
+        owner,
+        requestedProviderKey,
+        controller: new AbortController(),
+        activeChild: null,
+        control: {
+          taskIds: new Map(),
+          subagentTypes: new Map(),
+          stoppedSubagents: new Set(),
+          blockedSubagents: new Set(),
+          cancelled: false
+        }
+      }
+    })),
+    activateChain: vi.fn(() => true),
+    releaseChain: vi.fn(),
+    cancelChain: vi.fn(),
+    discardRuntime: vi.fn()
   }
 
   registerChatHandlers({
@@ -176,6 +202,14 @@ function installHarness(options: {
     persistence: { flushAskAnswers: vi.fn() },
     permissionModes: { setMode: vi.fn() },
     pendingMessages,
+    backgroundTasks: {
+      hasAny: vi.fn(() => false),
+      count: vi.fn(() => 0),
+      clear: vi.fn(),
+      isAsyncLaunched: vi.fn(() => false),
+      settled: vi.fn()
+    },
+    activity: { setTransport: vi.fn(), setResidualAttempts: vi.fn(), clear: vi.fn() },
     isUpdateInstallPending: () => false
   } as never)
 

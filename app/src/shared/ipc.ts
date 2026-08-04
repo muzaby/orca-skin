@@ -765,10 +765,7 @@ export type NormalizedEvent =
   // 표시하고, `false`(예약 롤백 — 닫힌 입력 스트림 등)면 다시 취소 가능 상태로 되돌린다.
   // message.queued 동렬의 **미영속 UI 상태 신호**(버스 미경유 — history/usage 미소비).
   | { type: 'message.submitted'; sessionId: string; ids: string[]; submitted: boolean }
-  // 중단 잔여 통지(0151 r2) — Stop 뒤에도 CLI 큐에 살아남은 **우리** 예약이 있다. `count`>0 이면
-  // renderer 가 "세션 전체 중단" 을 능동 제시한다(Stop 의 통념과 어긋나는 상태를 수동적 배지로
-  // 덮지 않는다). 0 이면 통지를 내린다. transient·relay-only(버스 미경유·미영속).
-  | { type: 'chat.residual'; sessionId: string; count: number }
+  | ChatActivitySnapshot
   // SDK 네이티브 압축 완료(system/compact_boundary → 정규화, 0064). 도착 세션 transcript 에
   // 압축 경계를 표시한다. preTokens/postTokens = 압축 전/후 토큰 수(compact_metadata 의
   // pre_tokens/post_tokens — post 는 SDK optional). postTokens 는 압축 후 컨텍스트 실측이라
@@ -847,12 +844,6 @@ export type NormalizedEvent =
       // history writer 영속의 유일한 신호 — renderer 는 스스로 background 를 추론하지 않는다.
       background?: boolean
     }
-  // listen phase 레벨 신호(0143, transient·relay-only) — 메인 턴 종료 후 미정착 백그라운드
-  // 태스크를 기다리는 대기(listen) 구간의 시작/끝. chat-turn 턴-후 루프가 sendChatEvent 직행으로
-  // 방출한다(버스 미경유 — history/usage 미소비 = 미영속, message.queued 동렬). renderer 는
-  // listening 상태로 흡수해 inflight 애니메이션 지속·send=steer 라우팅을 구동한다. 개별 listen
-  // 턴 경계가 아니라 루프 스코프 1쌍(started/ended)이다.
-  | { type: 'chat.listen'; sessionId: string; phase: 'started' | 'ended' }
   | {
       type: 'telemetry'
       sessionId: string
@@ -1415,6 +1406,21 @@ export interface LoadedSession {
   // 0064 continuity — 이 세션이 fork/handoff 로 파생된 경우의 부모 관계(session_lineage).
   // 렌더러가 출처 배너("원본 열기" 링크)를 복원하는 데 쓴다. parentTitle 은 표시용 스냅샷.
   lineage?: { parentSessionId: string; relation: 'fork' | 'handoff'; parentTitle: string | null }
+  activity?: ChatActivitySnapshot
+}
+
+// 세션 활동의 단일 main 권위 스냅샷. listen/residual 엣지 이벤트를 각각 갱신하지 않고 같은
+// revision에서 원자 적용해 경고·애니메이션의 중간 상태 깜빡임을 막는다.
+export interface ChatActivitySnapshot {
+  type: 'chat.activity'
+  sessionId: string
+  revision: number
+  foreground: 'idle' | 'preparing' | 'streaming'
+  transport: 'idle' | 'listening'
+  queuedCount: number
+  deliveryPendingCount: number
+  residualCount: number
+  backgroundTaskCount: number
 }
 
 // 프로젝트 (Phase 3+) — 대화 묶음 + 전용 시스템 프롬프트 (instructions).

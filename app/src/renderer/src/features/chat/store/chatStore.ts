@@ -84,9 +84,6 @@ export interface SessionEntry {
   live: LiveTurnState
   subagentMeta: Record<string, SubagentMetaState>
   pendingSteer?: PendingSteerState[]
-  // 중단 잔여(0151 r2) — Stop 뒤에도 CLI 큐에 살아남은 우리 예약 수. >0 이면 컴포저가
-  // "세션 전체 중단" 을 제시한다. 0/undefined 면 통지 없음. transient(미영속).
-  residualSteer?: number
 }
 
 interface QueuedNewChat {
@@ -473,14 +470,8 @@ function receive(ev: NormalizedEvent): void {
       })
       return
 
-    case 'chat.residual':
-      setState((st) => {
-        const entry = st.sessions[key]
-        if (!entry) return st
-        const next = ev.count > 0 ? ev.count : undefined
-        if ((entry.residualSteer ?? undefined) === next) return st
-        return { sessions: { ...st.sessions, [key]: { ...entry, residualSteer: next } } }
-      })
+    case 'chat.activity':
+      dispatchTo(key, { type: 'RECV_EVENT', event: ev })
       return
 
     case 'message.submitted':
@@ -667,7 +658,7 @@ function send(
   const busy = cur.inflight || cur.listening
   // 0153: 예약 경로 판정은 busy 보다 넓다 — **미확정 예약이 남아 있으면** 지금 보내는 메시지는
   // 반드시 그 뒤에 커밋되므로(main 이 적재 순서대로 병합) 낙관 커밋이 항상 틀린다. busy 신호가
-  // IPC 로 오는 사이의 창(telemetry 직후 ~ chat.listen started 도착 전)을 이것이 덮는다.
+  // IPC 로 오는 사이의 창(telemetry 직후 ~ activity snapshot 도착 전)을 이것이 덮는다.
   const queueAsPending = shouldQueueAsPending({
     inflight: cur.inflight,
     listening: cur.listening,
@@ -764,7 +755,7 @@ function cancelSteer(id: string): string | null {
 }
 
 // 세션 전체 중단(0151 r2) — Stop 잔여가 있을 때만 UI 가 노출한다. 런타임 폐기라 백그라운드
-// 서브에이전트도 함께 종료된다. main 이 message.cancelled(draft 복원) + chat.residual(0) 을 회신.
+// 서브에이전트도 함께 종료된다. main 이 message.cancelled + residualCount 0 snapshot을 회신.
 function discardSession(): void {
   const cur = getActiveChatSession()
   if (!cur.sessionId) return
@@ -1293,7 +1284,31 @@ export function sessionBusy(s: Pick<ChatState, 'inflight' | 'listening'>): boole
 
 // 중단 잔여 수(0151 r2) — >0 이면 컴포저가 "세션 전체 중단" 을 제시한다.
 export function useChatResidualSteer(): number {
-  return useChatStore((s) => s.sessions[s.activeKey]?.residualSteer ?? 0)
+  return useChatSession((s) => s.activityResidualCount)
+}
+
+export function useChatActivity(): Pick<
+  ChatState,
+  | 'activityForeground'
+  | 'activityQueuedCount'
+  | 'activityDeliveryPendingCount'
+  | 'activityResidualCount'
+  | 'activityBackgroundTaskCount'
+  | 'listening'
+> {
+  return useChatStore(
+    useShallow((s) => {
+      const session = s.sessions[s.activeKey].session
+      return {
+        activityForeground: session.activityForeground,
+        activityQueuedCount: session.activityQueuedCount,
+        activityDeliveryPendingCount: session.activityDeliveryPendingCount,
+        activityResidualCount: session.activityResidualCount,
+        activityBackgroundTaskCount: session.activityBackgroundTaskCount,
+        listening: session.listening
+      }
+    })
+  )
 }
 
 export function usePendingSteer(): PendingSteerState[] {

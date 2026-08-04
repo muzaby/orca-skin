@@ -3,6 +3,8 @@
 // useElapsed(shared/ui/elapsed)를 공유한다.
 import { useEffect, useMemo, useState } from 'react'
 import { formatElapsed, useElapsed } from '../../../shared/ui/elapsed'
+import { useI18n } from '../../../shared/i18n'
+import { deriveActivityLabel, MAX_VISIBLE_FACTS, type ActivityView } from '../lib/activityLabel'
 
 const SYMBOLS = ['✢', '✣', '✦', '✧', '★', '✶']
 
@@ -41,14 +43,17 @@ export interface StatusLineProps {
   /** Phase B 에서 사용. 현재는 항상 undefined. */
   thinkingActive?: boolean
   thoughtDurationMs?: number
+  activity?: ActivityView
 }
 
 export function StatusLine({
   turnStartedAt,
   outputApproxFromText,
   thinkingActive,
-  thoughtDurationMs
+  thoughtDurationMs,
+  activity
 }: StatusLineProps): React.JSX.Element | null {
+  const { tr } = useI18n()
   const [symbolIdx, setSymbolIdx] = useState(0)
   // verb 는 한 응답 내에서 고정, 새 응답 (turnStartedAt 변경) 마다 재선택.
   // useMemo 가 turnStartedAt 변경 시 재실행되도록 의도적으로 의존성에 포함.
@@ -82,15 +87,43 @@ export function StatusLine({
         : null
 
   const showCounter = elapsedSec >= 5
+  // 조합 규칙은 순수 모듈이 소유한다(lib/activityLabel) — 여기서는 키를 문구로 옮기기만 한다.
+  const label = deriveActivityLabel(activity, elapsedSec * 1000)
+  // 번역은 한 번만 — tooltip(전체)과 인라인(상위 N개)이 같은 배열을 나눠 쓴다.
+  const factTexts = label.facts.map((fact) =>
+    tr(`chat.activity.${fact.key}`, { count: fact.count })
+  )
+  const visibleFacts = factTexts.slice(0, MAX_VISIBLE_FACTS)
+  const overflow = factTexts.length - visibleFacts.length
+  if (overflow > 0) visibleFacts.push(tr('chat.activity.more', { count: overflow }))
+  const statusLabel =
+    label.status === 'streaming' ? `${verb}…` : tr(`chat.activity.${label.status}`)
+  const factLabel = factTexts.join(' · ')
+  const accessibleLabel = [statusLabel, factLabel, showCounter ? formatElapsed(elapsedSec) : null]
+    .filter(Boolean)
+    .join(', ')
 
   return (
-    <span className="inline-flex items-center gap-1.5 text-[12px] font-normal text-ink2">
-      <span className="w-3 text-center text-rust" aria-hidden>
+    <span
+      className="inline-flex items-center gap-1.5 text-[12px] font-normal text-ink2"
+      aria-live="polite"
+      aria-label={accessibleLabel}
+      title={factLabel || undefined}
+    >
+      <span className="w-3 text-center text-rust motion-reduce:hidden" aria-hidden>
         {SYMBOLS[symbolIdx]}
       </span>
-      <span>{verb}…</span>
+      <span className="hidden w-3 text-center text-rust motion-reduce:inline" aria-hidden>
+        ✦
+      </span>
+      <span aria-hidden>{statusLabel}</span>
+      {visibleFacts.length > 0 && (
+        <span className="text-[11px] text-ink3" aria-hidden>
+          · {visibleFacts.join(' · ')}
+        </span>
+      )}
       {showCounter && (
-        <span className="font-mono text-[11px] text-ink3">
+        <span className="font-mono text-[11px] text-ink3" aria-hidden>
           ({formatElapsed(elapsedSec)}
           {outputTokensLabel ? ` · ↓ ${outputTokensLabel}` : ''}
           {thoughtLabel ? ` · ${thoughtLabel}` : ''})

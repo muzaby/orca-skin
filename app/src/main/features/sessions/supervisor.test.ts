@@ -202,4 +202,73 @@ describe('RuntimeSupervisor resource governance (0055)', () => {
       ['p1', 0]
     ])
   })
+
+  it('preparing lease의 registry turn은 runtime population에 중복 계상하지 않는다', () => {
+    const supervisor = new RuntimeSupervisor<object>()
+    const owner = {}
+    const turn = fakeTurn()
+    turn.owner = owner
+    turn.dbSessionId = 's1'
+    const { lease } = supervisor.acquireChain({
+      logicalKey: 'session:s1',
+      sessionId: 's1',
+      owner,
+      requestedProviderKey: null
+    })
+    supervisor.startResume('s1', turn)
+
+    expect(supervisor.getRuntimePopulation()).toEqual({ active: 0, idle: 0, total: 0 })
+
+    const live = fakeManaged()
+    expect(supervisor.activateChain(lease.leaseId, live, null, turn)).toBe(true)
+    expect(supervisor.getRuntimePopulation()).toEqual({ active: 1, idle: 0, total: 1 })
+  })
+
+  it('active lease discard는 child를 abort하고 runtime을 닫은 채 신규 acquire를 차단한다', () => {
+    const supervisor = new RuntimeSupervisor<object>()
+    const owner = {}
+    const turn = fakeTurn()
+    turn.owner = owner
+    turn.dbSessionId = 's1'
+    const { lease } = supervisor.acquireChain({
+      logicalKey: 'session:s1',
+      sessionId: 's1',
+      owner,
+      requestedProviderKey: null
+    })
+    const live = fakeManaged()
+    expect(supervisor.activateChain(lease.leaseId, live, null, turn)).toBe(true)
+
+    expect(supervisor.discardRuntime('s1')).toBe(true)
+    expect(turn.controller.signal.aborted).toBe(true)
+    expect(live.closed).toBe(1)
+    expect(
+      supervisor.acquireChain({
+        logicalKey: 'session:s1',
+        sessionId: 's1',
+        owner: {},
+        requestedProviderKey: null
+      }).acquired
+    ).toBe(false)
+  })
+
+  it('cancelChain은 lease와 현재 child를 함께 abort한다', () => {
+    const supervisor = new RuntimeSupervisor<object>()
+    const owner = {}
+    const turn = fakeTurn()
+    turn.owner = owner
+    turn.dbSessionId = 's1'
+    const { lease } = supervisor.acquireChain({
+      logicalKey: 'session:s1',
+      sessionId: 's1',
+      owner,
+      requestedProviderKey: null
+    })
+    supervisor.activateChain(lease.leaseId, fakeManaged(), null, turn)
+
+    const cancelled = supervisor.cancelChain('s1')
+    expect(cancelled?.controller.signal.aborted).toBe(true)
+    expect(cancelled?.control.cancelled).toBe(true)
+    expect(turn.controller.signal.aborted).toBe(true)
+  })
 })

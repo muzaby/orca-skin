@@ -27,6 +27,12 @@ interface TaskState {
 
 export class BackgroundTaskTracker implements BackgroundTaskPort {
   private readonly bySession = new Map<string, Map<string, TaskState>>()
+  private readonly listeners = new Set<(sessionId: string) => void>()
+
+  subscribe(listener: (sessionId: string) => void): () => void {
+    this.listeners.add(listener)
+    return () => this.listeners.delete(listener)
+  }
 
   started(sessionId: string, toolUseId: string): void {
     let map = this.bySession.get(sessionId)
@@ -35,14 +41,18 @@ export class BackgroundTaskTracker implements BackgroundTaskPort {
       this.bySession.set(sessionId, map)
     }
     // 재started(진행 갱신 경합)에도 기존 asyncLaunched 관측을 보존한다.
-    if (!map.has(toolUseId)) map.set(toolUseId, { asyncLaunched: false })
+    if (!map.has(toolUseId)) {
+      map.set(toolUseId, { asyncLaunched: false })
+      this.changed(sessionId)
+    }
   }
 
   settled(sessionId: string, toolUseId: string): void {
     const map = this.bySession.get(sessionId)
     if (!map) return
-    map.delete(toolUseId)
+    if (!map.delete(toolUseId)) return
     if (map.size === 0) this.bySession.delete(sessionId)
+    this.changed(sessionId)
   }
 
   // 부모 Task tool_result 가 async_launched 런치 영수증으로 도착 — 실제 백그라운드 실행 확정.
@@ -54,8 +64,11 @@ export class BackgroundTaskTracker implements BackgroundTaskPort {
       this.bySession.set(sessionId, map)
     }
     const state = map.get(toolUseId)
-    if (state) state.asyncLaunched = true
-    else map.set(toolUseId, { asyncLaunched: true })
+    if (state) {
+      if (state.asyncLaunched) return
+      state.asyncLaunched = true
+    } else map.set(toolUseId, { asyncLaunched: true })
+    this.changed(sessionId)
   }
 
   isAsyncLaunched(sessionId: string, toolUseId: string): boolean {
@@ -74,7 +87,15 @@ export class BackgroundTaskTracker implements BackgroundTaskPort {
     return map !== undefined && map.size > 0
   }
 
+  count(sessionId: string): number {
+    return this.bySession.get(sessionId)?.size ?? 0
+  }
+
   clear(sessionId: string): void {
-    this.bySession.delete(sessionId)
+    if (this.bySession.delete(sessionId)) this.changed(sessionId)
+  }
+
+  private changed(sessionId: string): void {
+    for (const listener of this.listeners) listener(sessionId)
   }
 }

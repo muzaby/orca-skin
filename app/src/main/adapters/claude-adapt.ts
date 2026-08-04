@@ -146,7 +146,8 @@ export function adaptHooks(set: NormalizedHookSet): object {
 export function makeSteerGateHook(
   take: () => SteerFlushBatch | undefined,
   push: (batch: SteerFlushBatch) => boolean,
-  rollback?: (batch: SteerFlushBatch) => void
+  rollback?: (batch: SteerFlushBatch) => void,
+  commit?: (batch: SteerFlushBatch) => boolean
 ): object {
   const callback: HookCallback = async (input) => {
     let reserved: SteerFlushBatch | undefined
@@ -154,11 +155,15 @@ export function makeSteerGateHook(
       if ((input as { agent_id?: string }).agent_id !== undefined) return {}
       reserved = take()
       // 구조 페이로드(0067) — content 조립(첨부 블록 포함)은 호출자(claude.ts)의 push 가 소유.
-      if (reserved && !push(reserved)) {
-        rollback?.(reserved)
-        getLogger()
-          .child('engine')
-          .warn('engine.steer.submit-rejected', { provider: 'claude', rolledBack: true })
+      if (reserved) {
+        if (!push(reserved)) {
+          rollback?.(reserved)
+          getLogger()
+            .child('engine')
+            .warn('engine.steer.submit-rejected', { provider: 'claude', rolledBack: true })
+        } else if (commit && !commit(reserved)) {
+          getLogger().child('engine').warn('engine.steer.commit-stale', { provider: 'claude' })
+        }
       }
     } catch (err) {
       // fail-open: steer 는 부가기능이라 예외를 삼켜 턴 본체를 보호한다. 단 **상태는 반드시**

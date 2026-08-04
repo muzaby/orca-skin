@@ -41,14 +41,18 @@ export class MockAdapter implements SessionAdapter {
     const internal = new AbortController()
     const signal = combineSignals(req.signal, internal.signal)
     const sessionId = req.sessionId ?? randomUUID()
+    const events = runScenario(SCENARIOS[state.scenarioId], {
+      sessionId,
+      cwd: req.cwd,
+      contextUsageRatio: state.contextUsageRatio,
+      signal,
+      requestApproval: req.requestApproval
+    })
     return {
-      events: runScenario(SCENARIOS[state.scenarioId], {
-        sessionId,
-        cwd: req.cwd,
-        contextUsageRatio: state.contextUsageRatio,
-        signal,
-        requestApproval: req.requestApproval
-      }),
+      eventBatches: (async function* () {
+        let sequence = 0
+        for await (const event of events) yield { sequence: sequence++, events: [event] }
+      })(),
       close: () => internal.abort(),
       setPermissionMode: async () => {},
       // mock 은 큐 프로토콜이 없다 — 영수증 미보유(undefined = 잔여 미상)로 보고한다(0151 AC10).

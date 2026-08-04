@@ -38,6 +38,8 @@ export interface SteerFlushBatch extends SteerFlush {
   // stdin 주입 배치의 uuid — echo 상관키(주입 user 메시지의 uuid). 게이트 병합 배치는 신규
   // uuid, 턴 프롬프트/프렐류드 아이템 단위 배치는 item id 를 그대로 쓴다(renderer 정합).
   uuid: string
+  attemptId?: string
+  chainId?: string
 }
 
 // 턴 중단 영수증(0151 AC10) — SDK `Query.interrupt()` 가 돌려주는 `SDKControlInterruptResponse`
@@ -162,10 +164,20 @@ export interface TurnRequest {
   // 때(closed stream / push 예외) 호출한다. 큐가 항목을 held 로 되돌려 다시 취소 가능해진다.
   // takeSteerFlush 와 짝이며, 미주입이면 어댑터는 실패를 삼킨다(fail-open 현행 유지).
   rollbackSteerFlush?: (batch: SteerFlushBatch) => void
+  commitSteerFlush?: (batch: SteerFlushBatch) => boolean
+  // 스폰 입력(프렐류드+본 프롬프트)의 로컬 스트림 수용 직후 전량 commit한다.
+  canSubmitInitial?: () => boolean
+  commitInitialSubmission?: () => boolean
+  rollbackInitialSubmission?: () => void
   // 턴 중단 영수증 수신(0151 AC10·AC11) — 런타임이 interrupt() 를 호출한 뒤 결과를 여기로 올린다.
   // 잔여 uuid 와 자기 예약의 교집합 판정은 **컴포지션 루트**가 한다(features/sessions 가
   // features/chat 을 참조하지 않도록 — main/AGENTS.md 해소책 ③).
   onInterruptReceipt?: (receipt: InterruptReceipt | undefined) => void
+  // 영수증은 늦게 도착할 수 있으므로 interrupt 발행 순간 큐/attempt를 동결한 수신자를 만든다.
+  captureInterruptReceipt?: () => ((receipt: InterruptReceipt | undefined) => void) | undefined
+  // 채널 화신이 종료/교체되는 순간의 상향 통지. app 계층이 해당 채널에 묶인 백그라운드
+  // 작업을 합성 정착한다. token은 관측/멱등 키이며 chat 기능을 sessions가 직접 참조하지 않는다.
+  onChannelRetired?: (channelToken: number) => void
   // 중단된 서브에이전트 타입 재호출 차단 술어(가이드 §6-A). turn.blockedSubagents 를 읽는다.
   isSubagentBlocked?: (subagentType: string | undefined) => boolean
   attachmentTexts?: ExtractedAttachmentText[]

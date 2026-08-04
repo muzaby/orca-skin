@@ -24,7 +24,7 @@ import { createSessionInputStream, type TurnInputContent } from './streaming-inp
 import type { Base64ImageSource } from '@anthropic-ai/sdk/resources/messages'
 import { formatAttachmentPromptBlock } from './attachment-prompt'
 import { formatPlanFeedbackPrompt } from './plan-feedback'
-import type { CompleteRequest, LiveTurn, SessionAdapter } from './types'
+import type { CompleteRequest, LiveTurn, ProviderMessageBatch, SessionAdapter } from './types'
 import type { TurnRequest } from './turn'
 import type { ExtractedAttachmentImage, ExtractedAttachmentText } from './turn'
 import { isRiskyTool } from './risky-tools'
@@ -393,7 +393,8 @@ export class ClaudeAdapter implements SessionAdapter {
               ? makeSteerGateHook(
                   req.takeSteerFlush,
                   (batch) => input.push(batchContent(batch), batch.uuid),
-                  req.rollbackSteerFlush
+                  req.rollbackSteerFlush,
+                  req.commitSteerFlush
                 )
               : {}
           ),
@@ -435,15 +436,18 @@ export class ClaudeAdapter implements SessionAdapter {
       }
     }
 
-    async function* events(): AsyncIterable<NormalizedEvent> {
+    async function* eventBatches(): AsyncIterable<ProviderMessageBatch> {
+      let sequence = 0
       try {
         for await (const msg of handle) {
-          yield* claudeToNormalized(msg, ctx)
+          const events = claudeToNormalized(msg, ctx)
           // hook 은 다음 SDK 메시지(compact_boundary/result)보다 먼저 완료되므로 메시지 뒤
           // 드레인이 [구분선 → 요약] 순서를 만든다.
-          yield* drainCompactSummaries()
+          events.push(...drainCompactSummaries())
+          if (events.length > 0) yield { sequence: sequence++, events }
         }
-        yield* drainCompactSummaries(true)
+        const summaries = [...drainCompactSummaries(true)]
+        if (summaries.length > 0) yield { sequence: sequence++, events: summaries }
       } catch (err) {
         // 의도적 중단(턴 취소 / 계획 거부)은 에러가 아니므로 error 이벤트를 내지 않는다
         // (user_cancelled 로 분류되지만 emit 안 함 — 설계 결정 3).
@@ -452,7 +456,7 @@ export class ClaudeAdapter implements SessionAdapter {
             provider: 'claude',
             phase: 'sendMessage'
           })
-          yield errorEvent(classified, ctx.sessionId)
+          yield { sequence: sequence++, events: [errorEvent(classified, ctx.sessionId)] }
         }
       } finally {
         // 어떤 경로로 끝나든 입력 스트림을 닫아(멱등) 핸들/서브프로세스 누수를 막는다.
@@ -462,7 +466,7 @@ export class ClaudeAdapter implements SessionAdapter {
     }
 
     return {
-      events: events(),
+      eventBatches: eventBatches(),
       close,
       // 장수명 채널(0067) — 후속 턴을 같은 서브프로세스에 이어붙인다. 라이브 setter 적용 후
       // content 를 push(P2 픽업 또는 P1 게이트 drain — 분기는 CLI). effort/providerSettings/
@@ -473,10 +477,12 @@ export class ClaudeAdapter implements SessionAdapter {
         if (next.permissionMode !== undefined) {
           await handle.setPermissionMode(toClaudePermissionMode(next.permissionMode))
         }
-        input.push(
+        return input.push(
           buildTurnContent(next.text, next.attachmentTexts ?? [], next.attachmentImages ?? []),
           next.promptUuid
         )
+          ? { kind: 'accepted' as const }
+          : { kind: 'rejectedBeforeAccept' as const, reason: 'stream_closed' as const }
       },
       // 라이브 control — 스트리밍 입력 모드라야 동작하는 SDK Query 메서드에 위임.
       setPermissionMode: (mode) => handle.setPermissionMode(mode),

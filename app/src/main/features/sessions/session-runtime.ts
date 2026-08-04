@@ -2,7 +2,7 @@ import type { NormalizedEvent } from '../../../shared/ipc'
 import type { ClaudePermissionMode } from '../../../shared/permission-mode'
 import type { ResolvedProviderSettings } from '../../adapters/provider-config'
 import type { TurnRequest } from '../../adapters/turn'
-import type { LiveTurn } from '../../adapters/types'
+import type { LiveTurn, ProviderMessageBatch } from '../../adapters/types'
 import type { ManagedRuntime, RuntimeSessionAdapter } from '../../contracts/ports'
 import { getLogger } from '../../infra/log/registry'
 import {
@@ -11,14 +11,49 @@ import {
   type SessionRuntimeState
 } from '../../contracts/session-state'
 
+// 프레임 위임 키 — **채널보다 짧은 수명(체인·턴)을 캡처한 콜백의 정본 목록**이다. 채널은 체인보다
+// 오래 살므로 이 콜백들은 spawn 시점 값으로 굳으면 안 되고, 매 send/listen 마다 갈아끼워야 한다.
+// 앞의 4개는 어댑터에 넘어가 고정 래퍼를 거치고(`wrapRequest`), 뒤의 3개는 Runtime 이 직접 읽는다.
+const FRAME_DELEGATE_KEYS = [
+  'requestApproval',
+  'takeSteerFlush',
+  'commitSteerFlush',
+  'rollbackSteerFlush',
+  'onInterruptReceipt',
+  'captureInterruptReceipt',
+  'onChannelRetired'
+] as const
+
+type FrameDelegateKey = (typeof FRAME_DELEGATE_KEYS)[number]
+export type FrameDelegate = Pick<TurnRequest, FrameDelegateKey>
+
+// 어댑터로 넘어가는 부분집합 — 나머지는 Runtime 내부 소비라 요청에 실리지 않는다.
+const ADAPTER_DELEGATE_KEYS = [
+  'requestApproval',
+  'takeSteerFlush',
+  'commitSteerFlush',
+  'rollbackSteerFlush'
+] as const satisfies readonly FrameDelegateKey[]
+
+// 요청에서 프레임 위임만 골라낸다. **요청을 처음부터 재조립하는 경로**(listen 은 원 request 를
+// spread 하면 base64 첨부가 분 단위로 살아남아 최소 리터럴로 짓는다, 0149)가 위임을 절반만
+// 넘기지 않도록, 그 목록을 손으로 나열하는 대신 여기서 받아 간다.
+export function pickFrameDelegates(req: TurnRequest): FrameDelegate {
+  const picked: Record<string, unknown> = {}
+  for (const key of FRAME_DELEGATE_KEYS) {
+    if (req[key] !== undefined) picked[key] = req[key]
+  }
+  return picked as FrameDelegate
+}
+
 // close 정책 2종(decision ⑳ → 0067 개정) — 'persistent' 는 **장수명 세션 채널**: 어댑터가
 // pushTurn 을 구현하면 한 번의 spawn(query/서브프로세스)이 세션 수명(LRU 축출·프로그램 종료·
 // respawn 경계·에러) 동안 살아남아 후속 턴을 이어받는다. 'oneshot' 또는 pushTurn 미구현
 // 어댑터(mock)는 턴-스코프(매 턴 fresh)로 동작한다.
 export type ClosePolicy = 'oneshot' | 'persistent'
 
-const EMPTY_EVENTS: AsyncIterable<NormalizedEvent> = {
-  [Symbol.asyncIterator](): AsyncIterator<NormalizedEvent> {
+const EMPTY_BATCHES: AsyncIterable<ProviderMessageBatch> = {
+  [Symbol.asyncIterator](): AsyncIterator<ProviderMessageBatch> {
     return { next: async () => ({ done: true, value: undefined as never }) }
   }
 }
@@ -55,6 +90,17 @@ class Frame {
     this.done = true
     this.wake?.()
     this.wake = null
+  }
+
+  // 사용자 취소 — **이미 도착한 이벤트는 그대로 배달**하고 `error` 만 걷어낸다. 전량 폐기하면
+  // ⓐ 모델이 이미 만든 부분 답변의 꼬리가 화면·DB 양쪽에서 사라지고 ⓑ 같은 배치의 `telemetry`
+  // 까지 버려져 그 턴의 usage/cost 가 집계되지 않는다. 걸러야 하는 것은 "취소를 실패로 재표시하는
+  // error 버블" 하나뿐이다(보고 ①). 취소 후 push 는 `done` 가드가 이미 막는다.
+  cancel(): void {
+    for (let index = this.queue.length - 1; index >= 0; index -= 1) {
+      if (this.queue[index].type === 'error') this.queue.splice(index, 1)
+    }
+    this.end()
   }
 
   fail(err: unknown): void {
@@ -95,27 +141,31 @@ export class SessionRuntime implements ManagedRuntime {
   // (close/teardown)에서만 abort 된다. 턴 취소는 interrupt() 경로(markAborted)로 채널을 살린다.
   private channelController = new AbortController()
   private pumpRunning = false
+  private nextChannelToken = 0
+  private channelTokenValue: number | null = null
   private frame: Frame | null = null
+  // routeBatch가 terminal을 본 순간 `frame`은 비워지지만, consumer가 같은 provider 배치의
+  // 후속 이벤트를 아직 읽는 짧은 구간은 남는다. 취소가 그 사이 들어와도 unread error를 지울 수
+  // 있도록 전달 중인 프레임을 별도로 붙든다(라우팅 소유권과 소비 소유권을 분리).
+  private consumingFrame: Frame | null = null
   // 0136 — 현재 프레임이 listen 프레임(입력 push 없는 소비)인가. endListenFrame 릴리즈 밸브가
   // 일반 턴 프레임을 오폐쇄하지 않도록 참조를 구분해 든다.
   private listenFrame: Frame | null = null
   // 프레임 조기 이탈(취소/스톨) 후 그 턴의 잔여 이벤트를 terminal 까지 드랍하는 상태. draining
   // 중 send 가 오면 이벤트 소속을 구분할 수 없으므로 채널을 teardown 하고 respawn 한다(안전 열화).
   private draining = false
-  private unframed: NormalizedEvent[] = []
+  private unframed: ProviderMessageBatch[] = []
   // 0143 — CLI 가 지금 턴(사용자 턴이든 자동/알림 턴이든)을 진행 중인가. routeEvent 가 비-terminal
   // 이벤트에서 true, terminal 에서 false 로 굴린다(draining 경로 포함). endListenFrame 밸브 유예와
   // chat-turn 의 "pushTurn 은 유휴 채널에서만" 가드가 읽는다 — mid-turn push 로 auto-turn 의
   // terminal/에러가 다음 프레임에 오귀속되는 것(steer 세션 사망)을 구조적으로 차단한다.
   private cliBusy = false
-  // 현재 턴의 콜백 위임 — 채널 spawn 시 바인딩되는 requestApproval/takeSteerFlush 가 턴을 넘어
-  // 재사용되므로, 어댑터에는 고정 래퍼를 주고 실제 콜백은 매 send 마다 여기로 갈아끼운다(0067 W1).
-  private delegate: {
-    requestApproval?: TurnRequest['requestApproval']
-    takeSteerFlush?: TurnRequest['takeSteerFlush']
-    // 0151 — 중단 영수증 상향 통로. 잔여 uuid 판정은 컴포지션 루트가 한다(교차 feature 금지).
-    onInterruptReceipt?: TurnRequest['onInterruptReceipt']
-  } = {}
+  // 현재 턴의 콜백 위임(0067 W1) — 채널 spawn 시 어댑터에 바인딩된 콜백이 턴을 넘어 재사용되므로,
+  // 어댑터에는 고정 래퍼를 주고 실제 콜백은 매 send/listen 마다 여기로 갈아끼운다.
+  // 목록 정본은 `FRAME_DELEGATE_KEYS` 다 — **요청을 재조립하는 모든 경로**(listen 등)가 같은
+  // 목록으로 골라내야 한다(`pickFrameDelegates`). 절반만 넘기면 "take 는 현재 체인 · commit 은
+  // 옛 체인" 이 되어 확정 fence 가 항상 어긋나고 배치가 `submitting` 에 갇힌다(0166 D7/D8).
+  private delegate: FrameDelegate = {}
   // 0125: 채널 spawn 시 어댑터에 주입된 providerSettings 의 불투명 기록 — 내용 해석·비교는
   // 호출자(chat-turn + features/providers 판정) 소관이고 여기선 기록/해제만 한다(0016 중립).
   // spawn 성공 시 갱신, teardown/채널 사망 시 해제 — channelAlive 인 동안만 유효.
@@ -169,9 +219,14 @@ export class SessionRuntime implements ManagedRuntime {
     return this.spawnedRuntimeToolsRevisionValue
   }
 
-  get events(): AsyncIterable<NormalizedEvent> {
+  get eventBatches(): AsyncIterable<ProviderMessageBatch> {
     // 인터페이스 호환용(LiveTurn) — 채널 이벤트는 pump 가 소유하므로 외부 소비 금지.
-    return this.pumpRunning ? EMPTY_EVENTS : (this.live?.events ?? EMPTY_EVENTS)
+    return this.pumpRunning ? EMPTY_BATCHES : (this.live?.eventBatches ?? EMPTY_BATCHES)
+  }
+
+  /** 현재 provider 채널 화신. 제출마다가 아니라 spawn/respawn에서만 바뀐다. */
+  get channelToken(): number | null {
+    return this.channelTokenValue
   }
 
   get state(): SessionRuntimeState {
@@ -210,7 +265,7 @@ export class SessionRuntime implements ManagedRuntime {
       this.status.markLive()
       return
     }
-    const frame = this.openFrame()
+    const frame = this.openFrame(true)
     this.listenFrame = frame
     try {
       yield* this.consumeFrame(frame)
@@ -220,11 +275,7 @@ export class SessionRuntime implements ManagedRuntime {
   }
 
   private adoptDelegate(req: TurnRequest): void {
-    this.delegate = {
-      ...(req.requestApproval ? { requestApproval: req.requestApproval } : {}),
-      ...(req.takeSteerFlush ? { takeSteerFlush: req.takeSteerFlush } : {}),
-      ...(req.onInterruptReceipt ? { onInterruptReceipt: req.onInterruptReceipt } : {})
-    }
+    this.delegate = pickFrameDelegates(req)
   }
 
   private async *runAttempt(req: TurnRequest): AsyncIterable<NormalizedEvent> {
@@ -232,14 +283,17 @@ export class SessionRuntime implements ManagedRuntime {
     this.adoptDelegate(req)
 
     // draining(직전 턴 잔여 드랍) 중의 새 턴은 이벤트 소속 구분이 불가 — 채널 respawn(안전 열화).
-    if (this.draining) this.teardownChannel()
+    if (this.draining || this.unframed.length > 0) this.teardownChannel()
 
     // 장수명 채널 생존 → 후속 턴 이어붙이기(프레임 오픈 후 push — 이른 이벤트 유실 방지).
     const live = this.live
     if (live?.pushTurn && this.pumpRunning) {
-      const frame = this.openFrame()
+      const frame = this.openFrame(false)
       try {
-        await live.pushTurn({
+        if (req.canSubmitInitial && !req.canSubmitInitial()) {
+          throw new Error('submission_stale:before-continuation')
+        }
+        const outcome = await live.pushTurn({
           text: req.text,
           ...(req.attachmentTexts ? { attachmentTexts: req.attachmentTexts } : {}),
           ...(req.attachmentImages ? { attachmentImages: req.attachmentImages } : {}),
@@ -247,6 +301,14 @@ export class SessionRuntime implements ManagedRuntime {
           ...(req.model !== undefined ? { model: req.model } : {}),
           ...(req.permissionMode !== undefined ? { permissionMode: req.permissionMode } : {})
         })
+        if (outcome.kind === 'rejectedBeforeAccept') {
+          this.teardownChannel()
+          throw new Error(`submission_rejected:${outcome.reason}`)
+        }
+        if (req.commitInitialSubmission && !req.commitInitialSubmission()) {
+          this.teardownChannel()
+          throw new Error('submission_stale:continuation')
+        }
       } catch (err) {
         if (this.frame === frame) this.frame = null
         frame.end()
@@ -264,19 +326,29 @@ export class SessionRuntime implements ManagedRuntime {
     log.info('engine.spawn.started', { provider: this.adapter.id })
     let spawned: LiveTurn
     try {
+      if (req.canSubmitInitial && !req.canSubmitInitial()) {
+        throw new Error('submission_stale:before-spawn')
+      }
       spawned = this.adapter.sendMessage(this.wrapRequest(req))
+      if (req.commitInitialSubmission && !req.commitInitialSubmission()) {
+        spawned.close()
+        throw new Error('submission_stale:initial')
+      }
     } catch (err) {
+      req.rollbackInitialSubmission?.()
       log.error('engine.spawn.failed', err, { provider: this.adapter.id })
       throw err
     }
     log.info('engine.spawn.completed', { provider: this.adapter.id })
     this.live = spawned
+    const channelToken = ++this.nextChannelToken
+    this.channelTokenValue = channelToken
     this.spawnedSettings = req.providerSettings
     this.spawnedModelValue = req.model
     this.spawnedRuntimeToolsRevisionValue = req.extensions.runtimeTools?.revision
     if (spawned.pushTurn && this.closePolicy === 'persistent') {
-      const frame = this.openFrame()
-      this.startPump(spawned)
+      const frame = this.openFrame(false)
+      this.startPump(spawned, channelToken)
       yield* this.consumeFrame(frame)
       return
     }
@@ -287,9 +359,9 @@ export class SessionRuntime implements ManagedRuntime {
   private async *consumeTurnScoped(live: LiveTurn): AsyncIterable<NormalizedEvent> {
     let terminal = false
     try {
-      for await (const ev of live.events) {
-        if (isTerminal(ev)) terminal = true
-        yield ev
+      for await (const batch of live.eventBatches) {
+        for (const ev of batch.events) yield ev
+        terminal = batch.events.some(isTerminal)
         if (terminal) {
           live.close()
           this.status.markLive()
@@ -302,6 +374,7 @@ export class SessionRuntime implements ManagedRuntime {
     } finally {
       live.close()
       if (this.live === live) {
+        this.notifyChannelRetired()
         this.live = null
         this.clearSpawnedMetadata()
       }
@@ -312,12 +385,14 @@ export class SessionRuntime implements ManagedRuntime {
   // 넘긴다 — 다음 terminal 까지 드랍(routeEvent). 에러 시 상태 전이는 pump(finishPump)가 아니라
   // 소비 측에서 판정한다(cancelled/timedOut 우선).
   private async *consumeFrame(frame: Frame): AsyncIterable<NormalizedEvent> {
+    this.consumingFrame = frame
     try {
       yield* frame.iterate()
     } catch (err) {
       if (!this.cancelled && !this.timedOut) this.status.markError(null)
       throw err
     } finally {
+      if (this.consumingFrame === frame) this.consumingFrame = null
       if (this.frame === frame) {
         this.frame = null
         this.draining = true
@@ -325,23 +400,36 @@ export class SessionRuntime implements ManagedRuntime {
     }
   }
 
-  private openFrame(): Frame {
+  private openFrame(claimUnframed: boolean): Frame {
     const frame = new Frame()
-    // 유휴 중 도착한 백로그(CLI 자동 픽업 이벤트)를 새 프레임 앞에 합류 — 유실 방지. terminal 이
-    // 섞여 있으면 프레임 안에서 이전 턴 마감이 먼저 흐른다(coordinator 는 후속 이벤트도 소비).
-    for (const ev of this.unframed.splice(0)) frame.push(ev)
+    // 소속이 확인된 listen만 자동 provider 턴 backlog를 인수한다. 사용자 입력 프레임이 이를
+    // 가져가면 이전 턴의 error/result가 다음 답변으로 재귀속되므로 runAttempt는 채널을 격리한다.
+    if (claimUnframed) {
+      const backlog = this.unframed.splice(0)
+      for (let index = 0; index < backlog.length; index += 1) {
+        const batch = backlog[index]
+        for (const ev of batch.events) frame.push(ev)
+        if (batch.events.some(isTerminal)) {
+          // 이미 terminal까지 적체된 자동 턴은 여기서 닫는다. 뒤쪽 배치는 다음 listen의 소유라
+          // 다시 unframed에 남기고, 닫힌 프레임을 routing slot에 걸어 새 이벤트를 유실시키지 않는다.
+          this.unframed.push(...backlog.slice(index + 1))
+          frame.end()
+          return frame
+        }
+      }
+    }
     this.frame = frame
     return frame
   }
 
-  private startPump(live: LiveTurn): void {
+  private startPump(live: LiveTurn, channelToken: number): void {
     this.pumpRunning = true
     void (async () => {
       let pumpError: unknown = null
       try {
-        for await (const ev of live.events) {
-          if (this.live !== live) return // teardown 후 잔여 — stale pump 는 조용히 은퇴
-          this.routeEvent(ev)
+        for await (const batch of live.eventBatches) {
+          if (this.live !== live || this.channelTokenValue !== channelToken) return
+          this.routeBatch(channelToken, batch)
         }
       } catch (err) {
         pumpError = err
@@ -351,12 +439,13 @@ export class SessionRuntime implements ManagedRuntime {
     })()
   }
 
-  private routeEvent(ev: NormalizedEvent): void {
-    const terminal = isTerminal(ev)
+  private routeBatch(channelToken: number, batch: ProviderMessageBatch): void {
+    if (this.channelTokenValue !== channelToken) return
+    const terminal = batch.events.some(isTerminal)
     // CLI 메인 루프 mid-turn 추적(0143) — 어떤 경로(프레임/드레인/unframed)든 터미널 = 유휴 복귀,
     // 비-terminal 은 백그라운드 스코프(child·subagent.task)를 제외하고 진행 중으로 굴린다.
     if (terminal) this.cliBusy = false
-    else if (!isBackgroundScoped(ev)) this.cliBusy = true
+    else if (batch.events.some((ev) => !isBackgroundScoped(ev))) this.cliBusy = true
     if (this.draining) {
       // 조기 이탈한 턴의 잔여 — terminal 에서 드레인 종료, 채널 유휴 복귀.
       if (terminal) {
@@ -367,7 +456,8 @@ export class SessionRuntime implements ManagedRuntime {
     }
     const frame = this.frame
     if (frame) {
-      frame.push(ev)
+      // terminal 전이는 배치 전체가 같은 프레임에 들어간 뒤 적용한다.
+      for (const ev of batch.events) frame.push(ev)
       if (terminal) {
         this.frame = null
         frame.end()
@@ -376,13 +466,14 @@ export class SessionRuntime implements ManagedRuntime {
       return
     }
     // 프레임 밖 — CLI 가 자기 큐 잔존분을 자동 픽업해 시작한 턴(0067 W3 에서 자동 프레임 오픈).
-    this.unframed.push(ev)
+    this.unframed.push(batch)
   }
 
   // 채널 스트림 종료(정상=입력 close/서브프로세스 종료, 예외=스트림 에러) — 활성 프레임을 마감
   // 하고 채널을 내린다. 다음 send 는 spawn(resume) 콜드 패스.
   private finishPump(err: unknown): void {
     this.pumpRunning = false
+    this.notifyChannelRetired()
     this.draining = false
     this.cliBusy = false
     const frame = this.frame
@@ -440,11 +531,18 @@ export class SessionRuntime implements ManagedRuntime {
     this.channelController = new AbortController()
     const frame = this.frame
     this.frame = null
+    // 채널 폐기는 취소가 아니다 — 이미 받은 이벤트는 소비자가 드레인하도록 둔다(end).
     frame?.end()
+    if (this.consumingFrame && this.consumingFrame !== frame) this.consumingFrame.end()
+    // 소비자가 이미 제너레이터를 떠났으면 consumeFrame/runListen 의 finally 가 돌지 않는다 —
+    // 런타임은 세션 수명 객체라 붙들고 있으면 그 프레임의 이벤트가 다음 턴까지 살아남는다.
+    this.consumingFrame = null
+    this.listenFrame = null
     this.draining = false
     this.cliBusy = false
     this.unframed = []
     this.pumpRunning = false
+    this.notifyChannelRetired()
     this.live?.close()
     this.live = null
     this.clearSpawnedMetadata()
@@ -456,22 +554,31 @@ export class SessionRuntime implements ManagedRuntime {
     this.spawnedRuntimeToolsRevisionValue = undefined
   }
 
+  private notifyChannelRetired(): void {
+    const token = this.channelTokenValue
+    if (token == null) return
+    this.channelTokenValue = null
+    this.delegate.onChannelRetired?.(token)
+  }
+
   // 어댑터에 넘기는 요청 — 신호는 채널 신호로 치환(턴 신호와 분리), 콜백은 delegate 래퍼로 치환.
+  // 래퍼 맵은 `ADAPTER_DELEGATE_KEYS` 전부를 요구하는 타입이라, 위임이 하나 늘었는데 여기 래퍼를
+  // 안 만들면 **컴파일 에러**가 난다 — spawn 클로저가 조용히 굳는 경로를 타입으로 막는다.
   private wrapRequest(req: TurnRequest): TurnRequest {
-    return {
-      ...req,
-      signal: this.channelController.signal,
-      ...(req.requestApproval
-        ? {
-            requestApproval: (action, signal) => {
-              const current = this.delegate.requestApproval
-              if (current) return current(action, signal)
-              return Promise.resolve({ behavior: 'deny' as const })
-            }
-          }
-        : {}),
-      ...(req.takeSteerFlush ? { takeSteerFlush: () => this.delegate.takeSteerFlush?.() } : {})
+    const forward: { [K in (typeof ADAPTER_DELEGATE_KEYS)[number]]: NonNullable<TurnRequest[K]> } =
+      {
+        requestApproval: (action, signal) =>
+          this.delegate.requestApproval?.(action, signal) ??
+          Promise.resolve({ behavior: 'deny' as const }),
+        takeSteerFlush: () => this.delegate.takeSteerFlush?.(),
+        commitSteerFlush: (batch) => this.delegate.commitSteerFlush?.(batch) ?? false,
+        rollbackSteerFlush: (batch) => this.delegate.rollbackSteerFlush?.(batch)
+      }
+    const wrapped: Record<string, unknown> = {}
+    for (const key of ADAPTER_DELEGATE_KEYS) {
+      if (req[key] !== undefined) wrapped[key] = forward[key]
     }
+    return { ...req, signal: this.channelController.signal, ...wrapped }
   }
 
   close(): void {
@@ -488,15 +595,26 @@ export class SessionRuntime implements ManagedRuntime {
       // 0151 — interrupt 영수증(still_queued)을 폐기하지 않고 위임으로 올린다. 시그니처는 동기를
       // 유지한다(호출자 다수). 영수증 도착은 중단 처리와 비동기라, 소비자는 늦게 오는 것을 전제로
       // 짜야 한다. 실패는 현행대로 삼킨다 — 중단 자체는 이미 발생했다.
+      const issuedToken = this.channelTokenValue
+      const receiptHandler =
+        this.delegate.captureInterruptReceipt?.() ?? this.delegate.onInterruptReceipt
       void this.live
         .interrupt()
-        .then((receipt) => this.delegate.onInterruptReceipt?.(receipt))
+        .then((receipt) => {
+          if (issuedToken !== this.channelTokenValue) return
+          receiptHandler?.(receipt)
+        })
         .catch(() => {})
       const frame = this.frame
-      if (frame) {
-        this.frame = null
-        this.draining = true
-        frame.end()
+      const deliveryFrame = frame ?? this.consumingFrame
+      if (deliveryFrame) {
+        if (this.frame === deliveryFrame) {
+          this.frame = null
+          this.draining = true
+        }
+        // provider 한 메시지에서 delta 뒤 error 가 함께 정규화돼 이미 프레임 큐에 들어왔더라도
+        // 취소를 실패로 재표시하지 않는다 — **error 만** 걷어내고 부분 답변·telemetry 는 배달한다.
+        deliveryFrame.cancel()
       }
       return
     }

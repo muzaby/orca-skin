@@ -288,7 +288,7 @@ export function Composer({
             </Notice>
           )}
           {residualSteer > 0 && (
-            <Notice title={tr('chat.steer.residualTitle')}>
+            <Notice title={tr('chat.steer.residualTitle', { count: residualSteer })}>
               <div>{tr('chat.steer.residualBody', { count: residualSteer })}</div>
               <Button
                 size="small"

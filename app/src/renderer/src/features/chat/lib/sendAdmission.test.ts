@@ -19,7 +19,7 @@ describe('shouldQueueAsPending (0153)', () => {
   })
 
   it('**핵심** — inflight·listening 이 모두 false 여도 미확정 예약이 있으면 예약', () => {
-    // 관측된 순서 역전의 판정 지점: telemetry 로 inflight 가 내려가고 chat.listen started 가
+    // 관측된 순서 역전의 판정 지점: telemetry 로 inflight 가 내려가고 activity snapshot이
     // 아직 도착하지 않은 창. 잔여 예약이 보이는 이상 이 메시지는 그 뒤에 커밋된다.
     expect(shouldQueueAsPending({ ...idle, pendingCount: 3 })).toBe(true)
   })
