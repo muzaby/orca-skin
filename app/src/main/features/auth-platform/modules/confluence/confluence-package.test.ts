@@ -180,17 +180,20 @@ describe('createConfluencePackage — 연결', () => {
     expect(servers.has(confluenceToolServerId('confluence-dc'))).toBe(true)
   })
 
-  it('연결된 도구 서버가 search 하나만 노출한다', async () => {
+  it('연결된 도구 서버가 찾기·읽기 2종을 노출한다', async () => {
     const registry = registered()
     const { host: pluginHost, servers } = host(registry)
     await pluginHost.connect({ connectorId: 'confluence-dc', bindingId: 'bind-basic' })
     const server = servers.get(confluenceToolServerId('confluence-dc'))
-    expect(server?.implementations.map((i) => i.name)).toEqual([CONFLUENCE_TOOL_NAMES.search])
+    expect(server?.implementations.map((i) => i.name)).toEqual([
+      CONFLUENCE_TOOL_NAMES.search,
+      CONFLUENCE_TOOL_NAMES.getPages
+    ])
   })
 })
 
 describe('createConfluencePackage — 승인 정책', () => {
-  it('search 가 파일을 쓰므로 승인 카드를 거친다', async () => {
+  it('탐색은 자동 허용, 내려받기만 승인 카드를 거친다', async () => {
     const registry = registered()
     const { host: pluginHost, servers } = host(registry)
     await pluginHost.connect({ connectorId: 'confluence-dc', bindingId: 'bind-basic' })
@@ -198,7 +201,9 @@ describe('createConfluencePackage — 승인 정책', () => {
     const serverId = confluenceToolServerId('confluence-dc')
     const approval = runtimeApprovalToolNames({ revision: 1, servers })
 
-    // 0164 r2 로 search 가 페이지 Markdown·첨부를 로컬에 쓴다 → readOnlyHint:false → 승인 대상.
-    expect(approval.has(`mcp__${serverId}__${CONFLUENCE_TOOL_NAMES.search}`)).toBe(true)
+    // 0164 r3 — 찾기/읽기를 나눈 이유가 여기 있다. 검색은 아무것도 바꾸지 않고,
+    // 본문·첨부를 로컬에 쓰는 getPages 만 승인 대상이다.
+    expect(approval.has(`mcp__${serverId}__${CONFLUENCE_TOOL_NAMES.search}`)).toBe(false)
+    expect(approval.has(`mcp__${serverId}__${CONFLUENCE_TOOL_NAMES.getPages}`)).toBe(true)
   })
 })

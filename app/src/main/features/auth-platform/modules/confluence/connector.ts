@@ -19,6 +19,8 @@ import { mapWithLimit } from './limit'
 import {
   attachmentDataRequest,
   attachmentListRequest,
+  clampLimit,
+  clampStart,
   currentUserRequest,
   normalizeBasePath,
   pageRequest,
@@ -47,37 +49,49 @@ const DEFAULT_DOWNLOAD_CONCURRENCY = 4
 // 모델이 "무엇을 받았는지" 판단할 만큼만 준다 — 대용량 페이지가 컨텍스트를 통째로 먹지 않게.
 const PREVIEW_CHARS = 4000
 
-// 검색 한 번이 본문 변환까지 하므로(0164 r2 — 사용자 요구 "search 후 pageids 추출하여 마크다운
-// 변환 및 이미지 첨부 다운로드") 몇 개를 펼칠지 상한이 필요하다. 상한이 없으면 검색 결과 25건이
-// 곧 25번의 페이지 조회 + 첨부 다운로드가 되어 사내 서버와 모델 컨텍스트를 동시에 때린다.
-const DEFAULT_MAX_PAGES = 5
-const MAX_MAX_PAGES = 10
+// 한 번에 본문을 펼칠 페이지 수 상한. 페이지 하나가 조회 + 첨부 다운로드를 끌고 오므로
+// 검색 상한(50)을 그대로 쓰면 도구 한 번이 50번의 조회 + 수백 개 첨부가 된다.
+const MAX_PAGES_PER_CALL = 50
 // 페이지 하나가 이미 첨부를 동시 다운로드한다 — 페이지까지 넓게 열면 곱해진다.
 const PAGE_CONCURRENCY = 2
 
-// operation 은 **도구 표면과 1:1** 이다. 0164 r2 에서 도구를 `confluence_search` 하나로 줄이면서
-// `verify`·`page`·`attachments` 도 함께 지웠다 — `invoke` 를 부르는 곳은 도구 handler 뿐이라
-// 남겨 두면 아무도 부르지 않는 분기가 된다(자격증명 검증은 `start()` 가 한다).
+// operation 은 **도구 표면과 1:1** 이다 (0164 r3 — 사용자 재지정):
+//   search → id·제목·작성자만(본문 없음), 페이지네이션
+//   pages  → 받은 id 들의 본문 + 첨부
+// `verify` 는 두지 않는다 — 자격증명 검증은 `start()` 가 실제 요청 경로로 한다.
 export const CONFLUENCE_OPERATIONS = {
-  search: 'search'
+  search: 'search',
+  pages: 'pages'
 } as const
 
 export interface ConfluenceSearchHit {
   id: string
   title: string
+  // 작성자 표시 이름(`history.createdBy`). 없으면 마지막 수정자로 폴백한다.
+  author?: string
   spaceKey?: string
   type: string
 }
 
 export interface ConfluenceSearchResult {
-  // 질의가 맞춘 전체 목록. 본문을 펼치지 않은 것까지 포함한다 — 모델이 다음 질의를 좁힐 근거다.
   hits: ConfluenceSearchHit[]
-  // 상한 안에서 실제로 Markdown 으로 변환하고 첨부까지 받은 페이지.
+  // 이번 응답이 덮은 구간. `limit` 은 **서버가 실제로 적용한 값**이다 — 요청보다 낮을 수 있고,
+  // 그때는 다음 오프셋도 그 값만큼만 밀어야 결과를 건너뛰지 않는다.
+  start: number
+  limit: number
+  size: number
+  // 서버가 주면 전체 건수. CQL 검색은 보통 준다.
+  totalSize?: number
+  // 더 남았으면 다음 호출에 그대로 넣을 오프셋. 없으면 끝이다.
+  nextStart?: number
+}
+
+export interface ConfluencePagesResult {
   pages: ConfluencePageResult[]
-  // 페이지 하나가 404·권한 오류여도 검색 전체를 실패시키지 않는다.
-  failedPages: Array<{ pageId: string; title: string; message: string }>
-  // 상한에 걸려 본문을 펼치지 않은 hit 수. 0 이 아니면 모델이 질의를 좁혀야 한다는 신호다.
-  skippedPages: number
+  // 페이지 하나가 404·권한 오류여도 나머지를 버리지 않는다.
+  failedPages: Array<{ pageId: string; message: string }>
+  // 상한을 넘겨 처리하지 않은 id. 다음 호출에 그대로 넣으면 된다.
+  skippedPageIds: string[]
 }
 
 export interface ConfluencePageResult {
@@ -180,9 +194,18 @@ export function createConfluenceConnector(raw: ConfluenceServerConfig): Connecto
       const params = request.params ?? {}
       switch (request.operation) {
         case CONFLUENCE_OPERATIONS.search: {
-          const body = await json(ctx, searchRequest(endpoint, params as SearchInput))
-          const hits = parseSearchHits(body)
-          return { ok: true, data: await expandHits(ctx, hits, clampMaxPages(params.maxPages)) }
+          const input = params as SearchInput
+          const body = await json(ctx, searchRequest(endpoint, input))
+          return {
+            ok: true,
+            data: parseSearchResponse(body, clampStart(input.start), clampLimit(input.limit))
+          }
+        }
+
+        case CONFLUENCE_OPERATIONS.pages: {
+          const pageIds = requireStringArray(params.pageIds, 'pageIds')
+          const includeAttachments = params.includeAttachments !== false
+          return { ok: true, data: await fetchPages(ctx, pageIds, includeAttachments) }
         }
 
         default:
@@ -196,34 +219,28 @@ export function createConfluenceConnector(raw: ConfluenceServerConfig): Connecto
     }
   }
 
-  // 검색 결과를 본문까지 펼친다. `confluence_get_page` 를 없앤 뒤(0164 r2) 모델이 본문에 닿는
-  // 유일한 경로다 — 검색이 id 만 주면 그 id 로 할 수 있는 일이 없다.
-  async function expandHits(
+  // 받은 id 들의 본문 + 첨부. `search` 가 id·제목·작성자만 주므로(0164 r3) 모델이 본문에 닿는
+  // 유일한 경로다. 중복 id 는 한 번만 처리한다 — 같은 페이지를 두 번 내려받을 이유가 없다.
+  async function fetchPages(
     ctx: ConnectorContext,
-    hits: readonly ConfluenceSearchHit[],
-    maxPages: number
-  ): Promise<ConfluenceSearchResult> {
-    // 첨부·댓글은 본문 변환 대상이 아니다.
-    const pageHits = hits.filter((hit) => hit.type === 'page')
-    const targets = pageHits.slice(0, maxPages)
+    pageIds: readonly string[],
+    includeAttachments: boolean
+  ): Promise<ConfluencePagesResult> {
+    const unique = [...new Set(pageIds)]
+    const targets = unique.slice(0, MAX_PAGES_PER_CALL)
 
-    const settled = await mapWithLimit(targets, PAGE_CONCURRENCY, (hit) =>
-      fetchPage(ctx, hit.id, true)
+    const settled = await mapWithLimit(targets, PAGE_CONCURRENCY, (pageId) =>
+      fetchPage(ctx, pageId, includeAttachments)
     )
 
     const pages: ConfluencePageResult[] = []
-    const failedPages: ConfluenceSearchResult['failedPages'] = []
+    const failedPages: ConfluencePagesResult['failedPages'] = []
     settled.forEach((result, index) => {
       if (result.ok) pages.push(result.value)
-      else
-        failedPages.push({
-          pageId: targets[index].id,
-          title: targets[index].title,
-          message: result.error.message
-        })
+      else failedPages.push({ pageId: targets[index], message: result.error.message })
     })
 
-    return { hits: [...hits], pages, failedPages, skippedPages: pageHits.length - targets.length }
+    return { pages, failedPages, skippedPageIds: unique.slice(MAX_PAGES_PER_CALL) }
   }
 
   async function fetchPage(
@@ -371,6 +388,38 @@ function parseAttachments(body: unknown): AttachmentEntry[] {
   })
 }
 
+// 검색 응답 → hit 목록 + **페이지네이션 좌표**.
+//
+// 요청한 `limit` 을 그대로 다음 오프셋에 쓰면 안 된다 — Confluence 는 사이트 설정에 따라 더 낮은
+// 값을 적용하고 그 사실을 응답의 `limit` 으로 알린다(사용자 결정 2026-08-04 — "허용치가 낮으면
+// 해당 숫자를 따른다"). 실효값으로 밀지 않으면 결과가 통째로 건너뛰어진다.
+export function parseSearchResponse(
+  body: unknown,
+  requestedStart: number,
+  requestedLimit: number
+): ConfluenceSearchResult {
+  const envelope = body as { start?: unknown; limit?: unknown; size?: unknown; totalSize?: unknown }
+  const hits = parseSearchHits(body)
+
+  const start = typeof envelope.start === 'number' ? envelope.start : requestedStart
+  // 서버가 limit 을 안 주면 요청값을 쓴다. 0 이하는 신뢰하지 않는다(오프셋이 전진하지 못한다).
+  const serverLimit = typeof envelope.limit === 'number' ? envelope.limit : requestedLimit
+  const limit = serverLimit > 0 ? Math.min(serverLimit, requestedLimit) : requestedLimit
+  const size = typeof envelope.size === 'number' ? envelope.size : hits.length
+  const totalSize = typeof envelope.totalSize === 'number' ? envelope.totalSize : undefined
+
+  // 총계를 주면 그걸 믿고, 없으면 "이번에 한도만큼 채워 왔다" 를 다음이 있다는 신호로 본다.
+  const hasMore = totalSize !== undefined ? start + size < totalSize : size >= limit && size > 0
+  return {
+    hits,
+    start,
+    limit,
+    size,
+    ...(totalSize !== undefined ? { totalSize } : {}),
+    ...(hasMore ? { nextStart: start + limit } : {})
+  }
+}
+
 function parseSearchHits(body: unknown): ConfluenceSearchHit[] {
   const results = (body as { results?: unknown }).results
   if (!Array.isArray(results)) return []
@@ -380,20 +429,48 @@ function parseSearchHits(body: unknown): ConfluenceSearchHit[] {
       title?: unknown
       type?: unknown
       space?: { key?: unknown }
+      history?: { createdBy?: { displayName?: unknown; username?: unknown } }
+      version?: { by?: { displayName?: unknown } }
     }
     if (typeof item.id !== 'string' || typeof item.title !== 'string') return []
+    const author = parseAuthor(item)
     return [
       {
         id: item.id,
         title: item.title,
         type: typeof item.type === 'string' ? item.type : 'page',
+        ...(author !== undefined ? { author } : {}),
         ...(typeof item.space?.key === 'string' ? { spaceKey: item.space.key } : {})
       }
     ]
   })
 }
 
-export function clampMaxPages(value: unknown): number {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return DEFAULT_MAX_PAGES
-  return Math.min(Math.max(Math.trunc(value), 1), MAX_MAX_PAGES)
+// 작성자 = `history.createdBy`. 그 확장이 빠진 배포도 있어 마지막 수정자로 폴백한다 —
+// 없는 것보다는 누가 손댔는지가 낫고, 없으면 필드를 아예 싣지 않는다(빈 문자열 금지).
+function parseAuthor(item: {
+  history?: { createdBy?: { displayName?: unknown; username?: unknown } }
+  version?: { by?: { displayName?: unknown } }
+}): string | undefined {
+  const candidates = [
+    item.history?.createdBy?.displayName,
+    item.history?.createdBy?.username,
+    item.version?.by?.displayName
+  ]
+  for (const value of candidates) {
+    if (typeof value === 'string' && value.trim() !== '') return value.trim()
+  }
+  return undefined
+}
+
+// 도구 입력은 SDK 가 스키마로 걸러 주지만, connector 는 **자기 입력을 스스로 검증한다** —
+// `invoke` 는 도구 밖에서도 호출될 수 있는 계약이다.
+function requireStringArray(value: unknown, name: string): string[] {
+  if (!Array.isArray(value)) throw new Error(`${name} 가 필요합니다`)
+  const items = value
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter((item) => item !== '')
+  if (items.length === 0) throw new Error(`${name} 가 필요합니다`)
+  return items
 }

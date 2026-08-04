@@ -1,49 +1,71 @@
-// 검색 결과 → 모델에게 줄 **텍스트** (0164 r2) — 순수 함수. 네트워크·fs 의존 0.
+// 도구 결과 → 모델에게 줄 **텍스트** (0164 r2, r3 에서 2종으로 분리) — 순수 함수.
 //
 // 이 파일이 생긴 이유는 하나다: 이전 구현이 `JSON.stringify(result.data, null, 2)` 를 그대로
 // 실었다. Markdown 이 JSON 문자열 **안에** 들어가면 줄바꿈이 `\n` 두 글자로 이스케이프되어
 // 모델에게도 사람에게도 한 줄로 보인다(사용자 보고 2026-08-04 "\n 기호를 줄바꿈으로 표시해서
 // 그런듯"). 본문이 Markdown 이면 결과도 Markdown 이어야 한다 — 감싸지 않는다.
-//
-// 구조화된 값(경로·첨부·실패)은 짧은 머리말로 남기고, 본문은 그 아래에 그대로 붙인다.
 
-import type { ConfluencePageResult, ConfluenceSearchResult } from './connector'
+import type {
+  ConfluencePageResult,
+  ConfluencePagesResult,
+  ConfluenceSearchResult
+} from './connector'
 
+// `confluence_search` — id·제목·작성자만. 본문은 `confluence_get_pages` 가 준다.
 export function renderSearchResult(data: unknown): string {
   const result = data as Partial<ConfluenceSearchResult> | null | undefined
   const hits = Array.isArray(result?.hits) ? result.hits : []
+  const start = typeof result?.start === 'number' ? result.start : 0
+  const limit = typeof result?.limit === 'number' ? result.limit : hits.length
+  const totalSize = typeof result?.totalSize === 'number' ? result.totalSize : undefined
+  const nextStart = typeof result?.nextStart === 'number' ? result.nextStart : undefined
+
+  if (hits.length === 0) {
+    return start > 0 ? `offset ${start} 이후로는 결과가 없습니다.` : '검색 결과가 없습니다.'
+  }
+
+  // 범위를 명시한다 — 모델이 "몇 번째부터 몇 개를 봤는지" 알아야 다음 호출을 정할 수 있다.
+  const range = `${start + 1}–${start + hits.length}`
+  const of = totalSize !== undefined ? ` / 전체 ${totalSize}건` : ''
+  const lines = [`검색 결과 ${range}${of} (한 번에 최대 ${limit}건)`]
+
+  if (nextStart !== undefined) {
+    // 다음 오프셋을 **계산해서** 준다. 모델이 limit 을 더해 만들게 하면 서버가 limit 을 낮춘
+    // 경우 결과를 건너뛴다.
+    lines.push(`더 있습니다 — 다음 호출에 start: ${nextStart} 를 넣으세요.`)
+  }
+
+  lines.push('', '본문이 필요하면 아래 pageId 들을 confluence_get_pages 에 넘기세요.', '')
+  for (const hit of hits) lines.push(`- ${hitLine(hit)}`)
+  return lines.join('\n')
+}
+
+function hitLine(hit: ConfluenceSearchResult['hits'][number]): string {
+  const meta = [`pageId: ${hit.id}`]
+  if (hit.author !== undefined) meta.push(`작성자: ${hit.author}`)
+  if (hit.spaceKey !== undefined) meta.push(`space: ${hit.spaceKey}`)
+  return `${hit.title} (${meta.join(', ')})`
+}
+
+// `confluence_get_pages` — 본문 Markdown + 내려받은 첨부.
+export function renderPagesResult(data: unknown): string {
+  const result = data as Partial<ConfluencePagesResult> | null | undefined
   const pages = Array.isArray(result?.pages) ? result.pages : []
   const failed = Array.isArray(result?.failedPages) ? result.failedPages : []
-  const skipped = typeof result?.skippedPages === 'number' ? result.skippedPages : 0
+  const skipped = Array.isArray(result?.skippedPageIds) ? result.skippedPageIds : []
 
-  if (hits.length === 0) return '검색 결과가 없습니다.'
-
-  const lines: string[] = [
-    `검색 결과 ${hits.length}건 중 ${pages.length}건의 본문을 Markdown 으로 변환했습니다.`
-  ]
-  if (skipped > 0) {
-    lines.push(
-      `상한을 넘어 본문을 펼치지 않은 페이지 ${skipped}건 — 질의를 좁히거나 maxPages 를 올리세요.`
-    )
-  }
+  const lines: string[] = [`${pages.length}건의 본문을 Markdown 으로 변환했습니다.`]
   if (failed.length > 0) {
     lines.push(
-      `본문을 가져오지 못한 페이지 ${failed.length}건: ` +
-        failed.map((item) => `${item.title || item.pageId}(${item.message})`).join(', ')
+      `가져오지 못한 페이지 ${failed.length}건: ` +
+        failed.map((item) => `${item.pageId}(${item.message})`).join(', ')
     )
   }
-
-  // 변환하지 않은 hit 도 id·제목은 남긴다 — 다음 질의의 재료다.
-  const expanded = new Set(pages.map((page) => page.pageId))
-  const rest = hits.filter((hit) => !expanded.has(hit.id))
-  if (rest.length > 0) {
-    lines.push('', '## 본문을 펼치지 않은 검색 결과')
-    for (const hit of rest) {
-      lines.push(
-        `- ${hit.title} (pageId: ${hit.id}${hit.spaceKey ? `, space: ${hit.spaceKey}` : ''})`
-      )
-    }
+  if (skipped.length > 0) {
+    // 조용히 버리지 않는다 — 남은 id 를 그대로 줘서 다음 호출로 이어갈 수 있게 한다.
+    lines.push(`상한을 넘어 처리하지 않은 pageId ${skipped.length}건: ${skipped.join(', ')}`)
   }
+  if (pages.length === 0) return lines.join('\n')
 
   for (const page of pages) lines.push('', ...renderPage(page))
   return lines.join('\n')
