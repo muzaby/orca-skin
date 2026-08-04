@@ -130,6 +130,11 @@ export class SessionRuntime implements ManagedRuntime {
   private delegate: {
     requestApproval?: TurnRequest['requestApproval']
     takeSteerFlush?: TurnRequest['takeSteerFlush']
+    // 게이트 훅의 짝 콜백도 **턴마다 재바인딩**해야 한다. 채널은 체인보다 오래 살고 이 콜백들은
+    // 체인 스코프(lease.chainId fence)를 캡처하므로, spawn 시점 값을 그대로 두면 두 번째 체인부터
+    // "take 는 현재 체인 · commit 은 옛 체인" 이 되어 fence 가 항상 어긋난다(0166 D8).
+    commitSteerFlush?: TurnRequest['commitSteerFlush']
+    rollbackSteerFlush?: TurnRequest['rollbackSteerFlush']
     // 0151 — 중단 영수증 상향 통로. 잔여 uuid 판정은 컴포지션 루트가 한다(교차 feature 금지).
     onInterruptReceipt?: TurnRequest['onInterruptReceipt']
     captureInterruptReceipt?: TurnRequest['captureInterruptReceipt']
@@ -247,6 +252,8 @@ export class SessionRuntime implements ManagedRuntime {
     this.delegate = {
       ...(req.requestApproval ? { requestApproval: req.requestApproval } : {}),
       ...(req.takeSteerFlush ? { takeSteerFlush: req.takeSteerFlush } : {}),
+      ...(req.commitSteerFlush ? { commitSteerFlush: req.commitSteerFlush } : {}),
+      ...(req.rollbackSteerFlush ? { rollbackSteerFlush: req.rollbackSteerFlush } : {}),
       ...(req.onInterruptReceipt ? { onInterruptReceipt: req.onInterruptReceipt } : {}),
       ...(req.captureInterruptReceipt
         ? { captureInterruptReceipt: req.captureInterruptReceipt }
@@ -548,7 +555,16 @@ export class SessionRuntime implements ManagedRuntime {
             }
           }
         : {}),
-      ...(req.takeSteerFlush ? { takeSteerFlush: () => this.delegate.takeSteerFlush?.() } : {})
+      // 게이트 훅 3종은 **모두** delegate 경유여야 한다. 채널이 체인보다 오래 살기 때문에
+      // spawn 시점 클로저를 그대로 넘기면 두 번째 체인부터 take/commit 이 서로 다른 체인을 본다
+      // → commit fence 가 항상 실패하고 배치가 `submitting` 에 영구히 갇힌다(0166 D8).
+      ...(req.takeSteerFlush ? { takeSteerFlush: () => this.delegate.takeSteerFlush?.() } : {}),
+      ...(req.commitSteerFlush
+        ? { commitSteerFlush: (batch) => this.delegate.commitSteerFlush?.(batch) ?? false }
+        : {}),
+      ...(req.rollbackSteerFlush
+        ? { rollbackSteerFlush: (batch) => this.delegate.rollbackSteerFlush?.(batch) }
+        : {})
     }
   }
 

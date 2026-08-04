@@ -283,6 +283,37 @@ describe('PendingMessageQueue', () => {
       expect(q.hasSubmitted('s')).toBe(true)
     })
 
+    // 0166 D8 — commit fence 가 어긋나 `submitting` 에 남은 배치는 **이미 stdin 으로 나간 것**이다
+    // (push 실패는 게이트 훅이 rollback 했고, 초기 배치는 outer finally 가 먼저 rollback 한다).
+    // 여기서 제외하면 confirm 대상도(open 술어 제외) orphan 대상도 아니라 **영원히 갇히고**,
+    // 그러면서 open 카운트에는 계속 잡혀 세션이 영구히 busy 로 보인다(실기 보고).
+    it('commit 을 못 받은 submitting 배치도 체인 종료 시 orphaned 로 내린다 (영구 고착 차단)', () => {
+      const q = new PendingMessageQueue()
+      q.enqueue('s', msg('commit 실패'), 1, 'a')
+      q.reserveHeld('s', 'steer', 'batch-1', 'chain-1') // commit 없이 남는다 = submitting
+      expect(q.hasSubmitted('s')).toBe(false) // submitted 가 아니라 판정에서 안 보였다
+      expect(q.counts('s').deliveryPendingCount).toBe(1) // 그런데 open 카운트에는 잡힌다
+
+      const orphaned = q.orphanUnconfirmed('s', 'chain-1')
+      expect(orphaned.map((b) => b.ids)).toEqual([['a']])
+      // 이제 늦은 echo 로 확정되거나(커밋 유실 방지) respawn 이월·discard 로 회수될 수 있다.
+      expect(q.confirm('s', { kind: 'echo', uuid: 'batch-1' }).map((b) => b.ids)).toEqual([['a']])
+      expect(q.drainConfirmed('s').map((b) => b.ids)).toEqual([['a']])
+      expect(q.counts('s').deliveryPendingCount).toBe(0)
+    })
+
+    it('다른 체인의 submitting 은 건드리지 않는다', () => {
+      const q = new PendingMessageQueue()
+      q.enqueue('s', msg('내 체인'), 1, 'a')
+      q.reserveHeld('s', 'steer', 'batch-1', 'chain-1')
+      q.enqueue('s', msg('다른 체인'), 2, 'b')
+      q.reserveHeld('s', 'steer', 'batch-2', 'chain-2')
+
+      expect(q.orphanUnconfirmed('s', 'chain-1').map((b) => b.ids)).toEqual([['a']])
+      // chain-2 는 아직 진행 중일 수 있다 — rollback 가능한 submitting 으로 남아야 한다.
+      expect(q.rollback('s', 'batch-2')).toBe(true)
+    })
+
     it('takeForRespawn 이 새 chainId 를 붙이면 이전 체인의 강등이 그것을 건드리지 못한다 (ABA 차단)', () => {
       const q = new PendingMessageQueue()
       q.enqueue('s', msg('이월 대상'), 1, 'a')

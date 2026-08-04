@@ -376,12 +376,18 @@ export class PendingMessageQueue {
   // orphaned 는 **폐기 대상이 아니다.** `confirm` 의 open 술어가 orphaned 를 포함하므로 늦은 echo
   // 가 그대로 확정하고, 회수는 CLI 큐가 실제로 사라지는 시점(채널 사망 → takeForRespawn, 세션
   // 폐기 → dispose)이 맡는다.
+  // **`submitting` 도 대상이다**(0166 D8). 체인이 끝나는 시점에 남아 있는 `submitting` 은 "아직
+  // 안 보낸 것" 이 아니라 **"보냈는데 commit fence 가 어긋난 것"** 이다 — push 실패는 게이트 훅이
+  // 이미 rollback 했고(`makeSteerGateHook`), 초기 배치는 outer finally 가 `rollbackInitialSubmission`
+  // 을 먼저 태운다. 여기서 제외하면 그 배치는 confirm 대상도(open 술어가 제외) orphan 대상도 아니게
+  // 되어 **영원히 갇히고**, 그러면서 open 카운트에는 계속 잡혀 세션이 영구히 busy 로 보인다.
   orphanUnconfirmed(sessionId: string, chainId?: string): SteerFlushBatch[] {
     const batches = this.trackedBySession.get(sessionId)
     if (!batches) return []
     const orphaned: SteerFlushBatch[] = []
     for (const batch of batches) {
-      if (batch.state !== 'submitted' || (chainId !== undefined && batch.chainId !== chainId)) {
+      const pushedButUnconfirmed = batch.state === 'submitted' || batch.state === 'submitting'
+      if (!pushedButUnconfirmed || (chainId !== undefined && batch.chainId !== chainId)) {
         continue
       }
       batch.state = 'orphaned'

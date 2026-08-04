@@ -367,6 +367,61 @@ describe('SessionRuntime 장수명 채널(0067)', () => {
     expect(rest.map((event) => event.type)).toEqual(['message.delta', 'telemetry'])
   })
 
+  // 0166 D8 — 게이트 훅 콜백 **3종 전부** 턴마다 재바인딩돼야 한다. 채널은 체인보다 오래 살고
+  // commit/rollback 은 체인 스코프(lease.chainId fence)를 캡처하므로, spawn 시점 클로저를 그대로
+  // 두면 두 번째 send 부터 "take 는 새 체인 · commit 은 옛 체인" 이 되어 fence 가 항상 어긋난다.
+  // 결과: 배치가 `submitting` 에 갇혀 **정식 버블로 승격되지 않는다**(실기 보고).
+  it('게이트 훅 콜백(take·commit·rollback)은 spawn 이 아니라 **현재 턴**으로 위임된다', async () => {
+    const ch = channelLive()
+    let captured: TurnRequest | undefined
+    const runtime = new SessionRuntime({
+      id: 'claude',
+      complete: async () => '',
+      sendMessage: (request) => {
+        captured = request
+        return ch.liveTurn
+      },
+      classifyError: (err) => makeClassifiedError('stream_error', String(err), { retryable: true })
+    })
+
+    const calls: string[] = []
+    const turnRequest = (chain: string): TurnRequest => ({
+      ...req(),
+      takeSteerFlush: () => {
+        calls.push(`take:${chain}`)
+        return undefined
+      },
+      commitSteerFlush: () => {
+        calls.push(`commit:${chain}`)
+        return true
+      },
+      rollbackSteerFlush: () => {
+        calls.push(`rollback:${chain}`)
+      }
+    })
+
+    // 체인 1 — spawn. 어댑터는 여기서 훅 클로저를 캡처한다.
+    const first = collect(runtime.send(turnRequest('chain-1')))
+    await tick()
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await first
+
+    // 체인 2 — 같은 채널에 pushTurn 으로 이어붙인다(0067). 어댑터의 훅은 여전히 spawn 캡처본이다.
+    const second = collect(runtime.send(turnRequest('chain-2')))
+    await tick()
+
+    const batch = { uuid: 'b', ids: ['m'], text: 'x', createdAt: 1 }
+    captured!.takeSteerFlush?.()
+    captured!.commitSteerFlush?.(batch)
+    captured!.rollbackSteerFlush?.(batch)
+
+    // 셋 다 **현재 체인** 으로 가야 한다 — 하나라도 chain-1 이면 fence 가 어긋난다.
+    expect(calls).toEqual(['take:chain-2', 'commit:chain-2', 'rollback:chain-2'])
+
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await second
+  })
+
   // 0165 AC14 — **보고 증상 ① 의 재현 경로**. 취소 턴이 만든 provider error 가 다음 턴 프레임으로
   // 새면 renderer 에 에러 버블이 뜨고, 그 뒤 delta 가 도착하며 버블이 지워졌다가 다시 그려진다.
   // (IPC 핸들러가 아니라 프레임 경계에서 재현한다 — 누출이 일어나는 층이 여기다.)
