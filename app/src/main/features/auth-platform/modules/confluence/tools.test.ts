@@ -26,15 +26,19 @@ describe('createConfluenceTools — descriptor', () => {
     expect(contribution.descriptor.connectorId).toBe('confluence-dc')
   })
 
-  it('도구는 search 하나뿐이다', () => {
-    // 사용자 결정 2026-08-04 — get page 는 노출하지 않는다. 검색이 본문까지 준다.
-    expect(contribution.descriptor.tools.map((t) => t.name)).toEqual([CONFLUENCE_TOOL_NAMES.search])
+  it('찾기와 읽기 2종을 선언한다', () => {
+    // 사용자 재지정 2026-08-04 — search 는 id·제목·작성자, getPages 가 본문+첨부.
+    expect(contribution.descriptor.tools.map((t) => t.name)).toEqual([
+      CONFLUENCE_TOOL_NAMES.search,
+      CONFLUENCE_TOOL_NAMES.getPages
+    ])
   })
 
-  it('search 는 파일을 쓰므로 readOnlyHint:false 다', () => {
+  it('search 는 자동 허용, getPages 는 파일을 쓰므로 승인 대상이다', () => {
     // MCP 의 readOnlyHint 는 "환경을 변경하지 않는다" 다. 로컬에 파일을 쓰면 false 가 정직하다.
-    const search = contribution.descriptor.tools[0]
-    expect(search.annotations?.readOnlyHint).toBe(false)
+    const byName = new Map(contribution.descriptor.tools.map((t) => [t.name, t]))
+    expect(byName.get(CONFLUENCE_TOOL_NAMES.search)?.annotations?.readOnlyHint).toBe(true)
+    expect(byName.get(CONFLUENCE_TOOL_NAMES.getPages)?.annotations?.readOnlyHint).toBe(false)
   })
 
   it('설명에 connector 라벨이 들어가 서버가 여러 개여도 구분된다', () => {
@@ -52,7 +56,7 @@ describe('createConfluenceTools — handler', () => {
     )
   })
 
-  it('search 도구가 search operation 을 부른다', async () => {
+  it('각 도구가 대응하는 connector operation 을 부른다', async () => {
     const calls: string[] = []
     const impls = contribution.create(
       toolContext(async (operation) => {
@@ -61,7 +65,7 @@ describe('createConfluenceTools — handler', () => {
       })
     )
     for (const impl of impls) await impl.handler({})
-    expect(calls).toEqual([CONFLUENCE_OPERATIONS.search])
+    expect(calls).toEqual([CONFLUENCE_OPERATIONS.search, CONFLUENCE_OPERATIONS.pages])
   })
 
   it('모든 handler 가 content 를 채운다', async () => {
@@ -76,13 +80,12 @@ describe('createConfluenceTools — handler', () => {
     }
   })
 
-  it('성공 본문을 JSON 으로 감싸지 않는다 — Markdown 줄바꿈이 살아 있어야 한다', async () => {
+  it('getPages 의 본문을 JSON 으로 감싸지 않는다 — Markdown 줄바꿈이 살아 있어야 한다', async () => {
     // 회귀: 이전 구현은 `JSON.stringify(data)` 를 실어 본문 줄바꿈이 `\n` 두 글자로 새어 나왔다.
     const impls = contribution.create(
       toolContext(async () => ({
         ok: true,
         data: {
-          hits: [{ id: '1', title: '센서 스펙', type: 'page' }],
           pages: [
             {
               pageId: '1',
@@ -97,11 +100,11 @@ describe('createConfluenceTools — handler', () => {
             }
           ],
           failedPages: [],
-          skippedPages: 0
+          skippedPageIds: []
         }
       }))
     )
-    const text = (await impls[0].handler({})).content[0].text
+    const text = (await impls[1].handler({ pageIds: ['1'] })).content[0].text
     expect(text).toContain('| a | b |\n| --- | --- |')
     expect(text).not.toContain('\\n')
     expect(text).not.toContain('"markdownPreview"')
@@ -143,7 +146,10 @@ describe('createConfluenceTools — handler', () => {
         return { ok: true, data: null }
       })
     )
-    await impls[0].handler({ text: '센서', spaceKey: 'QA', maxPages: 3 })
-    expect(received).toEqual({ text: '센서', spaceKey: 'QA', maxPages: 3 })
+    await impls[0].handler({ text: '센서', spaceKey: 'QA', limit: 10, start: 20 })
+    expect(received).toEqual({ text: '센서', spaceKey: 'QA', limit: 10, start: 20 })
+
+    await impls[1].handler({ pageIds: ['1', '2'], includeAttachments: false })
+    expect(received).toEqual({ pageIds: ['1', '2'], includeAttachments: false })
   })
 })

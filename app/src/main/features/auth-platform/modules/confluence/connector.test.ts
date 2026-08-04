@@ -10,7 +10,11 @@ import type {
   ConnectorContext,
   ConnectorResult
 } from '../../../../contracts/connector-plugin'
-import { createConfluenceConnector, type ConfluenceSearchResult } from './connector'
+import {
+  createConfluenceConnector,
+  type ConfluencePagesResult,
+  type ConfluenceSearchResult
+} from './connector'
 import { pageDir } from './download-store'
 
 const SERVER = { id: 'confluence-test', label: 'Confluence Test', baseUrl: 'https://wiki.invalid' }
@@ -101,92 +105,214 @@ describe('ConfluenceConnector — start', () => {
   })
 })
 
-// 검색이 본문까지 펼친다(0164 r2) — `confluence_get_page` 를 없앤 뒤 모델이 본문에 닿는 유일한
-// 경로다. 그래서 여기 테스트는 "검색 → 페이지 조회 → 첨부 다운로드" 전 구간을 한 번에 본다.
+// 도구 표면과 1:1 로 두 축이다 (0164 r3 — 사용자 재지정):
+//   search → id·제목·작성자 + 페이지네이션 좌표 (본문 없음)
+//   pages  → 받은 id 들의 본문 Markdown + 첨부
+const STORAGE =
+  '<p>본문</p><ac:image><ri:attachment ri:filename="diagram.png" /></ac:image>' +
+  '<ac:structured-macro ac:name="jira" />'
+// 첨부를 참조하지 않는 본문 — 첨부 목록 조회 자체가 없어야 한다.
+const PLAIN_STORAGE = '<p>첨부 없는 본문</p>'
+
+function searchRoute(envelope: Record<string, unknown>): Route {
+  return {
+    match: (r) => r.path.endsWith('/content/search'),
+    respond: () => ({ status: 200, body: JSON.stringify(envelope) })
+  }
+}
+
+function pageRoute(storage = STORAGE): Route {
+  return {
+    // 요청된 id 를 그대로 돌려준다 — 여러 페이지를 받는 경로를 검증하려면 필요하다.
+    match: (r) => /\/content\/\d+$/.test(r.path),
+    respond: (r) => {
+      const id = r.path.split('/').pop() ?? '0'
+      return {
+        status: 200,
+        body: JSON.stringify({
+          id,
+          title: `문서 ${id}`,
+          space: { key: 'ENG' },
+          version: { number: 4 },
+          body: { storage: { value: storage } }
+        })
+      }
+    }
+  }
+}
+
+function attachmentRoutes(attachments: unknown[]): Route[] {
+  return [
+    {
+      match: (r) => r.path.endsWith('/child/attachment'),
+      respond: () => ({ status: 200, body: JSON.stringify({ results: attachments }) })
+    },
+    {
+      match: (r) => r.path.endsWith('/data'),
+      respond: () => ({ status: 200, body: '', bodyBytes: new Uint8Array([1, 2, 3]) })
+    }
+  ]
+}
+
+function hit(id: string): Record<string, unknown> {
+  return {
+    id,
+    title: `문서 ${id}`,
+    type: 'page',
+    space: { key: 'ENG' },
+    history: { createdBy: { displayName: '홍길동' } }
+  }
+}
+
+function ok<T>(result: ConnectorResult): T {
+  if (!result.ok) throw new Error(`invoke 실패: ${result.message}`)
+  return result.data as T
+}
+
+async function search(
+  ctx: ConnectorContext,
+  connector: ReturnType<typeof createConfluenceConnector>,
+  params: Record<string, unknown> = { text: 'x' }
+): Promise<ConfluenceSearchResult> {
+  return ok<ConfluenceSearchResult>(await connector.invoke(ctx, { operation: 'search', params }))
+}
+
 describe('ConfluenceConnector — search', () => {
-  const STORAGE =
-    '<p>본문</p><ac:image><ri:attachment ri:filename="diagram.png" /></ac:image>' +
-    '<ac:structured-macro ac:name="jira" />'
-  // 첨부를 참조하지 않는 본문 — 첨부 목록 조회 자체가 없어야 한다.
-  const PLAIN_STORAGE = '<p>첨부 없는 본문</p>'
+  it('id·제목·작성자만 돌려주고 본문은 건드리지 않는다', async () => {
+    const connector = createConfluenceConnector(SERVER)
+    const { ctx, seen } = context([
+      okUser,
+      searchRoute({
+        results: [
+          hit('1'),
+          { id: '2', title: '문서 2', type: 'page', version: { by: { displayName: '김철수' } } },
+          // id 가 없는 항목은 조용히 버린다 — 모델에게 반쪽짜리 참조를 주지 않는다.
+          { title: '잘못된 항목' }
+        ],
+        start: 0,
+        limit: 50,
+        size: 2,
+        totalSize: 2
+      }),
+      pageRoute()
+    ])
 
-  function searchRoute(results: unknown[]): Route {
-    return {
-      match: (r) => r.path.endsWith('/content/search'),
-      respond: () => ({ status: 200, body: JSON.stringify({ results }) })
-    }
+    const data = await search(ctx, connector)
+    expect(data.hits).toEqual([
+      { id: '1', title: '문서 1', type: 'page', author: '홍길동', spaceKey: 'ENG' },
+      // history 확장이 빠진 배포는 마지막 수정자로 폴백한다.
+      { id: '2', title: '문서 2', type: 'page', author: '김철수' }
+    ])
+    // 검색은 페이지 본문도 첨부도 만지지 않는다 — 그래야 자동 허용이 정직하다.
+    expect(seen.filter((r) => /\/content\/\d+$/.test(r.path))).toHaveLength(0)
+    expect(seen.filter((r) => r.path.includes('attachment'))).toHaveLength(0)
+  })
+
+  it('작성자 정보가 없으면 필드를 아예 싣지 않는다', async () => {
+    const connector = createConfluenceConnector(SERVER)
+    const { ctx } = context([
+      okUser,
+      searchRoute({ results: [{ id: '1', title: '문서 1', type: 'page' }], size: 1, totalSize: 1 })
+    ])
+    expect(await search(ctx, connector)).toMatchObject({ hits: [{ id: '1', title: '문서 1' }] })
+    expect((await search(ctx, connector)).hits[0].author).toBeUndefined()
+  })
+
+  it('요청에 limit·start 를 실어 보낸다', async () => {
+    const connector = createConfluenceConnector(SERVER)
+    const { ctx, seen } = context([okUser, searchRoute({ results: [], size: 0, totalSize: 0 })])
+    await search(ctx, connector, { text: 'x', limit: 20, start: 40 })
+    expect(seen[0].query).toMatchObject({ limit: '20', start: '40' })
+    // 작성자를 얻으려면 history 확장이 필요하다.
+    expect(seen[0].query?.expand).toContain('history')
+  })
+
+  it('limit 은 50 을 넘지 못한다 — 1턴 상한(사용자 결정)', async () => {
+    const connector = createConfluenceConnector(SERVER)
+    const { ctx, seen } = context([okUser, searchRoute({ results: [], size: 0, totalSize: 0 })])
+    await search(ctx, connector, { text: 'x', limit: 500 })
+    expect(seen[0].query?.limit).toBe('50')
+  })
+
+  it('더 남았으면 다음 오프셋을 준다', async () => {
+    const connector = createConfluenceConnector(SERVER)
+    const { ctx } = context([
+      okUser,
+      searchRoute({
+        results: [hit('1'), hit('2')],
+        start: 0,
+        limit: 2,
+        size: 2,
+        totalSize: 7
+      })
+    ])
+    const data = await search(ctx, connector, { text: 'x', limit: 2 })
+    expect(data).toMatchObject({ start: 0, limit: 2, size: 2, totalSize: 7, nextStart: 2 })
+  })
+
+  it('마지막 페이지에는 다음 오프셋이 없다', async () => {
+    const connector = createConfluenceConnector(SERVER)
+    const { ctx } = context([
+      okUser,
+      searchRoute({ results: [hit('7')], start: 6, limit: 2, size: 1, totalSize: 7 })
+    ])
+    expect((await search(ctx, connector, { text: 'x', start: 6 })).nextStart).toBeUndefined()
+  })
+
+  // 사용자 결정 2026-08-04 — "허용치가 낮으면 해당 숫자를 따른다".
+  it('서버가 limit 을 낮추면 그 값으로 오프셋을 민다', async () => {
+    const connector = createConfluenceConnector(SERVER)
+    const { ctx } = context([
+      okUser,
+      // 50 을 요청했지만 서버는 25 만 적용했다. 50 을 더하면 26~50 번째가 통째로 사라진다.
+      searchRoute({ results: [hit('1')], start: 0, limit: 25, size: 25, totalSize: 120 })
+    ])
+    const data = await search(ctx, connector, { text: 'x', limit: 50 })
+    expect(data.limit).toBe(25)
+    expect(data.nextStart).toBe(25)
+  })
+
+  it('totalSize 가 없으면 한도를 채웠는지로 다음을 판단한다', async () => {
+    const connector = createConfluenceConnector(SERVER)
+    const full = context([
+      okUser,
+      searchRoute({ results: [hit('1'), hit('2')], limit: 2, size: 2 })
+    ])
+    expect(
+      (await search(full.ctx, createConfluenceConnector(SERVER), { text: 'x', limit: 2 })).nextStart
+    ).toBe(2)
+
+    const partial = context([okUser, searchRoute({ results: [hit('1')], limit: 2, size: 1 })])
+    expect(
+      (await search(partial.ctx, connector, { text: 'x', limit: 2 })).nextStart
+    ).toBeUndefined()
+  })
+})
+
+describe('ConfluenceConnector — pages', () => {
+  async function pages(
+    ctx: ConnectorContext,
+    connector: ReturnType<typeof createConfluenceConnector>,
+    params: Record<string, unknown>
+  ): Promise<ConfluencePagesResult> {
+    return ok<ConfluencePagesResult>(await connector.invoke(ctx, { operation: 'pages', params }))
   }
 
-  function pageRoute(storage = STORAGE): Route {
-    return {
-      // 요청된 id 를 그대로 돌려준다 — 여러 페이지를 펼치는 경로를 검증하려면 필요하다.
-      match: (r) => /\/content\/\d+$/.test(r.path),
-      respond: (r) => {
-        const id = r.path.split('/').pop() ?? '0'
-        return {
-          status: 200,
-          body: JSON.stringify({
-            id,
-            title: `문서 ${id}`,
-            space: { key: 'ENG' },
-            version: { number: 4 },
-            body: { storage: { value: storage } }
-          })
-        }
-      }
-    }
-  }
-
-  function attachmentRoutes(attachments: unknown[]): Route[] {
-    return [
-      {
-        match: (r) => r.path.endsWith('/child/attachment'),
-        respond: () => ({ status: 200, body: JSON.stringify({ results: attachments }) })
-      },
-      {
-        match: (r) => r.path.endsWith('/data'),
-        respond: () => ({ status: 200, body: '', bodyBytes: new Uint8Array([1, 2, 3]) })
-      }
-    ]
-  }
-
-  function hit(id: string): Record<string, unknown> {
-    return { id, title: `문서 ${id}`, type: 'page', space: { key: 'ENG' } }
-  }
-
-  function searchResult(result: ConnectorResult): ConfluenceSearchResult {
-    if (!result.ok) throw new Error(`search 실패: ${result.message}`)
-    return result.data as ConfluenceSearchResult
-  }
-
-  it('hit 을 정규화하고 각 페이지를 Markdown 으로 저장한다', async () => {
+  it('받은 id 들을 Markdown 으로 저장하고 경로·미리보기를 반환한다', async () => {
     cleanup.push(pageDir(SERVER.id, '1'), pageDir(SERVER.id, '2'))
     const connector = createConfluenceConnector(SERVER)
     const { ctx } = context([
       okUser,
-      searchRoute([
-        hit('1'),
-        { id: '2', title: '문서 2', type: 'page' },
-        // id 가 없는 항목은 조용히 버린다 — 모델에게 반쪽짜리 참조를 주지 않는다.
-        { title: '잘못된 항목' }
-      ]),
       pageRoute(),
       ...attachmentRoutes([
         { id: 'att-1', title: 'diagram.png', metadata: { mediaType: 'image/png' } }
       ])
     ])
 
-    const data = searchResult(
-      await connector.invoke(ctx, { operation: 'search', params: { text: 'x' } })
-    )
-
-    expect(data.hits).toEqual([
-      { id: '1', title: '문서 1', type: 'page', spaceKey: 'ENG' },
-      { id: '2', title: '문서 2', type: 'page' }
-    ])
+    const data = await pages(ctx, connector, { pageIds: ['1', '2'] })
     expect(data.pages.map((p) => p.pageId)).toEqual(['1', '2'])
     expect(data.failedPages).toEqual([])
-    expect(data.skippedPages).toBe(0)
+    expect(data.skippedPageIds).toEqual([])
 
     const first = data.pages[0]
     expect(first.title).toBe('문서 1')
@@ -200,52 +326,40 @@ describe('ConfluenceConnector — search', () => {
     expect(first.assets.map((a) => a.filename)).toEqual(['diagram.png'])
   })
 
-  it('본문을 펼치는 개수에 상한을 둔다 (기본 5, maxPages 로 조절)', async () => {
-    const ids = ['1', '2', '3', '4', '5', '6', '7']
+  it('중복 id 는 한 번만 처리한다', async () => {
+    cleanup.push(pageDir(SERVER.id, '1'))
+    const connector = createConfluenceConnector(SERVER)
+    const { ctx, seen } = context([okUser, pageRoute(PLAIN_STORAGE)])
+    const data = await pages(ctx, connector, { pageIds: ['1', '1', '1'] })
+    expect(data.pages.map((p) => p.pageId)).toEqual(['1'])
+    expect(seen.filter((r) => /\/content\/\d+$/.test(r.path))).toHaveLength(1)
+  })
+
+  it('한 번에 처리할 개수에 상한을 두고 남은 id 를 돌려준다', async () => {
+    const ids = Array.from({ length: 55 }, (_, index) => String(index + 1))
     cleanup.push(...ids.map((id) => pageDir(SERVER.id, id)))
     const connector = createConfluenceConnector(SERVER)
-    const routes = [okUser, searchRoute(ids.map(hit)), pageRoute(PLAIN_STORAGE)]
+    const { ctx } = context([okUser, pageRoute(PLAIN_STORAGE)])
 
-    const byDefault = searchResult(
-      await connector.invoke(context(routes).ctx, { operation: 'search', params: { text: 'x' } })
-    )
-    // 상한이 없으면 검색 한 번이 곧 7번의 페이지 조회 + 첨부 다운로드가 된다.
-    expect(byDefault.pages).toHaveLength(5)
-    expect(byDefault.skippedPages).toBe(2)
-    // 펼치지 않은 hit 도 목록에는 남는다 — 모델이 질의를 좁힐 재료다.
-    expect(byDefault.hits).toHaveLength(7)
-
-    const narrowed = searchResult(
-      await connector.invoke(context(routes).ctx, {
-        operation: 'search',
-        params: { text: 'x', maxPages: 2 }
-      })
-    )
-    expect(narrowed.pages.map((p) => p.pageId)).toEqual(['1', '2'])
-    expect(narrowed.skippedPages).toBe(5)
+    const data = await pages(ctx, connector, { pageIds: ids })
+    expect(data.pages).toHaveLength(50)
+    // 조용히 버리지 않는다 — 남은 id 를 그대로 줘 다음 호출로 이어가게 한다.
+    expect(data.skippedPageIds).toEqual(['51', '52', '53', '54', '55'])
   })
 
   it('페이지 하나가 실패해도 나머지는 돌려준다', async () => {
-    cleanup.push(pageDir(SERVER.id, '1'), pageDir(SERVER.id, '2'))
+    cleanup.push(pageDir(SERVER.id, '1'))
     const connector = createConfluenceConnector(SERVER)
     const { ctx } = context([
       okUser,
-      searchRoute([hit('1'), hit('2')]),
-      {
-        // 2번만 권한 오류.
-        match: (r) => r.path.endsWith('/content/2'),
-        respond: () => ({ status: 403, body: '{}' })
-      },
+      // 2번만 권한 오류.
+      { match: (r) => r.path.endsWith('/content/2'), respond: () => ({ status: 403, body: '{}' }) },
       pageRoute(PLAIN_STORAGE)
     ])
 
-    const data = searchResult(
-      await connector.invoke(ctx, { operation: 'search', params: { text: 'x' } })
-    )
+    const data = await pages(ctx, connector, { pageIds: ['1', '2'] })
     expect(data.pages.map((p) => p.pageId)).toEqual(['1'])
-    expect(data.failedPages).toEqual([
-      { pageId: '2', title: '문서 2', message: expect.stringContaining('403') }
-    ])
+    expect(data.failedPages).toEqual([{ pageId: '2', message: expect.stringContaining('403') }])
   })
 
   it('본문이 참조한 첨부만 바이너리+XSRF 로 내려받는다', async () => {
@@ -253,7 +367,6 @@ describe('ConfluenceConnector — search', () => {
     const connector = createConfluenceConnector(SERVER)
     const { ctx, seen } = context([
       okUser,
-      searchRoute([hit('1')]),
       pageRoute(),
       ...attachmentRoutes([
         { id: 'att-1', title: 'diagram.png' },
@@ -262,9 +375,7 @@ describe('ConfluenceConnector — search', () => {
       ])
     ])
 
-    const data = searchResult(
-      await connector.invoke(ctx, { operation: 'search', params: { text: 'x' } })
-    )
+    const data = await pages(ctx, connector, { pageIds: ['1'] })
     expect(data.pages[0].assets.map((a) => a.filename)).toEqual(['diagram.png'])
 
     const dataRequests = seen.filter((r) => r.path.endsWith('/data'))
@@ -280,7 +391,6 @@ describe('ConfluenceConnector — search', () => {
     const connector = createConfluenceConnector(SERVER)
     const { ctx } = context([
       okUser,
-      searchRoute([hit('1')]),
       pageRoute(),
       {
         match: (r) => r.path.endsWith('/child/attachment'),
@@ -292,9 +402,7 @@ describe('ConfluenceConnector — search', () => {
       { match: (r) => r.path.endsWith('/data'), respond: () => ({ status: 404 }) }
     ])
 
-    const page = searchResult(
-      await connector.invoke(ctx, { operation: 'search', params: { text: 'x' } })
-    ).pages[0]
+    const page = (await pages(ctx, connector, { pageIds: ['1'] })).pages[0]
     expect(page.assets).toEqual([])
     expect(page.failedAssets).toEqual([{ filename: 'diagram.png', message: expect.any(String) }])
     // 본문은 그대로 저장됐다.
@@ -304,14 +412,24 @@ describe('ConfluenceConnector — search', () => {
   it('본문이 참조한 첨부가 목록에 없으면 실패로 남긴다 — 조용히 넘기지 않는다', async () => {
     cleanup.push(pageDir(SERVER.id, '1'))
     const connector = createConfluenceConnector(SERVER)
-    const { ctx } = context([okUser, searchRoute([hit('1')]), pageRoute(), ...attachmentRoutes([])])
+    const { ctx } = context([okUser, pageRoute(), ...attachmentRoutes([])])
 
-    const page = searchResult(
-      await connector.invoke(ctx, { operation: 'search', params: { text: 'x' } })
-    ).pages[0]
+    const page = (await pages(ctx, connector, { pageIds: ['1'] })).pages[0]
     expect(page.failedAssets).toEqual([
       { filename: 'diagram.png', message: expect.stringContaining('목록') }
     ])
+  })
+
+  it('includeAttachments:false 면 첨부 목록도 조회하지 않는다', async () => {
+    cleanup.push(pageDir(SERVER.id, '1'))
+    const connector = createConfluenceConnector(SERVER)
+    const { ctx, seen } = context([
+      okUser,
+      pageRoute(),
+      ...attachmentRoutes([{ id: 'att-1', title: 'diagram.png' }])
+    ])
+    await pages(ctx, connector, { pageIds: ['1'], includeAttachments: false })
+    expect(seen.filter((r) => r.path.includes('attachment'))).toHaveLength(0)
   })
 
   it('본문이 첨부를 참조하지 않으면 첨부 목록조차 조회하지 않는다', async () => {
@@ -319,13 +437,19 @@ describe('ConfluenceConnector — search', () => {
     const connector = createConfluenceConnector(SERVER)
     const { ctx, seen } = context([
       okUser,
-      searchRoute([hit('1')]),
       pageRoute(PLAIN_STORAGE),
       ...attachmentRoutes([{ id: 'att-1', title: 'diagram.png' }])
     ])
-
-    await connector.invoke(ctx, { operation: 'search', params: { text: 'x' } })
+    await pages(ctx, connector, { pageIds: ['1'] })
     expect(seen.filter((r) => r.path.includes('attachment'))).toHaveLength(0)
+  })
+
+  it('pageIds 가 없거나 비어 있으면 던진다', async () => {
+    const connector = createConfluenceConnector(SERVER)
+    const { ctx } = context([okUser])
+    for (const params of [{}, { pageIds: [] }, { pageIds: [''] }, { pageIds: 'x' }]) {
+      await expect(connector.invoke(ctx, { operation: 'pages', params })).rejects.toThrow(/pageIds/)
+    }
   })
 })
 

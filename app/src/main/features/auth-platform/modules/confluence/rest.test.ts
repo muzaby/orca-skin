@@ -4,7 +4,9 @@ import {
   attachmentListRequest,
   buildSearchCql,
   clampLimit,
+  clampStart,
   currentUserRequest,
+  MAX_SEARCH_LIMIT,
   escapeCqlLiteral,
   normalizeBasePath,
   pageRequest,
@@ -98,14 +100,25 @@ describe('CQL', () => {
   })
 })
 
+// 1턴 상한 50 (사용자 결정 2026-08-04 — "1턴의 limit 은 50까지").
 describe('clampLimit', () => {
   it('범위를 벗어난 값을 잘라낸다', () => {
-    expect(clampLimit(undefined)).toBe(25)
+    expect(clampLimit(undefined)).toBe(MAX_SEARCH_LIMIT)
     expect(clampLimit(0)).toBe(1)
     expect(clampLimit(-5)).toBe(1)
-    expect(clampLimit(1000)).toBe(100)
+    expect(clampLimit(1000)).toBe(MAX_SEARCH_LIMIT)
     expect(clampLimit(7.9)).toBe(7)
-    expect(clampLimit(Number.NaN)).toBe(25)
+    expect(clampLimit(Number.NaN)).toBe(MAX_SEARCH_LIMIT)
+  })
+})
+
+describe('clampStart', () => {
+  it('음수·비수치를 0 으로 되돌린다', () => {
+    expect(clampStart(undefined)).toBe(0)
+    expect(clampStart(-1)).toBe(0)
+    expect(clampStart(Number.NaN)).toBe(0)
+    expect(clampStart(50)).toBe(50)
+    expect(clampStart(50.9)).toBe(50)
   })
 })
 
@@ -117,8 +130,14 @@ describe('searchRequest', () => {
     expect(req.query).toEqual({
       cql: 'type = page AND space = "ENG" AND text ~ "design"',
       limit: '5',
-      expand: 'space,version'
+      start: '0',
+      // 작성자(`history.createdBy`)를 검색이 함께 받는다 (0164 r3).
+      expand: 'space,version,history'
     })
+  })
+
+  it('오프셋을 그대로 싣는다 — 페이지네이션의 유일한 좌표다', () => {
+    expect(searchRequest(ROOT, { text: 'x', start: 50 }).query?.start).toBe('50')
   })
 })
 

@@ -383,3 +383,55 @@ verify r1 의 FAIL(D1~D6)과 같은 날 들어온 사용자 보고 4건(D7~D10)�
 | 가정(사용자 미응답) | 본문 확장 상한 **기본 5 / 최대 10** — 모델이 `maxPages` 로 조절 가능 |
 | 사람 실기 대기 | 진단 배너 시각 확인 · 사내 DC 서버로 검색→Markdown→첨부 전 구간 |
 | 블로커 / 역질문 | 없음 |
+
+
+---
+
+## [구현자 기입] 라운드 3 (Claude 직접 구현, 2026-08-04)
+
+사용자 **도구 재지정** — r2 가 검색 하나로 합쳤던 표면을 다시 둘로 나눈다.
+
+| # | 지시 | 대응 |
+|---|---|---|
+| D11 | `search` → pageId·타이틀·**작성자** 반환 | `expand` 에 `history` 추가 → `history.createdBy.displayName`, 없으면 `version.by.displayName` 폴백, 그마저 없으면 필드 생략 |
+| D12 | `getPages` → pageId 들로 **본문 + 첨부 모두** 반환 | `confluence_get_pages` 신설(배열 입력) + connector operation `pages`. 중복 id 는 한 번만 처리 |
+| D13 | 1턴 limit 50, **허용치가 낮으면 그 숫자를 따른다**, 더 있으면 offset 을 그 크기로 두고 다시 검색 | `MAX_SEARCH_LIMIT=50` · `searchRequest` 에 `start` · `parseSearchResponse` 가 **응답의 `limit`** 으로 `nextStart` 를 계산 |
+
+### 설계 판단
+
+- **`readOnlyHint` 가 도구 경계의 근거가 됐다.** r2 구조(검색이 본문까지)에서는 검색이 파일을
+  쓰므로 **모든 검색이 승인 카드**였다 — r2 보고에서 사용자에게 알린 그 비용이다. 둘로 나누니
+  탐색은 `true`(자동 허용), 내려받기만 `false`(승인)로 **정직한 선언과 편한 사용이 동시에**
+  성립한다. 이번 재지정의 부수 이득이고, 되돌릴 이유가 없다.
+- **오프셋을 모델에게 계산시키지 않는다.** "허용치가 낮으면 그 숫자를 따른다" 는 요구는
+  *요청값이 아니라 응답값으로 민다* 는 뜻이다. 응답의 `limit` 으로 `nextStart` 를 서버 측(main)
+  에서 계산해 문장으로 준다 — 모델이 요청 limit(50)을 더하면 서버가 25만 적용한 구간이 통째로
+  사라진다. 회귀 테스트로 고정했다(`서버가 limit 을 낮추면 그 값으로 오프셋을 민다`).
+- **`getPages` 상한도 50.** 페이지 하나가 조회 + 첨부 다운로드를 끌고 오므로 무제한이면 도구
+  한 번이 수백 요청이 된다. 넘긴 id 는 **버리지 않고** `skippedPageIds` 로 되돌려 다음 호출로
+  이어가게 한다(검색의 `nextStart` 와 같은 원칙).
+- **`totalSize` 가 없는 배포**: "이번에 한도를 채워 왔다"(`size >= limit`)를 다음이 있다는
+  신호로 쓴다. 마지막 페이지가 정확히 한도와 같으면 한 번 더 호출해 빈 결과를 받는데, 그때
+  렌더러가 `offset N 이후로는 결과가 없습니다` 로 끝을 알린다.
+
+### 구현 체크리스트
+
+- [x] `rest.ts` — `MAX_SEARCH_LIMIT=50` · `clampStart` · `start` 쿼리 · `expand=…,history`
+- [x] `connector.ts` — operation 2종(`search`·`pages`) · `parseSearchResponse` · `parseAuthor` · `fetchPages`
+- [x] `search-render.ts` — `renderSearchResult`(목록+오프셋) / `renderPagesResult`(본문+첨부) 분리
+- [x] `tools.ts` — `confluence_search`(readOnly **true**) + `confluence_get_pages`(false)
+- [x] 테스트 — connector 16건(검색 8 / pages 8) · 렌더러 15건 · rest 3건
+- [x] 문서 — `modules/confluence/AGENTS.md` 도구표·페이지네이션·작성자 절
+
+### 구현 보고 (r3)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 수정 7 (`rest`·`connector`·`search-render`·`tools` + 테스트 3) |
+| 게이트 결과 | lint **0 error**(warning 1 = 0102 베이스라인) · typecheck **3/3** · vitest **1816/1816 pass** |
+| 알려진 환경 실패 | `app/chat-turn.continuity.test.ts` 1파일 — electron 바이너리 egress 차단(코드 무관) |
+| IPC | **86 유지 · 신규 채널 0** |
+| 신규 의존성 | **0개** |
+| 동작 변경(보고) | `confluence_search` 가 **다시 자동 허용**이 됐다(r2 의 승인 카드 회귀 해소). 승인은 `confluence_get_pages` 만 |
+| 사람 실기 대기 | 사내 DC 서버로 검색 페이지네이션(50 초과 결과) · 작성자 표기 · getPages 본문/첨부 |
+| 블로커 / 역질문 | 없음 |
