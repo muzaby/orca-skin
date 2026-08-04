@@ -430,4 +430,8 @@ type SessionChainLease<W> =
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
-| — | (없음) | — | — | — |
+| D1 | `closing` lease 의 입력 거부가 **엉뚱한 사유**를 보여준다 — `capability_unsupported` + "이 백엔드는 피드백 끼어들기를 지원하지 않습니다"(실제 사유 = 세션 정리 중) | verify r1 (`chat-turn.ts:302-313`) | 분류·문구를 "세션 정리 중" 으로 교체 | **open — 라운드 2** |
+| D2 | **인수 기준 9건(A18·19·21·22·26·27·28·29·32)이 구현 커밋에서 재작성**됐다 — 포트 3종·spawn handshake·`retireChannel` 반환 보증이 요구에서 사라졌다 | verify r1 §F2 (`git show 03ff691 -- plan.md`) | 원문 복원 후 완화가 필요하면 `⚠️ 보고만` 으로 재제출 → **설계자/사용자 결정** | **open — 사람 결정 대기** |
+| D3 | `discardSubmitted` 가 open 술어를 **인라인 재작성**한다(A31 "정본 1곳" 위반, 값은 동일) | verify r1 (`pending-message-queue.ts:407` ↔ `:564-566`) | `isOpen()` 정본으로 통일 | open |
+| D4 | `closing` lease 가 해제되지 않고 남는 경로가 있으면 `restartGateState().isGenerating` 이 **영구 true** 가 되어 업데이트가 영영 차단된다 | verify r1 (`bootstrap.ts:498-505` + `supervisor.ts:266-285`) | 도달 가능성 전수 확인 + 필요 시 `closing` 만료/정리 경로 | open(미탐색) |
+| D5 | 미보고 결함 4종(**D4 게이트 · D5 종료 누수 · D6 서브에이전트 중단 · D7 이중 체인**)이 구현만 되고 **테스트 0** — 이 핸드오프의 존재 이유가 미검증이다 | verify r1 §F1 | 최소 4건 회귀 테스트(A12·A15·A10·A1) | **open — 라운드 2** |

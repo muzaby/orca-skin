@@ -377,3 +377,7 @@ r6 의 "**파일이 거의 겹치지 않는다**" 는 **틀렸다.** 0165·0166 
 | D2~D7 | 대기 표시 · 세션 전체 중단 미도달 · 업데이트 게이트 · 종료 누수 · 서브에이전트 중단 · 이중 체인 | r4~r6 | **0166 / 0167** | 이관 |
 | D8 | **push 결과가 관측 불가**(`pushTurn: Promise<void>`) — 안전한 재시도 규칙을 세울 수 없다 | r7 검증(`types.ts:24` · `streaming-input.ts:30`) | **0166** 의 adapter outcome 계약 | 이관(0166) |
 | D9 | **최초 prompt·프렐류드가 LiveTurn 이전에 적재**돼 "모든 입력이 Runtime 통과" 가 성립하지 않는다 | r7 검증(`claude.ts:327-334`) | **0166** 의 spawn handshake | 이관(0166) |
+| D10 | **취소가 미소비 프레임 큐를 통째로 버린다** — `markAborted` 의 `Frame.discard()` 가 이미 도착한 delta 와 `telemetry` 까지 폐기해 부분 답변 꼬리 손실 + 그 턴 usage 미집계 | verify r1 §F1 (프로브 실행 확정) | 취소 후 **`error` 만 배제**하거나 프레임 `cancelled` 플래그로 **드레인 허용·신규 error push 만 거부** | **open — 라운드 2** |
+| D11 | AC5 배치 계약이 **한 배치 = 두 provider 메시지**가 되는 경우가 있다 — `drainCompactSummaries()` 결과를 직전 SDK 메시지 배치에 합친다 | verify r1 (`claude.ts:441-444`) | 순서 보장이 목적이면 별도 배치로 분리하거나 계약 문구를 정정 | open(관측) |
+| D12 | `unframed.length>0 → teardownChannel` 로 **respawn 빈도가 늘고**, 그 시점 CLI 큐에 있던 submitted/orphaned 배치가 `takeForRespawn` 을 거치지 않고 소멸할 수 있다(`draining` 분기와 같은 형태 — 선재 구조) | verify r1 (`session-runtime.ts:257`) | 내부 teardown 시에도 이월 경로를 태울지 결정 | open(관측) |
+| D13 | 인수 기준이 **테스트 파일명**을 지정해 구현이 다른 이름으로 넣자 대조가 끊겼다(AC5·11·14·15) | verify r1 자기 리뷰 | 기준은 파일명이 아니라 **단언 대상 동작**으로 쓴다 → `failure-patterns.md` 축적 | 반영됨 |

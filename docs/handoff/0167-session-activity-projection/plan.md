@@ -332,3 +332,7 @@ interface ChatActivitySnapshot {
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
 | D2 | 진짜 백그라운드 통지 유실 시 애니메이션 지속(0143 유지의 귀결) | 0165 에서 이관 · 사용자 결정 ⑥ | 30초 후 라벨("종료 확인 대기")·개수·중단 버튼으로 항해 | 완화 구현 · GUI 실기 대기 |
+| D3 | **잔여가 애니메이션을 영구히 붙든다** — 리듀서가 `listening` 에 `busy`(큐 카운트 포함)를 OR 해, 0154 가 의도적으로 남기는 `orphaned` 배치 하나로 `sessionBusy` 가 무한 true. **보고 ②-a 를 결정론적으로 재현한다** | verify r1 §F1 (실모듈 조립 실행 확정 — `chatReducer.ts:526` ↔ `session-activity-projector.ts:172-177`) | `listening = ev.transport === 'listening'` 으로 좁힌다(AC6 직교 규칙). 대기 이유는 애니메이션이 아니라 **라벨/개수**로 | **open — 라운드 2** |
+| D4 | **`inflight` 소유권이 renderer → main 으로 이전**됐다(`inflight: ev.foreground !== 'idle'`) — plan 은 "0143 유지·정책 불변" 으로 renderer 소유를 명시했다. 현재는 `queueMicrotask` 배칭 덕에 취소 직후 되살아나지 않지만 **우연히 안전**하고 테스트로 고정돼 있지 않다 | verify r1 §F2 (`chatReducer.ts:530`) | renderer 소유로 복원하거나(권장) 이전을 **사용자 결정**으로 승격. `foreground` 는 라벨 전용으로 | **open — 사람 결정 대기** |
+| D5 | 리듀서 테스트 헬퍼가 `busy = (transport === 'listening')` 로 **고정**돼 위험 분기(D3)가 한 번도 실행되지 않는다 | verify r1 (`chatReducer.listen.test.ts:21`) | 헬퍼에 counts/busy 를 독립 인자로 | open |
+| D6 | 무활동 상수가 plan(`IDLE_HINT_MS = 30_000`)과 코드(`LONG_WAIT_SECONDS = 30`)에서 **이름·단위 불일치** | verify r1 (`StatusLine.tsx:24`) | 한쪽으로 통일 | open |
