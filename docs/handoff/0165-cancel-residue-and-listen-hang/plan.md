@@ -1,4 +1,4 @@
-# Plan — 0165-cancel-residue-and-listen-hang (r4)
+# Plan — 0165-cancel-residue-and-listen-hang (r5)
 
 > **개정 이력**
 > - **r1** — 증상 3개 ↔ 점 수정 3개. 리뷰 **Request changes (P1 3건)**.
@@ -7,9 +7,14 @@
 > - **r3** — `SubmissionIdentity`·큐 파생 잔여·멱등 스냅샷. 리뷰가 방향을 인정하되 **새 P1 3건**:
 >   ⓐ 체인 중첩 자체는 여전히 허용 ⓑ channelId 결합 시점이 실제 호출 순서와 불일치 ⓒ `chat.listen`
 >   이 additive 가 아니라 breaking.
-> - **r4 (본 문서)** — **소유권 경계를 turn 에서 체인(lease)으로 올리고**, 채널 결합을 **제출
->   트랜잭션(push 성공 후)** 으로 옮기며, 스냅샷을 **호환 확장**으로 바꾼다. r3 의 배치 라우팅·
->   identity·큐 파생은 계승한다.
+> - **r4** — 소유권 경계를 turn 에서 체인(lease)으로, 채널 결합을 제출 트랜잭션으로, 스냅샷을
+>   호환 확장으로. 리뷰가 방향을 인정하되 **새 P1 3건**: ⓐ lease 가 여전히 nullable `activeChild`
+>   에 의존 ⓑ `all()` 이 child 없는 lease 를 숨겨 **재시작 게이트·shutdown** 이 깨진다 ⓒ **제출
+>   트랜잭션이 실제 steer push(어댑터 훅)를 포괄하지 못한다**.
+> - **r5 (본 문서)** — lease 를 **세션 제어의 단일 권위**로 완성하고(제어 상태·providerKey·
+>   `allLeases()`), **모든 입력을 Runtime 의 제출 포트 하나로** 통과시킨다. 검증 과정에서 리뷰
+>   지적 2건이 **현행 코드에 이미 존재하는 결함**임을 확인했다(작업 중 업데이트 설치 허용 ·
+>   종료 시 active 서브프로세스 잔존) — r5 가 함께 닫는다.
 
 ## 메타
 
@@ -17,10 +22,10 @@
 |---|---|
 | slug | `0165-cancel-residue-and-listen-hang` |
 | 작성자 | Claude Code |
-| 일자 | 2026-08-04 (r1 → r4) |
+| 일자 | 2026-08-04 (r1 → r5) |
 | 매핑 | PHASES 행 (verify PASS 후 승격) |
-| 상태 | r4 DRAFT → **READY** |
-| 편성 | **1 핸드오프 · 2 스테이지** (A = 소유권 경계·제출 트랜잭션·배치 라우팅 / B = 큐 진실·표시) |
+| 상태 | r5 DRAFT → **READY** |
+| 편성 | **1 핸드오프 · 2 스테이지** (A = 소유권·제어 권위·제출 포트·배치 라우팅 / B = 큐 진실·표시) |
 
 ## 사용자 의도 / 요구 출처 (Intent & Provenance)
 
@@ -33,7 +38,7 @@
 | 사용자 결정 ⑤ | **0143(listen 대기 = inflight 지속) 유지 — 라벨만 추가.** foreground/transport UI 분리 미채택 | 라이브 세션 (r2 리뷰 후) |
 | 사용자 결정 ⑥ | **0165 한 건 · 2 스테이지** | 동상 |
 | 명시 요구 ⑦ | "**지금까지의 제안 및 피드백에 대해 비판적 검토를 하라**" — 리뷰 의견도 무비판 수용하지 말 것 | 라이브 세션 (r3 리뷰 후) |
-| 외부 리뷰 1·2·3차 | 각 3건 (§외부 리뷰 처리) | PR 리뷰 |
+| 외부 리뷰 1·2·3·4차 | 각 3건 (§외부 리뷰 처리) | PR 리뷰 |
 
 ## Context (왜)
 
@@ -48,10 +53,10 @@
 
 | 질문 | 판단 | 근거 |
 |---|---|---|
-| 이 요구가 진짜 문제를 겨냥하는가 | **전제 4차 정정.** r3 까지의 시야는 "큐·이벤트의 소유권" 이었다. 그런데 admission 은 `supervisor.hasSession()` **하나**에 걸려 있고, 그 술어는 *개별 turn 등록*에서 파생된다. listen child 가 `release` 되는 순간 세션이 "비어 있다" 고 보이고, 그 창에서 **두 번째 체인 + 두 번째 SDK 서브프로세스**가 열린다. 증상 ①②는 그 바깥 결함의 *증상*일 수 있다 | `supervisor.ts:106-110`(release) · `session-registry.ts:35-42`(값 동일성 삭제) · `:21-23`(startResume) |
+| 이 요구가 진짜 문제를 겨냥하는가 | **전제 5차 정정.** r3 까지는 "큐·이벤트의 소유권", r4 는 "체인 소유권" 까지 봤다. r5 에서 확인한 것은 한 겹 더 있다 — **세션 수명의 사실이 turn-local 에 산다.** 서브에이전트 제어 상태(`taskIds`·`subagentTypes`·`stoppedSubagents`)가 `freshTurnLocalState()` 에 들어 있어 **연속·listen 턴마다 리셋**되고, provider 경계 판정도 `turn.providerKey` 를 읽는다. 그래서 lease 를 만들어도 제어가 nullable child 에 남으면 결함이 그대로다 | `chat-turn.ts:96-112`(freshTurnLocalState) · `:298-311`(provider 경계) · `:1163-1164`(stopSubagent) |
 | 이미 있는 것 아닌가 | **없다.** 세션 단위 admission 을 표현하는 타입이 없다 — registry 는 `Map<sessionId, TurnContext>` 로 *turn* 을 담는다. 그래서 "체인이 진행 중" 을 표현할 방법이 구조적으로 없었다 | `session-registry.ts:3-5` |
-| 더 작은 해법이 있는가 | **세 번 시도했고 세 번 막혔다.** r1(점 수정) → r2(uuid 스코프) → r3(identity). 매번 "안쪽을 더 조이는" 해법이었고, 리뷰가 매번 한 겹 바깥의 구멍을 짚었다. **네 번째로 같은 방향을 시도하지 않는다** — 소유권을 가장 바깥 수명(체인)에서 잡는다 | 리뷰 1·2·3차 |
-| **인용 자료(리뷰)가 요구를 부풀리지 않았나** (요구 ⑦) | **2건 확정, 1건 등급 하향.** P1-1·P1-2 는 코드로 재현 경로까지 확인했고 **P1-1 은 리뷰가 말한 것보다 심각**하다(부수 피해 3건 추가 발견). P1-3 은 근거("main/renderer 버전 스큐")가 **패키징 앱에서 성립하지 않는다** — 두 번들은 같은 빌드로 배포된다. 다만 *다른* 이유로 수용한다(리듀서가 `phase!=='started'` 를 전부 종료로 처리 → 필드 하나가 빠지면 `listening` 이 꺼지고 send 가 새 턴으로 분류) | §자료조사 · `chatReducer.ts:509-520` |
+| 더 작은 해법이 있는가 | **네 번 시도했고 네 번 막혔다.** r1(점 수정) → r2(uuid 스코프) → r3(identity) → r4(체인 lease). 매번 한 겹 바깥/안쪽의 구멍이 남았다. r5 는 **권위를 세 개로 못박아** 더 이상 "어디에 있는지" 를 묻지 않게 한다 — 세션 제어=lease · 입력 제출=Runtime 포트 · UI=스냅샷 투영 | 리뷰 1~4차 |
+| **인용 자료(리뷰)가 요구를 부풀리지 않았나** (요구 ⑦) | **3·4차 모두 검증했다.** 3차: 2건 확정 + 1건 **등급 하향**(버전 스큐 근거가 패키징 앱에 성립하지 않음 — 다른 이유로 수용). 4차: **3건 전부 확정**, 그중 2건은 **현행 코드에 이미 있는 결함**(§자료조사). 다만 4차 제안 중 **3건은 채택하지 않는다**(§외부 리뷰 처리 하단) — 근거 없이 상태·비용을 늘리기 때문 | §자료조사 · `chatReducer.ts:509-520` |
 | 기존 채택 결정을 뒤집는가 | **문서화된 채택 결정은 0건 뒤집는다.** 0143 은 사용자 결정으로 유지, 0067 은 정밀화. 다만 **registry 의 "turn 단위 등록" 이라는 *구조*는 바꾼다**(채택 결정 문서 없음 — 구조 변경으로 표기) | §기존 결정 표 |
 
 - **사용자에게 올릴 것**: 없음(결정 ⑤·⑥ 으로 해소).
@@ -60,7 +65,17 @@
 
 > 인용 라인은 전부 이번 세션에서 직접 열어 확인했다. SDK 는 `npm ci` 로 설치한 `0.3.220` 실물.
 
-### r4 에서 새로 확정한 사실 (리뷰 3차 검증 + 자체 발견)
+### r5 에서 새로 확정한 사실 (리뷰 4차 검증 + 자체 발견) — **2건은 현행 결함**
+
+| 발견 | 레퍼런스 |
+|---|---|
+| **mid-turn steer 는 어댑터가 직접 push 한다.** `makeSteerGateHook(req.takeSteerFlush, (batch) => input.push(batchContent(batch), batch.uuid), req.rollbackSteerFlush)` — 토큰을 모르는 어댑터가 stdin 에 밀어 넣는다. **r4 의 "Runtime 이 push 를 독점한다" 는 전제가 이 경로에서 성립하지 않는다**(그리고 이 경로가 잔여 ②-b 의 발원지다) | `claude.ts:393-397` · 훅 본체 `claude-adapt.ts:146-178` |
+| **[현행 결함] 작업 중 업데이트 설치가 허용될 수 있다.** `restartGateState()` 는 `isGenerating: turns.length > 0` 을 **`all()` 로만** 계산하고, 게이트는 `!isGenerating` 이면 설치를 진행한다. 턴-후 루프가 등록을 교체·해제하는 창에서 `all()` 은 비어 있다 | `bootstrap.ts:490-494` · `shared/update-restart.ts:10` |
+| **[현행 결함] 종료 시 active 서브프로세스가 잔존할 수 있다.** `shutdown` 은 `all()` 을 돌며 abort 하고 `closeIdleRuntimes()` 로 **idle 풀만** 닫는다 — 교체 창의 active runtime 은 둘 중 어디에도 없다 | `bootstrap.ts:553-560` · `runtime-pool.ts:64-68` |
+| **[현행 열화] 서브에이전트 제어 상태가 턴마다 리셋된다.** `subagentTaskIds`·`subagentTypes`·`stoppedSubagents` 가 `freshTurnLocalState()` 에 있어 연속·listen 턴마다 비워진다 → turn N 에서 띄운 백그라운드 서브에이전트를 listen 턴 N+1 에서 중단하면 `taskId` 가 없어 `stopTask` 에 도달하지 못한다(교체 창 문제가 아니라 **상시**) | `chat-turn.ts:96-112` · `:1163-1170` |
+| **provider 경계 판정이 nullable child 를 읽는다.** `reserveOnBusySession` 은 canSteer 직후 `crossesProviderBoundary(turn.providerKey, …)` 를 읽는다 — canSteer 만 lease 로 옮기면 이 줄이 남는다 | `chat-turn.ts:298-311` |
+
+### r4 에서 확정한 사실 (유지)
 
 | 발견 | 레퍼런스 |
 |---|---|
@@ -112,6 +127,8 @@
 | **F-C** | 비동기 신호·예약에 소속(세대·체인·시도) 표현이 없다 | ②-b | A2 · A4 |
 | **F-D** | 파생 가능한 사실을 별도 Map 으로 복제하고 갱신 시점을 놓친다 | ②-b 고착 | B1 |
 | **F-E** | **세션 소유권이 개별 turn 수명에 묶여 있다** — child 교체 창에서 두 번째 체인·두 번째 서브프로세스가 열리고, "세션 전체 중단" 은 active 런타임에 닿지 못한다 | ①②의 상위 원인 후보 + 미보고 데이터 위험 | **A1** |
+| **F-F** | **세션 수명의 사실이 turn-local 에 산다** — 서브에이전트 제어 상태가 턴마다 리셋되고, provider 경계·재시작 게이트·shutdown 이 전부 *현재 turn* 을 근거로 판정한다. 그래서 turn 이 없는 구간이 곧 **제어 공백**이 된다(작업 중 업데이트 설치·종료 시 서브프로세스 잔존·중단 무반응) | 미보고 결함 3종 | **A1** |
+| **F-G** | **입력 제출 경로가 둘이다** — 턴 프롬프트는 Runtime 이, mid-turn steer 는 **어댑터 훅이** push 한다. 권위가 갈려 "어느 채널에 실렸는가" 를 한 곳에서 기록할 수 없다 | ②-b | **A2** |
 
 ## 외부 리뷰 처리
 
@@ -122,6 +139,17 @@
 | **3차 ⓐ** | **체인 중첩을 허용한 채 오염만 차단한다** | **확정 — 리뷰보다 심각**(부수 피해 3건 추가) | **A1 SessionChainLease** |
 | **3차 ⓑ** | **channelId 발급·결합 시점이 호출 순서와 불일치** | **확정** | **A2 제출 트랜잭션 + ChannelToken** |
 | **3차 ⓒ** | `chat.listen` 이 breaking | **타당하나 등급 하향(P1→P3)** — 근거인 버전 스큐는 패키징 앱에 없다. 다만 리듀서 강건성 때문에 수용 | **B2 `phase` 유지 + `revision`** |
+| **4차 ⓐ** | lease 가 여전히 **nullable `activeChild`** 에 의존(provider 경계·서브에이전트 중단) | **확정** (+ 제어 상태가 **상시** 리셋되는 것까지 자체 발견) | **A1 — lease 를 세션 제어의 단일 권위로** |
+| **4차 ⓑ** | `all()` 이 child 없는 lease 를 숨겨 **재시작 게이트·shutdown** 이 깨진다 | **확정 — 현행에서도 이미 뚫려 있다** | **A1 `allLeases()`** |
+| **4차 ⓒ** | 제출 트랜잭션이 **실제 steer push 를 포괄하지 못한다** | **확정 — r4 의 전제가 틀렸다** | **A2 제출 포트 단일화** |
+
+### 4차 제안 중 **채택하지 않는 3건** (요구 ⑦ — 리뷰도 무비판 수용하지 않는다)
+
+| 제안 | 판단 | 근거 |
+|---|---|---|
+| "CAS 실패 시 **해당 채널을 폐기**해 실행 가능성을 제거" | **미채택** | 제안한 순서가 `CAS(submitting) → push` 다. CAS 가 실패하면 **아직 push 하지 않았다** — 되돌릴 것이 없다. 채널 폐기는 백그라운드 태스크까지 죽이는 최대 비용 행위라(0151 이 사용자 결정으로만 남긴 이유) 아무것도 새지 않은 상황에 쓰면 순손실이다 |
+| "큐 결합 전 도착한 provider 이벤트를 **버퍼링했다가 결합 후 공개**" | **미채택** | 토큰은 **push 전에** 발급되므로 그 사이 도착한 이벤트도 이미 올바른 토큰으로 라우팅된다. `Frame` 이 이미 큐로 버퍼링하고 coordinator 는 비동기 소비다 — 새 공개 게이트는 이득 없이 상태만 하나 더 만든다(원칙 ③ 위반) |
+| `providerBinding.model`·`settingsRevision` 을 lease 에 복제 | **부분 미채택** | 모델·settings 신선도는 **runtime 이 이미 권위**로 들고 `decideRespawn` 이 그걸로 판정한다(`spawnedModel`·`spawnedProviderSettings`·`spawnedRuntimeToolsRevision`). lease 에 복제하면 같은 사실의 두 번째 사본이 된다 — lease 는 **`providerKey` 만** 든다 |
 
 ## 설계
 
@@ -132,54 +160,77 @@
 > ③ **상태는 사실에서 파생하고, 사실이 바뀌는 순간 발행한다.**
 > ④ **소유권은 가장 바깥 수명에서 잡는다** — 안쪽(child turn)의 교체가 바깥(체인·세션)의 소유를
 > 흔들지 않는다. *(r4 — F-E)*
+> ⑤ **세션 수명의 사실은 세션 수명 객체가 든다** — turn-local 에 두면 턴 교체마다 사라지고,
+> turn 이 없는 구간이 곧 제어 공백이 된다. *(r5 — F-F)*
+> ⑥ **권위는 하나다** — 같은 행위(입력 제출)에 경로가 둘이면 어느 쪽도 사실을 기록할 수 없다. *(r5 — F-G)*
 
 ---
 
 ### 스테이지 A — 소유권 경계 · 제출 트랜잭션 · 배치 라우팅
 
-#### A1. SessionChainLease — admission 단위를 turn 에서 **체인**으로 (F-E)
+#### A1. SessionChainLease = **세션 제어의 단일 권위** (F-E·F-F)
 
 ```ts
 interface SessionChainLease<W> {
   leaseId: string
-  sessionId: string | null      // 신규 세션은 null → promote 시 확정
   chainId: string
+  sessionId: string | null           // 신규 세션은 null → promote 시 확정
   runtime: ManagedRuntime
-  activeChild: TurnContext<W> | null
-  cancelled: boolean            // child 교체 순간의 Stop 도 체인을 멈춘다
+  providerKey: string                // 체인/채널의 provider. **모델·settings 신선도는 runtime 권위**
+  control: {                         // 세션 수명 제어 상태 — 턴 교체에도 살아남는다 (원칙 ⑤)
+    taskIds: Map<string, string>     // toolUseId → taskId
+    subagentTypes: Map<string, string>
+    stoppedSubagents: Set<string>
+    blockedSubagents: Set<string>
+    cancelled: boolean
+  }
+  activeChild: TurnContext<W> | null // **세션 상태·제어의 근거로 쓰지 않는다**
 }
 ```
 
-- **획득/해제**: `handleChatSend` 진입에서 lease 획득, **outer `finally` 에서만**
-  `releaseLease(sessionId, leaseId)`. 해제는 **leaseId 조건부(CAS)** — 지각한 이전 체인이 새 lease 를
+- **획득/해제**: `handleChatSend` 진입에서 획득, **outer `finally` 단일 지점**에서
+  `releaseLease(sessionId, leaseId)` — **leaseId 조건부(CAS)** 라 지각한 이전 체인이 새 lease 를
   지우지 못한다.
-- **child 는 lease 안에서 교체**: user/listen/flush turn 은 `bindChild`/`unbindChild` 로
-  `activeChild` 만 바꾼다 — **`hasSession` 을 false 로 만들지 않는다.**
-- **소비처 매핑(전수 9곳)** — 계약을 그대로 유지한다:
+- **child 교체는 `swapChild(prev, next)` 원자 연산** — `unbind → await → bind` 로 null 창을
+  만들지 않는다(리뷰 4차 수용).
+- **소비처 매핑(전수 9곳)** — 3개 술어 계약을 유지하되 근거를 lease 로 옮긴다:
   - `hasSession(sessionId)` → **lease 존재**(admission·handoff 가드·`isSessionLive`)
-  - `getBySession(sessionId)` → `activeChild`(cancel·stopSubagent·approvals)
-  - `all()` → 모든 lease 의 `activeChild` + pendingByOwner(shutdown abort)
-- **취소**: `lease.cancelled = true` + `activeChild` abort. child 사이에 눌러도 루프가 다음
-  반복에서 종료한다(현행은 no-op 가능).
-- **"세션 전체 중단"**: `discardRuntime` 이 **lease 의 runtime** 을 직접 잡는다 → 부수 피해 ② 해소.
-- **신규 세션**: owner 키 lease 로 시작해 `promote` 에서 sessionId 키로 승격 → 부수 피해 ③ 해소.
+  - `getBySession(sessionId)` → `activeChild`(approvals 등 *턴* 이 필요한 소비자)
+  - **`allLeases()` 신설** → 재시작 게이트·shutdown 이 쓴다(아래)
+- **제어는 lease API 로만** (P1-1):
+  - 전송 admission — `lease.runtime.canSteer` + **`lease.providerKey`** 로 판정한다.
+    nullable child 를 읽지 않는다(현행 `turn.providerKey` 참조 제거).
+  - 턴 중단 — `control.cancelled = true` + `activeChild` abort. **child 사이에 눌러도** 루프가
+    다음 반복에서 종료한다.
+  - 서브에이전트 중단 — `control.taskIds`/`subagentTypes`/`stoppedSubagents` 를 lease 에서 읽는다.
+    **연속·listen 턴에서도 `stopTask` 에 도달**한다(현행 상시 열화 해소).
+  - "세션 전체 중단" — `discardRuntime` 이 **lease 의 runtime** 을 직접 잡는다.
+- **`allLeases()` 가 닫는 현행 결함 2건**:
+  - 재시작 게이트 — `isGenerating` 을 **lease 수**로 판정한다(현행: `all()` 이 비는 창에 **작업 중
+    업데이트가 설치**된다). `activeToolCallCount` 는 `activeChild?.openToolRuns.size ?? 0` 합.
+  - shutdown — **모든 lease 의 runtime 을 직접 close** 한다(현행: idle 풀만 닫아 active
+    서브프로세스가 잔존).
+- **신규 세션**: owner 키 lease 로 시작해 `promote` 에서 sessionId 키로 승격.
 
-> **UX 보호 필수 조건**: 교체 창의 send 는 `reserveOnBusySession` 으로 가는데, 이 함수가
-> `getBySession(...)?.live?.canSteer` 로 판정하면 `activeChild` 가 없는 순간 **"이 백엔드는
-> 피드백 끼어들기를 지원하지 않습니다" 에러가 사용자에게 뜬다**(`chat-turn.ts:285-296`).
-> 판정을 **`lease.runtime.canSteer`** 로 바꾼다(`SessionRuntime.canSteer` 게터 존재). 이 교정을
-> 빼면 lease 가 오히려 UX 를 해친다 — AC-A2 로 잠근다.
+#### A2. 제출 포트 단일화 — **모든 입력이 Runtime 을 통과한다** (F-C·F-G, 리뷰 4차 ⓒ)
 
-#### A2. 제출 트랜잭션 + ChannelToken — 결합은 push 성공 후에만 (F-C, 리뷰 3차 ⓑ)
+**현행은 경로가 둘이다** — 턴 프롬프트는 Runtime 이, mid-turn steer 는 **어댑터 훅이** push 한다
+(`claude.ts:393-397`). 토큰을 모르는 어댑터가 push 하는 한 "어느 채널에 실렸는가" 를 기록할 수 없다.
 
-- 큐 상태를 2단계로 확장: `held → submitting → submitted → confirmed`
-  (실패 시 `submitting → held` 롤백 / `submitting·submitted·orphaned → discarded`).
-  기존 `rollbackSteerFlush` 가 이 롤백의 절반을 이미 갖고 있다.
-- **`SessionRuntime.submit()` 이 하나의 트랜잭션으로 소유**한다: draining 확인 → 필요한 teardown →
-  재사용/spawn 채널 결정 → **재사용 불가 `ChannelToken` 발급** → 실제 push → **성공했을 때만**
-  큐를 `submitted` 로 **그 토큰에 바인딩**.
+- **어댑터에 push 클로저를 주지 않는다.** Runtime 이 구현한 **`submitSteer(batch)` 포트**만
+  `TurnRequest` 로 넘기고, 게이트 훅은 **제출 요청만** 한다(훅의 fail-open·rollback 의미는 유지 —
+  `claude-adapt.ts:146-178` 구조 보존).
+- **네 경로 전부** 이 포트를 지난다: ⓐ 최초 전송 ⓑ 자동 연속 턴 ⓒ respawn 프렐류드
+  ⓓ PostToolBatch steer.
+- **트랜잭션 순서**: draining 확인/필요 시 respawn → **재사용 불가 `ChannelToken` 발급** →
+  큐를 **CAS 로 `submitting(token)`** 전이 → **Runtime 이 push** → 성공 `submitted(token)` /
+  실패 `held` 롤백.
+  - **CAS 실패 = 이미 취소·폐기된 시도** → **push 하지 않는다.** 아직 아무것도 나가지 않았으므로
+    **채널을 폐기하지 않는다**(§외부 리뷰 처리의 미채택 근거).
+- 큐 상태: `held → submitting → submitted → confirmed`
+  (`submitting|submitted|orphaned → discarded`). 기존 `rollbackSteerFlush` 가 롤백의 절반을 이미 갖는다.
 - **어댑터는 토큰을 만들지 않는다** — `ProviderMessageBatch { sequence, events }` 만 생산하고,
-  **Runtime 이 pump 시작 시 캡처한 토큰을 배치에 붙인다**(권위 1곳).
+  **Runtime 이 pump 시작 시 캡처한 토큰을 부착**한다(권위 1곳).
 - **respawn**: `messageId`·`survivedInterrupt` 보존, `attemptId`·토큰 **재발급**. 이전 채널의
   배치·echo·interrupt 영수증은 **토큰 불일치로 폐기**된다.
 
@@ -277,6 +328,13 @@ interface BoundAttempt extends PreparedAttempt { channelToken: string }   // pus
 | A17 | `orphaned` 배치가 **지각 echo 로 `confirmed` 된다** | `pending-message-queue.test.ts::"orphaned 배치도 지각 echo 로 확정된다"` | 늦은 CLI 픽업 |
 | A18 | **이전 attempt 의 지각 echo·영수증은 현재 시도의 상태를 바꾸지 않는다** | `pending-message-queue.test.ts::"이전 attempt 의 지각 신호는 무시된다"` · `session-runtime.test.ts::"토큰 불일치 영수증은 폐기된다"` | respawn 후 구 채널 신호 |
 | A19 | 채널 교체 후 **이전 토큰의 태스크 추적은 `hasAny` 가 false**, **같은 토큰에서는 유지**된다 | `background-tasks.test.ts::"토큰이 바뀌면 조회되지 않는다"` · `::"같은 토큰 엔트리는 유지된다"` | 설정·모델 변경 respawn |
+| A20 | 교체 창의 send 가 **provider 경계 검사를 받는다** — 같은 provider 면 `message.queued`, 다른 provider 면 정상 안내 메시지. 판정은 `lease.providerKey` 로 한다 | `chat-turn.cancel-residue.test.ts::"activeChild 부재 창에서도 provider 경계 검사가 동작한다"` | `chat:send` → `reserveOnBusySession` → lease |
+| A21 | **listen 턴 진행 중 누른 서브에이전트 중단이 `stopTask` 까지 도달**한다(lease `control.taskIds`) | `chat-turn.cancel-residue.test.ts::"listen 중 서브에이전트 중단이 taskId 로 도달한다"` | `chat:stopSubagent` → lease control |
+| A22 | child 가 없는 구간에도 `restartGateState().isGenerating === true` 라 **작업 중 업데이트 설치가 차단**된다 | `bootstrap.restart-gate.test.ts::"child 없는 lease 도 isGenerating 이다"` | `update:*` → `restartGateState` → `shared/update-restart.ts` |
+| A23 | shutdown 이 **모든 lease 의 runtime 을 close** 한다(종료 후 active 서브프로세스 잔존 0) | `bootstrap.shutdown.test.ts::"active lease 의 runtime 도 닫힌다"` | 앱 종료 → `Bootstrap.shutdown` |
+| A24 | **PostToolBatch steer 배치도 Runtime 포트를 지나** 토큰에 결합된다 — 어댑터가 직접 push 하지 않는다 | `adapters/claude.steer-port.test.ts::"게이트 훅은 submitSteer 포트를 부른다"` + `session-runtime.test.ts::"submitSteer 가 토큰 결합까지 수행한다"` | CLI PostToolBatch 훅 → `submitSteer` |
+| A25 | `submitting` **CAS 실패 시 push 하지 않고**, 채널도 폐기하지 않는다 | `session-runtime.test.ts::"CAS 실패는 push 없이 종료한다"` | 취소·폐기와 제출의 경합 |
+| A26 | `swapChild` 전후로 **`hasSession` 이 계속 true** 다(원자 교체) | `supervisor.test.ts::"swapChild 는 hasSession 을 흔들지 않는다"` | 턴-후 루프의 child 교체 |
 
 ### 스테이지 B — 큐 진실·표시
 
@@ -311,17 +369,19 @@ interface BoundAttempt extends PreparedAttempt { channelToken: string }   // pus
 
 | 항목 | r4 에서 | 근거 |
 |---|---|---|
-| 교체 창의 send | **pending 버블로 즉시 표시 후 기존 체인으로 전달**(에러·새 턴 아님) | A1 + `canSteer` 교정 (AC-A1·A2) |
+| 교체 창의 send | **pending 버블로 즉시 표시 후 기존 체인으로 전달**(에러·새 턴 아님) + **provider 안내 정상 동작** | A1 + `canSteer`·`providerKey` 교정 (AC-A1·A2·A20) |
 | 애니메이션 정책 | **0143 유지** — 끄지 않는다 | B2 (AC-B9·B10) |
-| 중단 버튼 | 항상 동작(child 사이 포함) | A1 (AC-A4) |
+| 중단 버튼 | 항상 동작(child 사이 포함) + **서브에이전트 중단도 listen 중 도달** | A1 (AC-A4·A21) |
 | "세션 전체 중단" | **이제 실제로 서브프로세스를 죽인다**(현행은 idle 만) | A1 (AC-A5) |
+| 작업 중 업데이트 설치 | **차단된다**(현행은 교체 창에 설치가 통과할 수 있다) | A1 (AC-A22) |
+| 앱 종료 | active 서브프로세스까지 정리(현행은 잔존 가능) | A1 (AC-A23) |
 | steer 라우팅·concurrency | 현행 유지 | B2 (AC-B9) |
 | 기존 renderer 경로 | `phase` 유지 | B2 (AC-B6) |
 | 대기 이유 | 라벨·개수로 설명(정보 추가, 축소 0) | B2 (AC-B10) |
 
 ## 범위 / 비범위
 
-- **범위**: 스테이지 A + B, AC 31건 + 사람 실기, `IPC_CONTRACT.md` 동기화.
+- **범위**: 스테이지 A + B, AC **38건**(A 26 + B 12) + 사람 실기, `IPC_CONTRACT.md` 동기화.
 - **비범위**:
   - **foreground/transport UI 분리** — 결정 ⑤로 미채택.
   - **provider 통지 유실의 재조정** — SDK 에 태스크 열거 API 없음.
@@ -354,7 +414,10 @@ interface BoundAttempt extends PreparedAttempt { channelToken: string }   // pus
 | 기존 결정 / 규칙 | 출처 | 본문에서 건드리는 문장 | 이번 변경 |
 |---|---|---|---|
 | **0143** listen 대기 = 작업 중(inflight 지속) | `ChatTile.tsx:51-53` · `chatReducer.ts:92-96` | §B2 "애니메이션을 끄지 않는다" | **유지 — 사용자 결정 ⑤** |
-| **registry 의 turn 단위 등록** (채택 결정 문서 없음 — *구조*) | `session-registry.ts:3-5`, `:21-42` | §A1 전체 | **구조 변경** — 등록 단위를 체인(lease)으로 올린다. 3개 술어 계약(`hasSession`/`getBySession`/`all`)은 유지 |
+| **registry 의 turn 단위 등록** (채택 결정 문서 없음 — *구조*) | `session-registry.ts:3-5`, `:21-42` | §A1 전체 | **구조 변경** — 등록 단위를 체인(lease)으로 올린다. `hasSession`/`getBySession` 계약은 유지하고 `allLeases()` 를 신설 |
+| **재시작 게이트·shutdown 이 `all()`(turn 집합)로 판정** (구조) | `bootstrap.ts:490-494`, `:553-560` | §A1 "`allLeases()` 가 닫는 현행 결함 2건" | **구조 변경 + 현행 결함 수정** — 판정 근거를 lease 로 올린다(작업 중 업데이트 설치 차단·active runtime 종료) |
+| **세션 제어 상태를 turn-local 에 보관** (구조) | `chat-turn.ts:96-112`(`freshTurnLocalState`) | §A1 `control` | **구조 변경** — 세션 수명 사실을 lease 로 올린다(원칙 ⑤). 턴-로컬은 순수 턴 상태만 남긴다 |
+| **어댑터가 steer push 를 수행** (구조) | `claude.ts:393-397` · `claude-adapt.ts:146-178` | §A2 전체 | **구조 변경** — 어댑터는 제출 *요청* 만, push·토큰 결합은 Runtime(원칙 ⑥). 훅의 fail-open·rollback 의미는 유지 |
 | **0067** "uuid 보존 = renderer pending id 정합" | `pending-message-queue.ts:328-332` 주석 | §A4 "정합은 `ids` 가 담당한다" | **정밀화** — wire uuid 는 시도마다 재발급 |
 | 0154 "재주입도 폐기도 아닌 기다림" | `chat-turn.ts:920-936` | §A4·AC-A17 | **유지** |
 | 0151 "잔여는 교집합만 / 처분은 사용자 선택" | `interrupt-reconcile.ts:1-16` | §A2·B1 | **유지** — 처분 수단이 **이제 실제로 동작**한다(A5) |
@@ -387,7 +450,9 @@ interface BoundAttempt extends PreparedAttempt { channelToken: string }   // pus
 | 토큰 스코프가 **살아 있는 태스크를 지울** 위험 | AC-A19 후반(같은 토큰 유지)을 양성 단언. 토큰은 채널 교체 시에만 바뀐다(전제 3) |
 | 스냅샷 발행 폭풍 | 값 변화 시에만 발행(AC-B8). 페이로드는 정수 6개 |
 | 0143 유지의 귀결 — 진짜 통지 유실 시 애니메이션 지속 | 사용자 결정 ⑤의 명시적 귀결. 라벨·개수·중단 버튼으로 항해 가능. UI 분리 채택 시 `sessionBusy` 한 줄 |
-| 스테이지 A 의 diff 가 크다 | 커밋을 A1(lease) → A2(제출) → A3/A4(라우팅·identity) 순으로 쪼개고, verify 는 AC 그룹으로 대조 |
+| 스테이지 A 의 diff 가 크다 | 커밋을 A1(lease) → A2(제출 포트) → A3/A4(라우팅·identity) 순으로 쪼갠다. **A1 만 들어가도 현행 결함 3건**(작업 중 업데이트 설치·종료 시 서브프로세스 잔존·서브에이전트 중단 열화)이 닫히므로, 부분 착지도 순이득이다 |
+| **A2 가 어댑터 훅 계약을 바꾼다** — steer 가 조용히 끊기면 사용자가 알아채기 어렵다 | 훅의 fail-open·rollback 구조를 **그대로 보존**하고 포트만 교체한다. AC-A24 가 "훅이 포트를 부른다"·"포트가 토큰 결합까지 한다" 를 양쪽에서 잠그고, 기존 `engine.steer.submit-rejected`·`flush-failed` 경고 로그를 유지해 무증상 실패를 만들지 않는다 |
+| **lease `control` 로 옮긴 상태가 턴-로컬 사용처와 이중화될 수 있다** | 턴-로컬에서 **제거**하고 lease 만 남긴다(복제 금지 — 원칙 ③). `settleSubagentTask` 등 소비처는 lease control 을 인자로 받는다 |
 
 - 되돌리기 어려운 결정: `chat.listen` 스냅샷 필드(공개 IPC) — additive + `phase` 유지.
   i18n 키 이름 이번 확정.
@@ -397,14 +462,19 @@ interface BoundAttempt extends PreparedAttempt { channelToken: string }   // pus
 
 **스테이지 A**
 - `app/src/main/features/sessions/session-registry.ts` · `supervisor.ts` — lease 계층
-  (bind/unbind child · CAS release · `cancelled` · `discardRuntime` 이 active 도달)
-- `app/src/main/features/sessions/session-runtime.ts` — `submit()` 트랜잭션 · `ChannelToken`
-  발급·부착 · `routeBatch`
-- `app/src/main/adapters/{types,claude,mock}.ts` — `ProviderMessageBatch{sequence,events}`(토큰 미생성)
+  (`swapChild` 원자 교체 · CAS release · `control` · `providerKey` · **`allLeases()`** ·
+  `discardRuntime` 이 active 도달)
+- `app/src/main/app/bootstrap.ts` — `restartGateState()`·`shutdown` 이 **`allLeases()` 기준**으로
+  (현행 결함 2건 수정)
+- `app/src/main/features/sessions/session-runtime.ts` — `submit()`·**`submitSteer()`** 트랜잭션 ·
+  `ChannelToken` 발급·부착 · `routeBatch`
+- `app/src/main/adapters/{types,turn,claude,claude-adapt,mock}.ts` —
+  `ProviderMessageBatch{sequence,events}`(토큰 미생성) · **게이트 훅이 `submitSteer` 포트 호출**
 - `app/src/main/features/chat/pending-message-queue.ts` — `PreparedAttempt/BoundAttempt` ·
   `submitting` · identity 강등 · `survivedInterrupt`
 - `app/src/main/features/chat/background-tasks.ts` — 토큰 스코프
-- `app/src/main/app/chat-turn.ts` — lease 수명 · **`canSteer` 판정 교정** · chainId 발급
+- `app/src/main/app/chat-turn.ts` — lease 수명 · **`canSteer`·`providerKey` 판정 교정** ·
+  chainId 발급 · 제어 상태를 lease 로 이관(`freshTurnLocalState` 축소)
 
 **스테이지 B**
 - `app/src/main/features/chat/pending-message-queue.ts` — 파생 selector · 변경 알림
@@ -427,8 +497,8 @@ interface BoundAttempt extends PreparedAttempt { channelToken: string }   // pus
 - 통과 필요: `cd app && npm run lint && npm run typecheck && npm test`.
 - 기준선(실측): lint 0 error / 1 warning(기존·무관) · typecheck 0 · vitest **1772 passed
   (196 files)** + node:test **28 pass**.
-- 신규 테스트: supervisor/registry 5 · session-runtime 6 · pending-message-queue 8 ·
-  background-tasks 2 · 어댑터 2 · chat-turn harness 7 · renderer 3.
+- 신규 테스트: supervisor/registry 7 · bootstrap(게이트·shutdown) 2 · session-runtime 8 ·
+  pending-message-queue 8 · background-tasks 2 · 어댑터 3 · chat-turn harness 10 · renderer 3.
 
 ## 설계 self-review 체크리스트 (READY 전)
 
@@ -437,10 +507,10 @@ interface BoundAttempt extends PreparedAttempt { channelToken: string }   // pus
 - [x] 의존 기술 — 전제 5건, 신규 의존성 0
 - [x] 파생 UX — child 교체 창·handoff 가드·recovery·취소 후 재전송·채널 사망·앱 종료·창 종료 7건
 - [x] 리스크 — 7건 + 완화책, Open Question 0
-- [x] **요구 ⑦(비판적 검토) 이행** — 리뷰 3차 3건 중 **2건 확정 / 1건 등급 하향**(근거를 코드로 반박)하고, 리뷰가 **놓친 3건**(런타임 close·discardRuntime idle-only·canSteer UX 함정)을 추가로 찾아 설계에 반영
-- [x] `검증 수단` 공란 0 — AC 31건 중 29건 `파일::케이스`, 사람 실기 2건(절차 명시), 문서 대조 1건
+- [x] **요구 ⑦(비판적 검토) 이행** — 3차: 2건 확정 / 1건 **등급 하향**(근거를 코드로 반박). 4차: **3건 전부 확정**(2건은 **현행 결함**)하되 **제안 3건은 미채택**(채널 폐기·공개 게이트·providerBinding 복제 — 근거 기재). 리뷰가 **놓친 4건**(런타임 close · discardRuntime idle-only · canSteer UX 함정 · **제어 상태 상시 리셋**)을 추가로 찾아 설계에 반영
+- [x] `검증 수단` 공란 0 — AC 38건 중 36건 `파일::케이스`, 사람 실기 2건(절차 명시), 문서 대조 1건
 - [x] 부정형/"불변" 기준 0개 — AC-A2·A3·A11·A12·A16·A18·B7 은 "…를 받는다"·"무시된다"·"false 로 남는다"·"submitted 로 남는다" 로 **관측 가능한 상태**를 단언
-- [x] AC 간 모순 없음 — 짝 확인: A1↔A16(체인 미생성 / 그래도 identity 방어선 유지) · A17↔A18(같은 시도 확정 / 다른 시도 무시) · A19 전·후반(무효화 vs 과잉 삭제) · B8(변화 시 발행 / 동일 값 미발행) · B9↔B10(busy 정의 불변 + 라벨만 추가) · B10↔B11(근거 있으면 유지 / 없으면 정지)
+- [x] AC 간 모순 없음 — 짝 확인: A1↔A16(체인 미생성 / 그래도 identity 방어선 유지) · A17↔A18(같은 시도 확정 / 다른 시도 무시) · A19 전·후반(무효화 vs 과잉 삭제) · A2↔A20(에러 없음 + 경계 검사는 살아 있음 — 상호 보완) · A25↔A9(CAS 실패는 push 0 / push 실패는 held 롤백 — 서로 다른 시점) · A22↔A26(lease 존재 = 게이트 참 / 교체 중 hasSession 참) · B8(변화 시 발행 / 동일 값 미발행) · B9↔B10(busy 정의 불변 + 라벨만 추가) · B10↔B11(근거 있으면 유지 / 없으면 정지)
 - [x] 인용 수치 직접 측정 — registry 소비처 **9곳** · `live.events` 소비처 **3** · 생산자 **2** · `orphanUnconfirmed` **2** · SDK subtype **4** · `TerminalReason` **19** · 영수증 지연 **6.06초** · 게이트 기준선 전부 이번 세션
 - [x] 신규 모듈 테스트 방법 — 6항목 전부. electron 의존은 **기존 harness seam**, 토큰은 **주입**이라 순수 테스트 가능
 - [x] 전수 조사 N — 위 수치 + `teardownChannel()` **3** + lease 소비처 **9**
@@ -471,8 +541,10 @@ interface BoundAttempt extends PreparedAttempt { channelToken: string }   // pus
 ## [구현자 기입] 구현 체크리스트
 
 **스테이지 A** (커밋 순서 = A1 → A2 → A3/A4)
-- [ ] A1 SessionChainLease (bind/unbind · CAS release · cancelled · discardRuntime · **canSteer 교정**)
-- [ ] A2 `SessionRuntime.submit()` 트랜잭션 + `ChannelToken` + `submitting` 상태
+- [ ] A1 SessionChainLease (`swapChild` · CAS release · `control` · `providerKey` · **`allLeases()`
+      → 재시작 게이트·shutdown** · discardRuntime · **canSteer/providerKey 교정**)
+- [ ] A2 `submit()`/**`submitSteer()`** 트랜잭션 + `ChannelToken` + `submitting` CAS
+      (**어댑터 직접 push 제거**)
 - [ ] A3 ProviderMessageBatch 라우팅 (claude · mock · routeBatch)
 - [ ] A4 SubmissionIdentity 강등 · 트래커 토큰 스코프
 
@@ -499,3 +571,6 @@ interface BoundAttempt extends PreparedAttempt { channelToken: string }   // pus
 | D1 | ②-a 의 실제 판정 입력이 실기 로그로 확정되지 않았다 | r2 자체 검토 | r4 는 유령 근거를 각각 제거하고 AC-B11 로 최종 상태를 단언. 재현 시엔 스냅샷의 개수 필드가 입력을 가린다 | open |
 | D2 | 진짜 백그라운드 통지 유실 시 애니메이션 지속(0143 유지의 귀결) | 사용자 결정 ⑤ | 라벨·개수·중단 버튼으로 항해. UI 분리 채택 시 `sessionBusy` 한 줄 | 결정됨(유지) |
 | D3 | **"세션 전체 중단" 이 현행에서 active runtime 을 못 죽인다** — 0151 이 설계한 처방이 실제로는 미동작 | r4 자체 발견(`supervisor.ts:141-149`) | A1 이 lease 의 runtime 을 직접 잡아 해소(AC-A5) | 이번 범위 |
+| D4 | **[현행 결함] 작업 중 업데이트 설치가 허용될 수 있다** — 재시작 게이트가 `all()`(turn 집합)로 `isGenerating` 을 판정해, 턴-후 루프의 child 교체 창에서 거짓이 된다 | r5 검증(`bootstrap.ts:490-494` · `shared/update-restart.ts:10`) | A1 `allLeases()` 로 lease 수 기준 판정(AC-A22) | 이번 범위 |
+| D5 | **[현행 결함] 종료 시 active 서브프로세스가 잔존할 수 있다** — `shutdown` 이 `all()` abort + idle 풀 close 뿐이라 교체 창의 active runtime 이 어디에도 안 잡힌다 | r5 검증(`bootstrap.ts:553-560`) | A1 이 모든 lease 의 runtime 을 직접 close(AC-A23) | 이번 범위 |
+| D6 | **[현행 열화] 서브에이전트 중단이 연속·listen 턴에서 `stopTask` 에 도달하지 못한다** — 제어 상태가 `freshTurnLocalState()` 로 턴마다 리셋 | r5 자체 발견(`chat-turn.ts:96-112`) | A1 `control` 을 lease 로 이관(AC-A21) | 이번 범위 |
