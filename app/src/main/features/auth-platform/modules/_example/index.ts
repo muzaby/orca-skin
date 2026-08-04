@@ -63,7 +63,11 @@ export const examplePackage: AuthPluginPackage = {
       mechanism: 'personal_access_token',
       service: 'corp-wiki',
       probeUrl: `${WIKI_ORIGIN}/rest/api/user/current`,
-      allowedOrigins: [WIKI_ORIGIN]
+      allowedOrigins: [WIKI_ORIGIN],
+      // 위 manifest 선언과 같아야 한다. 빠뜨리면 factory 기본값(`['application','connector']`)이
+      // 들어가 registry 가 패키지를 거부하고, 그 검사가 없던 때는 **prod 로그인 게이트가
+      // 켜졌다**(0164 D1). 복사해 가는 템플릿이므로 여기서부터 맞아야 한다.
+      targets: ['connector']
     })
   ]
 }

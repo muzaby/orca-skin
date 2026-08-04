@@ -19,7 +19,7 @@ import type {
   RuntimeToolResult
 } from '../../../../adapters/runtime-tools'
 import type { ConnectorResult } from '../../../../contracts/connector-plugin'
-import { CONFLUENCE_OPERATIONS, CONFLUENCE_PLUGIN_ID } from './connector'
+import { CONFLUENCE_OPERATIONS, CONFLUENCE_PLUGIN_ID, MAX_PAGES_PER_CALL } from './connector'
 import { MAX_SEARCH_LIMIT } from './rest'
 import { renderPagesResult, renderSearchResult } from './search-render'
 
@@ -125,7 +125,9 @@ export function createConfluenceTools(
           pageIds: z
             .array(z.string().min(1))
             .min(1)
-            .max(MAX_SEARCH_LIMIT)
+            // connector 가 실제로 강제하는 배치 상한과 같은 값이어야 한다 — 어긋나면 스키마가
+            // 통과시킨 입력을 connector 가 `skippedPageIds` 로 잘라낸다.
+            .max(MAX_PAGES_PER_CALL)
             .describe('Confluence page ids, as returned by confluence_search.'),
           includeAttachments: z
             .boolean()

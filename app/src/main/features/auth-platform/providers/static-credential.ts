@@ -20,7 +20,7 @@ import type {
   AuthStatusResult,
   AuthStep
 } from '../../../contracts/auth-plugin'
-import type { AuthMechanism, CredentialKind } from '../../../../shared/ipc'
+import type { AuthMechanism, AuthTargetKind, CredentialKind } from '../../../../shared/ipc'
 import { BINDING_SECRET_NAME } from '../broker'
 
 // 이 provider 가 다루는 credential 종류 ↔ mechanism 대응.
@@ -47,7 +47,7 @@ export interface StaticCredentialOptions {
   // 게이트가 켜진다**(`broker.status().required`) — 서비스 연결 전용 credential 은 반드시
   // `['connector']` 로 좁힌다. 0164 verify D1: Confluence PAT 이 기본값을 쓰는 바람에 서버가
   // 0개인 설치에서도 prod 로그인 게이트가 켜졌다(DEV 는 bypass 라 보이지 않았다).
-  targets?: readonly ('application' | 'connector')[]
+  targets?: readonly AuthTargetKind[]
 }
 
 export function createStaticCredentialProvider(opts: StaticCredentialOptions): AuthProviderV1 {
