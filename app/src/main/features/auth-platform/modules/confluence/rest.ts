@@ -112,15 +112,11 @@ export function pageRequest(endpoint: ConfluenceEndpoint, pageId: string): Reque
 // 첨부 목록은 검색 상한과 무관하다 — 페이지 하나에 딸린 첨부를 한 번에 본다.
 const ATTACHMENT_LIST_LIMIT = 200
 
-export function attachmentListRequest(
-  endpoint: ConfluenceEndpoint,
-  pageId: string,
-  limit = ATTACHMENT_LIST_LIMIT
-): RequestFields {
+export function attachmentListRequest(endpoint: ConfluenceEndpoint, pageId: string): RequestFields {
   return {
     method: 'GET',
     path: restPath(endpoint, `/content/${encodeURIComponent(pageId)}/child/attachment`),
-    query: { limit: String(Math.max(Math.trunc(limit), 1)) }
+    query: { limit: String(ATTACHMENT_LIST_LIMIT) }
   }
 }
 

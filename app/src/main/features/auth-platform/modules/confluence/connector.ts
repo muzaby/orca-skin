@@ -15,7 +15,7 @@ import type {
   ConnectorStatus
 } from '../../../../contracts/connector-plugin'
 import { DownloadStore, pageDir, type SavedAsset } from './download-store'
-import { mapWithLimit } from './limit'
+import { mapWithLimit, partitionSettled } from './limit'
 import {
   attachmentDataRequest,
   attachmentListRequest,
@@ -49,9 +49,10 @@ const DEFAULT_DOWNLOAD_CONCURRENCY = 4
 // 모델이 "무엇을 받았는지" 판단할 만큼만 준다 — 대용량 페이지가 컨텍스트를 통째로 먹지 않게.
 const PREVIEW_CHARS = 4000
 
-// 한 번에 본문을 펼칠 페이지 수 상한. 페이지 하나가 조회 + 첨부 다운로드를 끌고 오므로
-// 검색 상한(50)을 그대로 쓰면 도구 한 번이 50번의 조회 + 수백 개 첨부가 된다.
-const MAX_PAGES_PER_CALL = 50
+// 한 번에 본문을 펼칠 페이지 수 상한 — **이 값이 권위다.** `invoke` 는 도구 스키마 밖에서도
+// 호출되는 계약이라 실제 강제는 여기서 일어난다. 도구 스키마는 이 상수를 import 해 쓴다.
+// (검색 상한과 우연히 같은 50 이지만 다른 것이다 — 검색 페이지 크기 vs 일괄 조회 배치 크기.)
+export const MAX_PAGES_PER_CALL = 50
 // 페이지 하나가 이미 첨부를 동시 다운로드한다 — 페이지까지 넓게 열면 곱해진다.
 const PAGE_CONCURRENCY = 2
 
@@ -229,16 +230,12 @@ export function createConfluenceConnector(raw: ConfluenceServerConfig): Connecto
     const unique = [...new Set(pageIds)]
     const targets = unique.slice(0, MAX_PAGES_PER_CALL)
 
-    const settled = await mapWithLimit(targets, PAGE_CONCURRENCY, (pageId) =>
-      fetchPage(ctx, pageId, includeAttachments)
+    const { values: pages, failures: failedPages } = partitionSettled(
+      await mapWithLimit(targets, PAGE_CONCURRENCY, (pageId) =>
+        fetchPage(ctx, pageId, includeAttachments)
+      ),
+      (error, index) => ({ pageId: targets[index], message: error.message })
     )
-
-    const pages: ConfluencePageResult[] = []
-    const failedPages: ConfluencePagesResult['failedPages'] = []
-    settled.forEach((result, index) => {
-      if (result.ok) pages.push(result.value)
-      else failedPages.push({ pageId: targets[index], message: result.error.message })
-    })
 
     return { pages, failedPages, skippedPageIds: unique.slice(MAX_PAGES_PER_CALL) }
   }
@@ -324,14 +321,12 @@ export function createConfluenceConnector(raw: ConfluenceServerConfig): Connecto
       return store.saveAsset(item.title, res.bodyBytes, item.mediaType)
     })
 
-    const assets: SavedAsset[] = []
-    const failed: Array<{ filename: string; message: string }> = [...missing]
-    results.forEach((result, index) => {
-      if (result.ok) assets.push(result.value)
-      // 첨부 하나가 404·크기 초과여도 페이지 전체를 실패시키지 않는다.
-      else failed.push({ filename: wanted[index].title, message: result.error.message })
-    })
-    return { assets, failed }
+    // 첨부 하나가 404·크기 초과여도 페이지 전체를 실패시키지 않는다.
+    const { values: assets, failures } = partitionSettled(results, (error, index) => ({
+      filename: wanted[index].title,
+      message: error.message
+    }))
+    return { assets, failed: [...missing, ...failures] }
   }
 }
 

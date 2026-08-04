@@ -24,9 +24,9 @@ export interface PluginHandlerDeps {
   pluginHost: PluginHost
   templates: ConnectorTemplateRegistry
   instances: ConnectorInstanceLifecycle
-  // 부팅 때 거부된 패키지·인스턴스 (0164 r2). 부팅 시점에 확정되므로 함수로 받아
-  // 핸들러 등록 순서에 의존하지 않는다.
-  diagnostics: () => readonly PluginDiagnostic[]
+  // 부팅 때 거부된 패키지·인스턴스 (0164 r2). `createAuthPlatform()` 이 동기적으로 다 채운 뒤
+  // 핸들러가 등록되므로 값은 이미 확정돼 있다.
+  diagnostics: readonly PluginDiagnostic[]
 }
 
 export function registerPluginHandlers(deps: PluginHandlerDeps): void {
@@ -42,7 +42,7 @@ export function registerPluginHandlers(deps: PluginHandlerDeps): void {
     CHANNELS.pluginDiagnostics,
     PluginDiagnosticsRequestSchema,
     'reject',
-    (): PluginDiagnostic[] => PluginDiagnosticSchema.array().parse(deps.diagnostics())
+    (): PluginDiagnostic[] => PluginDiagnosticSchema.array().parse(deps.diagnostics)
   )
   handle(
     CHANNELS.pluginConnectionConnect,

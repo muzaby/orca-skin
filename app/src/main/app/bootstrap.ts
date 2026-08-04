@@ -329,7 +329,7 @@ export class Bootstrap {
       pluginHost: auth.pluginHost,
       templates: auth.templates,
       instances: auth.instances,
-      diagnostics: () => auth.diagnostics
+      diagnostics: auth.diagnostics
     })
     // MCP `${BINDING:<id>}` 해석을 broker 로 잇는다 (0157). 이 배선이 없으면 binding 참조는
     // 미해결로 남아 해당 MCP 서버가 드롭된다(fail-closed).
