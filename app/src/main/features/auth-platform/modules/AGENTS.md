@@ -8,13 +8,21 @@
 1. `modules/<회사명>/` 디렉토리를 만들고 `AuthPluginPackage` 를 export 한다 (`_example/` 참조).
 2. `modules/index.ts` 의 `AUTH_PLUGIN_PACKAGES` 배열에 한 줄 추가한다.
 
-**동봉된 패키지**: [`confluence/`](confluence/AGENTS.md) — Confluence Data Center(0160·0161).
-**기본 경로는 UI 다** — 사용자가 플러그인 페이지의 추가 버튼에서 서버를 만든다(템플릿이 이미
-등록돼 있어 별도 활성화가 없다). 위 1~2번 절차는 사내 표준 서버를 코드에 미리 박아둘 때만
-쓴다. 규칙 상세는 그 디렉터리의 `AGENTS.md`.
+**동봉된 패키지**: [`confluence/`](confluence/AGENTS.md) — Confluence Data Center(0160·0161·0164).
+**기본 경로는 빌드타임이다** (0164 로 반전) — 서버 목록은 `confluence/servers.ts` 가 정본이고,
+UI 추가 버튼은 디버그 토글(`Tweaks.pluginAddEnabled`, 기본 `false`) 뒤에 있다. 규칙 상세는 그
+디렉터리의 `AGENTS.md`.
 
 그 외 코어 코드(broker·registry·IPC·게이트)는 **수정하지 않는다.** 신규 설치의 기본값은 빈 배열
 — 등록된 provider 가 0개면 `required:false` 로 로그인 게이트가 자동 통과된다(현행 동작 보존).
+
+> **앱 로그인 게이트를 실수로 켜지 마라** (0164 verify D1). `required` 는
+> `providersForTarget('application').length > 0` 이고, prod `RootGate` 는 그 값으로 앱 전체를
+> 막는다(DEV 는 bypass 라 개발 중에는 보이지 않는다). **서비스 연결용 provider 는 반드시
+> `targets: ['connector']`** 로 좁힌다 — `createStaticCredentialProvider` 의 기본값은
+> `['application','connector']` 라 그냥 쓰면 게이트가 켜진다. manifest 선언과 descriptor 는
+> registry 가 대조하므로(`targets`·`label`·`mechanisms`·`capabilities`) 한쪽만 고치면 등록이
+> 거부된다 — 두 곳을 같이 적는다.
 
 ## 규칙
 
@@ -35,6 +43,9 @@
 - **선언한 origin 밖으로 못 나간다.** `allowedOrigins` 미선언 origin 요청·redirect 는 거부된다.
 - **secret 은 `ctx.vault` 에만.** binding 결과·로그·renderer 응답에 값을 싣지 않는다.
 - 복수 등록 가능하다 — 한 빌드에 provider 를 몇 개든 둘 수 있다(0130 의 "모듈 1개" 제약 해소).
+- **등록 실패는 화면에 뜬다** (0164 r2). 등록은 패키지 단위 **all-or-nothing** 이라 `baseUrl`
+  하나가 경로를 달고 있으면 그 패키지의 provider·connector 가 **전부** 사라진다. 사유는
+  `orca:plugin:diagnostics` 로 나가 플러그인 탭 배너에 뜬다 — 조용히 없어지지 않는다.
 
 ## 게이트
 

@@ -152,7 +152,11 @@ function confluenceProviders(): AuthPluginPackage['providers'] {
       label: 'Confluence PAT',
       mechanism: 'personal_access_token',
       service: 'confluence',
-      fieldLabel: '개인 액세스 토큰(PAT)'
+      fieldLabel: '개인 액세스 토큰(PAT)',
+      // **연결 전용이다** — 위 선언(`targets: ['connector']`)과 같아야 한다. 기본값
+      // (`['application','connector']`)을 쓰면 이 패키지를 켜는 것만으로 prod 앱 로그인
+      // 게이트가 켜진다(0164 verify D1 — DEV bypass 때문에 개발 중에는 보이지 않는다).
+      targets: ['connector']
     }),
     createBasicCredentialProvider({
       id: CONFLUENCE_BASIC_PROVIDER_ID,

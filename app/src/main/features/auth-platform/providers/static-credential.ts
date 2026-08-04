@@ -43,6 +43,11 @@ export interface StaticCredentialOptions {
   allowedOrigins?: readonly string[]
   // 입력 라벨 커스터마이즈(회사 언어 재량).
   fieldLabel?: string
+  // 이 credential 로 무엇을 여는가. 기본값은 둘 다지만 **`application` 을 포함하면 앱 로그인
+  // 게이트가 켜진다**(`broker.status().required`) — 서비스 연결 전용 credential 은 반드시
+  // `['connector']` 로 좁힌다. 0164 verify D1: Confluence PAT 이 기본값을 쓰는 바람에 서버가
+  // 0개인 설치에서도 prod 로그인 게이트가 켜졌다(DEV 는 bypass 라 보이지 않았다).
+  targets?: readonly ('application' | 'connector')[]
 }
 
 export function createStaticCredentialProvider(opts: StaticCredentialOptions): AuthProviderV1 {
@@ -53,7 +58,8 @@ export function createStaticCredentialProvider(opts: StaticCredentialOptions): A
     apiVersion: 1,
     label: opts.label,
     // static credential 은 앱 로그인에도 서비스 연결에도 쓸 수 있다 — 같은 lifecycle.
-    targets: ['application', 'connector'],
+    // 기본값을 그대로 쓰면 앱 로그인 게이트가 켜지므로, 연결 전용이면 호출자가 좁힌다.
+    targets: [...(opts.targets ?? ['application', 'connector'])],
     mechanisms: [opts.mechanism],
     // refresh 는 지원하지 않으므로 **선언하지 않는다**. conformance 가 이 선언과 실제 동작의
     // 일치를 검사한다.

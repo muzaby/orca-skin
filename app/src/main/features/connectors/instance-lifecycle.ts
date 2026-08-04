@@ -22,6 +22,8 @@ export interface InstanceRegistryPort {
   unregister(pluginId: string): boolean
   // 정적 등록(`AUTH_PLUGIN_PACKAGES`)이 같은 패키지를 먼저 올렸는지 묻는다 (0164).
   hasPlugin(pluginId: string): boolean
+  // 건너뛴 공용 패키지의 provider 가 **실제로** 있는지 확인한다 (0164 verify D5).
+  getProvider(id: string): unknown
 }
 
 // `PluginHost` 가 구조적으로 만족하는 최소 표면.
@@ -65,10 +67,18 @@ export class ConnectorInstanceLifecycle {
     failed: Array<{ instance: ConnectorInstance; message: string }>
   } {
     for (const template of this.deps.templates.list()) {
-      // 정적 경로가 같은 pluginId 로 이미 올렸으면 건너뛴다 (0164). 정적 패키지와 템플릿
-      // 공용 패키지는 **provider 내용이 동일**하므로 건너뛰어도 인스턴스가 참조할 provider 는
-      // 그대로 있다. 그냥 부르면 registry 가 중복으로 거부해 매 부팅 오류 로그가 남는다.
-      if (this.deps.registry.hasPlugin(template.id)) continue
+      // 정적 경로가 같은 pluginId 로 이미 올렸으면 건너뛴다 (0164). 그냥 부르면 registry 가
+      // 중복으로 거부해 매 부팅 오류 로그가 남는다.
+      if (this.deps.registry.hasPlugin(template.id)) {
+        // **"같은 id = 같은 내용" 을 가정하지 않는다** (0164 verify D5). 정적 패키지가
+        // provider 를 덜 올렸다면 인스턴스가 참조할 provider 가 없고, 그 사실은 사용자가
+        // 연결을 누르는 시점에야 드러난다 — 부팅에서 확인하고 남긴다.
+        const missing = this.missingSharedProviders(template.sharedPackage())
+        if (missing.length > 0) {
+          this.log('connector.template.shared.divergent', { templateId: template.id, missing })
+        }
+        continue
+      }
       const errors = this.registerPackage(template.sharedPackage())
       if (errors.length > 0) {
         this.log('connector.template.shared.failed', { templateId: template.id, errors })
@@ -145,6 +155,16 @@ export class ConnectorInstanceLifecycle {
       ...(pkg.runtimeTools !== undefined
         ? { runtimeTools: pkg.runtimeTools as readonly never[] }
         : {})
+    })
+  }
+
+  // 공용 패키지가 선언한 provider 중 registry 에 **없는** 것. descriptor 에서 id 를 읽는다 —
+  // manifest 는 `unknown` 이라 파싱이 필요하지만 구현체는 descriptor 를 이미 갖고 있다.
+  private missingSharedProviders(pkg: TemplatePackage): string[] {
+    return (pkg.providers ?? []).flatMap((provider) => {
+      const id = (provider as { descriptor?: { id?: unknown } }).descriptor?.id
+      if (typeof id !== 'string') return []
+      return this.deps.registry.getProvider(id) === undefined ? [id] : []
     })
   }
 

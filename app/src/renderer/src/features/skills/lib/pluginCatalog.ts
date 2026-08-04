@@ -31,7 +31,7 @@ export function buildConnectorRows(
   providers: readonly AuthProviderInfo[],
   connectors: readonly PluginConnectorInfo[]
 ): ConnectorRow[] {
-  const byId = new Map(providers.map((provider) => [provider.id, provider]))
+  const byId = providerMap(providers)
   return [...connectors]
     .sort((a, b) => a.connectorId.localeCompare(b.connectorId))
     .map((connector) => ({

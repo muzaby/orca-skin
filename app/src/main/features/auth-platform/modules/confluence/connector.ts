@@ -47,11 +47,19 @@ const DEFAULT_DOWNLOAD_CONCURRENCY = 4
 // 모델이 "무엇을 받았는지" 판단할 만큼만 준다 — 대용량 페이지가 컨텍스트를 통째로 먹지 않게.
 const PREVIEW_CHARS = 4000
 
+// 검색 한 번이 본문 변환까지 하므로(0164 r2 — 사용자 요구 "search 후 pageids 추출하여 마크다운
+// 변환 및 이미지 첨부 다운로드") 몇 개를 펼칠지 상한이 필요하다. 상한이 없으면 검색 결과 25건이
+// 곧 25번의 페이지 조회 + 첨부 다운로드가 되어 사내 서버와 모델 컨텍스트를 동시에 때린다.
+const DEFAULT_MAX_PAGES = 5
+const MAX_MAX_PAGES = 10
+// 페이지 하나가 이미 첨부를 동시 다운로드한다 — 페이지까지 넓게 열면 곱해진다.
+const PAGE_CONCURRENCY = 2
+
+// operation 은 **도구 표면과 1:1** 이다. 0164 r2 에서 도구를 `confluence_search` 하나로 줄이면서
+// `verify`·`page`·`attachments` 도 함께 지웠다 — `invoke` 를 부르는 곳은 도구 handler 뿐이라
+// 남겨 두면 아무도 부르지 않는 분기가 된다(자격증명 검증은 `start()` 가 한다).
 export const CONFLUENCE_OPERATIONS = {
-  verify: 'verify',
-  search: 'search',
-  page: 'page',
-  attachments: 'attachments'
+  search: 'search'
 } as const
 
 export interface ConfluenceSearchHit {
@@ -59,6 +67,17 @@ export interface ConfluenceSearchHit {
   title: string
   spaceKey?: string
   type: string
+}
+
+export interface ConfluenceSearchResult {
+  // 질의가 맞춘 전체 목록. 본문을 펼치지 않은 것까지 포함한다 — 모델이 다음 질의를 좁힐 근거다.
+  hits: ConfluenceSearchHit[]
+  // 상한 안에서 실제로 Markdown 으로 변환하고 첨부까지 받은 페이지.
+  pages: ConfluencePageResult[]
+  // 페이지 하나가 404·권한 오류여도 검색 전체를 실패시키지 않는다.
+  failedPages: Array<{ pageId: string; title: string; message: string }>
+  // 상한에 걸려 본문을 펼치지 않은 hit 수. 0 이 아니면 모델이 질의를 좁혀야 한다는 신호다.
+  skippedPages: number
 }
 
 export interface ConfluencePageResult {
@@ -75,7 +94,31 @@ export interface ConfluencePageResult {
   unhandledMacros: string[]
 }
 
-export function createConfluenceConnector(config: ConfluenceServerConfig): ConnectorRuntimeV1 {
+// 사람이 손으로 적는 값을 흡수한다 (0164 r2). manifest 의 `OriginSchema` 는 **경로 없는 origin**
+// 만 받는데, 브라우저 주소창에서 복사하면 `https://wiki.corp/` 나 `https://wiki.corp/confluence`
+// 가 되기 십상이다. 그 한 글자가 패키지 등록을 통째로 거부시키고(all-or-nothing) 흔적은 로그뿐
+// 이라, 사용자에게는 "servers.ts 에 구성했는데 UI 에 없다" 로만 보인다(사용자 보고 2026-08-04).
+// 여기서 origin 과 컨텍스트 경로로 갈라 준다 — 두 값이 가리키는 서버는 같다.
+export function normalizeServerConfig(config: ConfluenceServerConfig): ConfluenceServerConfig {
+  let parsed: URL
+  try {
+    parsed = new URL(config.baseUrl)
+  } catch {
+    // 스킴이 없는 등 해석 불가면 손대지 않는다 — manifest 가 거부하고 진단에 사유가 남는다.
+    return config
+  }
+  const fromUrl = normalizeBasePath(parsed.pathname)
+  // 명시된 `apiBasePath` 가 우선한다(그 필드가 이 값의 정본이다).
+  const apiBasePath = config.apiBasePath ?? (fromUrl === '' ? undefined : fromUrl)
+  return {
+    ...config,
+    baseUrl: parsed.origin,
+    ...(apiBasePath !== undefined ? { apiBasePath } : {})
+  }
+}
+
+export function createConfluenceConnector(raw: ConfluenceServerConfig): ConnectorRuntimeV1 {
+  const config = normalizeServerConfig(raw)
   const endpoint = { apiBasePath: normalizeBasePath(config.apiBasePath) }
   const maxAttachmentBytes = config.maxAttachmentBytes ?? DEFAULT_MAX_ATTACHMENT_BYTES
   const concurrency = config.downloadConcurrency ?? DEFAULT_DOWNLOAD_CONCURRENCY
@@ -136,26 +179,10 @@ export function createConfluenceConnector(config: ConfluenceServerConfig): Conne
     async invoke(ctx: ConnectorContext, request: ConnectorRequest): Promise<ConnectorResult> {
       const params = request.params ?? {}
       switch (request.operation) {
-        case CONFLUENCE_OPERATIONS.verify:
-          await json(ctx, currentUserRequest(endpoint))
-          return { ok: true, data: { ok: true } }
-
         case CONFLUENCE_OPERATIONS.search: {
           const body = await json(ctx, searchRequest(endpoint, params as SearchInput))
-          return { ok: true, data: { hits: parseSearchHits(body) } }
-        }
-
-        case CONFLUENCE_OPERATIONS.attachments: {
-          const pageId = requireString(params.pageId, 'pageId')
-          const filenames = optionalStringArray(params.filenames)
-          const saved = await downloadAttachments(ctx, pageId, filenames)
-          return { ok: true, data: saved }
-        }
-
-        case CONFLUENCE_OPERATIONS.page: {
-          const pageId = requireString(params.pageId, 'pageId')
-          const includeAttachments = params.includeAttachments !== false
-          return { ok: true, data: await fetchPage(ctx, pageId, includeAttachments) }
+          const hits = parseSearchHits(body)
+          return { ok: true, data: await expandHits(ctx, hits, clampMaxPages(params.maxPages)) }
         }
 
         default:
@@ -167,6 +194,36 @@ export function createConfluenceConnector(config: ConfluenceServerConfig): Conne
     async stop(): Promise<void> {
       return undefined
     }
+  }
+
+  // 검색 결과를 본문까지 펼친다. `confluence_get_page` 를 없앤 뒤(0164 r2) 모델이 본문에 닿는
+  // 유일한 경로다 — 검색이 id 만 주면 그 id 로 할 수 있는 일이 없다.
+  async function expandHits(
+    ctx: ConnectorContext,
+    hits: readonly ConfluenceSearchHit[],
+    maxPages: number
+  ): Promise<ConfluenceSearchResult> {
+    // 첨부·댓글은 본문 변환 대상이 아니다.
+    const pageHits = hits.filter((hit) => hit.type === 'page')
+    const targets = pageHits.slice(0, maxPages)
+
+    const settled = await mapWithLimit(targets, PAGE_CONCURRENCY, (hit) =>
+      fetchPage(ctx, hit.id, true)
+    )
+
+    const pages: ConfluencePageResult[] = []
+    const failedPages: ConfluenceSearchResult['failedPages'] = []
+    settled.forEach((result, index) => {
+      if (result.ok) pages.push(result.value)
+      else
+        failedPages.push({
+          pageId: targets[index].id,
+          title: targets[index].title,
+          message: result.error.message
+        })
+    })
+
+    return { hits: [...hits], pages, failedPages, skippedPages: pageHits.length - targets.length }
   }
 
   async function fetchPage(
@@ -189,9 +246,12 @@ export function createConfluenceConnector(config: ConfluenceServerConfig): Conne
     const store = new DownloadStore(dir)
     await store.ensure()
 
-    const downloads = includeAttachments
-      ? await downloadAttachments(ctx, pageId, converted.referencedAttachments, store)
-      : { assets: [], failed: [] }
+    // 본문이 참조하지 않으면 목록 조회조차 하지 않는다 — 요청 하나를 아끼는 것보다,
+    // "참조 0개" 를 "전부 받기" 로 오해할 여지를 남기지 않는 것이 요점이다.
+    const downloads =
+      includeAttachments && converted.referencedAttachments.length > 0
+        ? await downloadAttachments(ctx, pageId, converted.referencedAttachments, store)
+        : { assets: [], failed: [] }
 
     const title = typeof page.title === 'string' ? page.title : pageId
     const markdown = `# ${title}\n\n${converted.markdown}\n`
@@ -219,20 +279,18 @@ export function createConfluenceConnector(config: ConfluenceServerConfig): Conne
   async function downloadAttachments(
     ctx: ConnectorContext,
     pageId: string,
-    filenames: readonly string[] | undefined,
-    existing?: DownloadStore
+    filenames: readonly string[],
+    store: DownloadStore
   ): Promise<{ assets: SavedAsset[]; failed: Array<{ filename: string; message: string }> }> {
     const listed = parseAttachments(await json(ctx, attachmentListRequest(endpoint, pageId)))
     // 본문이 참조한 것만 받는다. 목록 전체를 받으면 쓰지 않는 파일이 디스크에 쌓인다.
-    const wanted =
-      filenames === undefined || filenames.length === 0
-        ? listed
-        : listed.filter((item) => filenames.includes(item.title))
+    const wanted = listed.filter((item) => filenames.includes(item.title))
+    // 본문이 가리키는데 목록에 없는 첨부 — 이미지 링크가 깨진 채 남으므로 조용히 넘기지 않는다.
+    const missing = filenames
+      .filter((name) => !listed.some((item) => item.title === name))
+      .map((filename) => ({ filename, message: '페이지 첨부 목록에 없습니다' }))
 
-    if (wanted.length === 0) return { assets: [], failed: [] }
-
-    const store = existing ?? new DownloadStore(pageDir(config.id, pageId))
-    if (existing === undefined) await store.ensure()
+    if (wanted.length === 0) return { assets: [], failed: missing }
 
     // 동시성 상한 — 첨부가 수십 개면 사내 서버가 429/타임아웃을 낸다.
     const results = await mapWithLimit(wanted, concurrency, async (item) => {
@@ -250,7 +308,7 @@ export function createConfluenceConnector(config: ConfluenceServerConfig): Conne
     })
 
     const assets: SavedAsset[] = []
-    const failed: Array<{ filename: string; message: string }> = []
+    const failed: Array<{ filename: string; message: string }> = [...missing]
     results.forEach((result, index) => {
       if (result.ok) assets.push(result.value)
       // 첨부 하나가 404·크기 초과여도 페이지 전체를 실패시키지 않는다.
@@ -335,15 +393,7 @@ function parseSearchHits(body: unknown): ConfluenceSearchHit[] {
   })
 }
 
-function requireString(value: unknown, name: string): string {
-  if (typeof value !== 'string' || value.trim() === '') {
-    throw new Error(`${name} 가 필요합니다`)
-  }
-  return value.trim()
-}
-
-function optionalStringArray(value: unknown): string[] | undefined {
-  if (!Array.isArray(value)) return undefined
-  const items = value.filter((item): item is string => typeof item === 'string')
-  return items.length > 0 ? items : undefined
+export function clampMaxPages(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return DEFAULT_MAX_PAGES
+  return Math.min(Math.max(Math.trunc(value), 1), MAX_MAX_PAGES)
 }

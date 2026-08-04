@@ -1,7 +1,27 @@
 # `modules/confluence/` — Confluence Data Center 플러그인 (0160)
 
 사내 Confluence DC 를 **내장 MCP**(claude-agent-sdk `createSdkMcpServer`, 0158 배관)로 붙인다.
-검색·페이지 Markdown 변환·첨부 다운로드만 하는 **read-only** 패키지다.
+검색·페이지 Markdown 변환·첨부 다운로드만 하는 **원격 read-only** 패키지다.
+
+## 도구는 `confluence_search` **하나**다 (0164 r2)
+
+사용자 결정 2026-08-04 — "mcp 도구는 search 만 노출해야 함(get page 안됨) / search 후 pageids
+추출하여 마크다운 변환 및 이미지 첨부 다운로드할 것". 그래서 **검색 한 번이 끝까지 간다**:
+
+```
+search(CQL/text) → hit 목록 → 상위 N개(기본 5, 최대 10)를 페이지 조회
+                 → storage XHTML → Markdown → 본문이 참조한 첨부 다운로드
+                 → 본문을 그대로 텍스트로 반환 (+ 저장 경로·첨부·미지원 매크로)
+```
+
+- **`readOnlyHint: false` 다.** 로컬에 `page.md`·`assets/` 를 쓰므로 MCP 정의상 환경을
+  변경한다 → 검색마다 승인 카드를 거친다. 원격 read-only 는 write 계열 도구를 **두지 않는
+  것**으로 지킨다.
+- **connector `invoke` 의 operation 도 `search` 하나다.** `invoke` 를 부르는 곳은 도구 handler
+  뿐이라 `page`·`attachments`·`verify` 를 남기면 아무도 부르지 않는 분기가 된다(자격증명 검증은
+  `start()` 가 한다).
+- **결과를 JSON 으로 감싸지 않는다.** `JSON.stringify` 를 거치면 Markdown 줄바꿈이 `\n` 두 글자로
+  새어 나온다(0164 r2 실측). 텍스트 조립은 `search-render.ts` 가 한다.
 
 ## 두 가지 사용 경로 (0161 → 0164 로 기본값 반전)
 
@@ -40,6 +60,11 @@ export const CONFLUENCE_SERVERS: readonly ConfluenceServerConfig[] = [
 - `baseUrl` 은 **경로 없는 origin** 이어야 한다(manifest `OriginSchema`).
 - 컨텍스트 경로(`https://wiki.corp/confluence`)는 `apiBasePath: '/confluence'` 로 분리한다.
   `checkRequestPath` 가 상대 경로 prefix 를 허용하므로 계약 변경 없이 성립한다.
+- **`normalizeServerConfig` 가 흔한 실수를 흡수한다** (0164 r2). 끝의 `/` 와 주소에 붙은 경로는
+  자동으로 origin + `apiBasePath` 로 갈린다 — 그 한 글자가 패키지 등록을 통째로 거부시키고
+  (all-or-nothing) 서버가 UI 에서 전부 사라지기 때문이다. 해석조차 안 되는 값(스킴 없음 등)은
+  손대지 않고 manifest 가 거부하며, 그 사유는 **플러그인 탭 배너**(`orca:plugin:diagnostics`)에
+  뜬다.
 - 템플릿 인스턴스는 `connectorId` 가 **host+컨텍스트 경로에서 파생**되므로(0161) 같은 host 의
   다른 경로가 서로 다른 서버가 되고, **주소는 생성 후 바꿀 수 없다**(수정 = 도구 이름·승인 키·
   다운로드 경로의 이동). 바꾸려면 삭제 후 재생성한다.
@@ -55,7 +80,8 @@ export const CONFLUENCE_SERVERS: readonly ConfluenceServerConfig[] = [
 | `limit.ts` | 동시성 세마포어 (`p-limit` 미도입) | ✅ 순수 |
 | `download-store.ts` | 파일명 위생·경로 이탈 차단(순수) + 쓰기(I/O) | 반반 |
 | `connector.ts` | `ConnectorRuntimeV1` — 위 셋을 순서대로 부르는 오케스트레이션 | I/O |
-| `tools.ts` | `RuntimeToolContribution` — 도구 3종 | 선언 |
+| `search-render.ts` | 검색 결과 → 모델에게 줄 텍스트(Markdown 그대로) | ✅ 순수 |
+| `tools.ts` | `RuntimeToolContribution` — 도구 1종(`confluence_search`) | 선언 |
 | `index.ts` | manifest + 패키지 조립 (manifest 는 구현에서 **파생**) | 조립 |
 
 ## 이 모듈이 존재하는 이유
@@ -75,11 +101,18 @@ export const CONFLUENCE_SERVERS: readonly ConfluenceServerConfig[] = [
 
 - **raw credential 을 보지 않는다.** `ctx.authenticatedFetch` 만 부른다 — vault·secret·전역
   `fetch` import 가 이 디렉터리에 하나도 없어야 한다(AUTH-PLAT-009).
-- **`readOnlyHint` 는 정직하게.** MCP 정의는 "환경을 변경하지 않는다" 다. 로컬에 파일을 쓰는
-  `confluence_get_page`·`confluence_download_attachments` 는 `false`(승인 카드 경유), 검색만
-  `true`. 원격 read-only 요구는 write 계열 **도구를 두지 않는 것**으로 지킨다.
+- **`readOnlyHint` 는 정직하게.** MCP 정의는 "환경을 변경하지 않는다" 다. `confluence_search` 는
+  페이지 Markdown·첨부를 로컬에 쓰므로 `false`(승인 카드 경유)다. 원격 read-only 요구는 write
+  계열 **도구를 두지 않는 것**으로 지킨다.
 - **cheerio 는 반드시 `xmlMode: true`.** HTML 파서로 읽으면 `ac:`/`ri:` 태그가 뭉개지고
   self-closing `<ri:attachment/>` 가 뒤 문단을 삼킨다.
+- **표는 turndown 에 넘기기 전에 정규화한다** (0164 r2). turndown-plugin-gfm 의 `table` 규칙은
+  **머리글 행이 있는 표만** 변환하고 나머지는 `keep()` 으로 **원본 HTML 을 그대로 뱉는다**.
+  Confluence 저장 형식은 세 가지가 다 걸린다: ⓐ `<colgroup>` 이 `<tbody>` 앞에 있으면
+  `isFirstTbody()` 가 false → 제거한다, ⓑ 머리글 행이 없으면 첫 행을 `<th>` 로 승격한다,
+  ⓒ 셀 안 `<p>` 가 둘 이상이면 행이 끊기므로 `<br>` 로 잇는다(셀 안 `<br>` 은 리터럴로 남긴다 —
+  turndown 기본 규칙의 `"  \n"` 은 표를 깬다). **표 테스트 fixture 는 실제 저장 형식으로 쓴다** —
+  `<table><tbody>` 축약 fixture 만 있었기 때문에 이 회귀를 테스트가 잡지 못했다.
 - **매크로 전처리를 turndown 보다 먼저.** turndown 은 표준 HTML 만 안다.
 - **미지원 매크로를 지우지 않는다.** 이름이 보이는 인용블록으로 남기고 `unhandledMacros` 에
   집계한다 — 조용한 내용 소실이 가장 나쁜 결과다.

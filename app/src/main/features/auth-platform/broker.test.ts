@@ -581,7 +581,9 @@ describe('AuthBroker — redirect 추종과 mechanism 별 presentation (0160)', 
           id: 'pat',
           pluginId: 'corp',
           label: 'PAT',
-          mechanism: 'personal_access_token'
+          mechanism: 'personal_access_token',
+          // manifest 선언(`targets: ['connector']`)과 같아야 한다 — 0164 verify D4.
+          targets: ['connector']
         }),
         createBasicCredentialProvider({ id: 'idpw', pluginId: 'corp', label: 'ID/PW' })
       ],
@@ -814,7 +816,9 @@ describe('AuthBroker — redirect 추종과 mechanism 별 presentation (0160)', 
           id: 'pat',
           pluginId: 'corp',
           label: 'PAT',
-          mechanism: 'personal_access_token'
+          mechanism: 'personal_access_token',
+          // manifest 선언(`targets: ['connector']`)과 같아야 한다 — 0164 verify D4.
+          targets: ['connector']
         }),
         createBasicCredentialProvider({ id: 'idpw', pluginId: 'corp', label: 'ID/PW' })
       ],

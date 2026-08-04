@@ -56,6 +56,7 @@ import {
   type AuthRefreshOutcome,
   type AuthLogoutOutcome,
   type PluginConnectorInfo,
+  type PluginDiagnostic,
   type ConnectorTemplateInfoDto,
   type PluginInstanceCreateRequest
 } from '../shared/ipc'
@@ -293,7 +294,9 @@ const orca = {
     createInstance: (request: PluginInstanceCreateRequest): Promise<PluginConnectorInfo[]> =>
       ipcRenderer.invoke(CHANNELS.pluginInstanceCreate, request),
     deleteInstance: (connectorId: string): Promise<PluginConnectorInfo[]> =>
-      ipcRenderer.invoke(CHANNELS.pluginInstanceDelete, { connectorId })
+      ipcRenderer.invoke(CHANNELS.pluginInstanceDelete, { connectorId }),
+    // 0164 r2 — 부팅 때 거부된 패키지·인스턴스. 목록이 비어 보이는 이유를 화면에 올린다.
+    diagnostics: (): Promise<PluginDiagnostic[]> => ipcRenderer.invoke(CHANNELS.pluginDiagnostics)
   },
   // renderer 로그 인제스트 (0123) — 제한된 4메서드만. ipcRenderer 원본·임의 채널은 미노출.
   log: {
