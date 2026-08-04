@@ -302,4 +302,9 @@ main 은 `features/connectors` + `features/auth-platform` 내부라 boundaries �
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
-| — | (없음) | | | |
+| D1 | **prod 로그인 게이트 회귀** — 부팅 시 Confluence PAT provider(`targets:['application','connector']`)가 서버 0개에서도 등록돼 `required:true` → prod `RootGate` 가 `<LoginFrame/>` 로 앱을 막는다. DEV 는 `bypass` 로 가려져 보이지 않는다. | verify r1 §D1 (프로브 실행으로 재현) | `createStaticCredentialProvider` 에 `targets` 옵션 추가 → Confluence PAT 을 `['connector']` 로 좁힌다(manifest 선언과 일치). 회귀 테스트: Confluence 패키지만 등록한 registry 의 `providersForTarget('application')` = 0 | **open** |
+| D4 | registry 가 **provider 의 선언↔구현 descriptor 를 대조하지 않는다** (connector·runtimeTool 은 한다). 그래서 선언 `targets:['connector']` 과 구현 `['application','connector']` 의 불일치가 등록을 통과했다. | verify r1 §D1 부수 발견 | `targets`·`mechanisms`·`capabilities` 를 비교해 등록 단계에서 거부 | **open** |
+| D5 | `restore()` 의 `hasPlugin` 스킵이 **"같은 id = 같은 내용" 을 무검증 가정**한다. 정적 패키지가 provider 를 다르게 정의하면 템플릿이 기대한 provider 가 없는데 조용히 성공한다. | verify r1 §비판적 검토 | 스킵 시 로그를 남기거나 템플릿이 요구하는 provider id 등록 여부를 확인 | **open** |
+| D2 | `pluginTone` **죽은 코드** — 0164 가 소비처를 `connectorActions(row.connector).tone` 으로 바꾸며 함수·테스트 5케이스를 남겼다. | verify r1 §역방향 탐색 | 함수와 테스트 제거 | **open** |
+| D3 | `providerMap` 미사용 + `buildConnectorRows` 내부 `new Map(...)` **이중 구현**. | 〃 | 한쪽으로 통일 | **open** |
+| D6 | AC9(설정 영속)가 `typecheck` 로만 판정됐다 — 기본값 `false` 를 고정하는 스키마 테스트 부재. | verify r1 매트릭스 | 스키마 테스트 1건 추가 | **open** |
