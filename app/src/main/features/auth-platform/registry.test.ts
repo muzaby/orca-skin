@@ -12,6 +12,8 @@ function provider(
     apiVersion?: number
     mechanism?: AuthMechanism
     targets?: AuthTargetKind[]
+    label?: string
+    capabilities?: AuthProviderV1['descriptor']['capabilities']
   } = {}
 ): AuthProviderV1 {
   return {
@@ -19,10 +21,10 @@ function provider(
       id,
       pluginId: opts.pluginId ?? 'pkg',
       apiVersion: (opts.apiVersion ?? 1) as 1,
-      label: id,
+      label: opts.label ?? id,
       targets: opts.targets ?? ['connector'],
       mechanisms: [opts.mechanism ?? 'api_key'],
-      capabilities: [],
+      capabilities: opts.capabilities ?? [],
       allowedOrigins: []
     },
     begin: async () => ({ kind: 'not_supported' }),
@@ -271,11 +273,14 @@ describe('AuthRegistry 등록 위생', () => {
       providers: [
         provider('adfs', {
           pluginId: 'corp',
+          label: 'ADFS',
           mechanism: 'adfs_browser_session',
+          capabilities: ['browser_session'],
           targets: ['application', 'connector']
         }),
         provider('pat', {
           pluginId: 'corp',
+          label: 'PAT',
           mechanism: 'personal_access_token',
           targets: ['application', 'connector']
         })
@@ -286,6 +291,26 @@ describe('AuthRegistry 등록 위생', () => {
     expect(registry.providersForTarget('connector')).toHaveLength(2)
     // 서로 다른 mechanism 임을 확인 — 같은 것 두 개가 아니다.
     expect(new Set(registry.listProviders().map((p) => p.descriptor.mechanisms[0])).size).toBe(2)
+  })
+
+  // 0164 verify D4 — connector·runtimeTools 는 전 필드를 대조하는데 provider 만 id 존재 여부만
+  // 봤다. 그 틈으로 "manifest 는 connector 전용인데 구현은 application 까지 여는" 불일치가
+  // 통과했고, 결과적으로 앱 로그인 게이트가 의도치 않게 켜졌다(D1).
+  it('provider 선언과 descriptor 가 다르면 거부한다 (targets·label·capabilities)', () => {
+    const mismatches: Array<[string, AuthProviderV1]> = [
+      ['targets', provider('a', { targets: ['application', 'connector'] })],
+      ['label', provider('a', { label: '다른 이름' })],
+      ['capabilities', provider('a', { capabilities: ['status'] })]
+    ]
+    for (const [field, impl] of mismatches) {
+      const registry = new AuthRegistry()
+      const errors = registry.register({ manifest: manifest('pkg', ['a']), providers: [impl] })
+      expect(errors.map((e) => e.message).join(), field).toMatch(
+        /auth provider descriptor 가 manifest 와 다릅니다/
+      )
+      // 반쯤 등록되지 않는다 — 패키지 전체가 거부된다.
+      expect(registry.getProvider('a')).toBeUndefined()
+    }
   })
 
   it('describeProviders 는 allowedOrigins 를 renderer 로 내보내지 않는다', () => {

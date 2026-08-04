@@ -36,7 +36,25 @@ function createTurndown(): TurndownService {
   })
   // 표·취소선·작업목록·자동링크. Confluence 페이지는 표가 많아 이게 없으면 본문이 뭉개진다.
   service.use(gfm)
+
+  // 셀 안의 줄바꿈은 리터럴 `<br>` 로 남긴다. turndown 기본 br 규칙은 `"  \n"` (하드 랩) 이라
+  // GFM 표 안에서는 **행을 끊어** 표 전체가 깨진다. gfm 뒤에 등록해야 우선한다
+  // (turndown `addRule` 은 unshift — 나중 등록이 먼저 매칭된다).
+  service.addRule('tableCellBreak', {
+    filter: (node) => node.nodeName === 'BR' && isInsideTableCell(node),
+    replacement: () => '<br>'
+  })
   return service
+}
+
+function isInsideTableCell(node: { parentNode: unknown }): boolean {
+  let current = node.parentNode as { nodeName?: string; parentNode?: unknown } | null
+  while (current !== null && current !== undefined) {
+    if (current.nodeName === 'TD' || current.nodeName === 'TH') return true
+    if (current.nodeName === 'TABLE') return false
+    current = (current.parentNode ?? null) as { nodeName?: string; parentNode?: unknown } | null
+  }
+  return false
 }
 
 export function storageToMarkdown(storageXhtml: string): StorageConversion {
@@ -49,6 +67,7 @@ export function storageToMarkdown(storageXhtml: string): StorageConversion {
   normalizeImages($, referenced)
   normalizeLinks($)
   normalizeMacros($, unhandled)
+  normalizeTables($)
 
   const html = $.root().html() ?? ''
   const markdown = createTurndown().turndown(html).trim()
@@ -150,6 +169,60 @@ function normalizeMacros($: cheerio.CheerioAPI, unhandled: Set<string>): void {
   ).each((_, element) => {
     const node = $(element)
     node.replaceWith(node.html() ?? '')
+  })
+}
+
+// 표는 Confluence 저장 형식과 turndown-plugin-gfm 사이의 간극이 가장 큰 지점이다.
+// gfm 의 `table` 규칙은 **머리글 행이 있는 표만** 변환하고, 아니면 `keep()` 으로 원본 HTML 을
+// 그대로 뱉는다(`turndown-plugin-gfm/lib/turndown-plugin-gfm.cjs.js` — `rules.table` 의 필터가
+// `isHeadingRow(node.rows[0])`, `tables()` 가 그 여집합을 `keep`). 그래서 실제 Confluence 표는
+// Markdown 이 아니라 XML 로 새어 나온다(사용자 보고 2026-08-04 "table xml은 그대로 표시").
+// `isHeadingRow` 가 요구하는 세 조건을 여기서 맞춰 준다.
+function normalizeTables($: cheerio.CheerioAPI): void {
+  // 1. `<colgroup>` 제거. `<tbody>` 앞에 오면 `isFirstTbody()` 가 previousSibling 때문에 false 가
+  //    되어 머리글 판정이 통째로 실패한다. 열 너비 정보라 Markdown 에서 쓸 데도 없다.
+  //    Confluence 는 표에 거의 항상 붙인다 — 이 한 줄이 없으면 대부분의 표가 깨진다.
+  $('colgroup').remove()
+
+  $('table').each((_, element) => {
+    const table = $(element)
+    flattenCellBlocks($, table)
+    promoteHeaderRow($, table)
+  })
+}
+
+// 2. 셀 안의 블록(`<p>`)을 편다. Confluence 는 셀 내용을 항상 `<p>` 로 감싸는데, 문단이 둘 이상인
+//    셀은 turndown 이 셀 한가운데에 빈 줄을 넣어 행을 끊는다. 문단 경계는 `<br>` 로 남긴다.
+function flattenCellBlocks($: cheerio.CheerioAPI, table: ReturnType<cheerio.CheerioAPI>): void {
+  table.find('td, th').each((_, element) => {
+    const cell = $(element)
+    const blocks = cell.find('p')
+    if (blocks.length === 0) return
+    blocks.each((index, block) => {
+      const node = $(block)
+      const inner = node.html() ?? ''
+      node.replaceWith(index === blocks.length - 1 ? inner : `${inner}<br/>`)
+    })
+  })
+}
+
+// 3. 머리글 행이 없으면 첫 행을 머리글로 승격한다. GFM 표는 머리글이 필수라 승격하지 않으면
+//    표 전체가 원본 HTML 로 남는다 — 첫 행의 의미가 조금 달라지는 쪽이 XML 노출보다 낫다.
+//    `isHeadingRow` 는 **모든 셀이 `<th>`** 일 것을 요구하므로 섞인 행도 전부 바꾼다.
+function promoteHeaderRow($: cheerio.CheerioAPI, table: ReturnType<cheerio.CheerioAPI>): void {
+  const first = table.find('tr').first()
+  if (first.length === 0) return
+  // `<thead>` 안이면 turndown 이 이미 머리글로 인정한다 — 건드리지 않는다.
+  if (first.parent().is('thead')) return
+
+  const cells = first.children('td')
+  if (cells.length === 0) return
+  cells.each((_, element) => {
+    const cell = $(element)
+    const attrs = Object.entries(cell.attr() ?? {})
+      .map(([name, value]) => ` ${name}="${escapeAttr(String(value))}"`)
+      .join('')
+    cell.replaceWith(`<th${attrs}>${cell.html() ?? ''}</th>`)
   })
 }
 

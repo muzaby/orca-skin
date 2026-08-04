@@ -45,6 +45,8 @@ export interface SearchInput {
   text?: string
   spaceKey?: string
   limit?: number
+  // 페이지네이션 오프셋(Confluence 의 `start`). 이전 응답의 `nextStart` 를 그대로 넣는다.
+  start?: number
 }
 
 // 검색 CQL 을 만든다. `cql` 이 오면 그대로 쓰고(고급 사용자), 아니면 text/spaceKey 로 조립한다.
@@ -60,12 +62,20 @@ export function buildSearchCql(input: SearchInput): string {
   return clauses.join(' AND ')
 }
 
-const DEFAULT_SEARCH_LIMIT = 25
-const MAX_SEARCH_LIMIT = 100
+// 한 번의 도구 호출이 가져오는 최대 건수 (사용자 결정 2026-08-04 — "1턴의 limit 은 50까지").
+// **서버가 더 낮은 값을 적용하면 그 값을 따른다** — 응답의 `limit` 이 실효 페이지 크기이고,
+// 다음 오프셋은 요청값이 아니라 그 실효값으로 밀어야 건너뛰거나 겹치지 않는다.
+export const MAX_SEARCH_LIMIT = 50
+const DEFAULT_SEARCH_LIMIT = MAX_SEARCH_LIMIT
 
 export function clampLimit(limit: number | undefined): number {
   if (limit === undefined || !Number.isFinite(limit)) return DEFAULT_SEARCH_LIMIT
   return Math.min(Math.max(Math.trunc(limit), 1), MAX_SEARCH_LIMIT)
+}
+
+export function clampStart(start: number | undefined): number {
+  if (start === undefined || !Number.isFinite(start)) return 0
+  return Math.max(Math.trunc(start), 0)
 }
 
 type RequestFields = Omit<AuthenticatedFetchRequest, 'bindingId' | 'connectorId'>
@@ -82,8 +92,10 @@ export function searchRequest(endpoint: ConfluenceEndpoint, input: SearchInput):
     query: {
       cql: buildSearchCql(input),
       limit: String(clampLimit(input.limit)),
-      // 검색 결과에 공간·링크를 함께 받아 두 번째 호출을 없앤다.
-      expand: 'space,version'
+      start: String(clampStart(input.start)),
+      // 공간·버전에 더해 **작성자**(`history.createdBy`)를 함께 받는다 — 검색이 돌려줘야 하는
+      // 값이라(사용자 결정 2026-08-04) 목록마다 사용자 조회를 다시 하지 않는다.
+      expand: 'space,version,history'
     }
   }
 }
@@ -97,15 +109,14 @@ export function pageRequest(endpoint: ConfluenceEndpoint, pageId: string): Reque
   }
 }
 
-export function attachmentListRequest(
-  endpoint: ConfluenceEndpoint,
-  pageId: string,
-  limit = MAX_SEARCH_LIMIT
-): RequestFields {
+// 첨부 목록은 검색 상한과 무관하다 — 페이지 하나에 딸린 첨부를 한 번에 본다.
+const ATTACHMENT_LIST_LIMIT = 200
+
+export function attachmentListRequest(endpoint: ConfluenceEndpoint, pageId: string): RequestFields {
   return {
     method: 'GET',
     path: restPath(endpoint, `/content/${encodeURIComponent(pageId)}/child/attachment`),
-    query: { limit: String(clampLimit(limit)) }
+    query: { limit: String(ATTACHMENT_LIST_LIMIT) }
   }
 }
 

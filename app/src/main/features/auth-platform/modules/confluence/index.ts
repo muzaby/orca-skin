@@ -6,6 +6,7 @@
 // manifest 는 구현 descriptor 에서 **파생**한다. 손으로 두 벌 적으면 registry 의 전 필드
 // 동등 검사에서 갈리고, 그 순간 패키지 전체가 거부된다.
 
+import type { AuthProviderV1 } from '../../../../contracts/auth-plugin'
 import type { ConnectorRuntimeV1 } from '../../../../contracts/connector-plugin'
 import type { RuntimeToolContribution } from '../../../../adapters/runtime-tools'
 import type { ConnectorTemplate } from '../../../../contracts/connector-template'
@@ -62,7 +63,7 @@ export const confluenceTemplate: ConnectorTemplate = {
       schemaVersion: 1,
       id: CONFLUENCE_PLUGIN_ID,
       version: '1.0.0',
-      contributes: { authProviders: confluenceProviderDeclarations() }
+      contributes: { authProviders: confluenceProviders().map(providerDeclaration) }
     },
     providers: confluenceProviders()
   }),
@@ -98,6 +99,20 @@ export const confluenceTemplate: ConnectorTemplate = {
   }
 }
 
+// provider 선언도 **구현에서 파생한다** — 손으로 두 벌 적으면 반드시 갈리고, registry 가
+// 전 필드를 대조하므로(0164 D4) 갈리는 순간 패키지가 통째로 거부된다.
+function providerDeclaration(provider: AuthProviderV1): Record<string, unknown> {
+  const { descriptor } = provider
+  return {
+    id: descriptor.id,
+    apiVersion: descriptor.apiVersion,
+    label: descriptor.label,
+    targets: [...descriptor.targets],
+    mechanisms: [...descriptor.mechanisms],
+    capabilities: [...descriptor.capabilities]
+  }
+}
+
 function connectorDeclaration(connector: ConnectorRuntimeV1): Record<string, unknown> {
   const { descriptor } = connector
   return {
@@ -121,28 +136,7 @@ function runtimeToolDeclaration(contribution: RuntimeToolContribution): Record<s
   }
 }
 
-function confluenceProviderDeclarations(): Record<string, unknown>[] {
-  return [
-    {
-      id: CONFLUENCE_PAT_PROVIDER_ID,
-      apiVersion: 1,
-      label: 'Confluence PAT',
-      targets: ['connector'],
-      mechanisms: ['personal_access_token'],
-      capabilities: ['logout']
-    },
-    {
-      id: CONFLUENCE_BASIC_PROVIDER_ID,
-      apiVersion: 1,
-      label: 'Confluence ID/비밀번호',
-      targets: ['connector'],
-      mechanisms: ['basic'],
-      capabilities: ['logout']
-    }
-  ]
-}
-
-function confluenceProviders(): AuthPluginPackage['providers'] {
+function confluenceProviders(): AuthProviderV1[] {
   return [
     // PAT 는 단일 opaque 값이라 static-credential 을 그대로 쓴다. **probeUrl 을 주지 않는다** —
     // 검증은 connector.start() 가 실제 요청 경로로 한다(provider 는 origin 을 모른다).
@@ -152,7 +146,11 @@ function confluenceProviders(): AuthPluginPackage['providers'] {
       label: 'Confluence PAT',
       mechanism: 'personal_access_token',
       service: 'confluence',
-      fieldLabel: '개인 액세스 토큰(PAT)'
+      fieldLabel: '개인 액세스 토큰(PAT)',
+      // **연결 전용이다** — 위 선언(`targets: ['connector']`)과 같아야 한다. 기본값
+      // (`['application','connector']`)을 쓰면 이 패키지를 켜는 것만으로 prod 앱 로그인
+      // 게이트가 켜진다(0164 verify D1 — DEV bypass 때문에 개발 중에는 보이지 않는다).
+      targets: ['connector']
     }),
     createBasicCredentialProvider({
       id: CONFLUENCE_BASIC_PROVIDER_ID,
@@ -166,6 +164,7 @@ function confluenceProviders(): AuthPluginPackage['providers'] {
 export function createConfluencePackage(
   servers: readonly ConfluenceServerConfig[]
 ): AuthPluginPackage {
+  const providers = confluenceProviders()
   const connectors: ConnectorRuntimeV1[] = servers.map(createConfluenceConnector)
   const runtimeTools: RuntimeToolContribution[] = servers.map((server) =>
     createConfluenceTools(server.id, server.label)
@@ -177,7 +176,7 @@ export function createConfluencePackage(
       id: CONFLUENCE_PLUGIN_ID,
       version: '1.0.0',
       contributes: {
-        authProviders: confluenceProviderDeclarations(),
+        authProviders: providers.map(providerDeclaration),
         // 선언은 구현에서 파생한다 — 두 벌을 손으로 맞추면 반드시 갈린다.
         connectors: connectors.map(({ descriptor }) => ({
           id: descriptor.id,
@@ -196,7 +195,7 @@ export function createConfluencePackage(
         }))
       }
     },
-    providers: confluenceProviders(),
+    providers,
     connectors,
     runtimeTools
   }

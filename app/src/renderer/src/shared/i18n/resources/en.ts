@@ -135,6 +135,13 @@ export const en: typeof ko = {
       errRegister: 'Could not register the server.',
       errUnknown: 'Could not add the server.'
     },
+    diagnostics: {
+      title: '{{count}} item(s) failed to register',
+      hint: 'These were rejected and do not appear in the list. An address must be a path-less origin (for example https://wiki.example.com).',
+      package: 'Plugin package {{subject}}',
+      instance: 'Server {{subject}}',
+      'cross-reference': 'Auth reference {{subject}}'
+    },
     connect: {
       title: 'Connect {{name}}',
       server: 'Server address',

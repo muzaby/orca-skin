@@ -12,6 +12,7 @@ import {
   type NormalizedEvent,
   type SkillInfo
 } from '../../shared/ipc'
+import type { PluginDiagnostic } from '../../shared/protocol'
 import type { RestartGateState } from '../../shared/update-restart'
 import type { TurnContext } from '../contracts/turn'
 import { AdapterRegistry } from '../adapters/registry'
@@ -199,10 +200,15 @@ export class Bootstrap {
     sessions: BrowserSessionStore
     templates: ConnectorTemplateRegistry
     instances: ConnectorInstanceLifecycle
+    diagnostics: PluginDiagnostic[]
   } {
     const log = getLogger().child('auth')
     const registry = new AuthRegistry()
     const sessions = new BrowserSessionStore()
+    // 거부 사유를 모아 renderer 로 올린다(0164 r2). 등록은 패키지 단위 all-or-nothing 이라
+    // `baseUrl` 하나가 잘못되면 그 패키지의 서버가 **전부** 사라진다 — 흔적이 로그뿐이면
+    // 사용자에게는 "servers.ts 에 넣었는데 UI 에 없다" 로만 보인다.
+    const diagnostics: PluginDiagnostic[] = []
 
     // opt-in 패키지 등록. 신규 설치는 빈 배열 = 게이트 없음(현행 동작 보존).
     for (const pkg of AUTH_PLUGIN_PACKAGES) {
@@ -218,6 +224,7 @@ export class Bootstrap {
           ...(e.contributionId !== undefined ? { contributionId: e.contributionId } : {}),
           message: e.message
         })
+        diagnostics.push({ kind: 'package', subject: e.pluginId, message: e.message })
       }
     }
     // 0161 — 템플릿 공용 패키지 + 사용자가 추가한 인스턴스를 복원한다. 정적 opt-in 패키지
@@ -245,6 +252,11 @@ export class Bootstrap {
         connectorId: failure.instance.connectorId,
         message: failure.message
       })
+      diagnostics.push({
+        kind: 'instance',
+        subject: failure.instance.connectorId,
+        message: failure.message
+      })
     }
 
     for (const e of registry.validateCrossReferences()) {
@@ -252,6 +264,7 @@ export class Bootstrap {
         pluginId: e.pluginId,
         message: e.message
       })
+      diagnostics.push({ kind: 'cross-reference', subject: e.pluginId, message: e.message })
     }
 
     // browser_session capability 를 선언한 provider 의 session group 을 미리 등록한다.
@@ -296,7 +309,16 @@ export class Bootstrap {
       logger: (message, meta) => log.warn(message, meta)
     })
     composition.pluginHost = pluginHost
-    return { broker, connectors, pluginHost, runtimeTools, sessions, templates, instances }
+    return {
+      broker,
+      connectors,
+      pluginHost,
+      runtimeTools,
+      sessions,
+      templates,
+      instances,
+      diagnostics
+    }
   }
 
   private async deployExtensions(): Promise<void> {
@@ -316,7 +338,8 @@ export class Bootstrap {
     registerPluginHandlers({
       pluginHost: auth.pluginHost,
       templates: auth.templates,
-      instances: auth.instances
+      instances: auth.instances,
+      diagnostics: auth.diagnostics
     })
     // MCP `${BINDING:<id>}` 해석을 broker 로 잇는다 (0157). 이 배선이 없으면 binding 참조는
     // 미해결로 남아 해당 MCP 서버가 드롭된다(fail-closed).

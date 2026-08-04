@@ -302,9 +302,136 @@ main 은 `features/connectors` + `features/auth-platform` 내부라 boundaries �
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
-| D1 | **prod 로그인 게이트 회귀** — 부팅 시 Confluence PAT provider(`targets:['application','connector']`)가 서버 0개에서도 등록돼 `required:true` → prod `RootGate` 가 `<LoginFrame/>` 로 앱을 막는다. DEV 는 `bypass` 로 가려져 보이지 않는다. | verify r1 §D1 (프로브 실행으로 재현) | `createStaticCredentialProvider` 에 `targets` 옵션 추가 → Confluence PAT 을 `['connector']` 로 좁힌다(manifest 선언과 일치). 회귀 테스트: Confluence 패키지만 등록한 registry 의 `providersForTarget('application')` = 0 | **open** |
-| D4 | registry 가 **provider 의 선언↔구현 descriptor 를 대조하지 않는다** (connector·runtimeTool 은 한다). 그래서 선언 `targets:['connector']` 과 구현 `['application','connector']` 의 불일치가 등록을 통과했다. | verify r1 §D1 부수 발견 | `targets`·`mechanisms`·`capabilities` 를 비교해 등록 단계에서 거부 | **open** |
-| D5 | `restore()` 의 `hasPlugin` 스킵이 **"같은 id = 같은 내용" 을 무검증 가정**한다. 정적 패키지가 provider 를 다르게 정의하면 템플릿이 기대한 provider 가 없는데 조용히 성공한다. | verify r1 §비판적 검토 | 스킵 시 로그를 남기거나 템플릿이 요구하는 provider id 등록 여부를 확인 | **open** |
-| D2 | `pluginTone` **죽은 코드** — 0164 가 소비처를 `connectorActions(row.connector).tone` 으로 바꾸며 함수·테스트 5케이스를 남겼다. | verify r1 §역방향 탐색 | 함수와 테스트 제거 | **open** |
-| D3 | `providerMap` 미사용 + `buildConnectorRows` 내부 `new Map(...)` **이중 구현**. | 〃 | 한쪽으로 통일 | **open** |
-| D6 | AC9(설정 영속)가 `typecheck` 로만 판정됐다 — 기본값 `false` 를 고정하는 스키마 테스트 부재. | verify r1 매트릭스 | 스키마 테스트 1건 추가 | **open** |
+| D7 | **MCP 도구 표면이 3종** — 사용자는 `search` 하나만 원한다("get page 안됨"). 검색이 id 만 주면 그 id 로 본문에 닿을 도구가 없다. | 사용자 보고 2026-08-04 ① | 도구를 `confluence_search` 하나로 줄이고 connector operation 도 `search` 하나로(나머지는 호출자가 사라져 죽은 분기) | **fixed (r2)** |
+| D8 | **검색이 본문을 주지 않는다** — 요구: "search 후 pageids 추출하여 마크다운 변환 및 이미지 첨부 다운로드할 것" | 〃 ② | `search` 가 hit → 페이지 조회 → Markdown 변환 → 참조 첨부 다운로드까지 수행. **상한 필요**(무제한이면 검색 1회 = 25페이지 조회) → 기본 5 / 최대 10 / 페이지 동시성 2 | **fixed (r2)** |
+| D9 | **Markdown 이 깨진다** — ⓐ 결과를 `JSON.stringify` 로 감싸 줄바꿈이 `\n` 두 글자로 나온다 ⓑ 표가 원본 XML 로 노출된다 | 〃 ③ | ⓐ 텍스트 렌더러(`search-render.ts`)로 교체 ⓑ turndown-plugin-gfm 이 **머리글 행 없는 표를 `keep()`(원본 HTML)** 하는 것이 원인 — `<colgroup>` 제거·첫 행 `<th>` 승격·셀 내 `<p>`→`<br>` 로 정규화. 테스트 fixture 를 **실제 저장 형식**으로 교체 | **fixed (r2)** |
+| D10 | **`servers.ts` 를 구성했는데 UI 에 안 뜬다** | 〃 ④ | 원인 = 패키지 등록이 **all-or-nothing** 이고 `baseUrl` 형태 위반(끝 `/`·경로)이 그 패키지를 통째로 거부하는데 흔적이 warn 로그뿐. **예방** = `normalizeServerConfig` 가 origin+`apiBasePath` 로 분리 · **가시화** = `orca:plugin:diagnostics` 채널 신설 + 플러그인 탭 배너 | **fixed (r2)** |
+| D1 | **prod 로그인 게이트 회귀** — 부팅 시 Confluence PAT provider(`targets:['application','connector']`)가 서버 0개에서도 등록돼 `required:true` → prod `RootGate` 가 `<LoginFrame/>` 로 앱을 막는다. DEV 는 `bypass` 로 가려져 보이지 않는다. | verify r1 §D1 (프로브 실행으로 재현) | `createStaticCredentialProvider` 에 `targets` 옵션 추가 → Confluence PAT 을 `['connector']` 로 좁힌다(manifest 선언과 일치). 회귀 테스트: Confluence 패키지만 등록한 registry 의 `providersForTarget('application')` = 0 | **fixed (r2)** |
+| D4 | registry 가 **provider 의 선언↔구현 descriptor 를 대조하지 않는다** (connector·runtimeTool 은 한다). 그래서 선언 `targets:['connector']` 과 구현 `['application','connector']` 의 불일치가 등록을 통과했다. | verify r1 §D1 부수 발견 | `targets`·`mechanisms`·`capabilities` 를 비교해 등록 단계에서 거부 | **fixed (r2)** |
+| D5 | `restore()` 의 `hasPlugin` 스킵이 **"같은 id = 같은 내용" 을 무검증 가정**한다. 정적 패키지가 provider 를 다르게 정의하면 템플릿이 기대한 provider 가 없는데 조용히 성공한다. | verify r1 §비판적 검토 | 스킵 시 로그를 남기거나 템플릿이 요구하는 provider id 등록 여부를 확인 | **fixed (r2)** |
+| D2 | `pluginTone` **죽은 코드** — 0164 가 소비처를 `connectorActions(row.connector).tone` 으로 바꾸며 함수·테스트 5케이스를 남겼다. | verify r1 §역방향 탐색 | 함수와 테스트 제거 | **fixed (r2)** |
+| D3 | `providerMap` 미사용 + `buildConnectorRows` 내부 `new Map(...)` **이중 구현**. | 〃 | 한쪽으로 통일 | **fixed (r2)** |
+| D6 | AC9(설정 영속)가 `typecheck` 로만 판정됐다 — 기본값 `false` 를 고정하는 스키마 테스트 부재. | verify r1 매트릭스 | 스키마 테스트 1건 추가 | **fixed (r2)** |
+
+
+---
+
+## [구현자 기입] 라운드 2 (Claude 직접 구현, 2026-08-04)
+
+verify r1 의 FAIL(D1~D6)과 같은 날 들어온 사용자 보고 4건(D7~D10)을 **한 라운드**에서 처리했다
+(사용자 지시: "핸드오프를 할당하지말고 해당 핸드오프에서 진행하라").
+
+### 진단으로 확정한 것 — 추측으로 고치지 않았다
+
+| 보고 | 프로브 | 결과 |
+|---|---|---|
+| ③ 표가 XML 로 나온다 | `turndown-plugin-gfm@1.0.2` 소스 실독 + 케이스별 변환 실행 | `rules.table` 필터가 `isHeadingRow(node.rows[0])` 이고 **여집합은 `turndownService.keep()`** = 원본 HTML 그대로. `<colgroup>` 이 `<tbody>` 앞에 오면 `isFirstTbody()` 의 `previousSibling` 검사가 false → 머리글 판정 실패. 머리글 행이 아예 없는 표도 같은 경로 |
+| ③ `\n` 이 글자로 보인다 | `tools.ts:45` | `JSON.stringify(result.data, null, 2)` — Markdown 이 JSON **문자열 안**에 들어가 줄바꿈이 이스케이프됐다 |
+| ④ servers.ts 가 UI 에 없다 | 실제 `createConfluencePackage` + `AuthRegistry.register()` 를 6가지 입력으로 실행 | 정상 입력은 **OK**(등록 경로는 무결). 끝 `/`·경로 포함·스킴 없음은 전부 **패키지 전체 거부**(connectors 0 · providers 0), 사유는 warn 로그뿐 |
+
+### 설계 리뷰 (r1 설계에 대한 이견)
+
+- **D1 은 "게이트가 못 잡는 결함" 이 아니라 "게이트가 볼 수 없던 결함" 이었다.** 원인은 provider
+  선언↔구현 대조의 부재(D4)이고, 그 검사를 넣자 **저장소 fixture 3곳에서 같은 불일치가 즉시
+  드러났다**(`department-fixture-package`·`broker.test`·`registry.test`). 증상(D1) 하나만
+  고쳤으면 같은 실수가 다음 패키지에서 반복됐을 것이다 — 실패 패턴 P21 그대로다.
+- **D10 을 정규화만으로 닫지 않았다.** `normalizeServerConfig` 는 흔한 형태를 흡수할 뿐이고,
+  흡수 못 하는 값은 여전히 조용히 사라진다. **가시화(diagnostics 채널)가 본 수정**이고 정규화는
+  예방이다.
+- **`search` 의 `readOnlyHint` 를 `false` 로 내렸다.** 검색이 로컬에 `page.md`·`assets/` 를 쓰게
+  됐으므로 MCP 정의상 환경을 변경한다 — **검색마다 승인 카드를 거친다.** 자동 허용을 유지하려면
+  파일을 쓰지 않아야 하는데, 그것은 사용자 요구(이미지 첨부 다운로드)와 모순이다. 정직한 선언을
+  택했고 사용자에게 보고한다.
+
+### 놓친 잠재 문제 + 대응 (선조치 후보고)
+
+| # | 문제 | 대응 | 근거 |
+|---|---|---|---|
+| 1 | 도구 3종을 없애면 connector 의 `verify`·`page`·`attachments` operation 이 **호출자 0** 이 된다 | ✅ 함께 제거 — `invoke` 를 부르는 곳은 도구 handler 뿐 | 미사용 표면을 남기지 않는다 |
+| 2 | `downloadAttachments` 의 "filenames 비었으면 전부 받기" 분기가, 첨부를 참조하지 않는 본문에서 **페이지의 모든 첨부를 받는** 동작이 된다 | ✅ 참조 0개면 목록 조회조차 안 하도록 + 분기 제거 | 도구가 사라져 "전부 받기" 의 사용처도 사라졌다 |
+| 3 | 본문이 참조하는데 첨부 목록에 **없는** 파일이 조용히 사라진다(이미지 링크만 깨진 채 남음) | ✅ `failedAssets` 에 사유와 함께 싣는다 | 조용한 내용 소실이 가장 나쁜 결과(모듈 규칙) |
+| 4 | 셀 안 `<br>` 을 turndown 기본 규칙이 `"  \n"`(하드 랩)으로 바꿔 **표 행을 끊는다** | ✅ 표 셀 안의 `<br>` 만 리터럴 `<br>` 로 내보내는 규칙을 gfm **뒤에** 등록 | `addRule` 은 unshift — 나중 등록이 먼저 매칭된다 |
+| 5 | IPC 채널을 늘리면 `ipc-documentation.test.ts` 가 85 를 고정하고 있다 | ✅ `IPC_CONTRACT.md`(총계·도메인 분포·§2.13 행) + 테스트 상수를 **86** 으로 동시 갱신 | 문서-코드 동기화의 기계 강제 지점 |
+| 6 | provider 대조에 `allowedOrigins`·`sessionGroup` 까지 넣으면 manifest 기본값 채움과 충돌한다 | ⚠️ 제외하고 `targets`·`label`·`mechanisms`·`capabilities` 만 비교 | 게이트를 켜는 필드가 `targets` 이고, 나머지 둘은 스키마 default 가 있어 오탐이 난다 |
+
+### 구현 체크리스트
+
+- [x] D7 — 도구 1종(`confluence_search`) + operation 1종, `readOnlyHint:false` (+테스트 갱신)
+- [x] D8 — `expandHits` 로 검색→본문→첨부, 상한 기본 5·최대 10·동시성 2 (+테스트 6건)
+- [x] D9ⓐ — `search-render.ts` 순수 렌더러 (+테스트 7건)
+- [x] D9ⓑ — `normalizeTables`(colgroup 제거·머리글 승격·셀 `<p>`→`<br>`) + 셀 `<br>` 규칙 (+실제 저장 형식 fixture 4건)
+- [x] D10 — `normalizeServerConfig`(+테스트 6건) · `orca:plugin:diagnostics` 채널 · `PluginDiagnosticsBanner` · i18n ko/en
+- [x] D1 — `createStaticCredentialProvider({ targets })` + Confluence PAT `['connector']` (+게이트 회귀 테스트)
+- [x] D4 — `sameProviderDescriptor` 대조 (+테스트 3케이스) + fixture 3곳 정합
+- [x] D5 — 스킵 시 공용 provider 실재 확인 + `connector.template.shared.divergent` 로그 (+테스트 2건)
+- [x] D2 — `pluginTone` + 테스트 5케이스 제거
+- [x] D3 — `buildConnectorRows` 가 `providerMap` 을 쓴다
+- [x] D6 — `pluginAddEnabled` 기본값 `false` 스키마 테스트
+- [x] 문서 — `IPC_CONTRACT.md` · `modules/AGENTS.md` · `modules/confluence/AGENTS.md`
+
+### 구현 보고 (r2)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 신규 4 (`search-render.ts`+테스트 · `PluginDiagnosticsBanner.tsx` · 진단 채널 배선) + 수정 20 |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` |
+| 게이트 결과 | lint **0 error**(warning 1 = 0102 베이스라인) · typecheck **3/3** · vitest **1796/1796 pass** |
+| 알려진 환경 실패 | `app/chat-turn.continuity.test.ts` 1파일 collection 실패 — electron 바이너리 egress 차단(코드 무관, `app/AGENTS.md` 베이스라인) |
+| IPC | **85 → 86** — `orca:plugin:diagnostics` 신설(R→M invoke, 페이로드 없음, `PluginDiagnostic[]`) |
+| 신규 의존성 | **0개** |
+| 동작 변경(보고) | `confluence_search` 가 **승인 카드를 거친다**(`readOnlyHint:false`) — 로컬에 파일을 쓰게 됐으므로 |
+| 가정(사용자 미응답) | 본문 확장 상한 **기본 5 / 최대 10** — 모델이 `maxPages` 로 조절 가능 |
+| 사람 실기 대기 | 진단 배너 시각 확인 · 사내 DC 서버로 검색→Markdown→첨부 전 구간 |
+| 블로커 / 역질문 | 없음 |
+
+
+---
+
+## [구현자 기입] 라운드 3 (Claude 직접 구현, 2026-08-04)
+
+사용자 **도구 재지정** — r2 가 검색 하나로 합쳤던 표면을 다시 둘로 나눈다.
+
+| # | 지시 | 대응 |
+|---|---|---|
+| D11 | `search` → pageId·타이틀·**작성자** 반환 | `expand` 에 `history` 추가 → `history.createdBy.displayName`, 없으면 `version.by.displayName` 폴백, 그마저 없으면 필드 생략 |
+| D12 | `getPages` → pageId 들로 **본문 + 첨부 모두** 반환 | `confluence_get_pages` 신설(배열 입력) + connector operation `pages`. 중복 id 는 한 번만 처리 |
+| D13 | 1턴 limit 50, **허용치가 낮으면 그 숫자를 따른다**, 더 있으면 offset 을 그 크기로 두고 다시 검색 | `MAX_SEARCH_LIMIT=50` · `searchRequest` 에 `start` · `parseSearchResponse` 가 **응답의 `limit`** 으로 `nextStart` 를 계산 |
+
+### 설계 판단
+
+- **`readOnlyHint` 가 도구 경계의 근거가 됐다.** r2 구조(검색이 본문까지)에서는 검색이 파일을
+  쓰므로 **모든 검색이 승인 카드**였다 — r2 보고에서 사용자에게 알린 그 비용이다. 둘로 나누니
+  탐색은 `true`(자동 허용), 내려받기만 `false`(승인)로 **정직한 선언과 편한 사용이 동시에**
+  성립한다. 이번 재지정의 부수 이득이고, 되돌릴 이유가 없다.
+- **오프셋을 모델에게 계산시키지 않는다.** "허용치가 낮으면 그 숫자를 따른다" 는 요구는
+  *요청값이 아니라 응답값으로 민다* 는 뜻이다. 응답의 `limit` 으로 `nextStart` 를 서버 측(main)
+  에서 계산해 문장으로 준다 — 모델이 요청 limit(50)을 더하면 서버가 25만 적용한 구간이 통째로
+  사라진다. 회귀 테스트로 고정했다(`서버가 limit 을 낮추면 그 값으로 오프셋을 민다`).
+- **`getPages` 상한도 50.** 페이지 하나가 조회 + 첨부 다운로드를 끌고 오므로 무제한이면 도구
+  한 번이 수백 요청이 된다. 넘긴 id 는 **버리지 않고** `skippedPageIds` 로 되돌려 다음 호출로
+  이어가게 한다(검색의 `nextStart` 와 같은 원칙).
+- **`totalSize` 가 없는 배포**: "이번에 한도를 채워 왔다"(`size >= limit`)를 다음이 있다는
+  신호로 쓴다. 마지막 페이지가 정확히 한도와 같으면 한 번 더 호출해 빈 결과를 받는데, 그때
+  렌더러가 `offset N 이후로는 결과가 없습니다` 로 끝을 알린다.
+
+### 구현 체크리스트
+
+- [x] `rest.ts` — `MAX_SEARCH_LIMIT=50` · `clampStart` · `start` 쿼리 · `expand=…,history`
+- [x] `connector.ts` — operation 2종(`search`·`pages`) · `parseSearchResponse` · `parseAuthor` · `fetchPages`
+- [x] `search-render.ts` — `renderSearchResult`(목록+오프셋) / `renderPagesResult`(본문+첨부) 분리
+- [x] `tools.ts` — `confluence_search`(readOnly **true**) + `confluence_get_pages`(false)
+- [x] 테스트 — connector 16건(검색 8 / pages 8) · 렌더러 15건 · rest 3건
+- [x] 문서 — `modules/confluence/AGENTS.md` 도구표·페이지네이션·작성자 절
+
+### 구현 보고 (r3)
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | 수정 7 (`rest`·`connector`·`search-render`·`tools` + 테스트 3) |
+| 게이트 결과 | lint **0 error**(warning 1 = 0102 베이스라인) · typecheck **3/3** · vitest **1816/1816 pass** |
+| 알려진 환경 실패 | `app/chat-turn.continuity.test.ts` 1파일 — electron 바이너리 egress 차단(코드 무관) |
+| IPC | **86 유지 · 신규 채널 0** |
+| 신규 의존성 | **0개** |
+| 동작 변경(보고) | `confluence_search` 가 **다시 자동 허용**이 됐다(r2 의 승인 카드 회귀 해소). 승인은 `confluence_get_pages` 만 |
+| 사람 실기 대기 | 사내 DC 서버로 검색 페이지네이션(50 초과 결과) · 작성자 표기 · getPages 본문/첨부 |
+| 블로커 / 역질문 | 없음 |

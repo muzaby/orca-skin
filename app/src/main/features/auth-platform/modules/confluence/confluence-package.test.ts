@@ -133,6 +133,32 @@ describe('createConfluencePackage — 등록 위생', () => {
   it('저장소 기본 서버 목록은 비어 있다 — placeholder 카드를 보여주지 않는다', () => {
     expect(CONFLUENCE_SERVERS).toEqual([])
   })
+
+  // 0164 verify D1 — 이 패키지를 켜는 것만으로 **앱 로그인 게이트가 켜지면 안 된다.**
+  // `broker.status().required` 는 `providersForTarget('application').length > 0` 이고,
+  // prod 의 `RootGate` 는 그 값으로 앱 전체를 막는다(DEV 는 bypass 라 눈에 띄지 않는다).
+  it('앱 로그인 게이트를 켜지 않는다 — provider 는 연결 전용이다', () => {
+    for (const servers of [[], ONE_SERVER, TWO_SERVERS]) {
+      const registry = registered(servers)
+      expect(registry.providersForTarget('application')).toEqual([])
+      expect(registry.providersForTarget('connector').map((p) => p.descriptor.id)).toEqual([
+        CONFLUENCE_PAT_PROVIDER_ID,
+        CONFLUENCE_BASIC_PROVIDER_ID
+      ])
+    }
+  })
+
+  // 0164 r2 — 주소 끝의 `/` 하나로 패키지가 통째로 거부되면 서버가 UI 에서 전부 사라진다.
+  it('주소에 붙은 슬래시·컨텍스트 경로를 흡수해 등록에 성공한다', () => {
+    const registry = registered([
+      { id: 'confluence-dc', label: '사내 위키', baseUrl: 'https://wiki.invalid/' },
+      { id: 'confluence-lab', label: '연구소', baseUrl: 'https://rnd.invalid/confluence' }
+    ])
+    expect(registry.listConnectors().map((c) => c.descriptor.baseUrl)).toEqual([
+      'https://wiki.invalid',
+      'https://rnd.invalid'
+    ])
+  })
 })
 
 describe('createConfluencePackage — 연결', () => {
@@ -154,23 +180,20 @@ describe('createConfluencePackage — 연결', () => {
     expect(servers.has(confluenceToolServerId('confluence-dc'))).toBe(true)
   })
 
-  it('연결된 도구 서버가 3개 도구를 노출한다', async () => {
+  it('연결된 도구 서버가 찾기·읽기 2종을 노출한다', async () => {
     const registry = registered()
     const { host: pluginHost, servers } = host(registry)
     await pluginHost.connect({ connectorId: 'confluence-dc', bindingId: 'bind-basic' })
     const server = servers.get(confluenceToolServerId('confluence-dc'))
-    expect(server?.implementations.map((i) => i.name).sort()).toEqual(
-      [
-        CONFLUENCE_TOOL_NAMES.downloadAttachments,
-        CONFLUENCE_TOOL_NAMES.getPage,
-        CONFLUENCE_TOOL_NAMES.search
-      ].sort()
-    )
+    expect(server?.implementations.map((i) => i.name)).toEqual([
+      CONFLUENCE_TOOL_NAMES.search,
+      CONFLUENCE_TOOL_NAMES.getPages
+    ])
   })
 })
 
 describe('createConfluencePackage — 승인 정책', () => {
-  it('쓰기 도구를 readOnlyHint:false 로 선언한다', async () => {
+  it('탐색은 자동 허용, 내려받기만 승인 카드를 거친다', async () => {
     const registry = registered()
     const { host: pluginHost, servers } = host(registry)
     await pluginHost.connect({ connectorId: 'confluence-dc', bindingId: 'bind-basic' })
@@ -178,11 +201,9 @@ describe('createConfluencePackage — 승인 정책', () => {
     const serverId = confluenceToolServerId('confluence-dc')
     const approval = runtimeApprovalToolNames({ revision: 1, servers })
 
-    // 검색은 자동 허용, 파일을 쓰는 둘은 승인 카드를 거친다.
+    // 0164 r3 — 찾기/읽기를 나눈 이유가 여기 있다. 검색은 아무것도 바꾸지 않고,
+    // 본문·첨부를 로컬에 쓰는 getPages 만 승인 대상이다.
     expect(approval.has(`mcp__${serverId}__${CONFLUENCE_TOOL_NAMES.search}`)).toBe(false)
-    expect(approval.has(`mcp__${serverId}__${CONFLUENCE_TOOL_NAMES.getPage}`)).toBe(true)
-    expect(approval.has(`mcp__${serverId}__${CONFLUENCE_TOOL_NAMES.downloadAttachments}`)).toBe(
-      true
-    )
+    expect(approval.has(`mcp__${serverId}__${CONFLUENCE_TOOL_NAMES.getPages}`)).toBe(true)
   })
 })

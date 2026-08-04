@@ -348,6 +348,25 @@ export const ConnectorTemplateInfoSchema = z
   })
   .strict()
 
+// ── 등록 진단 (0164 r2) ─────────────────────────────────────────────────────
+//
+// 패키지 등록은 **all-or-nothing** 이다 — `baseUrl` 하나가 경로를 달고 있으면 그 패키지의
+// provider·connector 가 통째로 거부된다. 지금까지 흔적이 warn 로그뿐이라 사용자에게는
+// "servers.ts 에 구성했는데 플러그인 UI 에 없다" 로만 보였다(사용자 보고 2026-08-04).
+// 그래서 거부 사유를 renderer 로 올린다 — **원인을 화면에서 읽을 수 있어야 한다.**
+export const PluginDiagnosticsRequestSchema = z.undefined()
+
+export const PluginDiagnosticSchema = z
+  .object({
+    // package = 빌드타임 opt-in 패키지, instance = 사용자가 추가한 서버,
+    // cross-reference = connector 가 가리키는 provider 가 없음.
+    kind: z.enum(['package', 'instance', 'cross-reference']),
+    // 거부된 대상. 패키지면 pluginId, 인스턴스면 connectorId.
+    subject: z.string().min(1).max(200),
+    message: z.string().min(1).max(500)
+  })
+  .strict()
+
 // Project (Phase 3+) — 시스템 프롬프트 길이 8000 은 Claude Agent SDK 가
 // systemPrompt.append 에 허용하는 토큰 한도 대비 여유.
 export const CreateProjectSchema = z.object({
@@ -713,6 +732,7 @@ export type {
   AuthRefreshOutcome,
   AuthLogoutOutcome,
   PluginConnectorInfo,
+  PluginDiagnostic,
   PluginConnectionConnectRequest,
   PluginConnectionDisconnectRequest,
   ConnectorTemplateFieldInfo,

@@ -157,6 +157,16 @@ export class AuthRegistry {
           p.descriptor.id
         )
       }
+      // 선언과 구현이 같은 것을 말하는지 (0164 verify D4). connector·runtimeTools 는 이미
+      // 전 필드를 대조하는데 provider 만 **id 존재 여부**만 봤다. 그 틈으로 "manifest 는
+      // connector 전용이라 선언했는데 구현은 application 까지 여는" 불일치가 통과했고,
+      // 그 결과 서버가 0개인 설치에서도 prod 로그인 게이트가 켜졌다(D1).
+      const declaredProvider = manifest.contributes.authProviders.find(
+        (declared) => declared.id === p.descriptor.id
+      )
+      if (declaredProvider && !sameProviderDescriptor(declaredProvider, p.descriptor)) {
+        err(`auth provider descriptor 가 manifest 와 다릅니다: ${p.descriptor.id}`, p.descriptor.id)
+      }
       // 중복 id — last-writer-wins override 금지.
       if (this.providers.has(p.descriptor.id)) {
         err(`이미 등록된 auth provider id 입니다: ${p.descriptor.id}`, p.descriptor.id)
@@ -290,6 +300,24 @@ export class AuthRegistry {
   registrationErrors(): RegistrationError[] {
     return [...this.errors]
   }
+}
+
+// **targets 가 핵심이다** — 여기가 앱 로그인 게이트(`broker.status().required`)를 켜는 스위치다.
+// label·mechanisms·capabilities 도 함께 본다: 화면 표기와 lifecycle 선언이 어긋나면 사용자가
+// 보는 것과 실제로 일어나는 일이 갈린다. `allowedOrigins`·`sessionGroup` 은 manifest 가 기본값
+// (빈 배열/미지정)을 채우는 필드라 대조 대상에서 뺀다.
+function sameProviderDescriptor(
+  declared: PluginManifest['contributes']['authProviders'][number],
+  actual: AuthProviderV1['descriptor']
+): boolean {
+  return (
+    declared.id === actual.id &&
+    declared.apiVersion === actual.apiVersion &&
+    declared.label === actual.label &&
+    sameSortedStrings(declared.targets, actual.targets) &&
+    sameSortedStrings(declared.mechanisms, actual.mechanisms) &&
+    sameSortedStrings(declared.capabilities, actual.capabilities)
+  )
 }
 
 function sameConnectorDescriptor(

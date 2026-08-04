@@ -1,7 +1,51 @@
 # `modules/confluence/` — Confluence Data Center 플러그인 (0160)
 
 사내 Confluence DC 를 **내장 MCP**(claude-agent-sdk `createSdkMcpServer`, 0158 배관)로 붙인다.
-검색·페이지 Markdown 변환·첨부 다운로드만 하는 **read-only** 패키지다.
+검색·페이지 Markdown 변환·첨부 다운로드만 하는 **원격 read-only** 패키지다.
+
+## 도구 2종 — 찾기와 읽기를 나눈다 (0164 r3)
+
+사용자 재지정 2026-08-04. r2 는 검색 하나가 본문까지 끌고 왔는데, 그러면 **모든 검색이 파일을
+쓰므로 승인 대상**이 된다. 나누면 탐색은 자유롭고 내려받기만 승인을 받는다.
+
+| 도구 | 반환 | `readOnlyHint` |
+|---|---|---|
+| `confluence_search` | pageId · 제목 · **작성자** + 페이지네이션 좌표 (본문 없음) | `true` — 자동 허용 |
+| `confluence_get_pages` | 받은 pageId 들의 **본문 Markdown + 첨부** | `false` — 승인 카드 |
+
+```
+search(CQL/text, limit≤50, start) → id·제목·작성자 목록 + nextStart
+get_pages(pageIds[])             → storage XHTML → Markdown → 참조 첨부 다운로드
+                                 → 본문을 그대로 텍스트로 반환
+```
+
+### 페이지네이션 — 오프셋은 **서버가 적용한 limit** 으로 민다
+
+사용자 결정 2026-08-04: "1턴의 limit 은 50까지, 단 **허용치가 낮으면 해당 숫자를 따른다**.
+개수가 더 많은 경우 offset 을 해당 크기로 두어 다시 limit 만큼 검색한다."
+
+- 요청 `limit` 은 `MAX_SEARCH_LIMIT`(50)에서 잘린다.
+- **응답의 `limit` 이 실효 페이지 크기다.** Confluence 는 사이트 설정에 따라 더 낮은 값을
+  적용하고 그 사실을 응답으로 알린다 — 요청값(50)을 더해 오프셋을 밀면 그 사이 결과가 통째로
+  건너뛰어진다. `parseSearchResponse` 가 실효값으로 `nextStart` 를 **계산해서** 준다.
+- 렌더러는 `start: <숫자>` 를 문장으로 찍는다 — 모델이 직접 더하게 두지 않는다.
+- 다음이 있는지 판정: `totalSize` 를 주면 `start + size < totalSize`, 없으면 "한도를 채워 왔다"
+  (`size >= limit`)를 신호로 본다.
+
+### 작성자
+
+`expand=space,version,history` 로 받아 `history.createdBy.displayName` 을 쓴다. history 확장이
+빠진 배포는 `version.by.displayName`(마지막 수정자)으로 폴백하고, 그마저 없으면 **필드를 아예
+싣지 않는다**(빈 문자열 금지).
+
+### 그 밖의 규칙
+
+- **connector operation 도 도구와 1:1** (`search`·`pages`). `invoke` 를 부르는 곳은 도구 handler
+  뿐이라 그 밖의 분기를 남기면 아무도 부르지 않는 코드가 된다(자격증명 검증은 `start()` 가 한다).
+- **`get_pages` 도 한 번에 50개까지**. 페이지 하나가 조회 + 첨부 다운로드를 끌고 오므로 상한이
+  필요하다. 넘긴 id 는 버리지 않고 `skippedPageIds` 로 되돌려 준다.
+- **결과를 JSON 으로 감싸지 않는다.** `JSON.stringify` 를 거치면 Markdown 줄바꿈이 `\n` 두 글자로
+  새어 나온다(0164 r2 실측). 텍스트 조립은 `search-render.ts` 가 한다.
 
 ## 두 가지 사용 경로 (0161 → 0164 로 기본값 반전)
 
@@ -40,6 +84,11 @@ export const CONFLUENCE_SERVERS: readonly ConfluenceServerConfig[] = [
 - `baseUrl` 은 **경로 없는 origin** 이어야 한다(manifest `OriginSchema`).
 - 컨텍스트 경로(`https://wiki.corp/confluence`)는 `apiBasePath: '/confluence'` 로 분리한다.
   `checkRequestPath` 가 상대 경로 prefix 를 허용하므로 계약 변경 없이 성립한다.
+- **`normalizeServerConfig` 가 흔한 실수를 흡수한다** (0164 r2). 끝의 `/` 와 주소에 붙은 경로는
+  자동으로 origin + `apiBasePath` 로 갈린다 — 그 한 글자가 패키지 등록을 통째로 거부시키고
+  (all-or-nothing) 서버가 UI 에서 전부 사라지기 때문이다. 해석조차 안 되는 값(스킴 없음 등)은
+  손대지 않고 manifest 가 거부하며, 그 사유는 **플러그인 탭 배너**(`orca:plugin:diagnostics`)에
+  뜬다.
 - 템플릿 인스턴스는 `connectorId` 가 **host+컨텍스트 경로에서 파생**되므로(0161) 같은 host 의
   다른 경로가 서로 다른 서버가 되고, **주소는 생성 후 바꿀 수 없다**(수정 = 도구 이름·승인 키·
   다운로드 경로의 이동). 바꾸려면 삭제 후 재생성한다.
@@ -55,7 +104,8 @@ export const CONFLUENCE_SERVERS: readonly ConfluenceServerConfig[] = [
 | `limit.ts` | 동시성 세마포어 (`p-limit` 미도입) | ✅ 순수 |
 | `download-store.ts` | 파일명 위생·경로 이탈 차단(순수) + 쓰기(I/O) | 반반 |
 | `connector.ts` | `ConnectorRuntimeV1` — 위 셋을 순서대로 부르는 오케스트레이션 | I/O |
-| `tools.ts` | `RuntimeToolContribution` — 도구 3종 | 선언 |
+| `search-render.ts` | 도구 결과 → 모델에게 줄 텍스트 (`renderSearchResult` · `renderPagesResult`) | ✅ 순수 |
+| `tools.ts` | `RuntimeToolContribution` — 도구 2종(`confluence_search` · `confluence_get_pages`) | 선언 |
 | `index.ts` | manifest + 패키지 조립 (manifest 는 구현에서 **파생**) | 조립 |
 
 ## 이 모듈이 존재하는 이유
@@ -75,11 +125,20 @@ export const CONFLUENCE_SERVERS: readonly ConfluenceServerConfig[] = [
 
 - **raw credential 을 보지 않는다.** `ctx.authenticatedFetch` 만 부른다 — vault·secret·전역
   `fetch` import 가 이 디렉터리에 하나도 없어야 한다(AUTH-PLAT-009).
-- **`readOnlyHint` 는 정직하게.** MCP 정의는 "환경을 변경하지 않는다" 다. 로컬에 파일을 쓰는
-  `confluence_get_page`·`confluence_download_attachments` 는 `false`(승인 카드 경유), 검색만
-  `true`. 원격 read-only 요구는 write 계열 **도구를 두지 않는 것**으로 지킨다.
+- **`readOnlyHint` 는 정직하게.** MCP 정의는 "환경을 변경하지 않는다" 다. `confluence_search` 는
+  아무것도 쓰지 않으므로 `true`(자동 허용), 페이지 Markdown·첨부를 로컬에 쓰는
+  `confluence_get_pages` 는 `false`(승인 카드 경유)다. **도구 경계를 이 선언에 맞춰 그었다** —
+  둘을 합치면 모든 검색이 승인 대상이 된다. 원격 read-only 요구는 write 계열 **도구를 두지 않는
+  것**으로 지킨다.
 - **cheerio 는 반드시 `xmlMode: true`.** HTML 파서로 읽으면 `ac:`/`ri:` 태그가 뭉개지고
   self-closing `<ri:attachment/>` 가 뒤 문단을 삼킨다.
+- **표는 turndown 에 넘기기 전에 정규화한다** (0164 r2). turndown-plugin-gfm 의 `table` 규칙은
+  **머리글 행이 있는 표만** 변환하고 나머지는 `keep()` 으로 **원본 HTML 을 그대로 뱉는다**.
+  Confluence 저장 형식은 세 가지가 다 걸린다: ⓐ `<colgroup>` 이 `<tbody>` 앞에 있으면
+  `isFirstTbody()` 가 false → 제거한다, ⓑ 머리글 행이 없으면 첫 행을 `<th>` 로 승격한다,
+  ⓒ 셀 안 `<p>` 가 둘 이상이면 행이 끊기므로 `<br>` 로 잇는다(셀 안 `<br>` 은 리터럴로 남긴다 —
+  turndown 기본 규칙의 `"  \n"` 은 표를 깬다). **표 테스트 fixture 는 실제 저장 형식으로 쓴다** —
+  `<table><tbody>` 축약 fixture 만 있었기 때문에 이 회귀를 테스트가 잡지 못했다.
 - **매크로 전처리를 turndown 보다 먼저.** turndown 은 표준 HTML 만 안다.
 - **미지원 매크로를 지우지 않는다.** 이름이 보이는 인용블록으로 남기고 `unhandledMacros` 에
   집계한다 — 조용한 내용 소실이 가장 나쁜 결과다.

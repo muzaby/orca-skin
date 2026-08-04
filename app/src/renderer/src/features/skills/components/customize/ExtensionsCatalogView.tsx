@@ -7,6 +7,7 @@ import { useTweakContext } from '../../../../shared/theme'
 import { useCustomizeSkills } from '../../hooks/useCustomizeSkills'
 import { useMcpServers } from '../../hooks/useMcpServers'
 import { usePluginCatalog } from '../../hooks/usePluginCatalog'
+import { PluginDiagnosticsBanner } from './PluginDiagnosticsBanner'
 import { back, openDetail, selectTab, type CatalogSelection } from '../../lib/catalogSelection'
 import { handleCreated } from '../../lib/connectorCreate'
 import { showsAddButton } from '../../lib/pluginAddGate'
@@ -165,15 +166,21 @@ export function ExtensionsCatalogView(): React.JSX.Element {
         ) : skills.loading || mcp.loading || plugins.loading ? (
           <div className="grid flex-1 place-items-center text-ink3">{tr('common.loading')}</div>
         ) : (
-          <CustomizeList
-            tab={selection.tab}
-            skills={skills.list}
-            mcpServers={mcp.list}
-            plugins={plugins.rows}
-            collapsed={collapsed}
-            onToggleGroup={(key) => setCollapsed((state) => toggleGroup(state, key))}
-            onSelect={(id) => setSelection((state) => openDetail(state, id))}
-          />
+          <div className="flex min-h-0 flex-1 flex-col">
+            {/* 거부된 항목은 목록에 없다 — 왜 없는지를 목록 **위에** 둔다(0164 r2). */}
+            {selection.tab === 'plugins' && (
+              <PluginDiagnosticsBanner diagnostics={plugins.diagnostics} />
+            )}
+            <CustomizeList
+              tab={selection.tab}
+              skills={skills.list}
+              mcpServers={mcp.list}
+              plugins={plugins.rows}
+              collapsed={collapsed}
+              onToggleGroup={(key) => setCollapsed((state) => toggleGroup(state, key))}
+              onSelect={(id) => setSelection((state) => openDetail(state, id))}
+            />
+          </div>
         )}
       </div>
       <ConnectorAddMenu

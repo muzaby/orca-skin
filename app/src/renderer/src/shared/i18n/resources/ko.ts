@@ -132,6 +132,15 @@ export const ko = {
       errRegister: '서버를 등록하지 못했습니다.',
       errUnknown: '서버를 추가하지 못했습니다.'
     },
+    // 부팅 등록 거부 (0164 r2). 등록은 패키지 단위 all-or-nothing 이라 주소 하나가 잘못되면
+    // 그 패키지의 서버가 전부 목록에서 사라진다 — 이유를 여기서 읽을 수 있어야 한다.
+    diagnostics: {
+      title: '등록하지 못한 항목 {{count}}건',
+      hint: '설정이 거부되어 목록에 나타나지 않습니다. 주소는 경로 없는 origin 이어야 합니다 (예: https://wiki.example.com).',
+      package: '플러그인 패키지 {{subject}}',
+      instance: '서버 {{subject}}',
+      'cross-reference': '인증 참조 {{subject}}'
+    },
     connect: {
       title: '{{name}} 연결',
       server: '서버 주소',

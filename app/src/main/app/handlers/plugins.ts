@@ -4,13 +4,16 @@ import {
   PluginConnectionConnectRequestSchema,
   PluginConnectionDisconnectRequestSchema,
   PluginConnectorInfoSchema,
+  PluginDiagnosticSchema,
+  PluginDiagnosticsRequestSchema,
   PluginInstanceCreateRequestSchema,
   PluginInstanceDeleteRequestSchema,
   PluginListRequestSchema,
   PluginTemplateListRequestSchema,
   type AuthLogoutOutcome,
   type ConnectorTemplateInfoDto,
-  type PluginConnectorInfo
+  type PluginConnectorInfo,
+  type PluginDiagnostic
 } from '../../../shared/protocol'
 import { handle } from '../../infra/ipc/handle'
 import type { PluginHost } from '../../features/auth-platform/plugin-host'
@@ -21,6 +24,9 @@ export interface PluginHandlerDeps {
   pluginHost: PluginHost
   templates: ConnectorTemplateRegistry
   instances: ConnectorInstanceLifecycle
+  // 부팅 때 거부된 패키지·인스턴스 (0164 r2). `createAuthPlatform()` 이 동기적으로 다 채운 뒤
+  // 핸들러가 등록되므로 값은 이미 확정돼 있다.
+  diagnostics: readonly PluginDiagnostic[]
 }
 
 export function registerPluginHandlers(deps: PluginHandlerDeps): void {
@@ -29,6 +35,15 @@ export function registerPluginHandlers(deps: PluginHandlerDeps): void {
   handle(CHANNELS.pluginList, PluginListRequestSchema, 'reject', (): PluginConnectorInfo[] => {
     return parsePluginListResponse(pluginHost.list())
   })
+
+  // 등록 진단. 목록이 비어 보이는 이유를 화면에서 읽을 수 있어야 한다 — 등록은 패키지 단위
+  // all-or-nothing 이라 `baseUrl` 하나가 잘못되면 그 패키지의 서버가 전부 사라진다.
+  handle(
+    CHANNELS.pluginDiagnostics,
+    PluginDiagnosticsRequestSchema,
+    'reject',
+    (): PluginDiagnostic[] => PluginDiagnosticSchema.array().parse(deps.diagnostics)
+  )
   handle(
     CHANNELS.pluginConnectionConnect,
     PluginConnectionConnectRequestSchema,

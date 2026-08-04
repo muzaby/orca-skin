@@ -112,7 +112,11 @@ export const CHANNELS = {
   // connector ID 가 주소에서 파생되므로 수정은 곧 도구 이름·승인 키·다운로드 경로의 이동이다.
   pluginTemplateList: 'orca:plugin:templateList',
   pluginInstanceCreate: 'orca:plugin:instanceCreate',
-  pluginInstanceDelete: 'orca:plugin:instanceDelete'
+  pluginInstanceDelete: 'orca:plugin:instanceDelete',
+  // 0164 r2 — 부팅 때 **거부된** 패키지·인스턴스를 화면에 올린다. 등록은 패키지 단위
+  // all-or-nothing 이라 `baseUrl` 하나가 잘못되면 그 패키지의 서버가 **전부** 사라지는데,
+  // 지금까지 흔적이 warn 로그뿐이라 "servers.ts 에 넣었는데 UI 에 없다" 로 보였다.
+  pluginDiagnostics: 'orca:plugin:diagnostics'
 } as const
 
 export type UpdateStateStatus =
@@ -311,6 +315,16 @@ export interface PluginConnectorInfo {
   // 지금 **무엇으로** 연결돼 있는가 (0164) — 활성 binding 의 auth provider id.
   // 키 부재 = 미연결. provider **id** 만이고 secret·handle 은 이 경계를 넘지 않는다.
   connectedProviderId?: string
+}
+
+// 부팅 등록에서 **거부된** 것 (0164 r2). 등록은 패키지 단위 all-or-nothing 이라 `baseUrl`
+// 하나가 경로를 달고 있으면 그 패키지의 provider·connector 가 전부 사라진다 — 사유가 로그에만
+// 남으면 사용자에게는 "servers.ts 에 구성했는데 UI 에 없다" 로만 보인다.
+export interface PluginDiagnostic {
+  kind: 'package' | 'instance' | 'cross-reference'
+  // 거부된 대상. 패키지면 pluginId, 인스턴스면 connectorId.
+  subject: string
+  message: string
 }
 
 // 사용자가 추가할 수 있는 connector 청사진 (0161).

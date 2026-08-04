@@ -15,10 +15,12 @@ import type {
   ConnectorStatus
 } from '../../../../contracts/connector-plugin'
 import { DownloadStore, pageDir, type SavedAsset } from './download-store'
-import { mapWithLimit } from './limit'
+import { mapWithLimit, partitionSettled } from './limit'
 import {
   attachmentDataRequest,
   attachmentListRequest,
+  clampLimit,
+  clampStart,
   currentUserRequest,
   normalizeBasePath,
   pageRequest,
@@ -47,18 +49,50 @@ const DEFAULT_DOWNLOAD_CONCURRENCY = 4
 // 모델이 "무엇을 받았는지" 판단할 만큼만 준다 — 대용량 페이지가 컨텍스트를 통째로 먹지 않게.
 const PREVIEW_CHARS = 4000
 
+// 한 번에 본문을 펼칠 페이지 수 상한 — **이 값이 권위다.** `invoke` 는 도구 스키마 밖에서도
+// 호출되는 계약이라 실제 강제는 여기서 일어난다. 도구 스키마는 이 상수를 import 해 쓴다.
+// (검색 상한과 우연히 같은 50 이지만 다른 것이다 — 검색 페이지 크기 vs 일괄 조회 배치 크기.)
+export const MAX_PAGES_PER_CALL = 50
+// 페이지 하나가 이미 첨부를 동시 다운로드한다 — 페이지까지 넓게 열면 곱해진다.
+const PAGE_CONCURRENCY = 2
+
+// operation 은 **도구 표면과 1:1** 이다 (0164 r3 — 사용자 재지정):
+//   search → id·제목·작성자만(본문 없음), 페이지네이션
+//   pages  → 받은 id 들의 본문 + 첨부
+// `verify` 는 두지 않는다 — 자격증명 검증은 `start()` 가 실제 요청 경로로 한다.
 export const CONFLUENCE_OPERATIONS = {
-  verify: 'verify',
   search: 'search',
-  page: 'page',
-  attachments: 'attachments'
+  pages: 'pages'
 } as const
 
 export interface ConfluenceSearchHit {
   id: string
   title: string
+  // 작성자 표시 이름(`history.createdBy`). 없으면 마지막 수정자로 폴백한다.
+  author?: string
   spaceKey?: string
   type: string
+}
+
+export interface ConfluenceSearchResult {
+  hits: ConfluenceSearchHit[]
+  // 이번 응답이 덮은 구간. `limit` 은 **서버가 실제로 적용한 값**이다 — 요청보다 낮을 수 있고,
+  // 그때는 다음 오프셋도 그 값만큼만 밀어야 결과를 건너뛰지 않는다.
+  start: number
+  limit: number
+  size: number
+  // 서버가 주면 전체 건수. CQL 검색은 보통 준다.
+  totalSize?: number
+  // 더 남았으면 다음 호출에 그대로 넣을 오프셋. 없으면 끝이다.
+  nextStart?: number
+}
+
+export interface ConfluencePagesResult {
+  pages: ConfluencePageResult[]
+  // 페이지 하나가 404·권한 오류여도 나머지를 버리지 않는다.
+  failedPages: Array<{ pageId: string; message: string }>
+  // 상한을 넘겨 처리하지 않은 id. 다음 호출에 그대로 넣으면 된다.
+  skippedPageIds: string[]
 }
 
 export interface ConfluencePageResult {
@@ -75,7 +109,31 @@ export interface ConfluencePageResult {
   unhandledMacros: string[]
 }
 
-export function createConfluenceConnector(config: ConfluenceServerConfig): ConnectorRuntimeV1 {
+// 사람이 손으로 적는 값을 흡수한다 (0164 r2). manifest 의 `OriginSchema` 는 **경로 없는 origin**
+// 만 받는데, 브라우저 주소창에서 복사하면 `https://wiki.corp/` 나 `https://wiki.corp/confluence`
+// 가 되기 십상이다. 그 한 글자가 패키지 등록을 통째로 거부시키고(all-or-nothing) 흔적은 로그뿐
+// 이라, 사용자에게는 "servers.ts 에 구성했는데 UI 에 없다" 로만 보인다(사용자 보고 2026-08-04).
+// 여기서 origin 과 컨텍스트 경로로 갈라 준다 — 두 값이 가리키는 서버는 같다.
+export function normalizeServerConfig(config: ConfluenceServerConfig): ConfluenceServerConfig {
+  let parsed: URL
+  try {
+    parsed = new URL(config.baseUrl)
+  } catch {
+    // 스킴이 없는 등 해석 불가면 손대지 않는다 — manifest 가 거부하고 진단에 사유가 남는다.
+    return config
+  }
+  const fromUrl = normalizeBasePath(parsed.pathname)
+  // 명시된 `apiBasePath` 가 우선한다(그 필드가 이 값의 정본이다).
+  const apiBasePath = config.apiBasePath ?? (fromUrl === '' ? undefined : fromUrl)
+  return {
+    ...config,
+    baseUrl: parsed.origin,
+    ...(apiBasePath !== undefined ? { apiBasePath } : {})
+  }
+}
+
+export function createConfluenceConnector(raw: ConfluenceServerConfig): ConnectorRuntimeV1 {
+  const config = normalizeServerConfig(raw)
   const endpoint = { apiBasePath: normalizeBasePath(config.apiBasePath) }
   const maxAttachmentBytes = config.maxAttachmentBytes ?? DEFAULT_MAX_ATTACHMENT_BYTES
   const concurrency = config.downloadConcurrency ?? DEFAULT_DOWNLOAD_CONCURRENCY
@@ -136,26 +194,19 @@ export function createConfluenceConnector(config: ConfluenceServerConfig): Conne
     async invoke(ctx: ConnectorContext, request: ConnectorRequest): Promise<ConnectorResult> {
       const params = request.params ?? {}
       switch (request.operation) {
-        case CONFLUENCE_OPERATIONS.verify:
-          await json(ctx, currentUserRequest(endpoint))
-          return { ok: true, data: { ok: true } }
-
         case CONFLUENCE_OPERATIONS.search: {
-          const body = await json(ctx, searchRequest(endpoint, params as SearchInput))
-          return { ok: true, data: { hits: parseSearchHits(body) } }
+          const input = params as SearchInput
+          const body = await json(ctx, searchRequest(endpoint, input))
+          return {
+            ok: true,
+            data: parseSearchResponse(body, clampStart(input.start), clampLimit(input.limit))
+          }
         }
 
-        case CONFLUENCE_OPERATIONS.attachments: {
-          const pageId = requireString(params.pageId, 'pageId')
-          const filenames = optionalStringArray(params.filenames)
-          const saved = await downloadAttachments(ctx, pageId, filenames)
-          return { ok: true, data: saved }
-        }
-
-        case CONFLUENCE_OPERATIONS.page: {
-          const pageId = requireString(params.pageId, 'pageId')
+        case CONFLUENCE_OPERATIONS.pages: {
+          const pageIds = requireStringArray(params.pageIds, 'pageIds')
           const includeAttachments = params.includeAttachments !== false
-          return { ok: true, data: await fetchPage(ctx, pageId, includeAttachments) }
+          return { ok: true, data: await fetchPages(ctx, pageIds, includeAttachments) }
         }
 
         default:
@@ -167,6 +218,26 @@ export function createConfluenceConnector(config: ConfluenceServerConfig): Conne
     async stop(): Promise<void> {
       return undefined
     }
+  }
+
+  // 받은 id 들의 본문 + 첨부. `search` 가 id·제목·작성자만 주므로(0164 r3) 모델이 본문에 닿는
+  // 유일한 경로다. 중복 id 는 한 번만 처리한다 — 같은 페이지를 두 번 내려받을 이유가 없다.
+  async function fetchPages(
+    ctx: ConnectorContext,
+    pageIds: readonly string[],
+    includeAttachments: boolean
+  ): Promise<ConfluencePagesResult> {
+    const unique = [...new Set(pageIds)]
+    const targets = unique.slice(0, MAX_PAGES_PER_CALL)
+
+    const { values: pages, failures: failedPages } = partitionSettled(
+      await mapWithLimit(targets, PAGE_CONCURRENCY, (pageId) =>
+        fetchPage(ctx, pageId, includeAttachments)
+      ),
+      (error, index) => ({ pageId: targets[index], message: error.message })
+    )
+
+    return { pages, failedPages, skippedPageIds: unique.slice(MAX_PAGES_PER_CALL) }
   }
 
   async function fetchPage(
@@ -189,9 +260,12 @@ export function createConfluenceConnector(config: ConfluenceServerConfig): Conne
     const store = new DownloadStore(dir)
     await store.ensure()
 
-    const downloads = includeAttachments
-      ? await downloadAttachments(ctx, pageId, converted.referencedAttachments, store)
-      : { assets: [], failed: [] }
+    // 본문이 참조하지 않으면 목록 조회조차 하지 않는다 — 요청 하나를 아끼는 것보다,
+    // "참조 0개" 를 "전부 받기" 로 오해할 여지를 남기지 않는 것이 요점이다.
+    const downloads =
+      includeAttachments && converted.referencedAttachments.length > 0
+        ? await downloadAttachments(ctx, pageId, converted.referencedAttachments, store)
+        : { assets: [], failed: [] }
 
     const title = typeof page.title === 'string' ? page.title : pageId
     const markdown = `# ${title}\n\n${converted.markdown}\n`
@@ -219,20 +293,18 @@ export function createConfluenceConnector(config: ConfluenceServerConfig): Conne
   async function downloadAttachments(
     ctx: ConnectorContext,
     pageId: string,
-    filenames: readonly string[] | undefined,
-    existing?: DownloadStore
+    filenames: readonly string[],
+    store: DownloadStore
   ): Promise<{ assets: SavedAsset[]; failed: Array<{ filename: string; message: string }> }> {
     const listed = parseAttachments(await json(ctx, attachmentListRequest(endpoint, pageId)))
     // 본문이 참조한 것만 받는다. 목록 전체를 받으면 쓰지 않는 파일이 디스크에 쌓인다.
-    const wanted =
-      filenames === undefined || filenames.length === 0
-        ? listed
-        : listed.filter((item) => filenames.includes(item.title))
+    const wanted = listed.filter((item) => filenames.includes(item.title))
+    // 본문이 가리키는데 목록에 없는 첨부 — 이미지 링크가 깨진 채 남으므로 조용히 넘기지 않는다.
+    const missing = filenames
+      .filter((name) => !listed.some((item) => item.title === name))
+      .map((filename) => ({ filename, message: '페이지 첨부 목록에 없습니다' }))
 
-    if (wanted.length === 0) return { assets: [], failed: [] }
-
-    const store = existing ?? new DownloadStore(pageDir(config.id, pageId))
-    if (existing === undefined) await store.ensure()
+    if (wanted.length === 0) return { assets: [], failed: missing }
 
     // 동시성 상한 — 첨부가 수십 개면 사내 서버가 429/타임아웃을 낸다.
     const results = await mapWithLimit(wanted, concurrency, async (item) => {
@@ -249,14 +321,12 @@ export function createConfluenceConnector(config: ConfluenceServerConfig): Conne
       return store.saveAsset(item.title, res.bodyBytes, item.mediaType)
     })
 
-    const assets: SavedAsset[] = []
-    const failed: Array<{ filename: string; message: string }> = []
-    results.forEach((result, index) => {
-      if (result.ok) assets.push(result.value)
-      // 첨부 하나가 404·크기 초과여도 페이지 전체를 실패시키지 않는다.
-      else failed.push({ filename: wanted[index].title, message: result.error.message })
-    })
-    return { assets, failed }
+    // 첨부 하나가 404·크기 초과여도 페이지 전체를 실패시키지 않는다.
+    const { values: assets, failures } = partitionSettled(results, (error, index) => ({
+      filename: wanted[index].title,
+      message: error.message
+    }))
+    return { assets, failed: [...missing, ...failures] }
   }
 }
 
@@ -313,6 +383,38 @@ function parseAttachments(body: unknown): AttachmentEntry[] {
   })
 }
 
+// 검색 응답 → hit 목록 + **페이지네이션 좌표**.
+//
+// 요청한 `limit` 을 그대로 다음 오프셋에 쓰면 안 된다 — Confluence 는 사이트 설정에 따라 더 낮은
+// 값을 적용하고 그 사실을 응답의 `limit` 으로 알린다(사용자 결정 2026-08-04 — "허용치가 낮으면
+// 해당 숫자를 따른다"). 실효값으로 밀지 않으면 결과가 통째로 건너뛰어진다.
+export function parseSearchResponse(
+  body: unknown,
+  requestedStart: number,
+  requestedLimit: number
+): ConfluenceSearchResult {
+  const envelope = body as { start?: unknown; limit?: unknown; size?: unknown; totalSize?: unknown }
+  const hits = parseSearchHits(body)
+
+  const start = typeof envelope.start === 'number' ? envelope.start : requestedStart
+  // 서버가 limit 을 안 주면 요청값을 쓴다. 0 이하는 신뢰하지 않는다(오프셋이 전진하지 못한다).
+  const serverLimit = typeof envelope.limit === 'number' ? envelope.limit : requestedLimit
+  const limit = serverLimit > 0 ? Math.min(serverLimit, requestedLimit) : requestedLimit
+  const size = typeof envelope.size === 'number' ? envelope.size : hits.length
+  const totalSize = typeof envelope.totalSize === 'number' ? envelope.totalSize : undefined
+
+  // 총계를 주면 그걸 믿고, 없으면 "이번에 한도만큼 채워 왔다" 를 다음이 있다는 신호로 본다.
+  const hasMore = totalSize !== undefined ? start + size < totalSize : size >= limit && size > 0
+  return {
+    hits,
+    start,
+    limit,
+    size,
+    ...(totalSize !== undefined ? { totalSize } : {}),
+    ...(hasMore ? { nextStart: start + limit } : {})
+  }
+}
+
 function parseSearchHits(body: unknown): ConfluenceSearchHit[] {
   const results = (body as { results?: unknown }).results
   if (!Array.isArray(results)) return []
@@ -322,28 +424,48 @@ function parseSearchHits(body: unknown): ConfluenceSearchHit[] {
       title?: unknown
       type?: unknown
       space?: { key?: unknown }
+      history?: { createdBy?: { displayName?: unknown; username?: unknown } }
+      version?: { by?: { displayName?: unknown } }
     }
     if (typeof item.id !== 'string' || typeof item.title !== 'string') return []
+    const author = parseAuthor(item)
     return [
       {
         id: item.id,
         title: item.title,
         type: typeof item.type === 'string' ? item.type : 'page',
+        ...(author !== undefined ? { author } : {}),
         ...(typeof item.space?.key === 'string' ? { spaceKey: item.space.key } : {})
       }
     ]
   })
 }
 
-function requireString(value: unknown, name: string): string {
-  if (typeof value !== 'string' || value.trim() === '') {
-    throw new Error(`${name} 가 필요합니다`)
+// 작성자 = `history.createdBy`. 그 확장이 빠진 배포도 있어 마지막 수정자로 폴백한다 —
+// 없는 것보다는 누가 손댔는지가 낫고, 없으면 필드를 아예 싣지 않는다(빈 문자열 금지).
+function parseAuthor(item: {
+  history?: { createdBy?: { displayName?: unknown; username?: unknown } }
+  version?: { by?: { displayName?: unknown } }
+}): string | undefined {
+  const candidates = [
+    item.history?.createdBy?.displayName,
+    item.history?.createdBy?.username,
+    item.version?.by?.displayName
+  ]
+  for (const value of candidates) {
+    if (typeof value === 'string' && value.trim() !== '') return value.trim()
   }
-  return value.trim()
+  return undefined
 }
 
-function optionalStringArray(value: unknown): string[] | undefined {
-  if (!Array.isArray(value)) return undefined
-  const items = value.filter((item): item is string => typeof item === 'string')
-  return items.length > 0 ? items : undefined
+// 도구 입력은 SDK 가 스키마로 걸러 주지만, connector 는 **자기 입력을 스스로 검증한다** —
+// `invoke` 는 도구 밖에서도 호출될 수 있는 계약이다.
+function requireStringArray(value: unknown, name: string): string[] {
+  if (!Array.isArray(value)) throw new Error(`${name} 가 필요합니다`)
+  const items = value
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter((item) => item !== '')
+  if (items.length === 0) throw new Error(`${name} 가 필요합니다`)
+  return items
 }

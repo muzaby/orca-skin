@@ -59,3 +59,18 @@ export async function mapWithLimit<I, O>(
     )
   )
 }
+
+// `mapWithLimit` 결과를 성공/실패로 가른다. 실패 모양은 호출자마다 다르므로(페이지는 pageId,
+// 첨부는 파일명) 변환을 받는다 — 같은 forEach 를 두 번 쓰지 않기 위한 최소 공통분모다.
+export function partitionSettled<T, F>(
+  settled: ReadonlyArray<SettledResult<T>>,
+  toFailure: (error: Error, index: number) => F
+): { values: T[]; failures: F[] } {
+  const values: T[] = []
+  const failures: F[] = []
+  settled.forEach((result, index) => {
+    if (result.ok) values.push(result.value)
+    else failures.push(toFailure(result.error, index))
+  })
+  return { values, failures }
+}

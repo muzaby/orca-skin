@@ -4,13 +4,16 @@ import {
   attachmentListRequest,
   buildSearchCql,
   clampLimit,
+  clampStart,
   currentUserRequest,
+  MAX_SEARCH_LIMIT,
   escapeCqlLiteral,
   normalizeBasePath,
   pageRequest,
   searchRequest,
   XSRF_HEADER
 } from './rest'
+import { normalizeServerConfig } from './connector'
 
 const ROOT = { apiBasePath: '' }
 const CONTEXT = { apiBasePath: '/confluence' }
@@ -97,14 +100,25 @@ describe('CQL', () => {
   })
 })
 
+// 1턴 상한 50 (사용자 결정 2026-08-04 — "1턴의 limit 은 50까지").
 describe('clampLimit', () => {
   it('범위를 벗어난 값을 잘라낸다', () => {
-    expect(clampLimit(undefined)).toBe(25)
+    expect(clampLimit(undefined)).toBe(MAX_SEARCH_LIMIT)
     expect(clampLimit(0)).toBe(1)
     expect(clampLimit(-5)).toBe(1)
-    expect(clampLimit(1000)).toBe(100)
+    expect(clampLimit(1000)).toBe(MAX_SEARCH_LIMIT)
     expect(clampLimit(7.9)).toBe(7)
-    expect(clampLimit(Number.NaN)).toBe(25)
+    expect(clampLimit(Number.NaN)).toBe(MAX_SEARCH_LIMIT)
+  })
+})
+
+describe('clampStart', () => {
+  it('음수·비수치를 0 으로 되돌린다', () => {
+    expect(clampStart(undefined)).toBe(0)
+    expect(clampStart(-1)).toBe(0)
+    expect(clampStart(Number.NaN)).toBe(0)
+    expect(clampStart(50)).toBe(50)
+    expect(clampStart(50.9)).toBe(50)
   })
 })
 
@@ -116,8 +130,14 @@ describe('searchRequest', () => {
     expect(req.query).toEqual({
       cql: 'type = page AND space = "ENG" AND text ~ "design"',
       limit: '5',
-      expand: 'space,version'
+      start: '0',
+      // 작성자(`history.createdBy`)를 검색이 함께 받는다 (0164 r3).
+      expand: 'space,version,history'
     })
+  })
+
+  it('오프셋을 그대로 싣는다 — 페이지네이션의 유일한 좌표다', () => {
+    expect(searchRequest(ROOT, { text: 'x', start: 50 }).query?.start).toBe('50')
   })
 })
 
@@ -156,5 +176,54 @@ describe('attachmentDataRequest', () => {
       const names = Object.keys(req.headers ?? {}).map((n) => n.toLowerCase())
       expect(names.filter((n) => reserved.includes(n))).toEqual([])
     }
+  })
+})
+
+// 0164 r2 — 사람이 손으로 적는 주소를 흡수한다. 이 정규화가 없으면 주소 끝의 `/` 하나가
+// 패키지 등록 전체를 거부시키고(all-or-nothing) 서버가 UI 에서 통째로 사라진다.
+describe('normalizeServerConfig', () => {
+  const base = { id: 'confluence-dc', label: '위키' }
+
+  it('경로 없는 origin 은 그대로 둔다', () => {
+    expect(normalizeServerConfig({ ...base, baseUrl: 'https://wiki.corp' })).toEqual({
+      ...base,
+      baseUrl: 'https://wiki.corp'
+    })
+  })
+
+  it('끝의 슬래시를 떼어낸다', () => {
+    expect(normalizeServerConfig({ ...base, baseUrl: 'https://wiki.corp/' }).baseUrl).toBe(
+      'https://wiki.corp'
+    )
+  })
+
+  it('주소에 붙은 컨텍스트 경로를 apiBasePath 로 옮긴다', () => {
+    expect(normalizeServerConfig({ ...base, baseUrl: 'https://wiki.corp/confluence/' })).toEqual({
+      ...base,
+      baseUrl: 'https://wiki.corp',
+      apiBasePath: '/confluence'
+    })
+  })
+
+  it('명시된 apiBasePath 가 우선한다', () => {
+    const out = normalizeServerConfig({
+      ...base,
+      baseUrl: 'https://wiki.corp/wiki',
+      apiBasePath: '/confluence'
+    })
+    expect(out).toEqual({ ...base, baseUrl: 'https://wiki.corp', apiBasePath: '/confluence' })
+  })
+
+  it('포트는 보존한다', () => {
+    expect(normalizeServerConfig({ ...base, baseUrl: 'https://wiki.corp:8090/x' })).toEqual({
+      ...base,
+      baseUrl: 'https://wiki.corp:8090',
+      apiBasePath: '/x'
+    })
+  })
+
+  it('해석할 수 없는 주소는 손대지 않는다 — manifest 가 거부하고 진단에 사유가 남는다', () => {
+    const bad = { ...base, baseUrl: 'wiki.corp' }
+    expect(normalizeServerConfig(bad)).toEqual(bad)
   })
 })
