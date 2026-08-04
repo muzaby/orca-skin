@@ -24,12 +24,8 @@ export type ActivityStatus = 'preparing' | 'streaming' | 'waiting' | 'finishingS
 
 export interface ActivityLabelModel {
   status: ActivityStatus
-  /** 0 인 항목을 뺀 전체 사실 — tooltip/a11y 용. */
+  /** 0 인 항목을 뺀 전체 사실 — 화면은 앞 `MAX_VISIBLE_FACTS` 개만 쓰고 나머지는 합계로 접는다. */
   facts: ActivityFact[]
-  /** 화면에 직접 노출할 상위 N개. */
-  visible: ActivityFact[]
-  /** `visible` 에 담기지 못한 나머지 수(0 이면 합계 표시 없음). */
-  overflow: number
 }
 
 export type ActivityView = Pick<
@@ -41,7 +37,7 @@ export function deriveActivityLabel(
   activity: ActivityView | undefined,
   elapsedMs: number
 ): ActivityLabelModel {
-  if (!activity) return { status: 'streaming', facts: [], visible: [], overflow: 0 }
+  if (!activity) return { status: 'streaming', facts: [] }
 
   // residual 은 deliveryPending 의 **부분집합**이다. 그대로 나열하면 같은 메시지를 "전달 확인"과
   // "중단 후 전달 대기" 로 두 번 세므로 일반 전달분에서 차감한다.
@@ -56,9 +52,7 @@ export function deriveActivityLabel(
     { key: 'background' as const, count: activity.backgroundTaskCount }
   ].filter((fact) => fact.count > 0)
 
-  const visible = facts.slice(0, MAX_VISIBLE_FACTS)
-  const status = deriveStatus(activity, facts.length > 0, elapsedMs)
-  return { status, facts, visible, overflow: facts.length - visible.length }
+  return { status: deriveStatus(activity, facts.length > 0, elapsedMs), facts }
 }
 
 function deriveStatus(

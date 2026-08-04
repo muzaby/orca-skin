@@ -11,6 +11,41 @@ import {
   type SessionRuntimeState
 } from '../../contracts/session-state'
 
+// 프레임 위임 키 — **채널보다 짧은 수명(체인·턴)을 캡처한 콜백의 정본 목록**이다. 채널은 체인보다
+// 오래 살므로 이 콜백들은 spawn 시점 값으로 굳으면 안 되고, 매 send/listen 마다 갈아끼워야 한다.
+// 앞의 4개는 어댑터에 넘어가 고정 래퍼를 거치고(`wrapRequest`), 뒤의 3개는 Runtime 이 직접 읽는다.
+const FRAME_DELEGATE_KEYS = [
+  'requestApproval',
+  'takeSteerFlush',
+  'commitSteerFlush',
+  'rollbackSteerFlush',
+  'onInterruptReceipt',
+  'captureInterruptReceipt',
+  'onChannelRetired'
+] as const
+
+type FrameDelegateKey = (typeof FRAME_DELEGATE_KEYS)[number]
+export type FrameDelegate = Pick<TurnRequest, FrameDelegateKey>
+
+// 어댑터로 넘어가는 부분집합 — 나머지는 Runtime 내부 소비라 요청에 실리지 않는다.
+const ADAPTER_DELEGATE_KEYS = [
+  'requestApproval',
+  'takeSteerFlush',
+  'commitSteerFlush',
+  'rollbackSteerFlush'
+] as const satisfies readonly FrameDelegateKey[]
+
+// 요청에서 프레임 위임만 골라낸다. **요청을 처음부터 재조립하는 경로**(listen 은 원 request 를
+// spread 하면 base64 첨부가 분 단위로 살아남아 최소 리터럴로 짓는다, 0149)가 위임을 절반만
+// 넘기지 않도록, 그 목록을 손으로 나열하는 대신 여기서 받아 간다.
+export function pickFrameDelegates(req: TurnRequest): FrameDelegate {
+  const picked: Record<string, unknown> = {}
+  for (const key of FRAME_DELEGATE_KEYS) {
+    if (req[key] !== undefined) picked[key] = req[key]
+  }
+  return picked as FrameDelegate
+}
+
 // close 정책 2종(decision ⑳ → 0067 개정) — 'persistent' 는 **장수명 세션 채널**: 어댑터가
 // pushTurn 을 구현하면 한 번의 spawn(query/서브프로세스)이 세션 수명(LRU 축출·프로그램 종료·
 // respawn 경계·에러) 동안 살아남아 후속 턴을 이어받는다. 'oneshot' 또는 pushTurn 미구현
@@ -125,21 +160,12 @@ export class SessionRuntime implements ManagedRuntime {
   // chat-turn 의 "pushTurn 은 유휴 채널에서만" 가드가 읽는다 — mid-turn push 로 auto-turn 의
   // terminal/에러가 다음 프레임에 오귀속되는 것(steer 세션 사망)을 구조적으로 차단한다.
   private cliBusy = false
-  // 현재 턴의 콜백 위임 — 채널 spawn 시 바인딩되는 requestApproval/takeSteerFlush 가 턴을 넘어
-  // 재사용되므로, 어댑터에는 고정 래퍼를 주고 실제 콜백은 매 send 마다 여기로 갈아끼운다(0067 W1).
-  private delegate: {
-    requestApproval?: TurnRequest['requestApproval']
-    takeSteerFlush?: TurnRequest['takeSteerFlush']
-    // 게이트 훅의 짝 콜백도 **턴마다 재바인딩**해야 한다. 채널은 체인보다 오래 살고 이 콜백들은
-    // 체인 스코프(lease.chainId fence)를 캡처하므로, spawn 시점 값을 그대로 두면 두 번째 체인부터
-    // "take 는 현재 체인 · commit 은 옛 체인" 이 되어 fence 가 항상 어긋난다(0166 D8).
-    commitSteerFlush?: TurnRequest['commitSteerFlush']
-    rollbackSteerFlush?: TurnRequest['rollbackSteerFlush']
-    // 0151 — 중단 영수증 상향 통로. 잔여 uuid 판정은 컴포지션 루트가 한다(교차 feature 금지).
-    onInterruptReceipt?: TurnRequest['onInterruptReceipt']
-    captureInterruptReceipt?: TurnRequest['captureInterruptReceipt']
-    onChannelRetired?: TurnRequest['onChannelRetired']
-  } = {}
+  // 현재 턴의 콜백 위임(0067 W1) — 채널 spawn 시 어댑터에 바인딩된 콜백이 턴을 넘어 재사용되므로,
+  // 어댑터에는 고정 래퍼를 주고 실제 콜백은 매 send/listen 마다 여기로 갈아끼운다.
+  // 목록 정본은 `FRAME_DELEGATE_KEYS` 다 — **요청을 재조립하는 모든 경로**(listen 등)가 같은
+  // 목록으로 골라내야 한다(`pickFrameDelegates`). 절반만 넘기면 "take 는 현재 체인 · commit 은
+  // 옛 체인" 이 되어 확정 fence 가 항상 어긋나고 배치가 `submitting` 에 갇힌다(0166 D7/D8).
+  private delegate: FrameDelegate = {}
   // 0125: 채널 spawn 시 어댑터에 주입된 providerSettings 의 불투명 기록 — 내용 해석·비교는
   // 호출자(chat-turn + features/providers 판정) 소관이고 여기선 기록/해제만 한다(0016 중립).
   // spawn 성공 시 갱신, teardown/채널 사망 시 해제 — channelAlive 인 동안만 유효.
@@ -249,17 +275,7 @@ export class SessionRuntime implements ManagedRuntime {
   }
 
   private adoptDelegate(req: TurnRequest): void {
-    this.delegate = {
-      ...(req.requestApproval ? { requestApproval: req.requestApproval } : {}),
-      ...(req.takeSteerFlush ? { takeSteerFlush: req.takeSteerFlush } : {}),
-      ...(req.commitSteerFlush ? { commitSteerFlush: req.commitSteerFlush } : {}),
-      ...(req.rollbackSteerFlush ? { rollbackSteerFlush: req.rollbackSteerFlush } : {}),
-      ...(req.onInterruptReceipt ? { onInterruptReceipt: req.onInterruptReceipt } : {}),
-      ...(req.captureInterruptReceipt
-        ? { captureInterruptReceipt: req.captureInterruptReceipt }
-        : {}),
-      ...(req.onChannelRetired ? { onChannelRetired: req.onChannelRetired } : {})
-    }
+    this.delegate = pickFrameDelegates(req)
   }
 
   private async *runAttempt(req: TurnRequest): AsyncIterable<NormalizedEvent> {
@@ -518,6 +534,10 @@ export class SessionRuntime implements ManagedRuntime {
     // 채널 폐기는 취소가 아니다 — 이미 받은 이벤트는 소비자가 드레인하도록 둔다(end).
     frame?.end()
     if (this.consumingFrame && this.consumingFrame !== frame) this.consumingFrame.end()
+    // 소비자가 이미 제너레이터를 떠났으면 consumeFrame/runListen 의 finally 가 돌지 않는다 —
+    // 런타임은 세션 수명 객체라 붙들고 있으면 그 프레임의 이벤트가 다음 턴까지 살아남는다.
+    this.consumingFrame = null
+    this.listenFrame = null
     this.draining = false
     this.cliBusy = false
     this.unframed = []
@@ -542,30 +562,23 @@ export class SessionRuntime implements ManagedRuntime {
   }
 
   // 어댑터에 넘기는 요청 — 신호는 채널 신호로 치환(턴 신호와 분리), 콜백은 delegate 래퍼로 치환.
+  // 래퍼 맵은 `ADAPTER_DELEGATE_KEYS` 전부를 요구하는 타입이라, 위임이 하나 늘었는데 여기 래퍼를
+  // 안 만들면 **컴파일 에러**가 난다 — spawn 클로저가 조용히 굳는 경로를 타입으로 막는다.
   private wrapRequest(req: TurnRequest): TurnRequest {
-    return {
-      ...req,
-      signal: this.channelController.signal,
-      ...(req.requestApproval
-        ? {
-            requestApproval: (action, signal) => {
-              const current = this.delegate.requestApproval
-              if (current) return current(action, signal)
-              return Promise.resolve({ behavior: 'deny' as const })
-            }
-          }
-        : {}),
-      // 게이트 훅 3종은 **모두** delegate 경유여야 한다. 채널이 체인보다 오래 살기 때문에
-      // spawn 시점 클로저를 그대로 넘기면 두 번째 체인부터 take/commit 이 서로 다른 체인을 본다
-      // → commit fence 가 항상 실패하고 배치가 `submitting` 에 영구히 갇힌다(0166 D8).
-      ...(req.takeSteerFlush ? { takeSteerFlush: () => this.delegate.takeSteerFlush?.() } : {}),
-      ...(req.commitSteerFlush
-        ? { commitSteerFlush: (batch) => this.delegate.commitSteerFlush?.(batch) ?? false }
-        : {}),
-      ...(req.rollbackSteerFlush
-        ? { rollbackSteerFlush: (batch) => this.delegate.rollbackSteerFlush?.(batch) }
-        : {})
+    const forward: { [K in (typeof ADAPTER_DELEGATE_KEYS)[number]]: NonNullable<TurnRequest[K]> } =
+      {
+        requestApproval: (action, signal) =>
+          this.delegate.requestApproval?.(action, signal) ??
+          Promise.resolve({ behavior: 'deny' as const }),
+        takeSteerFlush: () => this.delegate.takeSteerFlush?.(),
+        commitSteerFlush: (batch) => this.delegate.commitSteerFlush?.(batch) ?? false,
+        rollbackSteerFlush: (batch) => this.delegate.rollbackSteerFlush?.(batch)
+      }
+    const wrapped: Record<string, unknown> = {}
+    for (const key of ADAPTER_DELEGATE_KEYS) {
+      if (req[key] !== undefined) wrapped[key] = forward[key]
     }
+    return { ...req, signal: this.channelController.signal, ...wrapped }
   }
 
   close(): void {

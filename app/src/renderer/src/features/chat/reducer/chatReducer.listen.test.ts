@@ -3,32 +3,13 @@ import { describe, expect, it } from 'vitest'
 import { chatReducer, initialChatState, type ChatState } from './chatReducer'
 import { messageSegments } from '../lib/parts'
 import type { NormalizedEvent } from '../../../../../shared/ipc'
+import { activitySnapshot as activity } from '../activity.testfixture'
 
 const recv = (ev: NormalizedEvent): { type: 'RECV_EVENT'; event: NormalizedEvent } => ({
   type: 'RECV_EVENT',
   event: ev
 })
 
-// 헬퍼는 `busy`·counts·`foreground` 를 **transport 와 독립**으로 받는다. r1 검증에서 이 헬퍼가
-// `busy = (transport==='listening')` 로 고정돼 있어 "잔여만 남은 idle" 분기가 한 번도 실행되지
-// 않았고, 그 분기가 보고 ②-a 를 재현하고 있었다(verify D5).
-const activity = (
-  revision: number,
-  transport: 'idle' | 'listening',
-  patch: Partial<Extract<NormalizedEvent, { type: 'chat.activity' }>> = {}
-): NormalizedEvent => ({
-  type: 'chat.activity',
-  sessionId: 's',
-  revision,
-  foreground: 'idle',
-  transport,
-  busy: transport === 'listening',
-  queuedCount: 0,
-  deliveryPendingCount: 0,
-  residualCount: 0,
-  backgroundTaskCount: transport === 'listening' ? 1 : 0,
-  ...patch
-})
 const noticeSettled = (toolUseId = 'p1'): NormalizedEvent => ({
   type: 'subagent.task',
   sessionId: 's',
@@ -90,21 +71,13 @@ describe('chatReducer — chat.activity 권위 스냅샷', () => {
     // busy 로 읽으면 사용자가 다음 메시지를 보낼 때까지 애니메이션이 영원히 돈다.
     const s = chatReducer(
       initialChatState,
-      recv(activity(1, 'idle', { busy: true, deliveryPendingCount: 1, residualCount: 1 }))
+      recv(activity(1, 'idle', { deliveryPendingCount: 1, residualCount: 1, queuedCount: 2 }))
     )
     expect(s.listening).toBe(false)
     expect(s.listenStartedAt).toBeNull()
     // 사실 자체는 스냅샷 필드로 남아 라벨·Notice 가 쓴다.
     expect(s.activityResidualCount).toBe(1)
     expect(s.activityDeliveryPendingCount).toBe(1)
-  })
-
-  it('held 입력이 남아 있어도 transport idle 이면 listening 을 켜지 않는다', () => {
-    const s = chatReducer(
-      initialChatState,
-      recv(activity(1, 'idle', { busy: true, queuedCount: 2 }))
-    )
-    expect(s.listening).toBe(false)
     expect(s.activityQueuedCount).toBe(2)
   })
 
@@ -184,7 +157,6 @@ describe('chatReducer — chat.activity 권위 스냅샷', () => {
         title: null,
         messages: [],
         activity: activity(3, 'idle', {
-          busy: true,
           deliveryPendingCount: 1,
           residualCount: 1
         }) as Extract<NormalizedEvent, { type: 'chat.activity' }>

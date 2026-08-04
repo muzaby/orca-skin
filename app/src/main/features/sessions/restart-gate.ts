@@ -6,12 +6,12 @@
 // (= 등록된 turn)을 셌는데, 턴이 교체되는 창(child 반납 ~ 다음 child 등록)에는 turn 이 0개라
 // **작업 중인데 "유휴" 로 보였다** → 그 창에서 업데이트가 설치될 수 있었다(D4).
 
+import type { RestartGateState } from '../../../shared/update-restart'
 import type { SessionChainLease } from './session-chain-lease'
 
-export interface LeaseGateState {
-  isGenerating: boolean
-  activeToolCallCount: number
-}
+// 게이트 상태 중 **lease 에서 파생되는 부분집합** — 나머지(activeDbWriteCount·isIndexing)는
+// Bootstrap 자신의 카운터다. 정본에서 Pick 해 두 곳이 손으로 어긋나지 않게 한다.
+export type LeaseGateState = Pick<RestartGateState, 'isGenerating' | 'activeToolCallCount'>
 
 /** lease 가 하나라도 살아 있으면 생성 중이다 — activeChild 유무와 무관(교체 창 포함). */
 export function deriveLeaseGateState<W>(leases: readonly SessionChainLease<W>[]): LeaseGateState {

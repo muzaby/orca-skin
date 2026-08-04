@@ -1,7 +1,12 @@
 // 0167 대기 라벨 파생 규칙 — AC12(사실 조합)·AC14(무활동 라벨)·AC21(foreground 미적용)·
 // 길이 규칙(상위 2 + 합계). 시각이 아니라 **로직**이므로 순수 함수로 고정한다.
 import { describe, expect, it } from 'vitest'
-import { deriveActivityLabel, IDLE_HINT_MS, type ActivityView } from './activityLabel'
+import {
+  deriveActivityLabel,
+  IDLE_HINT_MS,
+  MAX_VISIBLE_FACTS,
+  type ActivityView
+} from './activityLabel'
 
 const view = (patch: Partial<ActivityView> = {}): ActivityView => ({
   foreground: 'idle',
@@ -50,8 +55,8 @@ describe('deriveActivityLabel — 사실 조합 (AC12)', () => {
   })
 })
 
-describe('deriveActivityLabel — 길이 규칙 (상위 2 + 합계)', () => {
-  it('사실이 3건 이상이면 화면에는 2건만 두고 나머지는 overflow 로 접는다', () => {
+describe('deriveActivityLabel — 표시 순서 (앞 MAX_VISIBLE_FACTS 개가 화면 몫)', () => {
+  it('사실은 고정 순서로 쌓인다 — 화면은 앞 2건, 나머지는 호출자가 합계로 접는다', () => {
     const label = deriveActivityLabel(
       view({
         listening: true,
@@ -62,15 +67,16 @@ describe('deriveActivityLabel — 길이 규칙 (상위 2 + 합계)', () => {
       }),
       0
     )
-    expect(label.facts).toHaveLength(4)
-    expect(label.visible.map((f) => f.key)).toEqual(['deliveryPending', 'queued'])
-    expect(label.overflow).toBe(2)
-  })
-
-  it('2건 이하면 접지 않는다', () => {
-    const label = deriveActivityLabel(view({ listening: true, queuedCount: 1 }), 0)
-    expect(label.visible).toHaveLength(1)
-    expect(label.overflow).toBe(0)
+    expect(label.facts.map((f) => f.key)).toEqual([
+      'deliveryPending',
+      'queued',
+      'residual',
+      'background'
+    ])
+    expect(label.facts.slice(0, MAX_VISIBLE_FACTS).map((f) => f.key)).toEqual([
+      'deliveryPending',
+      'queued'
+    ])
   })
 })
 
@@ -110,7 +116,9 @@ describe('deriveActivityLabel — 상태 (AC14 · AC21)', () => {
   })
 
   it('activity 미제공(레거시 호출부)은 streaming 으로 기존 동작을 유지한다', () => {
-    const label = deriveActivityLabel(undefined, IDLE_HINT_MS * 10)
-    expect(label).toEqual({ status: 'streaming', facts: [], visible: [], overflow: 0 })
+    expect(deriveActivityLabel(undefined, IDLE_HINT_MS * 10)).toEqual({
+      status: 'streaming',
+      facts: []
+    })
   })
 })

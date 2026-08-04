@@ -1,11 +1,12 @@
 // 0166 A12·A13 — 재시작 게이트가 **lease 수명**을 본다. 구 구조(`supervisor.all()` = turn 집합)는
 // child 교체 창에서 turn 이 0개라 "유휴" 로 오판했고, 그 창에서 업데이트가 설치될 수 있었다(D4).
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { canRestartForUpdate } from '../../../shared/update-restart'
 import { RuntimeSupervisor } from './supervisor'
 import { deriveLeaseGateState } from './restart-gate'
 import { sessionLeaseKey } from './session-chain-lease'
 import type { TurnContext } from '../../contracts/turn'
+import type { ManagedRuntime } from '../../contracts/ports'
 
 function turn(openToolRuns: string[] = []): TurnContext<string> {
   return {
@@ -13,6 +14,11 @@ function turn(openToolRuns: string[] = []): TurnContext<string> {
     controller: new AbortController(),
     openToolRuns: new Map(openToolRuns.map((id) => [id, { name: 'Bash' }]))
   } as unknown as TurnContext<string>
+}
+
+// `as never` 로 지우면 ManagedRuntime 계약이 바뀌어도 여기서 타입 에러가 안 난다 — 좁혀 둔다.
+function managed(close: () => void = () => {}): ManagedRuntime {
+  return { state: 'live', reusable: true, close } as unknown as ManagedRuntime
 }
 
 function acquire(supervisor: RuntimeSupervisor<string>, sessionId: string): string {
@@ -45,23 +51,21 @@ describe('deriveLeaseGateState — 작업 중 업데이트 설치 차단 (A12)',
   it('active lease 의 열린 도구 호출 수를 합산한다', () => {
     const supervisor = new RuntimeSupervisor<string>()
     const leaseId = acquire(supervisor, 's1')
-    supervisor.activateChain(
-      leaseId,
-      { state: 'live', reusable: true, close: () => {} } as never,
-      'claude',
-      turn(['t1', 't2'])
-    )
+    supervisor.activateChain(leaseId, managed(), 'claude', turn(['t1', 't2']))
     expect(deriveLeaseGateState(supervisor.allLeases())).toEqual({
       isGenerating: true,
       activeToolCallCount: 2
     })
   })
 
-  it('여러 세션의 lease 를 함께 센다', () => {
+  it('열린 도구 호출 수는 **여러 세션에 걸쳐 합산**된다', () => {
     const supervisor = new RuntimeSupervisor<string>()
-    acquire(supervisor, 's1')
-    acquire(supervisor, 's2')
-    expect(deriveLeaseGateState(supervisor.allLeases()).isGenerating).toBe(true)
+    supervisor.activateChain(acquire(supervisor, 's1'), managed(), 'claude', turn(['a']))
+    supervisor.activateChain(acquire(supervisor, 's2'), managed(), 'claude', turn(['b', 'c']))
+    expect(deriveLeaseGateState(supervisor.allLeases())).toEqual({
+      isGenerating: true,
+      activeToolCallCount: 3
+    })
   })
 })
 
@@ -81,12 +85,7 @@ describe('lease 해제가 게이트를 되돌린다 (A13)', () => {
     const seen: string[] = []
     supervisor.subscribeLeases((key) => seen.push(key))
     const leaseId = acquire(supervisor, 's1')
-    supervisor.activateChain(
-      leaseId,
-      { state: 'live', reusable: true, close: () => {} } as never,
-      'claude',
-      turn()
-    )
+    supervisor.activateChain(leaseId, managed(), 'claude', turn())
     supervisor.releaseChain(leaseId)
     // acquire · activate · release 세 전이가 모두 통지된다.
     expect(seen).toEqual([sessionLeaseKey('s1'), sessionLeaseKey('s1'), sessionLeaseKey('s1')])
@@ -98,14 +97,9 @@ describe('세션 전체 중단·종료가 lease runtime 을 닫는다 (A15·A17)
     const supervisor = new RuntimeSupervisor<string>()
     acquire(supervisor, 's1')
     const activeId = acquire(supervisor, 's2')
-    let closed = 0
+    const close = vi.fn()
     const child = turn()
-    supervisor.activateChain(
-      activeId,
-      { state: 'live', reusable: true, close: () => (closed += 1) } as never,
-      'claude',
-      child
-    )
+    supervisor.activateChain(activeId, managed(close), 'claude', child)
 
     supervisor.closeAllLeaseRuntimes()
 
@@ -114,6 +108,6 @@ describe('세션 전체 중단·종료가 lease runtime 을 닫는다 (A15·A17)
     expect(supervisor.getChainByKey(sessionLeaseKey('s1'))?.kind).toBe('closing')
     // ② active child 도 abort ③ lease runtime close — 서브프로세스 잔존 방지(D5).
     expect(child.controller.signal.aborted).toBe(true)
-    expect(closed).toBe(1)
+    expect(close).toHaveBeenCalledTimes(1)
   })
 })

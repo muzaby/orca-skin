@@ -529,6 +529,7 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
           // 스냅샷의 `foreground` 는 **라벨 전용**이고, 여기서 `inflight` 를 덮으면
           // BEGIN_TURN/TURN_END_RESET/CANCEL_CHAT 의 낙관적 판정을 뒤늦은 스냅샷이 되돌린다
           // (초기 동기화만 예외 — LOAD_SESSION hydrate 는 로컬 진실이 없으므로 스냅샷을 쓴다).
+          const listening = ev.transport === 'listening'
           return {
             ...state,
             activityRevision: ev.revision,
@@ -537,9 +538,8 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             activityDeliveryPendingCount: ev.deliveryPendingCount,
             activityResidualCount: ev.residualCount,
             activityBackgroundTaskCount: ev.backgroundTaskCount,
-            listening: ev.transport === 'listening',
-            listenStartedAt:
-              ev.transport === 'listening' ? (state.listenStartedAt ?? Date.now()) : null
+            listening,
+            listenStartedAt: listening ? (state.listenStartedAt ?? Date.now()) : null
           }
         }
 

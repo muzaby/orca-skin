@@ -5,7 +5,7 @@ import type { TurnRequest } from '../../adapters/turn'
 import type { AbortCause } from '../../contracts/session-state'
 import type { GovernedLiveTurn, RuntimeSessionAdapter } from '../../contracts/ports'
 import type { LiveTurn, ProviderMessageBatch } from '../../adapters/types'
-import { SessionRuntime } from './session-runtime'
+import { SessionRuntime, pickFrameDelegates } from './session-runtime'
 import { decideRespawn } from './respawn-policy'
 
 function req(): TurnRequest {
@@ -375,13 +375,11 @@ describe('SessionRuntime 장수명 채널(0067)', () => {
     const ch = channelLive()
     let captured: TurnRequest | undefined
     const runtime = new SessionRuntime({
-      id: 'claude',
-      complete: async () => '',
+      ...adapter(ch.liveTurn),
       sendMessage: (request) => {
         captured = request
         return ch.liveTurn
-      },
-      classifyError: (err) => makeClassifiedError('stream_error', String(err), { retryable: true })
+      }
     })
 
     const calls: string[] = []
@@ -420,6 +418,33 @@ describe('SessionRuntime 장수명 채널(0067)', () => {
 
     ch.emit({ type: 'telemetry', sessionId: 's1' })
     await second
+  })
+
+  it('pickFrameDelegates 는 프레임 위임을 **전부** 옮긴다 — 재조립 경로의 절반 누락 차단', () => {
+    const noop = (): undefined => undefined
+    const full = {
+      ...req(),
+      requestApproval: noop,
+      takeSteerFlush: noop,
+      commitSteerFlush: () => true,
+      rollbackSteerFlush: noop,
+      onInterruptReceipt: noop,
+      captureInterruptReceipt: noop,
+      onChannelRetired: noop
+    } as unknown as TurnRequest
+    // listen 요청(`chat-turn.ts`)이 손으로 나열하다 commit/rollback 을 빠뜨려 게이트 훅이 배치를
+    // `submitting` 에 가뒀다(0166 D7). 목록을 여기 한 곳에 두고 그 전량을 단언한다.
+    expect(Object.keys(pickFrameDelegates(full)).sort()).toEqual([
+      'captureInterruptReceipt',
+      'commitSteerFlush',
+      'onChannelRetired',
+      'onInterruptReceipt',
+      'requestApproval',
+      'rollbackSteerFlush',
+      'takeSteerFlush'
+    ])
+    // 요청이 안 준 것은 싣지 않는다(어댑터가 "있다" 로 오인하지 않게).
+    expect(pickFrameDelegates(req())).toEqual({})
   })
 
   // 0165 AC14 — **보고 증상 ① 의 재현 경로**. 취소 턴이 만든 provider error 가 다음 턴 프레임으로
@@ -468,10 +493,8 @@ describe('SessionRuntime 장수명 채널(0067)', () => {
     const second = channelLive()
     let spawned = 0
     const runtime = new SessionRuntime({
-      id: 'claude',
-      complete: async () => '',
-      sendMessage: () => (spawned++ === 0 ? first.liveTurn : second.liveTurn),
-      classifyError: (err) => makeClassifiedError('stream_error', String(err), { retryable: true })
+      ...adapter(first.liveTurn),
+      sendMessage: () => (spawned++ === 0 ? first.liveTurn : second.liveTurn)
     })
 
     const turn1 = collect(runtime.send(req()))
@@ -503,10 +526,8 @@ describe('SessionRuntime 장수명 채널(0067)', () => {
     const second = channelLive()
     let spawned = 0
     const runtime = new SessionRuntime({
-      id: 'claude',
-      complete: async () => '',
-      sendMessage: () => (spawned++ === 0 ? first.liveTurn : second.liveTurn),
-      classifyError: (err) => makeClassifiedError('stream_error', String(err), { retryable: true })
+      ...adapter(first.liveTurn),
+      sendMessage: () => (spawned++ === 0 ? first.liveTurn : second.liveTurn)
     })
 
     const turn1 = collect(runtime.send(req()))

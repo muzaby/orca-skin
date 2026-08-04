@@ -4,7 +4,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { formatElapsed, useElapsed } from '../../../shared/ui/elapsed'
 import { useI18n } from '../../../shared/i18n'
-import { deriveActivityLabel, type ActivityFact, type ActivityView } from '../lib/activityLabel'
+import { deriveActivityLabel, MAX_VISIBLE_FACTS, type ActivityView } from '../lib/activityLabel'
 
 const SYMBOLS = ['✢', '✣', '✦', '✧', '★', '✶']
 
@@ -89,15 +89,16 @@ export function StatusLine({
   const showCounter = elapsedSec >= 5
   // 조합 규칙은 순수 모듈이 소유한다(lib/activityLabel) — 여기서는 키를 문구로 옮기기만 한다.
   const label = deriveActivityLabel(activity, elapsedSec * 1000)
-  const factText = (fact: ActivityFact): string =>
+  // 번역은 한 번만 — tooltip(전체)과 인라인(상위 N개)이 같은 배열을 나눠 쓴다.
+  const factTexts = label.facts.map((fact) =>
     tr(`chat.activity.${fact.key}`, { count: fact.count })
-  const visibleFacts = label.visible.map(factText)
-  if (label.overflow > 0) {
-    visibleFacts.push(tr('chat.activity.more', { count: label.overflow }))
-  }
+  )
+  const visibleFacts = factTexts.slice(0, MAX_VISIBLE_FACTS)
+  const overflow = factTexts.length - visibleFacts.length
+  if (overflow > 0) visibleFacts.push(tr('chat.activity.more', { count: overflow }))
   const statusLabel =
     label.status === 'streaming' ? `${verb}…` : tr(`chat.activity.${label.status}`)
-  const factLabel = label.facts.map(factText).join(' · ')
+  const factLabel = factTexts.join(' · ')
   const accessibleLabel = [statusLabel, factLabel, showCounter ? formatElapsed(elapsedSec) : null]
     .filter(Boolean)
     .join(', ')

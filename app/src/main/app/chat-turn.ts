@@ -44,7 +44,7 @@ import { sendChatEvent } from '../infra/ipc/send'
 import { handle, handlePlain } from '../infra/ipc/handle'
 import type { ApprovalCoordinator } from '../features/approvals/coordinator'
 import type { HistoryWriter } from '../features/history/writer'
-import { SessionRuntime } from '../features/sessions/session-runtime'
+import { SessionRuntime, pickFrameDelegates } from '../features/sessions/session-runtime'
 import { decideRespawn } from '../features/sessions/respawn-policy'
 import { prepareAutomaticContinuation } from './chat-turn-continuation'
 import type { RuntimeSessionAdapter } from '../contracts/ports'
@@ -1118,8 +1118,11 @@ export function registerChatHandlers(deps: ChatDeps): void {
             supervisor.startResume(sessionId, listenTurn)
             activeTurn = listenTurn
             // listen 요청은 **최소 리터럴**로 조립한다(0149) — 원 턴 request 를 spread 하면 그
-            // 턴의 base64 첨부(수 MB)가 listen phase(분 단위) 내내 살아남는다. listen 경로가
-            // 실제로 읽는 것은 프레임 위임(requestApproval·takeSteerFlush)·관측 메타뿐이다.
+            // 턴의 base64 첨부(수 MB)가 listen phase(분 단위) 내내 살아남는다.
+            // 다만 **프레임 위임은 전부** 넘겨야 한다: `adoptDelegate` 가 delegate 를 통째로
+            // 교체하므로 여기서 절반만 실으면 listen 프레임 동안 commit/rollback 이 사라져
+            // 게이트 훅이 배치를 `submitting` 에 가둔다(0166 D7 과 같은 결함). 목록을 손으로
+            // 나열하지 않고 `pickFrameDelegates` 로 받아 그 실수를 구조적으로 막는다.
             const listenRequest: TurnRequest = {
               sessionId,
               text: '',
@@ -1130,12 +1133,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
               ...(continuation.providerSettings
                 ? { providerSettings: continuation.providerSettings }
                 : {}),
-              ...(request.requestApproval ? { requestApproval: request.requestApproval } : {}),
-              ...(request.takeSteerFlush ? { takeSteerFlush: request.takeSteerFlush } : {}),
-              ...(request.captureInterruptReceipt
-                ? { captureInterruptReceipt: request.captureInterruptReceipt }
-                : {}),
-              ...(request.onChannelRetired ? { onChannelRetired: request.onChannelRetired } : {})
+              ...pickFrameDelegates(request)
             }
             // busy send 릴리즈 밸브 — 예약(held) 적재 직후 listen 프레임을 닫아 즉시 전환(0136).
             // CLI 가 자동 턴 진행 중이면 no-op(0143 유예) — terminal 자연 마감 후 루프가 flush.

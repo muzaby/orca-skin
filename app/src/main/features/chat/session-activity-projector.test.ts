@@ -58,8 +58,7 @@ describe('SessionActivityProjector', () => {
       sessionId: 's',
       revision: 1,
       queuedCount: 0,
-      deliveryPendingCount: 1,
-      busy: true
+      deliveryPendingCount: 1
     })
   })
 
@@ -74,7 +73,6 @@ describe('SessionActivityProjector', () => {
     expect(f.emitted.at(-1)).toMatchObject({
       foreground: 'streaming',
       transport: 'listening',
-      busy: true,
       backgroundTaskCount: 1
     })
   })

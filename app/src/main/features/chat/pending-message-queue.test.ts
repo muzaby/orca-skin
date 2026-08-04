@@ -326,12 +326,9 @@ describe('PendingMessageQueue', () => {
       expect(q.hasSubmitted('s')).toBe(false) // submitted 가 아니라 판정에서 안 보였다
       expect(q.counts('s').deliveryPendingCount).toBe(1) // 그런데 open 카운트에는 잡힌다
 
-      const orphaned = q.orphanUnconfirmed('s', 'chain-1')
-      expect(orphaned.map((b) => b.ids)).toEqual([['a']])
-      // 이제 늦은 echo 로 확정되거나(커밋 유실 방지) respawn 이월·discard 로 회수될 수 있다.
-      expect(q.confirm('s', { kind: 'echo', uuid: 'batch-1' }).map((b) => b.ids)).toEqual([['a']])
-      expect(q.drainConfirmed('s').map((b) => b.ids)).toEqual([['a']])
-      expect(q.counts('s').deliveryPendingCount).toBe(0)
+      expect(q.orphanUnconfirmed('s', 'chain-1').map((b) => b.ids)).toEqual([['a']])
+      // orphaned 는 confirm·takeForRespawn·discard 로 회수 가능하다(각 경로는 별도 테스트).
+      expect(q.hasSubmitted('s')).toBe(false)
     })
 
     it('다른 체인의 submitting 은 건드리지 않는다', () => {

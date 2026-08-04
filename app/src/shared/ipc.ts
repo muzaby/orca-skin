@@ -1403,7 +1403,6 @@ export interface ChatActivitySnapshot {
   revision: number
   foreground: 'idle' | 'preparing' | 'streaming'
   transport: 'idle' | 'listening'
-  busy: boolean
   queuedCount: number
   deliveryPendingCount: number
   residualCount: number

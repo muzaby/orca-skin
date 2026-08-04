@@ -169,19 +169,12 @@ export class SessionActivityProjector {
     const residualCount = this.deps.queue.messageCountForAttempts(sessionId, attempts)
     if (attempts.size > 0 && residualCount === 0) this.residualAttempts.delete(sessionId)
     const backgroundTaskCount = this.deps.backgroundTasks.count(sessionId)
-    const busy =
-      foreground !== 'idle' ||
-      transport === 'listening' ||
-      counts.queuedCount > 0 ||
-      counts.deliveryPendingCount > 0 ||
-      backgroundTaskCount > 0
     return {
       type: 'chat.activity',
       sessionId,
       revision,
       foreground,
       transport,
-      busy,
       queuedCount: counts.queuedCount,
       deliveryPendingCount: counts.deliveryPendingCount,
       residualCount,
@@ -200,7 +193,6 @@ function sameActivity(a: ChatActivitySnapshot, b: ChatActivitySnapshot): boolean
   return (
     a.foreground === b.foreground &&
     a.transport === b.transport &&
-    a.busy === b.busy &&
     a.queuedCount === b.queuedCount &&
     a.deliveryPendingCount === b.deliveryPendingCount &&
     a.residualCount === b.residualCount &&

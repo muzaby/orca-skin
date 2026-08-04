@@ -345,15 +345,11 @@ export class PendingMessageQueue {
   confirm(sessionId: string, signal: ConfirmSignal): SteerFlushBatch[] {
     const batches = this.trackedBySession.get(sessionId)
     if (!batches) return []
-    const receipted = (b: TrackedBatch): boolean => isOpen(b.state)
-    const settledTransport = (b: TrackedBatch): boolean =>
-      b.state === 'submitted' || b.state === 'orphaned'
-
     if (signal.kind === 'model-output') {
       const confirmed: SteerFlushBatch[] = []
       for (const uuid of signal.uuids) {
         const batch = batches.find(
-          (b) => b.origin === 'turn-open' && receipted(b) && b.uuid === uuid
+          (b) => b.origin === 'turn-open' && isOpen(b.state) && b.uuid === uuid
         )
         if (!batch) continue
         batch.state = 'confirmed'
@@ -367,9 +363,9 @@ export class PendingMessageQueue {
     // 배치의 **유일한** 확정 신호이므로, 여기서 거부하면 사용자 메시지가 영영 커밋되지 않는다.
     const batch =
       signal.uuid !== undefined
-        ? batches.find((b) => receipted(b) && b.uuid === signal.uuid)
+        ? batches.find((b) => isOpen(b.state) && b.uuid === signal.uuid)
         : signal.text !== undefined
-          ? batches.find((b) => settledTransport(b) && b.text === signal.text!.trim())
+          ? batches.find((b) => receiptSettled(b.state) && b.text === signal.text!.trim())
           : undefined
     if (!batch) return []
     batch.state = 'confirmed'
@@ -399,10 +395,8 @@ export class PendingMessageQueue {
     if (!batches) return []
     const orphaned: SteerFlushBatch[] = []
     for (const batch of batches) {
-      const pushedButUnconfirmed = batch.state === 'submitted' || batch.state === 'submitting'
-      if (!pushedButUnconfirmed || (chainId !== undefined && batch.chainId !== chainId)) {
-        continue
-      }
+      if (!awaitsReceipt(batch.state)) continue
+      if (chainId !== undefined && batch.chainId !== chainId) continue
       batch.state = 'orphaned'
       orphaned.push(toPublic(batch))
     }
@@ -469,9 +463,7 @@ export class PendingMessageQueue {
   // 되므로 origin 을 turn-open 으로 **재스탬프**한다 — 확정 신호가 echo 에서 첫 모델 출력으로
   // 바뀌기 때문이다. confirmed 잔존분(경계 유실)은 폐기한다(이중 전달 방지).
   takeForRespawn(sessionId: string, chainId: string = randomUUID()): SteerFlushBatch[] {
-    const carried = (this.trackedBySession.get(sessionId) ?? []).filter(
-      (b) => b.state !== 'confirmed'
-    )
+    const carried = (this.trackedBySession.get(sessionId) ?? []).filter((b) => isOpen(b.state))
     const held = this.heldBySession.get(sessionId) ?? []
     this.heldBySession.delete(sessionId)
     const next: TrackedBatch[] = carried.map((b) => {
@@ -577,8 +569,21 @@ export class PendingMessageQueue {
   }
 }
 
+// 상태 어휘 — 이 파일의 모든 "어느 상태를 대상으로 하는가" 판정은 **여기 이름 중 하나**를 쓴다.
+// 소비처마다 조건을 다시 쓰면 상태가 하나 늘 때 갱신을 놓친다(0166 D8 이 그 형태였다).
+//   isOpen         : 아직 우리 것 — 커밋되지 않았다. uuid 영수증·폐기·표시 카운트의 대상.
+//   awaitsReceipt  : stdin 으로 나갔고 확정 신호를 기다린다 — 체인 종료 시 orphaned 강등 대상.
+//   receiptSettled : 전송이 확정된 것만 — uuid 없는 텍스트 폴백처럼 오확정 위험이 있는 경로용.
 function isOpen(state: BatchState): boolean {
-  return state === 'submitting' || state === 'submitted' || state === 'orphaned'
+  return state !== 'confirmed'
+}
+
+function awaitsReceipt(state: BatchState): boolean {
+  return state === 'submitting' || state === 'submitted'
+}
+
+function receiptSettled(state: BatchState): boolean {
+  return state === 'submitted' || state === 'orphaned'
 }
 
 function sameIds(a: readonly string[], b: readonly string[]): boolean {

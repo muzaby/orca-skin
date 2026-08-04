@@ -8,26 +8,9 @@ import {
   installChatStoreHarness
 } from './chatStore.testHarness'
 import type { NormalizedEvent } from '../../../../../shared/ipc'
+import { activitySnapshot as activity } from '../activity.testfixture'
 
 let chatSend: ReturnType<typeof installChatStoreHarness>['chatSend']
-
-const activity = (
-  revision: number,
-  transport: 'idle' | 'listening',
-  patch: Partial<Extract<NormalizedEvent, { type: 'chat.activity' }>> = {}
-): NormalizedEvent => ({
-  type: 'chat.activity',
-  sessionId: 's',
-  revision,
-  foreground: 'idle',
-  transport,
-  busy: transport === 'listening',
-  queuedCount: 0,
-  deliveryPendingCount: 0,
-  residualCount: 0,
-  backgroundTaskCount: transport === 'listening' ? 1 : 0,
-  ...patch
-})
 
 beforeEach(() => {
   ;({ chatSend } = installChatStoreHarness())
@@ -62,7 +45,7 @@ describe('chatStore — chat.activity 라우팅', () => {
     flushRaf()
     expect(sessionBusy(session())).toBe(true)
     // 체인이 끝나고 orphaned 예약만 남은 상태(0154 가 의도적으로 유지하는 상태).
-    ingestChatEvent(activity(2, 'idle', { busy: true, deliveryPendingCount: 1, residualCount: 1 }))
+    ingestChatEvent(activity(2, 'idle', { deliveryPendingCount: 1, residualCount: 1 }))
     flushRaf()
     expect(session().listening).toBe(false)
     expect(session().inflight).toBe(false)
@@ -75,7 +58,7 @@ describe('chatStore — chat.activity 라우팅', () => {
     ingestChatEvent(activity(1, 'listening'))
     flushRaf()
     chatActions.send('잔여 유발')
-    ingestChatEvent(activity(2, 'idle', { busy: true, deliveryPendingCount: 1, residualCount: 1 }))
+    ingestChatEvent(activity(2, 'idle', { deliveryPendingCount: 1, residualCount: 1 }))
     flushRaf()
     expect(sessionBusy(session())).toBe(false)
 

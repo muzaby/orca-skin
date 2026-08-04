@@ -52,10 +52,9 @@ describe('ClaudeAdapter — provider 메시지 원자 배치 (AC5)', () => {
     })
 
     const batches = await collectBatches()
-    const failing = batches.filter((batch) => batch.events.some((ev) => ev.type === 'error'))
-    expect(failing).toHaveLength(1)
-    // 쪼개지지 않았다 — terminal 두 개가 같은 배치 안에 있다.
-    expect(failing[0].events.map((ev) => ev.type)).toEqual(['telemetry', 'error'])
+    // 쪼개지지 않았다 — terminal 두 개가 **한 배치** 안에 있다(배치가 더 생겨도 실패한다).
+    expect(batches).toHaveLength(1)
+    expect(batches[0].events.map((ev) => ev.type)).toEqual(['telemetry', 'error'])
   })
 
   it('sequence 는 배치마다 단조 증가한다 — 라우팅이 순서를 신뢰할 수 있어야 한다', async () => {
@@ -77,15 +76,14 @@ describe('ClaudeAdapter — provider 메시지 원자 배치 (AC5)', () => {
       }
     )
 
-    const batches = await collectBatches()
-    expect(batches.length).toBeGreaterThanOrEqual(2)
-    expect(batches.map((batch) => batch.sequence)).toEqual(batches.map((_, index) => index))
+    // 입력이 결정적이다 — assistant 1 + result 1 = 배치 2개.
+    expect((await collectBatches()).map((batch) => batch.sequence)).toEqual([0, 1])
   })
 
   it('이벤트를 만들지 않는 SDK 메시지는 빈 배치를 내지 않는다', async () => {
     messages.length = 0
     messages.push({ type: 'system', subtype: 'unknown_kind', session_id: 's1' })
-    const batches = await collectBatches()
-    expect(batches.every((batch) => batch.events.length > 0)).toBe(true)
+    // `every` 는 빈 배열에서도 참이라 아무것도 검사하지 못한다 — 배치 자체가 없어야 한다.
+    expect(await collectBatches()).toEqual([])
   })
 })
