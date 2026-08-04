@@ -75,7 +75,12 @@ import { HistoryWriter } from '../features/history/writer'
 import { materializeContinuityArrival } from '../features/orchestration/fork'
 import { TitleGenerator } from '../features/chat/title-generation'
 import { recoverSessionHistory } from '../features/chat/recovery'
-import { broadcastConcurrency, broadcastAuthState, sendChatEvent } from '../infra/ipc/send'
+import {
+  broadcastConcurrency,
+  broadcastAuthState,
+  broadcastChatEvent,
+  sendChatEvent
+} from '../infra/ipc/send'
 import { AuthBroker } from '../features/auth-platform/broker'
 import { PluginHost } from '../features/auth-platform/plugin-host'
 import { AuthRegistry } from '../features/auth-platform/registry'
@@ -91,6 +96,9 @@ import { BrowserSessionStore } from '../infra/auth/browser-session-store'
 import { createCredentialVault } from '../infra/auth/credential-vault'
 import { pluginExec } from '../infra/auth/plugin-exec'
 import { resolveBuiltinSkillsDir } from './builtin-resources'
+import { BackgroundTaskTracker } from '../features/chat/background-tasks'
+import { SessionActivityProjector } from '../features/chat/session-activity-projector'
+import { clientLeaseKey } from '../features/sessions/session-chain-lease'
 
 export class Bootstrap {
   private readonly bootReport = createBootReportRecorder()
@@ -120,6 +128,7 @@ export class Bootstrap {
   private scheduler?: Scheduler
   // 0151 — 종료 시 admission freeze + payload 스크럽을 위해 루트가 참조를 보관한다.
   private pendingMessages?: PendingMessageQueue
+  private activity?: SessionActivityProjector
 
   private builtinSkillsDir(): string {
     return resolveBuiltinSkillsDir({
@@ -487,10 +496,13 @@ export class Bootstrap {
   }
 
   restartGateState(): RestartGateState {
-    const turns = this.supervisor?.all() ?? []
+    const leases = this.supervisor?.allLeases() ?? []
     return {
-      isGenerating: turns.length > 0,
-      activeToolCallCount: turns.reduce((sum, turn) => sum + turn.openToolRuns.size, 0),
+      isGenerating: leases.length > 0,
+      activeToolCallCount: leases.reduce(
+        (sum, lease) => sum + (lease.activeChild?.openToolRuns.size ?? 0),
+        0
+      ),
       activeDbWriteCount: this.activeDbWriteCount,
       isIndexing: this.isIndexing
     }
@@ -537,6 +549,7 @@ export class Bootstrap {
     if (!this.supervisor || !this.bus) {
       // 조기 반환 경로에서도 미커밋 payload 는 반드시 스크럽한다.
       this.pendingMessages?.disposeAll()
+      this.activity?.dispose()
       return
     }
     const bus = this.bus
@@ -554,12 +567,14 @@ export class Bootstrap {
       settleOpenToolRuns(turn, emit, 'aborted')
       turn.controller.abort()
     }
+    this.supervisor.closeAllLeaseRuntimes()
     // idle 로 보존된 Persistent 핸들(진행 턴 아님) 일괄 close(0054). 게이트 OFF 면 풀이 비어 no-op.
     this.supervisor.closeIdleRuntimes()
     // 런타임을 모두 닫은 **뒤** 미커밋 pending 을 스크럽하고 맵을 비운다(0151 AC8) — pending 은
     // 비영속이 정책이라 다음 실행에서 복원하지 않는다. 순서가 중요하다: 채널이 살아 있는 동안
     // 지우면 진행 중 flush 가 빈 큐를 보고 조용히 유실될 수 있다.
     this.pendingMessages?.disposeAll()
+    this.activity?.dispose()
   }
 
   private register(ctx: RouterContext): void {
@@ -574,6 +589,7 @@ export class Bootstrap {
       capPolicy: new BoundedRuntimeCapPolicy(),
       capacity: 5
     }))
+    supervisor.subscribeLeases(() => this.updateStateChanged())
     // turn.event 단일 파이프라인(스펙 §4.2). **구독 순서 = SSOT**: usage(집계) → history(영속) →
     // title(제목) → relay(renderer 중계). usage 가 history 의 currentAssistantMessageId reset *전* 에
     // 그 messageId 를 읽고, title 이 relay 전에 트리거되는 순서 불변식을 이 등록 순서 한 곳이 소유한다.
@@ -602,6 +618,26 @@ export class Bootstrap {
     const permissionModes = new PermissionModeController()
     // 0067 AC10: AdmissionController 폐기 — busy send = pending queue 예약(chat-turn 소유).
     const pendingMessages = (this.pendingMessages = new PendingMessageQueue())
+    const backgroundTasks = new BackgroundTaskTracker()
+    const activity = (this.activity = new SessionActivityProjector({
+      queue: pendingMessages,
+      backgroundTasks,
+      leases: {
+        subscribe: (listener) => supervisor.subscribeLeases(listener),
+        foreground: (sessionId, transport) => {
+          const lease =
+            supervisor.getChainBySession(sessionId) ??
+            supervisor.getChainByKey(clientLeaseKey(sessionId))
+          if (!lease) return 'idle'
+          if (lease.kind === 'preparing') return 'preparing'
+          if (lease.kind === 'active' && lease.activeChild && transport === 'idle') {
+            return 'streaming'
+          }
+          return 'idle'
+        }
+      },
+      emit: broadcastChatEvent
+    }))
     registerChatHandlers({
       ctx,
       supervisor,
@@ -610,6 +646,8 @@ export class Bootstrap {
       persistence,
       permissionModes,
       pendingMessages,
+      backgroundTasks,
+      activity,
       isUpdateInstallPending: () => this.isUpdateInstallPending()
     })
     approvals.registerHandlers(supervisor, permissionModes)
@@ -617,7 +655,15 @@ export class Bootstrap {
     // 세션 삭제 시 미커밋 pending 도 함께 폐기한다(0151 AC8) — 루트가 chat 큐를 주입해
     // session 슬라이스가 chat 슬라이스를 참조하지 않게 한다.
     registerSessionHandlers(ctx, {
-      onSessionDisposed: (sessionId) => pendingMessages.dispose(sessionId)
+      onSessionDisposed: (sessionId) => {
+        // DB 행을 지우기 전에 호출되는 hook에서 active/idle provider 수명도 함께 끊는다. lease가
+        // child 교체 중이어도 runtime을 직접 소유하므로 삭제된 세션이 뒤늦게 영속화를 재개하지 않는다.
+        supervisor.discardRuntime(sessionId)
+        pendingMessages.dispose(sessionId)
+        backgroundTasks.clear(sessionId)
+        activity.clear(sessionId)
+      },
+      getActivity: (sessionId) => activity.current(sessionId)
     })
     registerProjectHandlers(ctx)
     registerMcpHandlers(ctx)

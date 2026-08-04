@@ -460,10 +460,20 @@ export const ko = {
     // 예약 steer 가 stdin 으로 넘어가 취소 불가가 된 상태 표시(0151).
     steer: {
       submitted: '전달됨',
-      residualTitle: '중단했지만 대기 중인 메시지가 남아 있습니다',
+      residualTitle: '응답은 중단됨 · 전달 대기 {{count}}건',
       residualBody:
-        '이미 전달된 메시지 {{count}}건이 곧 실행될 수 있습니다. 지금 완전히 멈추려면 세션을 중단하세요 — 실행 중인 백그라운드 작업도 함께 종료됩니다.',
+        '이미 전달된 메시지는 계속 실행될 수 있습니다. 완전히 멈추려면 세션 전체를 중단하세요. 실행 중인 백그라운드 작업도 함께 종료됩니다.',
       residualAction: '세션 전체 중단'
+    },
+    activity: {
+      preparing: '응답 준비 중…',
+      waiting: '남은 작업을 확인하는 중…',
+      finishingSlow: '마무리가 예상보다 오래 걸리고 있습니다…',
+      queued: '입력 대기 {{count}}건',
+      deliveryPending: '전달 확인 중 {{count}}건',
+      residual: '중단 후 전달 대기 {{count}}건',
+      background: '백그라운드 작업 {{count}}건',
+      more: '외 {{count}}개'
     },
     titleBar: {
       renameAria: '대화 제목 편집',

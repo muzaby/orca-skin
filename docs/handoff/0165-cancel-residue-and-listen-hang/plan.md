@@ -1,12 +1,15 @@
-# Plan — 0165-cancel-residue-and-listen-hang (r7 · 재축소)
+# Plan — 0165-cancel-residue-and-listen-hang (r8 · 구현 반영)
 
 > **개정 이력**
 > - **r1** 점 수정 3개 → 리뷰 P1 3건. **r2** 구조 전환 → P1 3건(1건은 r2 가 만든 ABA).
 >   **r3** identity·큐 파생·스냅샷 → P1 3건. **r4** 체인 lease·제출 트랜잭션 → P1 3건.
 >   **r5** 세션 제어 권위·제출 포트 → **24건**. **r6** 3분할(0165/0166/0167) → **24건**.
-> - **r7 (본 문서)** — 6차 리뷰에서 **내 설계의 구현 불가 항목 3건**이 코드로 확정됐다.
+> - **r7** — 6차 리뷰에서 **내 설계의 구현 불가 항목 3건**이 코드로 확정됐다.
 >   재시도 규칙(관측 불가) → **0166**, 잔여 파생·발행(이중 권위) → **0167**, tracker 토큰
 >   스코프(포트 필요) → **0166**. 본 문서는 **신규 포트 0 · IPC 0 · 레이어 무변경**으로 줄인다.
+> - **r8** — 통합 구현에서 provider 배치 원자성만으로 부족한 취소 경합을 추가로 닫았다.
+>   사용자 취소는 이미 Frame 큐에 들어온 동일 배치의 읽지 않은 error까지 `discard()`하고,
+>   소속 불명 unframed backlog는 다음 사용자 프레임에 합치지 않고 채널을 격리한다.
 
 ## 메타
 
@@ -15,7 +18,7 @@
 | slug | `0165-cancel-residue-and-listen-hang` |
 | 작성자 | Claude Code |
 | 일자 | 2026-08-04 (r1 → r7) |
-| 상태 | r7 DRAFT → **READY** |
+| 상태 | **IMPLEMENTED** (자동 게이트 완료, 사람 실기만 잔여) |
 | 병합 순서 | **0165 → 0166 → 0167 순차 강제** (§파일 중첩) |
 
 ## 사용자 의도 / 요구 출처
@@ -134,6 +137,10 @@
 - `routeEvent` → `routeBatch(token, batch)`: 배치 전 이벤트를 한 목적지로 보낸 **뒤** terminal
   전이(프레임 닫기·draining 종료·`cliBusy` 해제)를 적용한다.
 - **`consumeTurnScoped`(mock/oneshot)도 같은 경로**를 탄다.
+- 사용자 취소로 활성 Frame을 닫을 때는 `end()`가 아니라 **`discard()`**를 사용한다. 이미 같은
+  provider 배치에서 delta 뒤 error가 큐잉됐어도 취소 이후에는 소비하지 않는다.
+- 프레임 밖 backlog는 listen 프레임만 인수한다. 사용자 입력이 소속 불명 backlog와 경합하면
+  기존 채널을 teardown하고 fresh 채널로 재스폰한다. 과거 자동 턴을 새 질문에 귀속하지 않는다.
 - 효과: **① 소멸 + 실제 실패 result 의 일반 누출 동시 소멸.** 새 가변 상태 0.
 
 ### B. Channel incarnation token (F-C′)
@@ -328,30 +335,37 @@ r6 의 "**파일이 거의 겹치지 않는다**" 는 **틀렸다.** 0165·0166 
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- 동의 / 그대로 진행: …
-- 이견 / 우려: …
+- 동의 / 그대로 진행: provider 원본 메시지를 배치 계약으로 올리고 channel incarnation을 제출이
+  아닌 spawn/respawn 단위로 유지한 판단은 타당하다. attempt의 사용자 메시지 정체성(`ids`)과
+  wire 시도 정체성(`attemptId`)도 분리했다.
+- 이견 / 보완: r7의 "unframed를 다음 openFrame 앞에 합류" 전제는 사용자 프레임에는 안전하지
+  않다. 소속이 확정된 listen만 backlog를 인수하고 일반 send는 채널 격리로 열화시켰다. 또한
+  배치가 Frame에 원자 삽입된 뒤 취소가 끼어들 수 있으므로 Frame 자체에 discard 의미가 필요했다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 구현함 / ⚠️ 보고만 | … |
+| 1 | 같은 provider 배치의 delta를 소비한 직후 취소하면 뒤의 error가 Frame 큐에 남을 수 있음 | ✅ `Frame.discard()` + renderer `CANCEL_CHAT` error clear | `session-runtime.test.ts` 취소 배치 회귀 |
+| 2 | 소속 불명 unframed를 새 사용자 프레임이 인수하면 과거 result가 재귀속됨 | ✅ 일반 send 전 채널 격리·재스폰 | `session-runtime.test.ts` backlog 격리 회귀 |
+| 3 | 내부 channel teardown이 백그라운드 작업 정착을 우회함 | ✅ `onChannelRetired(token)` 상향 통지로 app 정착 경로 연결 | channel token당 1회 테스트 |
+| 4 | listen 전에 unframed backlog가 terminal까지 도착하면 이벤트를 읽고도 프레임이 닫히지 않음 | ✅ 첫 terminal batch에서 즉시 종료, 뒤 배치는 다음 listen으로 보존 | terminal backlog 회귀 테스트 |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] A 메시지-원자 배치 라우팅 (claude · mock · `routeBatch` · `consumeTurnScoped`)
-- [ ] B channel incarnation token (`ensureChannel` · 세대 검사 · 영수증 정합)
-- [ ] C `SubmissionAttempt` + 체인 종료 강등 + `discardSubmitted` open 확장
-- [ ] D `chat.postturn.step` 관측
+- [x] A 메시지-원자 배치 라우팅 (claude · mock · `routeBatch` · `consumeTurnScoped`)
+- [x] B channel incarnation token (spawn/respawn 발급 · 세대 검사 · 영수증 정합)
+- [x] C `SubmissionAttempt` + 체인 종료 강등 + `discardSubmitted` open 확장
+- [x] D `chat.postturn.step` 관측
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 게이트 결과 | … |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | … |
+| 변경 파일 | adapters/types·claude·mock, sessions/session-runtime, chat/pending-message-queue, app/chat-turn 및 회귀 테스트 |
+| 게이트 결과 | lint 0 error(기존 TanStack warning 1) · typecheck 3/3 · Vitest 198파일 1793/1793 · scripts 28/28 |
+| 블로커 / 역질문 | 자동 검증 블로커 없음. Electron UI 사람 실기(AC16)는 로컬 GUI 환경 필요 |
+| 대상 커밋 | 작업 트리 구현(아직 커밋하지 않음) |
 
 ---
 

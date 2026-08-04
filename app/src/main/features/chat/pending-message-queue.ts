@@ -34,7 +34,16 @@ export type BatchOrigin = 'turn-open' | 'steer'
 //   confirmed : origin 이 허용하는 신호를 관측. 커밋 대상.
 //   orphaned  : 턴 체인이 끝나도록 확정 신호가 오지 않음. 재주입 후보이자 관측 지점 —
 //               구 구조에는 이 상태가 없어 echo 유실이 **표현도 탐지도 불가**했다.
-export type BatchState = 'submitted' | 'confirmed' | 'orphaned'
+export type BatchState = 'submitting' | 'submitted' | 'confirmed' | 'orphaned'
+
+export interface SubmissionAttempt {
+  messageIds: string[]
+  attemptId: string
+  chainId: string
+}
+
+export type PendingQueueMutation =
+  { kind: 'changed'; sessionId: string } | { kind: 'rekey'; oldKey: string; newKey: string }
 
 // 확정 신호 — 큐가 kind 와 origin 의 (비대칭) 관계를 검증한다(AC5). 규약이 코드 4곳에 흩어져
 // 있던 것을 큐 안의 검증 한 곳으로 내린다.
@@ -42,18 +51,22 @@ export type ConfirmSignal =
   { kind: 'echo'; uuid?: string; text?: string } | { kind: 'model-output'; uuids: string[] }
 
 interface TrackedBatch extends SteerFlushBatch {
+  attemptId: string
+  chainId: string
   origin: BatchOrigin
   state: BatchState
   // 롤백 복원 원본 — push 가 거부되면 이 항목들이 held 로 되돌아간다(AC4).
   items: PendingMessage[]
 }
 
-function toBatch(items: PendingMessage[], uuid: string): SteerFlushBatch {
+function toBatch(items: PendingMessage[], attemptId: string, chainId: string): SteerFlushBatch {
   const attachmentTexts = items.flatMap((item) => item.attachmentTexts ?? [])
   const attachmentImages = items.flatMap((item) => item.attachmentImages ?? [])
   const attachmentViews = items.flatMap((item) => item.attachmentViews ?? [])
   return {
-    uuid,
+    uuid: attemptId,
+    attemptId,
+    chainId,
     ids: items.map((item) => item.id),
     text: items.map((item) => item.text).join('\n\n'),
     createdAt: items[0].createdAt,
@@ -67,6 +80,8 @@ function toBatch(items: PendingMessage[], uuid: string): SteerFlushBatch {
 function toPublic(batch: TrackedBatch): SteerFlushBatch {
   return {
     uuid: batch.uuid,
+    attemptId: batch.attemptId,
+    chainId: batch.chainId,
     ids: batch.ids,
     text: batch.text,
     createdAt: batch.createdAt,
@@ -97,10 +112,10 @@ function scrubBatch(batch: TrackedBatch): void {
 // 세션별 pending message queue — **모든 사용자 프롬프트**가 커밋(DB 영속) 전에 지나는 단일
 // 스테이징 통로(0066 → 0067 완전 일원화). 0151 에서 암묵 상태 머신을 명시 데이터로 올렸다.
 //
-//   held ──reserve*──→ submitted ──confirm(신호 일치)──→ confirmed ──drainConfirmed──→ 제거+scrub
-//     │                    │
-//     │←──rollback─────────┤ (push=false / 예외)
-//   cancel                 └──턴 체인 종료──→ orphaned ──takeForRespawn──→ 재주입
+//   held ──reserve*──→ submitting ──adapter accepted──→ submitted
+//     │                    │                              │
+//     │←──rollback─────────┤                              ├─confirm─→ confirmed ─→ 제거+scrub
+//   cancel                                                    └─체인 종료─→ orphaned ─→ 재주입
 //                                                 └──지각 confirm──→ confirmed
 //
 // 세션 상태가 주입 경로를 가른다:
@@ -116,6 +131,24 @@ export class PendingMessageQueue {
   private readonly heldBySession = new Map<string, PendingMessage[]>()
   private readonly trackedBySession = new Map<string, TrackedBatch[]>()
   private frozen = false
+  private readonly listeners = new Set<(mutation: PendingQueueMutation) => void>()
+  private mutationDepth = 0
+  private readonly dirtySessions = new Set<string>()
+
+  subscribe(listener: (mutation: PendingQueueMutation) => void): () => void {
+    this.listeners.add(listener)
+    return () => this.listeners.delete(listener)
+  }
+
+  transaction<T>(fn: () => T): T {
+    this.mutationDepth += 1
+    try {
+      return fn()
+    } finally {
+      this.mutationDepth -= 1
+      if (this.mutationDepth === 0) this.flushMutations()
+    }
+  }
 
   // 종료 admission freeze(AC9) — 이후 신규 예약/적재를 거부한다. 종료 중 flush·continuation 이
   // 큐 제거와 경합해 steer 가 늦게 제출되는 것을 막는다. 멱등.
@@ -134,12 +167,15 @@ export class PendingMessageQueue {
     id: string = randomUUID()
   ): PendingMessage {
     if (this.frozen) throw new Error('app_closing')
+    const duplicate = this.findMessage(sessionId, id)
+    if (duplicate) return duplicate
     const trimmed = payload.text.trim()
     if (trimmed === '') throw new Error('empty pending message text')
     const item: PendingMessage = { ...payload, id, sessionId, text: trimmed, createdAt: now }
     const items = this.heldBySession.get(sessionId) ?? []
     items.push(item)
     this.heldBySession.set(sessionId, items)
+    this.changed(sessionId)
     return item
   }
 
@@ -152,6 +188,7 @@ export class PendingMessageQueue {
     if (index < 0) return undefined
     const [removed] = items.splice(index, 1)
     if (items.length === 0) this.heldBySession.delete(sessionId)
+    this.changed(sessionId)
     return removed
   }
 
@@ -160,6 +197,7 @@ export class PendingMessageQueue {
   cancelAllHeld(sessionId: string): PendingMessage[] {
     const items = this.heldBySession.get(sessionId) ?? []
     this.heldBySession.delete(sessionId)
+    if (items.length > 0) this.changed(sessionId)
     return items
   }
 
@@ -174,14 +212,23 @@ export class PendingMessageQueue {
     const held = this.heldBySession.get(oldKey)
     if (held) {
       this.heldBySession.delete(oldKey)
+      for (const item of held) item.sessionId = newKey
       const target = this.heldBySession.get(newKey) ?? []
       this.heldBySession.set(newKey, [...target, ...held])
     }
     const tracked = this.trackedBySession.get(oldKey)
     if (tracked) {
       this.trackedBySession.delete(oldKey)
+      for (const batch of tracked) {
+        for (const item of batch.items) item.sessionId = newKey
+      }
       const target = this.trackedBySession.get(newKey) ?? []
       this.trackedBySession.set(newKey, [...target, ...tracked])
+    }
+    if (held || tracked) {
+      this.dirtySessions.delete(oldKey)
+      for (const listener of this.listeners) listener({ kind: 'rekey', oldKey, newKey })
+      this.changed(newKey)
     }
   }
 
@@ -192,36 +239,46 @@ export class PendingMessageQueue {
   reserveHeld(
     sessionId: string,
     origin: BatchOrigin,
-    uuid: string = randomUUID()
+    attemptId: string = randomUUID(),
+    chainId: string = randomUUID()
   ): SteerFlushBatch | undefined {
     if (this.frozen) return undefined
     const items = this.heldBySession.get(sessionId)
     if (!items || items.length === 0) return undefined
     this.heldBySession.delete(sessionId)
-    const batch = toBatch(items, uuid)
-    this.track(sessionId, batch, origin, items)
+    const ordered = [...items].sort((a, b) => a.createdAt - b.createdAt)
+    const batch = toBatch(ordered, attemptId, chainId)
+    this.track(sessionId, batch, origin, ordered)
     return batch
   }
 
   // 턴 프롬프트 예약(0067 AC5, 구 flushItem) — 지정 아이템 1개를 자기 배치(uuid=item id)로
   // 전이한다. 사용자 턴의 일반 메시지는 병합 없이 자기 버블/row 로 커밋돼야 한다.
-  reserveItem(sessionId: string, id: string, origin: BatchOrigin): SteerFlushBatch | undefined {
-    if (this.frozen) return undefined
-    const item = this.cancel(sessionId, id) // held 에서 제거(재사용 — 검증 동일)
-    if (!item) return undefined
-    const batch = toBatch([item], item.id)
-    this.track(sessionId, batch, origin, [item])
-    return batch
+  reserveItem(
+    sessionId: string,
+    id: string,
+    origin: BatchOrigin,
+    chainId: string = randomUUID()
+  ): SteerFlushBatch | undefined {
+    return this.transaction(() => {
+      if (this.frozen) return undefined
+      const item = this.cancel(sessionId, id) // held 에서 제거(재사용 — 검증 동일)
+      if (!item) return undefined
+      const batch = toBatch([item], item.id, chainId)
+      this.track(sessionId, batch, origin, [item])
+      return batch
+    })
   }
 
   // 예약 롤백(AC4) — stdin 수용이 거부되면(closed stream / push 예외) 항목을 held 로 되돌린다.
-  // **submitted 만** 대상: confirmed 는 이미 커밋 경로에 있고, orphaned 는 CLI 가 나중에 실행할
+  // **submitting 만** 대상: submitted/confirmed 는 이미 transport/커밋 경로에 있고,
+  // orphaned 는 CLI 가 나중에 실행할
   // 수 있어 되돌리면 이중 전달이 된다. 복원 항목은 그 사이 들어온 신규 held 와 createdAt 순으로
   // 다시 섞인다(사용자가 입력한 순서가 곧 전달 순서).
   rollback(sessionId: string, uuid: string): boolean {
     const batches = this.trackedBySession.get(sessionId)
     if (!batches) return false
-    const index = batches.findIndex((b) => b.uuid === uuid && b.state === 'submitted')
+    const index = batches.findIndex((b) => b.uuid === uuid && b.state === 'submitting')
     if (index < 0) return false
     const [batch] = batches.splice(index, 1)
     if (batches.length === 0) this.trackedBySession.delete(sessionId)
@@ -230,7 +287,40 @@ export class PendingMessageQueue {
       sessionId,
       [...batch.items, ...held].sort((a, b) => a.createdAt - b.createdAt)
     )
+    this.changed(sessionId)
     return true
+  }
+
+  commit(sessionId: string, attemptId: string, chainId?: string): boolean {
+    const batch = (this.trackedBySession.get(sessionId) ?? []).find(
+      (candidate) =>
+        candidate.attemptId === attemptId &&
+        candidate.state === 'submitting' &&
+        (chainId === undefined || candidate.chainId === chainId)
+    )
+    if (!batch) return false
+    batch.state = 'submitted'
+    this.changed(sessionId)
+    return true
+  }
+
+  commitMany(sessionId: string, attempts: readonly SubmissionAttempt[]): boolean {
+    const batches = this.trackedBySession.get(sessionId) ?? []
+    const selected = selectAttempts(batches, attempts, ['submitting', 'submitted'])
+    if (selected.some((batch) => batch === undefined)) return false
+    let changed = false
+    for (const batch of selected as TrackedBatch[]) {
+      if (batch.state !== 'submitting') continue
+      batch.state = 'submitted'
+      changed = true
+    }
+    if (changed) this.changed(sessionId)
+    return true
+  }
+
+  canCommitMany(sessionId: string, attempts: readonly SubmissionAttempt[]): boolean {
+    const batches = this.trackedBySession.get(sessionId) ?? []
+    return !selectAttempts(batches, attempts, ['submitting']).some((batch) => batch === undefined)
   }
 
   // 소비 확정(구 markConsumed) — 신호와 origin 의 관계는 **비대칭**이다(AC5, r2 교정):
@@ -286,15 +376,18 @@ export class PendingMessageQueue {
   // orphaned 는 **폐기 대상이 아니다.** `confirm` 의 open 술어가 orphaned 를 포함하므로 늦은 echo
   // 가 그대로 확정하고, 회수는 CLI 큐가 실제로 사라지는 시점(채널 사망 → takeForRespawn, 세션
   // 폐기 → dispose)이 맡는다.
-  orphanUnconfirmed(sessionId: string): SteerFlushBatch[] {
+  orphanUnconfirmed(sessionId: string, chainId?: string): SteerFlushBatch[] {
     const batches = this.trackedBySession.get(sessionId)
     if (!batches) return []
     const orphaned: SteerFlushBatch[] = []
     for (const batch of batches) {
-      if (batch.state !== 'submitted') continue
+      if (batch.state !== 'submitted' || (chainId !== undefined && batch.chainId !== chainId)) {
+        continue
+      }
       batch.state = 'orphaned'
       orphaned.push(toPublic(batch))
     }
+    if (orphaned.length > 0) this.changed(sessionId)
     return orphaned
   }
 
@@ -308,7 +401,12 @@ export class PendingMessageQueue {
   // 서브프로세스와 함께 없앤 뒤, 그 배치들의 텍스트를 draft 로 되돌리는 데 쓴다.
   discardSubmitted(sessionId: string, uuids: readonly string[]): SteerFlushBatch[] {
     const target = new Set(uuids)
-    return this.remove(sessionId, (b) => b.state === 'submitted' && target.has(b.uuid))
+    return this.remove(
+      sessionId,
+      (b) =>
+        (b.state === 'submitting' || b.state === 'submitted' || b.state === 'orphaned') &&
+        target.has(b.uuid)
+    )
   }
 
   // "CLI 에 넘겨놓고 확정 신호를 기다리는 중" 인 예약이 있는가(0154 턴-후 유예 판정). 존재 여부만
@@ -325,32 +423,66 @@ export class PendingMessageQueue {
       .map((b) => b.uuid)
   }
 
+  openAttemptIds(sessionId: string): string[] {
+    return (this.trackedBySession.get(sessionId) ?? [])
+      .filter((batch) => isOpen(batch.state))
+      .map((batch) => batch.attemptId)
+  }
+
+  counts(sessionId: string): { queuedCount: number; deliveryPendingCount: number } {
+    return {
+      queuedCount: (this.heldBySession.get(sessionId) ?? []).length,
+      deliveryPendingCount: (this.trackedBySession.get(sessionId) ?? [])
+        .filter((batch) => isOpen(batch.state))
+        .reduce((sum, batch) => sum + batch.ids.length, 0)
+    }
+  }
+
+  messageCountForAttempts(sessionId: string, attemptIds: ReadonlySet<string>): number {
+    const ids = new Set<string>()
+    for (const batch of this.trackedBySession.get(sessionId) ?? []) {
+      if (!isOpen(batch.state) || !attemptIds.has(batch.attemptId)) continue
+      for (const id of batch.ids) ids.add(id)
+    }
+    return ids.size
+  }
+
   // 채널 사망 후 스폰 직전(0067) — 이월 잔여를 프렐류드 배치 목록으로 회수한다. 미확정 예약
   // (모델이 못 본 stdin 사본 — 서브프로세스 종료로 CLI 큐 소멸)은 **재주입**(uuid 보존 =
   // renderer pending id 정합), held 는 아이템 단위 배치로 전이. 전부 새 턴의 프렐류드/프롬프트가
   // 되므로 origin 을 turn-open 으로 **재스탬프**한다 — 확정 신호가 echo 에서 첫 모델 출력으로
   // 바뀌기 때문이다. confirmed 잔존분(경계 유실)은 폐기한다(이중 전달 방지).
-  takeForRespawn(sessionId: string): SteerFlushBatch[] {
+  takeForRespawn(sessionId: string, chainId: string = randomUUID()): SteerFlushBatch[] {
     const carried = (this.trackedBySession.get(sessionId) ?? []).filter(
       (b) => b.state !== 'confirmed'
     )
     const held = this.heldBySession.get(sessionId) ?? []
     this.heldBySession.delete(sessionId)
-    const next: TrackedBatch[] = carried.map((b) => ({
-      ...b,
-      origin: 'turn-open' as const,
-      state: 'submitted' as const
-    }))
+    const next: TrackedBatch[] = carried.map((b) => {
+      const attemptId = randomUUID()
+      return {
+        ...b,
+        uuid: attemptId,
+        attemptId,
+        chainId,
+        origin: 'turn-open' as const,
+        state: 'submitting' as const
+      }
+    })
     for (const item of held) {
+      const attemptId = randomUUID()
       next.push({
-        ...toBatch([item], item.id),
+        ...toBatch([item], attemptId, chainId),
+        attemptId,
+        chainId,
         origin: 'turn-open',
-        state: 'submitted',
+        state: 'submitting',
         items: [item]
       })
     }
     if (next.length > 0) this.trackedBySession.set(sessionId, next)
     else this.trackedBySession.delete(sessionId)
+    if (carried.length > 0 || held.length > 0) this.changed(sessionId)
     return next.map(toPublic).sort((a, b) => a.createdAt - b.createdAt)
   }
 
@@ -363,6 +495,7 @@ export class PendingMessageQueue {
     for (const item of this.heldBySession.get(sessionId) ?? []) scrubItem(item)
     this.trackedBySession.delete(sessionId)
     this.heldBySession.delete(sessionId)
+    this.changed(sessionId)
   }
 
   // 프로그램 종료 최종 폐기 — 전 세션 스크럽 후 맵을 비운다. 두 맵에 동시에 있는 세션이 흔하므로
@@ -385,6 +518,7 @@ export class PendingMessageQueue {
     const remaining = batches.filter((b) => !match(b))
     if (remaining.length === 0) this.trackedBySession.delete(sessionId)
     else this.trackedBySession.set(sessionId, remaining)
+    this.changed(sessionId)
     return hit.map(toPublic)
   }
 
@@ -395,9 +529,60 @@ export class PendingMessageQueue {
     items: PendingMessage[]
   ): void {
     const batches = this.trackedBySession.get(sessionId) ?? []
-    batches.push({ ...batch, origin, state: 'submitted', items: [...items] })
+    const attemptId = batch.attemptId ?? batch.uuid
+    const chainId = batch.chainId ?? randomUUID()
+    batches.push({ ...batch, attemptId, chainId, origin, state: 'submitting', items: [...items] })
     this.trackedBySession.set(sessionId, batches)
+    this.changed(sessionId)
   }
+
+  private findMessage(sessionId: string, id: string): PendingMessage | undefined {
+    const held = this.heldBySession.get(sessionId)?.find((item) => item.id === id)
+    if (held) return held
+    for (const batch of this.trackedBySession.get(sessionId) ?? []) {
+      const item = batch.items.find((candidate) => candidate.id === id)
+      if (item) return item
+    }
+    return undefined
+  }
+
+  private changed(sessionId: string): void {
+    this.dirtySessions.add(sessionId)
+    if (this.mutationDepth === 0) this.flushMutations()
+  }
+
+  private flushMutations(): void {
+    if (this.dirtySessions.size === 0) return
+    const sessions = [...this.dirtySessions]
+    this.dirtySessions.clear()
+    for (const sessionId of sessions) {
+      for (const listener of this.listeners) listener({ kind: 'changed', sessionId })
+    }
+  }
+}
+
+function isOpen(state: BatchState): boolean {
+  return state === 'submitting' || state === 'submitted' || state === 'orphaned'
+}
+
+function sameIds(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((id, index) => id === b[index])
+}
+
+function selectAttempts(
+  batches: readonly TrackedBatch[],
+  attempts: readonly SubmissionAttempt[],
+  states: readonly BatchState[]
+): Array<TrackedBatch | undefined> {
+  return attempts.map((attempt) =>
+    batches.find(
+      (batch) =>
+        batch.attemptId === attempt.attemptId &&
+        batch.chainId === attempt.chainId &&
+        states.includes(batch.state) &&
+        sameIds(batch.ids, attempt.messageIds)
+    )
+  )
 }
 
 export type { SteerFlush, SteerFlushBatch }

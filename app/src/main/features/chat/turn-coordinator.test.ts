@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { ClassifiedError, NormalizedEvent } from '../../../shared/ipc'
 import type { TurnRequest } from '../../adapters/turn'
+import type { ProviderMessageBatch } from '../../adapters/types'
 import type { TurnContext } from '../../contracts/turn'
 import {
   TurnCoordinator,
@@ -41,7 +42,7 @@ function fakeRuntime(
 ): CoordinatorRuntime & { sendCount: number } {
   let sendCount = 0
   const stub = async (): Promise<void> => {}
-  const emptyEvents: AsyncIterable<NormalizedEvent> = {
+  const emptyEvents: AsyncIterable<ProviderMessageBatch> = {
     [Symbol.asyncIterator]: () => ({
       next: async () => ({ done: true, value: undefined as never })
     })
@@ -63,7 +64,7 @@ function fakeRuntime(
     },
     cancelled: false,
     timedOut: false,
-    events: emptyEvents,
+    eventBatches: emptyEvents,
     close: () => {},
     setPermissionMode: stub,
     interrupt: stub,
@@ -274,7 +275,8 @@ describe('TurnCoordinator.run — steer 커밋 (user echo 기반, handoff 0060 D
     const pendingMessages = new PendingMessageQueue()
     for (const item of items) {
       pendingMessages.enqueue('s1', { text: item.text }, Date.now(), item.id)
-      pendingMessages.reserveHeld('s1', 'steer', item.id)
+      const batch = pendingMessages.reserveHeld('s1', 'steer', item.id)!
+      pendingMessages.commit('s1', batch.attemptId!, batch.chainId)
     }
     const persistSteer = vi.fn(() => 42)
     const deps = makeDeps(runtime, {
@@ -435,13 +437,17 @@ describe('TurnCoordinator.run — 턴-시작 배치 소비 (응답 시작 증거
     const pendingMessages = new PendingMessageQueue()
     const preludes = (opts.preludeIds ?? []).map((id) => {
       pendingMessages.enqueue('s1', { text: `carry-${id}` }, Date.now(), id)
-      return pendingMessages.reserveItem('s1', id, 'turn-open')!
+      const batch = pendingMessages.reserveItem('s1', id, 'turn-open')!
+      pendingMessages.commit('s1', batch.attemptId!, batch.chainId)
+      return batch
     })
     pendingMessages.enqueue('s1', { text: 'hello' }, Date.now(), 'p1')
     const mainBatch = pendingMessages.reserveItem('s1', 'p1', 'turn-open')!
+    pendingMessages.commit('s1', mainBatch.attemptId!, mainBatch.chainId)
     for (const id of opts.steerIds ?? []) {
       pendingMessages.enqueue('s1', { text: `steer-${id}` }, Date.now(), id)
-      pendingMessages.reserveHeld('s1', 'steer', id)
+      const batch = pendingMessages.reserveHeld('s1', 'steer', id)!
+      pendingMessages.commit('s1', batch.attemptId!, batch.chainId)
     }
     const commitUser = vi.fn(() => 42)
     const deps = makeDeps(runtime, {

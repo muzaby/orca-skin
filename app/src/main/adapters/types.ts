@@ -10,18 +10,27 @@ import type { ResolvedProviderSettings } from './provider-config'
 
 export type { Backend, NormalizedEvent }
 
+/** 정규화 경계의 원자 단위: provider 원본 메시지 하나가 만든 이벤트 묶음. */
+export interface ProviderMessageBatch {
+  sequence: number
+  events: NormalizedEvent[]
+}
+
+export type AdapterSubmissionOutcome =
+  { kind: 'accepted' } | { kind: 'rejectedBeforeAccept'; reason: 'stream_closed' }
+
 // 라이브 핸들 (provider-runtime.md §3). 0067 부터 두 수명 모델을 겸한다: `pushTurn` 을 구현한
 // 어댑터(claude)는 **장수명 세션 채널** — result 후에도 입력이 열려 있어 후속 턴을 이어붙이고,
 // `events` 는 close() 까지 다중 턴을 흘린다(프레임 절단은 SessionRuntime). `pushTurn` 미구현
 // 어댑터(mock)는 턴-스코프 — `events` 소비가 끝나면 핸들이 닫힌다(현행 보존). control 메서드는
 // 스트리밍 입력 모드에서만 동작하는 SDK Query 메서드에 위임된다.
 export interface LiveTurn {
-  events: AsyncIterable<NormalizedEvent>
+  eventBatches: AsyncIterable<ProviderMessageBatch>
   // 멱등 cleanup 계약 — terminal 관측, consumer 조기 종료, abort path 에서 모두 안전해야 한다.
   close(): void
   // 장수명 채널 전용(0067) — 라이브 setter 적용 후 후속 턴 프롬프트를 입력 채널에 push 한다.
   // 미구현이면 SessionRuntime 이 턴-스코프 경로(매 턴 spawn)로 폴백한다.
-  pushTurn?(next: TurnContinuation): Promise<void>
+  pushTurn?(next: TurnContinuation): Promise<AdapterSubmissionOutcome>
   setPermissionMode(mode: ClaudePermissionMode): Promise<void>
   // 현재 턴 중단. 영수증(0151 AC10)을 그대로 올린다 — 구 계약은 `Promise<void>` 라 SDK 가 주는
   // `still_queued`(중단 뒤에도 실행될 잔여 uuid)를 어댑터가 버렸다. 미지원 어댑터/구형 CLI 는

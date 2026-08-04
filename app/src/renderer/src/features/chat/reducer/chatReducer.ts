@@ -90,10 +90,16 @@ export interface ChatState {
   // 여기 없다 — chatStore 의 live 슬라이스(transient)가 담당하고, 완성 시 parts 로 커밋된다.
   messages: Message[]
   // 0143 listen phase — 메인 턴 종료 후 main 이 백그라운드 서브에이전트를 기다리는 대기 구간
-  // (chat.listen started/ended 레벨 신호). inflight 와 독립: TURN_END_RESET(telemetry 등)은
+  // (chat.activity 권위 스냅샷). inflight 와 독립: TURN_END_RESET(telemetry 등)은
   // 건드리지 않는다 — listen 중 개별 알림 턴이 끝나도 애니메이션이 유지된다. send 라우팅
   // busy(steer 예약)와 StatusLine 표시가 inflight ‖ listening 으로 판정한다.
   listening: boolean
+  activityRevision: number
+  activityForeground: 'idle' | 'preparing' | 'streaming'
+  activityQueuedCount: number
+  activityDeliveryPendingCount: number
+  activityResidualCount: number
+  activityBackgroundTaskCount: number
   // listening 구간의 경과시간 앵커 — turnStartedAt 이 TURN_END_RESET 으로 비어도 StatusLine
   // 이 이 값을 폴백으로 쓴다.
   listenStartedAt: number | null
@@ -182,6 +188,12 @@ export const initialChatState: ChatState = {
   sendCount: 0,
   inflight: false,
   listening: false,
+  activityRevision: 0,
+  activityForeground: 'idle',
+  activityQueuedCount: 0,
+  activityDeliveryPendingCount: 0,
+  activityResidualCount: 0,
+  activityBackgroundTaskCount: 0,
   listenStartedAt: null,
   loadingSession: false,
   turnStartedAt: null,
@@ -506,18 +518,24 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
               : {})
           }
 
-        case 'chat.listen':
-          // listen phase 레벨 신호(0143) — started/ended 1쌍(턴-후 루프 스코프). TURN_END_RESET
-          // 은 listening 을 건드리지 않으므로, 대기 중 개별 알림 턴의 telemetry 가 애니메이션을
-          // 끊지 못한다. 앵커는 최초 started 1회만 기록(중복 started 방어).
-          if (ev.phase === 'started') {
-            return {
-              ...state,
-              listening: true,
-              listenStartedAt: state.listenStartedAt ?? Date.now()
-            }
+        case 'chat.activity': {
+          if (ev.revision <= state.activityRevision) return state
+          // foreground가 끝난 뒤에도 전달 확인·잔여·백그라운드 작업이 실제로 남아 있으면
+          // PendingAssistant를 유지한다. 단순 타이머가 아니라 main 권위 busy 사실에만 따른다.
+          const listening = ev.transport === 'listening' || (ev.foreground === 'idle' && ev.busy)
+          return {
+            ...state,
+            activityRevision: ev.revision,
+            activityForeground: ev.foreground,
+            activityQueuedCount: ev.queuedCount,
+            activityDeliveryPendingCount: ev.deliveryPendingCount,
+            activityResidualCount: ev.residualCount,
+            activityBackgroundTaskCount: ev.backgroundTaskCount,
+            inflight: ev.foreground !== 'idle',
+            listening,
+            listenStartedAt: listening ? (state.listenStartedAt ?? Date.now()) : null
           }
-          return { ...state, listening: false, listenStartedAt: null }
+        }
 
         case 'subagent.task': {
           // 라이브 메타는 store transient(patchSubagentMeta)가 소유 — reducer 에는 **백그라운드
@@ -581,11 +599,12 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
 
     case 'CANCEL_CHAT':
       // 턴 취소 시 main 의 broker 가 보류 게이트를 해소하므로 카드(질문/계획/도구)도 함께 비운다.
-      // listening 도 즉시 내린다(0143) — main 의 chat.listen ended 가 곧 따라오지만, 중단 버튼의
+      // listening 도 즉시 내린다(0143) — main의 다음 activity snapshot이 곧 따라오지만, 중단 버튼의
       // 시각 피드백은 낙관적으로 즉각 반영한다.
       return {
         ...state,
         ...TURN_END_RESET,
+        error: undefined,
         listening: false,
         listenStartedAt: null,
         pendingAsks: [],
@@ -622,6 +641,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         parts: settleStaleAsyncLaunchParts(m.incomplete ? settleOrphanToolParts(m.parts) : m.parts),
         ...(m.incomplete ? { incomplete: true } : {})
       }))
+      const activity = action.session.activity
+      const preserveNewerLiveActivity =
+        state.sessionId === action.session.id && state.activityRevision > (activity?.revision ?? 0)
       return {
         ...initialChatState,
         cwd: action.session.cwd ?? state.cwd,
@@ -631,6 +653,37 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
         title: action.session.title,
         providerKey: action.session.providerKey ?? null,
         messages,
+        ...(preserveNewerLiveActivity
+          ? {
+              activityRevision: state.activityRevision,
+              activityForeground: state.activityForeground,
+              activityQueuedCount: state.activityQueuedCount,
+              activityDeliveryPendingCount: state.activityDeliveryPendingCount,
+              activityResidualCount: state.activityResidualCount,
+              activityBackgroundTaskCount: state.activityBackgroundTaskCount,
+              inflight: state.inflight,
+              listening: state.listening,
+              listenStartedAt: state.listenStartedAt
+            }
+          : activity
+            ? {
+                activityRevision: activity.revision,
+                activityForeground: activity.foreground,
+                activityQueuedCount: activity.queuedCount,
+                activityDeliveryPendingCount: activity.deliveryPendingCount,
+                activityResidualCount: activity.residualCount,
+                activityBackgroundTaskCount: activity.backgroundTaskCount,
+                inflight: activity.foreground !== 'idle',
+                listening:
+                  activity.transport === 'listening' ||
+                  (activity.foreground === 'idle' && activity.busy),
+                listenStartedAt:
+                  activity.transport === 'listening' ||
+                  (activity.foreground === 'idle' && activity.busy)
+                    ? Date.now()
+                    : null
+              }
+            : {}),
         // 컨텍스트 도넛/패널을 세션 수명 동안 유지 — turn_usage 최신 행에서 복원.
         ...(action.session.lastTelemetry ? { lastTelemetry: action.session.lastTelemetry } : {}),
         // 세션 비용 시드(0122 r2) — turn_usage 세션 SUM. 이후 라이브 턴 telemetry 가 누산.

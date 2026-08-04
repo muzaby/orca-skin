@@ -20,6 +20,11 @@ import { SessionRuntimeRegistry } from './session-registry'
 import { RuntimePool } from './runtime-pool'
 import { UnlimitedRuntimeCapPolicy, type RuntimeCapPolicy } from './runtime-cap-policy'
 import { ActiveTurnTracker } from './active-turn-tracker'
+import {
+  SessionChainLeaseRegistry,
+  type AcquireLeaseInput,
+  type SessionChainLease
+} from './session-chain-lease'
 
 // 단일 abort 프리미티브 — 0054 에서 별도 모듈(./abort)로 분리(supervisor→runtime-pool→timers→
 // supervisor 순환 회피). 기존 import 경로(./supervisor) 호환을 위한 무회귀 re-export.
@@ -36,6 +41,7 @@ export interface RuntimeSupervisorOptions<W = unknown> {
   activeTurns?: ActiveTurnTracker
   capPolicy?: RuntimeCapPolicy
   capacity?: number | null
+  leases?: SessionChainLeaseRegistry<W>
 }
 
 export class RuntimeSupervisor<W = unknown> {
@@ -46,6 +52,8 @@ export class RuntimeSupervisor<W = unknown> {
   private readonly activeTurnTracker: ActiveTurnTracker
   private readonly capPolicy: RuntimeCapPolicy
   private readonly capacity: number | null
+  private readonly leases: SessionChainLeaseRegistry<W>
+  private readonly leaseListeners = new Set<(logicalKey: string) => void>()
 
   constructor(options: RuntimeSupervisorOptions<W> = {}) {
     this.registry = options.registry ?? new SessionRuntimeRegistry<W>()
@@ -53,6 +61,7 @@ export class RuntimeSupervisor<W = unknown> {
     this.activeTurnTracker = options.activeTurns ?? new ActiveTurnTracker()
     this.capPolicy = options.capPolicy ?? new UnlimitedRuntimeCapPolicy()
     this.capacity = options.capacity ?? null
+    this.leases = options.leases ?? new SessionChainLeaseRegistry<W>()
   }
 
   get activeTurns(): ActiveTurnTracker {
@@ -62,6 +71,12 @@ export class RuntimeSupervisor<W = unknown> {
   // 진입(admission) — resume/새-채팅 턴을 레지스트리에 등록. active 초과 reject/queue 는 0056.
   startResume(sessionId: string, turn: TurnContext<W>): void {
     this.registry.startResume(sessionId, turn)
+    const lease = this.leases.getBySession(sessionId)
+    if (lease?.kind === 'active') {
+      const previous = lease.activeChild
+      this.leases.swapChild(lease.leaseId, previous, turn)
+      this.emitLease(lease.logicalKey)
+    }
   }
 
   startNew(owner: W, turn: TurnContext<W>): void {
@@ -71,14 +86,16 @@ export class RuntimeSupervisor<W = unknown> {
   // 새-채팅 pending 턴을 session.updated 도착 시 sessionId 키로 승격(코디네이터가 호출).
   promote(turn: TurnContext<W>, sessionId: string): void {
     this.registry.promote(turn, sessionId)
+    const lease = this.leases.all().find((candidate) => candidate.activeChild === turn)
+    if (lease) this.promoteChain(lease.leaseId, sessionId)
   }
 
   getBySession(sessionId: string): TurnContext<W> | undefined {
-    return this.registry.getBySession(sessionId)
+    return this.leases.getBySession(sessionId)?.activeChild ?? this.registry.getBySession(sessionId)
   }
 
   hasSession(sessionId: string): boolean {
-    return this.registry.hasSession(sessionId)
+    return this.leases.getBySession(sessionId) !== undefined || this.registry.hasSession(sessionId)
   }
 
   hasPending(owner: W): boolean {
@@ -87,15 +104,112 @@ export class RuntimeSupervisor<W = unknown> {
 
   // 진행 중 모든 턴(세션 키 + pending owner) — 앱 종료 정리(router.shutdown) 순회용.
   all(): TurnContext<W>[] {
-    return this.registry.all()
+    const leased = this.leases
+      .all()
+      .flatMap((lease) => (lease.activeChild ? [lease.activeChild] : []))
+    return [...new Set([...leased, ...this.registry.all()])]
+  }
+
+  allLeases(): SessionChainLease<W>[] {
+    return this.leases.all()
+  }
+
+  acquireChain(input: AcquireLeaseInput<W>): { lease: SessionChainLease<W>; acquired: boolean } {
+    const result = this.leases.acquire(input)
+    if (result.acquired) this.emitLease(result.lease.logicalKey)
+    return result
+  }
+
+  getChainByKey(logicalKey: string): SessionChainLease<W> | undefined {
+    return this.leases.getByKey(logicalKey)
+  }
+
+  getChainBySession(sessionId: string): SessionChainLease<W> | undefined {
+    return this.leases.getBySession(sessionId)
+  }
+
+  activateChain(
+    leaseId: string,
+    runtime: ManagedRuntime,
+    providerKey: string | null,
+    child: TurnContext<W>
+  ): boolean {
+    const lease = this.leases.activate(leaseId, runtime, providerKey, child)
+    if (!lease) return false
+    this.emitLease(lease.logicalKey)
+    return true
+  }
+
+  promoteChain(leaseId: string, sessionId: string): boolean {
+    const before = this.leases.getById(leaseId)?.logicalKey
+    if (!this.leases.promote(leaseId, sessionId)) return false
+    if (before) this.emitLease(before)
+    this.emitLease(`session:${sessionId}`)
+    return true
+  }
+
+  swapChainChild(
+    leaseId: string,
+    previous: TurnContext<W> | null,
+    next: TurnContext<W> | null
+  ): boolean {
+    if (!this.leases.swapChild(leaseId, previous, next)) return false
+    const lease = this.leases.getById(leaseId)
+    if (lease) this.emitLease(lease.logicalKey)
+    return true
+  }
+
+  closeChain(leaseId: string, reason: 'discard' | 'shutdown'): SessionChainLease<W> | undefined {
+    const lease = this.leases.beginClosing(leaseId, reason)
+    if (lease) this.emitLease(lease.logicalKey)
+    return lease
+  }
+
+  cancelChain(sessionId: string): SessionChainLease<W> | undefined {
+    const lease = this.leases.getBySession(sessionId)
+    if (!lease) return undefined
+    lease.control.cancelled = true
+    lease.controller.abort()
+    lease.activeChild?.controller.abort()
+    this.emitLease(lease.logicalKey)
+    return lease
+  }
+
+  releaseChain(leaseId: string): void {
+    const key = this.leases.getById(leaseId)?.logicalKey
+    if (!this.leases.release(leaseId)) return
+    if (key) this.emitLease(key)
+  }
+
+  subscribeLeases(listener: (logicalKey: string) => void): () => void {
+    this.leaseListeners.add(listener)
+    return () => this.leaseListeners.delete(listener)
   }
 
   get size(): number {
-    return this.registry.size
+    return Math.max(this.registry.size, this.leases.all().length)
   }
 
   getRuntimePopulation(): RuntimePopulation {
-    const active = this.registry.size
+    const leaseChildren = new Set(
+      this.leases.all().flatMap((lease) => (lease.activeChild ? [lease.activeChild] : []))
+    )
+    const leasedSessionIds = new Set(
+      this.leases.all().flatMap((lease) => (lease.sessionId !== null ? [lease.sessionId] : []))
+    )
+    const leasedPendingOwners = new Set(
+      this.leases.all().flatMap((lease) => (lease.sessionId === null ? [lease.owner] : []))
+    )
+    const active =
+      this.leases.all().filter((lease) => lease.kind === 'active').length +
+      this.registry
+        .all()
+        .filter(
+          (turn) =>
+            !leaseChildren.has(turn) &&
+            !(turn.dbSessionId && leasedSessionIds.has(turn.dbSessionId)) &&
+            !(!turn.dbSessionId && leasedPendingOwners.has(turn.owner))
+        ).length
     const idle = this.pool.size
     return { active, idle, total: active + idle }
   }
@@ -107,6 +221,11 @@ export class RuntimeSupervisor<W = unknown> {
     if (this.released.has(turn)) return
     this.released.add(turn)
     this.registry.finish(turn)
+    const lease = this.leases.all().find((candidate) => candidate.activeChild === turn)
+    if (lease?.kind === 'active') {
+      this.leases.swapChild(lease.leaseId, turn, null)
+      this.emitLease(lease.logicalKey)
+    }
   }
 
   // 런타임 인출 — Persistent idle 핸들이 세션 키로 풀에 있으면 재사용(타이머 정지)하고, 없으면
@@ -145,7 +264,28 @@ export class RuntimeSupervisor<W = unknown> {
   // 진행 중 턴의 런타임은 풀 밖(active)이라 여기서 잡히지 않는다 — 호출자가 abortTurn 을 먼저
   // 태워 idle 로 반납되게 하거나, 반납 실패 시 다음 send 가 콜드 스폰으로 자연 복구한다.
   discardRuntime(sessionId: string): boolean {
+    const lease = this.leases.getBySession(sessionId)
+    if (lease) {
+      const closing = this.leases.beginClosing(lease.leaseId, 'discard')
+      closing?.activeChild?.controller.abort()
+      closing?.runtime?.close()
+      this.emitLease(lease.logicalKey)
+      return closing?.runtime !== undefined
+    }
     return this.pool.close(sessionId)
+  }
+
+  closeAllLeaseRuntimes(): void {
+    for (const lease of this.leases.all()) {
+      const closing = this.leases.beginClosing(lease.leaseId, 'shutdown')
+      closing?.activeChild?.controller.abort()
+      closing?.runtime?.close()
+      this.emitLease(lease.logicalKey)
+    }
+  }
+
+  private emitLease(logicalKey: string): void {
+    for (const listener of this.leaseListeners) listener(logicalKey)
   }
 
   private enforceCap(): void {

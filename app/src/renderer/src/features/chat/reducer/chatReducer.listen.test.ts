@@ -9,8 +9,18 @@ const recv = (ev: NormalizedEvent): { type: 'RECV_EVENT'; event: NormalizedEvent
   event: ev
 })
 
-const listenStarted: NormalizedEvent = { type: 'chat.listen', sessionId: 's', phase: 'started' }
-const listenEnded: NormalizedEvent = { type: 'chat.listen', sessionId: 's', phase: 'ended' }
+const activity = (revision: number, transport: 'idle' | 'listening'): NormalizedEvent => ({
+  type: 'chat.activity',
+  sessionId: 's',
+  revision,
+  foreground: 'idle',
+  transport,
+  busy: transport === 'listening',
+  queuedCount: 0,
+  deliveryPendingCount: 0,
+  residualCount: 0,
+  backgroundTaskCount: transport === 'listening' ? 1 : 0
+})
 const noticeSettled = (toolUseId = 'p1'): NormalizedEvent => ({
   type: 'subagent.task',
   sessionId: 's',
@@ -22,23 +32,23 @@ const noticeSettled = (toolUseId = 'p1'): NormalizedEvent => ({
   summary: '조사 완료'
 })
 
-describe('chatReducer — chat.listen (0143)', () => {
+describe('chatReducer — chat.activity 권위 스냅샷', () => {
   it('started 는 listening + 앵커를 세우고, ended 는 내린다', () => {
-    let s = chatReducer(initialChatState, recv(listenStarted))
+    let s = chatReducer(initialChatState, recv(activity(1, 'listening')))
     expect(s.listening).toBe(true)
     expect(s.listenStartedAt).not.toBeNull()
     const anchor = s.listenStartedAt
     // 중복 started 는 앵커를 갱신하지 않는다.
-    s = chatReducer(s, recv(listenStarted))
+    s = chatReducer(s, recv(activity(1, 'listening')))
     expect(s.listenStartedAt).toBe(anchor)
-    s = chatReducer(s, recv(listenEnded))
+    s = chatReducer(s, recv(activity(2, 'idle')))
     expect(s.listening).toBe(false)
     expect(s.listenStartedAt).toBeNull()
   })
 
   it('telemetry(TURN_END_RESET)는 listening 을 건드리지 않는다 — 대기 중 알림 턴 종료에도 애니메이션 유지', () => {
     let s = chatReducer(initialChatState, { type: 'BEGIN_TURN' })
-    s = chatReducer(s, recv(listenStarted))
+    s = chatReducer(s, recv(activity(1, 'listening')))
     s = chatReducer(s, recv({ type: 'telemetry', sessionId: 's' } as NormalizedEvent))
     expect(s.inflight).toBe(false)
     expect(s.listening).toBe(true)
@@ -46,15 +56,40 @@ describe('chatReducer — chat.listen (0143)', () => {
   })
 
   it('CANCEL_CHAT 은 listening 을 낙관적으로 내린다', () => {
-    let s = chatReducer(initialChatState, recv(listenStarted))
+    let s = chatReducer(
+      {
+        ...initialChatState,
+        error: { category: 'stream_error', message: 'late', retryable: false }
+      },
+      recv(activity(1, 'listening'))
+    )
     s = chatReducer(s, { type: 'CANCEL_CHAT' })
     expect(s.listening).toBe(false)
     expect(s.listenStartedAt).toBeNull()
+    expect(s.error).toBeUndefined()
   })
 
   it('NEW_CHAT/세션 로드는 초기 상태(false)로 재구축된다', () => {
-    const s = chatReducer(chatReducer(initialChatState, recv(listenStarted)), { type: 'NEW_CHAT' })
+    const s = chatReducer(chatReducer(initialChatState, recv(activity(1, 'listening'))), {
+      type: 'NEW_CHAT'
+    })
     expect(s.listening).toBe(false)
+  })
+
+  it('load 응답보다 최신 live revision이 먼저 도착하면 hydration이 되감지 않는다', () => {
+    let s = chatReducer({ ...initialChatState, sessionId: 's' }, recv(activity(5, 'listening')))
+    s = chatReducer(s, {
+      type: 'LOAD_SESSION',
+      session: {
+        id: 's',
+        backend: 'claude',
+        title: null,
+        messages: [],
+        activity: activity(4, 'idle') as Extract<NormalizedEvent, { type: 'chat.activity' }>
+      }
+    })
+    expect(s.activityRevision).toBe(5)
+    expect(s.listening).toBe(true)
   })
 })
 

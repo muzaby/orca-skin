@@ -8,7 +8,7 @@ describe('StallTimer', () => {
     const turn: Parameters<typeof createStallTimer>[0] = {
       controller: new AbortController(),
       live: {
-        events: (async function* (events: never[]) {
+        eventBatches: (async function* (events: never[]) {
           for (const ev of events) yield ev
         })([]),
         close: () => {},

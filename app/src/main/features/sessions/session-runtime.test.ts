@@ -4,7 +4,7 @@ import { makeClassifiedError } from '../../infra/errors'
 import type { TurnRequest } from '../../adapters/turn'
 import type { AbortCause } from '../../contracts/session-state'
 import type { GovernedLiveTurn, RuntimeSessionAdapter } from '../../contracts/ports'
-import type { LiveTurn } from '../../adapters/types'
+import type { LiveTurn, ProviderMessageBatch } from '../../adapters/types'
 import { SessionRuntime } from './session-runtime'
 import { decideRespawn } from './respawn-policy'
 
@@ -19,8 +19,9 @@ function req(): TurnRequest {
 
 function live(events: NormalizedEvent[], close = vi.fn()): LiveTurn {
   return {
-    events: (async function* () {
-      for (const ev of events) yield ev
+    eventBatches: (async function* () {
+      let sequence = 0
+      for (const event of events) yield { sequence: sequence++, events: [event] }
     })(),
     close,
     setPermissionMode: async () => {},
@@ -107,11 +108,13 @@ describe('SessionRuntime close 정책(0054 → 0067)', () => {
 function channelLive(): {
   liveTurn: LiveTurn
   emit: (ev: NormalizedEvent) => void
+  emitBatch: (events: NormalizedEvent[]) => void
   close: ReturnType<typeof vi.fn>
   pushed: Array<{ text: string; promptUuid?: string }>
   interrupted: ReturnType<typeof vi.fn>
 } {
-  const queue: NormalizedEvent[] = []
+  const queue: ProviderMessageBatch[] = []
+  let nextSequence = 0
   let wake: (() => void) | null = null
   let closed = false
   const close = vi.fn(() => {
@@ -122,7 +125,7 @@ function channelLive(): {
   const pushed: Array<{ text: string; promptUuid?: string }> = []
   const interrupted = vi.fn()
   const liveTurn: LiveTurn = {
-    events: (async function* () {
+    eventBatches: (async function* () {
       while (true) {
         while (queue.length > 0) yield queue.shift()!
         if (closed) return
@@ -135,6 +138,7 @@ function channelLive(): {
     close,
     pushTurn: async (next) => {
       pushed.push({ text: next.text, ...(next.promptUuid ? { promptUuid: next.promptUuid } : {}) })
+      return { kind: 'accepted' }
     },
     setPermissionMode: async () => {},
     interrupt: async () => {
@@ -148,7 +152,12 @@ function channelLive(): {
   return {
     liveTurn,
     emit: (ev) => {
-      queue.push(ev)
+      queue.push({ sequence: nextSequence++, events: [ev] })
+      wake?.()
+      wake = null
+    },
+    emitBatch: (events) => {
+      queue.push({ sequence: nextSequence++, events })
       wake?.()
       wake = null
     },
@@ -199,6 +208,76 @@ describe('SessionRuntime 장수명 채널(0067)', () => {
     expect(spawns).toBe(1)
   })
 
+  it('후속 제출은 queue fence를 먼저 통과하고 accepted 뒤에만 commit한다', async () => {
+    const ch = channelLive()
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+    const first = collect(runtime.send(req()))
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await first
+
+    const commit = vi.fn(() => true)
+    const second = collect(
+      runtime.send({
+        ...req(),
+        text: 'next',
+        canSubmitInitial: () => true,
+        commitInitialSubmission: commit
+      })
+    )
+    await tick()
+    expect(ch.pushed.map((item) => item.text)).toEqual(['next'])
+    expect(commit).toHaveBeenCalledTimes(1)
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await second
+
+    await expect(
+      collect(
+        runtime.send({
+          ...req(),
+          text: 'stale',
+          canSubmitInitial: () => false
+        })
+      )
+    ).rejects.toThrow('submission_stale:before-continuation')
+    expect(ch.pushed.map((item) => item.text)).toEqual(['next'])
+  })
+
+  it('후속 push가 수용 전에 거절되면 채널을 격리하고 같은 제출을 fresh spawn으로 재시도할 수 있다', async () => {
+    const first = channelLive()
+    const fresh = channelLive()
+    let spawns = 0
+    const runtime = new SessionRuntime({
+      ...adapter(first.liveTurn),
+      sendMessage: () => (spawns++ === 0 ? first.liveTurn : fresh.liveTurn)
+    })
+    const initial = collect(runtime.send(req()))
+    first.emit({ type: 'telemetry', sessionId: 's1' })
+    await initial
+
+    first.liveTurn.pushTurn = async () => ({
+      kind: 'rejectedBeforeAccept',
+      reason: 'stream_closed'
+    })
+    const commit = vi.fn(() => true)
+    const retryableRequest = {
+      ...req(),
+      text: 'retry-me',
+      canSubmitInitial: () => true,
+      commitInitialSubmission: commit
+    }
+    await expect(collect(runtime.send(retryableRequest))).rejects.toThrow(
+      'submission_rejected:stream_closed'
+    )
+    expect(commit).not.toHaveBeenCalled()
+    expect(first.close).toHaveBeenCalled()
+
+    const retried = collect(runtime.send(retryableRequest))
+    fresh.emit({ type: 'telemetry', sessionId: 's1' })
+    await retried
+    expect(spawns).toBe(2)
+    expect(commit).toHaveBeenCalledTimes(1)
+  })
+
   it('markAborted(취소)=interrupt — 턴만 멈추고 채널 생존, 잔여는 terminal 까지 드랍', async () => {
     const ch = channelLive()
     const runtime = new SessionRuntime(adapter(ch.liveTurn))
@@ -218,22 +297,101 @@ describe('SessionRuntime 장수명 채널(0067)', () => {
     expect(runtime.channelAlive).toBe(true)
   })
 
-  it('프레임 밖 이벤트는 버퍼에 쌓였다가 다음 프레임 앞에 합류한다', async () => {
+  it('provider 실패 result의 terminal 복수 이벤트를 같은 프레임에 모두 배달한다', async () => {
     const ch = channelLive()
     const runtime = new SessionRuntime(adapter(ch.liveTurn))
-    const f1 = collect(runtime.send(req()))
+    const frame = collect(runtime.send(req()))
+    ch.emitBatch([
+      { type: 'telemetry', sessionId: 's1' },
+      {
+        type: 'error',
+        sessionId: 's1',
+        error: makeClassifiedError('stream_error', 'provider failed', { retryable: false })
+      }
+    ])
+    expect((await frame).map((event) => event.type)).toEqual(['telemetry', 'error'])
+    expect(runtime.channelAlive).toBe(true)
+  })
+
+  it('취소는 같은 provider 배치에 이미 큐잉된 후속 error도 폐기한다', async () => {
+    const ch = channelLive()
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+    const stream = runtime.send(req())[Symbol.asyncIterator]()
+    const first = stream.next()
+    ch.emitBatch([
+      { type: 'message.delta', sessionId: 's1', delta: { text: 'partial' } },
+      {
+        type: 'error',
+        sessionId: 's1',
+        error: makeClassifiedError('stream_error', 'cancelled transport', { retryable: false })
+      }
+    ])
+    expect((await first).value?.type).toBe('message.delta')
+
+    runtime.markAborted('user_cancelled')
+    expect(await stream.next()).toEqual({ done: true, value: undefined })
+  })
+
+  it('채널 교체 뒤 지각 도착한 interrupt 영수증은 발행 시점 수신자에게도 전달하지 않는다', async () => {
+    const ch = channelLive()
+    let resolveReceipt!: (value: { stillQueued: string[] }) => void
+    ch.liveTurn.interrupt = () =>
+      new Promise((resolve) => {
+        resolveReceipt = resolve
+      })
+    const received = vi.fn()
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+    const frame = collect(
+      runtime.send({
+        ...req(),
+        captureInterruptReceipt: () => received
+      })
+    )
+    ch.emit({ type: 'session.updated', sessionId: 's1', patch: {} })
+    await tick()
+    runtime.markAborted('user_cancelled')
+    await frame
+    runtime.teardownChannel()
+    resolveReceipt({ stillQueued: ['old-attempt'] })
+    await tick()
+    expect(received).not.toHaveBeenCalled()
+  })
+
+  it('채널 화신 종료 통지는 token당 한 번만 올라간다', async () => {
+    const ch = channelLive()
+    const retired = vi.fn()
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+    const frame = collect(runtime.send({ ...req(), onChannelRetired: retired }))
     ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await frame
+    runtime.teardownChannel()
+    runtime.close()
+    expect(retired).toHaveBeenCalledTimes(1)
+    expect(retired).toHaveBeenCalledWith(expect.any(Number))
+  })
+
+  it('프레임 밖의 소속 불명 이벤트는 다음 사용자 프레임과 섞지 않고 채널을 격리한다', async () => {
+    const first = channelLive()
+    const second = channelLive()
+    let spawns = 0
+    const runtime = new SessionRuntime({
+      ...adapter(first.liveTurn),
+      sendMessage: () => (spawns++ === 0 ? first.liveTurn : second.liveTurn)
+    })
+    const f1 = collect(runtime.send(req()))
+    first.emit({ type: 'telemetry', sessionId: 's1' })
     await f1
 
     // CLI 자동 픽업 턴 개시 시뮬레이트 — 프레임 없는 상태의 이벤트.
-    ch.emit({ type: 'session.updated', sessionId: 's1', patch: {} })
+    first.emit({ type: 'session.updated', sessionId: 's1', patch: {} })
     await tick()
 
     const f2 = collect(runtime.send({ ...req(), text: 'next' }))
-    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    second.emit({ type: 'telemetry', sessionId: 's1' })
     const events2 = await f2
-    // 백로그(session.updated)가 새 프레임 앞에 합류한다.
-    expect(events2.map((e) => e.type)).toEqual(['session.updated', 'telemetry'])
+    expect(events2.map((e) => e.type)).toEqual(['telemetry'])
+    expect(first.close).toHaveBeenCalled()
+    expect(spawns).toBe(2)
   })
 
   it('close() 는 채널을 내리고 closed — 이후 send 어댑터 spawn 은 호출자 몫', async () => {
@@ -385,6 +543,24 @@ describe('SessionRuntime listen 턴(0136)', () => {
     expect(events.map((e) => e.type)).toEqual(['session.updated', 'telemetry'])
   })
 
+  it('terminal까지 이미 쌓인 unframed 자동 턴은 listen 즉시 종료한다', async () => {
+    const ch = channelLive()
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+    const first = collect(runtime.send(req()))
+    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    await first
+
+    ch.emitBatch([
+      { type: 'session.updated', sessionId: 's1', patch: {} },
+      { type: 'telemetry', sessionId: 's1' }
+    ])
+    await tick()
+
+    const events = await collect(runtime.listen(listenReq()))
+    expect(events.map((event) => event.type)).toEqual(['session.updated', 'telemetry'])
+    expect(runtime.hasUnframedBacklog).toBe(false)
+  })
+
   it('채널이 없으면 listen 은 즉시 빈 스트림으로 종료한다', async () => {
     const ch = channelLive()
     const runtime = new SessionRuntime(adapter(ch.liveTurn))
@@ -394,11 +570,16 @@ describe('SessionRuntime listen 턴(0136)', () => {
     expect(ch.pushed).toEqual([])
   })
 
-  it('endListenFrame() 은 listen 프레임을 닫되 draining 없이 이후 이벤트를 다음 프레임에 이월한다', async () => {
-    const ch = channelLive()
-    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+  it('endListenFrame() 직후 소속 불명 이벤트가 오면 다음 사용자 프레임 대신 새 채널을 쓴다', async () => {
+    const first = channelLive()
+    const second = channelLive()
+    let spawns = 0
+    const runtime = new SessionRuntime({
+      ...adapter(first.liveTurn),
+      sendMessage: () => (spawns++ === 0 ? first.liveTurn : second.liveTurn)
+    })
     const f1 = collect(runtime.send(req()))
-    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    first.emit({ type: 'telemetry', sessionId: 's1' })
     await f1
 
     const fl = collect(runtime.listen(listenReq()))
@@ -410,13 +591,15 @@ describe('SessionRuntime listen 턴(0136)', () => {
     expect(runtime.channelAlive).toBe(true)
 
     // 밸브 직후의 held flush 턴 — 이후 도착 이벤트는 unframed 로 살아 다음 프레임에 합류한다.
-    ch.emit({ type: 'session.updated', sessionId: 's1', patch: {} })
+    first.emit({ type: 'session.updated', sessionId: 's1', patch: {} })
     await tick()
     const f2 = collect(runtime.send({ ...req(), text: 'held' }))
     await tick()
-    ch.emit({ type: 'telemetry', sessionId: 's1' })
+    second.emit({ type: 'telemetry', sessionId: 's1' })
     const events2 = await f2
-    expect(events2.map((e) => e.type)).toEqual(['session.updated', 'telemetry'])
+    expect(events2.map((e) => e.type)).toEqual(['telemetry'])
+    expect(first.close).toHaveBeenCalled()
+    expect(spawns).toBe(2)
   })
 
   it('endListenFrame() 은 일반(비-listen) 프레임을 닫지 않는다 (no-op)', async () => {
@@ -700,8 +883,12 @@ class FakeSessionRuntime implements GovernedLiveTurn {
   }
 
   // GovernedLiveTurn 전체 표면 (R3-1 의 stopTask/backgroundTask 포함) — 타입 만족용.
-  get events(): AsyncIterable<NormalizedEvent> {
-    return this.send()
+  get eventBatches(): AsyncIterable<ProviderMessageBatch> {
+    const script = this.script
+    return (async function* () {
+      let sequence = 0
+      for (const event of script) yield { sequence: sequence++, events: [event] }
+    })()
   }
   close(): void {
     this.closeLog.push(this.emitted)

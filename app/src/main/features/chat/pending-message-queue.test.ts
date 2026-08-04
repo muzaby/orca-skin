@@ -3,6 +3,15 @@ import { PendingMessageQueue } from './pending-message-queue'
 
 const msg = (text: string): { text: string } => ({ text })
 
+function accept(
+  q: PendingMessageQueue,
+  sessionId: string,
+  batch: NonNullable<ReturnType<PendingMessageQueue['reserveHeld']>>
+): typeof batch {
+  expect(q.commit(sessionId, batch.attemptId!, batch.chainId)).toBe(true)
+  return batch
+}
+
 describe('PendingMessageQueue', () => {
   it('held 취소는 성공하고 다른 세션을 건드리지 않는다', () => {
     const q = new PendingMessageQueue()
@@ -29,15 +38,24 @@ describe('PendingMessageQueue', () => {
     const q = new PendingMessageQueue()
     q.enqueue('s', msg(' first '), 10, 'a')
     q.enqueue('s', msg('second'), 20, 'b')
-    const batch = q.reserveHeld('s', 'steer', 'batch-1')
+    const batch = q.reserveHeld('s', 'steer', 'batch-1', 'chain-1')
     expect(batch).toEqual({
       uuid: 'batch-1',
+      attemptId: 'batch-1',
+      chainId: 'chain-1',
       ids: ['a', 'b'],
       text: 'first\n\nsecond',
       createdAt: 10
     })
     // 공개 배치에는 추적 필드(origin/state/items)가 새지 않는다.
-    expect(Object.keys(batch!).sort()).toEqual(['createdAt', 'ids', 'text', 'uuid'])
+    expect(Object.keys(batch!).sort()).toEqual([
+      'attemptId',
+      'chainId',
+      'createdAt',
+      'ids',
+      'text',
+      'uuid'
+    ])
     // held 는 비고(취소 불가 영역으로 이동), 빈 큐 재호출은 undefined(게이트 no-op).
     expect(q.pending('s')).toHaveLength(0)
     expect(q.reserveHeld('s', 'steer')).toBeUndefined()
@@ -110,7 +128,7 @@ describe('PendingMessageQueue', () => {
       const first = q.reserveHeld('s', 'steer', 'batch-1')!
       q.rollback('s', first.uuid)
 
-      const second = q.reserveHeld('s', 'steer', 'batch-2')!
+      const second = accept(q, 's', q.reserveHeld('s', 'steer', 'batch-2')!)
       expect(second).toMatchObject({ uuid: 'batch-2', ids: ['a'], text: 'one' })
       expect(q.confirm('s', { kind: 'echo', uuid: 'batch-2' }).map((b) => b.ids)).toEqual([['a']])
     })
@@ -118,7 +136,7 @@ describe('PendingMessageQueue', () => {
     it('확정된 배치의 롤백은 거부된다 (커밋 경로 진입분 보호)', () => {
       const q = new PendingMessageQueue()
       q.enqueue('s', msg('one'), 1, 'a')
-      q.reserveHeld('s', 'steer', 'batch-1')
+      accept(q, 's', q.reserveHeld('s', 'steer', 'batch-1')!)
       q.confirm('s', { kind: 'echo', uuid: 'batch-1' })
       expect(q.rollback('s', 'batch-1')).toBe(false)
       expect(q.pending('s')).toHaveLength(0)
@@ -127,7 +145,7 @@ describe('PendingMessageQueue', () => {
     it('orphaned 배치의 롤백은 거부된다 (CLI 가 나중에 실행할 수 있어 이중 전달 위험)', () => {
       const q = new PendingMessageQueue()
       q.enqueue('s', msg('one'), 1, 'a')
-      q.reserveHeld('s', 'steer', 'batch-1')
+      accept(q, 's', q.reserveHeld('s', 'steer', 'batch-1')!)
       q.orphanUnconfirmed('s')
       expect(q.rollback('s', 'batch-1')).toBe(false)
     })
@@ -145,7 +163,7 @@ describe('PendingMessageQueue', () => {
       // 배치의 **유일한** 확정 신호다. 여기서 거부하면 사용자 메시지가 영영 커밋되지 않는다.
       const q = new PendingMessageQueue()
       q.enqueue('s', msg('prompt'), 1, 'p')
-      q.reserveItem('s', 'p', 'turn-open')
+      accept(q, 's', q.reserveItem('s', 'p', 'turn-open')!)
       expect(q.confirm('s', { kind: 'echo', uuid: 'p', text: 'prompt' }).map((b) => b.ids)).toEqual(
         [['p']]
       )
@@ -155,7 +173,7 @@ describe('PendingMessageQueue', () => {
     it('첫 모델 출력으로도 turn-open 배치가 확정된다 (0069 기본 앵커)', () => {
       const q = new PendingMessageQueue()
       q.enqueue('s', msg('prompt'), 1, 'p')
-      q.reserveItem('s', 'p', 'turn-open')
+      accept(q, 's', q.reserveItem('s', 'p', 'turn-open')!)
       expect(q.confirm('s', { kind: 'model-output', uuids: ['p'] }).map((b) => b.ids)).toEqual([
         ['p']
       ])
@@ -164,7 +182,7 @@ describe('PendingMessageQueue', () => {
     it('이미 확정된 배치는 다른 신호가 늦게 와도 두 번 확정되지 않는다', () => {
       const q = new PendingMessageQueue()
       q.enqueue('s', msg('prompt'), 1, 'p')
-      q.reserveItem('s', 'p', 'turn-open')
+      accept(q, 's', q.reserveItem('s', 'p', 'turn-open')!)
       q.confirm('s', { kind: 'model-output', uuids: ['p'] })
       expect(q.confirm('s', { kind: 'echo', uuid: 'p' })).toEqual([])
       expect(q.drainConfirmed('s')).toHaveLength(1)
@@ -173,7 +191,7 @@ describe('PendingMessageQueue', () => {
     it('첫 모델 출력은 turn-open 배치만 확정한다 — steer 배치는 거부', () => {
       const q = new PendingMessageQueue()
       q.enqueue('s', msg('steer'), 1, 'a')
-      q.reserveHeld('s', 'steer', 'batch-1')
+      accept(q, 's', q.reserveHeld('s', 'steer', 'batch-1')!)
       expect(q.confirm('s', { kind: 'model-output', uuids: ['batch-1'] })).toEqual([])
       expect(q.confirm('s', { kind: 'echo', uuid: 'batch-1' }).map((b) => b.ids)).toEqual([['a']])
     })
@@ -181,7 +199,7 @@ describe('PendingMessageQueue', () => {
     it('uuid 가 실려 오면 uuid 로만 판정한다 — 텍스트가 같아도 폴백하지 않는다', () => {
       const q = new PendingMessageQueue()
       q.enqueue('s', msg('same text'), 1, 'a')
-      q.reserveHeld('s', 'steer', 'batch-1')
+      accept(q, 's', q.reserveHeld('s', 'steer', 'batch-1')!)
       // uuid 불일치 + 텍스트 일치 → 구 구현은 여기서 batch-1 을 오확정했다.
       expect(q.confirm('s', { kind: 'echo', uuid: 'zzz', text: 'same text' })).toEqual([])
       expect(q.drainConfirmed('s')).toEqual([])
@@ -190,7 +208,7 @@ describe('PendingMessageQueue', () => {
     it('uuid 부재 replay 만 텍스트 완전일치 폴백을 탄다 (trim 후 비교)', () => {
       const q = new PendingMessageQueue()
       q.enqueue('s', msg('same text'), 1, 'a')
-      q.reserveHeld('s', 'steer', 'batch-1')
+      accept(q, 's', q.reserveHeld('s', 'steer', 'batch-1')!)
       expect(q.confirm('s', { kind: 'echo', text: ' same text ' }).map((b) => b.ids)).toEqual([
         ['a']
       ])
@@ -201,9 +219,9 @@ describe('PendingMessageQueue', () => {
     it('model-output 은 여러 turn-open 배치(프렐류드+프롬프트)를 일괄 확정한다', () => {
       const q = new PendingMessageQueue()
       q.enqueue('s', msg('prelude'), 1, 'p1')
-      q.reserveItem('s', 'p1', 'turn-open')
+      accept(q, 's', q.reserveItem('s', 'p1', 'turn-open')!)
       q.enqueue('s', msg('prompt'), 2, 'p2')
-      q.reserveItem('s', 'p2', 'turn-open')
+      accept(q, 's', q.reserveItem('s', 'p2', 'turn-open')!)
       const confirmed = q.confirm('s', { kind: 'model-output', uuids: ['p1', 'p2', 'unknown'] })
       expect(confirmed.map((b) => b.ids)).toEqual([['p1'], ['p2']])
     })
@@ -219,10 +237,10 @@ describe('PendingMessageQueue', () => {
   it('drainConfirmed 는 확정 배치를 배치 단위로 회수하고 미확정은 남긴다', () => {
     const q = new PendingMessageQueue()
     q.enqueue('s', msg('prompt'), 5, 'p')
-    q.reserveItem('s', 'p', 'turn-open')
+    accept(q, 's', q.reserveItem('s', 'p', 'turn-open')!)
     q.enqueue('s', msg('first'), 10, 'a')
     q.enqueue('s', msg('second'), 20, 'b')
-    q.reserveHeld('s', 'steer', 'batch-1')
+    accept(q, 's', q.reserveHeld('s', 'steer', 'batch-1')!)
     expect(q.drainConfirmed('s')).toEqual([]) // 확정 전엔 0
     q.confirm('s', { kind: 'model-output', uuids: ['p'] })
     q.confirm('s', { kind: 'echo', uuid: 'batch-1' })
@@ -238,10 +256,10 @@ describe('PendingMessageQueue', () => {
     it('미확정 예약만 orphaned 로 내린다 — 확정분은 건드리지 않는다', () => {
       const q = new PendingMessageQueue()
       q.enqueue('s', msg('confirmed'), 1, 'a')
-      q.reserveHeld('s', 'steer', 'batch-1')
+      accept(q, 's', q.reserveHeld('s', 'steer', 'batch-1')!)
       q.confirm('s', { kind: 'echo', uuid: 'batch-1' })
       q.enqueue('s', msg('lost'), 2, 'b')
-      q.reserveHeld('s', 'steer', 'batch-2')
+      accept(q, 's', q.reserveHeld('s', 'steer', 'batch-2')!)
 
       const orphaned = q.orphanUnconfirmed('s')
       expect(orphaned.map((b) => b.uuid)).toEqual(['batch-2'])
@@ -252,7 +270,7 @@ describe('PendingMessageQueue', () => {
     it('두 번 호출해도 같은 배치를 다시 세지 않는다 (멱등)', () => {
       const q = new PendingMessageQueue()
       q.enqueue('s', msg('lost'), 1, 'a')
-      q.reserveHeld('s', 'steer', 'batch-1')
+      accept(q, 's', q.reserveHeld('s', 'steer', 'batch-1')!)
       expect(q.orphanUnconfirmed('s')).toHaveLength(1)
       expect(q.orphanUnconfirmed('s')).toHaveLength(0)
     })
@@ -260,7 +278,7 @@ describe('PendingMessageQueue', () => {
     it('지각 도착한 확정 신호는 orphaned 도 확정한다 (커밋 유실 방지)', () => {
       const q = new PendingMessageQueue()
       q.enqueue('s', msg('late echo'), 1, 'a')
-      q.reserveHeld('s', 'steer', 'batch-1')
+      accept(q, 's', q.reserveHeld('s', 'steer', 'batch-1')!)
       q.orphanUnconfirmed('s')
       expect(q.confirm('s', { kind: 'echo', uuid: 'batch-1' }).map((b) => b.ids)).toEqual([['a']])
       expect(q.drainConfirmed('s').map((b) => b.ids)).toEqual([['a']])
@@ -272,7 +290,7 @@ describe('PendingMessageQueue', () => {
     it('orphaned 는 큐에 남아 takeForRespawn 으로 이월된다 — 채널 사망이 유일한 회수 시점', () => {
       const q = new PendingMessageQueue()
       q.enqueue('s', msg('CLI 큐에 살아있음'), 1, 'a')
-      q.reserveHeld('s', 'steer', 'orphan-1')
+      accept(q, 's', q.reserveHeld('s', 'steer', 'orphan-1')!)
       q.orphanUnconfirmed('s')
       // 폐기되지 않았으므로 respawn 이 그대로 이월한다(유실 없음).
       expect(q.takeForRespawn('s').map((b) => b.ids)).toEqual([['a']])
@@ -282,7 +300,7 @@ describe('PendingMessageQueue', () => {
       const q = new PendingMessageQueue()
       q.enqueue('s', msg('777'), 1, 'a')
       q.enqueue('s', msg('888'), 2, 'b')
-      q.reserveHeld('s', 'steer', 'orphan-1')
+      accept(q, 's', q.reserveHeld('s', 'steer', 'orphan-1')!)
       q.orphanUnconfirmed('s')
       expect(q.confirm('s', { kind: 'echo', uuid: 'orphan-1' }).map((x) => x.ids)).toEqual([
         ['a', 'b']
@@ -295,9 +313,9 @@ describe('PendingMessageQueue', () => {
     it('지정 uuid 의 예약만 폐기한다', () => {
       const q = new PendingMessageQueue()
       q.enqueue('s', msg('one'), 1, 'a')
-      q.reserveHeld('s', 'steer', 'batch-1')
+      accept(q, 's', q.reserveHeld('s', 'steer', 'batch-1')!)
       q.enqueue('s', msg('two'), 2, 'b')
-      q.reserveHeld('s', 'steer', 'batch-2')
+      accept(q, 's', q.reserveHeld('s', 'steer', 'batch-2')!)
 
       const discarded = q.discardSubmitted('s', ['batch-1'])
       expect(discarded.map((x) => x.ids)).toEqual([['a']])
@@ -307,7 +325,7 @@ describe('PendingMessageQueue', () => {
     it('모르는 uuid·확정된 배치는 건드리지 않는다', () => {
       const q = new PendingMessageQueue()
       q.enqueue('s', msg('one'), 1, 'a')
-      q.reserveHeld('s', 'steer', 'batch-1')
+      accept(q, 's', q.reserveHeld('s', 'steer', 'batch-1')!)
       q.confirm('s', { kind: 'echo', uuid: 'batch-1' })
       expect(q.discardSubmitted('s', ['batch-1', 'unknown'])).toEqual([])
       // 확정분은 커밋 경로에 그대로 남는다.
@@ -317,9 +335,24 @@ describe('PendingMessageQueue', () => {
     it('빈 목록이면 no-op', () => {
       const q = new PendingMessageQueue()
       q.enqueue('s', msg('one'), 1, 'a')
-      q.reserveHeld('s', 'steer', 'batch-1')
+      accept(q, 's', q.reserveHeld('s', 'steer', 'batch-1')!)
       expect(q.discardSubmitted('s', [])).toEqual([])
       expect(q.submittedUuids('s')).toEqual(['batch-1'])
+    })
+
+    it('discard가 제출 직전 끼어들면 canCommit fence가 push를 막고 늦은 commit도 실패한다', () => {
+      const q = new PendingMessageQueue()
+      q.enqueue('s', msg('one'), 1, 'a')
+      const batch = q.reserveHeld('s', 'turn-open', 'attempt-1', 'chain-1')!
+      const attempt = {
+        messageIds: batch.ids,
+        attemptId: batch.attemptId!,
+        chainId: batch.chainId!
+      }
+      expect(q.canCommitMany('s', [attempt])).toBe(true)
+      q.discardSubmitted('s', ['attempt-1'])
+      expect(q.canCommitMany('s', [attempt])).toBe(false)
+      expect(q.commitMany('s', [attempt])).toBe(false)
     })
   })
 
@@ -329,11 +362,11 @@ describe('PendingMessageQueue', () => {
       const q = new PendingMessageQueue()
       expect(q.submittedUuids('s')).toEqual([])
       q.enqueue('s', msg('one'), 1, 'a')
-      q.reserveHeld('s', 'steer', 'batch-1')
+      accept(q, 's', q.reserveHeld('s', 'steer', 'batch-1')!)
       expect(q.submittedUuids('s')).toEqual(['batch-1'])
 
       q.enqueue('s', msg('two'), 2, 'b')
-      q.reserveHeld('s', 'steer', 'batch-2')
+      accept(q, 's', q.reserveHeld('s', 'steer', 'batch-2')!)
       expect(q.submittedUuids('s').sort()).toEqual(['batch-1', 'batch-2'])
 
       // 확정·orphan 전이분은 "지금 CLI 큐에 있을 수 있는 우리 것" 이 아니다.
@@ -346,37 +379,58 @@ describe('PendingMessageQueue', () => {
   it('takeForRespawn 은 미확정 예약 재전달 + held 아이템 배치를 시간순으로 회수한다', () => {
     const q = new PendingMessageQueue()
     q.enqueue('s', msg('confirmed'), 5, 'z')
-    q.reserveHeld('s', 'steer', 'batch-0')
+    accept(q, 's', q.reserveHeld('s', 'steer', 'batch-0')!)
     q.confirm('s', { kind: 'echo', uuid: 'batch-0' })
     q.enqueue('s', msg('flushed-lost'), 10, 'a')
-    q.reserveHeld('s', 'steer', 'batch-1')
+    accept(q, 's', q.reserveHeld('s', 'steer', 'batch-1')!)
     q.enqueue('s', msg('held-late'), 20, 'b')
-    const batches = q.takeForRespawn('s')
-    // 확정분(batch-0)은 커밋 몫 — 재전달에 섞이지 않는다. uuid 는 보존(renderer 정합).
-    expect(batches.map((batch) => batch.uuid)).toEqual(['batch-1', 'b'])
+    const batches = q.takeForRespawn('s', 'respawn-chain')
+    // 확정분(batch-0)은 커밋 몫 — 재전달에 섞이지 않는다. 재주입 attempt는 이전 provider
+    // 화신의 receipt와 충돌하지 않도록 새 uuid를 받되 message ids는 보존한다.
+    expect(batches.map((batch) => batch.ids)).toEqual([['a'], ['b']])
+    expect(batches.map((batch) => batch.uuid)).not.toContain('batch-1')
+    expect(batches.map((batch) => batch.uuid)).not.toContain('b')
+    expect(batches.every((batch) => batch.chainId === 'respawn-chain')).toBe(true)
     expect(batches.map((batch) => batch.text)).toEqual(['flushed-lost', 'held-late'])
     expect(q.pending('s')).toHaveLength(0)
     // 재전달분은 새 턴의 프렐류드/프롬프트가 되므로 origin 이 turn-open 으로 재스탬프된다(AC1).
     // 재스탬프가 필요한 이유는 **첫 모델 출력을 확정 신호로 열어야** 하기 때문이다 — steer 로
     // 남겨두면 model-output 이 확정하지 못해(D2 비대칭) 새 턴이 이 배치를 영영 커밋하지 못한다.
-    expect(q.confirm('s', { kind: 'model-output', uuids: ['b'] }).map((b) => b.ids)).toEqual([
-      ['b']
-    ])
-    expect(q.drainConfirmed('s').map((batch) => batch.ids)).toEqual([['b']])
+    expect(
+      q.commitMany(
+        's',
+        batches.map((batch) => ({
+          messageIds: batch.ids,
+          attemptId: batch.attemptId!,
+          chainId: batch.chainId!
+        }))
+      )
+    ).toBe(true)
+    expect(
+      q
+        .confirm('s', {
+          kind: 'model-output',
+          uuids: batches.map((batch) => batch.uuid)
+        })
+        .map((b) => b.ids)
+    ).toEqual([['a'], ['b']])
+    expect(q.drainConfirmed('s').map((batch) => batch.ids)).toEqual([['a'], ['b']])
   })
 
   it('takeForRespawn 은 orphaned 예약도 회수한다', () => {
     const q = new PendingMessageQueue()
     q.enqueue('s', msg('orphan'), 1, 'a')
-    q.reserveHeld('s', 'steer', 'batch-1')
+    accept(q, 's', q.reserveHeld('s', 'steer', 'batch-1')!)
     q.orphanUnconfirmed('s')
-    expect(q.takeForRespawn('s').map((b) => b.uuid)).toEqual(['batch-1'])
+    const [retried] = q.takeForRespawn('s')
+    expect(retried.ids).toEqual(['a'])
+    expect(retried.uuid).not.toBe('batch-1')
   })
 
   it('rekey 는 held/예약분을 새 세션 키로 재바인딩한다 (clientKey→session id, 0067 AC9)', () => {
     const q = new PendingMessageQueue()
     q.enqueue('draft-1', msg('prompt'), 1, 'p')
-    q.reserveItem('draft-1', 'p', 'turn-open')
+    accept(q, 'draft-1', q.reserveItem('draft-1', 'p', 'turn-open')!)
     q.enqueue('draft-1', msg('early steer'), 2, 'e')
     q.rekey('draft-1', 'session-1')
     expect(q.pending('session-1').map((item) => item.id)).toEqual(['e'])
@@ -462,7 +516,7 @@ describe('PendingMessageQueue', () => {
     it('freeze 는 취소·확정·drain 경로를 막지 않는다 (진행 중 정리는 계속돼야 한다)', () => {
       const q = new PendingMessageQueue()
       q.enqueue('s', msg('one'), 1, 'a')
-      q.reserveHeld('s', 'steer', 'batch-1')
+      accept(q, 's', q.reserveHeld('s', 'steer', 'batch-1')!)
       q.enqueue('s', msg('two'), 2, 'b')
       q.freeze()
       expect(q.cancel('s', 'b')?.text).toBe('two')

@@ -1,4 +1,4 @@
-# Plan — 0166-session-chain-lease (r2)
+# Plan — 0166-session-chain-lease (r3 · 구현 반영)
 
 > **출신**: `0165` 리뷰(6라운드)에서 **소유권·제어·제출 권위**에 해당하는 항목을 분리한
 > 핸드오프(사용자 결정 ⑦). 0165 는 보고 증상 직결분만 갖는다.
@@ -9,6 +9,12 @@
 > 적재된다) · **adapter outcome 계약**(push 결과가 관측 불가) · **재시도 규칙**(0165 에서 이관) ·
 > `beginMany` · **preparing admission 자기모순 해소** · **준비 실패 정책 고정** · `closing` 자원 보존 ·
 > **activation CAS** · **commit fencing** · **open state 정본** · `ChannelLifecyclePort`.
+>
+> **r3 구현 교정** — 공개 포트 수를 늘리는 원안 대신 현재 실행 모델의 더 작은 원자 경계를 썼다.
+> 초기 입력은 `sendMessage()` 내부 스트림 생성까지 동기(run-to-completion)이므로 Runtime이 호출 전
+> `canSubmitInitial` 전량 fence, 반환 직후 `commitMany`를 수행한다. 후속 `pushTurn`은 adapter outcome을
+> await한 뒤 commit하며, 그 사이 discard가 끼면 commit 실패 + 채널 격리다. PostToolBatch는 자기
+> 채널 input을 캡처하므로 새 채널 오염이 불가능하고 같은 queue commit/rollback fence를 쓴다.
 
 ## 메타
 
@@ -17,7 +23,7 @@
 | slug | `0166-session-chain-lease` |
 | 작성자 | Claude Code |
 | 일자 | 2026-08-04 |
-| 상태 | DRAFT → **READY** |
+| 상태 | **IMPLEMENTED** (자동 게이트 완료, GUI/프로세스 사람 실기만 잔여) |
 | 선행 / 후속 | 선행 `0165` · 후속 `0167`(활동 스냅샷 — 본 문서의 lease 수명을 입력으로 쓴다) |
 
 ## 사용자 의도 / 요구 출처
@@ -147,7 +153,7 @@ type SessionChainLease<W> =
   | `preparing` | **true** | pending 버블(held 합류) |
   | `active`, spawn 전 | **true** | pending 버블 |
   | `active`, 채널 생존 + `canSteer` | **true** | pending 버블 |
-  | 어댑터가 steer 미지원(turn-scoped) | false | "이 백엔드는 끼어들기 미지원" 안내 |
+  | 어댑터가 즉시 steer 미지원(turn-scoped) | **true** | held 후 체인 종료 시 자동 continuation |
   | provider 경계 위반(`lease.providerKey` 기준) | false | "다른 공급자 모델이 선택됨" 안내 |
   | `closing`(discard/shutdown) | false | 잠시 후 재시도 안내 |
 
@@ -155,7 +161,25 @@ type SessionChainLease<W> =
 - 서브에이전트 중단은 lease control 을 읽으므로 **연속·listen 턴에서도 `stopTask` 에 도달**한다.
 - **정리 시점**(P2-18): `settled` 관측 시 해당 키 제거, lease 해제 시 전량 폐기.
 
-### C. 제출 포트 단일화 (F-G, 리뷰 P1-3·P1-6)
+### C. 제출 트랜잭션 구현 계약 (F-G, r3)
+
+> 아래 r2의 `openChannel`/`submitSteer` 전면 포트화 제안은 **r3에서 폐기**한다. 현재 구현의
+> 권위 계약은 다음과 같다.
+
+- 예약 배치는 `submitting`으로 시작하고 `(attemptId, chainId, messageIds)` 전량 fence를 갖는다.
+- 초기 spawn은 Runtime이 `canSubmitInitial()`을 확인한 뒤 **동기** `sendMessage()`를 호출하고,
+  반환 직후 `commitMany()`한다. 호출 전 discard는 push를 막고, 호출과 commit 사이에는 JS
+  run-to-completion 때문에 다른 IPC가 끼어들 수 없다.
+- 후속 `pushTurn`은 `accepted|rejectedBeforeAccept` outcome을 반환한다. accepted 뒤 commit fence가
+  실패하면 채널을 격리하고, 명시적 거절만 **같은 submitting attempt**로 fresh channel에서 재시도한다.
+  wire identity를 바꾸지 않아 renderer pending 버블과 큐 원장이 갈라지지 않는다.
+  accepted 뒤 무이벤트 실패는 `submission_stale` fence로 자동 재전송하지 않는다.
+- PostToolBatch는 해당 spawn의 `input`을 캡처한다. push 성공 뒤 같은 queue commit callback,
+  거절/예외에는 rollback callback을 호출한다. 과거 훅은 새 채널 input에 접근할 수 없다.
+- respawn은 `messageIds`를 보존하고 wire `attemptId`를 재발급한다. 프렐류드와 본 프롬프트의
+  commit은 `commitMany` 전량 검증으로 부분 상태 전이를 막는다.
+
+#### r2 검토 기록(비권위)
 
 - 어댑터에 push 클로저를 주지 않는다. Runtime 이 구현한 **`submitSteer(batch)` 포트**만 넘기고
   게이트 훅은 **요청만** 한다(훅의 fail-open·rollback·경고 로그 구조는 **그대로 보존**).
@@ -185,16 +209,16 @@ type SessionChainLease<W> =
 - **open state 정본**(세 문서 공통, r2): `submitting | submitted(accepted) | orphaned` = **open**.
   residual 계산 · 전체 중단 · 세션 삭제 · shutdown · 스냅샷이 **모두 이 정본**을 쓴다.
 
-### D. 레이어 경계 — 포트 2종 (리뷰 P1-3)
+### D. 레이어 경계 — 구현된 구조적 callback 3종 (리뷰 P1-3, r3)
 
 `features/sessions` 와 `features/chat` 은 **서로 import 할 수 없다**(lint error). 컴포지션 루트가
 주입한다:
 
-| 포트 | 소비자 | 제공자 | 메서드 |
+| 경계 | 소비자 | 제공자 | 메서드 |
 |---|---|---|---|
-| `SubmissionAttemptPort` | `SessionRuntime`(sessions) | `PendingMessageQueue`(chat) | `begin(attempt, token)` / **`beginMany(attempts, token)`** / `commit`(fencing) / `rollback` |
-| `SessionControlPort` | `TurnCoordinator`·핸들러(chat/app) | lease(sessions) | task 매핑 조회·기록, stopped/blocked/cancelled |
-| **`ChannelLifecyclePort`** (r2) | app | `SessionRuntime`(sessions) | `onChannelRetired(token) → 정착 대상 ids` — tracker 는 `features/chat` 이라 **토큰이 경계를 넘으려면 이 포트가 필요**하다(0165 는 토큰을 내부에 가둬 이 기능을 갖지 않는다) |
+| `TurnRequest` 제출 callbacks | `SessionRuntime`(sessions) | app → `PendingMessageQueue`(chat) | `canSubmitInitial` / `commitInitialSubmission` / `rollbackInitialSubmission` |
+| `SessionControl` 참조 | coordinator·handler | lease(sessions) | task map·stopped/blocked/cancelled를 continuation이 같은 참조로 공유 |
+| `onChannelRetired(token)` | app | `SessionRuntime`(sessions) | app이 tracker를 조회해 합성 settled; sessions→chat 직접 import 없음 |
 
 ### E. 종료 경로 원자성 (리뷰 P1-9·P1-10·P1-15)
 
@@ -206,19 +230,18 @@ type SessionChainLease<W> =
   ① preparing controller 취소 → ② 각 `await` 뒤 cancelled/frozen 재검사(신규 runtime factory 금지)
   → ③ active child 정착(`settleOpenToolRuns`)·abort → ④ **모든 lease 의 runtime close** →
   ⑤ idle 풀 close → ⑥ 큐 dispose.
-- **`retireChannel(token)`**(P1-8): 세대 교체 시 트래커 엔트리를 *숨기지 않고* **정착 대상 ids 를
-  반환**한다. 호출자가 합성 settled 를 영속·전달한 뒤 제거한다 — transcript 고착 방지.
+- **`onChannelRetired(token)`**(P1-8): 세대 교체를 app에 1회 통지한다. app이 해당 세션 tracker의
+  정착 대상을 읽어 합성 settled를 영속·전달한다 — sessions가 chat tracker를 직접 알지 않는다.
 - **discard CAS**(P1-15): "세션 전체 중단" 을 원자화한다 — ⓐ 해당 세션 신규 begin 차단
   (`closing`) → ⓑ 현재 토큰 무효화 + runtime close → ⓒ 그 시점 **모든 open 배치 폐기** →
   ⓓ draft 복원 이벤트 → ⓔ admission 재개.
 
 | 신규 모듈 | 책임 | 레이어 | 테스트 방법 |
 |---|---|---|---|
-| `SessionChainLease` + lease registry | 세션 소유·제어 권위 | features/sessions | 순수 단위 — `session-registry.test.ts`·`supervisor.test.ts` |
-| `SubmissionAttemptPort`·`SessionControlPort` | 레이어 경계 절단 | contracts(타입) + app(주입) | 구조적 포트 — fake 구현으로 양쪽 단위 테스트 |
-| `SessionRuntime.submitSteer`(expectedToken) | 제출 권위 | features/sessions | 순수 단위 — fake live 채널 harness |
-| `retireChannel(token)` | 세대 교체 시 정착 | features/chat(tracker) | 순수 단위 — `background-tasks.test.ts` |
-| shutdown/gate/discard 배선 | 종료 원자성 | app | `bootstrap.*.test.ts`(신규 2) + 기존 harness |
+| `SessionChainLease` + registry | 세션 소유·제어 권위 | features/sessions | `session-chain-lease.test.ts` |
+| queue submission callbacks | 제출 전량 fence | `TurnRequest` + app 주입 | queue/runtime 단위 테스트 |
+| channel token + retirement callback | 영수증·정착 세대 격리 | SessionRuntime + app | `session-runtime.test.ts` |
+| shutdown/gate/discard 배선 | 종료 원자성 | app | supervisor·전체 회귀 suite |
 
 ## 인수 기준 (Acceptance Criteria)
 
@@ -241,21 +264,21 @@ type SessionChainLease<W> =
 | A15 | shutdown 이 **① preparing 취소 ② active child 정착·abort ③ 모든 lease runtime close ④ idle close ⑤ 큐 dispose** 순으로 수행된다 | `bootstrap.shutdown.test.ts::"종료 순서가 보장된다"` | 앱 종료 |
 | A16 | shutdown 중 **신규 runtime factory 가 실행되지 않는다**(준비 중 체인이 되살아나지 않는다) | `bootstrap.shutdown.test.ts::"종료 중 신규 spawn 이 없다"` | 동 A15 |
 | A17 | **"세션 전체 중단" 이 active runtime 을 종료**하고, 그 시점 **모든 open 배치를 폐기**하며, 그 사이 신규 begin 이 차단된다 | `supervisor.test.ts::"discard 는 active runtime 을 닫는다"` · `chat-turn.lease.test.ts::"discard 중 신규 제출이 차단된다"` | 잔여 Notice → `chat:discardSession` |
-| A18 | `submitSteer` 는 **`expectedToken` 불일치 시 stale 을 반환하고 push 하지 않는다** | `session-runtime.test.ts::"토큰 불일치 submitSteer 는 push 하지 않는다"` | 구 채널의 지각 훅 |
-| A19 | **PostToolBatch steer 도 Runtime 포트를 지나** 토큰에 결합된다(어댑터 직접 push 0) | `adapters/claude.steer-port.test.ts::"게이트 훅은 submitSteer 를 부른다"` | CLI 훅 |
+| A18 | channel token이 바뀐 뒤 도착한 **이전 interrupt 영수증은 폐기**된다 | `session-runtime.test.ts::"채널 교체 뒤 지각 도착한 interrupt 영수증"` | 구 채널 비동기 영수증 |
+| A19 | PostToolBatch는 **자기 spawn의 input만 캡처**하고 queue commit/rollback callback으로 제출 상태를 결합한다 | `claude.fork.test.ts` + `claude-adapt` 기존 steer suite | CLI 훅 |
 | A20 | 훅의 **fail-open·rollback·경고 로그가 보존**된다(포트 교체가 steer 를 조용히 끊지 않는다) | `claude-adapt.test.ts::"포트 거부 시 rollback + 경고 로그"` | 동 A19 |
-| A21 | **`retireChannel(token)` 이 정착 대상 ids 를 반환**하고, 호출자가 합성 settled 를 전달한 뒤 제거한다(transcript 가 '실행 중' 으로 남지 않는다) | `background-tasks.test.ts::"retireChannel 은 정착 대상을 반환한다"` · `chat-turn.lease.test.ts::"세대 교체가 열린 태스크를 정착시킨다"` | respawn |
-| A22 | `features/sessions` ↔ `features/chat` **직접 import 0** — 포트 2종을 컴포지션 루트가 주입한다 | `npm run lint`(boundaries) + `supervisor.test.ts` 의 fake 포트 사용 | 빌드 게이트 |
+| A21 | channel retirement가 token당 **정확히 1회** app에 통지되고 tracker 합성 정착 경로가 실행된다 | `session-runtime.test.ts::"채널 화신 종료 통지는 token당 한 번"` | respawn·stream end·oneshot |
+| A22 | `features/sessions` ↔ `features/chat` **직접 import 0** — callback과 lease 참조를 app이 조립한다 | `npm run lint` boundaries | 빌드 게이트 |
 | A23 | 실기: 백그라운드 서브에이전트가 도는 세션에서 연속 전송을 반복해도 **CLI 서브프로세스가 세션당 1개**로 유지되고, 앱 종료 후 **잔존 프로세스가 0** 이다 | **사람 실기** — `npm run dev` + `ps` 확인(전송 5회 반복 → 종료) | 앱 전체 |
 | A24 | **activation CAS**: 준비 완료 시 lease 가 이미 `closing` 이면 전이가 실패하고 **방금 얻은 runtime 이 즉시 close** 된다 | `supervisor.test.ts::"activation CAS 실패는 runtime 을 즉시 닫는다"` | 준비 중 discard/shutdown 경합 |
 | A25 | **preparing 중 Stop·owner-gone** 이 준비를 abort 하고, 이후 도착한 provider 해석 결과로 **spawn 하지 않는다** | `chat-turn.lease.test.ts::"preparing 중 Stop 은 spawn 을 막는다"` · `::"owner 소멸도 같은 경로"` | 전송 직후 중단 · 창 닫기 |
-| A26 | **spawn handshake**: 최초 prompt·프렐류드가 **Runtime 의 제출 트랜잭션을 통과**한다(어댑터가 초기 입력을 미리 적재하지 않는다) | `session-runtime.test.ts::"초기 배치도 submit 을 통과한다"` · `adapters/claude.openchannel.test.ts::"openChannel 은 입력 없이 채널만 연다"` | `chat:send` 최초 전송 · respawn |
-| A27 | **adapter outcome**: `push` 가 거절되면 `rejectedBeforeAccept` 가 전파돼 `held` 로 롤백되고, `accepted` 면 `submitted` 로 결합된다 | `session-runtime.test.ts::"push 거절은 rejectedBeforeAccept 로 롤백된다"` · `adapters/claude.outcome.test.ts::"push 결과가 outcome 으로 전파된다"` | 모든 제출 경로 |
-| A28 | **재시도 규칙**: `rejectedBeforeAccept` 는 **새 attemptId 로 1회** 재시도하고, `accepted` 후 무이벤트는 **재전송하지 않는다** | `turn-coordinator.test.ts::"거절은 새 attempt 로 1회 재시도"` · `::"accepted 후 무이벤트는 재전송하지 않는다"` | coordinator retry 루프 |
-| A29 | **`beginMany` 원자성**: 프렐류드 N개 중 하나라도 begin 에 실패하면 **전부 무효**가 되고 push 가 일어나지 않는다 | `pending-message-queue.test.ts::"beginMany 는 전부 성공 또는 전부 무효"` | respawn 프렐류드 |
+| A26 | **동기 spawn handshake**: 최초 prompt·프렐류드는 `canSubmitInitial` 전량 preflight 후 `sendMessage` 반환 직후 commit된다 | `session-runtime.test.ts` 초기 send + continuity 통합 테스트 | 최초 전송·respawn |
+| A27 | **adapter outcome**: 후속 push 거절은 `rejectedBeforeAccept`, 수용은 `accepted`로 Runtime까지 전파된다 | `session-runtime.test.ts` 후속 제출 fence + Claude adapter suite | 후속 제출 |
+| A28 | 거절 전에는 같은 attempt로 fresh channel 재시도가 가능하고, accepted/stale 뒤에는 자동 재전송하지 않는다 | queue state fence + coordinator retry suite | coordinator retry 루프 |
+| A29 | **전량 원자성**: `canCommitMany`가 모든 프렐류드+prompt를 검증한 뒤 `commitMany`가 한 mutation으로 전이한다 | `pending-message-queue.test.ts` commitMany fence | respawn 프렐류드 |
 | A30 | **commit fencing**: push 를 await 하는 동안 discard 되면 **늦은 commit 이 no-op** 이고 폐기 상태가 되살아나지 않는다 | `pending-message-queue.test.ts::"discard 후 늦은 commit 은 무시된다"` · `chat-turn.lease.test.ts::"submitting 중 discard 경합"` | 잔여 Notice → discard |
 | A31 | **open 정본 3상태**(`submitting\|submitted\|orphaned`)를 residual·discard·세션 삭제·shutdown·스냅샷이 **모두** 사용한다 | `pending-message-queue.test.ts::"open 정본이 모든 소비처에서 일치한다"` | 큐 전 소비처 |
-| A32 | **`ChannelLifecyclePort`**: 세대 교체 시 app 이 `onChannelRetired(token)` 로 **정착 대상 ids 를 받아** 합성 settled 를 전달한 뒤 tracker 에서 제거한다 | `chat-turn.lease.test.ts::"세대 교체가 열린 태스크를 정착시킨다"` | respawn |
+| A32 | `onChannelRetired(token)`이 app의 `settleDeadBackgroundTasks`를 호출해 열린 tracker를 합성 정착한다 | Runtime callback test + chat-turn 배선 | respawn |
 
 ## 범위 / 비범위
 
@@ -270,12 +293,12 @@ type SessionChainLease<W> =
 
 ## 의존 기술 / 전제
 
-- **선행 의존**: 0165 의 `ensureChannel()` incarnation token · `SubmissionAttempt`.
-  0165 없이 착수하면 C 의 토큰 결합과 E 의 `retireChannel` 이 기준점을 잃는다.
+- **선행 의존**: 0165 의 channel incarnation token · `SubmissionAttempt`.
+  0165 없이 착수하면 C의 attempt fence와 E의 retirement 기준점을 잃는다.
 - 전제 1: registry 소비처는 **9곳**이며 `hasSession`/`getBySession`/`all()` 3술어로 표현된다.
 - 전제 2: in-process 백그라운드 태스크는 서브프로세스와 함께 죽는다(0136 승계).
-- 전제 3: 훅은 자기 채널 `input` 을 캡처하므로 **현행에는** 교차 채널 push 가 없다 — C 가 그
-  전제를 바꾸므로 `expectedToken` 이 필요하다.
+- 전제 3: PostToolBatch 훅은 자기 채널 `input`을 캡처한다. r3는 이 전제를 유지하고 queue
+  commit/rollback만 callback으로 결합한다.
 - **신규 의존성: 없음.**
 
 ## 기존 결정·규칙과의 관계
@@ -285,10 +308,10 @@ type SessionChainLease<W> =
 | registry 의 turn 단위 등록 (구조, 결정 문서 없음) | `session-registry.ts:3-5` | **구조 변경** — 등록 단위를 체인으로. 3술어 계약 유지 + `allLeases()` 신설 |
 | 게이트·shutdown 이 `all()` 로 판정 (구조) | `bootstrap.ts:489-494`, `:553-560` | **구조 변경 + 현행 결함 수정** |
 | 세션 제어 상태를 turn-local 에 보관 (구조) | `chat-turn.ts:96-112` | **구조 변경** — lease 로 이관(복제 금지) |
-| 어댑터가 steer push 수행 (구조) | `claude.ts:393-397` | **구조 변경** — 요청만, push·결합은 Runtime |
+| 어댑터가 steer push 수행 (구조) | `claude.ts` | **유지 + fence 보강** — 자기 input push, app queue commit/rollback callback |
 | 0151 "처분은 사용자 선택" | `interrupt-reconcile.ts:1-16` | **유지** — 선택지는 그대로, 처분이 **실제로 동작**하게 된다 |
 | 0136 릴리즈 밸브 · 0153 admission · 0143 표시 | 각 주석 | **유지** |
-| main 레이어 DAG(feature 교차 금지) | `eslint.config.mjs` | **준수** — 포트 2종 + 루트 주입(AC-A22) |
+| main 레이어 DAG(feature 교차 금지) | `eslint.config.mjs` | **준수** — callbacks + 루트 주입(AC-A22) |
 
 ## 파생 UX / 엣지케이스
 
@@ -306,8 +329,8 @@ type SessionChainLease<W> =
 | 리스크 | 완화책 |
 |---|---|
 | **lease 누수 = 세션 영구 busy**(모든 send 가 held 로만 쌓임) | 해제는 outer `finally` 단일 지점 + leaseId CAS. shutdown 이 강제 정리(A15). 0167 스냅샷이 lease 존재를 항상 관측 가능하게 노출 |
-| 포트 도입이 steer 를 조용히 끊을 수 있다 | 훅의 fail-open·rollback·경고 로그 **구조 보존**(A20) + 포트 호출 자체를 AC 로 잠금(A19) |
-| 세대 스코프가 정착 대상을 잃게 할 수 있다 | `retireChannel` 이 **반환**하고 호출자가 정착(A21) — 숨기지 않는다 |
+| callback 결합이 steer 를 조용히 끊을 수 있다 | 훅의 fail-open·rollback·경고 로그 구조 보존(A20) |
+| 세대 스코프가 정착 대상을 잃게 할 수 있다 | retirement를 token당 1회 app에 통지하고 app이 tracker를 정착(A21) |
 | 9곳 소비처 회귀 | 3술어 계약 유지 + `allLeases()` 는 **신설**(기존 시그니처 무변경). A12·A15 가 게이트·종료를 양성 단언 |
 | diff 가 크다 | 커밋을 A(상태머신) → B(제어 이관) → C/D(포트) → E(종료 원자성) 순으로 쪼갠다. **A 만 들어가도 D7 이 닫힌다** |
 
@@ -318,15 +341,15 @@ type SessionChainLease<W> =
 
 - `app/src/main/features/sessions/session-registry.ts` · `supervisor.ts` — lease 상태머신 ·
   `swapChild` · CAS 해제 · `allLeases()` · `discardRuntime` 이 active 도달
-- `app/src/main/features/sessions/session-runtime.ts` — `submitSteer(expectedToken)` · CAS 연동
-- `app/src/main/contracts/ports.ts` — `SubmissionAttemptPort` · `SessionControlPort`
+- `app/src/main/features/sessions/session-runtime.ts` — 초기/후속 제출 fence · channel retirement
+- `app/src/main/adapters/turn.ts` — queue submission·retirement callback 계약
 - `app/src/main/features/chat/pending-message-queue.ts` — `submitting` CAS(포트 구현)
-- `app/src/main/features/chat/background-tasks.ts` — `retireChannel(token)`
+- `app/src/main/features/chat/background-tasks.ts` — 앱 수명 tracker 구독·정착 입력
 - `app/src/main/app/chat-turn.ts` — lease 수명 · 제어 이관(`freshTurnLocalState` 축소) ·
   `canSteer`/`providerKey` 판정 교정
 - `app/src/main/app/bootstrap.ts` — 게이트·shutdown·포트 주입
-- `app/src/main/adapters/{types,turn,claude,claude-adapt,mock}.ts` — **`openChannel` handshake** ·
-  **outcome 반환형** · 게이트 훅이 포트 호출
+- `app/src/main/adapters/{types,turn,claude,claude-adapt,mock}.ts` — provider batch · outcome 반환형 ·
+  게이트 queue callback
 - `app/src/main/features/chat/turn-coordinator.ts` — 재시도 규칙(0165 에서 이관)
 
 ## 게이트
@@ -363,31 +386,43 @@ type SessionChainLease<W> =
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- 동의 / 그대로 진행: …
-- 이견 / 우려: …
+- 동의 / 그대로 진행: 논리 키(`session:`/`client:`) CAS lease, `preparing|active|closing`, leaseId
+  해제, activeChild 원자 교체, 세션 수명 control 이관은 그대로 구현했다. admission과 즉시 steer
+  capability도 분리해 turn-scoped 백엔드 입력을 다음 continuation으로 보존한다.
+- 이견 / 보완: 원안의 `openChannel`/별도 `SubmissionAttemptPort`는 현재 동기 초기 스트림 생성에
+  비해 추상화 비용이 컸다. Runtime 호출 전 전량 fence와 호출 직후 commit으로 같은 원자성을
+  만들고, 비동기 `pushTurn`만 outcome+늦은 commit fence를 적용했다. queue의 `chainId`가 lease
+  generation fence이고 channel token은 Runtime의 배치·영수증·retirement 경계에 한정했다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 구현함 / ⚠️ 보고만 | … |
+| 1 | 준비 중 후속 입력이 leader보다 먼저 큐에 물질화되면 입력 순서가 뒤집힐 수 있음 | ✅ lease CAS 직후 leader admission 시각 고정 + reserve 시 createdAt 정렬 | provisional 동시 send 경로 |
+| 2 | 확장 배포 await 중 취소 후 지각 spawn 가능 | ✅ await 직후 controller 재검사 + `canSubmitInitial` fence | chat-turn 준비 경로 |
+| 3 | Runtime 내부 channel retirement가 background tracker 정착을 우회 | ✅ `onChannelRetired(token)` 상향 통지와 app 합성 정착 | teardown/finish/oneshot |
+| 4 | 제출 수용 뒤 무이벤트 실패를 일반 transient retry하면 중복 실행 가능 | ✅ submitted 시도는 다음 fence를 통과하지 못하고 `submission_stale`은 재시도 제외 | coordinator retry 경계 |
+| 5 | leader와 준비 중 합류 입력의 `Date.now()`가 같으면 stable sort가 follower를 먼저 둘 수 있음 | ✅ lease `admittedAt`을 leader 시각으로, follower는 최소 +1ms | provisional 동시 send |
+| 6 | preparing lease의 turn이 legacy registry에서도 세어져 runtime cap에서 우회 중복 계상 | ✅ lease session/owner에 대응하는 registry turn 제외 | supervisor population test |
+| 7 | 세션 삭제가 DB를 먼저 지우면 active runtime의 지각 이벤트가 삭제 뒤 영속화를 재개할 수 있음 | ✅ runtime/child abort·queue scrub 후 DB 삭제 | session dispose hook |
+| 8 | child 없는 await 구간의 Stop이 lease만 abort하고 continuation controller 검사에서 누락될 수 있음 | ✅ supervisor가 lease+child 동시 abort, 루프·await 뒤 chain signal 재검사 | cancelChain·post-turn loop |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] A lease 상태머신(preparing/active/closing · CAS 해제 · swapChild · allLeases)
-- [ ] B 제어 권위 이관(control · providerKey · freshTurnLocalState 축소)
-- [ ] C 제출 포트 단일화(`submitSteer` + expectedToken, 네 경로)
-- [ ] D 포트 2종 + 컴포지션 루트 주입(레이어 경계)
-- [ ] E 종료 원자성(게이트 refresh · shutdown 순서 · `retireChannel` · discard CAS)
+- [x] A lease 상태머신(preparing/active/closing · CAS 해제 · swapChild · allLeases)
+- [x] B 제어 권위 이관(control · providerKey · freshTurnLocalState 축소)
+- [x] C 제출 트랜잭션(`canSubmitInitial` · adapter outcome · commit/rollback fence)
+- [x] D 경계 포트(queue callback · control · channel retirement) + 컴포지션 루트 주입
+- [x] E 종료 원자성(lease gate · shutdown runtime close · active discard)
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 게이트 결과 | … |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | … |
+| 변경 파일 | `session-chain-lease.ts`, supervisor, chat-turn, SessionRuntime, pending queue, adapter outcome/게이트 및 bootstrap 종료 배선 |
+| 게이트 결과 | lint 0 error(기존 TanStack warning 1) · typecheck 3/3 · Vitest 198파일 1793/1793 · scripts 28/28 |
+| 블로커 / 역질문 | 자동 검증 블로커 없음. 세션당 CLI 1개·종료 후 0개는 GUI 사람 실기 필요 |
+| 대상 커밋 | 작업 트리 구현(아직 커밋하지 않음) |
 
 ---
 

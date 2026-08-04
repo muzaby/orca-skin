@@ -6,16 +6,16 @@
 // 것처럼 보인다(0153 원 증상).
 //
 // 전제가 깨지는 두 경우:
-//   1. main 이 진행 중이다 — `inflight`(내 턴) 또는 `listening`(턴-후 체인, chat.listen).
+//   1. main 이 진행 중이다 — `inflight`(내 턴) 또는 `listening`(권위 activity snapshot).
 //   2. **main 에 아직 확정 안 된 예약이 남아 있다** — 그러면 지금 보내는 메시지는 무슨 일이 있어도
 //      그 잔여 **뒤에** 커밋된다(main 은 적재 순서대로 병합·예약한다). 낙관 커밋은 항상 틀린다.
 //
-// 2번이 필요한 이유: 1번 신호는 IPC 로 오므로 `telemetry` 직후~`chat.listen started` 도착 전의
+// 2번이 필요한 이유: 1번 신호는 IPC 로 오므로 `telemetry` 직후~activity snapshot 도착 전의
 // 짧은 창이 남는다. 그 창에서도 잔여 예약이 보이면 순서는 이미 확정적으로 결정돼 있다.
 export function shouldQueueAsPending(args: {
   // 내 턴 진행 중(chatReducer BEGIN_TURN ~ TURN_END_RESET)
   inflight: boolean
-  // main 의 턴-후 체인 진행 중(chat.listen started/ended, 0143·0153)
+  // main 의 턴-후 체인 진행 중(chat.activity transport/busy, 0143·0153)
   listening: boolean
   // 아직 커밋되지 않은 예약 버블 수(pendingSteer)
   pendingCount: number

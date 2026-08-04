@@ -96,8 +96,9 @@ describe('ClaudeAdapter — handoff 도착 턴 (0127)', () => {
   ]
 
   const telemetryOf = async (live: LiveTurn): Promise<ProviderReportedTelemetry | undefined> => {
-    for await (const ev of live.events) {
-      if (ev.type === 'telemetry') return ev.usage
+    for await (const batch of live.eventBatches) {
+      const telemetry = batch.events.find((ev) => ev.type === 'telemetry')
+      if (telemetry?.type === 'telemetry') return telemetry.usage
     }
     return undefined
   }

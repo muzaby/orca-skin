@@ -462,10 +462,20 @@ export const en: typeof ko = {
   chat: {
     steer: {
       submitted: 'Sent',
-      residualTitle: 'Stopped, but a queued message is still pending',
+      residualTitle: 'Response stopped · {{count}} awaiting delivery',
       residualBody:
-        '{{count}} already-delivered message(s) may still run. To stop everything now, discard the session — any running background tasks end too.',
+        'Already-delivered messages may still run. To stop everything, discard the session. Any running background tasks will end too.',
       residualAction: 'Discard session'
+    },
+    activity: {
+      preparing: 'Preparing the response…',
+      waiting: 'Checking remaining work…',
+      finishingSlow: 'Finishing is taking longer than expected…',
+      queued: '{{count}} input(s) queued',
+      deliveryPending: '{{count}} awaiting delivery confirmation',
+      residual: '{{count}} awaiting delivery after stop',
+      background: '{{count}} background task(s)',
+      more: '{{count}} more'
     },
     titleBar: {
       renameAria: 'Edit conversation title',

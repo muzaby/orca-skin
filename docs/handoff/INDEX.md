@@ -11,6 +11,11 @@
 
 ## 활성 / 이력
 
+> **0165~0167 구현 갱신(2026-08-04)** — 아래 세 행의 긴 비고는 설계 이력을 보존한다. 상태 열은
+> 이 주석이 supersede한다: `0165` **IMPL_DONE r8**, `0166` **IMPL_DONE r3**, `0167`
+> **IMPL_DONE r3**(대상=현재 작업 트리, 다음=Claude 검증). 공통 자동 게이트와 GUI 실기 결과는
+> 각 plan의 구현 보고가 정본이다.
+
 | slug                            | 단계   | 상태 | 다음 주체 | 대상 커밋 | 라운드 | 비고 |
 | ------------------------------- | ------ | ---- | --------- | --------- | ------ | --- |
 | `0167-session-activity-projection` | plan | **READY (r2)** | **Claude** | — | — | **활동 스냅샷 투영 + 대기 UX (설계 r2, 2026-08-04).** **선행 0165·0166 — 순차 병합 강제.** **r2**: 잔여 상태·발행이 0165 에서 **이 문서로 이관**(유일 publisher) + **legacy 직접 producer 제거**(`beginListenPhase`/`endListenPhase`·`reconcileInterrupt` 발행 — revision 없는 지각 이벤트가 이미 지운 경고를 되살린다) · **transport 공식 확정**(lease 존재가 아니라 `postTurnHoldsSession(step)` — lease 로 판정하면 정상 응답 중에도 대기 라벨이 켜진다) · **activity clock 모순 해소**(`lastActivityAt` 을 스냅샷에서 **제거**, 경과·무활동은 renderer 로컬 시계 — dedupe 에서만 빼면 '활동이 오는데 무활동으로 보이는' 모순) · **`promoteProjection`**(clientKey→sessionId 승격 시 revision 원자 이전) · **hydrate 는 store 적용까지 검증** · **AC7 을 main admission 테스트로 이동**(0153 의 `pendingCount>0` 유지가 옳다) · count 를 `queuedCount`/`deliveryPendingCount`(메시지 수)로 확정 · `IDLE_HINT_MS=30_000` 확정 · 문구 중립화. 0143 유지(사용자 결정) — 애니메이션 제거 없이 라벨만, `sessionBusy` 불변. AC 22건. plan `docs/handoff/0167-session-activity-projection/plan.md`. |

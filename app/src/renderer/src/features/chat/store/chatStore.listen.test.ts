@@ -11,22 +11,35 @@ import type { NormalizedEvent } from '../../../../../shared/ipc'
 
 let chatSend: ReturnType<typeof installChatStoreHarness>['chatSend']
 
+const activity = (revision: number, transport: 'idle' | 'listening'): NormalizedEvent => ({
+  type: 'chat.activity',
+  sessionId: 's',
+  revision,
+  foreground: 'idle',
+  transport,
+  busy: transport === 'listening',
+  queuedCount: 0,
+  deliveryPendingCount: 0,
+  residualCount: 0,
+  backgroundTaskCount: transport === 'listening' ? 1 : 0
+})
+
 beforeEach(() => {
   ;({ chatSend } = installChatStoreHarness())
 })
 
-describe('chatStore — chat.listen 라우팅 (0143)', () => {
-  it('chat.listen started/ended 가 listening 상태를 굴린다', () => {
-    ingestChatEvent({ type: 'chat.listen', sessionId: 's', phase: 'started' })
+describe('chatStore — chat.activity 라우팅', () => {
+  it('transport 스냅샷이 listening 상태를 굴린다', () => {
+    ingestChatEvent(activity(1, 'listening'))
     flushRaf()
     expect(session().listening).toBe(true)
-    ingestChatEvent({ type: 'chat.listen', sessionId: 's', phase: 'ended' })
+    ingestChatEvent(activity(2, 'idle'))
     flushRaf()
     expect(session().listening).toBe(false)
   })
 
   it('listening 중 send 는 steer 예약(pendingSteer) — 낙관 커밋/BEGIN_TURN 없음', () => {
-    ingestChatEvent({ type: 'chat.listen', sessionId: 's', phase: 'started' })
+    ingestChatEvent(activity(1, 'listening'))
     flushRaf()
     const ok = chatActions.send('대기 중 질문')
     expect(ok).toBe(true)
@@ -55,13 +68,13 @@ describe('chatStore — chat.listen 라우팅 (0143)', () => {
 describe('chatStore — 턴 경계 낙관 커밋 금지 (0153)', () => {
   it('telemetry 직후에도 미확정 예약이 있으면 send 는 예약 경로 — 순서 역전 없음', () => {
     // 진행 턴 중 steer 3건 예약(666·777·888 상당).
-    ingestChatEvent({ type: 'chat.listen', sessionId: 's', phase: 'started' })
+    ingestChatEvent(activity(1, 'listening'))
     flushRaf()
     chatActions.send('666')
     chatActions.send('777')
     chatActions.send('888')
     // 직전 턴이 끝나 renderer 의 inflight/listening 이 모두 내려간 창.
-    ingestChatEvent({ type: 'chat.listen', sessionId: 's', phase: 'ended' })
+    ingestChatEvent(activity(2, 'idle'))
     ingestChatEvent({ type: 'telemetry', sessionId: 's', usage: {} } as NormalizedEvent)
     flushRaf()
     expect(session().inflight).toBe(false)
@@ -78,11 +91,11 @@ describe('chatStore — 턴 경계 낙관 커밋 금지 (0153)', () => {
   })
 
   it('예약이 모두 커밋된 뒤의 유휴 send 는 종전대로 낙관 커밋', () => {
-    ingestChatEvent({ type: 'chat.listen', sessionId: 's', phase: 'started' })
+    ingestChatEvent(activity(1, 'listening'))
     flushRaf()
     chatActions.send('잔여')
     const pendingId = useChatStore.getState().sessions.s.pendingSteer![0].id
-    ingestChatEvent({ type: 'chat.listen', sessionId: 's', phase: 'ended' })
+    ingestChatEvent(activity(2, 'idle'))
     ingestChatEvent({
       type: 'message.committed',
       sessionId: 's',

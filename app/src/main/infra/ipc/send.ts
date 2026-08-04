@@ -24,6 +24,11 @@ export function sendChatEvent(wc: WebContents, ev: NormalizedEvent): void {
   if (!wc.isDestroyed()) wc.send(CHANNELS.chatEvent, ev)
 }
 
+export function broadcastChatEvent(ev: NormalizedEvent): void {
+  wireLog(ev.type, ev)
+  broadcast(CHANNELS.chatEvent, ev)
+}
+
 // owner 무관 전-창 팬아웃 — 살아있는 webContents 전부에 push.
 function broadcast(channel: string, payload: unknown): void {
   for (const wc of webContents.getAllWebContents()) {

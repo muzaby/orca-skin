@@ -328,7 +328,7 @@ export class HistoryWriter {
       }
       // message.delta/message.reasoning.delta/turn.retrying 은 transient(미저장).
       // permission.* 는 별도 row 없음. subagent.task 는 위 통지 파트 외 transient — 메타 영속은
-      // 부모 Task tool_result 의 subagentMeta(위 tool.call.completed)가 담당한다. chat.listen 은
+      // 부모 Task tool_result 의 subagentMeta(위 tool.call.completed)가 담당한다. activity 투영은
       // sendChatEvent 직행이라 여기 도달하지 않는다(도달해도 case 부재 = no-op).
     }
   }

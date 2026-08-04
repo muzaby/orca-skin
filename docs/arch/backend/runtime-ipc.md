@@ -40,7 +40,7 @@
 
 ### 1.3 장수명 세션 채널 (close 정책)
 
-- **`persistent`** + 어댑터 `pushTurn` 구현(claude): 한 번의 spawn(SDK `query`/서브프로세스)이 세션 수명 동안 살아남는다. **단일 채널 pump** 가 어댑터 스트림을 계속 소비하며 **프레임(1 프레임 = 1 턴)** 으로 절단한다 — terminal 에서 프레임만 닫고 채널(live)은 유지, 후속 턴은 `pushTurn` 으로 이어붙인다.
+- **`persistent`** + 어댑터 `pushTurn` 구현(claude): 한 번의 spawn(SDK `query`/서브프로세스)이 세션 수명 동안 살아남는다. **단일 채널 pump**가 provider 원본 메시지 단위 `ProviderMessageBatch`를 소비하며 **프레임(1 프레임 = 1 턴)** 으로 절단한다. 배치 전 이벤트를 같은 목적지에 넣은 뒤 terminal 전이를 적용하므로 한 원본 메시지의 `[telemetry,error]`가 서로 다른 턴으로 갈라지지 않는다. terminal에서는 프레임만 닫고 채널은 유지하며 후속 턴은 `pushTurn`으로 잇는다.
 - **`oneshot`** 또는 `pushTurn` 미구현(mock): 턴-스코프(매 턴 fresh spawn, terminal 에서 핸들 close) — 0067 이전 동작 보존.
 - **프레임 밖 이벤트**(CLI 가 자기 큐 잔존분을 자동 픽업해 시작한 턴): `unframed` 버퍼 + `onUnframedEvent` 콜백으로 노출 → 자동 연속 프레임 오픈(배선은 `app/chat-turn.ts`).
 - **채널 사망 시**(서브프로세스 종료·스트림 에러): 다음 `send` 는 spawn+resume 콜드 패스. 이월 잔여(미소비 flushed 재주입 + held)는 `takeForRespawn` 이 프렐류드 배치로 앞세운다.
@@ -153,4 +153,3 @@ usage(집계) → history(영속) → title(제목) → relay(renderer 중계)
 | userData 경로 | `~/Library/Application Support/orca/` | `%APPDATA%/orca/` | `~/.config/orca/` |
 
 ---
-
