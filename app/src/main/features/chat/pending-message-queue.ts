@@ -333,15 +333,28 @@ export class PendingMessageQueue {
   // uuid 가 실려 오면 uuid 로만 판정한다(AC6) — 텍스트가 같은 무관한 배치를 확정하던 폴백
   // 경로를 끊는다. text 폴백은 uuid 를 보존하지 않는 replay 에서만 살아난다.
   // orphaned 도 확정 대상이다 — 지각 신호로 커밋이 유실되지 않게(AC7).
+  //
+  // **uuid 로 지목된 신호는 `submitting` 도 확정한다**(0166 D9). uuid 는 우리가 만들어 push 한
+  // 값이므로 그것이 되돌아왔다는 사실 자체가 **전송이 실제로 일어났다는 영수증**이다. 반면
+  // `submitting`/`submitted` 구분은 **우리 장부**(commit fence)일 뿐이다 — 장부가 어긋났다고
+  // 실물 영수증을 버리면, 모델은 답을 하는데 사용자 메시지만 영영 커밋되지 않는다(D7 실기 증상).
+  // uuid 매칭은 오확정 위험이 구조적으로 0이다: push 전에는 그 uuid 가 CLI 에 존재하지 않는다.
+  //
+  // **텍스트 폴백만 좁게 유지**한다(uuid 를 보존하지 않는 replay 전용) — 본문이 같은 *아직 push
+  // 되지 않은* 예약을 오확정할 수 있어, 여기서는 전송이 확정된 상태만 대상으로 둔다.
   confirm(sessionId: string, signal: ConfirmSignal): SteerFlushBatch[] {
     const batches = this.trackedBySession.get(sessionId)
     if (!batches) return []
-    const open = (b: TrackedBatch): boolean => b.state === 'submitted' || b.state === 'orphaned'
+    const receipted = (b: TrackedBatch): boolean => isOpen(b.state)
+    const settledTransport = (b: TrackedBatch): boolean =>
+      b.state === 'submitted' || b.state === 'orphaned'
 
     if (signal.kind === 'model-output') {
       const confirmed: SteerFlushBatch[] = []
       for (const uuid of signal.uuids) {
-        const batch = batches.find((b) => b.origin === 'turn-open' && open(b) && b.uuid === uuid)
+        const batch = batches.find(
+          (b) => b.origin === 'turn-open' && receipted(b) && b.uuid === uuid
+        )
         if (!batch) continue
         batch.state = 'confirmed'
         confirmed.push(toPublic(batch))
@@ -354,9 +367,9 @@ export class PendingMessageQueue {
     // 배치의 **유일한** 확정 신호이므로, 여기서 거부하면 사용자 메시지가 영영 커밋되지 않는다.
     const batch =
       signal.uuid !== undefined
-        ? batches.find((b) => open(b) && b.uuid === signal.uuid)
+        ? batches.find((b) => receipted(b) && b.uuid === signal.uuid)
         : signal.text !== undefined
-          ? batches.find((b) => open(b) && b.text === signal.text!.trim())
+          ? batches.find((b) => settledTransport(b) && b.text === signal.text!.trim())
           : undefined
     if (!batch) return []
     batch.state = 'confirmed'

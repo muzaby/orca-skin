@@ -226,6 +226,38 @@ describe('PendingMessageQueue', () => {
       expect(confirmed.map((b) => b.ids)).toEqual([['p1'], ['p2']])
     })
 
+    // 0166 D9 — 영수증이 장부를 이긴다. commit fence 가 어긋나 `submitting` 에 남아도, CLI 가
+    // 우리 uuid 를 되돌려줬다면 그 입력은 실제로 전달된 것이다. 여기서 거부하면 모델은 답하는데
+    // 사용자 메시지만 영영 커밋되지 않는다(D7 실기 증상).
+    it('uuid echo 는 commit 을 못 받은 submitting 배치도 확정한다 (영수증 > 장부)', () => {
+      const q = new PendingMessageQueue()
+      q.enqueue('s', msg('commit 실패'), 1, 'a')
+      q.reserveHeld('s', 'steer', 'batch-1', 'chain-1') // commit 없음 = submitting
+      expect(q.confirm('s', { kind: 'echo', uuid: 'batch-1' }).map((b) => b.ids)).toEqual([['a']])
+      expect(q.drainConfirmed('s').map((b) => b.ids)).toEqual([['a']])
+      expect(q.counts('s').deliveryPendingCount).toBe(0)
+    })
+
+    it('uuid model-output 도 submitting 인 turn-open 배치를 확정한다', () => {
+      const q = new PendingMessageQueue()
+      q.enqueue('s', msg('턴 프롬프트'), 1, 'a')
+      q.reserveItem('s', 'a', 'turn-open', 'chain-1') // uuid = item id, commit 없음
+      expect(q.confirm('s', { kind: 'model-output', uuids: ['a'] }).map((b) => b.ids)).toEqual([
+        ['a']
+      ])
+    })
+
+    it('**텍스트 폴백은 submitting 을 확정하지 않는다** — 아직 안 나간 예약을 오확정할 수 있다', () => {
+      const q = new PendingMessageQueue()
+      q.enqueue('s', msg('같은 본문'), 1, 'a')
+      q.reserveHeld('s', 'steer', 'batch-1', 'chain-1') // submitting
+      // uuid 없는 replay 폴백은 전송이 확정된 것만 대상으로 한다.
+      expect(q.confirm('s', { kind: 'echo', text: '같은 본문' })).toEqual([])
+      // 같은 배치도 commit 을 받으면 폴백으로 확정된다(경계가 상태에만 있음을 고정).
+      q.commit('s', 'batch-1', 'chain-1')
+      expect(q.confirm('s', { kind: 'echo', text: '같은 본문' }).map((b) => b.ids)).toEqual([['a']])
+    })
+
     it('held 항목과 무관한 echo 는 확정되지 않는다', () => {
       const q = new PendingMessageQueue()
       q.enqueue('s', msg('held only'), 3, 'c')
