@@ -325,6 +325,23 @@ interface ChatActivitySnapshot {
 | 블로커 / 역질문 | 자동 검증 블로커 없음. Electron GUI 문구·동작 실기만 잔여 |
 | 대상 커밋 | 작업 트리 구현(아직 커밋하지 않음) |
 
+### [구현자 기입 · r2] 검증 FAIL 대응 (구현자 = Claude)
+
+| # | 조치 | 근거 |
+|---|---|---|
+| **D3 (F1)** | `listening = ev.transport === 'listening'` 으로 좁혔다 — `busy` OR 제거. 0154 가 의도적으로 남기는 `orphaned` 배치가 더 이상 애니메이션을 붙들지 않는다(**보고 ②-a**) | `chatReducer.ts:521-541` |
+| **D4 (F2)** | `inflight` 를 **renderer 소유로 환원**했다. 라이브 스냅샷은 `inflight` 를 건드리지 않고 `foreground` 는 **라벨 전용**이다. **hydrate(LOAD_SESSION)만 예외** — 재접속 시점에는 로컬 진실이 없다(G-4) | `chatReducer.ts:531-541`, `:674-691` |
+| **D5** | 리듀서·store 테스트 헬퍼가 `busy`·counts·`foreground` 를 **transport 와 독립**으로 받는다. 이전 헬퍼는 위험 분기를 구조적으로 가리고 있었다 | 두 테스트 파일 |
+| **D6** | 무활동 상수를 plan 값 **`IDLE_HINT_MS = 30_000`** 으로 통일(구 `LONG_WAIT_SECONDS = 30`) | `lib/activityLabel.ts` |
+| **AC12·14·15·21** | 라벨 조합 규칙을 **순수 모듈로 추출**(`lib/activityLabel.ts`) — 사실 조합·residual 차감·상위 2 + 합계·무활동 임계·**foreground 미적용**을 13건으로 고정. "UI = 시각 검증" 관례로 넘기던 로직을 되찾았다(verify 0150 D4 의 반복 지적) | `activityLabel.test.ts` |
+| **AC13** | "현행과 동일" 을 **동작으로** 고정 — 잔여만 남은 idle 스냅샷에서 `sessionBusy=false` 이고, 그 상태의 send 는 **여전히 예약 경로**(0153 `pendingCount>0` 유지) | `chatStore.listen.test.ts` 2건 |
+| **AC10·AC20** | hydrate 가 store 까지 반영되는지 + 최신 live revision 을 되감지 않는지 | `chatReducer.listen.test.ts` 3건 |
+
+**미충족 잔여**: AC7(main admission)·AC9(broadcast 뷰어 필터)는 각각 chat-turn 하네스·electron
+`webContents` 모킹이 필요해 남겼다(D7). AC22 는 사람 실기.
+
+**게이트(재실행)**: lint **0 error** · typecheck **3/3** · vitest **201 파일 1832/1832** · scripts **28/28**.
+
 ---
 
 ## [검증자 기입] 파생 이슈 (Derived Issues)
@@ -335,4 +352,5 @@ interface ChatActivitySnapshot {
 | D3 | **잔여가 애니메이션을 영구히 붙든다** — 리듀서가 `listening` 에 `busy`(큐 카운트 포함)를 OR 해, 0154 가 의도적으로 남기는 `orphaned` 배치 하나로 `sessionBusy` 가 무한 true. **보고 ②-a 를 결정론적으로 재현한다** | verify r1 §F1 (실모듈 조립 실행 확정 — `chatReducer.ts:526` ↔ `session-activity-projector.ts:172-177`) | `listening = ev.transport === 'listening'` 으로 좁힌다(AC6 직교 규칙). 대기 이유는 애니메이션이 아니라 **라벨/개수**로 | **open — 라운드 2** |
 | D4 | **`inflight` 소유권이 renderer → main 으로 이전**됐다(`inflight: ev.foreground !== 'idle'`) — plan 은 "0143 유지·정책 불변" 으로 renderer 소유를 명시했다. 현재는 `queueMicrotask` 배칭 덕에 취소 직후 되살아나지 않지만 **우연히 안전**하고 테스트로 고정돼 있지 않다 | verify r1 §F2 (`chatReducer.ts:530`) | renderer 소유로 복원하거나(권장) 이전을 **사용자 결정**으로 승격. `foreground` 는 라벨 전용으로 | **open — 사람 결정 대기** |
 | D5 | 리듀서 테스트 헬퍼가 `busy = (transport === 'listening')` 로 **고정**돼 위험 분기(D3)가 한 번도 실행되지 않는다 | verify r1 (`chatReducer.listen.test.ts:21`) | 헬퍼에 counts/busy 를 독립 인자로 | open |
-| D6 | 무활동 상수가 plan(`IDLE_HINT_MS = 30_000`)과 코드(`LONG_WAIT_SECONDS = 30`)에서 **이름·단위 불일치** | verify r1 (`StatusLine.tsx:24`) | 한쪽으로 통일 | open |
+| D6 | 무활동 상수가 plan(`IDLE_HINT_MS = 30_000`)과 코드(`LONG_WAIT_SECONDS = 30`)에서 **이름·단위 불일치** | verify r1 (`StatusLine.tsx:24`) | 한쪽으로 통일 | **해소(r2)** — `lib/activityLabel.ts` 의 `IDLE_HINT_MS = 30_000` |
+| D7 | **AC7(main admission)·AC9(broadcast 뷰어 필터)는 하네스가 없어 미검증** — 각각 chat-turn 전 경로와 electron `webContents` 모킹이 필요하다 | r2 구현 | 0166 D6(하네스 신설)에 함께 태운다 | open |

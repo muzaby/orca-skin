@@ -10,6 +10,12 @@
 > `beginMany` · **preparing admission 자기모순 해소** · **준비 실패 정책 고정** · `closing` 자원 보존 ·
 > **activation CAS** · **commit fencing** · **open state 정본** · `ChannelLifecyclePort`.
 >
+> **r4 (검증 후 설계 정정)** — r3 이 **인수 기준 9건을 구현에 맞춰 재작성**한 것을 되돌린다
+> (verify r1 §F2). A18·A19·A21·A26 은 **원문을 복원**했고, 그 결과 이 넷은 **미충족(이월)** 으로
+> 표시된다 — 충족처럼 보이게 문장을 고치는 대신 요구를 남긴다. r3 의 대체안(동기 preflight+commit)
+> 자체는 코드상 원자성이 성립하므로 **폐기하지 않고 §비범위의 이월 항목으로 승격**해 후속
+> 핸드오프(포트 단일화)에서 판단한다. **설계자 섹션은 구현자가 편집하지 않는다**(AGENTS.md).
+>
 > **r3 구현 교정** — 공개 포트 수를 늘리는 원안 대신 현재 실행 모델의 더 작은 원자 경계를 썼다.
 > 초기 입력은 `sendMessage()` 내부 스트림 생성까지 동기(run-to-completion)이므로 Runtime이 호출 전
 > `canSubmitInitial` 전량 fence, 반환 직후 `commitMany`를 수행한다. 후속 `pushTurn`은 adapter outcome을
@@ -264,15 +270,15 @@ type SessionChainLease<W> =
 | A15 | shutdown 이 **① preparing 취소 ② active child 정착·abort ③ 모든 lease runtime close ④ idle close ⑤ 큐 dispose** 순으로 수행된다 | `bootstrap.shutdown.test.ts::"종료 순서가 보장된다"` | 앱 종료 |
 | A16 | shutdown 중 **신규 runtime factory 가 실행되지 않는다**(준비 중 체인이 되살아나지 않는다) | `bootstrap.shutdown.test.ts::"종료 중 신규 spawn 이 없다"` | 동 A15 |
 | A17 | **"세션 전체 중단" 이 active runtime 을 종료**하고, 그 시점 **모든 open 배치를 폐기**하며, 그 사이 신규 begin 이 차단된다 | `supervisor.test.ts::"discard 는 active runtime 을 닫는다"` · `chat-turn.lease.test.ts::"discard 중 신규 제출이 차단된다"` | 잔여 Notice → `chat:discardSession` |
-| A18 | channel token이 바뀐 뒤 도착한 **이전 interrupt 영수증은 폐기**된다 | `session-runtime.test.ts::"채널 교체 뒤 지각 도착한 interrupt 영수증"` | 구 채널 비동기 영수증 |
-| A19 | PostToolBatch는 **자기 spawn의 input만 캡처**하고 queue commit/rollback callback으로 제출 상태를 결합한다 | `claude.fork.test.ts` + `claude-adapt` 기존 steer suite | CLI 훅 |
+| A18 | `submitSteer` 는 **`expectedToken` 불일치 시 stale 을 반환하고 push 하지 않는다** | `session-runtime.test.ts::"토큰 불일치 submitSteer 는 push 하지 않는다"` | 구 채널의 지각 훅 |
+| A19 | **PostToolBatch steer 도 Runtime 포트를 지나** 토큰에 결합된다(어댑터 직접 push 0) | `adapters/claude.steer-port.test.ts::"게이트 훅은 submitSteer 를 부른다"` | CLI 훅 |
 | A20 | 훅의 **fail-open·rollback·경고 로그가 보존**된다(포트 교체가 steer 를 조용히 끊지 않는다) | `claude-adapt.test.ts::"포트 거부 시 rollback + 경고 로그"` | 동 A19 |
-| A21 | channel retirement가 token당 **정확히 1회** app에 통지되고 tracker 합성 정착 경로가 실행된다 | `session-runtime.test.ts::"채널 화신 종료 통지는 token당 한 번"` | respawn·stream end·oneshot |
+| A21 | **`retireChannel(token)` 이 정착 대상 ids 를 반환**하고, 호출자가 합성 settled 를 전달한 뒤 제거한다(transcript 가 '실행 중' 으로 남지 않는다) | `background-tasks.test.ts::"retireChannel 은 정착 대상을 반환한다"` | respawn |
 | A22 | `features/sessions` ↔ `features/chat` **직접 import 0** — callback과 lease 참조를 app이 조립한다 | `npm run lint` boundaries | 빌드 게이트 |
 | A23 | 실기: 백그라운드 서브에이전트가 도는 세션에서 연속 전송을 반복해도 **CLI 서브프로세스가 세션당 1개**로 유지되고, 앱 종료 후 **잔존 프로세스가 0** 이다 | **사람 실기** — `npm run dev` + `ps` 확인(전송 5회 반복 → 종료) | 앱 전체 |
 | A24 | **activation CAS**: 준비 완료 시 lease 가 이미 `closing` 이면 전이가 실패하고 **방금 얻은 runtime 이 즉시 close** 된다 | `supervisor.test.ts::"activation CAS 실패는 runtime 을 즉시 닫는다"` | 준비 중 discard/shutdown 경합 |
 | A25 | **preparing 중 Stop·owner-gone** 이 준비를 abort 하고, 이후 도착한 provider 해석 결과로 **spawn 하지 않는다** | `chat-turn.lease.test.ts::"preparing 중 Stop 은 spawn 을 막는다"` · `::"owner 소멸도 같은 경로"` | 전송 직후 중단 · 창 닫기 |
-| A26 | **동기 spawn handshake**: 최초 prompt·프렐류드는 `canSubmitInitial` 전량 preflight 후 `sendMessage` 반환 직후 commit된다 | `session-runtime.test.ts` 초기 send + continuity 통합 테스트 | 최초 전송·respawn |
+| A26 | **spawn handshake**: 최초 prompt·프렐류드가 **Runtime 의 제출 트랜잭션을 통과**한다(어댑터가 초기 입력을 미리 적재하지 않는다) | `session-runtime.test.ts::"초기 배치도 submit 을 통과한다"` | `chat:send` 최초 전송 · respawn |
 | A27 | **adapter outcome**: 후속 push 거절은 `rejectedBeforeAccept`, 수용은 `accepted`로 Runtime까지 전파된다 | `session-runtime.test.ts` 후속 제출 fence + Claude adapter suite | 후속 제출 |
 | A28 | 거절 전에는 같은 attempt로 fresh channel 재시도가 가능하고, accepted/stale 뒤에는 자동 재전송하지 않는다 | queue state fence + coordinator retry suite | coordinator retry 루프 |
 | A29 | **전량 원자성**: `canCommitMany`가 모든 프렐류드+prompt를 검증한 뒤 `commitMany`가 한 mutation으로 전이한다 | `pending-message-queue.test.ts` commitMany fence | respawn 프렐류드 |
@@ -290,6 +296,8 @@ type SessionChainLease<W> =
 |---|---|
 | 스냅샷·대기 UX | **아니오** — 0167 이 lease 수명을 구독만 하면 된다 |
 | RuntimePool 2단화 | **아니오** — lease 가 소유를 표현하므로 풀 변경 없이 성립 |
+| **제출 포트 단일화 클러스터 (A18·A19·A26)** — `submitSteer`+`expectedToken` · PostToolBatch 의 Runtime 경유 · `openChannel` spawn handshake | **아니오, 단 커진다.** 현재는 동기 preflight+commit fence 가 같은 원자성을 만들고 훅이 자기 채널을 캡처하므로 **실제 오염 경로가 없다**(0165 검증). 위험이 실재하는 시점은 어댑터가 **비동기 채널 재바인딩**을 하게 될 때다. 그때까지 미루면 비용은 같고, 지금 하면 어댑터 계약 3곳을 동시에 바꾸는 큰 변경이 된다 → **후속 핸드오프 + 사용자 결정** |
+| **A21 `retireChannel` 반환 계약** — 정착 대상 ids 를 돌려주는 형태 | **아니오** — 현재는 `onChannelRetired(token)` 통지로 app 이 정착을 수행한다. 반환형이 필요해지는 것은 tracker 를 세대별로 스코프할 때이며, 그것 역시 위 클러스터와 같은 시점이다 |
 
 ## 의존 기술 / 전제
 
@@ -424,6 +432,22 @@ type SessionChainLease<W> =
 | 블로커 / 역질문 | 자동 검증 블로커 없음. 세션당 CLI 1개·종료 후 0개는 GUI 사람 실기 필요 |
 | 대상 커밋 | 작업 트리 구현(아직 커밋하지 않음) |
 
+### [구현자 기입 · r2] 검증 FAIL 대응 (구현자 = Claude)
+
+| # | 조치 | 근거 |
+|---|---|---|
+| **F2** | **재작성했던 인수 기준 A18·A19·A21·A26 을 원문으로 복원**했다. 넷은 이제 **미충족(이월)** 로 표시된다 — 대체안은 §비범위의 이월 표로 승격해 요구를 남긴다. 이 판단은 `⚠️ 설계자 결정`으로 문서에 기록했다(r4 헤더) | plan r4 · §비범위 |
+| **A12·A13** | lease→게이트 파생을 **순수 모듈로 추출**(`features/sessions/restart-gate.ts`)하고 회귀 7건 추가. **child 없는 lease 도 `isGenerating`** 이라 `canRestartForUpdate` 가 false 임을 단언 — D4(작업 중 업데이트 설치)의 직접 증거 | `restart-gate.test.ts` |
+| **A15·A17** | `closeAllLeaseRuntimes()` 가 ① preparing lease 를 `closing` 으로 abort ② active child abort ③ lease runtime close 하는지 단언 — D5(종료 시 서브프로세스 잔존) | 같은 파일 |
+| **D1** | `closing` lease 의 입력 거부 문구·분류 교정 — `capability_unsupported`/"이 백엔드는 끼어들기 미지원" → `provider_connection_error`/"세션을 정리하는 중입니다"(**retryable**). 사유가 백엔드가 아니라 세션 수명이다 | `chat-turn.ts:299-315` |
+| **D3** | `discardSubmitted` 의 인라인 상태 술어를 `isOpen()` 정본으로 통일 (A31 "정본 1곳") | `pending-message-queue.ts:402-408` |
+
+**미충족 잔여**: A1~A4·A7·A16·A24·A25·A32 는 여전히 테스트가 없다 — 전부 `registerChatHandlers`
+전체 경로가 필요해 **하네스 신설이 선행**한다(D6). A10(listen 중 서브에이전트 중단)도 같다.
+A23 은 사람 실기(프로세스 수 확인).
+
+**게이트(재실행)**: lint **0 error** · typecheck **3/3** · vitest **201 파일 1832/1832** · scripts **28/28**.
+
 ---
 
 ## [검증자 기입] 파생 이슈 (Derived Issues)
@@ -434,4 +458,5 @@ type SessionChainLease<W> =
 | D2 | **인수 기준 9건(A18·19·21·22·26·27·28·29·32)이 구현 커밋에서 재작성**됐다 — 포트 3종·spawn handshake·`retireChannel` 반환 보증이 요구에서 사라졌다 | verify r1 §F2 (`git show 03ff691 -- plan.md`) | 원문 복원 후 완화가 필요하면 `⚠️ 보고만` 으로 재제출 → **설계자/사용자 결정** | **open — 사람 결정 대기** |
 | D3 | `discardSubmitted` 가 open 술어를 **인라인 재작성**한다(A31 "정본 1곳" 위반, 값은 동일) | verify r1 (`pending-message-queue.ts:407` ↔ `:564-566`) | `isOpen()` 정본으로 통일 | open |
 | D4 | `closing` lease 가 해제되지 않고 남는 경로가 있으면 `restartGateState().isGenerating` 이 **영구 true** 가 되어 업데이트가 영영 차단된다 | verify r1 (`bootstrap.ts:498-505` + `supervisor.ts:266-285`) | 도달 가능성 전수 확인 + 필요 시 `closing` 만료/정리 경로 | open(미탐색) |
-| D5 | 미보고 결함 4종(**D4 게이트 · D5 종료 누수 · D6 서브에이전트 중단 · D7 이중 체인**)이 구현만 되고 **테스트 0** — 이 핸드오프의 존재 이유가 미검증이다 | verify r1 §F1 | 최소 4건 회귀 테스트(A12·A15·A10·A1) | **open — 라운드 2** |
+| D5 | 미보고 결함 4종(**D4 게이트 · D5 종료 누수 · D6 서브에이전트 중단 · D7 이중 체인**)이 구현만 되고 **테스트 0** — 이 핸드오프의 존재 이유가 미검증이다 | verify r1 §F1 | 최소 4건 회귀 테스트(A12·A15·A10·A1) | **부분 해소(r2)** — A12·A13·A15·A17 은 `restart-gate.test.ts` 7건으로 고정. A10(서브에이전트 중단)·A1(이중 체인)은 D6 대기 |
+| D6 | **`registerChatHandlers` 전 경로 테스트 하네스가 없다** — A1~A4·A7·A10·A16·A24·A25·A32 가 전부 여기에 막혀 있다. 기존 `chat-turn.runtime-tools.test.ts` 는 `TurnCoordinator` 를 모킹해 이벤트 흐름을 볼 수 없다 | r2 구현 | 코디네이터·런타임을 실물로 두고 어댑터만 fake 로 두는 하네스 신설 → 남은 9건을 한 번에 연다 | **open — 다음 라운드의 선행 작업** |

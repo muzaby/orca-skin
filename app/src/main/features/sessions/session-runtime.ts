@@ -57,8 +57,14 @@ class Frame {
     this.wake = null
   }
 
-  discard(): void {
-    this.queue.length = 0
+  // 사용자 취소 — **이미 도착한 이벤트는 그대로 배달**하고 `error` 만 걷어낸다. 전량 폐기하면
+  // ⓐ 모델이 이미 만든 부분 답변의 꼬리가 화면·DB 양쪽에서 사라지고 ⓑ 같은 배치의 `telemetry`
+  // 까지 버려져 그 턴의 usage/cost 가 집계되지 않는다. 걸러야 하는 것은 "취소를 실패로 재표시하는
+  // error 버블" 하나뿐이다(보고 ①). 취소 후 push 는 `done` 가드가 이미 막는다.
+  cancel(): void {
+    for (let index = this.queue.length - 1; index >= 0; index -= 1) {
+      if (this.queue[index].type === 'error') this.queue.splice(index, 1)
+    }
     this.end()
   }
 
@@ -502,8 +508,9 @@ export class SessionRuntime implements ManagedRuntime {
     this.channelController = new AbortController()
     const frame = this.frame
     this.frame = null
-    frame?.discard()
-    if (this.consumingFrame && this.consumingFrame !== frame) this.consumingFrame.discard()
+    // 채널 폐기는 취소가 아니다 — 이미 받은 이벤트는 소비자가 드레인하도록 둔다(end).
+    frame?.end()
+    if (this.consumingFrame && this.consumingFrame !== frame) this.consumingFrame.end()
     this.draining = false
     this.cliBusy = false
     this.unframed = []
@@ -576,9 +583,9 @@ export class SessionRuntime implements ManagedRuntime {
           this.frame = null
           this.draining = true
         }
-        // provider 한 메시지에서 delta 뒤 error가 함께 정규화돼 이미 프레임 큐에 들어왔더라도,
-        // 사용자 취소 이후에는 읽지 않는다. 취소를 실패로 재표시하는 오류 버블을 막는다.
-        deliveryFrame.discard()
+        // provider 한 메시지에서 delta 뒤 error 가 함께 정규화돼 이미 프레임 큐에 들어왔더라도
+        // 취소를 실패로 재표시하지 않는다 — **error 만** 걷어내고 부분 답변·telemetry 는 배달한다.
+        deliveryFrame.cancel()
       }
       return
     }

@@ -99,6 +99,7 @@ import { resolveBuiltinSkillsDir } from './builtin-resources'
 import { BackgroundTaskTracker } from '../features/chat/background-tasks'
 import { SessionActivityProjector } from '../features/chat/session-activity-projector'
 import { clientLeaseKey } from '../features/sessions/session-chain-lease'
+import { deriveLeaseGateState } from '../features/sessions/restart-gate'
 
 export class Bootstrap {
   private readonly bootReport = createBootReportRecorder()
@@ -496,13 +497,11 @@ export class Bootstrap {
   }
 
   restartGateState(): RestartGateState {
-    const leases = this.supervisor?.allLeases() ?? []
+    // lease 파생은 순수 모듈이 소유한다(features/sessions/restart-gate) — 회귀 테스트 가능해야
+    // "작업 중 업데이트 설치" 가 다시 열리는 것을 잡는다.
+    const gate = deriveLeaseGateState(this.supervisor?.allLeases() ?? [])
     return {
-      isGenerating: leases.length > 0,
-      activeToolCallCount: leases.reduce(
-        (sum, lease) => sum + (lease.activeChild?.openToolRuns.size ?? 0),
-        0
-      ),
+      ...gate,
       activeDbWriteCount: this.activeDbWriteCount,
       isIndexing: this.isIndexing
     }

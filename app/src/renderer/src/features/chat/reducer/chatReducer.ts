@@ -520,9 +520,15 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
 
         case 'chat.activity': {
           if (ev.revision <= state.activityRevision) return state
-          // foreground가 끝난 뒤에도 전달 확인·잔여·백그라운드 작업이 실제로 남아 있으면
-          // PendingAssistant를 유지한다. 단순 타이머가 아니라 main 권위 busy 사실에만 따른다.
-          const listening = ev.transport === 'listening' || (ev.foreground === 'idle' && ev.busy)
+          // **`listening` 은 transport 에서만 파생한다**(0167 AC6 — 잔여와 직교). `busy` 를 섞으면
+          // 0154 가 **의도적으로 남기는** orphaned 예약 하나로 `sessionBusy` 가 무한 true 가 되어
+          // 보고 ②-a(마지막 답변 뒤 애니메이션 지속)를 그대로 재현한다. 대기 이유는 애니메이션이
+          // 아니라 **라벨·개수**(StatusLine facts)와 **잔여 Notice**(Composer)로 알린다.
+          //
+          // **`inflight` 는 라이브 경로에서 renderer 소유다**(0143 유지 — 애니메이션 정책 불변).
+          // 스냅샷의 `foreground` 는 **라벨 전용**이고, 여기서 `inflight` 를 덮으면
+          // BEGIN_TURN/TURN_END_RESET/CANCEL_CHAT 의 낙관적 판정을 뒤늦은 스냅샷이 되돌린다
+          // (초기 동기화만 예외 — LOAD_SESSION hydrate 는 로컬 진실이 없으므로 스냅샷을 쓴다).
           return {
             ...state,
             activityRevision: ev.revision,
@@ -531,9 +537,9 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             activityDeliveryPendingCount: ev.deliveryPendingCount,
             activityResidualCount: ev.residualCount,
             activityBackgroundTaskCount: ev.backgroundTaskCount,
-            inflight: ev.foreground !== 'idle',
-            listening,
-            listenStartedAt: listening ? (state.listenStartedAt ?? Date.now()) : null
+            listening: ev.transport === 'listening',
+            listenStartedAt:
+              ev.transport === 'listening' ? (state.listenStartedAt ?? Date.now()) : null
           }
         }
 
@@ -673,15 +679,11 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
                 activityDeliveryPendingCount: activity.deliveryPendingCount,
                 activityResidualCount: activity.residualCount,
                 activityBackgroundTaskCount: activity.backgroundTaskCount,
+                // **hydrate 만 스냅샷으로 inflight 를 세운다** — 세션 전환·재접속 시점에는 로컬
+                // 진실(BEGIN_TURN 이력)이 없기 때문(G-4 초기 동기화). 라이브 스냅샷은 건드리지 않는다.
                 inflight: activity.foreground !== 'idle',
-                listening:
-                  activity.transport === 'listening' ||
-                  (activity.foreground === 'idle' && activity.busy),
-                listenStartedAt:
-                  activity.transport === 'listening' ||
-                  (activity.foreground === 'idle' && activity.busy)
-                    ? Date.now()
-                    : null
+                listening: activity.transport === 'listening',
+                listenStartedAt: activity.transport === 'listening' ? Date.now() : null
               }
             : {}),
         // 컨텍스트 도넛/패널을 세션 수명 동안 유지 — turn_usage 최신 행에서 복원.

@@ -401,12 +401,9 @@ export class PendingMessageQueue {
   // 서브프로세스와 함께 없앤 뒤, 그 배치들의 텍스트를 draft 로 되돌리는 데 쓴다.
   discardSubmitted(sessionId: string, uuids: readonly string[]): SteerFlushBatch[] {
     const target = new Set(uuids)
-    return this.remove(
-      sessionId,
-      (b) =>
-        (b.state === 'submitting' || b.state === 'submitted' || b.state === 'orphaned') &&
-        target.has(b.uuid)
-    )
+    // open 정본은 `isOpen()` 한 곳이다(0166 A31) — 여기서 술어를 재작성하면 상태가 하나 늘 때
+    // 소비처마다 갱신을 놓친다.
+    return this.remove(sessionId, (b) => isOpen(b.state) && target.has(b.uuid))
   }
 
   // "CLI 에 넘겨놓고 확정 신호를 기다리는 중" 인 예약이 있는가(0154 턴-후 유예 판정). 존재 여부만

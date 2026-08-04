@@ -332,6 +332,148 @@ describe('SessionRuntime 장수명 채널(0067)', () => {
     expect(await stream.next()).toEqual({ done: true, value: undefined })
   })
 
+  // 0165 D10 — 취소가 error 만 걷어내고 **나머지는 배달**하는지. 전량 폐기(discard)면 부분 답변의
+  // 꼬리가 사라지고 같은 배치의 telemetry 가 버스에 못 올라가 usage 집계가 누락된다.
+  it('취소는 아직 소비되지 않은 delta·telemetry 를 버리지 않는다 (error 만 제거)', async () => {
+    const ch = channelLive()
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+    const stream = runtime.send(req())[Symbol.asyncIterator]()
+
+    ch.emit({ type: 'message.delta', sessionId: 's1', delta: { text: 'A' } })
+    const first = await stream.next()
+    expect((first.value as { delta: { text: string } }).delta.text).toBe('A')
+
+    // 소비자가 next() 를 부르기 전에 provider 가 더 보냈다 — 프레임 큐에 적체된다.
+    ch.emit({ type: 'message.delta', sessionId: 's1', delta: { text: 'B' } })
+    ch.emitBatch([
+      { type: 'telemetry', sessionId: 's1' },
+      {
+        type: 'error',
+        sessionId: 's1',
+        error: makeClassifiedError('stream_error', 'cancelled transport', { retryable: false })
+      }
+    ])
+    await tick()
+
+    runtime.markAborted('user_cancelled')
+
+    const rest: NormalizedEvent[] = []
+    for (;;) {
+      const next = await stream.next()
+      if (next.done) break
+      rest.push(next.value)
+    }
+    // 부분 답변 꼬리(B) 보존 + telemetry(usage 집계) 보존 + error 만 소멸.
+    expect(rest.map((event) => event.type)).toEqual(['message.delta', 'telemetry'])
+  })
+
+  // 0165 AC14 — **보고 증상 ① 의 재현 경로**. 취소 턴이 만든 provider error 가 다음 턴 프레임으로
+  // 새면 renderer 에 에러 버블이 뜨고, 그 뒤 delta 가 도착하며 버블이 지워졌다가 다시 그려진다.
+  // (IPC 핸들러가 아니라 프레임 경계에서 재현한다 — 누출이 일어나는 층이 여기다.)
+  it('취소 → 재전송 을 반복해도 다음 턴 프레임에 error 가 섞이지 않는다', async () => {
+    const ch = channelLive()
+    const runtime = new SessionRuntime(adapter(ch.liveTurn))
+
+    for (let round = 0; round < 3; round += 1) {
+      // ① 사용자 턴 시작 → 부분 응답 → 중단
+      const cancelled = collect(runtime.send(req()))
+      await tick()
+      ch.emit({ type: 'message.delta', sessionId: 's1', delta: { text: `부분 ${round}` } })
+      await tick()
+      runtime.markAborted('user_cancelled')
+      const partial = await cancelled
+      expect(partial.map((event) => event.type)).toEqual(['message.delta'])
+
+      // ② interrupt 로 CLI 가 낸 실패 result — [telemetry, error] 한 배치. 취소된 턴의 잔여다.
+      ch.emitBatch([
+        { type: 'telemetry', sessionId: 's1' },
+        {
+          type: 'error',
+          sessionId: 's1',
+          error: makeClassifiedError('stream_error', 'interrupted', { retryable: false })
+        }
+      ])
+      await tick()
+      expect(runtime.hasUnframedBacklog).toBe(false) // 다음 프레임으로 새지 않는다
+
+      // ③ 같은 채널에 재전송 — 이 턴에는 error 가 하나도 없어야 한다.
+      const next = collect(runtime.send(req()))
+      await tick()
+      ch.emit({ type: 'message.delta', sessionId: 's1', delta: { text: `정상 ${round}` } })
+      ch.emit({ type: 'telemetry', sessionId: 's1' })
+      const events = await next
+      expect(events.map((event) => event.type)).toEqual(['message.delta', 'telemetry'])
+      expect((events[0] as { delta: { text: string } }).delta.text).toBe(`정상 ${round}`)
+    }
+  })
+
+  // 0165 AC3·AC4 — channel incarnation token. 라우팅 세대 검사의 근거이므로 토큰 자체를 고정한다.
+  it('channelToken 은 채널 화신 단위다 — 후속 턴에서 그대로, respawn 에서만 새로 발급', async () => {
+    const first = channelLive()
+    const second = channelLive()
+    let spawned = 0
+    const runtime = new SessionRuntime({
+      id: 'claude',
+      complete: async () => '',
+      sendMessage: () => (spawned++ === 0 ? first.liveTurn : second.liveTurn),
+      classifyError: (err) => makeClassifiedError('stream_error', String(err), { retryable: true })
+    })
+
+    const turn1 = collect(runtime.send(req()))
+    await tick()
+    const token1 = runtime.channelToken
+    expect(token1).not.toBeNull()
+    first.emit({ type: 'telemetry', sessionId: 's1' })
+    await turn1
+
+    // 같은 채널에 이어붙인 후속 턴은 토큰을 바꾸지 않는다.
+    const turn2 = collect(runtime.send(req()))
+    await tick()
+    expect(runtime.channelToken).toBe(token1)
+    first.emit({ type: 'telemetry', sessionId: 's1' })
+    await turn2
+
+    // respawn(채널 교체)에서만 새 토큰.
+    runtime.teardownChannel()
+    const turn3 = collect(runtime.send(req()))
+    await tick()
+    expect(runtime.channelToken).not.toBe(token1)
+    second.emit({ type: 'telemetry', sessionId: 's1' })
+    await turn3
+    expect(spawned).toBe(2)
+  })
+
+  it('이전 세대(구 채널)의 배치는 통째로 폐기된다 — 새 프레임에 섞이지 않는다', async () => {
+    const first = channelLive()
+    const second = channelLive()
+    let spawned = 0
+    const runtime = new SessionRuntime({
+      id: 'claude',
+      complete: async () => '',
+      sendMessage: () => (spawned++ === 0 ? first.liveTurn : second.liveTurn),
+      classifyError: (err) => makeClassifiedError('stream_error', String(err), { retryable: true })
+    })
+
+    const turn1 = collect(runtime.send(req()))
+    await tick()
+    first.emit({ type: 'telemetry', sessionId: 's1' })
+    await turn1
+    runtime.teardownChannel()
+
+    const turn2 = collect(runtime.send(req()))
+    await tick()
+    // 구 채널이 뒤늦게 토해낸 잔여 — 세대 불일치라 새 프레임에 들어가면 안 된다.
+    first.emit({ type: 'message.delta', sessionId: 's1', delta: { text: '구 채널 잔여' } })
+    await tick()
+    second.emit({ type: 'message.delta', sessionId: 's1', delta: { text: '새 채널' } })
+    second.emit({ type: 'telemetry', sessionId: 's1' })
+
+    const events = await turn2
+    expect(events.map((event) => event.type)).toEqual(['message.delta', 'telemetry'])
+    expect((events[0] as { delta: { text: string } }).delta.text).toBe('새 채널')
+    expect(runtime.hasUnframedBacklog).toBe(false)
+  })
+
   it('채널 교체 뒤 지각 도착한 interrupt 영수증은 발행 시점 수신자에게도 전달하지 않는다', async () => {
     const ch = channelLive()
     let resolveReceipt!: (value: { stillQueued: string[] }) => void

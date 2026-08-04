@@ -301,13 +301,16 @@ export function registerChatHandlers(deps: ChatDeps): void {
     // closing 전 lease 는 입력을 held 로 수용한다. 실제 push 가능성은 턴-후 루프가 판정한다.
     const acceptsQueuedInput = lease.kind !== 'closing'
     if (!acceptsQueuedInput) {
+      // 사유는 **백엔드 능력이 아니라 세션 수명**이다(closing = discard/shutdown 진행 중).
+      // 여기에 "끼어들기 미지원" 을 띄우면 사용자가 '세션 전체 중단' 직후 타이핑했을 때
+      // 백엔드 탓으로 오인한다. 정리는 곧 끝나므로 **재시도 가능**으로 분류한다.
       sendChatEvent(event.sender, {
         type: 'error',
         ...(sessionId ? { sessionId } : {}),
         error: makeClassifiedError(
-          'capability_unsupported',
-          '이 백엔드는 피드백 끼어들기를 지원하지 않습니다.',
-          { retryable: false }
+          'provider_connection_error',
+          '세션을 정리하는 중입니다. 잠시 후 다시 전송하세요.',
+          { retryable: true }
         )
       })
       return

@@ -367,6 +367,27 @@ r6 의 "**파일이 거의 겹치지 않는다**" 는 **틀렸다.** 0165·0166 
 | 블로커 / 역질문 | 자동 검증 블로커 없음. Electron UI 사람 실기(AC16)는 로컬 GUI 환경 필요 |
 | 대상 커밋 | 작업 트리 구현(아직 커밋하지 않음) |
 
+### [구현자 기입 · r2] 검증 FAIL 대응 (구현자 = Claude)
+
+> verify r1 의 미충족 4건 + 파생 D10 을 닫는다. **설계는 바꾸지 않았다** — r1 이 넓힌 취소 의미론을
+> 원 설계(§UX "부분 답변 보존")로 되돌리고, 빠져 있던 검증 수단을 채웠다.
+
+| # | 조치 | 근거 |
+|---|---|---|
+| D10 | `Frame.discard()`(전량 폐기) → **`Frame.cancel()`**(`error` 만 제거, 나머지 배달). `teardownChannel` 은 `end()` 로 환원 — 채널 폐기는 취소가 아니다 | `session-runtime.ts:60-69`, `:509-521` |
+| AC14 | **취소 → 재전송 3회 반복** 회귀 추가. 각 라운드에서 다음 턴 이벤트가 `[message.delta, telemetry]` 뿐임을 단언 — 구 구조에서는 `error` 가 섞였다 | `session-runtime.test.ts::"취소 → 재전송 을 반복해도 다음 턴 프레임에 error 가 섞이지 않는다"` |
+| AC3·AC4 | `channelToken` 이 후속 턴에서 불변·respawn 에서만 갱신되는지 + 구 채널 잔여가 새 프레임에 섞이지 않는지 | 같은 파일 2건 |
+| AC11 | `orphanUnconfirmed(sessionId, **chainId**)` 를 **인자와 함께** 호출해 다른 체인 미영향 + `takeForRespawn` 새 chainId 의 ABA 차단 | `pending-message-queue.test.ts` 2건 |
+| AC13 | orphaned·submitting 배치를 만든 뒤 `discardSubmitted` 가 폐기하는지 | 같은 파일 2건 |
+| AC5 | `한 SDK 메시지 = 한 배치` — 실패 `result` 가 `[telemetry, error]` 를 **한 배치**로 내는지 + `sequence` 단조 + 빈 배치 미발행 | `claude.eventbatches.test.ts` 3건 |
+
+**미충족 잔여**: AC15(`chat.postturn.step` 로깅)는 구현돼 있으나(`chat-turn.ts:1055-1065`) 단언을
+붙이려면 chat-turn IPC 하네스가 로거를 주입받아야 한다 — **구조 변경이라 이번 라운드에서 하지 않고
+D14 로 남긴다**. AC16 은 사람 실기.
+
+**게이트(재실행)**: lint **0 error**(warning 1 = 0102 베이스라인) · typecheck **3/3** ·
+vitest **201 파일 1832/1832** · scripts **28/28**.
+
 ---
 
 ## [검증자 기입] 파생 이슈 (Derived Issues)
@@ -380,4 +401,5 @@ r6 의 "**파일이 거의 겹치지 않는다**" 는 **틀렸다.** 0165·0166 
 | D10 | **취소가 미소비 프레임 큐를 통째로 버린다** — `markAborted` 의 `Frame.discard()` 가 이미 도착한 delta 와 `telemetry` 까지 폐기해 부분 답변 꼬리 손실 + 그 턴 usage 미집계 | verify r1 §F1 (프로브 실행 확정) | 취소 후 **`error` 만 배제**하거나 프레임 `cancelled` 플래그로 **드레인 허용·신규 error push 만 거부** | **open — 라운드 2** |
 | D11 | AC5 배치 계약이 **한 배치 = 두 provider 메시지**가 되는 경우가 있다 — `drainCompactSummaries()` 결과를 직전 SDK 메시지 배치에 합친다 | verify r1 (`claude.ts:441-444`) | 순서 보장이 목적이면 별도 배치로 분리하거나 계약 문구를 정정 | open(관측) |
 | D12 | `unframed.length>0 → teardownChannel` 로 **respawn 빈도가 늘고**, 그 시점 CLI 큐에 있던 submitted/orphaned 배치가 `takeForRespawn` 을 거치지 않고 소멸할 수 있다(`draining` 분기와 같은 형태 — 선재 구조) | verify r1 (`session-runtime.ts:257`) | 내부 teardown 시에도 이월 경로를 태울지 결정 | open(관측) |
-| D13 | 인수 기준이 **테스트 파일명**을 지정해 구현이 다른 이름으로 넣자 대조가 끊겼다(AC5·11·14·15) | verify r1 자기 리뷰 | 기준은 파일명이 아니라 **단언 대상 동작**으로 쓴다 → `failure-patterns.md` 축적 | 반영됨 |
+| D13 | 인수 기준이 **테스트 파일명**을 지정해 구현이 다른 이름으로 넣자 대조가 끊겼다(AC5·11·14·15) | verify r1 자기 리뷰 | 기준은 파일명이 아니라 **단언 대상 동작**으로 쓴다 → `failure-patterns.md` P23 축적 | 반영됨 |
+| D14 | **AC15(`chat.postturn.step` 로깅)에 단언을 붙이려면 chat-turn IPC 하네스가 로거를 주입받아야 한다** — 구조 변경이라 r2 에서 하지 않았다 | r2 구현 | 하네스에 logger 주입점을 만들거나 판정 입력을 순수 함수로 노출 | open |

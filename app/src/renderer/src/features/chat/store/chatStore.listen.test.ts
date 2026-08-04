@@ -1,7 +1,7 @@
 // 0143 — listen 대기 UX 의 store 계약: busy 라우팅(steer 예약), 자식 이벤트 BEGIN_TURN 제외,
 // 백그라운드 완료 통지 dispatch. 하네스는 chatStore.testHarness 공용(0149).
 import { beforeEach, describe, expect, it } from 'vitest'
-import { chatActions, ingestChatEvent, useChatStore } from './chatStore'
+import { chatActions, ingestChatEvent, sessionBusy, useChatStore } from './chatStore'
 import {
   flushRaf,
   harnessSession as session,
@@ -11,7 +11,11 @@ import type { NormalizedEvent } from '../../../../../shared/ipc'
 
 let chatSend: ReturnType<typeof installChatStoreHarness>['chatSend']
 
-const activity = (revision: number, transport: 'idle' | 'listening'): NormalizedEvent => ({
+const activity = (
+  revision: number,
+  transport: 'idle' | 'listening',
+  patch: Partial<Extract<NormalizedEvent, { type: 'chat.activity' }>> = {}
+): NormalizedEvent => ({
   type: 'chat.activity',
   sessionId: 's',
   revision,
@@ -21,7 +25,8 @@ const activity = (revision: number, transport: 'idle' | 'listening'): Normalized
   queuedCount: 0,
   deliveryPendingCount: 0,
   residualCount: 0,
-  backgroundTaskCount: transport === 'listening' ? 1 : 0
+  backgroundTaskCount: transport === 'listening' ? 1 : 0,
+  ...patch
 })
 
 beforeEach(() => {
@@ -49,6 +54,37 @@ describe('chatStore — chat.activity 라우팅', () => {
     expect(st.pendingSteer?.[0].text).toBe('대기 중 질문')
     expect(st.session.inflight).toBe(false) // BEGIN_TURN 미발생
     expect(st.session.messages).toHaveLength(0) // 낙관 커밋 없음(이중 렌더 방지)
+  })
+
+  // 0167 AC13 — "sessionBusy 정의 불변" 은 문자열이 아니라 **동작**으로 고정한다.
+  it('**잔여만 남은 idle 스냅샷은 busy 를 만들지 않는다** — 애니메이션·중단버튼이 유휴로 돌아간다', () => {
+    ingestChatEvent(activity(1, 'listening'))
+    flushRaf()
+    expect(sessionBusy(session())).toBe(true)
+    // 체인이 끝나고 orphaned 예약만 남은 상태(0154 가 의도적으로 유지하는 상태).
+    ingestChatEvent(activity(2, 'idle', { busy: true, deliveryPendingCount: 1, residualCount: 1 }))
+    flushRaf()
+    expect(session().listening).toBe(false)
+    expect(session().inflight).toBe(false)
+    expect(sessionBusy(session())).toBe(false)
+    // 잔여 수는 그대로 노출돼 Composer 의 '세션 전체 중단' 안내가 뜬다.
+    expect(session().activityResidualCount).toBe(1)
+  })
+
+  it('잔여만 남은 상태의 send 는 그래도 예약 경로다 — 0153 의 pendingCount 규칙 유지', () => {
+    ingestChatEvent(activity(1, 'listening'))
+    flushRaf()
+    chatActions.send('잔여 유발')
+    ingestChatEvent(activity(2, 'idle', { busy: true, deliveryPendingCount: 1, residualCount: 1 }))
+    flushRaf()
+    expect(sessionBusy(session())).toBe(false)
+
+    const ok = chatActions.send('그 다음')
+    expect(ok).toBe(true)
+    const st = useChatStore.getState().sessions.s
+    // busy 가 아니어도 미확정 예약이 있으므로 낙관 커밋하지 않는다(순서 역전 방지).
+    expect(st.session.messages).toHaveLength(0)
+    expect(st.pendingSteer?.map((p) => p.text)).toEqual(['잔여 유발', '그 다음'])
   })
 
   it('유휴(비-listening) send 는 종전대로 턴을 연다', () => {

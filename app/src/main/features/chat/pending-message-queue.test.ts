@@ -267,6 +267,36 @@ describe('PendingMessageQueue', () => {
       expect(q.drainConfirmed('s').map((b) => b.ids)).toEqual([['a']])
     })
 
+    // 0165 AC11 — 체인 종료 강등은 **자기 체인만** 건드린다. 인자 없이 호출하면 스코프가
+    // 무력화되므로(구 테스트가 전부 그랬다) chainId 를 실제로 넘겨 격리를 고정한다.
+    it('chainId 를 주면 그 체인의 미확정만 강등한다 — 다른 체인은 submitted 로 남는다', () => {
+      const q = new PendingMessageQueue()
+      q.enqueue('s', msg('체인 A'), 1, 'a')
+      accept(q, 's', q.reserveHeld('s', 'steer', 'attempt-a', 'chain-A')!)
+      q.enqueue('s', msg('체인 B'), 2, 'b')
+      accept(q, 's', q.reserveHeld('s', 'steer', 'attempt-b', 'chain-B')!)
+
+      const orphaned = q.orphanUnconfirmed('s', 'chain-A')
+      expect(orphaned.map((b) => b.ids)).toEqual([['a']])
+      // 다른 체인 것은 여전히 submitted — 영수증 대조·재강등 대상으로 남아야 한다.
+      expect(q.submittedUuids('s')).toEqual(['attempt-b'])
+      expect(q.hasSubmitted('s')).toBe(true)
+    })
+
+    it('takeForRespawn 이 새 chainId 를 붙이면 이전 체인의 강등이 그것을 건드리지 못한다 (ABA 차단)', () => {
+      const q = new PendingMessageQueue()
+      q.enqueue('s', msg('이월 대상'), 1, 'a')
+      accept(q, 's', q.reserveHeld('s', 'steer', 'attempt-1', 'chain-old')!)
+      // 채널 사망 → 새 체인으로 이월(attemptId·chainId 재발급, messageIds 보존).
+      const carried = q.takeForRespawn('s', 'chain-new')
+      expect(carried.map((b) => b.ids)).toEqual([['a']])
+      for (const batch of carried) q.commit('s', batch.attemptId!, batch.chainId)
+
+      // 뒤늦게 끝난 **이전** 체인의 강등은 새 체인 예약을 orphaned 로 내리면 안 된다.
+      expect(q.orphanUnconfirmed('s', 'chain-old')).toEqual([])
+      expect(q.submittedUuids('s')).toEqual(carried.map((b) => b.uuid))
+    })
+
     it('두 번 호출해도 같은 배치를 다시 세지 않는다 (멱등)', () => {
       const q = new PendingMessageQueue()
       q.enqueue('s', msg('lost'), 1, 'a')
@@ -320,6 +350,29 @@ describe('PendingMessageQueue', () => {
       const discarded = q.discardSubmitted('s', ['batch-1'])
       expect(discarded.map((x) => x.ids)).toEqual([['a']])
       expect(q.submittedUuids('s')).toEqual(['batch-2'])
+    })
+
+    // 0165 AC13 — open 정본 3상태(submitting|submitted|orphaned)를 전부 폐기한다. 체인 종료
+    // 강등이 orphaned 를 늘리므로, 여기서 상쇄하지 않으면 '세션 전체 중단' 이 조용히 무력화된다.
+    it('orphaned 로 강등된 배치도 폐기한다 (open 정본 3상태)', () => {
+      const q = new PendingMessageQueue()
+      q.enqueue('s', msg('강등됨'), 1, 'a')
+      accept(q, 's', q.reserveHeld('s', 'steer', 'batch-1', 'chain-1')!)
+      q.orphanUnconfirmed('s', 'chain-1')
+      expect(q.submittedUuids('s')).toEqual([]) // 더 이상 submitted 가 아니다
+      expect(q.counts('s').deliveryPendingCount).toBe(1) // 그러나 open 이라 표시에는 남는다
+
+      const discarded = q.discardSubmitted('s', ['batch-1'])
+      expect(discarded.map((b) => b.ids)).toEqual([['a']])
+      expect(q.counts('s').deliveryPendingCount).toBe(0)
+    })
+
+    it('submitting(제출 중) 배치도 폐기 대상이다', () => {
+      const q = new PendingMessageQueue()
+      q.enqueue('s', msg('제출 중'), 1, 'a')
+      q.reserveHeld('s', 'steer', 'batch-1', 'chain-1') // commit 전 = submitting
+      expect(q.discardSubmitted('s', ['batch-1']).map((b) => b.ids)).toEqual([['a']])
+      expect(q.counts('s').deliveryPendingCount).toBe(0)
     })
 
     it('모르는 uuid·확정된 배치는 건드리지 않는다', () => {

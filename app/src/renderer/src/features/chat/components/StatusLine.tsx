@@ -4,6 +4,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { formatElapsed, useElapsed } from '../../../shared/ui/elapsed'
 import { useI18n } from '../../../shared/i18n'
+import { deriveActivityLabel, type ActivityFact, type ActivityView } from '../lib/activityLabel'
 
 const SYMBOLS = ['✢', '✣', '✦', '✧', '★', '✶']
 
@@ -21,7 +22,6 @@ const VERBS = [
 ]
 
 const SYMBOL_INTERVAL_MS = 200
-const LONG_WAIT_SECONDS = 30
 
 function approximateTokens(text: string): number {
   return Math.max(1, Math.round(text.length / 4))
@@ -43,14 +43,7 @@ export interface StatusLineProps {
   /** Phase B 에서 사용. 현재는 항상 undefined. */
   thinkingActive?: boolean
   thoughtDurationMs?: number
-  activity?: {
-    foreground: 'idle' | 'preparing' | 'streaming'
-    queuedCount: number
-    deliveryPendingCount: number
-    residualCount: number
-    backgroundTaskCount: number
-    listening: boolean
-  }
+  activity?: ActivityView
 }
 
 export function StatusLine({
@@ -94,41 +87,17 @@ export function StatusLine({
         : null
 
   const showCounter = elapsedSec >= 5
-  // residual은 deliveryPending의 부분집합이다. 그대로 나열하면 같은 메시지를
-  // "전달 확인"과 "중단 후 전달 대기"로 두 번 세므로, 일반 전달분만 차감해 보여준다.
-  const ordinaryDeliveryPending = activity
-    ? Math.max(0, activity.deliveryPendingCount - activity.residualCount)
-    : 0
-  const facts = [
-    ordinaryDeliveryPending > 0
-      ? tr('chat.activity.deliveryPending', { count: ordinaryDeliveryPending })
-      : null,
-    activity && activity.queuedCount > 0
-      ? tr('chat.activity.queued', { count: activity.queuedCount })
-      : null,
-    activity && activity.residualCount > 0
-      ? tr('chat.activity.residual', { count: activity.residualCount })
-      : null,
-    activity && activity.backgroundTaskCount > 0
-      ? tr('chat.activity.background', { count: activity.backgroundTaskCount })
-      : null
-  ].filter((fact): fact is string => fact != null)
-  const visibleFacts = facts.slice(0, 2)
-  if (facts.length > visibleFacts.length) {
-    visibleFacts.push(tr('chat.activity.more', { count: facts.length - visibleFacts.length }))
+  // 조합 규칙은 순수 모듈이 소유한다(lib/activityLabel) — 여기서는 키를 문구로 옮기기만 한다.
+  const label = deriveActivityLabel(activity, elapsedSec * 1000)
+  const factText = (fact: ActivityFact): string =>
+    tr(`chat.activity.${fact.key}`, { count: fact.count })
+  const visibleFacts = label.visible.map(factText)
+  if (label.overflow > 0) {
+    visibleFacts.push(tr('chat.activity.more', { count: label.overflow }))
   }
-  const waiting =
-    activity != null &&
-    (activity.listening || facts.length > 0 || activity.foreground === 'preparing')
   const statusLabel =
-    activity?.foreground === 'preparing'
-      ? tr('chat.activity.preparing')
-      : waiting && activity?.foreground === 'idle'
-        ? elapsedSec >= LONG_WAIT_SECONDS
-          ? tr('chat.activity.finishingSlow')
-          : tr('chat.activity.waiting')
-        : `${verb}…`
-  const factLabel = facts.join(' · ')
+    label.status === 'streaming' ? `${verb}…` : tr(`chat.activity.${label.status}`)
+  const factLabel = label.facts.map(factText).join(' · ')
   const accessibleLabel = [statusLabel, factLabel, showCounter ? formatElapsed(elapsedSec) : null]
     .filter(Boolean)
     .join(', ')
