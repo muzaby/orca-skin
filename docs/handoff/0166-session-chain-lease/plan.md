@@ -1,9 +1,14 @@
-# Plan — 0166-session-chain-lease
+# Plan — 0166-session-chain-lease (r2)
 
-> **출신**: `0165` r5 리뷰(5라운드 · 24건)에서 **소유권·제어·제출 권위**에 해당하는 항목을
-> 분리한 핸드오프(사용자 결정 ⑦). 0165 는 보고 증상 직결분만 갖는다.
+> **출신**: `0165` 리뷰(6라운드)에서 **소유권·제어·제출 권위**에 해당하는 항목을 분리한
+> 핸드오프(사용자 결정 ⑦). 0165 는 보고 증상 직결분만 갖는다.
 > **선행**: 0165(메시지-원자 배치 라우팅 · channel incarnation token · attempt identity) —
-> 본 문서는 그 토큰·attempt 를 **전제로** 쓴다.
+> 본 문서는 그 토큰·attempt 를 **전제로** 쓴다. **0165 → 0166 → 0167 순차 병합 강제**(파일 중첩).
+>
+> **r2 개정** — 6차 리뷰에서 확정된 것을 흡수한다: **spawn handshake**(초기 입력이 LiveTurn 이전에
+> 적재된다) · **adapter outcome 계약**(push 결과가 관측 불가) · **재시도 규칙**(0165 에서 이관) ·
+> `beginMany` · **preparing admission 자기모순 해소** · **준비 실패 정책 고정** · `closing` 자원 보존 ·
+> **activation CAS** · **commit fencing** · **open state 정본** · `ChannelLifecyclePort`.
 
 ## 메타
 
@@ -88,20 +93,38 @@
 ### A. SessionChainLease — 상태머신 (F-E, 리뷰 P1-1·P1-2)
 
 ```ts
+interface LeaseBase<W> {                    // 세 상태가 공통으로 든다 (r2 — closing 이 자원을 잃던 결함)
+  leaseId: string; chainId: string; owner: W; sessionId: string | null
+  controller: AbortController               // preparing abort · 종료 취소에 공용
+  control: SessionControl                   // 세션 수명 제어 상태
+}
 type SessionChainLease<W> =
-  | { kind: 'preparing'; leaseId; chainId; owner: W; sessionId: string | null
-      controller: AbortController }                       // runtime·providerKey 아직 없음
-  | { kind: 'active';    leaseId; chainId; owner: W; sessionId: string | null
-      runtime: ManagedRuntime; providerKey: string
-      control: SessionControl; activeChild: TurnContext<W> | null }
-  | { kind: 'closing';   leaseId; chainId }                // 반납·정리 중, 신규 begin 차단
+  | (LeaseBase<W> & { kind: 'preparing' })                              // runtime·providerKey 미확정
+  | (LeaseBase<W> & { kind: 'active'; runtime: ManagedRuntime
+                      providerKey: string | null                        // provider 해석은 string | null
+                      activeChild: TurnContext<W> | null })
+  | (LeaseBase<W> & { kind: 'closing'; runtime?: ManagedRuntime
+                      reason: 'discard' | 'shutdown' })                 // 정리 대상 자원을 **보존**
 ```
+
+- **`closing` 은 discard/shutdown 전용**이다(r2). **취소는 체인을 정상 종료**시키고 lease 를 놓으므로
+  `closing` 을 거치지 않는다 — 0067 AC3("취소 후 같은 채널 재사용")과 정합하며, 정리가 새 입력을
+  막지 않는다.
+- `providerKey` 는 `string | null` — 실제 provider 해석 반환형과 일치시킨다(r2).
 
 - **`preparing` 은 동기 검증 직후 첫 `await` 전에 등록**한다(P1-1) — 그래야 `await
   normalizeAttachments`/`resolveTurnProvider` 구간에서 두 번째 체인이 열리지 않는다.
   `runtime`·`providerKey` 는 **그 시점에 알 수 없으므로** 상태로 분리한다.
-- **준비 실패 UX**: preparing 중 실패하면 그 사이 합류한 held 메시지를 ⓐ 다음 leader 로 넘기거나
-  ⓑ draft 로 복원하고 사용자에게 사유를 알린다 — **조용한 유실 금지**(AC-A4).
+- **준비 실패 정책 = 고정**(r2 — "둘 중 하나" 는 UX 계약이 아니다): preparing 이 실패하면 그 사이
+  합류한 held 를 **전부 원래 순서대로 draft 로 복원**하고 **구체적 오류를 1회** 보여준다.
+  **자동 leader 승격은 하지 않는다** — 같은 장애에서 실행 시점에 따라 메시지가 전송되기도 하고
+  draft 로 돌아오기도 하는 것은 예측 불가능하다(AC-A4).
+- **activation CAS**(r2): 준비를 마치고 `activate(leaseId, prepared)` 로 전이한다. 그 사이 Stop·
+  owner-gone·discard·shutdown 이 lease 를 바꿨으면 **CAS 실패 → 방금 얻은 runtime 을 즉시 close**
+  한다. 지각한 준비 작업이 종료된 세션을 되살리지 못한다(AC-A24).
+- **preparing 중 Stop·owner-gone**(r2): `chat:cancel` 은 preparing controller 를 abort 하고,
+  owner WebContents 소멸도 같은 경로를 탄다. 이후 도착한 provider 해석 결과로 **spawn 하지 않는다**
+  (AC-A25).
 - **해제는 `leaseId` 정체성으로**(P1-2). 신규 세션은 owner 키 → `promote` 로 sessionId 키로
   승격되므로 **외부 키를 인자로 쓰면 과거 키로 지워 lease 가 영구 잔류**한다.
 - **반납 순서**(P1-2): `runtime` 반납/close **→ 그다음** lease 해제. 반대면 게이트가 idle 로
@@ -114,8 +137,21 @@ type SessionChainLease<W> =
 
 - `SessionControl` = `{ taskIds, subagentTypes, stoppedSubagents, blockedSubagents, cancelled }`
   를 **lease 로 옮긴다.** `freshTurnLocalState()` 에서는 **제거**한다(복제 금지).
-- 전송 admission 은 `lease.runtime.canSteer` + **`lease.providerKey`** 로 판정한다 —
-  nullable child 를 읽지 않는다. **`providerKey` 만** 든다(모델·settings 신선도는 runtime 권위).
+- **전송 admission 은 `acceptsQueuedInput` 로 판정한다**(r2 — 자기모순 해소). `lease.runtime.canSteer`
+  만으로는 부족하다: `preparing` 에는 runtime 이 없고, runtime 을 얻었어도 **첫 spawn 전 `active`**
+  에서는 `canSteer === false` 다. **"현재 채널에 steer 가능한가"(live capability)와 "이 체인에 held
+  로 합류 가능한가"(admission)를 분리**한다.
+
+  | 상황 | `acceptsQueuedInput` | 사용자에게 |
+  |---|---|---|
+  | `preparing` | **true** | pending 버블(held 합류) |
+  | `active`, spawn 전 | **true** | pending 버블 |
+  | `active`, 채널 생존 + `canSteer` | **true** | pending 버블 |
+  | 어댑터가 steer 미지원(turn-scoped) | false | "이 백엔드는 끼어들기 미지원" 안내 |
+  | provider 경계 위반(`lease.providerKey` 기준) | false | "다른 공급자 모델이 선택됨" 안내 |
+  | `closing`(discard/shutdown) | false | 잠시 후 재시도 안내 |
+
+  `providerKey` **만** lease 에 둔다(모델·settings 신선도는 runtime 권위 — 복제 금지).
 - 서브에이전트 중단은 lease control 을 읽으므로 **연속·listen 턴에서도 `stopTask` 에 도달**한다.
 - **정리 시점**(P2-18): `settled` 관측 시 해당 키 제거, lease 해제 시 전량 폐기.
 
@@ -125,10 +161,29 @@ type SessionChainLease<W> =
   게이트 훅은 **요청만** 한다(훅의 fail-open·rollback·경고 로그 구조는 **그대로 보존**).
 - **`submitSteer` 는 생성 시점 `expectedToken` 을 캡처**하고, 호출 시 현재 채널 토큰과 다르면
   **no-op/stale 을 반환**한다(P1-6 — 포트 도입이 만드는 신규 위험의 필수 방어).
+- **spawn handshake**(r2 — 필수). 최초 prompt·respawn 프렐류드는 **LiveTurn 이 생기기 전에**
+  `createSessionInputStream([...preludes, prompt])` 로 어댑터 내부 큐에 적재된다(`claude.ts:327-334`).
+  따라서 `submitSteer` 만 추가해서는 **네 경로 중 셋이 Runtime 을 통과하지 않는다.**
+  → 어댑터 계약을 **`openChannel(reqWithoutInput)` → Runtime 이 초기 배치를 submit** 으로 바꾼다.
 - **네 경로 전부** 이 포트를 지난다: 최초 전송 · 자동 연속 턴 · respawn 프렐류드 · PostToolBatch.
+- **adapter outcome 계약**(r2 — 필수). 현재 `LiveTurn.pushTurn?(next): Promise<void>` 가
+  `input.push()` 의 `boolean` 을 **버려서**(`types.ts:24` · `streaming-input.ts:30`) "명시적 거절" 을
+  관측할 수 없다. 반환형을 다음으로 바꾼다:
+  `{ kind: 'accepted' } | { kind: 'rejectedBeforeAccept'; reason } | { kind: 'stale' }`.
+- **`beginMany(attempts, token)`**(r2): respawn 은 프렐류드 N개 + prompt 를 함께 제출한다.
+  **전부 성공 또는 전부 무효**로 예약한다 — 중간 하나가 CAS 에 실패했을 때 앞의 것만 push 되는
+  부분 제출을 금지한다.
 - 순서: draining 확인/필요 시 respawn → `ensureChannel()`(0165 의 incarnation token) →
-  큐 **CAS `submitting(token)`** → push → 성공 `submitted` / 실패 `held` 롤백.
-  **CAS 실패 = 이미 취소·폐기** → **push 하지 않고 채널도 폐기하지 않는다**.
+  큐 **CAS `submitting(token)`** → push → `accepted` 면 `submitted` / `rejectedBeforeAccept` 면
+  `held` 롤백. **CAS 실패 = 이미 취소·폐기** → **push 하지 않고 채널도 폐기하지 않는다**.
+- **commit fencing**(r2): commit 은 `(leaseId, chainId, token, attemptId, state==='submitting')`
+  **전량 일치** 시에만 성공한다. push 를 await 하는 동안 discard/close 가 끼어들었으면
+  **늦은 commit 은 no-op/stale** 로 끝난다 — 폐기된 상태를 되살리지 않는다.
+- **재시도 규칙**(0165 에서 이관 — outcome 계약이 있어야 성립):
+  `rejectedBeforeAccept` **만** 1회 재시도(새 `attemptId`) · `accepted` 후 무이벤트는
+  **재전송 금지**(중복 도구 실행 위험) · **취소·discard·CAS 실패는 재시도 사유가 아니다**.
+- **open state 정본**(세 문서 공통, r2): `submitting | submitted(accepted) | orphaned` = **open**.
+  residual 계산 · 전체 중단 · 세션 삭제 · shutdown · 스냅샷이 **모두 이 정본**을 쓴다.
 
 ### D. 레이어 경계 — 포트 2종 (리뷰 P1-3)
 
@@ -137,8 +192,9 @@ type SessionChainLease<W> =
 
 | 포트 | 소비자 | 제공자 | 메서드 |
 |---|---|---|---|
-| `SubmissionAttemptPort` | `SessionRuntime`(sessions) | `PendingMessageQueue`(chat) | `begin(attempt, token)` / `commit` / `rollback` |
+| `SubmissionAttemptPort` | `SessionRuntime`(sessions) | `PendingMessageQueue`(chat) | `begin(attempt, token)` / **`beginMany(attempts, token)`** / `commit`(fencing) / `rollback` |
 | `SessionControlPort` | `TurnCoordinator`·핸들러(chat/app) | lease(sessions) | task 매핑 조회·기록, stopped/blocked/cancelled |
+| **`ChannelLifecyclePort`** (r2) | app | `SessionRuntime`(sessions) | `onChannelRetired(token) → 정착 대상 ids` — tracker 는 `features/chat` 이라 **토큰이 경계를 넘으려면 이 포트가 필요**하다(0165 는 토큰을 내부에 가둬 이 기능을 갖지 않는다) |
 
 ### E. 종료 경로 원자성 (리뷰 P1-9·P1-10·P1-15)
 
@@ -191,10 +247,19 @@ type SessionChainLease<W> =
 | A21 | **`retireChannel(token)` 이 정착 대상 ids 를 반환**하고, 호출자가 합성 settled 를 전달한 뒤 제거한다(transcript 가 '실행 중' 으로 남지 않는다) | `background-tasks.test.ts::"retireChannel 은 정착 대상을 반환한다"` · `chat-turn.lease.test.ts::"세대 교체가 열린 태스크를 정착시킨다"` | respawn |
 | A22 | `features/sessions` ↔ `features/chat` **직접 import 0** — 포트 2종을 컴포지션 루트가 주입한다 | `npm run lint`(boundaries) + `supervisor.test.ts` 의 fake 포트 사용 | 빌드 게이트 |
 | A23 | 실기: 백그라운드 서브에이전트가 도는 세션에서 연속 전송을 반복해도 **CLI 서브프로세스가 세션당 1개**로 유지되고, 앱 종료 후 **잔존 프로세스가 0** 이다 | **사람 실기** — `npm run dev` + `ps` 확인(전송 5회 반복 → 종료) | 앱 전체 |
+| A24 | **activation CAS**: 준비 완료 시 lease 가 이미 `closing` 이면 전이가 실패하고 **방금 얻은 runtime 이 즉시 close** 된다 | `supervisor.test.ts::"activation CAS 실패는 runtime 을 즉시 닫는다"` | 준비 중 discard/shutdown 경합 |
+| A25 | **preparing 중 Stop·owner-gone** 이 준비를 abort 하고, 이후 도착한 provider 해석 결과로 **spawn 하지 않는다** | `chat-turn.lease.test.ts::"preparing 중 Stop 은 spawn 을 막는다"` · `::"owner 소멸도 같은 경로"` | 전송 직후 중단 · 창 닫기 |
+| A26 | **spawn handshake**: 최초 prompt·프렐류드가 **Runtime 의 제출 트랜잭션을 통과**한다(어댑터가 초기 입력을 미리 적재하지 않는다) | `session-runtime.test.ts::"초기 배치도 submit 을 통과한다"` · `adapters/claude.openchannel.test.ts::"openChannel 은 입력 없이 채널만 연다"` | `chat:send` 최초 전송 · respawn |
+| A27 | **adapter outcome**: `push` 가 거절되면 `rejectedBeforeAccept` 가 전파돼 `held` 로 롤백되고, `accepted` 면 `submitted` 로 결합된다 | `session-runtime.test.ts::"push 거절은 rejectedBeforeAccept 로 롤백된다"` · `adapters/claude.outcome.test.ts::"push 결과가 outcome 으로 전파된다"` | 모든 제출 경로 |
+| A28 | **재시도 규칙**: `rejectedBeforeAccept` 는 **새 attemptId 로 1회** 재시도하고, `accepted` 후 무이벤트는 **재전송하지 않는다** | `turn-coordinator.test.ts::"거절은 새 attempt 로 1회 재시도"` · `::"accepted 후 무이벤트는 재전송하지 않는다"` | coordinator retry 루프 |
+| A29 | **`beginMany` 원자성**: 프렐류드 N개 중 하나라도 begin 에 실패하면 **전부 무효**가 되고 push 가 일어나지 않는다 | `pending-message-queue.test.ts::"beginMany 는 전부 성공 또는 전부 무효"` | respawn 프렐류드 |
+| A30 | **commit fencing**: push 를 await 하는 동안 discard 되면 **늦은 commit 이 no-op** 이고 폐기 상태가 되살아나지 않는다 | `pending-message-queue.test.ts::"discard 후 늦은 commit 은 무시된다"` · `chat-turn.lease.test.ts::"submitting 중 discard 경합"` | 잔여 Notice → discard |
+| A31 | **open 정본 3상태**(`submitting\|submitted\|orphaned`)를 residual·discard·세션 삭제·shutdown·스냅샷이 **모두** 사용한다 | `pending-message-queue.test.ts::"open 정본이 모든 소비처에서 일치한다"` | 큐 전 소비처 |
+| A32 | **`ChannelLifecyclePort`**: 세대 교체 시 app 이 `onChannelRetired(token)` 로 **정착 대상 ids 를 받아** 합성 settled 를 전달한 뒤 tracker 에서 제거한다 | `chat-turn.lease.test.ts::"세대 교체가 열린 태스크를 정착시킨다"` | respawn |
 
 ## 범위 / 비범위
 
-- **범위**: A~E + AC 23건.
+- **범위**: A~E + AC **32건**(r2 에서 9건 추가).
 - **비범위**: 활동 스냅샷·대기 표시(**0167**) · 메시지-원자 라우팅과 incarnation token(**0165** 선행) ·
   `RuntimePool` 을 active/idle 2단으로 일반화(lease 가 active 를 들므로 풀은 저장소로 유지).
 
@@ -260,15 +325,17 @@ type SessionChainLease<W> =
 - `app/src/main/app/chat-turn.ts` — lease 수명 · 제어 이관(`freshTurnLocalState` 축소) ·
   `canSteer`/`providerKey` 판정 교정
 - `app/src/main/app/bootstrap.ts` — 게이트·shutdown·포트 주입
-- `app/src/main/adapters/{claude,claude-adapt}.ts` — 게이트 훅이 포트 호출
+- `app/src/main/adapters/{types,turn,claude,claude-adapt,mock}.ts` — **`openChannel` handshake** ·
+  **outcome 반환형** · 게이트 훅이 포트 호출
+- `app/src/main/features/chat/turn-coordinator.ts` — 재시도 규칙(0165 에서 이관)
 
 ## 게이트
 
 - `cd app && npm run lint && npm run typecheck && npm test`.
 - 기준선(실측): lint 0 error / 1 warning(기존·무관) · typecheck 0 · vitest **1772 passed
   (196 files)** + node:test **28 pass**.
-- 신규 테스트: supervisor/registry 8 · bootstrap 4 · session-runtime 2 · background-tasks 1 ·
-  어댑터 2 · chat-turn harness 8.
+- 신규 테스트: supervisor/registry 10 · bootstrap 4 · session-runtime 5 · pending-message-queue 3 ·
+  background-tasks 1 · turn-coordinator 2 · 어댑터 4 · chat-turn harness 11.
 
 ## 설계 self-review 체크리스트 (READY 전)
 
@@ -277,7 +344,8 @@ type SessionChainLease<W> =
 - [x] 의존 기술 — 전제 3건 + **선행 의존(0165)** 명시, 신규 의존성 0
 - [x] 파생 UX — 준비 중 종료·준비 실패·승격 경계·discard 경합·recovery·handoff 6건
 - [x] 리스크 — 5건 + 완화책, Open Question 0
-- [x] `검증 수단` 공란 0 — AC 23건 중 22건 `파일::케이스`, 1건 사람 실기(`ps` 절차 명시)
+- [x] `검증 수단` 공란 0 — AC **32건** 중 31건 `파일::케이스`, 1건 사람 실기(`ps` 절차 명시)
+- [x] **검증 수단이 실제로 성립하는지 재점검**(r2) — `push` 결과 관측은 **adapter outcome 계약(A27)이 이 문서에 있으므로** 성립한다. 0165 에서 같은 AC 가 성립하지 않았던 이유(계약 부재)를 §자료조사에 기록
 - [x] 부정형 기준 0개 — A16·A18·A22 는 "신규 spawn 이 없다"·"push 하지 않는다"·"직접 import 0" 을 **lint/호출 관측**으로 단언
 - [x] AC 간 모순 없음 — A1↔A2(동시 전송 / 교체 창, 같은 규칙의 두 경로) · A5↔A6(CAS 해제 / 승격 후에도 성립) · A12↔A14(lease 는 세되 preparing 은 cap 제외) · A18↔A19(포트를 부르되 토큰 불일치는 stale) · A21↔A17(정착 후 폐기 / discard 는 즉시 폐기 — 서로 다른 트리거)
 - [x] 인용 수치 직접 측정 — registry 소비처 **9** · `refreshGate` 호출점 **1** · 게이트 기준선 이번 세션

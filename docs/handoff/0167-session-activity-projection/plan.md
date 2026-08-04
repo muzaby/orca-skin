@@ -1,8 +1,14 @@
-# Plan — 0167-session-activity-projection
+# Plan — 0167-session-activity-projection (r2)
 
 > **출신**: `0165` r5 리뷰(5라운드 · 24건)에서 **표시·관측 계층**에 해당하는 항목을 분리한
 > 핸드오프(사용자 결정 ⑦).
-> **선행**: `0165`(잔여를 큐 파생값으로) · `0166`(lease 수명 = transport 의 파생 원천).
+> **선행**: `0165`(배치 라우팅·토큰·attempt) · `0166`(lease 수명·open 정본). **0165 → 0166 → 0167
+> 순차 병합 강제**(파일 중첩).
+>
+> **r2 개정** — 6차 리뷰 흡수: **잔여 상태·발행이 0165 에서 이 문서로 이관**(유일 publisher) ·
+> **legacy producer 제거** · **transport 공식 확정** · **activity clock 모순 해소** ·
+> **projection key 승격** · **hydrate 는 store 적용까지 검증** · AC7 을 **main admission 테스트**로 이동 ·
+> count 의미 확정 · 무활동 임계 상수 확정.
 
 ## 메타
 
@@ -86,20 +92,33 @@ interface ChatActivitySnapshot {
   phase: 'started' | 'ended'      // 기존 계약 유지 — transport 에서 파생
   revision: number                // 세션별 앱 수명 단조 증가
   transport: 'idle' | 'listening'
-  heldCount; submittingCount; submittedCount; residualCount; backgroundTaskCount: number
-  lastActivityAt: number
-}
+  queuedCount; deliveryPendingCount; residualCount; backgroundTaskCount: number
+}   // lastActivityAt 없음 — renderer 로컬 시계(r2)
 ```
 
-- **count 단위는 전부 메시지 수**(`sum(batch.ids.length)`) — 배치 수가 필요하면 별도 필드(P2-19).
-- **`transport` 는 lease/listen frame 에서만 파생한다 — 잔여와 직교**(P1-14). `residualCount>0`
-  이어도 체인이 없으면 `transport:'idle'` 이다. 그래야 renderer 가 받을 체인 없는 steer 로
-  라우팅하지 않는다.
-- **발행 규칙**: 의미 전이가 있을 때만 발행(동일 값 무발행). **`lastActivityAt` 은 dedupe 키에서
-  제외**하고(P2-20) 경과 표시는 renderer 로컬 시계로 계산한다 — 매번 `Date.now()` 를 넣으면
-  dedupe 가 무효화된다.
+- **count 의미 확정**(r2): 표시용은 **`queuedCount`**(held) + **`deliveryPendingCount`**
+  (= submitting + accepted + orphaned, **open 정본 3상태** — 0166 확정)로 둔다. 단위는 전부
+  **메시지 수**(`sum(batch.ids.length)`) — 배치 수로 세면 3건 flush 시 3→1 로 줄어 "사라졌다" 로
+  보인다(P2-19). 내부 상태명은 노출하지 않는다.
+- **`transport` 공식 확정**(r2 — lease 존재로 판정하면 안 된다): lease 는 foreground 턴 시작부터
+  존재하므로 그것만으로 `listening` 을 만들면 **정상 응답 중에도 대기 라벨이 켜진다**.
+  **`transport = 'listening' ⟺ 턴-후 루프가 세션을 붙들고 있는 구간**(`postTurnHoldsSession(step)`).
+  foreground 응답 중은 기존 `inflight` 가 담당한다(0143 유지 — 애니메이션 정책 불변).
+- **잔여와 직교**(P1-14): `residualCount>0` 이어도 체인이 없으면 `transport:'idle'` 이다.
+- **발행 규칙 + activity clock**(r2 — 자기모순 해소): 의미 전이가 있을 때만 발행(동일 값 무발행)하고,
+  **`lastActivityAt` 은 스냅샷에서 아예 뺀다.** 넣은 채 dedupe 에서만 제외하면 "활동이 계속 오는데도
+  스냅샷이 안 나가 무활동으로 보이는" 모순이 생긴다. 경과·무활동 판정은 **renderer 가 기존
+  delta/tool 이벤트로 로컬 시계를 굴려** 계산한다.
 - **revision 은 세션별 앱 수명 단조 증가** — listen 종료 시 0으로 리셋하면 다음 started 가 과거
   revision 보다 낮아 무시된다(P1-13). 리듀서는 낮은 revision 을 무시한다.
+
+### A-2. 유일 publisher (r2 — 이중 권위 제거)
+
+- **projector 만 `chat.listen`·`chat.residual` 을 발행한다.** 0165 는 잔여를 발행하지 않으며
+  (영수증 정합만), 본 문서가 **legacy 직접 producer 를 제거**한다:
+  `beginListenPhase`/`endListenPhase`(`chat-turn.ts:869-883`) · `reconcileInterrupt` 의
+  `chat.residual` 발행(`chat-turn.ts:806-818`). → **"legacy producer 0건"** 을 AC 로 잠근다.
+- 이유: revision 없는 legacy 이벤트가 최신 스냅샷 **뒤에** 도착하면 **이미 지운 경고가 되살아난다**.
 
 ### B. 전달 계약 — broadcast + viewer 필터 (G-3, 리뷰 P1-12)
 
@@ -112,15 +131,27 @@ interface ChatActivitySnapshot {
 
 - **세션 로드 응답에 현재 스냅샷을 포함**한다(추가 IPC 왕복 0). 보조로 renderer 준비 시
   projector 가 현재값을 재발행한다.
-- 이로써 renderer 재시작·세션 전환 후에도 대기 상태가 즉시 복원된다.
+- **store 적용까지 검증한다**(r2): handler 반환만이 아니라 renderer 가 `lastRevision`·`listening`·
+  counts 를 **실제로 반영**하는지 테스트한다(`LoadedSession` 타입·preload 계약 포함).
+- **projection key 승격**(r2): 신규 세션은 큐가 `clientKey`, lease 가 owner 키를 쓰다가
+  `session.updated` 에서 sessionId 로 승격된다. **`promoteProjection(oldKey, sessionId)`** 로
+  counts·snapshot·**revision 을 원자 이전**한다 — 안 하면 revision 이 초기화되거나 held 가 두 키로
+  갈린다.
+- **수명 정리**(r2): 세션 삭제·shutdown 시 projector 스냅샷·revision·provisional key 를 함께 제거한다.
 
 ### D. 대기 UX (리뷰 P2-23 · 결정 ⑥)
 
 - **0143 유지** — 애니메이션은 계속 돈다. `sessionBusy` 정의도 **불변**.
 - **여러 이유가 동시에 존재할 수 있으므로 사실을 함께 보여준다**: 예) "백그라운드 작업 2건 처리
   중 · 전달 확인 1건". 우선순위로 하나만 고르지 않는다.
-- **장시간 무활동**: 프레임을 닫지 않고 **라벨만** "종료 확인 대기" 로 전환한다. 기준 시간은
-  상수로 두고 문서에 명시한다(표시 계층 타이머 — 라우팅 불변).
+- **길이 규칙**(r2): StatusLine 에는 **상위 2개 + 합계**만, 나머지는 tooltip/popover 로 보낸다 —
+  긴 문자열이 composer 배치를 밀지 않게 한다.
+- **문구 중립화**(r2): "중단했지만 대기 중인 메시지가 남아 있습니다"(경고형) → **상태 서술형**
+  ("응답 중단됨 · 전송 대기 N개"). **액션 버튼(지금 보내기·편집·삭제)은 보고 범위 밖 제품 변경이라
+  채택하지 않는다** — 별도 결정으로 올린다.
+- **장시간 무활동**(r2 — 값 확정): 프레임을 닫지 않고 **라벨만** "종료 확인 대기" 로 전환한다.
+  `IDLE_HINT_MS = 30_000`(renderer 상수) · 재평가 주기 `1_000ms`(기존 `useElapsed` 틱 재사용) ·
+  **foreground(`inflight`) 구간에는 적용하지 않는다**. 표시 계층 타이머라 프레임·큐·라우팅 불변.
 - **탈출구를 항상 보이게**: 중단 버튼은 childless lease 에서도 동작(0166 A9), 잔여가 있으면
   "세션 전체 중단" 을 함께 제시.
 - **접근성**: 라벨에 스크린리더용 텍스트를 제공하고, `prefers-reduced-motion` 에서 애니메이션
@@ -142,7 +173,7 @@ interface ChatActivitySnapshot {
 | 4 | 리듀서는 **낮은 revision 스냅샷을 무시**한다 | `chatReducer.listen.test.ts::"낮은 revision 은 무시된다"` | 순서 뒤바뀐 IPC |
 | 5 | 스냅샷에 **`phase` 가 실려** 기존 리듀서 전이가 동일하게 동작한다 | `chatReducer.listen.test.ts::"phase 파생값이 기존 전이를 유지한다"` | main → renderer |
 | 6 | **`transport` 는 lease/listen frame 에서만 파생**된다 — `residualCount>0` 이어도 체인이 없으면 `'idle'` 이다 | `session-activity-projector.test.ts::"잔여는 transport 를 붙들지 않는다"` | 체인 종료 후 잔여 존재 |
-| 7 | 그 상태에서 새 send 는 **steer 가 아니라 새 체인**으로 시작된다(메시지 고착 없음) | `chatStore.test.ts::"transport idle + 잔여 존재면 새 턴으로 보낸다"` | `shouldQueueAsPending` |
+| 7 | 그 상태의 새 send 는 renderer 에서 **pending 버블로 표시**되고(0153 의 `pendingCount>0` 유지), **main 에서는 lease 가 없으므로 새 체인이 시작**된다 — 잔여는 respawn 프렐류드로 앞서 전달된다 | `chat-turn.lease.test.ts::"잔여만 있고 lease 가 없으면 새 체인을 연다"`(**main admission 테스트** — r2 로 renderer 판정에서 이동) | `chat:send` → admission |
 | 8 | **체인 종료 후** 잔여 배치가 커밋되면 `residualCount:0` 스냅샷이 **발행되어 경고가 해제**된다 (보고 ②-b) | `session-activity-projector.test.ts::"체인 종료 후 큐 변경도 발행된다"` + 사람 실기 | 앱 수명 구독 |
 | 9 | 스냅샷이 **살아 있는 모든 renderer 로 broadcast** 되고, 파괴된 WebContents 는 제외된다 | `activity-broadcast.test.ts::"파괴된 뷰어를 제외하고 전송한다"` | 다중 창 |
 | 10 | 세션 로드 응답에 **현재 스냅샷이 포함**돼 renderer 재시작 후 대기 상태가 복원된다 | `handlers/session.test.ts::"세션 로드가 활동 스냅샷을 포함한다"` | 앱 재시작 · 세션 전환 |
@@ -152,11 +183,16 @@ interface ChatActivitySnapshot {
 | 14 | 장시간 무활동 시 **라벨만** "종료 확인 대기" 로 바뀌고 **프레임은 열린 채**다 | `chatReducer.listen.test.ts::"무활동 임계 후 라벨이 바뀐다"` + `session-runtime` 프레임 무변경 확인 | 표시 계층 타이머 |
 | 15 | **접근성**: 대기 상태에 스크린리더 텍스트가 제공되고 `prefers-reduced-motion` 에서 정적 표시로 대체된다 | `StatusLine.test.tsx::"a11y 텍스트와 reduced-motion 대체"` | 접근성 설정 |
 | 16 | `docs/IPC_CONTRACT.md` 의 `chat.listen` 행이 **스냅샷 필드를 반영**한다 | 문서 육안 대조(verify 체크) | 문서 SSOT |
-| 17 | 실기: 백그라운드 작업이 도는 세션에서 **무엇을 기다리는지 라벨로 확인**되고, 작업이 끝나면 애니메이션이 멈춘다 | **사람 실기** — `npm run dev` → 서브에이전트 실행 → 라벨·개수·종료 확인 | 앱 전체 |
+| 17 | **legacy 직접 producer 0건** — `chat.listen`·`chat.residual` 을 projector 외에서 발행하는 코드가 없다 | `grep` 기반 위생 테스트 `activity-publisher.test.ts::"projector 외 발행 지점이 없다"` | 빌드 게이트 |
+| 18 | **`promoteProjection`** 이 clientKey→sessionId 승격 시 counts·snapshot·**revision 을 원자 이전**한다(revision 이 낮아지지 않는다) | `session-activity-projector.test.ts::"projection key 승격은 revision 을 보존한다"` | 새 채팅 첫 응답 |
+| 19 | 세션 삭제·shutdown 시 projector 스냅샷·revision·provisional key 가 **제거**된다 | `session-activity-projector.test.ts::"세션 삭제가 투영 캐시를 지운다"` | `session:delete` · 종료 |
+| 20 | hydrate 가 **renderer store 까지 반영**된다(`lastRevision`·`listening`·counts) | `chatStore.test.ts::"세션 로드 스냅샷이 store 에 반영된다"` | 세션 전환 · 앱 재시작 |
+| 21 | 무활동 라벨 전환은 **`IDLE_HINT_MS` 경과 + foreground 아님** 일 때만 일어난다 | `StatusLine.test.tsx::"foreground 에는 무활동 라벨을 붙이지 않는다"` | 표시 계층 |
+| 22 | 실기: 백그라운드 작업이 도는 세션에서 **무엇을 기다리는지 라벨로 확인**되고, 작업이 끝나면 애니메이션이 멈춘다 | **사람 실기** — `npm run dev` → 서브에이전트 실행 → 라벨·개수·종료 확인 | 앱 전체 |
 
 ## 범위 / 비범위
 
-- **범위**: A~D + AC 17건 + `IPC_CONTRACT.md` 동기화.
+- **범위**: A~D + AC **22건** + `IPC_CONTRACT.md` 동기화.
 - **비범위**:
   - **foreground/transport UI 분리** — 결정 ⑥ 미채택. (스냅샷이 `transport`·`backgroundTaskCount`
     를 이미 실으므로, 나중에 채택하면 `sessionBusy` **한 줄**로 전환된다.)
@@ -223,7 +259,8 @@ interface ChatActivitySnapshot {
 - `cd app && npm run lint && npm run typecheck && npm test`.
 - 기준선(실측): lint 0 error / 1 warning(기존·무관) · typecheck 0 · vitest **1772 passed
   (196 files)** + node:test **28 pass**.
-- 신규 테스트: projector 7 · renderer reducer/store 5 · IPC/handlers 2 · StatusLine 1.
+- 신규 테스트: projector 10 · renderer reducer/store 6 · IPC/handlers 2 · StatusLine 2 · 위생 1 ·
+  chat-turn admission 1.
 
 ## 설계 self-review 체크리스트 (READY 전)
 
@@ -232,7 +269,8 @@ interface ChatActivitySnapshot {
 - [x] 의존 기술 — **선행 의존(0165·0166)** 명시, 신규 의존성 0
 - [x] 파생 UX — 다중 창·재시작·잔여만 남은 세션·장시간 대기·reduced-motion 5건
 - [x] 리스크 — 4건 + 완화책, Open Question 1건(라벨 문구 — 사람 확인으로 분리)
-- [x] `검증 수단` 공란 0 — AC 17건 중 15건 `파일::케이스`, 사람 실기 1건, 문서 대조 1건
+- [x] `검증 수단` 공란 0 — AC **22건** 중 20건 `파일::케이스`, 사람 실기 1건, 문서 대조 1건
+- [x] **AC7 을 main admission 테스트로 이동**(r2) — 0153 의 `pendingCount>0` 은 그대로 pending 버블을 만들고 그게 옳다. renderer 판정으로 두면 0153 과 충돌한다
 - [x] 부정형 기준 0개 — AC2·AC6·AC14 는 "재발행하지 않는다"·"idle 이다"·"프레임은 열린 채다" 를 **관측 가능한 상태**로 단언
 - [x] AC 간 모순 없음 — AC1↔AC2(변화 시 발행 / 동일 값 무발행) · AC6↔AC8(잔여가 transport 를 안 붙듦 / 그래도 잔여 해제는 발행됨) · AC12↔AC13(라벨 추가 + busy 정의 불변) · AC14↔AC12(라벨 전환 / 애니메이션 유지)
 - [x] 인용 수치 직접 측정 — 게이트 기준선 이번 세션 실행
