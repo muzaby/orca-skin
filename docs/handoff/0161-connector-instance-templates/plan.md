@@ -428,4 +428,5 @@ Confluence 템플릿은 0160 의 factory 를 그대로 감싼다 — `sharedPack
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
-| — | (없음) | | | |
+| D1 | **prod 로그인 게이트 회귀** — 부팅 시 Confluence PAT provider(`targets:['application','connector']`)가 서버 0개에서도 등록돼 `required:true` → prod `RootGate` 가 `<LoginFrame/>` 로 앱을 막는다. DEV 는 `bypass` 로 가려져 보이지 않는다. | verify r1 §D1 (프로브 실행으로 재현) | `createStaticCredentialProvider` 에 `targets` 옵션 추가 → Confluence PAT 을 `['connector']` 로 좁힌다(manifest 선언과 일치). 회귀 테스트: Confluence 패키지만 등록한 registry 의 `providersForTarget('application')` = 0 | **open** |
+| D4 | registry 가 **provider 의 선언↔구현 descriptor 를 대조하지 않는다** (connector·runtimeTool 은 한다). 그래서 선언 `targets:['connector']` 과 구현 `['application','connector']` 의 불일치가 등록을 통과했다. | verify r1 §D1 부수 발견 | `targets`·`mechanisms`·`capabilities` 를 비교해 등록 단계에서 거부 | **open** |

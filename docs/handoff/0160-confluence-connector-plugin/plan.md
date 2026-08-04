@@ -578,4 +578,4 @@ presentations: {
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
-| — | (없음) | | | |
+| D2 | `download-store.ts` 의 `assetsDirOf`·`relativeToDownloads`·`uniqueName` 이 프로덕션·테스트 모두 **미참조**. | verify r1 §역방향 탐색 | 확장점이면 근거 주석, 아니면 제거 | **open** |
