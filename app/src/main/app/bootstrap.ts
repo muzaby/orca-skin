@@ -83,6 +83,7 @@ import {
   sendChatEvent
 } from '../infra/ipc/send'
 import { AuthBroker } from '../features/auth-platform/broker'
+import { restoreConnections } from './auth-restore'
 import { PluginHost } from '../features/auth-platform/plugin-host'
 import { AuthRegistry } from '../features/auth-platform/registry'
 import { AUTH_PLUGIN_PACKAGES } from '../features/auth-platform/modules'
@@ -94,6 +95,7 @@ import { confluenceTemplate } from '../features/auth-platform/modules/confluence
 import { ConnectorHost } from '../features/connectors/runtime'
 import { RuntimeToolRegistry } from '../features/extensions/runtime-tool-registry'
 import { BrowserSessionStore } from '../infra/auth/browser-session-store'
+import { createBindingPersistence } from '../infra/auth/binding-store-file'
 import { createCredentialVault } from '../infra/auth/credential-vault'
 import { pluginExec } from '../infra/auth/plugin-exec'
 import { resolveBuiltinSkillsDir } from './builtin-resources'
@@ -277,6 +279,8 @@ export class Bootstrap {
     const broker = new AuthBroker({
       registry,
       vaultFor: (prefix) => createCredentialVault(secretStore, prefix),
+      // 재시작 후에도 연결이 남게 한다 (0170). 비밀은 이 파일이 아니라 vault 에 있다.
+      bindingPersistence: createBindingPersistence(),
       browserSessions: {
         acquire: async (group) => sessions.acquire(group),
         openLoginWindow: (handleId, opts) => sessions.openLoginWindow(handleId, opts),
@@ -321,6 +325,27 @@ export class Bootstrap {
     }
   }
 
+  // 복원 → 재연결. 예외는 여기서 끝난다 — 부팅 경로가 이 실패로 죽지 않아야 한다.
+  private async restoreAuthConnections(auth: {
+    broker: AuthBroker
+    pluginHost: PluginHost
+  }): Promise<void> {
+    const log = getLogger().child('auth')
+    try {
+      const restored = auth.broker.restore()
+      if (restored.length === 0) return
+      await restoreConnections({
+        restored,
+        connect: (input) => auth.pluginHost.connect(input),
+        logout: (bindingId, cascade) => auth.broker.logout(bindingId, cascade),
+        logger: (message, meta) => log.warn(message, meta)
+      })
+      log.info('auth.restore.done', { count: restored.length })
+    } catch (error) {
+      log.warn('auth.restore.failed', { message: String(error) })
+    }
+  }
+
   private async deployExtensions(): Promise<void> {
     await this.deployment?.deployNow()
   }
@@ -344,6 +369,11 @@ export class Bootstrap {
     // MCP `${BINDING:<id>}` 해석을 broker 로 잇는다 (0157). 이 배선이 없으면 binding 참조는
     // 미해결로 남아 해당 MCP 서버가 드롭된다(fail-closed).
     this.mcp.attachBindings(auth.broker)
+
+    // 저장된 connector 연결을 되살린다 (0170). **부팅을 막지 않는다** — 사내망 밖이면
+    // connector `start()` 가 타임아웃까지 가므로 await 하지 않고, 실패는 restoreConnections 가
+    // 삼켜 해당 binding 만 정리한다.
+    void this.restoreAuthConnections(auth)
 
     const db = this.bootReport.stepSync('db-init', { critical: true, label: 'DB 초기화' }, () =>
       initDb({

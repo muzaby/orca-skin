@@ -7,6 +7,7 @@
 
 import type {
   AuthBindingInfo,
+  AuthBindingStatus,
   AuthFailureReason,
   AuthLogoutOutcome,
   AuthPlatformState,
@@ -41,7 +42,7 @@ import {
   type CredentialVault
 } from '../../infra/auth/credential-vault'
 import { getLogger } from '../../infra/log/registry'
-import { BindingStore } from './bindings'
+import { BindingStore, type BindingPersistence } from './bindings'
 import { checkOutboundRequest, checkRedirect, type PolicyResult } from './policy'
 import type { AuthRegistry } from './registry'
 import { runGuarded, TransactionStore, type Transaction } from './transactions'
@@ -67,6 +68,15 @@ export interface BrokerDeps {
   envAllowlist?: readonly string[]
   sender?: AuthenticatedFetchDeps
   clock?: () => number
+  // binding 레코드 영속 (0170). 없으면 종전대로 메모리 전용 — 재시작하면 재입력을 받는다.
+  bindingPersistence?: BindingPersistence
+}
+
+// `restore()` 가 돌려주는 재연결 대상. 컴포지션 루트가 이것으로 connector 를 다시 연결한다.
+export interface RestoredConnectorBinding {
+  bindingId: string
+  connectorId: string
+  connectionId: string
 }
 
 interface MutableState {
@@ -84,7 +94,7 @@ export class AuthBroker {
 
   constructor(private readonly deps: BrokerDeps) {
     this.clock = deps.clock ?? Date.now
-    this.bindings = new BindingStore(this.clock)
+    this.bindings = new BindingStore(this.clock, deps.bindingPersistence)
     this.sender = deps.sender ?? createSender()
     this.transactions = new TransactionStore(this.clock, (tx, reason) => {
       // 취소를 조용히 넘기지 않는다 — application transaction 이면 게이트 상태에 반영한다.
@@ -129,6 +139,48 @@ export class AuthBroker {
 
   private publish(): void {
     this.deps.broadcast(this.status())
+  }
+
+  // ── 복원 ───────────────────────────────────────────────────────────────────
+
+  // 저장된 binding 을 되살린다 (0170). **비밀이 아직 있는지 vault 에 물어보고 나서** 살린다 —
+  // 레코드만 보고 살리면 "연결됨" 이라 표시해 놓고 첫 요청에서 깨지는, 조용한 거짓말이 된다.
+  //
+  // 복원 대상은 **connector 뿐**이다. `application` 은 `RootGate` 가 화면 전체를 막는 UX 게이트라
+  // 자동 통과가 사용자가 요청하지 않은 변경이고, `browser_session` 은 cookie jar 가 binding 밖
+  // (Electron session partition)에 있어 handle 만으로는 되살릴 수 없다.
+  restore(): RestoredConnectorBinding[] {
+    const kept: AuthBindingInfo[] = []
+    const restored: RestoredConnectorBinding[] = []
+
+    for (const record of this.bindings.loadPersisted()) {
+      if (record.target.kind !== 'connector' || record.artifact.kind !== 'vault_credential')
+        continue
+
+      const read = this.deps.vaultFor(authBindingPrefix(record.id)).read(BINDING_SECRET_NAME)
+      if (read.state === 'absent') {
+        // 값이 없는 binding 을 남기면 UI 가 "연결됨" 이라 거짓말한다. 레코드를 버린다.
+        this.log().info('auth.restore.dropped', { bindingId: record.id, reason: 'secret-absent' })
+        continue
+      }
+      // 복호화 실패는 **부재가 아니다**(키체인 잠김·다른 머신). 값이 돌아올 수 있으므로
+      // 버리지 않고 unknown 으로 남긴다 — 조용한 미인증 진행을 막는 vault 계약 그대로다.
+      const status: AuthBindingStatus = read.state === 'found' ? 'valid' : 'unknown'
+      const binding = { ...record, status }
+      kept.push(binding)
+      if (status === 'valid') {
+        restored.push({
+          bindingId: binding.id,
+          connectorId: record.target.connectorId,
+          connectionId: record.target.connectionId
+        })
+      }
+    }
+
+    // 메모리와 저장소를 함께 맞춘다 — 버린 레코드가 파일에 남으면 다음 부팅에 또 되살아난다.
+    this.bindings.adopt(kept)
+    if (kept.length > 0) this.publish()
+    return restored
   }
 
   // ── lifecycle ──────────────────────────────────────────────────────────────
