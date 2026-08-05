@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { UsageFeed } from './usage-feed'
+import { matchesSelector, UsageFeed } from './usage-feed'
 import type { UsageSample } from '../../contracts/usage-source'
 
 function sample(overrides: Partial<UsageSample> = {}): UsageSample {
@@ -68,5 +68,15 @@ describe('UsageFeed', () => {
 
     expect(listener).toHaveBeenCalledTimes(1)
     expect(feed.size).toBe(0)
+  })
+})
+
+describe('matchesSelector', () => {
+  it('sourceId·operation 은 지정된 것만 비교한다', () => {
+    const s = sample()
+    expect(matchesSelector({}, s)).toBe(true)
+    expect(matchesSelector({ sourceId: 'usage-corp', operation: 'quota' }, s)).toBe(true)
+    expect(matchesSelector({ sourceId: 'usage-lab' }, s)).toBe(false)
+    expect(matchesSelector({ operation: 'detail' }, s)).toBe(false)
   })
 })

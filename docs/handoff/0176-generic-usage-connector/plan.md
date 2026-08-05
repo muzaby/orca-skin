@@ -476,6 +476,10 @@ const externalUsage = new ExternalUsageService({ db, secretFor, providers, fetch
 
 ## [검증자 기입] 파생 이슈 (Derived Issues)
 
+> verify r1 = **PASS**. 아래 3건은 통과를 막지 않는 **후속** 항목이다 — 라운드를 넘겨 추적한다.
+
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
-| — | (없음) | — | — | — |
+| D1 | 구독 모듈의 `UsageMapContext.settings` 는 **모듈 선언 기본값**(`module.defaultSettings`)이지 디스크의 `sources/settings/<adapter>/<provider>/settings.json` 이 아니다. 훅 경로(`ExternalUsageContext.settings`)와 **같은 기존 동작**이라 회귀는 아니지만, 배포가 settings.json 을 고쳐도 map 이 못 본다 — 이름이 같아서 오해하기 쉽다. | verify r1 §비판적 검토(코드 대조) | ⓐ 문서에 "선언 기본값" 임을 명시하거나 ⓑ `ProviderSettingsService` 해석값을 주입한다(두 경로 공통). ⓑ 는 feature 교차라 컴포지션 루트 주입이 필요하다. | open |
+| D2 | 구독 경로의 타임아웃이 `DEFAULT_TIMEOUT_MS`(5s) 고정이다. `usage.config` 는 `timeoutMs` 를 선언할 수 있는데 구독 계약에는 없다 — 느린 사내 집계 API 를 가진 배포가 조절할 수단이 없다. | verify r1 §비판적 검토("설계보다 좁게 구현") | `UsageSubscription.timeoutMs?` 를 더하고 `fetchViaSubscription` 이 읽게 한다(가산적 계약 변경). | open |
+| D3 | probe 실패의 `error`(401/403·5xx 가 아닌 4xx)는 실무상 대개 **경로 오타**인데, 사용자에게는 "예상치 못한 응답 (HTTP 404)" 로만 보인다. | 구현자 §설계 리뷰 이견 + verify r1 확인 | 실패 진단 로그에 **operation 이름과 조립된 상대 경로**를 싣는다(값·쿼리는 제외 — 0174 의 진단 상한 규약). | open |

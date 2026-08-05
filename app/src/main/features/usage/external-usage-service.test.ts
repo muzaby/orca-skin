@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { ExternalUsageService } from './external-usage-service'
+import { ExternalUsageService, sampleKey } from './external-usage-service'
 import type { ExternalUsageProvider, StaticUsageProviderModule } from '../../contracts/usage-report'
 import type { CostSummary, ExternalUsageReport } from '../../../shared/ipc'
 import type { UsageSampleOutcome, UsageSourcePort } from '../../contracts/usage-source'
@@ -707,3 +707,25 @@ function subscribingModule(provider: string): StaticUsageProviderModule {
     }
   }
 }
+
+describe('sampleKey', () => {
+  it('params 키 순서가 달라도 같은 호출은 같은 키다', () => {
+    expect(
+      sampleKey('usage-corp', { operation: 'quota', params: { a: 1, b: { y: 2, x: 1 } } })
+    ).toBe(sampleKey('usage-corp', { operation: 'quota', params: { b: { x: 1, y: 2 }, a: 1 } }))
+  })
+
+  it('source·operation·params 가 다르면 키가 갈린다', () => {
+    const base = sampleKey('usage-corp', { operation: 'quota', params: { scope: 'month' } })
+    expect(sampleKey('usage-lab', { operation: 'quota', params: { scope: 'month' } })).not.toBe(
+      base
+    )
+    expect(sampleKey('usage-corp', { operation: 'detail', params: { scope: 'month' } })).not.toBe(
+      base
+    )
+    expect(sampleKey('usage-corp', { operation: 'quota', params: { scope: 'week' } })).not.toBe(
+      base
+    )
+    expect(sampleKey('usage-corp', { operation: 'quota' })).not.toBe(base)
+  })
+})
