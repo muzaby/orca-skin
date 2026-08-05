@@ -1,4 +1,5 @@
 import type { ChatActivitySnapshot } from '../../../shared/ipc'
+import { parseLeaseKey } from '../../../shared/lease-key'
 import type { PendingMessageQueue, PendingQueueMutation } from './pending-message-queue'
 import type { BackgroundTaskTracker } from './background-tasks'
 
@@ -184,9 +185,8 @@ export class SessionActivityProjector {
 }
 
 function activityKeyFromLogicalKey(logicalKey: string): string | undefined {
-  if (logicalKey.startsWith('session:')) return logicalKey.slice('session:'.length)
-  if (logicalKey.startsWith('client:')) return logicalKey.slice('client:'.length)
-  return undefined
+  // 접두사를 손으로 떼지 않는다 — 키를 만드는 쪽(features/sessions)과 같은 코덱을 쓴다.
+  return parseLeaseKey(logicalKey)?.id
 }
 
 function sameActivity(a: ChatActivitySnapshot, b: ChatActivitySnapshot): boolean {

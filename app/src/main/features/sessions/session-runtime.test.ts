@@ -428,7 +428,6 @@ describe('SessionRuntime 장수명 채널(0067)', () => {
       takeSteerFlush: noop,
       commitSteerFlush: () => true,
       rollbackSteerFlush: noop,
-      onInterruptReceipt: noop,
       captureInterruptReceipt: noop,
       onChannelRetired: noop
     } as unknown as TurnRequest
@@ -438,7 +437,6 @@ describe('SessionRuntime 장수명 채널(0067)', () => {
       'captureInterruptReceipt',
       'commitSteerFlush',
       'onChannelRetired',
-      'onInterruptReceipt',
       'requestApproval',
       'rollbackSteerFlush',
       'takeSteerFlush'

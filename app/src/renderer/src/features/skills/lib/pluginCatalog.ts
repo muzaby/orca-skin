@@ -10,6 +10,9 @@
 // 아니다(연결할 대상이 없다). provider 는 각 서버 행이 "쓸 수 있는 인증 방식" 으로 흡수한다.
 
 import type { AuthProviderInfo, PluginConnectorInfo } from '../../../../../shared/ipc'
+import { acceptedConnectProviders, providerMap } from './connectorConnect'
+
+export { providerMap }
 
 export interface ConnectorRow {
   // 선택 키. 0163 까지는 pluginId 였다.
@@ -18,8 +21,6 @@ export interface ConnectorRow {
   title: string
   origin: string
   connected: boolean
-  source: 'static' | 'instance'
-  pluginId: string
   // 이 서버에 쓸 수 있는 인증 방식의 사람용 라벨.
   authLabels: string[]
   // 지금 무엇으로 붙어 있는지. 미연결이면 null.
@@ -39,8 +40,6 @@ export function buildConnectorRows(
       title: rowTitle(connector),
       origin: connector.origin,
       connected: connector.connected,
-      source: connector.source,
-      pluginId: connector.pluginId,
       authLabels: connectorAuthLabels(connector, byId),
       connectedAuthLabel: connectedAuthLabel(connector, byId),
       connector
@@ -53,17 +52,13 @@ function rowTitle(connector: PluginConnectorInfo): string {
   return label === '' ? connector.connectorId : label
 }
 
-// 수용 선언 ∩ 등록 provider. `buildConnectOptions`(연결 시 강제 지점)와 **같은 교집합 규칙**을
-// 표시용으로 재사용한다 — 두 곳이 다른 답을 내면 "고를 수 있다고 써놓고 못 고르는" 화면이 된다.
+// 수용 선언 ∩ 등록 provider 의 **라벨**. 교집합 규칙 자체는 `acceptedConnectProviders`(연결 시
+// 강제 지점과 같은 함수) 가 소유한다 — 여기서는 라벨만 뽑는다.
 export function connectorAuthLabels(
   connector: Pick<PluginConnectorInfo, 'acceptedAuthProviders'>,
   byId: ReadonlyMap<string, AuthProviderInfo>
 ): string[] {
-  return connector.acceptedAuthProviders.flatMap((id) => {
-    const provider = byId.get(id)
-    if (!provider || !provider.targets.includes('connector')) return []
-    return [provider.label]
-  })
+  return acceptedConnectProviders(connector, byId).map((provider) => provider.label)
 }
 
 export function connectedAuthLabel(
@@ -72,10 +67,4 @@ export function connectedAuthLabel(
 ): string | null {
   if (!connector.connected || connector.connectedProviderId === undefined) return null
   return byId.get(connector.connectedProviderId)?.label ?? connector.connectedProviderId
-}
-
-export function providerMap(
-  providers: readonly AuthProviderInfo[]
-): ReadonlyMap<string, AuthProviderInfo> {
-  return new Map(providers.map((provider) => [provider.id, provider]))
 }

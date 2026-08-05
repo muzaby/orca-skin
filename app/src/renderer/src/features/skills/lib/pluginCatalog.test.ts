@@ -81,9 +81,11 @@ describe('buildConnectorRows', () => {
     expect(row.connectedAuthLabel).toBeNull()
   })
 
-  it('source 와 원본 커넥터를 그대로 나른다', () => {
+  // 행은 원본 커넥터를 통째로 나른다 — `source` 처럼 소비처가 드물게 보는 필드는 사본을 두지 않고
+  // `row.connector` 로 읽는다(사본을 두면 둘이 갈릴 수 있다).
+  it('원본 커넥터를 그대로 나른다', () => {
     const [row] = buildConnectorRows(PROVIDERS, [connector({ source: 'instance' })])
-    expect(row.source).toBe('instance')
+    expect(row.connector.source).toBe('instance')
     expect(row.connector.connectorId).toBe('confluence-dc')
   })
 })

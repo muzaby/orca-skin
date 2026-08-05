@@ -1,6 +1,10 @@
 import { randomUUID } from 'node:crypto'
 import type { ManagedRuntime } from '../../contracts/ports'
 import type { TurnContext } from '../../contracts/turn'
+// 논리 키 형식의 정본은 shared 다 — 읽는 쪽(features/chat)이 같은 코덱을 쓴다.
+import { clientLeaseKey, sessionLeaseKey } from '../../../shared/lease-key'
+
+export { clientLeaseKey, sessionLeaseKey }
 
 export interface SessionControl {
   taskIds: Map<string, string>
@@ -174,12 +178,4 @@ export class SessionChainLeaseRegistry<W> {
       this.byKey.set(next.logicalKey, next)
     }
   }
-}
-
-export function sessionLeaseKey(sessionId: string): string {
-  return `session:${sessionId}`
-}
-
-export function clientLeaseKey(clientKey: string): string {
-  return `client:${clientKey}`
 }

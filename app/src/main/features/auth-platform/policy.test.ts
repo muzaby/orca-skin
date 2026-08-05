@@ -5,7 +5,7 @@ import {
   checkOutboundRequest,
   checkRedirect,
   checkRequestPath,
-  isOriginAllowed
+  isAllowedOrigin
 } from './policy'
 import type { BindingFacts } from './policy'
 
@@ -20,21 +20,21 @@ const validBinding: BindingFacts = {
 
 describe('origin allowlist', () => {
   it('선언한 origin 만 허용한다', () => {
-    expect(isOriginAllowed(`${ORIGIN}/rest/api`, [ORIGIN])).toBe(true)
-    expect(isOriginAllowed('https://evil.invalid/x', [ORIGIN])).toBe(false)
+    expect(isAllowedOrigin(`${ORIGIN}/rest/api`, [ORIGIN])).toBe(true)
+    expect(isAllowedOrigin('https://evil.invalid/x', [ORIGIN])).toBe(false)
   })
 
   it('서브도메인을 자동 허용하지 않는다', () => {
-    expect(isOriginAllowed('https://sub.wiki.corp.invalid/x', [ORIGIN])).toBe(false)
+    expect(isAllowedOrigin('https://sub.wiki.corp.invalid/x', [ORIGIN])).toBe(false)
   })
 
   it('포트·스킴이 다르면 다른 origin 이다', () => {
-    expect(isOriginAllowed('http://wiki.corp.invalid/x', [ORIGIN])).toBe(false)
-    expect(isOriginAllowed('https://wiki.corp.invalid:8443/x', [ORIGIN])).toBe(false)
+    expect(isAllowedOrigin('http://wiki.corp.invalid/x', [ORIGIN])).toBe(false)
+    expect(isAllowedOrigin('https://wiki.corp.invalid:8443/x', [ORIGIN])).toBe(false)
   })
 
   it('파싱 불가 URL 은 거부한다', () => {
-    expect(isOriginAllowed('not a url', [ORIGIN])).toBe(false)
+    expect(isAllowedOrigin('not a url', [ORIGIN])).toBe(false)
   })
 })
 

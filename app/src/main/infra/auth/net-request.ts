@@ -21,7 +21,7 @@
 // 아무것도 하지 않는다 — 요청하는 순간에만 `net` 에 닿는다.
 
 import { net, type Session } from 'electron'
-import { flattenHeaders, toResponse, type NetResponseFacts } from './net-response'
+import { redirectFacts, toResponse, type NetResponseFacts } from './net-response'
 
 export interface SendOnceOptions {
   url: string
@@ -81,13 +81,7 @@ export function sendOnce(opts: SendOnceOptions): Promise<SendOnceResult> {
     request.on('redirect', (statusCode, _method, redirectUrl, responseHeaders) => {
       finish(() => {
         request.abort()
-        resolve({
-          facts: {
-            status: statusCode,
-            headers: { ...flattenHeaders(responseHeaders), location: redirectUrl }
-          },
-          body: null
-        })
+        resolve({ facts: redirectFacts(statusCode, redirectUrl, responseHeaders), body: null })
       })
     })
 

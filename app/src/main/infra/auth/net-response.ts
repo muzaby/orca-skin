@@ -54,13 +54,28 @@ export function toResponse(facts: NetResponseFacts, body: Uint8Array | null): Re
   })
 }
 
+// 3xx(304 제외) 에 쓸 만한 `Location` 이 실려 있는지. **헤더 이름 대소문자를 가리지 않는다** —
+// 이 사실을 주는 쪽이 Chromium(`flattenHeaders` 로 소문자화)일 수도, 주입된 전송 포트일 수도
+// 있어서 소문자 키를 가정하면 조용히 리다이렉트를 놓친다.
+export function redirectLocationOf(facts: NetResponseFacts): string | null {
+  if (facts.status < 300 || facts.status >= 400 || facts.status === 304) return null
+  for (const [name, value] of Object.entries(facts.headers)) {
+    if (name.toLowerCase() !== 'location') continue
+    // 헤더 값의 앞뒤 공백은 규약상 무의미하다. 공백뿐인 Location 은 다음 홉이 없는 것으로 본다 —
+    // 트림하지 않으면 현재 URL 로 해석돼 같은 요청을 홉 상한까지 반복한다.
+    const raw = typeof value === 'string' ? value : (value[0] ?? '')
+    const location = raw.trim()
+    if (location.length > 0) return location
+  }
+  return null
+}
+
 // 다음 홉 URL. 상대 `Location` 도 현재 URL 기준으로 절대화한다. 304 는 재요청 대상이 아니다.
 export function locationOf(facts: NetResponseFacts, currentUrl: string): string | null {
-  if (facts.status < 300 || facts.status >= 400 || facts.status === 304) return null
-  const raw = facts.headers['location']
-  if (typeof raw !== 'string' || raw.length === 0) return null
+  const location = redirectLocationOf(facts)
+  if (location === null) return null
   try {
-    return new URL(raw, currentUrl).toString()
+    return new URL(location, currentUrl).toString()
   } catch {
     return null
   }

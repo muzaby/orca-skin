@@ -172,8 +172,10 @@ export interface TurnRequest {
   // 턴 중단 영수증 수신(0151 AC10·AC11) — 런타임이 interrupt() 를 호출한 뒤 결과를 여기로 올린다.
   // 잔여 uuid 와 자기 예약의 교집합 판정은 **컴포지션 루트**가 한다(features/sessions 가
   // features/chat 을 참조하지 않도록 — main/AGENTS.md 해소책 ③).
-  onInterruptReceipt?: (receipt: InterruptReceipt | undefined) => void
-  // 영수증은 늦게 도착할 수 있으므로 interrupt 발행 순간 큐/attempt를 동결한 수신자를 만든다.
+  //
+  // 영수증은 늦게 도착할 수 있으므로 **수신자를 interrupt 발행 순간에 만든다** — 그래야 그 시점의
+  // 큐/attempt 가 동결된다. 콜백을 직접 받던 형태(`onInterruptReceipt`)는 spawn 시점 값으로 굳어
+  // 체인이 바뀌면 어긋났다(0166 D7).
   captureInterruptReceipt?: () => ((receipt: InterruptReceipt | undefined) => void) | undefined
   // 채널 화신이 종료/교체되는 순간의 상향 통지. app 계층이 해당 채널에 묶인 백그라운드
   // 작업을 합성 정착한다. token은 관측/멱등 키이며 chat 기능을 sessions가 직접 참조하지 않는다.

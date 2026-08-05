@@ -4,7 +4,6 @@ import {
   buildConnectOptions,
   classifyConnectFailure,
   completeConnect,
-  connectorOriginDisplay,
   connectorTarget,
   type ConnectApi
 } from './connectorConnect'
@@ -94,13 +93,6 @@ describe('buildConnectOptions', () => {
     const result = buildConnectOptions(CONNECTOR, [])
     expect(result.options).toEqual([])
     expect(result.unavailableReason).toBe('no_matching_provider')
-  })
-})
-
-describe('connectorOriginDisplay', () => {
-  it('주소는 표시값이고 입력 필드가 아니다', () => {
-    // base url 은 코드 레벨에서 온다(사용자 결정) — 모달에 입력 표면이 없다.
-    expect(connectorOriginDisplay(CONNECTOR)).toBe('https://wiki.corp')
   })
 })
 

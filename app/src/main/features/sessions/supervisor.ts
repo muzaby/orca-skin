@@ -22,6 +22,7 @@ import { UnlimitedRuntimeCapPolicy, type RuntimeCapPolicy } from './runtime-cap-
 import { ActiveTurnTracker } from './active-turn-tracker'
 import {
   SessionChainLeaseRegistry,
+  sessionLeaseKey,
   type AcquireLeaseInput,
   type SessionChainLease
 } from './session-chain-lease'
@@ -144,7 +145,7 @@ export class RuntimeSupervisor<W = unknown> {
     const before = this.leases.getById(leaseId)?.logicalKey
     if (!this.leases.promote(leaseId, sessionId)) return false
     if (before) this.emitLease(before)
-    this.emitLease(`session:${sessionId}`)
+    this.emitLease(sessionLeaseKey(sessionId))
     return true
   }
 
@@ -191,17 +192,20 @@ export class RuntimeSupervisor<W = unknown> {
   }
 
   getRuntimePopulation(): RuntimePopulation {
-    const leaseChildren = new Set(
-      this.leases.all().flatMap((lease) => (lease.activeChild ? [lease.activeChild] : []))
-    )
-    const leasedSessionIds = new Set(
-      this.leases.all().flatMap((lease) => (lease.sessionId !== null ? [lease.sessionId] : []))
-    )
-    const leasedPendingOwners = new Set(
-      this.leases.all().flatMap((lease) => (lease.sessionId === null ? [lease.owner] : []))
-    )
+    // lease 목록을 **한 번만** 뽑아 네 갈래를 한 순회로 만든다 — `all()` 은 호출마다 배열을
+    // 새로 뜨고, 이 함수는 runtime 획득마다(enforceCap) 돈다.
+    const leaseChildren = new Set<TurnContext<W>>()
+    const leasedSessionIds = new Set<string>()
+    const leasedPendingOwners = new Set<W>()
+    let activeLeases = 0
+    for (const lease of this.leases.all()) {
+      if (lease.activeChild) leaseChildren.add(lease.activeChild)
+      if (lease.sessionId !== null) leasedSessionIds.add(lease.sessionId)
+      else leasedPendingOwners.add(lease.owner)
+      if (lease.kind === 'active') activeLeases += 1
+    }
     const active =
-      this.leases.all().filter((lease) => lease.kind === 'active').length +
+      activeLeases +
       this.registry
         .all()
         .filter(

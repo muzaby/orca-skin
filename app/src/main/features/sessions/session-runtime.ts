@@ -19,7 +19,6 @@ const FRAME_DELEGATE_KEYS = [
   'takeSteerFlush',
   'commitSteerFlush',
   'rollbackSteerFlush',
-  'onInterruptReceipt',
   'captureInterruptReceipt',
   'onChannelRetired'
 ] as const
@@ -596,8 +595,7 @@ export class SessionRuntime implements ManagedRuntime {
       // 유지한다(호출자 다수). 영수증 도착은 중단 처리와 비동기라, 소비자는 늦게 오는 것을 전제로
       // 짜야 한다. 실패는 현행대로 삼킨다 — 중단 자체는 이미 발생했다.
       const issuedToken = this.channelTokenValue
-      const receiptHandler =
-        this.delegate.captureInterruptReceipt?.() ?? this.delegate.onInterruptReceipt
+      const receiptHandler = this.delegate.captureInterruptReceipt?.()
       void this.live
         .interrupt()
         .then((receipt) => {
