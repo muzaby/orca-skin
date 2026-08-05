@@ -66,6 +66,9 @@ export interface BrokerDeps {
   // 네임스페이스별 vault 팩토리 — broker 는 raw SecretStore 를 보지 않는다.
   vaultFor: (prefix: string) => CredentialVault
   browserSessions: BrowserSessionCapability
+  // 원격 요청 전송자 (0173). **필수** — 기본값을 두면 주입을 빠뜨린 경로가 조용히 Node 스택으로
+  // 돌아가 사내 프록시·사설 CA 를 못 탄다. 프로덕션은 `netFetch`(Chromium), 테스트는 스텁.
+  fetchImpl: typeof fetch
   exec: AuthExec
   broadcast: (state: AuthPlatformState) => void
   // binding 제거 뒤 connector/runtime server를 정리하는 composition callback. auth-platform은
@@ -102,7 +105,7 @@ export class AuthBroker {
   constructor(private readonly deps: BrokerDeps) {
     this.clock = deps.clock ?? Date.now
     this.bindings = new BindingStore(this.clock, deps.bindingPersistence)
-    this.sender = deps.sender ?? createSender()
+    this.sender = deps.sender ?? createSender(deps.fetchImpl)
     this.transactions = new TransactionStore(this.clock, (tx, reason) => {
       // 취소를 조용히 넘기지 않는다 — application transaction 이면 게이트 상태에 반영한다.
       this.log().info('auth.transaction.cancelled', { providerId: tx.providerId, reason })
@@ -711,11 +714,13 @@ export class AuthBroker {
       vault: this.deps.vaultFor(vaultPrefix),
       browserSessions: this.deps.browserSessions,
       // 선언한 origin 밖으로는 못 나간다 — provider 오설정을 런타임에 조용히 새게 두지 않는다.
+      // 전송은 주입된 구현(프로덕션 = Chromium `net.fetch`, 0173)이 하고, **검사는 그 앞에**
+      // 그대로 남는다 — 스택을 바꿔도 allowlist 강제 지점은 옮겨가지 않는다.
       fetch: async (url, init) => {
         if (!allowedOrigins.includes(safeOrigin(url))) {
           throw new Error('provider manifest 에 선언되지 않은 origin 입니다')
         }
-        return fetch(url, { ...init, redirect: 'manual', signal })
+        return this.deps.fetchImpl(url, { ...init, redirect: 'manual', signal })
       },
       exec: this.deps.exec,
       store: { get: (k) => scratch.get(k), set: (k, v) => scratch.set(k, v) },

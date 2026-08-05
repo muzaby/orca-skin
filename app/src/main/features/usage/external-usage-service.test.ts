@@ -42,6 +42,10 @@ function report(providerKey: string, fetchedAt: number, usedUsd: number): Extern
   }
 }
 
+// 0173 — fetchImpl 은 필수다. 이 스위트는 원격에 나가지 않으므로 빈 응답 스텁을 준다
+// (실제 요청 경로를 보는 케이스는 자기 fetchImpl 을 따로 주입한다).
+const stubFetch: typeof fetch = async () => new Response('{}', { status: 200 })
+
 describe('ExternalUsageService', () => {
   it('keeps local summary but resolves effective limit from authoritative API report', async () => {
     const provider: ExternalUsageProvider = {
@@ -64,6 +68,7 @@ describe('ExternalUsageService', () => {
       db: db() as never,
       secretFor: () => emptySecretFacade(),
       providers: [module],
+      fetchImpl: stubFetch,
       clock: () => 100
     })
 
@@ -159,6 +164,7 @@ describe('ExternalUsageService', () => {
           }
         }
       ],
+      fetchImpl: stubFetch,
       clock: () => 100
     })
     await service.refresh('claude-cached')
@@ -180,6 +186,7 @@ describe('ExternalUsageService', () => {
           }
         }
       ],
+      fetchImpl: stubFetch,
       clock: () => 200
     })
 
@@ -213,6 +220,7 @@ describe('ExternalUsageService', () => {
           }
         }
       ],
+      fetchImpl: stubFetch,
       clock: () => 100
     })
     await seed.refresh('claude-net') // persist baseline usedUsd=55
@@ -234,6 +242,7 @@ describe('ExternalUsageService', () => {
           }
         }
       ],
+      fetchImpl: stubFetch,
       clock: () => 200
     })
 
@@ -267,6 +276,7 @@ describe('ExternalUsageService', () => {
           }
         }
       ],
+      fetchImpl: stubFetch,
       clock: () => 100
     })
 
@@ -301,6 +311,7 @@ describe('ExternalUsageService', () => {
       db: db() as never,
       secretFor: () => emptySecretFacade(),
       providers: modules,
+      fetchImpl: stubFetch,
       clock: () => 100
     })
 

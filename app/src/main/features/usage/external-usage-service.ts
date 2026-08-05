@@ -15,7 +15,9 @@ interface ServiceDeps {
   // 가질 이유가 없다(보고서 위험 #4: "Vault 를 broker 내부로 숨기고 consumer capability 만 주입").
   secretFor: (providerKey: string) => ExternalUsageContext['secret']
   providers: readonly StaticUsageProviderModule[]
-  fetchImpl?: typeof fetch
+  // **필수** (0173) — 기본값 `fetch` 를 두면 사내 프록시·사설 CA 를 못 타는 Node 스택으로
+  // 조용히 나간다. 프로덕션은 `netFetch`(Chromium), 테스트는 스텁.
+  fetchImpl: typeof fetch
   clock?: () => number
   logger?: (message: string, meta?: Record<string, unknown>) => void
 }
@@ -36,7 +38,7 @@ export class ExternalUsageService {
 
   constructor(private readonly deps: ServiceDeps) {
     for (const p of deps.providers) this.providers.set(`${p.adapter}-${p.provider}`, p)
-    this.fetchImpl = deps.fetchImpl ?? fetch
+    this.fetchImpl = deps.fetchImpl
     this.clock = deps.clock ?? Date.now
     this.logger =
       deps.logger ??

@@ -40,6 +40,7 @@ import {
   materializeStaticProviderSettings
 } from '../features/providers/static'
 import { ExternalUsageService } from '../features/usage/external-usage-service'
+import { netFetch } from '../infra/auth/net-fetch'
 import { loadClaudeProviderSettings, readUserClaudeSettings } from '../adapters/claude-settings'
 import { scanSkills, type SkillScanRoot } from '../features/extensions/skills/scan'
 import { seedBuiltinSkills } from '../features/extensions/skills/seed'
@@ -281,6 +282,8 @@ export class Bootstrap {
       vaultFor: (prefix) => createCredentialVault(secretStore, prefix),
       // 재시작 후에도 연결이 남게 한다 (0170). 비밀은 이 파일이 아니라 vault 에 있다.
       bindingPersistence: createBindingPersistence(),
+      // main 의 원격 요청은 전부 Chromium 네트워크 스택을 탄다 (0173) — 사내 프록시·사설 CA.
+      fetchImpl: netFetch,
       browserSessions: {
         acquire: async (group) => sessions.acquire(group),
         openLoginWindow: (handleId, opts) => sessions.openLoginWindow(handleId, opts),
@@ -507,7 +510,9 @@ export class Bootstrap {
       db,
       // 0157 — raw SecretStore 를 넘기지 않는다. provider 별 네임스페이스 뷰만 준다.
       secretFor: (providerKey) => createProviderSecretFacade(secretStore, providerKey),
-      providers: STATIC_USAGE_PROVIDERS
+      providers: STATIC_USAGE_PROVIDERS,
+      // 원격 사용량 보고서도 Chromium 스택으로 나간다 (0173).
+      fetchImpl: netFetch
     })
     scheduler.register('provider-usage-report-refresh', async () => {
       const providerKeys = providerSettings

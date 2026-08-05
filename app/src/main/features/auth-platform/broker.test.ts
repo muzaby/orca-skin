@@ -129,6 +129,7 @@ function harness(
   } = {
     registry,
     vaultFor: (prefix) => createCredentialVault(store, prefix),
+    fetchImpl: stubFetch,
     browserSessions: {
       acquire: async (group) => `handle:${group}`,
       openLoginWindow: async () => ({ finalUrl: `${ORIGIN}/home` }),
@@ -162,6 +163,10 @@ async function loginPat(
   if (step.kind !== 'collect') throw new Error('unreachable')
   return broker.continue(step.transactionId, { credential: value })
 }
+
+// 0173 — `fetchImpl` 은 필수다(전역 fetch 로 되돌아가지 않게). 이 스위트는 원격에
+// 나가지 않으므로 빈 응답 스텁을 준다; 실제 호출을 보는 케이스는 자기 것을 주입한다.
+const stubFetch: typeof fetch = async () => new Response('{}', { status: 200 })
 
 describe('AuthBroker — application/connector 공통 lifecycle', () => {
   it('AC3 — 같은 provider·같은 메서드로 application 과 connector binding 을 만든다', async () => {
@@ -208,6 +213,7 @@ describe('AuthBroker — application/connector 공통 lifecycle', () => {
     const broker = new AuthBroker({
       registry: new AuthRegistry(),
       vaultFor: (prefix) => createCredentialVault(fakeStore(), prefix),
+      fetchImpl: stubFetch,
       browserSessions: {
         acquire: async () => 'h',
         openLoginWindow: async () => ({ finalUrl: '' }),
@@ -458,6 +464,7 @@ describe('AuthBroker — authenticatedFetch (AC8 경로)', () => {
     const broker = new AuthBroker({
       registry,
       vaultFor: (prefix) => createCredentialVault(store, prefix),
+      fetchImpl: stubFetch,
       browserSessions: {
         acquire: async (g) => `handle:${g}`,
         openLoginWindow: async () => ({ finalUrl: '' }),
@@ -632,6 +639,7 @@ describe('AuthBroker — redirect 추종과 mechanism 별 presentation (0160)', 
     const broker = new AuthBroker({
       registry,
       vaultFor: (prefix) => createCredentialVault(store, prefix),
+      fetchImpl: stubFetch,
       browserSessions: {
         acquire: async (g) => `handle:${g}`,
         openLoginWindow: async () => ({ finalUrl: '' }),
@@ -861,6 +869,7 @@ describe('AuthBroker — redirect 추종과 mechanism 별 presentation (0160)', 
     const broker = new AuthBroker({
       registry,
       vaultFor: (prefix) => createCredentialVault(store, prefix),
+      fetchImpl: stubFetch,
       browserSessions: {
         acquire: async (g) => `handle:${g}`,
         openLoginWindow: async () => ({ finalUrl: '' }),
@@ -1176,6 +1185,7 @@ function chainHarness(providers: readonly AuthProviderV1[]): ChainHarness {
   const broker = new AuthBroker({
     registry,
     vaultFor: (prefix) => createCredentialVault(store, prefix),
+    fetchImpl: stubFetch,
     browserSessions: {
       acquire: async (group) => `handle:${group}`,
       openLoginWindow: async () => ({ finalUrl: `${ORIGIN}/home` }),
@@ -1475,5 +1485,101 @@ describe('AuthBroker — 로그인 체인 (0172)', () => {
     expect(broker.listBindings()).toHaveLength(0)
     expect(store.raw.size).toBe(0)
     expect(broker.status().authenticated).toBe(false)
+  })
+})
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 0173 — provider 의 ctx.fetch 도 주입 구현(프로덕션 = Chromium net.fetch)을 탄다
+// ══════════════════════════════════════════════════════════════════════════════
+
+describe('AuthBroker — ctx.fetch 전송 구현 주입 (0173)', () => {
+  const PROBE_PLUGIN = 'probe-pkg'
+
+  // probeUrl 을 준 static-credential 은 continue() 에서 ctx.fetch 로 자격증명을 검증한다.
+  function probeHarness(allowedOrigins: readonly string[]): {
+    broker: AuthBroker
+    calls: Array<{ url: string; init?: RequestInit }>
+  } {
+    const registry = new AuthRegistry()
+    const provider = createStaticCredentialProvider({
+      id: 'probe',
+      pluginId: PROBE_PLUGIN,
+      label: 'PROBE',
+      mechanism: 'personal_access_token',
+      targets: ['connector'],
+      probeUrl: `${ORIGIN}/me`,
+      allowedOrigins
+    })
+    const errors = registry.register({
+      manifest: {
+        schemaVersion: 1,
+        id: PROBE_PLUGIN,
+        version: '1.0.0',
+        contributes: {
+          authProviders: [
+            {
+              id: 'probe',
+              apiVersion: 1,
+              label: 'PROBE',
+              targets: ['connector'],
+              mechanisms: ['personal_access_token'],
+              capabilities: ['status', 'logout'],
+              allowedOrigins: [...allowedOrigins]
+            }
+          ]
+        }
+      },
+      providers: [provider]
+    })
+    expect(errors).toEqual([])
+
+    const calls: Array<{ url: string; init?: RequestInit }> = []
+    const broker = new AuthBroker({
+      registry,
+      vaultFor: (prefix) => createCredentialVault(fakeStore(), prefix),
+      fetchImpl: async (url, init) => {
+        calls.push({ url: String(url), ...(init !== undefined ? { init } : {}) })
+        return new Response('{}', { status: 200 })
+      },
+      browserSessions: {
+        acquire: async () => 'h',
+        openLoginWindow: async () => ({ finalUrl: '' }),
+        probe: async () => ({ ok: true, status: 200, finalUrl: '' }),
+        clear: async () => undefined
+      },
+      exec: async () => ({ code: 0, stdout: '', stderr: '' }),
+      broadcast: () => undefined
+    })
+    return { broker, calls }
+  }
+
+  it('ctx.fetch 는 주입 구현으로 나간다 — 전역 fetch 를 쓰지 않는다', async () => {
+    const globalSpy = vi.fn(async () => new Response('전역', { status: 200 }))
+    vi.stubGlobal('fetch', globalSpy)
+    const { broker, calls } = probeHarness([ORIGIN])
+
+    const step = await broker.begin('probe', WIKI)
+    if (step.kind !== 'collect') throw new Error('collect 가 아니다')
+    const done = await broker.continue(step.transactionId, { credential: 'pat-1' })
+
+    expect(done.kind).toBe('done')
+    expect(calls.map((c) => c.url)).toEqual([`${ORIGIN}/me`])
+    // redirect 는 수동 유지 — 스택이 바뀌어도 정책은 그대로다.
+    expect(calls[0].init?.redirect).toBe('manual')
+    expect(globalSpy).not.toHaveBeenCalled()
+    vi.unstubAllGlobals()
+  })
+
+  it('주입 구현으로 바꿔도 미선언 origin 은 여전히 거부된다', async () => {
+    // allowlist 를 비우면 probe 가 나가기 전에 막혀야 한다 — 강제 지점이 전송자 앞에 남아 있다.
+    const { broker, calls } = probeHarness([])
+
+    const step = await broker.begin('probe', WIKI)
+    if (step.kind !== 'collect') throw new Error('collect 가 아니다')
+    const failed = await broker.continue(step.transactionId, { credential: 'pat-1' })
+
+    expect(failed.kind).toBe('failed')
+    // 요청 자체가 만들어지지 않았다.
+    expect(calls).toEqual([])
   })
 })

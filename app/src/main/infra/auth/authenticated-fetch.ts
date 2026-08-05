@@ -99,10 +99,13 @@ export class ResponseTooLargeError extends Error {
   }
 }
 
-export function createSender(): AuthenticatedFetchDeps {
+// `fetchImpl` 은 **필수**다 (0173). 기본값을 두면 주입을 빠뜨린 경로가 조용히 Node 스택으로
+// 되돌아가는데, 그것이 정확히 이 변경이 고치려는 버그다(사내 프록시·사설 CA 미적용).
+// 프로덕션은 컴포지션 루트가 `netFetch`(Chromium 스택)를 준다.
+export function createSender(fetchImpl: typeof fetch): AuthenticatedFetchDeps {
   return {
     async send(req, signal, options) {
-      const res = await fetch(req.url, {
+      const res = await fetchImpl(req.url, {
         method: req.method,
         headers: req.headers,
         ...(req.body !== undefined ? { body: req.body } : {}),
