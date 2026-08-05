@@ -66,6 +66,11 @@ main 프로세스는 **Node 전역 `fetch` 를 쓰지 않는다.** Node(undici) 
   `ExternalUsageService.fetchImpl`). **기본값을 두지 않는다** — 기본값은 곧 조용한 Node 스택 복귀다.
 - 브라우저 세션(cookie jar)이 필요한 요청은 `Session.fetch`(`browser-session-store.ts`)를 쓴다.
 - 위반은 `infra/auth/no-node-fetch.test.ts` 가 **테스트로 잡는다**.
+- **`redirect:'manual'` 은 Electron 에서 의미가 다르다 (0174).** 웹 fetch 는 3xx 를 돌려주지만
+  Electron 은 **요청을 취소한다**(`followRedirect()` 를 동기 호출해야만 이어진다). 3xx 를 직접
+  받아야 하면 `net.fetch` 가 아니라 **`infra/auth/net-request.ts` 의 `sendOnce`**(`net.request` 의
+  `'redirect'` 이벤트로 3xx 재구성)를 쓴다 — `netFetch` 는 manual 요청을 그리로 우회한다.
+  리다이렉트 **추종은 호출자가** 한다(홉마다 정책을 검사해야 하므로).
 
 ## 두 가지 강제 규칙
 

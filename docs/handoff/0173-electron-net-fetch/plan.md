@@ -226,3 +226,4 @@ main 프로세스가 **Node(undici) 전역 `fetch`** 로 사내 서버에 요청
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
+| D1 | **`redirect:'manual'` 회귀** — Electron 의 manual 은 웹 fetch 규약과 달리 3xx 에서 **요청을 취소**한다(`electron.d.ts:19836-19841`). `netFetch` 로 갈아타면서 sender·`ctx.fetch` 의 manual 요청이 3xx 를 못 받게 됐고, 그 3xx 를 전제로 도는 `broker.sendFollowingRedirects`(0160)가 끊겼다 — **첨부 다운로드 리다이렉트 추종 파손**. AC5 를 "타입만 본다" 로 정직하게 표시했지만, *시그니처 호환* 만 확인하고 **리다이렉트 모드의 의미**를 안 읽은 것이 실책이다(P6 그 자체) | 사용자 SSO 실기 보고(2026-08-05)에서 같은 메커니즘이 드러나 역추적 | **0174 에서 복구 완료** — `net.request` 의 `'redirect'` 이벤트로 3xx 를 재구성하는 `sendOnce` 를 만들고 `netFetch` 의 manual 을 그리로 우회 | 해결 (0174) |
