@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { StreamingMarkdown } from '../markdown/StreamingMarkdown'
 import { ReasoningBlock } from './ReasoningBlock'
 import { StatusLine } from '../StatusLine'
@@ -45,18 +46,32 @@ function LiveStatus(): React.JSX.Element {
   const listenStartedAt = useChatSession((s) => s.listenStartedAt)
   const activity = useChatActivity()
   const text = useLiveText()
+  // StatusLine 은 심볼 애니메이션 때문에 200ms 마다 다시 그려진다. 여기서 매번 새 객체를 만들면
+  // 그 아래 라벨 파생·번역이 값이 그대로인데도 5회/초로 다시 돈다 — 값이 같으면 **같은 객체**를
+  // 유지해 파생을 실제 변화에만 묶는다.
+  const activityView = useMemo(
+    () => ({
+      foreground: activity.activityForeground,
+      queuedCount: activity.activityQueuedCount,
+      deliveryPendingCount: activity.activityDeliveryPendingCount,
+      residualCount: activity.activityResidualCount,
+      backgroundTaskCount: activity.activityBackgroundTaskCount,
+      listening: activity.listening
+    }),
+    [
+      activity.activityForeground,
+      activity.activityQueuedCount,
+      activity.activityDeliveryPendingCount,
+      activity.activityResidualCount,
+      activity.activityBackgroundTaskCount,
+      activity.listening
+    ]
+  )
   return (
     <StatusLine
       turnStartedAt={turnStartedAt ?? listenStartedAt}
       outputApproxFromText={text}
-      activity={{
-        foreground: activity.activityForeground,
-        queuedCount: activity.activityQueuedCount,
-        deliveryPendingCount: activity.activityDeliveryPendingCount,
-        residualCount: activity.activityResidualCount,
-        backgroundTaskCount: activity.activityBackgroundTaskCount,
-        listening: activity.listening
-      }}
+      activity={activityView}
     />
   )
 }

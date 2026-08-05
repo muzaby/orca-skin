@@ -63,10 +63,13 @@ export class BindingStore {
 
   // 복원 결과를 확정한다 — broker 가 걸러낸 목록으로 메모리와 저장소를 **함께** 맞춘다.
   // 폐기된 레코드가 파일에 남으면 다음 부팅에 또 되살아난다.
-  adopt(records: readonly AuthBindingInfo[]): void {
+  //
+  // `persist:false` 는 "걸러낸 결과가 파일과 똑같다" 를 호출자가 아는 경우에만 쓴다 — 메모리
+  // 적재는 그대로 하고 **쓰기만** 건너뛴다(부팅 경로의 동기 파일 쓰기를 매번 물지 않으려고).
+  adopt(records: readonly AuthBindingInfo[], options?: { persist?: boolean }): void {
     this.bindings.clear()
     for (const record of records) this.bindings.set(record.id, record)
-    this.flush()
+    if (options?.persist !== false) this.flush()
   }
 
   // 레코드를 바꾸는 **모든** 경로가 여기로 모인다. 경로마다 저장을 흩뿌리면 하나를 빠뜨리는

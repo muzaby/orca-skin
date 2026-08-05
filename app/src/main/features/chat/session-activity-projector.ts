@@ -59,6 +59,12 @@ export class SessionActivityProjector {
     this.recompute(sessionId)
   }
 
+  // 잔여 attempt id 의 **단일 소유자**가 여기다. 호출자가 사본을 들면 remap(세션 id 확정)과
+  // 자기 치유(개수 0 이면 폐기)를 두 번 구현해야 하고, 실제로 한쪽만 갱신돼 갈렸다.
+  residualAttemptIds(sessionId: string): string[] {
+    return [...(this.residualAttempts.get(this.canonicalKey(sessionId)) ?? [])]
+  }
+
   current(sessionId: string): ChatActivitySnapshot {
     const key = this.canonicalKey(sessionId)
     this.flushOne(key, false)

@@ -243,12 +243,6 @@ export function registerChatHandlers(deps: ChatDeps): void {
   // 0136 — 세션별 미정착 백그라운드 서브에이전트 추적(coordinator 가 갱신, 턴-후 루프가 조회)
   // + listen 턴 릴리즈 밸브(세션 키 — busy send 예약이 listen 프레임을 닫아 즉시 연속 턴 전환).
   const listenRelease = new Map<string, () => void>()
-  // 중단 잔여(0151 r2) — Stop 영수증의 still_queued 중 **우리 예약**과 교집합인 uuid 목록.
-  // "세션 전체 중단" 을 사용자가 고르면 이 목록의 예약을 폐기 대상으로 삼는다. 세션 키별 1건이며
-  // 해제 지점은 둘 — ① 이후 중단 영수증이 clear(우리 잔여 없음) ② chatDiscardSession 실행.
-  // 메모리 전용(비영속 — pending 정책 동일).
-  const residualBySession = new Map<string, string[]>()
-
   // 0067: 장수명 세션 채널이 기본 — 게이트 env(ORCA_PERSISTENT_RUNTIME) 폐기(사용자 확정
   // "long-lived 직행"). pushTurn 미지원 어댑터(mock)는 SessionRuntime 이 턴-스코프로 폴백한다.
 
@@ -888,7 +882,6 @@ export function registerChatHandlers(deps: ChatDeps): void {
           return
         }
         if (outcome.kind === 'clear') {
-          residualBySession.delete(sessionId)
           activity.setResidualAttempts(sessionId, [])
           return
         }
@@ -897,7 +890,6 @@ export function registerChatHandlers(deps: ChatDeps): void {
           ourCount: outcome.uuids.length,
           totalCount: outcome.totalCount
         })
-        residualBySession.set(sessionId, outcome.uuids)
         activity.setResidualAttempts(sessionId, outcome.uuids)
       }
 
@@ -1311,8 +1303,7 @@ export function registerChatHandlers(deps: ChatDeps): void {
   // 큐를 통째로 소멸시킨다. **백그라운드 서브에이전트도 함께 죽으므로** 자동화하지 않고 사용자가
   // 명시적으로 고를 때만 실행된다(renderer 는 chat.activity의 residualCount가 있을 때만 제시).
   handle(CHANNELS.chatDiscardSession, DiscardSessionSchema, 'reject', (req, event): void => {
-    const residual = residualBySession.get(req.sessionId) ?? []
-    residualBySession.delete(req.sessionId)
+    const residual = activity.residualAttemptIds(req.sessionId)
     activity.setResidualAttempts(req.sessionId, [])
     // 진행 중 턴이 남아 있으면 먼저 끊는다 — 그래야 런타임이 풀로 반납돼 폐기 대상이 된다.
     const turn = supervisor.getBySession(req.sessionId)

@@ -176,23 +176,11 @@ export function createConfluencePackage(
       id: CONFLUENCE_PLUGIN_ID,
       version: '1.0.0',
       contributes: {
+        // 선언은 구현에서 파생한다 — 두 벌을 손으로 맞추면 반드시 갈린다. 파생 helper 는
+        // 인스턴스 경로(`instancePackage`)와 **같은 것을 쓴다**.
         authProviders: providers.map(providerDeclaration),
-        // 선언은 구현에서 파생한다 — 두 벌을 손으로 맞추면 반드시 갈린다.
-        connectors: connectors.map(({ descriptor }) => ({
-          id: descriptor.id,
-          apiVersion: descriptor.apiVersion,
-          label: descriptor.label,
-          acceptedAuthProviders: [...descriptor.acceptedAuthProviders],
-          baseUrl: descriptor.baseUrl,
-          presentation: descriptor.presentation,
-          presentations: descriptor.presentations
-        })),
-        runtimeTools: runtimeTools.map(({ descriptor }) => ({
-          id: descriptor.id,
-          connectorId: descriptor.connectorId,
-          apiVersion: descriptor.apiVersion,
-          tools: descriptor.tools
-        }))
+        connectors: connectors.map(connectorDeclaration),
+        runtimeTools: runtimeTools.map(runtimeToolDeclaration)
       }
     },
     providers,
