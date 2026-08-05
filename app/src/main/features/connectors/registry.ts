@@ -68,13 +68,6 @@ export class ConnectionRegistry {
     return this.list().filter((c) => c.connectorId === connectorId)
   }
 
-  // binding 이 끊기면 그 binding 을 쓰던 연결도 무효다 — broker 의 logout 이 호출한다.
-  removeByBinding(bindingId: string): Connection[] {
-    const victims = this.list().filter((c) => c.bindingId === bindingId)
-    for (const v of victims) this.connections.delete(v.id)
-    return victims
-  }
-
   remove(id: string): boolean {
     return this.connections.delete(id)
   }

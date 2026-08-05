@@ -72,7 +72,7 @@ export function abortableDelay(ms: number, signal: AbortSignal): Promise<void> {
 // 코디네이터가 구동하는 런타임 표면 — OneShotSessionRuntime 이 구조적으로 만족한다.
 // send() 1회 = adapter attempt 1회. retry(외부 재시도)는 코디네이터가 소유한다.
 // `interrupt` 는 ManagedRuntime 과 같은 이유로 좁힌다(0151) — 런타임 거버넌스의 중단은 "턴 중단
-// 표시" 이고, SDK 영수증(still_queued)은 onInterruptReceipt 위임으로 별도 전달된다.
+// 표시" 이고, SDK 영수증(still_queued)은 captureInterruptReceipt 위임으로 별도 전달된다.
 export interface CoordinatorRuntime extends GovernedLiveTurn {
   send(req: TurnRequest): AsyncIterable<NormalizedEvent>
   // listen 턴(0136) — 입력을 push 하지 않고 살아있는 채널의 프레임만 열어 CLI 가 스스로 여는

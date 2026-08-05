@@ -243,15 +243,44 @@ export class UpdateController {
   }
   private patch(patch: Partial<UpdateState>): void {
     const gate = computeUpdateInstallGate(this.deps.restartGateState())
-    this.state = {
+    const next: UpdateState = {
       ...this.state,
       ...patch,
       canInstall: patch.canInstall ?? gate.canInstall,
       installBlockReason:
         patch.installBlockReason ?? (patch.canInstall === true ? undefined : gate.reason)
     }
-    broadcastUpdateState(this.getState())
+    // 값이 그대로면 알리지 않는다. 게이트 재계산(`patch({})`)은 lease 전이마다 오는데(턴당 5~8회)
+    // 그 대부분은 상태를 바꾸지 않는다 — 무조건 broadcast 하면 전 webContents 가 매번 깨어난다.
+    const changed = !sameUpdateState(this.state, next)
+    this.state = next
+    if (changed) broadcastUpdateState(this.getState())
   }
+}
+
+function sameProgress(a: UpdateProgress | undefined, b: UpdateProgress | undefined): boolean {
+  if (a === undefined || b === undefined) return a === b
+  return (
+    a.percent === b.percent &&
+    a.transferred === b.transferred &&
+    a.total === b.total &&
+    a.bytesPerSecond === b.bytesPerSecond
+  )
+}
+
+function sameUpdateState(a: UpdateState, b: UpdateState): boolean {
+  return (
+    a.status === b.status &&
+    a.currentVersion === b.currentVersion &&
+    a.availableVersion === b.availableVersion &&
+    a.releaseNotes === b.releaseNotes &&
+    a.canInstall === b.canInstall &&
+    a.installBlockReason === b.installBlockReason &&
+    a.error === b.error &&
+    a.lastError === b.lastError &&
+    a.checkedAt === b.checkedAt &&
+    sameProgress(a.progress, b.progress)
+  )
 }
 export function loadElectronAutoUpdater(): AutoUpdaterPort | null {
   try {

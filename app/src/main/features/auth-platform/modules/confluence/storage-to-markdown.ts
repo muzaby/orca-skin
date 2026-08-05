@@ -44,6 +44,15 @@ export const UNKNOWN_USER_LABEL = '사용자'
 // 전용 변환이 있는 매크로. 나머지는 이름이 보이는 인용블록으로 폴백한다.
 const ADMONITION_MACROS = new Set(['info', 'note', 'warning', 'tip'])
 
+// 서비스는 규칙·옵션만 들고 있고 `turndown()` 은 호출마다 트리를 새로 만든다 — 인스턴스를
+// 페이지마다 새로 짜면 gfm 규칙 전량 등록을 `get_pages` 한 번에 최대 50회 반복하게 된다.
+let turndownSingleton: TurndownService | null = null
+
+function turndownService(): TurndownService {
+  turndownSingleton ??= createTurndown()
+  return turndownSingleton
+}
+
 function createTurndown(): TurndownService {
   const service = new TurndownService({
     headingStyle: 'atx',
@@ -88,7 +97,7 @@ export function storageToMarkdown(storageXhtml: string): StorageConversion {
   normalizeTables($)
 
   const html = $.root().html() ?? ''
-  const markdown = createTurndown().turndown(html).trim()
+  const markdown = turndownService().turndown(html).trim()
 
   return {
     markdown,

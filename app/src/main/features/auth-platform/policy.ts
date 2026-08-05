@@ -26,15 +26,6 @@ export type PolicyResult = { ok: true } | ({ ok: false } & PolicyDenial)
 const allow: PolicyResult = { ok: true }
 const deny = (d: PolicyDenial): PolicyResult => ({ ok: false, ...d })
 
-// origin 단위 비교. 서브도메인 자동 허용 없음 — allowlist 에 없는 host 는 거부한다.
-export function isOriginAllowed(rawUrl: string, allowedOrigins: readonly string[]): boolean {
-  try {
-    return allowedOrigins.includes(new URL(rawUrl).origin)
-  } catch {
-    return false
-  }
-}
-
 // connector 요청 경로 검사. 절대 URL 을 주면 manifest 의 baseUrl 을 우회할 수 있으므로 거부한다.
 export function checkRequestPath(path: string): PolicyResult {
   if (/^[a-z][a-z0-9+.-]*:\/\//i.test(path) || path.startsWith('//')) {
@@ -91,7 +82,7 @@ export function checkOutboundRequest(facts: OutboundRequestFacts): PolicyResult 
   if (!headerCheck.ok) return headerCheck
   const bindingCheck = checkBindingUsable(facts.binding, facts.connectorId)
   if (!bindingCheck.ok) return bindingCheck
-  if (!isOriginAllowed(facts.url, facts.allowedOrigins)) {
+  if (!isAllowedOrigin(facts.url, facts.allowedOrigins)) {
     return deny({ reason: 'origin_not_allowed', detail: safeOrigin(facts.url) })
   }
   return allow
@@ -99,7 +90,7 @@ export function checkOutboundRequest(facts: OutboundRequestFacts): PolicyResult 
 
 // redirect 추적 시 재검사용 — manual redirect 의 Location 이 allowlist 안인지.
 export function checkRedirect(location: string, allowedOrigins: readonly string[]): PolicyResult {
-  return isOriginAllowed(location, allowedOrigins)
+  return isAllowedOrigin(location, allowedOrigins)
     ? allow
     : deny({ reason: 'origin_not_allowed', detail: safeOrigin(location) })
 }

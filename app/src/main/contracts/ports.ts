@@ -29,7 +29,7 @@ export type RuntimeSessionAdapter = Pick<
 //
 // 어댑터 raw 핸들의 `interrupt()` 는 SDK 제어 호출이라 영수증(still_queued)을 돌려주지만,
 // 거버넌스의 `interrupt()` 는 "이 턴을 중단 표시" 라는 **다른 행위**다 — `markAborted` 가 SDK
-// 호출을 fire-and-forget 으로 걸고, 영수증은 비동기로 도착해 `TurnRequest.onInterruptReceipt`
+// 호출을 fire-and-forget 으로 걸고, 영수증은 비동기로 도착해 `TurnRequest.captureInterruptReceipt`
 // 위임으로 컴포지션 루트에 올라간다. 반환값으로 받을 수 있는 자리가 아니다.
 export interface GovernedLiveTurn extends Omit<RuntimeLiveTurn, 'interrupt'> {
   interrupt(): Promise<void>

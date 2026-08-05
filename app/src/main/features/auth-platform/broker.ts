@@ -34,17 +34,17 @@ import {
   createSender,
   type AuthenticatedFetchDeps,
   type PreparedRequest,
-  type SendOptions,
-  type SendResult
+  type SendOptions
 } from '../../infra/auth/authenticated-fetch'
 import {
   authBindingPrefix,
   authProviderPrefix,
   type CredentialVault
 } from '../../infra/auth/credential-vault'
+import { locationOf, redirectLocationOf } from '../../infra/auth/net-response'
 import { getLogger } from '../../infra/log/registry'
 import { BindingStore, type BindingPersistence } from './bindings'
-import { checkOutboundRequest, checkRedirect, type PolicyResult } from './policy'
+import { checkOutboundRequest, checkRedirect, isAllowedOrigin, type PolicyResult } from './policy'
 import type { AuthRegistry } from './registry'
 import {
   runGuarded,
@@ -109,10 +109,7 @@ export class AuthBroker {
     this.transactions = new TransactionStore(this.clock, (tx, reason) => {
       // 취소를 조용히 넘기지 않는다 — application transaction 이면 게이트 상태에 반영한다.
       this.log().info('auth.transaction.cancelled', { providerId: tx.providerId, reason })
-      if (tx.target.kind === 'application') {
-        this.state.inflight = false
-        this.state.step = null
-        if (reason === 'timeout') this.state.errorMessage = 'timeout'
+      if (this.settleApplicationGate(tx.target, reason === 'timeout' ? 'timeout' : undefined)) {
         this.publish()
       }
       // 타임아웃·재진입·종료로 끊긴 체인의 보류분도 정리한다 (0172). 정리는 비동기라 취소
@@ -410,11 +407,18 @@ export class AuthBroker {
     let request = initial
     for (let hop = 0; hop <= MAX_REDIRECT_HOPS; hop += 1) {
       const response = await this.sender.send(request, signal, options)
-      const location = redirectLocation(response)
-      if (location === null) return response
+      // 3xx 판정·상대 Location 절대화는 `net-response` 의 정본 한 벌을 쓴다 — credential 이
+      // 나갈 다음 홉을 정하는 규칙이라 두 벌이면 갈린다.
+      const next = locationOf(response, request.url)
+      if (next === null) {
+        // Location 이 있는데 절대화에 실패한 3xx 는 "다음 홉 없음" 이 아니라 **깨진 리다이렉트**다.
+        // 응답으로 돌려주면 호출자가 빈 3xx 를 정상 응답으로 오독한다.
+        if (redirectLocationOf(response) !== null) {
+          throw new Error('인증 정책 거부: invalid_redirect')
+        }
+        return response
+      }
 
-      const next = resolveLocation(request.url, location)
-      if (next === null) throw new Error('인증 정책 거부: invalid_redirect')
       const verdict = checkRedirect(next, [allowedOrigin])
       if (!verdict.ok) throw policyError(verdict)
 
@@ -482,11 +486,7 @@ export class AuthBroker {
               reason: step.reason,
               ...(step.message !== undefined ? { message: step.message } : {})
             }
-      if (tx.target.kind === 'application') {
-        this.state.inflight = false
-        this.state.errorMessage = info.kind === 'failed' ? (info.message ?? null) : null
-        this.state.step = null
-      }
+      this.settleApplicationGate(tx.target, info.kind === 'failed' ? (info.message ?? null) : null)
       this.publish()
       return info
     }
@@ -594,11 +594,7 @@ export class AuthBroker {
       this.adoptSecret(member.pluginId, member.providerId, tx.id, binding.id)
     })
     this.transactions.finish(tx.id)
-    if (tx.target.kind === 'application') {
-      this.state.inflight = false
-      this.state.errorMessage = null
-      this.state.step = null
-    }
+    this.settleApplicationGate(tx.target, null)
     this.publish()
     return { kind: 'done', binding: created[0] }
   }
@@ -717,7 +713,7 @@ export class AuthBroker {
       // 전송은 주입된 구현(프로덕션 = Chromium `net.fetch`, 0173)이 하고, **검사는 그 앞에**
       // 그대로 남는다 — 스택을 바꿔도 allowlist 강제 지점은 옮겨가지 않는다.
       fetch: async (url, init) => {
-        if (!allowedOrigins.includes(safeOrigin(url))) {
+        if (!isAllowedOrigin(url, allowedOrigins)) {
           throw new Error('provider manifest 에 선언되지 않은 origin 입니다')
         }
         return this.deps.fetchImpl(url, { ...init, redirect: 'manual', signal })
@@ -744,13 +740,20 @@ export class AuthBroker {
     return { kind: 'failed', reason: 'internal' }
   }
 
+  // application 로그인 게이트를 닫는다 — inflight·step 을 내리고 오류 문구를 확정한다.
+  // connector 대상 트랜잭션은 게이트를 건드리지 않으므로 `false` 를 돌려준다(호출자가 publish 여부
+  // 를 정한다 — 게이트를 안 건드려도 publish 하는 자리가 있다).
+  // `errorMessage` 를 생략하면 기존 문구를 **보존**한다(취소 경로가 timeout 만 덮어쓰는 이유).
+  private settleApplicationGate(target: AuthTarget, errorMessage?: string | null): boolean {
+    if (target.kind !== 'application') return false
+    this.state.inflight = false
+    this.state.step = null
+    if (errorMessage !== undefined) this.state.errorMessage = errorMessage
+    return true
+  }
+
   private fail(target: AuthTarget, reason: AuthFailureReason, message: string): AuthStepInfo {
-    if (target.kind === 'application') {
-      this.state.inflight = false
-      this.state.errorMessage = message
-      this.state.step = null
-      this.publish()
-    }
+    if (this.settleApplicationGate(target, message)) this.publish()
     return { kind: 'failed', reason, message }
   }
 
@@ -801,36 +804,9 @@ function policyError(verdict: PolicyResult & { ok: false }): Error {
   return new Error(`인증 정책 거부: ${verdict.reason} (${verdict.detail})`)
 }
 
-// 3xx + Location 이 있을 때만 redirect 로 본다. 304(Not Modified)는 재요청 대상이 아니다.
-function redirectLocation(response: SendResult): string | null {
-  if (response.status < 300 || response.status >= 400 || response.status === 304) return null
-  const header = Object.entries(response.headers).find(
-    ([name]) => name.toLowerCase() === 'location'
-  )
-  const value = header?.[1]?.trim()
-  return value ? value : null
-}
-
-// Location 은 상대 경로일 수 있다. 현재 URL 기준으로 해석한 절대 URL 을 돌려준다.
-function resolveLocation(currentUrl: string, location: string): string | null {
-  try {
-    return new URL(location, currentUrl).toString()
-  } catch {
-    return null
-  }
-}
-
 function downgradeMethod(status: number, method: string): string {
   const upper = method.toUpperCase()
   if (upper === 'GET' || upper === 'HEAD') return method
   // 303 은 항상, 301/302 는 관례상 GET 으로 낮춘다. 307/308 은 메서드·본문을 보존한다.
   return status === 303 || status === 301 || status === 302 ? 'GET' : method
-}
-
-function safeOrigin(rawUrl: string): string {
-  try {
-    return new URL(rawUrl).origin
-  } catch {
-    return ''
-  }
 }

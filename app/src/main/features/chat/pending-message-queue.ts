@@ -433,12 +433,6 @@ export class PendingMessageQueue {
       .map((b) => b.uuid)
   }
 
-  openAttemptIds(sessionId: string): string[] {
-    return (this.trackedBySession.get(sessionId) ?? [])
-      .filter((batch) => isOpen(batch.state))
-      .map((batch) => batch.attemptId)
-  }
-
   counts(sessionId: string): { queuedCount: number; deliveryPendingCount: number } {
     return {
       queuedCount: (this.heldBySession.get(sessionId) ?? []).length,

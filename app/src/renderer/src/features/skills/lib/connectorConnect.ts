@@ -30,28 +30,44 @@ export interface ConnectOptions {
   unavailableReason: 'no_matching_provider' | null
 }
 
-// connector 가 수용한다고 **선언한** provider 와 실제 **등록된** provider 의 교집합만 쓸 수 있다.
+// connector 가 수용한다고 **선언한** provider 와 실제 **등록된** provider 의 교집합.
 // 선언만 보고 버튼을 그리면 누르는 순간 등록되지 않은 provider 로 begin 이 실패한다.
+//
+// **이 함수가 교집합 규칙의 정본이다.** 연결(강제)과 목록(표시) 양쪽이 여기를 통과한다 —
+// 두 곳이 각자 구현하면 "고를 수 있다고 써놓고 못 고르는" 화면이 된다.
+export function acceptedConnectProviders(
+  connector: Pick<PluginConnectorInfo, 'acceptedAuthProviders'>,
+  byId: ReadonlyMap<string, AuthProviderInfo>
+): AuthProviderInfo[] {
+  return connector.acceptedAuthProviders.flatMap((id) => {
+    const provider = byId.get(id)
+    // connector target 을 지원하지 않는 provider 는 서비스 연결에 쓸 수 없다.
+    if (!provider || !provider.targets.includes('connector')) return []
+    return [provider]
+  })
+}
+
 export function buildConnectOptions(
   connector: PluginConnectorInfo,
   providers: readonly AuthProviderInfo[]
 ): ConnectOptions {
-  const byId = new Map(providers.map((provider) => [provider.id, provider]))
-  const options = connector.acceptedAuthProviders.flatMap((id): ConnectOption[] => {
-    const provider = byId.get(id)
-    // connector target 을 지원하지 않는 provider 는 서비스 연결에 쓸 수 없다.
-    if (!provider || !provider.targets.includes('connector')) return []
-    return [{ providerId: provider.id, label: provider.label, mechanism: provider.mechanisms[0] }]
-  })
+  const options = acceptedConnectProviders(connector, providerMap(providers)).map(
+    (provider): ConnectOption => ({
+      providerId: provider.id,
+      label: provider.label,
+      mechanism: provider.mechanisms[0]
+    })
+  )
   return {
     options,
     unavailableReason: options.length === 0 ? 'no_matching_provider' : null
   }
 }
 
-// 서버 주소는 표시값이지 입력값이 아니다. 모달이 이 값을 읽기 전용으로 그린다.
-export function connectorOriginDisplay(connector: PluginConnectorInfo): string {
-  return connector.origin
+export function providerMap(
+  providers: readonly AuthProviderInfo[]
+): ReadonlyMap<string, AuthProviderInfo> {
+  return new Map(providers.map((provider) => [provider.id, provider]))
 }
 
 export type ConnectFailure =
