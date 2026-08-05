@@ -21,15 +21,21 @@ function summary(month = 10): CostSummary {
   return { day: period, week: period, month: { ...period, totalCostUsd: month }, updatedAt: 1 }
 }
 
+// providerKey 별 행을 나누는 DB 스텁 — 구독 팬아웃은 provider 2개 이상을 봐야 한다.
 function db(): {
-  getProviderUsageReport: () => { report_json: string } | null
-  upsertProviderUsageReport: (next: { reportJson: string }) => void
+  rows: Map<string, string>
+  getProviderUsageReport: (providerKey: string) => { report_json: string } | null
+  upsertProviderUsageReport: (next: { providerKey: string; reportJson: string }) => void
 } {
-  let row: { report_json: string } | null = null
+  const rows = new Map<string, string>()
   return {
-    getProviderUsageReport: () => row,
-    upsertProviderUsageReport: (next: { reportJson: string }) => {
-      row = { report_json: next.reportJson }
+    rows,
+    getProviderUsageReport: (providerKey) => {
+      const json = rows.get(providerKey)
+      return json === undefined ? null : { report_json: json }
+    },
+    upsertProviderUsageReport: (next) => {
+      rows.set(next.providerKey, next.reportJson)
     }
   }
 }
@@ -141,7 +147,9 @@ describe('ExternalUsageService', () => {
       providerKey: 'claude-enterprise',
       quota: { usedUsd: 40 }
     })
-    expect(backingDb.getProviderUsageReport()?.report_json).toContain('"usedUsd":40')
+    expect(backingDb.getProviderUsageReport('claude-enterprise')?.report_json).toContain(
+      '"usedUsd":40'
+    )
     expect(secrets.get('provider:claude-enterprise:refresh-token')).toBe('next-token')
     expect(logger).toHaveBeenCalledWith('hook invoked', { providerKey: 'claude-enterprise' })
   })
@@ -327,7 +335,7 @@ describe('ExternalUsageService', () => {
   // ── 구독 경로 (0176) ───────────────────────────────────────────────────────
 
   it('구독 결과를 리포트로 영속하고 fresh 로 표시한다', async () => {
-    const backingDb = keyedDb()
+    const backingDb = db()
     const service = new ExternalUsageService({
       db: backingDb as never,
       secretFor: () => emptySecretFacade(),
@@ -350,7 +358,7 @@ describe('ExternalUsageService', () => {
   })
 
   it('같은 source 를 구독한 두 provider 가 invoke 1회를 공유한다', async () => {
-    const backingDb = keyedDb()
+    const backingDb = db()
     const invoked: string[] = []
     const service = new ExternalUsageService({
       db: backingDb as never,
@@ -376,7 +384,7 @@ describe('ExternalUsageService', () => {
   })
 
   it('invoke 실패 시 baseline 을 stale 로 돌려준다', async () => {
-    const backingDb = keyedDb()
+    const backingDb = db()
     let mode: 'ok' | 'fail' = 'ok'
     const service = new ExternalUsageService({
       db: backingDb as never,
@@ -408,7 +416,7 @@ describe('ExternalUsageService', () => {
   })
 
   it('map 이 전부 null 이면 baseline 을 유지한다', async () => {
-    const backingDb = keyedDb()
+    const backingDb = db()
     const module: StaticUsageProviderModule = {
       adapter: 'claude',
       provider: 'corp',
@@ -460,7 +468,7 @@ describe('ExternalUsageService', () => {
   })
 
   it('sourceId 미지정 구독은 연결된 source 전부를 받는다', async () => {
-    const backingDb = keyedDb()
+    const backingDb = db()
     const invoked: string[] = []
     const module: StaticUsageProviderModule = {
       adapter: 'claude',
@@ -520,7 +528,7 @@ describe('ExternalUsageService', () => {
   it('subscription 이 config 보다 우선한다', async () => {
     const fetchImpl = vi.fn(async () => new Response('{}', { status: 200 }))
     const service = new ExternalUsageService({
-      db: keyedDb() as never,
+      db: db() as never,
       secretFor: () => emptySecretFacade(),
       providers: [
         {
@@ -545,7 +553,7 @@ describe('ExternalUsageService', () => {
       async () => new Response(JSON.stringify({ used: 7, limit: 100 }), { status: 200 })
     )
     const service = new ExternalUsageService({
-      db: keyedDb() as never,
+      db: db() as never,
       secretFor: () => emptySecretFacade(),
       providers: [
         {
@@ -573,7 +581,7 @@ describe('ExternalUsageService', () => {
 
   it('source 포트가 없으면 구독 provider 는 baseline 을 유지한다', async () => {
     const service = new ExternalUsageService({
-      db: keyedDb() as never,
+      db: db() as never,
       secretFor: () => emptySecretFacade(),
       providers: [subscribingModule('corp')],
       fetchImpl: stubFetch,
@@ -608,7 +616,7 @@ describe('ExternalUsageService', () => {
       }
     }
     const service = new ExternalUsageService({
-      db: keyedDb() as never,
+      db: db() as never,
       secretFor: () => emptySecretFacade(),
       providers: [module],
       fetchImpl: stubFetch,
@@ -623,25 +631,6 @@ describe('ExternalUsageService', () => {
 })
 
 // ── 구독 경로 테스트 헬퍼 (0176) ──────────────────────────────────────────────
-
-// providerKey 별로 행을 나누는 DB 스텁 — 구독 팬아웃은 provider 2개 이상을 봐야 한다.
-function keyedDb(): {
-  rows: Map<string, string>
-  getProviderUsageReport: (providerKey: string) => { report_json: string } | null
-  upsertProviderUsageReport: (next: { providerKey: string; reportJson: string }) => void
-} {
-  const rows = new Map<string, string>()
-  return {
-    rows,
-    getProviderUsageReport: (providerKey) => {
-      const json = rows.get(providerKey)
-      return json === undefined ? null : { report_json: json }
-    },
-    upsertProviderUsageReport: (next) => {
-      rows.set(next.providerKey, next.reportJson)
-    }
-  }
-}
 
 function okSample(quota: { usedUsd: number; limitUsd: number }): UsageSampleOutcome {
   return {

@@ -150,6 +150,35 @@ electron 모듈을 로드하지 못해 **수집 자체가 안 된다**(egress �
 - `docs/PHASES.md` 는 **"현재 작업 중" 보드 링크 유지** 정책이므로 이번 라운드에서 표 행을
   추가하지 않는다(핸드오프 완료·PR 병합 후 승격). `INDEX.md` 는 `verify/PASS` 로 갱신했다.
 
+## verify 후 /simplify 정리 (같은 라운드)
+
+사용자 요청 `/simplify` 로 4관점(재사용·단순화·효율·고도) 리뷰를 돌려 **5건을 반영**했다 —
+전부 품질 정리이며 동작 변경은 없다(게이트 재실행 green).
+
+| # | 지적 | 조치 |
+|---|---|---|
+| 1 | `invokeConnector` 의 두 signal 병합이 손으로 감은 controller + 리스너 4줄 (재사용·단순화·고도 3관점 공통) | **`AbortSignal.any` 로 교체** — 저장소에 이미 선례 2곳(`chat-turn.ts:815`·`mock.ts:73`). **abort reason 이 전파된다**(직접 만든 controller 는 reason 을 버렸다 — 진단이 "무엇이 끊었는지" 를 구분 못 하던 자리). ~22줄 → 4줄 |
+| 2 | `providerDeclaration`·`connectorDeclaration` 이 confluence 와 **바이트 단위 동일** | `modules/declare.ts` 로 승격, 두 패키지가 import. confluence 의 `runtimeToolDeclaration` 도 함께 |
+| 3 | `normalizeBasePath` 가 confluence `rest.ts` 와 **바이트 단위 동일** | `modules/base-path.ts` 로 승격. `rest.ts` 는 re-export 로 기존 import 경로 무회귀, 중복 테스트 블록 1개 제거 |
+| 4 | `asEnvelope` 가 `isRecord`(`shared/obj.ts`)를 재구현하며 **배열 배제를 빠뜨림** | `isRecord` 사용 — JSON 배열 응답이 `Record` 로 캐스팅되던 자리를 닫았다 |
+| 5 | 테스트 픽스처 `db()`/`keyedDb()` 가 한 파일에 둘 | `db()` 하나로 통합(providerKey 별 행) |
+
+**반영하지 않은 것**:
+
+- **`usage-source.ts` 의 `list().find()` → 포트에 `get()` 추가**(효율): 5분 주기 × connector 소수라
+  리뷰어도 "small today" 로 적었다. 포트 표면을 넓히는 값이 지금은 없다 — connector 수가 늘면 그때.
+- **provider 마다 `sources.list()` 재호출**(효율): 같은 이유. 스냅샷을 `refreshAll` 로 끌어올리면
+  구독 해소가 호출 경로에 상태를 하나 더 걸친다.
+- **`UsageMapContext` 를 `Omit<ExternalUsageContext, …>` 로 파생**(단순화): **의도적으로 거부한다.**
+  `Omit` 은 원본에 필드가 늘면 **자동으로 따라 들어온다** — 이 계약의 목적(§AC22, map 에 fetch·secret
+  이 없다)이 fail-open 으로 뒤집힌다. 독립 선언이 fail-closed 다.
+- **`app/usage-source.ts` 의 특정 패키지 타입 import**(고도 F4)는 반영했다 — `UsagePayloadEnvelope`
+  import 를 지우고 `UsageSample` 에서 `Pick` 한 로컬 형상으로 바꿨다(포트가 connector 구현에 매이지
+  않는다).
+
+게이트 재실행: lint **0 error** · typecheck **3/3** · vitest **2045/2045**(중복 테스트 1건 제거로 −1) ·
+scripts **28/28**.
+
 ## 검증 자기 리뷰 (무엇이 부족했나)
 
 - **설계 단계**: 인수 기준 23개는 전부 검증 수단을 갖췄지만, **plan 이 리스크 표에서 약속한
