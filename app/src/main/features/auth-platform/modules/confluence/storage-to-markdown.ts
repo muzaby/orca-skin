@@ -22,7 +22,24 @@ export interface StorageConversion {
   referencedAttachments: string[]
   // 전용 처리가 없어 폴백된 매크로 이름. 조용히 사라지지 않았음을 호출자가 기록한다.
   unhandledMacros: string[]
+  // 본문이 멘션한 사용자의 `ri:userkey` (0169). 키는 불투명해서 그 자체로는 이름이 아니다 —
+  // 호출자가 REST 로 표시 이름을 얻어 `USER_TOKEN_PATTERN` 자리를 채운다. 변환기는 네트워크를
+  // 모른다(이 파일은 순수 함수만).
+  referencedUsers: string[]
 }
+
+// 멘션 자리표시자. `@{{user:<userkey>}}` 형태로 본문에 남고 connector 가 이름으로 치환한다.
+// **`_`·`*`·`[` 를 쓰지 않는다** — turndown 이 이스케이프해 `\{\{user...` 로 깨진다.
+export const USER_TOKEN_PATTERN = /\{\{user:([^}]*)\}\}/g
+
+// 이 파일 안에서만 만든다 — 토큰을 *읽는* 쪽(connector)은 `USER_TOKEN_PATTERN` 만 필요하다.
+function userToken(userkey: string): string {
+  return `{{user:${userkey}}}`
+}
+
+// 이름을 끝내 얻지 못했을 때 자리표시자 대신 남길 말. 자리표시자가 본문으로 새는 것보다
+// 낫고, 멘션이 있었다는 사실은 보존된다.
+export const UNKNOWN_USER_LABEL = '사용자'
 
 // 전용 변환이 있는 매크로. 나머지는 이름이 보이는 인용블록으로 폴백한다.
 const ADMONITION_MACROS = new Set(['info', 'note', 'warning', 'tip'])
@@ -60,12 +77,13 @@ function isInsideTableCell(node: { parentNode: unknown }): boolean {
 export function storageToMarkdown(storageXhtml: string): StorageConversion {
   const referenced = new Set<string>()
   const unhandled = new Set<string>()
+  const users = new Set<string>()
 
   // xmlMode 가 핵심이다 — 위 헤더 주석 1번 참조.
   const $ = cheerio.load(storageXhtml, { xmlMode: true })
 
   normalizeImages($, referenced)
-  normalizeLinks($)
+  normalizeLinks($, users)
   normalizeMacros($, unhandled)
   normalizeTables($)
 
@@ -75,7 +93,8 @@ export function storageToMarkdown(storageXhtml: string): StorageConversion {
   return {
     markdown,
     referencedAttachments: [...referenced],
-    unhandledMacros: [...unhandled]
+    unhandledMacros: [...unhandled],
+    referencedUsers: [...users]
   }
 }
 
@@ -173,17 +192,49 @@ function imgTag(src: string, alt: string): string {
 
 // `<ac:link><ri:page ri:content-title="제목"/><ac:plain-text-link-body>텍스트</...></ac:link>`
 // 내부 링크는 URL 을 만들 수 없으므로(공간 키·baseUrl 이 본문에 없다) 제목 텍스트로 남긴다.
-function normalizeLinks($: cheerio.CheerioAPI): void {
+//
+// **사용자 멘션(`ri:user`)이 여기 섞여 있다** (0169). 그 분기가 없던 동안 멘션은 `ri:page` 도
+// `ri:attachment` 도 아니라 라벨이 빈 문자열이 되고, 아래 `replaceWith('')` 로 **흔적 없이
+// 사라졌다**(사용자 보고 2026-08-05). 모듈 규칙의 "조용한 내용 소실이 가장 나쁜 결과다" 를
+// 정면으로 어기던 자리다.
+function normalizeLinks($: cheerio.CheerioAPI, users: Set<string>): void {
   $('ac\\:link').each((_, element) => {
     const node = $(element)
+    const bodyText = node.find('ac\\:plain-text-link-body, ac\\:link-body').first().text().trim()
+
+    const user = node.find('ri\\:user').first()
+    if (user.length > 0) {
+      node.replaceWith(`<span>${escapeText(mentionLabel(user, bodyText, users))}</span>`)
+      return
+    }
+
     const title =
       node.find('ri\\:page').first().attr('ri:content-title') ??
       node.find('ri\\:attachment').first().attr('ri:filename') ??
       ''
-    const bodyText = node.find('ac\\:plain-text-link-body, ac\\:link-body').first().text().trim()
     const label = bodyText !== '' ? bodyText : title
     node.replaceWith(label !== '' ? `<span>${escapeText(label)}</span>` : '')
   })
+}
+
+// 멘션 라벨. 이름을 아는 경로가 셋이고, **어느 것도 빈 값을 돌려주지 않는다** — 최악이 `@사용자`다.
+function mentionLabel(
+  user: ReturnType<cheerio.CheerioAPI>,
+  bodyText: string,
+  users: Set<string>
+): string {
+  // ⓐ 링크 본문이 있으면 저자가 직접 쓴 표기라 가장 정확하다.
+  if (bodyText !== '') return bodyText
+  // ⓑ `ri:username` 은 그 자체가 이름이다 — REST 조회가 필요 없다.
+  const username = user.attr('ri:username')
+  if (username !== undefined && username.trim() !== '') return `@${username.trim()}`
+  // ⓒ `ri:userkey` 는 불투명 키다. 자리표시자로 남기고 connector 가 표시 이름으로 바꾼다.
+  const userkey = user.attr('ri:userkey')
+  if (userkey !== undefined && userkey.trim() !== '') {
+    users.add(userkey.trim())
+    return `@${userToken(userkey.trim())}`
+  }
+  return `@${UNKNOWN_USER_LABEL}`
 }
 
 function normalizeMacros($: cheerio.CheerioAPI, unhandled: Set<string>): void {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   attachmentDataRequest,
+  attachmentDownloadRequest,
   attachmentListRequest,
   buildSearchCql,
   clampLimit,
@@ -11,6 +12,7 @@ import {
   normalizeBasePath,
   pageRequest,
   searchRequest,
+  userRequest,
   XSRF_HEADER
 } from './rest'
 import { normalizeServerConfig } from './connector'
@@ -169,7 +171,9 @@ describe('attachmentDataRequest', () => {
       searchRequest(ROOT, {}),
       pageRequest(ROOT, '1'),
       attachmentListRequest(ROOT, '1'),
-      attachmentDataRequest(ROOT, '1', 'a', 1)
+      attachmentDataRequest(ROOT, '1', 'a', 1),
+      attachmentDownloadRequest(ROOT, '/download/attachments/1/a.png', 1),
+      userRequest(ROOT, 'k1')
     ]
     const reserved = ['authorization', 'cookie', 'proxy-authorization']
     for (const req of requests) {
@@ -225,5 +229,51 @@ describe('normalizeServerConfig', () => {
   it('해석할 수 없는 주소는 손대지 않는다 — manifest 가 거부하고 진단에 사유가 남는다', () => {
     const bad = { ...base, baseUrl: 'wiki.corp' }
     expect(normalizeServerConfig(bad)).toEqual(bad)
+  })
+})
+
+// 0169 — 첨부를 받는 좌표가 둘이 됐다. 링크는 `_links.base`(origin + 컨텍스트 경로) 기준
+// 상대 경로라, 컨텍스트 경로를 안 붙이면 배포에 따라 404 가 된다.
+describe('attachmentDownloadRequest', () => {
+  it('download 링크를 컨텍스트 경로와 쿼리를 살려 요청으로 만든다', () => {
+    const req = attachmentDownloadRequest(
+      CONTEXT,
+      '/download/attachments/12345/foo.png?version=3&modificationDate=1700000000000&api=v2',
+      4096
+    )
+    expect(req.path).toBe('/confluence/download/attachments/12345/foo.png')
+    // 쿼리는 path 에 남기지 않는다 — 남기면 인코딩이 두 번 된다.
+    expect(req.query).toEqual({
+      version: '3',
+      modificationDate: '1700000000000',
+      api: 'v2'
+    })
+    expect(req.headers).toEqual({ ...XSRF_HEADER })
+    expect(req.responseType).toBe('binary')
+    expect(req.maxBytes).toBe(4096)
+  })
+
+  it('쿼리가 없는 링크와 앞 슬래시가 빠진 링크도 받는다', () => {
+    expect(
+      attachmentDownloadRequest(ROOT, '/download/attachments/1/a.png', 1).query
+    ).toBeUndefined()
+    expect(attachmentDownloadRequest(ROOT, 'download/attachments/1/a.png', 1).path).toBe(
+      '/download/attachments/1/a.png'
+    )
+  })
+})
+
+describe('userRequest', () => {
+  it('멘션 userkey 를 쿼리로 조회한다', () => {
+    const req = userRequest(CONTEXT, 'd3b07384d113edec49eaa6238ad5ff00')
+    expect(req.path).toBe('/confluence/rest/api/user')
+    expect(req.query).toEqual({ key: 'd3b07384d113edec49eaa6238ad5ff00' })
+  })
+})
+
+describe('attachmentListRequest — 버전 확장', () => {
+  it('현재 버전을 알 수 있게 version 확장을 요청한다', () => {
+    // 이게 없으면 "최신을 받았다" 를 사후에 확인할 수단이 없다.
+    expect(attachmentListRequest(ROOT, '1').query).toMatchObject({ expand: 'version' })
   })
 })

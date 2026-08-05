@@ -111,6 +111,55 @@ describe('storageToMarkdown — 이미지', () => {
   })
 })
 
+// 0169 — 멘션은 `ri:page` 도 `ri:attachment` 도 아니라 라벨이 빈 문자열이 되고 통째로
+// 사라졌다(사용자 보고 2026-08-05). 어느 분기도 빈 값을 돌려주지 않는 것이 이 묶음의 요점이다.
+describe('storageToMarkdown — 멘션', () => {
+  it('userkey 멘션을 자리표시자로 남기고 키를 모은다', () => {
+    const out = storageToMarkdown(
+      '<p>담당: <ac:link><ri:user ri:userkey="d3b07384d113edec49eaa6238ad5ff00" /></ac:link></p>'
+    )
+    expect(out.markdown).toContain('@{{user:d3b07384d113edec49eaa6238ad5ff00}}')
+    expect(out.referencedUsers).toEqual(['d3b07384d113edec49eaa6238ad5ff00'])
+  })
+
+  it('username 이 있으면 조회 없이 그대로 쓴다', () => {
+    const out = storageToMarkdown('<p><ac:link><ri:user ri:username="jsmith" /></ac:link></p>')
+    expect(out.markdown).toContain('@jsmith')
+    expect(out.referencedUsers).toEqual([])
+  })
+
+  it('멘션에 링크 본문이 있으면 그 텍스트를 쓴다', () => {
+    const out = storageToMarkdown(
+      '<p><ac:link><ri:user ri:userkey="abc" />' +
+        '<ac:plain-text-link-body>홍길동 책임</ac:plain-text-link-body></ac:link></p>'
+    )
+    expect(out.markdown).toContain('홍길동 책임')
+    expect(out.markdown).not.toContain('{{user:')
+  })
+
+  it('같은 사용자를 여러 번 멘션해도 키는 한 번만 모은다', () => {
+    const out = storageToMarkdown(
+      '<p><ac:link><ri:user ri:userkey="k1" /></ac:link></p>' +
+        '<p><ac:link><ri:user ri:userkey="k1" /></ac:link>' +
+        '<ac:link><ri:user ri:userkey="k2" /></ac:link></p>'
+    )
+    expect(out.referencedUsers).toEqual(['k1', 'k2'])
+  })
+
+  it('식별자가 하나도 없는 멘션도 지우지 않는다', () => {
+    const out = storageToMarkdown('<p><ac:link><ri:user /></ac:link></p>')
+    expect(out.markdown).toContain('@사용자')
+  })
+
+  it('페이지·첨부 링크는 종전대로 남는다 — 멘션 분기가 가로채지 않는다', () => {
+    const out = storageToMarkdown(
+      '<p><ac:link><ri:page ri:content-title="센서 스펙" /></ac:link></p>'
+    )
+    expect(out.markdown).toContain('센서 스펙')
+    expect(out.referencedUsers).toEqual([])
+  })
+})
+
 describe('storageToMarkdown — 매크로', () => {
   it('code 매크로를 언어 코드펜스로 변환한다', () => {
     const out = storageToMarkdown(

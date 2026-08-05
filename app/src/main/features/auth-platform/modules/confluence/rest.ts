@@ -109,6 +109,11 @@ export function pageRequest(endpoint: ConfluenceEndpoint, pageId: string): Reque
   }
 }
 
+// 멘션(`ri:userkey`)의 표시 이름 조회. 키는 불투명해서 본문만으로는 이름을 알 수 없다.
+export function userRequest(endpoint: ConfluenceEndpoint, userkey: string): RequestFields {
+  return { method: 'GET', path: restPath(endpoint, '/user'), query: { key: userkey } }
+}
+
 // 첨부 목록은 검색 상한과 무관하다 — 페이지 하나에 딸린 첨부를 한 번에 본다.
 const ATTACHMENT_LIST_LIMIT = 200
 
@@ -116,7 +121,9 @@ export function attachmentListRequest(endpoint: ConfluenceEndpoint, pageId: stri
   return {
     method: 'GET',
     path: restPath(endpoint, `/content/${encodeURIComponent(pageId)}/child/attachment`),
-    query: { limit: String(ATTACHMENT_LIST_LIMIT) }
+    // `version` 을 함께 받아 **어느 버전을 내려받았는지** 기록한다 (0169). 목록이 주는 값이
+    // 곧 현재 버전이라, 본문 URL 의 `?version=N`(삽입 시점)을 따르지 않는다는 증거가 된다.
+    query: { limit: String(ATTACHMENT_LIST_LIMIT), expand: 'version' }
   }
 }
 
@@ -134,6 +141,31 @@ export function attachmentDataRequest(
       endpoint,
       `/content/${encodeURIComponent(pageId)}/child/attachment/${encodeURIComponent(attachmentId)}/data`
     ),
+    headers: { ...XSRF_HEADER },
+    responseType: 'binary',
+    maxBytes
+  }
+}
+
+// 첨부 목록이 준 `_links.download`(`/download/attachments/…?version=N&…`)로 받는 폴백 경로
+// (0169). Atlassian 문서상 `/data` 는 *업로드(POST)* 로 문서화된 좌표이고 GET 은 302 에
+// 의존한다 — 리다이렉트가 막힌 배포에서도 첨부를 받을 수 있게 두 번째 좌표를 둔다.
+//
+// 링크는 `_links.base`(origin + 컨텍스트 경로) 기준 **상대 경로**라 `apiBasePath` 를 앞에
+// 붙인다. 쿼리는 요청 계약의 `query` 로 분해한다 — 경로에 `?` 를 남기면 인코딩이 두 번 된다.
+export function attachmentDownloadRequest(
+  endpoint: ConfluenceEndpoint,
+  downloadPath: string,
+  maxBytes: number
+): RequestFields {
+  const [rawPath, rawQuery = ''] = downloadPath.split('?')
+  const query: Record<string, string> = {}
+  for (const [name, value] of new URLSearchParams(rawQuery)) query[name] = value
+  const path = rawPath.startsWith('/') ? rawPath : `/${rawPath}`
+  return {
+    method: 'GET',
+    path: `${endpoint.apiBasePath}${path}`,
+    ...(Object.keys(query).length > 0 ? { query } : {}),
     headers: { ...XSRF_HEADER },
     responseType: 'binary',
     maxBytes

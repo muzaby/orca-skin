@@ -18,6 +18,7 @@ import { DownloadStore, pageDir, type SavedAsset } from './download-store'
 import { mapWithLimit, partitionSettled } from './limit'
 import {
   attachmentDataRequest,
+  attachmentDownloadRequest,
   attachmentListRequest,
   clampLimit,
   clampStart,
@@ -25,9 +26,10 @@ import {
   normalizeBasePath,
   pageRequest,
   searchRequest,
+  userRequest,
   type SearchInput
 } from './rest'
-import { storageToMarkdown } from './storage-to-markdown'
+import { storageToMarkdown, UNKNOWN_USER_LABEL, USER_TOKEN_PATTERN } from './storage-to-markdown'
 
 export interface ConfluenceServerConfig {
   // connector ID. 도구 서버 ID·다운로드 디렉터리가 여기서 파생되므로 바꾸면 이름이 전부 바뀐다.
@@ -55,6 +57,10 @@ const PREVIEW_CHARS = 4000
 export const MAX_PAGES_PER_CALL = 50
 // 페이지 하나가 이미 첨부를 동시 다운로드한다 — 페이지까지 넓게 열면 곱해진다.
 const PAGE_CONCURRENCY = 2
+// 멘션 이름 조회 동시성. 첨부와 달리 페이지당 한 자릿수가 보통이라 낮게 잡는다.
+const USER_LOOKUP_CONCURRENCY = 4
+// 페이지당 이름 조회 상한. 멘션이 많은 페이지 × 배치 50페이지가 곱해지는 것을 막는다.
+const MAX_USER_LOOKUPS = 50
 
 // operation 은 **도구 표면과 1:1** 이다 (0164 r3 — 사용자 재지정):
 //   search → id·제목·작성자만(본문 없음), 페이지네이션
@@ -271,7 +277,10 @@ export function createConfluenceConnector(raw: ConfluenceServerConfig): Connecto
       : { assets: [], failed: [], unreferenced: [] }
 
     const title = typeof page.title === 'string' ? page.title : pageId
-    const markdown = `# ${title}\n\n${converted.markdown}\n`
+    // 멘션 자리표시자를 표시 이름으로 바꾼 **뒤에** 저장한다 — `page.md`·미리보기 어디에도
+    // `{{user:…}}` 가 남으면 안 된다(0169).
+    const body = await resolveMentions(ctx, converted.markdown, converted.referencedUsers)
+    const markdown = `# ${title}\n\n${body}\n`
     const markdownPath = await store.saveText('page.md', markdown)
 
     const result: ConfluencePageResult = {
@@ -292,6 +301,48 @@ export function createConfluenceConnector(raw: ConfluenceServerConfig): Connecto
     // 무엇을 받았고 무엇이 폴백됐는지 디렉터리 안에 남긴다 — 결과를 나중에 되짚을 수 있어야 한다.
     await store.saveText('manifest.json', `${JSON.stringify(manifestOf(result), null, 2)}\n`)
     return result
+  }
+
+  // 멘션 자리표시자(`@{{user:<userkey>}}`) → `@표시이름` (0169).
+  //
+  // `ri:userkey` 는 불투명해서 본문만으로는 이름을 알 수 없다 — 키마다 한 번 조회한다.
+  // **조회 실패가 페이지를 죽이지 않는다**(0168 D1 에서 배운 것과 같은 규칙): 사내 디렉터리
+  // 정책으로 403 이 오거나 탈퇴 사용자라 404 여도 본문은 저장돼야 한다. 그래서 마지막에
+  // **남은 토큰을 전부** 기본 라벨로 훑어 치운다 — 자리표시자가 본문으로 새는 것이 최악이다.
+  async function resolveMentions(
+    ctx: ConnectorContext,
+    markdown: string,
+    userkeys: readonly string[]
+  ): Promise<string> {
+    if (userkeys.length === 0) return markdown
+
+    // 페이지당 조회 수 상한. 없으면 사람 200명을 나열한 페이지 × 배치 50페이지 = 만 번의
+    // 요청이 된다(0168 D1 과 같은 계열 — 이번엔 출력이 아니라 **요청** 축이다). 상한을 넘긴
+    // 키는 조회하지 않고 기본 라벨로 떨어지므로 본문은 여전히 온전하다.
+    const targets = userkeys.slice(0, MAX_USER_LOOKUPS)
+    if (userkeys.length > targets.length) {
+      ctx.logger('confluence.mentions.truncated', {
+        total: userkeys.length,
+        looked: targets.length
+      })
+    }
+
+    const names = new Map<string, string>()
+    const looked = await mapWithLimit(targets, USER_LOOKUP_CONCURRENCY, async (userkey) => {
+      const name = displayNameOf(await json(ctx, userRequest(endpoint, userkey)))
+      if (name !== undefined) names.set(userkey, name)
+    })
+    // `mapWithLimit` 이 실패를 삼키므로 여기서 세지 않으면 **관측 지점이 0** 이 된다 —
+    // 사내 디렉터리가 조회를 막아 모든 멘션이 `@사용자` 로 떨어져도 알 길이 없다.
+    const failed = looked.filter((r) => !r.ok).length
+    if (failed > 0) ctx.logger('confluence.mentions.lookup-failed', { failed, of: targets.length })
+
+    return markdown.replace(
+      USER_TOKEN_PATTERN,
+      (_match, key: string) =>
+        // 해석 못 한 키는 조용히 지우지 않고 "사용자" 로 남긴다 — 멘션이 있었다는 사실은 보존한다.
+        names.get(key) ?? UNKNOWN_USER_LABEL
+    )
   }
 
   // 참조가 0개일 때의 목록 조회는 **진단 전용**이다 — 받을 것이 없으므로, 그 조회가 실패했다고
@@ -333,19 +384,9 @@ export function createConfluenceConnector(raw: ConfluenceServerConfig): Connecto
     if (wanted.length === 0) return { assets: [], failed: missing, unreferenced }
 
     // 동시성 상한 — 첨부가 수십 개면 사내 서버가 429/타임아웃을 낸다.
-    const results = await mapWithLimit(wanted, concurrency, async (item) => {
-      const res = await ctx.authenticatedFetch(
-        {
-          bindingId: ctx.bindingId,
-          connectorId: config.id,
-          ...attachmentDataRequest(endpoint, pageId, item.id, maxAttachmentBytes)
-        },
-        ctx.signal
-      )
-      if (res.status < 200 || res.status >= 300) throw new HttpStatusError(res.status)
-      if (res.bodyBytes === undefined) throw new Error('바이너리 본문이 비어 있습니다')
-      return store.saveAsset(item.title, res.bodyBytes, item.mediaType)
-    })
+    const results = await mapWithLimit(wanted, concurrency, (item) =>
+      downloadOne(ctx, pageId, item, store)
+    )
 
     // 첨부 하나가 404·크기 초과여도 페이지 전체를 실패시키지 않는다.
     const { values: assets, failures } = partitionSettled(results, (error, index) => ({
@@ -354,13 +395,68 @@ export function createConfluenceConnector(raw: ConfluenceServerConfig): Connecto
     }))
     return { assets, failed: [...missing, ...failures], unreferenced }
   }
+
+  // 첨부 하나를 받는다 — **좌표가 둘**이다 (0169).
+  //   ⓐ `/child/attachment/{id}/data` — 지금까지 쓰던 경로. 302 로 실제 파일에 넘긴다.
+  //   ⓑ 목록이 준 `_links.download`(`/download/attachments/…`) — Atlassian 이 DC 다운로드
+  //      좌표로 문서화한 쪽. ⓐ 가 실패할 때만 쓴다.
+  // 순서를 이렇게 두는 이유: ⓐ 는 실동작이 실측돼 있어(broker 의 302 추종) 교체는 회귀 위험만
+  // 만든다. 어느 쪽으로 받든 **버전은 목록 조회 시점의 현재 버전**이다 — 본문 URL 의
+  // `?version=N`(삽입 시점)을 따르지 않는다.
+  async function downloadOne(
+    ctx: ConnectorContext,
+    pageId: string,
+    item: AttachmentEntry,
+    store: DownloadStore
+  ): Promise<SavedAsset> {
+    const fetchBytes = async (req: RequestFields): Promise<Uint8Array> => {
+      const res = await ctx.authenticatedFetch(
+        { bindingId: ctx.bindingId, connectorId: config.id, ...req },
+        ctx.signal
+      )
+      if (res.status < 200 || res.status >= 300) throw new HttpStatusError(res.status)
+      if (res.bodyBytes === undefined) throw new Error('바이너리 본문이 비어 있습니다')
+      return res.bodyBytes
+    }
+
+    let bytes: Uint8Array
+    try {
+      bytes = await fetchBytes(attachmentDataRequest(endpoint, pageId, item.id, maxAttachmentBytes))
+    } catch (error) {
+      // **재시도 가치가 있을 때만** 두 번째 좌표를 쓴다. 취소(abort)는 사용자가 그만두라고 한
+      // 것이고, 크기 초과는 같은 파일이라 다시 받아도 같은 상한에 걸린다 — 둘 다 재시도가
+      // 낭비이자 잘못된 신호다.
+      if (item.downloadPath === undefined || !isRetriableDownloadError(error)) throw error
+      ctx.logger('confluence.attachment.data-failed', {
+        pageId,
+        filename: item.title,
+        message: String(error)
+      })
+      bytes = await fetchBytes(
+        attachmentDownloadRequest(endpoint, item.downloadPath, maxAttachmentBytes)
+      )
+    }
+    return store.saveAsset(item.title, bytes, {
+      ...(item.mediaType !== undefined ? { mediaType: item.mediaType } : {}),
+      ...(item.version !== undefined ? { version: item.version } : {})
+    })
+  }
 }
+
+type RequestFields = ReturnType<typeof attachmentDataRequest>
 
 interface DownloadOutcome {
   assets: SavedAsset[]
   failed: Array<{ filename: string; message: string }>
   // 목록에 있으나 본문이 참조하지 않아 **받지 않은** 첨부 이름.
   unreferenced: string[]
+}
+
+// 두 번째 다운로드 좌표를 시도할 가치가 있는 실패인가. **HTTP 상태 실패만** 그렇다 —
+// `/data` 가 404·405 를 주는 배포에서 `_links.download` 가 성공하는 것이 이 폴백의 존재 이유다.
+// 취소·크기 초과·네트워크 중단은 좌표를 바꿔도 결과가 같다.
+function isRetriableDownloadError(error: unknown): boolean {
+  return error instanceof HttpStatusError
 }
 
 class HttpStatusError extends Error {
@@ -385,7 +481,8 @@ function manifestOf(result: ConfluencePageResult): Record<string, unknown> {
     assets: result.assets.map((asset) => ({
       filename: asset.filename,
       bytes: asset.bytes,
-      mediaType: asset.mediaType
+      mediaType: asset.mediaType,
+      version: asset.version
     })),
     failedAssets: result.failedAssets,
     unreferencedAttachments: result.unreferencedAttachments,
@@ -397,24 +494,46 @@ interface AttachmentEntry {
   id: string
   title: string
   mediaType?: string
+  // 목록 조회 시점의 **현재 버전**. 본문 URL 이 달고 있는 삽입 시점 버전과 다를 수 있다.
+  version?: number
+  // `_links.download` — DC 의 정식 다운로드 좌표(`/download/attachments/…`). 폴백에 쓴다.
+  downloadPath?: string
 }
 
 function parseAttachments(body: unknown): AttachmentEntry[] {
   const results = (body as { results?: unknown }).results
   if (!Array.isArray(results)) return []
   return results.flatMap((entry): AttachmentEntry[] => {
-    const item = entry as { id?: unknown; title?: unknown; metadata?: { mediaType?: unknown } }
+    const item = entry as {
+      id?: unknown
+      title?: unknown
+      metadata?: { mediaType?: unknown }
+      version?: { number?: unknown }
+      _links?: { download?: unknown }
+    }
     if (typeof item.id !== 'string' || typeof item.title !== 'string') return []
+    const download = item._links?.download
     return [
       {
         id: item.id,
         title: item.title,
         ...(typeof item.metadata?.mediaType === 'string'
           ? { mediaType: item.metadata.mediaType }
-          : {})
+          : {}),
+        ...(typeof item.version?.number === 'number' ? { version: item.version.number } : {}),
+        ...(typeof download === 'string' && download !== '' ? { downloadPath: download } : {})
       }
     ]
   })
+}
+
+// `/rest/api/user?key=` 응답 → 표시 이름. `displayName` 이 없는 배포는 `username` 으로 폴백한다.
+function displayNameOf(body: unknown): string | undefined {
+  const user = body as { displayName?: unknown; username?: unknown }
+  for (const value of [user.displayName, user.username]) {
+    if (typeof value === 'string' && value.trim() !== '') return value.trim()
+  }
+  return undefined
 }
 
 // 검색 응답 → hit 목록 + **페이지네이션 좌표**.
