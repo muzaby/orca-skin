@@ -8,7 +8,9 @@
 1. `modules/<회사명>/` 디렉토리를 만들고 `AuthPluginPackage` 를 export 한다 (`_example/` 참조).
 2. `modules/index.ts` 의 `AUTH_PLUGIN_PACKAGES` 배열에 한 줄 추가한다.
 
-**동봉된 패키지**: [`confluence/`](confluence/AGENTS.md) — Confluence Data Center(0160·0161·0164).
+**동봉된 패키지**: [`confluence/`](confluence/AGENTS.md) — Confluence Data Center(0160·0161·0164) ·
+[`usage/`](usage/AGENTS.md) — 범용 usage connector(0176, 설정 하나가 서버 하나. 사용량 provider 가
+그 `invoke` 결과를 구독한다).
 **기본 경로는 빌드타임이다** (0164 로 반전) — 서버 목록은 `confluence/servers.ts` 가 정본이고,
 UI 추가 버튼은 디버그 토글(`Tweaks.pluginAddEnabled`, 기본 `false`) 뒤에 있다. 규칙 상세는 그
 디렉터리의 `AGENTS.md`.

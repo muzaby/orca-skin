@@ -1,5 +1,7 @@
 import { createConfluencePackage } from './confluence'
 import { CONFLUENCE_SERVERS } from './confluence/servers'
+import { createUsageConnectorPackage } from './usage'
+import { USAGE_CONNECTORS } from './usage/servers'
 import type { AuthProviderV1 } from '../../../contracts/auth-plugin'
 import type { ConnectorRuntimeV1 } from '../../../contracts/connector-plugin'
 import type { RuntimeToolContribution } from '../../../adapters/runtime-tools'
@@ -30,6 +32,10 @@ export interface AuthPluginPackage {
 // Confluence 는 **배선이 켜져 있다** (0164). 서버 목록이 비면 provider 2종만 등록되고
 // connector 는 0개다 — 배포는 `confluence/servers.ts` **한 파일만** 고치면 서버가 켜진다.
 // (0160 은 여기까지 함께 고치게 했는데, 편집 지점이 둘이면 하나를 빠뜨린다.)
+// 사용량 connector 도 같은 규칙이다 (0176) — 배선은 켜져 있고 `usage/servers.ts` 의 목록이
+// 비면 provider 2종만 등록된다. 사용량 provider 는 이 connector 의 `invoke` 결과를 **구독**해
+// 자기 포맷으로 매핑한다(`contracts/usage-report.ts` §구독 경로).
 export const AUTH_PLUGIN_PACKAGES: readonly AuthPluginPackage[] = [
-  createConfluencePackage(CONFLUENCE_SERVERS)
+  createConfluencePackage(CONFLUENCE_SERVERS),
+  createUsageConnectorPackage(USAGE_CONNECTORS)
 ]

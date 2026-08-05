@@ -605,4 +605,83 @@ describe('PluginHost', () => {
     await expect(invocation).resolves.toMatchObject({ content: expect.any(Array) })
     expect(connectors.invokeSignals[0]?.aborted).toBe(true)
   })
+
+  // ── connectorId 로 부르는 표면 (0176) ────────────────────────────────────────
+
+  it('connectorId 로 invoke 를 위임하고 미연결은 not_connected', async () => {
+    const bindings = new Map([['binding-a', binding('binding-a')]])
+    const { host, connectors } = createHost(bindings)
+
+    const beforeConnect = await host.invokeConnector('connector-a', { operation: 'quota' })
+    expect(beforeConnect).toMatchObject({ ok: false })
+    expect(connectors.invokeCalls).toHaveLength(0)
+
+    await host.connect({ connectorId: 'connector-a', bindingId: 'binding-a' })
+    const result = await host.invokeConnector('connector-a', {
+      operation: 'quota',
+      params: { scope: 'month' }
+    })
+
+    expect(result).toMatchObject({ ok: true })
+    expect(connectors.invokeCalls).toEqual([{ connectionId: 'connection-a', operation: 'quota' }])
+
+    // 등록되지 않은 connector 도 같은 형태로 강등한다(던지지 않는다).
+    await expect(
+      host.invokeConnector('connector-zzz', { operation: 'quota' })
+    ).resolves.toMatchObject({ ok: false })
+  })
+
+  it('binding 종료가 진행 중인 connectorId 호출을 끊는다', async () => {
+    const bindings = new Map([['binding-a', binding('binding-a')]])
+    const { host, connectors } = createHost(bindings)
+    let resolveStarted = (): void => undefined
+    const started = new Promise<void>((resolve) => {
+      resolveStarted = resolve
+    })
+    connectors.invoke = async (_connectionId, _request, _timeoutMs, signal) => {
+      if (signal) connectors.invokeSignals.push(signal)
+      resolveStarted()
+      return new Promise((resolve) => {
+        signal?.addEventListener('abort', () => resolve({ ok: true, data: 'aborted' }), {
+          once: true
+        })
+      })
+    }
+
+    await host.connect({ connectorId: 'connector-a', bindingId: 'binding-a' })
+    const invocation = host.invokeConnector('connector-a', { operation: 'quota' })
+    await started
+    await host.onBindingsEnded(['binding-a'])
+
+    await expect(invocation).resolves.toMatchObject({ data: 'aborted' })
+    expect(connectors.invokeSignals[0]?.aborted).toBe(true)
+  })
+
+  it('호출자 취소도 그 호출만 끊는다', async () => {
+    const bindings = new Map([['binding-a', binding('binding-a')]])
+    const { host, connectors } = createHost(bindings)
+    const caller = new AbortController()
+    let resolveStarted = (): void => undefined
+    const started = new Promise<void>((resolve) => {
+      resolveStarted = resolve
+    })
+    connectors.invoke = async (_connectionId, _request, _timeoutMs, signal) => {
+      if (signal) connectors.invokeSignals.push(signal)
+      resolveStarted()
+      return new Promise((resolve) => {
+        signal?.addEventListener('abort', () => resolve({ ok: true, data: 'aborted' }), {
+          once: true
+        })
+      })
+    }
+
+    await host.connect({ connectorId: 'connector-a', bindingId: 'binding-a' })
+    const invocation = host.invokeConnector('connector-a', { operation: 'quota' }, caller.signal)
+    await started
+    caller.abort()
+
+    await expect(invocation).resolves.toMatchObject({ data: 'aborted' })
+    // 연결 자체는 살아 있다 — 다음 호출이 계속 나간다.
+    expect(host.list().find((info) => info.connectorId === 'connector-a')?.connected).toBe(true)
+  })
 })
