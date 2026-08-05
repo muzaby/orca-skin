@@ -92,7 +92,9 @@ export function sendOnce(opts: SendOnceOptions): Promise<SendOnceResult> {
         finish(() =>
           resolve({
             facts: { status: response.statusCode, headers: response.headers },
-            body: new Uint8Array(Buffer.concat(chunks))
+            // `Buffer` 는 이미 `Uint8Array` 다 — `new Uint8Array(...)` 로 감싸면 본문 전체를
+            // 한 번 더 복사한다. 첨부가 수십 MB 인 경로라 그 사본이 그대로 비용이다.
+            body: Buffer.concat(chunks)
           })
         )
       })

@@ -3,6 +3,7 @@
 // 타입과 CHANNELS 만 필요한 곳은 ./ipc 에서 import.
 
 import { z } from 'zod'
+import { API_BASE_PATH_PATTERN, isBareOrigin } from './connector-address'
 import { DEFAULT_UPDATE_CHECK, MOCK_SCENARIO_IDS, UPDATE_CHECK_INTERVAL_HOURS } from './ipc'
 import type { AttachmentView, Backend, ComposerAttachment, EffortLevel } from './ipc'
 import { LOG_EVENT_PATTERN, LOG_SCOPE_MAX_LENGTH, LOG_STRING_MAX_LENGTH } from './logging'
@@ -291,22 +292,14 @@ export const PluginConnectorInfoSchema = z
 
 // ── connector 인스턴스 (0161) ────────────────────────────────────────────────
 
-// 사용자 입력 origin. **경로·쿼리·fragment·URL 자격증명·비 http(s) 를 거부한다** — 여기가
-// SSRF 표면의 첫 관문이다(사내망이 목적이라 private IP 는 막지 않는다).
+// 사용자 입력 origin. 규칙(술어·패턴)의 정본은 `connector-address.ts` 이고 여기서는 zod 로
+// 감싸 메시지만 이 자리 말로 붙인다 — 같은 규칙을 renderer 도 쓰는데 그쪽에 zod 를 딸려
+// 보내지 않기 위해서다.
 export const PluginInstanceOriginSchema = z
   .string()
   .min(1)
   .max(2048)
-  .refine((raw) => {
-    try {
-      const url = new URL(raw)
-      if (url.protocol !== 'https:' && url.protocol !== 'http:') return false
-      if (url.username !== '' || url.password !== '') return false
-      return raw === url.origin
-    } catch {
-      return false
-    }
-  }, 'baseUrl 은 경로 없는 origin 이어야 합니다')
+  .refine(isBareOrigin, 'baseUrl 은 경로 없는 origin 이어야 합니다')
 
 export const PluginTemplateListRequestSchema = z.undefined()
 
@@ -315,14 +308,11 @@ export const PluginInstanceCreateRequestSchema = z
     templateId: PluginConnectorIdSchema,
     label: z.string().trim().min(1).max(200),
     baseUrl: PluginInstanceOriginSchema,
-    // 컨텍스트 경로 — 앞 `/` 필수, 뒤 `/` 금지. 빈 값은 아예 보내지 않는다.
+    // 빈 값은 아예 보내지 않는다.
     apiBasePath: z
       .string()
       .max(200)
-      .regex(
-        /^\/[A-Za-z0-9\-._~/]*[A-Za-z0-9\-._~]$/,
-        'apiBasePath 는 `/` 로 시작하는 경로여야 합니다'
-      )
+      .regex(API_BASE_PATH_PATTERN, 'apiBasePath 는 `/` 로 시작하는 경로여야 합니다')
       .optional()
   })
   .strict()

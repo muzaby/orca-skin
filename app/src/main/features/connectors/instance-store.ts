@@ -7,27 +7,19 @@
 // (AUTH-PLAT-008) — 이 파일에 secret 이라는 단어가 나오지 않는 것이 확인 가능한 속성이다.
 
 import { z } from 'zod'
+// origin·컨텍스트 경로 규칙의 정본은 shared 다 — IPC 가 거부할 값이 저장소에는 들어가는(또는 그
+// 반대의) 어긋남을 없앤다. 문구만 이 자리 말로 붙인다.
+import { API_BASE_PATH_PATTERN, isBareOrigin } from '../../../shared/connector-address'
 import { deriveConnectorId, isValidConnectorId } from './instance-id'
 
-// origin 만 받는다(경로·쿼리·자격증명 금지). manifest 의 `OriginSchema` 와 같은 규칙이지만
-// 그쪽은 `features/auth-platform` 소유라 교차 import 를 피해 여기 같은 판정을 둔다.
-const OriginSchema = z.string().refine((raw) => {
-  try {
-    const url = new URL(raw)
-    if (url.protocol !== 'https:' && url.protocol !== 'http:') return false
-    // URL 자격증명(`https://u:p@host`)은 origin 문자열에 안 실리므로 원문으로 판별한다.
-    if (url.username !== '' || url.password !== '') return false
-    return raw === url.origin
-  } catch {
-    return false
-  }
-}, 'baseUrl 은 경로 없는 origin 이어야 합니다 (예: https://wiki.corp)')
+const OriginSchema = z
+  .string()
+  .refine(isBareOrigin, 'baseUrl 은 경로 없는 origin 이어야 합니다 (예: https://wiki.corp)')
 
-// 컨텍스트 경로 — 앞 `/` 필수, 뒤 `/` 금지, 쿼리·fragment 금지.
 const ApiBasePathSchema = z
   .string()
   .max(200)
-  .refine((raw) => raw === '' || /^\/[A-Za-z0-9\-._~/]*[A-Za-z0-9\-._~]$/.test(raw), {
+  .refine((raw) => raw === '' || API_BASE_PATH_PATTERN.test(raw), {
     message: 'apiBasePath 는 `/` 로 시작하는 경로여야 합니다'
   })
 

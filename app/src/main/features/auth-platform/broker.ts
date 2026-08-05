@@ -167,8 +167,9 @@ export class AuthBroker {
   restore(): RestoredConnectorBinding[] {
     const kept: AuthBindingInfo[] = []
     const restored: RestoredConnectorBinding[] = []
+    const persisted = this.bindings.loadPersisted()
 
-    for (const record of this.bindings.loadPersisted()) {
+    for (const record of persisted) {
       if (record.target.kind !== 'connector' || record.artifact.kind !== 'vault_credential')
         continue
 
@@ -193,7 +194,16 @@ export class AuthBroker {
     }
 
     // 메모리와 저장소를 함께 맞춘다 — 버린 레코드가 파일에 남으면 다음 부팅에 또 되살아난다.
-    this.bindings.adopt(kept)
+    // 다만 **버린 것도 바뀐 것도 없으면 쓰지 않는다**: 부팅마다 도는 경로라 그때의 동기 파일
+    // 쓰기가 매 실행 순수 낭비다(레코드 0건인 기본 설치가 특히 그렇다). 길이가 같으면 버린
+    // 레코드가 없다는 뜻이므로 순서가 그대로다 — 그 위에서 status 만 대조하면 충분하다.
+    const unchanged =
+      kept.length === persisted.length &&
+      kept.every((binding, index) => {
+        const source = persisted[index]
+        return source?.id === binding.id && source.status === binding.status
+      })
+    this.bindings.adopt(kept, { persist: !unchanged })
     if (kept.length > 0) this.publish()
     return restored
   }

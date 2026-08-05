@@ -109,42 +109,51 @@ export class AuthRegistry {
 
     // manifest 선언과 실제 구현체가 1:1 인지. 선언만 있고 구현이 없으면 런타임에 조용히 빈
     // provider 가 되고, 구현만 있고 선언이 없으면 capability·origin 검사를 우회한다.
+    //
+    // 세 종류가 **같은 검사**라서 한 번만 적는다 — 종류를 늘릴 때 한쪽 방향만 붙이고 다른
+    // 쪽을 잊는 것이 이 블록의 실제 이력이다.
     const declaredProviders = new Set(manifest.contributes.authProviders.map((p) => p.id))
     const declaredConnectors = new Set(manifest.contributes.connectors.map((c) => c.id))
     const declaredRuntimeTools = new Set(manifest.contributes.runtimeTools.map((tool) => tool.id))
-    const implRuntimeTools = new Set(runtimeTools.map((tool) => tool.descriptor.id))
-    for (const id of declaredRuntimeTools) {
-      if (!implRuntimeTools.has(id)) {
-        err(`runtime tool declaration has no implementation: ${id}`, id)
+
+    const checkPairing = (
+      declared: ReadonlySet<string>,
+      implIds: readonly string[],
+      messages: { orphanImpl: (id: string) => string; orphanDecl: (id: string) => string }
+    ): void => {
+      const impls = new Set(implIds)
+      for (const id of implIds) {
+        if (!declared.has(id)) err(messages.orphanImpl(id), id)
+      }
+      for (const id of declared) {
+        if (!impls.has(id)) err(messages.orphanDecl(id), id)
       }
     }
 
-    for (const p of providers) {
-      if (!declaredProviders.has(p.descriptor.id)) {
-        err(`manifest 에 선언되지 않은 auth provider 구현: ${p.descriptor.id}`, p.descriptor.id)
+    checkPairing(
+      declaredProviders,
+      providers.map((p) => p.descriptor.id),
+      {
+        orphanImpl: (id) => `manifest 에 선언되지 않은 auth provider 구현: ${id}`,
+        orphanDecl: (id) => `선언된 auth provider 의 구현이 없습니다: ${id}`
       }
-    }
-    for (const c of connectors) {
-      if (!declaredConnectors.has(c.descriptor.id)) {
-        err(`manifest 에 선언되지 않은 connector 구현: ${c.descriptor.id}`, c.descriptor.id)
+    )
+    checkPairing(
+      declaredConnectors,
+      connectors.map((c) => c.descriptor.id),
+      {
+        orphanImpl: (id) => `manifest 에 선언되지 않은 connector 구현: ${id}`,
+        orphanDecl: (id) => `선언된 connector 의 구현이 없습니다: ${id}`
       }
-    }
-    for (const runtimeTool of runtimeTools) {
-      if (!declaredRuntimeTools.has(runtimeTool.descriptor.id)) {
-        err(
-          `runtime tool implementation has no manifest declaration: ${runtimeTool.descriptor.id}`,
-          runtimeTool.descriptor.id
-        )
+    )
+    checkPairing(
+      declaredRuntimeTools,
+      runtimeTools.map((tool) => tool.descriptor.id),
+      {
+        orphanImpl: (id) => `runtime tool implementation has no manifest declaration: ${id}`,
+        orphanDecl: (id) => `runtime tool declaration has no implementation: ${id}`
       }
-    }
-    const implProviders = new Set(providers.map((p) => p.descriptor.id))
-    for (const id of declaredProviders) {
-      if (!implProviders.has(id)) err(`선언된 auth provider 의 구현이 없습니다: ${id}`, id)
-    }
-    const implConnectors = new Set(connectors.map((c) => c.descriptor.id))
-    for (const id of declaredConnectors) {
-      if (!implConnectors.has(id)) err(`선언된 connector 의 구현이 없습니다: ${id}`, id)
-    }
+    )
 
     // ABI 버전 — 불일치는 등록 단계에서 거부 (AUTH-PLAT-014).
     for (const p of providers) {

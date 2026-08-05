@@ -314,12 +314,11 @@ function fingerprint(
   }
 }
 
+// 필드를 **열거하지 않고** 비교한다. 손으로 나열하면 `BindingFingerprint` 에 식별 필드를
+// 하나 더한 순간 이 함수만 그대로 남아, 서로 다른 binding 이 같다고 판정된다 — 그게 곧
+// 시작 도중 binding 이 바뀐 것을 놓치는 경로다. 값은 전부 문자열이라 얕은 비교로 충분하다.
 function sameFingerprint(left: BindingFingerprint, right: BindingFingerprint): boolean {
-  return (
-    left.bindingId === right.bindingId &&
-    left.pluginId === right.pluginId &&
-    left.providerId === right.providerId &&
-    left.connectorId === right.connectorId &&
-    left.connectionId === right.connectionId
-  )
+  const keys = Object.keys(left) as (keyof BindingFingerprint)[]
+  if (keys.length !== Object.keys(right).length) return false
+  return keys.every((key) => left[key] === right[key])
 }

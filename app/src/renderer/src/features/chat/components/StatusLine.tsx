@@ -77,6 +77,25 @@ export function StatusLine({
     return `~${formatTokens(approximateTokens(outputApproxFromText))}`
   }, [outputApproxFromText])
 
+  // 심볼 애니메이션이 200ms 마다 재렌더를 부르지만 이 파생의 입력은 초 단위로만 바뀐다.
+  // 조합 규칙은 순수 모듈이 소유한다(lib/activityLabel) — 여기서는 키를 문구로 옮기기만 한다.
+  const label = useMemo(
+    () => deriveActivityLabel(activity, elapsedSec * 1000),
+    [activity, elapsedSec]
+  )
+  // 번역도 한 번만 — tooltip(전체)과 인라인(상위 N개)이 같은 배열을 나눠 쓴다.
+  const factTexts = useMemo(
+    () => label.facts.map((fact) => tr(`chat.activity.${fact.key}`, { count: fact.count })),
+    [label, tr]
+  )
+  const visibleFacts = useMemo(() => {
+    const shown = factTexts.slice(0, MAX_VISIBLE_FACTS)
+    const overflow = factTexts.length - shown.length
+    if (overflow > 0) shown.push(tr('chat.activity.more', { count: overflow }))
+    return shown
+  }, [factTexts, tr])
+  const factLabel = useMemo(() => factTexts.join(' · '), [factTexts])
+
   if (turnStartedAt == null) return null
 
   const thoughtLabel =
@@ -87,18 +106,8 @@ export function StatusLine({
         : null
 
   const showCounter = elapsedSec >= 5
-  // 조합 규칙은 순수 모듈이 소유한다(lib/activityLabel) — 여기서는 키를 문구로 옮기기만 한다.
-  const label = deriveActivityLabel(activity, elapsedSec * 1000)
-  // 번역은 한 번만 — tooltip(전체)과 인라인(상위 N개)이 같은 배열을 나눠 쓴다.
-  const factTexts = label.facts.map((fact) =>
-    tr(`chat.activity.${fact.key}`, { count: fact.count })
-  )
-  const visibleFacts = factTexts.slice(0, MAX_VISIBLE_FACTS)
-  const overflow = factTexts.length - visibleFacts.length
-  if (overflow > 0) visibleFacts.push(tr('chat.activity.more', { count: overflow }))
   const statusLabel =
     label.status === 'streaming' ? `${verb}…` : tr(`chat.activity.${label.status}`)
-  const factLabel = factTexts.join(' · ')
   const accessibleLabel = [statusLabel, factLabel, showCounter ? formatElapsed(elapsedSec) : null]
     .filter(Boolean)
     .join(', ')

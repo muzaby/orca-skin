@@ -15,6 +15,10 @@
 // 옵션을 제공하고 있다"). 하나로 받아 **제출할 때** 앱이 쪼개고, 무엇이 적용되는지는
 // `describeApiBase` 로 되보여준다.
 
+// 경로 규칙의 정본은 main 스키마와 **같은 상수**다 — renderer 가 자기 사본을 들면 "여기선
+// 통과, 보내면 거부" 가 조용히 생긴다.
+import { API_BASE_PATH_PATTERN } from '../../../../../shared/connector-address'
+
 export interface InstanceDraft {
   templateId: string | null
   label: string
@@ -81,8 +85,6 @@ export function splitServerUrl(raw: string): ServerAddress | null {
 
   return { baseUrl: url.origin, ...(path !== '' ? { apiBasePath: path } : {}) }
 }
-
-const API_BASE_PATH_PATTERN = /^\/[A-Za-z0-9\-._~/]*[A-Za-z0-9\-._~]$/
 
 // 실제로 요청에 쓰일 주소를 사람이 읽을 한 줄로. 자동 추정을 **숨기지 않고 되보여주는** 것이
 // 0161 의 "자동 확정하지 않는다" 가 지키려던 목적(오인 방지)을 대신한다.

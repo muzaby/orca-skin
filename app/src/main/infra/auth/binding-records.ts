@@ -8,6 +8,10 @@
 // 그 레코드만 버린다 — 사용자는 재입력만 하면 된다.
 
 import type { AuthBindingInfo } from '../../../shared/ipc'
+// target 형상의 정본은 IPC 경계와 **같은 스키마**다 — 손으로 다시 적으면 디스크에서 올라온
+// 레코드가 IPC 라면 거부됐을 형상인데도 살아 있는 binding 이 된다. 특히 connector 의
+// `connectionId` 는 broker.restore() 가 그대로 읽는 값이라 누락되면 조용히 undefined 로 흐른다.
+import { AuthTargetSchema } from '../../../shared/protocol'
 
 export function parseBindingRecords(raw: unknown): AuthBindingInfo[] {
   if (!Array.isArray(raw)) return []
@@ -21,15 +25,7 @@ function isBindingRecord(value: unknown): value is AuthBindingInfo {
   if (typeof record.pluginId !== 'string' || typeof record.providerId !== 'string') return false
   if (typeof record.mechanism !== 'string' || typeof record.status !== 'string') return false
   if (typeof record.createdAt !== 'number') return false
-  return isTarget(record.target) && isArtifact(record.artifact)
-}
-
-function isTarget(value: unknown): boolean {
-  if (typeof value !== 'object' || value === null) return false
-  const target = value as { kind?: unknown; applicationId?: unknown; connectorId?: unknown }
-  if (target.kind === 'application') return typeof target.applicationId === 'string'
-  if (target.kind === 'connector') return typeof target.connectorId === 'string'
-  return false
+  return AuthTargetSchema.safeParse(record.target).success && isArtifact(record.artifact)
 }
 
 function isArtifact(value: unknown): boolean {
