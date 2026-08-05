@@ -30,6 +30,76 @@ describe('storageToMarkdown — 이미지', () => {
     expect(out.referencedAttachments).toEqual([])
   })
 
+  // 아래 묶음은 **날 `<img>` 로 들어앉은 첨부** (0168). 0164 이전에는 "참조 0개면 페이지 첨부를
+  // 전부 받는" 폴백이 이 구멍을 가렸는데, 354ffc7 이 폴백을 지우면서 미검출 = 0건 다운로드가
+  // 됐다(사용자 보고 2026-08-05).
+  it('download 경로 img 를 첨부 참조로 인식한다', () => {
+    const out = storageToMarkdown(
+      '<p><img src="/download/attachments/12345/foo.png?version=1&amp;api=v2" /></p>'
+    )
+    expect(out.referencedAttachments).toEqual(['foo.png'])
+    expect(out.markdown).toContain('![foo.png](assets/foo.png)')
+  })
+
+  it('data-linked-resource-default-alias 를 파일명으로 우선한다', () => {
+    // 경로 세그먼트가 내부 이름이어도 Confluence 가 함께 싣는 원본 이름이 정확하다.
+    const out = storageToMarkdown(
+      '<p><img src="/download/attachments/12345/att99.png" ' +
+        'data-linked-resource-default-alias="설계도.png" /></p>'
+    )
+    expect(out.referencedAttachments).toEqual(['설계도.png'])
+    expect(out.markdown).toContain('assets/설계도.png')
+  })
+
+  it('thumbnails 경로도 첨부 참조다', () => {
+    const out = storageToMarkdown('<p><img src="/download/thumbnails/12345/bar.png" /></p>')
+    expect(out.referencedAttachments).toEqual(['bar.png'])
+  })
+
+  it('인코딩된 파일명을 디코드해 참조로 싣는다', () => {
+    // REST 조회는 원본 이름으로 해야 하므로 여기서 풀어 둔다.
+    const out = storageToMarkdown(
+      '<p><img src="/download/attachments/1/%ED%85%8C%EC%8A%A4%ED%8A%B8.png" /></p>'
+    )
+    expect(out.referencedAttachments).toEqual(['테스트.png'])
+  })
+
+  it('인코딩이 깨진 세그먼트는 원문 그대로 쓴다 — 이름 하나로 페이지를 실패시키지 않는다', () => {
+    const out = storageToMarkdown('<p><img src="/download/attachments/1/%E0%A4%A.png" /></p>')
+    expect(out.referencedAttachments).toEqual(['%E0%A4%A.png'])
+  })
+
+  it('외부 절대 URL img 는 참조가 아니다', () => {
+    const out = storageToMarkdown('<p><img src="https://cdn.example.invalid/x.png" /></p>')
+    expect(out.referencedAttachments).toEqual([])
+    expect(out.markdown).toContain('https://cdn.example.invalid/x.png')
+  })
+
+  it('download 경로 밖 host-relative img 는 참조가 아니다', () => {
+    // 이모티콘·UI 리소스를 첨부로 오인하면 받지도 못할 이름이 실패 목록에 쌓인다.
+    const out = storageToMarkdown('<p><img src="/images/icons/emoticons/smile.png" /></p>')
+    expect(out.referencedAttachments).toEqual([])
+    expect(out.markdown).toContain('/images/icons/emoticons/smile.png')
+  })
+
+  it('같은 첨부를 두 형식이 가리켜도 한 번만 센다', () => {
+    // `ac:image` 가 만든 `assets/…` img 를 2차 승격하지 않는 것까지 함께 잠근다.
+    const out = storageToMarkdown(
+      '<ac:image><ri:attachment ri:filename="dup.png" /></ac:image>' +
+        '<p><img src="/download/attachments/1/dup.png" /></p>'
+    )
+    expect(out.referencedAttachments).toEqual(['dup.png'])
+  })
+
+  it('alt 가 없으면 파일명을 쓴다', () => {
+    const withAlt = storageToMarkdown(
+      '<p><img src="/download/attachments/1/a.png" alt="회로도" /></p>'
+    )
+    expect(withAlt.markdown).toContain('![회로도](assets/a.png)')
+    const without = storageToMarkdown('<p><img src="/download/attachments/1/a.png" alt="" /></p>')
+    expect(without.markdown).toContain('![a.png](assets/a.png)')
+  })
+
   it('첨부 이름을 파일명 위생 규칙에 맞춰 링크한다', () => {
     // 원격이 준 이름이 경로를 품고 있어도 링크는 루트 안을 가리킨다.
     const out = storageToMarkdown(

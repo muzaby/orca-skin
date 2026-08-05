@@ -81,6 +81,7 @@ export function storageToMarkdown(storageXhtml: string): StorageConversion {
 
 // `<ac:image><ri:attachment ri:filename="x.png"/></ac:image>` → `<img src="assets/x.png">`
 // 첨부가 아닌 외부 URL 이미지는 그대로 두고 다운로드 대상에 넣지 않는다.
+// 저장 형식에 날 `<img>` 로 들어앉은 첨부는 뒤이어 `normalizeDownloadImages` 가 맡는다(0168).
 function normalizeImages($: cheerio.CheerioAPI, referenced: Set<string>): void {
   $('ac\\:image').each((_, element) => {
     const node = $(element)
@@ -103,6 +104,67 @@ function normalizeImages($: cheerio.CheerioAPI, referenced: Set<string>): void {
     // 참조가 없는 이미지 매크로 — 흔적을 남기고 지운다.
     node.replaceWith('<p>[image]</p>')
   })
+
+  normalizeDownloadImages($, referenced)
+}
+
+// 저장 형식에 **날 `<img>` 로** 들어앉은 첨부를 참조로 승격한다 (0168).
+//
+// 왜 필요한가: 다운로드 대상의 유일한 근거가 `referencedAttachments` 라서, 변환기가 못 알아본
+// 이미지는 아예 내려받지 않는다. 0164 이전에는 "참조 0개면 페이지 첨부를 전부 받는" 폴백이
+// 있어 이 구멍이 가려져 있었는데(354ffc7 이 제거), 그 뒤로는 검출 실패가 곧 0건 다운로드다.
+//
+// **반드시 `ac:image` 루프 뒤에 돈다.** 앞 루프가 만든 `<img src="assets/…">` 는 host-relative
+// 가 아니라 아래 규칙에 걸리지 않는다 — 같은 첨부를 두 번 세지 않는다.
+function normalizeDownloadImages($: cheerio.CheerioAPI, referenced: Set<string>): void {
+  $('img').each((_, element) => {
+    const node = $(element)
+    const filename = parseDownloadHref(
+      node.attr('src'),
+      node.attr('data-linked-resource-default-alias')
+    )
+    if (filename === undefined) return
+    referenced.add(filename)
+    const alt = node.attr('alt')
+    node.replaceWith(
+      imgTag(
+        `${ASSETS_DIR}/${sanitizeAssetName(filename)}`,
+        alt !== undefined && alt !== '' ? alt : filename
+      )
+    )
+  })
+}
+
+// 첨부 다운로드 경로에만 붙는 접두사. `/images/icons/…` 같은 UI 리소스를 첨부로 오인하면
+// 받지도 못할 이름이 실패 목록에 쌓이고 본문 링크까지 깨지므로, 범위를 여기로 좁힌다.
+const DOWNLOAD_PREFIXES = ['/download/attachments/', '/download/thumbnails/'] as const
+
+// `<img>` 의 src(+ Confluence 가 함께 싣는 원본 이름)에서 첨부 파일명을 뽑는다. 첨부가 아니면
+// `undefined` — 호출부는 그때 태그를 손대지 않는다. 순수 판정부라 분기 전부가
+// `storageToMarkdown` 을 통해 고정된다(별도 export 를 두지 않는다 — 소비자가 없다).
+function parseDownloadHref(src: string | undefined, alias: string | undefined): string | undefined {
+  if (src === undefined || src === '') return undefined
+  // 스킴이 붙은 절대 URL 은 다른 호스트일 수 있다 — 로컬 첨부로 바꾸지 않는다.
+  if (/^[a-z][a-z0-9+.-]*:/i.test(src) || src.startsWith('//')) return undefined
+  const path = src.split(/[?#]/)[0]
+  if (!DOWNLOAD_PREFIXES.some((prefix) => path.startsWith(prefix))) return undefined
+
+  // Confluence 는 원본 첨부 이름을 이 속성으로 함께 싣는다 — 경로 세그먼트보다 정확하다.
+  if (alias !== undefined && alias.trim() !== '') return alias.trim()
+
+  const segment = path.slice(path.lastIndexOf('/') + 1)
+  if (segment === '') return undefined
+  return decodeSegment(segment)
+}
+
+// 경로 세그먼트는 퍼센트 인코딩돼 있다. 깨진 인코딩이면 원문을 그대로 쓴다 — 이름 하나 때문에
+// 페이지 전체 변환을 실패시키지 않는다.
+function decodeSegment(segment: string): string {
+  try {
+    return decodeURIComponent(segment)
+  } catch {
+    return segment
+  }
 }
 
 function imgTag(src: string, alt: string): string {
