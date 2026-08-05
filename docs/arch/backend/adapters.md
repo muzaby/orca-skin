@@ -1,13 +1,13 @@
 # Backend Architecture — Adapters (어댑터·ExtensionBuilder·파일/리소스·Hook 정규화)
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-07-10 (handoff 0094 — 0062 개명 경로 정정·skills 스캔/시딩(0078) 동기화)
+> 최종 업데이트: 2026-08-05 (handoff 0177 — 인용 경로 정정(루트 문서 상대경로 `./`→`../../`). 직전: 2026-07-10 (handoff 0094 — 0062 개명 경로 정정·skills 스캔/시딩(0078) 동기화))
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [provider-runtime.md](./provider-runtime.md), [overview.md](./overview.md), [adapter-design 흡수], [../../claude-code-spec.md](../../claude-code-spec.md)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 
 ## 1. Backend Adapter 추상화
 
-> ⚠️ **"LLM Provider" 가 아니다.** Orca 는 LLM API 를 직접 호출하지 않고 외부 CLI/SDK (Claude Code SDK, opencode 등) 를 래핑한다. 용어는 [GLOSSARY.md](./GLOSSARY.md) §3 참조.
+> ⚠️ **"LLM Provider" 가 아니다.** Orca 는 LLM API 를 직접 호출하지 않고 외부 CLI/SDK (Claude Code SDK, opencode 등) 를 래핑한다. 용어는 [GLOSSARY.md](../../GLOSSARY.md) §3 참조.
 
 ### 1.1 SessionAdapter 인터페이스 계약
 
@@ -129,7 +129,7 @@ SDK 가 throw 하는 에러 메시지/코드에서 `401` / `OAuth` / `expired` �
 | `prompt: AsyncIterable<SDKUserMessage>` | ⏳ | Phase 4 | 다중 이미지 / 실시간 중단 |
 | `forkSession` / `listSessions` / `loadSession` | ⏳ | Phase 3+/4 | 과거 대화 / 멀티 세션 anchor (persistence.md 의 로컬 DB 가 진실의 기준이 되므로 SDK 메서드는 *동기화 소스* 로만) |
 
-자세한 SDK API 시그니처는 [`docs/spec/claude/agent-sdk/typescript.md`](./spec/claude/agent-sdk/typescript.md) (SSOT).
+자세한 SDK API 시그니처는 [`docs/spec/claude/agent-sdk/typescript.md`](../../spec/claude/agent-sdk/typescript.md) (SSOT).
 
 ### 1.8 Adapter 책임 확장 (Future anchor)
 

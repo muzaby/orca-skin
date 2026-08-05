@@ -323,32 +323,43 @@
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- 동의 / 그대로 진행: …
-- 이견 / 우려: …
+- **동의 / 그대로 진행**: 3-패스 분해(수치 → 구조적 사실 → AGENTS 전수)가 실제로 맞았다. 패스 1 은 판단이 0이라 기계적으로 끝났고, 그 덕에 판단이 필요한 패스 2·3 에 시간을 쓸 수 있었다. **AC15(음성 통제)가 특히 값졌다** — "모든 docs 를 업데이트하라" 를 받고 이미 현행인 `dom-architecture.md`·`rendering.md` 를 열었을 때, 손댈 이유가 없다는 것을 AC 가 미리 못 박아둬서 무의미한 편집을 안 했다.
+- **이견 / 우려 (설계의 실패 3건 — 전부 *인수 기준의 정밀도* 문제)**: 설계의 **방향**은 맞았으나 **AC 의 grep 술어 3개가 너무 뭉툭했다.** 정본은 유지하고 술어만 좁혔다(§아래 표 1·2·3). 요구 범위는 줄이지 않았다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 구현함 / ⚠️ 보고만·**결정 필요** | … |
+| 1 | **AC1·3·5 의 grep 술어가 "이력 표기" 를 stale 로 오판한다.** `docs/TRD.md:7` 은 의도적으로 `직전 0095 = 17 키·64 채널` 이라는 **개정 이력**을 남기고, `docs/PHASES.md:157` 은 handoff 0094 의 과거 산출물("마이그레이션 13종·IPC 64채널 반영")을 기록한다. 둘 다 *현재 상태 서술이 아니라 역사* 이므로 지우면 오히려 이력이 손상된다. | ✅ 구현함 — 두 곳을 **남겼다**. verify 는 아래 정정된 술어를 쓴다: 각 grep 의 잔존 히트가 **①`직전`/`0095`/`0094` 이력 문맥 또는 ②PHASES 과거 행** 뿐인지 확인한다(현재 실측: AC1 잔존 1건=TRD:7, AC3 잔존 1건=TRD:7, AC5 잔존은 전부 `16종` + PHASES 0094 행 1건). | `docs/TRD.md:7` · `docs/PHASES.md:157` |
+| 2 | **AC4(`ssoBypass` 0건)가 개명 이력 표기까지 금지한다.** 실제로는 "0157 에서 `ssoBypass` 에서 개명" 같은 표기가 **있어야** 구독자가 옛 이름으로 검색해도 찾는다(0157 이 실제로 개명한 키라 옛 문서·이슈에 그 이름이 남아 있다). | ✅ 구현함 — **현재 상태를 서술하던 3곳**(`TRD.md:334` 스키마 표 · `security.md:143` 게이트 서술 · `frontend/overview.md:92` 구현 상태)은 `authBypass` 로 정정했고, **개명 이력 표기 5곳은 의도적으로 남겼다.** 정정 술어: `rg 'ssoBypass' docs --glob '!docs/handoff/**' --glob '!docs/etc/**'` 의 히트가 전부 `구 ssoBypass`·`ssoBypass`→`authBypass`·PHASES 0072 과거 행 형태인지 확인한다. | `app/src/shared/protocol.ts:613` |
+| 3 | **AC18(`git diff --stat -- app/src` = 0 파일)이 자기 산출물과 충돌한다.** `app/src/main/AGENTS.md` 는 `app/src` **아래**에 있고 이 작업의 명시 대상(AC13)이다 — 원 술어대로면 AC13 을 지키는 순간 AC18 이 깨진다. 관문 2 규칙 4(AC 간 모순)를 설계에서 놓쳤다. | ✅ 구현함 — 정정 술어: `git diff --name-only -- 'app/src/**' 'app/scripts/**' 'app/*.json' 'app/*.yml' 'app/*.mjs' \| grep -vE 'AGENTS\.md\|CLAUDE\.md'` = **0건**(실측 0건). 의도(코드 무변경)는 그대로다. | `git diff --stat` 실행 결과 |
+| 4 | **AC19(`docs/spec` 무변경)도 같은 충돌.** `docs/spec/AGENTS.md` 정책이 **"`AGENTS.md` 진입점 문서는 편집 가능"** 을 명시하고, 사용자 요구가 "모든 경로의 AGENTS.md" 다. | ✅ 구현함 — 정정 술어: **원문 미러(`*.md` 중 `AGENTS.md`/`CLAUDE.md` 제외) 무변경**(실측 0건). 진입점 2개는 아래 #5 때문에 실제로 고쳐야 했다. | `docs/spec/claude/AGENTS.md` "편집 원칙" |
+| 5 | **`docs/spec/claude/**` 진입점 2곳이 거짓 사실을 서술하고 있었다** — `agent-sdk/AGENTS.md` 말미 "Orca가 Agent SDK를 직접 사용하지 않더라도", `claude/AGENTS.md` "`app/src/main/` 의 ClaudeCodeAdapter". 둘 다 **CLI spawn 시절(2026-05-18 폐기) 서술**이다. 실제로는 `dependencies` 에 `@anthropic-ai/claude-agent-sdk@0.3.220` 이 있고 `adapters/claude.ts:12` 가 `query()` 를 직접 import 한다. 설계는 이 두 파일을 "대조 후 판정" 으로만 잡아 *무엇이 틀렸는지* 를 예상하지 못했다. | ✅ 구현함 — 두 문장을 코드 실측으로 정정(정정임을 문서에 명시). | `app/package.json` `dependencies` · `app/src/main/adapters/claude.ts:1,12,219` |
+| 6 | **`docs/**` 상대링크 22건이 깨져 있었다** (설계가 예상 못 한 범주). ⓐ `arch/**` 가 루트 문서를 `./IPC_CONTRACT.md` 로 참조(실제 위치는 두 단계 위) 17건 ⓑ `PRD.md`/`TRD.md` 의 **중첩 마크다운 링크 파손** `[[a](a)](./[ARCHITECTURE.md](ARCHITECTURE.md))` 2건 ⓒ `standardization.md` 가 0062 에서 `features/extensions/` 로 옮겨간 `deploy/*.ts` 3건. AC17 은 *새로 추가한* 인용만 봐서 이 기존 파손을 못 잡았을 것이다. | ✅ 구현함 — 전부 정정. **전수 검사 스크립트로 재현 가능**: 모든 `.md` 의 상대링크를 해석해 미존재 대상을 센다 → 코어 `docs/` **0건**(잔존 6건은 전부 `docs/etc/study/**` 와 handoff `0031` — 둘 다 비범위). | 아래 게이트 표 |
+| 7 | **`security.md §1.7` 이 존재하지 않는 경로 2개를 인용하고 있었다** — `features/sso/modules/`·`contracts/sso.ts`(0157 이 삭제). 게다가 지워진 `setProviderEnv` 평문 env 기록 경로를 **현재 동작처럼** 서술했다. | ✅ 구현함 — 현재 경로(`features/auth-platform/modules/index.ts`·`contracts/auth-plugin.ts`)로 정정하고, 지워진 두 경로는 **"0157 이 지운 두 경로 (되살리지 말 것)"** 인용문으로 이전해 *왜 없는지* 를 보존했다. `provider:<key>:` 네임스페이스가 0157 이후 무소비(0176 확정)라는 사실도 같이 적었다. | `ls app/src/main/features/sso` = 없음 · `app/src/main/app/bootstrap.ts:481-483` |
+| 8 | 설계가 `app/AGENTS.md` 의존성 목록을 갱신 대상으로만 적고 **무엇이 빠졌는지** 는 조사하지 않았다. 실측하니 5종 누락(`i18next`/`react-i18next`·`recharts`·`cheerio`·`turndown`·`turndown-plugin-gfm`·`undici`). | ✅ 구현함 — `package.json` 실측으로 채웠고, "0160 신규 의존성 4개" 라는 INDEX 표기를 **실제로 3종**(`cheerio`·`turndown`·`turndown-plugin-gfm` — `recharts` 는 0112 사용량 차트용)으로 정정해 적었다. | `app/package.json` · `rg 'cheerio|turndown' app/src` = confluence 모듈 1곳 |
+| 9 | **INDEX 에 기재된 커밋 hash 5개가 저장소에 없다**(`f055b14`·`7175e57`·`c0d1523`·`666a1bd`·`828bfe4`·`109e106`·`d301086`) — 리베이스로 소실. 0159 verify 가 이미 같은 문제를 겪었다. PHASES 승격에 그대로 옮겼다면 **추적 불가능한 이력**을 새로 만들 뻔했다. | ✅ 구현함 — `git log --grep="Handoff: docs/handoff/<NNNN>"` 로 **실존 hash 를 재조회**해 기재했고, 0159 만 초기 구현 hash 가 완전히 소실돼 그 사실을 행에 명시했다. | `git cat-file -t <hash>` 7건 MISSING |
+| 10 | ⚠️ **보고만 — 결정 필요**: `docs/arch/backend/provider-runtime.md`(569줄, 헤더 2026-06-04)와 `standardization.md` 의 "잔여 항목 설계 대기" 표기가 지금도 맞는지 **확인하지 않았다**(§비범위 명시). P0/P1 항목 전수를 코드와 대조해야 판정 가능하고, 그건 사실 정합이 아니라 설계 판단이다. **낡은 "대기" 표기를 그대로 두는 쪽**을 택했다(확인 없는 "완료" 표기보다 보수적으로 안전). 후속 핸드오프 대상. | ⚠️ 보고만 | `docs/arch/backend/provider-runtime.md:4` 헤더 |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] 패스 1 — 수치 교정 (AC1·3·4·5)
-- [ ] 패스 2 — 구조적 신규 사실 (AC6·7·8)
-- [ ] 패스 3 — `AGENTS.md` 15 전수 대조 + guides 신설 (AC9·10·11·12·13)
-- [ ] PHASES 갱신 (AC14)
-- [ ] 음성 통제 확인 (AC15·18·19)
+- [x] 패스 1 — 수치 교정 (AC1·3·4·5): 채널 86·23 도메인 / settings 20 키 / 마이그레이션 16종 / `ssoBypass`→`authBypass`
+- [x] 패스 2 — 구조적 신규 사실 (AC6·7·8): `connectors`·`auth-platform` 슬라이스 · `infra/auth`·`infra/log` · `contracts` 9모듈 · security.md §1.8/§1.9 신설
+- [x] 패스 3 — `AGENTS.md` 15 전수 대조 + `guides/` 신설 (AC9·10·11·12·13)
+- [x] PHASES 갱신 (AC14) — 현재 상태 + PASS 9건 승격 + 미승격 사유 명시
+- [x] 음성 통제 확인 (AC15·18·19, 술어 정정 후)
+- [x] **계획 밖 추가**: `docs/**` 상대링크 파손 22건 정정 (위 #6)
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `rg` 게이트 (코드 게이트 N/A — AC18) |
-| 게이트 결과 | … |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | **21개** — `AGENTS.md`(root) · `app/AGENTS.md` · `app/src/main/AGENTS.md` · `docs/{AGENTS,ARCHITECTURE,GLOSSARY,IPC_CONTRACT,PHASES,PRD,TRD}.md` · `docs/arch/backend/{adapters,overview,persistence,runtime-ipc,security,standardization}.md` · `docs/arch/frontend/{overview,ux-domains}.md` · `docs/handoff/{AGENTS,INDEX}.md` · `docs/spec/claude/AGENTS.md` · `docs/spec/claude/agent-sdk/AGENTS.md`. **신규 2개** — `docs/guides/{AGENTS,CLAUDE}.md` |
+| 무변경 판정 (열어보고 대조함) | `docs/arch/frontend/{layers,rendering,dom-architecture,state,terms}.md`(features 13 도메인 실측 일치·0121/0145 갱신분 현행) · `docs/arch/backend/{observability,system-prompt,terms}.md` · `docs/{claude-code-spec,git-template}.md` · `docs/spec/AGENTS.md`(벤더 표 = `ls docs/spec/` 일치) · `chats/AGENTS.md`(chat1 417줄·chat2 388줄 실측 일치) · `project/AGENTS.md`(5 버전·20 uploads·v5 파일 6종 실측 일치) · `app/src/main/features/auth-platform/modules/{,confluence/,usage/,__fixtures__/}AGENTS.md` · `.../providers/static/modules/AGENTS.md` (다섯 다 0164~0176 에서 갱신돼 현행 — `ls` 대조 통과) |
+| 실행 명령 | 코드 게이트 **N/A**(AC18 — 코드 무변경). 문서 게이트 = 아래 |
+| 게이트 결과 | ✅ **수치 3중 정합**: IPC 헤더 86 = 내역 합 86(23 도메인 검산) = 코드 실측 86 / settings 카탈로그 20행(persistence) = 20키(IPC_CONTRACT `interface Settings`) = 실측 20 / 마이그레이션 16 = `ls migrations/` 16. ✅ **상대링크 전수**: 코어 `docs/` 파손 0건(정정 전 22건). ✅ **코드 무변경**: `app/src/**` 등에서 AGENTS/CLAUDE 제외 0건. ✅ **원문 미러 무변경**: `docs/spec/**` 에서 진입점 제외 0건, `docs/etc/**` 0건. ✅ **AC15 무변경 통제**: `dom-architecture.md`·`rendering.md` diff 0줄 |
+| 블로커 / 역질문 | **없음.** 결정 필요 1건은 위 #10(provider-runtime 로드맵 재평가 — 후속 핸드오프 제안). PHASES 승격 범위는 규칙(verify/PASS)대로 9건만 진행했고 사유를 표 아래에 명시했다 |
+| 대상 커밋 | (아래 커밋) |
 
 ---
 

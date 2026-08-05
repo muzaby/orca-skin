@@ -1,7 +1,7 @@
 # Backend Architecture — Persistence (2계층·DB·FTS)
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-07-11 (handoff 0096 — settings 18 키: `uiLocale` 추가)
+> 최종 업데이트: 2026-08-05 (handoff 0177 — settings 20 키 실측 동기화: `ssoBypass`→`authBypass`(0157)·`connectorInstances`(0161)·`pluginAddEnabled`(0164)·`scheduler.updateCheck`(0156). 마이그레이션 헤더 13→16 정정)
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [overview.md](./overview.md), [adapters.md](./adapters.md), [provider-runtime.md](./provider-runtime.md)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 
@@ -11,13 +11,13 @@
 
 | 항목 | 위치 | 상태 |
 |---|---|---|
-| **electron-store** (`infra/settings-store.ts`) | `~/Library/Application Support/orca-settings/...` (OS별 userData) | ✅ 완료 (18 키 — §1.2) |
+| **electron-store** (`infra/settings-store.ts`) | `~/Library/Application Support/orca-settings/...` (OS별 userData) | ✅ 완료 (20 키 — §1.2) |
 | **로컬 SQLite DB** (`db/`) | `<userData>/orca.db` (better-sqlite3, WAL + foreign_keys) | ✅ Phase 3 완료 |
 | **FTS5 전문 검색** | `messages_fts` 가상 테이블 (3 트리거로 `messages` 와 동기 유지) | ✅ Phase 3++ 완료 |
 | **MCP 인증 비밀** | `orca-secrets` (electron-store) + safeStorage 암호화 | ✅ Phase 3++ 완료 |
 | **첨부 / 산출물 디렉토리** | — | ❌ 미구현 (Future) |
 
-### 1.2 electron-store 의 18 키 카탈로그
+### 1.2 electron-store 의 20 키 카탈로그
 
 `app/src/main/infra/settings-store.ts` + `src/shared/protocol.ts` 의 `SettingsSchema` (zod 가 SSOT):
 
@@ -33,14 +33,16 @@
 | `mcpEnabled` | `Record<string, boolean>` | `{}` | MCP 서버 on/off (키=name, 부재⇒true). mcp.json 정의와 분리. |
 | `mcpMeta` | `Record<string, { description: string }>` | `{}` | MCP Orca 전용 메타 (순정 Claude 스키마 오염 방지). |
 | `skillEnabled` | `Record<string, boolean>` | `{}` | Skill on/off (키=sourceId/name, 부재⇒true). |
-| `ssoBypass` | `boolean` | `false` | SSO 로그인 게이트 우회 (디버그 패널 토글, security.md §1.7). |
+| `authBypass` | `boolean` | `false` | 인증 게이트 우회 (디버그 패널 토글, DEV 전용 — security.md §1.7). 0157 에서 `ssoBypass` 에서 개명. |
+| `connectorInstances` | `unknown[]` | `[]` | 사용자가 UI 에서 템플릿으로 추가한 connector 인스턴스 (0161). **비밀 미포함** — 주소·라벨만이고 자격증명은 safeStorage vault 가 소유한다(AUTH-PLAT-008). 항목 단위 검증은 `features/connectors/instance-store.ts` 가 맡아, 깨진 항목만 버리고 나머지를 살린다(그래서 스키마는 형태만 받는다). |
 | `language` | `string` | `'한국어'` | 선호 언어(LLM 응답 언어) — 시스템 프롬프트 `# User` 헤더로 매 턴 주입. `uiLocale` 과 별개. |
 | `uiLocale` | `'ko' \| 'en'` | `'ko'` | UI 표시 언어(앱 크롬 로케일, 0096) — 렌더러 i18n 카탈로그 + 날짜/시간 포맷 로케일. 타임존은 설정 아님(항상 OS 로컬). |
 | `accountInstructions` | `string` | `''` | 계정 지침 — 시스템 프롬프트 `# User` 헤더로 매 턴 주입. |
 | `appFont` | `'sans' \| 'serif' \| 'mono'` | `'sans'` | 앱 전체 폰트 (`--font-app` 매핑). |
 | `notifyOnComplete` | `boolean` | `false` | 턴 완료 시(창 비활성 한정) OS 네이티브 알림. |
+| `pluginAddEnabled` | `boolean` | `false` | 플러그인 '추가' UI 노출 토글 (디버그, 0164). 기본 경로가 빌드타임 서버 목록이라 기본 off. |
 | `spendingLimitUsd` | `number \| null` | `90` | 월간 지출 한도(USD) — 사용량 한도 바의 기준, null=무제한 (0079). |
-| `scheduler` | `{ usageRecompute: { enabled, cron } }` | `enabled: false` | 주기 실행 설정 — 사용량 recompute job (0091). |
+| `scheduler` | `{ usageRecompute: { enabled, cron }; updateCheck: { enabled, intervalHours } }` | `usageRecompute.enabled: false` · `updateCheck: { true, 6 }` | 주기 실행 설정 — 사용량 recompute job (0091) + 자동 업데이트 확인 주기 (0156, 앱 시작 시각 anchor 간격이라 cron 이 아니다). 두 그룹은 각자 default 를 들고 그룹 단위로 병합된다(`settings-store.ts` `mergeGroup`). |
 
 **검증 전략**:
 - Read: `SettingsSchema.safeParse()` → 실패 시 `{}` fallback (깨진 디스크 데이터 복원). read 는 순수 — 마이그레이션·디스크 쓰기는 lazy 1회 + patch 시(0092, write-on-read 제거).
@@ -50,7 +52,7 @@
 
 > **선택 이유**: better-sqlite3 — 동기 API (Main thread 직접 실행, worker thread 불필요), Electron 호환, 마이그레이션 자체 관리 용이 (Drizzle/Prisma ORM 의존 없이 SQL 파일 직접 관리).
 
-#### 현재 스키마 (13 마이그레이션)
+#### 현재 스키마 (16 마이그레이션)
 
 | 마이그레이션 | 내용 |
 |---|---|

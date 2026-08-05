@@ -2,10 +2,10 @@
 
 > 이 문서는 Main ↔ Renderer 간 IPC 채널의 **단일 진실 공급원 (SSOT)** 이다.
 > 채널을 추가/변경할 때는 코드와 이 문서를 함께 갱신한다.
-> 최종 업데이트: 2026-08-04 (handoff 0164 — `plugin` 도메인에 등록 진단 1채널 추가(diagnostics), **85→86**)
+> 최종 업데이트: 2026-08-05 (handoff 0177 — §2.4 `Settings` 카탈로그에 누락돼 있던 `connectorInstances`(0161)·`pluginAddEnabled`(0164) 2키 보충 → **20 키**. 채널 수는 86 유지, §2 카탈로그 무변경)
 >
 > ⚠️ **카운트 정정 (0157 verify r1)**: 이전 판은 헤더 73 · 내역 합 72 · 실측 74 로 셋이 서로 달랐다. `chat`(5→6)·`cost`(5→6) 가 내역에서 누락돼 있었다. 아래 수치는 `CHANNELS` 상수를 기계 카운트한 실측치이며 **내역 합 = 총계**가 되도록 맞췄다.
-> 관련 문서: [ARCHITECTURE.md](ARCHITECTURE.md), [ARCHITECTURE.md](ARCHITECTURE.md), [GLOSSARY.md](./GLOSSARY.md), [TRD.md](./TRD.md) §5
+> 관련 문서: [ARCHITECTURE.md](./ARCHITECTURE.md), [GLOSSARY.md](./GLOSSARY.md), [TRD.md](./TRD.md) §5
 
 ## 1. 명명 규칙
 
@@ -116,6 +116,8 @@ interface Settings {
   mcpMeta: Record<string, { description: string }>; // MCP Orca 전용 메타 (mcp.json 순정 유지)
   skillEnabled: Record<string, boolean>; // Skill on/off (키=sourceId/name). 부재 ⇒ true
   authBypass: boolean; // 인증 게이트 우회 (디버그 패널 토글, DEV 전용). true ⇒ 앱 시작 시 로그인 건너뜀. default false (0157 — 구 ssoBypass)
+  connectorInstances: unknown[]; // 사용자가 UI 에서 템플릿으로 추가한 connector 인스턴스 (0161). **비밀 미포함** — 주소·라벨만, 자격증명은 safeStorage vault 소유(AUTH-PLAT-008). 항목 단위 검증은 `features/connectors/instance-store.ts` (깨진 항목만 버리고 나머지를 살리려 여기서는 형태만 받는다). default []
+  pluginAddEnabled: boolean; // 플러그인 '추가' UI 노출 토글 (디버그, 0164). 기본 경로는 빌드타임 서버 목록이라 기본 false. default false
   language: string; // 선호 언어 (LLM 응답 언어). 시스템 프롬프트 '# User' 헤더로 매 턴 주입. uiLocale 과 별개. default '한국어'
   uiLocale: "ko" | "en"; // UI 표시 언어 (앱 크롬 로케일, 0096) — 렌더러 i18n(ko/en) + 날짜/시간 포맷 로케일. default 'ko'
   accountInstructions: string; // 설정 모달 '계정 지침' textarea. 시스템 프롬프트 '# User' 헤더로 매 턴 주입. default ''

@@ -1,7 +1,7 @@
 # Backend Architecture — Runtime & IPC (동시성·IPC 핸들러·시스템 통합)
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-07-10 (handoff 0094 — 자동 업데이트 구현·scheduler·채널 총계 64 동기화)
+> 최종 업데이트: 2026-08-05 (handoff 0177 — 재서술하던 채널 총계를 삭제하고 SSOT 링크만 남김 · `contracts/` 9모듈 등재)
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [overview.md](./overview.md) §3(프로세스 구조), [provider-runtime.md](./provider-runtime.md), [../../IPC_CONTRACT.md](../../IPC_CONTRACT.md), [`app/src/main/AGENTS.md`](../../../app/src/main/AGENTS.md) (레이어 DAG·버스 파이프라인)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 
@@ -94,7 +94,7 @@ handle(CHANNELS.chatSend, SendChatMessageSchema, /* 실패=error 이벤트 */, a
 })
 ```
 
-- **채널 총계는 [IPC_CONTRACT.md](../../IPC_CONTRACT.md) §2 가 SSOT** — 현재 **총 65 채널**(도메인: `chat`·`boot`·`backend`·`agent`·`engine`·`install`·`update`·`settings`·`skills`·`files`·`session`·`project`·`window`·`search`·`mcp`·`cost`·`concurrency`·`permission`·`debug`(dev)). **본 문서는 총계를 재서술하지 않는다**(드리프트 방지 — 변경 시 SSOT 1곳만 갱신). `chat` 도메인 5채널(`send`·`event`·`cancel`·`stopSubagent`·`steerCancel`).
+- **채널 총계·도메인 분포는 [IPC_CONTRACT.md](../../IPC_CONTRACT.md) §2 가 SSOT — 본 문서는 수치를 두지 않는다.** (이전 판은 "재서술하지 않는다" 고 적어놓고 총계를 적어 두 번 낡았다(64→65 표기가 실측 86 과 어긋남, 0177). 재발을 막으려 수치를 아예 지운다 — 필요하면 §2 를 연다.)
 - 채널 상수는 `app/src/shared/ipc.ts` 의 `CHANNELS`(문자열 리터럴 직접 사용 금지). `debug` 2채널은 `import.meta.env.DEV` 에서만 `ipcMain.handle` 등록.
 
 ### 2.2 명명 규칙

@@ -17,7 +17,7 @@
 작업 주제에 따라 어디부터 볼지가 다르다:
 
 ### Claude Code CLI 구현/수정
-- 본 저장소가 Claude Code CLI 를 외부 백엔드로 사용한다 (TRD §9, `app/src/main/` 의 ClaudeCodeAdapter).
+- 본 저장소는 Claude Code 를 **Agent SDK(`@anthropic-ai/claude-agent-sdk`) 의 `query()`** 로 구동한다 — `app/src/main/adapters/claude.ts` 의 `ClaudeAdapter`(구 `ClaudeCodeAdapter`/CLI spawn 은 2026-05-18 폐기). CLI 플래그 문서는 SDK 가 그 CLI 를 감싸므로 여전히 1차 출처다.
 - **1차 참조**: `docs/claude-code-spec.md` — *해설 미러*. 절 번호 (§3·§4·§5·§7·§13) 가 PRD/TRD/architecture 의 인용 anchor.
 - **원형 확인**: `headless.md`, `cli-reference.md` — 본 디렉토리의 원문 미러.
 
