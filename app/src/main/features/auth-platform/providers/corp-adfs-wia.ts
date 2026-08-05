@@ -58,14 +58,7 @@ export function createAdfsWiaProvider(opts: AdfsWiaOptions): AuthProviderV1 {
     sessionGroup: opts.sessionGroup
   }
 
-  // 이미 세션이 살아 있으면 창을 띄우지 않고 바로 binding 을 만든다 — 두 번째 서비스 연결이
-  // 재입력 없이 통과하는 것이 이 provider 의 존재 이유다 (AUTH-PLAT-006).
-  async function bindIfAuthenticated(
-    ctx: AuthPluginContext,
-    handleId: string
-  ): Promise<AuthStep | null> {
-    const probe = await ctx.browserSessions.probe(handleId, opts.authenticationProbeUrl)
-    if (!probe.ok) return null
+  async function makeBinding(ctx: AuthPluginContext, handleId: string): Promise<AuthStep> {
     return {
       kind: 'done',
       binding: {
@@ -74,6 +67,21 @@ export function createAdfsWiaProvider(opts: AdfsWiaOptions): AuthProviderV1 {
         ...(await readPrincipal(ctx, handleId, opts))
       }
     }
+  }
+
+  // 이미 세션이 살아 있으면 창을 띄우지 않고 바로 binding 을 만든다 — 두 번째 서비스 연결이
+  // 재입력 없이 통과하는 것이 이 provider 의 존재 이유다 (AUTH-PLAT-006).
+  //
+  // **이 자리에서 probe 오판의 대가는 "창이 한 번 더 뜬다" 이다** — 사용자가 알아채고 진행할 수
+  // 있다. 그래서 여기서는 판정을 그대로 신뢰한다. (창 완료 *후* 의 확인은 아래 begin() 참조 —
+  // 거기서는 대가가 "로그인 불가" 라 치명도가 다르다.)
+  async function bindIfAuthenticated(
+    ctx: AuthPluginContext,
+    handleId: string
+  ): Promise<AuthStep | null> {
+    const probe = await ctx.browserSessions.probe(handleId, opts.authenticationProbeUrl)
+    if (!probe.ok) return null
+    return makeBinding(ctx, handleId)
   }
 
   return {
@@ -101,14 +109,26 @@ export function createAdfsWiaProvider(opts: AdfsWiaOptions): AuthProviderV1 {
         }
       }
 
-      const bound = await bindIfAuthenticated(ctx, handleId)
-      return (
-        bound ?? {
-          kind: 'failed',
-          reason: 'invalid_credentials',
-          message: '로그인 후에도 세션이 확인되지 않았습니다'
+      // **창이 `doneUrlPrefix` 에 도달했다 = 패키지가 선언한 "로그인 완료" 신호다.** 그 위에
+      // probe 를 *추가 관문* 으로 세우면, probe 규칙이 배포마다 조금만 어긋나도 로그인이 통째로
+      // 막힌다 — 실제로 그렇게 됐다(0174: 인증에 성공해도 probe 가 302 로 로그인 URL 을 가리키는
+      // 배포). 그래서 여기서는 probe 를 **확인용으로만** 쓰고, 실패해도 binding 을 만든다.
+      //
+      // fail-safe 방향이 옳다: 오판의 최악이 "이미 만료된 세션으로 binding 을 만들었다" 인데,
+      // 그건 첫 요청에서 401 로 드러나 재로그인으로 이어진다. 반대 방향(로그인 자체 불가)은
+      // 사용자가 앱을 아예 쓸 수 없다.
+      try {
+        const confirmed = await ctx.browserSessions.probe(handleId, opts.authenticationProbeUrl)
+        if (!confirmed.ok) {
+          ctx.logger('로그인 창은 완료됐지만 probe 가 인증을 확인하지 못했다', {
+            status: confirmed.status
+          })
         }
-      )
+      } catch (err) {
+        // probe 자체가 던져도 로그인을 막지 않는다 — 창이 완료 신호를 준 것이 우선이다.
+        ctx.logger('로그인 후 probe 실패(무시하고 진행)', { message: String(err) })
+      }
+      return makeBinding(ctx, handleId)
     },
 
     // 브라우저 플로우는 begin() 안에서 끝난다 — 사용자 입력을 되받는 단계가 없다.

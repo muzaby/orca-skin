@@ -3,7 +3,14 @@
 // 실동작(파티션 공유·WIA)은 사람 실기 항목.
 
 import { describe, expect, it } from 'vitest'
-import { classifyProbeResponse, isAllowedOrigin, partitionFor } from './session-policy'
+import {
+  classifyProbeChain,
+  classifyProbeResponse,
+  isAbortedNavigationError,
+  isAllowedOrigin,
+  MAX_PROBE_HOPS,
+  partitionFor
+} from './session-policy'
 
 const ADFS = 'https://adfs.corp.invalid'
 const WIKI = 'https://wiki.corp.invalid'
@@ -121,5 +128,92 @@ describe('isAllowedOrigin (browser session 경로)', () => {
   it('allowlist 안/밖을 가른다', () => {
     expect(isAllowedOrigin(`${ADFS}/adfs/ls`, ALLOWED)).toBe(true)
     expect(isAllowedOrigin('https://evil.invalid/', ALLOWED)).toBe(false)
+  })
+})
+
+// 0174 — 체인 판정. 0157 D1("3xx = 미인증")을 **최종 origin 기준**으로 대체한다.
+describe('classifyProbeChain — 리다이렉트를 따라간 뒤 판정한다', () => {
+  const PROBE = `${WIKI}/me`
+
+  it('체인이 probe origin 으로 완주하면 인증이다', () => {
+    // 실기 사례: probe → 302 IdP → 302 back → 200. 인증됐는데도 첫 홉이 302 라
+    // "3xx = 미인증" 규칙에서는 **어떤 경우에도** 성공할 수 없었다.
+    const verdict = classifyProbeChain({
+      probeUrl: PROBE,
+      finalUrl: `${WIKI}/me`,
+      status: 200,
+      hops: 2
+    })
+    expect(verdict.result.ok).toBe(true)
+    expect(verdict.redirectOutsideAllowlist).toBe(false)
+  })
+
+  it('IdP 로그인 폼에서 멈추면 미인증이다 — 0157 D1 회귀 방지', () => {
+    // D1 의 실제 결함: 로그인 폼이 200 을 준다. 최종 origin 이 probe origin 이 아니므로 미인증.
+    const verdict = classifyProbeChain({
+      probeUrl: PROBE,
+      finalUrl: `${ADFS}/adfs/ls?wa=wsignin1.0`,
+      status: 200,
+      hops: 1
+    })
+    expect(verdict.result.ok).toBe(false)
+  })
+
+  it('probe origin 으로 돌아왔어도 2xx 가 아니면 미인증이다', () => {
+    const verdict = classifyProbeChain({ probeUrl: PROBE, finalUrl: PROBE, status: 401, hops: 0 })
+    expect(verdict.result.ok).toBe(false)
+    expect(verdict.result.status).toBe(401)
+  })
+
+  it('allowlist 밖 홉에서 멈추면 미인증 + 경고다', () => {
+    const verdict = classifyProbeChain({
+      probeUrl: PROBE,
+      finalUrl: 'https://evil.example/steal',
+      status: 302,
+      hops: 1,
+      stopped: 'outside_allowlist'
+    })
+    expect(verdict.result.ok).toBe(false)
+    expect(verdict.redirectOutsideAllowlist).toBe(true)
+  })
+
+  it('홉 상한을 넘기면 미인증이다 — 로그인 루프', () => {
+    // 루프는 probe origin 을 오갈 수 있다. 완주하지 못했으므로 origin 이 같아도 미인증.
+    const verdict = classifyProbeChain({
+      probeUrl: PROBE,
+      finalUrl: PROBE,
+      status: 302,
+      hops: MAX_PROBE_HOPS,
+      stopped: 'too_many_hops'
+    })
+    expect(verdict.result.ok).toBe(false)
+    expect(verdict.redirectOutsideAllowlist).toBe(false)
+  })
+
+  it('해석 불가능한 URL 은 미인증으로 접는다', () => {
+    const verdict = classifyProbeChain({
+      probeUrl: PROBE,
+      finalUrl: 'not-a-url',
+      status: 200,
+      hops: 0
+    })
+    expect(verdict.result.ok).toBe(false)
+  })
+})
+
+// 0174 — 로그인 창이 안 뜨던 원인.
+describe('isAbortedNavigationError', () => {
+  it('errno -3 과 code ERR_ABORTED 를 모두 비치명으로 본다', () => {
+    expect(isAbortedNavigationError({ errno: -3, code: 'ERR_ABORTED' })).toBe(true)
+    expect(isAbortedNavigationError({ errno: -3 })).toBe(true)
+    expect(isAbortedNavigationError({ code: 'ERR_ABORTED' })).toBe(true)
+  })
+
+  it('다른 오류는 치명으로 남긴다', () => {
+    // 이름 해석 실패·인증서 오류는 진짜 실패다 — 삼키면 빈 창이 떠 있는다.
+    expect(isAbortedNavigationError({ errno: -105, code: 'ERR_NAME_NOT_RESOLVED' })).toBe(false)
+    expect(isAbortedNavigationError(new Error('로그인 창 타임아웃'))).toBe(false)
+    expect(isAbortedNavigationError(null)).toBe(false)
+    expect(isAbortedNavigationError('ERR_ABORTED')).toBe(false)
   })
 })

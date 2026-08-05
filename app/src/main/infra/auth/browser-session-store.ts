@@ -17,11 +17,15 @@ import { BrowserWindow, session, type Session } from 'electron'
 import { getLogger } from '../log/registry'
 // 판정 로직은 electron 비의존 모듈에 있다(테스트 가능) — 0157 verify r1 / D1·D7.
 import {
-  classifyProbeResponse,
+  classifyProbeChain,
+  isAbortedNavigationError,
   isAllowedOrigin,
+  MAX_PROBE_HOPS,
   partitionFor,
   type BrowserProbeResult
 } from './session-policy'
+import { locationOf } from './net-response'
+import { sendOnce } from './net-request'
 
 export type { BrowserProbeResult } from './session-policy'
 export { classifyProbeResponse, isAllowedOrigin, partitionFor } from './session-policy'
@@ -124,31 +128,79 @@ export class BrowserSessionStore {
 
   // 같은 세션으로 요청하고 **판정만** 돌려준다. 응답 본문·쿠키는 반환하지 않는다.
   //
-  // ⚠️ **redirect 를 따라가지 않는다(0157 verify r1 / D1).** 이전 구현은 `redirect:'follow'` 였는데,
-  // ADFS 는 미인증 요청을 로그인 페이지로 302 하는 것이 표준 동작이고 그 페이지는 200 을 준다.
-  // follow 하면 `res.ok === true` 가 되어 **인증되지 않았는데 인증됐다고 판정**하고 valid binding
-  // 을 만든다. 3xx 는 곧 "아직 인증 안 됨" 이므로 미인증으로 읽는다.
+  // **리다이렉트를 우리가 직접 돈다 (0174).** 두 가지가 바뀌었다:
   //
-  // 추가로 Location 이 allowlist 밖이면 실패로 본다 — 세션이 통제 밖 origin 으로 끌려가는
-  // 상황을 정상으로 취급하지 않는다.
+  //   1. `ses.fetch(..., {redirect:'manual'})` 을 버렸다 — Electron 의 manual 은 3xx 에서 요청을
+  //      **취소**해버려(웹 fetch 규약과 다르다) probe 가 예외로 죽었다. `sendOnce` 는
+  //      `net.request` 의 redirect 이벤트로 3xx 를 받아 돌려준다.
+  //   2. 0157 D1 의 "3xx = 미인증" 을 **최종 origin 기준**으로 대체했다. 이 배포는 인증에
+  //      성공해도 probe 가 302 로 로그인 URL 을 가리키고 그 체인이 자동 완주하는 구조라,
+  //      3xx 를 곧 미인증으로 접으면 로그인이 **영원히** 성립하지 않는다(실측).
+  //
+  // D1 의 목적(로그인 폼의 200 을 성공으로 오독하지 않기)은 그대로다 — 체인이 IdP origin 에
+  // 머문 채 끝나면 여전히 미인증이다. 홉마다 allowlist 를 먼저 확인하므로 세션이 통제 밖
+  // origin 으로 끌려가지도 않는다.
   async probe(handleId: string, url: string): Promise<BrowserProbeResult> {
     const entry = this.entryOf(handleId)
     if (!isAllowedOrigin(url, entry.policy.allowedOrigins)) {
       throw new Error('허용되지 않은 origin 으로의 probe 요청')
     }
-    const res = await entry.ses.fetch(url, { credentials: 'include', redirect: 'manual' })
-    const verdict = classifyProbeResponse({
-      status: res.status,
-      ok: res.ok,
-      location: res.headers.get('location'),
-      requestUrl: url,
-      finalUrl: res.url,
-      allowedOrigins: entry.policy.allowedOrigins
+
+    let currentUrl = url
+    let status = 0
+    let hops = 0
+    let stopped: 'outside_allowlist' | 'too_many_hops' | undefined
+
+    for (;;) {
+      const { facts } = await sendOnce({
+        url: currentUrl,
+        session: entry.ses,
+        // 세션의 쿠키·통합 인증(WIA)을 실어야 probe 가 의미를 갖는다.
+        credentials: 'include'
+      })
+      status = facts.status
+      const next = locationOf(facts, currentUrl)
+      if (next === null) break
+      if (hops >= MAX_PROBE_HOPS) {
+        stopped = 'too_many_hops'
+        break
+      }
+      if (!isAllowedOrigin(next, entry.policy.allowedOrigins)) {
+        stopped = 'outside_allowlist'
+        currentUrl = next
+        break
+      }
+      currentUrl = next
+      hops += 1
+    }
+
+    const verdict = classifyProbeChain({
+      probeUrl: url,
+      finalUrl: currentUrl,
+      status,
+      hops,
+      ...(stopped !== undefined ? { stopped } : {})
     })
     if (verdict.redirectOutsideAllowlist) {
       getLogger()
         .child('auth')
-        .warn('auth.probe.redirect-outside-allowlist', { sessionGroup: entry.sessionGroup })
+        .warn('auth.probe.redirect-outside-allowlist', {
+          sessionGroup: entry.sessionGroup,
+          // 어느 origin 을 선언해야 하는지 로그가 지목하게 한다 — 경로·쿼리는 싣지 않는다.
+          blockedOrigin: safeOrigin(currentUrl)
+        })
+    }
+    // 실패 판정의 근거를 남긴다. 이게 없으면 "로그인이 안 된다" 만 보이고 다음 수정 지점이 없다.
+    if (!verdict.result.ok) {
+      getLogger()
+        .child('auth')
+        .info('auth.probe.unauthenticated', {
+          sessionGroup: entry.sessionGroup,
+          status,
+          hops,
+          finalOrigin: safeOrigin(currentUrl),
+          ...(stopped !== undefined ? { stopped } : {})
+        })
     }
     return verdict.result
   }
@@ -222,7 +274,11 @@ function openWindow(entry: Entry, opts: LoginWindowOptions): Promise<{ finalUrl:
       if (!isAllowedOrigin(url, entry.policy.allowedOrigins)) {
         getLogger()
           .child('auth')
-          .warn('auth.browser.navigation-blocked', { sessionGroup: entry.sessionGroup })
+          .warn('auth.browser.navigation-blocked', {
+            sessionGroup: entry.sessionGroup,
+            // 어느 origin 을 allowedOrigins 에 넣어야 하는지 로그가 지목하게 한다.
+            blockedOrigin: safeOrigin(url)
+          })
         fail(new Error('허용되지 않은 origin 으로 이동'))
       }
     }
@@ -231,8 +287,26 @@ function openWindow(entry: Entry, opts: LoginWindowOptions): Promise<{ finalUrl:
     // popup·새 창·download 는 차단한다.
     win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }))
     win.on('closed', () => fail(new Error('사용자가 로그인 창을 닫았습니다')))
-    void win
-      .loadURL(opts.url)
-      .catch((err) => fail(err instanceof Error ? err : new Error(String(err))))
+    void win.loadURL(opts.url).catch((err) => {
+      // **ERR_ABORTED(-3) 는 실패가 아니다 (0174).** SSO 는 로그인 URL 이 곧바로 IdP 로 튀는 것이
+      // 정상이고, 그때 최초 로드는 "대체됨" 으로 거절된다. 이것을 치명으로 보고 창을 destroy 해서
+      // **로그인 창이 아예 뜨지 않았다.** 결말은 내비게이션 이벤트·타임아웃·사용자 닫기가 정한다.
+      if (isAbortedNavigationError(err)) {
+        getLogger()
+          .child('auth')
+          .info('auth.browser.load-superseded', { sessionGroup: entry.sessionGroup })
+        return
+      }
+      fail(err instanceof Error ? err : new Error(String(err)))
+    })
   })
+}
+
+// URL 에서 origin 만 뽑는다 — 로그에 경로·쿼리(토큰이 실릴 수 있다)를 싣지 않기 위해서다.
+function safeOrigin(rawUrl: string): string {
+  try {
+    return new URL(rawUrl).origin
+  } catch {
+    return ''
+  }
 }
