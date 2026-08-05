@@ -274,10 +274,27 @@ export type AuthFailureReason =
   | 'policy_denied'
   | 'internal'
 
+// 로그인 체인의 진행 위치 (0172). 한 패키지가 선언한 application provider 가 둘 이상이면 로그인은
+// 여러 단계를 거치는데, 그 사실을 화면에 알리지 않으면 두 번째 입력 폼이 이유 없이 나타난다.
+// 체인이 아닌(멤버 1개) 로그인의 step 에는 **이 필드가 없다**.
+export interface AuthChainProgress {
+  // 1-based. 사람이 읽는 값이라 0-based 로 두면 표기 시점에 매번 +1 을 해야 한다.
+  index: number
+  total: number
+  // 현재 멤버 provider 의 label (`AuthProviderInfo.label` 과 같은 값).
+  label: string
+}
+
 // transaction 의 다음 단계. `transactionId` 는 provider 가 아니라 **플랫폼이 부여**한다.
 export type AuthStepInfo =
-  | { kind: 'collect'; transactionId: string; fields: AuthFieldSpec[]; message?: string }
-  | { kind: 'browser'; transactionId: string; message?: string }
+  | {
+      kind: 'collect'
+      transactionId: string
+      fields: AuthFieldSpec[]
+      message?: string
+      chain?: AuthChainProgress
+    }
+  | { kind: 'browser'; transactionId: string; message?: string; chain?: AuthChainProgress }
   | {
       kind: 'device_code'
       transactionId: string
@@ -285,6 +302,7 @@ export type AuthStepInfo =
       verificationUrl: string
       expiresAt?: number
       message?: string
+      chain?: AuthChainProgress
     }
   | { kind: 'done'; binding: AuthBindingInfo }
   | { kind: 'failed'; reason: AuthFailureReason; message?: string }

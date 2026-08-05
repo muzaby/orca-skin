@@ -430,7 +430,8 @@ export const en: typeof ko = {
     bypass: 'Login bypass',
     devButton: 'SSO dev button',
     loggingIn: 'Signing in',
-    authButton: 'Sign in'
+    authButton: 'Sign in',
+    chainProgress: 'Step {{index}} of {{total}} · {{label}}'
   },
   camera: {
     title: 'Hardware control',

@@ -4,13 +4,18 @@
 import { describe, expect, it, vi } from 'vitest'
 import { AuthBroker, MAX_REDIRECT_HOPS } from './broker'
 import { AuthRegistry } from './registry'
+import { DEFAULT_LOGIN_TIMEOUT_MS } from './transactions'
 import { createStaticCredentialProvider } from './providers/static-credential'
 import { createBasicCredentialProvider } from './providers/basic-credential'
 import { createAdfsWiaProvider } from './providers/corp-adfs-wia'
 import { createCredentialVault } from '../../infra/auth/credential-vault'
 import type { SecretStorePort } from '../../infra/config/secret-facade'
 import type { AuthPlatformState, AuthStepInfo, AuthTarget } from '../../../shared/ipc'
-import type { AuthProviderV1, BrowserSessionCapability } from '../../contracts/auth-plugin'
+import type {
+  AuthProviderV1,
+  AuthStep,
+  BrowserSessionCapability
+} from '../../contracts/auth-plugin'
 
 const ORIGIN = 'https://wiki.corp.invalid'
 const APP: AuthTarget = { kind: 'application', applicationId: 'orca' }
@@ -27,6 +32,9 @@ function fakeStore(): SecretStorePort & { raw: Map<string, string> } {
   }
 }
 
+// PAT 와 ADFS 는 **서로 다른 패키지**다. 0172 부터 한 패키지가 선언한 application provider 들은
+// 하나의 로그인 체인이므로, "둘 중 아무거나로 로그인한다" 를 표현하려면 패키지를 나눠야 한다.
+// (체인 자체는 아래 `chainHarness` 가 하나의 패키지로 검증한다.)
 const MANIFEST = {
   schemaVersion: 1,
   id: 'corp',
@@ -40,7 +48,17 @@ const MANIFEST = {
         targets: ['application', 'connector'],
         mechanisms: ['personal_access_token'],
         capabilities: ['logout']
-      },
+      }
+    ]
+  }
+}
+
+const ADFS_MANIFEST = {
+  schemaVersion: 1,
+  id: 'corp-adfs',
+  version: '1.0.0',
+  contributes: {
+    authProviders: [
       {
         id: 'adfs',
         apiVersion: 1,
@@ -86,13 +104,14 @@ function harness(
     ...(patLogout !== undefined ? { logout: patLogout } : {})
   }
 
-  const errors = registry.register({
-    manifest: MANIFEST,
+  const errors = registry.register({ manifest: MANIFEST, providers: [pat] })
+  expect(errors).toEqual([])
+  const adfsErrors = registry.register({
+    manifest: ADFS_MANIFEST,
     providers: [
-      pat,
       createAdfsWiaProvider({
         id: 'adfs',
-        pluginId: 'corp',
+        pluginId: 'corp-adfs',
         label: 'ADFS',
         sessionGroup: 'corp-adfs',
         loginUrl: `${ORIGIN}/login`,
@@ -102,7 +121,7 @@ function harness(
       })
     ]
   })
-  expect(errors).toEqual([])
+  expect(adfsErrors).toEqual([])
 
   const states: AuthPlatformState[] = []
   const deps: ConstructorParameters<typeof AuthBroker>[0] & {
@@ -1105,5 +1124,356 @@ describe('AuthBroker cascade logout linearization', () => {
 
     expect(broker.listBindings()).toEqual([])
     expect([...store.raw.values()]).not.toContain('late-secret')
+  })
+})
+
+// ══════════════════════════════════════════════════════════════════════════════
+// 0172 — 한 패키지의 application provider 다수 = 하나의 로그인 체인
+// ══════════════════════════════════════════════════════════════════════════════
+
+const CHAIN_PLUGIN = 'chain'
+
+// manifest 선언은 구현 descriptor 에서 **파생**한다 — 손으로 두 벌 적으면 registry 의 전 필드
+// 대조에서 갈리고 패키지가 통째로 거부된다(0164 D4).
+function declarationOf(provider: AuthProviderV1): Record<string, unknown> {
+  const d = provider.descriptor
+  return {
+    id: d.id,
+    apiVersion: d.apiVersion,
+    label: d.label,
+    targets: [...d.targets],
+    mechanisms: [...d.mechanisms],
+    capabilities: [...d.capabilities],
+    ...(d.sessionGroup !== undefined ? { sessionGroup: d.sessionGroup } : {}),
+    ...(d.allowedOrigins.length > 0 ? { allowedOrigins: [...d.allowedOrigins] } : {})
+  }
+}
+
+interface ChainHarness {
+  broker: AuthBroker
+  store: ReturnType<typeof fakeStore>
+  states: AuthPlatformState[]
+  sessions: { cleared: Array<{ handleId: string; scope: string }> }
+}
+
+function chainHarness(providers: readonly AuthProviderV1[]): ChainHarness {
+  const store = fakeStore()
+  const registry = new AuthRegistry()
+  const cleared: Array<{ handleId: string; scope: string }> = []
+
+  const errors = registry.register({
+    manifest: {
+      schemaVersion: 1,
+      id: CHAIN_PLUGIN,
+      version: '1.0.0',
+      contributes: { authProviders: providers.map(declarationOf) }
+    },
+    providers
+  })
+  expect(errors).toEqual([])
+
+  const states: AuthPlatformState[] = []
+  const broker = new AuthBroker({
+    registry,
+    vaultFor: (prefix) => createCredentialVault(store, prefix),
+    browserSessions: {
+      acquire: async (group) => `handle:${group}`,
+      openLoginWindow: async () => ({ finalUrl: `${ORIGIN}/home` }),
+      probe: async () => ({ ok: true, status: 200, finalUrl: `${ORIGIN}/me` }),
+      clear: async (handleId, opts) => void cleared.push({ handleId, scope: opts.scope })
+    },
+    exec: async () => ({ code: 0, stdout: '', stderr: '' }),
+    broadcast: (s) => states.push(s)
+  })
+  return { broker, store, states, sessions: { cleared } }
+}
+
+// collect → continue 로 끝나는 단순 멤버. logout 호출을 기록한다.
+function credentialMember(
+  id: string,
+  logoutCalls: string[],
+  opts: { failContinue?: boolean; refreshReauth?: boolean } = {}
+): AuthProviderV1 {
+  const base = createStaticCredentialProvider({
+    id,
+    pluginId: CHAIN_PLUGIN,
+    label: id.toUpperCase(),
+    mechanism: 'personal_access_token',
+    targets: ['application']
+  })
+  return {
+    ...base,
+    ...(opts.failContinue === true
+      ? {
+          continue: async (): Promise<AuthStep> => ({
+            kind: 'failed',
+            reason: 'invalid_credentials',
+            message: '자격증명이 거부되었습니다'
+          })
+        }
+      : {}),
+    ...(opts.refreshReauth === true
+      ? { refresh: async () => ({ kind: 'reauth_required' as const, message: '세션 만료' }) }
+      : {}),
+    logout: async (ctx, ref) => {
+      logoutCalls.push(id)
+      return base.logout(ctx, ref)
+    }
+  }
+}
+
+// begin() 안에서 끝나는 브라우저 멤버(ADFS/WIA).
+function browserMember(id: string, logoutCalls: string[]): AuthProviderV1 {
+  const base = createAdfsWiaProvider({
+    id,
+    pluginId: CHAIN_PLUGIN,
+    label: id.toUpperCase(),
+    sessionGroup: 'chain-adfs',
+    loginUrl: `${ORIGIN}/login`,
+    doneUrlPrefix: `${ORIGIN}/home`,
+    authenticationProbeUrl: `${ORIGIN}/me`,
+    allowedOrigins: [ORIGIN]
+  })
+  return {
+    ...base,
+    logout: async (ctx, ref) => {
+      logoutCalls.push(id)
+      return base.logout(ctx, ref)
+    }
+  }
+}
+
+async function submit(
+  broker: AuthBroker,
+  step: AuthStepInfo,
+  value: string
+): Promise<AuthStepInfo> {
+  if (step.kind !== 'collect') throw new Error(`collect 가 아니다: ${step.kind}`)
+  return broker.continue(step.transactionId, { credential: value })
+}
+
+describe('AuthBroker — 로그인 체인 (0172)', () => {
+  it('체인 중간 done 은 노출되지 않고 다음 멤버의 step 이 온다', async () => {
+    const logoutCalls: string[] = []
+    const { broker } = chainHarness([
+      credentialMember('one', logoutCalls),
+      credentialMember('two', logoutCalls)
+    ])
+
+    const first = await broker.begin('one', APP)
+    expect(first.kind).toBe('collect')
+
+    const afterFirst = await submit(broker, first, 'secret-1')
+    // 멤버1 이 done 을 냈지만 renderer 는 멤버2 의 입력 단계를 받는다.
+    expect(afterFirst.kind).toBe('collect')
+    // 아직 인증이 아니다 — 보류 중이다.
+    expect(broker.status().authenticated).toBe(false)
+    expect(broker.listBindings()).toHaveLength(0)
+  })
+
+  it('체인 진행 정보를 step 에 싣는다', async () => {
+    const logoutCalls: string[] = []
+    const { broker } = chainHarness([
+      credentialMember('one', logoutCalls),
+      credentialMember('two', logoutCalls)
+    ])
+
+    const first = await broker.begin('one', APP)
+    expect(first.kind === 'collect' && first.chain).toEqual({ index: 1, total: 2, label: 'ONE' })
+
+    const second = await submit(broker, first, 'secret-1')
+    expect(second.kind === 'collect' && second.chain).toEqual({ index: 2, total: 2, label: 'TWO' })
+  })
+
+  it('단일 provider 로그인의 step 에는 chain 이 없다', async () => {
+    const logoutCalls: string[] = []
+    const { broker } = chainHarness([credentialMember('solo', logoutCalls)])
+
+    const step = await broker.begin('solo', APP)
+    expect(step.kind).toBe('collect')
+    expect(step.kind === 'collect' ? step.chain : 'missing').toBeUndefined()
+
+    // 그리고 기존과 같은 결과 — binding 1개와 done.
+    const done = await submit(broker, step, 'secret')
+    expect(done.kind).toBe('done')
+    expect(broker.listBindings()).toHaveLength(1)
+    expect(broker.status().authenticated).toBe(true)
+  })
+
+  it('체인 전체 성공이면 binding 2개(root+child)와 authenticated 다', async () => {
+    const logoutCalls: string[] = []
+    const { broker } = chainHarness([
+      credentialMember('one', logoutCalls),
+      credentialMember('two', logoutCalls)
+    ])
+
+    const first = await broker.begin('one', APP)
+    const second = await submit(broker, first, 'secret-1')
+    const done = await submit(broker, second, 'secret-2')
+
+    expect(done.kind).toBe('done')
+    const bindings = broker.listBindings()
+    expect(bindings.map((b) => b.providerId)).toEqual(['one', 'two'])
+    expect(bindings[0].parentBindingId).toBeUndefined()
+    expect(bindings[1].parentBindingId).toBe(bindings[0].id)
+    expect(done.kind === 'done' && done.binding.id).toBe(bindings[0].id)
+    expect(broker.status().authenticated).toBe(true)
+    expect(logoutCalls).toEqual([])
+  })
+
+  it('멤버 하나가 실패하면 로그인 전체가 실패하고 보류분이 정리된다', async () => {
+    const logoutCalls: string[] = []
+    const { broker, store } = chainHarness([
+      credentialMember('one', logoutCalls),
+      credentialMember('two', logoutCalls, { failContinue: true })
+    ])
+
+    const first = await broker.begin('one', APP)
+    const second = await submit(broker, first, 'secret-1')
+    const failed = await submit(broker, second, 'secret-2')
+
+    expect(failed.kind).toBe('failed')
+    expect(broker.listBindings()).toHaveLength(0)
+    expect(broker.status().authenticated).toBe(false)
+    // 성공했던 멤버1 에게 정리 기회를 준다.
+    expect(logoutCalls).toEqual(['one'])
+    // 그리고 보류 secret 이 남지 않는다.
+    expect(store.raw.size).toBe(0)
+  })
+
+  it('브라우저 멤버가 성공한 뒤 실패하면 세션 그룹까지 정리한다', async () => {
+    const logoutCalls: string[] = []
+    const { broker, sessions, store } = chainHarness([
+      browserMember('adfs-first', logoutCalls),
+      credentialMember('two', logoutCalls, { failContinue: true })
+    ])
+
+    // 브라우저 멤버는 begin 안에서 끝나므로 곧바로 멤버2 의 입력 단계가 온다.
+    const second = await broker.begin('adfs-first', APP)
+    expect(second.kind).toBe('collect')
+    const failed = await submit(broker, second, 'secret-2')
+
+    expect(failed.kind).toBe('failed')
+    expect(logoutCalls).toEqual(['adfs-first'])
+    // application 로그인의 롤백이므로 origin 이 아니라 session group 전체를 지운다.
+    expect(sessions.cleared).toEqual([{ handleId: 'handle:chain-adfs', scope: 'group' }])
+    expect(store.raw.size).toBe(0)
+    expect(broker.status().authenticated).toBe(false)
+  })
+
+  it('타임아웃이 보류분을 정리한다', async () => {
+    vi.useFakeTimers()
+    try {
+      const logoutCalls: string[] = []
+      const { broker, store } = chainHarness([
+        credentialMember('one', logoutCalls),
+        credentialMember('two', logoutCalls)
+      ])
+
+      const first = await broker.begin('one', APP)
+      await submit(broker, first, 'secret-1')
+      // 멤버2 의 입력을 기다리는 동안 만료된다.
+      await vi.advanceTimersByTimeAsync(DEFAULT_LOGIN_TIMEOUT_MS + 1)
+
+      expect(logoutCalls).toEqual(['one'])
+      expect(store.raw.size).toBe(0)
+      expect(broker.status().authenticated).toBe(false)
+      expect(broker.listBindings()).toHaveLength(0)
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
+  it('재로그인은 이전 체인을 통째로 축출하고 그 secret 도 지운다', async () => {
+    const logoutCalls: string[] = []
+    const { broker, store } = chainHarness([
+      credentialMember('one', logoutCalls),
+      credentialMember('two', logoutCalls)
+    ])
+
+    const first = await broker.begin('one', APP)
+    const second = await submit(broker, first, 'secret-1')
+    await submit(broker, second, 'secret-2')
+    const firstRound = broker.listBindings().map((b) => b.id)
+    expect([...store.raw.values()]).toEqual(expect.arrayContaining(['secret-1', 'secret-2']))
+
+    const again = await broker.begin('one', APP)
+    const againSecond = await submit(broker, again, 'secret-3')
+    await submit(broker, againSecond, 'secret-4')
+
+    const secondRound = broker.listBindings()
+    expect(secondRound).toHaveLength(2)
+    expect(secondRound.map((b) => b.id)).not.toEqual(expect.arrayContaining(firstRound))
+    // 옛 로그인의 값이 vault 에 남지 않는다.
+    const values = [...store.raw.values()]
+    expect(values).toEqual(expect.arrayContaining(['secret-3', 'secret-4']))
+    expect(values).not.toContain('secret-1')
+    expect(values).not.toContain('secret-2')
+    expect(broker.status().authenticated).toBe(true)
+  })
+
+  it('멤버 하나가 만료되면 인증이 풀린다', async () => {
+    const logoutCalls: string[] = []
+    const { broker } = chainHarness([
+      credentialMember('one', logoutCalls),
+      credentialMember('two', logoutCalls, { refreshReauth: true })
+    ])
+
+    const first = await broker.begin('one', APP)
+    const second = await submit(broker, first, 'secret-1')
+    await submit(broker, second, 'secret-2')
+    expect(broker.status().authenticated).toBe(true)
+
+    // 두 번째 멤버만 만료된다 — root 는 여전히 valid 지만 체인은 전부 유효해야 인증이다.
+    const child = broker.listBindings()[1]
+    const outcome = await broker.refreshBinding(child.id)
+    expect(outcome.kind).toBe('reauth_required')
+    expect(broker.listBindings()[0].status).toBe('valid')
+    expect(broker.status().authenticated).toBe(false)
+  })
+
+  it('connector target 은 체인을 타지 않는다', async () => {
+    const logoutCalls: string[] = []
+    // 같은 패키지의 provider 2종이지만 connector 연결은 지정한 하나만 실행한다.
+    const both = createStaticCredentialProvider({
+      id: 'both',
+      pluginId: CHAIN_PLUGIN,
+      label: 'BOTH',
+      mechanism: 'personal_access_token',
+      targets: ['application', 'connector']
+    })
+    const { broker } = chainHarness([
+      { ...both, logout: async (ctx, ref) => both.logout(ctx, ref) },
+      credentialMember('two', logoutCalls)
+    ])
+
+    const step = await broker.begin('both', WIKI)
+    expect(step.kind).toBe('collect')
+    expect(step.kind === 'collect' ? step.chain : 'missing').toBeUndefined()
+
+    const done = await submit(broker, step, 'connector-secret')
+    expect(done.kind).toBe('done')
+    expect(broker.listBindings()).toHaveLength(1)
+    expect(broker.listBindings()[0].providerId).toBe('both')
+  })
+
+  it('체인 로그아웃은 cascade 로 전 멤버를 끊는다', async () => {
+    const logoutCalls: string[] = []
+    const { broker, store } = chainHarness([
+      credentialMember('one', logoutCalls),
+      credentialMember('two', logoutCalls)
+    ])
+
+    const first = await broker.begin('one', APP)
+    const second = await submit(broker, first, 'secret-1')
+    const done = await submit(broker, second, 'secret-2')
+    if (done.kind !== 'done') throw new Error('unreachable')
+
+    const outcome = await broker.logout(done.binding.id, true)
+    expect(outcome.kind).toBe('logged_out')
+    expect(logoutCalls.sort()).toEqual(['one', 'two'])
+    expect(broker.listBindings()).toHaveLength(0)
+    expect(store.raw.size).toBe(0)
+    expect(broker.status().authenticated).toBe(false)
   })
 })

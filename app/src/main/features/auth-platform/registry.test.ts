@@ -563,3 +563,90 @@ describe('AuthRegistry 등록 위생', () => {
     expect(registry.listRuntimeToolsForConnector('missing')).toEqual([])
   })
 })
+
+// 0172 — 한 패키지가 선언한 application provider 들이 하나의 로그인 체인이다.
+describe('AuthRegistry — 로그인 체인 해석', () => {
+  function appManifest(
+    id: string,
+    entries: Array<{ id: string; targets: AuthTargetKind[] }>
+  ): unknown {
+    return {
+      schemaVersion: 1,
+      id,
+      version: '1.0.0',
+      contributes: {
+        authProviders: entries.map((entry) => ({
+          id: entry.id,
+          apiVersion: 1,
+          label: entry.id,
+          targets: entry.targets,
+          mechanisms: ['api_key']
+        }))
+      }
+    }
+  }
+
+  it('loginChainFor 는 manifest 선언 순서로 체인을 만든다', () => {
+    const registry = new AuthRegistry()
+    // 등록 순서를 선언 순서와 **반대로** 준다 — 체인 순서가 Map 삽입 순서가 아니라 manifest 를
+    // 따르는지 확인하기 위해서다.
+    expect(
+      registry.register({
+        manifest: appManifest('pkg', [
+          { id: 'first', targets: ['application'] },
+          { id: 'second', targets: ['application'] }
+        ]),
+        providers: [
+          provider('second', { targets: ['application'] }),
+          provider('first', { targets: ['application'] })
+        ]
+      })
+    ).toEqual([])
+
+    expect(registry.loginChainFor('first').map((p) => p.descriptor.id)).toEqual(['first', 'second'])
+    // 중간 멤버로 시작해도 같은 체인을 준다 — 로그인은 헤드부터 다시 돈다.
+    expect(registry.loginChainFor('second').map((p) => p.descriptor.id)).toEqual([
+      'first',
+      'second'
+    ])
+  })
+
+  it('connector 전용 provider 는 체인 멤버가 아니다', () => {
+    const registry = new AuthRegistry()
+    expect(
+      registry.register({
+        manifest: appManifest('pkg', [
+          { id: 'conn', targets: ['connector'] },
+          { id: 'app', targets: ['application'] }
+        ]),
+        providers: [
+          provider('conn', { targets: ['connector'] }),
+          provider('app', { targets: ['application'] })
+        ]
+      })
+    ).toEqual([])
+
+    expect(registry.loginChainFor('app').map((p) => p.descriptor.id)).toEqual(['app'])
+    // connector 전용 provider 로 물으면 자기 자신만 — 연결은 방식 하나를 고르는 흐름이다.
+    expect(registry.loginChainFor('conn').map((p) => p.descriptor.id)).toEqual(['conn'])
+  })
+
+  it('다른 패키지의 application provider 는 체인에 섞이지 않는다', () => {
+    const registry = new AuthRegistry()
+    registry.register({
+      manifest: appManifest('pkg-a', [{ id: 'a1', targets: ['application'] }]),
+      providers: [provider('a1', { pluginId: 'pkg-a', targets: ['application'] })]
+    })
+    registry.register({
+      manifest: appManifest('pkg-b', [{ id: 'b1', targets: ['application'] }]),
+      providers: [provider('b1', { pluginId: 'pkg-b', targets: ['application'] })]
+    })
+
+    expect(registry.loginChainFor('a1').map((p) => p.descriptor.id)).toEqual(['a1'])
+    expect(registry.loginChainFor('b1').map((p) => p.descriptor.id)).toEqual(['b1'])
+  })
+
+  it('알 수 없는 provider 의 체인은 비어 있다', () => {
+    expect(new AuthRegistry().loginChainFor('nope')).toEqual([])
+  })
+})

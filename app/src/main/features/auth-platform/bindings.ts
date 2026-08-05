@@ -76,31 +76,68 @@ export class BindingStore {
   }
 
   create(input: CreateBindingInput): AuthBindingInfo {
-    // 복원된 레코드와 겹치지 않을 때까지 뽑는다. 겹치면 새 binding 이 남의 vault 네임스페이스를
-    // 물려받는다 — 랜덤 접미사로 사실상 일어나지 않지만, 대가가 자격증명 오배정이라 막아 둔다.
+    return this.createMany([input]).created[0]
+  }
+
+  // 복원된 레코드와 겹치지 않을 때까지 뽑는다 (0170). 겹치면 새 binding 이 남의 vault
+  // 네임스페이스를 물려받는다 — 랜덤 접미사로 사실상 일어나지 않지만, 대가가 자격증명
+  // 오배정이라 막아 둔다. **체인은 한 번에 여러 개를 만드므로** 같은 배치 안의 형제와도
+  // 겹치면 안 된다 — `bindings` 에 즉시 넣으며 뽑기 때문에 그 검사가 자연히 성립한다.
+  private mintId(): string {
     let id = `bind_${++this.seq}_${Math.random().toString(36).slice(2, 10)}`
     while (this.bindings.has(id))
       id = `bind_${++this.seq}_${Math.random().toString(36).slice(2, 10)}`
-    const binding: AuthBindingInfo = {
-      id,
-      pluginId: input.pluginId,
-      providerId: input.providerId,
-      target: input.target,
-      mechanism: input.mechanism,
-      artifact: input.artifact,
-      status: 'valid',
-      createdAt: this.clock(),
-      ...(input.principal !== undefined ? { principal: input.principal } : {}),
-      ...(input.parentBindingId !== undefined ? { parentBindingId: input.parentBindingId } : {}),
-      ...(input.expiresAt !== undefined ? { expiresAt: input.expiresAt } : {})
+    return id
+  }
+
+  // 여러 binding 을 **한 번에** 만든다 (0172 — 로그인 체인의 원자 커밋).
+  //
+  // 0157 은 "한 대상에 두 인증이 공존하면 어느 것이 쓰이는지 모호하다" 는 이유로 같은 target 의
+  // 기존 binding 을 교체했다. 체인은 그 전제를 부분적으로 바꾼다 — 같은 target 에 멤버 수만큼
+  // binding 이 생기되, **모호성은 root/child 로 없앤다**: 첫 입력이 root 이고 나머지는 root 의
+  // child(`parentBindingId`)다. "무엇이 쓰이나" 의 답은 여전히 하나(root)이고, logout cascade 는
+  // 이미 있는 `dependentsOf` 가 체인 전체를 잡는다.
+  //
+  // 축출은 같은 target 의 **전부**다. 하나만 지우면 멤버 3개짜리 로그인을 2개짜리로 갈아탈 때
+  // 옛 멤버가 남아 `authenticated` 판정에 섞인다. 축출분을 돌려주므로 호출자(broker)가 그
+  // binding 네임스페이스의 vault 를 지울 수 있다 — 0157 은 이 정리를 하지 않아 교체 때마다
+  // secret 이 남았다.
+  //
+  // 저장은 **배치 끝에 한 번**이다(0170 의 flush 규약). 멤버마다 부르면 체인 도중 상태가
+  // 파일에 남아, 마지막 멤버에서 실패한 로그인이 반쯤 저장된 채 다음 부팅으로 넘어간다.
+  createMany(inputs: readonly CreateBindingInput[]): {
+    created: AuthBindingInfo[]
+    evicted: AuthBindingInfo[]
+  } {
+    if (inputs.length === 0) return { created: [], evicted: [] }
+
+    const evicted = this.list().filter((binding) => sameTarget(binding.target, inputs[0].target))
+    for (const victim of evicted) this.bindings.delete(victim.id)
+
+    const created: AuthBindingInfo[] = []
+    for (const input of inputs) {
+      const id = this.mintId()
+      // 체인 멤버는 root 에 종속된다. 명시 parent 가 있으면 그것을 존중한다(connector binding 이
+      // 앱 binding 을 부모로 지정하는 기존 경로).
+      const parentBindingId = input.parentBindingId ?? created[0]?.id
+      const binding: AuthBindingInfo = {
+        id,
+        pluginId: input.pluginId,
+        providerId: input.providerId,
+        target: input.target,
+        mechanism: input.mechanism,
+        artifact: input.artifact,
+        status: 'valid',
+        createdAt: this.clock(),
+        ...(input.principal !== undefined ? { principal: input.principal } : {}),
+        ...(parentBindingId !== undefined ? { parentBindingId } : {}),
+        ...(input.expiresAt !== undefined ? { expiresAt: input.expiresAt } : {})
+      }
+      this.bindings.set(id, binding)
+      created.push(binding)
     }
-    // 같은 target 에 대한 기존 binding 은 교체한다 — 한 대상에 두 인증이 공존하면 어느 것이
-    // 쓰이는지 모호해진다.
-    const existing = this.findByTarget(input.target)
-    if (existing) this.bindings.delete(existing.id)
-    this.bindings.set(id, binding)
     this.flush()
-    return binding
+    return { created, evicted }
   }
 
   get(id: string): AuthBindingInfo | undefined {
@@ -115,9 +152,16 @@ export class BindingStore {
     return this.list().find((b) => sameTarget(b.target, target))
   }
 
+  // 앱 로그인 체인의 전 멤버. 게이트는 "전부 valid" 를 요구한다 (0172).
+  applicationBindings(): AuthBindingInfo[] {
+    return this.list().filter((b) => b.target.kind === 'application')
+  }
+
   // application target 의 root binding — 게이트 판정과 cascade 의 기준점.
+  // 체인이면 root(부모 없는 것)를 돌려준다 — child 를 돌려주면 신원·cascade 기준이 뒤집힌다.
   findApplicationBinding(): AuthBindingInfo | undefined {
-    return this.list().find((b) => b.target.kind === 'application')
+    const application = this.applicationBindings()
+    return application.find((b) => b.parentBindingId === undefined) ?? application[0]
   }
 
   setStatus(id: string, status: AuthBindingStatus): AuthBindingInfo | undefined {

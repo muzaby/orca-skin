@@ -728,6 +728,7 @@ export type {
   AuthBindingInfo,
   AuthProviderInfo,
   AuthFailureReason,
+  AuthChainProgress,
   AuthStepInfo,
   AuthRefreshOutcome,
   AuthLogoutOutcome,

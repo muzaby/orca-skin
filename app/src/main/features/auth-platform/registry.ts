@@ -297,6 +297,33 @@ export class AuthRegistry {
     return this.listProviders().filter((p) => p.descriptor.targets.includes(kind))
   }
 
+  // 앱 로그인 체인 (0172) — **같은 패키지가 선언한 application provider 들이 하나의 로그인**이다.
+  //
+  // 순서의 진실원은 manifest `contributes.authProviders` 배열이다. 등록 시 선언과 구현을 전 필드
+  // 대조하므로(위 `sameProviderDescriptor`) 선언 순서를 쓰면 구현과 갈릴 수 없다 — provider Map 의
+  // 삽입 순서를 쓰면 같은 패키지의 기여가 여러 경로로 들어올 때 순서가 흔들린다.
+  //
+  // `application` 을 지원하지 않는 provider(=서비스 연결 전용)는 체인 멤버가 아니다. connector
+  // 연결은 사용자가 방식 하나를 **고르는** 흐름이라 순차 강제가 의미를 뒤집는다.
+  loginChainFor(providerId: string): AuthProviderV1[] {
+    const head = this.providers.get(providerId)
+    if (!head) return []
+    if (!head.descriptor.targets.includes('application')) return [head]
+
+    const manifest = this.manifests.get(head.descriptor.pluginId)
+    if (!manifest) return [head]
+
+    const chain = manifest.contributes.authProviders
+      .map((declared) => this.providers.get(declared.id))
+      // 선언됐지만 미등록인 id 는 건너뛴다. 등록이 all-or-nothing 이라 실제로는 발생하지 않지만,
+      // 없는 멤버를 체인에 넣으면 로그인이 영원히 완결되지 않는다.
+      .filter(
+        (provider): provider is AuthProviderV1 =>
+          provider !== undefined && provider.descriptor.targets.includes('application')
+      )
+    return chain.length > 0 ? chain : [head]
+  }
+
   registrationErrors(): RegistrationError[] {
     return [...this.errors]
   }
