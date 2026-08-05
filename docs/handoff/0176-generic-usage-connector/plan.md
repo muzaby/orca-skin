@@ -467,7 +467,7 @@ const externalUsage = new ExternalUsageService({ db, secretFor, providers, fetch
 |---|---|
 | 변경 파일 | 신규 12(계약 1 · usage-feed 1+테스트 1 · modules/usage 6+테스트 4 · app/usage-source 1+테스트 1 · 문서 2 · `_example` 1), 개정 8(`usage-report`·`external-usage-service`(+테스트)·`plugin-host`(+테스트)·`modules/index`·`bootstrap`·`secret-facade`·AGENTS 3종) |
 | 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` · `node --test "scripts/*.test.mjs"` |
-| 게이트 결과 | lint **0 error**(warning 1 = 0102 베이스라인) · typecheck **3/3** · vitest **2043/2043 통과**(215 파일 중 214 로드) · scripts **28/28** |
+| 게이트 결과 | lint **0 error**(warning 1 = 0102 베이스라인) · typecheck **3/3** · vitest **2043/2043 통과**(+43, 215 파일 중 214 로드 — 검증 턴에서 테스트 3건이 더해져 최종 2046) · scripts **28/28** |
 | 환경 제약 | `src/main/app/chat-turn.continuity.test.ts` **1파일이 로드 실패** — `Electron failed to install correctly`(egress 차단으로 electron 바이너리 미설치). 코드 무관·변경 전과 동일한 베이스라인이며, DB 스위트는 `npm rebuild better-sqlite3`(Node ABI) 후 전부 green. `app/AGENTS.md` §제약 환경 게이트 가이드의 분리 보고 규칙을 따른다. |
 | 블로커 / 역질문 | 없음. 사용자 결정 대기 2건(레거시 `${SECRET:}` 제거 시점 · usage connector UI 템플릿 개방) — 둘 다 현행 유지로 진행. |
 | 대상 커밋 | (아래 구현 커밋) |
