@@ -1,7 +1,7 @@
 # Frontend Architecture — Overview (범위·스택·구현상태)
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-07-10 (handoff 0094 — 0078~0093 동기화: Zustand 완료 표기·nav 4-항목·사용량 한도/업데이트 UX 행 추가)
+> 최종 업데이트: 2026-08-05 (handoff 0177 — 로그인 게이트 행을 인증 플랫폼(0157)으로 갱신 · 인용 경로 정정. 직전: 2026-07-10 (handoff 0094 — 0078~0093 동기화: Zustand 완료 표기·nav 4-항목·사용량 한도/업데이트 UX 행 추가))
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [layers.md](./layers.md), [dom-architecture.md](./dom-architecture.md), [state.md](./state.md), [rendering.md](./rendering.md), [ux-domains.md](./ux-domains.md), [terms.md](./terms.md) (사람용 용어 해설)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 
@@ -89,7 +89,7 @@
 | **사용량 한도 UI (도넛 팝오버·설정 탭·provider별 한도)** | Phase 4 | ✅ 완료 (0079~0082) | `UsagePanel`(rendering.md §1.9) + `features/settings/`(Usage/ProviderUsage 탭) + `features/cost/` provider 요약. 파생 SSOT `shared/usage/limits.ts` |
 | **인앱 업데이트 UX** | Phase 4 | ✅ 완료 (0085/0086) | `features/update/` — 헤더 조건부 업데이트 버튼+파란 뱃지, `UpdateDialog`(사용자 게이트), dev 더미 토글(DebugPanel) |
 | **UI polish — 버전 모달·인라인 rename·삭제 확인** | Phase 4 | ✅ 완료 (0083) | `HeaderVersionModal`(Header) + `ChatTitleBar`(폴더 아이콘·`RenameInput`) + `ConfirmDialogHost`/`confirmDialogStore` |
-| **로그인 게이트 (dev 전용)** | Phase 4 | ✅ 완료 (0072/0089) | `RootGate`+`LoginFrame`+`features/login`(SSO 스텁·`ssoBypass` 토글). 배포 빌드는 게이트 스킵(0089) |
+| **로그인 게이트** | Phase 4 | ✅ 완료 (0072/0089 → 0157 인증 플랫폼 승계) | `app/RootGate`+`app/LoginFrame`+`features/auth`(구 `features/login`). 디버그 토글은 `authBypass`(구 `ssoBypass`). 게이트 발동 조건 = `application` 대상 auth provider 등록 여부 — 미등록(기본 배포)이면 통과 |
 
 > 이 표는 코드 변경 시 함께 갱신한다.
 
@@ -98,9 +98,9 @@
 
 ## 4. 참고
 
-- IPC 채널 정의: [IPC_CONTRACT.md](./IPC_CONTRACT.md)
-- 용어 정의: [GLOSSARY.md](./GLOSSARY.md)
+- IPC 채널 정의: [IPC_CONTRACT.md](../../IPC_CONTRACT.md)
+- 용어 정의: [GLOSSARY.md](../../GLOSSARY.md)
 - 백엔드 측 구조: [../backend/overview.md](../backend/overview.md)
-- 데이터 모델 SSOT: [TRD.md](./TRD.md) §6
-- 로드맵 / Phase: [PRD.md](./PRD.md) §8 / §9 Future Scope
-- 디자인 토큰 정책: [PRD.md](./PRD.md) §10 + `app/AGENTS.md` 스타일링 정책 절
+- 데이터 모델 SSOT: [TRD.md](../../TRD.md) §6
+- 로드맵 / Phase: [PRD.md](../../PRD.md) §8 / §9 Future Scope
+- 디자인 토큰 정책: [PRD.md](../../PRD.md) §10 + `app/AGENTS.md` 스타일링 정책 절

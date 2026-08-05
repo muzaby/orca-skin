@@ -1,7 +1,7 @@
 # Frontend Architecture — UX & Domains (UX 패턴·ApprovalCard·도메인·IPC 호출)
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-07-10 (handoff 0094 — 도메인 카탈로그 개명·신규 UX(0083/0085)·채널 총계 동기화)
+> 최종 업데이트: 2026-08-05 (handoff 0177 — 재서술하던 채널 총계를 삭제하고 SSOT 링크만 남김)
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [rendering.md](./rendering.md), [../backend/provider-runtime.md](../backend/provider-runtime.md), [../../IPC_CONTRACT.md](../../IPC_CONTRACT.md)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 
@@ -115,7 +115,7 @@
 
 - 직접 `window.orca.*` 호출은 **금지**. 모두 `shared/api/ipc.ts` 의 타입드 래퍼 (`chatApi`/`backendApi`/`installApi`/`settingsApi`/`skillApi`/`fileApi`/`sessionApi`/`projectApi`/`windowApi`) 를 경유한다.
 - 래퍼 호출은 `features/<domain>/hooks/use*.ts` 안에 캡슐화. 컴포넌트가 직접 호출 금지.
-- 모든 IPC 호출은 타입이 있어야 한다 (채널 정의는 [IPC_CONTRACT.md](./IPC_CONTRACT.md) 참조).
+- 모든 IPC 호출은 타입이 있어야 한다 (채널 정의는 [IPC_CONTRACT.md](../../IPC_CONTRACT.md) 참조).
 - 에러는 throw 로 전달 (Main 측에서 직렬화된 `{ code, message, recoverable }` 객체).
 
 ### 3.2 스트리밍 응답 수신
@@ -149,7 +149,7 @@ Main 이 `AbortSignal` 을 SDK `query()` 에 전파 → 현재 inflight 만 중�
 
 ### 3.4 채널 전체 목록
 
-[IPC_CONTRACT.md](../../IPC_CONTRACT.md) §2 참조 — **정확 수치는 IPC_CONTRACT 가 SSOT** (현재 총 65 채널 — update 6·boot 2·engine 5(`importUserSettings` 포함, 0090)·cost 4 등). 본 문서는 총계를 재서술하지 않는다(드리프트 방지).
+[IPC_CONTRACT.md](../../IPC_CONTRACT.md) §2 참조 — **채널 총계·도메인 분포는 IPC_CONTRACT 가 SSOT 이고 본 문서는 수치를 두지 않는다.** (이전 판은 "재서술하지 않는다" 고 적어놓고 총계를 적어 낡았다 — 0177 에서 삭제.)
 
 ---
 

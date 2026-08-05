@@ -10,7 +10,8 @@
 | `docs/` | PRD, TRD, 아키텍처·전략 문서, 페이즈 이력 — *무엇을* / *어떻게* 가 산다 | `docs/AGENTS.md` |
 | `project/` | HTML/CSS/JS 디자인 프로토타입 아카이브 — *어떻게 보여야 하는가* | `project/AGENTS.md` |
 | `app/` | Orca v1 실제 구현체 (electron-vite + React/TypeScript). 4-layer Feature 아키텍처 (`app/` · `pages/` · `features/` · `shared/`, ESLint boundaries 강제). 구현 작업 규칙은 가이드, 페이즈 이력은 `docs/PHASES.md` 참조. | `app/AGENTS.md` |
-| `app/src/main/` | Electron **main 프로세스** 레이어 가이드 — **app 컴포지션 루트 → features 수직 슬라이스 → contracts → adapters → infra → shared** DAG, 하향 의존만 + feature 교차 import 금지 (eslint-plugin-boundaries + import/no-cycle 강제, handoff 0062/0063). | `app/src/main/AGENTS.md` |
+| `app/src/main/` | Electron **main 프로세스** 레이어 가이드 — **app 컴포지션 루트 → features 수직 슬라이스(현재 11종) → contracts → adapters → infra → shared** DAG, 하향 의존만 + feature 교차 import 금지 (eslint-plugin-boundaries + import/no-cycle 강제, handoff 0062/0063). 원격 요청은 Chromium `net.fetch` 단일 스택(0173/0174). | `app/src/main/AGENTS.md` |
+| `docs/guides/` | 운영 절차서 — 릴리스(0087~0089) · 폐쇄망 확장(0130/0157) · workspace 권한 구성. *구조 서술은 `docs/arch/`, 실행 절차는 여기* | `docs/guides/AGENTS.md` |
 | `docs/handoff/` | Claude Code ↔ Codex 협업 hand-off (plan/verify 문서 + 디스패치 보드) | `docs/handoff/AGENTS.md` |
 
 ## 새 세션 진입 시 읽는 순서

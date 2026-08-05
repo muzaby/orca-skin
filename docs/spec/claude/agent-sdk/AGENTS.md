@@ -113,4 +113,4 @@
 
 ## 본 프로젝트와의 연관
 
-Orca가 Agent SDK를 직접 사용하지 않더라도 (TRD §9 참조), `app/src/main/` 의 `claude-code` 어댑터가 CLI와 상호작용하는 패턴이 SDK 메시지 모델과 유사하다. 따라서 SDK 문서는 에이전트가 프로젝트의 CLI 통신 로직을 이해할 때 참고 가치가 있다.
+**Orca 는 이 SDK 를 직접 사용한다** (2026-08-05 정정 — 이전 판의 "직접 사용하지 않더라도" 는 CLI spawn 시절 서술이고 2026-05-18 에 폐기됐다). `app/src/main/adapters/claude.ts` 의 `ClaudeAdapter` 가 `@anthropic-ai/claude-agent-sdk` 의 `query()` 를 호출하고, `claude-map.ts` 가 `SDKMessage` → `NormalizedEvent` 로 정규화한다. 버전은 lockfile 핀 고정(`package.json` `dependencies` 참조). 따라서 SDK 문서는 에이전트가 프로젝트의 CLI 통신 로직을 이해할 때 참고 가치가 있다.

@@ -1,6 +1,6 @@
 # app/ — 코딩 에이전트용 가이드
 
-이 디렉토리는 **Orca v1 의 실제 구현체** (electron-vite + React/TypeScript) 가 사는 곳이다. 현재 단계는 **Phase 3++** — 로컬 SQLite SSOT + 세션 히스토리 + DOM Architecture + 4-layer Feature 아키텍처 + MCP/Skill 통합 + provider 표준화 리팩토링(부분). **전체 페이즈 이력은 [`../docs/PHASES.md`](../docs/PHASES.md)** 로 분리했다 (이 파일은 영속 작업 지침이지 changelog 가 아니다).
+이 디렉토리는 **Orca v1 의 실제 구현체** (electron-vite + React/TypeScript) 가 사는 곳이다. 현재 단계는 **Phase 3++ / Phase 4** — 로컬 SQLite SSOT + 세션 히스토리 + DOM Architecture + 4-layer Feature 아키텍처 + MCP/Skill 통합 + provider 표준화 리팩토링(부분) + 인증 플랫폼·connector(0157~0176). **전체 페이즈 이력은 [`../docs/PHASES.md`](../docs/PHASES.md)** 로 분리했다 (이 파일은 영속 작업 지침이지 changelog 가 아니다).
 
 > **정본 우선.** 아키텍처 상세 — 모듈 트리·Provider 합성 순서·DOM 마커 체계·IPC 카탈로그·보안 근거 — 의 SSOT 는 `../docs/` 다. 본 문서는 **app 디렉토리에서 코드를 짤 때의 작업 규칙**만 담는다. 본문과 SSOT 가 어긋나면 `../docs/` 와 코드가 진실이다.
 
@@ -47,11 +47,11 @@ shared     → shared 내부만                               (순수 타입/상
 
 | 경로                          | 책임                                                                                          |
 | ----------------------------- | --------------------------------------------------------------------------------------------- |
-| `src/main/app/`               | 컴포지션 루트 — `bootstrap.ts`(부팅 배선·버스 구독 순서) · `chat-turn.ts`(턴 셋업) · `handlers/*`(도메인 IPC — `update`·`engine` 포함) · `context.ts`(RouterContext) · `boot-report.ts`(부팅 진단, 0077) · `updater.ts`(electron-updater 자동 업데이트, 0084~0086) · `builtin-resources.ts`(번들 스킬 리소스 해석, 0078) |
+| `src/main/app/`               | 컴포지션 루트 — `bootstrap.ts`(부팅 배선·버스 구독 순서) · `chat-turn.ts`(턴 셋업) + `chat-turn-continuation.ts`(자동 연속 턴, 0126) · `handlers/*`(도메인 IPC **10종** — auth·boot·engine·log·mcp·misc·plugins·project·session·update) · `context.ts`(RouterContext) · `boot-report.ts`(부팅 진단, 0077) · `updater.ts`+`updater-feed.ts`(자동 업데이트 + object storage/GHE 피드, 0084~0086·0133) · `builtin-resources.ts`(번들 스킬 리소스 해석, 0078) · `auth-restore.ts`(재시작 후 인증 복원, 0170) · `usage-source.ts`(PluginHost→`UsageSourcePort` 어댑터, 0176) |
 | `src/main/adapters/`          | claude 어댑터 — `claude.ts`(query) · `claude-map.ts`(SDK→`NormalizedEvent`) · `claude-adapt.ts`(outbound) + 포트(`types`·`turn`·`provider-config`…). mock 은 dev, opencode 는 future |
-| `src/main/features/`          | 수직 슬라이스 (11) — `chat`(턴 오케스트레이션) · `sessions`(런타임 거버넌스) · `approvals` · `usage` · `history`(persist) · `providers` · `extensions`(MCP·skill·deploy·seed) · `orchestration`(대화 연속성 fork/handoff, 순수 로직) · `scheduler`(croner 주기 실행, 0091) · `auth-platform`(인증 플랫폼 — provider registry·transaction·binding·broker, 회사 패키지는 `modules/` opt-in 레지스트리, 0157) · `connectors`(인증된 내장 도구 실행 — raw credential 미접근) |
-| `src/main/contracts/`         | 공유 타입 계약 — `turn`(`TurnContext`) · `bus-events` · `ports` · `session-state`               |
-| `src/main/infra/`             | 얇은 인프라 — `db`(better-sqlite3+WAL+마이그레이션) · `bus`(TypedBus) · `config`(orca.json·secret) · `ipc`(handle/send/dto) · `settings-store`(+`settings-migration`) · `cron`(croner 래퍼) · `errors` · `vars` |
+| `src/main/features/`          | 수직 슬라이스 (**11**) — `approvals` · `auth-platform`(인증 플랫폼 — provider registry·transaction·binding·broker, 회사 패키지는 `modules/` opt-in 레지스트리, 0157) · `chat`(턴 오케스트레이션) · `connectors`(인증된 내장 도구 실행 — raw credential 미접근, 0158~0164) · `extensions`(MCP·skill·deploy·seed) · `history`(persist) · `orchestration`(대화 연속성 fork/handoff, 순수 로직) · `providers`(정적 사용량 provider 는 `static/modules/` opt-in) · `scheduler`(croner 주기 실행, 0091) · `sessions`(런타임 거버넌스) · `usage` |
+| `src/main/contracts/`         | 공유 타입 계약 (**9**) — `turn`(`TurnContext`) · `bus-events` · `ports` · `session-state` + **동결 확장점 4종**(`auth-plugin` · `connector-plugin` · `connector-template` · `usage-report` — additive-optional-only, `../docs/guides/closed-network-extensions.md` §1) · `usage-source`(0176) |
+| `src/main/infra/`             | 얇은 인프라 — `db`(better-sqlite3+WAL+마이그레이션 16종) · `bus`(TypedBus) · `config`(orca.json·secret) · `ipc`(handle/send/dto) · `auth`(credential vault·browser session·authenticated fetch· **`net-fetch`/`net-request` = 유일한 원격 전송 스택**) · `log`(중앙 LogManager·JSONL·redact, 0123/0124) · `settings-store`(+`settings-migration`) · `cron`(croner 래퍼) · `errors` · `vars` |
 | `src/shared/{ipc,protocol}.ts`| `CHANNELS` 상수 + 순수 TS 타입 / zod 스키마 (main 전용)                                        |
 
 > 레이아웃에서 벗어나려면 사용자에게 먼저 확인하고, TRD §1.2 와 코드를 동시에 갱신한다.
@@ -74,6 +74,7 @@ new BrowserWindow({
 - **CSP** (`src/renderer/index.html`): Google Fonts 만 허용 — `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com`.
 - **외부 URL 로드 금지** — `webContents.setWindowOpenHandler` 로 차단 + OS 기본 브라우저 위임. DevTools 자동 오픈은 dev 빌드 한정.
 - 비밀은 `safeStorage` 로만 봉인한다 — MCP 인증값 + 인증 플랫폼 credential(`infra/auth/credential-vault.ts`). raw secret 이 **나가는** 예외 2곳(MCP `.mcp.json` · LLM `--settings` argv)은 `../docs/arch/backend/security.md §1.4-b` 의 경계표에 고정돼 있다 — 표 밖의 신규 노출 금지.
+- **main 에서 Node 전역 `fetch` 를 쓰지 않는다** (0173/0174). 원격 요청은 `infra/auth/net-fetch.ts` 의 `netFetch`(Electron `net.fetch`) 하나로만 나가고, 소비자는 `typeof fetch` 포트로 **주입받는다**(기본값 금지 — 기본값은 곧 조용한 Node 스택 복귀). 위반은 `infra/auth/no-node-fetch.test.ts` 가 잡는다. 근거·`redirect:'manual'` 의미차 → `../docs/arch/backend/security.md` §1.8.
 - 근거 · credential 모델 상세 → [`../docs/arch/backend/security.md`](../docs/arch/backend/security.md).
 
 ## DB · 캐시 정책 (app 고유)
@@ -96,7 +97,7 @@ new BrowserWindow({
 ## 의존성 정책
 
 - TRD §2 Stack 표 **밖**의 패키지 추가는 **사용자 승인 필수** + PR 설명에 _왜_ 명시.
-- 이미 채택 (도입 시점만 자유): React, react-markdown(+remark-gfm), shiki, electron-store, zod, zustand@5, vitest, Tailwind v4, better-sqlite3@12, react-router-dom v7, croner, electron-updater@6, diff, `@tanstack/react-virtual`@3(transcript 가상화, 0102). 템플릿 동봉(사전 승인): `@electron-toolkit/{utils,preload}`. (playwright 는 TRD 채택 목록에 있으나 아직 미설치 — 도입 시 devDependency 추가.)
+- 이미 채택 (도입 시점만 자유): React, react-markdown(+remark-gfm), shiki, electron-store, zod, zustand@5, vitest, Tailwind v4, better-sqlite3@12, react-router-dom v7, croner, electron-updater@6, diff, `@tanstack/react-virtual`@3(transcript 가상화, 0102), i18next/react-i18next(0096, devDeps), recharts(설정 사용량 차트, 0112), Confluence storage→markdown 변환 3종(`cheerio`·`turndown`·`turndown-plugin-gfm`, 0160 승인 — `features/auth-platform/modules/confluence/storage-to-markdown.ts` 전용), undici(devDeps). 템플릿 동봉(사전 승인): `@electron-toolkit/{utils,preload}`. (playwright 는 TRD 채택 목록에 있으나 아직 미설치 — 도입 시 devDependency 추가.)
 - 미정 항목 (PRD §11 / TRD §15 — 단독 결정 금지): 마크다운 라이브러리 최종 결정 · 코드 서명(현재 unsigned NSIS) · 텔레메트리 · 라이센스 · 성능 SLA · 기본 백엔드. (패키징=electron-builder NSIS·자동 업데이트=electron-updater 는 0084~0089 로 채택 완료.)
 
 ## 빌드 / 실행

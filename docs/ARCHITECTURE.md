@@ -1,7 +1,7 @@
 # Architecture — 인덱스
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-07-10 (handoff 0094 — rendering.md 행 설명 UsagePanel 반영. 2026-06-04 에 BACKEND/FRONTEND_ARCHITECTURE.md 분해 → `arch/{backend,frontend}/` + 본 인덱스 신설)
+> 최종 업데이트: 2026-08-05 (handoff 0177 — security.md·overview.md 행 설명을 0157~0176 사실로 갱신. 2026-06-04 에 BACKEND/FRONTEND_ARCHITECTURE.md 분해 → `arch/{backend,frontend}/` + 본 인덱스 신설)
 > 성격: **목차/라우터만** — 실제 내용은 `arch/*` 가 소유. 여기서는 *어디로 가야 하는지* 만 안내한다.
 > 관련 SSOT: [IPC_CONTRACT.md](./IPC_CONTRACT.md) (채널) · [GLOSSARY.md](./GLOSSARY.md) (용어) · [PRD.md](./PRD.md) · [TRD.md](./TRD.md)
 
@@ -15,12 +15,12 @@
 
 | 파일 | 내용 |
 |---|---|
-| [overview.md](./arch/backend/overview.md) | 범위·기술 스택·프로세스 구조·부트 시퀀스·구현 상태·참고 |
+| [overview.md](./arch/backend/overview.md) | 범위·기술 스택·**프로세스 구조(main 수직 슬라이스 11종 · contracts 9모듈 · infra)**·부트 시퀀스·구현 상태·참고 |
 | [adapters.md](./arch/backend/adapters.md) | SessionAdapter·ClaudeAdapter 호출·ExtensionBuilder·SDKMessage→NormalizedEvent 정규화·인증 만료·SDK 채택 범위·확장 / 파일·리소스(Skills·Artifacts·로그) / **자산 변환 매트릭스 + Hook 정규화 모델**(구 ADAPTER_DESIGN_REVIEW 흡수) |
 | [provider-runtime.md](./arch/backend/provider-runtime.md) | **범용 정규화 계층(정본 SSOT)** — NormalizedEvent·권한 정규화(PermissionBridge·ApprovalResolution·AppCommandPolicy·PermissionModeController)·SessionCapability·RevertManager·ErrorClassifier·AppMessagePart·Telemetry·AuthStore·AuditLog·ModelProviderConfig·매핑표·SDK 확정 절차 |
 | [standardization.md](./arch/backend/standardization.md) | **배포 계층 표준화(정본 SSOT — provider-runtime.md 와 *짝*)** — standards-first 원칙·표준 택소노미(AGENTS.md·MCP·SKILL.md·hook)·표준/런타임 2계층·Engine 구체클래스(rule of three)·sources/dist+ExtensionDeployer·StandardConformance·AGENTS.md 채택 |
 | [persistence.md](./arch/backend/persistence.md) | 2계층 영속성·로컬 DB·FTS5 |
-| [security.md](./arch/backend/security.md) | webPreferences·자격증명 모델(safeStorage)·MCP&Skill 통합 레이어·CSP |
+| [security.md](./arch/backend/security.md) | webPreferences·자격증명 모델(safeStorage)·**인증 플랫폼 credential 3계층(§1.4-b)**·MCP&Skill 통합 레이어·CSP·**§1.8 원격 전송 스택 단일화(Node `fetch` 금지 → Electron `net.fetch`, 0173/0174)**·**§1.9 `infra/auth/` 인벤토리** |
 | [runtime-ipc.md](./arch/backend/runtime-ipc.md) | 동시성 모델·IPC 핸들러 구조·시스템 통합 |
 | [terms.md](./arch/backend/terms.md) | **사람용 용어 해설** — 백엔드 요소 이름을 쉬운 한국어로(정의는 GLOSSARY/arch 정본 링크). AI 정본 아님 |
 
@@ -43,7 +43,8 @@
 | [IPC_CONTRACT.md](./IPC_CONTRACT.md) · [GLOSSARY.md](./GLOSSARY.md) | SSOT (채널 / 용어) — 분해 안 함 |
 | [claude-code-spec.md](./claude-code-spec.md) | `spec/claude/` 원문 미러로 가는 **라우터**(Orca 합성분은 arch/backend 로 이관됨) |
 | `spec/claude/` | 외부 공식 문서 원문 미러 (편집 금지) |
-| `etc/` | 전략·별도 제품 방향 문서 (llm-chat-desktop-strategy · lightweight-llm-strategy) |
+| `etc/` | 전략·별도 제품 방향·외부 사례 연구 문서 (llm-chat-desktop-strategy · lightweight-llm-strategy · `study/`) |
+| `guides/` | 운영 절차서 — 릴리스·폐쇄망 확장·workspace 권한 구성. 디렉토리 정책은 [guides/AGENTS.md](./guides/AGENTS.md) |
 
 ## 3. 구 §번호 → 새 파일 §번호 매핑 (옛 참조 추적용)
 

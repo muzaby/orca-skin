@@ -1,7 +1,7 @@
 # Glossary
 
 > 이 프로젝트에서 사용하는 용어를 한 곳에 정의한다. 문서·코드·UI 라벨이 같은 개념을 다르게 부르지 않도록 한다.
-> 최종 업데이트: 2026-07-11 (handoff 0095 — 코드 ref 현행화·제거된 Python Runtime 정리·Scheduler/사용량 한도 추가)
+> 최종 업데이트: 2026-08-05 (handoff 0177 — Tweaks 키 수 실측 20 반영. §1 표제어는 0157/0161 판 유지)
 > 관련 문서: [ARCHITECTURE.md](ARCHITECTURE.md), [IPC_CONTRACT.md](./IPC_CONTRACT.md), [TRD.md](./TRD.md), [PRD.md](./PRD.md)
 > 사람용 해설(파생): [arch/frontend/terms.md](./arch/frontend/terms.md) · [arch/backend/terms.md](./arch/backend/terms.md) — 본 SSOT 를 쉬운 한국어로 풀어 링크하는 사람용 문서.
 
@@ -23,7 +23,7 @@
 | **Fork (분기)** | 원본 Orca Session 을 잃지 않고 대체 방향을 시도하는 파생 — SDK 네이티브 `forkSession`(resume 복사본 + **새 session_id**, 원본 불변)에 위임하고, Orca 는 도착 세션에 원문 display 복사 + lineage(`fork`)만 남긴다. 렌더러는 클릭 시 **DOM draft 뷰만** 만들고 첫 보내기에서 lazy 물질화(취소 = no-op, 영속 0). v1 = 전체 대화 분기. | `SendChatMessage.forkFrom`, `TurnRequest.forkFrom`, `chatStore.startForkDraft` | handoff 0064 / `app/src/main/features/orchestration/fork.ts` |
 | **Handoff (핸드오프)** | 컨텍스트 소진/과업 전환 시 대화를 **새 Orca Session 으로 잇기** — rebind 방식: fork 로 전체 맥락을 전달하고 도착 세션의 첫 프롬프트(`/compact [핸드오프] …` 자동 메시지, main 단일 출처 템플릿)가 SDK 네이티브 압축으로 요약을 생성한다. 클릭 = **즉시 물질화**(fork 와 달리 display 복사 없음), lineage(`handoff`). Orca 자체 요약 파이프라인 없음. | `SendChatMessage.handoffFrom`, `buildHandoffMessage`, `chatStore.startHandoff` | handoff 0064 / `app/src/main/features/orchestration/handoff.ts` |
 | **Lineage (세션 계보)** | fork/handoff 로 파생된 세션의 부모 관계 영속 — `session_lineage`(child PK · parent · relation `'fork' \| 'handoff'` · CASCADE). hot `sessions` 행을 오염시키지 않는 전용 테이블. v1 은 기록만(시각화 UI 는 Future). | `session_lineage`, `insertLineage`/`getLineage` | handoff 0064 / `app/src/main/infra/db/migrations/0011_session_lineage.sql` |
-| **Tweaks** | 사용자 환경 설정 — `theme`(white/dark) / `density` / `sidebarCollapsed` / `sidebarWidth` / `spendingLimitUsd` 등. electron-store 로 영속 (전체 18 키 카탈로그는 IPC_CONTRACT §2.4 / persistence.md §1.2). | `Tweaks` | `app/src/renderer/src/shared/hooks/useTweaks.ts` |
+| **Tweaks** | 사용자 환경 설정 — `theme`(white/dark) / `density` / `sidebarCollapsed` / `sidebarWidth` / `spendingLimitUsd` 등. electron-store 로 영속 (전체 20 키 카탈로그는 IPC_CONTRACT §2.4 / persistence.md §1.2). | `Tweaks` | `app/src/renderer/src/shared/hooks/useTweaks.ts` |
 | **Artifact** | 큰 산출물 — 첨부 파일, 모델이 생성한 markdown / 코드 / 이미지 등. **Phase 3+ 채택 결정**: 파일 시스템 (`<userData>/artifacts/<sessionId>/...`) 에 저장하고 DB 에는 경로·해시·크기만 보관. 현재 미구현. | (Phase 3+ 도입 예정) | [arch/backend/persistence.md](arch/backend/persistence.md) |
 | **Credential** | 어댑터별 자격증명 — base URL + API key 등. **부분 구현**: MCP 인증 비밀은 Electron safeStorage(OS keychain) 기반 secret-store(`orca-secrets`)로 구현 완료. 어댑터별 base URL/API key 저장은 Future (claude 어댑터는 SDK 가 `~/.claude` 자격증명 자동 사용, provider settings env 는 verbatim — security.md §1.4). | `secret-store` | [arch/backend/security.md](arch/backend/security.md) |
 | **Auth provider** | 인증 절차를 구현하는 **빌드 타임 플러그인** contribution (ADFS/WIA · OAuth · API key · Auth token · PAT). 모든 provider 가 `begin`/`continue`/`status`/`refresh`/`logout` 5메서드를 **전부** 구현하고, 미지원 동작은 메서드 부재가 아니라 `not_supported` 표준 결과로 반환한다. 런타임 동적 로딩은 금지 — "재빌드 없이 서비스 추가" 는 **MCP** 가 담당한다. | `AuthProviderV1`(`main/contracts/auth-plugin.ts`) | 0157 / `etc/study/orca/auth-plugin-platform-requirements-ko.md` |

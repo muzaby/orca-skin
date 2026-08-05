@@ -1,7 +1,7 @@
 # Backend Architecture — Security & Credentials (보안 경계·자격증명)
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-07-10 (handoff 0094 — 경로 정정 + §1.7 로그인 게이트·배포/업데이트 신뢰 신설)
+> 최종 업데이트: 2026-08-05 (handoff 0177 — §1.8 원격 전송 스택 단일화(0173/0174) 신설 + §1.9 `infra/auth/` 모듈 인벤토리 신설. §1.1~1.7 은 기존 판 유지 — 인용 anchor 보존)
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [provider-runtime.md](./provider-runtime.md), [adapters.md](./adapters.md)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 
@@ -33,7 +33,7 @@ new BrowserWindow({
 - ❌ 원본 자격증명 / API 키
 - ❌ DB 파일 직접 접근 (Phase 3+ 도입 후)
 
-→ 모든 접근은 IPC 채널을 통해서만 가능하며, 채널은 [IPC_CONTRACT.md](./IPC_CONTRACT.md) 에 정의된 것만 사용한다.
+→ 모든 접근은 IPC 채널을 통해서만 가능하며, 채널은 [IPC_CONTRACT.md](../../IPC_CONTRACT.md) 에 정의된 것만 사용한다.
 
 ### 1.3 현재 자격증명 (Phase 2)
 
@@ -140,8 +140,37 @@ font-src 'self' https://fonts.gstatic.com
 
 ### 1.7 로그인 게이트 · 배포/업데이트 신뢰 (0072 / 0086 / 0087~0089)
 
-- **SSO 로그인 게이트 (0072 → 0130 실전화)**: dev 빌드는 앱 시작 시 로그인 게이트(`features/login`)를 거치며 디버그 패널의 `ssoBypass` 설정 토글(persistence.md §1.2)로 우회한다. **배포 빌드의 게이트는 SSO 모듈 등록 여부(`SsoState.required`)로 결정**된다 — 모듈 미등록(기본 배포)이면 현행처럼 게이트 없이 진입하고, 폐쇄망 배포가 `features/sso/modules/` 에 회사 모듈을 opt-in 등록하면 prod 게이트가 활성화된다(계약 `contracts/sso.ts`, 가이드 `docs/guides/closed-network-extensions.md`). prod 게이트에 bypass 백도어는 없다(디버그 bypass 는 DEV 전용). **이 게이트는 UX 게이트이지 보안 경계가 아니다** — 인증 전에도 main IPC 는 열려 있으며, 실제 접근 통제는 사내 네트워크/서비스 인증이 담당한다. SSO 획득 비밀은 SecretStore(safeStorage) 네임스페이스(`sso:<module>:` 전용 / `provider:<key>:` usage 공유)로만 저장하고, `setProviderEnv` 경로는 provider settings.json env 에 리터럴 기록(아래 "Agent provider auth token" 의 사용자 수기 env 와 동일 노출 등급)이다.
+- **앱 로그인 게이트 (0072 → 0130 → 0157 인증 플랫폼으로 승계)**: dev 빌드는 앱 시작 시 로그인 게이트(`app/RootGate` + `features/auth`)를 거치며 디버그 패널의 `authBypass` 설정 토글(persistence.md §1.2, 구 `ssoBypass`)로 우회한다. **배포 빌드의 게이트는 `application` 대상 auth provider 의 등록 여부(`AuthPlatformState.required` = `providersForTarget('application').length > 0`)로 결정**된다 — 등록 provider 가 0개(기본 배포)이면 게이트 없이 진입하고, 폐쇄망 배포가 `features/auth-platform/modules/index.ts` 의 `AUTH_PLUGIN_PACKAGES` 에 회사 패키지를 opt-in 등록하면 prod 게이트가 활성화된다(계약 `contracts/auth-plugin.ts`, 가이드 [guides/closed-network-extensions.md](../../guides/closed-network-extensions.md)). prod 게이트에 bypass 백도어는 없다(디버그 bypass 는 DEV 전용). **이 게이트는 UX 게이트이지 보안 경계가 아니다** — 인증 전에도 main IPC 는 열려 있으며, 실제 접근 통제는 사내 네트워크/서비스 인증이 담당한다.
+
+> **0157 이 지운 두 경로 (되살리지 말 것)**: ⓐ 구 `features/sso/modules/` + `contracts/sso.ts` 는 auth-platform 으로 승계돼 **더 이상 없다**. ⓑ 구 `setProviderEnv` sink — 획득 토큰을 provider `settings.json` 의 env 블록에 **평문으로 병합 기록**하던 경로로, 0157 에서 제거됐다(`app/bootstrap.ts:481-483` 주석이 근거를 보존한다). 이제 credential 은 binding·vault 가 소유하고, LLM 백엔드로 나가는 env 값은 **사용자가 직접 적은 것만** 남는다. 구 SecretStore 네임스페이스 `provider:<key>:`(0130 핸드셰이크)도 0157 이후 **쓰는 쪽이 0곳**이며, 인증이 필요한 사용량 조회는 구독 모델로 대체됐다(0176 — `contracts/usage-source.ts`).
 - **업데이트/배포 신뢰**: 릴리스는 **unsigned NSIS**(코드 서명 미도입 — OQ, SmartScreen 경고 수용) + GitHub Releases draft(수동 Publish 게이트). electron-updater 는 `latest.yml` sha512 로 산출물 무결성을 검증하고, 릴리스 파이프라인의 `validate-dist.mjs` 가 게시 전 sha512 를 재계산 검증한다(0087). 자동 다운로드는 하지 않는다(`autoDownload=false`, runtime-ipc.md §3.1).
+
+### 1.8 원격 전송 스택 단일화 — main 은 Node `fetch` 를 쓰지 않는다 (0173 / 0174)
+
+main 프로세스의 모든 원격 요청은 **Chromium 네트워크 스택**으로 나간다. Node(undici) 스택은 **OS 프록시·PAC 와 OS 인증서 저장소를 보지 않아**, 사내 프록시 뒤의 사설 CA 서버로 나가지 못한다 — *브라우저로는 열리는데 앱만 안 되는* 증상이 여기서 나온다.
+
+| 규칙 | 구현 | 강제 |
+|---|---|---|
+| 전송 구현은 **하나뿐** — `infra/auth/net-fetch.ts` 의 `netFetch`(Electron `net.fetch`) | 이 파일이 `electron` 을 무는 **유일한 네트워크 파일**이고 컴포지션 루트만 import 한다 (테스트가 electron 을 물면 즉시 죽는다) | `infra/auth/no-node-fetch.test.ts` |
+| 소비자는 `typeof fetch` **포트로 주입받는다** — `BrokerDeps.fetchImpl` · `createSender(fetchImpl)` · `ExternalUsageService.fetchImpl` | **기본값을 두지 않는다** — 기본값은 곧 조용한 Node 스택 복귀다 | 위와 동일 |
+| 브라우저 세션(cookie jar)이 필요한 요청은 `Session.fetch` | `infra/auth/browser-session-store.ts` | — |
+| **`redirect:'manual'` 은 Electron 에서 의미가 다르다** — 웹 fetch 는 3xx 를 돌려주지만 Electron 은 **요청을 취소한다**(`followRedirect()` 를 동기 호출해야 이어진다) | 3xx 를 직접 받아야 하면 `infra/auth/net-request.ts` 의 `sendOnce`(`net.request` 의 `'redirect'` 이벤트로 3xx 재구성). `netFetch` 가 manual 요청을 그리로 우회한다. **추종은 호출자가** 한다(홉마다 정책을 검사해야 하므로) | `infra/auth/net-response.test.ts` |
+
+> 이 규칙은 보안 경계이자 *동작* 경계다. 위반해도 로컬·개방망에서는 통과하고 **사내망에서만 실패**하므로, 리뷰가 아니라 테스트로 잡는다.
+
+### 1.9 `infra/auth/` 모듈 인벤토리 (0157~0176)
+
+인증 플랫폼의 인프라 계층. **feature 는 여기를 통해서만 secret 에 닿고, connector 는 raw credential 을 아예 받지 않는다**(§1.4-b 의 3계층).
+
+| 모듈 | 책임 |
+|---|---|
+| `credential-vault.ts` | safeStorage 로 봉인한 credential 저장소 — 값의 유일한 소유자 |
+| `browser-session-store.ts` | `persist:auth.<group>` partition 별 Electron `Session`(cookie jar) 보관. session group 공유의 구현 |
+| `authenticated-fetch.ts` | binding 을 해석해 요청에 credential presentation 을 적용한 fetch 를 만든다 — **connector 가 받는 것은 이것뿐** |
+| `binding-records.ts` · `binding-store-file.ts` | binding 레코드(대상·상태·만료·principal)의 형상과 파일 영속. secret 미포함 |
+| `plugin-exec.ts` | 플러그인 코드 실행 경계 (빌드 타임 내장 한정 — 런타임 임의 코드 로딩 금지, guides/closed-network-extensions.md §0) |
+| `session-policy.ts` | 세션·리다이렉트 정책 판정 |
+| `net-fetch.ts` · `net-request.ts` · `net-response.ts` | 원격 전송 스택 (§1.8) |
 
 ---
 

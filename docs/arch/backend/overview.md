@@ -1,7 +1,7 @@
 # Backend Architecture — Overview (범위·스택·프로세스)
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-07-10 (handoff 0094 — 0078~0093 동기화: scheduler 슬라이스·자동 업데이트·skills 시딩·boot-report 계측 반영)
+> 최종 업데이트: 2026-08-05 (handoff 0177 — 0096~0176 동기화: auth-platform·connectors 슬라이스(11종)·infra/auth·infra/log·contracts 9모듈·settings 20 키·마이그레이션 16종. 직전 0094 — 0078~0093 동기화: scheduler 슬라이스·자동 업데이트·skills 시딩·boot-report 계측 반영)
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [adapters.md](./adapters.md), [provider-runtime.md](./provider-runtime.md), [standardization.md](./standardization.md), [persistence.md](./persistence.md), [security.md](./security.md), [runtime-ipc.md](./runtime-ipc.md), [terms.md](./terms.md) (사람용 용어 해설), [`app/src/main/AGENTS.md`](../../../app/src/main/AGENTS.md) (레이어 DAG 정본)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 
@@ -11,7 +11,7 @@
 - Electron Main Process 구조 (`app/src/main/`)
 - Backend Adapter 추상화 (SessionAdapter — LLM Provider 가 아님)
 - 데이터 영속성 (electron-store 현재 + 로컬 DB + 파일 시스템 Phase 3+ 채택 결정)
-- IPC 핸들러 구조 (채널 카탈로그는 [IPC_CONTRACT.md](./IPC_CONTRACT.md))
+- IPC 핸들러 구조 (채널 카탈로그는 [IPC_CONTRACT.md](../../IPC_CONTRACT.md))
 - 보안 경계 (BrowserWindow 옵션 + 자격증명 모델)
 - 시스템 통합 (자동 업데이트 / 로깅 / 플랫폼 차이)
 
@@ -40,7 +40,7 @@
 | 보안 저장 (자격증명) | Electron safeStorage | (Electron 내장) | ✅ Phase 3++ 도입 완료 (MCP 인증 비밀 첫 실사용). OS keychain — macOS Keychain / Windows DPAPI / Linux libsecret. `config/secret-store.ts` 래퍼. |
 | 자동 업데이트 | **electron-updater** | ^6.x | ✅ 채택·구현 완료 (0084~0086). `app/updater.ts` UpdateController — autoDownload=false·사용자 게이트. runtime-ipc.md §3.1 |
 | 스케줄링 | croner | ^10.x | ✅ 채택 (0091). `infra/cron.ts` 래퍼 + `features/scheduler/` — main in-app cron, 앱 실행 중만 발화 |
-| 로깅 | TBD | — | 라이브러리 미선정 |
+| 로깅 | 자체 구현 (`infra/log/`) | — | ✅ 구현 완료 (0123/0124) — 외부 로깅 라이브러리 미도입 결정. 중앙 LogManager + JSONL. 정본 [observability.md](./observability.md) |
 | 패키저 | electron-builder | — | `electron-builder.yml` |
 | 유틸 | @electron-toolkit/utils | ^4.0.0 | 경로 / dev 모드 감지 |
 | Preload 유틸 | @electron-toolkit/preload | ^3.0.2 | contextBridge 헬퍼 |
@@ -62,7 +62,11 @@ Electron App
 │   │   ├── boot-report.ts      # 부팅 진단 계측 (0077) — 각 부팅 단계 step 래핑 · orca:boot:report
 │   │   ├── builtin-resources.ts # 번들 스킬 리소스 해석 (0078)
 │   │   ├── updater.ts          # UpdateController — electron-updater 자동 업데이트 (0084~0086)
-│   │   └── handlers/           # 도메인 IPC — session · project · mcp · engine · misc · boot · update
+│   │   ├── updater-feed.ts     # 업데이트 피드 해석 — object storage(S3/MinIO)·GHE host (0133)
+│   │   ├── auth-restore.ts     # 재시작 후 인증 binding 자동 복원 (0170)
+│   │   ├── chat-turn-continuation.ts # 자동 연속 턴 배선 (settings 재판정 포함, 0126)
+│   │   ├── usage-source.ts     # PluginHost → UsageSourcePort 어댑터 — 사용량 provider 가 connector invoke 결과를 구독 (0176)
+│   │   └── handlers/           # 도메인 IPC 10종 — auth · boot · engine · log · mcp · misc · plugins · project · session · update
 │   ├── features/               # 수직 슬라이스 (교차 import 금지)
 │   │   ├── chat/               # 턴 오케스트레이션 — turn-coordinator · pending-message-queue · settle · timers · title
 │   │   ├── sessions/           # 런타임 거버넌스 — supervisor · session-runtime · runtime-pool · eviction/cap-policy · active-turn-tracker
@@ -72,7 +76,11 @@ Electron App
 │   │   ├── providers/          # provider/engine 설정·모델 해석
 │   │   ├── extensions/         # ExtensionBuilder(지침·MCP·skill 조립) + deployer · conformance · mcp/ · skills/(scan·seed)
 │   │   ├── orchestration/      # Conversation Continuity(fork/handoff) 순수 로직 (handoff 0051 §A.4)
-│   │   └── scheduler/          # 주기 실행 엔진 (croner, 0091) — register/protect/nextRun/stopAll + schedule_runs 기록
+│   │   ├── scheduler/          # 주기 실행 엔진 (croner, 0091) — register/protect/nextRun/stopAll + schedule_runs 기록
+│   │   ├── auth-platform/      # 인증 플랫폼 (0157~0172) — registry · transactions · bindings · broker · policy · conformance · plugin-host
+│   │   │                       #   providers/ = 인증 방식 구현 · modules/ = 회사 패키지 opt-in 레지스트리(confluence · usage · _example)
+│   │   └── connectors/         # 인증된 내장 도구 실행 (0158~0164) — registry · runtime · templates · instance-{id,store,lifecycle}
+│   │                           #   raw credential 미접근 — infra/auth 의 authenticatedFetch 만 받는다
 │   ├── adapters/               # SessionAdapter 포트 & 구현 (구체 provider 리터럴 격리)
 │   │   ├── types.ts·turn.ts·provider-config.ts·mcp-config.ts·hooks.ts·descriptor.ts  # 포트
 │   │   ├── claude.ts           # ClaudeAdapter — SDK query() (장수명 채널 pushTurn)
@@ -82,16 +90,26 @@ Electron App
 │   │   ├── streaming-input.ts  # 턴-스코프 AsyncIterable 입력
 │   │   ├── error-classifier.ts # claude 에러 분류
 │   │   └── mock.ts             # MockAdapter (DEV 디버그 하네스)
-│   ├── contracts/              # 여러 feature 공유 타입 계약 (구현 최소)
+│   ├── contracts/              # 여러 feature 공유 타입 계약 9모듈 (구현 최소)
 │   │   ├── turn.ts             # TurnContext
 │   │   ├── bus-events.ts       # OrcaBusEvents — turn.event 단일 이벤트 맵
 │   │   ├── ports.ts            # ManagedRuntime · RuntimeSessionAdapter 등 구조적 포트
-│   │   └── session-state.ts    # SessionRuntimeState 머신 (cold/live/busy/interrupting/error/closed)
+│   │   ├── session-state.ts    # SessionRuntimeState 머신 (cold/live/busy/interrupting/error/closed)
+│   │   ├── auth-plugin.ts      # 인증 provider 계약 — **동결(additive-optional-only)**, 폐쇄망 확장점 (guides/closed-network-extensions.md §1)
+│   │   ├── connector-plugin.ts # connector 계약 — **동결**, 위와 같은 정책
+│   │   ├── connector-template.ts # 사용자 인스턴스 청사진 (0161)
+│   │   ├── usage-report.ts     # 정적 사용량 provider 계약 — **동결**, 폐쇄망 확장점 B
+│   │   └── usage-source.ts     # 사용량 조회 포트 — connector invoke 를 사용량 provider 가 구독 (0176)
 │   └── infra/                  # 얇은 인프라 (feature/어댑터 비의존)
 │       ├── ipc/                # handle(safeParse+실패정책) · send(push 헬퍼·wire-log) · dto
 │       ├── bus/                # TypedBus
 │       ├── db/                 # better-sqlite3 싱글턴 + migrate + queries (WAL + foreign_keys)
 │       ├── config/             # orca-config · secret-store · paths · crypto · mcp-file
+│       ├── auth/               # 인증 인프라 — credential-vault(safeStorage) · browser-session-store(cookie jar) ·
+│       │                       #   authenticated-fetch · binding-{records,store-file} · plugin-exec · session-policy ·
+│       │                       #   **net-fetch.ts / net-request.ts** = main 의 유일한 원격 전송 스택 (security.md §1.8)
+│       ├── log/                # 중앙 LogManager (0123/0124) — file-transport(JSONL 로테이션) · redact · suppress ·
+│       │                       #   registry · log-context · serialize-error. 정본 observability.md
 │       ├── errors.ts           # 에러 정규화 (ErrorCategory) + errorMessage 헬퍼 (0092)
 │       ├── cron.ts             # croner 래퍼 (scheduler 의 타이머 프리미티브, 0091)
 │       └── settings-store.ts   # electron-store 영속화 (+settings-migration.ts, persistence.md §1.2)
@@ -162,12 +180,12 @@ Electron App
 | OpencodeAdapter | Future | ❌ 미구현 | PRD OQ7 |
 | AdapterRegistry | Phase 2 | ✅ 완료 | claude 단일 등록 |
 | Installer (래퍼) | Phase 2 | ✅ 완료 | 4줄 — 어댑터의 `install()` yield |
-| electron-store | Phase 3++ | ✅ 완료 | `infra/settings-store.ts` — 16 키 (카탈로그는 persistence.md §1.2 / IPC_CONTRACT §2.4) |
+| electron-store | Phase 3++ | ✅ 완료 | `infra/settings-store.ts` — 20 키 (카탈로그는 persistence.md §1.2 / IPC_CONTRACT §2.4) |
 | Skills 스캔 (orca `sources/skills` + `~/.claude/skills`) | Phase 2 | ✅ 완료 | `features/extensions/skills/scan.ts` — `<cwd>/.claude/skills` 루트는 제거됨. 캐시는 `Bootstrap.skillsCache` |
 | Skills 번들 시딩 (부트 1회) | Phase 4 | ✅ 완료 (0078) | `features/extensions/skills/seed.ts` + `app/builtin-resources.ts` — manifest/marker 버전 게이트 |
 | ExtensionDeployer | Phase 3++ | ✅ 완료 | `features/extensions/deployer.ts` — sources → `dist/<engine>/` 렌더 (표준화 스테이지 A) |
 | 인증 만료 감지 (`auth.expired`) | Phase 2 | ✅ 완료 | UI 에 AuthExpiredModal 노출 |
-| 로컬 DB (sessions / messages / parts / projects) | Phase 3 | ✅ 완료 | better-sqlite3 + 마이그레이션 13종(`0001_initial`…`0013_schedules`). `infra/db/`. |
+| 로컬 DB (sessions / messages / parts / projects) | Phase 3 | ✅ 완료 | better-sqlite3 + 마이그레이션 16종(`0001_initial`…`0016_turn_model_context_window`). `infra/db/`. |
 | FTS5 전문 검색 (`messages_fts`) | Phase 3++ | ✅ 완료 | `0003_messages_fts.sql` + `orca:search:messages` IPC |
 | MCP 서버 CRUD + safeStorage 인증 비밀 | Phase 3++ | ✅ 완료 | `features/extensions/mcp/store.ts` + `infra/config/secret-store.ts`. 파일-백드 모델. |
 | Artifacts 디렉토리 (큰 산출물) | Future | ❌ 미구현 | persistence.md §1.4 |
@@ -175,7 +193,10 @@ Electron App
 | 스케줄러 (주기 실행) | Phase 4 | ✅ 완료 (0091) | `features/scheduler/` (croner) — 첫 소비처 = 주기 사용량 recompute. `schedule_runs` 실행 이력(`0013`) |
 | provider별 사용량 한도 | Phase 4 | ✅ 완료 (0079~0082) | `provider_limits`(`0012`) + `cost:providerSummaries`/`cost:setProviderLimit` |
 | CI/CD 릴리스 파이프라인 (v0.1.0) | Phase 4 | ✅ 완료 (0087~0089) | `.github/workflows/{ci,release}.yml` — Windows unsigned NSIS + GitHub Releases draft. 배포 빌드는 로그인 게이트 스킵(0089). 정본 `docs/guides/release-operations.md` |
-| 로깅 라이브러리 | TBD | ❌ 미구현 | electron-log 후보 |
+| 중앙 로깅 (LogManager · JSONL · redaction) | Phase 4 | ✅ 완료 (0123/0124, prod opt-in 토글 0144) | `infra/log/` — 외부 로깅 라이브러리 미도입. 정본 [observability.md](./observability.md) |
+| **인증 플랫폼** (앱 로그인 + 서비스 연결 공통 lifecycle) | Phase 4 | ✅ 완료 (0157·0170·0172) | `features/auth-platform/` — registry·transactions·bindings·broker·policy. IPC `auth` 8채널. credential 은 `infra/auth/credential-vault.ts`(safeStorage) 소유, DTO 는 `handleId` 만 |
+| **Connector** (인증된 내장 도구 실행) | Phase 4 | ✅ 완료 (0158~0164) | `features/connectors/` — 정적(코드 배포) + 인스턴스(사용자 생성, 0161). IPC `plugin` 7채널. 동봉 패키지 = Confluence DC(0160·0164) · 범용 usage(0176) |
+| **원격 전송 스택 단일화** (Node fetch 금지 → Electron `net.fetch`) | Phase 4 | ✅ 완료 (0173/0174) | `infra/auth/net-fetch.ts` 단일 구현 + 포트 주입. 위반은 `no-node-fetch.test.ts` 가 차단. [security.md](./security.md) §1.8 |
 | `options.permissionMode` (도구 권한) | Phase 4 | ❌ 미구현 | PRD OQ9 |
 | `options.hooks` 완전 구현 (도구 감사 외부 핸들러) | Phase 4 | ❌ 미구현 | 현재 인프로세스 OrcaHookSet 은 구현됨 |
 | 멀티세션 + 장수명 세션 채널 | Phase 4 | ✅ main 런타임 완료 (handoff 0011·0051·0067) | 세션별 SessionRuntime + 동시 턴 + 장수명 채널(프레임)·idle 풀 LRU. runtime-ipc.md §1. renderer 외피는 ../frontend/state.md §2 |
@@ -190,11 +211,11 @@ Electron App
 
 ## 5. 참고
 
-- IPC 채널 정의: [IPC_CONTRACT.md](./IPC_CONTRACT.md)
-- 용어 정의: [GLOSSARY.md](./GLOSSARY.md)
+- IPC 채널 정의: [IPC_CONTRACT.md](../../IPC_CONTRACT.md)
+- 용어 정의: [GLOSSARY.md](../../GLOSSARY.md)
 - 프론트엔드 측 구조: [../frontend/overview.md](../frontend/overview.md)
-- 데이터 모델 / 어댑터 사양 SSOT: [TRD.md](./TRD.md) §6 / §7
-- 외부 SDK 사양 SSOT: [`docs/spec/claude/agent-sdk/typescript.md`](./spec/claude/agent-sdk/typescript.md)
-- CLI 시기 외부 계약 + Orca 채택 표기: [claude-code-spec.md](./claude-code-spec.md)
-- Phase 로드맵 / Future Scope: [PRD.md](./PRD.md) §8 / §9 / §11
-- 운영 규칙: [`app/AGENTS.md`](../app/AGENTS.md)
+- 데이터 모델 / 어댑터 사양 SSOT: [TRD.md](../../TRD.md) §6 / §7
+- 외부 SDK 사양 SSOT: [`docs/spec/claude/agent-sdk/typescript.md`](../../spec/claude/agent-sdk/typescript.md)
+- CLI 시기 외부 계약 + Orca 채택 표기: [claude-code-spec.md](../../claude-code-spec.md)
+- Phase 로드맵 / Future Scope: [PRD.md](../../PRD.md) §8 / §9 / §11
+- 운영 규칙: [`app/AGENTS.md`](../../../app/AGENTS.md)
