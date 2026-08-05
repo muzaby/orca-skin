@@ -91,7 +91,7 @@
   오케스트레이션과 롤백(broker) · 진행 표시 DTO + renderer 표기 · 문서(IPC_CONTRACT · modules/AGENTS).
 - **비범위**:
   - **패키지가 2개 이상일 때 어느 체인으로 로그인할지 사용자가 고르는 UI** — 현행처럼 첫 체인(등록 순서)의 헤드를 쓴다.
-  - **binding 영속** — 0157 결정 유지(비영속).
+  - **binding 영속 정책 자체** — 0170 이 선택 주입 영속으로 이미 바꿨다. 체인은 그 위에서 돌 뿐 정책을 건드리지 않는다.
   - **축출된 app binding 의 child connector binding 정리** — 현행 동작(고아로 남음) 유지.
   - **체인 도중 사용자 취소 버튼** — 현재 UI 에 취소 버튼 자체가 없다(`AuthView.tsx` 는 로그인 버튼 하나).
 
@@ -193,7 +193,7 @@ applyStep(provider, tx, step)             // AuthStep 6분기 전수 처리
 | 기존 결정 / 규칙 | 출처 | 본문에서 건드리는 문장 | 이번 변경 |
 |---|---|---|---|
 | "같은 target 에 대한 기존 binding 은 교체한다 — 한 대상에 두 인증이 공존하면 어느 것이 쓰이는지 모호해진다" | `bindings.ts:56-57` (코드 주석) | §설계 3 "첫 입력 = root, 나머지 `parentBindingId`" | **부분 뒤집음** — 같은 target 에 N binding 을 허용하되 모호성은 root/child 로 없앤다. "무엇이 쓰이나" 의 답은 여전히 하나(root) |
-| binding 비영속 (매 실행 재로그인) | `bindings.ts:12-13` | §범위 비범위 | 유지 |
+| ~~binding 비영속~~ → **선택 주입 영속** (0170 이 뒤집음) | `bindings.ts:12-19` (main) | §설계 3 "`createMany` 는 배치 끝에 `flush()` 1회" | **정정 승계** — 설계 시점의 "비영속 유지" 는 리베이스로 무효가 됐다. 체인 커밋도 저장을 거치되 **배치 끝에 한 번**만 부른다(멤버마다 부르면 실패한 로그인이 반쯤 저장된 채 다음 부팅으로 넘어간다). 앱 binding 은 0170 의 `restore()` 가 필터링하므로 재시작 후 게이트 자동 통과는 없다 |
 | transaction `(providerId,target)` 당 1건 · 재진입 시 명시 취소 | `transactions.ts:9` | §설계 2 "키는 헤드 providerId" | 유지 — 키를 헤드로 고정해 의미 보존. 재진입 취소가 곧 이전 체인 롤백 트리거 |
 | AUTH-PLAT-002 5메서드 required · 미지원은 `not_supported` | `contracts/auth-plugin.ts:20-23` | §설계 4 "not_supported → rollbackChain" | 유지 — 체인 멤버의 `not_supported` 도 표준 실패로 수렴 |
 | AUTH-PLAT-008 결과에 raw secret 금지 | `contracts/auth-plugin.ts:24-26` | §설계 4 "보류: binding id 를 만들지 않는다" | 유지 — 보류분도 `AuthBindingDraft`(handle 만) |
@@ -282,18 +282,51 @@ applyStep(provider, tx, step)             // AuthStep 6분기 전수 처리
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
+- **동의 / 그대로 진행**: 세 갈래 판단이 구현에서 그대로 맞았다.
+  ⓐ §설계 2 의 "transaction 키를 헤드로 고정" — `dispose()` 가 현재 `providerId` 로 키를 재계산하는
+  코드는 체인에서 반드시 어긋난다(멤버가 바뀌므로). `key` 필드 없이 짰으면 재로그인 시 이미 없는
+  id 를 취소하려 드는 유령 엔트리가 남았다.
+  ⓑ §설계 4 의 "롤백은 새 AbortController" — 타임아웃 테스트가 이것을 정확히 증명했다. tx signal 로
+  돌렸다면 `runGuarded` 의 `signal.aborted` 조기 반환(`transactions.ts:129-130`) 때문에 **정리가
+  필요한 바로 그 경로에서** provider.logout 이 한 번도 불리지 않는다.
+  ⓒ §설계 3 의 root/child — `dependentsOf` 가 이미 있어 체인 로그아웃 cascade 가 코드 추가 0으로 성립했다.
+- **이견 / 우려**: AC11 의 문구("기존 케이스 전부 green — 수정 없이")가 **성립하지 않았다**. 이유는
+  회귀가 아니라 fixture 의 의미다 — 아래 P1.
+
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
+| P1 | **기존 broker 테스트 fixture 가 한 패키지에 application provider 2개를 담고 있었다**(`corp` = pat + adfs). 새 의미에서 그 패키지는 **2단계 체인**이라, "둘 중 아무거나로 로그인" 을 검증하던 기존 테스트의 전제가 무너진다. AC11 은 이 fixture 를 예상하지 못했다 | ✅ 구현함 — fixture 를 **패키지 2개**(`corp`=pat / `corp-adfs`=adfs)로 나눴다. **단언은 한 줄도 바꾸지 않았다** — 패키지 경계만 각 테스트의 원래 의도(독립된 두 인증)에 맞췄고, 46개 기존 케이스가 그대로 green 이다. AC11 의 *의미*(1-member 패키지는 기존과 동일)는 지켜졌고 *문구*(수정 없이)는 지켜지지 않았다 | `broker.test.ts:30-74` · 이 사실 자체가 "한 패키지 다중 application provider" 가 지금까지 **의미 없는 조합**이었다는 방증이다 |
+| P2 | 진행 표시에 맞춰 폼을 비우는 것을 `useEffect(() => setInput({}), [stepKey])` 로 짜면 **lint error** 다(`react-hooks/set-state-in-effect` — cascading render) | ✅ 구현함 — 입력 폼을 `AuthStepForm` 으로 떼고 `key={stepKey}` 로 **remount** 시킨다. 상태 초기화의 정석 패턴이고 effect 가 사라진다 | `AuthView.tsx:51` · `npm run lint` |
+| P3 | AC10(멤버 만료) 을 static credential 로는 만들 수 없다 — 그 provider 의 `refresh` 는 `not_supported` 라 binding status 가 안 바뀐다 | ✅ 구현함 — 테스트 멤버에 `refreshReauth` 옵션을 두어 `reauth_required` 를 반환시키고, root 는 `valid` 인데 인증이 풀리는 것까지 단언했다 | `broker.test.ts::"멤버 하나가 만료되면 인증이 풀린다"` |
+| P4 | 축출된 binding 의 vault 를 아무도 지우지 않는 **기존 누수**(0157 부터). 체인은 축출 대상이 N개라 누수가 배로 는다 | ✅ 구현함 — `createMany` 가 축출분을 돌려주고 `commitChain` 이 그 네임스페이스를 `clearAll` 한다. 재로그인 테스트가 옛 secret 부재를 단언한다 | `bindings.ts` `createMany` · `broker.test.ts::"재로그인은 이전 체인을 통째로 축출한다"` |
+| P5 | **기존 배포 영향** — 이미 한 패키지에 application provider 2개를 선언한 배포가 있다면 이제 강제 체인이 된다 | ⚠️ 보고만(동작 변화 없음으로 판정) — 이전에는 renderer 가 **첫 provider 만** 실행해 두 번째는 앱 로그인에서 도달 불가였다. 잃는 동작이 없다. 저장소 동봉 패키지(Confluence)는 application provider **0개**라 영향 없음(실측) | `store.ts:65`(구) · `modules/confluence/index.ts:139-162` |
+| P7 | **리베이스 발견** — main 의 `0170-auth-binding-restore` 가 binding 레코드를 영속화했다(`BindingStore` 에 `BindingPersistence` 주입 + 모든 변경 경로에서 `flush()`, id 충돌 회피 루프). `createMany` 가 `create()` 자리를 차지하므로 그 둘을 물려받지 않으면 **connector 로그인이 디스크에 안 남아 0170 이 조용히 죽고**, id 가 복원 레코드와 겹치면 새 binding 이 남의 vault 네임스페이스를 물려받는다 | ✅ 구현함 — id 뽑기를 `mintId()` 로 추출해 `createMany` 가 쓰고, `flush()` 는 **배치 끝에 한 번**(멤버마다 부르면 실패한 로그인이 반쯤 저장된다). 회귀 2건 신설: 체인 커밋의 저장 스냅샷 · **application 체인 레코드는 복원되지 않는다**(0170 의 "앱 게이트 자동 통과 금지" 가 멤버 N개에서도 유효한지) | `bindings.ts` `mintId`·`createMany` · `bindings.test.ts::"체인 커밋이 저장을 한 번만 부르고…"` · `broker-restore.test.ts::"application 체인 레코드는 복원하지 않고…"` |
+| P6 | 체인 중간에서 사용자가 로그인 버튼을 다시 눌러 재진입하면 이전 체인이 `superseded` 로 취소되고 롤백이 **비동기로** 돈다 — 새 체인의 stage 와 시간상 겹칠 수 있다 | ✅ 설계대로 안전 — 네임스페이스가 `tx:<txid>:` 로 갈려 서로의 secret 을 지울 수 없다. 롤백 완료 후 `publish()` 로 상태만 재동기화한다 | `broker.ts` 취소 콜백 · `txPrefixOf` |
 
 ## [구현자 기입] 구현 체크리스트
+
+- [x] `registry.loginChainFor` — manifest 선언 순서 · connector 전용 제외 · 패키지 경계
+- [x] `transactions` — `key` 고정 · `ChainState`/`StagedBinding` · `advance`(타임아웃 재시작)
+- [x] `bindings.createMany` — root/child · 같은 target 전량 축출 · `applicationBindings`
+- [x] `broker` — stage → advance → commit / rollback(역순·새 controller) / 취소·타임아웃 롤백
+- [x] `status().authenticated` = application binding 전부 valid · identity root 우선
+- [x] `AuthStepInfo.chain` additive-optional + renderer 진행 표시 + 폼 초기화(remount)
+- [x] i18n ko/en `login.chainProgress`
+- [x] 문서 — `IPC_CONTRACT.md` 3행 · `modules/AGENTS.md` 체인 규칙
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
+| 변경 파일 | main `features/auth-platform/{registry,transactions,bindings,broker}.ts` · `shared/{ipc,protocol}.ts` · renderer `features/auth/{store.ts,state-mapping.ts(신규),components/AuthView.tsx}` · `shared/i18n/resources/{ko,en}.ts` · 테스트 4종(`registry`·`bindings`·`broker`·`state-mapping(신규)`) · 문서 2종 |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` |
+| 게이트 결과 | lint ✅ **0 error**(잔여 warning 1건은 기존 `useTranscriptVirtualizer` 의 라이브러리 경고) · typecheck ✅ **3/3**(node·web·test) · vitest ✅ **1908/1908 통과**(파일 202/203) |
+| 알려진 환경 실패 | `src/main/app/chat-turn.continuity.test.ts` **1파일**이 import 단계에서 실패 — `Electron failed to install correctly`(설치 시 `ELECTRON_SKIP_BINARY_DOWNLOAD=1`). **변경 무관 확인**: `git stash` 로 이번 변경을 뺀 상태에서도 동일하게 실패한다(실측). better-sqlite3 는 `npm rebuild`(Node ABI) 후 DB 스위트 전부 green |
+| 신규 테스트 | 체인 11건(broker) · 체인 해석 4건(registry) · 원자 커밋 4건(bindings) · 순수 매핑 8건(renderer) = **27건** |
+| 블로커 / 역질문 | 없음. AC16(사람 실기)만 미확인 — 이 환경에서 `npm run dev`(Electron 바이너리 필요)가 불가하다 |
+| 대상 커밋 | 아래 구현 커밋 |
 
 ---
 

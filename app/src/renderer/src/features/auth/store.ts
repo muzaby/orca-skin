@@ -1,8 +1,14 @@
 import { create } from 'zustand'
 import type { NavigateFunction } from 'react-router-dom'
-import type { AuthFieldSpec, AuthPlatformState, AuthStepInfo } from '../../../../shared/ipc'
+import type {
+  AuthChainProgress,
+  AuthFieldSpec,
+  AuthPlatformState,
+  AuthStepInfo
+} from '../../../../shared/ipc'
 import { APPLICATION_TARGET, authApi, settingsApi } from '../../shared/api/ipc'
 import type { UiMessage } from '../../shared/i18n'
+import { platformStatePatch, stepPatch } from './state-mapping'
 
 // 인증 게이트의 renderer 미러 (0157 — main AuthBroker 가 상태 SSOT. 구 loginStore 승계).
 //
@@ -31,8 +37,13 @@ interface AuthStoreState {
   fields: AuthFieldSpec[]
   // 진행 중 transaction. continue 에 필요하다.
   transactionId: string | null
-  // 앱 로그인에 쓸 provider. 복수 등록 시 application 을 지원하는 첫 번째를 고른다.
+  // 앱 로그인에 쓸 provider. 복수 등록 시 application 을 지원하는 첫 번째를 고른다 — 그 provider 가
+  // 속한 패키지의 체인 전체를 main 이 실행한다(0172).
   providerId: string | null
+  // 체인 로그인의 현재 단계(멤버가 둘 이상일 때만). 단일 provider 로그인이면 null.
+  chain: AuthChainProgress | null
+  // 현재 step 의 식별자 — 바뀌면 AuthView 가 폼 입력을 비운다.
+  stepKey: string
 }
 
 export const useAuthStore = create<AuthStoreState>()(() => ({
@@ -45,33 +56,16 @@ export const useAuthStore = create<AuthStoreState>()(() => ({
   errorMessage: null,
   fields: [],
   transactionId: null,
-  providerId: null
+  providerId: null,
+  chain: null,
+  stepKey: ''
 }))
 
 const { setState, getState } = useAuthStore
 
-// step 에서 renderer 가 쓰는 부분만 추린다.
-function stepPatch(step: AuthStepInfo | null): Partial<AuthStoreState> {
-  if (!step) return { fields: [], transactionId: null }
-  if (step.kind === 'collect') return { fields: step.fields, transactionId: step.transactionId }
-  if (step.kind === 'browser' || step.kind === 'device_code') {
-    return { fields: [], transactionId: step.transactionId }
-  }
-  return { fields: [], transactionId: null }
-}
-
-// main AuthPlatformState → store 필드 매핑 단일 지점.
+// main AuthPlatformState → store 필드 매핑 단일 지점 (규칙은 `state-mapping.ts` 순수 모듈).
 function applyPlatformState(state: AuthPlatformState): void {
-  const applicationProvider = state.providers.find((p) => p.targets.includes('application'))
-  setState({
-    required: state.required,
-    authenticated: state.authenticated,
-    email: state.identity?.email ?? null,
-    status: state.inflight ? 'inflight' : state.errorMessage != null ? 'error' : 'idle',
-    errorMessage: state.errorMessage != null ? { raw: state.errorMessage } : null,
-    providerId: applicationProvider?.id ?? null,
-    ...stepPatch(state.step)
-  })
+  setState(platformStatePatch(state))
 }
 
 const STATUS_RETRIES = 5
@@ -135,6 +129,8 @@ export const authActions = {
   },
 
   applyStep(step: AuthStepInfo, navigate: NavigateFunction): void {
+    // `done` 은 **체인 전체가 성공했을 때만** 온다 — 중간 멤버의 성공은 main 이 보류하고 다음
+    // 멤버의 step 을 대신 준다(0172).
     if (step.kind === 'done') {
       setState({ status: 'idle', errorMessage: null, ...stepPatch(null) })
       navigate('/new')

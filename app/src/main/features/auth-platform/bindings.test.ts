@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { BindingStore, sameTarget, targetKey, type BindingPersistence } from './bindings'
+import {
+  BindingStore,
+  sameTarget,
+  targetKey,
+  type BindingPersistence,
+  type CreateBindingInput
+} from './bindings'
 import type { AuthBindingInfo, AuthTarget } from '../../../shared/ipc'
 
 const APP: AuthTarget = { kind: 'application', applicationId: 'orca' }
@@ -218,5 +224,80 @@ describe('BindingStore — 영속', () => {
     })
     expect(created.id).not.toBe('bind_1_x')
     expect(store.get('bind_1_x')).toBeDefined()
+  })
+})
+
+// 0172 — 로그인 체인의 원자 커밋.
+describe('BindingStore — 체인 커밋(createMany)', () => {
+  function member(target: AuthTarget, providerId: string): CreateBindingInput {
+    return {
+      pluginId: 'corp',
+      providerId,
+      target,
+      mechanism: 'personal_access_token' as const,
+      artifact: {
+        kind: 'vault_credential' as const,
+        handleId: providerId,
+        credentialKind: 'personal_access_token' as const
+      }
+    }
+  }
+
+  it('첫 멤버가 root 이고 나머지는 root 의 child 다', () => {
+    const s = store()
+    const { created } = s.createMany([member(APP, 'p1'), member(APP, 'p2')])
+
+    expect(created).toHaveLength(2)
+    expect(created[0].parentBindingId).toBeUndefined()
+    expect(created[1].parentBindingId).toBe(created[0].id)
+    // root 가 게이트·cascade 의 기준점이다.
+    expect(s.findApplicationBinding()?.id).toBe(created[0].id)
+    expect(s.applicationBindings()).toHaveLength(2)
+    // cascade logout 이 체인 전체를 잡는다.
+    expect(s.dependentsOf(created[0].id).map((b) => b.id)).toEqual([created[1].id])
+  })
+
+  it('같은 target 의 이전 binding 을 전부 축출하고 목록으로 돌려준다', () => {
+    const s = store()
+    const previous = s.createMany([member(APP, 'p1'), member(APP, 'p2')]).created
+    const survivor = create(s, WIKI)
+
+    const { created, evicted } = s.createMany([member(APP, 'p1')])
+
+    expect(evicted.map((b) => b.id).sort()).toEqual(previous.map((b) => b.id).sort())
+    expect(s.applicationBindings().map((b) => b.id)).toEqual([created[0].id])
+    // 다른 target 은 건드리지 않는다.
+    expect(s.get(survivor)).toBeDefined()
+  })
+
+  it('멤버 1개면 기존 create 와 같은 결과다', () => {
+    const s = store()
+    const { created } = s.createMany([member(APP, 'only')])
+    expect(created).toHaveLength(1)
+    expect(created[0].parentBindingId).toBeUndefined()
+    expect(s.findApplicationBinding()?.id).toBe(created[0].id)
+  })
+
+  // 0170 영속 계층과의 접점 — 체인 커밋도 저장을 거쳐야 재시작 복원이 성립한다.
+  it('체인 커밋이 저장을 한 번만 부르고 최종 스냅샷이 새 체인이다', () => {
+    const saved: AuthBindingInfo[][] = []
+    const s = new BindingStore(() => 1, { load: () => [], save: (r) => void saved.push([...r]) })
+    s.createMany([member(APP, 'p1'), member(APP, 'p2')])
+
+    // 멤버마다 부르면 실패한 로그인이 반쯤 저장된 채 다음 부팅으로 넘어간다.
+    expect(saved).toHaveLength(1)
+    expect(saved[0].map((b) => b.providerId)).toEqual(['p1', 'p2'])
+
+    // 재로그인은 축출까지 반영한 하나의 스냅샷으로 남는다.
+    s.createMany([member(APP, 'p1')])
+    expect(saved).toHaveLength(2)
+    expect(saved[1].map((b) => b.providerId)).toEqual(['p1'])
+  })
+
+  it('빈 입력은 아무것도 바꾸지 않는다', () => {
+    const s = store()
+    const existing = create(s, APP)
+    expect(s.createMany([])).toEqual({ created: [], evicted: [] })
+    expect(s.get(existing)).toBeDefined()
   })
 })

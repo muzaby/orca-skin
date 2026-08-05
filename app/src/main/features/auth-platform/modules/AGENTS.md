@@ -16,6 +16,13 @@ UI 추가 버튼은 디버그 토글(`Tweaks.pluginAddEnabled`, 기본 `false`) 
 그 외 코어 코드(broker·registry·IPC·게이트)는 **수정하지 않는다.** 신규 설치의 기본값은 빈 배열
 — 등록된 provider 가 0개면 `required:false` 로 로그인 게이트가 자동 통과된다(현행 동작 보존).
 
+> **`targets: ['application']` 선언은 곧 "로그인 체인 멤버"다** (0172). 한 패키지가 application
+> provider 를 둘 이상 선언하면 그 provider 들은 **하나의 논리 로그인**이 된다 — manifest
+> `contributes.authProviders` 선언 순서대로 실행되고, **전부 성공해야** `authenticated:true` 이며,
+> 하나라도 실패하면 로그인 전체가 실패하고 그때까지 만들어진 보류 자원(vault secret·browser
+> session)이 정리된다. "둘 중 아무거나로 로그인" 을 표현하려면 **패키지를 나눈다**. 연결 전용
+> 인증(`targets:['connector']`)은 체인에 들어가지 않는다.
+
 > **앱 로그인 게이트를 실수로 켜지 마라** (0164 verify D1). `required` 는
 > `providersForTarget('application').length > 0` 이고, prod `RootGate` 는 그 값으로 앱 전체를
 > 막는다(DEV 는 bypass 라 개발 중에는 보이지 않는다). **서비스 연결용 provider 는 반드시

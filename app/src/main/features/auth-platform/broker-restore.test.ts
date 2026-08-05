@@ -140,6 +140,30 @@ describe('AuthBroker.restore', () => {
     expect(saved.at(-1)).toEqual([])
   })
 
+  // 0172 접점 — 로그인 체인은 application binding 을 **여러 개** 쓴다. 0170 이 "application 은
+  // 복원하지 않는다"(RootGate 자동 통과 금지)로 못 박았으므로, 멤버가 늘어도 그 필터가 유효해야
+  // 한다. 안 그러면 재시작만으로 앱 로그인 게이트가 통과된다.
+  it('application 체인 레코드는 복원하지 않고 저장소에서도 지운다', () => {
+    const root: AuthBindingInfo = {
+      ...connectorRecord('app_root'),
+      target: { kind: 'application', applicationId: 'orca' }
+    }
+    const member: AuthBindingInfo = {
+      ...connectorRecord('app_member'),
+      target: { kind: 'application', applicationId: 'orca' },
+      parentBindingId: 'app_root'
+    }
+    const { broker, store, saved } = setup([root, member])
+    seedSecret(store, 'app_root')
+    seedSecret(store, 'app_member')
+
+    expect(broker.restore()).toEqual([])
+    expect(broker.status().authenticated).toBe(false)
+    expect(broker.listBindings()).toEqual([])
+    // 다음 부팅의 입력에서도 사라진다 — 남기면 매 부팅마다 되살아난다.
+    expect(saved.at(-1)).toEqual([])
+  })
+
   it('저장된 레코드가 없으면 아무 상태도 발행하지 않는다', () => {
     const { broker, states } = setup([])
     expect(broker.restore()).toEqual([])

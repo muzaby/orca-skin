@@ -17,6 +17,7 @@ import type {
   CredentialPresentation
 } from '../../../shared/ipc'
 import type {
+  AuthBindingDraft,
   AuthBindingRef,
   AuthExec,
   AuthPluginContext,
@@ -45,7 +46,13 @@ import { getLogger } from '../../infra/log/registry'
 import { BindingStore, type BindingPersistence } from './bindings'
 import { checkOutboundRequest, checkRedirect, type PolicyResult } from './policy'
 import type { AuthRegistry } from './registry'
-import { runGuarded, TransactionStore, type Transaction } from './transactions'
+import {
+  runGuarded,
+  TransactionStore,
+  type ChainState,
+  type StagedBinding,
+  type Transaction
+} from './transactions'
 
 // binding 이 봉인한 credential 의 vault 키. provider 는 이 이름으로 값을 넣고 broker 가 읽는다.
 export const BINDING_SECRET_NAME = 'secret'
@@ -105,6 +112,11 @@ export class AuthBroker {
         if (reason === 'timeout') this.state.errorMessage = 'timeout'
         this.publish()
       }
+      // 타임아웃·재진입·종료로 끊긴 체인의 보류분도 정리한다 (0172). 정리는 비동기라 취소
+      // 통지 자체는 막지 않고, 끝난 뒤 상태만 다시 알린다.
+      if (tx.chain !== undefined && tx.chain.staged.length > 0) {
+        void this.rollbackChain(tx).then(() => this.publish())
+      }
     })
   }
 
@@ -115,13 +127,16 @@ export class AuthBroker {
   // ── 상태 ───────────────────────────────────────────────────────────────────
 
   status(): AuthPlatformState {
-    const appBinding = this.bindings.findApplicationBinding()
+    const appBindings = this.bindings.applicationBindings()
+    const root = this.bindings.findApplicationBinding()
     return {
       // application target 을 지원하는 provider 가 하나라도 있어야 게이트가 의미를 갖는다.
       required: this.deps.registry.providersForTarget('application').length > 0,
-      authenticated: appBinding?.status === 'valid',
+      // 체인은 **전 멤버가 유효해야** 인증이다 (0172). 멤버가 1개면 기존 판정과 동치다.
+      authenticated: appBindings.length > 0 && appBindings.every((b) => b.status === 'valid'),
       inflight: this.state.inflight,
-      identity: appBinding?.principal ?? null,
+      // 신원은 root 우선. root 가 principal 을 안 주면 그것을 준 첫 멤버를 쓴다.
+      identity: root?.principal ?? appBindings.find((b) => b.principal)?.principal ?? null,
       errorMessage: this.state.errorMessage,
       step: this.state.step,
       providers: this.deps.registry.describeProviders()
@@ -196,13 +211,22 @@ export class AuthBroker {
       )
     }
 
+    // 앱 로그인은 **패키지 단위 체인**이다 (0172) — 같은 패키지가 선언한 application provider 들이
+    // 하나의 논리 로그인이다. 어느 멤버로 begin 하든 체인의 **헤드부터** 시작한다: 중간부터
+    // 시작하면 "전부 성공해야 인증" 이라는 불변식을 만족시킬 방법이 없다.
+    // connector 연결은 사용자가 방식 하나를 고르는 흐름이라 체인을 타지 않는다.
+    const members =
+      target.kind === 'application' ? this.deps.registry.loginChainFor(providerId) : [provider]
+    const head = members[0] ?? provider
+
     const tx = this.transactions.begin({
-      providerId,
-      pluginId: provider.descriptor.pluginId,
+      providerId: head.descriptor.id,
+      pluginId: head.descriptor.pluginId,
       target,
-      ...(provider.descriptor.loginTimeoutMs !== undefined
-        ? { timeoutMs: provider.descriptor.loginTimeoutMs }
-        : {})
+      ...(head.descriptor.loginTimeoutMs !== undefined
+        ? { timeoutMs: head.descriptor.loginTimeoutMs }
+        : {}),
+      chain: { members: members.map((m) => m.descriptor.id), index: 0, staged: [] }
     })
     if (target.kind === 'application') {
       this.state.inflight = true
@@ -210,13 +234,13 @@ export class AuthBroker {
       this.publish()
     }
 
-    const ctx = this.buildContext(provider, tx, {})
+    const ctx = this.buildContext(head, tx, {})
     const step = await runGuarded<AuthStep>(
       tx.controller.signal,
-      () => provider.begin(ctx),
-      (err) => this.toFailedStep(provider, err)
+      () => head.begin(ctx),
+      (err) => this.toFailedStep(head, err)
     )
-    return this.applyStep(provider, tx, step)
+    return this.applyStep(head, tx, step)
   }
 
   async continue(transactionId: string, input: Record<string, string>): Promise<AuthStepInfo> {
@@ -434,39 +458,18 @@ export class AuthBroker {
 
   // ── 내부 ───────────────────────────────────────────────────────────────────
 
-  private applyStep(provider: AuthProviderV1, tx: Transaction, step: AuthStep): AuthStepInfo {
-    if (step.kind === 'done') {
-      const parentBindingId = step.binding.parentBindingId
-      if (parentBindingId !== undefined && !this.bindings.get(parentBindingId)) {
-        this.deps.vaultFor(txPrefix(provider, tx)).clearAll()
-        this.transactions.finish(tx.id)
-        return this.fail(tx.target, 'policy_denied', 'parent binding is no longer valid')
-      }
-      const binding = this.bindings.create({
-        pluginId: provider.descriptor.pluginId,
-        providerId: provider.descriptor.id,
-        target: tx.target,
-        mechanism: step.binding.mechanism,
-        artifact: step.binding.artifact,
-        ...(step.binding.principal !== undefined ? { principal: step.binding.principal } : {}),
-        ...(step.binding.parentBindingId !== undefined
-          ? { parentBindingId: step.binding.parentBindingId }
-          : {}),
-        ...(step.binding.expiresAt !== undefined ? { expiresAt: step.binding.expiresAt } : {})
-      })
-      // provider 가 transaction 네임스페이스에 봉인한 secret 을 binding 네임스페이스로 옮긴다.
-      this.adoptTransactionSecret(provider, tx, binding.id)
-      this.transactions.finish(tx.id)
-      if (tx.target.kind === 'application') {
-        this.state.inflight = false
-        this.state.errorMessage = null
-        this.state.step = null
-      }
-      this.publish()
-      return { kind: 'done', binding }
-    }
+  private async applyStep(
+    provider: AuthProviderV1,
+    tx: Transaction,
+    step: AuthStep
+  ): Promise<AuthStepInfo> {
+    if (step.kind === 'done') return this.stageAndAdvance(provider, tx, step.binding)
 
     if (step.kind === 'failed' || step.kind === 'not_supported') {
+      // 멤버 하나의 실패는 **로그인 전체의 실패**다 (0172). 이미 성공한 멤버의 자원을 먼저
+      // 되돌리고, 실패한 멤버가 남긴 것도 지운다.
+      await this.rollbackChain(tx)
+      this.deps.vaultFor(txPrefix(provider, tx)).clearAll()
       this.transactions.finish(tx.id)
       const info: AuthStepInfo =
         step.kind === 'not_supported'
@@ -485,19 +488,22 @@ export class AuthBroker {
       return info
     }
 
+    const chain = this.chainProgress(provider, tx)
     const info: AuthStepInfo =
       step.kind === 'collect'
         ? {
             kind: 'collect',
             transactionId: tx.id,
             fields: [...step.fields],
-            ...(step.message !== undefined ? { message: step.message } : {})
+            ...(step.message !== undefined ? { message: step.message } : {}),
+            ...(chain !== undefined ? { chain } : {})
           }
         : step.kind === 'browser'
           ? {
               kind: 'browser',
               transactionId: tx.id,
-              ...(step.message !== undefined ? { message: step.message } : {})
+              ...(step.message !== undefined ? { message: step.message } : {}),
+              ...(chain !== undefined ? { chain } : {})
             }
           : {
               kind: 'device_code',
@@ -505,7 +511,8 @@ export class AuthBroker {
               userCode: step.userCode,
               verificationUrl: step.verificationUrl,
               ...(step.expiresAt !== undefined ? { expiresAt: step.expiresAt } : {}),
-              ...(step.message !== undefined ? { message: step.message } : {})
+              ...(step.message !== undefined ? { message: step.message } : {}),
+              ...(chain !== undefined ? { chain } : {})
             }
     if (tx.target.kind === 'application') {
       this.state.step = info
@@ -514,14 +521,141 @@ export class AuthBroker {
     return info
   }
 
-  // provider 는 transaction 동안 자기 네임스페이스에 값을 넣는다. binding 이 생기면
-  // binding 네임스페이스로 이관해 logout 시 한 번에 지워지게 한다.
-  private adoptTransactionSecret(
+  // ── 로그인 체인 (0172) ─────────────────────────────────────────────────────
+
+  // 멤버가 성공했다. **커밋하지 않고 보류**한 뒤 다음 멤버로 넘어가고, 마지막이면 한 번에
+  // 커밋한다. 중간 멤버의 `done` 은 renderer 로 나가지 않는다 — 나가면 로그인 화면이
+  // 완료로 판단하고 앱으로 진입해버린다.
+  private async stageAndAdvance(
     provider: AuthProviderV1,
     tx: Transaction,
-    bindingId: string
-  ): void {
-    const txVault = this.deps.vaultFor(txPrefix(provider, tx))
+    draft: AuthBindingDraft
+  ): Promise<AuthStepInfo> {
+    const parentBindingId = draft.parentBindingId
+    if (parentBindingId !== undefined && !this.bindings.get(parentBindingId)) {
+      await this.rollbackChain(tx)
+      this.deps.vaultFor(txPrefix(provider, tx)).clearAll()
+      this.transactions.finish(tx.id)
+      return this.fail(tx.target, 'policy_denied', 'parent binding is no longer valid')
+    }
+
+    const chain = tx.chain
+    const staged: StagedBinding = {
+      providerId: provider.descriptor.id,
+      pluginId: provider.descriptor.pluginId,
+      draft
+    }
+    if (!chain) return this.commitChain(tx, [staged])
+    chain.staged.push(staged)
+
+    const next = this.memberAt(chain, chain.index + 1)
+    if (!next) return this.commitChain(tx, chain.staged)
+
+    this.transactions.advance(
+      tx.id,
+      next.descriptor.id,
+      next.descriptor.pluginId,
+      next.descriptor.loginTimeoutMs
+    )
+    const ctx = this.buildContext(next, tx, {})
+    const step = await runGuarded<AuthStep>(
+      tx.controller.signal,
+      () => next.begin(ctx),
+      (err) => this.toFailedStep(next, err)
+    )
+    return this.applyStep(next, tx, step)
+  }
+
+  // 전 멤버가 성공했다. binding 을 **한 번에** 만들고(첫 멤버 = root) 멤버별 secret 을 각자의
+  // binding 네임스페이스로 옮긴다. 축출된 이전 로그인의 secret 도 여기서 지운다.
+  private commitChain(tx: Transaction, staged: readonly StagedBinding[]): AuthStepInfo {
+    const { created, evicted } = this.bindings.createMany(
+      staged.map((member) => ({
+        pluginId: member.pluginId,
+        providerId: member.providerId,
+        target: tx.target,
+        mechanism: member.draft.mechanism,
+        artifact: member.draft.artifact,
+        ...(member.draft.principal !== undefined ? { principal: member.draft.principal } : {}),
+        ...(member.draft.parentBindingId !== undefined
+          ? { parentBindingId: member.draft.parentBindingId }
+          : {}),
+        ...(member.draft.expiresAt !== undefined ? { expiresAt: member.draft.expiresAt } : {})
+      }))
+    )
+    for (const victim of evicted) {
+      this.deps.vaultFor(authBindingPrefix(victim.id)).clearAll()
+    }
+    created.forEach((binding, index) => {
+      const member = staged[index]
+      this.adoptSecret(member.pluginId, member.providerId, tx.id, binding.id)
+    })
+    this.transactions.finish(tx.id)
+    if (tx.target.kind === 'application') {
+      this.state.inflight = false
+      this.state.errorMessage = null
+      this.state.step = null
+    }
+    this.publish()
+    return { kind: 'done', binding: created[0] }
+  }
+
+  // 보류분을 **역순**으로 되돌린다. provider 에게 자기 자원(브라우저 세션 등)을 정리할 기회를
+  // 주고, provider 가 무엇을 하든 우리 소유 vault 는 우리가 지운다.
+  private async rollbackChain(tx: Transaction): Promise<void> {
+    const chain = tx.chain
+    if (!chain || chain.staged.length === 0) return
+    // 먼저 비운다 — 실패 경로와 취소 콜백이 겹쳐도 두 번 정리하지 않는다.
+    const staged = chain.staged.splice(0, chain.staged.length)
+
+    for (const member of [...staged].reverse()) {
+      const provider = this.deps.registry.getProvider(member.providerId)
+      if (provider) {
+        // **새 controller 를 쓴다.** tx signal 은 타임아웃·취소로 이미 abort 됐을 수 있고,
+        // `runGuarded` 는 aborted signal 이면 provider 를 아예 부르지 않는다 — 그러면 정리가
+        // 필요한 바로 그 상황에서 정리가 건너뛰어진다.
+        const controller = new AbortController()
+        const prefix = txPrefixOf(member.pluginId, member.providerId, tx.id)
+        const ctx = this.makeContext(provider, tx.target, {}, controller.signal, prefix, new Map())
+        const result = await runGuarded(
+          controller.signal,
+          () => provider.logout(ctx, stagedRef(tx, member)),
+          (err) => ({ kind: 'failed' as const, message: String(err) })
+        )
+        if (result.kind === 'failed') {
+          this.log().warn('auth.chain.rollback.failed', {
+            providerId: member.providerId,
+            ...(result.message !== undefined ? { message: result.message } : {})
+          })
+        }
+      }
+      this.deps.vaultFor(txPrefixOf(member.pluginId, member.providerId, tx.id)).clearAll()
+    }
+  }
+
+  private memberAt(chain: ChainState, index: number): AuthProviderV1 | undefined {
+    const providerId = chain.members[index]
+    return providerId !== undefined ? this.deps.registry.getProvider(providerId) : undefined
+  }
+
+  // 체인이 아닌(멤버 1개) 로그인의 step 에는 진행 정보를 싣지 않는다 — 1/1 표기는 잡음이다.
+  private chainProgress(
+    provider: AuthProviderV1,
+    tx: Transaction
+  ): { index: number; total: number; label: string } | undefined {
+    const chain = tx.chain
+    if (!chain || chain.members.length < 2) return undefined
+    return {
+      index: chain.index + 1,
+      total: chain.members.length,
+      label: provider.descriptor.label
+    }
+  }
+
+  // provider 는 transaction 동안 자기 네임스페이스에 값을 넣는다. binding 이 생기면
+  // binding 네임스페이스로 이관해 logout 시 한 번에 지워지게 한다.
+  private adoptSecret(pluginId: string, providerId: string, txId: string, bindingId: string): void {
+    const txVault = this.deps.vaultFor(txPrefixOf(pluginId, providerId, txId))
     const read = txVault.read(BINDING_SECRET_NAME)
     if (read.state !== 'found') return
     const meta = txVault.describe(BINDING_SECRET_NAME)
@@ -620,8 +754,26 @@ export class AuthBroker {
   }
 }
 
+// transaction 네임스페이스는 **멤버별**이다 — `(pluginId, providerId, txId)` 세 값이 다 들어가야
+// 한 체인의 두 멤버가 서로의 보류 secret 을 덮어쓰지 않는다.
+function txPrefixOf(pluginId: string, providerId: string, txId: string): string {
+  return `${authProviderPrefix(pluginId, providerId)}tx:${txId}:`
+}
+
 function txPrefix(provider: AuthProviderV1, tx: Transaction): string {
-  return `${authProviderPrefix(provider.descriptor.pluginId, provider.descriptor.id)}tx:${tx.id}:`
+  return txPrefixOf(provider.descriptor.pluginId, provider.descriptor.id, tx.id)
+}
+
+// 보류분 정리에 넘기는 참조. 아직 binding 이 아니므로 id 는 합성값이다 — logout 구현 3종
+// (static·basic·adfs)이 `binding.id` 를 쓰지 않고 `artifact`·`target` 만 보는 것을 확인했다.
+function stagedRef(tx: Transaction, member: StagedBinding): AuthBindingRef {
+  return {
+    id: `staged:${tx.id}:${member.providerId}`,
+    target: tx.target,
+    mechanism: member.draft.mechanism,
+    artifact: member.draft.artifact,
+    ...(member.draft.expiresAt !== undefined ? { expiresAt: member.draft.expiresAt } : {})
+  }
 }
 
 function toRef(binding: AuthBindingInfo): AuthBindingRef {

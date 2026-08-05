@@ -429,7 +429,9 @@ export const ko = {
     bypass: '로그인 우회(bypass)',
     devButton: 'SSO 개발 버튼',
     loggingIn: '로그인 중',
-    authButton: '로그인'
+    authButton: '로그인',
+    // 여러 인증을 연달아 요구하는 패키지의 진행 표시 (0172).
+    chainProgress: '{{total}}단계 중 {{index}}단계 · {{label}}'
   },
   camera: {
     title: '하드웨어 제어',
