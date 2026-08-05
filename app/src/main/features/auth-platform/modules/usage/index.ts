@@ -30,7 +30,8 @@ export { USAGE_CONNECTORS } from './servers'
 export type { UsageConnectorConfig, UsageOperationSpec } from './spec'
 export type { UsagePayloadEnvelope } from './payload'
 
-export function usageAuthProviders(): AuthProviderV1[] {
+// 이 패키지 안에서만 쓴다 — 배포가 고치는 것은 `servers.ts` 뿐이므로 밖으로 열지 않는다.
+function usageAuthProviders(): AuthProviderV1[] {
   return [
     // **`targets:['connector']` 로 좁힌다** — 기본값(`['application','connector']`)을 쓰면 이
     // 패키지를 켜는 것만으로 prod 앱 로그인 게이트가 켜진다(0164 verify D1, DEV 는 bypass 라
