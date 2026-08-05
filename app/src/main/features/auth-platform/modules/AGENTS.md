@@ -33,6 +33,17 @@ UI 추가 버튼은 디버그 토글(`Tweaks.pluginAddEnabled`, 기본 `false`) 
 > registry 가 대조하므로(`targets`·`label`·`mechanisms`·`capabilities`) 한쪽만 고치면 등록이
 > 거부된다 — 두 곳을 같이 적는다.
 
+## 패키지 공용 헬퍼 — 복사하지 말고 import 한다 (0176)
+
+| 파일 | 쓰임 |
+|---|---|
+| [`declare.ts`](declare.ts) | `providerDeclaration`·`connectorDeclaration`·`runtimeToolDeclaration` — manifest 선언을 **구현 descriptor 에서 파생**한다. descriptor 에 필드가 늘면 여기만 고친다. |
+| [`base-path.ts`](base-path.ts) | `normalizeBasePath` — 컨텍스트 경로(`/confluence`·`/api`)의 선두·꼬리 슬래시 정규화. |
+
+**패키지마다 사본을 만들지 마라.** 파생 함수를 복사하면 "선언은 구현에서 파생한다" 가 막으려던
+드리프트가 한 층 위에서 되살아나고, registry 의 전 필드 대조(0164 D4)에 걸려 그 패키지가 통째로
+거부된다.
+
 ## 규칙
 
 - **connector 는 두 출처를 갖는다** (0161). ⓐ **정적** — 코드 레벨 서버 목록(`<모듈>/servers.ts`)에서 오는 고정 descriptor. UI 에서 삭제할 수 없다. ⓑ **인스턴스** — 사용자가 템플릿으로 UI 에서 추가한 것. 둘 다 connector 하나 = 고정 origin = 활성 연결 하나이고, DTO 의 `source` 가 구분한다.

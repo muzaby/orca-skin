@@ -6,6 +6,7 @@
 // PluginHost 구체 타입 대신 **구조적 포트**를 받는다 — electron·binding 없이 스텁으로 테스트할
 // 수 있어야 이 배선이 회귀 대상이 된다.
 
+import { isRecord } from '../../shared/obj'
 import type { ConnectorRequest, ConnectorResult } from '../contracts/connector-plugin'
 import type {
   UsageSample,
@@ -14,7 +15,10 @@ import type {
   UsageSourceInfo,
   UsageSourcePort
 } from '../contracts/usage-source'
-import type { UsagePayloadEnvelope } from '../features/auth-platform/modules/usage'
+
+// connector 가 지켜야 하는 유일한 결과 형상. **특정 패키지 타입을 import 하지 않는다** — 이
+// 포트는 어느 usage connector 가 오든 같아야 하고, 검사는 어차피 duck-typing 이다.
+type UsageEnvelope = Pick<UsageSample, 'status' | 'contentType' | 'payload'> & { status: number }
 
 export interface UsageConnectorLookup {
   list(): ReadonlyArray<{ connectorId: string; label: string; connected: boolean }>
@@ -101,15 +105,15 @@ export function createUsageSourcePort(
 
 // connector 는 `{status, contentType?, payload}` 를 준다는 것이 유일한 계약이다. 어긋나면
 // 표본을 만들지 않는다 — 형상 없는 값을 payload 로 흘리면 map 이 조용히 오해한다.
-function asEnvelope(data: unknown): UsagePayloadEnvelope | null {
-  if (data === null || typeof data !== 'object') return null
-  const record = data as Record<string, unknown>
-  if (typeof record.status !== 'number') return null
-  if (!('payload' in record)) return null
-  const contentType = record.contentType
+// (`isRecord` 는 배열도 배제한다 — JSON 배열 응답이 `Record` 로 강제 캐스팅되던 자리다.)
+function asEnvelope(data: unknown): UsageEnvelope | null {
+  if (!isRecord(data)) return null
+  if (typeof data.status !== 'number') return null
+  if (!('payload' in data)) return null
+  const contentType = data.contentType
   return {
-    status: record.status,
+    status: data.status,
     ...(typeof contentType === 'string' ? { contentType } : {}),
-    payload: record.payload
+    payload: data.payload
   }
 }

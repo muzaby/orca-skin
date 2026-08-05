@@ -23,12 +23,8 @@ export interface ConfluenceEndpoint {
 
 // `/confluence/`, `confluence`, '' 를 모두 `/confluence` · '' 로 정규화한다. 배포마다 사람이
 // 적는 값이라 형태를 강제하지 않고 여기서 흡수한다.
-export function normalizeBasePath(raw: string | undefined): string {
-  const trimmed = (raw ?? '').trim()
-  if (trimmed === '' || trimmed === '/') return ''
-  const withLeading = trimmed.startsWith('/') ? trimmed : `/${trimmed}`
-  return withLeading.endsWith('/') ? withLeading.slice(0, -1) : withLeading
-}
+// 패키지 공용으로 승격(0176) — usage connector 도 같은 규칙을 쓴다. 기존 import 경로 무회귀.
+export { normalizeBasePath } from '../base-path'
 
 function restPath(endpoint: ConfluenceEndpoint, suffix: string): string {
   return `${endpoint.apiBasePath}${REST_PREFIX}${suffix}`

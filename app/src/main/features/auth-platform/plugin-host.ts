@@ -193,23 +193,12 @@ export class PluginHost {
       return { ok: false, message: `connector is not connected: ${connectorId}` }
     }
     // 연결 종료(binding 만료·logout)와 호출자 취소(사용량 타임아웃) **둘 다** 이 호출을 끊어야
-    // 한다. 둘을 하나로 접고 끝나면 리스너를 되돌린다.
-    const controller = new AbortController()
-    const abort = (): void => controller.abort()
-    if (signal?.aborted === true) abort()
-    active.controller.signal.addEventListener('abort', abort, { once: true })
-    signal?.addEventListener('abort', abort, { once: true })
-    try {
-      return await this.deps.connectors.invoke(
-        active.connectionId,
-        request,
-        undefined,
-        controller.signal
-      )
-    } finally {
-      active.controller.signal.removeEventListener('abort', abort)
-      signal?.removeEventListener('abort', abort)
-    }
+    // 한다. `AbortSignal.any` 는 abort reason 도 함께 전파하므로 진단이 "무엇이 끊었는지" 를
+    // 구분할 수 있다(직접 만든 controller 로 접으면 reason 이 사라진다).
+    const combined = signal
+      ? AbortSignal.any([active.controller.signal, signal])
+      : active.controller.signal
+    return this.deps.connectors.invoke(active.connectionId, request, undefined, combined)
   }
 
   async disconnect(input: { connectorId: string }): Promise<AuthLogoutOutcome> {

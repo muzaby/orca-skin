@@ -8,6 +8,7 @@
 
 import type { AuthProviderV1 } from '../../../../contracts/auth-plugin'
 import type { ConnectorRuntimeV1 } from '../../../../contracts/connector-plugin'
+import { connectorDeclaration, providerDeclaration } from '../declare'
 import { createBasicCredentialProvider } from '../../providers/basic-credential'
 import { createStaticCredentialProvider } from '../../providers/static-credential'
 import type { AuthPluginPackage } from '../index'
@@ -72,32 +73,5 @@ export function createUsageConnectorPackage(
     },
     providers,
     connectors
-  }
-}
-
-// 선언은 **구현에서 파생한다** — 손으로 두 벌 적으면 반드시 갈리고, registry 가 전 필드를
-// 대조하므로(0164 D4) 갈리는 순간 패키지가 통째로 거부된다.
-function providerDeclaration(provider: AuthProviderV1): Record<string, unknown> {
-  const { descriptor } = provider
-  return {
-    id: descriptor.id,
-    apiVersion: descriptor.apiVersion,
-    label: descriptor.label,
-    targets: [...descriptor.targets],
-    mechanisms: [...descriptor.mechanisms],
-    capabilities: [...descriptor.capabilities]
-  }
-}
-
-function connectorDeclaration(connector: ConnectorRuntimeV1): Record<string, unknown> {
-  const { descriptor } = connector
-  return {
-    id: descriptor.id,
-    apiVersion: descriptor.apiVersion,
-    label: descriptor.label,
-    acceptedAuthProviders: [...descriptor.acceptedAuthProviders],
-    baseUrl: descriptor.baseUrl,
-    presentation: descriptor.presentation,
-    presentations: descriptor.presentations
   }
 }

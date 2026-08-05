@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildUsageRequest, normalizeBasePath, substitute } from './request'
+import { buildUsageRequest, substitute } from './request'
 import type { UsageConnectorConfig } from './spec'
 
 const config: UsageConnectorConfig = {
@@ -57,15 +57,6 @@ describe('buildUsageRequest', () => {
 
   it('선언되지 않은 operation 은 null 이다', () => {
     expect(buildUsageRequest(config, 'usage-corp', 'binding-1', 'unknown')).toBeNull()
-  })
-})
-
-describe('normalizeBasePath', () => {
-  it('빈 값·슬래시만·꼬리 슬래시를 흡수한다', () => {
-    expect(normalizeBasePath(undefined)).toBe('')
-    expect(normalizeBasePath('/')).toBe('')
-    expect(normalizeBasePath('portal')).toBe('/portal')
-    expect(normalizeBasePath('/portal/')).toBe('/portal')
   })
 })
 

@@ -5,16 +5,10 @@
 // 못하게 하는 것이 목적이다(broker 의 origin 검사보다 앞선 1차 방어).
 
 import type { AuthenticatedFetchRequest } from '../../../../contracts/connector-plugin'
+import { normalizeBasePath } from '../base-path'
 import type { UsageConnectorConfig, UsageOperationSpec } from './spec'
 
 const PLACEHOLDER = /\{([A-Za-z0-9_.-]+)\}/g
-
-export function normalizeBasePath(raw: string | undefined): string {
-  const trimmed = (raw ?? '').trim()
-  if (trimmed === '' || trimmed === '/') return ''
-  const withLeading = trimmed.startsWith('/') ? trimmed : `/${trimmed}`
-  return withLeading.endsWith('/') ? withLeading.slice(0, -1) : withLeading
-}
 
 // 치환 대상이 없는 파라미터는 **무시한다** — 모델·호출자가 보낸 임의 키가 요청에 새지 않는다.
 export function substitute(template: string, params: Record<string, unknown>): string {
