@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { BindingStore, sameTarget, targetKey } from './bindings'
-import type { AuthTarget } from '../../../shared/ipc'
+import { BindingStore, sameTarget, targetKey, type BindingPersistence } from './bindings'
+import type { AuthBindingInfo, AuthTarget } from '../../../shared/ipc'
 
 const APP: AuthTarget = { kind: 'application', applicationId: 'orca' }
 const WIKI: AuthTarget = { kind: 'connector', connectorId: 'wiki', connectionId: 'c1' }
@@ -104,5 +104,119 @@ describe('target 동일성', () => {
   it('targetKey 가 target 별로 유일하다', () => {
     const keys = new Set([targetKey(APP), targetKey(WIKI), targetKey(JIRA)])
     expect(keys.size).toBe(3)
+  })
+})
+
+// 0170 — 레코드 영속. 비밀은 vault 에 있고 여기 남는 것은 handle 뿐이다.
+describe('BindingStore — 영속', () => {
+  function fakePersistence(seed: AuthBindingInfo[] = []): BindingPersistence & {
+    saved: AuthBindingInfo[][]
+  } {
+    const saved: AuthBindingInfo[][] = []
+    return {
+      saved,
+      load: () => seed,
+      save: (records) => void saved.push([...records])
+    }
+  }
+
+  const CONNECTOR: AuthTarget = { kind: 'connector', connectorId: 'wiki', connectionId: 'c1' }
+
+  function record(id: string): AuthBindingInfo {
+    return {
+      id,
+      pluginId: 'corp',
+      providerId: 'pat',
+      target: CONNECTOR,
+      mechanism: 'personal_access_token',
+      artifact: {
+        kind: 'vault_credential',
+        handleId: 'h1',
+        credentialKind: 'personal_access_token'
+      },
+      status: 'valid',
+      createdAt: 1
+    }
+  }
+
+  it('저장된 레코드를 같은 id 로 되살린다', () => {
+    // id 가 vault 네임스페이스의 열쇠라, 같은 id 로 살아나야 비밀을 다시 찾는다.
+    const persistence = fakePersistence([record('bind_kept')])
+    const store = new BindingStore(() => 1, persistence)
+    store.adopt(store.loadPersisted())
+    expect(store.list().map((b) => b.id)).toEqual(['bind_kept'])
+    expect(store.get('bind_kept')?.target).toEqual(CONNECTOR)
+  })
+
+  it('레코드 변경마다 저장소에 반영한다', () => {
+    const persistence = fakePersistence()
+    const store = new BindingStore(() => 1, persistence)
+    const created = store.create({
+      pluginId: 'corp',
+      providerId: 'pat',
+      target: CONNECTOR,
+      mechanism: 'personal_access_token',
+      artifact: {
+        kind: 'vault_credential',
+        handleId: 'h1',
+        credentialKind: 'personal_access_token'
+      }
+    })
+    store.setStatus(created.id, 'expired')
+    store.patch(created.id, { status: 'valid' })
+    store.remove(created.id, false)
+
+    // create · setStatus · patch · remove 네 경로가 모두 저장을 부른다.
+    expect(persistence.saved).toHaveLength(4)
+    expect(persistence.saved[0].map((b) => b.id)).toEqual([created.id])
+    expect(persistence.saved[1][0].status).toBe('expired')
+    expect(persistence.saved[2][0].status).toBe('valid')
+    // 마지막 저장은 빈 목록이다 — 지운 레코드가 다음 부팅에 되살아나면 안 된다.
+    expect(persistence.saved[3]).toEqual([])
+  })
+
+  it('영속 포트가 없으면 메모리 전용으로 동작한다', () => {
+    const store = new BindingStore(() => 1)
+    expect(store.loadPersisted()).toEqual([])
+    const created = store.create({
+      pluginId: 'corp',
+      providerId: 'pat',
+      target: CONNECTOR,
+      mechanism: 'personal_access_token',
+      artifact: {
+        kind: 'vault_credential',
+        handleId: 'h1',
+        credentialKind: 'personal_access_token'
+      }
+    })
+    // 던지지 않고 종전대로 동작한다.
+    expect(store.get(created.id)).toBeDefined()
+  })
+
+  it('adopt 는 폐기분을 저장소에서도 지운다', () => {
+    const persistence = fakePersistence([record('a'), record('b')])
+    const store = new BindingStore(() => 1, persistence)
+    store.adopt(store.loadPersisted().filter((b) => b.id === 'a'))
+    expect(store.list().map((b) => b.id)).toEqual(['a'])
+    expect(persistence.saved.at(-1)?.map((b) => b.id)).toEqual(['a'])
+  })
+
+  it('새 binding id 가 복원된 id 와 겹치지 않는다', () => {
+    // 겹치면 새 binding 이 남의 vault 네임스페이스를 물려받는다.
+    const store = new BindingStore(() => 1, fakePersistence([record('bind_1_x')]))
+    store.adopt(store.loadPersisted())
+    const created = store.create({
+      pluginId: 'corp',
+      providerId: 'pat',
+      target: { kind: 'connector', connectorId: 'other', connectionId: 'c1' },
+      mechanism: 'personal_access_token',
+      artifact: {
+        kind: 'vault_credential',
+        handleId: 'h2',
+        credentialKind: 'personal_access_token'
+      }
+    })
+    expect(created.id).not.toBe('bind_1_x')
+    expect(store.get('bind_1_x')).toBeDefined()
   })
 })
