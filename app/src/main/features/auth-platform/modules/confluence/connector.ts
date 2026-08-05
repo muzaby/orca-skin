@@ -396,13 +396,18 @@ export function createConfluenceConnector(raw: ConfluenceServerConfig): Connecto
     return { assets, failed: [...missing, ...failures], unreferenced }
   }
 
-  // 첨부 하나를 받는다 — **좌표가 둘**이다 (0169).
-  //   ⓐ `/child/attachment/{id}/data` — 지금까지 쓰던 경로. 302 로 실제 파일에 넘긴다.
-  //   ⓑ 목록이 준 `_links.download`(`/download/attachments/…`) — Atlassian 이 DC 다운로드
-  //      좌표로 문서화한 쪽. ⓐ 가 실패할 때만 쓴다.
-  // 순서를 이렇게 두는 이유: ⓐ 는 실동작이 실측돼 있어(broker 의 302 추종) 교체는 회귀 위험만
-  // 만든다. 어느 쪽으로 받든 **버전은 목록 조회 시점의 현재 버전**이다 — 본문 URL 의
-  // `?version=N`(삽입 시점)을 따르지 않는다.
+  // 첨부 하나를 받는다 — **좌표가 둘이고, `_links.download` 가 1순위다** (0171).
+  //   ⓐ 목록이 준 `_links.download`(`/download/attachments/…`) — Atlassian 이 DC 다운로드
+  //      좌표로 문서화한 쪽. 사용자가 실제로 쓰는 주소이기도 하다.
+  //   ⓑ `/child/attachment/{id}/data` — 0160~0169 의 1순위였다. **실측 결과 GET 이 405 로
+  //      막힌다**(사용자 보고 2026-08-05) — 그 경로는 문서상 *업로드(POST)* 좌표이고,
+  //      배포에 따라 GET 을 302 로 넘겨 주기도 해서 지금도 폴백으로는 살려 둔다.
+  //
+  // 0169 는 "현행 경로가 302 로 동작하는 것이 broker 주석에 실측돼 있다" 를 근거로 순서를
+  // 반대로 뒀는데, 그 주석은 **다른 배포의 관찰**이었다. 405 는 그 전제를 반증한다.
+  //
+  // 어느 쪽으로 받든 **버전은 목록 조회 시점의 현재 버전**이다 — 본문 URL 의 `?version=N`
+  // (삽입 시점)을 따르지 않는다.
   async function downloadOne(
     ctx: ConnectorContext,
     pageId: string,
@@ -419,27 +424,49 @@ export function createConfluenceConnector(raw: ConfluenceServerConfig): Connecto
       return res.bodyBytes
     }
 
-    let bytes: Uint8Array
-    try {
-      bytes = await fetchBytes(attachmentDataRequest(endpoint, pageId, item.id, maxAttachmentBytes))
-    } catch (error) {
-      // **재시도 가치가 있을 때만** 두 번째 좌표를 쓴다. 취소(abort)는 사용자가 그만두라고 한
-      // 것이고, 크기 초과는 같은 파일이라 다시 받아도 같은 상한에 걸린다 — 둘 다 재시도가
-      // 낭비이자 잘못된 신호다.
-      if (item.downloadPath === undefined || !isRetriableDownloadError(error)) throw error
-      ctx.logger('confluence.attachment.data-failed', {
-        pageId,
-        filename: item.title,
-        message: String(error)
-      })
-      bytes = await fetchBytes(
-        attachmentDownloadRequest(endpoint, item.downloadPath, maxAttachmentBytes)
-      )
+    // 시도 순서. 목록이 링크를 안 주는 배포에서는 ⓑ 하나만 남는다.
+    const attempts: RequestFields[] = [
+      ...(item.downloadPath !== undefined
+        ? [attachmentDownloadRequest(endpoint, item.downloadPath, maxAttachmentBytes)]
+        : []),
+      attachmentDataRequest(endpoint, pageId, item.id, maxAttachmentBytes)
+    ]
+
+    let bytes: Uint8Array | undefined
+    let used = attempts[0]
+    for (const [index, req] of attempts.entries()) {
+      try {
+        bytes = await fetchBytes(req)
+        used = req
+        break
+      } catch (error) {
+        const last = index === attempts.length - 1
+        // **재시도 가치가 있을 때만** 다음 좌표로 넘어간다. 취소(abort)는 사용자가 그만두라고
+        // 한 것이고, 크기 초과는 같은 파일이라 다시 받아도 같은 상한에 걸린다.
+        if (last || !isRetriableDownloadError(error)) throw error
+        ctx.logger('confluence.attachment.retry', {
+          pageId,
+          filename: item.title,
+          path: req.path,
+          message: String(error)
+        })
+      }
     }
+    if (bytes === undefined) throw new Error('첨부를 받지 못했습니다')
+
     return store.saveAsset(item.title, bytes, {
       ...(item.mediaType !== undefined ? { mediaType: item.mediaType } : {}),
-      ...(item.version !== undefined ? { version: item.version } : {})
+      ...(item.version !== undefined ? { version: item.version } : {}),
+      // 어디서 받았는지 절대 URL 로 남긴다 (0171, 사용자 요청). 파일만 보고는 출처를 되짚을 수
+      // 없고, 405 처럼 좌표 자체가 문제일 때 **어느 주소가 쓰였는지**가 진단의 시작점이다.
+      sourceUrl: absoluteUrl(used)
     })
+  }
+
+  // 요청 서술자 → 사람이 브라우저에 붙여 넣을 수 있는 절대 URL.
+  function absoluteUrl(req: RequestFields): string {
+    const query = new URLSearchParams(req.query ?? {}).toString()
+    return `${config.baseUrl}${req.path}${query === '' ? '' : `?${query}`}`
   }
 }
 
@@ -482,7 +509,9 @@ function manifestOf(result: ConfluencePageResult): Record<string, unknown> {
       filename: asset.filename,
       bytes: asset.bytes,
       mediaType: asset.mediaType,
-      version: asset.version
+      version: asset.version,
+      // 출처를 파일 옆에 남긴다 (0171) — 나중에 원본 페이지의 첨부와 대조할 수 있어야 한다.
+      sourceUrl: asset.sourceUrl
     })),
     failedAssets: result.failedAssets,
     unreferencedAttachments: result.unreferencedAttachments,

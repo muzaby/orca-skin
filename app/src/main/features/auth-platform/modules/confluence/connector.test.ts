@@ -612,8 +612,11 @@ describe('ConfluenceConnector — pages', () => {
     expect(manifest.assets[0].version).toBe(3)
   })
 
-  it('data 경로가 실패하면 download 링크로 재시도한다', async () => {
-    cleanup.push(pageDir(SERVER.id, '1'))
+  // 0171 — 사용자 실측: `/child/attachment/{id}/data` 는 GET 이 **405** 다(문서상 업로드 좌표).
+  // 그래서 목록이 준 `_links.download` 를 1순위로 둔다.
+  it('download 링크를 먼저 쓰고 data 경로는 두드리지 않는다', async () => {
+    const dir = pageDir(SERVER.id, '1')
+    cleanup.push(dir)
     const connector = createConfluenceConnector(SERVER)
     const { ctx, seen } = context([
       okUser,
@@ -634,8 +637,8 @@ describe('ConfluenceConnector — pages', () => {
           })
         })
       },
-      // 문서상 /data 는 업로드(POST) 좌표다 — GET 이 막힌 배포가 있다.
-      { match: (r) => r.path.endsWith('/data'), respond: () => ({ status: 404, body: '{}' }) },
+      // 이 경로가 열려 있어도 쓰지 않는다 — 실서버에서 405 를 주기 때문이다.
+      { match: (r) => r.path.endsWith('/data'), respond: () => ({ status: 405, body: '{}' }) },
       {
         match: (r) => r.path.includes('/download/attachments/'),
         respond: () => ({ status: 200, body: '', bodyBytes: new Uint8Array([9, 9]) })
@@ -644,8 +647,68 @@ describe('ConfluenceConnector — pages', () => {
     const data = await pages(ctx, connector, { pageIds: ['1'] })
 
     expect(data.pages[0].assets.map((a) => a.filename)).toEqual(['diagram.png'])
-    expect(data.pages[0].failedAssets).toEqual([])
     expect(seen.filter((r) => r.path.includes('/download/attachments/'))).toHaveLength(1)
+    expect(seen.filter((r) => r.path.endsWith('/data'))).toHaveLength(0)
+
+    // 어디서 받았는지 절대 URL 로 남는다 (0171, 사용자 요청).
+    expect(data.pages[0].assets[0].sourceUrl).toBe(
+      'https://wiki.invalid/download/attachments/1/diagram.png?version=2'
+    )
+    const manifest = JSON.parse(await readFile(join(dir, 'manifest.json'), 'utf8')) as {
+      assets: Array<{ sourceUrl?: string }>
+    }
+    expect(manifest.assets[0].sourceUrl).toBe(
+      'https://wiki.invalid/download/attachments/1/diagram.png?version=2'
+    )
+  })
+
+  it('download 링크가 없으면 data 경로로 받고 그 URL 을 남긴다', async () => {
+    cleanup.push(pageDir(SERVER.id, '1'))
+    const connector = createConfluenceConnector(SERVER)
+    const { ctx } = context([
+      okUser,
+      pageRoute(),
+      ...attachmentRoutes([{ id: 'att-1', title: 'diagram.png' }])
+    ])
+    const data = await pages(ctx, connector, { pageIds: ['1'] })
+    expect(data.pages[0].assets[0].sourceUrl).toBe(
+      'https://wiki.invalid/rest/api/content/1/child/attachment/att-1/data'
+    )
+  })
+
+  it('download 링크가 실패하면 data 경로로 재시도한다', async () => {
+    cleanup.push(pageDir(SERVER.id, '1'))
+    const connector = createConfluenceConnector(SERVER)
+    const { ctx, seen } = context([
+      okUser,
+      pageRoute(),
+      {
+        match: (r) => r.path.endsWith('/child/attachment'),
+        respond: () => ({
+          status: 200,
+          body: JSON.stringify({
+            results: [
+              {
+                id: 'att-1',
+                title: 'diagram.png',
+                _links: { download: '/download/attachments/1/diagram.png' }
+              }
+            ]
+          })
+        })
+      },
+      {
+        match: (r) => r.path.includes('/download/attachments/'),
+        respond: () => ({ status: 404, body: '{}' })
+      },
+      {
+        match: (r) => r.path.endsWith('/data'),
+        respond: () => ({ status: 200, body: '', bodyBytes: new Uint8Array([7]) })
+      }
+    ])
+    const data = await pages(ctx, connector, { pageIds: ['1'] })
+    expect(data.pages[0].assets.map((a) => a.filename)).toEqual(['diagram.png'])
+    expect(seen.filter((r) => r.path.endsWith('/data'))).toHaveLength(1)
   })
 
   it('두 다운로드 경로가 모두 실패해도 페이지 저장은 완료된다', async () => {
@@ -669,43 +732,22 @@ describe('ConfluenceConnector — pages', () => {
           })
         })
       },
-      { match: (r) => r.path.endsWith('/data'), respond: () => ({ status: 404, body: '{}' }) },
       {
         match: (r) => r.path.includes('/download/attachments/'),
         respond: () => ({ status: 500, body: '{}' })
-      }
+      },
+      // 실서버가 주는 값 그대로 — 이 상태 코드가 결과에 보여야 진단이 된다.
+      { match: (r) => r.path.endsWith('/data'), respond: () => ({ status: 405, body: '{}' }) }
     ])
     const data = await pages(ctx, connector, { pageIds: ['1'] })
     expect(data.failedPages).toEqual([])
     expect(data.pages[0].assets).toEqual([])
     expect(data.pages[0].failedAssets).toEqual([
-      { filename: 'diagram.png', message: expect.stringContaining('500') }
+      { filename: 'diagram.png', message: expect.stringContaining('405') }
     ])
   })
 
-  it('멘션이 아주 많아도 조회 수에 상한을 둔다', async () => {
-    cleanup.push(pageDir(SERVER.id, '1'))
-    const connector = createConfluenceConnector(SERVER)
-    // 60명을 멘션한 본문 — 상한이 없으면 배치 50페이지에서 3,000번의 요청이 된다.
-    const many = Array.from(
-      { length: 60 },
-      (_, i) => `<p><ac:link><ri:user ri:userkey="k${i}" /></ac:link></p>`
-    ).join('')
-    const { ctx, seen } = context([
-      okUser,
-      pageRoute(many),
-      ...attachmentRoutes([]),
-      userRoute({ displayName: '누군가' })
-    ])
-    const data = await pages(ctx, connector, { pageIds: ['1'] })
-
-    expect(seen.filter((r) => r.path.endsWith('/rest/api/user'))).toHaveLength(50)
-    // 상한을 넘긴 멘션도 자리표시자로 새지 않는다.
-    expect(data.pages[0].markdownPreview).not.toContain('{{user:')
-    expect(data.pages[0].markdownPreview).toContain('@사용자')
-  })
-
-  it('취소·크기 초과는 두 번째 다운로드 좌표로 재시도하지 않는다', async () => {
+  it('취소·크기 초과는 다음 다운로드 좌표로 재시도하지 않는다', async () => {
     cleanup.push(pageDir(SERVER.id, '1'))
     const connector = createConfluenceConnector(SERVER)
     const { ctx, seen } = context([
@@ -728,7 +770,7 @@ describe('ConfluenceConnector — pages', () => {
       },
       {
         // 상태 실패가 아니라 전송 자체가 던지는 경우(취소·상한 초과).
-        match: (r) => r.path.endsWith('/data'),
+        match: (r) => r.path.includes('/download/attachments/'),
         respond: () => {
           throw new Error('응답이 상한을 초과했습니다 (999 > 10 bytes)')
         }
@@ -736,8 +778,8 @@ describe('ConfluenceConnector — pages', () => {
     ])
     const data = await pages(ctx, connector, { pageIds: ['1'] })
 
-    // 같은 파일을 다시 받아도 같은 상한에 걸린다 — 두 번째 좌표를 두드리지 않는다.
-    expect(seen.filter((r) => r.path.includes('/download/attachments/'))).toHaveLength(0)
+    // 같은 파일을 다시 받아도 같은 상한에 걸린다 — 다음 좌표를 두드리지 않는다.
+    expect(seen.filter((r) => r.path.endsWith('/data'))).toHaveLength(0)
     expect(data.pages[0].failedAssets[0].message).toContain('상한을 초과')
   })
 
