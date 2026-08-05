@@ -34,7 +34,7 @@ Orca(Electron 데스크톱 앱)의 **main 프로세스**(Node.js 환경)다. 이
 
 `ctx`(`UsageMapContext`, subscription 경로)가 주는 것: `providerKey`, `settings`, `store`, `logger`, `clock`. **`fetch` 도 `secret` 도 없다** — 구독 모듈은 raw credential 을 보지 않는다(AUTH-PLAT-009).
 
-프레임워크가 처리해주는 것(모듈이 신경 쓸 필요 없음): 5분 주기 스케줄, 타임아웃, 실패 시 마지막 성공 값 폴백(stale 표시), SQLite 캐시 영속, UI 반영.
+프레임워크가 처리해주는 것(모듈이 신경 쓸 필요 없음): 1분 주기 스케줄, 타임아웃, 실패 시 마지막 성공 값 폴백(stale 표시), SQLite 캐시 영속, UI 반영.
 
 ## 구현 절차
 
@@ -55,4 +55,4 @@ Orca(Electron 데스크톱 앱)의 **main 프로세스**(Node.js 환경)다. 이
 
 ## English summary
 
-This directory hosts **company-owned static usage provider modules** for closed-network Orca deployments (zero active by default). Implement `StaticUsageProviderModule` from the contract `app/src/main/contracts/usage-report.ts` — the declarative `usage.config` (single HTTP call + JSON path mapping, `${SECRET:}`/`${ENV:}` expansion), the hand-written `usage.provider` hook (`fetchUsageReport(ctx)`) for pagination/reshaping, or — **whenever the endpoint requires authentication** — `usage.subscription`, which maps the result of a usage connector's authenticated call (`map(sample, ctx)`; no `fetch`, no `secret`, since the auth platform owns credentials). The framework owns scheduling (5 min), timeout, stale fallback, persistence, and UI. Copy an `_example/` variant, register it with one line in `modules/index.ts`, touch nothing else, never commit secrets. Gate: `cd app && npm run lint && npm run typecheck`.
+This directory hosts **company-owned static usage provider modules** for closed-network Orca deployments (zero active by default). Implement `StaticUsageProviderModule` from the contract `app/src/main/contracts/usage-report.ts` — the declarative `usage.config` (single HTTP call + JSON path mapping, `${SECRET:}`/`${ENV:}` expansion), the hand-written `usage.provider` hook (`fetchUsageReport(ctx)`) for pagination/reshaping, or — **whenever the endpoint requires authentication** — `usage.subscription`, which maps the result of a usage connector's authenticated call (`map(sample, ctx)`; no `fetch`, no `secret`, since the auth platform owns credentials). The framework owns scheduling (1 min), timeout, stale fallback, persistence, and UI. Copy an `_example/` variant, register it with one line in `modules/index.ts`, touch nothing else, never commit secrets. Gate: `cd app && npm run lint && npm run typecheck`.

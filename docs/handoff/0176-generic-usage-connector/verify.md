@@ -179,6 +179,22 @@ electron 모듈을 로드하지 못해 **수집 자체가 안 된다**(egress �
 게이트 재실행: lint **0 error** · typecheck **3/3** · vitest **2045/2045**(중복 테스트 1건 제거로 −1) ·
 scripts **28/28**.
 
+## 후속 변경 — 갱신 주기 5분 → 1분 (사용자 결정 2026-08-05)
+
+`provider-usage-report-refresh` 의 cron 을 `*/5 * * * *` → `* * * * *` 로 바꿨다
+(`app/bootstrap.ts`). 사용자 지시이며 이 핸드오프의 인수 기준을 건드리지 않는다.
+
+- **원격 호출이 5배가 되지는 않는다** — providerKey 단위 in-flight 병합(기존)과 표본 단위
+  dedupe(0176 AC4)가 겹치는 호출을 접고, 각 호출은 5초 타임아웃을 건다. 늘어나는 것은 *조회
+  시도 빈도*이지 동시 호출 수가 아니다.
+- 미연결·실패는 종전대로 baseline stale 로 접히므로(AC6) 사내망 밖에서 1분마다 실패해도
+  사용자에게 보이는 값은 흔들리지 않는다.
+- `croner` 가 `* * * * *` 를 받는지 실행으로 확인했다(`assertValidCron` 경유, nextRun 정상).
+- 문서 동기화: `features/providers/static/modules/AGENTS.md` 의 "5분 주기 스케줄"·
+  "scheduling (5 min)" → 1분.
+- **설정으로 켜는 `scheduler.usageRecompute`(로컬 재집계)는 건드리지 않았다** — 기본값
+  `enabled:false` 인 별개 잡이다.
+
 ## 검증 자기 리뷰 (무엇이 부족했나)
 
 - **설계 단계**: 인수 기준 23개는 전부 검증 수단을 갖췄지만, **plan 이 리스크 표에서 약속한

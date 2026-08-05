@@ -528,7 +528,10 @@ export class Bootstrap {
         .flatMap((adapter) => providerSettings.list(adapter).map((entry) => entry.key))
       await externalUsage.refreshAll(providerKeys)
     })
-    scheduler.schedule('provider-usage-report-refresh', { enabled: true, cron: '*/5 * * * *' })
+    // 1분 주기 (사용자 결정 2026-08-05, 구 `*/5`). 한 틱이 겹쳐도 원격 호출은 늘지 않는다 —
+    // providerKey 단위 in-flight 병합 + 표본 단위 dedupe(0176)가 중복 호출을 접고, 각 호출은
+    // 5초 타임아웃을 건다.
+    scheduler.schedule('provider-usage-report-refresh', { enabled: true, cron: '* * * * *' })
     // ClaudeAdapter 가 사용하는 cwd 와 동일한 값으로 스킬 스캔.
     await this.bootReport.step('skill-scan', { critical: false, label: '스킬 스캔' }, () =>
       this.refreshSkills()
