@@ -54,10 +54,16 @@ get_pages(pageIds[])             → storage XHTML → Markdown → 참조 첨�
   버전이라 따르지 않는다 — `parseDownloadHref` 가 쿼리를 버리고 파일명만 쓰며, 대조 대상은
   `expand=version` 으로 받은 **현재** 첨부 목록이다. 받은 번호는 `SavedAsset.version` 과
   `manifest.json` 에 남아 사후 확인이 된다.
-- **다운로드 좌표는 둘이다.** ⓐ `/child/attachment/{id}/data`(현행, 302 로 실제 파일에 넘긴다)
-  → 실패 시 ⓑ 목록이 준 `_links.download`(`/download/attachments/…`). Atlassian 문서상 `/data`
-  는 *업로드(POST)* 좌표이고 Cloud 전용 `GET …/download` 는 Server 에서 404 라, DC 에서 확실한
-  좌표는 ⓑ 다. **그래도 ⓐ 를 먼저 쓴다** — 실동작이 실측돼 있어 교체는 회귀 위험만 만든다.
+- **다운로드 좌표는 둘이고 `_links.download` 가 1순위다** (0171). ⓐ 목록이 준
+  `_links.download`(`/download/attachments/…`) → 실패 시 ⓑ `/child/attachment/{id}/data`.
+  **0169 는 순서가 반대였는데 사용자 실측에서 ⓑ 가 405(Method Not Allowed)를 냈다** — 그 경로는
+  Atlassian 문서상 *업로드(POST)* 좌표라 GET 이 막힌다. ⓑ 를 지우지 않는 이유는 `_links.download`
+  를 안 주는 배포가 있을 수 있어서다.
+  > **1차 출처 > 2차 관찰.** 0169 는 벤더 문서가 "`/data` 는 업로드 좌표" 라고 말하는데도
+  > 우리 코드 주석의 302 관찰을 더 무겁게 봐서 순서를 잘못 뒀다. 충돌하면 벤더 문서를 따른다.
+- **어느 좌표로 받았는지 남긴다** — `SavedAsset.sourceUrl`(절대 URL)이 `manifest.json` 에
+  기록된다(0171, 사용자 요청). 좌표 자체가 문제일 때 진단의 시작점이다. **도구 결과 문장에는
+  싣지 않는다** — 첨부 수만큼 URL 이 컨텍스트에 쌓인다(0168 P27).
 - `_links.download` 는 `_links.base`(origin + 컨텍스트 경로) 기준 **상대 경로**다.
   `attachmentDownloadRequest` 가 `apiBasePath` 를 붙이고 쿼리를 `query` 로 분해한다 — 경로에
   `?` 를 남기면 인코딩이 두 번 된다.
