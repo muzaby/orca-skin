@@ -40,6 +40,7 @@ import {
   materializeStaticProviderSettings
 } from '../features/providers/static'
 import { ExternalUsageService } from '../features/usage/external-usage-service'
+import { createUsageSourcePort } from './usage-source'
 import { netFetch } from '../infra/auth/net-fetch'
 import { loadClaudeProviderSettings, readUserClaudeSettings } from '../adapters/claude-settings'
 import { scanSkills, type SkillScanRoot } from '../features/extensions/skills/scan'
@@ -512,7 +513,14 @@ export class Bootstrap {
       secretFor: (providerKey) => createProviderSecretFacade(secretStore, providerKey),
       providers: STATIC_USAGE_PROVIDERS,
       // 원격 사용량 보고서도 Chromium 스택으로 나간다 (0173).
-      fetchImpl: netFetch
+      fetchImpl: netFetch,
+      // 0176 — 인증이 필요한 사용량 API 는 usage connector 가 부르고, 그 결과 표본을 usage
+      // provider 가 구독한다. 여기가 두 슬라이스를 잇는 유일한 지점이다.
+      sources: createUsageSourcePort({
+        list: () => auth.pluginHost.list(),
+        invokeConnector: (connectorId, request, signal) =>
+          auth.pluginHost.invokeConnector(connectorId, request, signal)
+      })
     })
     scheduler.register('provider-usage-report-refresh', async () => {
       const providerKeys = providerSettings

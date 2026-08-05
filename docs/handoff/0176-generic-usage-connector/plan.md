@@ -418,28 +418,59 @@ const externalUsage = new ExternalUsageService({ db, secretFor, providers, fetch
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- 동의 / 그대로 진행: …
-- 이견 / 우려: …
+> 구현자 = **Claude**(이 저장소 환경에 Codex 부재 — 0165~0167 이후 관례). 설계도 같은 세션이
+> 썼으므로 자기 설계를 비판적으로 다시 읽었다.
+
+- **동의 / 그대로 진행**
+  - §설계 "connector 를 provider 에 매달지 않는다" 는 구현에서도 값을 했다. `features/usage` 가
+    auth-platform 을 전혀 모르는 채로 끝났고(신규 import 0), 배선은 `app/usage-source.ts` 한
+    파일에 모였다. lint 의 boundaries 규칙이 한 번도 발동하지 않은 것이 그 증거다.
+  - §설계 "표본 dedupe" 는 실제로 필요했다 — provider 2개가 같은 사내 API 를 가리키는 것이
+    폐쇄망 배포의 기본 형태(어댑터-provider 조합 여럿 ↔ 사용량 API 하나)다.
+  - §레이어 배치의 "순수부 seam"(`request.ts`·`payload.ts`)은 connector 테스트의 90% 를
+    HTTP 스텁 없이 쓰게 해 줬다.
+- **이견 / 우려**
+  - §설계가 `UsageMapContext.store` 를 준 것은 과했을 수 있다. 구독 모듈은 커서·토큰을 들고
+    있을 이유가 거의 없다(연속 호출은 connector 쪽 관심사다). 다만 훅 경로와 컨텍스트 형상을
+    맞추는 값이 있고 제거는 언제든 가능하므로 **그대로 뒀다**. AC22 가 키 집합을 잠그고 있어
+    나중에 줄이면 그 테스트가 알려 준다.
+  - AC15(probe health 매핑)의 `error` 분기(4xx 중 401/403 이 아닌 것)는 실제로는 대개
+    "경로 오타" 다. 상태만으로는 그 사실을 사용자에게 말해 줄 수 없다 — 메시지에 HTTP 코드를
+    싣는 선에서 멈췄다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 구현함 / ⚠️ 보고만 | … |
+| 1 | 설계는 **오류 응답(4xx·5xx)을 어느 쪽으로 접을지 말하지 않았다.** 그대로 표본으로 올리면 오류 본문(JSON 오류 객체)을 quota 로 읽는 map 이 나올 수 있고, 그 순간 **잘못된 값이 권위값으로 영속**된다. | ✅ 구현함 — `connector.invoke` 가 `status >= 400` 을 `{ok:false, health}` 로 접는다. 표본이 만들어지지 않으므로 서비스는 baseline stale 로 간다. 회귀: `connector.test.ts::"4xx·5xx 응답은 표본이 아니라 실패로 돌려준다"` | 0158 verify r1 D5("결과를 그대로 흘리면 조용한 빈 성공")의 usage 판 |
+| 2 | 설계의 "usage 쪽 타임아웃을 signal 로 전달" 은 **두 취소원(연결 종료 + 호출자 타임아웃)이 겹친다**는 사실을 다루지 않았다. `ConnectorHost.invoke` 는 signal 을 하나만 받는다. | ✅ 구현함 — `PluginHost.invokeConnector` 가 둘을 하나로 접고 **끝나면 리스너를 되돌린다**(장수 연결에 리스너가 쌓이지 않도록). 회귀 2건: `plugin-host.test.ts::"binding 종료가 진행 중인 connectorId 호출을 끊는다"`·`"호출자 취소도 그 호출만 끊는다"` | `features/connectors/runtime.ts` 의 `composeAbortSignals` 선례 |
+| 3 | 설계는 map 이 만든 리포트의 `providerKey` 를 **누가 정하는지** 말하지 않았다. 모듈이 남의 키를 적으면 다른 provider 의 캐시 행을 덮어쓴다. | ✅ 구현함 — 서비스가 `{ ...mapped, providerKey }` 로 **구독자의 키를 강제**한다(`external-usage-service.ts` 의 `subscribe`). | 이름 오염은 조용히 퍼지는 부류 |
+| 4 | `_example` 세 변형 중 어느 것을 골라야 하는지 문서가 갈라 주지 않으면, 인증이 필요한 배포가 `${SECRET:}` 경로를 골라 **빈 토큰으로 401 을 맞는다**(원인이 안 보이는 실패). | ✅ 구현함 — `modules/AGENTS.md` 에 "endpoint 가 인증을 요구하면 subscription" 결정표 + "0157 이후 `ctx.secret` 에 값을 넣어 주는 코드가 없다" 경고를 넣고, `_example/provider-subscription.ts` 를 추가했다. | 관문 0 의 "레거시 유지" 결정이 낳는 실사용 함정 |
+| 5 | `USAGE_CONNECTORS` 가 비었을 때도 패키지가 등록되면 **provider 2종이 항상 올라간다.** `targets` 를 잘못 적으면 신규 설치 전부에 앱 로그인 게이트가 켜진다. | ✅ 구현함(예방) — `targets:['connector']` 로 좁히고 `usage-package.test.ts::"기본 설정은 connector 0개이고 로그인 게이트를 켜지 않는다"` 가 `providersForTarget('application') === []` 를 잠근다. | 0164 verify D1 재발 방지 |
+| 6 | 레거시 경로 제거 시점 · UI 템플릿 개방 여부 | ⚠️ 보고만 — **사용자 결정 필요**(§리스크 Open Question 2건). 이번 구현은 둘 다 현행 유지. | 제품 결정 |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] …
+- [x] `contracts/usage-source.ts` — 표본·포트 계약(구조적 포트, features 무의존)
+- [x] `contracts/usage-report.ts` — `usage.subscription` + `UsageMapContext`(fetch·secret 없음)
+- [x] `features/usage/usage-feed.ts` — selector 팬아웃 + 구독자 예외 격리 (+3 테스트)
+- [x] `features/usage/external-usage-service.ts` — 우선순위 해소·표본 dedupe·매핑 영속 (+8 테스트)
+- [x] `features/auth-platform/modules/usage/` — `spec`·`request`·`payload`·`connector`·`servers`·`index` (+23 테스트)
+- [x] `features/auth-platform/plugin-host.ts` — `invokeConnector` (+3 테스트)
+- [x] `app/usage-source.ts` — PluginHost → 포트 어댑터 (+5 테스트)
+- [x] `app/bootstrap.ts` — `sources` 배선 · `modules/index.ts` 패키지 등록
+- [x] 문서 — `modules/usage/{AGENTS,CLAUDE}.md` · `modules/AGENTS.md` · `providers/static/modules/AGENTS.md` · `_example/provider-subscription.ts` · `secret-facade.ts` 헤더 · `src/main/AGENTS.md`
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` |
-| 게이트 결과 | … |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | … |
+| 변경 파일 | 신규 12(계약 1 · usage-feed 1+테스트 1 · modules/usage 6+테스트 4 · app/usage-source 1+테스트 1 · 문서 2 · `_example` 1), 개정 8(`usage-report`·`external-usage-service`(+테스트)·`plugin-host`(+테스트)·`modules/index`·`bootstrap`·`secret-facade`·AGENTS 3종) |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` · `node --test "scripts/*.test.mjs"` |
+| 게이트 결과 | lint **0 error**(warning 1 = 0102 베이스라인) · typecheck **3/3** · vitest **2043/2043 통과**(215 파일 중 214 로드) · scripts **28/28** |
+| 환경 제약 | `src/main/app/chat-turn.continuity.test.ts` **1파일이 로드 실패** — `Electron failed to install correctly`(egress 차단으로 electron 바이너리 미설치). 코드 무관·변경 전과 동일한 베이스라인이며, DB 스위트는 `npm rebuild better-sqlite3`(Node ABI) 후 전부 green. `app/AGENTS.md` §제약 환경 게이트 가이드의 분리 보고 규칙을 따른다. |
+| 블로커 / 역질문 | 없음. 사용자 결정 대기 2건(레거시 `${SECRET:}` 제거 시점 · usage connector UI 템플릿 개방) — 둘 다 현행 유지로 진행. |
+| 대상 커밋 | (아래 구현 커밋) |
 
 ---
 

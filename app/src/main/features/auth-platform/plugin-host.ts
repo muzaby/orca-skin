@@ -177,6 +177,41 @@ export class PluginHost {
     }
   }
 
+  // connectorId 로 부르는 호출 표면 (0176). 지금까지 connector 를 부를 수 있는 것은 runtime
+  // tool 뿐이었고(`makeServer` 의 클로저), 그래서 도구가 아닌 소비자(사용량 수집)는 닿을 길이
+  // 없었다.
+  //
+  // **미연결은 예외가 아니라 결과다** — 부팅 직후·사내망 밖·로그아웃 후가 전부 정상 상태이고,
+  // 호출자(사용량 갱신)는 그때 마지막 값을 유지해야 한다.
+  async invokeConnector(
+    connectorId: string,
+    request: ConnectorRequest,
+    signal?: AbortSignal
+  ): Promise<ConnectorResult> {
+    const active = this.activeByConnector.get(connectorId)
+    if (!active || !active.ready || active.controller.signal.aborted) {
+      return { ok: false, message: `connector is not connected: ${connectorId}` }
+    }
+    // 연결 종료(binding 만료·logout)와 호출자 취소(사용량 타임아웃) **둘 다** 이 호출을 끊어야
+    // 한다. 둘을 하나로 접고 끝나면 리스너를 되돌린다.
+    const controller = new AbortController()
+    const abort = (): void => controller.abort()
+    if (signal?.aborted === true) abort()
+    active.controller.signal.addEventListener('abort', abort, { once: true })
+    signal?.addEventListener('abort', abort, { once: true })
+    try {
+      return await this.deps.connectors.invoke(
+        active.connectionId,
+        request,
+        undefined,
+        controller.signal
+      )
+    } finally {
+      active.controller.signal.removeEventListener('abort', abort)
+      signal?.removeEventListener('abort', abort)
+    }
+  }
+
   async disconnect(input: { connectorId: string }): Promise<AuthLogoutOutcome> {
     const active = this.activeByConnector.get(input.connectorId)
     if (!active) throw new Error(`connector is not connected: ${input.connectorId}`)
