@@ -152,6 +152,41 @@ function bytesResponse(bytes: Uint8Array, headers: Record<string, string> = {}):
   return new Response(bytes.buffer as ArrayBuffer, { status: 200, headers })
 }
 
+describe('createSender — 전송 구현 주입 (0173)', () => {
+  it('전역 fetch 가 아니라 주입된 구현으로 보낸다', async () => {
+    // 전역이 호출되면 사내 프록시·사설 CA 를 안 타는 Node 스택으로 나간 것이다.
+    const globalSpy = vi.fn(async () => new Response('전역', { status: 500 }))
+    vi.stubGlobal('fetch', globalSpy)
+    const injected = vi.fn(async () => new Response('주입', { status: 200 }))
+
+    const out = await createSender(injected as unknown as typeof fetch).send(req())
+
+    expect(injected).toHaveBeenCalledOnce()
+    expect(globalSpy).not.toHaveBeenCalled()
+    expect(out.status).toBe(200)
+    expect(out.body).toBe('주입')
+  })
+
+  it('주입 구현에 method·headers·body 와 정책 옵션을 그대로 넘긴다', async () => {
+    const injected = vi.fn(async () => new Response(null, { status: 204 }))
+    await createSender(injected as unknown as typeof fetch).send({
+      url: 'https://wiki.corp.invalid/rest',
+      method: 'POST',
+      headers: { Authorization: 'Bearer x' },
+      body: '{"q":1}'
+    })
+
+    const [url, init] = injected.mock.calls[0] as unknown as [string, RequestInit]
+    expect(url).toBe('https://wiki.corp.invalid/rest')
+    expect(init.method).toBe('POST')
+    expect(init.headers).toEqual({ Authorization: 'Bearer x' })
+    expect(init.body).toBe('{"q":1}')
+    // 스택을 바꿔도 정책은 그대로다 — 쿠키 미전송 + redirect 수동.
+    expect(init.credentials).toBe('omit')
+    expect(init.redirect).toBe('manual')
+  })
+})
+
 describe('createSender — responseType', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
@@ -161,21 +196,21 @@ describe('createSender — responseType', () => {
     // 유효한 UTF-8 이 아닌 바이트열 — text 경로였다면 U+FFFD 로 뭉개진다.
     const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0xff, 0xfe])
     stubFetch(bytesResponse(png))
-    const out = await createSender().send(req(), undefined, { responseType: 'binary' })
+    const out = await createSender(fetch).send(req(), undefined, { responseType: 'binary' })
     expect(out.bodyBytes).toEqual(png)
     expect(out.body).toBe('')
   })
 
   it('미지정 responseType 은 text 로 동작한다', async () => {
     stubFetch(new Response('hello', { status: 200 }))
-    const out = await createSender().send(req())
+    const out = await createSender(fetch).send(req())
     expect(out.body).toBe('hello')
     expect(out.bodyBytes).toBeUndefined()
   })
 
   it("명시한 'text' 도 text 로 동작한다", async () => {
     stubFetch(new Response('hello', { status: 200 }))
-    const out = await createSender().send(req(), undefined, { responseType: 'text' })
+    const out = await createSender(fetch).send(req(), undefined, { responseType: 'text' })
     expect(out.body).toBe('hello')
     expect(out.bodyBytes).toBeUndefined()
   })
@@ -189,7 +224,7 @@ describe('createSender — maxBytes', () => {
   it('선언 길이 초과를 거부한다', async () => {
     stubFetch(bytesResponse(new Uint8Array(50), { 'content-length': '5000' }))
     await expect(
-      createSender().send(req(), undefined, { responseType: 'binary', maxBytes: 100 })
+      createSender(fetch).send(req(), undefined, { responseType: 'binary', maxBytes: 100 })
     ).rejects.toThrow(ResponseTooLargeError)
   })
 
@@ -197,13 +232,13 @@ describe('createSender — maxBytes', () => {
     // content-length 없이 상한을 넘는 본문 — 서버가 길이를 안 주거나 속이는 경우.
     stubFetch(bytesResponse(new Uint8Array(500)))
     await expect(
-      createSender().send(req(), undefined, { responseType: 'binary', maxBytes: 100 })
+      createSender(fetch).send(req(), undefined, { responseType: 'binary', maxBytes: 100 })
     ).rejects.toThrow(ResponseTooLargeError)
   })
 
   it('상한 이내 바이너리는 그대로 통과한다', async () => {
     stubFetch(bytesResponse(new Uint8Array([1, 2, 3])))
-    const out = await createSender().send(req(), undefined, {
+    const out = await createSender(fetch).send(req(), undefined, {
       responseType: 'binary',
       maxBytes: 100
     })
@@ -213,14 +248,14 @@ describe('createSender — maxBytes', () => {
   it('텍스트 응답도 상한을 넘으면 거부한다 (바이트 기준)', async () => {
     // 한글 3자 = 9바이트 — 문자 수(3)로 재면 상한 5 를 통과해버린다.
     stubFetch(new Response('가나다', { status: 200 }))
-    await expect(createSender().send(req(), undefined, { maxBytes: 5 })).rejects.toThrow(
+    await expect(createSender(fetch).send(req(), undefined, { maxBytes: 5 })).rejects.toThrow(
       ResponseTooLargeError
     )
   })
 
   it('상한 미지정이면 큰 응답도 받는다', async () => {
     stubFetch(bytesResponse(new Uint8Array(10_000)))
-    const out = await createSender().send(req(), undefined, { responseType: 'binary' })
+    const out = await createSender(fetch).send(req(), undefined, { responseType: 'binary' })
     expect(out.bodyBytes?.byteLength).toBe(10_000)
   })
 })

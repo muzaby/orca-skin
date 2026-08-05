@@ -43,6 +43,7 @@ function setup(seed: AuthBindingInfo[]): {
   const deps: BrokerDeps = {
     registry: new AuthRegistry(),
     vaultFor: (prefix) => createCredentialVault(store, prefix),
+    fetchImpl: stubFetch,
     browserSessions: {
       acquire: async () => 'h',
       openLoginWindow: async () => ({ finalUrl: '' }),
@@ -66,6 +67,10 @@ function seedSecret(store: ReturnType<typeof fakeStore>, bindingId: string): voi
     createdAt: 1
   })
 }
+
+// 0173 — `fetchImpl` 은 필수다(전역 fetch 로 되돌아가지 않게). 이 스위트는 원격에
+// 나가지 않으므로 빈 응답 스텁을 준다; 실제 호출을 보는 케이스는 자기 것을 주입한다.
+const stubFetch: typeof fetch = async () => new Response('{}', { status: 200 })
 
 describe('AuthBroker.restore', () => {
   it('비밀이 남아 있는 binding 을 valid 로 복원한다', () => {
