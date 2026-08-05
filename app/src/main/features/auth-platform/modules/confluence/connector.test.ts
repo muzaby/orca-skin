@@ -1,7 +1,8 @@
 // Confluence connector 런타임 (0160). `AuthenticatedFetch` 를 fake 로 주입해 네트워크 없이
 // 돌린다 — connector 가 raw credential 을 안 보는 구조 덕에 fake 가 그대로 성립한다.
 
-import { rm } from 'node:fs/promises'
+import { readFile, rm } from 'node:fs/promises'
+import { join } from 'node:path'
 import { describe, expect, it, afterEach } from 'vitest'
 import type {
   AuthenticatedFetch,
@@ -111,8 +112,10 @@ describe('ConfluenceConnector — start', () => {
 const STORAGE =
   '<p>본문</p><ac:image><ri:attachment ri:filename="diagram.png" /></ac:image>' +
   '<ac:structured-macro ac:name="jira" />'
-// 첨부를 참조하지 않는 본문 — 첨부 목록 조회 자체가 없어야 한다.
+// 첨부를 참조하지 않는 본문 — 받지는 않지만 **목록은 조회해 진단으로 남긴다** (0168).
 const PLAIN_STORAGE = '<p>첨부 없는 본문</p>'
+// `/download/` 밖의 host-relative 이미지(이모티콘 등) — 첨부 후보가 아니다.
+const ICON_STORAGE = '<p><img src="/images/icons/emoticons/smile.png" /></p>'
 
 function searchRoute(envelope: Record<string, unknown>): Route {
   return {
@@ -428,20 +431,96 @@ describe('ConfluenceConnector — pages', () => {
       pageRoute(),
       ...attachmentRoutes([{ id: 'att-1', title: 'diagram.png' }])
     ])
-    await pages(ctx, connector, { pageIds: ['1'], includeAttachments: false })
+    const data = await pages(ctx, connector, { pageIds: ['1'], includeAttachments: false })
     expect(seen.filter((r) => r.path.includes('attachment'))).toHaveLength(0)
+    // 진단 조회도 함께 꺼진다 — 받지 않겠다고 한 호출자가 추가 요청을 물지 않는다.
+    expect(data.pages[0].unreferencedAttachments).toEqual([])
   })
 
-  it('본문이 첨부를 참조하지 않으면 첨부 목록조차 조회하지 않는다', async () => {
+  // 0168 — 0164 의 "참조 0개면 목록 조회조차 하지 않는다" 를 **의도적으로 뒤집는다**. 받지
+  // 않는 것과 보지 않는 것은 다르다: 조회를 건너뛰면 "첨부 없는 페이지" 와 "이미지 참조를 못
+  // 알아본 페이지" 가 같은 출력이 되어 검출 실패가 무성으로 묻힌다(사용자 보고 2026-08-05).
+  it('참조가 없어도 첨부 목록을 조회해 진단으로 남긴다 — 받지는 않는다', async () => {
     cleanup.push(pageDir(SERVER.id, '1'))
     const connector = createConfluenceConnector(SERVER)
     const { ctx, seen } = context([
       okUser,
       pageRoute(PLAIN_STORAGE),
+      ...attachmentRoutes([
+        { id: 'att-1', title: 'diagram.png' },
+        { id: 'att-2', title: 'b.png' }
+      ])
+    ])
+    const data = await pages(ctx, connector, { pageIds: ['1'] })
+
+    // 목록은 **한 번만** 조회한다.
+    expect(seen.filter((r) => r.path.endsWith('/child/attachment'))).toHaveLength(1)
+    // 바이트를 받는 요청은 나가지 않는다 — 다운로드 대상은 여전히 본문이 참조한 것뿐이다.
+    expect(seen.filter((r) => r.path.endsWith('/data'))).toHaveLength(0)
+    expect(data.pages[0].assets).toEqual([])
+    expect(data.pages[0].unreferencedAttachments).toEqual(['diagram.png', 'b.png'])
+  })
+
+  it('참조 밖 첨부는 받지 않고 이름만 남긴다', async () => {
+    cleanup.push(pageDir(SERVER.id, '1'))
+    const connector = createConfluenceConnector(SERVER)
+    const { ctx } = context([
+      okUser,
+      pageRoute(),
+      ...attachmentRoutes([
+        { id: 'att-1', title: 'diagram.png', metadata: { mediaType: 'image/png' } },
+        { id: 'att-2', title: '회의록.pdf' }
+      ])
+    ])
+    const data = await pages(ctx, connector, { pageIds: ['1'] })
+    expect(data.pages[0].assets.map((a) => a.filename)).toEqual(['diagram.png'])
+    expect(data.pages[0].unreferencedAttachments).toEqual(['회의록.pdf'])
+    expect(data.pages[0].failedAssets).toEqual([])
+  })
+
+  it('download 경로 밖 img 는 첨부 후보가 아니다 — 실패로 새지 않는다', async () => {
+    cleanup.push(pageDir(SERVER.id, '1'))
+    const connector = createConfluenceConnector(SERVER)
+    const { ctx, seen } = context([okUser, pageRoute(ICON_STORAGE), ...attachmentRoutes([])])
+    const data = await pages(ctx, connector, { pageIds: ['1'] })
+    expect(data.pages[0].assets).toEqual([])
+    // 이모티콘 경로를 첨부로 오인하면 여기에 "목록에 없습니다" 가 쌓인다.
+    expect(data.pages[0].failedAssets).toEqual([])
+    expect(seen.filter((r) => r.path.endsWith('/data'))).toHaveLength(0)
+  })
+
+  it('진단용 목록 조회가 실패해도 페이지 저장은 완료된다', async () => {
+    cleanup.push(pageDir(SERVER.id, '1'))
+    const connector = createConfluenceConnector(SERVER)
+    const { ctx } = context([
+      okUser,
+      pageRoute(PLAIN_STORAGE),
+      {
+        match: (r) => r.path.endsWith('/child/attachment'),
+        respond: () => ({ status: 500, body: '{}' })
+      }
+    ])
+    const data = await pages(ctx, connector, { pageIds: ['1'] })
+    // 받을 것이 없는 조회의 실패가 멀쩡한 페이지를 떨어뜨리면 안 된다.
+    expect(data.failedPages).toEqual([])
+    expect(data.pages[0].unreferencedAttachments).toEqual([])
+  })
+
+  it('manifest 에 참조 밖 첨부를 기록한다', async () => {
+    const dir = pageDir(SERVER.id, '1')
+    cleanup.push(dir)
+    const connector = createConfluenceConnector(SERVER)
+    const { ctx } = context([
+      okUser,
+      pageRoute(PLAIN_STORAGE),
       ...attachmentRoutes([{ id: 'att-1', title: 'diagram.png' }])
     ])
     await pages(ctx, connector, { pageIds: ['1'] })
-    expect(seen.filter((r) => r.path.includes('attachment'))).toHaveLength(0)
+
+    const manifest = JSON.parse(await readFile(join(dir, 'manifest.json'), 'utf8')) as {
+      unreferencedAttachments?: unknown
+    }
+    expect(manifest.unreferencedAttachments).toEqual(['diagram.png'])
   })
 
   it('pageIds 가 없거나 비어 있으면 던진다', async () => {

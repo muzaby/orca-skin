@@ -106,6 +106,9 @@ export interface ConfluencePageResult {
   previewTruncated: boolean
   assets: SavedAsset[]
   failedAssets: Array<{ filename: string; message: string }>
+  // 페이지에는 딸려 있으나 본문이 참조하지 않은 첨부 이름 (0168). **받지는 않는다** — 변환기가
+  // 이미지 참조를 못 알아봤을 때 그 사실이 조용히 묻히지 않게 하는 진단 값이다.
+  unreferencedAttachments: string[]
   unhandledMacros: string[]
 }
 
@@ -260,12 +263,12 @@ export function createConfluenceConnector(raw: ConfluenceServerConfig): Connecto
     const store = new DownloadStore(dir)
     await store.ensure()
 
-    // 본문이 참조하지 않으면 목록 조회조차 하지 않는다 — 요청 하나를 아끼는 것보다,
-    // "참조 0개" 를 "전부 받기" 로 오해할 여지를 남기지 않는 것이 요점이다.
-    const downloads =
-      includeAttachments && converted.referencedAttachments.length > 0
-        ? await downloadAttachments(ctx, pageId, converted.referencedAttachments, store)
-        : { assets: [], failed: [] }
+    // 본문이 참조하지 않아도 **목록은 조회한다** (0168). 받지 않는 것과 보지 않는 것은 다르다 —
+    // 조회를 건너뛰면 "첨부 없는 페이지" 와 "이미지 참조를 못 알아본 페이지" 가 같은 출력이 되어
+    // 검출 실패가 무성으로 묻힌다. 다운로드 대상은 여전히 본문이 참조한 것뿐이다.
+    const downloads = includeAttachments
+      ? await collectAttachments(ctx, pageId, converted.referencedAttachments, store)
+      : { assets: [], failed: [], unreferenced: [] }
 
     const title = typeof page.title === 'string' ? page.title : pageId
     const markdown = `# ${title}\n\n${converted.markdown}\n`
@@ -282,6 +285,7 @@ export function createConfluenceConnector(raw: ConfluenceServerConfig): Connecto
       previewTruncated: markdown.length > PREVIEW_CHARS,
       assets: downloads.assets,
       failedAssets: downloads.failed,
+      unreferencedAttachments: downloads.unreferenced,
       unhandledMacros: converted.unhandledMacros
     }
 
@@ -290,12 +294,30 @@ export function createConfluenceConnector(raw: ConfluenceServerConfig): Connecto
     return result
   }
 
+  // 참조가 0개일 때의 목록 조회는 **진단 전용**이다 — 받을 것이 없으므로, 그 조회가 실패했다고
+  // 페이지를 실패로 떨어뜨리면 진단을 켠 대가로 멀쩡하던 페이지를 잃는다. 참조가 있을 때는
+  // 목록 실패 = 받을 수 없음이므로 그대로 전파한다(0160 이래의 동작).
+  async function collectAttachments(
+    ctx: ConnectorContext,
+    pageId: string,
+    filenames: readonly string[],
+    store: DownloadStore
+  ): Promise<DownloadOutcome> {
+    if (filenames.length > 0) return downloadAttachments(ctx, pageId, filenames, store)
+    try {
+      return await downloadAttachments(ctx, pageId, filenames, store)
+    } catch (error) {
+      ctx.logger('confluence.attachments.list-failed', { pageId, message: String(error) })
+      return { assets: [], failed: [], unreferenced: [] }
+    }
+  }
+
   async function downloadAttachments(
     ctx: ConnectorContext,
     pageId: string,
     filenames: readonly string[],
     store: DownloadStore
-  ): Promise<{ assets: SavedAsset[]; failed: Array<{ filename: string; message: string }> }> {
+  ): Promise<DownloadOutcome> {
     const listed = parseAttachments(await json(ctx, attachmentListRequest(endpoint, pageId)))
     // 본문이 참조한 것만 받는다. 목록 전체를 받으면 쓰지 않는 파일이 디스크에 쌓인다.
     const wanted = listed.filter((item) => filenames.includes(item.title))
@@ -303,8 +325,12 @@ export function createConfluenceConnector(raw: ConfluenceServerConfig): Connecto
     const missing = filenames
       .filter((name) => !listed.some((item) => item.title === name))
       .map((filename) => ({ filename, message: '페이지 첨부 목록에 없습니다' }))
+    // 받지 않은 나머지. 참조가 0개면 목록 전체가 여기 담겨 "본문에서 못 찾았다" 를 드러낸다.
+    const unreferenced = listed
+      .filter((item) => !filenames.includes(item.title))
+      .map((item) => item.title)
 
-    if (wanted.length === 0) return { assets: [], failed: missing }
+    if (wanted.length === 0) return { assets: [], failed: missing, unreferenced }
 
     // 동시성 상한 — 첨부가 수십 개면 사내 서버가 429/타임아웃을 낸다.
     const results = await mapWithLimit(wanted, concurrency, async (item) => {
@@ -326,8 +352,15 @@ export function createConfluenceConnector(raw: ConfluenceServerConfig): Connecto
       filename: wanted[index].title,
       message: error.message
     }))
-    return { assets, failed: [...missing, ...failures] }
+    return { assets, failed: [...missing, ...failures], unreferenced }
   }
+}
+
+interface DownloadOutcome {
+  assets: SavedAsset[]
+  failed: Array<{ filename: string; message: string }>
+  // 목록에 있으나 본문이 참조하지 않아 **받지 않은** 첨부 이름.
+  unreferenced: string[]
 }
 
 class HttpStatusError extends Error {
@@ -355,6 +388,7 @@ function manifestOf(result: ConfluencePageResult): Record<string, unknown> {
       mediaType: asset.mediaType
     })),
     failedAssets: result.failedAssets,
+    unreferencedAttachments: result.unreferencedAttachments,
     unhandledMacros: result.unhandledMacros
   }
 }

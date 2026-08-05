@@ -88,6 +88,18 @@ function renderPage(page: ConfluencePageResult): string[] {
       `- 받지 못한 첨부: ${failedAssets.map((a) => `${a.filename}(${a.message})`).join(', ')}`
     )
   }
+  // 받은 것이 0인데 페이지에 첨부가 있다 = 본문에서 이미지 참조를 못 찾았다는 신호다 (0168).
+  // "첨부 없는 페이지" 와 구분되지 않으면 검출 실패가 무성으로 묻힌다.
+  const unreferenced = Array.isArray(page.unreferencedAttachments)
+    ? page.unreferencedAttachments
+    : []
+  if (unreferenced.length > 0) {
+    head.push(
+      assets.length === 0
+        ? `- 본문에서 이미지 참조를 찾지 못했습니다. 이 페이지에 딸린 첨부 ${unreferenced.length}개(받지 않음): ${unreferenced.join(', ')}`
+        : `- 본문이 참조하지 않아 받지 않은 첨부 ${unreferenced.length}개: ${unreferenced.join(', ')}`
+    )
+  }
   const macros = Array.isArray(page.unhandledMacros) ? page.unhandledMacros : []
   if (macros.length > 0) {
     // 조용한 내용 소실을 만들지 않는다 — 무엇이 폴백됐는지 모델이 알아야 한다.

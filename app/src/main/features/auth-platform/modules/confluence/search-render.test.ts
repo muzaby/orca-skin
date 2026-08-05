@@ -21,6 +21,7 @@ function page(overrides: Partial<ConfluencePageResult> = {}): ConfluencePageResu
     previewTruncated: false,
     assets: [],
     failedAssets: [],
+    unreferencedAttachments: [],
     unhandledMacros: [],
     ...overrides
   }
@@ -133,6 +134,34 @@ describe('renderPagesResult', () => {
     expect(text).toContain('big.zip(크기 초과)')
     // 조용한 내용 소실을 만들지 않는다.
     expect(text).toContain('jira')
+  })
+
+  // 0168 — "첨부 없는 페이지" 와 "이미지 참조를 못 알아본 페이지" 를 문장으로 가른다.
+  it('참조를 못 찾았는데 첨부가 있으면 그 사실을 말한다', () => {
+    const text = renderPagesResult(
+      pagesResult({
+        pages: [page({ assets: [], unreferencedAttachments: ['diagram.png', 'b.png'] })]
+      })
+    )
+    expect(text).toContain('본문에서 이미지 참조를 찾지 못했습니다')
+    expect(text).toContain('diagram.png, b.png')
+  })
+
+  it('내려받은 첨부와 참조 밖 첨부를 함께 보고한다', () => {
+    const text = renderPagesResult(
+      pagesResult({
+        pages: [
+          page({
+            assets: [{ filename: 'diagram.png', path: '/d/assets/diagram.png', bytes: 10 }],
+            unreferencedAttachments: ['회의록.pdf']
+          })
+        ]
+      })
+    )
+    expect(text).toContain('내려받은 첨부 1개')
+    expect(text).toContain('본문이 참조하지 않아 받지 않은 첨부 1개: 회의록.pdf')
+    // 받은 것이 있으므로 "못 찾았다" 로 말하지 않는다.
+    expect(text).not.toContain('찾지 못했습니다')
   })
 
   it('본문을 못 가져온 페이지를 실패로 보고한다', () => {

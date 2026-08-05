@@ -277,28 +277,49 @@ includeAttachments && refs.length===0 → 목록만 조회, 다운로드 0건, �
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- 동의 / 그대로 진행: …
-- 이견 / 우려: …
+- **동의 / 그대로 진행**: 진단(2)을 검출 확장(1)과 **분리한 것**이 이 설계의 값이다. 사용자
+  페이지의 저장 형식을 못 봤다는 조사 한계(R7)를 설계가 정직하게 안고 가므로, (1)의 가설이
+  빗나가도 다음 실행이 스스로 답을 준다. 후보 규칙을 `/download/` 접두사로 좁힌 것도 옳다 —
+  넓게 잡았다면 이모티콘이 실패 목록을 채웠을 것이다(AC6 이 그걸 잠근다).
+- **이견 / 우려 ①(해소됨)**: §설계 (2)가 "`downloadAttachments` 반환값에 `unreferenced` 를
+  얹는 것으로 족하다" 고 적었는데 **부족했다.** 목록 조회가 실패하면 그 예외가 페이지를 통째로
+  실패시킨다 — 참조가 0개인 페이지는 **원래 성공하던 페이지**라서, 진단을 켠 대가로 멀쩡한
+  결과를 잃는다. 설계에 없던 `collectAttachments` 경계를 넣어 닫았다(아래 문제 1).
+- **이견 / 우려 ②(설계 대비 축소)**: §설계가 `parseDownloadHref` 를 **export** 해 단위
+  테스트하라고 했으나 export 하지 않았다. 분기 전부(스킴·`//`·접두사·alias·세그먼트·디코드
+  실패)가 `storageToMarkdown` 경유 테스트로 덮여, export 는 **소비자 없는 공개 표면**만 늘린다
+  (`e837e97` 의 "선언을 구현에서 파생시킨다" 방향과 반대). 순수 판정부를 함수로 떼어낸다는
+  설계 의도는 그대로 지켰다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 구현함 / ⚠️ 보고만·**결정 필요** | … |
+| 1 | **진단 조회가 페이지를 죽인다.** 참조 0개 페이지에서 첨부 목록 요청이 실패하면(404·500·권한) 예외가 `fetchPage` 를 타고 올라가 그 페이지가 `failedPages` 로 떨어진다. 변경 전에는 조회 자체를 안 했으므로 **성공하던 페이지가 실패로 바뀐다.** 기존 테스트 3건(`중복 id 는 한 번만 처리한다` 등)이 즉시 red 로 이 회귀를 잡았다 | ✅ **구현함** — `collectAttachments` 를 새로 두어, **참조가 0개일 때만** 목록 실패를 삼키고 로그(`confluence.attachments.list-failed`)만 남긴다. 참조가 있을 때의 실패는 "받을 수 없음" 이라 그대로 전파(0160 이래 동작 유지). AC 신설: `"진단용 목록 조회가 실패해도 페이지 저장은 완료된다"` | 구현 세부·명백한 회귀 → 선조치 경계 ✅ 안 |
+| 2 | **`includeAttachments:false` 의 진단 값이 AC 에 없었다.** 요청 0건만 재고 `unreferencedAttachments` 는 안 봤다 — 필드가 `undefined` 로 새도 통과한다 | ✅ **구현함** — 기존 케이스에 `unreferencedAttachments` 가 빈 배열임을 단언 추가(AC11) | AC 보강(약화 아님) → ✅ |
+| 3 | **디코드 실패 분기가 어느 AC 에도 없었다.** `decodeURIComponent` 는 깨진 퍼센트 시퀀스에 던진다 — 첨부 이름 하나로 페이지 변환 전체가 실패할 수 있었다 | ✅ **구현함** — `decodeSegment` 가 원문으로 폴백하고, 케이스 `"인코딩이 깨진 세그먼트는 원문 그대로 쓴다"` 로 고정 | 놓친 엣지케이스 → ✅ |
+| 4 | **`uniqueName` 링크 desync** (§비범위) 가 이번 변경으로 **조금 더 잘 드러난다** — 같은 위생화 이름의 첨부 2건이 `x-1.png` 로 저장되면 본문 링크는 `x.png` 를 가리킨다 | ⚠️ **보고만** — 비범위로 남긴다. 이번 변경이 만든 결함이 아니고, 고치려면 저장 파일명 규칙(연쇄로 markdown 링크 생성 시점)을 바꿔야 해 범위가 다르다 | 설계 범위 변경 → ⚠️ |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] …
+- [x] `normalizeDownloadImages` + `parseDownloadHref` + `decodeSegment` — `ac:image` 루프 **뒤**에 배치(2차 승격 방지)
+- [x] `ConfluencePageResult.unreferencedAttachments` + `DownloadOutcome.unreferenced` + `manifestOf` 기록
+- [x] `collectAttachments` — 참조 0개일 때만 목록 실패를 삼킨다(문제 1)
+- [x] `renderPage` 진단 두 갈래(받은 것 0 / 받은 것 있음)
+- [x] 뒤집는 테스트 1건 갱신 + 신규 15건
+- [x] `modules/confluence/AGENTS.md` — 검출 규칙·진단·"폴백을 되살리지 마라" 명시
+- [x] 측정력 확인 — 소스 3파일을 `git stash` 로 되돌려 신규 단언이 실제로 실패하는지 실행
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / 모듈 vitest |
-| 게이트 결과 | … |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | … |
+| 변경 파일 | `storage-to-markdown.ts`(+`.test.ts`) · `connector.ts`(+`.test.ts`) · `search-render.ts`(+`.test.ts`) · `modules/confluence/AGENTS.md` |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run src/main/features/auth-platform/modules/confluence/` |
+| 게이트 결과 | lint **0 error**(warning 1 = `useTranscriptVirtualizer` — 0102 베이스라인, 변경 무관) · typecheck **3/3** · 모듈 vitest **8파일 147/147**(베이스라인 132 대비 **+15**) |
+| **측정력 실측** | 소스 3파일만 stash 한 상태로 재실행 → **신규 15건 중 13건 red**. 남은 2건(`외부 절대 URL img 는 참조가 아니다` · `download 경로 밖 img 는 첨부 후보가 아니다`)은 plan 이 **과잉검출 가드**로 명시한 것이라 현행도 통과하는 것이 정상이다 |
+| 블로커 / 역질문 | 없음. 단 **AC15·16(사람 실기)은 미검증** — 사내 Confluence 접근 불가. 사용자 실기가 필요하고, 실기에서 여전히 0건이면 AC16 의 진단 줄이 다음 조치를 지정한다 |
+| 대상 커밋 | (아래 fix 커밋) |
 
 ---
 
