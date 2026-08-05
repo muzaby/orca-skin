@@ -164,6 +164,20 @@ describe('renderPagesResult', () => {
     expect(text).not.toContain('찾지 못했습니다')
   })
 
+  // 0168 verify r1 D1 — 첨부 200건 × 50페이지가 그대로 실리면 컨텍스트를 통째로 먹는다.
+  it('진단 목록이 길면 잘라내고 남은 개수를 알려 준다', () => {
+    const names = Array.from({ length: 57 }, (_, index) => `첨부-${index + 1}.png`)
+    const text = renderPagesResult(
+      pagesResult({ pages: [page({ assets: [], unreferencedAttachments: names })] })
+    )
+    // 전체 개수는 그대로 말한다.
+    expect(text).toContain('첨부 57개')
+    expect(text).toContain('첨부-20.png')
+    // 21번째부터는 싣지 않고, 잘렸다는 사실과 전량이 있는 곳을 알려 준다.
+    expect(text).not.toContain('첨부-21.png')
+    expect(text).toContain('외 37개 (전체 목록은 manifest.json)')
+  })
+
   it('본문을 못 가져온 페이지를 실패로 보고한다', () => {
     const text = renderPagesResult(
       pagesResult({ pages: [], failedPages: [{ pageId: '9', message: '403' }] })

@@ -94,10 +94,11 @@ function renderPage(page: ConfluencePageResult): string[] {
     ? page.unreferencedAttachments
     : []
   if (unreferenced.length > 0) {
+    const names = nameList(unreferenced)
     head.push(
       assets.length === 0
-        ? `- 본문에서 이미지 참조를 찾지 못했습니다. 이 페이지에 딸린 첨부 ${unreferenced.length}개(받지 않음): ${unreferenced.join(', ')}`
-        : `- 본문이 참조하지 않아 받지 않은 첨부 ${unreferenced.length}개: ${unreferenced.join(', ')}`
+        ? `- 본문에서 이미지 참조를 찾지 못했습니다. 이 페이지에 딸린 첨부 ${unreferenced.length}개(받지 않음): ${names}`
+        : `- 본문이 참조하지 않아 받지 않은 첨부 ${unreferenced.length}개: ${names}`
     )
   }
   const macros = Array.isArray(page.unhandledMacros) ? page.unhandledMacros : []
@@ -110,6 +111,19 @@ function renderPage(page: ConfluencePageResult): string[] {
   }
 
   return [...head, '', page.markdownPreview ?? '']
+}
+
+// 진단 목록에 실을 이름 수 상한 (0168 verify r1 D1). 첨부 목록은 페이지당 200건까지 오고
+// `get_pages` 는 한 번에 50페이지를 받는다 — 상한이 없으면 최악 10,000개 파일명이 모델
+// 컨텍스트로 들어간다. 본문 미리보기를 `PREVIEW_CHARS` 로 자르는 것과 같은 이유다.
+// **전량은 `manifest.json` 에 남는다** — 디스크는 컨텍스트 비용이 없다.
+const MAX_DIAGNOSTIC_NAMES = 20
+
+function nameList(names: readonly string[]): string {
+  if (names.length <= MAX_DIAGNOSTIC_NAMES) return names.join(', ')
+  // 잘렸다는 사실과 남은 수를 함께 준다 — 모델이 목록을 완전한 것으로 읽지 않게.
+  const shown = names.slice(0, MAX_DIAGNOSTIC_NAMES).join(', ')
+  return `${shown} … 외 ${names.length - MAX_DIAGNOSTIC_NAMES}개 (전체 목록은 manifest.json)`
 }
 
 function space(page: ConfluencePageResult): string {
