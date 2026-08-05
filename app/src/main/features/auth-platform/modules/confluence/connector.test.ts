@@ -157,6 +157,17 @@ function attachmentRoutes(attachments: unknown[]): Route[] {
   ]
 }
 
+// 0169 — 멘션이 있는 본문. `ri:userkey` 는 불투명 키라 이름은 REST 로만 얻는다.
+const MENTION_STORAGE =
+  '<p>담당 <ac:link><ri:user ri:userkey="key-1" /></ac:link> 확인 바랍니다.</p>'
+
+function userRoute(body: Record<string, unknown>, status = 200): Route {
+  return {
+    match: (r) => r.path.endsWith('/rest/api/user'),
+    respond: () => ({ status, body: JSON.stringify(body) })
+  }
+}
+
 function hit(id: string): Record<string, unknown> {
   return {
     id,
@@ -504,6 +515,230 @@ describe('ConfluenceConnector — pages', () => {
     // 받을 것이 없는 조회의 실패가 멀쩡한 페이지를 떨어뜨리면 안 된다.
     expect(data.failedPages).toEqual([])
     expect(data.pages[0].unreferencedAttachments).toEqual([])
+  })
+
+  // 0169 — 멘션이 변환에서 통째로 사라지던 것을 자리표시자 + 이름 해석으로 되살린다.
+  it('멘션 userkey 를 표시 이름으로 치환한다', async () => {
+    const dir = pageDir(SERVER.id, '1')
+    cleanup.push(dir)
+    const connector = createConfluenceConnector(SERVER)
+    const { ctx, seen } = context([
+      okUser,
+      pageRoute(MENTION_STORAGE),
+      ...attachmentRoutes([]),
+      userRoute({ username: 'gdhong', displayName: '홍길동' })
+    ])
+    const data = await pages(ctx, connector, { pageIds: ['1'] })
+
+    expect(data.pages[0].markdownPreview).toContain('@홍길동')
+    expect(data.pages[0].markdownPreview).not.toContain('{{user:')
+    // 저장된 본문에도 같은 것이 들어간다 — 미리보기만 고치면 page.md 가 어긋난다.
+    expect(await readFile(join(dir, 'page.md'), 'utf8')).toContain('@홍길동')
+    // 키당 한 번만 조회한다.
+    expect(seen.filter((r) => r.path.endsWith('/rest/api/user'))).toHaveLength(1)
+  })
+
+  it('사용자 조회가 실패해도 자리표시자를 흘리지 않는다', async () => {
+    const dir = pageDir(SERVER.id, '1')
+    cleanup.push(dir)
+    const connector = createConfluenceConnector(SERVER)
+    const { ctx } = context([
+      okUser,
+      pageRoute(MENTION_STORAGE),
+      ...attachmentRoutes([]),
+      userRoute({}, 403)
+    ])
+    const data = await pages(ctx, connector, { pageIds: ['1'] })
+
+    // 페이지는 살아 있고,
+    expect(data.failedPages).toEqual([])
+    // 자리표시자는 본문 어디에도 남지 않으며,
+    expect(await readFile(join(dir, 'page.md'), 'utf8')).not.toContain('{{user:')
+    // 멘션이 있었다는 사실은 보존된다.
+    expect(data.pages[0].markdownPreview).toContain('@사용자')
+  })
+
+  it('displayName 이 없으면 username 으로 폴백한다', async () => {
+    cleanup.push(pageDir(SERVER.id, '1'))
+    const connector = createConfluenceConnector(SERVER)
+    const { ctx } = context([
+      okUser,
+      pageRoute(MENTION_STORAGE),
+      ...attachmentRoutes([]),
+      userRoute({ username: 'gdhong' })
+    ])
+    const data = await pages(ctx, connector, { pageIds: ['1'] })
+    expect(data.pages[0].markdownPreview).toContain('@gdhong')
+  })
+
+  it('멘션이 없으면 사용자 조회를 하지 않는다', async () => {
+    cleanup.push(pageDir(SERVER.id, '1'))
+    const connector = createConfluenceConnector(SERVER)
+    const { ctx, seen } = context([okUser, pageRoute(), ...attachmentRoutes([])])
+    await pages(ctx, connector, { pageIds: ['1'] })
+    expect(seen.filter((r) => r.path.endsWith('/rest/api/user'))).toHaveLength(0)
+  })
+
+  // 0169 — 본문 URL 은 삽입 시점 버전(`?version=1`)을 달고 있다. 우리는 목록이 준 **현재**
+  // 버전을 받고, 그 번호를 기록해 사후 확인이 가능하게 한다.
+  it('본문 URL 의 옛 version 을 따르지 않고 현재 첨부를 받는다', async () => {
+    const dir = pageDir(SERVER.id, '1')
+    cleanup.push(dir)
+    const connector = createConfluenceConnector(SERVER)
+    const { ctx, seen } = context([
+      okUser,
+      pageRoute('<p><img src="/download/attachments/1/shot.png?version=1&amp;api=v2" /></p>'),
+      ...attachmentRoutes([
+        {
+          id: 'att-9',
+          title: 'shot.png',
+          metadata: { mediaType: 'image/png' },
+          version: { number: 3 },
+          _links: { download: '/download/attachments/1/shot.png?version=3&api=v2' }
+        }
+      ])
+    ])
+    const data = await pages(ctx, connector, { pageIds: ['1'] })
+
+    expect(data.pages[0].assets).toHaveLength(1)
+    expect(data.pages[0].assets[0].version).toBe(3)
+    // 첨부 목록은 version 확장을 달고 나간다.
+    const list = seen.find((r) => r.path.endsWith('/child/attachment'))
+    expect(list?.query).toMatchObject({ expand: 'version' })
+
+    const manifest = JSON.parse(await readFile(join(dir, 'manifest.json'), 'utf8')) as {
+      assets: Array<{ version?: number }>
+    }
+    expect(manifest.assets[0].version).toBe(3)
+  })
+
+  it('data 경로가 실패하면 download 링크로 재시도한다', async () => {
+    cleanup.push(pageDir(SERVER.id, '1'))
+    const connector = createConfluenceConnector(SERVER)
+    const { ctx, seen } = context([
+      okUser,
+      pageRoute(),
+      {
+        match: (r) => r.path.endsWith('/child/attachment'),
+        respond: () => ({
+          status: 200,
+          body: JSON.stringify({
+            results: [
+              {
+                id: 'att-1',
+                title: 'diagram.png',
+                version: { number: 2 },
+                _links: { download: '/download/attachments/1/diagram.png?version=2' }
+              }
+            ]
+          })
+        })
+      },
+      // 문서상 /data 는 업로드(POST) 좌표다 — GET 이 막힌 배포가 있다.
+      { match: (r) => r.path.endsWith('/data'), respond: () => ({ status: 404, body: '{}' }) },
+      {
+        match: (r) => r.path.includes('/download/attachments/'),
+        respond: () => ({ status: 200, body: '', bodyBytes: new Uint8Array([9, 9]) })
+      }
+    ])
+    const data = await pages(ctx, connector, { pageIds: ['1'] })
+
+    expect(data.pages[0].assets.map((a) => a.filename)).toEqual(['diagram.png'])
+    expect(data.pages[0].failedAssets).toEqual([])
+    expect(seen.filter((r) => r.path.includes('/download/attachments/'))).toHaveLength(1)
+  })
+
+  it('두 다운로드 경로가 모두 실패해도 페이지 저장은 완료된다', async () => {
+    cleanup.push(pageDir(SERVER.id, '1'))
+    const connector = createConfluenceConnector(SERVER)
+    const { ctx } = context([
+      okUser,
+      pageRoute(),
+      {
+        match: (r) => r.path.endsWith('/child/attachment'),
+        respond: () => ({
+          status: 200,
+          body: JSON.stringify({
+            results: [
+              {
+                id: 'att-1',
+                title: 'diagram.png',
+                _links: { download: '/download/attachments/1/diagram.png' }
+              }
+            ]
+          })
+        })
+      },
+      { match: (r) => r.path.endsWith('/data'), respond: () => ({ status: 404, body: '{}' }) },
+      {
+        match: (r) => r.path.includes('/download/attachments/'),
+        respond: () => ({ status: 500, body: '{}' })
+      }
+    ])
+    const data = await pages(ctx, connector, { pageIds: ['1'] })
+    expect(data.failedPages).toEqual([])
+    expect(data.pages[0].assets).toEqual([])
+    expect(data.pages[0].failedAssets).toEqual([
+      { filename: 'diagram.png', message: expect.stringContaining('500') }
+    ])
+  })
+
+  it('멘션이 아주 많아도 조회 수에 상한을 둔다', async () => {
+    cleanup.push(pageDir(SERVER.id, '1'))
+    const connector = createConfluenceConnector(SERVER)
+    // 60명을 멘션한 본문 — 상한이 없으면 배치 50페이지에서 3,000번의 요청이 된다.
+    const many = Array.from(
+      { length: 60 },
+      (_, i) => `<p><ac:link><ri:user ri:userkey="k${i}" /></ac:link></p>`
+    ).join('')
+    const { ctx, seen } = context([
+      okUser,
+      pageRoute(many),
+      ...attachmentRoutes([]),
+      userRoute({ displayName: '누군가' })
+    ])
+    const data = await pages(ctx, connector, { pageIds: ['1'] })
+
+    expect(seen.filter((r) => r.path.endsWith('/rest/api/user'))).toHaveLength(50)
+    // 상한을 넘긴 멘션도 자리표시자로 새지 않는다.
+    expect(data.pages[0].markdownPreview).not.toContain('{{user:')
+    expect(data.pages[0].markdownPreview).toContain('@사용자')
+  })
+
+  it('취소·크기 초과는 두 번째 다운로드 좌표로 재시도하지 않는다', async () => {
+    cleanup.push(pageDir(SERVER.id, '1'))
+    const connector = createConfluenceConnector(SERVER)
+    const { ctx, seen } = context([
+      okUser,
+      pageRoute(),
+      {
+        match: (r) => r.path.endsWith('/child/attachment'),
+        respond: () => ({
+          status: 200,
+          body: JSON.stringify({
+            results: [
+              {
+                id: 'att-1',
+                title: 'diagram.png',
+                _links: { download: '/download/attachments/1/diagram.png' }
+              }
+            ]
+          })
+        })
+      },
+      {
+        // 상태 실패가 아니라 전송 자체가 던지는 경우(취소·상한 초과).
+        match: (r) => r.path.endsWith('/data'),
+        respond: () => {
+          throw new Error('응답이 상한을 초과했습니다 (999 > 10 bytes)')
+        }
+      }
+    ])
+    const data = await pages(ctx, connector, { pageIds: ['1'] })
+
+    // 같은 파일을 다시 받아도 같은 상한에 걸린다 — 두 번째 좌표를 두드리지 않는다.
+    expect(seen.filter((r) => r.path.includes('/download/attachments/'))).toHaveLength(0)
+    expect(data.pages[0].failedAssets[0].message).toContain('상한을 초과')
   })
 
   it('manifest 에 참조 밖 첨부를 기록한다', async () => {

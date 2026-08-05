@@ -48,6 +48,40 @@ get_pages(pageIds[])             → storage XHTML → Markdown → 참조 첨�
 > (2026-08-05) — 쓰지 않는 파일이 디스크에 쌓인다. 검출이 부족하면 **검출 규칙을 넓히고**,
 > 무엇이 부족한지는 위 2번의 진단 출력이 알려 준다.
 
+### 버전과 다운로드 좌표 (0169)
+
+- **받는 것은 항상 목록 조회 시점의 현재 버전**이다. 본문 URL 의 `?version=N` 은 *삽입 시점*
+  버전이라 따르지 않는다 — `parseDownloadHref` 가 쿼리를 버리고 파일명만 쓰며, 대조 대상은
+  `expand=version` 으로 받은 **현재** 첨부 목록이다. 받은 번호는 `SavedAsset.version` 과
+  `manifest.json` 에 남아 사후 확인이 된다.
+- **다운로드 좌표는 둘이다.** ⓐ `/child/attachment/{id}/data`(현행, 302 로 실제 파일에 넘긴다)
+  → 실패 시 ⓑ 목록이 준 `_links.download`(`/download/attachments/…`). Atlassian 문서상 `/data`
+  는 *업로드(POST)* 좌표이고 Cloud 전용 `GET …/download` 는 Server 에서 404 라, DC 에서 확실한
+  좌표는 ⓑ 다. **그래도 ⓐ 를 먼저 쓴다** — 실동작이 실측돼 있어 교체는 회귀 위험만 만든다.
+- `_links.download` 는 `_links.base`(origin + 컨텍스트 경로) 기준 **상대 경로**다.
+  `attachmentDownloadRequest` 가 `apiBasePath` 를 붙이고 쿼리를 `query` 로 분해한다 — 경로에
+  `?` 를 남기면 인코딩이 두 번 된다.
+
+## 멘션(`@이름`)은 지우지 않는다 (0169)
+
+저장 형식의 멘션은 `<ac:link><ri:user ri:userkey="…"/></ac:link>` 다. `ri:page` 도
+`ri:attachment` 도 아니라서, 분기가 없던 동안 라벨이 빈 문자열이 되고 `replaceWith('')` 로
+**통째로 사라졌다**(사용자 보고 2026-08-05).
+
+```
+ac:plain-text-link-body 있음 → 그 텍스트          (저자가 쓴 표기가 가장 정확하다)
+ri:username 있음             → @<username>        (REST 조회 불필요)
+ri:userkey 있음              → @{{user:<key>}}    (자리표시자 — connector 가 이름으로 치환)
+셋 다 없음                    → @사용자
+```
+
+- **변환기는 네트워크를 모른다.** `storage-to-markdown.ts` 는 키를 `referencedUsers` 로 모으기만
+  하고, `connector.ts` 의 `resolveMentions` 가 `/rest/api/user?key=` 로 표시 이름을 얻어
+  (`displayName` → `username` 폴백) 치환한다. 키당 1회, 멘션 0이면 0회.
+- **자리표시자가 본문으로 새면 안 된다.** 조회가 403·404 여도 마지막에 **남은 토큰을 전부**
+  `사용자` 로 훑어 치운다. 조회 실패는 페이지를 죽이지 않는다.
+- **토큰에 `_`·`*`·`[` 를 쓰지 마라** — turndown 이 이스케이프해 `\{\{user...` 로 깨진다.
+
 ### 페이지네이션 — 오프셋은 **서버가 적용한 limit** 으로 민다
 
 사용자 결정 2026-08-04: "1턴의 limit 은 50까지, 단 **허용치가 낮으면 해당 숫자를 따른다**.

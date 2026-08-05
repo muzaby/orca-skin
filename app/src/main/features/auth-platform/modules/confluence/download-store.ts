@@ -91,7 +91,13 @@ export interface SavedAsset {
   path: string
   bytes: number
   mediaType?: string
+  // 내려받은 첨부의 버전 번호 (0169). 목록 조회 시점의 현재 버전이라, 본문 URL 이 달고 있는
+  // 삽입 시점 버전(`?version=N`)을 따르지 않았음을 사후에 확인할 수 있다.
+  version?: number
 }
+
+// `saveAsset` 이 파일 옆에 함께 기록하는 메타. 인자 순서로 늘리면 호출부가 곧 못 읽게 된다.
+export type AssetMeta = Omit<SavedAsset, 'filename' | 'path' | 'bytes'>
 
 export class DownloadStore {
   private readonly taken = new Set<string>()
@@ -102,17 +108,12 @@ export class DownloadStore {
     await mkdir(assetsDirOf(this.dir), { recursive: true })
   }
 
-  async saveAsset(rawName: string, bytes: Uint8Array, mediaType?: string): Promise<SavedAsset> {
+  async saveAsset(rawName: string, bytes: Uint8Array, meta: AssetMeta = {}): Promise<SavedAsset> {
     const filename = uniqueName(sanitizeAssetName(rawName), this.taken)
     const path = resolveAssetPath(assetsDirOf(this.dir), filename)
     await writeFile(path, bytes)
     this.taken.add(filename)
-    return {
-      filename,
-      path,
-      bytes: bytes.byteLength,
-      ...(mediaType !== undefined ? { mediaType } : {})
-    }
+    return { filename, path, bytes: bytes.byteLength, ...meta }
   }
 
   // `page.md` 는 덮어쓴다 — 같은 페이지를 다시 받으면 최신 본문이 맞다.
