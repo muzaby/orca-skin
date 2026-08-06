@@ -4,7 +4,7 @@
 // **고유의 규칙**만 본다: 두 필드 수집 · `user:pass` 봉인 · 원문 비노출 · 콜론 거부.
 
 import { describe, expect, it } from 'vitest'
-import { createFakeContext, createFakeVault } from '../conformance'
+import { createFakeContext, createFakeVault } from '../test-fakes'
 import { BINDING_SECRET_NAME } from '../broker'
 import {
   BASIC_PASSWORD_FIELD,
@@ -127,16 +127,6 @@ describe('createBasicCredentialProvider — 입력 거부', () => {
 })
 
 describe('createBasicCredentialProvider — 나머지 메서드', () => {
-  it('refresh 는 not_supported 다 (메서드를 빼지 않는다)', async () => {
-    const result = await provider().refresh(createFakeContext({ target: TARGET }), {
-      id: 'b1',
-      target: TARGET,
-      mechanism: 'basic',
-      artifact: { kind: 'vault_credential', handleId: 'secret', credentialKind: 'basic' }
-    })
-    expect(result).toEqual({ kind: 'not_supported' })
-  })
-
   it('logout 은 봉인된 값을 지운다', async () => {
     const vault = createFakeVault()
     await provider().continue(

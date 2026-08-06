@@ -30,7 +30,6 @@ function provider(
     begin: async () => ({ kind: 'not_supported' }),
     continue: async () => ({ kind: 'not_supported' }),
     status: async () => ({ kind: 'not_supported' }),
-    refresh: async () => ({ kind: 'not_supported' }),
     logout: async () => ({ kind: 'not_supported' })
   }
 }
@@ -214,15 +213,15 @@ describe('AuthRegistry 등록 위생', () => {
     expect(registry.getProvider('good')).toBeUndefined()
   })
 
-  it('5메서드 중 하나라도 없으면 거부한다', () => {
+  it('4메서드 중 하나라도 없으면 거부한다', () => {
     const registry = new AuthRegistry()
     const broken = provider('broken') as unknown as Record<string, unknown>
-    delete broken.refresh
+    delete broken.status
     const errors = registry.register({
       manifest: manifest('pkg', ['broken']),
       providers: [broken as unknown as AuthProviderV1]
     })
-    expect(errors.map((e) => e.message).join()).toMatch(/refresh 가 구현되지 않았습니다/)
+    expect(errors.map((e) => e.message).join()).toMatch(/status 가 구현되지 않았습니다/)
   })
 
   it('descriptor.pluginId 가 manifest 와 다르면 거부한다', () => {

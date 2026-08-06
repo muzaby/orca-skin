@@ -11,7 +11,6 @@ import type {
   AuthFailureReason,
   AuthLogoutOutcome,
   AuthPlatformState,
-  AuthRefreshOutcome,
   AuthStepInfo,
   AuthTarget,
   CredentialPresentation
@@ -19,7 +18,6 @@ import type {
 import type {
   AuthBindingDraft,
   AuthBindingRef,
-  AuthExec,
   AuthPluginContext,
   AuthProviderV1,
   AuthStep,
@@ -69,7 +67,6 @@ export interface BrokerDeps {
   // 원격 요청 전송자 (0173). **필수** — 기본값을 두면 주입을 빠뜨린 경로가 조용히 Node 스택으로
   // 돌아가 사내 프록시·사설 CA 를 못 탄다. 프로덕션은 `netFetch`(Chromium), 테스트는 스텁.
   fetchImpl: typeof fetch
-  exec: AuthExec
   broadcast: (state: AuthPlatformState) => void
   // binding 제거 뒤 connector/runtime server를 정리하는 composition callback. auth-platform은
   // PluginHost 구현을 import하지 않고 구조적 포트만 받는다.
@@ -268,43 +265,6 @@ export class AuthBroker {
       (err) => this.toFailedStep(provider, err)
     )
     return this.applyStep(provider, tx, step)
-  }
-
-  async refreshBinding(bindingId: string): Promise<AuthRefreshOutcome> {
-    const binding = this.bindings.get(bindingId)
-    if (!binding) return { kind: 'failed', message: '알 수 없는 binding' }
-    const provider = this.deps.registry.getProvider(binding.providerId)
-    if (!provider) return { kind: 'failed', message: '알 수 없는 provider' }
-
-    const controller = new AbortController()
-    const ctx = this.buildContextForBinding(provider, binding, controller.signal)
-    const result = await runGuarded(
-      controller.signal,
-      () => provider.refresh(ctx, toRef(binding)),
-      (err) => ({ kind: 'failed' as const, message: String(err) })
-    )
-
-    if (result.kind === 'refreshed') {
-      const next = this.bindings.patch(bindingId, {
-        status: 'valid',
-        ...(result.expiresAt !== undefined ? { expiresAt: result.expiresAt } : {}),
-        ...(result.principal !== undefined ? { principal: result.principal } : {})
-      })
-      this.publish()
-      return next
-        ? { kind: 'refreshed', binding: next }
-        : { kind: 'failed', message: 'binding 소실' }
-    }
-    if (result.kind === 'reauth_required') {
-      this.bindings.setStatus(bindingId, 'expired')
-      this.publish()
-      return result.message !== undefined
-        ? { kind: 'reauth_required', message: result.message }
-        : { kind: 'reauth_required' }
-    }
-    return result.kind === 'not_supported'
-      ? { kind: 'not_supported' }
-      : { kind: 'failed', ...(result.message !== undefined ? { message: result.message } : {}) }
   }
 
   // cascade=false 가 기본 — connector 하나의 연결 해제가 공유 session group 을 통째로
@@ -511,22 +471,12 @@ export class AuthBroker {
             ...(step.message !== undefined ? { message: step.message } : {}),
             ...(chain !== undefined ? { chain } : {})
           }
-        : step.kind === 'browser'
-          ? {
-              kind: 'browser',
-              transactionId: tx.id,
-              ...(step.message !== undefined ? { message: step.message } : {}),
-              ...(chain !== undefined ? { chain } : {})
-            }
-          : {
-              kind: 'device_code',
-              transactionId: tx.id,
-              userCode: step.userCode,
-              verificationUrl: step.verificationUrl,
-              ...(step.expiresAt !== undefined ? { expiresAt: step.expiresAt } : {}),
-              ...(step.message !== undefined ? { message: step.message } : {}),
-              ...(chain !== undefined ? { chain } : {})
-            }
+        : {
+            kind: 'browser',
+            transactionId: tx.id,
+            ...(step.message !== undefined ? { message: step.message } : {}),
+            ...(chain !== undefined ? { chain } : {})
+          }
     if (tx.target.kind === 'application') {
       this.state.step = info
       this.publish()
@@ -728,7 +678,6 @@ export class AuthBroker {
         }
         return this.deps.fetchImpl(url, { ...init, redirect: 'manual', signal })
       },
-      exec: this.deps.exec,
       store: { get: (k) => scratch.get(k), set: (k, v) => scratch.set(k, v) },
       // process.env 전체가 아니라 allowlist 만.
       env: (name) => (envAllowlist.includes(name) ? process.env[name] : undefined),

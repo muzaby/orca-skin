@@ -27,22 +27,13 @@ const OriginSchema = z
 
 export const AuthMechanismSchema = z.enum([
   'adfs_browser_session',
-  'oauth_browser',
-  'oauth_device_code',
   'api_key',
   'auth_token',
   'personal_access_token',
-  'basic',
-  'external_secret'
+  'basic'
 ])
 
-export const AuthCapabilitySchema = z.enum([
-  'browser_session',
-  'status',
-  'refresh',
-  'logout',
-  'device_code'
-])
+export const AuthCapabilitySchema = z.enum(['browser_session', 'status', 'logout'])
 
 export const CredentialPresentationSchema = z.discriminatedUnion('location', [
   z.object({
@@ -153,14 +144,6 @@ export function parsePluginManifest(raw: unknown): ManifestParseSuccess | Manife
   for (const provider of manifest.contributes.authProviders) {
     if (provider.capabilities.includes('browser_session') && !provider.sessionGroup) {
       errors.push(`${provider.id}: browser_session capability 는 sessionGroup 선언이 필요합니다`)
-    }
-    if (
-      provider.capabilities.includes('device_code') &&
-      !provider.mechanisms.includes('oauth_device_code')
-    ) {
-      errors.push(
-        `${provider.id}: device_code capability 는 oauth_device_code mechanism 이 필요합니다`
-      )
     }
   }
 

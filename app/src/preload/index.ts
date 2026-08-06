@@ -53,7 +53,6 @@ import {
   type AuthBindingInfo,
   type AuthStepInfo,
   type AuthTarget,
-  type AuthRefreshOutcome,
   type AuthLogoutOutcome,
   type PluginConnectorInfo,
   type PluginDiagnostic,
@@ -272,8 +271,6 @@ const orca = {
       ipcRenderer.invoke(CHANNELS.authBegin, { providerId, target }),
     continueAuth: (transactionId: string, input: Record<string, string>): Promise<AuthStepInfo> =>
       ipcRenderer.invoke(CHANNELS.authContinue, { transactionId, input }),
-    refresh: (bindingId: string): Promise<AuthRefreshOutcome> =>
-      ipcRenderer.invoke(CHANNELS.authRefresh, { bindingId }),
     logout: (bindingId: string, cascade = false): Promise<AuthLogoutOutcome> =>
       ipcRenderer.invoke(CHANNELS.authLogout, { bindingId, cascade }),
     onState: (handler: (state: AuthPlatformState) => void): (() => void) => {

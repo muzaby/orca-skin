@@ -52,7 +52,7 @@ describe('auth state-mapping', () => {
     expect(first.stepKey).not.toBe(second.stepKey)
   })
 
-  it('browser·device_code step 은 필드 없이 transaction 만 잇는다', () => {
+  it('browser step 은 필드 없이 transaction 만 잇는다', () => {
     const browser = stepPatch({
       kind: 'browser',
       transactionId: 'tx_2',

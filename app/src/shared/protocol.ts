@@ -241,10 +241,6 @@ export const AuthContinueRequestSchema = z.object({
   input: z.record(z.string().max(64), z.string().max(4096)).default({})
 })
 
-export const AuthBindingRequestSchema = z.object({
-  bindingId: z.string().min(1).max(128)
-})
-
 export const AuthLogoutRequestSchema = z.object({
   bindingId: z.string().min(1).max(128),
   // 종속 binding 까지 끊을지. 기본 false = 이 binding 만 (connector-only disconnect 가
@@ -720,7 +716,6 @@ export type {
   AuthFailureReason,
   AuthChainProgress,
   AuthStepInfo,
-  AuthRefreshOutcome,
   AuthLogoutOutcome,
   PluginConnectorInfo,
   PluginDiagnostic,

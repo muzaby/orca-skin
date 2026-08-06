@@ -102,7 +102,6 @@ export const CHANNELS = {
   authBindings: 'orca:auth:bindings',
   authBegin: 'orca:auth:begin',
   authContinue: 'orca:auth:continue',
-  authRefresh: 'orca:auth:refresh',
   authLogout: 'orca:auth:logout',
   authStateEvent: 'orca:auth:stateEvent',
   pluginList: 'orca:plugin:list',
@@ -168,19 +167,14 @@ export type AuthTarget =
 
 export type AuthTargetKind = AuthTarget['kind']
 
+// 0178 — 생산자가 0인 메커니즘(oauth_browser·oauth_device_code·external_secret)을 제거했다.
+// 선언만 있고 구현이 없는 값은 UI 분기와 manifest 검사를 늘리기만 한다.
 export type AuthMechanism =
-  | 'adfs_browser_session'
-  | 'oauth_browser'
-  | 'oauth_device_code'
-  | 'api_key'
-  | 'auth_token'
-  | 'personal_access_token'
-  | 'basic'
-  | 'external_secret'
+  'adfs_browser_session' | 'api_key' | 'auth_token' | 'personal_access_token' | 'basic'
 
 // provider 가 선언하는 지원 동작. UI 는 이것으로 버튼을 그리고, core 는 메서드 존재 여부로
-// provider 종류를 추론하지 않는다(5메서드는 전부 required — 미지원은 not_supported 반환).
-export type AuthCapability = 'browser_session' | 'status' | 'refresh' | 'logout' | 'device_code'
+// provider 종류를 추론하지 않는다(4메서드는 전부 required — 미지원은 not_supported 반환).
+export type AuthCapability = 'browser_session' | 'status' | 'logout'
 
 // 저장되는 credential 의 종류. 요청에 넣는 방식(presentation)은 여기서 추론하지 않는다 —
 // api_key 라고 무조건 X-API-Key 가 아니고, PAT 라고 무조건 Bearer 가 아니다.
@@ -295,23 +289,8 @@ export type AuthStepInfo =
       chain?: AuthChainProgress
     }
   | { kind: 'browser'; transactionId: string; message?: string; chain?: AuthChainProgress }
-  | {
-      kind: 'device_code'
-      transactionId: string
-      userCode: string
-      verificationUrl: string
-      expiresAt?: number
-      message?: string
-      chain?: AuthChainProgress
-    }
   | { kind: 'done'; binding: AuthBindingInfo }
   | { kind: 'failed'; reason: AuthFailureReason; message?: string }
-
-export type AuthRefreshOutcome =
-  | { kind: 'refreshed'; binding: AuthBindingInfo }
-  | { kind: 'reauth_required'; message?: string }
-  | { kind: 'not_supported' }
-  | { kind: 'failed'; message?: string }
 
 export type AuthLogoutOutcome =
   | { kind: 'logged_out'; endedBindingIds: string[] }

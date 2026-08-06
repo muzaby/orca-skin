@@ -160,7 +160,7 @@ function toBeginResult(step: AuthStepInfo): BeginResult {
   if (step.kind === 'failed') {
     return { kind: 'failed', ...(step.message !== undefined ? { message: step.message } : {}) }
   }
-  // browser/device_code 는 이번 범위의 두 provider 가 쓰지 않는다. 조용히 성공으로 넘기지 않고
+  // browser step 은 이번 범위의 두 provider 가 쓰지 않는다. 조용히 성공으로 넘기지 않고
   // 실패로 표시해 사용자가 막힌 것을 안다.
   return { kind: 'failed' }
 }

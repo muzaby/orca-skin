@@ -51,7 +51,6 @@ import type {
   AuthBindingInfo,
   AuthStepInfo,
   AuthTarget,
-  AuthRefreshOutcome,
   AuthLogoutOutcome,
   ConnectorTemplateInfoDto,
   PluginInstanceCreateRequest,
@@ -212,7 +211,6 @@ export const authApi = {
     window.orca.auth.begin(providerId, target),
   continueAuth: (transactionId: string, input: Record<string, string>): Promise<AuthStepInfo> =>
     window.orca.auth.continueAuth(transactionId, input),
-  refresh: (bindingId: string): Promise<AuthRefreshOutcome> => window.orca.auth.refresh(bindingId),
   logout: (bindingId: string, cascade?: boolean): Promise<AuthLogoutOutcome> =>
     window.orca.auth.logout(bindingId, cascade),
   onState: (handler: (state: AuthPlatformState) => void): (() => void) =>

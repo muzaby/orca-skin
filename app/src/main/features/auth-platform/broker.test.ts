@@ -137,7 +137,6 @@ function harness(
       clear: async (handleId, opts) => void cleared.push({ handleId, scope: opts.scope }),
       ...sessionOverrides
     },
-    exec: async () => ({ code: 0, stdout: '', stderr: '' }),
     broadcast: (s) => states.push(s),
     ...(onBindingsEnded !== undefined ? { onBindingsEnded } : {})
   }
@@ -220,7 +219,6 @@ describe('AuthBroker — application/connector 공통 lifecycle', () => {
         probe: async () => ({ ok: false, status: 0, finalUrl: '' }),
         clear: async () => undefined
       },
-      exec: async () => ({ code: 0, stdout: '', stderr: '' }),
       broadcast: () => undefined
     })
     expect(broker.status().required).toBe(false)
@@ -471,7 +469,6 @@ describe('AuthBroker — authenticatedFetch (AC8 경로)', () => {
         probe: async () => ({ ok: true, status: 200, finalUrl: '' }),
         clear: async () => undefined
       },
-      exec: async () => ({ code: 0, stdout: '', stderr: '' }),
       broadcast: () => undefined,
       sender: {
         send: async (r) => {
@@ -646,7 +643,6 @@ describe('AuthBroker — redirect 추종과 mechanism 별 presentation (0160)', 
         probe: async () => ({ ok: true, status: 200, finalUrl: '' }),
         clear: async () => undefined
       },
-      exec: async () => ({ code: 0, stdout: '', stderr: '' }),
       broadcast: () => undefined,
       sender: {
         send: async (r) => {
@@ -876,7 +872,6 @@ describe('AuthBroker — redirect 추종과 mechanism 별 presentation (0160)', 
         probe: async () => ({ ok: true, status: 200, finalUrl: '' }),
         clear: async () => undefined
       },
-      exec: async () => ({ code: 0, stdout: '', stderr: '' }),
       broadcast: () => undefined,
       sender: {
         send: async (_r, _s, o) => {
@@ -1192,7 +1187,6 @@ function chainHarness(providers: readonly AuthProviderV1[]): ChainHarness {
       probe: async () => ({ ok: true, status: 200, finalUrl: `${ORIGIN}/me` }),
       clear: async (handleId, opts) => void cleared.push({ handleId, scope: opts.scope })
     },
-    exec: async () => ({ code: 0, stdout: '', stderr: '' }),
     broadcast: (s) => states.push(s)
   })
   return { broker, store, states, sessions: { cleared } }
@@ -1202,7 +1196,7 @@ function chainHarness(providers: readonly AuthProviderV1[]): ChainHarness {
 function credentialMember(
   id: string,
   logoutCalls: string[],
-  opts: { failContinue?: boolean; refreshReauth?: boolean } = {}
+  opts: { failContinue?: boolean } = {}
 ): AuthProviderV1 {
   const base = createStaticCredentialProvider({
     id,
@@ -1221,9 +1215,6 @@ function credentialMember(
             message: '자격증명이 거부되었습니다'
           })
         }
-      : {}),
-    ...(opts.refreshReauth === true
-      ? { refresh: async () => ({ kind: 'reauth_required' as const, message: '세션 만료' }) }
       : {}),
     logout: async (ctx, ref) => {
       logoutCalls.push(id)
@@ -1422,26 +1413,6 @@ describe('AuthBroker — 로그인 체인 (0172)', () => {
     expect(broker.status().authenticated).toBe(true)
   })
 
-  it('멤버 하나가 만료되면 인증이 풀린다', async () => {
-    const logoutCalls: string[] = []
-    const { broker } = chainHarness([
-      credentialMember('one', logoutCalls),
-      credentialMember('two', logoutCalls, { refreshReauth: true })
-    ])
-
-    const first = await broker.begin('one', APP)
-    const second = await submit(broker, first, 'secret-1')
-    await submit(broker, second, 'secret-2')
-    expect(broker.status().authenticated).toBe(true)
-
-    // 두 번째 멤버만 만료된다 — root 는 여전히 valid 지만 체인은 전부 유효해야 인증이다.
-    const child = broker.listBindings()[1]
-    const outcome = await broker.refreshBinding(child.id)
-    expect(outcome.kind).toBe('reauth_required')
-    expect(broker.listBindings()[0].status).toBe('valid')
-    expect(broker.status().authenticated).toBe(false)
-  })
-
   it('connector target 은 체인을 타지 않는다', async () => {
     const logoutCalls: string[] = []
     // 같은 패키지의 provider 2종이지만 connector 연결은 지정한 하나만 실행한다.
@@ -1547,7 +1518,6 @@ describe('AuthBroker — ctx.fetch 전송 구현 주입 (0173)', () => {
         probe: async () => ({ ok: true, status: 200, finalUrl: '' }),
         clear: async () => undefined
       },
-      exec: async () => ({ code: 0, stdout: '', stderr: '' }),
       broadcast: () => undefined
     })
     return { broker, calls }

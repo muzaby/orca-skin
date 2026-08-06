@@ -50,7 +50,6 @@ function setup(seed: AuthBindingInfo[]): {
       probe: async () => ({ ok: true, status: 200, finalUrl: '' }),
       clear: async () => undefined
     },
-    exec: async () => ({ code: 0, stdout: '', stderr: '' }),
     broadcast: (s) => states.push(s),
     bindingPersistence: {
       load: () => seed,
