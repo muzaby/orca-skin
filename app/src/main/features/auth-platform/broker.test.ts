@@ -32,46 +32,9 @@ function fakeStore(): SecretStorePort & { raw: Map<string, string> } {
   }
 }
 
-// PAT 와 ADFS 는 **서로 다른 패키지**다. 0172 부터 한 패키지가 선언한 application provider 들은
+// PAT 와 ADFS 는 **서로 다른 패키지**다. 0172 부터 한 패키지가 기여한 application provider 들은
 // 하나의 로그인 체인이므로, "둘 중 아무거나로 로그인한다" 를 표현하려면 패키지를 나눠야 한다.
 // (체인 자체는 아래 `chainHarness` 가 하나의 패키지로 검증한다.)
-const MANIFEST = {
-  schemaVersion: 1,
-  id: 'corp',
-  version: '1.0.0',
-  contributes: {
-    authProviders: [
-      {
-        id: 'pat',
-        apiVersion: 1,
-        label: 'PAT',
-        targets: ['application', 'connector'],
-        mechanisms: ['personal_access_token'],
-        capabilities: ['logout']
-      }
-    ]
-  }
-}
-
-const ADFS_MANIFEST = {
-  schemaVersion: 1,
-  id: 'corp-adfs',
-  version: '1.0.0',
-  contributes: {
-    authProviders: [
-      {
-        id: 'adfs',
-        apiVersion: 1,
-        label: 'ADFS',
-        targets: ['application', 'connector'],
-        mechanisms: ['adfs_browser_session'],
-        capabilities: ['browser_session', 'status', 'logout'],
-        allowedOrigins: [ORIGIN],
-        sessionGroup: 'corp-adfs'
-      }
-    ]
-  }
-}
 
 interface Harness {
   broker: AuthBroker
@@ -104,10 +67,9 @@ function harness(
     ...(patLogout !== undefined ? { logout: patLogout } : {})
   }
 
-  const errors = registry.register({ manifest: MANIFEST, providers: [pat] })
+  const errors = registry.register({ providers: [pat] })
   expect(errors).toEqual([])
   const adfsErrors = registry.register({
-    manifest: ADFS_MANIFEST,
     providers: [
       createAdfsWiaProvider({
         id: 'adfs',
@@ -228,22 +190,6 @@ describe('AuthBroker — application/connector 공통 lifecycle', () => {
     const { broker } = harness()
     const registry = new AuthRegistry()
     registry.register({
-      manifest: {
-        schemaVersion: 1,
-        id: 'x',
-        version: '1.0.0',
-        contributes: {
-          authProviders: [
-            {
-              id: 'conn-only',
-              apiVersion: 1,
-              label: 'C',
-              targets: ['connector'],
-              mechanisms: ['api_key']
-            }
-          ]
-        }
-      },
       providers: [
         createStaticCredentialProvider({
           id: 'conn-only',
@@ -396,34 +342,6 @@ describe('AuthBroker — 입력 검증', () => {
 // `applyPresentation` 단위 검증은 `infra/auth/authenticated-fetch.test.ts` 가 담당하고,
 // 여기서는 **broker 가 그것을 올바른 입력으로 부르는지** 를 본다.
 describe('AuthBroker — authenticatedFetch (AC8 경로)', () => {
-  const CONNECTOR_MANIFEST = {
-    schemaVersion: 1,
-    id: 'corp',
-    version: '1.0.0',
-    contributes: {
-      authProviders: [
-        {
-          id: 'pat',
-          apiVersion: 1,
-          label: 'PAT',
-          targets: ['application', 'connector'],
-          mechanisms: ['personal_access_token'],
-          capabilities: ['logout']
-        }
-      ],
-      connectors: [
-        {
-          id: 'wiki',
-          apiVersion: 1,
-          label: 'Wiki',
-          acceptedAuthProviders: ['pat'],
-          baseUrl: ORIGIN,
-          presentation: { location: 'header', name: 'PRIVATE-TOKEN' }
-        }
-      ]
-    }
-  }
-
   function connectorHarness(): {
     broker: AuthBroker
     sent: Array<{ url: string; headers: Record<string, string> }>
@@ -432,7 +350,6 @@ describe('AuthBroker — authenticatedFetch (AC8 경로)', () => {
     const registry = new AuthRegistry()
     const sent: Array<{ url: string; headers: Record<string, string> }> = []
     const errors = registry.register({
-      manifest: CONNECTOR_MANIFEST,
       providers: [
         createStaticCredentialProvider({
           id: 'pat',
@@ -446,7 +363,6 @@ describe('AuthBroker — authenticatedFetch (AC8 경로)', () => {
           descriptor: {
             id: 'wiki',
             pluginId: 'corp',
-            apiVersion: 1,
             label: 'Wiki',
             acceptedAuthProviders: ['pat'],
             baseUrl: ORIGIN,
@@ -551,45 +467,6 @@ describe('AuthBroker — redirect 추종과 mechanism 별 presentation (0160)', 
     headers: Record<string, string>
   }
 
-  function redirectManifest(presentations?: Record<string, unknown>): Record<string, unknown> {
-    return {
-      schemaVersion: 1,
-      id: 'corp',
-      version: '1.0.0',
-      contributes: {
-        authProviders: [
-          {
-            id: 'pat',
-            apiVersion: 1,
-            label: 'PAT',
-            targets: ['connector'],
-            mechanisms: ['personal_access_token'],
-            capabilities: ['logout']
-          },
-          {
-            id: 'idpw',
-            apiVersion: 1,
-            label: 'ID/PW',
-            targets: ['connector'],
-            mechanisms: ['basic'],
-            capabilities: ['logout']
-          }
-        ],
-        connectors: [
-          {
-            id: 'wiki',
-            apiVersion: 1,
-            label: 'Wiki',
-            acceptedAuthProviders: ['pat', 'idpw'],
-            baseUrl: ORIGIN,
-            presentation: { location: 'header', name: 'Authorization', scheme: 'Bearer' },
-            ...(presentations !== undefined ? { presentations } : {})
-          }
-        ]
-      }
-    }
-  }
-
   function harness(opts: {
     responses: Array<{ status: number; headers?: Record<string, string>; body?: string }>
     presentations?: Record<string, unknown>
@@ -598,14 +475,13 @@ describe('AuthBroker — redirect 추종과 mechanism 별 presentation (0160)', 
     const registry = new AuthRegistry()
     const sent: Sent[] = []
     const errors = registry.register({
-      manifest: redirectManifest(opts.presentations),
       providers: [
         createStaticCredentialProvider({
           id: 'pat',
           pluginId: 'corp',
           label: 'PAT',
           mechanism: 'personal_access_token',
-          // manifest 선언(`targets: ['connector']`)과 같아야 한다 — 0164 verify D4.
+          // 서비스 연결 전용 — application 을 열면 앱 로그인 게이트가 켜진다.
           targets: ['connector']
         }),
         createBasicCredentialProvider({ id: 'idpw', pluginId: 'corp', label: 'ID/PW' })
@@ -615,7 +491,6 @@ describe('AuthBroker — redirect 추종과 mechanism 별 presentation (0160)', 
           descriptor: {
             id: 'wiki',
             pluginId: 'corp',
-            apiVersion: 1,
             label: 'Wiki',
             acceptedAuthProviders: ['pat', 'idpw'],
             baseUrl: ORIGIN,
@@ -833,7 +708,6 @@ describe('AuthBroker — redirect 추종과 mechanism 별 presentation (0160)', 
     const registry = new AuthRegistry()
     const options: Array<unknown> = []
     registry.register({
-      manifest: redirectManifest(),
       providers: [
         createStaticCredentialProvider({
           id: 'pat',
@@ -850,7 +724,6 @@ describe('AuthBroker — redirect 추종과 mechanism 별 presentation (0160)', 
           descriptor: {
             id: 'wiki',
             pluginId: 'corp',
-            apiVersion: 1,
             label: 'Wiki',
             acceptedAuthProviders: ['pat', 'idpw'],
             baseUrl: ORIGIN,
@@ -1137,22 +1010,6 @@ describe('AuthBroker cascade logout linearization', () => {
 
 const CHAIN_PLUGIN = 'chain'
 
-// manifest 선언은 구현 descriptor 에서 **파생**한다 — 손으로 두 벌 적으면 registry 의 전 필드
-// 대조에서 갈리고 패키지가 통째로 거부된다(0164 D4).
-function declarationOf(provider: AuthProviderV1): Record<string, unknown> {
-  const d = provider.descriptor
-  return {
-    id: d.id,
-    apiVersion: d.apiVersion,
-    label: d.label,
-    targets: [...d.targets],
-    mechanisms: [...d.mechanisms],
-    capabilities: [...d.capabilities],
-    ...(d.sessionGroup !== undefined ? { sessionGroup: d.sessionGroup } : {}),
-    ...(d.allowedOrigins.length > 0 ? { allowedOrigins: [...d.allowedOrigins] } : {})
-  }
-}
-
 interface ChainHarness {
   broker: AuthBroker
   store: ReturnType<typeof fakeStore>
@@ -1165,15 +1022,7 @@ function chainHarness(providers: readonly AuthProviderV1[]): ChainHarness {
   const registry = new AuthRegistry()
   const cleared: Array<{ handleId: string; scope: string }> = []
 
-  const errors = registry.register({
-    manifest: {
-      schemaVersion: 1,
-      id: CHAIN_PLUGIN,
-      version: '1.0.0',
-      contributes: { authProviders: providers.map(declarationOf) }
-    },
-    providers
-  })
+  const errors = registry.register({ providers })
   expect(errors).toEqual([])
 
   const states: AuthPlatformState[] = []
@@ -1482,24 +1331,6 @@ describe('AuthBroker — ctx.fetch 전송 구현 주입 (0173)', () => {
       allowedOrigins
     })
     const errors = registry.register({
-      manifest: {
-        schemaVersion: 1,
-        id: PROBE_PLUGIN,
-        version: '1.0.0',
-        contributes: {
-          authProviders: [
-            {
-              id: 'probe',
-              apiVersion: 1,
-              label: 'PROBE',
-              targets: ['connector'],
-              mechanisms: ['personal_access_token'],
-              capabilities: ['status', 'logout'],
-              allowedOrigins: [...allowedOrigins]
-            }
-          ]
-        }
-      },
       providers: [provider]
     })
     expect(errors).toEqual([])

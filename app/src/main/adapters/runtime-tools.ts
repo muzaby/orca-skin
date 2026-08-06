@@ -17,7 +17,6 @@ export interface RuntimeToolDescriptor {
   id: string
   pluginId: string
   connectorId: string
-  apiVersion: 1
   alwaysLoad?: boolean
   instructions?: string
   tools: readonly RuntimeToolDeclaration[]

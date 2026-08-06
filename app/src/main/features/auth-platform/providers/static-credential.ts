@@ -53,7 +53,6 @@ export function createStaticCredentialProvider(opts: StaticCredentialOptions): A
   const descriptor: AuthProviderDescriptor = {
     id: opts.id,
     pluginId: opts.pluginId,
-    apiVersion: 1,
     label: opts.label,
     // static credential 은 앱 로그인에도 서비스 연결에도 쓸 수 있다 — 같은 lifecycle.
     // 기본값을 그대로 쓰면 앱 로그인 게이트가 켜지므로, 연결 전용이면 호출자가 좁힌다.

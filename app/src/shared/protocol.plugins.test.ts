@@ -86,9 +86,9 @@ describe('plugin 진단 IPC', () => {
       ).toBe(true)
     }
     for (const kind of ['other', 'instance']) {
-      expect(
-        PluginDiagnosticSchema.safeParse({ kind, subject: 'x', message: 'y' }).success
-      ).toBe(false)
+      expect(PluginDiagnosticSchema.safeParse({ kind, subject: 'x', message: 'y' }).success).toBe(
+        false
+      )
     }
   })
 

@@ -8,7 +8,6 @@ function providerInfo(id: string, targets: AuthProviderInfo['targets']): AuthPro
   return {
     id,
     pluginId: 'corp',
-    apiVersion: 1,
     label: id.toUpperCase(),
     targets,
     mechanisms: ['personal_access_token'],

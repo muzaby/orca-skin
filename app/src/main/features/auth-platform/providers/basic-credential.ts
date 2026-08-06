@@ -35,7 +35,6 @@ export function createBasicCredentialProvider(opts: BasicCredentialOptions): Aut
   const descriptor: AuthProviderDescriptor = {
     id: opts.id,
     pluginId: opts.pluginId,
-    apiVersion: 1,
     label: opts.label,
     // 앱 로그인이 아니라 서비스 연결용이다 — 앱 게이트를 열 수단이 아니다.
     targets: ['connector'],

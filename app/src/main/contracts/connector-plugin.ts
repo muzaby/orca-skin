@@ -58,7 +58,6 @@ export type AuthenticatedFetch = (
 export interface ConnectorDescriptor {
   id: string
   pluginId: string
-  apiVersion: 1
   label: string
   // 이 connector 가 받아들이는 auth provider id 목록. 하나의 connector 가 ADFS browser
   // session 과 PAT 를 함께 허용할 수 있다.

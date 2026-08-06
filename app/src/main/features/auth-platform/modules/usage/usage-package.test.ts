@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import { AuthRegistry } from '../../registry'
-import { parsePluginManifest } from '../../manifest'
 import { createUsageConnectorPackage } from './index'
 import { USAGE_CONNECTORS } from './servers'
 import type { UsageConnectorConfig } from './spec'
@@ -20,12 +19,8 @@ describe('createUsageConnectorPackage', () => {
       config('usage-corp', 'https://llm.corp'),
       config('usage-lab', 'https://llm-lab.corp')
     ])
-    const parsed = parsePluginManifest(pkg.manifest)
-    expect(parsed.ok).toBe(true)
-
     const registry = new AuthRegistry()
     const errors = registry.register({
-      manifest: pkg.manifest,
       ...(pkg.providers !== undefined ? { providers: pkg.providers } : {}),
       ...(pkg.connectors !== undefined ? { connectors: pkg.connectors } : {})
     })
@@ -46,7 +41,6 @@ describe('createUsageConnectorPackage', () => {
     const pkg = createUsageConnectorPackage(USAGE_CONNECTORS)
     const registry = new AuthRegistry()
     const errors = registry.register({
-      manifest: pkg.manifest,
       ...(pkg.providers !== undefined ? { providers: pkg.providers } : {})
     })
 

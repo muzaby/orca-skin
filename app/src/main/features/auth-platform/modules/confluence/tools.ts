@@ -63,7 +63,6 @@ export function createConfluenceTools(
       id: serverId,
       pluginId: CONFLUENCE_PLUGIN_ID,
       connectorId,
-      apiVersion: 1,
       tools: [
         {
           name: CONFLUENCE_TOOL_NAMES.search,

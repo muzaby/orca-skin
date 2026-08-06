@@ -246,7 +246,6 @@ export interface AuthBindingInfo {
 export interface AuthProviderInfo {
   id: string
   pluginId: string
-  apiVersion: number
   label: string
   targets: AuthTargetKind[]
   mechanisms: AuthMechanism[]

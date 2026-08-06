@@ -12,7 +12,6 @@ function connector(
     descriptor: {
       id,
       pluginId: 'test-plugin',
-      apiVersion: 1,
       label: id,
       acceptedAuthProviders: ['test-auth'],
       baseUrl: 'https://connector.example.invalid',
@@ -167,7 +166,6 @@ describe('ConnectorHost.connect', () => {
       descriptor: {
         id: 'jira-engineering',
         pluginId: 'test-plugin',
-        apiVersion: 1,
         label: 'jira-engineering',
         acceptedAuthProviders: ['test-auth'],
         baseUrl: 'https://connector.example.invalid',
@@ -198,7 +196,6 @@ describe('ConnectorHost.connect', () => {
       descriptor: {
         id: 'jira-engineering',
         pluginId: 'test-plugin',
-        apiVersion: 1,
         label: 'jira-engineering',
         acceptedAuthProviders: ['test-auth'],
         baseUrl: 'https://connector.example.invalid',
@@ -233,7 +230,6 @@ describe('ConnectorHost.connect', () => {
       descriptor: {
         id: 'jira-engineering',
         pluginId: 'test-plugin',
-        apiVersion: 1,
         label: 'jira-engineering',
         acceptedAuthProviders: ['test-auth'],
         baseUrl: 'https://connector.example.invalid',

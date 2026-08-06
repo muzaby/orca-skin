@@ -107,7 +107,6 @@ function contribution(
       id,
       pluginId: 'plugin-a',
       connectorId,
-      apiVersion: 1,
       tools: names.map((name) => ({ name, description: `${name} description` }))
     },
     create: (ctx) => {
@@ -130,27 +129,6 @@ function toResult(raw: unknown): RuntimeToolResult {
 function registryWith(...tools: RuntimeToolContribution[]): AuthRegistry {
   const registry = new AuthRegistry()
   registry.register({
-    manifest: {
-      schemaVersion: 1,
-      id: 'plugin-a',
-      version: '1.0.0',
-      contributes: {
-        connectors: ['connector-a', 'connector-b'].map((connectorId) => ({
-          id: connectorId,
-          apiVersion: 1,
-          label: connectorId,
-          acceptedAuthProviders: ['provider-a'],
-          baseUrl: `https://${connectorId}.example.invalid`,
-          presentation: { location: 'header', name: 'Authorization', scheme: 'Bearer' }
-        })),
-        runtimeTools: tools.map((tool) => ({
-          id: tool.descriptor.id,
-          connectorId: tool.descriptor.connectorId,
-          apiVersion: 1,
-          tools: tool.descriptor.tools
-        }))
-      }
-    },
     connectors: ['connector-a', 'connector-b'].map((connectorId) => ({
       descriptor: {
         id: connectorId,

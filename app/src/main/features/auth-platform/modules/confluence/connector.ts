@@ -170,7 +170,6 @@ export function createConfluenceConnector(raw: ConfluenceServerConfig): Connecto
     descriptor: {
       id: config.id,
       pluginId: CONFLUENCE_PLUGIN_ID,
-      apiVersion: 1,
       label: config.label,
       acceptedAuthProviders: [CONFLUENCE_PAT_PROVIDER_ID, CONFLUENCE_BASIC_PROVIDER_ID],
       baseUrl: config.baseUrl,

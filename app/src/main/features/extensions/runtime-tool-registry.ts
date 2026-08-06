@@ -55,7 +55,6 @@ function sameDescriptor(left: RuntimeToolDescriptor, right: RuntimeToolDescripto
     left.id === right.id &&
     left.pluginId === right.pluginId &&
     left.connectorId === right.connectorId &&
-    left.apiVersion === right.apiVersion &&
     left.alwaysLoad === right.alwaysLoad &&
     left.instructions === right.instructions &&
     left.tools.length === right.tools.length &&

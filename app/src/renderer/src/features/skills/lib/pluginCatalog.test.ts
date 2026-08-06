@@ -11,7 +11,6 @@ function provider(id: string, overrides: Partial<AuthProviderInfo> = {}): AuthPr
   return {
     id,
     pluginId: 'confluence',
-    apiVersion: 1,
     label: id,
     targets: ['connector'],
     mechanisms: ['personal_access_token'],
