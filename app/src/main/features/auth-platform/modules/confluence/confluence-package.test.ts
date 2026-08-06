@@ -139,10 +139,16 @@ describe('createConfluencePackage — 등록 위생', () => {
     for (const servers of [[], ONE_SERVER, TWO_SERVERS]) {
       const registry = registered(servers)
       expect(registry.methodsForTarget('application')).toEqual([])
-      expect(registry.methodsForTarget('connector').map((m) => m.descriptor.id)).toEqual([
-        PAT_METHOD_ID,
+      // 내장 자격증명 방식은 **전부** 연결 전용이다 — 하나라도 application 을 선언하면 게이트가 켜진다.
+      expect(registry.methodsForTarget('connector').map((m) => m.descriptor.id)).toEqual(
+        AUTH_METHODS.map((m) => m.descriptor.id)
+      )
+      expect(registry.methodsForTarget('connector').map((m) => m.descriptor.id)).toContain(
+        PAT_METHOD_ID
+      )
+      expect(registry.methodsForTarget('connector').map((m) => m.descriptor.id)).toContain(
         BASIC_METHOD_ID
-      ])
+      )
     }
   })
 
