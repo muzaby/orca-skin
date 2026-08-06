@@ -8,12 +8,3 @@ export function assertValidCron(cron: string): void {
     throw new Error('Invalid scheduler cron expression', { cause })
   }
 }
-
-export function isValidCron(cron: string): boolean {
-  try {
-    assertValidCron(cron)
-    return true
-  } catch {
-    return false
-  }
-}

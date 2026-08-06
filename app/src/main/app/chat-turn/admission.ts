@@ -15,7 +15,7 @@ import { crossesProviderBoundary } from '../../features/providers/provider-setti
 
 export type SendChatPayload = ReturnType<typeof SendChatMessageSchema.parse>
 
-export type Admission =
+type Admission =
   { ok: true; data: SendChatPayload } | { ok: false; error: ClassifiedError; sessionId?: string }
 
 // 턴 진입 게이트 3종. 순서가 계약이다 — 스키마가 먼저여야 이후 판정이 페이로드를 믿을 수 있고,

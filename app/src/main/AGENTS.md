@@ -26,10 +26,40 @@ shared     →  shared                                   (순수 타입/상수/z
 | **adapters**            | `src/main/adapters/`                                                                                                                                                           | `SessionAdapter` 포트(`types`·`turn`·`provider-config`·`mcp-config`·`hooks`·`risky-tools`·`descriptor`) + 구현(`claude.ts`·`mock.ts` — flat 파일, 엔진별 하위 폴더 아님) + 어댑터 오케스트레이션 + `claude-settings.ts`(`~/.claude/settings.json` 읽기, 0090).                                | adapters · adapter-impl · infra · shared               |
 | **contracts**           | `src/main/contracts/` 8모듈 (`turn`·`bus-events`·`ports`·`session-state` + **진입점** `auth-method`(인증 방식이 채우는 3함수)·`internal-api`(**다른 모듈이 인증을 쓰는 API** — 소비 슬라이스는 `Pick<InternalApi, …>` 으로 좁혀 받고 구현은 컴포지션 루트가 주입한다. 손으로 다시 선언하면 `contracts/internal-api.test.ts` 가 잡는다) + `connector`·`usage-report`·`usage-source`)                                                                                                            | 여러 feature 가 공유하는 **턴/버스/런타임 타입 계약**. `TurnContext`·`OrcaBusEvents`·`RuntimeLiveTurn` 등. 구현 최소. **0178 에서 계약 동결(additive-optional-only)·`apiVersion` ABI 정책을 폐기했다** — 형태 강제는 등록 배열의 `satisfies` 로 컴파일 타임에 하고, 런타임 검증은 타입으로 표현할 수 없는 것(중복 id·origin 형태)만 남는다(`features/auth-platform/registry.ts` 헤더).                                                                                                                                                                         | contracts · adapters · infra · shared                  |
 | **features**            | `src/main/features/<slice>/` (`chat`·`sessions`·`approvals`·`usage`·`history`·`providers`·`extensions`·`orchestration`·`scheduler`·`auth-platform`·`connectors`)                                      | 수직 슬라이스 — 턴 오케스트레이션·세션 런타임 거버넌스·승인·사용량·영속·provider(정적 사용량 provider 는 `features/providers/static/modules/` opt-in 레지스트리)·확장(MCP·skill·deploy·번들 시딩)·대화 연속성(fork/handoff)·주기 실행(croner, 0091)·인증(내장 방식 `methods/` + registry·transaction·레코드 스토어 + `login`(lifecycle)/`api`(`InternalApi` 구현)/`broker`(조립·복원) 3분해, 회사 대상은 `features/auth-platform/modules/` opt-in 레지스트리)·대상 실행(인증된 내장 도구 — raw credential 미접근).                                          | **같은 slice** · contracts · adapters · infra · shared |
-| **app (컴포지션 루트)** | `src/main/app/` (`bootstrap`·`chat-turn`·`chat-turn-continuation`·`context`·`boot-report`·`builtin-resources`·`updater`·`updater-feed`·`auth-restore`·`usage-source`(PluginHost→`UsageSourcePort` 어댑터, 0176)·`handlers/` **10종** `{auth,boot,engine,log,mcp,misc,plugins,project,session,update}`) + `src/main/index.ts` | 부팅 배선(`Bootstrap`)·턴 셋업(`registerChatHandlers`)·자동 연속 턴(`chat-turn-continuation.ts`, 0126)·도메인 핸들러 등록·`RouterContext` 조립·window/shutdown·자동 업데이트(`updater.ts`+`updater-feed.ts`, 0084~0086·0133)·인증 복원(`auth-restore.ts`, 0170)·부팅 진단(`boot-report.ts`, 0077)·번들 리소스 해석(`builtin-resources.ts`, 0078). 구체 엔진명 리터럴 허용(1회성 배선). | 전부                                                   |
+| **app (컴포지션 루트)** | `src/main/app/` (`bootstrap`·**`chat-turn/`**(13모듈, 아래 §chat-turn 분해)·`chat-turn-continuation`·`context`·`boot-report`·`builtin-resources`·`updater`·`updater-feed`·`auth-restore`·`usage-source`(PluginHost→`UsageSourcePort` 어댑터, 0176)·`handlers/` **14종** `{auth,boot,cost,engine,files,log,mcp,misc,plugins,project,session,settings,skills,update}`) + `src/main/index.ts` | 부팅 배선(`Bootstrap`)·턴 셋업(`registerChatHandlers`)·자동 연속 턴(`chat-turn-continuation.ts`, 0126)·도메인 핸들러 등록·`RouterContext` 조립·window/shutdown·자동 업데이트(`updater.ts`+`updater-feed.ts`, 0084~0086·0133)·인증 복원(`auth-restore.ts`, 0170)·부팅 진단(`boot-report.ts`, 0077)·번들 리소스 해석(`builtin-resources.ts`, 0078). 구체 엔진명 리터럴 허용(1회성 배선). | 전부                                                   |
 
 > `boundaries/elements` 분류 순서는 specific→catch-all(`adapter-impl` 이 `adapters` 보다 먼저). `src/main` 최상위는 `{app, contracts, adapters, features, infra}` + `index.ts`·`env.d.ts` 만 — 새 디렉토리는 이 중 하나에 속하게 둔다(어디에도 안 맞으면 boundaries "no element" error). 현재 `adapters/` 는 flat 파일 구조라 `adapter-impl`(folder capture) 요소에 매칭되는 대상이 없다 — 엔진별 하위 폴더가 생기면 다시 활성화되는 예비 규칙.
 > `features/orchestration/` = Conversation Continuity(0051 §A.4) 첫 서비스(fork/handoff) — **순수 로직만**(handoff 자동 메시지 템플릿 `buildHandoffMessage` · 도착 물질화 `materializeContinuityArrival`). 실행 배선(어댑터 `forkSession` 호출·send/persist 훅)은 컴포지션 루트(`app/chat-turn`·`app/handlers/session`)와 `features/history` 가 소유한다.
+
+## `app/chat-turn/` 분해 (0179)
+
+`chat:send` 한 요청이 지나는 길은 길다 — 검증·lease·continuity·turn 조립·respawn·큐 적재·
+승인 배선·요청 조립·턴-후 루프·정리 2단. 0179 이전에는 이 전부가 `registerChatHandlers`
+(1,166줄) 안의 `handleChatSend`(892줄) **한 클로저**에 있어 어떤 단계도 따로 부를 수 없었다.
+
+| 모듈 | 성격 | 책임 |
+|---|---|---|
+| `index.ts` | 배럴·배선 | `registerChatHandlers` — IPC 5종 등록 + 턴-공통 헬퍼(버스 방출·태스크 정착). **`'./chat-turn'` import 가 그대로 해석된다** |
+| `send.ts` | 순서 | `handleChatSend` — 이름 붙은 12단계 시퀀스 + renderer 발신 + 정리 |
+| `admission.ts` | **순수** | 진입 게이트 3종·lease 키 파생·continuity 검증·busy 예약 판정 |
+| `turn-context.ts` | **순수** | `TurnContext` 조립·cwd 해석·연속 턴 계승 |
+| `continuation.ts` | **순수** | listen/flush 연속 턴 `TurnRequest` 조립 |
+| `resolve-turn.ts` | I/O | continuity 검증 + provider·env·세션 메타·실제 텍스트 해석 |
+| `runtime-entry.ts` | I/O | 런타임 확보·체인 활성화·respawn 판정 |
+| `enqueue.ts` | 상태 | 프렐류드/본 배치 적재 + `message.queued` |
+| `turn-request.ts` | 조립 | 게이트 콜백 6종 + 중단 영수증 화해 |
+| `approval.ts` | 배선 | `requestApproval` 클로저 |
+| `post-turn.ts` | 실행 | `coordinator.run` + 자동 연속 턴 루프(listen/flush/break) |
+| `busy-reserve.ts` | 상태 | busy 세션 send → held 예약 |
+| `turn-setup.ts`·`deps.ts` | 조각·타입 | provider 해석·env 조립·소유권 발신 / 의존 묶음 2층 |
+
+**작업 규칙 3가지** (깨지면 회귀가 조용히 난다 — 각 파일 헤더에 근거가 있다):
+
+1. **판정과 발신을 섞지 마라.** `admission.ts`·`turn-context.ts`·`continuation.ts` 는 부작용이
+   없어야 한다 — 그래야 규칙을 IPC 없이 단위 테스트할 수 있다(`*.test.ts` 25건).
+2. **`activeTurn`·`initialBatches` 는 게터로 넘긴다.** 자동 연속 턴과 finally 정리가 함께 보는
+   가변 상태다. 값으로 캡처하면 연속 턴에서 콜백이 옛 턴을 본다(0067 AC7·0166 D7).
+3. **첨부 정규화는 busy 판정보다 앞** (0152 AC1) — 판정↔적재 사이에 `await` 를 넣지 마라.
 
 ## feature 수직 슬라이스 (핵심 규칙)
 

@@ -19,7 +19,7 @@ import type { TurnContext } from '../../contracts/turn'
 import { getLogger } from '../../infra/log'
 import { sendChatEvent } from '../../infra/ipc/send'
 
-export interface ApprovalRequesterDeps {
+interface ApprovalRequesterDeps {
   wc: WebContents
   approvals: ApprovalCoordinator
   permissionModes: PermissionModeController

@@ -17,7 +17,7 @@ import type { SendChatPayload } from './admission'
 import type { RouterContext } from '../context'
 import type { ContinuitySourceMeta } from './turn-context'
 
-export interface ResolvedTurn {
+interface ResolvedTurn {
   continuitySource: string | undefined
   continuityMeta: ContinuitySourceMeta | undefined
   continuityLang: ContinuityLang

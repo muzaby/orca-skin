@@ -13,7 +13,7 @@ import type { SessionControl } from '../../features/sessions/session-chain-lease
 
 // 턴-로컬 상태의 단일 초기값 — 신규 턴과 자동 연속 턴이 공유한다. TurnContext 에 턴-로컬
 // 필드를 더하면 여기에만 더한다(턴 간 계승/차이가 있는 것은 각 호출부가 명시).
-export function freshTurnLocalState<W>(
+function freshTurnLocalState<W>(
   control?: SessionControl
 ): Pick<
   TurnContext<W>,
@@ -58,7 +58,7 @@ export interface ContinuitySourceMeta {
   project_id: string | null
 }
 
-export interface BuildTurnContextInput<W> {
+interface BuildTurnContextInput<W> {
   controller: AbortController
   owner: W
   control: SessionControl

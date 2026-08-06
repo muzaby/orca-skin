@@ -12,7 +12,7 @@ import { sendChatEvent } from '../../infra/ipc/send'
 import { checkBusyReservation } from './admission'
 import type { NormalizedAttachments } from './deps'
 
-export interface BusyReservePayload {
+interface BusyReservePayload {
   text: string
   attachmentViews?: AttachmentView[]
   clientRequestId?: string | undefined
