@@ -28,6 +28,7 @@ import {
   type CredentialVault
 } from '../../infra/auth/credential-vault'
 import type { BindingStore } from './bindings'
+import { isAllowedOrigin } from '../../infra/auth/session-policy'
 import type { AuthRegistry } from './registry'
 import {
   runGuarded,
@@ -43,6 +44,9 @@ export interface AuthLoginDeps {
   // 네임스페이스별 vault 팩토리 — 로그인은 raw SecretStore 를 보지 않는다.
   vaultFor: (prefix: string) => CredentialVault
   browserSessions: BrowserSessionCapability
+  // 원격 전송자 (0173) — 인증 방식의 `ctx.fetch` 가 이것으로 나간다. **기본값 없음**: 기본값은
+  // 곧 조용한 Node 스택 복귀이고, 그러면 사내 프록시·사설 CA 를 못 탄다.
+  fetchImpl: typeof fetch
   publish: () => void
   // 레코드가 끝난 뒤 연결을 정리하는 컴포지션 콜백.
   onBindingsEnded?: (bindingIds: readonly string[]) => Promise<void>
@@ -443,6 +447,14 @@ export class AuthLogin {
       signal,
       vault: this.deps.vaultFor(vaultPrefix),
       browserSessions: this.deps.browserSessions,
+      // **검사는 전송자 앞에 있다** — 스택을 바꿔도 allowlist 강제 지점은 옮겨가지 않는다.
+      // 미선언 origin 은 요청 자체를 만들지 않으므로 자격증명이 그리로 나가지 않는다.
+      fetch: async (url, init) => {
+        if (!isAllowedOrigin(url, method.descriptor.allowedOrigins)) {
+          throw new Error('인증 방식이 선언하지 않은 origin 입니다')
+        }
+        return this.deps.fetchImpl(url, { ...init, redirect: 'manual', signal })
+      },
       logger: (message, meta) =>
         this.deps.logger('auth.method.message', {
           methodId: method.descriptor.id,

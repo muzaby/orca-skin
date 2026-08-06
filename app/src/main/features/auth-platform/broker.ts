@@ -79,6 +79,7 @@ export class AuthBroker implements InternalApi {
       bindings: this.bindings,
       vaultFor: deps.vaultFor,
       browserSessions: deps.browserSessions,
+      fetchImpl: deps.fetchImpl,
       publish: () => this.publish(),
       ...(deps.onBindingsEnded !== undefined ? { onBindingsEnded: deps.onBindingsEnded } : {}),
       clock: this.clock,
