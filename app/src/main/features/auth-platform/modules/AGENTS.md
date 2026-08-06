@@ -44,15 +44,61 @@ export const CONNECTOR_PACKAGES = [
 
 **사용처 3종** — 각각이 어느 인증 위에 서는가:
 
-| 사용처 | 인증 | 소비 경로 | 현재 상태 |
+| 사용처 | 인증 | 소비 경로 | 소유 |
 |---|---|---|---|
-| 컨플루언스 검색 | ID/비밀번호 · PAT | 내장 도구 → `ctx.request` → REST | ✅ 동작 (`confluence/`) |
-| LLM 모델 토큰 발급 | SSO → **세션 쿠키** | `ctx.request` → REST | ⚠️ **경로는 열렸으나 대상 선언이 없다** — 0178 3b 의 `BrowserSessionCapability.send` 로 세션 쿠키 REST 가 가능해졌지만 이 서비스를 가리키는 모듈이 없다 |
-| 비용 추적 | SSO → **code → token** | `ctx.request` → REST | ❌ **미구현** — 지금 SSO 는 쿠키만 만들고 code→token 교환 단계가 없다. `usage/` 는 PAT·ID/비밀번호만 받는다 |
+| 컨플루언스 검색 | ID/비밀번호 · PAT | 내장 도구 → `ctx.request` → REST | **저장소 동봉** (`confluence/`) |
+| LLM 모델 토큰 발급 | SSO → **세션 쿠키** | `ctx.request` → REST | **폐쇄망 구현자** — 코어는 진입점만 준다 |
+| 비용 추적 | SSO → **code → token** | `ctx.request` → REST | **폐쇄망 구현자** — 코어는 진입점만 준다 |
 
-> **세션 쿠키와 code→token 은 다른 흐름이다.** 앞은 브라우저 세션을 그대로 실어 보내고(구현됨),
-> 뒤는 SSO 로 authorization code 를 받아 토큰으로 **교환**한 뒤 그 토큰을 헤더에 싣는다(미구현).
-> 교환 endpoint 의 경로·응답 형태는 미상이라 0178 §리스크 K3 의 열린 항목으로 남아 있다.
+**사용자 결정 (2026-08-06)**: 뒤 둘은 실제 폐쇄망 환경에서 구현자가 확장한다. 코어는 **기본 함수와
+진입점만** 제공하고 사내 주소·응답 형태를 추측하지 않는다.
+
+> **세션 쿠키와 code→token 은 다른 흐름이다.** 앞은 브라우저 세션을 그대로 실어 보내고(값 주입
+> 없음, `browserSessions.send`), 뒤는 SSO 로 authorization code 를 받아 토큰으로 **교환**한 뒤
+> 그 토큰을 vault 에 봉인해 헤더에 싣는다(`ctx.fetch` → `ctx.vault.set`). 반출 성질도 갈린다 —
+> 쿠키는 값이 아니라 MCP 로 나가지 않고, 교환 토큰은 값이라 나간다.
+
+### 진입점으로 붙이는 법 — `sso → code → token`
+
+인증 방식 하나를 `methods/<회사>/` 에 두고 `AUTH_METHODS` 에 한 줄 더하면 끝난다. **코어는 고치지
+않는다** — 아래 골격이 `extension-points.test.ts` 에서 실제로 돌아가는 형태 그대로다.
+
+```ts
+async authenticate(ctx) {
+  const handleId = await ctx.browserSessions.acquire('corp')
+  const { finalUrl } = await ctx.browserSessions.openLoginWindow(handleId, {
+    url: `${SSO}/authorize`, isDone: (url) => url.includes('code=')
+  })
+  const code = new URL(finalUrl).searchParams.get('code')
+  if (code === null) return { kind: 'failed', reason: 'invalid_credentials' }
+
+  const res = await ctx.fetch(`${API}/oauth/token`, {   // ← 교환. 선언한 origin 으로만 나간다
+    method: 'POST', body: JSON.stringify({ code })
+  })
+  const { access_token, expires_in } = await res.json()
+
+  ctx.vault.set('secret', access_token, { kind: 'auth_token', createdAt: ctx.clock() })
+  return { kind: 'authenticated', record: {
+    mechanism: 'auth_token',
+    artifact: { kind: 'vault_credential', handleId: 'secret', credentialKind: 'auth_token' },
+    expiresAt: ctx.clock() + expires_in * 1000        // ← status() 가 이 값으로 판정한다
+  }}
+}
+```
+
+- **`allowedOrigins` 에 로그인 origin 과 교환 창구 origin 을 둘 다 적는다.** 미선언 origin 은
+  `ctx.fetch` 가 요청 자체를 만들지 않는다 — 자격증명이 그리로 나가지 않는다.
+- **만료는 `expiresAt` + `status()` 로 표현한다.** 코어의 `revalidate` 가 그 판정을 레코드에
+  반영하고 화면까지 알린다(0178 3b) — 만료를 쫓는 코드를 구현자가 또 쓰지 않는다.
+- **교환 실패는 `failed` 로 돌려준다.** 레코드가 만들어지지 않고, 보류 자원은 코어가 정리한다.
+- 대상(`modules/<회사>/`)은 `acceptedMethods: ['<그 방식 id>']` 와 `presentation`(보통
+  `Authorization: Bearer`)만 선언하면 된다.
+
+### 진입점으로 붙이는 법 — `sso → 세션 쿠키`
+
+교환이 없다. 로그인으로 만든 레코드의 artifact 가 `browser_session` 이면 코어가 **값을 주입하지
+않고** 그 세션의 cookie jar 로 보낸다. 구현자가 쓸 것은 `browserSessions.acquire` ·
+`openLoginWindow` · `probe` 셋뿐이고, 요청은 대상 선언만 있으면 `ctx.request` 로 나간다.
 
 ## 형태 강제는 타입 시스템이 한다 (0178)
 

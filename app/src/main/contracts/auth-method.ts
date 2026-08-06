@@ -86,11 +86,19 @@ export interface BrowserProbeResult {
 
 // ── context ──────────────────────────────────────────────────────────────────
 
-// 세 함수 1회 실행 동안 유효한 컨텍스트. `signal` 은 플랫폼 소유 타임아웃이다.
+// 선언한 origin 으로만 나가는 fetch. 미선언 origin 요청은 거부되고, redirect 는 자동으로
+// 따라가지 않는다(`redirect:'manual'`) — 자격증명이 실린 요청이 allowlist 밖으로 새지 않게.
 //
-// 범용 `fetch` 는 **주지 않는다** (0178). 0157~0177 내내 소비자가 0이었고, 인증 방식이 직접
-// HTTP 를 부를 일은 브라우저 세션 probe 뿐인데 그것은 `browserSessions` 가 이미 준다. 자격증명
-// 실검증은 대상의 `start()` 가 실제 요청 경로로 한다 — 검증 경로와 사용 경로가 같아진다.
+// **이것이 교환형 인증의 진입점이다** (0178, 사용자 결정 2026-08-06). `sso → code → token` 처럼
+// 로그인 결과를 한 번 더 교환해야 하는 흐름은 `authenticate` 안에서 HTTP 를 부를 수 있어야
+// 성립한다 — 그 구현은 폐쇄망 배포가 소유하고, 코어는 부를 수단만 제공한다.
+//
+// (0178 중간에 "소비자 0" 을 이유로 한 번 걷어냈다가 되살렸다. 저장소 안에 호출자가 없던 것은
+//  사실이지만, 이 표면의 소비자는 애초에 **폐쇄망 포크**다 — 확장점의 사용처를 저장소 내부에서만
+//  세면 확장점은 늘 죽은 코드로 보인다.)
+export type AuthFetch = (input: string, init?: RequestInit) => Promise<Response>
+
+// 세 함수 1회 실행 동안 유효한 컨텍스트. `signal` 은 플랫폼 소유 타임아웃 — fetch 에 전파하라.
 export interface AuthContext {
   readonly target: AuthTarget
   // 이번 재진입에서 사용자가 채운 입력(`AuthFieldSpec.name` 키). 첫 호출·status·revoke 에서는 {}.
@@ -98,6 +106,8 @@ export interface AuthContext {
   readonly signal: AbortSignal
   readonly vault: CredentialVaultView
   readonly browserSessions: BrowserSessionCapability
+  // 선언한 origin 으로만 나간다. 쿠키를 실어야 하면 `browserSessions.send` 를 쓴다.
+  readonly fetch: AuthFetch
   readonly logger: (message: string, meta?: Record<string, unknown>) => void
   readonly clock: () => number
 }
