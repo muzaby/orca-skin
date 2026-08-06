@@ -26,6 +26,12 @@ import {
 } from './session-policy'
 import { locationOf } from './net-response'
 import { sendOnce } from './net-request'
+import {
+  ResponseTooLargeError,
+  type PreparedRequest,
+  type SendOptions,
+  type SendResult
+} from './authenticated-fetch'
 
 export type { BrowserProbeResult } from './session-policy'
 export { classifyProbeResponse, isAllowedOrigin, partitionFor } from './session-policy'
@@ -205,6 +211,46 @@ export class BrowserSessionStore {
     return verdict.result
   }
 
+  // 같은 세션(cookie jar·통합 인증)으로 **실제 요청**을 보낸다 (0178). probe 와 달리 응답 본문을
+  // 그대로 돌려준다 — SSO 로그인으로 사내 REST 를 부르는 경로가 여기다.
+  //
+  // 리다이렉트는 **따라가지 않는다.** 홉마다 대상 정책을 다시 봐야 하므로 추종은 호출자
+  // (`features/auth-platform/api.ts`)의 몫이다 — `sendOnce` 계약 그대로다.
+  //
+  // 상한은 응답을 다 받은 뒤에 잰다. `net.request` 가 본문을 모아서 주므로 스트리밍 중단 지점이
+  // 없다 — credential 주입 경로(`createSender`)의 스트리밍 상한과 다른 점이고, 첨부 다운로드는
+  // 그쪽 경로를 쓴다.
+  async send(
+    handleId: string,
+    req: PreparedRequest,
+    options?: SendOptions,
+    signal?: AbortSignal
+  ): Promise<SendResult> {
+    const entry = this.entryOf(handleId)
+    if (!isAllowedOrigin(req.url, entry.policy.allowedOrigins)) {
+      throw new Error('허용되지 않은 origin 으로의 요청')
+    }
+    const { facts, body } = await sendOnce({
+      url: req.url,
+      method: req.method,
+      headers: req.headers,
+      ...(req.body !== undefined ? { body: req.body } : {}),
+      session: entry.ses,
+      credentials: 'include',
+      ...(signal ? { signal } : {})
+    })
+    const bytes = body ?? new Uint8Array(0)
+    const limit = options?.maxBytes
+    if (limit !== undefined && bytes.byteLength > limit) {
+      throw new ResponseTooLargeError(bytes.byteLength, limit)
+    }
+    const headers = normalizeHeaders(facts.headers)
+    if (options?.responseType === 'binary') {
+      return { status: facts.status, headers, body: '', bodyBytes: bytes }
+    }
+    return { status: facts.status, headers, body: Buffer.from(bytes).toString('utf8') }
+  }
+
   // scope='origin' 은 해당 origin 쿠키만, 'group' 은 session group 전체를 비운다.
   // connector-only disconnect 가 공유 세션을 통째로 날리지 않게 기본은 호출부에서 'origin'.
   async clear(
@@ -300,6 +346,15 @@ function openWindow(entry: Entry, opts: LoginWindowOptions): Promise<{ finalUrl:
       fail(err instanceof Error ? err : new Error(String(err)))
     })
   })
+}
+
+// `net.request` 헤더는 값이 배열로 올 수 있다 — 소비자(`InternalApiResponse`)는 문자열만 안다.
+function normalizeHeaders(raw: Record<string, string | string[]>): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const [name, value] of Object.entries(raw)) {
+    out[name.toLowerCase()] = Array.isArray(value) ? value.join(', ') : value
+  }
+  return out
 }
 
 // URL 에서 origin 만 뽑는다 — 로그에 경로·쿼리(토큰이 실릴 수 있다)를 싣지 않기 위해서다.

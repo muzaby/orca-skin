@@ -5,7 +5,7 @@
 // 이라, 앱 프로세스 환경에 있는 임의의 값이 이름만 맞으면 MCP 설정으로 새어 들어갔다
 // (도입 보고서 위험 #3). 이제 해석 순서는:
 //
-//   1. `${BINDING:<id>}` → 인증 플랫폼 binding (broker 가 값을 준다)
+//   1. `${BINDING:<대상>}` → 인증된 대상의 토큰 (`InternalApi.token` 이 값을 준다)
 //   2. `${VAR}`          → vault(safeStorage) 에 봉인된 비밀
 //   3. `${VAR}`          → **명시 allowlist 에 있는 경우에만** process.env
 //
@@ -21,15 +21,19 @@
 import { BINDING_PREFIX, type Resolver } from '../../../infra/vars'
 import type { SecretStore } from '../../../infra/config/secret-store'
 
-// broker 의 구조적 포트 — features 교차 import 를 피하려고 필요한 메서드만 받는다.
-export interface BindingCredentialSource {
-  resolveBindingCredential(bindingId: string): string | null
+// 호출 표면의 구조적 포트 — features 교차 import 를 피하려고 필요한 메서드만 받는다.
+//
+// **키가 대상 이름이다** (0178). 0178 이전에는 무작위 binding id(`bind_7_x3k9…`)였는데, 그 값은
+// 매 인증마다 새로 뽑히고 화면 어디에도 나오지 않아 **사람이 적을 수 없는 참조**였다. 이제
+// `servers.ts` 에 적은 대상 id 를 그대로 쓴다.
+export interface AuthTokenSource {
+  token(target: string): string | null
 }
 
 export interface ResolverOptions {
   secrets: SecretStore
-  // 미지정이면 binding 참조는 해석되지 않는다(= 서버 드롭).
-  bindings?: BindingCredentialSource
+  // 미지정이면 대상 참조는 해석되지 않는다(= 서버 드롭).
+  bindings?: AuthTokenSource
   // orca.json 의 `secrets.envAllowlist`. **정확한 이름 일치만** 허용한다(패턴·접두사 없음).
   envAllowlist?: readonly string[]
 }
@@ -38,8 +42,8 @@ export function makeResolver(opts: ResolverOptions): Resolver {
   const allowlist = new Set(opts.envAllowlist ?? [])
   return (name: string) => {
     if (name.startsWith(BINDING_PREFIX)) {
-      const bindingId = name.slice(BINDING_PREFIX.length)
-      return opts.bindings?.resolveBindingCredential(bindingId) ?? undefined
+      const target = name.slice(BINDING_PREFIX.length)
+      return opts.bindings?.token(target) ?? undefined
     }
     const sealed = opts.secrets.get(name)
     if (sealed !== undefined) return sealed

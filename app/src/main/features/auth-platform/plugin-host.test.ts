@@ -85,7 +85,6 @@ class FakeLogoutPort implements LogoutPort {
 function binding(id: string, overrides: Partial<AuthBindingInfo> = {}): AuthBindingInfo {
   return {
     id,
-    pluginId: 'plugin-a',
     providerId: 'provider-a',
     target: { kind: 'connector', connectorId: 'connector-a', connectionId: 'connection-a' },
     mechanism: 'api_key',
@@ -105,7 +104,6 @@ function contribution(
   return {
     descriptor: {
       id,
-      pluginId: 'plugin-a',
       connectorId,
       tools: names.map((name) => ({ name, description: `${name} description` }))
     },
@@ -132,10 +130,9 @@ function registryWith(...tools: RuntimeToolContribution[]): AuthRegistry {
     connectors: ['connector-a', 'connector-b'].map((connectorId) => ({
       descriptor: {
         id: connectorId,
-        pluginId: 'plugin-a',
         apiVersion: 1 as const,
         label: connectorId,
-        acceptedAuthProviders: ['provider-a'],
+        acceptedMethods: ['provider-a'],
         baseUrl: `https://${connectorId}.example.invalid`,
         presentation: {
           location: 'header' as const,

@@ -167,16 +167,12 @@ export type AuthTargetKind = AuthTarget['kind']
 export type AuthMechanism =
   'adfs_browser_session' | 'api_key' | 'auth_token' | 'personal_access_token' | 'basic'
 
-// provider 가 선언하는 지원 동작. UI 는 이것으로 버튼을 그리고, core 는 메서드 존재 여부로
-// provider 종류를 추론하지 않는다(4메서드는 전부 required — 미지원은 not_supported 반환).
-export type AuthCapability = 'browser_session' | 'status' | 'logout'
-
 // 저장되는 credential 의 종류. 요청에 넣는 방식(presentation)은 여기서 추론하지 않는다 —
 // api_key 라고 무조건 X-API-Key 가 아니고, PAT 라고 무조건 Bearer 가 아니다.
 export type CredentialKind = 'api_key' | 'auth_token' | 'personal_access_token' | 'basic' | 'oauth'
 
 // vault 에 봉인된 credential 에 딸리는 비-비밀 metadata. 값 자체는 절대 담지 않는다.
-// shared 에 두는 이유: `infra/auth` 와 `contracts/auth-plugin` 이 함께 쓰는데 레이어 DAG 상
+// shared 에 두는 이유: `infra/auth` 와 `contracts/auth-method` 가 함께 쓰는데 레이어 DAG 상
 // infra 는 contracts 를 import 할 수 없다(infra → infra·shared 만).
 export interface CredentialMeta {
   kind: CredentialKind
@@ -230,7 +226,8 @@ export type AuthArtifactRef =
 
 export interface AuthBindingInfo {
   id: string
-  pluginId: string
+  // 이 레코드를 만든 인증 방식 id (`AuthMethodDescriptor.id`). DTO 어휘는 renderer 와 맞춰
+  // `provider` 를 유지한다 — main 내부 어휘는 `method` 다.
   providerId: string
   target: AuthTarget
   mechanism: AuthMechanism
@@ -243,13 +240,13 @@ export interface AuthBindingInfo {
   createdAt: number
 }
 
+// renderer 노출형 인증 방식 서술자. 0178 에서 소비자 0인 필드 둘(`pluginId`·`capabilities`)을
+// 뺐다 — 패키지 개념이 사라졌고, 능력 목록은 함수가 셋으로 고정되면서 분기가 없어졌다.
 export interface AuthProviderInfo {
   id: string
-  pluginId: string
   label: string
   targets: AuthTargetKind[]
   mechanisms: AuthMechanism[]
-  capabilities: AuthCapability[]
   sessionGroup?: string
 }
 
@@ -273,7 +270,9 @@ export interface AuthChainProgress {
   label: string
 }
 
-// transaction 의 다음 단계. `transactionId` 는 provider 가 아니라 **플랫폼이 부여**한다.
+// transaction 의 다음 단계. `transactionId` 는 인증 방식이 아니라 **플랫폼이 부여**한다.
+// 0178 에서 `browser` 분기를 뺐다 — 브라우저 흐름은 `authenticate` 안에서 끝나므로 되받을
+// 단계가 없고, 생산자가 0이었다.
 export type AuthStepInfo =
   | {
       kind: 'collect'
@@ -282,14 +281,11 @@ export type AuthStepInfo =
       message?: string
       chain?: AuthChainProgress
     }
-  | { kind: 'browser'; transactionId: string; message?: string; chain?: AuthChainProgress }
   | { kind: 'done'; binding: AuthBindingInfo }
   | { kind: 'failed'; reason: AuthFailureReason; message?: string }
 
 export type AuthLogoutOutcome =
-  | { kind: 'logged_out'; endedBindingIds: string[] }
-  | { kind: 'not_supported' }
-  | { kind: 'failed'; message?: string }
+  { kind: 'logged_out'; endedBindingIds: string[] } | { kind: 'failed'; message?: string }
 
 // 플러그인 connector 목록은 renderer가 소비하는 안전 DTO다. binding, connection ID,
 // credential presentation 및 secret/artifact는 이 경계를 넘어서는 안 된다.
@@ -297,7 +293,7 @@ export interface PluginConnectorInfo {
   connectorId: string
   label: string
   origin: string
-  pluginId: string
+  // 이 대상에 쓸 수 있는 인증 방식 id 목록 (`ConnectorDescriptor.acceptedMethods`).
   acceptedAuthProviders: string[]
   connected: boolean
   // 지금 **무엇으로** 연결돼 있는가 (0164) — 활성 binding 의 auth provider id.
@@ -311,7 +307,7 @@ export interface PluginConnectorInfo {
 export interface PluginDiagnostic {
   // 0178 — 인스턴스 등록 경로를 제거해 'instance' 는 발생원이 없다.
   kind: 'package' | 'cross-reference'
-  // 거부된 대상 = pluginId.
+  // 거부된 대상 = 인증 방식 id 또는 대상 id.
   subject: string
   message: string
 }

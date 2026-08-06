@@ -47,17 +47,16 @@ export const USAGE_CONNECTORS: readonly UsageConnectorConfig[] = [
 - **`operations` 는 허용 목록이다.** 선언에 없는 operation 호출은 `invoke` 가 거부한다.
 - **`{name}` 자리표시자만 치환된다.** 값은 `encodeURIComponent` 를 거치므로 `/`·`?` 가 든
   파라미터가 선언된 경로 밖으로 나가지 못한다. 선언되지 않은 파라미터는 요청에 새지 않는다.
-- **`baseUrl` 은 경로 없는 origin.** 컨텍스트 경로는 `apiBasePath` 로 분리한다(manifest
-  `OriginSchema` 가 형태를 강제하고, 어긋나면 패키지가 **통째로** 거부된다 — 사유는 플러그인 탭
+- **`baseUrl` 은 경로 없는 origin.** 컨텍스트 경로는 `apiBasePath` 로 분리한다(등록이 형태를
+  강제하고, 어긋나면 패키지가 **통째로** 거부된다 — 사유는 플러그인 탭
   배너에 뜬다).
 - **4xx·5xx 는 표본이 아니라 실패다.** 오류 본문을 quota 로 읽는 map 이 나오면 잘못된 값이
   권위값으로 영속된다.
-- **raw credential 을 보지 않는다.** `ctx.authenticatedFetch` 만 부른다 — 이 디렉터리에
+- **raw credential 을 보지 않는다.** `ctx.request({ target, … })` 만 부른다 — 이 디렉터리에
   vault·secret·전역 `fetch` import 가 하나도 없어야 한다(AUTH-PLAT-009).
-- **auth provider 는 `targets:['connector']`.** 기본값을 쓰면 이 패키지를 켜는 것만으로 prod 앱
-  로그인 게이트가 켜진다(0164 verify D1). 사내 ADFS 등 **다른 패키지의 provider** 를 쓰려면
-  `acceptedAuthProviders` 에 그 id 를 적는다 — manifest 가 교차 참조를 허용한다.
-- **UI 템플릿 경로는 없다**(0176 범위). 서버 목록의 정본은 빌드타임이다(0164 규약과 동일).
+- **인증 방식은 내장이다** (0178). 이 패키지는 방식을 만들지 않고 `acceptedMethods` 로 고를 뿐이다
+  — 미지정이면 내장 PAT·ID/비밀번호 2종, 사내 SSO 를 쓰려면 `methods/sso.ts` 의 id 를 적는다.
+- **UI 추가 경로는 없다.** 서버 목록의 정본은 빌드타임이다(0164 규약과 동일).
 
 ## 파일 구성
 
@@ -68,7 +67,7 @@ export const USAGE_CONNECTORS: readonly UsageConnectorConfig[] = [
 | `payload.ts` | 응답 → `{status, contentType, payload}`(JSON 파싱 시도) | ✅ 순수 |
 | `connector.ts` | `ConnectorRuntimeV1` — 위 둘을 부르는 오케스트레이션 | I/O |
 | `servers.ts` | 빌드타임 서버 목록(기본 `[]`) | 데이터 |
-| `index.ts` | 패키지 조립 — manifest 는 구현에서 **파생** | 조립 |
+| `index.ts` | 패키지 조립 — 설정 목록 → 대상 N. **인증 방식은 만들지 않는다**(0178) | 조립 |
 
 ## 게이트
 

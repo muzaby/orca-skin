@@ -88,7 +88,8 @@ import { AuthBroker } from '../features/auth-platform/broker'
 import { restoreConnections } from './auth-restore'
 import { PluginHost } from '../features/auth-platform/plugin-host'
 import { AuthRegistry } from '../features/auth-platform/registry'
-import { AUTH_PLUGIN_PACKAGES } from '../features/auth-platform/modules'
+import { CONNECTOR_PACKAGES } from '../features/auth-platform/modules'
+import { AUTH_METHODS } from '../features/auth-platform/methods'
 import { ConnectionRegistry } from '../features/connectors/registry'
 import { ConnectorHost } from '../features/connectors/runtime'
 import { RuntimeToolRegistry } from '../features/extensions/runtime-tool-registry'
@@ -188,9 +189,9 @@ export class Bootstrap {
     })
   }
 
-  // 인증 플랫폼 조립 (0157). 여기가 유일한 구체 배선 지점이다 — broker·registry·provider 는
-  // 서로를 직접 만들지 않는다. connector runtime 은 `AuthenticatedFetch` 구조적 포트로만
-  // broker 에 닿는다(features 교차 import 회피, src/main/AGENTS.md §해소책 2+3).
+  // 인증 플랫폼 조립 (0157). 여기가 유일한 구체 배선 지점이다 — broker·registry·인증 방식은
+  // 서로를 직접 만들지 않는다. connector runtime 은 `InternalApi` 구조적 포트로만 broker 에
+  // 닿는다(features 교차 import 회피, src/main/AGENTS.md §해소책 2+3).
   private createAuthPlatform(secretStore: SecretStore): {
     broker: AuthBroker
     connectors: ConnectorHost
@@ -207,35 +208,33 @@ export class Bootstrap {
     // 사용자에게는 "servers.ts 에 넣었는데 UI 에 없다" 로만 보인다.
     const diagnostics: PluginDiagnostic[] = []
 
-    // opt-in 패키지 등록. 신규 설치는 빈 배열 = 게이트 없음(현행 동작 보존).
-    for (const pkg of AUTH_PLUGIN_PACKAGES) {
+    // 내장 인증 방식 등록 (0178). SSO 는 `methods/sso.ts` 가 설정됐을 때만 목록에 들어간다.
+    for (const e of registry.registerMethods(AUTH_METHODS)) {
+      log.warn('auth.method.rejected', { subject: e.subject, message: e.message })
+      diagnostics.push({ kind: 'package', subject: e.subject, message: e.message })
+    }
+
+    // opt-in 대상 등록. 신규 설치는 빈 배열 = 대상 0개(현행 동작 보존).
+    for (const pkg of CONNECTOR_PACKAGES) {
       const errors = registry.register({
-        ...(pkg.providers !== undefined ? { providers: pkg.providers } : {}),
         ...(pkg.connectors !== undefined ? { connectors: pkg.connectors } : {}),
         ...(pkg.runtimeTools !== undefined ? { runtimeTools: pkg.runtimeTools } : {})
       })
       for (const e of errors) {
-        log.warn('auth.package.rejected', {
-          pluginId: e.pluginId,
-          ...(e.contributionId !== undefined ? { contributionId: e.contributionId } : {}),
-          message: e.message
-        })
-        diagnostics.push({ kind: 'package', subject: e.pluginId, message: e.message })
+        log.warn('auth.package.rejected', { subject: e.subject, message: e.message })
+        diagnostics.push({ kind: 'package', subject: e.subject, message: e.message })
       }
     }
     const composition: { pluginHost: PluginHost | null } = { pluginHost: null }
 
     for (const e of registry.validateCrossReferences()) {
-      log.warn('auth.package.cross-reference-failed', {
-        pluginId: e.pluginId,
-        message: e.message
-      })
-      diagnostics.push({ kind: 'cross-reference', subject: e.pluginId, message: e.message })
+      log.warn('auth.package.cross-reference-failed', { subject: e.subject, message: e.message })
+      diagnostics.push({ kind: 'cross-reference', subject: e.subject, message: e.message })
     }
 
-    // browser_session capability 를 선언한 provider 의 session group 을 미리 등록한다.
-    for (const provider of registry.listProviders()) {
-      const { sessionGroup, allowedOrigins } = provider.descriptor
+    // 브라우저 세션을 쓰는 방식의 session group 을 미리 등록한다.
+    for (const method of registry.listMethods()) {
+      const { sessionGroup, allowedOrigins } = method.descriptor
       if (sessionGroup) sessions.register({ sessionGroup, allowedOrigins })
     }
 
@@ -251,6 +250,7 @@ export class Bootstrap {
         acquire: async (group) => sessions.acquire(group),
         openLoginWindow: (handleId, opts) => sessions.openLoginWindow(handleId, opts),
         probe: (handleId, url) => sessions.probe(handleId, url),
+        send: (handleId, req, options, signal) => sessions.send(handleId, req, options, signal),
         clear: (handleId, opts) => sessions.clear(handleId, opts)
       },
       broadcast: broadcastAuthState,
@@ -265,7 +265,7 @@ export class Bootstrap {
     const connectors = new ConnectorHost({
       connections,
       lookup: registry,
-      authenticatedFetch: (req, signal) => broker.authenticatedFetch(req, signal)
+      api: { request: (req, signal) => broker.request(req, signal) }
     })
     const pluginHost = new PluginHost({
       registry,
@@ -295,6 +295,10 @@ export class Bootstrap {
     try {
       const restored = auth.broker.restore()
       if (restored.length === 0) return
+      // 재시작 사이에 세션이 끊겼을 수 있다. **연결을 되살리기 전에** 방식에게 유효성을 다시
+      // 묻고 그 답을 레코드에 반영한다 (0178) — 그러지 않으면 "연결됨" 으로 시작해 첫 도구
+      // 호출이 이유 없이 실패한다.
+      await auth.broker.revalidateAll()
       await restoreConnections({
         restored,
         connect: (input) => auth.pluginHost.connect(input),

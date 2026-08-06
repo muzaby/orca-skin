@@ -7,11 +7,9 @@ import type { AuthPlatformState, AuthProviderInfo, AuthStepInfo } from '../../..
 function providerInfo(id: string, targets: AuthProviderInfo['targets']): AuthProviderInfo {
   return {
     id,
-    pluginId: 'corp',
     label: id.toUpperCase(),
     targets,
-    mechanisms: ['personal_access_token'],
-    capabilities: []
+    mechanisms: ['personal_access_token']
   }
 }
 
@@ -49,17 +47,6 @@ describe('auth state-mapping', () => {
     const first = stepPatch({ ...COLLECT, chain: { index: 1, total: 2, label: 'ONE' } })
     const second = stepPatch({ ...COLLECT, chain: { index: 2, total: 2, label: 'TWO' } })
     expect(first.stepKey).not.toBe(second.stepKey)
-  })
-
-  it('browser step 은 필드 없이 transaction 만 잇는다', () => {
-    const browser = stepPatch({
-      kind: 'browser',
-      transactionId: 'tx_2',
-      chain: { index: 1, total: 2, label: 'ONE' }
-    })
-    expect(browser.fields).toEqual([])
-    expect(browser.transactionId).toBe('tx_2')
-    expect(browser.chain).toEqual({ index: 1, total: 2, label: 'ONE' })
   })
 
   it('종결 step(done/failed)과 null 은 폼 상태를 비운다', () => {

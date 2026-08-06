@@ -28,7 +28,6 @@ import type {
 } from '../../../shared/ipc'
 
 export interface CreateBindingInput {
-  pluginId: string
   providerId: string
   target: AuthTarget
   mechanism: AuthMechanism
@@ -125,7 +124,6 @@ export class BindingStore {
       const parentBindingId = input.parentBindingId ?? created[0]?.id
       const binding: AuthBindingInfo = {
         id,
-        pluginId: input.pluginId,
         providerId: input.providerId,
         target: input.target,
         mechanism: input.mechanism,
@@ -153,6 +151,14 @@ export class BindingStore {
 
   findByTarget(target: AuthTarget): AuthBindingInfo | undefined {
     return this.list().find((b) => sameTarget(b.target, target))
+  }
+
+  // 대상 이름으로 찾는다 — 대상 하나에 활성 연결은 최대 1개이므로 이 조회가 유일하다.
+  // 호출자가 무작위 binding id 를 들고 다니지 않아도 되는 지점이다 (0178).
+  findConnectorBinding(connectorId: string): AuthBindingInfo | undefined {
+    return this.list().find(
+      (b) => b.target.kind === 'connector' && b.target.connectorId === connectorId
+    )
   }
 
   // 앱 로그인 체인의 전 멤버. 게이트는 "전부 valid" 를 요구한다 (0172).

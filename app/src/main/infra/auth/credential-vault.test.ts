@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { authBindingPrefix, authProviderPrefix, createCredentialVault } from './credential-vault'
+import { authBindingPrefix, authMethodPrefix, createCredentialVault } from './credential-vault'
 import type { SecretStorePort } from '../config/secret-facade'
 import type { CredentialMeta } from '../../../shared/ipc'
 
@@ -25,8 +25,8 @@ const META: CredentialMeta = { kind: 'personal_access_token', service: 'wiki', c
 describe('createCredentialVault', () => {
   it('네임스페이스를 강제해 다른 provider 의 비밀에 닿지 않는다', () => {
     const store = fakeStore()
-    const a = createCredentialVault(store, authProviderPrefix('pkg', 'provider-a'))
-    const b = createCredentialVault(store, authProviderPrefix('pkg', 'provider-b'))
+    const a = createCredentialVault(store, authMethodPrefix('provider-a'))
+    const b = createCredentialVault(store, authMethodPrefix('provider-b'))
 
     a.set('secret', 'value-a', META)
 
@@ -37,7 +37,7 @@ describe('createCredentialVault', () => {
 
   it('binding 네임스페이스가 provider 네임스페이스와 분리된다', () => {
     const store = fakeStore()
-    const provider = createCredentialVault(store, authProviderPrefix('pkg', 'p'))
+    const provider = createCredentialVault(store, authMethodPrefix('p'))
     const binding = createCredentialVault(store, authBindingPrefix('bind_1'))
     provider.set('secret', 'from-provider', META)
     binding.set('secret', 'from-binding', META)

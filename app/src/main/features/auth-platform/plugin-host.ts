@@ -2,9 +2,9 @@ import type { RuntimeToolContribution, RuntimeToolServer } from '../../adapters/
 import type {
   ConnectorRequest,
   ConnectorResult,
-  ConnectorRuntimeV1,
+  ConnectorRuntime,
   ConnectorStatus
-} from '../../contracts/connector-plugin'
+} from '../../contracts/connector'
 import type { AuthBindingInfo, AuthLogoutOutcome, PluginConnectorInfo } from '../../../shared/ipc'
 
 export interface ConnectorPort {
@@ -35,8 +35,8 @@ export interface RuntimeToolSink {
 }
 
 interface PluginRegistry {
-  getConnector(connectorId: string): ConnectorRuntimeV1 | undefined
-  listConnectors(): ConnectorRuntimeV1[]
+  getConnector(connectorId: string): ConnectorRuntime | undefined
+  listConnectors(): ConnectorRuntime[]
   listRuntimeToolsForConnector(connectorId: string): RuntimeToolContribution[]
 }
 
@@ -62,7 +62,6 @@ interface ActiveConnection {
 
 interface BindingFingerprint {
   bindingId: string
-  pluginId: string
   providerId: string
   connectorId: string
   connectionId: string
@@ -87,8 +86,7 @@ export class PluginHost {
         connectorId: connector.descriptor.id,
         label: connector.descriptor.label,
         origin: connector.descriptor.baseUrl,
-        pluginId: connector.descriptor.pluginId,
-        acceptedAuthProviders: [...connector.descriptor.acceptedAuthProviders],
+        acceptedAuthProviders: [...connector.descriptor.acceptedMethods],
         connected: active?.ready === true,
         ...(connectedProviderId !== undefined ? { connectedProviderId } : {})
       }
@@ -206,7 +204,7 @@ export class PluginHost {
 
   private requireValidBinding(
     bindingId: string,
-    connector: ConnectorRuntimeV1
+    connector: ConnectorRuntime
   ): AuthBindingInfo & {
     target: { kind: 'connector'; connectorId: string; connectionId: string }
   } {
@@ -219,7 +217,7 @@ export class PluginHost {
     if (target.connectorId !== connector.descriptor.id) {
       throw new Error(`binding target does not match connector: ${bindingId}`)
     }
-    if (!connector.descriptor.acceptedAuthProviders.includes(binding.providerId)) {
+    if (!connector.descriptor.acceptedMethods.includes(binding.providerId)) {
       throw new Error(`binding provider is not accepted: ${binding.providerId}`)
     }
     return { ...binding, target }
@@ -318,7 +316,6 @@ function fingerprint(
 ): BindingFingerprint {
   return {
     bindingId: binding.id,
-    pluginId: binding.pluginId,
     providerId: binding.providerId,
     connectorId: binding.target.connectorId,
     connectionId: binding.target.connectionId

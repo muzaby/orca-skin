@@ -53,7 +53,6 @@ function sameAnnotations(
 function sameDescriptor(left: RuntimeToolDescriptor, right: RuntimeToolDescriptor): boolean {
   return (
     left.id === right.id &&
-    left.pluginId === right.pluginId &&
     left.connectorId === right.connectorId &&
     left.alwaysLoad === right.alwaysLoad &&
     left.instructions === right.instructions &&

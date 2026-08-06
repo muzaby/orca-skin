@@ -34,11 +34,12 @@ export function stepPatch(
     return { fields: [], transactionId: null, chain: null, stepKey: '' }
   }
   const chain = step.chain ?? null
-  const stepKey = `${step.transactionId}:${chain?.index ?? 0}`
-  if (step.kind === 'collect') {
-    return { fields: step.fields, transactionId: step.transactionId, chain, stepKey }
+  return {
+    fields: step.fields,
+    transactionId: step.transactionId,
+    chain,
+    stepKey: `${step.transactionId}:${chain?.index ?? 0}`
   }
-  return { fields: [], transactionId: step.transactionId, chain, stepKey }
 }
 
 // 앱 로그인에 쓸 provider — application 을 지원하는 첫 번째. 그 provider 가 속한 패키지의

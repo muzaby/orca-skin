@@ -1,11 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createUsageConnector, USAGE_BASIC_PROVIDER_ID, USAGE_PAT_PROVIDER_ID } from './connector'
+import { createUsageConnector } from './connector'
+import { BASIC_METHOD_ID, PAT_METHOD_ID } from '../../methods/credential'
 import type { UsageConnectorConfig } from './spec'
-import type {
-  AuthenticatedFetchRequest,
-  AuthenticatedFetchResponse,
-  ConnectorContext
-} from '../../../../contracts/connector-plugin'
+import type { ConnectorContext } from '../../../../contracts/connector'
+import type { InternalApiRequest, InternalApiResponse } from '../../../../contracts/internal-api'
 
 function config(overrides: Partial<UsageConnectorConfig> = {}): UsageConnectorConfig {
   return {
@@ -20,12 +18,11 @@ function config(overrides: Partial<UsageConnectorConfig> = {}): UsageConnectorCo
 }
 
 function context(
-  authenticatedFetch: (req: AuthenticatedFetchRequest) => Promise<AuthenticatedFetchResponse>
+  request: (req: InternalApiRequest) => Promise<InternalApiResponse>
 ): ConnectorContext {
   return {
     connectionId: 'conn-1',
-    bindingId: 'binding-1',
-    authenticatedFetch: (req) => authenticatedFetch(req),
+    request: (req) => request(req),
     signal: new AbortController().signal,
     logger: () => undefined
   }
@@ -35,13 +32,13 @@ function response(
   status: number,
   body = '{}',
   headers: Record<string, string> = { 'content-type': 'application/json' }
-): AuthenticatedFetchResponse {
+): InternalApiResponse {
   return { status, headers, body }
 }
 
 describe('createUsageConnector', () => {
   it('선언한 operation 을 요청으로 만들고 JSON 을 payload 로 돌려준다', async () => {
-    const seen: AuthenticatedFetchRequest[] = []
+    const seen: InternalApiRequest[] = []
     const connector = createUsageConnector(config({ apiBasePath: '/portal' }))
 
     const result = await connector.invoke(
@@ -54,8 +51,7 @@ describe('createUsageConnector', () => {
 
     expect(seen).toEqual([
       {
-        bindingId: 'binding-1',
-        connectorId: 'usage-corp',
+        target: 'usage-corp',
         method: 'GET',
         path: '/portal/v1/quota',
         query: { scope: 'month' }
@@ -159,10 +155,7 @@ describe('createUsageConnector', () => {
   it('descriptor 기본값은 이 패키지의 provider 2종과 Bearer 표현이다', () => {
     const { descriptor } = createUsageConnector(config())
 
-    expect(descriptor.acceptedAuthProviders).toEqual([
-      USAGE_PAT_PROVIDER_ID,
-      USAGE_BASIC_PROVIDER_ID
-    ])
+    expect(descriptor.acceptedMethods).toEqual([PAT_METHOD_ID, BASIC_METHOD_ID])
     expect(descriptor.presentation).toEqual({
       location: 'header',
       name: 'Authorization',
@@ -173,12 +166,12 @@ describe('createUsageConnector', () => {
   it('설정이 선언한 provider·표현을 그대로 쓴다', () => {
     const { descriptor } = createUsageConnector(
       config({
-        acceptedAuthProviders: ['corp-adfs'],
+        acceptedMethods: ['corp-adfs'],
         presentation: { location: 'header', name: 'X-Api-Key', scheme: 'Raw' }
       })
     )
 
-    expect(descriptor.acceptedAuthProviders).toEqual(['corp-adfs'])
+    expect(descriptor.acceptedMethods).toEqual(['corp-adfs'])
     expect(descriptor.presentation).toMatchObject({ name: 'X-Api-Key' })
   })
 })

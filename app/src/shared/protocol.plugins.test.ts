@@ -51,7 +51,6 @@ describe('plugin IPC protocol', () => {
       connectorId: 'connector-one',
       label: 'Connector One',
       origin: 'https://connector-one.example.invalid',
-      pluginId: 'test-plugin',
       acceptedAuthProviders: ['test-provider'],
       connected: false
     }
@@ -63,7 +62,9 @@ describe('plugin IPC protocol', () => {
       'artifact',
       'binding',
       'bindingId',
-      'connectionId'
+      'connectionId',
+      // 0178 에서 뺀 필드 — 되살아나면 여기서 잡힌다.
+      'pluginId'
     ]) {
       expect(
         PluginConnectorInfoSchema.safeParse({ ...safe, [forbidden]: 'not-for-renderer' }).success
