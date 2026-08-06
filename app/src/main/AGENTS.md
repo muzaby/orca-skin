@@ -61,9 +61,13 @@ main 프로세스는 **Node 전역 `fetch` 를 쓰지 않는다.** Node(undici) 
 저장소를 보지 않아, 사내 프록시 뒤의 사설 CA 서버로 나가지 못한다 — *브라우저로는 열리는데 앱만
 안 되는* 증상이 여기서 나온다.
 
-- 전송 구현은 **`infra/auth/net-fetch.ts` 의 `netFetch`**(Electron `net.fetch`) 하나뿐이다. 이
-  파일이 `electron` 을 무는 **유일한 네트워크 파일**이고, 컴포지션 루트만 import 한다(P29 —
-  테스트가 electron 을 물면 즉시 죽는다).
+- **전역 `fetch(` 를 부를 수 있는 파일은 `infra/auth/net-fetch.ts` 하나뿐이다.** 그 밖에서
+  전역 `fetch(` 를 쓰면 가드가 실패시킨다(메서드 호출 `ses.fetch(`·`ctx.fetch(`·
+  `this.deps.fetchImpl(` 은 대상이 아니다).
+- **Chromium 스택을 직접 무는 파일은 3개다** — `net-fetch.ts`(`net.fetch`) ·
+  `net-request.ts`(`net.request`) · `browser-session-store.ts`(`Session.fetch`). 셋 다
+  `electron` 을 import 하므로 **테스트가 직접 import 하면 즉시 죽는다**(P29 — `vitest.config.ts`
+  에 electron alias 없음). 판정·변환은 순수 모듈(`net-response.ts`)로 떼고 여기서는 배선만 한다.
 - 소비자는 `typeof fetch` 포트로 **주입받는다**(`BrokerDeps.fetchImpl` · `createSender(fetchImpl)` ·
   `ExternalUsageService.fetchImpl`). **기본값을 두지 않는다** — 기본값은 곧 조용한 Node 스택 복귀다.
 - 브라우저 세션(cookie jar)이 필요한 요청은 `Session.fetch`(`browser-session-store.ts`)를 쓴다.
