@@ -18,9 +18,11 @@
 //     registry 에 병행 apiVersion 으로 받는다. v1 은 그대로 둔다 (AUTH-PLAT-014).
 //
 // ── 핵심 불변식 ──────────────────────────────────────────────────────────────
-//   1. 5메서드(begin/continue/status/refresh/logout)는 **전부 required**. 미지원 동작은
+//   1. 4메서드(begin/continue/status/logout)는 **전부 required**. 미지원 동작은
 //      메서드 부재가 아니라 `not_supported` 표준 결과로 반환한다 (AUTH-PLAT-002).
 //      core 는 메서드 존재 여부로 provider 종류를 추론하지 않는다.
+//      (`refresh` 는 0178 에서 제거했다 — provider 3/3 이 `not_supported` 만 돌려주어
+//       규약만 남은 표면이었다.)
 //   2. 성공 결과에는 raw token·PAT·cookie·Electron `Session` 을 담을 수 없다 — `AuthArtifactRef`
 //      는 `handleId` 문자열만 갖는다 (AUTH-PLAT-008).
 //   3. context 에는 Vault 전체·cookie API·`process.env` 전체를 노출하지 않는다. provider 는
@@ -84,20 +86,6 @@ export interface BrowserProbeResult {
 
 // ── 실행 capability ──────────────────────────────────────────────────────────
 
-export interface AuthExecResult {
-  code: number | null
-  stdout: string
-  stderr: string
-}
-
-// CLI 체인 지원 — child_process.execFile 래퍼(shell 미경유, 인자 배열 그대로).
-// 자식에게 `process.env` 전체를 물려주지 않는다 — 플랫폼이 최소 env 만 구성한다.
-export type AuthExec = (
-  file: string,
-  args: readonly string[],
-  opts?: { cwd?: string; env?: Record<string, string>; timeoutMs?: number; stdin?: string }
-) => Promise<AuthExecResult>
-
 // declarator 가 선언한 origin 으로만 나가는 fetch. 미선언 origin·redirect 는 거부된다.
 export type AuthFetch = (input: string, init?: RequestInit) => Promise<Response>
 
@@ -113,7 +101,6 @@ export interface AuthPluginContext {
   readonly vault: CredentialVaultView
   readonly browserSessions: BrowserSessionCapability
   readonly fetch: AuthFetch
-  readonly exec: AuthExec
   // provider 전용 비-비밀 KV (JSON 직렬화 가능 값). 프로세스 수명 동안만 유지된다.
   readonly store: { get(key: string): unknown; set(key: string, value: unknown): void }
   // 선언한 이름만 읽히는 env 접근자. `process.env` 전체 노출 금지.
@@ -138,13 +125,6 @@ export interface AuthBindingDraft {
 export type AuthStep =
   | { kind: 'collect'; fields: readonly AuthFieldSpec[]; message?: string }
   | { kind: 'browser'; message?: string }
-  | {
-      kind: 'device_code'
-      userCode: string
-      verificationUrl: string
-      expiresAt?: number
-      message?: string
-    }
   | { kind: 'done'; binding: AuthBindingDraft }
   | { kind: 'failed'; reason: AuthFailureReason; message?: string }
   | { kind: 'not_supported' }
@@ -152,13 +132,6 @@ export type AuthStep =
 export type AuthStatusResult =
   | { kind: 'status'; status: AuthBindingStatus; principal?: AuthPrincipal; expiresAt?: number }
   | { kind: 'not_supported' }
-
-export type AuthRefreshResult =
-  | { kind: 'refreshed'; expiresAt?: number; principal?: AuthPrincipal }
-  // 자동 갱신이 불가능해 begin() 부터 다시 해야 하는 상태. static credential 의 만료·revoke 등.
-  | { kind: 'reauth_required'; message?: string }
-  | { kind: 'not_supported' }
-  | { kind: 'failed'; message?: string }
 
 export type AuthLogoutResult =
   { kind: 'logged_out' } | { kind: 'not_supported' } | { kind: 'failed'; message?: string }
@@ -194,8 +167,6 @@ export interface AuthProviderV1 {
   continue(ctx: AuthPluginContext): Promise<AuthStep>
   // binding 유효성 확인(probe 등). 미지원이면 not_supported.
   status(ctx: AuthPluginContext, binding: AuthBindingRef): Promise<AuthStatusResult>
-  // 자동 갱신. static credential 처럼 갱신 개념이 없으면 not_supported.
-  refresh(ctx: AuthPluginContext, binding: AuthBindingRef): Promise<AuthRefreshResult>
   // 이 binding 이 소유한 자원 정리. 공유 session group 전체를 지우지 않는다.
   logout(ctx: AuthPluginContext, binding: AuthBindingRef): Promise<AuthLogoutResult>
 }

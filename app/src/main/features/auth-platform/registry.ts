@@ -180,9 +180,9 @@ export class AuthRegistry {
       if (this.providers.has(p.descriptor.id)) {
         err(`이미 등록된 auth provider id 입니다: ${p.descriptor.id}`, p.descriptor.id)
       }
-      // 5메서드가 전부 있는지. 계약상 required 지만 선언형 어댑터가 만든 객체도 받으므로
+      // 4메서드가 전부 있는지. 계약상 required 지만 선언형 어댑터가 만든 객체도 받으므로
       // 런타임에서도 확인한다(AUTH-PLAT-002).
-      for (const method of ['begin', 'continue', 'status', 'refresh', 'logout'] as const) {
+      for (const method of ['begin', 'continue', 'status', 'logout'] as const) {
         if (typeof p[method] !== 'function') {
           err(`AuthProviderV1.${method} 가 구현되지 않았습니다`, p.descriptor.id)
         }

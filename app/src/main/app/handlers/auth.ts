@@ -9,14 +9,12 @@
 import {
   AuthBeginRequestSchema,
   AuthContinueRequestSchema,
-  AuthBindingRequestSchema,
   AuthLogoutRequestSchema,
   CHANNELS,
   type AuthBindingInfo,
   type AuthLogoutOutcome,
   type AuthPlatformState,
   type AuthProviderInfo,
-  type AuthRefreshOutcome,
   type AuthStepInfo
 } from '../../../shared/protocol'
 import { handle, handlePlain } from '../../infra/ipc/handle'
@@ -33,12 +31,6 @@ export function registerAuthHandlers(broker: AuthBroker): void {
   )
   handle(CHANNELS.authContinue, AuthContinueRequestSchema, 'reject', (req): Promise<AuthStepInfo> =>
     broker.continue(req.transactionId, req.input)
-  )
-  handle(
-    CHANNELS.authRefresh,
-    AuthBindingRequestSchema,
-    'reject',
-    (req): Promise<AuthRefreshOutcome> => broker.refreshBinding(req.bindingId)
   )
   handle(
     CHANNELS.authLogout,

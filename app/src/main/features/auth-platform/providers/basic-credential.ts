@@ -6,16 +6,12 @@
 //
 // 저장은 vault 에 `user:pass` **한 문자열**로 한다. 요청에 넣는 형식은 여기서 정하지 않는다 —
 // connector 의 `CredentialPresentation`(`scheme:'BasicPair'`)이 선언한다 (AUTH-PLAT-007).
-//
-// refresh 는 개념이 없으므로 `not_supported` 를 반환한다 — 메서드를 빼지 않는다
-// (AUTH-PLAT-002).
 
 import type {
   AuthLogoutResult,
   AuthPluginContext,
   AuthProviderDescriptor,
   AuthProviderV1,
-  AuthRefreshResult,
   AuthStatusResult,
   AuthStep
 } from '../../../contracts/auth-plugin'
@@ -127,10 +123,6 @@ export function createBasicCredentialProvider(opts: BasicCredentialOptions): Aut
     },
 
     // ID/비밀번호에는 자동 갱신이 없다. 메서드를 빼지 않고 표준 결과로 알린다.
-    async refresh(): Promise<AuthRefreshResult> {
-      return { kind: 'not_supported' }
-    },
-
     async logout(ctx: AuthPluginContext): Promise<AuthLogoutResult> {
       ctx.vault.delete(BINDING_SECRET_NAME)
       return { kind: 'logged_out' }

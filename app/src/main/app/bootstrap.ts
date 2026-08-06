@@ -99,7 +99,6 @@ import { RuntimeToolRegistry } from '../features/extensions/runtime-tool-registr
 import { BrowserSessionStore } from '../infra/auth/browser-session-store'
 import { createBindingPersistence } from '../infra/auth/binding-store-file'
 import { createCredentialVault } from '../infra/auth/credential-vault'
-import { pluginExec } from '../infra/auth/plugin-exec'
 import { resolveBuiltinSkillsDir } from './builtin-resources'
 import { BackgroundTaskTracker } from '../features/chat/background-tasks'
 import { SessionActivityProjector } from '../features/chat/session-activity-projector'
@@ -291,7 +290,6 @@ export class Bootstrap {
         probe: (handleId, url) => sessions.probe(handleId, url),
         clear: (handleId, opts) => sessions.clear(handleId, opts)
       },
-      exec: pluginExec,
       broadcast: broadcastAuthState,
       onBindingsEnded: async (bindingIds) => {
         const host = composition.pluginHost

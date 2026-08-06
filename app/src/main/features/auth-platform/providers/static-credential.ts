@@ -8,15 +8,13 @@
 //   auth_token             : 사용자가 직접 입력하는 일반 opaque token
 //   personal_access_token  : 사용자 계정·scope 에 연결된 장기 token
 //
-// refresh 는 개념이 없으므로 **not_supported** 를 반환한다 — 메서드를 빼지 않는다
-// (AUTH-PLAT-002). 만료·probe 실패는 `reauth_required` 가 아니라 status 가 expired 로 알린다.
+// 만료·probe 실패는 status 가 expired 로 알린다.
 
 import type {
   AuthLogoutResult,
   AuthPluginContext,
   AuthProviderDescriptor,
   AuthProviderV1,
-  AuthRefreshResult,
   AuthStatusResult,
   AuthStep
 } from '../../../contracts/auth-plugin'
@@ -61,8 +59,6 @@ export function createStaticCredentialProvider(opts: StaticCredentialOptions): A
     // 기본값을 그대로 쓰면 앱 로그인 게이트가 켜지므로, 연결 전용이면 호출자가 좁힌다.
     targets: [...(opts.targets ?? ['application', 'connector'])],
     mechanisms: [opts.mechanism],
-    // refresh 는 지원하지 않으므로 **선언하지 않는다**. conformance 가 이 선언과 실제 동작의
-    // 일치를 검사한다.
     capabilities: opts.probeUrl ? ['status', 'logout'] : ['logout'],
     allowedOrigins: [...(opts.allowedOrigins ?? [])]
   }
@@ -140,10 +136,6 @@ export function createStaticCredentialProvider(opts: StaticCredentialOptions): A
     },
 
     // static credential 에는 자동 갱신이 없다. 메서드를 빼지 않고 표준 결과로 알린다.
-    async refresh(): Promise<AuthRefreshResult> {
-      return { kind: 'not_supported' }
-    },
-
     async logout(ctx: AuthPluginContext): Promise<AuthLogoutResult> {
       ctx.vault.delete(BINDING_SECRET_NAME)
       return { kind: 'logged_out' }

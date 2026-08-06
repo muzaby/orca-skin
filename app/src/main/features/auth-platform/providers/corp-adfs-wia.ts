@@ -22,7 +22,6 @@ import type {
   AuthPluginContext,
   AuthProviderDescriptor,
   AuthProviderV1,
-  AuthRefreshResult,
   AuthStatusResult,
   AuthStep,
   AuthBindingRef
@@ -145,12 +144,6 @@ export function createAdfsWiaProvider(opts: AdfsWiaOptions): AuthProviderV1 {
         opts.authenticationProbeUrl
       )
       return { kind: 'status', status: probe.ok ? 'valid' : 'expired' }
-    },
-
-    // ADFS 세션 갱신은 브라우저가 redirect 로 처리한다 — 앱이 흉내낼 자동 갱신이 없다.
-    // capabilities 에 refresh 를 선언하지 않았고, 여기서도 표준 결과로 알린다.
-    async refresh(): Promise<AuthRefreshResult> {
-      return { kind: 'not_supported' }
     },
 
     // connector 하나의 연결 해제가 공유 partition 전체를 삭제하면 다른 서비스와 앱 로그인까지
