@@ -13,8 +13,8 @@ describe('TransactionStore 동시성 (요구명세 §미비 보완 1)', () => {
       cancelled.push({ id: tx.id, reason })
     )
 
-    const first = store.begin({ providerId: 'p', pluginId: 'pkg', target: APP })
-    const second = store.begin({ providerId: 'p', pluginId: 'pkg', target: APP })
+    const first = store.begin({ providerId: 'p', target: APP })
+    const second = store.begin({ providerId: 'p', target: APP })
 
     // 조용한 덮어쓰기가 아니라 취소 통지가 난다 — OpenCode 의 "마지막 것만 남는" 동작 거부.
     expect(cancelled).toEqual([{ id: first.id, reason: 'superseded' }])
@@ -26,15 +26,15 @@ describe('TransactionStore 동시성 (요구명세 §미비 보완 1)', () => {
 
   it('다른 target 이면 공존한다', () => {
     const store = new TransactionStore()
-    store.begin({ providerId: 'p', pluginId: 'pkg', target: APP })
-    store.begin({ providerId: 'p', pluginId: 'pkg', target: WIKI })
+    store.begin({ providerId: 'p', target: APP })
+    store.begin({ providerId: 'p', target: WIKI })
     expect(store.size()).toBe(2)
   })
 
   it('다른 provider 면 같은 target 이라도 공존한다', () => {
     const store = new TransactionStore()
-    store.begin({ providerId: 'a', pluginId: 'pkg', target: APP })
-    store.begin({ providerId: 'b', pluginId: 'pkg', target: APP })
+    store.begin({ providerId: 'a', target: APP })
+    store.begin({ providerId: 'b', target: APP })
     expect(store.size()).toBe(2)
   })
 
@@ -43,7 +43,7 @@ describe('TransactionStore 동시성 (요구명세 §미비 보완 1)', () => {
     try {
       const cancelled: CancelReason[] = []
       const store = new TransactionStore(Date.now, (_tx, reason) => cancelled.push(reason))
-      const tx = store.begin({ providerId: 'p', pluginId: 'pkg', target: APP, timeoutMs: 1000 })
+      const tx = store.begin({ providerId: 'p', target: APP, timeoutMs: 1000 })
       vi.advanceTimersByTime(1001)
       expect(cancelled).toEqual(['timeout'])
       expect(tx.controller.signal.aborted).toBe(true)
@@ -56,7 +56,7 @@ describe('TransactionStore 동시성 (요구명세 §미비 보완 1)', () => {
   it('finish 는 취소 통지 없이 정리한다', () => {
     const cancelled: CancelReason[] = []
     const store = new TransactionStore(Date.now, (_tx, reason) => cancelled.push(reason))
-    const tx = store.begin({ providerId: 'p', pluginId: 'pkg', target: APP })
+    const tx = store.begin({ providerId: 'p', target: APP })
     store.finish(tx.id)
     expect(cancelled).toEqual([])
     expect(store.size()).toBe(0)
@@ -67,7 +67,7 @@ describe('TransactionStore 동시성 (요구명세 §미비 보완 1)', () => {
     try {
       const cancelled: CancelReason[] = []
       const store = new TransactionStore(Date.now, (_tx, reason) => cancelled.push(reason))
-      const tx = store.begin({ providerId: 'p', pluginId: 'pkg', target: APP, timeoutMs: 1000 })
+      const tx = store.begin({ providerId: 'p', target: APP, timeoutMs: 1000 })
       store.finish(tx.id)
       vi.advanceTimersByTime(5000)
       expect(cancelled).toEqual([])
@@ -79,8 +79,8 @@ describe('TransactionStore 동시성 (요구명세 §미비 보완 1)', () => {
   it('shutdown 은 모든 transaction 을 취소한다', () => {
     const cancelled: CancelReason[] = []
     const store = new TransactionStore(Date.now, (_tx, reason) => cancelled.push(reason))
-    store.begin({ providerId: 'p', pluginId: 'pkg', target: APP })
-    store.begin({ providerId: 'p', pluginId: 'pkg', target: WIKI })
+    store.begin({ providerId: 'p', target: APP })
+    store.begin({ providerId: 'p', target: WIKI })
     store.cancelAll('shutdown')
     expect(cancelled).toEqual(['shutdown', 'shutdown'])
     expect(store.size()).toBe(0)
@@ -88,7 +88,7 @@ describe('TransactionStore 동시성 (요구명세 §미비 보완 1)', () => {
 
   it('findByTarget 으로 진행 중 transaction 을 찾는다', () => {
     const store = new TransactionStore()
-    const tx = store.begin({ providerId: 'p', pluginId: 'pkg', target: WIKI })
+    const tx = store.begin({ providerId: 'p', target: WIKI })
     expect(store.findByTarget('p', WIKI)?.id).toBe(tx.id)
     expect(store.findByTarget('p', APP)).toBeUndefined()
   })

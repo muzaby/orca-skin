@@ -3,11 +3,11 @@
 // 요청을 여기서 조립하는 이유는 실패 축이 대부분 "요청을 어떻게 만들었는가" 에 있기 때문이다:
 //   - 첨부 다운로드는 XSRF 보호 대상이라 `X-Atlassian-Token: nocheck` 가 없으면 거부된다.
 //   - 컨텍스트 경로(`https://host/confluence`) 배포는 origin 에 경로를 넣을 수 없으므로
-//     (manifest `OriginSchema`) prefix 를 요청 path 마다 붙여야 한다.
+//     (등록이 형태를 강제한다) prefix 를 요청 path 마다 붙여야 한다.
 //   - CQL 은 문자열 질의라 사용자 입력을 그대로 이으면 질의가 깨지거나 의도와 달라진다.
 // 전부 문자열 조립이므로 실서버 없이 단위 테스트로 고정할 수 있다.
 
-import type { AuthenticatedFetchRequest } from '../../../../contracts/connector-plugin'
+import type { InternalApiRequest } from '../../../../contracts/internal-api'
 
 // Confluence DC 의 REST 진입점. Cloud(`/wiki/rest/api`)는 이번 범위가 아니다.
 const REST_PREFIX = '/rest/api'
@@ -74,7 +74,7 @@ export function clampStart(start: number | undefined): number {
   return Math.max(Math.trunc(start), 0)
 }
 
-type RequestFields = Omit<AuthenticatedFetchRequest, 'bindingId' | 'connectorId'>
+type RequestFields = Omit<InternalApiRequest, 'target'>
 
 // 자격증명 검증용 — 가장 가벼운 인증 필요 엔드포인트.
 export function currentUserRequest(endpoint: ConfluenceEndpoint): RequestFields {

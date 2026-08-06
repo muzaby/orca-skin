@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { createUsageSourcePort, type UsageConnectorLookup } from './usage-source'
-import type { ConnectorRequest, ConnectorResult } from '../contracts/connector-plugin'
+import type { ConnectorRequest, ConnectorResult } from '../contracts/connector'
 
 function lookup(
   overrides: Partial<UsageConnectorLookup> = {},

@@ -14,7 +14,7 @@
 // durable transaction 은 대화형 로그인이 앱 재시작을 넘겨야 할 때만 필요한데 그런 요구가 없다.
 
 import type { AuthTarget } from '../../../shared/ipc'
-import type { AuthBindingDraft } from '../../contracts/auth-plugin'
+import type { AuthRecordDraft } from '../../contracts/auth-method'
 import { targetKey } from './bindings'
 
 export const DEFAULT_LOGIN_TIMEOUT_MS = 300_000
@@ -23,8 +23,7 @@ export const DEFAULT_LOGIN_TIMEOUT_MS = 300_000
 // 들어간다. secret 은 그 멤버의 transaction 네임스페이스에 그대로 있고, 여기에는 draft 만 든다.
 export interface StagedBinding {
   providerId: string
-  pluginId: string
-  draft: AuthBindingDraft
+  draft: AuthRecordDraft
 }
 
 // 로그인 체인의 진행 상태. 멤버가 1개면 체인이 아닌 것과 동작이 같다.
@@ -39,14 +38,11 @@ export interface Transaction {
   id: string
   // **현재 실행 중인** 멤버. 체인이 진행하면 바뀐다 — 그래서 키를 여기서 재계산하면 안 된다.
   providerId: string
-  pluginId: string
   target: AuthTarget
   // 등록 시점의 `byKey` 키. `providerId` 가 바뀌어도 이 값으로 정리해야 유령 엔트리가 안 남는다.
   key: string
   startedAt: number
   controller: AbortController
-  // provider 가 continue() 에서 쓰는 이어달리기 상태 (예: OAuth state, device code).
-  scratch: Map<string, unknown>
   chain?: ChainState
 }
 
@@ -68,7 +64,6 @@ export class TransactionStore {
   // 새 transaction 시작. 같은 키가 이미 있으면 **조용히 덮어쓰지 않고 취소 통지 후** 교체한다.
   begin(input: {
     providerId: string
-    pluginId: string
     target: AuthTarget
     timeoutMs?: number
     chain?: ChainState
@@ -83,12 +78,10 @@ export class TransactionStore {
     const tx: Transaction = {
       id,
       providerId: input.providerId,
-      pluginId: input.pluginId,
       target: input.target,
       key,
       startedAt: this.clock(),
       controller: new AbortController(),
-      scratch: new Map(),
       ...(input.chain !== undefined ? { chain: input.chain } : {})
     }
     this.byId.set(id, tx)
@@ -100,11 +93,10 @@ export class TransactionStore {
   // 체인의 다음 멤버로 넘긴다 (0172). 타임아웃은 **재시작**한다 — 멤버마다 자기 예산을 갖지
   // 않으면 대화형 2단계가 하나의 300s 를 나눠 쓰게 되고, 1단계에서 오래 머문 사용자는 2단계
   // 입력 도중 만료된다.
-  advance(id: string, nextProviderId: string, nextPluginId: string, timeoutMs?: number): void {
+  advance(id: string, nextProviderId: string, timeoutMs?: number): void {
     const tx = this.byId.get(id)
     if (!tx || !tx.chain) return
     tx.providerId = nextProviderId
-    tx.pluginId = nextPluginId
     tx.chain.index += 1
     this.arm(id, timeoutMs)
   }

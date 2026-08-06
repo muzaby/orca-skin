@@ -96,12 +96,13 @@ export function createCredentialVault(store: SecretStorePort, prefix: string): C
   }
 }
 
-// provider 별 네임스페이스. 다른 provider 의 비밀에 닿을 수 없게 플랫폼이 강제한다.
-export function authProviderPrefix(pluginId: string, providerId: string): string {
-  return `auth:${pluginId}:${providerId}:`
+// 인증 방식별 네임스페이스. 다른 방식의 비밀에 닿을 수 없게 플랫폼이 강제한다. 방식 id 는
+// 등록에서 중복이 거부되므로 이 한 값으로 유일하다 — 0178 이전에는 패키지 id 가 앞에 더 붙었다.
+export function authMethodPrefix(methodId: string): string {
+  return `auth:${methodId}:`
 }
 
-// binding 별 네임스페이스 — binding 삭제 시 clearAll() 로 잔여물을 남기지 않는다.
+// 레코드별 네임스페이스 — 레코드 삭제 시 clearAll() 로 잔여물을 남기지 않는다.
 export function authBindingPrefix(bindingId: string): string {
   return `authbinding:${bindingId}:`
 }

@@ -1,8 +1,7 @@
 // 범용 usage connector 런타임 (0176).
 //
-// **raw credential 을 보지 않는다** — `ctx.authenticatedFetch` 만 부르고 주입은 broker 가 한다
-// (AUTH-PLAT-009). 이 디렉터리에 vault·secret·전역 fetch import 가 하나도 없는 것이 확인 가능한
-// 속성이다.
+// **raw credential 을 보지 않는다** — `ctx.request` 만 부르고 주입은 broker 가 한다. 이 디렉터리에
+// vault·secret·전역 fetch import 가 하나도 없는 것이 확인 가능한 속성이다.
 //
 // 이 connector 는 **응답을 해석하지 않는다.** `{status, contentType, payload}` 를 그대로
 // 돌려주고, quota·사용액으로 읽는 일은 usage provider 의 `map` 이 한다 — LLM provider 마다
@@ -13,32 +12,26 @@ import type {
   ConnectorDescriptor,
   ConnectorRequest,
   ConnectorResult,
-  ConnectorRuntimeV1,
+  ConnectorRuntime,
   ConnectorStatus
-} from '../../../../contracts/connector-plugin'
+} from '../../../../contracts/connector'
+import { BASIC_METHOD_ID, PAT_METHOD_ID } from '../../methods/credential'
 import { buildUsageRequest } from './request'
 import { toUsagePayload, type UsagePayloadEnvelope } from './payload'
 import { DEFAULT_USAGE_PRESENTATION, type UsageConnectorConfig } from './spec'
 
-export const USAGE_PLUGIN_ID = 'usage-connector'
-export const USAGE_PAT_PROVIDER_ID = 'usage-connector-pat'
-export const USAGE_BASIC_PROVIDER_ID = 'usage-connector-basic'
-
 export function usageConnectorDescriptor(config: UsageConnectorConfig): ConnectorDescriptor {
   return {
     id: config.id,
-    pluginId: USAGE_PLUGIN_ID,
     label: config.label,
-    acceptedAuthProviders: [
-      ...(config.acceptedAuthProviders ?? [USAGE_PAT_PROVIDER_ID, USAGE_BASIC_PROVIDER_ID])
-    ],
+    acceptedMethods: [...(config.acceptedMethods ?? [PAT_METHOD_ID, BASIC_METHOD_ID])],
     baseUrl: config.baseUrl,
     presentation: config.presentation ?? DEFAULT_USAGE_PRESENTATION,
     ...(config.presentations !== undefined ? { presentations: config.presentations } : {})
   }
 }
 
-export function createUsageConnector(config: UsageConnectorConfig): ConnectorRuntimeV1 {
+export function createUsageConnector(config: UsageConnectorConfig): ConnectorRuntime {
   const descriptor = usageConnectorDescriptor(config)
 
   const send = async (
@@ -46,9 +39,9 @@ export function createUsageConnector(config: UsageConnectorConfig): ConnectorRun
     operation: string,
     params: Record<string, unknown>
   ): Promise<UsagePayloadEnvelope | null> => {
-    const request = buildUsageRequest(config, config.id, ctx.bindingId, operation, params)
+    const request = buildUsageRequest(config, config.id, operation, params)
     if (!request) return null
-    const response = await ctx.authenticatedFetch(request, ctx.signal)
+    const response = await ctx.request(request, ctx.signal)
     return toUsagePayload(response)
   }
 

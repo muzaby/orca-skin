@@ -342,26 +342,43 @@ export interface InternalApi {
 - [x] 1단계 — 죽은 표면 제거 (AC1·2·3)
 - [x] 2단계 — UI 커넥터 추가 경로 제거 (AC7·8 일부)
 - [x] 3a — 등록 검증 붕괴: manifest·ABI·선언↔구현 대조·conformance 제거, `satisfies` 배럴 (AC6)
-- [ ] 3b — 진입점 신설(`contracts/auth-method.ts`·`internal-api.ts`) + broker→api/store/login 재구성 (AC4·5)
-- [ ] 4단계 — SSO 배선 (AC9·15'·16'·17'). **토큰 교환은 범위에서 빠졌다** — SSO→MCP 미지원 결정
-- [ ] 5단계 — 동봉 모듈 껍데기 제거 (AC21·22)
-- [x] 6단계 — 문서 동기화 (완료된 범위 한정)
+- [x] 3b — 진입점 신설(`contracts/auth-method.ts`·`internal-api.ts`) + broker→api/login/broker 재구성 (AC4·5) + **만료 판정 반영 배선**(D2 잔여)
+- [x] 4단계 — SSO 배선 (AC9·15'·16'·17'). **토큰 교환은 범위에서 빠졌다** — SSO→MCP 미지원 결정
+- [x] 5단계 — 동봉 모듈 껍데기 제거 (AC21·22)
+- [x] 6단계 — 문서 동기화
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | 코드 60여 개(삭제 25) + 문서 6 |
+| 변경 파일 | 1~3a: 코드 60여 개(삭제 25) + 문서 6 · 3b~5: 코드 40여 개(삭제 7, 신설 8) + 문서 7 |
 | 실행 명령 | `npm run lint` / `npm run typecheck` / `./node_modules/.bin/vitest run` |
-| 게이트 결과 | lint **0 error / 1 warning**(0102 베이스라인) · typecheck **3/3** · vitest **202 파일(197 pass / 5 fail) · 1876 테스트(1837 / 39)** — red 5 = `better_sqlite3.node` ABI, **베이스라인과 동일**(변경 무관) |
-| 삭감 실측 | prod **-2,548** · test **-2,248** (합계 약 **-4,800 LOC**) |
+| 게이트 결과 | lint **0 error / 1 warning**(0102 베이스라인) · typecheck **3/3** · vitest **202 파일(197 pass / 5 fail) · 1874 테스트(1835 / 39)** — red 5 = `better_sqlite3.node` ABI, **베이스라인과 동일**(변경 무관) |
+| 삭감 실측 | 1~3a: prod **-2,548** · test **-2,248**. 3b~5 는 **재구성**이라 순삭감이 목적이 아니다 — 확장점 총량은 1,603줄 → `auth-method`(164) + `internal-api`(48) + `connector`(62) + `registry`(206) = **480줄** |
 | 블로커 / 역질문 | **없음** — D1 은 SSO→MCP 미지원 결정으로 해소됐다 |
-| 대상 커밋 | `3ea8f45`(1단계) · `33742c2`(2단계) · `64b43a6`(3a) |
+| 대상 커밋 | `3ea8f45`(1단계) · `33742c2`(2단계) · `64b43a6`(3a) · 3b~5 는 본 커밋 |
 
-**미완 사유**: 3b(계약 재형성)·4단계(SSO)·5단계(모듈 껍데기)는 한 세션 예산을 넘겼다. 각 단계가 독립적으로 green 이라 **현 상태는 정합**하며, 중단 지점이 반쯤 적용된 상태가 아니다.
+### 3b~5 에서 실제로 한 것
+
+| 단계 | 내용 |
+|---|---|
+| 3b | `contracts/auth-method.ts`(3함수 — `authenticate`·`status`·`revoke`) + `contracts/internal-api.ts`(`request`·`token`) 신설, `auth-plugin.ts`·`connector-plugin.ts` 삭제. broker 785줄 → `login.ts`(lifecycle 505) + `api.ts`(호출 표면 215) + `broker.ts`(조립·복원 204). `begin`/`continue` 두 IPC 가 **같은 `authenticate` 한 함수**로 들어간다(`ctx.input` 유무로 갈린다). 호출 표면은 `bindingId`·`connectorId` 대신 **대상 이름 하나**(`target`)를 받는다 — `${BINDING:<대상>}` MCP 참조도 같은 키로 바뀌었다(무작위 id 는 사람이 적을 수 없는 참조였다). |
+| 3b (만료) | **D2 잔여를 닫았다.** `AuthLogin.revalidate/revalidateAll` 이 방식의 `status()` 를 묻고 **레코드에 반영**한 뒤 브로드캐스트한다. 부팅 복원은 재연결 **전에** `revalidateAll()` 을 돈다. 요청 경로의 **401 도 만료로 반영**한다(403 은 아니다 — 권한 문제를 만료로 접으면 멀쩡한 연결이 끊긴다). 판정 자체가 던지면 `unknown`(사내망 밖을 만료로 단정하지 않는다). |
+| 3b (SSO REST) | `BrowserSessionCapability.send` 신설. 그 전에는 브라우저 세션 대상의 요청이 **probe 판정만** 돌려주고 본문이 빈 문자열이었다 — 사용자가 지목한 실사용 "sso login 인증 rest api" 가 성립하지 않던 지점이다. |
+| 4 | `methods/sso.ts`(배포가 채우는 한 파일) + `methods/index.ts` 내장 목록. 설정이 있을 때만 등록한다 — 미설정 상태로 등록하면 채워지지 않은 주소로 로그인 창이 열리고 게이트가 켜진다. |
+| 5 | 위키·사용량 모듈이 **자기 인증 provider 를 만들지 않는다.** 둘이 글자까지 같은 PAT/ID·비밀번호 구현을 한 벌씩 들고 있었고, 이제 `acceptedMethods` 로 내장 방식을 **고를 뿐**이다. `pluginId`(패키지 개념)·`capabilities`(분기 0)·`AuthStepInfo.browser`(생산자 0)·`AuthLogoutOutcome.not_supported`(생산자 0)·`ctx.fetch`/`ctx.store`/`ctx.env`(소비자 0)를 함께 걷어냈다. |
 
 ## [검증자 기입] 파생 이슈 (Derived Issues)
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
 | — | (verify 시 신설) | — | — | — |
+
+## [구현자 기입] 3b~5 에서 놓친 문제 + 대응
+
+| # | 놓친 문제 | 대응 | 근거 |
+|---|---|---|---|
+| D6 | **SSO 대상의 REST 요청이 본문을 돌려주지 않았다.** `BrowserSessionCapability` 에 `probe`(판정만)뿐이라 broker 가 `{status, headers:{}, body:''}` 를 만들어 돌려줬다. 즉 실사용 4종 중 "SSO 인증 REST" 는 배선이 아니라 **구현 자체가 없었다** — plan §R3~R8 은 이것을 놓쳤다. | ✅ `BrowserSessionStore.send` 신설(`sendOnce` + `credentials:'include'`), api 의 redirect 추종 루프를 두 전송자에 공용화 | 구 `broker.ts:338-341` |
+| D7 | **`ctx.fetch`·`ctx.store`·`ctx.env` 는 소비자가 0이었다.** `probeUrl` 을 주는 패키지가 없어 인증 방식이 HTTP 를 부르는 경로가 실재하지 않았다. `AuthContext` 가 넓은 만큼 새 방식이 무엇을 해도 되는지가 흐려진다. | ✅ 셋 다 제거. `fetchImpl` 은 `createSender` 경로에 그대로 남아 0173 가드는 유지 | `rg "ctx\.(fetch|store|env)" features/auth-platform` → 0건 |
+| D8 | **`AuthProviderInfo.capabilities`·`pluginId` 는 renderer 소비자가 0이었다.** 값이 DTO 를 건너가고 zod 스키마를 지나는데 아무도 읽지 않았다. | ✅ 둘 다 제거 + `protocol.plugins.test.ts` 에 `pluginId` **거부** 단언 추가(되살아나면 잡힌다) | `rg "capabilities\|pluginId" renderer/src` → 비-test 0건 |
+| D9 | **`${BINDING:<id>}` 의 키가 무작위 binding id 였다.** 매 인증마다 새로 뽑히고 화면 어디에도 나오지 않아 **사람이 적을 수 없는 참조**였다 — 문법은 살아 있는데 쓸 수가 없었다. | ✅ 해석 키를 **대상 이름**으로 교체(`InternalApi.token(target)`). 문법·정규식은 그대로라 마이그레이션이 없다 | `infra/vars.ts:BINDING_RE` · `mcp/resolver.ts` |

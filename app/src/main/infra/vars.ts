@@ -9,12 +9,12 @@ export type Resolver = (name: string) => string | undefined
 // .source 로 비-global 사본을 만들어 무상태 .exec 에 쓴다.
 export const VAR_RE = /\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g
 
-// ${BINDING:<bindingId>} — 인증 플랫폼 binding 참조 (0157). VAR_RE 와 **의도적으로 분리**한다:
-// binding 참조는 env-var 이름이 아니므로, 이름 스캔(mcp store 의 authEnvKey 추출)이 이것을
-// 환경변수로 오인하면 안 된다.
+// ${BINDING:<대상>} — 인증된 대상의 토큰 참조 (0157, 키를 대상 이름으로 바꾼 것은 0178).
+// VAR_RE 와 **의도적으로 분리**한다: 이 참조는 env-var 이름이 아니므로, 이름 스캔(mcp store 의
+// authEnvKey 추출)이 이것을 환경변수로 오인하면 안 된다.
 export const BINDING_RE = /\$\{BINDING:([A-Za-z0-9_-]+)\}/g
 
-// resolver 에 binding 참조를 넘길 때 쓰는 접두사. resolver 는 이 접두사로 분기한다.
+// resolver 에 대상 참조를 넘길 때 쓰는 접두사. resolver 는 이 접두사로 분기한다.
 export const BINDING_PREFIX = 'BINDING:'
 
 // 한 문자열 안의 모든 ${VAR} · ${BINDING:id} 치환. 미해결 참조는 missing 에 모은다.

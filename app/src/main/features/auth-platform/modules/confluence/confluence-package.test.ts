@@ -5,7 +5,8 @@ import { describe, expect, it } from 'vitest'
 import { AuthRegistry } from '../../registry'
 import { PluginHost } from '../../plugin-host'
 import { createConfluencePackage, CONFLUENCE_TOOL_NAMES, confluenceToolServerId } from './index'
-import { CONFLUENCE_BASIC_PROVIDER_ID, CONFLUENCE_PAT_PROVIDER_ID } from './connector'
+import { BASIC_METHOD_ID, PAT_METHOD_ID } from '../../methods/credential'
+import { AUTH_METHODS } from '../../methods'
 import { CONFLUENCE_SERVERS } from './servers'
 import { runtimeApprovalToolNames } from '../../../../adapters/runtime-tool-policy'
 import type { RuntimeToolServer } from '../../../../adapters/runtime-tools'
@@ -22,8 +23,10 @@ const TWO_SERVERS = [
   }
 ]
 
+// 인증 방식은 **내장 목록**이 준다 (0178) — 패키지가 만들지 않는다.
 function registered(servers = ONE_SERVER): AuthRegistry {
   const registry = new AuthRegistry()
+  expect(registry.registerMethods(AUTH_METHODS)).toEqual([])
   const errors = registry.register(createConfluencePackage(servers))
   expect(errors).toEqual([])
   return registry
@@ -32,8 +35,7 @@ function registered(servers = ONE_SERVER): AuthRegistry {
 function binding(connectorId: string, mechanism: AuthMechanism): AuthBindingInfo {
   return {
     id: `bind-${mechanism}`,
-    pluginId: 'confluence',
-    providerId: mechanism === 'basic' ? CONFLUENCE_BASIC_PROVIDER_ID : CONFLUENCE_PAT_PROVIDER_ID,
+    providerId: mechanism === 'basic' ? BASIC_METHOD_ID : PAT_METHOD_ID,
     target: { kind: 'connector', connectorId, connectionId: `conn-${connectorId}` },
     mechanism,
     artifact: { kind: 'vault_credential', handleId: 'secret', credentialKind: 'basic' },
@@ -78,18 +80,15 @@ function host(registry: AuthRegistry): {
 describe('createConfluencePackage — 등록 위생', () => {
   it('등록 위생을 통과한다', () => {
     const registry = registered()
-    expect(registry.getProvider(CONFLUENCE_PAT_PROVIDER_ID)).toBeDefined()
-    expect(registry.getProvider(CONFLUENCE_BASIC_PROVIDER_ID)).toBeDefined()
+    expect(registry.getMethod(PAT_METHOD_ID)).toBeDefined()
+    expect(registry.getMethod(BASIC_METHOD_ID)).toBeDefined()
     expect(registry.getConnector('confluence-dc')).toBeDefined()
     expect(registry.listRuntimeToolsForConnector('confluence-dc')).toHaveLength(1)
   })
 
-  it('두 인증 provider 가 하나의 connector 에 함께 붙는다', () => {
+  it('두 인증 방식이 하나의 대상에 함께 붙는다', () => {
     const connector = registered().getConnector('confluence-dc')
-    expect(connector?.descriptor.acceptedAuthProviders).toEqual([
-      CONFLUENCE_PAT_PROVIDER_ID,
-      CONFLUENCE_BASIC_PROVIDER_ID
-    ])
+    expect(connector?.descriptor.acceptedMethods).toEqual([PAT_METHOD_ID, BASIC_METHOD_ID])
   })
 
   it('mechanism 별 presentation 을 선언한다', () => {
@@ -123,11 +122,10 @@ describe('createConfluencePackage — 등록 위생', () => {
     ).toEqual([confluenceToolServerId('confluence-dc'), confluenceToolServerId('confluence-lab')])
   })
 
-  it('서버가 0개면 provider 만 등록된다 (저장소 기본값)', () => {
-    const registry = new AuthRegistry()
-    expect(registry.register(createConfluencePackage([]))).toEqual([])
+  it('서버가 0개면 대상이 하나도 등록되지 않는다 (저장소 기본값)', () => {
+    const registry = registered([])
     expect(registry.listConnectors()).toEqual([])
-    expect(registry.getProvider(CONFLUENCE_PAT_PROVIDER_ID)).toBeDefined()
+    expect(registry.getMethod(PAT_METHOD_ID)).toBeDefined()
   })
 
   it('저장소 기본 서버 목록은 비어 있다 — placeholder 카드를 보여주지 않는다', () => {
@@ -135,15 +133,15 @@ describe('createConfluencePackage — 등록 위생', () => {
   })
 
   // 0164 verify D1 — 이 패키지를 켜는 것만으로 **앱 로그인 게이트가 켜지면 안 된다.**
-  // `broker.status().required` 는 `providersForTarget('application').length > 0` 이고,
+  // `login.status().required` 는 `methodsForTarget('application').length > 0` 이고,
   // prod 의 `RootGate` 는 그 값으로 앱 전체를 막는다(DEV 는 bypass 라 눈에 띄지 않는다).
-  it('앱 로그인 게이트를 켜지 않는다 — provider 는 연결 전용이다', () => {
+  it('앱 로그인 게이트를 켜지 않는다 — 자격증명 방식은 연결 전용이다', () => {
     for (const servers of [[], ONE_SERVER, TWO_SERVERS]) {
       const registry = registered(servers)
-      expect(registry.providersForTarget('application')).toEqual([])
-      expect(registry.providersForTarget('connector').map((p) => p.descriptor.id)).toEqual([
-        CONFLUENCE_PAT_PROVIDER_ID,
-        CONFLUENCE_BASIC_PROVIDER_ID
+      expect(registry.methodsForTarget('application')).toEqual([])
+      expect(registry.methodsForTarget('connector').map((m) => m.descriptor.id)).toEqual([
+        PAT_METHOD_ID,
+        BASIC_METHOD_ID
       ])
     }
   })

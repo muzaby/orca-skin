@@ -385,27 +385,26 @@ renderer/preload 발 구조화 로그를 main 의 중앙 LogManager 로 전달�
 
 앱 로그인(`application`)과 서비스 연결(`connector`)을 **같은 lifecycle** 로 처리하는 채널. 둘의 차이는 `AuthTarget.kind` 뿐이고 별도 인증 인터페이스가 없다. 등록된 auth provider 가 0개(기본 배포)면 `required:false` 로 게이트가 자동 통과된다. **`status`/`begin`/`continue` 핸들러는 `Bootstrap.start()` 최상단에서 조기 등록**된다 — 창이 start() 완료 전에 열리므로(0109) renderer 게이트의 첫 invoke 가 부팅 완료를 기다리지 않는다.
 
-계약 정본은 `app/src/main/contracts/auth-plugin.ts`, provider 등록은 `features/auth-platform/modules/` opt-in 레지스트리, 배포 가이드는 [guides/closed-network-extensions.md](guides/closed-network-extensions.md).
+계약 정본은 `app/src/main/contracts/auth-method.ts`(인증 방식 3함수) + `internal-api.ts`(호출 표면), 인증 방식 등록은 `features/auth-platform/methods/index.ts` 내장 목록, 대상(connector) 등록은 `features/auth-platform/modules/` opt-in 레지스트리, 배포 가이드는 [guides/closed-network-extensions.md](guides/closed-network-extensions.md).
 
 > **응답 DTO 에 raw secret 이 없다.** `AuthBindingInfo.artifact` 는 `handleId` 문자열만 갖고(브라우저 세션의 cookie jar·vault 의 값은 main 이 소유), provider 목록은 `allowedOrigins` 조차 내보내지 않는다. 앱 로그인은 **UX 게이트이지 보안 경계가 아니다** — 인증 전에도 main IPC 는 열려 있다(guides/closed-network-extensions.md §5).
 
 | 채널                   | 방향         | 페이로드                                            | 응답/스트림 | 설명 |
 | ---------------------- | ------------ | --------------------------------------------------- | ----------- | ---- |
 | `orca:auth:status`     | R→M (invoke) | —                                                   | `AuthPlatformState` = `{ required; authenticated; inflight; identity: AuthPrincipal \| null; errorMessage: string \| null; step: AuthStepInfo \| null; providers: AuthProviderInfo[] }` | 게이트 판정용 상태 1회 조회. `required` = `application` target 을 지원하는 provider 등록 여부. **`authenticated` 는 앱 로그인 binding 이 하나 이상이고 전부 `valid` 일 때만 true** — 한 패키지가 application provider 를 여럿 선언하면 로그인이 체인이라 멤버 하나만 풀려도 인증이 아니다(0172). renderer 는 prod 에서 invoke 실패를 `required:false` 로 기본화하지 않는다(재시도 후 fail-closed). |
-| `orca:auth:providers`  | R→M (invoke) | —                                                   | `AuthProviderInfo[]` | 등록 provider descriptor(라벨·targets·mechanisms·capabilities·sessionGroup). `allowedOrigins` 는 노출하지 않는다. |
+| `orca:auth:providers`  | R→M (invoke) | —                                                   | `AuthProviderInfo[]` | 등록된 인증 방식 descriptor(`id`·`label`·`targets`·`mechanisms`·`sessionGroup?`). `allowedOrigins` 는 노출하지 않고, 소비자 0이던 `pluginId`·`capabilities` 는 0178 에서 뺐다. |
 | `orca:auth:bindings`   | R→M (invoke) | —                                                   | `AuthBindingInfo[]` | binding 목록(대상·상태·만료·principal). secret 없음. |
-| `orca:auth:begin`      | R→M (invoke) | `{ providerId; target }` (`AuthBeginRequestSchema`) | `AuthStepInfo` | 인증 transaction 시작 → 다음 step(`collect`·`browser`·`done`·`failed`). `(providerId, target)` 당 1건이며 재진입 시 기존 transaction 을 **명시 취소**하고 교체한다(조용한 덮어쓰기 없음). **앱 로그인(`target.kind='application'`)은 그 provider 가 속한 패키지의 체인 전체를 실행한다**(0172) — 어느 멤버로 시작하든 manifest 선언 순서의 헤드부터 돈다. |
+| `orca:auth:begin`      | R→M (invoke) | `{ providerId; target }` (`AuthBeginRequestSchema`) | `AuthStepInfo` | 인증 transaction 시작 → 다음 step(`collect`·`done`·`failed`. `browser` 는 0178 에서 뺐다 — 브라우저 흐름은 `authenticate` 안에서 끝나 되받을 단계가 없다). `(providerId, target)` 당 1건이며 재진입 시 기존 transaction 을 **명시 취소**하고 교체한다(조용한 덮어쓰기 없음). **앱 로그인(`target.kind='application'`)은 그 provider 가 속한 패키지의 체인 전체를 실행한다**(0172) — 어느 멤버로 시작하든 등록 배열 순서의 헤드부터 돈다. |
 | `orca:auth:continue`   | R→M (invoke) | `{ transactionId; input: Record<string,string> }` (`AuthContinueRequestSchema` — 키 64자·값 4096자 상한) | `AuthStepInfo` | 입력이 필요한 step 을 잇는다. 브라우저 플로우(ADFS/WIA)는 `begin` 안에서 끝나 이 채널을 쓰지 않는다. 만료·취소된 transaction 은 `failed(reason:'cancelled')`. **체인 중간 멤버의 성공은 `done` 이 아니라 다음 멤버의 step 으로 나온다** — `done` 은 전 멤버가 성공했을 때만 오고 그 `binding` 은 체인의 root 다. 대화형 step 3종은 멤버가 둘 이상일 때 `chain: { index(1-based); total; label }` 을 함께 싣는다(멤버 1개면 필드 없음, 0172). |
 | `orca:auth:logout`     | R→M (invoke) | `{ bindingId; cascade?: boolean }` (`AuthLogoutRequestSchema`, 기본 `false`) | `AuthLogoutOutcome` | `cascade:false`(기본) = 이 binding 만 — connector 하나의 연결 해제가 공유 session group 을 삭제하지 않는다. `true` = 종속 binding 까지(앱 로그아웃). |
 | `orca:auth:stateEvent` | M→R (send)   | `AuthPlatformState`                                 | —           | 상태 변화 브로드캐스트(전 창) — transaction 진행·취소·binding 변경. renderer store 가 구독해 main 상태를 미러한다. |
 
-### 2.13-d Plugin (0158 connector lifecycle + 0161 템플릿·인스턴스)
+### 2.13-d Plugin (0158 connector lifecycle)
 
-connector의 목록·연결 lifecycle과, 사용자가 서버를 추가/삭제하는 경로를 renderer에 노출한다.
+대상(connector)의 목록·연결 lifecycle을 renderer에 노출한다. 서버 주소의 정본은 빌드타임
+(`modules/<x>/servers.ts`)이고 UI 추가 경로는 0178 에서 제거했다. 대상당 활성 연결은 하나다.
 
-connector는 두 출처를 갖는다 — **`static`**(코드로 배포, `modules/<x>/servers.ts`)과 **`instance`**(사용자가 템플릿으로 추가). DTO의 `source`가 그 구분이고 UI는 이 값으로 삭제 가능 여부를 판정한다. connector당 활성 연결은 하나다.
-
-응답 DTO는 `connectorId`·`label`·`origin`·`pluginId`·`acceptedAuthProviders`·`connected`·`source`·`connectedProviderId?`만 포함하며 credential·binding artifact·runtime tool 구현은 포함하지 않는다. `connectedProviderId`(0164)는 활성 binding 의 **auth provider id** 이고 **키 부재 = 미연결**이다 — 화면이 "무엇으로 연결됐는지"를 보여주기 위한 값이라 id 만 나가고 secret·vault handle 은 이 경계를 넘지 않는다.
+응답 DTO는 `connectorId`·`label`·`origin`·`acceptedAuthProviders`·`connected`·`connectedProviderId?`만 포함하며 credential·binding artifact·runtime tool 구현은 포함하지 않는다. `acceptedAuthProviders` 는 `ConnectorDescriptor.acceptedMethods`(허용 인증 방식 id)의 DTO 이름이다. `connectedProviderId`(0164)는 활성 binding 의 **auth provider id** 이고 **키 부재 = 미연결**이다 — 화면이 "무엇으로 연결됐는지"를 보여주기 위한 값이라 id 만 나가고 secret·vault handle 은 이 경계를 넘지 않는다.
 
 **주소 수정 채널은 없다.** 인스턴스의 `connectorId`가 host+컨텍스트 경로에서 파생되므로(0161) 주소 수정은 곧 도구 서버 ID·승인 키(`mcp__<server>__<tool>`)·다운로드 경로의 이동이다. 수정 대신 삭제 후 재생성한다.
 

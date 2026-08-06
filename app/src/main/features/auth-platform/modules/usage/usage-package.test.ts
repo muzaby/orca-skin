@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { AuthRegistry } from '../../registry'
+import { AUTH_METHODS } from '../../methods'
 import { createUsageConnectorPackage } from './index'
 import { USAGE_CONNECTORS } from './servers'
 import type { UsageConnectorConfig } from './spec'
@@ -20,10 +21,9 @@ describe('createUsageConnectorPackage', () => {
       config('usage-lab', 'https://llm-lab.corp')
     ])
     const registry = new AuthRegistry()
-    const errors = registry.register({
-      ...(pkg.providers !== undefined ? { providers: pkg.providers } : {}),
-      ...(pkg.connectors !== undefined ? { connectors: pkg.connectors } : {})
-    })
+    // 인증 방식은 **내장 목록**이 준다 (0178) — 패키지가 만들지 않는다.
+    expect(registry.registerMethods(AUTH_METHODS)).toEqual([])
+    const errors = registry.register(pkg)
 
     expect(errors).toEqual([])
     expect(registry.validateCrossReferences()).toEqual([])
@@ -35,20 +35,19 @@ describe('createUsageConnectorPackage', () => {
     ).toEqual(['usage-corp', 'usage-lab'])
   })
 
-  it('기본 설정은 connector 0개이고 로그인 게이트를 켜지 않는다', () => {
+  it('기본 설정은 connector 0개다 — 내장 인증 방식만 남는다', () => {
     expect(USAGE_CONNECTORS).toEqual([])
 
     const pkg = createUsageConnectorPackage(USAGE_CONNECTORS)
     const registry = new AuthRegistry()
-    const errors = registry.register({
-      ...(pkg.providers !== undefined ? { providers: pkg.providers } : {})
-    })
+    // 인증 방식은 **내장 목록**이 준다 (0178) — 패키지가 만들지 않는다.
+    expect(registry.registerMethods(AUTH_METHODS)).toEqual([])
+    const errors = registry.register(pkg)
 
     expect(errors).toEqual([])
     expect(registry.listConnectors()).toEqual([])
-    expect(registry.listProviders().length).toBe(2)
     // `targets:['application']` 을 하나라도 선언하면 prod 앱 로그인 게이트가 켜진다(0164 D1).
-    expect(registry.providersForTarget('application')).toEqual([])
-    expect(registry.providersForTarget('connector').length).toBe(2)
+    expect(registry.methodsForTarget('application')).toEqual([])
+    expect(registry.methodsForTarget('connector').length).toBe(AUTH_METHODS.length)
   })
 })

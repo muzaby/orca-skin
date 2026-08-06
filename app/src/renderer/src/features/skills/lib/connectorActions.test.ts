@@ -70,14 +70,4 @@ describe('runReconnect', () => {
     expect(ok).toBe(false)
     expect(open).not.toHaveBeenCalled()
   })
-
-  it('not_supported 도 성공으로 보지 않는다', async () => {
-    const open = vi.fn()
-    const ok = await runReconnect({
-      disconnect: () => Promise.resolve({ kind: 'not_supported' }),
-      open
-    })
-    expect(ok).toBe(false)
-    expect(open).not.toHaveBeenCalled()
-  })
 })

@@ -118,17 +118,11 @@ ri:userkey 있음              → @{{user:<key>}}    (자리표시자 — conne
 - **결과를 JSON 으로 감싸지 않는다.** `JSON.stringify` 를 거치면 Markdown 줄바꿈이 `\n` 두 글자로
   새어 나온다(0164 r2 실측). 텍스트 조립은 `search-render.ts` 가 한다.
 
-## 두 가지 사용 경로 (0161 → 0164 로 기본값 반전)
-
-| 경로 | 서버 주소 출처 | 추가 방법 | 삭제 |
-|---|---|---|---|
-| **정적 등록** (기본) | `servers.ts` (코드) | 그 파일의 배열을 채운다 | 불가(코드로 배포) |
-| 템플릿 인스턴스 | 사용자가 UI 에서 입력 | **디버그 패널에서 "서버 추가 버튼 노출" 을 켠 뒤** 플러그인 페이지 → 추가 | UI 에서 가능 |
+## 서버 주소는 빌드타임에서만 온다 (0164 → 0178 로 UI 경로 제거)
 
 **서버 목록의 정본은 빌드타임이다** (사용자 결정 2026-08-03 — "빌드타임에서 2개의 컨플루언스
-등록 … base url 수정은 안된다"). UI 추가 경로는 코드에 남아 있지만 `Tweaks.pluginAddEnabled`
-(기본 `false`) 뒤에 있어 일반 사용자에게 노출되지 않는다. **인증만 런타임**이다 — PAT·ID/비밀번호는
-매번 사용자가 입력한다(binding 은 비영속, 0157).
+등록 … base url 수정은 안된다"). 0178 이 UI 추가 경로를 코드에서 제거해 경로가 하나만 남았다.
+**인증만 런타임**이다 — PAT·ID/비밀번호는 사용자가 입력한다.
 
 ## 정적 등록 — `servers.ts` **한 파일만** 고친다
 
@@ -152,24 +146,20 @@ export const CONFLUENCE_SERVERS: readonly ConfluenceServerConfig[] = [
 
 ## 주소 규칙 (두 경로 공통)
 
-- `baseUrl` 은 **경로 없는 origin** 이어야 한다(manifest `OriginSchema`).
+- `baseUrl` 은 **경로 없는 origin** 이어야 한다(등록이 형태를 강제한다).
 - 컨텍스트 경로(`https://wiki.corp/confluence`)는 `apiBasePath: '/confluence'` 로 분리한다.
   `checkRequestPath` 가 상대 경로 prefix 를 허용하므로 계약 변경 없이 성립한다.
 - **`normalizeServerConfig` 가 흔한 실수를 흡수한다** (0164 r2). 끝의 `/` 와 주소에 붙은 경로는
   자동으로 origin + `apiBasePath` 로 갈린다 — 그 한 글자가 패키지 등록을 통째로 거부시키고
   (all-or-nothing) 서버가 UI 에서 전부 사라지기 때문이다. 해석조차 안 되는 값(스킴 없음 등)은
-  손대지 않고 manifest 가 거부하며, 그 사유는 **플러그인 탭 배너**(`orca:plugin:diagnostics`)에
+  손대지 않고 등록이 거부하며, 그 사유는 **플러그인 탭 배너**(`orca:plugin:diagnostics`)에
   뜬다.
-- 템플릿 인스턴스는 `connectorId` 가 **host+컨텍스트 경로에서 파생**되므로(0161) 같은 host 의
-  다른 경로가 서로 다른 서버가 되고, **주소는 생성 후 바꿀 수 없다**(수정 = 도구 이름·승인 키·
-  다운로드 경로의 이동). 바꾸려면 삭제 후 재생성한다.
 
 ## 파일 구성 — 취득과 가공을 모듈로 나눈다
 
 | 파일 | 책임 | 순수? |
 |---|---|---|
 | `servers.ts` | 정적 서버 목록 (정적 경로에서만 쓴다) | 데이터 |
-| `index.ts` 의 `confluenceTemplate` | 템플릿 — `sharedPackage`(provider 2) + `instancePackage`(connector+tools) | 선언 |
 | `rest.ts` | 요청 서술자 — 경로·CQL 이스케이프·XSRF 헤더 | ✅ 순수 |
 | `storage-to-markdown.ts` | storage XHTML → Markdown + 참조 첨부·미지원 매크로 수집 | ✅ 순수 |
 | `limit.ts` | 동시성 세마포어 (`p-limit` 미도입) | ✅ 순수 |
@@ -177,7 +167,7 @@ export const CONFLUENCE_SERVERS: readonly ConfluenceServerConfig[] = [
 | `connector.ts` | `ConnectorRuntimeV1` — 위 셋을 순서대로 부르는 오케스트레이션 | I/O |
 | `search-render.ts` | 도구 결과 → 모델에게 줄 텍스트 (`renderSearchResult` · `renderPagesResult`) | ✅ 순수 |
 | `tools.ts` | `RuntimeToolContribution` — 도구 2종(`confluence_search` · `confluence_get_pages`) | 선언 |
-| `index.ts` | manifest + 패키지 조립 (manifest 는 구현에서 **파생**) | 조립 |
+| `index.ts` | 패키지 조립 — 서버 목록 → 대상 N + 도구 N. **인증 방식은 만들지 않는다**(0178) | 조립 |
 
 ## 이 모듈이 존재하는 이유
 
@@ -194,7 +184,7 @@ export const CONFLUENCE_SERVERS: readonly ConfluenceServerConfig[] = [
 
 ## 규칙
 
-- **raw credential 을 보지 않는다.** `ctx.authenticatedFetch` 만 부른다 — vault·secret·전역
+- **raw credential 을 보지 않는다.** `ctx.request({ target, … })` 만 부른다 — vault·secret·전역
   `fetch` import 가 이 디렉터리에 하나도 없어야 한다(AUTH-PLAT-009).
 - **`readOnlyHint` 는 정직하게.** MCP 정의는 "환경을 변경하지 않는다" 다. `confluence_search` 는
   아무것도 쓰지 않으므로 `true`(자동 허용), 페이지 Markdown·첨부를 로컬에 쓰는
