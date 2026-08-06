@@ -71,7 +71,7 @@ describe('MCP resolver — process.env 전체 fallback 제거 (AC11)', () => {
 
 describe('MCP resolver — ${BINDING:id} 참조 (AC10)', () => {
   const bindings = {
-    resolveBindingCredential: (id: string) => (id === 'bind_1' ? 'pat-value' : null)
+    token: (id: string) => (id === 'bind_1' ? 'pat-value' : null)
   }
 
   it('binding 참조를 broker 에 위임해 해석한다', () => {

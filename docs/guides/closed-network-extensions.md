@@ -18,20 +18,22 @@
 **런타임 임의 코드 로딩은 금지한다** — Electron main 에서 임의 코드 실행은 filesystem·cookie·Vault
 전권을 주는 것과 같고 타입 검증도 성립하지 않는다. 이 정책은 0157 에서도 유지된다.
 
-## 1. 구조 — 확장점 2파일 + opt-in 레지스트리
+## 1. 구조 — 진입점 2계약 + opt-in 레지스트리
 
 main 브랜치는 다음만 제공하고, 회사별 구현은 전부 회사 포크/브랜치의 모듈 디렉토리에 둔다:
 
 | 확장점 | 계약 파일 | opt-in 레지스트리 (배럴 한 줄) | 자족 가이드 |
 |---|---|---|---|
-| A. 인증 provider·connector | `app/src/main/contracts/auth-plugin.ts` · `connector-plugin.ts` | `app/src/main/features/auth-platform/modules/index.ts` | `features/auth-platform/modules/AGENTS.md` |
+| A. 인증 방식 | `app/src/main/contracts/auth-method.ts` (`authenticate`·`status`·`revoke` 3함수) | `app/src/main/features/auth-platform/methods/index.ts` (내장 목록) + `methods/sso.ts` (SSO 설정) | `features/auth-platform/modules/AGENTS.md` |
+| A'. 대상(사내 API) | `app/src/main/contracts/connector.ts` + 호출 표면 `internal-api.ts` | `app/src/main/features/auth-platform/modules/index.ts` | `features/auth-platform/modules/AGENTS.md` |
 | B. 정적 사용량 provider | `app/src/main/contracts/usage-report.ts` | `app/src/main/features/providers/static/modules/index.ts` | `features/providers/static/modules/AGENTS.md` |
 
-- **계약 동결·ABI 정책은 0178 에서 폐기했다.** 이전에는 계약 파일이 additive-optional-only 로 동결되고 `apiVersion` 불일치를 registry 가 등록 단계에서 거부했는데, 그 정책이 manifest·선언↔구현 전 필드 대조·conformance 하네스를 파생시켜 **확장점 1,603줄**을 만들었다. 지금은 배럴의 `satisfies readonly AuthPackage[]` 가 형태를 **컴파일 타임에** 강제하고, 계약이 바뀌면 회사 모듈은 컴파일 에러로 즉시 안다 — 조용히 어긋나지 않는다.
+- **계약 동결·ABI 정책은 0178 에서 폐기했다.** 이전에는 계약 파일이 additive-optional-only 로 동결되고 `apiVersion` 불일치를 registry 가 등록 단계에서 거부했는데, 그 정책이 manifest·선언↔구현 전 필드 대조·conformance 하네스를 파생시켜 **확장점 1,603줄**을 만들었다. 지금은 배럴의 `satisfies` 가 형태를 **컴파일 타임에** 강제하고, 계약이 바뀌면 회사 모듈은 컴파일 에러로 즉시 안다 — 조용히 어긋나지 않는다.
 - **런타임에 남는 검증은 둘뿐이다** — 중복 id 거부, origin 형태 검사(`features/auth-platform/registry.ts` 헤더). 타입으로 표현할 수 없는 것만 남겼다.
 - **명시적 배럴 등록**: 모듈은 컴파일 타임 코드다. 런타임 동적 로딩(임의 경로 require)은 보안·타입검증 양면에서 금지.
-- **기본 = 비활성**: 신규 설치는 인증 패키지 0개 + usage provider 0개. 게이트/사용량 연동은 등록해야만 켜진다. 등록된 `application` provider 가 없으면 `required:false` 로 로그인 게이트가 자동 통과된다.
-- **복수 등록 가능**: 0130 의 "한 빌드 = 회사 모듈 1개" 제약은 없어졌다. provider 를 몇 개든 등록할 수 있고, 하나의 provider 를 앱 로그인과 여러 connector 가 재사용한다.
+- **인증 방식은 내장이다** (0178). PAT·ID/비밀번호는 항상 있고, SSO 는 `methods/sso.ts` 를 채우면 목록에 들어간다. 0178 이전에는 모듈마다 자기 provider 를 만들어 붙였고, 그래서 위키와 사용량이 글자까지 같은 구현을 각각 한 벌씩 들고 있었다. 지금 대상은 **무엇을 받아들이는지만** `acceptedMethods` 로 선언한다.
+- **기본 = 비활성**: 신규 설치는 SSO 미설정 + 대상 0개 + usage provider 0개. 등록된 `application` 방식이 없으면 `required:false` 로 로그인 게이트가 자동 통과된다.
+- **복수 등록 가능**: 0130 의 "한 빌드 = 회사 모듈 1개" 제약은 없어졌다. 하나의 인증 방식을 앱 로그인과 여러 대상이 재사용한다.
 
 ## 2. 포크/브랜치 전략 — main 을 손상하지 않기
 
@@ -39,6 +41,7 @@ main 브랜치는 다음만 제공하고, 회사별 구현은 전부 회사 포�
 - **touch-only 목록** — 회사 브랜치가 수정해도 되는 곳은 아래 4곳뿐이다. 이 밖의 수정은 upstream 추적 시 병합 충돌·동작 회귀를 만든다:
   1. `app/src/main/features/auth-platform/modules/<회사명>/**` (신규 디렉토리)
   2. `app/src/main/features/auth-platform/modules/index.ts` (배럴 한 줄)
+  2'. `app/src/main/features/auth-platform/methods/sso.ts` (사내 SSO 설정 한 덩어리)
   3. `app/src/main/features/providers/static/modules/<회사명>/**` (신규 디렉토리)
   4. `app/src/main/features/providers/static/modules/index.ts` (배럴 한 줄)
 - 게이트: `cd app && npm run lint && npm run typecheck` (+ 가능 환경에서 `npm test`).

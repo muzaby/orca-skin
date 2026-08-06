@@ -6,7 +6,6 @@ import type { RuntimeToolServer } from '../../adapters/runtime-tools'
 const server = (id: string): RuntimeToolServer => ({
   descriptor: {
     id,
-    pluginId: 'plugin-a',
     connectorId: 'connector-a',
     tools: [{ name: 'lookup', description: 'Find a record' }]
   },
@@ -22,7 +21,6 @@ const server = (id: string): RuntimeToolServer => ({
 const mutableServer = (id: string): RuntimeToolServer => ({
   descriptor: {
     id,
-    pluginId: 'plugin-a',
     connectorId: 'connector-a',
     tools: [
       {

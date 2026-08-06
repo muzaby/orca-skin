@@ -1,10 +1,10 @@
-// operation 선언 → `AuthenticatedFetchRequest` (순수).
+// operation 선언 → `InternalApiRequest` (순수).
 //
 // **자리표시자는 허용 목록이다.** 선언에 `{name}` 으로 적힌 이름만 치환되고, 값은 전부
 // `encodeURIComponent` 를 거친다 — `/` 나 `?` 가 든 파라미터가 선언된 경로 밖으로 나가지
 // 못하게 하는 것이 목적이다(broker 의 origin 검사보다 앞선 1차 방어).
 
-import type { AuthenticatedFetchRequest } from '../../../../contracts/connector-plugin'
+import type { InternalApiRequest } from '../../../../contracts/internal-api'
 import { normalizeBasePath } from '../base-path'
 import type { UsageConnectorConfig, UsageOperationSpec } from './spec'
 
@@ -21,11 +21,10 @@ export function substitute(template: string, params: Record<string, unknown>): s
 
 export function buildUsageRequest(
   config: UsageConnectorConfig,
-  connectorId: string,
-  bindingId: string,
+  target: string,
   operation: string,
   params: Record<string, unknown> = {}
-): AuthenticatedFetchRequest | null {
+): InternalApiRequest | null {
   const spec: UsageOperationSpec | undefined = config.operations[operation]
   if (!spec) return null
 
@@ -39,8 +38,7 @@ export function buildUsageRequest(
   )
 
   return {
-    bindingId,
-    connectorId,
+    target,
     method: spec.method,
     path,
     ...(Object.keys(headers).length > 0 ? { headers } : {}),

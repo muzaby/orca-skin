@@ -1,16 +1,11 @@
-// Confluence connector 런타임 (0160). `AuthenticatedFetch` 를 fake 로 주입해 네트워크 없이
+// Confluence connector 런타임 (0160). `ctx.request` 를 fake 로 주입해 네트워크 없이
 // 돌린다 — connector 가 raw credential 을 안 보는 구조 덕에 fake 가 그대로 성립한다.
 
 import { readFile, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import { describe, expect, it, afterEach } from 'vitest'
-import type {
-  AuthenticatedFetch,
-  AuthenticatedFetchRequest,
-  AuthenticatedFetchResponse,
-  ConnectorContext,
-  ConnectorResult
-} from '../../../../contracts/connector-plugin'
+import type { ConnectorContext, ConnectorResult } from '../../../../contracts/connector'
+import type { InternalApiRequest, InternalApiResponse } from '../../../../contracts/internal-api'
 import {
   createConfluenceConnector,
   type ConfluencePagesResult,
@@ -26,15 +21,15 @@ afterEach(async () => {
 })
 
 interface Route {
-  match: (req: AuthenticatedFetchRequest) => boolean
-  respond: (req: AuthenticatedFetchRequest) => Partial<AuthenticatedFetchResponse> & {
+  match: (req: InternalApiRequest) => boolean
+  respond: (req: InternalApiRequest) => Partial<InternalApiResponse> & {
     status: number
   }
 }
 
-function context(routes: Route[]): { ctx: ConnectorContext; seen: AuthenticatedFetchRequest[] } {
-  const seen: AuthenticatedFetchRequest[] = []
-  const authenticatedFetch: AuthenticatedFetch = async (req) => {
+function context(routes: Route[]): { ctx: ConnectorContext; seen: InternalApiRequest[] } {
+  const seen: InternalApiRequest[] = []
+  const request = async (req: InternalApiRequest): Promise<InternalApiResponse> => {
     seen.push(req)
     const route = routes.find((r) => r.match(req))
     if (!route) return { status: 404, headers: {}, body: '{}' }
@@ -45,8 +40,7 @@ function context(routes: Route[]): { ctx: ConnectorContext; seen: AuthenticatedF
     seen,
     ctx: {
       connectionId: 'conn-1',
-      bindingId: 'bind-1',
-      authenticatedFetch,
+      request,
       signal: new AbortController().signal,
       logger: () => undefined
     }

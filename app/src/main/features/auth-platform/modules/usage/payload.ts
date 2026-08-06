@@ -4,7 +4,7 @@
 // 던지면 사용량 갱신이 통째로 멈춘다. 파싱에 실패하면 원문 문자열을 그대로 싣고 해석은
 // 구독자(usage provider 의 `map`)에게 넘긴다.
 
-import type { AuthenticatedFetchResponse } from '../../../../contracts/connector-plugin'
+import type { InternalApiResponse } from '../../../../contracts/internal-api'
 
 export interface UsagePayloadEnvelope {
   status: number
@@ -12,7 +12,7 @@ export interface UsagePayloadEnvelope {
   payload: unknown
 }
 
-export function toUsagePayload(response: AuthenticatedFetchResponse): UsagePayloadEnvelope {
+export function toUsagePayload(response: InternalApiResponse): UsagePayloadEnvelope {
   const contentType = headerValue(response.headers, 'content-type')
   return {
     status: response.status,

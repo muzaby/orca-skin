@@ -18,7 +18,6 @@ const CONNECTOR: PluginConnectorInfo = {
   connectorId: 'confluence-dc',
   label: 'Confluence',
   origin: 'https://wiki.corp',
-  pluginId: 'confluence',
   acceptedAuthProviders: ['confluence-pat', 'confluence-basic'],
   connected: false
 }
@@ -26,11 +25,9 @@ const CONNECTOR: PluginConnectorInfo = {
 function provider(id: string, overrides: Partial<AuthProviderInfo> = {}): AuthProviderInfo {
   return {
     id,
-    pluginId: 'confluence',
     label: id,
     targets: ['connector'],
     mechanisms: ['personal_access_token'],
-    capabilities: ['logout'],
     ...overrides
   }
 }
@@ -62,13 +59,11 @@ describe('buildConnectOptions', () => {
   it('다른 패키지의 provider 도 수용 목록에 있으면 후보다', () => {
     const instance: PluginConnectorInfo = {
       ...CONNECTOR,
-      connectorId: 'confluence-wiki-corp',
-      pluginId: 'confluence-wiki-corp'
+      connectorId: 'confluence-wiki-corp'
     }
     const shared = [
-      provider('confluence-pat', { pluginId: 'confluence', label: 'PAT' }),
+      provider('confluence-pat', { label: 'PAT' }),
       provider('confluence-basic', {
-        pluginId: 'confluence',
         label: 'ID/비밀번호',
         mechanisms: ['basic']
       })
@@ -135,7 +130,6 @@ function stepCollect(): AuthStepInfo {
 function stepDone(): AuthStepInfo {
   const binding: AuthBindingInfo = {
     id: 'bind-1',
-    pluginId: 'confluence',
     providerId: 'confluence-pat',
     target: { kind: 'connector', connectorId: 'confluence-dc', connectionId: 'uuid-1' },
     mechanism: 'personal_access_token',
@@ -179,11 +173,6 @@ describe('beginConnect', () => {
     })
     const result = await beginConnect(double, 'p', 'c', 'u')
     expect(result).toEqual({ kind: 'failed', message: '안 됨' })
-  })
-
-  it('이번 범위 밖 플로우(browser)는 조용히 성공시키지 않는다', async () => {
-    const double = api({ begin: async () => ({ kind: 'browser', transactionId: 'tx' }) })
-    expect((await beginConnect(double, 'p', 'c', 'u')).kind).toBe('failed')
   })
 })
 

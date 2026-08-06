@@ -25,13 +25,13 @@ export interface UsageConnectorConfig {
   // 모듈 선언과 binding 이 이 문자열에 묶인다.
   id: string
   label: string
-  // 경로 없는 origin. manifest `OriginSchema` 가 형태를 강제한다.
+  // 경로 없는 origin. 등록이 형태를 강제한다.
   baseUrl: string
   // 컨텍스트 경로(`/api`). 모든 operation 경로 앞에 붙는다.
   apiBasePath?: string
-  // 이 서버에 붙일 수 있는 auth provider. 미지정이면 이 패키지의 PAT·Basic 2종.
-  // 다른 패키지의 provider(사내 ADFS 등)를 적어도 된다 — manifest 가 교차 참조를 허용한다.
-  acceptedAuthProviders?: readonly string[]
+  // 이 서버에 붙일 수 있는 인증 방식 id. 미지정이면 내장 PAT·ID/비밀번호 2종.
+  // 사내 SSO(`methods/sso.ts` 의 id)를 적으면 브라우저 세션으로 붙는다.
+  acceptedMethods?: readonly string[]
   // credential 을 요청 어디에 넣을지. 미지정이면 `Authorization: Bearer <secret>`.
   presentation?: CredentialPresentation
   presentations?: Partial<Record<AuthMechanism, CredentialPresentation>>

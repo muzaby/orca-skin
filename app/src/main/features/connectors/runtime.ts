@@ -1,28 +1,28 @@
 // Connector 런타임 (0157) — 연결된 connector 를 시작·호출·정지한다.
 //
 // 이 슬라이스는 **raw credential 을 절대 보지 않는다.** connector 에게 주는 것은
-// `authenticatedFetch(bindingId, …)` 뿐이고, header·cookie 주입은 broker 가 한다
-// (AUTH-PLAT-009). 그래서 여기서 vault·session·secret 을 import 하는 코드가 하나도 없다 —
-// 그것이 이 파일에서 확인할 수 있는 보안 속성이다.
+// `request({ target, … })` 뿐이고, header·cookie 주입은 broker 가 한다. 그래서 여기서
+// vault·session·secret 을 import 하는 코드가 하나도 없다 — 이 파일에서 확인할 수 있는 보안 속성이다.
 //
-// 레이어: features/auth-platform 을 직접 import 하지 않는다. `AuthenticatedFetch` 는
-// `contracts/connector-plugin.ts` 의 구조적 포트이고 컴포지션 루트가 broker 구현을 주입한다.
+// 레이어: features/auth-platform 을 직접 import 하지 않는다. `InternalApi` 는
+// `contracts/internal-api.ts` 의 구조적 포트이고 컴포지션 루트가 broker 구현을 주입한다.
 
 import type {
-  AuthenticatedFetch,
   ConnectorRequest,
   ConnectorResult,
-  ConnectorRuntimeV1,
+  ConnectorRuntime,
   ConnectorStatus
-} from '../../contracts/connector-plugin'
+} from '../../contracts/connector'
+import type { InternalApi } from '../../contracts/internal-api'
 import { getLogger } from '../../infra/log/registry'
 import type { Connection, ConnectionRegistry, CreateConnectionInput } from './registry'
 
 export interface ConnectorHostDeps {
   connections: ConnectionRegistry
   // connector 구현체 조회 — auth-platform registry 를 구조적 포트로 받는다(교차 import 회피).
-  lookup: { getConnector(connectorId: string): ConnectorRuntimeV1 | undefined }
-  authenticatedFetch: AuthenticatedFetch
+  lookup: { getConnector(connectorId: string): ConnectorRuntime | undefined }
+  // 인증된 요청 표면 — 컴포지션 루트가 broker 구현을 주입한다(교차 feature import 회피).
+  api: Pick<InternalApi, 'request'>
 }
 
 const DEFAULT_INVOKE_TIMEOUT_MS = 60_000
@@ -38,7 +38,7 @@ export class ConnectorHost {
 
   private resolve(
     connectionId: string
-  ): { connection: Connection; connector: ConnectorRuntimeV1 } | null {
+  ): { connection: Connection; connector: ConnectorRuntime } | null {
     const connection = this.deps.connections.get(connectionId)
     if (!connection) return null
     const connector = this.deps.lookup.getConnector(connection.connectorId)
@@ -49,11 +49,10 @@ export class ConnectorHost {
   private contextFor(
     connection: Connection,
     signal: AbortSignal
-  ): Parameters<ConnectorRuntimeV1['start']>[0] {
+  ): Parameters<ConnectorRuntime['start']>[0] {
     return {
       connectionId: connection.id,
-      bindingId: connection.bindingId,
-      authenticatedFetch: this.deps.authenticatedFetch,
+      request: (req, requestSignal) => this.deps.api.request(req, requestSignal ?? signal),
       signal,
       logger: (message, meta) =>
         this.log().warn('connector.message', {

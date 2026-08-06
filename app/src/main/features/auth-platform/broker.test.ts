@@ -5,17 +5,63 @@ import { describe, expect, it, vi } from 'vitest'
 import { AuthBroker, MAX_REDIRECT_HOPS } from './broker'
 import { AuthRegistry } from './registry'
 import { DEFAULT_LOGIN_TIMEOUT_MS } from './transactions'
-import { createStaticCredentialProvider } from './providers/static-credential'
-import { createBasicCredentialProvider } from './providers/basic-credential'
-import { createAdfsWiaProvider } from './providers/corp-adfs-wia'
+import { createCredentialMethod } from './methods/credential'
+import { createBrowserSessionMethod } from './methods/browser-session'
 import { createCredentialVault } from '../../infra/auth/credential-vault'
 import type { SecretStorePort } from '../../infra/config/secret-facade'
 import type { AuthPlatformState, AuthStepInfo, AuthTarget } from '../../../shared/ipc'
-import type {
-  AuthProviderV1,
-  AuthStep,
-  BrowserSessionCapability
-} from '../../contracts/auth-plugin'
+import type { AuthMethod, AuthOutcome, BrowserSessionCapability } from '../../contracts/auth-method'
+
+// 인증 방식 fake — 내장 방식과 같은 factory 를 쓰되 테스트마다 id 를 나눈다(중복 등록 거부).
+function patLike(id: string, label: string, mechanism = 'personal_access_token'): AuthMethod {
+  return createCredentialMethod({
+    id,
+    label,
+    mechanism: mechanism as 'personal_access_token',
+    credentialKind: 'personal_access_token',
+    // 이 하네스는 같은 방식으로 앱 로그인과 서비스 연결을 **둘 다** 태워 lifecycle 이 하나임을
+    // 확인한다(AC3). 내장 자격증명 방식의 기본값은 연결 전용이다.
+    targets: ['application', 'connector'],
+    fields: [{ name: 'credential', label, type: 'password', required: true }],
+    compose: (input) => {
+      const value = (input['credential'] ?? '').trim()
+      return value.length === 0 ? { error: '값을 입력해 주세요' } : { value }
+    }
+  })
+}
+
+function basicLike(id: string, label: string): AuthMethod {
+  return createCredentialMethod({
+    id,
+    label,
+    mechanism: 'basic',
+    credentialKind: 'basic',
+    targets: ['application', 'connector'],
+    fields: [
+      { name: 'username', label: '아이디', type: 'text', required: true },
+      { name: 'password', label: '비밀번호', type: 'password', required: true }
+    ],
+    compose: (input) => {
+      const username = (input['username'] ?? '').trim()
+      const password = input['password'] ?? ''
+      if (username.length === 0) return { error: '아이디를 입력해 주세요' }
+      if (password.length === 0) return { error: '비밀번호를 입력해 주세요' }
+      return { value: `${username}:${password}`, principalId: username }
+    }
+  })
+}
+
+function adfsLike(id: string, label: string, sessionGroup = 'corp-adfs'): AuthMethod {
+  return createBrowserSessionMethod({
+    id,
+    label,
+    sessionGroup,
+    loginUrl: `${ORIGIN}/login`,
+    doneUrlPrefix: `${ORIGIN}/home`,
+    authenticationProbeUrl: `${ORIGIN}/me`,
+    allowedOrigins: [ORIGIN]
+  })
+}
 
 const ORIGIN = 'https://wiki.corp.invalid'
 const APP: AuthTarget = { kind: 'application', applicationId: 'orca' }
@@ -46,43 +92,32 @@ interface Harness {
 function harness(
   browserOverrides: Partial<BrowserSessionCapability> & {
     onBindingsEnded?: (bindingIds: readonly string[]) => Promise<void>
-    patContinue?: AuthProviderV1['continue']
-    patLogout?: AuthProviderV1['logout']
+    patAuthenticate?: AuthMethod['authenticate']
+    patRevoke?: AuthMethod['revoke']
   } = {}
 ): Harness {
-  const { onBindingsEnded, patContinue, patLogout, ...sessionOverrides } = browserOverrides
+  const { onBindingsEnded, patAuthenticate, patRevoke, ...sessionOverrides } = browserOverrides
   const store = fakeStore()
   const registry = new AuthRegistry()
   const cleared: Array<{ handleId: string; scope: string }> = []
 
-  const staticPat = createStaticCredentialProvider({
-    id: 'pat',
-    pluginId: 'corp',
-    label: 'PAT',
-    mechanism: 'personal_access_token'
-  })
-  const pat: AuthProviderV1 = {
+  const staticPat = patLike('pat', 'PAT')
+  const pat: AuthMethod = {
     ...staticPat,
-    ...(patContinue !== undefined ? { continue: patContinue } : {}),
-    ...(patLogout !== undefined ? { logout: patLogout } : {})
+    // 재진입 계약을 지킨다 — 1회차(입력 없음)는 기본 구현이 필드를 알리고, 사용자가 채워
+    // 다시 부른 2회차만 override 가 받는다.
+    ...(patAuthenticate !== undefined
+      ? {
+          authenticate: async (ctx) =>
+            Object.keys(ctx.input).length === 0 ? staticPat.authenticate(ctx) : patAuthenticate(ctx)
+        }
+      : {}),
+    ...(patRevoke !== undefined ? { revoke: patRevoke } : {})
   }
 
-  const errors = registry.register({ providers: [pat] })
+  const errors = registry.registerMethods([pat])
   expect(errors).toEqual([])
-  const adfsErrors = registry.register({
-    providers: [
-      createAdfsWiaProvider({
-        id: 'adfs',
-        pluginId: 'corp-adfs',
-        label: 'ADFS',
-        sessionGroup: 'corp-adfs',
-        loginUrl: `${ORIGIN}/login`,
-        doneUrlPrefix: `${ORIGIN}/home`,
-        authenticationProbeUrl: `${ORIGIN}/me`,
-        allowedOrigins: [ORIGIN]
-      })
-    ]
-  })
+  const adfsErrors = registry.registerMethods([adfsLike('adfs', 'ADFS')])
   expect(adfsErrors).toEqual([])
 
   const states: AuthPlatformState[] = []
@@ -96,6 +131,7 @@ function harness(
       acquire: async (group) => `handle:${group}`,
       openLoginWindow: async () => ({ finalUrl: `${ORIGIN}/home` }),
       probe: async () => ({ ok: true, status: 200, finalUrl: `${ORIGIN}/me` }),
+      send: async () => ({ status: 200, headers: {}, body: '' }),
       clear: async (handleId, opts) => void cleared.push({ handleId, scope: opts.scope }),
       ...sessionOverrides
     },
@@ -179,6 +215,7 @@ describe('AuthBroker — application/connector 공통 lifecycle', () => {
         acquire: async () => 'h',
         openLoginWindow: async () => ({ finalUrl: '' }),
         probe: async () => ({ ok: false, status: 0, finalUrl: '' }),
+        send: async () => ({ status: 200, headers: {}, body: '' }),
         clear: async () => undefined
       },
       broadcast: () => undefined
@@ -189,16 +226,7 @@ describe('AuthBroker — application/connector 공통 lifecycle', () => {
   it('선언하지 않은 target 으로는 인증할 수 없다', async () => {
     const { broker } = harness()
     const registry = new AuthRegistry()
-    registry.register({
-      providers: [
-        createStaticCredentialProvider({
-          id: 'conn-only',
-          pluginId: 'x',
-          label: 'C',
-          mechanism: 'api_key'
-        })
-      ]
-    })
+    registry.registerMethods([patLike('conn-only', 'C', 'api_key')])
     // static-credential 은 두 target 을 다 선언하므로 broker 레벨 거부를 직접 확인한다.
     const step = await broker.begin('unknown-provider', APP)
     expect(step.kind).toBe('failed')
@@ -296,19 +324,21 @@ describe('AuthBroker — MCP binding 해석 (AC10)', () => {
     const { broker } = harness()
     const wiki = await loginPat(broker, WIKI, 'mcp-token')
     if (wiki.kind !== 'done') throw new Error('unreachable')
-    expect(broker.resolveBindingCredential(wiki.binding.id)).toBe('mcp-token')
+    expect(broker.token('wiki')).toBe('mcp-token')
   })
 
   it('알 수 없는 binding 은 null', () => {
     const { broker } = harness()
-    expect(broker.resolveBindingCredential('nope')).toBeNull()
+    expect(broker.token('nope')).toBeNull()
   })
 
   it('browser session binding 은 값으로 전달할 수 없다', async () => {
     const { broker } = harness()
     const step = await broker.begin('adfs', WIKI)
     if (step.kind !== 'done') throw new Error('unreachable')
-    expect(broker.resolveBindingCredential(step.binding.id)).toBeNull()
+    expect(
+      broker.token(step.binding.target.kind === 'connector' ? step.binding.target.connectorId : '')
+    ).toBeNull()
   })
 
   it('logout 된 binding 은 해석되지 않는다', async () => {
@@ -316,7 +346,7 @@ describe('AuthBroker — MCP binding 해석 (AC10)', () => {
     const wiki = await loginPat(broker, WIKI, 'mcp-token')
     if (wiki.kind !== 'done') throw new Error('unreachable')
     await broker.logout(wiki.binding.id, false)
-    expect(broker.resolveBindingCredential(wiki.binding.id)).toBeNull()
+    expect(broker.token('wiki')).toBeNull()
   })
 })
 
@@ -349,22 +379,14 @@ describe('AuthBroker — authenticatedFetch (AC8 경로)', () => {
     const store = fakeStore()
     const registry = new AuthRegistry()
     const sent: Array<{ url: string; headers: Record<string, string> }> = []
+    expect(registry.registerMethods([patLike('pat', 'PAT')])).toEqual([])
     const errors = registry.register({
-      providers: [
-        createStaticCredentialProvider({
-          id: 'pat',
-          pluginId: 'corp',
-          label: 'PAT',
-          mechanism: 'personal_access_token'
-        })
-      ],
       connectors: [
         {
           descriptor: {
             id: 'wiki',
-            pluginId: 'corp',
             label: 'Wiki',
-            acceptedAuthProviders: ['pat'],
+            acceptedMethods: ['pat'],
             baseUrl: ORIGIN,
             presentation: { location: 'header', name: 'PRIVATE-TOKEN' }
           },
@@ -383,6 +405,7 @@ describe('AuthBroker — authenticatedFetch (AC8 경로)', () => {
         acquire: async (g) => `handle:${g}`,
         openLoginWindow: async () => ({ finalUrl: '' }),
         probe: async () => ({ ok: true, status: 200, finalUrl: '' }),
+        send: async () => ({ status: 200, headers: {}, body: '' }),
         clear: async () => undefined
       },
       broadcast: () => undefined,
@@ -404,9 +427,8 @@ describe('AuthBroker — authenticatedFetch (AC8 경로)', () => {
     const done = await broker.continue(begun.transactionId, { credential: 'pat-value' })
     if (done.kind !== 'done') throw new Error('unreachable')
 
-    await broker.authenticatedFetch({
-      bindingId: done.binding.id,
-      connectorId: 'wiki',
+    await broker.request({
+      target: 'wiki',
       method: 'GET',
       path: '/rest/api/content'
     })
@@ -426,9 +448,8 @@ describe('AuthBroker — authenticatedFetch (AC8 경로)', () => {
     if (done.kind !== 'done') throw new Error('unreachable')
 
     await expect(
-      broker.authenticatedFetch({
-        bindingId: done.binding.id,
-        connectorId: 'wiki',
+      broker.request({
+        target: 'wiki',
         method: 'GET',
         path: '/x',
         headers: { Authorization: 'Bearer stolen' }
@@ -445,9 +466,8 @@ describe('AuthBroker — authenticatedFetch (AC8 경로)', () => {
     if (done.kind !== 'done') throw new Error('unreachable')
 
     await expect(
-      broker.authenticatedFetch({
-        bindingId: done.binding.id,
-        connectorId: 'wiki',
+      broker.request({
+        target: 'wiki',
         method: 'GET',
         path: 'https://evil.invalid/steal'
       })
@@ -474,25 +494,16 @@ describe('AuthBroker — redirect 추종과 mechanism 별 presentation (0160)', 
     const store = fakeStore()
     const registry = new AuthRegistry()
     const sent: Sent[] = []
+    expect(registry.registerMethods([patLike('pat', 'PAT'), basicLike('idpw', 'ID/PW')])).toEqual(
+      []
+    )
     const errors = registry.register({
-      providers: [
-        createStaticCredentialProvider({
-          id: 'pat',
-          pluginId: 'corp',
-          label: 'PAT',
-          mechanism: 'personal_access_token',
-          // 서비스 연결 전용 — application 을 열면 앱 로그인 게이트가 켜진다.
-          targets: ['connector']
-        }),
-        createBasicCredentialProvider({ id: 'idpw', pluginId: 'corp', label: 'ID/PW' })
-      ],
       connectors: [
         {
           descriptor: {
             id: 'wiki',
-            pluginId: 'corp',
             label: 'Wiki',
-            acceptedAuthProviders: ['pat', 'idpw'],
+            acceptedMethods: ['pat', 'idpw'],
             baseUrl: ORIGIN,
             presentation: { location: 'header', name: 'Authorization', scheme: 'Bearer' },
             ...(opts.presentations !== undefined
@@ -516,6 +527,7 @@ describe('AuthBroker — redirect 추종과 mechanism 별 presentation (0160)', 
         acquire: async (g) => `handle:${g}`,
         openLoginWindow: async () => ({ finalUrl: '' }),
         probe: async () => ({ ok: true, status: 200, finalUrl: '' }),
+        send: async () => ({ status: 200, headers: {}, body: '' }),
         clear: async () => undefined
       },
       broadcast: () => undefined,
@@ -557,10 +569,9 @@ describe('AuthBroker — redirect 추종과 mechanism 별 presentation (0160)', 
         { status: 200, body: 'payload' }
       ]
     })
-    const bindingId = await bindPat(broker)
-    const res = await broker.authenticatedFetch({
-      bindingId,
-      connectorId: 'wiki',
+    await bindPat(broker)
+    const res = await broker.request({
+      target: 'wiki',
       method: 'GET',
       path: '/rest/api/attachment/data'
     })
@@ -579,10 +590,9 @@ describe('AuthBroker — redirect 추종과 mechanism 별 presentation (0160)', 
     const { broker, sent } = harness({
       responses: [{ status: 302, headers: { Location: '/download/rel' } }, { status: 200 }]
     })
-    const bindingId = await bindPat(broker)
-    await broker.authenticatedFetch({
-      bindingId,
-      connectorId: 'wiki',
+    await bindPat(broker)
+    await broker.request({
+      target: 'wiki',
       method: 'GET',
       path: '/rest/api/x'
     })
@@ -593,11 +603,10 @@ describe('AuthBroker — redirect 추종과 mechanism 별 presentation (0160)', 
     const { broker, sent } = harness({
       responses: [{ status: 302, headers: { location: 'https://evil.invalid/steal' } }]
     })
-    const bindingId = await bindPat(broker)
+    await bindPat(broker)
     await expect(
-      broker.authenticatedFetch({
-        bindingId,
-        connectorId: 'wiki',
+      broker.request({
+        target: 'wiki',
         method: 'GET',
         path: '/rest/api/x'
       })
@@ -612,11 +621,10 @@ describe('AuthBroker — redirect 추종과 mechanism 별 presentation (0160)', 
     const { broker, sent } = harness({
       responses: [{ status: 302, headers: { location: `${ORIGIN}/loop` } }]
     })
-    const bindingId = await bindPat(broker)
+    await bindPat(broker)
     await expect(
-      broker.authenticatedFetch({
-        bindingId,
-        connectorId: 'wiki',
+      broker.request({
+        target: 'wiki',
         method: 'GET',
         path: '/rest/api/x'
       })
@@ -629,10 +637,9 @@ describe('AuthBroker — redirect 추종과 mechanism 별 presentation (0160)', 
     const { broker, sent } = harness({
       responses: [{ status: 303, headers: { location: `${ORIGIN}/after` } }, { status: 200 }]
     })
-    const bindingId = await bindPat(broker)
-    await broker.authenticatedFetch({
-      bindingId,
-      connectorId: 'wiki',
+    await bindPat(broker)
+    await broker.request({
+      target: 'wiki',
       method: 'POST',
       path: '/rest/api/x',
       body: '{}'
@@ -645,10 +652,9 @@ describe('AuthBroker — redirect 추종과 mechanism 별 presentation (0160)', 
     const { broker, sent } = harness({
       responses: [{ status: 304, headers: { location: `${ORIGIN}/nope` } }]
     })
-    const bindingId = await bindPat(broker)
-    const res = await broker.authenticatedFetch({
-      bindingId,
-      connectorId: 'wiki',
+    await bindPat(broker)
+    const res = await broker.request({
+      target: 'wiki',
       method: 'GET',
       path: '/rest/api/x'
     })
@@ -662,10 +668,9 @@ describe('AuthBroker — redirect 추종과 mechanism 별 presentation (0160)', 
       basic: { location: 'header', name: 'Authorization', scheme: 'BasicPair' }
     }
     const { broker, sent } = harness({ responses: [{ status: 200 }], presentations })
-    const bindingId = await bindBasic(broker)
-    await broker.authenticatedFetch({
-      bindingId,
-      connectorId: 'wiki',
+    await bindBasic(broker)
+    await broker.request({
+      target: 'wiki',
       method: 'GET',
       path: '/rest/api/x'
     })
@@ -681,10 +686,9 @@ describe('AuthBroker — redirect 추종과 mechanism 별 presentation (0160)', 
       basic: { location: 'header', name: 'Authorization', scheme: 'BasicPair' }
     }
     const { broker, sent } = harness({ responses: [{ status: 200 }], presentations })
-    const bindingId = await bindPat(broker)
-    await broker.authenticatedFetch({
-      bindingId,
-      connectorId: 'wiki',
+    await bindPat(broker)
+    await broker.request({
+      target: 'wiki',
       method: 'GET',
       path: '/rest/api/x'
     })
@@ -693,10 +697,9 @@ describe('AuthBroker — redirect 추종과 mechanism 별 presentation (0160)', 
 
   it('presentations 를 아예 선언하지 않은 connector 는 기존대로 동작한다', async () => {
     const { broker, sent } = harness({ responses: [{ status: 200 }] })
-    const bindingId = await bindBasic(broker)
-    await broker.authenticatedFetch({
-      bindingId,
-      connectorId: 'wiki',
+    await bindBasic(broker)
+    await broker.request({
+      target: 'wiki',
       method: 'GET',
       path: '/rest/api/x'
     })
@@ -707,34 +710,25 @@ describe('AuthBroker — redirect 추종과 mechanism 별 presentation (0160)', 
     const store = fakeStore()
     const registry = new AuthRegistry()
     const options: Array<unknown> = []
-    registry.register({
-      providers: [
-        createStaticCredentialProvider({
-          id: 'pat',
-          pluginId: 'corp',
-          label: 'PAT',
-          mechanism: 'personal_access_token',
-          // manifest 선언(`targets: ['connector']`)과 같아야 한다 — 0164 verify D4.
-          targets: ['connector']
-        }),
-        createBasicCredentialProvider({ id: 'idpw', pluginId: 'corp', label: 'ID/PW' })
-      ],
-      connectors: [
-        {
-          descriptor: {
-            id: 'wiki',
-            pluginId: 'corp',
-            label: 'Wiki',
-            acceptedAuthProviders: ['pat', 'idpw'],
-            baseUrl: ORIGIN,
-            presentation: { location: 'header', name: 'Authorization', scheme: 'Bearer' }
-          },
-          start: async () => ({ health: 'ready' }),
-          invoke: async () => ({ ok: true, data: null }),
-          stop: async () => undefined
-        }
-      ]
-    })
+    registry.registerMethods([patLike('pat', 'PAT'), basicLike('idpw', 'ID/PW')])
+    expect(
+      registry.register({
+        connectors: [
+          {
+            descriptor: {
+              id: 'wiki',
+              label: 'Wiki',
+              acceptedMethods: ['pat', 'idpw'],
+              baseUrl: ORIGIN,
+              presentation: { location: 'header', name: 'Authorization', scheme: 'Bearer' }
+            },
+            start: async () => ({ health: 'ready' }),
+            invoke: async () => ({ ok: true, data: null }),
+            stop: async () => undefined
+          }
+        ]
+      })
+    ).toEqual([])
     const broker = new AuthBroker({
       registry,
       vaultFor: (prefix) => createCredentialVault(store, prefix),
@@ -743,6 +737,7 @@ describe('AuthBroker — redirect 추종과 mechanism 별 presentation (0160)', 
         acquire: async (g) => `handle:${g}`,
         openLoginWindow: async () => ({ finalUrl: '' }),
         probe: async () => ({ ok: true, status: 200, finalUrl: '' }),
+        send: async () => ({ status: 200, headers: {}, body: '' }),
         clear: async () => undefined
       },
       broadcast: () => undefined,
@@ -753,10 +748,9 @@ describe('AuthBroker — redirect 추종과 mechanism 별 presentation (0160)', 
         }
       }
     })
-    const bindingId = await bindPat(broker)
-    const res = await broker.authenticatedFetch({
-      bindingId,
-      connectorId: 'wiki',
+    await bindPat(broker)
+    const res = await broker.request({
+      target: 'wiki',
       method: 'GET',
       path: '/rest/api/x',
       responseType: 'binary',
@@ -802,7 +796,7 @@ describe('AuthBroker ended-binding callback (AC14~16)', () => {
   it('awaits callback cleanup and removes locally when provider logout fails or throws', async () => {
     const ended: string[][] = []
     const { broker } = harness({
-      patLogout: async () => {
+      patRevoke: async () => {
         throw new Error('provider unavailable')
       },
       onBindingsEnded: async (bindingIds) => {
@@ -824,9 +818,9 @@ describe('AuthBroker ended-binding callback (AC14~16)', () => {
     const parent = { bindingId: undefined as string | undefined }
     const ended: string[][] = []
     const { broker } = harness({
-      patContinue: async (ctx) => ({
-        kind: 'done',
-        binding: {
+      patAuthenticate: async (ctx) => ({
+        kind: 'authenticated',
+        record: {
           mechanism: 'personal_access_token',
           artifact: {
             kind: 'vault_credential',
@@ -878,7 +872,9 @@ describe('AuthBroker ended-binding callback (AC14~16)', () => {
 
   it('preserves both provider and callback failures in the failed logout message', async () => {
     const { broker } = harness({
-      patLogout: async () => ({ kind: 'failed', message: 'provider logout failed' }),
+      patRevoke: async () => {
+        throw new Error('provider logout failed')
+      },
       onBindingsEnded: async () => {
         throw new Error('connector cleanup failed')
       }
@@ -905,15 +901,15 @@ describe('AuthBroker cascade logout linearization', () => {
     const providerLogoutIds: string[] = []
     const callbackIds: string[][] = []
     const { broker, store } = harness({
-      patContinue: async (ctx) => {
+      patAuthenticate: async (ctx) => {
         const credential = ctx.input.credential ?? ''
         ctx.vault.set('secret', credential, {
           kind: 'personal_access_token',
           createdAt: ctx.clock()
         })
         return {
-          kind: 'done',
-          binding: {
+          kind: 'authenticated',
+          record: {
             mechanism: 'personal_access_token',
             artifact: {
               kind: 'vault_credential',
@@ -924,13 +920,12 @@ describe('AuthBroker cascade logout linearization', () => {
           }
         }
       },
-      patLogout: async (_ctx, binding) => {
+      patRevoke: async (_ctx, binding) => {
         providerLogoutIds.push(binding.id)
         if (binding.id === root.bindingId) {
           providerLogoutStarted.resolve(undefined)
           await releaseProviderLogout.promise
         }
-        return { kind: 'logged_out' }
       },
       onBindingsEnded: async (bindingIds) => {
         callbackIds.push([...bindingIds])
@@ -965,15 +960,15 @@ describe('AuthBroker cascade logout linearization', () => {
   it('does not create an orphan when a dependent transaction finishes after its parent is removed', async () => {
     const root = { bindingId: '' }
     const { broker, store } = harness({
-      patContinue: async (ctx) => {
+      patAuthenticate: async (ctx) => {
         const credential = ctx.input.credential ?? ''
         ctx.vault.set('secret', credential, {
           kind: 'personal_access_token',
           createdAt: ctx.clock()
         })
         return {
-          kind: 'done',
-          binding: {
+          kind: 'authenticated',
+          record: {
             mechanism: 'personal_access_token',
             artifact: {
               kind: 'vault_credential',
@@ -1017,12 +1012,12 @@ interface ChainHarness {
   sessions: { cleared: Array<{ handleId: string; scope: string }> }
 }
 
-function chainHarness(providers: readonly AuthProviderV1[]): ChainHarness {
+function chainHarness(methods: readonly AuthMethod[]): ChainHarness {
   const store = fakeStore()
   const registry = new AuthRegistry()
   const cleared: Array<{ handleId: string; scope: string }> = []
 
-  const errors = registry.register({ providers })
+  const errors = registry.registerMethods(methods)
   expect(errors).toEqual([])
 
   const states: AuthPlatformState[] = []
@@ -1034,6 +1029,7 @@ function chainHarness(providers: readonly AuthProviderV1[]): ChainHarness {
       acquire: async (group) => `handle:${group}`,
       openLoginWindow: async () => ({ finalUrl: `${ORIGIN}/home` }),
       probe: async () => ({ ok: true, status: 200, finalUrl: `${ORIGIN}/me` }),
+      send: async () => ({ status: 200, headers: {}, body: '' }),
       clear: async (handleId, opts) => void cleared.push({ handleId, scope: opts.scope })
     },
     broadcast: (s) => states.push(s)
@@ -1046,38 +1042,46 @@ function credentialMember(
   id: string,
   logoutCalls: string[],
   opts: { failContinue?: boolean } = {}
-): AuthProviderV1 {
-  const base = createStaticCredentialProvider({
+): AuthMethod {
+  const base = createCredentialMethod({
     id,
-    pluginId: CHAIN_PLUGIN,
     label: id.toUpperCase(),
     mechanism: 'personal_access_token',
-    targets: ['application']
+    credentialKind: 'personal_access_token',
+    groupId: CHAIN_PLUGIN,
+    targets: ['application'],
+    fields: [{ name: 'credential', label: id, type: 'password', required: true }],
+    compose: (input) => {
+      const value = (input['credential'] ?? '').trim()
+      return value.length === 0 ? { error: '값을 입력해 주세요' } : { value }
+    }
   })
   return {
     ...base,
-    ...(opts.failContinue === true
-      ? {
-          continue: async (): Promise<AuthStep> => ({
-            kind: 'failed',
-            reason: 'invalid_credentials',
-            message: '자격증명이 거부되었습니다'
-          })
+    authenticate: async (ctx): Promise<AuthOutcome> => {
+      const outcome = await base.authenticate(ctx)
+      if (opts.failContinue === true && outcome.kind === 'authenticated') {
+        return {
+          kind: 'failed',
+          reason: 'invalid_credentials',
+          message: '자격증명이 거부되었습니다'
         }
-      : {}),
-    logout: async (ctx, ref) => {
+      }
+      return outcome
+    },
+    revoke: async (ctx, ref) => {
       logoutCalls.push(id)
-      return base.logout(ctx, ref)
+      await base.revoke(ctx, ref)
     }
   }
 }
 
 // begin() 안에서 끝나는 브라우저 멤버(ADFS/WIA).
-function browserMember(id: string, logoutCalls: string[]): AuthProviderV1 {
-  const base = createAdfsWiaProvider({
+function browserMember(id: string, logoutCalls: string[]): AuthMethod {
+  const base = createBrowserSessionMethod({
     id,
-    pluginId: CHAIN_PLUGIN,
     label: id.toUpperCase(),
+    groupId: CHAIN_PLUGIN,
     sessionGroup: 'chain-adfs',
     loginUrl: `${ORIGIN}/login`,
     doneUrlPrefix: `${ORIGIN}/home`,
@@ -1086,9 +1090,9 @@ function browserMember(id: string, logoutCalls: string[]): AuthProviderV1 {
   })
   return {
     ...base,
-    logout: async (ctx, ref) => {
+    revoke: async (ctx, ref) => {
       logoutCalls.push(id)
-      return base.logout(ctx, ref)
+      await base.revoke(ctx, ref)
     }
   }
 }
@@ -1265,17 +1269,20 @@ describe('AuthBroker — 로그인 체인 (0172)', () => {
   it('connector target 은 체인을 타지 않는다', async () => {
     const logoutCalls: string[] = []
     // 같은 패키지의 provider 2종이지만 connector 연결은 지정한 하나만 실행한다.
-    const both = createStaticCredentialProvider({
+    const both = createCredentialMethod({
       id: 'both',
-      pluginId: CHAIN_PLUGIN,
       label: 'BOTH',
       mechanism: 'personal_access_token',
-      targets: ['application', 'connector']
+      credentialKind: 'personal_access_token',
+      groupId: CHAIN_PLUGIN,
+      targets: ['application', 'connector'],
+      fields: [{ name: 'credential', label: 'BOTH', type: 'password', required: true }],
+      compose: (input) => {
+        const value = (input['credential'] ?? '').trim()
+        return value.length === 0 ? { error: '값을 입력해 주세요' } : { value }
+      }
     })
-    const { broker } = chainHarness([
-      { ...both, logout: async (ctx, ref) => both.logout(ctx, ref) },
-      credentialMember('two', logoutCalls)
-    ])
+    const { broker } = chainHarness([both, credentialMember('two', logoutCalls)])
 
     const step = await broker.begin('both', WIKI)
     expect(step.kind).toBe('collect')
@@ -1305,82 +1312,5 @@ describe('AuthBroker — 로그인 체인 (0172)', () => {
     expect(broker.listBindings()).toHaveLength(0)
     expect(store.raw.size).toBe(0)
     expect(broker.status().authenticated).toBe(false)
-  })
-})
-
-// ══════════════════════════════════════════════════════════════════════════════
-// 0173 — provider 의 ctx.fetch 도 주입 구현(프로덕션 = Chromium net.fetch)을 탄다
-// ══════════════════════════════════════════════════════════════════════════════
-
-describe('AuthBroker — ctx.fetch 전송 구현 주입 (0173)', () => {
-  const PROBE_PLUGIN = 'probe-pkg'
-
-  // probeUrl 을 준 static-credential 은 continue() 에서 ctx.fetch 로 자격증명을 검증한다.
-  function probeHarness(allowedOrigins: readonly string[]): {
-    broker: AuthBroker
-    calls: Array<{ url: string; init?: RequestInit }>
-  } {
-    const registry = new AuthRegistry()
-    const provider = createStaticCredentialProvider({
-      id: 'probe',
-      pluginId: PROBE_PLUGIN,
-      label: 'PROBE',
-      mechanism: 'personal_access_token',
-      targets: ['connector'],
-      probeUrl: `${ORIGIN}/me`,
-      allowedOrigins
-    })
-    const errors = registry.register({
-      providers: [provider]
-    })
-    expect(errors).toEqual([])
-
-    const calls: Array<{ url: string; init?: RequestInit }> = []
-    const broker = new AuthBroker({
-      registry,
-      vaultFor: (prefix) => createCredentialVault(fakeStore(), prefix),
-      fetchImpl: async (url, init) => {
-        calls.push({ url: String(url), ...(init !== undefined ? { init } : {}) })
-        return new Response('{}', { status: 200 })
-      },
-      browserSessions: {
-        acquire: async () => 'h',
-        openLoginWindow: async () => ({ finalUrl: '' }),
-        probe: async () => ({ ok: true, status: 200, finalUrl: '' }),
-        clear: async () => undefined
-      },
-      broadcast: () => undefined
-    })
-    return { broker, calls }
-  }
-
-  it('ctx.fetch 는 주입 구현으로 나간다 — 전역 fetch 를 쓰지 않는다', async () => {
-    const globalSpy = vi.fn(async () => new Response('전역', { status: 200 }))
-    vi.stubGlobal('fetch', globalSpy)
-    const { broker, calls } = probeHarness([ORIGIN])
-
-    const step = await broker.begin('probe', WIKI)
-    if (step.kind !== 'collect') throw new Error('collect 가 아니다')
-    const done = await broker.continue(step.transactionId, { credential: 'pat-1' })
-
-    expect(done.kind).toBe('done')
-    expect(calls.map((c) => c.url)).toEqual([`${ORIGIN}/me`])
-    // redirect 는 수동 유지 — 스택이 바뀌어도 정책은 그대로다.
-    expect(calls[0].init?.redirect).toBe('manual')
-    expect(globalSpy).not.toHaveBeenCalled()
-    vi.unstubAllGlobals()
-  })
-
-  it('주입 구현으로 바꿔도 미선언 origin 은 여전히 거부된다', async () => {
-    // allowlist 를 비우면 probe 가 나가기 전에 막혀야 한다 — 강제 지점이 전송자 앞에 남아 있다.
-    const { broker, calls } = probeHarness([])
-
-    const step = await broker.begin('probe', WIKI)
-    if (step.kind !== 'collect') throw new Error('collect 가 아니다')
-    const failed = await broker.continue(step.transactionId, { credential: 'pat-1' })
-
-    expect(failed.kind).toBe('failed')
-    // 요청 자체가 만들어지지 않았다.
-    expect(calls).toEqual([])
   })
 })

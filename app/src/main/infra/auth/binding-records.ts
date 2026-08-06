@@ -22,7 +22,7 @@ function isBindingRecord(value: unknown): value is AuthBindingInfo {
   if (typeof value !== 'object' || value === null) return false
   const record = value as Partial<AuthBindingInfo>
   if (typeof record.id !== 'string' || record.id === '') return false
-  if (typeof record.pluginId !== 'string' || typeof record.providerId !== 'string') return false
+  if (typeof record.providerId !== 'string') return false
   if (typeof record.mechanism !== 'string' || typeof record.status !== 'string') return false
   if (typeof record.createdAt !== 'number') return false
   return AuthTargetSchema.safeParse(record.target).success && isArtifact(record.artifact)

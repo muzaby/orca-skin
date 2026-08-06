@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { ConnectorRuntimeV1, ConnectorStatus } from '../../contracts/connector-plugin'
+import type { ConnectorRuntime, ConnectorStatus } from '../../contracts/connector'
 import { ConnectionRegistry } from './registry'
 import { ConnectorHost } from './runtime'
 
@@ -7,13 +7,12 @@ function connector(
   id: string,
   start: () => Promise<ConnectorStatus> = async () => ({ health: 'ready' }),
   stop: () => Promise<void> = async () => undefined
-): ConnectorRuntimeV1 {
+): ConnectorRuntime {
   return {
     descriptor: {
       id,
-      pluginId: 'test-plugin',
       label: id,
-      acceptedAuthProviders: ['test-auth'],
+      acceptedMethods: ['test-auth'],
       baseUrl: 'https://connector.example.invalid',
       presentation: { location: 'header', name: 'Authorization', scheme: 'Bearer' }
     },
@@ -37,7 +36,7 @@ function deferred<T>(): {
   return { promise, resolve, reject }
 }
 
-function hostWith(...connectors: ConnectorRuntimeV1[]): {
+function hostWith(...connectors: ConnectorRuntime[]): {
   registry: ConnectionRegistry
   host: ConnectorHost
 } {
@@ -48,7 +47,7 @@ function hostWith(...connectors: ConnectorRuntimeV1[]): {
     host: new ConnectorHost({
       connections: registry,
       lookup: { getConnector: (connectorId) => byId.get(connectorId) },
-      authenticatedFetch: async () => ({ status: 200, headers: {}, body: '' })
+      api: { request: async () => ({ status: 200, headers: {}, body: '' }) }
     })
   }
 }
@@ -165,9 +164,8 @@ describe('ConnectorHost.connect', () => {
     const { registry, host } = hostWith({
       descriptor: {
         id: 'jira-engineering',
-        pluginId: 'test-plugin',
         label: 'jira-engineering',
-        acceptedAuthProviders: ['test-auth'],
+        acceptedMethods: ['test-auth'],
         baseUrl: 'https://connector.example.invalid',
         presentation: { location: 'header', name: 'Authorization', scheme: 'Bearer' }
       },
@@ -195,9 +193,8 @@ describe('ConnectorHost.connect', () => {
     const { registry, host } = hostWith({
       descriptor: {
         id: 'jira-engineering',
-        pluginId: 'test-plugin',
         label: 'jira-engineering',
-        acceptedAuthProviders: ['test-auth'],
+        acceptedMethods: ['test-auth'],
         baseUrl: 'https://connector.example.invalid',
         presentation: { location: 'header', name: 'Authorization', scheme: 'Bearer' }
       },
@@ -229,9 +226,8 @@ describe('ConnectorHost.connect', () => {
     const { registry, host } = hostWith({
       descriptor: {
         id: 'jira-engineering',
-        pluginId: 'test-plugin',
         label: 'jira-engineering',
-        acceptedAuthProviders: ['test-auth'],
+        acceptedMethods: ['test-auth'],
         baseUrl: 'https://connector.example.invalid',
         presentation: { location: 'header', name: 'Authorization', scheme: 'Bearer' }
       },

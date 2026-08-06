@@ -277,7 +277,6 @@ export const PluginConnectorInfoSchema = z
     connectorId: PluginConnectorIdSchema,
     label: z.string().min(1).max(200),
     origin: z.url().max(2048),
-    pluginId: PluginConnectorIdSchema,
     acceptedAuthProviders: z.array(PluginConnectorIdSchema),
     connected: z.boolean(),
     connectedProviderId: PluginConnectorIdSchema.optional()
@@ -295,9 +294,9 @@ export const PluginDiagnosticsRequestSchema = z.undefined()
 export const PluginDiagnosticSchema = z
   .object({
     // package = 빌드타임 opt-in 패키지,
-    // cross-reference = connector 가 가리키는 provider 가 없음.
+    // cross-reference = 대상이 가리키는 인증 방식이 없음.
     kind: z.enum(['package', 'cross-reference']),
-    // 거부된 대상. 패키지면 pluginId, 인스턴스면 connectorId.
+    // 거부된 대상 = 인증 방식 id 또는 대상 id.
     subject: z.string().min(1).max(200),
     message: z.string().min(1).max(500)
   })
@@ -647,7 +646,6 @@ export type {
   AuthTarget,
   AuthTargetKind,
   AuthMechanism,
-  AuthCapability,
   CredentialKind,
   CredentialPresentation,
   AuthFieldSpec,

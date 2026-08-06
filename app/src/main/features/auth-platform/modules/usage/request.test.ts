@@ -16,7 +16,7 @@ const config: UsageConnectorConfig = {
 
 describe('buildUsageRequest', () => {
   it('선언된 자리표시자만 인코딩해 치환한다', () => {
-    const request = buildUsageRequest(config, 'usage-corp', 'binding-1', 'team', {
+    const request = buildUsageRequest(config, 'usage-corp', 'team', {
       team: '../secrets?x=1',
       // 선언되지 않은 파라미터는 요청에 새지 않는다.
       unexpected: 'ignored'
@@ -30,11 +30,10 @@ describe('buildUsageRequest', () => {
   })
 
   it('apiBasePath 를 정규화해 경로 앞에 붙이고 query 를 치환한다', () => {
-    const request = buildUsageRequest(config, 'usage-corp', 'binding-1', 'quota', { scope: 'week' })
+    const request = buildUsageRequest(config, 'usage-corp', 'quota', { scope: 'week' })
 
     expect(request).toEqual({
-      bindingId: 'binding-1',
-      connectorId: 'usage-corp',
+      target: 'usage-corp',
       method: 'GET',
       path: '/portal/v1/quota',
       query: { scope: 'week', fixed: 'month' }
@@ -42,13 +41,13 @@ describe('buildUsageRequest', () => {
   })
 
   it('값이 없는 자리표시자는 원문으로 남긴다', () => {
-    const request = buildUsageRequest(config, 'usage-corp', 'binding-1', 'team', {})
+    const request = buildUsageRequest(config, 'usage-corp', 'team', {})
 
     expect(request?.path).toBe('/portal/v1/teams/{team}/quota')
   })
 
   it('body 에도 치환을 적용한다', () => {
-    const request = buildUsageRequest(config, 'usage-corp', 'binding-1', 'submit', {
+    const request = buildUsageRequest(config, 'usage-corp', 'submit', {
       team: 'alpha'
     })
 
@@ -56,7 +55,7 @@ describe('buildUsageRequest', () => {
   })
 
   it('선언되지 않은 operation 은 null 이다', () => {
-    expect(buildUsageRequest(config, 'usage-corp', 'binding-1', 'unknown')).toBeNull()
+    expect(buildUsageRequest(config, 'usage-corp', 'unknown')).toBeNull()
   })
 })
 

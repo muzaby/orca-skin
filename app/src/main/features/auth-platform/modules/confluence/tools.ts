@@ -18,8 +18,8 @@ import type {
   RuntimeToolImplementation,
   RuntimeToolResult
 } from '../../../../adapters/runtime-tools'
-import type { ConnectorResult } from '../../../../contracts/connector-plugin'
-import { CONFLUENCE_OPERATIONS, CONFLUENCE_PLUGIN_ID, MAX_PAGES_PER_CALL } from './connector'
+import type { ConnectorResult } from '../../../../contracts/connector'
+import { CONFLUENCE_OPERATIONS, MAX_PAGES_PER_CALL } from './connector'
 import { MAX_SEARCH_LIMIT } from './rest'
 import { renderPagesResult, renderSearchResult } from './search-render'
 
@@ -61,7 +61,6 @@ export function createConfluenceTools(
   return {
     descriptor: {
       id: serverId,
-      pluginId: CONFLUENCE_PLUGIN_ID,
       connectorId,
       tools: [
         {

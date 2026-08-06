@@ -1,7 +1,7 @@
 // Confluence Data Center connector 런타임 (0160).
 //
-// **raw credential 을 보지 않는다** — `ctx.authenticatedFetch(bindingId, …)` 만 부르고 헤더 주입은
-// broker 가 한다 (AUTH-PLAT-009). 그래서 이 파일에는 vault·secret·전역 fetch import 가 없다.
+// **raw credential 을 보지 않는다** — `ctx.request({ target, … })` 만 부르고 헤더 주입은 broker 가
+// 한다. 그래서 이 파일에는 vault·secret·전역 fetch import 가 없다.
 //
 // 취득(REST)과 가공(Markdown 변환·저장)을 **모듈 경계로** 나눈다 — `rest.ts` 는 요청만 만들고,
 // `storage-to-markdown.ts` 는 문자열만 다루며, `download-store.ts` 는 파일만 쓴다. 여기는 그
@@ -11,9 +11,9 @@ import type {
   ConnectorContext,
   ConnectorRequest,
   ConnectorResult,
-  ConnectorRuntimeV1,
+  ConnectorRuntime,
   ConnectorStatus
-} from '../../../../contracts/connector-plugin'
+} from '../../../../contracts/connector'
 import { DownloadStore, pageDir, type SavedAsset } from './download-store'
 import { mapWithLimit, partitionSettled } from './limit'
 import {
@@ -30,12 +30,15 @@ import {
   type SearchInput
 } from './rest'
 import { storageToMarkdown, UNKNOWN_USER_LABEL, USER_TOKEN_PATTERN } from './storage-to-markdown'
+// 인증 방식은 **내장 목록**이 소유한다 (0178). 0178 이전에는 이 모듈이 자기 PAT·ID/비밀번호
+// provider 를 직접 만들어 붙였고, 그래서 사용량 모듈과 글자까지 같은 구현이 두 벌이었다.
+import { BASIC_METHOD_ID, PAT_METHOD_ID } from '../../methods/credential'
 
 export interface ConfluenceServerConfig {
   // connector ID. 도구 서버 ID·다운로드 디렉터리가 여기서 파생되므로 바꾸면 이름이 전부 바뀐다.
   id: string
   label: string
-  // 경로 없는 origin. manifest `OriginSchema` 가 형태를 강제한다.
+  // 경로 없는 origin. 등록이 형태를 강제한다.
   baseUrl: string
   // 컨텍스트 경로(`/confluence`). 없으면 생략.
   apiBasePath?: string
@@ -141,7 +144,7 @@ export function normalizeServerConfig(config: ConfluenceServerConfig): Confluenc
   }
 }
 
-export function createConfluenceConnector(raw: ConfluenceServerConfig): ConnectorRuntimeV1 {
+export function createConfluenceConnector(raw: ConfluenceServerConfig): ConnectorRuntime {
   const config = normalizeServerConfig(raw)
   const endpoint = { apiBasePath: normalizeBasePath(config.apiBasePath) }
   const maxAttachmentBytes = config.maxAttachmentBytes ?? DEFAULT_MAX_ATTACHMENT_BYTES
@@ -151,10 +154,7 @@ export function createConfluenceConnector(raw: ConfluenceServerConfig): Connecto
     ctx: ConnectorContext,
     req: ReturnType<typeof pageRequest>
   ): Promise<unknown> {
-    const res = await ctx.authenticatedFetch(
-      { bindingId: ctx.bindingId, connectorId: config.id, ...req },
-      ctx.signal
-    )
+    const res = await ctx.request({ target: config.id, ...req }, ctx.signal)
     if (res.status < 200 || res.status >= 300) {
       throw new HttpStatusError(res.status)
     }
@@ -169,9 +169,8 @@ export function createConfluenceConnector(raw: ConfluenceServerConfig): Connecto
   return {
     descriptor: {
       id: config.id,
-      pluginId: CONFLUENCE_PLUGIN_ID,
       label: config.label,
-      acceptedAuthProviders: [CONFLUENCE_PAT_PROVIDER_ID, CONFLUENCE_BASIC_PROVIDER_ID],
+      acceptedMethods: [PAT_METHOD_ID, BASIC_METHOD_ID],
       baseUrl: config.baseUrl,
       // 기본값은 PAT(Bearer). ID/비밀번호 binding 은 아래 presentations 가 BasicPair 로 돌린다.
       presentation: { location: 'header', name: 'Authorization', scheme: 'Bearer' },
@@ -414,10 +413,7 @@ export function createConfluenceConnector(raw: ConfluenceServerConfig): Connecto
     store: DownloadStore
   ): Promise<SavedAsset> {
     const fetchBytes = async (req: RequestFields): Promise<Uint8Array> => {
-      const res = await ctx.authenticatedFetch(
-        { bindingId: ctx.bindingId, connectorId: config.id, ...req },
-        ctx.signal
-      )
+      const res = await ctx.request({ target: config.id, ...req }, ctx.signal)
       if (res.status < 200 || res.status >= 300) throw new HttpStatusError(res.status)
       if (res.bodyBytes === undefined) throw new Error('바이너리 본문이 비어 있습니다')
       return res.bodyBytes
@@ -491,11 +487,6 @@ class HttpStatusError extends Error {
     this.name = 'HttpStatusError'
   }
 }
-
-// 패키지 식별자 — connector·provider·runtime tool 이 공유한다.
-export const CONFLUENCE_PLUGIN_ID = 'confluence'
-export const CONFLUENCE_PAT_PROVIDER_ID = 'confluence-pat'
-export const CONFLUENCE_BASIC_PROVIDER_ID = 'confluence-basic'
 
 function manifestOf(result: ConfluencePageResult): Record<string, unknown> {
   return {

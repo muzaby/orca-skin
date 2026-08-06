@@ -21,7 +21,6 @@ function fakeStore(): SecretStorePort & { raw: Map<string, string> } {
 function connectorRecord(id: string, connectorId = 'wiki'): AuthBindingInfo {
   return {
     id,
-    pluginId: 'corp',
     providerId: 'pat',
     target: { kind: 'connector', connectorId, connectionId: 'c1' },
     mechanism: 'personal_access_token',
@@ -48,6 +47,7 @@ function setup(seed: AuthBindingInfo[]): {
       acquire: async () => 'h',
       openLoginWindow: async () => ({ finalUrl: '' }),
       probe: async () => ({ ok: true, status: 200, finalUrl: '' }),
+      send: async () => ({ status: 200, headers: {}, body: '' }),
       clear: async () => undefined
     },
     broadcast: (s) => states.push(s),

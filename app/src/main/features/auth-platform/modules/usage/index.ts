@@ -1,63 +1,24 @@
-// 범용 usage connector 패키지 (0176) — provider 2 + connector N.
+// 범용 usage 대상 패키지 (0176 → 0178 축소) — 대상 N.
 //
-// 서버 목록(`servers.ts`)을 받아 패키지를 조립한다. 같은 factory 를 다른 `id`·`baseUrl` 로
-// 부르면 서버가 늘어난다 — core 코드는 손대지 않는다(confluence 선례).
+// 서버 목록(`servers.ts`)을 받아 조립한다. 같은 factory 를 다른 `id`·`baseUrl` 로 부르면 서버가
+// 늘어난다 — core 코드는 손대지 않는다.
 //
-// 선언이 따로 없다 — 구현체가 곧 선언이다 (0178).
+// **인증 방식을 여기서 만들지 않는다** (0178). 방식은 내장 목록(`methods/index.ts`)이 소유하고,
+// 대상은 그중 무엇을 받아들이는지만 `acceptedMethods` 로 선언한다.
 
-import type { AuthProviderV1 } from '../../../../contracts/auth-plugin'
-import type { ConnectorRuntimeV1 } from '../../../../contracts/connector-plugin'
-import { createBasicCredentialProvider } from '../../providers/basic-credential'
-import { createStaticCredentialProvider } from '../../providers/static-credential'
-import type { AuthPluginPackage } from '../index'
-import {
-  createUsageConnector,
-  USAGE_BASIC_PROVIDER_ID,
-  USAGE_PAT_PROVIDER_ID,
-  USAGE_PLUGIN_ID
-} from './connector'
+import type { ConnectorRuntime } from '../../../../contracts/connector'
+import type { ConnectorPackage } from '../../registry'
+import { createUsageConnector } from './connector'
 import type { UsageConnectorConfig } from './spec'
 
-export {
-  createUsageConnector,
-  usageConnectorDescriptor,
-  USAGE_BASIC_PROVIDER_ID,
-  USAGE_PAT_PROVIDER_ID,
-  USAGE_PLUGIN_ID
-} from './connector'
+export { createUsageConnector, usageConnectorDescriptor } from './connector'
 export { USAGE_CONNECTORS } from './servers'
 export type { UsageConnectorConfig, UsageOperationSpec } from './spec'
 export type { UsagePayloadEnvelope } from './payload'
 
-// 이 패키지 안에서만 쓴다 — 배포가 고치는 것은 `servers.ts` 뿐이므로 밖으로 열지 않는다.
-function usageAuthProviders(): AuthProviderV1[] {
-  return [
-    // **`targets:['connector']` 로 좁힌다** — 기본값(`['application','connector']`)을 쓰면 이
-    // 패키지를 켜는 것만으로 prod 앱 로그인 게이트가 켜진다(0164 verify D1, DEV 는 bypass 라
-    // 개발 중에는 보이지 않는다).
-    createStaticCredentialProvider({
-      id: USAGE_PAT_PROVIDER_ID,
-      pluginId: USAGE_PLUGIN_ID,
-      label: '사용량 API 토큰',
-      mechanism: 'personal_access_token',
-      service: 'usage',
-      fieldLabel: '사용량 API 토큰',
-      targets: ['connector']
-    }),
-    createBasicCredentialProvider({
-      id: USAGE_BASIC_PROVIDER_ID,
-      pluginId: USAGE_PLUGIN_ID,
-      label: '사용량 API ID/비밀번호',
-      service: 'usage'
-    })
-  ]
-}
-
 export function createUsageConnectorPackage(
   configs: readonly UsageConnectorConfig[]
-): AuthPluginPackage {
-  const providers = usageAuthProviders()
-  const connectors: ConnectorRuntimeV1[] = configs.map(createUsageConnector)
-
-  return { providers, connectors }
+): ConnectorPackage {
+  const connectors: ConnectorRuntime[] = configs.map(createUsageConnector)
+  return { connectors }
 }

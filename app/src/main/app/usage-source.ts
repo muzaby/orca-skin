@@ -7,7 +7,7 @@
 // 수 있어야 이 배선이 회귀 대상이 된다.
 
 import { isRecord } from '../../shared/obj'
-import type { ConnectorRequest, ConnectorResult } from '../contracts/connector-plugin'
+import type { ConnectorRequest, ConnectorResult } from '../contracts/connector'
 import type {
   UsageSample,
   UsageSampleOutcome,

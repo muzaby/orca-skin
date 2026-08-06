@@ -18,7 +18,6 @@ function store(): BindingStore {
 
 function create(s: BindingStore, target: AuthTarget, parentBindingId?: string): string {
   return s.create({
-    pluginId: 'corp',
     providerId: 'adfs',
     target,
     mechanism: 'adfs_browser_session',
@@ -131,7 +130,6 @@ describe('BindingStore — 영속', () => {
   function record(id: string): AuthBindingInfo {
     return {
       id,
-      pluginId: 'corp',
       providerId: 'pat',
       target: CONNECTOR,
       mechanism: 'personal_access_token',
@@ -158,7 +156,6 @@ describe('BindingStore — 영속', () => {
     const persistence = fakePersistence()
     const store = new BindingStore(() => 1, persistence)
     const created = store.create({
-      pluginId: 'corp',
       providerId: 'pat',
       target: CONNECTOR,
       mechanism: 'personal_access_token',
@@ -185,7 +182,6 @@ describe('BindingStore — 영속', () => {
     const store = new BindingStore(() => 1)
     expect(store.loadPersisted()).toEqual([])
     const created = store.create({
-      pluginId: 'corp',
       providerId: 'pat',
       target: CONNECTOR,
       mechanism: 'personal_access_token',
@@ -212,7 +208,6 @@ describe('BindingStore — 영속', () => {
     const store = new BindingStore(() => 1, fakePersistence([record('bind_1_x')]))
     store.adopt(store.loadPersisted())
     const created = store.create({
-      pluginId: 'corp',
       providerId: 'pat',
       target: { kind: 'connector', connectorId: 'other', connectionId: 'c1' },
       mechanism: 'personal_access_token',
@@ -231,7 +226,6 @@ describe('BindingStore — 영속', () => {
 describe('BindingStore — 체인 커밋(createMany)', () => {
   function member(target: AuthTarget, providerId: string): CreateBindingInput {
     return {
-      pluginId: 'corp',
       providerId,
       target,
       mechanism: 'personal_access_token' as const,

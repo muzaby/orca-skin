@@ -10,7 +10,6 @@ const safeConnector = {
   connectorId: 'connector-one',
   label: 'Connector One',
   origin: 'https://connector-one.example.invalid',
-  pluginId: 'test-plugin',
   acceptedAuthProviders: ['test-provider'],
   connected: false
 }

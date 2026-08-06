@@ -10,7 +10,6 @@ import {
 function provider(id: string, overrides: Partial<AuthProviderInfo> = {}): AuthProviderInfo {
   return {
     id,
-    pluginId: 'confluence',
     label: id,
     targets: ['connector'],
     mechanisms: ['personal_access_token'],
@@ -29,7 +28,6 @@ function connector(overrides: Partial<PluginConnectorInfo> = {}): PluginConnecto
     connectorId: 'confluence-dc',
     label: 'Confluence',
     origin: 'https://wiki.corp',
-    pluginId: 'confluence',
     acceptedAuthProviders: ['confluence-pat', 'confluence-basic'],
     connected: false,
     ...overrides
