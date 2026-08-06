@@ -26,7 +26,7 @@ import type { TurnEventSink, TurnPersistSink } from './turn-sinks'
 import type { MainBus, TurnEmit } from '../../contracts/bus-events'
 import type { PendingMessageQueue } from './pending-message-queue'
 
-export const MAX_RETRIES = 2
+const MAX_RETRIES = 2
 export const RETRY_BACKOFF_MS = [1_000, 2_000] as const
 
 // "응답이 시작됐다" 판정 집합(0069) — 턴-시작 배치(프렐류드+프롬프트)의 소비 앵커. 델타
@@ -84,7 +84,7 @@ export interface CoordinatorRuntime extends GovernedLiveTurn {
 
 // 프로젝트별 active turn 회계 포트 — lifecycle ActiveTurnTracker 가 만족.
 // RuntimeSupervisor 의 active+idle runtime cap count 와 섞지 않는다.
-export interface ActiveTurnGate {
+interface ActiveTurnGate {
   increment(projectId: string | null): void
   decrement(projectId: string | null): void
 }

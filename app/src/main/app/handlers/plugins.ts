@@ -13,7 +13,7 @@ import {
 import { handle } from '../../infra/ipc/handle'
 import type { PluginHost } from '../../features/auth-platform/plugin-host'
 
-export interface PluginHandlerDeps {
+interface PluginHandlerDeps {
   pluginHost: PluginHost
   // 부팅 때 거부된 패키지 (0164 r2). `createAuthPlatform()` 이 동기적으로 다 채운 뒤
   // 핸들러가 등록되므로 값은 이미 확정돼 있다.

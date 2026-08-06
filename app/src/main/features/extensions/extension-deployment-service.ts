@@ -1,7 +1,7 @@
 import type { DeployResult } from './deployer'
 import { getLogger } from '../../infra/log/registry'
 
-export interface ExtensionDeploymentServiceOptions {
+interface ExtensionDeploymentServiceOptions {
   deploy: () => Promise<DeployResult>
   onWarning?: (message: string) => void
 }

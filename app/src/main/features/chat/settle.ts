@@ -100,7 +100,7 @@ export async function settleTrackedTasks<W>(
 }
 
 // settleTrackedTasks 가 트래커에게 요구하는 최소 표면(구조적 포트 — 구현은 BackgroundTaskTracker).
-export interface BackgroundTaskSettleSource {
+interface BackgroundTaskSettleSource {
   ids(sessionId: string): ReadonlySet<string>
   isAsyncLaunched(sessionId: string, toolUseId: string): boolean
   clear(sessionId: string): void

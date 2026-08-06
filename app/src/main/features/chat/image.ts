@@ -6,7 +6,7 @@ export const SUPPORTED_IMAGE_MEDIA_TYPES = [
   'image/gif'
 ] as const
 
-export interface ImageCapability {
+interface ImageCapability {
   supported: boolean
   supportedMediaTypes: readonly string[]
   maxImagesPerRequest: number

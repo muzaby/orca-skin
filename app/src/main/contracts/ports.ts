@@ -1,4 +1,4 @@
-import type { LiveTurn, SessionAdapter, CompleteRequest } from '../adapters/types'
+import type { LiveTurn, SessionAdapter } from '../adapters/types'
 import type { SessionRuntimeState } from './session-state'
 
 // 런타임 거버넌스 계약. adapters 의 ports&adapters 정본(`LiveTurn`·`SessionAdapter`·`CompleteRequest`)을
@@ -18,7 +18,6 @@ export interface RuntimeLiveTurn extends LiveTurn {
 // 어댑터 계약의 부분집합 — 런타임(턴 실행)이 실제로 쓰는 표면만 골라 재사용한다(단일 정본은
 // adapters/types). 설치 수명주기(describe·isInstalled·install)는 registry/app 소관이라 제외한다
 // (Interface Segregation — SessionRuntime 은 턴 실행 표면만 의존).
-export type RuntimeCompleteRequest = CompleteRequest
 export type RuntimeTitleAdapter = Pick<SessionAdapter, 'id' | 'complete'>
 export type RuntimeSessionAdapter = Pick<
   SessionAdapter,

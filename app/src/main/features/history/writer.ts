@@ -16,7 +16,7 @@ import type { TurnContext } from '../../contracts/turn'
 // 0064 continuity — fork/handoff 도착 물질화 훅(구조적 포트). 구현은 features/orchestration
 // 의 materializeContinuityArrival 이고 컴포지션 루트(app/bootstrap)가 주입한다 — feature
 // 교차 import 금지 해소책 (b)/(c).
-export type ContinuityArrivalHook = (arrival: {
+type ContinuityArrivalHook = (arrival: {
   childSessionId: string
   parentSessionId: string
   relation: LineageRelation

@@ -31,8 +31,3 @@ export interface TurnPersistSink<W = unknown> {
 export interface TurnEventSink<W = unknown> {
   forward(owner: W, ev: NormalizedEvent): void
 }
-
-// 제목 자동 생성 트리거 — session.updated 시 1회. L3 TitleGenerator 가 만족.
-export interface TurnTitleHook<W = unknown> {
-  maybeStart(turn: TurnContext<W>): void
-}

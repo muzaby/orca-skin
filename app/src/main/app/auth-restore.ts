@@ -10,12 +10,12 @@
 //   2. **실패한 binding 은 정리한다.** 서버가 PAT 를 폐기했으면 그 레코드를 남겨 둘 이유가
 //      없다. logout 시켜 다음 화면에서 재입력을 받게 한다.
 
-export interface RestoredConnection {
+interface RestoredConnection {
   bindingId: string
   connectorId: string
 }
 
-export interface RestoreConnectionsDeps {
+interface RestoreConnectionsDeps {
   restored: readonly RestoredConnection[]
   connect: (input: { connectorId: string; bindingId: string }) => Promise<void>
   logout: (bindingId: string, cascade: boolean) => Promise<unknown>

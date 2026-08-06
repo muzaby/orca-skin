@@ -14,7 +14,7 @@
 
 import type { InterruptReceipt } from '../../adapters/turn'
 
-export type InterruptOutcome =
+type InterruptOutcome =
   // 영수증 미보유 — CLI 가 `interrupt_receipt_v1` capability 를 알리지 않는 구형. 잔여 **미상**
   // 이며 "없음" 이 아니다. 보수적으로 아무것도 폐기하지 않는다.
   | { kind: 'unknown' }

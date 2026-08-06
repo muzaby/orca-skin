@@ -5,12 +5,12 @@ import type { BackgroundTaskTracker } from './background-tasks'
 
 type Foreground = ChatActivitySnapshot['foreground']
 
-export interface ActivityLeaseSource {
+interface ActivityLeaseSource {
   foreground(sessionId: string, transport: ChatActivitySnapshot['transport']): Foreground
   subscribe(listener: (logicalKey: string) => void): () => void
 }
 
-export interface SessionActivityProjectorDeps {
+interface SessionActivityProjectorDeps {
   queue: PendingMessageQueue
   backgroundTasks: BackgroundTaskTracker
   leases: ActivityLeaseSource

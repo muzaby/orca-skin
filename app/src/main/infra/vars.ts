@@ -12,7 +12,7 @@ export const VAR_RE = /\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g
 // ${BINDING:<대상>} — 인증된 대상의 토큰 참조 (0157, 키를 대상 이름으로 바꾼 것은 0178).
 // VAR_RE 와 **의도적으로 분리**한다: 이 참조는 env-var 이름이 아니므로, 이름 스캔(mcp store 의
 // authEnvKey 추출)이 이것을 환경변수로 오인하면 안 된다.
-export const BINDING_RE = /\$\{BINDING:([A-Za-z0-9_-]+)\}/g
+const BINDING_RE = /\$\{BINDING:([A-Za-z0-9_-]+)\}/g
 
 // resolver 에 대상 참조를 넘길 때 쓰는 접두사. resolver 는 이 접두사로 분기한다.
 export const BINDING_PREFIX = 'BINDING:'

@@ -6,7 +6,7 @@
 // 찾아 고쳐야 한다. 종류를 1급 값으로 올리고 정책을 여기 한 곳에 모은다.
 export type TurnKind = 'user' | 'continuation' | 'listen'
 
-export interface TurnPolicy {
+interface TurnPolicy {
   // stall 타이머 무장 — listen 턴은 장시간 무이벤트가 정상이라 '응답 없음' 오판을 막는다.
   armStall: boolean
   // 프로젝트 동시 턴 회계 계상 — listen 은 사용자 관점의 "진행 중 작업" 이 아니라 수신 대기다.

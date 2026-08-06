@@ -30,7 +30,7 @@ import type { InternalApi } from '../../../contracts/internal-api'
 // 이제 `servers.ts` 에 적은 대상 id 를 그대로 쓴다.
 export type AuthTokenSource = Pick<InternalApi, 'token'>
 
-export interface ResolverOptions {
+interface ResolverOptions {
   secrets: SecretStore
   // 미지정이면 대상 참조는 해석되지 않는다(= 서버 드롭).
   bindings?: AuthTokenSource

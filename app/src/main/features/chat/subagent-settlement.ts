@@ -5,16 +5,16 @@
 
 import type { NormalizedEvent } from '../../../shared/ipc'
 
-export type OpenToolRunInfo = { parentToolRunId?: string }
-export type OpenToolRunEntries = Iterable<[string, OpenToolRunInfo]>
+type OpenToolRunInfo = { parentToolRunId?: string }
+type OpenToolRunEntries = Iterable<[string, OpenToolRunInfo]>
 
-export interface SubagentSettlementInput {
+interface SubagentSettlementInput {
   sessionId: string
   task: Extract<NormalizedEvent, { type: 'subagent.task' }>
   openToolRuns: OpenToolRunEntries
 }
 
-export function subagentParentResult(
+function subagentParentResult(
   ev: Extract<NormalizedEvent, { type: 'subagent.task' }>
 ): { result: unknown; isError: boolean } | null {
   switch (ev.status) {

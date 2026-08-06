@@ -4,12 +4,12 @@
 
 import type { Backend } from '../../../shared/ipc'
 
-export type MessageRole = 'user' | 'assistant'
+type MessageRole = 'user' | 'assistant'
 export type SessionTitleSource = 'auto' | 'user'
 
 // message_parts.type — AppMessagePart(provider-runtime.md §7)의 DB 표현. payload_json 은
 // type 외 나머지 필드의 JSON 직렬화(tool_run_id 는 별도 컬럼이라 payload 에 중복 저장 안 함).
-export type MessagePartType =
+type MessagePartType =
   | 'text'
   | 'reasoning'
   | 'tool_call'
@@ -188,25 +188,6 @@ export interface ProjectInsert {
   name: string
   instructions: string
   createdAt: number
-}
-
-export interface MessageRow {
-  id: number
-  session_id: string
-  role: MessageRole
-  content: string
-  created_at: number
-  idx: number
-}
-
-// 한 메시지에 속한 순서 보존 파트 한 행. payload_json 은 type 별 페이로드 JSON.
-export interface MessagePartRow {
-  id: number
-  message_id: number
-  idx: number
-  type: MessagePartType
-  tool_run_id: string | null
-  payload_json: string
 }
 
 // 0064 continuity — fork/handoff 로 파생된 세션의 부모 관계 (session_lineage).

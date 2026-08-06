@@ -46,7 +46,7 @@ const MIGRATIONS: Migration[] = [
 export const MIGRATION_NAMES = MIGRATIONS.map((m) => m.name)
 export const DB_SCHEMA_TOO_NEW = 'DB_SCHEMA_TOO_NEW'
 
-export class DbSchemaTooNewError extends Error {
+class DbSchemaTooNewError extends Error {
   readonly code = DB_SCHEMA_TOO_NEW
   readonly unknownMigrations: string[]
 
@@ -57,7 +57,7 @@ export class DbSchemaTooNewError extends Error {
   }
 }
 
-export interface MigrationBackupOptions {
+interface MigrationBackupOptions {
   databasePath: string
   backupDir?: string
   appVersion: string

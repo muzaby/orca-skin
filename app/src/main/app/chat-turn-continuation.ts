@@ -13,13 +13,13 @@ export interface AutomaticContinuationRuntime {
   readonly spawnedRuntimeToolsRevision: number | undefined
 }
 
-export interface AutomaticContinuationResolution {
+interface AutomaticContinuationResolution {
   providerKey: string | null
   providerSettings?: ResolvedProviderSettings
   model?: string
 }
 
-export interface PreparedAutomaticContinuation {
+interface PreparedAutomaticContinuation {
   extensions: TurnExtensions
   providerSettings?: ResolvedProviderSettings
   model?: string

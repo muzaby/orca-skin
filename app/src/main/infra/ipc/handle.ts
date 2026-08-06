@@ -16,11 +16,11 @@ interface ParseFail {
   error: unknown
 }
 // zod 의존을 시그니처에 노출하지 않는 구조적 타입 — protocol.ts 의 모든 스키마가 만족한다.
-export interface SafeParser<T> {
+interface SafeParser<T> {
   safeParse(raw: unknown): ParseOk<T> | ParseFail
 }
 
-export type InvalidPolicy<R> = 'reject' | { fallback: R }
+type InvalidPolicy<R> = 'reject' | { fallback: R }
 
 export function handle<T, R>(
   channel: string,

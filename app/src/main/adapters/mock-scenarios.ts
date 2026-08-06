@@ -23,7 +23,7 @@ type MockEventTemplate = DistributiveOmit<NormalizedEvent, 'sessionId'> & {
   sessionId?: string
 }
 
-export interface MockCtx {
+interface MockCtx {
   sessionId: string
   cwd: string
   contextUsageRatio: number

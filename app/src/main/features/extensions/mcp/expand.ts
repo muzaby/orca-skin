@@ -5,7 +5,7 @@
 import type { OrcaMcpConfig, ClaudeMcp } from '../../../adapters/mcp-config'
 import { expandVars, type Resolver } from '../../../infra/vars'
 
-export interface ExpandResult {
+interface ExpandResult {
   servers: OrcaMcpConfig
   dropped: { name: string; reason: string }[]
 }

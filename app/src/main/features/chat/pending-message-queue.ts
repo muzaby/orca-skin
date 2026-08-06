@@ -5,14 +5,14 @@ import type { ExtractedAttachmentImage, ExtractedAttachmentText } from '../../ad
 
 // 큐 아이템 페이로드 — 구조 페이로드(0067 AC5): 텍스트 + 추출 첨부(어댑터가 content 블록으로
 // 굽는 입력) + 표시용 첨부 뷰(커밋 시 renderer/DB 로 흐른다).
-export interface PendingMessagePayload {
+interface PendingMessagePayload {
   text: string
   attachmentTexts?: ExtractedAttachmentText[]
   attachmentImages?: ExtractedAttachmentImage[]
   attachmentViews?: AttachmentView[]
 }
 
-export interface PendingMessage extends PendingMessagePayload {
+interface PendingMessage extends PendingMessagePayload {
   id: string
   sessionId: string
   createdAt: number
@@ -26,7 +26,7 @@ export interface PendingMessage extends PendingMessagePayload {
 // drain 영수증이라 양쪽에 유효하다(r2 교정, 아래 confirm 주석 참조).
 // 성격은 **메서드로 유도할 수 없다** — 같은 reserveHeld 가 게이트에서는 steer 를, 연속 턴
 // 루프에서는 턴 프롬프트를 만든다(chat-turn). 그래서 호출자가 명시한다.
-export type BatchOrigin = 'turn-open' | 'steer'
+type BatchOrigin = 'turn-open' | 'steer'
 
 // 예약 배치의 수명(0151 AC2) — 구 `consumed: boolean` 을 대체한다. held 는 별도 맵이 소유하므로
 // 여기 없다.
@@ -34,9 +34,9 @@ export type BatchOrigin = 'turn-open' | 'steer'
 //   confirmed : origin 이 허용하는 신호를 관측. 커밋 대상.
 //   orphaned  : 턴 체인이 끝나도록 확정 신호가 오지 않음. 재주입 후보이자 관측 지점 —
 //               구 구조에는 이 상태가 없어 echo 유실이 **표현도 탐지도 불가**했다.
-export type BatchState = 'submitting' | 'submitted' | 'confirmed' | 'orphaned'
+type BatchState = 'submitting' | 'submitted' | 'confirmed' | 'orphaned'
 
-export interface SubmissionAttempt {
+interface SubmissionAttempt {
   messageIds: string[]
   attemptId: string
   chainId: string
@@ -47,7 +47,7 @@ export type PendingQueueMutation =
 
 // 확정 신호 — 큐가 kind 와 origin 의 (비대칭) 관계를 검증한다(AC5). 규약이 코드 4곳에 흩어져
 // 있던 것을 큐 안의 검증 한 곳으로 내린다.
-export type ConfirmSignal =
+type ConfirmSignal =
   { kind: 'echo'; uuid?: string; text?: string } | { kind: 'model-output'; uuids: string[] }
 
 interface TrackedBatch extends SteerFlushBatch {

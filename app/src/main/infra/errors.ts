@@ -12,7 +12,7 @@ import type { ClassifiedError, ErrorCategory, ProviderId } from '../../shared/ip
 // classify 호출 컨텍스트 — provider(optional) 와 발생 단계(sendMessage 등). 분류 휴리스틱이
 // phase 로 추가 단서를 얻을 수 있게 열어 두지만, 현재 claude classifier 는 메시지 패턴만 본다.
 // provider 는 어댑터 컨텍스트가 있을 때만 채운다(0016) — 표시용이고 분기에 쓰지 않는다.
-export interface ClassifyContext {
+interface ClassifyContext {
   provider?: ProviderId
   phase: string
 }
@@ -40,7 +40,7 @@ const DEFAULT_RETRYABLE: Record<ErrorCategory, boolean> = {
   user_cancelled: false
 }
 
-export interface MakeClassifiedErrorOptions {
+interface MakeClassifiedErrorOptions {
   retryable?: boolean
   provider?: ProviderId
   cause?: unknown

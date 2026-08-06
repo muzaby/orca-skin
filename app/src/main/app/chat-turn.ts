@@ -74,7 +74,7 @@ import {
   type SessionControl
 } from '../features/sessions/session-chain-lease'
 
-export interface ChatDeps {
+interface ChatDeps {
   ctx: RouterContext
   supervisor: RuntimeSupervisor<WebContents>
   bus: MainBus<WebContents>

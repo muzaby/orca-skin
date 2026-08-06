@@ -52,7 +52,7 @@ function resolveSeed(userSettingsJson?: string | null): Seed {
   return { provider: DEFAULT_PROVIDER, settings: SETTINGS_TEMPLATE }
 }
 
-export interface ScaffoldResult {
+interface ScaffoldResult {
   created: string[]
 }
 

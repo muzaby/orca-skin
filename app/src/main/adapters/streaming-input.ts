@@ -13,7 +13,7 @@ import type { MessageParam } from '@anthropic-ai/sdk/resources'
 
 export type TurnInputContent = MessageParam['content']
 
-export interface SessionInputStream {
+interface SessionInputStream {
   // query({ prompt }) 에 넘기는 입력 스트림.
   stream: AsyncIterable<SDKUserMessage>
   // 사용자 메시지 1건(턴 프롬프트 또는 steer 배치)을 채널에 추가한다. content 는 텍스트 또는

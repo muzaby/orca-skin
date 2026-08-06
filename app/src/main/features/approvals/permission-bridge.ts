@@ -33,7 +33,7 @@ export function agentPermissionRequest(
 // AppCommandPolicy — 앱이 합성한 명령의 3분기 분류(provider-runtime.md §3). 현재 Orca 는
 // app-origin 명령을 합성하지 않으므로 기본은 보수적(require_approval). slash command / OpenCode
 // 편입 시 표를 채운다(seam). 표에 없는 명령은 항상 require_approval.
-export type AppCommandClass = 'allow_immediate' | 'require_approval' | 'forbidden'
+type AppCommandClass = 'allow_immediate' | 'require_approval' | 'forbidden'
 
 const APP_COMMAND_POLICY: Record<string, AppCommandClass> = {}
 

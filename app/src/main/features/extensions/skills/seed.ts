@@ -17,7 +17,7 @@ interface BuiltinSkillSet {
   skills: string[]
 }
 
-export interface SeedResult {
+interface SeedResult {
   seeded: string[]
   pruned: string[]
   skipped: boolean

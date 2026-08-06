@@ -81,7 +81,7 @@ export interface ExtractedAttachmentImage {
 }
 
 // SKILL.md 스캔 메타 DTO 를 그대로 재사용 (step 2 — 자산 가시화).
-export type NormalizedSkillRef = SkillInfo
+type NormalizedSkillRef = SkillInfo
 
 // 한 턴에 적용할 백엔드 중립 보조기능 묶음. 어댑터가 이를 받아 자기 query 옵션으로 굽는다.
 export interface TurnExtensions {

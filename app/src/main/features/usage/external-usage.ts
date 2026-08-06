@@ -7,7 +7,7 @@ import {
 } from '../../infra/config/secret-facade'
 import type { ExternalUsageContext } from '../../contracts/usage-report'
 
-export interface EffectiveUsageLimit {
+interface EffectiveUsageLimit {
   source: 'local' | 'external'
   usedUsd: number
   limitUsd: number | null

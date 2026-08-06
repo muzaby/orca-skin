@@ -65,7 +65,7 @@ export function readUserClaudeSettings(
   }
 }
 
-export type ClaudeProviderKind = 'anthropic' | 'bedrock' | 'vertex' | 'custom'
+type ClaudeProviderKind = 'anthropic' | 'bedrock' | 'vertex' | 'custom'
 
 // settings.json 의 env 블록으로 provider 종류를 판별한다 (TRD §6.8 레시피 표와 정합):
 // CLAUDE_CODE_USE_BEDROCK → bedrock, CLAUDE_CODE_USE_VERTEX → vertex,

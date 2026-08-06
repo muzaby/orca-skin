@@ -33,7 +33,7 @@ import { ORCA_PLUGIN_NAME } from '../../adapters/claude-plugin'
 import { renderClaudePluginPackage } from './claude-plugin-package'
 import { renderClaudeUserSkillsPlugin } from './claude-user-skills-plugin'
 
-export interface DeployOptions {
+interface DeployOptions {
   dryRun?: boolean
   skillRoots?: SkillScanRoot[]
   mcpConfig?: ClaudeMcpConfig

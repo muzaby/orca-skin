@@ -13,7 +13,7 @@ import { z } from 'zod'
 // 단일 서버 항목 = Claude mcpServers 스키마 (claude 스펙). ${VAR} 미확장.
 // http/sse 는 분리된 판별(discriminated) 멤버로 둔다 — SDK McpServerConfig 유니온
 // (McpStdioServerConfig | McpHttpServerConfig | McpSSEServerConfig)에 그대로 대입되도록.
-export const ClaudeMcpSchema = z.union([
+const ClaudeMcpSchema = z.union([
   z.object({
     type: z.literal('stdio').optional(),
     command: z.string(),

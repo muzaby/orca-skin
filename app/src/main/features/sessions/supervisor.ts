@@ -30,13 +30,13 @@ import {
 // 단일 abort 프리미티브 — 0054 에서 별도 모듈(./abort)로 분리(supervisor→runtime-pool→timers→
 // supervisor 순환 회피). 기존 import 경로(./supervisor) 호환을 위한 무회귀 re-export.
 
-export interface RuntimePopulation {
+interface RuntimePopulation {
   active: number
   idle: number
   total: number
 }
 
-export interface RuntimeSupervisorOptions<W = unknown> {
+interface RuntimeSupervisorOptions<W = unknown> {
   registry?: SessionRuntimeRegistry<W>
   pool?: RuntimePool
   activeTurns?: ActiveTurnTracker

@@ -10,7 +10,7 @@
 // 불변식: 반드시 **단일 문자열** 반환(다중 블록 4-블록 버그 회피, system-prompt.md §1). 빈/공백
 // 필드는 줄 자체를 생략한다(opencode instruction.ts "빈 조각 제외" 패턴).
 
-export interface SystemHeaderInput {
+interface SystemHeaderInput {
   // Orca 앱 버전(app.getVersion()). 프로세스 수명 고정.
   orcaVersion: string
   // 선호 언어(settings.language). 없으면 Preferred language 줄 생략.

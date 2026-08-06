@@ -9,7 +9,7 @@
 
 import type { UpdateConfig } from '../infra/config/orca-file'
 
-export type UpdateFeedOptions =
+type UpdateFeedOptions =
   | {
       provider: 'github'
       owner?: string
@@ -28,7 +28,7 @@ export type UpdateFeedOptions =
       channel?: string
     }
 
-export interface ResolvedUpdateFeed {
+interface ResolvedUpdateFeed {
   // enabled:false → 업데이터 전체 비활성(check() 가 feed-not-configured 로 저하).
   disabled: boolean
   // 미설정(undefined)이면 setFeedURL 을 호출하지 않는다 = electron-builder 내장 publish 피드 사용.
