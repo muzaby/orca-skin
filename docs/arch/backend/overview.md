@@ -57,7 +57,7 @@ Electron App
 │   ├── index.ts                # 부트 진입 — Bootstrap.start() → BrowserWindow → will-quit(shutdown→closeDb)
 │   ├── app/                    # 컴포지션 루트 (전 레이어 의존 허용 — 유일)
 │   │   ├── bootstrap.ts        # 의존성 생성 + 부팅 시퀀스 + 버스 구독 순서 SSOT + 핸들러 등록 위임
-│   │   ├── chat-turn/          # 턴 셋업 13모듈 (0179 분해) — index(배럴·IPC 등록) · send(순서) ·
+│   │   ├── chat-turn/          # 턴 셋업 14모듈 (0179 분해) — index(배럴·IPC 등록) · send(순서) ·
 │   │   │                       #   admission/turn-context/continuation(순수 판정·조립) · resolve-turn ·
 │   │   │                       #   runtime-entry · enqueue · turn-request · approval · post-turn · busy-reserve
 │   │   ├── context.ts          # RouterContext (핸들러 공유 의존성)

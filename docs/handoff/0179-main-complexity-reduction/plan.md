@@ -522,7 +522,7 @@ wc -l src/main/app/handlers/misc.ts      # 200 이하
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | **108 파일 (+2,965 / −1,975)**. 신규 13(`app/chat-turn/*`) + 4(`handlers/{skills,files,cost,settings}.ts`) + 테스트 4. 삭제 6(`conformance.ts`+테스트 · `external-correction.ts` · `usage/boundaries.ts`+테스트 · `scheduler/cron-validate.ts`) + `chat-turn.ts`(→ 디렉토리 이전). 나머지는 `export` 제거 113건과 문서 6곳 |
+| 변경 파일 | **108 파일 (+2,965 / −1,975)**. 신규 14(`app/chat-turn/*`) + 4(`handlers/{skills,files,cost,settings}.ts`) + 테스트 4. 삭제 6(`conformance.ts`+테스트 · `external-correction.ts` · `usage/boundaries.ts`+테스트 · `scheduler/cron-validate.ts`) + `chat-turn.ts`(→ 디렉토리 이전). 나머지는 `export` 제거 113건과 문서 6곳 |
 | 실행 명령 | `npm ci` → `npm run lint` / `npm run typecheck` / `npm test` (+ `node --test scripts/*.test.mjs`) |
 | 게이트 결과 | lint **0 error / 1 warning**(`useTranscriptVirtualizer` — 0102 베이스라인) · typecheck **3/3** · vitest **206 파일 / 1,916 테스트 전량 green**(베이스라인 204/1,892 대비 **+2 파일 / +24 테스트**) · scripts **28/28** |
 | 환경 특기 | **egress 가 열린 환경이라 `app/AGENTS.md` 가 경고하는 403 차단 상황이 아니다.** Electron ABI rebuild·electron 바이너리 설치가 모두 성공해 DB 스위트까지 전량 green — red 베이스라인 분리 보고가 필요 없었다 |
@@ -533,6 +533,12 @@ wc -l src/main/app/handlers/misc.ts      # 200 이하
 
 ## [검증자 기입] 파생 이슈 (Derived Issues)
 
+> verify r1(PASS)이 남긴 추적 항목. **재구현 루프백이 아니라 사용자 판단·후속 대상**이다.
+
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
-| — | (없음) | | | |
+| D2 | **A15 미충족 — `handleChatSend` 344줄 / `send.ts` 381줄** (목표 200/250). 1,166 → 344 로 −71% 했으나 목표선 아래로는 못 갔다. 남은 344줄은 12단계 선형 시퀀스 + 3중 try/finally 이고, 더 쪼개려면 10필드 deps 를 넘기는 wiring 모듈이 필요한데 그건 이번 작업이 없애려던 "어설픈 재사용" 을 재생산한다 | 구현자 D2 · verify r1 §매트릭스 A15 | **사용자 결정** — 이대로 둘지, 후속 핸드오프에서 `wire-turn` 분리를 시도할지 | open (사용자 대기) |
+| D6 | **선조치 경계 위반(경미)** — A2(`_example/` 삭제) 철회는 **인수 기준 변경**이므로 `⚠️ 보고만` 이어야 했는데 `✅ 구현함` 으로 표기됐다. 방향이 보수적(삭제 철회)이고 사용자 결정 ①과 같은 결이라 실질 피해는 없다 | verify r1 §비판적 검토 | 절차 기록만. 재작업 불요 — 다음 구현 턴이 "AC 를 바꾸면 무조건 ⚠️" 를 지킨다 | 기록 완료 |
+| D7 | **문서 수치 2건이 실측과 달랐고 검증에서 정정했다** — ① `chat-turn/` 모듈 수를 **13** 이라 적었으나 실측 **14**(`app/AGENTS.md`·`src/main/AGENTS.md`·`arch/backend/overview.md`·plan 4곳 정정) ② A5 의 "테스트 전용 52" 가 실측 **51**(`isValidCron` 이 D3 에서 삭제돼 −1) | verify r1 §숫자 재측정 | 정정 완료 | 해결 |
+| D8 | **배선부 3모듈에 단위 테스트가 없다** — `approval.ts`·`turn-request.ts`·`post-turn.ts`. 통합 3종이 간접 구동하지만 게이트 콜백 6종의 개별 분기(`canSubmitInitial` 의 chainId fence 등)는 대조되지 않았다. "무엇을 떼면 가능한가" 의 답은 `getActiveTurn` 스텁 주입이고, 이번 범위에서는 하지 않았다 | verify r1 §자기 리뷰 3 | 후속 핸드오프 후보. 지금 당장의 회귀 위험은 통합 3종이 덮는다 | open (후속) |
+| H1 | **앱 런타임 실기 미수행** — headless 구동 4회 전부 `boot.step.failed{step:'db-init'}`(better-sqlite3 가 Electron ABI 로 빌드되지 않음). 에이전트 환경에서 구동 자체가 불가능 | verify r1 §검증 책임 분리 | **사람 실기** — `npm run dev` 로 ①새 채팅 ②응답 중 추가 전송 ③중단 ④fork/handoff ⑤설정 모달의 스킬·파일·사용량 탭 | open (사람 대기) |
