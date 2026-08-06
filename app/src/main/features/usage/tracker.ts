@@ -7,7 +7,7 @@ import type {
 import { rangeSince } from '../../../shared/usage/stats'
 import type { DbQueries } from '../../infra/db'
 import type { DailyUsageRow, ModelUsageSumRow, UsageSumRow } from '../../infra/db/types'
-import { boundaries } from './boundaries'
+import { boundaries } from '../../../shared/time/clock'
 
 export class UsageTracker {
   private summary: CostSummary = emptySummary()

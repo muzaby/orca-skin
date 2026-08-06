@@ -44,6 +44,19 @@ describe('Scheduler', () => {
     scheduler.stopAll()
   })
 
+  // 0179 — cron 검증은 `infra/cron` 이 소유한다(구 `cron-validate.ts` 재노출 셸 제거).
+  // 잘못된 표현식이 조용히 등록되면 그 잡은 영영 발화하지 않으므로 등록 시점에 던져야 한다.
+  it('잘못된 cron 표현식은 등록 시점에 거부한다', () => {
+    const scheduler = new Scheduler(new MemoryRecorder())
+    scheduler.register('usage-recompute', () => {})
+
+    expect(() =>
+      scheduler.schedule('usage-recompute', { cron: 'not a cron', enabled: true })
+    ).toThrow()
+    expect(scheduler.nextRun('usage-recompute')).toBeNull()
+    scheduler.stopAll()
+  })
+
   it('records success and error runs', async () => {
     let now = 100
     const recorder = new MemoryRecorder()
