@@ -385,7 +385,7 @@ renderer/preload 발 구조화 로그를 main 의 중앙 LogManager 로 전달�
 
 앱 로그인(`application`)과 서비스 연결(`connector`)을 **같은 lifecycle** 로 처리하는 채널. 둘의 차이는 `AuthTarget.kind` 뿐이고 별도 인증 인터페이스가 없다. 등록된 auth provider 가 0개(기본 배포)면 `required:false` 로 게이트가 자동 통과된다. **`status`/`begin`/`continue` 핸들러는 `Bootstrap.start()` 최상단에서 조기 등록**된다 — 창이 start() 완료 전에 열리므로(0109) renderer 게이트의 첫 invoke 가 부팅 완료를 기다리지 않는다.
 
-계약 정본은 `app/src/main/contracts/auth-method.ts`(인증 방식 3함수) + `internal-api.ts`(호출 표면), 인증 방식 등록은 `features/auth-platform/methods/index.ts` 내장 목록, 대상(connector) 등록은 `features/auth-platform/modules/` opt-in 레지스트리, 배포 가이드는 [guides/closed-network-extensions.md](guides/closed-network-extensions.md).
+계약 정본은 `app/src/main/contracts/auth-method.ts`(인증 방식이 채우는 3함수) + `internal-api.ts`(앱 안의 다른 모듈이 인증을 쓰는 API), 인증 방식 등록은 `features/auth-platform/methods/index.ts` 내장 목록, 대상(connector) 등록은 `features/auth-platform/modules/` opt-in 레지스트리, 배포 가이드는 [guides/closed-network-extensions.md](guides/closed-network-extensions.md).
 
 > **응답 DTO 에 raw secret 이 없다.** `AuthBindingInfo.artifact` 는 `handleId` 문자열만 갖고(브라우저 세션의 cookie jar·vault 의 값은 main 이 소유), provider 목록은 `allowedOrigins` 조차 내보내지 않는다. 앱 로그인은 **UX 게이트이지 보안 경계가 아니다** — 인증 전에도 main IPC 는 열려 있다(guides/closed-network-extensions.md §5).
 
