@@ -414,8 +414,22 @@ export class AuthBroker {
   resolveBindingCredential(bindingId: string): string | null {
     const binding = this.bindings.get(bindingId)
     if (!binding || binding.status !== 'valid') return null
-    // browser session 은 값이 아니라 cookie jar 라 MCP 로 전달할 수 없다.
-    if (binding.artifact.kind === 'browser_session') return null
+    // **SSO 로그인은 MCP 에 쓰이지 않는다** (사용자 결정 2026-08-06, 0178).
+    //
+    // 기술적으로 불가능해서가 아니다 — 사내 창구에서 토큰을 받아 넘기는 길은 있었다. 다만 그
+    // 토큰은 MCP 서버가 **뜨는 순간 고정되는 사진 한 장**이라(설정 파일에 값으로 박힌다) 대화
+    // 도중 낡으면 그 도구만 조용히 거절당한다. 그 만료를 쫓는 장치(사전 발급·캐시·재렌더 트리거)
+    // 를 들이는 대신 **지원하지 않는 것**으로 정했다. MCP 에 붙이려면 PAT·ID/비밀번호를 쓴다.
+    //
+    // 여기서 null 을 돌려주면 그 서버는 `dropped` 사유와 함께 배포에서 빠진다 — 조용히
+    // 사라지지 않는다(`features/extensions/mcp/convert.ts`).
+    if (binding.artifact.kind === 'browser_session') {
+      this.log().warn('auth.binding.not-exportable', {
+        bindingId,
+        reason: 'sso_not_supported_for_mcp'
+      })
+      return null
+    }
     return this.readBindingSecret(binding)
   }
 

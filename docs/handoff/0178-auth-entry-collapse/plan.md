@@ -68,8 +68,27 @@
 
 | 인증 | REST | MCP |
 |---|---|---|
-| SSO (ADFS/WIA) | **미배선** — 구현체는 있으나 등록 패키지 없음 (R5) | **미배선 + 코드 차단** (R5 + R8) |
+| SSO (ADFS/WIA) | **미배선** — 구현체는 있으나 등록 패키지 없음 (R5) | **미지원 (사용자 결정 2026-08-06)** — 아래 §결정 참조 |
 | id/pw · PAT | 배선됨, 단 서버 0개라 실질 미동작 (R3) | 배선됨, 단 binding 0개 (R3) |
+
+### 결정 — SSO → MCP 는 지원하지 않는다 (2026-08-06, AC15~17 대체)
+
+설계는 이 구멍을 **사내 API 토큰 교환**으로 메우기로 했으나, 구현 중 확인된 제약(§놓친 문제 D1)을
+도메인 상황으로 되짚은 결과 사용자가 **미지원**으로 결정했다.
+
+상황: MCP 도구는 **별도 프로세스**로 뜨고 설정 파일에 값이 박힌다. 브라우저 세션은 넘길 수 없으니
+토큰으로 바꿔야 하는데, 그 토큰은 **프로세스가 뜨는 순간 고정되는 사진 한 장**이라 대화 도중
+낡으면 그 도구만 거절당한다. 만료를 쫓는 장치(사전 발급·캐시·재렌더 트리거)를 들이는 비용보다
+**미지원이 낫다**는 판단이다. MCP 에 붙이려면 PAT·ID/비밀번호를 쓴다.
+
+**따라서 AC15·AC16·AC17 은 폐기**하고 아래로 대체한다. `issueToken`·`tokenExchange` 설정·배포
+freshness 변경도 함께 범위에서 빠지며, 진입점은 **3함수**(`authenticate`·`status`·`revoke`)로 돌아간다.
+
+| # | 인수 기준 (대체) | 검증 수단 | 프로덕션 도달 경로 |
+|---|---|---|---|
+| 15' | SSO(browser session) 인증으로 만든 레코드를 MCP 가 참조하면 **값이 반출되지 않고**, 그 서버는 **사유와 함께** 배포에서 빠진다 | `features/auth/api.test.ts::"SSO 인증은 MCP 로 반출되지 않는다"` + `mcp/convert.test.ts::"미해결 참조는 사유와 함께 dropped 된다"` | `extensions/mcp/resolver.ts` → `resolveBindingCredential` → `convert.ts` `dropped` |
+| 16' | credential(PAT·ID/비밀번호) 인증은 **그대로 MCP 로 반출된다** (현행 동작 보존) | `features/auth/api.test.ts::"credential 인증은 MCP 로 반출된다"` | 동일 |
+| 17' | SSO 대상은 REST 경로에서 **정상 동작한다** — MCP 미지원이 REST 를 막지 않는다 | `features/auth/api.test.ts::"SSO 인증은 REST 요청에 세션 쿠키로 나간다"` | `modules/*` → `InternalApi.request` |
 
 **1,603줄 확장점을 두고도 실사용 4종 중 3종이 동작하지 않는다.** 이 작업의 필요를 그 자체로 보여주는 지점이며, 따라서 이 작업은 *삭제*와 *SSO 경로 배선 완성*을 함께 한다.
 
@@ -312,7 +331,7 @@ export interface InternalApi {
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| D1 | **`${BINDING:}` resolver 가 동기(sync)라 토큰 교환을 그 자리에서 할 수 없다.** 설계는 `InternalApi.token(target)` 을 `Promise` 로 두고 resolver 를 거기에 잇는다고 했으나, `Resolver = (name: string) => string \| undefined` 는 동기 계약이고 `.mcp.json` 렌더 경로 전체가 그 위에 있다. 즉 SSO 토큰 교환(HTTP 왕복)은 **렌더 시점에 수행할 수 없고**, 배포 경로에서 미리 발급해 캐시한 값을 resolver 가 동기로 읽어야 한다. | ⚠️ **보고만 — 설계 변경이라 결정 필요** (선조치 경계상 인수 기준 변경) | `infra/vars.ts:6` · `features/extensions/mcp/resolver.ts:42` · `features/extensions/mcp/store.ts:50` |
+| D1 | **`${BINDING:}` resolver 가 동기(sync)라 토큰 교환을 그 자리에서 할 수 없다.** 설계는 `InternalApi.token(target)` 을 `Promise` 로 두고 resolver 를 거기에 잇는다고 했으나, `Resolver = (name: string) => string \| undefined` 는 동기 계약이고 `.mcp.json` 렌더 경로 전체가 그 위에 있다. 즉 SSO 토큰 교환(HTTP 왕복)은 **렌더 시점에 수행할 수 없고**, 배포 경로에서 미리 발급해 캐시한 값을 resolver 가 동기로 읽어야 한다. | ✅ **해소** — 사용자가 도메인 상황을 보고 **SSO→MCP 미지원**으로 결정(2026-08-06). 토큰 교환이 범위에서 빠져 이 제약 자체가 사라졌다. 코드는 차단을 *의도*로 명시(`broker.ts` `resolveBindingCredential`) | `infra/vars.ts:6` · `features/extensions/mcp/resolver.ts:42` · `features/extensions/mcp/store.ts:50` |
 | D2 | **`refresh` 를 지우면 `'expired'` 로 가는 전이가 코드에 하나도 남지 않는다.** 조사해 보니 제거 전에도 실질적으로 그랬다 — `refreshBinding` 은 provider 의 `refresh` 를 부르는데 3/3 이 `not_supported` 를 돌려주므로 `setStatus('expired')` 에 도달하는 실행 경로가 없었다. 즉 **만료는 처음부터 동작한 적이 없다.** 더불어 `corp-adfs-wia.status()` 가 계산하는 `expired` 판정을 broker 가 binding 에 **반영하지 않는다**(`setStatus` 호출 부재). | ✅ 죽은 코드·죽은 테스트 제거. **`status()` → binding 반영 배선은 미구현** (3b 범위) | `broker.ts` 전역 `setStatus` 호출 2곳뿐(하나는 `'unknown'`) · `providers/corp-adfs-wia.ts:146` |
 | D3 | **`PluginConnectorInfo.source` 와 `PluginDiagnostic.kind:'instance'` 가 인스턴스 경로와 함께 죽는다.** 설계 §2단계는 인스턴스 모듈 삭제만 적었는데, DTO 필드 `source` 는 `isUserInstance()` 가 유일한 생산자라 항상 `'static'` 이 되고, 진단 종류 `'instance'` 는 발생원이 0이 된다. 남겨두면 "값이 하나뿐인 union" 이 UI 분기를 유지시킨다. | ✅ 둘 다 제거 + `'instance'` 가 이제 **거부**되는지 양성 단언 추가 | `plugin-host.ts:102` · `shared/ipc.ts` `PluginDiagnostic` |
 | D4 | **`ipc-documentation.test.ts` 가 채널 수를 하드코딩**해 채널을 지울 때마다 실패한다. 설계 §게이트는 이 위생 테스트를 언급하지 않았다. | ✅ 채널 제거마다 `docs/IPC_CONTRACT.md` 와 함께 갱신(86→85→82) | `src/shared/ipc-documentation.test.ts:9-22` |
@@ -324,7 +343,7 @@ export interface InternalApi {
 - [x] 2단계 — UI 커넥터 추가 경로 제거 (AC7·8 일부)
 - [x] 3a — 등록 검증 붕괴: manifest·ABI·선언↔구현 대조·conformance 제거, `satisfies` 배럴 (AC6)
 - [ ] 3b — 진입점 신설(`contracts/auth-method.ts`·`internal-api.ts`) + broker→api/store/login 재구성 (AC4·5)
-- [ ] 4단계 — SSO 배선 + SSO→MCP 토큰 교환 (AC9·15·16·17) — **D1 결정 선행 필요**
+- [ ] 4단계 — SSO 배선 (AC9·15'·16'·17'). **토큰 교환은 범위에서 빠졌다** — SSO→MCP 미지원 결정
 - [ ] 5단계 — 동봉 모듈 껍데기 제거 (AC21·22)
 - [x] 6단계 — 문서 동기화 (완료된 범위 한정)
 
@@ -336,7 +355,7 @@ export interface InternalApi {
 | 실행 명령 | `npm run lint` / `npm run typecheck` / `./node_modules/.bin/vitest run` |
 | 게이트 결과 | lint **0 error / 1 warning**(0102 베이스라인) · typecheck **3/3** · vitest **202 파일(197 pass / 5 fail) · 1876 테스트(1837 / 39)** — red 5 = `better_sqlite3.node` ABI, **베이스라인과 동일**(변경 무관) |
 | 삭감 실측 | prod **-2,548** · test **-2,248** (합계 약 **-4,800 LOC**) |
-| 블로커 / 역질문 | **D1** — SSO→MCP 토큰 교환을 배포 경로 사전 발급 + 캐시로 구현할지 결정 필요. 그 전까지 AC15·16·17 은 착수 불가 |
+| 블로커 / 역질문 | **없음** — D1 은 SSO→MCP 미지원 결정으로 해소됐다 |
 | 대상 커밋 | `3ea8f45`(1단계) · `33742c2`(2단계) · `64b43a6`(3a) |
 
 **미완 사유**: 3b(계약 재형성)·4단계(SSO)·5단계(모듈 껍데기)는 한 세션 예산을 넘겼다. 각 단계가 독립적으로 green 이라 **현 상태는 정합**하며, 중단 지점이 반쯤 적용된 상태가 아니다.
