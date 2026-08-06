@@ -304,35 +304,42 @@ export interface InternalApi {
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- 동의 / 그대로 진행: …
-- 이견 / 우려: …
+- **동의 / 그대로 진행**: §목표 구조의 "형태 강제를 런타임에서 컴파일 타임으로 옮긴다" 는 구현에서 그대로 성립했다. `manifest.ts`(170) + registry 검증(238) + `declare.ts`(48) + `registry.test.ts`(651) 이 **한 덩어리로** 사라졌다 — `satisfies` 하나가 그 전부를 대신한다. 단계 분할(각 단계 lint+typecheck+vitest green)도 유효했다: 3단계에서 슬라이스 인덱스 역전으로 `protocol.ts` 내용이 복제되는 사고가 났는데, 단계별 게이트와 `grep -c` 중복 검사로 **커밋 전에** 잡았다.
+- **이견 / 우려 1 — §작업 단계의 단계 크기가 균일하지 않다.** 1·2단계는 각각 한 세션에 닫히지만 3단계(진입점 신설 + 플랫폼 붕괴)는 broker 822줄 재구성 + `AuthProviderV1`→`AuthMethod` 재형성 + `plugin-host` 흡수를 한 단계에 묶어 놓았다. 실제로는 **3a(등록 검증 붕괴)** 와 **3b(계약 재형성)** 의 성격이 다르다 — 3a 는 삭제라 위험이 낮고 3b 는 재작성이라 높다. 설계가 이를 한 단계로 본 것이 이번 세션에서 3b 가 미완으로 남은 직접 원인이다.
+- **이견 / 우려 2 — AC 26건이 전부 기계 검증이라고 적었으나 AC15·17 은 사실상 그렇지 않다.** AC15(SSO+tokenExchange 교환 토큰)·AC17(만료→재렌더)은 아래 D1 의 제약 때문에 **구현 형태가 정해져야** 검증 수단이 확정된다. 설계 시점에 "fetch 포트 주입 스텁" 이라고 적은 것은 구현을 가정한 것이지 측정 가능성을 확인한 것이 아니었다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 구현함 / ⚠️ 보고만·**결정 필요** | … |
+| D1 | **`${BINDING:}` resolver 가 동기(sync)라 토큰 교환을 그 자리에서 할 수 없다.** 설계는 `InternalApi.token(target)` 을 `Promise` 로 두고 resolver 를 거기에 잇는다고 했으나, `Resolver = (name: string) => string \| undefined` 는 동기 계약이고 `.mcp.json` 렌더 경로 전체가 그 위에 있다. 즉 SSO 토큰 교환(HTTP 왕복)은 **렌더 시점에 수행할 수 없고**, 배포 경로에서 미리 발급해 캐시한 값을 resolver 가 동기로 읽어야 한다. | ⚠️ **보고만 — 설계 변경이라 결정 필요** (선조치 경계상 인수 기준 변경) | `infra/vars.ts:6` · `features/extensions/mcp/resolver.ts:42` · `features/extensions/mcp/store.ts:50` |
+| D2 | **`refresh` 를 지우면 `'expired'` 로 가는 전이가 코드에 하나도 남지 않는다.** 조사해 보니 제거 전에도 실질적으로 그랬다 — `refreshBinding` 은 provider 의 `refresh` 를 부르는데 3/3 이 `not_supported` 를 돌려주므로 `setStatus('expired')` 에 도달하는 실행 경로가 없었다. 즉 **만료는 처음부터 동작한 적이 없다.** 더불어 `corp-adfs-wia.status()` 가 계산하는 `expired` 판정을 broker 가 binding 에 **반영하지 않는다**(`setStatus` 호출 부재). | ✅ 죽은 코드·죽은 테스트 제거. **`status()` → binding 반영 배선은 미구현** (3b 범위) | `broker.ts` 전역 `setStatus` 호출 2곳뿐(하나는 `'unknown'`) · `providers/corp-adfs-wia.ts:146` |
+| D3 | **`PluginConnectorInfo.source` 와 `PluginDiagnostic.kind:'instance'` 가 인스턴스 경로와 함께 죽는다.** 설계 §2단계는 인스턴스 모듈 삭제만 적었는데, DTO 필드 `source` 는 `isUserInstance()` 가 유일한 생산자라 항상 `'static'` 이 되고, 진단 종류 `'instance'` 는 발생원이 0이 된다. 남겨두면 "값이 하나뿐인 union" 이 UI 분기를 유지시킨다. | ✅ 둘 다 제거 + `'instance'` 가 이제 **거부**되는지 양성 단언 추가 | `plugin-host.ts:102` · `shared/ipc.ts` `PluginDiagnostic` |
+| D4 | **`ipc-documentation.test.ts` 가 채널 수를 하드코딩**해 채널을 지울 때마다 실패한다. 설계 §게이트는 이 위생 테스트를 언급하지 않았다. | ✅ 채널 제거마다 `docs/IPC_CONTRACT.md` 와 함께 갱신(86→85→82) | `src/shared/ipc-documentation.test.ts:9-22` |
+| D5 | **`app/AGENTS.md` 의 "DB 로드 스위트 현재 6파일" 이 실측 5파일**이고 목록도 다르다(`features/history/writer`·`features/chat/recovery` 는 green, `extensions/builder` 가 red). | ⚠️ 보고만 — 이번 범위 밖(plan §R15 에 기록) | `app/AGENTS.md §제약 환경` vs 실측 |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] 1단계 — 죽은 표면 제거 (AC1·2·3)
-- [ ] 2단계 — UI 커넥터 추가 경로 제거 (AC7·8)
-- [ ] 3단계 — 진입점 신설 + 플랫폼 붕괴 (AC4·5·6·26)
-- [ ] 4단계 — SSO 배선 + SSO→MCP 토큰 교환 (AC9·15·16·17)
+- [x] 1단계 — 죽은 표면 제거 (AC1·2·3)
+- [x] 2단계 — UI 커넥터 추가 경로 제거 (AC7·8 일부)
+- [x] 3a — 등록 검증 붕괴: manifest·ABI·선언↔구현 대조·conformance 제거, `satisfies` 배럴 (AC6)
+- [ ] 3b — 진입점 신설(`contracts/auth-method.ts`·`internal-api.ts`) + broker→api/store/login 재구성 (AC4·5)
+- [ ] 4단계 — SSO 배선 + SSO→MCP 토큰 교환 (AC9·15·16·17) — **D1 결정 선행 필요**
 - [ ] 5단계 — 동봉 모듈 껍데기 제거 (AC21·22)
-- [ ] 6단계 — 문서 동기화
+- [x] 6단계 — 문서 동기화 (완료된 범위 한정)
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `vitest run` |
-| 게이트 결과 | … |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | 코드 60여 개(삭제 25) + 문서 6 |
+| 실행 명령 | `npm run lint` / `npm run typecheck` / `./node_modules/.bin/vitest run` |
+| 게이트 결과 | lint **0 error / 1 warning**(0102 베이스라인) · typecheck **3/3** · vitest **202 파일(197 pass / 5 fail) · 1876 테스트(1837 / 39)** — red 5 = `better_sqlite3.node` ABI, **베이스라인과 동일**(변경 무관) |
+| 삭감 실측 | prod **-2,548** · test **-2,248** (합계 약 **-4,800 LOC**) |
+| 블로커 / 역질문 | **D1** — SSO→MCP 토큰 교환을 배포 경로 사전 발급 + 캐시로 구현할지 결정 필요. 그 전까지 AC15·16·17 은 착수 불가 |
+| 대상 커밋 | `3ea8f45`(1단계) · `33742c2`(2단계) · `64b43a6`(3a) |
 
----
+**미완 사유**: 3b(계약 재형성)·4단계(SSO)·5단계(모듈 껍데기)는 한 세션 예산을 넘겼다. 각 단계가 독립적으로 green 이라 **현 상태는 정합**하며, 중단 지점이 반쯤 적용된 상태가 아니다.
 
 ## [검증자 기입] 파생 이슈 (Derived Issues)
 
