@@ -11,26 +11,31 @@
 // `contracts/auth-method.ts` 헤더. "재빌드 없이 서비스 추가" 는 **MCP** 가 담당한다.
 
 import type { AuthMethod } from '../../../contracts/auth-method'
-import { createBasicMethod, createPatMethod } from './credential'
+import { createAuthTokenMethod, createBasicMethod, createPatMethod } from './credential'
 import { createBrowserSessionMethod } from './browser-session'
 import { SSO_CONFIG } from './sso'
 
 export type { BrowserSessionConfig } from './browser-session'
 export { createBrowserSessionMethod } from './browser-session'
 export {
+  AUTH_TOKEN_METHOD_ID,
   BASIC_METHOD_ID,
   BASIC_PASSWORD_FIELD,
   BASIC_USERNAME_FIELD,
   PAT_METHOD_ID,
   RECORD_SECRET_NAME,
+  createAuthTokenMethod,
   createBasicMethod,
   createPatMethod
 } from './credential'
 
+// 실사용 인증 4종 (사용자 정리 2026-08-06): **SSO(ADFS) · ID/비밀번호 · PAT · 인증 토큰.**
+//
 // SSO 는 **설정이 있을 때만** 등록한다. 미설정 상태로 등록하면 `application` 대상을 지원하는
 // 방식이 생겨 앱 로그인 게이트가 켜지고, 채워지지 않은 주소로 로그인 창이 열린다.
 export const AUTH_METHODS: readonly AuthMethod[] = [
   ...(SSO_CONFIG ? [createBrowserSessionMethod(SSO_CONFIG)] : []),
   createPatMethod(),
+  createAuthTokenMethod(),
   createBasicMethod()
 ] satisfies readonly AuthMethod[]

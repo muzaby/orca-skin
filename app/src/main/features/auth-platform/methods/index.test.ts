@@ -6,7 +6,7 @@
 
 import { describe, expect, it } from 'vitest'
 import { AUTH_METHODS, createBrowserSessionMethod } from './index'
-import { BASIC_METHOD_ID, PAT_METHOD_ID } from './credential'
+import { AUTH_TOKEN_METHOD_ID, BASIC_METHOD_ID, PAT_METHOD_ID } from './credential'
 import { SSO_CONFIG } from './sso'
 import { AuthRegistry } from '../registry'
 
@@ -21,10 +21,28 @@ const SSO_SAMPLE = {
 } as const
 
 describe('AUTH_METHODS — 내장 목록', () => {
-  it('자격증명 2종이 항상 들어 있고 서비스 연결 전용이다', () => {
+  // 실사용 인증 4종 (사용자 정리 2026-08-06) — SSO(ADFS) · ID/비밀번호 · PAT · 인증 토큰.
+  // SSO 는 배포 설정이라 조건부이고, 나머지 셋은 **항상** 있어야 한다.
+  it('자격증명 3종(PAT·인증 토큰·ID/비밀번호)이 항상 들어 있다', () => {
+    const ids = AUTH_METHODS.map((m) => m.descriptor.id)
+    expect(ids).toEqual(
+      expect.arrayContaining([PAT_METHOD_ID, AUTH_TOKEN_METHOD_ID, BASIC_METHOD_ID])
+    )
+  })
+
+  it('자격증명 방식은 전부 서비스 연결 전용이다 — 앱 게이트를 켜는 것은 SSO 뿐이다', () => {
     const byId = new Map(AUTH_METHODS.map((m) => [m.descriptor.id, m]))
-    expect(byId.get(PAT_METHOD_ID)?.descriptor.targets).toEqual(['connector'])
-    expect(byId.get(BASIC_METHOD_ID)?.descriptor.targets).toEqual(['connector'])
+    for (const id of [PAT_METHOD_ID, AUTH_TOKEN_METHOD_ID, BASIC_METHOD_ID]) {
+      expect(byId.get(id)?.descriptor.targets, id).toEqual(['connector'])
+    }
+  })
+
+  // PAT 와 인증 토큰은 값의 모양이 같지만 **뭉개지 않는다** — 발급 주체·회수 절차가 달라
+  // 저장 metadata(`CredentialKind`)가 갈리고, 감사·표시가 그 구분을 쓴다.
+  it('PAT 와 인증 토큰은 서로 다른 mechanism 으로 남는다', () => {
+    const byId = new Map(AUTH_METHODS.map((m) => [m.descriptor.id, m]))
+    expect(byId.get(PAT_METHOD_ID)?.descriptor.mechanisms).toEqual(['personal_access_token'])
+    expect(byId.get(AUTH_TOKEN_METHOD_ID)?.descriptor.mechanisms).toEqual(['auth_token'])
   })
 
   it('저장소 기본값은 SSO 미설정이라 앱 로그인 게이트를 켜지 않는다', () => {
