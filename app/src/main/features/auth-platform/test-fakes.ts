@@ -8,6 +8,7 @@
 
 import type {
   AuthContext,
+  AuthFetch,
   BrowserSessionCapability,
   CredentialVaultView
 } from '../../contracts/auth-method'
@@ -51,6 +52,7 @@ export interface FakeContextOptions {
   signal?: AbortSignal
   vault?: CredentialVaultView
   browserSessions?: BrowserSessionCapability
+  fetchImpl?: AuthFetch
 }
 
 export function createFakeContext(opts: FakeContextOptions): AuthContext {
@@ -60,6 +62,7 @@ export function createFakeContext(opts: FakeContextOptions): AuthContext {
     signal: opts.signal ?? new AbortController().signal,
     vault: opts.vault ?? createFakeVault(),
     browserSessions: opts.browserSessions ?? createFakeBrowserSessions(),
+    fetch: opts.fetchImpl ?? (async () => new Response('{}', { status: 200 })),
     logger: () => undefined,
     clock: () => 1_700_000_000_000
   }
