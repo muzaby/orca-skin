@@ -33,7 +33,6 @@ function connector(overrides: Partial<PluginConnectorInfo> = {}): PluginConnecto
     pluginId: 'confluence',
     acceptedAuthProviders: ['confluence-pat', 'confluence-basic'],
     connected: false,
-    source: 'static',
     ...overrides
   }
 }
@@ -81,11 +80,11 @@ describe('buildConnectorRows', () => {
     expect(row.connectedAuthLabel).toBeNull()
   })
 
-  // 행은 원본 커넥터를 통째로 나른다 — `source` 처럼 소비처가 드물게 보는 필드는 사본을 두지 않고
+  // 행은 원본 커넥터를 통째로 나른다 — 소비처가 드물게 보는 필드도 사본을 두지 않고
   // `row.connector` 로 읽는다(사본을 두면 둘이 갈릴 수 있다).
   it('원본 커넥터를 그대로 나른다', () => {
-    const [row] = buildConnectorRows(PROVIDERS, [connector({ source: 'instance' })])
-    expect(row.connector.source).toBe('instance')
+    const [row] = buildConnectorRows(PROVIDERS, [connector({ label: '사내 위키' })])
+    expect(row.connector.label).toBe('사내 위키')
     expect(row.connector.connectorId).toBe('confluence-dc')
   })
 })

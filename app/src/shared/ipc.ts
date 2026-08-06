@@ -107,11 +107,6 @@ export const CHANNELS = {
   pluginList: 'orca:plugin:list',
   pluginConnectionConnect: 'orca:plugin:connectionConnect',
   pluginConnectionDisconnect: 'orca:plugin:connectionDisconnect',
-  // 0161 — 사용자가 UI 에서 서버를 추가/삭제하는 경로. 주소 **수정 채널은 두지 않는다**:
-  // connector ID 가 주소에서 파생되므로 수정은 곧 도구 이름·승인 키·다운로드 경로의 이동이다.
-  pluginTemplateList: 'orca:plugin:templateList',
-  pluginInstanceCreate: 'orca:plugin:instanceCreate',
-  pluginInstanceDelete: 'orca:plugin:instanceDelete',
   // 0164 r2 — 부팅 때 **거부된** 패키지·인스턴스를 화면에 올린다. 등록은 패키지 단위
   // all-or-nothing 이라 `baseUrl` 하나가 잘못되면 그 패키지의 서버가 **전부** 사라지는데,
   // 지금까지 흔적이 warn 로그뿐이라 "servers.ts 에 넣었는데 UI 에 없다" 로 보였다.
@@ -306,9 +301,6 @@ export interface PluginConnectorInfo {
   pluginId: string
   acceptedAuthProviders: string[]
   connected: boolean
-  // 어디서 왔는가 (0161). `static` = 코드로 배포된 서버(UI 에서 삭제 불가),
-  // `instance` = 사용자가 추가한 서버. UI 가 삭제 가능 여부를 이 값으로 판정한다.
-  source: 'static' | 'instance'
   // 지금 **무엇으로** 연결돼 있는가 (0164) — 활성 binding 의 auth provider id.
   // 키 부재 = 미연결. provider **id** 만이고 secret·handle 은 이 경계를 넘지 않는다.
   connectedProviderId?: string
@@ -318,35 +310,11 @@ export interface PluginConnectorInfo {
 // 하나가 경로를 달고 있으면 그 패키지의 provider·connector 가 전부 사라진다 — 사유가 로그에만
 // 남으면 사용자에게는 "servers.ts 에 구성했는데 UI 에 없다" 로만 보인다.
 export interface PluginDiagnostic {
-  kind: 'package' | 'instance' | 'cross-reference'
-  // 거부된 대상. 패키지면 pluginId, 인스턴스면 connectorId.
+  // 0178 — 인스턴스 등록 경로를 제거해 'instance' 는 발생원이 없다.
+  kind: 'package' | 'cross-reference'
+  // 거부된 대상 = pluginId.
   subject: string
   message: string
-}
-
-// 사용자가 추가할 수 있는 connector 청사진 (0161).
-export interface ConnectorTemplateFieldInfo {
-  name: 'label' | 'baseUrl' | 'apiBasePath'
-  required: boolean
-  i18nKey: string
-  placeholder?: string
-}
-
-export interface ConnectorTemplateInfoDto {
-  templateId: string
-  i18nKey: string
-  fields: ConnectorTemplateFieldInfo[]
-}
-
-export interface PluginInstanceCreateRequest {
-  templateId: string
-  label: string
-  baseUrl: string
-  apiBasePath?: string
-}
-
-export interface PluginInstanceDeleteRequest {
-  connectorId: string
 }
 
 export interface PluginConnectionConnectRequest {
@@ -1179,10 +1147,6 @@ export interface Settings {
   // 인증 게이트 우회(0157 — 구 ssoBypass). true 면 앱 시작 시 로그인 화면을 건너뛴다
   // (디버그 패널에서 토글, DEV 전용).
   authBypass: boolean
-  // 사용자가 UI 에서 추가한 connector 인스턴스 (0161). 항목 형태 검증은 main 의
-  // `features/connectors/instance-store.ts` 가 한다 — 깨진 항목 하나가 배열 전체를 버리게
-  // 하지 않으려고 여기서는 `unknown[]` 으로 받는다. **비밀은 담지 않는다**(AUTH-PLAT-008).
-  connectorInstances: unknown[]
   // 선호 언어(LLM 응답 언어). 시스템 프롬프트 '# User' 헤더로 매 턴 주입. uiLocale 과 별개.
   language: string
   // UI 표시 언어(앱 크롬 로케일, 0096) — 렌더러 i18n(ko/en) + 날짜/시간 포맷 로케일.
@@ -1193,9 +1157,6 @@ export interface Settings {
   appFont: 'sans' | 'serif' | 'mono'
   // 응답완료 알림 토글.
   notifyOnComplete: boolean
-  // 플러그인 탭의 **추가 버튼 노출** (0164). 서버 목록은 빌드타임(`servers.ts`)이 정본이라
-  // 기본은 숨김이고, 디버그 패널 토글로만 켠다.
-  pluginAddEnabled: boolean
   // 월간 지출 한도(USD). 사용량 한도 바(도넛·설정)의 기준. null=무제한.
   spendingLimitUsd: number | null
   // 앱 실행 중 주기적 작업 설정. schedule_runs 는 실행 이력이고 이 설정이 재시작 복원 SSOT.

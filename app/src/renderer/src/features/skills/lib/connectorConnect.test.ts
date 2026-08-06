@@ -20,8 +20,7 @@ const CONNECTOR: PluginConnectorInfo = {
   origin: 'https://wiki.corp',
   pluginId: 'confluence',
   acceptedAuthProviders: ['confluence-pat', 'confluence-basic'],
-  connected: false,
-  source: 'static'
+  connected: false
 }
 
 function provider(id: string, overrides: Partial<AuthProviderInfo> = {}): AuthProviderInfo {
@@ -65,8 +64,7 @@ describe('buildConnectOptions', () => {
     const instance: PluginConnectorInfo = {
       ...CONNECTOR,
       connectorId: 'confluence-wiki-corp',
-      pluginId: 'confluence-wiki-corp',
-      source: 'instance'
+      pluginId: 'confluence-wiki-corp'
     }
     const shared = [
       provider('confluence-pat', { pluginId: 'confluence', label: 'PAT' }),

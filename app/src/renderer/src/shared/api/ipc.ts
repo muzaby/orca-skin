@@ -52,8 +52,6 @@ import type {
   AuthStepInfo,
   AuthTarget,
   AuthLogoutOutcome,
-  ConnectorTemplateInfoDto,
-  PluginInstanceCreateRequest,
   PluginConnectorInfo,
   PluginDiagnostic
 } from '../../../../shared/ipc'
@@ -224,13 +222,7 @@ export const pluginApi = {
     window.orca.plugins.connect(connectorId, bindingId),
   disconnect: (connectorId: string): Promise<AuthLogoutOutcome> =>
     window.orca.plugins.disconnect(connectorId),
-  // 0161 — 서버 추가/삭제. 생성·삭제는 갱신된 목록을 그대로 돌려준다.
-  templates: (): Promise<ConnectorTemplateInfoDto[]> => window.orca.plugins.templates(),
-  createInstance: (request: PluginInstanceCreateRequest): Promise<PluginConnectorInfo[]> =>
-    window.orca.plugins.createInstance(request),
-  deleteInstance: (connectorId: string): Promise<PluginConnectorInfo[]> =>
-    window.orca.plugins.deleteInstance(connectorId),
-  // 0164 r2 — 목록이 비어 보이는 이유(거부된 패키지·인스턴스)를 화면에 올린다.
+  // 0164 r2 — 목록이 비어 보이는 이유(거부된 패키지)를 화면에 올린다.
   diagnostics: (): Promise<PluginDiagnostic[]> => window.orca.plugins.diagnostics()
 }
 

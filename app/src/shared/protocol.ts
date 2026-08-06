@@ -3,7 +3,6 @@
 // 타입과 CHANNELS 만 필요한 곳은 ./ipc 에서 import.
 
 import { z } from 'zod'
-import { API_BASE_PATH_PATTERN, isBareOrigin } from './connector-address'
 import { DEFAULT_UPDATE_CHECK, MOCK_SCENARIO_IDS, UPDATE_CHECK_INTERVAL_HOURS } from './ipc'
 import type { AttachmentView, Backend, ComposerAttachment, EffortLevel } from './ipc'
 import { LOG_EVENT_PATTERN, LOG_SCOPE_MAX_LENGTH, LOG_STRING_MAX_LENGTH } from './logging'
@@ -281,56 +280,7 @@ export const PluginConnectorInfoSchema = z
     pluginId: PluginConnectorIdSchema,
     acceptedAuthProviders: z.array(PluginConnectorIdSchema),
     connected: z.boolean(),
-    source: z.enum(['static', 'instance']),
     connectedProviderId: PluginConnectorIdSchema.optional()
-  })
-  .strict()
-
-// ── connector 인스턴스 (0161) ────────────────────────────────────────────────
-
-// 사용자 입력 origin. 규칙(술어·패턴)의 정본은 `connector-address.ts` 이고 여기서는 zod 로
-// 감싸 메시지만 이 자리 말로 붙인다 — 같은 규칙을 renderer 도 쓰는데 그쪽에 zod 를 딸려
-// 보내지 않기 위해서다.
-export const PluginInstanceOriginSchema = z
-  .string()
-  .min(1)
-  .max(2048)
-  .refine(isBareOrigin, 'baseUrl 은 경로 없는 origin 이어야 합니다')
-
-export const PluginTemplateListRequestSchema = z.undefined()
-
-export const PluginInstanceCreateRequestSchema = z
-  .object({
-    templateId: PluginConnectorIdSchema,
-    label: z.string().trim().min(1).max(200),
-    baseUrl: PluginInstanceOriginSchema,
-    // 빈 값은 아예 보내지 않는다.
-    apiBasePath: z
-      .string()
-      .max(200)
-      .regex(API_BASE_PATH_PATTERN, 'apiBasePath 는 `/` 로 시작하는 경로여야 합니다')
-      .optional()
-  })
-  .strict()
-
-export const PluginInstanceDeleteRequestSchema = z
-  .object({ connectorId: PluginConnectorIdSchema })
-  .strict()
-
-export const ConnectorTemplateInfoSchema = z
-  .object({
-    templateId: PluginConnectorIdSchema,
-    i18nKey: z.string().min(1).max(200),
-    fields: z.array(
-      z
-        .object({
-          name: z.enum(['label', 'baseUrl', 'apiBasePath']),
-          required: z.boolean(),
-          i18nKey: z.string().min(1).max(200),
-          placeholder: z.string().max(200).optional()
-        })
-        .strict()
-    )
   })
   .strict()
 
@@ -344,9 +294,9 @@ export const PluginDiagnosticsRequestSchema = z.undefined()
 
 export const PluginDiagnosticSchema = z
   .object({
-    // package = 빌드타임 opt-in 패키지, instance = 사용자가 추가한 서버,
+    // package = 빌드타임 opt-in 패키지,
     // cross-reference = connector 가 가리키는 provider 가 없음.
-    kind: z.enum(['package', 'instance', 'cross-reference']),
+    kind: z.enum(['package', 'cross-reference']),
     // 거부된 대상. 패키지면 pluginId, 인스턴스면 connectorId.
     subject: z.string().min(1).max(200),
     message: z.string().min(1).max(500)
@@ -607,11 +557,6 @@ export const SettingsSchema = z.object({
   mcpMeta: z.record(z.string(), z.object({ description: z.string().default('') })).default({}),
   skillEnabled: z.record(z.string(), z.boolean()).default({}),
   authBypass: z.boolean().default(false),
-  // 사용자가 UI 에서 추가한 connector 인스턴스 (0161). **비밀은 담지 않는다** — 자격증명은
-  // safeStorage vault 가 소유하고 여기엔 주소·라벨 등 설정만 있다(AUTH-PLAT-008).
-  // 항목 단위 검증은 `features/connectors/instance-store.ts` 가 한다(깨진 항목만 버리고
-  // 나머지를 살리려면 배열 전체를 거부하면 안 되므로 여기서는 형태만 받는다).
-  connectorInstances: z.array(z.unknown()).default([]),
   // 선호 언어 — LLM 응답 언어. 시스템 프롬프트 '# User' 헤더의 Preferred language 로
   // 매 턴 주입된다(ExtensionBuilder). UI 표시 언어(uiLocale)와 별개 개념.
   language: z.string().default('한국어'),
@@ -625,7 +570,6 @@ export const SettingsSchema = z.object({
   appFont: z.enum(['sans', 'serif', 'mono']).default('sans'),
   // 응답완료 알림 토글. on 이면 턴 완료 시(창 비활성 한정) OS 네이티브 알림 표시.
   notifyOnComplete: z.boolean().default(false),
-  pluginAddEnabled: z.boolean().default(false),
   // 월간 지출 한도(USD). 사용량 한도 프로그레스바(도넛·설정)의 기준. null=무제한.
   // 사용량 자체는 계산하지 않는다 — 실사용 SSOT(UsageTracker/costStore)와 이 한도로 파생만.
   spendingLimitUsd: z.number().positive().nullable().default(90),
@@ -650,7 +594,6 @@ export const SettingsPatchSchema = z
     accountInstructions: z.string(),
     appFont: z.enum(['sans', 'serif', 'mono']),
     notifyOnComplete: z.boolean(),
-    pluginAddEnabled: z.boolean(),
     spendingLimitUsd: z.number().positive().nullable(),
     scheduler: z.object({
       usageRecompute: SchedulerUsageRecomputeSettingsBaseSchema.partial().optional(),
@@ -721,10 +664,6 @@ export type {
   PluginDiagnostic,
   PluginConnectionConnectRequest,
   PluginConnectionDisconnectRequest,
-  ConnectorTemplateFieldInfo,
-  ConnectorTemplateInfoDto,
-  PluginInstanceCreateRequest,
-  PluginInstanceDeleteRequest,
   AuthPlatformState,
   SkillInfo,
   AuthorSkillRequest,

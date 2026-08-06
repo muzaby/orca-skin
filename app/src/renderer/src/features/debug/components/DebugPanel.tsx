@@ -48,14 +48,6 @@ export function DebugPanel({
 
   return (
     <FloatingPanel title={tr('debug.title')}>
-      {/* 0164 — 서버 목록의 정본은 빌드타임(`modules/confluence/servers.ts`)이다. 사용자가
-          주소를 직접 넣는 경로는 지우지 않고 여기서만 연다. */}
-      <PanelSection label={tr('debug.plugins')} />
-      <PanelToggle
-        label={tr('debug.pluginAdd')}
-        value={t.pluginAddEnabled}
-        onChange={(value) => setTweak('pluginAddEnabled', value)}
-      />
       <PanelSection label="Mock" />
       <PanelToggle
         label={tr('debug.mockMode')}
