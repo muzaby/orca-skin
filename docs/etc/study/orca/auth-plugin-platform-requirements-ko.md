@@ -1,5 +1,14 @@
 # Orca 인증 플러그인 플랫폼 요구명세
 
+> **⚠️ 폐기 (2026-08-06, 핸드오프 0178).** 이 문서가 규정한 플랫폼 요구 중 아래는 근거를 잃었다 —
+> **AUTH-PLAT-002**(5메서드 required + `not_supported` 규약: `refresh` 는 provider 3/3 이
+> `not_supported` 만 돌려주던 표면이라 제거) · **AUTH-PLAT-004**(5메커니즘 지원: `oauth_browser`·
+> `oauth_device_code`·`external_secret` 은 생산자가 0이었다) · **AUTH-PLAT-012·013**(선언형 manifest·
+> capability 선언: 타입 시스템이 컴파일 타임에 하는 일을 런타임에 재확인하던 것) ·
+> **AUTH-PLAT-014**(ABI versioning: v2 가 존재한 적 없다). 사용자 결정으로 플랫폼화를 걷어내고
+> 진입점만 남긴다 — 현행 정본은 `docs/guides/closed-network-extensions.md` 와
+> `app/src/main/features/auth-platform/registry.ts` 헤더. **이 문서는 이력으로만 보존한다.**
+
 > 작성일: 2026-07-31  
 > 개정일: 2026-07-31 (핸드오프 `0157` 착수 전 비판적 검토 반영)  
 > 상태: 구현 기준선 (검토 반영본)  

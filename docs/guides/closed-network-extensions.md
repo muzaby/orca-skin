@@ -18,16 +18,17 @@
 **런타임 임의 코드 로딩은 금지한다** — Electron main 에서 임의 코드 실행은 filesystem·cookie·Vault
 전권을 주는 것과 같고 타입 검증도 성립하지 않는다. 이 정책은 0157 에서도 유지된다.
 
-## 1. 구조 — 불변 확장점 2파일 + opt-in 레지스트리
+## 1. 구조 — 확장점 2파일 + opt-in 레지스트리
 
 main 브랜치는 다음만 제공하고, 회사별 구현은 전부 회사 포크/브랜치의 모듈 디렉토리에 둔다:
 
-| 확장점 | 동결 계약 파일 (생성 후 불변) | opt-in 레지스트리 (배럴 한 줄) | 자족 가이드 |
+| 확장점 | 계약 파일 | opt-in 레지스트리 (배럴 한 줄) | 자족 가이드 |
 |---|---|---|---|
 | A. 인증 provider·connector | `app/src/main/contracts/auth-plugin.ts` · `connector-plugin.ts` | `app/src/main/features/auth-platform/modules/index.ts` | `features/auth-platform/modules/AGENTS.md` |
 | B. 정적 사용량 provider | `app/src/main/contracts/usage-report.ts` | `app/src/main/features/providers/static/modules/index.ts` | `features/providers/static/modules/AGENTS.md` |
 
-- **불변 정책 (additive-optional-only)**: 계약 파일은 optional 멤버 *추가*만 허용된다(기존 회사 모듈이 계속 컴파일되도록). 제거·개명·required 화는 금지. 파괴적 변경은 `contracts/auth-plugin-v2.ts` 식의 병행 파일 신설로만 하며, registry 가 `apiVersion` 불일치를 등록 단계에서 거부한다.
+- **계약 동결·ABI 정책은 0178 에서 폐기했다.** 이전에는 계약 파일이 additive-optional-only 로 동결되고 `apiVersion` 불일치를 registry 가 등록 단계에서 거부했는데, 그 정책이 manifest·선언↔구현 전 필드 대조·conformance 하네스를 파생시켜 **확장점 1,603줄**을 만들었다. 지금은 배럴의 `satisfies readonly AuthPackage[]` 가 형태를 **컴파일 타임에** 강제하고, 계약이 바뀌면 회사 모듈은 컴파일 에러로 즉시 안다 — 조용히 어긋나지 않는다.
+- **런타임에 남는 검증은 둘뿐이다** — 중복 id 거부, origin 형태 검사(`features/auth-platform/registry.ts` 헤더). 타입으로 표현할 수 없는 것만 남겼다.
 - **명시적 배럴 등록**: 모듈은 컴파일 타임 코드다. 런타임 동적 로딩(임의 경로 require)은 보안·타입검증 양면에서 금지.
 - **기본 = 비활성**: 신규 설치는 인증 패키지 0개 + usage provider 0개. 게이트/사용량 연동은 등록해야만 켜진다. 등록된 `application` provider 가 없으면 `required:false` 로 로그인 게이트가 자동 통과된다.
 - **복수 등록 가능**: 0130 의 "한 빌드 = 회사 모듈 1개" 제약은 없어졌다. provider 를 몇 개든 등록할 수 있고, 하나의 provider 를 앱 로그인과 여러 connector 가 재사용한다.
@@ -80,7 +81,7 @@ begin/continue(ctx) ── ctx.vault.set('secret', …, {kind})   → binding �
 
 - renderer 로그인 게이트는 **UX 게이트이지 보안 경계가 아니다** — 인증 전에도 main IPC 는 열려 있다(현행 아키텍처 동일). 실제 접근 통제는 사내 네트워크/서비스 인증이 담당한다.
 - auth provider 의 `exec`/browser session 은 강력한 능력이다 — 회사 브랜치의 **컴파일 타임 코드**라서만 허용된다(런타임 로딩 금지의 이유). 브라우저 창은 앱 세션과 격리된 `persist:auth.<sessionGroup>` 파티션 + sandbox 로 열리고, **쿠키를 호출자에게 반환하지 않는다**.
-- provider 에게 vault **전체**·cookie API·`process.env` 전체를 주지 않는다 — 자기 네임스페이스와 manifest 에 선언한 origin 안에서만 움직인다. 미선언 origin 요청·redirect 는 거부된다.
+- provider 에게 vault **전체**·cookie API·`process.env` 전체를 주지 않는다 — 자기 네임스페이스와 descriptor 의 `allowedOrigins` 안에서만 움직인다. 미선언 origin 요청·redirect 는 거부된다.
 - `exec` 가 spawn 하는 자식은 `process.env` 를 통째로 상속하지 않는다(PATH/HOME/locale + 호출자 명시분만).
 - prod 게이트에는 bypass 백도어가 없다(디버그 bypass 는 DEV 빌드 전용).
 - binding 은 **영속하지 않는다** — 매 앱 실행마다 인증부터 시작한다. ADFS 처럼 브라우저 세션이 살아 있으면 창 없이 즉시 통과한다.
