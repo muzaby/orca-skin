@@ -27,6 +27,33 @@ export const CONNECTOR_PACKAGES = [
 **서버 목록의 정본은 각 모듈의 `servers.ts`** 다 — 배포는 그 파일만 고친다. 신규 설치의 기본값은
 빈 배열이라 connector 0개로 부팅한다.
 
+## 인증 4종 ↔ 사용처 3종 (사용자 정리 2026-08-06)
+
+배포가 실제로 쓰는 것은 아래가 전부다. **표에 없는 조합을 만들기 전에 사용자에게 확인한다** —
+인증 방식은 늘리기 쉽고, 늘어난 뒤에는 무엇이 실제로 쓰이는지 아무도 모른다(0178 이 걷어낸
+1,603줄이 정확히 그렇게 쌓였다).
+
+**인증 방식 4종** — `methods/index.ts` 의 내장 목록:
+
+| 방식 | id | 앱 로그인 게이트 |
+|---|---|---|
+| SSO (ADFS) | `methods/sso.ts` 에 적은 id | **켠다** (유일) |
+| ID/비밀번호 | `credential-basic` | 안 켠다 |
+| PAT | `credential-pat` | 안 켠다 |
+| 인증 토큰 | `credential-auth-token` | 안 켠다 |
+
+**사용처 3종** — 각각이 어느 인증 위에 서는가:
+
+| 사용처 | 인증 | 소비 경로 | 현재 상태 |
+|---|---|---|---|
+| 컨플루언스 검색 | ID/비밀번호 · PAT | 내장 도구 → `ctx.request` → REST | ✅ 동작 (`confluence/`) |
+| LLM 모델 토큰 발급 | SSO → **세션 쿠키** | `ctx.request` → REST | ⚠️ **경로는 열렸으나 대상 선언이 없다** — 0178 3b 의 `BrowserSessionCapability.send` 로 세션 쿠키 REST 가 가능해졌지만 이 서비스를 가리키는 모듈이 없다 |
+| 비용 추적 | SSO → **code → token** | `ctx.request` → REST | ❌ **미구현** — 지금 SSO 는 쿠키만 만들고 code→token 교환 단계가 없다. `usage/` 는 PAT·ID/비밀번호만 받는다 |
+
+> **세션 쿠키와 code→token 은 다른 흐름이다.** 앞은 브라우저 세션을 그대로 실어 보내고(구현됨),
+> 뒤는 SSO 로 authorization code 를 받아 토큰으로 **교환**한 뒤 그 토큰을 헤더에 싣는다(미구현).
+> 교환 endpoint 의 경로·응답 형태는 미상이라 0178 §리스크 K3 의 열린 항목으로 남아 있다.
+
 ## 형태 강제는 타입 시스템이 한다 (0178)
 
 `satisfies` 가 컴파일 타임에 형태를 확정한다. 그래서 **manifest 도,

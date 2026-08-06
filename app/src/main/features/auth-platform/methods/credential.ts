@@ -29,6 +29,7 @@ export const RECORD_SECRET_NAME = 'secret'
 export const CREDENTIAL_GROUP_ID = 'credential'
 export const PAT_METHOD_ID = 'credential-pat'
 export const BASIC_METHOD_ID = 'credential-basic'
+export const AUTH_TOKEN_METHOD_ID = 'credential-auth-token'
 
 export const BASIC_USERNAME_FIELD = 'username'
 export const BASIC_PASSWORD_FIELD = 'password'
@@ -126,6 +127,23 @@ export function createPatMethod(): AuthMethod {
     fields: [
       { name: SINGLE_FIELD, label: '개인 액세스 토큰(PAT)', type: 'password', required: true }
     ],
+    compose: (input) => {
+      const value = (input[SINGLE_FIELD] ?? '').trim()
+      return value.length === 0 ? { error: '값을 입력해 주세요' } : { value }
+    }
+  })
+}
+
+// 서비스가 발급한 일반 opaque token. **PAT 와 뭉개지 않는다** — PAT 는 사용자 계정·scope 에
+// 묶인 장기 토큰이고 이것은 그렇지 않다. 값의 모양이 같아도 발급 주체·회수 절차·만료 정책이
+// 달라 `CredentialKind` 를 나눠 저장한다(감사·표시가 그 구분을 쓴다).
+export function createAuthTokenMethod(): AuthMethod {
+  return createCredentialMethod({
+    id: AUTH_TOKEN_METHOD_ID,
+    label: '인증 토큰',
+    mechanism: 'auth_token',
+    credentialKind: 'auth_token',
+    fields: [{ name: SINGLE_FIELD, label: '인증 토큰', type: 'password', required: true }],
     compose: (input) => {
       const value = (input[SINGLE_FIELD] ?? '').trim()
       return value.length === 0 ? { error: '값을 입력해 주세요' } : { value }
