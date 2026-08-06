@@ -57,6 +57,10 @@ import { registerProjectHandlers } from './handlers/project'
 import { registerMcpHandlers } from './handlers/mcp'
 import { registerEngineHandlers } from './handlers/engine'
 import { registerMiscHandlers } from './handlers/misc'
+import { registerSettingsHandlers } from './handlers/settings'
+import { registerSkillsHandlers } from './handlers/skills'
+import { registerFilesHandlers } from './handlers/files'
+import { registerCostHandlers } from './handlers/cost'
 import { registerAuthHandlers } from './handlers/auth'
 import { registerPluginHandlers } from './handlers/plugins'
 import { registerBootHandlers } from './handlers/boot'
@@ -697,6 +701,10 @@ export class Bootstrap {
     registerEngineHandlers(ctx)
     registerBootHandlers(ctx)
     registerUpdateHandlers(ctx)
+    registerSettingsHandlers(ctx)
+    registerSkillsHandlers(ctx)
+    registerFilesHandlers(ctx)
+    registerCostHandlers(ctx)
     registerMiscHandlers(ctx)
     registerLogHandlers()
   }
