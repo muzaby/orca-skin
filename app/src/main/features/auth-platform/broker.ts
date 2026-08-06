@@ -4,10 +4,10 @@
 // 을 함께 알고 있어서, 둘 중 하나를 고치려면 둘 다 읽어야 했다.
 //
 //   login.ts  인증 lifecycle — 재진입·체인·게이트·로그아웃·만료 재확인
-//   api.ts    호출 표면 — `InternalApi` 구현(요청·토큰)
+//   api.ts    내부 API — 다른 모듈이 쓰는 `InternalApi` 구현(요청·토큰)
 //   broker.ts 조립 + 부팅 복원 (여기)
 //
-// 여기 밖에서는 아무도 raw secret 을 만지지 않는다. 대상 구현은 대상 이름으로 위임하고
+// 여기 밖에서는 아무도 raw secret 을 만지지 않는다. 다른 모듈은 대상 이름으로 위임하고
 // (`InternalApi.request`), renderer 는 DTO 만 받는다.
 
 import type {
@@ -136,7 +136,7 @@ export class AuthBroker implements InternalApi {
     return this.login.revalidateAll()
   }
 
-  // ── 호출 표면 위임 (InternalApi) ───────────────────────────────────────────
+  // ── 내부 API 위임 (InternalApi — 다른 모듈이 쓰는 표면) ────────────────────
 
   request(req: InternalApiRequest, signal?: AbortSignal): Promise<InternalApiResponse> {
     return this.api.request(req, signal)

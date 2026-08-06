@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { makeResolver } from './resolver'
+import type { InternalApi } from '../../../contracts/internal-api'
+import { makeResolver, type AuthTokenSource } from './resolver'
 import { expandVars } from '../../../infra/vars'
 import type { SecretStore } from '../../../infra/config/secret-store'
 
@@ -109,5 +110,15 @@ describe('MCP resolver — ${BINDING:id} 참조 (AC10)', () => {
     // ${BINDING:...} 는 VAR_RE 와 서로소라 env 조회로 새지 않는다.
     const resolve = makeResolver({ secrets: secrets({ 'BINDING:bind_1': 'wrong' }), bindings })
     expect(expandVars('${BINDING:bind_1}', resolve)).toBe('pat-value')
+  })
+})
+
+// 인증 포트는 **계약에서 좁혀 온다** (0178 정정). 손으로 다시 선언하면 이 대입이 깨진다 —
+// 소비자마다 자기 형상을 만들면 인증이 "모듈이 부르는 하나의 API" 이기를 그만둔다.
+describe('인증 포트는 InternalApi 에서 파생된다', () => {
+  it('AuthTokenSource 는 InternalApi 의 부분집합이다', () => {
+    const port: AuthTokenSource = { token: () => 'v' }
+    const narrowed: Pick<InternalApi, 'token'> = port
+    expect(narrowed.token('any')).toBe('v')
   })
 })
