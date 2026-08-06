@@ -143,8 +143,6 @@ export interface AuthProviderDescriptor {
   id: string
   // 이 contribution 을 제공하는 패키지 id.
   pluginId: string
-  // ABI 버전. registry 가 불일치를 등록 단계에서 거부한다.
-  apiVersion: 1
   label: string
   targets: readonly AuthTargetKind[]
   mechanisms: readonly AuthMechanism[]

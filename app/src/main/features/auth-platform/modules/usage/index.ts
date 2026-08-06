@@ -3,12 +3,10 @@
 // 서버 목록(`servers.ts`)을 받아 패키지를 조립한다. 같은 factory 를 다른 `id`·`baseUrl` 로
 // 부르면 서버가 늘어난다 — core 코드는 손대지 않는다(confluence 선례).
 //
-// manifest 는 구현 descriptor 에서 **파생**한다. 손으로 두 벌 적으면 registry 의 전 필드 동등
-// 검사에서 갈리고, 그 순간 패키지 전체가 거부된다.
+// 선언이 따로 없다 — 구현체가 곧 선언이다 (0178).
 
 import type { AuthProviderV1 } from '../../../../contracts/auth-plugin'
 import type { ConnectorRuntimeV1 } from '../../../../contracts/connector-plugin'
-import { connectorDeclaration, providerDeclaration } from '../declare'
 import { createBasicCredentialProvider } from '../../providers/basic-credential'
 import { createStaticCredentialProvider } from '../../providers/static-credential'
 import type { AuthPluginPackage } from '../index'
@@ -61,17 +59,5 @@ export function createUsageConnectorPackage(
   const providers = usageAuthProviders()
   const connectors: ConnectorRuntimeV1[] = configs.map(createUsageConnector)
 
-  return {
-    manifest: {
-      schemaVersion: 1,
-      id: USAGE_PLUGIN_ID,
-      version: '1.0.0',
-      contributes: {
-        authProviders: providers.map(providerDeclaration),
-        connectors: connectors.map(connectorDeclaration)
-      }
-    },
-    providers,
-    connectors
-  }
+  return { providers, connectors }
 }

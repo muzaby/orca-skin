@@ -8,7 +8,6 @@ const server = (id: string): RuntimeToolServer => ({
     id,
     pluginId: 'plugin-a',
     connectorId: 'connector-a',
-    apiVersion: 1,
     tools: [{ name: 'lookup', description: 'Find a record' }]
   },
   implementations: [
@@ -25,7 +24,6 @@ const mutableServer = (id: string): RuntimeToolServer => ({
     id,
     pluginId: 'plugin-a',
     connectorId: 'connector-a',
-    apiVersion: 1,
     tools: [
       {
         name: 'change',

@@ -210,7 +210,6 @@ export class Bootstrap {
     // opt-in 패키지 등록. 신규 설치는 빈 배열 = 게이트 없음(현행 동작 보존).
     for (const pkg of AUTH_PLUGIN_PACKAGES) {
       const errors = registry.register({
-        manifest: pkg.manifest,
         ...(pkg.providers !== undefined ? { providers: pkg.providers } : {}),
         ...(pkg.connectors !== undefined ? { connectors: pkg.connectors } : {}),
         ...(pkg.runtimeTools !== undefined ? { runtimeTools: pkg.runtimeTools } : {})

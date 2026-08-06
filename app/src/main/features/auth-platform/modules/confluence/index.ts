@@ -3,13 +3,12 @@
 // 서버 목록을 받아 패키지를 조립한다. 같은 factory 를 다른 `id`·`baseUrl` 로 부르면 서버가
 // 늘어난다 — core 코드는 손대지 않는다(0158 `createJiraConnector` 선례).
 //
-// manifest 는 구현 descriptor 에서 **파생**한다. 손으로 두 벌 적으면 registry 의 전 필드
-// 동등 검사에서 갈리고, 그 순간 패키지 전체가 거부된다.
+// 선언이 따로 없다 — 구현체가 곧 선언이다 (0178). manifest 를 손으로 두 벌 적던 시절의
+// 파생 helper(`declare.ts`)도 함께 사라졌다.
 
 import type { AuthProviderV1 } from '../../../../contracts/auth-plugin'
 import type { ConnectorRuntimeV1 } from '../../../../contracts/connector-plugin'
 import type { RuntimeToolContribution } from '../../../../adapters/runtime-tools'
-import { connectorDeclaration, providerDeclaration, runtimeToolDeclaration } from '../declare'
 import { createBasicCredentialProvider } from '../../providers/basic-credential'
 import { createStaticCredentialProvider } from '../../providers/static-credential'
 import type { AuthPluginPackage } from '../index'
@@ -65,21 +64,5 @@ export function createConfluencePackage(
     createConfluenceTools(server.id, server.label)
   )
 
-  return {
-    manifest: {
-      schemaVersion: 1,
-      id: CONFLUENCE_PLUGIN_ID,
-      version: '1.0.0',
-      contributes: {
-        // 선언은 구현에서 파생한다 — 두 벌을 손으로 맞추면 반드시 갈린다. 파생 helper 는
-        // 인스턴스 경로(`instancePackage`)와 **같은 것을 쓴다**.
-        authProviders: providers.map(providerDeclaration),
-        connectors: connectors.map(connectorDeclaration),
-        runtimeTools: runtimeTools.map(runtimeToolDeclaration)
-      }
-    },
-    providers,
-    connectors,
-    runtimeTools
-  }
+  return { providers, connectors, runtimeTools }
 }

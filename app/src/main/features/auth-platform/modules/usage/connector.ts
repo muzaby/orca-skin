@@ -28,7 +28,6 @@ export function usageConnectorDescriptor(config: UsageConnectorConfig): Connecto
   return {
     id: config.id,
     pluginId: USAGE_PLUGIN_ID,
-    apiVersion: 1,
     label: config.label,
     acceptedAuthProviders: [
       ...(config.acceptedAuthProviders ?? [USAGE_PAT_PROVIDER_ID, USAGE_BASIC_PROVIDER_ID])

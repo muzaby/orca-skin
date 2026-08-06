@@ -47,7 +47,6 @@ export function createAdfsWiaProvider(opts: AdfsWiaOptions): AuthProviderV1 {
   const descriptor: AuthProviderDescriptor = {
     id: opts.id,
     pluginId: opts.pluginId,
-    apiVersion: 1,
     label: opts.label,
     // 하나의 provider 를 앱 로그인과 여러 connector 가 재사용한다 (AUTH-PLAT-005).
     targets: ['application', 'connector'],
