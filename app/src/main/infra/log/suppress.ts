@@ -5,7 +5,7 @@
 
 import type { LogRecord } from '../../../shared/logging'
 
-export interface SuppressDecision {
+interface SuppressDecision {
   // 'emit' = 그대로 기록 · 'drop' = 폐기(집계 카운트만 증가) ·
   // 'summary' = 직전 창의 집계 레코드를 함께 기록 (suppressedCount 첨부)
   action: 'emit' | 'drop' | 'summary'

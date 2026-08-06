@@ -19,7 +19,7 @@ import type { ChatActivitySnapshot } from '../../../shared/ipc'
 
 // 세션 폐기 시 정리할 in-memory 소유자들(0151 AC8) — 컴포지션 루트가 주입한다. 세션 슬라이스가
 // chat 슬라이스를 직접 참조하지 않기 위한 구조적 포트(main/AGENTS.md 해소책 ③).
-export interface SessionDisposeHooks {
+interface SessionDisposeHooks {
   onSessionDisposed?: (sessionId: string) => void
   getActivity?: (sessionId: string) => ChatActivitySnapshot
 }

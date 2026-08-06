@@ -1,6 +1,6 @@
-export type RuntimeCapDecision = 'accept' | 'evict-idle'
+type RuntimeCapDecision = 'accept' | 'evict-idle'
 
-export interface RuntimeCapContext {
+interface RuntimeCapContext {
   // active + idle 이 cap count 대상(SessionRuntime population)이다. ActiveTurnTracker 의
   // 프로젝트별 turn count 와 섞지 않는다.
   active: number

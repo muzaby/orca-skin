@@ -12,7 +12,7 @@
 
 import { isRecord } from '../../../shared/obj'
 
-export type WireSink = (label: string, data?: unknown) => void
+type WireSink = (label: string, data?: unknown) => void
 
 const EXCLUDED_WIRE_LABELS = new Set(['message.delta', 'message.reasoning.delta'])
 

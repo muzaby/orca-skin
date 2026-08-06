@@ -16,7 +16,7 @@ export interface ProviderMessageBatch {
   events: NormalizedEvent[]
 }
 
-export type AdapterSubmissionOutcome =
+type AdapterSubmissionOutcome =
   { kind: 'accepted' } | { kind: 'rejectedBeforeAccept'; reason: 'stream_closed' }
 
 // 라이브 핸들 (provider-runtime.md §3). 0067 부터 두 수명 모델을 겸한다: `pushTurn` 을 구현한

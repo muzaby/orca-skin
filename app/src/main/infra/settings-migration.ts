@@ -24,7 +24,7 @@ function recoverKnownSettings(raw: Raw): Settings {
   return SettingsSchema.parse(recovered)
 }
 
-export interface SettingsMigrationResult {
+interface SettingsMigrationResult {
   raw: Raw
   settings: Settings
 }

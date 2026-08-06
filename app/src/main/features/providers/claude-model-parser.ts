@@ -8,8 +8,7 @@
 //
 // 순수 함수 — fs 비의존, vitest 대상.
 
-export const MODEL_ALIASES = ['sonnet', 'opus', 'haiku'] as const
-export type ModelAlias = (typeof MODEL_ALIASES)[number]
+type ModelAlias = 'sonnet' | 'opus' | 'haiku'
 
 // 필터링 폴백/노출 순서. UI 표시 순서이자 default 폴백 순서(sonnet→haiku→opus 는 §4 규칙,
 // 단 노출 배열은 sonnet/opus/haiku — 폴백 평가는 별도 ORDER 로).

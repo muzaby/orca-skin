@@ -12,7 +12,7 @@ export interface LogTransport {
   close(): void
 }
 
-export interface FileTransportOptions {
+interface FileTransportOptions {
   dir: string
   baseName?: string
   maxBytes?: number

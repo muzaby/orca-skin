@@ -25,12 +25,12 @@ export interface RuntimeToolDescriptor {
 // "엔진이 아니라 표준(MCP)을 1차 추상화" 로 정한 결정(`arch/backend/standardization.md`)의
 // 연장이다. 이 타입이 없으면 handler 가 무엇을 돌려주든 SDK 경계에서 `content:[]` 로 조용히
 // 비어버린다 — 0158 verify r1 D5.
-export interface RuntimeToolTextContent {
+interface RuntimeToolTextContent {
   type: 'text'
   text: string
 }
 
-export type RuntimeToolContent = RuntimeToolTextContent
+type RuntimeToolContent = RuntimeToolTextContent
 
 export interface RuntimeToolResult {
   content: RuntimeToolContent[]

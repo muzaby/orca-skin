@@ -9,7 +9,7 @@
 import type { DbQueries } from '../../infra/db/queries'
 import type { LineageRelation } from '../../infra/db/types'
 
-export interface ContinuityArrival {
+interface ContinuityArrival {
   childSessionId: string
   parentSessionId: string
   relation: LineageRelation

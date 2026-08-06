@@ -25,7 +25,7 @@ const READ_TOOLS = ['Read', 'Glob', 'Grep']
 // read **와 write** 를 모두 허용하는 예외 루트. `~/.claude` 는 plan 모드 산출물·skill 설치가 쓰기를
 // 요구할 수 있어(예: `~/.claude/skills/<name>` 설치, plan 아티팩트 기록) write 까지 연다(사용자 결정
 // 0075 r2). 가이드(0074 §3.2)의 기본 read-only 스탠스에서 Orca 가 의도적으로 넓힌 지점 — 편차로 문서화.
-export function writeExceptionRoots(): string[] {
+function writeExceptionRoots(): string[] {
   return [path.join(homedir(), '.claude')].map((p) => path.resolve(p))
 }
 

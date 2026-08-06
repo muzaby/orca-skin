@@ -15,7 +15,7 @@ import { getLogger } from '../infra/log'
 
 const INSTALL_BLOCK_REASON = '작업이 진행 중입니다 — 끝난 뒤 다시 시도하세요.'
 
-export interface AutoUpdaterPort {
+interface AutoUpdaterPort {
   autoDownload: boolean
   autoInstallOnAppQuit?: boolean
   on(event: string, listener: (...args: unknown[]) => void): this
@@ -24,12 +24,12 @@ export interface AutoUpdaterPort {
   quitAndInstall(isSilent?: boolean, isForceRunAfter?: boolean): void
   setFeedURL?(options: unknown): void
 }
-export interface UpdateControllerDeps {
+interface UpdateControllerDeps {
   updater: AutoUpdaterPort
   restartGateState: () => RestartGateState
   prepareForUpdateInstall: () => void
 }
-export function computeUpdateInstallGate(state: RestartGateState): {
+function computeUpdateInstallGate(state: RestartGateState): {
   canInstall: boolean
   reason?: string
 } {
@@ -41,7 +41,7 @@ function clampPercent(value: unknown): number {
   const n = typeof value === 'number' && Number.isFinite(value) ? value : 0
   return Math.max(0, Math.min(100, n))
 }
-export function normalizeReleaseNotes(value: unknown): string | null {
+function normalizeReleaseNotes(value: unknown): string | null {
   if (typeof value === 'string') return value.slice(0, 8000)
   if (Array.isArray(value)) {
     const text = value

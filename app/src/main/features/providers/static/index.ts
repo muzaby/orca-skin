@@ -24,7 +24,7 @@ import { STATIC_USAGE_PROVIDER_MODULES } from './modules'
  */
 export const STATIC_USAGE_PROVIDERS: StaticUsageProviderModule[] = STATIC_USAGE_PROVIDER_MODULES
 
-export interface StaticProviderMaterializeResult {
+interface StaticProviderMaterializeResult {
   created: string[]
 }
 

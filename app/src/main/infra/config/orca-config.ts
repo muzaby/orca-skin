@@ -41,7 +41,3 @@ export function appEnv(): Record<string, string> {
 export function secretEnvAllowlist(): readonly string[] {
   return getOrcaConfig().secrets?.envAllowlist ?? []
 }
-
-export function resetOrcaConfigForTest(): void {
-  cached = null
-}

@@ -25,7 +25,7 @@ export interface LogSource {
   windowId?: number
 }
 
-export interface LogManagerOptions {
+interface LogManagerOptions {
   transport: LogTransport
   appVersion: string
   sessionId: string

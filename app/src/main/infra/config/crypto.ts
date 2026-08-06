@@ -11,7 +11,7 @@ export function encrypt(plain: string): string {
   return safeStorage.encryptString(plain).toString('base64')
 }
 
-export function decrypt(b64: string): string {
+function decrypt(b64: string): string {
   return safeStorage.decryptString(Buffer.from(b64, 'base64'))
 }
 

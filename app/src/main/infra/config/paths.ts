@@ -23,7 +23,6 @@ import { homedir } from 'node:os'
 import { isAbsolute, join, relative, resolve } from 'node:path'
 import { mkdir } from 'node:fs/promises'
 import { mkdirSync } from 'node:fs'
-import type { Backend } from '../../../shared/ipc'
 
 // 모든 OS 동일하게 ~/.config/orca (제안서 §환경구성). Windows 에서도 homedir() 하위로 통일.
 export function orcaConfigDir(): string {
@@ -40,7 +39,7 @@ export function devUserDataDir(appDataDir: string): string {
 }
 
 // 정규 소스 루트(사람 편집 SSOT).
-export function sourcesDir(): string {
+function sourcesDir(): string {
   return join(orcaConfigDir(), 'sources')
 }
 
@@ -109,25 +108,13 @@ export function getWorkspacePath(
   return dir
 }
 
-export function sourcesMcpDir(): string {
+function sourcesMcpDir(): string {
   return join(sourcesDir(), 'mcp')
 }
 
 // MCP 정규 소스. mcp/mcp.json = 순정 Claude mcpServers 스키마 + ${VAR} 플레이스홀더(평문 비밀 0).
 export function mcpJsonPath(): string {
   return join(sourcesMcpDir(), 'mcp.json')
-}
-
-// provider 별 settings 정규 소스 루트. 하위 디렉토리 이름 = provider (열거 SSOT),
-// 각 디렉토리의 settings.json 은 어댑터-네이티브 스키마(claude = Claude settings.json).
-// 모델 목록은 settings.json 을 파싱해 얻는다(claude-model-parser) — 파생 캐시 파일은 두지 않는다.
-export function sourcesSettingsDir(adapter: Backend): string {
-  return join(sourcesDir(), 'settings', adapter)
-}
-
-// 배포 산출물 루트(ExtensionDeployer 생성, 편집 금지).
-export function distDir(engine: Backend): string {
-  return join(orcaConfigDir(), 'dist', engine)
 }
 
 // 개별 플러그인 루트(dist/<engine>/plugins/<name>)는 여기서 제공하지 않는다 — 레이아웃과

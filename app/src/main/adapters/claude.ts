@@ -91,7 +91,7 @@ function subagentTypeOf(input: unknown): string | undefined {
 const SUBAGENT_BLOCKED_MESSAGE =
   '사용자가 이 작업을 취소했습니다. 해당 서브에이전트를 다시 호출하지 말고 다른 방식으로 진행하세요.'
 
-export interface CanUseToolOptions {
+interface CanUseToolOptions {
   // 중단된 서브에이전트 타입이면 재호출을 deny(가이드 §6-A). 미주입이면 차단 없음.
   isSubagentBlocked?: (subagentType: string | undefined) => boolean
   // readOnlyHint가 true가 아닌 runtime MCP 도구의 완전한 SDK 이름 집합. 미주입이면

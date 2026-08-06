@@ -9,7 +9,7 @@ import { expandEnv } from './expand'
 import type { Resolver } from '../../../infra/vars'
 import type { OrcaMcpConfig, ClaudeMcpConfig } from '../../../adapters/mcp-config'
 
-export interface ConvertResult<C> {
+interface ConvertResult<C> {
   config: C
   dropped: { name: string; reason: string }[]
 }

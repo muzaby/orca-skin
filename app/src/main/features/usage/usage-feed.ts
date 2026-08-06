@@ -8,16 +8,16 @@
 
 import type { UsageSample } from '../../contracts/usage-source'
 
-export interface UsageSampleSelector {
+interface UsageSampleSelector {
   // 미지정 = 모든 source. 모듈이 `subscription.sourceId` 를 안 적은 경우다.
   sourceId?: string
   // 미지정 = 모든 operation.
   operation?: string
 }
 
-export type UsageSampleListener = (sample: UsageSample) => void
+type UsageSampleListener = (sample: UsageSample) => void
 
-export type UsageFeedUnsubscribe = () => void
+type UsageFeedUnsubscribe = () => void
 
 interface Registration {
   selector: UsageSampleSelector

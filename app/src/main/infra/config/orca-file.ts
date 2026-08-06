@@ -72,7 +72,7 @@ const OrcaConfigTopSchema = z.object({
 })
 
 export type UpdateConfig = z.infer<typeof UpdateConfigSchema>
-export type SecretsConfig = z.infer<typeof SecretsConfigSchema>
+type SecretsConfig = z.infer<typeof SecretsConfigSchema>
 
 export interface OrcaConfig {
   version: 1
@@ -92,7 +92,7 @@ export interface OrcaConfig {
   debug?: boolean
 }
 
-export interface ParseOrcaFileResult {
+interface ParseOrcaFileResult {
   config: OrcaConfig
   warnings: string[]
 }

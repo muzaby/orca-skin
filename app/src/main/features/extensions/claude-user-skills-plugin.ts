@@ -20,7 +20,7 @@ import type { Backend } from '../../../shared/ipc'
 import { CLAUDE_USER_PLUGIN_NAME } from '../../adapters/claude-plugin'
 import { getLogger } from '../../infra/log/registry'
 
-export const CLAUDE_USER_PLUGIN_MANIFEST = {
+const CLAUDE_USER_PLUGIN_MANIFEST = {
   name: CLAUDE_USER_PLUGIN_NAME,
   description: '사용자 ~/.claude/skills 래퍼 (settingSources user 배제 보전)',
   version: '1.0.0'

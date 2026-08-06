@@ -3,9 +3,9 @@
 // CLI 가 자동(알림) 턴을 진행 중이거나 프레임 밖 적체가 남아 있으면 listen 드레인을 먼저 돌려
 // 그 턴의 terminal/이벤트가 다음(steer) 프레임에 오귀속되는 것(steer 세션 사망 — 0143 버그 a)을
 // 구조적으로 차단한다.
-export type PostTurnStep = 'listen' | 'flush' | 'break'
+type PostTurnStep = 'listen' | 'flush' | 'break'
 
-export interface PostTurnState {
+interface PostTurnState {
   // held pending(steer 예약) 잔여 존재
   havePending: boolean
   // 미정착 백그라운드 서브에이전트 존재(BackgroundTaskTracker)

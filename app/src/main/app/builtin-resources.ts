@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 
-export interface BuiltinResourcePathInput {
+interface BuiltinResourcePathInput {
   isPackaged: boolean
   resourcesPath: string
   appPath: string

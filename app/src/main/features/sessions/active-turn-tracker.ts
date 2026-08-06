@@ -6,7 +6,7 @@
 // start→finally 경로와 Supervisor 소유 자원 회계에 맞물려야 하기 때문이다. (IPC/UX 경계에서는
 // 여전히 "concurrency"=동시 실행 경고 어휘를 쓴다 — CHANNELS.concurrencyEvent. 내부 기전은
 // active-turn 카운터라 이 모듈만 그 이름으로 부른다, handoff 0061 verify.)
-export type ActiveTurnCountListener = (projectId: string, count: number) => void
+type ActiveTurnCountListener = (projectId: string, count: number) => void
 
 export class ActiveTurnTracker {
   private readonly counts = new Map<string, number>()

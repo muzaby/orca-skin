@@ -8,7 +8,7 @@ import type { ExtractedAttachmentText, ExtractedAttachmentImage } from '../../ad
 export const MAX_FILE_CONTEXT_CHARS = 24_000
 export const SUPPORTED_IMAGE_MIME_TYPES = new Set<string>(SUPPORTED_IMAGE_MEDIA_TYPES)
 
-export interface AttachmentExtractor {
+interface AttachmentExtractor {
   supports(ext: string): boolean
   extract(absPath: string): Promise<string>
 }
@@ -48,7 +48,7 @@ export async function bufferToBase64Chunked(
   return parts.join('')
 }
 
-export function mimeTypeForPath(path: string): string {
+function mimeTypeForPath(path: string): string {
   const ext = extname(path).toLowerCase()
   if (ext === '.md') return 'text/markdown'
   if (ext === '.txt') return 'text/plain'

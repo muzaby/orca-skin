@@ -11,13 +11,13 @@ import { ORCA_PLUGIN_NAME } from '../../adapters/claude-plugin'
 import type { ClaudeMcpConfig } from '../../adapters/mcp-config'
 import type { SkillScanRoot } from './skills/scan'
 
-export const ORCA_PLUGIN_MANIFEST = {
+const ORCA_PLUGIN_MANIFEST = {
   name: ORCA_PLUGIN_NAME,
   description: 'orca에서 구성된 skill 및 mcp',
   version: '1.0.0'
 } as const
 
-export interface ClaudePluginPackageInput {
+interface ClaudePluginPackageInput {
   engine: Backend
   root: string
   skillRoots: SkillScanRoot[]

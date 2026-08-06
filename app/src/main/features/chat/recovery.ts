@@ -6,12 +6,12 @@ export const ABORTED_TOOL_RESULT_PAYLOAD = JSON.stringify({
   isError: true
 })
 
-export interface RecoverDanglingToolCallsOptions {
+interface RecoverDanglingToolCallsOptions {
   sessionId?: string
   isSessionLive?: (sessionId: string) => boolean
 }
 
-export interface RecoverySummary {
+interface RecoverySummary {
   messagesCompleted: number
   toolResultsWritten: number
 }

@@ -24,7 +24,7 @@ const FRAME_DELEGATE_KEYS = [
 ] as const
 
 type FrameDelegateKey = (typeof FRAME_DELEGATE_KEYS)[number]
-export type FrameDelegate = Pick<TurnRequest, FrameDelegateKey>
+type FrameDelegate = Pick<TurnRequest, FrameDelegateKey>
 
 // 어댑터로 넘어가는 부분집합 — 나머지는 Runtime 내부 소비라 요청에 실리지 않는다.
 const ADAPTER_DELEGATE_KEYS = [

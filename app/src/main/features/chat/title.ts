@@ -2,7 +2,7 @@ import type { SessionTitleSource } from '../../infra/db/types'
 
 export const MAX_AUTO_TITLE_LENGTH = 60
 
-export interface ShouldGenerateTitleInput {
+interface ShouldGenerateTitleInput {
   isNewSession: boolean
   titleSource: SessionTitleSource | null
   alreadyStarted: boolean

@@ -16,7 +16,7 @@ export interface SecretStorePort {
   delete(name: string): void
 }
 
-export interface SecretFacade {
+interface SecretFacade {
   get(name: string): string | null
   set(name: string, value: string): void
   delete(name: string): void
