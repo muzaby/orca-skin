@@ -367,4 +367,6 @@
 
 | # | 이슈 | 출처 | 대응 방향 | 상태 |
 |---|---|---|---|---|
-| — | (비어 있음) | — | — | — |
+| D1 | **`security.md §1.8` 이 "`net-fetch.ts` 가 electron 을 무는 유일한 네트워크 파일" 이라 서술 — 거짓.** 실측 3파일(`net-fetch`·`net-request`·`browser-session-store`). `app/src/main/AGENTS.md` 에서 코드 확인 없이 승계한 문장을 정본으로 승격한 것 | verify r1 §0 | ✅ **해결** — `security.md §1.8` 을 두 행(전역 `fetch(` 허용 1파일 ↔ Chromium 스택 3파일)으로 분리하고 **승계 원본 3곳**(`app/src/main/AGENTS.md`·`app/AGENTS.md`·`arch/backend/overview.md`)까지 함께 정정 | 해결 |
+| D2 | `runtime-ipc.md` 헤더가 하지 않은 작업("`contracts/` 9모듈 등재")을 했다고 서술 (실제 인벤토리는 `overview.md` §3) | verify r1 §0 | ✅ **해결** — 실제 위치를 가리키도록 헤더 수정 | 해결 |
+| D3 | **`provider-runtime.md`(569줄, 헤더 2026-06-04)·`standardization.md` 의 "잔여 항목 설계 대기" 표기가 지금도 맞는지 미판정.** P0/P1 항목 전수를 코드와 대조해야 하고, 그것은 사실 정합이 아니라 **설계 판단**이라 0177 비범위 | 구현자 ⚠️ #10 → verify r1 | **사용자 결정 필요** — 후속 핸드오프로 뺄지, 아니면 낡은 "대기" 표기를 그대로 둘지. 현재는 보수적으로 **그대로 뒀다**(확인 없는 "완료" 표기보다 안전) | open |

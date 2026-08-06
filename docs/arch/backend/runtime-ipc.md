@@ -1,7 +1,7 @@
 # Backend Architecture — Runtime & IPC (동시성·IPC 핸들러·시스템 통합)
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-08-05 (handoff 0177 — 재서술하던 채널 총계를 삭제하고 SSOT 링크만 남김 · `contracts/` 9모듈 등재)
+> 최종 업데이트: 2026-08-05 (handoff 0177 — 재서술하던 채널 총계를 삭제하고 SSOT 링크만 남김. `contracts/` 9모듈 인벤토리는 [overview.md](./overview.md) §3 이 갖는다)
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [overview.md](./overview.md) §3(프로세스 구조), [provider-runtime.md](./provider-runtime.md), [../../IPC_CONTRACT.md](../../IPC_CONTRACT.md), [`app/src/main/AGENTS.md`](../../../app/src/main/AGENTS.md) (레이어 DAG·버스 파이프라인)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 

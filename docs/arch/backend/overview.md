@@ -107,7 +107,8 @@ Electron App
 │       ├── config/             # orca-config · secret-store · paths · crypto · mcp-file
 │       ├── auth/               # 인증 인프라 — credential-vault(safeStorage) · browser-session-store(cookie jar) ·
 │       │                       #   authenticated-fetch · binding-{records,store-file} · plugin-exec · session-policy ·
-│       │                       #   **net-fetch.ts / net-request.ts** = main 의 유일한 원격 전송 스택 (security.md §1.8)
+│       │                       #   **net-fetch.ts / net-request.ts / browser-session-store.ts** = Chromium 스택 3파일.
+│       │                       #   전역 fetch( 호출은 net-fetch.ts 에만 허용 (security.md §1.8)
 │       ├── log/                # 중앙 LogManager (0123/0124) — file-transport(JSONL 로테이션) · redact · suppress ·
 │       │                       #   registry · log-context · serialize-error. 정본 observability.md
 │       ├── errors.ts           # 에러 정규화 (ErrorCategory) + errorMessage 헬퍼 (0092)
@@ -196,7 +197,7 @@ Electron App
 | 중앙 로깅 (LogManager · JSONL · redaction) | Phase 4 | ✅ 완료 (0123/0124, prod opt-in 토글 0144) | `infra/log/` — 외부 로깅 라이브러리 미도입. 정본 [observability.md](./observability.md) |
 | **인증 플랫폼** (앱 로그인 + 서비스 연결 공통 lifecycle) | Phase 4 | ✅ 완료 (0157·0170·0172) | `features/auth-platform/` — registry·transactions·bindings·broker·policy. IPC `auth` 8채널. credential 은 `infra/auth/credential-vault.ts`(safeStorage) 소유, DTO 는 `handleId` 만 |
 | **Connector** (인증된 내장 도구 실행) | Phase 4 | ✅ 완료 (0158~0164) | `features/connectors/` — 정적(코드 배포) + 인스턴스(사용자 생성, 0161). IPC `plugin` 7채널. 동봉 패키지 = Confluence DC(0160·0164) · 범용 usage(0176) |
-| **원격 전송 스택 단일화** (Node fetch 금지 → Electron `net.fetch`) | Phase 4 | ✅ 완료 (0173/0174) | `infra/auth/net-fetch.ts` 단일 구현 + 포트 주입. 위반은 `no-node-fetch.test.ts` 가 차단. [security.md](./security.md) §1.8 |
+| **원격 전송 스택 단일화** (Node 전역 `fetch` 금지 → Chromium 스택) | Phase 4 | ✅ 완료 (0173/0174) | 전역 `fetch(` 호출은 `infra/auth/net-fetch.ts` 에만 허용(`no-node-fetch.test.ts` 가 0건으로 고정), 소비자는 `typeof fetch` 포트 주입. Chromium 스택을 무는 파일은 3개(`net-fetch`·`net-request`·`browser-session-store`). [security.md](./security.md) §1.8 |
 | `options.permissionMode` (도구 권한) | Phase 4 | ❌ 미구현 | PRD OQ9 |
 | `options.hooks` 완전 구현 (도구 감사 외부 핸들러) | Phase 4 | ❌ 미구현 | 현재 인프로세스 OrcaHookSet 은 구현됨 |
 | 멀티세션 + 장수명 세션 채널 | Phase 4 | ✅ main 런타임 완료 (handoff 0011·0051·0067) | 세션별 SessionRuntime + 동시 턴 + 장수명 채널(프레임)·idle 풀 LRU. runtime-ipc.md §1. renderer 외피는 ../frontend/state.md §2 |
