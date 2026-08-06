@@ -18,7 +18,7 @@ import {
 import type { SessionChainLease } from '../../features/sessions/session-chain-lease'
 import type { RuntimeSupervisor } from '../../features/sessions/supervisor'
 
-export interface RuntimeEntryDeps {
+interface RuntimeEntryDeps {
   supervisor: RuntimeSupervisor<WebContents>
   lease: SessionChainLease<WebContents>
   adapter: RuntimeSessionAdapter
@@ -30,7 +30,7 @@ export interface RuntimeEntryDeps {
 //  · `ok:true`  — 정상. `extensions` 가 함께 온다.
 //  · `ok:false` + `runtime:null` — 아직 안 만들었거나(중단) 활성화에 실패해 **여기서 close 완료**.
 //  · `ok:false` + `runtime` 있음 — 활성화까지 마친 뒤 중단됐다. 호출자의 finally 가 반납해야 한다.
-export type RuntimeEntry =
+type RuntimeEntry =
   | { ok: true; runtime: SessionRuntime; extensions: TurnExtensions }
   | { ok: false; runtime: SessionRuntime | null }
 

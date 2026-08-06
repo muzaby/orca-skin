@@ -13,7 +13,7 @@ import { reconcileInterruptReceipt } from '../../features/chat/interrupt-reconci
 import { getLogger } from '../../infra/log'
 import { sendSubmitted } from './turn-setup'
 
-export interface TurnRequestDeps {
+interface TurnRequestDeps {
   wc: WebContents
   pendingMessages: PendingMessageQueue
   activity: SessionActivityProjector

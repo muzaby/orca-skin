@@ -20,7 +20,7 @@ import { getLogger } from '../../infra/log'
 import { buildFlushRequest, buildListenRequest, type ContinuationSettings } from './continuation'
 import { makeContinuationTurn } from './turn-context'
 
-export interface PostTurnDeps {
+interface PostTurnDeps {
   coordinator: TurnCoordinator<WebContents>
   runtime: SessionRuntime
   lease: SessionChainLease<WebContents>

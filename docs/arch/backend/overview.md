@@ -57,7 +57,9 @@ Electron App
 │   ├── index.ts                # 부트 진입 — Bootstrap.start() → BrowserWindow → will-quit(shutdown→closeDb)
 │   ├── app/                    # 컴포지션 루트 (전 레이어 의존 허용 — 유일)
 │   │   ├── bootstrap.ts        # 의존성 생성 + 부팅 시퀀스 + 버스 구독 순서 SSOT + 핸들러 등록 위임
-│   │   ├── chat-turn.ts        # 턴 셋업 — chat:send 배선(pending queue·supervisor·coordinator 연결)
+│   │   ├── chat-turn/          # 턴 셋업 13모듈 (0179 분해) — index(배럴·IPC 등록) · send(순서) ·
+│   │   │                       #   admission/turn-context/continuation(순수 판정·조립) · resolve-turn ·
+│   │   │                       #   runtime-entry · enqueue · turn-request · approval · post-turn · busy-reserve
 │   │   ├── context.ts          # RouterContext (핸들러 공유 의존성)
 │   │   ├── boot-report.ts      # 부팅 진단 계측 (0077) — 각 부팅 단계 step 래핑 · orca:boot:report
 │   │   ├── builtin-resources.ts # 번들 스킬 리소스 해석 (0078)
@@ -66,7 +68,8 @@ Electron App
 │   │   ├── auth-restore.ts     # 재시작 후 인증 binding 자동 복원 (0170)
 │   │   ├── chat-turn-continuation.ts # 자동 연속 턴 배선 (settings 재판정 포함, 0126)
 │   │   ├── usage-source.ts     # PluginHost → UsageSourcePort 어댑터 — 사용량 provider 가 connector invoke 결과를 구독 (0176)
-│   │   └── handlers/           # 도메인 IPC 10종 — auth · boot · engine · log · mcp · misc · plugins · project · session · update
+│   │   └── handlers/           # 도메인 IPC 14종 — auth · boot · cost · engine · files · log · mcp · misc ·
+│   │                           #   plugins · project · session · settings · skills · update (0179 에서 misc 분해)
 │   ├── features/               # 수직 슬라이스 (교차 import 금지)
 │   │   ├── chat/               # 턴 오케스트레이션 — turn-coordinator · pending-message-queue · settle · timers · title
 │   │   ├── sessions/           # 런타임 거버넌스 — supervisor · session-runtime · runtime-pool · eviction/cap-policy · active-turn-tracker
@@ -74,7 +77,7 @@ Electron App
 │   │   ├── usage/              # UsageTracker — turn_usage 집계(일/주/월 SUM) + provider별 한도(0080~0082)
 │   │   ├── history/            # HistoryWriter — NormalizedEvent → DB parts 영속
 │   │   ├── providers/          # provider/engine 설정·모델 해석
-│   │   ├── extensions/         # ExtensionBuilder(지침·MCP·skill 조립) + deployer · conformance · mcp/ · skills/(scan·seed)
+│   │   ├── extensions/         # ExtensionBuilder(지침·MCP·skill 조립) + deployer · mcp/ · skills/(scan·seed)
 │   │   ├── orchestration/      # Conversation Continuity(fork/handoff) 순수 로직 (handoff 0051 §A.4)
 │   │   ├── scheduler/          # 주기 실행 엔진 (croner, 0091) — register/protect/nextRun/stopAll + schedule_runs 기록
 │   │   ├── auth-platform/      # 인증 플랫폼 (0157~0172) — registry · transactions · bindings · broker · policy · conformance · plugin-host

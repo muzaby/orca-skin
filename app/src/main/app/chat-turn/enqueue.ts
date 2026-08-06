@@ -11,7 +11,7 @@ import type { PendingMessageQueue } from '../../features/chat/pending-message-qu
 import { sendChatEvent } from '../../infra/ipc/send'
 import type { NormalizedAttachments } from './deps'
 
-export interface EnqueueResult {
+interface EnqueueResult {
   preludes: SteerFlushBatch[]
   mainBatch: SteerFlushBatch
   initialBatches: SteerFlushBatch[]

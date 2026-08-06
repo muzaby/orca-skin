@@ -487,32 +487,47 @@ wc -l src/main/app/handlers/misc.ts      # 200 이하
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- 동의 / 그대로 진행: …
-- 이견 / 우려: …
+- **동의 / 그대로 진행**: 단계 순서(삭제 → 셸 → 분해 → 배선)는 정확했다. 앞 단계가 뒤 단계의
+  노이즈를 걷어내, 3단계에서 `chat-turn.ts` 를 읽을 때 이미 죽은 심볼이 없었다. "각 단계가 그
+  자체로 green" 도 값을 했다 — 4단계에서 등록 누락을 의심할 때 3단계까지의 green 이 기준선이 돼
+  범위를 즉시 좁힐 수 있었다.
+- **이견 / 우려 ①(§AC A15)**: **목표 수치를 코드 형태를 보기 전에 정한 것이 잘못이었다.**
+  "최대 함수 200줄 미만" 은 `handleChatSend` 의 실제 구조(12단계 선형 시퀀스 + try/catch/finally
+  3중)를 모르고 쓴 숫자다. 344줄까지 줄인 뒤 더 쪼개려면 10개 필드짜리 deps 객체를 넘기는
+  wiring 모듈을 만들어야 했는데, 그건 **사용자가 지목한 "어설픈 재사용" 을 새로 만드는 것**이다.
+  숫자를 맞추려 코드를 비트는 대신 미달로 보고했다(아래 D2).
+- **이견 / 우려 ②(§설계 4단계 표)**: 표가 "합계 27, 참조 26 — `installStatus` 때문에 1 어긋남"
+  이라 적었는데 **틀렸다**. `installStatus` 는 send 채널이라 `misc.ts` 의 `CHANNELS.` 참조에 애초
+  없었고, 참조 26 = 등록 26 이다. 그래서 A16 의 기대 목록을 26개로 고정했다(테스트가 실측으로 확인).
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 구현함 / ⚠️ 보고만·**결정 필요** | … |
+| D1 | **A2(`_example/` 삭제)가 스스로와 모순이었다.** 삭제하고 나서야 `features/providers/static/modules/AGENTS.md` 가 **배포 절차의 1단계로 `_example/` 복사를 지시**하고 있는 것을 봤다("`_example/index.ts`·`provider-hook.ts`·`provider-subscription.ts` 중 하나를 `modules/<회사명>/` 으로 복사"). 빈 레지스트리 seam 은 남기면서 그 seam 을 채우는 법을 보여주는 유일한 것을 지우면 seam 이 무의미해진다. 게다가 **typecheck 되는 예제는 마크다운 코드블럭보다 낫다** — 계약이 바뀌면 컴파일이 깨져 드리프트가 드러난다. | ✅ **A2 철회** — 3파일을 되살리고 A5 인벤토리에서도 `_example/` 을 제외했다. 사용자 결정 ①(인증/커넥터 플랫폼 불가침)과 같은 결의 판단이다. | `app/src/main/features/providers/static/modules/AGENTS.md §구현 절차 1` |
+| D2 | **A15 의 "최대 함수 200줄 미만" 미달 — 실측 344줄.** 1,166 → 344(-71%)까지는 갔으나 목표에 못 미친다. 남은 344줄은 12개 단계 호출 + 3중 try/finally 이고, 코드 318줄 / 주석·빈줄 60줄이다. 더 쪼개려면 `wire-turn.ts` 같은 모듈에 10필드 deps 를 넘겨야 하는데 그건 응집이 아니라 배관이다. **파일 기준(250줄)도 `send.ts` 381줄로 미달**이고 나머지 12모듈은 58~216줄로 충족. | ⚠️ **보고만 — 목표 미달을 그대로 남긴다.** 수치를 맞추려 코드를 비틀지 않았다. 후속으로 더 나눌지는 실사용 후 판단이 낫다. | `wc -l src/main/app/chat-turn/*.ts` · `awk` 함수 길이 측정(§게이트) |
+| D3 | **A5 의 "무참조 0" 은 3·4단계가 새 export 를 만들면 다시 깨진다.** 1단계 직후 0이었으나 신규 13모듈이 `*Deps`·`*Input`·`*Result` 11종을 export 해 12로 되돌아갔다(+ `isValidCron` — scheduler 배럴 re-export 를 지우자 소비자가 0이 됐다). | ✅ **구현함** — 신규 11종을 module-local 로 되돌리고 `isValidCron` 을 삭제했다. 최종 실측 **완전 무참조 0 / 테스트 전용 51**. | §게이트 인벤토리 스크립트 |
+| D4 | **A7 의 검증 수단이 존재하지 않았다.** "`scheduler.test.ts` 의 기존 cron 검증 케이스" 라고 적었으나, 전수 확인 결과 `assertValidCron`/`isValidCron` 을 단언하는 테스트가 **저장소에 하나도 없었다**. re-export 셸을 지우면서 "회귀는 기존 테스트가 잡는다" 고 주장할 근거가 없었다. | ✅ **구현함** — `scheduler.test.ts` 에 "잘못된 cron 표현식은 등록 시점에 거부한다" 회귀를 신설했다(등록 throw + `nextRun` null). | `rg 'assertValidCron\|isValidCron' src/main --include=*.test.ts` = 0건 |
+| D5 | **`docs/arch/**` 의 경로 인용이 이번 분해로 낡았다** — plan §비범위가 `docs/arch/` 를 언급하지 않아 사각이었다. `overview.md` 모듈 트리의 `chat-turn.ts`·`handlers 10종`·`extensions … conformance`, `runtime-ipc.md` 의 `app/chat-turn.ts` 4곳. | ✅ **구현함** — 내가 무효화한 7곳만 고쳤다. `overview.md:80` 의 auth-platform conformance 언급은 0178 이 남긴 선행 드리프트라 손대지 않았다(범위 밖). | `rg 'chat-turn\.ts\|conformance' docs/arch/backend/` |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] 1단계 — 죽은 코드 제거 (A1~A5)
-- [ ] 2단계 — 껍데기 재사용 정리 (A6~A7)
-- [ ] 3단계 — `chat-turn.ts` 분해 (A8~A15)
-- [ ] 4단계 — `handlers/misc.ts` 분해 (A16~A18)
-- [ ] 문서 갱신 (A19)
+- [x] 1단계 — 죽은 코드 제거 (A1·A3·A4·A5 충족 / **A2 철회 — D1**)
+- [x] 2단계 — 껍데기 재사용 정리 (A6~A7 충족, A7 은 회귀 신설로 — D4)
+- [x] 3단계 — `chat-turn.ts` 분해 (A8~A14 충족 / **A15 미달 — D2**)
+- [x] 4단계 — `handlers/misc.ts` 분해 (A16~A18 충족)
+- [x] 문서 갱신 (A19 + D5)
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `test` |
-| 게이트 결과 | … |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | … |
+| 변경 파일 | **108 파일 (+2,965 / −1,975)**. 신규 13(`app/chat-turn/*`) + 4(`handlers/{skills,files,cost,settings}.ts`) + 테스트 4. 삭제 6(`conformance.ts`+테스트 · `external-correction.ts` · `usage/boundaries.ts`+테스트 · `scheduler/cron-validate.ts`) + `chat-turn.ts`(→ 디렉토리 이전). 나머지는 `export` 제거 113건과 문서 6곳 |
+| 실행 명령 | `npm ci` → `npm run lint` / `npm run typecheck` / `npm test` (+ `node --test scripts/*.test.mjs`) |
+| 게이트 결과 | lint **0 error / 1 warning**(`useTranscriptVirtualizer` — 0102 베이스라인) · typecheck **3/3** · vitest **206 파일 / 1,916 테스트 전량 green**(베이스라인 204/1,892 대비 **+2 파일 / +24 테스트**) · scripts **28/28** |
+| 환경 특기 | **egress 가 열린 환경이라 `app/AGENTS.md` 가 경고하는 403 차단 상황이 아니다.** Electron ABI rebuild·electron 바이너리 설치가 모두 성공해 DB 스위트까지 전량 green — red 베이스라인 분리 보고가 필요 없었다 |
+| 블로커 / 역질문 | **없음.** 사용자 결정이 필요한 항목 0(신규 의존성 0 · IPC 82종 무변경 · DB 무변경). D2 는 목표 미달 보고이지 결정 요청이 아니다 |
+| 대상 커밋 | `4f590e1`(1단계) · `98e2bef`(2단계) · `83bd3a9`(3단계) · `e9b9214`(4단계) · 문서 |
 
 ---
 
