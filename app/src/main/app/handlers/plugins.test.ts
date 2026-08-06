@@ -12,8 +12,7 @@ const safeConnector = {
   origin: 'https://connector-one.example.invalid',
   pluginId: 'test-plugin',
   acceptedAuthProviders: ['test-provider'],
-  connected: false,
-  source: 'static' as const
+  connected: false
 }
 
 describe('plugin list handler output boundary', () => {

@@ -114,32 +114,10 @@ export const en: typeof ko = {
       disconnectedPlugins: 'Disconnected plugin packages'
     },
     view: { selectItem: 'Select an item.', backAria: 'Back to {{section}} list' },
-    templates: {
-      confluence: 'Confluence (Data Center)'
-    },
-    instance: {
-      title: 'Add a server',
-      noTemplate: 'No services are available to add.',
-      label: 'Display name',
-      labelPlaceholder: 'e.g. Team wiki',
-      address: 'Server address',
-      addressHint:
-        'Paste the address from your browser. It cannot be changed after the server is created.',
-      addressResolved: 'Connects to: {{url}}',
-      create: 'Add',
-      delete: 'Delete',
-      errTemplate: 'Pick a service to add.',
-      errLabel: 'Enter a display name.',
-      errAddress: "Couldn't read that address. Example: https://wiki.example.com/confluence",
-      errExists: 'A server with this address already exists.',
-      errRegister: 'Could not register the server.',
-      errUnknown: 'Could not add the server.'
-    },
     diagnostics: {
       title: '{{count}} item(s) failed to register',
       hint: 'These were rejected and do not appear in the list. An address must be a path-less origin (for example https://wiki.example.com).',
       package: 'Plugin package {{subject}}',
-      instance: 'Server {{subject}}',
       'cross-reference': 'Auth reference {{subject}}'
     },
     connect: {
@@ -399,8 +377,6 @@ export const en: typeof ko = {
   debug: {
     title: 'Debug',
     closeTweaks: 'Close tweaks',
-    plugins: 'Plugins',
-    pluginAdd: 'Show add-server button',
     mockMode: 'Mock mode',
     scenario: 'Scenario',
     contextUsage: 'Context usage',

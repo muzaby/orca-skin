@@ -2,40 +2,35 @@ import { describe, expect, it, vi } from 'vitest'
 import { connectorActions, runReconnect, type ConnectorActionInput } from './connectorActions'
 import type { AuthLogoutOutcome } from '../../../../../shared/ipc'
 
-const CONNECTED_INSTANCE: ConnectorActionInput = { connected: true, source: 'instance' }
-const IDLE_INSTANCE: ConnectorActionInput = { connected: false, source: 'instance' }
-const CONNECTED_STATIC: ConnectorActionInput = { connected: true, source: 'static' }
+const CONNECTED: ConnectorActionInput = { connected: true }
+const IDLE: ConnectorActionInput = { connected: false }
 
 describe('connectorActions — 상태 점', () => {
   it('연결되면 green, 아니면 slate', () => {
-    expect(connectorActions(CONNECTED_INSTANCE).tone).toBe('green')
-    expect(connectorActions(IDLE_INSTANCE).tone).toBe('slate')
+    expect(connectorActions(CONNECTED).tone).toBe('green')
+    expect(connectorActions(IDLE).tone).toBe('slate')
   })
 })
 
 describe('connectorActions — 액션 집합', () => {
   it('연결됨 → reconnect·disconnect', () => {
-    const { actions } = connectorActions(CONNECTED_INSTANCE)
+    const { actions } = connectorActions(CONNECTED)
     expect(actions).toContain('reconnect')
     expect(actions).toContain('disconnect')
     expect(actions).not.toContain('connect')
   })
 
   it('미연결 → connect 만 (끊긴 것을 끊을 수 없다)', () => {
-    const { actions } = connectorActions(IDLE_INSTANCE)
+    const { actions } = connectorActions(IDLE)
     expect(actions).toContain('connect')
     expect(actions).not.toContain('disconnect')
     expect(actions).not.toContain('reconnect')
   })
 
-  it('instance 만 remove', () => {
-    expect(connectorActions(CONNECTED_INSTANCE).actions).toContain('remove')
-    expect(connectorActions(IDLE_INSTANCE).actions).toContain('remove')
-  })
-
-  it('static 은 remove 없음', () => {
-    expect(connectorActions(CONNECTED_STATIC).actions).not.toContain('remove')
-    expect(connectorActions({ connected: false, source: 'static' }).actions).not.toContain('remove')
+  // 0178 — UI 추가 경로를 제거해 서버는 전부 빌드타임 정적이다. 지울 수 있는 것이 없다.
+  it('어느 상태에서도 remove 액션이 나오지 않는다', () => {
+    expect(connectorActions(CONNECTED).actions).not.toContain('remove')
+    expect(connectorActions(IDLE).actions).not.toContain('remove')
   })
 })
 

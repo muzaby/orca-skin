@@ -5,14 +5,13 @@
 
 import type { AuthLogoutOutcome } from '../../../../../shared/ipc'
 
-export type ConnectorAction = 'connect' | 'reconnect' | 'disconnect' | 'remove'
+export type ConnectorAction = 'connect' | 'reconnect' | 'disconnect'
 
 // `Dot` 이 받는 tone 중 이 화면이 쓰는 둘 (`shared/ui/Status.tsx`).
 export type ConnectorTone = 'green' | 'slate'
 
 export interface ConnectorActionInput {
   connected: boolean
-  source: 'static' | 'instance'
 }
 
 export function connectorActions(connector: ConnectorActionInput): {
@@ -24,12 +23,9 @@ export function connectorActions(connector: ConnectorActionInput): {
   const connection: ConnectorAction[] = connector.connected
     ? ['reconnect', 'disconnect']
     : ['connect']
-  // 사용자가 추가한 서버만 지울 수 있다. 정적 connector 는 코드로 배포된 것이라 main 이
-  // `not_found` 로 거부한다 — 강제 지점은 main 이고 여기는 눌러보고 실패하는 경험을 막는 것뿐이다.
-  const removal: ConnectorAction[] = connector.source === 'instance' ? ['remove'] : []
   return {
     tone: connector.connected ? 'green' : 'slate',
-    actions: [...connection, ...removal]
+    actions: connection
   }
 }
 

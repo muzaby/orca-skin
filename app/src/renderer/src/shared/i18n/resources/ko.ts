@@ -112,33 +112,12 @@ export const ko = {
       disconnectedPlugins: '연결되지 않은 플러그인 패키지'
     },
     view: { selectItem: '항목을 선택하세요.', backAria: '{{section}} 목록으로 돌아가기' },
-    templates: {
-      confluence: 'Confluence (Data Center)'
-    },
-    instance: {
-      title: '서버 추가',
-      noTemplate: '추가할 수 있는 서비스가 없습니다.',
-      label: '표시 이름',
-      labelPlaceholder: '예: 사내 위키',
-      address: '서버 주소',
-      addressHint: '브라우저 주소창의 주소를 그대로 붙여넣으세요. 주소는 만든 뒤 바꿀 수 없습니다.',
-      addressResolved: '이 주소로 연결합니다: {{url}}',
-      create: '추가',
-      delete: '삭제',
-      errTemplate: '추가할 서비스를 선택해 주세요.',
-      errLabel: '표시 이름을 입력해 주세요.',
-      errAddress: '주소를 알아볼 수 없습니다. 예: https://wiki.example.com/confluence',
-      errExists: '같은 주소의 서버가 이미 있습니다.',
-      errRegister: '서버를 등록하지 못했습니다.',
-      errUnknown: '서버를 추가하지 못했습니다.'
-    },
     // 부팅 등록 거부 (0164 r2). 등록은 패키지 단위 all-or-nothing 이라 주소 하나가 잘못되면
     // 그 패키지의 서버가 전부 목록에서 사라진다 — 이유를 여기서 읽을 수 있어야 한다.
     diagnostics: {
       title: '등록하지 못한 항목 {{count}}건',
       hint: '설정이 거부되어 목록에 나타나지 않습니다. 주소는 경로 없는 origin 이어야 합니다 (예: https://wiki.example.com).',
       package: '플러그인 패키지 {{subject}}',
-      instance: '서버 {{subject}}',
       'cross-reference': '인증 참조 {{subject}}'
     },
     connect: {
@@ -398,8 +377,6 @@ export const ko = {
   debug: {
     title: '디버그',
     closeTweaks: 'Tweaks 닫기',
-    plugins: '플러그인',
-    pluginAdd: '서버 추가 버튼 노출',
     mockMode: 'Mock 모드',
     scenario: '시나리오',
     contextUsage: '컨텍스트 사용량',

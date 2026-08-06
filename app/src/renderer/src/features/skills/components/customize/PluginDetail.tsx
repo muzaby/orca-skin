@@ -41,19 +41,6 @@ export function PluginDetail({
   const [connecting, setConnecting] = useState<PluginConnectorInfo | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
 
-  // 사용자가 추가한 서버만 지울 수 있다 — 정적 connector 는 코드로 배포된 것이라 main 이
-  // `not_found` 로 거부한다. 버튼을 아예 그리지 않아 눌러보고 실패하는 경험을 막는다.
-  const removeInstance = (connectorId: string): void => {
-    setBusyId(connectorId)
-    void pluginApi
-      .deleteInstance(connectorId)
-      .catch(() => undefined)
-      .finally(() => {
-        setBusyId(null)
-        onChanged?.()
-      })
-  }
-
   const disconnect = (connectorId: string): void => {
     setBusyId(connectorId)
     void pluginApi
@@ -151,17 +138,6 @@ export function PluginDetail({
               onClick={() => disconnect(row.connectorId)}
             >
               {tr('skills.connect.disconnect')}
-            </Button>
-          )}
-          {/* 정적 서버는 제거 버튼이 없다 — 주소가 빌드타임에 고정돼 있다(0164). */}
-          {actions.includes('remove') && (
-            <Button
-              variant="danger-ghost"
-              size="small"
-              disabled={busy}
-              onClick={() => removeInstance(row.connectorId)}
-            >
-              {tr('skills.instance.delete')}
             </Button>
           )}
         </div>

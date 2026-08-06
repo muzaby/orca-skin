@@ -9,7 +9,6 @@
 import type { AuthProviderV1 } from '../../../../contracts/auth-plugin'
 import type { ConnectorRuntimeV1 } from '../../../../contracts/connector-plugin'
 import type { RuntimeToolContribution } from '../../../../adapters/runtime-tools'
-import type { ConnectorTemplate } from '../../../../contracts/connector-template'
 import { connectorDeclaration, providerDeclaration, runtimeToolDeclaration } from '../declare'
 import { createBasicCredentialProvider } from '../../providers/basic-credential'
 import { createStaticCredentialProvider } from '../../providers/static-credential'
@@ -31,74 +30,6 @@ export {
 } from './connector'
 export { CONFLUENCE_SERVERS } from './servers'
 export { CONFLUENCE_TOOL_NAMES, confluenceToolServerId } from './tools'
-
-// ── 템플릿 (0161) ────────────────────────────────────────────────────────────
-//
-// 사용자가 UI 에서 서버를 추가하는 경로. 위 `createConfluencePackage`(코드 레벨 정적 등록)는
-// 그대로 남고 두 경로가 공존한다(사용자 결정 2026-08-03).
-//
-// **패키지를 둘로 나누는 이유**: registry 가 중복 provider id 를 거부하므로 인스턴스마다
-// provider 를 함께 등록하면 두 번째 서버 추가가 통째로 실패한다. provider 는 shared 에 1회,
-// connector+tools 만 인스턴스마다 등록한다.
-export const confluenceTemplate: ConnectorTemplate = {
-  id: CONFLUENCE_PLUGIN_ID,
-  i18nKey: 'skills.templates.confluence',
-  fields: [
-    { name: 'label', required: true, i18nKey: 'skills.instance.label' },
-    {
-      name: 'baseUrl',
-      required: true,
-      i18nKey: 'skills.instance.baseUrl',
-      placeholder: 'https://wiki.example.com'
-    },
-    {
-      name: 'apiBasePath',
-      required: false,
-      i18nKey: 'skills.instance.apiBasePath',
-      placeholder: '/confluence'
-    }
-  ],
-
-  sharedPackage: () => ({
-    manifest: {
-      schemaVersion: 1,
-      id: CONFLUENCE_PLUGIN_ID,
-      version: '1.0.0',
-      contributes: { authProviders: confluenceProviders().map(providerDeclaration) }
-    },
-    providers: confluenceProviders()
-  }),
-
-  instancePackage: (config) => {
-    const server: ConfluenceServerConfig = {
-      id: config.connectorId,
-      label: config.label,
-      baseUrl: config.baseUrl,
-      ...(config.apiBasePath !== undefined ? { apiBasePath: config.apiBasePath } : {})
-    }
-    const connector = createConfluenceConnector(server)
-    const tools = createConfluenceTools(config.connectorId, config.label)
-    return {
-      manifest: {
-        schemaVersion: 1,
-        // 인스턴스마다 고유 pluginId — registry 가 중복 manifest.id 를 거부하고
-        // `descriptor.pluginId === manifest.id` 를 강제한다.
-        id: config.connectorId,
-        version: '1.0.0',
-        contributes: {
-          connectors: [connectorDeclaration(connector)],
-          runtimeTools: [runtimeToolDeclaration(tools)]
-        }
-      },
-      connectors: [
-        { ...connector, descriptor: { ...connector.descriptor, pluginId: config.connectorId } }
-      ],
-      runtimeTools: [
-        { ...tools, descriptor: { ...tools.descriptor, pluginId: config.connectorId } }
-      ]
-    }
-  }
-}
 
 function confluenceProviders(): AuthProviderV1[] {
   return [
