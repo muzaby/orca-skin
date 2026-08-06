@@ -7,8 +7,8 @@
 //
 // ── 레이어 주의 ──────────────────────────────────────────────────────────────
 //   `features/connectors` 는 `features/auth-platform` 을 **직접 import 할 수 없다**
-//   (feature 수직 슬라이스 교차 금지). 그래서 호출 표면은 `contracts/internal-api.ts` 의
-//   구조적 포트이고, 컴포지션 루트(`app/bootstrap.ts`)가 구현을 주입한다.
+//   (feature 수직 슬라이스 교차 금지). 그래서 인증은 `contracts/internal-api.ts` 의 **내부 API**
+//   (앱 안의 다른 모듈이 쓰는 표면)로 받고, 컴포지션 루트(`app/bootstrap.ts`)가 구현을 주입한다.
 // ═══════════════════════════════════════════════════════════════════════════
 
 import type { AuthMechanism, CredentialPresentation } from '../../shared/ipc'

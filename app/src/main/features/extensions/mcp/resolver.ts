@@ -20,15 +20,15 @@
 
 import { BINDING_PREFIX, type Resolver } from '../../../infra/vars'
 import type { SecretStore } from '../../../infra/config/secret-store'
+import type { InternalApi } from '../../../contracts/internal-api'
 
-// 호출 표면의 구조적 포트 — features 교차 import 를 피하려고 필요한 메서드만 받는다.
+// 인증 표면은 **계약에서 가져온다** — 여기서 같은 모양을 손으로 다시 선언하면 인증이 "모듈이
+// 부르는 하나의 API" 가 아니라 소비자마다 다른 형상이 된다(0178 정정). 필요한 메서드만 좁힌다.
 //
-// **키가 대상 이름이다** (0178). 0178 이전에는 무작위 binding id(`bind_7_x3k9…`)였는데, 그 값은
-// 매 인증마다 새로 뽑히고 화면 어디에도 나오지 않아 **사람이 적을 수 없는 참조**였다. 이제
-// `servers.ts` 에 적은 대상 id 를 그대로 쓴다.
-export interface AuthTokenSource {
-  token(target: string): string | null
-}
+// **키가 대상 이름이다.** 0178 이전에는 무작위 binding id(`bind_7_x3k9…`)였는데, 그 값은 매
+// 인증마다 새로 뽑히고 화면 어디에도 나오지 않아 **사람도 다른 모듈도 알 수 없는 참조**였다.
+// 이제 `servers.ts` 에 적은 대상 id 를 그대로 쓴다.
+export type AuthTokenSource = Pick<InternalApi, 'token'>
 
 export interface ResolverOptions {
   secrets: SecretStore

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import type { ConnectorRuntime, ConnectorStatus } from '../../contracts/connector'
 import { ConnectionRegistry } from './registry'
-import { ConnectorHost } from './runtime'
+import type { InternalApi } from '../../contracts/internal-api'
+import { ConnectorHost, type ConnectorHostDeps } from './runtime'
 
 function connector(
   id: string,
@@ -463,5 +464,17 @@ describe('ConnectorHost.connect', () => {
 
     expect(registry.get('connection-1')).toBe(replacement)
     expect(host.isStarted('connection-1')).toBe(true)
+  })
+})
+
+// 인증 포트는 **계약에서 좁혀 온다** (0178 정정) — `features/connectors` 는 auth 구현을 모르고
+// `Pick<InternalApi,'request'>` 만 받는다.
+describe('인증 포트는 InternalApi 에서 파생된다', () => {
+  it('ConnectorHostDeps.api 는 InternalApi 의 부분집합이다', () => {
+    const api: ConnectorHostDeps['api'] = {
+      request: async () => ({ status: 200, headers: {}, body: '' })
+    }
+    const narrowed: Pick<InternalApi, 'request'> = api
+    expect(typeof narrowed.request).toBe('function')
   })
 })
