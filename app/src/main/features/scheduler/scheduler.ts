@@ -2,7 +2,7 @@ import { Cron } from 'croner'
 import type { Settings } from '../../../shared/protocol'
 import { errorMessage } from '../../infra/errors'
 import { getLogger } from '../../infra/log/registry'
-import { assertValidCron } from './cron-validate'
+import { assertValidCron } from '../../infra/cron'
 import type { JobAction, JobKey, RunRecorder, ScheduleSpec } from './types'
 
 // cron 잡과 interval 잡을 같은 표면으로 감싼다 — unschedule/stopAll/nextRun 이 분기하지 않게.
