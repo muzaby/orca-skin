@@ -129,11 +129,14 @@ interface GrantBase {
   authKind: ProviderAuthKind
   principalId?: string
   createdAt: number
+  // 만료 시각. 토큰이 실제로 만료를 선언한 경우와, **401 관측으로 강등된 경우**가 같은 필드를
+  // 쓴다 — UI 와 게이트가 "지금 못 쓴다" 를 한 가지 방식으로 읽게 하기 위함이다.
+  expiresAt?: number
 }
 
 export type Grant =
   | ({ kind: 'secret'; vaultKey: string } & GrantBase)
-  | ({ kind: 'token'; vaultKey: string; expiresAt?: number; refreshKey?: string } & GrantBase)
+  | ({ kind: 'token'; vaultKey: string; refreshKey?: string } & GrantBase)
   | ({ kind: 'session'; sessionGroup: string } & GrantBase)
 
 // ── Provider — 배포가 채우는 유일한 선언 ──────────────────────────────────────
