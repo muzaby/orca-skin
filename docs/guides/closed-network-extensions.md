@@ -1,110 +1,262 @@
-# 폐쇄망(사내) 배포 — 외부확장 구현 가이드 (0130 → 0157 개정)
+# 폐쇄망(사내) 배포 — 외부확장 구현 가이드 (0130 → 0157 → **0181 전면 재작성**)
 
-회사 폐쇄망에 Orca 를 배포할 때, main 브랜치를 수정하지 않고 **커스텀 인증 provider·connector** 와 **정적 사용량 provider** 를 붙이는 방법의 정본. 대상 독자는 Orca 내부 구조를 모르는 외부 에이전트/사내 개발자다.
+회사 폐쇄망에 Orca 를 배포할 때, 코어를 고치지 않고 **로그인 게이트·LLM 자격증명·사내 서비스
+도구**를 붙이는 방법의 정본. 대상 독자는 Orca 내부 구조를 모르는 외부 에이전트/사내 개발자다.
 
-## 0. 확장 모델 — 무엇을 어디에 붙이는가 (0157)
+> **0180/0181 요약**: 0157 이 세운 4축 구조(`AuthMethod` × `Connector` × `Binding` × `PluginHost`)는
+> 0180 에서 전면 제거됐고, 0181 이 **축 하나**로 다시 세웠다. 이 문서가 서술하는 것은 그 새 구조다.
+> 구 문서의 `contracts/auth-method.ts`·`contracts/connector.ts`·`acceptedMethods`·`bindingId` 는
+> **더 이상 존재하지 않는다** — 어디서 보더라도 인용하지 마라.
+
+## 0. 확장 모델 — 무엇을 어디에 붙이는가
 
 축은 "선언형이냐 코드냐" 가 아니라 **"빌드 타임 내장이냐 런타임 MCP 냐"** 다.
 
 | 확장 대상 | 추가 방식 | 재빌드 | 요청 주체 |
 |---|---|---|---|
-| 인증 provider (ADFS/WIA · PAT · API key …) | **빌드 타임 플러그인** (아래 §1) | 필요 | — |
-| 인증이 필요한 **내장 도구**(connector) | **빌드 타임 플러그인** | 필요 | **Orca** (`authenticatedFetch`) |
+| 앱 로그인 게이트 (ADFS/WIA) | **`Provider{kind:'gate'}` 선언** (§2) | 필요 | — |
+| LLM 게이트웨이 자격증명 (API key · OAuth) | **`Provider{kind:'llm'}` 선언** (§3) | 필요 | Orca(발급) → claude CLI(사용) |
+| 인증이 필요한 **내장 도구** (Confluence 등) | **`Provider{kind:'service'}` 선언 + `tools`** (§4) | 필요 | **Orca** (`ProviderApi.request`) |
 | 그 외 모든 서비스 연동 | **MCP 서버** (앱 UI 에서 런타임 추가) | **불필요** | claude CLI |
 
 **"재빌드 없이 서비스를 추가하고 싶다" → MCP 를 쓴다.** 인증이 필요한 MCP 서버는 `mcp.json` 에서
-`${BINDING:<bindingId>}` 로 인증 플랫폼의 binding 을 참조할 수 있다(값 소유는 Orca vault 가 유지).
+`${BINDING:<providerId>}` 로 provider 의 토큰을 참조할 수 있다(값 소유는 Orca vault 가 유지, §5).
 
-**런타임 임의 코드 로딩은 금지한다** — Electron main 에서 임의 코드 실행은 filesystem·cookie·Vault
-전권을 주는 것과 같고 타입 검증도 성립하지 않는다. 이 정책은 0157 에서도 유지된다.
+**런타임 임의 코드 로딩은 금지한다** — Electron main 에서 임의 코드 실행은 filesystem·cookie·vault
+전권을 주는 것과 같고 타입 검증도 성립하지 않는다. 이 정책은 0181 에서도 유지된다.
 
-> ## ⚠️ 0180 — 이 가이드가 설명하는 확장점은 **현재 존재하지 않는다**
->
-> 인증 방식(`contracts/auth-method.ts`)·커넥터(`contracts/connector.ts`)·내부 API
-> (`contracts/internal-api.ts`) 계약과 opt-in 레지스트리(`features/auth-platform/{methods,modules}/`)가
-> **0180 에서 전부 삭제**됐다. 아래 §1~§5 는 0157~0178 시점의 서술이며 지금 코드와 맞지 않는다.
->
-> **0181 이 이 문서를 재작성한다.** 새 확장 모델은 축이 하나다 — 폐쇄망 배포가 채우는 것은
-> `Provider` 선언(`id`·`label`·`kind:'gate'|'llm'|'service'`·`origin`·`auth`)뿐이고,
-> 인증 4종 중 api-key·password·pat 는 코어 구현이라 배포는 필드만 선언한다. OAuth 만
-> `authorize(ctx) → OAuthStart` 를 채우며 PKCE·`state` 검증은 코어가 제공한다.
->
-> 그전까지 이 문서를 근거로 코드를 붙이지 마라 — 가리키는 계약이 없다.
-
-## 1. 구조 — 진입점 2계약 + opt-in 레지스트리
-
-main 브랜치는 다음만 제공하고, 회사별 구현은 전부 회사 포크/브랜치의 모듈 디렉토리에 둔다:
-
-| 확장점 | 계약 파일 | opt-in 레지스트리 (배럴 한 줄) | 자족 가이드 |
-|---|---|---|---|
-| A. 인증 방식 | `app/src/main/contracts/auth-method.ts` (`authenticate`·`status`·`revoke` 3함수) | `app/src/main/features/auth-platform/methods/index.ts` (내장 목록) + `methods/sso.ts` (SSO 설정) | `features/auth-platform/modules/AGENTS.md` |
-| A'. 대상(사내 API) | `app/src/main/contracts/connector.ts` + 호출 표면 `internal-api.ts` | `app/src/main/features/auth-platform/modules/index.ts` | `features/auth-platform/modules/AGENTS.md` |
-| B. 정적 사용량 provider | `app/src/main/contracts/usage-report.ts` | `app/src/main/features/providers/static/modules/index.ts` | `features/providers/static/modules/AGENTS.md` |
-
-- **계약 동결·ABI 정책은 0178 에서 폐기했다.** 이전에는 계약 파일이 additive-optional-only 로 동결되고 `apiVersion` 불일치를 registry 가 등록 단계에서 거부했는데, 그 정책이 manifest·선언↔구현 전 필드 대조·conformance 하네스를 파생시켜 **확장점 1,603줄**을 만들었다. 지금은 배럴의 `satisfies` 가 형태를 **컴파일 타임에** 강제하고, 계약이 바뀌면 회사 모듈은 컴파일 에러로 즉시 안다 — 조용히 어긋나지 않는다.
-- **런타임에 남는 검증은 둘뿐이다** — 중복 id 거부, origin 형태 검사(`features/auth-platform/registry.ts` 헤더). 타입으로 표현할 수 없는 것만 남겼다.
-- **명시적 배럴 등록**: 모듈은 컴파일 타임 코드다. 런타임 동적 로딩(임의 경로 require)은 보안·타입검증 양면에서 금지.
-- **인증 방식은 내장이다** (0178). PAT·ID/비밀번호는 항상 있고, SSO 는 `methods/sso.ts` 를 채우면 목록에 들어간다. 0178 이전에는 모듈마다 자기 provider 를 만들어 붙였고, 그래서 위키와 사용량이 글자까지 같은 구현을 각각 한 벌씩 들고 있었다. 지금 대상은 **무엇을 받아들이는지만** `acceptedMethods` 로 선언한다.
-- **기본 = 비활성**: 신규 설치는 SSO 미설정 + 대상 0개 + usage provider 0개. 등록된 `application` 방식이 없으면 `required:false` 로 로그인 게이트가 자동 통과된다.
-- **복수 등록 가능**: 0130 의 "한 빌드 = 회사 모듈 1개" 제약은 없어졌다. 하나의 인증 방식을 앱 로그인과 여러 대상이 재사용한다.
-
-## 2. 포크/브랜치 전략 — main 을 손상하지 않기
-
-- 회사 브랜치는 upstream main 을 추적(rebase/merge)한다.
-- **touch-only 목록** — 회사 브랜치가 수정해도 되는 곳은 아래 4곳뿐이다. 이 밖의 수정은 upstream 추적 시 병합 충돌·동작 회귀를 만든다:
-  1. `app/src/main/features/auth-platform/modules/<회사명>/**` (신규 디렉토리)
-  2. `app/src/main/features/auth-platform/modules/index.ts` (배럴 한 줄)
-  2'. `app/src/main/features/auth-platform/methods/sso.ts` (사내 SSO 설정 한 덩어리)
-  3. `app/src/main/features/providers/static/modules/<회사명>/**` (신규 디렉토리)
-  4. `app/src/main/features/providers/static/modules/index.ts` (배럴 한 줄)
-- 게이트: `cd app && npm run lint && npm run typecheck` (+ 가능 환경에서 `npm test`).
-
-## 3. 획득한 토큰은 어디로 가는가 (0157 개정)
-
-provider 가 획득한 credential 은 **Orca vault 가 소유**하고, 소비자는 binding 을 통해서만 쓴다.
+## 1. 고치는 파일은 `features/providers/declarations/` 뿐이다
 
 ```
-begin/continue(ctx) ── ctx.vault.set('secret', …, {kind})   → binding 네임스페이스에 봉인
-                                                               (logout 시 한 번에 삭제)
-                            │
-      ┌─────────────────────┼─────────────────────────────┐
-      ▼                     ▼                             ▼
- 내장 도구/connector    MCP 서버                      앱 로그인 게이트
- authenticatedFetch    ${BINDING:<id>} 참조           binding.status 만 판정
- (broker 가 주입)      (mcp.json — 값은 broker 가 해석)  (값 접근 없음)
+app/src/main/features/providers/declarations/
+├── index.ts     ← 세 배열을 합친다 (보통 손대지 않는다)
+├── sso.ts       ← 게이트 1개 또는 null   (기본값: null = 게이트 없음)
+├── llm.ts       ← LLM provider 배열      (기본값: [])
+└── service.ts   ← 사내 서비스 배열       (기본값: [])
 ```
 
-- 비밀 저장은 전부 OS `safeStorage` 암호화. **git 에 비밀 커밋 금지.**
-- **0130 의 `ctx.setProviderEnv` 경로는 제거됐다.** 획득 토큰을 provider `settings.json` 의 env 블록에
-  평문으로 병합 기록하던 경로다. LLM 백엔드에 키가 필요하면 사용자가 직접 settings.json 에 적는다
-  (handoff 0028 정책 — 노출 등급·책임이 사용자 소유임이 명확해진다).
-- MCP 로 나가는 값은 여전히 `dist/.../.mcp.json` 에 평문으로 렌더된다 — claude CLI 가 서버를 spawn
-  하기 때문이다. 이는 문서화된 잔여 노출이며 경계표는 `docs/arch/backend/security.md §1.4-b`.
+기본 배포는 셋 다 비어 있다. 그래서 OSS/dev 빌드는 **로그인 화면 없이 열리고**(게이트 선언 0 →
+통과) 도구·자격증명 주입도 일어나지 않는다.
 
-## 4. 폐쇄망 빌드/배포
+### 등록 시 검사는 둘뿐이다
 
-- **빌드는 회사가 수행한다** (모듈이 컴파일 타임 코드이므로): 사내 npm 미러/오프라인 캐시로 `npm ci` → `npm run build:win` (electron-builder, publish 없음).
-- **자동 업데이트**: 피드가 설정되지 않으면 updater 는 이미 noop 으로 저하된다(`feed-not-configured`, `app/src/main/app/updater.ts`). 외부 GitHub Releases 피드는 폐쇄망에서 자연히 불능이다. 사내 피드는 `orca.json` 의 `update` 로 **코드 수정 없이** 지정한다(스키마·조립: `infra/config/orca-file.ts`·`app/updater-feed.ts`):
-  - **오브젝트 스토리지(권장, MinIO/S3-호환)** — `{ "update": { "provider": "s3", "bucket": "orca-updates", "endpoint": "http://minio.internal:9000", "path": "win" } }`. `endpoint` 를 주면 electron-updater 가 `${endpoint}/${bucket}[/${path}]` 를 base URL 로 삼는다(사내 MinIO). `endpoint` 를 생략하면 AWS S3(`region` 사용). 여기에 `latest.yml`·installer·`.blockmap` 을 올린다.
-  - **임의 HTTPS 정적 호스트** — `{ "update": { "provider": "generic", "url": "https://updates.internal/orca/" } }`.
-  - **GitHub Enterprise(사내 GHE)** — `{ "update": { "provider": "github", "owner": "infra", "repo": "orca", "host": "github.company.com" } }`. 폐쇄망에서 GitHub base URL 이 바뀌는 경우 `host`(필요 시 `protocol`)로 지정한다.
-  - **비활성** — `{ "update": { "enabled": false } }`.
-  - ⚠️ electron-updater 런타임은 s3 버킷을 **익명 GET(공개 읽기) 정적 HTTP** 로 취급한다(AWS 서명 안 함) — 버킷/prefix 를 사내에서 anonymous read 로 노출하거나 리버스 프록시로 서빙해야 한다. 비밀/토큰은 저장하지 않는다.
-  - 빌드 산출물(`app/dist/*-setup.exe`·`latest.yml`·`.blockmap`)을 위 호스트에 업로드하는 것은 회사 배포 절차의 몫이다(electron-builder `publish` 를 사내 타깃으로 바꾸거나, `--publish never` 빌드 후 수동 업로드).
-- 외부 네트워크 의존은 그 외에 없다 — LLM 백엔드는 provider settings.json 의 `ANTHROPIC_BASE_URL` 등으로 사내 게이트웨이를 가리킨다(TRD §6.8 레시피 표).
+| 검사 | 규칙 | 어기면 |
+|---|---|---|
+| **중복 `id`** | provider id 는 유일해야 한다 | 뒤에 온 선언만 거부(앞의 것은 살아 있다) |
+| **`origin` 형태** | scheme+host(+port). **경로·쿼리·후행 슬래시 금지** | 그 선언만 거부 |
 
-## 5. 보안 경계 (알고 시작할 것)
+거부는 **그 선언 하나만** 떨어뜨린다(구 구조의 패키지 단위 all-or-nothing 아님). 사유는
+`providers.declaration.rejected` 로그로 남는다.
 
-- renderer 로그인 게이트는 **UX 게이트이지 보안 경계가 아니다** — 인증 전에도 main IPC 는 열려 있다(현행 아키텍처 동일). 실제 접근 통제는 사내 네트워크/서비스 인증이 담당한다.
-- auth provider 의 `exec`/browser session 은 강력한 능력이다 — 회사 브랜치의 **컴파일 타임 코드**라서만 허용된다(런타임 로딩 금지의 이유). 브라우저 창은 앱 세션과 격리된 `persist:auth.<sessionGroup>` 파티션 + sandbox 로 열리고, **쿠키를 호출자에게 반환하지 않는다**.
-- provider 에게 vault **전체**·cookie API·`process.env` 전체를 주지 않는다 — 자기 네임스페이스와 descriptor 의 `allowedOrigins` 안에서만 움직인다. 미선언 origin 요청·redirect 는 거부된다.
-- `exec` 가 spawn 하는 자식은 `process.env` 를 통째로 상속하지 않는다(PATH/HOME/locale + 호출자 명시분만).
-- prod 게이트에는 bypass 백도어가 없다(디버그 bypass 는 DEV 빌드 전용).
-- binding 은 **영속하지 않는다** — 매 앱 실행마다 인증부터 시작한다. ADFS 처럼 브라우저 세션이 살아 있으면 창 없이 즉시 통과한다.
+> ⚠️ **`Provider.id` 는 한 번 정하면 바꾸지 않는다.** vault 네임스페이스
+> (`provider:<id>:<authKind>`)이자 `${BINDING:<id>}` 참조 대상이다. 바꾸면 저장된 자격증명을
+> 읽지 못하고 사용자가 적은 MCP 설정이 깨진다.
 
-## 6. 참고
+## 2. 로그인 게이트 (`kind:'gate'`)
 
-- 핸드오프: `docs/handoff/0130-closed-network-extension-points/` (설계 근거·인수 기준)
-- 선행 결정: `docs/arch/backend/standardization.md §5.1` (opt-in 정적 provider 계약, 0098/0099)
-- IPC 채널: `docs/IPC_CONTRACT.md` §2.13-c `auth` 도메인
-- 인증 플랫폼 설계 정본: `docs/etc/study/orca/auth-plugin-platform-requirements-ko.md` · 핸드오프 `docs/handoff/0157-auth-plugin-platform/`
+`sso.ts` 의 `SSO_PROVIDER` 를 채운다. 인증 방식은 `browser-session` — Electron 창으로 사내 IdP 에
+로그인하고 그 partition(cookie jar)을 이후 요청에 재사용한다.
+
+```ts
+export const SSO_PROVIDER: Provider | null = {
+  id: 'corp-sso',
+  label: '사내 로그인',
+  kind: 'gate',
+  origin: 'https://portal.example.corp',
+  auth: [
+    {
+      kind: 'browser-session',
+      label: '통합 인증(WIA)',
+      config: {
+        sessionGroup: 'corp',
+        loginUrl: 'https://adfs.example.corp/adfs/ls/?wa=wsignin1.0',
+        doneUrlPrefix: 'https://portal.example.corp/home',
+        authenticationProbeUrl: 'https://portal.example.corp/api/me',
+        allowedOrigins: ['https://adfs.example.corp', 'https://portal.example.corp']
+      }
+    }
+  ]
+}
+```
+
+| 필드 | 의미 | 흔한 실수 |
+|---|---|---|
+| `sessionGroup` | cookie jar 이름. **같은 값을 쓰는 provider 들이 jar 를 공유**한다 | 서비스마다 다르게 주면 SSO 재사용이 안 된다 |
+| `loginUrl` | 창이 처음 여는 주소 | — |
+| `doneUrlPrefix` | 이 접두사에 도달하면 로그인 완료로 **간주**한다 | 이것만으로 성공을 선언하지 않는다(아래 probe) |
+| `authenticationProbeUrl` | 완료를 **실제 요청으로** 재확인하는 endpoint | 로그인 폼이 200 으로 뜨는 배포에서 오판을 막는 지점 |
+| `allowedOrigins` | 창이 오갈 수 있는 origin **전수**. 서브도메인 자동 허용 없음 | 하나 빠지면 로그인 중간에 차단된다 — 로그가 막힌 origin 을 지목한다 |
+
+**게이트가 여럿이면 전부 통과해야 앱이 열린다** — 로그인이 체인이라 멤버 하나만 풀려도 인증이
+아니다. dev 빌드에서는 디버그 패널의 `authBypass` 로 건너뛸 수 있다(prod 번들에는 그 분기가 없다).
+
+### 2-b. 세션으로 토큰까지 받기 ("둘 다 필요")
+
+쿠키 세션만으로는 부족하고 **토큰이 필요한 대상**이 있으면 `config.exchange` 를 더한다. 게이트
+세션이 성립한 뒤 그 cookie jar 로 사내 API 를 불러 토큰을 받아 grant 를 승격한다.
+
+```ts
+config: {
+  …,
+  exchange: {
+    path: '/api/token',        // provider.origin 기준 상대 경로
+    valuePath: 'data.token',   // 응답 JSON 에서 토큰을 꺼낼 점 경로
+    expiresAtPath: 'data.exp'  // 선택. 초·밀리초·ISO 를 모두 흡수한다
+  }
+}
+```
+
+## 3. LLM provider (`kind:'llm'`)
+
+`llm.ts` 배열을 채운다. `llm.{adapter,provider}` 가 `sources/settings/<adapter>/<provider>/`
+디렉토리와의 **조인 좌표**이고, `llm.envKey` 는 자격증명을 실을 subprocess 환경변수 이름이다.
+
+```ts
+{
+  id: 'corp-gateway',
+  label: '사내 모델 게이트웨이',
+  kind: 'llm',
+  origin: 'https://llm.example.corp',
+  llm: { adapter: 'claude', provider: 'corp', envKey: 'ANTHROPIC_AUTH_TOKEN' },
+  auth: [ /* 아래 §3-a·§3-b */ ]
+}
+```
+
+- 주입은 **`Options.env` 한 레이어에서만** 일어난다. `settings.json` 은 여전히 verbatim 이고
+  Orca 가 그 파일에 토큰을 쓰지 않는다(0028 결정 유지, `arch/backend/security.md §1.4-b`).
+- **미인증이면 그 키를 넣지 않는다**(빈 문자열 치환 금지). 인증된 것처럼 보이는 요청이 나가면
+  서버가 401 대신 이상한 오류를 주고 진단이 어려워진다.
+
+### 3-a. API key · ID/비밀번호 · PAT — 코어 구현
+
+배포가 채우는 것은 **라벨과 `present`(요청에 싣는 방법)뿐**이다. 입력 폼·vault 봉인·재인증은 코어가 한다.
+
+```ts
+import { apiKeySpec, passwordSpec, patSpec } from '../auth/specs/credential'
+
+apiKeySpec({
+  label: 'API 키',
+  fieldLabel: 'API 키',
+  present: { location: 'header', name: 'Authorization', scheme: 'bearer' }
+})
+```
+
+`present.scheme`: `bearer` · `basic`(값이 이미 `user:pass` 형태) · `token` · `raw`(값 그대로).
+`present.location`: `header` · `query` · `cookie`.
+
+### 3-b. OAuth code→token
+
+표준 OAuth 를 쓰는 대상이 있으면 `authorize(ctx)` 하나만 채운다. **PKCE 와 `state` 는 코어가
+발급·보관·대조한다** — 배포는 코어가 준 값을 authorize URL 에 싣기만 한다.
+
+```ts
+{
+  kind: 'oauth',
+  label: '사내 계정으로 로그인',
+  present: { location: 'header', name: 'Authorization', scheme: 'bearer' },
+  async authorize(ctx) {
+    const pkce = ctx.pkce()
+    const redirectUri = ctx.loopbackRedirectUri(9321)
+    const url = new URL('https://llm.example.corp/oauth/authorize')
+    url.searchParams.set('response_type', 'code')
+    url.searchParams.set('client_id', 'orca-desktop')
+    url.searchParams.set('redirect_uri', redirectUri)
+    url.searchParams.set('state', ctx.state())
+    url.searchParams.set('code_challenge', pkce.challenge)
+    url.searchParams.set('code_challenge_method', pkce.method)
+    return {
+      url: url.toString(),
+      redirect: { kind: 'loopback', port: 9321 },
+      exchange: async (code, verifier) => {
+        // 코어가 보관하던 verifier 를 넘겨준다 — 따로 저장하지 마라.
+        const res = await fetch('https://llm.example.corp/oauth/token', { … })
+        const body = await res.json()
+        return { token: body.access_token, expiresAt: Date.now() + body.expires_in * 1000 }
+      }
+    }
+  }
+}
+```
+
+**redirect 3분기 — 무엇을 고를 것인가:**
+
+| 분기 | 언제 | 주의 |
+|---|---|---|
+| `loopback` (권장) | IdP 가 `http://127.0.0.1:<port>/callback` 을 등록해 준다 | 사용자의 **기본 브라우저**가 흐름을 처리한다(주소창·인증서를 직접 본다). RFC 8252 |
+| `window` | 루프백 redirect 를 등록해주지 않는 폐쇄망 IdP | 앱 내부 창. `isDone(url)` 이 참인 URL 에서 code 를 뽑는다 |
+| `manual` | 리다이렉트를 아예 못 쓰는 환경 | 사용자가 브라우저에서 받은 code 를 붙여 넣는다 |
+
+**코어가 보장하는 것** — 배포가 다시 구현하지 마라:
+- `code_challenge` = S256(`verifier`), `plain` 은 지원하지 않는다.
+- `state` 불일치 콜백은 **거부**하고 pending 을 소비한다(재사용 불가).
+- pending 은 **파일에 보관**돼 앱이 재시작돼도 콜백 대조가 성립한다(TTL 10분).
+- provider 당 진행 중 인가는 1건이다.
+
+## 4. 사내 서비스 provider (`kind:'service'`)
+
+`service.ts` 배열을 채우고 `tools` 로 런타임 도구를 노출한다. grant 가 `valid` 일 때만 등록되고,
+해제·만료·401 강등 시 도구가 스냅샷에서 사라진다.
+
+```ts
+{
+  id: 'confluence',
+  label: 'Confluence',
+  kind: 'service',
+  origin: 'https://wiki.example.corp',   // 컨텍스트 경로는 여기 넣지 않는다(아래)
+  auth: [ patSpec({ … }) ],
+  tools: (api) => {
+    const runtime = createConfluenceRuntime({
+      id: 'confluence',
+      label: 'Confluence',
+      baseUrl: 'https://wiki.example.corp',
+      apiBasePath: '/confluence'          // 컨텍스트 경로는 요청 path 앞에 붙는다
+    })
+    return createConfluenceToolServer('confluence', 'Confluence', runtime, {
+      request: (req, signal) => api.request('confluence', req, signal),
+      logger: () => undefined
+    })
+  }
+}
+```
+
+`ProviderApi.request` 가 강제하는 것(어기면 요청 자체가 나가지 않는다):
+- **절대 URL·프로토콜 상대 경로 금지** — `path` 는 origin 기준 상대 경로다.
+- **예약 헤더 금지** — `authorization` · `cookie` · `proxy-authorization` 을 덮어쓸 수 없다.
+- **미인증 차단** — grant 가 `valid` 가 아니면 전송하지 않는다.
+- **redirect 는 홉마다 재검사** — allowlist 밖 `Location` 은 따라가지 않는다.
+- **401/403 → grant 를 `expired` 로 강등** — 화면에 재인증 지점이 생긴다.
+
+## 5. MCP 서버에서 provider 토큰 쓰기
+
+`mcp.json` 에서 `${BINDING:<providerId>}` 로 참조한다.
+
+```json
+{ "mcpServers": { "wiki": { "url": "https://wiki.example.corp/mcp",
+  "headers": { "Authorization": "Bearer ${BINDING:confluence}" } } } }
+```
+
+- 해당 provider 가 **미인증이면 참조가 미해결로 남고 그 서버는 배포에서 통째로 빠진다**
+  (fail-closed). 빈 문자열로 채우지 않는다.
+- 세션 grant(쿠키)는 값이 아니므로 `null` 이다 — **SSO 는 MCP 로 반출되지 않는다**(0178 결정).
+  MCP 에는 PAT·ID/비밀번호·토큰을 쓴다.
+- 해석된 값은 `dist/plugins/orca/.mcp.json` 에 평문으로 렌더된다(문서화된 예외 1,
+  `arch/backend/security.md §1.4-b`) — claude CLI 가 그 파일을 읽어 서버를 spawn 하기 때문이다.
+
+## 6. GUI 에서 보이는 모습
+
+- **연결 탭** — 설정 카탈로그의 세 번째 탭(`skills.rail.providers`). 앱 로그인·모델·사내 서비스가
+  `kind` 별 그룹으로 한 화면에 모인다.
+- **방식 선택** — `auth` 배열의 **선언 순서**가 GUI 선택지 순서다. 길이가 1이면 선택 단계를
+  건너뛴다(폐쇄망 배포의 게이트는 대개 1종이라 사용자는 선택 화면을 보지 않는다).
+- **재인증** — 기존 자격증명을 **유지한 채** 새 인증을 시도하고 성공해야 교체된다. 실패하면
+  이전 것으로 계속 쓸 수 있다.
+- **추가 버튼 없음** — provider 는 빌드타임 선언이라 UI 로 추가할 수 없다.
+
+## 7. 배포 체크리스트
+
+1. `declarations/{sso,llm,service}.ts` 를 채운다. `id` 는 **한 번 정하고 유지**한다.
+2. `origin` 에 경로·후행 슬래시가 없는지 확인한다(있으면 그 선언이 거부된다).
+3. `allowedOrigins` 에 로그인 왕복이 지나는 origin 을 **전부** 넣는다.
+4. `npm run build:win` 으로 배포본을 만든다(릴리스 절차는 `guides/release-operations.md`).
+5. 실기: 로그인 화면 → 사내 로그인 → 메인 UI 진입, 연결 탭에서 상태·재인증·해제 확인.
+6. 로그(`~/.config/orca/logs/`)에서 `providers.*` 이벤트로 거부 사유를 확인한다.

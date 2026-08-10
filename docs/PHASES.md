@@ -19,9 +19,21 @@
 > IPC **82 → 71 채널**, contracts **9 → 6**, 슬라이스 **11 → 9**, settings **20 → 18 키**(죽은 2키는 문서 잔재).
 > 이름만 auth 인 **원격 전송 스택 3모듈은 `infra/net/` 으로 이설**해 살렸다(updater·usage 가 쓴다).
 > 재작성은 **0181-provider-platform** — 폴더링을 프로토콜이 아니라 **관계**로 가르고(`kind: 'gate'|'llm'|'service'`),
-> 한 provider = 한 인증 방법으로 접어 `acceptedMethods` 교차·`loginChain`·cascade 를 없앤다.
+> `AuthSpec` 을 선언 **안에 인라인**으로 접어 `acceptedMethods` 교차·`validateCrossReferences`·cascade 를 없앤다.
 > **주의: 0180~0181 사이에 `v*` 태그를 만들지 않는다** — 1단계 종료 시점은 게이트가 없고 Confluence·usage 도구가
 > 중단된 상태라 배포 형상이 아니다. 보드: [`handoff/INDEX.md`](handoff/INDEX.md).
+
+> **0181-provider-platform (2026-08-10) — impl/IMPL_DONE, 검증 대기.** 재작성의 **2단계**.
+> 축은 `contracts/provider.ts` **하나**다 — `Provider{id,label,kind,origin,auth[]}` + `tools`/`llm`.
+> 런타임 검사는 둘뿐(중복 `id` · `origin` 형태)이고, 방식이 선언 안에 인라인이라 참조 무결성 검증
+> 자체가 성립하지 않는다. **사용자 결정 2건**: ① ADFS 는 "둘 다" — 게이트는 브라우저 세션, 토큰이
+> 필요한 곳은 그 세션으로 사내 API 교환(`config.exchange`) ② LLM 인증은 API key·OAuth 둘 다이고
+> **선택 주체가 둘**(배포 선언 + 사용자 GUI). **OQ4 답변("추후 사용 예정, 구현하라")로 표준 OAuth
+> code→token 을 이월하지 않고 구현**했다 — PKCE S256·`state` 파일 보관·redirect 3분기(loopback/
+> window/manual). 4단계 독립 green 커밋: 계약·코어 3종·IPC 6채널 → OAuth → 게이트·요청 정책 →
+> 소비 표면 4종(LLM `Options.env` · MCP `${BINDING:}` · usage 표본 · service 도구+Confluence 복원).
+> IPC **71 → 77**, contracts **6 → 7**, raw secret 노출 예외 **2 → 3곳**(security.md §1.4-b).
+> AC 15건 중 **14건 충족**, AC13(사람 실기)은 OQ1 ADFS 실값 부재로 미충족.
 
 
 진행 중인 Claude Code ↔ Codex 협업 작업의 라이브 상태는 디스패치 보드에 있다. **여기서는 링크만 둔다** (변동성 정보의 정본은 보드, 완료 시 아래 "페이즈 표" 로 승격).
