@@ -296,6 +296,9 @@ export class Bootstrap {
       // dev 전용 우회다 — prod 번들에서는 `import.meta.env.DEV` 가 false 로 접혀 분기 자체가
       // 사라진다(설정 값이 켜져 있어도 게이트는 유지된다).
       bypass: () => import.meta.env.DEV && this.settings.getAll().authBypass,
+      // DEV 는 선언이 0개여도 게이트를 세운다 — 폐쇄망 실값 없이도 로그인 화면을 보고 고칠 수
+      // 있어야 한다(0089/0130 의 동작 복원). 탈출구는 디버그 패널의 우회 토글이다.
+      alwaysRequired: import.meta.env.DEV,
       login: new LoginService({
         registry,
         store,

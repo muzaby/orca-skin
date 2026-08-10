@@ -33,6 +33,9 @@ export interface ProviderPlatformDeps {
   api: ProviderApi
   // dev 게이트 우회 — 읽는 시점의 값이어야 하므로 getter 다(설정은 런타임에 바뀐다).
   bypass: () => boolean
+  // DEV 빌드는 선언이 0개여도 게이트를 세운다(로그인 화면 도달성). 컴포지션 루트가
+  // `import.meta.env.DEV` 를 넣는다 — prod 번들에서는 false 로 접힌다.
+  alwaysRequired?: boolean
 }
 
 export class ProviderPlatform {
@@ -62,7 +65,11 @@ export class ProviderPlatform {
       .byKind('gate')
       .map((provider) => ({ providerId: provider.id, status: this.deps.store.status(provider.id) }))
     return {
-      gate: evaluateGate({ members: gateMembers, bypass: this.deps.bypass() }),
+      gate: evaluateGate({
+        members: gateMembers,
+        bypass: this.deps.bypass(),
+        ...(this.deps.alwaysRequired ? { alwaysRequired: true } : {})
+      }),
       providers,
       step: this.deps.login.currentStep()
     }
