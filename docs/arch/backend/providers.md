@@ -135,10 +135,16 @@ type Grant =
 
 ## 3. 모듈 지도
 
+> ⚠️ **`features/providers/` 에는 세입자가 둘이다.** 아래 트리에 적힌 것(0181 인증 플랫폼) 옆에
+> 구 LLM 설정 슬라이스(`provider-registry.ts`·`claude-model-parser.ts`·`provider-settings.ts`·
+> `engine-write.ts`·`static/` — `sources/settings/<adapter>/<provider>/` 열거와 정적 사용량
+> provider)가 **그대로 공존**한다. 0181 은 새 슬라이스를 만들지 않고 이 디렉토리 안에 세웠다.
+> 이름만 같고 서로 import 하지 않는다 — 파일을 더할 때 어느 쪽인지 먼저 가른다.
+
 ```
 app/src/main/
 ├── contracts/provider.ts              # 계약 정본 (198줄) — Provider·AuthSpec·Grant·ProviderApi
-├── features/providers/
+├── features/providers/                # ★ 아래는 0181 인증 플랫폼만. 구 LLM 설정 슬라이스는 생략
 │   ├── declarations/                  # ★ 배포가 고치는 유일한 곳
 │   │   ├── index.ts  sso.ts  llm.ts  service.ts
 │   ├── auth/
@@ -300,7 +306,16 @@ export const SERVICE_PROVIDERS: Provider[] = [
 > **런타임 동적 로딩은 없다.** 배포는 선언 파일을 고쳐 다시 빌드한다. Electron main 에서 임의 코드
 > 실행은 filesystem·cookie·vault 전권을 주는 것과 같고 타입 검증도 성립하지 않는다.
 
-배포자용 **단계별 절차와 필드별 주의사항**은 [`guides/closed-network-extensions.md`](../../guides/closed-network-extensions.md) 가 정본이다.
+배포자용 **단계별 절차와 필드별 주의사항**은 [`guides/closed-network-extensions.md`](../../guides/closed-network-extensions.md) 가 정본이다 — 레시피 4종으로 갈라져 있다:
+
+| 하려는 일 | 절 |
+|---|---|
+| 로그인 게이트 추가 (ADFS/WIA · 세션→토큰 교환) | §2 |
+| LLM provider 추가 (API key · PAT · OAuth code→token) | §3 |
+| 사내 서비스 provider + 내장 도구 | §4 |
+| MCP 서버 추가 (재빌드 없음 · `${BINDING:}`) | §5 |
+| **개발 중 게이트를 보고 고치는 법** (DEV 게이트·우회 토글·파일 지도) | **§6** |
+| 검증 명령 · 배포 체크리스트 · 트러블슈팅 | §8 · §9 |
 
 ---
 

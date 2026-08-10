@@ -1,47 +1,79 @@
-# 폐쇄망(사내) 배포 — 외부확장 구현 가이드 (0130 → 0157 → **0181 전면 재작성**)
+# 폐쇄망(사내) 배포 — 로그인 게이트·확장 추가 가이드 (0130 → 0157 → **0181**)
 
 회사 폐쇄망에 Orca 를 배포할 때, 코어를 고치지 않고 **로그인 게이트·LLM 자격증명·사내 서비스
-도구**를 붙이는 방법의 정본. 대상 독자는 Orca 내부 구조를 모르는 외부 에이전트/사내 개발자다.
+도구**를 붙이는 방법의 정본. 대상 독자는 **Orca 내부 구조를 모르는 외부 에이전트/사내 개발자**다 —
+각 절은 순서대로 실행 가능한 단계로 쓴다.
 
 > **구조·설계 근거는 [`arch/backend/providers.md`](../arch/backend/providers.md) 가 정본이다.**
-> 이 문서는 *배포자가 무엇을 어떤 순서로 하는가* 만 다룬다(구조 서술 = `arch/`, 실행 절차 = `guides/`).
+> 이 문서는 *무엇을 어떤 순서로 하는가* 만 다룬다(구조 서술 = `arch/`, 실행 절차 = `guides/`).
+> 계약의 형상은 `app/src/main/contracts/provider.ts` 가 진실 — 예제와 어긋나면 코드가 이긴다.
 >
 > **0180/0181 요약**: 0157 이 세운 4축 구조(`AuthMethod` × `Connector` × `Binding` × `PluginHost`)는
-> 0180 에서 전면 제거됐고, 0181 이 **축 하나**로 다시 세웠다. 이 문서가 서술하는 것은 그 새 구조다.
-> 구 문서의 `contracts/auth-method.ts`·`contracts/connector.ts`·`acceptedMethods`·`bindingId` 는
+> 0180 에서 전면 제거됐고, 0181 이 **축 하나**로 다시 세웠다. 구 문서의
+> `contracts/auth-method.ts`·`contracts/connector.ts`·`acceptedMethods`·`bindingId` 는
 > **더 이상 존재하지 않는다** — 어디서 보더라도 인용하지 마라.
 
-## 0. 확장 모델 — 무엇을 어디에 붙이는가
+---
 
-축은 "선언형이냐 코드냐" 가 아니라 **"빌드 타임 내장이냐 런타임 MCP 냐"** 다.
+## 0. 무엇을 추가하려는가 — 라우팅
 
-| 확장 대상 | 추가 방식 | 재빌드 | 요청 주체 |
-|---|---|---|---|
-| 앱 로그인 게이트 (ADFS/WIA) | **`Provider{kind:'gate'}` 선언** (§2) | 필요 | — |
-| LLM 게이트웨이 자격증명 (API key · OAuth) | **`Provider{kind:'llm'}` 선언** (§3) | 필요 | Orca(발급) → claude CLI(사용) |
-| 인증이 필요한 **내장 도구** (Confluence 등) | **`Provider{kind:'service'}` 선언 + `tools`** (§4) | 필요 | **Orca** (`ProviderApi.request`) |
-| 그 외 모든 서비스 연동 | **MCP 서버** (앱 UI 에서 런타임 추가) | **불필요** | claude CLI |
+### "플러그인" 이라는 말부터 푼다
 
-**"재빌드 없이 서비스를 추가하고 싶다" → MCP 를 쓴다.** 인증이 필요한 MCP 서버는 `mcp.json` 에서
-`${BINDING:<providerId>}` 로 provider 의 토큰을 참조할 수 있다(값 소유는 Orca vault 가 유지, §5).
+0157~0178 에는 *provider·connector 를 묶는 빌드타임 패키지* 라는 뜻의 **플러그인이 실제 코드
+개념으로** 있었다. **0180 이 그것을 지웠다.** 지금 "플러그인" 은 코드에 없는 말이고, 남은 두
+용례는 UI 우산어(`nav.plugins` 카탈로그 탭)와 Claude Code 플랫폼 배포 산출물(`ORCA_PLUGIN_NAME`)
+뿐이다([`GLOSSARY.md`](../GLOSSARY.md) `Plugin` 표제어).
 
-**런타임 임의 코드 로딩은 금지한다** — Electron main 에서 임의 코드 실행은 filesystem·cookie·vault
-전권을 주는 것과 같고 타입 검증도 성립하지 않는다. 이 정책은 0181 에서도 유지된다.
+따라서 **"플러그인을 추가한다" 는 요청은 아래 넷 중 하나로 번역해야 한다.** 번역하지 않고
+착수하면 없는 개념을 찾아 헤매게 된다.
 
-## 1. 고치는 파일은 `features/providers/declarations/` 뿐이다
+### 라우팅 표
+
+| 하려는 일 | 레시피 | 축 | 재빌드 | 요청 주체 |
+|---|---|---|---|---|
+| 앱을 열 때 사내 로그인을 **강제**한다 (ADFS/WIA) | **[A — §2](#2-레시피-a--로그인-게이트-추가-kindgate)** | `Provider{kind:'gate'}` | 필요 | — |
+| 사내 **모델 게이트웨이**에 자격증명을 붙인다 | **[B — §3](#3-레시피-b--llm-provider-추가-kindllm)** | `Provider{kind:'llm'}` | 필요 | Orca(발급) → claude CLI(사용) |
+| 인증이 필요한 **내장 도구**를 모델에 노출한다 (Confluence 등) | **[C — §4](#4-레시피-c--사내-서비스-provider--내장-도구-kindservice)** | `Provider{kind:'service'}` + `tools` | 필요 | **Orca** (`ProviderApi.request`) |
+| 그 외 모든 서비스 연동 | **[D — §5](#5-레시피-d--mcp-서버-추가-재빌드-없음)** | MCP 서버 | **불필요** | claude CLI |
+
+**"재빌드 없이 서비스를 추가하고 싶다" → 레시피 D(MCP) 를 쓴다.** 인증이 필요한 MCP 서버는
+`mcp.json` 에서 `${BINDING:<providerId>}` 로 provider 의 토큰을 참조할 수 있다(값 소유는 Orca
+vault 가 유지, §5).
+
+> **런타임 임의 코드 로딩은 금지한다** — Electron main 에서 임의 코드 실행은 filesystem·cookie·vault
+> 전권을 주는 것과 같고 타입 검증도 성립하지 않는다. 이 정책은 0181 에서도 유지된다.
+> A·B·C 는 전부 **빌드타임 선언**이고, UI 에 "추가" 버튼이 없는 이유가 이것이다.
+
+---
+
+## 1. 공통 사전 지식 (레시피 A·B·C 공통)
+
+### 1.1 고치는 파일은 `declarations/` 셋뿐이다
 
 ```
 app/src/main/features/providers/declarations/
 ├── index.ts     ← 세 배열을 합친다 (보통 손대지 않는다)
-├── sso.ts       ← 게이트 1개 또는 null   (기본값: null = 게이트 없음)
-├── llm.ts       ← LLM provider 배열      (기본값: [])
-└── service.ts   ← 사내 서비스 배열       (기본값: [])
+├── sso.ts       ← 게이트 1개 또는 null   (기본값: null)     → 레시피 A
+├── llm.ts       ← LLM provider 배열      (기본값: [])       → 레시피 B
+└── service.ts   ← 사내 서비스 배열       (기본값: [])       → 레시피 C
 ```
 
-기본 배포는 셋 다 비어 있다. 그래서 OSS/dev 빌드는 **로그인 화면 없이 열리고**(게이트 선언 0 →
-통과) 도구·자격증명 주입도 일어나지 않는다.
+기본 배포는 셋 다 비어 있다. 그래서 OSS/prod 기본 빌드는 **로그인 화면 없이 열리고** 도구·자격증명
+주입도 일어나지 않는다. (**dev 빌드는 다르다 — §6 을 반드시 읽는다.**)
 
-### 등록 시 검사는 둘뿐이다
+### 1.2 ⚠️ `features/providers/` 에는 세입자가 둘이다
+
+가장 흔한 오배치다. 같은 디렉토리에 **서로 무관한 두 가지**가 산다:
+
+| 세입자 | 파일 | 무엇인가 |
+|---|---|---|
+| LLM 설정·모델 해석 (구, 0017~) | `provider-registry.ts` · `claude-model-parser.ts` · `provider-settings.ts` · `engine-write.ts` · `static/` | `sources/settings/<adapter>/<provider>/` 트리 열거 · 정적 사용량 provider opt-in |
+| **인증 provider 플랫폼 (0181)** | `auth/` · `gate/` · `llm/` · `service/` · `declarations/` · `platform.ts` | **이 가이드가 다루는 대상** |
+
+이 문서에서 "provider 를 추가한다" 는 **후자**를 뜻한다. 전자에 파일을 더하면 인증 경로에 닿지
+않는다. 두 세입자는 이름만 같고 서로 import 하지 않는다.
+
+### 1.3 등록 시 검사는 둘뿐이다
 
 | 검사 | 규칙 | 어기면 |
 |---|---|---|
@@ -49,23 +81,54 @@ app/src/main/features/providers/declarations/
 | **`origin` 형태** | scheme+host(+port). **경로·쿼리·후행 슬래시 금지** | 그 선언만 거부 |
 
 거부는 **그 선언 하나만** 떨어뜨린다(구 구조의 패키지 단위 all-or-nothing 아님). 사유는
-`providers.declaration.rejected` 로그로 남는다.
+`providers.declaration.rejected` 로그로 남는다 — 선언했는데 화면에 안 보이면 여기부터 본다.
 
-> ⚠️ **`Provider.id` 는 한 번 정하면 바꾸지 않는다.** vault 네임스페이스
-> (`provider:<id>:<authKind>`)이자 `${BINDING:<id>}` 참조 대상이다. 바꾸면 저장된 자격증명을
-> 읽지 못하고 사용자가 적은 MCP 설정이 깨진다.
+### 1.4 `Provider.id` 는 한 번 정하면 바꾸지 않는다
 
-## 2. 로그인 게이트 (`kind:'gate'`)
+vault 네임스페이스(`provider:<id>:<authKind>`)이자 `${BINDING:<id>}` 참조 대상이다. 바꾸면 저장된
+자격증명을 읽지 못하고 사용자가 적은 MCP 설정이 깨진다. 케밥 소문자로 짓는다.
 
-`sso.ts` 의 `SSO_PROVIDER` 를 채운다. 인증 방식은 `browser-session` — Electron 창으로 사내 IdP 에
+### 1.5 `present` — 자격증명을 요청에 싣는 방법
+
+세 레시피가 공유하는 선언이다. **방식(`kind`)에서 추론하지 않는다** — 같은 PAT 를 서비스별로
+Bearer 로도, Basic password 로도, `PRIVATE-TOKEN` 헤더로도 붙이기 때문이다.
+
+```ts
+present: { location: 'header', name: 'Authorization', scheme: 'bearer' }
+```
+
+| 필드 | 값 |
+|---|---|
+| `location` | `header` · `query` · `cookie` |
+| `name` | 헤더/쿼리/쿠키 이름 |
+| `scheme` | `bearer` · `basic`(값이 이미 `user:pass` 형태) · `token` · `raw`(값 그대로). 생략 가능 |
+
+---
+
+## 2. 레시피 A — 로그인 게이트 추가 (`kind:'gate'`)
+
+사내 IdP 에 로그인해야 앱이 열리게 한다. 인증 방식은 `browser-session` — Electron 창으로 IdP 에
 로그인하고 그 partition(cookie jar)을 이후 요청에 재사용한다.
+
+### 단계
+
+| # | 하는 일 | 고치는 파일 / 확인 지점 |
+|---|---|---|
+| 1 | `SSO_PROVIDER` 를 `null` 에서 실제 선언으로 바꾼다 | `app/src/main/features/providers/declarations/sso.ts` |
+| 2 | **`origin` 을 정한다** — `exchange.path` 가 붙는 기준이고 등록 검사의 대상이다. 로그인 시작 IdP 가 아니라 **probe·토큰 교환이 사는 호스트**로 잡는다(아래 주의) | 같은 파일 |
+| 3 | `config` 5필드를 채운다 (`sessionGroup`·`loginUrl`·`doneUrlPrefix`·`authenticationProbeUrl`·`allowedOrigins`) | 같은 파일 |
+| 4 | 토큰까지 필요하면 `config.exchange` 를 더한다 | §2-b |
+| 5 | `npm run typecheck` → `./node_modules/.bin/vitest run src/main/features/providers` | 형상·회귀 |
+| 6 | `npm run dev` 로 로그인 왕복을 실기한다 | **§6** (dev 게이트 동작이 prod 와 다르다) |
+
+### 선언 예제
 
 ```ts
 export const SSO_PROVIDER: Provider | null = {
   id: 'corp-sso',
   label: '사내 로그인',
   kind: 'gate',
-  origin: 'https://portal.example.corp',
+  origin: 'https://portal.example.corp',      // ← 2단계. 경로·후행 슬래시 금지
   auth: [
     {
       kind: 'browser-session',
@@ -82,6 +145,13 @@ export const SSO_PROVIDER: Provider | null = {
 }
 ```
 
+> ⚠️ **`origin` 은 로그인 시작 주소(IdP)가 아니다.** `loginUrl`·`authenticationProbeUrl` 은 절대
+> URL 이라 어디를 가리켜도 되지만, **`exchange.path` 는 `Provider.origin` 기준 상대 경로로
+> 해석된다**(`auth/specs/browser-session.ts` 의 `new URL(exchange.path, origin)`). 토큰 교환이
+> portal 에 있는데 `origin` 을 ADFS 로 두면 교환 요청이 엉뚱한 호스트로 나간다.
+
+### 필드별 의미 · 흔한 실수
+
 | 필드 | 의미 | 흔한 실수 |
 |---|---|---|
 | `sessionGroup` | cookie jar 이름. **같은 값을 쓰는 provider 들이 jar 를 공유**한다 | 서비스마다 다르게 주면 SSO 재사용이 안 된다 |
@@ -91,7 +161,7 @@ export const SSO_PROVIDER: Provider | null = {
 | `allowedOrigins` | 창이 오갈 수 있는 origin **전수**. 서브도메인 자동 허용 없음 | 하나 빠지면 로그인 중간에 차단된다 — 로그가 막힌 origin 을 지목한다 |
 
 **게이트가 여럿이면 전부 통과해야 앱이 열린다** — 로그인이 체인이라 멤버 하나만 풀려도 인증이
-아니다. dev 빌드에서는 디버그 패널의 `authBypass` 로 건너뛸 수 있다(prod 번들에는 그 분기가 없다).
+아니다. 게이트 화면은 선언 순서대로 순차 진행하고 "n/N" 진행 표시를 낸다.
 
 ### 2-b. 세션으로 토큰까지 받기 ("둘 다 필요")
 
@@ -102,17 +172,32 @@ export const SSO_PROVIDER: Provider | null = {
 config: {
   …,
   exchange: {
-    path: '/api/token',        // provider.origin 기준 상대 경로
+    path: '/api/token',        // provider.origin 기준 상대 경로 (2단계 주의 참고)
     valuePath: 'data.token',   // 응답 JSON 에서 토큰을 꺼낼 점 경로
     expiresAtPath: 'data.exp'  // 선택. 초·밀리초·ISO 를 모두 흡수한다
   }
 }
 ```
 
-## 3. LLM provider (`kind:'llm'`)
+값을 못 찾으면 `providers.session.exchange.no-token` 로그가 **`valuePath` 를 그대로 찍는다** —
+경로 오타는 로그에서 바로 보인다.
 
-`llm.ts` 배열을 채운다. `llm.{adapter,provider}` 가 `sources/settings/<adapter>/<provider>/`
-디렉토리와의 **조인 좌표**이고, `llm.envKey` 는 자격증명을 실을 subprocess 환경변수 이름이다.
+---
+
+## 3. 레시피 B — LLM provider 추가 (`kind:'llm'`)
+
+사내 모델 게이트웨이의 자격증명을 subprocess 환경변수로 주입한다.
+
+### 단계
+
+| # | 하는 일 | 고치는 파일 / 확인 지점 |
+|---|---|---|
+| 1 | 대상 게이트웨이의 provider 디렉토리가 있는지 확인한다 — `~/.config/orca/sources/settings/<adapter>/<provider>/` | **디렉토리가 열거 SSOT 다.** 없으면 선언해도 조인되지 않는다 |
+| 2 | `LLM_PROVIDERS` 에 항목을 추가한다 | `declarations/llm.ts` |
+| 3 | `llm: { adapter, provider, envKey }` 를 채운다 — 앞 둘은 1단계 디렉토리와의 **조인 좌표**, `envKey` 는 자격증명을 실을 환경변수 이름 | 같은 파일 |
+| 4 | 인증 방식을 고른다 — 입력 수집형(§3-a) · OAuth(§3-b) · 또는 **둘 다 배열에 선언** | 같은 파일 |
+| 5 | `npm run typecheck` → `./node_modules/.bin/vitest run src/main/features/providers` | 형상·조인 회귀 |
+| 6 | 실기: 연결 탭에서 인증 → 새 채팅 전송 → 게이트웨이 로그에 요청이 도달하는지 | 사람 실기 |
 
 ```ts
 {
@@ -121,18 +206,22 @@ config: {
   kind: 'llm',
   origin: 'https://llm.example.corp',
   llm: { adapter: 'claude', provider: 'corp', envKey: 'ANTHROPIC_AUTH_TOKEN' },
-  auth: [ /* 아래 §3-a·§3-b */ ]
+  auth: [ /* §3-a · §3-b */ ]
 }
 ```
 
+**주입 규칙 3가지** (어기면 진단이 어려워진다):
+
 - 주입은 **`Options.env` 한 레이어에서만** 일어난다. `settings.json` 은 여전히 verbatim 이고
-  Orca 가 그 파일에 토큰을 쓰지 않는다(0028 결정 유지, `arch/backend/security.md §1.4-b`).
+  Orca 가 그 파일에 토큰을 쓰지 않는다(0028 결정 유지,
+  [`arch/backend/security.md §1.4-b`](../arch/backend/security.md)).
 - **미인증이면 그 키를 넣지 않는다**(빈 문자열 치환 금지). 인증된 것처럼 보이는 요청이 나가면
-  서버가 401 대신 이상한 오류를 주고 진단이 어려워진다.
+  서버가 401 대신 이상한 오류를 준다.
+- 같은 키를 `orca.json` 전역 env 와 provider 가 모두 선언하면 **인증된 값이 이긴다**.
 
 ### 3-a. API key · ID/비밀번호 · PAT — 코어 구현
 
-배포가 채우는 것은 **라벨과 `present`(요청에 싣는 방법)뿐**이다. 입력 폼·vault 봉인·재인증은 코어가 한다.
+배포가 채우는 것은 **라벨과 `present` 뿐**이다. 입력 폼·vault 봉인·재인증은 코어가 한다.
 
 ```ts
 import { apiKeySpec, passwordSpec, patSpec } from '../auth/specs/credential'
@@ -144,8 +233,11 @@ apiKeySpec({
 })
 ```
 
-`present.scheme`: `bearer` · `basic`(값이 이미 `user:pass` 형태) · `token` · `raw`(값 그대로).
-`present.location`: `header` · `query` · `cookie`.
+| 팩토리 | 필드 | 언제 |
+|---|---|---|
+| `apiKeySpec({label, fieldLabel, present})` | 단일 값 | 서비스가 발급한 opaque 값(애플리케이션에 묶임) |
+| `patSpec({label, fieldLabel, present})` | 단일 값 | 값의 모양은 같아도 **발급 주체·회수 절차·만료 정책이 다르다** — 표시·감사가 이 구분을 쓴다 |
+| `passwordSpec({label, present})` | 아이디 + 비밀번호(고정) | 서버가 `base64(user:pass)` 를 받는 경우. 필드 라벨은 코어가 정한다 |
 
 ### 3-b. OAuth code→token
 
@@ -187,26 +279,46 @@ apiKeySpec({
 |---|---|---|
 | `loopback` (권장) | IdP 가 `http://127.0.0.1:<port>/callback` 을 등록해 준다 | 사용자의 **기본 브라우저**가 흐름을 처리한다(주소창·인증서를 직접 본다). RFC 8252 |
 | `window` | 루프백 redirect 를 등록해주지 않는 폐쇄망 IdP | 앱 내부 창. `isDone(url)` 이 참인 URL 에서 code 를 뽑는다 |
-| `manual` | 리다이렉트를 아예 못 쓰는 환경 | 사용자가 브라우저에서 받은 code 를 붙여 넣는다 |
+| `manual` | 리다이렉트를 아예 못 쓰는 환경 | 사용자가 브라우저에서 받은 code 를 붙여 넣는다(`orca:provider:continue`) |
 
 **코어가 보장하는 것** — 배포가 다시 구현하지 마라:
+
 - `code_challenge` = S256(`verifier`), `plain` 은 지원하지 않는다.
 - `state` 불일치 콜백은 **거부**하고 pending 을 소비한다(재사용 불가).
 - pending 은 **파일에 보관**돼 앱이 재시작돼도 콜백 대조가 성립한다(TTL 10분).
 - provider 당 진행 중 인가는 1건이다.
 
-## 4. 사내 서비스 provider (`kind:'service'`)
+---
 
-`service.ts` 배열을 채우고 `tools` 로 런타임 도구를 노출한다. grant 가 `valid` 일 때만 등록되고,
-해제·만료·401 강등 시 도구가 스냅샷에서 사라진다.
+## 4. 레시피 C — 사내 서비스 provider + 내장 도구 (`kind:'service'`)
+
+인증된 연결이 LLM 에 런타임 도구를 노출한다. grant 가 `valid` 일 때만 등록되고, 해제·만료·401
+강등 시 도구가 스냅샷에서 사라진다.
+
+### 단계
+
+| # | 하는 일 | 고치는 파일 / 확인 지점 |
+|---|---|---|
+| 1 | `SERVICE_PROVIDERS` 에 항목을 추가한다 | `declarations/service.ts` |
+| 2 | `origin` 에 **컨텍스트 경로를 넣지 않는다**(등록 검사에 걸린다). 컨텍스트 경로는 도구 쪽 `apiBasePath` 로 넘긴다 | 같은 파일 |
+| 3 | 인증 방식을 선언한다(대개 `patSpec` 1종 — 길이 1이면 GUI 선택 단계가 생략된다) | 같은 파일 |
+| 4 | `tools: (api) => RuntimeToolServer` 를 채운다. **`api` 를 클로저로 잡아 `api.request(providerId, …)` 로 나간다** | 같은 파일 |
+| 5 | `npm run typecheck` → `./node_modules/.bin/vitest run src/main/features/providers` | |
+| 6 | 실기: 연결 탭에서 인증 → **새 채팅**에서 도구가 보이는지(등록은 다음 spawn 부터 반영된다) | 사람 실기 |
 
 ```ts
 {
   id: 'confluence',
   label: 'Confluence',
   kind: 'service',
-  origin: 'https://wiki.example.corp',   // 컨텍스트 경로는 여기 넣지 않는다(아래)
-  auth: [ patSpec({ … }) ],
+  origin: 'https://wiki.example.corp',   // 컨텍스트 경로는 여기 넣지 않는다
+  auth: [
+    patSpec({
+      label: '개인 액세스 토큰(PAT)',
+      fieldLabel: '개인 액세스 토큰',
+      present: { location: 'header', name: 'Authorization', scheme: 'bearer' }
+    })
+  ],
   tools: (api) => {
     const runtime = createConfluenceRuntime({
       id: 'confluence',
@@ -222,16 +334,30 @@ apiKeySpec({
 }
 ```
 
-`ProviderApi.request` 가 강제하는 것(어기면 요청 자체가 나가지 않는다):
+> ⚠️ **`tools(api)` 는 provider 당 한 번만 호출된다(코어가 캐시한다).** 조립 결과에 요청 시점
+> 상태를 굽지 마라 — 자격증명은 `api.request` 가 호출 시점에 붙인다.
+
+### `ProviderApi.request` 가 강제하는 것 (어기면 요청 자체가 나가지 않는다)
+
 - **절대 URL·프로토콜 상대 경로 금지** — `path` 는 origin 기준 상대 경로다.
 - **예약 헤더 금지** — `authorization` · `cookie` · `proxy-authorization` 을 덮어쓸 수 없다.
 - **미인증 차단** — grant 가 `valid` 가 아니면 전송하지 않는다.
 - **redirect 는 홉마다 재검사** — allowlist 밖 `Location` 은 따라가지 않는다.
 - **401/403 → grant 를 `expired` 로 강등** — 화면에 재인증 지점이 생긴다.
 
-## 5. MCP 서버에서 provider 토큰 쓰기
+---
 
-`mcp.json` 에서 `${BINDING:<providerId>}` 로 참조한다.
+## 5. 레시피 D — MCP 서버 추가 (재빌드 없음)
+
+재빌드가 필요 없는 유일한 경로다. 앱 UI(카탈로그 MCP 탭)에서 런타임에 추가하고, 인증이 필요하면
+`${BINDING:<providerId>}` 로 provider 토큰을 참조한다.
+
+| # | 하는 일 |
+|---|---|
+| 1 | 토큰을 줄 provider 를 먼저 준비한다(레시피 B 또는 C — `${BINDING:}` 은 **선언된 provider 의 id** 를 참조한다) |
+| 2 | 그 provider 를 연결 탭에서 인증한다 |
+| 3 | `mcp.json` 에 서버를 추가하고 헤더/env 에 `${BINDING:<id>}` 를 쓴다 |
+| 4 | 새 채팅에서 서버가 붙었는지 확인한다 |
 
 ```json
 { "mcpServers": { "wiki": { "url": "https://wiki.example.corp/mcp",
@@ -240,26 +366,155 @@ apiKeySpec({
 
 - 해당 provider 가 **미인증이면 참조가 미해결로 남고 그 서버는 배포에서 통째로 빠진다**
   (fail-closed). 빈 문자열로 채우지 않는다.
-- 세션 grant(쿠키)는 값이 아니므로 `null` 이다 — **SSO 는 MCP 로 반출되지 않는다**(0178 결정).
+- **세션 grant(쿠키)는 값이 아니므로 `null` 이다** — SSO 는 MCP 로 반출되지 않는다(0178 결정).
   MCP 에는 PAT·ID/비밀번호·토큰을 쓴다.
 - 해석된 값은 `dist/plugins/orca/.mcp.json` 에 평문으로 렌더된다(문서화된 예외 1,
-  `arch/backend/security.md §1.4-b`) — claude CLI 가 그 파일을 읽어 서버를 spawn 하기 때문이다.
+  [`arch/backend/security.md §1.4-b`](../arch/backend/security.md)) — claude CLI 가 그 파일을 읽어
+  서버를 spawn 하기 때문이다.
 
-## 6. GUI 에서 보이는 모습
+---
 
-- **연결 탭** — 설정 카탈로그의 세 번째 탭(`skills.rail.providers`). 앱 로그인·모델·사내 서비스가
-  `kind` 별 그룹으로 한 화면에 모인다.
-- **방식 선택** — `auth` 배열의 **선언 순서**가 GUI 선택지 순서다. 길이가 1이면 선택 단계를
-  건너뛴다(폐쇄망 배포의 게이트는 대개 1종이라 사용자는 선택 화면을 보지 않는다).
-- **재인증** — 기존 자격증명을 **유지한 채** 새 인증을 시도하고 성공해야 교체된다. 실패하면
-  이전 것으로 계속 쓸 수 있다.
-- **추가 버튼 없음** — provider 는 빌드타임 선언이라 UI 로 추가할 수 없다.
+## 6. 개발 중 확인하는 법 — DEV 게이트 · 우회 토글
 
-## 7. 배포 체크리스트
+**여기를 건너뛰면 "로그인 화면이 안 뜬다"·"우회 토글이 안 먹는다" 로 시간을 버린다.**
+0181 의 마지막 두 수정(5단계-c·d)이 이 동작을 0180 이전으로 되돌려 놓았다.
 
-1. `declarations/{sso,llm,service}.ts` 를 채운다. `id` 는 **한 번 정하고 유지**한다.
+### 6.1 dev 는 prod 와 다르게 판정한다
+
+| 빌드 | `kind:'gate'` 선언 0개 | 선언 N개 |
+|---|---|---|
+| **prod** | **통과** — OSS/기본 배포가 로그인 화면에 갇히지 않게 하는 안전장치 | 전부 `valid` 여야 통과 |
+| **DEV** (`npm run dev`) | **차단** — 로그인 화면을 항상 볼 수 있어야 한다 | 전부 `valid` 여야 통과 |
+
+전체 진리표는 [`arch/backend/providers.md §7`](../arch/backend/providers.md) 이 정본이다. 절차상
+알아야 할 것은 하나 — **`npm run dev` 는 선언이 비어 있어도 로그인 화면에서 시작한다.** 그 빌드의
+**탈출구는 우회 토글 하나뿐**이다(로그인할 상대가 없으므로 화면이 그 사실을 안내한다).
+
+주입 지점: `app/src/main/app/bootstrap.ts` 가 `alwaysRequired: import.meta.env.DEV` 를 넣는다.
+판정 모듈(`features/providers/gate/index.ts`)은 빌드 모드를 직접 읽지 않는다 — 순수하게 남겨
+테스트가 빌드 모드에 묶이지 않게 하기 위함이다.
+
+### 6.2 우회 토글
+
+| 항목 | 값 |
+|---|---|
+| 위치 | 디버그 패널 → **"로그인" 그룹** (`features/providers/components/ProviderDebugSection.tsx`) |
+| 마운트 | **게이트 화면(`GateFrame`)과 메인 셸(`OverlayLayer`) 양쪽** |
+| 저장 | `Settings.authBypass` (main 이 SSOT, renderer 는 `store/bypassStore.ts` 미러) |
+| 반영 | **즉시** — `settings:set` 핸들러가 이 키의 변경을 보면 provider 상태를 push 한다 |
+| prod | 없음 — `import.meta.env.DEV` 가 false 로 접혀 디버그 패널도 분기도 사라진다 |
+
+> **게이트 화면에도 떠야 하는 이유**: 메인 셸에만 두면 정작 게이트에 막혔을 때 스위치에 손이
+> 닿지 않는다 — *우회가 필요한 상황이 곧 우회 스위치에 도달할 수 없는 상황*이 된다.
+> 토글 옆의 상태 표시("게이트: 없음/통과/차단")로 *선언이 0개라 안 뜨는 것* 과 *로그인이 안 된 것*
+> 을 구분한다.
+
+### 6.3 게이트 화면을 고칠 때 건드리는 파일
+
+| 대상 | 파일 |
+|---|---|
+| 판정 규칙 (순수) | `app/src/main/features/providers/gate/index.ts` |
+| 판정 입력 주입 (`bypass`·`alwaysRequired`) | `app/src/main/app/bootstrap.ts` |
+| 상태 push 배선 | `app/src/main/app/handlers/settings.ts` |
+| 게이트 셸 (타이틀바·디버그 패널 마운트) | `app/src/renderer/src/app/GateFrame.tsx` |
+| 로그인 랜딩 (Orca 제목·이미지·입력 카드·버튼) | `app/src/renderer/src/features/providers/components/GateLogin.tsx` |
+| 상태·액션 훅 | `app/src/renderer/src/features/providers/hooks/useProviderGate.ts` |
+| 우회 토글 상태 | `app/src/renderer/src/features/providers/store/bypassStore.ts` |
+| 방식 선택 규칙 (게이트 ↔ 카탈로그 공용) | `app/src/renderer/src/shared/config/providerAuth.ts` |
+
+**필드가 없어도 로그인 버튼은 항상 있다** — ADFS/WIA 같은 브라우저 플로우는 입력 없이 `login()`
+하나로 끝나므로 **필드 유무가 곧 플로우 종류**다. 랜딩을 고칠 때 이 불변식을 깨지 마라.
+
+---
+
+## 7. GUI 에서 보이는 모습
+
+| 표면 | 어디 | 비고 |
+|---|---|---|
+| **로그인 게이트 화면** | 앱 진입 시 (`GateFrame`) | 창 컨트롤(닫기)은 항상 살아 있다 — 재시도 루프에 갇히지 않게 |
+| **연결 탭** | 설정 카탈로그의 세 번째 탭 | 앱 로그인·모델·사내 서비스가 `kind` 별 그룹으로 한 화면에 |
+| **방식 선택** | 연결 탭 · 게이트 화면 | `auth` 배열의 **선언 순서**가 선택지 순서. 길이 1이면 단계를 건너뛴다 |
+| **재인증** | 연결 탭 | 기존 자격증명을 **유지한 채** 새 인증을 시도하고 **성공해야 교체**된다 |
+| **해제** | 연결 탭 | grant + vault 값·metadata·index 를 함께 지운다 |
+| **추가 버튼** | **없음** | provider 는 빌드타임 선언이라 UI 로 추가할 수 없다(§0) |
+| **우회 토글** | 디버그 패널 "로그인" 그룹 (**DEV 전용**) | §6.2 |
+
+---
+
+## 8. 검증 · 배포 체크리스트
+
+### 8.1 선언을 고친 뒤 (기계 게이트)
+
+`app/` 에서 실행한다. **`npm test` 는 쓰지 않는다** — better-sqlite3 ABI 를 Node 로 뒤집어 이후
+`npm run dev`/`build` 를 깨뜨린다([`app/AGENTS.md`](../../app/AGENTS.md) ABI 가이드).
+
+| # | 명령 | 통과 기준 |
+|---|---|---|
+| 1 | `npm run typecheck` | exit 0 — 선언이 `Provider` 형상을 만족 |
+| 2 | `npm run lint` | error 0 (boundaries 위반 0) |
+| 3 | `./node_modules/.bin/vitest run src/main/features/providers src/main/app/handlers` | green |
+
+관련 회귀 테스트(게이트·인증을 고쳤다면 함께 본다): `features/providers/gate/gate.test.ts` ·
+`auth/registry.test.ts` · `auth/login.test.ts` · `auth/oauth.test.ts` · `auth/policy.test.ts` ·
+`auth/specs/browser-session.test.ts` · `llm/llm.test.ts` · `app/handlers/settings.test.ts` ·
+`app/handlers/providers.test.ts` · renderer `features/providers/store/bypassStore.test.ts`.
+
+### 8.2 배포 (사람 실기)
+
+1. `declarations/{sso,llm,service}.ts` 를 채웠고 `id` 는 **한 번 정하고 유지**한다(§1.4).
 2. `origin` 에 경로·후행 슬래시가 없는지 확인한다(있으면 그 선언이 거부된다).
 3. `allowedOrigins` 에 로그인 왕복이 지나는 origin 을 **전부** 넣는다.
-4. `npm run build:win` 으로 배포본을 만든다(릴리스 절차는 `guides/release-operations.md`).
-5. 실기: 로그인 화면 → 사내 로그인 → 메인 UI 진입, 연결 탭에서 상태·재인증·해제 확인.
-6. 로그(`~/.config/orca/logs/`)에서 `providers.*` 이벤트로 거부 사유를 확인한다.
+4. `npm run build:win` 으로 배포본을 만든다(릴리스 절차는 [`release-operations.md`](./release-operations.md)).
+5. 실기: 로그인 화면 → 사내 로그인 → 메인 UI 진입 → 연결 탭에서 상태·재인증·해제 확인.
+6. 로그(`~/.config/orca/logs/`)에서 `providers.*` 이벤트로 거부·실패 사유를 확인한다.
+
+---
+
+## 9. 자주 막히는 곳
+
+| 증상 | 원인 | 확인 지점 |
+|---|---|---|
+| dev 에서 로그인 화면이 **안 뜬다** | 우회 토글이 켜져 있다 | 디버그 패널 "로그인" 그룹 (§6.2) |
+| 우회 토글을 켰는데 **화면이 그대로** | 상태 push 경로가 끊겼다 | `app/handlers/settings.ts` — `authBypass` 변경 시 provider 상태 broadcast |
+| 우회 토글이 **보이지 않는다** | prod 빌드다 | prod 에는 디버그 패널 자체가 없다 (§6.2) |
+| 선언했는데 provider 가 **목록에 없다** | 등록 거부(중복 `id` 또는 `origin` 형태) | 로그 `providers.declaration.rejected` 의 `reason` |
+| 로그인 창이 **중간에 멈춘다** | `allowedOrigins` 누락 | 로그가 막힌 origin 을 지목한다 |
+| `doneUrlPrefix` 에 닿았는데 **실패**로 끝난다 | probe 가 미인증을 봤다(로그인 폼이 200 으로 뜨는 배포) | 로그 `providers.session.probe.unauthenticated` |
+| 토큰 교환이 **값을 못 찾는다** | `valuePath` 오타 또는 응답 구조 상이 | 로그 `providers.session.exchange.no-token` 이 `valuePath` 를 찍는다 |
+| 토큰 교환이 **엉뚱한 호스트로** 나간다 | `origin` 을 IdP 로 잡았다 | §2 2단계 주의 |
+| 도구가 **모델에 안 보인다** | grant 가 `valid` 가 아니거나 아직 재spawn 전이다 | 연결 탭 상태 → **새 채팅**에서 재확인 |
+| MCP 서버가 **통째로 빠진다** | `${BINDING:}` 미해결(fail-closed) | 해당 provider 인증 상태 · 세션 grant 는 `null` 이다 |
+| LLM 요청이 **인증 없이** 나간다 | `envKey` 오타 또는 `llm.{adapter,provider}` 조인 실패 | `sources/settings/<adapter>/<provider>/` 디렉토리 존재 여부 |
+| 업데이트 후 **저장된 로그인이 사라졌다** | `Provider.id` 를 바꿨다 | vault 키 `provider:<id>:<authKind>` (§1.4) |
+
+---
+
+## 10. 폐쇄망 빌드 · 자동 업데이트 피드
+
+provider 선언과 별개로, **배포본 자체를 폐쇄망에서 만들고 갱신하는** 절차다.
+(0130/0133 에 세운 내용 — 0181 문서 재작성 때 유실됐던 것을 복원했다.)
+
+- **빌드는 회사가 수행한다**(선언이 컴파일 타임 코드이므로): 사내 npm 미러/오프라인 캐시로
+  `npm ci` → `npm run build:win`(electron-builder, publish 없음).
+- 외부 네트워크 의존은 그 외에 없다 — LLM 백엔드는 provider `settings.json` 의
+  `ANTHROPIC_BASE_URL` 등으로 사내 게이트웨이를 가리킨다(TRD §6.8 레시피 표).
+
+**자동 업데이트**: 피드가 설정되지 않으면 updater 는 이미 noop 으로 저하된다
+(`feed-not-configured`, `app/src/main/app/updater.ts`) — 외부 GitHub Releases 피드는 폐쇄망에서
+자연히 불능이다. 사내 피드는 `orca.json` 의 `update` 로 **코드 수정 없이** 지정한다
+(스키마·조립 정본: `infra/config/orca-file.ts` · `app/updater-feed.ts`).
+
+| provider | `orca.json` 예 | 언제 |
+|---|---|---|
+| `s3` (권장 — MinIO/S3-호환) | `{ "update": { "provider": "s3", "bucket": "orca-updates", "endpoint": "http://minio.internal:9000", "path": "win" } }` | `endpoint` 를 주면 electron-updater 가 `${endpoint}/${bucket}[/${path}]` 를 base URL 로 삼는다(사내 MinIO). 생략하면 AWS S3(`region` 사용) |
+| `generic` | `{ "update": { "provider": "generic", "url": "https://updates.internal/orca/" } }` | 임의 HTTPS 정적 호스트 |
+| `github` | `{ "update": { "provider": "github", "owner": "infra", "repo": "orca", "host": "github.company.com" } }` | 사내 GitHub Enterprise. base URL 이 다르면 `host`(필요 시 `protocol`)로 지정 |
+| 비활성 | `{ "update": { "enabled": false } }` | 업데이터 전체를 끈다 |
+
+- 어느 쪽이든 `latest.yml` · installer(`*-setup.exe`) · `.blockmap` 셋을 올린다.
+- ⚠️ electron-updater 런타임은 s3 버킷을 **익명 GET(공개 읽기) 정적 HTTP** 로 취급한다(AWS 서명을
+  하지 않는다) — 버킷/prefix 를 사내에서 anonymous read 로 노출하거나 리버스 프록시로 서빙해야
+  한다. **비밀·토큰은 저장하지 않는다.**
+- 산출물 업로드는 회사 배포 절차의 몫이다(electron-builder `publish` 를 사내 타깃으로 바꾸거나,
+  `--publish never` 빌드 후 수동 업로드). 릴리스 실행·롤백 절차는
+  [`release-operations.md`](./release-operations.md).
