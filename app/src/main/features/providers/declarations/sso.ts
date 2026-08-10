@@ -7,9 +7,17 @@
 // ⚠️ **`id` 는 한 번 정하면 바꾸지 않는다** — vault 네임스페이스이자 `${BINDING:<id>}` 참조
 // 대상이라, 바뀌면 저장된 grant 를 못 읽고 사용자가 적은 MCP 설정이 깨진다.
 //
+// ⚠️ **`origin` 은 로그인을 *시작* 하는 IdP 가 아니라 probe·토큰 교환이 *사는* 호스트다.**
+// `loginUrl`·`authenticationProbeUrl` 은 절대 URL 이라 어디를 가리켜도 되지만,
+// `config.exchange.path` 는 **`Provider.origin` 기준 상대 경로**로 해석된다
+// (`auth/specs/browser-session.ts` 의 `new URL(exchange.path, origin)`). 아래 예처럼 교환이
+// portal 에 있는데 `origin` 을 ADFS 로 두면 교환 요청이 엉뚱한 호스트로 나간다.
+//
 // 실값(0181 OQ1·OQ2 — 사용자 확인 대기):
 //   - `loginUrl` · `doneUrlPrefix` · `authenticationProbeUrl` · `sessionGroup` · `allowedOrigins`
 //   - 토큰 교환이 필요하면 `config.exchange = { path, valuePath, expiresAtPath? }`
+//
+// 절차·필드별 주의사항은 `docs/guides/closed-network-extensions.md §2`(레시피 A).
 //
 // 채우는 예:
 //
@@ -18,7 +26,7 @@
 //   id: 'corp-sso',
 //   label: '사내 로그인',
 //   kind: 'gate',
-//   origin: 'https://adfs.example.corp',
+//   origin: 'https://portal.example.corp',   // ← probe·exchange 가 사는 호스트
 //   auth: [
 //     {
 //       kind: 'browser-session',
