@@ -2,7 +2,9 @@
 
 Electron **main 프로세스**(SDK 호출·IPC·DB·보안이 모이는 곳)의 모듈 구조 규칙. renderer 4-layer 처럼 **하향 의존만 허용**하고, 추가로 **feature 수직 슬라이스끼리 교차 import 를 금지**한다 — `eslint-plugin-boundaries` + `import/no-cycle` 로 빌드 시 강제(`app/eslint.config.mjs` 의 `src/main/**`·`src/shared/**` 블록). 위반은 `npm run lint` error. (구조 재편 정본: handoff 0062 — 아키텍처 스펙 "feature 수직 슬라이스 + adapters 한정 ports&adapters + 얇은 infra + app composition root".)
 
-> 정본 우선: 채널 계약은 [`../../../docs/IPC_CONTRACT.md`](../../../docs/IPC_CONTRACT.md), 범용 정규화 계층은 [`../../../docs/arch/backend/provider-runtime.md`](../../../docs/arch/backend/provider-runtime.md). 본 문서는 _레이어·슬라이스 방향_ 규칙만 담는다.
+> 정본 우선: 채널 계약은 [`../../../docs/IPC_CONTRACT.md`](../../../docs/IPC_CONTRACT.md), 범용 정규화 계층은 [`../../../docs/arch/backend/provider-runtime.md`](../../../docs/arch/backend/provider-runtime.md), **인증 provider 플랫폼(등록·소비·게이트)은 [`../../../docs/arch/backend/providers.md`](../../../docs/arch/backend/providers.md)**. 본 문서는 _레이어·슬라이스 방향_ 규칙만 담는다.
+>
+> ⚠️ **`provider-runtime.md` 와 `providers.md` 는 다른 문서다** — 전자는 *턴 이벤트 정규화 계층*(NormalizedEvent·PermissionBridge), 후자는 *인증 대상 플랫폼*(`Provider`·`AuthSpec`·`Grant`). 이름이 닮았으니 인용 전에 확인한다.
 
 ## 레이어 DAG (하향 의존만)
 

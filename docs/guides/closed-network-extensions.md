@@ -3,6 +3,9 @@
 회사 폐쇄망에 Orca 를 배포할 때, 코어를 고치지 않고 **로그인 게이트·LLM 자격증명·사내 서비스
 도구**를 붙이는 방법의 정본. 대상 독자는 Orca 내부 구조를 모르는 외부 에이전트/사내 개발자다.
 
+> **구조·설계 근거는 [`arch/backend/providers.md`](../arch/backend/providers.md) 가 정본이다.**
+> 이 문서는 *배포자가 무엇을 어떤 순서로 하는가* 만 다룬다(구조 서술 = `arch/`, 실행 절차 = `guides/`).
+>
 > **0180/0181 요약**: 0157 이 세운 4축 구조(`AuthMethod` × `Connector` × `Binding` × `PluginHost`)는
 > 0180 에서 전면 제거됐고, 0181 이 **축 하나**로 다시 세웠다. 이 문서가 서술하는 것은 그 새 구조다.
 > 구 문서의 `contracts/auth-method.ts`·`contracts/connector.ts`·`acceptedMethods`·`bindingId` 는
