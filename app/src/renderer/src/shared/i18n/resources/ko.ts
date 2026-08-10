@@ -85,7 +85,15 @@ export const ko = {
     title: '사내 로그인',
     subtitle: '계속하려면 사내 계정으로 로그인하세요.',
     signIn: '로그인',
-    signingIn: '로그인 중…'
+    signingIn: '로그인 중…',
+    debug: {
+      section: '로그인',
+      bypass: '로그인 우회(bypass)',
+      status: '게이트: {{status}}',
+      none: '없음(선언 0)',
+      passed: '통과',
+      blocked: '차단'
+    }
   },
   skills: {
     pageTitle: '플러그인',

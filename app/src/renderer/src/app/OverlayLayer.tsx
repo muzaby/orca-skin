@@ -6,6 +6,7 @@ import { ConfirmDialogHost } from '../shared/ui/ConfirmDialogHost'
 import { MODAL_BACKDROP_CLASS } from '../shared/ui/Modal'
 import { SearchModal } from './SearchModal'
 import { UpdateDebugSection, UpdateDialog, useUpdateDialogOpen } from '../features/update'
+import { ProviderDebugSection } from '../features/providers'
 
 interface OverlayLayerProps {
   searchOpen: boolean
@@ -61,7 +62,12 @@ export function OverlayLayer({ searchOpen, onCloseSearch }: OverlayLayerProps): 
       <ConfirmDialogHost />
       <div id="app-frame-debug" className="pointer-events-none z-30" data-context="debug">
         <div className="pointer-events-auto">
-          {import.meta.env.DEV && <DebugPanel updateSection={<UpdateDebugSection />} />}
+          {import.meta.env.DEV && (
+            <DebugPanel
+              updateSection={<UpdateDebugSection />}
+              providerSection={<ProviderDebugSection />}
+            />
+          )}
         </div>
       </div>
     </>

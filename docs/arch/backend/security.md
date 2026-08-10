@@ -130,7 +130,7 @@ font-src 'self' https://fonts.gstatic.com
   - **선언이 0개면 통과**(`required:false`) — 개발·OSS 빌드가 로그인 화면에 갇히지 않게 하는 안전장치이며 `gate.test.ts` 가 회귀로 고정한다.
   - **판정 전에는 통과시키지 않는다**(`gate=null` → 부팅 화면 유지). main 이 잠깐 응답하지 못하는 사이 로그인 강제 빌드가 무인증으로 열리면 안 된다(fail-closed).
   - 게이트 멤버가 여럿이면 **전부 `valid` 일 때만** 통과한다 — 로그인이 체인이라 멤버 하나만 풀려도 인증이 아니다.
-  - `Settings.authBypass` 는 **DEV 빌드 전용 우회**로 소비자가 돌아왔다(prod 번들에서는 `import.meta.env.DEV` 가 false 로 접혀 분기 자체가 사라진다).
+  - `Settings.authBypass` 는 **DEV 빌드 전용 우회**로 소비자가 돌아왔다(prod 번들에서는 `import.meta.env.DEV` 가 false 로 접혀 분기 자체가 사라진다). 토글은 디버그 패널의 "로그인" 그룹이며 **게이트 화면과 메인 셸 양쪽에** 뜬다 — 메인 셸에만 두면 게이트에 막혔을 때 스위치에 도달할 수 없다. 값이 바뀌면 `settings:set` 핸들러가 provider 상태를 push 해 재시작 없이 반영된다.
   - 게이트는 **UX 게이트이지 보안 경계가 아니다** — 인증 전에도 main IPC 는 열려 있다. 로그인 화면은 창 컨트롤(닫기)을 항상 살려 둬 재시도 루프에 갇히지 않게 한다.
 
 > **0157 이 지운 두 경로 (되살리지 말 것)**: ⓐ 구 `features/sso/modules/` + `contracts/sso.ts` 는 auth-platform 으로 승계돼 **더 이상 없다**. ⓑ 구 `setProviderEnv` sink — 획득 토큰을 provider `settings.json` 의 env 블록에 **평문으로 병합 기록**하던 경로로, 0157 에서 제거됐다(`app/bootstrap.ts:481-483` 주석이 근거를 보존한다). 이제 credential 은 binding·vault 가 소유하고, LLM 백엔드로 나가는 env 값은 **사용자가 직접 적은 것만** 남는다. 구 SecretStore 네임스페이스 `provider:<key>:`(0130 핸드셰이크)도 0157 이후 **쓰는 쪽이 0곳**이며, 인증이 필요한 사용량 조회는 구독 모델로 대체됐다(0176 — `contracts/usage-source.ts`).

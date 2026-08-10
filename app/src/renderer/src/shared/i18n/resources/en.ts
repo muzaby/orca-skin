@@ -87,7 +87,15 @@ export const en: typeof ko = {
     title: 'Sign in',
     subtitle: 'Sign in with your corporate account to continue.',
     signIn: 'Sign in',
-    signingIn: 'Signing in…'
+    signingIn: 'Signing in…',
+    debug: {
+      section: 'Sign-in',
+      bypass: 'Bypass sign-in',
+      status: 'Gate: {{status}}',
+      none: 'None (0 declared)',
+      passed: 'Passed',
+      blocked: 'Blocked'
+    }
   },
   skills: {
     pageTitle: 'Plugins',
