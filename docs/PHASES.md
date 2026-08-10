@@ -10,7 +10,7 @@
 
 ## 현재 작업 중 (In Progress)
 
-> **0180-auth-plugin-teardown (2026-08-10) — 진행 중.** auth·플러그인 전면 재작성의 **1단계(제거)**.
+> **0180-auth-plugin-teardown (2026-08-10) — impl/IMPL_DONE, 검증 대기.** auth·플러그인 전면 재작성의 **1단계(제거)**.
 > 사용자 요청: "auth 및 플러그인 기능을 모두 제거 후 다시 재작성할것이다 … 어설픈 재사용코드 플랫폼화 금지".
 > 0178 이 1,603줄을 지웠는데도 같은 불만이 반복된 이유는 남은 복잡도가 양이 아니라 **4개 축의 교차**
 > (`AuthMethod` × `ConnectorRuntime` × `Binding` × `PluginHost`/`ConnectionRegistry`/`TransactionStore`/`loginChain`)
@@ -34,6 +34,18 @@
 > 소비 표면 4종(LLM `Options.env` · MCP `${BINDING:}` · usage 표본 · service 도구+Confluence 복원).
 > IPC **71 → 77**, contracts **6 → 7**, raw secret 노출 예외 **2 → 3곳**(security.md §1.4-b).
 > AC 15건 중 **14건 충족**, AC13(사람 실기)은 OQ1 ADFS 실값 부재로 미충족.
+
+> **0182-gate-principal-and-session-registration (2026-08-10) — impl/IMPL_DONE, 검증 대기.** 0181 후속.
+> 사용자 요구는 "nav 하단에 developer 가 아닌 email" 이었으나 원인은 라벨이 아니라 **신원을 조회하는
+> SP 호출이 없다**는 것이었고, 추적 중 **재시작하면 세션 SP 호출이 raw `Error` 로 죽는 결함**을 찾아
+> 먼저 닫았다 — `sessions.register()` 호출부가 로그인 실행부·OAuth 창 **2곳뿐**이라 쿠키·grant 가
+> 살아 있어도 group 이 미등록이었다(도구는 부팅 시 등록되므로 *보이는데 부르면 죽는* 형태).
+> 조치: `registerDeclaredSessions` 순수 seam(fake 포트로 호출 단언) + `whoami`/`exchange.principalPath`
+> 선언 — probe 는 판정 전용이라 재사용하지 않고 같은 jar 로 `send()` 를 한 번 더 부른다.
+> **조회 실패는 로그인을 실패시키지 않는다.** 사용자 결정 3건: 범위 축소(세션 공유·사용량·PAT 내장
+> MCP 레시피는 후속) · **기존 가이드 재구성**(신설 금지 유지) · whoami 실값 파라미터화.
+> **문서가 인수 기준이다(AC10~14)** — 0181 이 동작을 바꾸고 절차 문서를 안 따라가 정본이 구 동작을
+> 서술하던 실패를 반복하지 않기 위함. AC 15건 중 **14건 충족**, AC15(사람 실기)는 실값 부재로 미충족.
 
 
 진행 중인 Claude Code ↔ Codex 협업 작업의 라이브 상태는 디스패치 보드에 있다. **여기서는 링크만 둔다** (변동성 정보의 정본은 보드, 완료 시 아래 "페이즈 표" 로 승격).
