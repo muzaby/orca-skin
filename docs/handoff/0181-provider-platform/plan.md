@@ -446,6 +446,7 @@ respawn 판정이 전부 여기 걸려 있다. 조인만 한다.
 | **D9** | **`ProviderStore` 가 없는 `RouterContext` 경로가 있다**(테스트 하네스) | ✅ `providers?` 를 **optional** 로 두되 없으면 "인증 없음" 으로 동작한다 — 조용한 성공이 아니라 조용한 **미인증**(fail-closed) | 필수로 두면 기존 테스트 하네스가 전부 깨지고, 기본값을 두면 미인증이 인증으로 보인다 |
 | **D10** | **게이트 판정 전(`gate=null`)의 화면이 설계에 없었다** | ✅ **통과시키지 않고 부팅 화면을 유지**한다. main 이 잠깐 응답하지 못하는 사이 로그인 강제 빌드가 무인증으로 열리면 안 된다 | 구 auth 문서(§2.13-c)가 같은 규칙을 적고 있었다 — "renderer 는 prod 에서 invoke 실패를 `required:false` 로 기본화하지 않는다" |
 | **D11** | **AC8·AC14(게이트 진리표)를 3단계로 미뤘는데 1단계의 `state()` 가 게이트 값을 필요로 했다** | ✅ 게이트 순수 모듈을 **1단계로 앞당겨** 구현했다(플레이스홀더를 뒀다가 나중에 갈아엎는 것보다 낫다). 3단계는 browser-session·정책·화면을 맡았다 | 단계 경계는 커밋 위생을 위한 것이지 설계 제약이 아니다 |
+| **D13** (사용자 보고 2026-08-10, D12 후속) | **우회 토글을 꺼도 로그인 페이지가 뜨지 않았다.** D12 로 토글은 되살렸지만 기본 빌드는 게이트 선언이 0개라 `evaluateGate` 가 항상 `required:false` 를 준다 — **우회할 게이트가 없어 토글이 아무 일도 하지 않았고, 로그인 화면에 도달할 방법 자체가 없었다.** 구 코드는 `import.meta.env.DEV ? bypass \|\| authenticated : !required \|\| authenticated` 로 **DEV 는 게이트가 항상 켜져** 있었는데(0089→0130), 0181 이 그 분기를 prod 규칙 하나로 접으면서 사라졌다 | ✅ ⓐ `evaluateGate` 에 `alwaysRequired` 추가(호출부가 `import.meta.env.DEV` 주입 — 순수 모듈이 빌드 모드를 읽지 않게) ⓑ **빈 멤버 배열이 "전부 valid" 로 접히지 않게** 멤버 수를 함께 본다(`[].every` 는 true) ⓒ **구 `AuthView` 를 `GateLogin` 으로 복원** — Orca 제목·오르카 이미지(`orca-login.webp`)·입력 카드·검정 로그인 버튼. 화면이 0180 이전과 같아졌다 ⓓ 방식 선택 규칙을 `shared/config/providerAuth.ts` 로 올려 게이트 화면과 카탈로그가 같은 구현을 쓰게 했다(feature 교차 금지) | **중간 산출물(dev 더미 게이트)은 폐기했다** — 사용자가 "dev-gate 를 원하는 게 아니라 원래 운영하던 로그인 페이지" 라고 정정. 더미를 세우는 대신 *원래 DEV 규칙*을 복원하는 것이 맞았다. 회귀 5건 추가 |
 | **D12** (사용자 보고 2026-08-10) | **게이트 우회 토글이 사라진 채였다.** `Settings.authBypass` 는 스키마·main 판정에 다 있었지만 **UI 가 없어 켤 수 없었다** — 0180 이 `AuthDebugSection` 을 지웠고 0181 이 main 쪽만 되살렸다. K6("게이트 강제가 개발 빌드를 잠글 수 있다")의 완화책이 실제로는 작동하지 않는 상태였다 | ✅ 셋을 함께 고쳤다: ⓐ `ProviderDebugSection` 복원 + `DebugPanel` 의 `providerSection` 슬롯 ⓑ **`GateFrame` 에서도 디버그 패널을 마운트**(구 `LoginFrame` 과 같은 이유 — 메인 셸에만 두면 게이트에 막혔을 때 스위치에 도달할 수 없다) ⓒ `settings:set` 이 `authBypass` 변경 시 provider 상태를 **push**(안 하면 설정만 저장되고 화면은 옛 판정에 머문다) | 설계 self-review 가 **"토글의 도달 가능성"** 을 보지 않았다 — 값·판정·소비자는 다 확인했지만 *우회가 필요한 상황에서 우회 스위치가 화면에 있는가* 는 질문 목록에 없었다. 회귀 9건 신설(`settings.test.ts` 3 · `bypassStore.test.ts` 6) |
 
 ## [구현자 기입] 구현 체크리스트
@@ -472,6 +473,9 @@ respawn 판정이 전부 여기 걸려 있다. 조인만 한다.
 - [x] **5단계-c (버그수정 — 사용자 보고)** — 게이트 우회 토글 복원(D12): `ProviderDebugSection` ·
       `bypassStore` · `DebugPanel.providerSection` 슬롯 · **`GateFrame` 마운트** · `settings:set` push ·
       i18n(ko/en) · 회귀 9건 · `providers.md §8`·`security.md §1.7` 반영
+- [x] **5단계-d (버그수정 — 사용자 보고)** — **DEV 게이트 도달성 + 원래 로그인 페이지 복원**(D13):
+      `evaluateGate.alwaysRequired` · `GateLogin`(구 `AuthView` 복원 + `orca-login.webp`) ·
+      `shared/config/providerAuth.ts`(feature 교차 해소) · 회귀 5건 · 게이트 진리표 문서 3곳 개정
 
 ## [구현자 기입] 구현 보고
 

@@ -4,14 +4,13 @@
 // 구 `pluginCatalog.ts`·`connectorActions.ts` 두 벌이 하던 일을 하나로 접었다 — 앱 로그인과
 // 서비스 연결이 같은 DTO(`ProviderInfo`)를 쓰기 때문에 행 판정도 한 벌이면 된다.
 
-import type {
-  ProviderAuthKind,
-  ProviderAuthSpecInfo,
-  ProviderGrantStatus,
-  ProviderInfo,
-  ProviderKind
-} from '../../../../../shared/ipc'
+import type { ProviderGrantStatus, ProviderInfo, ProviderKind } from '../../../../../shared/ipc'
 import type { MessageKey } from '../../../shared/i18n'
+
+// 방식 선택 규칙은 게이트 화면(`features/providers`)과 **같은 구현**을 써야 한다 — feature 끼리는
+// 교차 import 가 금지돼 있어 공유 DTO 의 규칙은 shared 가 갖는다. 여기서는 재노출만 한다
+// (기존 import 경로·테스트 무회귀).
+export { authChoices, initialAuthKind, needsAuthChoice } from '../../../shared/config/providerAuth'
 
 export interface ProviderRowMeta {
   statusKey: MessageKey
@@ -40,24 +39,6 @@ export function providerRowMeta(provider: ProviderInfo): ProviderRowMeta {
     activeLabel: active?.label ?? null,
     kindKey: KIND_KEYS[provider.kind]
   }
-}
-
-// **선언 순서를 그대로 낸다.** 배포 선언이 먼저 적은 방식이 GUI 의 첫 선택지다 — 정렬하거나
-// 재배열하면 배포가 의도한 권장 순서가 사라진다.
-export function authChoices(provider: ProviderInfo): ProviderAuthSpecInfo[] {
-  return [...provider.auth]
-}
-
-// 선언이 하나뿐이면 고를 것이 없다 — 선택 단계를 건너뛴다(K1 완화책). 폐쇄망 배포의 게이트는
-// 대개 1종이라 실제 사용자는 선택 화면을 보지 않는다.
-export function needsAuthChoice(provider: ProviderInfo): boolean {
-  return provider.auth.length > 1
-}
-
-// 화면이 처음 고르는 방식: 이미 인증돼 있으면 그 방식(재인증의 기본값), 아니면 선언 첫 항목.
-export function initialAuthKind(provider: ProviderInfo): ProviderAuthKind | null {
-  if (provider.activeAuthKind) return provider.activeAuthKind
-  return provider.auth[0]?.kind ?? null
 }
 
 // 재인증은 이력이 있을 때만 의미가 있다. 없으면 버튼은 "연결" 하나다.
