@@ -476,6 +476,32 @@ respawn 판정이 전부 여기 걸려 있다. 조인만 한다.
 - [x] **5단계-d (버그수정 — 사용자 보고)** — **DEV 게이트 도달성 + 원래 로그인 페이지 복원**(D13):
       `evaluateGate.alwaysRequired` · `GateLogin`(구 `AuthView` 복원 + `orca-login.webp`) ·
       `shared/config/providerAuth.ts`(feature 교차 해소) · 회귀 5건 · 게이트 진리표 문서 3곳 개정
+- [x] **5단계-e (범위 추가 — 사용자 요청 2026-08-10)** — **게이트·확장 추가 절차를 단계별 안내로
+      재구성**. 5단계-c·d 가 *동작* 을 바꿨는데 문서 동기화가 `arch/` 3곳(`providers.md`·
+      `security.md §1.7`·`frontend/overview.md`)에서 멈춰, **절차 정본인
+      `guides/closed-network-extensions.md` 가 구 동작(선언 0 → 항상 통과)을 서술**하고 있었다.
+      동시에 그 문서에는 *타 에이전트가 그대로 실행할 단계·검증 명령* 이 없었다(사용자 요청의 핵심).
+      ⓐ 가이드 전면 재구성 — §0 라우팅("플러그인" 요청을 provider 선언/MCP 로 번역) · §1 공통
+      (**`features/providers/` 두 세입자 경고 신설** — 구 LLM 설정 슬라이스와 0181 인증 플랫폼이
+      같은 디렉토리에 공존한다) · **레시피 4종**(§2~§5, 각 "단계 표 → 예제 → 필드/실수 표") ·
+      **§6 개발 중 확인 신설**(DEV `alwaysRequired` · 우회 토글 2곳 마운트 · `settings:set` push ·
+      게이트 화면 파일 지도 8종) · §8 검증 명령(ABI 가이드에 맞춰 `npm test` 대신
+      `./node_modules/.bin/vitest run`) · **§9 트러블슈팅 12행 신설**
+      ⓑ 드리프트 정정 — `GLOSSARY`(로그인 게이트 행 · `Plugin` 행에 라우팅 포인터) ·
+      `IPC_CONTRACT`(§2.13-c 도입부 · `provider:state` 행 · `Settings.authBypass` 주석 ·
+      `settings:set` 부수효과)
+      ⓒ **유실 콘텐츠 복원(§10)** — 5단계의 가이드 전면 재작성이 구 §4 **"폐쇄망 빌드/자동
+      업데이트 피드"**(0130/0133 — 사내 npm 미러 빌드 · `orca.json` `update` 4분기 s3/MinIO·
+      generic·GHE·비활성 · 익명 GET 주의)를 통째로 떨어뜨렸고, `release-operations.md:62` 가
+      **없는 절을 가리키는 dangling 참조**로 남아 있었다. 스키마를 코드(`infra/config/orca-file.ts`
+      `provider: z.enum(['github','generic','s3'])` · `app/updater-feed.ts`)와 대조해 여전히
+      유효함을 확인하고 §10 으로 복원 + 참조를 §10 으로 교정했다.
+      ⓓ 라우팅 — `providers.md`(§3 두 세입자 경고 · §5 레시피 앵커 표) · `docs/AGENTS.md` ·
+      `guides/AGENTS.md`(키워드 "로그인 게이트 추가"·"플러그인 추가"·"개발 중 로그인 화면" 보강)
+      **발견(코드 미수정, 보고만)**: `declarations/sso.ts` 주석 예제의 `origin` 이
+      `adfs.example.corp` 인데, `exchange.path` 는 `Provider.origin` 기준 상대 경로로 해석되므로
+      (`auth/specs/browser-session.ts`) 토큰 교환을 쓰는 배포에서는 probe·교환이 사는 호스트
+      (예제의 `portal.example.corp`)여야 한다. 가이드 §2 2단계에 이 규칙을 명시했다.
 
 ## [구현자 기입] 구현 보고
 
@@ -486,12 +512,17 @@ respawn 판정이 전부 여기 걸려 있다. 조인만 한다.
 | 게이트 결과 | lint **0 error / 1 warn**(기존 `react-hooks/incompatible-library`) · typecheck **3/3** · vitest **190 파일(185/5) · 1,670 테스트(1,631/39)**. 실패 파일이 착수 전과 **동일한 DB ABI 5종**이고 실패 테스트 수도 39 로 같아 **신규 red 0**. 테스트 **+253건**(1,417→1,670), 파일 **+19**(171→190) |
 | 인수 기준 | **14/15 충족.** AC13(사람 실기)만 미충족 — OQ1 ADFS 실값이 없어 게이트 provider 를 등록할 수 없고, egress 차단 환경에서 `npm run dev` 는 Electron ABI 재빌드에 막힌다(0180 AC9 선례) |
 | 블로커 / 역질문 | **없음.** OQ1·OQ2·OQ3 는 설계대로 선언 파일 파라미터화로 흡수했다(`sso.ts`=null · `exchange:{path,valuePath,expiresAtPath}` · 빈 배열). 실값이 오면 **선언 파일만** 채우면 된다 |
-| 대상 커밋 | `8b66f90`(1단계) · `f3b8798`(2단계) · `da5865b`(3단계) · `be9887c`(4단계) · `1c2ac66`(5단계 문서) · 5단계-b 문서 커밋 |
+| 대상 커밋 | `8b66f90`(1단계) · `f3b8798`(2단계) · `da5865b`(3단계) · `be9887c`(4단계) · `1c2ac66`(5단계 문서) · `5247080`(5단계-b) · `80728d7`(5단계-c) · `f7ccce9`(5단계-d) · 5단계-e 문서 커밋 |
 
 > **5단계-b 의 판단 근거(기록)**: 문서 요청이라 새 핸드오프(0182)를 열 수도 있었으나, ⓐ 대상이
 > 0181 이 방금 만든 것이고 ⓑ 0181 §영향 파일이 이미 문서 동기화를 범위에 두고 있으며 ⓒ 산출이
 > arch 문서 1건 + 라우팅 6곳이라, **0181 을 이어가는 편이 맞다고 판단**했다. 새 plan 을 여는 것은
 > 절차를 지키는 것이 아니라 절차를 연기하는 것이 됐을 것이다.
+>
+> **5단계-e 도 같은 판단(사용자 결정 2026-08-10)**: 새 핸드오프(0182) 대신 0181 을 잇는다 —
+> 고칠 대상이 **5단계-c·d 가 남긴 자기 문서 드리프트**이고, 단계별 안내는 그 드리프트를 닫는
+> 과정에서 같은 문서에 함께 들어가야 갈리지 않기 때문이다. 사용자는 "새 howto 문서 신설 금지,
+> 기존 `guides/closed-network-extensions.md` 를 단계별로 재구성" 도 함께 결정했다.
 
 ---
 

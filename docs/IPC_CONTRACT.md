@@ -103,7 +103,7 @@
 | 채널                | 방향         | 페이로드                              | 응답       | 설명                                     |
 | ------------------- | ------------ | ------------------------------------- | ---------- | ---------------------------------------- |
 | `orca:settings:get` | R→M (invoke) | —                                     | `Settings` | electron-store 의 전체 설정 객체.        |
-| `orca:settings:set` | R→M (invoke) | `SettingsPatch` = `Omit<Partial<Settings>, 'scheduler'> & { scheduler?: { usageRecompute?: Partial<…>; updateCheck?: Partial<…> } }` (scheduler 는 그룹별 중첩 partial — 한 그룹만 보내도 형제 그룹은 보존) | `Settings` | 부분 패치 후 병합·검증된 전체 객체 반환. |
+| `orca:settings:set` | R→M (invoke) | `SettingsPatch` = `Omit<Partial<Settings>, 'scheduler'> & { scheduler?: { usageRecompute?: Partial<…>; updateCheck?: Partial<…> } }` (scheduler 는 그룹별 중첩 partial — 한 그룹만 보내도 형제 그룹은 보존) | `Settings` | 부분 패치 후 병합·검증된 전체 객체 반환. **부수효과 1건**: 패치 키에 `authBypass` 가 있으면 `orca:provider:state` 를 push 한다(게이트 판정의 입력이라, 저장만 하고 끝내면 화면이 재시작 전까지 옛 판정에 머문다 — 0181). |
 
 `Settings` 타입 (`app/src/shared/ipc.ts`):
 
@@ -119,7 +119,7 @@ interface Settings {
   mcpEnabled: Record<string, boolean>; // MCP 서버 on/off (키=name). 부재 ⇒ true
   mcpMeta: Record<string, { description: string }>; // MCP Orca 전용 메타 (mcp.json 순정 유지)
   skillEnabled: Record<string, boolean>; // Skill on/off (키=sourceId/name). 부재 ⇒ true
-  authBypass: boolean; // 인증 게이트 우회 (디버그 패널 토글, DEV 전용). true ⇒ 앱 시작 시 로그인 건너뜀. default false (0157 — 구 ssoBypass)
+  authBypass: boolean; // 인증 게이트 우회 (디버그 패널 '로그인' 그룹 토글, DEV 전용). true ⇒ 게이트 통과(bypassed). 변경은 **즉시 반영** — settings:set 핸들러가 이 키를 보면 orca:provider:state 를 push 한다(재시작 불요, 0181). default false (0157 — 구 ssoBypass)
   language: string; // 선호 언어 (LLM 응답 언어). 시스템 프롬프트 '# User' 헤더로 매 턴 주입. uiLocale 과 별개. default '한국어'
   uiLocale: "ko" | "en"; // UI 표시 언어 (앱 크롬 로케일, 0096) — 렌더러 i18n(ko/en) + 날짜/시간 포맷 로케일. default 'ko'
   accountInstructions: string; // 설정 모달 '계정 지침' textarea. 시스템 프롬프트 '# User' 헤더로 매 턴 주입. default ''
@@ -385,7 +385,7 @@ renderer/preload 발 구조화 로그를 main 의 중앙 LogManager 로 전달�
 
 ### 2.13-c Provider (0181 — 구 `auth` 7 + `plugin` 4 채널 대체)
 
-앱 로그인(게이트)·LLM 자격증명·사내 서비스 연결을 **같은 lifecycle** 로 처리하는 채널. 셋의 차이는 `ProviderInfo.kind`(`gate`·`llm`·`service`) 뿐이고 별도 인증 인터페이스가 없다. 등록된 `kind:'gate'` provider 가 0개(기본 배포)면 게이트가 **자동 통과**된다. **핸들러는 `Bootstrap.start()` 최상단, DB 초기화보다 앞에서 등록**된다 — 창이 start() 완료 전에 열리므로(0109) renderer 게이트의 첫 invoke 가 부팅 완료를 기다리지 않는다. 게이트 판정에는 DB 가 필요 없다(grant 는 파일+vault).
+앱 로그인(게이트)·LLM 자격증명·사내 서비스 연결을 **같은 lifecycle** 로 처리하는 채널. 셋의 차이는 `ProviderInfo.kind`(`gate`·`llm`·`service`) 뿐이고 별도 인증 인터페이스가 없다. **prod 에서는** 등록된 `kind:'gate'` provider 가 0개(기본 배포)면 게이트가 **자동 통과**되고, **DEV 빌드는 선언이 0개여도 게이트를 세운다**(컴포지션 루트가 `import.meta.env.DEV` 를 `evaluateGate.alwaysRequired` 로 주입 — 로그인 화면 도달성. 탈출구는 `Settings.authBypass` 우회 토글 하나). **핸들러는 `Bootstrap.start()` 최상단, DB 초기화보다 앞에서 등록**된다 — 창이 start() 완료 전에 열리므로(0109) renderer 게이트의 첫 invoke 가 부팅 완료를 기다리지 않는다. 게이트 판정에는 DB 가 필요 없다(grant 는 파일+vault).
 
 계약 정본은 `app/src/main/contracts/provider.ts`(`Provider`·`AuthSpec`·`Grant`·`ProviderApi`), 배포 선언은 `features/providers/declarations/`(빌드타임 — 런타임 동적 등록 없음), 배포 가이드는 [guides/closed-network-extensions.md](guides/closed-network-extensions.md).
 
@@ -396,7 +396,7 @@ renderer/preload 발 구조화 로그를 main 의 중앙 LogManager 로 전달�
 | 채널 | 방향 | 페이로드 | 응답/스트림 | 설명 |
 | --- | --- | --- | --- | --- |
 | `orca:provider:list` | R→M (invoke) | — | `ProviderInfo[]` | 등록된 provider 와 grant 상태. `auth` 는 선언된 인증 방식 서술자 배열이고 **선언 순서가 곧 GUI 선택지 순서**다(길이 1이면 renderer 가 선택 단계를 건너뛴다). 입력 수집형(`api-key`·`password`·`pat`)만 `fields` 가 비어 있지 않다. |
-| `orca:provider:state` | R→M (invoke) **+** M→R (send) | — | `ProviderPlatformState` = `{ gate: { required; passed; bypassed }; providers: ProviderInfo[]; step: ProviderStepInfo \| null }` | `gate.required` = `kind:'gate'` provider 선언 여부. **`passed` 는 게이트 멤버가 전부 `valid` 일 때만 true** — 로그인이 체인이라 멤버 하나만 풀려도 인증이 아니다. `bypassed` 는 dev 우회(`Settings.authBypass`, DEV 빌드 한정)로 통과했음을 표시한다. |
+| `orca:provider:state` | R→M (invoke) **+** M→R (send) | — | `ProviderPlatformState` = `{ gate: { required; passed; bypassed }; providers: ProviderInfo[]; step: ProviderStepInfo \| null }` | `gate.required` = `kind:'gate'` provider 선언 여부 **또는 DEV 빌드**(선언 0개여도 true). **`passed` 는 게이트 멤버가 전부 `valid` 일 때만 true** — 로그인이 체인이라 멤버 하나만 풀려도 인증이 아니고, 멤버가 0인 DEV 게이트는 우회 없이는 열리지 않는다(빈 배열 `every` 함정을 멤버 수 병행 검사로 막는다). `bypassed` 는 dev 우회(`Settings.authBypass`, DEV 빌드 한정)로 통과했음을 표시한다. |
 | `orca:provider:login` | R→M (invoke) | `{ providerId; authKind?; input? }` (`ProviderLoginRequestSchema` — 키 64자·값 4096자·32쌍 상한) | `ProviderStepInfo` | 인증 시작 → 다음 step(`input-required`·`code-required`·`done`·`failed`). `authKind` 미지정이면 선언 배열의 **첫 방식**. 입력 수집형 1회차는 필드 선언을 되돌려주고, 사용자가 채워 다시 부르면 vault 에 봉인한다(**신뢰된 prompt** — 방식이 만든 임의 UI 가 아니라 Orca 가 이 선언을 렌더링한다). |
 | `orca:provider:continue` | R→M (invoke) | `{ providerId; input }` (`ProviderContinueRequestSchema`) | `ProviderStepInfo` | 대화형 step 을 잇는다. 직전에 고른 방식을 이어받으므로 `authKind` 를 다시 싣지 않는다. OAuth `redirect:'manual'` 은 `input.code` 로 code 를 넘긴다. 진행 중 인증이 없으면 `failed(reason:'cancelled')`. |
 | `orca:provider:reauth` | R→M (invoke) | `{ providerId; authKind? }` (`ProviderReauthRequestSchema`) | `ProviderStepInfo` | 재인증. **기존 grant 를 먼저 지우지 않는다** — 새 인증이 성공해야 교체되고, 실패하면 이전 자격증명으로 계속 쓸 수 있다. |

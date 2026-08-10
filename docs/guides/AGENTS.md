@@ -9,7 +9,7 @@
 | 파일 | 주제 | 읽어야 하는 경우 | 정본 관계 |
 |---|---|---|---|
 | `release-operations.md` | **릴리스 운영 (0087~0089)** — 배포 채널(Windows unsigned NSIS + GitHub Releases)·`v*` 태그 트리거·수동 체크리스트·롤백·SemVer pre-1.0 정책 | 버전을 올리거나 릴리스를 실행·롤백할 때 | 워크플로 *구성* 은 `.github/workflows/{ci,release}.yml` 이 진실. 이 문서는 그 위의 절차 |
-| `closed-network-extensions.md` | **폐쇄망(사내) 확장 (0130 → 0157 → 0181 전면 재작성)** — 확장 모델 축("빌드 타임 내장 ↔ 런타임 MCP")·`declarations/` 3파일 채우는 절차(게이트·LLM·서비스)·OAuth 선언 작성법·MCP `${BINDING:}`·배포 체크리스트 | 사내 로그인 게이트·LLM 자격증명·사내 서비스 도구를 **코어 수정 없이** 붙일 때 | **구조·설계 근거는 [`../arch/backend/providers.md`](../arch/backend/providers.md) 가 정본**(이 문서는 절차만). 계약의 형상은 `app/src/main/contracts/provider.ts` 가 진실 |
+| `closed-network-extensions.md` | **로그인 게이트·확장 추가 (0130 → 0157 → 0181)** — §0 라우팅("플러그인" → provider 선언 / MCP 번역) · §1 공통(고치는 파일 3개·`features/providers` 두 세입자·등록 검사 2종·`present`) · **레시피 4종**(§2 게이트 · §3 LLM · §4 서비스 도구 · §5 MCP) · **§6 개발 중 확인(DEV 게이트·우회 토글·파일 지도)** · §8 검증 명령·배포 체크리스트 · §9 트러블슈팅 · **§10 폐쇄망 빌드·자동 업데이트 피드**(0181 재작성에서 유실됐던 0130/0133 절차 복원) | **로그인 게이트를 추가·수정할 때** · **"플러그인/확장을 추가해 달라"는 요청을 받았을 때**(§0 에서 번역) · **개발 중 로그인 화면을 보거나 우회해야 할 때**(§6) · LLM 자격증명·사내 서비스 도구를 코어 수정 없이 붙일 때 | **구조·설계 근거는 [`../arch/backend/providers.md`](../arch/backend/providers.md) 가 정본**(이 문서는 절차만). 계약의 형상은 `app/src/main/contracts/provider.ts` 가 진실 |
 | `workspace-isolation-permissions.md` | **workspace 격리 권한 구성** — Agent SDK `PreToolUse` 훅 중심으로 작업 폴더 밖 r/w 를 막는 코드레벨 구성(`settings.json` 미사용) | 도구 권한·작업 디렉토리 스코프를 설계할 때 | OS 샌드박스 대체가 **아니다**(§8 한계). 권한 정규화 계층 정본은 `arch/backend/provider-runtime.md` |
 
 ## 이 디렉토리에 들어가는 것 / 안 들어가는 것
