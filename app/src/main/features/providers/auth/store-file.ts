@@ -11,6 +11,7 @@ import Store from 'electron-store'
 import type { ProviderAuthKind } from '../../../../shared/ipc'
 import type { Grant } from '../../../contracts/provider'
 import type { GrantPersistencePort } from './store'
+import type { OAuthStatePersistencePort, PendingAuthorization } from './oauth'
 
 // 한 번 정하면 유지한다 — 사용자 디스크에 남고 다음 버전이 읽는다.
 const STORE_NAME = 'orca-provider-grants'
@@ -69,6 +70,57 @@ export function parseGrantRecords(raw: unknown): Record<string, Grant> {
     if (grant) out[providerId] = grant
   }
   return out
+}
+
+// ── OAuth 인가 pending (0181 AC4) ─────────────────────────────────────────────
+//
+// **왜 파일인가**: 루프백 콜백은 사용자의 브라우저가 앱 밖에서 완료시킨다. 그 사이 앱이
+// 재시작되면 메모리의 state·verifier 가 사라져 돌아온 콜백을 대조할 수 없다 — 대조 실패는
+// 곧 로그인 실패다. grant 와 **다른 파일**에 두는 이유는 수명이 다르기 때문이다(인가 pending 은
+// 분 단위, grant 는 재로그인까지).
+const OAUTH_STORE_NAME = 'orca-provider-oauth'
+const PENDING_KEY = 'pending'
+
+function parsePending(raw: unknown): PendingAuthorization | null {
+  if (raw === null || typeof raw !== 'object') return null
+  const record = raw as Record<string, unknown>
+  if (typeof record.providerId !== 'string') return null
+  if (typeof record.state !== 'string') return null
+  if (typeof record.verifier !== 'string') return null
+  if (typeof record.createdAt !== 'number') return null
+  return {
+    providerId: record.providerId,
+    state: record.state,
+    verifier: record.verifier,
+    createdAt: record.createdAt,
+    ...(typeof record.redirectUri === 'string' ? { redirectUri: record.redirectUri } : {})
+  }
+}
+
+export function parsePendingRecords(raw: unknown): Record<string, PendingAuthorization> {
+  if (raw === null || typeof raw !== 'object') return {}
+  const out: Record<string, PendingAuthorization> = {}
+  for (const [state, value] of Object.entries(raw as Record<string, unknown>)) {
+    const pending = parsePending(value)
+    if (pending) out[state] = pending
+  }
+  return out
+}
+
+export function createOAuthStatePersistence(): OAuthStatePersistencePort {
+  const store = new Store<Record<string, unknown>>({ name: OAUTH_STORE_NAME, defaults: {} })
+  return {
+    load(): Record<string, PendingAuthorization> {
+      try {
+        return parsePendingRecords(store.get(PENDING_KEY))
+      } catch {
+        return {}
+      }
+    },
+    save(records: Record<string, PendingAuthorization>): void {
+      store.set(PENDING_KEY, records)
+    }
+  }
 }
 
 export function createGrantPersistence(): GrantPersistencePort {
