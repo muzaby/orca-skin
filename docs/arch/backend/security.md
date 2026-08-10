@@ -41,14 +41,30 @@ new BrowserWindow({
 - claude-code SDK 가 `~/.claude` 디렉토리의 자격증명 (OAuth / API key) 을 자동 사용.
 - 디스크 암호화는 OS 에 위임.
 
-### 1.4-b 인증 플랫폼 — **0180 에서 제거됨**
+### 1.4-b Provider 플랫폼 — credential 3계층 (0181)
 
-0157 이 세운 credential 3계층(Vault · Browser session store · Binding)과 그 예외 경계표는
-**0180 에서 코드와 함께 사라졌다**. 남은 secret 경로는 §1.4(MCP 비밀)와
-§Agent provider auth token 뿐이다.
+0180 이 지운 자리에 `Provider` 선언 하나를 축으로 다시 세웠다. 계층은 셋이다:
 
-0181 이 `Provider` 축으로 다시 세울 때 이 절을 새 3계층(vault · browser session · grant)으로
-채운다. 그전까지 **이 절을 근거로 인용하지 마라** — 가리키는 구현이 없다.
+| 계층 | 구현 | 담는 것 |
+|---|---|---|
+| **Vault** | `infra/vault.ts` (safeStorage 위 네임스페이스 뷰) | 값. 키 형식은 **`provider:<providerId>:<authKind>`** 고정 |
+| **Browser session** | `infra/browser-session.ts` (Electron `Session`, partition `persist:auth.<group>`) | cookie jar. 값이 아니라 **세션**이라 반출되지 않는다 |
+| **Grant** | `features/providers/auth/store.ts` + `store-file.ts`(electron-store) | vault 키·방식·만료. **비밀 없음** |
+
+**복호화 실패와 부재를 구분한다.** safeStorage 는 쓰기가 fail-closed(throw), 읽기는 null 강등이라
+비대칭이다. 그 강등은 유지하되(키체인 잠김 하나로 앱이 죽지 않도록) grant 상태를 `unknown` 으로
+남겨 **조용한 미인증 진행**을 막는다.
+
+#### raw secret 이 프로세스 밖으로 나가는 문서화된 예외 — **3곳** (표 밖 신규 노출 금지)
+
+| # | 경로 | 왜 불가피한가 | 완화 |
+|---|---|---|---|
+| 1 | **MCP `.mcp.json`** — `dist/plugins/orca/.mcp.json` 에 해석된 값이 평문으로 렌더된다 | claude CLI 가 그 파일을 읽어 MCP 서버를 spawn 한다 — Orca 가 요청 주체가 아니다 | 미해결 참조는 그 **서버를 통째로 드롭**(fail-closed). 소유권이 provider 하나로 일원화돼 회전·해제가 한 곳 |
+| 2 | **LLM `--settings` argv** — provider `settings.json` 의 `env` 블록 | 사용자가 `~/.claude/settings.json` 과 같은 방식으로 직접 적는 값(0028) | Orca 는 이 파일에 **쓰지 않는다**. 확장·주입도 하지 않고 verbatim 으로 읽는다 |
+| 3 | **LLM `Options.env`** (0181 신규) — 인증된 provider 의 자격증명을 subprocess 환경변수로 병합 | SDK 가 subprocess 를 띄우므로 자격증명은 프로세스 경계를 넘어야 한다 | **디스크에 남지 않는다**(subprocess 수명). 미인증이면 그 키를 **드롭**(빈 문자열 치환 금지). 0028 이 없앤 "설정 파일에 토큰 기록" 은 되살리지 않는다 |
+
+> 세 경로 모두 **값의 소유권은 vault** 이고, 나가는 시점이 다를 뿐이다. 새 노출 경로를 추가하려면
+> 이 표에 행을 더하는 것이 선행 조건이다.
 
 ### 1.4 채택된 자격증명 모델 (Phase 3+ 도입 결정)
 
@@ -110,7 +126,12 @@ font-src 'self' https://fonts.gstatic.com
 
 ### 1.7 로그인 게이트 · 배포/업데이트 신뢰 (0072 / 0086 / 0087~0089)
 
-- **앱 로그인 게이트 — 0180 에서 제거됨**: `app/RootGate` 는 이제 부팅 단계만 판정하고 인증을 보지 않는다. `features/auth`·`AuthPlatformState.required` 판정·prod 게이트 활성화 경로가 전부 사라졌다. `Settings.authBypass` 키는 **구버전 설정 파일 호환 때문에 스키마에 남아 있으나 읽는 코드가 없다**. 0181 이 `Provider{kind:'gate'}` 로 게이트를 다시 세우며, 그때도 **선언이 0개면 통과**(개발·OSS 빌드가 열리지 않는 것을 막는 안전장치)를 유지한다.
+- **앱 로그인 게이트 (0181 재작성)**: `app/RootGate` 가 부팅 위에 게이트를 한 층 얹는다 — 부팅 실패 → 부팅 미완료 → **게이트 미판정/미통과** → 메인 UI 순. 판정은 `features/providers/gate/index.ts` 의 **순수 진리표**이고 상태는 `orca:provider:state` 로 온다.
+  - **선언이 0개면 통과**(`required:false`) — 개발·OSS 빌드가 로그인 화면에 갇히지 않게 하는 안전장치이며 `gate.test.ts` 가 회귀로 고정한다.
+  - **판정 전에는 통과시키지 않는다**(`gate=null` → 부팅 화면 유지). main 이 잠깐 응답하지 못하는 사이 로그인 강제 빌드가 무인증으로 열리면 안 된다(fail-closed).
+  - 게이트 멤버가 여럿이면 **전부 `valid` 일 때만** 통과한다 — 로그인이 체인이라 멤버 하나만 풀려도 인증이 아니다.
+  - `Settings.authBypass` 는 **DEV 빌드 전용 우회**로 소비자가 돌아왔다(prod 번들에서는 `import.meta.env.DEV` 가 false 로 접혀 분기 자체가 사라진다).
+  - 게이트는 **UX 게이트이지 보안 경계가 아니다** — 인증 전에도 main IPC 는 열려 있다. 로그인 화면은 창 컨트롤(닫기)을 항상 살려 둬 재시도 루프에 갇히지 않게 한다.
 
 > **0157 이 지운 두 경로 (되살리지 말 것)**: ⓐ 구 `features/sso/modules/` + `contracts/sso.ts` 는 auth-platform 으로 승계돼 **더 이상 없다**. ⓑ 구 `setProviderEnv` sink — 획득 토큰을 provider `settings.json` 의 env 블록에 **평문으로 병합 기록**하던 경로로, 0157 에서 제거됐다(`app/bootstrap.ts:481-483` 주석이 근거를 보존한다). 이제 credential 은 binding·vault 가 소유하고, LLM 백엔드로 나가는 env 값은 **사용자가 직접 적은 것만** 남는다. 구 SecretStore 네임스페이스 `provider:<key>:`(0130 핸드셰이크)도 0157 이후 **쓰는 쪽이 0곳**이며, 인증이 필요한 사용량 조회는 구독 모델로 대체됐다(0176 — `contracts/usage-source.ts`).
 - **업데이트/배포 신뢰**: 릴리스는 **unsigned NSIS**(코드 서명 미도입 — OQ, SmartScreen 경고 수용) + GitHub Releases draft(수동 Publish 게이트). electron-updater 는 `latest.yml` sha512 로 산출물 무결성을 검증하고, 릴리스 파이프라인의 `validate-dist.mjs` 가 게시 전 sha512 를 재계산 검증한다(0087). 자동 다운로드는 하지 않는다(`autoDownload=false`, runtime-ipc.md §3.1).
@@ -122,24 +143,28 @@ main 프로세스의 모든 원격 요청은 **Chromium 네트워크 스택**으
 | 규칙 | 구현 | 강제 |
 |---|---|---|
 | **전역 `fetch(` 를 호출할 수 있는 파일은 `infra/net/net-fetch.ts` 하나뿐** | 가드가 `src/main/**` 전 `.ts` 를 훑어 `net-fetch.ts` 밖의 전역 `fetch(` 호출을 0건으로 고정한다. 메서드 호출(`ses.fetch(`·`ctx.fetch(`·`this.deps.fetchImpl(`)과 주석·문자열 안의 `fetch(` 는 위반이 아니다 — 가드가 **자기 정규식의 오탐/미탐을 스스로 고정**한다(측정력 0인 위생 테스트 방지) | `infra/net/no-node-fetch.test.ts` |
-| **Chromium 스택을 무는 파일은 3개** — `net-fetch.ts`(`net.fetch`) · `net-request.ts`(`net.request`) — **0180 에서 `browser-session-store.ts` 가 사라져 2개다** | 셋 다 `electron` 을 import 하므로 **테스트가 직접 import 하면 즉시 죽는다**(`vitest.config.ts` 에 electron alias 없음 — P29). 그래서 판정·변환은 순수 모듈(`net-response.ts`)로 떼어 두고 이 파일들은 **배선만** 한다 | `infra/net/net-response.test.ts`(순수부) |
-| 소비자는 `typeof fetch` **포트로 주입받는다** — `ExternalUsageService.fetchImpl`(0180 기준 유일한 소비자) | **기본값을 두지 않는다** — 기본값은 곧 조용한 Node 스택 복귀다 | 위와 동일 |
+| **Chromium 스택을 무는 파일은 3개** (0181) — `net-fetch.ts`(`net.fetch`) · `net-request.ts`(`net.request`) · `infra/browser-session.ts`(Electron `Session`·`BrowserWindow`, 0181 복원) | 셋 다 `electron` 을 import 하므로 **테스트가 직접 import 하면 즉시 죽는다**(`vitest.config.ts` 에 electron alias 없음 — P29). 그래서 판정·변환은 순수 모듈(`net-response.ts`·`browser-session-policy.ts`)로 떼어 두고 이 파일들은 **배선만** 한다 | `infra/net/net-response.test.ts`(순수부) |
+| 소비자는 `typeof fetch` **포트로 주입받는다** — `ExternalUsageService.fetchImpl` · `ProviderApiImpl.fetchImpl`(0181) | **기본값을 두지 않는다** — 기본값은 곧 조용한 Node 스택 복귀다 | 위와 동일 |
 | **`redirect:'manual'` 은 Electron 에서 의미가 다르다** — 웹 fetch 는 3xx 를 돌려주지만 Electron 은 **요청을 취소한다**(`followRedirect()` 를 동기 호출해야 이어진다) | 3xx 를 직접 받아야 하면 `infra/net/net-request.ts` 의 `sendOnce`(`net.request` 의 `'redirect'` 이벤트로 3xx 재구성). `netFetch` 가 manual 요청을 그리로 우회한다. **추종은 호출자가** 한다(홉마다 정책을 검사해야 하므로) | `infra/net/net-response.test.ts` |
 
 > 이 규칙은 보안 경계이자 *동작* 경계다. 위반해도 로컬·개방망에서는 통과하고 **사내망에서만 실패**하므로, 리뷰가 아니라 테스트로 잡는다.
 
-### 1.9 `infra/net/` 모듈 인벤토리 (0173/0174 → 0180 이설)
+### 1.9 전송·세션 인프라 인벤토리 (0173/0174 → 0180 이설 → 0181 복원)
 
-0180 이 인증 인프라 6모듈(`credential-vault`·`browser-session-store`·`authenticated-fetch`·
-`binding-records`·`binding-store-file`·`session-policy`)을 삭제하면서, **인증이 아니었던**
-원격 전송 스택 3모듈을 `infra/auth/` → `infra/net/` 으로 옮겼다. 디렉토리 이름이 `auth` 라서
-함께 지워질 뻔한 것이 이설의 이유다 — 이들은 updater·usage 가 쓰는 main 공용 인프라다.
+0180 이 인증 인프라 6모듈을 삭제하면서, **인증이 아니었던** 원격 전송 스택 3모듈을
+`infra/auth/` → `infra/net/` 으로 옮겼다. 디렉토리 이름이 `auth` 라서 함께 지워질 뻔한 것이
+이설의 이유다. 0181 이 그 위에 세션·전송 2모듈을 되살렸다.
 
-| 모듈 | 책임 |
-|---|---|
-| `net-fetch.ts` | Chromium `net.fetch` — **전역 `fetch(` 를 부를 수 있는 유일한 파일** (§1.8) |
-| `net-request.ts` | `net.request` 기반 전송. `redirect:'manual'` 로 3xx 를 직접 받아야 할 때 (§1.8) |
-| `net-response.ts` | 응답 판정·변환 **순수부** — electron 미의존이라 테스트가 직접 import 한다 |
+| 모듈 | 책임 | electron |
+|---|---|---|
+| `net/net-fetch.ts` | Chromium `net.fetch` — **전역 `fetch(` 를 부를 수 있는 유일한 파일** (§1.8) | ✓ |
+| `net/net-request.ts` | `net.request` 기반 전송. `redirect:'manual'` 로 3xx 를 직접 받아야 할 때 (§1.8) | ✓ |
+| `net/net-response.ts` | 응답 판정·변환 **순수부** — electron 미의존이라 테스트가 직접 import 한다 | — |
+| `net/transport.ts` (0181) | 인증된 요청의 전송 조각 — `PreparedRequest`·상한 검사·`createSender(fetchImpl)`. **도메인 타입을 모른다**(infra → contracts 는 DAG 역방향) | — |
+| `browser-session.ts` (0181 복원) | session group → Electron `Session` 매핑 · 통제된 로그인 창 · 세션 쿠키로 보내는 요청 | ✓ |
+| `browser-session-policy.ts` (0181 복원) | probe 체인·origin allowlist·`ERR_ABORTED` 판정 **순수부** | — |
+| `loopback-callback.ts` (0181) | OAuth 루프백 콜백 1회성 리스너(127.0.0.1, RFC 8252). node `http` 만 쓴다 | — |
+| `vault.ts` (0181 복원) | safeStorage 위 네임스페이스 뷰. 값·metadata·index (§1.4-b) | — |
 
 ---
 
