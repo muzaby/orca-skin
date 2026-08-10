@@ -2,6 +2,7 @@
 
 import { CHANNELS, type Settings } from '../../../shared/protocol'
 import { handlePlain } from '../../infra/ipc/handle'
+import { broadcastProviderState } from '../../infra/ipc/send'
 import { getLogger } from '../../infra/log'
 import type { RouterContext } from '../context'
 
@@ -13,9 +14,13 @@ export function registerSettingsHandlers(ctx: RouterContext): void {
     ctx.scheduler.applySettings(next.scheduler)
     // 설정 변경 경계(0124 카탈로그) — 변경 키 이름만 기록(값 금지).
     if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
-      getLogger()
-        .child('settings')
-        .info('settings.patch.applied', { keys: Object.keys(raw) })
+      const keys = Object.keys(raw)
+      getLogger().child('settings').info('settings.patch.applied', { keys })
+      // 게이트 우회(dev)는 **게이트 판정의 입력**이라, 설정만 바꾸고 끝내면 화면이 재시작
+      // 전까지 옛 판정에 머문다(0181). 판정을 소유한 쪽이 새 상태를 밀어 준다.
+      if (keys.includes('authBypass') && ctx.providers) {
+        broadcastProviderState(ctx.providers.state())
+      }
     }
     return next
   })
