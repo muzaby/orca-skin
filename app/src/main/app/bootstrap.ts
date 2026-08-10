@@ -86,9 +86,11 @@ import { createVault } from '../infra/vault'
 import { BrowserSessionStore } from '../infra/browser-session'
 import { SessionRunner } from '../features/providers/auth/specs/browser-session'
 import { ProviderApiImpl } from '../features/providers/auth/api'
+import { ServiceToolRegistrar } from '../features/providers/service'
 import { createNoopUpdater, loadElectronAutoUpdater, UpdateController } from './updater'
 import { registerChatHandlers } from './chat-turn'
 import { createBootReportRecorder } from './boot-report'
+import { createUsageSourcePort } from './usage-source'
 import { RuntimeSupervisor } from '../features/sessions/supervisor'
 import { BoundedRuntimeCapPolicy } from '../features/sessions/runtime-cap-policy'
 import { PendingMessageQueue } from '../features/chat/pending-message-queue'
@@ -217,7 +219,10 @@ export class Bootstrap {
   // provider 플랫폼 조립 (0181). 배포 선언 → 등록(검사) → grant 복원 → 로그인 서비스.
   // **여기서 던지지 않는다** — 영속을 못 열면 메모리 폴백으로 내려앉고(이번 실행에서만 인증이
   // 유지된다) 사유를 로그로 남긴다. 게이트 자체는 계속 판정 가능해야 한다.
-  private createProviderPlatform(secretStore: SecretStore): ProviderPlatform {
+  private createProviderPlatform(
+    secretStore: SecretStore,
+    runtimeTools: RuntimeToolRegistry
+  ): ProviderPlatform {
     const log = getLogger().child('providers')
     const registry = new ProviderRegistry(declaredProviders())
     for (const rejection of registry.rejected()) {
@@ -269,7 +274,19 @@ export class Bootstrap {
       fetchImpl: netFetch,
       sessions,
       logger: (event, data) => log.warn(event, data),
-      onChange: () => broadcastProviderState(platform.state())
+      // 401 강등도 도구 가시성에 영향을 준다 — 만료된 연결의 도구를 남겨두지 않는다.
+      onChange: () => {
+        serviceTools.sync(registry.byKind('service'))
+        broadcastProviderState(platform.state())
+      }
+    })
+
+    // service provider 의 도구는 grant 상태를 따라간다 — 로그인하면 나타나고 해제하면 사라진다.
+    const serviceTools = new ServiceToolRegistrar({
+      registry: runtimeTools,
+      api,
+      status: (providerId) => store.status(providerId),
+      logger: (event, data) => log.info(event, data)
     })
 
     const platform = new ProviderPlatform({
@@ -307,9 +324,14 @@ export class Bootstrap {
           sessions,
           logger: (event, data) => log.info(event, data)
         }),
-        onChange: () => broadcastProviderState(platform.state())
+        onChange: () => {
+          serviceTools.sync(registry.byKind('service'))
+          broadcastProviderState(platform.state())
+        }
       })
     })
+    // 부팅 복원 직후 1회 — 이미 인증된 service provider 의 도구가 첫 턴부터 보인다.
+    serviceTools.sync(registry.byKind('service'))
     return platform
   }
 
@@ -327,9 +349,12 @@ export class Bootstrap {
     const providers = this.bootReport.stepSync(
       'provider-platform',
       { critical: true, label: 'provider 플랫폼' },
-      () => this.createProviderPlatform(secretStore)
+      () => this.createProviderPlatform(secretStore, runtimeTools)
     )
     registerProviderHandlers(providers)
+    // MCP `${BINDING:<대상>}` 의 토큰 소스를 잇는다(0181 — 0180 이 끊었던 자리).
+    // 주입 전에 배포된 설정에는 인증이 필요한 서버가 빠진다(fail-closed).
+    this.mcp.attachTokenSource((providerId) => providers.api.token(providerId))
 
     const db = this.bootReport.stepSync('db-init', { critical: true, label: 'DB 초기화' }, () =>
       initDb({
@@ -465,9 +490,14 @@ export class Bootstrap {
       secretFor: (providerKey) => createProviderSecretFacade(secretStore, providerKey),
       providers: STATIC_USAGE_PROVIDERS,
       // 원격 사용량 보고서도 Chromium 스택으로 나간다 (0173).
-      // 0180 — `sources`(인증 커넥터 표본) 주입이 사라졌다. `UsageSourcePort` 는 optional 이라
-      // provider·config 경로로 계속 해소된다. 0181 이 provider 물질화로 다시 잇는다.
-      fetchImpl: netFetch
+      fetchImpl: netFetch,
+      // 0181 — 인증이 필요한 사용량 표본 경로 복구. 미인증 provider 는 `not_connected` 로
+      // 돌아오고(정상 상태) 구독형 모듈은 stale 로 남는다.
+      sources: createUsageSourcePort({
+        providers: () => providers.declarations('service'),
+        status: (providerId) => providers.status(providerId),
+        api: providers.api
+      })
     })
     scheduler.register('provider-usage-report-refresh', async () => {
       const providerKeys = providerSettings
@@ -504,7 +534,8 @@ export class Bootstrap {
       updates: this.createUpdateController(),
       scheduler,
       externalUsage,
-      runtimeTools
+      runtimeTools,
+      providers
     }
     this.register(ctx)
   }

@@ -16,6 +16,7 @@ import { getLogger } from '../../infra/log'
 import { sendChatEvent } from '../../infra/ipc/send'
 import type { RuntimeSessionAdapter } from '../../contracts/ports'
 import type { TurnEventSink } from '../../features/chat/turn-sinks'
+import { llmEnvFor } from '../../features/providers/llm'
 import type { RouterContext } from '../context'
 
 // renderer forward sink — sendChatEvent 래핑. 코디네이터가 버스를 타지 않는 forward-only 이벤트
@@ -75,15 +76,27 @@ export async function resolveTurnProvider(
   }
 }
 
-// subprocess env 조립 — orca.json 앱 전역 env(${VAR} 확장)만 병합한다.
-export function buildTurnEnv(ctx: RouterContext): Record<string, string> | undefined {
+// subprocess env 조립 — orca.json 앱 전역 env(${VAR} 확장) + **선택된 LLM provider 의 자격증명**
+// (0181). `providerKey` 를 받는 이유는 이 함수가 원래 어느 provider 로 도는지 몰랐기 때문이다
+// (plan R5).
+//
+// 주입 레이어는 `Options.env` **하나뿐**이다 — settings.json 은 여전히 verbatim 이고(0028 결정
+// 유지), 값은 subprocess 수명에만 존재해 디스크에 남지 않는다. 미인증 provider 의 키는
+// **드롭**된다(빈 문자열 치환 금지).
+export function buildTurnEnv(
+  ctx: RouterContext,
+  providerKey: string | null
+): Record<string, string> | undefined {
   const { env: expanded, missing } = expandEnvRecord(appEnv(), ctx.mcp.resolver())
   if (missing.length > 0) {
     getLogger()
       .child('config')
       .warn('config.env.unresolved', { missing, reason: 'app env keys skipped' })
   }
-  return mergeEnvLayers(undefined, expanded)
+  const credentials = ctx.providers
+    ? llmEnvFor(ctx.providers.api, ctx.providers.declarations('llm'), providerKey)
+    : {}
+  return mergeEnvLayers(undefined, { ...expanded, ...credentials })
 }
 
 // 소유권 표시(0151 AC12) 발신 단일 지점 — held(취소 가능) ↔ submitted(전달됨, 취소 불가) 전이를
