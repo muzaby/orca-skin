@@ -7,21 +7,22 @@
 // 하고 프레임워크는 형식을 모른다 — 그것이 이 계약이 `payload: unknown` 인 이유다.
 //
 // ── 레이어 주의 ──────────────────────────────────────────────────────────────
-//   `features/usage` 는 `features/auth-platform` 을 **직접 import 할 수 없다**
+//   `features/usage` 는 `features/providers` 를 **직접 import 할 수 없다**
 //   (feature 수직 슬라이스 교차 금지). 그래서 `UsageSourcePort` 를 여기 **구조적 포트**로
-//   선언하고, 컴포지션 루트(`app/usage-source.ts` → `app/bootstrap.ts`)가 PluginHost 기반
+//   선언하고, 컴포지션 루트(`app/usage-source.ts` → `app/bootstrap.ts`)가 `ProviderApi` 기반
 //   구현을 주입한다 — `src/main/AGENTS.md` §해소책 1+3.
 // ═══════════════════════════════════════════════════════════════════════════
 
 export interface UsageSampleRequest {
-  // connector 가 선언한 operation 이름. 미선언 operation 은 connector 가 거부한다.
+  // `Provider.origin` 기준 상대 경로. 별도 operation 레지스트리는 없다(0181).
   operation: string
   params?: Record<string, unknown>
 }
 
 export interface UsageSample {
-  // **`sourceId` = connectorId 다** (0176 결정). 별칭 체계를 두지 않는다 — 모듈이 선언하는
-  // 값과 배포가 `USAGE_CONNECTORS[].id` 에 적는 값이 같아야 배선이 한 겹으로 끝난다.
+  // **`sourceId` = `Provider.id` 다** (0176 결정 · 0181 이 provider 축으로 승계). 별칭 체계를
+  // 두지 않는다 — 모듈이 선언하는 값과 `declarations/service.ts` 의 `id` 가 같아야 배선이
+  // 한 겹으로 끝난다.
   sourceId: string
   operation: string
   fetchedAt: number

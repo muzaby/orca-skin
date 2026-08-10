@@ -203,12 +203,19 @@ renderer: `app/GateFrame.tsx`(142) · `features/providers/hooks/useProviderGate.
 ```
 Bootstrap.start()
   ├─ SecretStore
-  ├─ createProviderPlatform()          ← ① 선언 등록 → grant 복원 → 로그인 서비스 조립
+  ├─ createProviderPlatform()          ← ① 선언 등록 → **세션 group 등록** → grant 복원 → 로그인 서비스
   ├─ registerProviderHandlers()        ← ② IPC 6채널 조기 등록
   ├─ mcp.attachTokenSource()           ← ③ ${BINDING:} 토큰 소스
   ├─ serviceTools.sync()               ← ④ 이미 인증된 service 도구 등록
   └─ initDb() … (나머지 부팅)
 ```
+
+**세션 group 은 로그인 전에 등록된다** (0182 — `registerDeclaredSessions`). 0181 은
+`SessionRunner.login` 에서만 등록해서, 재시작 후 쿠키(파티션)와 grant(파일)가 살아 있어도 group 만
+미등록이라 `acquire()` 가 raw `Error` 를 던졌다. `ProviderPolicyError` 가 아니라 **401 강등 경로도
+타지 않아** 재인증 지점이 뜨지 않았고, ④ 가 `status==='valid'` 를 보고 도구를 등록하므로
+*모델에는 보이는데 부르면 죽는* 형태가 됐다. 등록은 파티션 핸들 생성뿐이라 네트워크·창이 없다.
+입력은 `registry.list()`(등록 검사를 통과한 것)라 **거부된 선언의 jar 는 만들어지지 않는다**.
 
 **왜 DB 보다 앞인가**: 창은 `start()` 완료 전에 열리고(0109) renderer 는 오픈 직후 게이트 판정을
 위해 `orca:provider:state` 를 invoke 한다. 그 첫 invoke 가 부팅 완료를 기다리면 화면이 빈 채로
@@ -423,6 +430,27 @@ none · expired · unknown   → registry.remove(id)     → 스냅샷에서 사
 Orca 제목·오르카 이미지·입력 카드·검정 로그인 버튼)이다. 구 `LoginFrame`+`AuthView` 를 provider
 축에 맞춰 복원한 것이라 **화면은 0180 이전과 같다**. 필드가 없어도 버튼은 항상 있다 — ADFS/WIA
 같은 브라우저 플로우는 입력 없이 `login()` 하나로 끝나므로 **필드 유무가 곧 플로우 종류**다.
+
+### 7.1 신원(principal) — 게이트를 통과한 뒤 사이드바가 보여 주는 것 (0182)
+
+`Grant.principalId` → `ProviderInfo.principal` → `orca:provider:state` → 사이드바 하단 버튼.
+**출처는 인증 방식마다 다르다**:
+
+| 방식 | principal 출처 |
+|---|---|
+| `password` | `compose` 가 입력한 아이디를 그대로 싣는다 |
+| `browser-session` | `config.exchange.principalPath` (교환 응답) → 없으면 `config.whoami` (세션 쿠키로 1회 조회) |
+| `oauth` | 선언의 `exchange()` 가 `TokenValue.principalId` 를 채우면 |
+| `api-key` · `pat` | **없다** — 값이 계정에 묶이지 않는다 |
+
+- **조회 실패는 로그인 실패가 아니다.** principal 은 표시용이라 못 읽어도 grant 는 커밋된다 —
+  그러지 않으면 "이름을 못 읽어서 로그인이 안 되는" 상태가 된다. 사유는
+  `providers.session.whoami.failed` 가 `valuePath` 와 함께 남기고 **값은 로그에 싣지 않는다**.
+- **probe 를 재사용하지 않는다.** `probe()` 는 판정만 돌려주도록 본문을 버리고, 리다이렉트 체인의
+  **마지막 홉** 응답이라 신원 문서라는 보장이 없다. 같은 jar 로 `send()` 를 한 번 더 부른다.
+- **게이트가 여럿이면** 선언 순서상 principal 을 가진 **첫 게이트**를 쓴다
+  (`renderer/features/providers/lib/principal.ts` — 순수 함수, 0·1·N 케이스가 테스트로 고정).
+- **principal 이 없는 정상 경우 3종**(DEV 선언 0 · 우회 ON · api-key/pat)에는 폴백 라벨이 뜬다.
 
 ---
 

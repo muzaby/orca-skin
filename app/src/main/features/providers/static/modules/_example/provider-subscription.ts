@@ -10,7 +10,8 @@ import type { StaticUsageProviderModule } from '../../../../../contracts/usage-r
  * behind ADFS/SSO, a PAT, or ID/password cannot be reached that way.
  *
  * Here the **usage connector** makes the authenticated call (declared in
- * `features/auth-platform/modules/usage/servers.ts`) and this module only **maps its result**.
+ * `features/providers/declarations/service.ts` as a `kind:'service'` provider) and this module only
+ * **maps its result**.
  * That is why `map` receives no `fetch` and no `secret`: raw credentials never reach usage
  * modules. The response format is entirely yours to interpret — the framework does not know it.
  */
@@ -20,10 +21,10 @@ export const exampleUsageSubscriptionModule: StaticUsageProviderModule = {
   defaultSettings: {},
   usage: {
     subscription: {
-      // `USAGE_CONNECTORS[].id`. 생략하면 연결된 usage connector **전부**의 표본을 받고
+      // `Provider.id`(kind:'service'). 생략하면 연결된 source **전부**의 표본을 받고
       // 아래 map 이 자기 것이 아닌 표본에 `null` 을 돌려주면 된다.
       sourceId: 'usage-corp',
-      // connector 가 선언한 operation 이름 + 파라미터(자리표시자 치환에 쓰인다).
+      // origin 기준 상대 경로 + 파라미터(쿼리로 실린다). operation 레지스트리는 없다.
       request: { operation: 'quota', params: { scope: 'month' } },
       map: (sample, ctx) => {
         const payload = sample.payload as

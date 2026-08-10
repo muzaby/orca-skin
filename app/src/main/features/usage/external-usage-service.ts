@@ -21,7 +21,7 @@ interface ServiceDeps {
   // **필수** (0173) — 기본값 `fetch` 를 두면 사내 프록시·사설 CA 를 못 타는 Node 스택으로
   // 조용히 나간다. 프로덕션은 `netFetch`(Chromium), 테스트는 스텁.
   fetchImpl: typeof fetch
-  // 0176 — 인증된 호출의 결과를 나르는 포트(컴포지션 루트가 PluginHost 로 구현해 주입).
+  // 0176 — 인증된 호출의 결과를 나르는 포트(컴포지션 루트가 `ProviderApi` 로 구현해 주입, 0181).
   // **미주입이면 구독형 모듈은 항상 stale 이다** — 조용한 성공을 만들지 않는다.
   sources?: UsageSourcePort
   clock?: () => number

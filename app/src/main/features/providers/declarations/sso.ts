@@ -13,20 +13,21 @@
 // (`auth/specs/browser-session.ts` 의 `new URL(exchange.path, origin)`). 아래 예처럼 교환이
 // portal 에 있는데 `origin` 을 ADFS 로 두면 교환 요청이 엉뚱한 호스트로 나간다.
 //
-// 실값(0181 OQ1·OQ2 — 사용자 확인 대기):
+// 실값(0181 OQ1·OQ2 · 0182 whoami — 사용자 확인 대기):
 //   - `loginUrl` · `doneUrlPrefix` · `authenticationProbeUrl` · `sessionGroup` · `allowedOrigins`
-//   - 토큰 교환이 필요하면 `config.exchange = { path, valuePath, expiresAtPath? }`
+//   - 토큰 교환이 필요하면 `config.exchange = { path, valuePath, expiresAtPath?, principalPath? }`
+//   - 사이드바에 계정을 표시하려면 `config.whoami = { path, valuePath }` (0182)
 //
 // 절차·필드별 주의사항은 `docs/guides/closed-network-extensions.md §2`(레시피 A).
 //
-// 채우는 예:
+// 채우는 예 (아래 형태 그대로 typecheck 통과를 확인했다):
 //
 // ```ts
 // export const SSO_PROVIDER: Provider | null = {
 //   id: 'corp-sso',
 //   label: '사내 로그인',
 //   kind: 'gate',
-//   origin: 'https://portal.example.corp',   // ← probe·exchange 가 사는 호스트
+//   origin: 'https://portal.example.corp',   // ← probe·whoami·exchange 가 사는 호스트
 //   auth: [
 //     {
 //       kind: 'browser-session',
@@ -36,12 +37,20 @@
 //         loginUrl: 'https://adfs.example.corp/adfs/ls/?wa=wsignin1.0',
 //         doneUrlPrefix: 'https://portal.example.corp/home',
 //         authenticationProbeUrl: 'https://portal.example.corp/api/me',
-//         allowedOrigins: ['https://adfs.example.corp', 'https://portal.example.corp']
+//         allowedOrigins: ['https://adfs.example.corp', 'https://portal.example.corp'],
+//         // 로그인한 계정을 사이드바 하단에 표시한다. **origin 기준 상대 경로**다
+//         // (절대 URL 인 loginUrl·probeUrl 과 다르다) — 로그인 후 갱신을 `ProviderApi.request`
+//         // 로 그대로 재사용할 수 있게 하기 위함이고, 그쪽은 절대 경로를 거부한다.
+//         whoami: { path: '/api/me', valuePath: 'mail' }
 //       }
 //     }
 //   ]
 // }
 // ```
+//
+// **`whoami` 를 안 적으면** 조회 요청이 아예 나가지 않고 사이드바는 폴백 라벨을 쓴다.
+// **조회가 실패해도 로그인은 성립한다** — principal 은 표시용이라 인증을 되돌리지 않는다.
+// 값을 못 찾으면 `providers.session.whoami.failed` 로그가 `valuePath` 를 그대로 찍는다.
 
 import type { Provider } from '../../../contracts/provider'
 

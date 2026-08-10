@@ -23,7 +23,7 @@ Orca(Electron 데스크톱 앱)의 **main 프로세스**(Node.js 환경)다. 이
 
 | 사용량 endpoint 가 | 쓸 것 |
 |---|---|
-| **인증을 요구한다**(ADFS/SSO·PAT·ID/비밀번호) | **`usage.subscription`** — `features/auth-platform/modules/usage/servers.ts` 에 서버를 선언하고 그 `id` 를 `sourceId` 로 구독한다 |
+| **인증을 요구한다**(ADFS/SSO·PAT·ID/비밀번호) | **`usage.subscription`** — `features/providers/declarations/service.ts` 에 `kind:'service'` provider 를 선언하고 그 `Provider.id` 를 `sourceId` 로 구독한다(생략하면 연결된 전 source 의 표본을 받는다). 절차는 `docs/guides/closed-network-extensions.md §5-b`(레시피 E) |
 | 공개거나 env 토큰으로 충분하다 | `usage.config`(단순) 또는 `usage.provider`(복잡) |
 
 > **0157 이후 `ctx.secret` 에 값을 넣어 주는 코드가 없다.** 자격증명은 인증 플랫폼 vault 에만

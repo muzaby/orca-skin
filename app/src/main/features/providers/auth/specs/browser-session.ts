@@ -13,7 +13,12 @@
 // 그래야 이 파일이 vitest 대상으로 남는다(P29: electron 을 무는 파일은 테스트가 즉시 죽는다).
 
 import type { ProviderFailureReason } from '../../../../../shared/ipc'
-import type { Provider, SessionTokenExchange, TokenValue } from '../../../../contracts/provider'
+import type {
+  Provider,
+  SessionLookup,
+  SessionTokenExchange,
+  TokenValue
+} from '../../../../contracts/provider'
 import type { BrowserProbeResult } from '../../../../infra/browser-session-policy'
 import type { PreparedRequest, SendOptions, SendResult } from '../../../../infra/net/transport'
 import type { AuthResult, BrowserSessionSpec, SessionAuthenticator } from '../login'
@@ -51,6 +56,13 @@ export function pickPath(source: unknown, path: string): unknown {
     if (value === null || typeof value !== 'object') return undefined
     return (value as Record<string, unknown>)[key]
   }, source)
+}
+
+// 점 경로로 꺼낸 값이 표시할 수 있는 문자열일 때만 돌려준다. 숫자·객체·빈 문자열은 신원이
+// 아니다 — 사이드바에 `[object Object]` 를 띄우지 않기 위한 좁힘이다.
+export function pickPrincipal(source: unknown, path: string): string | undefined {
+  const value = pickPath(source, path)
+  return typeof value === 'string' && value.trim().length > 0 ? value : undefined
 }
 
 // 만료 표기는 배포마다 초/밀리초/ISO 로 갈린다. 초로 보이는 값은 밀리초로 올린다 —
@@ -106,16 +118,73 @@ export class SessionRunner implements SessionAuthenticator {
     }
 
     if (!config.exchange) {
-      return { kind: 'session', sessionGroup: config.sessionGroup }
+      // 세션에서 끝나는 배포 — 신원은 여기서만 물을 수 있다(교환 응답이 없으므로).
+      const principalId = await this.whoami(provider, handleId, config.whoami)
+      return {
+        kind: 'session',
+        sessionGroup: config.sessionGroup,
+        ...(principalId !== undefined ? { principalId } : {})
+      }
     }
-    return this.exchange(provider, handleId, config.exchange)
+    return this.exchange(provider, handleId, config.exchange, config.whoami)
+  }
+
+  // ③ 세션 → 신원 (0182). **표시용 식별자 하나**를 읽어 `Grant.principalId` 로 싣는다.
+  //
+  // 실패는 전부 `undefined` 로 접는다 — 이 값이 없다고 로그인을 되돌리면 "이름을 못 읽어서
+  // 로그인이 안 되는" 상태가 된다. 사유는 로그가 남기고, 화면은 폴백 라벨을 쓴다.
+  private async whoami(
+    provider: Provider,
+    handleId: string,
+    lookup: SessionLookup | undefined
+  ): Promise<string | undefined> {
+    // 미선언이면 요청을 아예 내지 않는다 — 신원을 안 쓰는 배포에 왕복을 물리지 않는다.
+    if (!lookup) return undefined
+
+    const url = new URL(lookup.path, `${provider.origin}/`).toString()
+    let result: SendResult
+    try {
+      result = await this.deps.sessions.send(handleId, {
+        url,
+        method: 'GET',
+        headers: { accept: 'application/json' }
+      })
+    } catch (error) {
+      return this.whoamiFailed(provider, lookup, messageOf(error))
+    }
+    if (result.status < 200 || result.status >= 300) {
+      return this.whoamiFailed(provider, lookup, `status ${result.status}`)
+    }
+
+    let payload: unknown
+    try {
+      payload = JSON.parse(result.body)
+    } catch {
+      return this.whoamiFailed(provider, lookup, 'JSON 이 아님')
+    }
+    return (
+      pickPrincipal(payload, lookup.valuePath) ?? this.whoamiFailed(provider, lookup, '값 없음')
+    )
+  }
+
+  // 실패 사유를 남기고 `undefined` 를 돌려준다. **값은 로그에 싣지 않는다** — principal 은
+  // 계정 식별자(대개 email)라 개인정보다. 대신 `valuePath` 를 찍어 오타를 지목한다
+  // (exchange 의 `no-token` 로그와 같은 형태).
+  private whoamiFailed(provider: Provider, lookup: SessionLookup, reason: string): undefined {
+    this.deps.logger?.('providers.session.whoami.failed', {
+      providerId: provider.id,
+      valuePath: lookup.valuePath,
+      reason
+    })
+    return undefined
   }
 
   // ② 세션 → 토큰. **origin 밖으로 나가지 않는다** — `path` 는 provider.origin 기준 상대 경로다.
   private async exchange(
     provider: Provider,
     handleId: string,
-    exchange: SessionTokenExchange
+    exchange: SessionTokenExchange,
+    whoamiLookup?: SessionLookup
   ): Promise<AuthResult> {
     const url = new URL(exchange.path, `${provider.origin}/`).toString()
     let result: SendResult
@@ -150,7 +219,15 @@ export class SessionRunner implements SessionAuthenticator {
     const expiresAt = exchange.expiresAtPath
       ? normalizeExpiry(pickPath(payload, exchange.expiresAtPath))
       : undefined
-    const token: TokenValue = { token: value, ...(expiresAt !== undefined ? { expiresAt } : {}) }
+    // 교환 응답이 이미 신원을 말했으면 **한 번 더 묻지 않는다**(왕복 0). 없을 때만 whoami 로 간다.
+    const principalId =
+      (exchange.principalPath ? pickPrincipal(payload, exchange.principalPath) : undefined) ??
+      (await this.whoami(provider, handleId, whoamiLookup))
+    const token: TokenValue = {
+      token: value,
+      ...(expiresAt !== undefined ? { expiresAt } : {}),
+      ...(principalId !== undefined ? { principalId } : {})
+    }
     return { kind: 'token', token }
   }
 }

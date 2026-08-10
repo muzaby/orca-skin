@@ -237,28 +237,52 @@ renderer 신규는 `features/providers` 안이며 `app/SidebarUserButton` 이 �
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- 동의 / 그대로 진행: …
-- 이견 / 우려: …
+구현 주체 = **Claude**(비기능 = 결함 수정 + 표시 배선, `docs/handoff/AGENTS.md` 역할 분담).
+
+- **동의**: 순서(P0-1 → 신원)가 옳았다. 부팅 등록을 먼저 넣으니 AC4 회귀 테스트가 *그 자체로*
+  결함의 재현이 됐다 — `restartedProcess({registerAtBoot:false})` 분기가 0182 이전 동작이다.
+- **동의**: `whoami` 를 `sessions.send()` 로 돌린 판단. 구현해 보니 `exchange()` 와 코드 모양이
+  거의 같아 두 경로가 같은 파싱 실패 처리를 공유한다 — 새 전송 개념이 늘지 않았다.
+- **이견 없음.** 다만 설계가 덜 적은 것 4건을 아래에 적는다(전부 구현 세부라 선조치).
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 구현함 / ⚠️ 보고만·**결정 필요** | … |
+| 1 | **`SessionGroupPolicy` 가 electron 을 무는 파일에 산다**(`infra/browser-session.ts`). 설계는 "포트를 받는다" 까지만 적었고 그 타입의 출처를 안 적었다 — 순수부(`browser-session-policy`)에는 없다 | ✅ **구조적으로 다시 선언**했다(`session-policies.ts`). `specs/browser-session.ts` 의 `BrowserSessionPort` 가 같은 이유로 같은 선택을 한 선례 | typecheck 가 즉시 잡았다(TS2305) |
+| 2 | **점 경로 결과가 문자열이 아닐 수 있다.** 설계는 `pickPath` 재사용만 적었는데 숫자·객체·빈 문자열이 오면 사이드바에 `[object Object]` 가 뜬다 | ✅ `pickPrincipal()` 을 더해 **문자열·비어 있지 않음**일 때만 통과. 회귀 1건(`{"mail":{}}`) 추가 | 표시용 값이라 화면이 최종 소비자다 |
+| 3 | **`api.test.ts` 가 없었다.** 설계는 AC4 검증 수단으로 그 파일을 지목했으나 0181 은 만들지 않았다 | ✅ 신설. 세션 전송 4건 + **fetch 스택으로 새면 던지는 `fetchImpl`** 로 경로 오염까지 잡는다 | `ls` 로 부재 확인 |
+| 4 | **`infra/browser-session.ts:219` 주석이 삭제된 파일을 현재형으로 가리켰다**(`features/auth-platform/api.ts`) | ✅ `features/providers/auth/api.ts` 로 정정 | 죽은 좌표 정리 중 발견 |
+
+**⚠️ 보고만 — WIA(P0-2) 조사는 부분 종결이다.** `npm ci` 로 `node_modules` 를 얻어
+`electron.d.ts` 를 열었으나 `allowNTLMCredentialsForDomains(domains: string)` 의 docstring 은
+*"Dynamically sets whether to always send credentials for HTTP NTLM or Negotiate authentication."*
+뿐이고 **`''` 의 의미도, 미호출 시 기본값도 서술하지 않는다**. 전체 문서는 `electronjs.org`
+egress 차단(`EGRESS_BLOCKED`). **설계대로 비범위 유지** — 선언 필드를 추가하지 않았다.
+"잘못된 필드가 배포되면 그때부터 일방향" 이라는 §범위 판단이 그대로 선다.
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] …
+- [x] `SessionLookup`·`whoami`·`exchange.principalPath` 계약
+- [x] `session-policies.ts` 순수 seam + 부팅 배선
+- [x] whoami 조회 + exchange principal 우선 + 실패 흡수
+- [x] renderer 순수 선택 규칙 + 훅 + 사이드바(버튼·팝오버 헤더 **두 곳**)
+- [x] 선언 주석 예제 (+ 실제 파일에 채워 typecheck 확인 후 되돌림)
+- [x] 문서 — 가이드 §1.6·§1.7·§2·§5-b·§6.3·§6.4·§9 · `providers.md` §4.1·§7.1 · `GLOSSARY` 2행
+- [x] 죽은 좌표 정리 — 사용량 문서 4곳 · `browser-session` 주석 · `runtime-tools` 죽은 타입 경고
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `vitest run` |
-| 게이트 결과 | … |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | **20** — 코드 9(계약·`session-policies`+test·`browser-session`+test·`api.test`·`bootstrap`·`principal`+test·`useProviderPrincipal`·배럴·`SidebarUserButton`) · 선언 주석 1 · 죽은 좌표 5 · 문서 5 |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` |
+| 게이트 결과 | lint **0 error / 1 warn**(0102 베이스라인) · typecheck **3/3** · vitest **195 파일(190/5) · 1,706 테스트(1,667/39)** |
+| 신규 red | **0** — 실패 5파일이 문서화된 DB ABI 베이스라인과 정확히 일치(`infra/db/{queries,migrate}` · `extensions/builder` · `orchestration/fork` · `app/chat-turn.continuity`)이고 실패 테스트 수도 **39** 로 같다 |
+| 신규 테스트 | **+30건** (`session-policies` 6 · `api` 4 · whoami 5 · `principal` 7 + 기존 파일 증분) |
+| AC 충족 | **14/15** — AC15(사람 실기)만 미충족: SSO 실값(OQ1) 부재 + egress 차단으로 `npm run dev` 기동 불가(0181 AC13 · 0180 AC9 선례) |
+| 블로커 / 역질문 | 없음 (WIA 부분 종결은 위 ⚠️) |
+| 대상 커밋 | `b464cd3`(설계) + 구현 커밋 |
 
 ---
 
