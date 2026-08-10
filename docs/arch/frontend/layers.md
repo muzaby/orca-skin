@@ -27,7 +27,8 @@ src/renderer/
     │   ├── OverlayLayer.tsx         # `#app-frame-overlay` + `#app-frame-modal` + `#app-frame-debug` 3슬롯 통합 — SearchModal·ConfirmDialogHost·UpdateDialog(0085)·(dev) DebugPanel+UpdateDebugSection 호스트
     │   ├── SearchModal.tsx          # FTS5 전문 검색 모달
     │   ├── RootGate.tsx             # 로그인 게이트 판정 — dev 만 LoginFrame, 배포 빌드는 스킵(0089)
-    │   ├── LoginFrame.tsx           # (dev 전용) features/login LoginView 호스트
+    │   ├── GateFrame.tsx            # 로그인 게이트 셸 (0181 — 구 LoginFrame. features/providers GateLogin 호스트)
+    │   ├── BootFailureFrame.tsx     # 부팅 실패 화면 (0180 — 구 LoginFrame 의 나머지 절반)
     │   ├── boot/                    # BootScreen + bootStore + steps (부팅 오케스트레이션, 0077)
     │   ├── WinControls.tsx          # minimize/maximize/close IPC. macOS → null
     │   ├── router.tsx               # `<Routes>` — URL path → Page (which). `/`=BootRedirector · `/new`=NewChatLandingPage · `/chat`→/new · `/chat/:sessionId`=ChatPage · `/projects` · `/projects/:projectId` · `/agent` · `/captures` · `*`→/new
