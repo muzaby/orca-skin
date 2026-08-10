@@ -90,18 +90,23 @@ export class ProviderStore {
   status(providerId: string): ProviderGrantStatus {
     const grant = this.grants.get(providerId)
     if (!grant) return 'none'
-    if (grant.kind === 'session') return 'valid'
+    const expired = grant.expiresAt !== undefined && grant.expiresAt <= this.clock()
+    if (grant.kind === 'session') return expired ? 'expired' : 'valid'
     const read = this.vault.read(grant.vaultKey)
     if (read.state === 'undecryptable') return 'unknown'
     if (read.state === 'absent') return 'none'
-    if (
-      grant.kind === 'token' &&
-      grant.expiresAt !== undefined &&
-      grant.expiresAt <= this.clock()
-    ) {
-      return 'expired'
-    }
-    return 'valid'
+    return expired ? 'expired' : 'valid'
+  }
+
+  // 401 관측 시 강등. **grant 를 지우지 않는다** — 사용자가 어느 provider 를 다시 인증해야
+  // 하는지 화면에서 봐야 하고, 재인증이 기존 항목을 교체하는 형태여야 하기 때문이다.
+  markExpired(providerId: string): void {
+    const grant = this.grants.get(providerId)
+    if (!grant) return
+    const now = this.clock()
+    if (grant.expiresAt !== undefined && grant.expiresAt <= now) return
+    this.grants.set(providerId, { ...grant, expiresAt: now })
+    this.flush()
   }
 
   authKind(providerId: string): ProviderAuthKind | null {

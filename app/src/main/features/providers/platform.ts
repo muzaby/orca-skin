@@ -10,7 +10,7 @@ import type {
   ProviderPlatformState,
   ProviderStepInfo
 } from '../../../shared/ipc'
-import type { AuthSpec, Provider } from '../../contracts/provider'
+import type { AuthSpec, Provider, ProviderApi } from '../../contracts/provider'
 import { evaluateGate } from './gate'
 import type { LoginService } from './auth/login'
 import type { ProviderRegistry } from './auth/registry'
@@ -29,12 +29,28 @@ export interface ProviderPlatformDeps {
   registry: ProviderRegistry
   store: ProviderStore
   login: LoginService
+  // 소비 슬라이스(LLM env 주입·MCP 토큰 소스·service 도구)가 쓰는 단일 포트.
+  api: ProviderApi
   // dev 게이트 우회 — 읽는 시점의 값이어야 하므로 getter 다(설정은 런타임에 바뀐다).
   bypass: () => boolean
 }
 
 export class ProviderPlatform {
   constructor(private readonly deps: ProviderPlatformDeps) {}
+
+  // 소비 표면. `Pick<ProviderApi, …>` 로 좁혀 받는 쪽이 많아 여기서는 전체를 노출한다.
+  get api(): ProviderApi {
+    return this.deps.api
+  }
+
+  // kind 별 선언 조회 — LLM 조인·service 도구 등록이 쓴다.
+  declarations(kind: Provider['kind']): readonly Provider[] {
+    return this.deps.registry.byKind(kind)
+  }
+
+  status(providerId: string): ReturnType<ProviderStore['status']> {
+    return this.deps.store.status(providerId)
+  }
 
   list(): ProviderInfo[] {
     return this.deps.registry.list().map((provider) => this.info(provider))
@@ -83,7 +99,7 @@ export class ProviderPlatform {
       status: this.deps.store.status(provider.id),
       activeAuthKind: this.deps.store.authKind(provider.id),
       principal: grant?.principalId ?? null,
-      expiresAt: grant?.kind === 'token' ? (grant.expiresAt ?? null) : null
+      expiresAt: grant?.expiresAt ?? null
     }
   }
 }
