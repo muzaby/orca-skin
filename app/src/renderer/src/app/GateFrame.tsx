@@ -5,6 +5,8 @@ import { WinControls } from './WinControls'
 import { Button } from '../shared/ui/Button'
 import { getPlatform } from '../shared/api/ipc'
 import { useI18n } from '../shared/i18n'
+import { DebugPanel } from '../features/debug'
+import { ProviderDebugSection } from '../features/providers'
 
 // React 의 CSSProperties 에는 WebkitAppRegion 이 없어 명시 캐스팅(Header 와 동일).
 const DRAG_STYLE: CSSProperties = { WebkitAppRegion: 'drag' } as CSSProperties
@@ -19,6 +21,10 @@ const NO_DRAG_STYLE: CSSProperties = { WebkitAppRegion: 'no-drag' } as CSSProper
 //
 // **재시도 루프에 갇히지 않게** 타이틀바의 창 컨트롤(닫기 포함)을 항상 살려 둔다 — 로그인이
 // 계속 실패하는 사용자가 앱을 끌 수 있어야 한다.
+//
+// **디버그 패널을 여기서도 마운트한다**(DEV 한정, 구 `LoginFrame` 과 같은 이유): 로그인 우회
+// 토글이 메인 셸(`OverlayLayer`)에만 있으면 정작 게이트에 막혔을 때 손이 닿지 않는다 — 우회가
+// 필요한 상황이 곧 우회 스위치에 도달할 수 없는 상황이 된다.
 export function GateFrame({
   providers,
   step,
@@ -137,6 +143,7 @@ export function GateFrame({
           )}
         </div>
       </main>
+      {import.meta.env.DEV && <DebugPanel providerSection={<ProviderDebugSection />} />}
     </div>
   )
 }

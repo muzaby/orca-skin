@@ -29,10 +29,18 @@ const SCENARIO_LABEL_KEYS: Record<MockScenarioId, MessageKey> = {
   full: 'debug.scenarios.full'
 }
 
-// updateSection: app 레이어가 주입하는 그룹(features/update).
+// updateSection / providerSection: app 레이어가 주입하는 그룹(features/update · features/providers).
 // features 교차 import 를 피하려고 슬롯 prop 으로 받는다(없으면 미표시).
-// (0180 에서 `authSection` 슬롯이 사라졌다 — 인증 feature 제거.)
-export function DebugPanel({ updateSection }: { updateSection?: ReactNode }): React.JSX.Element {
+//
+// `providerSection`(0181 — 0180 이 지운 `authSection` 복원)은 **게이트 화면에서도** 주입된다.
+// 로그인 우회 토글이 메인 셸에만 있으면 정작 게이트에 막혔을 때 손이 닿지 않는다.
+export function DebugPanel({
+  updateSection,
+  providerSection
+}: {
+  updateSection?: ReactNode
+  providerSection?: ReactNode
+}): React.JSX.Element {
   const { t, setTweak } = useTweakContext()
   const { tr } = useI18n()
   const { state, setMock } = useDebugMock()
@@ -80,6 +88,7 @@ export function DebugPanel({ updateSection }: { updateSection?: ReactNode }): Re
         value={t.sidebarCollapsed}
         onChange={(v) => setTweak('sidebarCollapsed', v)}
       />
+      {providerSection}
       {updateSection}
     </FloatingPanel>
   )

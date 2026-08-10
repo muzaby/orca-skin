@@ -408,6 +408,16 @@ none · expired · unknown   → registry.remove(id)     → 스냅샷에서 사
 | 방식 선택 | `providerRows.needsAuthChoice()` | `auth` **선언 순서**가 선택지 순서. 길이 1이면 단계 생략 |
 | 재인증 / 해제 | `providerRows.canReauth()`·`canRevoke()` | 인증 이력이 있을 때만(만료·복호화 실패 포함 — 빠져나갈 길이 있어야 한다) |
 | 추가 버튼 | **없음** | provider 는 빌드타임 선언이라 UI 로 추가할 수 없다 |
+| **로그인 우회 토글 (DEV)** | `features/providers/components/ProviderDebugSection.tsx` | 디버그 패널의 "로그인" 그룹. **게이트 화면(`GateFrame`)과 메인 셸(`OverlayLayer`) 양쪽에 마운트된다** — 아래 주의 |
+
+> ⚠️ **우회 토글은 게이트 화면에도 떠야 한다.** 메인 셸에만 두면 정작 게이트에 막혔을 때 손이
+> 닿지 않는다 — *우회가 필요한 상황이 곧 우회 스위치에 도달할 수 없는 상황*이 된다. 구
+> `LoginFrame` 이 디버그 패널을 직접 마운트했던 이유가 그것이고, 0181 이 `GateFrame` 에서 같은
+> 배선을 되살렸다. 두 패널이 상태를 공유하도록 값은 `store/bypassStore.ts` 가 갖는다.
+>
+> 토글은 `Settings.authBypass` 를 쓰고, **`settings:set` 핸들러가 그 키의 변경을 보면 provider
+> 상태를 push 한다**(`app/handlers/settings.ts`) — 그래야 재시작 없이 게이트가 열린다. 설정만
+> 저장하고 끝내면 "토글은 켜졌는데 화면은 그대로" 가 되어 토글이 고장 난 것처럼 보인다.
 
 ---
 

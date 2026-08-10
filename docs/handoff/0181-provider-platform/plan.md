@@ -446,6 +446,7 @@ respawn 판정이 전부 여기 걸려 있다. 조인만 한다.
 | **D9** | **`ProviderStore` 가 없는 `RouterContext` 경로가 있다**(테스트 하네스) | ✅ `providers?` 를 **optional** 로 두되 없으면 "인증 없음" 으로 동작한다 — 조용한 성공이 아니라 조용한 **미인증**(fail-closed) | 필수로 두면 기존 테스트 하네스가 전부 깨지고, 기본값을 두면 미인증이 인증으로 보인다 |
 | **D10** | **게이트 판정 전(`gate=null`)의 화면이 설계에 없었다** | ✅ **통과시키지 않고 부팅 화면을 유지**한다. main 이 잠깐 응답하지 못하는 사이 로그인 강제 빌드가 무인증으로 열리면 안 된다 | 구 auth 문서(§2.13-c)가 같은 규칙을 적고 있었다 — "renderer 는 prod 에서 invoke 실패를 `required:false` 로 기본화하지 않는다" |
 | **D11** | **AC8·AC14(게이트 진리표)를 3단계로 미뤘는데 1단계의 `state()` 가 게이트 값을 필요로 했다** | ✅ 게이트 순수 모듈을 **1단계로 앞당겨** 구현했다(플레이스홀더를 뒀다가 나중에 갈아엎는 것보다 낫다). 3단계는 browser-session·정책·화면을 맡았다 | 단계 경계는 커밋 위생을 위한 것이지 설계 제약이 아니다 |
+| **D12** (사용자 보고 2026-08-10) | **게이트 우회 토글이 사라진 채였다.** `Settings.authBypass` 는 스키마·main 판정에 다 있었지만 **UI 가 없어 켤 수 없었다** — 0180 이 `AuthDebugSection` 을 지웠고 0181 이 main 쪽만 되살렸다. K6("게이트 강제가 개발 빌드를 잠글 수 있다")의 완화책이 실제로는 작동하지 않는 상태였다 | ✅ 셋을 함께 고쳤다: ⓐ `ProviderDebugSection` 복원 + `DebugPanel` 의 `providerSection` 슬롯 ⓑ **`GateFrame` 에서도 디버그 패널을 마운트**(구 `LoginFrame` 과 같은 이유 — 메인 셸에만 두면 게이트에 막혔을 때 스위치에 도달할 수 없다) ⓒ `settings:set` 이 `authBypass` 변경 시 provider 상태를 **push**(안 하면 설정만 저장되고 화면은 옛 판정에 머문다) | 설계 self-review 가 **"토글의 도달 가능성"** 을 보지 않았다 — 값·판정·소비자는 다 확인했지만 *우회가 필요한 상황에서 우회 스위치가 화면에 있는가* 는 질문 목록에 없었다. 회귀 9건 신설(`settings.test.ts` 3 · `bypassStore.test.ts` 6) |
 
 ## [구현자 기입] 구현 체크리스트
 
@@ -468,6 +469,9 @@ respawn 판정이 전부 여기 걸려 있다. 조인만 한다.
       §5 등록 · §6 소비 표면 4종 · §7 게이트 · §10 뒤집으면 안 되는 결정 · §11 비범위).
       라우팅: `ARCHITECTURE.md` · `docs/AGENTS.md` · `docs/guides/AGENTS.md`(stale 행 정정) ·
       `guides/closed-network-extensions.md` · `app/src/main/AGENTS.md` · `declarations/index.ts` 헤더
+- [x] **5단계-c (버그수정 — 사용자 보고)** — 게이트 우회 토글 복원(D12): `ProviderDebugSection` ·
+      `bypassStore` · `DebugPanel.providerSection` 슬롯 · **`GateFrame` 마운트** · `settings:set` push ·
+      i18n(ko/en) · 회귀 9건 · `providers.md §8`·`security.md §1.7` 반영
 
 ## [구현자 기입] 구현 보고
 
