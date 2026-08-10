@@ -388,7 +388,8 @@ none · expired · unknown   → registry.remove(id)     → 스냅샷에서 사
 
 | 판정 | 규칙 |
 |---|---|
-| `kind:'gate'` 선언 **0개** | **통과**(`required:false`) — dev/OSS 빌드가 로그인 화면에 갇히지 않게 하는 안전장치. 회귀로 고정 |
+| **prod** · `kind:'gate'` 선언 **0개** | **통과**(`required:false`) — OSS/기본 배포가 로그인 화면에 갇히지 않게 하는 안전장치. 회귀로 고정 |
+| **DEV** · 선언 **0개** | **차단**(`alwaysRequired`) — 폐쇄망 실값이 없어도 로그인 화면을 보고 고칠 수 있어야 한다. **탈출구는 우회 토글 하나뿐**이다(0089/0130 의 동작 복원) |
 | 선언 N · 전부 `valid` | 통과 |
 | 선언 N · 하나라도 아님 | 차단 — 로그인이 체인이라 멤버 하나만 풀려도 인증이 아니다 |
 | `Settings.authBypass` (**DEV 전용**) | 통과 + `bypassed:true`. prod 번들에서는 `import.meta.env.DEV` 가 false 로 접혀 분기 자체가 사라진다 |
@@ -396,6 +397,17 @@ none · expired · unknown   → registry.remove(id)     → 스냅샷에서 사
 
 > **게이트는 UX 게이트이지 보안 경계가 아니다** — 인증 전에도 main IPC 는 열려 있다. 로그인 화면은
 > 창 컨트롤(닫기)을 항상 살려 둬 재시도 루프에 갇히지 않게 한다.
+>
+> ⚠️ **DEV 를 prod 와 같은 규칙으로 두면 로그인 화면이 사라진다.** 0181 이 처음 그렇게 만들었고,
+> 기본 빌드는 게이트 선언이 0개라 *화면에 도달할 방법 자체가 없었다* — 우회 토글을 켜도 우회할
+> 게이트가 없어 아무 일도 일어나지 않았다. `alwaysRequired` 는 **호출부(bootstrap)가
+> `import.meta.env.DEV` 를 넣는다**; 순수 모듈이 빌드 모드를 직접 읽으면 테스트가 그것에 묶인다.
+> 빈 멤버 배열에 `every` 를 그대로 쓰면 DEV 게이트가 즉시 열리므로 **멤버 수를 함께 본다**(회귀 고정).
+
+로그인 화면은 `app/GateFrame.tsx`(셸) + `features/providers/components/GateLogin.tsx`(랜딩 —
+Orca 제목·오르카 이미지·입력 카드·검정 로그인 버튼)이다. 구 `LoginFrame`+`AuthView` 를 provider
+축에 맞춰 복원한 것이라 **화면은 0180 이전과 같다**. 필드가 없어도 버튼은 항상 있다 — ADFS/WIA
+같은 브라우저 플로우는 입력 없이 `login()` 하나로 끝나므로 **필드 유무가 곧 플로우 종류**다.
 
 ---
 
