@@ -18,7 +18,7 @@ import type {
   ProviderRequest,
   ProviderResponse
 } from '../../../contracts/provider'
-import type { PreparedRequest, SendResult } from '../../../infra/net/transport'
+import type { PreparedRequest, SendOptions, SendResult } from '../../../infra/net/transport'
 import { createSender } from '../../../infra/net/transport'
 import { applyPresentation } from './present'
 import { checkOutboundRequest, checkRedirect } from './policy'
@@ -66,7 +66,7 @@ export class ProviderApiImpl implements ProviderApi {
     const provider = this.deps.registry.get(providerId)
     if (!provider) throw new ProviderPolicyError('unknown_provider', providerId)
 
-    const url = new URL(req.path, `${provider.origin}/`).toString()
+    const url = withQuery(new URL(req.path, `${provider.origin}/`), req.query)
     const verdict = checkOutboundRequest({
       url,
       path: req.path,
@@ -82,7 +82,7 @@ export class ProviderApiImpl implements ProviderApi {
       headers: { ...req.headers },
       ...(req.body !== undefined ? { body: req.body } : {})
     }
-    const result = await this.send(provider, prepared, signal)
+    const result = await this.send(provider, prepared, req, signal)
 
     // 401 은 "자격증명이 더 이상 유효하지 않다" 는 **서버의 판정**이다. 여기서 강등해야
     // 사용자가 GUI 에서 재인증 지점을 본다 — 조용히 실패만 반복하지 않는다.
@@ -99,7 +99,8 @@ export class ProviderApiImpl implements ProviderApi {
       ok: result.status >= 200 && result.status < 300,
       status: result.status,
       headers: result.headers,
-      body: result.body
+      body: result.body,
+      ...(result.bodyBytes !== undefined ? { bodyBytes: result.bodyBytes } : {})
     }
   }
 
@@ -108,11 +109,12 @@ export class ProviderApiImpl implements ProviderApi {
   private async send(
     provider: Provider,
     prepared: PreparedRequest,
+    req: ProviderRequest,
     signal?: AbortSignal
   ): Promise<SendResult> {
     let current = prepared
     for (let hop = 0; ; hop++) {
-      const result = await this.transport(provider, current, signal)
+      const result = await this.transport(provider, current, req, signal)
       const location = result.headers['location']
       const isRedirect = result.status >= 300 && result.status < 400
       if (!isRedirect || location === undefined) return result
@@ -131,8 +133,13 @@ export class ProviderApiImpl implements ProviderApi {
   private async transport(
     provider: Provider,
     prepared: PreparedRequest,
+    req: ProviderRequest,
     signal?: AbortSignal
   ): Promise<SendResult> {
+    const options: SendOptions = {
+      ...(req.responseType !== undefined ? { responseType: req.responseType } : {}),
+      ...(req.maxBytes !== undefined ? { maxBytes: req.maxBytes } : {})
+    }
     const grant = this.deps.store.get(provider.id)
     if (grant?.kind === 'session') {
       if (!this.deps.sessions) {
@@ -140,7 +147,7 @@ export class ProviderApiImpl implements ProviderApi {
       }
       // 세션 grant 는 값이 아니라 cookie jar 다 — 주입할 secret 이 없고, 전송 경로가 다르다.
       const handleId = this.deps.sessions.acquire(grant.sessionGroup)
-      return this.deps.sessions.send(handleId, prepared)
+      return this.deps.sessions.send(handleId, prepared, options)
     }
 
     const secret = this.deps.store.secret(provider.id)
@@ -148,7 +155,7 @@ export class ProviderApiImpl implements ProviderApi {
     if (secret === null || presentation === null) {
       throw new ProviderPolicyError('grant_not_valid', this.deps.store.status(provider.id))
     }
-    return this.sender.send(applyPresentation(prepared, presentation, secret), signal)
+    return this.sender.send(applyPresentation(prepared, presentation, secret), signal, options)
   }
 
   // LLM `Options.env` · 서비스 헤더 물질화. **미인증이면 null** — 빈 문자열 치환은 인증 없는
@@ -180,6 +187,13 @@ export class ProviderApiImpl implements ProviderApi {
   token(providerId: string): string | null {
     return this.deps.store.secret(providerId)
   }
+}
+
+// 쿼리는 경로와 분리해 받으므로 여기서 한 번만 붙인다 — origin 은 바뀌지 않는다.
+function withQuery(url: URL, query: Record<string, string> | undefined): string {
+  if (!query) return url.toString()
+  for (const [name, value] of Object.entries(query)) url.searchParams.set(name, value)
+  return url.toString()
 }
 
 // 활성 방식의 `present` 선언을 찾는다. 방식마다 싣는 방법이 다르므로 grant 의 방식을 따라간다.

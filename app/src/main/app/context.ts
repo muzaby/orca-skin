@@ -14,6 +14,7 @@ import type { ProviderSettingsService } from '../features/providers/provider-set
 import type { Scheduler } from '../features/scheduler'
 import type { ExternalUsageService } from '../features/usage/external-usage-service'
 import type { RuntimeToolRegistry } from '../features/extensions/runtime-tool-registry'
+import type { ProviderPlatform } from '../features/providers/platform'
 import type { UpdateController } from './updater'
 
 export interface RouterContext {
@@ -47,4 +48,8 @@ export interface RouterContext {
   // 포트와 어댑터 배선(`adapters/claude-runtime-tools.ts`)은 그대로다 — 0181 의
   // `Provider.tools` 가 이 자리를 다시 채운다.
   runtimeTools: RuntimeToolRegistry
+  // 0181 — 인증된 provider 의 소비 표면. LLM env 주입·MCP 토큰 소스·service 도구가 함께 쓴다.
+  // **optional 이다**: 부팅 초기에 조립되지만 테스트 하네스가 이 필드 없이 ctx 를 만드는 경로가
+  // 있어, 없으면 "인증 없음" 으로 동작한다(조용한 성공이 아니라 조용한 미인증 — fail-closed).
+  providers?: ProviderPlatform
 }

@@ -159,18 +159,29 @@ export interface Provider {
 
 // ── 소비 표면 ─────────────────────────────────────────────────────────────────
 export interface ProviderRequest {
-  // `Provider.origin` 기준 상대 경로. 절대 URL 은 거부된다.
+  // `Provider.origin` 기준 상대 경로. 절대 URL 은 거부된다(origin 우회 방지). 컨텍스트 경로
+  // (`/confluence`)가 있는 배포는 호출자가 여기에 prefix 를 붙인다.
   path: string
   method?: string
   headers?: Record<string, string>
+  // 경로와 분리해 받는다 — 호출자가 직접 이으면 인코딩 규칙이 호출부마다 갈린다.
+  query?: Record<string, string>
   body?: string
+  // 응답 본문 형태. **미지정 = `'text'`**. 첨부·이미지처럼 바이트가 필요한 요청만 `'binary'`.
+  responseType?: 'text' | 'binary'
+  // 수신 상한. 미지정이면 상한 없음. 선언된 `content-length` 와 실제 누적 바이트를 **둘 다**
+  // 검사한다 — 서버가 길이를 속이거나 안 보낼 수 있다.
+  maxBytes?: number
 }
 
 export interface ProviderResponse {
   ok: boolean
   status: number
   headers: Record<string, string>
+  // `responseType:'binary'` 응답에서는 빈 문자열이다.
   body: string
+  // `responseType:'binary'` 일 때만 채워진다.
+  bodyBytes?: Uint8Array
 }
 
 // 앱 안의 다른 모듈이 인증을 쓰는 **단일 포트**. 소비 슬라이스는 `Pick<ProviderApi, …>` 로

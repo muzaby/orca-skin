@@ -69,9 +69,9 @@ describe('MCP resolver — process.env 전체 fallback 제거 (AC11)', () => {
   })
 })
 
-// 0180 — 토큰 소스가 사라졌다. `${BINDING:…}` 는 **항상 미해결**이고, expand.ts 가 그 서버를
-// 통째로 드롭한다(fail-closed 유지). 0181 이 provider 물질화로 이 자리를 채운다.
-describe('MCP resolver — 토큰 소스 없이 동작한다 (0180 AC4)', () => {
+// 0181 AC10 — `ProviderApi.token` 이 토큰 소스로 다시 주입된다. 소스가 없거나 그 대상이
+// 미인증이면 여전히 미해결로 남아 expand.ts 가 서버를 통째로 드롭한다(fail-closed 유지).
+describe('MCP resolver — 대상 참조 (AC10)', () => {
   it('토큰 소스 없이 ${VAR} 서버를 해소한다', () => {
     const resolve = makeResolver({ secrets: secrets({ HOST: 'wiki.corp', TOKEN: 'sealed' }) })
     const missing = new Set<string>()
@@ -94,5 +94,39 @@ describe('MCP resolver — 토큰 소스 없이 동작한다 (0180 AC4)', () => 
     const missing = new Set<string>()
     expandVars('${BINDING:wiki}', resolve, missing)
     expect([...missing]).toEqual(['BINDING:wiki'])
+  })
+
+  it('토큰 소스 주입 시 대상을 해소한다', () => {
+    const resolve = makeResolver({
+      secrets: secrets(),
+      tokens: (providerId) => (providerId === 'wiki' ? 'wiki-token' : null)
+    })
+    const missing = new Set<string>()
+    expect(expandVars('https://x/?t=${BINDING:wiki}', resolve, missing)).toBe(
+      'https://x/?t=wiki-token'
+    )
+    expect(missing.size).toBe(0)
+  })
+
+  it('미인증 대상은 미해결로 남는다', () => {
+    // 소스는 있는데 그 provider 가 미인증이면 null → undefined 로 접힌다. 빈 문자열로 채우면
+    // 인증 없는 요청을 하는 MCP 서버가 조용히 배포된다.
+    const resolve = makeResolver({ secrets: secrets(), tokens: () => null })
+    const missing = new Set<string>()
+    expandVars('${BINDING:wiki}', resolve, missing)
+    expect([...missing]).toEqual(['BINDING:wiki'])
+  })
+
+  it('토큰 소스는 대상 참조에만 쓰인다 — 일반 ${VAR} 를 가로채지 않는다', () => {
+    const seen: string[] = []
+    const resolve = makeResolver({
+      secrets: secrets({ TOKEN: 'sealed' }),
+      tokens: (providerId) => {
+        seen.push(providerId)
+        return 'from-provider'
+      }
+    })
+    expect(resolve('TOKEN')).toBe('sealed')
+    expect(seen).toEqual([])
   })
 })
