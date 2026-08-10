@@ -2,7 +2,7 @@
 // (`src/**/*.test.ts`) 밖이라 기계 검증이 안 되므로, 표에서 판정 가능한 로직만 여기로 내린다.
 // 라벨은 `tr` 을 부르지 않도록 shared/i18n 의 판별 유니온 `UiMessage` 로 반환한다 —
 // 스킬 그룹은 동적 sourceLabel(`{raw}`), MCP·플러그인 그룹은 카탈로그 키(`{key}`).
-import type { McpServer, SkillInfo } from '../../../../../shared/ipc'
+import type { McpServer, ProviderInfo, SkillInfo } from '../../../../../shared/ipc'
 import type { UiMessage } from '../../../shared/i18n'
 import type { CatalogTab } from './catalogSelection'
 
@@ -48,6 +48,28 @@ export function mcpGroups(servers: McpServer[]): CatalogGroup<McpServer>[] {
       id: 'inactive',
       label: { key: 'skills.groups.inactiveMcp' },
       rows: servers.filter((server) => !server.enabled)
+    }
+  ])
+}
+
+// provider = 관계(kind)별. 순서는 사용자가 마주치는 순서 — 앱 로그인이 먼저 걸리고, 그 다음
+// 모델, 마지막이 사내 서비스다(0181).
+export function providerGroups(providers: ProviderInfo[]): CatalogGroup<ProviderInfo>[] {
+  return nonEmpty([
+    {
+      id: 'gate',
+      label: { key: 'skills.groups.gateProviders' },
+      rows: providers.filter((provider) => provider.kind === 'gate')
+    },
+    {
+      id: 'llm',
+      label: { key: 'skills.groups.llmProviders' },
+      rows: providers.filter((provider) => provider.kind === 'llm')
+    },
+    {
+      id: 'service',
+      label: { key: 'skills.groups.serviceProviders' },
+      rows: providers.filter((provider) => provider.kind === 'service')
     }
   ])
 }

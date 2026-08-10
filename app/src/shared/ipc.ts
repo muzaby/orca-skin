@@ -93,7 +93,18 @@ export const CHANNELS = {
   updateProgressEvent: 'orca:update:progressEvent',
   // renderer/preload → main 로그 인제스트 (0123). 유일한 one-way send 채널 —
   // fire-and-forget 이라 invoke 가 아니다. 공통 필드는 main 이 강제 부여.
-  logEmit: 'orca:log:emit'
+  logEmit: 'orca:log:emit',
+  // provider 플랫폼 (0181) — 구 auth 7 + plugin 4 채널을 6개로 대체한다. 인증 대상은
+  // `Provider` 선언 하나이고, 게이트·LLM·사내 서비스가 `kind` 로만 갈린다.
+  providerList: 'orca:provider:list',
+  providerLogin: 'orca:provider:login',
+  providerContinue: 'orca:provider:continue',
+  providerReauth: 'orca:provider:reauth',
+  providerRevoke: 'orca:provider:revoke',
+  // **양방향 1채널** — invoke 는 게이트 판정용 초기 스냅샷, send 는 이후 변화 push.
+  // 같은 객체(`ProviderPlatformState`)를 나르므로 채널을 둘로 쪼개지 않는다(구 auth 는
+  // `status`+`stateEvent` 로 나눠 두 벌의 동기화 버그를 만들었다).
+  providerState: 'orca:provider:state'
 } as const
 
 export type UpdateStateStatus =
@@ -1268,3 +1279,112 @@ export interface DeleteMcpServerRequest {
 }
 
 // (구 RuntimeStage/RuntimeStatus 와 runtime IPC 채널은 제거됨 — 와이어 타입이 아니다.)
+
+// ── Provider 플랫폼 (0181) ────────────────────────────────────────────────────
+//
+// 0180 이 지운 `auth`/`plugin` DTO 를 **관계 축** 하나로 대체한다. 구 구조는 프로토콜 enum
+// (`AuthMechanism`)이 1급 축이라 `AuthMechanism × AuthTargetKind × CredentialPresentation` 이
+// 곱해졌다. 여기서는 `kind` 가 **누가 누구를 상대하는가**만 말하고, 프로토콜은 `AuthSpec` 안에
+// 접혀 있다.
+//
+// **이 경계를 넘는 secret 은 없다.** grant 는 상태·만료·표시용 principal 만 싣고, 값은 main 의
+// vault(safeStorage)에만 존재한다. main 구현 계약(`Provider`·`AuthSpec`·`Grant`)의 정본은
+// `app/src/main/contracts/provider.ts`.
+
+// 관계. **프로토콜이 아니다** — gate=신원 있는 로그인, llm=모델 게이트웨이, service=사내 REST.
+export type ProviderKind = 'gate' | 'llm' | 'service'
+
+// 인증 방식. 앞 3종은 입력 수집형(코어 구현), 뒤 2종은 브라우저 흐름형.
+export type ProviderAuthKind = 'api-key' | 'password' | 'pat' | 'oauth' | 'browser-session'
+
+export interface ProviderFieldInfo {
+  name: string
+  label: string
+  type: 'text' | 'password'
+  required: boolean
+}
+
+// 선언된 인증 방식 하나. `fields` 는 입력 수집형에서만 비어 있지 않다(oauth·browser-session 은 []).
+export interface ProviderAuthSpecInfo {
+  kind: ProviderAuthKind
+  label: string
+  fields: ProviderFieldInfo[]
+}
+
+// 'none' = 인증 이력 없음 · 'unknown' = 저장돼 있으나 복호화 불가(키체인 잠김 등).
+// 부재와 복호화 실패를 뭉개지 않는 것이 핵심 — 조용한 미인증 진행을 막는다.
+export type ProviderGrantStatus = 'none' | 'valid' | 'expired' | 'unknown'
+
+export interface ProviderInfo {
+  id: string
+  label: string
+  kind: ProviderKind
+  origin: string
+  // 선언 순서 = GUI 선택지 순서. 길이가 1이면 renderer 는 선택 단계를 건너뛴다.
+  auth: ProviderAuthSpecInfo[]
+  status: ProviderGrantStatus
+  // 지금 무엇으로 인증돼 있는가. 미인증이면 null.
+  activeAuthKind: ProviderAuthKind | null
+  // 표시용 계정 식별자(비밀 아님). 없으면 null.
+  principal: string | null
+  expiresAt: number | null
+}
+
+// 로그인 진행 단계. 대화형 단계는 `orca:provider:continue` 로 이어진다.
+export type ProviderStepInfo =
+  | {
+      kind: 'input-required'
+      providerId: string
+      authKind: ProviderAuthKind
+      fields: ProviderFieldInfo[]
+      message?: string
+    }
+  // OAuth `redirect:'manual'` — 사용자가 브라우저에서 받은 code 를 붙여 넣는다.
+  | { kind: 'code-required'; providerId: string; authKind: ProviderAuthKind; url: string }
+  | { kind: 'done'; providerId: string }
+  | { kind: 'failed'; providerId: string; reason: ProviderFailureReason; message: string }
+
+export type ProviderFailureReason =
+  | 'unknown_provider'
+  | 'unknown_auth_kind'
+  | 'invalid_input'
+  | 'cancelled'
+  | 'exchange_failed'
+  | 'state_mismatch'
+  | 'unsupported'
+
+// 게이트 판정. `required` = kind:'gate' provider 선언 여부. **선언 0 이면 통과**가 기본값이라
+// dev/OSS 빌드가 로그인 화면에 잠기지 않는다.
+export interface ProviderGateState {
+  required: boolean
+  passed: boolean
+  // dev 우회(Settings.authBypass)로 통과했는가 — UI 가 "우회 중" 을 표시할 수 있게.
+  bypassed: boolean
+}
+
+export interface ProviderPlatformState {
+  gate: ProviderGateState
+  providers: ProviderInfo[]
+  step: ProviderStepInfo | null
+}
+
+// authKind 미지정 = 선언 배열의 첫 방식(단일 선언이면 GUI 가 고를 것이 없다).
+export interface ProviderLoginRequest {
+  providerId: string
+  authKind?: ProviderAuthKind
+  input?: Record<string, string>
+}
+
+export interface ProviderContinueRequest {
+  providerId: string
+  input: Record<string, string>
+}
+
+export interface ProviderReauthRequest {
+  providerId: string
+  authKind?: ProviderAuthKind
+}
+
+export interface ProviderRevokeRequest {
+  providerId: string
+}

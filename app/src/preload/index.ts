@@ -15,6 +15,13 @@ import {
   type NormalizedEvent,
   type CreateMcpServerRequest,
   type CreateProjectRequest,
+  type ProviderInfo,
+  type ProviderPlatformState,
+  type ProviderStepInfo,
+  type ProviderLoginRequest,
+  type ProviderContinueRequest,
+  type ProviderReauthRequest,
+  type ProviderRevokeRequest,
   type FileEntry,
   type PickedAttachment,
   type OpenPathRequest,
@@ -208,6 +215,25 @@ const orca = {
       ipcRenderer.invoke(CHANNELS.costSetProviderLimit, { providerKey, limitUsd }),
     usageStats: (range: UsageStatsRange): Promise<UsageStats> =>
       ipcRenderer.invoke(CHANNELS.costUsageStats, { range })
+  },
+  // provider 플랫폼 (0181) — 로그인 게이트 + 카탈로그 provider 탭. `state` 는 초기 스냅샷
+  // invoke 와 변화 구독이 **같은 채널**이다(main 이 같은 객체를 양방향으로 나른다).
+  provider: {
+    list: (): Promise<ProviderInfo[]> => ipcRenderer.invoke(CHANNELS.providerList),
+    state: (): Promise<ProviderPlatformState> => ipcRenderer.invoke(CHANNELS.providerState),
+    login: (req: ProviderLoginRequest): Promise<ProviderStepInfo> =>
+      ipcRenderer.invoke(CHANNELS.providerLogin, req),
+    continue: (req: ProviderContinueRequest): Promise<ProviderStepInfo> =>
+      ipcRenderer.invoke(CHANNELS.providerContinue, req),
+    reauth: (req: ProviderReauthRequest): Promise<ProviderStepInfo> =>
+      ipcRenderer.invoke(CHANNELS.providerReauth, req),
+    revoke: (req: ProviderRevokeRequest): Promise<void> =>
+      ipcRenderer.invoke(CHANNELS.providerRevoke, req),
+    onState: (handler: (state: ProviderPlatformState) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, state: ProviderPlatformState): void => handler(state)
+      ipcRenderer.on(CHANNELS.providerState, listener)
+      return () => ipcRenderer.off(CHANNELS.providerState, listener)
+    }
   },
   concurrency: {
     onEvent: (handler: (ev: ConcurrencyEvent) => void): (() => void) => {
