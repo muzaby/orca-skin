@@ -40,6 +40,25 @@ const mutableServer = (id: string): RuntimeToolServer => ({
 })
 
 describe('RuntimeToolRegistry', () => {
+  // 0180 AC5 — 인증·커넥터 스택이 사라져 기여자가 0 이다. 포트와 어댑터 배선은 남으므로,
+  // 기여자 0 상태가 **정상 동작**(빈 스냅샷 + 등록/해제 왕복)임을 고정한다. 0181 의
+  // `Provider.tools` 가 다시 채운다.
+  it('기여자가 없으면 빈 스냅샷을 낸다', () => {
+    const registry = new RuntimeToolRegistry()
+    expect(registry.snapshot()).toMatchObject({ revision: 0, servers: new Map() })
+  })
+
+  it('기여자 0 에서 시작해도 등록·해제가 왕복한다', () => {
+    const registry = new RuntimeToolRegistry()
+    expect(registry.snapshot().servers.size).toBe(0)
+
+    registry.add(server('records'))
+    expect(registry.snapshot().servers.size).toBe(1)
+
+    registry.remove('records')
+    expect(registry.snapshot()).toMatchObject({ revision: 2, servers: new Map() })
+  })
+
   it('실질 변경 때만 revision을 증가시킨다', () => {
     const registry = new RuntimeToolRegistry()
     const first = server('records')

@@ -54,6 +54,66 @@ function report(providerKey: string, fetchedAt: number, usedUsd: number): Extern
 const stubFetch: typeof fetch = async () => new Response('{}', { status: 200 })
 
 describe('ExternalUsageService', () => {
+  // 0180 AC3 — `sources`(인증 커넥터 표본 포트)는 optional 이고, 그 주입이 사라져도
+  // provider·config 두 경로로 리포트가 계속 나와야 한다. 해소 우선순위는
+  // subscription > provider > config 이고, 0180 이 없앤 것은 subscription 을 채우던 주입뿐이다.
+  it('sources 없이 provider·config 경로로 리포트를 만든다', async () => {
+    const viaProvider: StaticUsageProviderModule = {
+      adapter: 'claude',
+      provider: 'bedrock',
+      defaultSettings: { env: {} },
+      usage: {
+        provider: {
+          async fetchUsageReport(ctx) {
+            return {
+              providerKey: ctx.providerKey,
+              fetchedAt: 100,
+              source: 'external',
+              quota: { usedUsd: 30, limitUsd: 100, remainingUsd: 70 }
+            }
+          }
+        }
+      }
+    }
+    const viaConfig: StaticUsageProviderModule = {
+      adapter: 'claude',
+      provider: 'vertex',
+      defaultSettings: { env: {} },
+      usage: {
+        config: {
+          endpoint: 'https://usage.corp/report',
+          map: { quotaUsedUsd: 'used', quotaLimitUsd: 'limit' }
+        }
+      }
+    }
+    const service = new ExternalUsageService({
+      db: db() as never,
+      secretFor: () => emptySecretFacade(),
+      providers: [viaProvider, viaConfig],
+      // `sources` 를 **주입하지 않는다** — 이것이 이 케이스의 요지다.
+      fetchImpl: async () =>
+        new Response(JSON.stringify({ used: 40, limit: 200 }), {
+          status: 200,
+          headers: { 'content-type': 'application/json' }
+        }),
+      clock: () => 100
+    })
+
+    await service.refresh('claude-bedrock')
+    expect(service.entry('claude-bedrock', summary(10), 50).effectiveLimit).toMatchObject({
+      source: 'external',
+      usedUsd: 30,
+      limitUsd: 100
+    })
+
+    await service.refresh('claude-vertex')
+    expect(service.entry('claude-vertex', summary(10), 50).effectiveLimit).toMatchObject({
+      source: 'external',
+      usedUsd: 40,
+      limitUsd: 200
+    })
+  })
+
   it('keeps local summary but resolves effective limit from authoritative API report', async () => {
     const provider: ExternalUsageProvider = {
       async fetchUsageReport(ctx) {

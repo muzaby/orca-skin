@@ -18,6 +18,19 @@
 **런타임 임의 코드 로딩은 금지한다** — Electron main 에서 임의 코드 실행은 filesystem·cookie·Vault
 전권을 주는 것과 같고 타입 검증도 성립하지 않는다. 이 정책은 0157 에서도 유지된다.
 
+> ## ⚠️ 0180 — 이 가이드가 설명하는 확장점은 **현재 존재하지 않는다**
+>
+> 인증 방식(`contracts/auth-method.ts`)·커넥터(`contracts/connector.ts`)·내부 API
+> (`contracts/internal-api.ts`) 계약과 opt-in 레지스트리(`features/auth-platform/{methods,modules}/`)가
+> **0180 에서 전부 삭제**됐다. 아래 §1~§5 는 0157~0178 시점의 서술이며 지금 코드와 맞지 않는다.
+>
+> **0181 이 이 문서를 재작성한다.** 새 확장 모델은 축이 하나다 — 폐쇄망 배포가 채우는 것은
+> `Provider` 선언(`id`·`label`·`kind:'gate'|'llm'|'service'`·`origin`·`auth`)뿐이고,
+> 인증 4종 중 api-key·password·pat 는 코어 구현이라 배포는 필드만 선언한다. OAuth 만
+> `authorize(ctx) → OAuthStart` 를 채우며 PKCE·`state` 검증은 코어가 제공한다.
+>
+> 그전까지 이 문서를 근거로 코드를 붙이지 마라 — 가리키는 계약이 없다.
+
 ## 1. 구조 — 진입점 2계약 + opt-in 레지스트리
 
 main 브랜치는 다음만 제공하고, 회사별 구현은 전부 회사 포크/브랜치의 모듈 디렉토리에 둔다:

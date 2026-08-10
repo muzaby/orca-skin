@@ -1,20 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import type { McpServer, SkillInfo } from '../../../../../shared/ipc'
-import type { ConnectorRow } from './pluginCatalog'
-import {
-  groupKey,
-  isGroupOpen,
-  mcpGroups,
-  pluginGroups,
-  skillGroups,
-  toggleGroup
-} from './catalogGroups'
+import { groupKey, isGroupOpen, mcpGroups, skillGroups, toggleGroup } from './catalogGroups'
 
 const skill = (sourceId: string, sourceLabel: string, name: string): SkillInfo =>
   ({ sourceKind: 'orca', sourceId, sourceLabel, name }) as SkillInfo
 const server = (id: string, enabled: boolean): McpServer => ({ id, enabled }) as McpServer
-const plugin = (connectorId: string, connected: boolean): ConnectorRow =>
-  ({ connectorId, connected }) as ConnectorRow
 
 describe('catalog groups', () => {
   it('스킬은 source 별로, 라벨은 raw 로 묶인다', () => {
@@ -28,31 +18,28 @@ describe('catalog groups', () => {
     expect(groups[0].rows.map((r) => r.name)).toEqual(['a', 'c'])
   })
 
-  it('MCP/플러그인 라벨은 key 로 반환된다 (lib 이 tr 에 의존하지 않는다)', () => {
+  it('MCP 라벨은 key 로 반환된다 (lib 이 tr 에 의존하지 않는다)', () => {
     expect(mcpGroups([server('m', true)])[0].label).toEqual({ key: 'skills.groups.activeMcp' })
-    expect(pluginGroups([plugin('p', false)])[0].label).toEqual({
-      key: 'skills.groups.disconnectedPlugins'
+    expect(mcpGroups([server('m', false)])[0].label).toEqual({
+      key: 'skills.groups.inactiveMcp'
     })
   })
 
   it('행이 없는 그룹은 제외된다', () => {
     expect(mcpGroups([server('m', true)]).map((g) => g.id)).toEqual(['active'])
-    expect(pluginGroups([plugin('p', true)]).map((g) => g.id)).toEqual(['connected'])
+    expect(mcpGroups([server('m', false)]).map((g) => g.id)).toEqual(['inactive'])
     expect(mcpGroups([]).length).toBe(0)
   })
 
-  it('MCP 는 enabled, 플러그인은 connectedCount 로 갈린다', () => {
+  it('MCP 는 enabled 로 갈린다', () => {
     expect(mcpGroups([server('a', true), server('b', false)]).map((g) => g.rows.length)).toEqual([
       1, 1
     ])
     expect(
-      pluginGroups([plugin('a', true), plugin('b', false)]).map((g) => [
-        g.id,
-        g.rows[0].connectorId
-      ])
+      mcpGroups([server('a', true), server('b', false)]).map((g) => [g.id, g.rows[0].id])
     ).toEqual([
-      ['connected', 'a'],
-      ['disconnected', 'b']
+      ['active', 'a'],
+      ['inactive', 'b']
     ])
   })
 
@@ -69,7 +56,7 @@ describe('catalog groups', () => {
     expect(groupKey('mcp', 'active')).toBe('mcp:active')
     const collapsed = toggleGroup({}, groupKey('mcp', 'active'))
     expect(isGroupOpen(collapsed, groupKey('mcp', 'active'))).toBe(false)
-    expect(isGroupOpen(collapsed, groupKey('plugins', 'active'))).toBe(true)
+    expect(isGroupOpen(collapsed, groupKey('skills', 'active'))).toBe(true)
   })
 
   it('토글은 기존 상태를 보존하며 새 객체를 만든다', () => {

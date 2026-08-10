@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { InternalApi } from '../../../contracts/internal-api'
-import { makeResolver, type AuthTokenSource } from './resolver'
+import { makeResolver } from './resolver'
 import { expandVars } from '../../../infra/vars'
 import type { SecretStore } from '../../../infra/config/secret-store'
 
@@ -70,55 +69,30 @@ describe('MCP resolver — process.env 전체 fallback 제거 (AC11)', () => {
   })
 })
 
-describe('MCP resolver — ${BINDING:id} 참조 (AC10)', () => {
-  const bindings = {
-    token: (id: string) => (id === 'bind_1' ? 'pat-value' : null)
-  }
-
-  it('binding 참조를 broker 에 위임해 해석한다', () => {
-    const resolve = makeResolver({ secrets: secrets(), bindings })
-    expect(expandVars('${BINDING:bind_1}', resolve)).toBe('pat-value')
-  })
-
-  it('Bearer 접두사 등 사용자가 쓴 형식을 그대로 보존한다', () => {
-    const resolve = makeResolver({ secrets: secrets(), bindings })
-    expect(expandVars('Bearer ${BINDING:bind_1}', resolve)).toBe('Bearer pat-value')
-  })
-
-  it('알 수 없는 binding 은 미해결로 남는다 (서버 드롭 유도)', () => {
-    const resolve = makeResolver({ secrets: secrets(), bindings })
+// 0180 — 토큰 소스가 사라졌다. `${BINDING:…}` 는 **항상 미해결**이고, expand.ts 가 그 서버를
+// 통째로 드롭한다(fail-closed 유지). 0181 이 provider 물질화로 이 자리를 채운다.
+describe('MCP resolver — 토큰 소스 없이 동작한다 (0180 AC4)', () => {
+  it('토큰 소스 없이 ${VAR} 서버를 해소한다', () => {
+    const resolve = makeResolver({ secrets: secrets({ HOST: 'wiki.corp', TOKEN: 'sealed' }) })
     const missing = new Set<string>()
-    expandVars('${BINDING:nope}', resolve, missing)
-    expect([...missing]).toEqual(['BINDING:nope'])
+    expect(expandVars('https://${HOST}/x?t=${TOKEN}', resolve, missing)).toBe(
+      'https://wiki.corp/x?t=sealed'
+    )
+    expect(missing.size).toBe(0)
   })
 
-  it('broker 미주입이면 binding 참조가 해석되지 않는다', () => {
+  it('대상 참조는 미해결로 남아 서버 드롭을 유도한다', () => {
     const resolve = makeResolver({ secrets: secrets() })
     const missing = new Set<string>()
-    expandVars('${BINDING:bind_1}', resolve, missing)
-    expect(missing.size).toBe(1)
+    expandVars('${BINDING:wiki}', resolve, missing)
+    expect([...missing]).toEqual(['BINDING:wiki'])
   })
 
-  it('${VAR} 와 ${BINDING:} 이 한 문자열에서 함께 동작한다 (하위호환)', () => {
-    const resolve = makeResolver({ secrets: secrets({ HOST: 'wiki.corp' }), bindings })
-    expect(expandVars('https://${HOST}/x?t=${BINDING:bind_1}', resolve)).toBe(
-      'https://wiki.corp/x?t=pat-value'
-    )
-  })
-
-  it('binding id 는 env-var 이름으로 오인되지 않는다', () => {
-    // ${BINDING:...} 는 VAR_RE 와 서로소라 env 조회로 새지 않는다.
-    const resolve = makeResolver({ secrets: secrets({ 'BINDING:bind_1': 'wrong' }), bindings })
-    expect(expandVars('${BINDING:bind_1}', resolve)).toBe('pat-value')
-  })
-})
-
-// 인증 포트는 **계약에서 좁혀 온다** (0178 정정). 손으로 다시 선언하면 이 대입이 깨진다 —
-// 소비자마다 자기 형상을 만들면 인증이 "모듈이 부르는 하나의 API" 이기를 그만둔다.
-describe('인증 포트는 InternalApi 에서 파생된다', () => {
-  it('AuthTokenSource 는 InternalApi 의 부분집합이다', () => {
-    const port: AuthTokenSource = { token: () => 'v' }
-    const narrowed: Pick<InternalApi, 'token'> = port
-    expect(narrowed.token('any')).toBe('v')
+  it('대상 이름은 vault 조회로 새지 않는다', () => {
+    // ${BINDING:...} 는 VAR_RE 와 서로소라, 같은 이름이 vault 에 있어도 읽지 않는다.
+    const resolve = makeResolver({ secrets: secrets({ 'BINDING:wiki': 'leaked' }) })
+    const missing = new Set<string>()
+    expandVars('${BINDING:wiki}', resolve, missing)
+    expect([...missing]).toEqual(['BINDING:wiki'])
   })
 })

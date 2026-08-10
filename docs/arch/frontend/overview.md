@@ -89,7 +89,7 @@
 | **사용량 한도 UI (도넛 팝오버·설정 탭·provider별 한도)** | Phase 4 | ✅ 완료 (0079~0082) | `UsagePanel`(rendering.md §1.9) + `features/settings/`(Usage/ProviderUsage 탭) + `features/cost/` provider 요약. 파생 SSOT `shared/usage/limits.ts` |
 | **인앱 업데이트 UX** | Phase 4 | ✅ 완료 (0085/0086) | `features/update/` — 헤더 조건부 업데이트 버튼+파란 뱃지, `UpdateDialog`(사용자 게이트), dev 더미 토글(DebugPanel) |
 | **UI polish — 버전 모달·인라인 rename·삭제 확인** | Phase 4 | ✅ 완료 (0083) | `HeaderVersionModal`(Header) + `ChatTitleBar`(폴더 아이콘·`RenameInput`) + `ConfirmDialogHost`/`confirmDialogStore` |
-| **로그인 게이트** | Phase 4 | ✅ 완료 (0072/0089 → 0157 인증 플랫폼 승계) | `app/RootGate`+`app/LoginFrame`+`features/auth`(구 `features/login`). 디버그 토글은 `authBypass`(구 `ssoBypass`). 게이트 발동 조건 = `application` 대상 auth provider 등록 여부 — 미등록(기본 배포)이면 통과 |
+| **로그인 게이트** | Phase 4 | ⛔ **0180 에서 제거** | `features/auth`·`app/LoginFrame` 삭제. `app/RootGate` 는 부팅 단계만 판정하고, 부팅 실패 화면은 `app/BootFailureFrame` 이 맡는다(구 `LoginFrame` 의 남은 책임). `Settings.authBypass` 는 스키마에만 남고 읽는 코드가 없다. 0181 이 `Provider{kind:'gate'}` 로 재작성 |
 
 > 이 표는 코드 변경 시 함께 갱신한다.
 

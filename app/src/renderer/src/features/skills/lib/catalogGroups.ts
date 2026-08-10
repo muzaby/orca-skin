@@ -5,7 +5,6 @@
 import type { McpServer, SkillInfo } from '../../../../../shared/ipc'
 import type { UiMessage } from '../../../shared/i18n'
 import type { CatalogTab } from './catalogSelection'
-import type { ConnectorRow } from './pluginCatalog'
 
 export interface CatalogGroup<T> {
   id: string
@@ -49,22 +48,6 @@ export function mcpGroups(servers: McpServer[]): CatalogGroup<McpServer>[] {
       id: 'inactive',
       label: { key: 'skills.groups.inactiveMcp' },
       rows: servers.filter((server) => !server.enabled)
-    }
-  ])
-}
-
-// 서버(커넥터) = 연결 여부별 (0164 — 행이 패키지에서 커넥터로 바뀌었다).
-export function pluginGroups(rows: ConnectorRow[]): CatalogGroup<ConnectorRow>[] {
-  return nonEmpty([
-    {
-      id: 'connected',
-      label: { key: 'skills.groups.connectedPlugins' },
-      rows: rows.filter((row) => row.connected)
-    },
-    {
-      id: 'disconnected',
-      label: { key: 'skills.groups.disconnectedPlugins' },
-      rows: rows.filter((row) => !row.connected)
     }
   ])
 }

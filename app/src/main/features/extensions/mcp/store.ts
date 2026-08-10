@@ -20,7 +20,7 @@ import { readMcpFile, writeMcpFile } from './file'
 import { SecretStore } from '../../../infra/config/secret-store'
 import type { Resolver } from '../../../infra/vars'
 import { VAR_RE } from '../../../infra/vars'
-import { makeResolver, type AuthTokenSource } from './resolver'
+import { makeResolver } from './resolver'
 import { secretEnvAllowlist } from '../../../infra/config/orca-config'
 import type { ClaudeMcp, OrcaMcpConfig } from '../../../adapters/mcp-config'
 
@@ -48,7 +48,6 @@ export class McpStore {
   private readonly secrets = new SecretStore()
   // 인증 플랫폼 binding 조회 (0157). 구조적 포트라 features 교차 import 가 아니고,
   // 컴포지션 루트가 부팅 시 주입한다. 미주입이면 `${BINDING:}` 참조는 해석되지 않는다(서버 드롭).
-  private bindings: AuthTokenSource | null = null
   // mcp.json 파스 캐시 — 이 스토어가 유일한 런타임 read/write 주체(bootstrap 싱글턴)라
   // write() 가 단일 무효화 지점이다. 매 턴(enabledConfig) 디스크 재파싱을 없앤다(0092).
   private cache: OrcaMcpConfig | null = null
@@ -257,20 +256,14 @@ export class McpStore {
     return out
   }
 
-  // 인증 플랫폼 주입 (0157). broker 는 부팅 최상단에서 만들어지지만 McpStore 는 필드
-  // 초기화로 먼저 생기므로 setter 로 잇는다.
-  attachBindings(source: AuthTokenSource): void {
-    this.bindings = source
-  }
-
   // resolver 팩토리 노출. 비밀 단일 소유권은 McpStore 가 유지하고(this.secrets), 확장 시점은
   // 어댑터의 어댑트 시점으로 미룬다 — 미확장 ${VAR} 를 넘기고 어댑터가 이 resolver 로 복호화.
   //
   // 0157: process.env 전체 fallback 을 제거하고 orca.json 의 명시 allowlist 만 허용한다.
+  // 0180: 인증 토큰 소스 주입(`attachBindings`)이 사라졌다 — 0181 이 다시 잇는다.
   resolver(): Resolver {
     return makeResolver({
       secrets: this.secrets,
-      ...(this.bindings ? { bindings: this.bindings } : {}),
       envAllowlist: secretEnvAllowlist()
     })
   }

@@ -1,7 +1,7 @@
 # Backend Architecture — Overview (범위·스택·프로세스)
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-08-05 (handoff 0177 — 0096~0176 동기화: auth-platform·connectors 슬라이스(11종)·infra/auth·infra/log·contracts 9모듈·settings 20 키·마이그레이션 16종. 직전 0094 — 0078~0093 동기화: scheduler 슬라이스·자동 업데이트·skills 시딩·boot-report 계측 반영)
+> 최종 업데이트: 2026-08-10 (handoff 0180 — **인증 플랫폼·connector 전면 제거**: 슬라이스 11→**9**, contracts →**6모듈**, `infra/auth`→`infra/net` 이설, settings **18 키**, IPC **71 채널**. 직전 0177 — 0096~0176 동기화. 직전 0094 — 0078~0093 동기화: scheduler 슬라이스·자동 업데이트·skills 시딩·boot-report 계측 반영)
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [adapters.md](./adapters.md), [provider-runtime.md](./provider-runtime.md), [standardization.md](./standardization.md), [persistence.md](./persistence.md), [security.md](./security.md), [runtime-ipc.md](./runtime-ipc.md), [terms.md](./terms.md) (사람용 용어 해설), [`app/src/main/AGENTS.md`](../../../app/src/main/AGENTS.md) (레이어 DAG 정본)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 
@@ -80,10 +80,8 @@ Electron App
 │   │   ├── extensions/         # ExtensionBuilder(지침·MCP·skill 조립) + deployer · mcp/ · skills/(scan·seed)
 │   │   ├── orchestration/      # Conversation Continuity(fork/handoff) 순수 로직 (handoff 0051 §A.4)
 │   │   ├── scheduler/          # 주기 실행 엔진 (croner, 0091) — register/protect/nextRun/stopAll + schedule_runs 기록
-│   │   ├── auth-platform/      # 인증 플랫폼 (0157~0172) — registry · transactions · bindings · broker · policy · conformance · plugin-host
 │   │   │                       #   providers/ = 인증 방식 구현 · modules/ = 회사 패키지 opt-in 레지스트리(confluence · usage · _example)
 │   │   └── connectors/         # 인증된 내장 도구 실행 (0158~0164) — registry · runtime · templates · instance-{id,store,lifecycle}
-│   │                           #   raw credential 미접근 — infra/auth 의 authenticatedFetch 만 받는다
 │   ├── adapters/               # SessionAdapter 포트 & 구현 (구체 provider 리터럴 격리)
 │   │   ├── types.ts·turn.ts·provider-config.ts·mcp-config.ts·hooks.ts·descriptor.ts  # 포트
 │   │   ├── claude.ts           # ClaudeAdapter — SDK query() (장수명 채널 pushTurn)
@@ -198,9 +196,8 @@ Electron App
 | provider별 사용량 한도 | Phase 4 | ✅ 완료 (0079~0082) | `provider_limits`(`0012`) + `cost:providerSummaries`/`cost:setProviderLimit` |
 | CI/CD 릴리스 파이프라인 (v0.1.0) | Phase 4 | ✅ 완료 (0087~0089) | `.github/workflows/{ci,release}.yml` — Windows unsigned NSIS + GitHub Releases draft. 배포 빌드는 로그인 게이트 스킵(0089). 정본 `docs/guides/release-operations.md` |
 | 중앙 로깅 (LogManager · JSONL · redaction) | Phase 4 | ✅ 완료 (0123/0124, prod opt-in 토글 0144) | `infra/log/` — 외부 로깅 라이브러리 미도입. 정본 [observability.md](./observability.md) |
-| **인증 플랫폼** (앱 로그인 + 서비스 연결 공통 lifecycle) | Phase 4 | ✅ 완료 (0157·0170·0172) | `features/auth-platform/` — registry·transactions·bindings·broker·policy. IPC `auth` 8채널. credential 은 `infra/auth/credential-vault.ts`(safeStorage) 소유, DTO 는 `handleId` 만 |
-| **Connector** (인증된 내장 도구 실행) | Phase 4 | ✅ 완료 (0158~0164) | `features/connectors/` — 정적(코드 배포) + 인스턴스(사용자 생성, 0161). IPC `plugin` 7채널. 동봉 패키지 = Confluence DC(0160·0164) · 범용 usage(0176) |
-| **원격 전송 스택 단일화** (Node 전역 `fetch` 금지 → Chromium 스택) | Phase 4 | ✅ 완료 (0173/0174) | 전역 `fetch(` 호출은 `infra/auth/net-fetch.ts` 에만 허용(`no-node-fetch.test.ts` 가 0건으로 고정), 소비자는 `typeof fetch` 포트 주입. Chromium 스택을 무는 파일은 3개(`net-fetch`·`net-request`·`browser-session-store`). [security.md](./security.md) §1.8 |
+| **인증 플랫폼** (앱 로그인 + 서비스 연결) | Phase 4 | ⛔ **0180 에서 전면 제거** | `features/auth-platform/`·`features/connectors/`·계약 3종·`infra/auth` 6모듈·IPC 11채널이 함께 사라졌다. 0181 이 `Provider` 축(`kind:'gate'|'llm'|'service'`)으로 재작성한다 |
+| **원격 전송 스택 단일화** (Node 전역 `fetch` 금지 → Chromium 스택) | Phase 4 | ✅ 완료 (0173/0174) | 전역 `fetch(` 호출은 `infra/net/net-fetch.ts` 에만 허용(`no-node-fetch.test.ts` 가 0건으로 고정), 소비자는 `typeof fetch` 포트 주입. Chromium 스택을 무는 파일은 **2개**(`net-fetch`·`net-request` — 0180 에서 `browser-session-store` 삭제, 같은 핸드오프가 `infra/auth/`→`infra/net/` 이설). [security.md](./security.md) §1.8 |
 | `options.permissionMode` (도구 권한) | Phase 4 | ❌ 미구현 | PRD OQ9 |
 | `options.hooks` 완전 구현 (도구 감사 외부 핸들러) | Phase 4 | ❌ 미구현 | 현재 인프로세스 OrcaHookSet 은 구현됨 |
 | 멀티세션 + 장수명 세션 채널 | Phase 4 | ✅ main 런타임 완료 (handoff 0011·0051·0067) | 세션별 SessionRuntime + 동시 턴 + 장수명 채널(프레임)·idle 풀 LRU. runtime-ipc.md §1. renderer 외피는 ../frontend/state.md §2 |

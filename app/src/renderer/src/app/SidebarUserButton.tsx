@@ -4,7 +4,6 @@ import { Popover } from '../shared/ui/Popover'
 import { Icon } from '../shared/ui/Icon'
 import { useTweakContext } from '../shared/theme'
 import { useI18n, type UiLocale } from '../shared/i18n'
-import { useAuthStore } from '../features/auth'
 import { SettingsModal, useSettingsModalStore } from '../features/settings'
 import { useProviderUsage } from '../features/cost'
 
@@ -15,13 +14,16 @@ const LANGUAGES: { value: UiLocale; label: string }[] = [
   { value: 'ko', label: '한국어 (대한민국)' }
 ]
 
-// 사이드바 footer 의 사용자 버튼(app 레이어 조립 — 인증 스토어[features/auth] +
-// 설정 모달[features/settings] 를 함께 참조하므로 교차-feature 회피 위해 여기 둔다).
-// 썸네일 아이콘 없이 이메일 텍스트만 표기하고(bypass=developer), 클릭 시 팝오버 메뉴를 연다.
+// 사이드바 footer 의 사용자 버튼(app 레이어 조립 — 설정 모달[features/settings] 과
+// 사용량[features/cost] 을 함께 참조하므로 교차-feature 회피 위해 여기 둔다).
+// 썸네일 아이콘 없이 이름 텍스트만 표기하고, 클릭 시 팝오버 메뉴를 연다.
+//
+// 0180 에서 인증이 사라져 표시할 신원이 없다 — 0181 이 `Provider{kind:'gate'}` 의
+// principal 로 이 자리를 다시 채운다. 그때까지는 고정 라벨이다.
+const DISPLAY_NAME = 'developer'
+
 export function SidebarUserButton(): React.JSX.Element {
-  const bypass = useAuthStore((s) => s.bypass)
-  const email = useAuthStore((s) => s.email)
-  const displayName = bypass ? 'developer' : (email ?? 'developer')
+  const displayName = DISPLAY_NAME
 
   const anchorRef = useRef<HTMLButtonElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)
