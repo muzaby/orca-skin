@@ -1,6 +1,6 @@
 # app/ — 코딩 에이전트용 가이드
 
-이 디렉토리는 **Orca v1 의 실제 구현체** (electron-vite + React/TypeScript) 가 사는 곳이다. 현재 단계는 **Phase 3++ / Phase 4** — 로컬 SQLite SSOT + 세션 히스토리 + DOM Architecture + 4-layer Feature 아키텍처 + MCP/Skill 통합 + provider 표준화 리팩토링(부분). **인증 플랫폼·connector 는 0180 에서 전면 제거**했고 0181 이 `Provider` 축으로 재작성한다. **전체 페이즈 이력은 [`../docs/PHASES.md`](../docs/PHASES.md)** 로 분리했다 (이 파일은 영속 작업 지침이지 changelog 가 아니다).
+이 디렉토리는 **Orca v1 의 실제 구현체** (electron-vite + React/TypeScript) 가 사는 곳이다. 현재 단계는 **Phase 3++ / Phase 4** — 로컬 SQLite SSOT + 세션 히스토리 + DOM Architecture + 4-layer Feature 아키텍처 + MCP/Skill 통합 + provider 표준화 리팩토링(부분). **인증 플랫폼·connector 는 0180 에서 전면 제거** 후 **0181 이 `Provider` 단일 축으로 재작성**했다. **전체 페이즈 이력은 [`../docs/PHASES.md`](../docs/PHASES.md)** 로 분리했다 (이 파일은 영속 작업 지침이지 changelog 가 아니다).
 
 > **정본 우선.** 아키텍처 상세 — 모듈 트리·Provider 합성 순서·DOM 마커 체계·IPC 카탈로그·보안 근거 — 의 SSOT 는 `../docs/` 다. 본 문서는 **app 디렉토리에서 코드를 짤 때의 작업 규칙**만 담는다. 본문과 SSOT 가 어긋나면 `../docs/` 와 코드가 진실이다.
 
@@ -47,11 +47,11 @@ shared     → shared 내부만                               (순수 타입/상
 
 | 경로                          | 책임                                                                                          |
 | ----------------------------- | --------------------------------------------------------------------------------------------- |
-| `src/main/app/`               | 컴포지션 루트 — `bootstrap.ts`(부팅 배선·버스 구독 순서) · `chat-turn/`(턴 셋업 **14모듈** — 0179 에서 892줄 `handleChatSend` 를 단계로 분해. 진입점 `index.ts`(배럴) · 순서 `send.ts` · 순수 판정 `admission.ts` · 순수 조립 `turn-context.ts`·`continuation.ts` · `resolve-turn`·`runtime-entry`·`enqueue`·`turn-request`·`approval`·`post-turn`·`busy-reserve`·`turn-setup`·`deps`) + `chat-turn-continuation.ts`(자동 연속 턴, 0126) · `handlers/*`(도메인 IPC **12종** — boot·cost·engine·files·log·mcp·misc·project·session·settings·skills·update. 0180 에서 auth·plugins 삭제) · `context.ts`(RouterContext) · `boot-report.ts`(부팅 진단, 0077) · `updater.ts`+`updater-feed.ts`(자동 업데이트 + object storage/GHE 피드, 0084~0086·0133) · `builtin-resources.ts`(번들 스킬 리소스 해석, 0078). **0180 에서 `auth-restore.ts`·`usage-source.ts` 삭제** |
+| `src/main/app/`               | 컴포지션 루트 — `bootstrap.ts`(부팅 배선·버스 구독 순서) · `chat-turn/`(턴 셋업 **14모듈** — 0179 에서 892줄 `handleChatSend` 를 단계로 분해. 진입점 `index.ts`(배럴) · 순서 `send.ts` · 순수 판정 `admission.ts` · 순수 조립 `turn-context.ts`·`continuation.ts` · `resolve-turn`·`runtime-entry`·`enqueue`·`turn-request`·`approval`·`post-turn`·`busy-reserve`·`turn-setup`·`deps`) + `chat-turn-continuation.ts`(자동 연속 턴, 0126) · `handlers/*`(도메인 IPC **13종** — boot·cost·engine·files·log·mcp·misc·project·**providers**(0181)·session·settings·skills·update) · `context.ts`(RouterContext) · `boot-report.ts`(부팅 진단, 0077) · `updater.ts`+`updater-feed.ts`(자동 업데이트 + object storage/GHE 피드, 0084~0086·0133) · `builtin-resources.ts`(번들 스킬 리소스 해석, 0078) · `usage-source.ts`(`ProviderApi`→`UsageSourcePort` 어댑터, 0176→0181 복원) |
 | `src/main/adapters/`          | claude 어댑터 — `claude.ts`(query) · `claude-map.ts`(SDK→`NormalizedEvent`) · `claude-adapt.ts`(outbound) + 포트(`types`·`turn`·`provider-config`…). mock 은 dev, opencode 는 future |
-| `src/main/features/`          | 수직 슬라이스 (**9**) — `approvals` · `chat`(턴 오케스트레이션) · `extensions`(MCP·skill·deploy·seed) · `history`(persist) · `orchestration`(대화 연속성 fork/handoff, 순수 로직) · `providers`(정적 사용량 provider 는 `static/modules/` opt-in) · `scheduler`(croner 주기 실행, 0091) · `sessions`(런타임 거버넌스) · `usage` |
-| `src/main/contracts/`         | 공유 타입 계약 (**6**) — `turn`(`TurnContext`) · `bus-events` · `ports` · `session-state` · `usage-report` · `usage-source`(0176). **0180 에서 `auth-method`·`internal-api`·`connector` 삭제** — 0181 이 `provider.ts` 하나로 대체한다 |
-| `src/main/infra/`             | 얇은 인프라 — `db`(better-sqlite3+WAL+마이그레이션 16종) · `bus`(TypedBus) · `config`(orca.json·secret) · `ipc`(handle/send/dto) · `net`(**`net-fetch`/`net-request`/`net-response` = 유일한 원격 전송 스택**. 0180 에서 `infra/auth/` → `infra/net/` 이설 — 인증 인프라와 함께 지워질 뻔했으나 updater·usage 가 쓰는 공용 인프라다) · `log`(중앙 LogManager·JSONL·redact, 0123/0124) · `settings-store`(+`settings-migration`) · `cron`(croner 래퍼) · `errors` · `vars` |
+| `src/main/features/`          | 수직 슬라이스 (**9**) — `approvals` · `chat`(턴 오케스트레이션) · `extensions`(MCP·skill·deploy·seed) · `history`(persist) · `orchestration`(대화 연속성 fork/handoff, 순수 로직) · **`providers`**(설정·모델 해석 + **인증 provider 플랫폼** `auth`/`gate`/`llm`/`service`/`declarations`, 0181) · `scheduler`(croner 주기 실행, 0091) · `sessions`(런타임 거버넌스) · `usage` |
+| `src/main/contracts/`         | 공유 타입 계약 (**7**) — `turn`(`TurnContext`) · `bus-events` · `ports` · `session-state` · `usage-report` · `usage-source`(0176) · **`provider`**(0181 — `Provider`·`AuthSpec`·`Grant`·`ProviderApi`. 0180 이 지운 `auth-method`·`internal-api`·`connector` 3종을 하나로 대체) |
+| `src/main/infra/`             | 얇은 인프라 — `db`(better-sqlite3+WAL+마이그레이션 16종) · `bus`(TypedBus) · `config`(orca.json·secret) · `ipc`(handle/send/dto) · `net`(**`net-fetch`/`net-request`/`net-response`/`transport` = 유일한 원격 전송 스택**. 0180 에서 `infra/auth/` → `infra/net/` 이설) · `vault`·`browser-session`(+`-policy`)·`loopback-callback`(0181 — provider 자격증명·cookie jar·OAuth 콜백) · `log`(중앙 LogManager·JSONL·redact, 0123/0124) · `settings-store`(+`settings-migration`) · `cron`(croner 래퍼) · `errors` · `vars` |
 | `src/shared/{ipc,protocol}.ts`| `CHANNELS` 상수 + 순수 TS 타입 / zod 스키마 (main 전용)                                        |
 
 > 레이아웃에서 벗어나려면 사용자에게 먼저 확인하고, TRD §1.2 와 코드를 동시에 갱신한다.
@@ -73,8 +73,8 @@ new BrowserWindow({
 
 - **CSP** (`src/renderer/index.html`): Google Fonts 만 허용 — `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com`.
 - **외부 URL 로드 금지** — `webContents.setWindowOpenHandler` 로 차단 + OS 기본 브라우저 위임. DevTools 자동 오픈은 dev 빌드 한정.
-- 비밀은 `safeStorage` 로만 봉인한다 — MCP 인증값(인증 플랫폼 vault 는 0180 에서 제거). raw secret 이 **나가는** 예외 2곳(MCP `.mcp.json` · LLM `--settings` argv)은 `../docs/arch/backend/security.md §1.4-b` 의 경계표에 고정돼 있다 — 표 밖의 신규 노출 금지.
-- **main 에서 Node 전역 `fetch` 를 쓰지 않는다** (0173/0174). 전역 `fetch(` 를 부를 수 있는 파일은 `infra/net/net-fetch.ts` 하나뿐이고, 소비자는 `typeof fetch` 포트로 **주입받는다**(기본값 금지 — 기본값은 곧 조용한 Node 스택 복귀). 위반은 `infra/net/no-node-fetch.test.ts` 가 잡는다. Chromium 스택을 무는 파일은 **2개**(`net-fetch`·`net-request` — 0180 에서 `browser-session-store` 삭제) — 근거·`redirect:'manual'` 의미차 → `../docs/arch/backend/security.md` §1.8·§1.9.
+- 비밀은 `safeStorage` 로만 봉인한다 — MCP 인증값 + provider vault(`infra/vault.ts`, 0181). raw secret 이 **나가는** 예외 **3곳**(MCP `.mcp.json` · LLM `--settings` argv · **LLM `Options.env`**, 0181)은 `../docs/arch/backend/security.md §1.4-b` 의 경계표에 고정돼 있다 — 표 밖의 신규 노출 금지.
+- **main 에서 Node 전역 `fetch` 를 쓰지 않는다** (0173/0174). 전역 `fetch(` 를 부를 수 있는 파일은 `infra/net/net-fetch.ts` 하나뿐이고, 소비자는 `typeof fetch` 포트로 **주입받는다**(기본값 금지 — 기본값은 곧 조용한 Node 스택 복귀). 위반은 `infra/net/no-node-fetch.test.ts` 가 잡는다. Chromium 스택을 무는 파일은 **3개**(`net-fetch`·`net-request`·`browser-session`(0181 복원)) — 근거·`redirect:'manual'` 의미차 → `../docs/arch/backend/security.md` §1.8·§1.9.
 - 근거 · credential 모델 상세 → [`../docs/arch/backend/security.md`](../docs/arch/backend/security.md).
 
 ## DB · 캐시 정책 (app 고유)
@@ -97,7 +97,7 @@ new BrowserWindow({
 ## 의존성 정책
 
 - TRD §2 Stack 표 **밖**의 패키지 추가는 **사용자 승인 필수** + PR 설명에 _왜_ 명시.
-- 이미 채택 (도입 시점만 자유): React, react-markdown(+remark-gfm), shiki, electron-store, zod, zustand@5, vitest, Tailwind v4, better-sqlite3@12, react-router-dom v7, croner, electron-updater@6, diff, `@tanstack/react-virtual`@3(transcript 가상화, 0102), i18next/react-i18next(0096, devDeps), recharts(설정 사용량 차트, 0112), Confluence storage→markdown 변환 3종(`cheerio`·`turndown`·`turndown-plugin-gfm`, 0160 승인 — **0180 기준 소비자 0**. 커넥터 제거로 일시 미사용이나 0181 이 복원하므로 지우지 마라), undici(devDeps). 템플릿 동봉(사전 승인): `@electron-toolkit/{utils,preload}`. (playwright 는 TRD 채택 목록에 있으나 아직 미설치 — 도입 시 devDependency 추가.)
+- 이미 채택 (도입 시점만 자유): React, react-markdown(+remark-gfm), shiki, electron-store, zod, zustand@5, vitest, Tailwind v4, better-sqlite3@12, react-router-dom v7, croner, electron-updater@6, diff, `@tanstack/react-virtual`@3(transcript 가상화, 0102), i18next/react-i18next(0096, devDeps), recharts(설정 사용량 차트, 0112), Confluence storage→markdown 변환 3종(`cheerio`·`turndown`·`turndown-plugin-gfm`, 0160 승인 — **0181 에서 소비자 복귀**: `features/providers/service/confluence/`), undici(devDeps). 템플릿 동봉(사전 승인): `@electron-toolkit/{utils,preload}`. (playwright 는 TRD 채택 목록에 있으나 아직 미설치 — 도입 시 devDependency 추가.)
 - 미정 항목 (PRD §11 / TRD §15 — 단독 결정 금지): 마크다운 라이브러리 최종 결정 · 코드 서명(현재 unsigned NSIS) · 텔레메트리 · 라이센스 · 성능 SLA · 기본 백엔드. (패키징=electron-builder NSIS·자동 업데이트=electron-updater 는 0084~0089 로 채택 완료.)
 
 ## 빌드 / 실행

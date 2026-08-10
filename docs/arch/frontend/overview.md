@@ -89,7 +89,8 @@
 | **사용량 한도 UI (도넛 팝오버·설정 탭·provider별 한도)** | Phase 4 | ✅ 완료 (0079~0082) | `UsagePanel`(rendering.md §1.9) + `features/settings/`(Usage/ProviderUsage 탭) + `features/cost/` provider 요약. 파생 SSOT `shared/usage/limits.ts` |
 | **인앱 업데이트 UX** | Phase 4 | ✅ 완료 (0085/0086) | `features/update/` — 헤더 조건부 업데이트 버튼+파란 뱃지, `UpdateDialog`(사용자 게이트), dev 더미 토글(DebugPanel) |
 | **UI polish — 버전 모달·인라인 rename·삭제 확인** | Phase 4 | ✅ 완료 (0083) | `HeaderVersionModal`(Header) + `ChatTitleBar`(폴더 아이콘·`RenameInput`) + `ConfirmDialogHost`/`confirmDialogStore` |
-| **로그인 게이트** | Phase 4 | ⛔ **0180 에서 제거** | `features/auth`·`app/LoginFrame` 삭제. `app/RootGate` 는 부팅 단계만 판정하고, 부팅 실패 화면은 `app/BootFailureFrame` 이 맡는다(구 `LoginFrame` 의 남은 책임). `Settings.authBypass` 는 스키마에만 남고 읽는 코드가 없다. 0181 이 `Provider{kind:'gate'}` 로 재작성 |
+| **로그인 게이트** | Phase 4 | ✅ **0181 재작성 완료** | `app/RootGate` 가 부팅 위에 게이트를 얹는다 — 부팅 실패(`app/BootFailureFrame`) → 부팅 미완료(`BootScreen`) → **게이트 미판정/미통과(`app/GateFrame`)** → 메인 UI. 판정 전(`gate=null`)에는 통과시키지 않는다(fail-closed). 상태·액션은 `features/providers/hooks/useProviderGate`(app → features 는 허용 방향, `GateFrame` 은 `WinControls`(app)를 쓰므로 app 에 산다). 게이트 provider 선언이 0개면 즉시 통과. `Settings.authBypass` 는 **DEV 전용 우회**로 소비자 복귀 |
+| **연결(provider) 카탈로그 탭** | Phase 4 | ✅ 완료 (0181) | 설정 카탈로그 3번째 탭 — 상태·방식 선택·인증·재인증·해제. 순수 판정은 `features/skills/lib/providerRows.ts`(AC5 회귀), 상세 패널은 `features/skills/components/customize/ProviderDetail.tsx`. **추가 버튼 없음**(빌드타임 선언) |
 
 > 이 표는 코드 변경 시 함께 갱신한다.
 

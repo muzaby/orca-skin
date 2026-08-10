@@ -8,7 +8,7 @@
 | 작성자 | Claude Code |
 | 일자 | 2026-08-10 |
 | 매핑 | PHASES 신규 행 (0181) · 선행 `0180-auth-plugin-teardown`(impl/IMPL_DONE, `762a525`) |
-| 상태 | DRAFT → READY |
+| 상태 | DRAFT → READY → **impl/IMPL_DONE** |
 | 구현 주체 | **Claude** (환경에 Codex 부재 — 0160·0162·0163·0176 선례. 사용자 지시) |
 | 복원 좌표 | `8965fa7` (0180 teardown 의 부모) |
 
@@ -345,12 +345,11 @@ respawn 판정이 전부 여기 걸려 있다. 조인만 한다.
 | **OQ1** | **ADFS 게이트 실값** — `loginUrl` · `doneUrlPrefix` · `authenticationProbeUrl` · `sessionGroup` · `allowedOrigins` | `providers/sso.ts` 를 `null` 로 두고 게이트 미등록(= 통과). 값이 오면 그 파일만 채운다 |
 | **OQ2** | **토큰 교환 endpoint** — 게이트 세션으로 부를 사내 API 의 경로 · 응답 JSON 의 토큰 필드 경로 · 만료 필드 경로 | `{path, valuePath, expiresAtPath}` 로 파라미터화. 예시 값으로 테스트하고 실값은 실기에서 |
 | **OQ3** | **서비스 provider 인벤토리** — Confluence 의 origin·컨텍스트 경로(DC 라면 `/confluence` 등), 사용량 API 의 origin | 선언 배열을 비워 둔다(현재도 빈 배열이라 동작 변화 없음) |
-| **OQ4** | **OAuth 를 실제로 쓰는 대상이 있는가** — "둘 다 필요" 답변은 게이트=쿠키, 토큰=교환이었다. 그렇다면 **`kind:'oauth'`(code→token) 를 쓰는 provider 가 실재하는가?** 없다면 PKCE/루프백 코드는 소비자 0 이 된다 | **설계에는 남기되 구현 순서를 뒤로 미룬다.** 실사용자가 없으면 0157 의 실패(구현해도 배선 없음)를 반복한다 — 이 질문의 답에 따라 AC3·AC4 를 **다음 핸드오프로 이월**할 수 있다 |
+| **OQ4** ✅ **해결** | **OAuth 를 실제로 쓰는 대상이 있는가** | **사용자 답변(2026-08-10): "추후 사용 예정. 구현하라".** 따라서 AC3·AC4 를 **이월하지 않고 구현**했다(2단계). 배포 선언은 `declarations/llm.ts` 에 파라미터화된 형태로 두고 실값은 실기에서 채운다 — 게이트의 `sso.ts` 와 같은 형상이다. **소비자 0 이 아니다**: `login.ts` 의 `AuthSpec` 분기와 GUI 방식 선택이 실제 호출자이며, 회귀 23건이 그 경로를 덮는다 |
 
-> **OQ4 가 가장 중요하다.** 사용자 답변("둘 다")은 *게이트=쿠키 + 토큰=사내 API 교환* 으로 읽히며,
-> 그 경로에는 **표준 OAuth code→token 이 등장하지 않는다**. 최초 요구 문구의 "oauth(code→token)" 이
-> ⓐ 실제 표준 OAuth 를 쓰는 대상이 따로 있다는 뜻인지 ⓑ "로그인해서 토큰을 받는다" 의 통칭인지에
-> 따라 PKCE·루프백 리스너(약 270줄)의 필요 여부가 갈린다.
+> **OQ4 는 해결됐다** — 최초 요구 문구의 "oauth(code→token)" 은 ⓐ(실제 표준 OAuth 를 쓰는 대상이
+> 따로 있다)였다. 게이트=쿠키 경로와 **별개로** 표준 OAuth 를 구현했고, 둘은 `AuthSpec` 의 서로
+> 다른 분기로 공존한다. PKCE·`state`·루프백은 코어가 갖는다 — 배포 선언은 `authorize(ctx)` 만 채운다.
 
 ## 영향 받는 파일
 
@@ -409,28 +408,70 @@ respawn 판정이 전부 여기 걸려 있다. 조인만 한다.
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- 동의 / 그대로 진행: …
-- 이견 / 우려: …
+**구현 주체 = Claude** (환경에 Codex 부재 — 0160·0162·0163·0176·0179·0180 선례. 사용자 지시).
+
+- **동의 / 그대로 진행**
+  - **관계를 1급 축으로** 둔 것(§설계 1)이 이 설계의 핵심이고, 구현하면서 그 값이 드러났다. 구
+    구조에서 3중 교차를 만들던 `acceptedMethods`·`validateCrossReferences`·등록 순서 의존이
+    **코드로 쓸 자리 자체가 없었다** — 방식이 선언 안에 있으니 참조할 것이 없다. §설계 1 의
+    "런타임 검사는 둘뿐" 은 문자 그대로 지켜졌다(`registry.ts` 40줄).
+  - **복원 표(§설계 6)의 판단이 정확했다.** 순수 모듈 5건(policy·session-policy·confluence 3종)은
+    **한 글자도 안 고치고** 들어왔고, 결합 있는 6건도 `InternalApi`→`ProviderApi` 치환이 거의
+    전부였다. Confluence 테스트 144건이 이식 직후 전량 green 인 것이 그 증거다.
+  - **LLM seam 정정(R3·R4)이 없었으면 구현이 헛돌았다.** `${VAR}` 확장 경로에 주입했다면
+    settings 로더가 verbatim 이라 아무 일도 일어나지 않았을 것이다.
+- **이견 / 우려 (기록)**
+  - **AC 검증 수단의 경로가 §7 표와 두 곳에서 어긋났다**(아래 D1·D2). 설계 문서 안에서 같은
+    모듈을 두 경로로 적으면 구현자가 어느 쪽이 의도인지 판단해야 한다 — plan self-review 의
+    "경로 인용 대조" 항목이 §7 표까지 훑지는 않았다.
+  - **`ProviderRequest` 가 §설계 4 에서 `{path, method, headers, body}` 4필드로만 서술됐다.**
+    복원 대상인 Confluence `rest.ts` 는 `query`·`responseType`·`maxBytes` 를 쓰므로 그대로는
+    이식이 불가능했다. 계약을 넓혀 해결했다(D5) — 설계가 복원 표와 계약을 짝지어 보지 않은 자리다.
+  - **"약 1,900줄을 새로 쓰지 않는다" 는 절반만 맞다.** 복원은 그대로였지만 **연결 코드**
+    (`api.ts`·`platform.ts`·`login.ts`·`oauth-runner.ts`·`service/index.ts`)가 새로 필요했다.
+    분량 추정이 아니라 "무엇이 새로 필요한가" 를 세는 편이 정확했을 것이다.
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 구현함 / ⚠️ 보고만·**결정 필요** | … |
+| **D1** | **레지스트리 경로가 plan 안에서 둘로 갈렸다** — AC1 은 `features/providers/auth/registry.test.ts`, §7 표는 `features/providers/registry.ts` | ✅ **AC 를 따랐다** → `features/providers/auth/registry.ts`. 부수 이득으로 기존 `features/providers/provider-registry.ts`(sources/settings 열거, 0014)와 **이름 충돌을 피한다** — 둘 다 "registry" 지만 하나는 LLM settings 열거, 하나는 `Provider` 선언 등록이다 | AC 가 검증 수단을 지목하므로 AC 쪽이 더 구속력 있는 서술이다 |
+| **D2** | **renderer 위치가 둘로 갈렸다** — §7 은 `renderer/features/providers/`, AC5 는 `renderer/features/skills/lib/providerRows.test.ts` | ✅ **둘 다 맞고 책임이 다르다.** 게이트 상태·액션 = `features/providers/hooks/useProviderGate` · 게이트 **화면** = `app/GateFrame.tsx` · 카탈로그 provider 행 = `features/skills/lib/providerRows.ts` | ESLint `boundaries` 가 강제한다: `GateFrame` 은 `WinControls`(app)를 쓰므로 feature 에 두면 features→app 역방향이 된다. 카탈로그는 skills feature 소유라 provider 행도 거기 산다 |
+| **D3** | **0180 이 `IPC_CONTRACT.md` 의 auth/plugin 절을 지우지 않았다** — §1 도메인 목록(23개)에 `auth`·`plugin` 이 남고 §2.13-c(auth 7채널)·§2.13-d(plugin 4채널)가 **현재형으로** 살아 있었다. 채널 총계만 71 로 맞춰져 있어 테스트는 통과했다 | ✅ 두 절을 **provider 1절(§2.13-c)로 치환**하고 도메인 목록을 22개(`auth`·`plugin` 제거 + `provider` 추가)로 고쳤다 | 문서가 없는 채널을 서술하면 다음 작업자가 그것을 근거로 코드를 붙인다 |
+| **D4** | **`ProviderApi.request` 에 `query`·`responseType`·`maxBytes` 가 없어 Confluence 복원이 막혔다** | ✅ `ProviderRequest`/`ProviderResponse` 를 넓혔다(`query`·`responseType`·`maxBytes`·`bodyBytes`). 쿼리는 origin 판정 **후에** 붙이므로 정책이 헐거워지지 않는다 | 첨부 다운로드는 바이트·상한이 필수고, CQL 검색은 쿼리 파라미터가 본질이다 |
+| **D5** | **전송 조각이 infra↔feature 사이에 끼었다** — 복원 대상 `authenticated-fetch.ts` 는 `PreparedRequest`·상한 검사(infra 성격)와 `Presentation` 적용(contracts 의존)을 한 파일에 갖고 있었고, `browser-session.ts`(infra)가 앞의 절반을 쓴다 → infra→feature 역방향 | ✅ **둘로 갈랐다**: `infra/net/transport.ts`(전송·상한, 도메인 타입 모름) + `features/providers/auth/present.ts`(`Presentation` 적용) | DAG 위반은 lint error 라 회피가 아니라 분해가 필요했다 |
+| **D6** | **`RuntimeToolRegistry` 의 동등성 검사가 handler identity 까지 본다** — `Provider.tools(api)` 를 sync 마다 다시 부르면 형상이 같아도 revision 이 올라 **다음 턴이 런타임을 재spawn** 한다 | ✅ `ServiceToolRegistrar` 가 providerId 별로 조립 결과를 **캐시**한다. 회귀로 고정("반복 호출은 멱등이다") | 테스트가 처음에 실패해서 발견했다 — 함수형 `syncServiceTools` 를 클래스로 바꾼 이유 |
+| **D7** | **grant 만료가 `token` 종류에만 있었다** — 401 관측으로 `secret` grant 를 강등할 자리가 없다 | ✅ `expiresAt` 을 `GrantBase` 로 올리고 `markExpired()` 를 뒀다. UI·게이트가 "지금 못 쓴다" 를 **한 가지 방식**으로 읽는다 | AC7 의 401 강등이 secret 방식에서도 성립해야 한다 |
+| **D8** | **`orca:provider:state` 를 push 전용으로 두면 renderer 가 초기 스냅샷을 못 받는다** — 채널 6개는 일방향 확정 결정이라 늘릴 수 없다 | ✅ **한 채널을 양방향으로** 썼다(invoke=스냅샷, send=변화). 구 auth 가 `status`+`stateEvent` 로 나눠 두 벌을 동기화하던 것을 접은 형태다 | Electron 은 `ipcMain.handle` 과 `wc.send` 가 같은 채널명에서 충돌하지 않는다 |
+| **D9** | **`ProviderStore` 가 없는 `RouterContext` 경로가 있다**(테스트 하네스) | ✅ `providers?` 를 **optional** 로 두되 없으면 "인증 없음" 으로 동작한다 — 조용한 성공이 아니라 조용한 **미인증**(fail-closed) | 필수로 두면 기존 테스트 하네스가 전부 깨지고, 기본값을 두면 미인증이 인증으로 보인다 |
+| **D10** | **게이트 판정 전(`gate=null`)의 화면이 설계에 없었다** | ✅ **통과시키지 않고 부팅 화면을 유지**한다. main 이 잠깐 응답하지 못하는 사이 로그인 강제 빌드가 무인증으로 열리면 안 된다 | 구 auth 문서(§2.13-c)가 같은 규칙을 적고 있었다 — "renderer 는 prod 에서 invoke 실패를 `required:false` 로 기본화하지 않는다" |
+| **D11** | **AC8·AC14(게이트 진리표)를 3단계로 미뤘는데 1단계의 `state()` 가 게이트 값을 필요로 했다** | ✅ 게이트 순수 모듈을 **1단계로 앞당겨** 구현했다(플레이스홀더를 뒀다가 나중에 갈아엎는 것보다 낫다). 3단계는 browser-session·정책·화면을 맡았다 | 단계 경계는 커밋 위생을 위한 것이지 설계 제약이 아니다 |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] …
+- [x] **1단계** — `contracts/provider.ts` · `auth/{registry,store,store-file,login,specs/credential}` · `infra/vault.ts` ·
+      `gate/index.ts` · `platform.ts` · `declarations/{index,sso,llm,service}` · IPC 6채널(shared/preload/renderer) ·
+      `app/handlers/providers.ts` · bootstrap 조기 등록 · 카탈로그 연결 탭 · `IPC_CONTRACT` 71→77
+- [x] **2단계** — `auth/oauth.ts`(PKCE S256·state 발급/파일보관/대조·콜백 파싱) · `auth/oauth-runner.ts`(redirect 3분기) ·
+      `infra/loopback-callback.ts` · OAuth pending 영속 · bootstrap 배선(기본 브라우저 + 앱 내부 창)
+- [x] **3단계** — `infra/browser-session{,-policy}.ts` 복원 · `auth/specs/browser-session.ts`(세션→토큰 교환 포함) ·
+      `auth/{policy,present,api}.ts` · `app/GateFrame.tsx` + `features/providers/hooks/useProviderGate` · `RootGate` 게이트 층
+- [x] **4단계** — `buildTurnEnv(ctx, providerKey)` · MCP resolver 토큰 소스 · `app/usage-source.ts` ·
+      `service/{index,confluence/*}` 복원 + `ServiceToolRegistrar`
+- [x] **5단계** — `security.md`(§1.4-b 3계층+노출 3곳 · §1.7 게이트 · §1.8/§1.9 인벤토리) ·
+      `closed-network-extensions.md` 전면 재작성 · `GLOSSARY`(Provider 표제어 5종 + 어휘 충돌 명시) ·
+      arch overview 2종 · `PHASES` · AGENTS 3종 · i18n(ko/en) · plan/INDEX
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `vitest run` |
-| 게이트 결과 | … |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | **코드 신설 24 · 복원 11 · 수정 20 · 문서 9.** 신설 핵심: `contracts/provider.ts` · `features/providers/{platform,auth/*,gate/*,llm/*,service/*,declarations/*}` · `infra/{vault,loopback-callback,net/transport}.ts` · `app/{handlers/providers,usage-source,GateFrame}.ts(x)` · renderer `features/{providers/hooks,skills/{lib/providerRows,hooks/useProviders,components/customize/ProviderDetail}}`. 복원(8965fa7): `browser-session{,-policy}` · `auth/{policy,present}` · `specs/credential` · confluence 7모듈 |
+| 실행 명령 | `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` → `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` (단계마다 반복) |
+| 게이트 결과 | lint **0 error / 1 warn**(기존 `react-hooks/incompatible-library`) · typecheck **3/3** · vitest **190 파일(185/5) · 1,670 테스트(1,631/39)**. 실패 파일이 착수 전과 **동일한 DB ABI 5종**이고 실패 테스트 수도 39 로 같아 **신규 red 0**. 테스트 **+253건**(1,417→1,670), 파일 **+19**(171→190) |
+| 인수 기준 | **14/15 충족.** AC13(사람 실기)만 미충족 — OQ1 ADFS 실값이 없어 게이트 provider 를 등록할 수 없고, egress 차단 환경에서 `npm run dev` 는 Electron ABI 재빌드에 막힌다(0180 AC9 선례) |
+| 블로커 / 역질문 | **없음.** OQ1·OQ2·OQ3 는 설계대로 선언 파일 파라미터화로 흡수했다(`sso.ts`=null · `exchange:{path,valuePath,expiresAtPath}` · 빈 배열). 실값이 오면 **선언 파일만** 채우면 된다 |
+| 대상 커밋 | `8b66f90`(1단계) · `f3b8798`(2단계) · `da5865b`(3단계) · `be9887c`(4단계) + 문서 커밋 |
 
 ---
 
