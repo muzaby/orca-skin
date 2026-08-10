@@ -461,17 +461,29 @@ respawn 판정이 전부 여기 걸려 있다. 조인만 한다.
 - [x] **5단계** — `security.md`(§1.4-b 3계층+노출 3곳 · §1.7 게이트 · §1.8/§1.9 인벤토리) ·
       `closed-network-extensions.md` 전면 재작성 · `GLOSSARY`(Provider 표제어 5종 + 어휘 충돌 명시) ·
       arch overview 2종 · `PHASES` · AGENTS 3종 · i18n(ko/en) · plan/INDEX
+- [x] **5단계-b (범위 추가 — 사용자 요청 2026-08-10)** — **`docs/arch/backend/providers.md` 신설**.
+      "auth·plugin 을 어떻게 제거·구현했고 어떻게 쓰고 어떻게 등록하는가" 를 한 문서로 요구받았는데,
+      그 답이 6개 문서 + 핸드오프 plan 2건에 흩어져 있어 **읽는 순서가 없었다**. 구조 SSOT 를 만들고
+      기존 문서는 링크만 하게 정리했다(§1 제거 진단·인벤토리 · §2 축 · §3 모듈 지도 · §4 라이프사이클 ·
+      §5 등록 · §6 소비 표면 4종 · §7 게이트 · §10 뒤집으면 안 되는 결정 · §11 비범위).
+      라우팅: `ARCHITECTURE.md` · `docs/AGENTS.md` · `docs/guides/AGENTS.md`(stale 행 정정) ·
+      `guides/closed-network-extensions.md` · `app/src/main/AGENTS.md` · `declarations/index.ts` 헤더
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | **코드 신설 24 · 복원 11 · 수정 20 · 문서 9.** 신설 핵심: `contracts/provider.ts` · `features/providers/{platform,auth/*,gate/*,llm/*,service/*,declarations/*}` · `infra/{vault,loopback-callback,net/transport}.ts` · `app/{handlers/providers,usage-source,GateFrame}.ts(x)` · renderer `features/{providers/hooks,skills/{lib/providerRows,hooks/useProviders,components/customize/ProviderDetail}}`. 복원(8965fa7): `browser-session{,-policy}` · `auth/{policy,present}` · `specs/credential` · confluence 7모듈 |
+| 변경 파일 | **코드 신설 24 · 복원 11 · 수정 20 · 문서 10**(5단계-b 의 `arch/backend/providers.md` 포함)**.** 신설 핵심: `contracts/provider.ts` · `features/providers/{platform,auth/*,gate/*,llm/*,service/*,declarations/*}` · `infra/{vault,loopback-callback,net/transport}.ts` · `app/{handlers/providers,usage-source,GateFrame}.ts(x)` · renderer `features/{providers/hooks,skills/{lib/providerRows,hooks/useProviders,components/customize/ProviderDetail}}`. 복원(8965fa7): `browser-session{,-policy}` · `auth/{policy,present}` · `specs/credential` · confluence 7모듈 |
 | 실행 명령 | `ELECTRON_SKIP_BINARY_DOWNLOAD=1 npm ci` → `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` (단계마다 반복) |
 | 게이트 결과 | lint **0 error / 1 warn**(기존 `react-hooks/incompatible-library`) · typecheck **3/3** · vitest **190 파일(185/5) · 1,670 테스트(1,631/39)**. 실패 파일이 착수 전과 **동일한 DB ABI 5종**이고 실패 테스트 수도 39 로 같아 **신규 red 0**. 테스트 **+253건**(1,417→1,670), 파일 **+19**(171→190) |
 | 인수 기준 | **14/15 충족.** AC13(사람 실기)만 미충족 — OQ1 ADFS 실값이 없어 게이트 provider 를 등록할 수 없고, egress 차단 환경에서 `npm run dev` 는 Electron ABI 재빌드에 막힌다(0180 AC9 선례) |
 | 블로커 / 역질문 | **없음.** OQ1·OQ2·OQ3 는 설계대로 선언 파일 파라미터화로 흡수했다(`sso.ts`=null · `exchange:{path,valuePath,expiresAtPath}` · 빈 배열). 실값이 오면 **선언 파일만** 채우면 된다 |
-| 대상 커밋 | `8b66f90`(1단계) · `f3b8798`(2단계) · `da5865b`(3단계) · `be9887c`(4단계) + 문서 커밋 |
+| 대상 커밋 | `8b66f90`(1단계) · `f3b8798`(2단계) · `da5865b`(3단계) · `be9887c`(4단계) · `1c2ac66`(5단계 문서) · 5단계-b 문서 커밋 |
+
+> **5단계-b 의 판단 근거(기록)**: 문서 요청이라 새 핸드오프(0182)를 열 수도 있었으나, ⓐ 대상이
+> 0181 이 방금 만든 것이고 ⓑ 0181 §영향 파일이 이미 문서 동기화를 범위에 두고 있으며 ⓒ 산출이
+> arch 문서 1건 + 라우팅 6곳이라, **0181 을 이어가는 편이 맞다고 판단**했다. 새 plan 을 여는 것은
+> 절차를 지키는 것이 아니라 절차를 연기하는 것이 됐을 것이다.
 
 ---
 
