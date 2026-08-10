@@ -116,7 +116,7 @@ present: { location: 'header', name: 'Authorization', scheme: 'bearer' }
 |---|---|---|
 | 1 | `SSO_PROVIDER` 를 `null` 에서 실제 선언으로 바꾼다 | `app/src/main/features/providers/declarations/sso.ts` |
 | 2 | **`origin` 을 정한다** — `exchange.path` 가 붙는 기준이고 등록 검사의 대상이다. 로그인 시작 IdP 가 아니라 **probe·토큰 교환이 사는 호스트**로 잡는다(아래 주의) | 같은 파일 |
-| 3 | `config` 5필드를 채운다 (`sessionGroup`·`loginUrl`·`doneUrlPrefix`·`authenticationProbeUrl`·`allowedOrigins`) | 같은 파일 |
+| 3 | `config` 5필드를 채운다 (`sessionGroup`·`loginUrl`·`doneUrlPrefix`·`authenticationProbeUrl`·`allowedOrigins`) | 같은 파일. **선언 파일 헤더 주석에 같은 예제가 들어 있다** — 거기서 시작하는 편이 빠르다 |
 | 4 | 토큰까지 필요하면 `config.exchange` 를 더한다 | §2-b |
 | 5 | `npm run typecheck` → `./node_modules/.bin/vitest run src/main/features/providers` | 형상·회귀 |
 | 6 | `npm run dev` 로 로그인 왕복을 실기한다 | **§6** (dev 게이트 동작이 prod 와 다르다) |
@@ -307,6 +307,10 @@ apiKeySpec({
 | 6 | 실기: 연결 탭에서 인증 → **새 채팅**에서 도구가 보이는지(등록은 다음 spawn 부터 반영된다) | 사람 실기 |
 
 ```ts
+import { patSpec } from '../auth/specs/credential'
+import { createConfluenceRuntime } from '../service/confluence/connector'
+import { createConfluenceToolServer } from '../service/confluence/tools'
+
 {
   id: 'confluence',
   label: 'Confluence',
