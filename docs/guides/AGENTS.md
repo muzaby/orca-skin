@@ -9,7 +9,7 @@
 | 파일 | 주제 | 읽어야 하는 경우 | 정본 관계 |
 |---|---|---|---|
 | `release-operations.md` | **릴리스 운영 (0087~0089)** — 배포 채널(Windows unsigned NSIS + GitHub Releases)·`v*` 태그 트리거·수동 체크리스트·롤백·SemVer pre-1.0 정책 | 버전을 올리거나 릴리스를 실행·롤백할 때 | 워크플로 *구성* 은 `.github/workflows/{ci,release}.yml` 이 진실. 이 문서는 그 위의 절차 |
-| `closed-network-extensions.md` | **폐쇄망(사내) 확장 (0130 → 0157 개정)** — 확장 모델 축("빌드 타임 내장 ↔ 런타임 MCP")·불변 확장점 계약 파일·opt-in 레지스트리 2곳·additive-optional-only 정책 | 사내 인증 provider·connector·정적 사용량 provider 를 **main 브랜치 수정 없이** 붙일 때 | 계약의 형상은 `app/src/main/contracts/{auth-plugin,connector-plugin,usage-report}.ts` 가 진실. 모듈 디렉토리 규칙은 각 `modules/AGENTS.md` |
+| `closed-network-extensions.md` | **폐쇄망(사내) 확장 (0130 → 0157 → 0181 전면 재작성)** — 확장 모델 축("빌드 타임 내장 ↔ 런타임 MCP")·`declarations/` 3파일 채우는 절차(게이트·LLM·서비스)·OAuth 선언 작성법·MCP `${BINDING:}`·배포 체크리스트 | 사내 로그인 게이트·LLM 자격증명·사내 서비스 도구를 **코어 수정 없이** 붙일 때 | **구조·설계 근거는 [`../arch/backend/providers.md`](../arch/backend/providers.md) 가 정본**(이 문서는 절차만). 계약의 형상은 `app/src/main/contracts/provider.ts` 가 진실 |
 | `workspace-isolation-permissions.md` | **workspace 격리 권한 구성** — Agent SDK `PreToolUse` 훅 중심으로 작업 폴더 밖 r/w 를 막는 코드레벨 구성(`settings.json` 미사용) | 도구 권한·작업 디렉토리 스코프를 설계할 때 | OS 샌드박스 대체가 **아니다**(§8 한계). 권한 정규화 계층 정본은 `arch/backend/provider-runtime.md` |
 
 ## 이 디렉토리에 들어가는 것 / 안 들어가는 것
