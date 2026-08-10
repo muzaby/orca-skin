@@ -216,92 +216,6 @@ export const SetSessionPinnedSchema = z.object({
   pinned: z.boolean()
 })
 
-// 인증 플랫폼 (0157 — 0130 SsoLoginRequestSchema 대체).
-//
-// AuthTarget 은 renderer 가 보내는 값이라 검증 대상이다. application 은 판별자만 있으면 되고
-// connector 는 식별자 2개를 받는다.
-export const AuthTargetSchema = z.discriminatedUnion('kind', [
-  z.object({ kind: z.literal('application'), applicationId: z.literal('orca') }),
-  z.object({
-    kind: z.literal('connector'),
-    connectorId: z.string().min(1).max(128),
-    connectionId: z.string().min(1).max(128)
-  })
-])
-
-export const AuthBeginRequestSchema = z.object({
-  providerId: z.string().min(1).max(128),
-  target: AuthTargetSchema
-})
-
-// input 은 AuthView 필드 값(name 키). 값 상한은 폼 입력 보호선 — 구 SsoLoginRequestSchema 승계.
-export const AuthContinueRequestSchema = z.object({
-  transactionId: z.string().min(1).max(128),
-  input: z.record(z.string().max(64), z.string().max(4096)).default({})
-})
-
-export const AuthLogoutRequestSchema = z.object({
-  bindingId: z.string().min(1).max(128),
-  // 종속 binding 까지 끊을지. 기본 false = 이 binding 만 (connector-only disconnect 가
-  // 공유 session group 을 손상하지 않게 하는 안전 기본값).
-  cascade: z.boolean().default(false)
-})
-
-// plugin connector IPC는 동적 endpoint/alias/connection ID 선택을 전혀 받지 않는다.
-//
-// **ID 규칙의 SSOT.** main 의 manifest `IdSchema` 가 이 상수를 import 한다 — 규칙을 두 벌
-// 복붙하면 조용히 갈라진다(0158 verify r1 D4: shared 만 letter-leading 을 요구해, 숫자 선두 ID 를
-// 쓴 package 가 등록에 성공한 뒤 목록 IPC 전체를 죽였다). shared→main 방향이 DAG 에 맞다.
-// 케밥 소문자 — 비밀 네임스페이스 키에 그대로 쓰이므로 구분자 오염을 막는다.
-export const PLUGIN_ID_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
-export const PLUGIN_ID_MAX_LENGTH = 128
-
-const PluginConnectorIdSchema = z.string().min(1).max(PLUGIN_ID_MAX_LENGTH).regex(PLUGIN_ID_PATTERN)
-const PluginBindingIdSchema = z.string().min(1).max(256)
-
-export const PluginListRequestSchema = z.undefined()
-
-export const PluginConnectionConnectRequestSchema = z
-  .object({
-    connectorId: PluginConnectorIdSchema,
-    bindingId: PluginBindingIdSchema
-  })
-  .strict()
-
-export const PluginConnectionDisconnectRequestSchema = z
-  .object({ connectorId: PluginConnectorIdSchema })
-  .strict()
-
-export const PluginConnectorInfoSchema = z
-  .object({
-    connectorId: PluginConnectorIdSchema,
-    label: z.string().min(1).max(200),
-    origin: z.url().max(2048),
-    acceptedAuthProviders: z.array(PluginConnectorIdSchema),
-    connected: z.boolean(),
-    connectedProviderId: PluginConnectorIdSchema.optional()
-  })
-  .strict()
-
-// ── 등록 진단 (0164 r2) ─────────────────────────────────────────────────────
-//
-// 패키지 등록은 **all-or-nothing** 이다 — `baseUrl` 하나가 경로를 달고 있으면 그 패키지의
-// provider·connector 가 통째로 거부된다. 지금까지 흔적이 warn 로그뿐이라 사용자에게는
-// "servers.ts 에 구성했는데 플러그인 UI 에 없다" 로만 보였다(사용자 보고 2026-08-04).
-// 그래서 거부 사유를 renderer 로 올린다 — **원인을 화면에서 읽을 수 있어야 한다.**
-export const PluginDiagnosticsRequestSchema = z.undefined()
-
-export const PluginDiagnosticSchema = z
-  .object({
-    // package = 빌드타임 opt-in 패키지,
-    // cross-reference = 대상이 가리키는 인증 방식이 없음.
-    kind: z.enum(['package', 'cross-reference']),
-    // 거부된 대상 = 인증 방식 id 또는 대상 id.
-    subject: z.string().min(1).max(200),
-    message: z.string().min(1).max(500)
-  })
-  .strict()
-
 // Project (Phase 3+) — 시스템 프롬프트 길이 8000 은 Claude Agent SDK 가
 // systemPrompt.append 에 허용하는 토큰 한도 대비 여유.
 export const CreateProjectSchema = z.object({
@@ -643,26 +557,6 @@ export type {
   Settings,
   SettingsPatch,
   NotifyShow,
-  AuthTarget,
-  AuthTargetKind,
-  AuthMechanism,
-  CredentialKind,
-  CredentialPresentation,
-  AuthFieldSpec,
-  AuthPrincipal,
-  AuthBindingStatus,
-  AuthArtifactRef,
-  AuthBindingInfo,
-  AuthProviderInfo,
-  AuthFailureReason,
-  AuthChainProgress,
-  AuthStepInfo,
-  AuthLogoutOutcome,
-  PluginConnectorInfo,
-  PluginDiagnostic,
-  PluginConnectionConnectRequest,
-  PluginConnectionDisconnectRequest,
-  AuthPlatformState,
   SkillInfo,
   AuthorSkillRequest,
   UploadSkillRequest,

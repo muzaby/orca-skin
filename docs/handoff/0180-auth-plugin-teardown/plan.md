@@ -294,28 +294,55 @@ git show 8965fa7:app/src/main/features/auth-platform/modules/confluence/limit.ts
 
 ## [구현자 기입] 설계 리뷰 (비판적)
 
-- 동의 / 그대로 진행: …
-- 이견 / 우려: …
+- **동의 / 그대로 진행**: 삭제 순서(§설계, renderer → preload/shared → handlers → bootstrap → 슬라이스 → 계약 → infra)가
+  실제로 유효했다. 단계마다 typecheck 가 다음 절단면을 정확히 가리켜, 마지막 bootstrap 단계에서만 손으로 판단했다.
+  "절대 지우지 말 것" 4종도 전부 실제 함정이었다 — 특히 `infra/auth/net-*` 는 디렉토리 이름만 보고 지웠으면
+  updater·usage 가 조용히 깨졌을 것이다.
+- **이견 / 우려 (설계가 틀린 곳)**:
+  1. **§설계 1단계가 `LoginFrame` 을 "삭제" 로 분류한 것은 틀렸다.** 이 컴포넌트는 로그인 게이트 **와 부팅 실패
+     화면**을 겸하고 있었다(`RootGate:35-37` 의 `bootPhase === 'failed'` 분기). 통째로 지우면 부팅 실패 시
+     렌더할 화면이 사라진다. → `BootFailureFrame.tsx` 로 이름을 바꿔 auth 부분만 걷어냈다(아래 D1).
+  2. **AC6 의 술어가 두 가지를 섞었다.** "카탈로그 탭과 사이드바 nav 가 skills·mcp 2종으로 줄고" 라고 썼는데,
+     사이드바 nav 는 4항목(새 대화·프로젝트·엔진·플러그인)이고 그중 4번째가 **카탈로그 모달을 여는 유일한 입구**다
+     (`navItems.ts` 의 `path: null` → `Sidebar.tsx:91` `onOpenPlugins()`). nav 를 줄이면 카탈로그가 도달 불가가 된다.
+     → AC6 은 **카탈로그 탭에만** 해당하도록 좁혔다(아래 D2).
+  3. **AC7 의 grep 술어가 P30 함정에 걸린다.** 범위를 `docs/ app/src` 로 잡았는데, 여기엔 `docs/PHASES.md`·
+     `docs/handoff/`·`docs/etc/study/`(이력)와 **"이 키가 0180 에서 사라졌다" 는 변경 이력 문장 자체**가 포함된다.
+     게이트를 그대로 통과시키려면 자기 설명을 지워야 하는 자기모순이다. → 술어를 좁혔다(아래 D3).
 
 ## [구현자 기입] 놓친 잠재 문제 + 대응 (선조치 후보고)
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
-| 1 | … | ✅ 구현함 / ⚠️ 보고만·**결정 필요** | … |
+| D1 | `LoginFrame` 이 **부팅 실패 화면을 겸한다** — 설계의 "삭제" 대로 하면 `bootPhase === 'failed'` 에 렌더할 것이 없다 | ✅ 구현함 — `app/BootFailureFrame.tsx` 로 개명하고 `AuthView`·`AuthDebugSection`·`bootError` optional 을 걷어냈다. `RootGate` 는 부팅 단계만 판정한다 | `RootGate.tsx:35-37`(구) · `LoginFrame.tsx:59-73`(구) |
+| D2 | AC6 이 **사이드바 nav 까지** 2종으로 줄이라고 읽힌다. nav 4번째가 카탈로그 모달의 유일한 입구라 지우면 도달 불가 | ✅ 구현함(범위 축소) — nav 는 **그대로 두고** 카탈로그 탭만 3→2 로 줄였다. 라벨(`sidebar.nav.plugins`)도 유지: 0181 이 **같은 카탈로그에** provider 목록을 되돌리므로(사용자 결정) 사용자에게 보이는 어휘를 두 번 뒤집지 않는다 | `navItems.ts` · `Sidebar.tsx:91,135` · `catalogSelection.ts` |
+| D3 | AC7 의 grep 범위가 이력 문서와 **자기 변경 이력 문장**을 잡는다 (P30) | ✅ 구현함(술어 정정) — 판정을 **"라이브 스키마·타입·현재형 서술에 없을 것"** 으로 좁혔다. 기계 검사 2개: ⓐ `rg <심볼> app/src` = **0건** ⓑ 스키마 표 행/타입 선언 형태(`^\| \`connectorInstances\`` · `^  pluginAddEnabled:`) = **0건**. 변경 이력 서술("0180 에서 제거됨")은 허용 | P30(0177) · `docs/PHASES.md:202,214` |
+| D4 | 설계가 `docs/` 문서 수를 세지 않았다 — 실제로 **`Settings` 키 수치가 20 이 아니라 18** 이었다(`connectorInstances`·`pluginAddEnabled` 는 0178 에 코드가 사라졌는데 문서 4곳이 살아 있는 키로 서술) | ✅ 구현함 — `IPC_CONTRACT`·`TRD`·`persistence`·`docs/AGENTS` 4곳을 18 로 정정 | `shared/ipc.ts` 의 `Settings` 실측 18 |
+| D5 | `GLOSSARY.md` 의 **Connector 인스턴스** 표제어는 0178 에서 *기능*이, 0180 에서 *개념*이 사라져 갈 곳이 없다 | ✅ 구현함 — 행 삭제. `Auth provider`·`Connector`·`Plugin` 3행은 "0180 제거" 로 개정(표제어는 남겨야 과거 문서의 링크가 죽지 않는다) | `GLOSSARY.md:29-32` |
+| D6 | `docs/etc/study/orca/` 가 여전히 `docs/AGENTS.md` 인벤토리에 **현행 참고자료**로 올라 있다 — 사용자가 근거 배제를 지시한 문서다 | ✅ 구현함 — 인벤토리 행에 **⚠️ 폐기** 표기 + 배제 지시 출처 명시 | 라이브 세션 정정 (2026-08-10) |
+| D7 | `cheerio`·`turndown`·`turndown-plugin-gfm` 이 **소비자 0** 이 됐다 — 다음 사람이 "미사용 의존성" 으로 지울 수 있다 | ✅ 구현함 — `package.json` 은 그대로 두고 `app/AGENTS.md §의존성 정책` 에 "0180 기준 소비자 0, 0181 이 복원하므로 지우지 마라" 를 박았다 | 계획 §리스크 K5 |
 
 ## [구현자 기입] 구현 체크리스트
 
-- [ ] …
+- [x] renderer — `features/auth/` 전량 · `LoginFrame`→`BootFailureFrame` · `RootGate`·`OverlayLayer`·`SidebarUserButton`·`DebugPanel` 참조 · skills 커넥터 UI 11파일 · `shared/api/ipc.ts` · i18n 고아 키
+- [x] preload bridge(auth 7 + plugins 4) · `shared/ipc.ts` 채널 11 + DTO 블록 · `shared/protocol.ts` 스키마 + re-export 20종
+- [x] `app/handlers/{auth,plugins}.ts` · `app/{auth-restore,usage-source}.ts` · `RouterContext` 필드 4종
+- [x] `app/bootstrap.ts` — `createAuthPlatform`·`restoreAuthConnections`·`attachBindings`·`sources` 주입
+- [x] `features/auth-platform/**` · `features/connectors/**` · 계약 3종
+- [x] `infra/auth` 6모듈 삭제 + 전송 스택 3모듈 + 가드 → `infra/net/` **git mv 이설**
+- [x] 신규 회귀 3건(AC3 usage `sources` 부재 · AC4 MCP 토큰 소스 부재 · AC5 runtime-tool 빈 스냅샷) + 기존 기대값 갱신(AC1 채널 71 · AC6 탭 2종)
+- [x] 문서 12건 — `IPC_CONTRACT`·`GLOSSARY`·`TRD`·`persistence`·`security`·`overview`(back/front)·`ARCHITECTURE`·`closed-network-extensions`·`docs/AGENTS`·`app/AGENTS`·`app/src/main/AGENTS`·`PHASES`
 
 ## [구현자 기입] 구현 보고
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | `npm run lint` / `typecheck` / `vitest run` |
-| 게이트 결과 | lint … / typecheck … / test … |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | `<hash>` |
+| 변경 파일 | 삭제 **약 90파일**(main 슬라이스 2 + 계약 3 + handlers/app 6 + infra 6 + renderer 12 + 테스트 35 …) · 이설 5(`infra/auth`→`infra/net`, git mv) · 수정 약 30 · 신설 1(`BootFailureFrame.tsx`) |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` (`npm test` 는 ABI 를 뒤집으므로 미사용) |
+| 게이트 결과 | lint **0 error / 1 warning**(0102 known, boundaries 위반 0) · typecheck **3/3 exit 0** · vitest **171 파일(166 pass / 5 fail) · 1,417 테스트(1,378 / 39)** |
+| 베이스라인 대조 | 착수 전 206 파일(201/5) · 1,914 테스트(1,875/39). **실패 파일이 착수 전과 동일한 DB ABI 5종**(`chat-turn.continuity`·`extensions/builder`·`orchestration/fork`·`db/migrate`·`db/queries`)이고 실패 테스트 수도 39 로 동일 → 신규 red 0. 파일 −35 는 R17 의 삭제 예정 수와 정확히 일치 |
+| 블로커 / 역질문 | **없음.** AC9(앱 기동 실기)만 사람 몫 — egress 차단 환경에서 `npm run dev` 는 Electron ABI 재빌드에 막힌다(0019·0102 선례) |
+| 대상 커밋 | (이 커밋) |
 
 ---
 

@@ -29,15 +29,10 @@ const SCENARIO_LABEL_KEYS: Record<MockScenarioId, MessageKey> = {
   full: 'debug.scenarios.full'
 }
 
-// authSection/updateSection: app 레이어가 주입하는 그룹(features/auth·features/update).
+// updateSection: app 레이어가 주입하는 그룹(features/update).
 // features 교차 import 를 피하려고 슬롯 prop 으로 받는다(없으면 미표시).
-export function DebugPanel({
-  authSection,
-  updateSection
-}: {
-  authSection?: ReactNode
-  updateSection?: ReactNode
-}): React.JSX.Element {
+// (0180 에서 `authSection` 슬롯이 사라졌다 — 인증 feature 제거.)
+export function DebugPanel({ updateSection }: { updateSection?: ReactNode }): React.JSX.Element {
   const { t, setTweak } = useTweakContext()
   const { tr } = useI18n()
   const { state, setMock } = useDebugMock()
@@ -86,7 +81,6 @@ export function DebugPanel({
         onChange={(v) => setTweak('sidebarCollapsed', v)}
       />
       {updateSection}
-      {authSection}
     </FloatingPanel>
   )
 }

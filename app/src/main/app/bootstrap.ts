@@ -12,7 +12,6 @@ import {
   type NormalizedEvent,
   type SkillInfo
 } from '../../shared/ipc'
-import type { PluginDiagnostic } from '../../shared/protocol'
 import type { RestartGateState } from '../../shared/update-restart'
 import type { TurnContext } from '../contracts/turn'
 import { AdapterRegistry } from '../adapters/registry'
@@ -40,8 +39,7 @@ import {
   materializeStaticProviderSettings
 } from '../features/providers/static'
 import { ExternalUsageService } from '../features/usage/external-usage-service'
-import { createUsageSourcePort } from './usage-source'
-import { netFetch } from '../infra/auth/net-fetch'
+import { netFetch } from '../infra/net/net-fetch'
 import { loadClaudeProviderSettings, readUserClaudeSettings } from '../adapters/claude-settings'
 import { scanSkills, type SkillScanRoot } from '../features/extensions/skills/scan'
 import { seedBuiltinSkills } from '../features/extensions/skills/seed'
@@ -61,8 +59,6 @@ import { registerSettingsHandlers } from './handlers/settings'
 import { registerSkillsHandlers } from './handlers/skills'
 import { registerFilesHandlers } from './handlers/files'
 import { registerCostHandlers } from './handlers/cost'
-import { registerAuthHandlers } from './handlers/auth'
-import { registerPluginHandlers } from './handlers/plugins'
 import { registerBootHandlers } from './handlers/boot'
 import { registerUpdateHandlers } from './handlers/update'
 import { registerLogHandlers } from './handlers/log'
@@ -82,24 +78,8 @@ import { HistoryWriter } from '../features/history/writer'
 import { materializeContinuityArrival } from '../features/orchestration/fork'
 import { TitleGenerator } from '../features/chat/title-generation'
 import { recoverSessionHistory } from '../features/chat/recovery'
-import {
-  broadcastConcurrency,
-  broadcastAuthState,
-  broadcastChatEvent,
-  sendChatEvent
-} from '../infra/ipc/send'
-import { AuthBroker } from '../features/auth-platform/broker'
-import { restoreConnections } from './auth-restore'
-import { PluginHost } from '../features/auth-platform/plugin-host'
-import { AuthRegistry } from '../features/auth-platform/registry'
-import { CONNECTOR_PACKAGES } from '../features/auth-platform/modules'
-import { AUTH_METHODS } from '../features/auth-platform/methods'
-import { ConnectionRegistry } from '../features/connectors/registry'
-import { ConnectorHost } from '../features/connectors/runtime'
+import { broadcastConcurrency, broadcastChatEvent, sendChatEvent } from '../infra/ipc/send'
 import { RuntimeToolRegistry } from '../features/extensions/runtime-tool-registry'
-import { BrowserSessionStore } from '../infra/auth/browser-session-store'
-import { createBindingPersistence } from '../infra/auth/binding-store-file'
-import { createCredentialVault } from '../infra/auth/credential-vault'
 import { resolveBuiltinSkillsDir } from './builtin-resources'
 import { BackgroundTaskTracker } from '../features/chat/background-tasks'
 import { SessionActivityProjector } from '../features/chat/session-activity-projector'
@@ -193,128 +173,6 @@ export class Bootstrap {
     })
   }
 
-  // 인증 플랫폼 조립 (0157). 여기가 유일한 구체 배선 지점이다 — broker·registry·인증 방식은
-  // 서로를 직접 만들지 않는다. connector runtime 은 `InternalApi` 구조적 포트로만 broker 에
-  // 닿는다(features 교차 import 회피, src/main/AGENTS.md §해소책 2+3).
-  private createAuthPlatform(secretStore: SecretStore): {
-    broker: AuthBroker
-    connectors: ConnectorHost
-    pluginHost: PluginHost
-    runtimeTools: RuntimeToolRegistry
-    sessions: BrowserSessionStore
-    diagnostics: PluginDiagnostic[]
-  } {
-    const log = getLogger().child('auth')
-    const registry = new AuthRegistry()
-    const sessions = new BrowserSessionStore()
-    // 거부 사유를 모아 renderer 로 올린다(0164 r2). 등록은 패키지 단위 all-or-nothing 이라
-    // `baseUrl` 하나가 잘못되면 그 패키지의 서버가 **전부** 사라진다 — 흔적이 로그뿐이면
-    // 사용자에게는 "servers.ts 에 넣었는데 UI 에 없다" 로만 보인다.
-    const diagnostics: PluginDiagnostic[] = []
-
-    // 내장 인증 방식 등록 (0178). SSO 는 `methods/sso.ts` 가 설정됐을 때만 목록에 들어간다.
-    for (const e of registry.registerMethods(AUTH_METHODS)) {
-      log.warn('auth.method.rejected', { subject: e.subject, message: e.message })
-      diagnostics.push({ kind: 'package', subject: e.subject, message: e.message })
-    }
-
-    // opt-in 대상 등록. 신규 설치는 빈 배열 = 대상 0개(현행 동작 보존).
-    for (const pkg of CONNECTOR_PACKAGES) {
-      const errors = registry.register({
-        ...(pkg.connectors !== undefined ? { connectors: pkg.connectors } : {}),
-        ...(pkg.runtimeTools !== undefined ? { runtimeTools: pkg.runtimeTools } : {})
-      })
-      for (const e of errors) {
-        log.warn('auth.package.rejected', { subject: e.subject, message: e.message })
-        diagnostics.push({ kind: 'package', subject: e.subject, message: e.message })
-      }
-    }
-    const composition: { pluginHost: PluginHost | null } = { pluginHost: null }
-
-    for (const e of registry.validateCrossReferences()) {
-      log.warn('auth.package.cross-reference-failed', { subject: e.subject, message: e.message })
-      diagnostics.push({ kind: 'cross-reference', subject: e.subject, message: e.message })
-    }
-
-    // 브라우저 세션을 쓰는 방식의 session group 을 미리 등록한다.
-    for (const method of registry.listMethods()) {
-      const { sessionGroup, allowedOrigins } = method.descriptor
-      if (sessionGroup) sessions.register({ sessionGroup, allowedOrigins })
-    }
-
-    const runtimeTools = new RuntimeToolRegistry()
-    const broker = new AuthBroker({
-      registry,
-      vaultFor: (prefix) => createCredentialVault(secretStore, prefix),
-      // 재시작 후에도 연결이 남게 한다 (0170). 비밀은 이 파일이 아니라 vault 에 있다.
-      bindingPersistence: createBindingPersistence(),
-      // main 의 원격 요청은 전부 Chromium 네트워크 스택을 탄다 (0173) — 사내 프록시·사설 CA.
-      fetchImpl: netFetch,
-      browserSessions: {
-        acquire: async (group) => sessions.acquire(group),
-        openLoginWindow: (handleId, opts) => sessions.openLoginWindow(handleId, opts),
-        probe: (handleId, url) => sessions.probe(handleId, url),
-        send: (handleId, req, options, signal) => sessions.send(handleId, req, options, signal),
-        clear: (handleId, opts) => sessions.clear(handleId, opts)
-      },
-      broadcast: broadcastAuthState,
-      onBindingsEnded: async (bindingIds) => {
-        const host = composition.pluginHost
-        if (!host) throw new Error('auth platform composition is not ready')
-        await host.onBindingsEnded(bindingIds)
-      }
-    })
-
-    const connections = new ConnectionRegistry()
-    const connectors = new ConnectorHost({
-      connections,
-      lookup: registry,
-      api: { request: (req, signal) => broker.request(req, signal) }
-    })
-    const pluginHost = new PluginHost({
-      registry,
-      bindings: { getBinding: (bindingId) => broker.getBinding(bindingId) },
-      connectors,
-      logout: { logout: (bindingId, cascade) => broker.logout(bindingId, cascade) },
-      runtimeTools,
-      logger: (message, meta) => log.warn(message, meta)
-    })
-    composition.pluginHost = pluginHost
-    return {
-      broker,
-      connectors,
-      pluginHost,
-      runtimeTools,
-      sessions,
-      diagnostics
-    }
-  }
-
-  // 복원 → 재연결. 예외는 여기서 끝난다 — 부팅 경로가 이 실패로 죽지 않아야 한다.
-  private async restoreAuthConnections(auth: {
-    broker: AuthBroker
-    pluginHost: PluginHost
-  }): Promise<void> {
-    const log = getLogger().child('auth')
-    try {
-      const restored = auth.broker.restore()
-      if (restored.length === 0) return
-      // 재시작 사이에 세션이 끊겼을 수 있다. **연결을 되살리기 전에** 방식에게 유효성을 다시
-      // 묻고 그 답을 레코드에 반영한다 (0178) — 그러지 않으면 "연결됨" 으로 시작해 첫 도구
-      // 호출이 이유 없이 실패한다.
-      await auth.broker.revalidateAll()
-      await restoreConnections({
-        restored,
-        connect: (input) => auth.pluginHost.connect(input),
-        logout: (bindingId, cascade) => auth.broker.logout(bindingId, cascade),
-        logger: (message, meta) => log.warn(message, meta)
-      })
-      log.info('auth.restore.done', { count: restored.length })
-    } catch (error) {
-      log.warn('auth.restore.failed', { message: String(error) })
-    }
-  }
-
   private async deployExtensions(): Promise<void> {
     await this.deployment?.deployNow()
   }
@@ -324,23 +182,12 @@ export class Bootstrap {
   }
 
   async start(): Promise<void> {
-    // 인증 게이트는 창 오픈 직후 renderer 가 status 를 invoke 하므로(0109/0157) 부팅 최상단에서
-    // 플랫폼 조립 + 핸들러 조기 등록.
+    // 0180 — 인증 플랫폼이 사라져 부팅 최상단의 조기 등록이 필요 없다. 게이트가 창 오픈
+    // 직후 status 를 invoke 하던 제약(0109/0157)이 함께 사라졌으므로 DB 초기화가 첫 단계다.
+    // 0181 이 게이트를 다시 세울 때 이 순서를 재검토한다.
     const secretStore = new SecretStore()
-    const auth = this.createAuthPlatform(secretStore)
-    registerAuthHandlers(auth.broker)
-    registerPluginHandlers({
-      pluginHost: auth.pluginHost,
-      diagnostics: auth.diagnostics
-    })
-    // MCP `${BINDING:<id>}` 해석을 broker 로 잇는다 (0157). 이 배선이 없으면 binding 참조는
-    // 미해결로 남아 해당 MCP 서버가 드롭된다(fail-closed).
-    this.mcp.attachBindings(auth.broker)
-
-    // 저장된 connector 연결을 되살린다 (0170). **부팅을 막지 않는다** — 사내망 밖이면
-    // connector `start()` 가 타임아웃까지 가므로 await 하지 않고, 실패는 restoreConnections 가
-    // 삼켜 해당 binding 만 정리한다.
-    void this.restoreAuthConnections(auth)
+    // 런타임 도구 기여자는 0 이지만 레지스트리·어댑터 배선은 유지한다(0181 이 채운다).
+    const runtimeTools = new RuntimeToolRegistry()
 
     const db = this.bootReport.stepSync('db-init', { critical: true, label: 'DB 초기화' }, () =>
       initDb({
@@ -406,7 +253,7 @@ export class Bootstrap {
         orcaPluginRoot(orcaConfigDir(), 'claude'),
         userClaudePluginRoot(orcaConfigDir(), 'claude')
       ],
-      auth.runtimeTools
+      runtimeTools
     )
     await this.bootReport.step(
       'adapter-registry',
@@ -476,14 +323,9 @@ export class Bootstrap {
       secretFor: (providerKey) => createProviderSecretFacade(secretStore, providerKey),
       providers: STATIC_USAGE_PROVIDERS,
       // 원격 사용량 보고서도 Chromium 스택으로 나간다 (0173).
-      fetchImpl: netFetch,
-      // 0176 — 인증이 필요한 사용량 API 는 usage connector 가 부르고, 그 결과 표본을 usage
-      // provider 가 구독한다. 여기가 두 슬라이스를 잇는 유일한 지점이다.
-      sources: createUsageSourcePort({
-        list: () => auth.pluginHost.list(),
-        invokeConnector: (connectorId, request, signal) =>
-          auth.pluginHost.invokeConnector(connectorId, request, signal)
-      })
+      // 0180 — `sources`(인증 커넥터 표본) 주입이 사라졌다. `UsageSourcePort` 는 optional 이라
+      // provider·config 경로로 계속 해소된다. 0181 이 provider 물질화로 다시 잇는다.
+      fetchImpl: netFetch
     })
     scheduler.register('provider-usage-report-refresh', async () => {
       const providerKeys = providerSettings
@@ -520,10 +362,7 @@ export class Bootstrap {
       updates: this.createUpdateController(),
       scheduler,
       externalUsage,
-      auth: auth.broker,
-      connectors: auth.connectors,
-      pluginHost: auth.pluginHost,
-      runtimeTools: auth.runtimeTools
+      runtimeTools
     }
     this.register(ctx)
   }

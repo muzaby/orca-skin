@@ -47,15 +47,7 @@ import {
   type UpdateState,
   type UpdateProgress,
   type UpdateCheckResult,
-  type UpdateInstallResult,
-  type AuthPlatformState,
-  type AuthProviderInfo,
-  type AuthBindingInfo,
-  type AuthStepInfo,
-  type AuthTarget,
-  type AuthLogoutOutcome,
-  type PluginConnectorInfo,
-  type PluginDiagnostic
+  type UpdateInstallResult
 } from '../shared/ipc'
 import { LOG_IPC_PAYLOAD_MAX_BYTES, type LogInput, type SerializedError } from '../shared/logging'
 
@@ -258,33 +250,6 @@ const orca = {
       ipcRenderer.on(CHANNELS.updateProgressEvent, listener)
       return () => ipcRenderer.off(CHANNELS.updateProgressEvent, listener)
     }
-  },
-  // 인증 플랫폼 (0157 — 구 sso 3채널 대체). 앱 로그인과 서비스 연결이 같은 표면을 쓴다.
-  // update.onState 패턴 동형.
-  auth: {
-    status: (): Promise<AuthPlatformState> => ipcRenderer.invoke(CHANNELS.authStatus),
-    providers: (): Promise<AuthProviderInfo[]> => ipcRenderer.invoke(CHANNELS.authProviders),
-    bindings: (): Promise<AuthBindingInfo[]> => ipcRenderer.invoke(CHANNELS.authBindings),
-    begin: (providerId: string, target: AuthTarget): Promise<AuthStepInfo> =>
-      ipcRenderer.invoke(CHANNELS.authBegin, { providerId, target }),
-    continueAuth: (transactionId: string, input: Record<string, string>): Promise<AuthStepInfo> =>
-      ipcRenderer.invoke(CHANNELS.authContinue, { transactionId, input }),
-    logout: (bindingId: string, cascade = false): Promise<AuthLogoutOutcome> =>
-      ipcRenderer.invoke(CHANNELS.authLogout, { bindingId, cascade }),
-    onState: (handler: (state: AuthPlatformState) => void): (() => void) => {
-      const listener = (_e: IpcRendererEvent, state: AuthPlatformState): void => handler(state)
-      ipcRenderer.on(CHANNELS.authStateEvent, listener)
-      return () => ipcRenderer.off(CHANNELS.authStateEvent, listener)
-    }
-  },
-  plugins: {
-    list: (): Promise<PluginConnectorInfo[]> => ipcRenderer.invoke(CHANNELS.pluginList),
-    connect: (connectorId: string, bindingId: string): Promise<void> =>
-      ipcRenderer.invoke(CHANNELS.pluginConnectionConnect, { connectorId, bindingId }),
-    disconnect: (connectorId: string): Promise<AuthLogoutOutcome> =>
-      ipcRenderer.invoke(CHANNELS.pluginConnectionDisconnect, { connectorId }),
-    // 0164 r2 — 부팅 때 거부된 패키지. 목록이 비어 보이는 이유를 화면에 올린다.
-    diagnostics: (): Promise<PluginDiagnostic[]> => ipcRenderer.invoke(CHANNELS.pluginDiagnostics)
   },
   // renderer 로그 인제스트 (0123) — 제한된 4메서드만. ipcRenderer 원본·임의 채널은 미노출.
   log: {

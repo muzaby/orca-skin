@@ -4,15 +4,12 @@ import { Button } from '../../../../shared/ui/Button'
 import { useI18n } from '../../../../shared/i18n'
 import { useCustomizeSkills } from '../../hooks/useCustomizeSkills'
 import { useMcpServers } from '../../hooks/useMcpServers'
-import { usePluginCatalog } from '../../hooks/usePluginCatalog'
-import { PluginDiagnosticsBanner } from './PluginDiagnosticsBanner'
 import { back, openDetail, selectTab, type CatalogSelection } from '../../lib/catalogSelection'
 import { toggleGroup, type CollapsedGroups } from '../../lib/catalogGroups'
 import { CustomizeRail } from './CustomizeRail'
 import { CustomizeList } from './CustomizeList'
 import { SkillDetail } from './SkillDetail'
 import { McpDetail } from './McpDetail'
-import { PluginDetail } from './PluginDetail'
 import { SkillAddMenu } from './SkillAddMenu'
 import { SkillAuthorModal } from './SkillAuthorModal'
 import { SkillUploadModal } from './SkillUploadModal'
@@ -29,7 +26,6 @@ export function ExtensionsCatalogView(): React.JSX.Element {
   const [collapsed, setCollapsed] = useState<CollapsedGroups>({})
   const skills = useCustomizeSkills()
   const mcp = useMcpServers()
-  const plugins = usePluginCatalog()
   const [menuOpen, setMenuOpen] = useState(false)
   const [authorOpen, setAuthorOpen] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
@@ -39,17 +35,8 @@ export function ExtensionsCatalogView(): React.JSX.Element {
     (item) => skillKey(item.sourceId, item.name) === selection.selectedId
   )
   const selectedMcp = mcp.list.find((item) => item.id === selection.selectedId)
-  const selectedPlugin = plugins.rows.find((item) => item.connectorId === selection.selectedId)
-  // 등록된 provider 전체 — connector 가 어느 패키지의 provider 든 참조할 수 있다.
-  const allProviders = plugins.providers
-  const detail = selectedSkill ?? selectedMcp ?? selectedPlugin
-  const title = tr(
-    selection.tab === 'skills'
-      ? 'skills.rail.skills'
-      : selection.tab === 'mcp'
-        ? 'skills.rail.mcp'
-        : 'skills.rail.plugins'
-  )
+  const detail = selectedSkill ?? selectedMcp
+  const title = tr(selection.tab === 'skills' ? 'skills.rail.skills' : 'skills.rail.mcp')
   return (
     <section
       className="flex h-full min-h-0 w-full"
@@ -79,9 +66,8 @@ export function ExtensionsCatalogView(): React.JSX.Element {
           ) : (
             <h1 className="m-0 text-heading text-ink">{title}</h1>
           )}
-          {/* plugins 탭에는 추가 버튼이 없다 (0178) — 서버 목록의 정본은 빌드타임
-              (`servers.ts`)이고 UI 추가 경로는 제거했다. skills 는 메뉴, mcp 는 모달. */}
-          {!detail && selection.tab !== 'plugins' && (
+          {/* skills 는 메뉴, mcp 는 모달. */}
+          {!detail && (
             <Button
               ref={addRef}
               className="ml-auto"
@@ -130,28 +116,14 @@ export function ExtensionsCatalogView(): React.JSX.Element {
             server={selectedMcp}
             onToggle={() => void mcp.toggle(selectedMcp.id, !selectedMcp.enabled)}
           />
-        ) : selectedPlugin ? (
-          <PluginDetail
-            row={selectedPlugin}
-            // **전체** provider 를 넘긴다 (0163). 인스턴스 커넥터는 공용 패키지의 provider 를
-            // 참조하므로(0161 의 패키지 2분할) 자기 행의 provider 만 넘기면 인증 방식이
-            // 하나도 없다고 나온다. 좁히는 것은 `buildConnectOptions` 가 한다.
-            providers={allProviders}
-            onChanged={plugins.refresh}
-          />
-        ) : skills.loading || mcp.loading || plugins.loading ? (
+        ) : skills.loading || mcp.loading ? (
           <div className="grid flex-1 place-items-center text-ink3">{tr('common.loading')}</div>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col">
-            {/* 거부된 항목은 목록에 없다 — 왜 없는지를 목록 **위에** 둔다(0164 r2). */}
-            {selection.tab === 'plugins' && (
-              <PluginDiagnosticsBanner diagnostics={plugins.diagnostics} />
-            )}
             <CustomizeList
               tab={selection.tab}
               skills={skills.list}
               mcpServers={mcp.list}
-              plugins={plugins.rows}
               collapsed={collapsed}
               onToggleGroup={(key) => setCollapsed((state) => toggleGroup(state, key))}
               onSelect={(id) => setSelection((state) => openDetail(state, id))}

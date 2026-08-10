@@ -85,68 +85,26 @@ export const en: typeof ko = {
   },
   skills: {
     pageTitle: 'Plugins',
-    rail: { skills: 'Skills', mcp: 'MCP', plugins: 'Plugins' },
+    rail: { skills: 'Skills', mcp: 'MCP' },
     list: {
       addAria: 'Add'
     },
     table: {
       skill: 'Skill',
       mcp: 'MCP server',
-      plugin: 'Server',
-      origin: 'Address',
-      authMethod: 'Auth method',
       lastUpdated: 'Last updated',
       author: 'Author',
       status: 'Status',
       transport: 'Transport',
       user: 'User',
-      providers: 'Auth providers',
-      connectors: 'Connectors',
-      connected: 'Connected',
       noSkills: 'No registered skills.',
-      noMcp: 'No registered MCP servers.',
-      noPlugins: 'No registered plugin packages.'
+      noMcp: 'No registered MCP servers.'
     },
     groups: {
       activeMcp: 'Active MCP',
-      inactiveMcp: 'Inactive MCP',
-      connectedPlugins: 'Connected plugin packages',
-      disconnectedPlugins: 'Disconnected plugin packages'
+      inactiveMcp: 'Inactive MCP'
     },
     view: { selectItem: 'Select an item.', backAria: 'Back to {{section}} list' },
-    diagnostics: {
-      title: '{{count}} item(s) failed to register',
-      hint: 'These were rejected and do not appear in the list. An address must be a path-less origin (for example https://wiki.example.com).',
-      package: 'Plugin package {{subject}}',
-      'cross-reference': 'Auth reference {{subject}}'
-    },
-    connect: {
-      title: 'Connect {{name}}',
-      server: 'Server address',
-      serverHint:
-        'The address cannot be changed after creation. Remove and add it again to change it.',
-      method: 'Authentication method',
-      submit: 'Connect',
-      connect: 'Connect',
-      disconnect: 'Disconnect',
-      reconnect: 'Change credentials',
-      noProvider: 'No authentication method is available for this connector.',
-      failInvalid: 'The credentials were rejected. Please try again.',
-      failUnreachable: 'Could not reach the server. Check that the address is correct.',
-      failAlreadyConnected: 'Already connected. Disconnect first.',
-      failCancelled: 'The connection was cancelled.',
-      failUnknown: 'The connection failed.'
-    },
-    pluginDetail: {
-      providers: 'Auth providers',
-      connectors: 'Connectors',
-      origin: 'Address',
-      authMethods: 'Auth methods',
-      actions: 'Actions',
-      connectedWith: 'Connected with {{method}}',
-      connectedLabel: 'Connected',
-      disconnectedLabel: 'Disconnected'
-    },
     detail: {
       toggleAria: 'Enable {{name}}',
       tryInChat: 'Try in chat',
@@ -400,15 +358,6 @@ export const en: typeof ko = {
       full: 'Full'
     }
   },
-  login: {
-    title: 'Login',
-    authSection: 'Login',
-    bypass: 'Login bypass',
-    devButton: 'SSO dev button',
-    loggingIn: 'Signing in',
-    authButton: 'Sign in',
-    chainProgress: 'Step {{index}} of {{total}} · {{label}}'
-  },
   camera: {
     title: 'Hardware control',
     exposure: 'Exposure',
@@ -434,7 +383,6 @@ export const en: typeof ko = {
     retryable: 'Retryable',
     transientHint: 'This may be a transient error. Try sending again.',
     retrying: 'Retry {{attempt}}/{{max}}',
-    loginFailed: 'Login failed. Please try again.',
     updateDownloadFailed: 'Could not start the update download.',
     updateInstallFailed: 'Could not start the update installation.',
     agentListFailed: 'Failed to load the agent list',

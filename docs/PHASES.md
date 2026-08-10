@@ -10,6 +10,20 @@
 
 ## 현재 작업 중 (In Progress)
 
+> **0180-auth-plugin-teardown (2026-08-10) — 진행 중.** auth·플러그인 전면 재작성의 **1단계(제거)**.
+> 사용자 요청: "auth 및 플러그인 기능을 모두 제거 후 다시 재작성할것이다 … 어설픈 재사용코드 플랫폼화 금지".
+> 0178 이 1,603줄을 지웠는데도 같은 불만이 반복된 이유는 남은 복잡도가 양이 아니라 **4개 축의 교차**
+> (`AuthMethod` × `ConnectorRuntime` × `Binding` × `PluginHost`/`ConnectionRegistry`/`TransactionStore`/`loginChain`)
+> 이고, 그 교차가 계약에 박혀 뺄셈으로 닫히지 않기 때문이다. 제거 규모(실측): `auth-platform` prod 4,569 ·
+> `connectors` 768 · `infra/auth` 1,114 · 계약 3종 297 · handlers 262 · renderer auth 445 · **테스트 35파일**.
+> IPC **82 → 71 채널**, contracts **9 → 6**, 슬라이스 **11 → 9**, settings **20 → 18 키**(죽은 2키는 문서 잔재).
+> 이름만 auth 인 **원격 전송 스택 3모듈은 `infra/net/` 으로 이설**해 살렸다(updater·usage 가 쓴다).
+> 재작성은 **0181-provider-platform** — 폴더링을 프로토콜이 아니라 **관계**로 가르고(`kind: 'gate'|'llm'|'service'`),
+> 한 provider = 한 인증 방법으로 접어 `acceptedMethods` 교차·`loginChain`·cascade 를 없앤다.
+> **주의: 0180~0181 사이에 `v*` 태그를 만들지 않는다** — 1단계 종료 시점은 게이트가 없고 Confluence·usage 도구가
+> 중단된 상태라 배포 형상이 아니다. 보드: [`handoff/INDEX.md`](handoff/INDEX.md).
+
+
 진행 중인 Claude Code ↔ Codex 협업 작업의 라이브 상태는 디스패치 보드에 있다. **여기서는 링크만 둔다** (변동성 정보의 정본은 보드, 완료 시 아래 "페이즈 표" 로 승격).
 
 - 디스패치 보드: [`handoff/INDEX.md`](handoff/INDEX.md) — 작업별 단계(plan/impl/verify)·상태·다음 행동 주체.

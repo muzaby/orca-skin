@@ -13,9 +13,6 @@ import type { ExtensionBuilder } from '../features/extensions/builder'
 import type { ProviderSettingsService } from '../features/providers/provider-settings'
 import type { Scheduler } from '../features/scheduler'
 import type { ExternalUsageService } from '../features/usage/external-usage-service'
-import type { AuthBroker } from '../features/auth-platform/broker'
-import type { PluginHost } from '../features/auth-platform/plugin-host'
-import type { ConnectorHost } from '../features/connectors/runtime'
 import type { RuntimeToolRegistry } from '../features/extensions/runtime-tool-registry'
 import type { UpdateController } from './updater'
 
@@ -46,13 +43,8 @@ export interface RouterContext {
   updates: UpdateController
   scheduler: Scheduler
   externalUsage: ExternalUsageService
-  // 인증 플랫폼(0157) — 핸들러는 부팅 초기에 이미 등록됨(bootstrap 조기 등록). ctx 노출은
-  // 다른 도메인이 binding 을 참조할 때를 위한 것이다(예: MCP `${BINDING:}` 해석).
-  auth: AuthBroker
-  // 인증된 내장 도구 실행. raw credential 은 여기에도 없다 — authenticatedFetch 위임만.
-  connectors: ConnectorHost
-  // PluginHost/runtime registry는 IPC와 turn composition이 연결 lifecycle을 이어 받을 수 있는
-  // app-layer 소유 참조다. auth-platform과 extensions 구현체는 서로 import하지 않는다.
-  pluginHost: PluginHost
+  // 런타임 도구 레지스트리. 0180 에서 인증·커넥터 스택이 사라져 **기여자가 0** 이지만
+  // 포트와 어댑터 배선(`adapters/claude-runtime-tools.ts`)은 그대로다 — 0181 의
+  // `Provider.tools` 가 이 자리를 다시 채운다.
   runtimeTools: RuntimeToolRegistry
 }

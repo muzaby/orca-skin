@@ -45,15 +45,7 @@ import type {
   UpdateState,
   UpdateProgress,
   UpdateCheckResult,
-  UpdateInstallResult,
-  AuthPlatformState,
-  AuthProviderInfo,
-  AuthBindingInfo,
-  AuthStepInfo,
-  AuthTarget,
-  AuthLogoutOutcome,
-  PluginConnectorInfo,
-  PluginDiagnostic
+  UpdateInstallResult
 } from '../../../../shared/ipc'
 
 // renderer 의 모든 IPC 호출 진입점. window.orca.* 의 얇은 typed 패스-스루로,
@@ -199,35 +191,8 @@ export const updateApi = {
     window.orca.update.onProgress(handler)
 }
 
-// 인증 플랫폼 (0157 — 구 ssoApi 대체). 앱 로그인과 서비스 연결이 같은 표면을 쓰고
-// `AuthTarget` 만 달라진다.
-export const authApi = {
-  status: (): Promise<AuthPlatformState> => window.orca.auth.status(),
-  providers: (): Promise<AuthProviderInfo[]> => window.orca.auth.providers(),
-  bindings: (): Promise<AuthBindingInfo[]> => window.orca.auth.bindings(),
-  begin: (providerId: string, target: AuthTarget): Promise<AuthStepInfo> =>
-    window.orca.auth.begin(providerId, target),
-  continueAuth: (transactionId: string, input: Record<string, string>): Promise<AuthStepInfo> =>
-    window.orca.auth.continueAuth(transactionId, input),
-  logout: (bindingId: string, cascade?: boolean): Promise<AuthLogoutOutcome> =>
-    window.orca.auth.logout(bindingId, cascade),
-  onState: (handler: (state: AuthPlatformState) => void): (() => void) =>
-    window.orca.auth.onState(handler)
-}
-
-export const pluginApi = {
-  list: (): Promise<PluginConnectorInfo[]> => window.orca.plugins.list(),
-  // 연결·해제 (0160). preload 는 0158 부터 노출하고 있었으나 renderer 호출자가 없었다.
-  connect: (connectorId: string, bindingId: string): Promise<void> =>
-    window.orca.plugins.connect(connectorId, bindingId),
-  disconnect: (connectorId: string): Promise<AuthLogoutOutcome> =>
-    window.orca.plugins.disconnect(connectorId),
-  // 0164 r2 — 목록이 비어 보이는 이유(거부된 패키지)를 화면에 올린다.
-  diagnostics: (): Promise<PluginDiagnostic[]> => window.orca.plugins.diagnostics()
-}
-
-// 앱 로그인 target 상수 — renderer 여러 곳이 같은 값을 만들지 않도록 한 곳에 둔다.
-export const APPLICATION_TARGET: AuthTarget = { kind: 'application', applicationId: 'orca' }
+// 인증·플러그인 표면(`authApi`·`pluginApi`·`APPLICATION_TARGET`)은 0180 에서 제거됐다.
+// 0181 이 `providerApi` 하나로 다시 세운다.
 
 export const debugApi = {
   getMock: (): Promise<DebugMockState> => window.orca.debug.getMock(),

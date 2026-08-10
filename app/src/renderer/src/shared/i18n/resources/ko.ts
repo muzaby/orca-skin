@@ -83,69 +83,28 @@ export const ko = {
   },
   skills: {
     pageTitle: '플러그인',
-    rail: { skills: '스킬', mcp: 'MCP', plugins: '플러그인' },
+    rail: { skills: '스킬', mcp: 'MCP' },
     list: {
       addAria: '추가'
     },
     table: {
       skill: '스킬',
       mcp: 'MCP 서버',
-      plugin: '서버',
-      origin: '주소',
-      authMethod: '인증 방식',
       lastUpdated: '마지막 업데이트',
       author: '작성자',
       status: '상태',
       transport: '전송 방식',
       user: '사용자',
-      providers: '인증 제공자',
-      connectors: '커넥터',
-      connected: '연결됨',
       noSkills: '등록된 스킬이 없습니다.',
-      noMcp: '등록된 MCP 서버가 없습니다.',
-      noPlugins: '등록된 플러그인 패키지가 없습니다.'
+      noMcp: '등록된 MCP 서버가 없습니다.'
     },
     groups: {
       activeMcp: '활성 MCP',
-      inactiveMcp: '비활성 MCP',
-      connectedPlugins: '연결된 플러그인 패키지',
-      disconnectedPlugins: '연결되지 않은 플러그인 패키지'
+      inactiveMcp: '비활성 MCP'
     },
     view: { selectItem: '항목을 선택하세요.', backAria: '{{section}} 목록으로 돌아가기' },
     // 부팅 등록 거부 (0164 r2). 등록은 패키지 단위 all-or-nothing 이라 주소 하나가 잘못되면
     // 그 패키지의 서버가 전부 목록에서 사라진다 — 이유를 여기서 읽을 수 있어야 한다.
-    diagnostics: {
-      title: '등록하지 못한 항목 {{count}}건',
-      hint: '설정이 거부되어 목록에 나타나지 않습니다. 주소는 경로 없는 origin 이어야 합니다 (예: https://wiki.example.com).',
-      package: '플러그인 패키지 {{subject}}',
-      'cross-reference': '인증 참조 {{subject}}'
-    },
-    connect: {
-      title: '{{name}} 연결',
-      server: '서버 주소',
-      serverHint: '주소는 만든 뒤 바꿀 수 없습니다. 바꾸려면 삭제 후 다시 추가하세요.',
-      method: '인증 방식',
-      submit: '연결',
-      connect: '연결',
-      disconnect: '연결 해제',
-      reconnect: '인증 정보 변경',
-      noProvider: '이 커넥터에 쓸 수 있는 인증 방식이 없습니다.',
-      failInvalid: '자격증명이 거부되었습니다. 다시 입력해 주세요.',
-      failUnreachable: '서버에 연결하지 못했습니다. 주소가 맞는지 확인해 주세요.',
-      failAlreadyConnected: '이미 연결되어 있습니다. 먼저 연결을 해제하세요.',
-      failCancelled: '연결이 취소되었습니다.',
-      failUnknown: '연결에 실패했습니다.'
-    },
-    pluginDetail: {
-      providers: '인증 제공자',
-      connectors: '커넥터',
-      origin: '주소',
-      authMethods: '인증 방식',
-      actions: '작업',
-      connectedWith: '{{method}} 로 연결됨',
-      connectedLabel: '연결됨',
-      disconnectedLabel: '연결되지 않음'
-    },
     detail: {
       toggleAria: '{{name}} 활성화',
       tryInChat: '채팅에서 사용해보기',
@@ -400,16 +359,6 @@ export const ko = {
       full: '전체'
     }
   },
-  login: {
-    title: '로그인',
-    authSection: '로그인',
-    bypass: '로그인 우회(bypass)',
-    devButton: 'SSO 개발 버튼',
-    loggingIn: '로그인 중',
-    authButton: '로그인',
-    // 여러 인증을 연달아 요구하는 패키지의 진행 표시 (0172).
-    chainProgress: '{{total}}단계 중 {{index}}단계 · {{label}}'
-  },
   camera: {
     title: '하드웨어 제어',
     exposure: '노출 (Exposure)',
@@ -435,7 +384,6 @@ export const ko = {
     retryable: '재시도 가능',
     transientHint: '일시적 오류일 수 있습니다. 다시 보내보세요.',
     retrying: '재시도 {{attempt}}/{{max}}',
-    loginFailed: '로그인에 실패했습니다. 다시 시도해 주세요.',
     updateDownloadFailed: '업데이트 다운로드를 시작할 수 없습니다.',
     updateInstallFailed: '업데이트 설치를 시작할 수 없습니다.',
     agentListFailed: 'agent 목록을 불러오지 못했습니다',

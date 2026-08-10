@@ -2,20 +2,16 @@ import type { KeyboardEvent, ReactNode } from 'react'
 import type { McpServer, SkillInfo } from '../../../../../../shared/ipc'
 import { formatDateMedium, uiMessageText, useI18n } from '../../../../shared/i18n'
 import { Icon } from '../../../../shared/ui/Icon'
-import { Dot } from '../../../../shared/ui/Status'
 import type { CatalogTab } from '../../lib/catalogSelection'
 import { mcpRowMeta, skillRowMeta } from '../../lib/catalogRows'
 import {
   groupKey,
   isGroupOpen,
   mcpGroups,
-  pluginGroups,
   skillGroups,
   type CatalogGroup,
   type CollapsedGroups
 } from '../../lib/catalogGroups'
-import type { ConnectorRow } from '../../lib/pluginCatalog'
-import { connectorActions } from '../../lib/connectorActions'
 
 function activate(event: KeyboardEvent<HTMLTableRowElement>, action: () => void): void {
   if (event.key === 'Enter' || event.key === ' ') {
@@ -97,7 +93,6 @@ export function CustomizeList({
   tab,
   skills,
   mcpServers,
-  plugins,
   collapsed,
   onToggleGroup,
   onSelect
@@ -105,19 +100,13 @@ export function CustomizeList({
   tab: CatalogTab
   skills: SkillInfo[]
   mcpServers: McpServer[]
-  plugins: ConnectorRow[]
   collapsed: CollapsedGroups
   onToggleGroup: (key: string) => void
   onSelect: (id: string) => void
 }): React.JSX.Element {
   const { tr, locale } = useI18n()
-  const rows = tab === 'skills' ? skills : tab === 'mcp' ? mcpServers : plugins
-  const emptyKey =
-    tab === 'skills'
-      ? 'skills.table.noSkills'
-      : tab === 'mcp'
-        ? 'skills.table.noMcp'
-        : 'skills.table.noPlugins'
+  const rows = tab === 'skills' ? skills : mcpServers
+  const emptyKey = tab === 'skills' ? 'skills.table.noSkills' : 'skills.table.noMcp'
 
   if (rows.length === 0)
     return <div className="grid h-48 place-items-center text-body text-ink3">{tr(emptyKey)}</div>
@@ -199,45 +188,6 @@ export function CustomizeList({
                 </tr>
               )
             })}
-          </GroupTable>
-        ))}
-      {tab === 'plugins' &&
-        pluginGroups(plugins).map((group) => (
-          <GroupTable
-            key={group.id}
-            group={group}
-            tab={tab}
-            collapsed={collapsed}
-            onToggle={onToggleGroup}
-            columns={[
-              tr('skills.table.plugin'),
-              tr('skills.table.origin'),
-              tr('skills.table.authMethod')
-            ]}
-          >
-            {/* 0164 — 행 = **서버 하나**. 이전에는 패키지 단위라 빌드타임에 서버 2개를 넣어도
-                항목이 1개로 보였고, provider 만 있는 행은 눌러도 할 일이 없었다. */}
-            {group.rows.map((row) => (
-              <tr
-                key={row.connectorId}
-                tabIndex={0}
-                aria-label={row.title}
-                onClick={() => onSelect(row.connectorId)}
-                onKeyDown={(event) => activate(event, () => onSelect(row.connectorId))}
-                className={rowClass}
-              >
-                <td className={`${cellClass} text-ink`}>
-                  <span className="flex items-center gap-g3">
-                    <Dot tone={connectorActions(row.connector).tone} />
-                    <span className="min-w-0 truncate">{row.title}</span>
-                  </span>
-                </td>
-                <td className={`${cellClass} truncate text-ink2`}>{row.origin}</td>
-                <td className={`${cellClass} text-ink2`}>
-                  {row.connectedAuthLabel ?? row.authLabels.join(' · ')}
-                </td>
-              </tr>
-            ))}
           </GroupTable>
         ))}
     </div>

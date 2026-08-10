@@ -41,44 +41,14 @@ new BrowserWindow({
 - claude-code SDK 가 `~/.claude` 디렉토리의 자격증명 (OAuth / API key) 을 자동 사용.
 - 디스크 암호화는 OS 에 위임.
 
-### 1.4-b 인증 플랫폼 (0157) — credential 3계층과 **예외 경계**
+### 1.4-b 인증 플랫폼 — **0180 에서 제거됨**
 
-앱 로그인과 서비스 연결을 같은 lifecycle 로 처리하는 플랫폼. credential 소유는 3계층이다.
+0157 이 세운 credential 3계층(Vault · Browser session store · Binding)과 그 예외 경계표는
+**0180 에서 코드와 함께 사라졌다**. 남은 secret 경로는 §1.4(MCP 비밀)와
+§Agent provider auth token 뿐이다.
 
-| 계층 | 소유 대상 | 구현 |
-|---|---|---|
-| **Vault** | static credential(api_key·auth_token·PAT)의 값 + kind metadata. provider 별·binding 별 네임스페이스 강제 | `infra/auth/credential-vault.ts` (safeStorage 위) |
-| **Browser session store** | session group → Electron `Session`/partition(`persist:auth.<group>`)과 cookie jar. **cookie 를 호출자에게 반환하지 않는다** | `infra/auth/browser-session-store.ts` |
-| **Binding** | "이 대상이 이 provider 로 인증됨" 이라는 불투명 레코드. `handleId` 만 갖고 secret 을 **타입상 표현할 수 없다** | `features/auth-platform/bindings.ts` |
-
-#### raw secret 이 **없는** 곳 (불변식 — 회귀 테스트로 고정)
-
-Renderer 조회 응답 · `auth` IPC DTO · auth 상태 브로드캐스트 · connector 결과 · 로그(중앙 redaction).
-provider context 에도 vault **전체**·cookie API·`process.env` 전체를 주지 않는다(네임스페이스·allowlist 만).
-
-#### raw secret 이 **있는** 곳 (문서화된 예외 — 제거 대상이 아님)
-
-> **왜 예외인가**: Orca 는 이 경로들의 **요청 주체가 아니다.** claude CLI 서브프로세스가 요청하므로
-> credential 이 프로세스 경계를 넘어가야 한다. 이 사실을 감추지 않고 경계로 고정한다.
-
-| 노출 | 경로 | 사유 / 완화 |
-|---|---|---|
-| MCP 비밀 평문 | `dist/<engine>/plugins/orca/.mcp.json` | claude CLI 가 이 파일을 읽어 MCP 서버를 spawn 한다. **완화**: `.bak` 2차 사본 제거(배포 시 스크럽) · `${BINDING:}` 로 소유권을 broker 로 일원화(회전·만료·logout 일관) · 파일 권한 `0600`. **최종 제거는 Orca 호스팅 MCP proxy 몫**(후속) |
-| LLM auth key 평문 | `--settings` argv 인라인 JSON | handoff 0028 이 **명시 채택한 트레이드오프**(same-user process list 노출 수용). 사용자가 직접 적은 값만 남는다 — 0157 이 broker 가 쓰던 경로(구 `SsoContext.setProviderEnv` → settings.json env 병합)를 **제거**했다 |
-
-**이 표 밖의 신규 노출은 금지**한다. `options.mcpServers` 로 옮기는 것은 개선이 아니다 — SDK 가
-`--mcp-config` argv 인라인 JSON 으로 실어 디스크에서 argv 로 자리만 바꾼다.
-
-#### safeStorage 실패 정책 (비대칭 — 의도적)
-
-| 동작 | 정책 | 근거 |
-|---|---|---|
-| 쓰기(`encrypt`) | `isEncryptionAvailable()` false 면 **throw**(fail-closed) | 평문 강등 저장 금지 |
-| 읽기(`safeDecrypt`) | 복호화 실패 시 `null` 강등 | 키체인 잠김 하나로 앱 전체가 죽지 않게 |
-
-읽기 강등을 유지하되 **관측 가능**하게 만든다: auth 경로는 "비밀 없음" 과 "복호화 실패" 를 구분해
-(`CredentialVault.read()` 의 `absent` vs `undecryptable`) 후자는 warn 로그 + binding status `unknown` 으로
-낮춘다 — 조용한 미인증 진행을 막는다.
+0181 이 `Provider` 축으로 다시 세울 때 이 절을 새 3계층(vault · browser session · grant)으로
+채운다. 그전까지 **이 절을 근거로 인용하지 마라** — 가리키는 구현이 없다.
 
 ### 1.4 채택된 자격증명 모델 (Phase 3+ 도입 결정)
 
@@ -140,7 +110,7 @@ font-src 'self' https://fonts.gstatic.com
 
 ### 1.7 로그인 게이트 · 배포/업데이트 신뢰 (0072 / 0086 / 0087~0089)
 
-- **앱 로그인 게이트 (0072 → 0130 → 0157 인증 플랫폼으로 승계)**: dev 빌드는 앱 시작 시 로그인 게이트(`app/RootGate` + `features/auth`)를 거치며 디버그 패널의 `authBypass` 설정 토글(persistence.md §1.2, 구 `ssoBypass`)로 우회한다. **배포 빌드의 게이트는 `application` 대상 auth provider 의 등록 여부(`AuthPlatformState.required` = `providersForTarget('application').length > 0`)로 결정**된다 — 등록 provider 가 0개(기본 배포)이면 게이트 없이 진입하고, 폐쇄망 배포가 `features/auth-platform/modules/index.ts` 의 `AUTH_PLUGIN_PACKAGES` 에 회사 패키지를 opt-in 등록하면 prod 게이트가 활성화된다(계약 `contracts/auth-plugin.ts`, 가이드 [guides/closed-network-extensions.md](../../guides/closed-network-extensions.md)). prod 게이트에 bypass 백도어는 없다(디버그 bypass 는 DEV 전용). **이 게이트는 UX 게이트이지 보안 경계가 아니다** — 인증 전에도 main IPC 는 열려 있으며, 실제 접근 통제는 사내 네트워크/서비스 인증이 담당한다.
+- **앱 로그인 게이트 — 0180 에서 제거됨**: `app/RootGate` 는 이제 부팅 단계만 판정하고 인증을 보지 않는다. `features/auth`·`AuthPlatformState.required` 판정·prod 게이트 활성화 경로가 전부 사라졌다. `Settings.authBypass` 키는 **구버전 설정 파일 호환 때문에 스키마에 남아 있으나 읽는 코드가 없다**. 0181 이 `Provider{kind:'gate'}` 로 게이트를 다시 세우며, 그때도 **선언이 0개면 통과**(개발·OSS 빌드가 열리지 않는 것을 막는 안전장치)를 유지한다.
 
 > **0157 이 지운 두 경로 (되살리지 말 것)**: ⓐ 구 `features/sso/modules/` + `contracts/sso.ts` 는 auth-platform 으로 승계돼 **더 이상 없다**. ⓑ 구 `setProviderEnv` sink — 획득 토큰을 provider `settings.json` 의 env 블록에 **평문으로 병합 기록**하던 경로로, 0157 에서 제거됐다(`app/bootstrap.ts:481-483` 주석이 근거를 보존한다). 이제 credential 은 binding·vault 가 소유하고, LLM 백엔드로 나가는 env 값은 **사용자가 직접 적은 것만** 남는다. 구 SecretStore 네임스페이스 `provider:<key>:`(0130 핸드셰이크)도 0157 이후 **쓰는 쪽이 0곳**이며, 인증이 필요한 사용량 조회는 구독 모델로 대체됐다(0176 — `contracts/usage-source.ts`).
 - **업데이트/배포 신뢰**: 릴리스는 **unsigned NSIS**(코드 서명 미도입 — OQ, SmartScreen 경고 수용) + GitHub Releases draft(수동 Publish 게이트). electron-updater 는 `latest.yml` sha512 로 산출물 무결성을 검증하고, 릴리스 파이프라인의 `validate-dist.mjs` 가 게시 전 sha512 를 재계산 검증한다(0087). 자동 다운로드는 하지 않는다(`autoDownload=false`, runtime-ipc.md §3.1).
@@ -151,27 +121,25 @@ main 프로세스의 모든 원격 요청은 **Chromium 네트워크 스택**으
 
 | 규칙 | 구현 | 강제 |
 |---|---|---|
-| **전역 `fetch(` 를 호출할 수 있는 파일은 `infra/auth/net-fetch.ts` 하나뿐** | 가드가 `src/main/**` 전 `.ts` 를 훑어 `net-fetch.ts` 밖의 전역 `fetch(` 호출을 0건으로 고정한다. 메서드 호출(`ses.fetch(`·`ctx.fetch(`·`this.deps.fetchImpl(`)과 주석·문자열 안의 `fetch(` 는 위반이 아니다 — 가드가 **자기 정규식의 오탐/미탐을 스스로 고정**한다(측정력 0인 위생 테스트 방지) | `infra/auth/no-node-fetch.test.ts` |
-| **Chromium 스택을 무는 파일은 3개** — `net-fetch.ts`(`net.fetch`) · `net-request.ts`(`net.request`) · `browser-session-store.ts`(`Session.fetch`) | 셋 다 `electron` 을 import 하므로 **테스트가 직접 import 하면 즉시 죽는다**(`vitest.config.ts` 에 electron alias 없음 — P29). 그래서 판정·변환은 순수 모듈(`net-response.ts`)로 떼어 두고 이 파일들은 **배선만** 한다 | `infra/auth/net-response.test.ts`(순수부) |
-| 소비자는 `typeof fetch` **포트로 주입받는다** — `BrokerDeps.fetchImpl` · `createSender(fetchImpl)` · `ExternalUsageService.fetchImpl` | **기본값을 두지 않는다** — 기본값은 곧 조용한 Node 스택 복귀다 | 위와 동일 |
-| 브라우저 세션(cookie jar)이 필요한 요청은 `Session.fetch` | `infra/auth/browser-session-store.ts` | — |
-| **`redirect:'manual'` 은 Electron 에서 의미가 다르다** — 웹 fetch 는 3xx 를 돌려주지만 Electron 은 **요청을 취소한다**(`followRedirect()` 를 동기 호출해야 이어진다) | 3xx 를 직접 받아야 하면 `infra/auth/net-request.ts` 의 `sendOnce`(`net.request` 의 `'redirect'` 이벤트로 3xx 재구성). `netFetch` 가 manual 요청을 그리로 우회한다. **추종은 호출자가** 한다(홉마다 정책을 검사해야 하므로) | `infra/auth/net-response.test.ts` |
+| **전역 `fetch(` 를 호출할 수 있는 파일은 `infra/net/net-fetch.ts` 하나뿐** | 가드가 `src/main/**` 전 `.ts` 를 훑어 `net-fetch.ts` 밖의 전역 `fetch(` 호출을 0건으로 고정한다. 메서드 호출(`ses.fetch(`·`ctx.fetch(`·`this.deps.fetchImpl(`)과 주석·문자열 안의 `fetch(` 는 위반이 아니다 — 가드가 **자기 정규식의 오탐/미탐을 스스로 고정**한다(측정력 0인 위생 테스트 방지) | `infra/net/no-node-fetch.test.ts` |
+| **Chromium 스택을 무는 파일은 3개** — `net-fetch.ts`(`net.fetch`) · `net-request.ts`(`net.request`) — **0180 에서 `browser-session-store.ts` 가 사라져 2개다** | 셋 다 `electron` 을 import 하므로 **테스트가 직접 import 하면 즉시 죽는다**(`vitest.config.ts` 에 electron alias 없음 — P29). 그래서 판정·변환은 순수 모듈(`net-response.ts`)로 떼어 두고 이 파일들은 **배선만** 한다 | `infra/net/net-response.test.ts`(순수부) |
+| 소비자는 `typeof fetch` **포트로 주입받는다** — `ExternalUsageService.fetchImpl`(0180 기준 유일한 소비자) | **기본값을 두지 않는다** — 기본값은 곧 조용한 Node 스택 복귀다 | 위와 동일 |
+| **`redirect:'manual'` 은 Electron 에서 의미가 다르다** — 웹 fetch 는 3xx 를 돌려주지만 Electron 은 **요청을 취소한다**(`followRedirect()` 를 동기 호출해야 이어진다) | 3xx 를 직접 받아야 하면 `infra/net/net-request.ts` 의 `sendOnce`(`net.request` 의 `'redirect'` 이벤트로 3xx 재구성). `netFetch` 가 manual 요청을 그리로 우회한다. **추종은 호출자가** 한다(홉마다 정책을 검사해야 하므로) | `infra/net/net-response.test.ts` |
 
 > 이 규칙은 보안 경계이자 *동작* 경계다. 위반해도 로컬·개방망에서는 통과하고 **사내망에서만 실패**하므로, 리뷰가 아니라 테스트로 잡는다.
 
-### 1.9 `infra/auth/` 모듈 인벤토리 (0157~0176)
+### 1.9 `infra/net/` 모듈 인벤토리 (0173/0174 → 0180 이설)
 
-인증 플랫폼의 인프라 계층. **feature 는 여기를 통해서만 secret 에 닿고, connector 는 raw credential 을 아예 받지 않는다**(§1.4-b 의 3계층).
+0180 이 인증 인프라 6모듈(`credential-vault`·`browser-session-store`·`authenticated-fetch`·
+`binding-records`·`binding-store-file`·`session-policy`)을 삭제하면서, **인증이 아니었던**
+원격 전송 스택 3모듈을 `infra/auth/` → `infra/net/` 으로 옮겼다. 디렉토리 이름이 `auth` 라서
+함께 지워질 뻔한 것이 이설의 이유다 — 이들은 updater·usage 가 쓰는 main 공용 인프라다.
 
 | 모듈 | 책임 |
 |---|---|
-| `credential-vault.ts` | safeStorage 로 봉인한 credential 저장소 — 값의 유일한 소유자 |
-| `browser-session-store.ts` | `persist:auth.<group>` partition 별 Electron `Session`(cookie jar) 보관. session group 공유의 구현 |
-| `authenticated-fetch.ts` | binding 을 해석해 요청에 credential presentation 을 적용한 fetch 를 만든다 — **connector 가 받는 것은 이것뿐** |
-| `binding-records.ts` · `binding-store-file.ts` | binding 레코드(대상·상태·만료·principal)의 형상과 파일 영속. secret 미포함 |
-| `plugin-exec.ts` | 플러그인 코드 실행 경계 (빌드 타임 내장 한정 — 런타임 임의 코드 로딩 금지, guides/closed-network-extensions.md §0) |
-| `session-policy.ts` | 세션·리다이렉트 정책 판정 |
-| `net-fetch.ts` · `net-request.ts` · `net-response.ts` | 원격 전송 스택 (§1.8) |
+| `net-fetch.ts` | Chromium `net.fetch` — **전역 `fetch(` 를 부를 수 있는 유일한 파일** (§1.8) |
+| `net-request.ts` | `net.request` 기반 전송. `redirect:'manual'` 로 3xx 를 직접 받아야 할 때 (§1.8) |
+| `net-response.ts` | 응답 판정·변환 **순수부** — electron 미의존이라 테스트가 직접 import 한다 |
 
 ---
 

@@ -98,7 +98,7 @@ electron-vite 환경 기준. 표 밖 의존성 추가 시 **사용자 승인 필
 | diff 렌더링 | diff | ^9 | 확정 | 도구 카드의 파일 편집 diff 표시 |
 | transcript 가상화 (Renderer) | `@tanstack/react-virtual` | ^3 | **확정 (0102)** | 긴 세션 transcript 의 과거(확정) 교환만 가상화해 화면 밖 shiki/DOM 상주 비용 제한. 마지막(스트리밍) 교환은 비가상 tail 로 유지해 0008 예약공간 앵커 보존 ("virtualized head + unvirtualized tail"). |
 | 차트 (Renderer) | recharts | ^3 | **확정 (0112, 사용자 승인)** | 설정 사용량 요약의 일별 토큰 바 차트. 선언적 React 컴포넌트 + SVG 렌더링이라 `tokens.css` 시맨틱 토큰(CSS 변수)·white/dark 테마와 직결. 색은 `--color-indigo`(사용량 지정색)만 사용. |
-| 영속화 (설정) | `electron-store` | ^8 | **확정 (완료)** | **20 키** (theme·density·sidebar*·lastBackend·lastSessionId·windowBounds·mcp*·skillEnabled·authBypass·connectorInstances·language·uiLocale·accountInstructions·appFont·notifyOnComplete·pluginAddEnabled·spendingLimitUsd·scheduler). §6.7 참조 |
+| 영속화 (설정) | `electron-store` | ^8 | **확정 (완료)** | **18 키** (theme·density·sidebar*·lastBackend·lastSessionId·windowBounds·mcp*·skillEnabled·authBypass·language·uiLocale·accountInstructions·appFont·notifyOnComplete·spendingLimitUsd·scheduler). §6.7 참조 |
 | 자동 업데이트 | `electron-updater` | ^6 | **확정 (0084~0086)** | `app/updater.ts` UpdateController — autoDownload=false·사용자 게이트. [arch/backend/runtime-ipc.md](arch/backend/runtime-ipc.md) §3.1 |
 | 로컬 DB (Phase 3+) | better-sqlite3 (Phase 3 MVP raw) / Drizzle 후보 (Phase 4 재검토) | — | **채택 (Phase 3+)** | 메시지·세션 메타 SSOT. 어댑터 외부 저장 (jsonl 등) 은 단방향 동기화 소스로 격하. 마이그레이션 `src/main/db/migrations/NNN_<name>.sql`. **Phase 3 MVP: raw better-sqlite3 + prepared statements (쿼리 6 개 내외, ORM 가치 작음). Drizzle 은 Phase 4 멀티 세션·artifact·권한·통계 도입 시 재검토 (2026-05-20).** 상세 [arch/backend/persistence.md](arch/backend/persistence.md) |
 | 자격증명 | Electron `safeStorage` (OS keychain) | — | **부분 구현** | MCP 인증 비밀 = secret-store(`orca-secrets`) 구현 완료. 어댑터별 base URL/API key 저장은 Future. [arch/backend/security.md](arch/backend/security.md) §1.4 |
@@ -319,7 +319,7 @@ interface ChatState {
 
 ### 6.7 Settings 키 카탈로그
 
-`electron-store` 로 영속화 완료 — **20 키** (0096 `uiLocale` · 0157 `ssoBypass`→`authBypass` · 0161 `connectorInstances` · 0164 `pluginAddEnabled`). zod 정본은 `app/src/shared/protocol.ts` 의 `SettingsSchema`, 타입 카탈로그는 `IPC_CONTRACT.md` §2.4 와 1:1 (키별 상세는 [arch/backend/persistence.md](arch/backend/persistence.md) §1.2).
+`electron-store` 로 영속화 완료 — **18 키** (0096 `uiLocale` · 0157 `ssoBypass`→`authBypass` · 0180 `connectorInstances`·`pluginAddEnabled` 문서 잔재 제거). zod 정본은 `app/src/shared/protocol.ts` 의 `SettingsSchema`, 타입 카탈로그는 `IPC_CONTRACT.md` §2.4 와 1:1 (키별 상세는 [arch/backend/persistence.md](arch/backend/persistence.md) §1.2).
 
 | 키 | 타입 | 설명 |
 |---|---|---|
@@ -332,8 +332,6 @@ interface ChatState {
 | `mcpEnabled` / `mcpMeta` | `Record<…>` | MCP 서버 on/off + Orca 전용 메타 (mcp.json 정의와 분리) |
 | `skillEnabled` | `Record<string, boolean>` | Skill on/off (부재⇒true) |
 | `authBypass` | `boolean` | 인증 게이트 우회 (디버그 토글, DEV 전용) — 0157 에서 `ssoBypass` 에서 개명 |
-| `connectorInstances` | `unknown[]` | 사용자가 템플릿으로 추가한 connector 인스턴스 (0161). 비밀 미포함 |
-| `pluginAddEnabled` | `boolean` | 플러그인 '추가' UI 노출 토글 (디버그, 0164) |
 | `language` / `accountInstructions` | `string` | 시스템 프롬프트 `# User` 헤더로 매 턴 주입 |
 | `appFont` | `'sans' \| 'serif' \| 'mono'` | 앱 전체 폰트 |
 | `notifyOnComplete` | `boolean` | 턴 완료 시 OS 알림 (창 비활성 한정) |
