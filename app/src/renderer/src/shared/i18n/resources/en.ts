@@ -83,6 +83,12 @@ export const en: typeof ko = {
     title: 'Capture history & AI analysis',
     body: 'Coming soon. Capture RAW retention, per-channel metrics, automated ColorChecker / SFR / \u0394E analysis, and Claude analysis comments arrive in a later phase.'
   },
+  gate: {
+    title: 'Sign in',
+    subtitle: 'Sign in with your corporate account to continue.',
+    signIn: 'Sign in',
+    signingIn: 'Signing in…'
+  },
   skills: {
     pageTitle: 'Plugins',
     rail: { skills: 'Skills', mcp: 'MCP', providers: 'Connections' },

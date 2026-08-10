@@ -83,6 +83,9 @@ import { OAuthRunner } from '../features/providers/auth/oauth-runner'
 import { LoginService } from '../features/providers/auth/login'
 import { declaredProviders } from '../features/providers/declarations'
 import { createVault } from '../infra/vault'
+import { BrowserSessionStore } from '../infra/browser-session'
+import { SessionRunner } from '../features/providers/auth/specs/browser-session'
+import { ProviderApiImpl } from '../features/providers/auth/api'
 import { createNoopUpdater, loadElectronAutoUpdater, UpdateController } from './updater'
 import { registerChatHandlers } from './chat-turn'
 import { createBootReportRecorder } from './boot-report'
@@ -207,6 +210,10 @@ export class Bootstrap {
     await this.deployment?.ensureDeployed()
   }
 
+  // `redirect:'window'` OAuth 가 쓰는 세션 그룹. 게이트(ADFS)와 **분리**한다 — 인가 창의
+  // 쿠키가 사내 SSO jar 에 섞이면 로그아웃 범위가 흐려진다.
+  private static readonly OAUTH_WINDOW_GROUP = 'oauth'
+
   // provider 플랫폼 조립 (0181). 배포 선언 → 등록(검사) → grant 복원 → 로그인 서비스.
   // **여기서 던지지 않는다** — 영속을 못 열면 메모리 폴백으로 내려앉고(이번 실행에서만 인증이
   // 유지된다) 사유를 로그로 남긴다. 게이트 자체는 계속 판정 가능해야 한다.
@@ -232,6 +239,8 @@ export class Bootstrap {
     }
 
     const vault = createVault(secretStore)
+    // 브라우저 세션(cookie jar·통합 인증)은 게이트·OAuth 창·세션 grant 전송이 **함께** 쓴다.
+    const sessions = new BrowserSessionStore()
     const store = new ProviderStore({
       persistence,
       vault,
@@ -253,9 +262,20 @@ export class Bootstrap {
       oauthStates = createMemoryOAuthStatePersistence()
     }
 
+    const api = new ProviderApiImpl({
+      registry,
+      store,
+      // 원격 요청은 Chromium 스택으로만 나간다 (0173) — 기본값을 두지 않는다.
+      fetchImpl: netFetch,
+      sessions,
+      logger: (event, data) => log.warn(event, data),
+      onChange: () => broadcastProviderState(platform.state())
+    })
+
     const platform = new ProviderPlatform({
       registry,
       store,
+      api,
       // dev 전용 우회다 — prod 번들에서는 `import.meta.env.DEV` 가 false 로 접혀 분기 자체가
       // 사라진다(설정 값이 켜져 있어도 게이트는 유지된다).
       bypass: () => import.meta.env.DEV && this.settings.getAll().authBypass,
@@ -267,7 +287,25 @@ export class Bootstrap {
           states: new OAuthStateStore(oauthStates),
           // 인가는 **기본 브라우저**에서 돈다(RFC 8252) — 사용자가 주소창과 인증서를 직접 본다.
           openExternal: (url) => shell.openExternal(url),
+          // `redirect:'window'` 분기는 게이트와 **같은 창 구현**을 쓴다 — 두 벌이면 allowlist
+          // 차단·ERR_ABORTED 처리 같은 규칙이 갈린다.
+          window: {
+            open: async ({ url, isDone }) => {
+              const group = Bootstrap.OAUTH_WINDOW_GROUP
+              sessions.register({ sessionGroup: group, allowedOrigins: [new URL(url).origin] })
+              const handleId = sessions.acquire(group)
+              try {
+                return (await sessions.openLoginWindow(handleId, { url, isDone })).finalUrl
+              } catch {
+                return null
+              }
+            }
+          },
           logger: (event, data) => log.warn(event, data)
+        }),
+        session: new SessionRunner({
+          sessions,
+          logger: (event, data) => log.info(event, data)
         }),
         onChange: () => broadcastProviderState(platform.state())
       })

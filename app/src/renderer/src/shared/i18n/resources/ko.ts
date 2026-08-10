@@ -81,6 +81,12 @@ export const ko = {
     title: '캡처 히스토리 & AI 분석',
     body: '준비 중입니다. 캡처 RAW 보관, 채널별 메트릭, ColorChecker / SFR / ΔE 자동 분석, Claude의 분석 코멘트는 다음 단계에서 제공됩니다.'
   },
+  gate: {
+    title: '사내 로그인',
+    subtitle: '계속하려면 사내 계정으로 로그인하세요.',
+    signIn: '로그인',
+    signingIn: '로그인 중…'
+  },
   skills: {
     pageTitle: '플러그인',
     rail: { skills: '스킬', mcp: 'MCP', providers: '연결' },
