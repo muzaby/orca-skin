@@ -85,6 +85,7 @@ import { declaredProviders } from '../features/providers/declarations'
 import { createVault } from '../infra/vault'
 import { BrowserSessionStore } from '../infra/browser-session'
 import { SessionRunner } from '../features/providers/auth/specs/browser-session'
+import { registerDeclaredSessions } from '../features/providers/auth/session-policies'
 import { ProviderApiImpl } from '../features/providers/auth/api'
 import { ServiceToolRegistrar } from '../features/providers/service'
 import { createNoopUpdater, loadElectronAutoUpdater, UpdateController } from './updater'
@@ -246,6 +247,11 @@ export class Bootstrap {
     const vault = createVault(secretStore)
     // 브라우저 세션(cookie jar·통합 인증)은 게이트·OAuth 창·세션 grant 전송이 **함께** 쓴다.
     const sessions = new BrowserSessionStore()
+    // **로그인 전에 등록한다** (0182). 0181 은 `SessionRunner.login` 에서만 등록해서, 재시작 후
+    // 쿠키·grant 가 살아 있어도 group 이 미등록이라 `acquire()` 가 raw throw 로 죽었다 —
+    // 401 강등 경로도 타지 않아 재인증 지점조차 뜨지 않았다. 거부된 선언은 `registry.list()` 에
+    // 없으므로 그 cookie jar 는 만들어지지 않는다.
+    registerDeclaredSessions(sessions, registry.list(), (event, data) => log.warn(event, data))
     const store = new ProviderStore({
       persistence,
       vault,

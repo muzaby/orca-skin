@@ -70,6 +70,11 @@ export interface RuntimeToolSink {
   remove(serverId: string): void
 }
 
+// ⚠️ **아래 둘은 소비자가 0곳이다 (0182 실측).** 0181 이 "정적 descriptor + connection 별 factory"
+// 2단계 구조를 접고 `RuntimeToolServer`(descriptor + implementations)를 **한 번에** 만드는 형태로
+// 바꾸면서 타입만 남았다. 이 파일만 읽고 시작하면 `create(ctx)` 가 의도된 확장점처럼 보이므로
+// 경고를 남긴다 — **새 도구 서버는 `RuntimeToolServer` 를 만든다**(`service/confluence/tools.ts` 참고).
+// 되살릴 계획이 없다면 다음 정리 때 지운다.
 export interface PluginToolContext {
   readonly connectionId: string
   invoke(operation: string, params?: Record<string, unknown>): Promise<unknown>

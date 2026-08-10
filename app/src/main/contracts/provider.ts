@@ -96,6 +96,27 @@ export interface BrowserSessionConfig {
   // 선언되면 세션 성립 후 그 쿠키로 사내 API 를 불러 **토큰까지** 받는다(사용자 결정 "둘 다").
   // 없으면 grant 는 세션에서 끝난다. 실값은 배포가 채운다(0181 OQ2).
   exchange?: SessionTokenExchange
+  // 선언되면 세션 성립 후 **누가 로그인했는지**를 한 번 더 물어 `Grant.principalId` 로 싣는다
+  // (0182). 사이드바가 그 값을 표시한다.
+  //
+  // **probe 를 재사용하지 않는 이유**: `probe()` 는 판정만 돌려주도록 설계돼 본문을 버리고
+  // (`infra/browser-session.ts`), 리다이렉트 체인을 직접 돌기 때문에 본문이 **마지막 홉의 것**이라
+  // 신원 문서라는 보장이 없다. 그래서 같은 cookie jar 로 `send()` 를 한 번 더 부른다.
+  //
+  // **조회 실패는 로그인 실패가 아니다** — principal 은 표시용이라, 못 읽었다고 인증을 되돌리면
+  // "이름을 못 읽어서 로그인이 안 되는" 상태가 된다. 실패하면 principal 만 빈 채로 진행한다.
+  whoami?: SessionLookup
+}
+
+// 세션 쿠키로 사내 API 를 한 번 부르고 JSON 에서 값 하나를 꺼내는 선언. `exchange` 와 같은
+// 형상이라 배포가 규칙을 두 번 배우지 않는다.
+export interface SessionLookup {
+  // `Provider.origin` 기준 **상대 경로**. 절대 URL 을 쓰지 않는 이유는 두 가지다 — origin 밖으로
+  // 나가지 못하게 하고, 로그인 후 갱신을 `ProviderApi.request` 로 그대로 재사용할 수 있게
+  // 하기 위함이다(그쪽은 절대 경로를 `absolute_path` 로 거부한다).
+  path: string
+  // 응답 JSON 에서 값을 꺼낼 점 경로. 예: `mail` · `user.email`.
+  valuePath: string
 }
 
 export interface SessionTokenExchange {
@@ -106,6 +127,9 @@ export interface SessionTokenExchange {
   valuePath: string
   // 만료(epoch ms 또는 초). 없으면 만료를 모른다 — 401 로만 강등된다.
   expiresAtPath?: string
+  // 같은 응답에 계정 식별자가 실려 오면 그 점 경로. 있으면 `whoami` 를 **부르지 않는다**
+  // (추가 왕복 0) — 교환 응답이 이미 신원을 말했는데 한 번 더 묻지 않는다.
+  principalPath?: string
 }
 
 // ── AuthSpec — 요구된 4종 + ADFS ──────────────────────────────────────────────

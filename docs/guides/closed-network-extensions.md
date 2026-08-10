@@ -103,6 +103,80 @@ present: { location: 'header', name: 'Authorization', scheme: 'bearer' }
 | `name` | 헤더/쿼리/쿠키 이름 |
 | `scheme` | `bearer` · `basic`(값이 이미 `user:pass` 형태) · `token` · `raw`(값 그대로). 생략 가능 |
 
+### 1.6 `sessionGroup` — 폐쇄망 도메인의 공통 설정
+
+여러 사내 도메인이 **같은 SSO 세션**을 쓰는 것이 폐쇄망의 기본 형태다. 그 축은 `sessionGroup`
+하나다 — 같은 문자열을 선언한 provider 들은 Electron 파티션 `persist:auth.<group>` 을 공유하며,
+이것은 복사가 아니라 **같은 cookie jar 그 자체**다.
+
+```ts
+gate    : { sessionGroup: 'corp', allowedOrigins: ['https://adfs…', 'https://portal…'] }
+service : { sessionGroup: 'corp', allowedOrigins: ['https://wiki…'] }
+//          ↑ 같은 값 = 같은 jar. SSO 쿠키가 wiki 리다이렉트에서 재사용된다.
+```
+
+| 대상 | 공유되나 |
+|---|---|
+| cookie jar | **공유** — 같은 파티션 그 자체 |
+| `allowedOrigins` | **합집합**으로 넓어진다 (각자 자기 호스트만 적어도 된다) |
+| **grant** | **공유되지 않는다** — provider 단위다 |
+
+마지막 행이 중요하다. jar 가 살아 있어도 각 provider 는 한 번은 로그인 흐름을 거쳐야
+`valid` 가 된다. 다만 쿠키가 이미 있으면 창이 곧바로 `doneUrlPrefix` 로 떨어지는 **무마찰 왕복**이다.
+
+> **부팅 시 등록된다** (0182). 선언된 group 은 `bootstrap.createProviderPlatform` 이
+> `registerDeclaredSessions` 로 **로그인 전에** 등록한다. 0181 은 로그인 실행부에서만 등록해서,
+> 재시작 후 쿠키·grant 가 살아 있어도 group 이 미등록이라 요청이 `등록되지 않은 session group`
+> 으로 죽었다 — 401 강등 경로도 타지 않아 재인증 지점조차 뜨지 않았다.
+> **등록 검사에서 거부된 선언의 jar 는 만들어지지 않는다**(입력이 `registry.list()` 다).
+
+### 1.7 SP 를 부르는 네 순간, 그리고 다른 레이어에서 쓰는 법
+
+앱이 사내 SP 를 부르는 순간은 넷이고, **전송은 이미 한 벌**이다 — `ProviderApiImpl.transport()`
+가 세션 grant 를 만나면 `BrowserSessionStore.send()` 로 위임한다.
+
+| SP 호출 | 시점 | 통로 | 경로 표기 | 게이트 |
+|---|---|---|---|---|
+| probe — 인증됐나 | 로그인 중 | `sessions.probe()` | **절대 URL** | `allowedOrigins` |
+| whoami — 누구인가 | 로그인 중 | `sessions.send()` | origin 상대 | `allowedOrigins` |
+| exchange — 토큰 승격 | 로그인 중 | `sessions.send()` | origin 상대 | `allowedOrigins` |
+| 그 외 API (도구·사용량…) | 로그인 후 | `ProviderApi.request()` | origin 상대 | `checkOutboundRequest` 전부 |
+
+> ⚠️ **로그인 중에는 `ProviderApi.request()` 를 쓸 수 없다.** `checkOutboundRequest` 가
+> `grantStatus !== 'valid'` 를 거부하는데 grant 는 로그인이 **성공한 뒤** 커밋된다. 닭·달걀이라
+> 없앨 수 없다 — 로그인 중은 `sessions.send()`, 로그인 후는 `api.request()` 다.
+
+**API 마다 선언하지 않는다.** `request` 는 origin 상대 경로면 무엇이든 받는다 — operation
+레지스트리가 없다(배포가 선언 두 곳을 맞추지 않게 하려는 결정). 그래서 "SP 의 여러 기능" 은
+선언 문제가 아니라 **그 경로들을 누가 소유하느냐**의 문제다. Confluence 가 정본 패턴이다:
+
+| 층 | 파일 | 성격 |
+|---|---|---|
+| 요청 빌더 | `service/<sp>/rest.ts` | **순수** — 경로·컨텍스트 prefix·인코딩·특수 헤더. 네트워크 0 |
+| 오케스트레이션 | `service/<sp>/connector.ts` | 좁힌 포트만 받는다 |
+| 노출 표면 | `service/<sp>/tools.ts` | 정책 SSOT |
+
+**소비자가 포트를 받는 방법은 위치에 따라 셋이다.**
+
+| 소비자 위치 | 방법 | 선례 |
+|---|---|---|
+| `features/providers` 안 | 직접 받는다 | `ConfluenceContext { request, signal?, logger }` |
+| **다른 feature 슬라이스** | `contracts/` 에 구조적 포트를 선언하고 **컴포지션 루트가 어댑터를 주입** | `contracts/usage-source.ts` + `app/usage-source.ts` |
+| **renderer** | 전용 도메인 IPC 채널을 만든다 — 범용 프록시 채널은 **없고, 없는 것이 맞다** | `app/handlers/*` |
+
+포트는 항상 좁혀 받는다. `providerId` 까지 클로저로 굳히면 `materialize`·`token` 같은 **값 표면**이
+딸려오지 않는다:
+
+```ts
+request: (req, signal) => api.request('confluence', req, signal)
+```
+
+**요청 하나에 걸리는 규칙** — 어기면 요청 자체가 나가지 않는다: 절대 URL·프로토콜 상대 금지 ·
+예약 헤더(`authorization`·`cookie`·`proxy-authorization`) 금지 · grant 가 `valid` 가 아니면 차단 ·
+컨텍스트 경로는 호출자가 prefix(`normalizeBasePath()` 재사용) · `query` 는 `path` 와 분리 ·
+바이트가 필요하면 `responseType:'binary'` + `maxBytes` · redirect 는 홉마다 재검사 ·
+401/403 은 자동 `expired` 강등 · `signal` 전파.
+
 ---
 
 ## 2. 레시피 A — 로그인 게이트 추가 (`kind:'gate'`)
@@ -159,6 +233,22 @@ export const SSO_PROVIDER: Provider | null = {
 | `doneUrlPrefix` | 이 접두사에 도달하면 로그인 완료로 **간주**한다 | 이것만으로 성공을 선언하지 않는다(아래 probe) |
 | `authenticationProbeUrl` | 완료를 **실제 요청으로** 재확인하는 endpoint | 로그인 폼이 200 으로 뜨는 배포에서 오판을 막는 지점 |
 | `allowedOrigins` | 창이 오갈 수 있는 origin **전수**. 서브도메인 자동 허용 없음 | 하나 빠지면 로그인 중간에 차단된다 — 로그가 막힌 origin 을 지목한다 |
+| `whoami` (0182) | `{ path, valuePath }` — 로그인한 계정을 읽어 **사이드바 하단에 표시**한다. 생략하면 조회 요청이 아예 나가지 않고 폴백 라벨(`developer`)이 뜬다 | **`path` 는 origin 기준 상대 경로다** — 위 세 URL 이 절대 URL 이라 여기도 절대 URL 로 적기 쉽다(아래 주의) |
+
+**`whoami` 를 왜 probe 로 대신하지 않는가.** `authenticationProbeUrl` 이 흔히 `/api/me` 라 같은
+응답에 계정이 들어 있지만, probe 는 **판정만 돌려주도록** 설계돼 본문을 버리고, 리다이렉트 체인을
+직접 돌기 때문에 본문이 **마지막 홉의 것**이라 신원 문서라는 보장이 없다. 그래서 같은 cookie jar 로
+한 번 더 부른다(`whoami.path` 에 probe 와 **같은 endpoint** 를 적어도 된다 — 요청은 두 번 나가지만
+"판정" 과 "신원" 의 의미가 선언에서 갈린다).
+
+> ⚠️ **`whoami.path`·`exchange.path` 는 origin 상대, `loginUrl`·`doneUrlPrefix`·`authenticationProbeUrl`
+> 은 절대 URL 이다.** 한 `config` 안에 두 표기가 섞인 이유는 앞의 둘이 **로그인 후 `ProviderApi.request`
+> 로 그대로 재사용**되기 때문이다 — 그쪽은 절대 경로를 `absolute_path` 로 거부한다.
+
+**신원 조회 실패는 로그인 실패가 아니다.** principal 은 표시용이라, 못 읽었다고 인증을 되돌리면
+"이름을 못 읽어서 로그인이 안 되는" 상태가 된다. 실패하면 grant 는 그대로 커밋되고 화면만 폴백
+라벨을 쓴다. 사유는 `providers.session.whoami.failed` 로그가 `valuePath` 와 함께 남긴다
+(**값은 로그에 싣지 않는다** — 계정 식별자는 개인정보다).
 
 **게이트가 여럿이면 전부 통과해야 앱이 열린다** — 로그인이 체인이라 멤버 하나만 풀려도 인증이
 아니다. 게이트 화면은 선언 순서대로 순차 진행하고 "n/N" 진행 표시를 낸다.
@@ -172,15 +262,20 @@ export const SSO_PROVIDER: Provider | null = {
 config: {
   …,
   exchange: {
-    path: '/api/token',        // provider.origin 기준 상대 경로 (2단계 주의 참고)
-    valuePath: 'data.token',   // 응답 JSON 에서 토큰을 꺼낼 점 경로
-    expiresAtPath: 'data.exp'  // 선택. 초·밀리초·ISO 를 모두 흡수한다
+    path: '/api/token',         // provider.origin 기준 상대 경로 (2단계 주의 참고)
+    valuePath: 'data.token',    // 응답 JSON 에서 토큰을 꺼낼 점 경로
+    expiresAtPath: 'data.exp',  // 선택. 초·밀리초·ISO 를 모두 흡수한다
+    principalPath: 'data.mail'  // 선택(0182). 같은 응답에 계정이 실려 오면 여기서 꺼낸다
   }
 }
 ```
 
 값을 못 찾으면 `providers.session.exchange.no-token` 로그가 **`valuePath` 를 그대로 찍는다** —
 경로 오타는 로그에서 바로 보인다.
+
+**`principalPath` 가 있으면 `whoami` 를 부르지 않는다** (추가 왕복 0). 교환 응답이 이미 신원을
+말했는데 한 번 더 묻지 않는다. 둘 다 선언해 두면 교환이 신원을 안 주는 배포에서만 `whoami` 로
+넘어간다.
 
 ---
 
@@ -376,6 +471,33 @@ import { createConfluenceToolServer } from '../service/confluence/tools'
   [`arch/backend/security.md §1.4-b`](../arch/backend/security.md)) — claude CLI 가 그 파일을 읽어
   서버를 spawn 하기 때문이다.
 
+> **PAT 인증 MCP 를 붙이는 길은 셋이고, 성격이 다르다.** ⓐ **내장 도구**(레시피 C) — `present`
+> 선언이 적용되고 값이 디스크에 안 나가며 401 강등·재인증 UI 가 붙는다 ⓑ **이 레시피(`${BINDING:}`)**
+> — provider 와 PAT 를 공유하지만 `token()` 이 raw 값만 주므로 헤더 형식은 손으로 적는다
+> ⓒ **MCP 자체 인증**(카탈로그 모달에 값 입력) — 재빌드가 없지만 provider 와 무관하다.
+> 같은 PAT 를 도구와 MCP 가 함께 쓸 것이면 ⓐ 를 먼저 검토한다.
+
+---
+
+## 5-b. 레시피 E — 사용량 소스 추가 (`UsageSourcePort`)
+
+인증이 필요한 사내 사용량 endpoint 를 도넛·설정 사용량 UI 에 잇는다. 인증은 provider 가 하고,
+정적 모듈은 **결과 표본을 자기 리포트로 옮기기만** 한다(raw credential 을 보지 않는다).
+
+| # | 하는 일 | 파일 / 규칙 |
+|---|---|---|
+| 1 | **`kind:'service'` provider 를 선언**한다 | `declarations/service.ts` — 컴포지션 루트가 `declarations('service')` 로 좁혀 주입하므로 **`kind:'gate'` provider 는 사용량 소스로 열거되지 않는다** |
+| 2 | 정적 모듈을 만든다 (`_example/provider-subscription.ts` 복사) | `features/providers/static/modules/<회사>/` |
+| 3 | `usage.subscription` 을 채운다 | `sourceId` 는 **optional** — 적으면 `Provider.id` 와 글자까지 같아야 하고, **생략하면 연결된 모든 source 의 표본을 받아** `map` 이 자기 것이 아닌 표본에 `null` 을 돌려주면 된다 |
+| 4 | `request.operation` = **origin 기준 상대 경로** | operation 레지스트리가 없다 — 경로 문자열이 곧 계약이다 |
+| 5 | 배럴에 한 줄 추가 | `static/modules/index.ts` |
+| 6 | `map(sample, ctx)` 로 회사 응답을 리포트로 바꾼다 | 형식이 안 맞으면 **`null`** — 프레임워크가 마지막 성공 값을 stale 로 유지한다 |
+
+- **미인증은 오류가 아니다** — `not_connected` 로 돌아오고 구독 모듈은 stale 로 남는다
+  (부팅 직후·사내망 밖·로그아웃 후의 정상 상태).
+- 프레임워크가 이미 처리하는 것: 1분 주기 · 타임아웃 · 실패 시 마지막 성공 값 폴백 · SQLite 캐시 · UI 반영.
+- 세션 인증 SP 라면 §1.6 의 부팅 등록이 선행 조건이다.
+
 ---
 
 ## 6. 개발 중 확인하는 법 — DEV 게이트 · 우회 토글
@@ -413,16 +535,36 @@ import { createConfluenceToolServer } from '../service/confluence/tools'
 > 토글 옆의 상태 표시("게이트: 없음/통과/차단")로 *선언이 0개라 안 뜨는 것* 과 *로그인이 안 된 것*
 > 을 구분한다.
 
-### 6.3 게이트 화면을 고칠 때 건드리는 파일
+### 6.3 로그인한 계정이 사이드바에 뜨는지 확인 (0182)
+
+게이트를 통과하면 **사이드바 하단 사용자 버튼**에 계정이 뜬다. 확인 순서:
+
+| # | 하는 일 | 기대 |
+|---|---|---|
+| 1 | 디버그 패널에서 우회 토글을 **끄고** 게이트 로그인 | 로그인 성공 |
+| 2 | 사이드바 하단 버튼과 그 팝오버 헤더를 본다 | `whoami.valuePath` 가 가리킨 값(대개 email) |
+| 3 | 우회 토글을 **켜고** 재기동 | 폴백 라벨 `developer` |
+
+**principal 이 없는 것이 정상인 경우가 셋이다** — 게이트 선언 0개(DEV) · 우회 토글 ON ·
+신원을 주지 않는 인증 방식(`api-key`·`pat`). 셋 다 폴백 라벨이 뜬다.
+
+**게이트가 여럿이면** 선언 순서상 principal 을 가진 **첫 게이트**를 보여 준다
+(`features/providers/lib/principal.ts` — 순수 함수라 규칙이 테스트로 고정돼 있다).
+
+### 6.4 게이트 화면을 고칠 때 건드리는 파일
 
 | 대상 | 파일 |
 |---|---|
 | 판정 규칙 (순수) | `app/src/main/features/providers/gate/index.ts` |
 | 판정 입력 주입 (`bypass`·`alwaysRequired`) | `app/src/main/app/bootstrap.ts` |
+| **세션 group 부팅 등록** (0182) | `app/src/main/features/providers/auth/session-policies.ts` |
+| **신원 조회** (probe 뒤 whoami) | `app/src/main/features/providers/auth/specs/browser-session.ts` |
 | 상태 push 배선 | `app/src/main/app/handlers/settings.ts` |
 | 게이트 셸 (타이틀바·디버그 패널 마운트) | `app/src/renderer/src/app/GateFrame.tsx` |
 | 로그인 랜딩 (Orca 제목·이미지·입력 카드·버튼) | `app/src/renderer/src/features/providers/components/GateLogin.tsx` |
 | 상태·액션 훅 | `app/src/renderer/src/features/providers/hooks/useProviderGate.ts` |
+| **신원 선택 규칙 (순수)** | `app/src/renderer/src/features/providers/lib/principal.ts` |
+| **사이드바 표시** | `app/src/renderer/src/app/SidebarUserButton.tsx` |
 | 우회 토글 상태 | `app/src/renderer/src/features/providers/store/bypassStore.ts` |
 | 방식 선택 규칙 (게이트 ↔ 카탈로그 공용) | `app/src/renderer/src/shared/config/providerAuth.ts` |
 
@@ -486,6 +628,9 @@ import { createConfluenceToolServer } from '../service/confluence/tools'
 | `doneUrlPrefix` 에 닿았는데 **실패**로 끝난다 | probe 가 미인증을 봤다(로그인 폼이 200 으로 뜨는 배포) | 로그 `providers.session.probe.unauthenticated` |
 | 토큰 교환이 **값을 못 찾는다** | `valuePath` 오타 또는 응답 구조 상이 | 로그 `providers.session.exchange.no-token` 이 `valuePath` 를 찍는다 |
 | 토큰 교환이 **엉뚱한 호스트로** 나간다 | `origin` 을 IdP 로 잡았다 | §2 2단계 주의 |
+| 사이드바 이름이 **`developer` 로 남는다** | ⓐ `whoami` 미선언 ⓑ `valuePath` 오타·응답 구조 상이 ⓒ 우회 토글 ON ⓓ 신원을 안 주는 방식(`api-key`·`pat`) | ⓑ는 로그 `providers.session.whoami.failed` 가 `valuePath` 를 찍는다. ⓒⓓ는 **정상**이다 (§6.3) |
+| 사이드바에 **엉뚱한 계정**이 뜬다 | 게이트가 여럿이고 앞선 선언이 principal 을 갖고 있다 | 선언 순서 = 표시 우선순위 (§6.3) |
+| **재시작하면** 세션 provider 호출이 죽는다 (`등록되지 않은 session group`) | 부팅 등록이 빠졌다 — 0182 이전 동작 | `bootstrap.createProviderPlatform` 의 `registerDeclaredSessions` (§1.6) |
 | 도구가 **모델에 안 보인다** | grant 가 `valid` 가 아니거나 아직 재spawn 전이다 | 연결 탭 상태 → **새 채팅**에서 재확인 |
 | MCP 서버가 **통째로 빠진다** | `${BINDING:}` 미해결(fail-closed) | 해당 provider 인증 상태 · 세션 grant 는 `null` 이다 |
 | LLM 요청이 **인증 없이** 나간다 | `envKey` 오타 또는 `llm.{adapter,provider}` 조인 실패 | `sources/settings/<adapter>/<provider>/` 디렉토리 존재 여부 |

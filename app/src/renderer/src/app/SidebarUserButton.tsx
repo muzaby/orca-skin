@@ -6,6 +6,7 @@ import { useTweakContext } from '../shared/theme'
 import { useI18n, type UiLocale } from '../shared/i18n'
 import { SettingsModal, useSettingsModalStore } from '../features/settings'
 import { useProviderUsage } from '../features/cost'
+import { useProviderPrincipal } from '../features/providers'
 
 // 언어 서브메뉴 목록 — UI 표시 언어(settings.uiLocale) 스위처(0096).
 // 언어 이름은 해당 언어 자체 표기라 번역하지 않는다.
@@ -18,12 +19,16 @@ const LANGUAGES: { value: UiLocale; label: string }[] = [
 // 사용량[features/cost] 을 함께 참조하므로 교차-feature 회피 위해 여기 둔다).
 // 썸네일 아이콘 없이 이름 텍스트만 표기하고, 클릭 시 팝오버 메뉴를 연다.
 //
-// 0180 에서 인증이 사라져 표시할 신원이 없다 — 0181 이 `Provider{kind:'gate'}` 의
-// principal 로 이 자리를 다시 채운다. 그때까지는 고정 라벨이다.
-const DISPLAY_NAME = 'developer'
+// **신원은 게이트 provider 의 principal 이다**(0182). 누구를 고르는지는
+// `selectGatePrincipal`(순수·테스트 대상)이 정하고, 여기서는 표시만 한다.
+//
+// **폴백이 반드시 있어야 한다** — principal 이 없는 정상 경우가 셋이다: DEV 게이트(선언 0개) ·
+// 우회 토글 ON · 신원을 주지 않는 인증 방식(api-key·pat). 빈 문자열로 두면 버튼이 빈칸이 된다.
+const FALLBACK_NAME = 'developer'
 
 export function SidebarUserButton(): React.JSX.Element {
-  const displayName = DISPLAY_NAME
+  const principal = useProviderPrincipal()
+  const displayName = principal ?? FALLBACK_NAME
 
   const anchorRef = useRef<HTMLButtonElement>(null)
   const [menuOpen, setMenuOpen] = useState(false)

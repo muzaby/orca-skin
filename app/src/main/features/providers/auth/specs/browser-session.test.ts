@@ -162,3 +162,142 @@ describe('응답 파싱 헬퍼', () => {
     expect(normalizeExpiry(null)).toBeUndefined()
   })
 })
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ③ 신원 조회 (0182) — 사이드바가 표시할 principal.
+//
+// **실패가 로그인을 실패시키지 않는 것**이 이 블록의 핵심이다. principal 은 표시용이라,
+// 못 읽었다고 인증을 되돌리면 "이름을 못 읽어서 로그인이 안 되는" 상태가 된다.
+// ─────────────────────────────────────────────────────────────────────────────
+
+function specWith(config: {
+  whoami?: { path: string; valuePath: string }
+  exchange?: { path: string; valuePath: string; principalPath?: string }
+}): BrowserSessionSpec {
+  return {
+    kind: 'browser-session',
+    label: '통합 인증(WIA)',
+    config: {
+      sessionGroup: 'corp',
+      loginUrl: 'https://adfs.example.corp/adfs/ls',
+      doneUrlPrefix: 'https://portal.example.corp/home',
+      authenticationProbeUrl: 'https://portal.example.corp/api/me',
+      allowedOrigins: ['https://adfs.example.corp', 'https://portal.example.corp'],
+      ...(config.whoami ? { whoami: config.whoami } : {}),
+      ...(config.exchange ? { exchange: config.exchange } : {})
+    }
+  }
+}
+
+describe('SessionRunner — ③ 신원 조회(whoami)', () => {
+  it('whoami 값을 principalId 로 싣는다 — origin 기준 상대 경로로 나간다', async () => {
+    const sessions = port({
+      send: vi.fn(async () => ({
+        status: 200,
+        headers: {},
+        body: '{"user":{"email":"a@example.corp"}}'
+      }))
+    })
+    const result = await new SessionRunner({ sessions }).login(
+      PROVIDER,
+      specWith({ whoami: { path: '/api/me', valuePath: 'user.email' } })
+    )
+
+    expect(result).toEqual({
+      kind: 'session',
+      sessionGroup: 'corp',
+      principalId: 'a@example.corp'
+    })
+    expect(sessions.send).toHaveBeenCalledWith('handle-1', {
+      url: 'https://portal.example.corp/api/me',
+      method: 'GET',
+      headers: { accept: 'application/json' }
+    })
+  })
+
+  it('whoami 미선언이면 조회 요청을 아예 내지 않는다', async () => {
+    const sessions = port()
+    const result = await new SessionRunner({ sessions }).login(PROVIDER, specWith({}))
+
+    expect(result).toEqual({ kind: 'session', sessionGroup: 'corp' })
+    expect(sessions.send).not.toHaveBeenCalled()
+  })
+
+  it('whoami 실패는 로그인을 실패시키지 않는다 — grant 는 커밋되고 principal 만 빈다', async () => {
+    const cases: [string, Partial<BrowserSessionPort>][] = [
+      ['비-2xx', { send: vi.fn(async () => ({ status: 403, headers: {}, body: '{}' })) }],
+      ['JSON 아님', { send: vi.fn(async () => ({ status: 200, headers: {}, body: '<html>' })) }],
+      [
+        '필드 부재',
+        { send: vi.fn(async () => ({ status: 200, headers: {}, body: '{"other":1}' })) }
+      ],
+      [
+        '문자열 아님',
+        { send: vi.fn(async () => ({ status: 200, headers: {}, body: '{"mail":{}}' })) }
+      ],
+      [
+        '전송 예외',
+        {
+          send: vi.fn(async () => {
+            throw new Error('네트워크 끊김')
+          })
+        }
+      ]
+    ]
+
+    for (const [label, overrides] of cases) {
+      const events: string[] = []
+      const result = await new SessionRunner({
+        sessions: port(overrides),
+        logger: (event) => void events.push(event)
+      }).login(PROVIDER, specWith({ whoami: { path: '/api/me', valuePath: 'mail' } }))
+
+      expect(result, label).toEqual({ kind: 'session', sessionGroup: 'corp' })
+      expect(events, label).toContain('providers.session.whoami.failed')
+    }
+  })
+
+  it('exchange 응답의 principalPath 가 있으면 추가 요청 없이 그 값을 쓴다', async () => {
+    const sessions = port({
+      send: vi.fn(async () => ({
+        status: 200,
+        headers: {},
+        body: '{"data":{"token":"t-1","mail":"b@example.corp"}}'
+      }))
+    })
+    const result = await new SessionRunner({ sessions }).login(
+      PROVIDER,
+      specWith({
+        whoami: { path: '/api/me', valuePath: 'mail' },
+        exchange: { path: '/api/token', valuePath: 'data.token', principalPath: 'data.mail' }
+      })
+    )
+
+    expect(result).toMatchObject({
+      kind: 'token',
+      token: { token: 't-1', principalId: 'b@example.corp' }
+    })
+    // 교환 1회뿐 — whoami 는 부르지 않는다.
+    expect(sessions.send).toHaveBeenCalledTimes(1)
+  })
+
+  it('exchange 에 principalPath 가 없으면 whoami 로 한 번 더 묻는다', async () => {
+    const send = vi
+      .fn()
+      .mockResolvedValueOnce({ status: 200, headers: {}, body: '{"data":{"token":"t-1"}}' })
+      .mockResolvedValueOnce({ status: 200, headers: {}, body: '{"mail":"c@example.corp"}' })
+    const result = await new SessionRunner({ sessions: port({ send }) }).login(
+      PROVIDER,
+      specWith({
+        whoami: { path: '/api/me', valuePath: 'mail' },
+        exchange: { path: '/api/token', valuePath: 'data.token' }
+      })
+    )
+
+    expect(result).toMatchObject({
+      kind: 'token',
+      token: { token: 't-1', principalId: 'c@example.corp' }
+    })
+    expect(send).toHaveBeenCalledTimes(2)
+  })
+})
