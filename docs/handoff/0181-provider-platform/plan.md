@@ -498,10 +498,19 @@ respawn 판정이 전부 여기 걸려 있다. 조인만 한다.
       유효함을 확인하고 §10 으로 복원 + 참조를 §10 으로 교정했다.
       ⓓ 라우팅 — `providers.md`(§3 두 세입자 경고 · §5 레시피 앵커 표) · `docs/AGENTS.md` ·
       `guides/AGENTS.md`(키워드 "로그인 게이트 추가"·"플러그인 추가"·"개발 중 로그인 화면" 보강)
-      **발견(코드 미수정, 보고만)**: `declarations/sso.ts` 주석 예제의 `origin` 이
-      `adfs.example.corp` 인데, `exchange.path` 는 `Provider.origin` 기준 상대 경로로 해석되므로
-      (`auth/specs/browser-session.ts`) 토큰 교환을 쓰는 배포에서는 probe·교환이 사는 호스트
-      (예제의 `portal.example.corp`)여야 한다. 가이드 §2 2단계에 이 규칙을 명시했다.
+      ⓔ **선언 파일 주석 예제 2건 정정 (사용자 지시 — 보고 후 수정 요청)**. 가이드가 이 파일들을
+      "여기서 시작하라" 고 가리키는데 **예제 자체가 구현자를 오도**하고 있었다:
+      · `sso.ts` — `origin` 이 IdP(`adfs.example.corp`)로 잡혀 있었다. `config.exchange.path` 는
+        `Provider.origin` 기준 상대 경로라(`auth/specs/browser-session.ts` 의
+        `new URL(exchange.path, origin)`) 토큰 교환을 쓰는 배포는 probe·교환이 사는 호스트여야
+        한다 → `portal.example.corp` 로 고치고 **왜 그런지**를 주석에 박았다.
+      · `service.ts` — `createConfluenceToolServer(api, { providerId, contextPath })` 는
+        **실재하지 않는 시그니처**였다(실제: `(providerId, connectorLabel, runtime, ctx)` +
+        `createConfluenceRuntime` 선행). 그대로 따라 쓰면 컴파일되지 않는다.
+      **검증 방법**: 두 예제를 주석에서 꺼내 실제 선언 파일에 채워 넣고 `npm run typecheck`(3/3) +
+      `npm run lint`(boundaries 0) 를 통과시킨 뒤 되돌렸다 — import 경로까지 실측으로 확정해
+      (`../auth/specs/credential` · `../service/confluence/{connector,tools}`) 주석과 가이드 §4 에
+      함께 실었다. **예제를 눈으로 읽지 않고 컴파일해 본 것이 두 번째 결함을 잡았다.**
 
 ## [구현자 기입] 구현 보고
 
