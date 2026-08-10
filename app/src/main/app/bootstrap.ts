@@ -62,6 +62,18 @@ import { registerCostHandlers } from './handlers/cost'
 import { registerBootHandlers } from './handlers/boot'
 import { registerUpdateHandlers } from './handlers/update'
 import { registerLogHandlers } from './handlers/log'
+import { registerProviderHandlers } from './handlers/providers'
+import { ProviderPlatform } from '../features/providers/platform'
+import { ProviderRegistry } from '../features/providers/auth/registry'
+import {
+  ProviderStore,
+  createMemoryGrantPersistence,
+  type GrantPersistencePort
+} from '../features/providers/auth/store'
+import { createGrantPersistence } from '../features/providers/auth/store-file'
+import { LoginService } from '../features/providers/auth/login'
+import { declaredProviders } from '../features/providers/declarations'
+import { createVault } from '../infra/vault'
 import { createNoopUpdater, loadElectronAutoUpdater, UpdateController } from './updater'
 import { registerChatHandlers } from './chat-turn'
 import { createBootReportRecorder } from './boot-report'
@@ -78,7 +90,12 @@ import { HistoryWriter } from '../features/history/writer'
 import { materializeContinuityArrival } from '../features/orchestration/fork'
 import { TitleGenerator } from '../features/chat/title-generation'
 import { recoverSessionHistory } from '../features/chat/recovery'
-import { broadcastConcurrency, broadcastChatEvent, sendChatEvent } from '../infra/ipc/send'
+import {
+  broadcastConcurrency,
+  broadcastChatEvent,
+  broadcastProviderState,
+  sendChatEvent
+} from '../infra/ipc/send'
 import { RuntimeToolRegistry } from '../features/extensions/runtime-tool-registry'
 import { resolveBuiltinSkillsDir } from './builtin-resources'
 import { BackgroundTaskTracker } from '../features/chat/background-tasks'
@@ -181,13 +198,73 @@ export class Bootstrap {
     await this.deployment?.ensureDeployed()
   }
 
+  // provider 플랫폼 조립 (0181). 배포 선언 → 등록(검사) → grant 복원 → 로그인 서비스.
+  // **여기서 던지지 않는다** — 영속을 못 열면 메모리 폴백으로 내려앉고(이번 실행에서만 인증이
+  // 유지된다) 사유를 로그로 남긴다. 게이트 자체는 계속 판정 가능해야 한다.
+  private createProviderPlatform(secretStore: SecretStore): ProviderPlatform {
+    const log = getLogger().child('providers')
+    const registry = new ProviderRegistry(declaredProviders())
+    for (const rejection of registry.rejected()) {
+      log.warn('providers.declaration.rejected', {
+        providerId: rejection.id,
+        reason: rejection.reason,
+        message: rejection.message
+      })
+    }
+
+    let persistence: GrantPersistencePort
+    try {
+      persistence = createGrantPersistence()
+    } catch (error) {
+      log.warn('providers.persistence.unavailable', {
+        reason: error instanceof Error ? error.message : String(error)
+      })
+      persistence = createMemoryGrantPersistence()
+    }
+
+    const vault = createVault(secretStore)
+    const store = new ProviderStore({
+      persistence,
+      vault,
+      // 선언에서 사라진 provider 의 grant 는 **지우지 않는다** — 선언이 일시적으로 빠진 빌드에서
+      // 재로그인을 강요하지 않기 위함이다.
+      onOrphan: (providerId) => log.info('providers.grant.orphaned', { providerId })
+    })
+    store.restore(registry.list().map((provider) => provider.id))
+
+    const platform = new ProviderPlatform({
+      registry,
+      store,
+      // dev 전용 우회다 — prod 번들에서는 `import.meta.env.DEV` 가 false 로 접혀 분기 자체가
+      // 사라진다(설정 값이 켜져 있어도 게이트는 유지된다).
+      bypass: () => import.meta.env.DEV && this.settings.getAll().authBypass,
+      login: new LoginService({
+        registry,
+        store,
+        vault,
+        onChange: () => broadcastProviderState(platform.state())
+      })
+    })
+    return platform
+  }
+
   async start(): Promise<void> {
-    // 0180 — 인증 플랫폼이 사라져 부팅 최상단의 조기 등록이 필요 없다. 게이트가 창 오픈
-    // 직후 status 를 invoke 하던 제약(0109/0157)이 함께 사라졌으므로 DB 초기화가 첫 단계다.
-    // 0181 이 게이트를 다시 세울 때 이 순서를 재검토한다.
     const secretStore = new SecretStore()
-    // 런타임 도구 기여자는 0 이지만 레지스트리·어댑터 배선은 유지한다(0181 이 채운다).
+    // 0181 — 런타임 도구 기여자는 `Provider{kind:'service'}.tools` 다.
     const runtimeTools = new RuntimeToolRegistry()
+
+    // ── provider 플랫폼: **DB 보다 먼저, 최상단에서 조기 등록** (0109/0157 제약 복원) ──
+    // 창은 start() 완료 전에 열리고 renderer 는 오픈 직후 게이트 판정을 위해
+    // `orca:provider:state` 를 invoke 한다. 그 첫 invoke 가 부팅 완료를 기다리면 화면이 빈 채로
+    // 멈춘다. **게이트 판정에는 DB 가 필요 없다** — grant 는 파일+vault 에만 산다.
+    // critical=true 다 — 게이트를 판정할 수 없으면 로그인 강제 빌드가 무인증으로 열린다.
+    // 영속 실패 같은 회복 가능한 사고는 팩토리 안에서 메모리 폴백으로 흡수한다.
+    const providers = this.bootReport.stepSync(
+      'provider-platform',
+      { critical: true, label: 'provider 플랫폼' },
+      () => this.createProviderPlatform(secretStore)
+    )
+    registerProviderHandlers(providers)
 
     const db = this.bootReport.stepSync('db-init', { critical: true, label: 'DB 초기화' }, () =>
       initDb({

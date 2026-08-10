@@ -2,7 +2,7 @@
 
 > 이 문서는 Main ↔ Renderer 간 IPC 채널의 **단일 진실 공급원 (SSOT)** 이다.
 > 채널을 추가/변경할 때는 코드와 이 문서를 함께 갱신한다.
-> 최종 업데이트: 2026-08-10 (handoff 0180 — 인증·커넥터 스택 제거. 채널 **82 → 71**(auth 7 + plugin 4 삭제), `Settings` **20 → 18 키**(`connectorInstances`·`pluginAddEnabled` 는 0178 에서 코드가 사라졌는데 문서에만 남아 있었다))
+> 최종 업데이트: 2026-08-10 (handoff 0181 — provider 플랫폼 재작성. 채널 **71 → 77**(`provider` 6 신설). 0180 이 지운 구 `auth` 7 + `plugin` 4 채널의 서술(구 §2.13-c·§2.13-d)은 §2.13-c 한 절로 대체됐다)
 >
 > ⚠️ **카운트 정정 (0157 verify r1)**: 이전 판은 헤더 73 · 내역 합 72 · 실측 74 로 셋이 서로 달랐다. `chat`(5→6)·`cost`(5→6) 가 내역에서 누락돼 있었다. 아래 수치는 `CHANNELS` 상수를 기계 카운트한 실측치이며 **내역 합 = 총계**가 되도록 맞췄다.
 > 관련 문서: [ARCHITECTURE.md](./ARCHITECTURE.md), [GLOSSARY.md](./GLOSSARY.md), [TRD.md](./TRD.md) §5
@@ -10,7 +10,7 @@
 ## 1. 명명 규칙
 
 - 형식: `orca:<domain>:<action>` — 소문자 + 콜론 구분
-- 도메인 (23개): `chat`, `boot`, `backend`, `agent`, `engine`, `install`, `update`, `settings`, `skills`, `files`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `concurrency`, `permission`, `notify`, `debug`(dev 전용), `log`, `auth`, `plugin`
+- 도메인 (22개): `chat`, `boot`, `backend`, `agent`, `engine`, `install`, `update`, `settings`, `skills`, `files`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `concurrency`, `permission`, `notify`, `debug`(dev 전용), `log`, `provider`
 - 방향:
   - Renderer → Main 요청: `ipcMain.handle` + `ipcRenderer.invoke` (Promise 반환)
   - Main → Renderer 이벤트: `webContents.send` + `ipcRenderer.on` (단방향 push)
@@ -23,12 +23,13 @@
   - 특례: `chat:send` 는 실패를 `error` 이벤트로 회신(§2.1). 입력이 없거나 store 내부 zod 가 검증하는 채널(settings set · mcp add/update)은 `handlePlain`.
 - 출력(main→renderer send) 무검증: `NormalizedEvent` 등의 형상 보증은 어댑터 정규화(`claude-map.ts`)가 담당 — 의도된 설계.
 
-## 2. 채널 카탈로그 (총 71 채널)
+## 2. 채널 카탈로그 (총 77 채널)
 
-도메인별 분포: `chat` 6 (`send` · `event` · `cancel` · `stopSubagent` · `steerCancel` · `steer`) · `boot` 2 (`report` · `whenReady`) · `backend` 1 · `agent` 1 · `engine` 5 · `install` 2 · `update` 6 · `settings` 2 · `skills` 7 · `files` 5 · `session` 7 (0129 `setPinned` 추가) · `project` 6 (0129 `setPinned` 추가) · `window` 3 · `search` 1 · `mcp` 4 · `cost` 6 · `concurrency` 1 · `permission` 2 (`respond` · `setMode`) · `notify` 1 (`show` — §2.12-c) · `debug` 2 (dev 전용 — `getMock` · `setMock`) · `log` 1 (`emit` — §2.13-b) = **71**.
+도메인별 분포: `chat` 6 (`send` · `event` · `cancel` · `stopSubagent` · `steerCancel` · `steer`) · `boot` 2 (`report` · `whenReady`) · `backend` 1 · `agent` 1 · `engine` 5 · `install` 2 · `update` 6 · `settings` 2 · `skills` 7 · `files` 5 · `session` 7 (0129 `setPinned` 추가) · `project` 6 (0129 `setPinned` 추가) · `window` 3 · `search` 1 · `mcp` 4 · `cost` 6 · `concurrency` 1 · `permission` 2 (`respond` · `setMode`) · `notify` 1 (`show` — §2.12-c) · `debug` 2 (dev 전용 — `getMock` · `setMock`) · `log` 1 (`emit` — §2.13-b) · `provider` 6 (§2.13-c — `list` · `state` · `login` · `continue` · `reauth` · `revoke`) = **77**.
 
-> **0180 — `auth` 7채널과 `plugin` 4채널이 사라졌다** (82 → 71). 인증·커넥터 스택을 전면 제거했고,
-> 0181 이 `Provider` 축으로 다시 세운다(예정 채널: `list`·`login`·`continue`·`reauth`·`revoke`·`state`).
+> **0181 — `provider` 6채널이 구 `auth` 7 + `plugin` 4 채널(0180 에서 삭제)을 대체한다** (71 → 77).
+> 앱 로그인·서비스 연결·LLM 자격증명이 **같은 6채널**을 쓴다 — 셋의 차이는 `ProviderInfo.kind`
+> (`gate`·`llm`·`service`) 뿐이고 별도 인증 인터페이스가 없다.
 
 `app/src/shared/ipc.ts` 의 `CHANNELS` 상수와 1:1 일치. **단, `debug` 2채널은 `import.meta.env.DEV` 일 때만 `ipcMain.handle` 로 등록된다** (CHANNELS 상수 문자열은 상존하나 prod 핸들러 미등록 — §2.13 참조).
 
@@ -382,39 +383,24 @@ renderer/preload 발 구조화 로그를 main 의 중앙 LogManager 로 전달�
 | --------------- | ---------- | ------------------------------------------------------------------------------ | ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `orca:log:emit` | R→M (send) | `LogInput` = `{ level; event; scope; message?; correlationId?; data?; error? }` | —    | fire-and-forget 로그 전송. main 이 `LogInputSchema` + payload 32KB 상한으로 검증, 실패는 **폐기 + `ipc.payload.rejected` warn 집계**(reject 응답 없음). 공통 필드(`timestamp`·`process`·`appVersion`·`sessionId`·`windowId`)는 **main 이 강제 부여** — renderer 가 보내면 strict 스키마가 거부한다(위조 방지). |
 
-### 2.13-c Auth (0157 — 인증 플랫폼. 구 `sso` 3채널 대체)
+### 2.13-c Provider (0181 — 구 `auth` 7 + `plugin` 4 채널 대체)
 
-앱 로그인(`application`)과 서비스 연결(`connector`)을 **같은 lifecycle** 로 처리하는 채널. 둘의 차이는 `AuthTarget.kind` 뿐이고 별도 인증 인터페이스가 없다. 등록된 auth provider 가 0개(기본 배포)면 `required:false` 로 게이트가 자동 통과된다. **`status`/`begin`/`continue` 핸들러는 `Bootstrap.start()` 최상단에서 조기 등록**된다 — 창이 start() 완료 전에 열리므로(0109) renderer 게이트의 첫 invoke 가 부팅 완료를 기다리지 않는다.
+앱 로그인(게이트)·LLM 자격증명·사내 서비스 연결을 **같은 lifecycle** 로 처리하는 채널. 셋의 차이는 `ProviderInfo.kind`(`gate`·`llm`·`service`) 뿐이고 별도 인증 인터페이스가 없다. 등록된 `kind:'gate'` provider 가 0개(기본 배포)면 게이트가 **자동 통과**된다. **핸들러는 `Bootstrap.start()` 최상단, DB 초기화보다 앞에서 등록**된다 — 창이 start() 완료 전에 열리므로(0109) renderer 게이트의 첫 invoke 가 부팅 완료를 기다리지 않는다. 게이트 판정에는 DB 가 필요 없다(grant 는 파일+vault).
 
-계약 정본은 `app/src/main/contracts/auth-method.ts`(인증 방식이 채우는 3함수) + `internal-api.ts`(앱 안의 다른 모듈이 인증을 쓰는 API), 인증 방식 등록은 `features/auth-platform/methods/index.ts` 내장 목록, 대상(connector) 등록은 `features/auth-platform/modules/` opt-in 레지스트리, 배포 가이드는 [guides/closed-network-extensions.md](guides/closed-network-extensions.md).
+계약 정본은 `app/src/main/contracts/provider.ts`(`Provider`·`AuthSpec`·`Grant`·`ProviderApi`), 배포 선언은 `features/providers/declarations/`(빌드타임 — 런타임 동적 등록 없음), 배포 가이드는 [guides/closed-network-extensions.md](guides/closed-network-extensions.md).
 
-> **응답 DTO 에 raw secret 이 없다.** `AuthBindingInfo.artifact` 는 `handleId` 문자열만 갖고(브라우저 세션의 cookie jar·vault 의 값은 main 이 소유), provider 목록은 `allowedOrigins` 조차 내보내지 않는다. 앱 로그인은 **UX 게이트이지 보안 경계가 아니다** — 인증 전에도 main IPC 는 열려 있다(guides/closed-network-extensions.md §5).
+> **응답 DTO 에 raw secret 이 없다.** `ProviderInfo` 는 상태·만료·표시용 `principal` 만 싣고, 값은 main 의 vault(safeStorage)에만 있다. 앱 로그인은 **UX 게이트이지 보안 경계가 아니다** — 인증 전에도 main IPC 는 열려 있다.
 
-| 채널                   | 방향         | 페이로드                                            | 응답/스트림 | 설명 |
-| ---------------------- | ------------ | --------------------------------------------------- | ----------- | ---- |
-| `orca:auth:status`     | R→M (invoke) | —                                                   | `AuthPlatformState` = `{ required; authenticated; inflight; identity: AuthPrincipal \| null; errorMessage: string \| null; step: AuthStepInfo \| null; providers: AuthProviderInfo[] }` | 게이트 판정용 상태 1회 조회. `required` = `application` target 을 지원하는 provider 등록 여부. **`authenticated` 는 앱 로그인 binding 이 하나 이상이고 전부 `valid` 일 때만 true** — 한 패키지가 application provider 를 여럿 선언하면 로그인이 체인이라 멤버 하나만 풀려도 인증이 아니다(0172). renderer 는 prod 에서 invoke 실패를 `required:false` 로 기본화하지 않는다(재시도 후 fail-closed). |
-| `orca:auth:providers`  | R→M (invoke) | —                                                   | `AuthProviderInfo[]` | 등록된 인증 방식 descriptor(`id`·`label`·`targets`·`mechanisms`·`sessionGroup?`). `allowedOrigins` 는 노출하지 않고, 소비자 0이던 `pluginId`·`capabilities` 는 0178 에서 뺐다. |
-| `orca:auth:bindings`   | R→M (invoke) | —                                                   | `AuthBindingInfo[]` | binding 목록(대상·상태·만료·principal). secret 없음. |
-| `orca:auth:begin`      | R→M (invoke) | `{ providerId; target }` (`AuthBeginRequestSchema`) | `AuthStepInfo` | 인증 transaction 시작 → 다음 step(`collect`·`done`·`failed`. `browser` 는 0178 에서 뺐다 — 브라우저 흐름은 `authenticate` 안에서 끝나 되받을 단계가 없다). `(providerId, target)` 당 1건이며 재진입 시 기존 transaction 을 **명시 취소**하고 교체한다(조용한 덮어쓰기 없음). **앱 로그인(`target.kind='application'`)은 그 provider 가 속한 패키지의 체인 전체를 실행한다**(0172) — 어느 멤버로 시작하든 등록 배열 순서의 헤드부터 돈다. |
-| `orca:auth:continue`   | R→M (invoke) | `{ transactionId; input: Record<string,string> }` (`AuthContinueRequestSchema` — 키 64자·값 4096자 상한) | `AuthStepInfo` | 입력이 필요한 step 을 잇는다. 브라우저 플로우(ADFS/WIA)는 `begin` 안에서 끝나 이 채널을 쓰지 않는다. 만료·취소된 transaction 은 `failed(reason:'cancelled')`. **체인 중간 멤버의 성공은 `done` 이 아니라 다음 멤버의 step 으로 나온다** — `done` 은 전 멤버가 성공했을 때만 오고 그 `binding` 은 체인의 root 다. 대화형 step 3종은 멤버가 둘 이상일 때 `chain: { index(1-based); total; label }` 을 함께 싣는다(멤버 1개면 필드 없음, 0172). |
-| `orca:auth:logout`     | R→M (invoke) | `{ bindingId; cascade?: boolean }` (`AuthLogoutRequestSchema`, 기본 `false`) | `AuthLogoutOutcome` | `cascade:false`(기본) = 이 binding 만 — connector 하나의 연결 해제가 공유 session group 을 삭제하지 않는다. `true` = 종속 binding 까지(앱 로그아웃). |
-| `orca:auth:stateEvent` | M→R (send)   | `AuthPlatformState`                                 | —           | 상태 변화 브로드캐스트(전 창) — transaction 진행·취소·binding 변경. renderer store 가 구독해 main 상태를 미러한다. |
+> **`orca:provider:state` 는 유일한 양방향 채널이다.** invoke 는 게이트 판정용 초기 스냅샷, send 는 이후 변화 push 이며 **같은 객체**(`ProviderPlatformState`)를 나른다. 구 `auth` 가 `status`(invoke)와 `stateEvent`(push)로 나눠 두 벌을 동기화하던 것을 한 채널로 접었다.
 
-### 2.13-d Plugin (0158 connector lifecycle)
-
-대상(connector)의 목록·연결 lifecycle을 renderer에 노출한다. 서버 주소의 정본은 빌드타임
-(`modules/<x>/servers.ts`)이고 UI 추가 경로는 0178 에서 제거했다. 대상당 활성 연결은 하나다.
-
-응답 DTO는 `connectorId`·`label`·`origin`·`acceptedAuthProviders`·`connected`·`connectedProviderId?`만 포함하며 credential·binding artifact·runtime tool 구현은 포함하지 않는다. `acceptedAuthProviders` 는 `ConnectorDescriptor.acceptedMethods`(허용 인증 방식 id)의 DTO 이름이다. `connectedProviderId`(0164)는 활성 binding 의 **auth provider id** 이고 **키 부재 = 미연결**이다 — 화면이 "무엇으로 연결됐는지"를 보여주기 위한 값이라 id 만 나가고 secret·vault handle 은 이 경계를 넘지 않는다.
-
-**주소 수정 채널은 없다.** 인스턴스의 `connectorId`가 host+컨텍스트 경로에서 파생되므로(0161) 주소 수정은 곧 도구 서버 ID·승인 키(`mcp__<server>__<tool>`)·다운로드 경로의 이동이다. 수정 대신 삭제 후 재생성한다.
-
-| 채널 | 방향 | 페이로드 | 응답 | 설명 |
+| 채널 | 방향 | 페이로드 | 응답/스트림 | 설명 |
 | --- | --- | --- | --- | --- |
-| `orca:plugin:list` | R→M (invoke) | — | `PluginConnectorInfo[]` | 등록된 connector와 연결 상태의 안전 DTO 목록(정적 + 사용자 인스턴스). |
-| `orca:plugin:connectionConnect` | R→M (invoke) | `{ connectorId; bindingId }` (`PluginConnectionConnectRequestSchema`) | `void` | 유효한 connector binding으로 연결을 시작하고 runtime tool 서버를 등록한다. 같은 connector의 활성/pending 연결은 거부한다. |
-| `orca:plugin:connectionDisconnect` | R→M (invoke) | `{ connectorId }` (`PluginConnectionDisconnectRequestSchema`) | `AuthLogoutOutcome` | connector 연결을 해제하고 해당 runtime tool 서버를 회수한다. |
-| `orca:plugin:diagnostics` | R→M (invoke) | — | `PluginDiagnostic[]` (`PluginDiagnosticSchema`) | 부팅 등록에서 **거부된** 패키지·인스턴스·참조(0164). 등록은 패키지 단위 all-or-nothing이라 `baseUrl` 하나가 경로를 달고 있으면 그 패키지의 provider·connector가 전부 사라지는데, 사유가 warn 로그뿐이면 화면에는 아무 흔적이 없다. `kind`·`subject`·`message`만 나가고 manifest 원문·credential은 이 경계를 넘지 않는다. |
+| `orca:provider:list` | R→M (invoke) | — | `ProviderInfo[]` | 등록된 provider 와 grant 상태. `auth` 는 선언된 인증 방식 서술자 배열이고 **선언 순서가 곧 GUI 선택지 순서**다(길이 1이면 renderer 가 선택 단계를 건너뛴다). 입력 수집형(`api-key`·`password`·`pat`)만 `fields` 가 비어 있지 않다. |
+| `orca:provider:state` | R→M (invoke) **+** M→R (send) | — | `ProviderPlatformState` = `{ gate: { required; passed; bypassed }; providers: ProviderInfo[]; step: ProviderStepInfo \| null }` | `gate.required` = `kind:'gate'` provider 선언 여부. **`passed` 는 게이트 멤버가 전부 `valid` 일 때만 true** — 로그인이 체인이라 멤버 하나만 풀려도 인증이 아니다. `bypassed` 는 dev 우회(`Settings.authBypass`, DEV 빌드 한정)로 통과했음을 표시한다. |
+| `orca:provider:login` | R→M (invoke) | `{ providerId; authKind?; input? }` (`ProviderLoginRequestSchema` — 키 64자·값 4096자·32쌍 상한) | `ProviderStepInfo` | 인증 시작 → 다음 step(`input-required`·`code-required`·`done`·`failed`). `authKind` 미지정이면 선언 배열의 **첫 방식**. 입력 수집형 1회차는 필드 선언을 되돌려주고, 사용자가 채워 다시 부르면 vault 에 봉인한다(**신뢰된 prompt** — 방식이 만든 임의 UI 가 아니라 Orca 가 이 선언을 렌더링한다). |
+| `orca:provider:continue` | R→M (invoke) | `{ providerId; input }` (`ProviderContinueRequestSchema`) | `ProviderStepInfo` | 대화형 step 을 잇는다. 직전에 고른 방식을 이어받으므로 `authKind` 를 다시 싣지 않는다. OAuth `redirect:'manual'` 은 `input.code` 로 code 를 넘긴다. 진행 중 인증이 없으면 `failed(reason:'cancelled')`. |
+| `orca:provider:reauth` | R→M (invoke) | `{ providerId; authKind? }` (`ProviderReauthRequestSchema`) | `ProviderStepInfo` | 재인증. **기존 grant 를 먼저 지우지 않는다** — 새 인증이 성공해야 교체되고, 실패하면 이전 자격증명으로 계속 쓸 수 있다. |
+| `orca:provider:revoke` | R→M (invoke) | `{ providerId }` (`ProviderRevokeRequestSchema`) | `void` | 연결 해제 — grant 와 vault 잔여물(값·metadata·index)을 함께 지운다. 구 `cascade` 는 없다(참조가 없으므로 종속 binding 개념이 사라졌다). |
 
 ### 2.14 예약 / 미노출 채널
 

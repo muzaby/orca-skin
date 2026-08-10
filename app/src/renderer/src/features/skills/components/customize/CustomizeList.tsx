@@ -1,13 +1,15 @@
 import type { KeyboardEvent, ReactNode } from 'react'
-import type { McpServer, SkillInfo } from '../../../../../../shared/ipc'
+import type { McpServer, ProviderInfo, SkillInfo } from '../../../../../../shared/ipc'
 import { formatDateMedium, uiMessageText, useI18n } from '../../../../shared/i18n'
 import { Icon } from '../../../../shared/ui/Icon'
 import type { CatalogTab } from '../../lib/catalogSelection'
 import { mcpRowMeta, skillRowMeta } from '../../lib/catalogRows'
+import { providerRowMeta } from '../../lib/providerRows'
 import {
   groupKey,
   isGroupOpen,
   mcpGroups,
+  providerGroups,
   skillGroups,
   type CatalogGroup,
   type CollapsedGroups
@@ -93,6 +95,7 @@ export function CustomizeList({
   tab,
   skills,
   mcpServers,
+  providers,
   collapsed,
   onToggleGroup,
   onSelect
@@ -100,13 +103,19 @@ export function CustomizeList({
   tab: CatalogTab
   skills: SkillInfo[]
   mcpServers: McpServer[]
+  providers: ProviderInfo[]
   collapsed: CollapsedGroups
   onToggleGroup: (key: string) => void
   onSelect: (id: string) => void
 }): React.JSX.Element {
   const { tr, locale } = useI18n()
-  const rows = tab === 'skills' ? skills : mcpServers
-  const emptyKey = tab === 'skills' ? 'skills.table.noSkills' : 'skills.table.noMcp'
+  const rows = tab === 'skills' ? skills : tab === 'mcp' ? mcpServers : providers
+  const emptyKey =
+    tab === 'skills'
+      ? 'skills.table.noSkills'
+      : tab === 'mcp'
+        ? 'skills.table.noMcp'
+        : 'skills.table.noProviders'
 
   if (rows.length === 0)
     return <div className="grid h-48 place-items-center text-body text-ink3">{tr(emptyKey)}</div>
@@ -184,6 +193,41 @@ export function CustomizeList({
                 >
                   <td className={`${cellClass} text-ink`}>{server.name}</td>
                   <td className={`${cellClass} uppercase text-ink2`}>{meta.transport}</td>
+                  <td className={`${cellClass} text-ink3`}>{tr(meta.statusKey)}</td>
+                </tr>
+              )
+            })}
+          </GroupTable>
+        ))}
+      {tab === 'providers' &&
+        providerGroups(providers).map((group) => (
+          <GroupTable
+            key={group.id}
+            group={group}
+            tab={tab}
+            collapsed={collapsed}
+            onToggle={onToggleGroup}
+            columns={[
+              tr('skills.table.provider'),
+              tr('skills.table.providerAuth'),
+              tr('skills.table.status')
+            ]}
+          >
+            {group.rows.map((provider) => {
+              const meta = providerRowMeta(provider)
+              return (
+                <tr
+                  key={provider.id}
+                  tabIndex={0}
+                  aria-label={provider.label}
+                  onClick={() => onSelect(provider.id)}
+                  onKeyDown={(event) => activate(event, () => onSelect(provider.id))}
+                  className={rowClass}
+                >
+                  <td className={`${cellClass} text-ink`}>{provider.label}</td>
+                  <td className={`${cellClass} text-ink2`}>
+                    {meta.activeLabel ?? tr('common.unknown')}
+                  </td>
                   <td className={`${cellClass} text-ink3`}>{tr(meta.statusKey)}</td>
                 </tr>
               )

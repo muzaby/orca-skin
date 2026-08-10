@@ -85,7 +85,7 @@ export const en: typeof ko = {
   },
   skills: {
     pageTitle: 'Plugins',
-    rail: { skills: 'Skills', mcp: 'MCP' },
+    rail: { skills: 'Skills', mcp: 'MCP', providers: 'Connections' },
     list: {
       addAria: 'Add'
     },
@@ -98,11 +98,42 @@ export const en: typeof ko = {
       transport: 'Transport',
       user: 'User',
       noSkills: 'No registered skills.',
-      noMcp: 'No registered MCP servers.'
+      noMcp: 'No registered MCP servers.',
+      noProviders: 'No registered connections.',
+      provider: 'Connection',
+      providerKind: 'Purpose',
+      providerAuth: 'Auth method'
     },
     groups: {
       activeMcp: 'Active MCP',
-      inactiveMcp: 'Inactive MCP'
+      inactiveMcp: 'Inactive MCP',
+      gateProviders: 'App sign-in',
+      llmProviders: 'Models',
+      serviceProviders: 'Internal services'
+    },
+    provider: {
+      status: {
+        none: 'Not connected',
+        valid: 'Connected',
+        expired: 'Expired',
+        unknown: 'Unavailable'
+      },
+      kind: {
+        gate: 'App sign-in',
+        llm: 'Model',
+        service: 'Internal service'
+      },
+      connect: 'Connect',
+      reauth: 'Re-authenticate',
+      revoke: 'Disconnect',
+      chooseMethod: 'Auth method',
+      submit: 'Submit',
+      openBrowser: 'Sign in with browser',
+      codeLabel: 'Authorization code',
+      codeHint: 'Paste the code you received in the browser.',
+      connectedWith: 'Connected with {{method}}',
+      expiresAt: 'Expires',
+      origin: 'Address'
     },
     view: { selectItem: 'Select an item.', backAria: 'Back to {{section}} list' },
     detail: {

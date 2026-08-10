@@ -4,7 +4,13 @@
 
 import { z } from 'zod'
 import { DEFAULT_UPDATE_CHECK, MOCK_SCENARIO_IDS, UPDATE_CHECK_INTERVAL_HOURS } from './ipc'
-import type { AttachmentView, Backend, ComposerAttachment, EffortLevel } from './ipc'
+import type {
+  AttachmentView,
+  Backend,
+  ComposerAttachment,
+  EffortLevel,
+  ProviderAuthKind
+} from './ipc'
 import { LOG_EVENT_PATTERN, LOG_SCOPE_MAX_LENGTH, LOG_STRING_MAX_LENGTH } from './logging'
 import type { LogInput, SerializedError as LogSerializedError } from './logging'
 
@@ -254,6 +260,41 @@ export const ProviderSummariesRequestSchema = z.object({
 
 export const RefreshProviderUsageReportSchema = z.object({
   providerKey: z.string().min(1)
+})
+
+// ── Provider 플랫폼 (0181) ────────────────────────────────────────────────────
+// 입력 레코드 상한(키 64자·값 4096자·32쌍)은 구 `AuthContinueRequestSchema` 의 값을 잇는다 —
+// 인증 필드는 사람이 손으로 채우는 값이라 이보다 크면 붙여넣기 사고이거나 공격이다.
+const ProviderAuthKindSchema: z.ZodType<ProviderAuthKind> = z.enum([
+  'api-key',
+  'password',
+  'pat',
+  'oauth',
+  'browser-session'
+])
+
+const ProviderInputSchema = z
+  .record(z.string().max(64), z.string().max(4096))
+  .refine((input) => Object.keys(input).length <= 32, { message: 'too many fields' })
+
+export const ProviderLoginRequestSchema = z.object({
+  providerId: z.string().min(1).max(128),
+  authKind: ProviderAuthKindSchema.optional(),
+  input: ProviderInputSchema.optional()
+})
+
+export const ProviderContinueRequestSchema = z.object({
+  providerId: z.string().min(1).max(128),
+  input: ProviderInputSchema
+})
+
+export const ProviderReauthRequestSchema = z.object({
+  providerId: z.string().min(1).max(128),
+  authKind: ProviderAuthKindSchema.optional()
+})
+
+export const ProviderRevokeRequestSchema = z.object({
+  providerId: z.string().min(1).max(128)
 })
 
 // 사용량 요약 조회(0112) — 설정 사용량 탭의 기간 탭(최근 7일/30일/전체)과 1:1.
@@ -588,6 +629,20 @@ export type {
   CreateMcpServerRequest,
   UpdateMcpServerRequest,
   DeleteMcpServerRequest,
+  ProviderKind,
+  ProviderAuthKind,
+  ProviderFieldInfo,
+  ProviderAuthSpecInfo,
+  ProviderGrantStatus,
+  ProviderInfo,
+  ProviderStepInfo,
+  ProviderFailureReason,
+  ProviderGateState,
+  ProviderPlatformState,
+  ProviderLoginRequest,
+  ProviderContinueRequest,
+  ProviderReauthRequest,
+  ProviderRevokeRequest,
   AskQuestionOption,
   AskQuestion,
   AskQuestionRequest,

@@ -13,6 +13,13 @@ import type {
   NormalizedEvent,
   CreateMcpServerRequest,
   CreateProjectRequest,
+  ProviderInfo,
+  ProviderPlatformState,
+  ProviderStepInfo,
+  ProviderLoginRequest,
+  ProviderContinueRequest,
+  ProviderReauthRequest,
+  ProviderRevokeRequest,
   FileEntry,
   PickedAttachment,
   OpenPathRequest,
@@ -191,8 +198,20 @@ export const updateApi = {
     window.orca.update.onProgress(handler)
 }
 
-// 인증·플러그인 표면(`authApi`·`pluginApi`·`APPLICATION_TARGET`)은 0180 에서 제거됐다.
-// 0181 이 `providerApi` 하나로 다시 세운다.
+// 구 `authApi`·`pluginApi` 두 표면을 하나로 합친 자리(0181). 게이트 화면과 카탈로그 provider
+// 탭이 같은 API 를 쓴다 — 앱 로그인과 서비스 연결의 차이는 `ProviderInfo.kind` 뿐이다.
+export const providerApi = {
+  list: (): Promise<ProviderInfo[]> => window.orca.provider.list(),
+  state: (): Promise<ProviderPlatformState> => window.orca.provider.state(),
+  login: (req: ProviderLoginRequest): Promise<ProviderStepInfo> => window.orca.provider.login(req),
+  continue: (req: ProviderContinueRequest): Promise<ProviderStepInfo> =>
+    window.orca.provider.continue(req),
+  reauth: (req: ProviderReauthRequest): Promise<ProviderStepInfo> =>
+    window.orca.provider.reauth(req),
+  revoke: (req: ProviderRevokeRequest): Promise<void> => window.orca.provider.revoke(req),
+  onState: (handler: (state: ProviderPlatformState) => void): (() => void) =>
+    window.orca.provider.onState(handler)
+}
 
 export const debugApi = {
   getMock: (): Promise<DebugMockState> => window.orca.debug.getMock(),
