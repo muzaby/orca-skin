@@ -8,6 +8,7 @@ import {
   type ConcurrencyEvent,
   type InstallStatus,
   type NormalizedEvent,
+  type ProviderPlatformState,
   type SessionTitleEvent,
   type UpdateProgress,
   type UpdateState
@@ -53,4 +54,10 @@ export function broadcastUpdateState(state: UpdateState): void {
 
 export function broadcastUpdateProgress(progress: UpdateProgress): void {
   broadcast(CHANNELS.updateProgressEvent, progress)
+}
+
+// provider 플랫폼 상태 브로드캐스트(0181) — 로그인 진행·grant 변경. renderer store 가 구독해
+// main 상태를 미러한다. **secret 은 이 페이로드에 없다**(상태·만료·principal 만).
+export function broadcastProviderState(state: ProviderPlatformState): void {
+  broadcast(CHANNELS.providerState, state)
 }

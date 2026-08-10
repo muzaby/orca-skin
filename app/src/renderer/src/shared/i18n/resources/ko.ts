@@ -83,7 +83,7 @@ export const ko = {
   },
   skills: {
     pageTitle: '플러그인',
-    rail: { skills: '스킬', mcp: 'MCP' },
+    rail: { skills: '스킬', mcp: 'MCP', providers: '연결' },
     list: {
       addAria: '추가'
     },
@@ -96,11 +96,43 @@ export const ko = {
       transport: '전송 방식',
       user: '사용자',
       noSkills: '등록된 스킬이 없습니다.',
-      noMcp: '등록된 MCP 서버가 없습니다.'
+      noMcp: '등록된 MCP 서버가 없습니다.',
+      noProviders: '등록된 연결이 없습니다.',
+      provider: '연결',
+      providerKind: '용도',
+      providerAuth: '인증 방식'
     },
     groups: {
       activeMcp: '활성 MCP',
-      inactiveMcp: '비활성 MCP'
+      inactiveMcp: '비활성 MCP',
+      gateProviders: '앱 로그인',
+      llmProviders: '모델',
+      serviceProviders: '사내 서비스'
+    },
+    // provider 플랫폼 (0181) — 앱 로그인·모델 자격증명·사내 서비스 연결이 같은 화면을 쓴다.
+    provider: {
+      status: {
+        none: '연결 안 됨',
+        valid: '연결됨',
+        expired: '만료됨',
+        unknown: '확인 불가'
+      },
+      kind: {
+        gate: '앱 로그인',
+        llm: '모델',
+        service: '사내 서비스'
+      },
+      connect: '연결',
+      reauth: '재인증',
+      revoke: '연결 해제',
+      chooseMethod: '인증 방식',
+      submit: '확인',
+      openBrowser: '브라우저에서 로그인',
+      codeLabel: '인증 코드',
+      codeHint: '브라우저에서 받은 코드를 붙여 넣으세요.',
+      connectedWith: '{{method}}(으)로 연결됨',
+      expiresAt: '만료',
+      origin: '주소'
     },
     view: { selectItem: '항목을 선택하세요.', backAria: '{{section}} 목록으로 돌아가기' },
     // 부팅 등록 거부 (0164 r2). 등록은 패키지 단위 all-or-nothing 이라 주소 하나가 잘못되면

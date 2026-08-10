@@ -4,12 +4,14 @@ import { Button } from '../../../../shared/ui/Button'
 import { useI18n } from '../../../../shared/i18n'
 import { useCustomizeSkills } from '../../hooks/useCustomizeSkills'
 import { useMcpServers } from '../../hooks/useMcpServers'
+import { useProviders } from '../../hooks/useProviders'
 import { back, openDetail, selectTab, type CatalogSelection } from '../../lib/catalogSelection'
 import { toggleGroup, type CollapsedGroups } from '../../lib/catalogGroups'
 import { CustomizeRail } from './CustomizeRail'
 import { CustomizeList } from './CustomizeList'
 import { SkillDetail } from './SkillDetail'
 import { McpDetail } from './McpDetail'
+import { ProviderDetail } from './ProviderDetail'
 import { SkillAddMenu } from './SkillAddMenu'
 import { SkillAuthorModal } from './SkillAuthorModal'
 import { SkillUploadModal } from './SkillUploadModal'
@@ -26,6 +28,7 @@ export function ExtensionsCatalogView(): React.JSX.Element {
   const [collapsed, setCollapsed] = useState<CollapsedGroups>({})
   const skills = useCustomizeSkills()
   const mcp = useMcpServers()
+  const providers = useProviders()
   const [menuOpen, setMenuOpen] = useState(false)
   const [authorOpen, setAuthorOpen] = useState(false)
   const [uploadOpen, setUploadOpen] = useState(false)
@@ -35,8 +38,15 @@ export function ExtensionsCatalogView(): React.JSX.Element {
     (item) => skillKey(item.sourceId, item.name) === selection.selectedId
   )
   const selectedMcp = mcp.list.find((item) => item.id === selection.selectedId)
-  const detail = selectedSkill ?? selectedMcp
-  const title = tr(selection.tab === 'skills' ? 'skills.rail.skills' : 'skills.rail.mcp')
+  const selectedProvider = providers.list.find((item) => item.id === selection.selectedId)
+  const detail = selectedSkill ?? selectedMcp ?? selectedProvider
+  const title = tr(
+    selection.tab === 'skills'
+      ? 'skills.rail.skills'
+      : selection.tab === 'mcp'
+        ? 'skills.rail.mcp'
+        : 'skills.rail.providers'
+  )
   return (
     <section
       className="flex h-full min-h-0 w-full"
@@ -58,7 +68,10 @@ export function ExtensionsCatalogView(): React.JSX.Element {
                 iconOnly
                 leadingIcon="arrowL"
                 size="small"
-                onClick={() => setSelection((state) => back(state))}
+                onClick={() => {
+                  providers.clearStep()
+                  setSelection((state) => back(state))
+                }}
                 aria-label={tr('skills.view.backAria', { section: title })}
               />
               <span className="text-footnote text-ink2">{title}</span>
@@ -67,7 +80,8 @@ export function ExtensionsCatalogView(): React.JSX.Element {
             <h1 className="m-0 text-heading text-ink">{title}</h1>
           )}
           {/* skills 는 메뉴, mcp 는 모달. */}
-          {!detail && (
+          {/* provider 는 빌드타임 선언이라 UI 추가 경로가 없다 — 버튼 자체를 내지 않는다. */}
+          {!detail && selection.tab !== 'providers' && (
             <Button
               ref={addRef}
               className="ml-auto"
@@ -116,7 +130,18 @@ export function ExtensionsCatalogView(): React.JSX.Element {
             server={selectedMcp}
             onToggle={() => void mcp.toggle(selectedMcp.id, !selectedMcp.enabled)}
           />
-        ) : skills.loading || mcp.loading ? (
+        ) : selectedProvider ? (
+          <ProviderDetail
+            // provider 를 갈아타면 방식 선택·입력값이 남지 않도록 리마운트한다.
+            key={selectedProvider.id}
+            provider={selectedProvider}
+            step={providers.step}
+            onLogin={(authKind) => void providers.login(selectedProvider.id, authKind)}
+            onSubmit={(input) => void providers.submit(selectedProvider.id, input)}
+            onReauth={(authKind) => void providers.reauth(selectedProvider.id, authKind)}
+            onRevoke={() => void providers.revoke(selectedProvider.id)}
+          />
+        ) : skills.loading || mcp.loading || providers.loading ? (
           <div className="grid flex-1 place-items-center text-ink3">{tr('common.loading')}</div>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col">
@@ -124,6 +149,7 @@ export function ExtensionsCatalogView(): React.JSX.Element {
               tab={selection.tab}
               skills={skills.list}
               mcpServers={mcp.list}
+              providers={providers.list}
               collapsed={collapsed}
               onToggleGroup={(key) => setCollapsed((state) => toggleGroup(state, key))}
               onSelect={(id) => setSelection((state) => openDetail(state, id))}
