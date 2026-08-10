@@ -77,8 +77,9 @@ export async function resolveTurn(
       continuityMeta,
       continuityLang,
       resolved,
-      // orca.json 앱 전역 env(${VAR} 확장)만 SDK subprocess env 로 병합한다.
-      turnEnv: buildTurnEnv(ctx),
+      // orca.json 앱 전역 env(${VAR} 확장) + 선택된 LLM provider 의 자격증명을 SDK subprocess
+      // env 로 병합한다(0181). provider 해석이 끝난 뒤여야 어느 자격증명인지 알 수 있다.
+      turnEnv: buildTurnEnv(ctx, resolved.providerKey),
       sessionMeta,
       boundProjectId: payload.sessionId
         ? (sessionMeta?.project_id ?? null)

@@ -46,8 +46,9 @@ function synthVar(name: string): string {
 
 export class McpStore {
   private readonly secrets = new SecretStore()
-  // 인증 플랫폼 binding 조회 (0157). 구조적 포트라 features 교차 import 가 아니고,
-  // 컴포지션 루트가 부팅 시 주입한다. 미주입이면 `${BINDING:}` 참조는 해석되지 않는다(서버 드롭).
+  // `${BINDING:<대상>}` 토큰 소스 (0157 → 0181 복구). 구조적 포트라 features 교차 import 가
+  // 아니고, 컴포지션 루트가 부팅 시 주입한다. 미주입이면 대상 참조가 해석되지 않는다(서버 드롭).
+  private tokens?: (providerId: string) => string | null
   // mcp.json 파스 캐시 — 이 스토어가 유일한 런타임 read/write 주체(bootstrap 싱글턴)라
   // write() 가 단일 무효화 지점이다. 매 턴(enabledConfig) 디스크 재파싱을 없앤다(0092).
   private cache: OrcaMcpConfig | null = null
@@ -260,11 +261,18 @@ export class McpStore {
   // 어댑터의 어댑트 시점으로 미룬다 — 미확장 ${VAR} 를 넘기고 어댑터가 이 resolver 로 복호화.
   //
   // 0157: process.env 전체 fallback 을 제거하고 orca.json 의 명시 allowlist 만 허용한다.
-  // 0180: 인증 토큰 소스 주입(`attachBindings`)이 사라졌다 — 0181 이 다시 잇는다.
+  // 0181: `${BINDING:<대상>}` 토큰 소스를 컴포지션 루트가 주입한다(`attachTokenSource`).
   resolver(): Resolver {
     return makeResolver({
       secrets: this.secrets,
-      envAllowlist: secretEnvAllowlist()
+      envAllowlist: secretEnvAllowlist(),
+      ...(this.tokens ? { tokens: this.tokens } : {})
     })
+  }
+
+  // 컴포지션 루트가 provider 플랫폼 조립 후 1회 호출한다. 주입 전에는 대상 참조가 전부
+  // 미해결이므로, 그 사이에 배포된 MCP 설정에는 인증이 필요한 서버가 빠진다(fail-closed).
+  attachTokenSource(tokens: (providerId: string) => string | null): void {
+    this.tokens = tokens
   }
 }
