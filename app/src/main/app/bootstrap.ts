@@ -2,7 +2,7 @@
 // 담당한다. 도메인 핸들러는 app/handlers/, chat 턴 셋업은 app/chat-turn.ts, 턴 파이프라인 협력자는
 // features/{chat,history,approvals,sessions,usage} 참조 (handoff 0062 수직 슬라이스 재구성).
 
-import { app, webContents } from 'electron'
+import { app, shell, webContents } from 'electron'
 import { mkdir } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
@@ -70,7 +70,16 @@ import {
   createMemoryGrantPersistence,
   type GrantPersistencePort
 } from '../features/providers/auth/store'
-import { createGrantPersistence } from '../features/providers/auth/store-file'
+import {
+  createGrantPersistence,
+  createOAuthStatePersistence
+} from '../features/providers/auth/store-file'
+import {
+  OAuthStateStore,
+  createMemoryOAuthStatePersistence,
+  type OAuthStatePersistencePort
+} from '../features/providers/auth/oauth'
+import { OAuthRunner } from '../features/providers/auth/oauth-runner'
 import { LoginService } from '../features/providers/auth/login'
 import { declaredProviders } from '../features/providers/declarations'
 import { createVault } from '../infra/vault'
@@ -232,6 +241,18 @@ export class Bootstrap {
     })
     store.restore(registry.list().map((provider) => provider.id))
 
+    // OAuth 인가 pending 은 grant 와 **다른 파일**에 앉는다(수명이 분 단위 대 재로그인까지).
+    // 영속을 못 열면 메모리로 내려앉되, 그 경우 앱 재시작을 건너뛴 콜백만 대조된다.
+    let oauthStates: OAuthStatePersistencePort
+    try {
+      oauthStates = createOAuthStatePersistence()
+    } catch (error) {
+      log.warn('providers.oauth.persistence.unavailable', {
+        reason: error instanceof Error ? error.message : String(error)
+      })
+      oauthStates = createMemoryOAuthStatePersistence()
+    }
+
     const platform = new ProviderPlatform({
       registry,
       store,
@@ -242,6 +263,12 @@ export class Bootstrap {
         registry,
         store,
         vault,
+        oauth: new OAuthRunner({
+          states: new OAuthStateStore(oauthStates),
+          // 인가는 **기본 브라우저**에서 돈다(RFC 8252) — 사용자가 주소창과 인증서를 직접 본다.
+          openExternal: (url) => shell.openExternal(url),
+          logger: (event, data) => log.warn(event, data)
+        }),
         onChange: () => broadcastProviderState(platform.state())
       })
     })
