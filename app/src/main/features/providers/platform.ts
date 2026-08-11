@@ -61,9 +61,11 @@ export class ProviderPlatform {
 
   state(): ProviderPlatformState {
     const providers = this.list()
-    const gateMembers = this.deps.registry
-      .byKind('gate')
-      .map((provider) => ({ providerId: provider.id, status: this.deps.store.status(provider.id) }))
+    const gateMembers = this.deps.registry.byKind('gate').map((provider) => ({
+      providerId: provider.id,
+      status: this.deps.store.status(provider.id),
+      verified: this.deps.store.isVerified(provider.id)
+    }))
     return {
       gate: evaluateGate({
         members: gateMembers,

@@ -38,6 +38,14 @@ export interface ProviderStoreDeps {
 
 export class ProviderStore {
   private readonly grants = new Map<string, Grant>()
+  // **이번 실행에서 실제 인증을 거친 provider.** 프로세스 수명 한정 — 영속하지 않는다.
+  //
+  // grant 는 *기록*이고 인증이 아니다. 특히 `kind:'session'` grant 는 vault 도 `expiresAt` 도
+  // 없어(교환 없는 ADFS 경로) 기록만으로 영원히 `status:'valid'` 다. 게이트가 그 status 만 보던
+  // 동안 한 번 로그인에 성공한 providerId 는 영구히 통과했다 — 쿠키가 죽어도 마찬가지라
+  // 사실상 `authBypass` 를 켠 것과 같았다(사용자 보고). 그래서 통과 근거를 *기록* 이 아니라
+  // **이번 실행의 인증**으로 옮긴다. 디스크에 남기는 순간 그 영구 bypass 가 그대로 돌아온다.
+  private readonly verified = new Set<string>()
   private readonly persistence: GrantPersistencePort
   private readonly vault: Vault
   private readonly clock: () => number
@@ -52,9 +60,12 @@ export class ProviderStore {
 
   // 부팅 복원. **선언에 없는 id 는 조용히 무시하고 로그만 남긴다** — 삭제하지 않는다.
   // 선언이 일시적으로 빠진 빌드에서 재로그인을 강요하지 않기 위함이다.
+  // 복원된 grant 는 **`verified` 가 아니다** — 기록이 살아 있다는 것과 지금 인증돼 있다는 것은
+  // 다르다. 게이트를 열려면 이번 실행에서 로그인을 한 번 거쳐야 한다.
   restore(declaredIds: readonly string[]): void {
     const known = new Set(declaredIds)
     this.grants.clear()
+    this.verified.clear()
     for (const [providerId, grant] of Object.entries(this.persistence.load())) {
       if (!known.has(providerId)) {
         this.onOrphan?.(providerId)
@@ -64,12 +75,19 @@ export class ProviderStore {
     }
   }
 
+  // 이번 실행에서 인증이 확인됐는가. grant 가 없으면 당연히 거짓이다.
+  isVerified(providerId: string): boolean {
+    return this.verified.has(providerId) && this.grants.has(providerId)
+  }
+
   get(providerId: string): Grant | undefined {
     return this.grants.get(providerId)
   }
 
+  // 방금 인증에 성공한 결과가 들어온다 — 그러므로 이 grant 는 이번 실행에서 확인된 것이다.
   put(providerId: string, grant: Grant): void {
     this.grants.set(providerId, grant)
+    this.verified.add(providerId)
     this.flush()
   }
 
@@ -81,6 +99,7 @@ export class ProviderStore {
     if (grant.kind === 'secret' || grant.kind === 'token') this.vault.delete(grant.vaultKey)
     if (grant.kind === 'token' && grant.refreshKey) this.vault.delete(grant.refreshKey)
     this.grants.delete(providerId)
+    this.verified.delete(providerId)
     this.flush()
     return grant
   }
@@ -103,6 +122,9 @@ export class ProviderStore {
   markExpired(providerId: string): void {
     const grant = this.grants.get(providerId)
     if (!grant) return
+    // 확인은 무조건 취소한다 — 401 을 봤는데 "확인됨" 을 남겨 두면 게이트가 열린 채로 남는다.
+    // (아래 조기 반환보다 앞이어야 한다: 이미 만료 표기된 grant 도 확인은 풀려야 한다.)
+    this.verified.delete(providerId)
     const now = this.clock()
     if (grant.expiresAt !== undefined && grant.expiresAt <= now) return
     this.grants.set(providerId, { ...grant, expiresAt: now })
