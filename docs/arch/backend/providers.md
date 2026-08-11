@@ -243,8 +243,8 @@ orca:provider:login { providerId, authKind?, input? }
         ├─ api-key/password/pat : 1회차 → fields 반환(input-required)
         │                          2회차 → compose → vault 봉인 → Grant{secret}
         ├─ oauth  : PKCE·state 발급 → 영속 → redirect 분기
-        │             ├ loopback : 기본 브라우저 + 127.0.0.1 리스너 → 콜백 → state 대조 → exchange
-        │             ├ window   : 앱 내부 창 → isDone(url) → state 대조 → exchange
+        │             ├ loopback : 기본 브라우저 + 127.0.0.1 리스너 → 콜백 → state 대조(실은 경우) → exchange
+        │             ├ window   : 앱 내부 창 → isDone(url) → state 대조(실은 경우) → exchange
         │             └ manual   : code-required → 사용자 붙여넣기 → orca:provider:continue
         └─ browser-session : 로그인 창 → doneUrlPrefix → Grant{session}
                                 └ config.exchange 있으면 세션 쿠키로 토큰까지 → Grant{token}

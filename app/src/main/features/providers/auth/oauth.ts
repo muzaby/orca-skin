@@ -25,6 +25,13 @@ export interface PendingAuthorization {
   createdAt: number
   // 루프백에서 authorize 에 실었던 값. 교환 요청이 같은 값을 보내야 한다(RFC 6749 §4.1.3).
   redirectUri?: string
+  // authorize 요청에 `state` 를 실었는가. **선언이 `ctx.state()` 를 불렀는지가 그대로 답이다** —
+  // 선언이 state 값을 얻을 수 있는 통로가 그것뿐이라, 미호출은 곧 미전송이다(추론이 아니라
+  // 필요조건). 안 보냈으면 SP 가 돌려줄 것도 없으므로 콜백 대조를 요구하지 않는다.
+  //
+  // **`undefined` 는 `true`(대조 요구)로 읽는다** — 이 필드가 없던 시절의 레코드가 조용히
+  // 관대해지지 않게 한다.
+  stateSent?: boolean
 }
 
 export interface OAuthStatePersistencePort {

@@ -39,6 +39,8 @@
 //           url.searchParams.set('response_type', 'code')
 //           url.searchParams.set('client_id', 'orca-desktop')
 //           url.searchParams.set('redirect_uri', redirectUri)
+//           // SP 명세에 state 가 없으면 이 줄과 `ctx.state()` 를 **함께 뺀다** — 안 부르면
+//           // 코어가 콜백에서 state 를 요구하지 않는다(부르면 echo 를 요구한다).
 //           url.searchParams.set('state', ctx.state())
 //           url.searchParams.set('code_challenge', pkce.challenge)
 //           url.searchParams.set('code_challenge_method', pkce.method)
