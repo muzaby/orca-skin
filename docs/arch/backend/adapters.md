@@ -1,7 +1,6 @@
 # Backend Architecture — Adapters (어댑터·ExtensionBuilder·파일/리소스·Hook 정규화)
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-08-05 (handoff 0177 — 인용 경로 정정(루트 문서 상대경로 `./`→`../../`). 직전: 2026-07-10 (handoff 0094 — 0062 개명 경로 정정·skills 스캔/시딩(0078) 동기화))
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [provider-runtime.md](./provider-runtime.md), [overview.md](./overview.md), [adapter-design 흡수], [../../claude-code-spec.md](../../claude-code-spec.md)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 

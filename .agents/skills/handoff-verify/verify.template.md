@@ -74,7 +74,7 @@
 | 문서 형식/링크/한국어 컨벤션 | ✅ | — | … |
 | AGENTS.md 위생(키/토큰/이메일/IP) 스캔 | ✅ grep 보고 | ✅ 맥락 최종 판단 | … |
 | import stub(`@AGENTS.md`) 해석 | ✅ | — | … |
-| PHASES.md 형식·PR#/커밋 | ✅ | — | … |
+| INDEX 행 형식·PR#/커밋 | ✅ | — | … |
 | 제품 의도 부합(PRD/트랜스크립트) | ✖ 보조 의견 | ✅ 결정 | 사람 확인 대기 |
 | PRD §11 / TRD §15 Open Questions | ✖ 단독 결정 금지 | ✅ 결정 | 사람 확인 대기 |
 | UI/UX 시각 검증 | ✖ | ✅ | 사람 확인 대기 |
@@ -98,7 +98,7 @@ $ cd app && npm run lint && npm run typecheck && npm test
 - 키/토큰/이메일/IP 패턴 스캔 결과: …
 - 변동성/일회성/장문 코드설명서 혼입 여부: …
 
-## PHASES.md 정합성
+## INDEX 보드 정합성
 
 - 형식/PR#/커밋 기재 확인: …
 

@@ -1,9 +1,9 @@
 # Frontend Architecture — Layers & App Shell (4-layer·디렉토리·boundaries)
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-07-10 (handoff 0094 — §1-1 트리를 0078~0093 코드(features 13 도메인·shared/ui 확장)로 동기화)
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [overview.md](./overview.md), [dom-architecture.md](./dom-architecture.md), [state.md](./state.md)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
+> Decision rationale: [ADR-002](../../decisions/002-feature-slice-boundaries.md) — 레이어 경계를 강제하는 이유(main 과 같은 원칙).
 
 ## 1. 디렉토리 구조
 

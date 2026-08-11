@@ -114,7 +114,7 @@ v1 의 기능 표면은 P2 만으로도 충분히 커버 가능하다. P1 의 �
 | 스타일링 | **Tailwind CSS** | TRD §4 채택. 디자인 토큰은 §10 CSS 커스텀 프로퍼티 그대로, 컴포넌트 클래스만 Tailwind 유틸리티 |
 | LLM 백엔드 SDK (Claude) | **`@anthropic-ai/claude-agent-sdk`** (Phase 3 채택, 2026-05-18) | 진입점 `query()`, 세션 재개 `options.resume`, 토큰 스트리밍 `options.includePartialMessages`. TRD §4·§7.1, [`claude-code-spec.md §10`](./claude-code-spec.md) |
 | 상태 관리 (Renderer) | **Zustand 전환 완료** (0008 chat 선행 + 0013 전면 — feature별 store + chat `sessions: Record` 외피) | 순수 `chatReducer` 유지 + store 가 키 라우팅. 외부 dispatch (`receive(ev)`). 상세 [arch/frontend/state.md](arch/frontend/state.md) §1 |
-| 영속화 | **구현 완료**: `electron-store` (20 키 — TRD §6.7) + 로컬 DB better-sqlite3 (마이그레이션 16종, 메시지·세션 SSOT). **잔여**: `<userData>/artifacts/` FS (Artifact) | 상세 [arch/backend/persistence.md](arch/backend/persistence.md) |
+| 영속화 | **구현 완료**: `electron-store` (키 카탈로그 TRD §6.7, 개수는 [생성물](generated/inventory.md)) + 로컬 DB better-sqlite3 (메시지·세션 SSOT). **잔여**: `<userData>/artifacts/` FS (Artifact) | 상세 [arch/backend/persistence.md](arch/backend/persistence.md) |
 | 자격증명 | **현재**: SDK 가 `~/.claude` 자동 사용 + MCP 인증 비밀은 safeStorage secret-store **구현 완료**. **잔여**: 어댑터별 base URL + API key 저장 | [arch/backend/security.md](arch/backend/security.md) §1.4 |
 
 ### 7.2 CLI 연결 패턴 (전략 §3)
@@ -195,8 +195,8 @@ Renderer (UI) → Electron IPC → `SessionAdapter` → `ClaudeCodeAdapter` 또�
 |---|---|---|
 | **Phase 1 (MVP)** ✅ | 단일 활성 대화 컨텍스트 유지 | `sessionId` 메모리 변수 1개 |
 | Phase 2 ✅ | 앱 재시작 후 마지막 대화 재개 | `electron-store` 로 `sessionId` 영속화 |
-| Phase 3 ✅ | 사이드바에 과거 대화 목록 + 로컬 영속성 도입 | 로컬 DB (`<userData>/orca.db`) 가 메시지·세션 메타 SSOT (마이그레이션 16종). Artifact FS 는 잔여. 상세 [arch/backend/persistence.md](arch/backend/persistence.md) |
-| Phase 4 (진행 중) | 멀티 세션 전환 모드 + **Zustand 상태 관리 전환** | **런타임·상태 전환은 완료** (세션별 SessionRuntime + chat `sessions: Record` 외피, 0008~0013·0051~0069) — 동시 스트리밍 *UX*(배지·탭)가 잔여. 진행 이력 정본 [PHASES.md](PHASES.md), 상태 상세 [arch/frontend/state.md](arch/frontend/state.md) §1 |
+| Phase 3 ✅ | 사이드바에 과거 대화 목록 + 로컬 영속성 도입 | 로컬 DB (`<userData>/orca.db`) 가 메시지·세션 메타 SSOT. Artifact FS 는 잔여. 상세 [arch/backend/persistence.md](arch/backend/persistence.md) |
+| Phase 4 (진행 중) | 멀티 세션 전환 모드 + **Zustand 상태 관리 전환** | **런타임·상태 전환은 완료** (세션별 SessionRuntime + chat `sessions: Record` 외피, 0008~0013·0051~0069) — 동시 스트리밍 *UX*(배지·탭)가 잔여. 진행 이력 정본 [archive/PHASES.md](archive/PHASES.md), 상태 상세 [arch/frontend/state.md](arch/frontend/state.md) §1 |
 
 ---
 
@@ -286,7 +286,7 @@ Renderer (UI) → Electron IPC → `SessionAdapter` → `ClaudeCodeAdapter` 또�
 | `docs/etc/llm-chat-desktop-strategy.md` | 백엔드 / 어댑터 / 세션 / 설치 (§§2–11 핵심 입력) |
 | `docs/ARCHITECTURE.md` | Renderer 구조·상태 관리 (Zustand 채택 §4.4)·도메인 화면 카탈로그 |
 | `docs/ARCHITECTURE.md` | Main 구조·SessionAdapter §4·영속성 §6 (로컬 DB + FS)·자격증명 §8.4 |
-| `docs/IPC_CONTRACT.md` | Main ↔ Renderer 채널 SSOT (총 86 채널 · 23 도메인, NormalizedEvent variant 21종, ErrorCategory) |
+| `docs/IPC_CONTRACT.md` | Main ↔ Renderer 채널 SSOT — 채널 계약 · NormalizedEvent variant · ErrorCategory (수치는 [생성물](generated/inventory.md)) |
 | `docs/GLOSSARY.md` | 용어 단일 출처 (Session / Backend / SessionAdapter / Artifact / Credential 등, 사용 금지 어휘) |
 | `docs/claude-code-spec.md` | Claude Code CLI 공식 스펙 미러 (§7.2~7.4, OQ9 의 참조점) |
 | `chats/chat1.md` | 디자인 의도 트랜스크립트 (§4 페르소나, §10 디자인 톤) |

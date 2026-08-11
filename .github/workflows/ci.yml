@@ -48,6 +48,11 @@ jobs:
       - name: Migration guard (sync + append-only)
         run: node scripts/check-migrations-appendonly.mjs
 
+      # 코드에서 셀 수 있는 수치가 문서에 복제되지 않았는지 + 문서 링크가 살아 있는지.
+      # 순수 Node 라 better-sqlite3 ABI 와 무관하다.
+      - name: Doc inventory guard (counts + prose + links)
+        run: node scripts/check-doc-inventory.mjs --check
+
       - name: Lint
         run: npm run lint
 

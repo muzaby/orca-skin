@@ -1,7 +1,6 @@
 # Frontend 용어 해설 (사람용)
 
 > 이 문서의 독자: **사람** (신규 합류자·팀 동료) — AI agent 용 정본 문서가 아니다.
-> 최종 업데이트: 2026-06-04
 > 관련 문서: [../../GLOSSARY.md](../../GLOSSARY.md) (용어 정본/SSOT), [overview.md](./overview.md), [layers.md](./layers.md), [dom-architecture.md](./dom-architecture.md), [state.md](./state.md), [rendering.md](./rendering.md), [ux-domains.md](./ux-domains.md)
 > 진실의 기준: **정의는 GLOSSARY.md / 해당 arch 문서가 정본.** 본 문서는 처음 보는 사람을 위한 쉬운 해설일 뿐, 충돌 시 정본 우선.
 

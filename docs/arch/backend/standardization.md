@@ -1,7 +1,6 @@
 # Backend Architecture — Extension Standardization (개발환경 표준화·배포 계층)
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-08-05 (handoff 0177 — 구 `deploy/` 경로를 `features/extensions/` 로 정정(0062 이동 반영). 직전: 2026-06-05)
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [provider-runtime.md](./provider-runtime.md) (런타임 정규화 — *짝 문서*), [adapters.md](./adapters.md) (자산 변환 매트릭스), [security.md](./security.md) (비밀·MCP credential), [terms.md](./terms.md) (사람용 용어)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 
@@ -111,7 +110,7 @@ class OpenCodeEngine {
 
 > **소유 모델 (plugin 패키지 기준)**: Orca 가 관리하는 skill·mcp 는 `plugins/orca` 라는 단일 Claude Code plugin 패키지로 projection 한다. agents·hooks 는 구조만 스캐폴드하고 실제 자산 변환은 후속으로 남긴다. commands 는 레거시라 배포하지 않는다.
 >
-> **외부 사용량 리포트는 배포 계층에 없다 (0099 → 0183)**: 사용량 전용 확장점은 **제거됐다** — 구 `static/modules/` 레지스트리도, 그것을 선언으로 옮긴 필드도 없다(0183 r2). 앱이 집계하는 사용량은 **로컬 턴 집계**(`UsageTracker`)뿐이고, `sources/settings/<adapter>/<provider>/settings.json` 은 bedrock/vertex/custom 을 선생성하지 않는다. 사내 사용량 endpoint 가 필요한 배포는 **확장점이 아니라 코드**로 붙인다 — 그 기능을 쓰는 feature 가 `ProviderApi.request` 로 부르고, 주기 실행이 필요하면 컴포지션 루트가 `Scheduler` 에 action 을 등록한다(절차: [`../../guides/closed-network-extensions.md`](../../guides/closed-network-extensions.md) §5-b).
+> **외부 사용량 리포트는 배포 계층에 없다**: 사용량 전용 확장점은 **제거됐다** — 구 `static/modules/` 레지스트리도, 그것을 선언으로 옮긴 필드도 없다(0183 r2). 앱이 집계하는 사용량은 **로컬 턴 집계**(`UsageTracker`)뿐이고, `sources/settings/<adapter>/<provider>/settings.json` 은 bedrock/vertex/custom 을 선생성하지 않는다. 사내 사용량 endpoint 가 필요한 배포는 **확장점이 아니라 코드**로 붙인다 — 그 기능을 쓰는 feature 가 `ProviderApi.request` 로 부르고, 주기 실행이 필요하면 컴포지션 루트가 `Scheduler` 에 action 을 등록한다(절차: [`../../guides/closed-network-extensions.md`](../../guides/closed-network-extensions.md) §5-b).
 
 > **dist = 런타임 plugin 패키지**: `dist/<engine>/plugins/orca` 는 SDK `options.plugins: [{type:'local', path}]` 가 직접 읽는 경로다. 더 이상 세션 cwd 로 `.claude/skills`·`.mcp.json` 을 복사하지 않는다. MCP 도 `options.mcpServers` 가 아니라 plugin `.mcp.json` 로 로드되도록 query 전 렌더한다. 단 `options.mcpServers` 변환 함수는 레거시 안전화 전까지 코드에 남겨 추후 제거 대상으로 관리한다. plugin `.mcp.json` 은 `${VAR}` 를 확장한 활성 MCP 설정을 담을 수 있으므로 dist/.bak 에 평문 비밀이 잔존할 수 있다. 원천은 여전히 `sources/mcp/mcp.json` + safeStorage 이며 dist 는 파생 산출물이다. **settings.json 은 plugin 패키지의 예외** — 파일로 설치하지 않고 query flag(`options.settings` 인라인 JSON 문자열)로 주입한다(settingSources 와 직교·최우선 레이어, 상속한 `~/.claude/settings.json` 을 덮어씀, TRD §6.8). provider settings.json 은 `~/.claude/settings.json` 과 동일 취급이라 **env 를 포함한 채** verbatim 주입된다(handoff 0028 — argv 노출은 수용된 트레이드오프, security.md §1.4). `options.env` 에는 시스템(턴) env 만.
 >
@@ -144,7 +143,7 @@ function deploy(engine: EngineId, opts: DeployOptions): DeployResult {
 
 `dist/<engine>` 산출물은 편집 대상이 아니다. 기존 파일이 마지막 배포와 다르면(사용자가 손댄 경우) 무단 덮어쓰기를 막기 위해 **항상 백업 후 기록**한다.
 
-> **구현 상태 (0024 구현됨)**: [`features/extensions/deployer.ts`](../../../app/src/main/features/extensions/deployer.ts) 는 신 레이아웃으로 정렬됐다 — skill→`.claude/skills`, mcp→`.mcp.json` 배포, manifest·agents·commands·hooks·settings dist 복사 제거. [`conformance.ts`](../../../app/src/main/features/extensions/conformance.ts) 와 `deployer.test.ts` 도 같은 레이아웃을 검증한다. `disallowedTools` 는 D1 사용자 확정 전이라 코드 주입 보류. 최초 부팅 스캐폴드 [`features/extensions/scaffold.ts`](../../../app/src/main/features/extensions/scaffold.ts) 는 provider settings 만 시드한다 — skill/agents/commands/hooks 의 번들 first-party 콘텐츠는 없다(전부 사용자 제공). **claude-only — `engine` 파라미터·settings 로더 주입(`ProviderSettingsLoader`)이 OpenCode seam.**
+> **구현 상태 (0024 구현됨)**: [`features/extensions/deployer.ts`](../../../app/src/main/features/extensions/deployer.ts) 는 신 레이아웃으로 정렬됐다 — skill→`.claude/skills`, mcp→`.mcp.json` 배포, manifest·agents·commands·hooks·settings dist 복사 제거. `deployer.test.ts` 가 같은 레이아웃을 검증한다. (⚠️ 이전 판이 인용하던 `conformance.ts` 는 **코드에 존재하지 않는다** — `StandardConformance` 는 아직 설계 단계이고 구현체가 없다. 아래 §StandardConformance 를 구현 완료로 읽지 말 것.) `disallowedTools` 는 D1 사용자 확정 전이라 코드 주입 보류. 최초 부팅 스캐폴드 [`features/extensions/scaffold.ts`](../../../app/src/main/features/extensions/scaffold.ts) 는 provider settings 만 시드한다 — skill/agents/commands/hooks 의 번들 first-party 콘텐츠는 없다(전부 사용자 제공). **claude-only — `engine` 파라미터·settings 로더 주입(`ProviderSettingsLoader`)이 OpenCode seam.**
 
 > **현행 선례 재사용**: "render sources → engine config" 는 이미 MCP 축에서 구현돼 있다 — `mcp/convert.ts` 의 순수 함수 `toClaudeConfig`/`toOpencodeConfig`(동형 시그니처), `mcp/resolver.ts` 의 `${VAR}` resolver(safeStorage → process.env 2단계), `mcp/expand.ts` 의 `expandEnv`([security.md §1.4](./security.md), [adapters.md §3.1](./adapters.md)). ExtensionDeployer 의 mcp 축은 이 함수들을 *호출*하면 되고 새로 발명하지 않는다.
 

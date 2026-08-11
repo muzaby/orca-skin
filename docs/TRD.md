@@ -4,7 +4,7 @@
 
 | 항목 | 값 |
 |---|---|
-| 문서 버전 | v1 (MVP 구현 사양) — 최종 동기화 2026-08-05 (handoff 0177: §4/§6.7 20 키·§5 86 채널 23 도메인·§10 마이그레이션 16종. 직전 0095 = 17 키·64 채널) |
+| 문서 버전 | v1 (MVP 구현 사양). 코드에서 셀 수 있는 수치(채널·설정 키·마이그레이션)는 이 문서가 갖지 않는다 — [생성물](generated/inventory.md) 참조 |
 | 입력 | `docs/PRD.md` (MVP §6, §7, §11), `docs/etc/llm-chat-desktop-strategy.md` |
 | 출력 대상 | 코드 작성 에이전트 / 구현자 |
 | 범위 | Phase 1 MVP 본문. Phase 2~4 / Future Scope = §10 anchor only |
@@ -43,7 +43,7 @@ PRD §6.1 의 F1~F10 을 *수용 기준* 으로 구체화한다.
 | F7 | **CLI 설치 자동화** | Installer (IPC `orca:install:*`) | 둘 다 미설치 → 다이얼로그 (npm / curl 선택) → child_process 실행 → 라인 단위 status 스트림 → 완료/실패 표시 | §6.1 |
 | F8 | **설치 실패 폴백** | Installer | 자동 실패 → 수동 명령 전체 텍스트 UI에 표시 + 복사 버튼. Node.js 미설치 (Windows: choco, macOS: brew 안내), npm 글로벌 권한 부족 (sudo / npm config 안내) | §6.1 |
 | F9 | **인증 만료 처리** | ClaudeAdapter, Auth modal | Claude Code OAuth 401 감지 (stdout/stderr `"401"` / `"expired"` 패턴) → `error / auth.expired` 이벤트 → UI 모달 "`claude /login` 을 터미널에서 실행 후 새 대화" | §6.1 |
-| F10 | **Tweaks 패널** | DebugPanel(dev 전용, 구 TweaksPanel), useTweaks | 테마 선택 (**white/dark 2종** — 구 Classic/Dark/Cool 3종에서 축소) + 밀도 + 사이드바 접기 토글 → `data-theme` 속성 갱신 → Tailwind `@theme` 토큰 스코프 cascade → 전 화면 반영. 선택값은 `electron-store` 영속(§6.7 — 20 키 중 일부). 트리 remount 불요 (CSS 변수 재설정으로 충분) | §6.1 |
+| F10 | **Tweaks 패널** | DebugPanel(dev 전용, 구 TweaksPanel), useTweaks | 테마 선택 (**white/dark 2종** — 구 Classic/Dark/Cool 3종에서 축소) + 밀도 + 사이드바 접기 토글 → `data-theme` 속성 갱신 → Tailwind `@theme` 토큰 스코프 cascade → 전 화면 반영. 선택값은 `electron-store` 영속(§6.7 키 카탈로그의 일부). 트리 remount 불요 (CSS 변수 재설정으로 충분) | §6.1 |
 
 **Phase 4 에서 추가 구현된 기능** (F1~F10 이후 — 인수 기준 상세는 각 handoff plan/verify 가 정본):
 
@@ -98,7 +98,7 @@ electron-vite 환경 기준. 표 밖 의존성 추가 시 **사용자 승인 필
 | diff 렌더링 | diff | ^9 | 확정 | 도구 카드의 파일 편집 diff 표시 |
 | transcript 가상화 (Renderer) | `@tanstack/react-virtual` | ^3 | **확정 (0102)** | 긴 세션 transcript 의 과거(확정) 교환만 가상화해 화면 밖 shiki/DOM 상주 비용 제한. 마지막(스트리밍) 교환은 비가상 tail 로 유지해 0008 예약공간 앵커 보존 ("virtualized head + unvirtualized tail"). |
 | 차트 (Renderer) | recharts | ^3 | **확정 (0112, 사용자 승인)** | 설정 사용량 요약의 일별 토큰 바 차트. 선언적 React 컴포넌트 + SVG 렌더링이라 `tokens.css` 시맨틱 토큰(CSS 변수)·white/dark 테마와 직결. 색은 `--color-indigo`(사용량 지정색)만 사용. |
-| 영속화 (설정) | `electron-store` | ^8 | **확정 (완료)** | **18 키** (theme·density·sidebar*·lastBackend·lastSessionId·windowBounds·mcp*·skillEnabled·authBypass·language·uiLocale·accountInstructions·appFont·notifyOnComplete·spendingLimitUsd·scheduler). §6.7 참조 |
+| 영속화 (설정) | `electron-store` | ^8 | **확정 (완료)** | theme·density·sidebar*·lastBackend·lastSessionId·windowBounds·mcp*·skillEnabled·authBypass·language·uiLocale·accountInstructions·appFont·notifyOnComplete·spendingLimitUsd·scheduler). §6.7 참조 |
 | 자동 업데이트 | `electron-updater` | ^6 | **확정 (0084~0086)** | `app/updater.ts` UpdateController — autoDownload=false·사용자 게이트. [arch/backend/runtime-ipc.md](arch/backend/runtime-ipc.md) §3.1 |
 | 로컬 DB (Phase 3+) | better-sqlite3 (Phase 3 MVP raw) / Drizzle 후보 (Phase 4 재검토) | — | **채택 (Phase 3+)** | 메시지·세션 메타 SSOT. 어댑터 외부 저장 (jsonl 등) 은 단방향 동기화 소스로 격하. 마이그레이션 `src/main/db/migrations/NNN_<name>.sql`. **Phase 3 MVP: raw better-sqlite3 + prepared statements (쿼리 6 개 내외, ORM 가치 작음). Drizzle 은 Phase 4 멀티 세션·artifact·권한·통계 도입 시 재검토 (2026-05-20).** 상세 [arch/backend/persistence.md](arch/backend/persistence.md) |
 | 자격증명 | Electron `safeStorage` (OS keychain) | — | **부분 구현** | MCP 인증 비밀 = secret-store(`orca-secrets`) 구현 완료. 어댑터별 base URL/API key 저장은 Future. [arch/backend/security.md](arch/backend/security.md) §1.4 |
@@ -123,7 +123,7 @@ electron-vite 환경 기준. 표 밖 의존성 추가 시 **사용자 승인 필
 
 > **SSOT 는 [`IPC_CONTRACT.md`](./IPC_CONTRACT.md) §2** — 본 표는 TRD 의 가독성용 미러. 충돌 시 IPC_CONTRACT 우선. 채널 변경 절차는 IPC_CONTRACT §6 참조.
 
-현재 **총 86 채널 · 23 도메인** (SSOT = IPC_CONTRACT §2). 아래 표는 **Phase 2 코어 도메인**(chat / backend / install / settings / skills / files)의 역사적 미러만 유지한다 — 이후 추가된 도메인(session·project·window·search·mcp·engine·agent·update·cost·boot·concurrency·permission·notify·debug·log·auth·plugin)은 재서술하지 않는다(드리프트 방지).
+채널 카탈로그의 SSOT 는 IPC_CONTRACT §2, 수치는 [생성물](generated/inventory.md) 다. 아래 표는 **Phase 2 코어 도메인**(chat / backend / install / settings / skills / files)의 역사적 미러만 유지한다 — 이후 추가된 도메인(session·project·window·search·mcp·engine·agent·update·cost·boot·concurrency·permission·notify·debug·log·auth·plugin)은 재서술하지 않는다(드리프트 방지).
 
 | 채널 | 방향 | 요청 페이로드 (TS) | 응답·스트림 | zod 스키마 |
 |---|---|---|---|---|
@@ -319,7 +319,7 @@ interface ChatState {
 
 ### 6.7 Settings 키 카탈로그
 
-`electron-store` 로 영속화 완료 — **18 키** (0096 `uiLocale` · 0157 `ssoBypass`→`authBypass` · 0180 `connectorInstances`·`pluginAddEnabled` 문서 잔재 제거). zod 정본은 `app/src/shared/protocol.ts` 의 `SettingsSchema`, 타입 카탈로그는 `IPC_CONTRACT.md` §2.4 와 1:1 (키별 상세는 [arch/backend/persistence.md](arch/backend/persistence.md) §1.2).
+`electron-store` 로 영속화 완료. zod 정본은 `app/src/shared/protocol.ts` 의 `SettingsSchema`, 타입 카탈로그는 `IPC_CONTRACT.md` §2.4 와 1:1 (키별 상세는 [arch/backend/persistence.md](arch/backend/persistence.md) §1.2).
 
 | 키 | 타입 | 설명 |
 |---|---|---|
@@ -606,10 +606,10 @@ Phase 1 MVP 범위 밖. **anchor 수준만 언급** (자세한 설계는 향후)
 - ~~(anchor) 멀티 세션 / 과거 대화 목록~~ — **구현 완료** (세션별 SessionRuntime + 사이드바 세션 목록 + FTS 검색 — runtime-ipc.md §1). 동시 스트리밍 *UX*(배지·탭)만 잔여.
 - ~~(anchor) 재시작 재개~~ — **구현 완료** (`lastSessionId` 부트 복원 — BootRedirector).
 - ~~(anchor) Zustand 전환~~ — **구현 완료 (0008/0013)** — feature별 store + chat `sessions: Record` 외피 + 외부 dispatch(`receive(ev)`). 상세 [arch/frontend/state.md](arch/frontend/state.md) §1.
-- ~~(anchor) 로컬 DB (Phase 3+)~~ — **구현 완료** (better-sqlite3, 마이그레이션 16종 `infra/db/migrations/0001~0016`, DB=SSOT). 상세 [arch/backend/persistence.md](arch/backend/persistence.md).
+- ~~(anchor) 로컬 DB (Phase 3+)~~ — **구현 완료** (better-sqlite3, `infra/db/migrations/`, DB=SSOT). 상세 [arch/backend/persistence.md](arch/backend/persistence.md).
 - **(anchor) Artifact FS 저장 (Phase 3+)** — `<userData>/artifacts/<sessionId>/<uuid>.<ext>`. DB 에는 경로·해시·크기만. 클라우드 동기화 없음 (export/import 만). `GLOSSARY.md` "Artifact" / [arch/backend/persistence.md](arch/backend/persistence.md).
 - **(anchor) safeStorage 자격증명** — MCP 인증 비밀은 **구현 완료**(secret-store). 어댑터별 base URL + API key 저장은 잔여. [arch/backend/security.md](arch/backend/security.md) §1.4.
-- ~~(anchor) 추가 IPC 도메인 (Phase 3+/Future)~~ — `session`·`project`·`search`·`mcp`·`cost`·`update` 등 대부분 도입 완료(현행 86 채널 — IPC_CONTRACT §2). 잔여 예약은 IPC_CONTRACT §2.14.
+- ~~(anchor) 추가 IPC 도메인 (Phase 3+/Future)~~ — `session`·`project`·`search`·`mcp`·`cost`·`update` 등 대부분 도입 완료(IPC_CONTRACT §2). 잔여 예약은 IPC_CONTRACT §2.14.
 - **PRD §11 OQ** — 미정 항목은 여기서 결정하지 않음. 결정값 도착 시 본 문서 갱신. (OQ1 React 19·OQ3 패키징/자동업데이트는 해소 — PRD §11 표기 참조.)
 
 ---
