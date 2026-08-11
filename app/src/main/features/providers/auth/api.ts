@@ -82,7 +82,7 @@ export class ProviderApiImpl implements ProviderApi {
       headers: { ...req.headers },
       ...(req.body !== undefined ? { body: req.body } : {})
     }
-    const result = await this.send(provider, prepared, req, signal)
+    const { result, finalUrl } = await this.send(provider, prepared, req, signal)
 
     // 401 은 "자격증명이 더 이상 유효하지 않다" 는 **서버의 판정**이다. 여기서 강등해야
     // 사용자가 GUI 에서 재인증 지점을 본다 — 조용히 실패만 반복하지 않는다.
@@ -98,6 +98,7 @@ export class ProviderApiImpl implements ProviderApi {
     return {
       ok: result.status >= 200 && result.status < 300,
       status: result.status,
+      finalUrl,
       headers: result.headers,
       body: result.body,
       ...(result.bodyBytes !== undefined ? { bodyBytes: result.bodyBytes } : {})
@@ -106,28 +107,47 @@ export class ProviderApiImpl implements ProviderApi {
 
   // redirect 는 **호출자(여기)가** 돈다 — 홉마다 정책을 재검사해야 자격증명이 allowlist 밖으로
   // 실려 나가지 않는다(`createSender` 는 `redirect:'manual'` 로 멈춰 준다).
+  //
+  // 최종 URL 을 함께 돌려준다 — probe 판정(체인이 provider origin 으로 복귀했는가)이 이 값을
+  // 본다(`contracts/provider.ts` `ProviderResponse.finalUrl`).
   private async send(
     provider: Provider,
     prepared: PreparedRequest,
     req: ProviderRequest,
     signal?: AbortSignal
-  ): Promise<SendResult> {
+  ): Promise<{ result: SendResult; finalUrl: string }> {
+    const allowed = this.redirectOrigins(provider)
     let current = prepared
     for (let hop = 0; ; hop++) {
       const result = await this.transport(provider, current, req, signal)
       const location = result.headers['location']
       const isRedirect = result.status >= 300 && result.status < 400
-      if (!isRedirect || location === undefined) return result
-      if (hop >= MAX_REDIRECTS) return result
+      if (!isRedirect || location === undefined) return { result, finalUrl: current.url }
+      if (hop >= MAX_REDIRECTS) return { result, finalUrl: current.url }
 
       const next = new URL(location, current.url).toString()
-      const redirectCheck = checkRedirect(next, [provider.origin])
+      const redirectCheck = checkRedirect(next, allowed)
       if (!redirectCheck.ok) {
         this.deps.logger?.('providers.request.redirect-blocked', { providerId: provider.id })
         throw new ProviderPolicyError(redirectCheck.reason, redirectCheck.detail)
       }
       current = { ...current, url: next }
     }
+  }
+
+  // 홉이 오갈 수 있는 origin. 요청의 **시작점**은 언제나 `provider.origin` 하나지만(위
+  // `checkOutboundRequest`), 세션 grant 의 체인은 IdP 를 거쳐 돌아오는 것이 정상이다 —
+  // SSO 배포는 인증에 성공해도 probe 가 302 로 로그인 URL 을 가리키고 WS-Fed/SAML 왕복을 다시
+  // 태운다(0174 실기). 그 홉을 `provider.origin` 만으로 막으면 **인증 성공 판정이 영원히
+  // 나오지 않는다**. 그래서 세션일 때만 그 세션이 이미 선언한 allowlist 를 더한다.
+  //
+  // 값형 grant 에는 넓히지 않는다 — 자격증명이 실린 요청이 다른 host 로 따라가면 안 된다.
+  private redirectOrigins(provider: Provider): readonly string[] {
+    if (this.deps.store.get(provider.id)?.kind !== 'session') return [provider.origin]
+    const spec = provider.auth.find((candidate) => candidate.kind === 'browser-session')
+    return spec?.kind === 'browser-session'
+      ? [provider.origin, ...spec.config.allowedOrigins]
+      : [provider.origin]
   }
 
   private async transport(

@@ -5,13 +5,9 @@
 // 뒤집힌다(0158 verify r1 D5).
 
 import { describe, expect, it } from 'vitest'
+import type { ProviderToolContext } from '../../../../contracts/provider'
 import { CONFLUENCE_TOOL_NAMES, confluenceToolServerId, createConfluenceToolServer } from './tools'
-import {
-  CONFLUENCE_OPERATIONS,
-  type ConfluenceContext,
-  type ConfluenceResult,
-  type ConfluenceRuntime
-} from './connector'
+import { CONFLUENCE_OPERATIONS, type ConfluenceResult, type ConfluenceRuntime } from './connector'
 
 // invoke 만 대체하는 최소 런타임 — 도구 계층이 런타임을 어떻게 부르는지에만 관심이 있다.
 function server(
@@ -24,11 +20,19 @@ function server(
     invoke: async (_ctx, request) => invoke(request.operation, request.params),
     stop: async () => undefined
   }
-  const ctx: ConfluenceContext = {
-    request: async () => ({ ok: true, status: 200, headers: {}, body: '' }),
-    logger: () => undefined
+  const ctx: ProviderToolContext = {
+    providerId,
+    label,
+    origin: 'https://wiki.example.corp',
+    request: async () => ({
+      ok: true,
+      status: 200,
+      finalUrl: 'https://wiki.example.corp/',
+      headers: {},
+      body: ''
+    })
   }
-  return createConfluenceToolServer(providerId, label, runtime, ctx)
+  return createConfluenceToolServer(ctx, runtime)
 }
 
 const contribution = server(async () => ({ ok: true, data: null }))

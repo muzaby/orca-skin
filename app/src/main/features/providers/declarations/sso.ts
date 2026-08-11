@@ -8,13 +8,16 @@
 // 대상이라, 바뀌면 저장된 grant 를 못 읽고 사용자가 적은 MCP 설정이 깨진다.
 //
 // ⚠️ **`origin` 은 로그인을 *시작* 하는 IdP 가 아니라 probe·토큰 교환이 *사는* 호스트다.**
-// `loginUrl`·`authenticationProbeUrl` 은 절대 URL 이라 어디를 가리켜도 되지만,
-// `config.exchange.path` 는 **`Provider.origin` 기준 상대 경로**로 해석된다
-// (`auth/specs/browser-session.ts` 의 `new URL(exchange.path, origin)`). 아래 예처럼 교환이
-// portal 에 있는데 `origin` 을 ADFS 로 두면 교환 요청이 엉뚱한 호스트로 나간다.
+// `loginUrl` 은 절대 URL 이라 어디를 가리켜도 되지만, `probe.path`·`config.exchange.path`·
+// `config.whoami.path` 는 전부 **`Provider.origin` 기준 상대 경로**다. 아래 예처럼 교환이
+// portal 에 있는데 `origin` 을 ADFS 로 두면 그 요청들이 엉뚱한 호스트로 나간다.
+//
+// ⚠️ **게이트는 `probe` 가 필수다.** 없으면 등록 검사가 거부한다(`auth/registry.ts`
+// `missing_probe`) — 확인 없이 통과하는 게이트는 곧 우회다. 로그인 직후와 부팅 복원이 **같은**
+// 선언을 쓴다.
 //
 // 실값(0181 OQ1·OQ2 · 0182 whoami — 사용자 확인 대기):
-//   - `loginUrl` · `doneUrlPrefix` · `authenticationProbeUrl` · `sessionGroup` · `allowedOrigins`
+//   - `probe.path` · `loginUrl` · `doneUrlPrefix` · `sessionGroup` · `allowedOrigins`
 //   - 토큰 교환이 필요하면 `config.exchange = { path, valuePath, expiresAtPath?, principalPath? }`
 //   - 사이드바에 계정을 표시하려면 `config.whoami = { path, valuePath }` (0182)
 //
@@ -28,6 +31,8 @@
 //   label: '사내 로그인',
 //   kind: 'gate',
 //   origin: 'https://portal.example.corp',   // ← probe·whoami·exchange 가 사는 호스트
+//   // 로그인 직후와 부팅 복원이 같은 선언으로 판정된다. 2xx + 체인이 이 origin 으로 복귀 = 인증됨.
+//   probe: { path: '/api/me' },
 //   auth: [
 //     {
 //       kind: 'browser-session',
@@ -36,11 +41,10 @@
 //         sessionGroup: 'corp',
 //         loginUrl: 'https://adfs.example.corp/adfs/ls/?wa=wsignin1.0',
 //         doneUrlPrefix: 'https://portal.example.corp/home',
-//         authenticationProbeUrl: 'https://portal.example.corp/api/me',
 //         allowedOrigins: ['https://adfs.example.corp', 'https://portal.example.corp'],
 //         // 로그인한 계정을 사이드바 하단에 표시한다. **origin 기준 상대 경로**다
-//         // (절대 URL 인 loginUrl·probeUrl 과 다르다) — 로그인 후 갱신을 `ProviderApi.request`
-//         // 로 그대로 재사용할 수 있게 하기 위함이고, 그쪽은 절대 경로를 거부한다.
+//         // (절대 URL 인 loginUrl 과 다르다) — 로그인 후 갱신을 `ProviderApi.request` 로
+//         // 그대로 재사용할 수 있게 하기 위함이고, 그쪽은 절대 경로를 거부한다.
 //         whoami: { path: '/api/me', valuePath: 'mail' }
 //       }
 //     }

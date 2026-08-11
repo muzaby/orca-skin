@@ -150,7 +150,12 @@ export const ko = {
       codeHint: '브라우저에서 받은 코드를 붙여 넣으세요.',
       connectedWith: '{{method}}(으)로 연결됨',
       expiresAt: '만료',
-      origin: '주소'
+      origin: '주소',
+      // 도구 이름은 provider id 에서 파생된다(`<id>-tools`). 화면에 id 도 도구 이름도 없으면
+      // 선언과 어긋난 호출이 나도 사용자가 대조할 근거가 없다.
+      id: '식별자',
+      tools: '노출 도구',
+      toolsInactive: '연결되면 모델에게 노출됩니다.'
     },
     view: { selectItem: '항목을 선택하세요.', backAria: '{{section}} 목록으로 돌아가기' },
     // 부팅 등록 거부 (0164 r2). 등록은 패키지 단위 all-or-nothing 이라 주소 하나가 잘못되면

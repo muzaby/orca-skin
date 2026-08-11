@@ -33,7 +33,6 @@ function spec(exchange?: {
       sessionGroup: 'corp',
       loginUrl: 'https://adfs.example.corp/adfs/ls',
       doneUrlPrefix: 'https://portal.example.corp/home',
-      authenticationProbeUrl: 'https://portal.example.corp/api/me',
       allowedOrigins: ['https://adfs.example.corp', 'https://portal.example.corp'],
       ...(exchange ? { exchange } : {})
     }
@@ -45,18 +44,13 @@ function port(overrides: Partial<BrowserSessionPort> = {}): BrowserSessionPort {
     register: vi.fn(),
     acquire: vi.fn(() => 'handle-1'),
     openLoginWindow: vi.fn(async () => ({ finalUrl: 'https://portal.example.corp/home' })),
-    probe: vi.fn(async () => ({
-      ok: true,
-      status: 200,
-      finalUrl: 'https://portal.example.corp/api/me'
-    })),
     send: vi.fn(async () => ({ status: 200, headers: {}, body: '{}' })),
     ...overrides
   }
 }
 
 describe('SessionRunner — ① 게이트 로그인', () => {
-  it('창 완료 + probe 성공이면 session grant 를 만든다', async () => {
+  it('창이 완료되면 session grant 를 만든다', async () => {
     const sessions = port()
     const result = await new SessionRunner({ sessions }).login(PROVIDER, spec())
     expect(result).toEqual({ kind: 'session', sessionGroup: 'corp' })
@@ -67,19 +61,9 @@ describe('SessionRunner — ① 게이트 로그인', () => {
     })
   })
 
-  it('doneUrlPrefix 도달만으로 성공을 선언하지 않는다 — probe 가 거부하면 실패다', async () => {
-    const sessions = port({
-      probe: vi.fn(async () => ({
-        ok: false,
-        status: 302,
-        finalUrl: 'https://adfs.example.corp/ls'
-      }))
-    })
-    expect(await new SessionRunner({ sessions }).login(PROVIDER, spec())).toMatchObject({
-      kind: 'failed',
-      reason: 'cancelled'
-    })
-  })
+  // **판정은 여기 없다.** `doneUrlPrefix` 도달만으로 인증이 확정되지 않는다는 규칙은 살아
+  // 있지만, 그 확인은 `LoginService` 가 grant 커밋 뒤 `Provider.probe` 로 한다(login.test.ts).
+  // 이 클래스는 창을 열고 결과를 조립할 뿐이다.
 
   it('사용자가 창을 닫으면 cancelled 다', async () => {
     const sessions = port({
@@ -181,7 +165,6 @@ function specWith(config: {
       sessionGroup: 'corp',
       loginUrl: 'https://adfs.example.corp/adfs/ls',
       doneUrlPrefix: 'https://portal.example.corp/home',
-      authenticationProbeUrl: 'https://portal.example.corp/api/me',
       allowedOrigins: ['https://adfs.example.corp', 'https://portal.example.corp'],
       ...(config.whoami ? { whoami: config.whoami } : {}),
       ...(config.exchange ? { exchange: config.exchange } : {})

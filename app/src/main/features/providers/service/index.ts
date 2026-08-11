@@ -13,7 +13,7 @@
 // `sync` 가 진짜로 멱등해진다.
 
 import type { RuntimeToolServer, RuntimeToolSink } from '../../../adapters/runtime-tools'
-import type { Provider, ProviderApi } from '../../../contracts/provider'
+import type { Provider, ProviderApi, ProviderToolContext } from '../../../contracts/provider'
 import type { ProviderGrantStatus } from '../../../../shared/ipc'
 
 export interface ServiceToolsDeps {
@@ -48,11 +48,31 @@ export class ServiceToolRegistrar {
     }
   }
 
+  // GUI 노출용 조회 — 모델이 실제로 보는 서버 id 와 도구 이름. **여기서 새로 만들지 않는다**
+  // (조립은 `sync` 가 이미 했다). 선언이 도구를 안 주면 null.
+  descriptorFor(providerId: string): { serverId: string; tools: string[] } | null {
+    const server = this.built.get(providerId)
+    if (!server) return null
+    return {
+      serverId: server.descriptor.id,
+      tools: server.descriptor.tools.map((tool) => tool.name)
+    }
+  }
+
   private serverFor(provider: Provider): RuntimeToolServer {
     const cached = this.built.get(provider.id)
     if (cached) return cached
+    // **컨텍스트는 provider 로부터 만든다.** 선언에 `api.request('<id>', …)` 를 손으로 적게
+    // 두면 그 문자열이 `Provider.id` 와 어긋날 수 있고, 그러면 도구는 모델에 보이는데 부를
+    // 때마다 `unknown_provider` 로 죽는다. 적을 자리를 없애 구조적으로 막는다.
+    const ctx: ProviderToolContext = {
+      providerId: provider.id,
+      label: provider.label,
+      origin: provider.origin,
+      request: (req, signal) => this.deps.api.request(provider.id, req, signal)
+    }
     // `tools` 는 위 호출부에서 존재를 확인한 뒤에만 여기 온다.
-    const server = provider.tools!(this.deps.api)
+    const server = provider.tools!(ctx)
     this.built.set(provider.id, server)
     return server
   }

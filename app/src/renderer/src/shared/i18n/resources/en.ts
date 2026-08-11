@@ -151,7 +151,10 @@ export const en: typeof ko = {
       codeHint: 'Paste the code you received in the browser.',
       connectedWith: 'Connected with {{method}}',
       expiresAt: 'Expires',
-      origin: 'Address'
+      origin: 'Address',
+      id: 'Identifier',
+      tools: 'Exposed tools',
+      toolsInactive: 'Exposed to the model once connected.'
     },
     view: { selectItem: 'Select an item.', backAria: 'Back to {{section}} list' },
     detail: {

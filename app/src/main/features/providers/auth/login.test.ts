@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import type { Provider } from '../../../contracts/provider'
+import type { Provider, ProviderResponse } from '../../../contracts/provider'
 import { createVault, type Vault } from '../../../infra/vault'
 import type { SecretStorePort } from '../../../infra/config/secret-facade'
 import { LoginService } from './login'
@@ -31,6 +31,38 @@ function fakeSecretStore(): SecretStorePort & { raw: Map<string, string> } {
 }
 
 const BEARER = { location: 'header', name: 'Authorization', scheme: 'bearer' } as const
+
+// `Provider.probe` 를 실행하는 통로의 fake. 어느 provider 가 확인을 받았는지 `seen` 에 쌓아
+// "물어봤는가" 자체를 단언한다 — 확인 없이 통과하던 것이 이번 변경이 고치는 버그다.
+//
+// 응답은 실제 판정 규칙을 그대로 재현한다: `ok` 뿐 아니라 **최종 URL 이 provider origin 으로
+// 돌아왔는지**까지 본다(미인증 SSO 는 IdP 로그인 폼을 200 으로 준다).
+function probeApi(
+  ok: boolean,
+  seen: string[] = [],
+  origins: Record<string, string> = {}
+): { request: (providerId: string, req: { path: string }) => Promise<ProviderResponse> } {
+  return {
+    request: async (providerId) => {
+      seen.push(providerId)
+      const origin = origins[providerId] ?? PROBE_ORIGINS[providerId] ?? 'https://unknown.invalid'
+      return {
+        ok,
+        status: ok ? 200 : 401,
+        finalUrl: ok ? `${origin}/probe` : 'https://adfs.example.corp/adfs/ls',
+        headers: {},
+        body: ''
+      }
+    }
+  }
+}
+
+const PROBE_ORIGINS: Record<string, string> = {
+  sso: 'https://portal.example.corp',
+  wiki: 'https://wiki.example.corp',
+  gw: 'https://gw.example.corp',
+  'key-gate': 'https://gw.example.corp'
+}
 
 function gateway(): Provider {
   return {
@@ -204,6 +236,160 @@ describe('LoginService — 재인증 (AC6)', () => {
   })
 })
 
+// ── 로그인 시 인증 확인 (probe) ──────────────────────────────────────────────
+//
+// 값을 사용자가 직접 넣는 방식(api-key·pat·password)은 `compose` 가 **형식만** 본다. 서버가
+// 그 값을 받아 주는지는 물어봐야 알 수 있고, 물어보지 않으면 잘못된 PAT 도 곧바로 "연결됨" 이
+// 된다 — 실제 실패는 한참 뒤 도구 호출에서 401 로 드러난다.
+describe('LoginService — 로그인 시 probe', () => {
+  function wiki(probe = true): Provider {
+    return {
+      id: 'wiki',
+      label: 'Wiki',
+      kind: 'service',
+      origin: 'https://wiki.example.corp',
+      ...(probe ? { probe: { path: '/rest/api/user/current' } } : {}),
+      auth: [patSpec({ label: 'PAT', fieldLabel: '개인 액세스 토큰', present: BEARER })]
+    }
+  }
+
+  function build(
+    provider: Provider,
+    api?: ReturnType<typeof probeApi>
+  ): Harness & { events: string[] } {
+    const secrets = fakeSecretStore()
+    const vault = createVault(secrets)
+    const persistence = createMemoryGrantPersistence()
+    const registry = new ProviderRegistry([provider])
+    const store = new ProviderStore({ persistence, vault, clock: () => 1_000 })
+    store.restore(registry.list().map((p) => p.id))
+    const events: string[] = []
+    const login = new LoginService({
+      registry,
+      store,
+      vault,
+      clock: () => 1_000,
+      ...(api ? { api } : {}),
+      onChange: () => events.push('notify')
+    })
+    return { login, store, vault, persistence, secrets, events }
+  }
+
+  it('probe 가 통과해야 연결됨이 된다', async () => {
+    const seen: string[] = []
+    const h = build(wiki(), probeApi(true, seen))
+    expect(await h.login.begin('wiki', 'pat', { [FIELD_SECRET]: 'good' })).toEqual({
+      kind: 'done',
+      providerId: 'wiki'
+    })
+    expect(seen).toEqual(['wiki'])
+    expect(h.store.status('wiki')).toBe('valid')
+  })
+
+  it('서버가 거부하면 연결되지 않고 같은 폼으로 돌아온다', async () => {
+    const h = build(wiki(), probeApi(false))
+    const step = await h.login.begin('wiki', 'pat', { [FIELD_SECRET]: 'bad' })
+    expect(step).toMatchObject({ kind: 'input-required', authKind: 'pat' })
+    expect((step as { message?: string }).message).toContain('거부')
+    // grant 는 남지 않는다 — 화면이 "연결됨" 을 보여선 안 된다.
+    expect(h.store.status('wiki')).toBe('none')
+    expect(h.vault.get('wiki:pat')).toBeNull()
+  })
+
+  // 게이트 깜빡임 회귀: `commit` 이 곧바로 브로드캐스트하면 probe 로 떨어질 자격증명에도
+  // renderer 가 한 순간 통과 상태를 받아 메인 화면으로 넘어갔다 되돌아온다.
+  it('probe 가 끝나기 전에는 renderer 로 아무것도 쏘지 않는다', async () => {
+    const h = build(wiki(), {
+      request: async () => {
+        h.events.push('probe')
+        return {
+          ok: true,
+          status: 200,
+          finalUrl: 'https://wiki.example.corp/rest/api/user/current',
+          headers: {},
+          body: ''
+        }
+      }
+    })
+    await h.login.begin('wiki', 'pat', { [FIELD_SECRET]: 'good' })
+    expect(h.events).toEqual(['probe', 'notify'])
+  })
+
+  it('probe 미선언이면 왕복 없이 현행대로 저장한다', async () => {
+    const seen: string[] = []
+    const h = build(wiki(false), probeApi(false, seen))
+    expect(await h.login.begin('wiki', 'pat', { [FIELD_SECRET]: 'v' })).toMatchObject({
+      kind: 'done'
+    })
+    expect(seen).toEqual([])
+    expect(h.store.status('wiki')).toBe('valid')
+  })
+
+  it('실행 통로가 없으면 확인을 건너뛴다 — 선언만으로 잠기지 않는다', async () => {
+    const h = build(wiki())
+    expect(await h.login.begin('wiki', 'pat', { [FIELD_SECRET]: 'v' })).toMatchObject({
+      kind: 'done'
+    })
+    expect(h.store.status('wiki')).toBe('valid')
+  })
+
+  // 0174 실기: 미인증 SSO 는 IdP 로그인 폼을 **200** 으로 준다. status 만 보면 인증됨으로
+  // 오독하므로, 체인이 provider origin 으로 돌아왔는지까지 본다.
+  it('2xx 라도 체인이 IdP 에 머물면 미인증이다', async () => {
+    const h = build(wiki(), {
+      request: async () => ({
+        ok: true,
+        status: 200,
+        finalUrl: 'https://adfs.example.corp/adfs/ls?wa=wsignin1.0',
+        headers: {},
+        body: '<html>login</html>'
+      })
+    })
+    expect(await h.login.begin('wiki', 'pat', { [FIELD_SECRET]: 'v' })).toMatchObject({
+      kind: 'input-required'
+    })
+    expect(h.store.status('wiki')).toBe('none')
+  })
+
+  // 브라우저 세션·OAuth 도 같은 판정을 받는다 — `doneUrlPrefix` 도달만으로 성공을 선언하지
+  // 않는다(로그인 폼이 같은 접두사로 렌더되는 배포가 있다).
+  it('브라우저 세션 로그인도 probe 로 확인한다', async () => {
+    const gate: Provider = {
+      id: 'sso',
+      label: '사내 로그인',
+      kind: 'gate',
+      origin: 'https://portal.example.corp',
+      probe: { path: '/api/me' },
+      auth: [
+        {
+          kind: 'browser-session',
+          label: '통합 인증',
+          config: {
+            sessionGroup: 'corp',
+            loginUrl: 'https://adfs.example.corp/adfs/ls/',
+            doneUrlPrefix: 'https://portal.example.corp/home',
+            allowedOrigins: ['https://adfs.example.corp', 'https://portal.example.corp']
+          }
+        }
+      ]
+    }
+    const registry = new ProviderRegistry([gate])
+    const vault = createVault(fakeSecretStore())
+    const store = new ProviderStore({ persistence: createMemoryGrantPersistence(), vault })
+    store.restore(['sso'])
+    const login = new LoginService({
+      registry,
+      store,
+      vault,
+      api: probeApi(false),
+      session: { login: async () => ({ kind: 'session', sessionGroup: 'corp' }) }
+    })
+    expect(await login.begin('sso')).toMatchObject({ kind: 'failed', reason: 'probe_failed' })
+    expect(store.isVerified('sso')).toBe(false)
+    expect(store.status('sso')).toBe('none')
+  })
+})
+
 describe('ProviderStore — 상태 판정', () => {
   it('만료된 토큰은 expired 로 강등되고 값이 나가지 않는다', () => {
     const secrets = fakeSecretStore()
@@ -307,9 +493,9 @@ describe('ProviderStore — 인증 확인은 실행 수명이다', () => {
 
 // ── 자동 로그인 (resume) ─────────────────────────────────────────────────────
 //
-// 재시작하면 게이트는 닫혀 있고, `resume()` 이 복원된 세션 쿠키가 아직 유효한지 probe 로 한 번
-// 확인한다. 2xx(+origin 복귀)면 사용자가 아무것도 하지 않고 통과하고, 아니면 로그인 화면에
-// 남는다. 값형은 왕복 없이 로컬 근거(vault+만료)로 판정한다.
+// 재시작하면 게이트는 닫혀 있고, `resume()` 이 복원된 자격증명이 아직 유효한지 `Provider.probe`
+// 로 한 번 확인한다. **방식과 무관하게 같은 판정**이다 — 세션은 복원된 쿠키로, 값형은 vault 의
+// 값으로 나간다. 2xx + 체인이 provider origin 으로 복귀하면 통과, 아니면 강등이다.
 describe('LoginService — 자동 로그인(resume)', () => {
   const SSO_GRANT = {
     kind: 'session',
@@ -324,6 +510,7 @@ describe('LoginService — 자동 로그인(resume)', () => {
       label: '사내 로그인',
       kind: 'gate',
       origin: 'https://portal.example.corp',
+      probe: { path: '/api/me' },
       auth: [
         {
           kind: 'browser-session',
@@ -332,7 +519,6 @@ describe('LoginService — 자동 로그인(resume)', () => {
             sessionGroup: 'corp',
             loginUrl: 'https://adfs.example.corp/adfs/ls/',
             doneUrlPrefix: 'https://portal.example.corp/home',
-            authenticationProbeUrl: 'https://portal.example.corp/api/me',
             allowedOrigins: ['https://adfs.example.corp', 'https://portal.example.corp']
           }
         }
@@ -341,40 +527,41 @@ describe('LoginService — 자동 로그인(resume)', () => {
   }
 
   // 재시작 시뮬레이션 — 디스크에 세션 grant 가 남은 채로 새 store 를 세운다.
-  function restarted(probeOk: boolean): {
+  function restarted(
+    probeOk: boolean,
+    extra: Provider[] = []
+  ): {
     login: LoginService
     store: ProviderStore
     steps: string[]
     // 함수로 돌려준다 — 숫자로 담으면 반환 시점(0)이 복사돼 증가가 보이지 않는다.
-    calls: () => number
+    probed: () => string[]
   } {
-    const registry = new ProviderRegistry([ssoProvider()])
+    const registry = new ProviderRegistry([ssoProvider(), ...extra])
     const store = new ProviderStore({
-      persistence: createMemoryGrantPersistence({ sso: { ...SSO_GRANT } }),
+      persistence: createMemoryGrantPersistence({
+        sso: { ...SSO_GRANT },
+        ...Object.fromEntries(extra.map((p) => [p.id, { ...SSO_GRANT }]))
+      }),
       vault: createVault(fakeSecretStore()),
       clock: () => 10_000
     })
     store.restore(registry.list().map((p) => p.id))
     const steps: string[] = []
-    let calls = 0
+    const probed: string[] = []
     const login = new LoginService({
       registry,
       store,
       vault: createVault(fakeSecretStore()),
       clock: () => 10_000,
-      session: {
-        login: () => Promise.reject(new Error('자동 로그인은 창을 열지 않는다')),
-        verify: () => {
-          calls += 1
-          return Promise.resolve(probeOk)
-        }
-      },
+      api: probeApi(probeOk, probed),
+      session: { login: () => Promise.reject(new Error('자동 로그인은 창을 열지 않는다')) },
       onChange: () => steps.push(login.currentStep()?.kind ?? 'none')
     })
-    return { login, store, steps, calls: () => calls }
+    return { login, store, steps, probed: () => probed }
   }
 
-  it('복원된 세션 grant 는 확인 전까지 게이트를 열지 않는다', () => {
+  it('복원된 grant 는 확인 전까지 게이트를 열지 않는다', () => {
     const h = restarted(true)
     // 기록은 살아 있다 — 예전에는 이것만 보고 통과시켰다.
     expect(h.store.status('sso')).toBe('valid')
@@ -384,7 +571,7 @@ describe('LoginService — 자동 로그인(resume)', () => {
   it('probe 가 2xx 면 창 없이 자동 로그인으로 통과한다', async () => {
     const h = restarted(true)
     await h.login.resume()
-    expect(h.calls()).toBe(1)
+    expect(h.probed()).toEqual(['sso'])
     expect(h.store.isVerified('sso')).toBe(true)
     expect(h.store.status('sso')).toBe('valid')
     // 확인 중에는 로그인 화면에 `resuming` 이 뜨고, 끝나면 걷힌다.
@@ -401,18 +588,6 @@ describe('LoginService — 자동 로그인(resume)', () => {
     expect(h.store.get('sso')).toBeDefined()
   })
 
-  it('세션 실행기가 없으면 통과시키지 않는다 (fail-closed)', async () => {
-    const registry = new ProviderRegistry([ssoProvider()])
-    const store = new ProviderStore({
-      persistence: createMemoryGrantPersistence({ sso: { ...SSO_GRANT } }),
-      vault: createVault(fakeSecretStore())
-    })
-    store.restore(['sso'])
-    const login = new LoginService({ registry, store, vault: createVault(fakeSecretStore()) })
-    await login.resume()
-    expect(store.isVerified('sso')).toBe(false)
-  })
-
   it('grant 가 없으면 probe 를 치지 않는다 — 처음부터 수동 로그인이다', async () => {
     const registry = new ProviderRegistry([ssoProvider()])
     const store = new ProviderStore({
@@ -420,57 +595,172 @@ describe('LoginService — 자동 로그인(resume)', () => {
       vault: createVault(fakeSecretStore())
     })
     store.restore(['sso'])
-    let calls = 0
+    const probed: string[] = []
     const login = new LoginService({
       registry,
       store,
       vault: createVault(fakeSecretStore()),
-      session: {
-        login: () => Promise.reject(new Error('unused')),
-        verify: () => {
-          calls += 1
-          return Promise.resolve(true)
-        }
-      }
+      api: probeApi(true, probed)
     })
     await login.resume()
-    expect(calls).toBe(0)
+    expect(probed).toEqual([])
     expect(store.isVerified('sso')).toBe(false)
   })
 
-  // 값형 게이트는 값이 vault 에 있는 것 자체가 근거다 — probe 를 물리면 재시작마다 키를
-  // 다시 입력하게 된다.
-  it('값형 게이트는 왕복 없이 로컬 근거로 통과한다', async () => {
-    const secrets = fakeSecretStore()
-    const vault = createVault(secrets)
+  // PAT·API key 는 **서버가 회수·재발급하면 즉시 무효**다. vault 에 값이 남아 있는 것은
+  // 근거가 아니다(만료를 아는 것은 토큰뿐이다).
+  it('값형도 부팅 때 probe 로 확인한다 — 서버가 거부하면 강등된다', async () => {
+    const vault = createVault(fakeSecretStore())
     const gate: Provider = {
       id: 'key-gate',
       label: '키 게이트',
       kind: 'gate',
       origin: 'https://gw.example.corp',
+      probe: { path: '/v1/me' },
       auth: [apiKeySpec({ label: 'API 키', fieldLabel: 'API 키', present: BEARER })]
     }
     const persistence = createMemoryGrantPersistence()
     const registry = new ProviderRegistry([gate])
-    const first = new LoginService({
+    const store0 = new ProviderStore({ persistence, vault, clock: () => 1_000 })
+    store0.restore(['key-gate'])
+    const accepted: string[] = []
+    await new LoginService({
       registry,
-      store: (() => {
-        const s = new ProviderStore({ persistence, vault, clock: () => 1_000 })
-        s.restore(['key-gate'])
-        return s
-      })(),
+      store: store0,
       vault,
-      clock: () => 1_000
-    })
-    await first.begin('key-gate', 'api-key', { [FIELD_SECRET]: 'k' })
+      clock: () => 1_000,
+      api: probeApi(true, accepted)
+    }).begin('key-gate', 'api-key', { [FIELD_SECRET]: 'k' })
+    expect(store0.status('key-gate')).toBe('valid')
 
-    // 재시작 — 같은 영속·vault 위에 새 store.
+    // 재시작 — 같은 영속·vault 위에 새 store. 그 사이 서버가 키를 회수했다.
     const store = new ProviderStore({ persistence, vault, clock: () => 1_000 })
     store.restore(['key-gate'])
     expect(store.isVerified('key-gate')).toBe(false)
 
-    const login = new LoginService({ registry, store, vault, clock: () => 1_000 })
-    await login.resume()
-    expect(store.isVerified('key-gate')).toBe(true)
+    const rejected: string[] = []
+    await new LoginService({
+      registry,
+      store,
+      vault,
+      clock: () => 1_000,
+      api: probeApi(false, rejected)
+    }).resume()
+    expect(rejected).toEqual(['key-gate'])
+    expect(store.isVerified('key-gate')).toBe(false)
+    expect(store.status('key-gate')).toBe('expired')
+  })
+})
+
+// ── 게이트 외 플러그인 상태 갱신 (sweep) ─────────────────────────────────────
+describe('LoginService — 플러그인 sweep', () => {
+  const SSO_GRANT = {
+    kind: 'session',
+    sessionGroup: 'corp',
+    authKind: 'browser-session',
+    createdAt: 0
+  } as const
+
+  function wiki(): Provider {
+    return {
+      id: 'wiki',
+      label: 'Wiki',
+      kind: 'service',
+      origin: 'https://wiki.example.corp',
+      probe: { path: '/rest/api/user/current' },
+      auth: [patSpec({ label: 'PAT', fieldLabel: '개인 액세스 토큰', present: BEARER })]
+    }
+  }
+
+  function gate(): Provider {
+    return {
+      id: 'sso',
+      label: '사내 로그인',
+      kind: 'gate',
+      origin: 'https://portal.example.corp',
+      probe: { path: '/api/me' },
+      auth: [
+        {
+          kind: 'browser-session',
+          label: '통합 인증',
+          config: {
+            sessionGroup: 'corp',
+            loginUrl: 'https://adfs.example.corp/adfs/ls/',
+            doneUrlPrefix: 'https://portal.example.corp/home',
+            allowedOrigins: ['https://adfs.example.corp', 'https://portal.example.corp']
+          }
+        }
+      ]
+    }
+  }
+
+  function build(probeOk: boolean): {
+    login: LoginService
+    store: ProviderStore
+    probed: string[]
+  } {
+    const registry = new ProviderRegistry([gate(), wiki()])
+    const store = new ProviderStore({
+      persistence: createMemoryGrantPersistence({
+        sso: { ...SSO_GRANT },
+        wiki: { kind: 'secret', vaultKey: 'wiki:pat', authKind: 'pat', createdAt: 0 }
+      }),
+      vault: (() => {
+        const v = createVault(fakeSecretStore())
+        v.set('wiki:pat', 'token', { kind: 'pat', createdAt: 0 })
+        return v
+      })(),
+      clock: () => 10_000
+    })
+    store.restore(registry.list().map((p) => p.id))
+    const probed: string[] = []
+    const login = new LoginService({
+      registry,
+      store,
+      vault: createVault(fakeSecretStore()),
+      clock: () => 10_000,
+      api: probeApi(probeOk, probed)
+    })
+    return { login, store, probed }
+  }
+
+  it('게이트가 통과해야 플러그인을 훑는다 — 순서가 규칙이다', async () => {
+    // 게이트 probe 가 실패하면 플러그인은 건드리지 않는다. 사내 서비스는 대개 게이트와 같은
+    // cookie jar 를 쓰므로, 로그인 전에 물으면 살아 있는 연결이 미인증으로 떨어진다.
+    const h = build(false)
+    await h.login.resume()
+    expect(h.probed).toEqual(['sso'])
+    expect(h.store.status('wiki')).toBe('valid')
+  })
+
+  it('게이트 통과 후 플러그인 상태를 갱신한다', async () => {
+    const h = build(true)
+    await h.login.resume()
+    expect(h.probed).toEqual(['sso', 'wiki'])
+    expect(h.store.isVerified('wiki')).toBe(true)
+  })
+
+  it('게이트 선언이 없으면 부팅 직후 바로 훑는다', async () => {
+    const registry = new ProviderRegistry([wiki()])
+    const vault = createVault(fakeSecretStore())
+    vault.set('wiki:pat', 'token', { kind: 'pat', createdAt: 0 })
+    const store = new ProviderStore({
+      persistence: createMemoryGrantPersistence({
+        wiki: { kind: 'secret', vaultKey: 'wiki:pat', authKind: 'pat', createdAt: 0 }
+      }),
+      vault,
+      clock: () => 10_000
+    })
+    store.restore(['wiki'])
+    const probed: string[] = []
+    await new LoginService({
+      registry,
+      store,
+      vault,
+      clock: () => 10_000,
+      api: probeApi(false, probed)
+    }).resume()
+    expect(probed).toEqual(['wiki'])
+    expect(store.status('wiki')).toBe('expired')
   })
 })

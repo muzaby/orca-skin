@@ -163,7 +163,7 @@ main 프로세스의 모든 원격 요청은 **Chromium 네트워크 스택**으
 | `net/net-response.ts` | 응답 판정·변환 **순수부** — electron 미의존이라 테스트가 직접 import 한다 | — |
 | `net/transport.ts` (0181) | 인증된 요청의 전송 조각 — `PreparedRequest`·상한 검사·`createSender(fetchImpl)`. **도메인 타입을 모른다**(infra → contracts 는 DAG 역방향) | — |
 | `browser-session.ts` (0181 복원) | session group → Electron `Session` 매핑 · 통제된 로그인 창 · 세션 쿠키로 보내는 요청 | ✓ |
-| `browser-session-policy.ts` (0181 복원) | probe 체인·origin allowlist·`ERR_ABORTED` 판정 **순수부** | — |
+| `browser-session-policy.ts` (0181 복원) | partition 이름·origin allowlist·`ERR_ABORTED` 판정 **순수부** | — |
 | `loopback-callback.ts` (0181) | OAuth 루프백 콜백 1회성 리스너(127.0.0.1, RFC 8252). node `http` 만 쓴다 | — |
 | `vault.ts` (0181 복원) | safeStorage 위 네임스페이스 뷰. 값·metadata·index (§1.4-b) | — |
 

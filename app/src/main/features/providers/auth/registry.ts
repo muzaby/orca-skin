@@ -16,9 +16,14 @@ import type { Provider } from '../../../contracts/provider'
 
 export interface ProviderRejection {
   id: string
-  reason: 'duplicate_id' | 'invalid_origin'
+  reason: 'duplicate_id' | 'invalid_id' | 'invalid_origin' | 'missing_probe'
   message: string
 }
+
+// 케밥 소문자. **주석이 아니라 검사여야 하는 이유**: id 는 SDK MCP 서버 이름(`<id>-tools`)과
+// `${BINDING:<id>}` 파서(`infra/vars.ts` — `[A-Za-z0-9_-]+`)로 흘러간다. 범위 밖 문자를 쓰면
+// 등록·로그인·vault 저장은 전부 통과하는데 도구 노출과 MCP 참조만 **조용히** 깨진다.
+const PROVIDER_ID_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/
 
 export interface RegistryResult {
   providers: Provider[]
@@ -50,11 +55,29 @@ export function registerProviders(declared: readonly Provider[]): RegistryResult
       })
       continue
     }
+    if (!PROVIDER_ID_RE.test(provider.id)) {
+      rejected.push({
+        id: provider.id,
+        reason: 'invalid_id',
+        message: `provider id "${provider.id}" 는 케밥 소문자(a-z0-9-)여야 한다`
+      })
+      continue
+    }
     if (!isBareOrigin(provider.origin)) {
       rejected.push({
         id: provider.id,
         reason: 'invalid_origin',
         message: `origin "${provider.origin}" 에 경로·쿼리가 있거나 형식이 아니다`
+      })
+      continue
+    }
+    // 게이트는 앱 전체의 출입문이다. 확인 없이 통과하는 게이트는 곧 우회이므로, 선언이
+    // probe 를 안 주면 등록하지 않는다 — "열려는 있는데 아무나 통과하는" 상태를 만들지 않는다.
+    if (provider.kind === 'gate' && !provider.probe) {
+      rejected.push({
+        id: provider.id,
+        reason: 'missing_probe',
+        message: `게이트 provider "${provider.id}" 에는 probe 선언이 필요하다`
       })
       continue
     }

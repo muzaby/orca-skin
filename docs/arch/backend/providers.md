@@ -85,8 +85,19 @@ interface Provider {
   kind: 'gate' | 'llm' | 'service'  // ★ 관계. 프로토콜이 아니다
   origin: string                    // 나갈 수 있는 origin (경로 없음)
   auth: readonly AuthSpec[]         // ★ 복수 — 선언 순서가 GUI 선택지 순서
-  tools?: (api: ProviderApi) => RuntimeToolServer      // kind:'service'
+  probe?: { path: string; method?: string }            // ★ 인증 판정 단일 지점. gate 는 필수
+  tools?: (ctx: ProviderToolContext) => RuntimeToolServer      // kind:'service'
   llm?: { adapter: string; provider: string; envKey: string }  // kind:'llm'
+}
+
+// `tools` 가 `ProviderApi` 전체가 아니라 **묶인 컨텍스트**를 받는 이유: 구 시그니처는 선언이
+// 자기 id 를 `api.request('<id>', …)` 로 다시 적게 만들었고, 그 문자열이 `Provider.id` 와
+// 어긋나면 도구는 모델에 보이는데 호출할 때마다 `unknown_provider` 로 죽었다.
+interface ProviderToolContext {
+  providerId: string
+  label: string
+  origin: string
+  request(req: ProviderRequest, signal?: AbortSignal): Promise<ProviderResponse>
 }
 ```
 
@@ -235,17 +246,25 @@ orca:provider:login { providerId, authKind?, input? }
         │             ├ loopback : 기본 브라우저 + 127.0.0.1 리스너 → 콜백 → state 대조 → exchange
         │             ├ window   : 앱 내부 창 → isDone(url) → state 대조 → exchange
         │             └ manual   : code-required → 사용자 붙여넣기 → orca:provider:continue
-        └─ browser-session : 로그인 창 → doneUrlPrefix → probe 재확인
+        └─ browser-session : 로그인 창 → doneUrlPrefix → Grant{session}
                                 └ config.exchange 있으면 세션 쿠키로 토큰까지 → Grant{token}
+
+  ── 그리고 **모든 분기가** 커밋 직후 같은 확인을 받는다 ──────────────────────
+        Grant 커밋(통지 보류) → Provider.probe → 2xx + origin 복귀 ? done : 되돌림
 ```
 
 **주목할 규칙 넷:**
 
 1. **입력 폼은 신뢰된 prompt 다** — provider 가 만든 임의 UI 가 아니라 Orca 가 `fields` 선언을
    렌더링한다.
-2. **`doneUrlPrefix` 도달만으로 성공을 선언하지 않는다** — 로그인 폼이 같은 접두사로 200 을 주는
-   배포가 있어 `authenticationProbeUrl` 로 한 번 더 확인한다(0157 D1 의 목적, 0174 가 판별자를
-   "체인의 최종 origin" 으로 교정).
+2. **인증 판정은 `Provider.probe` 하나다** — 방식마다 두지 않는다. `doneUrlPrefix` 도달만으로
+   성공을 선언하지 않고(로그인 폼이 같은 접두사로 200 을 주는 배포가 있다, 0157 D1), 값형도
+   `compose` 통과만으로 연결됨이 되지 않는다. 판별자는 **2xx + 체인의 최종 origin 이
+   `Provider.origin` 으로 복귀**다(0174 실기 교정). 실행은 `ProviderApi.request` 한 줄이고,
+   grant 를 **먼저 커밋**하므로 세션이면 cookie jar·값형이면 `present` 로 실리는 것을
+   `transport()` 가 갈라 준다 — 검증 경로와 사용 경로가 같아진다.
+   확인이 끝나기 전에는 renderer 로 **아무것도 쏘지 않는다**(`commit(notify:false)`) — 떨어질
+   자격증명에도 게이트가 한 순간 열렸다 닫히기 때문이다.
 3. **PKCE·`state` 는 코어가 갖는다** — 배포 선언은 `ctx.pkce()`·`ctx.state()` 가 준 값을 URL 에
    싣기만 한다. 각자에게 맡기면 한 곳만 빼먹어도 조용히 취약해지고, code 가로채기와 CSRF 는 둘 다
    "동작은 하는" 상태라 테스트로도 안 잡힌다.
@@ -302,12 +321,19 @@ export const SERVICE_PROVIDERS: Provider[] = [
 ]
 ```
 
-**등록 검사 2종과 그 결과:**
+**등록 검사 4종과 그 결과:**
 
 | 검사 | 어기면 | 진단 |
 |---|---|---|
 | 중복 `id` | **뒤에 온 선언만** 거부 | `providers.declaration.rejected{reason:'duplicate_id'}` |
+| `id` 형태(케밥 소문자 `a-z0-9-`) | 그 선언만 거부 | `…{reason:'invalid_id'}` |
 | `origin` 형태(경로·쿼리·후행 슬래시 금지) | 그 선언만 거부 | `…{reason:'invalid_origin'}` |
+| `kind:'gate'` 인데 `probe` 없음 | 그 선언만 거부 | `…{reason:'missing_probe'}` |
+
+`id` 형태를 **주석이 아니라 검사로** 두는 이유: id 는 SDK MCP 서버 이름(`<id>-tools`)과
+`${BINDING:<id>}` 파서(`infra/vars.ts` — `[A-Za-z0-9_-]+`)로 흘러간다. 범위 밖 문자를 쓰면
+등록·로그인·vault 저장은 전부 통과하는데 **도구 노출과 MCP 참조만 조용히 깨진다**.
+게이트에 `probe` 를 요구하는 이유는 더 단순하다 — 확인 없이 통과하는 게이트는 곧 우회다.
 
 > **런타임 동적 로딩은 없다.** 배포는 선언 파일을 고쳐 다시 빌드한다. Electron main 에서 임의 코드
 > 실행은 filesystem·cookie·vault 전권을 주는 것과 같고 타입 검증도 성립하지 않는다.
@@ -458,17 +484,24 @@ providerId 는 그 뒤로 영구히 게이트를 통과했다 — 쿠키가 죽�
 (앱이 따로 넣어 줄 것이 없다 — 쿠키 API 를 쓰는 곳이 `clear` 하나뿐인 이유). 그래서 재시작
 직후 그 쿠키가 아직 유효한지 **한 번 물어보면** 사용자는 아무것도 하지 않고 통과할 수 있다.
 
-확인 방법은 **그 방식의 자격증명이 어디 사는가**를 따른다:
+확인 방법은 **방식과 무관하게 하나다** — `Provider.probe`. 창을 열지 않는다는 점만 로그인과 다르다.
 
-| grant | 확인 | 근거 |
+| grant | 무엇으로 나가나 | 왜 물어봐야 하나 |
 |---|---|---|
-| `session` | `SessionRunner.verify()` — **창을 열지 않고** `authenticationProbeUrl` probe | 값이 앱에 없다(쿠키는 Chromium 파티션). 물어봐야만 안다 |
-| `token` | `status === 'valid'`(만료 이전) | 값이 vault 에 있고 만료를 안다 — 왕복 불필요 |
-| `secret` | `status === 'valid'`(vault 에서 읽힘) | 위와 같음. probe 를 물리면 재시작마다 키를 다시 입력하게 된다 |
+| `session` | 복원된 cookie jar | 값이 앱에 없다(쿠키는 Chromium 파티션). 물어봐야만 안다 |
+| `token` | vault 값 + `present` | 만료 이전이어도 서버가 회수했을 수 있다 |
+| `secret` | vault 값 + `present` | **PAT·API key 는 재발급·회수되면 즉시 무효다.** 만료를 아는 것은 토큰뿐이고, 그 외에는 서버만 안다 |
 
-**판정은 probe 다.** `classifyProbeChain` 이 `2xx && 최종 URL 이 probe origin 으로 복귀` 를 요구하므로
-ADFS 로그인 폼의 200 을 인증됨으로 오독하지 않는다(0174). `whoami` 는 쓰지 않는다 — 그쪽은 설계상
-판정용이 아니고("조회 실패는 로그인 실패가 아니다"), principal 은 로그인 때 이미 grant 에 실렸다.
+**판정은 `2xx && 최종 URL 이 `Provider.origin` 으로 복귀`** 다(0174 실기 — ADFS 로그인 폼의 200 을
+인증됨으로 오독하지 않기 위함). `whoami` 는 쓰지 않는다 — 그쪽은 설계상 판정용이 아니고
+("조회 실패는 로그인 실패가 아니다"), principal 은 로그인 때 이미 grant 에 실렸다.
+
+**게이트를 먼저, 그다음 플러그인.** `resume()` 은 게이트를 판정한 뒤 통과했을 때만
+게이트 외 provider 를 훑는다(`sweepPlugins`). 사내 서비스는 대개 게이트와 **같은 cookie jar**
+(`sessionGroup` 공유)를 쓰므로 로그인 전에 물으면 살아 있는 연결도 미인증으로 떨어지고, 한 번
+`expired` 가 되면 `checkOutboundRequest` 가 막아 스스로 회복하지 못한다(401 강등과 같은 성질 —
+회복은 재인증뿐). 게이트 선언이 0개면 부팅 직후 바로 훑는다. 게이트를 **대화형으로** 통과한
+직후에도 같은 훑기가 돈다.
 
 **게이트가 닫힌 채로 돈다** — 사용자는 로그인 화면을 보고 있고 `ProviderStepInfo{kind:'resuming'}`
 이 진행을 알린다. 성공하면 화면이 넘어가고, 실패하면 `markExpired()` 로 강등한 뒤 그 자리에서
@@ -477,7 +510,7 @@ ADFS 로그인 폼의 200 을 인증됨으로 오독하지 않는다(0174). `who
 
 > **만료 없는 세션 쿠키는 애초에 디스크에 없다** — `persist:` 는 만료가 있는 쿠키만 파일에 쓴다.
 > ADFS 가 KMSI 없이 세션 쿠키만 내리는 배포라면 probe 는 항상 실패하고 매번 수동 로그인이 된다.
-> `providers.session.resume.probed{ok,status}` 로그가 어느 쪽인지 말해 준다. 그 경우 종료 시
+> `providers.probe.result{ok,status,returned}` 로그가 어느 쪽인지 말해 준다. 그 경우 종료 시
 > 쿠키를 떠서 저장했다가 되넣는 방법이 있으나, IdP 가 의도적으로 휘발시킨 인증 쿠키를 디스크에
 > 적는 것이라 [`security.md §1.4-b`](./security.md) 노출 경계표에 새 항목이 생긴다 — **미결정**.
 

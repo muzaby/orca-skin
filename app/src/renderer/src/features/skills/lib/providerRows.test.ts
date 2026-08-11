@@ -23,6 +23,7 @@ function provider(patch: Partial<ProviderInfo> = {}): ProviderInfo {
     activeAuthKind: null,
     principal: null,
     expiresAt: null,
+    tools: [],
     ...patch
   }
 }

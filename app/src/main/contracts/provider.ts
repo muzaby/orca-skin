@@ -89,8 +89,6 @@ export interface BrowserSessionConfig {
   loginUrl: string
   // 이 접두사에 도달하면 로그인 완료로 본다.
   doneUrlPrefix: string
-  // 완료 판정을 **한 번 더** 실제 요청으로 확인하는 endpoint. 리다이렉트 루프를 걸러낸다.
-  authenticationProbeUrl: string
   // 로그인 창이 오갈 수 있는 origin 전수. 서브도메인 자동 허용 없음.
   allowedOrigins: readonly string[]
   // 선언되면 세션 성립 후 그 쿠키로 사내 API 를 불러 **토큰까지** 받는다(사용자 결정 "둘 다").
@@ -99,9 +97,9 @@ export interface BrowserSessionConfig {
   // 선언되면 세션 성립 후 **누가 로그인했는지**를 한 번 더 물어 `Grant.principalId` 로 싣는다
   // (0182). 사이드바가 그 값을 표시한다.
   //
-  // **probe 를 재사용하지 않는 이유**: `probe()` 는 판정만 돌려주도록 설계돼 본문을 버리고
-  // (`infra/browser-session.ts`), 리다이렉트 체인을 직접 돌기 때문에 본문이 **마지막 홉의 것**이라
-  // 신원 문서라는 보장이 없다. 그래서 같은 cookie jar 로 `send()` 를 한 번 더 부른다.
+  // **`Provider.probe` 를 재사용하지 않는 이유**: probe 는 판정(2xx + 최종 origin 복귀)만 보고
+  // 본문이 **마지막 홉의 것**이라 신원 문서라는 보장이 없다. 그래서 같은 cookie jar 로
+  // `send()` 를 한 번 더 부른다.
   //
   // **조회 실패는 로그인 실패가 아니다** — principal 은 표시용이라, 못 읽었다고 인증을 되돌리면
   // "이름을 못 읽어서 로그인이 안 되는" 상태가 된다. 실패하면 principal 만 빈 채로 진행한다.
@@ -163,6 +161,34 @@ export type Grant =
   | ({ kind: 'token'; vaultKey: string; refreshKey?: string } & GrantBase)
   | ({ kind: 'session'; sessionGroup: string } & GrantBase)
 
+// ── 인증 확인(probe) ──────────────────────────────────────────────────────────
+//
+// **인증 판정은 이 선언 하나로 통일된다.** 방식마다 판정을 따로 두던 구조(browser-session 은
+// `authenticationProbeUrl`+`SessionRunner.verify`, 값형은 아예 없음)를 접었다 — 값형이 확인
+// 없이 "연결됨" 이 되던 것과, 같은 판정이 로그인·부팅 두 곳에 다르게 구현돼 있던 것이 같은
+// 뿌리였다.
+//
+// 실행은 `ProviderApi.request` 한 줄이다. grant 를 **먼저 커밋한 뒤** 부르므로 세션이면
+// cookie jar 로, 값형이면 `present` 로 실려 나가는 것을 `transport()` 가 이미 갈라 준다.
+export interface ProviderProbe {
+  // `Provider.origin` 기준 상대 경로. 절대 URL 은 거부된다(`whoami`·`exchange` 와 같은 규칙).
+  path: string
+  method?: string
+}
+
+// ── 런타임 도구 컨텍스트 ──────────────────────────────────────────────────────
+//
+// `tools` 는 `ProviderApi` 전체가 아니라 **자기 provider 에 묶인 좁은 포트**를 받는다. 구
+// 시그니처 `(api: ProviderApi) => …` 는 선언이 자기 id 를 `api.request('<id>', …)` 로 **다시
+// 적게** 만들었고, 그 문자열이 `Provider.id` 와 어긋나면 도구는 모델에 보이는데 호출할 때마다
+// `unknown_provider` 로 죽었다(컴파일러도 등록 검사도 못 잡는다). 여기서는 적을 자리가 없다.
+export interface ProviderToolContext {
+  providerId: string
+  label: string
+  origin: string
+  request(req: ProviderRequest, signal?: AbortSignal): Promise<ProviderResponse>
+}
+
 // ── Provider — 배포가 채우는 유일한 선언 ──────────────────────────────────────
 export interface Provider {
   // 케밥 소문자. **vault 네임스페이스이자 `${BINDING:<id>}` 참조 대상**이므로 한 번 정하면
@@ -174,8 +200,12 @@ export interface Provider {
   origin: string
   // 선언 순서 = GUI 선택지 순서. 길이 1이면 GUI 는 선택 단계를 건너뛴다.
   auth: readonly AuthSpec[]
+  // 인증이 성립했는지 한 번 물어보는 endpoint. **선언하면 통과해야만 연결이 성립한다** —
+  // 로그인 직후에도, 부팅 복원에서도. 미선언이면 확인 없이 통과한다(값이 있으면 valid).
+  // `kind:'gate'` 는 필수다(확인 없이 통과하는 게이트 = 우회, `auth/registry.ts` 가 거부).
+  probe?: ProviderProbe
   // kind:'service' — 인증된 연결이 LLM 에 노출하는 런타임 도구.
-  tools?: (api: ProviderApi) => RuntimeToolServer
+  tools?: (ctx: ProviderToolContext) => RuntimeToolServer
   // kind:'llm' — `sources/settings/<adapter>/<provider>/` 디렉토리 키와의 조인 좌표.
   // `envKey` 는 자격증명을 실을 subprocess 환경변수 이름이다.
   llm?: { adapter: string; provider: string; envKey: string }
@@ -206,6 +236,12 @@ export interface ProviderRequest {
 export interface ProviderResponse {
   ok: boolean
   status: number
+  // 리다이렉트를 다 따라간 끝의 URL. 요청 URL 과 같을 수 있다.
+  //
+  // **probe 판정이 이것을 본다** (0174 실기 교정): SSO 배포는 인증에 성공해도 probe 가 302 로
+  // 로그인 URL 을 가리키고 그 체인이 자동 완주해 보호 리소스로 돌아온다. 반대로 미인증이면
+  // IdP 로그인 폼에 머문 채 **200** 을 준다. status 만 보면 후자를 인증됨으로 오독한다.
+  finalUrl: string
   headers: Record<string, string>
   // `responseType:'binary'` 응답에서는 빈 문자열이다.
   body: string

@@ -31,7 +31,6 @@ const WIKI: Provider = {
         sessionGroup: 'corp',
         loginUrl: 'https://adfs.example.corp/adfs/ls',
         doneUrlPrefix: 'https://wiki.example.corp/home',
-        authenticationProbeUrl: 'https://wiki.example.corp/api/me',
         allowedOrigins: ['https://adfs.example.corp', 'https://wiki.example.corp']
       }
     }
@@ -59,7 +58,6 @@ function fakeSessions(): BrowserSessionPort & SessionPolicySink & { sent: string
       return `handle-${group}`
     },
     openLoginWindow: vi.fn(async () => ({ finalUrl: '' })),
-    probe: vi.fn(async () => ({ ok: true, status: 200, finalUrl: '' })),
     send: vi.fn(async (_handleId: string, req: { url: string }) => {
       sent.push(req.url)
       return { status: 200, headers: {}, body: '{"ok":true}' }

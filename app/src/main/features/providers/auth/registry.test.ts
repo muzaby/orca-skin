@@ -36,9 +36,31 @@ describe('ProviderRegistry (AC1)', () => {
     expect(isBareOrigin('')).toBe(false)
   })
 
+  // id 는 SDK MCP 서버 이름(`<id>-tools`)과 `${BINDING:<id>}` 파서로 흘러간다. 범위 밖 문자는
+  // 등록·로그인·vault 저장을 전부 통과하고 도구 노출만 조용히 깨뜨리므로 여기서 잡는다.
+  it('케밥 소문자가 아닌 id 는 거부한다', () => {
+    const { providers, rejected } = registerProviders([
+      { ...provider('Confluence DC', 'https://wiki.example.corp') },
+      { ...provider('wiki_dc', 'https://wiki.example.corp') },
+      { ...provider('wiki-dc', 'https://wiki.example.corp') }
+    ])
+    expect(providers.map((p) => p.id)).toEqual(['wiki-dc'])
+    expect(rejected.map((r) => r.reason)).toEqual(['invalid_id', 'invalid_id'])
+  })
+
+  // 게이트는 앱의 출입문이다. 확인 수단 없이 등록하면 "열려는 있는데 아무나 통과" 가 된다.
+  it('probe 없는 게이트는 거부하고 나머지는 등록한다', () => {
+    const { providers, rejected } = registerProviders([
+      { ...provider('sso', 'https://adfs.example.corp'), kind: 'gate' },
+      provider('wiki', 'https://wiki.example.corp')
+    ])
+    expect(providers.map((p) => p.id)).toEqual(['wiki'])
+    expect(rejected).toEqual([{ id: 'sso', reason: 'missing_probe', message: expect.any(String) }])
+  })
+
   it('kind 별 조회가 게이트 판정의 입력을 만든다', () => {
     const registry = new ProviderRegistry([
-      { ...provider('sso', 'https://adfs.example.corp'), kind: 'gate' },
+      { ...provider('sso', 'https://adfs.example.corp'), kind: 'gate', probe: { path: '/api/me' } },
       provider('wiki', 'https://wiki.example.corp')
     ])
     expect(registry.byKind('gate').map((p) => p.id)).toEqual(['sso'])
