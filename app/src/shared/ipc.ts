@@ -65,7 +65,6 @@ export const CHANNELS = {
   costSummaryEvent: 'orca:cost:summaryEvent',
   // provider별 사용량 조회 / 한도 설정 (0080 항목 4).
   costProviderSummaries: 'orca:cost:providerSummaries',
-  costRefreshProviderUsageReport: 'orca:cost:refreshProviderUsageReport',
   costSetProviderLimit: 'orca:cost:setProviderLimit',
   // 사용량 요약(0112) — 기간(range)별 일 단위 시계열 + 모델별 집계를 한 번에 반환.
   costUsageStats: 'orca:cost:usageStats',
@@ -206,57 +205,13 @@ export interface CostSummary {
 
 // provider별 사용량 엔트리(0080 항목 4) — providerKey(=agent key)별 실사용 summary + 월 한도.
 // summary 는 turn_usage ⨝ sessions(provider_key)로 파생, limitUsd 는 provider_limits 원장.
-export type UsageReportScope =
-  'provider-account' | 'organization' | 'workspace' | 'project' | 'user' | 'unknown'
-
-export interface UsageTotals {
-  costUsd?: number
-  inputTokens?: number
-  outputTokens?: number
-  cacheCreationInputTokens?: number
-  cacheReadInputTokens?: number
-}
-
-export interface UsageQuota {
-  limitUsd?: number | null
-  usedUsd?: number
-  remainingUsd?: number | null
-  resetAt?: number
-  period?: 'month' | 'week' | 'day' | 'rolling'
-}
-
-export interface UsageByModel {
-  model: string
-  totals: UsageTotals
-}
-
-export interface ExternalUsageReport {
-  providerKey: string
-  fetchedAt: number
-  asOf?: number
-  source: 'external'
-  scope?: UsageReportScope
-  quota?: UsageQuota
-  totals?: UsageTotals
-  byModel?: UsageByModel[]
-}
-
-export interface EffectiveUsageLimitView {
-  source: 'local' | 'external'
-  usedUsd: number
-  limitUsd: number | null
-  remainingUsd: number | null
-  fetchedAt?: number
-  asOf?: number
-  stale?: boolean
-}
-
+//
+// 0183 r2 — 외부(원격) 사용량 리포트 필드(`externalReport`·`effectiveLimit`)를 제거했다.
+// 리포트를 만들던 경로가 통째로 사라졌으므로 엔트리는 **로컬 값 셋**뿐이다.
 export interface ProviderUsageEntry {
   providerKey: string
   summary: CostSummary
   limitUsd: number | null
-  externalReport?: ExternalUsageReport
-  effectiveLimit: EffectiveUsageLimitView
 }
 
 // 사용량 요약(0112) — 설정 사용량 탭의 일별 토큰 차트 + 모델별 내역.

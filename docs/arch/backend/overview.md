@@ -1,7 +1,7 @@
 # Backend Architecture — Overview (범위·스택·프로세스)
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-08-10 (handoff 0181 — **provider 플랫폼 재작성**: `Provider` 단일 축(`kind:'gate'|'llm'|'service'`), contracts →**7모듈**(`provider.ts` 신설), IPC **77 채널**(`provider` 6 신설), 게이트·LLM env 주입·MCP 토큰 소스·service 도구 복구. 직전 0180 — 인증 플랫폼·connector 전면 제거: 슬라이스 11→9, `infra/auth`→`infra/net` 이설, settings **18 키**. 직전 0177 — 0096~0176 동기화. 직전 0094 — 0078~0093 동기화: scheduler 슬라이스·자동 업데이트·skills 시딩·boot-report 계측 반영)
+> 최종 업데이트: 2026-08-11 (handoff 0183 r2 — **원격 사용량 경로 제거**: contracts **7→5모듈**(`usage-report`·`usage-source` 삭제), IPC **77→76 채널**(`cost:refreshProviderUsageReport` 삭제), `app/usage-source.ts`·`ExternalUsageService` 제거. 직전 0181 — **provider 플랫폼 재작성**: `Provider` 단일 축(`kind:'gate'|'llm'|'service'`), contracts →7모듈(`provider.ts` 신설), IPC 77 채널(`provider` 6 신설), 게이트·LLM env 주입·MCP 토큰 소스·service 도구 복구. 직전 0180 — 인증 플랫폼·connector 전면 제거: 슬라이스 11→9, `infra/auth`→`infra/net` 이설, settings **18 키**. 직전 0177 — 0096~0176 동기화. 직전 0094 — 0078~0093 동기화: scheduler 슬라이스·자동 업데이트·skills 시딩·boot-report 계측 반영)
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [adapters.md](./adapters.md), [provider-runtime.md](./provider-runtime.md), [standardization.md](./standardization.md), [persistence.md](./persistence.md), [security.md](./security.md), [runtime-ipc.md](./runtime-ipc.md), [terms.md](./terms.md) (사람용 용어 해설), [`app/src/main/AGENTS.md`](../../../app/src/main/AGENTS.md) (레이어 DAG 정본)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 
@@ -66,7 +66,6 @@ Electron App
 │   │   ├── updater.ts          # UpdateController — electron-updater 자동 업데이트 (0084~0086)
 │   │   ├── updater-feed.ts     # 업데이트 피드 해석 — object storage(S3/MinIO)·GHE host (0133)
 │   │   ├── chat-turn-continuation.ts # 자동 연속 턴 배선 (settings 재판정 포함, 0126)
-│   │   ├── usage-source.ts     # ProviderApi → UsageSourcePort 어댑터 — 사용량 provider 가 인증된 호출 결과를 구독 (0176 → 0181 복원)
 │   │   └── handlers/           # 도메인 IPC 13종 — boot · cost · engine · files · log · mcp · misc · project ·
 │   │                           #   providers(0181) · session · settings · skills · update (0179 에서 misc 분해)
 │   ├── features/               # 수직 슬라이스 (교차 import 금지)
@@ -90,14 +89,12 @@ Electron App
 │   │   ├── streaming-input.ts  # 턴-스코프 AsyncIterable 입력
 │   │   ├── error-classifier.ts # claude 에러 분류
 │   │   └── mock.ts             # MockAdapter (DEV 디버그 하네스)
-│   ├── contracts/              # 여러 feature 공유 타입 계약 7모듈 (구현 최소)
+│   ├── contracts/              # 여러 feature 공유 타입 계약 5모듈 (구현 최소)
 │   │   ├── turn.ts             # TurnContext
 │   │   ├── bus-events.ts       # OrcaBusEvents — turn.event 단일 이벤트 맵
 │   │   ├── ports.ts            # ManagedRuntime · RuntimeSessionAdapter 등 구조적 포트
 │   │   ├── session-state.ts    # SessionRuntimeState 머신 (cold/live/busy/interrupting/error/closed)
-│   │   ├── provider.ts         # **Provider·AuthSpec·Grant·ProviderApi** (0181) — 폐쇄망 확장점의 유일한 계약
-│   │   ├── usage-report.ts     # 정적 사용량 provider 계약 — **동결**, 폐쇄망 확장점 B
-│   │   └── usage-source.ts     # 사용량 조회 포트 — 인증된 호출 결과를 사용량 provider 가 구독 (0176)
+│   │   └── provider.ts         # **Provider·AuthSpec·Grant·ProviderApi** (0181) — 폐쇄망 확장점의 유일한 계약
 │   └── infra/                  # 얇은 인프라 (feature/어댑터 비의존)
 │       ├── ipc/                # handle(safeParse+실패정책) · send(push 헬퍼·wire-log) · dto
 │       ├── bus/                # TypedBus

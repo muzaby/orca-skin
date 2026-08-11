@@ -12,7 +12,6 @@ import type { UsageTracker } from '../features/usage/tracker'
 import type { ExtensionBuilder } from '../features/extensions/builder'
 import type { ProviderSettingsService } from '../features/providers/provider-settings'
 import type { Scheduler } from '../features/scheduler'
-import type { ExternalUsageService } from '../features/usage/external-usage-service'
 import type { RuntimeToolRegistry } from '../features/extensions/runtime-tool-registry'
 import type { ProviderPlatform } from '../features/providers/platform'
 import type { UpdateController } from './updater'
@@ -43,7 +42,6 @@ export interface RouterContext {
   mockAdapter: MockAdapter | null
   updates: UpdateController
   scheduler: Scheduler
-  externalUsage: ExternalUsageService
   // 런타임 도구 레지스트리. 0180 에서 인증·커넥터 스택이 사라져 **기여자가 0** 이지만
   // 포트와 어댑터 배선(`adapters/claude-runtime-tools.ts`)은 그대로다 — 0181 의
   // `Provider.tools` 가 이 자리를 다시 채운다.

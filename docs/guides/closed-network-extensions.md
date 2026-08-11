@@ -161,7 +161,7 @@ service : { sessionGroup: 'corp', allowedOrigins: ['https://wiki…'] }
 | 소비자 위치 | 방법 | 선례 |
 |---|---|---|
 | `features/providers` 안 | 직접 받는다 | `ConfluenceContext { request, signal?, logger }` |
-| **다른 feature 슬라이스** | `contracts/` 에 구조적 포트를 선언하고 **컴포지션 루트가 어댑터를 주입** | `contracts/usage-source.ts` + `app/usage-source.ts` |
+| **다른 feature 슬라이스** | 소비 측이 **필요한 메서드만 담은 구조적 포트**를 선언하고 컴포지션 루트가 어댑터를 주입 (`src/main/AGENTS.md` §해소책 1+3) — 절차·예제는 **§5-b** | **현재 살아 있는 선례가 없다.** 0183 r2 가 유일했던 선례(사용량 포트)를 제거했다 |
 | **renderer** | 전용 도메인 IPC 채널을 만든다 — 범용 프록시 채널은 **없고, 없는 것이 맞다** | `app/handlers/*` |
 
 포트는 항상 좁혀 받는다. `providerId` 까지 클로저로 굳히면 `materialize`·`token` 같은 **값 표면**이
@@ -479,99 +479,96 @@ import { createConfluenceToolServer } from '../service/confluence/tools'
 
 ---
 
-## 5-b. 레시피 E — 사용량 소스 (`Provider.usage`)
+## 5-b. 레시피 E — SP API 를 주기적으로 부르기 (cron)
 
-사내 사용량 endpoint 를 도넛·설정 사용량 UI 에 잇는다. **선언 한 곳에서 끝난다**(0183 — 구
-`features/providers/static/modules/` 는 제거됐다).
+사내 SP 를 **앱이 알아서 주기적으로** 부르게 한다(사용량 조회·목록 동기화·헬스체크 등).
+
+> **선언에 슬롯이 없다 (0183 r2).** 예전에는 사용량 전용 슬롯이 있었으나(정적 모듈 폴더 →
+> 잠시 선언 필드) 둘 다 제거됐다. **SP API 는 어느 feature 에서든 `ProviderApi.request`
+> 로 부를 수 있으므로 전용 슬롯이 필요 없다.** 주기 호출은 *선언*이 아니라 **코드**로 쓴다 —
+> 아래 단계가 그 절차다. `declarations/` 는 **무엇을 부를 수 있는가**(provider·origin·인증)만
+> 말하고, **언제·무엇을 부르는가**는 코어가 갖는다.
 
 ### 단계
 
-| # | 하는 일 | 고치는 파일 / 규칙 |
+| # | 하는 일 | 고치는 파일 |
 |---|---|---|
-| 1 | 사용량을 주는 provider 를 선언한다(`kind:'llm'` 게이트웨이 자신이거나 `kind:'service'` 포털) | `declarations/{llm,service}.ts` |
-| 2 | 그 선언에 `usage` 를 더한다 — **선언한 provider 가 곧 호출 대상**이다 | 같은 파일 |
-| 3 | `operation` 은 **origin 기준 상대 경로**. operation 레지스트리는 없다 | 같은 파일 |
-| 4 | `map(sample, ctx)` 로 회사 응답을 리포트로 바꾼다. 형식이 다르면 **`null`** | 같은 파일 |
-| 5 | 대상(`providerKey`)은 **`llm` 좌표에서 파생**된다. `kind:'service'` 로 선언하면 파생할 좌표가 없으므로 `usage.providerKey` 를 명시한다 | 같은 파일 |
+| 1 | 부를 대상 provider 를 선언한다(레시피 B 또는 C) | `declarations/{llm,service}.ts` |
+| 2 | 할 일을 함수로 쓴다 — 그 기능을 **쓰는 feature 안에** 둔다 | `features/<슬라이스>/…` |
+| 3 | 그 함수가 SP 를 부를 통로를 **좁힌 포트로 받는다**(`providerId` 는 클로저로 굳힌다) | 같은 파일 |
+| 4 | **컴포지션 루트가** 잡을 등록하고 concrete 를 주입한다 | `app/src/main/app/bootstrap.ts` |
+| 5 | 주기를 정한다 — 코어 고정형(`schedule`) 또는 설정 노출형(`Settings.scheduler`) | `bootstrap.ts` / `src/shared/protocol.ts` |
+
+### 예제 — 컴포지션 루트에서 등록한다
 
 ```ts
-// declarations/llm.ts — 게이트웨이가 자기 사용량을 주는 경우(가장 단순)
-{
-  id: 'corp-gateway',
-  label: '사내 게이트웨이',
-  kind: 'llm',
-  origin: 'https://gw.example.corp',
-  auth: [ /* apiKeySpec(...) 등 */ ],
-  llm: { adapter: 'claude', provider: 'corp', envKey: 'CORP_TOKEN' },
-  usage: {
-    // providerKey 생략 → `claude-corp` 로 파생(= sources/settings/claude/corp/)
-    operation: '/api/quota',
-    params: { scope: 'month' },
-    map: (sample, ctx) => {
-      const payload = sample.payload as { used_usd?: number; limit_usd?: number }
-      if (typeof payload?.used_usd !== 'number') return null   // 형식이 다르면 null
-      const usedUsd = payload.used_usd
-      const limitUsd = payload.limit_usd ?? null
-      return {
-        providerKey: ctx.providerKey,
-        fetchedAt: sample.fetchedAt,
-        source: 'external',
-        scope: 'organization',
-        quota: {
-          usedUsd,
-          limitUsd,
-          remainingUsd: limitUsd === null ? null : Math.max(0, limitUsd - usedUsd)
-        }
-      }
-    }
+// app/src/main/app/bootstrap.ts — Scheduler 생성 직후(다른 잡 등록과 같은 자리)
+scheduler.register('corp-quota-sync', async () => {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 5_000) // 상한은 호출자가 건다
+  try {
+    const res = await providers.api.request(
+      'corp-gateway',                       // Provider.id — declarations 에 선언한 값
+      { path: '/api/quota', method: 'GET', headers: { accept: 'application/json' } },
+      controller.signal
+    )
+    if (!res.ok) return                     // 미인증·사내망 밖은 **정상 상태**다. 다음 틱을 기다린다
+    // …res.body 를 해석해 쓰는 쪽에 넘긴다
+  } finally {
+    clearTimeout(timer)
   }
-}
+})
+scheduler.schedule('corp-quota-sync', { enabled: true, cron: '*/5 * * * *' })
 ```
+
+### cron 을 어디에 적나 — 두 층
+
+| 층 | 어디에 적나 | 언제 쓰나 | 선례 |
+|---|---|---|---|
+| **코어 고정형** | `bootstrap.ts` 의 `scheduler.schedule(key, { cron })` | 배포가 바꿀 일이 없는 주기 | 위 예제 |
+| **설정 노출형** | `src/shared/protocol.ts` 의 `SchedulerSettingsSchema` 에 그룹을 더하고, `Scheduler.applySettings()` 에 한 줄 | 사용자가 켜고 끄거나 주기를 바꿔야 할 때 | `usageRecompute`(cron) · `updateCheck`(intervalMs, 0156) |
+
+설정 노출형은 `settings:set` 이 들어올 때마다 `applySettings` 가 다시 돌아 **즉시 반영**된다
+(`app/handlers/settings.ts`). 스펙이 그대로면 재생성하지 않으므로 interval 잡의 카운트다운이
+설정 쓰기마다 0으로 돌아가지 않는다.
 
 ### 필드별 의미 · 흔한 실수
 
-| 필드 | 의미 | 흔한 실수 |
+| 항목 | 의미 | 흔한 실수 |
 |---|---|---|
-| `operation` | origin 기준 상대 경로 | 절대 URL 을 적으면 정책이 `absolute_path` 로 거부한다 |
-| `params` | 쿼리로 실린다 | `operation` 에 직접 이으면 인코딩 규칙이 갈린다 |
-| `providerKey` | 리포트가 붙을 대상. 생략하면 `llm` 좌표에서 파생 | **`sources/settings/<adapter>/<provider>/` 디렉토리와 같아야 한다** — 다르면 부팅 로그가 지목한다(아래) |
-| `map` 의 반환 `null` | "내 것이 아니다/형식이 다르다" — **정상 경로** | 빈 리포트를 만들지 마라. `null` 이면 마지막 성공 값이 stale 로 유지된다 |
+| `register(key, action)` | 잡 이름 ↔ 할 일. **`schedule` 보다 먼저** 불러야 한다 | 미등록 key 로 `schedule` 하면 **throw** 한다(`Scheduler job is not registered`) |
+| `schedule(key, spec)` | `spec` = `{ cron: '분 시 일 월 요일' }` 또는 `{ intervalMs }` (+ `enabled?`) | 둘을 같이 주지 않는다. cron 은 **벽시계 정렬**, interval 은 **`schedule()` 호출 시각 anchor**("앱 시작 후 N시간") |
+| cron 표현식 | 표준 5필드 | 잘못된 식은 **등록 시점에 던진다**(`assertValidCron`) — 조용히 안 뜨는 잡을 만들지 않으려는 결정이다. `enabled:false` 라도 검증은 먼저 돈다 |
+| `path` | **origin 기준 상대 경로** | 절대 URL 은 정책이 `absolute_path` 로 거부한다. 컨텍스트 경로(`/confluence`)는 호출자가 prefix |
+| 인증 실패 | grant 가 `valid` 가 아니면 요청이 **차단**된다 | 오류로 올리지 마라 — 부팅 직후·사내망 밖·로그아웃 후의 **정상 상태**다. 401/403 은 자동 `expired` 강등 → 카탈로그에 재인증 지점이 뜬다 |
+| `signal` | 타임아웃·취소는 **호출자 몫** | 엔진이 대신 걸어주지 않는다. `AbortController` 를 만들어 넘긴다 |
 
-- **`map` 은 raw credential 을 보지 않는다** — `ctx` 에 `fetch` 도 `secret` 도 없다. 인증·전송은
-  `ProviderApi` 가 하고 이 함수는 해석만 한다.
-- **`providerKey` 가 설정 디렉토리 열거에 없으면 경고가 뜬다** — `usage spec 의 providerKey 가
-  provider settings 열거에 없다`. 구 구조는 여기서 **아무 신호 없이** 사용량이 멈췄다.
-- **대상을 못 정하면**(`kind:'service'` + `providerKey` 생략) 그 선언은 제외되고
-  `usage.spec.no-provider-key` 로그가 남는다.
+- **주기는 선언에 두지 않는다.** 배포마다 주기가 갈리면 원격 부하를 예측할 수 없다.
+- **앱이 떠 있을 때만 발화한다** — croner 는 in-app 스케줄러다(0091). 종료 시
+  `Scheduler.stopAll()` 이 `closeDb` 보다 먼저 돈다.
+- 겹치면 뒤 발화는 **`skipped`** 로 기록되고, 성공/실패는 `schedule_runs` 테이블에 남는다
+  (`DbRunRecorder`).
 
----
+### 다른 feature 슬라이스에서 부를 때
 
-## 5-c. 주기 실행(cron) — 사용량은 언제 호출되나
+`features/*` 는 `features/providers` 를 **직접 import 할 수 없다**(수직 슬라이스 교차 금지).
+그래서 소비 측은 **필요한 메서드만 담은 구조적 포트**를 선언하고, 컴포지션 루트가 concrete 를
+주입한다(`app/src/main/AGENTS.md` §해소책 1+3).
 
-**cron 은 엔진이고 선언이 연료다.** 주기는 코어가 정하고, 무엇을 부를지는 선언만 안다.
+```ts
+// features/<슬라이스>/quota.ts — providerId 를 클로저로 굳혀 값 표면(token·materialize)이 딸려오지 않게
+export interface QuotaPort {
+  fetch(signal?: AbortSignal): Promise<{ ok: boolean; body: string }>
+}
 
+// app/bootstrap.ts
+const quota: QuotaPort = {
+  fetch: (signal) => providers.api.request('corp-gateway', { path: '/api/quota' }, signal)
+}
 ```
-scheduler '* * * * *'  (app/bootstrap.ts — provider-usage-report-refresh)
-  └─ refreshAll(providerKeys)        ← providerKeys = sources/settings/ 디렉토리 열거
-       └─ 선언된 usage spec 과 교집합  ← 어긋난 키는 **경고 로그**
-            └─ refresh(providerKey)  ← providerKey 단위 in-flight 병합
-                 └─ ProviderApi.request(선언 주체, operation)   ← 5초 타임아웃
-                      └─ map(sample) → 리포트 → SQLite 영속 → UI
-```
 
-| 항목 | 값 | 정본 |
-|---|---|---|
-| 주기 | **1분**(`* * * * *`) | `app/bootstrap.ts` (사용자 결정 2026-08-05, 구 `*/5`) |
-| 타임아웃 | 5초 | `external-usage-service.ts` |
-| 중복 방지 | providerKey 단위 **in-flight 병합** — 틱이 겹쳐도 원격 호출은 1회 | 같은 파일 |
-| 실패 시 | 마지막 성공 리포트를 **stale** 로 유지(빈 값으로 덮지 않는다) | 같은 파일 |
-| 미인증 | `not_connected` — **오류가 아니다**(부팅 직후·사내망 밖·로그아웃 후) | `app/usage-source.ts` |
-
-- **앱이 떠 있을 때만 발화한다** — croner 는 in-app 스케줄러다(0091). 종료 중에는 `Scheduler.stopAll()`
-  이 `closeDb` 보다 먼저 돈다.
-- 주기를 바꾸려면 `bootstrap` 의 cron 식을 고친다. **선언에는 주기를 두지 않는다** — 배포마다
-  주기가 갈리면 원격 부하를 예측할 수 없다.
-- 수동 갱신 경로는 IPC `orca:cost:refreshProviderUsage`(설정 화면의 새로고침)다.
+renderer 에서 SP 를 부르려면 **전용 도메인 IPC 채널**을 만든다 — 범용 프록시 채널은 없고,
+없는 것이 맞다(`app/handlers/*` 참조).
 
 ---
 
@@ -710,6 +707,9 @@ scheduler '* * * * *'  (app/bootstrap.ts — provider-usage-report-refresh)
 | MCP 서버가 **통째로 빠진다** | `${BINDING:}` 미해결(fail-closed) | 해당 provider 인증 상태 · 세션 grant 는 `null` 이다 |
 | LLM 요청이 **인증 없이** 나간다 | `envKey` 오타 또는 `llm.{adapter,provider}` 조인 실패 | `sources/settings/<adapter>/<provider>/` 디렉토리 존재 여부 |
 | 업데이트 후 **저장된 로그인이 사라졌다** | `Provider.id` 를 바꿨다 | vault 키 `provider:<id>:<authKind>` (§1.4) |
+| 주기 잡이 **영영 발화하지 않는다** | ⓐ cron 식 오타 ⓑ `enabled:false` ⓒ `register` 보다 `schedule` 을 먼저 불렀다 | ⓐⓒ는 **등록 시점에 throw** 한다(`assertValidCron` · `Scheduler job is not registered`) — 부팅 로그를 본다 (§5-b) |
+| 주기 잡이 **겹쳐서 도는 것 같다** | 앞 발화가 아직 안 끝났다 | 겹친 발화는 실행되지 않고 `schedule_runs` 에 **`skipped`** 로 남는다 (§5-b) |
+| 앱을 껐더니 **잡이 안 돈다** | croner 는 **in-app 스케줄러**다 | 설계상 그렇다 — OS 스케줄러가 아니다 (§5-b) |
 
 ---
 

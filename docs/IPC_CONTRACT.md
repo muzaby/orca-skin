@@ -2,7 +2,7 @@
 
 > 이 문서는 Main ↔ Renderer 간 IPC 채널의 **단일 진실 공급원 (SSOT)** 이다.
 > 채널을 추가/변경할 때는 코드와 이 문서를 함께 갱신한다.
-> 최종 업데이트: 2026-08-10 (handoff 0181 — provider 플랫폼 재작성. 채널 **71 → 77**(`provider` 6 신설). 0180 이 지운 구 `auth` 7 + `plugin` 4 채널의 서술(구 §2.13-c·§2.13-d)은 §2.13-c 한 절로 대체됐다)
+> 최종 업데이트: 2026-08-11 (handoff 0183 r2 — 원격 사용량 경로 제거. 채널 **77 → 76**(`cost:refreshProviderUsageReport` 삭제, `cost` 6 → 5). 직전 갱신은 0181 — provider 플랫폼 재작성으로 **71 → 77**(`provider` 6 신설), 0180 이 지운 구 `auth` 7 + `plugin` 4 채널의 서술(구 §2.13-c·§2.13-d)은 §2.13-c 한 절로 대체됐다)
 >
 > ⚠️ **카운트 정정 (0157 verify r1)**: 이전 판은 헤더 73 · 내역 합 72 · 실측 74 로 셋이 서로 달랐다. `chat`(5→6)·`cost`(5→6) 가 내역에서 누락돼 있었다. 아래 수치는 `CHANNELS` 상수를 기계 카운트한 실측치이며 **내역 합 = 총계**가 되도록 맞췄다.
 > 관련 문서: [ARCHITECTURE.md](./ARCHITECTURE.md), [GLOSSARY.md](./GLOSSARY.md), [TRD.md](./TRD.md) §5
@@ -23,9 +23,9 @@
   - 특례: `chat:send` 는 실패를 `error` 이벤트로 회신(§2.1). 입력이 없거나 store 내부 zod 가 검증하는 채널(settings set · mcp add/update)은 `handlePlain`.
 - 출력(main→renderer send) 무검증: `NormalizedEvent` 등의 형상 보증은 어댑터 정규화(`claude-map.ts`)가 담당 — 의도된 설계.
 
-## 2. 채널 카탈로그 (총 77 채널)
+## 2. 채널 카탈로그 (총 76 채널)
 
-도메인별 분포: `chat` 6 (`send` · `event` · `cancel` · `stopSubagent` · `steerCancel` · `steer`) · `boot` 2 (`report` · `whenReady`) · `backend` 1 · `agent` 1 · `engine` 5 · `install` 2 · `update` 6 · `settings` 2 · `skills` 7 · `files` 5 · `session` 7 (0129 `setPinned` 추가) · `project` 6 (0129 `setPinned` 추가) · `window` 3 · `search` 1 · `mcp` 4 · `cost` 6 · `concurrency` 1 · `permission` 2 (`respond` · `setMode`) · `notify` 1 (`show` — §2.12-c) · `debug` 2 (dev 전용 — `getMock` · `setMock`) · `log` 1 (`emit` — §2.13-b) · `provider` 6 (§2.13-c — `list` · `state` · `login` · `continue` · `reauth` · `revoke`) = **77**.
+도메인별 분포: `chat` 6 (`send` · `event` · `cancel` · `stopSubagent` · `steerCancel` · `steer`) · `boot` 2 (`report` · `whenReady`) · `backend` 1 · `agent` 1 · `engine` 5 · `install` 2 · `update` 6 · `settings` 2 · `skills` 7 · `files` 5 · `session` 7 (0129 `setPinned` 추가) · `project` 6 (0129 `setPinned` 추가) · `window` 3 · `search` 1 · `mcp` 4 · `cost` 5 · `concurrency` 1 · `permission` 2 (`respond` · `setMode`) · `notify` 1 (`show` — §2.12-c) · `debug` 2 (dev 전용 — `getMock` · `setMock`) · `log` 1 (`emit` — §2.13-b) · `provider` 6 (§2.13-c — `list` · `state` · `login` · `continue` · `reauth` · `revoke`) = **76**.
 
 > **0181 — `provider` 6채널이 구 `auth` 7 + `plugin` 4 채널(0180 에서 삭제)을 대체한다** (71 → 77).
 > 앱 로그인·서비스 연결·LLM 자격증명이 **같은 6채널**을 쓴다 — 셋의 차이는 `ProviderInfo.kind`
@@ -271,8 +271,7 @@ interface McpServer {
 | ------------------------------- | ------------ | --------------------------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | `orca:cost:summary`             | R→M (invoke) | —                                       | `CostSummary`          | 조회 시 `recompute()` 로 최신 일/주/월 비용·토큰 누적값을 반환한다(설정 사용량 동기화 버튼이 최신값을 받도록, 0080 항목 2). |
 | `orca:cost:summaryEvent`        | M→R (send)   | `CostSummary`                           | —                      | telemetry 저장 직후 `CostTracker.recordAndBroadcast()` 가 모든 창에 push 하는 summary 갱신 이벤트.                          |
-| `orca:cost:providerSummaries`   | R→M (invoke) | `{ providerKeys: string[] }`            | `ProviderUsageEntry[]` | provider key 마다 로컬 summary + 적용 한도 + 외부 API report 파생 `effectiveLimit`을 묶어 반환한다.                         |
-| `orca:cost:refreshProviderUsageReport` | R→M (invoke) | `{ providerKey: string }` | `ProviderUsageEntry` | 정적 provider 모듈의 external usage provider/config를 호출해 authoritative report를 fetch·영속하고 갱신 엔트리를 반환한다. 실패/미지원 시 마지막 cache 또는 로컬 한도로 폴백한다. |
+| `orca:cost:providerSummaries`   | R→M (invoke) | `{ providerKeys: string[] }`            | `ProviderUsageEntry[]` | provider key 마다 로컬 summary(turn_usage ⨝ sessions.provider_key) + 월 한도(provider_limits)를 묶어 반환한다. 설정 사용량의 동기화 버튼도 이 채널로 재조회한다(0183 r2 — 외부 report 새로고침 채널이 사라졌다). |
 | `orca:cost:setProviderLimit`    | R→M (invoke) | `{ providerKey: string; limitUsd: number \| null }` | `ProviderUsageEntry`   | provider별 월 한도를 upsert 하고 갱신된 엔트리를 반환한다(즉시 반영).                                                       |
 | `orca:cost:usageStats`          | R→M (invoke) | `{ range: '7d' \| '30d' \| 'all' }`     | `UsageStats`           | 사용량 요약(0112) — range 하한(since, 로컬 자정 기준) 이후의 일별 토큰/비용 시계열(희소, 오름차순)과 모델별 집계(총 토큰 내림차순)를 한 번에 반환한다. 제로필은 renderer(`shared/usage/stats.ts`) 몫. 실패 정책 = fallback(빈 요약). |
 

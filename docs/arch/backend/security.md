@@ -145,7 +145,7 @@ main 프로세스의 모든 원격 요청은 **Chromium 네트워크 스택**으
 |---|---|---|
 | **전역 `fetch(` 를 호출할 수 있는 파일은 `infra/net/net-fetch.ts` 하나뿐** | 가드가 `src/main/**` 전 `.ts` 를 훑어 `net-fetch.ts` 밖의 전역 `fetch(` 호출을 0건으로 고정한다. 메서드 호출(`ses.fetch(`·`ctx.fetch(`·`this.deps.fetchImpl(`)과 주석·문자열 안의 `fetch(` 는 위반이 아니다 — 가드가 **자기 정규식의 오탐/미탐을 스스로 고정**한다(측정력 0인 위생 테스트 방지) | `infra/net/no-node-fetch.test.ts` |
 | **Chromium 스택을 무는 파일은 3개** (0181) — `net-fetch.ts`(`net.fetch`) · `net-request.ts`(`net.request`) · `infra/browser-session.ts`(Electron `Session`·`BrowserWindow`, 0181 복원) | 셋 다 `electron` 을 import 하므로 **테스트가 직접 import 하면 즉시 죽는다**(`vitest.config.ts` 에 electron alias 없음 — P29). 그래서 판정·변환은 순수 모듈(`net-response.ts`·`browser-session-policy.ts`)로 떼어 두고 이 파일들은 **배선만** 한다 | `infra/net/net-response.test.ts`(순수부) |
-| 소비자는 `typeof fetch` **포트로 주입받는다** — `ExternalUsageService.fetchImpl` · `ProviderApiImpl.fetchImpl`(0181) | **기본값을 두지 않는다** — 기본값은 곧 조용한 Node 스택 복귀다 | 위와 동일 |
+| 소비자는 `typeof fetch` **포트로 주입받는다** — `ProviderApiImpl.fetchImpl`(0181) · `createSender(fetchImpl)` | **기본값을 두지 않는다** — 기본값은 곧 조용한 Node 스택 복귀다 | 위와 동일 |
 | **`redirect:'manual'` 은 Electron 에서 의미가 다르다** — 웹 fetch 는 3xx 를 돌려주지만 Electron 은 **요청을 취소한다**(`followRedirect()` 를 동기 호출해야 이어진다) | 3xx 를 직접 받아야 하면 `infra/net/net-request.ts` 의 `sendOnce`(`net.request` 의 `'redirect'` 이벤트로 3xx 재구성). `netFetch` 가 manual 요청을 그리로 우회한다. **추종은 호출자가** 한다(홉마다 정책을 검사해야 하므로) | `infra/net/net-response.test.ts` |
 
 > 이 규칙은 보안 경계이자 *동작* 경계다. 위반해도 로컬·개방망에서는 통과하고 **사내망에서만 실패**하므로, 리뷰가 아니라 테스트로 잡는다.
