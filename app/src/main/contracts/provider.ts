@@ -10,8 +10,15 @@
 //
 // 레이어: contracts → contracts·adapters·infra·shared. 타입 전용이라 런타임 의존이 없다.
 
-import type { ProviderAuthKind, ProviderFieldInfo, ProviderKind } from '../../shared/ipc'
+import type {
+  ExternalUsageReport,
+  ProviderAuthKind,
+  ProviderFieldInfo,
+  ProviderKind
+} from '../../shared/ipc'
 import type { RuntimeToolServer } from '../adapters/runtime-tools'
+import type { UsageMapContext } from './usage-report'
+import type { UsageSample } from './usage-source'
 
 // ── 자격증명을 요청에 싣는 방법 ────────────────────────────────────────────────
 //
@@ -179,6 +186,28 @@ export interface Provider {
   // kind:'llm' — `sources/settings/<adapter>/<provider>/` 디렉토리 키와의 조인 좌표.
   // `envKey` 는 자격증명을 실을 subprocess 환경변수 이름이다.
   llm?: { adapter: string; provider: string; envKey: string }
+  // 사용량 리포트를 주는 provider (0183). **선언한 provider 자신이 호출 대상**이다 —
+  // 구 구조의 `sourceId` 참조가 사라졌다.
+  usage?: UsageSpec
+}
+
+// ── 사용량 (0183 — 구 `StaticUsageProviderModule` 대체) ───────────────────────
+//
+// 구 구조는 `features/providers/static/modules/` 에 따로 살았고, SP 하나가 선언·모듈·설정
+// 디렉토리 **세 곳**에 흩어져 문자열 조인 두 개로 이어졌다. 어느 하나가 어긋나면 아무 로그 없이
+// 사용량이 멈췄다. 여기로 접으면 조인이 사라진다 — 선언한 자가 곧 호출 대상이다.
+export interface UsageSpec {
+  // 리포트가 붙을 대상(`sources/settings/<adapter>/<provider>/` 에서 파생된 `providerKey`).
+  // **생략하면 이 선언의 `llm` 좌표에서 파생한다** — `${adapter}-${provider}`.
+  // 둘 다 없으면 그 선언은 사용량에서 제외되고 경고가 남는다.
+  providerKey?: string
+  // `Provider.origin` 기준 상대 경로. 별도 operation 레지스트리는 두지 않는다 — 두면 배포가
+  // 선언과 레지스트리 두 곳을 맞춰야 한다.
+  operation: string
+  params?: Record<string, unknown>
+  // 표본 → 리포트. **형식이 맞지 않으면 `null`** 이 정상 경로이며, 프레임워크가 마지막 성공
+  // baseline 을 stale 로 유지한다(조용한 빈 성공을 만들지 않는다).
+  map(sample: UsageSample, ctx: UsageMapContext): ExternalUsageReport | null
 }
 
 // ── 소비 표면 ─────────────────────────────────────────────────────────────────

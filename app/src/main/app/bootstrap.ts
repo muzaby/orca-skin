@@ -28,16 +28,11 @@ import { orcaPluginRoot } from '../features/extensions/claude-plugin-package'
 import { userClaudePluginRoot } from '../features/extensions/claude-user-skills-plugin'
 import { loadOrcaConfig } from '../infra/config/orca-config'
 import { SecretStore } from '../infra/config/secret-store'
-import { createSecretFacade as createProviderSecretFacade } from '../features/usage/external-usage'
 import { deploy } from '../features/extensions/deployer'
 import { ExtensionDeploymentService } from '../features/extensions/extension-deployment-service'
 import { toClaudeConfig } from '../features/extensions/mcp/convert'
 import { scaffoldProviderSettings } from '../features/extensions/scaffold'
 import { ProviderSettingsService } from '../features/providers/provider-settings'
-import {
-  STATIC_USAGE_PROVIDERS,
-  materializeStaticProviderSettings
-} from '../features/providers/static'
 import { ExternalUsageService } from '../features/usage/external-usage-service'
 import { netFetch } from '../infra/net/net-fetch'
 import { loadClaudeProviderSettings, readUserClaudeSettings } from '../adapters/claude-settings'
@@ -92,6 +87,8 @@ import { createNoopUpdater, loadElectronAutoUpdater, UpdateController } from './
 import { registerChatHandlers } from './chat-turn'
 import { createBootReportRecorder } from './boot-report'
 import { createUsageSourcePort } from './usage-source'
+import { usageSpecs } from '../features/providers/usage-specs'
+import type { UsageSpecEntry } from '../features/usage/external-usage-service'
 import { RuntimeSupervisor } from '../features/sessions/supervisor'
 import { BoundedRuntimeCapPolicy } from '../features/sessions/runtime-cap-policy'
 import { PendingMessageQueue } from '../features/chat/pending-message-queue'
@@ -480,10 +477,6 @@ export class Bootstrap {
         )
         const scaffoldLog = getLogger().child('providers')
         for (const path of s.created) scaffoldLog.debug('providers.scaffold.created', { path })
-        const staticProviders = materializeStaticProviderSettings()
-        for (const path of staticProviders.created) {
-          scaffoldLog.debug('providers.static.created', { path })
-        }
       }
     )
     // dist/claude/plugins/orca 렌더를 boot 1회 수행한다. CRUD 는 즉시 재배포, 턴 진입은
@@ -493,17 +486,22 @@ export class Bootstrap {
       this.deployExtensions()
     )
     providerSettings.invalidateAll()
+    // 0183 — 사용량 선언은 `Provider.usage` 하나다(구 `static/modules/`). 선언한 provider 가
+    // 곧 호출 대상이라 `sourceId` 조인이 없고, 배포가 고치는 파일도 `declarations/` 로 모인다.
+    const usageLog = getLogger().child('usage')
+    const declaredUsage = usageSpecs(
+      providers.declarations('llm').concat(providers.declarations('service'))
+    )
+    for (const rejection of declaredUsage.rejected) {
+      usageLog.warn('usage.spec.no-provider-key', { providerId: rejection.providerId })
+    }
     const externalUsage = new ExternalUsageService({
       db,
-      // 0157 — raw SecretStore 를 넘기지 않는다. provider 별 네임스페이스 뷰만 준다.
-      secretFor: (providerKey) => createProviderSecretFacade(secretStore, providerKey),
-      providers: STATIC_USAGE_PROVIDERS,
-      // 원격 사용량 보고서도 Chromium 스택으로 나간다 (0173).
-      fetchImpl: netFetch,
-      // 0181 — 인증이 필요한 사용량 표본 경로 복구. 미인증 provider 는 `not_connected` 로
-      // 돌아오고(정상 상태) 구독형 모듈은 stale 로 남는다.
+      specs: (): readonly UsageSpecEntry[] => declaredUsage.entries,
+      // 0181 — 인증된 사용량 표본 경로. 미인증 provider 는 `not_connected` 로 돌아오고(정상 상태)
+      // baseline 이 stale 로 남는다.
       sources: createUsageSourcePort({
-        providers: () => providers.declarations('service'),
+        providers: () => providers.declarations('service').concat(providers.declarations('llm')),
         status: (providerId) => providers.status(providerId),
         api: providers.api
       })

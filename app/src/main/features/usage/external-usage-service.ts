@@ -1,28 +1,29 @@
 import type { CostSummary, ExternalUsageReport, ProviderUsageEntry } from '../../../shared/ipc'
 import type { DbQueries } from '../../infra/db'
-import type {
-  StaticUsageProviderModule,
-  ExternalUsageProvider,
-  ExternalUsageContext,
-  UsageSubscription
-} from '../../contracts/usage-report'
-import type { UsageSampleRequest, UsageSourcePort } from '../../contracts/usage-source'
+import type { UsageMapContext } from '../../contracts/usage-report'
+import type { UsageSample, UsageSampleRequest, UsageSourcePort } from '../../contracts/usage-source'
 import { effectiveLimitFromReport } from './external-usage'
-import { createHttpUsageReportProvider } from './http-usage-report'
-import { UsageFeed } from './usage-feed'
 import { getLogger } from '../../infra/log/registry'
+
+// 컴포지션 루트가 선언에서 뽑아 주입하는 한 줄. **`features/usage` 는 `features/providers` 를
+// import 하지 않는다**(슬라이스 교차 금지) — 그래서 형상만 구조적으로 받는다.
+export interface UsageSpecEntry {
+  providerKey: string
+  providerId: string
+  spec: {
+    operation: string
+    params?: Record<string, unknown>
+    map(sample: UsageSample, ctx: UsageMapContext): ExternalUsageReport | null
+  }
+}
 
 interface ServiceDeps {
   db: DbQueries
-  // 0157 — raw SecretStore 대신 **네임스페이스 팩토리**를 받는다. 이 서비스는 vault 전체를
-  // 가질 이유가 없다(보고서 위험 #4: "Vault 를 broker 내부로 숨기고 consumer capability 만 주입").
-  secretFor: (providerKey: string) => ExternalUsageContext['secret']
-  providers: readonly StaticUsageProviderModule[]
-  // **필수** (0173) — 기본값 `fetch` 를 두면 사내 프록시·사설 CA 를 못 타는 Node 스택으로
-  // 조용히 나간다. 프로덕션은 `netFetch`(Chromium), 테스트는 스텁.
-  fetchImpl: typeof fetch
+  // 0183 — 구 `providers: StaticUsageProviderModule[]` 대체. 선언(`Provider.usage`)에서 파생된다.
+  // **게터다** — 선언은 빌드 타임 고정이지만 주입 시점 결합을 피한다.
+  specs: () => readonly UsageSpecEntry[]
   // 0176 — 인증된 호출의 결과를 나르는 포트(컴포지션 루트가 `ProviderApi` 로 구현해 주입, 0181).
-  // **미주입이면 구독형 모듈은 항상 stale 이다** — 조용한 성공을 만들지 않는다.
+  // **미주입이면 항상 stale 이다** — 조용한 성공을 만들지 않는다.
   sources?: UsageSourcePort
   clock?: () => number
   logger?: (message: string, meta?: Record<string, unknown>) => void
@@ -30,43 +31,28 @@ interface ServiceDeps {
 
 const DEFAULT_TIMEOUT_MS = 5000
 
-// 표본 dedupe 키 — 두 provider 가 같은 호출을 요구하면 invoke 는 1회여야 한다(0176).
-// 키 순서로 갈리지 않도록 **정렬된 안정 직렬화**를 쓴다.
-export function sampleKey(sourceId: string, request: UsageSampleRequest): string {
-  return `${sourceId}|${request.operation}|${stableJson(request.params)}`
-}
-
-function stableJson(value: unknown): string {
-  if (value === undefined) return ''
-  if (value === null || typeof value !== 'object') return JSON.stringify(value) ?? ''
-  if (Array.isArray(value)) return `[${value.map(stableJson).join(',')}]`
-  const entries = Object.entries(value as Record<string, unknown>)
-    .filter(([, v]) => v !== undefined)
-    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-  return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableJson(v)}`).join(',')}}`
-}
-
+// 사용량 서비스 (0099 → 0176 → **0183 단일 경로**).
+//
+// ── 0183 이 접은 것 ─────────────────────────────────────────────────────────
+// 구 구조는 해소 경로가 셋(`config`·`provider`·`subscription`)이고 `sourceId` → provider,
+// `adapter`/`provider` → 디렉토리 **두 조인**이 있었다. 앞의 두 경로는 모듈이 자기 손으로 요청을
+// 만드는 설계라 0157 이후 인증 endpoint 에 도달할 수 없었고(활성 모듈 0개), 조인이 어긋나면
+// 아무 로그 없이 사용량이 멈췄다.
+//
+// 이제 경로는 하나다: **`Provider.usage` 를 선언한 provider 를 그대로 호출**한다. 호출 대상이
+// 선언 주체라 `sourceId` 조인이 없고, 팬아웃(`UsageFeed`)·표본 dedupe 도 필요가 없어졌다 —
+// 한 spec 이 정확히 한 번 호출한다.
 export class ExternalUsageService {
-  private readonly providers = new Map<string, StaticUsageProviderModule>()
   private readonly inFlight = new Map<string, Promise<ExternalUsageReport | null>>()
   private readonly store = new Map<string, Map<string, unknown>>()
   // 마지막 fetch 가 성공한(fresh) providerKey 집합(in-memory). 실패 시 제거되어 캐시 baseline
   // 을 stale 로 쓰고, 재성공 시 다시 담겨 권위값이 복구된다(0111). 재시작 직후 첫 성공 전까지는
   // 미포함 = stale.
   private readonly freshProviderKeys = new Set<string>()
-  // 표본 단위 in-flight — providerKey 단위(`inFlight`)와 별개다. 같은 connector 호출을
-  // 여러 provider 가 구독하면 여기서 합쳐진다.
-  private readonly sampleInFlight = new Map<string, Promise<void>>()
-  // 구독 listener 가 이번 사이클에 만들어 놓은 리포트. refresh 가 읽고 지운다.
-  private readonly mappedByProvider = new Map<string, ExternalUsageReport>()
-  private readonly feed: UsageFeed
-  private readonly fetchImpl: typeof fetch
   private readonly clock: () => number
   private readonly logger: (message: string, meta?: Record<string, unknown>) => void
 
   constructor(private readonly deps: ServiceDeps) {
-    for (const p of deps.providers) this.providers.set(`${p.adapter}-${p.provider}`, p)
-    this.fetchImpl = deps.fetchImpl
     this.clock = deps.clock ?? Date.now
     this.logger =
       deps.logger ??
@@ -74,15 +60,14 @@ export class ExternalUsageService {
         getLogger()
           .child('usage')
           .warn('usage.external.warning', { message, ...(meta !== undefined ? { meta } : {}) }))
-    this.feed = new UsageFeed((message, meta) => this.logger(message, meta))
-    for (const [providerKey, module] of this.providers) {
-      const subscription = module.usage?.subscription
-      if (subscription) this.subscribe(providerKey, module, subscription)
-    }
+  }
+
+  private specFor(providerKey: string): UsageSpecEntry | undefined {
+    return this.deps.specs().find((entry) => entry.providerKey === providerKey)
   }
 
   hasProvider(providerKey: string): boolean {
-    return this.providers.has(providerKey)
+    return this.specFor(providerKey) !== undefined
   }
 
   entry(
@@ -102,165 +87,79 @@ export class ExternalUsageService {
   }
 
   async refresh(providerKey: string): Promise<ExternalUsageReport | null> {
-    const module = this.providers.get(providerKey)
-    if (!module) return this.readCachedReport(providerKey)
+    const entry = this.specFor(providerKey)
+    if (!entry) return this.readCachedReport(providerKey)
     const existing = this.inFlight.get(providerKey)
     if (existing) return existing
-    const promise = this.fetchAndPersist(providerKey, module).finally(() =>
-      this.inFlight.delete(providerKey)
-    )
+    const promise = this.fetchAndPersist(entry).finally(() => this.inFlight.delete(providerKey))
     this.inFlight.set(providerKey, promise)
     return promise
   }
 
+  // cron 1틱. **인자를 주면 그중 spec 이 있는 것만** 돈다(설정 디렉토리 열거와의 교집합).
   async refreshAll(providerKeys?: readonly string[]): Promise<void> {
-    const keys = providerKeys?.filter((k) => this.providers.has(k)) ?? [...this.providers.keys()]
+    const declared = this.deps.specs().map((entry) => entry.providerKey)
+    const keys = providerKeys?.filter((key) => declared.includes(key)) ?? declared
+    // **걸러진 키를 침묵시키지 않는다** — 구 구조에서 조인 오타가 아무 신호 없이 사용량을
+    // 멈춘 지점이 정확히 여기다(0183).
+    const unmatched = declared.filter(
+      (key) => providerKeys !== undefined && !providerKeys.includes(key)
+    )
+    for (const providerKey of unmatched) {
+      this.logger('usage spec 의 providerKey 가 provider settings 열거에 없다', { providerKey })
+    }
     await Promise.all(keys.map((key) => this.refresh(key)))
   }
 
-  private providerFor(module: StaticUsageProviderModule): ExternalUsageProvider | null {
-    if (module.usage?.provider) return module.usage.provider
-    if (module.usage?.config) return createHttpUsageReportProvider(module.usage.config)
-    return null
-  }
-
-  // 구독 등록 (0176). listener 는 **표본을 리포트로 바꾸는 일만** 한다 — 호출은 refresh 가,
-  // 팬아웃은 feed 가 소유한다.
-  private subscribe(
-    providerKey: string,
-    module: StaticUsageProviderModule,
-    subscription: UsageSubscription
-  ): void {
-    const selector = {
-      ...(subscription.sourceId !== undefined ? { sourceId: subscription.sourceId } : {}),
-      operation: subscription.request.operation
-    }
-    this.feed.subscribe(selector, (sample) => {
-      const mapped = subscription.map(sample, {
-        providerKey,
-        settings: module.defaultSettings,
-        store: this.providerStore(providerKey),
-        logger: this.logger,
-        clock: this.clock
-      })
-      // `null` 은 "이 표본은 내 것이 아니다" 이며 정상 경로다 — baseline 을 건드리지 않는다.
-      if (!mapped) return
-      // providerKey 는 **구독자의 것으로 고정**한다. 모듈이 남의 키를 적어도 그 행을 덮지 못한다.
-      const report: ExternalUsageReport = { ...mapped, providerKey }
-      this.persist(report)
-      this.freshProviderKeys.add(providerKey)
-      this.mappedByProvider.set(providerKey, report)
-    })
-  }
-
-  private async fetchViaSubscription(
-    providerKey: string,
-    subscription: UsageSubscription
-  ): Promise<ExternalUsageReport | null> {
+  private async fetchAndPersist(entry: UsageSpecEntry): Promise<ExternalUsageReport | null> {
     const sources = this.deps.sources
     if (!sources) {
-      this.logger('usage source port is not wired — keeping cached baseline', { providerKey })
-      return this.staleBaseline(providerKey)
+      this.logger('usage source port is not wired — keeping cached baseline', {
+        providerKey: entry.providerKey
+      })
+      return this.staleBaseline(entry.providerKey)
     }
-    const sourceIds =
-      subscription.sourceId !== undefined
-        ? [subscription.sourceId]
-        : sources
-            .list()
-            .filter((source) => source.connected)
-            .map((source) => source.sourceId)
-    if (sourceIds.length === 0) return this.staleBaseline(providerKey)
 
+    const request: UsageSampleRequest = {
+      operation: entry.spec.operation,
+      ...(entry.spec.params ? { params: entry.spec.params } : {})
+    }
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS)
-    this.mappedByProvider.delete(providerKey)
     try {
-      await Promise.all(
-        sourceIds.map((sourceId) =>
-          this.sample(sources, sourceId, subscription.request, controller.signal)
-        )
-      )
-    } finally {
-      clearTimeout(timer)
-    }
+      const outcome = await sources.invoke(entry.providerId, request, controller.signal)
+      if (!outcome.ok) {
+        // 미인증(`not_connected`)은 **정상 상태다** — 부팅 직후·사내망 밖·로그아웃 후.
+        this.logger('usage source invoke failed', {
+          providerKey: entry.providerKey,
+          providerId: entry.providerId,
+          operation: request.operation,
+          reason: outcome.reason,
+          ...(outcome.message !== undefined ? { message: outcome.message } : {})
+        })
+        return this.staleBaseline(entry.providerKey)
+      }
 
-    const mapped = this.mappedByProvider.get(providerKey)
-    this.mappedByProvider.delete(providerKey)
-    // 표본이 하나도 매핑되지 않았으면(전부 null·전부 실패) baseline 을 stale 로 유지한다.
-    return mapped ?? this.staleBaseline(providerKey)
-  }
-
-  // 같은 (source, operation, params) 호출을 합친다 — 두 provider 가 구독해도 원격은 1회다.
-  private sample(
-    sources: UsageSourcePort,
-    sourceId: string,
-    request: UsageSampleRequest,
-    signal: AbortSignal
-  ): Promise<void> {
-    const key = sampleKey(sourceId, request)
-    const existing = this.sampleInFlight.get(key)
-    if (existing) return existing
-    const promise = this.invokeAndPublish(sources, sourceId, request, signal).finally(() =>
-      this.sampleInFlight.delete(key)
-    )
-    this.sampleInFlight.set(key, promise)
-    return promise
-  }
-
-  private async invokeAndPublish(
-    sources: UsageSourcePort,
-    sourceId: string,
-    request: UsageSampleRequest,
-    signal: AbortSignal
-  ): Promise<void> {
-    const outcome = await sources.invoke(sourceId, request, signal)
-    if (outcome.ok) {
-      this.feed.publish(outcome.sample)
-      return
-    }
-    this.logger('usage source invoke failed', {
-      sourceId,
-      operation: request.operation,
-      reason: outcome.reason,
-      ...(outcome.message !== undefined ? { message: outcome.message } : {})
-    })
-  }
-
-  private async fetchAndPersist(
-    providerKey: string,
-    module: StaticUsageProviderModule
-  ): Promise<ExternalUsageReport | null> {
-    // 우선순위: subscription > provider > config (contracts/usage-report.ts 헤더).
-    const subscription = module.usage?.subscription
-    if (subscription) return this.fetchViaSubscription(providerKey, subscription)
-    const provider = this.providerFor(module)
-    if (!provider) return this.readCachedReport(providerKey)
-    const timeoutMs = module.usage?.config?.timeoutMs ?? DEFAULT_TIMEOUT_MS
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), timeoutMs)
-    try {
-      const report = await provider.fetchUsageReport({
-        providerKey,
-        fetch: this.fetchImpl,
-        signal: controller.signal,
-        secret: this.deps.secretFor(providerKey),
-        env: process.env as Record<string, string>,
-        settings: module.defaultSettings,
-        store: this.providerStore(providerKey),
+      const mapped = entry.spec.map(outcome.sample, {
+        providerKey: entry.providerKey,
+        store: this.providerStore(entry.providerKey),
         logger: this.logger,
         clock: this.clock
       })
-      if (report) {
-        this.persist(report)
-        this.freshProviderKeys.add(providerKey)
-        return report
-      }
-      // provider 가 리포트 없이 반환 — baseline 유지, stale 표시.
-      return this.staleBaseline(providerKey)
+      // `null` 은 "이 표본은 내 것이 아니다/형식이 다르다" 이며 정상 경로다 — baseline 유지.
+      if (!mapped) return this.staleBaseline(entry.providerKey)
+
+      // providerKey 는 **선언에서 파생된 것으로 고정**한다. map 이 남의 키를 적어도 그 행을 못 덮는다.
+      const report: ExternalUsageReport = { ...mapped, providerKey: entry.providerKey }
+      this.persist(report)
+      this.freshProviderKeys.add(entry.providerKey)
+      return report
     } catch (err) {
-      // 네트워크 오류(throw) — 마지막 성공 baseline 으로 폴백하고 stale 표시(0111).
-      this.logger('fetch failed — using cached baseline', { providerKey, err: String(err) })
-      return this.staleBaseline(providerKey)
+      this.logger('fetch failed — using cached baseline', {
+        providerKey: entry.providerKey,
+        err: String(err)
+      })
+      return this.staleBaseline(entry.providerKey)
     } finally {
       clearTimeout(timer)
     }

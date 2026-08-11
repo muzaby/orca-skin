@@ -1,14 +1,10 @@
 import { describe, expect, it, vi } from 'vitest'
-import { ExternalUsageService, sampleKey } from './external-usage-service'
-import type { ExternalUsageProvider, StaticUsageProviderModule } from '../../contracts/usage-report'
+import { ExternalUsageService, type UsageSpecEntry } from './external-usage-service'
 import type { CostSummary, ExternalUsageReport } from '../../../shared/ipc'
 import type { UsageSampleOutcome, UsageSourcePort } from '../../contracts/usage-source'
-import { createSecretFacade } from './external-usage'
 
-// 0157 — 서비스가 raw SecretStore 대신 provider 별 네임스페이스 뷰만 받는다.
-function emptySecretFacade(): ReturnType<typeof createSecretFacade> {
-  return { get: () => null, set: () => undefined }
-}
+// 0183 — 경로가 하나다: 선언(`Provider.usage`)에서 파생된 spec 이 **선언한 provider 자신**을
+// 부른다. 구 `StaticUsageProviderModule`·`config`/`provider` 경로·표본 팬아웃은 없다.
 
 function summary(month = 10): CostSummary {
   const period = {
@@ -21,7 +17,6 @@ function summary(month = 10): CostSummary {
   return { day: period, week: period, month: { ...period, totalCostUsd: month }, updatedAt: 1 }
 }
 
-// providerKey 별 행을 나누는 DB 스텁 — 구독 팬아웃은 provider 2개 이상을 봐야 한다.
 function db(): {
   rows: Map<string, string>
   getProviderUsageReport: (providerKey: string) => { report_json: string } | null
@@ -49,732 +44,223 @@ function report(providerKey: string, fetchedAt: number, usedUsd: number): Extern
   }
 }
 
-// 0173 — fetchImpl 은 필수다. 이 스위트는 원격에 나가지 않으므로 빈 응답 스텁을 준다
-// (실제 요청 경로를 보는 케이스는 자기 fetchImpl 을 따로 주입한다).
-const stubFetch: typeof fetch = async () => new Response('{}', { status: 200 })
-
-describe('ExternalUsageService', () => {
-  // 0180 AC3 — `sources`(인증 커넥터 표본 포트)는 optional 이고, 그 주입이 사라져도
-  // provider·config 두 경로로 리포트가 계속 나와야 한다. 해소 우선순위는
-  // subscription > provider > config 이고, 0180 이 없앤 것은 subscription 을 채우던 주입뿐이다.
-  it('sources 없이 provider·config 경로로 리포트를 만든다', async () => {
-    const viaProvider: StaticUsageProviderModule = {
-      adapter: 'claude',
-      provider: 'bedrock',
-      defaultSettings: { env: {} },
-      usage: {
-        provider: {
-          async fetchUsageReport(ctx) {
-            return {
-              providerKey: ctx.providerKey,
-              fetchedAt: 100,
-              source: 'external',
-              quota: { usedUsd: 30, limitUsd: 100, remainingUsd: 70 }
-            }
-          }
-        }
-      }
-    }
-    const viaConfig: StaticUsageProviderModule = {
-      adapter: 'claude',
-      provider: 'vertex',
-      defaultSettings: { env: {} },
-      usage: {
-        config: {
-          endpoint: 'https://usage.corp/report',
-          map: { quotaUsedUsd: 'used', quotaLimitUsd: 'limit' }
-        }
-      }
-    }
-    const service = new ExternalUsageService({
-      db: db() as never,
-      secretFor: () => emptySecretFacade(),
-      providers: [viaProvider, viaConfig],
-      // `sources` 를 **주입하지 않는다** — 이것이 이 케이스의 요지다.
-      fetchImpl: async () =>
-        new Response(JSON.stringify({ used: 40, limit: 200 }), {
-          status: 200,
-          headers: { 'content-type': 'application/json' }
-        }),
-      clock: () => 100
-    })
-
-    await service.refresh('claude-bedrock')
-    expect(service.entry('claude-bedrock', summary(10), 50).effectiveLimit).toMatchObject({
-      source: 'external',
-      usedUsd: 30,
-      limitUsd: 100
-    })
-
-    await service.refresh('claude-vertex')
-    expect(service.entry('claude-vertex', summary(10), 50).effectiveLimit).toMatchObject({
-      source: 'external',
-      usedUsd: 40,
-      limitUsd: 200
-    })
-  })
-
-  it('keeps local summary but resolves effective limit from authoritative API report', async () => {
-    const provider: ExternalUsageProvider = {
-      async fetchUsageReport(ctx) {
-        return {
-          providerKey: ctx.providerKey,
-          fetchedAt: 100,
-          source: 'external',
-          quota: { usedUsd: 80, limitUsd: 100, remainingUsd: 20 }
-        }
-      }
-    }
-    const module: StaticUsageProviderModule = {
-      adapter: 'claude',
-      provider: 'bedrock',
-      defaultSettings: { env: {} },
-      usage: { provider }
-    }
-    const service = new ExternalUsageService({
-      db: db() as never,
-      secretFor: () => emptySecretFacade(),
-      providers: [module],
-      fetchImpl: stubFetch,
-      clock: () => 100
-    })
-
-    await service.refresh('claude-bedrock')
-    const entry = service.entry('claude-bedrock', summary(10), 50)
-
-    expect(entry.summary.month.totalCostUsd).toBe(10)
-    expect(entry.effectiveLimit).toMatchObject({
-      source: 'external',
-      usedUsd: 80,
-      limitUsd: 100,
-      remainingUsd: 20
-    })
-  })
-
-  it('calls provider-owned usage hook with framework context and persists its report', async () => {
-    const backingDb = db()
-    const fetchImpl = vi.fn()
-    const provider: ExternalUsageProvider = {
-      async fetchUsageReport(ctx) {
-        expect(ctx.providerKey).toBe('claude-enterprise')
-        expect(ctx.fetch).toBe(fetchImpl)
-        expect(ctx.signal).toBeInstanceOf(AbortSignal)
-        expect(ctx.env).toBe(process.env)
-        expect(ctx.settings).toEqual({ env: { USAGE_ENDPOINT: 'https://usage.example' } })
-        expect(ctx.clock()).toBe(200)
-
-        ctx.store.set('token', { value: 'cached', expiresAt: 300 })
-        expect(ctx.store.get('token')).toEqual({ value: 'cached', expiresAt: 300 })
-
-        ctx.secret.set('refresh-token', 'next-token')
-        expect(ctx.secret.get('refresh-token')).toBe('next-token')
-        ctx.logger('hook invoked', { providerKey: ctx.providerKey })
-
-        return report(ctx.providerKey, ctx.clock(), 40)
-      }
-    }
-    const secrets = new Map<string, string>()
-    const logger = vi.fn()
-    const service = new ExternalUsageService({
-      db: backingDb as never,
-      secretFor: (providerKey) =>
-        createSecretFacade(
-          {
-            get: (key: string) => secrets.get(key),
-            set: (key: string, value: string) => {
-              secrets.set(key, value)
-            },
-            delete: (key: string) => {
-              secrets.delete(key)
-            }
-          },
-          providerKey
-        ),
-      providers: [
-        {
-          adapter: 'claude',
-          provider: 'enterprise',
-          defaultSettings: { env: { USAGE_ENDPOINT: 'https://usage.example' } },
-          usage: { provider }
-        }
-      ],
-      fetchImpl: fetchImpl as never,
-      clock: () => 200,
-      logger
-    })
-
-    await expect(service.refresh('claude-enterprise')).resolves.toMatchObject({
-      providerKey: 'claude-enterprise',
-      quota: { usedUsd: 40 }
-    })
-    expect(backingDb.getProviderUsageReport('claude-enterprise')?.report_json).toContain(
-      '"usedUsd":40'
-    )
-    expect(secrets.get('provider:claude-enterprise:refresh-token')).toBe('next-token')
-    expect(logger).toHaveBeenCalledWith('hook invoked', { providerKey: 'claude-enterprise' })
-  })
-
-  it('falls back to cached report when hook returns null', async () => {
-    const backingDb = db()
-    const service = new ExternalUsageService({
-      db: backingDb as never,
-      secretFor: () => emptySecretFacade(),
-      providers: [
-        {
-          adapter: 'claude',
-          provider: 'cached',
-          defaultSettings: {},
-          usage: {
-            provider: {
-              async fetchUsageReport() {
-                return report('claude-cached', 100, 70)
-              }
-            }
-          }
-        }
-      ],
-      fetchImpl: stubFetch,
-      clock: () => 100
-    })
-    await service.refresh('claude-cached')
-
-    const fallbackService = new ExternalUsageService({
-      db: backingDb as never,
-      secretFor: () => emptySecretFacade(),
-      providers: [
-        {
-          adapter: 'claude',
-          provider: 'cached',
-          defaultSettings: {},
-          usage: {
-            provider: {
-              async fetchUsageReport() {
-                return null
-              }
-            }
-          }
-        }
-      ],
-      fetchImpl: stubFetch,
-      clock: () => 200
-    })
-
-    await expect(fallbackService.refresh('claude-cached')).resolves.toMatchObject({
-      providerKey: 'claude-cached',
-      quota: { usedUsd: 70 }
-    })
-    expect(fallbackService.entry('claude-cached', summary(10), 50).effectiveLimit).toMatchObject({
-      source: 'external',
-      usedUsd: 70,
-      stale: true
-    })
-  })
-
-  it('falls back to cached baseline (stale) when fetch throws, without rejecting', async () => {
-    const backingDb = db()
-    const seed = new ExternalUsageService({
-      db: backingDb as never,
-      secretFor: () => emptySecretFacade(),
-      providers: [
-        {
-          adapter: 'claude',
-          provider: 'net',
-          defaultSettings: {},
-          usage: {
-            provider: {
-              async fetchUsageReport() {
-                return report('claude-net', 100, 55)
-              }
-            }
-          }
-        }
-      ],
-      fetchImpl: stubFetch,
-      clock: () => 100
-    })
-    await seed.refresh('claude-net') // persist baseline usedUsd=55
-
-    const offline = new ExternalUsageService({
-      db: backingDb as never,
-      secretFor: () => emptySecretFacade(),
-      providers: [
-        {
-          adapter: 'claude',
-          provider: 'net',
-          defaultSettings: {},
-          usage: {
-            provider: {
-              async fetchUsageReport() {
-                throw new Error('ENOTFOUND usage.example')
-              }
-            }
-          }
-        }
-      ],
-      fetchImpl: stubFetch,
-      clock: () => 200
-    })
-
-    // throw 를 캐시 baseline 으로 삼켜 reject 하지 않는다.
-    await expect(offline.refresh('claude-net')).resolves.toMatchObject({ quota: { usedUsd: 55 } })
-    expect(offline.entry('claude-net', summary(10), 50).effectiveLimit).toMatchObject({
-      source: 'external',
-      usedUsd: 55,
-      stale: true
-    })
-  })
-
-  it('marks fresh on success and recovers stale→fresh across fail→success', async () => {
-    const backingDb = db()
-    let mode: 'ok' | 'throw' = 'ok'
-    const service = new ExternalUsageService({
-      db: backingDb as never,
-      secretFor: () => emptySecretFacade(),
-      providers: [
-        {
-          adapter: 'claude',
-          provider: 'flap',
-          defaultSettings: {},
-          usage: {
-            provider: {
-              async fetchUsageReport(ctx) {
-                if (mode === 'throw') throw new Error('offline')
-                return report(ctx.providerKey, 100, 42)
-              }
-            }
-          }
-        }
-      ],
-      fetchImpl: stubFetch,
-      clock: () => 100
-    })
-
-    await service.refresh('claude-flap')
-    expect(service.entry('claude-flap', summary(10), 50).effectiveLimit.stale).toBe(false)
-
-    mode = 'throw'
-    await service.refresh('claude-flap')
-    expect(service.entry('claude-flap', summary(10), 50).effectiveLimit.stale).toBe(true)
-
-    mode = 'ok'
-    await service.refresh('claude-flap')
-    expect(service.entry('claude-flap', summary(10), 50).effectiveLimit.stale).toBe(false)
-  })
-
-  it('treats static provider modules as provider-agnostic registry entries', async () => {
-    const calls: string[] = []
-    const modules: StaticUsageProviderModule[] = ['alpha', 'beta'].map((provider) => ({
-      adapter: 'claude',
-      provider,
-      defaultSettings: {},
-      usage: {
-        provider: {
-          async fetchUsageReport(ctx) {
-            calls.push(ctx.providerKey)
-            return report(ctx.providerKey, 100, ctx.providerKey === 'claude-alpha' ? 1 : 2)
-          }
-        }
-      }
-    }))
-    const service = new ExternalUsageService({
-      db: db() as never,
-      secretFor: () => emptySecretFacade(),
-      providers: modules,
-      fetchImpl: stubFetch,
-      clock: () => 100
-    })
-
-    expect(service.hasProvider('claude-alpha')).toBe(true)
-    expect(service.hasProvider('claude-beta')).toBe(true)
-    expect(service.hasProvider('claude-bedrock')).toBe(false)
-
-    await service.refreshAll()
-    expect(calls.sort()).toEqual(['claude-alpha', 'claude-beta'])
-  })
-
-  // ── 구독 경로 (0176) ───────────────────────────────────────────────────────
-
-  it('구독 결과를 리포트로 영속하고 fresh 로 표시한다', async () => {
-    const backingDb = db()
-    const service = new ExternalUsageService({
-      db: backingDb as never,
-      secretFor: () => emptySecretFacade(),
-      providers: [subscribingModule('corp')],
-      fetchImpl: stubFetch,
-      sources: sourcePort({ 'usage-corp': () => okSample({ usedUsd: 70, limitUsd: 100 }) }),
-      clock: () => 100
-    })
-
-    const result = await service.refresh('claude-corp')
-
-    expect(result).toMatchObject({ providerKey: 'claude-corp', quota: { usedUsd: 70 } })
-    expect(backingDb.rows.get('claude-corp')).toBeDefined()
-    expect(service.entry('claude-corp', summary(10), 50).effectiveLimit).toMatchObject({
-      source: 'external',
-      usedUsd: 70,
-      limitUsd: 100,
-      stale: false
-    })
-  })
-
-  it('같은 source 를 구독한 두 provider 가 invoke 1회를 공유한다', async () => {
-    const backingDb = db()
-    const invoked: string[] = []
-    const service = new ExternalUsageService({
-      db: backingDb as never,
-      secretFor: () => emptySecretFacade(),
-      providers: [subscribingModule('corp'), subscribingModule('lab')],
-      fetchImpl: stubFetch,
-      sources: sourcePort({
-        'usage-corp': () => {
-          invoked.push('usage-corp')
-          return okSample({ usedUsd: 12, limitUsd: 100 })
-        }
-      }),
-      clock: () => 100
-    })
-
-    await service.refreshAll()
-
-    expect(invoked).toEqual(['usage-corp'])
-    expect(backingDb.rows.get('claude-corp')).toBeDefined()
-    expect(backingDb.rows.get('claude-lab')).toBeDefined()
-    expect(service.entry('claude-corp', summary(10), 50).effectiveLimit.stale).toBe(false)
-    expect(service.entry('claude-lab', summary(10), 50).effectiveLimit.stale).toBe(false)
-  })
-
-  it('invoke 실패 시 baseline 을 stale 로 돌려준다', async () => {
-    const backingDb = db()
-    let mode: 'ok' | 'fail' = 'ok'
-    const service = new ExternalUsageService({
-      db: backingDb as never,
-      secretFor: () => emptySecretFacade(),
-      providers: [subscribingModule('corp')],
-      fetchImpl: stubFetch,
-      sources: sourcePort({
-        'usage-corp': () =>
-          mode === 'ok'
-            ? okSample({ usedUsd: 33, limitUsd: 100 })
-            : {
-                ok: false as const,
-                sourceId: 'usage-corp',
-                operation: 'quota',
-                reason: 'invoke_failed' as const
-              }
-      }),
-      logger: () => undefined,
-      clock: () => 100
-    })
-
-    await service.refresh('claude-corp')
-    mode = 'fail'
-    await expect(service.refresh('claude-corp')).resolves.toMatchObject({ quota: { usedUsd: 33 } })
-    expect(service.entry('claude-corp', summary(10), 50).effectiveLimit).toMatchObject({
-      usedUsd: 33,
-      stale: true
-    })
-  })
-
-  it('map 이 전부 null 이면 baseline 을 유지한다', async () => {
-    const backingDb = db()
-    const module: StaticUsageProviderModule = {
-      adapter: 'claude',
-      provider: 'corp',
-      defaultSettings: {},
-      usage: {
-        subscription: {
-          sourceId: 'usage-corp',
-          request: { operation: 'quota' },
-          // 이 provider 가 이해하지 못하는 포맷 — null 이 정상 경로다.
-          map: (sample) => {
-            const payload = sample.payload as { quota?: { usedUsd?: number } }
-            if (typeof payload?.quota?.usedUsd !== 'number') return null
-            return {
-              providerKey: 'claude-corp',
-              fetchedAt: sample.fetchedAt,
-              source: 'external',
-              quota: { usedUsd: payload.quota.usedUsd, limitUsd: 100, remainingUsd: null }
-            }
-          }
-        }
-      }
-    }
-    const service = new ExternalUsageService({
-      db: backingDb as never,
-      secretFor: () => emptySecretFacade(),
-      providers: [module],
-      fetchImpl: stubFetch,
-      sources: sourcePort({
-        'usage-corp': () => ({
-          ok: true as const,
-          sample: {
-            sourceId: 'usage-corp',
-            operation: 'quota',
-            fetchedAt: 100,
-            status: 200,
-            payload: '<html>maintenance</html>'
-          }
-        })
-      }),
-      clock: () => 100
-    })
-
-    await expect(service.refresh('claude-corp')).resolves.toBeNull()
-    expect(backingDb.rows.size).toBe(0)
-    expect(service.entry('claude-corp', summary(10), 50).effectiveLimit).toMatchObject({
-      source: 'local',
-      usedUsd: 10
-    })
-  })
-
-  it('sourceId 미지정 구독은 연결된 source 전부를 받는다', async () => {
-    const backingDb = db()
-    const invoked: string[] = []
-    const module: StaticUsageProviderModule = {
-      adapter: 'claude',
-      provider: 'corp',
-      defaultSettings: {},
-      usage: {
-        subscription: {
-          request: { operation: 'quota' },
-          // 두 번째 source 만 이 provider 의 것이다.
-          map: (sample) =>
-            sample.sourceId === 'usage-lab'
-              ? {
-                  providerKey: 'claude-corp',
-                  fetchedAt: sample.fetchedAt,
-                  source: 'external',
-                  quota: { usedUsd: 88, limitUsd: 100, remainingUsd: 12 }
-                }
-              : null
-        }
-      }
-    }
-    const service = new ExternalUsageService({
-      db: backingDb as never,
-      secretFor: () => emptySecretFacade(),
-      providers: [module],
-      fetchImpl: stubFetch,
-      sources: sourcePort(
-        {
-          'usage-corp': () => {
-            invoked.push('usage-corp')
-            return okSample({ usedUsd: 1, limitUsd: 2 })
-          },
-          'usage-lab': () => {
-            invoked.push('usage-lab')
-            return okSample({ usedUsd: 88, limitUsd: 100 })
-          }
-        },
-        [
-          { sourceId: 'usage-corp', label: 'corp', connected: true },
-          { sourceId: 'usage-lab', label: 'lab', connected: true },
-          { sourceId: 'usage-off', label: 'off', connected: false }
-        ]
-      ),
-      clock: () => 100
-    })
-
-    await service.refresh('claude-corp')
-
-    // 연결되지 않은 source 는 부르지 않는다.
-    expect(invoked.sort()).toEqual(['usage-corp', 'usage-lab'])
-    expect(service.entry('claude-corp', summary(10), 50).effectiveLimit).toMatchObject({
-      usedUsd: 88,
-      stale: false
-    })
-  })
-
-  it('subscription 이 config 보다 우선한다', async () => {
-    const fetchImpl = vi.fn(async () => new Response('{}', { status: 200 }))
-    const service = new ExternalUsageService({
-      db: db() as never,
-      secretFor: () => emptySecretFacade(),
-      providers: [
-        {
-          ...subscribingModule('corp'),
-          usage: {
-            ...subscribingModule('corp').usage,
-            config: { endpoint: 'https://legacy.invalid/report', map: {} }
-          }
-        }
-      ],
-      fetchImpl: fetchImpl as unknown as typeof fetch,
-      sources: sourcePort({ 'usage-corp': () => okSample({ usedUsd: 5, limitUsd: 100 }) }),
-      clock: () => 100
-    })
-
-    await expect(service.refresh('claude-corp')).resolves.toMatchObject({ quota: { usedUsd: 5 } })
-    expect(fetchImpl).not.toHaveBeenCalled()
-  })
-
-  it('레거시 config 경로가 그대로 동작한다', async () => {
-    const fetchImpl = vi.fn(
-      async () => new Response(JSON.stringify({ used: 7, limit: 100 }), { status: 200 })
-    )
-    const service = new ExternalUsageService({
-      db: db() as never,
-      secretFor: () => emptySecretFacade(),
-      providers: [
-        {
-          adapter: 'claude',
-          provider: 'legacy',
-          defaultSettings: {},
-          usage: {
-            config: {
-              endpoint: 'https://legacy.invalid/report',
-              map: { quotaUsedUsd: 'used', quotaLimitUsd: 'limit' }
-            }
-          }
-        }
-      ],
-      fetchImpl: fetchImpl as unknown as typeof fetch,
-      sources: sourcePort({}),
-      clock: () => 100
-    })
-
-    await expect(service.refresh('claude-legacy')).resolves.toMatchObject({
-      quota: { usedUsd: 7, limitUsd: 100 }
-    })
-    expect(fetchImpl).toHaveBeenCalledTimes(1)
-  })
-
-  it('source 포트가 없으면 구독 provider 는 baseline 을 유지한다', async () => {
-    const service = new ExternalUsageService({
-      db: db() as never,
-      secretFor: () => emptySecretFacade(),
-      providers: [subscribingModule('corp')],
-      fetchImpl: stubFetch,
-      logger: () => undefined,
-      clock: () => 100
-    })
-
-    await expect(service.refresh('claude-corp')).resolves.toBeNull()
-    expect(service.entry('claude-corp', summary(10), 50).effectiveLimit.source).toBe('local')
-  })
-
-  it('map 컨텍스트는 fetch·secret 을 노출하지 않는다', async () => {
-    let seen: string[] = []
-    const module: StaticUsageProviderModule = {
-      adapter: 'claude',
-      provider: 'corp',
-      defaultSettings: { tenant: 'x' },
-      usage: {
-        subscription: {
-          sourceId: 'usage-corp',
-          request: { operation: 'quota' },
-          map: (sample, ctx) => {
-            seen = Object.keys(ctx).sort()
-            return {
-              providerKey: ctx.providerKey,
-              fetchedAt: sample.fetchedAt,
-              source: 'external',
-              quota: { usedUsd: 1, limitUsd: 2, remainingUsd: 1 }
-            }
-          }
-        }
-      }
-    }
-    const service = new ExternalUsageService({
-      db: db() as never,
-      secretFor: () => emptySecretFacade(),
-      providers: [module],
-      fetchImpl: stubFetch,
-      sources: sourcePort({ 'usage-corp': () => okSample({ usedUsd: 1, limitUsd: 2 }) }),
-      clock: () => 100
-    })
-
-    await service.refresh('claude-corp')
-
-    expect(seen).toEqual(['clock', 'logger', 'providerKey', 'settings', 'store'])
-  })
-})
-
-// ── 구독 경로 테스트 헬퍼 (0176) ──────────────────────────────────────────────
-
-function okSample(quota: { usedUsd: number; limitUsd: number }): UsageSampleOutcome {
+// 표본 payload 를 그대로 리포트로 옮기는 최소 spec.
+function spec(
+  providerKey: string,
+  providerId: string,
+  map?: UsageSpecEntry['spec']['map']
+): UsageSpecEntry {
   return {
-    ok: true,
-    sample: {
-      sourceId: 'usage-corp',
-      operation: 'quota',
-      fetchedAt: 100,
-      status: 200,
-      payload: { quota }
-    }
-  }
-}
-
-function sourcePort(
-  handlers: Record<string, () => UsageSampleOutcome>,
-  infos?: readonly { sourceId: string; label: string; connected: boolean }[]
-): UsageSourcePort {
-  const list =
-    infos ??
-    Object.keys(handlers).map((sourceId) => ({ sourceId, label: sourceId, connected: true }))
-  return {
-    list: () => list,
-    invoke: async (sourceId, request) => {
-      const handler = handlers[sourceId]
-      if (!handler) {
-        return { ok: false, sourceId, operation: request.operation, reason: 'unknown_source' }
-      }
-      const outcome = handler()
-      // 표본은 실제로 호출된 source 를 가리켜야 한다(팬아웃 판정이 여기에 걸린다).
-      return outcome.ok ? { ok: true, sample: { ...outcome.sample, sourceId } } : outcome
-    }
-  }
-}
-
-// 같은 형상의 구독 모듈 — 이름만 다르다.
-function subscribingModule(provider: string): StaticUsageProviderModule {
-  return {
-    adapter: 'claude',
-    provider,
-    defaultSettings: {},
-    usage: {
-      subscription: {
-        sourceId: 'usage-corp',
-        request: { operation: 'quota' },
-        map: (sample, ctx) => {
-          const payload = sample.payload as { quota?: { usedUsd?: number; limitUsd?: number } }
-          const usedUsd = payload?.quota?.usedUsd
-          if (typeof usedUsd !== 'number') return null
-          const limitUsd = payload.quota?.limitUsd ?? null
+    providerKey,
+    providerId,
+    spec: {
+      operation: '/api/usage',
+      map:
+        map ??
+        ((sample, ctx) => {
+          const payload = sample.payload as { used?: number } | string
+          if (typeof payload === 'string' || typeof payload.used !== 'number') return null
           return {
             providerKey: ctx.providerKey,
             fetchedAt: sample.fetchedAt,
             source: 'external',
-            quota: {
-              usedUsd,
-              limitUsd,
-              remainingUsd: limitUsd === null ? null : Math.max(0, limitUsd - usedUsd)
-            }
+            quota: { usedUsd: payload.used, limitUsd: 100, remainingUsd: 100 - payload.used }
           }
-        }
-      }
+        })
     }
   }
 }
 
-describe('sampleKey', () => {
-  it('params 키 순서가 달라도 같은 호출은 같은 키다', () => {
-    expect(
-      sampleKey('usage-corp', { operation: 'quota', params: { a: 1, b: { y: 2, x: 1 } } })
-    ).toBe(sampleKey('usage-corp', { operation: 'quota', params: { b: { x: 1, y: 2 }, a: 1 } }))
+function sourcePort(outcome: (providerId: string) => UsageSampleOutcome): UsageSourcePort & {
+  calls: string[]
+} {
+  const calls: string[] = []
+  return {
+    calls,
+    list: () => [],
+    invoke: async (sourceId) => {
+      calls.push(sourceId)
+      return outcome(sourceId)
+    }
+  }
+}
+
+describe('ExternalUsageService — 선언 기반 단일 경로 (0183)', () => {
+  it('선언한 provider 자신을 부르고 표본을 리포트로 옮긴다', async () => {
+    const rows = db()
+    const sources = sourcePort((sourceId) => ({
+      ok: true,
+      sample: {
+        sourceId,
+        operation: '/api/usage',
+        fetchedAt: 100,
+        payload: { used: 30 }
+      }
+    }))
+    const service = new ExternalUsageService({
+      db: rows as never,
+      specs: () => [spec('claude-corp', 'corp-gateway')],
+      sources
+    })
+
+    const result = await service.refresh('claude-corp')
+
+    // 호출 대상 = 선언 주체. sourceId 조인이 없다.
+    expect(sources.calls).toEqual(['corp-gateway'])
+    expect(result?.quota?.usedUsd).toBe(30)
+    expect(rows.rows.has('claude-corp')).toBe(true)
   })
 
-  it('source·operation·params 가 다르면 키가 갈린다', () => {
-    const base = sampleKey('usage-corp', { operation: 'quota', params: { scope: 'month' } })
-    expect(sampleKey('usage-lab', { operation: 'quota', params: { scope: 'month' } })).not.toBe(
-      base
-    )
-    expect(sampleKey('usage-corp', { operation: 'detail', params: { scope: 'month' } })).not.toBe(
-      base
-    )
-    expect(sampleKey('usage-corp', { operation: 'quota', params: { scope: 'week' } })).not.toBe(
-      base
-    )
-    expect(sampleKey('usage-corp', { operation: 'quota' })).not.toBe(base)
+  it('map 이 남의 providerKey 를 적어도 선언에서 파생된 키로 고정된다', async () => {
+    const rows = db()
+    const service = new ExternalUsageService({
+      db: rows as never,
+      specs: () => [
+        spec('claude-corp', 'corp-gateway', (sample) => ({
+          providerKey: 'claude-anthropic', // ← 남의 키
+          fetchedAt: sample.fetchedAt,
+          source: 'external',
+          quota: { usedUsd: 1, limitUsd: 2, remainingUsd: 1 }
+        }))
+      ],
+      sources: sourcePort((sourceId) => ({
+        ok: true,
+        sample: { sourceId, operation: '/api/usage', fetchedAt: 1, payload: {} }
+      }))
+    })
+
+    const result = await service.refresh('claude-corp')
+
+    expect(result?.providerKey).toBe('claude-corp')
+    expect(rows.rows.has('claude-anthropic')).toBe(false)
+  })
+
+  it('map 이 null 이면 baseline 을 stale 로 유지한다', async () => {
+    const rows = db()
+    rows.rows.set('claude-corp', JSON.stringify(report('claude-corp', 50, 20)))
+    const service = new ExternalUsageService({
+      db: rows as never,
+      specs: () => [spec('claude-corp', 'corp-gateway')],
+      // payload 형식이 다르다 → map 이 null
+      sources: sourcePort((sourceId) => ({
+        ok: true,
+        sample: { sourceId, operation: '/api/usage', fetchedAt: 60, payload: 'not json' }
+      }))
+    })
+
+    const result = await service.refresh('claude-corp')
+
+    expect(result?.fetchedAt).toBe(50)
+    expect(service.entry('claude-corp', summary(), null).effectiveLimit.stale).toBe(true)
+  })
+
+  it('미인증(not_connected)은 오류가 아니라 stale baseline 이다', async () => {
+    const rows = db()
+    rows.rows.set('claude-corp', JSON.stringify(report('claude-corp', 50, 20)))
+    const logs: string[] = []
+    const service = new ExternalUsageService({
+      db: rows as never,
+      specs: () => [spec('claude-corp', 'corp-gateway')],
+      sources: sourcePort(() => ({
+        ok: false,
+        sourceId: 'corp-gateway',
+        operation: '/api/usage',
+        reason: 'not_connected'
+      })),
+      logger: (message) => void logs.push(message)
+    })
+
+    await expect(service.refresh('claude-corp')).resolves.toMatchObject({ fetchedAt: 50 })
+    expect(logs.some((m) => m.includes('invoke failed'))).toBe(true)
+  })
+
+  it('sources 미주입이면 항상 stale baseline 이다 — 조용한 성공을 만들지 않는다', async () => {
+    const rows = db()
+    rows.rows.set('claude-corp', JSON.stringify(report('claude-corp', 50, 20)))
+    const service = new ExternalUsageService({
+      db: rows as never,
+      specs: () => [spec('claude-corp', 'corp-gateway')]
+    })
+
+    await expect(service.refresh('claude-corp')).resolves.toMatchObject({ fetchedAt: 50 })
+    expect(service.entry('claude-corp', summary(), null).effectiveLimit.stale).toBe(true)
+  })
+
+  it('선언에 없는 providerKey 는 캐시만 돌려주고 호출하지 않는다', async () => {
+    const sources = sourcePort(() => ({
+      ok: false,
+      sourceId: 'x',
+      operation: '/api/usage',
+      reason: 'unknown_source'
+    }))
+    const service = new ExternalUsageService({ db: db() as never, specs: () => [], sources })
+
+    await expect(service.refresh('claude-anthropic')).resolves.toBeNull()
+    expect(sources.calls).toEqual([])
+  })
+
+  it('한 틱이 겹쳐도 in-flight 로 합쳐 원격 호출은 1회다', async () => {
+    const sources = sourcePort((sourceId) => ({
+      ok: true,
+      sample: { sourceId, operation: '/api/usage', fetchedAt: 1, payload: { used: 5 } }
+    }))
+    const service = new ExternalUsageService({
+      db: db() as never,
+      specs: () => [spec('claude-corp', 'corp-gateway')],
+      sources
+    })
+
+    await Promise.all([service.refreshAll(), service.refreshAll()])
+
+    expect(sources.calls).toEqual(['corp-gateway'])
+  })
+
+  it('선언한 providerKey 가 설정 열거에 없으면 경고를 남긴다 — 침묵 금지 (0183)', async () => {
+    const logs: { message: string; meta?: Record<string, unknown> }[] = []
+    const service = new ExternalUsageService({
+      db: db() as never,
+      specs: () => [spec('claude-typo', 'corp-gateway')],
+      sources: sourcePort((sourceId) => ({
+        ok: true,
+        sample: { sourceId, operation: '/api/usage', fetchedAt: 1, payload: { used: 5 } }
+      })),
+      logger: (message, meta) => void logs.push({ message, ...(meta ? { meta } : {}) })
+    })
+
+    // cron 이 넘기는 실제 열거에는 'claude-anthropic' 만 있다.
+    await service.refreshAll(['claude-anthropic'])
+
+    expect(logs.some((l) => l.meta?.providerKey === 'claude-typo')).toBe(true)
+  })
+
+  it('hasProvider 는 선언 여부를 그대로 반영한다', () => {
+    const service = new ExternalUsageService({
+      db: db() as never,
+      specs: () => [spec('claude-corp', 'corp-gateway')]
+    })
+    expect(service.hasProvider('claude-corp')).toBe(true)
+    expect(service.hasProvider('claude-anthropic')).toBe(false)
+  })
+
+  it('signal 을 전파한다 — 타임아웃이 호출을 끊을 수 있어야 한다', async () => {
+    const seen: (AbortSignal | undefined)[] = []
+    const service = new ExternalUsageService({
+      db: db() as never,
+      specs: () => [spec('claude-corp', 'corp-gateway')],
+      sources: {
+        list: () => [],
+        invoke: vi.fn(async (sourceId: string, _req, signal?: AbortSignal) => {
+          seen.push(signal)
+          return {
+            ok: true as const,
+            sample: { sourceId, operation: '/api/usage', fetchedAt: 1, payload: { used: 5 } }
+          }
+        })
+      }
+    })
+
+    await service.refresh('claude-corp')
+
+    expect(seen[0]).toBeInstanceOf(AbortSignal)
   })
 })

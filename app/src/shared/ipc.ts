@@ -241,22 +241,6 @@ export interface ExternalUsageReport {
   byModel?: UsageByModel[]
 }
 
-export interface UsageReportConfig {
-  endpoint: string
-  method?: 'GET' | 'POST'
-  headers?: Record<string, string>
-  body?: unknown
-  timeoutMs?: number
-  scope?: UsageReportScope
-  map: {
-    quotaLimitUsd?: string
-    quotaUsedUsd?: string
-    quotaRemainingUsd?: string
-    totalCostUsd?: string
-    asOf?: string
-  }
-}
-
 export interface EffectiveUsageLimitView {
   source: 'local' | 'external'
   usedUsd: number

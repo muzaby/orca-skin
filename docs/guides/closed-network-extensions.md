@@ -67,7 +67,7 @@ app/src/main/features/providers/declarations/
 
 | 세입자 | 파일 | 무엇인가 |
 |---|---|---|
-| LLM 설정·모델 해석 (구, 0017~) | `provider-registry.ts` · `claude-model-parser.ts` · `provider-settings.ts` · `engine-write.ts` · `static/` | `sources/settings/<adapter>/<provider>/` 트리 열거 · 정적 사용량 provider opt-in |
+| LLM 설정·모델 해석 (구, 0017~) | `provider-registry.ts` · `claude-model-parser.ts` · `provider-settings.ts` · `engine-write.ts` | `sources/settings/<adapter>/<provider>/` 트리 열거 |
 | **인증 provider 플랫폼 (0181)** | `auth/` · `gate/` · `llm/` · `service/` · `declarations/` · `platform.ts` | **이 가이드가 다루는 대상** |
 
 이 문서에서 "provider 를 추가한다" 는 **후자**를 뜻한다. 전자에 파일을 더하면 인증 경로에 닿지
@@ -479,24 +479,99 @@ import { createConfluenceToolServer } from '../service/confluence/tools'
 
 ---
 
-## 5-b. 레시피 E — 사용량 소스 추가 (`UsageSourcePort`)
+## 5-b. 레시피 E — 사용량 소스 (`Provider.usage`)
 
-인증이 필요한 사내 사용량 endpoint 를 도넛·설정 사용량 UI 에 잇는다. 인증은 provider 가 하고,
-정적 모듈은 **결과 표본을 자기 리포트로 옮기기만** 한다(raw credential 을 보지 않는다).
+사내 사용량 endpoint 를 도넛·설정 사용량 UI 에 잇는다. **선언 한 곳에서 끝난다**(0183 — 구
+`features/providers/static/modules/` 는 제거됐다).
 
-| # | 하는 일 | 파일 / 규칙 |
+### 단계
+
+| # | 하는 일 | 고치는 파일 / 규칙 |
 |---|---|---|
-| 1 | **`kind:'service'` provider 를 선언**한다 | `declarations/service.ts` — 컴포지션 루트가 `declarations('service')` 로 좁혀 주입하므로 **`kind:'gate'` provider 는 사용량 소스로 열거되지 않는다** |
-| 2 | 정적 모듈을 만든다 (`_example/provider-subscription.ts` 복사) | `features/providers/static/modules/<회사>/` |
-| 3 | `usage.subscription` 을 채운다 | `sourceId` 는 **optional** — 적으면 `Provider.id` 와 글자까지 같아야 하고, **생략하면 연결된 모든 source 의 표본을 받아** `map` 이 자기 것이 아닌 표본에 `null` 을 돌려주면 된다 |
-| 4 | `request.operation` = **origin 기준 상대 경로** | operation 레지스트리가 없다 — 경로 문자열이 곧 계약이다 |
-| 5 | 배럴에 한 줄 추가 | `static/modules/index.ts` |
-| 6 | `map(sample, ctx)` 로 회사 응답을 리포트로 바꾼다 | 형식이 안 맞으면 **`null`** — 프레임워크가 마지막 성공 값을 stale 로 유지한다 |
+| 1 | 사용량을 주는 provider 를 선언한다(`kind:'llm'` 게이트웨이 자신이거나 `kind:'service'` 포털) | `declarations/{llm,service}.ts` |
+| 2 | 그 선언에 `usage` 를 더한다 — **선언한 provider 가 곧 호출 대상**이다 | 같은 파일 |
+| 3 | `operation` 은 **origin 기준 상대 경로**. operation 레지스트리는 없다 | 같은 파일 |
+| 4 | `map(sample, ctx)` 로 회사 응답을 리포트로 바꾼다. 형식이 다르면 **`null`** | 같은 파일 |
+| 5 | 대상(`providerKey`)은 **`llm` 좌표에서 파생**된다. `kind:'service'` 로 선언하면 파생할 좌표가 없으므로 `usage.providerKey` 를 명시한다 | 같은 파일 |
 
-- **미인증은 오류가 아니다** — `not_connected` 로 돌아오고 구독 모듈은 stale 로 남는다
-  (부팅 직후·사내망 밖·로그아웃 후의 정상 상태).
-- 프레임워크가 이미 처리하는 것: 1분 주기 · 타임아웃 · 실패 시 마지막 성공 값 폴백 · SQLite 캐시 · UI 반영.
-- 세션 인증 SP 라면 §1.6 의 부팅 등록이 선행 조건이다.
+```ts
+// declarations/llm.ts — 게이트웨이가 자기 사용량을 주는 경우(가장 단순)
+{
+  id: 'corp-gateway',
+  label: '사내 게이트웨이',
+  kind: 'llm',
+  origin: 'https://gw.example.corp',
+  auth: [ /* apiKeySpec(...) 등 */ ],
+  llm: { adapter: 'claude', provider: 'corp', envKey: 'CORP_TOKEN' },
+  usage: {
+    // providerKey 생략 → `claude-corp` 로 파생(= sources/settings/claude/corp/)
+    operation: '/api/quota',
+    params: { scope: 'month' },
+    map: (sample, ctx) => {
+      const payload = sample.payload as { used_usd?: number; limit_usd?: number }
+      if (typeof payload?.used_usd !== 'number') return null   // 형식이 다르면 null
+      const usedUsd = payload.used_usd
+      const limitUsd = payload.limit_usd ?? null
+      return {
+        providerKey: ctx.providerKey,
+        fetchedAt: sample.fetchedAt,
+        source: 'external',
+        scope: 'organization',
+        quota: {
+          usedUsd,
+          limitUsd,
+          remainingUsd: limitUsd === null ? null : Math.max(0, limitUsd - usedUsd)
+        }
+      }
+    }
+  }
+}
+```
+
+### 필드별 의미 · 흔한 실수
+
+| 필드 | 의미 | 흔한 실수 |
+|---|---|---|
+| `operation` | origin 기준 상대 경로 | 절대 URL 을 적으면 정책이 `absolute_path` 로 거부한다 |
+| `params` | 쿼리로 실린다 | `operation` 에 직접 이으면 인코딩 규칙이 갈린다 |
+| `providerKey` | 리포트가 붙을 대상. 생략하면 `llm` 좌표에서 파생 | **`sources/settings/<adapter>/<provider>/` 디렉토리와 같아야 한다** — 다르면 부팅 로그가 지목한다(아래) |
+| `map` 의 반환 `null` | "내 것이 아니다/형식이 다르다" — **정상 경로** | 빈 리포트를 만들지 마라. `null` 이면 마지막 성공 값이 stale 로 유지된다 |
+
+- **`map` 은 raw credential 을 보지 않는다** — `ctx` 에 `fetch` 도 `secret` 도 없다. 인증·전송은
+  `ProviderApi` 가 하고 이 함수는 해석만 한다.
+- **`providerKey` 가 설정 디렉토리 열거에 없으면 경고가 뜬다** — `usage spec 의 providerKey 가
+  provider settings 열거에 없다`. 구 구조는 여기서 **아무 신호 없이** 사용량이 멈췄다.
+- **대상을 못 정하면**(`kind:'service'` + `providerKey` 생략) 그 선언은 제외되고
+  `usage.spec.no-provider-key` 로그가 남는다.
+
+---
+
+## 5-c. 주기 실행(cron) — 사용량은 언제 호출되나
+
+**cron 은 엔진이고 선언이 연료다.** 주기는 코어가 정하고, 무엇을 부를지는 선언만 안다.
+
+```
+scheduler '* * * * *'  (app/bootstrap.ts — provider-usage-report-refresh)
+  └─ refreshAll(providerKeys)        ← providerKeys = sources/settings/ 디렉토리 열거
+       └─ 선언된 usage spec 과 교집합  ← 어긋난 키는 **경고 로그**
+            └─ refresh(providerKey)  ← providerKey 단위 in-flight 병합
+                 └─ ProviderApi.request(선언 주체, operation)   ← 5초 타임아웃
+                      └─ map(sample) → 리포트 → SQLite 영속 → UI
+```
+
+| 항목 | 값 | 정본 |
+|---|---|---|
+| 주기 | **1분**(`* * * * *`) | `app/bootstrap.ts` (사용자 결정 2026-08-05, 구 `*/5`) |
+| 타임아웃 | 5초 | `external-usage-service.ts` |
+| 중복 방지 | providerKey 단위 **in-flight 병합** — 틱이 겹쳐도 원격 호출은 1회 | 같은 파일 |
+| 실패 시 | 마지막 성공 리포트를 **stale** 로 유지(빈 값으로 덮지 않는다) | 같은 파일 |
+| 미인증 | `not_connected` — **오류가 아니다**(부팅 직후·사내망 밖·로그아웃 후) | `app/usage-source.ts` |
+
+- **앱이 떠 있을 때만 발화한다** — croner 는 in-app 스케줄러다(0091). 종료 중에는 `Scheduler.stopAll()`
+  이 `closeDb` 보다 먼저 돈다.
+- 주기를 바꾸려면 `bootstrap` 의 cron 식을 고친다. **선언에는 주기를 두지 않는다** — 배포마다
+  주기가 갈리면 원격 부하를 예측할 수 없다.
+- 수동 갱신 경로는 IPC `orca:cost:refreshProviderUsage`(설정 화면의 새로고침)다.
 
 ---
 
