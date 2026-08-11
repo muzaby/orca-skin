@@ -7,8 +7,6 @@ import type {
   MessagePartInsert,
   ProjectInsert,
   ProjectRow,
-  ProviderUsageReportCacheRow,
-  ProviderUsageReportCacheUpsert,
   ScheduleRunFinish,
   ScheduleRunRow,
   ScheduleRunStartedInsert,
@@ -68,8 +66,6 @@ export class DbQueries {
   private sumUsageByModelSinceStmt?: Database.Statement
   private readonly getProviderLimitStmt: Database.Statement
   private readonly setProviderLimitStmt: Database.Statement
-  private readonly getProviderUsageReportStmt: Database.Statement
-  private readonly upsertProviderUsageReportStmt: Database.Statement
   // 사용자가 명시적으로 rename — 기존 title 이 있어도 덮어쓴다.
   // updateSessionTitleStmt 는 첫 init 시점 채우기 용도 (WHERE title IS NULL).
   private readonly renameSessionStmt: Database.Statement
@@ -317,30 +313,6 @@ export class DbQueries {
       INSERT INTO provider_limits (provider_key, limit_usd, updated_at)
       VALUES (@providerKey, @limitUsd, @updatedAt)
       ON CONFLICT(provider_key) DO UPDATE SET limit_usd = @limitUsd, updated_at = @updatedAt
-    `)
-    this.getProviderUsageReportStmt = db.prepare(`
-      SELECT provider_key, report_json, fetched_at, as_of, quota_limit_usd, quota_used_usd,
-             quota_remaining_usd, updated_at
-      FROM provider_usage_report_cache
-      WHERE provider_key = @providerKey
-    `)
-    this.upsertProviderUsageReportStmt = db.prepare(`
-      INSERT INTO provider_usage_report_cache (
-        provider_key, report_json, fetched_at, as_of, quota_limit_usd, quota_used_usd,
-        quota_remaining_usd, updated_at
-      )
-      VALUES (
-        @providerKey, @reportJson, @fetchedAt, @asOf, @quotaLimitUsd, @quotaUsedUsd,
-        @quotaRemainingUsd, @updatedAt
-      )
-      ON CONFLICT(provider_key) DO UPDATE SET
-        report_json = @reportJson,
-        fetched_at = @fetchedAt,
-        as_of = @asOf,
-        quota_limit_usd = @quotaLimitUsd,
-        quota_used_usd = @quotaUsedUsd,
-        quota_remaining_usd = @quotaRemainingUsd,
-        updated_at = @updatedAt
     `)
     this.renameSessionStmt = db.prepare(`
       UPDATE sessions
@@ -717,17 +689,6 @@ export class DbQueries {
 
   setProviderLimit(providerKey: string, limitUsd: number | null, updatedAt: number): void {
     this.setProviderLimitStmt.run({ providerKey, limitUsd, updatedAt })
-  }
-
-  getProviderUsageReport(providerKey: string): ProviderUsageReportCacheRow | null {
-    return (
-      (this.getProviderUsageReportStmt.get({ providerKey }) as
-        ProviderUsageReportCacheRow | undefined) ?? null
-    )
-  }
-
-  upsertProviderUsageReport(row: ProviderUsageReportCacheUpsert): void {
-    this.upsertProviderUsageReportStmt.run(row)
   }
 
   renameSession(id: string, title: string, updatedAt: number): void {

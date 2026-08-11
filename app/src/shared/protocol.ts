@@ -258,10 +258,6 @@ export const ProviderSummariesRequestSchema = z.object({
   providerKeys: z.array(z.string().min(1)).max(100)
 })
 
-export const RefreshProviderUsageReportSchema = z.object({
-  providerKey: z.string().min(1)
-})
-
 // ── Provider 플랫폼 (0181) ────────────────────────────────────────────────────
 // 입력 레코드 상한(키 64자·값 4096자·32쌍)은 구 `AuthContinueRequestSchema` 의 값을 잇는다 —
 // 인증 필드는 사람이 손으로 채우는 값이라 이보다 크면 붙여넣기 사고이거나 공격이다.

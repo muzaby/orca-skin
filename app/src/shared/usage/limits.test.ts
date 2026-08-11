@@ -71,66 +71,26 @@ describe('computeUsageLimits', () => {
     expect(aug.week.budget).toBeCloseTo((90 * 2) / 31, 5)
   })
 
-  it('computeProviderUsageLimits — external·fresh 면 월=권위 M, 주/일을 M/로컬월 배 스케일(0111)', () => {
-    const entry = (effectiveLimit: ProviderUsageEntry['effectiveLimit']): ProviderUsageEntry => ({
-      providerKey: 'claude-anthropic',
-      summary: summary(0, 8, 30),
-      limitUsd: 90,
-      effectiveLimit
-    })
-    const external = computeProviderUsageLimits(
-      entry({ source: 'external', usedUsd: 45, limitUsd: 90, remainingUsd: 45 }),
-      JUL_15_WED
-    )
-    // 로컬월=30, 외부월=45 → scale=1.5 → 주간 used = 8×1.5 = 12.
-    expect(external.month.used).toBe(45)
-    expect(external.month.pct).toBeCloseTo(45 / 90, 5)
-    expect(external.week.used).toBeCloseTo(12, 5)
-    expect(external.week.used).toBeLessThanOrEqual(external.month.used) // 정합 보존
-
-    const local = computeProviderUsageLimits(
-      entry({ source: 'local', usedUsd: 30, limitUsd: 90, remainingUsd: 60 }),
-      JUL_15_WED
-    )
-    expect(local.month.used).toBe(30)
-    expect(local.week.used).toBe(8) // 로컬 경로는 스케일 없음
-    expect(local).toEqual(computeUsageLimits(summary(0, 8, 30), 90, JUL_15_WED))
-  })
-
-  it('computeProviderUsageLimits — external·fresh 로컬월≈0 폴백: 외부 사용을 경과일 균등 분배', () => {
+  it('computeProviderUsageLimits — 로컬 summary·월 한도로 파생한다 (0183 r2)', () => {
     const entry: ProviderUsageEntry = {
       providerKey: 'claude-anthropic',
-      summary: summary(0, 0, 0),
-      limitUsd: 90,
-      effectiveLimit: { source: 'external', usedUsd: 30, limitUsd: 90, remainingUsd: 60 }
+      summary: summary(0, 8, 30),
+      limitUsd: 90
     }
-    // 7/15: 경과일=15, perDay=30/15=2; 이번 주 경과일(7/13~7/15)=3 → 주간=6, 일간=2.
-    const v = computeProviderUsageLimits(entry, JUL_15_WED)
-    expect(v.month.used).toBe(30)
-    expect(v.week.used).toBeCloseTo(6, 5)
-    expect(v.week.used).toBeLessThanOrEqual(v.month.used)
+    // 외부 리포트 경로가 사라져 파생은 computeUsageLimits 와 완전히 같다.
+    expect(computeProviderUsageLimits(entry, JUL_15_WED)).toEqual(
+      computeUsageLimits(summary(0, 8, 30), 90, JUL_15_WED)
+    )
   })
 
-  it('computeProviderUsageLimits — external·stale: 월=max(baseline,로컬월), 주/일=로컬 원값(0111)', () => {
-    const mk = (localMonth: number, weekUsed: number): ProviderUsageEntry => ({
+  it('computeProviderUsageLimits — 한도 미설정이면 무제한 뷰가 된다', () => {
+    const entry: ProviderUsageEntry = {
       providerKey: 'claude-anthropic',
-      summary: summary(0, weekUsed, localMonth),
-      limitUsd: 90,
-      effectiveLimit: {
-        source: 'external',
-        usedUsd: 45,
-        limitUsd: 90,
-        remainingUsd: 45,
-        stale: true
-      }
-    })
-    // baseline(45) > 로컬월(30) → 월=45(floor 유지), 주간은 스케일 없이 로컬 8 그대로.
-    const held = computeProviderUsageLimits(mk(30, 8), JUL_15_WED)
-    expect(held.month.used).toBe(45)
-    expect(held.week.used).toBe(8)
-    // 로컬월(60) > baseline(45) → 로컬 채택.
-    const grown = computeProviderUsageLimits(mk(60, 8), JUL_15_WED)
-    expect(grown.month.used).toBe(60)
-    expect(grown.week.used).toBe(8)
+      summary: summary(0, 8, 30),
+      limitUsd: null
+    }
+    const v = computeProviderUsageLimits(entry, JUL_15_WED)
+    expect(v.month).toMatchObject({ used: 30, budget: null, unlimited: true })
+    expect(v.week).toMatchObject({ used: 8, budget: null, unlimited: true })
   })
 })

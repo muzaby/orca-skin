@@ -48,24 +48,18 @@ export function useProviderUsage(): ProviderUsageController {
     }
   }, [fetchEntries, keys])
 
+  // 동기화 버튼 — 0183 r2 이전에는 provider 마다 외부 리포트를 새로 받아왔으나, 원격 사용량
+  // 경로가 사라져 **재조회 한 경로**로 접혔다(`providerSummaries` 가 매번 DB 를 다시 집계한다).
   const refresh = useCallback(() => {
     void (async () => {
       setRefreshing(true)
       try {
-        const providerKeys = keys ? keys.split(' ') : []
-        if (providerKeys.length > 0) {
-          const refreshed = await Promise.all(
-            providerKeys.map((key) => costApi.refreshProviderUsageReport(key))
-          )
-          setEntries(Object.fromEntries(refreshed.map((e) => [e.providerKey, e])))
-        } else {
-          setEntries(await fetchEntries())
-        }
+        setEntries(await fetchEntries())
       } finally {
         setRefreshing(false)
       }
     })()
-  }, [fetchEntries, keys])
+  }, [fetchEntries])
 
   const setLimit = useCallback(async (key: string, limitUsd: number | null): Promise<void> => {
     const updated = await costApi.setProviderLimit(key, limitUsd)

@@ -33,7 +33,6 @@ import { ExtensionDeploymentService } from '../features/extensions/extension-dep
 import { toClaudeConfig } from '../features/extensions/mcp/convert'
 import { scaffoldProviderSettings } from '../features/extensions/scaffold'
 import { ProviderSettingsService } from '../features/providers/provider-settings'
-import { ExternalUsageService } from '../features/usage/external-usage-service'
 import { netFetch } from '../infra/net/net-fetch'
 import { loadClaudeProviderSettings, readUserClaudeSettings } from '../adapters/claude-settings'
 import { scanSkills, type SkillScanRoot } from '../features/extensions/skills/scan'
@@ -86,9 +85,6 @@ import { ServiceToolRegistrar } from '../features/providers/service'
 import { createNoopUpdater, loadElectronAutoUpdater, UpdateController } from './updater'
 import { registerChatHandlers } from './chat-turn'
 import { createBootReportRecorder } from './boot-report'
-import { createUsageSourcePort } from './usage-source'
-import { usageSpecs } from '../features/providers/usage-specs'
-import type { UsageSpecEntry } from '../features/usage/external-usage-service'
 import { RuntimeSupervisor } from '../features/sessions/supervisor'
 import { BoundedRuntimeCapPolicy } from '../features/sessions/runtime-cap-policy'
 import { PendingMessageQueue } from '../features/chat/pending-message-queue'
@@ -486,36 +482,6 @@ export class Bootstrap {
       this.deployExtensions()
     )
     providerSettings.invalidateAll()
-    // 0183 — 사용량 선언은 `Provider.usage` 하나다(구 `static/modules/`). 선언한 provider 가
-    // 곧 호출 대상이라 `sourceId` 조인이 없고, 배포가 고치는 파일도 `declarations/` 로 모인다.
-    const usageLog = getLogger().child('usage')
-    const declaredUsage = usageSpecs(
-      providers.declarations('llm').concat(providers.declarations('service'))
-    )
-    for (const rejection of declaredUsage.rejected) {
-      usageLog.warn('usage.spec.no-provider-key', { providerId: rejection.providerId })
-    }
-    const externalUsage = new ExternalUsageService({
-      db,
-      specs: (): readonly UsageSpecEntry[] => declaredUsage.entries,
-      // 0181 — 인증된 사용량 표본 경로. 미인증 provider 는 `not_connected` 로 돌아오고(정상 상태)
-      // baseline 이 stale 로 남는다.
-      sources: createUsageSourcePort({
-        providers: () => providers.declarations('service').concat(providers.declarations('llm')),
-        status: (providerId) => providers.status(providerId),
-        api: providers.api
-      })
-    })
-    scheduler.register('provider-usage-report-refresh', async () => {
-      const providerKeys = providerSettings
-        .adapters()
-        .flatMap((adapter) => providerSettings.list(adapter).map((entry) => entry.key))
-      await externalUsage.refreshAll(providerKeys)
-    })
-    // 1분 주기 (사용자 결정 2026-08-05, 구 `*/5`). 한 틱이 겹쳐도 원격 호출은 늘지 않는다 —
-    // providerKey 단위 in-flight 병합 + 표본 단위 dedupe(0176)가 중복 호출을 접고, 각 호출은
-    // 5초 타임아웃을 건다.
-    scheduler.schedule('provider-usage-report-refresh', { enabled: true, cron: '* * * * *' })
     // ClaudeAdapter 가 사용하는 cwd 와 동일한 값으로 스킬 스캔.
     await this.bootReport.step('skill-scan', { critical: false, label: '스킬 스캔' }, () =>
       this.refreshSkills()
@@ -540,7 +506,6 @@ export class Bootstrap {
       mockAdapter: import.meta.env.DEV ? new MockAdapter(() => this.debugMock) : null,
       updates: this.createUpdateController(),
       scheduler,
-      externalUsage,
       runtimeTools,
       providers
     }
