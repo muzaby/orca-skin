@@ -137,7 +137,7 @@ type Grant =
 
 > ⚠️ **`features/providers/` 에는 세입자가 둘이다.** 아래 트리에 적힌 것(0181 인증 플랫폼) 옆에
 > 구 LLM 설정 슬라이스(`provider-registry.ts`·`claude-model-parser.ts`·`provider-settings.ts`·
-> `engine-write.ts`·`static/` — `sources/settings/<adapter>/<provider>/` 열거와 정적 사용량
+> `engine-write.ts` — `sources/settings/<adapter>/<provider>/` 열거와 모델 해석
 > provider)가 **그대로 공존**한다. 0181 은 새 슬라이스를 만들지 않고 이 디렉토리 안에 세웠다.
 > 이름만 같고 서로 import 하지 않는다 — 파일을 더할 때 어느 쪽인지 먼저 가른다.
 
