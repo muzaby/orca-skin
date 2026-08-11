@@ -304,3 +304,173 @@ describe('ProviderStore — 인증 확인은 실행 수명이다', () => {
     expect(store.isVerified('sso')).toBe(false)
   })
 })
+
+// ── 자동 로그인 (resume) ─────────────────────────────────────────────────────
+//
+// 재시작하면 게이트는 닫혀 있고, `resume()` 이 복원된 세션 쿠키가 아직 유효한지 probe 로 한 번
+// 확인한다. 2xx(+origin 복귀)면 사용자가 아무것도 하지 않고 통과하고, 아니면 로그인 화면에
+// 남는다. 값형은 왕복 없이 로컬 근거(vault+만료)로 판정한다.
+describe('LoginService — 자동 로그인(resume)', () => {
+  const SSO_GRANT = {
+    kind: 'session',
+    sessionGroup: 'corp',
+    authKind: 'browser-session',
+    createdAt: 0
+  } as const
+
+  function ssoProvider(): Provider {
+    return {
+      id: 'sso',
+      label: '사내 로그인',
+      kind: 'gate',
+      origin: 'https://portal.example.corp',
+      auth: [
+        {
+          kind: 'browser-session',
+          label: '통합 인증',
+          config: {
+            sessionGroup: 'corp',
+            loginUrl: 'https://adfs.example.corp/adfs/ls/',
+            doneUrlPrefix: 'https://portal.example.corp/home',
+            authenticationProbeUrl: 'https://portal.example.corp/api/me',
+            allowedOrigins: ['https://adfs.example.corp', 'https://portal.example.corp']
+          }
+        }
+      ]
+    }
+  }
+
+  // 재시작 시뮬레이션 — 디스크에 세션 grant 가 남은 채로 새 store 를 세운다.
+  function restarted(probeOk: boolean): {
+    login: LoginService
+    store: ProviderStore
+    steps: string[]
+    // 함수로 돌려준다 — 숫자로 담으면 반환 시점(0)이 복사돼 증가가 보이지 않는다.
+    calls: () => number
+  } {
+    const registry = new ProviderRegistry([ssoProvider()])
+    const store = new ProviderStore({
+      persistence: createMemoryGrantPersistence({ sso: { ...SSO_GRANT } }),
+      vault: createVault(fakeSecretStore()),
+      clock: () => 10_000
+    })
+    store.restore(registry.list().map((p) => p.id))
+    const steps: string[] = []
+    let calls = 0
+    const login = new LoginService({
+      registry,
+      store,
+      vault: createVault(fakeSecretStore()),
+      clock: () => 10_000,
+      session: {
+        login: () => Promise.reject(new Error('자동 로그인은 창을 열지 않는다')),
+        verify: () => {
+          calls += 1
+          return Promise.resolve(probeOk)
+        }
+      },
+      onChange: () => steps.push(login.currentStep()?.kind ?? 'none')
+    })
+    return { login, store, steps, calls: () => calls }
+  }
+
+  it('복원된 세션 grant 는 확인 전까지 게이트를 열지 않는다', () => {
+    const h = restarted(true)
+    // 기록은 살아 있다 — 예전에는 이것만 보고 통과시켰다.
+    expect(h.store.status('sso')).toBe('valid')
+    expect(h.store.isVerified('sso')).toBe(false)
+  })
+
+  it('probe 가 2xx 면 창 없이 자동 로그인으로 통과한다', async () => {
+    const h = restarted(true)
+    await h.login.resume()
+    expect(h.calls()).toBe(1)
+    expect(h.store.isVerified('sso')).toBe(true)
+    expect(h.store.status('sso')).toBe('valid')
+    // 확인 중에는 로그인 화면에 `resuming` 이 뜨고, 끝나면 걷힌다.
+    expect(h.steps).toEqual(['resuming', 'none'])
+    expect(h.login.currentStep()).toBeNull()
+  })
+
+  it('probe 가 실패하면 강등하고 로그인 화면에 남는다', async () => {
+    const h = restarted(false)
+    await h.login.resume()
+    expect(h.store.isVerified('sso')).toBe(false)
+    expect(h.store.status('sso')).toBe('expired')
+    // grant 는 남긴다 — 화면에 재인증 지점이 보여야 한다.
+    expect(h.store.get('sso')).toBeDefined()
+  })
+
+  it('세션 실행기가 없으면 통과시키지 않는다 (fail-closed)', async () => {
+    const registry = new ProviderRegistry([ssoProvider()])
+    const store = new ProviderStore({
+      persistence: createMemoryGrantPersistence({ sso: { ...SSO_GRANT } }),
+      vault: createVault(fakeSecretStore())
+    })
+    store.restore(['sso'])
+    const login = new LoginService({ registry, store, vault: createVault(fakeSecretStore()) })
+    await login.resume()
+    expect(store.isVerified('sso')).toBe(false)
+  })
+
+  it('grant 가 없으면 probe 를 치지 않는다 — 처음부터 수동 로그인이다', async () => {
+    const registry = new ProviderRegistry([ssoProvider()])
+    const store = new ProviderStore({
+      persistence: createMemoryGrantPersistence(),
+      vault: createVault(fakeSecretStore())
+    })
+    store.restore(['sso'])
+    let calls = 0
+    const login = new LoginService({
+      registry,
+      store,
+      vault: createVault(fakeSecretStore()),
+      session: {
+        login: () => Promise.reject(new Error('unused')),
+        verify: () => {
+          calls += 1
+          return Promise.resolve(true)
+        }
+      }
+    })
+    await login.resume()
+    expect(calls).toBe(0)
+    expect(store.isVerified('sso')).toBe(false)
+  })
+
+  // 값형 게이트는 값이 vault 에 있는 것 자체가 근거다 — probe 를 물리면 재시작마다 키를
+  // 다시 입력하게 된다.
+  it('값형 게이트는 왕복 없이 로컬 근거로 통과한다', async () => {
+    const secrets = fakeSecretStore()
+    const vault = createVault(secrets)
+    const gate: Provider = {
+      id: 'key-gate',
+      label: '키 게이트',
+      kind: 'gate',
+      origin: 'https://gw.example.corp',
+      auth: [apiKeySpec({ label: 'API 키', fieldLabel: 'API 키', present: BEARER })]
+    }
+    const persistence = createMemoryGrantPersistence()
+    const registry = new ProviderRegistry([gate])
+    const first = new LoginService({
+      registry,
+      store: (() => {
+        const s = new ProviderStore({ persistence, vault, clock: () => 1_000 })
+        s.restore(['key-gate'])
+        return s
+      })(),
+      vault,
+      clock: () => 1_000
+    })
+    await first.begin('key-gate', 'api-key', { [FIELD_SECRET]: 'k' })
+
+    // 재시작 — 같은 영속·vault 위에 새 store.
+    const store = new ProviderStore({ persistence, vault, clock: () => 1_000 })
+    store.restore(['key-gate'])
+    expect(store.isVerified('key-gate')).toBe(false)
+
+    const login = new LoginService({ registry, store, vault, clock: () => 1_000 })
+    await login.resume()
+    expect(store.isVerified('key-gate')).toBe(true)
+  })
+})

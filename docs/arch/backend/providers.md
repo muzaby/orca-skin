@@ -446,18 +446,40 @@ providerId 는 그 뒤로 영구히 게이트를 통과했다 — 쿠키가 죽�
 | `status` | 이 provider 의 **기록**이 어떤 상태인가 (`none`/`valid`/`expired`/`unknown`) | 디스크(재시작 넘어감) |
 | `verified` | **이번 실행에서 실제로 로그인을 거쳤는가** | 메모리 (`ProviderStore` 의 `Set`) — **절대 영속하지 않는다** |
 
-`verified` 는 `store.put()`(= 로그인 성공) 에서만 참이 되고, `revoke()`·`markExpired()`(401 강등)
-에서 풀린다. 복원(`restore()`)은 참으로 만들지 않는다.
+복원(`restore()`)은 `verified` 를 참으로 만들지 않고, `revoke()`·`markExpired()`(401 강등)는 푼다.
+참이 되는 경로는 둘뿐이다:
 
-**자동 로그인에 별도 배관은 없다 — 기존 로그인 흐름이 그 자체로 자동 로그인이다.** 앱을 다시
-켜면 게이트가 닫혀 있으므로 사용자는 로그인 화면을 보고, 로그인을 누르면 `SessionRunner.login()`
-이 브라우저 창을 연다. 쿠키(또는 통합 인증)가 살아 있으면 IdP 가 폼을 그리지 않고 곧장
-`doneUrlPrefix` 로 보내므로 **창이 열리자마자 성공으로 닫힌다** — 이것이 자동 로그인이다.
-살아 있지 않으면 같은 창에서 정상적으로 로그인하면 된다. 두 경우 모두 **로그인 화면 위에서**
-끝나므로, 화면을 건너뛰었다가 되돌아오는 상태가 존재하지 않는다.
+1. **방금 로그인에 성공** — `store.put()` 이 곧 확인이다.
+2. **부팅 자동 로그인** — `LoginService.resume()` 이 1회 돈다(아래).
 
-> ⚠️ 여기에 "복원된 grant 를 부팅 때 probe 로 확인" 같은 별도 검증 경로를 만들지 마라 —
-> 로그인 창이 이미 같은 판정을 하고, 두 벌이 되면 규칙이 갈린다(사용자 결정 2026-08-11).
+#### 자동 로그인 (`LoginService.resume`)
+
+`persist:auth.<group>` 파티션은 **만료가 있는 쿠키를 Chromium 이 디스크에서 자동 복원**한다
+(앱이 따로 넣어 줄 것이 없다 — 쿠키 API 를 쓰는 곳이 `clear` 하나뿐인 이유). 그래서 재시작
+직후 그 쿠키가 아직 유효한지 **한 번 물어보면** 사용자는 아무것도 하지 않고 통과할 수 있다.
+
+확인 방법은 **그 방식의 자격증명이 어디 사는가**를 따른다:
+
+| grant | 확인 | 근거 |
+|---|---|---|
+| `session` | `SessionRunner.verify()` — **창을 열지 않고** `authenticationProbeUrl` probe | 값이 앱에 없다(쿠키는 Chromium 파티션). 물어봐야만 안다 |
+| `token` | `status === 'valid'`(만료 이전) | 값이 vault 에 있고 만료를 안다 — 왕복 불필요 |
+| `secret` | `status === 'valid'`(vault 에서 읽힘) | 위와 같음. probe 를 물리면 재시작마다 키를 다시 입력하게 된다 |
+
+**판정은 probe 다.** `classifyProbeChain` 이 `2xx && 최종 URL 이 probe origin 으로 복귀` 를 요구하므로
+ADFS 로그인 폼의 200 을 인증됨으로 오독하지 않는다(0174). `whoami` 는 쓰지 않는다 — 그쪽은 설계상
+판정용이 아니고("조회 실패는 로그인 실패가 아니다"), principal 은 로그인 때 이미 grant 에 실렸다.
+
+**게이트가 닫힌 채로 돈다** — 사용자는 로그인 화면을 보고 있고 `ProviderStepInfo{kind:'resuming'}`
+이 진행을 알린다. 성공하면 화면이 넘어가고, 실패하면 `markExpired()` 로 강등한 뒤 그 자리에서
+수동 로그인 버튼이 살아난다. 화면을 건너뛰었다가 되돌아오는 상태가 없다. 컴포지션 루트는
+`void providers.resume()` 로 **await 하지 않는다**(probe 는 네트워크 왕복이라 부팅을 붙들면 안 된다).
+
+> **만료 없는 세션 쿠키는 애초에 디스크에 없다** — `persist:` 는 만료가 있는 쿠키만 파일에 쓴다.
+> ADFS 가 KMSI 없이 세션 쿠키만 내리는 배포라면 probe 는 항상 실패하고 매번 수동 로그인이 된다.
+> `providers.session.resume.probed{ok,status}` 로그가 어느 쪽인지 말해 준다. 그 경우 종료 시
+> 쿠키를 떠서 저장했다가 되넣는 방법이 있으나, IdP 가 의도적으로 휘발시킨 인증 쿠키를 디스크에
+> 적는 것이라 [`security.md §1.4-b`](./security.md) 노출 경계표에 새 항목이 생긴다 — **미결정**.
 
 로그인 화면은 `app/GateFrame.tsx`(셸) + `features/providers/components/GateLogin.tsx`(랜딩 —
 Orca 제목·오르카 이미지·입력 카드·검정 로그인 버튼)이다. 구 `LoginFrame`+`AuthView` 를 provider

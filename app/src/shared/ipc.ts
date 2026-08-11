@@ -1280,6 +1280,9 @@ export type ProviderStepInfo =
     }
   // OAuth `redirect:'manual'` — 사용자가 브라우저에서 받은 code 를 붙여 넣는다.
   | { kind: 'code-required'; providerId: string; authKind: ProviderAuthKind; url: string }
+  // 부팅 자동 로그인 진행 중 — 복원된 세션 쿠키가 아직 유효한지 probe 로 확인하고 있다.
+  // **로그인 화면 위에서** 표시된다(게이트는 확인이 끝날 때까지 닫혀 있다).
+  | { kind: 'resuming'; providerId: string }
   | { kind: 'done'; providerId: string }
   | { kind: 'failed'; providerId: string; reason: ProviderFailureReason; message: string }
 

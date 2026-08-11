@@ -86,6 +86,7 @@ export const ko = {
     subtitle: '계속하려면 사내 계정으로 로그인하세요.',
     signIn: '로그인',
     signingIn: '로그인 중…',
+    resuming: '기존 세션으로 자동 로그인하는 중…',
     chainProgress: '{{total}}단계 중 {{index}}단계 · {{label}}',
     noProviders:
       '이 빌드에는 로그인 대상이 선언되지 않았습니다. 디버그 패널의 우회 토글로 넘어가세요.',

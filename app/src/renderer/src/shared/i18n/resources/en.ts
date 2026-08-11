@@ -88,6 +88,7 @@ export const en: typeof ko = {
     subtitle: 'Sign in with your corporate account to continue.',
     signIn: 'Sign in',
     signingIn: 'Signing in…',
+    resuming: 'Signing in automatically with the existing session…',
     chainProgress: 'Step {{index}} of {{total}} · {{label}}',
     noProviders:
       'No sign-in target is declared in this build. Use the bypass toggle in the debug panel.',
