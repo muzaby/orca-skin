@@ -61,11 +61,17 @@ export class OAuthRunner implements OAuthAuthenticator {
     let pkce: PkcePair | null = null
     let state: string | null = null
     let redirectUri: string | undefined
+    // 선언이 state 를 **가져갔는가** = authorize URL 에 실었는가. 값의 출처가 `ctx.state()`
+    // 하나뿐이라 이 호출이 곧 전송 여부다(`absorbCallback` 의 대조 분기 근거).
+    let stateSent = false
 
     const ctx: AuthCtx = {
       providerId: provider.id,
       pkce: () => (pkce ??= createPkce()),
-      state: () => (state ??= createState()),
+      state: () => {
+        stateSent = true
+        return (state ??= createState())
+      },
       loopbackRedirectUri: (port) => (redirectUri = loopbackRedirectUri(port))
     }
 
@@ -77,11 +83,17 @@ export class OAuthRunner implements OAuthAuthenticator {
     }
 
     // 선언이 ctx 를 안 불렀어도 코어가 채운다 — PKCE 없는 요청이 나가지 않게 한다.
+    //
+    // **두 폴백의 의미는 다르다.** challenge 는 코어가 채우면 authorize URL 에 실리지 않아도
+    // 교환 요청의 verifier 로 살아 있지만, `state` 는 URL 을 **선언이 만들기** 때문에 코어가
+    // 채워도 인가 요청에 실리지 않는다. 여기서 채우는 state 는 원장 키일 뿐이고, 실제 전송
+    // 여부는 `stateSent` 가 말한다.
     pkce ??= createPkce()
     state ??= createState()
     const pending = this.deps.states.issue({
       providerId: provider.id,
       state,
+      stateSent,
       verifier: pkce.verifier,
       ...(redirectUri !== undefined ? { redirectUri } : {})
     })
@@ -160,14 +172,27 @@ export class OAuthRunner implements OAuthAuthenticator {
     if (parsed.kind === 'unrelated') {
       return failure('exchange_failed', '콜백에 인가 코드가 없습니다')
     }
-    // state 불일치는 **거부**한다 — 다른 곳에서 시작된 인가를 이 앱의 세션으로 접붙이려는
-    // 시도(CSRF)이기 때문이다. pending 은 남겨 두지 않는다.
-    if (parsed.state === null || !statesMatch(pending.state, parsed.state)) {
-      this.deps.states.consume({ state: pending.state, providerId: provider.id })
-      this.deps.logger?.('providers.oauth.state.mismatch', { providerId: provider.id })
-      return failure('state_mismatch', '인증 응답의 state 가 일치하지 않습니다')
+    // 대조는 **우리가 state 를 보냈을 때만** 성립한다. `state` 를 명세에 두지 않은 SP 를 상대하는
+    // 선언은 `ctx.state()` 를 부르지 않고, 그러면 인가 요청에 state 가 실리지 않아 돌아올 것도
+    // 없다 — 그때 없는 state 를 요구하면 그 SP 로는 영원히 로그인할 수 없다. 그 경우의 CSRF
+    // 방어는 manual 분기와 같다: "사용자가 방금 이 provider 의 인증을 시작했다" 는 사실 자체가
+    // 담당한다(`oauth.ts` 의 `consume` 주석).
+    if (pending.stateSent ?? true) {
+      // 보냈으면 돌아와야 한다. 없거나 다르면 **거부**한다 — 다른 곳에서 시작된 인가를 이 앱의
+      // 세션으로 접붙이려는 시도(CSRF)이기 때문이다. pending 은 남겨 두지 않는다.
+      if (parsed.state === null || !statesMatch(pending.state, parsed.state)) {
+        this.deps.states.consume({ state: pending.state, providerId: provider.id })
+        this.deps.logger?.('providers.oauth.state.mismatch', { providerId: provider.id })
+        return failure('state_mismatch', '인증 응답의 state 가 일치하지 않습니다')
+      }
+    } else if (parsed.state !== null) {
+      // 보낸 적 없는 값이 돌아왔다. 대조할 기준이 없으므로 판정에 쓰지 않고 기록만 한다 —
+      // 선언이 state 를 실어야 하는데 빠뜨렸을 가능성을 운영자가 볼 수 있게.
+      this.deps.logger?.('providers.oauth.state.unsolicited', { providerId: provider.id })
     }
-    const consumed = this.deps.states.consume({ state: parsed.state, providerId: provider.id })
+    // 발급한 레코드를 정확히 지운다. 대조를 통과했다면 `parsed.state` 와 같은 값이고, 대조를
+    // 건너뛴 경로에서는 이것만이 우리가 아는 키다.
+    const consumed = this.deps.states.consume({ state: pending.state, providerId: provider.id })
     if (!consumed) return failure('state_mismatch', '인증 요청을 찾을 수 없습니다')
     return this.exchangeStart(provider, start, parsed.code, consumed)
   }

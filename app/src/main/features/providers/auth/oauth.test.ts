@@ -32,6 +32,8 @@ function oauthSpec(
     redirect?: OAuthStart['redirect']
     exchange?: (code: string, verifier: string) => Promise<{ token: string }>
     seen?: { challenge?: string; state?: string; redirectUri?: string }
+    // 명세에 `state` 가 없는 SP 를 상대하는 선언 — `ctx.state()` 를 부르지 않고 URL 에도 안 싣는다.
+    omitState?: boolean
   } = {}
 ): OAuthSpec {
   return {
@@ -40,17 +42,17 @@ function oauthSpec(
     present: { location: 'header', name: 'Authorization', scheme: 'bearer' },
     authorize: async (ctx) => {
       const pkce = ctx.pkce()
-      const state = ctx.state()
+      const state = options.omitState ? null : ctx.state()
       const redirectUri = ctx.loopbackRedirectUri(0)
       if (options.seen) {
         options.seen.challenge = pkce.challenge
-        options.seen.state = state
+        if (state !== null) options.seen.state = state
         options.seen.redirectUri = redirectUri
       }
       const url = new URL('https://gw.example.corp/oauth/authorize')
       url.searchParams.set('code_challenge', pkce.challenge)
       url.searchParams.set('code_challenge_method', pkce.method)
-      url.searchParams.set('state', state)
+      if (state !== null) url.searchParams.set('state', state)
       return {
         url: url.toString(),
         redirect: options.redirect ?? { kind: 'manual' },
@@ -129,7 +131,7 @@ describe('state 대조 (AC3)', () => {
     expect(seen.state).toBeTruthy()
   })
 
-  it('state 가 아예 없는 콜백도 거부한다', async () => {
+  it('state 를 보냈는데 안 돌아온 콜백은 거부한다', async () => {
     const runner = new OAuthRunner({
       states: new OAuthStateStore(createMemoryOAuthStatePersistence()),
       openExternal: async () => undefined,
@@ -183,6 +185,65 @@ describe('state 대조 (AC3)', () => {
     expect(statesMatch('abc', 'abc')).toBe(true)
     expect(statesMatch('abc', 'abcd')).toBe(false)
     expect(statesMatch('abc', '')).toBe(false)
+  })
+})
+
+// 명세에 `state` 가 없는 SP — 선언이 `ctx.state()` 를 부르지 않아 인가 요청에 state 가 실리지
+// 않는다. 이때 콜백에 state 를 요구하면 그 SP 로는 영원히 로그인할 수 없다.
+describe('state 를 안 보낸 인가', () => {
+  const windowRedirect = { kind: 'window', isDone: () => true } as const
+
+  it('state 없는 콜백으로 교환까지 간다', async () => {
+    const states = new OAuthStateStore(createMemoryOAuthStatePersistence())
+    const exchange = vi.fn(async () => ({ token: 'ok' }))
+    const runner = new OAuthRunner({
+      states,
+      openExternal: async () => undefined,
+      window: { open: async () => 'https://gw.example.corp/cb?code=abc' }
+    })
+
+    const result = await runner.begin(
+      PROVIDER,
+      oauthSpec({ redirect: windowRedirect, exchange, omitState: true })
+    )
+
+    expect(result).toMatchObject({ kind: 'token', token: { token: 'ok' } })
+    expect(exchange).toHaveBeenCalledTimes(1)
+    // 대조를 건너뛰어도 pending 은 1회용이다 — 같은 인가가 두 번 소비되지 않는다.
+    expect(states.pendingFor('gw')).toBeNull()
+  })
+
+  it('loopback 분기에서도 같다', async () => {
+    const states = new OAuthStateStore(createMemoryOAuthStatePersistence())
+    const runner = new OAuthRunner({
+      states,
+      openExternal: async () => undefined,
+      listen: async ({ port }) => `http://127.0.0.1:${port}/callback?code=lb`
+    })
+    expect(
+      await runner.begin(
+        PROVIDER,
+        oauthSpec({ redirect: { kind: 'loopback', port: 9323 }, omitState: true })
+      )
+    ).toMatchObject({ kind: 'token' })
+    expect(states.pendingFor('gw')).toBeNull()
+  })
+
+  it('보낸 적 없는 state 가 실려 오면 통과시키되 기록한다', async () => {
+    const events: string[] = []
+    const runner = new OAuthRunner({
+      states: new OAuthStateStore(createMemoryOAuthStatePersistence()),
+      openExternal: async () => undefined,
+      window: { open: async () => 'https://gw.example.corp/cb?code=abc&state=unasked' },
+      logger: (event) => events.push(event)
+    })
+
+    // 대조할 기준이 우리에게 없다 — 판정에 쓰지 않고 로그로만 남긴다.
+    expect(
+      await runner.begin(PROVIDER, oauthSpec({ redirect: windowRedirect, omitState: true }))
+    ).toMatchObject({ kind: 'token' })
+    expect(events).toContain('providers.oauth.state.unsolicited')
+    expect(events).not.toContain('providers.oauth.state.mismatch')
   })
 })
 
