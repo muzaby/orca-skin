@@ -1,14 +1,15 @@
 // 로그인 게이트 판정 (0181) — **순수 함수**. electron·fs·network 의존 0 이라 vitest 대상.
 //
 // ── 진리표 ───────────────────────────────────────────────────────────────────
-// | 빌드 | kind:'gate' 선언 | grant 상태           | 판정 |
+// | 빌드 | kind:'gate' 선언 | grant 상태                   | 판정 |
 // |---|---|---|---|
-// | prod | 0개              | —                    | **통과** ← OSS/기본 배포가 잠기지 않게 하는 안전장치 |
-// | prod | N개              | 하나도 인증 안 됨     | 차단 |
-// | prod | N개              | 일부만 valid         | 차단 ← 로그인이 체인이라 멤버 하나만 풀려도 인증이 아니다 |
-// | prod | N개              | 전부 valid           | 통과 |
-// | **DEV** | **0개**       | —                    | **차단** ← 로그인 화면을 항상 볼 수 있어야 한다 |
-// | 둘 다 | N개(또는 DEV)    | (무관) bypass ON     | 통과 |
+// | prod | 0개              | —                            | **통과** ← OSS/기본 배포가 잠기지 않게 하는 안전장치 |
+// | prod | N개              | 하나도 인증 안 됨             | 차단 |
+// | prod | N개              | 일부만 valid+verified        | 차단 ← 로그인이 체인이라 멤버 하나만 풀려도 인증이 아니다 |
+// | prod | N개              | **복원만 됨(미로그인)**       | **차단** ← 기록은 인증이 아니다. 로그인 화면에서 한 번 통과해야 한다 |
+// | prod | N개              | 전부 valid + **verified**    | 통과 |
+// | **DEV** | **0개**       | —                            | **차단** ← 로그인 화면을 항상 볼 수 있어야 한다 |
+// | 둘 다 | N개(또는 DEV)    | (무관) bypass ON             | 통과 |
 //
 // ── DEV 는 왜 항상 게이트인가 (0089 → 0130 → 0181 복원) ────────────────────
 // 게이트 화면은 **개발 중에 계속 보고 고쳐야 하는 화면**이다. "선언 0 → 통과" 를 DEV 에도
@@ -26,6 +27,15 @@ import type { ProviderGateState, ProviderGrantStatus } from '../../../../shared/
 export interface GateMember {
   providerId: string
   status: ProviderGrantStatus
+  // **이번 실행에서 실제 로그인을 거쳤는가.** `status` 만으로는 부족하다 — grant 는 디스크에서
+  // 복원되는 *기록*이고, 특히 `kind:'session'` grant 는 vault 도 만료도 없이 기록만으로
+  // `valid` 가 된다. 그래서 한 번 로그인에 성공하면 그 providerId 는 영구히 통과 상태가 됐다
+  // (사용자 보고: "성공한 provider id 가 bypass 와 같은 현상").
+  //
+  // 재시작 뒤 다시 참이 되는 길은 **로그인 화면의 평소 로그인 하나뿐**이다. 쿠키·통합 인증이
+  // 살아 있으면 IdP 가 폼 없이 곧장 `doneUrlPrefix` 로 보내 창이 열리자마자 닫히므로, 그것이
+  // 곧 자동 로그인이다 — 여기에 별도 검증 경로를 만들지 마라(사용자 결정 2026-08-11).
+  verified: boolean
 }
 
 export interface GateInput {
@@ -45,7 +55,11 @@ export function evaluateGate(input: GateInput): ProviderGateState {
   if (input.bypass) return { required: true, passed: true, bypassed: true }
   // 선언이 0개인 DEV 에서는 통과할 방법이 bypass 뿐이다 — `every` 는 빈 배열에 true 를 주므로
   // 멤버 수를 함께 본다(안 그러면 DEV 게이트가 즉시 열려 원래 문제로 되돌아간다).
+  //
+  // `verified` 를 함께 보는 이유는 `GateMember.verified` 주석 참조 — **복원된 grant 는 통과
+  // 근거가 아니다**. 실행마다 로그인을 한 번 거쳐야 열린다(쿠키가 살아 있으면 창이 즉시 닫힌다).
   const passed =
-    input.members.length > 0 && input.members.every((member) => member.status === 'valid')
+    input.members.length > 0 &&
+    input.members.every((member) => member.status === 'valid' && member.verified)
   return { required: true, passed, bypassed: false }
 }

@@ -255,3 +255,52 @@ describe('ProviderStore — 상태 판정', () => {
     expect(Object.keys(persistence.load())).toEqual(['ghost'])
   })
 })
+
+// ── 회귀: 복원된 grant 는 게이트 통과 근거가 아니다 ──────────────────────────
+//
+// 사용자 보고 — "구현한 sso provider 로 로그인 성공 시, 해당 provider 의 id 는 영구적으로
+// bypass 와 같은 현상". `kind:'session'` grant 는 vault 도 만료도 없어 기록만으로 계속
+// `status:'valid'` 라, 게이트가 status 만 보면 재시작 후에도 로그인 화면이 아예 뜨지 않는다.
+// 통과 근거는 **이번 실행에서 실제로 로그인했는가**(`isVerified`)로 옮겼다.
+describe('ProviderStore — 인증 확인은 실행 수명이다', () => {
+  const SSO_GRANT = {
+    kind: 'session',
+    sessionGroup: 'corp',
+    authKind: 'browser-session',
+    createdAt: 0
+  } as const
+
+  it('로그인 성공 직후에는 확인이 성립한다', async () => {
+    const h = harness()
+    await h.login.begin('gw', 'api-key')
+    await h.login.continue('gw', { [FIELD_SECRET]: 'k' })
+    expect(h.store.status('gw')).toBe('valid')
+    expect(h.store.isVerified('gw')).toBe(true)
+  })
+
+  it('재시작하면 세션 grant 가 valid 여도 확인은 풀린다 (로그인 화면이 다시 뜬다)', () => {
+    const persistence = createMemoryGrantPersistence({ sso: { ...SSO_GRANT } })
+    const store = new ProviderStore({ persistence, vault: createVault(fakeSecretStore()) })
+    store.restore(['sso'])
+    // 기록은 살아 있다 — 이것만 보면 예전처럼 게이트가 열렸다.
+    expect(store.status('sso')).toBe('valid')
+    // 통과 근거는 이쪽이고, 재시작을 넘어오지 않는다.
+    expect(store.isVerified('sso')).toBe(false)
+  })
+
+  it('해제·401 강등은 확인을 함께 푼다', () => {
+    const persistence = createMemoryGrantPersistence()
+    const store = new ProviderStore({ persistence, vault: createVault(fakeSecretStore()) })
+    store.restore(['sso'])
+
+    store.put('sso', { ...SSO_GRANT })
+    expect(store.isVerified('sso')).toBe(true)
+    store.markExpired('sso')
+    expect(store.isVerified('sso')).toBe(false)
+
+    store.put('sso', { ...SSO_GRANT })
+    expect(store.isVerified('sso')).toBe(true)
+    store.revoke('sso')
+    expect(store.isVerified('sso')).toBe(false)
+  })
+})

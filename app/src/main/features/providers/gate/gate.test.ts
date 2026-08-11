@@ -15,8 +15,8 @@ describe('로그인 게이트 진리표 (AC8·AC14)', () => {
   it('선언 N · 하나도 인증 안 됨 → 차단', () => {
     const state = evaluateGate({
       members: [
-        { providerId: 'sso', status: 'none' },
-        { providerId: 'sso2', status: 'none' }
+        { providerId: 'sso', status: 'none', verified: false },
+        { providerId: 'sso2', status: 'none', verified: false }
       ],
       bypass: false
     })
@@ -27,8 +27,8 @@ describe('로그인 게이트 진리표 (AC8·AC14)', () => {
   it('선언 N · 일부만 valid → 차단', () => {
     const state = evaluateGate({
       members: [
-        { providerId: 'sso', status: 'valid' },
-        { providerId: 'sso2', status: 'expired' }
+        { providerId: 'sso', status: 'valid', verified: true },
+        { providerId: 'sso2', status: 'expired', verified: false }
       ],
       bypass: false
     })
@@ -38,8 +38,8 @@ describe('로그인 게이트 진리표 (AC8·AC14)', () => {
   it('선언 N · 전부 valid → 통과', () => {
     const state = evaluateGate({
       members: [
-        { providerId: 'sso', status: 'valid' },
-        { providerId: 'sso2', status: 'valid' }
+        { providerId: 'sso', status: 'valid', verified: true },
+        { providerId: 'sso2', status: 'valid', verified: true }
       ],
       bypass: false
     })
@@ -48,7 +48,7 @@ describe('로그인 게이트 진리표 (AC8·AC14)', () => {
 
   it('dev bypass 는 미인증이어도 통과시키되 우회했음을 표시한다', () => {
     const state = evaluateGate({
-      members: [{ providerId: 'sso', status: 'none' }],
+      members: [{ providerId: 'sso', status: 'none', verified: false }],
       bypass: true
     })
     expect(state).toEqual({ required: true, passed: true, bypassed: true })
@@ -57,7 +57,7 @@ describe('로그인 게이트 진리표 (AC8·AC14)', () => {
   // 'unknown'(복호화 실패)은 valid 가 아니다 — 키체인이 잠긴 상태로 조용히 들어가지 않는다.
   it('복호화 실패(unknown)는 통과로 치지 않는다', () => {
     const state = evaluateGate({
-      members: [{ providerId: 'sso', status: 'unknown' }],
+      members: [{ providerId: 'sso', status: 'unknown', verified: false }],
       bypass: false
     })
     expect(state.passed).toBe(false)
@@ -93,11 +93,37 @@ describe('DEV 게이트 도달성 (alwaysRequired)', () => {
   it('선언이 있으면 DEV 여도 실제 인증으로 통과한다', () => {
     expect(
       evaluateGate({
-        members: [{ providerId: 'sso', status: 'valid' }],
+        members: [{ providerId: 'sso', status: 'valid', verified: true }],
         bypass: false,
         alwaysRequired: true
       })
     ).toEqual({ required: true, passed: true, bypassed: false })
+  })
+
+  // ── 회귀: 복원된 grant 는 통과 근거가 아니다 ────────────────────────────────
+  // 사용자 보고 — "구현한 sso provider 로 로그인 성공 시, 해당 provider 의 id 는 영구적으로
+  // bypass 와 같은 현상". 원인은 `kind:'session'` grant 가 만료도 vault 도 없이 **기록만으로**
+  // `status:'valid'` 가 되고, 게이트가 그 status 만 봤다는 것. 실행마다 확인이 필요하다.
+  it('복원됐지만 이번 실행에서 미확인인 grant 는 게이트를 열지 않는다', () => {
+    expect(
+      evaluateGate({
+        members: [{ providerId: 'sso', status: 'valid', verified: false }],
+        bypass: false,
+        alwaysRequired: true
+      })
+    ).toEqual({ required: true, passed: false, bypassed: false })
+  })
+
+  it('멤버 하나만 미확인이어도 차단된다', () => {
+    expect(
+      evaluateGate({
+        members: [
+          { providerId: 'sso', status: 'valid', verified: true },
+          { providerId: 'sso2', status: 'valid', verified: false }
+        ],
+        bypass: false
+      }).passed
+    ).toBe(false)
   })
 
   // prod 경로는 그대로다 — alwaysRequired 를 넣지 않으면 선언 0 은 통과다.
