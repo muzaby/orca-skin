@@ -1,6 +1,6 @@
 # app/ — 코딩 에이전트용 가이드
 
-이 디렉토리는 **Orca v1 의 실제 구현체** (electron-vite + React/TypeScript) 가 사는 곳이다. 현재 단계는 **Phase 3++ / Phase 4** — 로컬 SQLite SSOT + 세션 히스토리 + DOM Architecture + 4-layer Feature 아키텍처 + MCP/Skill 통합 + provider 표준화 리팩토링(부분). **인증 플랫폼·connector 는 0180 에서 전면 제거** 후 **0181 이 `Provider` 단일 축으로 재작성**했다. **전체 페이즈 이력은 [`../docs/PHASES.md`](../docs/PHASES.md)** 로 분리했다 (이 파일은 영속 작업 지침이지 changelog 가 아니다).
+이 디렉토리는 **Orca v1 의 실제 구현체** (electron-vite + React/TypeScript) 가 사는 곳이다. 이 파일은 **영속 작업 지침이지 changelog 가 아니다** — 완료 이력은 `git log`, 진행 중 작업은 [`../docs/handoff/INDEX.md`](../docs/handoff/INDEX.md).
 
 > **정본 우선.** 아키텍처 상세 — 모듈 트리·Provider 합성 순서·DOM 마커 체계·IPC 카탈로그·보안 근거 — 의 SSOT 는 `../docs/` 다. 본 문서는 **app 디렉토리에서 코드를 짤 때의 작업 규칙**만 담는다. 본문과 SSOT 가 어긋나면 `../docs/` 와 코드가 진실이다.
 
@@ -47,11 +47,11 @@ shared     → shared 내부만                               (순수 타입/상
 
 | 경로                          | 책임                                                                                          |
 | ----------------------------- | --------------------------------------------------------------------------------------------- |
-| `src/main/app/`               | 컴포지션 루트 — `bootstrap.ts`(부팅 배선·버스 구독 순서) · `chat-turn/`(턴 셋업 **14모듈** — 0179 에서 892줄 `handleChatSend` 를 단계로 분해. 진입점 `index.ts`(배럴) · 순서 `send.ts` · 순수 판정 `admission.ts` · 순수 조립 `turn-context.ts`·`continuation.ts` · `resolve-turn`·`runtime-entry`·`enqueue`·`turn-request`·`approval`·`post-turn`·`busy-reserve`·`turn-setup`·`deps`) + `chat-turn-continuation.ts`(자동 연속 턴, 0126) · `handlers/*`(도메인 IPC **13종** — boot·cost·engine·files·log·mcp·misc·project·**providers**(0181)·session·settings·skills·update) · `context.ts`(RouterContext) · `boot-report.ts`(부팅 진단, 0077) · `updater.ts`+`updater-feed.ts`(자동 업데이트 + object storage/GHE 피드, 0084~0086·0133) · `builtin-resources.ts`(번들 스킬 리소스 해석, 0078) |
+| `src/main/app/`               | 컴포지션 루트 — `bootstrap.ts`(부팅 배선·버스 구독 순서) · `chat-turn/`(턴 셋업 — 한 클로저였던 `handleChatSend` 를 단계별 모듈로 분해. 진입점 `index.ts`(배럴) · 순서 `send.ts` · 순수 판정 `admission.ts` · 순수 조립 `turn-context.ts`·`continuation.ts` · `resolve-turn`·`runtime-entry`·`enqueue`·`turn-request`·`approval`·`post-turn`·`busy-reserve`·`turn-setup`·`deps`) + `chat-turn-continuation.ts`(자동 연속 턴) · `handlers/*`(도메인별 IPC 핸들러 — 목록·개수는 디렉토리가 진실) · `context.ts`(RouterContext) · `boot-report.ts`(부팅 진단, 0077) · `updater.ts`+`updater-feed.ts`(자동 업데이트 + object storage/GHE 피드, 0084~0086·0133) · `builtin-resources.ts`(번들 스킬 리소스 해석, 0078) |
 | `src/main/adapters/`          | claude 어댑터 — `claude.ts`(query) · `claude-map.ts`(SDK→`NormalizedEvent`) · `claude-adapt.ts`(outbound) + 포트(`types`·`turn`·`provider-config`…). mock 은 dev, opencode 는 future |
-| `src/main/features/`          | 수직 슬라이스 (**9**) — `approvals` · `chat`(턴 오케스트레이션) · `extensions`(MCP·skill·deploy·seed) · `history`(persist) · `orchestration`(대화 연속성 fork/handoff, 순수 로직) · **`providers`**(설정·모델 해석 + **인증 provider 플랫폼** `auth`/`gate`/`llm`/`service`/`declarations`, 0181) · `scheduler`(croner 주기 실행, 0091) · `sessions`(런타임 거버넌스) · `usage` |
-| `src/main/contracts/`         | 공유 타입 계약 (**5**) — `turn`(`TurnContext`) · `bus-events` · `ports` · `session-state` · **`provider`**(0181 — `Provider`·`AuthSpec`·`Grant`·`ProviderApi`. 0180 이 지운 `auth-method`·`internal-api`·`connector` 3종을 하나로 대체) |
-| `src/main/infra/`             | 얇은 인프라 — `db`(better-sqlite3+WAL+마이그레이션 16종) · `bus`(TypedBus) · `config`(orca.json·secret) · `ipc`(handle/send/dto) · `net`(**`net-fetch`/`net-request`/`net-response`/`transport` = 유일한 원격 전송 스택**. 0180 에서 `infra/auth/` → `infra/net/` 이설) · `vault`·`browser-session`(+`-policy`)·`loopback-callback`(0181 — provider 자격증명·cookie jar·OAuth 콜백) · `log`(중앙 LogManager·JSONL·redact, 0123/0124) · `settings-store`(+`settings-migration`) · `cron`(croner 래퍼) · `errors` · `vars` |
+| `src/main/features/`          | 수직 슬라이스 — `approvals` · `chat`(턴 오케스트레이션) · `extensions`(MCP·skill·deploy·seed) · `history`(persist) · `orchestration`(대화 연속성 fork/handoff, 순수 로직) · **`providers`**(설정·모델 해석 + **인증 provider 플랫폼** `auth`/`gate`/`llm`/`service`/`declarations`, 0181) · `scheduler`(croner 주기 실행, 0091) · `sessions`(런타임 거버넌스) · `usage` |
+| `src/main/contracts/`         | 공유 타입 계약 — `turn`(`TurnContext`) · `bus-events` · `ports` · `session-state` · **`provider`**(0181 — `Provider`·`AuthSpec`·`Grant`·`ProviderApi`. 0180 이 지운 `auth-method`·`internal-api`·`connector` 3종을 하나로 대체) |
+| `src/main/infra/`             | 얇은 인프라 — `db`(better-sqlite3+WAL+마이그레이션) · `bus`(TypedBus) · `config`(orca.json·secret) · `ipc`(handle/send/dto) · `net`(**`net-fetch`/`net-request`/`net-response`/`transport` = 유일한 원격 전송 스택**. 0180 에서 `infra/auth/` → `infra/net/` 이설) · `vault`·`browser-session`(+`-policy`)·`loopback-callback`(0181 — provider 자격증명·cookie jar·OAuth 콜백) · `log`(중앙 LogManager·JSONL·redact, 0123/0124) · `settings-store`(+`settings-migration`) · `cron`(croner 래퍼) · `errors` · `vars` |
 | `src/shared/{ipc,protocol}.ts`| `CHANNELS` 상수 + 순수 TS 타입 / zod 스키마 (main 전용)                                        |
 
 > 레이아웃에서 벗어나려면 사용자에게 먼저 확인하고, TRD §1.2 와 코드를 동시에 갱신한다.
@@ -74,7 +74,7 @@ new BrowserWindow({
 - **CSP** (`src/renderer/index.html`): Google Fonts 만 허용 — `style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com`.
 - **외부 URL 로드 금지** — `webContents.setWindowOpenHandler` 로 차단 + OS 기본 브라우저 위임. DevTools 자동 오픈은 dev 빌드 한정.
 - 비밀은 `safeStorage` 로만 봉인한다 — MCP 인증값 + provider vault(`infra/vault.ts`, 0181). raw secret 이 **나가는** 예외 **3곳**(MCP `.mcp.json` · LLM `--settings` argv · **LLM `Options.env`**, 0181)은 `../docs/arch/backend/security.md §1.4-b` 의 경계표에 고정돼 있다 — 표 밖의 신규 노출 금지.
-- **main 에서 Node 전역 `fetch` 를 쓰지 않는다** (0173/0174). 전역 `fetch(` 를 부를 수 있는 파일은 `infra/net/net-fetch.ts` 하나뿐이고, 소비자는 `typeof fetch` 포트로 **주입받는다**(기본값 금지 — 기본값은 곧 조용한 Node 스택 복귀). 위반은 `infra/net/no-node-fetch.test.ts` 가 잡는다. Chromium 스택을 무는 파일은 **3개**(`net-fetch`·`net-request`·`browser-session`(0181 복원)) — 근거·`redirect:'manual'` 의미차 → `../docs/arch/backend/security.md` §1.8·§1.9.
+- **main 에서 Node 전역 `fetch` 를 쓰지 않는다** (0173/0174). 전역 `fetch(` 를 부를 수 있는 파일은 `infra/net/net-fetch.ts` 하나뿐이고, 소비자는 `typeof fetch` 포트로 **주입받는다**(기본값 금지 — 기본값은 곧 조용한 Node 스택 복귀). 위반은 `infra/net/no-node-fetch.test.ts` 가 잡는다. Chromium 스택을 무는 파일은 `net-fetch`·`net-request`·`browser-session` 셋뿐이다 — 근거·`redirect:'manual'` 의미차 → `../docs/arch/backend/security.md` §1.8·§1.9.
 - 근거 · credential 모델 상세 → [`../docs/arch/backend/security.md`](../docs/arch/backend/security.md).
 
 ## DB · 캐시 정책 (app 고유)
@@ -86,13 +86,10 @@ new BrowserWindow({
 - **메모리 캐시**: `chatStore` 의 `sessions: Record<sessionId, …>` 외피가 캐시 역할 흡수(handoff 0013) — 본 적 있는 세션 재진입은 IPC 없이 `activeKey` 전환. 무효화는 삭제 시 `invalidateSessionCache(id)`(엔트리 drop). 크기 제한 없음 (LRU cap 은 Future Scope).
 - 스키마 · FTS5 · WAL 상세 → [`../docs/arch/backend/persistence.md`](../docs/arch/backend/persistence.md).
 
-## 스타일링
+## 스타일링 · renderer 규칙
 
-- Tailwind v4 + **시맨틱 토큰 우선** (`bg-bg`, `text-ink`, `border-border`). raw hex 대신 토큰.
-- 새 토큰은 `styles/tokens.css` 의 `@theme` 에 추가하고 **두 테마 스코프(white/dark) 전부**에 대응값을 채운다(white=루트 `@theme` 기본값, dark=`[data-theme='dark']`).
-- 인라인 `style` 은 동적 계산값에만 (드래그 좌표, `width %`, grid template 등). 정적 값은 Tailwind 클래스로.
-- **그룹 스코프 격리** (버그 방지 핵심): 자체 hover 를 가진 컴포넌트는 익명 `group` 대신 `group/<이름>` + `group-hover/<이름>:` 를 쓴다. 익명 `group-hover:` 는 상위 `.group` (예: `AssistantMessage`) 까지 매칭되어 형제 인스턴스가 함께 hover 되는 버그가 난다 (메시지 hover → 그 안 모든 코드블럭 카피버튼 동시 노출). 예: `CodeBlock` = `group/codeblock` (`shared/ui/markdown/CodeBlock.tsx`), `SessionRow` = `group/session` (`features/sessions/components/SessionRow.tsx`).
-- DOM 마커 체계 (`app-frame-*` 구조 클래스 + `data-behavior`/`data-state`/`data-axis`/`data-context`/`data-platform`) → [`../docs/arch/frontend/dom-architecture.md`](../docs/arch/frontend/dom-architecture.md). 새 CSS 파일/규칙은 추가하지 않고 Tailwind 유틸(arbitrary value 포함) 로 표현한다.
+Tailwind 시맨틱 토큰 · 그룹 스코프 격리(`group/<이름>`) · 단일 파일 분해 가이드 ·
+4-layer 의존 방향은 [`src/renderer/AGENTS.md`](src/renderer/AGENTS.md) 가 갖는다.
 
 ## 의존성 정책
 
@@ -165,7 +162,6 @@ new BrowserWindow({
 
 1. **TRD 먼저, 코드 나중.** 본 디렉토리 1차 사양은 `../docs/TRD.md`. TRD 와 코드가 충돌하면 사용자에게 묻고, TRD 갱신과 코드 변경은 같은(또는 짝) PR 로.
 2. **레이어 경계를 지켜라.** `boundaries` 위반은 `npm run lint` error. cross-feature 흐름이 필요하면 pages/ 또는 app/ 에서 props 로 전달한다.
-3. **스타일은 Tailwind + 시맨틱 토큰**, **Electron 보안 옵션은 항상 명시**(위 블록), **새 의존성은 사용자 확인**.
+3. **Electron 보안 옵션은 항상 명시**(위 블록), **새 의존성은 사용자 확인**. 스타일 규칙은 `src/renderer/AGENTS.md`.
 4. **테스트 동반.** 어댑터 정규화 · reducer · IPC 스키마 · 순수 변환기는 단위 테스트와 함께 작성 (UI 는 시각 검증으로 갈음).
-5. **단일 파일 분해 가이드.** `.tsx`/`.ts` 는 하나의 응집된 책임을 지킨다. (1) 한 파일에 **5개 이상 React 컴포넌트** 가 모이고 그중 일부가 다른 레이어/슬롯에 속할 수 있거나, (2) **400줄 초과** 면 분해를 검토한다. 단일 컴포넌트의 응집 구현(예: `HighlightedTextarea`, `chatReducer`)은 예외. 분해 시 새 파일은 **해당 레이어·feature 디렉토리**(`features/<X>/components|hooks/` · `shared/ui/`)에 둬 4-layer 경계를 보존한다. 수치(5개·400줄)는 *경고 트리거* 이지 절대 규칙이 아니다 — 리뷰에서 "왜 한 파일에 두었는가" 설명을 요구하는 시그널.
-6. **`package.json` 메타데이터는 실값이다** (0089 에서 정리 — name=`orca`·description·author·homepage). **버전은 수동 편집하지 않는다** — `npm run release:{patch,minor,major}` 가 bump·커밋·태그를 원샷 처리한다 (SemVer pre-1.0 정책은 `../docs/guides/release-operations.md`).
+5. **`package.json` 메타데이터는 실값이다** (0089 에서 정리 — name=`orca`·description·author·homepage). **버전은 수동 편집하지 않는다** — `npm run release:{patch,minor,major}` 가 bump·커밋·태그를 원샷 처리한다 (SemVer pre-1.0 정책은 `../docs/guides/release-operations.md`).

@@ -7,34 +7,45 @@
 | 디렉토리 | 역할 | 가이드 |
 |---|---|---|
 | `chats/` | 사용자 의도 트랜스크립트 (Claude Design 핸드오프) — *왜* 가 산다 | `chats/AGENTS.md` |
-| `docs/` | PRD, TRD, 아키텍처·전략 문서, 페이즈 이력 — *무엇을* / *어떻게* 가 산다 | `docs/AGENTS.md` |
+| `docs/` | PRD, TRD, 현재 아키텍처, 결정 근거(ADR), 운영 절차 — *무엇을* / *어떻게* / *왜* 가 산다. **어느 문서를 열지는 [`docs/INDEX.md`](docs/INDEX.md)** | `docs/AGENTS.md` |
 | `project/` | HTML/CSS/JS 디자인 프로토타입 아카이브 — *어떻게 보여야 하는가* | `project/AGENTS.md` |
-| `app/` | Orca v1 실제 구현체 (electron-vite + React/TypeScript). 4-layer Feature 아키텍처 (`app/` · `pages/` · `features/` · `shared/`, ESLint boundaries 강제). 구현 작업 규칙은 가이드, 페이즈 이력은 `docs/PHASES.md` 참조. | `app/AGENTS.md` |
-| `app/src/main/` | Electron **main 프로세스** 레이어 가이드 — **app 컴포지션 루트 → features 수직 슬라이스(현재 11종) → contracts → adapters → infra → shared** DAG, 하향 의존만 + feature 교차 import 금지 (eslint-plugin-boundaries + import/no-cycle 강제, handoff 0062/0063). 원격 요청은 Chromium `net.fetch` 단일 스택(0173/0174). | `app/src/main/AGENTS.md` |
-| `docs/guides/` | 운영 절차서 — 릴리스(0087~0089) · 폐쇄망 확장(0130/0157) · workspace 권한 구성. *구조 서술은 `docs/arch/`, 실행 절차는 여기* | `docs/guides/AGENTS.md` |
+| `app/` | Orca v1 실제 구현체 (electron-vite + React/TypeScript). 빌드·게이트·의존성 정책·보안 베이스라인. | `app/AGENTS.md` |
+| `app/src/main/` | Electron **main 프로세스** 레이어 가이드 — **app 컴포지션 루트 → features 수직 슬라이스 → contracts → adapters → infra → shared** DAG, 하향 의존만 + feature 교차 import 금지 (eslint-plugin-boundaries + import/no-cycle 강제). 원격 요청은 Chromium `net.fetch` 단일 스택. | `app/src/main/AGENTS.md` |
+| `app/src/renderer/` | **Renderer** 레이어 가이드 — 4-layer 의존 방향 · Tailwind 시맨틱 토큰 · 그룹 스코프 격리. | `app/src/renderer/AGENTS.md` |
+| `docs/guides/` | 운영 절차서 — 릴리스 · 폐쇄망 확장 · workspace 권한 구성. *구조 서술은 `docs/arch/`, 실행 절차는 여기* | `docs/guides/AGENTS.md` |
 | `docs/handoff/` | Claude Code ↔ Codex 협업 hand-off (plan/verify 문서 + 디스패치 보드) | `docs/handoff/AGENTS.md` |
 
 ## 새 세션 진입 시 읽는 순서
 
-1. **`chats/`** — 트랜스크립트(현재 1개). *결정 키워드* ("A로 진행", "확정", "OK") 가 진실. 어시스턴트의 긴 제안보다 사용자의 짧은 응답이 우선.
-2. **`docs/PRD.md`** — 무엇을 만들지 (Orca v1 MVP). §6 (MVP Scope), §9 (Future Scope), §11 (Open Questions) 가 핵심.
-3. **`docs/TRD.md`** — 어떻게 구현할지. 코드 작업의 1차 참고서.
-4. **`app/AGENTS.md`** → `app/` — 구현 디렉토리 규칙·모듈 레이아웃·의존성 정책·보안 베이스라인.
-5. (필요 시) **`project/electron/index.html`** — 시각 기준 (variation A). 픽셀 퍼펙트 *재현* 대상이지 그대로 가져갈 production 코드가 아니다.
-6. (필요 시) **`docs/etc/llm-chat-desktop-strategy.md`** — TRD 가 소화한 전략적 근거. TRD 결정의 *왜* 를 거슬러볼 때.
+```text
+본 문서(root AGENTS)
+   ↓  수정할 영역을 정한다
+그 영역의 AGENTS.md          (app/ · app/src/main/ · app/src/renderer/ · docs/ …)
+   ↓
+관련 current-state 문서만     (docs/INDEX.md 의 라우팅 표에서 고른다)
+   ↓
+코드 / 테스트 / 계약 확인
+   ↓
+구현 → 검증
+```
 
-## 현재 페이즈
+**과거 정보는 필요할 때만 읽는다.** `chats/`(트랜스크립트) · `docs/archive/`(완료 이력) ·
+`docs/handoff/<NNNN-slug>/`(지난 작업) · `docs/etc/`(전략·사례 연구)는 **기본 세션에서 읽지
+않는다** — 결정의 근거를 거슬러 확인해야 할 때만 연다. 이들은 *증거*지 현재 규칙이 아니다.
 
-페이즈 상태·이력(범위·PR·커밋)은 변동성이 커서 본 문서에 두지 않는다. **정본은 [`docs/PHASES.md`](docs/PHASES.md)** (완료 이력의 최종 진실은 `git log`). 진행 중 작업은 `docs/PHASES.md` 의 "현재 작업 중" 섹션 + [`docs/handoff/INDEX.md`](docs/handoff/INDEX.md) 참조.
+- 결정의 *이유*를 찾는다면 먼저 [`docs/decisions/`](docs/decisions/) (ADR).
+- 진행 중 작업은 [`docs/handoff/INDEX.md`](docs/handoff/INDEX.md) (디스패치 보드).
 
 ## 핵심 원칙 (모든 에이전트 공통)
 
-1. **트랜스크립트 + PRD/TRD 가 진실이다.** `project/` HTML 은 *결과물* 이지 의도가 아니다. 의도는 `chats/` 와 `docs/` 에 있다.
+1. **진실에는 순서가 있다.** 코드·타입·테스트 > 현재 아키텍처(`docs/arch/`·`IPC_CONTRACT.md`·`GLOSSARY.md`) > 현재 제품 의도(PRD/TRD) > 작업 규칙(`AGENTS.md`) > 결정 근거(`docs/decisions/`) > 과거 증거(`git log`·`docs/archive/`·`chats/`·`project/`). **과거 문서를 현재 사양처럼 쓰지 마라.**
 2. **PRD §11 / TRD §15 의 Open Questions 는 미정 항목.** 에이전트가 단독으로 결정하지 마라. 사용자에게 묻는다.
-3. **문서와 코드가 모순되면 사용자에게 물어라.** 둘 다 바꿔야 하는지(설계 변경) 코드만(구현 버그) 인지 결정해야 한다.
-4. **각 디렉토리의 `AGENTS.md` 가 그 디렉토리에서 더 구체적인 규칙을 갖는다.** 본 문서와 충돌 시 디렉토리별 가이드 우선.
-5. **새 디렉토리 추가 시 그 디렉토리에도 `AGENTS.md` (+ `@AGENTS.md` import 하는 `CLAUDE.md` stub) 를 둔다** — 본 표를 갱신.
-6. **언어**: 모든 `AGENTS.md`, PRD, TRD, 전략 문서, 트랜스크립트는 **한국어**. 코드 식별자·로그·외부 라이브러리 인터페이스는 영어. UI 라벨은 한국어 (`src/shared/i18n/ko.ts`).
+3. **문서와 코드가 어긋나면 무엇이 어긋났는지 먼저 가른다.** 문서가 낡았거나 코드가 명백한 버그면 조사 후 고친다. **제품 동작·공개 계약·데이터 포맷·되돌리기 어려운 결정·유효한 두 설계 중 선택**은 사용자에게 묻는다 (판별 표는 `docs/AGENTS.md`).
+4. **코드에서 셀 수 있는 수치를 문서에 적지 마라.** 채널·슬라이스·설정 키·마이그레이션 개수 등은 [`docs/generated/inventory.md`](docs/generated/inventory.md) 가 갖는다 — `app/scripts/check-doc-inventory.mjs` 가 CI 에서 강제한다.
+5. **`docs/arch/` 는 현재 상태만 서술한다.** 델타 이력(`0180에서 제거`·`77 → 76`)은 changelog 지 architecture 가 아니다 — 이유는 `docs/decisions/` 의 ADR 로 링크한다.
+6. **각 디렉토리의 `AGENTS.md` 가 그 디렉토리에서 더 구체적인 규칙을 갖는다.** 본 문서와 충돌 시 디렉토리별 가이드 우선.
+7. **`AGENTS.md` 는 아무 데나 만들지 않는다.** *부모 규칙만으로 그 subtree 를 안전하게 수정할 수 없을 때*만 추가한다 — 독자적 의존 규칙·보안 경계·빌드/테스트 명령·반복되는 위험한 invariant 가 있을 때. 단순 인벤토리·설명 목적이면 만들지 않는다. 만들면 `@AGENTS.md` 를 import 하는 `CLAUDE.md` stub 을 함께 두고 본 표를 갱신한다.
+8. **언어**: 모든 `AGENTS.md`, PRD, TRD, 전략 문서, 트랜스크립트는 **한국어**. 코드 식별자·로그·외부 라이브러리 인터페이스는 영어. UI 라벨은 한국어 (`src/shared/i18n/ko.ts`).
 
 ## 협업 워크플로우 (Claude Code ↔ Codex)
 
@@ -74,7 +85,7 @@
 
 - **정본은 `AGENTS.md`.** Codex 등 표준 에이전트가 네이티브로 읽는다. 내용 편집은 항상 `AGENTS.md` 에서 한다.
 - 같은 디렉토리의 **`CLAUDE.md` 는 `@AGENTS.md` 한 줄을 import 하는 stub** — Claude Code 호환용. 직접 편집하지 않는다.
-- **위생 규칙**: `AGENTS.md` 에는 *프로젝트 구조·역할 매핑·코딩/테스트/빌드 규칙·수정 주의사항* 만 둔다. *비밀(키/토큰/PW)·개인정보·일회성 업무·자주 바뀌는 운영정보(버전/배포일정/담당자)·장문 코드설명서·모순 규칙* 은 넣지 않는다. 변동성 이력은 `docs/PHASES.md`, 라이브 작업 상태는 `docs/handoff/INDEX.md` 로 분리한다.
+- **위생 규칙**: `AGENTS.md` 에는 *프로젝트 구조·역할 매핑·코딩/테스트/빌드 규칙·수정 주의사항* 만 둔다. *비밀(키/토큰/PW)·개인정보·일회성 업무·자주 바뀌는 운영정보(버전/배포일정/담당자)·장문 코드설명서·모순 규칙* 은 넣지 않는다. 변동성 이력은 `git log` 와 `docs/archive/`, 라이브 작업 상태는 `docs/handoff/INDEX.md` 로 분리한다.
 - *런타임* AGENTS.md(앱이 띄우는 에이전트 세션에 주입하는 instructions, `docs/arch/backend/standardization.md §5.4`, 코드 미도입)는 **본 dev-time AGENTS.md 와 별개 스코프** 다 — 혼동 금지.
 
 ## 별도 제품 방향 (본 저장소 내 *문서로만* 존재)

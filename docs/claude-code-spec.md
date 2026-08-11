@@ -441,7 +441,7 @@ Phase 3 가 사용하는 기능은 *최소* — `query()` + `options.includePart
 |---|---|
 | `docs/spec/claude/headless.md` | 1차 원문 미러 — 프로그래밍 방식 실행. 본 문서 §0~§9 의 사실 (CLI 측면) |
 | `docs/spec/claude/cli-reference.md` | 1차 원문 미러 — 전체 CLI 명령·플래그. 본 문서 §5·§7·§14 의 사실 |
-| `docs/spec/claude/agent-sdk/AGENTS.md` | Agent SDK 원문 미러 인덱스 (Phase 3 채택 이후 진입점) |
+| `docs/spec/claude/agent-sdk/INDEX.md` | Agent SDK 원문 미러 인덱스 (파일별 진입점) |
 | `docs/spec/claude/agent-sdk/typescript.md` | `query()` / `Options` / SDKMessage 명세 단일 출처 (§10 의 사실) |
 | 원격: `code.claude.com/docs/ko/headless`, `.../ko/cli-reference`, `.../ko/agent-sdk/typescript` | 위 미러들의 외부 원본 (참고용) |
 | `docs/spec/AGENTS.md` | 원문 미러 디렉토리의 정책 (편집 금지·수동 동기화) |

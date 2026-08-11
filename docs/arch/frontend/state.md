@@ -1,7 +1,6 @@
 # Frontend Architecture — State Management (상태관리·Zustand·멀티세션)
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-07-10 (handoff 0094 — §1.1 표에 update/settings-modal/agent store(0079~0086) 행 추가)
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [../backend/provider-runtime.md](../backend/provider-runtime.md), [rendering.md](./rendering.md)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 

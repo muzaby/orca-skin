@@ -7,6 +7,7 @@
 > - **구조 서술은 여기, 실행 절차는 [`guides/closed-network-extensions.md`](../../guides/closed-network-extensions.md)** (폐쇄망 배포자용 단계별 안내).
 > - 채널 계약은 [`IPC_CONTRACT.md §2.13-c`](../../IPC_CONTRACT.md), 자격증명 경계는 [`security.md §1.4-b`](./security.md), 용어는 [`GLOSSARY.md`](../../GLOSSARY.md).
 > - **계약 정본은 코드다** — `app/src/main/contracts/provider.ts`. 이 문서와 어긋나면 코드가 진실이다.
+> Decision rationale: [ADR-004](../../decisions/004-provider-single-axis.md) — 왜 프로토콜이 아니라 관계(`kind`)를 축으로 삼았는가.
 
 ---
 
@@ -46,7 +47,7 @@ code→token 코어 구현이 없었으며(PKCE **0건**), connector 서버 목�
 | 테스트 | **35파일 삭제** |
 | **합계** | **145파일 · −16,971줄** |
 
-IPC **82 → 71 채널**(auth 7 + plugin 4) · contracts **9 → 6** · 슬라이스 **11 → 9** · settings **20 → 18 키**.
+IPC 채널 · contracts · 슬라이스 · settings 키가 모두 줄었다 (현재 수치는 [생성물](../../generated/inventory.md)).
 
 ### 지우지 않은 것 — 이름만 `auth` 였던 4종
 

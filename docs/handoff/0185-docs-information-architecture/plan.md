@@ -25,8 +25,9 @@
 과거 이력의 혼재 · `AGENTS.md` 의 장문 기술문서화 · truth precedence 불명확 · **코드에서 확인
 가능한 수치의 수동 복제**.
 
-이 저장소를 6개 항목에 대조한 결과 **여섯 번째가 이미 실재하는 손상**을 만들고 있었다. 추정이
-아니라 지금 문서에 살아 있는 오류다(§자료조사 1). 나머지 다섯은 그 오류를 *재생산하는 구조*다.
+이 저장소를 6개 항목에 대조한 결과 **여섯 번째가 이미 실재하는 손상**을 만들고 있었다 — 코드에서
+센 9개 인벤토리 중 **5개가 어느 문서에선가 틀리다**. 추정이 아니라 지금 문서에 살아 있는
+오류다(§자료조사 1). 나머지 다섯 문제는 그 오류를 *재생산하는 구조*다.
 
 의도한 결과: 에이전트가 `root AGENTS → 영역 AGENTS → 해당 current-state 문서 → 코드` 만으로
 작업에 착수할 수 있고, 코드에서 셀 수 있는 수치는 문서가 아예 갖지 않는 상태.
@@ -35,7 +36,7 @@
 
 | 질문 | 판단 | 근거 |
 |---|---|---|
-| 이 요구가 진짜 문제를 겨냥하는가 (증상 ↔ 원인) | **전제 정정** | 요구 문구의 "덜어내야" 는 *양*을 겨냥하나, 실측상 주된 해악은 양이 아니라 **복제된 수치의 drift** 다 — 6개 수치 중 4개가 현재 틀렸다(§자료조사 1). 가이드 자신도 §변경 시 지켜야 할 원칙에서 "문서 삭제 작업이 아니라 information architecture 변경" 이라 못박는다. 요구의 *목적*(에이전트가 잘못된 정보를 현재 규칙으로 오인하지 않는 저장소)은 그대로 유지하고, 수단을 감축이 아니라 **SSOT 화 + 계층 분리**로 잡는다. |
+| 이 요구가 진짜 문제를 겨냥하는가 (증상 ↔ 원인) | **전제 정정** | 요구 문구의 "덜어내야" 는 *양*을 겨냥하나, 실측상 주된 해악은 양이 아니라 **복제된 수치의 drift** 다 — 9개 인벤토리 중 5개가 현재 어딘가에서 틀렸다(§자료조사 1). 가이드 자신도 §변경 시 지켜야 할 원칙에서 "문서 삭제 작업이 아니라 information architecture 변경" 이라 못박는다. 요구의 *목적*(에이전트가 잘못된 정보를 현재 규칙으로 오인하지 않는 저장소)은 그대로 유지하고, 수단을 감축이 아니라 **SSOT 화 + 계층 분리**로 잡는다. |
 | 이미 있는 것 아닌가 (기존 작업으로 충족되나) | **이견 — 이미 두 번 했고 두 번 다 재발했다** | 핸드오프 `0177-docs-agents-sync`(2026-08-05)가 문서 21개를 전수 동기화하며 *"IPC 채널이 문서마다 64·65·82 로 세 갈래 ↔ 실측 86"* 을 고쳤다(`docs/PHASES.md:271`). **6일 뒤** 같은 수치가 다시 `76`/`86` 두 갈래다. 0177 은 심지어 재발 방지를 시도했다 — `runtime-ipc.md:4` 가 *"재서술하던 채널 총계를 삭제하고 SSOT 링크만 남김"*. **그 파일 하나는 지금도 깨끗**하지만 규칙이 사람 관례라 나머지로 번지지 않았다. → 필요한 것은 세 번째 동기화가 아니라 **기계 강제**다. |
 | 더 작은 해법이 있는가 (구조 변경 없이 되나) | **있으나 부족** | "stale 수치만 고치기" = 0177 과 동일 작업이고 관측된 반감기가 1주다. 최소 구조 변경은 **Phase 1(generated + CI 게이트) 하나** 이며, 이것만으로 §자료조사 1 의 오류 4건이 닫히고 재발 경로가 막힌다. Phase 2~5 는 그보다 낮은 우선순위이고 독립적으로 되돌릴 수 있다 — 그래서 Phase 1 을 먼저 배치했다. |
 | 인용 자료(가이드)가 요구를 부풀리지 않았나 | **일부 부풀림 — 3건 조정** | ① `.agents/work/active/` 이전: 이 저장소의 핸드오프는 스킬 2종·상태 머신·커밋 trailer 규약과 맞물려 있어 이전 비용이 이득을 넘는다(사용자 기각). ② PRD/TRD archive 이전: 저장소 전체가 두 문서를 인용하고 `app/AGENTS.md` 가 *"본 디렉토리 1차 사양은 `../docs/TRD.md`"* 로 명시(사용자 기각). ③ **`docs/contracts/ipc.md` 로 개명**: 가이드의 목표 트리에 있으나, `IPC_CONTRACT.md` 는 이미 SSOT 로 기능하고 `docs/**`·`app/**` 다수가 인용한다 — 개명은 링크 파손 위험만 사고 truth model 상 이득이 0이라 **채택하지 않는다**. |
@@ -49,25 +50,31 @@
 > 아래 모든 수치는 **이번 세션에서 직접 측정**했다. 선행 문서의 숫자를 승계한 것은 0건이다.
 > 기준: `main` HEAD `4364116` (2026-08-11).
 
-### 1. 수치 drift 실측 — 6개 중 4개가 현재 틀림
+### 1. 수치 drift 실측 — 9개 항목 중 5개가 어딘가에서 틀림
 
 | 수치 | 실측 | 측정 방법 | 일치 | **불일치** |
 |---|---|---|---|---|
 | IPC 채널 | **76** | `grep -oE "'orca:[a-zA-Z0-9:._-]+'" app/src/shared/ipc.ts \| sort -u \| wc -l` | `docs/IPC_CONTRACT.md:26` · `docs/AGENTS.md:15` | `docs/PRD.md:289`=86 · `docs/TRD.md:7,126,612`=86 · `docs/PHASES.md:9`=86 |
 | main 슬라이스 | **9** | `ls app/src/main/features/ \| wc -l` | `app/AGENTS.md:52` · `arch/backend/overview.md` | `AGENTS.md:13`=11 · `docs/ARCHITECTURE.md:18`=11 · `docs/PHASES.md:9`=11 |
 | contracts 모듈 | **5** | `ls app/src/main/contracts/*.ts` 중 `.test.ts` 제외 | `app/src/main/AGENTS.md:29` · `arch/backend/overview.md:92` | `docs/ARCHITECTURE.md:18`=9 · `docs/AGENTS.md:14`=7 |
-| settings 키 | **18** | `SettingsSchema` 최상위 키 (`app/src/shared/protocol.ts:489`) | `docs/AGENTS.md:14` · `arch/backend/overview.md` | `docs/PRD.md:117`=20 · `docs/TRD.md:7`=20 |
-| NormalizedEvent variant | **31~32** | `IPC_CONTRACT.md §3` 카탈로그 행 실측 32 (union 정의 `app/src/shared/ipc.ts:430~`) | — | `docs/GLOSSARY.md:16`=19 · `docs/PRD.md:289`=21 · `docs/AGENTS.md:15`=21 |
+| settings 키 | **18** | `SettingsSchema` 최상위 키, 중괄호 균형 파싱 (`app/src/shared/protocol.ts:489`) | `docs/AGENTS.md:14` · `arch/backend/overview.md` | `docs/PRD.md:117`=20 · `docs/TRD.md:7`=20 |
+| NormalizedEvent variant | **21** | union 최상위 멤버 (인라인 20 + 참조 `ChatActivitySnapshot` 1). 교차확인: `awk` 로 블록 내 `^  \|` 세면 **21** | `docs/IPC_CONTRACT.md §3` 카탈로그 **정확히 21** · `docs/PRD.md:289` · `docs/AGENTS.md:15` | `docs/GLOSSARY.md:16`=19 |
+| IPC 도메인 | **22** | 채널명 `orca:<domain>:` 의 고유 도메인 | `docs/AGENTS.md:15` | — |
 | DB 마이그레이션 | **16** | `ls app/src/main/infra/db/migrations/*.sql \| wc -l` | 5개 문서 전부 | — (현재 일치, 그러나 5곳 복제) |
 | IPC 핸들러 | **13** | `ls app/src/main/app/handlers/` 중 `.test.ts` 제외 | 3개 문서 | — (현재 일치, 그러나 3곳 복제) |
+| renderer feature | **13** | `ls app/src/renderer/src/features/` | `docs/AGENTS.md:11` | — |
 
-**내역 합 = 총계 검산**: `IPC_CONTRACT.md:28` 의 도메인별 분포를 합산하면
-`6+2+1+1+5+2+6+2+7+5+7+6+3+1+4+5+1+2+1+2+1+6 = 76` — 실측 76 과 일치. IPC_CONTRACT 는 정합하다.
-틀린 것은 **그것을 인용한다고 적어놓은 사본들**이다.
+**내역 합 = 총계 검산 2건**:
 
-> `docs/GLOSSARY.md:16` 이 특히 나쁘다: *"전수 variant(현재 19종)는 IPC_CONTRACT §3 이 SSOT"* —
-> **SSOT 를 지목하는 문장 자체가 그 SSOT 와 다른 사본을 만들고 있다.** SSOT 선언이 복제를 막지
-> 못한다는 직접 증거다.
+- 채널: `IPC_CONTRACT.md:28` 의 도메인별 분포 합 = **76** = 실측 76. IPC_CONTRACT 는 정합하다.
+- variant: §3 표의 고유 판별자 = **21** = 코드 union 멤버 21 (`comm` 으로 차집합 0 확인).
+
+즉 **`IPC_CONTRACT.md` 는 두 항목 모두 정확하다.** 틀린 것은 *그 문서를 SSOT 로 지목하면서
+숫자를 따로 적어둔 사본들*이다 — 이것이 이 작업의 핵심 진단이다.
+
+> `docs/GLOSSARY.md:16` 이 그 전형이다: *"전수 variant(현재 19종)는 IPC_CONTRACT §3 이 SSOT"* —
+> **SSOT 를 지목하는 문장 자체가 그 SSOT 와 다른 사본을 만들고 있다.** SSOT 선언(사람 관례)이
+> 복제를 막지 못한다는 직접 증거이며, 게이트가 필요한 이유다.
 
 ### 2. 상태 문서 stale
 
@@ -140,7 +147,7 @@
 |---|---|---|---|
 | 1 | `check-doc-inventory.mjs --check` 가 **현재 코드에서** exit 0 으로 통과한다 | `cd app && node scripts/check-doc-inventory.mjs --check` | `.github/workflows/ci.yml` 신규 스텝 → 모든 PR·main push |
 | 2 | 코드의 슬라이스 디렉토리를 **1개 추가**하면 `--check` 가 exit 1 로 실패한다 (재발 방지가 실제로 작동함을 양성 단언) | `app/scripts/check-doc-inventory.test.mjs::"슬라이스 추가 시 --check 가 실패한다"` (임시 디렉토리 fixture) | 위와 동일 |
-| 3 | `docs/generated/inventory.md` 가 §자료조사 1 의 7개 수치를 **실측값으로** 담고, 각 행에 정본 코드 경로가 있다 | `app/scripts/check-doc-inventory.test.mjs::"생성 결과가 7개 항목과 정본 경로를 담는다"` | `docs/INDEX.md` → `generated/inventory.md` |
+| 3 | `docs/generated/inventory.md` 가 §자료조사 1 의 9개 수치를 **실측값으로** 담고, 각 행에 정본 코드 경로가 있다 | `app/scripts/check-doc-inventory.test.mjs::"생성 결과가 9개 항목과 정본 경로를 담는다"` | `docs/INDEX.md` → `generated/inventory.md` |
 | 4 | `docs/**` + 루트·`app/**` 의 `AGENTS.md` 본문에서 **채널·슬라이스·contracts·settings 키·variant 수를 서술하는 문장이 0건**이다 (`docs/generated/` 와 `docs/archive/` 제외) | `app/scripts/check-doc-inventory.test.mjs::"본문에 수치 서술이 남아 있지 않다"` (정규식 전수 스캔) | 에이전트가 여는 모든 current-state 문서 |
 | 5 | `docs/INDEX.md` 가 존재하고, §자료조사 4 의 작업 유형(세션 런타임·chat turn·provider·보안·renderer 상태·렌더링·IPC·릴리스·폐쇄망·용어·ADR)마다 **1행 이상**의 라우팅 행을 갖는다 | `app/scripts/check-doc-inventory.test.mjs::"INDEX 라우팅 표가 11개 작업 유형을 덮는다"` | 루트 `AGENTS.md` → `docs/INDEX.md` |
 | 6 | 루트 `AGENTS.md` 가 `root AGENTS → 영역 AGENTS → current-state 문서 → 코드` 읽기 순서를 명시하고, 구 순서(`chats` 선행)를 **더 이상 지시하지 않는다** | `app/scripts/check-doc-inventory.test.mjs::"루트 AGENTS 읽기 정책이 신 순서를 명시한다"` | 모든 신규 에이전트 세션의 첫 문서 |
@@ -330,8 +337,10 @@ CLI 종료코드 · **제외 경로가 작동하는지**(P30 방어).
       양성 단언**으로 썼고, AC2 는 재발 방지가 *작동함*을 양성으로 단언한다(실패를 유도해 확인).
 - [x] AC 상호 모순 점검을 5쌍에 대해 수행했다(§인수 기준 하단). 자기 산출물이 자기 AC 를
       위반하지 않음(AC12 ↔ 본 작업의 verify)까지 확인했다.
-- [x] 인용 수치를 **이번 세션에서 직접 측정**했다(승계 0건). IPC 채널은 **내역 합 76 = 총계 76**
-      으로 검산했다.
+- [x] 인용 수치를 **이번 세션에서 직접 측정**했다(승계 0건). 검산 2건: 채널 **내역 합 76 = 총계
+      76**, variant **§3 표 21 = union 멤버 21**(`comm` 차집합 0). 초안의 variant 추정치(31~32)는
+      §3 표 행을 잘못 세어 나온 값이라 **실측 21 로 정정**했다 — 그 결과 GLOSSARY(19)만 불일치이고
+      PRD·docs/AGENTS(21)는 정확하다.
 - [x] 신규 모듈 4종에 테스트 방법이 있고, fs 의존부를 3개 순수 함수로 떼는 seam 을 설계에 넣었다.
 - [x] 전수 조사에 N 수치가 있다 — arch 번호 **502**, INDEX 데이터 행 **184**(완료 158/미완료 25/
       superseded 1), PHASES·INDEX 인용처 **12**, AGENTS **11개/965줄**, arch 파일 **17**.

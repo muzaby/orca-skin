@@ -185,7 +185,7 @@ r2 에서 떼어보니 **가능했을 뿐 아니라 `isAllowedOrigin` 이중 구
 
 ## 마무리
 
-- **PASS**: `INDEX.md` → `verify/PASS`, `docs/PHASES.md` 표 행 승격(PR#/커밋).
+- **PASS**: `INDEX.md` → `verify/PASS`, 완료 행을 `docs/archive/handoffs/INDEX-history.md` 로 옮긴다(보드에는 미완료만 남는다).
 - **FAIL**: 미충족 체크리스트 작성 → plan 의 `[검증자 기입] 파생 이슈` 챕터로 이관 →
   `INDEX.md` `verify/FAIL`, 다음=구현자, 라운드 +1. **라운드 3 초과면 에스컬레이션.**
 - 커밋: `docs(handoff): <slug> 검증 (PASS|FAIL r<N>)` + trailer(`Agent: claude` ·

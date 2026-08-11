@@ -1,9 +1,9 @@
 # Backend Architecture — Persistence (2계층·DB·FTS)
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-08-10 (handoff 0180 — settings **18 키**. `connectorInstances`·`pluginAddEnabled` 는 0178 에서 코드가 사라졌는데 문서에만 남아 있었다)
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [overview.md](./overview.md), [adapters.md](./adapters.md), [provider-runtime.md](./provider-runtime.md)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
+> Decision rationale: [ADR-001](../../decisions/001-orca-db-session-ssot.md) — 왜 SDK jsonl 이 아니라 로컬 DB 가 대화의 진실인가.
 
 ## 1. 데이터 영속성 — 2 계층 모델 (사용자 결정)
 
@@ -11,13 +11,13 @@
 
 | 항목 | 위치 | 상태 |
 |---|---|---|
-| **electron-store** (`infra/settings-store.ts`) | `~/Library/Application Support/orca-settings/...` (OS별 userData) | ✅ 완료 (20 키 — §1.2) |
+| **electron-store** (`infra/settings-store.ts`) | `~/Library/Application Support/orca-settings/...` (OS별 userData) | ✅ 완료 (키 카탈로그 §1.2) |
 | **로컬 SQLite DB** (`db/`) | `<userData>/orca.db` (better-sqlite3, WAL + foreign_keys) | ✅ Phase 3 완료 |
 | **FTS5 전문 검색** | `messages_fts` 가상 테이블 (3 트리거로 `messages` 와 동기 유지) | ✅ Phase 3++ 완료 |
 | **MCP 인증 비밀** | `orca-secrets` (electron-store) + safeStorage 암호화 | ✅ Phase 3++ 완료 |
 | **첨부 / 산출물 디렉토리** | — | ❌ 미구현 (Future) |
 
-### 1.2 electron-store 의 20 키 카탈로그
+### 1.2 electron-store 키 카탈로그
 
 `app/src/main/infra/settings-store.ts` + `src/shared/protocol.ts` 의 `SettingsSchema` (zod 가 SSOT):
 

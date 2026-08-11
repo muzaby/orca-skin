@@ -2,15 +2,16 @@
 
 > 이 문서는 Main ↔ Renderer 간 IPC 채널의 **단일 진실 공급원 (SSOT)** 이다.
 > 채널을 추가/변경할 때는 코드와 이 문서를 함께 갱신한다.
-> 최종 업데이트: 2026-08-11 (handoff 0183 r2 — 원격 사용량 경로 제거. 채널 **77 → 76**(`cost:refreshProviderUsageReport` 삭제, `cost` 6 → 5). 직전 갱신은 0181 — provider 플랫폼 재작성으로 **71 → 77**(`provider` 6 신설), 0180 이 지운 구 `auth` 7 + `plugin` 4 채널의 서술(구 §2.13-c·§2.13-d)은 §2.13-c 한 절로 대체됐다)
+> 채널 **총계·도메인 분포·variant 개수**는 이 문서가 갖지 않는다 — 코드를 세어 만든
+> [`generated/inventory.md`](./generated/inventory.md) 가 정본이다. 이 문서는 *각 채널이 무엇을
+> 주고받는가*(계약)를 갖는다.
 >
-> ⚠️ **카운트 정정 (0157 verify r1)**: 이전 판은 헤더 73 · 내역 합 72 · 실측 74 로 셋이 서로 달랐다. `chat`(5→6)·`cost`(5→6) 가 내역에서 누락돼 있었다. 아래 수치는 `CHANNELS` 상수를 기계 카운트한 실측치이며 **내역 합 = 총계**가 되도록 맞췄다.
 > 관련 문서: [ARCHITECTURE.md](./ARCHITECTURE.md), [GLOSSARY.md](./GLOSSARY.md), [TRD.md](./TRD.md) §5
 
 ## 1. 명명 규칙
 
 - 형식: `orca:<domain>:<action>` — 소문자 + 콜론 구분
-- 도메인 (22개): `chat`, `boot`, `backend`, `agent`, `engine`, `install`, `update`, `settings`, `skills`, `files`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `concurrency`, `permission`, `notify`, `debug`(dev 전용), `log`, `provider`
+- 도메인: `chat`, `boot`, `backend`, `agent`, `engine`, `install`, `update`, `settings`, `skills`, `files`, `session`, `project`, `window`, `search`, `mcp`, `cost`, `concurrency`, `permission`, `notify`, `debug`(dev 전용), `log`, `provider`
 - 방향:
   - Renderer → Main 요청: `ipcMain.handle` + `ipcRenderer.invoke` (Promise 반환)
   - Main → Renderer 이벤트: `webContents.send` + `ipcRenderer.on` (단방향 push)
@@ -23,12 +24,12 @@
   - 특례: `chat:send` 는 실패를 `error` 이벤트로 회신(§2.1). 입력이 없거나 store 내부 zod 가 검증하는 채널(settings set · mcp add/update)은 `handlePlain`.
 - 출력(main→renderer send) 무검증: `NormalizedEvent` 등의 형상 보증은 어댑터 정규화(`claude-map.ts`)가 담당 — 의도된 설계.
 
-## 2. 채널 카탈로그 (총 76 채널)
+## 2. 채널 카탈로그
 
-도메인별 분포: `chat` 6 (`send` · `event` · `cancel` · `stopSubagent` · `steerCancel` · `steer`) · `boot` 2 (`report` · `whenReady`) · `backend` 1 · `agent` 1 · `engine` 5 · `install` 2 · `update` 6 · `settings` 2 · `skills` 7 · `files` 5 · `session` 7 (0129 `setPinned` 추가) · `project` 6 (0129 `setPinned` 추가) · `window` 3 · `search` 1 · `mcp` 4 · `cost` 5 · `concurrency` 1 · `permission` 2 (`respond` · `setMode`) · `notify` 1 (`show` — §2.12-c) · `debug` 2 (dev 전용 — `getMock` · `setMock`) · `log` 1 (`emit` — §2.13-b) · `provider` 6 (§2.13-c — `list` · `state` · `login` · `continue` · `reauth` · `revoke`) = **76**.
+도메인별 분포(개수는 [생성물](./generated/inventory.md)): `chat`(`send`·`event`·`cancel`·`stopSubagent`·`steerCancel`·`steer`) · `boot`(`report`·`whenReady`) · `backend` · `agent` · `engine` · `install` · `update` · `settings` · `skills` · `files` · `session` · `project` · `window` · `search` · `mcp` · `cost` · `concurrency` · `permission`(`respond`·`setMode`) · `notify`(`show` — §2.12-c) · `debug`(dev 전용 — `getMock`·`setMock`) · `log`(`emit` — §2.13-b) · `provider`(§2.13-c — `list`·`state`·`login`·`continue`·`reauth`·`revoke`).
 
-> **0181 — `provider` 6채널이 구 `auth` 7 + `plugin` 4 채널(0180 에서 삭제)을 대체한다** (71 → 77).
-> 앱 로그인·서비스 연결·LLM 자격증명이 **같은 6채널**을 쓴다 — 셋의 차이는 `ProviderInfo.kind`
+> **`provider` 도메인이 구 `auth`·`plugin` 채널을 대체한다.**
+> 앱 로그인·서비스 연결·LLM 자격증명이 **같은 채널 묶음**을 쓴다 — 셋의 차이는 `ProviderInfo.kind`
 > (`gate`·`llm`·`service`) 뿐이고 별도 인증 인터페이스가 없다.
 
 `app/src/shared/ipc.ts` 의 `CHANNELS` 상수와 1:1 일치. **단, `debug` 2채널은 `import.meta.env.DEV` 일 때만 `ipcMain.handle` 로 등록된다** (CHANNELS 상수 문자열은 상존하나 prod 핸들러 미등록 — §2.13 참조).

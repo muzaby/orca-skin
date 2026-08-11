@@ -97,7 +97,6 @@ plan/DRAFT ─(Claude 작성 완료)→ plan/READY ─(다음=Codex)
 
 `git pull` → 스킬을 로드해 `plan.template.md` 를 `<NNNN-slug>/plan.md` 로 복사·작성 →
 `INDEX.md` 행 추가(`plan/READY`, 다음 주체) → commit `docs(handoff): <slug> 설계` → `git push`.
-`docs/PHASES.md` "현재 작업 중" 은 보드 링크만 유지한다.
 
 ### 2. 구현 (Codex 기능 / Claude 비기능)
 
@@ -123,7 +122,7 @@ plan/DRAFT ─(Claude 작성 완료)→ plan/READY ─(다음=Codex)
 
 `git pull` → 스킬을 로드해 `verify.template.md` 를 `<NNNN-slug>/verify.md` 로 복사·작성.
 
-- **PASS**: `INDEX.md` `verify/PASS` → `docs/PHASES.md` 표 행 승격(PR#/커밋) → (사용자 요청 시) PR.
+- **PASS**: `INDEX.md` `verify/PASS` + 대상 커밋 기재 → **행을 [`../archive/handoffs/INDEX-history.md`](../archive/handoffs/INDEX-history.md) 로 옮긴다**(보드에는 미완료만 남는다) → (사용자 요청 시) PR. 완료 이력의 정본은 `git log` 이므로 별도 표로 승격하지 않는다.
 - **FAIL**: 미충족 체크리스트 작성 → **미해결 문제는 plan 의 "파생 이슈(Derived Issues)" 챕터로 이관**(구현자 코멘트 참조, 또는 사용자 결정이 필요하면 **검증자가 사용자 결정을 대리 기록** — plan.md 는 검증자가 쓴다) → `INDEX.md` `verify/FAIL`, 다음=Codex, 라운드 +1 로 구현 턴 루프백.
 - commit `docs(handoff): <slug> 검증 (PASS|FAIL r<N>)` + **검증 커밋 trailer**(`Agent: claude`·`Status: verified`·`Verified-By: claude:pass|claude:fail`·`Next-Action` …) → `git push`.
 
@@ -133,7 +132,7 @@ plan/DRAFT ─(Claude 작성 완료)→ plan/READY ─(다음=Codex)
 
 파일 도메인을 분리한다:
 
-- **Claude** → `docs/handoff/**` + `docs/PHASES.md` (문서)
+- **Claude** → `docs/handoff/**` (문서)
 - **Codex** → `app/**` (코드)
 - `plan.md` 는 공유한다 — **설계자(Claude)는 상단**, **구현자는 `[구현자 기입]` 섹션만**, **검증자(Claude)는 하단 "파생 이슈" 챕터만** 추가한다 (섹션 분리로 충돌 회피).
 

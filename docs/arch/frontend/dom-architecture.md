@@ -1,7 +1,6 @@
 # Frontend Architecture — DOM Architecture (마커 체계·z-stack·titlebar)
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-07-17 (handoff 0121 — 모달 2원 마운트 구조 명시·backdrop 단일 소스(`MODAL_BACKDROP_CLASS`)·전 모달 blur 통일·UpdateDialog 슬롯→공용 Modal 이관)
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [layers.md](./layers.md), [ux-domains.md](./ux-domains.md)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 

@@ -1,9 +1,9 @@
 # Backend Architecture — Security & Credentials (보안 경계·자격증명)
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-08-05 (handoff 0177 — §1.8 원격 전송 스택 단일화(0173/0174) 신설 + §1.9 `infra/auth/` 모듈 인벤토리 신설. §1.1~1.7 은 기존 판 유지 — 인용 anchor 보존)
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [provider-runtime.md](./provider-runtime.md), [adapters.md](./adapters.md)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
+> Decision rationale: [ADR-003](../../decisions/003-electron-network-stack.md) — 왜 main 이 Node `fetch` 를 쓰지 않는가.
 
 ## 1. 보안 경계 / 자격증명
 
@@ -88,7 +88,7 @@ new BrowserWindow({
 >
 > **`${VAR}` resolver 순서 (0157 개정) = `${BINDING:<id>}`(인증 플랫폼 binding) → safeStorage(비밀) → **명시 allowlist 에 있는 경우에만** process.env**. 구 구현은 `process.env` **전체**가 fallback 이라 앱 환경의 임의 값이 이름만 맞으면 MCP 설정으로 샜다 — 이제 `orca.json` 의 `secrets.envAllowlist` 에 **정확한 이름**을 적은 것만 허용한다(패턴·접두사 없음, 미지정이면 fallback 0건). 미해결 변수가 있으면 해당 **서버를 드롭 + 사유 기록** — 조용한 빈 문자열 치환 금지(인증 없는 요청 누출 방지).
 
-> **provider settings 예외 (0009 → 0014 → 0028)**: 구 orca.json `agents[].authToken` 의 평문 허용 예외는 **`sources/settings/<adapter>/<provider>/settings.json` 의 `env` 블록으로 이전**됐다(orca.json agents 필드 제거 — TRD §6.8). 이 파일은 `~/.claude/settings.json` 과 동일 취급이라(handoff 0028) env 값(auth key 등)을 사용자가 **직접** 적는다 — Orca 는 `${VAR}` 확장이나 secret-store 토큰 주입을 하지 않고 **verbatim** 으로 읽어 `options.settings` flag 로 주입한다(env 포함). 평문을 쓰는 경우 파일 권한·디스크 보호 책임은 사용자에게 있다(`~/.claude/settings.json` 과 동일). provider settings 는 dist 에 배포하지 않으므로(sources 파일만 verbatim 로드) **디스크 평문 0** 은 유지된다. **격리 해제(0024 구현됨 / disallowedTools 보류)**: `settingSources` 옵션을 생략해 사용자 `~/.claude/settings.json`·skill 을 세션에 상속하되(handoff 0014/0015 격리모드 폐기), provider settings 가 그 위에 얹혀 덮어쓴다(env 포함). Orca 가 막아야 할 도구는 `disallowedTools` 옵션으로 확정 차단한다(deny/disallowed > allow > canUseTool). **MCP 디스크 배포 모델**: `.mcp.json` 은 `${VAR}` placeholder 를 그대로 둔 채 `dist/<engine>/.mcp.json` 로 배포(설치 스테이징)하고, 비밀은 디스크에 남기지 않은 채 런타임에 SDK 가 subprocess env 로 `${VAR}` 를 확장한다(standardization.md §5.2). 평문 비밀 디스크 0 불변식은 settings·MCP 양쪽에서 유지된다(MCP 의 `${VAR}` 확장은 유지 — settings 와 무관).
+> **provider settings 예외**: 구 orca.json `agents[].authToken` 의 평문 허용 예외는 **`sources/settings/<adapter>/<provider>/settings.json` 의 `env` 블록으로 이전**됐다(orca.json agents 필드 제거 — TRD §6.8). 이 파일은 `~/.claude/settings.json` 과 동일 취급이라(handoff 0028) env 값(auth key 등)을 사용자가 **직접** 적는다 — Orca 는 `${VAR}` 확장이나 secret-store 토큰 주입을 하지 않고 **verbatim** 으로 읽어 `options.settings` flag 로 주입한다(env 포함). 평문을 쓰는 경우 파일 권한·디스크 보호 책임은 사용자에게 있다(`~/.claude/settings.json` 과 동일). provider settings 는 dist 에 배포하지 않으므로(sources 파일만 verbatim 로드) **디스크 평문 0** 은 유지된다. **격리 해제(0024 구현됨 / disallowedTools 보류)**: `settingSources` 옵션을 생략해 사용자 `~/.claude/settings.json`·skill 을 세션에 상속하되(handoff 0014/0015 격리모드 폐기), provider settings 가 그 위에 얹혀 덮어쓴다(env 포함). Orca 가 막아야 할 도구는 `disallowedTools` 옵션으로 확정 차단한다(deny/disallowed > allow > canUseTool). **MCP 디스크 배포 모델**: `.mcp.json` 은 `${VAR}` placeholder 를 그대로 둔 채 `dist/<engine>/.mcp.json` 로 배포(설치 스테이징)하고, 비밀은 디스크에 남기지 않은 채 런타임에 SDK 가 subprocess env 로 `${VAR}` 를 확장한다(standardization.md §5.2). 평문 비밀 디스크 0 불변식은 settings·MCP 양쪽에서 유지된다(MCP 의 `${VAR}` 확장은 유지 — settings 와 무관).
 >
 > **타입 모델**: 정규 컬렉션 타입은 `OrcaMcpConfig`(claude-code 스펙). Claude 형식은 이와 동일하므로 **별칭** `type ClaudeMcpConfig = OrcaMcpConfig` 로 못박는다. 단일 항목 타입 `ClaudeMcp` 의 http/sse 는 분리된 판별 멤버라 SDK `McpServerConfig`(stdio|http|sse) 유니온에 그대로 대입된다. **"IR(중간형)" 표현은 쓰지 않는다** — 정규형이 곧 claude-code 스펙.
 >
@@ -126,7 +126,7 @@ font-src 'self' https://fonts.gstatic.com
 
 ### 1.7 로그인 게이트 · 배포/업데이트 신뢰 (0072 / 0086 / 0087~0089)
 
-- **앱 로그인 게이트 (0181 재작성)**: `app/RootGate` 가 부팅 위에 게이트를 한 층 얹는다 — 부팅 실패 → 부팅 미완료 → **게이트 미판정/미통과** → 메인 UI 순. 판정은 `features/providers/gate/index.ts` 의 **순수 진리표**이고 상태는 `orca:provider:state` 로 온다.
+- **앱 로그인 게이트**: `app/RootGate` 가 부팅 위에 게이트를 한 층 얹는다 — 부팅 실패 → 부팅 미완료 → **게이트 미판정/미통과** → 메인 UI 순. 판정은 `features/providers/gate/index.ts` 의 **순수 진리표**이고 상태는 `orca:provider:state` 로 온다.
   - **prod 는 선언이 0개면 통과**(`required:false`) — OSS/기본 배포가 로그인 화면에 갇히지 않게 하는 안전장치이며 `gate.test.ts` 가 회귀로 고정한다.
   - **DEV 는 선언이 0개여도 게이트를 세운다**(`alwaysRequired`, 0089/0130 동작 복원) — 폐쇄망 실값 없이도 로그인 화면을 보고 고칠 수 있어야 하기 때문이다. 그 빌드의 유일한 탈출구가 우회 토글이라, 디버그 패널이 로그인 화면에도 마운트된다.
   - **판정 전에는 통과시키지 않는다**(`gate=null` → 부팅 화면 유지). main 이 잠깐 응답하지 못하는 사이 로그인 강제 빌드가 무인증으로 열리면 안 된다(fail-closed).
@@ -144,13 +144,13 @@ main 프로세스의 모든 원격 요청은 **Chromium 네트워크 스택**으
 | 규칙 | 구현 | 강제 |
 |---|---|---|
 | **전역 `fetch(` 를 호출할 수 있는 파일은 `infra/net/net-fetch.ts` 하나뿐** | 가드가 `src/main/**` 전 `.ts` 를 훑어 `net-fetch.ts` 밖의 전역 `fetch(` 호출을 0건으로 고정한다. 메서드 호출(`ses.fetch(`·`ctx.fetch(`·`this.deps.fetchImpl(`)과 주석·문자열 안의 `fetch(` 는 위반이 아니다 — 가드가 **자기 정규식의 오탐/미탐을 스스로 고정**한다(측정력 0인 위생 테스트 방지) | `infra/net/no-node-fetch.test.ts` |
-| **Chromium 스택을 무는 파일은 3개** (0181) — `net-fetch.ts`(`net.fetch`) · `net-request.ts`(`net.request`) · `infra/browser-session.ts`(Electron `Session`·`BrowserWindow`, 0181 복원) | 셋 다 `electron` 을 import 하므로 **테스트가 직접 import 하면 즉시 죽는다**(`vitest.config.ts` 에 electron alias 없음 — P29). 그래서 판정·변환은 순수 모듈(`net-response.ts`·`browser-session-policy.ts`)로 떼어 두고 이 파일들은 **배선만** 한다 | `infra/net/net-response.test.ts`(순수부) |
+| **Chromium 스택을 무는 파일은 3개** (0181) — `net-fetch.ts`(`net.fetch`) · `net-request.ts`(`net.request`) · `infra/browser-session.ts`(Electron `Session`·`BrowserWindow`,) | 셋 다 `electron` 을 import 하므로 **테스트가 직접 import 하면 즉시 죽는다**(`vitest.config.ts` 에 electron alias 없음 — P29). 그래서 판정·변환은 순수 모듈(`net-response.ts`·`browser-session-policy.ts`)로 떼어 두고 이 파일들은 **배선만** 한다 | `infra/net/net-response.test.ts`(순수부) |
 | 소비자는 `typeof fetch` **포트로 주입받는다** — `ProviderApiImpl.fetchImpl`(0181) · `createSender(fetchImpl)` | **기본값을 두지 않는다** — 기본값은 곧 조용한 Node 스택 복귀다 | 위와 동일 |
 | **`redirect:'manual'` 은 Electron 에서 의미가 다르다** — 웹 fetch 는 3xx 를 돌려주지만 Electron 은 **요청을 취소한다**(`followRedirect()` 를 동기 호출해야 이어진다) | 3xx 를 직접 받아야 하면 `infra/net/net-request.ts` 의 `sendOnce`(`net.request` 의 `'redirect'` 이벤트로 3xx 재구성). `netFetch` 가 manual 요청을 그리로 우회한다. **추종은 호출자가** 한다(홉마다 정책을 검사해야 하므로) | `infra/net/net-response.test.ts` |
 
 > 이 규칙은 보안 경계이자 *동작* 경계다. 위반해도 로컬·개방망에서는 통과하고 **사내망에서만 실패**하므로, 리뷰가 아니라 테스트로 잡는다.
 
-### 1.9 전송·세션 인프라 인벤토리 (0173/0174 → 0180 이설 → 0181 복원)
+### 1.9 전송·세션 인프라 인벤토리
 
 0180 이 인증 인프라 6모듈을 삭제하면서, **인증이 아니었던** 원격 전송 스택 3모듈을
 `infra/auth/` → `infra/net/` 으로 옮겼다. 디렉토리 이름이 `auth` 라서 함께 지워질 뻔한 것이
@@ -162,16 +162,16 @@ main 프로세스의 모든 원격 요청은 **Chromium 네트워크 스택**으
 | `net/net-request.ts` | `net.request` 기반 전송. `redirect:'manual'` 로 3xx 를 직접 받아야 할 때 (§1.8) | ✓ |
 | `net/net-response.ts` | 응답 판정·변환 **순수부** — electron 미의존이라 테스트가 직접 import 한다 | — |
 | `net/transport.ts` (0181) | 인증된 요청의 전송 조각 — `PreparedRequest`·상한 검사·`createSender(fetchImpl)`. **도메인 타입을 모른다**(infra → contracts 는 DAG 역방향) | — |
-| `browser-session.ts` (0181 복원) | session group → Electron `Session` 매핑 · 통제된 로그인 창 · 세션 쿠키로 보내는 요청 | ✓ |
-| `browser-session-policy.ts` (0181 복원) | partition 이름·origin allowlist·`ERR_ABORTED` 판정 **순수부** | — |
+| `browser-session.ts` | session group → Electron `Session` 매핑 · 통제된 로그인 창 · 세션 쿠키로 보내는 요청 | ✓ |
+| `browser-session-policy.ts` | partition 이름·origin allowlist·`ERR_ABORTED` 판정 **순수부** | — |
 | `loopback-callback.ts` (0181) | OAuth 루프백 콜백 1회성 리스너(127.0.0.1, RFC 8252). node `http` 만 쓴다 | — |
-| `vault.ts` (0181 복원) | safeStorage 위 네임스페이스 뷰. 값·metadata·index (§1.4-b) | — |
+| `vault.ts` | safeStorage 위 네임스페이스 뷰. 값·metadata·index (§1.4-b) | — |
 
 ---
 
 
 
-### Agent provider auth token (0010 → 0014 → 0015 → 0028)
+### Agent provider auth token
 
 provider `settings.json`(`sources/settings/<adapter>/<provider>/`)은 `~/.claude/settings.json` 과 **동일 스키마·동일 취급**이다(handoff 0028). 접근 토큰·base URL 등 인증 env 는 사용자가 그 파일의 `env` 블록에 **직접** 적어 관리한다(Claude Code 정책 그대로). Orca 는 이 env 에 대해 `${VAR}` 확장도, secret-store 토큰 주입(구 `provider:${key}`→`ANTHROPIC_API_KEY`, 0010/0015)도 **하지 않는다** — settings 를 verbatim 으로 읽어 그대로 주입한다. (secret-store `provider:` 토큰 경로는 0028 에서 폐지. secret-store/safeStorage 자체는 MCP 인증값 전용으로 유지.) provider settings 는 dist 에 배포하지 않고 sources 파일만 읽으므로 **디스크 평문 0** 은 유지된다.
 

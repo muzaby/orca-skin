@@ -1,9 +1,9 @@
 # Backend Architecture — Overview (범위·스택·프로세스)
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-08-11 (handoff 0183 r2 — **원격 사용량 경로 제거**: contracts **7→5모듈**(`usage-report`·`usage-source` 삭제), IPC **77→76 채널**(`cost:refreshProviderUsageReport` 삭제), `app/usage-source.ts`·`ExternalUsageService` 제거. 직전 0181 — **provider 플랫폼 재작성**: `Provider` 단일 축(`kind:'gate'|'llm'|'service'`), contracts →7모듈(`provider.ts` 신설), IPC 77 채널(`provider` 6 신설), 게이트·LLM env 주입·MCP 토큰 소스·service 도구 복구. 직전 0180 — 인증 플랫폼·connector 전면 제거: 슬라이스 11→9, `infra/auth`→`infra/net` 이설, settings **18 키**. 직전 0177 — 0096~0176 동기화. 직전 0094 — 0078~0093 동기화: scheduler 슬라이스·자동 업데이트·skills 시딩·boot-report 계측 반영)
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [adapters.md](./adapters.md), [provider-runtime.md](./provider-runtime.md), [standardization.md](./standardization.md), [persistence.md](./persistence.md), [security.md](./security.md), [runtime-ipc.md](./runtime-ipc.md), [terms.md](./terms.md) (사람용 용어 해설), [`app/src/main/AGENTS.md`](../../../app/src/main/AGENTS.md) (레이어 DAG 정본)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
+> Decision rationale: [ADR-002](../../decisions/002-feature-slice-boundaries.md) — 왜 feature 수직 슬라이스인가.
 
 ## 1. 이 문서의 범위
 
@@ -102,8 +102,8 @@ Electron App
 │       ├── config/             # orca-config · secret-store · paths · crypto · mcp-file
 │       ├── net/               # 원격 전송 스택 — net-fetch(net.fetch) · net-request(net.request) · net-response(순수) ·
 │       │                       #   transport(인증 요청 조각·상한, 0181). 전역 fetch( 호출은 net-fetch.ts 에만 허용
-│       ├── vault.ts            # safeStorage 네임스페이스 뷰 (0181 복원) — provider:<id>:<authKind>
-│       ├── browser-session.ts  # session group → Electron Session · 로그인 창 (0181 복원). 판정은 -policy 순수부
+│       ├── vault.ts            # safeStorage 네임스페이스 뷰 — provider:<id>:<authKind>
+│       ├── browser-session.ts  # session group → Electron Session · 로그인 창. 판정은 -policy 순수부
 │       ├── loopback-callback.ts # OAuth 루프백 1회성 리스너 (0181, RFC 8252)
 │       ├── log/                # 중앙 LogManager (0123/0124) — file-transport(JSONL 로테이션) · redact · suppress ·
 │       │                       #   registry · log-context · serialize-error. 정본 observability.md
@@ -177,12 +177,12 @@ Electron App
 | OpencodeAdapter | Future | ❌ 미구현 | PRD OQ7 |
 | AdapterRegistry | Phase 2 | ✅ 완료 | claude 단일 등록 |
 | Installer (래퍼) | Phase 2 | ✅ 완료 | 4줄 — 어댑터의 `install()` yield |
-| electron-store | Phase 3++ | ✅ 완료 | `infra/settings-store.ts` — 20 키 (카탈로그는 persistence.md §1.2 / IPC_CONTRACT §2.4) |
+| electron-store | Phase 3++ | ✅ 완료 | `infra/settings-store.ts` (키 카탈로그는 persistence.md §1.2 / IPC_CONTRACT §2.4) |
 | Skills 스캔 (orca `sources/skills` + `~/.claude/skills`) | Phase 2 | ✅ 완료 | `features/extensions/skills/scan.ts` — `<cwd>/.claude/skills` 루트는 제거됨. 캐시는 `Bootstrap.skillsCache` |
 | Skills 번들 시딩 (부트 1회) | Phase 4 | ✅ 완료 (0078) | `features/extensions/skills/seed.ts` + `app/builtin-resources.ts` — manifest/marker 버전 게이트 |
 | ExtensionDeployer | Phase 3++ | ✅ 완료 | `features/extensions/deployer.ts` — sources → `dist/<engine>/` 렌더 (표준화 스테이지 A) |
 | 인증 만료 감지 (`auth.expired`) | Phase 2 | ✅ 완료 | UI 에 AuthExpiredModal 노출 |
-| 로컬 DB (sessions / messages / parts / projects) | Phase 3 | ✅ 완료 | better-sqlite3 + 마이그레이션 16종(`0001_initial`…`0016_turn_model_context_window`). `infra/db/`. |
+| 로컬 DB (sessions / messages / parts / projects) | Phase 3 | ✅ 완료 | better-sqlite3 + 마이그레이션(`infra/db/migrations/`, `0001_initial` 부터 순번). |
 | FTS5 전문 검색 (`messages_fts`) | Phase 3++ | ✅ 완료 | `0003_messages_fts.sql` + `orca:search:messages` IPC |
 | MCP 서버 CRUD + safeStorage 인증 비밀 | Phase 3++ | ✅ 완료 | `features/extensions/mcp/store.ts` + `infra/config/secret-store.ts`. 파일-백드 모델. |
 | Artifacts 디렉토리 (큰 산출물) | Future | ❌ 미구현 | persistence.md §1.4 |
@@ -192,7 +192,7 @@ Electron App
 | CI/CD 릴리스 파이프라인 (v0.1.0) | Phase 4 | ✅ 완료 (0087~0089) | `.github/workflows/{ci,release}.yml` — Windows unsigned NSIS + GitHub Releases draft. 배포 빌드는 로그인 게이트 스킵(0089). 정본 `docs/guides/release-operations.md` |
 | 중앙 로깅 (LogManager · JSONL · redaction) | Phase 4 | ✅ 완료 (0123/0124, prod opt-in 토글 0144) | `infra/log/` — 외부 로깅 라이브러리 미도입. 정본 [observability.md](./observability.md) |
 | **Provider 플랫폼** (앱 로그인 + LLM 자격증명 + 서비스 연결) | Phase 4 | ✅ **0181 재작성 완료** | `contracts/provider.ts` 하나가 계약이고 `features/providers/{auth,gate,llm,service,declarations}` 가 구현이다. 인증 5종(api-key·password·pat·**oauth code→token**·browser-session) · IPC `provider` 6채널 · 카탈로그 연결 탭. 실값(ADFS·토큰 교환 endpoint·서비스 인벤토리)은 배포 선언에서 채운다 |
-| **원격 전송 스택 단일화** (Node 전역 `fetch` 금지 → Chromium 스택) | Phase 4 | ✅ 완료 (0173/0174) | 전역 `fetch(` 호출은 `infra/net/net-fetch.ts` 에만 허용(`no-node-fetch.test.ts` 가 0건으로 고정), 소비자는 `typeof fetch` 포트 주입. Chromium 스택을 무는 파일은 **3개**(`net-fetch`·`net-request`·`browser-session`(0181 복원)). [security.md](./security.md) §1.8 |
+| **원격 전송 스택 단일화** (Node 전역 `fetch` 금지 → Chromium 스택) | Phase 4 | ✅ 완료 (0173/0174) | 전역 `fetch(` 호출은 `infra/net/net-fetch.ts` 에만 허용(`no-node-fetch.test.ts` 가 0건으로 고정), 소비자는 `typeof fetch` 포트 주입. Chromium 스택을 무는 파일은 **3개**(`net-fetch`·`net-request`·`browser-session`). [security.md](./security.md) §1.8 |
 | `options.permissionMode` (도구 권한) | Phase 4 | ❌ 미구현 | PRD OQ9 |
 | `options.hooks` 완전 구현 (도구 감사 외부 핸들러) | Phase 4 | ❌ 미구현 | 현재 인프로세스 OrcaHookSet 은 구현됨 |
 | 멀티세션 + 장수명 세션 채널 | Phase 4 | ✅ main 런타임 완료 (handoff 0011·0051·0067) | 세션별 SessionRuntime + 동시 턴 + 장수명 채널(프레임)·idle 풀 LRU. runtime-ipc.md §1. renderer 외피는 ../frontend/state.md §2 |

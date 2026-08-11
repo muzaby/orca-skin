@@ -1,7 +1,6 @@
 # Frontend Architecture — UX & Domains (UX 패턴·ApprovalCard·도메인·IPC 호출)
 
 > 이 문서의 독자: AI agent (1순위), 팀 동료 (2순위)
-> 최종 업데이트: 2026-08-05 (handoff 0177 — 재서술하던 채널 총계를 삭제하고 SSOT 링크만 남김)
 > 관련 문서: [../../ARCHITECTURE.md](../../ARCHITECTURE.md) (인덱스), [rendering.md](./rendering.md), [../backend/provider-runtime.md](../backend/provider-runtime.md), [../../IPC_CONTRACT.md](../../IPC_CONTRACT.md)
 > 진실의 기준: **코드와 어긋날 경우 코드 우선** — 발견 시 사용자에게 보고.
 
@@ -149,7 +148,7 @@ Main 이 `AbortSignal` 을 SDK `query()` 에 전파 → 현재 inflight 만 중�
 
 ### 3.4 채널 전체 목록
 
-[IPC_CONTRACT.md](../../IPC_CONTRACT.md) §2 참조 — **채널 총계·도메인 분포는 IPC_CONTRACT 가 SSOT 이고 본 문서는 수치를 두지 않는다.** (이전 판은 "재서술하지 않는다" 고 적어놓고 총계를 적어 낡았다 — 0177 에서 삭제.)
+[IPC_CONTRACT.md](../../IPC_CONTRACT.md) §2 참조 — **채널 총계·도메인 분포는 IPC_CONTRACT 가 SSOT 이고 본 문서는 수치를 두지 않는다.**
 
 ---
 
