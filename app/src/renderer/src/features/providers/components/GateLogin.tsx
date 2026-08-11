@@ -41,6 +41,9 @@ export function GateLogin({
   const mine = step && current && step.providerId === current.id ? step : null
   const failure = mine?.kind === 'failed' ? mine : null
   const fields = mine?.kind === 'input-required' ? mine.fields : []
+  // 부팅 자동 로그인이 도는 중 — 사용자가 누를 것은 없다. 확인이 끝나면 화면이 넘어가거나(성공)
+  // 버튼이 살아난다(실패). 이 표시가 없으면 "왜 버튼이 멈춰 있나" 가 된다.
+  const resuming = mine?.kind === 'resuming'
   const [authKind, setAuthKind] = useState<ProviderAuthKind | null>(null)
 
   return (
@@ -99,10 +102,13 @@ export function GateLogin({
             ))}
           </div>
         )}
+        {resuming && (
+          <p className="mb-3 text-center text-[12.5px] text-ink2">{tr('gate.resuming')}</p>
+        )}
         <GateStepForm
           key={mine?.kind === 'input-required' ? `${current?.id}:${mine.authKind}` : 'start'}
           fields={fields}
-          busy={busy}
+          busy={busy || resuming}
           disabled={!current}
           onSubmit={(input) => {
             if (!current) return

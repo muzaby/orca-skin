@@ -80,6 +80,11 @@ export class ProviderStore {
     return this.verified.has(providerId) && this.grants.has(providerId)
   }
 
+  // 확인 성립. `put`(방금 로그인) 외의 유일한 진입점은 자동 로그인(`LoginService.resume`)이다.
+  markVerified(providerId: string): void {
+    if (this.grants.has(providerId)) this.verified.add(providerId)
+  }
+
   get(providerId: string): Grant | undefined {
     return this.grants.get(providerId)
   }

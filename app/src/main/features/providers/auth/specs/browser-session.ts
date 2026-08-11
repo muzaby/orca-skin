@@ -81,6 +81,44 @@ export function normalizeExpiry(raw: unknown): number | undefined {
 export class SessionRunner implements SessionAuthenticator {
   constructor(private readonly deps: SessionRunnerDeps) {}
 
+  // ── 자동 로그인 판정 (창을 열지 않는다) ─────────────────────────────────────
+  //
+  // 복원된 세션 grant 가 **지금도 유효한지** cookie jar 로 한 번 물어본다. `persist:` 파티션은
+  // 만료가 있는 쿠키를 디스크에서 자동 복원하므로, 그 쿠키가 아직 살아 있으면 여기서 2xx 가
+  // 나오고 사용자는 아무것도 하지 않은 채 통과한다. 만료 없는 세션 쿠키였다면 복원될 것이
+  // 없어 실패하고 로그인 화면에 남는다.
+  //
+  // **판정은 probe 다**(`classifyProbeChain`: 2xx + 최종 URL 이 probe origin 으로 복귀).
+  // `whoami` 를 쓰지 않는 이유는 그쪽이 설계상 판정용이 아니기 때문이다 — "조회 실패는 로그인
+  // 실패가 아니다"(principal 은 표시용). principal 은 로그인 때 이미 grant 에 실려 있다.
+  //
+  // `login()` 과의 유일한 차이는 **창을 열지 않는 것**이다. 창을 열면 그건 자동이 아니다.
+  async verify(provider: Provider, spec: BrowserSessionSpec): Promise<boolean> {
+    const { config } = spec
+    try {
+      this.deps.sessions.register({
+        sessionGroup: config.sessionGroup,
+        allowedOrigins: config.allowedOrigins
+      })
+      const handleId = this.deps.sessions.acquire(config.sessionGroup)
+      const probe = await this.deps.sessions.probe(handleId, config.authenticationProbeUrl)
+      // 성공·실패 **양쪽 다** 남긴다 — 쿠키가 재시작을 넘어왔는지를 이 한 줄이 말해 준다.
+      this.deps.logger?.('providers.session.resume.probed', {
+        providerId: provider.id,
+        ok: probe.ok,
+        status: probe.status
+      })
+      return probe.ok
+    } catch (error) {
+      // 네트워크 미연결(VPN 전)·정책 위반 등. 부팅 경로라 던지지 않고 "수동 로그인 필요" 로 접는다.
+      this.deps.logger?.('providers.session.resume.failed', {
+        providerId: provider.id,
+        reason: messageOf(error)
+      })
+      return false
+    }
+  }
+
   async login(provider: Provider, spec: BrowserSessionSpec): Promise<AuthResult> {
     const { config } = spec
     // 같은 group 을 여러 provider 가 선언하면 allowlist 가 합집합으로 넓어진다 — 의도적으로

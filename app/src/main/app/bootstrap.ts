@@ -329,7 +329,8 @@ export class Bootstrap {
         onChange: () => {
           serviceTools.sync(registry.byKind('service'))
           broadcastProviderState(platform.state())
-        }
+        },
+        logger: (event, data) => log.info(event, data)
       })
     })
     // 부팅 복원 직후 1회 — 이미 인증된 service provider 의 도구가 첫 턴부터 보인다.
@@ -354,6 +355,11 @@ export class Bootstrap {
       () => this.createProviderPlatform(secretStore, runtimeTools)
     )
     registerProviderHandlers(providers)
+    // 자동 로그인 — 복원된 세션 쿠키가 아직 유효한지 확인한다. **await 하지 않는다**: probe 는
+    // 네트워크 왕복이라 부팅을 붙들면 안 되고, 그동안 게이트는 닫혀 있어 사용자는 로그인 화면에서
+    // 진행을 본다. 끝나면 `onChange` 가 새 상태를 push 해 화면이 넘어가거나(성공) 수동 로그인
+    // 버튼이 살아난다(실패).
+    void providers.resume()
     // MCP `${BINDING:<대상>}` 의 토큰 소스를 잇는다(0181 — 0180 이 끊었던 자리).
     // 주입 전에 배포된 설정에는 인증이 필요한 서버가 빠진다(fail-closed).
     this.mcp.attachTokenSource((providerId) => providers.api.token(providerId))

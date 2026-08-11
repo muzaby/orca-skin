@@ -77,6 +77,12 @@ export class ProviderPlatform {
     }
   }
 
+  // 부팅 자동 로그인. 컴포지션 루트가 1회 부른다 — 그동안 게이트는 닫혀 있어 사용자는
+  // 로그인 화면에서 `resuming` 을 본다.
+  resume(): Promise<void> {
+    return this.deps.login.resume()
+  }
+
   login(
     providerId: string,
     authKind?: ProviderAuthKind,

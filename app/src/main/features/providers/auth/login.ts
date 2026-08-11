@@ -39,6 +39,8 @@ export interface OAuthAuthenticator {
 // 단계 3 이 채운다.
 export interface SessionAuthenticator {
   login(provider: Provider, spec: BrowserSessionSpec): Promise<AuthResult>
+  // 복원된 세션 grant 가 지금도 유효한가 — **창을 열지 않고** cookie jar 로만 판정한다.
+  verify(provider: Provider, spec: BrowserSessionSpec): Promise<boolean>
 }
 
 export interface LoginDeps {
@@ -50,6 +52,8 @@ export interface LoginDeps {
   session?: SessionAuthenticator
   // grant 가 바뀌었을 때의 통지 — 핸들러가 renderer 로 state push 를 낸다.
   onChange?: () => void
+  // 자동 로그인 진단. probe 성공·실패가 여기로 나간다.
+  logger?: (event: string, data: Record<string, unknown>) => void
 }
 
 interface Pending {
@@ -99,6 +103,62 @@ export class LoginService {
     this.pending.delete(providerId)
     this.deps.store.revoke(providerId)
     if (this.step?.providerId === providerId) this.step = null
+    this.deps.onChange?.()
+  }
+
+  // ── 자동 로그인 (부팅 1회) ───────────────────────────────────────────────────
+  //
+  // 복원된 grant 는 *기록*이지 인증이 아니다(`gate/index.ts` 의 `verified`). 여기서 한 번
+  // 확인해야 게이트가 열린다. 확인 방법은 **그 방식의 자격증명이 어디 사는가**를 따른다:
+  //
+  //   session — 값이 앱에 없다(쿠키는 Chromium 파티션). 물어봐야만 안다 → probe.
+  //   token   — 값이 vault 에 있고 만료를 안다 → 왕복 불필요, `status` 가 곧 답.
+  //   secret  — 위와 같음. probe 를 물리면 재시작마다 키를 다시 입력하게 된다.
+  //
+  // **게이트가 닫힌 채로 돈다** — 사용자는 로그인 화면을 보고 있고 `resuming` 이 진행을 알린다.
+  // 성공하면 화면이 넘어가고, 실패하면 그 자리에서 수동 로그인 버튼이 살아난다.
+  //
+  // 던지지 않는다 — 부팅 경로라 실패는 전부 "수동 로그인 필요" 로 접는다.
+  async resume(): Promise<void> {
+    for (const provider of this.deps.registry.byKind('gate')) {
+      const grant = this.deps.store.get(provider.id)
+      // grant 가 없으면 확인할 것도 없다 — 처음부터 수동 로그인이다.
+      if (!grant) continue
+      if (this.deps.store.isVerified(provider.id)) continue
+
+      const spec = provider.auth.find((candidate) => candidate.kind === grant.authKind)
+      if (!spec) {
+        // 방식이 선언에서 사라졌다 — 그 자격증명으로는 더 이상 통과시킬 수 없다.
+        this.deps.logger?.('providers.resume.spec-missing', {
+          providerId: provider.id,
+          authKind: grant.authKind
+        })
+        continue
+      }
+
+      if (spec.kind !== 'browser-session') {
+        // 값형 — 로컬 근거(vault + 만료)로 판정이 끝난다.
+        if (this.deps.store.status(provider.id) === 'valid') {
+          this.deps.store.markVerified(provider.id)
+          this.deps.onChange?.()
+        }
+        continue
+      }
+
+      // 실행기가 없으면 확인할 수단이 없다 — 통과시키지 않는다(fail-closed).
+      this.emit({ kind: 'resuming', providerId: provider.id })
+      const ok = (await this.deps.session?.verify(provider, spec)) ?? false
+      if (ok) this.deps.store.markVerified(provider.id)
+      // 실패는 강등한다 — grant 는 남긴다(어느 provider 를 다시 인증해야 하는지 보여야 한다).
+      else this.deps.store.markExpired(provider.id)
+      this.settle(provider.id)
+    }
+  }
+
+  // `resuming` 을 걷어낸다. 결과는 게이트 상태가 말하므로 별도 step 을 남기지 않는다 —
+  // 실패했으면 로그인 화면이 그대로 있고, 성공했으면 화면이 넘어간다.
+  private settle(providerId: string): void {
+    if (this.step?.kind === 'resuming' && this.step.providerId === providerId) this.step = null
     this.deps.onChange?.()
   }
 
