@@ -266,30 +266,51 @@ DAG 하향 유지. 신규 모듈이 없으므로 순수부 seam 을 새로 만�
 
 ## [구현자 기입] 설계 리뷰 (비판적) — r2
 
+구현 주체 = **Claude**(비기능 = 구조 제거, `docs/handoff/AGENTS.md` 역할 분담).
+
+- **동의**: 순삭제라는 판단. 구현해 보니 `ProviderUsageEntry` 를 3필드로 줄인 것이 **typecheck 를
+  강제 검출기로** 만들어, 남은 소비자(preload·renderer api·설정 탭·스키마 테스트)를 하나씩 정확히
+  지목했다. 전수 `rg` 로 못 찾았을 곳(`protocol.send.test.ts`)도 컴파일이 잡았다.
+- **동의**: 문서를 인수 기준에 넣은 것. §5-b 를 쓰다가 §1.7 이 삭제될 두 파일을 선례로 인용 중인
+  것을 발견했다 — 코드만 지웠으면 가이드가 **없는 파일을 가리키는 채로** 남았다.
+- **이견 없음.** 설계가 덜 적은 것 4건은 아래(전부 구현 세부라 선조치).
+
 ## [구현자 기입] 놓친 잠재 문제 + 대응 — r2
 
 | # | 놓친 문제 | 대응 | 근거 |
 |---|---|---|---|
+| 1 | **`RefreshProviderUsageReportSchema` 의 소비자가 핸들러만이 아니었다.** 설계의 영향 파일 목록은 `protocol.ts` 만 적었는데 `protocol.send.test.ts` 가 그 스키마의 전용 describe 블록을 갖고 있었다 | ✅ 스키마와 함께 그 블록도 제거 | `npm run typecheck:web` TS2305 가 즉시 잡았다 |
+| 2 | **`limits.ts` 의 import 가 죽었다.** 0111 정합 2함수를 지우자 `toDate`·`weekDaysElapsedInMonth` 가 소비자 0이 됐다 | ✅ import 축소(`daysInMonth`·`weekDaysInMonth` 만) | lint no-unused |
+| 3 | **`misc-split.test.ts` 는 채널 수를 제목에도 박아둔다.** 설계는 "컨텍스트 스텁 제거" 만 적었으나 그 테스트의 계약은 *전수 리터럴*이라 26 → 25 로 함께 내려야 한다 | ✅ 배열·제목·헤더 주석 3곳 동시 수정 | 파일 헤더가 "분해 전 등록 전수를 리터럴로 고정" 이라고 스스로 밝힌다 |
+| 4 | **`app/src/main/AGENTS.md` 의 fetch 포트 예시가 삭제 대상을 인용**하고 있었다(`ExternalUsageService.fetchImpl`). `security.md §1.9` 도 같은 문장 | ✅ 둘 다 살아 있는 소비자(`ProviderApiImpl.fetchImpl`·`createSender(fetchImpl)`)로 교체 | 죽은 좌표 정리 중 발견 |
+
+**AC12 표현 조정 1건(보고).** AC12 는 가이드에서 `Provider.usage` 문자열 **0건**을 요구한다.
+새 §5-b 도입부에 "예전에는 사용량 전용 슬롯이 있었으나 … 제거됐다" 는 **이력 한 줄**이 필요해,
+심볼을 코드 표기로 적지 않고 **산문("정적 모듈 폴더 → 잠시 선언 필드")으로 서술**해 기계 검사
+0건을 유지했다. 죽은 좌표를 남기지 않으면서 "왜 없어졌나" 를 읽는 사람이 알 수 있게 하기 위함이다.
 
 ## [구현자 기입] 구현 체크리스트 — r2
 
-- [ ] `UsageSpec`·`Provider.usage` 제거 + `usage-specs` 삭제
-- [ ] 원격 경로 6파일 삭제 + bootstrap·context·cost 배선 축소
-- [ ] DB 접근자·row 타입 제거 (마이그레이션 무수정)
-- [ ] IPC 76 + shared 타입 축소 + preload/renderer api
-- [ ] renderer — `limits.ts` 축소 · `ProviderUsageTab` · `useProviderUsage`
-- [ ] 가이드 §5-b 재작성(주기 호출) · §1.7 정정 · §9 3행 · 예제 컴파일 검증
-- [ ] 구조 문서·인벤토리 동기화
+- [x] `UsageSpec`·`Provider.usage` 제거 + `usage-specs` 삭제
+- [x] 원격 경로 6파일 삭제 + bootstrap·context·cost 배선 축소
+- [x] DB 접근자·row 타입 제거 (마이그레이션 무수정 — `git diff` migrations **0파일**)
+- [x] IPC 76 + shared 타입 축소 + preload/renderer api
+- [x] renderer — `limits.ts` 축소 · `ProviderUsageTab` · `useProviderUsage`
+- [x] 가이드 §5-b 재작성(주기 호출) · §1.7 정정 · §9 3행 · **예제 컴파일 검증**
+- [x] 구조 문서·인벤토리 동기화 (10개 문서)
 
 ## [구현자 기입] 구현 보고 — r2
 
 | 항목 | 내용 |
 |---|---|
-| 변경 파일 | … |
-| 실행 명령 | … |
-| 게이트 결과 | … |
-| 블로커 / 역질문 | … |
-| 대상 커밋 | … |
+| 변경 파일 | **37** — 삭제 **8** · 코드 변경 15(계약·bootstrap·context·cost·db 2·shared 3·preload·renderer 3·테스트 3) · 문서 14 |
+| 줄 수 | **+169 / −1,403** |
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` · `node --test "scripts/*.test.mjs"` |
+| 게이트 결과 | lint **0 error / 1 warn**(0102 베이스라인) · typecheck **3/3** · vitest **191 파일(186/5) · 1,677 테스트(1,639/38)** · scripts **28/28** |
+| 신규 red | **0** — 실패 5파일이 문서화된 DB ABI 베이스라인과 정확히 일치(`infra/db/{queries,migrate}` · `features/extensions/builder` · `features/orchestration/fork` · `app/chat-turn.continuity`). 실패 수 39 → **38** 은 이번에 삭제한 `provider_usage_report_cache` 왕복 테스트 1건만큼 줄어든 것 |
+| AC 충족 | **14/15** — AC15(사람 실기)만 미충족. 이번 환경은 `npm ci` 가 성공해 Electron ABI 도 재빌드됐으나, GUI 기동(`npm run dev`) 실기는 여전히 사람/CI 몫이다 |
+| 블로커 / 역질문 | 없음 (AC12 표현 조정은 위 ⚠️ 아님 — 기계 검사는 그대로 0건) |
+| 대상 커밋 | `328b754`(재설계) + 구현 커밋 |
 
 ---
 

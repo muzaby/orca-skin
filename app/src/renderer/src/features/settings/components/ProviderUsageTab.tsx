@@ -27,7 +27,7 @@ export function ProviderUsageTab({
   const [view, setView] = useState<'root' | 'limit'>('root')
   const { tr, locale } = useI18n()
   const usageLimits = entry ? computeProviderUsageLimits(entry) : null
-  const limitUsd = entry?.effectiveLimit.limitUsd ?? null
+  const limitUsd = entry?.limitUsd ?? null
 
   if (view === 'limit') {
     return (
@@ -54,14 +54,7 @@ export function ProviderUsageTab({
         <div className="flex flex-col gap-4">
           <LimitBarsSection usageLimits={usageLimits} />
           <SyncRow
-            label={
-              entry
-                ? formatRelativeTime(
-                    entry.effectiveLimit.fetchedAt ?? entry.summary.updatedAt,
-                    locale
-                  )
-                : null
-            }
+            label={entry ? formatRelativeTime(entry.summary.updatedAt, locale) : null}
             refreshing={refreshing}
             onRefresh={onRefresh}
           />

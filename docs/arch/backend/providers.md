@@ -56,7 +56,8 @@ IPC **82 → 71 채널**(auth 7 + plugin 4) · contracts **9 → 6** · 슬라�
    전송 스택**(updater·usage 가 쓴다). `infra/net/` 으로 **이설**했다.
 2. **runtime-tool 포트**(`RuntimeToolRegistry`·`adapters/runtime-tools.ts`) — 기여자만 0 이 됐고
    배선은 살아 있었다. 0181 의 `Provider.tools` 가 그 자리를 다시 채운다.
-3. **`contracts/usage-source.ts`** — `sources?` 가 optional 이라 주입만 끊으면 폴백으로 생존.
+3. **`contracts/usage-source.ts`** — `sources?` 가 optional 이라 주입만 끊으면 폴백으로 생존했다.
+   (0183 r2 에서 사용량 원격 경로 전체와 함께 **제거**됐다 — 아래 §6.4.)
 4. **`adapters/error-classifier.ts` 의 `auth_error`** — 이름만 auth, 코드 경로 무관.
 
 > **Confluence 순수 변환기 576줄은 "이동" 이 아니라 삭제했다.** 옮겨두면 소비자 0인 코드가 남아
@@ -172,8 +173,7 @@ app/src/main/
 │   ├── loopback-callback.ts(86)       # OAuth 루프백 1회성 리스너 (node http)
 │   └── net/transport.ts   (129)       # 전송 조각 · 상한 검사
 └── app/
-    ├── handlers/providers.ts (50)     # IPC 6채널
-    └── usage-source.ts     (113)      # ProviderApi → UsageSourcePort 어댑터
+    └── handlers/providers.ts (50)     # IPC 6채널
 ```
 
 renderer: `app/GateFrame.tsx`(142) · `features/providers/hooks/useProviderGate.ts`(77) ·
@@ -191,8 +191,7 @@ renderer: `app/GateFrame.tsx`(142) · `features/providers/hooks/useProviderGate.
 | — (`oauth-runner` 는 electron 미의존) | `oauth.ts` | `AuthWindowPort`·`openExternal`·`listen` |
 
 **`features/providers` 는 다른 feature 를 import 하지 않는다.** 교차가 필요한 곳은 컴포지션 루트가
-주입한다 — `UsageSourcePort`(app/usage-source.ts) · `RuntimeToolSink`(bootstrap) · MCP 토큰 소스
-(`McpStore.attachTokenSource`).
+주입한다 — `RuntimeToolSink`(bootstrap) · MCP 토큰 소스(`McpStore.attachTokenSource`).
 
 ---
 
@@ -326,7 +325,7 @@ export const SERVICE_PROVIDERS: Provider[] = [
 
 ---
 
-## 6. 쓰는 법 — 소비 표면 넷
+## 6. 쓰는 법 — 소비 표면 셋
 
 앱 안의 다른 모듈이 인증을 쓰는 **단일 포트**는 `ProviderApi` 하나다. 소비 슬라이스는
 `Pick<ProviderApi, …>` 로 좁혀 받는다.
@@ -377,11 +376,16 @@ chat:send → resolve-turn → buildTurnEnv(ctx, providerKey)
 **세션 grant(쿠키)는 값이 아니므로 `null` 이다** — SSO 는 MCP 로 반출되지 않는다(0178 사용자 결정:
 MCP 는 별도 프로세스라 토큰이 기동 시점에 고정된다). MCP 에는 PAT·ID/비밀번호·토큰을 쓴다.
 
-### 6.4 사용량 표본 — `UsageSourcePort`
+### 6.4 (제거됨) 사용량 표본 — 0183 r2
 
-`features/usage` 는 `features/providers` 를 직접 import 할 수 없으므로(슬라이스 교차 금지) 컴포지션
-루트의 `app/usage-source.ts` 가 어댑터를 만들어 주입한다. **미인증은 오류가 아니라 `not_connected`
-다** — 부팅 직후·사내망 밖·로그아웃 후의 정상 상태다.
+**소비 표면은 셋이다.** 0176~0181 에는 네 번째로 사용량 표본 경로(`UsageSourcePort` +
+`app/usage-source.ts`)가 있었으나 0183 r2 가 **전용 배관을 통째로 제거**했다 — 구 `static/modules/`
+레지스트리도, 그것을 선언으로 옮긴 필드도 남기지 않았다. 사용량은 로컬 턴 집계(`UsageTracker`)만
+남는다.
+
+되살릴 필요는 없다. SP 의 사용량 endpoint 가 필요한 배포는 **그 기능을 쓰는 feature 가
+`ProviderApi.request` 로 직접 부르고**, 주기 실행이 필요하면 컴포지션 루트가 `Scheduler` 에
+action 을 등록한다 — 절차는 [`../../guides/closed-network-extensions.md`](../../guides/closed-network-extensions.md) §5-b.
 
 ### 6.5 런타임 도구 — `Provider.tools`
 

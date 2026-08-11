@@ -129,28 +129,6 @@ export interface ModelUsageSumRow {
   cost_usd: number
 }
 
-export interface ProviderUsageReportCacheRow {
-  provider_key: string
-  report_json: string
-  fetched_at: number
-  as_of: number | null
-  quota_limit_usd: number | null
-  quota_used_usd: number | null
-  quota_remaining_usd: number | null
-  updated_at: number
-}
-
-export interface ProviderUsageReportCacheUpsert {
-  providerKey: string
-  reportJson: string
-  fetchedAt: number
-  asOf: number | null
-  quotaLimitUsd: number | null
-  quotaUsedUsd: number | null
-  quotaRemainingUsd: number | null
-  updatedAt: number
-}
-
 export type ScheduleRunStatus = 'running' | 'success' | 'error' | 'skipped'
 
 export interface ScheduleRunRow {

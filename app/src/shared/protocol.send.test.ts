@@ -1,10 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import {
-  OpenPathRequestSchema,
-  RefreshProviderUsageReportSchema,
-  SendChatMessageSchema,
-  SetPermissionModeSchema
-} from './protocol'
+import { OpenPathRequestSchema, SendChatMessageSchema, SetPermissionModeSchema } from './protocol'
 
 const base = { sessionId: null, projectId: null, text: 'hi' }
 
@@ -73,16 +68,6 @@ describe('SetPermissionModeSchema', () => {
     expect(
       SetPermissionModeSchema.safeParse({ sessionId: 's1', mode: 'acceptEdits' }).success
     ).toBe(false)
-  })
-})
-
-describe('RefreshProviderUsageReportSchema', () => {
-  it('providerKey 를 요구하고 빈 문자열을 거부한다', () => {
-    expect(
-      RefreshProviderUsageReportSchema.safeParse({ providerKey: 'claude-bedrock' }).success
-    ).toBe(true)
-    expect(RefreshProviderUsageReportSchema.safeParse({ providerKey: '' }).success).toBe(false)
-    expect(RefreshProviderUsageReportSchema.safeParse({}).success).toBe(false)
   })
 })
 
