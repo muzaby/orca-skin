@@ -1,6 +1,6 @@
 import { test, describe } from 'node:test'
 import assert from 'node:assert/strict'
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -17,6 +17,7 @@ import {
   parseRelativeLinks,
   checkLinks,
   runCli,
+  normalizeEol,
   PROSE_EXCLUDED
 } from './check-doc-inventory.mjs'
 
@@ -292,6 +293,21 @@ describe('CLI', () => {
       assert.equal(runCli([], fx.appDir), 0)
       mkdirSync(join(fx.appDir, 'src', 'main', 'features', 'newslice'), { recursive: true })
       assert.equal(runCli(['--check'], fx.appDir), 1, '코드가 앞서가면 게이트가 걸려야 한다')
+    } finally {
+      fx.cleanup()
+    }
+  })
+
+  test('CRLF 체크아웃에서도 --check 가 통과한다', () => {
+    // CI 는 windows-latest 이고 .gitattributes 가 없어 체크아웃이 CRLF 일 수 있다.
+    const fx = fullFixture({ 'docs/AGENTS.md': '수치는 생성물이 갖는다.' })
+    try {
+      assert.equal(runCli([], fx.appDir), 0)
+      const generated = join(fx.rootDir, 'docs', 'generated', 'inventory.md')
+      const lf = readFileSync(generated, 'utf8')
+      writeFileSync(generated, lf.replace(/\n/g, '\r\n'), 'utf8')
+      assert.equal(runCli(['--check'], fx.appDir), 0, 'CRLF 로 게이트가 깨지면 안 된다')
+      assert.equal(normalizeEol('a\r\nb'), 'a\nb')
     } finally {
       fx.cleanup()
     }

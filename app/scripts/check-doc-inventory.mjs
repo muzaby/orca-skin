@@ -367,6 +367,14 @@ export function checkLinks(rootDir, excluded = LINK_EXCLUDED) {
 
 // ── CLI ──────────────────────────────────────────────────────────────────────
 
+/**
+ * 줄바꿈을 정규화한 뒤 대조한다. CI 는 windows-latest 이고 저장소에 `.gitattributes` 가 없어
+ * 체크아웃이 CRLF 로 떨어질 수 있다 — 바이트 대조를 하면 내용이 같은데도 게이트가 깨진다.
+ */
+export function normalizeEol(text) {
+  return text.replace(/\r\n/g, '\n')
+}
+
 export function runCli(argv = process.argv.slice(2), cwd = process.cwd()) {
   const check = argv.includes('--check')
   const appDir = cwd
@@ -391,7 +399,7 @@ export function runCli(argv = process.argv.slice(2), cwd = process.cwd()) {
       `[doc-inventory] missing ${GENERATED_DOC} — run: node scripts/check-doc-inventory.mjs`
     )
     failed = true
-  } else if (existing !== rendered + '\n') {
+  } else if (normalizeEol(existing) !== normalizeEol(rendered + '\n')) {
     console.error(
       `[doc-inventory] ${GENERATED_DOC} is stale or hand-edited — run: node scripts/check-doc-inventory.mjs`
     )
