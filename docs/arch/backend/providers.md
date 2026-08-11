@@ -155,40 +155,46 @@ type Grant =
 
 ```
 app/src/main/
-├── contracts/provider.ts              # 계약 정본 (198줄) — Provider·AuthSpec·Grant·ProviderApi
+├── contracts/provider.ts              # 계약 정본 (263줄) — Provider·AuthSpec·Grant·ProviderProbe·ProviderApi
 ├── features/providers/                # ★ 아래는 0181 인증 플랫폼만. 구 LLM 설정 슬라이스는 생략
 │   ├── declarations/                  # ★ 배포가 고치는 유일한 곳
 │   │   ├── index.ts  sso.ts  llm.ts  service.ts
 │   ├── auth/
-│   │   ├── registry.ts    (94)        # 등록 + 검사 2종
-│   │   ├── store.ts       (127)       # providerId → Grant, 상태 판정, 401 강등
+│   │   ├── registry.ts    (117)       # 등록 + 검사 4종 (중복 id · id 형상 · origin · gate probe)
+│   │   ├── store.ts       (154)       # providerId → Grant, 상태 판정, 401 강등, **verified 집합**
 │   │   ├── store-file.ts  (141)       # electron-store 영속 (grant + OAuth pending)
-│   │   ├── login.ts       (292)       # AuthSpec 분기 실행 · pending 1건 · 재인증
-│   │   ├── oauth.ts       (159)       # ★ 순수 — PKCE S256 · state 발급/보관/대조 · 콜백 파싱
-│   │   ├── oauth-runner.ts(222)       # redirect 3분기 (창·리스너는 포트 주입)
+│   │   ├── login.ts       (464)       # AuthSpec 분기 실행 · pending 1건 · 재인증 · **probe·resume**
+│   │   ├── oauth.ts       (166)       # ★ 순수 — PKCE S256 · state 발급/보관/대조 · 콜백 파싱
+│   │   ├── oauth-runner.ts(247)       # redirect 3분기 (창·리스너는 포트 주입) · state 전송 원장
 │   │   ├── policy.ts       (92)       # ★ 순수 — origin · 절대 URL · 예약 헤더 · grant 상태
 │   │   ├── present.ts      (65)       # Presentation 적용 (자격증명을 요청에 넣는 유일한 지점)
-│   │   ├── api.ts         (211)       # ProviderApi 구현 — request/materialize/token
+│   │   ├── api.ts         (231)       # ProviderApi 구현 — request/materialize/token · finalUrl
+│   │   ├── session-policies.ts        # ★ 순수 — sessionGroup 등록 정책
 │   │   └── specs/{credential,browser-session}.ts
-│   ├── gate/index.ts       (38)       # ★ 순수 — 게이트 진리표
+│   ├── gate/index.ts       (65)       # ★ 순수 — 게이트 진리표 (valid **+ verified**)
 │   ├── llm/index.ts        (43)       # ★ 순수 — 디렉토리 열거 ↔ 선언 조인
-│   ├── service/index.ts    (59)       # 도구 등록/회수 (grant 상태 추종)
+│   ├── service/index.ts    (79)       # 도구 등록/회수 (grant 상태 추종) · ToolContext 바인딩
 │   │   └── confluence/                # 0160 복원 **8모듈** — 순수 변환 3(storage-to-markdown ·
 │   │                                   #   search-render · limit) + base-path · rest · connector ·
 │   │                                   #   download-store · tools. 테스트 144건이 이식 직후 전량 green
-│   └── platform.ts        (105)       # 파사드 — IPC 핸들러가 보는 표면
+│   └── platform.ts        (131)       # 파사드 — IPC 핸들러가 보는 표면 · resume · 도구 이름
 ├── infra/
 │   ├── vault.ts            (99)       # safeStorage 네임스페이스 뷰
-│   ├── browser-session.ts (368)       # Electron Session · 로그인 창       ← electron
-│   ├── browser-session-policy.ts (137)# ★ 순수 — probe 체인 · origin · ERR_ABORTED
+│   ├── browser-session.ts (280)       # Electron Session · 로그인 창       ← electron
+│   ├── browser-session-policy.ts (36) # ★ 순수 — partition · origin allowlist · ERR_ABORTED
+│   │                                  #   (probe 체인 판정은 0184 에서 login.ts 의 probeOk 로 이관)
 │   ├── loopback-callback.ts(86)       # OAuth 루프백 1회성 리스너 (node http)
 │   └── net/transport.ts   (129)       # 전송 조각 · 상한 검사
 └── app/
     └── handlers/providers.ts (50)     # IPC 6채널
 ```
 
-renderer: `app/GateFrame.tsx`(142) · `features/providers/hooks/useProviderGate.ts`(77) ·
-`features/skills/{lib/providerRows.ts(70), hooks/useProviders.ts(71), components/customize/ProviderDetail.tsx(202)}`.
+renderer: `app/GateFrame.tsx`(87) · `features/providers/hooks/useProviderGate.ts`(77) ·
+`features/providers/components/GateLogin.tsx`(`resuming` 표시) ·
+`features/skills/{lib/providerRows.ts(51), hooks/useProviders.ts(71), components/customize/ProviderDetail.tsx(226)}`.
+
+> 위 줄 수는 **2026-08-11(0184) 기준 실측**이다. 파일을 고치면 여기도 같이 고친다 — 숫자가
+> 승계되면 다음 인벤토리 갱신이 그 값을 다시 베낀다(0184 verify 에서 13건이 그렇게 밀려 있었다).
 
 ### 레이어 규칙 — electron 을 무는 곳을 좁힌다
 
