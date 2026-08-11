@@ -17,8 +17,10 @@ import type {
   RuntimeToolResult,
   RuntimeToolServer
 } from '../../../../adapters/runtime-tools'
+import type { ProviderToolContext } from '../../../../contracts/provider'
 import {
   CONFLUENCE_OPERATIONS,
+  createConfluenceRuntime,
   MAX_PAGES_PER_CALL,
   type ConfluenceContext,
   type ConfluenceResult,
@@ -59,15 +61,47 @@ function toToolResult(raw: unknown, render: (data: unknown) => string): RuntimeT
 // 0181 — 정적 descriptor 와 구현을 **한 번에** 만든다. 구 구조는 `RuntimeToolContribution`
 // (descriptor + connection 별 factory)이었지만, 연결이 provider 하나에 1건이라 두 단계로 나눌
 // 이유가 사라졌다. `readOnlyHint` 를 런타임에 뒤집을 표면이 없다는 성질은 그대로다.
-export function createConfluenceToolServer(
-  providerId: string,
-  connectorLabel: string,
-  runtime: ConfluenceRuntime,
-  ctx: ConfluenceContext
+//
+// **id·label·origin 을 인자로 받지 않는다.** 선언이 그것들을 다시 적게 두면 `Provider.id` 와
+// 어긋날 수 있고, 그러면 도구는 모델에 보이는데 호출은 `unknown_provider` 로 죽는다. 전부
+// `ctx` 에서 파생한다 — 배포가 채우는 것은 컨텍스트 경로(`apiBasePath`) 같은 실값뿐이다.
+export interface ConfluenceToolOptions {
+  // 컨텍스트 경로(`/confluence`). `origin` 에 붙이면 등록 검사가 그 선언을 거부하므로 여기다.
+  apiBasePath?: string
+  maxAttachmentBytes?: number
+  downloadConcurrency?: number
+}
+
+// 선언이 부르는 표면. `Provider.tools` 에 그대로 꽂힌다.
+export function confluenceTools(
+  ctx: ProviderToolContext,
+  opts: ConfluenceToolOptions = {}
 ): RuntimeToolServer {
+  return createConfluenceToolServer(
+    ctx,
+    createConfluenceRuntime({
+      id: ctx.providerId,
+      label: ctx.label,
+      baseUrl: ctx.origin,
+      ...opts
+    })
+  )
+}
+
+// 런타임을 주입받는 하위 표면 — 도구 계층(descriptor·handler)만 검증할 때 쓴다.
+export function createConfluenceToolServer(
+  ctx: ProviderToolContext,
+  runtime: ConfluenceRuntime
+): RuntimeToolServer {
+  const providerId = ctx.providerId
+  const connectorLabel = ctx.label
   const serverId = confluenceToolServerId(providerId)
+  const request: ConfluenceContext = {
+    request: (req, signal) => ctx.request(req, signal),
+    logger: () => undefined
+  }
   const invoke = (operation: string, params?: Record<string, unknown>): Promise<ConfluenceResult> =>
-    runtime.invoke(ctx, { operation, ...(params ? { params } : {}) })
+    runtime.invoke(request, { operation, ...(params ? { params } : {}) })
 
   return {
     descriptor: {

@@ -73,20 +73,51 @@ app/src/main/features/providers/declarations/
 이 문서에서 "provider 를 추가한다" 는 **후자**를 뜻한다. 전자에 파일을 더하면 인증 경로에 닿지
 않는다. 두 세입자는 이름만 같고 서로 import 하지 않는다.
 
-### 1.3 등록 시 검사는 둘뿐이다
+### 1.3 등록 시 검사는 넷뿐이다
 
 | 검사 | 규칙 | 어기면 |
 |---|---|---|
 | **중복 `id`** | provider id 는 유일해야 한다 | 뒤에 온 선언만 거부(앞의 것은 살아 있다) |
+| **`id` 형태** | 케밥 소문자(`a-z0-9-`) | 그 선언만 거부 |
 | **`origin` 형태** | scheme+host(+port). **경로·쿼리·후행 슬래시 금지** | 그 선언만 거부 |
+| **게이트의 `probe`** | `kind:'gate'` 는 `probe` 선언 필수 | 그 선언만 거부 |
 
 거부는 **그 선언 하나만** 떨어뜨린다(구 구조의 패키지 단위 all-or-nothing 아님). 사유는
 `providers.declaration.rejected` 로그로 남는다 — 선언했는데 화면에 안 보이면 여기부터 본다.
 
 ### 1.4 `Provider.id` 는 한 번 정하면 바꾸지 않는다
 
-vault 네임스페이스(`provider:<id>:<authKind>`)이자 `${BINDING:<id>}` 참조 대상이다. 바꾸면 저장된
-자격증명을 읽지 못하고 사용자가 적은 MCP 설정이 깨진다. 케밥 소문자로 짓는다.
+vault 네임스페이스(`provider:<id>:<authKind>`)이자 `${BINDING:<id>}` 참조 대상이고, 내장 도구
+서버 이름(`<id>-tools` → 모델이 보는 `mcp__<id>-tools__<tool>`)의 뿌리다. 바꾸면 저장된
+자격증명을 읽지 못하고 사용자가 적은 MCP 설정과 도구 이름이 함께 깨진다.
+
+케밥 소문자는 **권고가 아니라 검사다**(§1.3). 범위 밖 문자를 쓰면 등록·로그인·vault 저장은 전부
+통과하는데 도구 노출과 `${BINDING:}` 치환만 조용히 깨지기 때문이다.
+
+> 지금 어떤 id 로 등록돼 있고 그 도구가 모델에게 어떤 이름으로 보이는지는 **GUI 연결 탭의 상세
+> 패널**이 그대로 보여 준다(식별자 · 노출 도구). 선언과 화면이 어긋나면 거기서 잡힌다.
+
+### 1.4-b `probe` — 인증됐는지 한 번 물어보는 곳
+
+```ts
+probe: { path: '/rest/api/user/current' }   // origin 기준 상대 경로. 2xx = 인증됨
+```
+
+**선언하면 통과해야만 연결이 성립한다** — 로그인 직후에도, 부팅 복원에서도, 방식과 무관하게.
+미선언이면 값이 입력된 것만으로 "연결됨" 이 되고, 서버가 그 PAT 를 이미 회수했는지는 실제 도구
+호출이 401 을 받을 때에야 드러난다. `kind:'gate'` 는 필수다(§1.3).
+
+| 항목 | 규칙 |
+|---|---|
+| 판정 | **2xx** 이고 리다이렉트 체인의 **최종 URL 이 `Provider.origin` 으로 복귀**할 것 |
+| 왜 최종 origin 까지 보나 | 미인증 SSO 는 IdP 로그인 폼을 **200** 으로 준다. status 만 보면 인증됨으로 오독한다(0174 실기) |
+| 언제 도나 | ① grant 커밋 직후 ② 부팅 복원 ③ 게이트 통과 직후(게이트 외 provider 훑기) |
+| 실패하면 | 로그인 중이면 되돌리고(입력형은 같은 폼에 사유 표시), 부팅이면 `expired` 로 강등 — grant 는 남겨 재인증 지점을 보여 준다 |
+| 진단 | `providers.probe.result{ok,status,returned}` · `providers.probe.failed{reason}` |
+
+> ⚠️ **한계 둘.** ① 인증 실패를 `200` + 로그인 HTML 로 주면서 리다이렉트도 하지 않는 배포는
+> 통과한다(상태코드와 origin 만 본다). ② 재인증이 probe 에서 떨어지면 이전 자격증명은 복구되지
+> 않는다 — vault 키가 같아 이미 덮였다.
 
 ### 1.5 `present` — 자격증명을 요청에 싣는 방법
 
@@ -137,14 +168,18 @@ service : { sessionGroup: 'corp', allowedOrigins: ['https://wiki…'] }
 
 | SP 호출 | 시점 | 통로 | 경로 표기 | 게이트 |
 |---|---|---|---|---|
-| probe — 인증됐나 | 로그인 중 | `sessions.probe()` | **절대 URL** | `allowedOrigins` |
 | whoami — 누구인가 | 로그인 중 | `sessions.send()` | origin 상대 | `allowedOrigins` |
 | exchange — 토큰 승격 | 로그인 중 | `sessions.send()` | origin 상대 | `allowedOrigins` |
+| **probe — 인증됐나** | **grant 커밋 직후 · 부팅 복원** | `ProviderApi.request()` | origin 상대 | `checkOutboundRequest` 전부 |
 | 그 외 API (도구·사용량…) | 로그인 후 | `ProviderApi.request()` | origin 상대 | `checkOutboundRequest` 전부 |
 
-> ⚠️ **로그인 중에는 `ProviderApi.request()` 를 쓸 수 없다.** `checkOutboundRequest` 가
-> `grantStatus !== 'valid'` 를 거부하는데 grant 는 로그인이 **성공한 뒤** 커밋된다. 닭·달걀이라
-> 없앨 수 없다 — 로그인 중은 `sessions.send()`, 로그인 후는 `api.request()` 다.
+> **probe 는 grant 를 커밋한 *뒤* 돈다.** `checkOutboundRequest` 가 `grantStatus !== 'valid'` 를
+> 거부하므로 커밋 전에는 요청 자체가 나가지 않는다. 순서를 뒤집으면(커밋 → 확인 → 실패 시
+> 되돌림) 검증 경로와 사용 경로가 **글자까지 같아지고**, 후보 자격증명을 위한 전송 경로를 한 벌
+> 더 만들 필요가 없다. 확인이 끝나기 전에는 renderer 로 아무것도 쏘지 않는다 — 떨어질
+> 자격증명에도 게이트가 한 순간 열렸다 닫히기 때문이다.
+>
+> whoami·exchange 는 여전히 커밋 **전**이라 `sessions.send()` 를 쓴다.
 
 **API 마다 선언하지 않는다.** `request` 는 origin 상대 경로면 무엇이든 받는다 — operation
 레지스트리가 없다(배포가 선언 두 곳을 맞추지 않게 하려는 결정). 그래서 "SP 의 여러 기능" 은
@@ -190,7 +225,7 @@ request: (req, signal) => api.request('confluence', req, signal)
 |---|---|---|
 | 1 | `SSO_PROVIDER` 를 `null` 에서 실제 선언으로 바꾼다 | `app/src/main/features/providers/declarations/sso.ts` |
 | 2 | **`origin` 을 정한다** — `exchange.path` 가 붙는 기준이고 등록 검사의 대상이다. 로그인 시작 IdP 가 아니라 **probe·토큰 교환이 사는 호스트**로 잡는다(아래 주의) | 같은 파일 |
-| 3 | `config` 5필드를 채운다 (`sessionGroup`·`loginUrl`·`doneUrlPrefix`·`authenticationProbeUrl`·`allowedOrigins`) | 같은 파일. **선언 파일 헤더 주석에 같은 예제가 들어 있다** — 거기서 시작하는 편이 빠르다 |
+| 3 | `probe.path` 를 정하고 `config` 4필드를 채운다 (`sessionGroup`·`loginUrl`·`doneUrlPrefix`·`allowedOrigins`) | 같은 파일. **선언 파일 헤더 주석에 같은 예제가 들어 있다** — 거기서 시작하는 편이 빠르다. `probe` 를 빠뜨리면 등록 검사가 거부한다(`missing_probe`) |
 | 4 | 토큰까지 필요하면 `config.exchange` 를 더한다 | §2-b |
 | 5 | `npm run typecheck` → `./node_modules/.bin/vitest run src/main/features/providers` | 형상·회귀 |
 | 6 | `npm run dev` 로 로그인 왕복을 실기한다 | **§6** (dev 게이트 동작이 prod 와 다르다) |
@@ -203,6 +238,7 @@ export const SSO_PROVIDER: Provider | null = {
   label: '사내 로그인',
   kind: 'gate',
   origin: 'https://portal.example.corp',      // ← 2단계. 경로·후행 슬래시 금지
+  probe: { path: '/api/me' },                 // ← 게이트는 필수. 로그인 직후와 부팅이 같이 쓴다
   auth: [
     {
       kind: 'browser-session',
@@ -211,7 +247,6 @@ export const SSO_PROVIDER: Provider | null = {
         sessionGroup: 'corp',
         loginUrl: 'https://adfs.example.corp/adfs/ls/?wa=wsignin1.0',
         doneUrlPrefix: 'https://portal.example.corp/home',
-        authenticationProbeUrl: 'https://portal.example.corp/api/me',
         allowedOrigins: ['https://adfs.example.corp', 'https://portal.example.corp']
       }
     }
@@ -219,10 +254,11 @@ export const SSO_PROVIDER: Provider | null = {
 }
 ```
 
-> ⚠️ **`origin` 은 로그인 시작 주소(IdP)가 아니다.** `loginUrl`·`authenticationProbeUrl` 은 절대
-> URL 이라 어디를 가리켜도 되지만, **`exchange.path` 는 `Provider.origin` 기준 상대 경로로
-> 해석된다**(`auth/specs/browser-session.ts` 의 `new URL(exchange.path, origin)`). 토큰 교환이
-> portal 에 있는데 `origin` 을 ADFS 로 두면 교환 요청이 엉뚱한 호스트로 나간다.
+> ⚠️ **`origin` 은 로그인 시작 주소(IdP)가 아니다.** `loginUrl` 은 절대 URL 이라 어디를 가리켜도
+> 되지만, **`probe.path`·`exchange.path`·`whoami.path` 는 `Provider.origin` 기준 상대 경로로
+> 해석된다.** 토큰 교환이 portal 에 있는데 `origin` 을 ADFS 로 두면 그 요청들이 엉뚱한 호스트로
+> 나간다. probe 판정도 "체인이 `origin` 으로 복귀했는가" 이므로 `origin` 이 어긋나면 인증이
+> 영영 성립하지 않는다.
 
 ### 필드별 의미 · 흔한 실수
 
@@ -230,20 +266,20 @@ export const SSO_PROVIDER: Provider | null = {
 |---|---|---|
 | `sessionGroup` | cookie jar 이름. **같은 값을 쓰는 provider 들이 jar 를 공유**한다 | 서비스마다 다르게 주면 SSO 재사용이 안 된다 |
 | `loginUrl` | 창이 처음 여는 주소 | — |
-| `doneUrlPrefix` | 이 접두사에 도달하면 로그인 완료로 **간주**한다 | 이것만으로 성공을 선언하지 않는다(아래 probe) |
-| `authenticationProbeUrl` | 완료를 **실제 요청으로** 재확인하는 endpoint | 로그인 폼이 200 으로 뜨는 배포에서 오판을 막는 지점 |
+| `doneUrlPrefix` | 이 접두사에 도달하면 로그인 완료로 **간주**한다 | 이것만으로 성공을 선언하지 않는다 — 확정은 `Provider.probe` 다 |
+| `probe.path`(선언 최상위) | 완료를 **실제 요청으로** 재확인하는 endpoint. **origin 상대** | 로그인 폼이 200 으로 뜨는 배포에서 오판을 막는 지점. 게이트는 없으면 등록 거부 |
 | `allowedOrigins` | 창이 오갈 수 있는 origin **전수**. 서브도메인 자동 허용 없음 | 하나 빠지면 로그인 중간에 차단된다 — 로그가 막힌 origin 을 지목한다 |
 | `whoami` (0182) | `{ path, valuePath }` — 로그인한 계정을 읽어 **사이드바 하단에 표시**한다. 생략하면 조회 요청이 아예 나가지 않고 폴백 라벨(`developer`)이 뜬다 | **`path` 는 origin 기준 상대 경로다** — 위 세 URL 이 절대 URL 이라 여기도 절대 URL 로 적기 쉽다(아래 주의) |
 
-**`whoami` 를 왜 probe 로 대신하지 않는가.** `authenticationProbeUrl` 이 흔히 `/api/me` 라 같은
-응답에 계정이 들어 있지만, probe 는 **판정만 돌려주도록** 설계돼 본문을 버리고, 리다이렉트 체인을
-직접 돌기 때문에 본문이 **마지막 홉의 것**이라 신원 문서라는 보장이 없다. 그래서 같은 cookie jar 로
-한 번 더 부른다(`whoami.path` 에 probe 와 **같은 endpoint** 를 적어도 된다 — 요청은 두 번 나가지만
-"판정" 과 "신원" 의 의미가 선언에서 갈린다).
+**`whoami` 를 왜 probe 로 대신하지 않는가.** `probe.path` 가 흔히 `/api/me` 라 같은 응답에 계정이
+들어 있지만, probe 는 **판정만** 본다(상태코드 + 최종 origin) — 리다이렉트 체인을 따라간 끝의
+본문이라 신원 문서라는 보장이 없다. 그래서 같은 cookie jar 로 한 번 더 부른다(`whoami.path` 에
+probe 와 **같은 endpoint** 를 적어도 된다 — 요청은 두 번 나가지만 "판정" 과 "신원" 의 의미가
+선언에서 갈린다).
 
-> ⚠️ **`whoami.path`·`exchange.path` 는 origin 상대, `loginUrl`·`doneUrlPrefix`·`authenticationProbeUrl`
-> 은 절대 URL 이다.** 한 `config` 안에 두 표기가 섞인 이유는 앞의 둘이 **로그인 후 `ProviderApi.request`
-> 로 그대로 재사용**되기 때문이다 — 그쪽은 절대 경로를 `absolute_path` 로 거부한다.
+> ⚠️ **경로 표기는 `loginUrl`·`doneUrlPrefix` 만 절대 URL 이고 나머지(`probe.path`·`whoami.path`·
+> `exchange.path`)는 전부 origin 상대다.** 앞의 둘은 창이 여는 주소라 IdP 를 가리켜야 하고,
+> 나머지는 `ProviderApi.request` 가 그대로 쓰는데 그쪽은 절대 경로를 `absolute_path` 로 거부한다.
 
 **신원 조회 실패는 로그인 실패가 아니다.** principal 은 표시용이라, 못 읽었다고 인증을 되돌리면
 "이름을 못 읽어서 로그인이 안 되는" 상태가 된다. 실패하면 grant 는 그대로 커밋되고 화면만 폴백
@@ -397,20 +433,21 @@ apiKeySpec({
 | 1 | `SERVICE_PROVIDERS` 에 항목을 추가한다 | `declarations/service.ts` |
 | 2 | `origin` 에 **컨텍스트 경로를 넣지 않는다**(등록 검사에 걸린다). 컨텍스트 경로는 도구 쪽 `apiBasePath` 로 넘긴다 | 같은 파일 |
 | 3 | 인증 방식을 선언한다(대개 `patSpec` 1종 — 길이 1이면 GUI 선택 단계가 생략된다) | 같은 파일 |
-| 4 | `tools: (api) => RuntimeToolServer` 를 채운다. **`api` 를 클로저로 잡아 `api.request(providerId, …)` 로 나간다** | 같은 파일 |
-| 5 | `npm run typecheck` → `./node_modules/.bin/vitest run src/main/features/providers` | |
-| 6 | 실기: 연결 탭에서 인증 → **새 채팅**에서 도구가 보이는지(등록은 다음 spawn 부터 반영된다) | 사람 실기 |
+| 4 | **`probe` 를 선언한다** (§1.4-b). 없으면 값 입력만으로 "연결됨" 이 되고 회수된 PAT 를 못 걸러낸다 | 같은 파일 |
+| 5 | `tools: (ctx) => RuntimeToolServer` 를 채운다. **id·label·origin 은 `ctx` 에서 나온다 — 다시 적지 않는다** | 같은 파일 |
+| 6 | `npm run typecheck` → `./node_modules/.bin/vitest run src/main/features/providers` | |
+| 7 | 실기: 연결 탭에서 인증 → 상세 패널의 **식별자·노출 도구**가 선언과 같은지 → **새 채팅**에서 도구가 보이는지(등록은 다음 spawn 부터 반영된다) | 사람 실기 |
 
 ```ts
 import { patSpec } from '../auth/specs/credential'
-import { createConfluenceRuntime } from '../service/confluence/connector'
-import { createConfluenceToolServer } from '../service/confluence/tools'
+import { confluenceTools } from '../service/confluence/tools'
 
 {
   id: 'confluence',
   label: 'Confluence',
   kind: 'service',
   origin: 'https://wiki.example.corp',   // 컨텍스트 경로는 여기 넣지 않는다
+  probe: { path: '/confluence/rest/api/user/current' },
   auth: [
     patSpec({
       label: '개인 액세스 토큰(PAT)',
@@ -418,23 +455,18 @@ import { createConfluenceToolServer } from '../service/confluence/tools'
       present: { location: 'header', name: 'Authorization', scheme: 'bearer' }
     })
   ],
-  tools: (api) => {
-    const runtime = createConfluenceRuntime({
-      id: 'confluence',
-      label: 'Confluence',
-      baseUrl: 'https://wiki.example.corp',
-      apiBasePath: '/confluence'          // 컨텍스트 경로는 요청 path 앞에 붙는다
-    })
-    return createConfluenceToolServer('confluence', 'Confluence', runtime, {
-      request: (req, signal) => api.request('confluence', req, signal),
-      logger: () => undefined
-    })
-  }
+  // 컨텍스트 경로는 요청 path 앞에 붙는다. id·label·baseUrl 은 ctx 에서 나온다.
+  tools: (ctx) => confluenceTools(ctx, { apiBasePath: '/confluence' })
 }
 ```
 
-> ⚠️ **`tools(api)` 는 provider 당 한 번만 호출된다(코어가 캐시한다).** 조립 결과에 요청 시점
-> 상태를 굽지 마라 — 자격증명은 `api.request` 가 호출 시점에 붙인다.
+> ⚠️ **`tools(ctx)` 는 provider 당 한 번만 호출된다(코어가 캐시한다).** 조립 결과에 요청 시점
+> 상태를 굽지 마라 — 자격증명은 `ctx.request` 가 호출 시점에 붙인다.
+>
+> ⚠️ **id 를 손으로 다시 적지 마라.** 구 레시피는 같은 문자열을 네 곳(선언 `id` · 런타임 `id` ·
+> `api.request` 1인자 · 서버 팩토리)에 쓰게 했고, 하나라도 어긋나면 **도구는 모델에 보이는데
+> 호출할 때마다 `요청이 거부됐습니다 (unknown_provider: …)` 로 죽었다.** 컴파일러도 등록 검사도
+> 잡지 못한다 — 그래서 적을 자리를 없앴다.
 
 ### `ProviderApi.request` 가 강제하는 것 (어기면 요청 자체가 나가지 않는다)
 

@@ -33,6 +33,9 @@ export interface ProviderPlatformDeps {
   api: ProviderApi
   // dev 게이트 우회 — 읽는 시점의 값이어야 하므로 getter 다(설정은 런타임에 바뀐다).
   bypass: () => boolean
+  // 모델이 보는 도구 이름 조회(`features/.../service` 가 소유). 미주입이면 GUI 에 도구가
+  // 비어 보인다 — 조회일 뿐이라 없어도 인증은 돈다.
+  toolsOf?: (providerId: string) => { serverId: string; tools: string[] } | null
   // DEV 빌드는 선언이 0개여도 게이트를 세운다(로그인 화면 도달성). 컴포지션 루트가
   // `import.meta.env.DEV` 를 넣는다 — prod 번들에서는 false 로 접힌다.
   alwaysRequired?: boolean
@@ -114,7 +117,15 @@ export class ProviderPlatform {
       status: this.deps.store.status(provider.id),
       activeAuthKind: this.deps.store.authKind(provider.id),
       principal: grant?.principalId ?? null,
-      expiresAt: grant?.expiresAt ?? null
+      expiresAt: grant?.expiresAt ?? null,
+      tools: toolNames(this.deps.toolsOf?.(provider.id) ?? null)
     }
   }
+}
+
+// 모델이 보는 **완전 이름** 으로 접는다 — 조립 규칙은 `adapters/claude-runtime-tools.ts`(SDK
+// 서버 키 = `descriptor.id`)와 `adapters/runtime-tool-policy.ts`(승인 이름)와 같아야 한다.
+function toolNames(descriptor: { serverId: string; tools: string[] } | null): string[] {
+  if (!descriptor) return []
+  return descriptor.tools.map((tool) => `mcp__${descriptor.serverId}__${tool}`)
 }

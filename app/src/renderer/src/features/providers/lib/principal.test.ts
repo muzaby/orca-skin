@@ -12,6 +12,7 @@ function info(over: Partial<ProviderInfo> & Pick<ProviderInfo, 'id'>): ProviderI
     activeAuthKind: 'browser-session',
     principal: null,
     expiresAt: null,
+    tools: [],
     ...over
   }
 }

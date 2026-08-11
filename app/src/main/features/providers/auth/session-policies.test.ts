@@ -18,7 +18,6 @@ function sessionSpec(config: {
       sessionGroup: config.sessionGroup,
       loginUrl: 'https://idp.example.corp/login',
       doneUrlPrefix: 'https://portal.example.corp/home',
-      authenticationProbeUrl: 'https://portal.example.corp/api/me',
       allowedOrigins: config.allowedOrigins
     }
   }
@@ -29,6 +28,8 @@ function provider(over: Partial<Provider> & Pick<Provider, 'id' | 'auth'>): Prov
     label: over.id,
     kind: 'gate',
     origin: 'https://portal.example.corp',
+    // 게이트는 probe 선언이 없으면 등록 자체가 거부된다(`registry.ts` missing_probe).
+    probe: { path: '/api/me' },
     ...over
   } as Provider
 }

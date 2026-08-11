@@ -13,7 +13,13 @@ import type {
   ProviderFailureReason,
   ProviderStepInfo
 } from '../../../../shared/ipc'
-import type { AuthSpec, Grant, Provider, TokenValue } from '../../../contracts/provider'
+import type {
+  AuthSpec,
+  Grant,
+  Provider,
+  ProviderApi,
+  TokenValue
+} from '../../../contracts/provider'
 import { providerRefreshKey, providerVaultKey, type Vault } from '../../../infra/vault'
 import type { ProviderRegistry } from './registry'
 import type { ProviderStore } from './store'
@@ -36,12 +42,14 @@ export interface OAuthAuthenticator {
   complete(provider: Provider, spec: OAuthSpec, code: string): Promise<AuthResult>
 }
 
-// 단계 3 이 채운다.
+// 단계 3 이 채운다. **창을 여는 일만** 한다 — 성립 여부 판정은 `Provider.probe` 가 맡는다.
 export interface SessionAuthenticator {
   login(provider: Provider, spec: BrowserSessionSpec): Promise<AuthResult>
-  // 복원된 세션 grant 가 지금도 유효한가 — **창을 열지 않고** cookie jar 로만 판정한다.
-  verify(provider: Provider, spec: BrowserSessionSpec): Promise<boolean>
 }
+
+// probe 왕복 상한. 없으면 SP 가 응답하지 않을 때 로그인 invoke 가 매달려 화면이 멈춘 것처럼
+// 보인다(부팅 복원에서는 게이트가 영영 안 열린다).
+const PROBE_TIMEOUT_MS = 15_000
 
 export interface LoginDeps {
   registry: ProviderRegistry
@@ -50,6 +58,8 @@ export interface LoginDeps {
   clock?: () => number
   oauth?: OAuthAuthenticator
   session?: SessionAuthenticator
+  // 인증 확인(`Provider.probe`)의 실행 통로. 미주입이면 확인 없이 통과한다.
+  api?: Pick<ProviderApi, 'request'>
   // grant 가 바뀌었을 때의 통지 — 핸들러가 renderer 로 state push 를 낸다.
   onChange?: () => void
   // 자동 로그인 진단. probe 성공·실패가 여기로 나간다.
@@ -109,11 +119,11 @@ export class LoginService {
   // ── 자동 로그인 (부팅 1회) ───────────────────────────────────────────────────
   //
   // 복원된 grant 는 *기록*이지 인증이 아니다(`gate/index.ts` 의 `verified`). 여기서 한 번
-  // 확인해야 게이트가 열린다. 확인 방법은 **그 방식의 자격증명이 어디 사는가**를 따른다:
+  // 확인해야 게이트가 열린다. **확인 방법은 방식과 무관하게 하나다** — `Provider.probe`.
   //
-  //   session — 값이 앱에 없다(쿠키는 Chromium 파티션). 물어봐야만 안다 → probe.
-  //   token   — 값이 vault 에 있고 만료를 안다 → 왕복 불필요, `status` 가 곧 답.
-  //   secret  — 위와 같음. probe 를 물리면 재시작마다 키를 다시 입력하게 된다.
+  //   session — 쿠키는 Chromium 파티션에 복원돼 있다. 물어봐야만 살아 있는지 안다.
+  //   값형    — vault 에 값이 남아 있어도 서버가 그 PAT·API key 를 이미 회수했을 수 있다.
+  //             (만료를 아는 것은 토큰뿐이고, 그 외에는 서버만 안다.)
   //
   // **게이트가 닫힌 채로 돈다** — 사용자는 로그인 화면을 보고 있고 `resuming` 이 진행을 알린다.
   // 성공하면 화면이 넘어가고, 실패하면 그 자리에서 수동 로그인 버튼이 살아난다.
@@ -121,38 +131,47 @@ export class LoginService {
   // 던지지 않는다 — 부팅 경로라 실패는 전부 "수동 로그인 필요" 로 접는다.
   async resume(): Promise<void> {
     for (const provider of this.deps.registry.byKind('gate')) {
-      const grant = this.deps.store.get(provider.id)
-      // grant 가 없으면 확인할 것도 없다 — 처음부터 수동 로그인이다.
-      if (!grant) continue
-      if (this.deps.store.isVerified(provider.id)) continue
-
-      const spec = provider.auth.find((candidate) => candidate.kind === grant.authKind)
-      if (!spec) {
-        // 방식이 선언에서 사라졌다 — 그 자격증명으로는 더 이상 통과시킬 수 없다.
-        this.deps.logger?.('providers.resume.spec-missing', {
-          providerId: provider.id,
-          authKind: grant.authKind
-        })
-        continue
-      }
-
-      if (spec.kind !== 'browser-session') {
-        // 값형 — 로컬 근거(vault + 만료)로 판정이 끝난다.
-        if (this.deps.store.status(provider.id) === 'valid') {
-          this.deps.store.markVerified(provider.id)
-          this.deps.onChange?.()
-        }
-        continue
-      }
-
-      // 실행기가 없으면 확인할 수단이 없다 — 통과시키지 않는다(fail-closed).
+      if (!this.restorable(provider)) continue
       this.emit({ kind: 'resuming', providerId: provider.id })
-      const ok = (await this.deps.session?.verify(provider, spec)) ?? false
-      if (ok) this.deps.store.markVerified(provider.id)
-      // 실패는 강등한다 — grant 는 남긴다(어느 provider 를 다시 인증해야 하는지 보여야 한다).
-      else this.deps.store.markExpired(provider.id)
+      await this.reprobe(provider)
       this.settle(provider.id)
     }
+    await this.sweepPlugins()
+  }
+
+  // ── 게이트 외 플러그인 상태 갱신 ─────────────────────────────────────────────
+  //
+  // **게이트가 열린 뒤에 돈다.** 사내 서비스는 대개 게이트와 *같은 cookie jar* 를 쓰므로
+  // (`sessionGroup` 공유), 로그인 전에 물으면 살아 있는 연결도 미인증으로 떨어진다. 그렇게
+  // 한 번 강등되면 `checkOutboundRequest` 가 `grant_not_valid` 로 막아 스스로 회복하지 못한다
+  // (401 강등과 같은 성질 — 회복은 재인증뿐이다). 그래서 순서가 규칙이다.
+  //
+  // 게이트가 아직 통과되지 않았으면 아무것도 하지 않는다. 게이트 선언이 0개면 `every` 가
+  // 참이라 부팅 직후 바로 돈다.
+  private async sweepPlugins(): Promise<void> {
+    const gates = this.deps.registry.byKind('gate')
+    if (!gates.every((gate) => this.deps.store.isVerified(gate.id))) return
+
+    for (const provider of this.deps.registry.list()) {
+      if (provider.kind === 'gate' || !provider.probe) continue
+      if (!this.restorable(provider)) continue
+      await this.reprobe(provider)
+      this.deps.onChange?.()
+    }
+  }
+
+  // 확인 대상인가 — grant 가 있고, 아직 이번 실행에서 확인되지 않았고, 지금 요청을 낼 수 있는
+  // 상태인가. `status !== 'valid'` 면 정책이 요청 자체를 막으므로 물어볼 수 없다.
+  private restorable(provider: Provider): boolean {
+    if (!this.deps.store.get(provider.id)) return false
+    if (this.deps.store.isVerified(provider.id)) return false
+    return this.deps.store.status(provider.id) === 'valid'
+  }
+
+  // 실패는 **강등**한다 — grant 는 남긴다(어느 provider 를 다시 인증해야 하는지 보여야 한다).
+  private async reprobe(provider: Provider): Promise<void> {
+    if (await this.probeOk(provider)) this.deps.store.markVerified(provider.id)
+    else this.deps.store.markExpired(provider.id)
   }
 
   // `resuming` 을 걷어낸다. 결과는 게이트 상태가 말하므로 별도 step 을 남기지 않는다 —
@@ -190,11 +209,68 @@ export class LoginService {
     }
   }
 
-  private runCredential(
+  // ── 인증 확인 (probe) ────────────────────────────────────────────────────────
+  //
+  // 실행은 `ProviderApi.request` **한 줄**이다. grant 를 먼저 커밋해 두므로 세션이면 cookie jar
+  // 로, 값형이면 `present` 로 실려 나가는 것을 `transport()` 가 갈라 준다 — 검증 경로와 사용
+  // 경로가 글자까지 같아진다.
+  //
+  // **status 만 보지 않는다** (0174 실기): SSO 배포는 미인증일 때 IdP 로그인 폼을 **200** 으로
+  // 준다. 체인이 provider origin 으로 돌아왔는지까지 봐야 그 200 을 인증됨으로 오독하지 않는다.
+  // allowlist 밖으로 튄 홉은 `api.request` 가 던지고, 그 자체가 미인증 판정이다.
+  private async probeOk(provider: Provider): Promise<boolean> {
+    const probe = provider.probe
+    if (!probe || !this.deps.api) return true
+    try {
+      const res = await this.deps.api.request(
+        provider.id,
+        { path: probe.path, ...(probe.method !== undefined ? { method: probe.method } : {}) },
+        AbortSignal.timeout(PROBE_TIMEOUT_MS)
+      )
+      const finalOrigin = originOf(res.finalUrl)
+      const returned = finalOrigin !== null && finalOrigin === originOf(provider.origin)
+      const ok = res.ok && returned
+      // 성공·실패 **양쪽 다** 남긴다 — 쿠키·키가 재시작을 넘어왔는지를 이 한 줄이 말해 준다.
+      this.deps.logger?.('providers.probe.result', {
+        providerId: provider.id,
+        ok,
+        status: res.status,
+        returned
+      })
+      return ok
+    } catch (error) {
+      // 네트워크 미연결(VPN 전)·정책 위반(allowlist 밖 redirect)·타임아웃. 전부 미인증이다.
+      this.deps.logger?.('providers.probe.failed', {
+        providerId: provider.id,
+        reason: error instanceof Error ? error.message : String(error)
+      })
+      return false
+    }
+  }
+
+  // 커밋 → 확인 → 실패면 되돌린다. **`null` = 확인 실패** — 호출자가 자기 실패 모양을 만든다
+  // (입력 폼이 있는 방식은 같은 폼으로, 브라우저 흐름은 `failed` 로).
+  //
+  // 커밋을 먼저 하는 이유는 `checkOutboundRequest` 가 `grantStatus !== 'valid'` 를 거부하기
+  // 때문이다. 확인이 끝나기 전에는 **알리지 않는다**(`notify:false`) — `commit` 이 곧바로
+  // 브로드캐스트하면 probe 로 떨어질 자격증명에도 게이트가 한 순간 열렸다 닫힌다.
+  private async settleGrant(provider: Provider, grant: Grant): Promise<ProviderStepInfo | null> {
+    this.commit(provider.id, grant, false)
+    if (!(await this.probeOk(provider))) {
+      this.deps.store.revoke(provider.id)
+      // 통지는 호출자의 `emit`(폼 재표시 또는 `failed`)이 한다 — 두 번 쏘지 않는다.
+      return null
+    }
+    // 게이트가 열렸으면 같은 세션을 쓰는 플러그인들의 상태를 이어서 갱신한다.
+    if (provider.kind === 'gate') await this.sweepPlugins()
+    return this.emit({ kind: 'done', providerId: provider.id })
+  }
+
+  private async runCredential(
     provider: Provider,
     spec: Extract<AuthSpec, { kind: 'api-key' | 'password' | 'pat' }>,
     input: Record<string, string> | undefined
-  ): ProviderStepInfo {
+  ): Promise<ProviderStepInfo> {
     // 1회차는 입력이 없으므로 필드를 알린다. **신뢰된 prompt** 다 — 방식이 만든 임의 UI 가
     // 아니라 Orca 가 이 필드 선언을 렌더링한다.
     if (!input || !spec.fields.some((field) => input[field.name] !== undefined)) {
@@ -222,14 +298,25 @@ export class LoginService {
     const vaultKey = providerVaultKey(provider.id, spec.kind)
     const createdAt = this.clock()
     this.deps.vault.set(vaultKey, composed.value, { kind: spec.kind, createdAt })
-    this.commit(provider.id, {
+    const settled = await this.settleGrant(provider, {
       kind: 'secret',
       vaultKey,
       authKind: spec.kind,
       createdAt,
       ...(composed.principalId !== undefined ? { principalId: composed.principalId } : {})
     })
-    return this.emit({ kind: 'done', providerId: provider.id })
+    if (settled) return settled
+
+    // 서버가 그 값을 거부했다 — pending 을 살려 **같은 폼**으로 돌려준다(compose 오류와 같은
+    // 모양). 재인증이었다면 이전 자격증명은 이미 같은 vault 키에 덮여 복구되지 않는다.
+    this.pending.set(provider.id, { providerId: provider.id, authKind: spec.kind })
+    return this.emit({
+      kind: 'input-required',
+      providerId: provider.id,
+      authKind: spec.kind,
+      fields: [...spec.fields],
+      message: '자격증명이 거부되었습니다. 값을 확인해 주세요.'
+    })
   }
 
   private async runOAuth(
@@ -261,11 +348,15 @@ export class LoginService {
   }
 
   // 실행기 결과 → grant. vault 쓰기가 여기 한 곳에 모인다.
-  private absorb(
+  //
+  // 성공 분기 3종은 전부 `settleGrant` 를 지난다 — OAuth·브라우저 세션도 값형과 **같은 확인**을
+  // 받는다. 창이 `doneUrlPrefix` 에 도달한 것만으로 성공을 선언하지 않는 이유가 여기 있다
+  // (로그인 폼이 같은 접두사로 렌더되는 배포가 있다).
+  private async absorb(
     provider: Provider,
     authKind: ProviderAuthKind,
     result: AuthResult
-  ): ProviderStepInfo {
+  ): Promise<ProviderStepInfo> {
     switch (result.kind) {
       case 'code-required': {
         this.pending.set(provider.id, { providerId: provider.id, authKind })
@@ -282,14 +373,16 @@ export class LoginService {
         const vaultKey = providerVaultKey(provider.id, authKind)
         const createdAt = this.clock()
         this.deps.vault.set(vaultKey, result.value, { kind: authKind, createdAt })
-        this.commit(provider.id, {
-          kind: 'secret',
-          vaultKey,
-          authKind,
-          createdAt,
-          ...(result.principalId !== undefined ? { principalId: result.principalId } : {})
-        })
-        return this.emit({ kind: 'done', providerId: provider.id })
+        return this.settled(
+          provider,
+          await this.settleGrant(provider, {
+            kind: 'secret',
+            vaultKey,
+            authKind,
+            createdAt,
+            ...(result.principalId !== undefined ? { principalId: result.principalId } : {})
+          })
+        )
       }
       case 'token': {
         const vaultKey = providerVaultKey(provider.id, authKind)
@@ -305,34 +398,44 @@ export class LoginService {
           refreshKey = providerRefreshKey(provider.id, authKind)
           this.deps.vault.set(refreshKey, token.refreshToken, { kind: authKind, createdAt })
         }
-        this.commit(provider.id, {
-          kind: 'token',
-          vaultKey,
-          authKind,
-          createdAt,
-          ...(token.expiresAt !== undefined ? { expiresAt: token.expiresAt } : {}),
-          ...(refreshKey !== undefined ? { refreshKey } : {}),
-          ...(token.principalId !== undefined ? { principalId: token.principalId } : {})
-        })
-        return this.emit({ kind: 'done', providerId: provider.id })
+        return this.settled(
+          provider,
+          await this.settleGrant(provider, {
+            kind: 'token',
+            vaultKey,
+            authKind,
+            createdAt,
+            ...(token.expiresAt !== undefined ? { expiresAt: token.expiresAt } : {}),
+            ...(refreshKey !== undefined ? { refreshKey } : {}),
+            ...(token.principalId !== undefined ? { principalId: token.principalId } : {})
+          })
+        )
       }
       case 'session': {
-        this.commit(provider.id, {
-          kind: 'session',
-          sessionGroup: result.sessionGroup,
-          authKind,
-          createdAt: this.clock(),
-          ...(result.principalId !== undefined ? { principalId: result.principalId } : {})
-        })
-        return this.emit({ kind: 'done', providerId: provider.id })
+        return this.settled(
+          provider,
+          await this.settleGrant(provider, {
+            kind: 'session',
+            sessionGroup: result.sessionGroup,
+            authKind,
+            createdAt: this.clock(),
+            ...(result.principalId !== undefined ? { principalId: result.principalId } : {})
+          })
+        )
       }
     }
   }
 
-  private commit(providerId: string, grant: Grant): void {
+  // 입력 폼이 없는 흐름(OAuth·브라우저 세션)의 확인 실패는 `failed` 다 — 되돌려 보낼 폼이 없고,
+  // 사용자는 [연결] 을 다시 눌러 창부터 다시 연다.
+  private settled(provider: Provider, step: ProviderStepInfo | null): ProviderStepInfo {
+    return step ?? this.fail(provider.id, 'probe_failed', '인증을 확인하지 못했습니다')
+  }
+
+  private commit(providerId: string, grant: Grant, notify = true): void {
     this.pending.delete(providerId)
     this.deps.store.put(providerId, grant)
-    this.deps.onChange?.()
+    if (notify) this.deps.onChange?.()
   }
 
   private fail(
@@ -348,5 +451,14 @@ export class LoginService {
     this.step = step.kind === 'done' ? null : step
     this.deps.onChange?.()
     return step
+  }
+}
+
+// 비교 실패(파싱 불가)는 **같지 않음**으로 접는다 — probe 판정에서 관대하게 굴 이유가 없다.
+function originOf(rawUrl: string): string | null {
+  try {
+    return new URL(rawUrl).origin
+  } catch {
+    return null
   }
 }

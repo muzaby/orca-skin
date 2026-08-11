@@ -17,15 +17,7 @@
 import { BrowserWindow, session, type Session } from 'electron'
 import { getLogger } from './log/registry'
 // 판정 로직은 electron 비의존 모듈에 있다(테스트 가능) — 0157 verify r1 / D1·D7.
-import {
-  classifyProbeChain,
-  isAbortedNavigationError,
-  isAllowedOrigin,
-  MAX_PROBE_HOPS,
-  partitionFor,
-  type BrowserProbeResult
-} from './browser-session-policy'
-import { locationOf } from './net/net-response'
+import { isAbortedNavigationError, isAllowedOrigin, partitionFor } from './browser-session-policy'
 import { sendOnce } from './net/net-request'
 import {
   ResponseTooLargeError,
@@ -34,8 +26,7 @@ import {
   type SendResult
 } from './net/transport'
 
-export type { BrowserProbeResult } from './browser-session-policy'
-export { classifyProbeResponse, isAllowedOrigin, partitionFor } from './browser-session-policy'
+export { isAllowedOrigin, partitionFor } from './browser-session-policy'
 
 const DEFAULT_TIMEOUT_MS = 300_000
 
@@ -133,87 +124,8 @@ export class BrowserSessionStore {
     return openWindow(entry, opts)
   }
 
-  // 같은 세션으로 요청하고 **판정만** 돌려준다. 응답 본문·쿠키는 반환하지 않는다.
-  //
-  // **리다이렉트를 우리가 직접 돈다 (0174).** 두 가지가 바뀌었다:
-  //
-  //   1. `ses.fetch(..., {redirect:'manual'})` 을 버렸다 — Electron 의 manual 은 3xx 에서 요청을
-  //      **취소**해버려(웹 fetch 규약과 다르다) probe 가 예외로 죽었다. `sendOnce` 는
-  //      `net.request` 의 redirect 이벤트로 3xx 를 받아 돌려준다.
-  //   2. 0157 D1 의 "3xx = 미인증" 을 **최종 origin 기준**으로 대체했다. 이 배포는 인증에
-  //      성공해도 probe 가 302 로 로그인 URL 을 가리키고 그 체인이 자동 완주하는 구조라,
-  //      3xx 를 곧 미인증으로 접으면 로그인이 **영원히** 성립하지 않는다(실측).
-  //
-  // D1 의 목적(로그인 폼의 200 을 성공으로 오독하지 않기)은 그대로다 — 체인이 IdP origin 에
-  // 머문 채 끝나면 여전히 미인증이다. 홉마다 allowlist 를 먼저 확인하므로 세션이 통제 밖
-  // origin 으로 끌려가지도 않는다.
-  async probe(handleId: string, url: string): Promise<BrowserProbeResult> {
-    const entry = this.entryOf(handleId)
-    if (!isAllowedOrigin(url, entry.policy.allowedOrigins)) {
-      throw new Error('허용되지 않은 origin 으로의 probe 요청')
-    }
-
-    let currentUrl = url
-    let status = 0
-    let hops = 0
-    let stopped: 'outside_allowlist' | 'too_many_hops' | undefined
-
-    for (;;) {
-      const { facts } = await sendOnce({
-        url: currentUrl,
-        session: entry.ses,
-        // 세션의 쿠키·통합 인증(WIA)을 실어야 probe 가 의미를 갖는다.
-        credentials: 'include'
-      })
-      status = facts.status
-      const next = locationOf(facts, currentUrl)
-      if (next === null) break
-      if (hops >= MAX_PROBE_HOPS) {
-        stopped = 'too_many_hops'
-        break
-      }
-      if (!isAllowedOrigin(next, entry.policy.allowedOrigins)) {
-        stopped = 'outside_allowlist'
-        currentUrl = next
-        break
-      }
-      currentUrl = next
-      hops += 1
-    }
-
-    const verdict = classifyProbeChain({
-      probeUrl: url,
-      finalUrl: currentUrl,
-      status,
-      hops,
-      ...(stopped !== undefined ? { stopped } : {})
-    })
-    if (verdict.redirectOutsideAllowlist) {
-      getLogger()
-        .child('auth')
-        .warn('auth.probe.redirect-outside-allowlist', {
-          sessionGroup: entry.sessionGroup,
-          // 어느 origin 을 선언해야 하는지 로그가 지목하게 한다 — 경로·쿼리는 싣지 않는다.
-          blockedOrigin: safeOrigin(currentUrl)
-        })
-    }
-    // 실패 판정의 근거를 남긴다. 이게 없으면 "로그인이 안 된다" 만 보이고 다음 수정 지점이 없다.
-    if (!verdict.result.ok) {
-      getLogger()
-        .child('auth')
-        .info('auth.probe.unauthenticated', {
-          sessionGroup: entry.sessionGroup,
-          status,
-          hops,
-          finalOrigin: safeOrigin(currentUrl),
-          ...(stopped !== undefined ? { stopped } : {})
-        })
-    }
-    return verdict.result
-  }
-
-  // 같은 세션(cookie jar·통합 인증)으로 **실제 요청**을 보낸다 (0178). probe 와 달리 응답 본문을
-  // 그대로 돌려준다 — SSO 로그인으로 사내 REST 를 부르는 경로가 여기다.
+  // 같은 세션(cookie jar·통합 인증)으로 **실제 요청**을 보낸다 (0178). SSO 로그인으로 사내
+  // REST 를 부르는 경로가 여기다 — 인증 확인(probe)도 이 경로로 나간다.
   //
   // 리다이렉트는 **따라가지 않는다.** 홉마다 대상 정책을 다시 봐야 하므로 추종은 호출자
   // (`features/providers/auth/api.ts`)의 몫이다 — `sendOnce` 계약 그대로다.

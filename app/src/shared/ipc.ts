@@ -1267,6 +1267,12 @@ export interface ProviderInfo {
   // 표시용 계정 식별자(비밀 아님). 없으면 null.
   principal: string | null
   expiresAt: number | null
+  // 이 provider 가 LLM 에 노출하는 도구의 **완전 이름**(`mcp__<serverId>__<tool>`). 도구를
+  // 선언하지 않으면 빈 배열이다.
+  //
+  // GUI 가 이것을 보여주는 이유: 이름은 `Provider.id` 에서 파생되는데(`<id>-tools`) 화면에
+  // id 도 도구 이름도 없어서, 선언과 어긋난 호출이 나도 사용자가 대조할 근거가 없었다.
+  tools: string[]
 }
 
 // 로그인 진행 단계. 대화형 단계는 `orca:provider:continue` 로 이어진다.
@@ -1294,6 +1300,9 @@ export type ProviderFailureReason =
   | 'exchange_failed'
   | 'state_mismatch'
   | 'unsupported'
+  // 자격증명·세션은 만들어졌지만 `Provider.probe` 가 인증을 확인하지 못했다. 입력 폼이 있는
+  // 방식은 이 대신 `input-required` 로 되돌아가므로, 여기 오는 것은 OAuth·브라우저 세션이다.
+  | 'probe_failed'
 
 // 게이트 판정. `required` = kind:'gate' provider 선언 여부. **선언 0 이면 통과**가 기본값이라
 // dev/OSS 빌드가 로그인 화면에 잠기지 않는다.

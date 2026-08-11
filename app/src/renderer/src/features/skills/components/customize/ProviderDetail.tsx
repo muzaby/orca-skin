@@ -85,6 +85,10 @@ export function ProviderDetail({
       </div>
 
       <dl className="mt-p8 grid grid-cols-[auto_1fr] gap-x-g6 gap-y-g3 text-footnote">
+        {/* id 는 vault 네임스페이스이자 도구 서버 이름(`<id>-tools`)의 뿌리다 — 선언과 어긋난
+            호출을 사용자가 대조할 수 있어야 한다. */}
+        <dt className="text-ink3">{tr('skills.provider.id')}</dt>
+        <dd className="m-0 truncate font-mono text-ink2">{provider.id}</dd>
         <dt className="text-ink3">{tr('skills.provider.origin')}</dt>
         <dd className="m-0 truncate font-mono text-ink2">{provider.origin}</dd>
         {provider.principal !== null && (
@@ -100,6 +104,26 @@ export function ProviderDetail({
           </>
         )}
       </dl>
+
+      {/* 모델이 실제로 부르는 이름 그대로 보여준다 — 승인 설정·프롬프트가 쓰는 것과 같은 값이다.
+          등록은 연결 상태를 따라가고 다음 spawn 부터 반영되므로, 연결 전에는 안내를 함께 둔다. */}
+      {provider.tools.length > 0 && (
+        <section className="mt-p8">
+          <h3 className="m-0 text-caption text-ink3">{tr('skills.provider.tools')}</h3>
+          <ul className="mt-g2 flex list-none flex-col gap-g1 p-0">
+            {provider.tools.map((name) => (
+              <li key={name} className="truncate font-mono text-footnote text-ink2">
+                {name}
+              </li>
+            ))}
+          </ul>
+          {provider.status !== 'valid' && (
+            <p className="mt-g2 mb-0 text-caption text-ink3">
+              {tr('skills.provider.toolsInactive')}
+            </p>
+          )}
+        </section>
+      )}
 
       {/* 선언이 둘 이상일 때만 선택 단계가 보인다 — 하나면 고를 것이 없다. */}
       {needsAuthChoice(provider) && (

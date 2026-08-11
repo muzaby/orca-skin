@@ -19,7 +19,6 @@ import type {
   SessionTokenExchange,
   TokenValue
 } from '../../../../contracts/provider'
-import type { BrowserProbeResult } from '../../../../infra/browser-session-policy'
 import type { PreparedRequest, SendOptions, SendResult } from '../../../../infra/net/transport'
 import type { AuthResult, BrowserSessionSpec, SessionAuthenticator } from '../login'
 
@@ -35,7 +34,6 @@ export interface BrowserSessionPort {
     handleId: string,
     opts: { url: string; isDone(url: string): boolean }
   ): Promise<{ finalUrl: string }>
-  probe(handleId: string, url: string): Promise<BrowserProbeResult>
   send(handleId: string, req: PreparedRequest, options?: SendOptions): Promise<SendResult>
 }
 
@@ -78,46 +76,11 @@ export function normalizeExpiry(raw: unknown): number | undefined {
   return undefined
 }
 
+// **판정은 여기 없다.** 이 클래스는 창을 열고 세션·토큰·신원을 만들어 줄 뿐이고, 그것이
+// 실제로 인증됐는지는 `LoginService` 가 `Provider.probe` 로 확인한다(방식 무관 단일 판정).
+// 부팅 복원도 같은 경로라 여기에 `verify` 짝을 두지 않는다 — 두 벌이면 규칙이 갈린다.
 export class SessionRunner implements SessionAuthenticator {
   constructor(private readonly deps: SessionRunnerDeps) {}
-
-  // ── 자동 로그인 판정 (창을 열지 않는다) ─────────────────────────────────────
-  //
-  // 복원된 세션 grant 가 **지금도 유효한지** cookie jar 로 한 번 물어본다. `persist:` 파티션은
-  // 만료가 있는 쿠키를 디스크에서 자동 복원하므로, 그 쿠키가 아직 살아 있으면 여기서 2xx 가
-  // 나오고 사용자는 아무것도 하지 않은 채 통과한다. 만료 없는 세션 쿠키였다면 복원될 것이
-  // 없어 실패하고 로그인 화면에 남는다.
-  //
-  // **판정은 probe 다**(`classifyProbeChain`: 2xx + 최종 URL 이 probe origin 으로 복귀).
-  // `whoami` 를 쓰지 않는 이유는 그쪽이 설계상 판정용이 아니기 때문이다 — "조회 실패는 로그인
-  // 실패가 아니다"(principal 은 표시용). principal 은 로그인 때 이미 grant 에 실려 있다.
-  //
-  // `login()` 과의 유일한 차이는 **창을 열지 않는 것**이다. 창을 열면 그건 자동이 아니다.
-  async verify(provider: Provider, spec: BrowserSessionSpec): Promise<boolean> {
-    const { config } = spec
-    try {
-      this.deps.sessions.register({
-        sessionGroup: config.sessionGroup,
-        allowedOrigins: config.allowedOrigins
-      })
-      const handleId = this.deps.sessions.acquire(config.sessionGroup)
-      const probe = await this.deps.sessions.probe(handleId, config.authenticationProbeUrl)
-      // 성공·실패 **양쪽 다** 남긴다 — 쿠키가 재시작을 넘어왔는지를 이 한 줄이 말해 준다.
-      this.deps.logger?.('providers.session.resume.probed', {
-        providerId: provider.id,
-        ok: probe.ok,
-        status: probe.status
-      })
-      return probe.ok
-    } catch (error) {
-      // 네트워크 미연결(VPN 전)·정책 위반 등. 부팅 경로라 던지지 않고 "수동 로그인 필요" 로 접는다.
-      this.deps.logger?.('providers.session.resume.failed', {
-        providerId: provider.id,
-        reason: messageOf(error)
-      })
-      return false
-    }
-  }
 
   async login(provider: Provider, spec: BrowserSessionSpec): Promise<AuthResult> {
     const { config } = spec
@@ -139,22 +102,9 @@ export class SessionRunner implements SessionAuthenticator {
       return failure('cancelled', messageOf(error))
     }
 
-    // **doneUrlPrefix 도달만으로 성공을 선언하지 않는다.** 로그인 폼이 같은 접두사로 렌더되는
-    // 배포가 있어, 실제 요청으로 한 번 더 확인한다(0157 D1 의 목적).
-    let probe: BrowserProbeResult
-    try {
-      probe = await this.deps.sessions.probe(handleId, config.authenticationProbeUrl)
-    } catch (error) {
-      return failure('unsupported', messageOf(error))
-    }
-    if (!probe.ok) {
-      this.deps.logger?.('providers.session.probe.unauthenticated', {
-        providerId: provider.id,
-        status: probe.status
-      })
-      return failure('cancelled', '로그인이 완료되지 않았습니다')
-    }
-
+    // **doneUrlPrefix 도달만으로 성공이 확정되지 않는다** — 로그인 폼이 같은 접두사로 렌더되는
+    // 배포가 있다(0157 D1 의 목적). 그 확인은 `LoginService` 가 grant 커밋 뒤 `Provider.probe`
+    // 로 한 번에 한다. 여기서는 창이 닫힌 뒤의 조립만 이어간다.
     if (!config.exchange) {
       // 세션에서 끝나는 배포 — 신원은 여기서만 물을 수 있다(교환 응답이 없으므로).
       const principalId = await this.whoami(provider, handleId, config.whoami)

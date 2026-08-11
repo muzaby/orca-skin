@@ -103,7 +103,7 @@ main 프로세스는 **Node 전역 `fetch` 를 쓰지 않는다.** Node(undici) 
 - 소비자는 `typeof fetch` 포트로 **주입받는다**(`createSender(fetchImpl)` ·
   `ProviderApiImpl.fetchImpl`). **기본값을 두지 않는다** —
   기본값은 곧 조용한 Node 스택 복귀다.
-- 브라우저 세션(cookie jar)이 필요한 요청은 `BrowserSessionStore.send`/`probe` 를 쓴다 —
+- 브라우저 세션(cookie jar)이 필요한 요청은 `BrowserSessionStore.send` 를 쓴다 —
   `sendOnce(..., {session, credentials:'include'})` 라 세션 쿠키·통합 인증이 실린다(0178).
   feature 는 이것을 **직접 import 하지 않고** `BrowserSessionPort` 로 주입받는다(0181) — 그래야
   `SessionRunner`·`ProviderApiImpl` 이 vitest 대상으로 남는다.

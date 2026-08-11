@@ -33,9 +33,15 @@ function context(routes: Route[]): { ctx: ConfluenceContext; seen: ProviderReque
   const request = async (req: ProviderRequest): Promise<ProviderResponse> => {
     seen.push(req)
     const route = routes.find((r) => r.match(req))
-    if (!route) return { ok: false, status: 404, headers: {}, body: '{}' }
+    if (!route) return { ok: false, status: 404, finalUrl: '', headers: {}, body: '{}' }
     const partial = route.respond(req)
-    return { ok: partial.status >= 200 && partial.status < 300, headers: {}, body: '', ...partial }
+    return {
+      ok: partial.status >= 200 && partial.status < 300,
+      finalUrl: '',
+      headers: {},
+      body: '',
+      ...partial
+    }
   }
   return {
     seen,
