@@ -86,7 +86,11 @@ export function SettingsModal(): React.JSX.Element | null {
         <div className="min-h-0 flex-1 overflow-y-auto px-7 py-6">
           {tab === 'general' && <GeneralTab />}
           {tab === 'usage' && <UsageTab />}
-          {activeProvider && <ProviderUsageTab provider={activeProvider} />}
+          {/* `key` 로 provider 마다 인스턴스를 가른다 (0186 r6). 없으면 서브탭을 바꿔도 같은
+              인스턴스가 재사용돼 A 에서 난 동기화 오류 문구와 한도 편집 화면이 B 로 새어 나간다. */}
+          {activeProvider && (
+            <ProviderUsageTab key={activeProvider.key} provider={activeProvider} />
+          )}
           {/* provider 탭인데 해당 provider 가 목록에 없으면(삭제됨) 안내. */}
           {activeProviderKey != null && !activeProvider && (
             <p className="text-[12.5px] text-ink3">{tr('settings.providerNotFound')}</p>

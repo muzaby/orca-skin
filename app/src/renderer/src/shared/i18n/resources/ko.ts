@@ -825,8 +825,11 @@ export const ko = {
     monthly: '월간',
     pctUsed: '{{pct}}% 사용됨',
     loading: '사용량 정보를 불러오는 중입니다…',
-    lastUpdated: '마지막 업데이트',
+    // 0186 r6 (D24) — 이 시각은 **로컬이 값을 반영한 때**지 원격이 집계한 때가 아니다.
+    // "마지막 업데이트" 는 원격 신선도로 읽혀, 원격이 며칠 죽어도 "방금" 으로 보인다.
+    lastUpdated: '마지막 반영',
     refreshAria: '사용량 새로고침',
+    refreshFailed: '동기화에 실패했습니다. 마지막으로 반영된 값을 표시합니다.',
     usageLimit: '사용량 한도',
     limitSettings: '한도 설정',
     monthlyLimit: '월간 사용 한도',

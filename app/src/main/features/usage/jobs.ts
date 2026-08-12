@@ -62,18 +62,31 @@ export function registerUsageJobs(
 
   const timeoutMs = options.fetchTimeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS
   scheduler.register('usage-fetch', async () => {
+    // 실패를 모았다가 루프 끝에서 **한 번** 던진다. provider 하나가 죽어도 나머지는 계속
+    // 갱신하되(격리), 이번 틱에 실패가 하나라도 있었다는 사실은 밖으로 나가야 한다.
+    //
+    // **왜 로그가 아니라 throw 인가.** 잡이 스스로 로그만 남기면 `Scheduler.invoke` 는 여전히
+    // `schedule_runs` 에 `success` 를 적는다 — 원장과 로그가 어긋나고, 폐쇄망에서 "사용량이 왜
+    // 안 늘지" 를 확인할 경로가 없다. 던지면 Scheduler 가 `error` 기록과 `scheduler.job.failed`
+    // 로그를 한 번에 맞춰준다(신규 logging 코드 0줄).
+    const failed: string[] = []
     for (const providerKey of options.providerKeys?.() ?? []) {
+      // `supports:false` 는 **실패가 아니다** — 이 배포가 다루지 않는 provider 일 뿐이다.
       if (!options.fetcher?.supports(providerKey)) continue
       const controller = new AbortController()
       const timer = setTimeout(() => controller.abort(), timeoutMs)
       try {
         await tracker.refreshProvider(providerKey, controller.signal)
       } catch {
-        // 원격 장애는 provider 별 fail-soft 다. 다음 provider 와 다음 cron tick 을 계속 실행한다.
+        // provider 격리 — 다음 provider 와 다음 cron tick 은 계속 실행한다.
+        failed.push(providerKey)
       } finally {
         clearTimeout(timer)
       }
     }
+    // providerKey(`${adapter}-${provider}`)까지만 담는다. 원인 문구를 실으면 provider·네트워크
+    // 오류 메시지의 로그 노출 정책을 함께 따져야 한다 — 여기 목적은 침묵 제거다.
+    if (failed.length > 0) throw new Error(`usage refresh failed: ${failed.join(', ')}`)
   })
   scheduler.schedule('usage-fetch', { enabled: true, cron: USAGE_FETCH_CRON })
 }
