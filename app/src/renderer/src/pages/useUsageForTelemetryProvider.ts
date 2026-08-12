@@ -21,10 +21,14 @@ export function useUsageForTelemetryProvider(): UsageLimitsView | null {
   const global = useGlobalUsage()
   const provider = useProviderUsage(providerKey)
 
+  // 의존이 `[providerKey]` 만이면 **자정 경계 무효화 후 되살아나지 못한다** — 키는 그대로인 채
+  // 스토어의 provider map 만 비워지므로 effect 가 다시 돌지 않고, `provider ?? global` 이 계속
+  // null 을 흘려 전역으로 폴백한 채 멈춘다. `provider` 를 의존에 넣어 "키는 있는데 값이 없다" 를
+  // 재조회 조건으로 삼는다(`ensureProviderUsage` 는 값이 있으면 조기 반환하므로 루프가 없다).
   useEffect(() => {
-    if (!providerKey) return
+    if (!providerKey || provider) return
     void ensureProviderUsage(providerKey)
-  }, [providerKey])
+  }, [providerKey, provider])
 
   return provider ?? global
 }

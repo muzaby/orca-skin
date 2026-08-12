@@ -32,10 +32,17 @@ function fakeDb(opts: FakeDbOptions = {}): {
   insertTurnUsage: ReturnType<typeof vi.fn>
   insertTurnModelUsage: ReturnType<typeof vi.fn>
   upsert: ReturnType<typeof vi.fn>
+  sumForProvider: ReturnType<typeof vi.fn>
 } {
   const insertTurnUsage = vi.fn()
   const insertTurnModelUsage = vi.fn()
   const upsert = vi.fn()
+  const sumForProvider = vi.fn().mockReturnValue({
+    day: sums(1),
+    week: sums(12),
+    month: sums(40),
+    monthDeltaCostUsd: opts.monthDeltaCostUsd ?? 7
+  })
   const db = {
     insertTurnUsage,
     insertTurnModelUsage,
@@ -45,14 +52,9 @@ function fakeDb(opts: FakeDbOptions = {}): {
     sumUsageByBoundaries: vi
       .fn()
       .mockReturnValue({ day: sums(1), week: sums(12), month: sums(40) }),
-    sumUsageByBoundariesForProvider: vi.fn().mockReturnValue({
-      day: sums(1),
-      week: sums(12),
-      month: sums(40),
-      monthDeltaCostUsd: opts.monthDeltaCostUsd ?? 7
-    })
+    sumUsageByBoundariesForProvider: sumForProvider
   } as unknown as DbQueries
-  return { db, insertTurnUsage, insertTurnModelUsage, upsert }
+  return { db, insertTurnUsage, insertTurnModelUsage, upsert, sumForProvider }
 }
 
 function reportRow(over: Partial<ProviderUsageReportRow> = {}): ProviderUsageReportRow {
@@ -103,6 +105,32 @@ describe('UsageTracker delta 방출', () => {
     t.recordAndBroadcast(null, NOW)
 
     expect(seen.map((d) => d.scope)).toEqual(['global'])
+  })
+
+  // 경계(자정)는 `recordAndBroadcast()` 로 대체할 수 없다 — 전자는 renderer 가 캐시한 provider
+  // 뷰까지 무효화해야 하는데 `scope:'global'` 로는 그 신호를 실을 수 없다(PR 329 리뷰 P0).
+  it('경계 갱신은 boundary scope 한 건을 낸다', () => {
+    const { db } = fakeDb()
+    const seen: UsageDelta[] = []
+    const t = new UsageTracker(db, (d) => seen.push(d), { spendingLimitUsd: () => 300 })
+
+    t.refreshBoundary(NOW)
+
+    expect(seen.map((d) => d.scope)).toEqual(['boundary'])
+    // 전역 값은 함께 실어 보낸다 — 무효화만 하고 새 전역을 안 주면 도넛이 한 틱 비어 보인다.
+    expect(seen[0]?.value.month.budget).toBe(300)
+    expect(seen[0]?.value.month.used).toBe(40)
+  })
+
+  // 자정마다 전 provider 를 재집계하지 않는다(affected-provider 성능 계약 유지) — 무효화만 하고
+  // 다시 채우는 것은 화면이 실제로 필요로 할 때다.
+  it('경계 갱신은 provider 별 재집계를 하지 않는다', () => {
+    const { db, sumForProvider } = fakeDb()
+    const t = new UsageTracker(db, () => {}, { spendingLimitUsd: () => 300 })
+
+    t.refreshBoundary(NOW)
+
+    expect(sumForProvider).not.toHaveBeenCalled()
   })
 
   it('전역 뷰는 spendingLimitUsd 를 예산으로 쓴다', () => {

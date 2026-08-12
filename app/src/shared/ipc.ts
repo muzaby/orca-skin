@@ -68,6 +68,10 @@ export const CHANNELS = {
   costUsageEvent: 'orca:cost:usageEvent',
   // provider별 월 한도 설정 (0080 항목 4).
   costSetProviderLimit: 'orca:cost:setProviderLimit',
+  // 원격 사용량 즉시 동기화 (0186) — **쓰기/커맨드**다. 설정 사용량 탭의 동기화 버튼이 1분
+  // cron 을 기다리지 않고 지금 원격을 부른다. 읽기 채널 `cost:usage` 에 부수효과 옵션을 넣는
+  // 대신 채널을 나눴다 — read query 와 write command 의 구분이 채널 수보다 중요하다.
+  costRefreshUsage: 'orca:cost:refreshUsage',
   // 사용량 요약(0112) — 기간(range)별 일 단위 시계열 + 모델별 집계를 한 번에 반환.
   costUsageStats: 'orca:cost:usageStats',
   concurrencyEvent: 'orca:concurrency:event',

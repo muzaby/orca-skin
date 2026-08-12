@@ -17,49 +17,67 @@ import { costApi } from '../api/ipc'
 interface UsageStoreState {
   global: UsageLimitsView | null
   providers: Record<string, UsageLimitsView>
-  lastUpdatedAt: number | null
+  // **scope 별로 나눈다.** 하나뿐이면 provider B 를 갱신한 시각이 provider A 화면의
+  // "마지막 업데이트" 로 표시된다 — mirror scope 와 timestamp scope 가 어긋난다.
+  globalUpdatedAt: number | null
+  providerUpdatedAt: Record<string, number>
 }
 
 export const useUsageStore = create<UsageStoreState>()(() => ({
   global: null,
   providers: {},
-  lastUpdatedAt: null
+  globalUpdatedAt: null,
+  providerUpdatedAt: {}
 }))
 
 export async function initUsage(): Promise<void> {
   const global = await costApi.usage()
-  useUsageStore.setState({ global, lastUpdatedAt: Date.now() })
+  useUsageStore.setState({ global, globalUpdatedAt: Date.now() })
 }
 
 // main→renderer delta 구독. 변경된 scope 만 갈아끼운다 — 전체 map 을 교체하지 않는다.
 export function subscribeUsage(): () => void {
   return costApi.onUsage((delta: UsageDelta) => {
+    const now = Date.now()
     if (delta.scope === 'global') {
-      useUsageStore.setState({ global: delta.value, lastUpdatedAt: Date.now() })
+      useUsageStore.setState({ global: delta.value, globalUpdatedAt: now })
+      return
+    }
+    if (delta.scope === 'boundary') {
+      // 기간이 넘어갔다 — 캐시된 provider 뷰는 전부 어제 기준이므로 **버린다**. 다시 채우는
+      // 것은 화면이 실제로 필요로 할 때(`ensureProviderUsage`)뿐이라 자정에 전 provider 를
+      // 재집계하지 않는다.
+      useUsageStore.setState({
+        global: delta.value,
+        globalUpdatedAt: now,
+        providers: {},
+        providerUpdatedAt: {}
+      })
       return
     }
     useUsageStore.setState((s) => ({
       providers: { ...s.providers, [delta.providerKey]: delta.value },
-      lastUpdatedAt: Date.now()
+      providerUpdatedAt: { ...s.providerUpdatedAt, [delta.providerKey]: now }
     }))
   })
 }
 
 // 한 provider 를 확보한다. 이미 있으면 재조회하지 않는다 — 갱신은 delta push 가 담당하고,
-// 이 함수는 "아직 본 적 없는 provider" 의 최초 1회를 위한 것이다(설정 서브탭 진입 등).
+// 이 함수는 "아직 값이 없는 provider" 의 최초 1회를 위한 것이다(서브탭 진입 · 경계 무효화 직후).
 export async function ensureProviderUsage(providerKey: string): Promise<void> {
   if (useUsageStore.getState().providers[providerKey]) return
-  await refreshProviderUsage(providerKey)
+  await reloadProviderUsage(providerKey)
 }
 
-// 명시적 재조회 — 설정 사용량 탭의 동기화 버튼이 쓴다.
-export async function refreshProviderUsage(providerKey: string): Promise<void> {
-  const value = await costApi.usage(providerKey)
-  if (!value) return
-  useUsageStore.setState((s) => ({
-    providers: { ...s.providers, [providerKey]: value },
-    lastUpdatedAt: Date.now()
-  }))
+// Main 정본을 다시 읽어 온다(원격 fetch 아님). 경계 무효화 후 재적재 경로.
+export async function reloadProviderUsage(providerKey: string): Promise<void> {
+  applyProviderUsage(providerKey, await costApi.usage(providerKey))
+}
+
+// 설정 사용량 탭의 동기화 버튼 — **원격을 즉시 부른다.** 1분 cron 을 기다리지 않는다.
+// fetcher 가 없는 배포에서는 main 이 no-op 이므로 자연히 로컬 재조회로 떨어진다.
+export async function syncProviderUsage(providerKey: string): Promise<void> {
+  applyProviderUsage(providerKey, await costApi.refreshUsage(providerKey))
 }
 
 // 한도 쓰기 — main 이 갱신된 뷰를 되돌려주므로 재조회가 필요 없다.
@@ -67,10 +85,15 @@ export async function setProviderLimit(
   providerKey: string,
   limitUsd: number | null
 ): Promise<void> {
-  const value = await costApi.setProviderLimit(providerKey, limitUsd)
+  applyProviderUsage(providerKey, await costApi.setProviderLimit(providerKey, limitUsd))
+}
+
+function applyProviderUsage(providerKey: string, value: UsageLimitsView | null): void {
+  if (!value) return
+  const now = Date.now()
   useUsageStore.setState((s) => ({
     providers: { ...s.providers, [providerKey]: value },
-    lastUpdatedAt: Date.now()
+    providerUpdatedAt: { ...s.providerUpdatedAt, [providerKey]: now }
   }))
 }
 
@@ -83,6 +106,8 @@ export function useProviderUsage(providerKey: string | null | undefined): UsageL
   return useUsageStore((s) => (providerKey ? (s.providers[providerKey] ?? null) : null))
 }
 
-export function useUsageUpdatedAt(): number | null {
-  return useUsageStore((s) => s.lastUpdatedAt)
+// 그 provider 값을 마지막으로 받은 시각. 전역 타임스탬프를 대신 쓰면 다른 provider 를 갱신한
+// 시각이 표시된다.
+export function useProviderUsageUpdatedAt(providerKey: string): number | null {
+  return useUsageStore((s) => s.providerUpdatedAt[providerKey] ?? null)
 }
