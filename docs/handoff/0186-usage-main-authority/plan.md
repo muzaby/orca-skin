@@ -398,7 +398,7 @@ renderer: `shared/api/ipc.ts` · `features/chat/reducer/chatReducer.ts` ·
 | 신규 테스트 | **+50건** (usage 슬라이스 4파일 36 · queries 4 · chatReducer 6 · limits 4) |
 | 블로커 / 역질문 | 없음. **OQ1**(사내 endpoint 실값 + `as_of` 가 billing watermark 인지)은 미결이나 착수를 막지 않았다 — `baselineUsable:false` 로 동작하며 한도만 원격을 쓴다 |
 | 미충족 인수 기준 | **AC13·AC20 (사람 실기)** — 자정 경계 · 모델 전환 후 도넛. egress 차단으로 `npm run dev` 가 Electron ABI 재빌드에 막힌다(0019·0102·0180 AC9 선례). AC18 의 기계 검증부(reducer)는 통과 |
-| 대상 커밋 | (아래 커밋) |
+| 대상 커밋 | `c159e13` |
 
 ---
 
