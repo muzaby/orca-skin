@@ -369,3 +369,135 @@ node scripts/check-doc-inventory.mjs --check   generated ok(9 items, 76 channels
 
 **PASS.** 인수 기준 18/20(기계) + r1 미충족 4건 해소. 0186 종료 — INDEX 행은
 `docs/archive/handoffs/INDEX-history.md` 로 옮기고, 후속 D22~D24 는 plan 파생 이슈 챕터가 갖는다.
+
+---
+
+# 라운드 3 재검증 (구현 라운드 6 — 갱신 실패의 침묵 제거)
+
+| 항목 | 값 |
+|---|---|
+| 대상 | `1dd6071`(설계) · `28388ed`(구현) — base `39965fa` |
+| 파생 이슈 | **D22·D23·D24·D25** (r1 이 후속으로 남긴 4건) |
+| 설계·구현·검증 주체 | **전부 Claude** — 교차 검증이 없다. §0 과 역방향 탐색에 비중을 둔다 |
+| 결과 | **PASS** (기계 7/8 · AC29 사람 실기 대기) |
+
+## 0. 구현 결과 비판적 검토
+
+동작을 바꾸는 파일이 3개뿐이라 `git diff 39965fa..HEAD -- app/src` 를 전량 통독했다.
+**이번 변경의 위험은 "새 기능이 틀리는 것" 이 아니라 "잡을 던지게 만든 부작용"** 이므로
+거기에 질문을 집중했다.
+
+| 질문 | 실측 확인 | 판정 |
+|---|---|---|
+| 잡이 던지면 **croner 가 그 잡을 멈추나** (1분 cron 이 죽으면 D22 가 사용량 갱신 자체를 끈다) | `scheduler.ts:101-127` — `invoke` 내부 `try/catch` 가 전부 삼킨다. 예외가 croner 까지 올라가지 않아 스케줄은 유지된다 | ✅ 안전 |
+| **unhandled rejection** 으로 main 을 죽이나 | 동상 — `await action()` 이 `try` 안에 있고 `catch` 가 받는다 | ✅ 안전 |
+| `schedule_runs` 에 **실제로 메시지가 남나** | `recorder.finish(runId, …, 'error', errorMessage(e))` + `errors.ts:24-26` 이 `err.message` 를 그대로 쓴다 → `usage refresh failed: claude-gateway` 가 `error` 컬럼에 들어간다 | ✅ 의도대로 |
+| **잘못된 실패(false failure)** 가 가능한가 — 이번 변경의 유일한 실패 양식 | ⓐ 정상 틱 → AC23 ⓑ `supports:false` → AC24. 코드도 `continue` 가 `failed.push` 보다 앞이라 미지원이 실패로 세어지지 않는다 | ✅ 양쪽 다 잠금 |
+| 타임아웃(`AbortController`)이 실패로 세어지는가 | `refreshProvider` 가 abort 로 reject → `failed` 에 들어간다. **타임아웃은 실패가 맞다** | ✅ 의도대로 |
+| **되돌릴 수 있는가** | 영속 포맷·스키마·채널 변경 0. `schedule_runs` 는 이전에도 발화마다 1행을 썼고 `status`·`error` 값만 달라진다 | ✅ 되돌림 자유 |
+| 구현자 선조치가 경계를 넘었나 | 2건 모두 주석·문서(§구현 보고에 명시). 제품 동작·공개 계약·AC 불변 | ✅ `AGENTS.md` 선조치 가능 범위 |
+
+**여기서 새 이슈 1건이 나왔다 (D26, 비차단)** — 아래 §파생 이슈.
+
+## 1. 역방향 탐색
+
+```
+bash .agents/skills/handoff-verify/scripts/scan-surface.sh 39965fa..HEAD
+```
+
+| 후보 | 판정 |
+|---|---|
+| 타입 export 2 (`UsageJobOptions`·`UsageTrackerDeps`) | **오탐** — 정의 파일 내부 시그니처용 |
+| 테스트에만 등장 4 (`USAGE_BOUNDARY_CRON`·`USAGE_FETCH_CRON`·`UsageJobScheduler`·`UsageJobTracker`) | **오탐** — 넷 다 `jobs.ts` **자기 파일 안에서** 쓰인다(`scheduler.schedule(…, { cron: USAGE_FETCH_CRON })`). 스크립트가 정의 파일 밖 참조만 센다. 전부 이번 라운드 이전부터 있던 심볼 |
+| 형제 파일 정책 비대칭 | **0건** |
+
+스크립트 밖 추가 확인:
+
+- **인수 기준의 핵심 동사가 테스트에 있는가**: `rejects.toThrow(/claude-gateway/)`(AC22) ·
+  `not.toHaveBeenCalled()`(AC24) — 둘 다 실재.
+- **plan 이 "N곳" 이라 적은 것 재측정**: `usage.lastUpdated` 소비자 **1곳**(`UsageTab.tsx:34`) ·
+  `<SyncRow` 렌더 **1곳**(`ProviderUsageTab.tsx:91`) · `costApi.*` 표면 **4종**. 셋 다 일치.
+- **동명 키 오염**: `lastUpdated` 는 카탈로그에 3곳(`skills.table`·`skills.detail`·`usage`).
+  `usage` 만 바뀌고 나머지 2곳은 `마지막 업데이트` 로 남았다(`grep -c` = 2). ✅
+
+## 2. 구현 보고를 증거로 받지 않는다
+
+`Criteria-Met: 7/8` 을 그대로 받지 않고 8건을 각각 재실행했다.
+
+| # | 보고 | 재측정 | 일치 |
+|---|---|---|---|
+| AC22 | ✅ | `vitest run jobs.test.ts` 11/11, 해당 케이스 존재 | ✅ |
+| AC23 | ✅ | 동상 (기존 케이스 green) | ✅ |
+| AC24 | ✅ | 동상 (신규 케이스 green) | ✅ |
+| AC25 | ✅ | `resources/resources.test.ts` 3/3 | ✅ |
+| AC26 | ✅ | `ko.ts:830` `마지막 반영` · `en.ts:828` `Last applied` | ✅ |
+| AC27 | ✅ | `SettingsModal.tsx:92` `key={activeProvider.key}` | ✅ |
+| AC28 | ✅ | 실측 `costApi.{onUsage,refreshUsage,setProviderLimit,usage}` = 정정된 AC2 문구 | ✅ |
+| AC29 | ⏳ | 사람 실기 — 에이전트가 판정하지 않는다 | ✅ (정직) |
+
+**D22 음성 확인을 검증자가 재실행했다**: `jobs.ts` 의 `throw` 줄을 제거 → `1 failed | 10 passed`
+(실패한 것은 AC22 케이스 하나) → 원복 → `11 passed`. **단언이 계약을 실제로 잡는다.**
+AC23·AC24 는 음성 조건에서도 green 이었고, 이는 설계가 밝힌 대로다 — 둘의 측정 대상은
+베이스라인이 아니라 *이번 변경의 과잉 실패* 다.
+
+## 3. 게이트 (전량 재실행)
+
+| 게이트 | 결과 | 비고 |
+|---|---|---|
+| `npm run lint` | **0 error / 1 warn** | warn = `useTranscriptVirtualizer.ts:22` (0102 베이스라인, 변경 무관) |
+| `npm run typecheck` | **3/3** | node · web · test |
+| `./node_modules/.bin/vitest run` | **197/198 파일 · 1,780 테스트 green** | 실패 1파일 = `chat-turn.continuity.test.ts`, 사유 `Electron failed to install correctly` = **egress 차단 베이스라인**(`app/AGENTS.md`). 테스트 0건 로드라 카운트에 안 들어간다 |
+| `check-migrations-appendonly.mjs` | exit 0 | `16 migrations, dir == migrate.ts imports` |
+| `check-doc-inventory.mjs --check` | exit 0 | `9 items, 76 channels` + prose·links ok |
+
+**숫자 검산**: r2 가 1,779 였고 이번 신규 테스트가 1건이므로 **1,779 + 1 = 1,780** — 일치.
+실패 파일 목록에서 베이스라인 1파일을 빼면 **0건**이다.
+
+**Scope guard**: `fetcher.ts`·`usage-compose.ts`·`usageStore.ts`·`limits.ts` **diff 0줄**.
+`tracker.ts` 는 설계상 "손대지 않는다" 였으나 주석 1개가 바뀌었고, 비주석 변경 라인이
+**0건**임을 `git diff | grep -vE '^[+-]\s*//' | wc -l` 로 확인했다(§파생 이슈 아님 —
+구현 보고에 이탈로 명시돼 있고 근거가 타당하다).
+
+## 4. 이번 verify 가 못 본 것
+
+- **AC29(GUI)** — `npm run dev` 가 egress 차단으로 불가. 실패 문구가 실제로 보이는지, provider
+  전환 시 사라지는지는 **사람 실기**다. 대리로 확인한 것은 *상태 배선*(`setRefreshFailed`
+  호출 지점 3곳)과 *인스턴스 분리*(`key` prop) 뿐이고, **렌더 결과가 아니다.**
+- **`text-red` 토큰의 두 테마 값** — 선례(`customize/ProviderDetail.tsx:179`)가 같은 클래스를
+  쓰므로 존재는 확실하나, 대비(contrast)가 이 배경에서 읽히는지는 시각 판정이라 넘긴다.
+- **실 배포 fetcher 와의 결합** — 이 저장소에 `UsageFetcher` 구현체가 0개다. D22 의 효과
+  (`schedule_runs.error` 적재)는 **fake tracker 로만** 확인했고 실제 원격 실패로는 확인하지 못했다.
+- **1분 주기 로그량** — 아래 D26. 상시 실패 환경을 실제로 만들어 관측하지는 않았다.
+
+## 5. 파생 이슈 (역방향 탐색 산출)
+
+| # | 이슈 | 실측 근거 | 대응 방향 | 상태 |
+|---|---|---|---|---|
+| **D26** | **D22 가 `scheduler.job.failed` 지문을 상시 점유할 수 있다.** 반복 억제기의 지문은 `event\|error.name\|error.code` 라 **잡 이름을 포함하지 않는다**. 폐쇄망에서 `usage-fetch` 가 1분마다 실패하면 같은 지문이 계속 갱신돼, *다른* 잡의 실패 로그가 요약으로 접힐 수 있다 | `infra/log/suppress.ts:21-23`(`fingerprintOf`) · 기본 창 `60_000`(`:29`) ↔ `USAGE_FETCH_CRON = '* * * * *'` | **비차단** — `schedule_runs` 는 잡별 행이라 D22 가 만든 1차 증거 경로는 온전하다. 영향은 로그 파일 가독성뿐. 고치려면 `fingerprintOf` 에 `data.job` 을 넣는 것이 최소 변경이지만, 그건 **로깅 인프라의 공개 동작 변경**이라 이 라운드에서 단독 결정하지 않는다 | 후속 |
+
+> D26 은 이번 변경이 *만든* 결함이 아니라 **도달 가능하게 만든** 기존 성질이다 — r6 이전에는
+> `usage-fetch` 가 `scheduler.job.failed` 를 낼 수 없었다. 그래서 여기 적는다.
+
+## 6. 검증 자기 리뷰 (r3)
+
+- **설계 단계**: 관문 0 에서 제안서를 코드와 대조한 것이 값을 했다 — "루프 끝 throw" 가 r1 이
+  적어둔 "로그 한 줄" 보다 나은 이유(*원장과 로그가 어긋난다*)는 대조 전에는 안 보였다.
+  반대로 **설계가 `tracker.ts`·`closed-network-extensions.md` 를 "손대지 않는다" 로 적은 것은
+  틀렸다** — 실패 정책을 바꾸면서 그 정책을 서술하는 문서를 범위 밖에 둔 것이고, 이는
+  **라운드 5 가 P36 으로 세운 규칙을 바로 다음 라운드가 어긴 것**이다. 구현 턴에 선조치로
+  닫혔지만, *설계 시점에 잡혔어야* 했다. → 아래 P36 보강.
+- **구현 단계**: 선조치 2건 모두 경계 안이고 보고됐다. 기존 테스트 개정을 "신규 추가" 가 아니라
+  **개정**으로 설계에 명시한 것이 유효했다 — 그러지 않았으면 green 을 쫓다 옛 단언을 남겼을 수 있다.
+- **검증 단계**: 못 본 것은 §4 에 전량 적었다. 이번 verify 의 실질 산출은 매트릭스가 아니라
+  §0 의 "croner 가 멈추나 / unhandled rejection 이 나나" 두 질문과 D26 이다 — **어느 인수
+  기준도 이 셋을 묻지 않았다.**
+
+**P36 보강 제안**(`failure-patterns.md`): 현재 P36 은 *"배포가 구현할 포트를 만들면서 그 문서를
+AC 에 넣지 않았다"* 를 다룬다. 여기에 한 줄을 더한다 — **그 포트의 *실패 의미*를 바꿀 때도
+같은 규칙이 적용된다.** 시그니처가 그대로여도 "언제 실패로 치는가" 가 바뀌면 문서는 낡는다.
+
+## 결론
+
+**PASS.** D22~D25 전건 해소, 기계 검증 7/8, 게이트 전량 green(베이스라인 1파일 제외 시 0 red).
+남는 것은 **AC29 사람 실기** 와 **D26 후속** 이다. 0186 을 다시 닫고 INDEX 행을
+`docs/archive/handoffs/INDEX-history.md` 로 돌려보낸다.
