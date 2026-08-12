@@ -86,7 +86,7 @@
 | # | 인수 기준 | 검증 수단 | 프로덕션 도달 경로 |
 |---|---|---|---|
 | 1 | 턴 종료 시 **global 집계 1회 + 해당 provider 집계 1회**만 수행된다 (provider 목록 스캔 0회) | `features/usage/subscriber.test.ts::"영향받은 provider 만 재집계한다"` — fake db 호출 횟수 단언 | `bootstrap.ts` 버스 구독 → `recordTurnUsage` → `tracker.recordAndBroadcast(providerKey)` |
-| 2 | renderer 의 사용량 상태 모듈이 **`usage`·`setProviderLimit` 두 채널만** 부르고, 삭제된 hook 3개가 저장소에 없다 | `rg "costApi\." src/renderer/src/shared/stores/usageStore.ts` → 2종 + `ls` 3경로 부재 | Composer 도넛 · 설정 사용량 탭 |
+| 2 | renderer 의 사용량 상태 모듈이 **cost API 4표면**(`usage`·`onUsage`·`refreshUsage`·`setProviderLimit`)**만** 부르고, 삭제된 hook 3개가 저장소에 없다 | `rg -o "costApi\.\w+" src/renderer/src/shared/stores/usageStore.ts \| sort -u` → 4종 + `ls` 3경로 부재 | Composer 도넛 · 설정 사용량 탭 |
 | 3 | `as_of` 가 이번 주 안이어도 **`week.used` 가 온전하다**, 그리고 같은 행에서 `monthDelta` 를 얻는다 (R1) | `infra/db/queries.test.ts::"as_of 가 이번 주 안이어도 week 가 온전하다"` | `getProviderUsage` → `sumUsageByBoundariesForProvider` |
 | 4 | `baselineUsable:true` + `as_of ∈ 이번 달` 이면 `month.used = 기준선 + as_of 이후 로컬 증분` 이고 `month.source === 'remote-baseline'` | `features/usage/usage-compose.test.ts::"기준선에 증분을 얹는다"` | `cost:usage` → `getProviderUsage` → `composeProviderUsage` |
 | 5 | **`baselineUsable` 미지정이면 기준선을 쓰지 않는다** (fail-closed) | `usage-compose.test.ts::"baselineUsable 미지정은 local 로 접힌다"` | 동상 |
@@ -106,6 +106,10 @@
 | 19 | 자정을 넘겨도 주/월 바가 새 기간을 반영한다 | **사람 실기** — `npm run dev` 로 기동 → OS 시각을 자정 너머로 변경 → 도넛 팝오버 확인 | GUI |
 | 20 | 모델을 전환하고 새 턴 없이 도넛을 열면 주/월 값이 유지된다 | **사람 실기** — `npm run dev` → Composer 모델 전환 → 도넛 열기 | GUI |
 
+> **AC2 는 라운드 6 에서 정정됐다 (D25).** 최초 문구는 "`usage`·`setProviderLimit` 두 채널만"
+> 이었는데, 라운드 3 의 `cost:refreshUsage` 신설(D10)로 성립하지 않게 됐다 — 실측 4표면으로
+> 고쳤다. 라운드 6 의 AC28 이 이 정정을 코드 실측과 대조한다.
+>
 > AC19·AC20 의 실행 경로(`npm run dev` + GUI)는 이 작업의 비범위에 막혀 있지 않다 — renderer·
 > Composer 모두 범위 안이다. 다만 egress 차단 환경에서는 Electron ABI 재빌드가 막혀 에이전트가
 > 직접 수행할 수 없다 (0019·0102·0180 AC9 선례).
@@ -473,10 +477,10 @@ D18~D21 이 이번 FAIL 의 조건이고, D22~D25 는 후속(비차단)이다.
 | **D19** | **`IPC_CONTRACT.md` 자기모순** — 타입 블록에 r2 의 `boundary` variant 가 없다 | `docs/IPC_CONTRACT.md:320-322` 는 2-variant, 같은 문서 `:277` 채널 행은 3-variant 를 서술. 코드는 `shared/usage/limits.ts:51-60` 3-variant | 타입 블록에 `{ scope: 'boundary'; value: UsageLimitsView }` 추가. **이 문서만 읽고 consumer 를 짜면 D8 이 고친 자정 stale 을 그대로 재현한다** | **해소 (r5)** |
 | **D20** | **`GLOSSARY.md` 가 삭제된 심볼을 정본으로 서술** | `docs/GLOSSARY.md:44` — "실사용 SSOT(UsageTracker/**costStore**)에서 `computeUsageLimits` 로 파생만". `costStore` 는 이번에 삭제됐고 파생 위치도 renderer → main | 현재 구조(Main 정본 + renderer mirror)로 문장 교체 | **해소 (r5)** |
 | **D21** | **죽은 심볼을 가리키는 코드 주석 3곳** — 폐기된 renderer 파생 모델을 현재형으로 설명 | `features/chat/components/Composer.tsx:49` · `features/chat/components/UsagePanel.tsx:12` · `src/shared/protocol.ts:530` (전부 `costStore` 인용). plan 이 두 컴포넌트를 "손대지 않음" 으로 둬서 남았다 | 주석만 현행화(동작 변경 0) | **해소 (r5)** |
-| **D22** | **원격 상시 실패가 완전히 침묵한다.** 폐쇄망에서 "사용량이 왜 안 늘지" 를 확인할 경로가 0 | `jobs.ts:71-73` 의 `catch {}` 는 로그를 남기지 않고, 액션이 던지지 않으므로 `Scheduler.invoke` 가 `schedule_runs` 에 **`success`** 를 적는다 | `getLogger().child('usage').warn('usage.fetch.failed', …)` 한 줄. 잡 자체는 fail-soft 유지 | 후속 |
-| **D23** | **동기화 실패가 UI 에 표시되지 않는다** | `ProviderUsageTab.tsx:48-50` 의 `catch {}` — 코드 주석도 "오류 UI 계약은 별도" 로 인정 | 오류 표시 계약을 정한 뒤 반영(설정 탭 공통) | 후속 |
-| **D24** | **"마지막 업데이트" 가 원격 신선도가 아니다** — `providerUpdatedAt` 은 로컬 수신 시각이라 원격이 며칠 죽어도 "방금" 으로 보인다. 미지원 provider 의 동기화 버튼도 로컬 뷰를 성공으로 돌려준다(경미한 false success) | `usageStore.ts:93-97` (`Date.now()`) · `handlers/cost.ts:49-52` (미지원 → 로컬 폴백) | 뷰에 원격 `fetchedAt` 을 실어 "원격 기준 N시간 전" 을 구분 표시. 스칼라는 0014 에 이미 있다 | 후속 |
-| **D25** | **plan AC2 문구가 낡았다** — "`usage`·`setProviderLimit` 두 채널만" 은 D10 의 `cost:refreshUsage` 신설로 성립하지 않는다(현재 4표면) | `usageStore.ts` 의 `costApi.*` 4종 | 다음 라운드에서 AC2 문구를 개정하거나, 개정 이력을 §파생 이슈로만 남긴다 | 후속 |
+| **D22** | **원격 상시 실패가 완전히 침묵한다.** 폐쇄망에서 "사용량이 왜 안 늘지" 를 확인할 경로가 0 | `jobs.ts:71-73` 의 `catch {}` 는 로그를 남기지 않고, 액션이 던지지 않으므로 `Scheduler.invoke` 가 `schedule_runs` 에 **`success`** 를 적는다 | `getLogger().child('usage').warn('usage.fetch.failed', …)` 한 줄. 잡 자체는 fail-soft 유지 | **라운드 6** |
+| **D23** | **동기화 실패가 UI 에 표시되지 않는다** | `ProviderUsageTab.tsx:48-50` 의 `catch {}` — 코드 주석도 "오류 UI 계약은 별도" 로 인정 | 오류 표시 계약을 정한 뒤 반영(설정 탭 공통) | **라운드 6** |
+| **D24** | **"마지막 업데이트" 가 원격 신선도가 아니다** — `providerUpdatedAt` 은 로컬 수신 시각이라 원격이 며칠 죽어도 "방금" 으로 보인다. 미지원 provider 의 동기화 버튼도 로컬 뷰를 성공으로 돌려준다(경미한 false success) | `usageStore.ts:93-97` (`Date.now()`) · `handlers/cost.ts:49-52` (미지원 → 로컬 폴백) | 뷰에 원격 `fetchedAt` 을 실어 "원격 기준 N시간 전" 을 구분 표시. 스칼라는 0014 에 이미 있다 | **라운드 6** |
+| **D25** | **plan AC2 문구가 낡았다** — "`usage`·`setProviderLimit` 두 채널만" 은 D10 의 `cost:refreshUsage` 신설로 성립하지 않는다(현재 4표면) | `usageStore.ts` 의 `costApi.*` 4종 | 다음 라운드에서 AC2 문구를 개정하거나, 개정 이력을 §파생 이슈로만 남긴다 | **라운드 6** |
 
 #### 라운드 5 구현 보고 — 문서·주석 동기화
 
@@ -512,3 +516,144 @@ manual=reject)을 표로 고정했다. **같은 예제가 `bootstrap.ts` 주석�
 | # | 인수 기준 (사후 추가 — 이번 라운드에서 실제로 검증한 것) | 검증 수단 |
 |---|---|---|
 | AC21 | `closed-network-extensions.md §5-b` 의 `UsageFetcher` 예제가 현재 포트의 `supports()`·`fetchUsage()` 계약과 일치한다 | **A** 예제를 실제 타입에 대입해 `npm run typecheck` 3/3 PASS · **B** `supports=true && fetchUsage=null` 이 실패라는 문서 설명을 `tracker.test.ts` 계약과 대조 |
+
+---
+
+## 라운드 6 — D22~D25: 갱신 실패의 침묵을 없앤다
+
+> **왜 새 핸드오프(0187)가 아닌가.** verify r2 PASS 로 닫힌 뒤 사용자가 D22~D25 를 이어서
+> 처리하라고 지시했다. 아카이브 헤더가 그 절차를 명시한다 — *"완료된 작업이 다시 열리면 해당
+> 행을 이 파일에서 잘라 보드로 옮기고 상태를 되돌린다."* 파생 이슈 4건이 이미 이 문서에
+> 살아 있어 문맥의 정본도 여기다.
+>
+> **구현 주체**: 버그수정·문서 정합 작업이므로 `AGENTS.md` 의 분담 규칙대로 Claude 가
+> plan → impl → verify 를 직접 수행한다.
+
+### 관문 0 — 요구 비판적 검토 (사용자 제시 경량화 제안서)
+
+사용자가 `orca_d22_d25_lightweight_proposal.md` 를 제시했다. 네 진단을 코드와 대조했다.
+
+| 제안서 주장 | 실측 | 판정 |
+|---|---|---|
+| D22: 모든 provider 가 실패해도 `schedule_runs` 에 `success` 가 남는다 | `jobs.ts:71-73` 이 `catch {}` 로 삼키고 액션이 정상 resolve → `scheduler.ts:113` 이 `success` 기록 | **사실** |
+| 루프 끝에서 던지면 기존 Scheduler 가 error 기록 + 로그를 대신한다 | `scheduler.ts:118-122` 가 `recorder.finish(…, 'error', errorMessage(e))` + `scheduler.job.failed` 로그 | **사실** |
+| D23: 동기화 실패가 사용자에게 보이지 않는다 | `ProviderUsageTab.tsx:48-50` 의 `catch {}` (주석도 "오류 UI 계약은 별도" 로 인정) | **사실** |
+| D24: `providerUpdatedAt` 은 mirror 수신 시각이다 | `usageStore.ts:93-97` 이 `Date.now()` | **사실** |
+| D25: `usageStore` 의 cost API 표면은 4종이다 | `usage` · `onUsage` · `refreshUsage` · `setProviderLimit` | **사실** |
+| D24 의 변경 범위가 좁다 | `SyncRow` 는 `UsageTab.tsx:29` 에 정의만 있고 **렌더 소비자는 `ProviderUsageTab.tsx:86` 하나뿐** | **사실보다 더 좁다**(화면 1곳) |
+
+**더 작은 해법인가** (관문 0-3): D22 는 verify r1 이 `getLogger().child('usage').warn(…)` 한 줄을
+제안했었다. 제안서의 "루프 끝 1회 throw" 가 **더 낫다** — 잡이 직접 로그를 남기면 같은 사실이
+두 곳에서 나면서 `schedule_runs` 는 여전히 `success` 라 **원장과 로그가 어긋난다**. 던지면
+Scheduler 가 원장·로그를 한 번에 정합시키고 신규 logging 코드는 0줄이다. r1 제안을 폐기한다.
+
+**제안서가 놓친 것 2건 — 이번 라운드에서 함께 닫는다.**
+
+1. **기존 테스트가 옛 계약을 못박고 있다**(P10 — *테스트 green ≠ 계약 정합*).
+   `jobs.test.ts:139-151` 이 `await expect(action()).resolves.toBeUndefined()` 를 단언한다.
+   D22 를 넣으면 이 테스트가 **깨진다** — 신규 추가가 아니라 **이 테스트의 개정**이 1차 증거다.
+2. **`ProviderUsageTab` 의 local state 가 provider 전환에 살아남는다.**
+   `SettingsModal.tsx:89` 가 `key` 없이 렌더해 서브탭을 바꿔도 같은 인스턴스가 재사용된다 →
+   D23 의 `refreshFailed` 를 그대로 두면 **A 에서 난 오류가 B 화면에 뜬다**. 기존
+   `view`(`'root'|'limit'`) 누수도 같은 원인이다.
+
+**스토리지 영향 0**: `schedule_runs` 는 지금도 발화마다 1행을 쓴다(성공이든 실패든). D22 는
+`status`·`error` 컬럼 **값만** 바꾼다. (행 보존 정책 부재는 선행 사안 — 이번 범위 밖.)
+
+### 설계
+
+| # | 성격 | 변경 |
+|---|---|---|
+| **D22** | 운영 정합성 | `features/usage/jobs.ts` — 실패 provider 를 모아 루프 종료 후 **1회 throw**. provider 격리(다음 provider 계속)는 유지. `jobs.ts:72` 주석의 "fail-soft" 서술을 *provider 격리* 로 좁혀 다시 쓴다 |
+| **D23-a** | 최소 UX 피드백 | `ProviderUsageTab.tsx` — `refreshFailed` local state + `SyncRow` 아래 인라인 문구(`text-red`, 선례 `features/skills/components/customize/ProviderDetail.tsx:179`). 재시도 시작 시 해제, 성공 시 해제 |
+| **D23-b** | 상태 누수 차단 | `SettingsModal.tsx:89` — `<ProviderUsageTab key={activeProvider.key} …>`. 새 상태 관리가 아니라 **React identity 회복**(인스턴스 1개 = provider 1개). 기존 `view` 누수도 함께 닫힌다 |
+| **D24** | 라벨 정합성 | i18n `usage.lastUpdated` — ko `마지막 반영` · en `Last applied`(**사용자 결정 U1**). 뷰 계약·스토어·IPC 변경 0 |
+| **D25** | 문서 정합성 | 위 AC2 문구를 현재 **4표면**으로 정정 — 라운드가 다시 열렸으므로 "사후 정정" 이 아니라 정규 수정이다 |
+
+D22 의 구현 형태:
+
+```ts
+const failed: string[] = []
+for (const providerKey of options.providerKeys?.() ?? []) {
+  if (!options.fetcher?.supports(providerKey)) continue      // 미지원은 실패가 아니다
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try { await tracker.refreshProvider(providerKey, controller.signal) }
+  catch { failed.push(providerKey) }                          // 다음 provider 를 막지 않는다
+  finally { clearTimeout(timer) }
+}
+if (failed.length > 0) throw new Error(`usage refresh failed: ${failed.join(', ')}`)
+```
+
+- **비용의 정확한 표기**: "새 코드 0줄" 이 아니다 — `jobs.ts` 에 배열·push·throw 세 조각이
+  **추가된다**. 0인 것은 **Scheduler 변경 0줄 · 신규 logging 코드 0줄**이다.
+- **메시지는 providerKey 까지만 담는다.** `errorMessage(err)` 를 모아 넣으면 provider·네트워크
+  오류 문구의 로그 노출 정책을 함께 따져야 한다. 이번 목표는 *침묵 제거*(실패 사실 + 어느
+  provider 인가)이므로 `usage refresh failed: claude-gateway` 로 끝낸다.
+  `providerKey`(`${adapter}-${provider}`)는 비밀이 아니다.
+
+**만들지 않는다**(제안서 체크리스트 그대로): DB 마이그레이션 · IPC 채널 · Main 서비스 ·
+Renderer 스토어 · `Result`/`Error` 계층 · capability 레지스트리 · 전역 toast/notification ·
+`UsageJobLogger` 류 · `remoteFetchedAt` 계약 확장.
+
+**손대지 않는다**: `tracker.ts` · `fetcher.ts` · `usage-compose.ts` · `usageStore.ts` ·
+`shared/usage/limits.ts` · Scheduler public API · DB 쿼리/스키마 · cost IPC 핸들러.
+프로덕션 동작 변경은 **3파일**(`jobs.ts` · `ProviderUsageTab.tsx` · `SettingsModal.tsx`)에
+국한되고 나머지는 i18n 문자열과 문서다.
+
+### 인수 기준 — 라운드 6
+
+> **기존 테스트를 최대한 재사용한다.** 신규 테스트는 AC24 한 건뿐이다.
+
+| # | 인수 기준 | 검증 수단 | 프로덕션 도달 경로 |
+|---|---|---|---|
+| AC22 | provider 하나가 실패해도 나머지를 실행하고, 액션이 **실패 providerKey 를 담아 reject** 한다 → `schedule_runs.status='error'` 로 남는다 | `features/usage/jobs.test.ts` 기존 `"한 provider 실패를 삼키고 다음 provider 를 계속 갱신한다"` **개정** — `rejects.toThrow(/claude-gateway/)` + `refreshProvider` 2회 단언 | cron `usage-fetch` 발화 → `Scheduler.invoke` catch → `recorder.finish(…, 'error', …)` |
+| AC23 | 전 provider 성공이면 액션이 **resolve** 한다 (D22 가 성공 경로를 오탐하지 않는다) | **기존 재사용** — `jobs.test.ts::"원격 잡은 대상 provider 마다 갱신하고 signal 을 넘긴다"` 가 `await actions.get('usage-fetch')?.()` 를 그대로 하므로 잘못 reject 하면 이 테스트가 깨진다 | 동상 (정상 틱) |
+| AC24 | **미지원 provider 만** 있으면 `refreshProvider` 0회 + resolve 한다 (`supports:false` 는 실패가 아니다) | **신규 1건** `jobs.test.ts::"미지원만 있으면 실패로 보지 않는다"` — 기존 mixed 케이스와 의미가 다르다 | fetcher 가 일부 provider 만 지원하는 배포 |
+| AC25 | `usage.refreshFailed` 가 ko/en 양쪽에 있고 리프 키 parity·빈 값 금지를 만족한다 | `src/renderer/src/shared/i18n/resources/resources.test.ts` (3 케이스) | 설정 › 사용량 › provider 서브탭 |
+| AC26 | 라벨이 ko `마지막 반영` · en `Last applied` 다 | 두 resource 파일 `usage` 스코프에서 `rg` 각 1건 (`skills.table`·`skills.detail` 의 동명 키는 손대지 않는다) | `SyncRow` (`UsageTab.tsx:29`) |
+| AC27 | provider 가 바뀌면 `ProviderUsageTab` 인스턴스가 **provider 키로 분리**된다 | `rg "key=\{activeProvider.key\}" SettingsModal.tsx` → 1건 + AC29 사람 실기 | 설정 모달 좌측 레일에서 provider 전환 |
+| AC28 | 위 AC2 문구가 **실제 `usageStore` 의 cost API 4종**과 일치한다 | `rg -o 'costApi\.(usage\|onUsage\|refreshUsage\|setProviderLimit)' usageStore.ts \| sort -u` 로 실측 집합을 뽑아 AC2 문구와 **대조** | 문서 ↔ 코드 정합 |
+| AC29 | 동기화가 실패하면 문구가 뜨고, provider 탭을 바꾸면 그 문구가 **따라오지 않는다** | **사람 실기** — `npm run dev` → 설정 › 사용량 › provider 서브탭에서 동기화 버튼(원격 실패 상태) → 다른 provider 탭으로 전환 | GUI |
+
+**제외한 것과 이유**
+
+- **타임아웃 전용 AC** — `setTimeout` → `controller.abort()` 는 **기존 코드**이고 D22 가 바꾸는
+  것은 *최종 outcome* 이다. 검증하려면 fake timer + AbortSignal 반응 fake 가 필요한데 그것은
+  "D22 검증" 이 아니라 "기존 타임아웃 구현의 테스트 보강" 이다 — 필요하면 별도 라운드.
+- **"코어 5파일 0줄" AC** — 제품/동작 기준이 아니라 범위 방어선이다. 아래 **Scope guard 로만**
+  둔다(같은 조건을 AC 와 guard 양쪽에 두지 않는다).
+
+**AC23·AC24 의 측정력** (관문 2 규칙 3): 둘 다 *현행 코드도 통과한다*. 측정 대상이 베이스라인이
+아니라 **이번 변경**이기 때문이다 — D22 의 유일한 실패 양식은 "실패가 아닌 것까지 실패로 세는
+것"(정상 틱 오탐·`supports:false` 오탐)이고, 이 둘이 정확히 그 두 가지를 잠근다.
+
+**AC29 가 사람 몫인 이유**: "기술적으로 불가능" 이 아니라 *현재 하네스에 렌더 경로가 없고 이번
+범위에서 신설하지 않는다* — 이 저장소에는 jsdom·testing-library 기반 컴포넌트 렌더 경로가 없고
+vitest 가 `environment:'node'` + `*.test.ts` 만 수집한다. 신규 의존성 0 이 이번 라운드의
+전제이므로 렌더 검증은 사람 실기로 넘긴다(0019·0102·0180 AC9 선례). 실행 경로(설정 모달 ›
+사용량 › provider 서브탭)는 이번 범위 안에 있어 막혀 있지 않다.
+
+### 게이트
+
+```
+cd app
+npm run lint          # 0 error / 1 warn (0102 베이스라인)
+npm run typecheck     # 3/3
+./node_modules/.bin/vitest run    # 신규 1건 포함 전량 green
+node scripts/check-migrations-appendonly.mjs   # 16 불변
+node scripts/check-doc-inventory.mjs --check   # 채널 76 불변
+```
+
+**Scope guard**(AC 아님 — 범위 방어선):
+
+```
+git diff --stat 39965fa..HEAD -- \
+  app/src/main/features/usage/{tracker,fetcher,usage-compose}.ts \
+  app/src/renderer/src/shared/stores/usageStore.ts \
+  app/src/shared/usage/limits.ts
+# expected: no output
+```
+
+**D22 음성 확인**: 새 reject 단언을 잠시 `resolves` 로 되돌리면 실패하는지 확인 후 원복
+(단언이 실제로 계약을 잡는지 — 0185 가 확립한 음성 테스트 관례).
