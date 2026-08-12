@@ -902,7 +902,10 @@ function startForkDraft(): boolean {
     session: {
       ...continuityDraftSession(src, 'fork'),
       // fork 는 원본 컨텍스트를 그대로 갖고 시작하므로 도넛(lastTelemetry)도 승계한다.
+      // 사용량 기준 provider(0186)도 같은 이유로 함께 승계한다 — 안 하면 fork 직후 주/월 바가
+      // 사라졌다가 첫 턴이 끝나야 돌아온다.
       lastTelemetry: src.lastTelemetry,
+      lastTelemetryProviderKey: src.lastTelemetryProviderKey,
       // 프리필 원본 이력 끝에 '분기된 지점' 구분선을 합성한다(r5 피드백 3) — 물질화 시
       // main(materializeContinuityArrival)이 같은 위치에 fork_boundary 파트를 영속하므로
       // 라이브 draft 와 재로드 표시가 일치한다.

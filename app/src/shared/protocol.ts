@@ -252,10 +252,11 @@ export const SearchMessagesRequestSchema = z.object({
   limit: z.number().int().positive().max(100).optional()
 })
 
-// provider별 사용량 조회/한도 설정 (0080 항목 4). providerKeys 는 renderer 가 아는 agent key
-// 목록(agent:list 파생). limitUsd 양수 또는 null(무제한). 상한 100 은 UI 가 다룰 provider 보호선.
-export const ProviderSummariesRequestSchema = z.object({
-  providerKeys: z.array(z.string().min(1)).max(100)
+// 사용량 정본 조회 (0186) — providerKey 를 주면 그 provider, 없으면 전역. 구
+// `ProviderSummariesRequestSchema`(providerKeys 배열)를 대체한다: renderer 가 필요한 provider 만
+// lazy 로 물어보므로 목록을 한꺼번에 보낼 이유가 사라졌다.
+export const UsageRequestSchema = z.object({
+  providerKey: z.string().min(1).optional()
 })
 
 // ── Provider 플랫폼 (0181) ────────────────────────────────────────────────────
@@ -578,7 +579,6 @@ export type {
   AgentModelView,
   CostPeriodSummary,
   CostSummary,
-  ProviderUsageEntry,
   UsageStatsRange,
   UsageStatsDay,
   UsageStatsModel,

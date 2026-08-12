@@ -61,10 +61,12 @@ export const CHANNELS = {
   mcpAdd: 'orca:mcp:add',
   mcpUpdate: 'orca:mcp:update',
   mcpDelete: 'orca:mcp:delete',
-  costSummary: 'orca:cost:summary',
-  costSummaryEvent: 'orca:cost:summaryEvent',
-  // provider별 사용량 조회 / 한도 설정 (0080 항목 4).
-  costProviderSummaries: 'orca:cost:providerSummaries',
+  // 사용량 정본 조회 (0186) — providerKey 를 주면 그 provider, 없으면 전역. 구 `cost:summary`
+  // 와 `cost:providerSummaries` 를 흡수했다(Main 이 UsageLimitsView 를 완성해 돌려준다).
+  costUsage: 'orca:cost:usage',
+  // 변경된 scope 만 push 하는 delta (0186). 전체 provider map 을 매번 보내지 않는다.
+  costUsageEvent: 'orca:cost:usageEvent',
+  // provider별 월 한도 설정 (0080 항목 4).
   costSetProviderLimit: 'orca:cost:setProviderLimit',
   // 사용량 요약(0112) — 기간(range)별 일 단위 시계열 + 모델별 집계를 한 번에 반환.
   costUsageStats: 'orca:cost:usageStats',
@@ -203,16 +205,11 @@ export interface CostSummary {
   updatedAt: number
 }
 
-// provider별 사용량 엔트리(0080 항목 4) — providerKey(=agent key)별 실사용 summary + 월 한도.
-// summary 는 turn_usage ⨝ sessions(provider_key)로 파생, limitUsd 는 provider_limits 원장.
-//
-// 0183 r2 — 외부(원격) 사용량 리포트 필드(`externalReport`·`effectiveLimit`)를 제거했다.
-// 리포트를 만들던 경로가 통째로 사라졌으므로 엔트리는 **로컬 값 셋**뿐이다.
-export interface ProviderUsageEntry {
-  providerKey: string
-  summary: CostSummary
-  limitUsd: number | null
-}
+// 0183 r2 가 `ProviderUsageEntry`(summary + limitUsd) 를 로컬 값 셋으로 줄였고, 0186 이 그것을
+// 아예 제거했다 — Main 이 `UsageLimitsView` 를 완성하므로 renderer 가 다시 파생할 중간 형식이
+// 필요 없다. 한도 파생은 `shared/usage/limits.ts` 한 곳에서만 일어나고, IPC 로 오가는 사용량
+// 타입(`UsageLimitsView`·`UsageDelta`)도 그 파일이 소유한다 — 여기에 두면 `limits.ts` 가
+// `CostSummary` 를 가져가므로 순환이 된다(`import/no-cycle`).
 
 // 사용량 요약(0112) — 설정 사용량 탭의 일별 토큰 차트 + 모델별 내역.
 // days 는 실제 사용이 있던 날만 담는 희소 배열(오름차순) — 제로필은 renderer 의

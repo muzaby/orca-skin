@@ -740,6 +740,124 @@ describe('DbQueries provider usage + limits (0080)', () => {
     q.setProviderLimit('claude', null, 300)
     expect(q.getProviderLimit('claude')).toBeNull()
   })
+
+  // 0186 — asOf 는 WHERE 하한이 아니라 조건부 SUM 의 경계다. 하한을 올려 재사용하면 같은
+  // 스캔에서 나오는 week 가 asOf 이전 사용분을 잃는다(주간은 언제나 로컬 전량).
+  it('as_of 가 이번 주 안이어도 week 가 온전하다', () => {
+    const db = dbWithMigrations()
+    insertSessionWithProvider(db, 'sw', 'claude')
+    const q = new DbQueries(db)
+    const usd = (createdAt: number, totalCostUsd: number): void => {
+      q.insertTurnUsage({
+        sessionId: 'sw',
+        messageId: null,
+        createdAt,
+        inputTokens: 1,
+        outputTokens: 1,
+        cacheCreationInputTokens: null,
+        cacheReadInputTokens: null,
+        totalCostUsd
+      })
+    }
+    // 주 시작(100) 이후 3건. asOf=300 이 이번 주 한가운데 있다.
+    usd(150, 1)
+    usd(250, 2)
+    usd(400, 4)
+
+    const sums = q.sumUsageByBoundariesForProvider(
+      'claude',
+      { dayStart: 100, weekStart: 100, monthStart: 100 },
+      300
+    )
+
+    // week 는 asOf 와 무관하게 전량(1+2+4).
+    expect(sums.week.total_cost_usd).toBe(7)
+    expect(sums.month.total_cost_usd).toBe(7)
+    // delta 는 asOf 이후만(4).
+    expect(sums.monthDeltaCostUsd).toBe(4)
+  })
+
+  it('asOf 를 생략하면 delta 가 월 전체와 같다', () => {
+    const db = dbWithMigrations()
+    insertSessionWithProvider(db, 'sd', 'claude')
+    const q = new DbQueries(db)
+    q.insertTurnUsage({
+      sessionId: 'sd',
+      messageId: null,
+      createdAt: 150,
+      inputTokens: 1,
+      outputTokens: 1,
+      cacheCreationInputTokens: null,
+      cacheReadInputTokens: null,
+      totalCostUsd: 3
+    })
+
+    const sums = q.sumUsageByBoundariesForProvider('claude', {
+      dayStart: 100,
+      weekStart: 100,
+      monthStart: 100
+    })
+    expect(sums.monthDeltaCostUsd).toBe(3)
+    expect(sums.month.total_cost_usd).toBe(3)
+  })
+})
+
+// 0186 — 0183 r2 가 접근자를 지워 고아가 됐던 테이블(마이그레이션 0014)에 세입자를 되돌린다.
+describe('provider usage report cache (0014)', () => {
+  it('provider usage report 왕복', () => {
+    const db = dbWithMigrations()
+    const q = new DbQueries(db)
+
+    expect(q.getProviderUsageReport('claude-gateway')).toBeUndefined()
+
+    q.upsertProviderUsageReport({
+      providerKey: 'claude-gateway',
+      reportJson: JSON.stringify({ baselineUsable: true, raw: { anything: 1 } }),
+      fetchedAt: 1000,
+      asOf: 900,
+      quotaLimitUsd: 500,
+      quotaUsedUsd: 312,
+      quotaRemainingUsd: 188,
+      updatedAt: 1000
+    })
+
+    const row = q.getProviderUsageReport('claude-gateway')
+    expect(row).toMatchObject({
+      provider_key: 'claude-gateway',
+      fetched_at: 1000,
+      as_of: 900,
+      quota_limit_usd: 500,
+      quota_used_usd: 312,
+      quota_remaining_usd: 188
+    })
+    expect(JSON.parse(row!.report_json)).toEqual({ baselineUsable: true, raw: { anything: 1 } })
+  })
+
+  it('같은 provider 재수집은 upsert 로 최신 1행만 남긴다', () => {
+    const db = dbWithMigrations()
+    const q = new DbQueries(db)
+    const put = (asOf: number, used: number): void =>
+      q.upsertProviderUsageReport({
+        providerKey: 'claude-gateway',
+        reportJson: '{}',
+        fetchedAt: asOf + 10,
+        asOf,
+        quotaLimitUsd: 500,
+        quotaUsedUsd: used,
+        quotaRemainingUsd: null,
+        updatedAt: asOf + 10
+      })
+
+    put(900, 312)
+    put(1900, 280) // 원격 correction 으로 내려갈 수 있다 — 그대로 덮는다.
+
+    const row = q.getProviderUsageReport('claude-gateway')
+    expect(row?.as_of).toBe(1900)
+    expect(row?.quota_used_usd).toBe(280)
+    expect(
+      (db.prepare('SELECT COUNT(*) AS n FROM provider_usage_report_cache').get() as { n: number }).n
+    ).toBe(1)
+  })
 })
 
 describe('schedule_runs', () => {

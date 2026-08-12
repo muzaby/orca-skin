@@ -114,6 +114,38 @@ export interface UsageByBoundaries {
   month: UsageSumRow
 }
 
+// provider 한정 집계(0186) — 위 3구간 + **원격 기준선 이후 월간 증분**(USD).
+// 증분을 WHERE 하한이 아니라 별도 컬럼으로 두는 이유는 `queries.ts` 의 해당 메서드 주석 참조
+// (하한을 올리면 같은 스캔의 week 가 깨진다).
+export interface ProviderUsageByBoundaries extends UsageByBoundaries {
+  monthDeltaCostUsd: number
+}
+
+// 원격 사용량 스냅샷 한 행 (마이그레이션 0014 `provider_usage_report_cache`).
+// report_json 은 코어가 정한 봉투다 — `{ baselineUsable, raw }`. 스칼라로 접히지 않은 원격
+// 응답을 raw 가 통째로 보존하고, baselineUsable 은 기준선 사용 가부를 재시작 후에도 남긴다.
+export interface ProviderUsageReportRow {
+  provider_key: string
+  report_json: string
+  fetched_at: number
+  as_of: number | null
+  quota_limit_usd: number | null
+  quota_used_usd: number | null
+  quota_remaining_usd: number | null
+  updated_at: number
+}
+
+export interface ProviderUsageReportUpsert {
+  providerKey: string
+  reportJson: string
+  fetchedAt: number
+  asOf: number | null
+  quotaLimitUsd: number | null
+  quotaUsedUsd: number | null
+  quotaRemainingUsd: number | null
+  updatedAt: number
+}
+
 // 사용량 요약(0112) — since 이후 로컬 일자별 합산 한 행. day = date(...,'localtime') 'YYYY-MM-DD'.
 export interface DailyUsageRow extends UsageSumRow {
   day: string

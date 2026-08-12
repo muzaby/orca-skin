@@ -117,6 +117,11 @@ export interface ChatState {
   // 복원, 새 대화에서만 비움. SEND 는 비우지 않아 턴 진행 중에도 도넛이 유지된다.
   // 비용/지연은 패널에서 빠졌고 비용은 turn_usage 원장(집계)이 SSOT 라 state 에 두지 않는다.
   lastTelemetry?: ProviderReportedTelemetry
+  // 그 telemetry 가 도착한 시점의 provider (0186). **`providerKey` 와 다르다** — 사용자가 모델을
+  // 바꾸면 `providerKey` 는 즉시 바뀌지만 화면의 주/월 사용량은 마지막으로 측정된 provider 의
+  // 것이어야 한다("Composer 가 보여주는 기준은 항상 텔레메트리가 업데이트되는 시점"). 현재 선택
+  // provider 로 그리면 새 턴을 돌리기도 전에 숫자가 바뀐다.
+  lastTelemetryProviderKey?: string | null
   // 이 세션에서만 발생한 비용 총합(USD, 추정치 — 0122 r2). 세션 로드 시 turn_usage 세션
   // SUM(LoadedSession.costUsd)으로 시드, 라이브 턴 종료(telemetry.costUsd)마다 누산.
   // fork/handoff 파생 draft 는 새 세션이라 승계하지 않는다(continuityDraftSession 미복사).
@@ -458,7 +463,14 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
             ...TURN_END_RESET,
             // 도넛/패널은 lastTelemetry 파생(컨텍스트 사용량 소스). 컨텍스트 0인 턴(/context 등
             // 로컬 슬래시 명령 — 모델 미호출)은 직전 도넛 값을 덮어쓰지 않게 스킵한다.
-            ...(telemetry && contextTokens(telemetry) > 0 ? { lastTelemetry: telemetry } : {}),
+            // 0186 — 같은 조건에서 **그 턴이 실제로 쓴 provider** 를 함께 굳힌다. BEGIN_TURN 이
+            // 고정해 둔 turnProviderKey 를 쓴다(SET_MODEL 이 그 사이 바꿨어도 턴의 값이 남는다).
+            ...(telemetry && contextTokens(telemetry) > 0
+              ? {
+                  lastTelemetry: telemetry,
+                  lastTelemetryProviderKey: state.turnProviderKey ?? state.providerKey
+                }
+              : {}),
             // 세션 비용 누산(0122 r2) — costUsd 는 턴 단위(원장 행과 동일 단위)라 단순 합산.
             // 컨텍스트 게이트와 무관하게 비용이 보고된 턴은 전부 계상한다(/compact 요약 턴 등).
             ...(telemetry?.costUsd != null
@@ -687,7 +699,13 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
               }
             : {}),
         // 컨텍스트 도넛/패널을 세션 수명 동안 유지 — turn_usage 최신 행에서 복원.
-        ...(action.session.lastTelemetry ? { lastTelemetry: action.session.lastTelemetry } : {}),
+        // 0186 — 복원된 telemetry 의 provider 는 세션의 provider_key 다(그 행을 쓴 세션이므로).
+        ...(action.session.lastTelemetry
+          ? {
+              lastTelemetry: action.session.lastTelemetry,
+              lastTelemetryProviderKey: action.session.providerKey ?? null
+            }
+          : {}),
         // 세션 비용 시드(0122 r2) — turn_usage 세션 SUM. 이후 라이브 턴 telemetry 가 누산.
         ...(action.session.costUsd != null ? { sessionCostUsd: action.session.costUsd } : {}),
         // 0064 continuity — 파생 세션의 출처 배너 복원(fork/handoff 마커 + 부모 제목).

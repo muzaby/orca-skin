@@ -50,8 +50,8 @@ PRD §6.1 의 F1~F10 을 *수용 기준* 으로 구체화한다.
 | ID | 요구사항 | 구현 책임 모듈 | 요약 | 출처 |
 |---|---|---|---|---|
 | F11 | **자동 업데이트** | `app/updater.ts`(UpdateController) + `features/update/` | electron-updater — 시작 시 1회 체크, `autoDownload=false`(다운로드·설치 = 사용자 명시 액션), 재시작 게이트(`shared/update-restart.ts`), update 6채널 브로드캐스트 | 0084~0086 |
-| F12 | **사용량 한도** | `features/usage`(main) + UsagePanel·설정 탭(renderer) | 월간 `spendingLimitUsd` + provider별 한도(`provider_limits`), 실사용 SSOT 에서 `computeUsageLimits` 파생, 도넛 팝오버 = 컨텍스트바+주간/월간 한도 바 | 0079~0082 |
-| F13 | **주기 실행 (스케줄러)** | `features/scheduler/`(croner + interval) | job 등록·겹침 방지·`schedule_runs` 이력. 스펙 2종 — cron(벽시계 정렬) / `intervalMs`(schedule 시각 anchor, 0156). 소비처 = 주기 사용량 recompute(`scheduler.usageRecompute`, cron) · 자동 업데이트 확인(`scheduler.updateCheck`, interval) | 0091, 0156 |
+| F12 | **사용량 한도** | `features/usage`(main) + UsagePanel·설정 탭(renderer) | 월간 `spendingLimitUsd` + provider별 한도(`provider_limits`). **Main 이 `UsageLimitsView` 정본을 만들고**(`usage-compose` + `shared/usage/limits.ts`) renderer 는 `shared/stores/usageStore` 로 mirror 만 한다. 도넛 팝오버 = 컨텍스트바+주간/월간 한도 바. 원격 사용량 조회는 `UsageFetcher` 포트를 주입한 배포에서만 도는 선택 기능 | 0079~0082, 0186 |
+| F13 | **주기 실행 (스케줄러)** | `features/scheduler/`(croner + interval) | job 등록·겹침 방지·`schedule_runs` 이력. 스펙 2종 — cron(벽시계 정렬) / `intervalMs`(schedule 시각 anchor, 0156). 소비처 = 주기 사용량 recompute(`scheduler.usageRecompute`, cron·설정 노출형) · 자동 업데이트 확인(`scheduler.updateCheck`, interval) · **코어 고정형 사용량 잡 2종**(`usage-boundary` 자정 cron 항상 · `usage-fetch` fetcher 주입 시에만, 0186) | 0091, 0156, 0186 |
 | F14 | **번들 스킬 시딩** | `features/extensions/skills/seed.ts` + `builtin-resources.ts` | 부팅 1회 번들 스킬 → `sources/skills` 시딩, manifest/marker 버전 게이트로 사용자 수정 보호 | 0078 |
 | F15 | **CI/CD 릴리스** | `.github/workflows/{ci,release}.yml` + `scripts/validate-*` | main push 게이트 + `v*` 태그 → unsigned NSIS → GitHub Releases draft(수동 Publish). §9 참조 | 0087~0089 |
 

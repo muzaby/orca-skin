@@ -1,6 +1,6 @@
 import { ChatView, useChatSession } from '../features/chat'
 import { useBackendCapabilities, useBackendLabel } from '../features/backend'
-import { useProviderUsageLimits } from '../features/cost'
+import { useUsageForTelemetryProvider } from './useUsageForTelemetryProvider'
 import { useOpenSettings, providerTabId } from '../features/settings'
 import { useProjectsState } from '../features/projects'
 import { useSessionActions } from './useSessionActions'
@@ -12,13 +12,13 @@ export function ChatPage(): React.JSX.Element {
   const capabilities = useBackendCapabilities()
   // 능력 서술자가 로드됐는데 sessionAbort 가 아니면 중단 게이팅(미로드면 현행 동작 유지).
   const canAbort = capabilities ? capabilities.cancellation.sessionAbort === true : true
-  // 도넛 사용량 한도를 현재 세션 provider 기준으로(모델 선택 반영, 0082). providerKey 없으면 전역.
-  const providerKey = useChatSession((s) => s.providerKey)
+  // 도넛 사용량 한도 — **마지막 telemetry 시점의 provider** 기준(0186). 모델을 바꿔도 새 턴이
+  // 끝나기 전에는 숫자가 바뀌지 않는다.
   const projectId = useChatSession((s) => s.projectId ?? s.pendingProjectId)
   const projectName = useProjectsState((s) =>
     projectId ? (s.list.find((project) => project.id === projectId)?.name ?? null) : null
   )
-  const usageLimits = useProviderUsageLimits(providerKey)
+  const usageLimits = useUsageForTelemetryProvider()
   const openSettings = useOpenSettings()
   const sessionActions = useSessionActions({ redirectAfterActiveDelete: '/new' })
   return (

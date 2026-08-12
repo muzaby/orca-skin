@@ -22,6 +22,9 @@ import type {
   TurnModelUsageRow,
   TurnUsageInsert,
   TurnUsageRow,
+  ProviderUsageByBoundaries,
+  ProviderUsageReportRow,
+  ProviderUsageReportUpsert,
   UsageByBoundaries,
   UsageSumRow
 } from './types'
@@ -66,6 +69,9 @@ export class DbQueries {
   private sumUsageByModelSinceStmt?: Database.Statement
   private readonly getProviderLimitStmt: Database.Statement
   private readonly setProviderLimitStmt: Database.Statement
+  // 원격 사용량 스냅샷(0014) — provider 당 1행. fetcher 가 있는 배포에서만 쓰이므로 lazy prepare.
+  private getProviderUsageReportStmt?: Database.Statement
+  private upsertProviderUsageReportStmt?: Database.Statement
   // 사용자가 명시적으로 rename — 기존 title 이 있어도 덮어쓴다.
   // updateSessionTitleStmt 는 첫 init 시점 채우기 용도 (WHERE title IS NULL).
   private readonly renameSessionStmt: Database.Statement
@@ -300,7 +306,8 @@ export class DbQueries {
         COALESCE(SUM(tu.output_tokens), 0) AS month_output_tokens,
         COALESCE(SUM(tu.cache_creation_input_tokens), 0) AS month_cache_creation_input_tokens,
         COALESCE(SUM(tu.cache_read_input_tokens), 0) AS month_cache_read_input_tokens,
-        COALESCE(SUM(tu.total_cost_usd), 0) AS month_total_cost_usd
+        COALESCE(SUM(tu.total_cost_usd), 0) AS month_total_cost_usd,
+        COALESCE(SUM(CASE WHEN tu.created_at > @asOf THEN tu.total_cost_usd END), 0) AS month_delta_cost_usd
       FROM turn_usage tu
       JOIN sessions s ON s.id = tu.session_id
       WHERE tu.created_at >= @monthStart AND s.provider_key = @providerKey
@@ -579,11 +586,17 @@ export class DbQueries {
   }
 
   // provider 한정 집계(0080) — sumUsageByBoundaries 와 같은 형태를 provider_key 로 필터해 반환.
+  //
+  // `asOf`(0186) 는 **WHERE 하한이 아니라 조건부 SUM 의 경계**다. 하한을 asOf 로 올려 재사용하면
+  // 같은 스캔에서 나오는 `week` 가 asOf 이전 사용분을 잃는다 — 주간은 언제나 로컬 전량이어야
+  // 한다. 그래서 하한은 monthStart 로 두고 월간 증분만 컬럼 하나로 더 뽑는다(스캔 횟수 불변).
+  // 기준선이 없으면 `asOf: 0` 을 넘긴다 — 그러면 delta 가 월 전체와 같아져 의미가 성립한다.
   sumUsageByBoundariesForProvider(
     providerKey: string,
-    b: { dayStart: number; weekStart: number; monthStart: number }
-  ): UsageByBoundaries {
-    const r = this.sumUsageByBoundariesForProviderStmt.get({ ...b, providerKey }) as Record<
+    b: { dayStart: number; weekStart: number; monthStart: number },
+    asOf = 0
+  ): ProviderUsageByBoundaries {
+    const r = this.sumUsageByBoundariesForProviderStmt.get({ ...b, providerKey, asOf }) as Record<
       string,
       number
     >
@@ -594,7 +607,45 @@ export class DbQueries {
       cache_read_input_tokens: r[`${prefix}_cache_read_input_tokens`],
       total_cost_usd: r[`${prefix}_total_cost_usd`]
     })
-    return { day: period('day'), week: period('week'), month: period('month') }
+    return {
+      day: period('day'),
+      week: period('week'),
+      month: period('month'),
+      monthDeltaCostUsd: r.month_delta_cost_usd
+    }
+  }
+
+  // 원격 사용량 스냅샷 — provider 당 최신 1행(마이그레이션 0014). 0183 r2 가 접근자를 지웠고
+  // 0186 이 생산자(cron `usage-fetch`)와 **한 세트로** 되살린다. 테이블·스키마는 그대로다.
+  getProviderUsageReport(providerKey: string): ProviderUsageReportRow | undefined {
+    this.getProviderUsageReportStmt ??= this.db.prepare(`
+      SELECT provider_key, report_json, fetched_at, as_of,
+             quota_limit_usd, quota_used_usd, quota_remaining_usd, updated_at
+      FROM provider_usage_report_cache WHERE provider_key = @providerKey
+    `)
+    return this.getProviderUsageReportStmt.get({ providerKey }) as
+      ProviderUsageReportRow | undefined
+  }
+
+  upsertProviderUsageReport(row: ProviderUsageReportUpsert): void {
+    this.upsertProviderUsageReportStmt ??= this.db.prepare(`
+      INSERT INTO provider_usage_report_cache (
+        provider_key, report_json, fetched_at, as_of,
+        quota_limit_usd, quota_used_usd, quota_remaining_usd, updated_at
+      ) VALUES (
+        @providerKey, @reportJson, @fetchedAt, @asOf,
+        @quotaLimitUsd, @quotaUsedUsd, @quotaRemainingUsd, @updatedAt
+      )
+      ON CONFLICT(provider_key) DO UPDATE SET
+        report_json = @reportJson,
+        fetched_at = @fetchedAt,
+        as_of = @asOf,
+        quota_limit_usd = @quotaLimitUsd,
+        quota_used_usd = @quotaUsedUsd,
+        quota_remaining_usd = @quotaRemainingUsd,
+        updated_at = @updatedAt
+    `)
+    this.upsertProviderUsageReportStmt.run(row)
   }
 
   insertScheduleRunStarted(row: ScheduleRunStartedInsert): number {

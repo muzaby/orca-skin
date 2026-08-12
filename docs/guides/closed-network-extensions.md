@@ -196,7 +196,7 @@ service : { sessionGroup: 'corp', allowedOrigins: ['https://wiki…'] }
 | 소비자 위치 | 방법 | 선례 |
 |---|---|---|
 | `features/providers` 안 | 직접 받는다 | `ConfluenceContext { request, signal?, logger }` |
-| **다른 feature 슬라이스** | 소비 측이 **필요한 메서드만 담은 구조적 포트**를 선언하고 컴포지션 루트가 어댑터를 주입 (`src/main/AGENTS.md` §해소책 1+3) — 절차·예제는 **§5-b** | **현재 살아 있는 선례가 없다.** 0183 r2 가 유일했던 선례(사용량 포트)를 제거했다 |
+| **다른 feature 슬라이스** | 소비 측이 **필요한 메서드만 담은 구조적 포트**를 선언하고 컴포지션 루트가 어댑터를 주입 (`src/main/AGENTS.md` §해소책 1+3) — 절차·예제는 **§5-b** | `features/usage/fetcher.ts` 의 `UsageFetcher` (0186) — 타입만 있는 파일이고, 주입은 `app/bootstrap.ts` 가 한다 |
 | **renderer** | 전용 도메인 IPC 채널을 만든다 — 범용 프록시 채널은 **없고, 없는 것이 맞다** | `app/handlers/*` |
 
 포트는 항상 좁혀 받는다. `providerId` 까지 클로저로 굳히면 `materialize`·`token` 같은 **값 표면**이
@@ -606,6 +606,39 @@ const quota: QuotaPort = {
 
 renderer 에서 SP 를 부르려면 **전용 도메인 IPC 채널**을 만든다 — 범용 프록시 채널은 없고,
 없는 것이 맞다(`app/handlers/*` 참조).
+
+### 살아 있는 선례 — 사용량 fetcher (0186)
+
+코어에 **주입 지점만 있고 구현은 배포가 채우는** 형태의 실제 사례다. 세 파일만 보면 된다:
+
+| 파일 | 무엇 |
+|---|---|
+| `features/usage/fetcher.ts` | `UsageFetcher` 포트 + `UsageSnapshot` — **타입뿐**. 응답 JSON→스냅샷 매핑은 코어에 두지 않는다(배포가 소유) |
+| `features/usage/jobs.ts` | `registerUsageJobs()` — 잡 등록. **fetcher 가 없으면 원격 잡을 등록조차 하지 않는다** |
+| `app/bootstrap.ts` | `const usageFetcher: UsageFetcher \| undefined = undefined` 자리에 구현을 꽂는다 |
+
+```ts
+// app/bootstrap.ts — 배포가 이 자리를 채운다
+const usageFetcher: UsageFetcher = {
+  fetchUsage: async (providerKey, signal) => {
+    const provider = findLlmProvider(providers.declarations('llm'), providerKey)
+    if (!provider) return null
+    const res = await providers.api.request(provider.id, { path: '/api/usage' }, signal)
+    if (!res.ok) return null              // 미인증·사내망 밖은 **정상 상태**다
+    return toSnapshot(providerKey, res.body)   // 매핑은 배포 소유
+  }
+}
+```
+
+두 가지를 주의한다:
+
+- **`baselineUsable` 은 함부로 켜지 않는다.** 응답의 `as_of` 가 *billing aggregation watermark*
+  임을 확인했을 때만 `true` 로 채운다. 단순 "응답 생성 시각" 이면 원격이 이미 센 턴이 로컬 증분에
+  또 더해져 **같은 턴이 두 번 계상**된다. 미지정이면 코어가 기준선을 쓰지 않고 **한도만** 원격에서
+  가져가므로, 확신이 없으면 비워 두는 쪽이 옳다.
+- **`providerKey` 와 `Provider.id` 는 다른 축이다.** 사용량은 `${adapter}-${provider}` 합성 키를
+  쓰고 `ProviderApi` 는 선언 id 를 쓴다. 조인은 기존 `llmProviderKey()`/`findLlmProvider()`
+  (`features/providers/llm/`)를 쓰고 새로 만들지 않는다.
 
 ---
 

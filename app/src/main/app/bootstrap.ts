@@ -40,6 +40,9 @@ import { seedBuiltinSkills } from '../features/extensions/skills/seed'
 import { initDb } from '../infra/db'
 import { getLogger, setLogDebug } from '../infra/log'
 import { UsageTracker } from '../features/usage/tracker'
+import { registerUsageJobs } from '../features/usage/jobs'
+import type { UsageFetcher } from '../features/usage/fetcher'
+import { llmProviderKey } from '../features/providers/llm'
 import { DbRunRecorder, Scheduler } from '../features/scheduler'
 import { ExtensionBuilder } from '../features/extensions/builder'
 import { PermissionModeController } from '../features/approvals/permission-mode-controller'
@@ -389,12 +392,43 @@ export class Bootstrap {
         .child('chat')
         .debug('chat.recovery.settled', { ...recovered })
     }
-    // 비용 요약 IPC 송출 배선 — domain(UsageTracker)은 electron 비의존, 송출은 여기(컴포지션 루트)서.
-    const cost = new UsageTracker(db, (summary) => {
-      for (const wc of webContents.getAllWebContents()) {
-        if (!wc.isDestroyed()) wc.send(CHANNELS.costSummaryEvent, summary)
+    // ── 원격 사용량 fetcher (0186) — 이 배포에는 endpoint 가 없다 ──────────────────
+    // **`undefined` 는 오류가 아니라 정상 구성이다.** 사용량은 로컬 원장만으로 완전히 동작하고,
+    // 아래 `registerUsageJobs` 도 원격 잡을 등록하지 않는다.
+    //
+    // 폐쇄망 배포는 여기에 포트 구현을 꽂는다(선언에 슬롯을 만들지 않는다 — 0183 r2):
+    //
+    //   const usageFetcher: UsageFetcher = {
+    //     fetchUsage: async (providerKey, signal) => {
+    //       const provider = findLlmProvider(providers.declarations('llm'), providerKey)
+    //       if (!provider) return null
+    //       const res = await providers.api.request(provider.id, { path: '/api/usage' }, signal)
+    //       if (!res.ok) return null              // 미인증·사내망 밖은 **정상 상태**다
+    //       return toSnapshot(providerKey, res.body)   // 응답 매핑은 배포가 소유한다
+    //     }
+    //   }
+    //
+    // `baselineUsable` 은 `as_of` 가 billing aggregation watermark 임을 배포가 확인했을 때만
+    // true 로 채운다 — 미지정이면 코어가 기준선을 쓰지 않고 한도만 원격에서 가져간다.
+    // 절차 상세는 `docs/guides/closed-network-extensions.md` §5-b.
+    const usageFetcher: UsageFetcher | undefined = undefined
+
+    // 사용량 delta 송출 배선 — domain(UsageTracker)은 electron 비의존, 송출은 여기(컴포지션 루트)서.
+    // 0186 — 전체 provider map 이 아니라 **변경된 scope 만** 나간다.
+    const cost = new UsageTracker(
+      db,
+      (delta) => {
+        for (const wc of webContents.getAllWebContents()) {
+          if (!wc.isDestroyed()) wc.send(CHANNELS.costUsageEvent, delta)
+        }
+      },
+      {
+        // 전역 월 한도는 Main SettingsStore 가 소유한다(renderer Tweak 은 그 미러). 메모리 캐시라
+        // 매 턴 읽어도 disk read 가 없다.
+        spendingLimitUsd: () => this.settings.getAll().spendingLimitUsd,
+        fetcher: usageFetcher
       }
-    })
+    )
     this.bootReport.stepSync('cost-recompute', { critical: true, label: '비용 요약 재계산' }, () =>
       cost.recompute()
     )
@@ -404,6 +438,18 @@ export class Bootstrap {
     const scheduler = (this.scheduler = new Scheduler(new DbRunRecorder(db)))
     scheduler.register('usage-recompute', () => {
       cost.recordAndBroadcast()
+    })
+    // 사용량 코어 고정형 잡 (0186) — 기간 경계 갱신(항상) + 원격 갱신(fetcher 가 있을 때만).
+    // 설정 노출형 `usage-recompute` 와 별개다: 그쪽은 사용자가 켜는 임의 주기이고, 경계 갱신은
+    // 기본값이 off 인 설정에 맡길 수 없다(자정을 넘기면 주/월 바가 어제 기준에 멈춘다).
+    registerUsageJobs(scheduler, cost, {
+      fetcher: usageFetcher,
+      // 발화 시점에 평가 — 선언에서 LLM provider 좌표를 파생한다(`llmProviderKey` 재사용).
+      providerKeys: () =>
+        providers
+          .declarations('llm')
+          .map((provider) => llmProviderKey(provider))
+          .filter((key): key is string => key !== null)
     })
     // 주기 업데이트 확인(0156). this.updates 는 아직 null 이지만 액션은 *발화 시점* 에 평가되고
     // 첫 발화는 최소 1시간 뒤라 ctx 조립(createUpdateController)을 기다린다 — 등록을 뒤로 미루면

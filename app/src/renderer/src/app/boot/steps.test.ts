@@ -16,7 +16,7 @@ function deps(overrides: Partial<BootDependencies> = {}): BootDependencies {
     initBackend: vi.fn().mockResolvedValue(undefined),
     initSessions: vi.fn().mockResolvedValue(undefined),
     initProjects: vi.fn().mockResolvedValue(undefined),
-    initCost: vi.fn().mockResolvedValue(undefined),
+    initUsage: vi.fn().mockResolvedValue(undefined),
     ...overrides
   }
 }
