@@ -46,7 +46,10 @@ export interface UsageSnapshot {
 // 컴포지션 루트가 주입하는 포트. **`undefined` 는 오류가 아니라 정상 구성이다** — 원격 사용량
 // endpoint 가 없는 배포에서는 주입하지 않고, 그러면 관련 cron 잡도 등록되지 않는다.
 export interface UsageFetcher {
+  // cache row 의 존재만으로 원격 권위를 부여하지 않는다. 현재 배포에서 이 provider 를 실제로
+  // 지원할 때만 cached snapshot 과 원격 갱신을 사용할 수 있다.
+  supports(providerKey: string): boolean
   // 실패는 throw 가 아니라 `null` 로도 표현할 수 있다. 미인증·사내망 밖은 **정상 상태**이므로
-  // 호출자가 오류로 올리지 않고 다음 틱을 기다린다.
+  // background 호출자는 다음 틱을 기다리고, manual 호출자는 throw 를 사용자 실패로 전달한다.
   fetchUsage(providerKey: string, signal?: AbortSignal): Promise<UsageSnapshot | null>
 }

@@ -39,15 +39,17 @@ export function registerCostHandlers(ctx: RouterContext): void {
   // 0014 캐시 쓰기는 부수효과이고, 이 저장소의 실패 정책은 읽기=fallback·쓰기=reject 로 갈린다.
   // 한 채널이 두 정책을 가질 수 없다.
   //
-  // fetcher 미주입 배포에서는 `refreshProvider` 가 no-op 이라 결과적으로 로컬 재조회가 된다 —
+  // fetcher 미주입/미지원 배포에서는 `refreshProvider` 가 null 이라 로컬 재조회가 된다 —
   // 버튼이 죽지 않고 자연히 성능이 떨어진다(graceful degradation).
   handle(
     CHANNELS.costRefreshUsage,
     RefreshUsageSchema,
     'reject',
     async (req): Promise<UsageLimitsView> => {
-      await ctx.cost.refreshProvider(req.providerKey)
-      return ctx.cost.getProviderUsage(req.providerKey)
+      return (
+        (await ctx.cost.refreshProvider(req.providerKey)) ??
+        ctx.cost.getProviderUsage(req.providerKey)
+      )
     }
   )
 

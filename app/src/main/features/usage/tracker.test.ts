@@ -85,6 +85,13 @@ function snapshot(over: Partial<UsageSnapshot> = {}): UsageSnapshot {
   }
 }
 
+function fetcherWith(
+  fetchUsage: UsageFetcher['fetchUsage'],
+  supports: UsageFetcher['supports'] = () => true
+): UsageFetcher {
+  return { supports, fetchUsage }
+}
+
 describe('UsageTracker delta 방출', () => {
   it('providerKey 가 있으면 global + provider 두 건을 낸다', () => {
     const { db } = fakeDb()
@@ -146,9 +153,12 @@ describe('UsageTracker delta 방출', () => {
 })
 
 describe('UsageTracker provider 정본', () => {
-  it('기준선이 있으면 원격 값 위에 로컬 증분을 얹는다', () => {
+  it('지원 중인 provider 는 원격 값 위에 로컬 증분을 얹는다', () => {
     const { db } = fakeDb({ report: reportRow(), limit: 90 })
-    const t = new UsageTracker(db, () => {}, { spendingLimitUsd: () => 300 })
+    const t = new UsageTracker(db, () => {}, {
+      spendingLimitUsd: () => 300,
+      fetcher: fetcherWith(vi.fn())
+    })
 
     const view = t.getProviderUsage('claude-gateway', NOW)
 
@@ -162,7 +172,10 @@ describe('UsageTracker provider 정본', () => {
       report: reportRow({ report_json: JSON.stringify({ raw: {} }) }),
       limit: 90
     })
-    const t = new UsageTracker(db, () => {}, { spendingLimitUsd: () => 300 })
+    const t = new UsageTracker(db, () => {}, {
+      spendingLimitUsd: () => 300,
+      fetcher: fetcherWith(vi.fn())
+    })
 
     const view = t.getProviderUsage('claude-gateway', NOW)
 
@@ -174,7 +187,10 @@ describe('UsageTracker provider 정본', () => {
 
   it('봉투 파싱이 실패하면 기준선을 쓰지 않는다 (fail-closed)', () => {
     const { db } = fakeDb({ report: reportRow({ report_json: 'not json' }), limit: 90 })
-    const t = new UsageTracker(db, () => {}, { spendingLimitUsd: () => 300 })
+    const t = new UsageTracker(db, () => {}, {
+      spendingLimitUsd: () => 300,
+      fetcher: fetcherWith(vi.fn())
+    })
 
     expect(t.getProviderUsage('claude-gateway', NOW).month.source).toBe('local')
   })
@@ -187,6 +203,27 @@ describe('UsageTracker provider 정본', () => {
 
     expect(view.month.budget).toBe(90)
     expect(view.month.source).toBe('local')
+  })
+
+  it('fetcher 미주입이면 과거 cache row 를 무시한다', () => {
+    const { db } = fakeDb({ report: reportRow(), limit: 90 })
+    const t = new UsageTracker(db, () => {}, { spendingLimitUsd: () => 300 })
+
+    const view = t.getProviderUsage('claude-gateway', NOW)
+
+    expect(view.month).toMatchObject({ used: 40, budget: 90, source: 'local' })
+  })
+
+  it('현재 미지원 provider 면 과거 cache row 를 무시한다', () => {
+    const { db } = fakeDb({ report: reportRow(), limit: 90 })
+    const t = new UsageTracker(db, () => {}, {
+      spendingLimitUsd: () => 300,
+      fetcher: fetcherWith(vi.fn(), () => false)
+    })
+
+    const view = t.getProviderUsage('claude-gateway', NOW)
+
+    expect(view.month).toMatchObject({ used: 40, budget: 90, source: 'local' })
   })
 
   it('기준선이 없으면 asOf 0 으로 조회한다', () => {
@@ -217,7 +254,7 @@ describe('UsageTracker.refreshProvider', () => {
 
   it('원격 갱신이 로컬 원장을 건드리지 않는다', async () => {
     const { db, upsert, insertTurnUsage, insertTurnModelUsage } = fakeDb()
-    const fetcher: UsageFetcher = { fetchUsage: vi.fn().mockResolvedValue(snapshot()) }
+    const fetcher = fetcherWith(vi.fn().mockResolvedValue(snapshot()))
     const t = new UsageTracker(db, () => {}, { spendingLimitUsd: () => 300, fetcher })
 
     await t.refreshProvider('claude-gateway')
@@ -230,9 +267,7 @@ describe('UsageTracker.refreshProvider', () => {
 
   it('baselineUsable 미지정은 false 로 영속한다 (fail-closed)', async () => {
     const { db, upsert } = fakeDb()
-    const fetcher: UsageFetcher = {
-      fetchUsage: vi.fn().mockResolvedValue(snapshot({ baselineUsable: undefined }))
-    }
+    const fetcher = fetcherWith(vi.fn().mockResolvedValue(snapshot({ baselineUsable: undefined })))
     const t = new UsageTracker(db, () => {}, { spendingLimitUsd: () => 300, fetcher })
 
     await t.refreshProvider('claude-gateway')
@@ -241,20 +276,18 @@ describe('UsageTracker.refreshProvider', () => {
     expect(envelope.baselineUsable).toBe(false)
   })
 
-  it('fetch 가 던져도 예외가 새지 않고 저장하지 않는다', async () => {
+  it('fetch 오류를 caller 에 전달하고 저장하지 않는다', async () => {
     const { db, upsert } = fakeDb()
-    const fetcher: UsageFetcher = {
-      fetchUsage: vi.fn().mockRejectedValue(new Error('사내망 밖'))
-    }
+    const fetcher = fetcherWith(vi.fn().mockRejectedValue(new Error('사내망 밖')))
     const t = new UsageTracker(db, () => {}, { spendingLimitUsd: () => 300, fetcher })
 
-    await expect(t.refreshProvider('claude-gateway')).resolves.toBeUndefined()
+    await expect(t.refreshProvider('claude-gateway')).rejects.toThrow('사내망 밖')
     expect(upsert).not.toHaveBeenCalled()
   })
 
   it('fetch 가 null 을 주면 저장하지 않는다', async () => {
     const { db, upsert } = fakeDb()
-    const fetcher: UsageFetcher = { fetchUsage: vi.fn().mockResolvedValue(null) }
+    const fetcher = fetcherWith(vi.fn().mockResolvedValue(null))
     const t = new UsageTracker(db, () => {}, { spendingLimitUsd: () => 300, fetcher })
 
     await t.refreshProvider('claude-gateway')
@@ -265,7 +298,7 @@ describe('UsageTracker.refreshProvider', () => {
   it('갱신 후 해당 provider delta 만 push 한다', async () => {
     const { db } = fakeDb()
     const seen: UsageDelta[] = []
-    const fetcher: UsageFetcher = { fetchUsage: vi.fn().mockResolvedValue(snapshot()) }
+    const fetcher = fetcherWith(vi.fn().mockResolvedValue(snapshot()))
     const t = new UsageTracker(db, (d) => seen.push(d), {
       spendingLimitUsd: () => 300,
       fetcher
@@ -275,5 +308,32 @@ describe('UsageTracker.refreshProvider', () => {
 
     expect(seen).toHaveLength(1)
     expect(seen[0]).toMatchObject({ scope: 'provider', providerKey: 'claude-gateway' })
+  })
+
+  it('성공 시 provider 를 한 번 집계하고 broadcast value 를 반환한다', async () => {
+    const { db, sumForProvider } = fakeDb()
+    const seen: UsageDelta[] = []
+    const t = new UsageTracker(db, (delta) => seen.push(delta), {
+      spendingLimitUsd: () => 300,
+      fetcher: fetcherWith(vi.fn().mockResolvedValue(snapshot()))
+    })
+
+    const value = await t.refreshProvider('claude-gateway')
+
+    expect(sumForProvider).toHaveBeenCalledTimes(1)
+    expect(seen[0]).toMatchObject({ scope: 'provider', value })
+  })
+
+  it('미지원 provider 는 fetch 와 cache write 를 건너뛴다', async () => {
+    const { db, upsert } = fakeDb({ report: reportRow() })
+    const fetchUsage = vi.fn()
+    const t = new UsageTracker(db, () => {}, {
+      spendingLimitUsd: () => 300,
+      fetcher: fetcherWith(fetchUsage, () => false)
+    })
+
+    await expect(t.refreshProvider('claude-gateway')).resolves.toBeNull()
+    expect(fetchUsage).not.toHaveBeenCalled()
+    expect(upsert).not.toHaveBeenCalled()
   })
 })

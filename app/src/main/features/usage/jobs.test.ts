@@ -39,7 +39,10 @@ function fakeTracker(): {
   }
 }
 
-const fetcher: UsageFetcher = { fetchUsage: vi.fn().mockResolvedValue(null) }
+const fetcher: UsageFetcher = {
+  supports: () => true,
+  fetchUsage: vi.fn().mockResolvedValue(null)
+}
 
 describe('registerUsageJobs', () => {
   it('경계 잡은 schedule 까지 된다', () => {
@@ -113,6 +116,38 @@ describe('registerUsageJobs', () => {
     expect(refreshProvider).toHaveBeenCalledTimes(2)
     expect(refreshProvider).toHaveBeenNthCalledWith(1, 'claude-gateway', expect.any(AbortSignal))
     expect(refreshProvider).toHaveBeenNthCalledWith(2, 'claude-bedrock', expect.any(AbortSignal))
+  })
+
+  it('미지원 provider 는 원격 잡 대상에서 제외한다', async () => {
+    const { scheduler, actions } = fakeScheduler()
+    const { tracker, refreshProvider } = fakeTracker()
+    const selectiveFetcher: UsageFetcher = {
+      supports: (key) => key === 'claude-gateway',
+      fetchUsage: vi.fn().mockResolvedValue(null)
+    }
+
+    registerUsageJobs(scheduler, tracker, {
+      fetcher: selectiveFetcher,
+      providerKeys: () => ['claude-gateway', 'claude-bedrock']
+    })
+    await actions.get('usage-fetch')?.()
+
+    expect(refreshProvider).toHaveBeenCalledTimes(1)
+    expect(refreshProvider).toHaveBeenCalledWith('claude-gateway', expect.any(AbortSignal))
+  })
+
+  it('한 provider 실패를 삼키고 다음 provider 를 계속 갱신한다', async () => {
+    const { scheduler, actions } = fakeScheduler()
+    const { tracker, refreshProvider } = fakeTracker()
+    refreshProvider.mockRejectedValueOnce(new Error('temporary')).mockResolvedValueOnce(undefined)
+
+    registerUsageJobs(scheduler, tracker, {
+      fetcher,
+      providerKeys: () => ['claude-gateway', 'claude-bedrock']
+    })
+
+    await expect(actions.get('usage-fetch')?.()).resolves.toBeUndefined()
+    expect(refreshProvider).toHaveBeenCalledTimes(2)
   })
 
   it('대상 목록은 발화 시점에 평가한다', async () => {

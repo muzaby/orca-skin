@@ -45,6 +45,9 @@ export function ProviderUsageTab({ provider }: { provider: AgentEnvironment }): 
       setRefreshing(true)
       try {
         await syncProviderUsage(provider.key)
+      } catch {
+        // Main command 가 reject 하면 기존 mirror/timestamp 를 유지한다. 오류 UI 계약은 별도지만,
+        // fire-and-forget event handler 에 unhandled rejection 을 남기지는 않는다.
       } finally {
         setRefreshing(false)
       }
