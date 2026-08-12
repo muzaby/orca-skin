@@ -404,6 +404,26 @@ renderer: `shared/api/ipc.ts` · `features/chat/reducer/chatReducer.ts` ·
 
 ## [검증자 기입] 파생 이슈 (Derived Issues)
 
-| # | 이슈 | 출처 | 대응 방향 | 상태 |
+출처는 전부 **PR #329 외부 리뷰**(`orca_pr329_usage_architecture_evaluation.md`, REQUEST CHANGES).
+6건 모두 코드에서 **실측 확인했다** — 리뷰의 판정이 옳았다. D9 는 리뷰 제안이 아니라
+**본 plan §4-a 가 `handlers/settings.ts` 를 MODIFY 로 적어놓고 구현하지 않은 것**이다.
+
+| # | 이슈 | 실측 근거 | 대응 방향 | 상태 |
 |---|---|---|---|---|
-| — | (비어 있음) | — | — | — |
+| **D8** | **P0 — 자정에 provider mirror 가 stale.** 기간이 넘어가도 캐시된 provider 뷰가 어제 기준(week·month·`resetAt`)에 멈추고 되살아나지 못한다 | 세 원인이 맞물린다 — ⓐ `jobs.ts` 의 경계 액션이 `recordAndBroadcast()` 를 인자 없이 불러 **global 만** 나간다 ⓑ `usageStore` 에 provider 무효화 경로가 **0건** ⓒ `ensureProviderUsage` 가 키가 있으면 **조기 반환** ⓓ `useUsageForTelemetryProvider` 가 `provider ?? global` 이라 **stale provider 가 신선한 global 을 이긴다** | `UsageDelta` 에 `{scope:'boundary'}` 추가 → `tracker.refreshBoundary()` 신설 → `jobs.ts` 경계 액션이 그걸 부른다 → store 가 `providers`·`providerUpdatedAt` 을 **비운다**. 자정에 전 provider 재집계는 **하지 않는다**(affected-provider 성능 계약 유지). 소비 훅 2곳의 effect 의존을 `[providerKey, provider]` 로 바꿔 "키는 그대로, 값만 사라짐" 이 재조회를 트리거하게 한다 | **해소 (r2)** |
+| **D9** | **P2-3 — `spendingLimitUsd` 변경이 화면에 즉시 안 붙는다.** 도넛이 다음 턴 종료까지 옛 한도의 퍼센트를 보여준다 | `rg 'cost|usage' handlers/settings.ts` → **0건**. 같은 파일에 `authBypass` 선례가 이미 있다(`:21-23`) | 그 선례를 그대로 따라 `keys.includes('spendingLimitUsd')` 면 `ctx.cost.recordAndBroadcast()` | **해소 (r2)** |
+| **D10** | **P1-2 — 동기화 버튼이 원격을 부르지 않는다.** 1분 cron 이 이미 써 둔 캐시를 다시 읽을 뿐이라 "지금 갱신" 이 되지 않는다 | 구 `refreshProviderUsage` → `costApi.usage()` → 읽기 전용. 원격은 `usage-fetch` cron 에서만 | **사용자 결정**: 전용 command. `orca:cost:refreshUsage`(쓰기, `reject`) 신설 → `tracker.refreshProvider()`. 읽기 채널에 `refresh:true` 부수효과 옵션을 얹지 않는다 — 한 채널이 읽기·쓰기 두 실패 정책을 가질 수 없다. **전체 채널 75 → 76** | **해소 (r2)** |
+| **D11** | **P1-1 — `lastUpdatedAt` 이 scope 별이 아니다.** provider B 를 갱신한 시각이 A 화면의 "마지막 업데이트" 로 뜬다 | `ProviderUsageTab` 이 전역 `useUsageUpdatedAt()` 를 provider 타임스탬프로 표시 | store 를 `globalUpdatedAt` + `providerUpdatedAt: Record<string, number>` 로 쪼개고 `useProviderUsageUpdatedAt(key)` 를 쓴다 | **해소 (r2)** |
+| **D12** | **P1-3 — "턴당 delta 1회" 설명과 구현 불일치.** 실제로는 global 1 + provider 1 = **2회** | `tracker.recordAndBroadcast` 가 `providerKey` 가 있으면 broadcast 2회 | **`UsagePatch` 1회 배칭은 불채택** — D8 이 세 번째 variant(`boundary`)를 더하므로 discriminated union 이 optional-field patch 보다 읽기 쉽고, 창 1개짜리 데스크톱 앱에서 턴당 send 1회 차이는 무의미하다. **설명을 코드에 맞춘다**(PR 설명 정정) | **해소 (설명 정정)** |
+| **D13** | **P2-1 — `UsageSnapshot.remainingUsd` 소비자 0.** DB 에 쓰고 읽어 오지만 compose·UI 어디도 쓰지 않는다 | `rg 'remainingUsd'` → 쓰기·읽기 경로만, 파생 0 | **부분 후속.** 0014 에 `quota_remaining_usd` 컬럼이 있어 배포 fetcher 가 채울 수 있다 — 지금 지우면 컬럼이 영구 NULL 이 된다. `providerKey` 중복 필드는 동의하나 단독으로 고칠 만큼 급하지 않다 | 후속 |
+| **D14** | **P1-4 — `jobs.ts` 가 features 에 있어 구조적 포트 2개를 요구한다.** app 레이어면 `Scheduler`·`UsageTracker` 를 직접 받을 수 있다 | `features/scheduler/scheduler.ts` 가 electron-free 임을 확인 — 지적이 타당하다 | **후속.** 파일 이동 + 테스트 재작성이라 P0 수정과 섞으면 diff 의 초점이 흐려진다 | 후속 |
+
+### 라운드 2 게이트
+
+| 항목 | 결과 |
+|---|---|
+| 실행 명령 | `npm run lint` · `npm run typecheck` · `./node_modules/.bin/vitest run` · `node --test "scripts/*.test.mjs"` · `check-migrations-appendonly.mjs` · `check-doc-inventory.mjs` |
+| 신규 테스트 | **+16건** — `usageStore.test.ts`(신규 9, 경계 무효화 계약) · `settings.test.ts`(+3, D9) · `tracker.test.ts`(+2, boundary scope · provider 재집계 없음) · `jobs.test.ts`(수정, `refreshBoundary` 단언) |
+| 마이그레이션 | **여전히 0건** (16개 불변) |
+| ⚠️ 기계 검증의 한계 | effect 의존 수정(`[providerKey, provider]`)은 hook 렌더가 필요한데 이 저장소에는 testing-library·jsdom 이 없고 vitest 가 `environment:'node'` + `*.test.ts` 만 수집한다. **store 계약까지만 기계 검증**되고 재조회 트리거는 코드 리뷰 + 사람 실기 몫이다 |
+| 사람 실기 | 자정 경계를 넘겨 도넛·설정 탭이 새 기간을 반영하는지 · 동기화 버튼이 원격을 부르는지(fetcher 있는 배포) |

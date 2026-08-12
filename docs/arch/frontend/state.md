@@ -17,7 +17,8 @@
 | 채팅 스트리밍 라이브 버퍼 | `chatStore` 의 엔트리별 `live` 슬라이스 (transient — 턴 종료 시 리셋, 비활성 엔트리도 백그라운드 누적) | — | live.text(구 pendingDelta), live.reasoning |
 | Tweaks (theme/density/sidebar/한도) | `shared/hooks/useTweaks` + electron-store | ✅ `orca:settings:get` / `set` | theme, density, sidebarCollapsed, **sidebarWidth** (180–480, default 248 — Phase 3+), **spendingLimitUsd**(0079) |
 | 백엔드 설치 상태 | `features/backend/store/backendStore`(Zustand, 0013) | — | list, active, installerOpen |
-| 세션/프로젝트/비용 목록 | `features/{sessions,projects,cost}/store/*Store`(Zustand, 0013) | — | list, loading / summary. cost store 는 `lastUpdatedAt`/`refreshing`/`refreshCost`(수동 새로고침) + provider별 요약(0080~0082) 포함 |
+| 세션/프로젝트 목록 | `features/{sessions,projects}/store/*Store`(Zustand, 0013) | — | list, loading |
+| 사용량 미러 | `shared/stores/usageStore`(Zustand, 0186) | — | Main 이 완성한 `UsageLimitsView` 의 사본 — `global` + `providers[key]` + scope 별 `globalUpdatedAt`/`providerUpdatedAt[key]`. **주/월을 여기서 파생하지 않는다**(계산은 main 소유). 갱신은 `orca:cost:usageEvent` delta push 뿐이고, `boundary` scope 가 오면 provider 사본을 통째로 버린다(기간이 넘어가 전부 어제 기준이므로). `features/chat`(도넛)·`features/settings`(사용량 탭) 둘이 읽으므로 어느 feature 에도 둘 수 없다 — renderer boundaries 가 feature 교차를 막는다 |
 | 업데이트 상태 | `features/update/store/updateStore`(Zustand, 0085/0086) | — | state(UpdateState), dialogOpen, actionError, dummyMode(dev) |
 | 설정 모달 상태 | `features/settings/store/settingsModalStore`(Zustand, 0079~0081) | — | open, tab(`'general' \| 'usage' \| 'provider:<key>'` — 도넛 `>` → provider 탭 라우팅) |
 | Skills 카탈로그 | `shared/hooks/useSkills` useState 캐시 | — | SkillInfo[] (부팅 1회 스캔) |

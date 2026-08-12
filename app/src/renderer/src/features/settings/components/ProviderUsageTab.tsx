@@ -15,10 +15,10 @@ import { SyncRow } from './UsageTab'
 import { fmtUsd, providerLabel } from '../lib/usageFormat'
 import {
   ensureProviderUsage,
-  refreshProviderUsage,
   setProviderLimit,
+  syncProviderUsage,
   useProviderUsage,
-  useUsageUpdatedAt
+  useProviderUsageUpdatedAt
 } from '../../../shared/stores/usageStore'
 
 export function ProviderUsageTab({ provider }: { provider: AgentEnvironment }): React.JSX.Element {
@@ -26,18 +26,25 @@ export function ProviderUsageTab({ provider }: { provider: AgentEnvironment }): 
   const [refreshing, setRefreshing] = useState(false)
   const { tr, locale } = useI18n()
   const usageLimits = useProviderUsage(provider.key)
-  const updatedAt = useUsageUpdatedAt()
+  // **이 provider** 를 마지막으로 받은 시각. 전역 타임스탬프를 쓰면 다른 provider 를 갱신한
+  // 시각이 여기 "마지막 업데이트" 로 뜬다 — mirror scope 와 timestamp scope 가 어긋난다.
+  const updatedAt = useProviderUsageUpdatedAt(provider.key)
 
-  // 서브탭에 처음 들어온 provider 만 한 번 확보한다 — 이후 갱신은 delta push 가 맡는다.
+  // 서브탭에 처음 들어온 provider 를 확보한다 — 이후 갱신은 delta push 가 맡는다.
+  // 의존에 `usageLimits` 가 함께 있어야 자정 경계 무효화(스토어의 provider map 비움) 후에도
+  // 같은 키로 다시 채워진다. `ensureProviderUsage` 가 값이 있으면 조기 반환해 루프는 없다.
   useEffect(() => {
+    if (usageLimits) return
     void ensureProviderUsage(provider.key)
-  }, [provider.key])
+  }, [provider.key, usageLimits])
 
+  // 동기화 = **원격 즉시 조회**(`cost:refreshUsage`). 캐시 재조회가 아니다 — 그러면 버튼이
+  // 1분 cron 이 이미 써 둔 값을 다시 읽을 뿐이라 사용자가 기대한 "지금 갱신" 이 되지 않는다.
   const onRefresh = useCallback(() => {
     void (async () => {
       setRefreshing(true)
       try {
-        await refreshProviderUsage(provider.key)
+        await syncProviderUsage(provider.key)
       } finally {
         setRefreshing(false)
       }

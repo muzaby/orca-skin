@@ -259,6 +259,11 @@ export const UsageRequestSchema = z.object({
   providerKey: z.string().min(1).optional()
 })
 
+// 원격 즉시 동기화 (0186) — 조회와 달리 대상이 **필수**다. 전역은 원격 리포트가 없다.
+export const RefreshUsageSchema = z.object({
+  providerKey: z.string().min(1)
+})
+
 // ── Provider 플랫폼 (0181) ────────────────────────────────────────────────────
 // 입력 레코드 상한(키 64자·값 4096자·32쌍)은 구 `AuthContinueRequestSchema` 의 값을 잇는다 —
 // 인증 필드는 사람이 손으로 채우는 값이라 이보다 크면 붙여넣기 사고이거나 공격이다.

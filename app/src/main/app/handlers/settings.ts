@@ -21,6 +21,12 @@ export function registerSettingsHandlers(ctx: RouterContext): void {
       if (keys.includes('authBypass') && ctx.providers) {
         broadcastProviderState(ctx.providers.state())
       }
+      // 전역 월 한도도 같은 성격이다 — **한도는 사용량 뷰의 입력**(`budget`·`pct`)이라 설정만
+      // 바꾸고 끝내면 도넛이 다음 턴 종료(=다음 delta)까지 옛 한도의 퍼센트를 보여준다.
+      // 판정을 소유한 쪽(UsageTracker)이 새 뷰를 밀어 준다.
+      if (keys.includes('spendingLimitUsd')) {
+        ctx.cost.recordAndBroadcast()
+      }
     }
     return next
   })

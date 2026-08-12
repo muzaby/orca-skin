@@ -51,6 +51,13 @@ export interface UsageLimitsView {
 export type UsageDelta =
   | { scope: 'global'; value: UsageLimitsView }
   | { scope: 'provider'; providerKey: string; value: UsageLimitsView }
+  // 기간 경계(자정)를 넘었다 — 새 전역 값을 싣고, **캐시된 provider 뷰를 전부 무효화하라**는
+  // 신호를 겸한다.
+  //
+  // 왜 provider 값을 함께 보내지 않나: 그러려면 자정마다 전 provider 를 DB 재집계해야 하고
+  // 그건 "affected-provider 만" 성능 계약을 깬다. 무효화만 보내고 **화면이 실제로 필요로 하는
+  // provider 만** 다시 조회하게 한다.
+  | { scope: 'boundary'; value: UsageLimitsView }
 
 // 기간별 실사용액(USD). 주간은 언제나 로컬이고, 월간만 기준선 합성 결과가 들어올 수 있다.
 export interface UsageUsed {

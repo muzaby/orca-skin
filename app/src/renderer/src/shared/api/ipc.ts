@@ -175,6 +175,9 @@ export const costApi = {
     window.orca.cost.usage(providerKey),
   onUsage: (handler: (delta: UsageDelta) => void): (() => void) =>
     window.orca.cost.onUsage(handler),
+  // 원격을 실제로 부른다(1분 cron 대기 없음). fetcher 없는 배포에선 main 이 no-op → 로컬 재조회.
+  refreshUsage: (providerKey: string): Promise<UsageLimitsView> =>
+    window.orca.cost.refreshUsage(providerKey),
   setProviderLimit: (providerKey: string, limitUsd: number | null): Promise<UsageLimitsView> =>
     window.orca.cost.setProviderLimit(providerKey, limitUsd),
   usageStats: (range: UsageStatsRange): Promise<UsageStats> => window.orca.cost.usageStats(range)

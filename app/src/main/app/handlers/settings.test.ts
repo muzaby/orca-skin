@@ -24,6 +24,8 @@ vi.mock('../../infra/log', () => ({
 
 const { registerSettingsHandlers } = await import('./settings')
 
+const recordAndBroadcast = vi.fn()
+
 function ctx(overrides: { providers?: RouterContext['providers'] } = {}): RouterContext {
   return {
     settings: {
@@ -31,6 +33,7 @@ function ctx(overrides: { providers?: RouterContext['providers'] } = {}): Router
       patch: (raw: unknown) => ({ ...(raw as object), scheduler: {} })
     },
     scheduler: { applySettings: vi.fn() },
+    cost: { recordAndBroadcast },
     ...overrides
   } as unknown as RouterContext
 }
@@ -65,5 +68,30 @@ describe('settings:set — 게이트 우회 반영 (0181)', () => {
     registerSettingsHandlers(ctx())
     expect(() => handlers.get(CHANNELS.settingsSet)?.({ authBypass: true })).not.toThrow()
     expect(broadcast).not.toHaveBeenCalled()
+  })
+})
+
+// 같은 종류의 회귀 — 한도는 **사용량 뷰의 입력**(budget·pct)이라, 설정만 바꾸고 push 하지 않으면
+// 도넛이 다음 턴 종료까지 옛 한도의 퍼센트를 보여준다 (0186 라운드 2 / PR 329 리뷰 P2-3).
+describe('settings:set — 전역 월 한도 반영 (0186)', () => {
+  it('spendingLimitUsd 가 바뀌면 사용량 뷰를 다시 push 한다', () => {
+    recordAndBroadcast.mockClear()
+    registerSettingsHandlers(ctx())
+    handlers.get(CHANNELS.settingsSet)?.({ spendingLimitUsd: 300 })
+    expect(recordAndBroadcast).toHaveBeenCalledTimes(1)
+  })
+
+  it('한도를 지우는(null) 것도 변경이다', () => {
+    recordAndBroadcast.mockClear()
+    registerSettingsHandlers(ctx())
+    handlers.get(CHANNELS.settingsSet)?.({ spendingLimitUsd: null })
+    expect(recordAndBroadcast).toHaveBeenCalledTimes(1)
+  })
+
+  it('무관한 키만 바뀌면 push 하지 않는다', () => {
+    recordAndBroadcast.mockClear()
+    registerSettingsHandlers(ctx())
+    handlers.get(CHANNELS.settingsSet)?.({ theme: 'dark' })
+    expect(recordAndBroadcast).not.toHaveBeenCalled()
   })
 })

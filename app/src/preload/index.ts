@@ -210,6 +210,9 @@ const orca = {
       ipcRenderer.on(CHANNELS.costUsageEvent, listener)
       return () => ipcRenderer.off(CHANNELS.costUsageEvent, listener)
     },
+    // 원격 즉시 동기화(쓰기). `usage` 와 달리 원격을 실제로 부르고 0014 캐시를 갱신한다.
+    refreshUsage: (providerKey: string): Promise<UsageLimitsView> =>
+      ipcRenderer.invoke(CHANNELS.costRefreshUsage, { providerKey }),
     setProviderLimit: (providerKey: string, limitUsd: number | null): Promise<UsageLimitsView> =>
       ipcRenderer.invoke(CHANNELS.costSetProviderLimit, { providerKey, limitUsd }),
     usageStats: (range: UsageStatsRange): Promise<UsageStats> =>

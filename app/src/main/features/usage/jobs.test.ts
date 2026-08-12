@@ -27,14 +27,14 @@ function fakeScheduler(): {
 
 function fakeTracker(): {
   tracker: UsageJobTracker
-  recordAndBroadcast: ReturnType<typeof vi.fn>
+  refreshBoundary: ReturnType<typeof vi.fn>
   refreshProvider: ReturnType<typeof vi.fn>
 } {
-  const recordAndBroadcast = vi.fn()
+  const refreshBoundary = vi.fn()
   const refreshProvider = vi.fn().mockResolvedValue(undefined)
   return {
-    tracker: { recordAndBroadcast, refreshProvider } as UsageJobTracker,
-    recordAndBroadcast,
+    tracker: { refreshBoundary, refreshProvider } as UsageJobTracker,
+    refreshBoundary,
     refreshProvider
   }
 }
@@ -60,14 +60,17 @@ describe('registerUsageJobs', () => {
     expect(USAGE_BOUNDARY_CRON).toBe('0 0 * * *')
   })
 
-  it('경계 잡 발화는 전역 재집계를 부른다', () => {
+  // **`recordAndBroadcast()` 를 부르면 안 된다.** 그건 전역 delta 만 내보내서 renderer 가 캐시한
+  // provider 뷰가 어제 기준(week/month/resetAt)에 그대로 멈춘다 — 경계에서는 그 캐시까지
+  // 무효화해야 한다(PR 329 리뷰 P0).
+  it('경계 잡 발화는 refreshBoundary 를 부른다 (전역 전용 재집계가 아니다)', () => {
     const { scheduler, actions } = fakeScheduler()
-    const { tracker, recordAndBroadcast } = fakeTracker()
+    const { tracker, refreshBoundary } = fakeTracker()
 
     registerUsageJobs(scheduler, tracker)
     void actions.get('usage-boundary')?.()
 
-    expect(recordAndBroadcast).toHaveBeenCalledTimes(1)
+    expect(refreshBoundary).toHaveBeenCalledTimes(1)
   })
 
   it('fetcher 미주입이면 usage-fetch 잡이 없다', () => {

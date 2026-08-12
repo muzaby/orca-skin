@@ -63,6 +63,16 @@ export class UsageTracker {
     }
   }
 
+  // 기간 경계(자정) 갱신 — 전역을 다시 계산해 보내면서 **캐시된 provider 뷰 무효화**를 함께
+  // 신호한다. `recordAndBroadcast()` 를 인자 없이 부르면 전역만 나가고, renderer 가 들고 있는
+  // provider mirror 는 어제 기준(week/month/resetAt)에 그대로 멈춘다.
+  //
+  // 자정마다 전 provider 를 재집계하지 않는 이유는 `UsageDelta` 의 `boundary` 주석 참조.
+  refreshBoundary(now = Date.now()): void {
+    this.recompute(now)
+    this.broadcast({ scope: 'boundary', value: this.globalView(now) })
+  }
+
   getSummary(): CostSummary {
     return this.summary
   }

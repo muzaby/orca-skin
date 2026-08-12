@@ -20,7 +20,7 @@ export interface UsageJobScheduler {
 
 // tracker 중 잡이 실제로 쓰는 표면만. 좁게 받아야 테스트가 fake 를 쉽게 만든다.
 export interface UsageJobTracker {
-  recordAndBroadcast(providerKey?: string | null): void
+  refreshBoundary(): void
   refreshProvider(providerKey: string, signal?: AbortSignal): Promise<void>
 }
 
@@ -44,10 +44,16 @@ export function registerUsageJobs(
   tracker: UsageJobTracker,
   options: UsageJobOptions = {}
 ): void {
-  // 기간 경계 갱신 — **코어 고정형**이라 설정에 노출하지 않는다. 설정 노출형
-  // `usage-recompute`(기본 off)에 맡기면 사용자가 켜지 않는 한 자정을 넘겨도 화면이 어제
-  // 기준에 멈춘다. Main 이 값을 굳혀 push 하는 구조라 이 잡이 없으면 stale 을 되살릴 장치가 없다.
-  scheduler.register('usage-boundary', () => tracker.recordAndBroadcast())
+  // 기간 경계 갱신 — **코어 고정형**이라 설정에 노출하지 않는다. Main 이 값을 굳혀 push 하는
+  // 구조라 이 잡이 없으면 자정을 넘긴 화면이 어제 기준에 멈추고, 되살릴 장치가 없다.
+  //
+  // **`recordAndBroadcast()` 가 아니라 `refreshBoundary()` 다.** 전자는 전역만 내보내
+  // renderer 가 캐시한 provider 뷰가 어제 기준으로 남는다 — 경계에서는 그 캐시까지 무효화해야 한다.
+  //
+  // 설정 노출형 `usage-recompute`(기본 off)와의 관계: 경계 불변식은 **이 잡이 소유**하고,
+  // 그쪽은 사용자가 임의 주기로 켜는 **호환용**이다. 둘 다 켜져 시각이 겹쳐도 각자 전역을
+  // 재계산할 뿐이라 데이터가 어긋나지 않는다(중복 계산일 뿐). 정리는 후속.
+  scheduler.register('usage-boundary', () => tracker.refreshBoundary())
   scheduler.schedule('usage-boundary', { enabled: true, cron: USAGE_BOUNDARY_CRON })
 
   // 원격 갱신 — fetcher 가 없으면 **등록조차 하지 않는다.** 부를 대상 없는 잡은 죽은 배관이고,
