@@ -426,4 +426,5 @@ renderer: `shared/api/ipc.ts` · `features/chat/reducer/chatReducer.ts` ·
 | 신규 테스트 | **+16건** — `usageStore.test.ts`(신규 9, 경계 무효화 계약) · `settings.test.ts`(+3, D9) · `tracker.test.ts`(+2, boundary scope · provider 재집계 없음) · `jobs.test.ts`(수정, `refreshBoundary` 단언) |
 | 마이그레이션 | **여전히 0건** (16개 불변) |
 | ⚠️ 기계 검증의 한계 | effect 의존 수정(`[providerKey, provider]`)은 hook 렌더가 필요한데 이 저장소에는 testing-library·jsdom 이 없고 vitest 가 `environment:'node'` + `*.test.ts` 만 수집한다. **store 계약까지만 기계 검증**되고 재조회 트리거는 코드 리뷰 + 사람 실기 몫이다 |
+| 대상 커밋 (r2) | `3ed13af` |
 | 사람 실기 | 자정 경계를 넘겨 도넛·설정 탭이 새 기간을 반영하는지 · 동기화 버튼이 원격을 부르는지(fetcher 있는 배포) |
