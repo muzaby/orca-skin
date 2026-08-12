@@ -428,3 +428,27 @@ renderer: `shared/api/ipc.ts` · `features/chat/reducer/chatReducer.ts` ·
 | ⚠️ 기계 검증의 한계 | effect 의존 수정(`[providerKey, provider]`)은 hook 렌더가 필요한데 이 저장소에는 testing-library·jsdom 이 없고 vitest 가 `environment:'node'` + `*.test.ts` 만 수집한다. **store 계약까지만 기계 검증**되고 재조회 트리거는 코드 리뷰 + 사람 실기 몫이다 |
 | 대상 커밋 (r2) | `3ed13af` |
 | 사람 실기 | 자정 경계를 넘겨 도넛·설정 탭이 새 기간을 반영하는지 · 동기화 버튼이 원격을 부르는지(fetcher 있는 배포) |
+
+
+### 라운드 3 파생 이슈 — remote authority / refresh 경로
+
+출처는 사용자 제공 **PR #329 재평가**(2026-08-12, REQUEST CHANGES)다. 이전 P0가 닫힌 뒤
+남은 merge 조건을 현재 코드와 다시 대조했으며, 경량화 목표와 직접 관련된 P0/P1만 이번 라운드에서
+수정한다. generation race·Composer loading 의미·파일 이동·snapshot 필드 정리는 동작 계약을 더
+넓히거나 diff 초점을 흐리는 P2이므로 후속 검증 대상으로 유지한다.
+
+| # | 이슈 | 구현 | 검증 |
+|---|---|---|---|
+| **D15** | 과거 cache row가 현재 remote capability 없이도 authority가 됨 | `UsageFetcher.supports(providerKey)`를 단일 capability source로 추가하고 Tracker read/manual refresh와 cron 대상 모두 이를 사용한다. 미주입·미지원이면 cache가 있어도 local/configured view다 | `tracker.test.ts`의 미주입/미지원/지원 cache 3분기 + `jobs.test.ts`의 provider 필터 |
+| **D16** | Tracker가 cron의 fail-soft 정책을 소유해 manual command 실패도 성공처럼 보임 | Tracker는 fetch 오류를 전파하고, cron만 provider별 catch하여 다음 provider를 계속한다. Renderer command 실패는 mirror/timestamp를 바꾸지 않고 event handler에서 rejection을 소비한다 | `tracker.test.ts` reject, `jobs.test.ts` 연속 실행, `usageStore.test.ts` 값/timestamp 유지 |
+| **D17** | manual refresh 성공 시 provider 집계가 2회임 | `refreshProvider()`가 한 번 계산한 `UsageLimitsView`를 broadcast하고 반환한다. handler는 반환값을 그대로 응답하고 null fallback에서만 local view를 한 번 계산한다 | `tracker.test.ts` provider aggregate 1회 + broadcast/return 동일 값 |
+
+#### 라운드 3 구현 보고
+
+- 신규 의존성·DB migration·IPC 채널 변경: **없음**.
+- 개념 축소: cache row를 capability로 승격하지 않고 `UsageFetcher.supports`가 현재 원격 권위의 단일
+  게이트가 된다.
+- 경로 축소: manual 성공 경로는 provider aggregate 1회이며 background/manual의 실패정책은 caller
+  경계에서만 갈린다.
+- P2 유예 비용: generation guard와 Composer loading은 renderer-only 후속으로 공개 계약/DB를
+  바꾸지 않아 나중 비용이 커지지 않는다. `jobs.ts` 이동과 snapshot 다이어트도 내부 리팩터링이다.

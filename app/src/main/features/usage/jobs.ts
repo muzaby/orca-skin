@@ -21,7 +21,7 @@ export interface UsageJobScheduler {
 // tracker 중 잡이 실제로 쓰는 표면만. 좁게 받아야 테스트가 fake 를 쉽게 만든다.
 export interface UsageJobTracker {
   refreshBoundary(): void
-  refreshProvider(providerKey: string, signal?: AbortSignal): Promise<void>
+  refreshProvider(providerKey: string, signal?: AbortSignal): Promise<unknown>
 }
 
 export interface UsageJobOptions {
@@ -63,10 +63,13 @@ export function registerUsageJobs(
   const timeoutMs = options.fetchTimeoutMs ?? DEFAULT_FETCH_TIMEOUT_MS
   scheduler.register('usage-fetch', async () => {
     for (const providerKey of options.providerKeys?.() ?? []) {
+      if (!options.fetcher?.supports(providerKey)) continue
       const controller = new AbortController()
       const timer = setTimeout(() => controller.abort(), timeoutMs)
       try {
         await tracker.refreshProvider(providerKey, controller.signal)
+      } catch {
+        // 원격 장애는 provider 별 fail-soft 다. 다음 provider 와 다음 cron tick 을 계속 실행한다.
       } finally {
         clearTimeout(timer)
       }
