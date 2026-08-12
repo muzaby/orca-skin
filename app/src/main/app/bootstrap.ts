@@ -405,10 +405,16 @@ export class Bootstrap {
     //       const provider = findLlmProvider(providers.declarations('llm'), providerKey)
     //       if (!provider) return null
     //       const res = await providers.api.request(provider.id, { path: '/api/usage' }, signal)
-    //       if (!res.ok) return null              // 미인증·사내망 밖은 **정상 상태**다
+    //       if (!res.ok) throw new Error(`usage request failed: ${res.status}`)
     //       return toSnapshot(providerKey, res.body)   // 응답 매핑은 배포가 소유한다
     //     }
     //   }
+    //
+    // **`supports` 와 반환값은 다른 것을 표현한다.** 전자는 *이 배포가 그 provider 를 지원하는가*
+    // (false 면 과거 캐시 행이 있어도 무시하고 로컬로 접는다), 후자는 *이번 호출의 결과*다 —
+    // 지원 provider 가 `null` 을 주거나 던지면 **이번 갱신 실패**로 읽혀 주기 잡은 다음 틱을
+    // 기다리고 수동 동기화는 reject 된다. 미인증·사내망 밖을 "정상" 으로 표현하려고 `null` 을
+    // 쓰지 않는다 — 그건 `supports:false` 의 자리다.
     //
     // `baselineUsable` 은 `as_of` 가 billing aggregation watermark 임을 배포가 확인했을 때만
     // true 로 채운다 — 미지정이면 코어가 기준선을 쓰지 않고 한도만 원격에서 가져간다.
