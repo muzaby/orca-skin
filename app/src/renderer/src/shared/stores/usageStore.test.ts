@@ -125,6 +125,17 @@ describe('usageStore', () => {
     expect(useUsageStore.getState().providers.a?.week.used).toBe(2)
   })
 
+  it('원격 동기화 실패는 기존 provider 값과 timestamp 를 유지한다', async () => {
+    emit({ scope: 'provider', providerKey: 'a', value: view(1) })
+    const before = useUsageStore.getState()
+    refreshUsage.mockRejectedValueOnce(new Error('remote unavailable'))
+
+    await expect(syncProviderUsage('a')).rejects.toThrow('remote unavailable')
+
+    expect(useUsageStore.getState().providers.a).toBe(before.providers.a)
+    expect(useUsageStore.getState().providerUpdatedAt.a).toBe(before.providerUpdatedAt.a)
+  })
+
   it('재적재는 로컬 정본 채널(usage)을 부른다', async () => {
     await reloadProviderUsage('a')
 

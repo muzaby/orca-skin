@@ -85,7 +85,11 @@ export class UsageTracker {
 
   // provider 정본 — 로컬 집계 + (있으면) 원격 기준선 + 한도를 합성한다.
   getProviderUsage(providerKey: string, now = Date.now()): UsageLimitsView {
-    const snapshot = this.readSnapshot(providerKey)
+    // DB cache 는 현재 capability 의 저장 수단일 뿐 그 자체가 authority 는 아니다. 배포가
+    // provider 지원을 제거했으면 과거 행이 남아 있어도 local/configured 로 접는다.
+    const snapshot = this.deps.fetcher?.supports(providerKey)
+      ? this.readSnapshot(providerKey)
+      : null
     // 기준선이 없으면 asOf 0 — delta 가 월 전체와 같아져 의미가 성립한다.
     const sums = this.db.sumUsageByBoundariesForProvider(
       providerKey,
@@ -104,17 +108,15 @@ export class UsageTracker {
     return composeProviderUsage(local, snapshot, this.db.getProviderLimit(providerKey), now)
   }
 
-  // 원격 갱신 — fetcher 가 없으면 아무 일도 하지 않는다. **로컬 원장을 건드리지 않는다.**
-  async refreshProvider(providerKey: string, signal?: AbortSignal): Promise<void> {
-    if (!this.deps.fetcher) return
-    // 미인증·사내망 밖·일시 장애는 **정상 상태**다 — 오류로 올리지 않고 다음 틱을 기다린다.
-    let snapshot: UsageSnapshot | null
-    try {
-      snapshot = await this.deps.fetcher.fetchUsage(providerKey, signal)
-    } catch {
-      return
-    }
-    if (!snapshot) return
+  // 원격 갱신 — 미지원이면 null. 성공 시 한 번 계산한 view 를 broadcast 와 caller 가 공유한다.
+  // 실패 정책은 caller 소유다: manual command 는 reject, background cron 만 fail-soft 로 감싼다.
+  async refreshProvider(
+    providerKey: string,
+    signal?: AbortSignal
+  ): Promise<UsageLimitsView | null> {
+    if (!this.deps.fetcher?.supports(providerKey)) return null
+    const snapshot = await this.deps.fetcher.fetchUsage(providerKey, signal)
+    if (!snapshot) return null
 
     const now = Date.now()
     this.db.upsertProviderUsageReport({
@@ -131,11 +133,9 @@ export class UsageTracker {
       quotaRemainingUsd: snapshot.remainingUsd,
       updatedAt: now
     })
-    this.broadcast({
-      scope: 'provider',
-      providerKey,
-      value: this.getProviderUsage(providerKey, now)
-    })
+    const value = this.getProviderUsage(providerKey, now)
+    this.broadcast({ scope: 'provider', providerKey, value })
+    return value
   }
 
   // 사용량 요약(0112) — 기간별 일 단위 시계열 + 모델별 집계. providerSummary 처럼 캐시 없이

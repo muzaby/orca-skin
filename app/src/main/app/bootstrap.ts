@@ -399,6 +399,8 @@ export class Bootstrap {
     // 폐쇄망 배포는 여기에 포트 구현을 꽂는다(선언에 슬롯을 만들지 않는다 — 0183 r2):
     //
     //   const usageFetcher: UsageFetcher = {
+    //     supports: (providerKey) =>
+    //       findLlmProvider(providers.declarations('llm'), providerKey)?.id === 'corp-gateway',
     //     fetchUsage: async (providerKey, signal) => {
     //       const provider = findLlmProvider(providers.declarations('llm'), providerKey)
     //       if (!provider) return null
