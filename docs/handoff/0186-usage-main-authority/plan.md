@@ -489,7 +489,7 @@ D18~D21 이 이번 FAIL 의 조건이고, D22~D25 는 후속(비차단)이다.
 | **functional production logic 변경** | **0줄** — `git diff` 에서 주석·문서 외 라인 0건임을 확인했다(주석 제거 필터 grep) |
 | DB · IPC 스키마 · 의존성 | **전부 0** — 마이그레이션 16 불변, 채널 76 불변 |
 | 새 추상화 | **0** — `UsageFetcherV2`·`Result<T>`·에러 enum·선언 슬롯 어느 것도 만들지 않았다 |
-| **compile-backed 문서 검증** | 고친 §5-b 예제를 `bootstrap.ts` 의 `usageFetcher` 자리에 **실제 코드로 삽입** → `npm run typecheck` **3/3 PASS** → 되돌림(0181 5단계-e 절차). 이 검증이 D18 의 재발을 막는 유일한 기계 장치다 |
+| **문서 검증 (2층)** | **A. shape** — 고친 §5-b 예제를 `bootstrap.ts` 의 `usageFetcher` 자리에 **실제 코드로 삽입** → `npm run typecheck` **3/3 PASS** → 되돌림(0181 5단계-e 절차). **B. semantics** — 예제가 설명하는 실패 의미(지원 provider 의 `null` = 실패)를 `tracker.test.ts::"지원 provider 의 fetch 가 null 이면 실패로 올리고 상태를 갱신하지 않는다"` 와 대조. **A 만으로는 절반만 잡힌다** — 반환형이 `Promise<UsageSnapshot \| null>` 이라 틀린 `return null` 예제도 컴파일된다 |
 | 게이트 | lint **0 error / 1 warn** · typecheck **3/3** · vitest **198 파일 · 1,779 테스트 전량 green**(로드 실패 1 = `chat-turn.continuity`, electron egress 베이스라인) · 마이그레이션 sync ok(16) · doc-inventory `--check` exit 0 — **전부 verify r1 과 동일**(문서 변경임을 수치로 확인) |
 
 **D18 이 실제로 무엇을 고쳤나**: `supports`(능력)와 반환값(이번 호출의 결과)을 문서가 가르지
@@ -497,3 +497,18 @@ D18~D21 이 이번 FAIL 의 조건이고, D22~D25 는 후속(비차단)이다.
 세 상태(`supports:false` / 스냅샷 / `null`·throw)와 호출자별 실패 정책(cron=fail-soft ·
 manual=reject)을 표로 고정했다. **같은 예제가 `bootstrap.ts` 주석에도 있어 함께 고쳤다** —
 배포가 실제로 편집하는 파일이라 문서만 고치면 오도가 남는다.
+
+#### 외부 구현 계약의 문서 검증 규칙 (D18 이 남긴 것)
+
+`UsageFetcher` 처럼 **코어에 concrete 구현이 없고 배포가 구현하는 포트**는 그 구현 절차 문서까지
+계약의 일부로 본다. 포트의 필수 멤버·반환 타입·성공/실패 의미를 바꾸면 그 문서를 **같은 라운드의
+인수 기준에 넣는다**. 검증은 2층(shape=typecheck 대입 · semantics=contract test 대조)이고,
+**shape 만으로는 절반만 잡힌다**.
+
+일반화된 재발 방지 규칙과 근거는
+[`failure-patterns.md` **P36**](../../../.agents/skills/handoff-plan/references/failure-patterns.md)
+이 갖는다 — 여기 복제하지 않는다.
+
+| # | 인수 기준 (사후 추가 — 이번 라운드에서 실제로 검증한 것) | 검증 수단 |
+|---|---|---|
+| AC21 | `closed-network-extensions.md §5-b` 의 `UsageFetcher` 예제가 현재 포트의 `supports()`·`fetchUsage()` 계약과 일치한다 | **A** 예제를 실제 타입에 대입해 `npm run typecheck` 3/3 PASS · **B** `supports=true && fetchUsage=null` 이 실패라는 문서 설명을 `tracker.test.ts` 계약과 대조 |

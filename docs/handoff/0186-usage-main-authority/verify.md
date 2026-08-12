@@ -276,9 +276,15 @@ better-sqlite3` 후 **전량 green** 이 되어 코드 무관임이 실증됐다
 | **D20** | `GLOSSARY.md` 가 삭제된 `costStore` 를 SSOT 로 서술 | 해당 행에서 `costStore` 제거(한도 = **예산 축**으로만 재정의) + **`사용량 정본(UsageLimitsView)` 표제어 신설** — Main 이 만들고 renderer 는 mirror 만 한다는 소유 구조를 개념 수준으로 서술 | ✅ |
 | **D21** | 죽은 심볼을 가리키는 주석 3곳 | `Composer.tsx:49-50` · `UsagePanel.tsx:12-13` · `protocol.ts:530` 전부 현행화. 컴포넌트 로직·prop 구조·hook 은 무변경 | ✅ |
 
-## 이번 라운드의 기계 검증 — compile-backed 문서 검증
+## 이번 라운드의 기계 검증 — 문서 검증 2층 (shape + semantics)
 
-D18 이 재발하지 않게 하는 **유일한 기계 장치**라 직접 실행했다(0181 5단계-e 절차):
+> **정정(사용자 지적, 2026-08-12)**: 이 절은 처음에 compile-backed 검증을 "D18 재발을 막는 **유일한**
+> 기계 장치" 로 적었다. **틀렸다.** `fetchUsage` 의 반환형이 `Promise<UsageSnapshot | null>` 이라
+> `if (!res.ok) return null` 예제는 **그대로 컴파일된다** — typecheck 는 포트의 *모양*만 보고
+> *실패 의미*는 보지 못한다. D18 은 실제로 두 종류였다: **구조 드리프트**(`supports` 누락 → TS2739 로
+> 잡힘)와 **의미 드리프트**(`null`=정상 서술 → 컴파일로 안 잡힘). 아래를 2층으로 다시 적는다.
+
+### A. shape — 예제를 실제 타입에 대입 (실행함)
 
 ```
 1. 고친 §5-b 예제를 bootstrap.ts 의 usageFetcher 자리에 실제 코드로 삽입
@@ -288,8 +294,26 @@ D18 이 재발하지 않게 하는 **유일한 기계 장치**라 직접 실행�
 4. git diff 필터로 주석 외 변경 0줄 확인
 ```
 
-**이 검증이 r1 에서는 돌지 않았다** — r1 은 결함을 정적 대조로 찾았고 "재구현 라운드에서 이
-절차로 확인할 것" 을 미충족 1에 적었다. 이번에 실제로 돌렸고 통과했다.
+**이 층은 r1 에서 돌지 않았다** — r1 은 결함을 정적 대조로 찾았고 "재구현 라운드에서 이 절차로
+확인할 것" 을 미충족 1에 적었다. 이번에 실제로 돌렸고 통과했다.
+
+**A 가 잡지 못하는 것**: 고치기 전 예제에 `supports` 만 채우고 `if (!res.ok) return null` 을 그대로
+뒀어도 **typecheck 는 통과한다**(반환형이 `Promise<UsageSnapshot | null>`). 즉 A 는 D18 의 절반만
+검사한다.
+
+### B. semantics — 문서 설명 ↔ contract test 대조 (실행함)
+
+| 문서가 말하는 것 (`§5-b` 상태 표) | 그 의미를 잠그는 테스트 |
+|---|---|
+| `supports === false` → 캐시가 있어도 로컬/설정값으로 접는다 | `tracker.test.ts::"현재 미지원 provider 면 과거 cache row 를 무시한다"` · `::"미지원 provider 는 fetch 와 cache write 를 건너뛴다"`(resolve `null`) |
+| `supports === true` + 스냅샷 → upsert + 그 provider delta 1건 | `tracker.test.ts::"갱신 후 해당 provider delta 만 push 한다"` · `::"성공 시 provider 를 한 번 집계하고 broadcast value 를 반환한다"` |
+| `supports === true` + `null`/throw → **이번 갱신 실패** | `tracker.test.ts::"지원 provider 의 fetch 가 null 이면 실패로 올리고 상태를 갱신하지 않는다"`(reject·미저장·미broadcast) · `::"fetch 오류를 caller 에 전달하고 저장하지 않는다"` |
+| 주기 잡 = fail-soft / 수동 = reject | `jobs.test.ts::"한 provider 실패를 삼키고 다음 provider 를 계속 갱신한다"` · `handlers/cost.ts:44-54` 의 `'reject'` 정책 |
+
+**네 줄 전부 대응 테스트가 실재한다** — 고친 문서가 코드의 실패 의미와 일치한다. 이 대조를
+했기 때문에 A 만 돌고 넘어갔을 때 남았을 의미 드리프트가 없다고 말할 수 있다.
+
+> 이 2층 규칙은 `failure-patterns.md` **P36** 이 갖는다(SSOT). 0186 plan 에는 요약 + 링크 + AC21 만 둔다.
 
 ## 역방향 스캔 재실행
 
@@ -328,12 +352,18 @@ node scripts/check-doc-inventory.mjs --check   generated ok(9 items, 76 channels
 
 - **이번에도 hook 렌더는 못 봤다** — 이번 라운드가 renderer 로직을 바꾸지 않았으므로 r1 의 한계가
   그대로 유효하다(jsdom·testing-library 미도입). 새로 생긴 사각지대는 없다.
-- **문서 수정을 "읽어서" 검증하지 않았다는 점이 r1 과의 차이다.** §5-b 는 컴파일로, `UsageDelta` 는
-  기계 대조로, 죽은 심볼은 grep 으로 확인했다. 남은 육안 판정은 GLOSSARY 문장의 *적절성* 하나다.
+- **문서 수정을 "읽어서" 검증하지 않았다는 점이 r1 과의 차이다.** §5-b 는 컴파일 + contract test
+  대조로, `UsageDelta` 는 기계 대조로, 죽은 심볼은 grep 으로 확인했다. 남은 육안 판정은 GLOSSARY
+  문장의 *적절성* 하나다.
+- **처음 쓴 검증 규칙이 과했다(사용자 지적으로 정정).** "컴파일해 보는 것이 유일한 기계 검증" 이라
+  적었으나 **typecheck 는 shape 만 본다** — `return null` 의 잘못된 의미 설명은 그대로 통과한다.
+  이 과장을 4곳(P36 · plan 구현 보고 · 본 절 · INDEX 아카이브 행)에 복제해 뒀던 것도 함께 고쳤다.
+  **검증 규칙을 쓸 때 "무엇을 못 잡는가" 를 같이 적지 않으면 규칙 자체가 다음 라운드를 오도한다.**
 - **되먹임**: 이번 실패 유형은 `handoff-plan` 스킬의 `references/failure-patterns.md` 에 **P36**
-  ("배포가 구현할 포트를 만들면서 그 포트의 문서를 인수 기준에 넣지 않았다")으로 이미 축적했다.
-  다음 설계가 외부 구현 계약을 만들면 그 문서를 AC 로 잠그고, 검증 수단은 "문장이 있다" 가 아니라
-  **"예제를 컴파일 위치에 넣으면 typecheck 가 통과한다"** 로 쓴다.
+  ("배포가 구현할 포트를 만들면서 그 포트의 문서를 인수 기준에 넣지 않았다")으로 축적했고, 위
+  정정에 따라 **A(shape=typecheck 대입) + B(semantics=contract test 대조) 2층**으로 다시 썼다.
+  P36 이 그 규칙의 SSOT 이고 plan·verify 는 링크만 한다 — 문서 드리프트를 고치면서 같은 규칙을
+  네 곳에 복제하면 그것이 다음 드리프트다.
 
 ## 결론
 
