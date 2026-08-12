@@ -452,3 +452,11 @@ renderer: `shared/api/ipc.ts` · `features/chat/reducer/chatReducer.ts` ·
   경계에서만 갈린다.
 - P2 유예 비용: generation guard와 Composer loading은 renderer-only 후속으로 공개 계약/DB를
   바꾸지 않아 나중 비용이 커지지 않는다. `jobs.ts` 이동과 snapshot 다이어트도 내부 리팩터링이다.
+
+### 라운드 4 파생 이슈 — supported provider의 빈 응답
+
+PR #330 평가에서 D16의 남은 의미 충돌을 확인했다. `supports=false`와 `supports=true + fetch=null`이
+모두 `null`로 합쳐져 manual handler의 local fallback 성공으로 바뀌고 있었다. 새 Result·error hierarchy
+없이 Tracker 한 지점에서 **지원 provider의 빈 snapshot만 일반 Error로 승격**한다. unsupported는 기존
+`null` local fallback, background는 기존 provider별 catch, manual은 기존 reject 경로를 그대로 쓴다.
+테스트는 cache write·broadcast가 없고 reject하는 것을 단언한다. 신규 파일·의존성·DB·IPC 변경은 없다.

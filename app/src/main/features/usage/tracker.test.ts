@@ -285,14 +285,18 @@ describe('UsageTracker.refreshProvider', () => {
     expect(upsert).not.toHaveBeenCalled()
   })
 
-  it('fetch 가 null 을 주면 저장하지 않는다', async () => {
+  it('지원 provider 의 fetch 가 null 이면 실패로 올리고 상태를 갱신하지 않는다', async () => {
     const { db, upsert } = fakeDb()
+    const broadcast = vi.fn()
     const fetcher = fetcherWith(vi.fn().mockResolvedValue(null))
-    const t = new UsageTracker(db, () => {}, { spendingLimitUsd: () => 300, fetcher })
+    const t = new UsageTracker(db, broadcast, { spendingLimitUsd: () => 300, fetcher })
 
-    await t.refreshProvider('claude-gateway')
+    await expect(t.refreshProvider('claude-gateway')).rejects.toThrow(
+      'Remote usage refresh returned no snapshot: claude-gateway'
+    )
 
     expect(upsert).not.toHaveBeenCalled()
+    expect(broadcast).not.toHaveBeenCalled()
   })
 
   it('갱신 후 해당 provider delta 만 push 한다', async () => {

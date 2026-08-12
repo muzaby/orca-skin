@@ -49,7 +49,7 @@ export interface UsageFetcher {
   // cache row 의 존재만으로 원격 권위를 부여하지 않는다. 현재 배포에서 이 provider 를 실제로
   // 지원할 때만 cached snapshot 과 원격 갱신을 사용할 수 있다.
   supports(providerKey: string): boolean
-  // 실패는 throw 가 아니라 `null` 로도 표현할 수 있다. 미인증·사내망 밖은 **정상 상태**이므로
-  // background 호출자는 다음 틱을 기다리고, manual 호출자는 throw 를 사용자 실패로 전달한다.
+  // `null` 은 지원 provider 가 이번 호출에서 snapshot 을 얻지 못했다는 뜻이다. Tracker 가 이를
+  // 실패로 올리고, background 호출자는 다음 틱까지 삼키며 manual 호출자는 command reject 한다.
   fetchUsage(providerKey: string, signal?: AbortSignal): Promise<UsageSnapshot | null>
 }
