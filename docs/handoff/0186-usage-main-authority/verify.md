@@ -7,9 +7,9 @@
 | slug | `0186-usage-main-authority` |
 | 검증자 | Claude Code |
 | 일자 | 2026-08-12 |
-| 대상 커밋 | `546a605`(r1) · `c145261`(r1 문서) · `e0e6a3f`(r2) · `9fd90a6`(r2 문서) · `e2e246a`(r3) · `6886b64`(r4) — 검증 base = `546a605~1`(`a2a3948`) |
-| 라운드 | verify r1 (구현 라운드 4 누적분을 한 번에 검증) |
-| 상태 | **FAIL** |
+| 대상 커밋 | `546a605`(r1) · `c145261`(r1 문서) · `e0e6a3f`(r2) · `9fd90a6`(r2 문서) · `e2e246a`(r3) · `6886b64`(r4) · **`642e9c9`(r5 문서 동기화)** — 검증 base = `546a605~1`(`a2a3948`) |
+| 라운드 | verify **r1**(구현 라운드 4 누적분) → verify **r2**(구현 라운드 5 재검증) |
+| 상태 | r1 **FAIL** → **r2 PASS** (아래 §라운드 2 재검증) |
 | 자기 검증 여부 | **부분 자기 검증** — 설계·r1·r2 구현 = Claude, r3·r4 구현 = Codex, 검증 = Claude. 설계자와 검증자가 같으므로 §0·§역방향 탐색을 먼저·강하게 적용했다 |
 
 > **FAIL 사유 요약**: 코드는 20개 인수 기준 중 기계 검증 가능한 18건을 전부 충족하고 게이트도
@@ -252,3 +252,90 @@ better-sqlite3` 후 **전량 green** 이 되어 코드 무관임이 실증됐다
   그 구조적 한계는 OQ1(사내 endpoint 실값)이 닫히기 전까지 유지된다.
 - 사람 몫으로 남는 것: AC19(자정 경계 실기) · AC20(모델 전환 후 도넛) · OQ1 결정 · 원격 fetcher 를
   꽂은 배포에서의 실동작.
+
+---
+
+# 라운드 2 재검증 (구현 라운드 5 — 문서·주석 동기화)
+
+| 항목 | 값 |
+|---|---|
+| 대상 커밋 | `642e9c9` |
+| 일자 | 2026-08-12 |
+| 판정 | **PASS** |
+| 범위 | r1 의 미충족 4건(D18~D21)만. 사용자가 제시한 PR #331 평가서의 경량 수정 권고를 따랐다 |
+
+> r1 본문은 **지우지 않는다** — 무엇을 놓쳤고 왜 놓쳤는지가 이 문서의 값이다. 아래는 그 위에
+> 덧붙이는 재검증이다.
+
+## 미충족 4건 재대조
+
+| # | r1 미충족 | 재검증 증거 | 판정 |
+|---|---|---|---|
+| **D18** | §5-b 예제에 `supports` 없음 + `null` 의미 반대 | `closed-network-extensions.md:620-654` — 예제에 `supports` 추가, `if (!res.ok)` 가 **throw** 로 바뀜. 세 상태(`supports:false` / 스냅샷 / `null`·throw)와 호출자별 실패 정책(cron=fail-soft · manual=reject)이 표로 고정됐고, "`null` 을 정상의 뜻으로 쓰지 않는다 — 그건 `supports:false` 의 자리다" 를 명문화. **`bootstrap.ts:401-416` 쌍둥이 주석도 같은 내용으로 정정**(배포가 실제 편집하는 파일) | ✅ |
+| **D19** | `UsageDelta` 타입 블록에 `boundary` 없음 | `IPC_CONTRACT.md:320-323` ↔ `shared/usage/limits.ts:52,53,60` **3 variant 일치**(기계 대조: `rg "scope: '"` 양쪽 3건). 설명은 같은 문서 `:277` 채널 행에 두고 타입 블록은 한 줄 포인터만 — 사실 복제 회피(`docs/AGENTS.md` 3항) | ✅ |
+| **D20** | `GLOSSARY.md` 가 삭제된 `costStore` 를 SSOT 로 서술 | 해당 행에서 `costStore` 제거(한도 = **예산 축**으로만 재정의) + **`사용량 정본(UsageLimitsView)` 표제어 신설** — Main 이 만들고 renderer 는 mirror 만 한다는 소유 구조를 개념 수준으로 서술 | ✅ |
+| **D21** | 죽은 심볼을 가리키는 주석 3곳 | `Composer.tsx:49-50` · `UsagePanel.tsx:12-13` · `protocol.ts:530` 전부 현행화. 컴포넌트 로직·prop 구조·hook 은 무변경 | ✅ |
+
+## 이번 라운드의 기계 검증 — compile-backed 문서 검증
+
+D18 이 재발하지 않게 하는 **유일한 기계 장치**라 직접 실행했다(0181 5단계-e 절차):
+
+```
+1. 고친 §5-b 예제를 bootstrap.ts 의 usageFetcher 자리에 실제 코드로 삽입
+   (+ toSnapshot stub, findLlmProvider/UsageSnapshot import)
+2. npm run typecheck   → typecheck:node · typecheck:web · typecheck:test 3/3 PASS
+3. 되돌림 → const usageFetcher: UsageFetcher | undefined = undefined
+4. git diff 필터로 주석 외 변경 0줄 확인
+```
+
+**이 검증이 r1 에서는 돌지 않았다** — r1 은 결함을 정적 대조로 찾았고 "재구현 라운드에서 이
+절차로 확인할 것" 을 미충족 1에 적었다. 이번에 실제로 돌렸고 통과했다.
+
+## 역방향 스캔 재실행
+
+| 스캔 | 결과 |
+|---|---|
+| `rg "costStore\|computeProviderUsageLimits" docs app` (archive·handoff·etc 제외) | **0건** |
+| `rg "ProviderUsageEntry\|cost:summary\|providerSummaries" docs app` | 잔존 6건 전부 **"0186 에서 제거됐다/흡수했다" 는 과거형 마이그레이션 서술** — 현재형 계약 서술 0건 |
+| `UsageDelta` variant 3종 ↔ 문서 | 일치 |
+
+## 게이트 — r1 과 동일해야 한다 (문서 변경의 자기 증명)
+
+```
+npm run lint          ✖ 1 problem (0 errors, 1 warning)   ← useTranscriptVirtualizer, 0102 베이스라인
+npm run typecheck     3/3 PASS
+./node_modules/.bin/vitest run
+                      Test Files  1 failed | 197 passed (198)
+                      Tests       1779 passed (1779)
+                      → 유일한 실패는 chat-turn.continuity 의 electron 로드 실패(egress 베이스라인)
+node scripts/check-migrations-appendonly.mjs   sync ok: 16 migrations
+node scripts/check-doc-inventory.mjs --check   generated ok(9 items, 76 channels) · prose ok · links ok
+```
+
+**r1 대비 변동 0** — 파일 수·테스트 수·채널 수·마이그레이션 수가 전부 같다. 실행 코드를 건드리지
+않았다는 주장의 기계적 근거다(주장이 아니라 재측정).
+
+## 남는 것 (사람 몫 — 이번 라운드가 바꾸지 않았다)
+
+| 항목 | 상태 |
+|---|---|
+| AC19 자정 경계 실기 · AC20 모델 전환 후 도넛 | **사람 실기 대기** — egress 차단으로 `npm run dev` 불가(0019·0102·0180 AC9 선례) |
+| OQ1 — 사내 endpoint 실값 + `as_of` 가 billing watermark 인지 | **사용자 결정 대기**(비차단 — `baselineUsable:false` 로 동작) |
+| 원격 fetcher 를 꽂은 배포에서의 실동작 | 코어 계약까지만 기계 검증 · 실기는 배포 몫 |
+| 후속 D22~D25 | **plan 파생 이슈 챕터에 `후속` 으로 보존**(사용자 결정 — 새 핸드오프를 만들지 않는다) |
+
+## 검증 자기 리뷰 (r2)
+
+- **이번에도 hook 렌더는 못 봤다** — 이번 라운드가 renderer 로직을 바꾸지 않았으므로 r1 의 한계가
+  그대로 유효하다(jsdom·testing-library 미도입). 새로 생긴 사각지대는 없다.
+- **문서 수정을 "읽어서" 검증하지 않았다는 점이 r1 과의 차이다.** §5-b 는 컴파일로, `UsageDelta` 는
+  기계 대조로, 죽은 심볼은 grep 으로 확인했다. 남은 육안 판정은 GLOSSARY 문장의 *적절성* 하나다.
+- **되먹임**: 이번 실패 유형은 `handoff-plan` 스킬의 `references/failure-patterns.md` 에 **P36**
+  ("배포가 구현할 포트를 만들면서 그 포트의 문서를 인수 기준에 넣지 않았다")으로 이미 축적했다.
+  다음 설계가 외부 구현 계약을 만들면 그 문서를 AC 로 잠그고, 검증 수단은 "문장이 있다" 가 아니라
+  **"예제를 컴파일 위치에 넣으면 typecheck 가 통과한다"** 로 쓴다.
+
+## 결론
+
+**PASS.** 인수 기준 18/20(기계) + r1 미충족 4건 해소. 0186 종료 — INDEX 행은
+`docs/archive/handoffs/INDEX-history.md` 로 옮기고, 후속 D22~D24 는 plan 파생 이슈 챕터가 갖는다.
