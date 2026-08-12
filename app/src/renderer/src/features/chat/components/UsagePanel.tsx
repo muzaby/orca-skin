@@ -9,8 +9,8 @@ import { contextWindowOf, nearCompaction } from '../lib/contextWindow'
 interface UsagePanelProps {
   // 마지막 턴의 provider-reported 통계(도넛 트리거가 존재 가드). 컨텍스트 섹션 소스.
   telemetry: ProviderReportedTelemetry
-  // 사용량 한도 뷰모델 — 실사용 SSOT(costStore)와 월 한도로 공용 파생(computeUsageLimits).
-  // 미도착(cost summary 없음)이면 한도 섹션을 숨긴다.
+  // 사용량 한도 뷰모델 — **Main 이 이미 계산한 값**이라 여기서 파생하지 않고 표시만 한다.
+  // 아직 도착하지 않았으면(null) 한도 섹션을 숨긴다.
   usageLimits: UsageLimitsView | null
   // `>` 클릭 — 설정 '사용량' 탭 열기(팝오버 닫기 포함은 호출 측).
   onOpenUsageSettings: () => void

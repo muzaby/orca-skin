@@ -620,18 +620,31 @@ renderer 에서 SP 를 부르려면 **전용 도메인 IPC 채널**을 만든다
 ```ts
 // app/bootstrap.ts — 배포가 이 자리를 채운다
 const usageFetcher: UsageFetcher = {
+  // 이 배포가 그 provider 의 원격 사용량을 지원하는가. 조회·갱신 양쪽의 단일 게이트다.
+  supports: (providerKey) =>
+    findLlmProvider(providers.declarations('llm'), providerKey)?.id === 'corp-gateway',
   fetchUsage: async (providerKey, signal) => {
     const provider = findLlmProvider(providers.declarations('llm'), providerKey)
-    if (!provider) return null
+    if (!provider) return null            // supports 와 어긋난 경우 — 코어가 실패로 읽는다
     const res = await providers.api.request(provider.id, { path: '/api/usage' }, signal)
-    if (!res.ok) return null              // 미인증·사내망 밖은 **정상 상태**다
+    if (!res.ok) throw new Error(`usage request failed: ${res.status}`)   // 이번 틱 실패
     return toSnapshot(providerKey, res.body)   // 매핑은 배포 소유
   }
 }
 ```
 
-두 가지를 주의한다:
+**두 멤버는 서로 다른 것을 표현한다 — 섞으면 조용히 틀린다.** `supports` 는 *능력*, 반환값은
+*이번 호출의 결과*다. 계약의 정본은 `features/usage/fetcher.ts` 와 `features/usage/tracker.ts` 다:
 
+| 이 배포가 주는 것 | 코어가 하는 일 |
+|---|---|
+| `supports === false` | 원격 미지원 — **과거에 받아둔 캐시 행이 있어도 무시**하고 로컬 집계 + 사용자 설정 한도로 접는다 |
+| `supports === true` + 스냅샷 | 갱신 성공 — 스냅샷을 캐시에 upsert 하고 그 provider 뷰만 push 한다 |
+| `supports === true` + `null` 또는 throw | **이번 갱신 실패** — 주기 잡은 삼키고 다음 틱을 기다리며(fail-soft), 설정 탭의 수동 동기화는 실패로 되돌려준다 |
+
+- **`null` 을 "정상" 의 뜻으로 쓰지 않는다.** 미인증·사내망 밖은 *상태로는* 정상이지만 **이번
+  갱신은 실패한 것**이라, 지원 provider 가 `null` 을 주면 코어가 실패로 올린다. "이 배포는 원래
+  이 provider 를 안 부른다" 는 뜻이라면 `null` 이 아니라 **`supports` 를 `false`** 로 답한다.
 - **`baselineUsable` 은 함부로 켜지 않는다.** 응답의 `as_of` 가 *billing aggregation watermark*
   임을 확인했을 때만 `true` 로 채운다. 단순 "응답 생성 시각" 이면 원격이 이미 센 턴이 로컬 증분에
   또 더해져 **같은 턴이 두 번 계상**된다. 미지정이면 코어가 기준선을 쓰지 않고 **한도만** 원격에서

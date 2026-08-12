@@ -527,7 +527,7 @@ export const SettingsSchema = z.object({
   // 응답완료 알림 토글. on 이면 턴 완료 시(창 비활성 한정) OS 네이티브 알림 표시.
   notifyOnComplete: z.boolean().default(false),
   // 월간 지출 한도(USD). 사용량 한도 프로그레스바(도넛·설정)의 기준. null=무제한.
-  // 사용량 자체는 계산하지 않는다 — 실사용 SSOT(UsageTracker/costStore)와 이 한도로 파생만.
+  // 사용량 자체는 계산하지 않는다 — Main 의 UsageTracker 가 이 한도를 예산 축으로 받아 뷰를 만든다.
   spendingLimitUsd: z.number().positive().nullable().default(90),
   scheduler: SchedulerSettingsSchema
 })

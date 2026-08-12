@@ -41,7 +41,8 @@
 | **Project** | 대화를 묶는 컨테이너 — 지침(instructions)·작업 디렉토리 스코프 보유. **구현 완료**: CRUD 5채널(`orca:project:*`) + 카드 그리드(`ProjectsScreen`) + 랜딩(`ProjectLandingPage`). | `Project`, `ProjectsScreen.tsx` | IPC_CONTRACT §2.7-b / `app/src/shared/ipc.ts` |
 | **Python Runtime / uv / buildPyEnv** | **제거됨 (0050 PR-B)** — uv 기반 격리 Python 환경(`<userData>/runtime`)과 `RuntimeStatus`/runtime IPC 채널은 main 에서 삭제됐다. uv 사용 규약 정책 append(`prompts/policies/python-runtime.md`, 0030)만 프롬프트 계층에 잔존. 어휘는 재사용하지 않는다. | (제거) | IPC_CONTRACT §2.11 주석 / `arch/backend/system-prompt.md` |
 | **Scheduler** | main 프로세스 in-app 주기 실행 엔진 (croner — 앱 실행 중만 발화). job 등록·겹침 방지(`protect`)·실행 이력(`schedule_runs`). 첫 소비처 = 주기 사용량 recompute(설정 `scheduler.usageRecompute`). job action 은 컴포지션 루트가 주입(교차 feature 회피). | `Scheduler`(`features/scheduler/`) | handoff 0091 / `arch/backend/runtime-ipc.md` §3.1-b |
-| **사용량 한도 (Spending Limit)** | 월간 지출 한도(USD) — 전역 `spendingLimitUsd`(설정) + provider별 한도(`provider_limits` 테이블). 실사용 SSOT(UsageTracker/costStore)에서 `computeUsageLimits`(`shared/usage/limits.ts`)로 **파생만** 하며 한도 자체는 사용량을 계산하지 않는다. UI = UsagePanel 도넛 팝오버 + 설정 사용량 탭. | `spendingLimitUsd`, `provider_limits` | handoff 0079~0082 / `arch/frontend/rendering.md` §1.9 |
+| **사용량 한도 (Spending Limit)** | 월간 지출 한도(USD) — 전역 `spendingLimitUsd`(설정) + provider별 한도(`provider_limits` 테이블). 한도 자체는 사용량을 계산하지 않고, **막대의 예산 축**으로만 쓰인다. UI = UsagePanel 도넛 팝오버 + 설정 사용량 탭. | `spendingLimitUsd`, `provider_limits` | handoff 0079~0082 / `arch/frontend/rendering.md` §1.9 |
+| **사용량 정본 (UsageLimitsView)** | 화면에 뜨는 주/월 사용량 뷰의 **유일한 계산 결과**. Main 의 `UsageTracker` 가 로컬 원장(+배포가 fetcher 를 꽂았을 때만 원격 스냅샷)을 합성해 만들고, renderer 는 `usageStore` 로 **mirror 만** 한다 — renderer 는 주/월을 재계산하지 않는다. 파생 함수 자체는 순수 모듈(`shared/usage/limits.ts`)이고 호출 지점은 main 하나다. | `UsageLimitsView`, `UsageDelta` | handoff 0186 / `arch/frontend/state.md` · `IPC_CONTRACT.md §2.12` |
 
 ## 2. 아키텍처 용어
 

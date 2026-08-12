@@ -319,7 +319,8 @@ interface UsageLimitsView {
 }
 type UsageDelta =
   | { scope: 'global'; value: UsageLimitsView }
-  | { scope: 'provider'; providerKey: string; value: UsageLimitsView };
+  | { scope: 'provider'; providerKey: string; value: UsageLimitsView }
+  | { scope: 'boundary'; value: UsageLimitsView }; // 위 채널 표 참조 — provider mirror 무효화를 겸한다
 type UsageStatsRange = '7d' | '30d' | 'all';
 interface UsageStatsDay {
   day: string; // 'YYYY-MM-DD' (OS 로컬 타임존, SQL date(...,'localtime') 버킷)
