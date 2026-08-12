@@ -1,8 +1,9 @@
+import { useEffect } from 'react'
 import { type IconName } from '../../../shared/ui/Icon'
 import { Modal } from '../../../shared/ui/Modal'
 import { Rail, RailItem } from '../../../shared/ui/Rail'
 import { useI18n } from '../../../shared/i18n'
-import type { AgentEnvironment, ProviderUsageEntry } from '../../../../../shared/ipc'
+import { useAgentStore } from '../../../shared/stores/agentStore'
 import { GeneralTab } from './GeneralTab'
 import { UsageTab } from './UsageTab'
 import { ProviderUsageTab } from './ProviderUsageTab'
@@ -20,35 +21,30 @@ const TABS = [
   { id: 'usage', labelKey: 'settings.tabs.usage', icon: 'chart' }
 ] as const satisfies readonly { id: SettingsTabId; labelKey: string; icon: IconName }[]
 
-// provider별 사용량 컨트롤러(0080 항목 4). 정의는 features/cost 의 useProviderUsage 이지만,
-// 교차-feature import 회피를 위해 settings 가 구조적으로 동일한 형태를 선언(app 레이어가 주입).
-export interface ProviderUsageController {
-  providers: AgentEnvironment[]
-  entryFor: (key: string) => ProviderUsageEntry | undefined
-  refreshing: boolean
-  refresh: () => void
-  setLimit: (key: string, limitUsd: number | null) => Promise<void>
-}
-
-interface SettingsModalProps {
-  // provider별 사용량 컨트롤러(0080 항목 4) — nav 서브항목 + provider 서브탭 데이터/저장.
-  // 전역 '사용량' 탭은 /cost 플레이스홀더로 축소돼(0081) 더는 usageLimits/costRefresh 를
-  // 받지 않는다. 도넛/컴포저의 usageLimits 는 별도 경로(page→Composer)로 무관.
-  providerUsage: ProviderUsageController
-}
+// 0186 — 구 `ProviderUsageController` prop 과 app 레이어 주입 배선이 사라졌다. 사용량 상태가
+// `shared/stores/usageStore` 로 올라가 features 에서 직접 읽을 수 있게 됐기 때문이다
+// (renderer boundaries 는 `features → shared` 를 허용한다).
 
 // 설정 모달 — 배경을 어둡게 하고 중앙에 2-pane(좌: 일반/사용량 탭 레일, 우: 내용) 패널을
 // 띄운다. 백드롭/portal/Esc 는 공용 Modal(크롬리스, panelClassName override). 열림/탭 상태는
 // 전역 스토어(settingsModalStore)가 보유해 도넛 `>` 등 다른 트리거가 특정 탭으로 열 수 있다.
 // 닫힘=null 렌더(내용 상태는 각 탭이 언마운트 시 리셋).
-export function SettingsModal({ providerUsage }: SettingsModalProps): React.JSX.Element | null {
+export function SettingsModal(): React.JSX.Element | null {
   const open = useSettingsModalStore((s) => s.open)
   const tab = useSettingsModalStore((s) => s.tab)
   const setTab = useSettingsModalStore((s) => s.setTab)
   const hide = useSettingsModalStore((s) => s.hide)
   const { tr } = useI18n()
   const activeProviderKey = providerKeyFromTab(tab)
-  const activeProvider = providerUsage.providers.find((p) => p.key === activeProviderKey)
+  // provider 카탈로그는 공유 agentStore 가 갖는다(사용량 전용 컨트롤러를 따로 두지 않는다).
+  const providers = useAgentStore((s) => s.agents)
+  const ensureAgentsLoaded = useAgentStore((s) => s.ensureLoaded)
+  const activeProvider = providers.find((p) => p.key === activeProviderKey)
+
+  // 엔진&모델 페이지를 거치지 않고 설정을 열어도 provider 서브항목이 나오도록 최초 1회 확보.
+  useEffect(() => {
+    if (open) void ensureAgentsLoaded()
+  }, [open, ensureAgentsLoaded])
 
   return (
     <Modal
@@ -69,7 +65,7 @@ export function SettingsModal({ providerUsage }: SettingsModalProps): React.JSX.
             />
             {/* 사용량 하위: 구성된 provider 서브항목(0080 항목 4). 각자의 한도/설정. */}
             {it.id === 'usage' &&
-              providerUsage.providers.map((p) => {
+              providers.map((p) => {
                 const pid = providerTabId(p.key)
                 return (
                   <RailItem
@@ -90,15 +86,7 @@ export function SettingsModal({ providerUsage }: SettingsModalProps): React.JSX.
         <div className="min-h-0 flex-1 overflow-y-auto px-7 py-6">
           {tab === 'general' && <GeneralTab />}
           {tab === 'usage' && <UsageTab />}
-          {activeProvider && (
-            <ProviderUsageTab
-              provider={activeProvider}
-              entry={providerUsage.entryFor(activeProvider.key)}
-              refreshing={providerUsage.refreshing}
-              onRefresh={providerUsage.refresh}
-              onSetLimit={(v) => providerUsage.setLimit(activeProvider.key, v)}
-            />
-          )}
+          {activeProvider && <ProviderUsageTab provider={activeProvider} />}
           {/* provider 탭인데 해당 provider 가 목록에 없으면(삭제됨) 안내. */}
           {activeProviderKey != null && !activeProvider && (
             <p className="text-[12.5px] text-ink3">{tr('settings.providerNotFound')}</p>

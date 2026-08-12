@@ -67,7 +67,7 @@
 | `0011_session_lineage.sql` | `session_lineage` 테이블 — Conversation Continuity fork/handoff 계보 (handoff 0051). |
 | `0012_provider_limits.sql` | `provider_limits` 테이블 — provider별 월간 지출 한도 (0080~0082). |
 | `0013_schedules.sql` | `schedule_runs` 테이블 — scheduler job 실행 이력 원장 (0091). |
-| `0014_provider_usage_report_cache.sql` | `provider_usage_report_cache` 테이블 — 외부 권위 사용량 리포트 캐시 (0111). |
+| `0014_provider_usage_report_cache.sql` | `provider_usage_report_cache` 테이블 — provider 당 1행의 원격 사용량 스냅샷. `report_json` 은 `{ baselineUsable, raw }` 봉투이고 스칼라 3종(`quota_{limit,used,remaining}_usd`)이 한도·기준선 경로를 싸게 만든다. 원격 fetcher 를 주입한 배포에서만 채워진다 (0111, 0186). |
 | `0015_pinned.sql` | 고정(pin) 섹션 지원 컬럼 (0129). |
 | `0016_turn_model_context_window.sql` | `turn_model_usage.context_window`(nullable) — SDK 실측 컨텍스트 윈도 영속. 재로드 도넛 분모가 라이브와 같은 실측값을 쓰게 해 렌더러의 모델명 추측 목록을 걷어냈다 (0149). |
 

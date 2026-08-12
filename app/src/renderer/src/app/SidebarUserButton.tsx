@@ -5,7 +5,6 @@ import { Icon } from '../shared/ui/Icon'
 import { useTweakContext } from '../shared/theme'
 import { useI18n, type UiLocale } from '../shared/i18n'
 import { SettingsModal, useSettingsModalStore } from '../features/settings'
-import { useProviderUsage } from '../features/cost'
 import { useProviderPrincipal } from '../features/providers'
 
 // 언어 서브메뉴 목록 — UI 표시 언어(settings.uiLocale) 스위처(0096).
@@ -15,8 +14,9 @@ const LANGUAGES: { value: UiLocale; label: string }[] = [
   { value: 'ko', label: '한국어 (대한민국)' }
 ]
 
-// 사이드바 footer 의 사용자 버튼(app 레이어 조립 — 설정 모달[features/settings] 과
-// 사용량[features/cost] 을 함께 참조하므로 교차-feature 회피 위해 여기 둔다).
+// 사이드바 footer 의 사용자 버튼(app 레이어 조립 — 설정 모달[features/settings] 을 띄운다).
+// 0186 — 사용량 컨트롤러 주입이 사라졌다. 사용량 상태가 `shared/stores/usageStore` 로 올라가
+// 설정 모달이 직접 읽으므로 app 레이어가 중계할 이유가 없어졌다.
 // 썸네일 아이콘 없이 이름 텍스트만 표기하고, 클릭 시 팝오버 메뉴를 연다.
 //
 // **신원은 게이트 provider 의 principal 이다**(0182). 누구를 고르는지는
@@ -36,11 +36,6 @@ export function SidebarUserButton(): React.JSX.Element {
   const showSettings = useSettingsModalStore((s) => s.show)
   const { t, setTweak } = useTweakContext()
   const { tr } = useI18n()
-  // provider별 사용량(0080 항목 4) — 교차-feature 회피 위해 app 레이어가 features/cost 훅을
-  // 호출해 features/settings 모달에 props 로 주입한다. 전역 사용량 탭은 /cost 플레이스홀더로
-  // 축소돼(0081) usageLimits/costRefresh 주입은 불필요(도넛 경로는 page 가 별도 주입).
-  const providerUsage = useProviderUsage()
-
   const closeMenu = (): void => {
     setMenuOpen(false)
     setLangOpen(false)
@@ -135,7 +130,7 @@ export function SidebarUserButton(): React.JSX.Element {
         </div>
       </Popover>
 
-      <SettingsModal providerUsage={providerUsage} />
+      <SettingsModal />
     </>
   )
 }

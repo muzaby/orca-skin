@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { CostPeriodSummary, CostSummary, ProviderUsageEntry } from '../ipc'
-import { computeProviderUsageLimits, computeUsageLimits } from './limits'
+import type { CostPeriodSummary, CostSummary } from '../ipc'
+import { computeUsageLimits, computeUsageLimitsFrom } from './limits'
 
 function period(totalCostUsd: number): CostPeriodSummary {
   return {
@@ -71,26 +71,38 @@ describe('computeUsageLimits', () => {
     expect(aug.week.budget).toBeCloseTo((90 * 2) / 31, 5)
   })
 
-  it('computeProviderUsageLimits — 로컬 summary·월 한도로 파생한다 (0183 r2)', () => {
-    const entry: ProviderUsageEntry = {
-      providerKey: 'claude-anthropic',
-      summary: summary(0, 8, 30),
-      limitUsd: 90
-    }
-    // 외부 리포트 경로가 사라져 파생은 computeUsageLimits 와 완전히 같다.
-    expect(computeProviderUsageLimits(entry, JUL_15_WED)).toEqual(
+  it('출처를 지정하지 않으면 두 기간 모두 local 이다 (0186)', () => {
+    const v = computeUsageLimits(summary(0, 8, 30), 90, JUL_15_WED)
+    expect(v.week.source).toBe('local')
+    expect(v.month.source).toBe('local')
+  })
+})
+
+// 0186 — provider 월간은 원격 기준선 + 로컬 증분으로 합성될 수 있어 CostSummary 한 곳에서
+// 나오지 않는다. 합성 판정은 usage-compose 가 하고, 여기서는 값을 받아 예산·퍼센트만 파생한다.
+describe('computeUsageLimitsFrom', () => {
+  it('summary 경유와 같은 결과를 낸다', () => {
+    expect(computeUsageLimitsFrom({ week: 8, month: 30 }, 90, JUL_15_WED)).toEqual(
       computeUsageLimits(summary(0, 8, 30), 90, JUL_15_WED)
     )
   })
 
-  it('computeProviderUsageLimits — 한도 미설정이면 무제한 뷰가 된다', () => {
-    const entry: ProviderUsageEntry = {
-      providerKey: 'claude-anthropic',
-      summary: summary(0, 8, 30),
-      limitUsd: null
-    }
-    const v = computeProviderUsageLimits(entry, JUL_15_WED)
-    expect(v.month).toMatchObject({ used: 30, budget: null, unlimited: true })
-    expect(v.week).toMatchObject({ used: 8, budget: null, unlimited: true })
+  it('월간만 remote-baseline 로 표기하고 주간은 local 을 유지한다', () => {
+    const v = computeUsageLimitsFrom({ week: 8, month: 319 }, 500, JUL_15_WED, {
+      week: 'local',
+      month: 'remote-baseline'
+    })
+    expect(v.week.source).toBe('local')
+    expect(v.month.source).toBe('remote-baseline')
+    expect(v.month.used).toBe(319)
+    expect(v.month.pct).toBeCloseTo(319 / 500, 5)
+  })
+
+  it('무제한이어도 출처 표기는 보존한다', () => {
+    const v = computeUsageLimitsFrom({ week: 8, month: 319 }, null, JUL_15_WED, {
+      week: 'local',
+      month: 'remote-baseline'
+    })
+    expect(v.month).toMatchObject({ budget: null, unlimited: true, source: 'remote-baseline' })
   })
 })

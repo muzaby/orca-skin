@@ -831,6 +831,9 @@ export const en: typeof ko = {
     limitSettings: 'Limit settings',
     monthlyLimit: 'Monthly usage limit',
     monthlyLimitDesc: 'Set the monthly spending limit for this provider',
+    // 0186 — the remote usage fetcher's limit wins over the value set here.
+    accountLimitApplied:
+      'Account limit in effect (your value applies when no remote limit is reported)',
     setLimitTitle: 'Set monthly spending limit — {{provider}}',
     setLimitDesc: 'Set a monthly spending limit.',
     limitInputAria: 'Monthly spending limit (USD)',

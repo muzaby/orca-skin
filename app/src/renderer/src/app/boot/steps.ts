@@ -1,6 +1,6 @@
 import { settingsApi, bootApi } from '../../shared/api/ipc'
 import { initBackend } from '../../features/backend/store/backendStore'
-import { initCost } from '../../features/cost/store/costStore'
+import { initUsage } from '../../shared/stores/usageStore'
 import { initProjects } from '../../features/projects/store/projectsStore'
 import { initSessions } from '../../features/sessions/store/sessionsStore'
 import type { BootReport } from '../../../../shared/ipc'
@@ -47,7 +47,7 @@ export interface BootDependencies {
   initBackend: () => Promise<void>
   initSessions: () => Promise<void>
   initProjects: () => Promise<void>
-  initCost: () => Promise<void>
+  initUsage: () => Promise<void>
 }
 
 export const defaultBootDependencies: BootDependencies = {
@@ -60,7 +60,7 @@ export const defaultBootDependencies: BootDependencies = {
   initBackend,
   initSessions,
   initProjects,
-  initCost
+  initUsage
 }
 
 export function createBootSteps(deps: BootDependencies = defaultBootDependencies): BootStep[] {
@@ -104,7 +104,7 @@ export function createBootSteps(deps: BootDependencies = defaultBootDependencies
       id: 'projects-cost',
       mandatory: false,
       run: async () => {
-        const settled = await Promise.allSettled([deps.initProjects(), deps.initCost()])
+        const settled = await Promise.allSettled([deps.initProjects(), deps.initUsage()])
         const rejected = settled.find((result) => result.status === 'rejected')
         if (rejected && rejected.status === 'rejected') throw rejected.reason
       }

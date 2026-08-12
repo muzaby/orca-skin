@@ -60,5 +60,7 @@ export function recordTurnUsage(
       contextWindow: u.contextWindow ?? null
     })
   }
-  cost.recordAndBroadcast()
+  // 0186 — 이 턴이 쓴 provider 만 함께 재집계한다(전 provider 스캔 금지). 집계·broadcast 정책은
+  // tracker 가 소유하고 여기서는 "누구의 턴이었는가" 만 넘긴다.
+  cost.recordAndBroadcast(turn.providerKey)
 }

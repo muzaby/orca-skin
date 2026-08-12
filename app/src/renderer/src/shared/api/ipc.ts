@@ -5,8 +5,6 @@ import type {
   Backend,
   BackendListResult,
   AgentEnvironment,
-  CostSummary,
-  ProviderUsageEntry,
   UsageStats,
   UsageStatsRange,
   ConcurrencyEvent,
@@ -54,6 +52,8 @@ import type {
   UpdateCheckResult,
   UpdateInstallResult
 } from '../../../../shared/ipc'
+// 사용량 타입 정본은 `shared/usage/limits.ts` (ipc.ts 에 두면 순환).
+import type { UsageDelta, UsageLimitsView } from '../../../../shared/usage/limits'
 
 // renderer 의 모든 IPC 호출 진입점. window.orca.* 의 얇은 typed 패스-스루로,
 // features/ 내부 hook · 컴포넌트가 직접 window 객체에 의존하지 않도록 격리한다.
@@ -170,12 +170,12 @@ export const searchApi = {
 }
 
 export const costApi = {
-  summary: (): Promise<CostSummary> => window.orca.cost.summary(),
-  onSummary: (handler: (summary: CostSummary) => void): (() => void) =>
-    window.orca.cost.onSummary(handler),
-  providerSummaries: (providerKeys: string[]): Promise<ProviderUsageEntry[]> =>
-    window.orca.cost.providerSummaries(providerKeys),
-  setProviderLimit: (providerKey: string, limitUsd: number | null): Promise<ProviderUsageEntry> =>
+  // providerKey 생략 = 전역. 반환값은 Main 이 완성한 정본이라 renderer 가 재계산하지 않는다.
+  usage: (providerKey?: string): Promise<UsageLimitsView | null> =>
+    window.orca.cost.usage(providerKey),
+  onUsage: (handler: (delta: UsageDelta) => void): (() => void) =>
+    window.orca.cost.onUsage(handler),
+  setProviderLimit: (providerKey: string, limitUsd: number | null): Promise<UsageLimitsView> =>
     window.orca.cost.setProviderLimit(providerKey, limitUsd),
   usageStats: (range: UsageStatsRange): Promise<UsageStats> => window.orca.cost.usageStats(range)
 }

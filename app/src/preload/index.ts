@@ -7,8 +7,6 @@ import {
   type Backend,
   type BackendListResult,
   type AgentEnvironment,
-  type CostSummary,
-  type ProviderUsageEntry,
   type UsageStats,
   type UsageStatsRange,
   type ConcurrencyEvent,
@@ -56,6 +54,9 @@ import {
   type UpdateCheckResult,
   type UpdateInstallResult
 } from '../shared/ipc'
+// 사용량 타입은 `shared/usage/limits.ts` 가 소유한다(ipc.ts 에 두면 순환) — 타입 전용 import 라
+// 빌드에서 지워지므로 preload 에 런타임 코드가 딸려오지 않는다.
+import type { UsageDelta, UsageLimitsView } from '../shared/usage/limits'
 import { LOG_IPC_PAYLOAD_MAX_BYTES, type LogInput, type SerializedError } from '../shared/logging'
 
 // 로그 전송 (0123) — 유일한 one-way send. 크기 상한 초과·직렬화 불가는 조용히 폐기한다
@@ -201,15 +202,15 @@ const orca = {
     delete: (id: string): Promise<void> => ipcRenderer.invoke(CHANNELS.mcpDelete, { id })
   },
   cost: {
-    summary: (): Promise<CostSummary> => ipcRenderer.invoke(CHANNELS.costSummary),
-    onSummary: (handler: (summary: CostSummary) => void): (() => void) => {
-      const listener = (_e: IpcRendererEvent, summary: CostSummary): void => handler(summary)
-      ipcRenderer.on(CHANNELS.costSummaryEvent, listener)
-      return () => ipcRenderer.off(CHANNELS.costSummaryEvent, listener)
+    // providerKey 생략 = 전역. Main 이 UsageLimitsView 를 완성해 주므로 renderer 는 파생하지 않는다.
+    usage: (providerKey?: string): Promise<UsageLimitsView | null> =>
+      ipcRenderer.invoke(CHANNELS.costUsage, providerKey ? { providerKey } : {}),
+    onUsage: (handler: (delta: UsageDelta) => void): (() => void) => {
+      const listener = (_e: IpcRendererEvent, delta: UsageDelta): void => handler(delta)
+      ipcRenderer.on(CHANNELS.costUsageEvent, listener)
+      return () => ipcRenderer.off(CHANNELS.costUsageEvent, listener)
     },
-    providerSummaries: (providerKeys: string[]): Promise<ProviderUsageEntry[]> =>
-      ipcRenderer.invoke(CHANNELS.costProviderSummaries, { providerKeys }),
-    setProviderLimit: (providerKey: string, limitUsd: number | null): Promise<ProviderUsageEntry> =>
+    setProviderLimit: (providerKey: string, limitUsd: number | null): Promise<UsageLimitsView> =>
       ipcRenderer.invoke(CHANNELS.costSetProviderLimit, { providerKey, limitUsd }),
     usageStats: (range: UsageStatsRange): Promise<UsageStats> =>
       ipcRenderer.invoke(CHANNELS.costUsageStats, { range })

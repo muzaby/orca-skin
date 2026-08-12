@@ -831,6 +831,8 @@ export const ko = {
     limitSettings: '한도 설정',
     monthlyLimit: '월간 사용 한도',
     monthlyLimitDesc: '이 provider 의 월 지출 한도를 설정합니다',
+    // 0186 — 원격 사용량 fetcher 가 한도를 보고하면 사용자 입력 대신 그 값이 적용된다.
+    accountLimitApplied: '계정 한도가 적용 중입니다 (설정값은 원격 한도가 없을 때 쓰입니다)',
     setLimitTitle: '{{provider}} 월간 지출 한도 설정',
     setLimitDesc: '월별 지출 한도를 설정하세요.',
     limitInputAria: '월간 지출 한도 (USD)',

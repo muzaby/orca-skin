@@ -266,15 +266,20 @@ interface McpServer {
 
 ### 2.12 Cost (Phase 3++)
 
-일/주/월 비용·토큰 누적 summary. Main 의 `CostTracker` 가 `turn_usage.created_at` 기준 SQL `SUM` 으로 재계산하고, Renderer 는 costStore 미러 + 설정 사용량 UI 에서 참조한다. provider별(0080) 은 `turn_usage ⨝ sessions.provider_key` 로 귀속·집계하고, provider별 월 한도는 `provider_limits` 테이블에 영속한다. 0098부터 provider/gateway API가 제공하는 authoritative usage report는 `provider_usage_report_cache`에 최신값만 저장하며, 로컬 `summary`를 덮어쓰지 않고 도넛·provider 서브탭의 한도/잔량 계산용 `effectiveLimit`에만 반영한다.
+**사용량 정본은 Main 이 만든다 (0186).** `UsageTracker` 가 `turn_usage.created_at` 기준 SQL `SUM` 으로 집계하고 `shared/usage/limits.ts` 로 주/월 한도까지 파생해 **완성된 `UsageLimitsView`** 를 돌려준다. Renderer 는 `shared/stores/usageStore` 로 그 값을 mirror 만 하고 재계산하지 않는다. provider별(0080) 은 `turn_usage ⨝ sessions.provider_key` 로 귀속·집계하고, 사용자가 설정한 월 한도는 `provider_limits` 에 영속한다.
+
+원격 사용량은 **선택 기능**이다. 배포가 `UsageFetcher` 포트를 주입하면 cron `usage-fetch` 가 provider 별로 조회해 `provider_usage_report_cache`(마이그레이션 0014)에 스냅샷을 upsert 한다. 합성 규칙: **주간은 언제나 로컬**, 월간은 `as_of` 가 이번 달 안이고 배포가 `baselineUsable` 을 보장했을 때만 *계정 기준선 + `as_of` 이후 로컬 증분* 이 되며(`source: 'remote-baseline'`), 그 밖에는 로컬로 접힌다. 한도는 원격이 정본이고 없으면 사용자 설정값으로 폴백한다. **로컬 원장은 어떤 경우에도 수정·삭제하지 않는다** — 합성은 읽기 시점에만 일어난다.
 
 | 채널                            | 방향         | 페이로드                                | 응답                   | 설명                                                                                                                       |
 | ------------------------------- | ------------ | --------------------------------------- | ---------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `orca:cost:summary`             | R→M (invoke) | —                                       | `CostSummary`          | 조회 시 `recompute()` 로 최신 일/주/월 비용·토큰 누적값을 반환한다(설정 사용량 동기화 버튼이 최신값을 받도록, 0080 항목 2). |
-| `orca:cost:summaryEvent`        | M→R (send)   | `CostSummary`                           | —                      | telemetry 저장 직후 `CostTracker.recordAndBroadcast()` 가 모든 창에 push 하는 summary 갱신 이벤트.                          |
-| `orca:cost:providerSummaries`   | R→M (invoke) | `{ providerKeys: string[] }`            | `ProviderUsageEntry[]` | provider key 마다 로컬 summary(turn_usage ⨝ sessions.provider_key) + 월 한도(provider_limits)를 묶어 반환한다. 설정 사용량의 동기화 버튼도 이 채널로 재조회한다(0183 r2 — 외부 report 새로고침 채널이 사라졌다). |
-| `orca:cost:setProviderLimit`    | R→M (invoke) | `{ providerKey: string; limitUsd: number \| null }` | `ProviderUsageEntry`   | provider별 월 한도를 upsert 하고 갱신된 엔트리를 반환한다(즉시 반영).                                                       |
-| `orca:cost:usageStats`          | R→M (invoke) | `{ range: '7d' \| '30d' \| 'all' }`     | `UsageStats`           | 사용량 요약(0112) — range 하한(since, 로컬 자정 기준) 이후의 일별 토큰/비용 시계열(희소, 오름차순)과 모델별 집계(총 토큰 내림차순)를 한 번에 반환한다. 제로필은 renderer(`shared/usage/stats.ts`) 몫. 실패 정책 = fallback(빈 요약). |
+| `orca:cost:usage`               | R→M (invoke) | `{ providerKey?: string }`              | `UsageLimitsView \| null` | 사용량 정본 조회 (0186). `providerKey` 를 주면 그 provider(원격 기준선 합성 포함), 생략하면 전역(항상 로컬). 구 `cost:summary` + `cost:providerSummaries` 를 흡수했다. 실패 정책 = fallback(`null`) — renderer 는 null 이면 한도 섹션을 숨긴다. |
+| `orca:cost:usageEvent`          | M→R (send)   | `UsageDelta`                            | —                      | **변경된 scope 만** push 하는 delta (0186). `{scope:'global',value}` 또는 `{scope:'provider',providerKey,value}`. 턴 종료 시 전역 + 그 턴이 쓴 provider 1개만 나가고, 전체 provider map 은 보내지 않는다. |
+| `orca:cost:setProviderLimit`    | R→M (invoke) | `{ providerKey: string; limitUsd: number \| null }` | `UsageLimitsView`      | provider별 월 한도를 upsert 하고 갱신된 뷰를 반환한다(즉시 반영). 원격 한도가 있으면 표시 적용값은 그쪽이 이기고(`budgetSource: 'remote'`), 저장된 사용자 값은 `configuredLimitUsd` 로 함께 실린다. |
+| `orca:cost:usageStats`          | R→M (invoke) | `{ range: '7d' \| '30d' \| 'all' }`     | `UsageStats`           | 사용량 요약(0112) — range 하한(since, 로컬 자정 기준) 이후의 일별 토큰/비용 시계열(희소, 오름차순)과 모델별 집계(총 토큰 내림차순)를 한 번에 반환한다. 제로필은 renderer(`shared/usage/stats.ts`) 몫. Composer 가 쓰지 않는 상세라 **설정 화면을 열 때만 lazy 조회**하고 store 에 상주시키지 않는다. 실패 정책 = fallback(빈 요약). |
+
+> `orca:cost:summary` · `orca:cost:summaryEvent` · `orca:cost:providerSummaries` 3채널과 중간 DTO
+> `ProviderUsageEntry` · `ProviderSummariesRequest` 는 0186 에서 제거됐다 — Main 이 뷰를 완성하므로
+> renderer 가 다시 파생할 중간 형식이 필요 없고, 턴마다 renderer→main 재조회 왕복도 사라졌다.
 
 `CostSummary` 타입 (`app/src/shared/ipc.ts`):
 
@@ -292,37 +297,28 @@ interface CostSummary {
   month: CostPeriodSummary;
   updatedAt: number;
 }
-interface UsageQuota {
-  limitUsd?: number | null;
-  usedUsd?: number;
-  remainingUsd?: number | null;
+// CostSummary 는 **main 내부 집계 타입**이다 (0186) — IPC 로 나가지 않는다.
+// renderer 가 받는 것은 아래 UsageLimitsView 뿐이다 (`app/src/shared/usage/limits.ts`).
+type UsageSource = 'local' | 'remote-baseline'; // used 가 무엇을 센 값인가
+type BudgetSource = 'configured' | 'remote'; // 적용 중인 예산이 어디서 왔는가
+interface UsageLimitBar {
+  used: number; // USD. source 가 의미를 규정한다
+  budget: number | null; // 기간 예산 envelope. 무제한이면 null
+  pct: number; // 0..1 클램프
+  period: 'week' | 'month';
+  resetAt: number; // epoch ms. 문장화는 renderer i18n(formatResetLabel)
+  unlimited: boolean;
+  source: UsageSource;
 }
-interface ExternalUsageReport {
-  providerKey: string;
-  fetchedAt: number;
-  asOf?: number;
-  source: 'external';
-  scope?: 'provider-account' | 'organization' | 'workspace' | 'project' | 'user' | 'unknown';
-  quota?: UsageQuota;
-  totals?: Partial<CostPeriodSummary & { costUsd: number }>;
-  byModel?: { model: string; totals: Partial<CostPeriodSummary & { costUsd: number }> }[];
+interface UsageLimitsView {
+  week: UsageLimitBar; // 주간은 언제나 source:'local'
+  month: UsageLimitBar;
+  budgetSource: BudgetSource; // 주간 예산은 월 한도에서 일할 파생 → 출처가 같다
+  configuredLimitUsd: number | null; // 사용자가 저장한 값(원격이 이겨도 편집기가 보여준다)
 }
-interface EffectiveUsageLimitView {
-  source: 'local' | 'external';
-  usedUsd: number;
-  limitUsd: number | null;
-  remainingUsd: number | null;
-  fetchedAt?: number;
-  asOf?: number;
-  stale?: boolean;
-}
-interface ProviderUsageEntry {
-  providerKey: string;
-  summary: CostSummary; // Orca 내부 turn_usage 기준, 외부 report로 덮어쓰지 않음
-  limitUsd: number | null; // 적용 한도(외부 report quota.limitUsd 우선, 없으면 provider_limits)
-  externalReport?: ExternalUsageReport;
-  effectiveLimit: EffectiveUsageLimitView; // 도넛/provider 서브탭 한도·잔량 계산 입력
-}
+type UsageDelta =
+  | { scope: 'global'; value: UsageLimitsView }
+  | { scope: 'provider'; providerKey: string; value: UsageLimitsView };
 type UsageStatsRange = '7d' | '30d' | 'all';
 interface UsageStatsDay {
   day: string; // 'YYYY-MM-DD' (OS 로컬 타임존, SQL date(...,'localtime') 버킷)
