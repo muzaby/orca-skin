@@ -116,7 +116,7 @@ export class UsageTracker {
   ): Promise<UsageLimitsView | null> {
     if (!this.deps.fetcher?.supports(providerKey)) return null
     const snapshot = await this.deps.fetcher.fetchUsage(providerKey, signal)
-    if (!snapshot) return null
+    if (!snapshot) throw new Error(`Remote usage refresh returned no snapshot: ${providerKey}`)
 
     const now = Date.now()
     this.db.upsertProviderUsageReport({
