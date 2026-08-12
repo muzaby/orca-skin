@@ -109,7 +109,9 @@ export class UsageTracker {
   }
 
   // 원격 갱신 — 미지원이면 null. 성공 시 한 번 계산한 view 를 broadcast 와 caller 가 공유한다.
-  // 실패 정책은 caller 소유다: manual command 는 reject, background cron 만 fail-soft 로 감싼다.
+  // 실패 정책은 caller 소유다: manual command 는 reject, background cron 은 provider 를 격리하되
+  // (한 provider 실패가 나머지를 막지 않는다) 틱 끝에서 실패를 승격한다 — `schedule_runs` 가
+  // 성공으로 남으면 상시 실패를 확인할 경로가 사라진다.
   async refreshProvider(
     providerKey: string,
     signal?: AbortSignal

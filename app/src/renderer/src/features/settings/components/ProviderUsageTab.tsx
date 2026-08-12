@@ -24,10 +24,13 @@ import {
 export function ProviderUsageTab({ provider }: { provider: AgentEnvironment }): React.JSX.Element {
   const [view, setView] = useState<'root' | 'limit'>('root')
   const [refreshing, setRefreshing] = useState(false)
+  // 0186 r6 (D23) — 동기화 실패를 이 화면에서만 알린다. 전역 toast 를 만들지 않는 이유는
+  // 실패가 이 provider 의 사실이고, 사용자가 보고 있는 자리가 여기이기 때문이다.
+  const [refreshFailed, setRefreshFailed] = useState(false)
   const { tr, locale } = useI18n()
   const usageLimits = useProviderUsage(provider.key)
   // **이 provider** 를 마지막으로 받은 시각. 전역 타임스탬프를 쓰면 다른 provider 를 갱신한
-  // 시각이 여기 "마지막 업데이트" 로 뜬다 — mirror scope 와 timestamp scope 가 어긋난다.
+  // 시각이 여기 "마지막 반영" 으로 뜬다 — mirror scope 와 timestamp scope 가 어긋난다.
   const updatedAt = useProviderUsageUpdatedAt(provider.key)
 
   // 서브탭에 처음 들어온 provider 를 확보한다 — 이후 갱신은 delta push 가 맡는다.
@@ -43,11 +46,13 @@ export function ProviderUsageTab({ provider }: { provider: AgentEnvironment }): 
   const onRefresh = useCallback(() => {
     void (async () => {
       setRefreshing(true)
+      setRefreshFailed(false) // 재시도 시작 = 이전 실패 표시를 지운다
       try {
         await syncProviderUsage(provider.key)
       } catch {
-        // Main command 가 reject 하면 기존 mirror/timestamp 를 유지한다. 오류 UI 계약은 별도지만,
-        // fire-and-forget event handler 에 unhandled rejection 을 남기지는 않는다.
+        // Main command 가 reject 하면 기존 mirror/timestamp 를 **유지한 채** 실패만 알린다 —
+        // 마지막으로 성공한 값이 사라지면 사용자가 비교할 기준을 잃는다.
+        setRefreshFailed(true)
       } finally {
         setRefreshing(false)
       }
@@ -88,6 +93,7 @@ export function ProviderUsageTab({ provider }: { provider: AgentEnvironment }): 
             refreshing={refreshing}
             onRefresh={onRefresh}
           />
+          {refreshFailed && <p className="m-0 text-[12px] text-red">{tr('usage.refreshFailed')}</p>}
         </div>
       </SettingsGroup>
 

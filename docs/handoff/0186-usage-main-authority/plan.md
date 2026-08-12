@@ -657,3 +657,49 @@ git diff --stat 39965fa..HEAD -- \
 
 **D22 음성 확인**: 새 reject 단언을 잠시 `resolves` 로 되돌리면 실패하는지 확인 후 원복
 (단언이 실제로 계약을 잡는지 — 0185 가 확립한 음성 테스트 관례).
+
+### 라운드 6 구현 보고
+
+| 항목 | 내용 |
+|---|---|
+| 변경 파일 | **8** — 코드 4(`features/usage/jobs.ts` · `jobs.test.ts` · `ProviderUsageTab.tsx` · `SettingsModal.tsx`) + i18n 2(`ko.ts`·`en.ts`) + 문서/주석 2(`guides/closed-network-extensions.md` · `features/usage/tracker.ts` **주석만**) |
+| 프로덕션 동작 변경 | **3파일** — `jobs.ts`(틱 실패 승격) · `ProviderUsageTab.tsx`(실패 문구) · `SettingsModal.tsx`(인스턴스 분리). 설계 예측과 일치 |
+| 신규 테스트 | **1** (`"미지원 provider 만 있으면 갱신 0회로 정상 종료한다"`). 기존 1건 개정, 기존 1건 재사용 |
+| DB · IPC · 의존성 | **전부 0** — 마이그레이션 16 불변, 채널 76 불변, 신규 패키지 0 |
+| 새 추상화 | **0** — `Result`/에러 enum/toast 시스템/`UsageJobLogger` 어느 것도 만들지 않았다 |
+| 게이트 | lint **0 error / 1 warn**(0102 베이스라인) · typecheck **3/3** · vitest **197/198 파일 · 1,780 테스트 green**(실패 1파일 = `chat-turn.continuity` 로드 실패, electron egress 베이스라인) · 마이그레이션 sync ok(16) · doc-inventory `--check` exit 0 |
+| Scope guard | `fetcher.ts`·`usage-compose.ts`·`usageStore.ts`·`limits.ts` **diff 0줄**. `tracker.ts` 는 주석 외 변경 **0줄**(아래 이탈 참조) |
+| **D22 음성 확인** | `jobs.ts` 의 `throw` 를 제거해 옛 계약(삼킴)으로 되돌리자 **정확히 AC22 테스트 1건만 실패**(10 passed / 1 failed) → 원복 후 11 passed. 단언이 실제로 계약을 잡는다 |
+
+#### 설계에서 벗어난 것 2건 (선조치 후보고)
+
+1. **`tracker.ts` 를 "손대지 않는다" 로 적었으나 주석 1개를 고쳤다.** `tracker.ts:112` 가
+   *"background cron 만 fail-soft 로 감싼다"* 로 실패 정책을 서술하고 있었다 — D22 가 그
+   정책을 바꾸므로 **그대로 두면 거짓이 된다**. 실행 코드 0줄(`git diff` 에서 비주석 변경
+   라인 0건으로 확인). 라운드 5 가 닫은 D21(죽은 심볼을 가리키는 주석)과 같은 부류라
+   같은 라운드에서 닫는 편이 맞다고 판단했다.
+2. **`closed-network-extensions.md` 를 2곳 고쳤다** — 설계에는 없던 항목이다.
+   - **§5-b 실패 정책 표**(`:643`)가 *"주기 잡은 삼키고 다음 틱을 기다리며(fail-soft)"* 로
+     서술 중이었다. 이 배포에는 fetcher 구현체가 0개라 **이 문서가 유일한 프로덕션 진입
+     경로**다(라운드 5 의 D18 이 확립한 사실) — 계약의 실패 의미를 바꾸면서 이 문서를 두면
+     **P36 을 세운 그 라운드가 만든 규칙을 바로 다음 라운드가 어기는 것**이 된다.
+   - **§5-c 주기 실행 레시피**의 예제(`:552`)가 `if (!res.ok) return` 으로 실패를 삼킨다.
+     동작을 바꾸지는 않았고(그 잡의 정책은 배포 소유), **삼키면 `schedule_runs` 에
+     `success` 가 남는다**는 결과를 주석 1줄 + 불릿 1개로 명시했다. 복사해 쓰는 예제가
+     D22 가 방금 제거한 바로 그 패턴을 가르치고 있었다.
+
+두 건 모두 *구현 세부·명백한 문서 누락*이라 `AGENTS.md` 의 **선조치 가능(✅)** 경계 안이다 —
+제품 동작·공개 계약·인수 기준은 바뀌지 않았다.
+
+#### 인수 기준 대조
+
+| # | 결과 | 근거 |
+|---|---|---|
+| AC22 | ✅ | `jobs.test.ts::"한 provider 실패에도 나머지를 갱신하지만 실패한 provider 를 담아 reject 한다"` — `rejects.toThrow(/claude-gateway/)` + `refreshProvider` 2회 |
+| AC23 | ✅ | 기존 `::"원격 잡은 대상 provider 마다 갱신하고 signal 을 넘긴다"` green (11/11) |
+| AC24 | ✅ | 신규 `::"미지원 provider 만 있으면 갱신 0회로 정상 종료한다"` |
+| AC25 | ✅ | `resources/resources.test.ts` 3/3 (parity·빈 값·플레이스홀더) |
+| AC26 | ✅ | `ko.ts:830` `마지막 반영` · `en.ts:828` `Last applied`. `skills.table`·`skills.detail` 의 동명 키 2건은 **불변** |
+| AC27 | ✅ | `SettingsModal.tsx:92` `key={activeProvider.key}` |
+| AC28 | ✅ | 실측 `costApi.{onUsage,refreshUsage,setProviderLimit,usage}` 4종 = 정정된 AC2 문구와 일치 |
+| AC29 | ⏳ | **사람 실기 대기** — egress 차단으로 `npm run dev` 불가 |

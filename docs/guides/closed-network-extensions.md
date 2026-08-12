@@ -550,6 +550,7 @@ scheduler.register('corp-quota-sync', async () => {
       controller.signal
     )
     if (!res.ok) return                     // 미인증·사내망 밖은 **정상 상태**다. 다음 틱을 기다린다
+                                            // ↑ 삼키면 `schedule_runs` 에 success 가 남는다(아래 주의)
     // …res.body 를 해석해 쓰는 쪽에 넘긴다
   } finally {
     clearTimeout(timer)
@@ -585,6 +586,10 @@ scheduler.schedule('corp-quota-sync', { enabled: true, cron: '*/5 * * * *' })
   `Scheduler.stopAll()` 이 `closeDb` 보다 먼저 돈다.
 - 겹치면 뒤 발화는 **`skipped`** 로 기록되고, 성공/실패는 `schedule_runs` 테이블에 남는다
   (`DbRunRecorder`).
+- **삼킨 실패는 `success` 로 남는다.** action 이 던지지 않으면 `Scheduler.invoke` 가
+  `schedule_runs` 에 `success` 를 적는다 — 위 예제처럼 `return` 으로 넘어가면 **상시 실패를
+  나중에 확인할 경로가 없다**. 원장에 남기려면 ⓐ 대상별로 격리해 나머지를 계속 돌리고
+  ⓑ **틱 끝에서 한 번 던진다**. 코어의 `usage-fetch`(`features/usage/jobs.ts`)가 그 형태다.
 
 ### 다른 feature 슬라이스에서 부를 때
 
@@ -640,7 +645,7 @@ const usageFetcher: UsageFetcher = {
 |---|---|
 | `supports === false` | 원격 미지원 — **과거에 받아둔 캐시 행이 있어도 무시**하고 로컬 집계 + 사용자 설정 한도로 접는다 |
 | `supports === true` + 스냅샷 | 갱신 성공 — 스냅샷을 캐시에 upsert 하고 그 provider 뷰만 push 한다 |
-| `supports === true` + `null` 또는 throw | **이번 갱신 실패** — 주기 잡은 삼키고 다음 틱을 기다리며(fail-soft), 설정 탭의 수동 동기화는 실패로 되돌려준다 |
+| `supports === true` + `null` 또는 throw | **이번 갱신 실패** — 주기 잡은 그 provider 만 건너뛰고 나머지를 계속 갱신하지만(격리), 실패가 하나라도 있으면 **틱 끝에서 잡 자체가 실패**해 `schedule_runs` 에 `error` 로 남는다. 설정 탭의 수동 동기화는 그대로 실패로 되돌려준다 |
 
 - **`null` 을 "정상" 의 뜻으로 쓰지 않는다.** 미인증·사내망 밖은 *상태로는* 정상이지만 **이번
   갱신은 실패한 것**이라, 지원 provider 가 `null` 을 주면 코어가 실패로 올린다. "이 배포는 원래

@@ -136,7 +136,10 @@ describe('registerUsageJobs', () => {
     expect(refreshProvider).toHaveBeenCalledWith('claude-gateway', expect.any(AbortSignal))
   })
 
-  it('한 provider 실패를 삼키고 다음 provider 를 계속 갱신한다', async () => {
+  // 0186 r6 (D22) — 옛 계약은 `resolves.toBeUndefined()` 였다. 그러면 모든 provider 가 상시
+  // 실패해도 `Scheduler` 가 `schedule_runs` 에 `success` 를 적어, 폐쇄망에서 "사용량이 왜 안
+  // 늘지" 를 확인할 경로가 0이 된다. **격리는 유지하되(2회 호출) 틱은 실패로 끝난다.**
+  it('한 provider 실패에도 나머지를 갱신하지만 실패한 provider 를 담아 reject 한다', async () => {
     const { scheduler, actions } = fakeScheduler()
     const { tracker, refreshProvider } = fakeTracker()
     refreshProvider.mockRejectedValueOnce(new Error('temporary')).mockResolvedValueOnce(undefined)
@@ -146,8 +149,28 @@ describe('registerUsageJobs', () => {
       providerKeys: () => ['claude-gateway', 'claude-bedrock']
     })
 
-    await expect(actions.get('usage-fetch')?.()).resolves.toBeUndefined()
+    // 어느 provider 가 죽었는지가 메시지에 있어야 `schedule_runs.error` 가 쓸모 있다.
+    await expect(actions.get('usage-fetch')?.()).rejects.toThrow(/claude-gateway/)
     expect(refreshProvider).toHaveBeenCalledTimes(2)
+  })
+
+  // D22 의 유일한 실패 양식은 "실패가 아닌 것까지 실패로 세는 것" 이다. `supports:false` 는
+  // 이 배포가 다루지 않는 provider 일 뿐이라 틱을 실패시키면 안 된다.
+  it('미지원 provider 만 있으면 갱신 0회로 정상 종료한다', async () => {
+    const { scheduler, actions } = fakeScheduler()
+    const { tracker, refreshProvider } = fakeTracker()
+    const unsupportedFetcher: UsageFetcher = {
+      supports: () => false,
+      fetchUsage: vi.fn().mockResolvedValue(null)
+    }
+
+    registerUsageJobs(scheduler, tracker, {
+      fetcher: unsupportedFetcher,
+      providerKeys: () => ['claude-gateway', 'claude-bedrock']
+    })
+
+    await expect(actions.get('usage-fetch')?.()).resolves.toBeUndefined()
+    expect(refreshProvider).not.toHaveBeenCalled()
   })
 
   it('대상 목록은 발화 시점에 평가한다', async () => {
