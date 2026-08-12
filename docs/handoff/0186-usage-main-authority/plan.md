@@ -460,3 +460,20 @@ PR #330 평가에서 D16의 남은 의미 충돌을 확인했다. `supports=fals
 없이 Tracker 한 지점에서 **지원 provider의 빈 snapshot만 일반 Error로 승격**한다. unsupported는 기존
 `null` local fallback, background는 기존 provider별 catch, manual은 기존 reject 경로를 그대로 쓴다.
 테스트는 cache write·broadcast가 없고 reject하는 것을 단언한다. 신규 파일·의존성·DB·IPC 변경은 없다.
+
+### 라운드 5 파생 이슈 — verify r1 (FAIL) 이관분
+
+출처는 [`verify.md`](verify.md) (검증 r1, 2026-08-12). 인수 기준 18/20 은 기계 검증을 통과했고
+게이트도 깨끗하다 — 아래는 **어느 인수 기준에도 걸리지 않아 역방향 탐색으로 잡은 것**이다.
+D18~D21 이 이번 FAIL 의 조건이고, D22~D25 는 후속(비차단)이다.
+
+| # | 이슈 | 실측 근거 | 대응 방향 | 상태 |
+|---|---|---|---|---|
+| **D18** | **배포 절차 SSOT 가 현재 포트와 어긋난다 — 따라 하면 컴파일되지 않는다.** r3 가 `UsageFetcher.supports` 를 필수 멤버로 만들고 r4 가 `null` 의 의미를 "정상 → 다음 틱" 에서 "실패" 로 뒤집었는데, 두 변경이 §5-b 에 반영되지 않았다 | `guides/closed-network-extensions.md:620-632` 의 예제에 `supports` **없음**(→ TS2739) · 같은 예제의 `if (!res.ok) return null // 정상 상태다` 는 `tracker.ts:119` 가 Error 로 승격하므로 **거짓**. 이 배포에 fetcher 구현체가 0개라(`bootstrap.ts:417`) **이 문서가 유일한 프로덕션 진입 경로**다 | ⓐ 예제에 `supports` 추가 ⓑ "지원 여부 = `supports`, 이번 틱 실패 = throw/null" 규약을 문장으로 명시 ⓒ **0181 5단계-e 절차로 검증** — 예제를 실제 `bootstrap.ts` 에 채워 typecheck 3/3 통과 후 되돌린다 ⓓ 본 plan §파생 UX 의 "미인증·사내망 밖은 오류로 올리지 않는다" 문장도 현행 의미로 개정 | **미해결 (FAIL 조건)** |
+| **D19** | **`IPC_CONTRACT.md` 자기모순** — 타입 블록에 r2 의 `boundary` variant 가 없다 | `docs/IPC_CONTRACT.md:320-322` 는 2-variant, 같은 문서 `:277` 채널 행은 3-variant 를 서술. 코드는 `shared/usage/limits.ts:51-60` 3-variant | 타입 블록에 `{ scope: 'boundary'; value: UsageLimitsView }` 추가. **이 문서만 읽고 consumer 를 짜면 D8 이 고친 자정 stale 을 그대로 재현한다** | **미해결 (FAIL 조건)** |
+| **D20** | **`GLOSSARY.md` 가 삭제된 심볼을 정본으로 서술** | `docs/GLOSSARY.md:44` — "실사용 SSOT(UsageTracker/**costStore**)에서 `computeUsageLimits` 로 파생만". `costStore` 는 이번에 삭제됐고 파생 위치도 renderer → main | 현재 구조(Main 정본 + renderer mirror)로 문장 교체 | **미해결 (FAIL 조건)** |
+| **D21** | **죽은 심볼을 가리키는 코드 주석 3곳** — 폐기된 renderer 파생 모델을 현재형으로 설명 | `features/chat/components/Composer.tsx:49` · `features/chat/components/UsagePanel.tsx:12` · `src/shared/protocol.ts:530` (전부 `costStore` 인용). plan 이 두 컴포넌트를 "손대지 않음" 으로 둬서 남았다 | 주석만 현행화(동작 변경 0) | **미해결 (FAIL 조건)** |
+| **D22** | **원격 상시 실패가 완전히 침묵한다.** 폐쇄망에서 "사용량이 왜 안 늘지" 를 확인할 경로가 0 | `jobs.ts:71-73` 의 `catch {}` 는 로그를 남기지 않고, 액션이 던지지 않으므로 `Scheduler.invoke` 가 `schedule_runs` 에 **`success`** 를 적는다 | `getLogger().child('usage').warn('usage.fetch.failed', …)` 한 줄. 잡 자체는 fail-soft 유지 | 후속 |
+| **D23** | **동기화 실패가 UI 에 표시되지 않는다** | `ProviderUsageTab.tsx:48-50` 의 `catch {}` — 코드 주석도 "오류 UI 계약은 별도" 로 인정 | 오류 표시 계약을 정한 뒤 반영(설정 탭 공통) | 후속 |
+| **D24** | **"마지막 업데이트" 가 원격 신선도가 아니다** — `providerUpdatedAt` 은 로컬 수신 시각이라 원격이 며칠 죽어도 "방금" 으로 보인다. 미지원 provider 의 동기화 버튼도 로컬 뷰를 성공으로 돌려준다(경미한 false success) | `usageStore.ts:93-97` (`Date.now()`) · `handlers/cost.ts:49-52` (미지원 → 로컬 폴백) | 뷰에 원격 `fetchedAt` 을 실어 "원격 기준 N시간 전" 을 구분 표시. 스칼라는 0014 에 이미 있다 | 후속 |
+| **D25** | **plan AC2 문구가 낡았다** — "`usage`·`setProviderLimit` 두 채널만" 은 D10 의 `cost:refreshUsage` 신설로 성립하지 않는다(현재 4표면) | `usageStore.ts` 의 `costApi.*` 4종 | 다음 라운드에서 AC2 문구를 개정하거나, 개정 이력을 §파생 이슈로만 남긴다 | 후속 |
