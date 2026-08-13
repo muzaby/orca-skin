@@ -9,6 +9,7 @@ import { Button } from '../../../shared/ui/Button'
 import { MODAL_INPUT, MODAL_LABEL } from '../../../shared/ui/Modal'
 import { useI18n } from '../../../shared/i18n'
 import { authChoices, needsAuthChoice } from '../../../shared/config/providerAuth'
+import { AuthKindChoices } from '../../../shared/ui/AuthKindChoices'
 import orca from '../assets/orca-login.webp'
 
 // 로그인 랜딩 (0180 이 지운 구 `features/auth/AuthView` 복원 — 0181 의 provider 축에 맞춰 개정).
@@ -84,23 +85,12 @@ export function GateLogin({
           <p className="mb-3 text-center text-[12.5px] text-ink2">{tr('gate.noProviders')}</p>
         )}
         {current && needsAuthChoice(current) && (
-          <div className="mb-4 flex flex-wrap justify-center gap-g3">
-            {authChoices(current).map((spec) => (
-              <button
-                key={spec.kind}
-                type="button"
-                onClick={() => setAuthKind(spec.kind)}
-                aria-pressed={authKind === spec.kind}
-                className={`cursor-pointer rounded-r4 border px-3.5 py-p3 text-footnote ${
-                  authKind === spec.kind
-                    ? 'border-0 bg-ink text-bg'
-                    : 'border-border bg-panel text-ink2 hover:bg-fill-uncontained-hover'
-                }`}
-              >
-                {spec.label}
-              </button>
-            ))}
-          </div>
+          <AuthKindChoices
+            choices={authChoices(current)}
+            value={authKind}
+            onChange={setAuthKind}
+            className="mb-4 flex flex-wrap justify-center gap-g3"
+          />
         )}
         {resuming && (
           <p className="mb-3 text-center text-[12.5px] text-ink2">{tr('gate.resuming')}</p>

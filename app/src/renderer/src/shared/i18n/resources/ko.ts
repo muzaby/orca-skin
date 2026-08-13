@@ -117,7 +117,6 @@ export const ko = {
       noMcp: '등록된 MCP 서버가 없습니다.',
       noProviders: '등록된 연결이 없습니다.',
       provider: '연결',
-      providerKind: '용도',
       providerAuth: '인증 방식'
     },
     groups: {

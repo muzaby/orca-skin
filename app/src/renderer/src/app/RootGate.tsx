@@ -29,8 +29,8 @@ export function RootGate(): React.JSX.Element {
   if (bootPhase === 'failed') {
     return <BootFailureFrame bootError={bootError} onRetryBoot={() => void bootActions.runBoot()} />
   }
-  if (bootPhase !== 'ready') return <BootScreen />
-  if (gate.gate === null) return <BootScreen />
+  // 게이트 미판정(`gate === null`)도 부팅 화면이다 — fail-closed 라 통과시키지 않는다.
+  if (bootPhase !== 'ready' || gate.gate === null) return <BootScreen />
   if (!gate.gate.passed) {
     return (
       <GateFrame

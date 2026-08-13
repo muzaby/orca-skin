@@ -20,7 +20,9 @@ import type {
   ProviderApi,
   TokenValue
 } from '../../../contracts/provider'
+import { errorMessage } from '../../../infra/errors'
 import { providerRefreshKey, providerVaultKey, type Vault } from '../../../infra/vault'
+import { isAllowedOrigin } from './policy'
 import type { ProviderRegistry } from './registry'
 import type { ProviderStore } from './store'
 
@@ -148,16 +150,26 @@ export class LoginService {
   //
   // 게이트가 아직 통과되지 않았으면 아무것도 하지 않는다. 게이트 선언이 0개면 `every` 가
   // 참이라 부팅 직후 바로 돈다.
+  //
+  // **게이트-플러그인 순서만 규칙이고 플러그인끼리는 아니다** — 서로 독립이므로 병렬로 묻는다.
+  // 순차로 돌면 `PROBE_TIMEOUT_MS` 가 provider 수만큼 직렬로 쌓여(연결 안 되는 망에서 N×15초)
+  // 그 시간 동안 service tool 이 뜨지 않는다.
+  //
+  // 통지는 루프 **뒤에 한 번**이다. 안에서 부르면 provider 마다 전체 상태를 다시 만들어
+  // 브로드캐스트해 renderer 가 N 번 다시 그린다(상태 조회가 provider 마다 vault 를 읽으므로
+  // 파일 읽기도 N² 로 붙는다).
   private async sweepPlugins(): Promise<void> {
     const gates = this.deps.registry.byKind('gate')
     if (!gates.every((gate) => this.deps.store.isVerified(gate.id))) return
 
-    for (const provider of this.deps.registry.list()) {
-      if (provider.kind === 'gate' || !provider.probe) continue
-      if (!this.restorable(provider)) continue
-      await this.reprobe(provider)
-      this.deps.onChange?.()
-    }
+    const candidates = this.deps.registry
+      .list()
+      .filter((provider) => provider.kind !== 'gate' && provider.probe)
+      .filter((provider) => this.restorable(provider))
+    if (candidates.length === 0) return
+
+    await Promise.all(candidates.map((provider) => this.reprobe(provider)))
+    this.deps.onChange?.()
   }
 
   // 확인 대상인가 — grant 가 있고, 아직 이번 실행에서 확인되지 않았고, 지금 요청을 낼 수 있는
@@ -227,8 +239,10 @@ export class LoginService {
         { path: probe.path, ...(probe.method !== undefined ? { method: probe.method } : {}) },
         AbortSignal.timeout(PROBE_TIMEOUT_MS)
       )
-      const finalOrigin = originOf(res.finalUrl)
-      const returned = finalOrigin !== null && finalOrigin === originOf(provider.origin)
+      // origin 비교는 브라우저 세션·홉별 검사와 **같은 구현**을 쓴다 — 두 벌이면 규칙이
+      // 갈리는데, 하필 이 한 줄이 "인증됐는가" 의 판정이다. `provider.origin` 은 등록에서
+      // bare origin 임이 강제되므로(`registry.isBareOrigin`) allowlist 원소로 그대로 쓴다.
+      const returned = isAllowedOrigin(res.finalUrl, [provider.origin])
       const ok = res.ok && returned
       // 성공·실패 **양쪽 다** 남긴다 — 쿠키·키가 재시작을 넘어왔는지를 이 한 줄이 말해 준다.
       this.deps.logger?.('providers.probe.result', {
@@ -242,7 +256,7 @@ export class LoginService {
       // 네트워크 미연결(VPN 전)·정책 위반(allowlist 밖 redirect)·타임아웃. 전부 미인증이다.
       this.deps.logger?.('providers.probe.failed', {
         providerId: provider.id,
-        reason: error instanceof Error ? error.message : String(error)
+        reason: errorMessage(error)
       })
       return false
     }
@@ -451,14 +465,5 @@ export class LoginService {
     this.step = step.kind === 'done' ? null : step
     this.deps.onChange?.()
     return step
-  }
-}
-
-// 비교 실패(파싱 불가)는 **같지 않음**으로 접는다 — probe 판정에서 관대하게 굴 이유가 없다.
-function originOf(rawUrl: string): string | null {
-  try {
-    return new URL(rawUrl).origin
-  } catch {
-    return null
   }
 }

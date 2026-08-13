@@ -14,11 +14,15 @@ import type {
   UsageStatsRange
 } from '../../../shared/ipc'
 import { rangeSince } from '../../../shared/usage/stats'
-import type { UsageDelta, UsageLimitsView } from '../../../shared/usage/limits'
+import {
+  computeUsageLimits,
+  type UsageDelta,
+  type UsageLimitsView
+} from '../../../shared/usage/limits'
 import type { DbQueries } from '../../infra/db'
 import type { DailyUsageRow, ModelUsageSumRow, UsageSumRow } from '../../infra/db/types'
 import { boundaries } from '../../../shared/time/clock'
-import { composeGlobalUsage, composeProviderUsage } from './usage-compose'
+import { composeProviderUsage } from './usage-compose'
 import type { UsageFetcher, UsageSnapshot } from './fetcher'
 
 export interface UsageTrackerDeps {
@@ -108,6 +112,18 @@ export class UsageTracker {
     return composeProviderUsage(local, snapshot, this.db.getProviderLimit(providerKey), now)
   }
 
+  // provider 월 한도 쓰기 — **한도는 이 뷰의 입력**(`budget`·`pct`)이므로 쓰기도 뷰의 주인이
+  // 갖는다. IPC 핸들러가 `db.setProviderLimit` 을 직접 부르면 사용량 정본의 입력 중 하나만
+  // authority 밖에 남는다(0186 이 정본을 Main 으로 모은 이유가 무색해진다).
+  setProviderLimit(
+    providerKey: string,
+    limitUsd: number | null,
+    now = Date.now()
+  ): UsageLimitsView {
+    this.db.setProviderLimit(providerKey, limitUsd, now)
+    return this.getProviderUsage(providerKey, now)
+  }
+
   // 원격 갱신 — 미지원이면 null. 성공 시 한 번 계산한 view 를 broadcast 와 caller 가 공유한다.
   // 실패 정책은 caller 소유다: manual command 는 reject, background cron 은 provider 를 격리하되
   // (한 provider 실패가 나머지를 막지 않는다) 틱 끝에서 실패를 승격한다 — `schedule_runs` 가
@@ -155,7 +171,7 @@ export class UsageTracker {
   }
 
   private globalView(now: number): UsageLimitsView {
-    return composeGlobalUsage(this.summary, this.deps.spendingLimitUsd(), now)
+    return computeUsageLimits(this.summary, this.deps.spendingLimitUsd(), now)
   }
 
   // 0014 행 → UsageSnapshot. 봉투 파싱이 실패하면 `baselineUsable:false` 로 접는다(fail-closed) —

@@ -23,9 +23,14 @@ export interface RawSettingsBackend {
   store: Raw
 }
 
+// 설정이 **다른 상태의 입력**일 때 그 상태를 소유한 쪽이 다시 밀어 주도록 하는 통지.
+// `changedKeys` 는 이번 patch 가 실제로 건드린 최상위 키다.
+export type SettingsPatchListener = (next: Settings, changedKeys: readonly string[]) => void
+
 export class SettingsStore {
   private readonly store: RawSettingsBackend
   private cached: Settings | null = null
+  private readonly listeners: SettingsPatchListener[] = []
 
   constructor(
     private readonly currentAppVersion = 'unknown',
@@ -52,6 +57,12 @@ export class SettingsStore {
     return this.load()
   }
 
+  // 파생 상태를 소유한 쪽이 부팅에서 한 번 등록한다 — IPC 핸들러가 "이 키가 바뀌면 저 feature
+  // 를 깨워야 한다" 를 알 필요가 없어진다(모르면 다음 파생 설정에서 같은 누락이 반복된다).
+  onPatch(listener: SettingsPatchListener): void {
+    this.listeners.push(listener)
+  }
+
   patch(input: unknown): Settings {
     const patch: SettingsPatch = SettingsPatchSchema.parse(input)
     const current = this.load()
@@ -60,6 +71,9 @@ export class SettingsStore {
     const migrated = migrateRawSettings(next as unknown as Raw, this.currentAppVersion)
     this.store.store = migrated.raw
     this.cached = migrated.settings
+    // 키 목록은 **입력 patch** 에서 뽑는다 — 병합 결과와 비교하면 값이 같은 재지정이 빠진다.
+    const changedKeys = Object.keys(patch)
+    for (const listener of this.listeners) listener(migrated.settings, changedKeys)
     return migrated.settings
   }
 }

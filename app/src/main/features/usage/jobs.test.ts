@@ -29,13 +29,16 @@ function fakeTracker(): {
   tracker: UsageJobTracker
   refreshBoundary: ReturnType<typeof vi.fn>
   refreshProvider: ReturnType<typeof vi.fn>
+  recordAndBroadcast: ReturnType<typeof vi.fn>
 } {
   const refreshBoundary = vi.fn()
   const refreshProvider = vi.fn().mockResolvedValue(undefined)
+  const recordAndBroadcast = vi.fn()
   return {
-    tracker: { refreshBoundary, refreshProvider } as UsageJobTracker,
+    tracker: { refreshBoundary, refreshProvider, recordAndBroadcast },
     refreshBoundary,
-    refreshProvider
+    refreshProvider,
+    recordAndBroadcast
   }
 }
 
@@ -84,7 +87,8 @@ describe('registerUsageJobs', () => {
 
     const registered = register.mock.calls.map((c) => c[0])
     const scheduled = schedule.mock.calls.map((c) => c[0])
-    expect(registered).toEqual(['usage-boundary'])
+    // `usage-recompute` 는 등록만 된다 — 주기는 `Scheduler.applySettings` 가 소유한다.
+    expect(registered).toEqual(['usage-boundary', 'usage-recompute'])
     expect(scheduled).toEqual(['usage-boundary'])
     expect(registered).not.toContain('usage-fetch')
     expect(scheduled).not.toContain('usage-fetch')

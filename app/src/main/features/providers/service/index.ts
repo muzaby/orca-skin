@@ -23,6 +23,12 @@ export interface ServiceToolsDeps {
   logger?: (event: string, data: Record<string, unknown>) => void
 }
 
+// 런타임 도구 서버 이름의 **유일한 조립 지점**. `ProviderDetail`·`shared/ipc` 주석이 서술하는
+// `<id>-tools` 규칙이 실제로 사는 자리다.
+export function providerToolServerId(providerId: string): string {
+  return `${providerId}-tools`
+}
+
 export class ServiceToolRegistrar {
   // providerId → 조립된 도구 서버. 선언은 순수 팩토리라 한 번 만들어 두고 재사용한다.
   private readonly built = new Map<string, RuntimeToolServer>()
@@ -69,6 +75,7 @@ export class ServiceToolRegistrar {
       providerId: provider.id,
       label: provider.label,
       origin: provider.origin,
+      serverId: providerToolServerId(provider.id),
       request: (req, signal) => this.deps.api.request(provider.id, req, signal)
     }
     // `tools` 는 위 호출부에서 존재를 확인한 뒤에만 여기 온다.

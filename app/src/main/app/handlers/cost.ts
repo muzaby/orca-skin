@@ -54,14 +54,8 @@ export function registerCostHandlers(ctx: RouterContext): void {
   )
 
   // provider별 월 한도 설정 — 저장 후 갱신된 뷰를 되돌려준다(즉시 반영). 쓰기라 'reject'.
-  handle(
-    CHANNELS.costSetProviderLimit,
-    SetProviderLimitSchema,
-    'reject',
-    (req): UsageLimitsView => {
-      ctx.db.setProviderLimit(req.providerKey, req.limitUsd, Date.now())
-      return ctx.cost.getProviderUsage(req.providerKey)
-    }
+  handle(CHANNELS.costSetProviderLimit, SetProviderLimitSchema, 'reject', (req): UsageLimitsView =>
+    ctx.cost.setProviderLimit(req.providerKey, req.limitUsd)
   )
 
   // 사용량 요약(0112) — 기간별 일 단위 시계열 + 모델별 집계. 조회류라 fallback 정책(빈 요약).

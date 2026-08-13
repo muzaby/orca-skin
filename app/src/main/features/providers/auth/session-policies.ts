@@ -24,15 +24,12 @@
 // 레이어: features/providers → contracts·infra·shared (하향만).
 
 import type { Provider } from '../../../contracts/provider'
+import { errorMessage } from '../../../infra/errors'
+import type { SessionGroupPolicy } from '../../../infra/browser-session-policy'
 
-// `infra/browser-session.ts` 의 `SessionGroupPolicy` 를 **구조적으로** 다시 적는다 — 그 파일은
-// 최상단에서 electron 을 import 하므로, 타입만 빌려와도 이 모듈이 그쪽을 가리키게 된다
-// (`specs/browser-session.ts` 의 `BrowserSessionPort` 가 같은 이유로 같은 선택을 했다).
-export interface SessionGroupPolicy {
-  sessionGroup: string
-  allowedOrigins: readonly string[]
-  allowIntegratedAuthDomains?: readonly string[]
-}
+// 정책 타입은 electron 비의존 순수 모듈이 갖는다 — 여기서 다시 적으면 필드를 늘려도 이 경로만
+// 빠진다(0182 까지 실제로 `allowIntegratedAuthDomains` 가 그랬다).
+export type { SessionGroupPolicy }
 
 // `BrowserSessionStore` 가 구조적으로 만족하는 최소 포트. 전체를 받지 않는 이유는 이 모듈에
 // 필요한 것이 등록 하나뿐이기 때문이다.
@@ -76,7 +73,7 @@ export function registerDeclaredSessions(
     } catch (error) {
       logger?.('providers.session.register.failed', {
         sessionGroup: policy.sessionGroup,
-        reason: error instanceof Error ? error.message : String(error)
+        reason: errorMessage(error)
       })
     }
   }

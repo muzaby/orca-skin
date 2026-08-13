@@ -62,7 +62,6 @@ describe('usageStore', () => {
     useUsageStore.setState({
       global: null,
       providers: {},
-      globalUpdatedAt: null,
       providerUpdatedAt: {}
     })
     usage.mockReset().mockResolvedValue(view(1))

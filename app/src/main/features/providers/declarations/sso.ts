@@ -1,8 +1,13 @@
 // 앱 로그인 게이트 선언 (0181) — 사내 ADFS.
 //
-// **기본값은 `null` 이다.** 게이트 provider 가 0개면 앱은 로그인 화면 없이 열린다
+// **기본값은 빈 배열이다.** 게이트 provider 가 0개면 앱은 로그인 화면 없이 열린다
 // (`gate/index.ts` 진리표 1행 · AC14). 폐쇄망 배포가 아래 주석의 실값을 채워 빌드하면 그때부터
 // 로그인이 강제된다.
+//
+// 배열인 이유: 게이트를 소비하는 쪽이 전부 N 개를 전제한다(`registry.byKind('gate')` ·
+// `evaluateGate({members})` · 로그인 체인의 "n/N" 라벨). 선언만 1개로 좁혀 두면 게이트가 둘인
+// 배포가 이 파일 대신 `index.ts` 를 고치게 된다 — `LLM_PROVIDERS`·`SERVICE_PROVIDERS` 와도
+// 모양이 어긋난다.
 //
 // ⚠️ **`id` 는 한 번 정하면 바꾸지 않는다** — vault 네임스페이스이자 `${BINDING:<id>}` 참조
 // 대상이라, 바뀌면 저장된 grant 를 못 읽고 사용자가 적은 MCP 설정이 깨진다.
@@ -26,7 +31,8 @@
 // 채우는 예 (아래 형태 그대로 typecheck 통과를 확인했다):
 //
 // ```ts
-// export const SSO_PROVIDER: Provider | null = {
+// export const GATE_PROVIDERS: Provider[] = [
+//   {
 //   id: 'corp-sso',
 //   label: '사내 로그인',
 //   kind: 'gate',
@@ -49,7 +55,8 @@
 //       }
 //     }
 //   ]
-// }
+//   }
+// ]
 // ```
 //
 // **`whoami` 를 안 적으면** 조회 요청이 아예 나가지 않고 사이드바는 폴백 라벨을 쓴다.
@@ -58,4 +65,4 @@
 
 import type { Provider } from '../../../contracts/provider'
 
-export const SSO_PROVIDER: Provider | null = null
+export const GATE_PROVIDERS: Provider[] = []

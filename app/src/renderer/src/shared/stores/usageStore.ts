@@ -17,22 +17,21 @@ import { costApi } from '../api/ipc'
 interface UsageStoreState {
   global: UsageLimitsView | null
   providers: Record<string, UsageLimitsView>
-  // **scope 별로 나눈다.** 하나뿐이면 provider B 를 갱신한 시각이 provider A 화면의
+  // **provider 별로 나눈다.** 하나뿐이면 provider B 를 갱신한 시각이 provider A 화면의
   // "마지막 업데이트" 로 표시된다 — mirror scope 와 timestamp scope 가 어긋난다.
-  globalUpdatedAt: number | null
+  // 전역 쪽 타임스탬프는 두지 않는다 — 전역 화면에 "마지막 업데이트" 표시가 없다.
   providerUpdatedAt: Record<string, number>
 }
 
 export const useUsageStore = create<UsageStoreState>()(() => ({
   global: null,
   providers: {},
-  globalUpdatedAt: null,
   providerUpdatedAt: {}
 }))
 
 export async function initUsage(): Promise<void> {
   const global = await costApi.usage()
-  useUsageStore.setState({ global, globalUpdatedAt: Date.now() })
+  useUsageStore.setState({ global })
 }
 
 // main→renderer delta 구독. 변경된 scope 만 갈아끼운다 — 전체 map 을 교체하지 않는다.
@@ -40,7 +39,7 @@ export function subscribeUsage(): () => void {
   return costApi.onUsage((delta: UsageDelta) => {
     const now = Date.now()
     if (delta.scope === 'global') {
-      useUsageStore.setState({ global: delta.value, globalUpdatedAt: now })
+      useUsageStore.setState({ global: delta.value })
       return
     }
     if (delta.scope === 'boundary') {
@@ -49,7 +48,6 @@ export function subscribeUsage(): () => void {
       // 재집계하지 않는다.
       useUsageStore.setState({
         global: delta.value,
-        globalUpdatedAt: now,
         providers: {},
         providerUpdatedAt: {}
       })

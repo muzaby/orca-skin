@@ -7,10 +7,9 @@
 import type { ProviderGrantStatus, ProviderInfo, ProviderKind } from '../../../../../shared/ipc'
 import type { MessageKey } from '../../../shared/i18n'
 
-// 방식 선택 규칙은 게이트 화면(`features/providers`)과 **같은 구현**을 써야 한다 — feature 끼리는
-// 교차 import 가 금지돼 있어 공유 DTO 의 규칙은 shared 가 갖는다. 여기서는 재노출만 한다
-// (기존 import 경로·테스트 무회귀).
-export { authChoices, initialAuthKind, needsAuthChoice } from '../../../shared/config/providerAuth'
+// 방식 선택 규칙(`authChoices`·`needsAuthChoice`·`initialAuthKind`)은 게이트 화면과 **같은
+// 구현**을 써야 해서 `shared/config/providerAuth` 가 갖는다 — 소비자는 그쪽을 직접 부른다.
+// 여기서 재노출하면 같은 함수에 import 경로가 두 벌 생긴다.
 
 export interface ProviderRowMeta {
   statusKey: MessageKey
@@ -41,11 +40,8 @@ export function providerRowMeta(provider: ProviderInfo): ProviderRowMeta {
   }
 }
 
-// 재인증은 이력이 있을 때만 의미가 있다. 없으면 버튼은 "연결" 하나다.
-export function canReauth(provider: ProviderInfo): boolean {
-  return provider.status !== 'none'
-}
-
-export function canRevoke(provider: ProviderInfo): boolean {
+// 인증 이력이 있는가. 재인증·해제 **둘 다** 이 조건 하나를 쓴다 — 이름을 나눠 두면 규칙이
+// 같은 동안에도 두 벌로 보이고, 한쪽만 고쳐질 자리가 생긴다. 이력이 없으면 버튼은 "연결" 하나다.
+export function isConnected(provider: ProviderInfo): boolean {
   return provider.status !== 'none'
 }

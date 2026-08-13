@@ -17,7 +17,12 @@
 import { BrowserWindow, session, type Session } from 'electron'
 import { getLogger } from './log/registry'
 // 판정 로직은 electron 비의존 모듈에 있다(테스트 가능) — 0157 verify r1 / D1·D7.
-import { isAbortedNavigationError, isAllowedOrigin, partitionFor } from './browser-session-policy'
+import {
+  isAbortedNavigationError,
+  isAllowedOrigin,
+  partitionFor,
+  type SessionGroupPolicy
+} from './browser-session-policy'
 import { sendOnce } from './net/net-request'
 import {
   ResponseTooLargeError,
@@ -26,7 +31,7 @@ import {
   type SendResult
 } from './net/transport'
 
-export { isAllowedOrigin, partitionFor } from './browser-session-policy'
+export { isAllowedOrigin, partitionFor, type SessionGroupPolicy } from './browser-session-policy'
 
 const DEFAULT_TIMEOUT_MS = 300_000
 
@@ -36,19 +41,6 @@ export interface LoginWindowOptions {
   width?: number
   height?: number
   timeoutMs?: number
-}
-
-export interface SessionGroupPolicy {
-  sessionGroup: string
-  // 이 창이 navigate 할 수 있는 origin. 밖으로 나가는 redirect 는 차단된다.
-  allowedOrigins: readonly string[]
-  // WIA(Negotiate/NTLM) 자동 자격증명을 허용할 도메인. ADFS 호스트로 제한하며 wildcard 금지.
-  //
-  // ⚠️ Electron 에서 통합 인증 허용 도메인은 per-session `allowNTLMCredentialsForDomains()` 와
-  // 프로세스 전역 `--auth-server-allowlist` 스위치가 서로 다른 층위로 존재한다. 여기서는
-  // per-session API 만 쓴다 — group 별 분리가 실제로 성립하는지는 실기 확인 항목이며,
-  // 분리가 불가능하면 이 필드는 전역 합집합 의미로 강등된다(0157 plan §게이트).
-  allowIntegratedAuthDomains?: readonly string[]
 }
 
 interface Entry {
@@ -180,15 +172,6 @@ export class BrowserSessionStore {
     await Promise.all(
       cookies.map((c) =>
         entry.ses.cookies.remove(opts.origin as string, c.name).catch(() => undefined)
-      )
-    )
-  }
-
-  // 앱 종료·전체 로그아웃 시 모든 group 정리.
-  async clearAll(): Promise<void> {
-    await Promise.all(
-      [...this.entries.values()].map((e) =>
-        e.ses.clearStorageData({ storages: ['cookies'] }).catch(() => undefined)
       )
     )
   }

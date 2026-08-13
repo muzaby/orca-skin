@@ -186,6 +186,10 @@ export interface ProviderToolContext {
   providerId: string
   label: string
   origin: string
+  // 이 provider 의 런타임 도구 서버 이름. **선언이 만들지 않는다** — 규칙(`<id>-tools`)이
+  // 선언 쪽에 있으면 service provider 가 늘 때마다 각자 조립해 서로 다른 문자열을 고를 수
+  // 있다. `providerId` 를 손으로 못 적게 만든 것과 같은 이유로, 여기서 완성해 건넨다.
+  serverId: string
   request(req: ProviderRequest, signal?: AbortSignal): Promise<ProviderResponse>
 }
 

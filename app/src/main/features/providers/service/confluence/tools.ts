@@ -34,10 +34,6 @@ export const CONFLUENCE_TOOL_NAMES = {
   getPages: 'confluence_get_pages'
 } as const
 
-export function confluenceToolServerId(providerId: string): string {
-  return `${providerId}-tools`
-}
-
 // 런타임이 준 `ConfluenceResult` 를 **반드시** MCP 결과로 옮긴다. 그대로 반환하면
 // `content` 가 없어 모델에게 "성공, 결과 없음" 으로 보이고 connector 오류까지 성공으로
 // 뒤집힌다(0158 verify r1 D5).
@@ -95,7 +91,7 @@ export function createConfluenceToolServer(
 ): RuntimeToolServer {
   const providerId = ctx.providerId
   const connectorLabel = ctx.label
-  const serverId = confluenceToolServerId(providerId)
+  const serverId = ctx.serverId
   const request: ConfluenceContext = {
     request: (req, signal) => ctx.request(req, signal),
     logger: () => undefined

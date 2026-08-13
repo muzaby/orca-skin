@@ -29,6 +29,11 @@ import type { BrowserSessionPort } from './specs/browser-session'
 // redirect 추종 상한. 홉마다 정책을 다시 보므로 무한 루프는 안 나지만, 루프 자체는 막는다.
 const MAX_REDIRECTS = 5
 
+// 이 요청이 무엇을 싣고 나가는가 — 체인 전체에서 한 번만 정해지는 값이다.
+type Carrier =
+  | { kind: 'session'; sessions: BrowserSessionPort; sessionGroup: string }
+  | { kind: 'value'; presentation: Presentation; secret: string }
+
 export class ProviderPolicyError extends Error {
   constructor(
     readonly reason: string,
@@ -82,7 +87,11 @@ export class ProviderApiImpl implements ProviderApi {
       headers: { ...req.headers },
       ...(req.body !== undefined ? { body: req.body } : {})
     }
-    const { result, finalUrl } = await this.send(provider, prepared, req, signal)
+    // 자격증명은 **요청당 한 번** 푼다. 체인 도중에 grant 가 바뀌지 않으므로(강등은 아래
+    // 401 처리에서 체인이 끝난 뒤에 일어난다) 홉마다 다시 풀 이유가 없다 — 다시 풀면
+    // 홉 수만큼 vault 파일 읽기·복호화가 붙는다.
+    const carrier = this.resolveCarrier(provider)
+    const { result, finalUrl } = await this.send(provider, carrier, prepared, req, signal)
 
     // 401 은 "자격증명이 더 이상 유효하지 않다" 는 **서버의 판정**이다. 여기서 강등해야
     // 사용자가 GUI 에서 재인증 지점을 본다 — 조용히 실패만 반복하지 않는다.
@@ -112,14 +121,19 @@ export class ProviderApiImpl implements ProviderApi {
   // 본다(`contracts/provider.ts` `ProviderResponse.finalUrl`).
   private async send(
     provider: Provider,
+    carrier: Carrier,
     prepared: PreparedRequest,
     req: ProviderRequest,
     signal?: AbortSignal
   ): Promise<{ result: SendResult; finalUrl: string }> {
-    const allowed = this.redirectOrigins(provider)
+    const allowed = this.redirectOrigins(provider, carrier)
+    const options: SendOptions = {
+      ...(req.responseType !== undefined ? { responseType: req.responseType } : {}),
+      ...(req.maxBytes !== undefined ? { maxBytes: req.maxBytes } : {})
+    }
     let current = prepared
     for (let hop = 0; ; hop++) {
-      const result = await this.transport(provider, current, req, signal)
+      const result = await this.transport(carrier, current, options, signal)
       const location = result.headers['location']
       const isRedirect = result.status >= 300 && result.status < 400
       if (!isRedirect || location === undefined) return { result, finalUrl: current.url }
@@ -142,32 +156,23 @@ export class ProviderApiImpl implements ProviderApi {
   // 나오지 않는다**. 그래서 세션일 때만 그 세션이 이미 선언한 allowlist 를 더한다.
   //
   // 값형 grant 에는 넓히지 않는다 — 자격증명이 실린 요청이 다른 host 로 따라가면 안 된다.
-  private redirectOrigins(provider: Provider): readonly string[] {
-    if (this.deps.store.get(provider.id)?.kind !== 'session') return [provider.origin]
+  private redirectOrigins(provider: Provider, carrier: Carrier): readonly string[] {
+    if (carrier.kind !== 'session') return [provider.origin]
     const spec = provider.auth.find((candidate) => candidate.kind === 'browser-session')
     return spec?.kind === 'browser-session'
       ? [provider.origin, ...spec.config.allowedOrigins]
       : [provider.origin]
   }
 
-  private async transport(
-    provider: Provider,
-    prepared: PreparedRequest,
-    req: ProviderRequest,
-    signal?: AbortSignal
-  ): Promise<SendResult> {
-    const options: SendOptions = {
-      ...(req.responseType !== undefined ? { responseType: req.responseType } : {}),
-      ...(req.maxBytes !== undefined ? { maxBytes: req.maxBytes } : {})
-    }
+  // 무엇을 어떻게 실어 보낼지를 한 번에 정한다. 세션이면 cookie jar, 값형이면 secret+present.
+  private resolveCarrier(provider: Provider): Carrier {
     const grant = this.deps.store.get(provider.id)
     if (grant?.kind === 'session') {
       if (!this.deps.sessions) {
         throw new ProviderPolicyError('unsupported', '브라우저 세션 전송이 배선되지 않았습니다')
       }
       // 세션 grant 는 값이 아니라 cookie jar 다 — 주입할 secret 이 없고, 전송 경로가 다르다.
-      const handleId = this.deps.sessions.acquire(grant.sessionGroup)
-      return this.deps.sessions.send(handleId, prepared, options)
+      return { kind: 'session', sessions: this.deps.sessions, sessionGroup: grant.sessionGroup }
     }
 
     const secret = this.deps.store.secret(provider.id)
@@ -175,7 +180,24 @@ export class ProviderApiImpl implements ProviderApi {
     if (secret === null || presentation === null) {
       throw new ProviderPolicyError('grant_not_valid', this.deps.store.status(provider.id))
     }
-    return this.sender.send(applyPresentation(prepared, presentation, secret), signal, options)
+    return { kind: 'value', presentation, secret }
+  }
+
+  private async transport(
+    carrier: Carrier,
+    prepared: PreparedRequest,
+    options: SendOptions,
+    signal?: AbortSignal
+  ): Promise<SendResult> {
+    if (carrier.kind === 'session') {
+      const handleId = carrier.sessions.acquire(carrier.sessionGroup)
+      return carrier.sessions.send(handleId, prepared, options)
+    }
+    return this.sender.send(
+      applyPresentation(prepared, carrier.presentation, carrier.secret),
+      signal,
+      options
+    )
   }
 
   // LLM `Options.env` · 서비스 헤더 물질화. **미인증이면 null** — 빈 문자열 치환은 인증 없는
