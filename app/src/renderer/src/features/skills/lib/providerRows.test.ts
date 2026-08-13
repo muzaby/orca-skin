@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { ProviderInfo } from '../../../../../shared/ipc'
 import { authChoices, initialAuthKind, needsAuthChoice } from '../../../shared/config/providerAuth'
-import { isConnected, providerRowMeta } from './providerRows'
+import { canManageAuth, providerRowMeta } from './providerRows'
 
 function provider(patch: Partial<ProviderInfo> = {}): ProviderInfo {
   return {
@@ -62,11 +62,13 @@ describe('providerRows (AC5)', () => {
     })
   })
 
-  it('재인증·해제는 인증 이력이 있을 때만 낸다', () => {
-    expect(isConnected(provider())).toBe(false)
-    expect(isConnected(provider())).toBe(false)
+  it('재인증·해제 버튼은 인증 이력이 있을 때만 낸다', () => {
+    // 이력이 없으면 버튼은 "연결" 하나 — 재인증·해제는 낼 것이 없다.
+    expect(canManageAuth(provider())).toBe(false)
     // 만료도 이력이다 — 여기서 재인증으로 이어져야 사용자가 빠져나갈 길이 있다.
-    expect(isConnected(provider({ status: 'expired' }))).toBe(true)
-    expect(isConnected(provider({ status: 'unknown' }))).toBe(true)
+    expect(canManageAuth(provider({ status: 'expired' }))).toBe(true)
+    // 복호화 불가(키체인 잠김)도 마찬가지다 — 해제해서 다시 연결할 길이 있어야 한다.
+    expect(canManageAuth(provider({ status: 'unknown' }))).toBe(true)
+    expect(canManageAuth(provider({ status: 'valid' }))).toBe(true)
   })
 })

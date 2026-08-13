@@ -12,6 +12,7 @@
 import type { ProviderAuthKind } from '../../../../shared/ipc'
 import type {
   AuthSpec,
+  Grant,
   Presentation,
   Provider,
   ProviderApi,
@@ -30,9 +31,16 @@ import type { BrowserSessionPort } from './specs/browser-session'
 const MAX_REDIRECTS = 5
 
 // 이 요청이 무엇을 싣고 나가는가 — 체인 전체에서 한 번만 정해지는 값이다.
+//
+// `grant` 는 **해석 시점의 grant 객체**다. 홉 사이에 store 가 바뀌었는지를 이 참조로 판정한다
+// (`ProviderStore.isCurrentGrant` 주석에 근거). 타입을 갈라 두면 세션 carrier 에 값형 grant 가
+// 들어가는 불가능 상태를 컴파일 타임에 막는다 — 런타임 비용은 0이다.
+type SessionGrant = Extract<Grant, { kind: 'session' }>
+type ValueGrant = Exclude<Grant, { kind: 'session' }>
+
 type Carrier =
-  | { kind: 'session'; sessions: BrowserSessionPort; sessionGroup: string }
-  | { kind: 'value'; presentation: Presentation; secret: string }
+  | { kind: 'session'; grant: SessionGrant; sessions: BrowserSessionPort; sessionGroup: string }
+  | { kind: 'value'; grant: ValueGrant; presentation: Presentation; secret: string }
 
 export class ProviderPolicyError extends Error {
   constructor(
@@ -87,9 +95,12 @@ export class ProviderApiImpl implements ProviderApi {
       headers: { ...req.headers },
       ...(req.body !== undefined ? { body: req.body } : {})
     }
-    // 자격증명은 **요청당 한 번** 푼다. 체인 도중에 grant 가 바뀌지 않으므로(강등은 아래
-    // 401 처리에서 체인이 끝난 뒤에 일어난다) 홉마다 다시 풀 이유가 없다 — 다시 풀면
-    // 홉 수만큼 vault 파일 읽기·복호화가 붙는다.
+    // 자격증명(복호화·presentation 해석)은 **요청당 한 번** 푼다 — 홉마다 다시 풀면 홉 수만큼
+    // vault 파일 읽기·복호화가 붙는다.
+    //
+    // **그러나 grant 가 그대로인지는 홉마다 확인한다**(`send()`). 체인 도중에 해제·재인증·401
+    // 강등·만료가 끼어들 수 있다 — 요청은 `await` 를 포함하고 `LoginService.revoke()` 는 IPC 에서
+    // 동기로 들어온다. 그 확인은 메모리 판정이라 vault 를 다시 읽지 않는다.
     const carrier = this.resolveCarrier(provider)
     const { result, finalUrl } = await this.send(provider, carrier, prepared, req, signal)
 
@@ -145,6 +156,13 @@ export class ProviderApiImpl implements ProviderApi {
         this.deps.logger?.('providers.request.redirect-blocked', { providerId: provider.id })
         throw new ProviderPolicyError(redirectCheck.reason, redirectCheck.detail)
       }
+      // **다음 홉을 보내기 직전**에 grant 가 그대로인지 본다(첫 홉은 방금 `resolveCarrier` 가
+      // 풀었으므로 볼 것이 없다). 해제·재인증·강등·만료가 이 사이에 일어나면 이미 손에 든
+      // 자격증명은 더 이상 유효하지 않다 — 홉마다 다시 풀던 시절에는 이 판정이 공짜로 따라왔다.
+      if (!this.grantStillValid(provider.id, carrier)) {
+        this.deps.logger?.('providers.request.grant-changed', { providerId: provider.id })
+        throw new ProviderPolicyError('grant_not_valid', '요청 도중 자격증명이 바뀌었습니다')
+      }
       current = { ...current, url: next }
     }
   }
@@ -164,6 +182,21 @@ export class ProviderApiImpl implements ProviderApi {
       : [provider.origin]
   }
 
+  // 홉 사이에 grant 가 바뀌었는가. **carrier 마다 보는 것이 다르다** — 0187 이전의 홉당 동작을
+  // 그대로 복원하기 위함이다:
+  //
+  //   세션 — `store.get()` 뒤 곧바로 cookie jar 로 보냈다. 만료를 보지 않았으므로 여기서도
+  //          identity 만 본다(여기에 만료를 더하면 없던 정책이 새로 생긴다).
+  //   값형 — `store.secret()` 을 다시 불렀고 그 안에서 만료를 봤다. 그래서 identity + 만료.
+  //
+  // vault 는 다시 읽지 않는다 — 요청당 1회 snapshot 은 유지된다. 그 대가로 **vault 계층의 중간
+  // 변화**(값이 지워지거나 복호화 불가로 바뀌는 것)는 다음 홉에서 보이지 않는다.
+  private grantStillValid(providerId: string, carrier: Carrier): boolean {
+    return carrier.kind === 'session'
+      ? this.deps.store.isCurrentGrant(providerId, carrier.grant)
+      : this.deps.store.isCurrentUnexpiredGrant(providerId, carrier.grant)
+  }
+
   // 무엇을 어떻게 실어 보낼지를 한 번에 정한다. 세션이면 cookie jar, 값형이면 secret+present.
   private resolveCarrier(provider: Provider): Carrier {
     const grant = this.deps.store.get(provider.id)
@@ -172,15 +205,21 @@ export class ProviderApiImpl implements ProviderApi {
         throw new ProviderPolicyError('unsupported', '브라우저 세션 전송이 배선되지 않았습니다')
       }
       // 세션 grant 는 값이 아니라 cookie jar 다 — 주입할 secret 이 없고, 전송 경로가 다르다.
-      return { kind: 'session', sessions: this.deps.sessions, sessionGroup: grant.sessionGroup }
+      return {
+        kind: 'session',
+        grant,
+        sessions: this.deps.sessions,
+        sessionGroup: grant.sessionGroup
+      }
     }
 
     const secret = this.deps.store.secret(provider.id)
     const presentation = presentationFor(provider, this.deps.store.authKind(provider.id))
-    if (secret === null || presentation === null) {
+    // `grant` 가 없으면 `secret()` 도 null 이라 아래에서 걸린다 — 값형 grant 임이 여기서 확정된다.
+    if (grant === undefined || secret === null || presentation === null) {
       throw new ProviderPolicyError('grant_not_valid', this.deps.store.status(provider.id))
     }
-    return { kind: 'value', presentation, secret }
+    return { kind: 'value', grant, presentation, secret }
   }
 
   private async transport(

@@ -10,7 +10,7 @@ import {
   initialAuthKind,
   needsAuthChoice
 } from '../../../../shared/config/providerAuth'
-import { isConnected, providerRowMeta } from '../../lib/providerRows'
+import { canManageAuth, providerRowMeta } from '../../lib/providerRows'
 
 const TONE = { valid: 'green', expired: 'amber', unknown: 'amber', none: 'slate' } as const
 
@@ -66,7 +66,7 @@ export function ProviderDetail({
           </div>
         </div>
         <div className="ml-auto flex flex-none items-center gap-g3">
-          {isConnected(provider) ? (
+          {canManageAuth(provider) ? (
             <Button size="small" onClick={() => onReauth(authKind ?? undefined)}>
               {tr('skills.provider.reauth')}
             </Button>
@@ -75,7 +75,7 @@ export function ProviderDetail({
               {tr('skills.provider.connect')}
             </Button>
           )}
-          {isConnected(provider) && (
+          {canManageAuth(provider) && (
             <Button size="small" onClick={onRevoke}>
               {tr('skills.provider.revoke')}
             </Button>

@@ -11,6 +11,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { Grant, Provider } from '../../../contracts/provider'
 import type { SecretStorePort } from '../../../infra/config/secret-store-port'
+import type { PreparedRequest, SendResult } from '../../../infra/net/transport'
 import { createVault } from '../../../infra/vault'
 import { ProviderApiImpl, ProviderPolicyError } from './api'
 import { ProviderRegistry } from './registry'
@@ -155,5 +156,170 @@ describe('ProviderApiImpl — 세션 grant 전송', () => {
       ProviderPolicyError
     )
     expect(sessions.sent).toEqual([])
+  })
+})
+
+// ── D1 회귀 (0187 r2): redirect 홉 사이에 grant 가 바뀌면 다음 홉을 보내지 않는다 ─────
+//
+// 0187 이 자격증명을 **요청당 1회** 해석하도록 바꾸면서(`Carrier`) 홉마다의 재평가가 사라졌다.
+// 그 재평가는 성능 낭비이기도 했지만 **revoke·강등·만료를 다음 홉이 보는 유일한 경로**였다.
+// 여기서 흉내 내는 것은 그 인터리빙이다 — 첫 홉이 `await` 중일 때 다른 IPC 가 store 를 민다.
+//
+// **carrier 마다 검사가 다르다**(변경 전 의미를 그대로 복원하기 위함):
+//   session — grant identity 만. 변경 전에도 홉마다 `expiresAt` 을 보지 않았다.
+//   value   — identity + expiry. 변경 전 `store.secret()` 이 만료를 다시 봤다.
+
+const VALUE_API: Provider = {
+  id: 'api',
+  label: 'API',
+  kind: 'service',
+  origin: 'https://api.example.corp',
+  auth: [
+    {
+      kind: 'pat',
+      label: 'PAT',
+      fields: [{ name: 'token', label: '토큰', type: 'password', required: true }],
+      present: { location: 'header', name: 'authorization', scheme: 'bearer' },
+      compose: (input) => ({ value: input.token ?? '' })
+    }
+  ]
+}
+
+// 첫 홉에서 302 를 주기 **직전에** `mutate()` 로 store 를 민다 — 요청이 await 중인 그 순간이다.
+function redirectingFetch(sent: string[], mutate: () => void): typeof fetch {
+  return (async (url: string) => {
+    sent.push(String(url))
+    if (sent.length === 1) {
+      mutate()
+      return {
+        status: 302,
+        headers: new Headers({ location: 'https://api.example.corp/next' }),
+        text: async () => ''
+      }
+    }
+    return { status: 200, headers: new Headers(), text: async () => '{"ok":true}' }
+  }) as unknown as typeof fetch
+}
+
+function valueHarness(
+  mutate: (store: ProviderStore) => void,
+  now: () => number
+): { api: ProviderApiImpl; store: ProviderStore; sent: string[] } {
+  const registry = new ProviderRegistry([VALUE_API])
+  const secrets = fakeSecretStore()
+  const vault = createVault(secrets)
+  const grant: Grant = {
+    kind: 'secret',
+    vaultKey: 'api:pat',
+    authKind: 'pat',
+    createdAt: 0,
+    expiresAt: 10_000
+  }
+  const store = new ProviderStore({
+    persistence: createMemoryGrantPersistence({ api: grant }),
+    vault,
+    clock: now
+  })
+  store.restore(registry.list().map((p) => p.id))
+  vault.set('api:pat', 'sekret', { kind: 'pat', createdAt: 0 })
+
+  const sent: string[] = []
+  const api = new ProviderApiImpl({
+    registry,
+    store,
+    fetchImpl: redirectingFetch(sent, () => mutate(store))
+  })
+  return { api, store, sent }
+}
+
+describe('ProviderApiImpl — 체인 도중 grant 변경 (D1)', () => {
+  it('값형: 홉 사이 revoke 면 다음 홉을 보내지 않는다', async () => {
+    const { api, sent } = valueHarness(
+      (store) => store.revoke('api'),
+      () => 1_000
+    )
+
+    await expect(api.request('api', { path: '/thing' })).rejects.toBeInstanceOf(ProviderPolicyError)
+    // 첫 홉만 나갔다 — 해제된 자격증명이 두 번째 홉에 실리지 않는다.
+    expect(sent).toEqual(['https://api.example.corp/thing'])
+  })
+
+  it('값형: 홉 사이 401 강등이면 다음 홉을 보내지 않는다', async () => {
+    const { api, sent } = valueHarness(
+      (store) => store.markExpired('api'),
+      () => 1_000
+    )
+
+    await expect(api.request('api', { path: '/thing' })).rejects.toBeInstanceOf(ProviderPolicyError)
+    expect(sent).toEqual(['https://api.example.corp/thing'])
+  })
+
+  it('값형: 홉 사이 자연 만료면 다음 홉을 보내지 않는다 (객체 identity 만으로는 못 잡는 자리)', async () => {
+    // grant 객체는 **교체되지 않는다** — Map 엔트리가 그대로다. 만료만 지나간다.
+    let now = 1_000
+    const { api, sent, store } = valueHarness(
+      () => {
+        now = 20_000
+      },
+      () => now
+    )
+
+    await expect(api.request('api', { path: '/thing' })).rejects.toBeInstanceOf(ProviderPolicyError)
+    expect(sent).toEqual(['https://api.example.corp/thing'])
+    // identity 는 살아 있다 — 그래서 identity 검사만으로는 이 경로가 뚫린다.
+    expect(store.get('api')).toBeDefined()
+  })
+
+  it('값형: 아무것도 바뀌지 않으면 체인은 정상 완주한다', async () => {
+    const { api, sent } = valueHarness(
+      () => undefined,
+      () => 1_000
+    )
+
+    const res = await api.request('api', { path: '/thing' })
+
+    expect(res.ok).toBe(true)
+    expect(sent).toEqual(['https://api.example.corp/thing', 'https://api.example.corp/next'])
+  })
+
+  it('세션: 홉 사이 revoke 면 다음 홉을 보내지 않는다', async () => {
+    const grant: Grant = {
+      kind: 'session',
+      sessionGroup: 'corp',
+      authKind: 'browser-session',
+      createdAt: 1_000
+    }
+    const registry = new ProviderRegistry([WIKI])
+    const store = new ProviderStore({
+      persistence: createMemoryGrantPersistence({ wiki: grant }),
+      vault: createVault(fakeSecretStore())
+    })
+    store.restore(registry.list().map((p) => p.id))
+
+    const sessions = fakeSessions()
+    registerDeclaredSessions(sessions, registry.list())
+    // 첫 홉에서 302 + 그 순간 revoke.
+    sessions.send = vi.fn(async (_handleId: string, req: PreparedRequest): Promise<SendResult> => {
+      sessions.sent.push(req.url)
+      if (sessions.sent.length === 1) {
+        store.revoke('wiki')
+        return { status: 302, headers: { location: 'https://wiki.example.corp/next' }, body: '' }
+      }
+      return { status: 200, headers: {}, body: '{"ok":true}' }
+    })
+
+    const api = new ProviderApiImpl({
+      registry,
+      store,
+      fetchImpl: (() => {
+        throw new Error('세션 grant 가 fetch 스택으로 샜다')
+      }) as unknown as typeof fetch,
+      sessions
+    })
+
+    await expect(api.request('wiki', { path: '/rest/api/content' })).rejects.toBeInstanceOf(
+      ProviderPolicyError
+    )
+    expect(sessions.sent).toEqual(['https://wiki.example.corp/rest/api/content'])
   })
 })
