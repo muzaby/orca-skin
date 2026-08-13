@@ -156,3 +156,118 @@
   **순서**는 `sweepPlugins` 진입 가드(`gates.every(isVerified)`)가 그대로 유지한다.
 - **롤백**: 단일 커밋 `git revert`. 마이그레이션·IPC·설정 스키마를 건드리지 않아 되돌림에
   데이터 영향이 없다.
+
+---
+
+## [검증자 기입] 파생 이슈 (Derived Issues)
+
+> `verify.md` (FAIL r1, 2026-08-13) 에서 이관. 라운드 2 구현이 여기서 이어간다.
+
+| D | 내용 | 성격 | 처리 |
+|---|---|---|---|
+| **D1** | **`Carrier` snapshot 이 redirect 중 grant lifecycle 변경을 놓친다** (AC2) | **실제 코드 회귀** | r2 에서 코드 교정 |
+| **D2** | **AC3 의 "통지 1회" 기준이 과도하다** | **설계 기준 결함** | **코드 변경 금지.** 주석만 교정 |
+| **D3** | 동시성/배칭 semantic 테스트 부재 | 검증 공백 | r2 에서 테스트 3건 |
+| **D4** | `providerRows.test.ts:66-67` 중복 단언 + `isConnected` 오명 | 잔해 | r2 교정 |
+| **D5** | `AuthKindChoices` 가 `shared/ui` 로 도메인 부채를 확대 | 구조 부채 | **이월 (비차단)** |
+
+### D1 — redirect 홉이 바뀐 grant 를 다시 보지 않는다
+
+`api.ts:93` 이 자격증명을 요청당 1회만 푼다. 변경 전에는 홉마다 `store.get`+`store.secret` 을 다시
+풀어 revoke·markExpired·자연만료가 다음 홉을 `grant_not_valid` 로 막았다. 그 차단이 사라졌다.
+보안 경계 유출은 아니다(값형 `redirectOrigins()` = `[provider.origin]`) — 그러나 사용자가 해제한
+뒤에도 진행 중 체인의 다음 홉이 성공한다.
+
+**해법 — carrier 마다 검사가 다르다.** 변경 전 홉당 동작이 두 경로에서 달랐기 때문이다:
+
+```
+session grant → store.get() 후 곧바로 cookie jar 전송     ← expiresAt 재검사 없음
+value  grant → store.secret() 재호출 → expiresAt 재검사
+```
+
+양쪽에 같은 expiry 검사를 넣으면 **session 에 PR 332 이전에도 없던 새 중간-홉 만료 정책**이 붙는다.
+
+| carrier | 검사 | 검출 |
+|---|---|---|
+| `session` | grant **identity 만** | revoke · reauth · grant 교체 |
+| `value` | identity **+ expiry** | revoke · reauth · markExpired · 자연만료 |
+
+`ProviderStore` 에 메모리 전용 predicate 2개를 둔다(**vault 접근 0회**). generation 카운터는 만들지
+않는다 — **객체 identity 가 그 역할을 한다.** 단 이것은 `put()` 의 불변식이 아니라 **현재 호출부의
+성질**이다: `revoke()` 는 엔트리를 삭제하고(`store.ts:106`), 401 강등은 spread 로 새 grant 를 쓰며
+(`:135`), 재인증은 `LoginService` 가 새 `Grant` 를 만들어 `put` 한다(`login.ts:451`). `put()` 자체는
+전달받은 객체를 그대로 넣으므로(`:93`), **주석에 그 근거를 적는다.**
+
+**무엇을 복원하지 않는지도 명시한다**: 변경 전에는 홉마다 vault 를 다시 읽어 중간에 vault 가
+`absent`/`undecryptable` 로 바뀌는 것도 관측했다. r2 는 secret 을 요청당 1회 snapshot 하므로 그것은
+**의도적으로 다시 보지 않는다** — AC2 성능 목표와 맞바꾼 부분이다. 복원 대상은 **앱 내부 grant
+lifecycle** 뿐이다.
+
+### D2 — AC3 정정 (**사용자 결정 대리 기록**)
+
+> **사용자 결정 (2026-08-13)**: AC3 원문의 *"통지가 루프 뒤 1회"* 는 **폐기한다.** 목표 의미는
+> **"병렬 sweep + sweep-owned 완료 통지 1회, 401/403 즉시 invalidation K회 허용"** 이다.
+> AC3 원문은 실패한 설계 기준으로 **보존**한다(수정하지 않는다).
+
+근거는 `verify.md` §AC3 — `onChange` 억제는 renderer 방송뿐 아니라 `serviceTools.sync()` 까지 함께
+억제하고(`bootstrap.ts:260`), 그것이 만료 provider 의 도구를 걷어내는 유일한 경로다
+(`service/index.ts:44`). `bootstrap.ts:355` 의 `void providers.resume()` 는 fire-and-forget 이라
+사용자가 앱을 쓰는 동안 sweep 이 도므로, 억제하면 stale 도구가 최대 `PROBE_TIMEOUT_MS` 만큼 남는다.
+**AC3 을 맞추는 구현이 새 회귀를 만든다.** 또 변경 전이 `N + K` 였으므로 현재 `1 + K` 는 항상 개선이다.
+
+→ **r2 는 코드를 바꾸지 않는다.** `login.ts:158-160` 주석만 사실로 교체한다.
+→ 새 abstraction(batch notifier·providerId 단위 invalidation 콜백)·공개 포트 인자 추가 **금지**.
+   `ProviderApi` 는 소비 feature 의 단일 포트이고 억제는 sweep orchestration 내부 사정이다.
+
+### D3 — 회귀 테스트 3건
+
+현재 하네스로는 이 격차가 **원리적으로 관측 불가**하다 — `login.test.ts` 의 `probeApi` 는
+`ProviderResponse` 스텁이라 `ProviderApiImpl` 의 401 side effect 를 탈 수 없다. 따라서 해법은
+"단언 추가" 가 아니라 **실제 `ProviderApiImpl` 배선**이다.
+
+```
+① revoke 중 redirect — table-driven 2 case (session / value)
+     302 → store.revoke() → hop2 전송 0회 · ProviderPolicyError('grant_not_valid')
+② value 자연 만료 — 302 → clock 이 expiresAt 을 넘김 → hop2 전송 0회
+     ← 객체 identity 해법의 유일한 사각. 이것이 없으면 D1 해법에 구멍이 남는다
+③ sweep 병렬성 + 1+K 통지 — 실제 ProviderApiImpl 배선
+```
+
+**③은 "요청 3건 모두 수행" 으로 끝내지 않는다** — 순차 실행도 그 단언을 통과하므로, 이번에
+축적하는 실패 패턴(P37)을 그 자리에서 다시 어기는 꼴이 된다. `fetchImpl` 을 **deferred promise** 로
+만들어 관측으로 증명한다:
+
+```
+resume() 시작 → A·B·C 요청 시작 → 전부 대기
+  → 어느 응답도 resolve 하지 않은 상태에서  started === 3      ← 병렬성 증명
+  → 세 응답을 401 로 resolve → await resume()
+
+단언: started=3 · unauthorized 통지=3(K) · onChange=4(K+1) · status 3개 expired · verified 3개 false
+```
+
+**`markExpired` 호출 횟수는 단언하지 않는다** — provider 당 2회(최대 6회)가 정상이다
+(`api.request` 401 처리 + `reprobe` 의 `probeOk` false. 두 번째는 `expiresAt <= now` 로 조기 return
+하여 flush 하지 않지만 호출은 일어난다). 내부 호출 횟수는 구현 세부다.
+
+### D4 — `isConnected` 오명 + 중복 단언
+
+`isConnected` 는 `expired`·`unknown` 에도 `true` 라 이름이 의미와 맞지 않는다. 다만 **`hasAuthRecord`
+도 부정확하다** — `store.status()` 는 grant 레코드가 있어도 값형 vault 값이 `absent` 면 `'none'` 을
+준다(`store.ts:121`). 반면 `activeAuthKind` 는 `store.authKind()` 에서 따로 오므로
+(`platform.ts:118-119`) **레코드 존재 + vault absent → `status='none'` 인데 `activeAuthKind != null`**
+이 가능하다. 즉 레코드가 있는데 `hasAuthRecord` 가 false 가 된다.
+
+이 predicate 가 실제로 결정하는 것은 **"재인증/해제 버튼을 보여주는가"** 이므로 UI 정책 이름을 쓴다:
+→ **`canManageAuth`**. `canReauth`/`canRevoke` seam 은 지금 나누지 않는다(정책이 실제로 갈릴 때).
+`providerRows.test.ts:66-67` 의 동일 단언 2줄(기계 치환 잔해)도 함께 정리한다.
+
+### D5 — `AuthKindChoices` altitude (이월)
+
+`shared/ui/AuthKindChoices.tsx` 가 `ProviderAuthKind`·`ProviderAuthSpecInfo` 를 직접 import 한다.
+`app/src/renderer/AGENTS.md` 는 *"shared/ 에 도메인 로직을 넣지 않는다 — 도메인을 아는 순간 범용이
+아니다"* 를 명시한다.
+
+**`shared/config/providerAuth.ts` 선례가 있다는 것은 정당화가 되지 못한다.** 정확한 판정은
+**"`providerAuth.ts` 에 이미 architecture 예외/부채가 있고, 본 PR 이 그 예외를 `shared/ui` 까지
+확대했다"** 이다. 이번 FAIL 의 직접 원인이 아니므로 **이월**한다 — 정리하려면 generic
+`ChoiceChips` + feature 레벨 매핑으로 갈라야 하고, 그때 `providerAuth.ts` 도 함께 재배치 대상이다.
