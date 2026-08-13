@@ -1,146 +1,207 @@
 # docs/handoff/ — Claude Code ↔ Codex 협업 가이드
 
-이 디렉토리는 두 CLI 에이전트의 **hand-off 채널**이다. 본 문서는 **협업 규칙·상태 머신·구현 턴
-지침**만 담는다 — *문서를 어떻게 쓰는가* 는 스킬이 갖는다.
+이 디렉토리는 두 CLI 에이전트의 handoff 채널이다. 본 문서는 **협업 규칙·상태 머신·역할 분담·review 진입 조건**만 담는다. 산출물을 어떻게 쓰고 검증하는지는 각 skill이 정본이다.
 
-| 산출물 | 템플릿 + 작성 절차 (정본) |
+| 목적 | 정본 |
 |---|---|
-| `plan.md` (설계) | [`.agents/skills/handoff-plan/`](../../.agents/skills/handoff-plan/) — `SKILL.md` + `plan.template.md` |
-| `verify.md` (검증) | [`.agents/skills/handoff-verify/`](../../.agents/skills/handoff-verify/) — `SKILL.md` + `verify.template.md` |
+| `plan.md` 설계 | [`.agents/skills/handoff-plan/`](../../.agents/skills/handoff-plan/) — `SKILL.md` + `plan.template.md` |
+| `verify.md` 검증 | [`.agents/skills/handoff-verify/`](../../.agents/skills/handoff-verify/) — `SKILL.md` + `verify.template.md` |
+| handoff 지침 자체 개선 | [`.agents/skills/handoff-review/`](../../.agents/skills/handoff-review/) — `SKILL.md` + regression corpus |
 
-> Claude Code 는 `.claude/skills` 심링크로 두 스킬을 자동 인식한다. **plan·verify 를 쓸 때는
-> 반드시 해당 스킬을 먼저 로드한다** — 템플릿만 복사해 채우면 검증 가능성 게이트를 건너뛴다.
-> 두 스킬은 **수석 엔지니어 페르소나**로 동작한다 — plan 은 *사용자 요구* 를(관문 0), verify 는
-> *구현 결과* 를(§0) 실무 관점에서 **먼저 비판적으로 검토한 뒤** 본작업에 들어간다. 이는
-> 구현 턴의 "설계 비판적 리뷰"(아래 §2)와 짝을 이뤄 세 단계 모두에 비판 지점을 둔다.
-> 과거 verify 자기 리뷰에서 축적한 설계 실패 패턴은
-> [`handoff-plan/references/failure-patterns.md`](../../.agents/skills/handoff-plan/references/failure-patterns.md).
+`.claude/skills` 심링크를 통해 skill을 인식한다. plan/verify를 작성할 때는 해당 skill을 먼저 로드한다.
+
+## 세 skill의 책임 분리
+
+### handoff-plan — 현재 설계
+
+- 여러 턴의 사용자 합의를 **Decision Ledger**로 보존한다.
+- plan 앞부분에 **Product & UX Contract**를 두어 사용자가/소비자가 받는 결과를 먼저 고정한다.
+- 뒷부분에 코드 조사·아키텍처·데이터/제어 흐름·모듈·테스트를 구체화한다.
+- 현재 요구를 비판적으로 검토한다.
+
+### handoff-verify — 현재 구현 검증
+
+- 구현을 독립적으로 비판한다.
+- Product/UX, ACTIVE Decision, AC와 실제 production path를 대조한다.
+- AC 밖 결함을 역방향으로 찾는다.
+- 검증할 수 없는 경계를 정직하게 사람에게 넘긴다.
+
+### handoff-review — handoff 시스템 개선
+
+- 반복 실패·decision drift·소통 실패의 원인을 분류한다.
+- `handoff-plan` / `handoff-verify` **지침 자체**를 수정한다.
+- 변경 후 `handoff-review/references/failure-patterns.md` 전체를 regression corpus로 사용해 과거 방어선이 유지되는지 검증한다.
+
+**중요**: plan/verify는 정상 작업 중 failure corpus를 읽으며 즉석에서 자기 규칙을 만들거나, 종료 때 corpus를 직접 갱신하지 않는다. 사례의 일반화와 skill 변경은 review 책임이다.
+
+---
 
 ## 역할 분담
 
 | 에이전트 | 역할 | 산출물 |
 |---|---|---|
-| **Claude Code** | 설계 + 검증 (+ 비기능 구현) | `plan.md` · `verify.md` · 리팩토링/버그수정 코드 |
-| **Codex** | 기능 구현 | 코드 (`app/**`) + `plan.md` 의 `[구현자 기입]` 섹션 |
+| Claude Code | 설계 + 검증 + 비기능 구현 | `plan.md`, `verify.md`, 리팩토링/버그수정 코드 |
+| Codex | 기능 구현 | `app/**` + `plan.md`의 `[구현자 기입]` |
 
-> **구현 주체 분담 규칙**: *기능 구현* 은 Codex 담당. **리팩토링·버그수정 등 비기능 작업은 Claude 가 핸드오프 문서를 만들어 직접 구현까지 수행**한다 — 이 경우 plan → impl → verify 를 Claude 가 순차 수행하며, 구현 커밋 trailer 는 `Agent: claude` + `Status: implemented` + `Criteria-*` + `Verified-By: pending` 으로 작성한다(형식은 [`../git-template.md`](../git-template.md)).
+기능 구현은 기본적으로 Codex가 담당한다. Codex가 없는 환경에서 사용자가 명시적으로 요청하면 Claude가 기능 구현을 맡을 수 있으나 plan → impl → verify 절차는 낮추지 않는다.
 
-두 에이전트는 **분리된 환경**에서 동작하며 라이브 채널이 없다. **git 공유 브랜치가 유일한 메시지 버스**다 — 작업 전 `git pull`, 작업 후 `git push`. 단일 브랜치 순차 진행.
+두 에이전트는 분리 환경이며 git 공유 브랜치가 메시지 버스다. 작업 전 pull, 작업 후 push를 기본으로 한다.
 
-> **환경에 Codex 가 없을 때 (관측된 상례 — 0160·0162·0163·0176 등)**: 기능 구현도 **사용자 지시가 있으면** Claude 가 직접 수행한다. 이때도 *절차는 낮추지 않는다* — plan(설계) → impl → verify 를 그대로 밟고, 구현 커밋 trailer 는 `Agent: claude` + `Status: implemented` + `Criteria-*` + `Verified-By: pending` 으로 쓴다. INDEX 비고에 **구현 주체 이탈**을 명시해 나중에 "왜 Codex 가 아니었나" 를 되짚을 수 있게 한다. 사용자 지시 없이 스스로 기능 구현을 가져오지는 않는다.
+---
 
-## 진입 트리거 + 제일 먼저 읽을 것: INDEX.md
+## 진입 트리거
 
-### 진입 트리거 — 구현 요청 시 핸드오프 find-or-create
+### 구현/작업 요청
 
-사용자 요청을 먼저 분류한다:
+변경 산출물(코드/문서 수정)을 만들면 handoff find-or-create가 발동한다.
 
-| 요청 유형 | 예 | 핸드오프 |
-|---|---|---|
-| **구현·작업 요청** | "구현해줘"·"고쳐줘"·"추가해줘"·리팩토링·버그수정 (코드/문서 변경을 만드는 요청) | **트리거 발동** (아래 find→create) |
-| 자료조사·질문·요약·단순 대화 | "요약하라"·"무엇을 신경쓰나"·"어떻게 동작하나" | 불필요 — 바로 답한다 |
+1. `INDEX.md`에서 기존 handoff를 찾는다.
+2. 있으면 현재 단계/다음 주체에 맞춰 이어간다.
+3. 없으면 `max(번호)+1`로 새 handoff를 만들고 `handoff-plan`부터 시작한다.
 
-- **경계 휴리스틱**: *변경 산출물(코드/문서 수정)을 만들면* 구현, *답/설명만 만들면* 자료조사. 디버깅 질문("왜 안 돼?")은 답까지는 자료조사지만 **수정으로 넘어가는 순간** 트리거 발동(그 시점에 find-or-create).
-- **카브아웃(핸드오프 생략)**: 트리비얼(오타·주석·한두 줄·로컬 변수명) 및 *핸드오프 인프라 자체* 메타 수정은 `Handoff: none` 직접 커밋 허용. **단 애매하면 핸드오프 생성**(설계-우선 기본값) — "트리비얼"을 회피구로 쓰지 않는다.
+자료조사·설명·요약만이면 handoff가 필요 없다.
 
-구현·작업 요청이면(카브아웃 제외) `git pull` 후:
+### 카브아웃
 
-1. **Find** — `INDEX.md` 에서 요청에 해당하는 기존 핸드오프 행을 찾는다. **있으면** 그 행의 단계/상태(plan·impl·verify)와 "다음 주체"에 맞춰 **이어간다**(재구현·재검증 포함).
-2. **Create (없으면)** — 기존 행 중 **`max(번호)+1`** 로 `<NNNN-slug>/plan.md` 를 만들고 **설계 턴부터 진입**한다(`handoff-plan` 스킬). 구현 요청이라도 **코드로 바로 건너뛰지 않는다**.
-3. **Route (분담)** — *기능 구현* → `plan/READY` 후 다음=Codex. *비기능(리팩토링·버그수정)* → Claude 가 plan→impl→verify 직접 수행.
+오타·주석·한두 줄 같은 trivial 변경과 **handoff 인프라 자체의 메타 수정**은 `Handoff: none`으로 직접 커밋할 수 있다. handoff skill을 고치기 위해 다시 handoff plan을 만드는 자기 참조를 피하기 위한 규칙이다.
 
-### INDEX.md 운영
+### handoff-review 트리거
 
-[`INDEX.md`](INDEX.md) 가 **"지금 누구 차례인가"의 단일 진실원**(디스패치 보드)이다. 두 에이전트 모두:
+- 사용자가 handoff skill/지침 개선을 명시적으로 요청.
+- 같은/유사 실패가 라운드에서 반복.
+- 여러 handoff에서 동일 실수가 재발.
+- 긴 대화에서 확정 결정이 최종 plan에서 사라지거나 변형.
+- 같은 검증 한계를 반복해서 사람 실기로 넘김.
+- impl 라운드가 **3을 초과**.
 
-1. 착수 전 `git pull` → `INDEX.md` 에서 자기 차례 작업을 확인한다.
-2. 작업을 끝내면 `INDEX.md` 의 해당 행을 갱신하고 `git push` 한다.
+정상 단일 PASS마다 자동 review하지 않는다.
+
+---
+
+## INDEX.md 운영
+
+`docs/handoff/INDEX.md`가 “지금 누구 차례인가”의 단일 진실원이다.
+
+- 착수 전 자기 차례와 상태를 확인한다.
+- 작업 종료 후 상태·다음 주체·대상 커밋을 갱신한다.
+- PASS한 행은 archive history로 이동한다.
 
 ## 디렉토리 구조
 
-```
+```text
 docs/handoff/
-├── AGENTS.md (+ CLAUDE.md stub)   # 본 문서 — 협업 규칙·상태 머신·구현 턴 지침
-├── INDEX.md                        # 디스패치 보드
-└── <NNNN-slug>/                    # 작업 단위 1개 (= PHASES 1행 / PR 1개)
+├── AGENTS.md
+├── INDEX.md
+└── <NNNN-slug>/
     ├── plan.md
     └── verify.md
+
+.agents/skills/
+├── handoff-plan/
+│   ├── SKILL.md
+│   ├── plan.template.md
+│   └── references/failure-patterns.md   # review corpus로 향하는 호환 symlink
+├── handoff-verify/
+│   ├── SKILL.md
+│   ├── verify.template.md
+│   └── scripts/...
+└── handoff-review/
+    ├── SKILL.md
+    └── references/
+        ├── failure-patterns.md           # historical regression corpus 정본
+        └── regression-coverage.md
 ```
 
-- `<NNNN-slug>` = 4자리 zero-pad 일련번호 + 케밥 slug. 예: `0001-handoff-bootstrap`.
-- 일련번호는 `INDEX.md` 기존 행 중 `max(번호)+1` (번호가 비연속일 수 있으므로 "마지막 행"이 아니라 최대값 기준).
-- 템플릿은 스킬 디렉토리에 산다(위 표) — 절차와 붙어 있어야 드리프트하지 않는다.
+---
 
-## 라이프사이클 (상태 머신)
+## 정상 라이프사이클
 
+```text
+plan/DRAFT
+  → plan/READY
+  → impl/IN_PROGRESS
+  → impl/IMPL_DONE
+  → verify/PASS ── 종료
+  └ verify/FAIL ── 파생 이슈 → 재구현 → 재검증
 ```
-plan/DRAFT ─(Claude 작성 완료)→ plan/READY ─(다음=Codex)
-  → impl/IN_PROGRESS ─(게이트 통과)→ impl/IMPL_DONE ─(다음=Claude)
-    → verify/PASS  ── 종료 → PHASES 표 승격 / (요청 시) PR
-    └ verify/FAIL  ── 다음=Codex, impl 라운드 +1 → 재구현
-```
 
-| 단계/상태 | 의미 | 다음 행동 주체 |
+| 상태 | 의미 | 다음 주체 |
 |---|---|---|
-| `plan/DRAFT` | Claude 가 plan 작성 중 | Claude |
-| `plan/READY` | 설계 확정, 구현 착수 가능 | Codex |
-| `impl/IN_PROGRESS` | Codex 구현 중 | Codex |
-| `impl/IMPL_DONE` | 구현 + 게이트 통과, 검증 대기 | Claude |
-| `verify/PASS` | 검증 통과 (종료) | — |
-| `verify/FAIL` | 미충족 항목 존재 | Codex (라운드 +1) |
+| plan/DRAFT | 설계 중 | Claude |
+| plan/READY | Product/UX + Technical Design 확정 | Codex 또는 비기능이면 Claude |
+| impl/IN_PROGRESS | 구현 중 | 구현자 |
+| impl/IMPL_DONE | 구현 + 게이트 후 검증 대기 | Claude |
+| verify/PASS | 완료 | — |
+| verify/FAIL | 미충족 존재 | 구현자 |
 
-라운드가 **3을 초과**하면 Claude 가 `INDEX.md` 비고에 에스컬레이션을 표기하고 사용자에게 질의한다 (무한 루프 방지). 라운드가 반복되면 수정안이 아니라 **전제**를 의심한다.
+`handoff-review`는 이 상태 머신의 별도 단계가 아니다. **메타 유지보수 경로**다. 단 라운드가 3을 초과하면 다음 재구현 전에 review를 수행해 전제/지침/소통 실패를 분리한다.
+
+---
 
 ## 단계별 절차
 
-### 1. 설계 (Claude Code) — `handoff-plan` 스킬
+### 1. 설계 — handoff-plan
 
-`git pull` → 스킬을 로드해 `plan.template.md` 를 `<NNNN-slug>/plan.md` 로 복사·작성 →
-`INDEX.md` 행 추가(`plan/READY`, 다음 주체) → commit `docs(handoff): <slug> 설계` → `git push`.
+- find-or-create 후 관련 대화/기존 plan을 읽는다.
+- 여러 턴 결정을 Decision Ledger로 복원한다.
+- plan 앞부분 Product & UX Contract, 뒷부분 Technical Design 순서로 작성한다.
+- READY self-review를 통과한 뒤 INDEX를 갱신한다.
 
-### 2. 구현 (Codex 기능 / Claude 비기능)
+설계자는 요구를 비판적으로 검토하지만 과거 failure corpus를 읽어 자기 skill을 즉석에서 보완하지 않는다.
 
-- `git pull` → `INDEX.md` 에서 자기 차례 확인 → `plan.md` + `docs/` 정독.
-- 구현 후 게이트 통과: `cd app && npm run lint && npm run typecheck && npm test`.
-- `plan.md` 의 `[구현자 기입]` 섹션 기입 (설계 리뷰·놓친 문제·변경 파일·게이트 결과·블로커).
-- `INDEX.md` 갱신: `impl/IMPL_DONE`, 다음=Claude, 대상 커밋 hash 기재.
-- commit `feat|fix|refactor(scope): …` (한국어) + **구현 커밋 trailer**(`Agent`·`Status`·`Criteria-Met`·`Verified-By: pending` …) → `git push`.
+### 2. 구현
 
-> **`Criteria-Met` 은 테스트가 있는 기준만 센다.** 코드가 존재하는 것은 충족이 아니다 — 과다 보고는 verify 에서 되돌아온다.
+- plan의 **Part I을 제품 계약**, Part II를 기술 구현 가이드로 읽는다.
+- ACTIVE Decision과 AC를 임의로 변경하지 않는다.
+- 구현 세부·명백한 누락/버그는 선조치 후보고 가능.
+- 제품 의도·신규 의존성·Decision·AC 변경은 보고만 하고 결정권자에게 올린다.
+- 구현 보고의 `Criteria-Met`은 자기보고일 뿐 verify 증거가 아니다.
 
-#### 구현 시 지침
+### 3. 검증 — handoff-verify
 
-> 구현자는 설계를 *그대로 받아쓰지 않는다*. 실무 관점에서 비판적으로 읽고, 설계가 놓친 것을 plan 에 되먹인다.
+- 구현 전 plan 기준선을 잠근다.
+- AC를 보기 전에 diff와 end-to-end 경로를 독립 검토한다.
+- Product/UX, ACTIVE Decision, AC를 실제 경로와 대조한다.
+- FAIL이면 파생 이슈를 plan 하단에 이관한다.
+- 반복 실패 사실은 `Review Signals`에 남길 수 있지만 **원인 분류·skill 변경은 하지 않는다**.
 
-- **설계 비판적 리뷰.** plan 을 실무 관점에서 검토해 현실성·구멍을 짚고 `[구현자 기입] 설계 리뷰` 에 동의/이견을 적는다(plan 섹션 인용).
-- **선조치 후보고.** 설계가 다루지 못한 잠재 문제는 `[구현자 기입] 놓친 잠재 문제 + 대응` 에 적고 **대응을 구현한 뒤 보고**한다. 단 **선조치 경계**를 지킨다:
-  - **선조치 가능(✅ 구현·보고)**: 구현 세부·놓친 엣지케이스·명백한 누락/버그.
-  - **선조치 불가(⚠️ 보고만·결정 필요)**: Open Question(PRD §11/TRD §15)·신규 의존성·제품 의도·인수 기준(설계) 변경 → 사용자/설계자 결정.
-  - **Tie-breaker**: 두 경계 중 어디인지 *의심되면* `⚠️ 보고만`(보수적 기본값). "명백한 버그"를 핑계로 설계를 단독 변경하지 않는다.
+### 4. 메타 리뷰 — handoff-review
 
-### 3. 검증 (Claude Code) — `handoff-verify` 스킬
+- 관련 라운드와 사용자 결정 전체를 읽는다.
+- 문제를 instruction gap / execution capability / communication mismatch / user decision change / evidence limitation / implementation defect로 분류한다.
+- 사례 추가보다 plan/verify 지침의 통합·교체·강화를 우선한다.
+- SKILL 변경 후에만 `failure-patterns.md`의 모든 현재 P heading을 전수 대조한다.
+- 변경 전 COVERED였던 패턴이 변경 후 PARTIAL/GAP이면 완료하지 않는다.
 
-`git pull` → 스킬을 로드해 `verify.template.md` 를 `<NNNN-slug>/verify.md` 로 복사·작성.
+---
 
-- **PASS**: `INDEX.md` `verify/PASS` + 대상 커밋 기재 → **행을 [`../archive/handoffs/INDEX-history.md`](../archive/handoffs/INDEX-history.md) 로 옮긴다**(보드에는 미완료만 남는다) → (사용자 요청 시) PR. 완료 이력의 정본은 `git log` 이므로 별도 표로 승격하지 않는다.
-- **FAIL**: 미충족 체크리스트 작성 → **미해결 문제는 plan 의 "파생 이슈(Derived Issues)" 챕터로 이관**(구현자 코멘트 참조, 또는 사용자 결정이 필요하면 **검증자가 사용자 결정을 대리 기록** — plan.md 는 검증자가 쓴다) → `INDEX.md` `verify/FAIL`, 다음=Codex, 라운드 +1 로 구현 턴 루프백.
-- commit `docs(handoff): <slug> 검증 (PASS|FAIL r<N>)` + **검증 커밋 trailer**(`Agent: claude`·`Status: verified`·`Verified-By: claude:pass|claude:fail`·`Next-Action` …) → `git push`.
+## 여러 턴의 사용자 결정
 
-**FAIL 은 정상 결과다** — 상태 머신이 FAIL → 재구현 → 재검증을 전제한다. PASS 를 목표로 삼으면 검증이 무의미해진다.
+Decision Ledger가 대화의 모든 문장을 복사하는 저장소는 아니다. **결정 단위와 provenance**를 보존한다.
 
-## 충돌 최소화 (단일 브랜치)
+- 최신 턴에 언급되지 않았다는 이유로 ACTIVE 결정을 버리지 않는다.
+- 사용자가 명시적으로 바꾸면 기존 결정을 SUPERSEDED 처리한다.
+- 변경인지 보완인지 불명확하고 제품 결과가 달라지면 질문한다.
+- 사용자 변심은 failure pattern이 아니다.
+- 요구가 이미 명확했는데 에이전트가 잊은 것은 communication mismatch로 돌리지 않는다.
 
-파일 도메인을 분리한다:
+---
 
-- **Claude** → `docs/handoff/**` (문서)
-- **Codex** → `app/**` (코드)
-- `plan.md` 는 공유한다 — **설계자(Claude)는 상단**, **구현자는 `[구현자 기입]` 섹션만**, **검증자(Claude)는 하단 "파생 이슈" 챕터만** 추가한다 (섹션 분리로 충돌 회피).
+## 충돌 최소화
 
-**검증 책임 분리(사람 vs 에이전트)의 정본 표**는 `verify.template.md` 에 있다 — 매 `verify.md` 가 그 표를 포함한다. 요지: *기계적으로 판정 가능한 것*(게이트·기준 대조·레이어 경계·문서 형식)은 에이전트, *가치판단·승인*(제품 의도·Open Question·시각 검증·신규 의존성·PR 머지)은 사람.
+- Claude → `docs/handoff/**` 및 handoff skill 문서.
+- Codex → `app/**` 기능 코드.
+- `plan.md`는 공유하되 설계자는 상단 Part I/II, 구현자는 `[구현자 기입]`, 검증자는 `[검증자 기입] 파생 이슈`만 수정한다.
+
+## 검증 책임 분리
+
+- 기계적으로 판정 가능한 게이트·계약·상태 로직·레이어 경계는 에이전트가 검증한다.
+- 제품 의도·Open Question·시각 품질·신규 의존성·PR 머지 승인은 사람이 결정한다.
+- “UI/SDK/electron”이라는 이유만으로 순수 로직까지 사람에게 넘기지 않는다.
 
 ## 커밋·git 규약
 
-- 커밋: `<type>(<scope>): <한국어 메시지>` — Claude 는 주로 `docs(handoff)`, Codex 는 `feat/fix/refactor`.
-- **trailer 규약**(`Agent`/`Status`/`Verified-By`/`Next-Action` 등 `Key: value`): 정본은 root [`../../AGENTS.md`](../../AGENTS.md) "커밋 프로토콜", 상세·예시·파싱은 [`../git-template.md`](../git-template.md). 여기서 재서술하지 않는다.
-- push: `git push -u origin <branch>` (네트워크 실패 시 2/4/8/16s 백오프, 최대 4회).
-- PR 은 사용자가 명시적으로 요청할 때만 생성한다.
+- 커밋: `<type>(<scope>): <한국어 메시지>`.
+- trailer 정본은 root `AGENTS.md`의 커밋 프로토콜과 `docs/git-template.md`를 따른다.
+- push는 작업 브랜치로 수행한다.
+- PR은 사용자가 명시적으로 요청할 때 생성한다.
