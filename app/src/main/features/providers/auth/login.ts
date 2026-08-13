@@ -155,9 +155,16 @@ export class LoginService {
   // 순차로 돌면 `PROBE_TIMEOUT_MS` 가 provider 수만큼 직렬로 쌓여(연결 안 되는 망에서 N×15초)
   // 그 시간 동안 service tool 이 뜨지 않는다.
   //
-  // 통지는 루프 **뒤에 한 번**이다. 안에서 부르면 provider 마다 전체 상태를 다시 만들어
-  // 브로드캐스트해 renderer 가 N 번 다시 그린다(상태 조회가 provider 마다 vault 를 읽으므로
+  // **sweep 자체의 통지는 루프 뒤 한 번**이다. 안에서 부르면 provider 마다 전체 상태를 다시
+  // 만들어 브로드캐스트해 renderer 가 N 번 다시 그린다(상태 조회가 provider 마다 vault 를 읽으므로
   // 파일 읽기도 N² 로 붙는다).
+  //
+  // **총량이 1회라는 뜻은 아니다.** 401/403 을 만난 probe 는 `ProviderApi.request` 안에서 강등과
+  // 함께 그 자리에서 통지한다 — 그래서 총 `1 + K`(K=401/403 수)다. 그것을 억제하지 않는 이유는
+  // 그 통지가 renderer 방송뿐 아니라 **만료 provider 의 도구 회수**(`ServiceToolRegistrar.sync`)를
+  // 함께 태우기 때문이다. 부팅 sweep 은 `void resume()` 이라 게이트가 열린 뒤에도 계속 도는데,
+  // 여기서 통지를 미루면 죽은 연결의 도구가 남은 probe 의 타임아웃만큼 화면에 남는다.
+  // 이전 구현은 루프 안에서 매번 불러 `N + K` 였다 — `1 + K` 는 그보다 항상 적다. (0187 D2)
   private async sweepPlugins(): Promise<void> {
     const gates = this.deps.registry.byKind('gate')
     if (!gates.every((gate) => this.deps.store.isVerified(gate.id))) return

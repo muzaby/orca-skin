@@ -140,6 +140,33 @@ export class ProviderStore {
     return this.grants.get(providerId)?.authKind ?? null
   }
 
+  // ── 체인 도중의 grant 변경 판정 (0187 r2) ────────────────────────────────────
+  //
+  // 요청 하나가 redirect 를 도는 동안 다른 IPC(해제·재인증)나 다른 요청의 401 강등이 끼어들 수
+  // 있다. 홉마다 자격증명을 다시 풀던 시절에는 그 변화가 자동으로 보였는데, 요청당 1회 해석으로
+  // 접으면서 보이지 않게 됐다 — 여기 두 판정이 그것을 **vault 를 읽지 않고** 되돌린다.
+  //
+  // **왜 generation 카운터가 아니라 객체 참조인가.** `put()` 자체는 새 객체를 보장하지 않는다 —
+  // 전달받은 grant 를 그대로 넣는다(아래 `put`). 성립 근거는 **현재 호출부의 성질**이다:
+  // `revoke()` 는 엔트리를 삭제하고, `markExpired()` 는 spread 로 새 객체를 넣으며, 재인증은
+  // `LoginService` 가 새 `Grant` 리터럴을 만들어 `put` 한다. 그래서 참조 비교가 generation 역할을
+  // 한다. **호출부가 grant 를 제자리 변형(mutate)하기 시작하면 이 전제가 깨진다.**
+
+  // 세션용 — identity 만 본다. 변경 전에도 세션 경로는 홉마다 `expiresAt` 을 보지 않았으므로
+  // (`store.get()` 후 곧바로 cookie jar 전송) 여기서 만료를 더하면 없던 정책이 새로 생긴다.
+  isCurrentGrant(providerId: string, expected: Grant): boolean {
+    return this.grants.get(providerId) === expected
+  }
+
+  // 값형용 — identity + 만료. 변경 전 `secret()` 이 홉마다 만료를 다시 봤다.
+  // **vault 존재·복호화 가능성은 보지 않는다** — 그쪽은 요청당 1회 snapshot 과 맞바꾼 부분이라
+  // 이름을 `usable` 이 아니라 `currentUnexpired` 로 둔다.
+  isCurrentUnexpiredGrant(providerId: string, expected: Grant): boolean {
+    const current = this.grants.get(providerId)
+    if (current !== expected) return false
+    return current.expiresAt === undefined || current.expiresAt > this.clock()
+  }
+
   // 유효할 때만 값을 준다 — 만료·복호화 실패 상태의 값을 요청에 싣지 않는다.
   //
   // `status()` 를 부르고 vault 를 또 읽지 않는다. `SecretStore.get` 은 호출마다 파일을

@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import type { Provider, ProviderResponse } from '../../../contracts/provider'
 import { createVault, type Vault } from '../../../infra/vault'
 import type { SecretStorePort } from '../../../infra/config/secret-store-port'
+import { ProviderApiImpl } from './api'
 import { LoginService } from './login'
 import { ProviderRegistry } from './registry'
 import { createMemoryGrantPersistence, ProviderStore, type GrantPersistencePort } from './store'
@@ -762,5 +763,97 @@ describe('LoginService — 플러그인 sweep', () => {
     }).resume()
     expect(probed).toEqual(['wiki'])
     expect(store.status('wiki')).toBe('expired')
+  })
+})
+
+// ── sweep 배칭 계약 (0187 D3) ────────────────────────────────────────────────
+//
+// 위 sweep 테스트들은 `probeApi` 스텁을 쓴다 — `ProviderResponse` 만 돌려주므로
+// **`ProviderApiImpl` 의 401 부수효과(강등 + 그 자리 통지)를 구조적으로 탈 수 없다.**
+// 그래서 "통지가 몇 번 나가는가" 는 그 하네스로는 원리적으로 관측되지 않았다.
+// 여기서는 **실제 `ProviderApiImpl`** 을 배선하고, 컴포지션 루트처럼 `onChange` 를 둘이 공유한다.
+describe('LoginService — sweep 병렬성과 통지 계약', () => {
+  function plugin(id: string): Provider {
+    return {
+      id,
+      label: id,
+      kind: 'service',
+      origin: `https://${id}.example.corp`,
+      probe: { path: '/api/me' },
+      auth: [patSpec({ label: 'PAT', fieldLabel: '토큰', present: BEARER })]
+    }
+  }
+
+  it('세 플러그인을 동시에 물고, 통지는 sweep 1회 + 401 즉시 K회다', async () => {
+    const ids = ['alpha', 'beta', 'gamma']
+    const registry = new ProviderRegistry(ids.map(plugin))
+    const vault = createVault(fakeSecretStore())
+    const seed: Record<string, Parameters<GrantPersistencePort['save']>[0][string]> = {}
+    for (const id of ids) {
+      vault.set(`${id}:pat`, 'token', { kind: 'pat', createdAt: 0 })
+      seed[id] = { kind: 'secret', vaultKey: `${id}:pat`, authKind: 'pat', createdAt: 0 }
+    }
+    const store = new ProviderStore({
+      persistence: createMemoryGrantPersistence(seed),
+      vault,
+      clock: () => 10_000
+    })
+    store.restore(registry.list().map((p) => p.id))
+
+    // 세 요청이 **전부 시작될 때까지** 아무 응답도 내주지 않는다 — 순차 실행이면 여기서 1에서
+    // 멈춘다. "요청 3건이 수행됐다" 는 순차로도 참이라 병렬성의 증거가 되지 못한다.
+    let started = 0
+    let release = (): void => undefined
+    const held = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const fetchImpl = (async () => {
+      started += 1
+      await held
+      return { status: 401, headers: new Headers(), text: async () => '' }
+    }) as unknown as typeof fetch
+
+    // 컴포지션 루트와 같은 배선: 하나의 콜백을 api 와 login 이 공유한다.
+    let changes = 0
+    const onChange = (): void => {
+      changes += 1
+    }
+    let unauthorized = 0
+    const api = new ProviderApiImpl({
+      registry,
+      store,
+      fetchImpl,
+      logger: (event) => {
+        if (event === 'providers.request.unauthorized') unauthorized += 1
+      },
+      onChange
+    })
+    const login = new LoginService({
+      registry,
+      store,
+      vault,
+      clock: () => 10_000,
+      api,
+      onChange
+    })
+
+    const resumed = login.resume()
+    // 응답을 하나도 풀지 않은 상태에서 셋이 모두 떠 있어야 한다.
+    for (let tick = 0; tick < 50 && started < ids.length; tick += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    }
+    expect(started).toBe(ids.length)
+
+    release()
+    await resumed
+
+    // 관측 가능한 계약만 단언한다. `markExpired` 호출 횟수는 세지 않는다 — provider 당 2회
+    // (`api.request` 의 401 처리 + `reprobe` 의 probeOk false)가 정상이고, 그것은 구현 세부다.
+    expect(unauthorized).toBe(3)
+    expect(changes).toBe(4) // 401 즉시 3 + sweep 완료 1
+    for (const id of ids) {
+      expect(store.status(id)).toBe('expired')
+      expect(store.isVerified(id)).toBe(false)
+    }
   })
 })
