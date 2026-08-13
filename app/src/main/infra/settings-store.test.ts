@@ -107,4 +107,19 @@ describe('SettingsStore — scheduler 중첩 병합 (0156)', () => {
 
     expect(() => store.patch({ scheduler: { updateCheck: { intervalHours: 7 } } })).toThrow()
   })
+  // 파생 상태(게이트 판정·사용량 뷰)를 소유한 쪽이 이 통지로 다시 민다 — 키를 놓치면
+  // "설정은 바뀌었는데 화면은 그대로" 가 된다.
+  it('onPatch 는 이번 patch 가 건드린 키만 알린다', () => {
+    const store = new SettingsStore('1.0.0', countingBackend())
+    const seen: readonly string[][] = []
+    const calls: string[][] = seen as string[][]
+    store.onPatch((_next, keys) => calls.push([...keys]))
+
+    store.patch({ theme: 'dark' })
+    // 값이 null 인 지우기도 **변경**이다 — 한도 해제가 여기서 빠지면 도넛이 옛 퍼센트에 남는다.
+    store.patch({ spendingLimitUsd: null })
+
+    expect(calls[0]).toEqual(['theme'])
+    expect(calls[1]).toEqual(['spendingLimitUsd'])
+  })
 })

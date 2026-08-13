@@ -19,16 +19,14 @@ import type {
   SessionTokenExchange,
   TokenValue
 } from '../../../../contracts/provider'
+import type { SessionGroupPolicy } from '../../../../infra/browser-session-policy'
+import { errorMessage } from '../../../../infra/errors'
 import type { PreparedRequest, SendOptions, SendResult } from '../../../../infra/net/transport'
 import type { AuthResult, BrowserSessionSpec, SessionAuthenticator } from '../login'
 
 // `BrowserSessionStore`(infra, electron 의존)가 구조적으로 만족하는 포트.
 export interface BrowserSessionPort {
-  register(policy: {
-    sessionGroup: string
-    allowedOrigins: readonly string[]
-    allowIntegratedAuthDomains?: readonly string[]
-  }): void
+  register(policy: SessionGroupPolicy): void
   acquire(sessionGroup: string): string
   openLoginWindow(
     handleId: string,
@@ -99,7 +97,7 @@ export class SessionRunner implements SessionAuthenticator {
       })
     } catch (error) {
       // 사용자가 창을 닫은 것과 정책 위반이 같은 예외로 온다 — 둘 다 재시도 가능한 취소다.
-      return failure('cancelled', messageOf(error))
+      return failure('cancelled', errorMessage(error))
     }
 
     // **doneUrlPrefix 도달만으로 성공이 확정되지 않는다** — 로그인 폼이 같은 접두사로 렌더되는
@@ -129,7 +127,26 @@ export class SessionRunner implements SessionAuthenticator {
     // 미선언이면 요청을 아예 내지 않는다 — 신원을 안 쓰는 배포에 왕복을 물리지 않는다.
     if (!lookup) return undefined
 
-    const url = new URL(lookup.path, `${provider.origin}/`).toString()
+    const read = await this.getJson(provider, handleId, lookup.path)
+    if (!read.ok) {
+      return this.whoamiFailed(provider, lookup, whoamiReason(read.failure))
+    }
+    return (
+      pickPrincipal(read.payload, lookup.valuePath) ??
+      this.whoamiFailed(provider, lookup, '값 없음')
+    )
+  }
+
+  // 세션 쿠키로 provider origin 안의 JSON 을 한 번 읽는다 — whoami·exchange 가 같은 요청을
+  // 낸다(같은 헤더·같은 2xx 판정·같은 JSON 파싱). **실패를 어떤 문장으로 접는지만** 서로
+  // 다르므로(whoami 는 로그 한 줄, exchange 는 사용자에게 보이는 사유) 그 결정은 호출부에
+  // 남기고 요청은 한 벌만 둔다.
+  private async getJson(
+    provider: Provider,
+    handleId: string,
+    path: string
+  ): Promise<{ ok: true; payload: unknown } | { ok: false; failure: JsonReadFailure }> {
+    const url = new URL(path, `${provider.origin}/`).toString()
     let result: SendResult
     try {
       result = await this.deps.sessions.send(handleId, {
@@ -138,21 +155,16 @@ export class SessionRunner implements SessionAuthenticator {
         headers: { accept: 'application/json' }
       })
     } catch (error) {
-      return this.whoamiFailed(provider, lookup, messageOf(error))
+      return { ok: false, failure: { kind: 'send', message: errorMessage(error) } }
     }
     if (result.status < 200 || result.status >= 300) {
-      return this.whoamiFailed(provider, lookup, `status ${result.status}`)
+      return { ok: false, failure: { kind: 'status', status: result.status } }
     }
-
-    let payload: unknown
     try {
-      payload = JSON.parse(result.body)
+      return { ok: true, payload: JSON.parse(result.body) }
     } catch {
-      return this.whoamiFailed(provider, lookup, 'JSON 이 아님')
+      return { ok: false, failure: { kind: 'not-json' } }
     }
-    return (
-      pickPrincipal(payload, lookup.valuePath) ?? this.whoamiFailed(provider, lookup, '값 없음')
-    )
   }
 
   // 실패 사유를 남기고 `undefined` 를 돌려준다. **값은 로그에 싣지 않는다** — principal 은
@@ -174,27 +186,9 @@ export class SessionRunner implements SessionAuthenticator {
     exchange: SessionTokenExchange,
     whoamiLookup?: SessionLookup
   ): Promise<AuthResult> {
-    const url = new URL(exchange.path, `${provider.origin}/`).toString()
-    let result: SendResult
-    try {
-      result = await this.deps.sessions.send(handleId, {
-        url,
-        method: 'GET',
-        headers: { accept: 'application/json' }
-      })
-    } catch (error) {
-      return failure('exchange_failed', messageOf(error))
-    }
-    if (result.status < 200 || result.status >= 300) {
-      return failure('exchange_failed', `토큰 교환이 ${result.status} 로 실패했습니다`)
-    }
-
-    let payload: unknown
-    try {
-      payload = JSON.parse(result.body)
-    } catch {
-      return failure('exchange_failed', '토큰 응답이 JSON 이 아닙니다')
-    }
+    const read = await this.getJson(provider, handleId, exchange.path)
+    if (!read.ok) return failure('exchange_failed', exchangeReason(read.failure))
+    const payload = read.payload
     const value = pickPath(payload, exchange.valuePath)
     if (typeof value !== 'string' || value.length === 0) {
       // 경로를 로그에 남긴다 — 실값 미정(OQ2) 상태에서 배포가 고칠 지점을 지목한다.
@@ -220,6 +214,31 @@ export class SessionRunner implements SessionAuthenticator {
   }
 }
 
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+// `getJson` 이 실패한 자리. **문장이 아니라 사유**로 돌려 준다 — 같은 요청이지만 whoami 는
+// 로그 한 줄로, exchange 는 사용자에게 보이는 문장으로 접기 때문이다.
+type JsonReadFailure =
+  { kind: 'send'; message: string } | { kind: 'status'; status: number } | { kind: 'not-json' }
+
+// whoami — 진단 로그용 짧은 사유.
+function whoamiReason(failure: JsonReadFailure): string {
+  switch (failure.kind) {
+    case 'send':
+      return failure.message
+    case 'status':
+      return `status ${failure.status}`
+    case 'not-json':
+      return 'JSON 이 아님'
+  }
+}
+
+// exchange — 로그인 실패로 화면에 뜨는 문장.
+function exchangeReason(failure: JsonReadFailure): string {
+  switch (failure.kind) {
+    case 'send':
+      return failure.message
+    case 'status':
+      return `토큰 교환이 ${failure.status} 로 실패했습니다`
+    case 'not-json':
+      return '토큰 응답이 JSON 이 아닙니다'
+  }
 }

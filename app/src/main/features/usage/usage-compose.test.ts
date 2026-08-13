@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { CostSummary, CostPeriodSummary } from '../../../shared/ipc'
-import { composeGlobalUsage, composeProviderUsage } from './usage-compose'
+import { computeUsageLimits } from '../../../shared/usage/limits'
+import { composeProviderUsage } from './usage-compose'
 import type { UsageSnapshot } from './fetcher'
 
 // 로컬타임 기준으로 월 중순 수요일 — 이번 주가 달을 걸치지 않아 경계 주 보정이 끼어들지 않는다.
@@ -139,9 +140,9 @@ describe('composeProviderUsage — 기준선 합성', () => {
   })
 })
 
-describe('composeGlobalUsage', () => {
+describe('전역 사용량 (computeUsageLimits 직결)', () => {
   it('전역은 원격을 보지 않는다', () => {
-    const view = composeGlobalUsage(summary(12, 40), 300, NOW)
+    const view = computeUsageLimits(summary(12, 40), 300, NOW)
 
     expect(view.week.source).toBe('local')
     expect(view.month.source).toBe('local')
@@ -150,7 +151,7 @@ describe('composeGlobalUsage', () => {
   })
 
   it('한도 미설정이면 무제한이다', () => {
-    const view = composeGlobalUsage(summary(12, 40), null, NOW)
+    const view = computeUsageLimits(summary(12, 40), null, NOW)
 
     expect(view.month.unlimited).toBe(true)
     expect(view.month.used).toBe(40)

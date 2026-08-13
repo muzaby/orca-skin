@@ -6,7 +6,8 @@
 
 import { describe, expect, it } from 'vitest'
 import type { ProviderToolContext } from '../../../../contracts/provider'
-import { CONFLUENCE_TOOL_NAMES, confluenceToolServerId, createConfluenceToolServer } from './tools'
+import { providerToolServerId } from '../index'
+import { CONFLUENCE_TOOL_NAMES, createConfluenceToolServer } from './tools'
 import { CONFLUENCE_OPERATIONS, type ConfluenceResult, type ConfluenceRuntime } from './connector'
 
 // invoke 만 대체하는 최소 런타임 — 도구 계층이 런타임을 어떻게 부르는지에만 관심이 있다.
@@ -24,6 +25,7 @@ function server(
     providerId,
     label,
     origin: 'https://wiki.example.corp',
+    serverId: providerToolServerId(providerId),
     request: async () => ({
       ok: true,
       status: 200,
@@ -39,7 +41,7 @@ const contribution = server(async () => ({ ok: true, data: null }))
 
 describe('createConfluenceToolServer — descriptor', () => {
   it('정적 server ID 를 connector ID 에서 파생한다', () => {
-    expect(contribution.descriptor.id).toBe(confluenceToolServerId('confluence-dc'))
+    expect(contribution.descriptor.id).toBe(providerToolServerId('confluence-dc'))
     expect(contribution.descriptor.connectorId).toBe('confluence-dc')
   })
 

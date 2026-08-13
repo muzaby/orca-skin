@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest'
 import type { Provider, ProviderResponse } from '../../../contracts/provider'
 import { createVault, type Vault } from '../../../infra/vault'
-import type { SecretStorePort } from '../../../infra/config/secret-facade'
+import type { SecretStorePort } from '../../../infra/config/secret-store-port'
 import { LoginService } from './login'
 import { ProviderRegistry } from './registry'
 import { createMemoryGrantPersistence, ProviderStore, type GrantPersistencePort } from './store'

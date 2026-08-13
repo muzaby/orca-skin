@@ -223,7 +223,7 @@ request: (req, signal) => api.request('confluence', req, signal)
 
 | # | 하는 일 | 고치는 파일 / 확인 지점 |
 |---|---|---|
-| 1 | `SSO_PROVIDER` 를 `null` 에서 실제 선언으로 바꾼다 | `app/src/main/features/providers/declarations/sso.ts` |
+| 1 | `GATE_PROVIDERS` 빈 배열에 선언을 하나 넣는다 (게이트가 여럿이면 그만큼) | `app/src/main/features/providers/declarations/sso.ts` |
 | 2 | **`origin` 을 정한다** — `exchange.path` 가 붙는 기준이고 등록 검사의 대상이다. 로그인 시작 IdP 가 아니라 **probe·토큰 교환이 사는 호스트**로 잡는다(아래 주의) | 같은 파일 |
 | 3 | `probe.path` 를 정하고 `config` 4필드를 채운다 (`sessionGroup`·`loginUrl`·`doneUrlPrefix`·`allowedOrigins`) | 같은 파일. **선언 파일 헤더 주석에 같은 예제가 들어 있다** — 거기서 시작하는 편이 빠르다. `probe` 를 빠뜨리면 등록 검사가 거부한다(`missing_probe`) |
 | 4 | 토큰까지 필요하면 `config.exchange` 를 더한다 | §2-b |
@@ -233,7 +233,8 @@ request: (req, signal) => api.request('confluence', req, signal)
 ### 선언 예제
 
 ```ts
-export const SSO_PROVIDER: Provider | null = {
+export const GATE_PROVIDERS: Provider[] = [
+  {
   id: 'corp-sso',
   label: '사내 로그인',
   kind: 'gate',
@@ -251,7 +252,8 @@ export const SSO_PROVIDER: Provider | null = {
       }
     }
   ]
-}
+  }
+]
 ```
 
 > ⚠️ **`origin` 은 로그인 시작 주소(IdP)가 아니다.** `loginUrl` 은 절대 URL 이라 어디를 가리켜도

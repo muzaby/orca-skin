@@ -8,10 +8,10 @@
 // 구조·설계 근거(무엇을 왜 이렇게 세웠나)는 `docs/arch/backend/providers.md`.
 
 import type { Provider } from '../../../contracts/provider'
-import { SSO_PROVIDER } from './sso'
+import { GATE_PROVIDERS } from './sso'
 import { LLM_PROVIDERS } from './llm'
 import { SERVICE_PROVIDERS } from './service'
 
 export function declaredProviders(): Provider[] {
-  return [...(SSO_PROVIDER ? [SSO_PROVIDER] : []), ...LLM_PROVIDERS, ...SERVICE_PROVIDERS]
+  return [...GATE_PROVIDERS, ...LLM_PROVIDERS, ...SERVICE_PROVIDERS]
 }

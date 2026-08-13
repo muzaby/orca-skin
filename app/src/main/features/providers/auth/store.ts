@@ -141,11 +141,16 @@ export class ProviderStore {
   }
 
   // 유효할 때만 값을 준다 — 만료·복호화 실패 상태의 값을 요청에 싣지 않는다.
+  //
+  // `status()` 를 부르고 vault 를 또 읽지 않는다. `SecretStore.get` 은 호출마다 파일을
+  // 다시 읽고 복호화하므로(캐시 없음) 두 번 물으면 턴마다 그 값을 두 번 낸다 —
+  // `status()` 의 값형 판정은 곧 `read.state === 'found' && !expired` 라, 한 번 읽어 둘 다 답한다.
   secret(providerId: string): string | null {
     const grant = this.grants.get(providerId)
     if (!grant || grant.kind === 'session') return null
-    if (this.status(providerId) !== 'valid') return null
-    return this.vault.get(grant.vaultKey)
+    if (grant.expiresAt !== undefined && grant.expiresAt <= this.clock()) return null
+    const read = this.vault.read(grant.vaultKey)
+    return read.state === 'found' ? read.value : null
   }
 
   private flush(): void {

@@ -93,7 +93,7 @@ export function ProviderUsageTab({ provider }: { provider: AgentEnvironment }): 
             refreshing={refreshing}
             onRefresh={onRefresh}
           />
-          {refreshFailed && <p className="m-0 text-[12px] text-red">{tr('usage.refreshFailed')}</p>}
+          {refreshFailed && <p className="m-0 text-[12px] text-bad">{tr('usage.refreshFailed')}</p>}
         </div>
       </SettingsGroup>
 

@@ -13,11 +13,7 @@
 
 import type { CostSummary } from '../../../shared/ipc'
 import { boundaries } from '../../../shared/time/clock'
-import {
-  computeUsageLimits,
-  computeUsageLimitsFrom,
-  type UsageLimitsView
-} from '../../../shared/usage/limits'
+import { computeUsageLimitsFrom, type UsageLimitsView } from '../../../shared/usage/limits'
 import type { UsageSnapshot } from './fetcher'
 
 // provider 한정 로컬 집계. `monthDeltaCostUsd` 는 `asOf` 이후의 월간 증분이다.
@@ -46,14 +42,9 @@ export function baselineApplies(
 }
 
 // 전역 사용량 — **원격을 보지 않는다.** 계정 단위 원격 리포트는 provider 축에만 존재하고,
-// 전역은 이 PC 의 전체 합이라 대응하는 원격 값이 없다.
-export function composeGlobalUsage(
-  summary: CostSummary,
-  spendingLimitUsd: number | null,
-  now: number | Date = Date.now()
-): UsageLimitsView {
-  return computeUsageLimits(summary, spendingLimitUsd, now)
-}
+// 전역은 이 PC 의 전체 합이라 대응하는 원격 값이 없다. 합성할 것이 없으므로 이 축은
+// `shared/usage/limits` 의 `computeUsageLimits` 를 **그대로** 쓴다 — 여기에 껍데기를 한 겹
+// 두면 "전역 숫자는 어디서 정해지나" 가 한 홉 더 멀어질 뿐이다(`tracker.globalView` 참고).
 
 // provider 사용량 — 기준선 합성이 일어나는 유일한 곳.
 export function composeProviderUsage(

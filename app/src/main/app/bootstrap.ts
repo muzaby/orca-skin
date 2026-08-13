@@ -62,23 +62,16 @@ import { registerLogHandlers } from './handlers/log'
 import { registerProviderHandlers } from './handlers/providers'
 import { ProviderPlatform } from '../features/providers/platform'
 import { ProviderRegistry } from '../features/providers/auth/registry'
-import {
-  ProviderStore,
-  createMemoryGrantPersistence,
-  type GrantPersistencePort
-} from '../features/providers/auth/store'
+import { ProviderStore } from '../features/providers/auth/store'
 import {
   createGrantPersistence,
   createOAuthStatePersistence
 } from '../features/providers/auth/store-file'
-import {
-  OAuthStateStore,
-  createMemoryOAuthStatePersistence,
-  type OAuthStatePersistencePort
-} from '../features/providers/auth/oauth'
+import { OAuthStateStore } from '../features/providers/auth/oauth'
 import { OAuthRunner } from '../features/providers/auth/oauth-runner'
 import { LoginService } from '../features/providers/auth/login'
 import { declaredProviders } from '../features/providers/declarations'
+import { errorMessage } from '../infra/errors'
 import { createVault } from '../infra/vault'
 import { BrowserSessionStore } from '../infra/browser-session'
 import { SessionRunner } from '../features/providers/auth/specs/browser-session'
@@ -87,6 +80,7 @@ import { ProviderApiImpl } from '../features/providers/auth/api'
 import { ServiceToolRegistrar } from '../features/providers/service'
 import { createNoopUpdater, loadElectronAutoUpdater, UpdateController } from './updater'
 import { registerChatHandlers } from './chat-turn'
+import { registerSettingsReactions } from './settings-reactions'
 import { createBootReportRecorder } from './boot-report'
 import { RuntimeSupervisor } from '../features/sessions/supervisor'
 import { BoundedRuntimeCapPolicy } from '../features/sessions/runtime-cap-policy'
@@ -230,15 +224,11 @@ export class Bootstrap {
       })
     }
 
-    let persistence: GrantPersistencePort
-    try {
-      persistence = createGrantPersistence()
-    } catch (error) {
-      log.warn('providers.persistence.unavailable', {
-        reason: error instanceof Error ? error.message : String(error)
-      })
-      persistence = createMemoryGrantPersistence()
-    }
+    // 영속을 못 열면 어댑터가 스스로 메모리로 내려앉고 사유만 알려 준다 — 게이트 판정은
+    // 계속돼야 하므로 부팅을 세우지 않는다.
+    const persistence = createGrantPersistence((error) => {
+      log.warn('providers.persistence.unavailable', { reason: errorMessage(error) })
+    })
 
     const vault = createVault(secretStore)
     // 브라우저 세션(cookie jar·통합 인증)은 게이트·OAuth 창·세션 grant 전송이 **함께** 쓴다.
@@ -259,14 +249,16 @@ export class Bootstrap {
 
     // OAuth 인가 pending 은 grant 와 **다른 파일**에 앉는다(수명이 분 단위 대 재로그인까지).
     // 영속을 못 열면 메모리로 내려앉되, 그 경우 앱 재시작을 건너뛴 콜백만 대조된다.
-    let oauthStates: OAuthStatePersistencePort
-    try {
-      oauthStates = createOAuthStatePersistence()
-    } catch (error) {
-      log.warn('providers.oauth.persistence.unavailable', {
-        reason: error instanceof Error ? error.message : String(error)
-      })
-      oauthStates = createMemoryOAuthStatePersistence()
+    // 파일은 실제 OAuth 로그인이 돌 때 열린다 — 이 단계는 DB 앞으로 당겨 둔 자리다.
+    const oauthStates = createOAuthStatePersistence((error) => {
+      log.warn('providers.oauth.persistence.unavailable', { reason: errorMessage(error) })
+    })
+
+    // grant 상태가 바뀌면 **언제나** 이 둘이 함께 일어난다 — 도구 가시성 갱신과 상태 방송.
+    // 두 벌로 적으면(401 강등 경로 / 로그인 경로) 한쪽에만 단계가 붙는다.
+    const onProviderChange = (): void => {
+      serviceTools.sync(registry.byKind('service'))
+      broadcastProviderState(platform.state())
     }
 
     const api = new ProviderApiImpl({
@@ -277,10 +269,7 @@ export class Bootstrap {
       sessions,
       logger: (event, data) => log.warn(event, data),
       // 401 강등도 도구 가시성에 영향을 준다 — 만료된 연결의 도구를 남겨두지 않는다.
-      onChange: () => {
-        serviceTools.sync(registry.byKind('service'))
-        broadcastProviderState(platform.state())
-      }
+      onChange: onProviderChange
     })
 
     // service provider 의 도구는 grant 상태를 따라간다 — 로그인하면 나타나고 해제하면 사라진다.
@@ -333,10 +322,7 @@ export class Bootstrap {
           sessions,
           logger: (event, data) => log.info(event, data)
         }),
-        onChange: () => {
-          serviceTools.sync(registry.byKind('service'))
-          broadcastProviderState(platform.state())
-        },
+        onChange: onProviderChange,
         logger: (event, data) => log.info(event, data)
       })
     })
@@ -440,16 +426,14 @@ export class Bootstrap {
     this.bootReport.stepSync('cost-recompute', { critical: true, label: '비용 요약 재계산' }, () =>
       cost.recompute()
     )
+    // 설정이 파생 상태(게이트 판정·사용량 뷰)의 입력인 자리들 — 배선은 한 모듈이 갖는다.
+    registerSettingsReactions(this.settings, { providers, broadcastProviderState, cost })
     // 빌더는 db 인스턴스가 필요해 여기서 생성. skills 는 lazy getter 라 스캔 완료 전에 만들어도
     // 무방 — 턴 실행 시점에 최신 skillsCache 를 읽는다. DB 프로젝트 지침은 빌더가 매 턴 조회하므로
     // (무캐시) 지침 편집이 같은 세션 다음 메시지부터 즉시 반영된다.
     const scheduler = (this.scheduler = new Scheduler(new DbRunRecorder(db)))
-    scheduler.register('usage-recompute', () => {
-      cost.recordAndBroadcast()
-    })
-    // 사용량 코어 고정형 잡 (0186) — 기간 경계 갱신(항상) + 원격 갱신(fetcher 가 있을 때만).
-    // 설정 노출형 `usage-recompute` 와 별개다: 그쪽은 사용자가 켜는 임의 주기이고, 경계 갱신은
-    // 기본값이 off 인 설정에 맡길 수 없다(자정을 넘기면 주/월 바가 어제 기준에 멈춘다).
+    // 사용량 잡 (0186) — 코어 고정형(기간 경계 갱신·원격 갱신)과 설정 노출형
+    // (`usage-recompute`, 기본 off)을 `features/usage` 가 한 자리에서 등록한다.
     registerUsageJobs(scheduler, cost, {
       fetcher: usageFetcher,
       // 발화 시점에 평가 — 선언에서 LLM provider 좌표를 파생한다(`llmProviderKey` 재사용).

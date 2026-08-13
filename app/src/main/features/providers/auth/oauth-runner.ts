@@ -11,6 +11,7 @@
 
 import type { ProviderFailureReason } from '../../../../shared/ipc'
 import type { AuthCtx, OAuthStart, PkcePair, Provider } from '../../../contracts/provider'
+import { errorMessage } from '../../../infra/errors'
 import {
   awaitLoopbackCallback,
   loopbackRedirectUri,
@@ -79,7 +80,7 @@ export class OAuthRunner implements OAuthAuthenticator {
     try {
       start = await spec.authorize(ctx)
     } catch (error) {
-      return failure('exchange_failed', messageOf(error))
+      return failure('exchange_failed', errorMessage(error))
     }
 
     // 선언이 ctx 를 안 불렀어도 코어가 채운다 — PKCE 없는 요청이 나가지 않게 한다.
@@ -130,7 +131,7 @@ export class OAuthRunner implements OAuthAuthenticator {
       await this.deps.openExternal(start.url)
     } catch (error) {
       void callback.catch(() => undefined)
-      return failure('unsupported', messageOf(error))
+      return failure('unsupported', errorMessage(error))
     }
 
     let url: string
@@ -138,7 +139,7 @@ export class OAuthRunner implements OAuthAuthenticator {
       url = await callback
     } catch (error) {
       const reason = error instanceof LoopbackCancelledError ? 'cancelled' : 'unsupported'
-      return failure(reason, messageOf(error))
+      return failure(reason, errorMessage(error))
     }
     return this.absorbCallback(provider, start, url, pending)
   }
@@ -208,7 +209,7 @@ export class OAuthRunner implements OAuthAuthenticator {
       return { kind: 'token', token }
     } catch (error) {
       this.deps.logger?.('providers.oauth.exchange.failed', { providerId: provider.id })
-      return failure('exchange_failed', messageOf(error))
+      return failure('exchange_failed', errorMessage(error))
     }
   }
 
@@ -236,12 +237,8 @@ export class OAuthRunner implements OAuthAuthenticator {
         loopbackRedirectUri: () => pending.redirectUri ?? ''
       })
     } catch (error) {
-      return failure('exchange_failed', messageOf(error))
+      return failure('exchange_failed', errorMessage(error))
     }
     return this.exchangeStart(provider, start, code, pending)
   }
-}
-
-function messageOf(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
 }

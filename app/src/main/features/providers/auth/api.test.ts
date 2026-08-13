@@ -10,7 +10,7 @@
 
 import { describe, expect, it, vi } from 'vitest'
 import type { Grant, Provider } from '../../../contracts/provider'
-import type { SecretStorePort } from '../../../infra/config/secret-facade'
+import type { SecretStorePort } from '../../../infra/config/secret-store-port'
 import { createVault } from '../../../infra/vault'
 import { ProviderApiImpl, ProviderPolicyError } from './api'
 import { ProviderRegistry } from './registry'

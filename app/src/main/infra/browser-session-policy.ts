@@ -11,6 +11,26 @@
 // `ProviderResponse.finalUrl` 주석이 그 자리다. 홉별 allowlist 검사는 `send()` 의
 // `isAllowedOrigin` + `auth/policy.ts` 의 `checkRedirect` 가 두 겹으로 맡는다.
 
+// 한 cookie jar(`sessionGroup`)의 정책. **여기가 유일한 선언**이다 — 0182 까지 `browser-session.ts`
+// (infra) · `auth/session-policies.ts`(선언 → 정책) · `auth/specs/browser-session.ts`
+// (`BrowserSessionPort`) 세 곳에 같은 모양이 손으로 적혀 있었고, 그중 하나는
+// `allowIntegratedAuthDomains` 를 빠뜨려 필드를 늘려도 그 경로만 조용히 빠졌다.
+//
+// 이 파일이 제자리인 이유는 `isAllowedOrigin` 과 같다: `browser-session.ts` 는 최상단에서
+// electron 을 물어 타입만 빌려도 소비자가 electron 을 요구하게 된다(P29). 여기는 순수하다.
+export interface SessionGroupPolicy {
+  sessionGroup: string
+  // 이 창이 navigate 할 수 있는 origin. 밖으로 나가는 redirect 는 차단된다.
+  allowedOrigins: readonly string[]
+  // WIA(Negotiate/NTLM) 자동 자격증명을 허용할 도메인. ADFS 호스트로 제한하며 wildcard 금지.
+  //
+  // ⚠️ Electron 에서 통합 인증 허용 도메인은 per-session `allowNTLMCredentialsForDomains()` 와
+  // 프로세스 전역 `--auth-server-allowlist` 스위치가 서로 다른 층위로 존재한다. 여기서는
+  // per-session API 만 쓴다 — group 별 분리가 실제로 성립하는지는 실기 확인 항목이며,
+  // 분리가 불가능하면 이 필드는 전역 합집합 의미로 강등된다(0157 plan §게이트).
+  allowIntegratedAuthDomains?: readonly string[]
+}
+
 export function partitionFor(sessionGroup: string): string {
   return `persist:auth.${sessionGroup}`
 }

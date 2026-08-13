@@ -6,7 +6,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { Provider } from '../../../contracts/provider'
 import { createVault } from '../../../infra/vault'
-import type { SecretStorePort } from '../../../infra/config/secret-facade'
+import type { SecretStorePort } from '../../../infra/config/secret-store-port'
 import { ProviderApiImpl, ProviderPolicyError } from './api'
 import {
   checkHeaders,

@@ -11,6 +11,7 @@ import type {
   ProviderStepInfo
 } from '../../../shared/ipc'
 import type { AuthSpec, Provider, ProviderApi } from '../../contracts/provider'
+import { runtimeToolFullName } from '../../adapters/runtime-tool-policy'
 import { evaluateGate } from './gate'
 import type { LoginService } from './auth/login'
 import type { ProviderRegistry } from './auth/registry'
@@ -123,9 +124,8 @@ export class ProviderPlatform {
   }
 }
 
-// 모델이 보는 **완전 이름** 으로 접는다 — 조립 규칙은 `adapters/claude-runtime-tools.ts`(SDK
-// 서버 키 = `descriptor.id`)와 `adapters/runtime-tool-policy.ts`(승인 이름)와 같아야 한다.
+// 모델이 보는 **완전 이름** 으로 접는다 — 조립은 승인 경로와 **같은 함수**를 쓴다.
 function toolNames(descriptor: { serverId: string; tools: string[] } | null): string[] {
   if (!descriptor) return []
-  return descriptor.tools.map((tool) => `mcp__${descriptor.serverId}__${tool}`)
+  return descriptor.tools.map((tool) => runtimeToolFullName(descriptor.serverId, tool))
 }

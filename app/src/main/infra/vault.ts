@@ -12,7 +12,7 @@
 // 레이어: infra → infra·shared 만. contracts 를 import 하지 않는다.
 
 import type { ProviderAuthKind } from '../../shared/ipc'
-import type { SecretStorePort } from './config/secret-facade'
+import type { SecretStorePort } from './config/secret-store-port'
 
 // metadata 는 비밀이 아니라 평문 JSON 으로 둔다 — 같은 SecretStore 를 쓰되 별도 키 접미사.
 const META_SUFFIX = '#meta'

@@ -4,14 +4,13 @@ import { formatDateMedium, useI18n } from '../../../../shared/i18n'
 import { Icon } from '../../../../shared/ui/Icon'
 import { Dot } from '../../../../shared/ui/Status'
 import { Button } from '../../../../shared/ui/Button'
+import { AuthKindChoices } from '../../../../shared/ui/AuthKindChoices'
 import {
   authChoices,
-  canReauth,
-  canRevoke,
   initialAuthKind,
-  needsAuthChoice,
-  providerRowMeta
-} from '../../lib/providerRows'
+  needsAuthChoice
+} from '../../../../shared/config/providerAuth'
+import { isConnected, providerRowMeta } from '../../lib/providerRows'
 
 const TONE = { valid: 'green', expired: 'amber', unknown: 'amber', none: 'slate' } as const
 
@@ -67,7 +66,7 @@ export function ProviderDetail({
           </div>
         </div>
         <div className="ml-auto flex flex-none items-center gap-g3">
-          {canReauth(provider) ? (
+          {isConnected(provider) ? (
             <Button size="small" onClick={() => onReauth(authKind ?? undefined)}>
               {tr('skills.provider.reauth')}
             </Button>
@@ -76,7 +75,7 @@ export function ProviderDetail({
               {tr('skills.provider.connect')}
             </Button>
           )}
-          {canRevoke(provider) && (
+          {isConnected(provider) && (
             <Button size="small" onClick={onRevoke}>
               {tr('skills.provider.revoke')}
             </Button>
@@ -131,23 +130,12 @@ export function ProviderDetail({
           <legend className="px-p2 text-caption text-ink3">
             {tr('skills.provider.chooseMethod')}
           </legend>
-          <div className="flex flex-wrap gap-g3">
-            {choices.map((spec) => (
-              <button
-                key={spec.kind}
-                type="button"
-                onClick={() => setAuthKind(spec.kind)}
-                aria-pressed={authKind === spec.kind}
-                className={`cursor-pointer rounded-r4 border px-3.5 py-p3 text-footnote ${
-                  authKind === spec.kind
-                    ? 'border-0 bg-ink text-bg'
-                    : 'border-border bg-panel text-ink2 hover:bg-fill-uncontained-hover'
-                }`}
-              >
-                {spec.label}
-              </button>
-            ))}
-          </div>
+          <AuthKindChoices
+            choices={choices}
+            value={authKind}
+            onChange={setAuthKind}
+            className="flex flex-wrap gap-g3"
+          />
         </fieldset>
       )}
 
@@ -176,7 +164,7 @@ export function ProviderDetail({
             </label>
           ))}
           {mine.message !== undefined && (
-            <p className="m-0 text-caption text-red">{mine.message}</p>
+            <p className="m-0 text-caption text-bad">{mine.message}</p>
           )}
           <Button type="submit" variant="contained" size="small" className="self-start">
             {tr('skills.provider.submit')}
@@ -220,7 +208,7 @@ export function ProviderDetail({
         </form>
       )}
 
-      {mine?.kind === 'failed' && <p className="mt-p7 text-footnote text-red">{mine.message}</p>}
+      {mine?.kind === 'failed' && <p className="mt-p7 text-footnote text-bad">{mine.message}</p>}
     </div>
   )
 }

@@ -119,7 +119,6 @@ export const en: typeof ko = {
       noMcp: 'No registered MCP servers.',
       noProviders: 'No registered connections.',
       provider: 'Connection',
-      providerKind: 'Purpose',
       providerAuth: 'Auth method'
     },
     groups: {

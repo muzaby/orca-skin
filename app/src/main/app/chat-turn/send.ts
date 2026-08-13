@@ -32,7 +32,7 @@ import { chatForward, resolveTurnProvider } from './turn-setup'
 import { buildTurnRequest } from './turn-request'
 import { createApprovalRequester } from './approval'
 import { runTurnWithContinuations } from './post-turn'
-import type { ChatRuntimeDeps } from './deps'
+import type { ChatRuntimeDeps, NormalizedAttachments } from './deps'
 
 export async function handleChatSend(
   deps: ChatRuntimeDeps,
@@ -68,7 +68,7 @@ export async function handleChatSend(
   const activeAdapter = adapter!
 
   // ── 2. 첨부 정규화 (busy 판정 앞 — 위 ①) ──────────────────────────────────
-  let normalizedAttachments: Awaited<ReturnType<typeof normalizeAttachments>>
+  let normalizedAttachments: NormalizedAttachments
   try {
     normalizedAttachments = await normalizeAttachments(payload.attachments)
   } catch (err) {

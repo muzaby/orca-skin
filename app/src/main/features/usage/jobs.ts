@@ -22,6 +22,7 @@ export interface UsageJobScheduler {
 export interface UsageJobTracker {
   refreshBoundary(): void
   refreshProvider(providerKey: string, signal?: AbortSignal): Promise<unknown>
+  recordAndBroadcast(): void
 }
 
 export interface UsageJobOptions {
@@ -55,6 +56,11 @@ export function registerUsageJobs(
   // 재계산할 뿐이라 데이터가 어긋나지 않는다(중복 계산일 뿐). 정리는 후속.
   scheduler.register('usage-boundary', () => tracker.refreshBoundary())
   scheduler.schedule('usage-boundary', { enabled: true, cron: USAGE_BOUNDARY_CRON })
+
+  // 설정 노출형 — **등록만** 한다. 주기는 `Scheduler.applySettings` 가 소유하고 기본값은 off 다.
+  // 위 주석이 이 잡과의 관계를 설명하고 있었으므로 등록도 같은 자리에 둔다 — bootstrap 에
+  // 따로 남겨 두면 "사용량이 어떤 잡을 갖는가" 를 두 파일에서 읽어야 한다.
+  scheduler.register('usage-recompute', () => tracker.recordAndBroadcast())
 
   // 원격 갱신 — fetcher 가 없으면 **등록조차 하지 않는다.** 부를 대상 없는 잡은 죽은 배관이고,
   // `schedule_runs` 에 의미 없는 성공 기록만 쌓인다.
