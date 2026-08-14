@@ -46,6 +46,22 @@ type Carrier =
   | { kind: 'session'; grant: SessionGrant; sessions: BrowserSessionPort; sessionGroup: string }
   | { kind: 'value'; grant: ValueGrant; presentation: Presentation; secret: string }
 
+// ── 후보 자격증명 (r5) ────────────────────────────────────────────────────────
+//
+// 로그인 probe 는 **아직 아무 데도 커밋되지 않은 값**으로 나간다. r4 까지는 반대였다 —
+// `settleGrant` 가 grant 를 전역 store 에 넣고 vault 를 덮은 **뒤에** probe 했고, 그래야
+// `checkOutboundRequest` 의 `grantStatus === 'valid'` 를 통과했다. 그 사이(네트워크 왕복 동안)
+// 다른 소비자가 검증되지 않은 후보 secret 과 올라간 revision 을 읽었고, probe 가 401 이면
+// 강등 이벤트가 나가 Plugin 도구가 회수됐다 — rollback 은 상태만 되돌릴 뿐 그 이벤트를
+// 취소하지 못해 도구가 회수된 채로 남았다. 앱이 probe 중 죽으면 vault 에 후보 값이 남았다.
+//
+// 그래서 후보를 **요청 인자로** 싣는다. store 는 확인이 끝날 때까지 아무것도 모른다.
+export interface CandidateCredential {
+  grant: Grant
+  // 값형: vault 에 아직 쓰지 않은 메모리 값. 세션형은 cookie jar 가 나르므로 없다.
+  secret?: string
+}
+
 export class AuthPolicyError extends Error {
   constructor(
     readonly reason: string,
@@ -89,7 +105,9 @@ export class AuthenticatedRequester {
   async request(
     authId: AuthId,
     req: AuthenticatedRequest,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    // 확인 중인 후보. 주어지면 store·vault 를 **읽지도 쓰지도 않는다** (r5).
+    candidate?: CandidateCredential
   ): Promise<AuthenticatedResponse> {
     const definition = this.deps.registry.get(authId)
     if (!definition) throw new AuthPolicyError('unknown_auth', authId)
@@ -97,7 +115,10 @@ export class AuthenticatedRequester {
     // 정책 판정 **전에** 시계 만료를 정착시킨다 — `status()` 는 순수 조회라 `expired` 를
     // 돌려주기만 하고 전이를 남기지 않는다. 여기서 못 박아야 거부와 downstream 무효화가
     // 같은 사건이 된다. 이미 정착됐으면 아무 일도 하지 않는다(store 가 1회를 보장).
-    if (this.deps.store.settleExpiry(authId)) this.deps.onExpired?.(authId)
+    //
+    // **후보 요청은 지나가지 않는다** — 커밋된 grant 의 만료는 이 요청과 무관하고, 여기서
+    // 정착시키면 확인 중인 로그인이 기존 연결을 건드리게 된다.
+    if (!candidate && this.deps.store.settleExpiry(authId)) this.deps.onExpired?.(authId)
 
     const url = withQuery(new URL(req.path, `${definition.origin}/`), req.query)
     const verdict = checkOutboundRequest({
@@ -105,7 +126,8 @@ export class AuthenticatedRequester {
       path: req.path,
       ...(req.headers ? { headers: req.headers } : {}),
       allowedOrigins: [definition.origin],
-      grantStatus: this.deps.store.status(authId)
+      // 후보는 "지금 확인하려는 값" 이라 정의상 valid 다 — 커밋 전이므로 store 에는 없다.
+      grantStatus: candidate ? 'valid' : this.deps.store.status(authId)
     })
     if (!verdict.ok) throw new AuthPolicyError(verdict.reason, verdict.detail)
 
@@ -121,18 +143,32 @@ export class AuthenticatedRequester {
     // **그러나 grant 가 그대로인지는 홉마다 확인한다**(`send()`). 체인 도중에 해제·재인증·401
     // 강등·만료가 끼어들 수 있다 — 요청은 `await` 를 포함하고 `LoginService.revoke()` 는 IPC 에서
     // 동기로 들어온다. 그 확인은 메모리 판정이라 vault 를 다시 읽지 않는다.
-    const carrier = this.resolveCarrier(definition)
-    const { result, finalUrl } = await this.send(definition, carrier, prepared, req, signal)
+    const carrier = this.resolveCarrier(definition, candidate)
+    const { result, finalUrl } = await this.send(
+      definition,
+      carrier,
+      prepared,
+      req,
+      signal,
+      candidate
+    )
 
     // 401 은 "자격증명이 더 이상 유효하지 않다" 는 **서버의 판정**이다. 여기서 강등해야
     // 사용자가 GUI 에서 재인증 지점을 본다 — 조용히 실패만 반복하지 않는다.
-    if (result.status === 401 || result.status === 403) {
-      const transitioned = this.deps.store.markExpired(authId)
+    //
+    // **후보는 강등하지 않는다** (r5) — 커밋된 것이 없으므로 내릴 상태가 없다. 후보의 401 은
+    // 그냥 "이 값이 거부됐다" 이고, 그 해석은 로그인 흐름이 자기 실패 모양으로 만든다.
+    if (!candidate && (result.status === 401 || result.status === 403)) {
+      const changed = this.deps.store.markExpired(authId)
       this.deps.logger?.('auth.request.unauthorized', {
         authId,
         status: result.status
       })
-      this.deps.onUnauthorized?.(authId, transitioned)
+      // 아무것도 안 바뀌었으면 방송하지 않는다 — 같은 401 을 두 요청이 각각 봐도 상태는
+      // 한 번만 달라진다.
+      if (changed.snapshotChanged) {
+        this.deps.onUnauthorized?.(authId, changed.credentialChanged)
+      }
     }
 
     return {
@@ -155,7 +191,8 @@ export class AuthenticatedRequester {
     carrier: Carrier,
     prepared: PreparedRequest,
     req: AuthenticatedRequest,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    candidate?: CandidateCredential
   ): Promise<{ result: SendResult; finalUrl: string }> {
     const allowed = this.redirectOrigins(definition, carrier)
     const options: SendOptions = {
@@ -179,7 +216,9 @@ export class AuthenticatedRequester {
       // **다음 홉을 보내기 직전**에 grant 가 그대로인지 본다(첫 홉은 방금 `resolveCarrier` 가
       // 풀었으므로 볼 것이 없다). 해제·재인증·강등·만료가 이 사이에 일어나면 이미 손에 든
       // 자격증명은 더 이상 유효하지 않다 — 홉마다 다시 풀던 시절에는 이 판정이 공짜로 따라왔다.
-      if (!this.grantStillValid(definition.id, carrier)) {
+      // 후보는 store 에 없으므로 홉 사이 변경을 볼 대상 자체가 없다 — 다른 IPC 가 건드릴 수
+      // 없는 로그인 턴 지역 값이다.
+      if (!candidate && !this.grantStillValid(definition.id, carrier)) {
         this.deps.logger?.('auth.request.grant-changed', { authId: definition.id })
         throw new AuthPolicyError('grant_not_valid', '요청 도중 자격증명이 바뀌었습니다')
       }
@@ -218,8 +257,8 @@ export class AuthenticatedRequester {
   }
 
   // 무엇을 어떻게 실어 보낼지를 한 번에 정한다. 세션이면 cookie jar, 값형이면 secret+present.
-  private resolveCarrier(definition: AuthDefinition): Carrier {
-    const grant = this.deps.store.get(definition.id)
+  private resolveCarrier(definition: AuthDefinition, candidate?: CandidateCredential): Carrier {
+    const grant = candidate ? candidate.grant : this.deps.store.get(definition.id)
     if (grant?.kind === 'session') {
       if (!this.deps.sessions) {
         throw new AuthPolicyError('unsupported', '브라우저 세션 전송이 배선되지 않았습니다')
@@ -233,11 +272,18 @@ export class AuthenticatedRequester {
       }
     }
 
-    const secret = this.deps.store.secret(definition.id)
-    const presentation = presentationFor(definition, this.deps.store.authKind(definition.id))
+    // 후보는 vault 를 아직 안 거쳤으므로 메모리 값을 그대로 쓴다.
+    const secret = candidate ? (candidate.secret ?? null) : this.deps.store.secret(definition.id)
+    const presentation = presentationFor(
+      definition,
+      candidate ? candidate.grant.authKind : this.deps.store.authKind(definition.id)
+    )
     // `grant` 가 없으면 `secret()` 도 null 이라 아래에서 걸린다 — 값형 grant 임이 여기서 확정된다.
     if (grant === undefined || secret === null || presentation === null) {
-      throw new AuthPolicyError('grant_not_valid', this.deps.store.status(definition.id))
+      throw new AuthPolicyError(
+        'grant_not_valid',
+        candidate ? 'candidate' : this.deps.store.status(definition.id)
+      )
     }
     return { kind: 'value', grant, presentation, secret }
   }

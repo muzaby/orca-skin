@@ -23,6 +23,7 @@ import type {
 } from '../../contracts/auth'
 import { errorMessage } from '../../infra/errors'
 import { providerRefreshKey, providerVaultKey, type Vault } from '../../infra/vault'
+import type { CandidateCredential } from './authenticated-request'
 import { isAllowedOrigin } from './policy'
 import type { AuthRegistry } from './registry'
 import type { AuthStore } from './store'
@@ -62,10 +63,13 @@ export interface LoginDeps {
   oauth?: OAuthAuthenticator
   session?: SessionAuthenticator
   // 인증 확인(`AuthDefinition.probe`)의 실행 통로. 미주입이면 확인 없이 통과한다.
+  // `candidate` 는 **아직 커밋되지 않은** 자격증명이다 (r5) — store·vault 를 거치지 않고
+  // 이 요청에만 실린다.
   request?: (
     authId: AuthId,
     req: AuthenticatedRequest,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    candidate?: CandidateCredential
   ) => Promise<AuthenticatedResponse>
   // ── 두 갈래 통지 (0188 D-008) ───────────────────────────────────────────────
   //
@@ -183,8 +187,8 @@ export class LoginService {
     // 부팅 방송 상한을 `1 + K`(0187 D2)에서 `1 + 2K` 로 늘리고 Harness cache 를 한 번 더 비웠다.
     //
     // 401 이 아닌 실패(비-2xx·origin 미복귀·전송 오류)에서는 요청 경로가 강등하지 않으므로
-    // 여기가 유일한 전이 지점이고, `markExpired` 가 true 를 돌려준다.
-    const demoted = ok ? false : this.deps.store.markExpired(definition.id)
+    // 여기가 유일한 전이 지점이고, `markExpired` 가 전이를 보고한다.
+    const demoted = ok ? null : this.deps.store.markExpired(definition.id)
     if (ok) this.deps.store.markVerified(definition.id)
 
     if (exposeStep) {
@@ -194,7 +198,7 @@ export class LoginService {
     // 실패 강등은 credential-effective 다(도구 회수·cache 무효화가 걸린다) — 전이가 있었으면
     // 즉시 낸다. 성공은 `verified` 만 바뀐 것이라 batch 가 마지막에 한 번 모아 낼 수 있다.
     if (!ok) {
-      if (demoted) this.deps.onSnapshot?.(definition.id, 'expired')
+      if (demoted?.credentialChanged) this.deps.onSnapshot?.(definition.id, 'expired')
     } else if (options?.emitVerifiedChange ?? true) {
       this.deps.onSnapshot?.(definition.id, 'verified')
     }
@@ -252,14 +256,18 @@ export class LoginService {
   // **status 만 보지 않는다** (0174 실기): SSO 배포는 미인증일 때 IdP 로그인 폼을 **200** 으로
   // 준다. 체인이 definition origin 으로 돌아왔는지까지 봐야 그 200 을 인증됨으로 오독하지 않는다.
   // allowlist 밖으로 튄 홉은 `api.request` 가 던지고, 그 자체가 미인증 판정이다.
-  private async probeOk(definition: AuthDefinition): Promise<boolean> {
+  private async probeOk(
+    definition: AuthDefinition,
+    candidate?: CandidateCredential
+  ): Promise<boolean> {
     const probe = definition.probe
     if (!probe || !this.deps.request) return true
     try {
       const res = await this.deps.request(
         definition.id,
         { path: probe.path, ...(probe.method !== undefined ? { method: probe.method } : {}) },
-        AbortSignal.timeout(PROBE_TIMEOUT_MS)
+        AbortSignal.timeout(PROBE_TIMEOUT_MS),
+        candidate
       )
       // origin 비교는 브라우저 세션·홉별 검사와 **같은 구현**을 쓴다 — 두 벌이면 규칙이
       // 갈리는데, 하필 이 한 줄이 "인증됐는가" 의 판정이다. `definition.origin` 은 등록에서
@@ -284,58 +292,33 @@ export class LoginService {
     }
   }
 
-  // 커밋 → 확인 → 실패면 **되돌린다**. `null` = 확인 실패 — 호출자가 자기 실패 모양을 만든다
-  // (입력 폼이 있는 방식은 같은 폼으로, 브라우저 흐름은 `failed` 로).
+  // 확인 → 성공하면 **한 번에 커밋**한다 (r5). `null` = 확인 실패 — 호출자가 자기 실패 모양을
+  // 만든다(입력 폼이 있는 방식은 같은 폼으로, 브라우저 흐름은 `failed` 로).
   //
-  // 커밋을 먼저 하는 이유는 `checkOutboundRequest` 가 `grantStatus !== 'valid'` 를 거부하기
-  // 때문이다. 확인이 끝나기 전에는 **알리지 않는다**(`notify:false`) — `commit` 이 곧바로
-  // 브로드캐스트하면 probe 로 떨어질 자격증명에도 게이트가 한 순간 열렸다 닫힌다.
+  // ── 왜 순서를 뒤집었나 (0188 D-009 → D-047) ──────────────────────────────────
+  // r4 까지는 커밋 → 확인 → 실패면 되돌림이었다. `checkOutboundRequest` 가 `grantStatus`
+  // 를 보기 때문에 커밋 없이는 probe 를 낼 수 없었다. 그 되돌림은 원리적으로 불완전했다 —
+  // probe 왕복 동안 후보 secret 과 올라간 revision 이 전역에 노출됐고, 후보의 401 이 낸 강등
+  // 이벤트는 상태를 되돌려도 취소되지 않아 **Plugin 도구가 회수된 채로 남았다**.
   //
-  // **되돌림의 범위 (0188 D-009)**: 0181 은 실패 시 `store.revoke()` 로 새 grant 를 지웠는데,
-  // 그것은 *이전* 자격증명까지 함께 지우는 동작이었다(값형은 같은 vault 키를 덮어썼으므로).
-  // 그래서 재인증 한 번 실패가 멀쩡히 살아 있던 연결을 끊었다. 이제 호출부가 `rollback` 을
-  // 넘겨 vault 값·grant·`verified`·`credentialRevision` 을 통째로 이전 상태로 되돌린다.
+  // 이제 후보를 `CandidateCredential` 로 요청에 실어 보낸다. store 도 vault 도 확인이 끝날
+  // 때까지 아무것도 모르므로 **되돌릴 중간 상태가 아예 생기지 않는다**. vault 쓰기(`writeVault`)
+  // 도 성공 후에만 일어나 probe 중 종료되는 crash window 가 닫힌다.
   private async settleGrant(
     definition: AuthDefinition,
-    grant: Grant,
-    rollback?: () => void
+    candidate: CandidateCredential,
+    writeVault?: () => void
   ): Promise<AuthStep | null> {
-    this.commit(definition.id, grant, false)
-    if (!(await this.probeOk(definition))) {
-      if (rollback) rollback()
-      else this.deps.store.revoke(definition.id)
+    if (!(await this.probeOk(definition, candidate))) {
+      // 아무것도 쓰지 않았다 — 이전 자격증명은 손대지 않은 채 그대로 살아 있다.
       // 통지는 호출자의 `emit`(폼 재표시 또는 `failed`)이 한다 — 두 번 쏘지 않는다.
       return null
     }
+    // 확인된 값만 영속한다. 순서가 규칙이다: vault 먼저(값이 없으면 grant 는 고아가 된다).
+    writeVault?.()
+    this.commit(definition.id, candidate.grant, false)
     this.deps.onSnapshot?.(definition.id, 'credential-committed')
     return this.emit({ kind: 'done', providerId: definition.id })
-  }
-
-  // 값형·토큰형이 vault 를 덮어쓰기 **전에** 뜨는 복구 지점. grant/verified/revision 은 store
-  // 가, vault 값은 여기가 되돌린다 — 후자는 쓰기와 짝이어야 하므로 store 가 알 수 없다.
-  private captureRollback(authId: AuthId, vaultKeys: readonly string[]): { restore: () => void } {
-    const point = this.deps.store.captureForRollback(authId)
-    const previousGrant = point.grant
-    const saved = vaultKeys.map((name) => ({ name, read: this.deps.vault.read(name) }))
-    return {
-      restore: () => {
-        for (const entry of saved) {
-          if (entry.read.state === 'found' && previousGrant) {
-            this.deps.vault.set(entry.name, entry.read.value, {
-              kind: previousGrant.authKind,
-              createdAt: previousGrant.createdAt,
-              ...(previousGrant.expiresAt !== undefined
-                ? { expiresAt: previousGrant.expiresAt }
-                : {})
-            })
-          } else {
-            // 이전에 값이 없었거나(첫 로그인) 복호화할 수 없었다 — 새로 쓴 값만 걷어낸다.
-            this.deps.vault.delete(entry.name)
-          }
-        }
-        this.deps.store.rollback(point)
-      }
-    }
   }
 
   private async runCredential(
@@ -369,23 +352,24 @@ export class LoginService {
 
     const vaultKey = providerVaultKey(definition.id, spec.kind)
     const createdAt = this.clock()
-    const rollback = this.captureRollback(definition.id, [vaultKey])
-    this.deps.vault.set(vaultKey, composed.value, { kind: spec.kind, createdAt })
     const settled = await this.settleGrant(
       definition,
       {
-        kind: 'secret',
-        vaultKey,
-        authKind: spec.kind,
-        createdAt,
-        ...(composed.principalId !== undefined ? { principalId: composed.principalId } : {})
+        grant: {
+          kind: 'secret',
+          vaultKey,
+          authKind: spec.kind,
+          createdAt,
+          ...(composed.principalId !== undefined ? { principalId: composed.principalId } : {})
+        },
+        secret: composed.value
       },
-      rollback.restore
+      () => this.deps.vault.set(vaultKey, composed.value, { kind: spec.kind, createdAt })
     )
     if (settled) return settled
 
     // 서버가 그 값을 거부했다 — pending 을 살려 **같은 폼**으로 돌려준다(compose 오류와 같은
-    // 모양). 재인증이었다면 이전 자격증명은 rollback 이 되살려 뒀다(0188 D-009).
+    // 모양). 재인증이었다면 이전 자격증명은 **손도 대지 않았다**(r5 D-047).
     this.pending.set(definition.id, { authId: definition.id, authKind: spec.kind })
     return this.emit({
       kind: 'input-required',
@@ -449,20 +433,21 @@ export class LoginService {
       case 'secret': {
         const vaultKey = providerVaultKey(definition.id, authKind)
         const createdAt = this.clock()
-        const rollback = this.captureRollback(definition.id, [vaultKey])
-        this.deps.vault.set(vaultKey, result.value, { kind: authKind, createdAt })
         return this.settled(
           definition,
           await this.settleGrant(
             definition,
             {
-              kind: 'secret',
-              vaultKey,
-              authKind,
-              createdAt,
-              ...(result.principalId !== undefined ? { principalId: result.principalId } : {})
+              grant: {
+                kind: 'secret',
+                vaultKey,
+                authKind,
+                createdAt,
+                ...(result.principalId !== undefined ? { principalId: result.principalId } : {})
+              },
+              secret: result.value
             },
-            rollback.restore
+            () => this.deps.vault.set(vaultKey, result.value, { kind: authKind, createdAt })
           )
         )
       }
@@ -470,54 +455,51 @@ export class LoginService {
         const vaultKey = providerVaultKey(definition.id, authKind)
         const createdAt = this.clock()
         const { token } = result
-        const rollback = this.captureRollback(definition.id, [
-          vaultKey,
-          providerRefreshKey(definition.id, authKind)
-        ])
-        this.deps.vault.set(vaultKey, token.token, {
-          kind: authKind,
-          createdAt,
-          ...(token.expiresAt !== undefined ? { expiresAt: token.expiresAt } : {})
-        })
-        let refreshKey: string | undefined
-        if (token.refreshToken !== undefined) {
-          refreshKey = providerRefreshKey(definition.id, authKind)
-          this.deps.vault.set(refreshKey, token.refreshToken, { kind: authKind, createdAt })
-        }
+        const refreshKey =
+          token.refreshToken !== undefined ? providerRefreshKey(definition.id, authKind) : undefined
         return this.settled(
           definition,
           await this.settleGrant(
             definition,
             {
-              kind: 'token',
-              vaultKey,
-              authKind,
-              createdAt,
-              ...(token.expiresAt !== undefined ? { expiresAt: token.expiresAt } : {}),
-              ...(refreshKey !== undefined ? { refreshKey } : {}),
-              ...(token.principalId !== undefined ? { principalId: token.principalId } : {})
+              grant: {
+                kind: 'token',
+                vaultKey,
+                authKind,
+                createdAt,
+                ...(token.expiresAt !== undefined ? { expiresAt: token.expiresAt } : {}),
+                ...(refreshKey !== undefined ? { refreshKey } : {}),
+                ...(token.principalId !== undefined ? { principalId: token.principalId } : {})
+              },
+              secret: token.token
             },
-            rollback.restore
+            () => {
+              this.deps.vault.set(vaultKey, token.token, {
+                kind: authKind,
+                createdAt,
+                ...(token.expiresAt !== undefined ? { expiresAt: token.expiresAt } : {})
+              })
+              if (refreshKey !== undefined && token.refreshToken !== undefined) {
+                this.deps.vault.set(refreshKey, token.refreshToken, { kind: authKind, createdAt })
+              }
+            }
           )
         )
       }
       case 'session': {
-        // 세션 grant 는 vault 에 값을 쓰지 않지만 grant·verified·revision 은 교체한다 —
-        // 실패하면 그것도 되돌려야 이전 세션이 살아남는다.
-        const rollback = this.captureRollback(definition.id, [])
+        // 세션 grant 는 vault 에 값을 쓰지 않는다 — cookie jar 가 값을 나른다. 확인이 끝나기
+        // 전에는 store 에도 넣지 않으므로 이전 세션 grant 는 그대로 살아 있다.
         return this.settled(
           definition,
-          await this.settleGrant(
-            definition,
-            {
+          await this.settleGrant(definition, {
+            grant: {
               kind: 'session',
               sessionGroup: result.sessionGroup,
               authKind,
               createdAt: this.clock(),
               ...(result.principalId !== undefined ? { principalId: result.principalId } : {})
-            },
-            rollback.restore
-          )
+            }
+          })
         )
       }
     }

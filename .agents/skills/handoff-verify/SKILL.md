@@ -81,7 +81,12 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh <base>..<head>
 - 같은 규칙의 중복 구현/SSOT drift.
 - 외부 SDK/문서 예제/fixture의 실제 계약 타입·의미.
 
-**테스트가 있다는 사실과 프로덕션에 배선됐다는 사실을 분리한다.** 유일한 호출자가 테스트면 기능은 미배선이다.
+**테스트가 있다는 사실과 프로덕션에 배선됐다는 사실을 분리한다.** 두 방향을 모두 본다.
+
+- 유일한 호출자가 테스트면 기능은 **미배선**이다.
+- 테스트가 production symbol을 부르지 않고 **같은 이름·같은 형상의 로컬 재구현**을 세워 그것을 단언하면, 배선돼 있어도 **그 테스트는 production 계약을 잠그지 않는다**. production 구현이나 그 호출부가 깨져도 통과한다. 인자 타입만 production 것을 빌려 쓰는 경우도 같다 — 타입은 형상을 잠그고 동작은 잠그지 않는다.
+
+“이 파일이 없으면 어떤 production 코드가 깨지는가”에 답할 수 없으면 그 테스트는 증거가 아니다.
 
 이 절차의 대표 실증은 [`references/0157-case.md`](references/0157-case.md)다. 이 파일은 역방향 탐색·test-only symbol·형제 정책 비대칭·“테스트 불가” 오판의 근거 사례이며 고아 reference로 두지 않는다.
 

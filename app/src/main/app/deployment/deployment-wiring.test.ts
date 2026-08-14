@@ -31,10 +31,29 @@ import { prepareHarnessConfig } from '../../features/harnesses/prepared-config'
 import type { UsageFetcher } from '../../features/usage/fetcher'
 import { connectionState } from '../connection-views'
 import type { ConnectionViewSource } from '../connection-views'
-import { createPluginBinding, type PluginBinding, type PluginDeploymentDeps } from './plugins'
-import { gateRows, pluginRows, type ConnectionDeploymentDeps } from './connections'
-import type { HarnessRuntimeDeploymentDeps } from './harness-runtime'
-import type { UsageDeploymentDeps } from './usage-fetcher'
+import {
+  createPluginBinding,
+  createPluginBindings as productionPluginBindings,
+  type PluginBinding,
+  type PluginDeploymentDeps
+} from './plugins'
+import {
+  createConnectionSources as productionConnectionSources,
+  gateRows,
+  pluginRows,
+  type ConnectionDeploymentDeps
+} from './connections'
+import {
+  createConfigApiAugmenters as productionConfigApiAugmenters,
+  createDirectCredentialAugmenters as productionDirectCredentialAugmenters,
+  createRuntimeConfigAugmenters as productionRuntimeConfigAugmenters,
+  type HarnessConfigApiDeps,
+  type HarnessDirectCredentialDeps
+} from './harness-runtime'
+import {
+  createUsageFetcher as productionUsageFetcher,
+  type UsageDeploymentDeps
+} from './usage-fetcher'
 import type { RuntimeConfigAugmenters } from '../../features/harnesses/runtime-config'
 
 const BEARER = { location: 'header', name: 'Authorization', scheme: 'bearer' } as const
@@ -186,7 +205,7 @@ describe('가상 배포 — Plugin 경계', () => {
 // 가이드 §4 의 두 augmenter 방식. **인자 타입은 실제 `HarnessRuntimeDeploymentDeps`** 다 (r4) —
 // config API 방식은 `auth` 만, direct credential 방식은 `secretFor` 만 쓴다는 경계까지 여기서
 // 함께 잠근다.
-const createConfigApiAugmenters = (deps: HarnessRuntimeDeploymentDeps): RuntimeConfigAugmenters => {
+const createConfigApiAugmenters = (deps: HarnessConfigApiDeps): RuntimeConfigAugmenters => {
   const corpAuth = deps.auth.bind(CORP_LLM_AUTH.id)
   return {
     [CLAUDE_CORP_KEY]: {
@@ -206,7 +225,7 @@ const createConfigApiAugmenters = (deps: HarnessRuntimeDeploymentDeps): RuntimeC
 }
 
 const createDirectCredentialAugmenters = (
-  deps: HarnessRuntimeDeploymentDeps
+  deps: HarnessDirectCredentialDeps
 ): RuntimeConfigAugmenters => {
   // Bootstrap 이 넘기는 것과 같은 형태 — 전체 `AuthSecretReader` 가 아니라 AuthId 를 닫은 closure.
   const readSecret = deps.secretFor(CORP_LLM_AUTH.id)
@@ -223,10 +242,11 @@ const createDirectCredentialAugmenters = (
 
 describe('가상 배포 — Harness 실행 구성', () => {
   it('config API augmenter 가 BoundAuth 만으로 전체 env overlay 를 만든다', async () => {
-    const { auth, secretFor, requests } = deployment()
+    const { auth, requests } = deployment()
     const service = createHarnessRuntimeConfigService({
       settings: { resolve: async () => undefined },
-      augmenters: createConfigApiAugmenters({ auth, secretFor })
+      // config API 방식은 `auth` 만 받는다 — `secretFor` 는 이 deps 타입에 없다(r5 D-048).
+      augmenters: createConfigApiAugmenters({ auth })
     })
 
     const config = await service.resolve({
@@ -246,10 +266,11 @@ describe('가상 배포 — Harness 실행 구성', () => {
   })
 
   it('direct-credential augmenter 는 AuthId 가 닫힌 closure 만 받는다', async () => {
-    const { auth, secretFor } = deployment()
+    const { secretFor } = deployment()
+    // Bootstrap 이 넘기는 것과 같은 형태 — 전체 reader 가 아니다.
     const service = createHarnessRuntimeConfigService({
       settings: { resolve: async () => undefined },
-      augmenters: createDirectCredentialAugmenters({ auth, secretFor })
+      augmenters: createDirectCredentialAugmenters({ secretFor })
     })
 
     const config = await service.resolve({
@@ -340,5 +361,53 @@ describe('가상 배포 — 카탈로그 row', () => {
     expect(state.providers.map((row) => row.kind)).toEqual(['gate', 'llm', 'service', 'service'])
     // Plugin row 만 도구 이름을 싣는다.
     expect(state.providers.map((row) => row.tools.length)).toEqual([0, 0, 1, 0])
+  })
+})
+
+// ── production factory 자체를 부른다 (r5) ─────────────────────────────────────
+//
+// 위 describe 들은 배포가 **채웠을 때**의 조립을 태운다. 그 fixture 는 production factory 와
+// 같은 이름·같은 형상이지만 **다른 함수**라, production 구현이 깨져도 통과할 수 있었다
+// (r4 리뷰 P2). 여기서는 `app/deployment/*` 의 실제 export 를 그대로 부른다.
+//
+// 기본 배포의 계약은 "비어 있다" 다 — 그것이 곧 **기본 빌드에서 network 0·도구 0·행 0** 이라는
+// 제품 약속이고, 무심코 채우면 OSS 기본 배포가 사내 endpoint 를 두드리게 된다.
+describe('production 배포 factory — 기본 배포 계약', () => {
+  it('createPluginBindings 는 기본 배포에서 비어 있다', () => {
+    const { auth, registry } = deployment()
+
+    const bindings = productionPluginBindings({ auth, registry })
+
+    expect(bindings).toEqual([])
+    expect(registry.snapshot().servers.size).toBe(0)
+  })
+
+  it('createConnectionSources 는 gate·plugin row 만 만든다', () => {
+    const { auth, registry } = deployment()
+    const gateSelection = selectGateMembers(GATE_AUTH_DEFINITIONS, (id) => auth.tryBind(id))
+    const plugins = productionPluginBindings({ auth, registry })
+
+    const rows = productionConnectionSources({
+      auth,
+      gateMembers: gateSelection.members,
+      plugins
+    })
+
+    // gate 선언 1건 + plugin 0건. harness·usage 는 배포가 더한다(레시피 B).
+    expect(rows.map((row) => row.category)).toEqual(['gate'])
+  })
+
+  it('augmenter factory 3종은 기본 배포에서 비어 있다', () => {
+    const { auth, secretFor } = deployment()
+
+    expect(productionConfigApiAugmenters({ auth })).toEqual({})
+    expect(productionDirectCredentialAugmenters({ secretFor })).toEqual({})
+    expect(productionRuntimeConfigAugmenters({ auth, secretFor })).toEqual({})
+  })
+
+  it('createUsageFetcher 는 기본 배포에서 undefined 다 — 오류가 아니라 정상 구성', () => {
+    const { auth } = deployment()
+
+    expect(productionUsageFetcher({ auth })).toBeUndefined()
   })
 })
