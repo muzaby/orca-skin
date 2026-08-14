@@ -82,6 +82,10 @@ interface Harness {
   vault: Vault
   persistence: GrantPersistencePort
   secrets: ReturnType<typeof fakeSecretStore>
+  // grant 포인터를 따라 실제 secret 을 읽는다. **고정 키 이름을 단언하지 않는다** (r8) —
+  // 자격증명은 로그인마다 새 세대 키에 앉고, 계약은 "grant 가 가리키는 자리에 그 값이 있다" 다.
+  secretOf(authId: string): string | null
+  refreshOf(authId: string): string | null
 }
 
 function harness(providers: AuthDefinition[] = [gateway()]): Harness {
@@ -92,7 +96,27 @@ function harness(providers: AuthDefinition[] = [gateway()]): Harness {
   const store = new AuthStore({ persistence, vault, clock: () => 1_000 })
   store.restore(registry.list().map((p) => p.id))
   const login = new LoginService({ registry, store, vault, clock: () => 1_000 })
-  return { login, store, vault, persistence, secrets }
+  const keyOf = (authId: string, which: 'value' | 'refresh'): string | null => {
+    const grant = store.get(authId)
+    if (!grant || grant.kind === 'session') return null
+    if (which === 'refresh') return grant.kind === 'token' ? (grant.refreshKey ?? null) : null
+    return grant.vaultKey
+  }
+  return {
+    login,
+    store,
+    vault,
+    persistence,
+    secrets,
+    secretOf: (authId) => {
+      const key = keyOf(authId, 'value')
+      return key === null ? null : vault.get(key)
+    },
+    refreshOf: (authId) => {
+      const key = keyOf(authId, 'refresh')
+      return key === null ? null : vault.get(key)
+    }
+  }
 }
 
 describe('LoginService — 코어 3종 (AC2)', () => {
@@ -118,7 +142,7 @@ describe('LoginService — 코어 3종 (AC2)', () => {
       const step = await h.login.begin('wiki', authKind, input)
       expect(step).toEqual({ kind: 'done', providerId: 'wiki' })
       expect(h.store.status('wiki')).toBe('valid')
-      expect(h.vault.get(`wiki:${authKind}`)).toBe(expected)
+      expect(h.secretOf('wiki')).toBe(expected)
     }
 
     // 재시작 흉내 — 같은 영속·vault 위에 store 를 새로 만들면 grant 가 그대로 복원된다.
@@ -181,8 +205,9 @@ describe('LoginService — 복수 AuthMethod (AC5)', () => {
     expect(step).toEqual({ kind: 'done', providerId: 'gw' })
     expect(h.store.authKind('gw')).toBe('password')
     // 고른 방식의 네임스페이스에만 값이 앉는다 — 다른 방식 자리는 비어 있다.
-    expect(h.vault.get('gw:password')).toBe('kim:pw')
-    expect(h.vault.get('gw:api-key')).toBeNull()
+    expect(h.secretOf('gw')).toBe('kim:pw')
+    // 방식을 바꾸면 옛 방식의 자리는 남지 않는다 — 포인터가 새 키로 옮겨가고 옛 키는 지워진다.
+    expect([...h.secrets.raw.keys()].filter((k) => k.includes('gw:api-key'))).toEqual([])
   })
 
   it('continue 는 직전에 고른 방식을 이어받는다', async () => {
@@ -208,12 +233,12 @@ describe('LoginService — 재인증 (AC6)', () => {
     // 시작만 하고 값을 안 낸다 — 기존 grant 는 살아 있어야 한다.
     expect(await h.login.reauth('gw', 'api-key')).toMatchObject({ kind: 'input-required' })
     expect(h.store.status('gw')).toBe('valid')
-    expect(h.vault.get('gw:api-key')).toBe('old-key')
+    expect(h.secretOf('gw')).toBe('old-key')
 
     // 빈 값으로 거부당해도 마찬가지다.
     await h.login.continue('gw', { [FIELD_SECRET]: '   ' })
     expect(h.store.status('gw')).toBe('valid')
-    expect(h.vault.get('gw:api-key')).toBe('old-key')
+    expect(h.secretOf('gw')).toBe('old-key')
   })
 
   it('재인증 성공에서만 교체된다', async () => {
@@ -222,13 +247,15 @@ describe('LoginService — 재인증 (AC6)', () => {
       kind: 'done',
       providerId: 'gw'
     })
-    expect(h.vault.get('gw:api-key')).toBe('new-key')
+    expect(h.secretOf('gw')).toBe('new-key')
+    // 옛 세대 키는 교체가 내구 저장으로 성립한 뒤 지워진다 — 쓰이지 않는 secret 이 남지 않는다.
+    expect([...h.secrets.raw.keys()].filter((k) => k.includes('gw:api-key')).length).toBe(2)
   })
 
   it('해제는 grant 와 vault 잔여물을 함께 지운다', () => {
     h.login.revoke('gw')
     expect(h.store.status('gw')).toBe('none')
-    expect(h.vault.get('gw:api-key')).toBeNull()
+    expect(h.secretOf('gw')).toBeNull()
     // metadata·index 까지 정리돼 재인증이 깨끗한 상태에서 시작한다.
     expect([...h.secrets.raw.keys()].filter((k) => k.includes('gw:api-key'))).toEqual([])
   })
@@ -272,7 +299,17 @@ describe('LoginService — 로그인 시 probe', () => {
       onStep: () => events.push('step'),
       onSnapshot: (_id, cause) => events.push(`snapshot:${cause}`)
     })
-    return { login, store, vault, persistence, secrets, events }
+    const secretOf = (authId: string): string | null => {
+      const grant = store.get(authId)
+      if (!grant || grant.kind === 'session') return null
+      return vault.get(grant.vaultKey)
+    }
+    const refreshOf = (authId: string): string | null => {
+      const grant = store.get(authId)
+      if (!grant || grant.kind !== 'token' || !grant.refreshKey) return null
+      return vault.get(grant.refreshKey)
+    }
+    return { login, store, vault, persistence, secrets, events, secretOf, refreshOf }
   }
 
   it('probe 가 통과해야 연결됨이 된다', async () => {

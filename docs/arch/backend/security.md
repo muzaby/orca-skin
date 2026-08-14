@@ -47,7 +47,7 @@ new BrowserWindow({
 
 | 계층 | 구현 | 담는 것 |
 |---|---|---|
-| **Vault** | `infra/vault.ts` (safeStorage 위 네임스페이스 뷰) | 값. 키 형식은 **`provider:<providerId>:<authKind>`** 고정 |
+| **Vault** | `infra/vault.ts` (safeStorage 위 네임스페이스 뷰) | 값. 키는 **`provider:<authId>:<authKind>@<세대>`** — 새 자격증명은 매번 새 세대 키에 앉고 `Grant.vaultKey` 가 포인터다(교체 원자성, `auth.md` §4.3). 동결 계약은 **prefix `provider:`** 이고 세대 없는 옛 키를 가리키는 grant 도 그대로 읽힌다 |
 | **Browser session** | `infra/browser-session.ts` (Electron `Session`, partition `persist:auth.<group>`) | cookie jar. 값이 아니라 **세션**이라 반출되지 않는다 |
 | **Grant** | `features/auth/store.ts` + `store-file.ts`(electron-store) | vault 키·방식·만료. **비밀 없음** |
 

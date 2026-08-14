@@ -144,6 +144,9 @@ export class AuthenticatedRequester {
     // 강등·만료가 끼어들 수 있다 — 요청은 `await` 를 포함하고 `LoginService.revoke()` 는 IPC 에서
     // 동기로 들어온다. 그 확인은 메모리 판정이라 vault 를 다시 읽지 않는다.
     const carrier = this.resolveCarrier(definition, candidate)
+    // 401 판정이 **어느 세대의 자격증명**에 대한 것인지 적어 둔다 (r8) — 아래 강등이 이 값을
+    // 확인한다.
+    const revisionAtSend = this.deps.store.credentialRevision(authId)
     const { result, finalUrl } = await this.send(
       definition,
       carrier,
@@ -159,7 +162,7 @@ export class AuthenticatedRequester {
     // **후보는 강등하지 않는다** (r5) — 커밋된 것이 없으므로 내릴 상태가 없다. 후보의 401 은
     // 그냥 "이 값이 거부됐다" 이고, 그 해석은 로그인 흐름이 자기 실패 모양으로 만든다.
     if (!candidate && (result.status === 401 || result.status === 403)) {
-      const changed = this.deps.store.markExpired(authId)
+      const changed = this.deps.store.markExpired(authId, revisionAtSend)
       this.deps.logger?.('auth.request.unauthorized', {
         authId,
         status: result.status
