@@ -652,7 +652,7 @@ node scripts/check-migrations-appendonly.mjs
 | ABI 환경 | 이 세션은 egress 가 열려 있어 `npm ci` 가 성공했고 **DB suite 를 포함해 전부 green** 이다 — `app/AGENTS.md` 가 경고하는 baseline red 5파일이 이번에는 없다 |
 | 블로커 / 역질문 | 없음 |
 | r3 반영 | 리뷰 5건을 전부 코드에서 재확인한 뒤 고쳤다 — 배포 factory 인자화(D6) · `connections.ts` 신설(D7) · env 우선순위 정정(D8) · 만료 정착 경로·세대(D9) · fingerprint digest 화(D10). 신설 `deployment-wiring.test.ts` 6건 + 기존 fingerprint/expiry 테스트 개정 |
-| 대상 커밋 | Phase A `2bebd67` · Phase B `2b274ef` · Phase C `110a1a9` · r2 `d197f0d` · r3 (이 커밋) |
+| 대상 커밋 | Phase A `2bebd67` · Phase B `2b274ef` · Phase C `110a1a9` · r2 `d197f0d` · r3 `511ad32` |
 
 ### 전수 재측정 (plan §8 요구)
 
