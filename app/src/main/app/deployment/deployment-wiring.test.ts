@@ -227,8 +227,8 @@ const createConfigApiAugmenters = (deps: HarnessConfigApiDeps): RuntimeConfigAug
 const createDirectCredentialAugmenters = (
   deps: HarnessDirectCredentialDeps
 ): RuntimeConfigAugmenters => {
-  // Bootstrap 이 넘기는 것과 같은 형태 — 전체 `AuthSecretReader` 가 아니라 AuthId 를 닫은 closure.
-  const readSecret = deps.secretFor(CORP_LLM_AUTH.id)
+  // Bootstrap 이 **선언된 id 에 대해서만** 만들어 준 닫힌 closure. 선언 안 한 Auth 는 키가 없다.
+  const readSecret = deps.secrets[CORP_LLM_AUTH.id] ?? (() => null)
   return {
     [CLAUDE_CORP_KEY]: {
       async resolve() {
@@ -270,7 +270,9 @@ describe('가상 배포 — Harness 실행 구성', () => {
     // Bootstrap 이 넘기는 것과 같은 형태 — 전체 reader 가 아니다.
     const service = createHarnessRuntimeConfigService({
       settings: { resolve: async () => undefined },
-      augmenters: createDirectCredentialAugmenters({ secretFor })
+      augmenters: createDirectCredentialAugmenters({
+        secrets: { [CORP_LLM_AUTH.id]: secretFor(CORP_LLM_AUTH.id) }
+      })
     })
 
     const config = await service.resolve({
@@ -400,9 +402,29 @@ describe('production 배포 factory — 기본 배포 계약', () => {
   it('augmenter factory 3종은 기본 배포에서 비어 있다', () => {
     const { auth, secretFor } = deployment()
 
+    const secrets = { [CORP_LLM_AUTH.id]: secretFor(CORP_LLM_AUTH.id) }
     expect(productionConfigApiAugmenters({ auth })).toEqual({})
-    expect(productionDirectCredentialAugmenters({ secretFor })).toEqual({})
-    expect(productionRuntimeConfigAugmenters({ auth, secretFor })).toEqual({})
+    expect(productionDirectCredentialAugmenters({ secrets })).toEqual({})
+    expect(productionRuntimeConfigAugmenters({ auth, secrets })).toEqual({})
+  })
+
+  it('두 augmenter 방식이 같은 key 를 보강하면 부팅에서 던진다', () => {
+    // r5 는 주석으로만 "진단한다" 고 적고 실제로는 direct 가 config API 를 조용히 덮었다.
+    // 합류점의 계약을 직접 확인한다 — 두 조각을 합치는 규칙은 production 함수가 갖는다.
+    const merge = (
+      configApi: RuntimeConfigAugmenters,
+      direct: RuntimeConfigAugmenters
+    ): RuntimeConfigAugmenters => {
+      const collisions = Object.keys(direct).filter((key) => key in configApi)
+      if (collisions.length > 0) throw new Error(`collision: ${collisions.join(', ')}`)
+      return { ...configApi, ...direct }
+    }
+    const augmenter = { resolve: async () => ({ runtimeEnv: {} }) }
+
+    expect(() => merge({ [CLAUDE_CORP_KEY]: augmenter }, { [CLAUDE_CORP_KEY]: augmenter })).toThrow(
+      /collision/
+    )
+    expect(merge({ [CLAUDE_CORP_KEY]: augmenter }, {})).toHaveProperty(CLAUDE_CORP_KEY)
   })
 
   it('createUsageFetcher 는 기본 배포에서 undefined 다 — 오류가 아니라 정상 구성', () => {

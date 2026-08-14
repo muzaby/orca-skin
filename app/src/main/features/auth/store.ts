@@ -176,16 +176,21 @@ export class AuthStore {
     // 확인은 무조건 취소한다 — 401 을 봤는데 "확인됨" 을 남겨 두면 게이트가 열린 채로 남는다.
     // (아래 조기 반환보다 앞이어야 한다: 이미 만료 표기된 grant 도 확인은 풀려야 한다.)
     const unverified = this.verified.delete(authId)
-    const now = this.clock()
-    // 이미 만료 표기된 grant 를 다시 강등해도 실행 credential 은 그대로다 — revision 을 올리면
-    // 401 을 두 번 본 것만으로 Harness cache 가 두 번 무효화된다.
-    if (grant.expiresAt !== undefined && grant.expiresAt <= now) {
+    // **중복 판정의 기준은 정착 집합이지 `expiresAt` 비교가 아니다** (r6). r5 는 `expiresAt <= now`
+    // 만 보고 "이미 정착됨" 으로 접었는데, 그러면 **요청이 도는 동안 시계가 지나 만료된** 경우가
+    // 통째로 빠진다 — 요청 시작 때는 valid 라 `settleExpiry` 가 지나갔고, 401 이 왔을 때는
+    // `expiresAt <= now` 라 여기서도 접혀서, 전이가 다음 `snapshot()` 까지 미뤄졌다.
+    // 두 정착 지점(`settleExpiry`·여기)이 같은 집합 하나를 기준으로 삼아야 1회성이 성립한다.
+    if (this.expirySettled.has(authId)) {
       if (unverified) this.flush()
       return { credentialChanged: false, snapshotChanged: unverified }
     }
-    this.grants.set(authId, { ...grant, expiresAt: now })
-    // 401/403 로 만료를 못 박았다 — 이후 시계 기반 관측이 같은 전이를 두 번 세지 않도록
-    // 정착 표시를 함께 남긴다.
+    const now = this.clock()
+    // 아직 만료 시각이 없거나 미래면 지금으로 못 박는다. 이미 시계상 지났으면 그 값을 유지한다 —
+    // 만료 시점을 뒤로 미루면 표시가 거짓말이 된다.
+    if (grant.expiresAt === undefined || grant.expiresAt > now) {
+      this.grants.set(authId, { ...grant, expiresAt: now })
+    }
     this.expirySettled.add(authId)
     this.bumpRevision(authId)
     this.flush()

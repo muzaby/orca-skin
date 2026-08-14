@@ -72,7 +72,7 @@ app/src/main/app/deployment/
 |---|---|---|
 | `plugins.ts` | `createPluginBindings(deps)` | `auth: AuthRuntime` · `registry: RuntimeToolSink` · `logger?` |
 | `harness-runtime.ts` | `createConfigApiAugmenters(deps)` | `auth: AuthRuntime` **만** |
-| `harness-runtime.ts` | `createDirectCredentialAugmenters(deps)` | `secretFor: (authId) => () => string \| null` **만** |
+| `harness-runtime.ts` | `createDirectCredentialAugmenters(deps)` | `secrets: Record<AuthId, () => string \| null>` **만** (선언한 id 만) |
 | `connections.ts` | `createConnectionSources(deps)` | `auth` · `gateMembers` · `plugins` |
 | `usage-fetcher.ts` | `createUsageFetcher(deps)` | `auth: AuthRuntime` |
 
@@ -488,7 +488,14 @@ direct credential    닫힌 readSecret() → 사용자가 입력한 API key/toke
 **이 경계는 타입이 강제한다.** OAuth access token(=API 접근 권한)과 응답의 실제 LLM token 은 다른
 값이고, 한 factory 가 둘 다 손에 쥐면 그 경계가 흐려진다. 그래서 deps 가 둘로 갈라져 있다 —
 `HarnessConfigApiDeps` 는 `auth` 만, `HarnessDirectCredentialDeps` 는 `secretFor` 만 갖는다.
-config API factory 에서 `deps.secretFor` 를 부르면 **컴파일이 실패한다**.
+config API factory 에서 `deps.secrets` 를 부르면 **컴파일이 실패한다**.
+
+direct credential 방식을 쓰려면 `DIRECT_CREDENTIAL_AUTH_IDS` 에 그 AuthId 를 **먼저 선언한다** —
+Bootstrap 은 그 목록만큼만 닫힌 closure 를 만들고, 선언하지 않은 Auth 는 `deps.secrets` 에 키
+자체가 없다. 고르는 함수(selector)를 넘기지 않는 이유가 이것이다.
+
+두 방식이 **같은 Harness key 를 보강하면 부팅에서 throw** 한다 — 조용히 하나가 이기면 실행
+중에는 어느 쪽이 적용됐는지 알 수 없다.
 
 ```ts
 // app/deployment/harness-runtime.ts — config API 방식
