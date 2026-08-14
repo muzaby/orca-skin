@@ -672,7 +672,7 @@ node scripts/check-migrations-appendonly.mjs
 | r3 반영 | 리뷰 5건을 전부 코드에서 재확인한 뒤 고쳤다 — 배포 factory 인자화(D6) · `connections.ts` 신설(D7) · env 우선순위 정정(D8) · 만료 정착 경로·세대(D9) · fingerprint digest 화(D10). 신설 `deployment-wiring.test.ts` 6건 + 기존 fingerprint/expiry 테스트 개정 |
 | r9 반영 | 재리뷰 P1 2건을 **실측 재현한 뒤** 고쳤다 — 저장소 장애를 빈 저장소로 오인한 sweep(D29, **r8 회귀**) · 영속 실패를 무시한 해제(D30) · 갈라져 있던 포트 계약(D31) · 리베이스 후 문서 ancestry(D32). 신설 회귀 **+6**, 전부 mutation 으로 가드 의존성을 확인했다 |
 | r8 반영 | PR #338 재리뷰 3건을 **전부 실측 재현한 뒤** 고쳤다 — 교체 원자성(D22/D25/D26: 포인터 교체 + 내구 저장 보고 + staging 제거) · fence 전면화(D23/D27: probe·실행기·resume·401 강등 4지점) · 테스트 공백(D28: 경로 진입 단언 + mutation 확인). 신설 회귀 **+11**, 실패 지점마다 "옛 값 전체 / 새 값 전체" 중 하나만 관측되는지 단언한다 |
-| 대상 커밋 | Phase A `2bebd67` · Phase B `2b274ef` · Phase C `110a1a9` · r2 `d197f0d` · r3 `511ad32` · r4 `ed33531` · r5 `05aeab6` · r6 `ceaf7ba` · r7 `64f0c47` · r8 `2f4e804` · r9 (이 커밋) |
+| 대상 커밋 | Phase A `2bebd67` · Phase B `2b274ef` · Phase C `110a1a9` · r2 `d197f0d` · r3 `511ad32` · r4 `ed33531` · r5 `05aeab6` · r6 `ceaf7ba` · r7 `64f0c47` · r8 `2f4e804` · r9 `92120de` |
 | 리베이스 해시 매핑 (r9) | 브랜치가 리베이스되면서 r4–r7 의 해시가 바뀌었다. 이전 기록이 가리키던 값 → 현재 ancestry: `5d11041`→`ed33531`(r4) · `40fcf11`→`05aeab6`(r5) · `8b0e4af`→`ceaf7ba`(r6) · `2e9a4be`→`64f0c47`(r7). 커밋 **내용**은 같고 부모만 달라졌다 — 옛 해시는 이 저장소에서 더 이상 조회되지 않으므로 본 표는 현재 값을 쓴다 |
 
 ### 전수 재측정 (plan §8 요구)
