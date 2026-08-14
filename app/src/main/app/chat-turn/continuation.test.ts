@@ -7,10 +7,16 @@ import { describe, expect, it, vi } from 'vitest'
 import { buildFlushRequest, buildListenRequest } from './continuation'
 import type { SteerFlushBatch, TurnRequest } from '../../adapters/turn'
 
+// 0188 — settings 와 env 가 **한 객체**로 온다. listen 과 flush 가 둘 다 같은 값을 실어야
+// 하므로 픽스처도 한 벌이다.
 const continuation = {
   extensions: { skills: [] } as unknown as TurnRequest['extensions'],
   model: 'sonnet-next',
-  providerSettings: { blob: 'fresh' } as never
+  prepared: {
+    providerSettings: { blob: 'fresh' } as never,
+    env: { ANTHROPIC_AUTH_TOKEN: 'fresh-token' },
+    runtimeConfigFingerprint: 'fp-fresh'
+  }
 }
 
 function baseRequest(): TurnRequest {
@@ -100,5 +106,29 @@ describe('buildFlushRequest', () => {
     })
 
     expect(request.preludes).toBe(preludes)
+  })
+})
+
+// 0188 — 구 구현은 listen 이 `env` 를 아예 싣지 않았고 flush 는 원 request spread 로 **옛**
+// env 를 실었다. 그 비대칭이 continuation 마다 죽은 토큰으로 respawn 하게 만들었다.
+describe('listen·flush 의 spawn 입력 대칭 (0188)', () => {
+  it('둘 다 같은 providerSettings 와 env 를 싣는다', () => {
+    const base = baseRequest()
+    const signal = new AbortController().signal
+
+    const listen = buildListenRequest({ base, sessionId: 's-1', signal, continuation })
+    const flush = buildFlushRequest({
+      base,
+      sessionId: 's-1',
+      signal,
+      batch: { uuid: 'b-1', text: 'next' } as never,
+      preludes: [],
+      continuation
+    })
+
+    expect(listen.env).toEqual(continuation.prepared.env)
+    expect(flush.env).toEqual(continuation.prepared.env)
+    expect(listen.providerSettings).toBe(continuation.prepared.providerSettings)
+    expect(flush.providerSettings).toBe(continuation.prepared.providerSettings)
   })
 })

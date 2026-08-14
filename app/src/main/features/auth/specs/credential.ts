@@ -9,7 +9,7 @@
 // **자격증명 실검증은 여기서 하지 않는다.** 이 모듈은 대상의 origin 을 모른다. 검증은 실제
 // 요청 경로(`api.ts`)가 401 을 관측할 때 일어난다 — 검증 경로와 사용 경로가 같아진다.
 
-import type { AuthSpec, ComposeResult, FieldSpec, Presentation } from '../../../contracts/auth'
+import type { AuthMethod, ComposeResult, FieldSpec, Presentation } from '../../../contracts/auth'
 
 export const FIELD_SECRET = 'secret'
 export const FIELD_USERNAME = 'username'
@@ -31,7 +31,7 @@ function composeSingle(input: Record<string, string>): ComposeResult {
 }
 
 // API key — 서비스가 발급한 단일 opaque 값. 계정이 아니라 **애플리케이션**에 묶인다.
-export function apiKeySpec(opts: SingleValueOptions): AuthSpec {
+export function apiKeySpec(opts: SingleValueOptions): AuthMethod {
   return {
     kind: 'api-key',
     label: opts.label,
@@ -43,7 +43,7 @@ export function apiKeySpec(opts: SingleValueOptions): AuthSpec {
 
 // PAT — 값의 모양은 API key 와 같아도 **발급 주체·회수 절차·만료 정책이 다르다**. 표시와 감사가
 // 그 구분을 쓰므로 뭉개지 않는다.
-export function patSpec(opts: SingleValueOptions): AuthSpec {
+export function patSpec(opts: SingleValueOptions): AuthMethod {
   return {
     kind: 'pat',
     label: opts.label,
@@ -55,7 +55,7 @@ export function patSpec(opts: SingleValueOptions): AuthSpec {
 
 // ID + 비밀번호. 값이 둘이고 서버가 받는 형식이 `base64(user:pass)` 라 단일 필드로 뭉갤 수 없다 —
 // 필드가 하나면 사용자가 직접 `user:pass` 를 조립해야 하고 형식 책임이 사람에게 넘어간다.
-export function passwordSpec(opts: { label: string; present: Presentation }): AuthSpec {
+export function passwordSpec(opts: { label: string; present: Presentation }): AuthMethod {
   return {
     kind: 'password',
     label: opts.label,

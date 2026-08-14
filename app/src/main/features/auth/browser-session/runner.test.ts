@@ -4,17 +4,16 @@
 // `BrowserSessionPort` 를 fake 로 두므로 electron 없이 돈다(실제 창·쿠키는 사람 실기 AC13).
 
 import { describe, expect, it, vi } from 'vitest'
-import type { Provider } from '../../../contracts/auth'
+import type { AuthDefinition } from '../../../contracts/auth'
 import type { BrowserSessionSpec } from '../login'
 import { normalizeExpiry, pickPath, type BrowserSessionPort } from '../specs/browser-session'
 import { SessionRunner } from './runner'
 
-const PROVIDER: Provider = {
+const PROVIDER: AuthDefinition = {
   id: 'corp-sso',
   label: '사내 로그인',
-  kind: 'gate',
   origin: 'https://portal.example.corp',
-  auth: []
+  methods: []
 }
 
 function spec(exchange?: {
@@ -58,7 +57,7 @@ describe('SessionRunner — ① 게이트 로그인', () => {
   })
 
   // **판정은 여기 없다.** `doneUrlPrefix` 도달만으로 인증이 확정되지 않는다는 규칙은 살아
-  // 있지만, 그 확인은 `LoginService` 가 grant 커밋 뒤 `Provider.probe` 로 한다(login.test.ts).
+  // 있지만, 그 확인은 `LoginService` 가 grant 커밋 뒤 `AuthDefinition.probe` 로 한다(login.test.ts).
   // 이 클래스는 창을 열고 결과를 조립할 뿐이다.
 
   it('사용자가 창을 닫으면 cancelled 다', async () => {

@@ -2,29 +2,28 @@
 //
 // **막으려는 회귀**: 0181 은 `sessions.register()` 를 로그인 실행부에서만 불렀다. 그래서
 // 재시작 후에는 쿠키(파티션)와 grant(파일)가 살아 있는데 group 만 미등록이라
-// `acquire()` 가 `Error('등록되지 않은 session group')` 를 던졌다 — `ProviderPolicyError` 가
+// `acquire()` 가 `Error('등록되지 않은 session group')` 를 던졌다 — `AuthPolicyError` 가
 // 아니라 401 강등도 타지 않아 재인증 지점조차 뜨지 않았다.
 //
 // 여기서는 **로그인을 한 번도 하지 않은 프로세스**를 흉내 낸다: 영속에서 복원된 session grant +
 // 부팅 시 등록된 포트. `LoginService` 는 등장하지 않는다.
 
 import { describe, expect, it, vi } from 'vitest'
-import type { Grant, Provider } from '../../contracts/auth'
+import type { Grant, AuthDefinition } from '../../contracts/auth'
 import type { SecretStorePort } from '../../infra/config/secret-store-port'
 import type { PreparedRequest, SendResult } from '../../infra/net/transport'
 import { createVault } from '../../infra/vault'
-import { ProviderApiImpl, ProviderPolicyError } from './api'
-import { ProviderRegistry } from './registry'
-import { createMemoryGrantPersistence, ProviderStore } from './store'
+import { AuthenticatedRequester, AuthPolicyError } from './authenticated-request'
+import { AuthRegistry } from './registry'
+import { createMemoryGrantPersistence, AuthStore } from './store'
 import { registerDeclaredSessions, type SessionPolicySink } from './session-policies'
 import type { BrowserSessionPort } from './specs/browser-session'
 
-const WIKI: Provider = {
+const WIKI: AuthDefinition = {
   id: 'wiki',
   label: 'Wiki',
-  kind: 'service',
   origin: 'https://wiki.example.corp',
-  auth: [
+  methods: [
     {
       kind: 'browser-session',
       label: '통합 인증',
@@ -68,7 +67,7 @@ function fakeSessions(): BrowserSessionPort & SessionPolicySink & { sent: string
 
 // 로그인 없이 세션 grant 만 복원된 프로세스.
 function restartedProcess(options: { registerAtBoot: boolean }): {
-  api: ProviderApiImpl
+  api: AuthenticatedRequester
   sessions: ReturnType<typeof fakeSessions>
 } {
   const grant: Grant = {
@@ -77,8 +76,8 @@ function restartedProcess(options: { registerAtBoot: boolean }): {
     authKind: 'browser-session',
     createdAt: 1_000
   }
-  const registry = new ProviderRegistry([WIKI])
-  const store = new ProviderStore({
+  const registry = new AuthRegistry([WIKI])
+  const store = new AuthStore({
     persistence: createMemoryGrantPersistence({ wiki: grant }),
     vault: createVault(fakeSecretStore())
   })
@@ -87,7 +86,7 @@ function restartedProcess(options: { registerAtBoot: boolean }): {
   const sessions = fakeSessions()
   if (options.registerAtBoot) registerDeclaredSessions(sessions, registry.list())
 
-  const api = new ProviderApiImpl({
+  const api = new AuthenticatedRequester({
     registry,
     store,
     // 세션 경로는 이 fetch 를 타지 않는다 — 타면 그 자체가 회귀다.
@@ -99,10 +98,10 @@ function restartedProcess(options: { registerAtBoot: boolean }): {
   return { api, sessions }
 }
 
-describe('ProviderApiImpl — 세션 grant 전송', () => {
+describe('AuthenticatedRequester — 세션 grant 전송', () => {
   it('복원된 세션 grant 는 status 가 valid 다 (vault 를 읽지 않는다)', () => {
-    const registry = new ProviderRegistry([WIKI])
-    const store = new ProviderStore({
+    const registry = new AuthRegistry([WIKI])
+    const store = new AuthStore({
       persistence: createMemoryGrantPersistence({
         wiki: {
           kind: 'session',
@@ -135,15 +134,15 @@ describe('ProviderApiImpl — 세션 grant 전송', () => {
   })
 
   it('세션 provider 라도 grant 가 없으면 정책이 먼저 막는다', async () => {
-    const registry = new ProviderRegistry([WIKI])
-    const store = new ProviderStore({
+    const registry = new AuthRegistry([WIKI])
+    const store = new AuthStore({
       persistence: createMemoryGrantPersistence(),
       vault: createVault(fakeSecretStore())
     })
     store.restore(registry.list().map((p) => p.id))
     const sessions = fakeSessions()
     registerDeclaredSessions(sessions, registry.list())
-    const api = new ProviderApiImpl({
+    const api = new AuthenticatedRequester({
       registry,
       store,
       fetchImpl: (() => {
@@ -153,7 +152,7 @@ describe('ProviderApiImpl — 세션 grant 전송', () => {
     })
 
     await expect(api.request('wiki', { path: '/rest/api/content' })).rejects.toBeInstanceOf(
-      ProviderPolicyError
+      AuthPolicyError
     )
     expect(sessions.sent).toEqual([])
   })
@@ -169,12 +168,11 @@ describe('ProviderApiImpl — 세션 grant 전송', () => {
 //   session — grant identity 만. 변경 전에도 홉마다 `expiresAt` 을 보지 않았다.
 //   value   — identity + expiry. 변경 전 `store.secret()` 이 만료를 다시 봤다.
 
-const VALUE_API: Provider = {
+const VALUE_API: AuthDefinition = {
   id: 'api',
   label: 'API',
-  kind: 'service',
   origin: 'https://api.example.corp',
-  auth: [
+  methods: [
     {
       kind: 'pat',
       label: 'PAT',
@@ -202,10 +200,10 @@ function redirectingFetch(sent: string[], mutate: () => void): typeof fetch {
 }
 
 function valueHarness(
-  mutate: (store: ProviderStore) => void,
+  mutate: (store: AuthStore) => void,
   now: () => number
-): { api: ProviderApiImpl; store: ProviderStore; sent: string[] } {
-  const registry = new ProviderRegistry([VALUE_API])
+): { api: AuthenticatedRequester; store: AuthStore; sent: string[] } {
+  const registry = new AuthRegistry([VALUE_API])
   const secrets = fakeSecretStore()
   const vault = createVault(secrets)
   const grant: Grant = {
@@ -215,7 +213,7 @@ function valueHarness(
     createdAt: 0,
     expiresAt: 10_000
   }
-  const store = new ProviderStore({
+  const store = new AuthStore({
     persistence: createMemoryGrantPersistence({ api: grant }),
     vault,
     clock: now
@@ -224,7 +222,7 @@ function valueHarness(
   vault.set('api:pat', 'sekret', { kind: 'pat', createdAt: 0 })
 
   const sent: string[] = []
-  const api = new ProviderApiImpl({
+  const api = new AuthenticatedRequester({
     registry,
     store,
     fetchImpl: redirectingFetch(sent, () => mutate(store))
@@ -232,14 +230,14 @@ function valueHarness(
   return { api, store, sent }
 }
 
-describe('ProviderApiImpl — 체인 도중 grant 변경 (D1)', () => {
+describe('AuthenticatedRequester — 체인 도중 grant 변경 (D1)', () => {
   it('값형: 홉 사이 revoke 면 다음 홉을 보내지 않는다', async () => {
     const { api, sent } = valueHarness(
       (store) => store.revoke('api'),
       () => 1_000
     )
 
-    await expect(api.request('api', { path: '/thing' })).rejects.toBeInstanceOf(ProviderPolicyError)
+    await expect(api.request('api', { path: '/thing' })).rejects.toBeInstanceOf(AuthPolicyError)
     // 첫 홉만 나갔다 — 해제된 자격증명이 두 번째 홉에 실리지 않는다.
     expect(sent).toEqual(['https://api.example.corp/thing'])
   })
@@ -250,7 +248,7 @@ describe('ProviderApiImpl — 체인 도중 grant 변경 (D1)', () => {
       () => 1_000
     )
 
-    await expect(api.request('api', { path: '/thing' })).rejects.toBeInstanceOf(ProviderPolicyError)
+    await expect(api.request('api', { path: '/thing' })).rejects.toBeInstanceOf(AuthPolicyError)
     expect(sent).toEqual(['https://api.example.corp/thing'])
   })
 
@@ -264,7 +262,7 @@ describe('ProviderApiImpl — 체인 도중 grant 변경 (D1)', () => {
       () => now
     )
 
-    await expect(api.request('api', { path: '/thing' })).rejects.toBeInstanceOf(ProviderPolicyError)
+    await expect(api.request('api', { path: '/thing' })).rejects.toBeInstanceOf(AuthPolicyError)
     expect(sent).toEqual(['https://api.example.corp/thing'])
     // identity 는 살아 있다 — 그래서 identity 검사만으로는 이 경로가 뚫린다.
     expect(store.get('api')).toBeDefined()
@@ -289,8 +287,8 @@ describe('ProviderApiImpl — 체인 도중 grant 변경 (D1)', () => {
       authKind: 'browser-session',
       createdAt: 1_000
     }
-    const registry = new ProviderRegistry([WIKI])
-    const store = new ProviderStore({
+    const registry = new AuthRegistry([WIKI])
+    const store = new AuthStore({
       persistence: createMemoryGrantPersistence({ wiki: grant }),
       vault: createVault(fakeSecretStore())
     })
@@ -308,7 +306,7 @@ describe('ProviderApiImpl — 체인 도중 grant 변경 (D1)', () => {
       return { status: 200, headers: {}, body: '{"ok":true}' }
     })
 
-    const api = new ProviderApiImpl({
+    const api = new AuthenticatedRequester({
       registry,
       store,
       fetchImpl: (() => {
@@ -318,7 +316,7 @@ describe('ProviderApiImpl — 체인 도중 grant 변경 (D1)', () => {
     })
 
     await expect(api.request('wiki', { path: '/rest/api/content' })).rejects.toBeInstanceOf(
-      ProviderPolicyError
+      AuthPolicyError
     )
     expect(sessions.sent).toEqual(['https://wiki.example.corp/rest/api/content'])
   })

@@ -1,6 +1,9 @@
 import type { NormalizedEvent } from '../../../shared/ipc'
 import type { ClaudePermissionMode } from '../../../shared/permission-mode'
-import type { ResolvedHarnessSettings } from '../../adapters/harness-config'
+import {
+  harnessConfigFingerprint,
+  type ResolvedHarnessSettings
+} from '../../adapters/harness-config'
 import type { TurnRequest } from '../../adapters/turn'
 import type { LiveTurn, ProviderMessageBatch } from '../../adapters/types'
 import type { ManagedRuntime, RuntimeSessionAdapter } from '../../contracts/ports'
@@ -173,6 +176,7 @@ export class SessionRuntime implements ManagedRuntime {
   // (예: sonnet→haiku) chat-turn 이 respawn 을 판정한다. 라이브 setModel(/model)은 이미 스폰된
   // 서브프로세스의 실제 생성 모델을 바꾸지 못하므로(실측), 모델 변경도 콜드 spawn 이 필요하다.
   private spawnedModelValue: string | undefined
+  private spawnedFingerprint: string | undefined
   private spawnedRuntimeToolsRevisionValue: number | undefined
 
   constructor(
@@ -212,6 +216,13 @@ export class SessionRuntime implements ManagedRuntime {
   // (같은 provider 내) 모델 변경 respawn 을 판정한다. channelAlive 인 동안만 유효.
   get spawnedModel(): string | undefined {
     return this.spawnedModelValue
+  }
+
+  // 0188 — spawn 당시 adapter 입력(native settings + 최종 env)의 비교값. 내용 해석은 하지
+  // 않는다(불투명 문자열) — 판정은 호출자(chat-turn)가 같은 함수로 만든 값과 비교한다.
+  // **진단으로 노출하지 않는다**: secret 원문이 들어 있다.
+  get spawnedRuntimeConfigFingerprint(): string | undefined {
+    return this.spawnedFingerprint
   }
 
   get spawnedRuntimeToolsRevision(): number | undefined {
@@ -343,6 +354,7 @@ export class SessionRuntime implements ManagedRuntime {
     const channelToken = ++this.nextChannelToken
     this.channelTokenValue = channelToken
     this.spawnedSettings = req.providerSettings
+    this.spawnedFingerprint = harnessConfigFingerprint(req.providerSettings?.settings, req.env)
     this.spawnedModelValue = req.model
     this.spawnedRuntimeToolsRevisionValue = req.extensions.runtimeTools?.revision
     if (spawned.pushTurn && this.closePolicy === 'persistent') {
@@ -549,6 +561,7 @@ export class SessionRuntime implements ManagedRuntime {
 
   private clearSpawnedMetadata(): void {
     this.spawnedSettings = undefined
+    this.spawnedFingerprint = undefined
     this.spawnedModelValue = undefined
     this.spawnedRuntimeToolsRevisionValue = undefined
   }

@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import type { AuthSpec, Provider } from '../../contracts/auth'
+import type { AuthMethod, AuthDefinition } from '../../contracts/auth'
 import {
   registerDeclaredSessions,
   sessionPolicies,
   type SessionGroupPolicy
 } from './session-policies'
-import { registerProviders } from './registry'
+import { registerAuthDefinitions } from './registry'
 
 function sessionSpec(config: {
   sessionGroup: string
   allowedOrigins: readonly string[]
-}): AuthSpec {
+}): AuthMethod {
   return {
     kind: 'browser-session',
     label: '통합 인증',
@@ -23,15 +23,16 @@ function sessionSpec(config: {
   }
 }
 
-function provider(over: Partial<Provider> & Pick<Provider, 'id' | 'auth'>): Provider {
+function provider(
+  over: Partial<AuthDefinition> & Pick<AuthDefinition, 'id' | 'methods'>
+): AuthDefinition {
   return {
     label: over.id,
-    kind: 'gate',
     origin: 'https://portal.example.corp',
     // 게이트는 probe 선언이 없으면 등록 자체가 거부된다(`registry.ts` missing_probe).
     probe: { path: '/api/me' },
     ...over
-  } as Provider
+  } as AuthDefinition
 }
 
 // 호출 인자를 그대로 모으는 fake — 부팅이 *실제로* 등록하는지를 사람 실기 없이 단언한다.
@@ -45,14 +46,13 @@ describe('sessionPolicies', () => {
     const providers = [
       provider({
         id: 'corp-sso',
-        auth: [
+        methods: [
           sessionSpec({ sessionGroup: 'corp', allowedOrigins: ['https://portal.example.corp'] })
         ]
       }),
       provider({
         id: 'wiki',
-        kind: 'service',
-        auth: [
+        methods: [
           {
             kind: 'pat',
             label: 'PAT',
@@ -79,7 +79,7 @@ describe('registerDeclaredSessions', () => {
     registerDeclaredSessions(sink, [
       provider({
         id: 'corp-sso',
-        auth: [
+        methods: [
           sessionSpec({
             sessionGroup: 'corp',
             allowedOrigins: ['https://idp.example.corp', 'https://portal.example.corp']
@@ -100,15 +100,16 @@ describe('registerDeclaredSessions', () => {
     registerDeclaredSessions(sink, [
       provider({
         id: 'corp-sso',
-        auth: [
+        methods: [
           sessionSpec({ sessionGroup: 'corp', allowedOrigins: ['https://portal.example.corp'] })
         ]
       }),
       provider({
         id: 'wiki',
-        kind: 'service',
         origin: 'https://wiki.example.corp',
-        auth: [sessionSpec({ sessionGroup: 'corp', allowedOrigins: ['https://wiki.example.corp'] })]
+        methods: [
+          sessionSpec({ sessionGroup: 'corp', allowedOrigins: ['https://wiki.example.corp'] })
+        ]
       })
     ])
 
@@ -125,7 +126,7 @@ describe('registerDeclaredSessions', () => {
       provider({
         id: 'bad',
         origin: 'https://portal.example.corp/app',
-        auth: [
+        methods: [
           sessionSpec({
             sessionGroup: 'bad-group',
             allowedOrigins: ['https://portal.example.corp']
@@ -134,16 +135,16 @@ describe('registerDeclaredSessions', () => {
       }),
       provider({
         id: 'corp-sso',
-        auth: [
+        methods: [
           sessionSpec({ sessionGroup: 'corp', allowedOrigins: ['https://portal.example.corp'] })
         ]
       })
     ]
-    const result = registerProviders(declared)
+    const result = registerAuthDefinitions(declared)
     expect(result.rejected.map((r) => r.id)).toEqual(['bad'])
 
     const sink = fakeSink()
-    registerDeclaredSessions(sink, result.providers)
+    registerDeclaredSessions(sink, result.definitions)
     expect(sink.calls.map((c) => c.sessionGroup)).toEqual(['corp'])
   })
 
@@ -163,13 +164,13 @@ describe('registerDeclaredSessions', () => {
         [
           provider({
             id: 'a',
-            auth: [
+            methods: [
               sessionSpec({ sessionGroup: 'boom', allowedOrigins: ['https://portal.example.corp'] })
             ]
           }),
           provider({
             id: 'b',
-            auth: [
+            methods: [
               sessionSpec({ sessionGroup: 'corp', allowedOrigins: ['https://portal.example.corp'] })
             ]
           })

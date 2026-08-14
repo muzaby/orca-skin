@@ -36,9 +36,9 @@ export function registerMiscHandlers(ctx: RouterContext): void {
   // 페이로드 shape(AgentEnvironment)는 0010 과 동일 유지 — renderer ModelMenu 변경 0.
   handlePlain(CHANNELS.agentList, (): AgentEnvironment[] => {
     const supported = ctx.registry.list().map((adapter) => adapter.id)
-    const entries = ctx.providerSettings
+    const entries = ctx.harnessSettings
       .adapters()
-      .flatMap((adapter) => ctx.providerSettings.list(adapter))
+      .flatMap((adapter) => ctx.harnessSettings.list(adapter))
     return toAgentEnvironments(entries, supported)
   })
 

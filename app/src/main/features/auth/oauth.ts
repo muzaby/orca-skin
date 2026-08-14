@@ -19,7 +19,7 @@ import type { PkcePair } from '../../contracts/auth'
 // 발급된 인가 요청 1건. **verifier 는 비밀이지만 vault 에 넣지 않는다** — 수명이 인가 왕복
 // (수 분)뿐이고, 유출돼도 code 없이는 토큰이 되지 않는다. 대신 소비 즉시 폐기한다.
 export interface PendingAuthorization {
-  providerId: string
+  authId: string
   state: string
   verifier: string
   createdAt: number
@@ -122,23 +122,22 @@ export class OAuthStateStore {
     const record: PendingAuthorization = { ...pending, createdAt: this.clock() }
     // provider 당 진행 중 인가는 1건이다 — 새로 시작하면 이전 것은 버린다(조용한 누적 방지).
     for (const [state, existing] of Object.entries(records)) {
-      if (existing.providerId === record.providerId) delete records[state]
+      if (existing.authId === record.authId) delete records[state]
     }
     records[record.state] = record
     this.persistence.save(records)
     return record
   }
 
-  // 콜백 대조. `state` 가 없으면(manual 분기) providerId 로 찾는다 — 그 경우 CSRF 방어는
+  // 콜백 대조. `state` 가 없으면(manual 분기) authId 로 찾는다 — 그 경우 CSRF 방어는
   // "사용자가 방금 이 provider 의 인증을 시작했다" 는 사실 자체가 담당한다.
-  consume(match: { state?: string | null; providerId: string }): PendingAuthorization | null {
+  consume(match: { state?: string | null; authId: string }): PendingAuthorization | null {
     const records = this.prune()
     const found = match.state
       ? Object.values(records).find(
-          (record) =>
-            record.providerId === match.providerId && statesMatch(record.state, match.state ?? '')
+          (record) => record.authId === match.authId && statesMatch(record.state, match.state ?? '')
         )
-      : Object.values(records).find((record) => record.providerId === match.providerId)
+      : Object.values(records).find((record) => record.authId === match.authId)
     if (!found) return null
     delete records[found.state]
     this.persistence.save(records)
@@ -146,8 +145,8 @@ export class OAuthStateStore {
   }
 
   // 진행 중인지만 본다(대조·소비 없음).
-  pendingFor(providerId: string): PendingAuthorization | null {
-    return Object.values(this.prune()).find((record) => record.providerId === providerId) ?? null
+  pendingFor(authId: string): PendingAuthorization | null {
+    return Object.values(this.prune()).find((record) => record.authId === authId) ?? null
   }
 
   private prune(): Record<string, PendingAuthorization> {

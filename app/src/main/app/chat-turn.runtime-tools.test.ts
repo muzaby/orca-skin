@@ -183,9 +183,14 @@ function installHarness(options: {
       mockAdapter: null,
       debugMock: { enabled: false },
       registry: { getActive: () => adapter },
-      providerSettings: {
+      harnessSettings: {
         list: () => [
-          { key: 'team-a', adapter: 'claude', provider: 'team', models: [selected, fallback] }
+          {
+            key: 'team-a',
+            harnessId: 'claude',
+            modelProviderId: 'team',
+            models: [selected, fallback]
+          }
         ],
         resolve: async () => undefined
       },

@@ -60,7 +60,7 @@ const EXPECTED = [
 
 const ctx = {
   registry: { describeAll: () => ({}), list: () => [], getActiveId: () => null },
-  providerSettings: { adapters: () => [], list: () => [] },
+  harnessSettings: { adapters: () => [], list: () => [] },
   settings: { getAll: () => ({ skillEnabled: {} }) },
   getSkills: () => [],
   getCwd: () => '/tmp',

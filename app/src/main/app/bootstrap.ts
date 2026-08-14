@@ -42,7 +42,6 @@ import { getLogger, setLogDebug } from '../infra/log'
 import { UsageTracker } from '../features/usage/tracker'
 import { registerUsageJobs } from '../features/usage/jobs'
 import type { UsageFetcher } from '../features/usage/fetcher'
-import { llmProviderKey } from './llm-env'
 import { DbRunRecorder, Scheduler } from '../features/scheduler'
 import { ExtensionBuilder } from '../features/extensions/builder'
 import { PermissionModeController } from '../features/approvals/permission-mode-controller'
@@ -59,22 +58,29 @@ import { registerCostHandlers } from './handlers/cost'
 import { registerBootHandlers } from './handlers/boot'
 import { registerUpdateHandlers } from './handlers/update'
 import { registerLogHandlers } from './handlers/log'
-import { registerProviderHandlers } from './handlers/providers'
-import { ProviderPlatform } from './provider-platform'
-import { ProviderRegistry } from '../features/auth/registry'
-import { ProviderStore } from '../features/auth/store'
+import { registerConnectionHandlers } from './handlers/providers'
+import { createAuthRuntime } from '../features/auth/runtime'
 import { createGrantPersistence, createOAuthStatePersistence } from '../features/auth/store-file'
 import { OAuthStateStore } from '../features/auth/oauth'
 import { OAuthRunner } from '../features/auth/oauth-runner'
-import { LoginService } from '../features/auth/login'
-import { declaredProviders } from './deployment'
+import { createGate, selectGateMembers } from '../features/gate'
+import { createAuthResume } from './auth-resume'
+import { createHarnessRuntimeConfigService } from '../features/harnesses/runtime-config'
+import { AUTH_DEFINITIONS } from './deployment/auth-definitions'
+import { GATE_AUTH_DEFINITIONS, remainingAuthDefinitions } from './deployment/gate-auth'
+import {
+  AUTH_INVALIDATED_HARNESS_KEYS,
+  createRuntimeConfigAugmenters
+} from './deployment/harness-runtime'
+import { createPluginBindings } from './deployment/plugins'
+import { createUsageFetcher } from './deployment/usage-fetcher'
+import { connectionState, duplicateConnectionAuthIds } from './connection-views'
+import type { ConnectionViewSource } from './connection-views'
+import type { AuthChange, AuthId, AuthRuntime, AuthSecretReader } from '../contracts/auth'
 import { errorMessage } from '../infra/errors'
 import { createVault } from '../infra/vault'
 import { BrowserSessionStore } from '../infra/browser-session'
 import { SessionRunner } from '../features/auth/browser-session/runner'
-import { registerDeclaredSessions } from '../features/auth/session-policies'
-import { ProviderApiImpl } from '../features/auth/api'
-import { ServiceToolRegistrar } from './plugin-tools'
 import { createNoopUpdater, loadElectronAutoUpdater, UpdateController } from './updater'
 import { registerChatHandlers } from './chat-turn'
 import { registerSettingsReactions } from './settings-reactions'
@@ -204,128 +210,96 @@ export class Bootstrap {
   // 쿠키가 사내 SSO jar 에 섞이면 로그아웃 범위가 흐려진다.
   private static readonly OAUTH_WINDOW_GROUP = 'oauth'
 
-  // provider 플랫폼 조립 (0181). 배포 선언 → 등록(검사) → grant 복원 → 로그인 서비스.
+  // ── 인증 스택 조립 (0188 — 구 `createProviderPlatform`) ──────────────────────
+  //
   // **여기서 던지지 않는다** — 영속을 못 열면 메모리 폴백으로 내려앉고(이번 실행에서만 인증이
   // 유지된다) 사유를 로그로 남긴다. 게이트 자체는 계속 판정 가능해야 한다.
-  private createProviderPlatform(
-    secretStore: SecretStore,
-    runtimeTools: RuntimeToolRegistry
-  ): ProviderPlatform {
-    const log = getLogger().child('providers')
-    const registry = new ProviderRegistry(declaredProviders())
-    for (const rejection of registry.rejected()) {
-      log.warn('providers.declaration.rejected', {
-        providerId: rejection.id,
-        reason: rejection.reason,
-        message: rejection.message
-      })
-    }
+  //
+  // 결과에 `secretReader` 가 함께 온다. **컴포지션 루트 밖으로 내보내지 않는다** — MCP 와
+  // Harness direct-credential augmenter 에만 AuthId 를 닫은 closure 로 전달한다(0188 D-010).
+  private createAuthStack(secretStore: SecretStore): {
+    auth: AuthRuntime
+    secretReader: AuthSecretReader
+  } {
+    const log = getLogger().child('auth')
 
     // 영속을 못 열면 어댑터가 스스로 메모리로 내려앉고 사유만 알려 준다 — 게이트 판정은
     // 계속돼야 하므로 부팅을 세우지 않는다.
     const persistence = createGrantPersistence((error) => {
-      log.warn('providers.persistence.unavailable', { reason: errorMessage(error) })
+      log.warn('auth.persistence.unavailable', { reason: errorMessage(error) })
     })
 
     const vault = createVault(secretStore)
     // 브라우저 세션(cookie jar·통합 인증)은 게이트·OAuth 창·세션 grant 전송이 **함께** 쓴다.
     const sessions = new BrowserSessionStore()
-    // **로그인 전에 등록한다** (0182). 0181 은 `SessionRunner.login` 에서만 등록해서, 재시작 후
-    // 쿠키·grant 가 살아 있어도 group 이 미등록이라 `acquire()` 가 raw throw 로 죽었다 —
-    // 401 강등 경로도 타지 않아 재인증 지점조차 뜨지 않았다. 거부된 선언은 `registry.list()` 에
-    // 없으므로 그 cookie jar 는 만들어지지 않는다.
-    registerDeclaredSessions(sessions, registry.list(), (event, data) => log.warn(event, data))
-    const store = new ProviderStore({
-      persistence,
-      vault,
-      // 선언에서 사라진 provider 의 grant 는 **지우지 않는다** — 선언이 일시적으로 빠진 빌드에서
-      // 재로그인을 강요하지 않기 위함이다.
-      onOrphan: (providerId) => log.info('providers.grant.orphaned', { providerId })
-    })
-    store.restore(registry.list().map((provider) => provider.id))
 
     // OAuth 인가 pending 은 grant 와 **다른 파일**에 앉는다(수명이 분 단위 대 재로그인까지).
     // 영속을 못 열면 메모리로 내려앉되, 그 경우 앱 재시작을 건너뛴 콜백만 대조된다.
     // 파일은 실제 OAuth 로그인이 돌 때 열린다 — 이 단계는 DB 앞으로 당겨 둔 자리다.
     const oauthStates = createOAuthStatePersistence((error) => {
-      log.warn('providers.oauth.persistence.unavailable', { reason: errorMessage(error) })
+      log.warn('auth.oauth.persistence.unavailable', { reason: errorMessage(error) })
     })
 
-    // grant 상태가 바뀌면 **언제나** 이 둘이 함께 일어난다 — 도구 가시성 갱신과 상태 방송.
-    // 두 벌로 적으면(401 강등 경로 / 로그인 경로) 한쪽에만 단계가 붙는다.
-    const onProviderChange = (): void => {
-      serviceTools.sync(registry.byKind('service'))
-      broadcastProviderState(platform.state())
-    }
-
-    const api = new ProviderApiImpl({
-      registry,
-      store,
+    const created = createAuthRuntime({
+      definitions: AUTH_DEFINITIONS,
+      persistence,
+      vault,
       // 원격 요청은 Chromium 스택으로만 나간다 (0173) — 기본값을 두지 않는다.
       fetchImpl: netFetch,
       sessions,
-      logger: (event, data) => log.warn(event, data),
-      // 401 강등도 도구 가시성에 영향을 준다 — 만료된 연결의 도구를 남겨두지 않는다.
-      onChange: onProviderChange
-    })
-
-    // service provider 의 도구는 grant 상태를 따라간다 — 로그인하면 나타나고 해제하면 사라진다.
-    const serviceTools = new ServiceToolRegistrar({
-      registry: runtimeTools,
-      api,
-      status: (providerId) => store.status(providerId),
-      logger: (event, data) => log.info(event, data)
-    })
-
-    const platform = new ProviderPlatform({
-      registry,
-      store,
-      api,
-      // dev 전용 우회다 — prod 번들에서는 `import.meta.env.DEV` 가 false 로 접혀 분기 자체가
-      // 사라진다(설정 값이 켜져 있어도 게이트는 유지된다).
-      bypass: () => import.meta.env.DEV && this.settings.getAll().authBypass,
-      toolsOf: (providerId) => serviceTools.descriptorFor(providerId),
-      // DEV 는 선언이 0개여도 게이트를 세운다 — 폐쇄망 실값 없이도 로그인 화면을 보고 고칠 수
-      // 있어야 한다(0089/0130 의 동작 복원). 탈출구는 디버그 패널의 우회 토글이다.
-      alwaysRequired: import.meta.env.DEV,
-      login: new LoginService({
-        registry,
-        store,
-        vault,
-        // 인증 확인(`Provider.probe`)은 **사용 경로 그대로** 나간다 — grant 를 먼저 커밋하므로
-        // 세션이면 cookie jar, 값형이면 `present` 로 실리는 것을 `transport()` 가 갈라 준다.
-        api,
-        oauth: new OAuthRunner({
-          states: new OAuthStateStore(oauthStates),
-          // 인가는 **기본 브라우저**에서 돈다(RFC 8252) — 사용자가 주소창과 인증서를 직접 본다.
-          openExternal: (url) => shell.openExternal(url),
-          // `redirect:'window'` 분기는 게이트와 **같은 창 구현**을 쓴다 — 두 벌이면 allowlist
-          // 차단·ERR_ABORTED 처리 같은 규칙이 갈린다.
-          window: {
-            open: async ({ url, isDone }) => {
-              const group = Bootstrap.OAUTH_WINDOW_GROUP
-              sessions.register({ sessionGroup: group, allowedOrigins: [new URL(url).origin] })
-              const handleId = sessions.acquire(group)
-              try {
-                return (await sessions.openLoginWindow(handleId, { url, isDone })).finalUrl
-              } catch {
-                return null
-              }
+      oauth: new OAuthRunner({
+        states: new OAuthStateStore(oauthStates),
+        // 인가는 **기본 브라우저**에서 돈다(RFC 8252) — 사용자가 주소창과 인증서를 직접 본다.
+        openExternal: (url) => shell.openExternal(url),
+        // `redirect:'window'` 분기는 게이트와 **같은 창 구현**을 쓴다 — 두 벌이면 allowlist
+        // 차단·ERR_ABORTED 처리 같은 규칙이 갈린다.
+        window: {
+          open: async ({ url, isDone }) => {
+            const group = Bootstrap.OAUTH_WINDOW_GROUP
+            sessions.register({ sessionGroup: group, allowedOrigins: [new URL(url).origin] })
+            const handleId = sessions.acquire(group)
+            try {
+              return (await sessions.openLoginWindow(handleId, { url, isDone })).finalUrl
+            } catch {
+              return null
             }
-          },
-          logger: (event, data) => log.warn(event, data)
-        }),
-        session: new SessionRunner({
-          sessions,
-          logger: (event, data) => log.info(event, data)
-        }),
-        onChange: onProviderChange,
+          }
+        },
+        logger: (event, data) => log.warn(event, data)
+      }),
+      session: new SessionRunner({
+        sessions,
         logger: (event, data) => log.info(event, data)
-      })
+      }),
+      logger: (event, data) => log.warn(event, data),
+      // 선언에서 사라진 Auth 의 grant 는 **지우지 않는다** — 선언이 일시적으로 빠진 빌드에서
+      // 재로그인을 강요하지 않기 위함이다.
+      onOrphan: (authId) => log.info('auth.grant.orphaned', { authId })
     })
-    // 부팅 복원 직후 1회 — 이미 인증된 service provider 의 도구가 첫 턴부터 보인다.
-    serviceTools.sync(registry.byKind('service'))
-    return platform
+
+    for (const rejection of created.rejected) {
+      log.warn('auth.declaration.rejected', {
+        authId: rejection.id,
+        reason: rejection.reason,
+        message: rejection.message
+      })
+    }
+
+    return { auth: created.runtime, secretReader: created.secretReader }
+  }
+
+  // gate membership 해석 — 판정 규칙은 순수 모듈(`features/gate`)이 갖고 여기서는 진단만
+  // 남긴다. 확인할 수 없는 선언은 멤버에서 빠지되 **게이트를 열지 않는다**(fail-closed).
+  private gateMembers(auth: AuthRuntime): ReturnType<typeof selectGateMembers> {
+    const selection = selectGateMembers(GATE_AUTH_DEFINITIONS, (authId) => auth.tryBind(authId))
+    const log = getLogger().child('auth')
+    for (const blockedMember of selection.blocked) {
+      log.warn('auth.gate.blocked', {
+        authId: blockedMember.authId,
+        reason: blockedMember.reason
+      })
+    }
+    return selection
   }
 
   async start(): Promise<void> {
@@ -333,26 +307,98 @@ export class Bootstrap {
     // 0181 — 런타임 도구 기여자는 `Provider{kind:'service'}.tools` 다.
     const runtimeTools = new RuntimeToolRegistry()
 
-    // ── provider 플랫폼: **DB 보다 먼저, 최상단에서 조기 등록** (0109/0157 제약 복원) ──
+    // ── 인증 스택: **DB 보다 먼저, 최상단에서 조기 등록** (0109/0157 제약 복원) ──
     // 창은 start() 완료 전에 열리고 renderer 는 오픈 직후 게이트 판정을 위해
     // `orca:provider:state` 를 invoke 한다. 그 첫 invoke 가 부팅 완료를 기다리면 화면이 빈 채로
     // 멈춘다. **게이트 판정에는 DB 가 필요 없다** — grant 는 파일+vault 에만 산다.
     // critical=true 다 — 게이트를 판정할 수 없으면 로그인 강제 빌드가 무인증으로 열린다.
     // 영속 실패 같은 회복 가능한 사고는 팩토리 안에서 메모리 폴백으로 흡수한다.
-    const providers = this.bootReport.stepSync(
+    const { auth, secretReader } = this.bootReport.stepSync(
       'provider-platform',
-      { critical: true, label: 'provider 플랫폼' },
-      () => this.createProviderPlatform(secretStore, runtimeTools)
+      { critical: true, label: '인증 스택' },
+      () => this.createAuthStack(secretStore)
     )
-    registerProviderHandlers(providers)
+    // MCP `${BINDING:<대상>}` 의 토큰 소스 — **전체 reader 가 아니라 좁은 closure** 만 넘긴다.
+    // 주입 전에 배포된 설정에는 인증이 필요한 서버가 빠진다(fail-closed).
+    this.mcp.attachTokenSource((authId) => secretReader.read(authId))
+
+    const gateSelection = this.gateMembers(auth)
+    const gate = createGate({
+      members: gateSelection.members,
+      blockedMembers: gateSelection.blocked.length,
+      // dev 전용 우회다 — prod 번들에서는 `import.meta.env.DEV` 가 false 로 접혀 분기 자체가
+      // 사라진다(설정 값이 켜져 있어도 게이트는 유지된다).
+      bypass: () => import.meta.env.DEV && this.settings.getAll().authBypass,
+      // DEV 는 선언이 0개여도 게이트를 세운다 — 폐쇄망 실값 없이도 로그인 화면을 보고 고칠 수
+      // 있어야 한다(0089/0130 의 동작 복원). 탈출구는 디버그 패널의 우회 토글이다.
+      alwaysRequired: import.meta.env.DEV
+    })
+
+    // ── Plugin 도구: **resume 보다 먼저** 만들고 한 번 sync 한다 ────────────────
+    // 복원된 Auth 의 도구 이름과 초기 가시성이 renderer 의 첫 snapshot 과 첫 턴에 필요하다.
+    // 서버는 여기서 1회 생성되고 이후 sync 는 add/remove 만 한다(handler identity 유지).
+    const plugins = createPluginBindings()
+    for (const plugin of plugins) plugin.sync()
+
+    const connections: readonly ConnectionViewSource[] = [
+      ...gateSelection.members.map((bound): ConnectionViewSource => ({
+        category: 'gate',
+        auth: bound
+      })),
+      ...plugins.map((plugin): ConnectionViewSource => ({
+        category: 'plugin',
+        auth: plugin.auth,
+        toolNames: () => plugin.toolNames()
+      }))
+    ]
+    for (const duplicate of duplicateConnectionAuthIds(connections)) {
+      getLogger().child('auth').warn('auth.connection.duplicate-row', { authId: duplicate })
+    }
+
+    const pushConnectionState = (): void => {
+      broadcastProviderState(connectionState(auth, gate, connections))
+    }
+
+    // ── Auth change 소비 (0188 D-008) ──────────────────────────────────────────
+    // **listener 를 resume 보다 먼저 붙인다** — 복원 probe 가 강등을 만들면 그 자리에서 도구가
+    // 회수돼야 한다. 구독이 늦으면 죽은 연결의 도구가 첫 턴에 실린다.
+    auth.subscribe((change: AuthChange) => {
+      pushConnectionState()
+      // 화면 변화(입력 폼·OAuth 대기·resuming)와 `verified`-only 변화는 여기서 끝난다 —
+      // 실행 credential 이 그대로이므로 도구를 다시 sync 하거나 Harness cache 를 비우지 않는다.
+      if (change.kind !== 'snapshot' || !change.credentialChanged) return
+      for (const plugin of plugins) {
+        if (plugin.auth.authId === change.authId) plugin.sync()
+      }
+      harnessRuntimeRef?.invalidateForAuth(change.authId)
+    })
+
+    // Harness runtime config 는 DB 뒤에 만들어진다 — 그 전에 도착한 credential change 는
+    // cache 자체가 없으므로 무효화할 것도 없다.
+    let harnessRuntimeRef: { invalidateForAuth: (authId: AuthId) => void } | undefined = undefined
+
+    registerConnectionHandlers({ auth, gate, connections })
+
     // 자동 로그인 — 복원된 세션 쿠키가 아직 유효한지 확인한다. **await 하지 않는다**: probe 는
     // 네트워크 왕복이라 부팅을 붙들면 안 되고, 그동안 게이트는 닫혀 있어 사용자는 로그인 화면에서
-    // 진행을 본다. 끝나면 `onChange` 가 새 상태를 push 해 화면이 넘어가거나(성공) 수동 로그인
-    // 버튼이 살아난다(실패).
-    void providers.resume()
-    // MCP `${BINDING:<대상>}` 의 토큰 소스를 잇는다(0181 — 0180 이 끊었던 자리).
-    // 주입 전에 배포된 설정에는 인증이 필요한 서버가 빠진다(fail-closed).
-    this.mcp.attachTokenSource((providerId) => providers.api.token(providerId))
+    // 진행을 본다.
+    //
+    // **순서가 규칙이다** (구 `LoginService.sweepPlugins` 의 이유 승계): 사내 서비스는 대개
+    // 게이트와 *같은 cookie jar* 를 쓰므로(`sessionGroup` 공유), 로그인 전에 물으면 살아 있는
+    // 연결도 미인증으로 떨어진다. 그렇게 한 번 강등되면 요청 정책이 막아 스스로 회복하지 못한다.
+    //
+    // **방송 상한 `1 + K`** (0187 D2 유지): 나머지 Auth 는 병렬로 묻고 성공한 `verified` 변화는
+    // 마지막 push 한 번으로 합친다. 즉시 강등 `K` 건만 그 자리에서 push 된다.
+    const authResume = createAuthResume({
+      auth,
+      gateDefinitions: GATE_AUTH_DEFINITIONS,
+      remainingDefinitions: remainingAuthDefinitions(AUTH_DEFINITIONS, GATE_AUTH_DEFINITIONS),
+      pushConnectionState
+    })
+    auth.subscribe((change) => {
+      if (change.kind === 'snapshot') authResume.onGateChange(change.authId)
+    })
+    void authResume.run()
 
     const db = this.bootReport.stepSync('db-init', { critical: true, label: 'DB 초기화' }, () =>
       initDb({
@@ -375,34 +421,40 @@ export class Bootstrap {
         .child('chat')
         .debug('chat.recovery.settled', { ...recovered })
     }
-    // ── 원격 사용량 fetcher (0186) — 이 배포에는 endpoint 가 없다 ──────────────────
+    // ── Harness 설정 · 실행 구성: **DB 이후, scaffold 이전** ─────────────────────
+    // 0157: 구 SSO 의 setProviderEnv sink 를 제거했다. 획득 토큰을 settings.json 의 env 블록에
+    // **평문으로 병합 기록**하던 경로였다. 이제 credential 은 vault 가 소유하고, settings.json
+    // 으로 나가는 값은 사용자가 직접 적은 것만 남는다(0028 결정 유지).
+    const harnessSettings = new HarnessSettingsService({ claude: loadClaudeProviderSettings })
+    const harnessRuntime = createHarnessRuntimeConfigService({
+      settings: {
+        resolve: (entry) =>
+          harnessSettings.resolve({
+            ...entry,
+            // 열거 캐시가 이미 들고 있는 모델 목록을 다시 만들지 않는다 — runtime config 는
+            // 모델 목록을 쓰지 않으므로 빈 배열로 충분하다.
+            models: []
+          })
+      },
+      augmenters: createRuntimeConfigAugmenters(),
+      logger: (event, data) => getLogger().child('harness').debug(event, data)
+    })
+    // Auth change → **고정 key 만** 무효화한다(0188 §성능 계약). AuthId → feature contribution
+    // registry 를 만들어 자동 발견하지 않는다 — 배포가 배선에서 명시한다.
+    harnessRuntimeRef = {
+      invalidateForAuth: (authId) => {
+        for (const key of AUTH_INVALIDATED_HARNESS_KEYS[authId] ?? []) {
+          harnessRuntime.invalidate(key, 'auth-change')
+        }
+      }
+    }
+
+    // ── 원격 사용량 fetcher (0186 → 0188 배포 모듈로 이설) ────────────────────────
     // **`undefined` 는 오류가 아니라 정상 구성이다.** 사용량은 로컬 원장만으로 완전히 동작하고,
-    // 아래 `registerUsageJobs` 도 원격 잡을 등록하지 않는다.
-    //
-    // 폐쇄망 배포는 여기에 포트 구현을 꽂는다(선언에 슬롯을 만들지 않는다 — 0183 r2):
-    //
-    //   const usageFetcher: UsageFetcher = {
-    //     supports: (providerKey) =>
-    //       findLlmProvider(providers.declarations('llm'), providerKey)?.id === 'corp-gateway',
-    //     fetchUsage: async (providerKey, signal) => {
-    //       const provider = findLlmProvider(providers.declarations('llm'), providerKey)
-    //       if (!provider) return null
-    //       const res = await providers.api.request(provider.id, { path: '/api/usage' }, signal)
-    //       if (!res.ok) throw new Error(`usage request failed: ${res.status}`)
-    //       return toSnapshot(providerKey, res.body)   // 응답 매핑은 배포가 소유한다
-    //     }
-    //   }
-    //
-    // **`supports` 와 반환값은 다른 것을 표현한다.** 전자는 *이 배포가 그 provider 를 지원하는가*
-    // (false 면 과거 캐시 행이 있어도 무시하고 로컬로 접는다), 후자는 *이번 호출의 결과*다 —
-    // 지원 provider 가 `null` 을 주거나 던지면 **이번 갱신 실패**로 읽혀 주기 잡은 다음 틱을
-    // 기다리고 수동 동기화는 reject 된다. 미인증·사내망 밖을 "정상" 으로 표현하려고 `null` 을
-    // 쓰지 않는다 — 그건 `supports:false` 의 자리다.
-    //
-    // `baselineUsable` 은 `as_of` 가 billing aggregation watermark 임을 배포가 확인했을 때만
-    // true 로 채운다 — 미지정이면 코어가 기준선을 쓰지 않고 한도만 원격에서 가져간다.
-    // 절차 상세는 `docs/guides/closed-network-extensions.md` §5-b.
-    const usageFetcher: UsageFetcher | undefined = undefined
+    // 아래 `registerUsageJobs` 도 원격 잡을 등록하지 않는다. 폐쇄망 배포는
+    // `app/deployment/usage-fetcher.ts` 에 concrete 를 채운다 — Bootstrap 은 endpoint 도
+    // 응답 형태도 모른다.
+    const usageFetcher: UsageFetcher | undefined = createUsageFetcher()
 
     // 사용량 delta 송출 배선 — domain(UsageTracker)은 electron 비의존, 송출은 여기(컴포지션 루트)서.
     // 0186 — 전체 provider map 이 아니라 **변경된 scope 만** 나간다.
@@ -424,7 +476,7 @@ export class Bootstrap {
       cost.recompute()
     )
     // 설정이 파생 상태(게이트 판정·사용량 뷰)의 입력인 자리들 — 배선은 한 모듈이 갖는다.
-    registerSettingsReactions(this.settings, { providers, broadcastProviderState, cost })
+    registerSettingsReactions(this.settings, { pushConnectionState, cost })
     // 빌더는 db 인스턴스가 필요해 여기서 생성. skills 는 lazy getter 라 스캔 완료 전에 만들어도
     // 무방 — 턴 실행 시점에 최신 skillsCache 를 읽는다. DB 프로젝트 지침은 빌더가 매 턴 조회하므로
     // (무캐시) 지침 편집이 같은 세션 다음 메시지부터 즉시 반영된다.
@@ -433,12 +485,14 @@ export class Bootstrap {
     // (`usage-recompute`, 기본 off)을 `features/usage` 가 한 자리에서 등록한다.
     registerUsageJobs(scheduler, cost, {
       fetcher: usageFetcher,
-      // 발화 시점에 평가 — 선언에서 LLM provider 좌표를 파생한다(`llmProviderKey` 재사용).
+      // 발화 시점에 평가 — **좌표의 SSOT 는 settings 디렉터리 열거**다(0188 D-013). 구
+      // 구현은 `Provider.llm` 선언에서 파생했는데, 그러면 선언이 없는 배포의 사용량 축이
+      // 조용히 사라진다. `supports()` 가 실제 지원 여부를 가르므로 여기서는 후보를 넓게 준다.
       providerKeys: () =>
-        providers
-          .declarations('llm')
-          .map((provider) => llmProviderKey(provider))
-          .filter((key): key is string => key !== null)
+        harnessSettings
+          .adapters()
+          .flatMap((harnessId) => harnessSettings.list(harnessId))
+          .map((entry) => entry.key)
     })
     // 주기 업데이트 확인(0156). this.updates 는 아직 null 이지만 액션은 *발화 시점* 에 평가되고
     // 첫 발화는 최소 1시간 뒤라 ctx 조립(createUpdateController)을 기다린다 — 등록을 뒤로 미루면
@@ -501,10 +555,6 @@ export class Bootstrap {
         for (const name of result.pruned) seedLog.debug('extensions.skill.pruned', { name })
       }
     )
-    const providerSettings = new HarnessSettingsService({ claude: loadClaudeProviderSettings })
-    // 0157: 구 SSO 의 setProviderEnv sink 를 제거했다. 획득 토큰을 provider settings.json 의
-    // env 블록에 **평문으로 병합 기록**하던 경로였다(보고서 위험 #5). 이제 credential 은
-    // binding·vault 가 소유하고, LLM 백엔드로 나가는 값은 사용자가 직접 적은 것만 남는다.
     this.bootReport.stepSync(
       'provider-scaffold',
       { critical: false, label: 'provider settings 스캐폴드' },
@@ -526,7 +576,10 @@ export class Bootstrap {
     await this.bootReport.step('extension-deploy', { critical: false, label: '확장 배포' }, () =>
       this.deployExtensions()
     )
-    providerSettings.invalidateAll()
+    // scaffold → deploy 이후의 무효화. **두 cache 를 함께 비운다** — settings 만 비우면
+    // 동적 runtime config 가 옛 sourceRevision 기준 값을 warm hit 로 계속 돌려준다.
+    harnessSettings.invalidateAll()
+    harnessRuntime.invalidate(undefined, 'settings-deploy')
     // ClaudeAdapter 가 사용하는 cwd 와 동일한 값으로 스킬 스캔.
     await this.bootReport.step('skill-scan', { critical: false, label: '스킬 스캔' }, () =>
       this.refreshSkills()
@@ -540,7 +593,7 @@ export class Bootstrap {
       registry: this.registry,
       cost,
       extensions,
-      providerSettings,
+      harnessSettings,
       getSkills: () => this.skillsCache,
       refreshSkills: () => this.refreshSkills(),
       deployExtensions: () => this.deployExtensions(),
@@ -552,7 +605,9 @@ export class Bootstrap {
       updates: this.createUpdateController(),
       scheduler,
       runtimeTools,
-      providers
+      auth,
+      gate,
+      harnessRuntime
     }
     this.register(ctx)
   }

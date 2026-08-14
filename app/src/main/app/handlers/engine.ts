@@ -20,7 +20,7 @@ import type { RouterContext } from '../context'
 import { handle, handlePlain } from '../../infra/ipc/handle'
 import { getLogger } from '../../infra/log'
 
-async function refreshProviderSettings(ctx: RouterContext): Promise<void> {
+async function refreshHarnessSettings(ctx: RouterContext): Promise<void> {
   try {
     const result = await deploy('claude')
     if (!result.validation.ok) {
@@ -31,7 +31,10 @@ async function refreshProviderSettings(ctx: RouterContext): Promise<void> {
       }
     }
   } finally {
-    ctx.providerSettings.invalidateAll()
+    // **두 cache 를 함께 비운다** (0188) — settings 만 비우면 동적 runtime config 가 옛
+    // sourceRevision 기준 값을 warm hit 로 계속 돌려준다.
+    ctx.harnessSettings.invalidateAll()
+    ctx.harnessRuntime?.invalidate(undefined, 'harness-settings-crud')
   }
 }
 
@@ -42,7 +45,7 @@ export function registerEngineHandlers(ctx: RouterContext): void {
     'reject',
     async (req): Promise<EngineWriteResult> => {
       const result = addHarnessSettings(req.engine, req.provider, req.settingsJson)
-      await refreshProviderSettings(ctx)
+      await refreshHarnessSettings(ctx)
       return result
     }
   )
@@ -53,14 +56,14 @@ export function registerEngineHandlers(ctx: RouterContext): void {
     'reject',
     async (req): Promise<EngineWriteResult> => {
       const result = updateHarnessSettings(req.key, req.settingsJson)
-      await refreshProviderSettings(ctx)
+      await refreshHarnessSettings(ctx)
       return result
     }
   )
 
   handle(CHANNELS.engineDelete, DeleteEngineSchema, 'reject', async (req): Promise<void> => {
     deleteHarnessSettings(req.key)
-    await refreshProviderSettings(ctx)
+    await refreshHarnessSettings(ctx)
   })
 
   handle(CHANNELS.engineRead, ReadEngineSchema, 'reject', (req): EngineReadResult => {

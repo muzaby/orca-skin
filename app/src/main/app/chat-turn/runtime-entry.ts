@@ -7,7 +7,7 @@
 import type { WebContents } from 'electron'
 import type { TurnContext } from '../../contracts/turn'
 import type { TurnExtensions } from '../../adapters/turn'
-import type { ResolvedHarnessSettings } from '../../adapters/harness-config'
+import type { PreparedHarnessConfig } from '../../features/harnesses/prepared-config'
 import type { RuntimeSessionAdapter } from '../../contracts/ports'
 import { decideRespawn } from '../../features/sessions/respawn-policy'
 import { SessionRuntime } from '../../features/sessions/session-runtime'
@@ -41,7 +41,7 @@ export async function acquireTurnRuntime(
     sessionId: string | null
     resolved: {
       providerKey: string | null
-      providerSettings?: ResolvedHarnessSettings
+      prepared: PreparedHarnessConfig
       model?: string
     }
     sessionProviderKey: string | null | undefined
@@ -60,9 +60,11 @@ export async function acquireTurnRuntime(
 
   const extensions = deps.buildExtensions()
 
-  // 살아 있는 채널을 내려야 하는 넷:
+  // 살아 있는 채널을 내려야 하는 다섯:
   //  0118 provider 경계 — pushTurn 은 env/providerSettings 를 재주입하지 않는다.
   //  0125 settings 제자리 수정(토큰 로테이션·base URL 교체) — spawn 시 주입본과 내용이 달라짐.
+  //  0188 실행 구성 변경 — settings 는 같은데 `options.env` 의 토큰·URL·모델 변수만 바뀐 경우.
+  //       settings blob 비교만으로는 안 잡힌다(그 값은 env 채널로만 간다).
   //  0128 같은 provider 안의 모델 변경 — 라이브 setModel(/model)은 이미 스폰된 서브프로세스의
   //       실제 생성 모델을 바꾸지 못한다(실측: /model 후에도 생성이 스폰 모델에 과금).
   //  런타임 도구 revision 변경 — 스폰 시 스냅샷과 어긋나면 도구 목록이 낡는다.
@@ -78,8 +80,12 @@ export async function acquireTurnRuntime(
       modelChanged: input.resolved.model !== runtime.spawnedModel,
       providerSettingsChanged: providerSettingsChangedSinceSpawn(
         runtime.spawnedProviderSettings,
-        input.resolved.providerSettings
+        input.resolved.prepared.providerSettings
       ),
+      runtimeConfigChanged:
+        runtime.spawnedRuntimeConfigFingerprint !== undefined &&
+        runtime.spawnedRuntimeConfigFingerprint !==
+          input.resolved.prepared.runtimeConfigFingerprint,
       spawnedRuntimeToolsRevision: runtime.spawnedRuntimeToolsRevision,
       runtimeToolsRevision: extensions.runtimeTools?.revision
     })
