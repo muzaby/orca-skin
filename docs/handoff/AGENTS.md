@@ -133,10 +133,10 @@ docs/handoff/
         ├── failure-patterns.md           # 현재 review 진입점
         ├── failure-patterns.corpus.md    # historical evidence 본문, 현재 규칙 SSOT 아님
         ├── regression-coverage.md        # 현재 regression baseline/변경 요약
-        └── round2-review.md              # 사용자가 원문 보존을 명시 요청한 감사 산출물
+        └── round2-review.md              # 1~2라운드 외부 검토 원문 스냅샷, 실행 정본 아님
 ```
 
-review 라운드마다 `roundN-review.md`를 자동 생성하지 않는다. 영구 결과는 지침과 `regression-coverage.md`에 압축하고, 별도 round 문서는 사용자가 감사/원문 보존을 명시적으로 요구할 때만 만든다.
+review 라운드마다 `roundN-review.md`를 자동 생성하지 않는다. 영구 결과는 지침과 `regression-coverage.md`에 압축한다. 별도 round 문서는 사용자가 감사/원문 보존을 요구했거나 review가 보존 사유를 문서 첫머리에 적을 때만 만들고, **동시에 1개만 유지한다** — 라운드마다 쌓이면 corpus에서 몰아낸 사례 누적을 여기서 재현하는 것이다. 보존 사유에는 실제 출처를 적는다.
 
 ---
 

@@ -1,6 +1,6 @@
-# Handoff skill regression coverage baseline — round 3
+# Handoff skill regression coverage baseline — round 4
 
-> 2026-08-14 PR #333의 3라운드 회귀 대조 기록.
+> 2026-08-14 PR #333의 3~4라운드 회귀 대조 기록.
 > 이 파일은 실행 지침이 아니다. 실행 정본은 `handoff-plan/SKILL.md`, `handoff-verify/SKILL.md`, `handoff-review/SKILL.md`, `docs/handoff/AGENTS.md`다.
 
 ## 회귀 판정은 tier + 세 축이다
@@ -82,7 +82,7 @@
 | N2 | 3축 무조건 강제가 trivial referential fix까지 full historical 재검증하게 함 | Tier 1(full A+B+C) / Tier 2(affected A+C)로 분리, **애매하면 Tier 1** | CLOSED |
 | N3 | byte/줄 수 자체는 결함 아님. 실제 위험은 checklist-only normative rule | 완료 조건이 본문 규칙에 매핑되고 checklist만의 새 규칙이 없는지 확인하도록 변경 | WATCH — 현재 divergence 0 |
 | N4 | agent-local gate와 PR/CI gate의 scope가 주석에서 모호 | `.github/workflows/ci.yml`을 **PR/CI 통합 게이트 정본**으로 명시, agent loop는 subtree AGENTS 정본 | CLOSED |
-| R1 | round별 문서 자동 누적 시 R4를 다른 파일에서 재현할 위험 | round report 기본 미생성. 영구 결과는 지침 + 이 파일에 압축. 사용자 명시 요청 때만 별도 감사 문서 생성 | CLOSED |
+| R1 | round별 문서 자동 누적 시 R4를 다른 파일에서 재현할 위험 | round report 기본 미생성. 영구 결과는 지침 + 이 파일에 압축 | PARTIAL — 생성 조건이 실제 provenance를 표현하지 못해 Round 4에서 마감 |
 
 ### N1 reference semantic-integrity evidence
 
@@ -112,7 +112,7 @@ Distinct named P semantic targets는 `P12`, `P19`, `P23`, `P29`, `P30`, `P31`, `
 | review entrypoint ↔ corpus | entrypoint=current policy routing, corpus=historical evidence 역할 분리 |
 | reference inbound expectations ↔ corpus | named P semantic target 7/7 유지; legacy 8곳 소비 목적 보존 |
 | app AGENTS ↔ ci.yml ↔ handoff guidance | agent-local/closed-network gate와 PR/CI integration gate scope 분리 |
-| round2-review.md ↔ review 기록 정책 | 사용자 명시 요청으로 만든 감사 산출물이며 실행 정본 아님 |
+| round2-review.md ↔ review 기록 정책 | review 판단으로 보존한 rationale 스냅샷. 보존 사유를 문서 첫머리에 명시, 동시 1개 유지, 실행 정본 아님 |
 
 **Cross-document result: PASS.**
 
@@ -129,4 +129,57 @@ Distinct named P semantic targets는 `P12`, `P19`, `P23`, `P29`, `P30`, `P31`, `
 - Operational Instruction Delta: **regression 0**.
 - Historical Failure Regression: **37 COVERED / 0 PARTIAL / 0 GAP / 0 OBSOLETE**.
 - Reference semantic integrity: legacy inbound **8곳**, named P targets **7/7 유지**.
+- Cross-document Consistency: **PASS**.
+
+---
+
+# Round 4 — round 문서 보존 규칙 정합화
+
+3라운드 검토에서 남은 결함 1건을 닫는다.
+
+## 발견
+
+`round2-review.md`의 provenance가 두 곳에서 **"사용자가 원문 보존을 명시 요청한 감사 산출물"** 로 기술됐으나, 실제로는 **review 판단으로 생성한 문서**다. 사용자는 검토만 요청했고 산출물 보존을 요구한 적이 없다. 동시에 3라운드가 새로 세운 정책은 "사용자가 명시적으로 요구한 경우에만" 별도 round 문서를 만든다고 규정했으므로, **정책과 실물이 서로를 부정**했다 — 정책대로면 이 파일은 존재하면 안 되고, 파일을 남기려면 사실이 아닌 출처를 적어야 한다.
+
+- 분류: **A. Instruction gap** — 정책이 review 자신의 정당한 보존 판단을 표현할 수 없어서, 규칙을 지키려면 출처를 왜곡해야 하는 구조였다.
+- 이 형태는 R4(사례 누적 금지)를 corpus 밖 디렉토리에서 재현할 위험도 함께 갖는다.
+
+## 보완
+
+| 대상 | 변경 |
+|---|---|
+| `handoff-review/SKILL.md §7` | round 문서 생성 조건에 **review 판단 + 첫머리 보존 사유 명시** 추가. **동시 1개 유지** 규칙 신설. 출처를 사실대로 적으라는 문장 추가 |
+| `docs/handoff/AGENTS.md` | 같은 규칙으로 동기화. 트리 주석을 사실에 맞게 정정 |
+| `round2-review.md` | 첫머리에 실제 보존 사유(사용자 요청 아님 · review 판단 · 1개 유지 · 실행 정본 아님) 기재 |
+| 본 파일 cross-document 행 | 허위 provenance 표기 정정 |
+
+## Tier 판정
+
+**Tier 1** — round 문서 생성 조건과 보존 상한은 normative policy다.
+
+## 세 축
+
+| 축 | 결과 |
+|---|---|
+| Operational Instruction Delta | KEEP 전부. DELETE 0. 3라운드가 세운 "기본 미생성 · 실행 정본 아님" 은 유지하고 생성 조건만 REPLACE(더 정확한 일반 규칙) + 보존 상한 신설 | 
+| Historical Failure Regression | P1~P37 전수 재대조 — **37 COVERED / 0 PARTIAL / 0 GAP / 0 OBSOLETE**. 이번 변경은 plan/verify의 어떤 방어 지침도 건드리지 않고 review 기록 정책만 바꾼다 |
+| Cross-document Consistency | `SKILL.md §7` ↔ `docs/handoff/AGENTS.md` 트리·정책 문단 ↔ `round2-review.md` 첫머리 ↔ 본 파일 — 네 곳의 생성 조건·보존 상한·provenance 서술 일치. 충돌 0 |
+
+## Reference semantic integrity
+
+reference MOVE/REPLACE 없음. inbound `N=0`, semantic target `M=0`. 3라운드가 세운 호환 경로(`handoff-plan/references/failure-patterns.md` → historical corpus)는 재검증만 수행했다.
+
+- 호환 경로로 읽은 `## P<number>` = **37개**.
+- legacy 인용이 기대하는 named target `P12·P19·P23·P29·P30·P31·P36` = **7/7 실재**.
+- `0173`의 line-scoped 인용 `failure-patterns.md:541-552` = **P29 본문에 그대로 착지**(실측).
+
+## 게이트
+
+`cd app && node scripts/check-doc-inventory.mjs --check` — generated doc ok · prose ok · **links ok(broken 0)**. `.agents` 는 prose 스캔에서 제외되고 historical handoff 링크는 skip되므로, 위 semantic integrity 판정의 증거로는 사용하지 않는다.
+
+## Round 4 결론
+
+- Regression tier: **Tier 1**.
+- Operational Instruction Delta: **regression 0**.
+- Historical Failure Regression: **37 COVERED / 0 PARTIAL / 0 GAP / 0 OBSOLETE**.
 - Cross-document Consistency: **PASS**.
