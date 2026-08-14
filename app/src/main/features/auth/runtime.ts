@@ -73,6 +73,8 @@ export interface CreateAuthRuntimeDeps {
   clock?: () => number
   logger?: (event: string, data: Record<string, unknown>) => void
   onOrphan?: (authId: AuthId) => void
+  // grant 저장소를 끝까지 읽지 못해 vault 고아 sweep 을 건너뛴 경우의 진단(r9).
+  onSweepSkipped?: () => void
 }
 
 export interface CreatedAuthRuntime {
@@ -89,7 +91,8 @@ export function createAuthRuntime(deps: CreateAuthRuntimeDeps): CreatedAuthRunti
     persistence: deps.persistence,
     vault: deps.vault,
     ...(deps.clock ? { clock: deps.clock } : {}),
-    ...(deps.onOrphan ? { onOrphan: deps.onOrphan } : {})
+    ...(deps.onOrphan ? { onOrphan: deps.onOrphan } : {}),
+    ...(deps.onSweepSkipped ? { onSweepSkipped: deps.onSweepSkipped } : {})
   })
   store.restore(registry.list().map((definition) => definition.id))
 
@@ -175,6 +178,8 @@ export function createAuthRuntime(deps: CreateAuthRuntimeDeps): CreatedAuthRunti
     ...(deps.clock ? { clock: deps.clock } : {}),
     ...(deps.oauth ? { oauth: deps.oauth } : {}),
     ...(deps.session ? { session: deps.session } : {}),
+    // 해제 시 session grant 의 cookie jar 를 함께 비운다 (r9).
+    ...(deps.sessions ? { sessions: deps.sessions } : {}),
     // 후보(`candidate`)는 확인이 끝날 때까지 store·vault 를 거치지 않는다 (r5).
     request: (authId, req, signal, candidate) => requester.request(authId, req, signal, candidate),
     onStep: (step) => publish({ kind: 'step', authId: step?.providerId ?? '', step }),

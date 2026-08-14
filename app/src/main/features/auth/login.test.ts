@@ -471,7 +471,7 @@ describe('AuthStore — 상태 판정', () => {
     expect(orphans).toEqual(['ghost'])
     expect(store.get('ghost')).toBeUndefined()
     // 영속 원본은 건드리지 않는다 — 선언이 돌아오면 재로그인 없이 살아난다.
-    expect(Object.keys(persistence.load())).toEqual(['ghost'])
+    expect(Object.keys(persistence.load().records)).toEqual(['ghost'])
   })
 })
 

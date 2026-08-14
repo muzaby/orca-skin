@@ -81,6 +81,10 @@
 | D-057 | **`GrantPersistencePort.save()` 는 내구 저장 여부를 boolean 으로 보고한다.** 메모리 폴백은 "영속 성공" 이 아니다 — `false` 를 받은 로그인은 새 값을 이번 프로세스에서 쓰되 **옛 세대 키를 지우지 않는다** | production adapter 가 쓰기 오류를 삼키고 `void` 를 돌려줘 호출부의 `catch` 가 실제 디스크 실패를 한 번도 보지 못했다. 던지지 않는 이유는 키체인이 잠긴 머신에서 앱이 죽으면 안 되기 때문이고, 그렇다고 성공으로 접으면 옛 키를 지워 **재시작 후 아무것도 가리키지 않는 grant** 가 된다 | r7 리뷰 §1·§3-2 | ACTIVE | D-053 의 `put()` 영속 우선은 유지 |
 | D-058 | **세대 확인은 결과 해석보다 먼저이고, `await` 가 있는 모든 자리에 있다** — probe 뒤(성공·실패 양쪽) · 실행기 뒤(`absorb` 의 `code-required`·`failed` 포함) · 부팅 복원 probe 뒤(`resume` 은 새 시도를 열지 않고 현재 세대만 비교) · 401 강등(`markExpired(authId, observedRevision)`) | r7 은 성공 분기에서만 확인해, 늦게 끝난 옛 시도의 401 이 거부 폼을 다시 열었다(`status=none` 인데 `input-required`). 401 은 **요청을 보낸 그 세대**에 대한 서버 판정이므로, 요청이 도는 사이 재인증됐다면 새 값을 내리는 근거가 못 된다 — 이 축이 없으면 방금 성공한 로그인이 옛 probe 의 401 로 즉시 `expired` 가 된다 | r7 리뷰 §1·§3-3 + 실측 재현 | ACTIVE | D-054 를 확장(3분기는 유지) |
 | D-059 | **회귀 테스트는 자기가 주장하는 production 경로에 실제로 진입했는지까지 단언한다** | r7 의 "refresh 저장 실패" 테스트는 PAT 전용 선언에 OAuth 실행기를 주입해 **token 경로에 도달조차 못 한 채** 통과했다. 경로 진입을 세는 단언(실행기 호출 횟수)이 있으면 그 형태가 성립하지 않는다 — D-055 의 "테스트가 production 을 부른다" 와 같은 축의 후속 | r7 리뷰 §2 | ACTIVE | D-055 의 후속 |
+| D-060 | **`GrantPersistencePort.load()` 는 `{records, authoritative}` 를 돌려주고, vault 고아 sweep 은 `authoritative` 일 때만 돈다.** 저장소를 못 열었거나 레코드를 **하나라도** 형상 오류로 버렸으면 `false` 다 | production adapter 는 실패해도 앱이 뜨도록 빈 맵으로 강등하는데, r8 의 sweep 이 그 빈 맵을 "영속된 grant 가 없다" 는 권위 있는 사실로 읽었다 — grant 파일만 손상되고 secret 파일은 멀쩡한 흔한 경우에 **부팅 한 번으로 자격증명이 복구 불가능하게 삭제**된다. 버린 레코드의 `vaultKey` 는 읽을 수 없으므로 부분 파싱도 같은 문제다. 고아 정리는 미뤄도 되는 위생 작업이고, 잘못 지운 secret 은 복구되지 않는다 | r8 재리뷰 §2 + 실측 재현 | ACTIVE | D-056 의 sweep 을 제한 |
+| D-061 | **해제(`revoke`)는 fail-closed 다.** 다음 grant map 의 내구 저장이 성립한 뒤에만 메모리·vault·snapshot 을 바꾸고, 실패는 던져 IPC 응답을 실패로 만든다 | r8 은 `flush()` 결과를 버리고 무조건 `revoked` 를 냈다. 저장이 실패하면 secret 은 지워지는데 디스크의 grant 는 남고, **session grant 는 vault 값이 없어 아무것도 사라지지 않은 채** 화면만 '해제됨' 이 된다 — 재시작하면 grant 가 복원되고 cookie 가 살아 있어 probe 가 통과, 사용자가 끊은 연결이 되살아난다. 추가·교체와 달리 해제는 degrade 로 접을 수 없다 | r8 재리뷰 §2 + 실측 재현 | ACTIVE | D-057 의 정책을 연산별로 분화 |
+| D-062 | **해제가 성립하면 cookie jar 도 비운다** — `BrowserSessionPort.clear(handleId, {scope:'origin', origin})`. best-effort 이며 해제 자체를 되돌리지 않는다 | grant 만 지우면 서버 쪽 로그인은 살아 있다 — 같은 `sessionGroup` 의 다른 Auth 가 그 쿠키로 계속 통과하고, 어떤 이유로든 grant 가 되살아나면 probe 가 그대로 성공한다. `BrowserSessionStore.clear()` 는 있었으나 포트에 노출되지도 호출되지도 않았다. scope 가 `'origin'` 인 이유는 공유 그룹을 통째로 비우면 같은 그룹의 다른 연결이 끊기기 때문 | r8 재리뷰 §2 | ACTIVE | — |
+| D-063 | **영속 실패 신호는 boolean 하나로 통일한다**(구현이 던지면 `AuthStore` 가 `false` 로 정규화). **정책은 실패 신호가 아니라 연산이 정한다** — 추가·교체 = degrade-open(옛 세대 키 보존), 해제 = fail-closed | r8 은 포트 주석이 "실패 시 throw" 인데 production adapter 는 `false` 를 돌려줬고, 두 신호에 서로 다른 정책(로그인 거부 / degrade)이 붙어 같은 조건이 두 갈래로 처리됐다. 갈라지는 축은 **무엇을 하려 했는가**여야 한다 — 추가를 fail 시키면 멀쩡한 로그인이 일시적 디스크 문제로 막히고, 해제를 degrade 하면 끊은 연결이 되살아난다 | r8 재리뷰 §2 | ACTIVE | D-057 을 정정·구체화 |
 | D-022 | Model 선택 UI 는 현재처럼 settings.json 에서 파생한다. runtime API 가 돌려주는 모델 환경변수는 **실행 구성에만** 반영하고 카탈로그 Model 목록에 반영하지 않는다 | 카탈로그 반영은 별도 제품 결정 | 제안서 §Harness + ModelProvider | ACTIVE | — |
 | D-023 | Confluence 는 `features/plugins/confluence/` 의 독립 Plugin 이다. Runtime Tool 서버는 **한 번만** 만들고 Bootstrap 이 인증 상태에 따라 같은 인스턴스를 add/remove 한다. `verified`-only snapshot 과 UI step 은 sync 하지 않는다 | 매 sync 마다 재생성하면 handler identity 가 달라져 registry revision 이 오르고 persistent runtime 이 respawn 한다 | 제안서 §Plugin과 Usage | ACTIVE | — |
 | D-024 | GUI `ProviderInfo.tools` 는 cached descriptor 의 **완전 도구 이름을 유지**한다. Auth 가 invalid 여도 빈 배열로 바꾸지 않고 `status` 로 비활성을 나타낸다. 실제 Harness 노출만 Runtime Tool Registry 에서 회수 | active registry 목록으로 DTO tools 를 만들면 현재 UX 가 깨진다 | 제안서 §Plugin과 Usage | ACTIVE | — |
@@ -346,7 +350,7 @@ Bootstrap                        : 위 객체 생성 + 좁은 포트 연결만
 [chat:send]
   → settings SSOT 선택 (Harness + ModelProvider + Model)
   → harnessRuntime.resolve(entry)  →  HarnessRuntimeConfig { settings, runtimeEnv, validUntil }   ← 턴당 1회
-  → Harness별 spawn preparation    →  PreparedHarnessConfig { providerSettings, env, runtimeConfigFingerprint }
+  → Harness별 spawn preparation    →  PreparedHarnessConfig { providerSettings, env, runtimeEnvFingerprint }
   → decideRespawn(boundary, model, settingsChanged, toolsRevision, **fingerprintChanged**)
   → TurnRequest.providerSettings / TurnRequest.env (두 채널 유지) + title 경로에 같은 snapshot
 
@@ -371,8 +375,8 @@ Bootstrap                        : 위 객체 생성 + 좁은 포트 연결만
 | Gate | `platform.state()` 안에서 `registry.byKind('gate')` 로 평가 | `features/gate` 가 주입된 `BoundAuth[]` 만 소비, membership 은 `app/deployment/gate-auth.ts` | Auth 가 gate 를 모른다(D-007) | `features/gate/index.ts` · AC4 |
 | Harness 실행 구성 | `materialize().env` 한 쌍 + settings 별도 경로 | `HarnessRuntimeConfig{settings, runtimeEnv, validUntil}` + optional `RuntimeConfigAugmenter` | 전체 env overlay 표현(D-013) | `features/harnesses/runtime-config.ts` · AC10·AC11 |
 | cache/무효화 | settings mtime cache 만 | + key 별 `generation + sourceRevision + value + in-flight` 세대 1개, selective invalidate | stale token 재유입 차단(D-014·D-015·D-016) | `features/harnesses/runtime-config.ts` · AC12·AC13·AC14 |
-| spawn 입력 | `providerSettings` + `env` 를 서로 다른 경로가 조립 | `PreparedHarnessConfig{providerSettings, env, runtimeConfigFingerprint}` 하나로 조립 | title/chat/continuation 동일 snapshot(D-019·D-020) | `adapters` spawn preparation · AC15·AC17·AC18 |
-| respawn 판정 | boundary·model·settings·toolsRevision 4입력 | + `runtimeConfigFingerprint` 변경(5번째 입력, 기존 4개 유지) | env credential 교체를 판정(D-021) | `features/sessions/respawn-policy.ts` · AC19 |
+| spawn 입력 | `providerSettings` + `env` 를 서로 다른 경로가 조립 | `PreparedHarnessConfig{providerSettings, env, runtimeEnvFingerprint}` 하나로 조립 | title/chat/continuation 동일 snapshot(D-019·D-020) | `adapters` spawn preparation · AC15·AC17·AC18 |
+| respawn 판정 | boundary·model·settings·toolsRevision 4입력 | + `runtimeEnvFingerprint` 변경(5번째 입력, 기존 4개 유지) | env credential 교체를 판정(D-021) | `features/sessions/respawn-policy.ts` · AC19 |
 | Plugin 도구 | `ServiceToolRegistrar.sync(providers[])` 범용 | Plugin 별 `syncXTools()` helper + 동일 server 인스턴스 | 범용 registrar 금지(D-023) | `app/deployment/plugins.ts` · AC20·AC21 |
 | GUI DTO | `ProviderPlatform.info()` | `app/connection-views.ts` 의 `ConnectionViewSource[]` → 기존 DTO | wire 불변 + 내부 분리(D-029·D-030) | AC22 |
 | 부팅 순서 | platform → handlers → resume → mcp → DB → settings | Auth/Gate/Plugin/handlers/listener → resume → DB → harness settings/runtime | 첫 invoke 가 DB 를 기다리지 않는다(D-027·D-028) | `app/bootstrap.ts` · AC23 |
@@ -408,7 +412,7 @@ Bootstrap                        : 위 객체 생성 + 좁은 포트 연결만
 | `HarnessModelProviderKey` = `${HarnessId}-${string}` | `contracts` 또는 `features/harnesses` 의 `harnessModelProviderKey()` 헬퍼 1곳 | 헬퍼 | 키 생성 시 | 문자열 join 이 흩어지면 조인이 갈린다 |
 | `ResolvedHarnessSettings.sourceRevision` | `features/harnesses/settings.ts` | settings service | resolve 시 | adapter 에 새어 나가면 `options.settings` 오염 → **adapter 에는 `settings` 만 전달**(강제: 조립 함수가 `settings` 만 읽는다) |
 | `RuntimeConfigAugmenter` 결과 검증 | 배포 모듈의 parse 함수 | 배포 | resolve 시 | 필수 값 누락/빈 문자열이면 부분 env 를 cache 하지 말고 resolve 실패 |
-| `runtimeConfigFingerprint` canonical form | spawn preparation 1곳 | adapter-local | 조립 시 | 계산 위치가 둘이면 같은 입력이 다른 값을 낳는다 |
+| `runtimeEnvFingerprint`(HMAC digest) | spawn preparation 1곳 | adapter-local | 조립 시 | 계산 위치가 둘이면 같은 입력이 다른 값을 낳는다 |
 | `UsageSnapshot.baselineUsable` | 배포 mapper | 배포 | 매핑 시 | **미지정 = false(fail-closed)** — watermark 확인된 경우만 true |
 | compat `ProviderKind` 매핑 | `app/connection-views.ts` 1곳 | mapper | DTO 조립 시 | 신규 kind 추가 = renderer 계약 위반 |
 
@@ -498,7 +502,7 @@ RuntimeConfigAugmenter(runtimeEnv)     ─┴→ HarnessRuntimeConfig → Prepar
 
 - **producer 기준**: Auth 는 "실행 credential 또는 그 사용 가능성이 실제로 바뀌었는가" 만 `credentialChanged:true` 로 선언한다.
 - **consumer 파생 규칙**: Harness 는 `credentialChanged:true` + **자기 고정 key** 일 때만 invalidate. Plugin 은 `credentialChanged:true` + **자기 authId** 일 때만 sync. 모든 Plugin/ModelProvider 를 재스캔하지 않는다.
-- **파생 가능한 합성값이 정본을 우회하지 않는가**: `runtimeConfigFingerprint` 는 respawn 판정에만 쓰고 진단 데이터로 노출하지 않는다. GUI `tools` 는 **cached descriptor** 에서 파생하고 active registry 목록에서 만들지 않는다(D-024).
+- **파생 가능한 합성값이 정본을 우회하지 않는가**: `runtimeEnvFingerprint` 는 respawn 판정에만 쓰고 진단 데이터로 노출하지 않는다. GUI `tools` 는 **cached descriptor** 에서 파생하고 active registry 목록에서 만들지 않는다(D-024).
 
 ### 부팅/등록/초기화 변경 시 기존 소비처
 
@@ -568,7 +572,7 @@ RuntimeConfigAugmenter(runtimeEnv)     ─┴→ HarnessRuntimeConfig → Prepar
 | 이동 중 테스트를 지워 green 을 만드는 유혹 | D-033 + AC 가 행동 단언을 요구. verify 가 테스트 수·케이스 존재를 대조 |
 | 기본 빌드가 빈 선언이라 동적 경로가 프로덕션에서 한 번도 안 돈다 | 그래서 AC10·AC13·AC14·AC15 를 **단위 테스트로** 닫는다. 폐쇄망 실기는 별도 사람 실기 항목 |
 
-- **되돌리기 어려운 결정**: 없음(식별자·스키마·vault key·IPC 채널을 전부 동결했다 — D-005·D-030·D-031).
+- **되돌리기 어려운 결정**: 없음(식별자·스키마·IPC 채널을 동결했다 — D-005·D-030·D-031). **vault key 는 prefix `provider:` 만 동결이다** — r8 이후 새로 쓰는 키에는 세대 접미사 `@<세대>` 가 붙고, `Grant.vaultKey` 가 포인터라 세대 없는 옛 키를 가리키는 grant 도 그대로 읽힌다(D-056).
 - **신규 의존성**: **없음**(D-032). 사용자 승인 불필요.
 
 ## 18. 영향 받는 파일 / 문서
@@ -625,7 +629,7 @@ node scripts/check-migrations-appendonly.mjs
 
 ## [구현자 기입] 설계 리뷰
 
-- **동의 / 그대로 진행**: 책임 경계(§9 Delta 전 행) · Decision Ledger 37건 · AC 24건(이후 r3 에서 AC25 신설 — 현재 25건). 제안서가
+- **동의 / 그대로 진행**: 책임 경계(§9 Delta 전 행) · Decision Ledger 37건 · AC 25건(설계 시점 24건 + r3 의 AC25). 제안서가
   값을 명시한 자리(용어·디렉터리·우선순위·cache 정책·금지 목록)는 재해석 없이 그대로 구현했다.
 - **이견 / 현실성 문제**: 없음. 단 아래 §[구현자 기입] 놓친 잠재 문제의 5건은 설계가 예상하지
   못한 자리였고, 전부 **구현 세부 보완**으로 선조치했다(제품 의도·AC·ACTIVE Decision 불변).
@@ -661,13 +665,15 @@ node scripts/check-migrations-appendonly.mjs
 |---|---|
 | 변경 파일 | Phase A 95파일(이동 51 · 전환 44) · Phase B 83파일 · Phase C 문서 12파일 |
 | 실행 명령 | `npm run typecheck` · `npm run lint` · `./node_modules/.bin/vitest run` · `node --test "scripts/*.test.mjs"` · `node scripts/check-doc-inventory.mjs --check` · `node scripts/check-migrations-appendonly.mjs` |
-| 게이트 결과 (r8 실측) | **전부 green** — typecheck 3/3 · lint 0 error(1 warning = 기존 `useTranscriptVirtualizer` react-compiler) · vitest **201 파일 / 1,881 테스트 전부 통과**(egress 가 열려 있어 DB suite 포함 신규 red 0) · script test 49/49 · doc-inventory(생성물·prose·링크) ok · migrations append-only ok |
+| 게이트 결과 (r9 실측) | **전부 green** — typecheck 3/3 · lint 0 error(1 warning = 기존 `useTranscriptVirtualizer` react-compiler) · vitest **201 파일 / 1,887 테스트 전부 통과**(egress 가 열려 있어 DB suite 포함 신규 red 0) · script test 49/49 · doc-inventory(생성물·prose·링크) ok · migrations append-only ok |
 | 테스트 보존 감사 (r2) | 삭제 4파일의 단언을 전수 대조했다. **대체됨**: `service-tools`(4) · `plugin-tools`(3/5) · `turn-setup`(4/5) → 현 `plugins.test.ts`·`prepared-config.test.ts`. **대체 대상 아님**: `llm-env`(5) — `Provider.llm` 조인 규칙 자체가 계약에서 사라졌다. **누락 3건은 r2 에서 신설**(D2). 남은 삭제/skip 0 |
 | ABI 환경 | 이 세션은 egress 가 열려 있어 `npm ci` 가 성공했고 **DB suite 를 포함해 전부 green** 이다 — `app/AGENTS.md` 가 경고하는 baseline red 5파일이 이번에는 없다 |
 | 블로커 / 역질문 | 없음 |
 | r3 반영 | 리뷰 5건을 전부 코드에서 재확인한 뒤 고쳤다 — 배포 factory 인자화(D6) · `connections.ts` 신설(D7) · env 우선순위 정정(D8) · 만료 정착 경로·세대(D9) · fingerprint digest 화(D10). 신설 `deployment-wiring.test.ts` 6건 + 기존 fingerprint/expiry 테스트 개정 |
+| r9 반영 | 재리뷰 P1 2건을 **실측 재현한 뒤** 고쳤다 — 저장소 장애를 빈 저장소로 오인한 sweep(D29, **r8 회귀**) · 영속 실패를 무시한 해제(D30) · 갈라져 있던 포트 계약(D31) · 리베이스 후 문서 ancestry(D32). 신설 회귀 **+6**, 전부 mutation 으로 가드 의존성을 확인했다 |
 | r8 반영 | PR #338 재리뷰 3건을 **전부 실측 재현한 뒤** 고쳤다 — 교체 원자성(D22/D25/D26: 포인터 교체 + 내구 저장 보고 + staging 제거) · fence 전면화(D23/D27: probe·실행기·resume·401 강등 4지점) · 테스트 공백(D28: 경로 진입 단언 + mutation 확인). 신설 회귀 **+11**, 실패 지점마다 "옛 값 전체 / 새 값 전체" 중 하나만 관측되는지 단언한다 |
-| 대상 커밋 | Phase A `2bebd67` · Phase B `2b274ef` · Phase C `110a1a9` · r2 `d197f0d` · r3 `511ad32` · r4 `5d11041` · r5 `40fcf11` · r6 `8b0e4af` · r7 `2e9a4be` · r8 `2f4e804` |
+| 대상 커밋 | Phase A `2bebd67` · Phase B `2b274ef` · Phase C `110a1a9` · r2 `d197f0d` · r3 `511ad32` · r4 `ed33531` · r5 `05aeab6` · r6 `ceaf7ba` · r7 `64f0c47` · r8 `2f4e804` · r9 (이 커밋) |
+| 리베이스 해시 매핑 (r9) | 브랜치가 리베이스되면서 r4–r7 의 해시가 바뀌었다. 이전 기록이 가리키던 값 → 현재 ancestry: `5d11041`→`ed33531`(r4) · `40fcf11`→`05aeab6`(r5) · `8b0e4af`→`ceaf7ba`(r6) · `2e9a4be`→`64f0c47`(r7). 커밋 **내용**은 같고 부모만 달라졌다 — 옛 해시는 이 저장소에서 더 이상 조회되지 않으므로 본 표는 현재 값을 쓴다 |
 
 ### 전수 재측정 (plan §8 요구)
 
@@ -750,3 +756,7 @@ refresh. 기본 빌드는 선언이 비어 있어 이 경로가 프로덕션에�
 | D26 | **`restore()` 가 staged 값을 commit 의사 확인 없이 무조건 promote 했다.** staged 영역에는 새 `Grant` 도 phase 도 없어 "확인까지 끝난 값" 인지 판별할 근거가 아예 없었다 — stage 직후 크래시하면 미커밋 secret 이 자동 승격됐다 | r7 리뷰 §1 | ✅ **해결** — staging 자체를 제거하고 포인터 교체로 바꿔(D-056) 무조건 promote 가 **구조적으로 소멸**했다. 부팅은 이제 승격이 아니라 **고아 sweep** 을 한다 | 해결 |
 | D27 | **`markExpired` 가 관측 세대를 보지 않았다.** 401 은 요청을 보낸 그 자격증명에 대한 판정인데, 요청이 도는 사이 재인증이 끝나면 그 401 이 **방금 성공한 새 자격증명**을 `expired` 로 강등했다(부팅 복원 probe 에서 실측) | r7 리뷰 §1·§3-3 확장 | ✅ **해결** — `markExpired(authId, observedRevision)` + 요청 경로가 전송 직전 세대를 적어 둔다(D-058). 회귀 1건(두 가드를 각각 지우면 실패하는지 mutation 확인) | 해결 |
 | D28 | **신규 회귀 테스트가 주장한 경로에 진입하지 않았다.** "refresh 저장 실패" 는 PAT 전용 선언에 OAuth 실행기를 주입해 token 경로를 실행하지 않았고, "영속 실패" 는 secret 보존을 단언하지 않아 혼합 상태를 놓쳤다. **D16(r5)·D24(r7)와 같은 실패가 세 라운드 연속 재발**했다 | r7 리뷰 §2 | ✅ **해결** — 실행기 호출 횟수 단언으로 경로 진입을 못 박고(D-059), 신규 회귀 전부를 `createAuthRuntime` production 경로로 태웠다. 새 단언은 가드를 지우면 실패하는지 mutation 으로 확인했다 | 해결 |
+| D29 | **부팅 sweep 이 grant 저장소 장애를 '정상적인 빈 저장소' 로 오인해 vault 를 통째로 지울 수 있었다.** r8 이 도입한 sweep 의 회귀다 — `load()` 가 파일 개방·파싱 실패를 빈 맵으로 강등하는데 sweep 이 그것을 권위 있는 없음으로 읽었다 | r8 재리뷰 §2 | ✅ **해결** — `load()` 가 `{records, authoritative}` 를 돌려주고 sweep 은 authoritative 일 때만 돈다(D-060). 회귀 3건(못 읽음 / 부분 파싱 / 정상 sweep 은 여전히 돈다) | 해결 |
+| D30 | **`revoke()` 가 영속 실패를 무시하고 성공을 발행했다.** session grant 는 vault 값이 없어 아무것도 사라지지 않은 채 화면만 해제되고, 재시작하면 연결이 되살아난다. `BrowserSessionStore.clear()` 도 포트에 노출·호출되지 않아 쿠키가 그대로 남았다 | r8 재리뷰 §2 | ✅ **해결** — 해제를 fail-closed 로(D-061) + 해제 성립 후 origin scope 쿠키 정리(D-062). 회귀 3건 | 해결 |
+| D31 | **포트 계약이 문서와 구현으로 갈라져 있었다.** 주석은 "실패 시 throw", production adapter 는 `false` 반환. 그 둘에 서로 다른 정책이 붙어 같은 "내구 저장 실패" 가 로그인에서는 거부로, vault 경로에서는 degrade 로 처리됐다 | r8 재리뷰 §2 | ✅ **해결** — 신호는 boolean 하나로 정규화하고 정책은 연산이 정한다(D-063). r8 의 "영속 실패 = 로그인 거부" 테스트를 **degrade-open + 옛 secret 보존** 단언으로 다시 썼다 | 해결 |
+| D32 | **리베이스로 r4–r7 해시가 바뀌었는데 handoff 기록이 옛 해시를 가리켰다.** `AC 24건` 잔재·존재하지 않는 `runtimeConfigFingerprint` 명칭·'vault key 전체 동결'(r8 에서 세대 접미사 도입) 서술도 남아 있었다 | r8 재리뷰 §2 | ✅ **해결** — `기존→현재` 매핑을 plan 구현 보고에 남기고 본문은 현재 해시를 쓴다. 나머지 3건은 현재 코드에 맞췄다 | 해결 |

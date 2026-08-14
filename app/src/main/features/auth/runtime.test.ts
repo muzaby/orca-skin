@@ -695,7 +695,7 @@ describe('자격증명 교체 원자성 · superseded 격리 (r8)', () => {
     vault: ReturnType<typeof createVault>
   ): { access: string | null; refresh: string | null } {
     void runtime
-    const grant = persistence.load()['gw']
+    const grant = persistence.load().records['gw']
     if (!grant || grant.kind !== 'token') return { access: null, refresh: null }
     return {
       access: vault.get(grant.vaultKey),
@@ -732,7 +732,11 @@ describe('자격증명 교체 원자성 · superseded 격리 (r8)', () => {
     })
   })
 
-  it('grant 영속이 실패하면 이전 secret 과 메모리 상태가 모두 보존된다', async () => {
+  it('grant 영속이 실패해도 이전 secret 은 파괴되지 않는다', async () => {
+    // **정책은 실패 신호가 아니라 연산이 정한다** (r9). 추가·교체는 degrade-open 이다 —
+    // 이번 프로세스는 새 값으로 동작하고, 재시작하면 직전 정상 상태로 돌아갈 뿐이라 잃는 것이
+    // 없다. r8 은 throw 와 `false` 에 서로 다른 정책(거부 / degrade)을 붙여 같은 조건이 두
+    // 갈래로 처리됐다 — store 가 throw 를 `false` 로 정규화해 하나로 합쳤다.
     const backing = fakeStore()
     const vault = createVault(backing)
     vault.set('gw:oauth', 'old-access', { kind: 'oauth', createdAt: 0 })
@@ -743,24 +747,27 @@ describe('자격증명 교체 원자성 · superseded 격리 (r8)', () => {
     const created = tokenDeployment({
       store: backing,
       persistence: {
-        load: () => ({ ...persisted }),
+        load: () => ({ records: { ...persisted }, authoritative: true }),
         save: () => {
           throw new Error('disk full')
         }
       }
     })
-    const changes: AuthChange[] = []
-    created.runtime.subscribe((change) => changes.push(change))
 
     await created.runtime.login('gw', 'oauth')
 
-    // r7 은 revision 만 확인해서 이 혼합 상태를 놓쳤다 — 여기서 secret 까지 단언한다.
+    // 핵심 불변식 — **옛 자격증명이 살아 있다.** r7 은 여기서 `new-access` 가 관측됐다.
     expect(vault.get('gw:oauth')).toBe('old-access')
     expect(vault.get('gw:oauth#refresh')).toBe('old-refresh')
-    expect(created.runtime.bind('gw').snapshot().credentialRevision).toBe(0)
-    expect(changes.filter((c) => c.kind === 'snapshot' && c.credentialChanged)).toHaveLength(0)
-    // 정상 실패 경로는 방금 쓴 새 세대 키를 스스로 지운다 — 부팅 sweep 을 기다리지 않는다.
-    expect([...backing.raw.keys()].filter((k) => k.includes('@'))).toEqual([])
+    // 재시작하면 영속된 옛 grant 가 그 키를 그대로 가리킨다 — 매달린 포인터가 생기지 않는다.
+    const rebooted = tokenDeployment({
+      store: backing,
+      persistence: {
+        load: () => ({ records: { ...persisted }, authoritative: true }),
+        save: () => true
+      }
+    })
+    expect(rebooted.secretReader.read('gw')).toBe('old-access')
   })
 
   it('영속이 메모리로만 됐으면 새 값을 쓰되 이전 키를 지우지 않는다', async () => {
@@ -773,7 +780,10 @@ describe('자격증명 교체 원자성 · superseded 격리 (r8)', () => {
     const created = tokenDeployment({
       store: backing,
       persistence: {
-        load: () => ({ gw: { ...OLD_ACCESS, authKind: 'oauth', createdAt: 0 } }),
+        load: () => ({
+          records: { gw: { ...OLD_ACCESS, authKind: 'oauth', createdAt: 0 } },
+          authoritative: true
+        }),
         // degraded — 내구 저장 실패를 **던지지 않고 보고**한다.
         save: () => false
       }
@@ -793,7 +803,7 @@ describe('자격증명 교체 원자성 · superseded 격리 (r8)', () => {
       gw: { ...OLD_ACCESS, authKind: 'oauth', createdAt: 0 }
     }
     const persistence: GrantPersistencePort = {
-      load: () => ({ ...persisted }),
+      load: () => ({ records: { ...persisted }, authoritative: true }),
       save: (next) => {
         Object.assign(persisted, next)
         return true
@@ -830,7 +840,10 @@ describe('자격증명 교체 원자성 · superseded 격리 (r8)', () => {
 
     const rebooted = tokenDeployment({
       store: backing,
-      persistence: { load: () => ({ ...persisted }), save: () => true }
+      persistence: {
+        load: () => ({ records: { ...persisted }, authoritative: true }),
+        save: () => true
+      }
     })
 
     // 커밋되지 않은 값은 절대 쓰이지 않는다 — 부팅이 옛 자격증명으로 열린다.
@@ -1013,6 +1026,226 @@ describe('자격증명 교체 원자성 · superseded 격리 (r8)', () => {
 
     expect(created.runtime.currentStep()).toBeNull()
     expect(created.runtime.bind('gw').snapshot().status).toBe('none')
+  })
+})
+
+// ── 영속 장애에서의 데이터 보존과 명시적 해제 (r9) ────────────────────────────
+//
+// r8 은 두 곳에서 "실패를 정상으로 오인" 했다:
+//   ① grant 파일을 못 읽으면 빈 맵이 오는데, sweep 이 그것을 **권위 있는 없음**으로 읽고
+//      멀쩡한 vault secret 을 전부 지웠다(grant 파일만 손상된 흔한 경우).
+//   ② `revoke()` 가 영속 결과를 버리고 무조건 성공을 발행했다 — session grant 는 vault 값도
+//      없어 아무것도 사라지지 않은 채 화면만 '해제됨' 이 됐다.
+//
+// 둘 다 **실패 방향이 데이터 손실 또는 되살아남**이라 degrade 로 접을 수 없다.
+describe('영속 장애에서의 보존과 해제 (r9)', () => {
+  const SESSION_AUTH: AuthDefinition = {
+    id: 'portal',
+    label: '포털',
+    origin: 'https://portal.example.corp',
+    probe: { path: '/api/me' },
+    methods: [
+      {
+        kind: 'browser-session',
+        label: 'SSO',
+        config: {
+          sessionGroup: 'corp',
+          allowedOrigins: ['https://portal.example.corp'],
+          loginUrl: 'https://portal.example.corp/login',
+          doneUrlPrefix: 'https://portal.example.corp/'
+        }
+      }
+    ]
+  }
+
+  function seededVault(): { vault: ReturnType<typeof createVault>; raw: Map<string, string> } {
+    const raw = new Map<string, string>()
+    const vault = createVault({
+      get: (k) => raw.get(k),
+      set: (k, v) => void raw.set(k, v),
+      delete: (k) => void raw.delete(k)
+    })
+    vault.set('wiki:pat', 'live-secret', { kind: 'pat', createdAt: 0 })
+    return { vault, raw }
+  }
+
+  it('grant 저장소를 못 읽으면 vault 를 쓸어내지 않는다', async () => {
+    // grant 파일만 손상되고 secret 파일은 멀쩡한 경우. 부팅 한 번에 자격증명이 사라지면
+    // 복구 경로가 없다 — sweep 은 위생 작업이므로 미루는 쪽이 항상 옳다.
+    const { vault } = seededVault()
+    let skipped = 0
+    const created = createAuthRuntime({
+      definitions: [WIKI],
+      // 파일을 못 열었다 = "아는 것이 없다" 이지 "없다" 가 아니다.
+      persistence: { load: () => ({ records: {}, authoritative: false }), save: () => false },
+      vault,
+      fetchImpl: (async () => new Response('', { status: 200 })) as unknown as typeof fetch,
+      clock: () => 1_000,
+      onSweepSkipped: () => {
+        skipped += 1
+      }
+    })
+    void created
+
+    expect(vault.get('wiki:pat')).toBe('live-secret')
+    expect(skipped).toBe(1)
+  })
+
+  it('레코드를 하나라도 버렸으면 sweep 을 건너뛴다', () => {
+    // 버린 레코드의 `vaultKey` 는 읽을 수 없다 — 남은 것만으로 고아를 판정하면 그 값이 지워진다.
+    const { vault } = seededVault()
+    const created = createAuthRuntime({
+      definitions: [WIKI],
+      persistence: {
+        load: () => ({ records: {}, authoritative: false }),
+        save: () => true
+      },
+      vault,
+      fetchImpl: (async () => new Response('', { status: 200 })) as unknown as typeof fetch,
+      clock: () => 1_000
+    })
+    void created
+
+    expect(vault.get('wiki:pat')).toBe('live-secret')
+  })
+
+  it('끝까지 읽었으면 고아를 정상적으로 치운다', () => {
+    // 위 두 케이스가 sweep 을 통째로 껐는지 확인한다 — 껐다면 이 테스트가 실패한다.
+    const { vault } = seededVault()
+    createAuthRuntime({
+      definitions: [WIKI],
+      persistence: { load: () => ({ records: {}, authoritative: true }), save: () => true },
+      vault,
+      fetchImpl: (async () => new Response('', { status: 200 })) as unknown as typeof fetch,
+      clock: () => 1_000
+    })
+
+    expect(vault.get('wiki:pat')).toBeNull()
+  })
+
+  it('session grant 해제는 저장에 실패하면 성공을 발행하지 않는다', async () => {
+    // session grant 는 vault 값이 없어 "지울 것" 자체가 없다. 저장이 실패했는데 성공을
+    // 발행하면 화면만 해제되고 디스크의 grant 는 남아, **재시작하면 연결이 되살아난다**.
+    const cleared: string[] = []
+    const created = createAuthRuntime({
+      definitions: [SESSION_AUTH],
+      persistence: {
+        load: () => ({
+          records: {
+            portal: {
+              kind: 'session',
+              sessionGroup: 'corp',
+              authKind: 'browser-session',
+              createdAt: 0
+            }
+          },
+          authoritative: true
+        }),
+        save: () => false
+      },
+      vault: createVault(fakeSecretStore()),
+      fetchImpl: (async () => new Response('', { status: 200 })) as unknown as typeof fetch,
+      clock: () => 1_000,
+      sessions: {
+        register: () => undefined,
+        acquire: () => 'handle',
+        openLoginWindow: async () => ({ finalUrl: '' }),
+        send: async () => ({ status: 200, headers: {}, body: '' }),
+        clear: async (_handle, opts) => void cleared.push(opts.scope)
+      }
+    })
+    const changes: AuthChange[] = []
+    created.runtime.subscribe((change) => changes.push(change))
+
+    expect(() => created.runtime.revoke('portal')).toThrow()
+    // 상태는 그대로여야 한다 — 사용자가 "끊었다" 고 믿게 두지 않는다.
+    expect(created.runtime.bind('portal').snapshot().status).toBe('valid')
+    expect(changes.filter((c) => c.kind === 'snapshot' && c.cause === 'revoked')).toHaveLength(0)
+    // 실패한 해제는 cookie 도 건드리지 않는다.
+    expect(cleared).toEqual([])
+  })
+
+  it('해제가 성립하면 session cookie 도 함께 비운다', () => {
+    // grant 만 지우면 서버 쪽 로그인은 살아 있다 — 같은 그룹의 다른 연결이 그 쿠키로 통과한다.
+    const cleared: { scope: string; origin?: string }[] = []
+    const created = createAuthRuntime({
+      definitions: [SESSION_AUTH],
+      persistence: createMemoryGrantPersistence({
+        portal: { kind: 'session', sessionGroup: 'corp', authKind: 'browser-session', createdAt: 0 }
+      }),
+      vault: createVault(fakeSecretStore()),
+      fetchImpl: (async () => new Response('', { status: 200 })) as unknown as typeof fetch,
+      clock: () => 1_000,
+      sessions: {
+        register: () => undefined,
+        acquire: () => 'handle',
+        openLoginWindow: async () => ({ finalUrl: '' }),
+        send: async () => ({ status: 200, headers: {}, body: '' }),
+        clear: async (_handle, opts) => void cleared.push(opts)
+      }
+    })
+
+    created.runtime.revoke('portal')
+
+    expect(created.runtime.bind('portal').snapshot().status).toBe('none')
+    // 공유 그룹을 통째로 비우지 않는다 — 같은 그룹의 다른 연결이 끊긴다.
+    expect(cleared).toEqual([{ scope: 'origin', origin: 'https://portal.example.corp' }])
+  })
+
+  it('degraded 재인증 뒤 해제해도 재시작이 옛 자격증명을 되살리지 않는다', async () => {
+    // degrade-open(교체)과 fail-closed(해제)가 한 줄기에서 만나는 자리다.
+    const raw = new Map<string, string>()
+    const backing = {
+      get: (k: string) => raw.get(k),
+      set: (k: string, v: string) => void raw.set(k, v),
+      delete: (k: string) => void raw.delete(k)
+    }
+    const vault = createVault(backing)
+    vault.set('wiki:pat', 'old', { kind: 'pat', createdAt: 0 })
+    const persisted: Record<string, Grant> = {
+      wiki: { kind: 'secret', vaultKey: 'wiki:pat', authKind: 'pat', createdAt: 0 }
+    }
+    let durable = false
+    const created = createAuthRuntime({
+      definitions: [WIKI],
+      persistence: {
+        load: () => ({ records: { ...persisted }, authoritative: true }),
+        save: (next) => {
+          if (!durable) return false
+          for (const key of Object.keys(persisted)) delete persisted[key]
+          Object.assign(persisted, next)
+          return true
+        }
+      },
+      vault,
+      fetchImpl: (async () => new Response('', { status: 200 })) as unknown as typeof fetch,
+      clock: () => 1_000
+    })
+
+    // degraded 재인증 — 이번 프로세스는 새 값을 쓰지만 옛 키는 남는다.
+    await created.runtime.reauth('wiki', 'pat')
+    await created.runtime.continue('wiki', { [FIELD_SECRET]: 'fresh' })
+    expect(vault.get('wiki:pat')).toBe('old')
+
+    // 이 상태에서 해제가 저장되지 않으면 실패해야 한다.
+    expect(() => created.runtime.revoke('wiki')).toThrow()
+    expect(created.runtime.bind('wiki').snapshot().status).toBe('valid')
+
+    // 저장이 회복되면 해제가 성립하고, 재시작해도 옛 자격증명이 돌아오지 않는다.
+    durable = true
+    created.runtime.revoke('wiki')
+    const rebooted = createAuthRuntime({
+      definitions: [WIKI],
+      persistence: {
+        load: () => ({ records: { ...persisted }, authoritative: true }),
+        save: () => true
+      },
+      vault: createVault(backing),
+      fetchImpl: (async () => new Response('', { status: 200 })) as unknown as typeof fetch,
+      clock: () => 1_000
+    })
+    expect(rebooted.runtime.bind('wiki').snapshot().status).toBe('none')
+    expect(rebooted.secretReader.read('wiki')).toBeNull()
   })
 })
 

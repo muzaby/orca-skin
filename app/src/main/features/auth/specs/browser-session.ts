@@ -27,6 +27,13 @@ export interface BrowserSessionPort {
     opts: { url: string; isDone(url: string): boolean }
   ): Promise<{ finalUrl: string }>
   send(handleId: string, req: PreparedRequest, options?: SendOptions): Promise<SendResult>
+  // cookie jar 를 비운다 (r9). 해제한 session Auth 의 쿠키가 남으면 grant 만 사라지고 **로그인
+  // 상태 자체는 서버 쪽에 살아 있다** — 같은 그룹을 쓰는 다른 Auth 가 그 쿠키로 계속 통과하고,
+  // 어떤 이유로든 grant 가 되살아나면 probe 가 그대로 성공한다.
+  //
+  // 기본 scope 는 `'origin'` 이다 — 한 connector 를 끊었다고 공유 세션 그룹을 통째로 비우면
+  // 같은 그룹의 다른 연결까지 끊긴다.
+  clear(handleId: string, opts: { scope: 'origin' | 'group'; origin?: string }): Promise<void>
 }
 
 // 응답 JSON 에서 점 경로로 값을 꺼낸다. 실값(0181 OQ2)이 미정이라 경로를 **선언으로 받는** 것이
