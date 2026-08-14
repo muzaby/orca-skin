@@ -3,7 +3,7 @@
 
 import { describe, expect, it, vi } from 'vitest'
 import { CHANNELS } from '../../../shared/ipc'
-import type { ProviderPlatform } from '../../features/providers/platform'
+import type { ProviderPlatform } from '../provider-platform'
 
 const registered = vi.hoisted(() => [] as string[])
 

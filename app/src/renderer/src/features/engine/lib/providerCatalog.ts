@@ -1,7 +1,7 @@
 // 엔진 추가 모달(단일 화면)이 쓰는 카탈로그 + settings.json 실시간 검증 (순수 모듈).
 // adapter 는 claude 고정(handoff 0090 — 엔진 선택 단계 제거)이며, 공급자 드롭다운의
 // 선택지/템플릿을 한 곳에 모은다. provider env 템플릿은 TRD §6.8 레시피 표와 정합.
-// 검증 규칙은 backend engine-write.ts (PROVIDER_NAME_RE · readSettingsObject) 와
+// 검증 규칙은 backend features/harnesses/settings-write.ts (PROVIDER_NAME_RE · readSettingsObject) 와
 // 같은 제약을 renderer 에서 미리 비춘다.
 //
 // 라벨/에러는 카탈로그 **키**만 반환하고 렌더(EngineFormModal 등)가 tr() 해석한다(0097 D6)

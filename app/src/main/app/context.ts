@@ -10,10 +10,10 @@ import type { AdapterRegistry } from '../adapters/registry'
 import type { MockAdapter } from '../adapters/mock'
 import type { UsageTracker } from '../features/usage/tracker'
 import type { ExtensionBuilder } from '../features/extensions/builder'
-import type { ProviderSettingsService } from '../features/providers/provider-settings'
+import type { HarnessSettingsService } from '../features/harnesses/settings'
 import type { Scheduler } from '../features/scheduler'
 import type { RuntimeToolRegistry } from '../features/extensions/runtime-tool-registry'
-import type { ProviderPlatform } from '../features/providers/platform'
+import type { ProviderPlatform } from './provider-platform'
 import type { UpdateController } from './updater'
 
 export interface RouterContext {
@@ -24,7 +24,7 @@ export interface RouterContext {
   cost: UsageTracker
   extensions: ExtensionBuilder
   // provider settings 해석 서비스 (handoff 0014) — 열거(sources/settings 트리) + 해석 캐시.
-  providerSettings: ProviderSettingsService
+  providerSettings: HarnessSettingsService
   // 부팅 1회 스캔 캐시 — 턴 실행 시점에 최신 값을 읽도록 getter 로 노출.
   getSkills(): SkillInfo[]
   refreshSkills(): Promise<SkillInfo[]>

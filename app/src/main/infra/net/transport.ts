@@ -1,9 +1,9 @@
 // 인증된 요청의 전송부 (0181 — 0180 이 지운 `infra/auth/authenticated-fetch.ts` 의 전송 절반).
 //
-// **왜 infra 인가**: `browser-session.ts`(infra) 와 `features/providers/auth`(feature) 가 같은
+// **왜 infra 인가**: `browser-session.ts`(infra) 와 `features/auth`(feature) 가 같은
 // 요청 형상·상한 규칙을 쓴다. feature 에 두면 infra → feature 라는 DAG 역방향이 생기므로,
 // 도메인 타입을 모르는 전송 조각만 여기로 내렸다. 자격증명을 **넣는** 쪽(`Presentation` 적용)은
-// contracts 를 알아야 하므로 feature 에 남는다(`features/providers/auth/present.ts`).
+// contracts 를 알아야 하므로 feature 에 남는다(`features/auth/present.ts`).
 
 export interface PreparedRequest {
   url: string

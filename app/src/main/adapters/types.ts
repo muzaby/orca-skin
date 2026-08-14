@@ -6,7 +6,7 @@ import type {
 } from '../../shared/ipc'
 import type { ClaudePermissionMode } from '../../shared/permission-mode'
 import type { InterruptReceipt, TurnContinuation, TurnRequest } from './turn'
-import type { ResolvedProviderSettings } from './provider-config'
+import type { ResolvedHarnessSettings } from './harness-config'
 
 export type { Backend, NormalizedEvent }
 
@@ -53,7 +53,7 @@ export interface CompleteRequest {
   signal?: AbortSignal
   // 해석 완료 provider settings (handoff 0014). 자동 제목 생성 complete 경로도 sendMessage 와
   // 같은 provider settings + settingSources ['project','local'](user 배제, 0117)를 쓴다 (대칭).
-  providerSettings?: ResolvedProviderSettings
+  providerSettings?: ResolvedHarnessSettings
   // subprocess env (orca.json 앱 전역 env). sendMessage 경로와 동일 조립 결과를 받는다.
   env?: Record<string, string>
 }

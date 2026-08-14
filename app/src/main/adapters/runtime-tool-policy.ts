@@ -7,6 +7,13 @@ export function runtimeToolFullName(serverId: string, toolName: string): string 
   return `mcp__${serverId}__${toolName}`
 }
 
+// 인증 대상 하나가 기여하는 런타임 도구 서버의 이름. **조립 지점은 여기 하나뿐이다** (0188) —
+// 규칙(`<authId>-tools`)이 Plugin 쪽에 있으면 Plugin 이 늘 때마다 각자 조립해 서로 다른 문자열을
+// 고를 수 있다. `runtimeToolFullName` 과 같은 이유로 같은 파일에 둔다.
+export function authToolServerId(authId: string): string {
+  return `${authId}-tools`
+}
+
 // Claude SDK가 부르는 MCP 도구의 완전 이름. readOnlyHint가 명시적으로 true일 때만
 // 자동 통과시키고, 누락·false는 모두 승인 대상으로 fail-closed 처리한다.
 export function runtimeApprovalToolNames(snapshot?: RuntimeToolSnapshot): ReadonlySet<string> {

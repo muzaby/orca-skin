@@ -7,7 +7,7 @@
 // **인증 판정(probe)은 여기 없다.** 방식마다 다르던 판정을 `Provider.probe` 하나로 통일하면서
 // `classifyProbeChain`·`classifyProbeResponse` 는 소비자가 사라져 제거했다. 0174 가 실기로
 // 교정한 규칙(**2xx + 체인이 provider origin 으로 복귀**)은 그대로 살아 있다 —
-// `features/providers/auth/login.ts` 의 `probeOk` 와 `contracts/provider.ts` 의
+// `features/auth/login.ts` 의 `probeOk` 와 `contracts/auth.ts` 의
 // `ProviderResponse.finalUrl` 주석이 그 자리다. 홉별 allowlist 검사는 `send()` 의
 // `isAllowedOrigin` + `auth/policy.ts` 의 `checkRedirect` 가 두 겹으로 맡는다.
 

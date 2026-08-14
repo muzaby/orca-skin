@@ -3,7 +3,7 @@
 
 import type { DbQueries } from '../../infra/db'
 import type { RuntimeTitleAdapter } from '../../contracts/ports'
-import type { ResolvedProviderSettings } from '../../adapters/provider-config'
+import type { ResolvedHarnessSettings } from '../../adapters/harness-config'
 import { normalizeTitle, shouldGenerateTitle, titlePrompt } from '../../features/chat/title'
 import { broadcastSessionTitle } from '../../infra/ipc/send'
 import { getLogger } from '../../infra/log/registry'
@@ -42,7 +42,7 @@ export class TitleGenerator {
     firstUserText: string
     cwd: string
     adapter: RuntimeTitleAdapter
-    providerSettings?: ResolvedProviderSettings
+    providerSettings?: ResolvedHarnessSettings
     env?: Record<string, string>
     model?: string
   }): Promise<void> {

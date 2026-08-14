@@ -14,7 +14,7 @@
 | IPC 도메인 | **22** | `app/src/shared/ipc.ts` |
 | NormalizedEvent variant | **21** | `app/src/shared/ipc.ts` |
 | settings 키 | **18** | `app/src/shared/protocol.ts` |
-| main 수직 슬라이스 | **9** | `app/src/main/features/` |
+| main 수직 슬라이스 | **12** | `app/src/main/features/` |
 | main contracts 모듈 | **5** | `app/src/main/contracts/` |
 | IPC 핸들러 | **13** | `app/src/main/app/handlers/` |
 | DB 마이그레이션 | **16** | `app/src/main/infra/db/migrations/` |
@@ -38,13 +38,13 @@
 
 `accountInstructions` · `appFont` · `authBypass` · `density` · `language` · `lastBackend` · `lastSessionId` · `mcpEnabled` · `mcpMeta` · `notifyOnComplete` · `scheduler` · `sidebarCollapsed` · `sidebarWidth` · `skillEnabled` · `spendingLimitUsd` · `theme` · `uiLocale` · `windowBounds`
 
-### main 수직 슬라이스 (9)
+### main 수직 슬라이스 (12)
 
-`approvals` · `chat` · `extensions` · `history` · `orchestration` · `providers` · `scheduler` · `sessions` · `usage`
+`approvals` · `auth` · `chat` · `extensions` · `gate` · `harnesses` · `history` · `orchestration` · `plugins` · `scheduler` · `sessions` · `usage`
 
 ### main contracts 모듈 (5)
 
-`bus-events` · `ports` · `provider` · `session-state` · `turn`
+`auth` · `bus-events` · `ports` · `session-state` · `turn`
 
 ### IPC 핸들러 (13)
 

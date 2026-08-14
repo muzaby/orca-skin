@@ -1,27 +1,27 @@
 import type { TurnExtensions } from '../adapters/turn'
-import type { ResolvedProviderSettings } from '../features/providers/provider-settings'
+import type { ResolvedHarnessSettings } from '../adapters/harness-config'
 import {
   crossesProviderBoundary,
   providerSettingsChangedSinceSpawn
-} from '../features/providers/provider-settings'
+} from '../features/harnesses/runtime-boundary'
 import { decideRespawn } from '../features/sessions/respawn-policy'
 
 export interface AutomaticContinuationRuntime {
   readonly channelAlive: boolean
-  readonly spawnedProviderSettings: ResolvedProviderSettings | undefined
+  readonly spawnedProviderSettings: ResolvedHarnessSettings | undefined
   readonly spawnedModel: string | undefined
   readonly spawnedRuntimeToolsRevision: number | undefined
 }
 
 interface AutomaticContinuationResolution {
   providerKey: string | null
-  providerSettings?: ResolvedProviderSettings
+  providerSettings?: ResolvedHarnessSettings
   model?: string
 }
 
 interface PreparedAutomaticContinuation {
   extensions: TurnExtensions
-  providerSettings?: ResolvedProviderSettings
+  providerSettings?: ResolvedHarnessSettings
   model?: string
   shouldRespawn: boolean
 }

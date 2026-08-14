@@ -14,7 +14,7 @@ import {
   type DebugMockState
 } from '../../../shared/protocol'
 import { BrowserWindow, Notification } from 'electron'
-import { toAgentEnvironments } from '../../features/providers/provider-settings'
+import { toAgentEnvironments } from '../../features/harnesses/models'
 import type { RouterContext } from '../context'
 import { sendInstallStatus, setWireLog } from '../../infra/ipc/send'
 import { setWireSink } from '../../infra/ipc/wire-log'

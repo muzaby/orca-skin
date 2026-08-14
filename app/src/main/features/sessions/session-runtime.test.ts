@@ -943,7 +943,7 @@ describe('SessionRuntime channelBusy + 밸브 유예(0143)', () => {
 })
 
 // 0125 — spawn 시점 providerSettings 기록 수명: 콜드 스폰에서 기록, pushTurn 재사용은 불변,
-// teardown/채널 사망에서 해제. 내용 비교 판정 자체는 features/providers(순수 함수) 소관.
+// teardown/채널 사망에서 해제. 내용 비교 판정 자체는 features/harnesses(순수 함수) 소관.
 describe('SessionRuntime spawn settings 기록(0125)', () => {
   const settingsOf = (token: string): NonNullable<TurnRequest['providerSettings']> => ({
     providerKey: 'claude-gateway',

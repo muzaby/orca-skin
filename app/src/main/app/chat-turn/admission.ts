@@ -11,7 +11,7 @@ import { SendChatMessageSchema } from '../../../shared/protocol'
 import type { ClassifiedError } from '../../../shared/ipc'
 import { makeClassifiedError } from '../../infra/errors'
 import { clientLeaseKey, sessionLeaseKey } from '../../features/sessions/session-chain-lease'
-import { crossesProviderBoundary } from '../../features/providers/provider-settings'
+import { crossesProviderBoundary } from '../../features/harnesses/runtime-boundary'
 
 export type SendChatPayload = ReturnType<typeof SendChatMessageSchema.parse>
 
