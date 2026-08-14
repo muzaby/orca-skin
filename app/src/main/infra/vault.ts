@@ -18,6 +18,11 @@ import type { SecretStorePort } from './config/secret-store-port'
 const META_SUFFIX = '#meta'
 // SecretStore 에 열거가 없어 네임스페이스별 이름 목록을 따로 관리한다.
 const INDEX_SUFFIX = '#index'
+// 확인은 끝났지만 아직 정식 키로 옮기지 않은 후보. **전이 상태이며 정식 키 형식이 아니다** —
+// 0188 이 동결한 vault key 계약은 정식 키에 대한 것이고, 이 접미사는 로그인 turn 안에서만
+// 존재하다 promote 와 함께 사라진다. 중간에 앱이 죽으면 다음 부팅의 `promoteStaged()` 가 마저 옮긴다.
+const STAGED_SUFFIX = '#staged'
+const STAGED_INDEX_SUFFIX = '#staged-index'
 
 // **한 번 정하면 유지한다** — 사용자 디스크에 남고 다음 버전이 읽는다. 구 형식
 // (`authBinding:<bindingId>:secret`)은 읽지 않는다(0180 에서 재로그인 요구로 결정 완료).
@@ -52,12 +57,35 @@ export interface Vault {
   read(name: string): CredentialRead
   set(name: string, value: string, meta: CredentialMeta): void
   delete(name: string): void
+  // ── 2단 쓰기 (r7) ───────────────────────────────────────────────────────────
+  //
+  // 여러 키를 한 번에 갈아야 하는 경우(access+refresh)와 단계 실패가 섞인 상태를 남기는 것을
+  // 막는다. `stage` 로 전부 쓴 뒤 `promoteStaged` 로 옮긴다 — 암호화가 실패할 수 있는 단계는
+  // staging 이고, 거기서 실패하면 `discardStaged()` 로 흔적 없이 되돌아간다(정식 키 무변경).
+  stage(name: string, value: string, meta: CredentialMeta): void
+  // staged 를 정식 키로 옮기고 staged 를 지운다. 옮긴 이름을 돌려준다.
+  promoteStaged(): string[]
+  discardStaged(): void
 }
 
 export function createVault(store: SecretStorePort, prefix: string = VAULT_PREFIX): Vault {
   const key = (name: string): string => `${prefix}${name}`
   const metaKey = (name: string): string => `${prefix}${name}${META_SUFFIX}`
   const indexKey = `${prefix}${INDEX_SUFFIX}`
+  const stagedKey = (name: string): string => `${prefix}${name}${STAGED_SUFFIX}`
+  const stagedMetaKey = (name: string): string => `${prefix}${name}${STAGED_SUFFIX}${META_SUFFIX}`
+  const stagedIndexKey = `${prefix}${STAGED_INDEX_SUFFIX}`
+
+  const readStagedIndex = (): string[] => {
+    const raw = store.get(stagedIndexKey)
+    if (raw === undefined) return []
+    try {
+      const parsed: unknown = JSON.parse(raw)
+      return Array.isArray(parsed) ? parsed.filter((n): n is string => typeof n === 'string') : []
+    } catch {
+      return []
+    }
+  }
 
   const readIndex = (): string[] => {
     const raw = store.get(indexKey)
@@ -99,6 +127,38 @@ export function createVault(store: SecretStorePort, prefix: string = VAULT_PREFI
       store.delete(key(name))
       store.delete(metaKey(name))
       writeIndex(readIndex().filter((n) => n !== name))
+    },
+    stage(name, value, meta) {
+      store.set(stagedMetaKey(name), JSON.stringify(meta))
+      store.set(stagedKey(name), value)
+      store.set(stagedIndexKey, JSON.stringify([...new Set([...readStagedIndex(), name])]))
+    },
+    promoteStaged() {
+      const names = readStagedIndex()
+      if (names.length === 0) return []
+      // 정식 키로 옮긴다. safeStorage 가 불가한 상황이면 **첫 쓰기에서** 실패하므로 정식 키는
+      // 손대기 전 상태로 남는다. 중간에 죽더라도 staged 가 남아 다음 부팅이 마저 옮긴다.
+      for (const name of names) {
+        const value = store.get(stagedKey(name))
+        const meta = store.get(stagedMetaKey(name))
+        if (value === undefined || meta === undefined) continue
+        store.set(metaKey(name), meta)
+        store.set(key(name), value)
+      }
+      writeIndex([...readIndex(), ...names])
+      for (const name of names) {
+        store.delete(stagedKey(name))
+        store.delete(stagedMetaKey(name))
+      }
+      store.delete(stagedIndexKey)
+      return names
+    },
+    discardStaged() {
+      for (const name of readStagedIndex()) {
+        store.delete(stagedKey(name))
+        store.delete(stagedMetaKey(name))
+      }
+      store.delete(stagedIndexKey)
     }
   }
 }
