@@ -6,7 +6,7 @@
 
 > **구조·설계 근거는 [`arch/backend/auth.md`](../arch/backend/auth.md) 가 정본이다.**
 > 이 문서는 *무엇을 어떤 순서로 하는가* 만 다룬다(구조 서술 = `arch/`, 실행 절차 = `guides/`).
-> 계약의 형상은 `app/src/main/contracts/provider.ts` 가 진실 — 예제와 어긋나면 코드가 이긴다.
+> 계약의 형상은 `app/src/main/contracts/auth.ts` 가 진실 — 예제와 어긋나면 코드가 이긴다.
 >
 > **0180/0181 요약**: 0157 이 세운 4축 구조(`AuthMethod` × `Connector` × `Binding` × `PluginHost`)는
 > 0180 에서 전면 제거됐고, 0181 이 **축 하나**로 다시 세웠다. 구 문서의
@@ -19,10 +19,13 @@
 
 ### "플러그인" 이라는 말부터 푼다
 
-0157~0178 에는 *provider·connector 를 묶는 빌드타임 패키지* 라는 뜻의 **플러그인이 실제 코드
-개념으로** 있었다. **0180 이 그것을 지웠다.** 지금 "플러그인" 은 코드에 없는 말이고, 남은 두
-용례는 UI 우산어(`nav.plugins` 카탈로그 탭)와 Claude Code 플랫폼 배포 산출물(`ORCA_PLUGIN_NAME`)
-뿐이다([`GLOSSARY.md`](../GLOSSARY.md) `Plugin` 표제어).
+0157~0178 에는 *provider·connector 를 묶는 빌드타임 패키지* 라는 뜻의 **플러그인**이 있었다.
+**0180 이 그것을 지웠고, 0188 이 같은 이름을 다른 뜻으로 되살렸다** — 지금 **Plugin 은 제품 기능
+단위**(`features/plugins/<name>/`)이고 등록은 `app/deployment/plugins.ts` 가 한다(Confluence 가
+그 예다). 그 밖의 두 용례는 UI 우산어(`nav.plugins` 카탈로그 탭)와 Claude Code 플랫폼 배포
+산출물(`ORCA_PLUGIN_NAME`)이다([`GLOSSARY.md`](../GLOSSARY.md) `Plugin` 표제어).
+
+세 뜻이 한 단어를 쓰므로 **문맥 없이 서로 대체하지 않는다.**
 
 따라서 **"플러그인을 추가한다" 는 요청은 아래 넷 중 하나로 번역해야 한다.** 번역하지 않고
 착수하면 없는 개념을 찾아 헤매게 된다.
@@ -68,7 +71,8 @@ app/src/main/app/deployment/
 | 파일 | factory | 받는 것 |
 |---|---|---|
 | `plugins.ts` | `createPluginBindings(deps)` | `auth: AuthRuntime` · `registry: RuntimeToolSink` · `logger?` |
-| `harness-runtime.ts` | `createRuntimeConfigAugmenters(deps)` | `auth: AuthRuntime` · `secretFor: (authId) => () => string \| null` |
+| `harness-runtime.ts` | `createConfigApiAugmenters(deps)` | `auth: AuthRuntime` **만** |
+| `harness-runtime.ts` | `createDirectCredentialAugmenters(deps)` | `secretFor: (authId) => () => string \| null` **만** |
 | `connections.ts` | `createConnectionSources(deps)` | `auth` · `gateMembers` · `plugins` |
 | `usage-fetcher.ts` | `createUsageFetcher(deps)` | `auth: AuthRuntime` |
 
@@ -481,23 +485,24 @@ config API 방식      BoundAuth.request → OAuth/session 으로 API 접근 →
 direct credential    닫힌 readSecret() → 사용자가 입력한 API key/token 을 runtimeEnv 에 직접 배치
 ```
 
-**config API augmenter 에는 `AuthSecretReader` 를 전달하지 않는다.** OAuth access token(=API 접근
-권한)과 응답의 실제 LLM token 은 다른 값이고, 한 factory 가 둘 다 손에 쥐면 그 경계가 흐려진다.
+**이 경계는 타입이 강제한다.** OAuth access token(=API 접근 권한)과 응답의 실제 LLM token 은 다른
+값이고, 한 factory 가 둘 다 손에 쥐면 그 경계가 흐려진다. 그래서 deps 가 둘로 갈라져 있다 —
+`HarnessConfigApiDeps` 는 `auth` 만, `HarnessDirectCredentialDeps` 는 `secretFor` 만 갖는다.
+config API factory 에서 `deps.secretFor` 를 부르면 **컴파일이 실패한다**.
 
 ```ts
 // app/deployment/harness-runtime.ts — config API 방식
 export const CLAUDE_CORP_KEY = providerKeyOf('claude', 'corp')
 
-export function createRuntimeConfigAugmenters(deps: {
-  corpAuth: BoundAuth
-}): RuntimeConfigAugmenters {
+export function createConfigApiAugmenters(deps: HarnessConfigApiDeps): RuntimeConfigAugmenters {
+  const corpAuth = deps.auth.bind(CORP_LLM_AUTH.id)
   return {
     [CLAUDE_CORP_KEY]: {
       async resolve(_input, signal) {
-        if (deps.corpAuth.snapshot().status !== 'valid') {
+        if (corpAuth.snapshot().status !== 'valid') {
           throw new Error('corp model provider authentication required')
         }
-        const response = await deps.corpAuth.request({ path: '/api/llm/config' }, signal)
+        const response = await corpAuth.request({ path: '/api/llm/config' }, signal)
         if (!response.ok) throw new Error(`llm config request failed: ${response.status}`)
         const config = parseCorpLlmConfig(response.body)   // 매핑은 이 배포 모듈이 소유한다
         return {

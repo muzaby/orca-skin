@@ -183,3 +183,60 @@ reference MOVE/REPLACE 없음. inbound `N=0`, semantic target `M=0`. 3라운드�
 - Operational Instruction Delta: **regression 0**.
 - Historical Failure Regression: **37 COVERED / 0 PARTIAL / 0 GAP / 0 OBSOLETE**.
 - Cross-document Consistency: **PASS**.
+
+---
+
+# Round 5 — 외부 리뷰가 verify를 밀어낸 구조
+
+0188의 impl 라운드 4 초과 트리거로 수행했다.
+
+## 발견
+
+**0188은 impl 라운드를 4회 도는 동안 verify 턴을 한 번도 거치지 않았다.** `docs/handoff/0188-*/`에 `verify.md`가 없고, INDEX는 r1~r4 내내 `impl/IMPL_DONE · 다음 주체 = Claude(검증)`이었는데 실제 흐름은 매번 **외부 리뷰 → 재구현**이었다(r2 "외부 리뷰 반영", r3·r4 "PR #336").
+
+사용자가 보고한 세 증상은 각각의 원인이 아니라 이 구조의 결과다.
+
+| 증상 | 그것을 잡았어야 할 현재 지침 | 왜 안 잡혔나 |
+|---|---|---|
+| 계약을 주석으로만 적고 타입/테스트로 강제 안 함 | verify §3 ACTIVE Decision ↔ 구현 일관성, §6 shape+semantics | verify가 실행되지 않음 |
+| 회귀 테스트가 production 경로 대신 fixture 로컬 재구현을 검증 | verify §2 배선 분리, §6 production path | verify가 실행되지 않음 + 문장이 역방향만 서술 |
+| 부분 수정 — 공유 mutator의 한 호출 지점만 고침 | verify §2 "신규 레지스트리/스토어 값의 기존 소비처 전수와 부작용" | verify가 실행되지 않음 |
+
+세 번째 증상(`expirySettled`가 rollback 좌표에서 누락)은 verify §2의 기존 불릿이 **문자 그대로 덮는다**. 새 규칙을 추가하면 B(실행 누락)에 같은 문장을 겹쳐 쓰는 것이므로 추가하지 않았다.
+
+## 분류
+
+- **주 원인: A. Instruction gap** — lifecycle이 "외부에서 도착한 피드백"을 표현하지 못했다. 상태 머신은 `verify/FAIL`만 재구현 진입점으로 알고, 외부 리뷰가 `IMPL_DONE`에 도착했을 때의 처리가 어디에도 없다. 지침을 정상 수행해도 막을 수 없다 — 에이전트가 외부 리뷰를 FAIL 피드백으로 읽는 것은 합리적이다.
+- 두 번째 증상만 **A(narrow coverage gap)** — 기존 문장이 "유일한 호출자가 테스트면 미배선"이라는 **역방향**만 서술해, "배선은 됐는데 테스트가 production symbol을 안 부른다"를 표현하지 못했다.
+- 나머지는 B로 판정하고 지침을 늘리지 않았다.
+
+## 보완
+
+| 대상 | 변경 | 성격 |
+|---|---|---|
+| `docs/handoff/AGENTS.md` §정상 라이프사이클 | **"외부 리뷰는 verify를 대체하지 않는다"** 신설 — 외부 피드백은 상태가 아니라 입력이고, 코드 검증 후 파생 이슈로 이관하며, 그것으로 돈 라운드도 다음 주체는 검증자다. 외부 피드백만으로 `verify/PASS`를 주지 않는다 | 신규(새 causal class) |
+| `handoff-verify/SKILL.md §2` | 배선 판정을 **양방향**으로 REPLACE. 기존 문장은 첫 불릿으로 보존하고, 동명 로컬 재구현·타입만 차용하는 경우를 추가. 판정 질문 1개 부여 | REPLACE(더 일반적인 규칙) |
+
+## Tier 판정
+
+**Tier 1** — lifecycle 진입점과 owner semantics를 바꾼다.
+
+## 세 축
+
+| 축 | 결과 |
+|---|---|
+| Operational Instruction Delta | **DELETE 0.** handoff AGENTS는 순수 추가로 기존 상태표·절차·카브아웃·커밋 규약 전부 KEEP. verify §2는 기존 7개 불릿과 `0157-case.md` 링크를 그대로 두고 마지막 문장만 REPLACE — 구 규칙("유일한 호출자가 테스트면 미배선")이 첫 불릿으로 **문자 그대로 승계**되어 방어가 약화되지 않음 |
+| Historical Failure Regression | P1~P37 전수 재대조 — **37 COVERED / 0 PARTIAL / 0 GAP / 0 OBSOLETE**. 두 변경 모두 방어를 **추가**만 하고 plan/verify의 기존 방어 문장을 제거하지 않는다. P20(스토어 값 소비처 전수)과 P37(structural proxy)은 오히려 강화된다 — 전자는 verify가 실제로 실행되도록 만드는 lifecycle 규칙으로, 후자는 §2의 양방향 판정으로 |
+| Cross-document Consistency | root `AGENTS.md` 협업 흐름(`plan → impl → verify`) ↔ `docs/handoff/AGENTS.md` 신설 절 ↔ `handoff-verify/SKILL.md` 마무리(라운드 3 초과 시 review) ↔ `handoff-review/SKILL.md` 실행 조건 — 네 곳이 같은 owner·같은 진입점을 말한다. 충돌 **0**. `Handoff: none` 카브아웃과 무관 |
+
+## Reference semantic integrity
+
+reference MOVE/REPLACE 없음. inbound `N=0`, semantic target `M=0`. 호환 경로로 읽은 `## P<number>` = **37개** 재확인.
+
+## Round 5 결론
+
+- Regression tier: **Tier 1**.
+- Operational Instruction Delta: **regression 0**.
+- Historical Failure Regression: **37 COVERED / 0 PARTIAL / 0 GAP / 0 OBSOLETE**.
+- Cross-document Consistency: **PASS**.
+- 지침으로 해결할 수 없는 한계: 없음. 이번 원인은 지침 공백이었고 lifecycle 규칙으로 닫힌다.

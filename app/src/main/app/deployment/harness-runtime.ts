@@ -84,24 +84,48 @@
 import type { AuthId, AuthRuntime } from '../../contracts/auth'
 import type { RuntimeConfigAugmenters } from '../../features/harnesses/runtime-config'
 
-// Bootstrap 이 주입하는 능력. **시그니처를 바꾸지 않는다** — 바꾸면 배포가 범용 `bootstrap.ts`
-// 까지 고쳐야 한다.
+// ── 두 능력은 **타입으로** 갈라져 있다 (r5 D-048) ─────────────────────────────
 //
-// ⚠️ **두 능력을 한 augmenter 에 함께 주지 마라.** config API 방식은 `auth.bind(...)` 만,
-// direct credential 방식은 `secretFor(...)` 가 돌려준 **AuthId 가 닫힌 closure** 만 받는다.
+// r4 까지는 `HarnessRuntimeDeploymentDeps` 하나가 `auth` 와 `secretFor` 를 함께 줬고, "둘을 한
+// augmenter 에 주지 마라" 는 경계는 **주석에만** 있었다. 그러면 config API factory 도 raw secret
+// 을 읽을 수 있고 direct credential factory 도 API 요청을 낼 수 있다 — 지키라고 적어 둔 규칙을
+// 타입이 전혀 막지 않았다. 그래서 deps 를 둘로 쪼개고 Bootstrap 이 각각 좁은 능력만 넘긴다.
+//
 // 그 경계가 OAuth access token(=API 접근 권한)과 응답의 실제 LLM token 을 가른다.
-export interface HarnessRuntimeDeploymentDeps {
+
+// config API 방식 — `BoundAuth.request` 로 사내 설정 API 를 부른다. raw secret 은 못 읽는다.
+export interface HarnessConfigApiDeps {
   auth: AuthRuntime
-  // AuthId 를 닫아 `() => string | null` 로 좁힌 raw 조회. **전체 `AuthSecretReader` 가 아니다.**
+}
+
+// direct credential 방식 — 사용자가 입력한 API key 를 runtimeEnv 에 직접 놓는다. API 요청 능력이
+// 없다. `secretFor(authId)` 는 AuthId 를 닫아 `() => string | null` 로 좁힌 raw 조회를 만든다 —
+// **전체 `AuthSecretReader` 를 넘기지 않는다.**
+export interface HarnessDirectCredentialDeps {
   secretFor: (authId: AuthId) => () => string | null
 }
 
 // 기본 배포는 동적 보강이 없다 — 모든 key 가 기존 settings 만으로 동작한다.
-export function createRuntimeConfigAugmenters(
-  deps: HarnessRuntimeDeploymentDeps
+export function createConfigApiAugmenters(deps: HarnessConfigApiDeps): RuntimeConfigAugmenters {
+  void deps
+  return {}
+}
+
+export function createDirectCredentialAugmenters(
+  deps: HarnessDirectCredentialDeps
 ): RuntimeConfigAugmenters {
   void deps
   return {}
+}
+
+// Bootstrap 이 부르는 합류점. **각 factory 는 자기 능력만 받는다** — 이 함수가 둘을 아는 유일한
+// 자리이고, 여기서도 서로의 deps 를 섞어 넘기지 않는다. key 가 겹치면 배포 실수이므로 진단한다.
+export function createRuntimeConfigAugmenters(
+  deps: HarnessConfigApiDeps & HarnessDirectCredentialDeps
+): RuntimeConfigAugmenters {
+  const configApi = createConfigApiAugmenters({ auth: deps.auth })
+  const direct = createDirectCredentialAugmenters({ secretFor: deps.secretFor })
+  return { ...configApi, ...direct }
 }
 
 // 하나의 Auth 가 여러 Harness key 를 보강하면 Bootstrap 의 구독에서 **그 고정 key 들만**

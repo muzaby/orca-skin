@@ -27,15 +27,6 @@ export function createMemoryGrantPersistence(
   }
 }
 
-// `captureForRollback` 이 뜬 지점. 값이 아니라 **되돌릴 좌표**만 담는다 — vault 값 복원은
-// 호출부(`login.ts`)가 자기 쓰기와 짝지어 처리한다.
-export interface AuthRollbackPoint {
-  authId: AuthId
-  grant: Grant | undefined
-  verified: boolean
-  revision: number
-}
-
 export interface AuthStoreDeps {
   persistence: GrantPersistencePort
   vault: Vault
@@ -167,57 +158,55 @@ export class AuthStore {
   // 401 관측 시 강등. **grant 를 지우지 않는다** — 사용자가 어느 provider 를 다시 인증해야
   // 하는지 화면에서 봐야 하고, 재인증이 기존 항목을 교체하는 형태여야 하기 때문이다.
   //
-  // 돌려주는 값은 **이번 호출이 실제 만료 전이를 만들었는가**(= revision 을 올렸는가) 다 (r4).
-  // r3 까지는 `void` 였고, 그래서 호출부는 전이가 없었던 호출에도 `credentialChanged:true` 를
-  // 발행했다 — 401 probe 로 실패한 `resume()` 한 번이 credential-effective change 를 **두 번**
-  // 냈고(요청 경로에서 한 번, resume 에서 한 번) 두 번째는 revision 이 그대로였다. 그 유령
-  // 이벤트가 Harness cache 를 한 번 더 비우고 부팅 방송 상한 `1 + K`(0187 D2)를 `1 + 2K` 로
-  // 늘렸다. 판정은 store 가 갖고, 통지 여부는 호출부가 이 값으로 정한다.
-  markExpired(authId: AuthId): boolean {
+  // 돌려주는 값은 **이번 호출이 무엇을 바꿨는가** 다 (r4 → r5 에서 두 축으로 분리).
+  //
+  //   `credentialChanged` — 실행 credential 이 달라졌는가(= revision 을 올렸는가).
+  //                         Harness cache 무효화·Plugin 도구 재sync 가 여기에 걸린다.
+  //   `snapshotChanged`   — 밖에서 보이는 상태가 하나라도 달라졌는가.
+  //                         `verified` 만 풀린 경우가 여기 해당한다 — 화면은 갱신돼야 하지만
+  //                         실행 구성은 그대로다.
+  //
+  // 둘을 가른 이유: r4 는 boolean 하나였고 호출부가 "전이 없음" 을 곧 "알릴 것 없음" 으로도,
+  // "credentialChanged:false 로 알림" 으로도 읽을 수 있었다. **둘 다 false 면 방송 자체를
+  // 하지 않는다** — 같은 401 을 동시 요청 두 건이 각각 봐도 상태는 한 번만 달라지는데,
+  // r4 는 두 번째에도 GUI 방송을 한 번 더 냈다.
+  markExpired(authId: AuthId): { credentialChanged: boolean; snapshotChanged: boolean } {
     const grant = this.grants.get(authId)
-    if (!grant) return false
+    if (!grant) return { credentialChanged: false, snapshotChanged: false }
     // 확인은 무조건 취소한다 — 401 을 봤는데 "확인됨" 을 남겨 두면 게이트가 열린 채로 남는다.
     // (아래 조기 반환보다 앞이어야 한다: 이미 만료 표기된 grant 도 확인은 풀려야 한다.)
-    this.verified.delete(authId)
+    const unverified = this.verified.delete(authId)
     const now = this.clock()
     // 이미 만료 표기된 grant 를 다시 강등해도 실행 credential 은 그대로다 — revision 을 올리면
     // 401 을 두 번 본 것만으로 Harness cache 가 두 번 무효화된다.
-    if (grant.expiresAt !== undefined && grant.expiresAt <= now) return false
+    if (grant.expiresAt !== undefined && grant.expiresAt <= now) {
+      if (unverified) this.flush()
+      return { credentialChanged: false, snapshotChanged: unverified }
+    }
     this.grants.set(authId, { ...grant, expiresAt: now })
     // 401/403 로 만료를 못 박았다 — 이후 시계 기반 관측이 같은 전이를 두 번 세지 않도록
     // 정착 표시를 함께 남긴다.
     this.expirySettled.add(authId)
     this.bumpRevision(authId)
     this.flush()
-    return true
+    return { credentialChanged: true, snapshotChanged: true }
   }
 
-  // ── 재인증 롤백 (0188 D-009) ────────────────────────────────────────────────
+  // ── 재인증은 되돌리지 않는다 — 애초에 나가지 않는다 (0188 D-009 → r5 D-047) ──
   //
-  // `reauth` 는 기존 grant 를 먼저 지우지 않는다(0181 AC6). 하지만 값형 방식은 **probe 전에
-  // vault 를 덮어쓰므로**, 새 값이 거부되면 이전 자격증명이 이미 사라져 있었다 — 0181 구현이
-  // 그것을 주석으로 인정하고 있었다("이전 자격증명은 이미 같은 vault 키에 덮여 복구되지 않는다").
+  // r4 까지는 `captureForRollback`/`rollback` 이 있었다. 재인증이 후보 grant 를 **전역 store 와
+  // vault 에 먼저 커밋한 뒤** probe 했기 때문이다 — 실패하면 되돌려야 했다.
   //
-  // 0188 은 그 자리를 메운다: 호출부가 쓰기 전에 여기서 상태를 떠 두고, 실패하면 되돌린다.
-  // **`credentialRevision` 도 함께 되돌린다** — 실패한 재인증은 실행 credential 을 바꾸지
-  // 않았으므로 Harness cache 를 무효화할 이유가 없다.
-  captureForRollback(authId: AuthId): AuthRollbackPoint {
-    return {
-      authId,
-      grant: this.grants.get(authId),
-      verified: this.verified.has(authId),
-      revision: this.credentialRevision(authId)
-    }
-  }
-
-  rollback(point: AuthRollbackPoint): void {
-    if (point.grant) this.grants.set(point.authId, point.grant)
-    else this.grants.delete(point.authId)
-    if (point.verified) this.verified.add(point.authId)
-    else this.verified.delete(point.authId)
-    this.revisions.set(point.authId, point.revision)
-    this.flush()
-  }
+  // 그 되돌림은 원리적으로 불완전했다. ① probe 왕복 동안 다른 소비자가 검증되지 않은 후보
+  // secret 과 올라간 revision 을 읽었다 ② 후보의 401 이 강등 이벤트를 냈고, 상태는 되돌아가도
+  // **이미 나간 이벤트는 취소되지 않아** Plugin 도구가 회수된 채로 남았다 ③ 좌표 목록에
+  // `expirySettled` 가 빠져 있어, 되살린 grant 가 나중에 자연 만료돼도 `settleExpiry` 가 이미
+  // 정착됐다고 판단해 전이를 건너뛰었다(만료인데 `verified:true`) ④ probe 중 앱이 죽으면
+  // 후보 값이 vault 에 남았다.
+  //
+  // r5 는 되돌림을 고치지 않고 **없앴다** — 확인이 끝날 때까지 후보를 어디에도 쓰지 않는다
+  // (`AuthenticatedRequester`의 `CandidateCredential`). 커밋은 성공 후 한 번뿐이라 되돌릴 중간
+  // 상태가 생기지 않는다. 위 네 결함이 함께 사라진다.
 
   // ── 시간 기반 만료의 1회 전이 (0188 D-037) ──────────────────────────────────
   //

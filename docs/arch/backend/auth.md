@@ -69,10 +69,10 @@ config API 를 불러 URL·모델 식별자·실행 token 을 한꺼번에 받�
 | `contracts/auth.ts` | 타입 계약 — `AuthDefinition`·`AuthMethod`·`AuthProbe`·`Grant`·`AuthenticatedRequest/Response`·`AuthSnapshot`·`AuthChange`·`BoundAuth`·`AuthRuntime`·`AuthSecretReader` |
 | `features/auth/runtime.ts` | `createAuthRuntime()` — registry·store·요청·로그인을 묶고 `{ runtime, secretReader }` 반환 |
 | `features/auth/registry.ts` | 빌드타임 선언 검사 (중복 id · bare origin). **gate probe 검사는 여기 없다** |
-| `features/auth/store.ts` | `authId → Grant` 단일 맵 + `verified` + `credentialRevision` + 롤백 좌표 |
+| `features/auth/store.ts` | `authId → Grant` 단일 맵 + `verified` + `credentialRevision` + 만료 정착 집합 |
 | `features/auth/authenticated-request.ts` | 정책 → credential 주입 → 전송 → redirect 재검사 → 401/403 강등 |
 | `features/auth/secret-access.ts` | trusted-main raw 조회 (동기) |
-| `features/auth/login.ts` | `AuthMethod` 분기 실행 · probe 커밋/롤백 · 단일 Auth `resume` |
+| `features/auth/login.ts` | `AuthMethod` 분기 실행 · 후보 probe → 성공 시 1회 커밋 · 단일 Auth `resume` |
 | `features/auth/browser-session/runner.ts` | 브라우저 세션 로그인 흐름 (창·교환·whoami) |
 | `features/auth/specs/` | 선언 헬퍼(값 입력형) + 브라우저 세션 포트·응답 해석 |
 | `features/gate/index.ts` | `evaluateGate`(순수 진리표) · `createGate` · `selectGateMembers`(fail-closed) |
@@ -89,10 +89,12 @@ config API 를 불러 URL·모델 식별자·실행 token 을 한꺼번에 받�
 `app/deployment/` 는 **런타임 동적 plugin 디렉터리가 아니다.** 배포별 TypeScript 가 compile time 에
 조립되는 컴포지션 루트의 일부다. 런타임 동적 코드 로딩은 없다.
 
-**배포 factory 는 인자를 받는다.** `createPluginBindings(deps)`·`createRuntimeConfigAugmenters(deps)`·
-`createUsageFetcher(deps)`·`createConnectionSources(deps)` 는 `bootstrap.ts` 가 조립한 능력
-(`AuthRuntime`·`RuntimeToolSink`·AuthId 를 닫은 secret closure·gate 멤버·plugin 바인딩)을 받아
-쓴다. 인자 없는 factory 로 두면 배포가 자기 선언을 채울 때 범용 `bootstrap.ts` 를 고쳐야 하고,
+**배포 factory 는 인자를 받고, 그 인자는 필요한 능력만 담는다.** `createPluginBindings(deps)`·
+`createConfigApiAugmenters(deps)`·`createDirectCredentialAugmenters(deps)`·`createUsageFetcher(deps)`·
+`createConnectionSources(deps)` 는 `bootstrap.ts` 가 조립한 능력(`AuthRuntime`·`RuntimeToolSink`·
+AuthId 를 닫은 secret closure·gate 멤버·plugin 바인딩)을 받아 쓴다. **Harness 의 두 방식은 deps 가
+갈라져 있다** — config API 는 `auth` 만, direct credential 은 `secretFor` 만 받아, 한 factory 가
+API 접근 권한과 raw secret 을 동시에 쥘 수 없다. 인자 없는 factory 로 두면 배포가 자기 선언을 채울 때 범용 `bootstrap.ts` 를 고쳐야 하고,
 "배포가 손대는 파일은 `app/deployment/` 묶음뿐" 이라는 이 디렉토리의 존재 이유가 무너진다.
 기본 배포는 선언이 비어 있어 이 경로가 CI 에서 한 번도 실행되지 않으므로,
 `deployment-wiring.test.ts` 가 **비어 있지 않은 가상 배포**로 Bootstrap→Plugin/Harness/Usage/
@@ -136,12 +138,23 @@ config API 를 불러 URL·모델 식별자·실행 token 을 한꺼번에 받�
 이 구분이 없으면 소비자는 두 가지 중 하나로 몰린다: 매 change 마다 무효화하거나(불필요한
 network·respawn), 아무것도 안 하거나(stale token 사용).
 
-### 4.3 재인증은 실패해도 이전 자격증명을 남긴다
+### 4.3 재인증은 확인이 끝나야 무언가를 바꾼다
 
-`reauth` 는 기존 grant 를 먼저 지우지 않는다. 값형 방식은 probe **전에** vault 를 덮어써야 하므로,
-`login.ts` 가 쓰기 직전에 복구 지점을 떠 둔다 — 실패하면 vault 값·grant·`verified`·
-`credentialRevision` 을 통째로 되돌린다. **실패한 재인증은 실행 credential 을 바꾸지 않았으므로
-Harness cache 를 무효화할 이유도 없다.**
+`reauth` 는 기존 grant 를 먼저 지우지 않는다. 더 강하게, **확인이 끝날 때까지 아무것도 쓰지
+않는다** — 후보 자격증명은 `CandidateCredential` 로 probe 요청에만 실리고 store·vault 는 그것을
+모른다. 성공하면 vault 쓰기 → `store.put` 이 한 번에 일어나고, 실패하면 되돌릴 것이 없다.
+
+되돌림(rollback)이 아니라 **미커밋**인 이유는 되돌림이 원리적으로 닫히지 않기 때문이다.
+
+| 커밋-후-되돌림이 못 막는 것 | 미커밋에서 사라지는 이유 |
+|---|---|
+| probe 왕복 동안 검증 안 된 secret·revision 이 전역 노출 | 전역에 올라간 적이 없다 |
+| 후보의 401 이 낸 강등 이벤트 — 상태는 되돌려도 **이벤트는 취소되지 않아** Plugin 도구가 회수된 채로 남는다 | 후보 요청은 강등하지 않는다 |
+| 되돌림 좌표에서 빠진 상태(예: 만료 정착 집합)가 남아 이후 전이를 건너뛴다 | 좌표 자체가 없다 |
+| probe 중 앱 종료 → vault 에 후보 값 잔존 | vault 는 성공 후에만 쓴다 |
+
+**실패한 재인증은 실행 credential 을 바꾸지 않았으므로 Harness cache 를 무효화할 이유도 없다** —
+이제 그것이 규칙이 아니라 구조다.
 
 ### 4.4 만료는 관측 지점에서 한 번 전이한다
 
@@ -164,14 +177,21 @@ change 가 나간다 — Harness cache 가 그 change 를 무시한다. 정착 �
 그래서 **`AuthStore.markExpired()` 가 "이번 호출이 전이를 만들었는가" 를 돌려주고, 통지가 그 값을
 따른다**:
 
+`markExpired()` 는 두 축을 따로 돌려준다.
+
+| 반환 | 뜻 | 소비 |
+|---|---|---|
+| `credentialChanged` | 실행 credential 이 달라졌다(revision 이 올랐다) | Harness cache 무효화 · Plugin 도구 재sync |
+| `snapshotChanged` | 밖에서 보이는 상태가 하나라도 달라졌다(`verified` 만 풀린 경우 포함) | GUI 방송 |
+
 | 관측 지점 | 전이를 만들었을 때 | 전이가 없을 때 |
 |---|---|---|
-| 요청 경로 (401/403) | `cause:'unauthorized'` · `credentialChanged:true` | 통지는 내되 `credentialChanged:false` |
+| 요청 경로 (401/403) | `cause:'unauthorized'` · `credentialChanged:true` | `snapshotChanged` 면 `credentialChanged:false` 로 통지, **둘 다 false 면 방송하지 않는다** |
 | `resume()` probe 실패 | `cause:'expired'` · `credentialChanged:true` | **통지하지 않는다** (요청 경로가 이미 냈다) |
 
-요청 경로가 전이 없이도 통지하는 이유는 `markExpired()` 가 전이 여부와 무관하게 `verified` 를
-풀기 때문이다 — 화면은 그 사실을 받아야 한다. 반대로 `resume()` 의 전이 없는 실패는 401 경로가
-방금 같은 사실을 통지한 직후라 새로 알릴 것이 없다.
+두 축을 가른 이유: `markExpired()` 는 전이가 없어도 `verified` 는 푼다 — 그때는 화면만 갱신하면
+된다. 반대로 **아무것도 안 바뀐** 호출(동시 401 두 건 중 두 번째)은 방송할 것도 없다. boolean
+하나로는 이 셋을 구분할 수 없다.
 
 이 규칙이 없으면 실패 멤버 하나가 credential-effective change 를 두 번 내고, 두 번째는
 `credentialRevision` 이 그대로여서 §4.4 가 시계 만료에서 막은 불일치가 그대로 재현된다. 부팅

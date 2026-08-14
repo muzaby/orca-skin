@@ -175,7 +175,8 @@ export function createAuthRuntime(deps: CreateAuthRuntimeDeps): CreatedAuthRunti
     ...(deps.clock ? { clock: deps.clock } : {}),
     ...(deps.oauth ? { oauth: deps.oauth } : {}),
     ...(deps.session ? { session: deps.session } : {}),
-    request: (authId, req, signal) => requester.request(authId, req, signal),
+    // 후보(`candidate`)는 확인이 끝날 때까지 store·vault 를 거치지 않는다 (r5).
+    request: (authId, req, signal, candidate) => requester.request(authId, req, signal, candidate),
     onStep: (step) => publish({ kind: 'step', authId: step?.providerId ?? '', step }),
     onSnapshot: emitSnapshot,
     ...(deps.logger ? { logger: deps.logger } : {})
