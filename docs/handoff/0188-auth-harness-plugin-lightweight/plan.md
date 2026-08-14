@@ -667,7 +667,7 @@ node scripts/check-migrations-appendonly.mjs
 | 블로커 / 역질문 | 없음 |
 | r3 반영 | 리뷰 5건을 전부 코드에서 재확인한 뒤 고쳤다 — 배포 factory 인자화(D6) · `connections.ts` 신설(D7) · env 우선순위 정정(D8) · 만료 정착 경로·세대(D9) · fingerprint digest 화(D10). 신설 `deployment-wiring.test.ts` 6건 + 기존 fingerprint/expiry 테스트 개정 |
 | r8 반영 | PR #338 재리뷰 3건을 **전부 실측 재현한 뒤** 고쳤다 — 교체 원자성(D22/D25/D26: 포인터 교체 + 내구 저장 보고 + staging 제거) · fence 전면화(D23/D27: probe·실행기·resume·401 강등 4지점) · 테스트 공백(D28: 경로 진입 단언 + mutation 확인). 신설 회귀 **+11**, 실패 지점마다 "옛 값 전체 / 새 값 전체" 중 하나만 관측되는지 단언한다 |
-| 대상 커밋 | Phase A `2bebd67` · Phase B `2b274ef` · Phase C `110a1a9` · r2 `d197f0d` · r3 `511ad32` · r4 `5d11041` · r5 `40fcf11` · r6 `8b0e4af` · r7 `2e9a4be` · r8 (이 커밋) |
+| 대상 커밋 | Phase A `2bebd67` · Phase B `2b274ef` · Phase C `110a1a9` · r2 `d197f0d` · r3 `511ad32` · r4 `5d11041` · r5 `40fcf11` · r6 `8b0e4af` · r7 `2e9a4be` · r8 `2f4e804` |
 
 ### 전수 재측정 (plan §8 요구)
 
