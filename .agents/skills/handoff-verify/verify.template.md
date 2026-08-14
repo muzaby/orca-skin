@@ -18,8 +18,6 @@
 
 ## 0. 기준선 / plan 변경 확인
 
-> 구현자가 plan/AC를 자기 코드에 맞게 바꾸지 않았는지 먼저 확인한다.
-
 - 구현 커밋이 `plan.md`를 변경했는가: …
 - Decision Ledger 변경: 없음 / 사용자 승인된 SUPERSEDE / **무단 변경 의심**
 - Product/UX Contract 변경: …
@@ -69,6 +67,8 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh <base>..<head>
 | producer ↔ consumer 파생 불일치 | … | … |
 | 동일 규칙 중복 구현 | SSOT 유지 / drift | … |
 
+> 대표 evidence: `references/0157-case.md` — 형제 정책 비대칭, test-only symbol, false success, “electron이라 테스트 불가” 오판.
+
 ## 4. 기존 테스트 / semantic 검증 확인
 
 - plan이 인용한 기존 테스트 케이스 실제 존재: …
@@ -109,26 +109,67 @@ bash .agents/skills/handoff-verify/scripts/scan-surface.sh <base>..<head>
 
 ## 9. 게이트 재실행
 
+> **generic `npm test`를 기본 명령으로 쓰지 않는다.** 변경한 subtree의 가장 구체적인 `AGENTS.md`가 gate 명령의 정본이다.
+> `app/**`가 대상이면 `app/AGENTS.md §better-sqlite3 ABI · 제약 환경 게이트 가이드`를 먼저 읽는다.
+
 ```text
-$ cd app && npm run lint && npm run typecheck && npm test
-…
+# app 기본 ABI-중립 gate
+$ cd app && npm run lint && npm run typecheck
+
+# 관련 비-DB/순수 테스트 — pretest 우회
+$ ./node_modules/.bin/vitest run <relevant-suite>
+
+# npm test — DB 동작 자체를 검증해야 할 때만 의도적으로 실행
 ```
 
-- 환경 기인 실패와 변경 관련 실패 분리 근거: …
+- 실제 실행 명령: …
+- `npm test`를 썼다면 DB 검증 필요성: …
+- ABI 전환/egress 403 등 환경 기인 실패와 변경 관련 실패 분리 근거: …
 
-## 10. 구현자 코멘트 / 선조치 경계
+## 10. 검증 책임 분리 — 사람 vs 에이전트
+
+| 항목 | 에이전트 | 사람 | 결과 |
+|---|---|---|---|
+| lint/typecheck/관련 자동 테스트 | 실행·출력 증거 | — | … |
+| AC ↔ 코드/production path | 1:1 대조 | 이견 시 결정 보조 | … |
+| 레이어/계약/문서 형식·링크 | 기계·정적 검증 | — | … |
+| AGENTS 위생/부모-자식 모순 | 스캔·대조 | 민감 맥락 최종 판단 | … |
+| 제품 의도 / Open Question | 보조 의견 | **결정** | … |
+| UI/UX 시각 품질 | 로직은 기계 검증 | **시각 확인** | … |
+| 신규 의존성 / PR merge | 제안·상태 확인 | **승인** | … |
+
+## 11. Repository operation checks
+
+### AGENTS.md 위생 / 정합성 (AGENTS 변경 시)
+
+- 키/토큰/PW/이메일/IP 등 민감 패턴 스캔: …
+- 일회성·자주 변하는 운영정보·장문 구현 설명 혼입: 없음 / …
+- 부모 `AGENTS.md` ↔ 하위 `AGENTS.md` 명령 충돌: 없음 / …
+- 새 `AGENTS.md`라면 `CLAUDE.md` stub 및 root 디렉토리 표 갱신: 해당 없음 / …
+
+### INDEX 보드 정합성
+
+- 상태 / 다음 주체 / 대상 커밋 일치: …
+- PASS 시 archive 이동: 해당 없음 / 완료 …
+
+### Commit / reference 정합성
+
+- trailer가 root `AGENTS.md` / `docs/git-template.md` 허용값을 따름: …
+- 이동/삭제한 reference·script의 살아 있는 소비처 또는 archive 근거: …
+
+## 12. 구현자 코멘트 / 선조치 경계
 
 | 구현자 코멘트 | 검증자 판단 | 반영 |
 |---|---|---|
 | … | 타당 / 무단 제품·AC 변경 / 구현 세부 보완 | … |
 
-## 11. [FAIL 시] 파생 이슈
+## 13. [FAIL 시] 파생 이슈
 
 - [ ] D… — …
 
 > plan의 `[검증자 기입] 파생 이슈`로 이관한다.
 
-## 12. Review Signals — 사실만
+## 14. Review Signals — 사실만
 
 > 원인 분류와 SKILL 변경은 `handoff-review`가 한다.
 
@@ -137,11 +178,12 @@ $ cd app && npm run lint && npm run typecheck && npm test
 - 사용자 결정 변경 근거: 없음 / …
 - 반복된 검증 환경 한계: 없음 / …
 
-## 13. 결론
+## 15. 결론
 
 - 상태: PASS / FAIL
 - Product/UX 및 ACTIVE Decision 충족: …
 - AC 충족: …
 - 기준 밖 결함: …
+- repository operation checks: …
 - 남은 사람 확인: …
 - 다음 단계: …

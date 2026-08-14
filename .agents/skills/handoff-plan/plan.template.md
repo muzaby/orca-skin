@@ -277,9 +277,15 @@ producer → contract/normalize → state/store → consumer/UI/tool
 
 ## 19. 게이트
 
-- 기본: `cd app && npm run lint && npm run typecheck && npm test`
-- 신규 테스트/계약 검증: …
+> **명령은 수정 subtree의 가장 구체적인 `AGENTS.md`가 정본이다.** generic `npm test`를 모든 작업의 기본 게이트로 고정하지 않는다.
+
+- 적용할 하위 가이드: `…/AGENTS.md §…`
+- ABI/네트워크 등 환경 제약: …
+- 기본 정적 게이트: …
+- 관련 테스트: …
 - 사람 실기: …
+
+`app/**`가 범위라면 `app/AGENTS.md §better-sqlite3 ABI · 제약 환경 게이트 가이드`를 읽고 현재 지침을 따른다. 현행 기준으로는 보통 `npm run lint && npm run typecheck`가 ABI-중립 기본 게이트이고, 비-DB 테스트는 직접 `vitest run`으로 `pretest`를 우회한다. `npm test`는 DB 동작 자체가 필요한 경우에만 의도적으로 사용한다.
 
 ## READY self-review
 
@@ -298,6 +304,7 @@ producer → contract/normalize → state/store → consumer/UI/tool
 - [ ] 부팅/등록 변경의 기존 소비처를 전수 확인했다.
 - [ ] producer/consumer 양쪽 의미를 확인했다.
 - [ ] 상한·총량·one-way door를 필요한 곳에서 계산했다.
+- [ ] **게이트 명령이 대상 subtree의 현재 `AGENTS.md`와 충돌하지 않는다.**
 - [ ] 본문 완성 후 Decision Ledger와 기존 결정을 전체 교차검증했다.
 
 ---
