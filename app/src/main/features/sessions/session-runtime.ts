@@ -1,9 +1,6 @@
 import type { NormalizedEvent } from '../../../shared/ipc'
 import type { ClaudePermissionMode } from '../../../shared/permission-mode'
-import {
-  harnessConfigFingerprint,
-  type ResolvedHarnessSettings
-} from '../../adapters/harness-config'
+import { harnessEnvFingerprint, type ResolvedHarnessSettings } from '../../adapters/harness-config'
 import type { TurnRequest } from '../../adapters/turn'
 import type { LiveTurn, ProviderMessageBatch } from '../../adapters/types'
 import type { ManagedRuntime, RuntimeSessionAdapter } from '../../contracts/ports'
@@ -218,10 +215,11 @@ export class SessionRuntime implements ManagedRuntime {
     return this.spawnedModelValue
   }
 
-  // 0188 — spawn 당시 adapter 입력(native settings + 최종 env)의 비교값. 내용 해석은 하지
-  // 않는다(불투명 문자열) — 판정은 호출자(chat-turn)가 같은 함수로 만든 값과 비교한다.
+  // 0188 — spawn 당시 **최종 env** 의 비교값. 내용 해석은 하지 않는다(불투명 문자열) — 판정은
+  // 호출자(chat-turn)가 같은 함수로 만든 값과 비교한다. settings 차원은 위
+  // `spawnedProviderSettings` 가 0125 의 보수적 null 의미론과 함께 따로 소유한다.
   // **진단으로 노출하지 않는다**: secret 원문이 들어 있다.
-  get spawnedRuntimeConfigFingerprint(): string | undefined {
+  get spawnedRuntimeEnvFingerprint(): string | undefined {
     return this.spawnedFingerprint
   }
 
@@ -354,7 +352,7 @@ export class SessionRuntime implements ManagedRuntime {
     const channelToken = ++this.nextChannelToken
     this.channelTokenValue = channelToken
     this.spawnedSettings = req.providerSettings
-    this.spawnedFingerprint = harnessConfigFingerprint(req.providerSettings?.settings, req.env)
+    this.spawnedFingerprint = harnessEnvFingerprint(req.env)
     this.spawnedModelValue = req.model
     this.spawnedRuntimeToolsRevisionValue = req.extensions.runtimeTools?.revision
     if (spawned.pushTurn && this.closePolicy === 'persistent') {

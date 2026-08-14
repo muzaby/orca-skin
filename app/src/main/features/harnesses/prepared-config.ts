@@ -29,17 +29,19 @@
 //
 // ── fingerprint ──────────────────────────────────────────────────────────────
 // `providerSettingsChangedSinceSpawn` 만으로는 `options.env` 의 credential 교체를 판정하지
-// 못한다(settings 는 그대로인데 토큰만 바뀌는 경우). 그래서 **실제 adapter 입력 두 개**를
-// key 정렬 canonical form 으로 접어 비교값을 만든다.
+// 못한다(settings 는 그대로인데 토큰만 바뀌는 경우). 그 **한 축만** 메운다.
 //
-// 이 값은 **env·settings 만의 비교값**이다. Harness+ModelProvider boundary·선택 Model·
-// Runtime Tool revision 판정은 별도로 유지한다 — "전체 spawn fingerprint" 라는 이름 아래
-// 중복하거나 기존 판정을 제거하지 않는다.
+// **settings 를 함께 접지 않는다** (r2) — 그러면 `providerSettingsChanged` 와 판정이 겹치고,
+// 0125 의 "해석 실패는 경계가 아니다" 를 조용히 뒤집는다. 근거는
+// `adapters/harness-config.ts` 의 `harnessEnvFingerprint` 헤더.
+//
+// Harness+ModelProvider boundary·선택 Model·Runtime Tool revision 판정도 별도로 유지한다 —
+// "전체 spawn fingerprint" 라는 이름 아래 중복하거나 기존 판정을 제거하지 않는다.
 //
 // **원문·secret·fingerprint 를 로그나 DB 에 남기지 않는다.**
 
 import {
-  harnessConfigFingerprint,
+  harnessEnvFingerprint,
   type HarnessNativeSettings,
   type ResolvedHarnessSettings
 } from '../../adapters/harness-config'
@@ -50,8 +52,9 @@ export interface PreparedHarnessConfig {
   providerSettings?: ResolvedHarnessSettings
   // 기존 `TurnRequest.env` 로 그대로 간다.
   env?: Readonly<Record<string, string>>
-  // 위 두 **실제 adapter 입력만** 정규화해 만든 메모리 전용 비교값이다.
-  runtimeConfigFingerprint: string
+  // **최종 env 만** 정규화해 만든 메모리 전용 비교값이다 (r2 축소 — settings 차원은
+  // `providerSettingsChangedSinceSpawn` 이 0125 의 보수적 null 의미론과 함께 계속 소유한다).
+  runtimeEnvFingerprint: string
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -123,11 +126,11 @@ export function prepareHarnessConfig(input: PrepareHarnessConfigInput): Prepared
   return {
     ...(adjusted ? { providerSettings: adjusted } : {}),
     ...(env ? { env } : {}),
-    runtimeConfigFingerprint: harnessConfigFingerprint(adjusted?.settings, env)
+    runtimeEnvFingerprint: harnessEnvFingerprint(env)
   }
 }
 
 // fingerprint 의 SSOT 는 `adapters/harness-config.ts` 하나다 — spawn 기록부
 // (`features/sessions/session-runtime.ts`)가 같은 함수를 써야 하고, feature 끼리는 교차
 // import 가 금지된다. 여기서는 재수출만 한다.
-export { harnessConfigFingerprint } from '../../adapters/harness-config'
+export { harnessEnvFingerprint } from '../../adapters/harness-config'

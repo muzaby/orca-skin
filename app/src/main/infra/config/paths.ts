@@ -118,7 +118,7 @@ export function mcpJsonPath(): string {
 }
 
 // 개별 플러그인 루트(dist/<engine>/plugins/<name>)는 여기서 제공하지 않는다 — 레이아웃과
-// 이름의 소유자는 features/extensions/{harness-plugins/claude,claude-user-skills-plugin}.ts 의
+// 이름의 소유자는 features/extensions/harness-plugins/{claude,claude-user-skills}.ts 의
 // builtInHarnessPluginRoot/userClaudePluginRoot 다(경로 지식 이중 정의 방지, /simplify 0120).
 
 // 부팅 시 1회. mkdir -p 의미 (recursive). 이미 있으면 무시.

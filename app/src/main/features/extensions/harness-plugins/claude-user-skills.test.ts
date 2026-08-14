@@ -12,7 +12,7 @@ import {
 } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { renderClaudeUserSkillsPlugin, userClaudePluginRoot } from './claude-user-skills-plugin'
+import { renderClaudeUserSkillsPlugin, userClaudePluginRoot } from './claude-user-skills'
 
 let root: string
 let target: string

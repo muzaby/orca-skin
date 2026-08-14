@@ -16,9 +16,9 @@
 // 동기 fs 금지(0109) — 부팅/CRUD 경로에서 이벤트 루프를 막지 않는다.
 import { mkdir, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { Backend } from '../../../shared/ipc'
-import { CLAUDE_USER_PLUGIN_NAME } from '../../adapters/claude-plugin'
-import { getLogger } from '../../infra/log/registry'
+import type { Backend } from '../../../../shared/ipc'
+import { CLAUDE_USER_PLUGIN_NAME } from '../../../adapters/claude-plugin'
+import { getLogger } from '../../../infra/log/registry'
 
 const CLAUDE_USER_PLUGIN_MANIFEST = {
   name: CLAUDE_USER_PLUGIN_NAME,

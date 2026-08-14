@@ -15,7 +15,7 @@ const continuation = {
   prepared: {
     providerSettings: { blob: 'fresh' } as never,
     env: { ANTHROPIC_AUTH_TOKEN: 'fresh-token' },
-    runtimeConfigFingerprint: 'fp-fresh'
+    runtimeEnvFingerprint: 'fp-fresh'
   }
 }
 
