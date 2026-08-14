@@ -99,11 +99,19 @@ export interface HarnessConfigApiDeps {
 }
 
 // direct credential 방식 — 사용자가 입력한 API key 를 runtimeEnv 에 직접 놓는다. API 요청 능력이
-// 없다. `secretFor(authId)` 는 AuthId 를 닫아 `() => string | null` 로 좁힌 raw 조회를 만든다 —
-// **전체 `AuthSecretReader` 를 넘기지 않는다.**
+// 없다.
+//
+// **selector 가 아니라 이미 닫힌 closure 를 받는다** (r6). r5 는 `secretFor: (authId) => () => …`
+// 라는 *고르는 함수* 를 넘겼는데, 그것은 factory 가 **임의 Auth 의 secret 을 고를 수 있다**는
+// 뜻이라 제안서의 "특정 AuthId 를 닫은 `() => string | null` 만 전달한다" 를 만족하지 않는다.
+// 이제 배포가 `DIRECT_CREDENTIAL_AUTH_IDS` 로 필요한 id 를 **미리 선언**하고, Bootstrap 은 그
+// id 들에 대해서만 닫힌 closure 를 만든다. 선언하지 않은 Auth 는 이 map 에 키 자체가 없다.
 export interface HarnessDirectCredentialDeps {
-  secretFor: (authId: AuthId) => () => string | null
+  secrets: Readonly<Record<AuthId, () => string | null>>
 }
+
+// 배포가 direct credential 방식으로 쓸 AuthId 선언. Bootstrap 은 이 목록만큼만 closure 를 만든다.
+export const DIRECT_CREDENTIAL_AUTH_IDS: readonly AuthId[] = []
 
 // 기본 배포는 동적 보강이 없다 — 모든 key 가 기존 settings 만으로 동작한다.
 export function createConfigApiAugmenters(deps: HarnessConfigApiDeps): RuntimeConfigAugmenters {
@@ -119,12 +127,23 @@ export function createDirectCredentialAugmenters(
 }
 
 // Bootstrap 이 부르는 합류점. **각 factory 는 자기 능력만 받는다** — 이 함수가 둘을 아는 유일한
-// 자리이고, 여기서도 서로의 deps 를 섞어 넘기지 않는다. key 가 겹치면 배포 실수이므로 진단한다.
+// 자리이고, 여기서도 서로의 deps 를 섞어 넘기지 않는다.
+//
+// **key 가 겹치면 던진다** (r6). r5 는 주석으로 "진단한다" 고 적어 두고 실제로는 spread 로 direct
+// 값이 config API 값을 조용히 덮었다 — 같은 Harness key 를 두 방식이 동시에 보강하는 것은 배포
+// 실수이고, 조용히 하나를 고르면 어느 쪽이 이겼는지 실행 중에는 알 수 없다. 부팅에서 죽는 편이 낫다.
 export function createRuntimeConfigAugmenters(
   deps: HarnessConfigApiDeps & HarnessDirectCredentialDeps
 ): RuntimeConfigAugmenters {
   const configApi = createConfigApiAugmenters({ auth: deps.auth })
-  const direct = createDirectCredentialAugmenters({ secretFor: deps.secretFor })
+  const direct = createDirectCredentialAugmenters({ secrets: deps.secrets })
+  const collisions = Object.keys(direct).filter((key) => key in configApi)
+  if (collisions.length > 0) {
+    throw new Error(
+      `harness runtime config augmenter key collision: ${collisions.join(', ')} — ` +
+        'config API 방식과 direct credential 방식이 같은 key 를 보강할 수 없다'
+    )
+  }
   return { ...configApi, ...direct }
 }
 

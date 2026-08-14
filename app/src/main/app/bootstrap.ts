@@ -70,7 +70,8 @@ import { AUTH_DEFINITIONS } from './deployment/auth-definitions'
 import { GATE_AUTH_DEFINITIONS, remainingAuthDefinitions } from './deployment/gate-auth'
 import {
   AUTH_INVALIDATED_HARNESS_KEYS,
-  createRuntimeConfigAugmenters
+  createRuntimeConfigAugmenters,
+  DIRECT_CREDENTIAL_AUTH_IDS
 } from './deployment/harness-runtime'
 import { createPluginBindings } from './deployment/plugins'
 import { createConnectionSources } from './deployment/connections'
@@ -439,9 +440,12 @@ export class Bootstrap {
       },
       augmenters: createRuntimeConfigAugmenters({
         auth,
-        // **전체 reader 가 아니라 AuthId 를 닫은 closure 를 만들어 준다** — direct-credential
-        // augmenter 만 이것을 받고, config API augmenter 는 `auth.bind(...)` 만 받는다.
-        secretFor: (authId) => () => secretReader.read(authId)
+        // **배포가 선언한 AuthId 에 대해서만 닫힌 closure 를 만든다** — selector 를 넘기면
+        // factory 가 임의 Auth 의 secret 을 고를 수 있다(제안서 위반). config API augmenter 는
+        // 이 map 을 아예 받지 않고 `auth.bind(...)` 만 받는다.
+        secrets: Object.fromEntries(
+          DIRECT_CREDENTIAL_AUTH_IDS.map((authId) => [authId, () => secretReader.read(authId)])
+        )
       }),
       logger: (event, data) => getLogger().child('harness').debug(event, data)
     })

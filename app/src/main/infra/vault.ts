@@ -86,8 +86,13 @@ export function createVault(store: SecretStorePort, prefix: string = VAULT_PREFI
     },
     set(name, value, meta) {
       // 쓰기는 fail-closed — safeStorage 불가 시 crypto.encrypt 가 throw 한다(강등 저장 금지).
-      store.set(key(name), value)
+      //
+      // **값 키를 마지막 secret 쓰기로 둔다** (r6). 세 단계 중 어디서 실패하든 *값*은 이전 것이
+      // 남아야 한다 — 값이 새 것으로 바뀐 뒤 메타에서 실패하면, grant 는 옛 값을 가리키는데 그
+      // 키에는 검증되지 않은 새 값이 들어 있는 상태가 된다. 메타를 먼저 쓰면 그 창이 닫힌다
+      // (메타는 서술 정보이고 만료의 정본은 `Grant.expiresAt` 이다).
       store.set(metaKey(name), JSON.stringify(meta))
+      store.set(key(name), value)
       writeIndex([...readIndex(), name])
     },
     delete(name) {
