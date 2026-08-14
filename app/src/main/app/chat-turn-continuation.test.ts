@@ -9,7 +9,7 @@ import {
 // continuation 마다 새로 조립되는 spawn 입력 한 벌. fingerprint 가 spawn 기록과 같으면
 // respawn 판정에 영향을 주지 않는다.
 function preparedConfig(fingerprint = 'fp-1'): PreparedHarnessConfig {
-  return { runtimeConfigFingerprint: fingerprint }
+  return { runtimeEnvFingerprint: fingerprint }
 }
 
 function extensions(revision: number): TurnExtensions {
@@ -25,7 +25,7 @@ function runtime(revision: number, model: string): AutomaticContinuationRuntime 
   return {
     channelAlive: true,
     spawnedProviderSettings: undefined,
-    spawnedRuntimeConfigFingerprint: undefined,
+    spawnedRuntimeEnvFingerprint: undefined,
     spawnedModel: model,
     spawnedRuntimeToolsRevision: revision
   }
@@ -82,7 +82,7 @@ describe('chat turn automatic continuation — runtime config fingerprint (0188)
       runtime: {
         channelAlive: true,
         spawnedProviderSettings: undefined,
-        spawnedRuntimeConfigFingerprint: 'fp-old',
+        spawnedRuntimeEnvFingerprint: 'fp-old',
         spawnedModel: 'opus',
         spawnedRuntimeToolsRevision: 2
       },
@@ -105,7 +105,7 @@ describe('chat turn automatic continuation — runtime config fingerprint (0188)
       runtime: {
         channelAlive: true,
         spawnedProviderSettings: undefined,
-        spawnedRuntimeConfigFingerprint: 'fp-same',
+        spawnedRuntimeEnvFingerprint: 'fp-same',
         spawnedModel: 'opus',
         spawnedRuntimeToolsRevision: 2
       },
@@ -128,7 +128,7 @@ describe('chat turn automatic continuation — runtime config fingerprint (0188)
       runtime: {
         channelAlive: true,
         spawnedProviderSettings: undefined,
-        spawnedRuntimeConfigFingerprint: undefined,
+        spawnedRuntimeEnvFingerprint: undefined,
         spawnedModel: 'opus',
         spawnedRuntimeToolsRevision: 2
       },

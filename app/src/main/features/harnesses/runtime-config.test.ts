@@ -75,6 +75,48 @@ describe('정적 구성 (AC11)', () => {
   })
 })
 
+// 구 `turn-setup.test.ts` 가 잠그던 "미인증이면 그 키를 드롭한다(빈 문자열 치환 금지)" 의
+// 0188 판. 소유자가 `llmEnvFor` → augmenter 로 바뀌었고 실패 방식이 **드롭에서 throw 로**
+// 강해졌다 — 반쯤 채워진 환경으로 spawn 하면 증상이 원인에서 멀어지기 때문이다.
+describe('미인증·불완전 응답은 fail-closed', () => {
+  it('augmenter 가 실패하면 resolve 가 실패하고 부분 env 를 cache 하지 않는다', async () => {
+    let fail = true
+    const augment = vi.fn(async () => {
+      if (fail) throw new Error('corp model provider authentication required')
+      return { runtimeEnv: { TOKEN: 'live' } }
+    })
+    const service = createHarnessRuntimeConfigService({
+      settings: settingsPort(() => 'rev-1'),
+      augmenters: { [ENTRY.key]: { resolve: augment } }
+    })
+
+    await expect(service.resolve(ENTRY)).rejects.toThrow('authentication required')
+
+    // 실패는 성공 cache 처럼 보관되지 않는다 — 인증되면 다음 resolve 가 곧바로 값을 얻는다.
+    fail = false
+    await expect(service.resolve(ENTRY)).resolves.toMatchObject({
+      runtimeEnv: { TOKEN: 'live' }
+    })
+    expect(augment).toHaveBeenCalledTimes(2)
+  })
+
+  it('실패한 turn 은 빈 문자열이 아니라 오류로 끝난다 — 조용한 미인증 진행 금지', async () => {
+    const service = createHarnessRuntimeConfigService({
+      settings: settingsPort(() => 'rev-1'),
+      augmenters: {
+        [ENTRY.key]: {
+          resolve: async () => {
+            throw new Error('llm config request failed: 401')
+          }
+        }
+      }
+    })
+
+    // 빈 overlay 로 성공시키면 토큰 없는 요청이 나가고 서버가 401 대신 이상한 오류를 준다.
+    await expect(service.resolve(ENTRY)).rejects.toThrow('401')
+  })
+})
+
 describe('sourceRevision (AC12)', () => {
   it('settings 파일 외부 편집(mtime 변화)이 cache miss 로 이어진다', async () => {
     let revision = 'rev-1'

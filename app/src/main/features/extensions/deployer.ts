@@ -7,7 +7,7 @@
 //   skills : sources/skills → dist/<engine>/plugins/orca/skills 로 **복사**(Claude plugin 패키지).
 //            adapter 스킬(~/.claude/skills)은 복사하지 않고 dist/<engine>/plugins/claude 래퍼
 //            플러그인(매니페스트 + skills 정션/심링크)으로 **링크**한다(0117 — settingSources
-//            user 배제 보전, claude-user-skills-plugin.ts).
+//            user 배제 보전, harness-plugins/claude-user-skills.ts).
 //   mcp : 활성 MCP 를 확장한 뒤 dist/<engine>/plugins/orca/.mcp.json 으로 **렌더** + 키 검증.
 //   agents/hooks : 빈 디렉토리 스캐폴드(후속 자산 수용). commands/settings 는 dist 로 배포하지 않는다.
 //
@@ -31,7 +31,7 @@ import { orcaConfigDir } from '../../infra/config/paths'
 import { PROVIDER_NAME_RE } from '../../infra/config/provider-key'
 import { ORCA_PLUGIN_NAME } from '../../adapters/claude-plugin'
 import { renderClaudeHarnessPlugin } from './harness-plugins/claude'
-import { renderClaudeUserSkillsPlugin } from './claude-user-skills-plugin'
+import { renderClaudeUserSkillsPlugin } from './harness-plugins/claude-user-skills'
 
 interface DeployOptions {
   dryRun?: boolean

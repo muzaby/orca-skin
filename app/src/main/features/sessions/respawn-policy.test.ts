@@ -7,7 +7,7 @@ describe('decideRespawn', () => {
     providerBoundaryChanged: false,
     modelChanged: false,
     providerSettingsChanged: false,
-    runtimeConfigChanged: false,
+    runtimeEnvChanged: false,
     spawnedRuntimeToolsRevision: 4,
     runtimeToolsRevision: 4
   }
@@ -21,7 +21,7 @@ describe('decideRespawn', () => {
     ['model', { modelChanged: true }],
     ['provider settings', { providerSettingsChanged: true }],
     // 0188 — settings 는 그대로인데 `options.env` 의 토큰·URL·모델 변수만 바뀐 경우.
-    ['runtime config env', { runtimeConfigChanged: true }],
+    ['runtime config env', { runtimeEnvChanged: true }],
     ['runtime tool revision', { runtimeToolsRevision: 5 }]
   ])('respawns for a changed %s', (_reason, changed) => {
     expect(decideRespawn({ ...unchanged, ...changed })).toBe(true)

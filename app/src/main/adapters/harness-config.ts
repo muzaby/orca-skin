@@ -28,11 +28,24 @@ export type HarnessSettingsLoader = (args: {
   sourcesSettingsFile: string
 }) => Promise<{ settings: HarnessNativeSettings }>
 
-// ── spawn 입력 fingerprint (0188) ────────────────────────────────────────────
+// ── spawn env fingerprint (0188 · r2 축소) ───────────────────────────────────
 //
 // `providerSettingsChangedSinceSpawn` 만으로는 `options.env` 의 credential 교체를 판정하지
-// 못한다 — settings 는 그대로인데 토큰만 바뀌는 경우가 폐쇄망의 정상 흐름이다. 그래서 adapter
-// 에 **실제로 전달하는 두 입력**을 key 정렬 canonical form 으로 접어 비교값을 만든다.
+// 못한다 — settings 는 그대로인데 토큰만 바뀌는 경우가 폐쇄망의 정상 흐름이다. 그 빈자리를
+// 메우는 값이다.
+//
+// ── 왜 settings 를 함께 접지 않는가 (r2 정정) ────────────────────────────────
+// r1 은 `{settings, env}` 를 함께 접어 하나의 비교값을 만들었다. 두 가지가 잘못됐다:
+//
+//   ① **판정이 겹쳤다.** settings 가 바뀌면 `providerSettingsChanged` 와 이 값이 **둘 다**
+//      true 가 된다 — 같은 사실을 두 입력이 말하는 구조는 나중에 한쪽만 고쳐지기 쉽다.
+//   ② **0125 의 보수적 null 의미론을 조용히 뒤집었다.** `providerSettingsChangedSinceSpawn`
+//      은 어느 한쪽 settings 가 없으면 **no-op** 이다(해석 실패는 경계가 아니다). 반면 합친
+//      fingerprint 는 `settings: {...}` → `settings: undefined` 를 변화로 읽어, **loader 가
+//      일시적으로 실패한 턴에 채널을 내리고 settings 없이 respawn** 했다.
+//
+// 그래서 이 값은 **최종 env 만** 접는다. settings 차원은 기존 함수가 계속 소유한다 — 두 입력이
+// 서로 겹치지 않는 축을 하나씩 본다.
 //
 // **여기(adapters)에 두는 이유**: 조립부(`features/harnesses`)와 spawn 기록부
 // (`features/sessions`)가 같은 함수를 써야 하는데 feature 끼리는 교차 import 가 금지된다.
@@ -40,11 +53,8 @@ export type HarnessSettingsLoader = (args: {
 //
 // **원문·secret·이 값을 로그나 DB 에 남기지 않는다** (0188 D-021). 해시를 쓰지 않는 이유는
 // 해시도 진단으로 새면 같은 위험이고, 비교에는 문자열 동등성으로 충분하기 때문이다.
-export function harnessConfigFingerprint(
-  settings: HarnessNativeSettings | undefined,
-  env: Readonly<Record<string, string>> | undefined
-): string {
-  return JSON.stringify({ settings: canonicalize(settings), env: canonicalize(env) })
+export function harnessEnvFingerprint(env: Readonly<Record<string, string>> | undefined): string {
+  return JSON.stringify(canonicalize(env) ?? null)
 }
 
 function canonicalize(value: unknown): unknown {

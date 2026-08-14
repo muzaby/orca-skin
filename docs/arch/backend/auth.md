@@ -266,10 +266,23 @@ runtime config augmenter env
 Auth 에서 얻은 secret 과 config API 의 LLM token 은 `options.settings` 나 argv 에 복제하지 않고
 **`options.env` 에만** 둔다.
 
-`runtimeConfigFingerprint` 는 adapter 에 실제로 전달하는 native settings 와 최종 env 를 key 정렬
-canonical form 으로 접은 값이다. `providerSettingsChangedSinceSpawn` 만으로는 **`options.env` 의
-credential 교체를 판정하지 못하기 때문**이다. 이 값은 env·settings 만의 비교값이며 기존
-Harness+ModelProvider boundary·선택 Model·Runtime Tool revision 판정을 대체하지 않는다.
+`runtimeEnvFingerprint` 는 adapter 에 실제로 전달하는 **최종 env** 를 key 정렬 canonical form 으로
+접은 값이다. `providerSettingsChangedSinceSpawn` 만으로는 **`options.env` 의 credential 교체를
+판정하지 못하기 때문**이다.
+
+**settings 를 함께 접지 않는다.** respawn 판정은 서로 겹치지 않는 축을 하나씩 본다:
+
+| 축 | 소유자 | null 의미론 |
+|---|---|---|
+| settings blob | `providerSettingsChangedSinceSpawn` | 어느 한쪽 부재 = **보수적 no-op**(0125) |
+| 최종 env | `runtimeEnvFingerprint` 비교 | spawn 기록 부재 = no-op(콜드 스타트) |
+| boundary · Model · Runtime Tool revision | 각자 기존 판정 | — |
+
+둘을 하나의 fingerprint 로 합치면 settings 변화가 두 입력에 동시에 나타나고, 무엇보다 **settings
+loader 가 일시 실패한 턴**(`settings: {...}` → `undefined`)을 변화로 읽어 채널을 내리고 settings
+없이 respawn 한다 — 0125 가 no-op 으로 못 박은 경우다. settings 에 `env` 블록이 있었다면 최종
+env 가 실제로 달라지므로 그때는 env 축이 정확히 잡아낸다.
+
 **원문·secret·fingerprint 를 로그나 DB 에 남기지 않는다.**
 
 ### 6.5 턴과 continuation

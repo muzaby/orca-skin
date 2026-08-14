@@ -99,7 +99,7 @@ export async function resolveTurnProvider(
   }
 }
 
-// settings 도 동적 구성도 없는 턴의 빈 spawn 입력. `runtimeConfigFingerprint` 가 상수라
+// settings 도 동적 구성도 없는 턴의 빈 spawn 입력. `runtimeEnvFingerprint` 가 상수라
 // respawn 판정이 흔들리지 않는다.
 function emptyPrepared(): PreparedHarnessConfig {
   return prepareHarnessConfig({

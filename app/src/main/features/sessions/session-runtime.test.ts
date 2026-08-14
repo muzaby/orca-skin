@@ -1254,7 +1254,7 @@ describe('SessionRuntime runtime tool revision (0158)', () => {
         providerBoundaryChanged: false,
         modelChanged: false,
         providerSettingsChanged: false,
-        runtimeConfigChanged: false,
+        runtimeEnvChanged: false,
         spawnedRuntimeToolsRevision: runtime.spawnedRuntimeToolsRevision,
         runtimeToolsRevision: continuationRequest.extensions.runtimeTools?.revision
       })

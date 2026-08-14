@@ -25,7 +25,7 @@ import { decideRespawn } from '../features/sessions/respawn-policy'
 export interface AutomaticContinuationRuntime {
   readonly channelAlive: boolean
   readonly spawnedProviderSettings: ResolvedHarnessSettings | undefined
-  readonly spawnedRuntimeConfigFingerprint: string | undefined
+  readonly spawnedRuntimeEnvFingerprint: string | undefined
   readonly spawnedModel: string | undefined
   readonly spawnedRuntimeToolsRevision: number | undefined
 }
@@ -77,10 +77,9 @@ export async function prepareAutomaticContinuation(input: {
         resolved.prepared.providerSettings
       ),
       // spawn 기록이 없으면(콜드 스타트) 판정하지 않는다 — 보수적 no-op(0118 null 의미론).
-      runtimeConfigChanged:
-        input.runtime.spawnedRuntimeConfigFingerprint !== undefined &&
-        input.runtime.spawnedRuntimeConfigFingerprint !==
-          resolved.prepared.runtimeConfigFingerprint,
+      runtimeEnvChanged:
+        input.runtime.spawnedRuntimeEnvFingerprint !== undefined &&
+        input.runtime.spawnedRuntimeEnvFingerprint !== resolved.prepared.runtimeEnvFingerprint,
       spawnedRuntimeToolsRevision: input.runtime.spawnedRuntimeToolsRevision,
       runtimeToolsRevision: extensions.runtimeTools?.revision
     })

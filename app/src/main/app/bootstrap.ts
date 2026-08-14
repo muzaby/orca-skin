@@ -25,7 +25,7 @@ import {
   sourcesSkillsDir
 } from '../infra/config/paths'
 import { builtInHarnessPluginRoot } from '../features/extensions/harness-plugins/claude'
-import { userClaudePluginRoot } from '../features/extensions/claude-user-skills-plugin'
+import { userClaudePluginRoot } from '../features/extensions/harness-plugins/claude-user-skills'
 import { loadOrcaConfig } from '../infra/config/orca-config'
 import { SecretStore } from '../infra/config/secret-store'
 import { deploy } from '../features/extensions/deployer'
@@ -485,9 +485,20 @@ export class Bootstrap {
     // (`usage-recompute`, 기본 off)을 `features/usage` 가 한 자리에서 등록한다.
     registerUsageJobs(scheduler, cost, {
       fetcher: usageFetcher,
-      // 발화 시점에 평가 — **좌표의 SSOT 는 settings 디렉터리 열거**다(0188 D-013). 구
-      // 구현은 `Provider.llm` 선언에서 파생했는데, 그러면 선언이 없는 배포의 사용량 축이
-      // 조용히 사라진다. `supports()` 가 실제 지원 여부를 가르므로 여기서는 후보를 넓게 준다.
+      // ── 후보 집합의 정본이 바뀌었다 (0188 D-039) ─────────────────────────────
+      // 구현은 `providers.declarations('llm')` 에서 파생했다. 0188 이 `Provider.llm` 슬롯을
+      // 지웠으므로(D-006) 그 배열 자체가 없어졌고, 후보 정본을 **settings 디렉터리 열거**로
+      // 옮겼다. **이것은 파일 이동이 아니라 의미 변경이다** — 문서화 없이 지나가면 안 된다.
+      //
+      //   구: LLM provider 로 *선언된* 것 ∩ supports()
+      //   현: settings tree 의 ModelProvider entry ∩ supports()
+      //
+      // 안전한 이유는 `supports()` 가 **후보를 걸러내는 유일한 게이트**이고 그 판정이 fetch
+      // 이전에 일어나기 때문이다(`features/usage/jobs.ts` — `supports:false` 는 실패로도
+      // 세지 않는다). 제안서가 `supports()` 를 "이 배포가 그 key 의 원격 사용량을 지원하는가"
+      // 로 정의했으므로, 후보를 넓히면 그 정의가 그대로 유일한 판정이 된다.
+      //
+      // 넓힌 대가는 tick 당 entry 수만큼의 `supports()` 호출뿐이다(열거는 메모리 캐시).
       providerKeys: () =>
         harnessSettings
           .adapters()

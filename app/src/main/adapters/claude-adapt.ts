@@ -87,7 +87,7 @@ export function adaptSettings(settings?: HarnessNativeSettings): object {
 // user 소스(~/.claude/settings.json + ~/.claude/skills 탐색)를 배제해 provider 전용 settings
 // (adaptSettings flag)가 사용자 전역 설정 개입 없이 결정론적으로 적용되게 한다. user 배제로
 // 끊기는 ~/.claude/skills 는 dist/claude/plugins/claude 래퍼 플러그인이 보전한다
-// (features/extensions/claude-user-skills-plugin.ts — adaptPlugins 로 주입). provider settings
+// (features/extensions/harness-plugins/claude-user-skills.ts — adaptPlugins 로 주입). provider settings
 // 유무와 무관하게 항상 주입하므로 adaptSettings 와 분리된 조각이다.
 export function adaptSettingSources(): object {
   return { settingSources: ['project', 'local'] }
