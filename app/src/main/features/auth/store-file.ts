@@ -125,7 +125,7 @@ function createRecordPersistence<T>(options: {
   parse: (raw: unknown) => Record<string, T>
   // 파일을 못 열면 메모리로 내려앉는다 — 이 프로세스 안에서는 동작하고, 재시작을 못 넘긴다.
   onUnavailable: (error: unknown) => void
-}): { load(): Record<string, T>; save(records: Record<string, T>): void } {
+}): { load(): Record<string, T>; save(records: Record<string, T>): boolean } {
   let store: Store<Record<string, unknown>> | null = null
   let unavailable = false
   let memory: Record<string, T> = {}
@@ -152,16 +152,26 @@ function createRecordPersistence<T>(options: {
         return {}
       }
     },
-    save(records: Record<string, T>): void {
+    // **내구 저장에 성공했을 때만 `true`** (r8). 예전에는 쓰기 오류를 삼키고 `void` 를 돌려줘,
+    // 호출부는 디스크 실패와 정상 저장을 구분할 방법이 아예 없었다 — 영속되지 않은 grant 를
+    // 영속된 것처럼 publish 했다.
+    //
+    // **실패해도 던지지 않는다.** 파일을 못 열든 쓰기가 거부되든, 이 프로세스는 메모리 사본으로
+    // 계속 동작해야 한다(키체인이 잠긴 머신에서 앱이 죽으면 안 된다). 대신 그 사실을 `false` 로
+    // **말한다** — 이것을 "영속 성공" 으로 접지 않는 것이 r8 의 결정이다. 자격증명 호출부는
+    // `false` 를 받으면 새 값을 이번 프로세스에서 쓰되 옛 vault 키를 지우지 않는다.
+    save(records: Record<string, T>): boolean {
       memory = { ...records }
       const opened = open()
-      if (!opened) return
+      if (!opened) return false
       try {
         opened.set(options.key, records)
+        return true
       } catch (error) {
         unavailable = true
         store = null
         options.onUnavailable(error)
+        return false
       }
     }
   }

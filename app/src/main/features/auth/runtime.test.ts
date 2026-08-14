@@ -5,10 +5,10 @@
 //   · 재인증 실패 롤백 없음 → 실패 한 번이 멀쩡히 살아 있던 연결을 끊는다
 
 import { describe, expect, it } from 'vitest'
-import type { AuthChange, AuthDefinition, AuthenticatedResponse } from '../../contracts/auth'
+import type { AuthChange, AuthDefinition, AuthenticatedResponse, Grant } from '../../contracts/auth'
 import { createVault } from '../../infra/vault'
 import type { SecretStorePort } from '../../infra/config/secret-store-port'
-import { createMemoryGrantPersistence } from './store'
+import { createMemoryGrantPersistence, type GrantPersistencePort } from './store'
 import { createAuthRuntime } from './runtime'
 import { patSpec, FIELD_SECRET } from './specs/credential'
 
@@ -591,46 +591,94 @@ describe('후보 자격증명 staging (r5)', () => {
   })
 })
 
-// r6 — 요청이 도는 동안 시계가 지나 만료되는 경우. r5 는 `markExpired` 가 `expiresAt <= now` 만
-// 보고 "이미 정착됨" 으로 접어, 전이가 다음 `snapshot()` 까지 미뤄졌다.
-// r7 — 실패 원자성과 superseded 격리.
-describe('교체 실패 원자성 · superseded 격리 (r7)', () => {
-  function withFailingStore(shouldFail: (key: string) => boolean): {
-    vault: ReturnType<typeof createVault>
-    store: SecretStorePort
-  } {
-    const backing = fakeSecretStore()
-    const guarded: SecretStorePort = {
+// ── 자격증명 교체의 원자성과 superseded 격리 (r7 → r8) ───────────────────────
+//
+// r7 은 확인된 값을 staged 에 쓴 뒤 고정 키로 promote 하고, 그 다음 grant 를 저장했다.
+// 그 사이의 창이 실측으로 재현됐다 — grant 저장이 실패하면 **vault=새 값 / 영속 grant=옛 값**.
+// 게다가 r7 의 테스트는 그 상태를 단언하지 않았고("refresh 실패" 테스트는 PAT 전용 선언에
+// OAuth 실행기를 주입해 **token 경로를 아예 실행하지 않았다**) 통과했다.
+//
+// r8 은 교체를 **포인터 교체**로 바꿨다. 아래 테스트는 전부 production 경로(`createAuthRuntime`)
+// 를 그대로 태우고, 실패·크래시 지점마다 "옛 값 전체" 또는 "새 값 전체" 중 하나만 관측되는지
+// 본다. 중간 상태가 하나라도 관측되면 실패다.
+describe('자격증명 교체 원자성 · superseded 격리 (r8)', () => {
+  function fakeStore(): ReturnType<typeof fakeSecretStore> & { raw: Map<string, string> } {
+    const map = new Map<string, string>()
+    return {
+      get: (k) => map.get(k),
+      set: (k, v) => void map.set(k, v),
+      delete: (k) => void map.delete(k),
+      raw: map
+    }
+  }
+
+  // 실패를 특정 키에만 거는 SecretStore. 세대 키는 이름이 매번 달라지므로 접미사로 고른다.
+  function guarded(
+    backing: SecretStorePort,
+    shouldFail: () => (key: string) => boolean
+  ): SecretStorePort {
+    return {
       get: backing.get,
       set: (key, value) => {
-        if (shouldFail(key)) throw new Error('safeStorage unavailable')
+        if (shouldFail()(key)) throw new Error('safeStorage unavailable')
         backing.set(key, value)
       },
       delete: backing.delete
     }
-    return { vault: createVault(guarded), store: guarded }
   }
 
-  it('refresh 키 저장이 실패하면 access 도 이전 값 그대로다', async () => {
-    // r6 은 access 를 먼저 정식 키에 쓴 뒤 refresh 를 써서, refresh 실패 시
-    // `new-access + old-refresh` 가 남았다. 2단 쓰기는 staging 에서 통째로 실패한다.
-    let failRefresh = false
-    const { vault } = withFailingStore((key) => failRefresh && key.includes('#refresh'))
-    vault.set('wiki:pat', 'old-access', { kind: 'pat', createdAt: 0 })
-    vault.set('wiki:pat#refresh', 'old-refresh', { kind: 'pat', createdAt: 0 })
-    const created = createAuthRuntime({
-      definitions: [WIKI],
-      persistence: createMemoryGrantPersistence({
-        wiki: { kind: 'secret', vaultKey: 'wiki:pat', authKind: 'pat', createdAt: 0 }
-      }),
+  // OAuth token 방식 선언 — access + refresh 두 키를 한 번에 가는 유일한 경로다.
+  const GATEWAY: AuthDefinition = {
+    id: 'gw',
+    label: '게이트웨이',
+    origin: 'https://gw.example.corp',
+    probe: { path: '/api/me' },
+    methods: [
+      {
+        kind: 'oauth',
+        label: 'OAuth',
+        present: BEARER,
+        authorize: async () => ({
+          url: 'https://gw.example.corp/authorize',
+          redirect: { kind: 'loopback' as const, port: 0 },
+          exchange: async () => ({ token: 'unused' })
+        })
+      }
+    ]
+  }
+
+  const OLD_ACCESS = {
+    kind: 'token' as const,
+    vaultKey: 'gw:oauth',
+    refreshKey: 'gw:oauth#refresh'
+  }
+
+  // OAuth 실행기가 실제로 불렸는지 세는 카운터. r7 의 실패 원인이 "테스트가 그 경로를 아예
+  // 실행하지 않았다" 였으므로, 경로 진입 자체를 단언한다.
+  let beginCalls = 0
+
+  function tokenDeployment(options: {
+    store: SecretStorePort
+    persistence?: GrantPersistencePort
+    token?: { token: string; refreshToken?: string }
+  }): ReturnType<typeof createAuthRuntime> {
+    const vault = createVault(options.store)
+    return createAuthRuntime({
+      definitions: [GATEWAY],
+      persistence:
+        options.persistence ??
+        createMemoryGrantPersistence({ gw: { ...OLD_ACCESS, authKind: 'oauth', createdAt: 0 } }),
       vault,
       fetchImpl: (async () => new Response('', { status: 200 })) as unknown as typeof fetch,
       clock: () => 1_000,
       oauth: {
-        begin: async () => ({
-          kind: 'token' as const,
-          token: { token: 'new-access', refreshToken: 'new-refresh' }
-        }),
+        begin: async () => {
+          beginCalls += 1
+          return {
+            kind: 'token' as const,
+            token: options.token ?? { token: 'new-access', refreshToken: 'new-refresh' }
+          }
+        },
         complete: async () => ({
           kind: 'failed' as const,
           reason: 'cancelled' as const,
@@ -638,46 +686,166 @@ describe('교체 실패 원자성 · superseded 격리 (r7)', () => {
         })
       }
     })
-    failRefresh = true
+  }
 
-    await created.runtime.login('wiki', 'pat').catch(() => undefined)
-    // oauth 경로가 없는 선언이므로 값형으로 다시 확인한다 — 핵심은 두 키의 정합성이다.
-    expect(vault.get('wiki:pat')).toBe('old-access')
-    expect(vault.get('wiki:pat#refresh')).toBe('old-refresh')
+  // grant 포인터를 따라 읽는다 — 세대 키 이름을 테스트가 알 필요가 없다.
+  function secretsVia(
+    runtime: ReturnType<typeof createAuthRuntime>['runtime'],
+    persistence: GrantPersistencePort,
+    vault: ReturnType<typeof createVault>
+  ): { access: string | null; refresh: string | null } {
+    void runtime
+    const grant = persistence.load()['gw']
+    if (!grant || grant.kind !== 'token') return { access: null, refresh: null }
+    return {
+      access: vault.get(grant.vaultKey),
+      refresh: grant.refreshKey ? vault.get(grant.refreshKey) : null
+    }
+  }
+
+  it('refresh 키 쓰기가 실패하면 access·refresh 모두 이전 값 그대로다', async () => {
+    // r6 은 access 를 먼저 정식 키에 써서 `new-access + old-refresh` 를 남겼다. r8 은 둘 다
+    // 아직 아무도 가리키지 않는 새 키에 쓰므로, 실패해도 grant 는 옛 키 쌍을 계속 가리킨다.
+    const backing = fakeStore()
+    let failRefresh = false
+    const store = guarded(backing, () => (key) => failRefresh && key.includes('#refresh'))
+    const vault = createVault(store)
+    vault.set('gw:oauth', 'old-access', { kind: 'oauth', createdAt: 0 })
+    vault.set('gw:oauth#refresh', 'old-refresh', { kind: 'oauth', createdAt: 0 })
+    const persistence = createMemoryGrantPersistence({
+      gw: { ...OLD_ACCESS, authKind: 'oauth', createdAt: 0 }
+    })
+    const created = tokenDeployment({ store, persistence })
+    failRefresh = true
+    beginCalls = 0
+
+    const step = await created.runtime.login('gw', 'oauth')
+
+    // **token 경로를 실제로 지났는가** — r7 테스트는 PAT 전용 선언에 OAuth 실행기를 주입해
+    // 이 지점에 도달하지 못한 채 통과했다.
+    expect(beginCalls).toBe(1)
+    // 실패했으므로 로그인은 성립하지 않았고, 두 키는 통째로 이전 값이다.
+    expect(step.kind).toBe('failed')
+    expect(secretsVia(created.runtime, persistence, vault)).toEqual({
+      access: 'old-access',
+      refresh: 'old-refresh'
+    })
   })
 
-  it('grant 영속이 실패하면 메모리에도 남지 않는다', async () => {
-    const vault = createVault(fakeSecretStore())
-    vault.set('wiki:pat', 'good', { kind: 'pat', createdAt: 0 })
-    const created = createAuthRuntime({
-      definitions: [WIKI],
+  it('grant 영속이 실패하면 이전 secret 과 메모리 상태가 모두 보존된다', async () => {
+    const backing = fakeStore()
+    const vault = createVault(backing)
+    vault.set('gw:oauth', 'old-access', { kind: 'oauth', createdAt: 0 })
+    vault.set('gw:oauth#refresh', 'old-refresh', { kind: 'oauth', createdAt: 0 })
+    const persisted: Record<string, Grant> = {
+      gw: { ...OLD_ACCESS, authKind: 'oauth', createdAt: 0 }
+    }
+    const created = tokenDeployment({
+      store: backing,
       persistence: {
-        load: () => ({
-          wiki: { kind: 'secret', vaultKey: 'wiki:pat', authKind: 'pat', createdAt: 0 }
-        }),
+        load: () => ({ ...persisted }),
         save: () => {
           throw new Error('disk full')
         }
-      },
-      vault,
-      fetchImpl: (async () => new Response('', { status: 200 })) as unknown as typeof fetch,
-      clock: () => 1_000
+      }
     })
     const changes: AuthChange[] = []
     created.runtime.subscribe((change) => changes.push(change))
 
-    await created.runtime.reauth('wiki', 'pat')
-    await created.runtime.continue('wiki', { [FIELD_SECRET]: 'next' })
+    await created.runtime.login('gw', 'oauth')
 
-    // r6 은 메모리에 새 secret 과 revision 1 이 남고 snapshot 은 안 나갔다.
-    expect(created.runtime.bind('wiki').snapshot().credentialRevision).toBe(0)
+    // r7 은 revision 만 확인해서 이 혼합 상태를 놓쳤다 — 여기서 secret 까지 단언한다.
+    expect(vault.get('gw:oauth')).toBe('old-access')
+    expect(vault.get('gw:oauth#refresh')).toBe('old-refresh')
+    expect(created.runtime.bind('gw').snapshot().credentialRevision).toBe(0)
     expect(changes.filter((c) => c.kind === 'snapshot' && c.credentialChanged)).toHaveLength(0)
+    // 정상 실패 경로는 방금 쓴 새 세대 키를 스스로 지운다 — 부팅 sweep 을 기다리지 않는다.
+    expect([...backing.raw.keys()].filter((k) => k.includes('@'))).toEqual([])
   })
 
-  it('superseded 시도는 화면 단계를 되돌리지 않는다', async () => {
+  it('영속이 메모리로만 됐으면 새 값을 쓰되 이전 키를 지우지 않는다', async () => {
+    // production adapter 는 store 파일을 못 열면 메모리로 내려앉는다. 그 상태를 "저장 성공" 으로
+    // 접으면 옛 키를 지워, 재시작 후 옛 grant 가 **아무것도 가리키지 않는** 상태가 된다.
+    const backing = fakeStore()
+    const vault = createVault(backing)
+    vault.set('gw:oauth', 'old-access', { kind: 'oauth', createdAt: 0 })
+    vault.set('gw:oauth#refresh', 'old-refresh', { kind: 'oauth', createdAt: 0 })
+    const created = tokenDeployment({
+      store: backing,
+      persistence: {
+        load: () => ({ gw: { ...OLD_ACCESS, authKind: 'oauth', createdAt: 0 } }),
+        // degraded — 내구 저장 실패를 **던지지 않고 보고**한다.
+        save: () => false
+      }
+    })
+
+    expect(await created.runtime.login('gw', 'oauth')).toEqual({ kind: 'done', providerId: 'gw' })
+    // 이번 프로세스는 새 값으로 동작한다.
+    expect(created.secretReader.read('gw')).toBe('new-access')
+    // 재시작하면 옛 grant 가 돌아온다 — 그 키가 살아 있어야 한다.
+    expect(vault.get('gw:oauth')).toBe('old-access')
+    expect(vault.get('gw:oauth#refresh')).toBe('old-refresh')
+  })
+
+  it('커밋 뒤 크래시해도 재부팅이 새 자격증명으로 열린다', async () => {
+    const backing = fakeStore()
+    const persisted: Record<string, Grant> = {
+      gw: { ...OLD_ACCESS, authKind: 'oauth', createdAt: 0 }
+    }
+    const persistence: GrantPersistencePort = {
+      load: () => ({ ...persisted }),
+      save: (next) => {
+        Object.assign(persisted, next)
+        return true
+      }
+    }
+    const vault = createVault(backing)
+    vault.set('gw:oauth', 'old-access', { kind: 'oauth', createdAt: 0 })
+    vault.set('gw:oauth#refresh', 'old-refresh', { kind: 'oauth', createdAt: 0 })
+    const created = tokenDeployment({ store: backing, persistence })
+    await created.runtime.login('gw', 'oauth')
+
+    // 크래시 = 프로세스 교체. 같은 디스크 위에 런타임을 새로 만든다.
+    const rebooted = tokenDeployment({ store: backing, persistence })
+    expect(rebooted.secretReader.read('gw')).toBe('new-access')
+    expect(secretsVia(rebooted.runtime, persistence, createVault(backing))).toEqual({
+      access: 'new-access',
+      refresh: 'new-refresh'
+    })
+  })
+
+  it('커밋 전 크래시하면 재부팅이 이전 자격증명으로 열리고 고아 키가 정리된다', async () => {
+    // **크래시는 catch 가 돌지 않는 실패다.** 정상 실패 경로는 방금 쓴 새 키를 스스로 지우므로
+    // (위 테스트) 고아가 남지 않는다. 프로세스가 그 사이에 죽으면 정리가 돌지 못한다 — 그
+    // 상태를 그대로 만들어 두고 부팅시킨다: 새 세대 키는 vault 에 있고 grant 는 옛 키를 가리킨다.
+    const backing = fakeStore()
+    const vault = createVault(backing)
+    vault.set('gw:oauth', 'old-access', { kind: 'oauth', createdAt: 0 })
+    vault.set('gw:oauth#refresh', 'old-refresh', { kind: 'oauth', createdAt: 0 })
+    vault.set('gw:oauth@deadbeef', 'new-access', { kind: 'oauth', createdAt: 0 })
+    vault.set('gw:oauth#refresh@deadbeef', 'new-refresh', { kind: 'oauth', createdAt: 0 })
+    const persisted: Record<string, Grant> = {
+      gw: { ...OLD_ACCESS, authKind: 'oauth', createdAt: 0 }
+    }
+
+    const rebooted = tokenDeployment({
+      store: backing,
+      persistence: { load: () => ({ ...persisted }), save: () => true }
+    })
+
+    // 커밋되지 않은 값은 절대 쓰이지 않는다 — 부팅이 옛 자격증명으로 열린다.
+    expect(rebooted.secretReader.read('gw')).toBe('old-access')
+    expect(vault.get('gw:oauth#refresh')).toBe('old-refresh')
+    // 아무도 가리키지 않는 자리는 부팅 sweep 이 치운다.
+    expect([...backing.raw.keys()].filter((k) => k.includes('@'))).toEqual([])
+  })
+
+  it('늦게 끝난 시도가 실패해도 화면 단계를 되돌리지 않는다', async () => {
+    // r7 은 probe **성공** 뒤에만 세대를 확인해서, 늦게 끝난 옛 시도의 401 이 이미 성공한 새
+    // 로그인 위에 거부 폼을 다시 열었다.
     const vault = createVault(fakeSecretStore())
     vault.set('wiki:pat', 'good', { kind: 'pat', createdAt: 0 })
-    const gates: (() => void)[] = []
+    const gates: ((ok: boolean) => void)[] = []
     const created = createAuthRuntime({
       definitions: [WIKI],
       persistence: createMemoryGrantPersistence({
@@ -685,8 +853,8 @@ describe('교체 실패 원자성 · superseded 격리 (r7)', () => {
       }),
       vault,
       fetchImpl: (async () => {
-        await new Promise<void>((resolve) => gates.push(resolve))
-        return new Response('', { status: 200 })
+        const ok = await new Promise<boolean>((resolve) => gates.push(resolve))
+        return new Response('', { status: ok ? 200 : 401 })
       }) as unknown as typeof fetch,
       clock: () => 1_000
     })
@@ -696,15 +864,44 @@ describe('교체 실패 원자성 · superseded 격리 (r7)', () => {
     await Promise.resolve()
     const second = created.runtime.continue('wiki', { [FIELD_SECRET]: 'second' })
     await Promise.resolve()
-    gates[1]?.()
+    gates[1]?.(true)
     await second
     const afterSecond = created.runtime.currentStep()
-    gates[0]?.()
+    gates[0]?.(false)
     await first
 
-    // r6 은 늦게 끝난 첫 시도가 `currentStep` 을 거부 폼으로 되돌렸다.
     expect(created.runtime.currentStep()).toEqual(afterSecond)
     expect(created.secretReader.read('wiki')).toBe('second')
+  })
+
+  it('probe 가 401 로 끝나도 그 사이 해제했으면 거부 폼이 열리지 않는다', async () => {
+    const vault = createVault(fakeSecretStore())
+    vault.set('wiki:pat', 'good', { kind: 'pat', createdAt: 0 })
+    let release: ((ok: boolean) => void) | undefined
+    const gate = new Promise<boolean>((resolve) => {
+      release = resolve
+    })
+    const created = createAuthRuntime({
+      definitions: [WIKI],
+      persistence: createMemoryGrantPersistence({
+        wiki: { kind: 'secret', vaultKey: 'wiki:pat', authKind: 'pat', createdAt: 0 }
+      }),
+      vault,
+      fetchImpl: (async () =>
+        new Response('', { status: (await gate) ? 200 : 401 })) as unknown as typeof fetch,
+      clock: () => 1_000
+    })
+
+    await created.runtime.reauth('wiki', 'pat')
+    const pending = created.runtime.continue('wiki', { [FIELD_SECRET]: 'next' })
+    await Promise.resolve()
+    created.runtime.revoke('wiki')
+    release?.(false)
+    await pending
+
+    // r7 은 `status=none` 인데 `currentStep=input-required` 인 모순 상태를 만들었다.
+    expect(created.runtime.currentStep()).toBeNull()
+    expect(created.runtime.bind('wiki').snapshot().status).toBe('none')
   })
 
   it('probe 중 해제한 뒤 거부 폼이 다시 열리지 않는다', async () => {
@@ -736,6 +933,86 @@ describe('교체 실패 원자성 · superseded 격리 (r7)', () => {
 
     expect(created.runtime.currentStep()).toBeNull()
     expect(created.runtime.bind('wiki').snapshot().status).toBe('none')
+  })
+
+  it('부팅 복원 중 사용자가 재인증하면 옛 probe 실패가 새 자격증명을 강등하지 않는다', async () => {
+    // resume 은 새 시도를 열지 않으므로 사용자의 로그인을 무효화하지 않는다. 반대 방향은
+    // 막아야 한다 — 세대 확인이 없으면 **옛 자격증명이 받은 401** 이 방금 성공한 새 자격증명을
+    // `expired` 로 강등한다. 사용자가 막 로그인했는데 화면이 곧바로 만료로 뒤집힌다.
+    let release: ((ok: boolean) => void) | undefined
+    const gate = new Promise<boolean>((resolve) => {
+      release = resolve
+    })
+    let firstProbe = true
+    const created = createAuthRuntime({
+      definitions: [WIKI],
+      persistence: createMemoryGrantPersistence({
+        wiki: { kind: 'secret', vaultKey: 'wiki:pat', authKind: 'pat', createdAt: 0 }
+      }),
+      vault: (() => {
+        const v = createVault(fakeSecretStore())
+        v.set('wiki:pat', 'old', { kind: 'pat', createdAt: 0 })
+        return v
+      })(),
+      fetchImpl: (async () => {
+        if (firstProbe) {
+          firstProbe = false
+          return new Response('', { status: (await gate) ? 200 : 401 })
+        }
+        return new Response('', { status: 200 })
+      }) as unknown as typeof fetch,
+      clock: () => 1_000
+    })
+
+    const resuming = created.runtime.resume('wiki')
+    await Promise.resolve()
+    // 사용자가 그 사이 재인증을 끝냈다.
+    await created.runtime.reauth('wiki', 'pat')
+    await created.runtime.continue('wiki', { [FIELD_SECRET]: 'fresh' })
+    // 옛 자격증명의 probe 가 뒤늦게 401 로 끝난다.
+    release?.(false)
+    await resuming
+
+    expect(created.secretReader.read('wiki')).toBe('fresh')
+    const snapshot = created.runtime.bind('wiki').snapshot()
+    expect(snapshot.status).toBe('valid')
+    expect(snapshot.verified).toBe(true)
+    expect(created.runtime.currentStep()).toBeNull()
+  })
+
+  it('늦게 끝난 OAuth code-required 가 pending 을 되살리지 않는다', async () => {
+    // `absorb` 의 중간 분기도 세대를 봐야 한다 — 안 보면 해제한 Auth 가 code 입력 대기로 되살아난다.
+    let release: (() => void) | undefined
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const created = createAuthRuntime({
+      definitions: [GATEWAY],
+      persistence: createMemoryGrantPersistence(),
+      vault: createVault(fakeSecretStore()),
+      fetchImpl: (async () => new Response('', { status: 200 })) as unknown as typeof fetch,
+      clock: () => 1_000,
+      oauth: {
+        begin: async () => {
+          await gate
+          return { kind: 'code-required' as const, url: 'https://gw.example.corp/authorize' }
+        },
+        complete: async () => ({
+          kind: 'failed' as const,
+          reason: 'cancelled' as const,
+          message: ''
+        })
+      }
+    })
+
+    const pending = created.runtime.login('gw', 'oauth')
+    await Promise.resolve()
+    created.runtime.revoke('gw')
+    release?.()
+    await pending
+
+    expect(created.runtime.currentStep()).toBeNull()
+    expect(created.runtime.bind('gw').snapshot().status).toBe('none')
   })
 })
 

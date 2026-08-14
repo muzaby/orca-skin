@@ -8,6 +8,7 @@
 // 이전 자격증명으로 계속 쓸 수 있어야 하기 때문이다. 입력형 방식에서 "성공" 은 곧 vault 쓰기라,
 // compose 가 거부하면 vault 에 손도 대지 않는다.
 
+import { randomBytes } from 'node:crypto'
 import type { ProviderFailureReason } from '../../../shared/ipc'
 import type {
   AuthDefinition,
@@ -22,7 +23,12 @@ import type {
   TokenValue
 } from '../../contracts/auth'
 import { errorMessage } from '../../infra/errors'
-import { providerRefreshKey, providerVaultKey, type Vault } from '../../infra/vault'
+import {
+  providerRefreshKey,
+  providerVaultKey,
+  versionedVaultKey,
+  type Vault
+} from '../../infra/vault'
 import type { CandidateCredential } from './authenticated-request'
 import { isAllowedOrigin } from './policy'
 import type { AuthRegistry } from './registry'
@@ -60,6 +66,8 @@ export interface LoginDeps {
   store: AuthStore
   vault: Vault
   clock?: () => number
+  // 새 vault 키의 세대 토큰(r8). 기본은 프로세스 난수 — 테스트가 결정적 값을 넣는다.
+  vaultKeyVersion?: () => string
   oauth?: OAuthAuthenticator
   session?: SessionAuthenticator
   // 인증 확인(`AuthDefinition.probe`)의 실행 통로. 미주입이면 확인 없이 통과한다.
@@ -92,6 +100,12 @@ type SettleOutcome =
   | { kind: 'rejected' }
   // 사용자가 그 사이 다른 시도를 시작했거나 해제했다 — **아무것도 하지 않는다.**
   | { kind: 'superseded' }
+
+// 세대 토큰의 기본 공급자. 키 이름에만 쓰이고 비밀이 아니지만, 예측 가능한 이름이 여러 설치에서
+// 겹치지 않도록 난수를 쓴다.
+function defaultVaultKeyVersion(): string {
+  return randomBytes(6).toString('hex')
+}
 
 interface Pending {
   authId: AuthId
@@ -135,7 +149,28 @@ export class LoginService {
   }
 
   private isCurrentAttempt(authId: AuthId, attempt: number): boolean {
-    return this.attempts.get(authId) === attempt
+    return this.currentAttempt(authId) === attempt
+  }
+
+  private currentAttempt(authId: AuthId): number {
+    return this.attempts.get(authId) ?? 0
+  }
+
+  // superseded 가 돌려줄 값. **아무것도 바꾸지 않는다** — pending 도 step 도 이벤트도 그대로
+  // 두고 현재 화면 단계를 그대로 돌려준다. renderer 는 요청 순번 가드로 이 응답을 어차피
+  // 버리지만, Main 이 push 를 내지 않는 것이 본질이다.
+  private supersededStep(authId: AuthId): AuthStep {
+    return this.step ?? { kind: 'done', providerId: authId }
+  }
+
+  private newVersion(): string {
+    return (this.deps.vaultKeyVersion ?? defaultVaultKeyVersion)()
+  }
+
+  // 새 자격증명이 앉을 **새 키**. 같은 (authId, authKind) 라도 로그인마다 다르다 — 근거는
+  // `infra/vault.ts` 의 `versionedVaultKey`.
+  private newVaultKey(authId: AuthId, authKind: AuthMethodKind): string {
+    return versionedVaultKey(providerVaultKey(authId, authKind), this.newVersion())
   }
 
   async begin(
@@ -215,7 +250,16 @@ export class LoginService {
     const exposeStep = options?.exposeStep ?? true
     if (exposeStep) this.emit({ kind: 'resuming', providerId: definition.id })
 
+    // **자동 확인도 세대를 본다** (r8). resume 은 새 시도를 열지 않는다 — 사용자가 이미 시작한
+    // 로그인을 부팅 복원이 무효화하면 안 되기 때문이다. 대신 현재 세대를 적어 두고, probe 왕복
+    // 동안 사용자가 [연결]·[연결 해제] 를 눌렀으면(둘 다 세대를 올린다) **결과를 버린다** —
+    // 옛 자격증명의 probe 결과로 새 자격증명을 `verified` 로 만들지 않는다.
+    const attempt = this.currentAttempt(definition.id)
     const ok = await this.probeOk(definition)
+    if (!this.isCurrentAttempt(definition.id, attempt)) {
+      this.deps.logger?.('auth.resume.attempt-superseded', { authId: definition.id })
+      return
+    }
     // **전이를 만든 호출만 통지한다** (r4). probe 가 401/403 을 받은 경우 요청 경로가 이미
     // 강등하고 `onUnauthorized` 로 통지했다 — 여기서 다시 내면 같은 사실이 두 번 나가고,
     // 두 번째는 revision 이 그대로라 `credentialChanged:true` 와 어긋난다. 그 유령 이벤트가
@@ -342,36 +386,41 @@ export class LoginService {
   // 이제 후보를 `CandidateCredential` 로 요청에 실어 보낸다. store 도 vault 도 확인이 끝날
   // 때까지 아무것도 모르므로 **되돌릴 중간 상태가 아예 생기지 않는다**. vault 쓰기(`writeVault`)
   // 도 성공 후에만 일어나 probe 중 종료되는 crash window 가 닫힌다.
+  //
+  // ── 커밋은 포인터 교체다 (r8, D-050) ────────────────────────────────────────
+  // r7 은 확인된 값을 staged 에 쓴 뒤 **고정 키로 promote** 하고 그 다음 grant 를 저장했다.
+  // 그래서 promote 와 grant 저장 사이에 창이 남았다 — grant 저장이 실패하면 vault 에는 새 값,
+  // 영속된 grant 에는 옛 값이 남는다(실측 재현됨). 두 저장소를 원자적으로 함께 쓸 방법이 없는
+  // 한 고정 키를 덮어쓰는 설계는 이 창을 닫을 수 없다.
+  //
+  // 그래서 **새 값은 새 키에 쓰고, grant 저장이 곧 커밋**이다. 실패 지점이 어디든 결과는 둘 중
+  // 하나뿐이고 둘 다 정합적이다 — 옛 grant→옛 키, 또는 새 grant→새 키. 고아 키는 다음 부팅의
+  // sweep 이 치운다(`AuthStore.restore`).
   private async settleGrant(
     definition: AuthDefinition,
     attempt: number,
     candidate: CandidateCredential,
-    stageVault?: () => void
+    writeVault?: () => void
   ): Promise<SettleOutcome> {
-    if (!(await this.probeOk(definition, candidate))) {
-      // 아무것도 쓰지 않았다 — 이전 자격증명은 손대지 않은 채 그대로 살아 있다.
-      // 통지는 호출자의 `emit`(폼 재표시 또는 `failed`)이 한다 — 두 번 쏘지 않는다.
-      return { kind: 'rejected' }
-    }
-    // **커밋 직전에 세대를 확인한다** (r6). probe 왕복 동안 사용자가 폼을 다시 냈거나 연결을
-    // 해제했으면 이 후보는 더 이상 사용자가 원하는 값이 아니다.
-    //
-    // 이때는 `rejected` 와 **다른 결과**를 돌려준다 (r7). 둘을 같은 `null` 로 합치면 호출부가
-    // 거부 폼을 다시 열어, 이미 성공한 새 로그인의 화면을 늦게 끝난 옛 시도가 덮어쓴다 —
-    // 해제 직후에도 거부 폼이 열렸다. superseded 는 **아무것도 하지 않는 것**이 정답이다.
+    const probeOk = await this.probeOk(definition, candidate)
+    // **세대 확인이 결과 해석보다 먼저다** (r8). r7 은 실패 분기를 먼저 처리해서, 늦게 끝난 옛
+    // 시도의 401 이 이미 성공한 새 로그인 위에 거부 폼을 다시 열었다 — 해제 직후에도 열렸다
+    // (`status=none` 인데 `input-required`). superseded 는 성공이든 실패든 **아무것도 하지 않는다.**
     if (!this.isCurrentAttempt(definition.id, attempt)) {
       this.deps.logger?.('auth.login.attempt-superseded', { authId: definition.id })
       return { kind: 'superseded' }
     }
-    // 확인된 값만 영속한다. **2단 쓰기**(r7): 후보를 전부 staged 로 쓴 뒤 한 번에 옮긴다 —
-    // 암호화가 실패할 수 있는 단계는 staging 이고, 거기서 실패하면 정식 키는 손대기 전 그대로다.
-    // access/refresh 처럼 키가 둘 이상이어도 "일부만 새 값" 상태가 생기지 않는다.
-    if (stageVault) {
+    if (!probeOk) {
+      // 아무것도 쓰지 않았다 — 이전 자격증명은 손대지 않은 채 그대로 살아 있다.
+      // 통지는 호출자의 `emit`(폼 재표시 또는 `failed`)이 한다 — 두 번 쏘지 않는다.
+      return { kind: 'rejected' }
+    }
+    // 확인된 값을 **아무도 가리키지 않는 새 키**에 쓴다. 여기서 실패하면 옛 키는 그대로다.
+    if (writeVault) {
       try {
-        stageVault()
-        this.deps.vault.promoteStaged()
+        writeVault()
       } catch (error) {
-        this.deps.vault.discardStaged()
+        this.discardKeys(candidate.grant)
         this.deps.logger?.('auth.login.vault-write-failed', {
           authId: definition.id,
           reason: errorMessage(error)
@@ -379,18 +428,51 @@ export class LoginService {
         return { kind: 'rejected' }
       }
     }
+    // 옛 키는 커밋이 **내구 저장으로** 성립한 뒤에만 지운다.
+    const previous = this.deps.store.get(definition.id)
+    let durable: boolean
     try {
       // `put` 은 영속을 먼저 하고 메모리를 나중에 바꾼다 — 저장이 실패하면 메모리도 그대로다.
-      this.commit(definition.id, candidate.grant, false)
+      durable = this.commit(definition.id, candidate.grant, false)
     } catch (error) {
+      this.discardKeys(candidate.grant)
       this.deps.logger?.('auth.login.persist-failed', {
         authId: definition.id,
         reason: errorMessage(error)
       })
       return { kind: 'rejected' }
     }
+    if (durable) this.discardKeys(previous, candidate.grant)
+    else {
+      // 메모리로만 저장됐다 — 이 프로세스는 새 값으로 동작하지만 재시작하면 옛 grant 가 돌아온다.
+      // 그러니 **옛 키를 지우지 않는다**. 지우면 재시작 후 아무것도 가리키지 않는 grant 가 된다.
+      this.deps.logger?.('auth.login.persist-degraded', { authId: definition.id })
+    }
     this.deps.onSnapshot?.(definition.id, 'credential-committed')
     return { kind: 'settled', step: this.emit({ kind: 'done', providerId: definition.id }) }
+  }
+
+  // grant 가 가리키는 vault 키를 지운다. `keep` 이 같은 키를 가리키면 건너뛴다 — 세대가 같은
+  // 경우(레거시 고정 키에서 같은 키로 다시 쓴 경우)에 방금 쓴 값을 지우지 않기 위함이다.
+  private discardKeys(grant: Grant | undefined, keep?: Grant): void {
+    if (!grant || grant.kind === 'session') return
+    const kept = new Set<string>()
+    if (keep && keep.kind !== 'session') {
+      kept.add(keep.vaultKey)
+      if (keep.kind === 'token' && keep.refreshKey) kept.add(keep.refreshKey)
+    }
+    const names = [
+      grant.vaultKey,
+      ...(grant.kind === 'token' && grant.refreshKey ? [grant.refreshKey] : [])
+    ]
+    for (const name of names) {
+      if (kept.has(name)) continue
+      try {
+        this.deps.vault.delete(name)
+      } catch {
+        // 못 지워도 정합성은 유지된다 — 아무도 가리키지 않는 자리이고 sweep 이 다시 시도한다.
+      }
+    }
   }
 
   private async runCredential(
@@ -423,7 +505,7 @@ export class LoginService {
       })
     }
 
-    const vaultKey = providerVaultKey(definition.id, spec.kind)
+    const vaultKey = this.newVaultKey(definition.id, spec.kind)
     const createdAt = this.clock()
     const settled = await this.settleGrant(
       definition,
@@ -438,14 +520,13 @@ export class LoginService {
         },
         secret: composed.value
       },
-      () => this.deps.vault.stage(vaultKey, composed.value, { kind: spec.kind, createdAt })
+      () => this.deps.vault.set(vaultKey, composed.value, { kind: spec.kind, createdAt })
     )
     if (settled.kind === 'settled') return settled.step
     // superseded — 이 시도는 더 이상 사용자가 원하는 것이 아니다. pending·step·이벤트 **전부
     // 건드리지 않고** 현재 단계를 그대로 돌려준다(r7). 거부 폼을 열면 이미 성공한 새 로그인의
     // 화면을 덮는다.
-    if (settled.kind === 'superseded')
-      return this.step ?? { kind: 'done', providerId: definition.id }
+    if (settled.kind === 'superseded') return this.supersededStep(definition.id)
 
     // 서버가 그 값을 거부했다 — pending 을 살려 **같은 폼**으로 돌려준다(compose 오류와 같은
     // 모양). 재인증이었다면 이전 자격증명은 **손도 대지 않았다**(r5 D-047).
@@ -500,6 +581,15 @@ export class LoginService {
     authKind: AuthMethodKind,
     result: AuthResult
   ): Promise<AuthStep> {
+    // **실행기 await 뒤에도 세대를 확인한다** (r8). OAuth `begin`/`complete` 와 브라우저 세션
+    // `login` 은 왕복이 길다 — 그 사이 사용자가 [연결 해제] 를 눌렀거나 다시 [연결] 했으면,
+    // 늦게 끝난 이 결과가 `code-required` 로 pending 을 되살리거나 `failed` 로 새 흐름의 화면을
+    // 덮는다. 성공 분기는 아래 `settleGrant` 가 한 번 더 확인하므로 여기 검사가 이중이 아니라
+    // **실패·중간 분기를 위한 것**이다.
+    if (!this.isCurrentAttempt(definition.id, attempt)) {
+      this.deps.logger?.('auth.login.attempt-superseded', { authId: definition.id })
+      return this.supersededStep(definition.id)
+    }
     switch (result.kind) {
       case 'code-required': {
         this.pending.set(definition.id, { authId: definition.id, authKind })
@@ -513,7 +603,7 @@ export class LoginService {
       case 'failed':
         return this.fail(definition.id, result.reason, result.message)
       case 'secret': {
-        const vaultKey = providerVaultKey(definition.id, authKind)
+        const vaultKey = this.newVaultKey(definition.id, authKind)
         const createdAt = this.clock()
         return this.settled(
           definition,
@@ -530,16 +620,18 @@ export class LoginService {
               },
               secret: result.value
             },
-            () => this.deps.vault.stage(vaultKey, result.value, { kind: authKind, createdAt })
+            () => this.deps.vault.set(vaultKey, result.value, { kind: authKind, createdAt })
           )
         )
       }
       case 'token': {
-        const vaultKey = providerVaultKey(definition.id, authKind)
+        const vaultKey = this.newVaultKey(definition.id, authKind)
         const createdAt = this.clock()
         const { token } = result
         const refreshKey =
-          token.refreshToken !== undefined ? providerRefreshKey(definition.id, authKind) : undefined
+          token.refreshToken !== undefined
+            ? versionedVaultKey(providerRefreshKey(definition.id, authKind), this.newVersion())
+            : undefined
         return this.settled(
           definition,
           await this.settleGrant(
@@ -558,15 +650,16 @@ export class LoginService {
               secret: token.token
             },
             () => {
-              // access·refresh 를 **둘 다 staged 로** 쓴 뒤 promote 가 한 번에 옮긴다 —
-              // 하나만 새 값이 되는 상태가 생기지 않는다.
-              this.deps.vault.stage(vaultKey, token.token, {
+              // access·refresh 를 **둘 다 새 키에** 쓴다. 어느 쪽이 실패해도 아직 grant 가
+              // 가리키지 않는 자리이므로 옛 access/refresh 쌍은 통째로 그대로 살아 있다 —
+              // r6 의 `new-access + old-refresh` 혼합 상태가 만들어질 자리가 없다.
+              this.deps.vault.set(vaultKey, token.token, {
                 kind: authKind,
                 createdAt,
                 ...(token.expiresAt !== undefined ? { expiresAt: token.expiresAt } : {})
               })
               if (refreshKey !== undefined && token.refreshToken !== undefined) {
-                this.deps.vault.stage(refreshKey, token.refreshToken, { kind: authKind, createdAt })
+                this.deps.vault.set(refreshKey, token.refreshToken, { kind: authKind, createdAt })
               }
             }
           )
@@ -597,16 +690,15 @@ export class LoginService {
     if (outcome.kind === 'settled') return outcome.step
     // superseded 는 아무것도 바꾸지 않는다 (r7) — 실패 step 을 내면 늦게 끝난 옛 시도가 이미
     // 성공한 새 로그인이나 해제 직후 화면을 덮어쓴다.
-    if (outcome.kind === 'superseded') {
-      return this.step ?? { kind: 'done', providerId: definition.id }
-    }
+    if (outcome.kind === 'superseded') return this.supersededStep(definition.id)
     return this.fail(definition.id, 'probe_failed', '인증을 확인하지 못했습니다')
   }
 
-  private commit(authId: AuthId, grant: Grant, notify = true): void {
+  private commit(authId: AuthId, grant: Grant, notify = true): boolean {
     this.pending.delete(authId)
-    this.deps.store.put(authId, grant)
+    const durable = this.deps.store.put(authId, grant)
     if (notify) this.deps.onSnapshot?.(authId, 'credential-committed')
+    return durable
   }
 
   private fail(authId: AuthId, reason: ProviderFailureReason, message: string): AuthStep {

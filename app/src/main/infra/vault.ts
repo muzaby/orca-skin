@@ -18,20 +18,38 @@ import type { SecretStorePort } from './config/secret-store-port'
 const META_SUFFIX = '#meta'
 // SecretStore 에 열거가 없어 네임스페이스별 이름 목록을 따로 관리한다.
 const INDEX_SUFFIX = '#index'
-// 확인은 끝났지만 아직 정식 키로 옮기지 않은 후보. **전이 상태이며 정식 키 형식이 아니다** —
-// 0188 이 동결한 vault key 계약은 정식 키에 대한 것이고, 이 접미사는 로그인 turn 안에서만
-// 존재하다 promote 와 함께 사라진다. 중간에 앱이 죽으면 다음 부팅의 `promoteStaged()` 가 마저 옮긴다.
-const STAGED_SUFFIX = '#staged'
-const STAGED_INDEX_SUFFIX = '#staged-index'
 
 // **한 번 정하면 유지한다** — 사용자 디스크에 남고 다음 버전이 읽는다. 구 형식
 // (`authBinding:<bindingId>:secret`)은 읽지 않는다(0180 에서 재로그인 요구로 결정 완료).
 export const VAULT_PREFIX = 'provider:'
 
-// vault 키 = `provider:<providerId>:<authKind>`. providerId 는 등록에서 중복이 거부되므로
+// vault 키 base = `provider:<providerId>:<authKind>`. providerId 는 등록에서 중복이 거부되므로
 // 이 한 쌍으로 유일하다.
+//
+// **이 함수가 만드는 것은 base 이지 최종 키가 아니다** (r8). 새로 쓰는 자격증명은
+// `versionedVaultKey()` 로 세대를 붙여 **매번 새 키**에 앉는다 — 아래 근거 참조.
 export function providerVaultKey(providerId: string, authKind: ProviderAuthKind): string {
   return `${providerId}:${authKind}`
+}
+
+// ── 세대 키 (r8) ─────────────────────────────────────────────────────────────
+//
+// 자격증명 교체는 **고정 키를 덮어쓰지 않는다.** 덮어쓰면 "vault 에는 새 값, 영속된 grant 는
+// 옛 값" 이라는 중간 상태가 반드시 생긴다 — 두 저장소를 원자적으로 함께 쓸 방법이 없기
+// 때문이다(r7 의 2단 쓰기도 promote 와 grant 저장 사이에 같은 창이 남았다).
+//
+// 대신 **새 값은 항상 새 키에 쓰고, grant 를 저장하는 것으로 포인터를 옮긴다.** 실패·크래시가
+// 어디서 나든 결과는 둘 중 하나뿐이다:
+//   · grant 저장 전 → 옛 grant 가 옛 키를 계속 가리킨다. 새 키는 아무도 안 보는 고아.
+//   · grant 저장 후 → 새 grant 가 새 키를 가리킨다. 옛 키는 고아.
+// 고아는 다음 부팅의 sweep(`AuthStore.restore`)이 치운다. **부분 적용된 자격증명이 없다.**
+//
+// 기존 설치와 호환된다 — `Grant.vaultKey` 가 포인터이므로 세대 없는 옛 키를 가리키는 grant 도
+// 그대로 읽힌다. 재인증하면 그때 세대 키로 옮겨간다.
+const VERSION_SEPARATOR = '@'
+
+export function versionedVaultKey(base: string, version: string): string {
+  return `${base}${VERSION_SEPARATOR}${version}`
 }
 
 // refresh token 은 access token 과 **다른 키**에 앉는다 — 하나를 지울 때 다른 하나가 남지
@@ -57,36 +75,15 @@ export interface Vault {
   read(name: string): CredentialRead
   set(name: string, value: string, meta: CredentialMeta): void
   delete(name: string): void
-  // ── 2단 쓰기 (r7) ───────────────────────────────────────────────────────────
-  //
-  // 여러 키를 한 번에 갈아야 하는 경우(access+refresh)와 단계 실패가 섞인 상태를 남기는 것을
-  // 막는다. `stage` 로 전부 쓴 뒤 `promoteStaged` 로 옮긴다 — 암호화가 실패할 수 있는 단계는
-  // staging 이고, 거기서 실패하면 `discardStaged()` 로 흔적 없이 되돌아간다(정식 키 무변경).
-  stage(name: string, value: string, meta: CredentialMeta): void
-  // staged 를 정식 키로 옮기고 staged 를 지운다. 옮긴 이름을 돌려준다.
-  promoteStaged(): string[]
-  discardStaged(): void
+  // 이 vault 가 들고 있는 이름 전부. 어떤 grant 도 가리키지 않는 고아를 부팅에서 치우기 위해
+  // 필요하다(r8) — SecretStore 에 열거가 없어 index 를 대신 읽는다.
+  names(): string[]
 }
 
 export function createVault(store: SecretStorePort, prefix: string = VAULT_PREFIX): Vault {
   const key = (name: string): string => `${prefix}${name}`
   const metaKey = (name: string): string => `${prefix}${name}${META_SUFFIX}`
   const indexKey = `${prefix}${INDEX_SUFFIX}`
-  const stagedKey = (name: string): string => `${prefix}${name}${STAGED_SUFFIX}`
-  const stagedMetaKey = (name: string): string => `${prefix}${name}${STAGED_SUFFIX}${META_SUFFIX}`
-  const stagedIndexKey = `${prefix}${STAGED_INDEX_SUFFIX}`
-
-  const readStagedIndex = (): string[] => {
-    const raw = store.get(stagedIndexKey)
-    if (raw === undefined) return []
-    try {
-      const parsed: unknown = JSON.parse(raw)
-      return Array.isArray(parsed) ? parsed.filter((n): n is string => typeof n === 'string') : []
-    } catch {
-      return []
-    }
-  }
-
   const readIndex = (): string[] => {
     const raw = store.get(indexKey)
     if (raw === undefined) return []
@@ -115,10 +112,9 @@ export function createVault(store: SecretStorePort, prefix: string = VAULT_PREFI
     set(name, value, meta) {
       // 쓰기는 fail-closed — safeStorage 불가 시 crypto.encrypt 가 throw 한다(강등 저장 금지).
       //
-      // **값 키를 마지막 secret 쓰기로 둔다** (r6). 세 단계 중 어디서 실패하든 *값*은 이전 것이
-      // 남아야 한다 — 값이 새 것으로 바뀐 뒤 메타에서 실패하면, grant 는 옛 값을 가리키는데 그
-      // 키에는 검증되지 않은 새 값이 들어 있는 상태가 된다. 메타를 먼저 쓰면 그 창이 닫힌다
-      // (메타는 서술 정보이고 만료의 정본은 `Grant.expiresAt` 이다).
+      // **index 를 마지막에 쓴다.** 앞 두 쓰기 중 하나가 실패하면 이름이 index 에 없어
+      // `read()` 가 `absent` 로 답한다 — 반쯤 쓰인 자리가 `undecryptable` 로 보이지 않는다.
+      // 자격증명 교체가 이 키를 덮어쓰는 일은 없다(위 `versionedVaultKey` 근거).
       store.set(metaKey(name), JSON.stringify(meta))
       store.set(key(name), value)
       writeIndex([...readIndex(), name])
@@ -128,37 +124,8 @@ export function createVault(store: SecretStorePort, prefix: string = VAULT_PREFI
       store.delete(metaKey(name))
       writeIndex(readIndex().filter((n) => n !== name))
     },
-    stage(name, value, meta) {
-      store.set(stagedMetaKey(name), JSON.stringify(meta))
-      store.set(stagedKey(name), value)
-      store.set(stagedIndexKey, JSON.stringify([...new Set([...readStagedIndex(), name])]))
-    },
-    promoteStaged() {
-      const names = readStagedIndex()
-      if (names.length === 0) return []
-      // 정식 키로 옮긴다. safeStorage 가 불가한 상황이면 **첫 쓰기에서** 실패하므로 정식 키는
-      // 손대기 전 상태로 남는다. 중간에 죽더라도 staged 가 남아 다음 부팅이 마저 옮긴다.
-      for (const name of names) {
-        const value = store.get(stagedKey(name))
-        const meta = store.get(stagedMetaKey(name))
-        if (value === undefined || meta === undefined) continue
-        store.set(metaKey(name), meta)
-        store.set(key(name), value)
-      }
-      writeIndex([...readIndex(), ...names])
-      for (const name of names) {
-        store.delete(stagedKey(name))
-        store.delete(stagedMetaKey(name))
-      }
-      store.delete(stagedIndexKey)
-      return names
-    },
-    discardStaged() {
-      for (const name of readStagedIndex()) {
-        store.delete(stagedKey(name))
-        store.delete(stagedMetaKey(name))
-      }
-      store.delete(stagedIndexKey)
+    names() {
+      return readIndex()
     }
   }
 }

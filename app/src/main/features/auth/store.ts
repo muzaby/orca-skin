@@ -11,7 +11,15 @@ import type { Vault } from '../../infra/vault'
 
 export interface GrantPersistencePort {
   load(): Record<string, Grant>
-  save(records: Record<string, Grant>): void
+  // **내구 저장 성공 여부를 돌려준다** (r8). 디스크에 실제로 앉았으면 `true`, 이 프로세스
+  // 메모리에만 남았으면 `false` 다. 쓰기를 시도했는데 실패했으면 **throw** 한다.
+  //
+  // 왜 boolean 이 필요한가: production adapter 는 store 파일을 못 열면 메모리로 내려앉는다
+  // (그래야 키체인이 잠긴 머신에서도 앱이 뜬다). 그 상태를 "저장 성공" 으로 뭉개면, 호출부는
+  // 옛 자격증명을 지워도 된다고 믿는다 — 재시작하면 grant 는 옛 것으로 돌아가는데 그 키는
+  // 이미 지워져 **아무것도 가리키지 않는 grant** 가 된다. `false` 를 받은 호출부는 새 값을
+  // 이번 프로세스에서 쓰되 **옛 키를 남긴다**.
+  save(records: Record<string, Grant>): boolean
 }
 
 // 메모리 전용 폴백 — 테스트와 "영속 없이도 앱은 뜬다" 경로가 함께 쓴다.
@@ -23,6 +31,10 @@ export function createMemoryGrantPersistence(
     load: () => ({ ...records }),
     save: (next) => {
       records = { ...next }
+      // 메모리 전용이지만 "이 구현이 약속한 만큼은 저장됐다" 가 참이다 — 테스트가 정상 경로를
+      // degraded 경로로 오인하지 않도록 `true` 를 준다. 진짜 degraded 는 production adapter 가
+      // 파일을 못 열었을 때만 나온다.
+      return true
     }
   }
 }
@@ -79,26 +91,40 @@ export class AuthStore {
   // 복원된 grant 는 **`verified` 가 아니다** — 기록이 살아 있다는 것과 지금 인증돼 있다는 것은
   // 다르다. 게이트를 열려면 이번 실행에서 로그인을 한 번 거쳐야 한다.
   restore(declaredIds: readonly AuthId[]): void {
-    // **중단된 promote 를 먼저 마무리한다** (r7). 확인까지 끝난 값이 staged 로 남아 있다면
-    // 그것이 사용자가 마지막으로 성공시킨 자격증명이다 — 부팅에서 정식 키로 옮긴다.
-    // staging 단계에서 죽었다면 promote 대상이 없으므로 아무 일도 일어나지 않는다.
-    try {
-      this.vault.promoteStaged()
-    } catch {
-      // 옮기지 못해도 부팅은 계속한다 — 정식 키의 이전 값이 그대로 남아 있다.
-    }
     const known = new Set(declaredIds)
     this.grants.clear()
     this.verified.clear()
     // 복원은 부팅 1회이고 구독자가 붙기 전이다 — 세대도 함께 초기화한다.
     this.revisions.clear()
     this.expirySettled.clear()
-    for (const [authId, grant] of Object.entries(this.persistence.load())) {
+    const persisted = Object.entries(this.persistence.load())
+    for (const [authId, grant] of persisted) {
       if (!known.has(authId)) {
         this.onOrphan?.(authId)
         continue
       }
       this.grants.set(authId, grant)
+    }
+    // **아무 grant 도 가리키지 않는 vault 자리를 치운다** (r8).
+    //
+    // 자격증명 교체는 새 키에 쓰고 grant 로 포인터를 옮긴다. 그 사이에 앱이 죽으면 어느
+    // 한쪽이 고아로 남는다 — 커밋 전에 죽었으면 새 키가, 커밋 후 정리 전에 죽었으면 옛 키가.
+    // 둘 다 "쓰이지 않는 secret 이 디스크에 남는다" 는 같은 문제이므로 부팅에서 한 번에 쓸어낸다.
+    //
+    // **기준은 선언이 아니라 영속된 grant 전체다.** 선언에서 잠시 빠진 Auth 의 grant 는 위에서
+    // 일부러 지우지 않는데(재로그인 강요 방지), 그 값을 여기서 지워 버리면 같은 배려가 무너진다.
+    const referenced = new Set<string>()
+    for (const [, grant] of persisted) {
+      if (grant.kind === 'secret' || grant.kind === 'token') referenced.add(grant.vaultKey)
+      if (grant.kind === 'token' && grant.refreshKey) referenced.add(grant.refreshKey)
+    }
+    for (const name of this.vault.names()) {
+      if (referenced.has(name)) continue
+      try {
+        this.vault.delete(name)
+      } catch {
+        // 한 자리를 못 지워도 부팅은 계속한다 — 다음 부팅이 다시 시도한다.
+      }
     }
   }
 
@@ -129,14 +155,17 @@ export class AuthStore {
   // **영속이 먼저, 메모리 publish 가 나중이다** (r7). 반대로 하면 `persistence.save` 가 실패했을 때
   // 메모리에는 새 secret 과 올라간 revision 이 남는데 디스크에는 없고, 호출부는 예외를 받아
   // snapshot 도 발행하지 않는다 — 재시작하면 사라질 상태를 화면과 Harness cache 가 믿게 된다.
-  put(authId: AuthId, grant: Grant): void {
+  //
+  // 내구 저장이었는지를 돌려준다 (r8) — 호출부가 옛 vault 키를 지워도 되는지 판단한다.
+  put(authId: AuthId, grant: Grant): boolean {
     const next = { ...Object.fromEntries(this.grants), [authId]: grant }
-    this.persistence.save(next)
+    const durable = this.persistence.save(next)
     this.grants.set(authId, grant)
     this.verified.add(authId)
     this.expirySettled.delete(authId)
     // credential commit — 실행 구성이 실제로 달라졌다.
     this.bumpRevision(authId)
+    return durable
   }
 
   // 해제 — grant 와 vault 잔여물을 함께 지운다. secret/token 이 아닌 session grant 는
@@ -182,9 +211,20 @@ export class AuthStore {
   // "credentialChanged:false 로 알림" 으로도 읽을 수 있었다. **둘 다 false 면 방송 자체를
   // 하지 않는다** — 같은 401 을 동시 요청 두 건이 각각 봐도 상태는 한 번만 달라지는데,
   // r4 는 두 번째에도 GUI 방송을 한 번 더 냈다.
-  markExpired(authId: AuthId): { credentialChanged: boolean; snapshotChanged: boolean } {
+  //
+  // `observedRevision` 을 주면 **그 세대의 자격증명에 대한 관측일 때만** 강등한다 (r8). 401 은
+  // 요청을 보낸 그 값에 대한 서버 판정이다 — 요청이 도는 사이 사용자가 재인증했다면 그 판정은
+  // 이미 존재하지 않는 값에 대한 것이고, 새 값을 내리는 근거가 될 수 없다. 세대를 안 보면 방금
+  // 성공한 로그인이 옛 요청의 401 로 곧바로 `expired` 가 된다(부팅 복원 probe 에서 실측됨).
+  markExpired(
+    authId: AuthId,
+    observedRevision?: number
+  ): { credentialChanged: boolean; snapshotChanged: boolean } {
     const grant = this.grants.get(authId)
     if (!grant) return { credentialChanged: false, snapshotChanged: false }
+    if (observedRevision !== undefined && this.credentialRevision(authId) !== observedRevision) {
+      return { credentialChanged: false, snapshotChanged: false }
+    }
     // 확인은 무조건 취소한다 — 401 을 봤는데 "확인됨" 을 남겨 두면 게이트가 열린 채로 남는다.
     // (아래 조기 반환보다 앞이어야 한다: 이미 만료 표기된 grant 도 확인은 풀려야 한다.)
     const unverified = this.verified.delete(authId)

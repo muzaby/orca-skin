@@ -174,32 +174,61 @@ network·respawn), 아무것도 안 하거나(stale token 사용).
 성공한 새 로그인이나 해제 직후 화면을 늦게 끝난 옛 시도가 덮어쓴다**. superseded 는 pending·step·
 이벤트를 **아무것도 건드리지 않는다.**
 
+**세대 확인은 결과 해석보다 먼저다.** 성공 분기에서만 확인하면 늦게 끝난 옛 시도의 401 이 그대로
+거부 폼을 열어, 해제 직후에도 `status=none` 인데 `input-required` 인 모순이 생긴다. 확인 지점은
+`await` 가 있는 모든 자리다:
+
+| 자리 | 확인하는 것 |
+|---|---|
+| probe 왕복 뒤 (`settleGrant`) | 성공·실패 **양쪽** 해석 전에 |
+| 실행기 왕복 뒤 (`absorb`) | OAuth `begin`/`complete`·브라우저 세션 `login` 의 `code-required`·`failed` 포함 |
+| 부팅 복원 probe 뒤 (`resume`) | 새 시도를 **열지 않고** 현재 세대만 비교한다 — 복원이 사용자의 로그인을 무효화하면 안 된다 |
+| 401 강등 (`markExpired(authId, observedRevision)`) | 401 은 **요청을 보낸 그 세대**에 대한 판정이다. 요청이 도는 사이 재인증됐다면 새 값을 내리는 근거가 못 된다 |
+
 Renderer 도 같은 순서를 지킨다(`useProviders`) — invoke 응답은 probe 왕복만큼 늦게 오므로,
-자기보다 뒤에 시작된 요청이 있으면 그 응답을 버린다.
+자기보다 뒤에 시작된 요청이 있으면 그 응답을 버린다. **다만 renderer 가드는 invoke 응답만 막는다** —
+Main 이 이미 발행한 push 는 막지 못하므로 위 네 지점이 본체다.
 
 **`credentialRevision` 은 fence 에 넣지 않는다.** 넣으면 probe 도중 401 강등이 일어난 재인증이
 커밋되지 못한다 — 그 강등이야말로 재인증을 하는 이유다. 세대는 "이 로그인이 아직 사용자가
 원하는 그 로그인인가" 만 묻는다.
 
-#### 쓰기는 2단이고, 영속이 메모리보다 먼저다
+#### 자격증명 교체는 덮어쓰기가 아니라 포인터 교체다
 
-자격증명 교체는 키가 둘 이상일 수 있다(access + refresh). 하나만 새 값이 되는 상태를 없애려고
-**staged → promote** 2단으로 쓴다.
+**vault 와 grant 는 서로 다른 저장소이고 둘을 원자적으로 함께 쓸 방법이 없다.** 고정 키를
+덮어쓰는 설계는 그래서 어떻게 배열해도 창이 남는다 — 먼저 쓴 쪽이 성공하고 나중 쪽이 실패하면
+"vault=새 값 / grant=옛 값" 또는 그 반대가 된다.
+
+그래서 **새 자격증명은 항상 새 키에 쓰고, grant 를 저장하는 것이 곧 커밋**이다.
 
 ```text
-stage(모든 키)      실패 → discardStaged()  → 정식 키 무변경, 로그인 실패
-promoteStaged()     staged 를 정식 키로 옮기고 staged 를 지운다
-store.put()         persistence.save() 먼저, 메모리·revision publish 는 그 다음
+vault.set(새 세대 키…)   실패 → 방금 쓴 키를 지운다 → 옛 키 그대로, 로그인 실패
+store.put(새 grant)      persistence.save() 먼저, 메모리·revision publish 는 그 다음
+  · durable === true   → 옛 세대 키를 지운다
+  · durable === false  → 옛 세대 키를 **남긴다** (아래)
 ```
 
-- 암호화가 실패할 수 있는 단계는 **staging** 이다. 거기서 실패하면 정식 키는 손대기 전 그대로다.
-- promote 중 앱이 죽으면 staged 가 남고, 다음 부팅의 `AuthStore.restore()` 가 **마저 옮긴다** —
-  확인까지 끝난 값이므로 버리지 않는다.
+- 키 형식은 `provider:<authId>:<authKind>@<세대>` 다. 세대는 로그인마다 새로 뽑는다.
+- **기존 설치와 호환된다** — `Grant.vaultKey` 가 포인터이므로 세대 없는 옛 키를 가리키는 grant 도
+  그대로 읽힌다. 재인증할 때 세대 키로 옮겨간다.
+- access + refresh 처럼 키가 둘이어도 **둘 다 아직 아무도 안 보는 자리**에 쓴다. 한쪽이 실패하면
+  grant 는 옛 쌍을 계속 가리키므로 `new-access + old-refresh` 같은 혼합이 만들어질 자리가 없다.
+- 실패·크래시 지점이 어디든 관측 가능한 상태는 **옛 grant→옛 키** 또는 **새 grant→새 키** 둘
+  중 하나다. 어느 쪽도 쓰이지 않는 키는 다음 부팅의 sweep 이 치운다(`AuthStore.restore()` — 기준은
+  선언이 아니라 **영속된 grant 전체**다. 선언에서 잠시 빠진 Auth 의 값을 지우지 않기 위함이다).
 - `put()` 이 영속을 먼저 하는 이유: 반대로 하면 저장 실패 시 메모리에는 새 secret 과 올라간
   revision 이 남는데 디스크에는 없고, 예외 때문에 snapshot 도 나가지 않는다 — 재시작하면 사라질
   상태를 화면과 Harness cache 가 믿는다.
-- `#staged` 접미사는 **전이 상태이지 정식 키 형식이 아니다** — 동결된 vault key 계약은 정식 키에
-  대한 것이고, staged 는 promote 와 함께 사라진다.
+
+#### 영속 실패는 삼키지 않고 **보고**한다
+
+`GrantPersistencePort.save()` 는 **내구 저장 성공 여부를 돌려준다.** 예전에는 production adapter 가
+디스크 쓰기 오류를 삼키고 `void` 를 반환해, 호출부의 `catch` 가 실제 실패를 한 번도 보지 못했다.
+
+파일을 못 열거나 쓰기가 거부되면 이 프로세스는 메모리 사본으로 계속 동작한다(키체인이 잠긴
+머신에서 앱이 죽으면 안 된다). **그 상태를 "영속 성공" 으로 접지 않는 것이 결정이다** — `false` 를
+받은 로그인은 새 값을 이번 프로세스에서 쓰되 **옛 세대 키를 지우지 않는다**. 지우면 재시작 후
+돌아온 옛 grant 가 아무것도 가리키지 않는다.
 
 ### 4.4 만료는 관측 지점에서 한 번 전이한다
 
@@ -525,7 +554,9 @@ Bootstrap 은 endpoint path·response body·Confluence CQL·UsageSnapshot mappin
 
 | 결정 | 이유 |
 |---|---|
-| `AuthId` · vault key prefix · `orca:provider:*` 채널 · DB `provider_key` 는 그대로다 | 저장된 grant·사용자 MCP 설정·기존 세션이 걸려 있다. 개명하려면 secret migration + rollback 계획이 선행한다 |
+| `AuthId` · vault key **prefix** · `orca:provider:*` 채널 · DB `provider_key` 는 그대로다 | 저장된 grant·사용자 MCP 설정·기존 세션이 걸려 있다. 개명하려면 secret migration + rollback 계획이 선행한다 |
+| 자격증명은 **고정 키를 덮어쓰지 않는다** — 새 값은 새 세대 키에, 커밋은 `Grant` 저장으로 | vault 와 grant 를 원자적으로 함께 쓸 방법이 없다. 덮어쓰면 "vault=새 값 / grant=옛 값" 창이 반드시 생긴다(§4.3). 동결된 것은 prefix 이고 세대 접미사는 그 안에 있다 |
+| 영속 실패를 성공으로 접지 않는다 | 옛 키를 지워도 된다는 잘못된 근거가 되어, 재시작 후 아무것도 가리키지 않는 grant 를 만든다 |
 | Auth 계약에 소비 슬롯을 되살리지 않는다 | 같은 집적이 재생산된다 |
 | `AuthSecretReader` 를 RouterContext·renderer·일반 feature 에 넣지 않는다 | bound request 로 충분한 소비자까지 secret 표면을 넓힌다 |
 | raw cookie 목록을 일반 포트로 내보내지 않는다 | 같은 partition 의 bound request 로 충분하다 |

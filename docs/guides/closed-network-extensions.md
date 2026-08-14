@@ -125,7 +125,7 @@ app/src/main/app/deployment/
 
 ### 1.4 `AuthId` 는 한 번 정하면 바꾸지 않는다
 
-vault 네임스페이스(`provider:<id>:<authKind>` — **prefix 는 호환성 때문에 유지된다**)이자
+vault 네임스페이스(`provider:<id>:<authKind>@<세대>` — **prefix 는 호환성 때문에 유지된다**. 세대는 로그인마다 새로 뽑히고 `Grant` 가 포인터를 갖는다)이자
 `${BINDING:<id>}` 참조 대상이고, 내장 도구 서버 이름(`<id>-tools` → 모델이 보는
 `mcp__<id>-tools__<tool>`)의 뿌리다. 바꾸면 저장된
 자격증명을 읽지 못하고 사용자가 적은 MCP 설정과 도구 이름이 함께 깨진다.
@@ -942,7 +942,7 @@ export function createUsageFetcher(deps: UsageDeploymentDeps): UsageFetcher | un
 | 도구가 **모델에 안 보인다** | grant 가 `valid` 가 아니거나 아직 재spawn 전이다 | 연결 탭 상태 → **새 채팅**에서 재확인 |
 | MCP 서버가 **통째로 빠진다** | `${BINDING:}` 미해결(fail-closed) | 해당 provider 인증 상태 · 세션 grant 는 `null` 이다 |
 | LLM 요청이 **인증 없이** 나간다 | `envKey` 오타 또는 `llm.{adapter,provider}` 조인 실패 | `sources/settings/<adapter>/<provider>/` 디렉토리 존재 여부 |
-| 업데이트 후 **저장된 로그인이 사라졌다** | `Provider.id` 를 바꿨다 | vault 키 `provider:<id>:<authKind>` (§1.4) |
+| 업데이트 후 **저장된 로그인이 사라졌다** | `AuthId` 를 바꿨다 | vault 네임스페이스가 `AuthId` 로 갈린다 (§1.4) |
 | 주기 잡이 **영영 발화하지 않는다** | ⓐ cron 식 오타 ⓑ `enabled:false` ⓒ `register` 보다 `schedule` 을 먼저 불렀다 | ⓐⓒ는 **등록 시점에 throw** 한다(`assertValidCron` · `Scheduler job is not registered`) — 부팅 로그를 본다 (§5-b) |
 | 주기 잡이 **겹쳐서 도는 것 같다** | 앞 발화가 아직 안 끝났다 | 겹친 발화는 실행되지 않고 `schedule_runs` 에 **`skipped`** 로 남는다 (§5-b) |
 | 앱을 껐더니 **잡이 안 돈다** | croner 는 **in-app 스케줄러**다 | 설계상 그렇다 — OS 스케줄러가 아니다 (§5-b) |

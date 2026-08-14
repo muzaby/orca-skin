@@ -111,7 +111,7 @@ Electron App
 │       ├── config/             # orca-config · secret-store · paths · crypto · mcp-file
 │       ├── net/               # 원격 전송 스택 — net-fetch(net.fetch) · net-request(net.request) · net-response(순수) ·
 │       │                       #   transport(인증 요청 조각·상한, 0181). 전역 fetch( 호출은 net-fetch.ts 에만 허용
-│       ├── vault.ts            # safeStorage 네임스페이스 뷰 — provider:<id>:<authKind>
+│       ├── vault.ts            # safeStorage 네임스페이스 뷰 — provider:<id>:<authKind>@<세대>
 │       ├── browser-session.ts  # session group → Electron Session · 로그인 창. 판정은 -policy 순수부
 │       ├── loopback-callback.ts # OAuth 루프백 1회성 리스너 (0181, RFC 8252)
 │       ├── log/                # 중앙 LogManager (0123/0124) — file-transport(JSONL 로테이션) · redact · suppress ·
