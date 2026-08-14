@@ -113,6 +113,9 @@
 # Part II — Technical Design
 
 > **어떻게 구현할 것인가.** 이 절부터 코드/아키텍처 세부를 다룬다.
+> **Technical Design에는 AS-IS와 TO-BE가 반드시 모두 있어야 한다.** 구조 변경이 없는 작업도 생략하지 말고,
+> AS-IS에 현재 경로를, TO-BE에 유지되는 구조와 달라지는 동작을 적는다. 두 절은 같은 축과 같은
+> 구체성으로 써서 무엇이 바뀌고 무엇이 유지되는지 바로 비교할 수 있어야 한다.
 
 ## 8. Research — 현재 코드와 계약
 
@@ -135,19 +138,52 @@
 - “유일한/항상/절대” 반례 검색: …
 - 문서 앵커 / 기존 테스트 케이스 존재 확인: …
 
-## 9. Architecture / Data & Control Flow
+## 9. Architecture / Data & Control Flow — AS-IS → TO-BE
 
-### AS-IS
+> **두 절 모두 필수다.** 실제 모듈/상태/계약 이름을 사용한다. TO-BE를 별개의 이상적인 그림으로
+> 새로 그리지 말고 AS-IS에서 어떤 책임·경로·계약이 유지/이동/삭제/신설되는지 추적 가능하게 쓴다.
+
+### AS-IS — 현재 구조와 문제 발생 경로
+
+- 현재 책임 소유자: …
+- 현재 entry → data/control flow → state/store → consumer: …
+- 현재 오류/취소/정리 경로: …
+- 문제의 직접 원인 또는 구조적 제약: …
 
 ```text
-…
+[current entry]
+  → [current module/contract]
+  → [current state/store]
+  → [current consumer]
 ```
 
-### TO-BE
+### TO-BE — 변경 후 목표 구조와 동작 경로
+
+- 변경 후 책임 소유자: …
+- 변경 후 entry → data/control flow → state/store → consumer: …
+- 변경 후 오류/취소/정리 경로: …
+- 유지하는 기존 메커니즘과 제거/대체하는 메커니즘: …
 
 ```text
-…
+[target entry]
+  → [target module/contract]
+  → [target state/store]
+  → [target consumer]
 ```
+
+### AS-IS → TO-BE Delta
+
+| 비교 축 | AS-IS | TO-BE | 변경 이유 | 구현/검증 연결 |
+|---|---|---|---|---|
+| 책임/소유권 | … | … | … | 파일/모듈 · AC… |
+| data/control flow | … | … | … | 파일/테스트 · AC… |
+| state/contract | … | … | … | 타입/스키마 · AC… |
+| error/lifecycle | … | … | … | cleanup/retry 테스트 · AC… |
+| test seam/관측점 | … | … | … | 테스트 파일/하네스 |
+
+> Delta의 각 행은 아래 `구현 설계` 또는 AC로 이어져야 한다. TO-BE에만 존재하는 중요한 변경이
+> Delta와 구현 파일 목록 어디에도 없으면 설계 누락이다. 반대로 AS-IS에 있던 책임이 TO-BE에서
+> 사라졌다면 삭제인지 이동인지 명시한다.
 
 ### 핵심 책임 분리
 
@@ -251,6 +287,9 @@ producer → contract/normalize → state/store → consumer/UI/tool
 - [ ] Part I만 읽어도 사용자/제품 완료 상태가 이해된다.
 - [ ] 조건절·이유절·제거/유지 요구를 임의 재해석하지 않았다.
 - [ ] Product/UX의 각 핵심 동작이 AC와 Technical Design에 연결된다.
+- [ ] Technical Design에 **AS-IS와 TO-BE가 모두 있고 같은 비교 축/구체성으로 작성**되어 있다.
+- [ ] **AS-IS → TO-BE Delta의 각 변경이 구현 파일/모듈 또는 AC에 추적 가능**하다.
+- [ ] AS-IS에서 사라진 책임은 삭제/이동/대체 중 무엇인지 TO-BE에 명시했다.
 - [ ] 수치·전칭 표현·외부 규약·문서 앵커·기존 테스트 인용을 실측했다.
 - [ ] 각 AC가 행동 단언, 검증 수단, 프로덕션 도달 경로를 가진다.
 - [ ] 사람 실기로 미룬 순수 로직이 없다.
