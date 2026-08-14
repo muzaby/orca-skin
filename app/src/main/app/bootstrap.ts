@@ -73,6 +73,7 @@ import {
   createRuntimeConfigAugmenters
 } from './deployment/harness-runtime'
 import { createPluginBindings } from './deployment/plugins'
+import { createConnectionSources } from './deployment/connections'
 import { createUsageFetcher } from './deployment/usage-fetcher'
 import { connectionState, duplicateConnectionAuthIds } from './connection-views'
 import type { ConnectionViewSource } from './connection-views'
@@ -337,20 +338,20 @@ export class Bootstrap {
     // ── Plugin 도구: **resume 보다 먼저** 만들고 한 번 sync 한다 ────────────────
     // 복원된 Auth 의 도구 이름과 초기 가시성이 renderer 의 첫 snapshot 과 첫 턴에 필요하다.
     // 서버는 여기서 1회 생성되고 이후 sync 는 add/remove 만 한다(handler identity 유지).
-    const plugins = createPluginBindings()
+    const plugins = createPluginBindings({
+      auth,
+      registry: runtimeTools,
+      logger: (event, data) => getLogger().child('plugin').info(event, data)
+    })
     for (const plugin of plugins) plugin.sync()
 
-    const connections: readonly ConnectionViewSource[] = [
-      ...gateSelection.members.map((bound): ConnectionViewSource => ({
-        category: 'gate',
-        auth: bound
-      })),
-      ...plugins.map((plugin): ConnectionViewSource => ({
-        category: 'plugin',
-        auth: plugin.auth,
-        toolNames: () => plugin.toolNames()
-      }))
-    ]
+    // **row 조립은 배포가 소유한다** (r3) — Harness·Usage row 를 만들려고 배포가 이 파일을
+    // 열어야 했던 것이 r2 의 결함이다.
+    const connections: readonly ConnectionViewSource[] = createConnectionSources({
+      auth,
+      gateMembers: gateSelection.members,
+      plugins
+    })
     for (const duplicate of duplicateConnectionAuthIds(connections)) {
       getLogger().child('auth').warn('auth.connection.duplicate-row', { authId: duplicate })
     }
@@ -436,7 +437,12 @@ export class Bootstrap {
             models: []
           })
       },
-      augmenters: createRuntimeConfigAugmenters(),
+      augmenters: createRuntimeConfigAugmenters({
+        auth,
+        // **전체 reader 가 아니라 AuthId 를 닫은 closure 를 만들어 준다** — direct-credential
+        // augmenter 만 이것을 받고, config API augmenter 는 `auth.bind(...)` 만 받는다.
+        secretFor: (authId) => () => secretReader.read(authId)
+      }),
       logger: (event, data) => getLogger().child('harness').debug(event, data)
     })
     // Auth change → **고정 key 만** 무효화한다(0188 §성능 계약). AuthId → feature contribution
@@ -454,7 +460,7 @@ export class Bootstrap {
     // 아래 `registerUsageJobs` 도 원격 잡을 등록하지 않는다. 폐쇄망 배포는
     // `app/deployment/usage-fetcher.ts` 에 concrete 를 채운다 — Bootstrap 은 endpoint 도
     // 응답 형태도 모른다.
-    const usageFetcher: UsageFetcher | undefined = createUsageFetcher()
+    const usageFetcher: UsageFetcher | undefined = createUsageFetcher({ auth })
 
     // 사용량 delta 송출 배선 — domain(UsageTracker)은 electron 비의존, 송출은 여기(컴포지션 루트)서.
     // 0186 — 전체 provider map 이 아니라 **변경된 scope 만** 나간다.

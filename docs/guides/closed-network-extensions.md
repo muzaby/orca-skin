@@ -56,11 +56,32 @@ app/src/main/app/deployment/
 ├── gate-auth.ts         ← 그중 앱 로그인 게이트 membership   → 레시피 A
 ├── harness-runtime.ts   ← Harness 실행 구성 augmenter        → 레시피 B
 ├── plugins.ts           ← Plugin 도구 조립·가시성            → 레시피 C
+├── connections.ts       ← 카탈로그 row 조립(gate·harness·plugin·usage)
 └── usage-fetcher.ts     ← 원격 사용량 concrete               → 레시피 E
 ```
 
 기본 배포는 전부 비어 있다. 그래서 OSS/prod 기본 빌드는 **로그인 화면 없이 열리고** 도구·자격증명
 주입도 일어나지 않는다. (**dev 빌드는 다르다 — §6 을 반드시 읽는다.**)
+
+**factory 는 Bootstrap 이 넘긴 인자만으로 조립한다.** 네 factory 의 시그니처는 이렇다:
+
+| 파일 | factory | 받는 것 |
+|---|---|---|
+| `plugins.ts` | `createPluginBindings(deps)` | `auth: AuthRuntime` · `registry: RuntimeToolSink` · `logger?` |
+| `harness-runtime.ts` | `createRuntimeConfigAugmenters(deps)` | `auth: AuthRuntime` · `secretFor: (authId) => () => string \| null` |
+| `connections.ts` | `createConnectionSources(deps)` | `auth` · `gateMembers` · `plugins` |
+| `usage-fetcher.ts` | `createUsageFetcher(deps)` | `auth: AuthRuntime` |
+
+**`bootstrap.ts` 는 열지 않는다.** 필요한 능력이 인자에 없으면 그것부터 이 표에 추가한다 —
+부팅 파일을 배포마다 고치기 시작하면 이 디렉토리를 둔 이유가 없어진다.
+
+**Harness 인증과 Usage 인증도 카탈로그에 행이 있어야 로그인할 수 있다.** `connections.ts` 가
+`gateRows()`·`pluginRows()` 를 조각으로 노출하므로, 배포는 그 사이에 `{category:'harness', …}`·
+`{category:'usage', …}` 를 직접 끼워 넣는다(§3·§5-b 예제).
+
+동작 확인의 살아 있는 예제는 `app/deployment/deployment-wiring.test.ts` 다 — 비어 있지 않은 가상
+배포 4종으로 Bootstrap→Plugin/Harness/Usage/카탈로그를 끝까지 태운다. 새 배포를 짜기 전에 이
+파일을 먼저 읽으면 각 factory 가 실제로 무엇을 받아 무엇을 돌려주는지 한눈에 보인다.
 
 ### 1.2 인증 선언과 "무엇에 쓰는가" 는 다른 파일이다 (0188)
 
@@ -359,8 +380,9 @@ config: {
 | 3 | 인증 방식을 고른다 — 입력 수집형(§3-a) · OAuth(§3-b) · 또는 **둘 다 `methods` 배열에** | 같은 파일 |
 | 4 | 1단계 key 에 augmenter 를 붙인다. **config API 방식과 direct credential 방식은 서로 다른 factory 다**(§3-c) | `app/deployment/harness-runtime.ts` |
 | 5 | 그 Auth 가 바뀌면 무효화할 key 를 `AUTH_INVALIDATED_HARNESS_KEYS` 에 적는다 | 같은 파일. 안 적으면 재인증 뒤에도 옛 token 이 warm cache 로 남는다 |
-| 6 | `npm run typecheck` → `./node_modules/.bin/vitest run src/main/features/harnesses src/main/features/auth` | 형상·cache·fence 회귀 |
-| 7 | 실기: 연결 탭에서 인증 → 새 채팅 전송 → 게이트웨이 로그에 요청이 도달하는지 | 사람 실기 |
+| 6 | **카탈로그 row 를 추가한다** — `{category:'harness', auth, harnessModelProviderKey}` | `app/deployment/connections.ts`. **안 하면 연결 탭에 행이 없어 인증 자체가 불가능하다** |
+| 7 | `npm run typecheck` → `./node_modules/.bin/vitest run src/main/features/harnesses src/main/features/auth src/main/app/deployment` | 형상·cache·fence·배선 회귀 |
+| 8 | 실기: 연결 탭에서 인증 → 새 채팅 전송 → 게이트웨이 로그에 요청이 도달하는지 | 사람 실기 |
 
 **주입 규칙 4가지** (어기면 진단이 어려워진다):
 
@@ -369,8 +391,12 @@ config: {
   [`arch/backend/security.md`](../arch/backend/security.md)).
 - **미인증이면 실패시킨다** — 빈 문자열로 치환하지 않는다. 인증된 것처럼 보이는 요청이 나가면
   서버가 401 대신 이상한 오류를 준다.
-- 우선순위는 `augmenter env > settings env > app env > process env` 다. 충돌하는 settings env 키는
-  in-memory 사본에서 제거되므로 SDK 가 어느 채널을 우선하든 결과가 하나다.
+- 우선순위는 `augmenter env > settings env > app env > process env` 다. **settings env 가 app env 를
+  이긴다** — `orca.json` 의 app env 는 전역 폴백이고 ModelProvider settings 는 그 ModelProvider
+  전용 설정이다. 폴백이 전용을 이기면 게이트웨이를 바꿔도 URL·모델 변수가 따라오지 않는다.
+- `options.env` 를 만드는 턴에는 settings 의 **`env` 블록이 통째로** in-memory 사본에서 빠지고 그
+  값이 `options.env` 로 hoist 된다 — 같은 키가 두 채널에 동시에 남지 않으므로 SDK 가 어느 채널을
+  우선하든 결과가 하나다. 디스크 `settings.json` 은 그대로다.
 - 필수 값이 하나라도 없거나 빈 문자열이면 **부분 env 를 cache 하지 말고 resolve 를 실패시킨다**.
   반쯤 채워진 환경으로 spawn 하면 증상이 원인에서 멀어진다.
 
@@ -643,12 +669,12 @@ export function createPluginBindings(deps: {
 
 ```ts
 // app/src/main/app/bootstrap.ts — Scheduler 생성 직후(다른 잡 등록과 같은 자리)
+const gateway = auth.bind('corp-gateway')   // AuthId — auth-definitions.ts 에 선언한 값
 scheduler.register('corp-quota-sync', async () => {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 5_000) // 상한은 호출자가 건다
   try {
-    const res = await providers.api.request(
-      'corp-gateway',                       // Provider.id — declarations 에 선언한 값
+    const res = await gateway.request(
       { path: '/api/quota', method: 'GET', headers: { accept: 'application/json' } },
       controller.signal
     )
@@ -701,14 +727,15 @@ scheduler.schedule('corp-quota-sync', { enabled: true, cron: '*/5 * * * *' })
 주입한다(`app/src/main/AGENTS.md` §해소책 1+3).
 
 ```ts
-// features/<슬라이스>/quota.ts — providerId 를 클로저로 굳혀 값 표면(token·materialize)이 딸려오지 않게
+// features/<슬라이스>/quota.ts — AuthId 를 클로저로 굳혀 인증 표면 전체가 딸려오지 않게
 export interface QuotaPort {
   fetch(signal?: AbortSignal): Promise<{ ok: boolean; body: string }>
 }
 
 // app/bootstrap.ts
+const gateway = auth.bind('corp-gateway')
 const quota: QuotaPort = {
-  fetch: (signal) => providers.api.request('corp-gateway', { path: '/api/quota' }, signal)
+  fetch: (signal) => gateway.request({ path: '/api/quota' }, signal)
 }
 ```
 
@@ -723,23 +750,29 @@ renderer 에서 SP 를 부르려면 **전용 도메인 IPC 채널**을 만든다
 |---|---|
 | `features/usage/fetcher.ts` | `UsageFetcher` 포트 + `UsageSnapshot` — **타입뿐**. 응답 JSON→스냅샷 매핑은 코어에 두지 않는다(배포가 소유) |
 | `features/usage/jobs.ts` | `registerUsageJobs()` — 잡 등록. **fetcher 가 없으면 원격 잡을 등록조차 하지 않는다** |
-| `app/bootstrap.ts` | `const usageFetcher: UsageFetcher \| undefined = undefined` 자리에 구현을 꽂는다 |
+| `app/deployment/usage-fetcher.ts` | `createUsageFetcher(deps)` — 기본값 `undefined`. 배포가 이 자리를 채운다 (0188 이전에는 `bootstrap.ts` 의 상수였다) |
 
 ```ts
-// app/bootstrap.ts — 배포가 이 자리를 채운다
-const usageFetcher: UsageFetcher = {
-  // 이 배포가 그 provider 의 원격 사용량을 지원하는가. 조회·갱신 양쪽의 단일 게이트다.
-  supports: (providerKey) =>
-    findLlmProvider(providers.declarations('llm'), providerKey)?.id === 'corp-gateway',
-  fetchUsage: async (providerKey, signal) => {
-    const provider = findLlmProvider(providers.declarations('llm'), providerKey)
-    if (!provider) return null            // supports 와 어긋난 경우 — 코어가 실패로 읽는다
-    const res = await providers.api.request(provider.id, { path: '/api/usage' }, signal)
-    if (!res.ok) throw new Error(`usage request failed: ${res.status}`)   // 이번 틱 실패
-    return toSnapshot(providerKey, res.body)   // 매핑은 배포 소유
+// app/deployment/usage-fetcher.ts — 배포가 이 자리를 채운다
+import { CLAUDE_CORP_KEY } from './harness-runtime'
+
+export function createUsageFetcher(deps: UsageDeploymentDeps): UsageFetcher | undefined {
+  const corpUsage = deps.auth.bind('corp-usage')     // AuthId 를 여기서 한 번 닫는다
+  return {
+    // 이 배포가 그 key 의 원격 사용량을 지원하는가. 조회·갱신 양쪽의 단일 게이트다.
+    // **Auth 상태가 아니다** — 미인증이어도 true 로 두고 아래에서 오류를 전파한다.
+    supports: (providerKey) => providerKey === CLAUDE_CORP_KEY,
+    fetchUsage: async (providerKey, signal) => {
+      const res = await corpUsage.request({ path: '/api/usage' }, signal)
+      if (!res.ok) throw new Error(`usage request failed: ${res.status}`)   // 이번 틱 실패
+      return toSnapshot(providerKey, res.body)   // 매핑은 배포 소유
+    }
   }
 }
 ```
+
+인증받을 수 있으려면 이 Auth 도 **카탈로그에 행이 있어야 한다** — `app/deployment/connections.ts`
+에 `{category:'usage', auth: deps.auth.bind('corp-usage')}` 를 더한다.
 
 **두 멤버는 서로 다른 것을 표현한다 — 섞으면 조용히 틀린다.** `supports` 는 *능력*, 반환값은
 *이번 호출의 결과*다. 계약의 정본은 `features/usage/fetcher.ts` 와 `features/usage/tracker.ts` 다:

@@ -68,6 +68,10 @@ export interface AuthenticatedRequesterDeps {
   // 401/403 관측 시의 강등 통지 (0188). 구 `onChange` 는 "무언가 바뀌었다" 였고 소비자가
   // 무엇이 바뀌었는지 몰랐다 — 여기서는 **어느 Auth 가** 강등됐는지까지 말한다.
   onUnauthorized?: (authId: AuthId) => void
+  // 시계 기반 만료를 **이 경로에서 처음 관측했을 때**의 통지 (r3). 요청은 정책 단계에서 이미
+  // 거부되지만, 그것만으로는 grant 상태가 정착되지 않아 도구 등록·GUI·Harness cache 가 다음
+  // snapshot 조회 전까지 살아 있는 것처럼 남았다.
+  onExpired?: (authId: AuthId) => void
 }
 
 export class AuthenticatedRequester {
@@ -84,6 +88,11 @@ export class AuthenticatedRequester {
   ): Promise<AuthenticatedResponse> {
     const definition = this.deps.registry.get(authId)
     if (!definition) throw new AuthPolicyError('unknown_auth', authId)
+
+    // 정책 판정 **전에** 시계 만료를 정착시킨다 — `status()` 는 순수 조회라 `expired` 를
+    // 돌려주기만 하고 전이를 남기지 않는다. 여기서 못 박아야 거부와 downstream 무효화가
+    // 같은 사건이 된다. 이미 정착됐으면 아무 일도 하지 않는다(store 가 1회를 보장).
+    if (this.deps.store.settleExpiry(authId)) this.deps.onExpired?.(authId)
 
     const url = withQuery(new URL(req.path, `${definition.origin}/`), req.query)
     const verdict = checkOutboundRequest({

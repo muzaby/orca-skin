@@ -34,10 +34,16 @@
 // Auth 는 `/api/usage` 와 `UsageSnapshot` 을 모른다. Harness 모듈도 Usage endpoint 를 모른다.
 // Scheduler 는 기존처럼 `UsageFetcher` 를 호출할 뿐이다.
 
+import type { AuthRuntime } from '../../contracts/auth'
 import type { UsageFetcher } from '../../features/usage/fetcher'
+
+export interface UsageDeploymentDeps {
+  auth: AuthRuntime
+}
 
 // **`undefined` 는 오류가 아니라 정상 구성이다** — 원격 사용량 endpoint 가 없는 배포에서는
 // 주입하지 않고, 그러면 관련 cron 잡도 등록되지 않는다.
-export function createUsageFetcher(): UsageFetcher | undefined {
+export function createUsageFetcher(deps: UsageDeploymentDeps): UsageFetcher | undefined {
+  void deps
   return undefined
 }

@@ -16,7 +16,7 @@
 
 import type { RuntimeToolServer, RuntimeToolSink } from '../../adapters/runtime-tools'
 import { runtimeToolFullName } from '../../adapters/runtime-tool-policy'
-import type { BoundAuth } from '../../contracts/auth'
+import type { AuthRuntime, BoundAuth } from '../../contracts/auth'
 
 // 부팅이 만든 Plugin 한 벌. `toolNames()` 는 **cached descriptor** 에서 나온다 — Auth 가
 // invalid 여도 카탈로그는 이 이름들을 계속 보여 준다(0188 D-024).
@@ -61,13 +61,19 @@ export function createPluginBinding(deps: CreatePluginBindingDeps): PluginBindin
   }
 }
 
+// Bootstrap 이 주입하는 능력. **배포가 이 시그니처를 바꾸면 안 된다** — 바꾸는 순간 배포가
+// 범용 `bootstrap.ts` 까지 고쳐야 하고, "배포가 고치는 파일은 `app/deployment/` 묶음뿐" 이라는
+// 경계가 깨진다(r3 에서 실제로 그랬다).
+export interface PluginDeploymentDeps {
+  auth: AuthRuntime
+  registry: RuntimeToolSink
+  logger?: (event: string, data: Record<string, unknown>) => void
+}
+
 // 배포가 채우는 자리. 기본 배포는 Plugin 이 없다.
 //
 // ```ts
-// export function createPluginBindings(deps: {
-//   auth: AuthRuntime
-//   registry: RuntimeToolSink
-// }): PluginBinding[] {
+// export function createPluginBindings(deps: PluginDeploymentDeps): PluginBinding[] {
 //   const confluenceAuth = deps.auth.bind(CONFLUENCE_AUTH.id)
 //   const server = confluenceTools(
 //     {
@@ -78,9 +84,19 @@ export function createPluginBinding(deps: CreatePluginBindingDeps): PluginBindin
 //     },
 //     { apiBasePath: '/confluence' }
 //   )
-//   return [createPluginBinding({ auth: confluenceAuth, server, registry: deps.registry })]
+//   return [
+//     createPluginBinding({
+//       auth: confluenceAuth,
+//       server,
+//       registry: deps.registry,
+//       ...(deps.logger ? { logger: deps.logger } : {})
+//     })
+//   ]
 // }
 // ```
-export function createPluginBindings(): PluginBinding[] {
+export function createPluginBindings(deps: PluginDeploymentDeps): PluginBinding[] {
+  // 기본 배포는 Plugin 이 없다. 인자는 배포가 위 예제처럼 조립할 때 쓴다 —
+  // **시그니처가 비어 있으면 배포가 bootstrap 을 고쳐야 한다**(r3 결함).
+  void deps
   return []
 }

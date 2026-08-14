@@ -1,6 +1,9 @@
 // Provider settings 계약 타입 — 어댑터 포트. 해석 서비스(HarnessSettingsService)·열거·env 유틸은
 // features/harnesses 소관이지만, 어댑터가 소비하는 *타입 계약*(해석된 blob·로더 시그니처)은 여기 둔다.
-// 이 파일은 아무것도 import 하지 않는다(turn/types 와의 순환 회피).
+// 런타임 import 는 node 내장 crypto 하나뿐이다 — feature/adapter 모듈은 물지 않는다
+// (turn/types 와의 순환 회피).
+
+import { createHmac, randomBytes } from 'node:crypto'
 
 // 어댑터-네이티브 provider settings — Claude 의 경우 `~/.claude/settings.json` 과 동일 스키마다.
 // env(auth key 등)를 포함할 수 있으며, 그대로 options.settings flag 레이어로 주입된다(handoff 0028).
@@ -51,10 +54,21 @@ export type HarnessSettingsLoader = (args: {
 // (`features/sessions`)가 같은 함수를 써야 하는데 feature 끼리는 교차 import 가 금지된다.
 // 값 자체가 "adapter 입력의 형상" 이므로 adapter 포트가 제 자리다.
 //
-// **원문·secret·이 값을 로그나 DB 에 남기지 않는다** (0188 D-021). 해시를 쓰지 않는 이유는
-// 해시도 진단으로 새면 같은 위험이고, 비교에는 문자열 동등성으로 충분하기 때문이다.
+// ── 왜 원문이 아니라 digest 인가 (r3) ────────────────────────────────────────
+// r2 는 canonical JSON **원문**을 돌려줬다. 그 문자열에는 동적 토큰과 `process.env` 전체가 들어
+// 있고, `SessionRuntime` 이 채널 수명 내내 보관한다 — 로그·DB 에 남기지 않더라도 **secret 을
+// 별도 문자열로 복제해 오래 들고 있는 것 자체가 표면**이다.
+//
+// 그래서 비가역 digest 로 접는다. 키는 **프로세스 수명 한정 난수**다:
+//   · 단순 해시라면 낮은 엔트로피 값(짧은 API key 등)이 사전 대입으로 역산될 수 있다.
+//   · 키가 프로세스마다 새로 생기므로 값이 밖으로 새더라도 다른 실행·다른 기기에서 의미가 없다.
+// 비교는 같은 프로세스 안에서만 일어나므로 이 제약이 기능을 깎지 않는다.
+const FINGERPRINT_KEY = randomBytes(32)
+
 export function harnessEnvFingerprint(env: Readonly<Record<string, string>> | undefined): string {
-  return JSON.stringify(canonicalize(env) ?? null)
+  return createHmac('sha256', FINGERPRINT_KEY)
+    .update(JSON.stringify(canonicalize(env) ?? null))
+    .digest('base64')
 }
 
 function canonicalize(value: unknown): unknown {

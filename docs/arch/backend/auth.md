@@ -82,12 +82,21 @@ config API 를 불러 URL·모델 식별자·실행 token 을 한꺼번에 받�
 | `features/harnesses/prepared-config.ts` | `options.settings` / `options.env` 두 채널 조립 + fingerprint |
 | `features/harnesses/runtime-boundary.ts` | respawn 경계 판정(순수) |
 | `features/plugins/confluence/` | Confluence REST · Markdown 변환 · 첨부 · Runtime Tool |
-| `app/deployment/` | 배포별 concrete — `auth-definitions`·`gate-auth`·`harness-runtime`·`plugins`·`usage-fetcher` |
+| `app/deployment/` | 배포별 concrete — `auth-definitions`·`gate-auth`·`harness-runtime`·`plugins`·`connections`·`usage-fetcher` |
 | `app/connection-views.ts` | view source → 기존 `ProviderInfo`/`ProviderPlatformState` |
 | `app/auth-resume.ts` | 부팅 복원 순서(게이트 우선 → 나머지 병렬 → push 1회) |
 
 `app/deployment/` 는 **런타임 동적 plugin 디렉터리가 아니다.** 배포별 TypeScript 가 compile time 에
 조립되는 컴포지션 루트의 일부다. 런타임 동적 코드 로딩은 없다.
+
+**배포 factory 는 인자를 받는다.** `createPluginBindings(deps)`·`createRuntimeConfigAugmenters(deps)`·
+`createUsageFetcher(deps)`·`createConnectionSources(deps)` 는 `bootstrap.ts` 가 조립한 능력
+(`AuthRuntime`·`RuntimeToolSink`·AuthId 를 닫은 secret closure·gate 멤버·plugin 바인딩)을 받아
+쓴다. 인자 없는 factory 로 두면 배포가 자기 선언을 채울 때 범용 `bootstrap.ts` 를 고쳐야 하고,
+"배포가 손대는 파일은 `app/deployment/` 묶음뿐" 이라는 이 디렉토리의 존재 이유가 무너진다.
+기본 배포는 선언이 비어 있어 이 경로가 CI 에서 한 번도 실행되지 않으므로,
+`deployment-wiring.test.ts` 가 **비어 있지 않은 가상 배포**로 Bootstrap→Plugin/Harness/Usage/
+카탈로그를 끝까지 태운다.
 
 ---
 
@@ -134,6 +143,12 @@ Harness cache 를 무효화할 이유도 없다.**
 `status()` 는 순수 조회라 `expiresAt <= now` 를 매번 다시 계산할 뿐 상태를 정착시키지 않는다.
 `AuthStore.settleExpiry()` 가 **snapshot·request·resume 이 이미 지나는 자리에서** 그 전이를 한 번
 확정하고, runtime 이 그때만 `cause:'expired'` change 를 낸다. **polling 을 새로 만들지 않는다.**
+
+1회성은 `markExpired()` 의 조기 반환이 아니라 **별도 정착 집합**이 보장한다. 조기 반환에 기대면
+`verified` 만 풀리고 `credentialRevision` 은 그대로여서 `credentialChanged:true` 인데 세대는 안 오른
+change 가 나간다 — Harness cache 가 그 change 를 무시한다. 정착 집합은 grant 가 교체(`put`)·
+해제(`revoke`)·복원(`restore`)되면 비워지므로, 재인증 후 다시 만료되면 전이가 정상적으로 한 번 더
+일어난다.
 
 ---
 
@@ -259,16 +274,29 @@ runtime config augmenter env
   > 상속된 process env
 ```
 
-`prepareHarnessConfig()` 는 settings 의 env 중 `runtimeEnv` 와 충돌하는 키를 **in-memory 사본에서
-제거**하고 최종 `options.env` 를 위 순서로 만든다. 그래서 SDK 가 두 채널 중 어느 쪽을 우선하든
-결과가 하나다. **디스크 `settings.json` 은 수정하지 않는다.**
+`options.env` 를 만드는 턴에는 `prepareHarnessConfig()` 가 settings 의 **`env` 블록을 통째로**
+in-memory 사본에서 걷어내고 그 값을 위 순서로 `options.env` 에 hoist 한다 — 충돌 키만 지우면
+settings 와 app env 양쪽에 있는 키가 두 채널에 동시에 남아 최종 값이 SDK 내부 우선순위에 달린다.
+전부 걷어내야 "어느 채널이 우선해도 결과가 하나" 가 성립한다.
+
+`options.env` 를 만들지 않는 턴(정적 배포 + app env 없음)에는 settings 채널을 건드리지 않는다 —
+그 경로 동작은 0188 이전과 같다. **디스크 `settings.json` 은 수정하지 않는다.**
+
+**순서가 곧 우선순위다.** 구현은 `baseEnv → appEnv → settings env → runtimeEnv` 로 얹는다(나중이
+이긴다). app 을 settings 뒤에 얹으면 전역 폴백이 ModelProvider 전용 설정을 덮어, 게이트웨이를
+바꿔도 URL·모델 변수가 따라오지 않는다.
 
 Auth 에서 얻은 secret 과 config API 의 LLM token 은 `options.settings` 나 argv 에 복제하지 않고
 **`options.env` 에만** 둔다.
 
 `runtimeEnvFingerprint` 는 adapter 에 실제로 전달하는 **최종 env** 를 key 정렬 canonical form 으로
-접은 값이다. `providerSettingsChangedSinceSpawn` 만으로는 **`options.env` 의 credential 교체를
-판정하지 못하기 때문**이다.
+접고 **프로세스 수명 랜덤 키로 HMAC-SHA256 한 digest** 다. `providerSettingsChangedSinceSpawn`
+만으로는 **`options.env` 의 credential 교체를 판정하지 못하기 때문**이다.
+
+**digest 여야 하는 이유**: 이 값은 비교에만 쓰이는데도 spawn 기록부(`SessionRuntime`)가 세션
+수명 내내 들고 있다. canonical form 을 그대로 두면 secret 평문이 장기 보존되는 자리가 하나
+늘어난다 — heap dump·크래시 리포트·디버거로 새는 경로다. 키는 프로세스마다 새로 뽑으므로 값이
+프로세스 밖으로 나가도 되돌릴 수 없고, 같은 프로세스 안에서는 비교가 정확히 성립한다.
 
 **settings 를 함께 접지 않는다.** respawn 판정은 서로 겹치지 않는 축을 하나씩 본다:
 
@@ -357,6 +385,11 @@ renderer 는 여전히 한 DTO 에서 `gate | llm | service` 분류·인증 상�
   않는다 — 이 표가 유일한 접점이다.
 - 연결 버튼은 `login`/`reauth`/`revoke` 만 부른다. Plugin fetch·Usage refresh·Harness config resolve 를
   호출하지 않는다.
+
+배열 조립은 **`app/deployment/connections.ts`** 가 소유한다(`createConnectionSources(deps)`).
+Bootstrap 은 gate 멤버와 plugin binding 을 넘기고 결과를 그대로 IPC 에 태울 뿐이다. 조립을
+`bootstrap.ts` 안에 두면 harness·usage row 를 더하려는 배포가 범용 부팅 파일을 고쳐야 한다 —
+그래서 `gateRows()`·`pluginRows()` 를 조각으로 노출해 배포가 순서를 직접 정한다.
 
 `ConnectionViewSource` 는 main 전용이며 IPC 를 통과하지 않는다. behavior contribution registry 도
 아니다 — Bootstrap 이 만든 객체 참조를 배열로 묶기 때문에 별도 cross-reference validator 가 필요

@@ -162,7 +162,16 @@ export class LoginService {
     options?: { exposeStep?: boolean; emitVerifiedChange?: boolean }
   ): Promise<void> {
     const definition = this.deps.registry.get(authId)
-    if (!definition || !this.restorable(definition)) return
+    if (!definition) return
+
+    // 복원된 grant 가 **이미 시계상 만료**된 경우 (r3). `restorable()` 은 `status !== 'valid'`
+    // 를 보고 조용히 건너뛰었는데, 그러면 전이가 정착되지 않아 도구·GUI 가 살아 있는 것처럼
+    // 남는다. 부팅에서 이것을 못 박는 유일한 지점이 여기다.
+    if (this.deps.store.settleExpiry(authId)) {
+      this.deps.onSnapshot?.(authId, 'expired')
+      return
+    }
+    if (!this.restorable(definition)) return
 
     const exposeStep = options?.exposeStep ?? true
     if (exposeStep) this.emit({ kind: 'resuming', providerId: definition.id })
