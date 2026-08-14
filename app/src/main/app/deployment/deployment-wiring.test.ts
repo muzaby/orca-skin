@@ -24,15 +24,18 @@ import { createMemoryGrantPersistence } from '../../features/auth/store'
 import { patSpec } from '../../features/auth/specs/credential'
 import { createGate, selectGateMembers } from '../../features/gate'
 import { RuntimeToolRegistry } from '../../features/extensions/runtime-tool-registry'
-import type { RuntimeToolServer, RuntimeToolSink } from '../../adapters/runtime-tools'
+import type { RuntimeToolServer } from '../../adapters/runtime-tools'
 import { authToolServerId } from '../../adapters/runtime-tool-policy'
 import { createHarnessRuntimeConfigService } from '../../features/harnesses/runtime-config'
 import { prepareHarnessConfig } from '../../features/harnesses/prepared-config'
 import type { UsageFetcher } from '../../features/usage/fetcher'
 import { connectionState } from '../connection-views'
 import type { ConnectionViewSource } from '../connection-views'
-import { createPluginBinding, type PluginBinding } from './plugins'
-import { gateRows, pluginRows } from './connections'
+import { createPluginBinding, type PluginBinding, type PluginDeploymentDeps } from './plugins'
+import { gateRows, pluginRows, type ConnectionDeploymentDeps } from './connections'
+import type { HarnessRuntimeDeploymentDeps } from './harness-runtime'
+import type { UsageDeploymentDeps } from './usage-fetcher'
+import type { RuntimeConfigAugmenters } from '../../features/harnesses/runtime-config'
 
 const BEARER = { location: 'header', name: 'Authorization', scheme: 'bearer' } as const
 const CLAUDE_CORP_KEY = 'claude-corp'
@@ -140,10 +143,12 @@ function confluenceServer(authId: string): RuntimeToolServer {
 }
 
 // 가이드 §4 의 `createPluginBindings` 예제를 주입 인자만으로 구현할 수 있는가.
-function createPluginBindings(deps: {
-  auth: AuthRuntime
-  registry: RuntimeToolSink
-}): PluginBinding[] {
+//
+// **인자 타입은 실제 `PluginDeploymentDeps` 로 못 박는다** (r4). 인라인 타입으로 두면 이 테스트가
+// 검증하는 것이 "이 fixture 가 스스로 정한 인자로 조립된다" 로 좁아져, 정작 잠그려던 사실
+// — **Bootstrap 이 주입하는 능력만으로 배포가 조립된다** — 을 놓친다. 배포 factory 의 능력이
+// 줄면 여기서 컴파일이 깨져야 한다.
+const createPluginBindings = (deps: PluginDeploymentDeps): PluginBinding[] => {
   const confluenceAuth = deps.auth.bind(CONFLUENCE_AUTH.id)
   return [
     createPluginBinding({
@@ -178,27 +183,50 @@ describe('가상 배포 — Plugin 경계', () => {
   })
 })
 
-describe('가상 배포 — Harness 실행 구성', () => {
-  it('config API augmenter 가 BoundAuth 만으로 전체 env overlay 를 만든다', async () => {
-    const { auth, requests } = deployment()
-    const corpAuth = auth.bind(CORP_LLM_AUTH.id)
-    const service = createHarnessRuntimeConfigService({
-      settings: { resolve: async () => undefined },
-      augmenters: {
-        [CLAUDE_CORP_KEY]: {
-          async resolve(_input, signal) {
-            const response = await corpAuth.request({ path: '/api/llm/config' }, signal)
-            expect(response.ok).toBe(true)
-            return {
-              runtimeEnv: {
-                ANTHROPIC_AUTH_TOKEN: 'llm-token',
-                ANTHROPIC_BASE_URL: 'https://llm.example.corp',
-                ANTHROPIC_DEFAULT_OPUS_MODEL: 'corp-opus'
-              }
-            }
+// 가이드 §4 의 두 augmenter 방식. **인자 타입은 실제 `HarnessRuntimeDeploymentDeps`** 다 (r4) —
+// config API 방식은 `auth` 만, direct credential 방식은 `secretFor` 만 쓴다는 경계까지 여기서
+// 함께 잠근다.
+const createConfigApiAugmenters = (deps: HarnessRuntimeDeploymentDeps): RuntimeConfigAugmenters => {
+  const corpAuth = deps.auth.bind(CORP_LLM_AUTH.id)
+  return {
+    [CLAUDE_CORP_KEY]: {
+      async resolve(_input, signal) {
+        const response = await corpAuth.request({ path: '/api/llm/config' }, signal)
+        if (!response.ok) throw new Error(`llm config request failed: ${response.status}`)
+        return {
+          runtimeEnv: {
+            ANTHROPIC_AUTH_TOKEN: 'llm-token',
+            ANTHROPIC_BASE_URL: 'https://llm.example.corp',
+            ANTHROPIC_DEFAULT_OPUS_MODEL: 'corp-opus'
           }
         }
       }
+    }
+  }
+}
+
+const createDirectCredentialAugmenters = (
+  deps: HarnessRuntimeDeploymentDeps
+): RuntimeConfigAugmenters => {
+  // Bootstrap 이 넘기는 것과 같은 형태 — 전체 `AuthSecretReader` 가 아니라 AuthId 를 닫은 closure.
+  const readSecret = deps.secretFor(CORP_LLM_AUTH.id)
+  return {
+    [CLAUDE_CORP_KEY]: {
+      async resolve() {
+        const token = readSecret()
+        if (token === null) throw new Error('credential unavailable')
+        return { runtimeEnv: { ANTHROPIC_AUTH_TOKEN: token } }
+      }
+    }
+  }
+}
+
+describe('가상 배포 — Harness 실행 구성', () => {
+  it('config API augmenter 가 BoundAuth 만으로 전체 env overlay 를 만든다', async () => {
+    const { auth, secretFor, requests } = deployment()
+    const service = createHarnessRuntimeConfigService({
+      settings: { resolve: async () => undefined },
+      augmenters: createConfigApiAugmenters({ auth, secretFor })
     })
 
     const config = await service.resolve({
@@ -218,20 +246,10 @@ describe('가상 배포 — Harness 실행 구성', () => {
   })
 
   it('direct-credential augmenter 는 AuthId 가 닫힌 closure 만 받는다', async () => {
-    const { secretFor } = deployment()
-    // Bootstrap 이 넘기는 것과 같은 형태 — 전체 reader 가 아니다.
-    const readSecret = secretFor(CORP_LLM_AUTH.id)
+    const { auth, secretFor } = deployment()
     const service = createHarnessRuntimeConfigService({
       settings: { resolve: async () => undefined },
-      augmenters: {
-        [CLAUDE_CORP_KEY]: {
-          async resolve() {
-            const token = readSecret()
-            if (token === null) throw new Error('credential unavailable')
-            return { runtimeEnv: { ANTHROPIC_AUTH_TOKEN: token } }
-          }
-        }
-      }
+      augmenters: createDirectCredentialAugmenters({ auth, secretFor })
     })
 
     const config = await service.resolve({
@@ -244,26 +262,31 @@ describe('가상 배포 — Harness 실행 구성', () => {
   })
 })
 
+// 가이드 §4 의 usage 예제. 인자 타입은 실제 `UsageDeploymentDeps` 다 (r4).
+const createUsageFetcher = (deps: UsageDeploymentDeps): UsageFetcher => {
+  const usageAuth = deps.auth.bind(CORP_USAGE_AUTH.id)
+  return {
+    supports: (key) => key === CLAUDE_CORP_KEY,
+    async fetchUsage(key, signal) {
+      const response = await usageAuth.request({ path: '/api/usage' }, signal)
+      if (!response.ok) throw new Error(`usage request failed: ${response.status}`)
+      return {
+        providerKey: key,
+        asOf: null,
+        fetchedAt: 0,
+        limitUsd: null,
+        usedUsd: null,
+        remainingUsd: null,
+        raw: response.body
+      }
+    }
+  }
+}
+
 describe('가상 배포 — Usage', () => {
   it('BoundAuth 만으로 fetcher 를 만들 수 있고 supports 가 게이트다', async () => {
     const { auth } = deployment()
-    const usageAuth = auth.bind(CORP_USAGE_AUTH.id)
-    const fetcher: UsageFetcher = {
-      supports: (key) => key === CLAUDE_CORP_KEY,
-      async fetchUsage(key, signal) {
-        const response = await usageAuth.request({ path: '/api/usage' }, signal)
-        if (!response.ok) throw new Error(`usage request failed: ${response.status}`)
-        return {
-          providerKey: key,
-          asOf: null,
-          fetchedAt: 0,
-          limitUsd: null,
-          usedUsd: null,
-          remainingUsd: null,
-          raw: response.body
-        }
-      }
-    }
+    const fetcher = createUsageFetcher({ auth })
 
     expect(fetcher.supports(CLAUDE_CORP_KEY)).toBe(true)
     expect(fetcher.supports('claude-anthropic')).toBe(false)
@@ -274,6 +297,22 @@ describe('가상 배포 — Usage', () => {
   })
 })
 
+// 배포가 `app/deployment/connections.ts` 에서 조립하는 모습. 인자 타입은 실제
+// `ConnectionDeploymentDeps` 다 (r4) — Bootstrap 이 넘기는 gate 멤버·plugin binding·`auth` 만으로
+// 네 category 가 전부 만들어져야 한다.
+const createConnectionSources = (
+  deps: ConnectionDeploymentDeps
+): readonly ConnectionViewSource[] => [
+  ...gateRows(deps.gateMembers),
+  {
+    category: 'harness',
+    auth: deps.auth.bind(CORP_LLM_AUTH.id),
+    harnessModelProviderKey: CLAUDE_CORP_KEY
+  },
+  ...pluginRows(deps.plugins),
+  { category: 'usage', auth: deps.auth.bind(CORP_USAGE_AUTH.id) }
+]
+
 describe('가상 배포 — 카탈로그 row', () => {
   it('gate·harness·plugin·usage 네 category 가 모두 행으로 나온다', () => {
     const { auth, registry } = deployment()
@@ -281,17 +320,11 @@ describe('가상 배포 — 카탈로그 row', () => {
     const plugins = createPluginBindings({ auth, registry })
     const gate = createGate({ members: gateSelection.members, bypass: () => false })
 
-    // 배포가 `app/deployment/connections.ts` 에서 조립하는 모습.
-    const connections: readonly ConnectionViewSource[] = [
-      ...gateRows(gateSelection.members),
-      {
-        category: 'harness',
-        auth: auth.bind(CORP_LLM_AUTH.id),
-        harnessModelProviderKey: CLAUDE_CORP_KEY
-      },
-      ...pluginRows(plugins),
-      { category: 'usage', auth: auth.bind(CORP_USAGE_AUTH.id) }
-    ]
+    const connections = createConnectionSources({
+      auth,
+      gateMembers: gateSelection.members,
+      plugins
+    })
 
     const state = connectionState(auth, gate, connections)
 

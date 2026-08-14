@@ -125,8 +125,13 @@ config API 를 불러 URL·모델 식별자·실행 token 을 한꺼번에 받�
 | credential commit · revoke · expiry · 401/403 강등 | O | O | O | **영향 key 만** O |
 
 `kind:'step'` 은 화면 단계, `kind:'snapshot'` 은 인증 상태다. snapshot 은 `cause` 와
-**`credentialChanged`** 를 함께 싣고, 소비자는 그 boolean 하나만 본다 — `cause → boolean` 매핑은
-`features/auth/runtime.ts` 한 곳에 있다.
+**`credentialChanged`** 를 함께 싣고, 소비자는 그 boolean 하나만 본다 — `cause → boolean` 기본
+매핑은 `features/auth/runtime.ts` 한 곳에 있다.
+
+**`cause` 가 답을 못 내는 경우가 하나 있다**: 같은 강등을 두 지점이 관측할 때다(§4.4). 그때는
+전이를 관측한 호출부가 `credentialChanged` 를 명시로 싣고, `cause` 매핑은 기본값으로만 쓰인다 —
+`cause` 는 *무엇을 봤는가* 이고 `credentialChanged` 는 *실행 credential 이 실제로 달라졌는가* 라서,
+둘이 항상 같은 값이 아니다.
 
 이 구분이 없으면 소비자는 두 가지 중 하나로 몰린다: 매 change 마다 무효화하거나(불필요한
 network·respawn), 아무것도 안 하거나(stale token 사용).
@@ -149,6 +154,28 @@ Harness cache 를 무효화할 이유도 없다.**
 change 가 나간다 — Harness cache 가 그 change 를 무시한다. 정착 집합은 grant 가 교체(`put`)·
 해제(`revoke`)·복원(`restore`)되면 비워지므로, 재인증 후 다시 만료되면 전이가 정상적으로 한 번 더
 일어난다.
+
+### 4.5 강등 통지는 전이를 따른다 — 관측 횟수가 아니라
+
+만료 **전**의 강등(401/403, probe 실패)도 같은 문제를 갖는다. 한 번의 강등을 두 지점이 볼 수 있기
+때문이다 — 요청 경로가 401 을 보고 강등한 뒤 `resume()` 이 그 실패를 다시 강등으로 처리하거나,
+동시에 떠 있던 두 요청이 각각 401 을 받는 경우다.
+
+그래서 **`AuthStore.markExpired()` 가 "이번 호출이 전이를 만들었는가" 를 돌려주고, 통지가 그 값을
+따른다**:
+
+| 관측 지점 | 전이를 만들었을 때 | 전이가 없을 때 |
+|---|---|---|
+| 요청 경로 (401/403) | `cause:'unauthorized'` · `credentialChanged:true` | 통지는 내되 `credentialChanged:false` |
+| `resume()` probe 실패 | `cause:'expired'` · `credentialChanged:true` | **통지하지 않는다** (요청 경로가 이미 냈다) |
+
+요청 경로가 전이 없이도 통지하는 이유는 `markExpired()` 가 전이 여부와 무관하게 `verified` 를
+풀기 때문이다 — 화면은 그 사실을 받아야 한다. 반대로 `resume()` 의 전이 없는 실패는 401 경로가
+방금 같은 사실을 통지한 직후라 새로 알릴 것이 없다.
+
+이 규칙이 없으면 실패 멤버 하나가 credential-effective change 를 두 번 내고, 두 번째는
+`credentialRevision` 이 그대로여서 §4.4 가 시계 만료에서 막은 불일치가 그대로 재현된다. 부팅
+방송 상한(§5.2 `1 + K`)도 함께 무너진다.
 
 ---
 
