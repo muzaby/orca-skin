@@ -2,10 +2,10 @@
 
 이 파일은 **실행 지침집이 아니다.** 현재 handoff 실행 규칙의 정본은 다음이다.
 
-- 설계: `../handoff-plan/SKILL.md`
-- 검증: `../handoff-verify/SKILL.md`
-- 지침 자체 개선: `../handoff-review/SKILL.md`
-- 협업/상태 머신: `docs/handoff/AGENTS.md`
+- 설계: `../../handoff-plan/SKILL.md`
+- 검증: `../../handoff-verify/SKILL.md`
+- 지침 자체 개선: `../SKILL.md`
+- 협업/상태 머신: `../../../../docs/handoff/AGENTS.md`
 
 과거 실패의 원문과 `P<number>` 사례 본문은 [`failure-patterns.corpus.md`](failure-patterns.corpus.md)에 보존한다. 그 corpus는 **historical evidence**이며, 상단의 옛 “plan이 직접 읽고 verify가 직접 갱신한다”류 안내도 도입 당시의 기록일 뿐 현재 명령이 아니다.
 
@@ -19,7 +19,7 @@
 
 ## 지침 리팩터링 주의
 
-과거 P corpus만으로는 기존 운영지침의 삭제를 검출할 수 없다. 따라서 handoff 지침 변경은 `handoff-review/SKILL.md`의 세 축을 모두 거친다.
+과거 P corpus만으로는 기존 운영지침의 삭제를 검출할 수 없다. 따라서 handoff 지침 변경은 `../SKILL.md`의 세 축을 모두 거친다.
 
 1. Operational Instruction Delta — 기존 책임/명령/게이트의 KEEP·MOVE·REPLACE·DELETE 승계.
 2. Historical Failure Regression — 이 corpus의 P 패턴 전수 대조.
