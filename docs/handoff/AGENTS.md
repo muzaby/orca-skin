@@ -1,22 +1,23 @@
 # docs/handoff/ — Claude Code ↔ Codex 협업 가이드
 
-이 디렉토리는 두 CLI 에이전트의 handoff 채널이다. 본 문서는 **협업 규칙·상태 머신·역할 분담·review 진입 조건**만 담는다. 산출물을 어떻게 쓰고 검증하는지는 각 skill이 정본이다.
+이 디렉토리는 두 CLI 에이전트의 handoff 채널이다. 본 문서는 **협업 규칙·상태 머신·역할 분담·review 진입 조건**을 갖는다. 산출물을 어떻게 작성·검증하는지는 각 skill이 정본이다.
 
 | 목적 | 정본 |
 |---|---|
 | `plan.md` 설계 | [`.agents/skills/handoff-plan/`](../../.agents/skills/handoff-plan/) — `SKILL.md` + `plan.template.md` |
 | `verify.md` 검증 | [`.agents/skills/handoff-verify/`](../../.agents/skills/handoff-verify/) — `SKILL.md` + `verify.template.md` |
-| handoff 지침 자체 개선 | [`.agents/skills/handoff-review/`](../../.agents/skills/handoff-review/) — `SKILL.md` + regression corpus |
+| handoff 지침 자체 개선 | [`.agents/skills/handoff-review/`](../../.agents/skills/handoff-review/) — `SKILL.md` + regression references |
 
-`.claude/skills` 심링크를 통해 skill을 인식한다. plan/verify를 작성할 때는 해당 skill을 먼저 로드한다.
+`.claude/skills` 심링크를 통해 skill을 인식한다. plan/verify/review를 수행할 때는 해당 skill을 먼저 로드한다.
 
 ## 세 skill의 책임 분리
 
 ### handoff-plan — 현재 설계
 
 - 여러 턴의 사용자 합의를 **Decision Ledger**로 보존한다.
-- plan 앞부분에 **Product & UX Contract**를 두어 사용자가/소비자가 받는 결과를 먼저 고정한다.
-- 뒷부분에 코드 조사·아키텍처·데이터/제어 흐름·모듈·테스트를 구체화한다.
+- plan 앞부분에 **Product & UX Contract**를 두어 사용자/소비자가 받는 결과를 먼저 고정한다.
+- 뒷부분 Technical Design은 **AS-IS → TO-BE → Delta**로 현재와 목표 구조를 같은 축에서 대조한다.
+- 코드 조사·아키텍처·데이터/제어 흐름·모듈·테스트를 구체화한다.
 - 현재 요구를 비판적으로 검토한다.
 
 ### handoff-verify — 현재 구현 검증
@@ -24,15 +25,16 @@
 - 구현을 독립적으로 비판한다.
 - Product/UX, ACTIVE Decision, AC와 실제 production path를 대조한다.
 - AC 밖 결함을 역방향으로 찾는다.
-- 검증할 수 없는 경계를 정직하게 사람에게 넘긴다.
+- 검증 가능한 부분을 최대한 기계 검증하고 남은 경계만 사람에게 넘긴다.
+- repository operation(AGENTS/INDEX/trailer/reference)도 실제 변경 범위에 포함되면 검증한다.
 
 ### handoff-review — handoff 시스템 개선
 
 - 반복 실패·decision drift·소통 실패의 원인을 분류한다.
-- `handoff-plan` / `handoff-verify` **지침 자체**를 수정한다.
-- 변경 후 `handoff-review/references/failure-patterns.md` 전체를 regression corpus로 사용해 과거 방어선이 유지되는지 검증한다.
+- 사례 누적보다 `handoff-plan` / `handoff-verify` **지침 자체**의 통합·교체·강화를 우선한다.
+- 지침 변경 시 세 가지를 독립 검증한다: **Operational Instruction Delta → Historical Failure Regression → Cross-document Consistency**.
 
-**중요**: plan/verify는 정상 작업 중 failure corpus를 읽으며 즉석에서 자기 규칙을 만들거나, 종료 때 corpus를 직접 갱신하지 않는다. 사례의 일반화와 skill 변경은 review 책임이다.
+**중요**: plan/verify는 정상 작업 중 failure corpus를 읽으며 즉석에서 자기 규칙을 만들거나 종료 때 corpus를 직접 갱신하지 않는다. 사례의 일반화·skill 변경·corpus 유지 판단은 review 책임이다.
 
 ---
 
@@ -65,9 +67,13 @@
 
 오타·주석·한두 줄 같은 trivial 변경과 **handoff 인프라 자체의 메타 수정**은 `Handoff: none`으로 직접 커밋할 수 있다. handoff skill을 고치기 위해 다시 handoff plan을 만드는 자기 참조를 피하기 위한 규칙이다.
 
+- **애매하면 handoff를 생성한다.** 카브아웃을 설계 회피구로 사용하지 않는다.
+- `Handoff: none`은 **검증 면제**가 아니다. handoff SKILL/template/AGENTS/reference를 바꾸는 메타 수정이면 `handoff-review`의 3축 회귀 검증을 반드시 수행한다.
+
 ### handoff-review 트리거
 
 - 사용자가 handoff skill/지침 개선을 명시적으로 요청.
+- handoff SKILL/template/AGENTS 자체를 변경.
 - 같은/유사 실패가 라운드에서 반복.
 - 여러 handoff에서 동일 실수가 재발.
 - 긴 대화에서 확정 결정이 최종 plan에서 사라지거나 변형.
@@ -78,6 +84,16 @@
 
 ---
 
+## 신규 템플릿 적용 경계
+
+Part I/II, Decision Ledger, Technical Design AS-IS/TO-BE가 포함된 새 템플릿은 **신규 handoff부터 적용**한다.
+
+- 진행 중인 기존 handoff를 형식만 맞추기 위해 일괄 마이그레이션하지 않는다.
+- 기존 plan을 제품 결정·설계 변경 때문에 **실질적으로 다시 쓰는 경우**에는 새 구조로 승격할 수 있다.
+- 단순 verify/FAIL 파생 이슈 추가는 기존 상단 형식을 강제로 재작성하지 않는다.
+
+---
+
 ## INDEX.md 운영
 
 `docs/handoff/INDEX.md`가 “지금 누구 차례인가”의 단일 진실원이다.
@@ -85,6 +101,7 @@
 - 착수 전 자기 차례와 상태를 확인한다.
 - 작업 종료 후 상태·다음 주체·대상 커밋을 갱신한다.
 - PASS한 행은 archive history로 이동한다.
+- verify는 최종 판정 전에 INDEX가 실제 상태와 맞는지 확인한다.
 
 ## 디렉토리 구조
 
@@ -100,16 +117,19 @@ docs/handoff/
 ├── handoff-plan/
 │   ├── SKILL.md
 │   ├── plan.template.md
-│   └── references/failure-patterns.md   # review corpus로 향하는 호환 symlink
+│   └── references/failure-patterns.md   # review entrypoint로 향하는 호환 symlink
 ├── handoff-verify/
 │   ├── SKILL.md
 │   ├── verify.template.md
+│   ├── references/0157-case.md
 │   └── scripts/...
 └── handoff-review/
     ├── SKILL.md
     └── references/
-        ├── failure-patterns.md           # historical regression corpus 정본
-        └── regression-coverage.md
+        ├── failure-patterns.md           # 현재 review 진입점
+        ├── failure-patterns.corpus.md    # historical evidence 본문
+        ├── regression-coverage.md
+        └── round2-review.md
 ```
 
 ---
@@ -134,7 +154,7 @@ plan/DRAFT
 | verify/PASS | 완료 | — |
 | verify/FAIL | 미충족 존재 | 구현자 |
 
-`handoff-review`는 이 상태 머신의 별도 단계가 아니다. **메타 유지보수 경로**다. 단 라운드가 3을 초과하면 다음 재구현 전에 review를 수행해 전제/지침/소통 실패를 분리한다.
+`handoff-review`는 별도 lifecycle state가 아니라 **메타 유지보수 경로**다. 라운드가 3을 초과하면 다음 재구현 전에 review를 수행해 전제/지침/소통 실패를 분리한다.
 
 ---
 
@@ -144,40 +164,58 @@ plan/DRAFT
 
 - find-or-create 후 관련 대화/기존 plan을 읽는다.
 - 여러 턴 결정을 Decision Ledger로 복원한다.
-- plan 앞부분 Product & UX Contract, 뒷부분 Technical Design 순서로 작성한다.
-- READY self-review를 통과한 뒤 INDEX를 갱신한다.
+- Part I Product & UX Contract → Part II Technical Design 순서로 작성한다.
+- Technical Design은 AS-IS와 TO-BE를 같은 축으로 작성하고 Delta를 구현/AC에 연결한다.
+- READY self-review 후 INDEX를 갱신한다.
 
-설계자는 요구를 비판적으로 검토하지만 과거 failure corpus를 읽어 자기 skill을 즉석에서 보완하지 않는다.
+설계자는 현재 요구를 비판적으로 검토하지만 failure corpus를 읽어 자기 skill을 즉석에서 보완하지 않는다.
 
 ### 2. 구현
 
-- plan의 **Part I을 제품 계약**, Part II를 기술 구현 가이드로 읽는다.
+- Part I을 제품 계약, Part II를 기술 구현 가이드로 읽는다.
 - ACTIVE Decision과 AC를 임의로 변경하지 않는다.
 - 구현 세부·명백한 누락/버그는 선조치 후보고 가능.
 - 제품 의도·신규 의존성·Decision·AC 변경은 보고만 하고 결정권자에게 올린다.
 - 구현 보고의 `Criteria-Met`은 자기보고일 뿐 verify 증거가 아니다.
+
+#### 구현 게이트의 정본
+
+**게이트 명령은 수정 subtree의 가장 구체적인 `AGENTS.md`가 정본이다.** 이 파일이나 template이 모든 환경에 하나의 명령을 하드코딩하지 않는다.
+
+`app/**`를 수정한다면 `app/AGENTS.md`의 **better-sqlite3 ABI · 제약 환경 게이트 가이드**를 먼저 읽는다. 현재 기본 원칙은:
+
+- ABI-중립 기본 게이트: `cd app && npm run lint && npm run typecheck`.
+- 관련 비-DB/순수 테스트: `./node_modules/.bin/vitest run <suite>` 등 `pretest`를 우회하는 명령.
+- `npm test`는 DB 동작 자체를 검증할 필요가 있을 때만 의도적으로 실행.
+- `npm test` 후 Node ABI → dev/build의 Electron ABI 재빌드가 필요하고, egress 차단 환경에서는 403이 날 수 있으므로 실행 순서와 환경 실패를 분리한다.
+
+`app/AGENTS.md`가 바뀌면 그 **현재 지침이 우선**한다.
 
 ### 3. 검증 — handoff-verify
 
 - 구현 전 plan 기준선을 잠근다.
 - AC를 보기 전에 diff와 end-to-end 경로를 독립 검토한다.
 - Product/UX, ACTIVE Decision, AC를 실제 경로와 대조한다.
+- target subtree `AGENTS.md`에 맞는 gate를 실행한다.
+- AGENTS/INDEX/trailer/reference 변경이 있으면 repository operation checks도 수행한다.
 - FAIL이면 파생 이슈를 plan 하단에 이관한다.
-- 반복 실패 사실은 `Review Signals`에 남길 수 있지만 **원인 분류·skill 변경은 하지 않는다**.
+- 반복 실패 사실은 `Review Signals`에 남길 수 있지만 원인 분류·skill 변경은 하지 않는다.
 
 ### 4. 메타 리뷰 — handoff-review
 
-- 관련 라운드와 사용자 결정 전체를 읽는다.
-- 문제를 instruction gap / execution capability / communication mismatch / user decision change / evidence limitation / implementation defect로 분류한다.
-- 사례 추가보다 plan/verify 지침의 통합·교체·강화를 우선한다.
-- SKILL 변경 후에만 `failure-patterns.md`의 모든 현재 P heading을 전수 대조한다.
-- 변경 전 COVERED였던 패턴이 변경 후 PARTIAL/GAP이면 완료하지 않는다.
+지침 변경은 다음 세 축을 **모두** 통과해야 한다.
+
+1. **Operational Instruction Delta** — 변경 전 실행 지침을 전수 추출하고 `KEEP / MOVE / REPLACE / DELETE`로 승계. 설명 없이 사라진 gate/command/책임/reference는 regression.
+2. **Historical Failure Regression** — failure corpus의 현재 모든 P heading을 전수 대조. 변경 전 COVERED가 PARTIAL/GAP으로 떨어지면 실패.
+3. **Cross-document Consistency** — root AGENTS ↔ handoff AGENTS ↔ 세 SKILL ↔ templates ↔ references/scripts ↔ 하위 AGENTS의 owner/명령/경로 충돌을 확인.
+
+P1~P37 같은 사례 coverage가 만점이어도 Operational Delta나 Cross-document 검사가 실패하면 review는 완료가 아니다.
 
 ---
 
 ## 여러 턴의 사용자 결정
 
-Decision Ledger가 대화의 모든 문장을 복사하는 저장소는 아니다. **결정 단위와 provenance**를 보존한다.
+Decision Ledger는 대화 전체 복사본이 아니라 **결정 단위 + provenance** 정본이다.
 
 - 최신 턴에 언급되지 않았다는 이유로 ACTIVE 결정을 버리지 않는다.
 - 사용자가 명시적으로 바꾸면 기존 결정을 SUPERSEDED 처리한다.
@@ -195,13 +233,15 @@ Decision Ledger가 대화의 모든 문장을 복사하는 저장소는 아니�
 
 ## 검증 책임 분리
 
-- 기계적으로 판정 가능한 게이트·계약·상태 로직·레이어 경계는 에이전트가 검증한다.
+상세 실행 표는 `handoff-verify/verify.template.md`에 둔다. 원칙은 다음과 같다.
+
+- 기계적으로 판정 가능한 게이트·계약·상태 로직·레이어 경계·문서 형식/위생은 에이전트가 검증한다.
 - 제품 의도·Open Question·시각 품질·신규 의존성·PR 머지 승인은 사람이 결정한다.
 - “UI/SDK/electron”이라는 이유만으로 순수 로직까지 사람에게 넘기지 않는다.
 
 ## 커밋·git 규약
 
 - 커밋: `<type>(<scope>): <한국어 메시지>`.
-- trailer 정본은 root `AGENTS.md`의 커밋 프로토콜과 `docs/git-template.md`를 따른다.
+- trailer 정본은 root `AGENTS.md`와 `docs/git-template.md`다. 허용되지 않은 `Agent` 값을 만들지 않는다.
 - push는 작업 브랜치로 수행한다.
 - PR은 사용자가 명시적으로 요청할 때 생성한다.

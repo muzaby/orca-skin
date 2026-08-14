@@ -1,6 +1,6 @@
 ---
 name: handoff-review
-description: handoff-plan 및 handoff-verify의 지침 자체를 리뷰하고 개선할 때 쓴다. 반복 라운드, 여러 턴의 결정 drift, 동일 실수 재발, 사용자의 명시적 handoff 프로세스 리뷰 요청이 있을 때 실패 원인을 분류하고 SKILL 지침을 수정한 뒤 failure-patterns 전체로 회귀 검증한다.
+description: handoff-plan 및 handoff-verify의 지침 자체를 리뷰하고 개선할 때 쓴다. 반복 라운드, 여러 턴의 결정 drift, 동일 실수 재발, 사용자의 명시적 handoff 프로세스 리뷰 요청, 또는 handoff SKILL/template/AGENTS 자체를 바꾸는 메타 수정에서 실패 원인을 분류하고 기존 운영지침 승계·historical failure regression·cross-document consistency를 검증한다.
 ---
 
 # handoff-review — handoff 시스템의 지침을 개선하는 메타 리뷰
@@ -13,16 +13,16 @@ description: handoff-plan 및 handoff-verify의 지침 자체를 리뷰하고 �
 
 - `handoff-plan/SKILL.md` — 현재 설계 에이전트가 따라야 할 규칙.
 - `handoff-verify/SKILL.md` — 현재 검증 에이전트가 따라야 할 규칙.
-- [`references/failure-patterns.md`](references/failure-patterns.md) — historical regression corpus. 실행 지침의 정본이 아니다.
-- 이 스킬 — 실패 증거를 일반화해 SKILL을 수정하고 변경 후 corpus로 회귀를 확인한다.
+- `docs/handoff/AGENTS.md` — 협업·상태 머신·구현 턴 운영 규칙.
+- [`references/failure-patterns.md`](references/failure-patterns.md) — historical regression corpus의 **진입점**. 실행 지침의 정본이 아니다.
+- 이 스킬 — 실패 증거를 일반화해 지침을 수정하고, 지침 변경 자체가 기존 운영 계약과 과거 실패 방어선을 깨지 않았는지 검증한다.
 
-**사례를 한 줄 더 쌓는 것으로 리뷰를 끝내지 않는다.** 주 산출물은 SKILL/템플릿/공통 지침의 실제 개선이다.
-
-> `failure-patterns.md` 본문 상단에는 이 스킬 도입 전의 “plan이 직접 읽고 verify가 직접 갱신한다”는 역사적 안내가 남아 있을 수 있다. **현재 소유권/실행 규칙은 이 SKILL과 `docs/handoff/AGENTS.md`가 우선한다.** 회귀 검증에서는 corpus의 `## P<number>` 사례와 causal lesson을 증거로 읽는다.
+**사례를 한 줄 더 쌓는 것으로 리뷰를 끝내지 않는다.** 주 산출물은 SKILL/template/AGENTS/공통 지침의 실제 개선이다.
 
 ## 실행 조건
 
 - 사용자가 handoff 스킬/지침 개선을 명시적으로 요청한다.
+- handoff `SKILL.md`, template, `docs/handoff/AGENTS.md`, root `AGENTS.md`의 handoff 규칙을 바꾸는 메타 수정이다.
 - 하나의 handoff에서 같거나 유사한 실패가 반복된다.
 - 여러 handoff에서 동일 설계/검증 실수가 재발한다.
 - 긴 대화의 확정 결정이 plan에서 소실·변형되는 decision drift가 관찰된다.
@@ -33,13 +33,15 @@ description: handoff-plan 및 handoff-verify의 지침 자체를 리뷰하고 �
 
 ## 1. 증거 수집
 
-관련 plan/verify의 모든 라운드, 구현자 코멘트·diff·테스트, 여러 턴의 사용자 결정, 현재 plan/verify SKILL과 template, `docs/handoff/AGENTS.md`를 읽는다. 최신 턴만 보고 이전 합의를 재구성하지 않는다.
+관련 plan/verify의 모든 라운드, 구현자 코멘트·diff·테스트, 여러 턴의 사용자 결정, 현재/변경 전 plan·verify SKILL과 template, root 및 `docs/handoff/AGENTS.md`, 관련 하위 `AGENTS.md`, references/scripts를 읽는다. 최신 턴이나 변경 후 파일만 보고 이전 계약을 재구성하지 않는다.
+
+**지침 리팩터링에서는 변경 전 파일도 1급 증거다.** `git diff <before>..<after>`로 삭제·이동·대체된 문장을 먼저 추출한다.
 
 ## 2. 실패 분류
 
 | 분류 | 판정 | 기본 조치 |
 |---|---|---|
-| A. Instruction gap | 필요한 행동이 현재 SKILL에 없거나 모호함 | SKILL/template 수정 후보 |
+| A. Instruction gap | 필요한 행동이 현재 SKILL에 없거나 모호함 | SKILL/template/AGENTS 수정 후보 |
 | B. Execution/capability failure | 명확한 지침과 gate가 있었는데 수행하지 않음 | 같은 규칙 중복 추가 금지. evidence/gate 강화 가능성만 검토 |
 | C. Communication/spec mismatch | 두 해석이 합리적이고 사용자 의도가 충분히 특정되지 않음 | 사용자 질의 발동 조건 보완 |
 | D. User decision change | 사용자가 후속 턴에서 의도적으로 결정 변경 | 실패로 학습하지 않음. supersede만 보존 |
@@ -73,30 +75,88 @@ description: handoff-plan 및 handoff-verify의 지침 자체를 리뷰하고 �
 
 ## 5. 책임 경계
 
-`handoff-plan`에는 현재 요구 비판, Decision Ledger, Product/UX Contract, 코드 조사·기술 설계, 검증 가능한 AC, READY 정합성 검사를 남긴다.
+`handoff-plan`에는 현재 요구 비판, Decision Ledger, Product/UX Contract, 코드 조사·Technical Design(AS-IS/TO-BE), 검증 가능한 AC, READY 정합성 검사를 남긴다.
 
 `handoff-verify`에는 현재 구현 비판, 역방향 탐색, Product/UX ↔ end-to-end 검증, 구현자가 AC를 바꿔 자기 증명했는지 확인, 기계 검증/사람 실기 경계를 남긴다.
 
-`handoff-review`가 실패 원인 분류, 반복 실수 일반화, SKILL 자체 수정, failure-patterns 유지 정책과 regression coverage를 맡는다. plan/verify가 매 작업마다 failure-patterns를 갱신하거나 자기 SKILL을 수정하지 않는다.
+`handoff-review`가 실패 원인 분류, 반복 실수 일반화, SKILL/template/AGENTS 자체 수정, failure corpus 유지 정책과 **지침 변경 회귀 검증**을 맡는다. plan/verify가 매 작업마다 failure corpus를 갱신하거나 자기 SKILL을 수정하지 않는다.
 
-## 6. failure-patterns 회귀 검증 — SKILL 변경 필수 gate
+# 6. 지침 변경 회귀 검증 — 3개 축 모두 필수
 
-**SKILL을 바꾼 뒤에만** [`references/failure-patterns.md`](references/failure-patterns.md)를 전수 읽는다.
+지침을 바꿨다면 아래 세 검사를 **독립적으로** 수행한다. 하나를 통과했다고 다른 두 개를 대체할 수 없다.
 
-1. 모든 `## P<number>` heading을 전수 추출한다. 번호 상한을 하드코딩하지 않는다.
+## 6-A. Operational Instruction Delta — 기존 운영지식의 삭제를 잡는다
+
+변경 전 SKILL/template/AGENTS/reference/script와 변경 후 구조를 diff하여 **기존의 실행 가능한 책임**을 전수 추출한다. 단순 문구가 아니라 다음 축을 본다.
+
+- trigger / 언제 실행되는가
+- owner / 누가 수행하는가
+- command / 실제 실행 명령과 환경 제약
+- evidence / 무엇을 남겨야 통과인가
+- human vs agent responsibility
+- lifecycle / INDEX / commit / hygiene 같은 운영 절차
+- reference/script 연결과 그 소비자
+
+각 항목을 다음 중 하나로 판정한다.
+
+| 판정 | 의미 | 완료 조건 |
+|---|---|---|
+| KEEP | 같은 위치에서 유지 | 의미와 발동 조건이 약화되지 않음 |
+| MOVE | 다른 정본으로 이동 | 새 위치와 소비 경로가 명시됨 |
+| REPLACE | 더 일반적/강한 규칙으로 대체 | 구 규칙이 막던 실패를 새 규칙도 막음 |
+| DELETE | 의도적으로 제거 | 왜 더 이상 필요 없는지 근거가 있음 |
+
+**설명 없이 사라진 항목은 regression이다.** 특히 `npm test` 같은 명령은 문자열 존재가 아니라 하위 `AGENTS.md`의 ABI/네트워크 제약과 충돌하는지까지 본다.
+
+## 6-B. Historical Failure Regression — 기존 실패사례가 다시 열리지 않는지 본다
+
+Operational delta를 닫은 **뒤에** [`references/failure-patterns.md`](references/failure-patterns.md)의 안내에 따라 historical corpus의 모든 `## P<number>`를 전수 읽는다.
+
+1. 모든 P heading을 전수 추출한다. 번호 상한을 하드코딩하지 않는다.
 2. 각 패턴의 causal lesson을 한 문장으로 요약한다.
-3. 변경 전/후 SKILL의 방어 지점을 찾는다.
-4. 각 패턴을 `COVERED / PARTIAL / GAP / OBSOLETE`로 판정한다.
-5. `PARTIAL/GAP`은 SKILL을 다시 수정하거나 수정하지 않는 근거를 남긴다.
+3. 변경 전/후 지침의 방어 지점을 찾는다.
+4. `COVERED / PARTIAL / GAP / OBSOLETE`로 판정한다.
+5. `PARTIAL/GAP`은 지침을 다시 수정하거나 수정하지 않는 근거를 남긴다.
 6. 변경 전 COVERED였는데 변경 후 PARTIAL/GAP이면 회귀 실패다.
 
-`COVERED`는 키워드 일치가 아니다. 실제 실패가 일어나기 **전에** 발동하는 실행 가능한 절차여야 한다. 예를 들어 기존 결정을 확인한다는 문장만으로 decision drift를 막았다고 보지 않는다. 과거 실패가 본문 후반에서 앞선 결정을 뒤집은 사례라면, 본문 완성 후 교차검증하도록 순서를 강제해야 COVERED다.
+`COVERED`는 키워드 일치가 아니다. 실제 실패가 일어나기 **전에** 발동하는 실행 가능한 절차여야 한다.
 
-## 7. failure-patterns 갱신 정책
+## 6-C. Cross-document Consistency — 정본끼리 서로 다른 명령을 하지 않는지 본다
 
-이 파일은 지침집이 아니라 회귀 코퍼스다. 새 이슈는 기존 P에 없는 새로운 causal class이거나 새 지침의 대표 evidence일 때만 추가한다. 동일 causal class의 재발은 장문 사례를 계속 쌓지 않고 필요하면 재발 한 줄 정도로 충분하다.
+최소 다음을 서로 대조한다.
 
-사례를 추가했다면 같은 review에서 해당 lesson의 SKILL 승격 여부를 판단하고 전체 regression을 다시 수행한다. 사례 추가만 하고 SKILL unchanged인 경우는 B/D/F/E 등 변경이 부적절한 근거가 있어야 한다.
+```text
+root AGENTS.md
+  ↕
+docs/handoff/AGENTS.md
+  ↕
+handoff-plan / handoff-verify / handoff-review SKILL.md
+  ↕
+plan.template.md / verify.template.md
+  ↕
+references / scripts
+  ↕
+실제 수정 subtree의 AGENTS.md
+```
+
+반드시 확인한다.
+
+- 같은 행위를 서로 다른 owner에게 맡기지 않는가.
+- 한 문서는 금지하고 다른 문서는 요구하지 않는가.
+- template 명령이 더 구체적인 하위 `AGENTS.md`의 안전 규칙과 충돌하지 않는가.
+- root 진입점이 새 skill/소유권을 알고 있는가.
+- 이동한 reference/script가 고아가 되지 않았는가. 살아 있는 소비처 또는 의도적 archive 근거가 있어야 한다.
+- `Handoff: none` 카브아웃이 검증 면제를 뜻하지 않는가.
+
+`app/**`를 검증할 때 빌드/테스트 명령의 정본은 `app/AGENTS.md`다. generic template이 이를 덮어쓰면 regression이다.
+
+## 7. failure corpus 갱신 정책
+
+`references/failure-patterns.md`는 현재 정책을 설명하는 **진입점**이고, historical 사례 본문은 그 문서가 가리키는 corpus에 둔다. plan/verify는 이를 직접 갱신하지 않는다.
+
+새 이슈는 기존 P에 없는 새로운 causal class이거나 새 지침의 대표 evidence일 때만 corpus에 추가한다. 동일 causal class의 재발은 장문 사례를 계속 쌓지 않는다.
+
+사례 추가 여부와 별개로, **지침 자체의 변경/유지 판단이 review의 주 산출물**이어야 한다. 지침 리팩터링 과정에서 발생한 운영지식 삭제는 design-failure P를 억지로 늘리지 말고 Operational Instruction Delta 기록으로 남길 수 있다.
 
 ## 8. Decision drift 리뷰
 
@@ -113,14 +173,26 @@ description: handoff-plan 및 handoff-verify의 지침 자체를 리뷰하고 �
 - [ ] 이슈마다 A~F 분류와 근거가 있다.
 - [ ] skill gap과 모델 실행 실패를 구분했다.
 - [ ] 사용자 결정 변경을 실패 패턴으로 오염시키지 않았다.
-- [ ] 사례 누적이 아니라 SKILL 지침의 변경/유지 판단을 했다.
+- [ ] 사례 누적이 아니라 SKILL/template/AGENTS 지침의 변경/유지 판단을 했다.
 - [ ] 새 규칙보다 기존 규칙 통합·교체를 먼저 검토했다.
 - [ ] plan/verify의 현재 작업 비판 책임을 review로 빼앗지 않았다.
-- [ ] failure-patterns의 모든 현재 P heading을 전수 대조했다.
+- [ ] **변경 전 운영지침을 전수 diff하여 KEEP/MOVE/REPLACE/DELETE 승계표를 만들었다.**
+- [ ] DELETE에는 제거 근거가 있고, 설명 없이 사라진 gate/command/reference가 0개다.
+- [ ] failure corpus의 모든 현재 P heading을 전수 대조했다.
 - [ ] 각 P에 COVERED/PARTIAL/GAP/OBSOLETE와 방어 지침 근거가 있다.
-- [ ] 변경 전 대비 coverage 회귀가 0건이다.
-- [ ] 정상 plan/verify는 failure-patterns를 매번 읽거나 직접 갱신하지 않는다.
+- [ ] 변경 전 대비 historical coverage 회귀가 0건이다.
+- [ ] root AGENTS ↔ handoff AGENTS ↔ SKILL ↔ template ↔ references/scripts ↔ 하위 AGENTS의 명령 충돌이 0건이다.
+- [ ] 이동/잔존 reference와 script에 고아가 없다.
+- [ ] AGENTS 변경 시 위생·부모/자식 규칙 충돌·필요한 CLAUDE stub을 확인했다.
+- [ ] INDEX/commit trailer 등 협업 운영 규칙이 의도치 않게 삭제되지 않았다.
+- [ ] 정상 plan/verify는 failure corpus를 매번 읽거나 직접 갱신하지 않는다.
 
 ## 종료 보고
 
-어떤 causal class를 발견했는지, plan/verify의 어떤 지침을 왜 바꿨는지, failure-patterns regression 결과, skill 변경으로 해결할 수 없는 capability/환경 한계를 보고한다.
+다음을 분리해서 보고한다.
+
+- causal class와 지침 변경 이유.
+- Operational Instruction Delta 결과(KEEP/MOVE/REPLACE/DELETE 및 regression 0 여부).
+- historical failure regression 결과.
+- cross-document consistency 결과.
+- skill 변경으로 해결할 수 없는 capability/환경 한계.
