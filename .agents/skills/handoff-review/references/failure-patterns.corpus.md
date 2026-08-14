@@ -1,15 +1,15 @@
-# 설계 실패 패턴 — verify 자기 리뷰 + 설계 리뷰 전수 증거
+# 설계 실패 패턴 — historical evidence corpus
 
 `docs/handoff/*/verify.md` 142개의 「검증 자기 리뷰 → 설계 단계」 절과, **READY 직후 설계
 리뷰에서 잡힌 결함**에서 **원문을 인용**해 패턴별로 묶었다. 추상 규칙만 주면 문자 그대로만
 지키게 되므로, *왜* 그 규칙이 있는지 보이도록 문장을 남긴다.
 
-**읽는 법**: SKILL.md 의 관문에서 막히거나 판단이 애매하면 해당 패턴의 원문을 읽어라.
-자기 상황과 가장 닮은 사례를 찾는 것이 규칙을 외우는 것보다 낫다.
+**현재 의미**: 이 파일은 historical evidence이며 현재 실행 지침의 SSOT가 아니다.
+과거 handoff가 특정 P를 “SSOT”로 지칭해도 당시 구조 기록이며 현재 정본은 plan/verify/review SKILL이다.
 
-**갱신 관례**: 새 설계 실패가 나오면 — verify 자기 리뷰든, **READY 이후 설계 리뷰든, 구현
-턴의 이견이든** — 해당 패턴에 한 줄 추가한다. 어느 패턴에도 안 맞으면 다음 번호로 신설한다.
-**이 파일이 저장소의 설계 실패 축적 지점이다.**
+**갱신 정책**: 정상 plan/verify는 이 파일을 작업 지침으로 읽거나 직접 갱신하지 않는다.
+사례 일반화·추가 여부와 regression 사용은 `handoff-review/SKILL.md`가 결정한다.
+**과거 명령문은 현재 효력이 없다.** 아래 P 본문과 관찰은 실패 증거로만 보존한다.
 
 > 통계: verify 142건 중 **r1 PASS 124건**. 절차 자체는 작동한다 — 아래는 나머지 구간에서
 > 반복된 것들이며, 절차를 갈아엎으라는 뜻이 아니라 **이 지점들만** 막으라는 뜻이다.
@@ -573,8 +573,7 @@ import 한다.
 
 관문 1 은 "선행 문서의 수치·주장을 승계하지 않는다" 를 못 박는다. 0177 은 수치는 전부 재측정해
 놓고, **서술 문장** 하나를 코드 확인 없이 옮겼다 — `app/src/main/AGENTS.md` 의 "`net-fetch.ts` 가
-`electron` 을 무는 **유일한** 네트워크 파일" 을 `docs/arch/backend/security.md`(정본)의 새 절로
-승격했다. 실측하면 electron 을 무는 전송 파일은 **3개**(`net-fetch.ts`·`net-request.ts`·
+`electron` 을 무는 **유일한** 네트워크 파일" 을 `docs/arch/backend/security.md`(정본)의 새 절로 승격했다. 실측하면 electron 을 무는 전송 파일은 **3개**(`net-fetch.ts`·`net-request.ts`·
 `browser-session-store.ts`)이고, 가드가 실제로 강제하는 규칙은 *다른 것* 이었다 — **전역 `fetch(`
 호출**이 `net-fetch.ts` 에만 허용된다.
 

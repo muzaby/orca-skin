@@ -41,14 +41,14 @@ description: handoff-plan 및 handoff-verify의 지침 자체를 리뷰하고 �
 
 | 분류 | 판정 | 기본 조치 |
 |---|---|---|
-| A. Instruction gap | 필요한 행동이 현재 SKILL에 없거나 모호함 | SKILL/template/AGENTS 수정 후보 |
-| B. Execution/capability failure | 명확한 지침과 gate가 있었는데 수행하지 않음 | 같은 규칙 중복 추가 금지. evidence/gate 강화 가능성만 검토 |
+| A. Instruction gap | 필요한 행동이 현재 SKILL에 없거나 모호함. 지침이 있어도 정상 수행만으로 실패를 막을 수 없으면 포함 | 기존 지침의 coverage 정밀화 또는 SKILL/template/AGENTS 수정 후보 |
+| B. Execution/capability failure | 충분히 명확한 지침과 gate를 정상 수행했다면 실패를 막았어야 하나 수행하지 않음 | 같은 규칙 중복 추가 금지. evidence/gate 강화 가능성만 검토 |
 | C. Communication/spec mismatch | 두 해석이 합리적이고 사용자 의도가 충분히 특정되지 않음 | 사용자 질의 발동 조건 보완 |
 | D. User decision change | 사용자가 후속 턴에서 의도적으로 결정 변경 | 실패로 학습하지 않음. supersede만 보존 |
 | E. Evidence/environment limitation | 필요한 1차 증거·실행 환경이 실제로 없음 | 검증 경계/대리 검증/사람 책임 명확화 |
 | F. Implementation defect | 설계 지침은 충분하고 구현만 잘못됨 | plan skill 변경 금지. verify가 잡는지 확인 |
 
-사용자가 이미 구체적으로 결정했는데 몇 턴 뒤 에이전트가 다른 안을 채택했다면 B다. 처음부터 여러 제품적 선택지가 가능했는데 확인 없이 택했다면 C다. 사용자가 명시적으로 바꿨다면 D다. 조건절·이유절이 대안을 지정했는데 배경으로 읽은 경우는 현재 지침 존재 여부에 따라 A/B로 판정한다.
+사용자가 이미 구체적으로 결정했는데 몇 턴 뒤 에이전트가 다른 안을 채택했다면 B다. 처음부터 여러 제품적 선택지가 가능했는데 확인 없이 택했다면 C다. 사용자가 명시적으로 바꿨다면 D다. 조건절·이유절이 대안을 지정했는데 배경으로 읽은 경우는 현재 지침 존재 여부와 **그 지침을 정상 수행했을 때 실제로 실패를 차단하는지**에 따라 A/B로 판정한다.
 
 ## 3. 현재 지침의 결함을 찾는다
 
@@ -57,10 +57,11 @@ description: handoff-plan 및 handoff-verify의 지침 자체를 리뷰하고 �
 1. 이 실패를 막으려던 현재 지침이 이미 있는가.
 2. 있다면 어느 heading/문장인가.
 3. 그 지침을 정상 수행했어도 실패 가능한가.
-4. 가능하다면 발동 조건·증거 요구·순서·책임 경계 중 무엇이 부족한가.
-5. 지침이 없으면 가장 일반적인 형태로 어디에 추가해야 하는가.
+4. 가능하다면 **A(coverage gap)** 로 보고 발동 조건·증거 요구·순서·책임 경계 중 무엇이 부족한가.
+5. 지침이 충분했는데 실제 수행만 누락됐다면 **B** 로 보고 같은 문장을 반복하지 않는다.
+6. 지침이 없으면 가장 일반적인 형태로 어디에 추가해야 하는가.
 
-이미 명확한 규칙이 있는데 놓친 B 유형은 같은 문장을 더 추가하지 않는다. 체크가 아니라 evidence를 남기게 할 수 있는지, 실행 순서를 바꿀지, template 필수 필드로 강제할지, 흩어진 규칙을 통합할지만 본다. 그것도 불가능하면 capability limitation으로 기록한다.
+B 유형은 같은 문장을 더 추가하지 않는다. 체크가 아니라 evidence를 남기게 할 수 있는지, 실행 순서를 바꿀지, template 필수 필드로 강제할지, 흩어진 규칙을 통합할지만 본다. 그것도 불가능하면 capability limitation으로 기록한다.
 
 ## 4. 지침 패치 원칙
 
@@ -81,9 +82,29 @@ description: handoff-plan 및 handoff-verify의 지침 자체를 리뷰하고 �
 
 `handoff-review`가 실패 원인 분류, 반복 실수 일반화, SKILL/template/AGENTS 자체 수정, failure corpus 유지 정책과 **지침 변경 회귀 검증**을 맡는다. plan/verify가 매 작업마다 failure corpus를 갱신하거나 자기 SKILL을 수정하지 않는다.
 
-# 6. 지침 변경 회귀 검증 — 3개 축 모두 필수
+# 6. 지침 변경 회귀 검증 — 변경 의미에 비례한다
 
-지침을 바꿨다면 아래 세 검사를 **독립적으로** 수행한다. 하나를 통과했다고 다른 두 개를 대체할 수 없다.
+지침/참조를 바꿀 때 먼저 변경을 Tier 1 또는 Tier 2로 분류한다. **애매하면 Tier 1**이다. Tier 2를 검증 회피구로 사용하지 않는다.
+
+### Tier 1 — Full regression
+
+다음 중 하나라도 바뀌면 **6-A + 6-B + 6-C를 모두 수행**한다.
+
+- trigger / owner / responsibility
+- command / gate / failure semantics
+- required template field / lifecycle / Decision·AC policy
+- corpus·reference의 canonical ownership 또는 소비자가 따라야 할 의미
+- 그 밖에 plan/verify/review의 normative behavior를 바꾸는 변경
+
+### Tier 2 — Referential / mechanical correction
+
+다음을 **모두** 만족하는 typo·오탈자·상대경로·링크 target 같은 수정만 해당한다.
+
+- 실행 의미, owner, gate, normative policy가 변하지 않는다.
+- historical failure defense를 약화하지 않는 이유를 한 문장으로 설명할 수 있다.
+- 변경이 가리키는 대상/링크의 의미만 바로잡는다.
+
+Tier 2는 **영향 받은 6-A Operational Delta + 6-C Cross-document Consistency를 수행**한다. 6-B 전수 대조는 생략할 수 있지만, 생략 이유를 regression 기록에 남긴다.
 
 ## 6-A. Operational Instruction Delta — 기존 운영지식의 삭제를 잡는다
 
@@ -95,22 +116,29 @@ description: handoff-plan 및 handoff-verify의 지침 자체를 리뷰하고 �
 - evidence / 무엇을 남겨야 통과인가
 - human vs agent responsibility
 - lifecycle / INDEX / commit / hygiene 같은 운영 절차
-- reference/script 연결과 그 소비자
+- reference/script 연결, **그 소비자와 소비자가 기대하는 의미**
 
 각 항목을 다음 중 하나로 판정한다.
 
 | 판정 | 의미 | 완료 조건 |
 |---|---|---|
 | KEEP | 같은 위치에서 유지 | 의미와 발동 조건이 약화되지 않음 |
-| MOVE | 다른 정본으로 이동 | 새 위치와 소비 경로가 명시됨 |
+| MOVE | 다른 정본으로 이동 | 새 위치와 소비 경로, inbound expectation의 보존이 명시됨 |
 | REPLACE | 더 일반적/강한 규칙으로 대체 | 구 규칙이 막던 실패를 새 규칙도 막음 |
 | DELETE | 의도적으로 제거 | 왜 더 이상 필요 없는지 근거가 있음 |
 
 **설명 없이 사라진 항목은 regression이다.** 특히 `npm test` 같은 명령은 문자열 존재가 아니라 하위 `AGENTS.md`의 ABI/네트워크 제약과 충돌하는지까지 본다.
 
+reference/script를 MOVE/REPLACE하면 존재성만 보지 않는다.
+
+1. old path의 inbound reference를 전수 세고 `N`을 남긴다.
+2. inbound가 기대하는 distinct semantic target(heading/anchor, named rule·pattern, line-scoped contract, example/schema/script behavior)을 `M`개로 정리한다.
+3. 새 target에서 각 semantic target이 유지됨을 **M/M evidence**로 보인다. heading/anchor는 `rg`, symbol은 `rg`/parser, contract는 문장·타입·테스트 등 해당 의미에 맞는 증거를 사용한다.
+4. 링크가 resolve하거나 파일이 존재한다는 사실만으로 semantic integrity를 PASS하지 않는다.
+
 ## 6-B. Historical Failure Regression — 기존 실패사례가 다시 열리지 않는지 본다
 
-Operational delta를 닫은 **뒤에** [`references/failure-patterns.md`](references/failure-patterns.md)의 안내에 따라 historical corpus의 모든 `## P<number>`를 전수 읽는다.
+Tier 1에서 Operational delta를 닫은 **뒤에** [`references/failure-patterns.md`](references/failure-patterns.md)의 안내에 따라 historical corpus의 모든 `## P<number>`를 전수 읽는다.
 
 1. 모든 P heading을 전수 추출한다. 번호 상한을 하드코딩하지 않는다.
 2. 각 패턴의 causal lesson을 한 문장으로 요약한다.
@@ -136,7 +164,7 @@ plan.template.md / verify.template.md
   ↕
 references / scripts
   ↕
-실제 수정 subtree의 AGENTS.md
+실제 수정 subtree의 AGENTS.md / 관련 CI·자동화 정본
 ```
 
 반드시 확인한다.
@@ -145,16 +173,18 @@ references / scripts
 - 한 문서는 금지하고 다른 문서는 요구하지 않는가.
 - template 명령이 더 구체적인 하위 `AGENTS.md`의 안전 규칙과 충돌하지 않는가.
 - root 진입점이 새 skill/소유권을 알고 있는가.
-- 이동한 reference/script가 고아가 되지 않았는가. 살아 있는 소비처 또는 의도적 archive 근거가 있어야 한다.
+- 이동한 reference/script의 **inbound reference N건이 새 target에서 기대한 semantic target M/M을 유지하는가.**
 - `Handoff: none` 카브아웃이 검증 면제를 뜻하지 않는가.
 
-`app/**`를 검증할 때 빌드/테스트 명령의 정본은 `app/AGENTS.md`다. generic template이 이를 덮어쓰면 regression이다.
+`app/**`를 에이전트 작업 루프에서 검증할 때 빌드/테스트 명령의 정본은 `app/AGENTS.md`다. PR/CI 통합 게이트의 정본은 `.github/workflows/ci.yml`이며 두 scope를 혼동하지 않는다. generic template이 더 구체적인 subtree 안전 규칙을 덮어쓰면 regression이다.
 
-## 7. failure corpus 갱신 정책
+## 7. failure corpus / review 기록 정책
 
 `references/failure-patterns.md`는 현재 정책을 설명하는 **진입점**이고, historical 사례 본문은 그 문서가 가리키는 corpus에 둔다. plan/verify는 이를 직접 갱신하지 않는다.
 
 새 이슈는 기존 P에 없는 새로운 causal class이거나 새 지침의 대표 evidence일 때만 corpus에 추가한다. 동일 causal class의 재발은 장문 사례를 계속 쌓지 않는다.
+
+**round별 review 보고서는 기본 영구 산출물이 아니다.** 영구 결과는 지침 변경과 `regression-coverage.md`의 현재 baseline/변경 요약에 압축한다. 사용자가 감사 기록·원문 보존을 명시적으로 요구한 경우에만 `roundN-review.md` 같은 별도 문서를 만들며, 그 문서는 실행 정본이 아니다.
 
 사례 추가 여부와 별개로, **지침 자체의 변경/유지 판단이 review의 주 산출물**이어야 한다. 지침 리팩터링 과정에서 발생한 운영지식 삭제는 design-failure P를 억지로 늘리지 말고 Operational Instruction Delta 기록으로 남길 수 있다.
 
@@ -162,7 +192,7 @@ references / scripts
 
 `사용자 결정 시점 → 당시 plan/Decision Ledger → 후속 turn → 최종 Product/UX Contract → Technical Design/AC` 순으로 추적한다.
 
-- 사용자가 바꾸지 않았는데 사라짐: B, 또는 Ledger 지침이 없었다면 A.
+- 사용자가 바꾸지 않았는데 사라짐: B, 또는 Ledger 지침이 없었거나 정상 수행해도 막을 수 없었다면 A.
 - 사용자 변경 명시: D. 기존 결정을 SUPERSEDED 처리했는지만 본다.
 - 해석 충돌이 있었는데 질문 없이 진행: C. 질문 발동 조건을 개선한다.
 
@@ -170,21 +200,21 @@ references / scripts
 
 ## 완료 조건
 
-- [ ] 이슈마다 A~F 분류와 근거가 있다.
-- [ ] skill gap과 모델 실행 실패를 구분했다.
+- [ ] 이슈마다 A~F 분류와 근거가 있고, A(coverage gap)와 B(실행 누락)를 구분했다.
 - [ ] 사용자 결정 변경을 실패 패턴으로 오염시키지 않았다.
 - [ ] 사례 누적이 아니라 SKILL/template/AGENTS 지침의 변경/유지 판단을 했다.
 - [ ] 새 규칙보다 기존 규칙 통합·교체를 먼저 검토했다.
 - [ ] plan/verify의 현재 작업 비판 책임을 review로 빼앗지 않았다.
-- [ ] **변경 전 운영지침을 전수 diff하여 KEEP/MOVE/REPLACE/DELETE 승계표를 만들었다.**
+- [ ] 변경을 Tier 1/2로 분류했고 애매하면 Tier 1을 적용했다.
+- [ ] 선택한 tier가 요구하는 Operational Delta / Historical Regression / Cross-document 검사를 수행했다.
 - [ ] DELETE에는 제거 근거가 있고, 설명 없이 사라진 gate/command/reference가 0개다.
-- [ ] failure corpus의 모든 현재 P heading을 전수 대조했다.
-- [ ] 각 P에 COVERED/PARTIAL/GAP/OBSOLETE와 방어 지침 근거가 있다.
-- [ ] 변경 전 대비 historical coverage 회귀가 0건이다.
-- [ ] root AGENTS ↔ handoff AGENTS ↔ SKILL ↔ template ↔ references/scripts ↔ 하위 AGENTS의 명령 충돌이 0건이다.
-- [ ] 이동/잔존 reference와 script에 고아가 없다.
+- [ ] MOVE/REPLACE reference는 inbound `N`과 semantic target `M/M` 증거가 있다.
+- [ ] Tier 1이면 failure corpus의 모든 현재 P heading을 전수 대조하고 historical coverage 회귀가 0건이다.
+- [ ] Tier 2에서 historical 전수를 생략했다면 normative 의미 불변 근거를 기록했다.
+- [ ] root AGENTS ↔ handoff AGENTS ↔ SKILL ↔ template ↔ references/scripts ↔ 하위 AGENTS/관련 CI 정본의 명령·scope 충돌이 0건이다.
 - [ ] AGENTS 변경 시 위생·부모/자식 규칙 충돌·필요한 CLAUDE stub을 확인했다.
 - [ ] INDEX/commit trailer 등 협업 운영 규칙이 의도치 않게 삭제되지 않았다.
+- [ ] completion item은 본문의 실행 규칙에 매핑되고, 체크리스트에만 존재하는 새 normative 요구가 없다.
 - [ ] 정상 plan/verify는 failure corpus를 매번 읽거나 직접 갱신하지 않는다.
 
 ## 종료 보고
@@ -192,7 +222,8 @@ references / scripts
 다음을 분리해서 보고한다.
 
 - causal class와 지침 변경 이유.
+- 선택한 regression tier와 근거.
 - Operational Instruction Delta 결과(KEEP/MOVE/REPLACE/DELETE 및 regression 0 여부).
-- historical failure regression 결과.
-- cross-document consistency 결과.
+- Tier 1이면 historical failure regression 결과, Tier 2면 생략 근거.
+- cross-document consistency 및 reference semantic-integrity 결과.
 - skill 변경으로 해결할 수 없는 capability/환경 한계.
