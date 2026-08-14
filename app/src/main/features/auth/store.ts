@@ -166,22 +166,30 @@ export class AuthStore {
 
   // 401 관측 시 강등. **grant 를 지우지 않는다** — 사용자가 어느 provider 를 다시 인증해야
   // 하는지 화면에서 봐야 하고, 재인증이 기존 항목을 교체하는 형태여야 하기 때문이다.
-  markExpired(authId: AuthId): void {
+  //
+  // 돌려주는 값은 **이번 호출이 실제 만료 전이를 만들었는가**(= revision 을 올렸는가) 다 (r4).
+  // r3 까지는 `void` 였고, 그래서 호출부는 전이가 없었던 호출에도 `credentialChanged:true` 를
+  // 발행했다 — 401 probe 로 실패한 `resume()` 한 번이 credential-effective change 를 **두 번**
+  // 냈고(요청 경로에서 한 번, resume 에서 한 번) 두 번째는 revision 이 그대로였다. 그 유령
+  // 이벤트가 Harness cache 를 한 번 더 비우고 부팅 방송 상한 `1 + K`(0187 D2)를 `1 + 2K` 로
+  // 늘렸다. 판정은 store 가 갖고, 통지 여부는 호출부가 이 값으로 정한다.
+  markExpired(authId: AuthId): boolean {
     const grant = this.grants.get(authId)
-    if (!grant) return
+    if (!grant) return false
     // 확인은 무조건 취소한다 — 401 을 봤는데 "확인됨" 을 남겨 두면 게이트가 열린 채로 남는다.
     // (아래 조기 반환보다 앞이어야 한다: 이미 만료 표기된 grant 도 확인은 풀려야 한다.)
     this.verified.delete(authId)
     const now = this.clock()
     // 이미 만료 표기된 grant 를 다시 강등해도 실행 credential 은 그대로다 — revision 을 올리면
     // 401 을 두 번 본 것만으로 Harness cache 가 두 번 무효화된다.
-    if (grant.expiresAt !== undefined && grant.expiresAt <= now) return
+    if (grant.expiresAt !== undefined && grant.expiresAt <= now) return false
     this.grants.set(authId, { ...grant, expiresAt: now })
     // 401/403 로 만료를 못 박았다 — 이후 시계 기반 관측이 같은 전이를 두 번 세지 않도록
     // 정착 표시를 함께 남긴다.
     this.expirySettled.add(authId)
     this.bumpRevision(authId)
     this.flush()
+    return true
   }
 
   // ── 재인증 롤백 (0188 D-009) ────────────────────────────────────────────────

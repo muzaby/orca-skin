@@ -67,7 +67,12 @@ export interface AuthenticatedRequesterDeps {
   logger?: (event: string, data: Record<string, unknown>) => void
   // 401/403 관측 시의 강등 통지 (0188). 구 `onChange` 는 "무언가 바뀌었다" 였고 소비자가
   // 무엇이 바뀌었는지 몰랐다 — 여기서는 **어느 Auth 가** 강등됐는지까지 말한다.
-  onUnauthorized?: (authId: AuthId) => void
+  //
+  // `credentialChanged` 는 이 관측이 **실제 만료 전이를 만들었는가** 다 (r4). 동시에 떠 있던 두
+  // 요청이 각각 401 을 받으면 두 번째 `markExpired` 는 아무것도 바꾸지 않는데, 그때도 true 로
+  // 내면 Harness cache 가 한 번 더 비고 도구가 한 번 더 sync 된다. **통지 자체는 계속 낸다** —
+  // 전이가 없어도 `verified` 는 풀리므로 화면은 그 사실을 받아야 한다.
+  onUnauthorized?: (authId: AuthId, credentialChanged: boolean) => void
   // 시계 기반 만료를 **이 경로에서 처음 관측했을 때**의 통지 (r3). 요청은 정책 단계에서 이미
   // 거부되지만, 그것만으로는 grant 상태가 정착되지 않아 도구 등록·GUI·Harness cache 가 다음
   // snapshot 조회 전까지 살아 있는 것처럼 남았다.
@@ -122,12 +127,12 @@ export class AuthenticatedRequester {
     // 401 은 "자격증명이 더 이상 유효하지 않다" 는 **서버의 판정**이다. 여기서 강등해야
     // 사용자가 GUI 에서 재인증 지점을 본다 — 조용히 실패만 반복하지 않는다.
     if (result.status === 401 || result.status === 403) {
-      this.deps.store.markExpired(authId)
+      const transitioned = this.deps.store.markExpired(authId)
       this.deps.logger?.('auth.request.unauthorized', {
         authId,
         status: result.status
       })
-      this.deps.onUnauthorized?.(authId)
+      this.deps.onUnauthorized?.(authId, transitioned)
     }
 
     return {
