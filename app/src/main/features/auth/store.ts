@@ -9,16 +9,35 @@
 import type { AuthId, AuthMethodKind, AuthStatus, Grant } from '../../contracts/auth'
 import type { Vault } from '../../infra/vault'
 
+// 부팅에서 읽어 온 것과 **그것이 전부인지**를 함께 돌려준다 (r9).
+export interface PersistenceLoad<T> {
+  records: Record<string, T>
+  // 저장소를 열고 **끝까지** 읽었는가. `false` 면 이 맵은 "아는 만큼" 이지 "전부" 가 아니다 —
+  // 호출부는 이것을 없음의 증거로 쓰면 안 된다.
+  authoritative: boolean
+}
+
 export interface GrantPersistencePort {
-  load(): Record<string, Grant>
-  // **내구 저장 성공 여부를 돌려준다** (r8). 디스크에 실제로 앉았으면 `true`, 이 프로세스
-  // 메모리에만 남았으면 `false` 다. 쓰기를 시도했는데 실패했으면 **throw** 한다.
+  load(): PersistenceLoad<Grant>
+  // **내구 저장 성공 여부를 돌려준다** (r8, 계약 통일 r9). 디스크에 실제로 앉았으면 `true`,
+  // 아니면 `false` 다 — 파일을 못 열었든 쓰기가 거부됐든 구분하지 않는다. 둘 다 "재시작을
+  // 못 넘긴다" 는 같은 사실이기 때문이다.
+  //
+  // **구현이 던져도 된다** — `AuthStore` 가 그것을 `false` 로 정규화한다. 호출부가 보는 신호는
+  // 언제나 boolean 하나뿐이다(r8 은 throw 와 false 에 서로 다른 정책을 붙여, 같은 조건이 두
+  // 갈래로 처리됐다).
   //
   // 왜 boolean 이 필요한가: production adapter 는 store 파일을 못 열면 메모리로 내려앉는다
   // (그래야 키체인이 잠긴 머신에서도 앱이 뜬다). 그 상태를 "저장 성공" 으로 뭉개면, 호출부는
   // 옛 자격증명을 지워도 된다고 믿는다 — 재시작하면 grant 는 옛 것으로 돌아가는데 그 키는
-  // 이미 지워져 **아무것도 가리키지 않는 grant** 가 된다. `false` 를 받은 호출부는 새 값을
-  // 이번 프로세스에서 쓰되 **옛 키를 남긴다**.
+  // 이미 지워져 **아무것도 가리키지 않는 grant** 가 된다.
+  //
+  // ── 정책은 실패 신호가 아니라 **연산**이 정한다 (r9) ────────────────────────
+  //   · 추가·교체(`put`)  → degrade-open. 이번 프로세스는 새 값으로 동작하고 **옛 키를 남긴다**.
+  //                        재시작하면 직전 정상 상태로 돌아갈 뿐이라 잃는 것이 없다.
+  //   · 해제(`revoke`)    → **fail-closed.** 진행하면 secret 은 지워지는데 grant 는 디스크에
+  //                        남고, session grant 는 cookie 까지 남아 **사용자가 끊은 연결이
+  //                        재시작 후 되살아난다.** 그래서 해제는 실패로 돌린다.
   save(records: Record<string, Grant>): boolean
 }
 
@@ -28,7 +47,8 @@ export function createMemoryGrantPersistence(
 ): GrantPersistencePort {
   let records = { ...seed }
   return {
-    load: () => ({ ...records }),
+    // 메모리 구현은 자기가 가진 것이 전부다 — 읽기 실패라는 상태가 없다.
+    load: () => ({ records: { ...records }, authoritative: true }),
     save: (next) => {
       records = { ...next }
       // 메모리 전용이지만 "이 구현이 약속한 만큼은 저장됐다" 가 참이다 — 테스트가 정상 경로를
@@ -39,12 +59,19 @@ export function createMemoryGrantPersistence(
   }
 }
 
+// 해제 결과 3분기 (r9). `absent`(원래 없었다)와 `failed`(영속이 성립하지 않았다)를 같은
+// `undefined` 로 합치면 호출부가 실패를 "조용한 no-op" 으로 읽는다.
+export type RevokeOutcome =
+  { kind: 'revoked'; grant: Grant } | { kind: 'absent' } | { kind: 'failed' }
+
 export interface AuthStoreDeps {
   persistence: GrantPersistencePort
   vault: Vault
   clock?: () => number
   // 선언에 없는 id 를 만났을 때의 통지. 삭제하지 않고 로그만 남긴다(§파생 UX 고아 grant).
   onOrphan?: (authId: AuthId) => void
+  // grant 저장소를 끝까지 읽지 못해 vault 고아 sweep 을 건너뛴 경우의 진단(r9).
+  onSweepSkipped?: () => void
 }
 
 export class AuthStore {
@@ -78,12 +105,14 @@ export class AuthStore {
   private readonly vault: Vault
   private readonly clock: () => number
   private readonly onOrphan?: (authId: AuthId) => void
+  private readonly onSweepSkipped?: () => void
 
   constructor(deps: AuthStoreDeps) {
     this.persistence = deps.persistence
     this.vault = deps.vault
     this.clock = deps.clock ?? Date.now
     this.onOrphan = deps.onOrphan
+    this.onSweepSkipped = deps.onSweepSkipped
   }
 
   // 부팅 복원. **선언에 없는 id 는 조용히 무시하고 로그만 남긴다** — 삭제하지 않는다.
@@ -97,7 +126,8 @@ export class AuthStore {
     // 복원은 부팅 1회이고 구독자가 붙기 전이다 — 세대도 함께 초기화한다.
     this.revisions.clear()
     this.expirySettled.clear()
-    const persisted = Object.entries(this.persistence.load())
+    const loaded = this.persistence.load()
+    const persisted = Object.entries(loaded.records)
     for (const [authId, grant] of persisted) {
       if (!known.has(authId)) {
         this.onOrphan?.(authId)
@@ -113,6 +143,15 @@ export class AuthStore {
     //
     // **기준은 선언이 아니라 영속된 grant 전체다.** 선언에서 잠시 빠진 Auth 의 grant 는 위에서
     // 일부러 지우지 않는데(재로그인 강요 방지), 그 값을 여기서 지워 버리면 같은 배려가 무너진다.
+    //
+    // **그리고 그 "전체" 를 실제로 알 때만 돈다** (r9). grant 파일을 못 열거나 레코드를 하나라도
+    // 버렸으면 빈/부분 맵이 오는데, 그것을 없음의 증거로 읽으면 **멀쩡한 secret 을 부팅 한 번에
+    // 통째로 지운다**(grant 파일만 손상되고 secret 파일은 멀쩡한 경우가 정확히 그렇다).
+    // 고아 정리는 미뤄도 되는 위생 작업이고, 잘못 지운 secret 은 복구되지 않는다.
+    if (!loaded.authoritative) {
+      this.onSweepSkipped?.()
+      return
+    }
     const referenced = new Set<string>()
     for (const [, grant] of persisted) {
       if (grant.kind === 'secret' || grant.kind === 'token') referenced.add(grant.vaultKey)
@@ -159,7 +198,7 @@ export class AuthStore {
   // 내구 저장이었는지를 돌려준다 (r8) — 호출부가 옛 vault 키를 지워도 되는지 판단한다.
   put(authId: AuthId, grant: Grant): boolean {
     const next = { ...Object.fromEntries(this.grants), [authId]: grant }
-    const durable = this.persistence.save(next)
+    const durable = this.persist(next)
     this.grants.set(authId, grant)
     this.verified.add(authId)
     this.expirySettled.delete(authId)
@@ -170,17 +209,27 @@ export class AuthStore {
 
   // 해제 — grant 와 vault 잔여물을 함께 지운다. secret/token 이 아닌 session grant 는
   // vault 에 값이 없으므로 cookie jar 정리는 호출부(browser session)가 맡는다.
-  revoke(authId: AuthId): Grant | undefined {
+  //
+  // ── 해제는 fail-closed 다 (r9) ─────────────────────────────────────────────
+  //
+  // **영속이 먼저다.** r8 은 vault 를 지우고 메모리를 비운 뒤 `flush()` 의 결과를 버렸다. 그러면
+  // 저장이 실패했을 때 ⓐ secret 은 사라졌는데 디스크의 grant 는 그 키를 계속 가리키고
+  // ⓑ session grant 는 vault 에 값이 없어 **아무것도 사라지지 않은 채** 화면만 '해제됨' 이 된다 —
+  // 재시작하면 grant 가 복원되고 cookie 가 살아 있어 probe 가 통과, **사용자가 끊은 연결이
+  // 되살아난다.** 추가/교체와 달리 해제는 degrade 로 접을 수 없다.
+  revoke(authId: AuthId): RevokeOutcome {
     const grant = this.grants.get(authId)
-    if (!grant) return undefined
+    if (!grant) return { kind: 'absent' }
+    const next = Object.fromEntries([...this.grants].filter(([id]) => id !== authId))
+    // 저장이 성립하지 않으면 **아무것도 건드리지 않고** 실패로 돌린다.
+    if (!this.persist(next)) return { kind: 'failed' }
     if (grant.kind === 'secret' || grant.kind === 'token') this.vault.delete(grant.vaultKey)
     if (grant.kind === 'token' && grant.refreshKey) this.vault.delete(grant.refreshKey)
     this.grants.delete(authId)
     this.verified.delete(authId)
     this.expirySettled.delete(authId)
     this.bumpRevision(authId)
-    this.flush()
-    return grant
+    return { kind: 'revoked', grant }
   }
 
   // 만료된 토큰을 `expired` 로 강등한다(401 관측 또는 `expiresAt` 경과). grant 자체는 남긴다 —
@@ -338,6 +387,17 @@ export class AuthStore {
   }
 
   private flush(): void {
-    this.persistence.save(Object.fromEntries(this.grants))
+    this.persist(Object.fromEntries(this.grants))
+  }
+
+  // 포트의 실패 신호를 **하나로 정규화한다** (r9). 구현이 던지든 `false` 를 주든 호출부가 보는
+  // 것은 boolean 하나다 — r8 은 두 신호에 서로 다른 정책을 붙여, 같은 "내구 저장 실패" 가
+  // 로그인에서는 거부로 vault 경로에서는 degrade 로 갈라졌다.
+  private persist(records: Record<string, Grant>): boolean {
+    try {
+      return this.persistence.save(records)
+    } catch {
+      return false
+    }
   }
 }

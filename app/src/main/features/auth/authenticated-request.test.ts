@@ -58,6 +58,7 @@ function fakeSessions(): BrowserSessionPort & SessionPolicySink & { sent: string
       return `handle-${group}`
     },
     openLoginWindow: vi.fn(async () => ({ finalUrl: '' })),
+    clear: async () => undefined,
     send: vi.fn(async (_handleId: string, req: { url: string }) => {
       sent.push(req.url)
       return { status: 200, headers: {}, body: '{"ok":true}' }

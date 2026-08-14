@@ -9,6 +9,7 @@
 // compose 가 거부하면 vault 에 손도 대지 않는다.
 
 import { randomBytes } from 'node:crypto'
+import type { BrowserSessionPort } from './specs/browser-session'
 import type { ProviderFailureReason } from '../../../shared/ipc'
 import type {
   AuthDefinition,
@@ -70,6 +71,9 @@ export interface LoginDeps {
   vaultKeyVersion?: () => string
   oauth?: OAuthAuthenticator
   session?: SessionAuthenticator
+  // cookie jar. 해제 시 session grant 의 쿠키를 함께 비운다(r9). 미주입이면 비우지 않는다 —
+  // 값형만 쓰는 배포에서는 세션 자체가 없다.
+  sessions?: BrowserSessionPort
   // 인증 확인(`AuthDefinition.probe`)의 실행 통로. 미주입이면 확인 없이 통과한다.
   // `candidate` 는 **아직 커밋되지 않은** 자격증명이다 (r5) — store·vault 를 거치지 않고
   // 이 요청에만 실린다.
@@ -196,17 +200,57 @@ export class LoginService {
     return this.run(authId, pending.authKind, input)
   }
 
+  // ── 해제는 성공했을 때만 성공을 발행한다 (r9) ──────────────────────────────
+  //
+  // r8 은 `store.revoke()` 의 영속 결과를 버리고 무조건 `revoked` 를 냈다. 저장이 실패하면
+  // 화면만 '해제됨' 이 되고 디스크의 grant 는 그대로 남아, 재시작하면 연결이 되살아난다 —
+  // session grant 는 vault 값도 없어 **아무것도 사라지지 않은 채** 그렇게 된다.
+  //
+  // 그래서 store 가 영속에 성공한 뒤에만 상태를 바꾸고, 실패는 **던져서** IPC 응답을 실패로
+  // 만든다(`handlers/providers.ts` 의 `'reject'` 모드). 사용자가 "끊었다" 고 믿게 두지 않는다.
+  //
+  // 상태 변경이 store 성공 뒤로 간 것은 안전하다 — `store.revoke()` 는 동기라 그 사이에
+  // 끼어들 실행이 없다.
   revoke(authId: AuthId): void {
+    const outcome = this.deps.store.revoke(authId)
+    if (outcome.kind === 'failed') {
+      this.deps.logger?.('auth.revoke.persist-failed', { authId })
+      throw new Error('연결 해제를 저장하지 못했습니다. 잠시 후 다시 시도해 주세요.')
+    }
     this.pending.delete(authId)
     // 진행 중인 probe 의 커밋을 무효화한다 — 해제한 Auth 가 뒤늦은 커밋으로 되살아나면 안 된다.
     this.openAttempt(authId)
-    const removed = this.deps.store.revoke(authId)
     if (this.step?.providerId === authId) {
       this.step = null
       this.deps.onStep?.(null)
     }
     // grant 가 없었으면 아무것도 바뀌지 않았다 — 빈 해제로 Plugin 도구를 다시 sync 하지 않는다.
-    if (removed) this.deps.onSnapshot?.(authId, 'revoked')
+    if (outcome.kind !== 'revoked') return
+    this.deps.onSnapshot?.(authId, 'revoked')
+    this.clearSessionCookies(authId, outcome.grant)
+  }
+
+  // session grant 를 해제하면 cookie jar 도 비운다 — grant 만 지우면 서버 쪽 로그인은 살아 있다.
+  // best-effort 다: 실패해도 해제 자체는 이미 내구적으로 성립했으므로 되돌리지 않는다.
+  private clearSessionCookies(authId: AuthId, grant: Grant): void {
+    if (grant.kind !== 'session') return
+    const sessions = this.deps.sessions
+    if (!sessions) return
+    const definition = this.deps.registry.get(authId)
+    if (!definition) return
+    try {
+      const handleId = sessions.acquire(grant.sessionGroup)
+      void sessions
+        .clear(handleId, { scope: 'origin', origin: definition.origin })
+        .catch((error: unknown) =>
+          this.deps.logger?.('auth.revoke.cookie-clear-failed', {
+            authId,
+            reason: errorMessage(error)
+          })
+        )
+    } catch (error) {
+      this.deps.logger?.('auth.revoke.cookie-clear-failed', { authId, reason: errorMessage(error) })
+    }
   }
 
   // ── 복원된 Grant 의 확인 (0181 → 0188 재배치) ────────────────────────────────

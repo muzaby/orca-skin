@@ -11,7 +11,7 @@ import Store from 'electron-store'
 import { isRecord } from '../../../shared/obj'
 import type { ProviderAuthKind } from '../../../shared/ipc'
 import type { Grant } from '../../contracts/auth'
-import type { GrantPersistencePort } from './store'
+import type { GrantPersistencePort, PersistenceLoad } from './store'
 import type { OAuthStatePersistencePort, PendingAuthorization } from './oauth'
 
 // 한 번 정하면 유지한다 — 사용자 디스크에 남고 다음 버전이 읽는다.
@@ -63,20 +63,29 @@ function parseGrant(raw: unknown): Grant | null {
 
 // 형상이 깨진 레코드는 **그 하나만** 버린다. 파일 전체를 버리면 provider 하나의 손상이 나머지
 // 로그인까지 날린다.
+//
+// **버린 개수를 함께 돌려준다** (r9). 버린 레코드의 `vaultKey` 는 읽을 수 없으므로, 하나라도
+// 버렸으면 "영속된 grant 전체를 안다" 가 거짓이다 — 그 상태로 vault sweep 을 돌리면 멀쩡한
+// secret 을 고아로 오인해 지운다.
 function parseRecordMap<T>(
   raw: unknown,
   parseOne: (value: unknown) => T | null
-): Record<string, T> {
-  if (!isRecord(raw)) return {}
-  const out: Record<string, T> = {}
+): { records: Record<string, T>; dropped: number } {
+  if (!isRecord(raw)) return { records: {}, dropped: 0 }
+  const records: Record<string, T> = {}
+  let dropped = 0
   for (const [key, value] of Object.entries(raw)) {
     const parsed = parseOne(value)
-    if (parsed) out[key] = parsed
+    if (parsed) records[key] = parsed
+    else dropped += 1
   }
-  return out
+  return { records, dropped }
 }
 
-export function parseGrantRecords(raw: unknown): Record<string, Grant> {
+export function parseGrantRecords(raw: unknown): {
+  records: Record<string, Grant>
+  dropped: number
+} {
   return parseRecordMap(raw, parseGrant)
 }
 
@@ -105,7 +114,10 @@ function parsePending(raw: unknown): PendingAuthorization | null {
   }
 }
 
-export function parsePendingRecords(raw: unknown): Record<string, PendingAuthorization> {
+export function parsePendingRecords(raw: unknown): {
+  records: Record<string, PendingAuthorization>
+  dropped: number
+} {
   return parseRecordMap(raw, parsePending)
 }
 
@@ -122,10 +134,10 @@ export function parsePendingRecords(raw: unknown): Record<string, PendingAuthori
 function createRecordPersistence<T>(options: {
   name: string
   key: string
-  parse: (raw: unknown) => Record<string, T>
+  parse: (raw: unknown) => { records: Record<string, T>; dropped: number }
   // 파일을 못 열면 메모리로 내려앉는다 — 이 프로세스 안에서는 동작하고, 재시작을 못 넘긴다.
   onUnavailable: (error: unknown) => void
-}): { load(): Record<string, T>; save(records: Record<string, T>): boolean } {
+}): { load(): PersistenceLoad<T>; save(records: Record<string, T>): boolean } {
   let store: Store<Record<string, unknown>> | null = null
   let unavailable = false
   let memory: Record<string, T> = {}
@@ -142,14 +154,27 @@ function createRecordPersistence<T>(options: {
   }
 
   return {
-    load(): Record<string, T> {
+    // ── `authoritative` 가 왜 필요한가 (r9) ───────────────────────────────────
+    //
+    // 이 함수는 실패해도 앱이 뜨도록 **빈 맵으로 강등**한다. 그런데 호출부(`AuthStore.restore`)는
+    // 그 빈 맵을 "영속된 grant 는 하나도 없다" 는 **권위 있는 사실**로 읽고, 아무도 가리키지 않는
+    // vault 자리를 전부 지운다. 즉 grant 파일 하나가 손상되면 멀쩡한 secret 이 부팅 한 번에
+    // 통째로 사라진다.
+    //
+    // 그래서 "읽었다" 와 "다 읽었다" 를 구분한다. `authoritative:false` 면 호출부는 sweep 을
+    // 건너뛴다 — 고아 정리는 위생 작업이라 미뤄도 되지만, 잘못 지운 secret 은 복구되지 않는다.
+    load(): PersistenceLoad<T> {
       const opened = open()
-      if (!opened) return { ...memory }
+      // 파일을 못 열었다 — 이 프로세스가 아는 것은 메모리 사본뿐이다.
+      if (!opened) return { records: { ...memory }, authoritative: false }
       try {
-        return options.parse(opened.get(options.key))
-      } catch {
+        const { records, dropped } = options.parse(opened.get(options.key))
+        // 레코드 하나라도 버렸으면 그 vaultKey 를 모른다 → 전체를 안다고 말할 수 없다.
+        return { records, authoritative: dropped === 0 }
+      } catch (error) {
         // 파일 자체가 JSON 이 아니면 electron-store 가 던진다. 그래도 앱은 떠야 한다.
-        return {}
+        options.onUnavailable(error)
+        return { records: {}, authoritative: false }
       }
     },
     // **내구 저장에 성공했을 때만 `true`** (r8). 예전에는 쓰기 오류를 삼키고 `void` 를 돌려줘,
@@ -180,12 +205,15 @@ function createRecordPersistence<T>(options: {
 export function createOAuthStatePersistence(
   onUnavailable: (error: unknown) => void
 ): OAuthStatePersistencePort {
-  return createRecordPersistence<PendingAuthorization>({
+  const inner = createRecordPersistence<PendingAuthorization>({
     name: OAUTH_STORE_NAME,
     key: PENDING_KEY,
     parse: parsePendingRecords,
     onUnavailable
   })
+  // 인가 pending 은 분 단위 수명이고 sweep 대상도 아니다 — 권위 여부가 의미를 갖지 않으므로
+  // 여기서 접어 버린다. 대조 실패는 그냥 로그인 실패다.
+  return { load: () => inner.load().records, save: (records) => void inner.save(records) }
 }
 
 export function createGrantPersistence(

@@ -39,6 +39,7 @@ function port(overrides: Partial<BrowserSessionPort> = {}): BrowserSessionPort {
     register: vi.fn(),
     acquire: vi.fn(() => 'handle-1'),
     openLoginWindow: vi.fn(async () => ({ finalUrl: 'https://portal.example.corp/home' })),
+    clear: async () => undefined,
     send: vi.fn(async () => ({ status: 200, headers: {}, body: '{}' })),
     ...overrides
   }
@@ -87,6 +88,7 @@ describe('SessionRunner — ① 게이트 로그인', () => {
 describe('SessionRunner — ② 세션으로 토큰 교환', () => {
   it('exchange 가 선언되면 token grant 로 승격한다', async () => {
     const sessions = port({
+      clear: async () => undefined,
       send: vi.fn(async () => ({
         status: 200,
         headers: {},
@@ -170,6 +172,7 @@ function specWith(config: {
 describe('SessionRunner — ③ 신원 조회(whoami)', () => {
   it('whoami 값을 principalId 로 싣는다 — origin 기준 상대 경로로 나간다', async () => {
     const sessions = port({
+      clear: async () => undefined,
       send: vi.fn(async () => ({
         status: 200,
         headers: {},
@@ -216,6 +219,7 @@ describe('SessionRunner — ③ 신원 조회(whoami)', () => {
       [
         '전송 예외',
         {
+          clear: async () => undefined,
           send: vi.fn(async () => {
             throw new Error('네트워크 끊김')
           })
@@ -237,6 +241,7 @@ describe('SessionRunner — ③ 신원 조회(whoami)', () => {
 
   it('exchange 응답의 principalPath 가 있으면 추가 요청 없이 그 값을 쓴다', async () => {
     const sessions = port({
+      clear: async () => undefined,
       send: vi.fn(async () => ({
         status: 200,
         headers: {},

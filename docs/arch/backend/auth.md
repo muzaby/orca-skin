@@ -220,15 +220,41 @@ store.put(새 grant)      persistence.save() 먼저, 메모리·revision publish
   revision 이 남는데 디스크에는 없고, 예외 때문에 snapshot 도 나가지 않는다 — 재시작하면 사라질
   상태를 화면과 Harness cache 가 믿는다.
 
-#### 영속 실패는 삼키지 않고 **보고**한다
+#### 영속 실패는 삼키지 않고 **보고**하고, 정책은 연산이 정한다
 
 `GrantPersistencePort.save()` 는 **내구 저장 성공 여부를 돌려준다.** 예전에는 production adapter 가
 디스크 쓰기 오류를 삼키고 `void` 를 반환해, 호출부의 `catch` 가 실제 실패를 한 번도 보지 못했다.
 
 파일을 못 열거나 쓰기가 거부되면 이 프로세스는 메모리 사본으로 계속 동작한다(키체인이 잠긴
-머신에서 앱이 죽으면 안 된다). **그 상태를 "영속 성공" 으로 접지 않는 것이 결정이다** — `false` 를
-받은 로그인은 새 값을 이번 프로세스에서 쓰되 **옛 세대 키를 지우지 않는다**. 지우면 재시작 후
-돌아온 옛 grant 가 아무것도 가리키지 않는다.
+머신에서 앱이 죽으면 안 된다). **그 상태를 "영속 성공" 으로 접지 않는다.** 구현이 던져도 되고,
+`AuthStore` 가 그것을 `false` 로 정규화한다 — **호출부가 보는 신호는 boolean 하나뿐이다.**
+
+무엇을 할지는 실패 신호가 아니라 **연산**이 정한다:
+
+| 연산 | 정책 | 이유 |
+|---|---|---|
+| 추가·교체 (`put`) | **degrade-open** — 이번 프로세스는 새 값으로 동작하고 **옛 세대 키를 남긴다** | 재시작하면 직전 정상 상태로 돌아갈 뿐이라 잃는 것이 없다. 옛 키를 지우면 돌아온 옛 grant 가 아무것도 가리키지 않는다 |
+| 해제 (`revoke`) | **fail-closed** — 아무것도 바꾸지 않고 **실패시킨다** | 진행하면 secret 은 지워지는데 디스크의 grant 는 남는다. session grant 는 vault 값도 없어 **아무것도 사라지지 않은 채** 화면만 '해제됨' 이 되고, 재시작하면 cookie 가 살아 있어 probe 가 통과 — **사용자가 끊은 연결이 되살아난다** |
+
+두 신호(throw/`false`)에 서로 다른 정책을 붙이면 같은 조건이 두 갈래로 처리된다. 갈라지는 축은
+**무엇을 하려 했는가**여야 한다.
+
+#### 해제는 cookie jar 까지 비운다
+
+session grant 를 지우는 것만으로는 **서버 쪽 로그인이 그대로 살아 있다.** 해제가 내구적으로
+성립한 뒤 `BrowserSessionPort.clear()` 로 해당 origin 의 쿠키를 비운다(best-effort — 해제 자체는
+이미 성립했으므로 되돌리지 않는다). scope 는 `'origin'` 이다: 한 연결을 끊었다고 공유
+`sessionGroup` 을 통째로 비우면 같은 그룹의 다른 연결까지 끊긴다.
+
+#### 부팅 sweep 은 "전부 안다" 를 확인하고 돈다
+
+`load()` 는 `{ records, authoritative }` 를 돌려준다. `authoritative` 는 **저장소를 열고 끝까지
+읽었는가**이며, 레코드를 하나라도 형상 오류로 버렸으면 `false` 다(버린 레코드의 `vaultKey` 를
+읽을 수 없으므로 "영속된 grant 전체" 를 안다고 말할 수 없다).
+
+**`false` 면 sweep 을 건너뛴다.** 이 구분이 없으면 grant 파일 하나가 손상됐을 때 빈 맵이
+"영속된 grant 가 없다" 로 읽혀, 멀쩡한 secret 파일의 자격증명이 **부팅 한 번에 전부 삭제된다.**
+고아 정리는 미뤄도 되는 위생 작업이고, 잘못 지운 secret 은 복구되지 않는다.
 
 ### 4.4 만료는 관측 지점에서 한 번 전이한다
 
@@ -557,6 +583,8 @@ Bootstrap 은 endpoint path·response body·Confluence CQL·UsageSnapshot mappin
 | `AuthId` · vault key **prefix** · `orca:provider:*` 채널 · DB `provider_key` 는 그대로다 | 저장된 grant·사용자 MCP 설정·기존 세션이 걸려 있다. 개명하려면 secret migration + rollback 계획이 선행한다 |
 | 자격증명은 **고정 키를 덮어쓰지 않는다** — 새 값은 새 세대 키에, 커밋은 `Grant` 저장으로 | vault 와 grant 를 원자적으로 함께 쓸 방법이 없다. 덮어쓰면 "vault=새 값 / grant=옛 값" 창이 반드시 생긴다(§4.3). 동결된 것은 prefix 이고 세대 접미사는 그 안에 있다 |
 | 영속 실패를 성공으로 접지 않는다 | 옛 키를 지워도 된다는 잘못된 근거가 되어, 재시작 후 아무것도 가리키지 않는 grant 를 만든다 |
+| **해제는 fail-closed, 추가·교체는 degrade-open** | 방향이 다르다 — 해제를 degrade 하면 사용자가 끊은 연결이 재시작 후 되살아나고, 추가를 fail 시키면 멀쩡한 로그인이 일시적 디스크 문제로 막힌다 |
+| 읽기 실패를 "없음" 으로 읽지 않는다 (`authoritative`) | vault sweep 이 그 위에서 돈다. grant 파일 손상 하나가 멀쩡한 secret 전부를 지우는 경로가 된다 |
 | Auth 계약에 소비 슬롯을 되살리지 않는다 | 같은 집적이 재생산된다 |
 | `AuthSecretReader` 를 RouterContext·renderer·일반 feature 에 넣지 않는다 | bound request 로 충분한 소비자까지 secret 표면을 넓힌다 |
 | raw cookie 목록을 일반 포트로 내보내지 않는다 | 같은 partition 의 bound request 로 충분하다 |
