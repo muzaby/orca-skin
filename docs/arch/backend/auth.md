@@ -93,8 +93,10 @@ config API 를 불러 URL·모델 식별자·실행 token 을 한꺼번에 받�
 `createConfigApiAugmenters(deps)`·`createDirectCredentialAugmenters(deps)`·`createUsageFetcher(deps)`·
 `createConnectionSources(deps)` 는 `bootstrap.ts` 가 조립한 능력(`AuthRuntime`·`RuntimeToolSink`·
 AuthId 를 닫은 secret closure·gate 멤버·plugin 바인딩)을 받아 쓴다. **Harness 의 두 방식은 deps 가
-갈라져 있다** — config API 는 `auth` 만, direct credential 은 `secretFor` 만 받아, 한 factory 가
-API 접근 권한과 raw secret 을 동시에 쥘 수 없다. 인자 없는 factory 로 두면 배포가 자기 선언을 채울 때 범용 `bootstrap.ts` 를 고쳐야 하고,
+갈라져 있다** — config API 는 `auth` 만, direct credential 은 **배포가 `DIRECT_CREDENTIAL_AUTH_IDS`
+에 선언한 id 로 미리 닫힌 closure map**(`secrets`)만 받아, 한 factory 가 API 접근 권한과 raw secret
+을 동시에 쥘 수 없고 선언하지 않은 Auth 의 secret 에는 도달할 수도 없다. 두 방식이 같은 Harness
+key 를 보강하면 합류점이 **throw** 한다. 인자 없는 factory 로 두면 배포가 자기 선언을 채울 때 범용 `bootstrap.ts` 를 고쳐야 하고,
 "배포가 손대는 파일은 `app/deployment/` 묶음뿐" 이라는 이 디렉토리의 존재 이유가 무너진다.
 기본 배포는 선언이 비어 있어 이 경로가 CI 에서 한 번도 실행되지 않으므로,
 `deployment-wiring.test.ts` 가 **비어 있지 않은 가상 배포**로 Bootstrap→Plugin/Harness/Usage/
@@ -156,11 +158,34 @@ network·respawn), 아무것도 안 하거나(stale token 사용).
 **실패한 재인증은 실행 credential 을 바꾸지 않았으므로 Harness cache 를 무효화할 이유도 없다** —
 이제 그것이 규칙이 아니라 구조다.
 
+#### 커밋은 자기 시도가 아직 최신일 때만 일어난다
+
+미커밋이어도 **커밋 시점**은 여전히 `await` 뒤다. 그 사이 사용자가 폼을 다시 내거나 연결을
+해제할 수 있으므로, `LoginService` 는 Auth 마다 **시도 세대**를 두고 커밋 직전에 확인한다.
+로그인 진입(`begin`·`reauth`·`continue`)과 `revoke` 가 세대를 올린다.
+
+| 상황 | 세대 fence 가 없으면 | 있으면 |
+|---|---|---|
+| 폼을 두 번 제출 | 늦게 끝난 옛 후보가 새 후보를 덮는다 | 옛 후보의 커밋이 버려진다 |
+| probe 중 [연결 해제] | 해제한 Auth 가 커밋으로 되살아난다 | 커밋이 버려져 해제 상태가 유지된다 |
+
+**`credentialRevision` 은 fence 에 넣지 않는다.** 넣으면 probe 도중 401 강등이 일어난 재인증이
+커밋되지 못한다 — 그 강등이야말로 재인증을 하는 이유다. 세대는 "이 로그인이 아직 사용자가
+원하는 그 로그인인가" 만 묻는다.
+
+vault 쓰기는 **메타 → 값 → index** 순서다. 어느 단계에서 실패하든 *값* 키는 이전 것이 남는다 —
+값을 먼저 쓰면 grant 는 옛 값을 가리키는데 그 키에 검증되지 않은 새 값이 앉는 창이 생긴다.
+
 ### 4.4 만료는 관측 지점에서 한 번 전이한다
 
 `status()` 는 순수 조회라 `expiresAt <= now` 를 매번 다시 계산할 뿐 상태를 정착시키지 않는다.
 `AuthStore.settleExpiry()` 가 **snapshot·request·resume 이 이미 지나는 자리에서** 그 전이를 한 번
 확정하고, runtime 이 그때만 `cause:'expired'` change 를 낸다. **polling 을 새로 만들지 않는다.**
+
+1회성의 기준은 **정착 집합 하나**다 — `settleExpiry()` 와 `markExpired()` 가 같은 집합을 본다.
+`expiresAt <= now` 비교를 중복 판정에 쓰면 **요청이 도는 동안 시계가 지나 만료된** 경우가 통째로
+빠진다: 요청 시작 때는 valid 라 `settleExpiry` 가 그냥 지나갔고, 401 이 왔을 때는 이미
+`expiresAt <= now` 라 "이미 정착됨" 으로 접혀, 전이가 다음 `snapshot()` 까지 미뤄진다.
 
 1회성은 `markExpired()` 의 조기 반환이 아니라 **별도 정착 집합**이 보장한다. 조기 반환에 기대면
 `verified` 만 풀리고 `credentialRevision` 은 그대로여서 `credentialChanged:true` 인데 세대는 안 오른

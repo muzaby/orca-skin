@@ -440,10 +440,163 @@ describe('후보 자격증명 staging (r5)', () => {
   })
 
   it('거부된 재인증 뒤에도 자연 만료가 정상적으로 정착한다', async () => {
-    // r4 는 후보의 401 이 `expirySettled` 를 오염시켰고 rollback 좌표에 그 필드가 없어,
-    // 되살린 grant 가 나중에 만료돼도 전이가 건너뛰어졌다(만료인데 verified:true).
+    // r5 의 같은 이름 테스트는 첫 `resume()` 이 401 을 받아 grant 를 **미리 만료시켰다** —
+    // 그래서 "재인증 실패가 만료 정착을 오염시키는가" 를 전혀 묻지 못했다(r6 리뷰 §1).
+    // 여기서는 probe 를 성공시켜 정상 verified 상태를 만든 뒤, **재인증만** 실패시킨다.
     const vault = createVault(fakeSecretStore())
     vault.set('wiki:pat', 'good', { kind: 'pat', createdAt: 0, expiresAt: TOKEN_EXPIRES_AT })
+    let now = 1_000
+    let probeStatus = 200
+    const created = createAuthRuntime({
+      definitions: [WIKI],
+      persistence: createMemoryGrantPersistence({
+        wiki: {
+          kind: 'token',
+          vaultKey: 'wiki:pat',
+          authKind: 'pat',
+          createdAt: 0,
+          expiresAt: TOKEN_EXPIRES_AT
+        }
+      }),
+      vault,
+      fetchImpl: (async () => new Response('', { status: probeStatus })) as unknown as typeof fetch,
+      clock: () => now
+    })
+    await created.runtime.resume('wiki')
+    expect(created.runtime.bind('wiki').snapshot().verified).toBe(true)
+    const before = created.runtime.bind('wiki').snapshot().credentialRevision
+
+    // 재인증 실패 — 후보는 거부되고 기존 grant 는 그대로여야 한다.
+    probeStatus = 401
+    await created.runtime.reauth('wiki', 'pat')
+    await created.runtime.continue('wiki', { [FIELD_SECRET]: 'bad' })
+    expect(created.runtime.bind('wiki').snapshot().status).toBe('valid')
+
+    // 그 뒤 자연 만료가 정상적으로 한 번 정착해야 한다.
+    now = TOKEN_EXPIRES_AT + 1
+    const after = created.runtime.bind('wiki').snapshot()
+
+    expect(after.status).toBe('expired')
+    expect(after.verified).toBe(false)
+    expect(after.credentialRevision).toBeGreaterThan(before)
+  })
+
+  it('probe 중 해제하면 후보가 커밋되지 않는다 — 해제한 Auth 가 되살아나지 않는다', async () => {
+    const vault = createVault(fakeSecretStore())
+    vault.set('wiki:pat', 'good', { kind: 'pat', createdAt: 0 })
+    let release: (() => void) | undefined
+    const gate = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const created = createAuthRuntime({
+      definitions: [WIKI],
+      persistence: createMemoryGrantPersistence({
+        wiki: { kind: 'secret', vaultKey: 'wiki:pat', authKind: 'pat', createdAt: 0 }
+      }),
+      vault,
+      fetchImpl: (async () => {
+        await gate
+        return new Response('', { status: 200 })
+      }) as unknown as typeof fetch,
+      clock: () => 1_000
+    })
+
+    await created.runtime.reauth('wiki', 'pat')
+    const pending = created.runtime.continue('wiki', { [FIELD_SECRET]: 'next' })
+    await Promise.resolve()
+    // probe 가 도는 동안 사용자가 [연결 해제] 를 누른다.
+    created.runtime.revoke('wiki')
+    release?.()
+    await pending
+
+    // r5 는 probe 가 200 이면 무조건 커밋해서 해제한 Auth 가 되살아났다.
+    expect(created.runtime.bind('wiki').snapshot().status).toBe('none')
+    expect(created.secretReader.read('wiki')).toBeNull()
+  })
+
+  it('겹친 두 재인증에서 늦게 끝난 옛 후보가 새 후보를 덮지 않는다', async () => {
+    const vault = createVault(fakeSecretStore())
+    vault.set('wiki:pat', 'good', { kind: 'pat', createdAt: 0 })
+    const gates: (() => void)[] = []
+    const created = createAuthRuntime({
+      definitions: [WIKI],
+      persistence: createMemoryGrantPersistence({
+        wiki: { kind: 'secret', vaultKey: 'wiki:pat', authKind: 'pat', createdAt: 0 }
+      }),
+      vault,
+      fetchImpl: (async () => {
+        await new Promise<void>((resolve) => gates.push(resolve))
+        return new Response('', { status: 200 })
+      }) as unknown as typeof fetch,
+      clock: () => 1_000
+    })
+
+    await created.runtime.reauth('wiki', 'pat')
+    const first = created.runtime.continue('wiki', { [FIELD_SECRET]: 'first' })
+    await Promise.resolve()
+    const second = created.runtime.continue('wiki', { [FIELD_SECRET]: 'second' })
+    await Promise.resolve()
+    // 두 번째가 먼저 끝나고 첫 번째가 나중에 끝난다.
+    gates[1]?.()
+    await second
+    gates[0]?.()
+    await first
+
+    // r5 는 늦게 끝난 'first' 가 이겼다.
+    expect(created.secretReader.read('wiki')).toBe('second')
+    expect(created.runtime.bind('wiki').snapshot().credentialRevision).toBe(1)
+  })
+
+  it('vault 쓰기가 실패하면 이전 값이 남고 커밋되지 않는다', async () => {
+    const backing = fakeSecretStore()
+    let failNext = false
+    const guarded: SecretStorePort = {
+      get: backing.get,
+      set: (key, value) => {
+        // 메타 키 쓰기에서 실패시킨다. `vault.set` 은 메타를 먼저 쓰므로 값 키는 손대기 전이다.
+        if (failNext && key.endsWith('#meta')) throw new Error('safeStorage unavailable')
+        backing.set(key, value)
+      },
+      delete: backing.delete
+    }
+    const vault = createVault(guarded)
+    vault.set('wiki:pat', 'good', { kind: 'pat', createdAt: 0 })
+    const created = createAuthRuntime({
+      definitions: [WIKI],
+      persistence: createMemoryGrantPersistence({
+        wiki: { kind: 'secret', vaultKey: 'wiki:pat', authKind: 'pat', createdAt: 0 }
+      }),
+      vault,
+      fetchImpl: (async () => new Response('', { status: 200 })) as unknown as typeof fetch,
+      clock: () => 1_000
+    })
+
+    await created.runtime.reauth('wiki', 'pat')
+    failNext = true
+    await created.runtime.continue('wiki', { [FIELD_SECRET]: 'next' })
+
+    // 쓰기 실패는 로그인 실패다 — 값도 세대도 그대로여야 한다.
+    expect(created.secretReader.read('wiki')).toBe('good')
+    expect(created.runtime.bind('wiki').snapshot().credentialRevision).toBe(0)
+  })
+
+  it('확인에 성공해야 vault 와 store 가 바뀐다', async () => {
+    const { runtime, secretReader } = buildForLogin(PROBE_OK)
+
+    await runtime.reauth('wiki', 'pat')
+    await runtime.continue('wiki', { [FIELD_SECRET]: 'next' })
+
+    expect(secretReader.read('wiki')).toBe('next')
+    expect(runtime.bind('wiki').snapshot().credentialRevision).toBe(1)
+  })
+})
+
+// r6 — 요청이 도는 동안 시계가 지나 만료되는 경우. r5 는 `markExpired` 가 `expiresAt <= now` 만
+// 보고 "이미 정착됨" 으로 접어, 전이가 다음 `snapshot()` 까지 미뤄졌다.
+describe('요청 중 자연 만료 (r6)', () => {
+  it('요청 도중 만료되고 401 이 오면 그 자리에서 전이가 정착한다', async () => {
+    const vault = createVault(fakeSecretStore())
+    vault.set('wiki:pat', 'value', { kind: 'pat', createdAt: 0, expiresAt: TOKEN_EXPIRES_AT })
     let now = 1_000
     const created = createAuthRuntime({
       definitions: [WIKI],
@@ -457,32 +610,25 @@ describe('후보 자격증명 staging (r5)', () => {
         }
       }),
       vault,
-      fetchImpl: (async () => new Response('', { status: 401 })) as unknown as typeof fetch,
+      // 요청이 나가는 동안 시계가 만료를 지난다.
+      fetchImpl: (async () => {
+        now = TOKEN_EXPIRES_AT + 1
+        return new Response('', { status: 401 })
+      }) as unknown as typeof fetch,
       clock: () => now
     })
-    await created.runtime.resume('wiki')
-    const revoked = created.runtime.bind('wiki').snapshot().credentialRevision
-    // 실패하는 재인증을 한 번 태운다.
-    await created.runtime.reauth('wiki', 'pat')
-    await created.runtime.continue('wiki', { [FIELD_SECRET]: 'bad' })
+    const changes: AuthChange[] = []
+    created.runtime.subscribe((change) => changes.push(change))
+    const auth = created.runtime.bind('wiki')
 
-    now = TOKEN_EXPIRES_AT + 1
-    const after = created.runtime.bind('wiki').snapshot()
+    await auth.request({ path: '/a' }).catch(() => undefined)
 
-    expect(after.status).toBe('expired')
-    // 만료가 정착됐다면 `verified` 는 풀려 있어야 한다.
-    expect(after.verified).toBe(false)
-    expect(after.credentialRevision).toBeGreaterThanOrEqual(revoked)
-  })
-
-  it('확인에 성공해야 vault 와 store 가 바뀐다', async () => {
-    const { runtime, secretReader } = buildForLogin(PROBE_OK)
-
-    await runtime.reauth('wiki', 'pat')
-    await runtime.continue('wiki', { [FIELD_SECRET]: 'next' })
-
-    expect(secretReader.read('wiki')).toBe('next')
-    expect(runtime.bind('wiki').snapshot().credentialRevision).toBe(1)
+    // r5 는 여기서 change 0건이었고 revision 도 0이었다 — 전이가 다음 snapshot 까지 미뤄졌다.
+    const snapshots = changes.filter((change) => change.kind === 'snapshot')
+    expect(snapshots).toHaveLength(1)
+    expect(snapshots[0]).toMatchObject({ credentialChanged: true })
+    expect(auth.snapshot().credentialRevision).toBe(1)
+    expect(auth.snapshot().verified).toBe(false)
   })
 })
 

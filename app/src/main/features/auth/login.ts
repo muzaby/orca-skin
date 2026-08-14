@@ -92,6 +92,20 @@ interface Pending {
 
 export class LoginService {
   private readonly pending = new Map<string, Pending>()
+  // ── attempt fence (r6) ──────────────────────────────────────────────────────
+  //
+  // 후보 커밋은 `await probeOk()` **뒤에** 일어난다. 그 사이 같은 Auth 에 다른 일이 벌어질 수
+  // 있다 — 사용자가 폼을 다시 제출하거나(`continue` 두 건), [연결 해제] 를 누르거나. r5 는
+  // probe 성공만 보고 무조건 커밋해서 ① 늦게 끝난 옛 후보가 새 후보를 덮고 ② probe 중 해제한
+  // Auth 가 커밋으로 되살아났다.
+  //
+  // 그래서 Auth 마다 **시도 세대**를 둔다. 로그인 진입과 해제가 세대를 올리고, 커밋은 자기
+  // 세대가 아직 최신일 때만 일어난다.
+  //
+  // **`credentialRevision` 은 fence 에 넣지 않는다.** 넣으면 probe 도중 401 강등이 일어난
+  // 재인증이 커밋되지 못한다 — 그 강등이야말로 재인증을 하는 이유다. 세대는 "이 로그인이
+  // 아직 사용자가 원하는 그 로그인인가" 만 묻는다.
+  private readonly attempts = new Map<string, number>()
   private readonly clock: () => number
 
   constructor(private readonly deps: LoginDeps) {
@@ -104,6 +118,17 @@ export class LoginService {
   }
 
   private step: AuthStep | null = null
+
+  // 새 시도를 연다. 이전 시도의 커밋은 이 순간 무효가 된다.
+  private openAttempt(authId: AuthId): number {
+    const next = (this.attempts.get(authId) ?? 0) + 1
+    this.attempts.set(authId, next)
+    return next
+  }
+
+  private isCurrentAttempt(authId: AuthId, attempt: number): boolean {
+    return this.attempts.get(authId) === attempt
+  }
 
   async begin(
     authId: AuthId,
@@ -130,6 +155,8 @@ export class LoginService {
 
   revoke(authId: AuthId): void {
     this.pending.delete(authId)
+    // 진행 중인 probe 의 커밋을 무효화한다 — 해제한 Auth 가 뒤늦은 커밋으로 되살아나면 안 된다.
+    this.openAttempt(authId)
     const removed = this.deps.store.revoke(authId)
     if (this.step?.providerId === authId) {
       this.step = null
@@ -224,6 +251,9 @@ export class LoginService {
     authKind: AuthMethodKind | undefined,
     input?: Record<string, string>
   ): Promise<AuthStep> {
+    // 이 호출이 지금부터 그 Auth 의 유일한 유효 시도다 — 앞선 시도가 probe 중이면 그 커밋은
+    // 버려진다.
+    const attempt = this.openAttempt(authId)
     const definition = this.deps.registry.get(authId)
     if (!definition) return this.fail(authId, 'unknown_provider', '등록되지 않은 Auth 입니다')
 
@@ -239,11 +269,11 @@ export class LoginService {
       case 'api-key':
       case 'password':
       case 'pat':
-        return this.runCredential(definition, spec, input)
+        return this.runCredential(definition, attempt, spec, input)
       case 'oauth':
-        return this.runOAuth(definition, spec, input)
+        return this.runOAuth(definition, attempt, spec, input)
       case 'browser-session':
-        return this.runSession(definition, spec)
+        return this.runSession(definition, attempt, spec)
     }
   }
 
@@ -306,7 +336,9 @@ export class LoginService {
   // 도 성공 후에만 일어나 probe 중 종료되는 crash window 가 닫힌다.
   private async settleGrant(
     definition: AuthDefinition,
+    attempt: number,
     candidate: CandidateCredential,
+    vaultKeys: readonly string[] = [],
     writeVault?: () => void
   ): Promise<AuthStep | null> {
     if (!(await this.probeOk(definition, candidate))) {
@@ -314,8 +346,45 @@ export class LoginService {
       // 통지는 호출자의 `emit`(폼 재표시 또는 `failed`)이 한다 — 두 번 쏘지 않는다.
       return null
     }
+    // **커밋 직전에 세대를 확인한다** (r6). probe 왕복 동안 사용자가 폼을 다시 냈거나 연결을
+    // 해제했으면 이 후보는 더 이상 사용자가 원하는 값이 아니다. 확인이 성공했다는 사실만으로
+    // 커밋하면 옛 후보가 새 후보를 덮거나(늦게 끝난 쪽이 이긴다) 해제한 Auth 가 되살아난다.
+    if (!this.isCurrentAttempt(definition.id, attempt)) {
+      this.deps.logger?.('auth.login.attempt-superseded', { authId: definition.id })
+      return null
+    }
     // 확인된 값만 영속한다. 순서가 규칙이다: vault 먼저(값이 없으면 grant 는 고아가 된다).
-    writeVault?.()
+    //
+    // **vault 쓰기는 여러 단계다**(값·메타·index). 중간에 실패하면 grant 는 옛 값을 가리키는데
+    // 그 키에는 새 값이 들어가 있는 상태가 남는다 — 그래서 쓰기 직전 상태를 떠 두고 실패 시
+    // 되돌린다. probe 롤백(r5 에서 없앤 것)과 달리 이것은 **동기이고 관측자가 없다** —
+    // `await` 도 이벤트 발행도 그 사이에 없으므로 밖에서 중간 상태를 볼 수 없다.
+    if (writeVault) {
+      const saved = vaultKeys.map((name) => ({ name, read: this.deps.vault.read(name) }))
+      try {
+        writeVault()
+      } catch (error) {
+        // 복구는 **best-effort** 다 — 여기서 또 실패해도 원래 실패를 덮어쓰지 않는다.
+        // (`vault.set` 이 메타를 먼저 쓰므로 값 키는 대개 이전 값 그대로 남아 있다.)
+        try {
+          for (const entry of saved) {
+            if (entry.read.state === 'found') {
+              this.deps.vault.set(entry.name, entry.read.value, {
+                kind: candidate.grant.authKind,
+                createdAt: candidate.grant.createdAt
+              })
+            } else this.deps.vault.delete(entry.name)
+          }
+        } catch {
+          // 무시 — 아래에서 로그인 실패로 보고한다.
+        }
+        this.deps.logger?.('auth.login.vault-write-failed', {
+          authId: definition.id,
+          reason: errorMessage(error)
+        })
+        return null
+      }
+    }
     this.commit(definition.id, candidate.grant, false)
     this.deps.onSnapshot?.(definition.id, 'credential-committed')
     return this.emit({ kind: 'done', providerId: definition.id })
@@ -323,6 +392,7 @@ export class LoginService {
 
   private async runCredential(
     definition: AuthDefinition,
+    attempt: number,
     spec: Extract<AuthMethod, { kind: 'api-key' | 'password' | 'pat' }>,
     input: Record<string, string> | undefined
   ): Promise<AuthStep> {
@@ -354,6 +424,7 @@ export class LoginService {
     const createdAt = this.clock()
     const settled = await this.settleGrant(
       definition,
+      attempt,
       {
         grant: {
           kind: 'secret',
@@ -364,6 +435,7 @@ export class LoginService {
         },
         secret: composed.value
       },
+      [vaultKey],
       () => this.deps.vault.set(vaultKey, composed.value, { kind: spec.kind, createdAt })
     )
     if (settled) return settled
@@ -382,6 +454,7 @@ export class LoginService {
 
   private async runOAuth(
     definition: AuthDefinition,
+    attempt: number,
     spec: OAuthSpec,
     input: Record<string, string> | undefined
   ): Promise<AuthStep> {
@@ -394,18 +467,19 @@ export class LoginService {
     const result = code
       ? await authenticator.complete(definition, spec, code)
       : await authenticator.begin(definition, spec)
-    return this.absorb(definition, spec.kind, result)
+    return this.absorb(definition, attempt, spec.kind, result)
   }
 
   private async runSession(
     definition: AuthDefinition,
+    attempt: number,
     spec: BrowserSessionSpec
   ): Promise<AuthStep> {
     const authenticator = this.deps.session
     if (!authenticator) {
       return this.fail(definition.id, 'unsupported', '브라우저 세션 실행기가 배선되지 않았습니다')
     }
-    return this.absorb(definition, spec.kind, await authenticator.login(definition, spec))
+    return this.absorb(definition, attempt, spec.kind, await authenticator.login(definition, spec))
   }
 
   // 실행기 결과 → grant. vault 쓰기가 여기 한 곳에 모인다.
@@ -415,6 +489,7 @@ export class LoginService {
   // (로그인 폼이 같은 접두사로 렌더되는 배포가 있다).
   private async absorb(
     definition: AuthDefinition,
+    attempt: number,
     authKind: AuthMethodKind,
     result: AuthResult
   ): Promise<AuthStep> {
@@ -437,6 +512,7 @@ export class LoginService {
           definition,
           await this.settleGrant(
             definition,
+            attempt,
             {
               grant: {
                 kind: 'secret',
@@ -447,6 +523,7 @@ export class LoginService {
               },
               secret: result.value
             },
+            [vaultKey],
             () => this.deps.vault.set(vaultKey, result.value, { kind: authKind, createdAt })
           )
         )
@@ -461,6 +538,7 @@ export class LoginService {
           definition,
           await this.settleGrant(
             definition,
+            attempt,
             {
               grant: {
                 kind: 'token',
@@ -473,6 +551,7 @@ export class LoginService {
               },
               secret: token.token
             },
+            refreshKey !== undefined ? [vaultKey, refreshKey] : [vaultKey],
             () => {
               this.deps.vault.set(vaultKey, token.token, {
                 kind: authKind,
@@ -491,7 +570,7 @@ export class LoginService {
         // 전에는 store 에도 넣지 않으므로 이전 세션 grant 는 그대로 살아 있다.
         return this.settled(
           definition,
-          await this.settleGrant(definition, {
+          await this.settleGrant(definition, attempt, {
             grant: {
               kind: 'session',
               sessionGroup: result.sessionGroup,
