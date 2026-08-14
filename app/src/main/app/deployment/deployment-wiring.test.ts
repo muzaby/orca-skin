@@ -47,6 +47,7 @@ import {
   createConfigApiAugmenters as productionConfigApiAugmenters,
   createDirectCredentialAugmenters as productionDirectCredentialAugmenters,
   createRuntimeConfigAugmenters as productionRuntimeConfigAugmenters,
+  mergeAugmenters as productionMergeAugmenters,
   type HarnessConfigApiDeps,
   type HarnessDirectCredentialDeps
 } from './harness-runtime'
@@ -408,23 +409,20 @@ describe('production 배포 factory — 기본 배포 계약', () => {
     expect(productionRuntimeConfigAugmenters({ auth, secrets })).toEqual({})
   })
 
-  it('두 augmenter 방식이 같은 key 를 보강하면 부팅에서 던진다', () => {
-    // r5 는 주석으로만 "진단한다" 고 적고 실제로는 direct 가 config API 를 조용히 덮었다.
-    // 합류점의 계약을 직접 확인한다 — 두 조각을 합치는 규칙은 production 함수가 갖는다.
-    const merge = (
-      configApi: RuntimeConfigAugmenters,
-      direct: RuntimeConfigAugmenters
-    ): RuntimeConfigAugmenters => {
-      const collisions = Object.keys(direct).filter((key) => key in configApi)
-      if (collisions.length > 0) throw new Error(`collision: ${collisions.join(', ')}`)
-      return { ...configApi, ...direct }
-    }
+  it('두 augmenter 방식이 같은 key 를 보강하면 던진다 — production 규칙을 직접 부른다', () => {
+    // r6 은 이 규칙을 **테스트 안에 다시 구현**해서, production 가드를 지워도 통과했다.
+    // 이제 합류 규칙(`mergeAugmenters`)을 직접 부른다.
     const augmenter = { resolve: async () => ({ runtimeEnv: {} }) }
 
-    expect(() => merge({ [CLAUDE_CORP_KEY]: augmenter }, { [CLAUDE_CORP_KEY]: augmenter })).toThrow(
-      /collision/
+    expect(() =>
+      productionMergeAugmenters({ [CLAUDE_CORP_KEY]: augmenter }, { [CLAUDE_CORP_KEY]: augmenter })
+    ).toThrow(/collision/)
+    expect(productionMergeAugmenters({ [CLAUDE_CORP_KEY]: augmenter }, {})).toHaveProperty(
+      CLAUDE_CORP_KEY
     )
-    expect(merge({ [CLAUDE_CORP_KEY]: augmenter }, {})).toHaveProperty(CLAUDE_CORP_KEY)
+    expect(productionMergeAugmenters({}, { [CLAUDE_CORP_KEY]: augmenter })).toHaveProperty(
+      CLAUDE_CORP_KEY
+    )
   })
 
   it('createUsageFetcher 는 기본 배포에서 undefined 다 — 오류가 아니라 정상 구성', () => {

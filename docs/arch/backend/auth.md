@@ -169,12 +169,37 @@ network·respawn), 아무것도 안 하거나(stale token 사용).
 | 폼을 두 번 제출 | 늦게 끝난 옛 후보가 새 후보를 덮는다 | 옛 후보의 커밋이 버려진다 |
 | probe 중 [연결 해제] | 해제한 Auth 가 커밋으로 되살아난다 | 커밋이 버려져 해제 상태가 유지된다 |
 
+**결과는 3분기다** — `settled` · `rejected` · `superseded`. `rejected`(서버가 후보를 거부)와
+`superseded`(그 사이 다른 시도가 시작됨)를 하나로 합치면, 호출부가 거부 폼을 다시 열어 **이미
+성공한 새 로그인이나 해제 직후 화면을 늦게 끝난 옛 시도가 덮어쓴다**. superseded 는 pending·step·
+이벤트를 **아무것도 건드리지 않는다.**
+
+Renderer 도 같은 순서를 지킨다(`useProviders`) — invoke 응답은 probe 왕복만큼 늦게 오므로,
+자기보다 뒤에 시작된 요청이 있으면 그 응답을 버린다.
+
 **`credentialRevision` 은 fence 에 넣지 않는다.** 넣으면 probe 도중 401 강등이 일어난 재인증이
 커밋되지 못한다 — 그 강등이야말로 재인증을 하는 이유다. 세대는 "이 로그인이 아직 사용자가
 원하는 그 로그인인가" 만 묻는다.
 
-vault 쓰기는 **메타 → 값 → index** 순서다. 어느 단계에서 실패하든 *값* 키는 이전 것이 남는다 —
-값을 먼저 쓰면 grant 는 옛 값을 가리키는데 그 키에 검증되지 않은 새 값이 앉는 창이 생긴다.
+#### 쓰기는 2단이고, 영속이 메모리보다 먼저다
+
+자격증명 교체는 키가 둘 이상일 수 있다(access + refresh). 하나만 새 값이 되는 상태를 없애려고
+**staged → promote** 2단으로 쓴다.
+
+```text
+stage(모든 키)      실패 → discardStaged()  → 정식 키 무변경, 로그인 실패
+promoteStaged()     staged 를 정식 키로 옮기고 staged 를 지운다
+store.put()         persistence.save() 먼저, 메모리·revision publish 는 그 다음
+```
+
+- 암호화가 실패할 수 있는 단계는 **staging** 이다. 거기서 실패하면 정식 키는 손대기 전 그대로다.
+- promote 중 앱이 죽으면 staged 가 남고, 다음 부팅의 `AuthStore.restore()` 가 **마저 옮긴다** —
+  확인까지 끝난 값이므로 버리지 않는다.
+- `put()` 이 영속을 먼저 하는 이유: 반대로 하면 저장 실패 시 메모리에는 새 secret 과 올라간
+  revision 이 남는데 디스크에는 없고, 예외 때문에 snapshot 도 나가지 않는다 — 재시작하면 사라질
+  상태를 화면과 Harness cache 가 믿는다.
+- `#staged` 접미사는 **전이 상태이지 정식 키 형식이 아니다** — 동결된 vault key 계약은 정식 키에
+  대한 것이고, staged 는 promote 와 함께 사라진다.
 
 ### 4.4 만료는 관측 지점에서 한 번 전이한다
 

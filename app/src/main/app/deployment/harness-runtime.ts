@@ -135,8 +135,18 @@ export function createDirectCredentialAugmenters(
 export function createRuntimeConfigAugmenters(
   deps: HarnessConfigApiDeps & HarnessDirectCredentialDeps
 ): RuntimeConfigAugmenters {
-  const configApi = createConfigApiAugmenters({ auth: deps.auth })
-  const direct = createDirectCredentialAugmenters({ secrets: deps.secrets })
+  return mergeAugmenters(
+    createConfigApiAugmenters({ auth: deps.auth }),
+    createDirectCredentialAugmenters({ secrets: deps.secrets })
+  )
+}
+
+// 합류 규칙 자체를 **export 한다** (r7) — 기본 배포는 둘 다 비어 있어 위 함수만으로는 충돌
+// 규칙을 실행할 수 없고, 테스트가 규칙을 자기 안에 다시 구현하면 여기 가드를 지워도 통과한다.
+export function mergeAugmenters(
+  configApi: RuntimeConfigAugmenters,
+  direct: RuntimeConfigAugmenters
+): RuntimeConfigAugmenters {
   const collisions = Object.keys(direct).filter((key) => key in configApi)
   if (collisions.length > 0) {
     throw new Error(
